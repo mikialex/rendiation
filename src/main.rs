@@ -1,3 +1,11 @@
+use crate::rinecraft::Rinecraft;
+
+extern crate log;
+extern crate winit;
+
+mod application;
+mod rinecraft;
+
 fn main() {
-    println!("Hello, world!");
+    application::run::<Rinecraft>("rinecraft");
 }
