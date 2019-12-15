@@ -1,4 +1,8 @@
 
+// trait RayCasterable {
+//     fn hitFirst() -> 
+// }
+
 pub struct Geometry {
     pub bounding_box: Box3,
     pub bounding_sphere: Sphere,

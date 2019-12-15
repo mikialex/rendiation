@@ -1,6 +1,9 @@
 {
     "cSpell.words": [
         "Rinecraft",
+        "mipmap",
+        "rasterization",
+        "wgpu",
         "zerocopy"
     ]
 }

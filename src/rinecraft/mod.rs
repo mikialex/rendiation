@@ -351,7 +351,3 @@ impl Application for Rinecraft {
         encoder.finish()
     }
 }
-
-fn main() {
-    run::<Rinecraft>("cube");
-}

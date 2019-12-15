@@ -4,7 +4,7 @@ use crate::world::*;
 use std::any::Any;
 
 pub trait Block {
-  fn build_geomtry(&self, chunk: &Chunk, x: usize, y: usize, z: usize);
+  fn build_geometry(&self, chunk: &Chunk, x: usize, y: usize, z: usize);
   fn get_block_type(&self) -> BlockType;
   fn as_any(&self) -> &dyn Any;
 }
@@ -32,7 +32,7 @@ pub const BLOCK_WORLD_SIZE: f32 = 1.0;
 pub struct VoidBlock {}
 
 impl Block for VoidBlock {
-  fn build_geomtry(&self, _chunk: &Chunk, _x: usize, _y: usize, _z: usize) {}
+  fn build_geometry(&self, _chunk: &Chunk, _x: usize, _y: usize, _z: usize) {}
   fn get_block_type(&self) -> BlockType {
     BlockType::Void
   }
