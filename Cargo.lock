@@ -1115,18 +1115,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation"
+name = "rendiation-math"
+version = "0.1.0"
+
+[[package]]
+name = "rendiation-math-entity"
 version = "0.1.0"
 dependencies = [
- "cgmath 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "png 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wgpu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit 0.20.0-alpha5 (registry+https://github.com/rust-lang/crates.io-index)",
- "zerocopy 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rendiation-math 0.1.0",
+]
+
+[[package]]
+name = "rendiation-render-entity"
+version = "0.1.0"
+dependencies = [
+ "rendiation-math 0.1.0",
+ "rendiation-math-entity 0.1.0",
 ]
 
 [[package]]
@@ -1152,6 +1156,21 @@ dependencies = [
  "relevant 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "renidation"
+version = "0.1.0"
+dependencies = [
+ "cgmath 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "png 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wgpu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winit 0.20.0-alpha5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zerocopy 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

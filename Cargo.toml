@@ -1,18 +1,8 @@
-[package]
-name = "rendiation"
-version = "0.1.0"
-authors = ["mikialex <18516340862@163.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-wgpu = "0.4.0"
-cgmath = "0.17"
-env_logger = "0.7"
-glsl-to-spirv = "0.1"
-log = "0.4"
-png = "0.15"
-winit = "0.20.0-alpha4"
-zerocopy = "0.2"
-futures = "0.3"
+[workspace]
+members = [
+	# "gui",
+    "math",
+    "math-entity",
+    "render-entity",
+    "rendiation"
+]

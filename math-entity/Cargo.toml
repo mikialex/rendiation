@@ -1,0 +1,7 @@
+[package]
+name = "rendiation-math-entity"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+rendiation-math = { path = "../math" }
