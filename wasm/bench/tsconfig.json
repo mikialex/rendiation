@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "module": "esnext",
+    "target": "esnext",
+    "jsx": "react",
+    "declaration": true,
+    "experimentalDecorators": true,
+    // "strict": true,
+    "lib": [
+      "es6",
+      "dom"
+    ],
+  },
+  "exclude": [
+    "node_modules"
+  ],
+  "paths": {},
+  "atom": {
+    "rewriteTsconfig": false
+  }
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Hello wasm-pack!</title>
+  </head>
+  <body>
+    <script src="./bootstrap.js"></script>
+
+    <style>
+    canvas{
+      width: 500px;
+      height: 300px;
+      border: 1px solid #000;
+    }
+    </style>
+
+    <canvas id="three"></canvas>
+    <button id="three-toggle" onclick="window.threeEnable = !!!window.threeEnable">run/stop</button>
+    <h4>three</h4>
+    <hr>
+
+    <canvas id="wasm"></canvas>
+    <button id="wasm-toggle" onclick="window.wasmEnable = !!!window.wasmEnable">run/stop</button>
+    <h4>wasm</h4>
+
+    <script>
+      window.wasmEnable = true;
+      window.threeEnable = false;
+    </script>
+  </body>
+</html>

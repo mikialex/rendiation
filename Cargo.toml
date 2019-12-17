@@ -4,5 +4,12 @@ members = [
     "math",
     "math-entity",
     "render-entity",
-    "rendiation"
+    "wasm",
+    "rendiation",
 ]
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+# opt-level = 's'
+
+opt-level = 3
