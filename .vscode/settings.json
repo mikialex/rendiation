@@ -1,8 +1,12 @@
 {
     "cSpell.words": [
         "Rinecraft",
+        "Uint",
+        "glsl",
         "mipmap",
+        "multisampled",
         "rasterization",
+        "spirv",
         "wgpu",
         "zerocopy"
     ]

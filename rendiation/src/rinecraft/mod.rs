@@ -1,4 +1,6 @@
 
+use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
+use crate::renderer::shader_util::{load_glsl, ShaderStage};
 use crate::application::*;
 mod util;
 use util::*;
@@ -87,10 +89,10 @@ impl Application for Rinecraft {
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
         });
         let texture_view = texture.create_default_view();
+
         let temp_buf = device
             .create_buffer_mapped(texels.len(), wgpu::BufferUsage::COPY_SRC)
             .fill_from_slice(&texels);
-
 
         let mut init_encoder =
         device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });

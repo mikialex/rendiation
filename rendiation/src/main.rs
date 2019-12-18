@@ -8,5 +8,6 @@ mod rinecraft;
 mod renderer;
 
 fn main() {
+    env_logger::init();
     application::run::<Rinecraft>("rinecraft");
 }
