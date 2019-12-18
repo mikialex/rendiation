@@ -1,5 +1,3 @@
-use rendiation_math;
-
 pub mod render_object;
 pub mod geometry;
 pub mod geometry_dynamic;

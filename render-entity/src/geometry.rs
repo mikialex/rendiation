@@ -1,4 +1,3 @@
-
 use crate::buffer_data::BufferData;
 use rendiation_math_entity::*;
 use std::rc::Rc;

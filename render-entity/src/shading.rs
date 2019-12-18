@@ -1,7 +1,7 @@
 use crate::geometry::Geometry;
-use std::rc::Rc;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::rc::Rc;
 
 pub trait Shading<Renderer> {
   fn get_index(&self) -> usize;
@@ -32,7 +32,6 @@ impl<Renderer> PartialEq for dyn Shading<Renderer> {
   }
 }
 impl<Renderer> Eq for dyn Shading<Renderer> {}
-
 
 impl<Renderer> PartialEq for dyn ShadingGPUPort<Renderer> {
   fn eq(&self, other: &Self) -> bool {

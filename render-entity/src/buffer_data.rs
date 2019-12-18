@@ -1,5 +1,5 @@
-use core::hash::Hasher;
 use core::hash::Hash;
+use core::hash::Hasher;
 
 pub struct BufferData<T> {
   pub id: usize,

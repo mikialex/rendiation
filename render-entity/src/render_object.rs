@@ -26,8 +26,16 @@ impl<Renderer> RenderObject<Renderer> {
   }
 
   pub fn update_world_bounding(&mut self, world_matrix: &Mat4<f32>) -> &mut Self {
-    self.world_bounding_box = self.geometry.get_bounding_box().clone().apply_matrix(world_matrix);
-    self.world_bounding_sphere = self.geometry.get_bounding_sphere().clone().apply_matrix(world_matrix);
+    self.world_bounding_box = self
+      .geometry
+      .get_bounding_box()
+      .clone()
+      .apply_matrix(world_matrix);
+    self.world_bounding_sphere = self
+      .geometry
+      .get_bounding_sphere()
+      .clone()
+      .apply_matrix(world_matrix);
     self
   }
 }

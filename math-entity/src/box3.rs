@@ -1,6 +1,5 @@
-
-use rendiation_math::*;
 use rendiation_math::vec::Math;
+use rendiation_math::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Box3 {
@@ -37,7 +36,7 @@ impl Box3 {
     b
   }
 
-  pub fn apply_matrix(&mut self, mat: &Mat4<f32>) -> Self{
+  pub fn apply_matrix(&mut self, mat: &Mat4<f32>) -> Self {
     unimplemented!()
   }
 }

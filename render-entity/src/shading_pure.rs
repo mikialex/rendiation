@@ -34,4 +34,5 @@ impl PureColorShading {
         // world_matrix: Mat4::one(),
         // camera_inverse_matrix:Mat4::one(),
       }
-  }}
+  }
+}

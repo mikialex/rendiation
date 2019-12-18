@@ -1,6 +1,6 @@
+use crate::buffer_data::BufferData;
 use crate::geometry::Boundary3D;
 use crate::geometry::Geometry;
-use crate::buffer_data::BufferData;
 use rendiation_math::vec3::Vec3;
 use rendiation_math_entity::*;
 use std::collections::HashMap;
