@@ -22,127 +22,38 @@ pub struct WGPUPipeline {
 pub struct WGPUPipelineDescriptorBuilder {
   vertex_shader: String,
   frag_shader: String,
+  bindings: Vec<wgpu::BindGroupLayoutBinding>,
+  
 }
 
 impl WGPUPipelineDescriptorBuilder {
-  // pub fn new<Vertex>(
-  //   device: &wgpu::Device,
-  //   vertex_shader: &str,
-  //   frag_shader: &str,
-  //   bind_group_layout: &wgpu::BindGroupLayout,
-  // ) -> Self {
-  //   use std::mem;
-  //   let vs_bytes = load_glsl(vertex_shader, ShaderStage::Vertex);
-  //   let fs_bytes = load_glsl(frag_shader, ShaderStage::Fragment);
-  //   let vs_module = device.create_shader_module(&vs_bytes);
-  //   let fs_module = device.create_shader_module(&fs_bytes);
+  pub fn new() -> Self {
+    WGPUPipelineDescriptorBuilder {
+      vertex_shader: String::from(""),
+      frag_shader:  String::from(""),
+      bindings: Vec::new(),
+    }
+  }
 
-  //   // Create pipeline layout
-  //   let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-  //     bindings: &[
-  //       wgpu::BindGroupLayoutBinding {
-  //         binding: 0,
-  //         visibility: wgpu::ShaderStage::VERTEX,
-  //         ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-  //       },
-  //       wgpu::BindGroupLayoutBinding {
-  //         binding: 1,
-  //         visibility: wgpu::ShaderStage::FRAGMENT,
-  //         ty: wgpu::BindingType::SampledTexture {
-  //           multisampled: false,
-  //           dimension: wgpu::TextureViewDimension::D2,
-  //         },
-  //       },
-  //       wgpu::BindGroupLayoutBinding {
-  //         binding: 2,
-  //         visibility: wgpu::ShaderStage::FRAGMENT,
-  //         ty: wgpu::BindingType::Sampler,
-  //       },
-  //     ],
-  //   });
+  pub fn vertex_shader(&mut self, v: &str) -> &mut Self{
+    self.vertex_shader = v.to_string();
+    self
+  }
 
-  //   // let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-  //   //   bind_group_layouts: &[&bind_group_layout],
-  //   // });
+  pub fn frag_shader(&mut self, v: &str) -> &mut Self{
+    self.frag_shader = v.to_string();
+    self
+  }
 
-  //   WGPUPipelineDescriptorBuilder {
-  //     pipeline_layout: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-  //       bind_group_layouts: &[&bind_group_layout],
-  //     }),
-  //     descriptor: wgpu::RenderPipelineDescriptor {
-  //       layout: &pipeline_layout,
-  //       vertex_stage: wgpu::ProgrammableStageDescriptor {
-  //         module: &vs_module,
-  //         entry_point: "main",
-  //       },
-  //       fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-  //         module: &fs_module,
-  //         entry_point: "main",
-  //       }),
-  //       rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-  //         front_face: wgpu::FrontFace::Ccw,
-  //         cull_mode: wgpu::CullMode::Back,
-  //         depth_bias: 0,
-  //         depth_bias_slope_scale: 0.0,
-  //         depth_bias_clamp: 0.0,
-  //       }),
-  //       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-  //       color_states: &[wgpu::ColorStateDescriptor {
-  //         format: wgpu::TextureFormat::Bgra8UnormSrgb, // should same as swap chain format
-  //         color_blend: wgpu::BlendDescriptor::REPLACE,
-  //         alpha_blend: wgpu::BlendDescriptor::REPLACE,
-  //         write_mask: wgpu::ColorWrite::ALL,
-  //       }],
-  //       depth_stencil_state: None,
-  //       index_format: wgpu::IndexFormat::Uint16,
-  //       vertex_buffers: &[wgpu::VertexBufferDescriptor {
-  //         stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-  //         step_mode: wgpu::InputStepMode::Vertex,
-  //         attributes: &[
-  //           wgpu::VertexAttributeDescriptor {
-  //             format: wgpu::VertexFormat::Float4,
-  //             offset: 0,
-  //             shader_location: 0,
-  //           },
-  //           wgpu::VertexAttributeDescriptor {
-  //             format: wgpu::VertexFormat::Float2,
-  //             offset: 4 * 4,
-  //             shader_location: 1,
-  //           },
-  //         ],
-  //       }],
-  //       sample_count: 1,
-  //       sample_mask: !0,
-  //       alpha_to_coverage_enabled: false,
-  //     },
-  //   }
-  // }
+  pub fn binding(&mut self, b: wgpu::BindGroupLayoutBinding) -> &mut Self {
+    self.bindings.push(b);
+    self
+  }
 
-  pub fn build(&self, device: &wgpu::Device) {
+  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
     // Create pipeline layout
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      bindings: &[
-          wgpu::BindGroupLayoutBinding {
-              binding: 0,
-              visibility: wgpu::ShaderStage::VERTEX,
-              ty: wgpu::BindingType::UniformBuffer {
-                  dynamic: false,
-              },
-          },
-          wgpu::BindGroupLayoutBinding {
-              binding: 1,
-              visibility: wgpu::ShaderStage::FRAGMENT,
-              ty: wgpu::BindingType::SampledTexture {
-                  multisampled: false,
-                  dimension: wgpu::TextureViewDimension::D2,
-              },
-          },
-          wgpu::BindGroupLayoutBinding {
-              binding: 2,
-              visibility: wgpu::ShaderStage::FRAGMENT,
-              ty: wgpu::BindingType::Sampler,
-          },
-      ],
+      bindings: &self.bindings,
     });
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -213,7 +124,7 @@ impl WGPUPipelineDescriptorBuilder {
     let vs_module = device.create_shader_module(&vs_bytes);
     let fs_module = device.create_shader_module(&fs_bytes);
 
-    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
       layout: &pipeline_layout,
       vertex_stage: wgpu::ProgrammableStageDescriptor {
         module: &vs_module,
@@ -258,7 +169,7 @@ impl WGPUPipelineDescriptorBuilder {
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,
-    });
+    })
   }
 }
 
