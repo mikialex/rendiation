@@ -11,6 +11,7 @@ pub struct WGPURenderer {
 
 pub struct WGPUPipeline {
   pipeline: wgpu::RenderPipeline,
+  bind_groups: Vec<wgpu::BindGroup>,
   vertex_str: String,
   frag_str: String,
 }
