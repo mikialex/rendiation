@@ -3,6 +3,8 @@ use std::collections::HashMap;
 
 pub mod r#const;
 pub mod shader_util;
+pub mod buffer;
+use buffer::*;
 
 pub struct WGPURenderer {
   device: wgpu::Device,
@@ -12,6 +14,8 @@ pub struct WGPURenderer {
 pub struct WGPUPipeline {
   pipeline: wgpu::RenderPipeline,
   bind_groups: Vec<wgpu::BindGroup>,
+  gpu_buffers: Vec<(usize, wgpu::Buffer)>,
+  gpu_texture_views: Vec<(usize, wgpu::Buffer)>,
 }
 
 // impl WGPURenderer {
@@ -22,7 +26,6 @@ pub struct WGPUPipelineDescriptorBuilder {
   vertex_shader: String,
   frag_shader: String,
   bindings: Vec<wgpu::BindGroupLayoutBinding>,
-  
 }
 
 impl WGPUPipelineDescriptorBuilder {
@@ -48,6 +51,8 @@ impl WGPUPipelineDescriptorBuilder {
     self.bindings.push(b);
     self
   }
+
+  // pub fn use_buffer(&mut )
 
   pub fn build(&self, device: &wgpu::Device) -> WGPUPipeline {
     // Create pipeline layout
@@ -89,11 +94,11 @@ impl WGPUPipelineDescriptorBuilder {
       lod_max_clamp: 100.0,
       compare_function: wgpu::CompareFunction::Always,
     });
-    let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-    let uniform_buf = device
-      .create_buffer_mapped(16, wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST)
-      .fill_from_slice(mx_ref);
+    // let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+    // let mx_ref: &[f32; 16] = mx_total.as_ref();
+    // let uniform_buf = device
+    //   .create_buffer_mapped(16, wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST)
+    //   .fill_from_slice(mx_ref);
 
     // Create bind group
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
