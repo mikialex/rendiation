@@ -12,8 +12,6 @@ pub struct WGPURenderer {
 pub struct WGPUPipeline {
   pipeline: wgpu::RenderPipeline,
   bind_groups: Vec<wgpu::BindGroup>,
-  vertex_str: String,
-  frag_str: String,
 }
 
 // impl WGPURenderer {
@@ -51,7 +49,7 @@ impl WGPUPipelineDescriptorBuilder {
     self
   }
 
-  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
+  pub fn build(&self, device: &wgpu::Device) -> WGPUPipeline {
     // Create pipeline layout
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       bindings: &self.bindings,
@@ -125,7 +123,7 @@ impl WGPUPipelineDescriptorBuilder {
     let vs_module = device.create_shader_module(&vs_bytes);
     let fs_module = device.create_shader_module(&fs_bytes);
 
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
       layout: &pipeline_layout,
       vertex_stage: wgpu::ProgrammableStageDescriptor {
         module: &vs_module,
@@ -170,8 +168,15 @@ impl WGPUPipelineDescriptorBuilder {
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,
-    })
+    });
+
+    WGPUPipeline {
+      pipeline,
+      bind_groups: Vec::new(),
+    }
   }
+
+
 }
 
 // use rendiation_render_entity::*;
