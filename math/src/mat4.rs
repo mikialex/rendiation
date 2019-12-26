@@ -226,6 +226,22 @@ impl Mat4<f32> {
 
 		scale_x_sq.max(scale_y_sq).max(scale_z_sq).sqrt()
 	}
+
+	pub fn make_perspective(&mut self, left: f32, right: f32, top: f32,
+		bottom: f32, near: f32, far: f32){
+			let x = 2. * near / (right - left);
+			let y = 2. * near / (top - bottom);
+		
+			let a = (right + left) / (right - left);
+			let b = (top + bottom) / (top - bottom);
+			let c = - (far + near) / (far - near);
+			let d = - 2. * far * near / (far - near);
+		
+			self.a1 = x; self.b1 = 0.; self.c1 = a;   self.d1 = 0.;
+			self.a2 = 0.; self.b2 = y; self.c2 = b;   self.d2 = 0.;
+			self.a3 = 0.; self.b3 = 0.; self.c3 = c;   self.d3 = d;
+			self.a4 = 0.; self.b4 = 0.; self.c4 = - 1.; self.d4 = 0.;
+	}
 }
 
 impl<T> Mat4<T> where T:Vec + Math + PiByC180

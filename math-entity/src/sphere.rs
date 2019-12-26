@@ -28,7 +28,7 @@ impl Sphere {
 
   pub fn apply_matrix(mut self, mat: &Mat4<f32>) -> Self {
     self.center = self.center.apply_mat4(mat);
-    self.radius = self.radius * mat.max_scale_on_axis();
+    self.radius *= mat.max_scale_on_axis();
     self
   }
 }

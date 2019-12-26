@@ -31,7 +31,7 @@ impl<Renderer> RenderEntityStore<Renderer>{
 
 #[wasm_bindgen]
 pub struct SceneGraph {
-  pub(crate) camera: Camera,
+  pub(crate) camera: AnyCamera,
   camera_frustum: Frustum,
   pub(crate) nodes: ArrayContainer<RefCell<SceneNode>>,
 
@@ -41,7 +41,7 @@ pub struct SceneGraph {
 }
 
 impl SceneGraph {
-  pub fn set_camera(&mut self, camera: Camera) {
+  pub fn set_camera(&mut self, camera: AnyCamera) {
     self.camera = camera;
     self.camera_frustum.set_from_matrix(
       self.camera.projection_matrix * self.camera.inverse_world_matrix
@@ -167,7 +167,7 @@ impl SceneGraph {
   pub fn new() -> SceneGraph {
     set_panic_hook();
     let mut graph = SceneGraph {
-      camera: Camera::new(),
+      camera: AnyCamera::new(),
       camera_frustum: Frustum::new(),
       nodes: ArrayContainer::new(),
       store: RenderEntityStore::new(),

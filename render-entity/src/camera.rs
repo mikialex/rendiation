@@ -1,15 +1,53 @@
 use rendiation_math::*;
+use rendiation_math_entity::*;
+
+pub trait Camera {
+  fn update_projection(&mut self);
+  fn get_projection_matrix(&self) -> &Mat4<f32>;
+  fn get_world_matrix(&self) -> &Mat4<f32>;
+}
 
 #[derive(Default)]
-pub struct Camera {
+pub struct PerspectiveCamera{
+  pub projection_matrix: Mat4<f32>,
+  pub transform: Transformation,
+
+  pub near: f32,
+  pub far: f32,
+  pub fov: f32,
+  pub aspect: f32,
+  pub zoom: f32,
+}
+
+
+impl Camera for PerspectiveCamera{
+  fn update_projection(&mut self){
+    let top = self.near * (f32::pi_by_c180() * 0.5 * self.fov).tan() / self.zoom;
+    let height = 2. * top;
+    let width = self.aspect * height;
+    let left = - 0.5 * width;
+    self.projection_matrix.make_perspective(left, left + width, top, top - height, self.near, self.far);
+  }
+
+  fn get_projection_matrix(&self) -> &Mat4<f32>{
+    &self.projection_matrix
+  }
+
+  fn get_world_matrix(&self) -> &Mat4<f32>{
+    &self.transform.matrix
+  }
+}
+
+#[derive(Default)]
+pub struct AnyCamera {
   pub projection_matrix: Mat4<f32>,
   pub inverse_world_matrix: Mat4<f32>,
   // pub node: SceneNode
 }
 
-impl Camera {
+impl AnyCamera {
   pub fn new() -> Self {
-    Camera {
+    AnyCamera {
       projection_matrix: Mat4::one(),
       inverse_world_matrix: Mat4::one(),
       // node: SceneNode

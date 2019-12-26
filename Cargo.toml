@@ -1,6 +1,5 @@
 [workspace]
 members = [
-	# "gui",
     "math",
     "math-entity",
     "render-entity",
