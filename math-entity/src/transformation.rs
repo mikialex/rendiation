@@ -1,16 +1,16 @@
 use rendiation_math::*;
 
 #[derive(Default)]
-pub struct Transfromation {
+pub struct Transformation {
   pub matrix: Mat4<f32>,
   pub position: Vec3<f32>,
   pub scale: Vec3<f32>,
   pub rotation: Quat<f32>,
 }
 
-impl Transfromation {
+impl Transformation {
   pub fn new() -> Self {
-    Transfromation {
+    Self {
       position: Vec3::new(0.0, 0.0, 0.0),
       scale: Vec3::new(1.0, 1.0, 1.0),
       rotation: Quat::new(0.0, 0.0, 0.0, 1.0),
