@@ -4,7 +4,7 @@ use std::collections::HashMap;
 pub mod r#const;
 pub mod shader_util;
 pub mod buffer;
-use buffer::*;
+pub mod texture;
 
 pub struct WGPURenderer {
   device: wgpu::Device,
