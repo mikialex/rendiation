@@ -36,7 +36,7 @@ impl WGPUTexture{
       gpu_texture,
       descriptor,
       buffer,
-    }
+    };
 
     wgpu_texture.upload(device, encoder);
     wgpu_texture

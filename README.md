@@ -1,5 +1,5 @@
 # Rendiation Render Framework
 
-This repo is totally for learning purpose and in very early stage.
+This repo is in very early stage.
 
-Use WebGPU as only backend support. Cross native platform and web.
+Use WebGPU as backend support. Support multiple native platform and web.
