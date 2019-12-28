@@ -1,7 +1,17 @@
+
+use crate::renderer::pipeline::VertexProvider;
+
 #[derive(Clone, Copy)]
 pub struct Vertex {
     _pos: [f32; 4],
     _tex_coord: [f32; 2],
+}
+
+impl VertexProvider for Vertex {
+    fn get_stride() -> usize{
+        use std::mem;
+        mem::size_of::<Vertex>()
+    }
 }
 
 pub fn vertex(pos: [i8; 3], tc: [i8; 2]) -> Vertex {

@@ -89,6 +89,8 @@ impl Application for Rinecraft {
         ty: wgpu::BindingType::Sampler,
       });
 
+    let pipeline = pipeline_builder.build::<Vertex>(device, sc_desc);
+
     //
 
     use std::mem;
