@@ -13,7 +13,7 @@ pub struct WGPUTexture {
 }
 
 impl WGPUTexture{
-  pub fn new<Img: Image>(device: &wgpu::Device, encoder: &wgpu::CommandEncoder, value: Img) -> WGPUTexture{
+  pub fn new<Img: Image>(device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, value: Img) -> WGPUTexture{
     let (width, height, depth) = value.get_size();
     let descriptor = wgpu::TextureDescriptor {
       size: wgpu::Extent3d {
@@ -38,12 +38,12 @@ impl WGPUTexture{
       buffer,
     };
 
-    wgpu_texture.upload(device, encoder);
+    wgpu_texture.upload(encoder);
     wgpu_texture
 
   }
 
-  fn upload(&self, device: &wgpu::Device, encoder: &wgpu::CommandEncoder){
+  fn upload(&self, encoder: &mut wgpu::CommandEncoder){
     encoder.copy_buffer_to_texture(
       wgpu::BufferCopyView {
         buffer: &self.buffer.get_gpu_buffer(),

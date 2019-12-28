@@ -27,7 +27,7 @@ impl WGPUBuffer {
     }
   }
 
-  pub fn update(&self, device: &wgpu::Device, value: &[f32]) -> &Self {
+  pub fn update(&mut self, device: &wgpu::Device, value: &[f32]) -> &Self {
     assert_eq!(self.size, value.len());
 
     self.gpu_buffer = create_buffer(device, value, self.usage);

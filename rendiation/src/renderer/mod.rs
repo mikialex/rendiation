@@ -6,7 +6,7 @@ pub mod buffer;
 pub mod texture;
 pub mod pipeline;
 
-use pipeline::*;
+pub use pipeline::*;
 
 pub struct WGPURenderer {
   device: wgpu::Device,

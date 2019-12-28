@@ -33,7 +33,7 @@ impl Application for Rinecraft {
   ) -> (Self, Option<wgpu::CommandBuffer>) {
     // code
     use crate::renderer::*;
-    let pipeline_builder = WGPUPipelineDescriptorBuilder::new();
+    let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
 
     pipeline_builder
       .vertex_shader(
