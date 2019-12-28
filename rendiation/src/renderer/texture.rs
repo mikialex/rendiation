@@ -32,26 +32,27 @@ impl WGPUTexture{
 
     let buffer = WGPUBuffer::new(device, value.get_data(), wgpu::BufferUsage::COPY_SRC);
 
-    WGPUTexture{
+    let wgpu_texture = WGPUTexture{
       gpu_texture,
       descriptor,
       buffer,
     }
 
+    wgpu_texture.upload(device, encoder);
+    wgpu_texture
+
   }
 
-  pub fn update(device: &wgpu::Device, encoder: &wgpu::CommandEncoder, value: WGPUBuffer){
-    self.value = value;
-
-    init_encoder.copy_buffer_to_texture(
+  fn upload(&self, device: &wgpu::Device, encoder: &wgpu::CommandEncoder){
+    encoder.copy_buffer_to_texture(
       wgpu::BufferCopyView {
-        buffer: &temp_buf,
+        buffer: &self.buffer.get_gpu_buffer(),
         offset: 0,
-        row_pitch: 4 * size,
-        image_height: size,
+        row_pitch: 4 * self.descriptor.size.width,
+        image_height: self.descriptor.size.height,
       },
       wgpu::TextureCopyView {
-        texture: &texture,
+        texture: &self.gpu_texture,
         mip_level: 0,
         array_layer: 0,
         origin: wgpu::Origin3d {
@@ -60,7 +61,7 @@ impl WGPUTexture{
           z: 0.0,
         },
       },
-      texture_extent,
+      self.descriptor.size,
     );
   }
 }

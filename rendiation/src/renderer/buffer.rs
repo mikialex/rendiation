@@ -37,4 +37,8 @@ impl WGPUBuffer {
   pub fn get_byte_length(&self) -> usize {
     self.size * 8
   }
+
+  pub fn get_gpu_buffer(&self) -> &wgpu::Buffer {
+    &self.gpu_buffer
+  }
 }
