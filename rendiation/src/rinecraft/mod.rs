@@ -1,16 +1,16 @@
 use crate::application::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
-use crate::renderer::shader_util::{load_glsl, ShaderStage};
+use crate::renderer::*;
 mod util;
 use util::*;
 
 pub struct Rinecraft {
-  vertex_buf: wgpu::Buffer,
-  index_buf: wgpu::Buffer,
+  vertex_buf: WGPUBuffer,
+  index_buf: WGPUBuffer,
   index_count: usize,
   bind_group: wgpu::BindGroup,
-  uniform_buf: wgpu::Buffer,
-  pipeline: wgpu::RenderPipeline,
+  uniform_buf: WGPUBuffer,
+  pipeline: WGPUPipeline,
 }
 
 impl Rinecraft {
@@ -93,48 +93,13 @@ impl Application for Rinecraft {
 
     //
 
-    use std::mem;
-
     // Create the vertex and index buffers
-    let vertex_size = mem::size_of::<Vertex>();
     let (vertex_data, index_data) = create_vertices();
-    let vertex_buf = device
-      .create_buffer_mapped(vertex_data.len(), wgpu::BufferUsage::VERTEX)
-      .fill_from_slice(&vertex_data);
-
-    let index_buf = device
-      .create_buffer_mapped(index_data.len(), wgpu::BufferUsage::INDEX)
-      .fill_from_slice(&index_data);
-
-    // Create pipeline layout
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      bindings: &[
-        wgpu::BindGroupLayoutBinding {
-          binding: 0,
-          visibility: wgpu::ShaderStage::VERTEX,
-          ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-        },
-        wgpu::BindGroupLayoutBinding {
-          binding: 1,
-          visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::SampledTexture {
-            multisampled: false,
-            dimension: wgpu::TextureViewDimension::D2,
-          },
-        },
-        wgpu::BindGroupLayoutBinding {
-          binding: 2,
-          visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::Sampler,
-        },
-      ],
-    });
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-      bind_group_layouts: &[&bind_group_layout],
-    });
+    let vertex_buf = WGPUBuffer::new(device, &vertex_data, wgpu::BufferUsage::VERTEX);
+    let index_buf = WGPUBuffer::new(device, &index_data, wgpu::BufferUsage::INDEX);
 
     // Create the texture
-    let size = 256u32;
+    let size = 512u32;
     let texels = create_texels(size as usize);
     let texture_extent = wgpu::Extent3d {
       width: size,
@@ -192,18 +157,16 @@ impl Application for Rinecraft {
     });
     let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
-    let uniform_buf = device
-      .create_buffer_mapped(16, wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST)
-      .fill_from_slice(mx_ref);
+    let uniform_buf = WGPUBuffer::new(device, mx_ref, wgpu::BufferUsage::UNIFORM |  wgpu::BufferUsage::COPY_DST);
 
     // Create bind group
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &bind_group_layout,
+      layout: &pipeline.bind_groups_layouts[0], // todo
       bindings: &[
         wgpu::Binding {
           binding: 0,
           resource: wgpu::BindingResource::Buffer {
-            buffer: &uniform_buf,
+            buffer: &uniform_buf.get_gpu_buffer(),
             range: 0..64,
           },
         },
@@ -216,59 +179,6 @@ impl Application for Rinecraft {
           resource: wgpu::BindingResource::Sampler(&sampler),
         },
       ],
-    });
-
-    // Create the render pipeline
-    let vs_bytes = load_glsl(include_str!("shader.vert"), ShaderStage::Vertex);
-    let fs_bytes = load_glsl(include_str!("shader.frag"), ShaderStage::Fragment);
-    let vs_module = device.create_shader_module(&vs_bytes);
-    let fs_module = device.create_shader_module(&fs_bytes);
-
-    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-      layout: &pipeline_layout,
-      vertex_stage: wgpu::ProgrammableStageDescriptor {
-        module: &vs_module,
-        entry_point: "main",
-      },
-      fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-        module: &fs_module,
-        entry_point: "main",
-      }),
-      rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-        front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::Back,
-        depth_bias: 0,
-        depth_bias_slope_scale: 0.0,
-        depth_bias_clamp: 0.0,
-      }),
-      primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-      color_states: &[wgpu::ColorStateDescriptor {
-        format: sc_desc.format,
-        color_blend: wgpu::BlendDescriptor::REPLACE,
-        alpha_blend: wgpu::BlendDescriptor::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
-      }],
-      depth_stencil_state: None,
-      index_format: wgpu::IndexFormat::Uint16,
-      vertex_buffers: &[wgpu::VertexBufferDescriptor {
-        stride: vertex_size as wgpu::BufferAddress,
-        step_mode: wgpu::InputStepMode::Vertex,
-        attributes: &[
-          wgpu::VertexAttributeDescriptor {
-            format: wgpu::VertexFormat::Float4,
-            offset: 0,
-            shader_location: 0,
-          },
-          wgpu::VertexAttributeDescriptor {
-            format: wgpu::VertexFormat::Float2,
-            offset: 4 * 4,
-            shader_location: 1,
-          },
-        ],
-      }],
-      sample_count: 1,
-      sample_mask: !0,
-      alpha_to_coverage_enabled: false,
     });
 
     // Done
@@ -292,15 +202,12 @@ impl Application for Rinecraft {
     sc_desc: &wgpu::SwapChainDescriptor,
     device: &wgpu::Device,
   ) -> Option<wgpu::CommandBuffer> {
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+
     let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
+    self.uniform_buf.update(device, &mut encoder, mx_ref);
 
-    let temp_buf = device
-      .create_buffer_mapped(16, wgpu::BufferUsage::COPY_SRC)
-      .fill_from_slice(mx_ref);
-
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-    encoder.copy_buffer_to_buffer(&temp_buf, 0, &self.uniform_buf, 0, 64);
     Some(encoder.finish())
   }
 
@@ -326,10 +233,10 @@ impl Application for Rinecraft {
         }],
         depth_stencil_attachment: None,
       });
-      rpass.set_pipeline(&self.pipeline);
+      rpass.set_pipeline(&self.pipeline.pipeline);
       rpass.set_bind_group(0, &self.bind_group, &[]);
-      rpass.set_index_buffer(&self.index_buf, 0);
-      rpass.set_vertex_buffers(0, &[(&self.vertex_buf, 0)]);
+      rpass.set_index_buffer(&self.index_buf.get_gpu_buffer(), 0);
+      rpass.set_vertex_buffers(0, &[(&self.vertex_buf.get_gpu_buffer(), 0)]);
       rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
     }
 

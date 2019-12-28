@@ -1,6 +1,6 @@
 pub struct WGPUPipeline {
-  pipeline: wgpu::RenderPipeline,
-  bind_groups: Vec<wgpu::BindGroup>,
+  pub pipeline: wgpu::RenderPipeline,
+  pub bind_groups_layouts: Vec<wgpu::BindGroupLayout>, // todo
 }
 
 pub trait VertexProvider {
@@ -107,7 +107,7 @@ impl WGPUPipelineDescriptorBuilder {
 
     WGPUPipeline {
       pipeline,
-      bind_groups: Vec::new(),
+      bind_groups_layouts: vec![bind_group_layout],
     }
   }
 }
