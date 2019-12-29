@@ -70,24 +70,27 @@ impl Application for Rinecraft {
           }
       "#,
       )
-      .binding(wgpu::BindGroupLayoutBinding {
-        binding: 0,
-        visibility: wgpu::ShaderStage::VERTEX,
-        ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-      })
-      .binding(wgpu::BindGroupLayoutBinding {
-        binding: 1,
-        visibility: wgpu::ShaderStage::FRAGMENT,
-        ty: wgpu::BindingType::SampledTexture {
-          multisampled: false,
-          dimension: wgpu::TextureViewDimension::D2,
-        },
-      })
-      .binding(wgpu::BindGroupLayoutBinding {
-        binding: 2,
-        visibility: wgpu::ShaderStage::FRAGMENT,
-        ty: wgpu::BindingType::Sampler,
-      });
+      .binding_group(
+        BindGroupBuilder::new()
+        .binding(wgpu::BindGroupLayoutBinding {
+          binding: 0,
+          visibility: wgpu::ShaderStage::VERTEX,
+          ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+        })
+        .binding(wgpu::BindGroupLayoutBinding {
+          binding: 1,
+          visibility: wgpu::ShaderStage::FRAGMENT,
+          ty: wgpu::BindingType::SampledTexture {
+            multisampled: false,
+            dimension: wgpu::TextureViewDimension::D2,
+          },
+        })
+        .binding(wgpu::BindGroupLayoutBinding {
+          binding: 2,
+          visibility: wgpu::ShaderStage::FRAGMENT,
+          ty: wgpu::BindingType::Sampler,
+        })
+      );
 
     let pipeline = pipeline_builder.build::<Vertex>(device, sc_desc);
 
@@ -129,7 +132,7 @@ impl Application for Rinecraft {
 
     // Create bind group
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &pipeline.bind_groups_layouts[0], // todo
+      layout: &pipeline.bind_group_layouts[0], // todo
       bindings: &[
         wgpu::Binding {
           binding: 0,

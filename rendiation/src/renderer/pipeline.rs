@@ -1,6 +1,8 @@
+use crate::renderer::bindgroup::BindGroupBuilder;
+
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
-  pub bind_groups_layouts: Vec<wgpu::BindGroupLayout>, // todo
+  pub bind_group_layouts: Vec<wgpu::BindGroupLayout>, // todo
 }
 
 pub trait VertexProvider {
@@ -10,7 +12,7 @@ pub trait VertexProvider {
 pub struct WGPUPipelineDescriptorBuilder {
   vertex_shader: String,
   frag_shader: String,
-  bindings: Vec<wgpu::BindGroupLayoutBinding>,
+  binding_groups: Vec<BindGroupBuilder>,
 }
 
 impl WGPUPipelineDescriptorBuilder {
@@ -18,7 +20,7 @@ impl WGPUPipelineDescriptorBuilder {
     WGPUPipelineDescriptorBuilder {
       vertex_shader: String::from(""),
       frag_shader: String::from(""),
-      bindings: Vec::new(),
+      binding_groups: Vec::new(),
     }
   }
 
@@ -32,21 +34,41 @@ impl WGPUPipelineDescriptorBuilder {
     self
   }
 
-  pub fn binding(&mut self, b: wgpu::BindGroupLayoutBinding) -> &mut Self {
-    self.bindings.push(b);
+  pub fn binding_group(&mut self, b: BindGroupBuilder) -> &mut Self {
+    self.binding_groups.push(b);
     self
   }
 
-  // pub fn use_buffer(&mut )
-
-  pub fn build<T: VertexProvider>(&self, device: &wgpu::Device, sc_desc: &wgpu::SwapChainDescriptor) -> WGPUPipeline {
+  pub fn build<T: VertexProvider>(
+    &self,
+    device: &wgpu::Device,
+    sc_desc: &wgpu::SwapChainDescriptor,
+  ) -> WGPUPipeline {
     // Create pipeline layout
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      bindings: &self.bindings,
-    });
+    // let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    //   bindings: &self.binding_groups[0].bindings,
+    // });
+
+    let bind_group_layouts: Vec<_> = self
+      .binding_groups
+      .iter()
+      .map(|builder| {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+          bindings: &builder.bindings,
+        })
+      })
+      .collect();
+
+    let bind_group_layouts_ref: Vec<&wgpu::BindGroupLayout> = bind_group_layouts
+      .iter()
+      .map(|l| {
+        let l: &wgpu::BindGroupLayout = l;
+        l
+      })
+      .collect();
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-      bind_group_layouts: &[&bind_group_layout],
+      bind_group_layouts: &bind_group_layouts_ref,
     });
 
     // Create the render pipeline
@@ -107,7 +129,7 @@ impl WGPUPipelineDescriptorBuilder {
 
     WGPUPipeline {
       pipeline,
-      bind_groups_layouts: vec![bind_group_layout],
+      bind_group_layouts,
     }
   }
 }
