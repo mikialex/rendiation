@@ -1,4 +1,5 @@
 
+use crate::renderer::texture::ImageProvider;
 use crate::renderer::pipeline::VertexProvider;
 
 #[derive(Clone, Copy)]
@@ -67,10 +68,25 @@ pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data.to_vec(), index_data.to_vec())
 }
 
-pub fn create_texels(size: usize) -> Vec<u8> {
+pub struct Image{
+    data: Vec<u8>,
+    width: usize, 
+    height: usize,
+}
+
+impl ImageProvider for Image{
+    fn get_size(&self) -> (u32, u32, u32){
+        (self.width as u32, self.height as u32, 1)
+    }
+    fn get_data(&self) -> &[u8]{
+        &self.data
+    }
+}
+
+pub fn create_texels(size: usize) -> Image {
     use std::iter;
 
-    (0 .. size * size)
+    let data = (0 .. size * size)
         .flat_map(|id| {
             // get high five for recognizing this ;)
             let cx = 3.0 * (id % size) as f32 / (size - 1) as f32 - 2.0;
@@ -87,5 +103,11 @@ pub fn create_texels(size: usize) -> Vec<u8> {
                 .chain(iter::once(0xFF - (count * 50) as u8))
                 .chain(iter::once(1))
         })
-        .collect()
+        .collect();
+
+    Image{
+        data,
+        width: size, 
+        height: size,
+    }
 }

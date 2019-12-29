@@ -1,6 +1,6 @@
 use crate::renderer::buffer::WGPUBuffer;
 
-pub trait Image{
+pub trait ImageProvider {
   fn get_size(&self) -> (u32, u32, u32);
   fn get_data(&self) -> &[u8];
 }
@@ -12,8 +12,12 @@ pub struct WGPUTexture {
   buffer: WGPUBuffer,
 }
 
-impl WGPUTexture{
-  pub fn new<Img: Image>(device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, value: Img) -> WGPUTexture{
+impl WGPUTexture {
+  pub fn new<Img: ImageProvider>(
+    device: &wgpu::Device,
+    encoder: &mut wgpu::CommandEncoder,
+    value: &Img,
+  ) -> WGPUTexture {
     let (width, height, depth) = value.get_size();
     let descriptor = wgpu::TextureDescriptor {
       size: wgpu::Extent3d {
@@ -32,7 +36,7 @@ impl WGPUTexture{
 
     let buffer = WGPUBuffer::new(device, value.get_data(), wgpu::BufferUsage::COPY_SRC);
 
-    let wgpu_texture = WGPUTexture{
+    let wgpu_texture = WGPUTexture {
       gpu_texture,
       descriptor,
       buffer,
@@ -40,10 +44,13 @@ impl WGPUTexture{
 
     wgpu_texture.upload(encoder);
     wgpu_texture
-
   }
 
-  fn upload(&self, encoder: &mut wgpu::CommandEncoder){
+  pub fn make_default_view(&self) -> wgpu::TextureView {
+    self.gpu_texture.create_default_view()
+  }
+
+  fn upload(&self, encoder: &mut wgpu::CommandEncoder) {
     encoder.copy_buffer_to_texture(
       wgpu::BufferCopyView {
         buffer: &self.buffer.get_gpu_buffer(),

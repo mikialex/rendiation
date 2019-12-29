@@ -98,50 +98,14 @@ impl Application for Rinecraft {
     let vertex_buf = WGPUBuffer::new(device, &vertex_data, wgpu::BufferUsage::VERTEX);
     let index_buf = WGPUBuffer::new(device, &index_data, wgpu::BufferUsage::INDEX);
 
-    // Create the texture
-    let size = 512u32;
-    let texels = create_texels(size as usize);
-    let texture_extent = wgpu::Extent3d {
-      width: size,
-      height: size,
-      depth: 1,
-    };
-    let texture = device.create_texture(&wgpu::TextureDescriptor {
-      size: texture_extent,
-      array_layer_count: 1,
-      mip_level_count: 1,
-      sample_count: 1,
-      dimension: wgpu::TextureDimension::D2,
-      format: wgpu::TextureFormat::Rgba8UnormSrgb,
-      usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-    });
-    let texture_view = texture.create_default_view();
-
-    let temp_buf = device
-      .create_buffer_mapped(texels.len(), wgpu::BufferUsage::COPY_SRC)
-      .fill_from_slice(&texels);
-
     let mut init_encoder =
       device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-    init_encoder.copy_buffer_to_texture(
-      wgpu::BufferCopyView {
-        buffer: &temp_buf,
-        offset: 0,
-        row_pitch: 4 * size,
-        image_height: size,
-      },
-      wgpu::TextureCopyView {
-        texture: &texture,
-        mip_level: 0,
-        array_layer: 0,
-        origin: wgpu::Origin3d {
-          x: 0.0,
-          y: 0.0,
-          z: 0.0,
-        },
-      },
-      texture_extent,
-    );
+
+    // Create the texture
+    let size = 512u32;
+    let img = create_texels(size as usize);
+    let texture = WGPUTexture::new(device, &mut init_encoder, &img);
+    let texture_view = texture.make_default_view();
 
     // Create other resources
     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -157,7 +121,11 @@ impl Application for Rinecraft {
     });
     let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
-    let uniform_buf = WGPUBuffer::new(device, mx_ref, wgpu::BufferUsage::UNIFORM |  wgpu::BufferUsage::COPY_DST);
+    let uniform_buf = WGPUBuffer::new(
+      device,
+      mx_ref,
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    );
 
     // Create bind group
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
