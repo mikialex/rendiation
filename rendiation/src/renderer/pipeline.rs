@@ -1,12 +1,24 @@
 use crate::renderer::bindgroup::BindGroupBuilder;
 
-pub struct WGPUPipeline {
-  pub pipeline: wgpu::RenderPipeline,
-  pub bind_group_layouts: Vec<wgpu::BindGroupLayout>, // todo
-}
-
 pub trait VertexProvider {
   fn get_stride() -> usize;
+}
+
+pub struct WGPUPipeline {
+  pub pipeline: wgpu::RenderPipeline,
+  pub bind_group_layouts: Vec<wgpu::BindGroupLayout>,
+}
+
+pub enum WGPUBinding{
+  WGPUBuffer,
+  WGPUTexture,
+  WGPUSampler
+}
+
+impl WGPUPipeline{
+  pub fn make_binding_group(&self, index: usize) -> wgpu::BindGroup {
+    unimplemented!()
+  }
 }
 
 pub struct WGPUPipelineDescriptorBuilder {
