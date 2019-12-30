@@ -9,16 +9,30 @@ pub struct WGPUPipeline {
   pub bind_group_layouts: Vec<wgpu::BindGroupLayout>,
 }
 
-pub enum WGPUBinding{
-  WGPUBuffer,
-  WGPUTexture,
-  WGPUSampler
-}
+impl WGPUPipeline {
+  // pub fn make_binding_group(&self, index: usize, device: &wgpu::Device, items: &[WGPUBinding]) -> wgpu::BindGroup {
 
-impl WGPUPipeline{
-  pub fn make_binding_group(&self, index: usize) -> wgpu::BindGroup {
-    unimplemented!()
-  }
+  //   device.create_bind_group(&wgpu::BindGroupDescriptor {
+  //     layout: &self.bind_group_layouts[index],
+  //     bindings: &[
+  //       wgpu::Binding {
+  //         binding: 0,
+  //         resource: wgpu::BindingResource::Buffer {
+  //           buffer: &uniform_buf.get_gpu_buffer(),
+  //           range: 0..64,
+  //         },
+  //       },
+  //       wgpu::Binding {
+  //         binding: 1,
+  //         resource: wgpu::BindingResource::TextureView(&texture_view),
+  //       },
+  //       wgpu::Binding {
+  //         binding: 2,
+  //         resource: wgpu::BindingResource::Sampler(sampler.get_gpu_sampler()),
+  //       },
+  //     ],
+  //   })
+  // }
 }
 
 pub struct WGPUPipelineDescriptorBuilder {
@@ -56,10 +70,6 @@ impl WGPUPipelineDescriptorBuilder {
     device: &wgpu::Device,
     sc_desc: &wgpu::SwapChainDescriptor,
   ) -> WGPUPipeline {
-    // Create pipeline layout
-    // let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-    //   bindings: &self.binding_groups[0].bindings,
-    // });
 
     let bind_group_layouts: Vec<_> = self
       .binding_groups

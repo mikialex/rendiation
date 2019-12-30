@@ -4,7 +4,7 @@ pub struct WGPUSampler {
 }
 
 impl WGPUSampler {
-  pub fn new(device: wgpu::Device) -> Self {
+  pub fn new(device: &wgpu::Device) -> Self {
     let des = wgpu::SamplerDescriptor {
       address_mode_u: wgpu::AddressMode::ClampToEdge,
       address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -22,5 +22,9 @@ impl WGPUSampler {
       gpu_sampler: sampler,
       descriptor: des,
     }
+  }
+
+  pub fn get_gpu_sampler(&self) -> &wgpu::Sampler {
+    &self.gpu_sampler
   }
 }
