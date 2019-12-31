@@ -1,38 +1,11 @@
-use crate::renderer::bindgroup::BindGroupBuilder;
 
-pub trait VertexProvider {
-  fn get_stride() -> usize;
+pub trait VertexProvider<'a> {
+  fn get_buffer_layout_discriptor()-> wgpu::VertexBufferDescriptor<'a>;
 }
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
   pub bind_group_layouts: Vec<wgpu::BindGroupLayout>,
-}
-
-impl WGPUPipeline {
-  // pub fn make_binding_group(&self, index: usize, device: &wgpu::Device, items: &[WGPUBinding]) -> wgpu::BindGroup {
-
-  //   device.create_bind_group(&wgpu::BindGroupDescriptor {
-  //     layout: &self.bind_group_layouts[index],
-  //     bindings: &[
-  //       wgpu::Binding {
-  //         binding: 0,
-  //         resource: wgpu::BindingResource::Buffer {
-  //           buffer: &uniform_buf.get_gpu_buffer(),
-  //           range: 0..64,
-  //         },
-  //       },
-  //       wgpu::Binding {
-  //         binding: 1,
-  //         resource: wgpu::BindingResource::TextureView(&texture_view),
-  //       },
-  //       wgpu::Binding {
-  //         binding: 2,
-  //         resource: wgpu::BindingResource::Sampler(sampler.get_gpu_sampler()),
-  //       },
-  //     ],
-  //   })
-  // }
 }
 
 pub struct BindGroupLayoutBuilder{
@@ -50,10 +23,6 @@ impl BindGroupLayoutBuilder {
     self.bindings.push(b);
     self
   }
-
-  pub fn build(){
-    
-  }
 }
 
 pub struct WGPUPipelineDescriptorBuilder {
@@ -62,7 +31,7 @@ pub struct WGPUPipelineDescriptorBuilder {
   binding_groups: Vec<BindGroupLayoutBuilder>,
 }
 
-impl WGPUPipelineDescriptorBuilder {
+impl<'a> WGPUPipelineDescriptorBuilder {
   pub fn new() -> Self {
     WGPUPipelineDescriptorBuilder {
       vertex_shader: String::from(""),
@@ -86,7 +55,7 @@ impl WGPUPipelineDescriptorBuilder {
     self
   }
 
-  pub fn build<T: VertexProvider>(
+  pub fn build<T: VertexProvider<'a>>(
     &self,
     device: &wgpu::Device,
     sc_desc: &wgpu::SwapChainDescriptor,
@@ -147,22 +116,7 @@ impl WGPUPipelineDescriptorBuilder {
       }],
       depth_stencil_state: None,
       index_format: wgpu::IndexFormat::Uint16,
-      vertex_buffers: &[wgpu::VertexBufferDescriptor {
-        stride: T::get_stride() as wgpu::BufferAddress,
-        step_mode: wgpu::InputStepMode::Vertex,
-        attributes: &[
-          wgpu::VertexAttributeDescriptor {
-            format: wgpu::VertexFormat::Float4,
-            offset: 0,
-            shader_location: 0,
-          },
-          wgpu::VertexAttributeDescriptor {
-            format: wgpu::VertexFormat::Float2,
-            offset: 4 * 4,
-            shader_location: 1,
-          },
-        ],
-      }],
+      vertex_buffers: &[T::get_buffer_layout_discriptor()],
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,

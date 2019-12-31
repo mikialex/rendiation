@@ -1,6 +1,8 @@
 use crate::application::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
+mod vertex;
+use vertex::*;
 mod util;
 use util::*;
 
@@ -72,24 +74,24 @@ impl Application for Rinecraft {
       )
       .binding_group(
         BindGroupLayoutBuilder::new()
-        .binding(wgpu::BindGroupLayoutBinding {
-          binding: 0,
-          visibility: wgpu::ShaderStage::VERTEX,
-          ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-        })
-        .binding(wgpu::BindGroupLayoutBinding {
-          binding: 1,
-          visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::SampledTexture {
-            multisampled: false,
-            dimension: wgpu::TextureViewDimension::D2,
-          },
-        })
-        .binding(wgpu::BindGroupLayoutBinding {
-          binding: 2,
-          visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::Sampler,
-        })
+          .binding(wgpu::BindGroupLayoutBinding {
+            binding: 0,
+            visibility: wgpu::ShaderStage::VERTEX,
+            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+          })
+          .binding(wgpu::BindGroupLayoutBinding {
+            binding: 1,
+            visibility: wgpu::ShaderStage::FRAGMENT,
+            ty: wgpu::BindingType::SampledTexture {
+              multisampled: false,
+              dimension: wgpu::TextureViewDimension::D2,
+            },
+          })
+          .binding(wgpu::BindGroupLayoutBinding {
+            binding: 2,
+            visibility: wgpu::ShaderStage::FRAGMENT,
+            ty: wgpu::BindingType::Sampler,
+          }),
       );
 
     let pipeline = pipeline_builder.build::<Vertex>(device, sc_desc);
@@ -122,30 +124,10 @@ impl Application for Rinecraft {
 
     // Create bind group
     let bind_group = BindGroupBuilder::new()
-    .buffer(&uniform_buf)
-    .texture(&texture_view)
-    .sampler(&sampler)
-    .build(device,&pipeline.bind_group_layouts[0]);
-    // let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-    //   layout: &pipeline.bind_group_layouts[0], // todo
-    //   bindings: &[
-    //     wgpu::Binding {
-    //       binding: 0,
-    //       resource: wgpu::BindingResource::Buffer {
-    //         buffer: &uniform_buf.get_gpu_buffer(),
-    //         range: 0..64,
-    //       },
-    //     },
-    //     wgpu::Binding {
-    //       binding: 1,
-    //       resource: wgpu::BindingResource::TextureView(&texture_view),
-    //     },
-    //     wgpu::Binding {
-    //       binding: 2,
-    //       resource: wgpu::BindingResource::Sampler(sampler.get_gpu_sampler()),
-    //     },
-    //   ],
-    // });
+      .buffer(&uniform_buf)
+      .texture(&texture_view)
+      .sampler(&sampler)
+      .build(device, &pipeline.bind_group_layouts[0]);
 
     // Done
     let this = Rinecraft {
