@@ -1,9 +1,10 @@
 use crate::renderer::pipeline::VertexProvider;
+use rendiation_math::*;
 
 #[derive(Clone, Copy)]
 pub struct Vertex {
-  _pos: [f32; 4],
-  _tex_coord: [f32; 2],
+  position: Vec3<f32>,
+  uv: Vec2<f32>,
 }
 
 impl<'a> VertexProvider<'a> for Vertex {
@@ -20,7 +21,7 @@ impl<'a> VertexProvider<'a> for Vertex {
         },
         wgpu::VertexAttributeDescriptor {
           format: wgpu::VertexFormat::Float2,
-          offset: 4 * 4,
+          offset: 4 * 3,
           shader_location: 1,
         },
       ],
@@ -30,7 +31,7 @@ impl<'a> VertexProvider<'a> for Vertex {
 
 pub fn vertex(pos: [i8; 3], tc: [i8; 2]) -> Vertex {
   Vertex {
-    _pos: [pos[0] as f32, pos[1] as f32, pos[2] as f32, 1.0],
-    _tex_coord: [tc[0] as f32, tc[1] as f32],
+    position: Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
+    uv: Vec2::new(tc[0] as f32, tc[1] as f32),
   }
 }

@@ -38,40 +38,8 @@ impl Application for Rinecraft {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
 
     pipeline_builder
-      .vertex_shader(
-        r#"
-            #version 450
-
-            layout(location = 0) in vec4 a_Pos;
-            layout(location = 1) in vec2 a_TexCoord;
-            layout(location = 0) out vec2 v_TexCoord;
-
-            layout(set = 0, binding = 0) uniform Locals {
-                mat4 u_Transform;
-            };
-
-            void main() {
-                v_TexCoord = a_TexCoord;
-                gl_Position = u_Transform * a_Pos;
-            }
-        "#,
-      )
-      .frag_shader(
-        r#"
-          #version 450
-
-          layout(location = 0) in vec2 v_TexCoord;
-          layout(location = 0) out vec4 o_Target;
-          layout(set = 0, binding = 1) uniform texture2D t_Color;
-          layout(set = 0, binding = 2) uniform sampler s_Color;
-          
-          void main() {
-              vec4 tex = texture(sampler2D(t_Color, s_Color), v_TexCoord);
-              float mag = length(v_TexCoord-vec2(0.5));
-              o_Target = mix(tex, vec4(0.0), mag*mag);
-          }
-      "#,
-      )
+      .vertex_shader(include_str!("./shader.vert"))
+      .frag_shader(include_str!("./shader.frag"))
       .binding_group(
         BindGroupLayoutBuilder::new()
           .binding(wgpu::BindGroupLayoutBinding {

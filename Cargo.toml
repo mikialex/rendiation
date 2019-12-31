@@ -11,4 +11,4 @@ members = [
 # Tell `rustc` to optimize for small code size.
 # opt-level = 's'
 
-opt-level = 3
+# opt-level = 3
