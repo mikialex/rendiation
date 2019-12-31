@@ -8,7 +8,7 @@ pub struct Rinecraft {
   vertex_buf: WGPUBuffer,
   index_buf: WGPUBuffer,
   index_count: usize,
-  bind_group: wgpu::BindGroup,
+  bind_group: WGPUBindGroup,
   uniform_buf: WGPUBuffer,
   pipeline: WGPUPipeline,
 }
@@ -71,7 +71,7 @@ impl Application for Rinecraft {
       "#,
       )
       .binding_group(
-        BindGroupBuilder::new()
+        BindGroupLayoutBuilder::new()
         .binding(wgpu::BindGroupLayoutBinding {
           binding: 0,
           visibility: wgpu::ShaderStage::VERTEX,
@@ -121,26 +121,31 @@ impl Application for Rinecraft {
     );
 
     // Create bind group
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &pipeline.bind_group_layouts[0], // todo
-      bindings: &[
-        wgpu::Binding {
-          binding: 0,
-          resource: wgpu::BindingResource::Buffer {
-            buffer: &uniform_buf.get_gpu_buffer(),
-            range: 0..64,
-          },
-        },
-        wgpu::Binding {
-          binding: 1,
-          resource: wgpu::BindingResource::TextureView(&texture_view),
-        },
-        wgpu::Binding {
-          binding: 2,
-          resource: wgpu::BindingResource::Sampler(sampler.get_gpu_sampler()),
-        },
-      ],
-    });
+    let bind_group = BindGroupBuilder::new()
+    .buffer(&uniform_buf)
+    .texture(&texture_view)
+    .sampler(&sampler)
+    .build(device,&pipeline.bind_group_layouts[0]);
+    // let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    //   layout: &pipeline.bind_group_layouts[0], // todo
+    //   bindings: &[
+    //     wgpu::Binding {
+    //       binding: 0,
+    //       resource: wgpu::BindingResource::Buffer {
+    //         buffer: &uniform_buf.get_gpu_buffer(),
+    //         range: 0..64,
+    //       },
+    //     },
+    //     wgpu::Binding {
+    //       binding: 1,
+    //       resource: wgpu::BindingResource::TextureView(&texture_view),
+    //     },
+    //     wgpu::Binding {
+    //       binding: 2,
+    //       resource: wgpu::BindingResource::Sampler(sampler.get_gpu_sampler()),
+    //     },
+    //   ],
+    // });
 
     // Done
     let this = Rinecraft {
@@ -195,7 +200,7 @@ impl Application for Rinecraft {
         depth_stencil_attachment: None,
       });
       rpass.set_pipeline(&self.pipeline.pipeline);
-      rpass.set_bind_group(0, &self.bind_group, &[]);
+      rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
       rpass.set_index_buffer(&self.index_buf.get_gpu_buffer(), 0);
       rpass.set_vertex_buffers(0, &[(&self.vertex_buf.get_gpu_buffer(), 0)]);
       rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);

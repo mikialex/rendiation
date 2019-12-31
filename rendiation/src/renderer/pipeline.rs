@@ -35,10 +35,31 @@ impl WGPUPipeline {
   // }
 }
 
+pub struct BindGroupLayoutBuilder{
+  pub bindings: Vec<wgpu::BindGroupLayoutBinding>,
+}
+
+impl BindGroupLayoutBuilder {
+  pub fn new() -> Self {
+    Self{
+      bindings: Vec::new()
+    }
+  }
+
+  pub fn binding(mut self, b: wgpu::BindGroupLayoutBinding) -> Self {
+    self.bindings.push(b);
+    self
+  }
+
+  pub fn build(){
+    
+  }
+}
+
 pub struct WGPUPipelineDescriptorBuilder {
   vertex_shader: String,
   frag_shader: String,
-  binding_groups: Vec<BindGroupBuilder>,
+  binding_groups: Vec<BindGroupLayoutBuilder>,
 }
 
 impl WGPUPipelineDescriptorBuilder {
@@ -60,7 +81,7 @@ impl WGPUPipelineDescriptorBuilder {
     self
   }
 
-  pub fn binding_group(&mut self, b: BindGroupBuilder) -> &mut Self {
+  pub fn binding_group(&mut self, b: BindGroupLayoutBuilder) -> &mut Self {
     self.binding_groups.push(b);
     self
   }
