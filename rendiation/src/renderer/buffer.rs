@@ -1,6 +1,7 @@
 pub struct WGPUBuffer {
   gpu_buffer: wgpu::Buffer,
   size: usize,
+  stride: usize,
   usage: wgpu::BufferUsage,
 }
 
@@ -20,9 +21,11 @@ impl WGPUBuffer {
     value: &[T],
     usage: wgpu::BufferUsage,
   ) -> Self {
+    use std::mem;
     Self {
       gpu_buffer: create_buffer(device, value, usage),
       size: value.len(),
+      stride: mem::size_of::<T>(),
       usage,
     }
   }
@@ -41,14 +44,13 @@ impl WGPUBuffer {
       0,
       &self.gpu_buffer,
       0,
-      self.get_byte_length::<T>() as u64,
+      self.get_byte_length() as u64,
     );
     self
   }
 
-  pub fn get_byte_length<T>(&self) -> usize {
-    use std::mem;
-    self.size * mem::size_of::<T>()
+  pub fn get_byte_length(&self) -> usize {
+    self.size * self.stride
   }
 
   pub fn get_gpu_buffer(&self) -> &wgpu::Buffer {

@@ -1,52 +1,61 @@
+use crate::renderer::sampler::WGPUSampler;
+use crate::renderer::texture::WGPUTexture;
+use crate::renderer::buffer::WGPUBuffer;
+
 pub enum WGPUBinding {
-  WGPUBuffer,
-  WGPUTexture,
-  WGPUSampler,
+  BindBuffer(WGPUBuffer),
+  BindTexture(wgpu::TextureView),
+  BindSampler(WGPUSampler),
 }
 
 pub struct WGPUBindGroup {
   gpu_buffer: wgpu::BindGroup,
-  bindings: Vec<WGPUBinding>
 }
 
 impl WGPUBindGroup{
   pub fn new(device: &wgpu::Device, bindings: &[WGPUBinding], layout: &wgpu::BindGroupLayout) -> Self{
-    let wgpu_bindings = bindings.iter().map(|binding|{
-      let resource = match binding{
-        WGPUBuffer =>{
+    let resouce_wrap: Vec<_> = bindings.iter().map(|binding|{
+      match binding{
+        WGPUBinding::BindBuffer(buffer) =>{
           wgpu::BindingResource::Buffer {
-            buffer: &uniform_buf.get_gpu_buffer(),
-            range: 0..64,
-          },
-        }
+            buffer: &buffer.get_gpu_buffer(),
+            range: 0..buffer.get_byte_length() as u64,
+          }
         },
-        WGPUTexture =>{
-          wgpu::BindingResource::TextureView(&texture_view)
+        WGPUBinding::BindTexture(texture) => {
+          wgpu::BindingResource::TextureView(&texture)
         },
-        WGPUSampler =>{
+        WGPUBinding::BindSampler(sampler) =>{
           wgpu::BindingResource::Sampler(sampler.get_gpu_sampler())
         }
       }
+    }).collect();
 
-    });
+    let mut count = 0;
+    let wgpu_bindings: Vec<_> = resouce_wrap.iter().map(|resource|{
+      let b = wgpu::Binding {
+        binding: count,
+        resource: resource.clone(), // todo improvement
+      };
+      count+= 1;
+      b
+    }).collect();
 
     let wgpu_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
       layout,
       bindings: &wgpu_bindings,
-    })
+    });
 
     Self{
-      
+      gpu_buffer:wgpu_bindgroup,
     }
   }
-  }
 
-
-  pub fn update() -> Self {
-    Self{
-      bindings: Vec::new()
-    }
-  }
+  // pub fn update() -> Self {
+  //   Self{
+  //     bindings: Vec::new()
+  //   }
+  // }
 
 }
 
@@ -67,6 +76,6 @@ impl BindGroupBuilder {
   }
 
   pub fn build(){
-
+    
   }
 }
