@@ -5,6 +5,7 @@ pub mod vec4;
 pub mod mat2;
 pub mod mat3;
 pub mod mat4;
+pub mod mat4_util;
 pub mod quat;
 pub mod dual;
 pub mod type_size;

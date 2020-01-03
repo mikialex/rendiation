@@ -1,6 +1,8 @@
+use rendiation_render_entity::{PerspectiveCamera, Camera};
 use crate::application::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
+use rendiation_math::*;
 mod vertex;
 use vertex::*;
 mod util;
@@ -11,18 +13,27 @@ pub struct Rinecraft {
   index_buf: WGPUBuffer,
   index_count: usize,
   bind_group: WGPUBindGroup,
+  camera: PerspectiveCamera,
   uniform_buf: WGPUBuffer,
   pipeline: WGPUPipeline,
 }
 
 impl Rinecraft {
-  fn generate_matrix(aspect_ratio: f32) -> cgmath::Matrix4<f32> {
-    let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
-    let mx_view = cgmath::Matrix4::look_at(
-      cgmath::Point3::new(1.5f32, -5.0, 3.0),
-      cgmath::Point3::new(0f32, 0.0, 0.0),
-      cgmath::Vector3::unit_z(),
+  fn generate_matrix(&mut self, aspect_ratio: f32) -> Mat4<f32> {
+    // let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
+    self.camera.aspect = aspect_ratio;
+    self.camera.update_projection();
+    let mx_projection = self.camera.get_projection_matrix().clone();
+
+    let mx_view = Mat4::lookat_rh(
+      Vec3::new(5f32, 5.0, 5.0),
+      Vec3::new(0f32, 0.0, 0.0),
+      Vec3::unit_y(),
     );
+
+    // let mx_view = Mat4::translate(
+    //   0., 0., -5.0,
+    // );
     let mx_correction = OPENGL_TO_WGPU_MATRIX;
     mx_correction * mx_projection * mx_view
   }
@@ -82,7 +93,19 @@ impl Application for Rinecraft {
 
     // Create other resources
     let sampler = WGPUSampler::new(device);
-    let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+
+    let mut camera = PerspectiveCamera::new();
+    camera.update_projection();
+    let mx_projection = camera.get_projection_matrix().clone();
+    let mx_view = Mat4::look_at_dir(
+      Vec3::new(1.5f32, -5.0, 3.0),
+      Vec3::new(0f32, 0.0, 0.0) - Vec3::new(1.5f32, -5.0, 3.0),
+      Vec3::unit_z(),
+    );
+    let mx_correction = OPENGL_TO_WGPU_MATRIX;
+    let mx_total = mx_correction * mx_projection * mx_view;
+
+    // let mx_total = self.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     let uniform_buf = WGPUBuffer::new(
       device,
@@ -101,6 +124,7 @@ impl Application for Rinecraft {
     let this = Rinecraft {
       vertex_buf,
       index_buf,
+      camera,
       index_count: index_data.len(),
       bind_group,
       uniform_buf,
@@ -120,7 +144,7 @@ impl Application for Rinecraft {
   ) -> Option<wgpu::CommandBuffer> {
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-    let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+    let mx_total = self.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     self.uniform_buf.update(device, &mut encoder, mx_ref);
 
