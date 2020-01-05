@@ -1,4 +1,5 @@
 use winit::event::WindowEvent;
+use crate::renderer::*;
 
 #[allow(dead_code)]
 pub fn cast_slice<T>(data: &[T]) -> &[u8] {
@@ -10,13 +11,11 @@ pub fn cast_slice<T>(data: &[T]) -> &[u8] {
 
 pub trait Application: 'static + Sized {
     fn init(
-        sc_desc: &wgpu::SwapChainDescriptor,
-        device: &wgpu::Device,
+        renderer: &WGPURenderer
     ) -> (Self, Option<wgpu::CommandBuffer>);
     fn resize(
         &mut self,
-        sc_desc: &wgpu::SwapChainDescriptor,
-        device: &wgpu::Device,
+        renderer: &WGPURenderer
     ) -> Option<wgpu::CommandBuffer>;
     fn update(&mut self, event: WindowEvent);
     fn render(
@@ -67,32 +66,33 @@ pub fn run<E: Application>(title: &str) {
         (window, instance, hidpi_factor, size, surface)
     };
 
-    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::Default,
-        backends: wgpu::BackendBit::PRIMARY,
-    })
-    .unwrap();
+    // let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
+    //     power_preference: wgpu::PowerPreference::Default,
+    //     backends: wgpu::BackendBit::PRIMARY,
+    // })
+    // .unwrap();
 
-    let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions {
-            anisotropic_filtering: false,
-        },
-        limits: wgpu::Limits::default(),
-    });
+    // let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+    //     extensions: wgpu::Extensions {
+    //         anisotropic_filtering: false,
+    //     },
+    //     limits: wgpu::Limits::default(),
+    // });
 
-    let mut sc_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        width: size.width.round() as u32,
-        height: size.height.round() as u32,
-        present_mode: wgpu::PresentMode::Vsync,
-    };
-    let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
+    // let mut sc_desc = wgpu::SwapChainDescriptor {
+    //     usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+    //     format: wgpu::TextureFormat::Bgra8UnormSrgb,
+    //     width: size.width.round() as u32,
+    //     height: size.height.round() as u32,
+    //     present_mode: wgpu::PresentMode::Vsync,
+    // };
+    // let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
+    let mut renderer = WGPURenderer::new(surface, (size.width.round() as usize, size.height.round() as usize));
 
     log::info!("Initializing the example...");
-    let (mut example, init_command_buf) = E::init(&sc_desc, &device);
+    let (mut example, init_command_buf) = E::init(&renderer);
     if let Some(command_buf) = init_command_buf {
-        queue.submit(&[command_buf]);
+        renderer.queue.submit(&[command_buf]);
     }
 
     log::info!("Entering render loop...");
@@ -109,12 +109,10 @@ pub fn run<E: Application>(title: &str) {
             } => {
                 let physical = size.to_physical(hidpi_factor);
                 log::info!("Resizing to {:?}", physical);
-                sc_desc.width = physical.width.round() as u32;
-                sc_desc.height = physical.height.round() as u32;
-                swap_chain = device.create_swap_chain(&surface, &sc_desc);
-                let command_buf = example.resize(&sc_desc, &device);
+                renderer.resize(physical.width.round() as usize, physical.height.round() as usize);
+                let command_buf = example.resize(&renderer);
                 if let Some(command_buf) = command_buf {
-                    queue.submit(&[command_buf]);
+                    renderer.queue.submit(&[command_buf]);
                 }
             }
             event::Event::WindowEvent { event, .. } => match event {
@@ -135,9 +133,9 @@ pub fn run<E: Application>(title: &str) {
                 }
             },
             event::Event::EventsCleared => {
-                let frame = swap_chain.get_next_texture();
-                let command_buf = example.render(&frame, &device);
-                queue.submit(&[command_buf]);
+                let frame = renderer.swap_chain.get_next_texture();
+                let command_buf = example.render(&frame, &renderer.device);
+                renderer.queue.submit(&[command_buf]);
             }
             _ => (),
         }

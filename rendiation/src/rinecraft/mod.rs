@@ -41,9 +41,10 @@ impl Rinecraft {
 
 impl Application for Rinecraft {
   fn init(
-    sc_desc: &wgpu::SwapChainDescriptor,
-    device: &wgpu::Device,
+    renderer: &WGPURenderer
   ) -> (Self, Option<wgpu::CommandBuffer>) {
+    let device = &renderer.device;
+    let sc_desc = &renderer.swap_chain_descriptor;
     // code
     use crate::renderer::*;
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
@@ -139,9 +140,11 @@ impl Application for Rinecraft {
 
   fn resize(
     &mut self,
-    sc_desc: &wgpu::SwapChainDescriptor,
-    device: &wgpu::Device,
+    renderer: &WGPURenderer
   ) -> Option<wgpu::CommandBuffer> {
+    let device = &renderer.device;
+    let sc_desc = &renderer.swap_chain_descriptor;
+
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
     let mx_total = self.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);

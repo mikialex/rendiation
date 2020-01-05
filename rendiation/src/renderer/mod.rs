@@ -19,13 +19,13 @@ pub use texture::*;
 pub struct WGPURenderer {
   surface: wgpu::Surface,
   adapter: wgpu::Adapter,
-  device: wgpu::Device,
-  queue: wgpu::Queue,
+  pub device: wgpu::Device,
+  pub queue: wgpu::Queue,
   // pipelines: HashMap<String, WGPUPipeline>,
   // depth: WGPUAttachmentTexture,
 
-  swap_chain: wgpu::SwapChain,
-  swap_chain_descriptor: wgpu::SwapChainDescriptor,
+  pub swap_chain: wgpu::SwapChain,
+  pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
 }
 
 impl WGPURenderer {
