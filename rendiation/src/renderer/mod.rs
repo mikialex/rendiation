@@ -65,6 +65,10 @@ impl WGPURenderer {
   }
 
   pub fn resize(&mut self, width: usize, height: usize) {
+    self.swap_chain_descriptor.width = width as u32;
+    self.swap_chain_descriptor.height = height as u32;
+    self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+
     // self.depth.resize(&self.device, width, height)
   }
 
