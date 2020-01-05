@@ -66,27 +66,6 @@ pub fn run<E: Application>(title: &str) {
         (window, instance, hidpi_factor, size, surface)
     };
 
-    // let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-    //     power_preference: wgpu::PowerPreference::Default,
-    //     backends: wgpu::BackendBit::PRIMARY,
-    // })
-    // .unwrap();
-
-    // let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-    //     extensions: wgpu::Extensions {
-    //         anisotropic_filtering: false,
-    //     },
-    //     limits: wgpu::Limits::default(),
-    // });
-
-    // let mut sc_desc = wgpu::SwapChainDescriptor {
-    //     usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-    //     format: wgpu::TextureFormat::Bgra8UnormSrgb,
-    //     width: size.width.round() as u32,
-    //     height: size.height.round() as u32,
-    //     present_mode: wgpu::PresentMode::Vsync,
-    // };
-    // let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
     let mut renderer = WGPURenderer::new(surface, (size.width.round() as usize, size.height.round() as usize));
 
     log::info!("Initializing the example...");

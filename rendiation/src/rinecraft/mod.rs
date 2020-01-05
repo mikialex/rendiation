@@ -20,7 +20,6 @@ pub struct Rinecraft {
 
 impl Rinecraft {
   fn generate_matrix(&mut self, aspect_ratio: f32) -> Mat4<f32> {
-    // let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
     self.camera.aspect = aspect_ratio;
     self.camera.update_projection();
     let mx_projection = self.camera.get_projection_matrix().clone();
@@ -31,9 +30,6 @@ impl Rinecraft {
       Vec3::unit_y(),
     );
 
-    // let mx_view = Mat4::translate(
-    //   0., 0., -5.0,
-    // );
     let mx_correction = OPENGL_TO_WGPU_MATRIX;
     mx_correction * mx_projection * mx_view
   }
