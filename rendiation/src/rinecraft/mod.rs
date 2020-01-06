@@ -22,7 +22,7 @@ impl Rinecraft {
   fn generate_matrix(&mut self, aspect_ratio: f32) -> Mat4<f32> {
     self.camera.aspect = aspect_ratio;
     self.camera.update_projection();
-    let mx_projection = self.camera.get_projection_matrix().clone();
+    let mx_projection = *self.camera.get_projection_matrix();
 
     let mx_view = Mat4::lookat_rh(
       Vec3::new(5f32, 5.0, 5.0),
@@ -92,12 +92,13 @@ impl Application for Rinecraft {
     let sampler = WGPUSampler::new(device);
 
     let mut camera = PerspectiveCamera::new();
+    camera.aspect = sc_desc.width as f32 / sc_desc.height as f32;
     camera.update_projection();
-    let mx_projection = camera.get_projection_matrix().clone();
-    let mx_view = Mat4::look_at_dir(
-      Vec3::new(1.5f32, -5.0, 3.0),
-      Vec3::new(0f32, 0.0, 0.0) - Vec3::new(1.5f32, -5.0, 3.0),
-      Vec3::unit_z(),
+    let mx_projection = *camera.get_projection_matrix();
+    let mx_view = Mat4::lookat_rh(
+      Vec3::new(5f32, 5.0, 5.0),
+      Vec3::new(0f32, 0.0, 0.0),
+      Vec3::unit_y(),
     );
     let mx_correction = OPENGL_TO_WGPU_MATRIX;
     let mx_total = mx_correction * mx_projection * mx_view;

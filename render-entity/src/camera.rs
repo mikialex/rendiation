@@ -26,7 +26,7 @@ impl PerspectiveCamera{
       transform: Transformation::new(),
     
       near: 1.,
-      far: 100000.,
+      far: 100_000.,
       fov: 45.,
       aspect: 1.,
       zoom: 1.,

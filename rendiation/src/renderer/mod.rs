@@ -8,6 +8,7 @@ pub mod pipeline;
 pub mod sampler;
 pub mod shader_util;
 pub mod texture;
+pub mod render_pass;
 
 pub use attachment_texture::*;
 pub use bindgroup::*;
@@ -15,6 +16,7 @@ pub use buffer::*;
 pub use pipeline::*;
 pub use sampler::*;
 pub use texture::*;
+pub use render_pass::*;
 
 pub struct WGPURenderer {
   surface: wgpu::Surface,
@@ -26,6 +28,8 @@ pub struct WGPURenderer {
 
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
+
+  // pub active_render_pass: WGPURenderPass<'static>,
 }
 
 impl WGPURenderer {
