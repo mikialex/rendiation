@@ -183,3 +183,7 @@ impl Application for Rinecraft {
     encoder.finish()
   }
 }
+
+// trait WGPURenderabled{
+//   fn render(device: &wgpu::Device, encoder: wgpu::CommandEncoder);
+// }
