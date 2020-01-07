@@ -32,6 +32,10 @@ impl WGPUAttachmentTexture {
     }
   }
 
+  pub fn get_view(&self) -> &wgpu::TextureView {
+    &self.view
+  }
+
   pub fn resize(&mut self, device: &wgpu::Device, width: usize, height: usize) {
     self.descriptor.size.width = width as u32;
     self.descriptor.size.height = height as u32;

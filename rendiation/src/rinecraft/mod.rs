@@ -1,8 +1,8 @@
-use rendiation_render_entity::{PerspectiveCamera, Camera};
 use crate::application::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
 use rendiation_math::*;
+use rendiation_render_entity::{Camera, PerspectiveCamera};
 mod vertex;
 use vertex::*;
 mod util;
@@ -36,9 +36,7 @@ impl Rinecraft {
 }
 
 impl Application for Rinecraft {
-  fn init(
-    renderer: &WGPURenderer
-  ) -> (Self, Option<wgpu::CommandBuffer>) {
+  fn init(renderer: &WGPURenderer) -> (Self, Option<wgpu::CommandBuffer>) {
     let device = &renderer.device;
     let sc_desc = &renderer.swap_chain_descriptor;
     // code
@@ -135,10 +133,7 @@ impl Application for Rinecraft {
     //empty
   }
 
-  fn resize(
-    &mut self,
-    renderer: &WGPURenderer
-  ) -> Option<wgpu::CommandBuffer> {
+  fn resize(&mut self, renderer: &WGPURenderer) -> Option<wgpu::CommandBuffer> {
     let device = &renderer.device;
     let sc_desc = &renderer.swap_chain_descriptor;
 
@@ -157,22 +152,12 @@ impl Application for Rinecraft {
     device: &wgpu::Device,
   ) -> wgpu::CommandBuffer {
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+
     {
-      let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-          attachment: &frame.view,
-          resolve_target: None,
-          load_op: wgpu::LoadOp::Clear,
-          store_op: wgpu::StoreOp::Store,
-          clear_color: wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-          },
-        }],
-        depth_stencil_attachment: None,
-      });
+      let mut pass = WGPURenderPass::build()
+      .output_with_clear(&frame.view, (0.1, 0.2, 0.3, 1.0))
+      .create(&mut encoder);
+      let rpass = &mut pass.gpu_pass;
       rpass.set_pipeline(&self.pipeline.pipeline);
       rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
       rpass.set_index_buffer(&self.index_buf.get_gpu_buffer(), 0);
