@@ -18,17 +18,18 @@ pub use sampler::*;
 pub use texture::*;
 pub use render_pass::*;
 
-trait Renderer{
-  
+pub trait Renderer: 'static + Sized{
+  fn init(device: &wgpu::Device, size: (usize, usize)) -> Self;
+  fn resize(&mut self, device: &wgpu::Device, size: (usize, usize));
 }
 
-pub struct WGPURenderer {
+pub struct WGPURenderer<T: Renderer> {
   surface: wgpu::Surface,
   adapter: wgpu::Adapter,
   pub device: wgpu::Device,
   pub queue: wgpu::Queue,
-  // pipelines: HashMap<String, WGPUPipeline>,
-  depth: WGPUAttachmentTexture,
+
+  pub renderer: T,
 
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
@@ -36,7 +37,7 @@ pub struct WGPURenderer {
   // pub active_render_pass: WGPURenderPass<'static>,
 }
 
-impl WGPURenderer {
+impl<T: Renderer> WGPURenderer<T> {
   pub fn new(surface: wgpu::Surface, size: (usize, usize)) -> Self {
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
       power_preference: wgpu::PowerPreference::Default,
@@ -59,14 +60,14 @@ impl WGPURenderer {
     };
     let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
-    let depth = WGPUAttachmentTexture::new_as_depth(&device, wgpu::TextureFormat::Depth32Float, size);
+    let renderer = T::init(&device, size);
     Self{
       surface,
       adapter,
       device,
       queue,
-      // pipelines: HashMap<String, WGPUPipeline>,
-      depth,
+
+      renderer,
 
       swap_chain,
       swap_chain_descriptor,
@@ -77,8 +78,7 @@ impl WGPURenderer {
     self.swap_chain_descriptor.width = width as u32;
     self.swap_chain_descriptor.height = height as u32;
     self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
-
-    self.depth.resize(&self.device, width, height)
+    self.renderer.resize(&self.device, (width, height))
   }
 
   // pub fn render(&mut self) {

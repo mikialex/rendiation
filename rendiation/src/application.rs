@@ -1,3 +1,4 @@
+use crate::renderer::Renderer;
 use winit::event::WindowEvent;
 use crate::renderer::*;
 
@@ -9,23 +10,24 @@ pub fn cast_slice<T>(data: &[T]) -> &[u8] {
     unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
 }
 
-pub trait Application: 'static + Sized {
+pub trait Application<R: Renderer>: 'static + Sized {
     fn init(
-        renderer: &WGPURenderer
+        renderer: &WGPURenderer<R>
     ) -> (Self, Option<wgpu::CommandBuffer>);
     fn resize(
         &mut self,
-        renderer: &WGPURenderer
+        renderer: &WGPURenderer<R>
     ) -> Option<wgpu::CommandBuffer>;
     fn update(&mut self, event: WindowEvent);
     fn render(
         &mut self,
         frame: &wgpu::SwapChainOutput,
         device: &wgpu::Device,
+        renderer: &mut R,
     ) -> wgpu::CommandBuffer;
 }
 
-pub fn run<E: Application>(title: &str) {
+pub fn run<R: Renderer, E: Application<R>>(title: &str) {
     use winit::{
         event,
         event_loop::{ControlFlow, EventLoop},
@@ -113,7 +115,7 @@ pub fn run<E: Application>(title: &str) {
             },
             event::Event::EventsCleared => {
                 let frame = renderer.swap_chain.get_next_texture();
-                let command_buf = example.render(&frame, &renderer.device);
+                let command_buf = example.render(&frame, &renderer.device, &mut renderer.renderer);
                 renderer.queue.submit(&[command_buf]);
             }
             _ => (),

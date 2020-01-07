@@ -7,6 +7,8 @@ mod vertex;
 use vertex::*;
 mod util;
 use util::*;
+pub mod test_renderer;
+use test_renderer::*;
 
 pub struct Rinecraft {
   vertex_buf: WGPUBuffer,
@@ -35,8 +37,8 @@ impl Rinecraft {
   }
 }
 
-impl Application for Rinecraft {
-  fn init(renderer: &WGPURenderer) -> (Self, Option<wgpu::CommandBuffer>) {
+impl Application<TestRenderer> for Rinecraft {
+  fn init(renderer: &WGPURenderer<TestRenderer>) -> (Self, Option<wgpu::CommandBuffer>) {
     let device = &renderer.device;
     let sc_desc = &renderer.swap_chain_descriptor;
     // code
@@ -133,7 +135,7 @@ impl Application for Rinecraft {
     //empty
   }
 
-  fn resize(&mut self, renderer: &WGPURenderer) -> Option<wgpu::CommandBuffer> {
+  fn resize(&mut self, renderer: &WGPURenderer<TestRenderer>) -> Option<wgpu::CommandBuffer> {
     let device = &renderer.device;
     let sc_desc = &renderer.swap_chain_descriptor;
 
@@ -150,13 +152,16 @@ impl Application for Rinecraft {
     &mut self,
     frame: &wgpu::SwapChainOutput,
     device: &wgpu::Device,
+    renderer: &mut TestRenderer,
   ) -> wgpu::CommandBuffer {
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
     {
       let mut pass = WGPURenderPass::build()
-      .output_with_clear(&frame.view, (0.1, 0.2, 0.3, 1.0))
-      .create(&mut encoder);
+        .output_with_clear(&frame.view, (0.1, 0.2, 0.3, 1.0))
+        .with_depth(&renderer.depth.get_view())
+        .create(&mut encoder);
+
       let rpass = &mut pass.gpu_pass;
       rpass.set_pipeline(&self.pipeline.pipeline);
       rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
