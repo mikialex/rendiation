@@ -18,13 +18,17 @@ pub use sampler::*;
 pub use texture::*;
 pub use render_pass::*;
 
+trait Renderer{
+  
+}
+
 pub struct WGPURenderer {
   surface: wgpu::Surface,
   adapter: wgpu::Adapter,
   pub device: wgpu::Device,
   pub queue: wgpu::Queue,
   // pipelines: HashMap<String, WGPUPipeline>,
-  // depth: WGPUAttachmentTexture,
+  depth: WGPUAttachmentTexture,
 
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
@@ -55,13 +59,14 @@ impl WGPURenderer {
     };
     let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
+    let depth = WGPUAttachmentTexture::new_as_depth(&device, wgpu::TextureFormat::Depth32Float, size);
     Self{
       surface,
       adapter,
       device,
       queue,
       // pipelines: HashMap<String, WGPUPipeline>,
-      // depth: WGPUAttachmentTexture,
+      depth,
 
       swap_chain,
       swap_chain_descriptor,
@@ -73,16 +78,16 @@ impl WGPURenderer {
     self.swap_chain_descriptor.height = height as u32;
     self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
 
-    // self.depth.resize(&self.device, width, height)
+    self.depth.resize(&self.device, width, height)
   }
 
-  pub fn render(&mut self) {
-    let frame = self.swap_chain.get_next_texture();
-    let mut encoder = self
-      .device
-      .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-    // current_frame: wgpu::SwapChainOutput,
+  // pub fn render(&mut self) {
+  //   let frame = self.swap_chain.get_next_texture();
+  //   let mut encoder = self
+  //     .device
+  //     .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+  //   // current_frame: wgpu::SwapChainOutput,
 
-    encoder.finish();
-  }
+  //   encoder.finish();
+  // }
 }
