@@ -19,6 +19,21 @@ pub struct PerspectiveCamera{
   pub zoom: f32,
 }
 
+impl PerspectiveCamera{
+  pub fn new() -> Self {
+    Self{
+      projection_matrix: Mat4::<f32>::one(),
+      transform: Transformation::new(),
+    
+      near: 1.,
+      far: 100_000.,
+      fov: 45.,
+      aspect: 1.,
+      zoom: 1.,
+    }
+  }
+}
+
 
 impl Camera for PerspectiveCamera{
   fn update_projection(&mut self){

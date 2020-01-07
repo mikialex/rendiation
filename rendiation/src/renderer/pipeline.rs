@@ -1,6 +1,5 @@
-
 pub trait VertexProvider<'a> {
-  fn get_buffer_layout_discriptor()-> wgpu::VertexBufferDescriptor<'a>;
+  fn get_buffer_layout_discriptor() -> wgpu::VertexBufferDescriptor<'a>;
 }
 
 pub struct WGPUPipeline {
@@ -8,14 +7,14 @@ pub struct WGPUPipeline {
   pub bind_group_layouts: Vec<wgpu::BindGroupLayout>,
 }
 
-pub struct BindGroupLayoutBuilder{
+pub struct BindGroupLayoutBuilder {
   pub bindings: Vec<wgpu::BindGroupLayoutBinding>,
 }
 
 impl BindGroupLayoutBuilder {
   pub fn new() -> Self {
-    Self{
-      bindings: Vec::new()
+    Self {
+      bindings: Vec::new(),
     }
   }
 
@@ -60,7 +59,6 @@ impl<'a> WGPUPipelineDescriptorBuilder {
     device: &wgpu::Device,
     sc_desc: &wgpu::SwapChainDescriptor,
   ) -> WGPUPipeline {
-
     let bind_group_layouts: Vec<_> = self
       .binding_groups
       .iter()
@@ -102,7 +100,7 @@ impl<'a> WGPUPipelineDescriptorBuilder {
       }),
       rasterization_state: Some(wgpu::RasterizationStateDescriptor {
         front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::Back,
+        cull_mode: wgpu::CullMode::None,
         depth_bias: 0,
         depth_bias_slope_scale: 0.0,
         depth_bias_clamp: 0.0,
@@ -114,7 +112,16 @@ impl<'a> WGPUPipelineDescriptorBuilder {
         alpha_blend: wgpu::BlendDescriptor::REPLACE,
         write_mask: wgpu::ColorWrite::ALL,
       }],
-      depth_stencil_state: None,
+      depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+        format: wgpu::TextureFormat::Depth32Float,
+        depth_write_enabled: true,
+        depth_compare: wgpu::CompareFunction::LessEqual,
+        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_read_mask: 0,
+        stencil_write_mask: 0,
+      }),
+      // depth_stencil_state: None,
       index_format: wgpu::IndexFormat::Uint16,
       vertex_buffers: &[T::get_buffer_layout_discriptor()],
       sample_count: 1,

@@ -1,38 +1,46 @@
 use crate::application::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
+use rendiation_math::*;
+use rendiation_render_entity::{Camera, PerspectiveCamera};
 mod vertex;
 use vertex::*;
 mod util;
 use util::*;
+pub mod test_renderer;
+use test_renderer::*;
 
 pub struct Rinecraft {
   vertex_buf: WGPUBuffer,
   index_buf: WGPUBuffer,
   index_count: usize,
   bind_group: WGPUBindGroup,
+  camera: PerspectiveCamera,
   uniform_buf: WGPUBuffer,
   pipeline: WGPUPipeline,
 }
 
 impl Rinecraft {
-  fn generate_matrix(aspect_ratio: f32) -> cgmath::Matrix4<f32> {
-    let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
-    let mx_view = cgmath::Matrix4::look_at(
-      cgmath::Point3::new(1.5f32, -5.0, 3.0),
-      cgmath::Point3::new(0f32, 0.0, 0.0),
-      cgmath::Vector3::unit_z(),
+  fn generate_matrix(&mut self, aspect_ratio: f32) -> Mat4<f32> {
+    self.camera.aspect = aspect_ratio;
+    self.camera.update_projection();
+    let mx_projection = *self.camera.get_projection_matrix();
+
+    let mx_view = Mat4::lookat_rh(
+      Vec3::new(5f32, 5.0, 5.0),
+      Vec3::new(0f32, 0.0, 0.0),
+      Vec3::unit_y(),
     );
+
     let mx_correction = OPENGL_TO_WGPU_MATRIX;
     mx_correction * mx_projection * mx_view
   }
 }
 
-impl Application for Rinecraft {
-  fn init(
-    sc_desc: &wgpu::SwapChainDescriptor,
-    device: &wgpu::Device,
-  ) -> (Self, Option<wgpu::CommandBuffer>) {
+impl Application<TestRenderer> for Rinecraft {
+  fn init(renderer: &WGPURenderer<TestRenderer>) -> (Self, Option<wgpu::CommandBuffer>) {
+    let device = &renderer.device;
+    let sc_desc = &renderer.swap_chain_descriptor;
     // code
     use crate::renderer::*;
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
@@ -82,7 +90,20 @@ impl Application for Rinecraft {
 
     // Create other resources
     let sampler = WGPUSampler::new(device);
-    let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+
+    let mut camera = PerspectiveCamera::new();
+    camera.aspect = sc_desc.width as f32 / sc_desc.height as f32;
+    camera.update_projection();
+    let mx_projection = *camera.get_projection_matrix();
+    let mx_view = Mat4::lookat_rh(
+      Vec3::new(5f32, 5.0, 5.0),
+      Vec3::new(0f32, 0.0, 0.0),
+      Vec3::unit_y(),
+    );
+    let mx_correction = OPENGL_TO_WGPU_MATRIX;
+    let mx_total = mx_correction * mx_projection * mx_view;
+
+    // let mx_total = self.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     let uniform_buf = WGPUBuffer::new(
       device,
@@ -101,6 +122,7 @@ impl Application for Rinecraft {
     let this = Rinecraft {
       vertex_buf,
       index_buf,
+      camera,
       index_count: index_data.len(),
       bind_group,
       uniform_buf,
@@ -113,14 +135,13 @@ impl Application for Rinecraft {
     //empty
   }
 
-  fn resize(
-    &mut self,
-    sc_desc: &wgpu::SwapChainDescriptor,
-    device: &wgpu::Device,
-  ) -> Option<wgpu::CommandBuffer> {
+  fn resize(&mut self, renderer: &WGPURenderer<TestRenderer>) -> Option<wgpu::CommandBuffer> {
+    let device = &renderer.device;
+    let sc_desc = &renderer.swap_chain_descriptor;
+
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-    let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+    let mx_total = self.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     self.uniform_buf.update(device, &mut encoder, mx_ref);
 
@@ -131,24 +152,17 @@ impl Application for Rinecraft {
     &mut self,
     frame: &wgpu::SwapChainOutput,
     device: &wgpu::Device,
+    renderer: &mut TestRenderer,
   ) -> wgpu::CommandBuffer {
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+
     {
-      let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-          attachment: &frame.view,
-          resolve_target: None,
-          load_op: wgpu::LoadOp::Clear,
-          store_op: wgpu::StoreOp::Store,
-          clear_color: wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-          },
-        }],
-        depth_stencil_attachment: None,
-      });
+      let mut pass = WGPURenderPass::build()
+        .output_with_clear(&frame.view, (0.1, 0.2, 0.3, 1.0))
+        .with_depth(&renderer.depth.get_view())
+        .create(&mut encoder);
+
+      let rpass = &mut pass.gpu_pass;
       rpass.set_pipeline(&self.pipeline.pipeline);
       rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
       rpass.set_index_buffer(&self.index_buf.get_gpu_buffer(), 0);
@@ -159,3 +173,7 @@ impl Application for Rinecraft {
     encoder.finish()
   }
 }
+
+// trait WGPURenderabled{
+//   fn render(device: &wgpu::Device, encoder: wgpu::CommandEncoder);
+// }

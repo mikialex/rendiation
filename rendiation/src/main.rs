@@ -1,3 +1,4 @@
+use crate::rinecraft::test_renderer::TestRenderer;
 use crate::rinecraft::Rinecraft;
 
 extern crate log;
@@ -9,5 +10,5 @@ mod renderer;
 
 fn main() {
     env_logger::init();
-    application::run::<Rinecraft>("rinecraft");
+    application::run::<TestRenderer, Rinecraft>("rinecraft");
 }

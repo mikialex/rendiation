@@ -30,6 +30,10 @@ impl WGPUBuffer {
     }
   }
 
+  pub fn usage(&self) -> wgpu::BufferUsage{
+    self.usage
+  }
+
   pub fn update<T: 'static + Copy>(
     &mut self,
     device: &wgpu::Device,
