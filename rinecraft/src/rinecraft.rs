@@ -131,14 +131,14 @@ impl Application<TestRenderer> for Rinecraft {
     frame: &wgpu::SwapChainOutput,
     device: &wgpu::Device,
     renderer: &mut TestRenderer,
-  ) -> wgpu::CommandBuffer {
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    encoder: &mut wgpu::CommandEncoder,
+  ) {
 
     {
       let mut pass = WGPURenderPass::build()
         .output_with_clear(&frame.view, (0.1, 0.2, 0.3, 1.0))
         .with_depth(&renderer.depth.get_view())
-        .create(&mut encoder);
+        .create(encoder);
 
       let rpass = &mut pass.gpu_pass;
       rpass.set_pipeline(&self.pipeline.pipeline);
@@ -147,8 +147,6 @@ impl Application<TestRenderer> for Rinecraft {
       rpass.set_vertex_buffers(0, &[(&self.vertex_buf.get_gpu_buffer(), 0)]);
       rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
     }
-
-    encoder.finish()
   }
 }
 

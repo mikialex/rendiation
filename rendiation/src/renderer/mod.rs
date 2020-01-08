@@ -22,6 +22,7 @@ pub use render_pass::*;
 pub trait Renderer: 'static + Sized{
   fn init(device: &wgpu::Device, size: (usize, usize)) -> Self;
   fn resize(&mut self, device: &wgpu::Device, size: (usize, usize));
+  fn render();
 }
 
 /// WebGPU renderer backend
@@ -32,6 +33,7 @@ pub struct WGPURenderer<T: Renderer> {
   pub queue: wgpu::Queue,
 
   pub renderer: T,
+  pub encoder: wgpu::CommandEncoder,
 
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
@@ -59,14 +61,14 @@ impl<T: Renderer> WGPURenderer<T> {
       present_mode: wgpu::PresentMode::Vsync,
     };
     let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
-
+    let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
     let renderer = T::init(&device, size);
     Self{
       surface,
       adapter,
       device,
       queue,
-
+      encoder,
       renderer,
 
       swap_chain,

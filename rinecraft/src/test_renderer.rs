@@ -15,4 +15,8 @@ impl Renderer for TestRenderer{
   fn resize(&mut self, device: &wgpu::Device, size: (usize, usize)){
     self.depth.resize(device, size.0, size.1)
   }
+
+  fn render(){
+
+  }
 }

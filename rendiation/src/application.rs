@@ -24,7 +24,8 @@ pub trait Application<R: Renderer>: 'static + Sized {
         frame: &wgpu::SwapChainOutput,
         device: &wgpu::Device,
         renderer: &mut R,
-    ) -> wgpu::CommandBuffer;
+        encoder: &mut wgpu::CommandEncoder,
+    );
 }
 
 pub fn run<R: Renderer, E: Application<R>>(title: &str) {
@@ -115,7 +116,13 @@ pub fn run<R: Renderer, E: Application<R>>(title: &str) {
             },
             event::Event::EventsCleared => {
                 let frame = renderer.swap_chain.get_next_texture();
-                let command_buf = example.render(&frame, &renderer.device, &mut renderer.renderer);
+                example.render(&frame, &renderer.device, &mut renderer.renderer, &mut renderer.encoder);
+
+                let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+                use std::mem;
+                mem::swap(&mut renderer.encoder, &mut encoder);
+                
+                let command_buf = encoder.finish();
                 renderer.queue.submit(&[command_buf]);
             }
             _ => (),
