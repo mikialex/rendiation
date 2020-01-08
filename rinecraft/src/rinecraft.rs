@@ -19,31 +19,12 @@ pub struct Rinecraft {
   pipeline: WGPUPipeline,
 }
 
-impl Rinecraft {
-  fn generate_matrix(&mut self, aspect_ratio: f32) -> Mat4<f32> {
-    self.camera.aspect = aspect_ratio;
-    self.camera.update_projection();
-    let mx_projection = *self.camera.get_projection_matrix();
-
-    let mx_view = Mat4::lookat_rh(
-      Vec3::new(5f32, 5.0, 5.0),
-      Vec3::new(0f32, 0.0, 0.0),
-      Vec3::unit_y(),
-    );
-
-    let mx_correction = OPENGL_TO_WGPU_MATRIX;
-    mx_correction * mx_projection * mx_view
-  }
-}
-
 impl Application<TestRenderer> for Rinecraft {
   fn init(renderer: &WGPURenderer<TestRenderer>) -> (Self, Option<wgpu::CommandBuffer>) {
     let device = &renderer.device;
     let sc_desc = &renderer.swap_chain_descriptor;
-    // code
-    use crate::renderer::*;
+    
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-
     pipeline_builder
       .vertex_shader(include_str!("./shader.vert"))
       .frag_shader(include_str!("./shader.frag"))
@@ -91,18 +72,15 @@ impl Application<TestRenderer> for Rinecraft {
     let sampler = WGPUSampler::new(device);
 
     let mut camera = PerspectiveCamera::new();
-    camera.aspect = sc_desc.width as f32 / sc_desc.height as f32;
+    camera.resize((sc_desc.width as f32, sc_desc.height as f32));
     camera.update_projection();
-    let mx_projection = *camera.get_projection_matrix();
-    let mx_view = Mat4::lookat_rh(
+    camera.transform.matrix = Mat4::lookat_rh(
       Vec3::new(5f32, 5.0, 5.0),
       Vec3::new(0f32, 0.0, 0.0),
       Vec3::unit_y(),
     );
-    let mx_correction = OPENGL_TO_WGPU_MATRIX;
-    let mx_total = mx_correction * mx_projection * mx_view;
+    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
 
-    // let mx_total = self.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     let uniform_buf = WGPUBuffer::new(
       device,
@@ -140,7 +118,8 @@ impl Application<TestRenderer> for Rinecraft {
 
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-    let mx_total = self.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+    self.camera.resize((sc_desc.width as f32, sc_desc.height as f32));
+    let mx_total = OPENGL_TO_WGPU_MATRIX * self.camera.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     self.uniform_buf.update(device, &mut encoder, mx_ref);
 
