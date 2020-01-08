@@ -5,6 +5,7 @@ members = [
     "render-entity",
     "wasm",
     "rendiation",
+    "rinecraft"
 ]
 
 [profile.release]

@@ -1,14 +1,13 @@
+use crate::test_renderer::TestRenderer;
 use crate::application::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
+use crate::util::*;
+use crate::vertex::*;
 use rendiation_math::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
-mod vertex;
-use vertex::*;
-mod util;
-use util::*;
-pub mod test_renderer;
-use test_renderer::*;
+use rendiation::*;
+
 
 pub struct Rinecraft {
   vertex_buf: WGPUBuffer,

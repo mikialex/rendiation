@@ -102,15 +102,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'renidation'",
+            "name": "Debug executable 'rendiation'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=renidation",
-                    "--package=renidation"
+                    "--bin=rendiation",
+                    "--package=rendiation"
                 ],
                 "filter": {
-                    "name": "renidation",
+                    "name": "rendiation",
                     "kind": "bin"
                 }
             },
@@ -120,16 +120,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'renidation'",
+            "name": "Debug unit tests in executable 'rendiation'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=renidation",
-                    "--package=renidation"
+                    "--bin=rendiation",
+                    "--package=rendiation"
                 ],
                 "filter": {
-                    "name": "renidation",
+                    "name": "rendiation",
                     "kind": "bin"
                 }
             },

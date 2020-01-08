@@ -1,5 +1,4 @@
-
-use crate::renderer::*;
+use rendiation::*;
 
 pub struct TestRenderer{
   pub depth: WGPUAttachmentTexture,

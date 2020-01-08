@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 pub mod attachment_texture;
 pub mod bindgroup;
 pub mod buffer;
@@ -18,14 +16,18 @@ pub use sampler::*;
 pub use texture::*;
 pub use render_pass::*;
 
+/// The renderer trait.
+/// 
+/// Impl this trait for build your own renderer.
 pub trait Renderer: 'static + Sized{
   fn init(device: &wgpu::Device, size: (usize, usize)) -> Self;
   fn resize(&mut self, device: &wgpu::Device, size: (usize, usize));
 }
 
+/// WebGPU renderer backend
 pub struct WGPURenderer<T: Renderer> {
   surface: wgpu::Surface,
-  adapter: wgpu::Adapter,
+  pub adapter: wgpu::Adapter,
   pub device: wgpu::Device,
   pub queue: wgpu::Queue,
 
@@ -33,8 +35,6 @@ pub struct WGPURenderer<T: Renderer> {
 
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
-
-  // pub active_render_pass: WGPURenderPass<'static>,
 }
 
 impl<T: Renderer> WGPURenderer<T> {
@@ -80,14 +80,4 @@ impl<T: Renderer> WGPURenderer<T> {
     self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
     self.renderer.resize(&self.device, (width, height))
   }
-
-  // pub fn render(&mut self) {
-  //   let frame = self.swap_chain.get_next_texture();
-  //   let mut encoder = self
-  //     .device
-  //     .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-  //   // current_frame: wgpu::SwapChainOutput,
-
-  //   encoder.finish();
-  // }
 }

@@ -1,4 +1,4 @@
-# Rendiation Render Framework
+# Rendiation Renderer Framework
 
 This repo is in very early stage.
 

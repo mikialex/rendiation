@@ -1,4 +1,4 @@
-use crate::rinecraft::vertex::*;
+use crate::vertex::*;
 use crate::renderer::texture::ImageProvider;
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {

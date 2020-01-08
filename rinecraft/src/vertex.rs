@@ -1,5 +1,6 @@
 use crate::renderer::pipeline::VertexProvider;
 use rendiation_math::*;
+use rendiation::*;
 
 #[derive(Clone, Copy)]
 pub struct Vertex {
