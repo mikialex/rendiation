@@ -16,9 +16,13 @@ pub trait Application<R: Renderer>: 'static + Sized {
     ) -> Self;
     fn resize(
         &mut self,
-        renderer: &WGPURenderer<R>
-    ) -> Option<wgpu::CommandBuffer>;
-    fn update(&mut self, event: WindowEvent);
+        renderer: &mut WGPURenderer<R>
+    );
+    fn update(
+        &mut self, 
+        event: WindowEvent,
+        renderer: &mut WGPURenderer<R>
+    );
     fn render(
         &mut self,
         frame: &wgpu::TextureView,
@@ -89,10 +93,7 @@ pub fn run<R: Renderer, E: Application<R>>(title: &str) {
                 let physical = size.to_physical(hidpi_factor);
                 log::info!("Resizing to {:?}", physical);
                 renderer.resize(physical.width.round() as usize, physical.height.round() as usize);
-                let command_buf = example.resize(&renderer);
-                if let Some(command_buf) = command_buf {
-                    renderer.queue.submit(&[command_buf]);
-                }
+                example.resize(&mut renderer);
             }
             event::Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
@@ -108,7 +109,7 @@ pub fn run<R: Renderer, E: Application<R>>(title: &str) {
                     *control_flow = ControlFlow::Exit;
                 }
                 _ => {
-                    example.update(event);
+                    example.update(event, &mut renderer);
                 }
             },
             event::Event::EventsCleared => {

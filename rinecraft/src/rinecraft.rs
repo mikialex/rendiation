@@ -102,24 +102,32 @@ impl Application<TestRenderer> for Rinecraft {
     }
   }
 
-  fn update(&mut self, _event: winit::event::WindowEvent) {
+  fn update(
+    &mut self,
+    _event: winit::event::WindowEvent,
+    renderer: &mut WGPURenderer<TestRenderer>,
+  ) {
     //empty
+    // self.camera.transform.position += Vec3::new(0.0, 0.0, 0.1);
+    // self.camera.transform.update_matrix_by_compose();
+    // let mx_total = OPENGL_TO_WGPU_MATRIX * self.camera.get_vp_matrix();
+    // let mx_ref: &[f32; 16] = mx_total.as_ref();
+    // self
+    //   .uniform_buf
+    //   .update(&renderer.device, &mut renderer.encoder, mx_ref);
   }
 
-  fn resize(&mut self, renderer: &WGPURenderer<TestRenderer>) -> Option<wgpu::CommandBuffer> {
-    let device = &renderer.device;
+  fn resize(&mut self, renderer: &mut WGPURenderer<TestRenderer>) {
     let sc_desc = &renderer.swap_chain_descriptor;
-
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
     self
       .camera
       .resize((sc_desc.width as f32, sc_desc.height as f32));
     let mx_total = OPENGL_TO_WGPU_MATRIX * self.camera.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
-    self.uniform_buf.update(device, &mut encoder, mx_ref);
-
-    Some(encoder.finish())
+    self
+      .uniform_buf
+      .update(&renderer.device, &mut renderer.encoder, mx_ref);
   }
 
   fn render(

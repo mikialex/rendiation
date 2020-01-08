@@ -4,11 +4,15 @@
         "Rinecraft",
         "Uint",
         "glsl",
+        "glutin",
+        "hidpi",
         "mipmap",
         "multisampled",
         "rasterization",
         "spirv",
+        "vsync",
         "wgpu",
+        "winit",
         "zerocopy"
     ]
 }
