@@ -12,8 +12,8 @@ pub fn cast_slice<T>(data: &[T]) -> &[u8] {
 
 pub trait Application<R: Renderer>: 'static + Sized {
     fn init(
-        renderer: &WGPURenderer<R>
-    ) -> (Self, Option<wgpu::CommandBuffer>);
+        renderer: &mut WGPURenderer<R>
+    ) -> Self;
     fn resize(
         &mut self,
         renderer: &WGPURenderer<R>
@@ -21,7 +21,7 @@ pub trait Application<R: Renderer>: 'static + Sized {
     fn update(&mut self, event: WindowEvent);
     fn render(
         &mut self,
-        frame: &wgpu::SwapChainOutput,
+        frame: &wgpu::TextureView,
         device: &wgpu::Device,
         renderer: &mut R,
         encoder: &mut wgpu::CommandEncoder,
@@ -72,10 +72,7 @@ pub fn run<R: Renderer, E: Application<R>>(title: &str) {
     let mut renderer = WGPURenderer::new(surface, (size.width.round() as usize, size.height.round() as usize));
 
     log::info!("Initializing the example...");
-    let (mut example, init_command_buf) = E::init(&renderer);
-    if let Some(command_buf) = init_command_buf {
-        renderer.queue.submit(&[command_buf]);
-    }
+    let mut example = E::init(&mut renderer);
 
     log::info!("Entering render loop...");
     event_loop.run(move |event, _, control_flow| {
@@ -115,13 +112,13 @@ pub fn run<R: Renderer, E: Application<R>>(title: &str) {
                 }
             },
             event::Event::EventsCleared => {
-                let frame = renderer.swap_chain.get_next_texture();
-                example.render(&frame, &renderer.device, &mut renderer.renderer, &mut renderer.encoder);
+                let frame = &renderer.swap_chain.get_next_texture().view;
+                example.render(frame, &renderer.device, &mut renderer.renderer, &mut renderer.encoder);
 
                 let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
                 use std::mem;
                 mem::swap(&mut renderer.encoder, &mut encoder);
-                
+            
                 let command_buf = encoder.finish();
                 renderer.queue.submit(&[command_buf]);
             }

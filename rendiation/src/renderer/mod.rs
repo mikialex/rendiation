@@ -82,4 +82,5 @@ impl<T: Renderer> WGPURenderer<T> {
     self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
     self.renderer.resize(&self.device, (width, height))
   }
+
 }

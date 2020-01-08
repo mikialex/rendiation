@@ -2,6 +2,7 @@ use crate::renderer::pipeline::VertexProvider;
 use rendiation_math::*;
 use rendiation::*;
 
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub struct Vertex {
   position: Vec3<f32>,

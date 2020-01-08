@@ -1,13 +1,12 @@
-use crate::test_renderer::TestRenderer;
 use crate::application::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
+use crate::test_renderer::TestRenderer;
 use crate::util::*;
 use crate::vertex::*;
+use rendiation::*;
 use rendiation_math::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
-use rendiation::*;
-
 
 pub struct Rinecraft {
   vertex_buf: WGPUBuffer,
@@ -20,10 +19,9 @@ pub struct Rinecraft {
 }
 
 impl Application<TestRenderer> for Rinecraft {
-  fn init(renderer: &WGPURenderer<TestRenderer>) -> (Self, Option<wgpu::CommandBuffer>) {
+  fn init(renderer: &mut WGPURenderer<TestRenderer>) -> Self {
     let device = &renderer.device;
     let sc_desc = &renderer.swap_chain_descriptor;
-    
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
       .vertex_shader(include_str!("./shader.vert"))
@@ -59,13 +57,10 @@ impl Application<TestRenderer> for Rinecraft {
     let vertex_buf = WGPUBuffer::new(device, &vertex_data, wgpu::BufferUsage::VERTEX);
     let index_buf = WGPUBuffer::new(device, &index_data, wgpu::BufferUsage::INDEX);
 
-    let mut init_encoder =
-      device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-
     // Create the texture
     let size = 512u32;
     let img = create_texels(size as usize);
-    let texture = WGPUTexture::new(device, &mut init_encoder, &img);
+    let texture = WGPUTexture::new(device, &mut renderer.encoder, &img);
     let texture_view = texture.make_default_view();
 
     // Create other resources
@@ -96,7 +91,7 @@ impl Application<TestRenderer> for Rinecraft {
       .build(device, &pipeline.bind_group_layouts[0]);
 
     // Done
-    let this = Rinecraft {
+    Rinecraft {
       vertex_buf,
       index_buf,
       camera,
@@ -104,8 +99,7 @@ impl Application<TestRenderer> for Rinecraft {
       bind_group,
       uniform_buf,
       pipeline,
-    };
-    (this, Some(init_encoder.finish()))
+    }
   }
 
   fn update(&mut self, _event: winit::event::WindowEvent) {
@@ -118,7 +112,9 @@ impl Application<TestRenderer> for Rinecraft {
 
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-    self.camera.resize((sc_desc.width as f32, sc_desc.height as f32));
+    self
+      .camera
+      .resize((sc_desc.width as f32, sc_desc.height as f32));
     let mx_total = OPENGL_TO_WGPU_MATRIX * self.camera.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     self.uniform_buf.update(device, &mut encoder, mx_ref);
@@ -128,25 +124,22 @@ impl Application<TestRenderer> for Rinecraft {
 
   fn render(
     &mut self,
-    frame: &wgpu::SwapChainOutput,
+    frame: &wgpu::TextureView,
     device: &wgpu::Device,
     renderer: &mut TestRenderer,
     encoder: &mut wgpu::CommandEncoder,
   ) {
+    let mut pass = WGPURenderPass::build()
+      .output_with_clear(frame, (0.1, 0.2, 0.3, 1.0))
+      .with_depth(&renderer.depth.get_view())
+      .create(encoder);
 
-    {
-      let mut pass = WGPURenderPass::build()
-        .output_with_clear(&frame.view, (0.1, 0.2, 0.3, 1.0))
-        .with_depth(&renderer.depth.get_view())
-        .create(encoder);
-
-      let rpass = &mut pass.gpu_pass;
-      rpass.set_pipeline(&self.pipeline.pipeline);
-      rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
-      rpass.set_index_buffer(&self.index_buf.get_gpu_buffer(), 0);
-      rpass.set_vertex_buffers(0, &[(&self.vertex_buf.get_gpu_buffer(), 0)]);
-      rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
-    }
+    let rpass = &mut pass.gpu_pass;
+    rpass.set_pipeline(&self.pipeline.pipeline);
+    rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
+    rpass.set_index_buffer(&self.index_buf.get_gpu_buffer(), 0);
+    rpass.set_vertex_buffers(0, &[(&self.vertex_buf.get_gpu_buffer(), 0)]);
+    rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
   }
 }
 

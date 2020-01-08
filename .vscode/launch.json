@@ -102,15 +102,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'rendiation'",
+            "name": "Debug executable 'rinecraft'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rendiation",
-                    "--package=rendiation"
+                    "--bin=rinecraft",
+                    "--package=rinecraft"
                 ],
                 "filter": {
-                    "name": "rendiation",
+                    "name": "rinecraft",
                     "kind": "bin"
                 }
             },
