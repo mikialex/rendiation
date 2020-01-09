@@ -13,4 +13,5 @@ pub trait Geometry: Boundary3D {
   fn is_index_draw(&self) -> bool;
   fn get_index_attribute(&self) -> Option<&Rc<BufferData<u16>>>;
   fn get_attribute_by_name(&self, name: &str) -> Option<&Rc<BufferData<f32>>>;
+
 }

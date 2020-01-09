@@ -3,7 +3,6 @@ members = [
     "math",
     "math-entity",
     "render-entity",
-    "wasm",
     "rendiation",
     "rinecraft"
 ]

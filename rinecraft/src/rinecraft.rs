@@ -8,13 +8,35 @@ use rendiation::*;
 use rendiation_math::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
+pub struct StandardGeometry {
+  pub data: Vec<Vertex>,
+  pub index: Vec<usize>,
+  pub gpu_data: WGPUBuffer,
+  pub gpu_index: WGPUBuffer,
+}
+
+// impl StandardGeometry {
+//   pub fn new<R: Renderer>(v: Vec<Vertex>, index: Vec<usize>, renderer: R) -> StandardGeometry {
+//     StandardGeometry {
+//       data: v,
+//       index,
+//       gpu_data: None,
+//       gpu_index: None,
+//     }
+//   }
+
+//   pub fn update_gpu(&mut self) {
+
+//   }
+// }
+
 pub struct Rinecraft {
-  vertex_buf: WGPUBuffer,
-  index_buf: WGPUBuffer,
+  camera: PerspectiveCamera,
   index_count: usize,
   bind_group: WGPUBindGroup,
-  camera: PerspectiveCamera,
   uniform_buf: WGPUBuffer,
+  vertex_buf: WGPUBuffer,
+  index_buf: WGPUBuffer,
   pipeline: WGPUPipeline,
 }
 
@@ -54,8 +76,8 @@ impl Application<TestRenderer> for Rinecraft {
 
     // Create the vertex and index buffers
     let (vertex_data, index_data) = create_vertices();
-    let vertex_buf = WGPUBuffer::new(device, &vertex_data, wgpu::BufferUsage::VERTEX);
-    let index_buf = WGPUBuffer::new(device, &index_data, wgpu::BufferUsage::INDEX);
+    let vertex_buf = renderer.create_vertex_buffer(&vertex_data);
+    let index_buf = renderer.create_index_buffer(&index_data);
 
     // Create the texture
     let size = 512u32;
