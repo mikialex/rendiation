@@ -1,3 +1,5 @@
+
+/// impl your custom geometry data layout
 pub trait VertexProvider<'a> {
   fn get_buffer_layout_discriptor() -> wgpu::VertexBufferDescriptor<'a>;
 }

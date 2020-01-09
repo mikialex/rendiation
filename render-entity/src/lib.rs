@@ -5,6 +5,7 @@ pub mod shading;
 pub mod shading_pure;
 pub mod shading_dynamic;
 pub mod camera;
+pub mod camera_any;
 pub mod buffer_data;
 
 pub use render_object::*;
@@ -14,4 +15,5 @@ pub use shading::*;
 pub use shading_pure::*;
 pub use shading_dynamic::*;
 pub use camera::*;
+pub use camera_any::*;
 pub use buffer_data::*;
