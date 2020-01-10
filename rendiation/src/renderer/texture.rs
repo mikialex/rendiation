@@ -8,8 +8,6 @@ pub trait ImageProvider {
 pub struct WGPUTexture {
   gpu_texture: wgpu::Texture,
   descriptor: wgpu::TextureDescriptor,
-
-  buffer: WGPUBuffer,
 }
 
 impl WGPUTexture {
@@ -34,15 +32,12 @@ impl WGPUTexture {
     };
     let gpu_texture = device.create_texture(&descriptor);
 
-    let buffer = WGPUBuffer::new(device, value.get_data(), wgpu::BufferUsage::COPY_SRC);
-
     let wgpu_texture = WGPUTexture {
       gpu_texture,
       descriptor,
-      buffer,
     };
 
-    wgpu_texture.upload(encoder);
+    wgpu_texture.upload(device, encoder, value.get_data());
     wgpu_texture
   }
 
@@ -50,10 +45,12 @@ impl WGPUTexture {
     self.gpu_texture.create_default_view()
   }
 
-  fn upload(&self, encoder: &mut wgpu::CommandEncoder) {
+  fn upload(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, image_data: &[u8]) {
+    let buffer = WGPUBuffer::new(device, image_data, wgpu::BufferUsage::COPY_SRC);
+
     encoder.copy_buffer_to_texture(
       wgpu::BufferCopyView {
-        buffer: &self.buffer.get_gpu_buffer(),
+        buffer: buffer.get_gpu_buffer(),
         offset: 0,
         row_pitch: 4 * self.descriptor.size.width,
         image_height: self.descriptor.size.height,
