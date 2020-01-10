@@ -1,4 +1,5 @@
 use crate::application::*;
+use crate::geometry::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
 use crate::test_renderer::TestRenderer;
@@ -8,35 +9,12 @@ use rendiation::*;
 use rendiation_math::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
-pub struct StandardGeometry {
-  pub data: Vec<Vertex>,
-  pub index: Vec<usize>,
-  pub gpu_data: WGPUBuffer,
-  pub gpu_index: WGPUBuffer,
-}
-
-// impl StandardGeometry {
-//   pub fn new<R: Renderer>(v: Vec<Vertex>, index: Vec<usize>, renderer: R) -> StandardGeometry {
-//     StandardGeometry {
-//       data: v,
-//       index,
-//       gpu_data: None,
-//       gpu_index: None,
-//     }
-//   }
-
-//   pub fn update_gpu(&mut self) {
-
-//   }
-// }
-
 pub struct Rinecraft {
   camera: PerspectiveCamera,
   index_count: usize,
   bind_group: WGPUBindGroup,
   uniform_buf: WGPUBuffer,
-  vertex_buf: WGPUBuffer,
-  index_buf: WGPUBuffer,
+  cube: StandardGeometry,
   pipeline: WGPUPipeline,
 }
 
@@ -70,14 +48,14 @@ impl Application<TestRenderer> for Rinecraft {
           }),
       );
 
-    let pipeline = pipeline_builder.build::<Vertex>(device, sc_desc);
+    let pipeline = pipeline_builder.build::<StandardGeometry>(device, sc_desc);
 
     //
 
     // Create the vertex and index buffers
     let (vertex_data, index_data) = create_vertices();
-    let vertex_buf = renderer.create_vertex_buffer(&vertex_data);
-    let index_buf = renderer.create_index_buffer(&index_data);
+    let index_count = index_data.len();
+    let cube = StandardGeometry::new(vertex_data, index_data, &renderer);
 
     // Create the texture
     let size = 512u32;
@@ -114,10 +92,9 @@ impl Application<TestRenderer> for Rinecraft {
 
     // Done
     Rinecraft {
-      vertex_buf,
-      index_buf,
+      cube,
       camera,
-      index_count: index_data.len(),
+      index_count,
       bind_group,
       uniform_buf,
       pipeline,
@@ -163,13 +140,16 @@ impl Application<TestRenderer> for Rinecraft {
       .output_with_clear(frame, (0.1, 0.2, 0.3, 1.0))
       .with_depth(&renderer.depth.get_view())
       .create(encoder);
-
-    let rpass = &mut pass.gpu_pass;
-    rpass.set_pipeline(&self.pipeline.pipeline);
-    rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
-    rpass.set_index_buffer(&self.index_buf.get_gpu_buffer(), 0);
-    rpass.set_vertex_buffers(0, &[(&self.vertex_buf.get_gpu_buffer(), 0)]);
-    rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+    {
+      let rpass = &mut pass.gpu_pass;
+      rpass.set_pipeline(&self.pipeline.pipeline);
+      rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
+    }
+    self.cube.provide_gpu(&mut pass);
+    {
+      let rpass = &mut pass.gpu_pass;
+      rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+    }
   }
 }
 

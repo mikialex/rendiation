@@ -26,6 +26,9 @@ pub trait Renderer: 'static + Sized{
 }
 
 /// WebGPU renderer backend
+/// 
+/// the backend render not contains any sepcific render resource. 
+/// the render resouce should be stored in injected trait renderer
 pub struct WGPURenderer<T: Renderer> {
   surface: wgpu::Surface,
   pub adapter: wgpu::Adapter,
