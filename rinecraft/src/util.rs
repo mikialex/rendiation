@@ -1,5 +1,5 @@
+use crate::texture::ImageData;
 use crate::vertex::*;
-use crate::renderer::texture::ImageProvider;
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
   let vertex_data = [
@@ -47,22 +47,7 @@ pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
   (vertex_data.to_vec(), index_data.to_vec())
 }
 
-pub struct Image {
-  data: Vec<u8>,
-  width: usize,
-  height: usize,
-}
-
-impl ImageProvider for Image {
-  fn get_size(&self) -> (u32, u32, u32) {
-    (self.width as u32, self.height as u32, 1)
-  }
-  fn get_data(&self) -> &[u8] {
-    &self.data
-  }
-}
-
-pub fn create_texels(size: usize) -> Image {
+pub fn create_texels(size: usize) -> ImageData {
   use std::iter;
 
   let data = (0..size * size)
@@ -84,7 +69,7 @@ pub fn create_texels(size: usize) -> Image {
     })
     .collect();
 
-  Image {
+  ImageData {
     data,
     width: size,
     height: size,

@@ -15,10 +15,10 @@ impl StandardGeometry {
     v: Vec<Vertex>,
     index: Vec<u16>,
     renderer: &WGPURenderer<R>,
-  ) -> StandardGeometry {
+  ) -> Self {
     let gpu_data = renderer.create_vertex_buffer(&v);
     let gpu_index = renderer.create_index_buffer(&index);
-    StandardGeometry {
+    Self {
       data: v,
       data_changed: false,
       index,
@@ -26,6 +26,10 @@ impl StandardGeometry {
       gpu_data,
       gpu_index,
     }
+  }
+
+  pub fn get_full_count(&self) -> u32{
+    self.index.len() as u32
   }
 
   pub fn get_data(&self) -> &Vec<Vertex> {

@@ -4,14 +4,12 @@ use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
 use crate::test_renderer::TestRenderer;
 use crate::util::*;
-use crate::vertex::*;
 use rendiation::*;
 use rendiation_math::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
 pub struct Rinecraft {
   camera: PerspectiveCamera,
-  index_count: usize,
   bind_group: WGPUBindGroup,
   uniform_buf: WGPUBuffer,
   cube: StandardGeometry,
@@ -54,7 +52,6 @@ impl Application<TestRenderer> for Rinecraft {
 
     // Create the vertex and index buffers
     let (vertex_data, index_data) = create_vertices();
-    let index_count = index_data.len();
     let cube = StandardGeometry::new(vertex_data, index_data, &renderer);
 
     // Create the texture
@@ -94,7 +91,6 @@ impl Application<TestRenderer> for Rinecraft {
     Rinecraft {
       cube,
       camera,
-      index_count,
       bind_group,
       uniform_buf,
       pipeline,
@@ -148,7 +144,7 @@ impl Application<TestRenderer> for Rinecraft {
     self.cube.provide_gpu(&mut pass);
     {
       let rpass = &mut pass.gpu_pass;
-      rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+      rpass.draw_indexed(0..self.cube.get_full_count(), 0, 0..1);
     }
   }
 }
