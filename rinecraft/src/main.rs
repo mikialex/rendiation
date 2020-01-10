@@ -4,6 +4,7 @@ mod test_renderer;
 mod rinecraft;
 mod geometry;
 mod texture;
+mod shading;
 mod util;
 mod vertex;
 use test_renderer::*;
