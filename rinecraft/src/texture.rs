@@ -1,9 +1,14 @@
 use rendiation::*;
 use rendiation::ImageProvider;
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+static GLOBAL_TEXTURE_ID: AtomicUsize = AtomicUsize::new(0);
+
 pub struct Texture {
   image: ImageData,
-  gpu_texture: WGPUTexture
+  gpu_texture: WGPUTexture,
+  id: usize,
+  need_update: bool,
 }
 
 impl Texture{
@@ -11,7 +16,9 @@ impl Texture{
     let gpu_texture = WGPUTexture::new(&renderer.device, &mut renderer.encoder, &image);
     Texture{
       image, 
-      gpu_texture
+      gpu_texture,
+      id: GLOBAL_TEXTURE_ID.fetch_add(1, Ordering::SeqCst),
+      need_update: false,
     }
   }
 }
