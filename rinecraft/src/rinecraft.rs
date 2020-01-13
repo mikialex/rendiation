@@ -1,4 +1,4 @@
-use crate::shading::Watch;
+use crate::watch::*;
 use crate::application::*;
 use crate::geometry::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
@@ -9,18 +9,34 @@ use rendiation::*;
 use rendiation_math::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
+impl GPUItem<PerspectiveCamera> for WGPUBuffer{
+  fn create_gpu<R: Renderer>(item: &PerspectiveCamera, renderer: &mut WGPURenderer<R>) -> Self {
+    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+
+    WGPUBuffer::new(
+      &renderer.device,
+      mx_ref,
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    )
+  }
+  fn update_gpu<R: Renderer>(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer<R>){
+    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+
+    self.update(&renderer.device, &mut renderer.encoder, mx_ref);
+  }
+}
+
 pub struct Rinecraft {
-  camera: Watch<PerspectiveCamera>,
+  camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   bind_group: WGPUBindGroup,
-  uniform_buf: WGPUBuffer,
   cube: StandardGeometry,
   pipeline: WGPUPipeline,
 }
 
 impl Application<TestRenderer> for Rinecraft {
   fn init(renderer: &mut WGPURenderer<TestRenderer>) -> Self {
-    let device = &renderer.device;
-    let sc_desc = &renderer.swap_chain_descriptor;
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
       .vertex_shader(include_str!("./shader.vert"))
@@ -47,9 +63,7 @@ impl Application<TestRenderer> for Rinecraft {
           }),
       );
 
-    let pipeline = pipeline_builder.build::<StandardGeometry>(device, sc_desc);
-
-    //
+    let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device, &renderer.swap_chain_descriptor);
 
     // Create the vertex and index buffers
     let (vertex_data, index_data) = create_vertices();
@@ -58,13 +72,14 @@ impl Application<TestRenderer> for Rinecraft {
     // Create the texture
     let size = 512u32;
     let img = create_texels(size as usize);
-    let texture = WGPUTexture::new(device, &mut renderer.encoder, &img);
+    let texture = WGPUTexture::new(&renderer.device, &mut renderer.encoder, &img);
     let texture_view = texture.make_default_view();
 
     // Create other resources
-    let sampler = WGPUSampler::new(device);
+    let sampler = WGPUSampler::new(&renderer.device);
 
-    let mut camera = Watch::new(PerspectiveCamera::new());
+    let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
+    let sc_desc = &renderer.swap_chain_descriptor;
     camera.resize((sc_desc.width as f32, sc_desc.height as f32));
     camera.update_projection();
     camera.transform.matrix = Mat4::lookat_rh(
@@ -72,28 +87,19 @@ impl Application<TestRenderer> for Rinecraft {
       Vec3::new(0f32, 0.0, 0.0),
       Vec3::unit_y(),
     );
-    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-    let uniform_buf = WGPUBuffer::new(
-      device,
-      mx_ref,
-      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    );
 
     // Create bind group
     let bind_group = BindGroupBuilder::new()
-      .buffer(&uniform_buf)
+      .buffer(camera.get_update_gpu(renderer))
       .texture(&texture_view)
       .sampler(&sampler)
-      .build(device, &pipeline.bind_group_layouts[0]);
+      .build(&renderer.device, &pipeline.bind_group_layouts[0]);
 
     // Done
     Rinecraft {
       cube,
       camera,
       bind_group,
-      uniform_buf,
       pipeline,
     }
   }
@@ -119,11 +125,6 @@ impl Application<TestRenderer> for Rinecraft {
     self
       .camera
       .resize((sc_desc.width as f32, sc_desc.height as f32));
-    let mx_total = OPENGL_TO_WGPU_MATRIX * self.camera.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-    self
-      .uniform_buf
-      .update(&renderer.device, &mut renderer.encoder, mx_ref);
   }
 
   fn render(
@@ -133,6 +134,7 @@ impl Application<TestRenderer> for Rinecraft {
     renderer: &mut TestRenderer,
     encoder: &mut wgpu::CommandEncoder,
   ) {
+    self.camera.get_update_gpu(renderer);
     let mut pass = WGPURenderPass::build()
       .output_with_clear(frame, (0.1, 0.2, 0.3, 1.0))
       .with_depth(&renderer.depth.get_view())

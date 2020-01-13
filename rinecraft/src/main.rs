@@ -7,6 +7,7 @@ mod texture;
 mod shading;
 mod util;
 mod vertex;
+mod watch;
 use test_renderer::*;
 use rinecraft::*;
 

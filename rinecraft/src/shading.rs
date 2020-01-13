@@ -1,38 +1,6 @@
-use core::ops::DerefMut;
-use core::ops::Deref;
 use crate::geometry::StandardGeometry;
 use crate::texture::Texture;
 use rendiation::*;
-
-pub struct Watch<T> {
-  item: T,
-  version: usize,
-}
-
-impl<T> Watch<T> {
-  pub fn new(item: T) -> Self{
-    Watch{
-      item,
-      version: 0,
-    }
-  }
-  pub fn mutate(&mut self) -> &mut T {
-    self.version += 1;
-    &mut self.item
-  }
-}
-
-impl<T> Deref for Watch<T> {
-  type Target = T;
-  fn deref(&self) -> &Self::Target {
-      &self.item
-  }
-}
-impl<T> DerefMut for Watch<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-      self.mutate()
-  }
-}
 
 pub struct TexShading {
   pipeline: WGPUPipeline,
