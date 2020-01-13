@@ -12,7 +12,7 @@ pub struct Texture {
 }
 
 impl Texture{
-  pub fn new<R: Renderer>(image: ImageData, renderer: &mut WGPURenderer<R>) -> Self{
+  pub fn new(image: ImageData, renderer: &mut WGPURenderer) -> Self{
     let gpu_texture = WGPUTexture::new(&renderer.device, &mut renderer.encoder, &image);
     Texture{
       image, 

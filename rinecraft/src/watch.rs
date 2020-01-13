@@ -39,7 +39,7 @@ pub struct GPUPair<T, G: GPUItem<T>>{
 }
 
 impl<T, G: GPUItem<T>> GPUPair<T, G>{
-  pub fn new<R: Renderer>(item: T, renderer: &mut WGPURenderer<R>)-> Self{
+  pub fn new(item: T, renderer: &mut WGPURenderer)-> Self{
     let gpu = G::create_gpu(&item, renderer);
     let watched = Watch::new(item);
     GPUPair{
@@ -49,7 +49,7 @@ impl<T, G: GPUItem<T>> GPUPair<T, G>{
     }    
   }
 
-  pub fn get_update_gpu<R: Renderer>(&mut self, renderer: &mut WGPURenderer<R>) -> &G{
+  pub fn get_update_gpu(&mut self, renderer: &mut WGPURenderer) -> &G{
     if self.watched.get_version() != self.synced_version {
       self.gpu.update_gpu(&self.watched, renderer);
     }
@@ -70,6 +70,6 @@ impl<T, G: GPUItem<T>> DerefMut for GPUPair<T, G> {
 }
 
 pub trait GPUItem<T>{
-  fn create_gpu<R: Renderer>(item: &T, renderer: &mut WGPURenderer<R>) -> Self;
-  fn update_gpu<R: Renderer>(&mut self, item: &T, renderer: &mut WGPURenderer<R>);
+  fn create_gpu(item: &T, renderer: &mut WGPURenderer) -> Self;
+  fn update_gpu(&mut self, item: &T, renderer: &mut WGPURenderer);
 }

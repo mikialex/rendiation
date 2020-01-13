@@ -36,9 +36,9 @@ impl WGPUAttachmentTexture {
     &self.view
   }
 
-  pub fn resize(&mut self, device: &wgpu::Device, width: usize, height: usize) {
-    self.descriptor.size.width = width as u32;
-    self.descriptor.size.height = height as u32;
+  pub fn resize(&mut self, device: &wgpu::Device, size: (usize, usize)) {
+    self.descriptor.size.width = size.0 as u32;
+    self.descriptor.size.height = size.1 as u32;
     self.gpu_texture = device.create_texture(&self.descriptor);
     self.view = self.gpu_texture.create_default_view();
   }

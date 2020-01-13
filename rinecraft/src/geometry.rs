@@ -11,7 +11,7 @@ pub struct StandardGeometry {
 }
 
 impl StandardGeometry {
-  pub fn new<R: Renderer>(v: Vec<Vertex>, index: Vec<u16>, renderer: &WGPURenderer<R>) -> Self {
+  pub fn new(v: Vec<Vertex>, index: Vec<u16>, renderer: &WGPURenderer) -> Self {
     let gpu_data = renderer.create_vertex_buffer(&v);
     let gpu_index = renderer.create_index_buffer(&index);
     Self {
@@ -46,7 +46,7 @@ impl StandardGeometry {
     &mut self.index
   }
 
-  pub fn update_gpu<R: Renderer>(&mut self, renderer: &mut WGPURenderer<R>) {
+  pub fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
     if self.data_changed {
       self
         .gpu_data
