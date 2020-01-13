@@ -1,3 +1,4 @@
+use crate::shading::Watch;
 use crate::application::*;
 use crate::geometry::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
@@ -9,7 +10,7 @@ use rendiation_math::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
 pub struct Rinecraft {
-  camera: PerspectiveCamera,
+  camera: Watch<PerspectiveCamera>,
   bind_group: WGPUBindGroup,
   uniform_buf: WGPUBuffer,
   cube: StandardGeometry,
@@ -63,7 +64,7 @@ impl Application<TestRenderer> for Rinecraft {
     // Create other resources
     let sampler = WGPUSampler::new(device);
 
-    let mut camera = PerspectiveCamera::new();
+    let mut camera = Watch::new(PerspectiveCamera::new());
     camera.resize((sc_desc.width as f32, sc_desc.height as f32));
     camera.update_projection();
     camera.transform.matrix = Mat4::lookat_rh(
