@@ -144,11 +144,7 @@ impl Application<TestRenderer> for Rinecraft {
       rpass.set_pipeline(&self.pipeline.pipeline);
       rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
     }
-    self.cube.provide_gpu(&mut pass);
-    {
-      let rpass = &mut pass.gpu_pass;
-      rpass.draw_indexed(0..self.cube.get_full_count(), 0, 0..1);
-    }
+    self.cube.render(&mut pass);
   }
 }
 
