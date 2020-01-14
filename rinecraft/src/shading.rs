@@ -11,7 +11,9 @@ pub struct TexShading {
 }
 
 impl TexShading {
-  pub fn new(renderer: &WGPURenderer) -> Self {
+  pub fn new(renderer: &WGPURenderer,
+    // texture: &WGPURenderer
+  ) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
       .vertex_shader(include_str!("./shader.vert"))

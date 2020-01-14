@@ -26,6 +26,9 @@ impl<T> Watch<T> {
   pub fn get_version(&self) -> usize {
     self.version
   }
+  pub fn get_guid(&self) -> usize {
+    self.guid
+  }
 }
 
 impl<T> Deref for Watch<T> {
