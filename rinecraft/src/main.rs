@@ -1,16 +1,15 @@
 use rendiation::*;
 
-mod test_renderer;
 mod rinecraft;
 mod geometry;
-mod texture;
 mod shading;
+mod image_data;
 mod util;
 mod vertex;
-use test_renderer::*;
+mod watch;
 use rinecraft::*;
 
 fn main() {
     env_logger::init();
-    application::run::<TestRenderer, Rinecraft>("rinecraft");
+    application::run::<Rinecraft>("rinecraft");
 }

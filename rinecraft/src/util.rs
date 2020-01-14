@@ -1,4 +1,4 @@
-use crate::texture::ImageData;
+use crate::image_data::ImageData;
 use crate::vertex::*;
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
@@ -73,5 +73,69 @@ pub fn create_texels(size: usize) -> ImageData {
     data,
     width: size,
     height: size,
+  }
+}
+
+pub trait IndexedItem{
+  fn get_index(&self)-> Option<usize>;
+  fn update_index(&self);
+}
+
+pub struct ArrayContainer<T: IndexedItem>{
+  data: Vec<Option<T>>,
+  tomb_list: Vec<usize>
+}
+
+impl<T: IndexedItem> ArrayContainer<T>{
+  pub fn new() -> ArrayContainer<T>{
+    ArrayContainer{
+      data: Vec::new(),
+      tomb_list: Vec::new(),
+    }
+  }
+
+  pub fn get_mut(&mut self, index: usize) -> &mut T {
+    if let Some(data) = &mut self.data[index] {
+      data
+    }else{
+      panic!("try get a deleted item in array container")
+    }
+  }
+
+
+  pub fn get(&self, index: usize) -> &T {
+    if let Some(data) = &self.data[index] {
+      data
+    }else{
+      panic!("try get a deleted item in array container")
+    }
+  }
+
+  pub fn set_item(&mut self, item: T){
+    if item.get_index().is_some() {
+      panic!("has stored before")
+    } else{
+      let free_index = self.get_free_index();
+      if free_index >= self.data.len() {
+        self.data.push(Some(item));
+      }else{
+        self.data[free_index] = Some(item);
+      }
+    }
+  }
+
+  fn get_free_index(&mut self) -> usize{
+    let free_index;
+    if let Some(i) = self.tomb_list.pop() {
+      free_index = i;
+    } else {
+      free_index = self.data.len();
+    }
+    free_index
+  }
+
+  pub fn delete_item(&mut self, index: usize){
+    self.data[index] = None;
+    self.tomb_list.push(index);
   }
 }

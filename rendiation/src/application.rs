@@ -1,4 +1,3 @@
-use crate::renderer::Renderer;
 use winit::event::WindowEvent;
 use crate::renderer::*;
 
@@ -10,29 +9,26 @@ pub fn cast_slice<T>(data: &[T]) -> &[u8] {
     unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
 }
 
-pub trait Application<R: Renderer>: 'static + Sized {
+pub trait Application: 'static + Sized {
     fn init(
-        renderer: &mut WGPURenderer<R>
+        renderer: &mut WGPURenderer
     ) -> Self;
     fn resize(
         &mut self,
-        renderer: &mut WGPURenderer<R>
+        renderer: &mut WGPURenderer
     );
     fn update(
         &mut self, 
         event: WindowEvent,
-        renderer: &mut WGPURenderer<R>
+        renderer: &mut WGPURenderer
     );
     fn render(
         &mut self,
-        frame: &wgpu::TextureView,
-        device: &wgpu::Device,
-        renderer: &mut R,
-        encoder: &mut wgpu::CommandEncoder,
+        renderer: &mut WGPURenderer
     );
 }
 
-pub fn run<R: Renderer, E: Application<R>>(title: &str) {
+pub fn run<E: Application>(title: &str) {
     use winit::{
         event,
         event_loop::{ControlFlow, EventLoop},
@@ -92,7 +88,7 @@ pub fn run<R: Renderer, E: Application<R>>(title: &str) {
             } => {
                 let physical = size.to_physical(hidpi_factor);
                 log::info!("Resizing to {:?}", physical);
-                renderer.resize(physical.width.round() as usize, physical.height.round() as usize);
+                renderer.resize((physical.width.round() as usize, physical.height.round() as usize));
                 example.resize(&mut renderer);
             }
             event::Event::WindowEvent { event, .. } => match event {
@@ -113,15 +109,7 @@ pub fn run<R: Renderer, E: Application<R>>(title: &str) {
                 }
             },
             event::Event::EventsCleared => {
-                let frame = &renderer.swap_chain.get_next_texture().view;
-                example.render(frame, &renderer.device, &mut renderer.renderer, &mut renderer.encoder);
-
-                let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-                use std::mem;
-                mem::swap(&mut renderer.encoder, &mut encoder);
-            
-                let command_buf = encoder.finish();
-                renderer.queue.submit(&[command_buf]);
+                example.render(&mut renderer);
             }
             _ => (),
         }

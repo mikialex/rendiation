@@ -11,11 +11,7 @@ pub struct StandardGeometry {
 }
 
 impl StandardGeometry {
-  pub fn new<R: Renderer>(
-    v: Vec<Vertex>,
-    index: Vec<u16>,
-    renderer: &WGPURenderer<R>,
-  ) -> Self {
+  pub fn new(v: Vec<Vertex>, index: Vec<u16>, renderer: &WGPURenderer) -> Self {
     let gpu_data = renderer.create_vertex_buffer(&v);
     let gpu_index = renderer.create_index_buffer(&index);
     Self {
@@ -28,7 +24,7 @@ impl StandardGeometry {
     }
   }
 
-  pub fn get_full_count(&self) -> u32{
+  pub fn get_full_count(&self) -> u32 {
     self.index.len() as u32
   }
 
@@ -50,7 +46,7 @@ impl StandardGeometry {
     &mut self.index
   }
 
-  pub fn update_gpu<R: Renderer>(&mut self, renderer: &mut WGPURenderer<R>) {
+  pub fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
     if self.data_changed {
       self
         .gpu_data
@@ -62,6 +58,7 @@ impl StandardGeometry {
         .update(&renderer.device, &mut renderer.encoder, &self.index);
     }
   }
+
   pub fn provide_gpu(&self, pass: &mut WGPURenderPass) {
     pass
       .gpu_pass
@@ -70,10 +67,17 @@ impl StandardGeometry {
       .gpu_pass
       .set_vertex_buffers(0, &[(self.gpu_data.get_gpu_buffer(), 0)]);
   }
+
+  pub fn render(&self, pass: &mut WGPURenderPass) {
+    self.provide_gpu(pass);
+    pass
+      .gpu_pass
+      .draw_indexed(0..self.get_full_count(), 0, 0..1);
+  }
 }
 
-impl<'a> GeometryProvider<'a> for StandardGeometry{
-  fn get_geometry_layout_discriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>>{
+impl<'a> GeometryProvider<'a> for StandardGeometry {
+  fn get_geometry_layout_discriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>> {
     vec![Vertex::get_buffer_layout_discriptor()]
   }
 }

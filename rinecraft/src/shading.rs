@@ -1,30 +1,17 @@
 use crate::geometry::StandardGeometry;
-use crate::texture::Texture;
 use rendiation::*;
-
-pub struct Watch<T> {
-  item: T,
-  version: usize,
-}
-
-impl<T> Watch<T> {
-  pub fn mutate(&mut self) -> &mut T {
-    self.version += 1;
-    &mut self.item
-  }
-}
 
 pub struct TexShading {
   pipeline: WGPUPipeline,
 
-  bindgroup: Option<WGPUBindGroup>,
+  // bindgroup: Option<WGPUBindGroup>,
 
-  // texture_id: usize,
-  // matrix_uniform_buffer: WGPUBuffer,
+  // texture: (usize, usize),
+  // matrix_uniform_buffer: (usize, usize),
 }
 
 impl TexShading {
-  pub fn new<R: Renderer>(renderer: &WGPURenderer<R>, texture: Texture) -> Self {
+  pub fn new(renderer: &WGPURenderer) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
       .vertex_shader(include_str!("./shader.vert"))
@@ -56,7 +43,6 @@ impl TexShading {
 
     TexShading {
       pipeline,
-      bindgroup: None,
     }
   }
 }
