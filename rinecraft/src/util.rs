@@ -1,4 +1,4 @@
-use crate::texture::ImageData;
+use crate::image_data::ImageData;
 use crate::vertex::*;
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {

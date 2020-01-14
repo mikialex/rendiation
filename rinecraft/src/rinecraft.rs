@@ -1,3 +1,4 @@
+use crate::image_data::ImageData;
 use crate::application::*;
 use crate::geometry::*;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
@@ -27,8 +28,18 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   }
 }
 
+impl GPUItem<ImageData> for WGPUTexture {
+  fn create_gpu(image: &ImageData, renderer: &mut WGPURenderer) -> Self {
+    WGPUTexture::new(&renderer.device, &mut renderer.encoder, image)
+  }
+  fn update_gpu(&mut self, item: &ImageData, renderer: &mut WGPURenderer) {
+    todo!()
+  }
+}
+
 pub struct Rinecraft {
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
+  texture: GPUPair<ImageData, WGPUTexture>,
   bind_group: WGPUBindGroup,
   cube: StandardGeometry,
   pipeline: WGPUPipeline,
@@ -72,9 +83,8 @@ impl Application for Rinecraft {
 
     // Create the texture
     let size = 512u32;
-    let img = create_texels(size as usize);
-    let texture = WGPUTexture::new(&renderer.device, &mut renderer.encoder, &img);
-    let texture_view = texture.make_default_view();
+    let mut texture: GPUPair<ImageData, WGPUTexture> = GPUPair::new(create_texels(size as usize), renderer);
+    let texture_view = texture.get_update_gpu(renderer).make_default_view();
 
     // Create other resources
     let sampler = WGPUSampler::new(&renderer.device);
@@ -109,6 +119,7 @@ impl Application for Rinecraft {
       bind_group,
       pipeline,
       depth,
+      texture
     }
   }
 

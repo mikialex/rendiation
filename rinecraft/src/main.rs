@@ -2,8 +2,8 @@ use rendiation::*;
 
 mod rinecraft;
 mod geometry;
-mod texture;
 mod shading;
+mod image_data;
 mod util;
 mod vertex;
 mod watch;
