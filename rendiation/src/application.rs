@@ -110,13 +110,6 @@ pub fn run<E: Application>(title: &str) {
             },
             event::Event::EventsCleared => {
                 example.render(&mut renderer);
-
-                let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-                use std::mem;
-                mem::swap(&mut renderer.encoder, &mut encoder);
-            
-                let command_buf = encoder.finish();
-                renderer.queue.submit(&[command_buf]);
             }
             _ => (),
         }

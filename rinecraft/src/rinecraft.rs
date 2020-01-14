@@ -133,19 +133,29 @@ impl Application for Rinecraft {
   }
 
   fn render(&mut self, renderer: &mut WGPURenderer) {
-    
     self.camera.get_update_gpu(renderer);
 
     let frame = &renderer.swap_chain.get_next_texture().view;
-    let mut pass = WGPURenderPass::build()
-      .output_with_clear(frame, (0.1, 0.2, 0.3, 1.0))
-      .with_depth(&self.depth.get_view())
-      .create(&mut renderer.encoder);
     {
-      let rpass = &mut pass.gpu_pass;
-      rpass.set_pipeline(&self.pipeline.pipeline);
-      rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
+      let mut pass = WGPURenderPass::build()
+        .output_with_clear(frame, (0.1, 0.2, 0.3, 1.0))
+        .with_depth(&self.depth.get_view())
+        .create(&mut renderer.encoder);
+      {
+        let rpass = &mut pass.gpu_pass;
+        rpass.set_pipeline(&self.pipeline.pipeline);
+        rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
+      }
+      self.cube.render(&mut pass);
     }
-    self.cube.render(&mut pass);
+
+    let mut encoder = renderer
+      .device
+      .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    use std::mem;
+    mem::swap(&mut renderer.encoder, &mut encoder);
+
+    let command_buf = encoder.finish();
+    renderer.queue.submit(&[command_buf]);
   }
 }
