@@ -7,7 +7,7 @@ pub struct TexShading {
 
   bindgroup: Option<WGPUBindGroup>,
 
-  // texture_id: usize,
+  // texture: 
   // matrix_uniform_buffer: WGPUBuffer,
 }
 
