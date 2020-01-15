@@ -146,6 +146,8 @@ impl Application for Rinecraft {
   fn render(&mut self, renderer: &mut WGPURenderer) {
     self.camera.get_update_gpu(renderer);
 
+    renderer.request_output();
+    
     let frame = &renderer.swap_chain.get_next_texture().view;
     {
       let mut pass = WGPURenderPass::build()
@@ -160,13 +162,14 @@ impl Application for Rinecraft {
       self.cube.render(&mut pass);
     }
 
-    let mut encoder = renderer
-      .device
-      .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-    use std::mem;
-    mem::swap(&mut renderer.encoder, &mut encoder);
+    renderer.submit_queue();
+    // let mut encoder = renderer
+    //   .device
+    //   .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    // use std::mem;
+    // mem::swap(&mut renderer.encoder, &mut encoder);
 
-    let command_buf = encoder.finish();
-    renderer.queue.submit(&[command_buf]);
+    // let command_buf = encoder.finish();
+    // renderer.queue.submit(&[command_buf]);
   }
 }

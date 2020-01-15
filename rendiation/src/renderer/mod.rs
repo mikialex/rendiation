@@ -29,7 +29,7 @@ pub trait Renderer: 'static + Sized {
 ///
 /// the backend render not contains any specific render resource.
 /// the render resource should be stored in injected trait renderer
-pub struct WGPURenderer {
+pub struct WGPURenderer<'a> {
   surface: wgpu::Surface,
   pub adapter: wgpu::Adapter,
   pub device: wgpu::Device,
@@ -37,11 +37,12 @@ pub struct WGPURenderer {
   pub encoder: wgpu::CommandEncoder,
   pub size: (usize, usize),
 
+  pub target: Option<wgpu::SwapChainOutput<'a>>,
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
 }
 
-impl WGPURenderer {
+impl<'a> WGPURenderer<'a> {
   pub fn new(surface: wgpu::Surface, size: (usize, usize)) -> Self {
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
       power_preference: wgpu::PowerPreference::Default,
@@ -64,6 +65,7 @@ impl WGPURenderer {
     };
     let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    let target = None;
     Self {
       surface,
       adapter,
@@ -72,6 +74,7 @@ impl WGPURenderer {
       encoder,
       size,
 
+      target,
       swap_chain,
       swap_chain_descriptor,
     }
@@ -98,5 +101,20 @@ impl WGPURenderer {
   }
   pub fn create_vertex_buffer<D: 'static + Copy>(&self, data: &[D]) -> WGPUBuffer {
     WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::VERTEX)
+  }
+
+  pub fn request_output(&'a mut self){
+    self.target = Some(self.swap_chain.get_next_texture());
+  }
+
+  pub fn submit_queue(&mut self){
+    let mut encoder = self
+      .device
+      .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    use std::mem;
+    mem::swap(&mut self.encoder, &mut encoder);
+
+    let command_buf = encoder.finish();
+    self.queue.submit(&[command_buf]);
   }
 }
