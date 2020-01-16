@@ -41,7 +41,7 @@ impl TexShading {
       );
 
     let pipeline =
-      pipeline_builder.build::<StandardGeometry>(&renderer.device, &renderer.swap_chain_descriptor);
+      pipeline_builder.build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
 
     TexShading {
       pipeline,

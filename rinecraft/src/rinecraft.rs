@@ -23,7 +23,7 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn update_gpu(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer) {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
-
+    print!("update");
     self.update(&renderer.device, &mut renderer.encoder, mx_ref);
   }
 }
@@ -75,7 +75,7 @@ impl Application for Rinecraft {
       );
 
     let pipeline =
-      pipeline_builder.build::<StandardGeometry>(&renderer.device, &renderer.swap_chain_descriptor);
+      pipeline_builder.build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
 
     // Create the vertex and index buffers
     let (vertex_data, index_data) = create_vertices();
@@ -90,8 +90,7 @@ impl Application for Rinecraft {
     let sampler = WGPUSampler::new(&renderer.device);
 
     let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
-    let sc_desc = &renderer.swap_chain_descriptor;
-    camera.resize((sc_desc.width as f32, sc_desc.height as f32));
+    camera.resize((renderer.size.0 as f32, renderer.size.0 as f32));
     camera.update_projection();
     camera.transform.matrix = Mat4::lookat_rh(
       Vec3::new(5f32, 5.0, 5.0),
@@ -135,23 +134,20 @@ impl Application for Rinecraft {
   }
 
   fn resize(&mut self, renderer: &mut WGPURenderer) {
-    let sc_desc = &renderer.swap_chain_descriptor;
-
     self.depth.resize(&renderer.device, renderer.size);
     self
       .camera
-      .resize((sc_desc.width as f32, sc_desc.height as f32));
+      .resize((renderer.size.0 as f32, renderer.size.0 as f32));
+    self.camera.get_update_gpu(renderer);
   }
 
   fn render(&mut self, renderer: &mut WGPURenderer) {
-    self.camera.get_update_gpu(renderer);
 
-    renderer.request_output();
-    
-    let frame = &renderer.swap_chain.get_next_texture().view;
+    let output = renderer.swap_chain.request_output();
+
     {
       let mut pass = WGPURenderPass::build()
-        .output_with_clear(frame, (0.1, 0.2, 0.3, 1.0))
+        .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
         .with_depth(&self.depth.get_view())
         .create(&mut renderer.encoder);
       {
@@ -162,14 +158,6 @@ impl Application for Rinecraft {
       self.cube.render(&mut pass);
     }
 
-    renderer.submit_queue();
-    // let mut encoder = renderer
-    //   .device
-    //   .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-    // use std::mem;
-    // mem::swap(&mut renderer.encoder, &mut encoder);
-
-    // let command_buf = encoder.finish();
-    // renderer.queue.submit(&[command_buf]);
+    renderer.queue.submit(&renderer.device, &mut renderer.encoder);
   }
 }

@@ -28,21 +28,56 @@ pub trait Renderer: 'static + Sized {
 /// WebGPU renderer backend
 ///
 /// the backend render not contains any specific render resource.
-/// the render resource should be stored in injected trait renderer
-pub struct WGPURenderer<'a> {
+/// just encapsulate webgpu functionality
+pub struct WGPURenderer {
   surface: wgpu::Surface,
   pub adapter: wgpu::Adapter,
   pub device: wgpu::Device,
-  pub queue: wgpu::Queue,
+  pub queue: Queue,
   pub encoder: wgpu::CommandEncoder,
   pub size: (usize, usize),
+  pub swap_chain: SwapChain,
+}
 
-  pub target: Option<wgpu::SwapChainOutput<'a>>,
+pub struct Queue(wgpu::Queue);
+impl Queue {
+  pub fn submit(&mut self, device: &wgpu::Device, old_encoder: &mut wgpu::CommandEncoder) {
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    use std::mem;
+    mem::swap(&mut encoder, old_encoder);
+
+    let command_buf = encoder.finish();
+    self.0.submit(&[command_buf]);
+  }
+}
+
+pub struct SwapChain {
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
 }
 
-impl<'a> WGPURenderer<'a> {
+impl SwapChain {
+  pub fn new(surface: &wgpu::Surface, size: (usize, usize), device: &wgpu::Device) -> Self {
+    let swap_chain_descriptor = wgpu::SwapChainDescriptor {
+      usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+      format: wgpu::TextureFormat::Bgra8UnormSrgb,
+      width: size.0 as u32,
+      height: size.1 as u32,
+      present_mode: wgpu::PresentMode::Vsync,
+    };
+    let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
+    Self {
+      swap_chain_descriptor,
+      swap_chain,
+    }
+  }
+
+  pub fn request_output(&mut self) -> wgpu::SwapChainOutput {
+    self.swap_chain.get_next_texture()
+  }
+}
+
+impl WGPURenderer {
   pub fn new(surface: wgpu::Surface, size: (usize, usize)) -> Self {
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
       power_preference: wgpu::PowerPreference::Default,
@@ -56,36 +91,25 @@ impl<'a> WGPURenderer<'a> {
       },
       limits: wgpu::Limits::default(),
     });
-    let swap_chain_descriptor = wgpu::SwapChainDescriptor {
-      usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-      format: wgpu::TextureFormat::Bgra8UnormSrgb,
-      width: size.0 as u32,
-      height: size.1 as u32,
-      present_mode: wgpu::PresentMode::Vsync,
-    };
-    let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-    let target = None;
+    let swap_chain = SwapChain::new(&surface, size, &device);
     Self {
       surface,
       adapter,
       device,
-      queue,
+      queue: Queue(queue),
       encoder,
       size,
-
-      target,
       swap_chain,
-      swap_chain_descriptor,
     }
   }
 
   pub fn resize(&mut self, size: (usize, usize)) {
-    self.swap_chain_descriptor.width = size.0 as u32;
-    self.swap_chain_descriptor.height = size.1 as u32;
-    self.swap_chain = self
+    self.swap_chain.swap_chain_descriptor.width = size.0 as u32;
+    self.swap_chain.swap_chain_descriptor.height = size.1 as u32;
+    self.swap_chain.swap_chain = self
       .device
-      .create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+      .create_swap_chain(&self.surface, &self.swap_chain.swap_chain_descriptor);
     self.size = size;
   }
 
@@ -103,18 +127,14 @@ impl<'a> WGPURenderer<'a> {
     WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::VERTEX)
   }
 
-  pub fn request_output(&'a mut self){
-    self.target = Some(self.swap_chain.get_next_texture());
-  }
+  // pub fn submit_queue(&mut self) {
+  //   let mut encoder = self
+  //     .device
+  //     .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+  //   use std::mem;
+  //   mem::swap(&mut self.encoder, &mut encoder);
 
-  pub fn submit_queue(&mut self){
-    let mut encoder = self
-      .device
-      .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-    use std::mem;
-    mem::swap(&mut self.encoder, &mut encoder);
-
-    let command_buf = encoder.finish();
-    self.queue.submit(&[command_buf]);
-  }
+  //   let command_buf = encoder.finish();
+  //   self.queue.submit(&[command_buf]);
+  // }
 }
