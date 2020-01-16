@@ -39,7 +39,7 @@ pub struct WGPURenderer {
   pub swap_chain: SwapChain,
 }
 
-pub struct Queue(wgpu::Queue);
+pub struct Queue(pub wgpu::Queue);
 impl Queue {
   pub fn submit(&mut self, device: &wgpu::Device, old_encoder: &mut wgpu::CommandEncoder) {
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
@@ -127,14 +127,4 @@ impl WGPURenderer {
     WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::VERTEX)
   }
 
-  // pub fn submit_queue(&mut self) {
-  //   let mut encoder = self
-  //     .device
-  //     .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-  //   use std::mem;
-  //   mem::swap(&mut self.encoder, &mut encoder);
-
-  //   let command_buf = encoder.finish();
-  //   self.queue.submit(&[command_buf]);
-  // }
 }

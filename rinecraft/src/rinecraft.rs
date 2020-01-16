@@ -90,7 +90,7 @@ impl Application for Rinecraft {
     let sampler = WGPUSampler::new(&renderer.device);
 
     let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
-    camera.resize((renderer.size.0 as f32, renderer.size.0 as f32));
+    camera.resize((renderer.size.0 as f32, renderer.size.1 as f32));
     camera.update_projection();
     camera.transform.matrix = Mat4::lookat_rh(
       Vec3::new(5f32, 5.0, 5.0),
@@ -137,7 +137,7 @@ impl Application for Rinecraft {
     self.depth.resize(&renderer.device, renderer.size);
     self
       .camera
-      .resize((renderer.size.0 as f32, renderer.size.0 as f32));
+      .resize((renderer.size.0 as f32, renderer.size.1 as f32));
     self.camera.get_update_gpu(renderer);
   }
 
