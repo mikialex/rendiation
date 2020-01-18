@@ -7,6 +7,7 @@ pub mod shading_dynamic;
 pub mod camera;
 pub mod camera_any;
 pub mod buffer_data;
+pub mod controller;
 
 pub use render_object::*;
 pub use geometry::*;
@@ -17,3 +18,4 @@ pub use shading_dynamic::*;
 pub use camera::*;
 pub use camera_any::*;
 pub use buffer_data::*;
+pub use controller::*;
