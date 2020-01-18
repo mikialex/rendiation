@@ -12,6 +12,7 @@
         "rasterization",
         "spirv",
         "vsync",
+        "webgpu",
         "wgpu",
         "winit",
         "zerocopy"
