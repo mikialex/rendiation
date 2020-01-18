@@ -1,3 +1,5 @@
+use crate::transformed_object::TransformedObject;
+use crate::controller::Controller;
 use rendiation_math::Vec3;
 use rendiation_math_entity::Spherical;
 
@@ -52,5 +54,11 @@ impl OrbitController {
       viewWidth: 1000.,
       viewHeight: 1000.,
     }
+  }
+}
+
+impl<T: TransformedObject> Controller<T> for OrbitController {
+  fn update(&self, object: T) {
+
   }
 }
