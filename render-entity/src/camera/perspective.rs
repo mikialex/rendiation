@@ -1,4 +1,5 @@
 
+use crate::transformed_object::TransformedObject;
 use super::Camera;
 use rendiation_math_entity::*;
 use rendiation_math::*;
@@ -29,6 +30,12 @@ impl PerspectiveCamera {
   }
 }
 
+impl TransformedObject for PerspectiveCamera {
+  fn get_transform(&self) -> &Transformation{
+    &self.transform
+  }
+}
+
 impl Camera for PerspectiveCamera {
   fn update_projection(&mut self) {
     let top = self.near * (f32::pi_by_c180() * 0.5 * self.fov).tan() / self.zoom;
@@ -47,10 +54,6 @@ impl Camera for PerspectiveCamera {
 
   fn get_projection_matrix(&self) -> &Mat4<f32> {
     &self.projection_matrix
-  }
-
-  fn get_world_matrix(&self) -> &Mat4<f32> {
-    &self.transform.matrix
   }
 
   fn resize(&mut self, size: (f32, f32)) {

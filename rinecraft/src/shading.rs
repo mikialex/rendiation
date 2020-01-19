@@ -16,8 +16,8 @@ impl TexShading {
   ) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
-      .vertex_shader(include_str!("./shader.vert"))
-      .frag_shader(include_str!("./shader.frag"))
+      .vertex_shader(include_str!("./shader/test.vert"))
+      .frag_shader(include_str!("./shader/test.frag"))
       .binding_group(
         BindGroupLayoutBuilder::new()
           .binding(wgpu::BindGroupLayoutBinding {

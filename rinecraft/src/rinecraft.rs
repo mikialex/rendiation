@@ -7,7 +7,7 @@ use crate::util::*;
 use crate::watch::*;
 use rendiation::*;
 use rendiation_math::*;
-use rendiation_render_entity::{Camera, PerspectiveCamera};
+use rendiation_render_entity::*;
 
 impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
@@ -39,6 +39,7 @@ impl GPUItem<ImageData> for WGPUTexture {
 
 pub struct Rinecraft {
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
+  orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
   bind_group: WGPUBindGroup,
   cube: StandardGeometry,
@@ -50,8 +51,8 @@ impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
-      .vertex_shader(include_str!("./shader.vert"))
-      .frag_shader(include_str!("./shader.frag"))
+      .vertex_shader(include_str!("./shader/test.vert"))
+      .frag_shader(include_str!("./shader/test.frag"))
       .binding_group(
         BindGroupLayoutBuilder::new()
           .binding(wgpu::BindGroupLayoutBinding {
@@ -115,10 +116,11 @@ impl Application for Rinecraft {
     Rinecraft {
       cube,
       camera,
+      orbit_controller: OrbitController::new(),
       bind_group,
       pipeline,
       depth,
-      texture
+      texture,
     }
   }
 
@@ -144,6 +146,7 @@ impl Application for Rinecraft {
   fn render(&mut self, renderer: &mut WGPURenderer) {
 
     let output = renderer.swap_chain.request_output();
+    self.orbit_controller.update(&mut self.camera as &mut PerspectiveCamera);
 
     {
       let mut pass = WGPURenderPass::build()

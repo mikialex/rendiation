@@ -61,6 +61,7 @@ impl WGPUBindGroup {
   // }
 }
 
+#[derive(Default)]
 pub struct BindGroupBuilder<'a> {
   pub bindings: Vec<WGPUBinding<'a>>,
 }

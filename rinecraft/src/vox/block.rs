@@ -1,12 +1,10 @@
 use crate::render::vertex::Geometry;
 use crate::render::vertex::Vertex;
 use crate::world::*;
-use std::any::Any;
 
 pub trait Block {
   fn build_geometry(&self, chunk: &Chunk, x: usize, y: usize, z: usize);
   fn get_block_type(&self) -> BlockType;
-  fn as_any(&self) -> &dyn Any;
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -35,9 +33,6 @@ impl Block for VoidBlock {
   fn build_geometry(&self, _chunk: &Chunk, _x: usize, _y: usize, _z: usize) {}
   fn get_block_type(&self) -> BlockType {
     BlockType::Void
-  }
-  fn as_any(&self) -> &dyn Any {
-    self
   }
 }
 
@@ -77,10 +72,6 @@ impl Block for SolidBlock {
         );
       }
     }
-  }
-
-  fn as_any(&self) -> &dyn Any {
-    self
   }
 }
 

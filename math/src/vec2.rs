@@ -267,7 +267,7 @@ impl<T> Vec2<T> where T:Vec + Math
 	#[inline]
 	pub fn dot(&self, b: Self) -> T 
 	{
-		return self.x * b.x + self.y * b.y;
+		self.x * b.x + self.y * b.y
 	}
 
 	#[inline]	

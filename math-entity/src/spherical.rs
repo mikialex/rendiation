@@ -1,10 +1,10 @@
 use rendiation_math::Vec3;
 
 pub struct Spherical {
-  center: Vec3<f32>,
-  radius: f32,
-  polar: f32,
-  azim: f32,
+  pub center: Vec3<f32>,
+  pub radius: f32,
+  pub polar: f32,
+  pub azim: f32,
 }
 
 impl Spherical {
@@ -15,5 +15,11 @@ impl Spherical {
       polar: 0.,
       azim: 0.,
     }
+  }
+
+  pub fn reset_pose(&mut self){
+    self.radius = 0.;
+    self.polar = 0.;
+    self.azim = 0.;
   }
 }

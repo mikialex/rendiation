@@ -1,5 +1,5 @@
 pub trait Controller<T>{
-    fn update(&self, controlled: T);
+    fn update(&mut self, target: &mut T);
 }
 
 pub mod orbit;
