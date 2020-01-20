@@ -1,5 +1,6 @@
 use winit::event::WindowEvent;
 use crate::renderer::*;
+use crate::window::*;
 
 #[allow(dead_code)]
 pub fn cast_slice<T>(data: &[T]) -> &[u8] {
@@ -69,6 +70,7 @@ pub fn run<E: Application>(title: &str) {
         (window, instance, hidpi_factor, size, surface)
     };
 
+    let mut window_state = Window::new((size.width.round() as f32, size.height.round() as f32), hidpi_factor as f32);
     let mut renderer = WGPURenderer::new(surface, (size.width.round() as usize, size.height.round() as usize));
 
     log::info!("Initializing the example...");
@@ -76,11 +78,7 @@ pub fn run<E: Application>(title: &str) {
 
     log::info!("Entering render loop...");
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = if cfg!(feature = "metal-auto-capture") {
-            ControlFlow::Exit
-        } else {
-            ControlFlow::Poll
-        };
+        window_state.event(event.clone());
         match event {
             event::Event::WindowEvent {
                 event: WindowEvent::Resized(size),
@@ -92,16 +90,7 @@ pub fn run<E: Application>(title: &str) {
                 example.resize(&mut renderer);
             }
             event::Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput {
-                    input:
-                        event::KeyboardInput {
-                            virtual_keycode: Some(event::VirtualKeyCode::Escape),
-                            state: event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                }
-                | WindowEvent::CloseRequested => {
+                WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
                 }
                 _ => {
