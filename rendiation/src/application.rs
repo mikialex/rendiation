@@ -71,6 +71,9 @@ pub fn run<E: Application>(title: &str) {
     };
 
     let mut window_state = Window::new((size.width.round() as f32, size.height.round() as f32), hidpi_factor as f32);
+    window_state.listener(|_|{
+        println!("test");
+    });
     let mut renderer = WGPURenderer::new(surface, (size.width.round() as usize, size.height.round() as usize));
 
     log::info!("Initializing the example...");
