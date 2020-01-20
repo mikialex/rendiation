@@ -2,6 +2,17 @@ pub trait Component{
 
 }
 
+pub struct ComponentInstance<C>{
+    state: C,
+    document: Div
+}
+
+impl<C> ComponentInstance<C>{
+    pub fn event(&mut self){
+        
+    }
+}
+
 pub struct TestCounter{
     count: usize,
 }

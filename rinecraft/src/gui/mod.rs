@@ -1,7 +1,10 @@
 struct GUI<UIState>{
-
+    app_state: UIState,
+    component_tree: Component
 }
 
-struct RineCraftUI{
-
+impl<UIState> GUI<UIState>{
+    pub fn event(){
+        
+    }
 }
