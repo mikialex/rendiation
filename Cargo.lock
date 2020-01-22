@@ -1040,6 +1040,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendium"
+version = "0.1.0"
+dependencies = [
+ "rendiation 0.1.0",
+ "winit 0.20.0-alpha5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rendy-descriptor"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

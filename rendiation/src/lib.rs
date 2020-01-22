@@ -4,6 +4,7 @@ pub mod event;
 pub mod window;
 pub mod element;
 pub mod component;
+pub mod tree;
 
 pub use wgpu;
 pub use winit;

@@ -1,11 +1,7 @@
 use crate::event::MouseEvent;
 
-pub trait UINode{
-    
-}
-
-pub trait Element: UINode {
-  fn render();
+pub trait Element {
+  fn render(&self);
 }
 
 pub struct QuadLayout {

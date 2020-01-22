@@ -1,0 +1,9 @@
+[package]
+name = "rendium"
+version = "0.1.0"
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+
+[dependencies]
+winit = "0.20.0-alpha4"
+rendiation = { path = "../rendiation" }
