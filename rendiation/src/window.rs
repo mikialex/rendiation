@@ -1,4 +1,5 @@
 use crate::event::MouseEvent;
+use crate::renderer::WGPURenderer;
 use winit::event;
 use winit::event::{DeviceEvent, WindowEvent};
 
@@ -27,7 +28,7 @@ impl WindowState {
 pub struct Window<AppState> {
   pub window_state: WindowState,
   click_listeners: Vec<Box<dyn FnMut(MouseEvent, &mut AppState)>>,
-  resize_listeners: Vec<Box<dyn FnMut((), &mut AppState)>>,
+  resize_listeners: Vec<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>,
 }
 
 impl<AppState> Window<AppState> {
@@ -35,13 +36,15 @@ impl<AppState> Window<AppState> {
     self.click_listeners.push(Box::new(func));
   }
 
-  
-  pub fn add_resize_listener<T: FnMut((), &mut AppState) + 'static>(&mut self, func: T) {
+  pub fn add_resize_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
+    &mut self,
+    func: T,
+  ) {
     self.resize_listeners.push(Box::new(func));
   }
-  pub fn emit_resize(&mut self, state: &mut AppState){
+  pub fn emit_resize(&mut self, state: &mut AppState, renderer: &mut WGPURenderer) {
     for listener in self.resize_listeners.iter_mut() {
-      listener((), state)
+      listener(state, renderer)
     }
   }
 
@@ -58,11 +61,17 @@ impl<AppState> Window<AppState> {
     }
   }
 
-  pub fn event(&mut self, event: winit::event::Event<()>) {
+  pub fn event(
+    &mut self,
+    event: winit::event::Event<()>,
+    state: &mut AppState,
+    renderer: &mut WGPURenderer,
+  ) {
     match event {
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
           self.window_state.update_size(&size);
+          self.emit_resize(state, renderer);
           log::info!("Resizing to {:?}", size);
         }
         WindowEvent::MouseInput { button, state, .. } => {

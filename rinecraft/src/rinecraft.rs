@@ -38,7 +38,11 @@ impl GPUItem<ImageData> for WGPUTexture {
 }
 
 pub struct Rinecraft {
-  window: Window<()>,
+  window: Window<RinecraftState>,
+  state: RinecraftState,
+}
+
+pub struct RinecraftState {
   controller: OrbitController,
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   orbit_controller: OrbitController,
@@ -114,44 +118,41 @@ impl Application for Rinecraft {
       renderer.size,
     );
 
-    let window = Window::new(
+    let mut window = Window::new(
       (renderer.size.0 as f32, renderer.size.1 as f32),
       renderer.hidpi_factor,
     );
 
+    window.add_resize_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
+      state.depth.resize(&renderer.device, renderer.size);
+      state
+        .camera
+        .resize((renderer.size.0 as f32, renderer.size.1 as f32));
+      state.camera.get_update_gpu(renderer);
+    });
+
     // Done
     Rinecraft {
       window,
-      controller: OrbitController::new(),
-      cube,
-      camera,
-      orbit_controller: OrbitController::new(),
-      bind_group,
-      pipeline,
-      depth,
-      texture,
+      state: RinecraftState {
+        controller: OrbitController::new(),
+        cube,
+        camera,
+        orbit_controller: OrbitController::new(),
+        bind_group,
+        pipeline,
+        depth,
+        texture,
+      },
     }
   }
 
   fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer) {
-    use winit::*;
-    use winit::event::WindowEvent;
-    match event {
-      event::Event::WindowEvent {
-        event: WindowEvent::Resized(_size),
-        ..
-      } => {
-        self.depth.resize(&renderer.device, renderer.size);
-        self
-          .camera
-          .resize((renderer.size.0 as f32, renderer.size.1 as f32));
-        self.camera.get_update_gpu(renderer);
-      }
-      _ => (),
-    }
+    self.window.event(event, &mut self.state, renderer);
   }
 
   fn render(&mut self, renderer: &mut WGPURenderer) {
+    let app_state = &mut self.state;
     let output = renderer.swap_chain.request_output();
     // self
     //   .orbit_controller
@@ -160,14 +161,14 @@ impl Application for Rinecraft {
     {
       let mut pass = WGPURenderPass::build()
         .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
-        .with_depth(&self.depth.get_view())
+        .with_depth(app_state.depth.get_view())
         .create(&mut renderer.encoder);
       {
         let rpass = &mut pass.gpu_pass;
-        rpass.set_pipeline(&self.pipeline.pipeline);
-        rpass.set_bind_group(0, &self.bind_group.gpu_bindgroup, &[]);
+        rpass.set_pipeline(&app_state.pipeline.pipeline);
+        rpass.set_bind_group(0, &app_state.bind_group.gpu_bindgroup, &[]);
       }
-      self.cube.render(&mut pass);
+      app_state.cube.render(&mut pass);
     }
 
     renderer
