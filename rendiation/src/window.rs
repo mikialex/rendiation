@@ -25,9 +25,9 @@ impl WindowState {
 }
 
 pub struct Window<AppState> {
-  window_state: WindowState,
-  app_state: AppState,
+  pub window_state: WindowState,
   click_listeners: Vec<Box<dyn FnMut(MouseEvent, &mut AppState)>>,
+  resize_listeners: Vec<Box<dyn FnMut((), &mut AppState)>>,
 }
 
 impl<AppState> Window<AppState> {
@@ -35,7 +35,17 @@ impl<AppState> Window<AppState> {
     self.click_listeners.push(Box::new(func));
   }
 
-  pub fn new(size: (f32, f32), hidpi_factor: f32, app_state: AppState) -> Self {
+  
+  pub fn add_resize_listener<T: FnMut((), &mut AppState) + 'static>(&mut self, func: T) {
+    self.resize_listeners.push(Box::new(func));
+  }
+  pub fn emit_resize(&mut self, state: &mut AppState){
+    for listener in self.resize_listeners.iter_mut() {
+      listener((), state)
+    }
+  }
+
+  pub fn new(size: (f32, f32), hidpi_factor: f32) -> Self {
     Window {
       window_state: WindowState {
         size,
@@ -43,8 +53,8 @@ impl<AppState> Window<AppState> {
         hidpi_factor,
         mouse_position: (0.0, 0.0),
       },
-      app_state,
       click_listeners: Vec::new(),
+      resize_listeners: Vec::new(),
     }
   }
 
@@ -57,9 +67,9 @@ impl<AppState> Window<AppState> {
         }
         WindowEvent::MouseInput { button, state, .. } => {
           println!("mouse click");
-          for listener in self.click_listeners.iter_mut() {
-            listener(MouseEvent { x: 1.0, y: 1.0 }, &mut self.app_state)
-          }
+          // for listener in self.click_listeners.iter_mut() {
+          //   listener(MouseEvent { x: 1.0, y: 1.0 }, &mut self.app_state)
+          // }
         }
         WindowEvent::CursorMoved { position, .. } => {
           self.window_state.mouse_move_to(&position);

@@ -62,17 +62,10 @@ pub fn run<E: Application>(title: &str) {
     (window, instance, hidpi_factor, size, surface)
   };
 
-  let mut window_state = Window::new(
+  let mut window_state: Window<()> = Window::new(
     (size.width.round() as f32, size.height.round() as f32),
     hidpi_factor as f32,
-    TestApp{
-        counter: 1
-    }
   );
-  window_state.listener(|_, app| {
-    app.counter +=1;
-    println!("{}", app.counter);
-  });
   let mut renderer = WGPURenderer::new(
     surface,
     (size.width.round() as usize, size.height.round() as usize),

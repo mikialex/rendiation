@@ -1,6 +1,6 @@
-use crate::image_data::ImageData;
 use crate::application::*;
 use crate::geometry::*;
+use crate::image_data::ImageData;
 use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
 use crate::util::*;
@@ -38,6 +38,7 @@ impl GPUItem<ImageData> for WGPUTexture {
 }
 
 pub struct Rinecraft {
+  controller: OrbitController,
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
@@ -75,8 +76,8 @@ impl Application for Rinecraft {
           }),
       );
 
-    let pipeline =
-      pipeline_builder.build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
+    let pipeline = pipeline_builder
+      .build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
 
     // Create the vertex and index buffers
     let (vertex_data, index_data) = create_vertices();
@@ -84,7 +85,8 @@ impl Application for Rinecraft {
 
     // Create the texture
     let size = 512u32;
-    let mut texture: GPUPair<ImageData, WGPUTexture> = GPUPair::new(create_texels(size as usize), renderer);
+    let mut texture: GPUPair<ImageData, WGPUTexture> =
+      GPUPair::new(create_texels(size as usize), renderer);
     let texture_view = texture.get_update_gpu(renderer).make_default_view();
 
     // Create other resources
@@ -92,7 +94,6 @@ impl Application for Rinecraft {
 
     let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
     camera.resize((renderer.size.0 as f32, renderer.size.1 as f32));
-    camera.update_projection();
     camera.transform.matrix = Mat4::lookat_rh(
       Vec3::new(5f32, 5.0, 5.0),
       Vec3::new(0f32, 0.0, 0.0),
@@ -114,6 +115,7 @@ impl Application for Rinecraft {
 
     // Done
     Rinecraft {
+      controller: OrbitController::new(),
       cube,
       camera,
       orbit_controller: OrbitController::new(),
@@ -144,9 +146,10 @@ impl Application for Rinecraft {
   }
 
   fn render(&mut self, renderer: &mut WGPURenderer) {
-
     let output = renderer.swap_chain.request_output();
-    self.orbit_controller.update(&mut self.camera as &mut PerspectiveCamera);
+    // self
+    //   .orbit_controller
+    //   .update(&mut self.camera as &mut PerspectiveCamera);
 
     {
       let mut pass = WGPURenderPass::build()
@@ -161,6 +164,8 @@ impl Application for Rinecraft {
       self.cube.render(&mut pass);
     }
 
-    renderer.queue.submit(&renderer.device, &mut renderer.encoder);
+    renderer
+      .queue
+      .submit(&renderer.device, &mut renderer.encoder);
   }
 }
