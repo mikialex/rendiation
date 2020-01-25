@@ -1,7 +1,7 @@
 use crate::application::*;
 use crate::geometry::*;
 use crate::image_data::ImageData;
-use crate::renderer::r#const::OPENGL_TO_WGPU_MATRIX;
+use crate::renderer::consts::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
 use crate::util::*;
 use crate::watch::*;
@@ -38,7 +38,7 @@ impl GPUItem<ImageData> for WGPUTexture {
 }
 
 pub struct Rinecraft {
-  // window: Window<()>,
+  window: Window<()>,
   controller: OrbitController,
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   orbit_controller: OrbitController,
@@ -114,12 +114,14 @@ impl Application for Rinecraft {
       renderer.size,
     );
 
+    let window = Window::new(
+      (renderer.size.0 as f32, renderer.size.1 as f32),
+      renderer.hidpi_factor,
+    );
+
     // Done
     Rinecraft {
-      // window: Window::new(
-      //   (renderer.width.round() as f32, size.height.round() as f32),
-      //   hidpi_factor as f32,
-      // ),
+      window,
       controller: OrbitController::new(),
       cube,
       camera,
@@ -136,7 +138,7 @@ impl Application for Rinecraft {
     use winit::event::WindowEvent;
     match event {
       event::Event::WindowEvent {
-        event: WindowEvent::Resized(size),
+        event: WindowEvent::Resized(_size),
         ..
       } => {
         self.depth.resize(&renderer.device, renderer.size);

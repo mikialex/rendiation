@@ -68,6 +68,7 @@ pub fn run<E: Application>(title: &str) {
   let mut renderer = WGPURenderer::new(
     surface,
     (size.width.round() as usize, size.height.round() as usize),
+    hidpi_factor as f32,
   );
 
   log::info!("Initializing the example...");

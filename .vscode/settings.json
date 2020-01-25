@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "Lerp",
+        "OPENGL",
         "Rendiation",
         "Rendium",
         "Rinecraft",
@@ -16,6 +17,7 @@
         "mipmap",
         "multisampled",
         "rasterization",
+        "rustfmt",
         "spirv",
         "vsync",
         "webgpu",

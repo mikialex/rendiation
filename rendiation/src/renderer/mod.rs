@@ -1,7 +1,7 @@
 pub mod attachment_texture;
 pub mod bindgroup;
 pub mod buffer;
-pub mod r#const;
+pub mod consts;
 pub mod pipeline;
 pub mod render_pass;
 pub mod sampler;
@@ -36,6 +36,7 @@ pub struct WGPURenderer {
   pub queue: Queue,
   pub encoder: wgpu::CommandEncoder,
   pub size: (usize, usize),
+  pub hidpi_factor: f32,
   pub swap_chain: SwapChain,
 }
 
@@ -78,7 +79,7 @@ impl SwapChain {
 }
 
 impl WGPURenderer {
-  pub fn new(surface: wgpu::Surface, size: (usize, usize)) -> Self {
+  pub fn new(surface: wgpu::Surface, size: (usize, usize), hidpi_factor: f32) -> Self {
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
       power_preference: wgpu::PowerPreference::Default,
       backends: wgpu::BackendBit::PRIMARY,
@@ -100,6 +101,7 @@ impl WGPURenderer {
       queue: Queue(queue),
       encoder,
       size,
+      hidpi_factor,
       swap_chain,
     }
   }
