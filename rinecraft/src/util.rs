@@ -75,3 +75,11 @@ pub fn create_texels(size: usize) -> ImageData {
     height: size,
   }
 }
+
+#[allow(dead_code)]
+pub fn cast_slice<T>(data: &[T]) -> &[u8] {
+  use std::mem::size_of;
+  use std::slice::from_raw_parts;
+
+  unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
+}

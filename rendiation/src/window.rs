@@ -25,14 +25,34 @@ impl WindowState {
   }
 }
 
+type ListenerContainer<AppState> = Vec<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>;
+
 pub struct Window<AppState> {
   pub window_state: WindowState,
-  click_listeners: Vec<Box<dyn FnMut(MouseEvent, &mut AppState)>>,
-  resize_listeners: Vec<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>,
+
+  events_cleared_listeners: ListenerContainer<AppState>,
+  click_listeners: ListenerContainer<AppState>,
+  resize_listeners: ListenerContainer<AppState>,
+}
+
+// pub struct WindowEventSession<T: FnMut> {
+//   events_cleared_listeners: ListenerContainer<AppState>,
+//   click_listeners: ListenerContainer<AppState>,
+//   resize_listeners: ListenerContainer<AppState>,
+// }
+
+fn emit_listener<AppState>(
+  listeners: &mut ListenerContainer<AppState>,
+  state: &mut AppState,
+  renderer: &mut WGPURenderer,
+) {
+  for listener in listeners.iter_mut() {
+    listener(state, renderer)
+  }
 }
 
 impl<AppState> Window<AppState> {
-  pub fn listener<T: FnMut(MouseEvent, &mut AppState) + 'static>(&mut self, func: T) {
+  pub fn add_mouse_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(&mut self, func: T) {
     self.click_listeners.push(Box::new(func));
   }
 
@@ -42,11 +62,11 @@ impl<AppState> Window<AppState> {
   ) {
     self.resize_listeners.push(Box::new(func));
   }
-  pub fn emit_resize(&mut self, state: &mut AppState, renderer: &mut WGPURenderer) {
-    for listener in self.resize_listeners.iter_mut() {
-      listener(state, renderer)
-    }
+
+  pub fn add_events_clear_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(&mut self, func: T) {
+    self.events_cleared_listeners.push(Box::new(func));
   }
+
 
   pub fn new(size: (f32, f32), hidpi_factor: f32) -> Self {
     Window {
@@ -56,6 +76,7 @@ impl<AppState> Window<AppState> {
         hidpi_factor,
         mouse_position: (0.0, 0.0),
       },
+      events_cleared_listeners: Vec::new(),
       click_listeners: Vec::new(),
       resize_listeners: Vec::new(),
     }
@@ -68,10 +89,11 @@ impl<AppState> Window<AppState> {
     renderer: &mut WGPURenderer,
   ) {
     match event {
+
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
           self.window_state.update_size(&size);
-          self.emit_resize(state, renderer);
+          emit_listener(&mut self.resize_listeners, state, renderer);
           log::info!("Resizing to {:?}", size);
         }
         WindowEvent::MouseInput { button, state, .. } => {
@@ -86,6 +108,11 @@ impl<AppState> Window<AppState> {
         }
         _ => (),
       },
+
+      event::Event::EventsCleared => {
+        emit_listener(&mut self.events_cleared_listeners, state, renderer);
+      }
+
       DeviceEvent => {}
     }
   }

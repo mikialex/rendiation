@@ -2,22 +2,9 @@ use crate::renderer::*;
 use crate::window::*;
 use winit::event::WindowEvent;
 
-#[allow(dead_code)]
-pub fn cast_slice<T>(data: &[T]) -> &[u8] {
-  use std::mem::size_of;
-  use std::slice::from_raw_parts;
-
-  unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
-}
-
-struct TestApp {
-  counter: usize,
-}
-
 pub trait Application: 'static + Sized {
   fn init(renderer: &mut WGPURenderer) -> Self;
   fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer);
-  fn render(&mut self, renderer: &mut WGPURenderer);
 }
 
 pub fn run<E: Application>(title: &str) {
@@ -61,10 +48,6 @@ pub fn run<E: Application>(title: &str) {
     (window, instance, hidpi_factor, size, surface)
   };
 
-  let mut window_state: Window<()> = Window::new(
-    (size.width.round() as f32, size.height.round() as f32),
-    hidpi_factor as f32,
-  );
   let mut renderer = WGPURenderer::new(
     surface,
     (size.width.round() as usize, size.height.round() as usize),
@@ -76,7 +59,6 @@ pub fn run<E: Application>(title: &str) {
 
   log::info!("Entering render loop...");
   event_loop.run(move |event, _, control_flow| {
-    // window_state.event(event.clone());
     let event_clone = event.clone();
     match event {
       event::Event::WindowEvent {
@@ -96,16 +78,8 @@ pub fn run<E: Application>(title: &str) {
         }
         _ => { }
       },
-      event::Event::EventsCleared => {
-        example.render(&mut renderer);
-      }
       _ => (),
     }
     example.update(event_clone, &mut renderer);
   });
 }
-
-// This allows treating the framework as a standalone example,
-// thus avoiding listing the example names in `Cargo.toml`.
-#[allow(dead_code)]
-fn main() {}

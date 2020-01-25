@@ -131,6 +131,40 @@ impl Application for Rinecraft {
       state.camera.get_update_gpu(renderer);
     });
 
+    // resize
+    window.add_resize_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
+      state.depth.resize(&renderer.device, renderer.size);
+      state
+        .camera
+        .resize((renderer.size.0 as f32, renderer.size.1 as f32));
+      state.camera.get_update_gpu(renderer);
+    });
+
+    // render
+    window.add_events_clear_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer|{
+      let output = renderer.swap_chain.request_output();
+      // self
+      //   .orbit_controller
+      //   .update(&mut self.camera as &mut PerspectiveCamera);
+  
+      {
+        let mut pass = WGPURenderPass::build()
+          .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
+          .with_depth(state.depth.get_view())
+          .create(&mut renderer.encoder);
+        {
+          let rpass = &mut pass.gpu_pass;
+          rpass.set_pipeline(&state.pipeline.pipeline);
+          rpass.set_bind_group(0, &state.bind_group.gpu_bindgroup, &[]);
+        }
+        state.cube.render(&mut pass);
+      }
+  
+      renderer
+        .queue
+        .submit(&renderer.device, &mut renderer.encoder);
+    });
+
     // Done
     Rinecraft {
       window,
@@ -151,28 +185,4 @@ impl Application for Rinecraft {
     self.window.event(event, &mut self.state, renderer);
   }
 
-  fn render(&mut self, renderer: &mut WGPURenderer) {
-    let app_state = &mut self.state;
-    let output = renderer.swap_chain.request_output();
-    // self
-    //   .orbit_controller
-    //   .update(&mut self.camera as &mut PerspectiveCamera);
-
-    {
-      let mut pass = WGPURenderPass::build()
-        .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
-        .with_depth(app_state.depth.get_view())
-        .create(&mut renderer.encoder);
-      {
-        let rpass = &mut pass.gpu_pass;
-        rpass.set_pipeline(&app_state.pipeline.pipeline);
-        rpass.set_bind_group(0, &app_state.bind_group.gpu_bindgroup, &[]);
-      }
-      app_state.cube.render(&mut pass);
-    }
-
-    renderer
-      .queue
-      .submit(&renderer.device, &mut renderer.encoder);
-  }
 }
