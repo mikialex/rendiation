@@ -6,5 +6,6 @@ pub struct BoundingData{
 }
 
 pub trait Bounding<T>{
+  fn create(item: &T) -> BoundingData;
   fn update(item: &T, bounding: BoundingData);
 } 

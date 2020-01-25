@@ -77,7 +77,7 @@ impl StandardGeometry {
 }
 
 impl<'a> GeometryProvider<'a> for StandardGeometry {
-  fn get_geometry_layout_discriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>> {
-    vec![Vertex::get_buffer_layout_discriptor()]
+  fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>> {
+    vec![Vertex::get_buffer_layout_descriptor()]
   }
 }

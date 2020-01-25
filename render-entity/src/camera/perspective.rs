@@ -38,18 +38,7 @@ impl TransformedObject for PerspectiveCamera {
 
 impl Camera for PerspectiveCamera {
   fn update_projection(&mut self) {
-    let top = self.near * (f32::pi_by_c180() * 0.5 * self.fov).tan() / self.zoom;
-    let height = 2. * top;
-    let width = self.aspect * height;
-    let left = -0.5 * width;
-    self.projection_matrix.make_perspective(
-      left,
-      left + width,
-      top,
-      top - height,
-      self.near,
-      self.far,
-    );
+    self.projection_matrix = Mat4::perspective_fov_rh(self.fov, self.aspect, self.near, self.far);
   }
 
   fn get_projection_matrix(&self) -> &Mat4<f32> {

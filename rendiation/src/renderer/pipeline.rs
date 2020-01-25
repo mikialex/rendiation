@@ -1,11 +1,11 @@
 
 pub trait GeometryProvider<'a> {
-  fn get_geometry_layout_discriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>>;
+  fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>>;
 }
 
 /// impl your custom vertex data layout
 pub trait VertexProvider<'a> {
-  fn get_buffer_layout_discriptor() -> wgpu::VertexBufferDescriptor<'a>;
+  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'a>;
 }
 
 pub struct WGPUPipeline {
@@ -129,7 +129,7 @@ impl<'a> WGPUPipelineDescriptorBuilder {
       }),
       // depth_stencil_state: None,
       index_format: wgpu::IndexFormat::Uint16,
-      vertex_buffers: &T::get_geometry_layout_discriptor(),
+      vertex_buffers: &T::get_geometry_layout_descriptor(),
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,
