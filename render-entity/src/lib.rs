@@ -9,6 +9,7 @@ pub mod camera_any;
 pub mod buffer_data;
 pub mod controller;
 pub mod transformed_object;
+pub mod bounding;
 
 pub use render_object::*;
 pub use geometry::*;
@@ -21,3 +22,4 @@ pub use camera_any::*;
 pub use buffer_data::*;
 pub use controller::*;
 pub use transformed_object::*;
+pub use bounding::*;

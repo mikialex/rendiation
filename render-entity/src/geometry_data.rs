@@ -1,3 +1,0 @@
-trait GeometryData<GPUHandle>{
-    
-}
