@@ -10,14 +10,13 @@ pub fn cast_slice<T>(data: &[T]) -> &[u8] {
   unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
 }
 
-struct TestApp{
-    counter: usize,
+struct TestApp {
+  counter: usize,
 }
 
 pub trait Application: 'static + Sized {
   fn init(renderer: &mut WGPURenderer) -> Self;
-  fn resize(&mut self, renderer: &mut WGPURenderer);
-  fn update(&mut self, event: WindowEvent, renderer: &mut WGPURenderer);
+  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer);
   fn render(&mut self, renderer: &mut WGPURenderer);
 }
 
@@ -76,7 +75,8 @@ pub fn run<E: Application>(title: &str) {
 
   log::info!("Entering render loop...");
   event_loop.run(move |event, _, control_flow| {
-    window_state.event(event.clone());
+    // window_state.event(event.clone());
+    let event_clone = event.clone();
     match event {
       event::Event::WindowEvent {
         event: WindowEvent::Resized(size),
@@ -88,21 +88,19 @@ pub fn run<E: Application>(title: &str) {
           physical.width.round() as usize,
           physical.height.round() as usize,
         ));
-        example.resize(&mut renderer);
       }
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::CloseRequested => {
           *control_flow = ControlFlow::Exit;
         }
-        _ => {
-          example.update(event, &mut renderer);
-        }
+        _ => { }
       },
       event::Event::EventsCleared => {
         example.render(&mut renderer);
       }
       _ => (),
     }
+    example.update(event_clone, &mut renderer);
   });
 }
 

@@ -38,6 +38,7 @@ impl GPUItem<ImageData> for WGPUTexture {
 }
 
 pub struct Rinecraft {
+  // window: Window<()>,
   controller: OrbitController,
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   orbit_controller: OrbitController,
@@ -115,6 +116,10 @@ impl Application for Rinecraft {
 
     // Done
     Rinecraft {
+      // window: Window::new(
+      //   (renderer.width.round() as f32, size.height.round() as f32),
+      //   hidpi_factor as f32,
+      // ),
       controller: OrbitController::new(),
       cube,
       camera,
@@ -126,23 +131,22 @@ impl Application for Rinecraft {
     }
   }
 
-  fn update(&mut self, _event: winit::event::WindowEvent, renderer: &mut WGPURenderer) {
-    //empty
-    // self.camera.transform.position += Vec3::new(0.0, 0.0, 0.1);
-    // self.camera.transform.update_matrix_by_compose();
-    // let mx_total = OPENGL_TO_WGPU_MATRIX * self.camera.get_vp_matrix();
-    // let mx_ref: &[f32; 16] = mx_total.as_ref();
-    // self
-    //   .uniform_buf
-    //   .update(&renderer.device, &mut renderer.encoder, mx_ref);
-  }
-
-  fn resize(&mut self, renderer: &mut WGPURenderer) {
-    self.depth.resize(&renderer.device, renderer.size);
-    self
-      .camera
-      .resize((renderer.size.0 as f32, renderer.size.1 as f32));
-    self.camera.get_update_gpu(renderer);
+  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer) {
+    use winit::*;
+    use winit::event::WindowEvent;
+    match event {
+      event::Event::WindowEvent {
+        event: WindowEvent::Resized(size),
+        ..
+      } => {
+        self.depth.resize(&renderer.device, renderer.size);
+        self
+          .camera
+          .resize((renderer.size.0 as f32, renderer.size.1 as f32));
+        self.camera.get_update_gpu(renderer);
+      }
+      _ => (),
+    }
   }
 
   fn render(&mut self, renderer: &mut WGPURenderer) {
