@@ -1,6 +1,6 @@
-use rendiation_math::Vec2;
-use crate::transformed_object::TransformedObject;
 use crate::controller::Controller;
+use crate::transformed_object::TransformedObject;
+use rendiation_math::Vec2;
 use rendiation_math::*;
 use rendiation_math_entity::Spherical;
 
@@ -65,9 +65,9 @@ impl OrbitController {
     // offset = offset * Mat2::rotate(Vec3::zero(), -self.spherical.azim);
     // offset.rotate(-self.spherical.azim);
     // offset *= self.spherical.radius * self.panFactor;
-    self.panOffset.x += offset.x;
-    self.panOffset.z += offset.y;
-    self.needUpdate = true;
+    // self.panOffset.x += offset.x;
+    // self.panOffset.z += offset.y;
+    // self.needUpdate = true;
   }
 
   pub fn zoom(&mut self, factor: f32) {
@@ -76,44 +76,44 @@ impl OrbitController {
   }
 
   pub fn rotate(&mut self, offset: Vec2<f32>) {
-    self.sphericalDelta.polar += offset.y / self.viewHeight * std::f32::consts::PI * self.rotateAngleFactor;
-    self.sphericalDelta.azim += offset.x / self.viewWidth * std::f32::consts::PI * self.rotateAngleFactor;
+    self.sphericalDelta.polar +=
+      offset.y / self.viewHeight * std::f32::consts::PI * self.rotateAngleFactor;
+    self.sphericalDelta.azim +=
+      offset.x / self.viewWidth * std::f32::consts::PI * self.rotateAngleFactor;
     self.needUpdate = true;
   }
-
 }
 
 impl<T: TransformedObject> Controller<T> for OrbitController {
   fn update(&mut self, target: &mut T) {
-    if self.sphericalDelta.azim.abs() > 0.0001 ||
-      self.sphericalDelta.polar.abs() > 0.0001 ||
-      self.sphericalDelta.radius.abs() > 0.0001 ||
-      (self.zooming - 1.).abs() > 0.0001 ||
-      self.panOffset.length2() > 0.000_000_1
-     {
+    if self.sphericalDelta.azim.abs() > 0.0001
+      || self.sphericalDelta.polar.abs() > 0.0001
+      || self.sphericalDelta.radius.abs() > 0.0001
+      || (self.zooming - 1.).abs() > 0.0001
+      || self.panOffset.length2() > 0.000_000_1
+    {
       self.needUpdate = true;
     }
 
+    if self.needUpdate {
+      self.spherical.radius *= self.zooming;
 
-    // if self.needUpdate {
-    //   self.spherical.radius *= self.zooming;
+      self.spherical.azim += self.sphericalDelta.azim;
 
-    //   self.spherical.azim += self.sphericalDelta.azim;
+      self.spherical.polar = (self.spherical.polar + self.sphericalDelta.polar)
+        .min(self.minPolarAngle)
+        .max(self.maxPolarAngle);
 
-    //   self.spherical.polar = (self.spherical.polar + self.sphericalDelta.polar)
-    //   .clamp(self.minPolarAngle, self.maxPolarAngle);
+      self.spherical.center += self.panOffset;
 
-    //   // self.spherical.polar = MathUtil.clamp(
-    //   //   self.spherical.polar + self.sphericalDelta.polar,
-    //   //   self.minPolarAngle, self.maxPolarAngle);
-
-    //   self.spherical.center += self.panOffset;
-
-    //   tempVec.setFromSpherical(self.spherical).add(self.spherical.center);
-    //   let transform = target.get_transform();
-    //   transform.position.copy(tempVec);
-    //   transform.lookAt(self.spherical.center, self.up);
-    // }
+      let transform = target.get_transform_mut();
+      let eye = self.spherical.to_vec3();
+      transform.matrix = Mat4::lookat_rh(
+        eye,
+        self.spherical.center,
+        Vec3::unit_y(),
+      );
+    }
     self.needUpdate = false;
 
     // update damping effect

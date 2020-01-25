@@ -34,6 +34,10 @@ impl TransformedObject for PerspectiveCamera {
   fn get_transform(&self) -> &Transformation{
     &self.transform
   }
+
+  fn get_transform_mut(&mut self) -> &mut Transformation{
+    &mut self.transform
+  }
 }
 
 impl Camera for PerspectiveCamera {

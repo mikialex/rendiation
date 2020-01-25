@@ -16,7 +16,7 @@ impl StandardGeometry {
     let gpu_index = renderer.create_index_buffer(&index);
     Self {
       data: v,
-      data_changed: false,
+      data_changed: false, 
       index,
       index_changed: false,
       gpu_data,

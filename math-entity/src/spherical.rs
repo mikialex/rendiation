@@ -17,9 +17,18 @@ impl Spherical {
     }
   }
 
-  pub fn reset_pose(&mut self){
+  pub fn reset_pose(&mut self) {
     self.radius = 0.;
     self.polar = 0.;
     self.azim = 0.;
+  }
+
+  pub fn to_vec3(&self) -> Vec3<f32> {
+    let sin_radius = self.polar.sin() * self.radius;
+    Vec3::new(
+      sin_radius * self.azim.sin(),
+      self.radius * self.polar.cos(),
+      sin_radius * self.azim.cos(),
+    ) + self.center
   }
 }

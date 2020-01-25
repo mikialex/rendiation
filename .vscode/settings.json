@@ -12,6 +12,7 @@
         "glsl",
         "glutin",
         "hidpi",
+        "lookat",
         "mipmap",
         "multisampled",
         "rasterization",
