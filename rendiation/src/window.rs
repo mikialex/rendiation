@@ -8,6 +8,7 @@ pub struct WindowState {
   physical_size: (f32, f32),
   hidpi_factor: f32,
   mouse_position: (f32, f32),
+  mouse_motion: (f32, f32),
 }
 
 impl WindowState {
@@ -23,6 +24,11 @@ impl WindowState {
     self.mouse_position.0 = position.x as f32;
     self.mouse_position.1 = position.y as f32;
   }
+
+  pub fn mouse_motion(&mut self, motion: (f64, f64)) {
+    self.mouse_motion.0 = motion.0 as f32;
+    self.mouse_motion.1 = motion.1 as f32;
+  }
 }
 
 type ListenerContainer<AppState> = Vec<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>;
@@ -32,6 +38,7 @@ pub struct Window<AppState> {
 
   events_cleared_listeners: ListenerContainer<AppState>,
   click_listeners: ListenerContainer<AppState>,
+  mouse_motion_listeners: ListenerContainer<AppState>,
   resize_listeners: ListenerContainer<AppState>,
 }
 
@@ -52,7 +59,10 @@ fn emit_listener<AppState>(
 }
 
 impl<AppState> Window<AppState> {
-  pub fn add_mouse_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(&mut self, func: T) {
+  pub fn add_mouse_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
+    &mut self,
+    func: T,
+  ) {
     self.click_listeners.push(Box::new(func));
   }
 
@@ -63,10 +73,19 @@ impl<AppState> Window<AppState> {
     self.resize_listeners.push(Box::new(func));
   }
 
-  pub fn add_events_clear_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(&mut self, func: T) {
+  pub fn add_events_clear_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
+    &mut self,
+    func: T,
+  ) {
     self.events_cleared_listeners.push(Box::new(func));
   }
 
+  pub fn add_mouse_motion_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
+    &mut self,
+    func: T,
+  ) {
+    self.mouse_motion_listeners.push(Box::new(func));
+  }
 
   pub fn new(size: (f32, f32), hidpi_factor: f32) -> Self {
     Window {
@@ -75,9 +94,11 @@ impl<AppState> Window<AppState> {
         physical_size: (size.0 * hidpi_factor, size.1 * hidpi_factor),
         hidpi_factor,
         mouse_position: (0.0, 0.0),
+        mouse_motion: (0.0, 0.0),
       },
       events_cleared_listeners: Vec::new(),
       click_listeners: Vec::new(),
+      mouse_motion_listeners: Vec::new(),
       resize_listeners: Vec::new(),
     }
   }
@@ -89,7 +110,6 @@ impl<AppState> Window<AppState> {
     renderer: &mut WGPURenderer,
   ) {
     match event {
-
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
           self.window_state.update_size(&size);
@@ -104,11 +124,16 @@ impl<AppState> Window<AppState> {
         }
         WindowEvent::CursorMoved { position, .. } => {
           self.window_state.mouse_move_to(&position);
-          println!("mouse move");
         }
         _ => (),
       },
-
+      event::Event::DeviceEvent { event, .. } => match event {
+        DeviceEvent::MouseMotion { delta } => {
+          self.window_state.mouse_motion(delta);
+          emit_listener(&mut self.mouse_motion_listeners, state, renderer);
+        }
+        _ => (),
+      },
       event::Event::EventsCleared => {
         emit_listener(&mut self.events_cleared_listeners, state, renderer);
       }

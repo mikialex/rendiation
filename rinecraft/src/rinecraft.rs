@@ -23,7 +23,6 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn update_gpu(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer) {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
-    print!("update");
     self.update(&renderer.device, &mut renderer.encoder, mx_ref);
   }
 }
@@ -43,7 +42,6 @@ pub struct Rinecraft {
 }
 
 pub struct RinecraftState {
-  controller: OrbitController,
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
@@ -140,13 +138,18 @@ impl Application for Rinecraft {
       state.camera.get_update_gpu(renderer);
     });
 
+    window.add_mouse_motion_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
+      state.orbit_controller.rotate(Vec2::new(1.0, 1.0))
+    });
+
     // render
-    window.add_events_clear_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer|{
+    window.add_events_clear_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
+      state
+        .orbit_controller
+        .update(&mut state.camera as &mut PerspectiveCamera);
+      state.camera.get_update_gpu(renderer);
+
       let output = renderer.swap_chain.request_output();
-      // self
-      //   .orbit_controller
-      //   .update(&mut self.camera as &mut PerspectiveCamera);
-  
       {
         let mut pass = WGPURenderPass::build()
           .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
@@ -159,7 +162,6 @@ impl Application for Rinecraft {
         }
         state.cube.render(&mut pass);
       }
-  
       renderer
         .queue
         .submit(&renderer.device, &mut renderer.encoder);
@@ -169,7 +171,6 @@ impl Application for Rinecraft {
     Rinecraft {
       window,
       state: RinecraftState {
-        controller: OrbitController::new(),
         cube,
         camera,
         orbit_controller: OrbitController::new(),
@@ -184,5 +185,4 @@ impl Application for Rinecraft {
   fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer) {
     self.window.event(event, &mut self.state, renderer);
   }
-
 }
