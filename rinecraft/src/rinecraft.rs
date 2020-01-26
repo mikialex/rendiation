@@ -37,11 +37,12 @@ impl GPUItem<ImageData> for WGPUTexture {
 }
 
 pub struct Rinecraft {
-  window: Window<RinecraftState>,
+  window_session: WindowEventSession<RinecraftState>,
   state: RinecraftState,
 }
 
 pub struct RinecraftState {
+  window_state: WindowState,
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
@@ -116,12 +117,9 @@ impl Application for Rinecraft {
       renderer.size,
     );
 
-    let mut window = Window::new(
-      (renderer.size.0 as f32, renderer.size.1 as f32),
-      renderer.hidpi_factor,
-    );
+    let mut window_session = WindowEventSession::new();
 
-    window.add_resize_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
+    window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
       state.depth.resize(&renderer.device, renderer.size);
       state
         .camera
@@ -130,7 +128,7 @@ impl Application for Rinecraft {
     });
 
     // resize
-    window.add_resize_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
+    window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
       state.depth.resize(&renderer.device, renderer.size);
       state
         .camera
@@ -138,12 +136,16 @@ impl Application for Rinecraft {
       state.camera.get_update_gpu(renderer);
     });
 
-    window.add_mouse_motion_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
-      state.orbit_controller.rotate(Vec2::new(1.0, 1.0))
-    });
+    window_session
+      .add_mouse_motion_listener(|state: &mut RinecraftState, _| {
+        state.orbit_controller.rotate(Vec2::new(
+          state.window_state.mouse_motion.0,
+          state.window_state.mouse_motion.1))
+      }
+    );
 
     // render
-    window.add_events_clear_listener(|state: &mut RinecraftState, renderer: &mut WGPURenderer| {
+    window_session.add_events_clear_listener(|state, renderer| {
       state
         .orbit_controller
         .update(&mut state.camera as &mut PerspectiveCamera);
@@ -167,10 +169,16 @@ impl Application for Rinecraft {
         .submit(&renderer.device, &mut renderer.encoder);
     });
 
+    let window_state = WindowState::new(
+      (renderer.size.0 as f32, renderer.size.1 as f32),
+      renderer.hidpi_factor,
+    );
+
     // Done
     Rinecraft {
-      window,
+      window_session,
       state: RinecraftState {
+        window_state,
         cube,
         camera,
         orbit_controller: OrbitController::new(),
@@ -183,6 +191,7 @@ impl Application for Rinecraft {
   }
 
   fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer) {
-    self.window.event(event, &mut self.state, renderer);
+    self.state.window_state.event(event.clone());
+    self.window_session.event(event, &mut self.state, renderer);
   }
 }
