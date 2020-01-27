@@ -265,6 +265,20 @@ impl<T> Vec2<T> where T: Copy
 impl<T> Vec2<T> where T:Vec + Math
 {
 	#[inline]
+	pub fn rotate(&self, anchor: Self, radians: T) -> Self
+	{
+		let v = *self - anchor;
+		let x = v.x;
+		let y = v.y;
+		let c = radians.cos();
+		let s = radians.sin();
+		Self {
+			x: x * c - y * s,
+			y: x * s + y * c,
+		}
+	}
+
+	#[inline]
 	pub fn dot(&self, b: Self) -> T 
 	{
 		self.x * b.x + self.y * b.y

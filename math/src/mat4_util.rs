@@ -11,22 +11,6 @@ impl Mat4<f32> {
 
 		scale_x_sq.max(scale_y_sq).max(scale_z_sq).sqrt()
 	}
-
-	/// Create a homogeneous transformation matrix that will cause a vector to point at
-    /// `dir`, using `up` for orientation.
-    pub fn look_at_dir(eye: Vec3<f32>, dir: Vec3<f32>, up: Vec3<f32>) -> Mat4<f32> {
-        let f = dir.normalize();
-        let s = f.cross(up).normalize();
-        let u = s.cross(f);
-
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-        Mat4::new(
-            s.x, u.x, -f.x, 0.0,
-            s.y, u.y, -f.y, 0.0,
-            s.z, u.z, -f.z, 0.0,
-            -eye.dot(s), -eye.dot(u), eye.dot(f), 1.0,
-        )
-	}
 	
 	pub const fn const_new(
 		m11:f32, m12:f32, m13:f32, m14:f32, 

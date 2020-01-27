@@ -8,6 +8,7 @@ pub struct WindowState {
   pub mouse_position: (f32, f32),
   pub mouse_motion: (f32, f32),
   pub is_left_mouse_down: bool,
+  pub is_right_mouse_down: bool,
   pub mouse_wheel_delta: (f32, f32),
 }
 
@@ -20,6 +21,7 @@ impl WindowState {
       mouse_position: (0.0, 0.0),
       mouse_motion: (0.0, 0.0),
       is_left_mouse_down: false,
+      is_right_mouse_down: false,
       mouse_wheel_delta: (0.0, 0.0),
     }
   }
@@ -48,17 +50,25 @@ impl WindowState {
           self.update_size(&size);
         }
         WindowEvent::MouseInput { button, state, .. } => {
-          if button == MouseButton::Left {
-            match state {
-              ElementState::Pressed => self.is_left_mouse_down = true,
-              ElementState::Released => self.is_left_mouse_down = false,
+          match button {
+            MouseButton::Left => {
+              match state {
+                ElementState::Pressed => self.is_left_mouse_down = true,
+                ElementState::Released => self.is_left_mouse_down = false,
+              }
             }
+            MouseButton::Right => {
+              match state {
+                ElementState::Pressed => self.is_right_mouse_down = true,
+                ElementState::Released => self.is_right_mouse_down = false,
+              }
+            }
+            _ => {}
           }
         }
         WindowEvent::MouseWheel { delta, .. } => {
           if let MouseScrollDelta::LineDelta(x, y) = delta {
             self.mouse_wheel_delta = (x, y);
-            // println!("{}", self.mouse_wheel_delta.1);
           }
         }
         WindowEvent::CursorMoved { position, .. } => {

@@ -134,6 +134,12 @@ impl Application for Rinecraft {
           -state.window_state.mouse_motion.1,
         ))
       }
+      if state.window_state.is_right_mouse_down {
+        state.orbit_controller.pan(Vec2::new(
+          -state.window_state.mouse_motion.0,
+          -state.window_state.mouse_motion.1,
+        ))
+      }
     });
     window_session.add_mouse_wheel_listener(|state: &mut RinecraftState, _| {
       let delta = state.window_state.mouse_wheel_delta.1;
