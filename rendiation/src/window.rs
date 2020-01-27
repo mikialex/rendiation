@@ -1,5 +1,5 @@
 use winit::event;
-use winit::event::{DeviceEvent, WindowEvent};
+use winit::event::*;
 
 pub struct WindowState {
   pub size: (f32, f32),
@@ -7,6 +7,8 @@ pub struct WindowState {
   pub hidpi_factor: f32,
   pub mouse_position: (f32, f32),
   pub mouse_motion: (f32, f32),
+  pub is_left_mouse_down: bool,
+  pub mouse_wheel_delta: (f32, f32),
 }
 
 impl WindowState {
@@ -17,6 +19,8 @@ impl WindowState {
       hidpi_factor,
       mouse_position: (0.0, 0.0),
       mouse_motion: (0.0, 0.0),
+      is_left_mouse_down: false,
+      mouse_wheel_delta: (0.0, 0.0),
     }
   }
   pub fn update_size(&mut self, size: &winit::dpi::LogicalSize) {
@@ -44,9 +48,18 @@ impl WindowState {
           self.update_size(&size);
         }
         WindowEvent::MouseInput { button, state, .. } => {
-          // for listener in self.click_listeners.iter_mut() {
-          //   listener(MouseEvent { x: 1.0, y: 1.0 }, &mut self.app_state)
-          // }
+          if button == MouseButton::Left {
+            match state {
+              ElementState::Pressed => self.is_left_mouse_down = true,
+              ElementState::Released => self.is_left_mouse_down = false,
+            }
+          }
+        }
+        WindowEvent::MouseWheel { delta, .. } => {
+          if let MouseScrollDelta::LineDelta(x, y) = delta {
+            self.mouse_wheel_delta = (x, y);
+            // println!("{}", self.mouse_wheel_delta.1);
+          }
         }
         WindowEvent::CursorMoved { position, .. } => {
           self.mouse_move_to(&position);
@@ -59,7 +72,9 @@ impl WindowState {
         }
         _ => (),
       },
-      event::Event::EventsCleared => {}
+      event::Event::EventsCleared => {
+        self.mouse_wheel_delta = (0.0, 0.0);
+      }
       DeviceEvent => {}
     }
   }

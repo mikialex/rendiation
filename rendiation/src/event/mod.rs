@@ -1,7 +1,6 @@
 use crate::renderer::WGPURenderer;
-use crate::window::WindowState;
 use winit::event;
-use winit::event::{DeviceEvent, WindowEvent};
+use winit::event::*;
 
 type ListenerContainer<AppState> = Vec<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>;
 
@@ -9,6 +8,7 @@ pub struct WindowEventSession<AppState> {
   events_cleared_listeners: ListenerContainer<AppState>,
   click_listeners: ListenerContainer<AppState>,
   mouse_motion_listeners: ListenerContainer<AppState>,
+  mouse_wheel_listeners: ListenerContainer<AppState>,
   resize_listeners: ListenerContainer<AppState>,
 }
 
@@ -44,6 +44,14 @@ impl<AppState> WindowEventSession<AppState> {
     self.events_cleared_listeners.push(Box::new(func));
   }
 
+  
+  pub fn add_mouse_wheel_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
+    &mut self,
+    func: T,
+  ) {
+    self.mouse_wheel_listeners.push(Box::new(func));
+  }
+
   pub fn add_mouse_motion_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
@@ -56,6 +64,7 @@ impl<AppState> WindowEventSession<AppState> {
       events_cleared_listeners: Vec::new(),
       click_listeners: Vec::new(),
       mouse_motion_listeners: Vec::new(),
+      mouse_wheel_listeners: Vec::new(),
       resize_listeners: Vec::new(),
     }
   }
@@ -77,6 +86,11 @@ impl<AppState> WindowEventSession<AppState> {
           // for listener in self.click_listeners.iter_mut() {
           //   listener(MouseEvent { x: 1.0, y: 1.0 }, &mut self.app_state)
           // }
+        }
+        WindowEvent::MouseWheel { delta, .. } => {
+          if let MouseScrollDelta::LineDelta(x, y) = delta {
+            emit_listener(&mut self.mouse_wheel_listeners, state, renderer);
+          }
         }
         WindowEvent::CursorMoved { position, .. } => {}
         _ => (),

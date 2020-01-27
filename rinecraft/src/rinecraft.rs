@@ -127,22 +127,18 @@ impl Application for Rinecraft {
       state.camera.get_update_gpu(renderer);
     });
 
-    // resize
-    window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
-      state.depth.resize(&renderer.device, renderer.size);
-      state
-        .camera
-        .resize((renderer.size.0 as f32, renderer.size.1 as f32));
-      state.camera.get_update_gpu(renderer);
-    });
-
-    window_session
-      .add_mouse_motion_listener(|state: &mut RinecraftState, _| {
+    window_session.add_mouse_motion_listener(|state: &mut RinecraftState, _| {
+      if state.window_state.is_left_mouse_down {
         state.orbit_controller.rotate(Vec2::new(
-          state.window_state.mouse_motion.0,
-          state.window_state.mouse_motion.1))
+          -state.window_state.mouse_motion.0,
+          -state.window_state.mouse_motion.1,
+        ))
       }
-    );
+    });
+    window_session.add_mouse_wheel_listener(|state: &mut RinecraftState, _| {
+      let delta = state.window_state.mouse_wheel_delta.1;
+      state.orbit_controller.zoom( 1.0 - delta * 0.1);
+    });
 
     // render
     window_session.add_events_clear_listener(|state, renderer| {
