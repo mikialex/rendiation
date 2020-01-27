@@ -101,18 +101,14 @@ impl<T: TransformedObject> Controller<T> for OrbitController {
       self.spherical.azim += self.sphericalDelta.azim;
 
       self.spherical.polar = (self.spherical.polar + self.sphericalDelta.polar)
-        .min(self.minPolarAngle)
-        .max(self.maxPolarAngle);
+        .max(self.minPolarAngle)
+        .min(self.maxPolarAngle);
 
       self.spherical.center += self.panOffset;
 
       let transform = target.get_transform_mut();
       let eye = self.spherical.to_vec3();
-      transform.matrix = Mat4::lookat_rh(
-        eye,
-        self.spherical.center,
-        Vec3::unit_y(),
-      );
+      transform.matrix = Mat4::lookat_rh(eye, self.spherical.center, Vec3::unit_y());
     }
     self.needUpdate = false;
 

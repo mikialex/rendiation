@@ -11,7 +11,7 @@ impl Spherical {
   pub fn new() -> Self {
     Spherical {
       center: Vec3::new(0.0, 0.0, 0.0),
-      radius: 1.,
+      radius: 10.,
       polar: 0.,
       azim: 0.,
     }
