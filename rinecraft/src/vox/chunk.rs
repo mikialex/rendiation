@@ -2,8 +2,8 @@ use crate::geometry::StandardGeometry;
 use crate::vox::block::*;
 use rendiation::WGPURenderer;
 
-pub const CHUNK_WIDTH: usize = 16;
-pub const CHUNK_HEIGHT: usize = 256;
+pub const CHUNK_WIDTH: usize = 8;
+pub const CHUNK_HEIGHT: usize = 32;
 
 pub struct Chunk {
   pub chunk_position: (i32, i32, i32),
@@ -58,6 +58,11 @@ impl Chunk {
       for z in 1..CHUNK_WIDTH - 1 {
         for y in 1..CHUNK_HEIGHT - 1 {
           let block = &data[x][z][y];
+
+          if let Block::Void = block {
+            continue;
+          }
+
           let min_x = x as f32 * BLOCK_WORLD_SIZE;
           let min_y = y as f32 * BLOCK_WORLD_SIZE;
           let min_z = z as f32 * BLOCK_WORLD_SIZE;

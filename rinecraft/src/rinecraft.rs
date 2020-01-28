@@ -1,3 +1,4 @@
+use crate::vox::chunk::Chunk;
 use crate::application::*;
 use crate::geometry::*;
 use crate::image_data::ImageData;
@@ -48,6 +49,7 @@ pub struct RinecraftState {
   texture: GPUPair<ImageData, WGPUTexture>,
   bind_group: WGPUBindGroup,
   cube: StandardGeometry,
+  test_chunk: Chunk,
   pipeline: WGPUPipeline,
   depth: WGPUAttachmentTexture,
 }
@@ -165,6 +167,7 @@ impl Application for Rinecraft {
           rpass.set_bind_group(0, &state.bind_group.gpu_bindgroup, &[]);
         }
         state.cube.render(&mut pass);
+        state.test_chunk.geometry.render(&mut pass);
       }
       renderer
         .queue
@@ -176,12 +179,15 @@ impl Application for Rinecraft {
       renderer.hidpi_factor,
     );
 
+    let test_chunk = Chunk::new(renderer, 0, 0);
+
     // Done
     Rinecraft {
       window_session,
       state: RinecraftState {
         window_state,
         cube,
+        test_chunk,
         camera,
         orbit_controller: OrbitController::new(),
         bind_group,
