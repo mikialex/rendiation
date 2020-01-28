@@ -1,8 +1,12 @@
 
 use crate::vertex::Vertex;
 
-pub trait Block {
-  // fn build_geometry(&self, chunk: &Chunk, x: usize, y: usize, z: usize);
+#[derive(Copy, Clone)]
+pub enum Block {
+  Solid {
+    style: SolidBlockType
+  },
+  Void
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -17,40 +21,11 @@ pub enum BlockFace {
 
 pub const BLOCK_WORLD_SIZE: f32 = 1.0;
 
-#[derive(Copy, Clone)]
-pub struct SolidBlock {
-  pub solid_block_type: SolidBlockType,
-}
-
 #[derive(Copy, Clone, PartialEq)]
 pub enum SolidBlockType {
   Stone,
 }
 
-// impl Block for SolidBlock {
-
-//   fn build_geomtry(&self, chunk: &Chunk, x: usize, y: usize, z: usize) {
-//     let min_x = x as f32 * BLOCK_WORLD_SIZE;
-//     let min_y = y as f32 * BLOCK_WORLD_SIZE;
-//     let min_z = z as f32 * BLOCK_WORLD_SIZE;
-
-//     let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE;
-//     let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
-//     let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE;
-
-//     for face in BLOCK_FACES.iter() {
-//       if chunk.check_block_face_visibility(*face, (x, z, y)) {
-//         build_block_face(
-//           *self,
-//           &(min_x, min_y, min_z),
-//           &(max_x, max_y, max_z),
-//           *face,
-//           &mut chunk.geometry.borrow_mut(),
-//         );
-//       }
-//     }
-//   }
-// }
 
 pub const BLOCK_FACES: [BlockFace; 6] = [
   BlockFace::XYMin,
