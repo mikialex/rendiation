@@ -52,7 +52,7 @@ pub enum SolidBlockType {
 //   }
 // }
 
-const BLOCK_FACES: [BlockFace; 6] = [
+pub const BLOCK_FACES: [BlockFace; 6] = [
   BlockFace::XYMin,
   BlockFace::XYMax,
   BlockFace::XZMin,
@@ -61,8 +61,7 @@ const BLOCK_FACES: [BlockFace; 6] = [
   BlockFace::YZMax,
 ];
 
-fn build_block_face(
-  _block: SolidBlock,
+pub fn build_block_face(
   min: &(f32, f32, f32),
   max: &(f32, f32, f32),
   face: BlockFace,
