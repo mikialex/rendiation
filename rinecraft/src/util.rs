@@ -1,4 +1,34 @@
+use crate::watch::GPUItem;
+use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
+use rendiation_render_entity::*;
 use rendiation::*;
+
+impl GPUItem<PerspectiveCamera> for WGPUBuffer {
+  fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
+    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+
+    WGPUBuffer::new(
+      &renderer.device,
+      mx_ref,
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    )
+  }
+  fn update_gpu(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer) {
+    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+    self.update(&renderer.device, &mut renderer.encoder, mx_ref);
+  }
+}
+
+impl GPUItem<ImageData> for WGPUTexture {
+  fn create_gpu(image: &ImageData, renderer: &mut WGPURenderer) -> Self {
+    WGPUTexture::new(&renderer.device, &mut renderer.encoder, image)
+  }
+  fn update_gpu(&mut self, item: &ImageData, renderer: &mut WGPURenderer) {
+    todo!()
+  }
+}
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
   let vertex_data = [

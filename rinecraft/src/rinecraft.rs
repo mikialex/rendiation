@@ -1,6 +1,6 @@
+use crate::init::init_orbit_controller;
 use crate::application::*;
 use crate::geometry::*;
-use crate::renderer::consts::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
 use crate::shading::TestShading;
 use crate::shading::TestShadingParamGroup;
@@ -11,42 +11,15 @@ use rendiation::*;
 use rendiation_math::*;
 use rendiation_render_entity::*;
 
-impl GPUItem<PerspectiveCamera> for WGPUBuffer {
-  fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
-    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-
-    WGPUBuffer::new(
-      &renderer.device,
-      mx_ref,
-      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    )
-  }
-  fn update_gpu(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer) {
-    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-    self.update(&renderer.device, &mut renderer.encoder, mx_ref);
-  }
-}
-
-impl GPUItem<ImageData> for WGPUTexture {
-  fn create_gpu(image: &ImageData, renderer: &mut WGPURenderer) -> Self {
-    WGPUTexture::new(&renderer.device, &mut renderer.encoder, image)
-  }
-  fn update_gpu(&mut self, item: &ImageData, renderer: &mut WGPURenderer) {
-    todo!()
-  }
-}
-
 pub struct Rinecraft {
   window_session: WindowEventSession<RinecraftState>,
   state: RinecraftState,
 }
 
 pub struct RinecraftState {
-  window_state: WindowState,
+  pub window_state: WindowState,
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
-  orbit_controller: OrbitController,
+  pub orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
   cube: StandardGeometry,
   test_chunk: Chunk,
@@ -100,24 +73,7 @@ impl Application for Rinecraft {
       state.camera.get_update_gpu(renderer);
     });
 
-    window_session.add_mouse_motion_listener(|state: &mut RinecraftState, _| {
-      if state.window_state.is_left_mouse_down {
-        state.orbit_controller.rotate(Vec2::new(
-          -state.window_state.mouse_motion.0,
-          -state.window_state.mouse_motion.1,
-        ))
-      }
-      if state.window_state.is_right_mouse_down {
-        state.orbit_controller.pan(Vec2::new(
-          -state.window_state.mouse_motion.0,
-          -state.window_state.mouse_motion.1,
-        ))
-      }
-    });
-    window_session.add_mouse_wheel_listener(|state: &mut RinecraftState, _| {
-      let delta = state.window_state.mouse_wheel_delta.1;
-      state.orbit_controller.zoom(1.0 - delta * 0.1);
-    });
+    init_orbit_controller(&mut window_session);
 
     // render
     window_session.add_events_clear_listener(|state, renderer| {

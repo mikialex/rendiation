@@ -13,8 +13,8 @@ impl TestShading {
   pub fn new(renderer: &WGPURenderer) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
-      .vertex_shader(include_str!("./shader/test.vert"))
-      .frag_shader(include_str!("./shader/test.frag"))
+      .vertex_shader(include_str!("./test.vert"))
+      .frag_shader(include_str!("./test.frag"))
       .binding_group(
         BindGroupLayoutBuilder::new()
           .binding(wgpu::BindGroupLayoutBinding {

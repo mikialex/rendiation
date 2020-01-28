@@ -105,7 +105,7 @@ pub fn build_block_face(
   for i in 0..4 {
     vertex.push(Vertex {
       position: table[i].into(),
-      // normals: normal.into(),
+      normal: normal.into(),
       uv: tex_coords[i].into(),
     });
   }

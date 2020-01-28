@@ -15,6 +15,7 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use sampler::*;
 pub use texture::*;
+pub use consts::*;
 
 /// The renderer trait.
 ///

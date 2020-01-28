@@ -49,23 +49,17 @@ impl WindowState {
         WindowEvent::Resized(size) => {
           self.update_size(&size);
         }
-        WindowEvent::MouseInput { button, state, .. } => {
-          match button {
-            MouseButton::Left => {
-              match state {
-                ElementState::Pressed => self.is_left_mouse_down = true,
-                ElementState::Released => self.is_left_mouse_down = false,
-              }
-            }
-            MouseButton::Right => {
-              match state {
-                ElementState::Pressed => self.is_right_mouse_down = true,
-                ElementState::Released => self.is_right_mouse_down = false,
-              }
-            }
-            _ => {}
-          }
-        }
+        WindowEvent::MouseInput { button, state, .. } => match button {
+          MouseButton::Left => match state {
+            ElementState::Pressed => self.is_left_mouse_down = true,
+            ElementState::Released => self.is_left_mouse_down = false,
+          },
+          MouseButton::Right => match state {
+            ElementState::Pressed => self.is_right_mouse_down = true,
+            ElementState::Released => self.is_right_mouse_down = false,
+          },
+          _ => {}
+        },
         WindowEvent::MouseWheel { delta, .. } => {
           if let MouseScrollDelta::LineDelta(x, y) = delta {
             self.mouse_wheel_delta = (x, y);
