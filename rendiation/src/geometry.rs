@@ -1,9 +1,10 @@
+use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::pipeline::*;
 use crate::renderer::render_pass::WGPURenderPass;
 use crate::renderer::WGPURenderer;
-use crate::renderer::buffer::WGPUBuffer;
 use crate::vertex::Vertex;
 
+/// A indexed geometry that use vertex;
 pub struct StandardGeometry {
   data: Vec<Vertex>,
   data_changed: bool,
@@ -19,7 +20,7 @@ impl StandardGeometry {
     let gpu_index = renderer.create_index_buffer(&index);
     Self {
       data: v,
-      data_changed: false, 
+      data_changed: false,
       index,
       index_changed: false,
       gpu_data,
@@ -62,7 +63,7 @@ impl StandardGeometry {
     }
   }
 
-  pub fn provide_gpu(&self, pass: &mut WGPURenderPass) {
+  pub fn provide_geometry(&self, pass: &mut WGPURenderPass) {
     pass
       .gpu_pass
       .set_index_buffer(self.gpu_index.get_gpu_buffer(), 0);
@@ -72,7 +73,7 @@ impl StandardGeometry {
   }
 
   pub fn render(&self, pass: &mut WGPURenderPass) {
-    self.provide_gpu(pass);
+    self.provide_geometry(pass);
     pass
       .gpu_pass
       .draw_indexed(0..self.get_full_count(), 0, 0..1);

@@ -1,19 +1,16 @@
 use crate::geometry::StandardGeometry;
 use rendiation::*;
 
-pub struct TexShading {
+pub struct TestShading {
   pipeline: WGPUPipeline,
-
   // bindgroup: Option<WGPUBindGroup>,
 
   // texture: (usize, usize),
   // matrix_uniform_buffer: (usize, usize),
 }
 
-impl TexShading {
-  pub fn new(renderer: &WGPURenderer,
-    // texture: &WGPURenderer
-  ) -> Self {
+impl TestShading {
+  pub fn new(renderer: &WGPURenderer) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
       .vertex_shader(include_str!("./shader/test.vert"))
@@ -40,11 +37,41 @@ impl TexShading {
           }),
       );
 
-    let pipeline =
-      pipeline_builder.build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
+    let pipeline = pipeline_builder
+      .build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
 
-    TexShading {
-      pipeline,
+    Self { pipeline }
+  }
+
+  pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout{
+    &self.pipeline.bind_group_layouts[0]
+  }
+
+  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &TestShadingParamGroup) {
+    pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
+    pass.gpu_pass.set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
+  }
+}
+
+pub struct TestShadingParamGroup{
+  pub bindgroup: WGPUBindGroup
+}
+
+impl TestShadingParamGroup{
+  pub fn new(
+    renderer: &WGPURenderer,
+    shading: &TestShading,
+    texture_view: &wgpu::TextureView,
+    sampler: &WGPUSampler,
+    buffer: &WGPUBuffer,
+  ) -> Self {
+    TestShadingParamGroup{
+      bindgroup: 
+      BindGroupBuilder::new()
+        .buffer(buffer)
+        .texture(texture_view)
+        .sampler(sampler)
+        .build(&renderer.device, shading.get_bind_group_layout())
     }
   }
 }

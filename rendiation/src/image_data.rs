@@ -1,4 +1,3 @@
-
 use crate::renderer::texture::ImageProvider;
 
 pub struct ImageData {

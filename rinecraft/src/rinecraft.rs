@@ -1,9 +1,11 @@
-use crate::vox::chunk::Chunk;
 use crate::application::*;
 use crate::geometry::*;
 use crate::renderer::consts::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
+use crate::shading::TestShading;
+use crate::shading::TestShadingParamGroup;
 use crate::util::*;
+use crate::vox::chunk::Chunk;
 use crate::watch::*;
 use rendiation::*;
 use rendiation_math::*;
@@ -46,43 +48,16 @@ pub struct RinecraftState {
   camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
-  bind_group: WGPUBindGroup,
   cube: StandardGeometry,
   test_chunk: Chunk,
-  pipeline: WGPUPipeline,
+  shading: TestShading,
+  shading_params: TestShadingParamGroup,
   depth: WGPUAttachmentTexture,
 }
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {
-    let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-    pipeline_builder
-      .vertex_shader(include_str!("./shader/test.vert"))
-      .frag_shader(include_str!("./shader/test.frag"))
-      .binding_group(
-        BindGroupLayoutBuilder::new()
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-          })
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 1,
-            visibility: wgpu::ShaderStage::FRAGMENT,
-            ty: wgpu::BindingType::SampledTexture {
-              multisampled: false,
-              dimension: wgpu::TextureViewDimension::D2,
-            },
-          })
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 2,
-            visibility: wgpu::ShaderStage::FRAGMENT,
-            ty: wgpu::BindingType::Sampler,
-          }),
-      );
-
-    let pipeline = pipeline_builder
-      .build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
+    let shading = TestShading::new(renderer);
 
     // Create the vertex and index buffers
     let (vertex_data, index_data) = create_vertices();
@@ -105,12 +80,9 @@ impl Application for Rinecraft {
       Vec3::unit_y(),
     );
 
-    // Create bind group
-    let bind_group = BindGroupBuilder::new()
-      .buffer(camera.get_update_gpu(renderer))
-      .texture(&texture_view)
-      .sampler(&sampler)
-      .build(&renderer.device, &pipeline.bind_group_layouts[0]);
+    let buffer = camera.get_update_gpu(renderer);
+    let shading_params =
+      TestShadingParamGroup::new(&renderer, &shading, &texture_view, &sampler, buffer);
 
     let depth = WGPUAttachmentTexture::new_as_depth(
       &renderer.device,
@@ -144,7 +116,7 @@ impl Application for Rinecraft {
     });
     window_session.add_mouse_wheel_listener(|state: &mut RinecraftState, _| {
       let delta = state.window_state.mouse_wheel_delta.1;
-      state.orbit_controller.zoom( 1.0 - delta * 0.1);
+      state.orbit_controller.zoom(1.0 - delta * 0.1);
     });
 
     // render
@@ -160,11 +132,10 @@ impl Application for Rinecraft {
           .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
           .with_depth(state.depth.get_view())
           .create(&mut renderer.encoder);
-        {
-          let rpass = &mut pass.gpu_pass;
-          rpass.set_pipeline(&state.pipeline.pipeline);
-          rpass.set_bind_group(0, &state.bind_group.gpu_bindgroup, &[]);
-        }
+
+        state
+          .shading
+          .provide_pipeline(&mut pass, &state.shading_params);
         state.cube.render(&mut pass);
         state.test_chunk.geometry.render(&mut pass);
       }
@@ -189,8 +160,8 @@ impl Application for Rinecraft {
         test_chunk,
         camera,
         orbit_controller: OrbitController::new(),
-        bind_group,
-        pipeline,
+        shading,
+        shading_params,
         depth,
         texture,
       },
