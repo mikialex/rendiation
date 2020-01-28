@@ -1,5 +1,4 @@
-use crate::image_data::ImageData;
-use crate::vertex::*;
+use rendiation::*;
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
   let vertex_data = [

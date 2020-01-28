@@ -1,5 +1,8 @@
+use crate::renderer::pipeline::*;
+use crate::renderer::render_pass::WGPURenderPass;
+use crate::renderer::WGPURenderer;
+use crate::renderer::buffer::WGPUBuffer;
 use crate::vertex::Vertex;
-use rendiation::*;
 
 pub struct StandardGeometry {
   data: Vec<Vertex>,

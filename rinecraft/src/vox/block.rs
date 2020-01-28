@@ -1,5 +1,4 @@
-
-use crate::vertex::Vertex;
+use rendiation::*;
 
 #[derive(Copy, Clone)]
 pub enum Block {

@@ -1,7 +1,6 @@
 use crate::vox::chunk::Chunk;
 use crate::application::*;
 use crate::geometry::*;
-use crate::image_data::ImageData;
 use crate::renderer::consts::OPENGL_TO_WGPU_MATRIX;
 use crate::renderer::*;
 use crate::util::*;

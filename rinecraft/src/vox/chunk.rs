@@ -1,6 +1,5 @@
-use crate::geometry::StandardGeometry;
 use crate::vox::block::*;
-use rendiation::WGPURenderer;
+use rendiation::*;
 
 pub const CHUNK_WIDTH: usize = 8;
 pub const CHUNK_HEIGHT: usize = 32;
@@ -24,28 +23,28 @@ pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
 
 impl Chunk {
   pub fn new(renderer: &mut WGPURenderer, chunk_x: i32, chunk_z: i32) -> Self {
-    let mut xrow = Vec::new();
+    let mut x_row = Vec::new();
     for i in 0..CHUNK_WIDTH + 1 {
-      let mut yrow = Vec::new();
+      let mut y_row = Vec::new();
       for j in 0..CHUNK_WIDTH + 1 {
-        let mut zrow = Vec::new();
+        let mut z_row = Vec::new();
         for k in 0..CHUNK_HEIGHT + 1 {
-          zrow.push(world_gen(
+          z_row.push(world_gen(
             chunk_x * (CHUNK_WIDTH as i32) + i as i32,
             k as i32,
             chunk_z * (CHUNK_WIDTH as i32) + j as i32,
           ));
         }
-        yrow.push(zrow);
+        y_row.push(z_row);
       }
-      xrow.push(yrow);
+      x_row.push(y_row);
     }
 
-    let geometry = Chunk::create_geometry(&xrow, renderer);
+    let geometry = Chunk::create_geometry(&x_row, renderer);
 
     Chunk {
       chunk_position: (chunk_x, chunk_z, 0),
-      data: xrow,
+      data: x_row,
       geometry_dirty: false,
       geometry,
     }

@@ -1,5 +1,4 @@
 use crate::renderer::*;
-use crate::window::*;
 use winit::event::WindowEvent;
 
 pub trait Application: 'static + Sized {

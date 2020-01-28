@@ -1,6 +1,5 @@
 use crate::renderer::pipeline::VertexProvider;
 use rendiation_math::*;
-use rendiation::*;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy)]

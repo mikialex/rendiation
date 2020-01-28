@@ -1,4 +1,5 @@
-use rendiation::ImageProvider;
+
+use crate::renderer::texture::ImageProvider;
 
 pub struct ImageData {
   pub data: Vec<u8>,
