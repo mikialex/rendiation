@@ -10,6 +10,7 @@ pub mod buffer_data;
 pub mod controller;
 pub mod transformed_object;
 pub mod bounding;
+pub mod raycaster;
 
 pub use render_object::*;
 pub use geometry::*;
