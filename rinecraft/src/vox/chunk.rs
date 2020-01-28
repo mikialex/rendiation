@@ -6,9 +6,8 @@ pub const CHUNK_HEIGHT: usize = 32;
 
 pub struct Chunk {
   pub chunk_position: (i32, i32, i32),
-  pub data: Vec<Vec<Vec<Block>>>,
-  pub geometry_dirty: bool,
-  pub geometry: StandardGeometry,
+  data: Vec<Vec<Vec<Block>>>,
+  pub geometry: Option<StandardGeometry>,
 }
 
 pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
@@ -22,7 +21,7 @@ pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
 }
 
 impl Chunk {
-  pub fn new(renderer: &mut WGPURenderer, chunk_x: i32, chunk_z: i32) -> Self {
+  pub fn new(chunk_x: i32, chunk_z: i32) -> Self {
     let mut x_row = Vec::new();
     for i in 0..CHUNK_WIDTH + 1 {
       let mut y_row = Vec::new();
@@ -40,14 +39,20 @@ impl Chunk {
       x_row.push(y_row);
     }
 
-    let geometry = Chunk::create_geometry(&x_row, renderer);
-
     Chunk {
       chunk_position: (chunk_x, chunk_z, 0),
       data: x_row,
-      geometry_dirty: false,
-      geometry,
+      geometry: None,
     }
+  }
+
+  fn get_data(&self) -> &Vec<Vec<Vec<Block>>> {
+    &self.data
+  }
+
+  fn get_data_mut(&mut self) -> &mut Vec<Vec<Vec<Block>>> {
+    self.geometry = None;
+    &mut self.data
   }
 
   fn create_geometry(data: &Vec<Vec<Vec<Block>>>, renderer: &mut WGPURenderer) -> StandardGeometry {

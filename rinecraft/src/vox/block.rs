@@ -1,14 +1,12 @@
 use rendiation::*;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Block {
-  Solid {
-    style: SolidBlockType
-  },
-  Void
+  Solid { style: SolidBlockType },
+  Void,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum BlockFace {
   XYMin,
   XYMax,
@@ -20,11 +18,10 @@ pub enum BlockFace {
 
 pub const BLOCK_WORLD_SIZE: f32 = 1.0;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SolidBlockType {
   Stone,
 }
-
 
 pub const BLOCK_FACES: [BlockFace; 6] = [
   BlockFace::XYMin,

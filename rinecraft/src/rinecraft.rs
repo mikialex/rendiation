@@ -1,3 +1,4 @@
+use crate::vox::world::World;
 use crate::init::init_orbit_controller;
 use crate::application::*;
 use crate::geometry::*;
@@ -5,7 +6,6 @@ use crate::renderer::*;
 use crate::shading::TestShading;
 use crate::shading::TestShadingParamGroup;
 use crate::util::*;
-use crate::vox::chunk::Chunk;
 use crate::watch::*;
 use rendiation::*;
 use rendiation_math::*;
@@ -22,7 +22,7 @@ pub struct RinecraftState {
   pub orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
   cube: StandardGeometry,
-  test_chunk: Chunk,
+  world: World,
   shading: TestShading,
   shading_params: TestShadingParamGroup,
   depth: WGPUAttachmentTexture,
@@ -93,7 +93,7 @@ impl Application for Rinecraft {
           .shading
           .provide_pipeline(&mut pass, &state.shading_params);
         state.cube.render(&mut pass);
-        state.test_chunk.geometry.render(&mut pass);
+        state.world.render(&mut pass);
       }
       renderer
         .queue
@@ -105,15 +105,13 @@ impl Application for Rinecraft {
       renderer.hidpi_factor,
     );
 
-    let test_chunk = Chunk::new(renderer, 0, 0);
-
     // Done
     Rinecraft {
       window_session,
       state: RinecraftState {
         window_state,
         cube,
-        test_chunk,
+        world: World::new(),
         camera,
         orbit_controller: OrbitController::new(),
         shading,
