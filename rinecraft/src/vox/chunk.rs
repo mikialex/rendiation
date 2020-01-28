@@ -13,7 +13,7 @@ pub struct Chunk {
 }
 
 pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
-  if y < x && y < z {
+  if y <= x && y <= z {
     Block::Solid {
       style: SolidBlockType::Stone,
     }
@@ -25,15 +25,15 @@ pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
 impl Chunk {
   pub fn new(renderer: &mut WGPURenderer, chunk_x: i32, chunk_z: i32) -> Self {
     let mut xrow = Vec::new();
-    for i in 0..CHUNK_WIDTH + 2 {
+    for i in 0..CHUNK_WIDTH + 1 {
       let mut yrow = Vec::new();
-      for j in 0..CHUNK_WIDTH + 2 {
+      for j in 0..CHUNK_WIDTH + 1 {
         let mut zrow = Vec::new();
-        for k in 0..CHUNK_HEIGHT + 2 {
+        for k in 0..CHUNK_HEIGHT + 1 {
           zrow.push(world_gen(
-            chunk_x * (CHUNK_WIDTH as i32) + i as i32 - 1,
+            chunk_x * (CHUNK_WIDTH as i32) + i as i32,
             k as i32,
-            chunk_z * (CHUNK_WIDTH as i32) + j as i32 - 1,
+            chunk_z * (CHUNK_WIDTH as i32) + j as i32,
           ));
         }
         yrow.push(zrow);
@@ -54,9 +54,9 @@ impl Chunk {
   fn create_geometry(data: &Vec<Vec<Vec<Block>>>, renderer: &mut WGPURenderer) -> StandardGeometry {
     let mut new_index = Vec::new();
     let mut new_vertex = Vec::new();
-    for x in 1..CHUNK_WIDTH - 1 {
-      for z in 1..CHUNK_WIDTH - 1 {
-        for y in 1..CHUNK_HEIGHT - 1 {
+    for x in 0..CHUNK_WIDTH + 1 {
+      for z in 0..CHUNK_WIDTH + 1 {
+        for y in 0..CHUNK_HEIGHT + 1 {
           let block = &data[x][z][y];
 
           if let Block::Void = block {

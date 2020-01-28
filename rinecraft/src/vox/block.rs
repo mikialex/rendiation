@@ -96,7 +96,7 @@ pub fn build_block_face(
       [min_x, max_y, max_z],
     ],
     BlockFace::YZMax => [
-      [max_x, max_y, min_z],
+      [max_x, min_y, min_z],
       [max_x, max_y, min_z],
       [max_x, min_y, max_z],
       [max_x, max_y, max_z],
