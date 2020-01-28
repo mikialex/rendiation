@@ -14,5 +14,5 @@ layout(set = 0, binding = 0) uniform Locals {
 void main() {
     v_TexCoord = a_TexCoord;
     gl_Position = u_Transform * vec4(a_Pos, 1.0);
-    v_world = (gl_Position / gl_Position.w).xyz;
+    v_world = a_Pos;
 }

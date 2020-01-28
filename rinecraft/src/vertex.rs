@@ -5,8 +5,8 @@ use rendiation::*;
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub struct Vertex {
-  position: Vec3<f32>,
-  uv: Vec2<f32>,
+  pub position: Vec3<f32>,
+  pub uv: Vec2<f32>,
 }
 
 impl<'a> VertexProvider<'a> for Vertex {
