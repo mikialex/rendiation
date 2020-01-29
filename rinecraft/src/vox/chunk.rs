@@ -1,13 +1,19 @@
 use crate::vox::block::*;
 use rendiation::*;
+use rendiation_math::Vec3;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub const CHUNK_WIDTH: usize = 8;
 pub const CHUNK_HEIGHT: usize = 32;
 
+pub const CHUNK_ABS_WIDTH: f32 = (CHUNK_WIDTH as f32) * BLOCK_WORLD_SIZE;
+
+pub type ChunkData = Vec<Vec<Vec<Block>>>;
+
 pub struct Chunk {
   pub chunk_position: (i32, i32),
-  data: Vec<Vec<Vec<Block>>>,
+  data: ChunkData,
   pub geometry: Option<StandardGeometry>,
 }
 
@@ -29,7 +35,7 @@ impl PartialEq for Chunk {
 impl Eq for Chunk {}
 
 pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
-  if y <= x && y <= z {
+  if y <= x.abs() && y <= z.abs() {
     Block::Solid {
       style: SolidBlockType::Stone,
     }
@@ -66,37 +72,62 @@ impl Chunk {
     }
   }
 
-  pub fn get_data(&self) -> &Vec<Vec<Vec<Block>>> {
+  // pub fn get_x_positive_side_chunk(
+  //   chunks: &mut HashMap<(i32, i32), Chunk>,
+  //   chunk_position: (i32, i32),
+  // ) -> &mut ChunkData {
+
+  // }
+
+  pub fn get_data(&self) -> &ChunkData {
     &self.data
   }
 
-  pub fn get_data_mut(&mut self) -> &mut Vec<Vec<Vec<Block>>> {
+  pub fn get_data_mut(&mut self) -> &mut ChunkData {
     self.geometry = None;
     &mut self.data
   }
 
-  pub fn create_geometry(
-    data: &Vec<Vec<Vec<Block>>>,
+  pub fn get_block(&self, block_local_position: Vec3<i32>) -> &Block {
+    &self.data[block_local_position.x as usize][block_local_position.z as usize]
+      [block_local_position.y as usize]
+  }
+
+  pub fn update_geometry(
+    chunks: &mut HashMap<(i32, i32), Chunk>,
+    chunk_position: (i32, i32),
     renderer: &mut WGPURenderer,
-  ) -> StandardGeometry {
+  ) {
+    let chunk = chunks.entry(chunk_position).or_insert_with(|| {
+      println!("chunk generate {:?}", chunk_position);
+      Chunk::new(chunk_position)
+    });
+    if chunk.geometry.is_some() {
+      return;
+    }
+
+    let data = chunk.get_data();
+
     let mut new_index = Vec::new();
     let mut new_vertex = Vec::new();
+    let world_offset_x = chunk_position.0 as f32 * CHUNK_ABS_WIDTH;
+    let world_offset_z = chunk_position.1 as f32 * CHUNK_ABS_WIDTH;
     for x in 0..CHUNK_WIDTH + 1 {
       for z in 0..CHUNK_WIDTH + 1 {
         for y in 0..CHUNK_HEIGHT + 1 {
-          let block = &data[x][z][y];
+          let block = data[x][z][y];
 
           if let Block::Void = block {
             continue;
           }
 
-          let min_x = x as f32 * BLOCK_WORLD_SIZE;
+          let min_x = x as f32 * BLOCK_WORLD_SIZE + world_offset_x;
           let min_y = y as f32 * BLOCK_WORLD_SIZE;
-          let min_z = z as f32 * BLOCK_WORLD_SIZE;
+          let min_z = z as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
-          let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE;
+          let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_x;
           let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
-          let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE;
+          let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
           for face in BLOCK_FACES.iter() {
             // if self.check_block_face_visibility(*face, (x, z, y)) {
@@ -113,6 +144,6 @@ impl Chunk {
       }
     }
 
-    StandardGeometry::new(new_vertex, new_index, renderer)
+    chunk.geometry = Some(StandardGeometry::new(new_vertex, new_index, renderer));
   }
 }
