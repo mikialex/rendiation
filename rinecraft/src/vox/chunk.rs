@@ -1,3 +1,5 @@
+use rendiation_render_entity::BoundingData;
+use rendiation_math_entity::Ray;
 use crate::vox::block::*;
 use crate::vox::world::*;
 use rendiation::*;
@@ -16,6 +18,7 @@ pub struct Chunk {
   pub chunk_position: (i32, i32),
   data: ChunkData,
   pub geometry: Option<StandardGeometry>,
+  // bounding: BoundingData
 }
 
 impl Hash for Chunk {
@@ -72,13 +75,6 @@ impl Chunk {
       geometry: None,
     }
   }
-
-  // pub fn get_x_positive_side_chunk(
-  //   chunks: &mut HashMap<(i32, i32), Chunk>,
-  //   chunk_position: (i32, i32),
-  // ) -> &mut ChunkData {
-
-  // }
 
   pub fn get_data(&self) -> &ChunkData {
     &self.data
@@ -145,5 +141,9 @@ impl Chunk {
     }
 
     Some(StandardGeometry::new(new_vertex, new_index, renderer))
+  }
+
+  pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
+    todo!()
   }
 }

@@ -140,8 +140,20 @@ impl World {
     }
   }
 
-  pub fn pick_block(&self, ray: &Ray) -> BlockPickResult {
-    todo!()
+  pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
+    let mut nearest: Option<BlockPickResult> = None;
+    for (_, chunk) in &self.chunks {
+      if let Some(hit) = chunk.pick_block(ray) {
+        if let Some(n) = &nearest {
+          if hit.distance < n.distance {
+            nearest = Some(hit)
+          }
+        } else {
+          nearest = Some(hit)
+        }
+      }
+    }
+    nearest
   }
 
   pub fn block_face_opposite_position(
@@ -169,8 +181,10 @@ impl World {
   }
 }
 
+#[derive(Debug)]
 pub struct BlockPickResult {
   world_position: Vec3<f32>,
   block_position: Vec3<i32>,
   face: BlockFace,
+  distance: f32,
 }

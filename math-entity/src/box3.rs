@@ -1,3 +1,4 @@
+use crate::ray::Ray;
 use rendiation_math::vec::Math;
 use rendiation_math::*;
 
@@ -27,16 +28,19 @@ impl Box3 {
     self.max.max(point);
   }
 
-  pub fn make_from_position_buffer(position: &[f32]) -> Self {
+  pub fn new_from_position_data<'a, T: Iterator<Item = &'a Vec3<f32>>>(iter: T) -> Self {
     let mut b = Box3::empty();
-    for index in 0..position.len() / 3 {
-      let i = index * 3;
-      b.expand_by_point(Vec3::new(position[i], position[i + 1], position[i + 2]));
+    for point in iter {
+      b.expand_by_point(*point);
     }
     b
   }
 
   pub fn apply_matrix(&mut self, mat: &Mat4<f32>) -> Self {
-    unimplemented!()
+    todo!()
+  }
+
+  pub fn if_ray_hit(&self, ray: &Ray) -> bool {
+    todo!()
   }
 }
