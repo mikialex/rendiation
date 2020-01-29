@@ -5,7 +5,7 @@ use rendiation_math::*;
 use rendiation_math_entity::Spherical;
 
 pub struct OrbitController {
-  spherical: Spherical,
+  pub spherical: Spherical,
 
   rotate_angle_factor: f32,
   pan_factor: f32,
@@ -85,6 +85,7 @@ impl OrbitController {
 
 impl<T: TransformedObject> Controller<T> for OrbitController {
   fn update(&mut self, target: &mut T) {
+
     if self.spherical_delta.azim.abs() > 0.0001
       || self.spherical_delta.polar.abs() > 0.0001
       || self.spherical_delta.radius.abs() > 0.0001
@@ -107,7 +108,7 @@ impl<T: TransformedObject> Controller<T> for OrbitController {
 
       let transform = target.get_transform_mut();
       let eye = self.spherical.to_vec3();
-      transform.matrix = Mat4::lookat_rh(eye, self.spherical.center, Vec3::unit_y());
+      transform.matrix = Mat4::lookat(eye, self.spherical.center, Vec3::unit_y());
     }
     self.need_update = false;
 

@@ -18,7 +18,7 @@ pub struct Rinecraft {
 
 pub struct RinecraftState {
   pub window_state: WindowState,
-  camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
+  pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
   texture: GPUPair<ImageData, WGPUTexture>,
   cube: StandardGeometry,
@@ -47,11 +47,6 @@ impl Application for Rinecraft {
 
     let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
     camera.resize((renderer.size.0 as f32, renderer.size.1 as f32));
-    camera.transform.matrix = Mat4::lookat_rh(
-      Vec3::new(5f32, 5.0, 5.0),
-      Vec3::new(0f32, 0.0, 0.0),
-      Vec3::unit_y(),
-    );
 
     let buffer = camera.get_update_gpu(renderer);
     let shading_params =
@@ -81,6 +76,8 @@ impl Application for Rinecraft {
         .orbit_controller
         .update(&mut state.camera as &mut PerspectiveCamera);
       state.camera.get_update_gpu(renderer);
+
+      state.world.update(renderer, &state.camera.get_transform().matrix.position());
 
       let output = renderer.swap_chain.request_output();
       {

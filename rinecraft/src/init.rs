@@ -1,6 +1,7 @@
 use rendiation::WindowEventSession;
 use crate::rinecraft::RinecraftState;
 use rendiation_math::*;
+use rendiation_render_entity::*;
 
 pub fn init_orbit_controller(window_session: &mut WindowEventSession<RinecraftState>) {
   window_session.add_mouse_motion_listener(|state: &mut RinecraftState, _| {

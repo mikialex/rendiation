@@ -521,52 +521,7 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 			)
 	}
 
-	pub fn lookat_lh(eye:Vec3<T>, center:Vec3<T>, up:Vec3<T>) -> Self
-	{
-		let mut z = center - eye;
-		z = z.normalize();
-
-		let mut x = up.cross(z);
-		x = x.normalize();
-
-		let mut y = z.cross(x);
-		y = y.normalize();
-
-		let mut m = Mat4::new(
-			x.x, y.x, z.x, T::zero(),
-			x.y, y.y, z.y, T::zero(),
-			x.z, y.z, z.z, T::zero(),
-			T::zero(), T::zero(), T::zero(), T::one());
-
-		let tmp = -eye;
-		if tmp.x.ne(T::zero())
-		{
-			m.d1 += tmp.x * m.a1;
-			m.d2 += tmp.x * m.a2;
-			m.d3 += tmp.x * m.a3;
-			m.d4 += tmp.x * m.a4;
-		}
-
-		if tmp.y.ne(T::zero())
-		{
-			m.d1 += tmp.y * m.b1;
-			m.d2 += tmp.y * m.b2;
-			m.d3 += tmp.y * m.b3;
-			m.d4 += tmp.y * m.b4;
-		}
-
-		if tmp.z.ne(T::zero())
-		{
-			m.d1 += tmp.z * m.c1;
-			m.d2 += tmp.z * m.c2;
-			m.d3 += tmp.z * m.c3;
-			m.d4 += tmp.z * m.c4;
-		}
-
-		return m;
-	}
-
-	pub fn lookat_rh(eye:Vec3<T>, center:Vec3<T>, up:Vec3<T>) -> Self
+	pub fn lookat(eye:Vec3<T>, center:Vec3<T>, up:Vec3<T>) -> Self
 	{
 		let mut z = eye - center;
 		z = z.normalize();
@@ -581,32 +536,11 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 			x.x, y.x, z.x, T::zero(),
 			x.y, y.y, z.y, T::zero(),
 			x.z, y.z, z.z, T::zero(),
-			T::zero(), T::zero(), T::zero(), T::one());
+			T::zero(), T::zero(), T::zero(), T::one()).transpose();
 
-		let tmp = -eye;
-		if tmp.x.ne(T::zero())
-		{
-			m.d1 += tmp.x * m.a1;
-			m.d2 += tmp.x * m.a2;
-			m.d3 += tmp.x * m.a3;
-			m.d4 += tmp.x * m.a4;
-		}
-
-		if tmp.y.ne(T::zero())
-		{
-			m.d1 += tmp.y * m.b1;
-			m.d2 += tmp.y * m.b2;
-			m.d3 += tmp.y * m.b3;
-			m.d4 += tmp.y * m.b4;
-		}
-
-		if tmp.z.ne(T::zero())
-		{
-			m.d1 += tmp.z * m.c1;
-			m.d2 += tmp.z * m.c2;
-			m.d3 += tmp.z * m.c3;
-			m.d4 += tmp.z * m.c4;
-		}
+		m.d1 = eye.x;
+		m.d2 = eye.y;
+		m.d3 = eye.z;
 
 		return m;
 	}

@@ -14,6 +14,6 @@ pub trait Camera: TransformedObject {
 
   fn get_vp_matrix(&self) -> Mat4<f32> {
     let transform = self.get_transform();
-    *self.get_projection_matrix() * transform.matrix
+    *self.get_projection_matrix() * transform.matrix.inverse()
   }
 }

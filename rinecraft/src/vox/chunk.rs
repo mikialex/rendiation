@@ -1,14 +1,32 @@
 use crate::vox::block::*;
 use rendiation::*;
+use std::hash::{Hash, Hasher};
 
 pub const CHUNK_WIDTH: usize = 8;
 pub const CHUNK_HEIGHT: usize = 32;
 
 pub struct Chunk {
-  pub chunk_position: (i32, i32, i32),
+  pub chunk_position: (i32, i32),
   data: Vec<Vec<Vec<Block>>>,
   pub geometry: Option<StandardGeometry>,
 }
+
+impl Hash for Chunk {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
+    self.chunk_position.hash(state);
+  }
+}
+
+impl PartialEq for Chunk {
+  fn eq(&self, other: &Self) -> bool {
+    self.chunk_position == other.chunk_position
+  }
+}
+
+impl Eq for Chunk {}
 
 pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
   if y <= x && y <= z {
@@ -21,7 +39,9 @@ pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
 }
 
 impl Chunk {
-  pub fn new(chunk_x: i32, chunk_z: i32) -> Self {
+  pub fn new(chunk_id: (i32, i32)) -> Self {
+    let chunk_x = chunk_id.0;
+    let chunk_z = chunk_id.1;
     let mut x_row = Vec::new();
     for i in 0..CHUNK_WIDTH + 1 {
       let mut y_row = Vec::new();
@@ -40,22 +60,25 @@ impl Chunk {
     }
 
     Chunk {
-      chunk_position: (chunk_x, chunk_z, 0),
+      chunk_position: (chunk_x, chunk_z),
       data: x_row,
       geometry: None,
     }
   }
 
-  fn get_data(&self) -> &Vec<Vec<Vec<Block>>> {
+  pub fn get_data(&self) -> &Vec<Vec<Vec<Block>>> {
     &self.data
   }
 
-  fn get_data_mut(&mut self) -> &mut Vec<Vec<Vec<Block>>> {
+  pub fn get_data_mut(&mut self) -> &mut Vec<Vec<Vec<Block>>> {
     self.geometry = None;
     &mut self.data
   }
 
-  fn create_geometry(data: &Vec<Vec<Vec<Block>>>, renderer: &mut WGPURenderer) -> StandardGeometry {
+  pub fn create_geometry(
+    data: &Vec<Vec<Vec<Block>>>,
+    renderer: &mut WGPURenderer,
+  ) -> StandardGeometry {
     let mut new_index = Vec::new();
     let mut new_vertex = Vec::new();
     for x in 0..CHUNK_WIDTH + 1 {
