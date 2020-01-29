@@ -2,6 +2,7 @@ use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::Chunk;
 use crate::vox::chunk::CHUNK_ABS_WIDTH;
+use crate::vox::chunk::CHUNK_HEIGHT;
 use crate::vox::chunk::CHUNK_WIDTH;
 use rendiation::*;
 use rendiation_math::*;
@@ -25,8 +26,13 @@ impl World {
 
   pub fn update(&mut self, renderer: &mut WGPURenderer, view_position: &Vec3<f32>) {
     let stand_point_chunk = World::query_point_in_chunk(view_position);
-
-    Chunk::update_geometry(&mut self.chunks, stand_point_chunk, renderer);
+    self.chunks.entry(stand_point_chunk).or_insert_with(|| {
+      println!("chunk generate {:?}", stand_point_chunk);
+      Chunk::new(stand_point_chunk)
+    });
+    if let Some(geometry) = Chunk::create_geometry(&self.chunks, stand_point_chunk, renderer) {
+      self.chunks.get_mut(&stand_point_chunk).unwrap().geometry = Some(geometry);
+    }
   }
 
   pub fn query_point_in_chunk(point: &Vec3<f32>) -> (i32, i32) {
@@ -42,11 +48,22 @@ impl World {
   }
 
   pub fn get_local_block_position(block_position: &Vec3<i32>) -> Vec3<i32> {
-    Vec3::new(
-      block_position.x % CHUNK_WIDTH as i32,
-      block_position.y,
-      block_position.z % CHUNK_WIDTH as i32,
-    )
+    let x = if block_position.x % CHUNK_WIDTH as i32 > 0 {
+      block_position.x % CHUNK_WIDTH as i32
+    } else {
+      block_position.x % CHUNK_WIDTH as i32 + CHUNK_WIDTH as i32
+    };
+
+    let z = if block_position.z % CHUNK_WIDTH as i32 > 0 {
+      block_position.z % CHUNK_WIDTH as i32
+    } else {
+      block_position.z % CHUNK_WIDTH as i32 + CHUNK_WIDTH as i32
+    };
+
+    assert!(x >= 0);
+    assert!(z >= 0);
+
+    Vec3::new(x, block_position.y, z)
   }
 
   pub fn get_block_position(
@@ -70,16 +87,37 @@ impl World {
     chunk.get_block(chunk_local_position)
   }
 
+  pub fn try_get_block<'a>(
+    chunks: &'a HashMap<(i32, i32), Chunk>,
+    block_position: &Vec3<i32>,
+  ) -> Option<&'a Block> {
+    let chunk_position = World::query_block_in_chunk(block_position);
+    let chunk_op = chunks.get(&chunk_position);
+    if let Some(chunk) = chunk_op {
+      let chunk_local_position = World::get_local_block_position(block_position);
+      Some(chunk.get_block(chunk_local_position))
+    } else {
+      None
+    }
+  }
+
   pub fn check_block_face_visibility(
-    chunks: &mut HashMap<(i32, i32), Chunk>,
+    chunks: &HashMap<(i32, i32), Chunk>,
     block_position: &Vec3<i32>,
     face: BlockFace,
   ) -> bool {
-    let opposite_position = World::block_face_opposite_position(*block_position, face);
-    if let Block::Void = World::get_block(chunks, &opposite_position) {
-      false
+    if let Some(opposite_position) = World::block_face_opposite_position(*block_position, face) {
+      if let Some(block) = World::try_get_block(chunks, &opposite_position) {
+        if let Block::Void = block {
+          true // surface
+        } else {
+          false // inner
+        }
+      } else {
+        false // chunk edge
+      }
     } else {
-      true
+      true // top bottom world of world
     }
   }
 
@@ -109,17 +147,25 @@ impl World {
   pub fn block_face_opposite_position(
     block_position: Vec3<i32>,
     face: BlockFace,
-  ) -> Vec3<i32> {
+  ) -> Option<Vec3<i32>> {
     let mut result = block_position;
-    let side_block_position = match face {
-      BlockFace::XZMin => result.z - 1,
-      BlockFace::XZMax => result.z + 1,
-      BlockFace::XYMin => result.y - 1,
-      BlockFace::XYMax => result.y + 1,
-      BlockFace::YZMin => result.x - 1,
-      BlockFace::YZMax => result.x + 1,
+    match face {
+      BlockFace::XZMin => result.y -= 1,
+      BlockFace::XZMax => result.y += 1,
+      BlockFace::XYMin => result.z -= 1,
+      BlockFace::XYMax => result.z += 1,
+      BlockFace::YZMin => result.x -= 1,
+      BlockFace::YZMax => result.x += 1,
     };
-    result
+
+    if result.y < 0 {
+      return None;
+    }
+
+    if result.y >= CHUNK_HEIGHT as i32 {
+      return None;
+    }
+    Some(result)
   }
 }
 

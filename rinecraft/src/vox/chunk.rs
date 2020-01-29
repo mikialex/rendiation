@@ -94,17 +94,14 @@ impl Chunk {
       [block_local_position.y as usize]
   }
 
-  pub fn update_geometry(
-    chunks: &mut HashMap<(i32, i32), Chunk>,
+  pub fn create_geometry(
+    chunks: &HashMap<(i32, i32), Chunk>,
     chunk_position: (i32, i32),
     renderer: &mut WGPURenderer,
-  ) {
-    let chunk = chunks.entry(chunk_position).or_insert_with(|| {
-      println!("chunk generate {:?}", chunk_position);
-      Chunk::new(chunk_position)
-    });
+  ) -> Option<StandardGeometry> {
+    let chunk = chunks.get(&chunk_position).unwrap();
     if chunk.geometry.is_some() {
-      return;
+      return None
     }
 
     let data = chunk.get_data();
@@ -147,6 +144,6 @@ impl Chunk {
       }
     }
 
-    chunk.geometry = Some(StandardGeometry::new(new_vertex, new_index, renderer));
+    Some(StandardGeometry::new(new_vertex, new_index, renderer))
   }
 }
