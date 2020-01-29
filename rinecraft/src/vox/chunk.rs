@@ -1,4 +1,5 @@
 use crate::vox::block::*;
+use crate::vox::world::*;
 use rendiation::*;
 use rendiation_math::Vec3;
 use std::collections::HashMap;
@@ -130,15 +131,17 @@ impl Chunk {
           let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
           for face in BLOCK_FACES.iter() {
-            // if self.check_block_face_visibility(*face, (x, z, y)) {
-            build_block_face(
-              &(min_x, min_y, min_z),
-              &(max_x, max_y, max_z),
-              *face,
-              &mut new_index,
-              &mut new_vertex,
-            );
-            // }
+            let world_position =
+              World::get_block_position(&Vec3::new(x as i32, y as i32, z as i32), chunk_position);
+            if World::check_block_face_visibility(chunks, &world_position, *face) {
+              build_block_face(
+                &(min_x, min_y, min_z),
+                &(max_x, max_y, max_z),
+                *face,
+                &mut new_index,
+                &mut new_vertex,
+              );
+            }
           }
         }
       }
