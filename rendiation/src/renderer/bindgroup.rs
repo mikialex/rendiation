@@ -17,7 +17,7 @@ impl WGPUBindGroup {
     bindings: &[WGPUBinding],
     layout: &wgpu::BindGroupLayout,
   ) -> Self {
-    let resouce_wrap: Vec<_> = bindings
+    let resource_wrap: Vec<_> = bindings
       .iter()
       .map(|binding| match binding {
         WGPUBinding::BindBuffer(buffer) => wgpu::BindingResource::Buffer {
@@ -32,7 +32,7 @@ impl WGPUBindGroup {
       .collect();
 
     let mut count = 0;
-    let wgpu_bindings: Vec<_> = resouce_wrap
+    let wgpu_bindings: Vec<_> = resource_wrap
       .iter()
       .map(|resource| {
         let b = wgpu::Binding {
@@ -54,11 +54,6 @@ impl WGPUBindGroup {
     }
   }
 
-  // pub fn update() -> Self {
-  //   Self{
-  //     bindings: Vec::new()
-  //   }
-  // }
 }
 
 #[derive(Default)]

@@ -77,6 +77,21 @@ impl<T> Mul<T> for Vec3<T> where T:Mul<Output=T> + Copy
 	}
 }
 
+// impl<T> Mul<Mat4<T>> for Vec3<T>
+// {
+// 	type Output = Self;
+
+// 	fn mul(self, other: Mat4<T>) -> Self
+// 	{
+// 		Self
+// 		{
+// 			x:self.x * s,
+// 			y:self.y * s,
+// 			z:self.z * s
+// 		}
+// 	}
+// }
+
 impl<T> Mul for Vec3<T> where T:Mul<Output=T>
 {
 	type Output = Self;

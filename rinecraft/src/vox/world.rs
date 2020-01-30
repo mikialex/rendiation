@@ -156,6 +156,23 @@ impl World {
     nearest
   }
 
+  pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {
+    
+  }
+
+  pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
+  }
+
+  pub fn add_block_by_ray(&mut self, ray: &Ray, block: Block) {
+    let pick_result = self.pick_block(ray);
+  }
+
+  pub fn delete_block_by_ray(&mut self, ray: &Ray) {
+    let pick_result = self.pick_block(ray);
+  }
+
+
+
   pub fn block_face_opposite_position(
     block_position: Vec3<i32>,
     face: BlockFace,

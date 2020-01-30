@@ -82,7 +82,7 @@ impl<AppState> WindowEventSession<AppState> {
         }
         WindowEvent::MouseInput { button, state, .. } => match button {
           MouseButton::Left => match state {
-            ElementState::Pressed => emit_listener(&mut self.mouse_wheel_listeners, s, renderer),
+            ElementState::Pressed => emit_listener(&mut self.mouse_down_listeners, s, renderer),
             ElementState::Released => (),
           },
           MouseButton::Right => match state {

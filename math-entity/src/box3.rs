@@ -23,6 +23,10 @@ impl Box3 {
     )
   }
 
+  pub fn center(&self) -> Vec3<f32> {
+    (self.min + self.max) * 0.5
+  }
+
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
     self.min.min(point);
     self.max.max(point);

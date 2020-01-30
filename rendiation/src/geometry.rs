@@ -4,7 +4,7 @@ use crate::renderer::render_pass::WGPURenderPass;
 use crate::renderer::WGPURenderer;
 use crate::vertex::Vertex;
 
-/// A indexed geometry that use vertex;
+/// A indexed geometry that use vertex primitive;
 pub struct StandardGeometry {
   data: Vec<Vertex>,
   data_changed: bool,

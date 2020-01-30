@@ -1,9 +1,9 @@
-use rendiation_render_entity::BoundingData;
-use rendiation_math_entity::Ray;
 use crate::vox::block::*;
 use crate::vox::world::*;
 use rendiation::*;
 use rendiation_math::Vec3;
+use rendiation_math_entity::Ray;
+use rendiation_render_entity::BoundingData;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -97,7 +97,7 @@ impl Chunk {
   ) -> Option<StandardGeometry> {
     let chunk = chunks.get(&chunk_position).unwrap();
     if chunk.geometry.is_some() {
-      return None
+      return None;
     }
 
     let data = chunk.get_data();
@@ -145,5 +145,49 @@ impl Chunk {
 
   pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
     todo!()
+  }
+
+  pub fn iter<'a>(&'a self) -> ChunkDataIterator<'a> {
+    ChunkDataIterator {
+      chunk: self,
+      position: (0, 0, 0),
+      over: false
+    }
+  }
+}
+
+struct ChunkDataIterator<'a> {
+  chunk: &'a Chunk,
+  position: (usize, usize, usize),
+  over: bool
+}
+
+impl<'a> ChunkDataIterator<'a> {
+  fn step_position(&mut self){
+    self.position.2 += 1;
+    if self.position.2 == CHUNK_HEIGHT + 1 {
+      self.position.2 = 0;
+      self.position.1 += 1;
+    }
+    if self.position.1 == CHUNK_WIDTH + 1 {
+      self.position.1 = 0;
+      self.position.0 += 1;
+    }
+    if self.position.0 == CHUNK_WIDTH + 1 {
+      self.over = true
+    }
+  }
+}
+
+impl<'a> Iterator for ChunkDataIterator<'a> {
+  type Item = &'a Block;
+
+  fn next(&mut self) -> Option<&'a Block> {
+    if self.over{
+      return None
+    }
+    let result = Some(&self.chunk.data[self.position.0][self.position.1][self.position.2]);
+    self.step_position();
+    result
   }
 }
