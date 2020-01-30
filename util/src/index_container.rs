@@ -52,3 +52,25 @@ impl<T> IndexContainer<T> {
     self.tomb_list.push(index);
   }
 }
+
+// struct IndexContainerIter<'a, T> {
+//   container: &'a mut IndexContainer<T>,
+//   cursor: usize,
+// }
+
+// impl<'a, T> Iterator for IndexContainerIter<'a, T> {
+//   type Item = &'a mut T;
+
+//   fn next(&'a mut self) -> Option<&'a mut T> {
+//     if self.cursor == self.container.data.len() {
+//       return None;
+//     }
+//     // let container_data = &mut self.container.data;
+//     let mut result = &mut self.container.data[self.cursor];
+//     while result.is_some() {
+//       self.cursor+=1;
+//       result = &mut self.container.data[self.cursor];
+//     }
+//     result.as_mut()
+//   }
+// }

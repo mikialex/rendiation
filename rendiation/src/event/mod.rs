@@ -1,8 +1,9 @@
+use rendiation_util::IndexContainer;
 use crate::renderer::WGPURenderer;
 use winit::event;
 use winit::event::*;
 
-type ListenerContainer<AppState> = Vec<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>;
+type ListenerContainer<AppState> = IndexContainer<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>;
 
 pub struct WindowEventSession<AppState> {
   events_cleared_listeners: ListenerContainer<AppState>,
@@ -26,45 +27,45 @@ impl<AppState> WindowEventSession<AppState> {
   pub fn add_mouse_down_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) {
-    self.mouse_down_listeners.push(Box::new(func));
+  ) -> usize {
+    self.mouse_down_listeners.set_item(Box::new(func))
   }
 
   pub fn add_resize_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) {
-    self.resize_listeners.push(Box::new(func));
+  ) -> usize  {
+    self.resize_listeners.set_item(Box::new(func))
   }
 
   pub fn add_events_clear_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) {
-    self.events_cleared_listeners.push(Box::new(func));
+  ) -> usize  {
+    self.events_cleared_listeners.set_item(Box::new(func))
   }
 
   pub fn add_mouse_wheel_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) {
-    self.mouse_wheel_listeners.push(Box::new(func));
+  ) -> usize  {
+    self.mouse_wheel_listeners.set_item(Box::new(func))
   }
 
   pub fn add_mouse_motion_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) {
-    self.mouse_motion_listeners.push(Box::new(func));
+  ) -> usize  {
+    self.mouse_motion_listeners.set_item(Box::new(func))
   }
 
   pub fn new() -> Self {
     Self {
-      events_cleared_listeners: Vec::new(),
-      mouse_down_listeners: Vec::new(),
-      mouse_motion_listeners: Vec::new(),
-      mouse_wheel_listeners: Vec::new(),
-      resize_listeners: Vec::new(),
+      events_cleared_listeners: IndexContainer::new(),
+      mouse_down_listeners: IndexContainer::new(),
+      mouse_motion_listeners: IndexContainer::new(),
+      mouse_wheel_listeners: IndexContainer::new(),
+      resize_listeners: IndexContainer::new(),
     }
   }
 

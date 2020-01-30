@@ -1015,6 +1015,7 @@ dependencies = [
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
  "rendiation-render-entity 0.1.0",
+ "rendiation-util 0.1.0",
  "wgpu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winit 0.20.0-alpha5 (registry+https://github.com/rust-lang/crates.io-index)",
  "zerocopy 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1038,6 +1039,10 @@ dependencies = [
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
 ]
+
+[[package]]
+name = "rendiation-util"
+version = "0.1.0"
 
 [[package]]
 name = "rendium"

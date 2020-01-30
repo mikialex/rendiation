@@ -12,7 +12,7 @@ use rendiation_math::*;
 use rendiation_render_entity::*;
 
 pub struct Rinecraft {
-  window_session: WindowEventSession<RinecraftState>,
+  pub window_session: WindowEventSession<RinecraftState>,
   state: RinecraftState,
 }
 

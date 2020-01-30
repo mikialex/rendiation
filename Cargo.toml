@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "math",
+    "util",
     "math-entity",
     "render-entity",
     "rendiation",

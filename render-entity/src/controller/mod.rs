@@ -4,3 +4,5 @@ pub trait Controller<T>{
 
 pub mod orbit;
 pub use orbit::*;
+pub mod fps;
+pub use fps::*;
