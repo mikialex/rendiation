@@ -44,7 +44,4 @@ impl Box3 {
     todo!()
   }
 
-  pub fn if_ray_hit(&self, ray: &Ray) -> bool {
-    todo!()
-  }
 }
