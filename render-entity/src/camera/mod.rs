@@ -1,7 +1,10 @@
-mod perspective;
 use crate::transformed_object::TransformedObject;
-pub use perspective::*;
 use rendiation_math::*;
+
+pub mod perspective;
+pub use perspective::*;
+pub mod orth;
+pub use orth::*;
 
 /// Camera is a combine of projection matrix and transformation
 /// 

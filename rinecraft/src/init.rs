@@ -20,6 +20,7 @@ impl Rinecraft{
         ))
       }
     });
+    
     self.window_session.add_mouse_wheel_listener(|state, _| {
       let delta = state.window_state.mouse_wheel_delta.1;
       state.orbit_controller.zoom(1.0 - delta * 0.1);

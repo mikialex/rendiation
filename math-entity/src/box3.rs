@@ -32,7 +32,7 @@ impl Box3 {
     self.max.max(point);
   }
 
-  pub fn new_from_position_data<'a, T: Iterator<Item = &'a Vec3<f32>>>(iter: T) -> Self {
+  pub fn new_from_position_data<'a, T: Iterator<Item = &'a Vec3<f32>>>(iter: &mut T) -> Self {
     let mut b = Box3::empty();
     for point in iter {
       b.expand_by_point(*point);

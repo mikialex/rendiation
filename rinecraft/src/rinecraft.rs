@@ -13,13 +13,14 @@ use rendiation_render_entity::*;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
-  state: RinecraftState,
+  pub state: RinecraftState,
 }
 
 pub struct RinecraftState {
   pub window_state: WindowState,
   pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
+  pub controller_listener_handle: Vec<usize>,
   texture: GPUPair<ImageData, WGPUTexture>,
   cube: StandardGeometry,
   world: World,
@@ -111,6 +112,7 @@ impl Application for Rinecraft {
         world: World::new(),
         camera,
         orbit_controller: OrbitController::new(),
+        controller_listener_handle: Vec::new(),
         shading,
         shading_params,
         depth,

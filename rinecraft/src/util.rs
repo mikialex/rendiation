@@ -1,7 +1,7 @@
 use crate::watch::GPUItem;
 use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
-use rendiation_render_entity::*;
 use rendiation::*;
+use rendiation_render_entity::*;
 
 impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
@@ -98,11 +98,7 @@ pub fn create_texels(size: usize) -> ImageData {
     })
     .collect();
 
-  ImageData {
-    data,
-    width: size,
-    height: size,
-  }
+  ImageData::new(data, size, size)
 }
 
 #[allow(dead_code)]
