@@ -1,3 +1,4 @@
+use crate::renderer::GUIRenderer;
 use crate::element::*;
 
 pub trait Component<C> {
@@ -6,15 +7,35 @@ pub trait Component<C> {
 
 pub struct ComponentInstance<C: Component<C>> {
   state: C,
-  document: ElementsTree<C>,
+  event_received: bool,
+  element_tree: ElementsTree<C>,
+  need_repaint: bool, 
 }
 
 impl<C: Component<C>> ComponentInstance<C> {
   pub fn new(state: C) -> Self {
-    let document = state.render();
-    ComponentInstance { state, document }
+    let element_tree = state.render();
+    Self {
+      state,
+      event_received: false,
+      element_tree,
+      need_repaint: false,
+    }
   }
-  pub fn event(&self, event: &Event, state: &mut C) {}
+  pub fn event(&mut self, event: &Event, state: &mut C) {
+    // forward event to element tree
+    // if any element react to event, mark event_received
+  }
+  pub fn update(&mut self) {
+    if self.event_received{
+      self.element_tree = self.state.render();
+      self.need_repaint = true;
+    }
+  }
+  pub fn render(&mut self, renderer: &mut GUIRenderer) {
+    self.need_repaint = false;
+    // do render
+  }
 }
 
 //

@@ -25,9 +25,11 @@ pub struct QuadLayout {
 }
 
 pub struct Quad<C> {
-  click_listeners: Vec<Box<dyn Fn(&Event, &mut C)>>,
+  click_listeners: Vec<Box<dyn Fn(&Event, &mut C, &mut UpdateCtx)>>,
   quad: QuadLayout,
 }
+
+pub struct UpdateCtx {}
 
 impl<C> Quad<C> {
   pub fn new() -> Self {
@@ -42,13 +44,13 @@ impl<C> Quad<C> {
     }
   }
 
-  pub fn listener<T: Fn(&Event, &mut C) + 'static>(&mut self, func: T) {
+  pub fn listener<T: Fn(&Event, &mut C, &mut UpdateCtx) + 'static>(&mut self, func: T) {
     self.click_listeners.push(Box::new(func));
   }
 
-  pub fn trigger_listener(&self, event: &Event, component_state: &mut C) {
+  pub fn trigger_listener(&self, event: &Event, component_state: &mut C, ctx: &mut UpdateCtx) {
     for listener in self.click_listeners.iter() {
-      listener(event, component_state);
+      listener(event, component_state, ctx);
     }
   }
 }
