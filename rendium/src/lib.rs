@@ -19,4 +19,8 @@ impl<T: Component<T>> GUI<T> {
   pub fn update(&mut self){
 
   }
+
+  pub fn render(&mut self) {
+    // do render
+  }
 }

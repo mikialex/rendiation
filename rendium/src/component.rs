@@ -5,6 +5,11 @@ pub trait Component<C> {
   fn render(&self) -> ElementsTree<C>;
 }
 
+
+pub struct UpdateCtx {
+  
+}
+
 pub struct ComponentInstance<C: Component<C>> {
   state: C,
   event_received: bool,
@@ -25,6 +30,10 @@ impl<C: Component<C>> ComponentInstance<C> {
   pub fn event(&mut self, event: &Event, state: &mut C) {
     // forward event to element tree
     // if any element react to event, mark event_received
+    let update_ctx = UpdateCtx{};
+    // self.element_tree.root.traverse(||{
+
+    // })
   }
   pub fn update(&mut self) {
     if self.event_received{

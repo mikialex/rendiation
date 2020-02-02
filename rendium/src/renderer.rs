@@ -1,5 +1,5 @@
 pub struct GUIRenderer{
-    
+  // renderer: WGPURenderer
 }
 
 impl GUIRenderer{

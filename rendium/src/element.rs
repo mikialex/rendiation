@@ -1,3 +1,4 @@
+use crate::component::UpdateCtx;
 use crate::renderer::GUIRenderer;
 use rendiation_util::*;
 
@@ -6,7 +7,7 @@ pub struct Event {}
 pub trait Element<T> {
   fn render(&self, renderer: &mut GUIRenderer);
   fn event(&self, event: &Event, state: &mut T);
-  fn is_point_in(&self) -> bool;
+  // fn is_point_in(&self) -> bool;
 }
 
 pub struct ElementsTree<T> {
@@ -20,16 +21,14 @@ impl<T> ElementsTree<T> {
 pub struct QuadLayout {
   width: f32,
   height: f32,
-  left_offset: f32,
-  topL_offset: f32,
+  x: f32,
+  y: f32,
 }
 
 pub struct Quad<C> {
   click_listeners: Vec<Box<dyn Fn(&Event, &mut C, &mut UpdateCtx)>>,
-  quad: QuadLayout,
+  pub quad: QuadLayout,
 }
-
-pub struct UpdateCtx {}
 
 impl<C> Quad<C> {
   pub fn new() -> Self {
@@ -38,8 +37,8 @@ impl<C> Quad<C> {
       quad: QuadLayout {
         width: 1.,
         height: 1.,
-        left_offset: 1.,
-        topL_offset: 1.,
+        x: 1.,
+        y: 1.,
       },
     }
   }
@@ -52,6 +51,16 @@ impl<C> Quad<C> {
     for listener in self.click_listeners.iter() {
       listener(event, component_state, ctx);
     }
+  }
+}
+
+impl<T> Element<T> for Quad<T>{
+
+  fn render(&self, renderer: &mut GUIRenderer){
+
+  }
+  fn event(&self, event: &Event, state: &mut T){
+
   }
 }
 
