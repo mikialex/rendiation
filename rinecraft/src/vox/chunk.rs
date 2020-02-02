@@ -106,9 +106,9 @@ impl Chunk {
     let mut new_vertex = Vec::new();
     let world_offset_x = chunk_position.0 as f32 * CHUNK_ABS_WIDTH;
     let world_offset_z = chunk_position.1 as f32 * CHUNK_ABS_WIDTH;
-    for x in 0..CHUNK_WIDTH + 1 {
-      for z in 0..CHUNK_WIDTH + 1 {
-        for y in 0..CHUNK_HEIGHT + 1 {
+    for x in 0..CHUNK_WIDTH {
+      for z in 0..CHUNK_WIDTH {
+        for y in 0..CHUNK_HEIGHT {
           let block = data[x][z][y];
 
           if let Block::Void = block {
@@ -123,9 +123,9 @@ impl Chunk {
           let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
           let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
+          let world_position =
+            World::get_block_position(&Vec3::new(x as i32, y as i32, z as i32), chunk_position);
           for face in BLOCK_FACES.iter() {
-            let world_position =
-              World::get_block_position(&Vec3::new(x as i32, y as i32, z as i32), chunk_position);
             if World::check_block_face_visibility(chunks, &world_position, *face) {
               build_block_face(
                 &(min_x, min_y, min_z),
@@ -151,7 +151,7 @@ impl Chunk {
     ChunkDataIterator {
       chunk: self,
       position: (0, 0, 0),
-      over: false
+      over: false,
     }
   }
 }
@@ -159,21 +159,21 @@ impl Chunk {
 struct ChunkDataIterator<'a> {
   chunk: &'a Chunk,
   position: (usize, usize, usize),
-  over: bool
+  over: bool,
 }
 
 impl<'a> ChunkDataIterator<'a> {
-  fn step_position(&mut self){
+  fn step_position(&mut self) {
     self.position.2 += 1;
-    if self.position.2 == CHUNK_HEIGHT + 1 {
+    if self.position.2 == CHUNK_HEIGHT {
       self.position.2 = 0;
       self.position.1 += 1;
     }
-    if self.position.1 == CHUNK_WIDTH + 1 {
+    if self.position.1 == CHUNK_WIDTH {
       self.position.1 = 0;
       self.position.0 += 1;
     }
-    if self.position.0 == CHUNK_WIDTH + 1 {
+    if self.position.0 == CHUNK_WIDTH {
       self.over = true
     }
   }
@@ -183,8 +183,8 @@ impl<'a> Iterator for ChunkDataIterator<'a> {
   type Item = &'a Block;
 
   fn next(&mut self) -> Option<&'a Block> {
-    if self.over{
-      return None
+    if self.over {
+      return None;
     }
     let result = Some(&self.chunk.data[self.position.0][self.position.1][self.position.2]);
     self.step_position();

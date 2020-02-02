@@ -48,13 +48,13 @@ impl World {
   }
 
   pub fn get_local_block_position(block_position: &Vec3<i32>) -> Vec3<i32> {
-    let x = if block_position.x % CHUNK_WIDTH as i32 > 0 {
+    let x = if block_position.x % CHUNK_WIDTH as i32 >= 0 {
       block_position.x % CHUNK_WIDTH as i32
     } else {
       block_position.x % CHUNK_WIDTH as i32 + CHUNK_WIDTH as i32
     };
 
-    let z = if block_position.z % CHUNK_WIDTH as i32 > 0 {
+    let z = if block_position.z % CHUNK_WIDTH as i32 >= 0 {
       block_position.z % CHUNK_WIDTH as i32
     } else {
       block_position.z % CHUNK_WIDTH as i32 + CHUNK_WIDTH as i32
