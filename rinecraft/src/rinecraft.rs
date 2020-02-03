@@ -71,6 +71,10 @@ impl Application for Rinecraft {
 
     init_orbit_controller(&mut window_session);
 
+    window_session.add_mouse_down_listener(|state: &mut RinecraftState, renderer| {
+      println!("{:?}", state.window_state.mouse_position);
+    });
+
     // render
     window_session.add_events_clear_listener(|state, renderer| {
       state

@@ -1,8 +1,7 @@
-
-use crate::transformed_object::TransformedObject;
 use super::Camera;
-use rendiation_math_entity::*;
+use crate::transformed_object::TransformedObject;
 use rendiation_math::*;
+use rendiation_math_entity::*;
 
 #[derive(Default)]
 pub struct PerspectiveCamera {
@@ -28,14 +27,22 @@ impl PerspectiveCamera {
       zoom: 1.,
     }
   }
+
+  pub fn create_screen_ray(&self, screen_x_ratio: f32, screen_y_ratio: f32) -> Ray {
+    let position = self.get_transform().position;
+    let target = Vec3::new(screen_x_ratio, screen_y_ratio, 0.5);
+    let un_projection = self.get_transform().matrix * self.get_projection_matrix().inverse();
+    let direction = (target * un_projection - position).normalize();
+    Ray::new(position, direction)
+  }
 }
 
 impl TransformedObject for PerspectiveCamera {
-  fn get_transform(&self) -> &Transformation{
+  fn get_transform(&self) -> &Transformation {
     &self.transform
   }
 
-  fn get_transform_mut(&mut self) -> &mut Transformation{
+  fn get_transform_mut(&mut self) -> &mut Transformation {
     &mut self.transform
   }
 }
