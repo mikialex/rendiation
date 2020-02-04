@@ -6,6 +6,14 @@ pub struct BoundingData {
 }
 
 impl BoundingData {
+  pub fn new_from_box(box3: Box3) -> Self {
+    let bounding_sphere = Sphere::new_from_box(box3);
+    Self {
+      bounding_box: box3,
+      bounding_sphere,
+    }
+  }
+
   pub fn if_intersect_ray(&self, ray: &Ray) -> bool {
     ray.if_intersect(&self.bounding_sphere) && ray.if_intersect(&self.bounding_box)
   }

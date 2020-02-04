@@ -72,7 +72,9 @@ impl Application for Rinecraft {
     init_orbit_controller(&mut window_session);
 
     window_session.add_mouse_down_listener(|state: &mut RinecraftState, renderer| {
-      println!("{:?}", state.window_state.mouse_position);
+      let ray = state.camera.create_screen_ray(state.window_state.mouse_position.0, state.window_state.mouse_position.1);
+      
+      println!("{:?}", ray);
     });
 
     // render

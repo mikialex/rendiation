@@ -2,7 +2,7 @@ use crate::vox::block::*;
 use crate::vox::world::*;
 use rendiation::*;
 use rendiation_math::Vec3;
-use rendiation_math_entity::Ray;
+use rendiation_math_entity::*;
 use rendiation_render_entity::BoundingData;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -18,7 +18,7 @@ pub struct Chunk {
   pub chunk_position: (i32, i32),
   data: ChunkData,
   pub geometry: Option<StandardGeometry>,
-  // bounding: BoundingData
+  bounding: BoundingData,
 }
 
 impl Hash for Chunk {
@@ -69,10 +69,23 @@ impl Chunk {
       x_row.push(y_row);
     }
 
+    let min = Vec3::new(
+      chunk_x as f32 * CHUNK_ABS_WIDTH,
+      0.,
+      chunk_z as f32 * CHUNK_ABS_WIDTH,
+    );
+    let max = Vec3::new(
+      (chunk_x + 1) as f32 * CHUNK_ABS_WIDTH,
+      0.,
+      (chunk_z + 1) as f32 * CHUNK_ABS_WIDTH,
+    );
+    let bounding = BoundingData::new_from_box(Box3::new(min, max));
+
     Chunk {
       chunk_position: (chunk_x, chunk_z),
       data: x_row,
       geometry: None,
+      bounding
     }
   }
 
@@ -144,6 +157,7 @@ impl Chunk {
   }
 
   pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
+    // if
     todo!()
   }
 

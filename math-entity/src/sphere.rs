@@ -1,7 +1,6 @@
-
 use crate::box3::Box3;
-use rendiation_math::*;
 use rendiation_math::vec::Math;
+use rendiation_math::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sphere {
@@ -12,6 +11,12 @@ pub struct Sphere {
 impl Sphere {
   pub fn new(center: Vec3<f32>, radius: f32) -> Self {
     Sphere { center, radius }
+  }
+
+  pub fn new_from_box(box3: Box3) -> Self {
+    let center = (box3.max + box3.min) / 2.;
+    let radius = (box3.max - center).length();
+    Sphere::new(center, radius)
   }
 
   pub fn make_from_position_buffer_with_box(position: &[f32], box3: &Box3) -> Self {
@@ -27,9 +32,8 @@ impl Sphere {
   }
 
   pub fn new_from_position_data<'a, T: Iterator<Item = &'a Vec3<f32>>>(iter: &mut T) -> Self {
-    let box3= Box3::new_from_position_data(iter);
+    let box3 = Box3::new_from_position_data(iter);
     let center = (box3.max + box3.min) / 2.;
-    
     let mut max_distance2 = 0.;
     for point in iter {
       let d = (*point - center).length2();
