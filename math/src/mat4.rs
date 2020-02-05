@@ -49,17 +49,18 @@ impl<T> Sub for Mat4<T>  where T:Sub<Output=T>
 	}
 }
 
-impl<T> Mul<Mat4<T>> for Vec3<T> where T:Copy + Add<Output=T> + Div<Output=T> + Mul<Output=T>
+impl<T> Mul<Mat4<T>> for Vec3<T> where T:Copy + Add<Output=T> + Div<Output=T> + Mul<Output=T> + One
 {
 	type Output = Self;
 
 	fn mul(self, m:Mat4<T>) -> Self
 	{
+		let w = T::one() / (m.a4 * self.x + m.b4 * self.y + m.c4 * self.z + m.d4);
 		Self
 		{
-			x:(self.x * m.a1 + self.y * m.b1 + self.z * m.c1) / m.d4,
-			y:(self.x * m.a2 + self.y * m.b2 + self.z * m.c2) / m.d4,
-			z:(self.x * m.a3 + self.y * m.b3 + self.z * m.c3) / m.d4,
+			x:(self.x * m.a1 + self.y * m.b1 + self.z * m.c1 + m.d1) * w,
+			y:(self.x * m.a2 + self.y * m.b2 + self.z * m.c2 + m.d2) * w,
+			z:(self.x * m.a3 + self.y * m.b3 + self.z * m.c3 + m.d3) * w,
 		}
 	}
 }
@@ -503,7 +504,7 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 			w, T::zero(), T::zero(), T::zero(),
 			T::zero(), h, T::zero(), T::zero(),
 			T::zero(), T::zero(), q, T::one(),
-			T::zero(), T::zero(), -znear * q, T::zero()
+			T::zero(), T::zero(), -T::two() * znear * q, T::zero()
 			)
 	}
 
@@ -517,7 +518,7 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 			w, T::zero(), T::zero(), T::zero(),
 			T::zero(), h, T::zero(), T::zero(),
 			T::zero(), T::zero(), q, -T::one(),
-			T::zero(), T::zero(), znear * q, T::zero()
+			T::zero(), T::zero(), T::two() * znear * q, T::zero()
 			)
 	}
 

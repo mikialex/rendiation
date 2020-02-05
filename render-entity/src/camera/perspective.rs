@@ -22,17 +22,25 @@ impl PerspectiveCamera {
       transform: Transformation::new(),
       near: 1.,
       far: 100_000.,
-      fov: 45.,
+      fov: 90.,
       aspect: 1.,
       zoom: 1.,
     }
   }
 
   pub fn create_screen_ray(&self, screen_x_ratio: f32, screen_y_ratio: f32) -> Ray {
-    let position = self.get_transform().position;
-    let target = Vec3::new(screen_x_ratio, screen_y_ratio, 0.5);
-    let un_projection = self.get_transform().matrix * self.get_projection_matrix().inverse();
-    let direction = (target * un_projection - position).normalize();
+    let position = self.get_transform().matrix.position();
+    let target = Vec3::new(screen_x_ratio * 2. - 1., screen_y_ratio * 2. - 1., 0.5);
+    // let un_projection = self.get_projection_matrix().inverse() * self.get_transform().matrix;
+    let un_projected1 = target * self.get_projection_matrix().inverse();
+    let un_projected = target * self.get_projection_matrix().inverse() * self.get_transform().matrix;
+    let direction = (un_projected - position).normalize();
+    println!("");
+    println!("position {}", position);
+    // println!("debug {}", Vec3::new(0.,0.,0.) * self.get_projection_matrix().inverse());
+    println!("target {}", target);
+    println!("un_projected {}", un_projected);
+    println!("dir {}", direction);
     Ray::new(position, direction)
   }
 }

@@ -11,6 +11,7 @@ pub const CHUNK_WIDTH: usize = 8;
 pub const CHUNK_HEIGHT: usize = 32;
 
 pub const CHUNK_ABS_WIDTH: f32 = (CHUNK_WIDTH as f32) * BLOCK_WORLD_SIZE;
+pub const CHUNK_ABS_HEIGHT: f32 = (CHUNK_HEIGHT as f32) * BLOCK_WORLD_SIZE;
 
 pub type ChunkData = Vec<Vec<Vec<Block>>>;
 
@@ -76,7 +77,7 @@ impl Chunk {
     );
     let max = Vec3::new(
       (chunk_x + 1) as f32 * CHUNK_ABS_WIDTH,
-      0.,
+      CHUNK_ABS_HEIGHT,
       (chunk_z + 1) as f32 * CHUNK_ABS_WIDTH,
     );
     let bounding = BoundingData::new_from_box(Box3::new(min, max));
@@ -157,8 +158,16 @@ impl Chunk {
   }
 
   pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
-    // if
-    todo!()
+    if self.bounding.if_intersect_ray(ray) {
+      Some(BlockPickResult {
+        world_position: Vec3::new(0., 0., 0.),
+        block_position: Vec3::new(0, 0, 0),
+        face: BlockFace::XYMax,
+        distance: 1.,
+      })
+    } else {
+      None
+    }
   }
 
   pub fn iter<'a>(&'a self) -> ChunkDataIterator<'a> {

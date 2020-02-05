@@ -142,8 +142,10 @@ impl World {
 
   pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
     let mut nearest: Option<BlockPickResult> = None;
+    let mut hit_count = 0;
     for (_, chunk) in &self.chunks {
       if let Some(hit) = chunk.pick_block(ray) {
+        hit_count += 1;
         if let Some(n) = &nearest {
           if hit.distance < n.distance {
             nearest = Some(hit)
@@ -153,6 +155,7 @@ impl World {
         }
       }
     }
+    println!("chunk hit {}", hit_count);
     nearest
   }
 
@@ -200,8 +203,8 @@ impl World {
 
 #[derive(Debug)]
 pub struct BlockPickResult {
-  world_position: Vec3<f32>,
-  block_position: Vec3<i32>,
-  face: BlockFace,
-  distance: f32,
+  pub world_position: Vec3<f32>,
+  pub block_position: Vec3<i32>,
+  pub face: BlockFace,
+  pub distance: f32,
 }

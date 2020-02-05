@@ -48,9 +48,3 @@ pub fn init_orbit_controller(window_session: &mut WindowEventSession<RinecraftSt
     state.orbit_controller.zoom(1.0 - delta * 0.1);
   });
 }
-
-pub fn init_world(window_session: &mut WindowEventSession<RinecraftState>) {
-  window_session.add_mouse_down_listener(|state, _| {
-    
-  });
-}
