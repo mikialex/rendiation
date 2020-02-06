@@ -496,7 +496,7 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 
 	pub fn perspective_fov_lh(fov:T, aspect:T, znear:T, zfar:T) -> Self
 	{
-		let h = aspect / (fov * T::onehalf() * T::pi_by_c180()).tan();
+		let h = T::one() / (fov * T::onehalf() * T::pi_by_c180()).tan();
 		let w = h / aspect;
 		let q = zfar / (zfar - znear);
 
@@ -510,7 +510,7 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 
 	pub fn perspective_fov_rh(fov:T, aspect:T, znear:T, zfar:T) -> Self
 	{
-		let h = aspect / (fov * T::onehalf() * T::pi_by_c180()).tan();
+		let h = T::one() / (fov * T::onehalf() * T::pi_by_c180()).tan();
 		let w = h / aspect;
 		let q = -zfar / (zfar - znear);
 

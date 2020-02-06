@@ -72,12 +72,12 @@ impl Application for Rinecraft {
     init_orbit_controller(&mut window_session);
 
     window_session.add_mouse_down_listener(|state: &mut RinecraftState, _| {
-      let ray = state.camera.create_screen_ray(
-        state.window_state.mouse_position.0 / state.window_state.size.0, 
-        1. - state.window_state.mouse_position.1 / state.window_state.size.1
-      );
+      let x_ratio = state.window_state.mouse_position.0 / state.window_state.size.0;
+      let y_ratio = 1. - state.window_state.mouse_position.1 / state.window_state.size.1;
+      assert!(x_ratio <= 1.);
+      assert!(y_ratio <= 1.);
+      let ray = state.camera.create_screen_ray(x_ratio, y_ratio);
       state.world.pick_block(&ray);
-      // println!("{:?}", ray);
     });
 
     // render
@@ -108,7 +108,7 @@ impl Application for Rinecraft {
     });
 
     let window_state = WindowState::new(
-      (renderer.size.0 as f32, renderer.size.1 as f32),
+      (renderer.size.0 as f32 / renderer.hidpi_factor, renderer.size.1 as f32 / renderer.hidpi_factor),
       renderer.hidpi_factor,
     );
 
