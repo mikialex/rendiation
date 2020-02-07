@@ -17,7 +17,7 @@ pub type ChunkData = Vec<Vec<Vec<Block>>>;
 
 pub struct Chunk {
   pub chunk_position: (i32, i32),
-  data: ChunkData,
+  pub data: ChunkData,
   pub geometry: Option<StandardGeometry>,
   pub bounding: BoundingData,
 }
@@ -138,7 +138,7 @@ impl Chunk {
           let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
           let world_position =
-            World::get_block_position(&Vec3::new(x as i32, y as i32, z as i32), chunk_position);
+            World::get_block_position(&Vec3::new(x, y, z), chunk_position);
           for face in BLOCK_FACES.iter() {
             if World::check_block_face_visibility(chunks, &world_position, *face) {
               build_block_face(

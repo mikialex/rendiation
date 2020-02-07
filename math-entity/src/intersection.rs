@@ -11,10 +11,8 @@ pub trait IntersectAble<T, R> {
   }
 }
 
-pub struct NearestPointIntersection(Vec3<f32>);
-
-impl IntersectAble<Box3, NearestPointIntersection> for Ray {
-  fn intersect(&self, box3: &Box3) -> Option<NearestPointIntersection> {
+impl IntersectAble<Box3, Vec3<f32>> for Ray {
+  fn intersect(&self, box3: &Box3) -> Option<Vec3<f32>> {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
       (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -81,16 +79,16 @@ impl IntersectAble<Box3, NearestPointIntersection> for Ray {
       return None;
     }
 
-    Some(NearestPointIntersection(self.at(if t_min >= 0. {
+    Some(self.at(if t_min >= 0. {
       t_min
     } else {
       t_max
-    })))
+    }))
   }
 }
 
-impl IntersectAble<Sphere, NearestPointIntersection> for Ray {
-  fn intersect(&self, sphere: &Sphere) -> Option<NearestPointIntersection> {
+impl IntersectAble<Sphere, Vec3<f32>> for Ray {
+  fn intersect(&self, sphere: &Sphere) -> Option<Vec3<f32>> {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
     let d2 = oc.dot(oc) - tca * tca;
@@ -117,10 +115,10 @@ impl IntersectAble<Sphere, NearestPointIntersection> for Ray {
     // if it is, the ray is inside the sphere, so return the second exit point scaled by t1,
     // in order to always return an intersect point that is in front of the ray.
     if t0 < 0. {
-      return Some(NearestPointIntersection(self.at(t1)));
+      return Some(self.at(t1));
     };
 
     // else t0 is in front of the ray, so return the first collision point scaled by t0
-    Some(NearestPointIntersection(self.at(t0)))
+    Some(self.at(t0))
   }
 }

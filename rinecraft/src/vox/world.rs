@@ -1,4 +1,3 @@
-use crate::vox::intersection::BlockPickResult;
 use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::Chunk;
@@ -7,12 +6,11 @@ use crate::vox::chunk::CHUNK_HEIGHT;
 use crate::vox::chunk::CHUNK_WIDTH;
 use rendiation::*;
 use rendiation_math::*;
-use rendiation_math_entity::*;
 use std::collections::HashMap;
 
 pub struct World {
-  chunk_visible_distance: usize,
-  chunks: HashMap<(i32, i32), Chunk>,
+  pub chunk_visible_distance: usize,
+  pub chunks: HashMap<(i32, i32), Chunk>,
 }
 
 impl World {
@@ -68,13 +66,13 @@ impl World {
   }
 
   pub fn get_block_position(
-    local_block_position: &Vec3<i32>,
+    local_block_position: &Vec3<usize>,
     chunk_position: (i32, i32),
   ) -> Vec3<i32> {
     Vec3::new(
-      local_block_position.x + chunk_position.0 * CHUNK_WIDTH as i32,
-      local_block_position.y,
-      local_block_position.z + chunk_position.1 * CHUNK_WIDTH as i32,
+      local_block_position.x as i32 + chunk_position.0 * CHUNK_WIDTH as i32,
+      local_block_position.y as i32,
+      local_block_position.z as i32 + chunk_position.1 * CHUNK_WIDTH as i32,
     )
   }
 
@@ -140,42 +138,6 @@ impl World {
       }
     }
   }
-
-  pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
-    let mut nearest: Option<BlockPickResult> = None;
-    let mut hit_count = 0;
-    for (_, chunk) in &self.chunks {
-      if let Some(hit) = ray.intersect(chunk) {
-        hit_count += 1;
-        if let Some(n) = &nearest {
-          if hit.distance < n.distance {
-            nearest = Some(hit)
-          }
-        } else {
-          nearest = Some(hit)
-        }
-      }
-    }
-    println!("chunk hit {}", hit_count);
-    nearest
-  }
-
-  pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {
-    
-  }
-
-  pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
-  }
-
-  pub fn add_block_by_ray(&mut self, ray: &Ray, block: Block) {
-    let pick_result = self.pick_block(ray);
-  }
-
-  pub fn delete_block_by_ray(&mut self, ray: &Ray) {
-    let pick_result = self.pick_block(ray);
-  }
-
-
 
   pub fn block_face_opposite_position(
     block_position: Vec3<i32>,
