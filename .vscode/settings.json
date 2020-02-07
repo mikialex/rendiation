@@ -10,6 +10,7 @@
         "Uint",
         "azim",
         "backends",
+        "bbox",
         "bindgroup",
         "consts",
         "glsl",

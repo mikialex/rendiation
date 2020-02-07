@@ -13,8 +13,26 @@ pub struct BlockPickResult {
   pub distance2: f32,
 }
 
-fn pick_block(chunk: &Chunk, ray: &Ray, previous_result: &Option<BlockPickResult>)
- -> Option<BlockPickResult> {
+fn get_block_bbox(world_position: Vec3::<i32>) -> Box3 {
+  let min = Vec3::new(
+    world_position.x as f32 * BLOCK_WORLD_SIZE,
+    world_position.y as f32 * BLOCK_WORLD_SIZE,
+    world_position.z as f32 * BLOCK_WORLD_SIZE,
+  );
+  let max = Vec3::new(
+    (world_position.x + 1) as f32 * BLOCK_WORLD_SIZE,
+    (world_position.y + 1) as f32 * BLOCK_WORLD_SIZE,
+    (world_position.z + 1) as f32 * BLOCK_WORLD_SIZE,
+  );
+  Box3::new(min, max)
+}
+
+// todo optimize
+fn pick_block(
+  chunk: &Chunk,
+  ray: &Ray,
+  previous_result: &Option<BlockPickResult>,
+) -> Option<BlockPickResult> {
   if chunk.bounding.if_intersect_ray(ray) {
     let mut closest: Option<BlockPickResult> = None;
     for x in 0..CHUNK_WIDTH {
@@ -28,19 +46,7 @@ fn pick_block(chunk: &Chunk, ray: &Ray, previous_result: &Option<BlockPickResult
 
           let local_position = Vec3::new(x, y, z);
           let world_position = World::get_block_position(&local_position, chunk.chunk_position);
-
-          let min = Vec3::new(
-            world_position.x as f32 * BLOCK_WORLD_SIZE,
-            world_position.y as f32 * BLOCK_WORLD_SIZE,
-            world_position.z as f32 * BLOCK_WORLD_SIZE,
-          );
-          let max = Vec3::new(
-            (world_position.x + 1) as f32 * BLOCK_WORLD_SIZE,
-            (world_position.y + 1) as f32 * BLOCK_WORLD_SIZE,
-            (world_position.z + 1) as f32 * BLOCK_WORLD_SIZE,
-          );
-
-          let box3 = Box3::new(min, max);
+          let box3 = get_block_bbox(world_position);
           let hit = ray.intersect(&box3);
           if let Some(h) = hit {
             let length2 = (h - ray.origin).length2();
@@ -48,15 +54,15 @@ fn pick_block(chunk: &Chunk, ray: &Ray, previous_result: &Option<BlockPickResult
               if length2 < clo.distance2 {
                 closest = Some(BlockPickResult {
                   world_position: h,
-                  block_position: Vec3::new(0, 0, 0),
-                  face: BlockFace::XYMax,
+                  block_position: world_position,
+                  face: BlockFace::XYMax, // do face decide later
                   distance2: length2,
                 })
               }
             } else {
               closest = Some(BlockPickResult {
                 world_position: h,
-                block_position: Vec3::new(0, 0, 0),
+                block_position: world_position,
                 face: BlockFace::XYMax,
                 distance2: length2,
               })
@@ -65,20 +71,37 @@ fn pick_block(chunk: &Chunk, ray: &Ray, previous_result: &Option<BlockPickResult
         }
       }
     }
+
+    const E: f32 = 0.0001;
+    // face decide
+    if let Some(r) = &mut closest {
+      let box3 = get_block_bbox(r.block_position);
+      if (box3.max.x - r.world_position.x).abs() < E {
+        r.face = BlockFace::YZMax;
+      } else if (box3.min.x - r.world_position.x).abs() < E {
+        r.face = BlockFace::YZMin;
+      } else if (box3.max.y - r.world_position.y).abs() < E {
+        r.face = BlockFace:: XZMax;
+      } else if (box3.min.y - r.world_position.y).abs() < E {
+        r.face = BlockFace:: XZMin;
+      }else if (box3.max.z - r.world_position.z).abs() < E {
+        r.face = BlockFace:: XYMax;
+      } else if (box3.min.z - r.world_position.z).abs() < E {
+        r.face = BlockFace:: XYMin;
+      }
+    }
+
     closest
   } else {
     None
   }
 }
 
-
 impl World {
   pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
     let mut nearest: Option<BlockPickResult> = None;
-    let mut hit_count = 0;
     for (_, chunk) in &self.chunks {
       if let Some(hit) = pick_block(chunk, ray, &nearest) {
-        hit_count += 1;
         if let Some(n) = &nearest {
           if hit.distance2 < n.distance2 {
             nearest = Some(hit)
@@ -88,7 +111,7 @@ impl World {
         }
       }
     }
-    println!("chunk hit {}", hit_count);
+    println!("chunk hit {:?}", nearest);
     nearest
   }
 
