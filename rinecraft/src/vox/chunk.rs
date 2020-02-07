@@ -19,7 +19,7 @@ pub struct Chunk {
   pub chunk_position: (i32, i32),
   data: ChunkData,
   pub geometry: Option<StandardGeometry>,
-  bounding: BoundingData,
+  pub bounding: BoundingData,
 }
 
 impl Hash for Chunk {
@@ -157,19 +157,6 @@ impl Chunk {
     Some(StandardGeometry::new(new_vertex, new_index, renderer))
   }
 
-  pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
-    if self.bounding.if_intersect_ray(ray) {
-      Some(BlockPickResult {
-        world_position: Vec3::new(0., 0., 0.),
-        block_position: Vec3::new(0, 0, 0),
-        face: BlockFace::XYMax,
-        distance: 1.,
-      })
-    } else {
-      None
-    }
-  }
-
   pub fn iter<'a>(&'a self) -> ChunkDataIterator<'a> {
     ChunkDataIterator {
       chunk: self,
@@ -179,7 +166,7 @@ impl Chunk {
   }
 }
 
-struct ChunkDataIterator<'a> {
+pub struct ChunkDataIterator<'a> {
   chunk: &'a Chunk,
   position: (usize, usize, usize),
   over: bool,

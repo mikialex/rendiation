@@ -1,3 +1,4 @@
+use crate::vox::intersection::BlockPickResult;
 use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::Chunk;
@@ -144,7 +145,7 @@ impl World {
     let mut nearest: Option<BlockPickResult> = None;
     let mut hit_count = 0;
     for (_, chunk) in &self.chunks {
-      if let Some(hit) = chunk.pick_block(ray) {
+      if let Some(hit) = ray.intersect(chunk) {
         hit_count += 1;
         if let Some(n) = &nearest {
           if hit.distance < n.distance {
@@ -199,12 +200,4 @@ impl World {
     }
     Some(result)
   }
-}
-
-#[derive(Debug)]
-pub struct BlockPickResult {
-  pub world_position: Vec3<f32>,
-  pub block_position: Vec3<i32>,
-  pub face: BlockFace,
-  pub distance: f32,
 }
