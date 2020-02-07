@@ -86,22 +86,16 @@ impl Chunk {
       chunk_position: (chunk_x, chunk_z),
       data: x_row,
       geometry: None,
-      bounding
+      bounding,
     }
   }
 
-  pub fn get_data(&self) -> &ChunkData {
-    &self.data
+  pub fn get_block(&self, block_local_position: Vec3<usize>) -> &Block {
+    &self.data[block_local_position.x][block_local_position.z][block_local_position.y]
   }
 
-  pub fn get_data_mut(&mut self) -> &mut ChunkData {
-    self.geometry = None;
-    &mut self.data
-  }
-
-  pub fn get_block(&self, block_local_position: Vec3<i32>) -> &Block {
-    &self.data[block_local_position.x as usize][block_local_position.z as usize]
-      [block_local_position.y as usize]
+  pub fn set_block(&mut self, block_local_position: Vec3<usize>, block: Block) {
+    self.data[block_local_position.x][block_local_position.z][block_local_position.y] = block;
   }
 
   pub fn create_geometry(
@@ -114,7 +108,7 @@ impl Chunk {
       return None;
     }
 
-    let data = chunk.get_data();
+    let data = &chunk.data;
 
     let mut new_index = Vec::new();
     let mut new_vertex = Vec::new();
@@ -137,8 +131,7 @@ impl Chunk {
           let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
           let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
-          let world_position =
-            World::get_block_position(&Vec3::new(x, y, z), chunk_position);
+          let world_position = World::local_to_world(&Vec3::new(x, y, z), chunk_position);
           for face in BLOCK_FACES.iter() {
             if World::check_block_face_visibility(chunks, &world_position, *face) {
               build_block_face(

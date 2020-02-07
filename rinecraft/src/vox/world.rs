@@ -11,6 +11,7 @@ use std::collections::HashMap;
 pub struct World {
   pub chunk_visible_distance: usize,
   pub chunks: HashMap<(i32, i32), Chunk>,
+  pub chunk_update_list: Vec<(i32, i32)>,
 }
 
 impl World {
@@ -20,6 +21,7 @@ impl World {
     World {
       chunk_visible_distance: 2,
       chunks,
+      chunk_update_list: Vec::new(),
     }
   }
 
@@ -29,8 +31,12 @@ impl World {
       println!("chunk generate {:?}", stand_point_chunk);
       Chunk::new(stand_point_chunk)
     });
-    if let Some(geometry) = Chunk::create_geometry(&self.chunks, stand_point_chunk, renderer) {
-      self.chunks.get_mut(&stand_point_chunk).unwrap().geometry = Some(geometry);
+    self.chunk_update_list.push(stand_point_chunk);
+
+    while let Some(chunk_to_update_key) = self.chunk_update_list.pop() {
+      if let Some(geometry) = Chunk::create_geometry(&self.chunks, chunk_to_update_key, renderer) {
+        self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry = Some(geometry);
+      }
     }
   }
 
@@ -40,13 +46,20 @@ impl World {
     (x, z)
   }
 
+  pub fn world_to_local(block_position: &Vec3<i32>) -> ((i32, i32), Vec3<usize>) {
+    (
+      World::query_block_in_chunk(block_position),
+      World::get_local_block_position(block_position),
+    )
+  }
+
   pub fn query_block_in_chunk(block_position: &Vec3<i32>) -> (i32, i32) {
     let x = (block_position.x as f32 / CHUNK_ABS_WIDTH).floor() as i32;
     let z = (block_position.z as f32 / CHUNK_ABS_WIDTH).floor() as i32;
     (x, z)
   }
 
-  pub fn get_local_block_position(block_position: &Vec3<i32>) -> Vec3<i32> {
+  pub fn get_local_block_position(block_position: &Vec3<i32>) -> Vec3<usize> {
     let x = if block_position.x % CHUNK_WIDTH as i32 >= 0 {
       block_position.x % CHUNK_WIDTH as i32
     } else {
@@ -62,10 +75,10 @@ impl World {
     assert!(x >= 0);
     assert!(z >= 0);
 
-    Vec3::new(x, block_position.y, z)
+    Vec3::new(x as usize, block_position.y as usize, z as usize)
   }
 
-  pub fn get_block_position(
+  pub fn local_to_world(
     local_block_position: &Vec3<usize>,
     chunk_position: (i32, i32),
   ) -> Vec3<i32> {

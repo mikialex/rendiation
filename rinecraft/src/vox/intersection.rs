@@ -16,12 +16,6 @@ pub struct BlockPickResult {
 impl IntersectAble<Chunk, BlockPickResult> for Ray {
   fn intersect(&self, chunk: &Chunk) -> Option<BlockPickResult> {
     if chunk.bounding.if_intersect_ray(self) {
-      // Some(BlockPickResult {
-      //   world_position: Vec3::new(0., 0., 0.),
-      //   block_position: Vec3::new(0, 0, 0),
-      //   face: BlockFace::XYMax,
-      //   distance: 1.,
-      // })
       let mut closest: Option<BlockPickResult> = None;
       for x in 0..CHUNK_WIDTH {
         for z in 0..CHUNK_WIDTH {

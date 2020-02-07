@@ -13,7 +13,7 @@ pub struct BlockPickResult {
   pub distance2: f32,
 }
 
-fn get_block_bbox(world_position: Vec3::<i32>) -> Box3 {
+fn get_block_bbox(world_position: Vec3<i32>) -> Box3 {
   let min = Vec3::new(
     world_position.x as f32 * BLOCK_WORLD_SIZE,
     world_position.y as f32 * BLOCK_WORLD_SIZE,
@@ -45,7 +45,7 @@ fn pick_block(
           }
 
           let local_position = Vec3::new(x, y, z);
-          let world_position = World::get_block_position(&local_position, chunk.chunk_position);
+          let world_position = World::local_to_world(&local_position, chunk.chunk_position);
           let box3 = get_block_bbox(world_position);
           let hit = ray.intersect(&box3);
           if let Some(h) = hit {
@@ -81,13 +81,13 @@ fn pick_block(
       } else if (box3.min.x - r.world_position.x).abs() < E {
         r.face = BlockFace::YZMin;
       } else if (box3.max.y - r.world_position.y).abs() < E {
-        r.face = BlockFace:: XZMax;
+        r.face = BlockFace::XZMax;
       } else if (box3.min.y - r.world_position.y).abs() < E {
-        r.face = BlockFace:: XZMin;
-      }else if (box3.max.z - r.world_position.z).abs() < E {
-        r.face = BlockFace:: XYMax;
+        r.face = BlockFace::XZMin;
+      } else if (box3.max.z - r.world_position.z).abs() < E {
+        r.face = BlockFace::XYMax;
       } else if (box3.min.z - r.world_position.z).abs() < E {
-        r.face = BlockFace:: XYMin;
+        r.face = BlockFace::XYMin;
       }
     }
 
@@ -117,7 +117,17 @@ impl World {
 
   pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {}
 
-  pub fn delete_block(&mut self, block_position: &Vec3<i32>) {}
+  pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
+    let (chunk_key, local_position) = World::world_to_local(block_position);
+
+    let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+    chunk.set_block(
+      local_position,
+      Block::Void,
+    );
+    chunk.geometry = None;
+    self.chunk_update_list.push(chunk_key);
+  }
 
   pub fn add_block_by_ray(&mut self, ray: &Ray, block: Block) {
     let pick_result = self.pick_block(ray);
@@ -125,5 +135,8 @@ impl World {
 
   pub fn delete_block_by_ray(&mut self, ray: &Ray) {
     let pick_result = self.pick_block(ray);
+    if let Some(re) = pick_result {
+      self.delete_block(&re.block_position);
+    }
   }
 }

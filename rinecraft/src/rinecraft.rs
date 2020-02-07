@@ -77,7 +77,7 @@ impl Application for Rinecraft {
       assert!(x_ratio <= 1.);
       assert!(y_ratio <= 1.);
       let ray = state.camera.create_screen_ray(x_ratio, y_ratio);
-      state.world.pick_block(&ray);
+      state.world.delete_block_by_ray(&ray);
     });
 
     // render
