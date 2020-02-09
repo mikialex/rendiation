@@ -1,7 +1,25 @@
-use rendiation_util::IndexContainer;
 use crate::renderer::WGPURenderer;
+use rendiation_math::Vec3;
+use rendiation_util::IndexContainer;
 use winit::event;
 use winit::event::*;
+
+// pub enum MouseActionType {
+//   Down,
+//   Up,
+// }
+
+// pub enum MouseButton {
+//   Left,
+//   Right,
+//   Middle,
+// }
+
+// pub struct MouseActionEvent {
+//   position: Vec3<f32>,
+//   action: MouseActionType,
+//   mouse_button: MouseButton,
+// }
 
 type ListenerContainer<AppState> = IndexContainer<Box<dyn FnMut(&mut AppState, &mut WGPURenderer)>>;
 
@@ -34,28 +52,28 @@ impl<AppState> WindowEventSession<AppState> {
   pub fn add_resize_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) -> usize  {
+  ) -> usize {
     self.resize_listeners.set_item(Box::new(func))
   }
 
   pub fn add_events_clear_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) -> usize  {
+  ) -> usize {
     self.events_cleared_listeners.set_item(Box::new(func))
   }
 
   pub fn add_mouse_wheel_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) -> usize  {
+  ) -> usize {
     self.mouse_wheel_listeners.set_item(Box::new(func))
   }
 
   pub fn add_mouse_motion_listener<T: FnMut(&mut AppState, &mut WGPURenderer) + 'static>(
     &mut self,
     func: T,
-  ) -> usize  {
+  ) -> usize {
     self.mouse_motion_listeners.set_item(Box::new(func))
   }
 

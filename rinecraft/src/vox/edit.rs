@@ -115,22 +115,35 @@ impl World {
     nearest
   }
 
-  pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {}
+  pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {
+    let (chunk_key, local_position) = World::world_to_local(block_position);
+    let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+    chunk.set_block(local_position, block);
+    chunk.geometry = None;
+    self.chunk_update_list.push(chunk_key);
+  }
 
   pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
     let (chunk_key, local_position) = World::world_to_local(block_position);
 
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
-    chunk.set_block(
-      local_position,
-      Block::Void,
-    );
+    chunk.set_block(local_position, Block::Void);
     chunk.geometry = None;
     self.chunk_update_list.push(chunk_key);
   }
 
   pub fn add_block_by_ray(&mut self, ray: &Ray, block: Block) {
     let pick_result = self.pick_block(ray);
+    if let Some(re) = pick_result {
+      if let Some(b) = &World::block_face_opposite_position(re.block_position, re.face) {
+        self.add_block(
+          b,
+          Block::Solid {
+            style: SolidBlockType::Stone,
+          },
+        );
+      }
+    }
   }
 
   pub fn delete_block_by_ray(&mut self, ray: &Ray) {
