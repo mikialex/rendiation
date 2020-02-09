@@ -1,9 +1,13 @@
+use rendiation_util::Tree;
+use crate::lens::lens_wrap::LensWrap;
+use crate::lens::Lens;
 use crate::renderer::GUIRenderer;
 use crate::element::*;
 
-pub trait Component<C> {
+pub trait Component<C:> {
   fn render(&self) -> ElementsTree<C>;
   fn event(&mut self);
+
 }
 
 
@@ -12,17 +16,15 @@ pub struct UpdateCtx {
 }
 
 pub struct ComponentInstance<C: Component<C>> {
-  state: C,
   event_received: bool,
   element_tree: ElementsTree<C>,
   need_repaint: bool, 
 }
 
 impl<C: Component<C>> ComponentInstance<C> {
-  pub fn new(state: C) -> Self {
+  pub fn new(state: &C) -> Self {
     let element_tree = state.render();
     Self {
-      state,
       event_received: false,
       element_tree,
       need_repaint: false,
@@ -36,9 +38,9 @@ impl<C: Component<C>> ComponentInstance<C> {
 
     // })
   }
-  pub fn update(&mut self) {
+  pub fn update(&mut self, state: &C) {
     if self.event_received{
-      self.element_tree = self.state.render();
+      self.element_tree = state.render();
       self.need_repaint = true;
     }
   }
@@ -48,9 +50,27 @@ impl<C: Component<C>> ComponentInstance<C> {
   }
 }
 
+pub struct ComponentTree<T> {
+  elements: Tree<Box<dyn Element<T>>>,
+}
+
+impl<T> ComponentTree<T> {
+  fn event(&self, event: &Event, state: &mut T) {}
+}
+
+
 //
 //
 // user code
+
+impl Component<String> for String {
+  fn render(&self) -> ElementsTree<Self> {
+    todo!()
+  }
+
+  fn event(&mut self){}
+}
+
 
 pub struct TestCounter {
   count: usize,
@@ -66,6 +86,8 @@ impl TestCounter {
 impl Component<TestCounter> for TestCounter {
   fn render(&self) -> ElementsTree<Self> {
     todo!()
+
+
     // let mut div = Div::new();
     // div.listener(|_, counter: &mut Self| counter.add());
     // div

@@ -1,4 +1,5 @@
 pub mod field;
+pub mod lens_wrap;
 
 pub trait Lens<T: ?Sized, U: ?Sized> {
     /// Get non-mut access to the field.
