@@ -1,6 +1,7 @@
 pub mod component;
 pub mod element;
 pub mod renderer;
+pub mod lens;
 use crate::element::Event;
 use crate::renderer::GUIRenderer;
 use component::*;

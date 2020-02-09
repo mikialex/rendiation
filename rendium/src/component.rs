@@ -3,6 +3,7 @@ use crate::element::*;
 
 pub trait Component<C> {
   fn render(&self) -> ElementsTree<C>;
+  fn event(&mut self);
 }
 
 
@@ -41,7 +42,7 @@ impl<C: Component<C>> ComponentInstance<C> {
       self.need_repaint = true;
     }
   }
-  pub fn render(&mut self, renderer: &mut GUIRenderer) {
+  pub fn paint(&mut self, renderer: &mut GUIRenderer) {
     self.need_repaint = false;
     // do render
   }
@@ -69,4 +70,6 @@ impl Component<TestCounter> for TestCounter {
     // div.listener(|_, counter: &mut Self| counter.add());
     // div
   }
+
+  fn event(&mut self){}
 }

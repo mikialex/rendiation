@@ -8,7 +8,6 @@ use crate::shading::TestShadingParamGroup;
 use crate::util::*;
 use crate::watch::*;
 use rendiation::*;
-use rendiation_math::*;
 use rendiation_render_entity::*;
 
 pub struct Rinecraft {
@@ -20,6 +19,7 @@ pub struct RinecraftState {
   pub window_state: WindowState,
   pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
+  pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
   texture: GPUPair<ImageData, WGPUTexture>,
   cube: StandardGeometry,
@@ -121,6 +121,7 @@ impl Application for Rinecraft {
         world: World::new(),
         camera,
         orbit_controller: OrbitController::new(),
+        fps_controller: FPSController::new(),
         controller_listener_handle: Vec::new(),
         shading,
         shading_params,

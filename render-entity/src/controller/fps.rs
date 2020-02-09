@@ -3,7 +3,7 @@ use crate::transformed_object::TransformedObject;
 use rendiation_math::*;
 use rendiation_math_entity::Spherical;
 
-struct FPSController {
+pub struct FPSController {
   spherical: Spherical,
 
   // restriction
