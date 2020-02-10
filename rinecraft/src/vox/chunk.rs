@@ -1,4 +1,5 @@
 use crate::vox::block::*;
+use crate::vox::util::local_to_world;
 use crate::vox::world::*;
 use rendiation::*;
 use rendiation_math::Vec3;
@@ -131,7 +132,7 @@ impl Chunk {
           let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
           let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
-          let world_position = World::local_to_world(&Vec3::new(x, y, z), chunk_position);
+          let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
           for face in BLOCK_FACES.iter() {
             if World::check_block_face_visibility(chunks, &world_position, *face) {
               build_block_face(

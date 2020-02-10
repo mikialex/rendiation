@@ -1,5 +1,6 @@
 use crate::vox::block::*;
 use crate::vox::chunk::*;
+use crate::vox::util::*;
 use crate::vox::world::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::Ray;
@@ -45,7 +46,7 @@ fn pick_block(
           }
 
           let local_position = Vec3::new(x, y, z);
-          let world_position = World::local_to_world(&local_position, chunk.chunk_position);
+          let world_position = local_to_world(&local_position, chunk.chunk_position);
           let box3 = get_block_bbox(world_position);
           let hit = ray.intersect(&box3);
           if let Some(h) = hit {
@@ -116,7 +117,7 @@ impl World {
   }
 
   pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {
-    let (chunk_key, local_position) = World::world_to_local(block_position);
+    let (chunk_key, local_position) = world_to_local(block_position);
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, block);
     chunk.geometry = None;
@@ -124,7 +125,7 @@ impl World {
   }
 
   pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
-    let (chunk_key, local_position) = World::world_to_local(block_position);
+    let (chunk_key, local_position) = world_to_local(block_position);
 
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, Block::Void);
