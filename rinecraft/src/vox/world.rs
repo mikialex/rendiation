@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::Chunk;
@@ -11,33 +12,62 @@ use std::collections::HashMap;
 pub struct World {
   pub chunk_visible_distance: usize,
   pub chunks: HashMap<(i32, i32), Chunk>,
-  pub chunk_update_list: Vec<(i32, i32)>,
+  pub chunk_geometry_update_set: HashSet<(i32, i32)>,
 }
 
 impl World {
   pub fn new() -> Self {
-    let mut chunks = HashMap::new();
-    chunks.insert((0, 0), Chunk::new((0, 0)));
+    let chunks = HashMap::new();
     World {
       chunk_visible_distance: 2,
       chunks,
-      chunk_update_list: Vec::new(),
+      chunk_geometry_update_set: HashSet::new(),
     }
+  }
+
+  pub fn assure_chunk(chunks: &mut HashMap<(i32, i32), Chunk> ,chunk_key: (i32, i32)) -> bool {
+    let mut exist = true;
+    chunks.entry(chunk_key).or_insert_with(|| {
+      println!("chunk generate {:?}", chunk_key);
+      exist = false;
+      Chunk::new(chunk_key)
+    });
+    exist
   }
 
   pub fn update(&mut self, renderer: &mut WGPURenderer, view_position: &Vec3<f32>) {
     let stand_point_chunk = World::query_point_in_chunk(view_position);
-    self.chunks.entry(stand_point_chunk).or_insert_with(|| {
-      println!("chunk generate {:?}", stand_point_chunk);
-      Chunk::new(stand_point_chunk)
-    });
-    self.chunk_update_list.push(stand_point_chunk);
+    let x_low = stand_point_chunk.0 - self.chunk_visible_distance as i32;
+    let x_high = stand_point_chunk.0 + self.chunk_visible_distance as i32;
+    let z_low = stand_point_chunk.1 - self.chunk_visible_distance as i32;
+    let z_high = stand_point_chunk.1 + self.chunk_visible_distance as i32;
+    let mut create_list = Vec::new();
+    for x in  x_low..x_high {
+      for z in z_low..z_high {
+        if !World::assure_chunk(&mut self.chunks, (x, z)) {
+          create_list.push((x, z));
+        }
+        if self.chunks.get(&(x, z)).unwrap().geometry.is_none() {
+          create_list.push((x, z));
+        }
+      }
+    }
 
-    while let Some(chunk_to_update_key) = self.chunk_update_list.pop() {
-      if let Some(geometry) = Chunk::create_geometry(&self.chunks, chunk_to_update_key, renderer) {
+    for chunk_key in create_list {
+      self.chunk_geometry_update_set.insert(chunk_key);
+      World::assure_chunk(&mut self.chunks, (chunk_key.0 + 1, chunk_key.1));
+      World::assure_chunk(&mut self.chunks, (chunk_key.0 - 1, chunk_key.1));
+      World::assure_chunk(&mut self.chunks, (chunk_key.0, chunk_key.1 + 1));
+      World::assure_chunk(&mut self.chunks, (chunk_key.0, chunk_key.1 - 1));
+    }
+
+    for chunk_to_update_key in &self.chunk_geometry_update_set {
+      if let Some(geometry) = Chunk::create_geometry(&self.chunks, *chunk_to_update_key, renderer) {
         self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry = Some(geometry);
       }
     }
+    self.chunk_geometry_update_set.clear();
+
   }
 
   pub fn query_point_in_chunk(point: &Vec3<f32>) -> (i32, i32) {

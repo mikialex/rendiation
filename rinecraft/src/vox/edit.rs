@@ -120,7 +120,7 @@ impl World {
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, block);
     chunk.geometry = None;
-    self.chunk_update_list.push(chunk_key);
+    self.chunk_geometry_update_set.insert(chunk_key);
   }
 
   pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
@@ -129,7 +129,7 @@ impl World {
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, Block::Void);
     chunk.geometry = None;
-    self.chunk_update_list.push(chunk_key);
+    self.chunk_geometry_update_set.insert(chunk_key);
   }
 
   pub fn add_block_by_ray(&mut self, ray: &Ray, block: Block) {
