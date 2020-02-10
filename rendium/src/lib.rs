@@ -1,4 +1,5 @@
 pub mod component;
+pub mod components;
 pub mod element;
 pub mod lens;
 pub mod renderer;

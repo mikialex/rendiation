@@ -27,7 +27,10 @@ pub struct RinecraftState {
   shading: TestShading,
   shading_params: TestShadingParamGroup,
   depth: WGPUAttachmentTexture,
+  
 }
+
+
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {

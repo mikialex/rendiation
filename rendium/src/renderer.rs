@@ -3,7 +3,7 @@ pub struct GUIRenderer{
 }
 
 impl GUIRenderer{
-    pub fn draw_rect(){
+    pub fn draw_rect(&mut self){
 
     }
 }

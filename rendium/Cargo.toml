@@ -7,4 +7,5 @@ edition = "2018"
 [dependencies]
 winit = "0.20.0-alpha4"
 rendiation = { path = "../rendiation" }
+rendiation-math = { path = "../math" }
 rendiation-util = { path = "../util" }

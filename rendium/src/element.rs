@@ -1,5 +1,6 @@
 use crate::component::UpdateCtx;
 use crate::renderer::GUIRenderer;
+use rendiation_math::*;
 use rendiation_util::*;
 
 pub struct Event {}
@@ -7,7 +8,6 @@ pub struct Event {}
 pub trait Element<T> {
   fn render(&self, renderer: &mut GUIRenderer);
   fn event(&self, event: &Event, state: &mut T);
-  // fn is_point_in(&self) -> bool;
 }
 
 pub struct ElementsTree<T> {
@@ -25,9 +25,19 @@ pub struct QuadLayout {
   y: f32,
 }
 
+impl QuadLayout {
+  pub fn is_point_in(&self, point: Vec2<f32>) -> bool {
+    point.x >= self.x
+      && point.y >= self.y
+      && point.x <= self.x + self.width
+      && point.y <= self.y + self.height
+  }
+}
+
 pub struct Quad<C> {
   click_listeners: Vec<Box<dyn Fn(&Event, &mut C, &mut UpdateCtx)>>,
   pub quad: QuadLayout,
+  pub z_index: i32,
 }
 
 impl<C> Quad<C> {
@@ -35,11 +45,12 @@ impl<C> Quad<C> {
     Self {
       click_listeners: Vec::new(),
       quad: QuadLayout {
-        width: 1.,
-        height: 1.,
-        x: 1.,
-        y: 1.,
+        width: 100.,
+        height: 100.,
+        x: 0.,
+        y: 0.,
       },
+      z_index: 0
     }
   }
 
@@ -54,13 +65,12 @@ impl<C> Quad<C> {
   }
 }
 
-impl<T> Element<T> for Quad<T>{
-
-  fn render(&self, renderer: &mut GUIRenderer){
-
+impl<T> Element<T> for Quad<T> {
+  fn render(&self, renderer: &mut GUIRenderer) {
+    renderer.draw_rect();
   }
-  fn event(&self, event: &Event, state: &mut T){
-
+  fn event(&self, event: &Event, state: &mut T) {
+    // decide if event need handled
   }
 }
 

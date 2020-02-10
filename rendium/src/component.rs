@@ -1,13 +1,9 @@
 use rendiation_util::Tree;
-use crate::lens::lens_wrap::LensWrap;
-use crate::lens::Lens;
 use crate::renderer::GUIRenderer;
 use crate::element::*;
 
 pub trait Component<C:> {
-  fn render(&self) -> ElementsTree<C>;
-  fn event(&mut self);
-
+  fn render(&self) -> ComponentTree<C>;
 }
 
 
@@ -17,7 +13,7 @@ pub struct UpdateCtx {
 
 pub struct ComponentInstance<C: Component<C>> {
   event_received: bool,
-  element_tree: ElementsTree<C>,
+  element_tree: ComponentTree<C>,
   need_repaint: bool, 
 }
 
@@ -64,11 +60,10 @@ impl<T> ComponentTree<T> {
 // user code
 
 impl Component<String> for String {
-  fn render(&self) -> ElementsTree<Self> {
+  fn render(&self) -> ComponentTree<Self> {
     todo!()
   }
 
-  fn event(&mut self){}
 }
 
 
@@ -84,7 +79,7 @@ impl TestCounter {
 }
 
 impl Component<TestCounter> for TestCounter {
-  fn render(&self) -> ElementsTree<Self> {
+  fn render(&self) -> ComponentTree<Self> {
     todo!()
 
 
@@ -93,5 +88,4 @@ impl Component<TestCounter> for TestCounter {
     // div
   }
 
-  fn event(&mut self){}
 }
