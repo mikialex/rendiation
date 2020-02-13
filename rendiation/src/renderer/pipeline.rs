@@ -1,6 +1,7 @@
 
 pub trait GeometryProvider<'a> {
   fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>>;
+  fn get_index_format() -> wgpu::IndexFormat;
 }
 
 /// impl your custom vertex data layout

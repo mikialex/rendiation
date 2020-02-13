@@ -89,4 +89,8 @@ impl<'a> GeometryProvider<'a> for StandardGeometry {
   fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>> {
     vec![Vertex::get_buffer_layout_descriptor()]
   }
+
+  fn get_index_format() -> wgpu::IndexFormat {
+    wgpu::IndexFormat::Uint16
+  }
 }

@@ -35,7 +35,7 @@ impl<'a> VertexProvider<'a> for Vertex {
   }
 }
 
-pub fn vertex(pos: [f32; 3],n: [f32; 3], tc: [f32; 2]) -> Vertex {
+pub fn vertex(pos: [f32; 3], n: [f32; 3], tc: [f32; 2]) -> Vertex {
   Vertex {
     position: Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
     normal: Vec3::new(0.0, 1.0, 0.0),
