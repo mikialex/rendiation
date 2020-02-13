@@ -5,6 +5,7 @@ use crate::vox::world::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::Ray;
 use rendiation_math_entity::*;
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct BlockPickResult {
@@ -116,12 +117,35 @@ impl World {
     nearest
   }
 
+  fn notify_side_chunk_dirty(update_set: &mut HashSet<(i32, i32)>, chunk_key: (i32, i32), point: &Vec3<usize>) {
+    fn get_side_affect_chunk(side: ChunkSide, chunk: (i32, i32)) -> (i32, i32) {
+      match side {
+        ChunkSide::XYMax => (chunk.0 + 1, chunk.1),
+        ChunkSide::XYMin => (chunk.0 - 1, chunk.1),
+        ChunkSide::ZYMax => (chunk.0, chunk.1 + 1),
+        ChunkSide::ZYMin => (chunk.0, chunk.1 - 1),
+      }
+    }
+    if point.x == 0 {
+      update_set.insert(get_side_affect_chunk(ChunkSide::XYMin, chunk_key));
+    } else if point.x == CHUNK_WIDTH {
+      update_set.insert(get_side_affect_chunk(ChunkSide::XYMax, chunk_key));
+    } 
+    
+    if point.z == 0 {
+      update_set.insert(get_side_affect_chunk(ChunkSide::ZYMin, chunk_key));
+    } else if point.z == CHUNK_WIDTH {
+      update_set.insert(get_side_affect_chunk(ChunkSide::ZYMax, chunk_key));
+    }
+  }
+
   pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {
     let (chunk_key, local_position) = world_to_local(block_position);
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, block);
-    chunk.geometry = None;
+    
     self.chunk_geometry_update_set.insert(chunk_key);
+    World::notify_side_chunk_dirty(&mut self.chunk_geometry_update_set, chunk_key, &local_position);
   }
 
   pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
@@ -129,8 +153,9 @@ impl World {
 
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, Block::Void);
-    chunk.geometry = None;
+
     self.chunk_geometry_update_set.insert(chunk_key);
+    World::notify_side_chunk_dirty(&mut self.chunk_geometry_update_set, chunk_key, &local_position);
   }
 
   pub fn add_block_by_ray(&mut self, ray: &Ray, block: Block) {

@@ -14,6 +14,13 @@ pub const CHUNK_HEIGHT: usize = 4;
 pub const CHUNK_ABS_WIDTH: f32 = (CHUNK_WIDTH as f32) * BLOCK_WORLD_SIZE;
 pub const CHUNK_ABS_HEIGHT: f32 = (CHUNK_HEIGHT as f32) * BLOCK_WORLD_SIZE;
 
+pub enum ChunkSide {
+  XYMin,
+  XYMax,
+  ZYMin,
+  ZYMax,
+}
+
 pub type ChunkData = Vec<Vec<Vec<Block>>>;
 
 pub struct Chunk {
@@ -103,11 +110,8 @@ impl Chunk {
     chunks: &HashMap<(i32, i32), Chunk>,
     chunk_position: (i32, i32),
     renderer: &mut WGPURenderer,
-  ) -> Option<StandardGeometry> {
+  ) -> StandardGeometry {
     let chunk = chunks.get(&chunk_position).unwrap();
-    if chunk.geometry.is_some() {
-      return None;
-    }
 
     let data = &chunk.data;
 
@@ -148,7 +152,7 @@ impl Chunk {
       }
     }
 
-    Some(StandardGeometry::new(new_vertex, new_index, renderer))
+    StandardGeometry::new(new_vertex, new_index, renderer)
   }
 
   pub fn iter<'a>(&'a self) -> ChunkDataIterator<'a> {

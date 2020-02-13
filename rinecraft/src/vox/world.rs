@@ -59,9 +59,8 @@ impl World {
     }
 
     for chunk_to_update_key in &self.chunk_geometry_update_set {
-      if let Some(geometry) = Chunk::create_geometry(&self.chunks, *chunk_to_update_key, renderer) {
-        self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry = Some(geometry);
-      }
+      self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry =  
+      Some(Chunk::create_geometry(&self.chunks, *chunk_to_update_key, renderer))
     }
     self.chunk_geometry_update_set.clear();
   }
