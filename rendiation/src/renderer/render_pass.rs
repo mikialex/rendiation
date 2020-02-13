@@ -1,3 +1,5 @@
+use crate::viewport::*;
+
 pub struct WGPURenderPass<'a> {
   pub gpu_pass: wgpu::RenderPass<'a>,
 }
@@ -72,6 +74,18 @@ impl<'a> WGPURenderPass<'a> {
       color_attachments: Vec::new(),
       depth_attachments: None,
     }
+  }
+
+  pub fn use_viewport(&mut self, viewport: &Viewport) -> &mut Self{
+    self.gpu_pass.set_viewport(
+      viewport.x,
+      viewport.y,
+      viewport.w,
+      viewport.h,
+      viewport.min_depth,
+      viewport.max_depth,
+    );
+    self
   }
 
   pub fn render_object(&mut self) {}

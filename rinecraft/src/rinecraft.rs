@@ -22,6 +22,7 @@ pub struct RinecraftState {
   pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
   texture: GPUPair<ImageData, WGPUTexture>,
+  pub viewport: Viewport,
   cube: StandardGeometry,
   world: World,
   shading: TestShading,
@@ -57,6 +58,8 @@ impl Application for Rinecraft {
       wgpu::TextureFormat::Depth32Float,
       renderer.size,
     );
+
+    let viewport = Viewport::new(renderer.size);
 
     let mut window_session = WindowEventSession::new();
 
@@ -96,6 +99,7 @@ impl Application for Rinecraft {
           .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
           .with_depth(state.depth.get_view())
           .create(&mut renderer.encoder);
+        pass.use_viewport(&state.viewport);
 
         state
           .shading
@@ -124,6 +128,7 @@ impl Application for Rinecraft {
         cube,
         world: World::new(),
         camera,
+        viewport,
         orbit_controller: OrbitController::new(),
         fps_controller: FPSController::new(),
         controller_listener_handle: Vec::new(),
