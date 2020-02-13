@@ -28,6 +28,11 @@ impl StandardGeometry {
     }
   }
 
+  pub fn new_pair(data: (Vec<Vertex>, Vec<u16>), renderer: &WGPURenderer) -> Self {
+    let (vertex_data, index_data) = data;
+    StandardGeometry::new(vertex_data, index_data, renderer)
+  }
+
   pub fn get_full_count(&self) -> u32 {
     self.index.len() as u32
   }

@@ -2,6 +2,7 @@ use crate::watch::GPUItem;
 use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation::*;
 use rendiation_render_entity::*;
+use rendiation_math::{Vec2, Vec3};
 
 impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
@@ -29,6 +30,15 @@ impl GPUItem<ImageData> for WGPUTexture {
     todo!()
   }
 }
+
+pub fn vertex(pos: [i8; 3], tc: [i8; 2]) -> Vertex {
+  Vertex {
+    position: Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
+    normal: Vec3::new(0.0, 1.0, 0.0),
+    uv: Vec2::new(tc[0] as f32, tc[1] as f32),
+  }
+}
+
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
   let vertex_data = [

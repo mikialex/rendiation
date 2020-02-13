@@ -1,11 +1,11 @@
-use crate::vox::world::World;
-use crate::init::init_orbit_controller;
 use crate::application::*;
 use crate::geometry::*;
+use crate::init::init_orbit_controller;
 use crate::renderer::*;
 use crate::shading::TestShading;
 use crate::shading::TestShadingParamGroup;
 use crate::util::*;
+use crate::vox::world::World;
 use crate::watch::*;
 use rendiation::*;
 use rendiation_render_entity::*;
@@ -27,18 +27,14 @@ pub struct RinecraftState {
   shading: TestShading,
   shading_params: TestShadingParamGroup,
   depth: WGPUAttachmentTexture,
-  
 }
-
-
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {
     let shading = TestShading::new(renderer);
 
     // Create the vertex and index buffers
-    let (vertex_data, index_data) = create_vertices();
-    let cube = StandardGeometry::new(vertex_data, index_data, &renderer);
+    let cube = StandardGeometry::new_pair(create_vertices(), &renderer);
 
     // Create the texture
     let size = 512u32;
@@ -90,7 +86,9 @@ impl Application for Rinecraft {
         .update(&mut state.camera as &mut PerspectiveCamera);
       state.camera.get_update_gpu(renderer);
 
-      state.world.update(renderer, &state.camera.get_transform().matrix.position());
+      state
+        .world
+        .update(renderer, &state.camera.get_transform().matrix.position());
 
       let output = renderer.swap_chain.request_output();
       {
@@ -111,7 +109,10 @@ impl Application for Rinecraft {
     });
 
     let window_state = WindowState::new(
-      (renderer.size.0 as f32 / renderer.hidpi_factor, renderer.size.1 as f32 / renderer.hidpi_factor),
+      (
+        renderer.size.0 as f32 / renderer.hidpi_factor,
+        renderer.size.1 as f32 / renderer.hidpi_factor,
+      ),
       renderer.hidpi_factor,
     );
 
