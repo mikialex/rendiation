@@ -126,16 +126,21 @@ impl World {
         ChunkSide::ZYMin => (chunk.0, chunk.1 - 1),
       }
     }
+    println!("{:?}", point);
     if point.x == 0 {
       update_set.insert(get_side_affect_chunk(ChunkSide::XYMin, chunk_key));
-    } else if point.x == CHUNK_WIDTH {
+      println!("{:?}", get_side_affect_chunk(ChunkSide::XYMin, chunk_key));
+    } else if point.x == CHUNK_WIDTH -1 {
       update_set.insert(get_side_affect_chunk(ChunkSide::XYMax, chunk_key));
+      println!("{:?}", get_side_affect_chunk(ChunkSide::XYMax, chunk_key));
     } 
     
     if point.z == 0 {
       update_set.insert(get_side_affect_chunk(ChunkSide::ZYMin, chunk_key));
-    } else if point.z == CHUNK_WIDTH {
+      println!("{:?}", get_side_affect_chunk(ChunkSide::ZYMin, chunk_key));
+    } else if point.z == CHUNK_WIDTH -1 {
       update_set.insert(get_side_affect_chunk(ChunkSide::ZYMax, chunk_key));
+      println!("{:?}", get_side_affect_chunk(ChunkSide::ZYMax, chunk_key));
     }
   }
 

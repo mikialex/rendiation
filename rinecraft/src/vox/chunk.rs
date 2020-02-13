@@ -62,11 +62,11 @@ impl Chunk {
     let chunk_x = chunk_id.0;
     let chunk_z = chunk_id.1;
     let mut x_row = Vec::new();
-    for i in 0..CHUNK_WIDTH + 1 {
+    for i in 0..CHUNK_WIDTH {
       let mut y_row = Vec::new();
-      for j in 0..CHUNK_WIDTH + 1 {
+      for j in 0..CHUNK_WIDTH {
         let mut z_row = Vec::new();
-        for k in 0..CHUNK_HEIGHT + 1 {
+        for k in 0..CHUNK_HEIGHT {
           z_row.push(world_gen(
             chunk_x * (CHUNK_WIDTH as i32) + i as i32,
             k as i32,
