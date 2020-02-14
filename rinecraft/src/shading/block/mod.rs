@@ -1,20 +1,16 @@
 use crate::geometry::StandardGeometry;
 use rendiation::*;
 
-pub struct TestShading {
+pub struct BlockShading {
   pipeline: WGPUPipeline,
-  // bindgroup: Option<WGPUBindGroup>,
-
-  // texture: (usize, usize),
-  // matrix_uniform_buffer: (usize, usize),
 }
 
-impl TestShading {
+impl BlockShading {
   pub fn new(renderer: &WGPURenderer) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
-      .vertex_shader(include_str!("./test.vert"))
-      .frag_shader(include_str!("./test.frag"))
+      .vertex_shader(include_str!("./block.vert"))
+      .frag_shader(include_str!("./block.frag"))
       .binding_group(
         BindGroupLayoutBuilder::new()
           .binding(wgpu::BindGroupLayoutBinding {
@@ -47,25 +43,25 @@ impl TestShading {
     &self.pipeline.bind_group_layouts[0]
   }
 
-  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &TestShadingParamGroup) {
+  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &BlockShadingParamGroup) {
     pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
     pass.gpu_pass.set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
   }
 }
 
-pub struct TestShadingParamGroup{
+pub struct BlockShadingParamGroup{
   pub bindgroup: WGPUBindGroup
 }
 
-impl TestShadingParamGroup{
+impl BlockShadingParamGroup{
   pub fn new(
     renderer: &WGPURenderer,
-    shading: &TestShading,
+    shading: &BlockShading,
     texture_view: &wgpu::TextureView,
     sampler: &WGPUSampler,
     buffer: &WGPUBuffer,
   ) -> Self {
-    TestShadingParamGroup{
+    Self{
       bindgroup: 
       BindGroupBuilder::new()
         .buffer(buffer)

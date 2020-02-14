@@ -2,8 +2,8 @@ use crate::application::*;
 use crate::geometry::*;
 use crate::init::init_orbit_controller;
 use crate::renderer::*;
-use crate::shading::TestShading;
-use crate::shading::TestShadingParamGroup;
+use crate::shading::BlockShading;
+use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
 use crate::watch::*;
@@ -25,27 +25,23 @@ pub struct RinecraftState {
   pub orbit_controller: OrbitController,
   pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
-  texture: GPUPair<ImageData, WGPUTexture>,
   pub viewport: Viewport,
   cube: StandardGeometry,
   world: World,
-  shading: TestShading,
-  shading_params: TestShadingParamGroup,
+  shading: BlockShading,
+  shading_params: BlockShadingParamGroup,
   depth: WGPUAttachmentTexture,
 }
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {
-    let shading = TestShading::new(renderer);
+    let mut world = World::new();
+    let block_atlas_view = world.world_machine.create_block_atlas_gpu(renderer);
+
+    let shading = BlockShading::new(renderer);
 
     // Create the vertex and index buffers
     let cube = StandardGeometry::new_pair(create_vertices(), &renderer);
-
-    // Create the texture
-    let size = 512u32;
-    let mut texture: GPUPair<ImageData, WGPUTexture> =
-      GPUPair::new(create_texels(size as usize), renderer);
-    let texture_view = texture.get_update_gpu(renderer).make_default_view();
 
     // Create other resources
     let sampler = WGPUSampler::new(&renderer.device);
@@ -55,7 +51,7 @@ impl Application for Rinecraft {
 
     let buffer = camera.get_update_gpu(renderer);
     let shading_params =
-      TestShadingParamGroup::new(&renderer, &shading, &texture_view, &sampler, buffer);
+      BlockShadingParamGroup::new(&renderer, &shading, &block_atlas_view, &sampler, buffer);
 
     let depth = WGPUAttachmentTexture::new_as_depth(
       &renderer.device,
@@ -130,7 +126,7 @@ impl Application for Rinecraft {
       state: RinecraftState {
         window_state,
         cube,
-        world: World::new(),
+        world,
         camera,
         viewport,
         orbit_controller: OrbitController::new(),
@@ -139,7 +135,6 @@ impl Application for Rinecraft {
         shading,
         shading_params,
         depth,
-        texture,
       },
     }
   }

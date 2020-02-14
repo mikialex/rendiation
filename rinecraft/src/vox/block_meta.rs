@@ -90,7 +90,7 @@ impl BlockRegistry {
 
   pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
     let imgd = image::open("rinecraft/src/vox/assets/stone.png").unwrap();
-    let img = imgd.as_bgra8().unwrap().clone();
+    let img = imgd.as_rgba8().unwrap().clone();
     let size = (img.width(),  img.height(), 1);
     let data = img.into_raw();
     WGPUTexture::new(&renderer.device, &mut renderer.encoder, &data,size)
