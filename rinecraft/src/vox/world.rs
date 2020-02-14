@@ -1,6 +1,5 @@
 use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
-use crate::vox::block_meta::BlockRegistry;
 use crate::vox::chunk::*;
 use crate::vox::util::*;
 use crate::vox::world_machine::*;

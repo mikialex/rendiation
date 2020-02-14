@@ -4,6 +4,7 @@ pub mod event;
 pub mod window;
 pub mod vertex;
 pub mod geometry;
+pub mod texture;
 pub mod image_data;
 pub mod viewport;
 
@@ -16,3 +17,4 @@ pub use vertex::*;
 pub use geometry::*;
 pub use image_data::*;
 pub use viewport::*;
+pub use texture::*;

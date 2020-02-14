@@ -3,8 +3,9 @@ use image::ImageResult;
 use image::{ImageBuffer, Rgba};
 use std::collections::HashMap;
 use std::rc::Rc;
+use rendiation::*;
 
-struct BlockMetaInfo {
+pub struct BlockMetaInfo {
   name: String,
   id: usize,
   top_texture: Rc<BlockFaceTextureInfo>,
@@ -85,5 +86,9 @@ impl BlockRegistry {
     self.lut.push(b.clone());
     self.data.insert(b.name.clone(), b);
     self
+  }
+
+  pub fn create_atlas(&self) ->  Texture2D<image::DynamicImage>{
+    todo!();
   }
 }

@@ -1,29 +1,27 @@
 use crate::vox::block::Block;
 use crate::vox::block_meta::BlockRegistry;
-
-pub struct WorldMeta {
-  block_registry: BlockRegistry,
-  version: usize,
-  seed: usize,
-}
+use rendiation::*;
 
 pub trait WorldMachine {
   fn world_gen(&self, x: i32, y: i32, z: i32) -> Block;
-  fn get_meta(&self) -> &WorldMeta;
 }
 
 pub struct WorldMachineImpl {
-  meta: WorldMeta,
+  block_registry: BlockRegistry,
+  version: usize,
+  seed: usize,
+  block_texture_atlas: Texture2D<image::DynamicImage>
 }
 
 impl WorldMachineImpl {
   pub fn new() -> Self {
+    let block_registry = BlockRegistry::new_default();
+    let block_texture_atlas = block_registry.create_atlas();
     WorldMachineImpl {
-      meta: WorldMeta {
-        block_registry: BlockRegistry::new_default(),
-        version: 0,
-        seed: 0,
-      },
+      block_registry,
+      version: 0,
+      seed: 0,
+      block_texture_atlas
     }
   }
 }
@@ -36,8 +34,5 @@ impl WorldMachine for WorldMachineImpl {
     } else {
       Block::void()
     }
-  }
-  fn get_meta(&self) -> &WorldMeta {
-    &self.meta
   }
 }
