@@ -1,14 +1,16 @@
+use crate::vox::block::Block;
+use crate::vox::block::BlockFace;
 use crate::vox::block_meta::BlockRegistry;
-use crate::vox::block::{Block, BlockFace};
 use crate::vox::chunk::*;
 use crate::vox::util::*;
+use crate::vox::world_machine::*;
 use rendiation::*;
 use rendiation_math::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub struct World {
-  pub block_registry: BlockRegistry,
+  pub world_machine: WorldMachineImpl,
   pub chunk_visible_distance: usize,
   pub chunks: HashMap<(i32, i32), Chunk>,
   pub chunk_geometry_update_set: HashSet<(i32, i32)>,
@@ -21,16 +23,20 @@ impl World {
       chunk_visible_distance: 2,
       chunks,
       chunk_geometry_update_set: HashSet::new(),
-      block_registry: BlockRegistry::new_default()
+      world_machine: WorldMachineImpl::new(),
     }
   }
 
-  pub fn assure_chunk(chunks: &mut HashMap<(i32, i32), Chunk>, chunk_key: (i32, i32)) -> bool {
+  pub fn assure_chunk(
+    world_machine: &impl WorldMachine,
+    chunks: &mut HashMap<(i32, i32), Chunk>,
+    chunk_key: (i32, i32),
+  ) -> bool {
     let mut exist = true;
     chunks.entry(chunk_key).or_insert_with(|| {
       println!("chunk generate {:?}", chunk_key);
       exist = false;
-      Chunk::new(chunk_key)
+      Chunk::new(chunk_key, world_machine)
     });
     exist
   }
@@ -44,7 +50,7 @@ impl World {
     let mut create_list = Vec::new();
     for x in x_low..x_high {
       for z in z_low..z_high {
-        if !World::assure_chunk(&mut self.chunks, (x, z)) {
+        if !World::assure_chunk(&self.world_machine, &mut self.chunks, (x, z)) {
           create_list.push((x, z));
         }
         if self.chunks.get(&(x, z)).unwrap().geometry.is_none() {
@@ -55,23 +61,42 @@ impl World {
 
     for chunk_key in create_list {
       self.chunk_geometry_update_set.insert(chunk_key);
-      World::assure_chunk(&mut self.chunks, (chunk_key.0 + 1, chunk_key.1));
-      World::assure_chunk(&mut self.chunks, (chunk_key.0 - 1, chunk_key.1));
-      World::assure_chunk(&mut self.chunks, (chunk_key.0, chunk_key.1 + 1));
-      World::assure_chunk(&mut self.chunks, (chunk_key.0, chunk_key.1 - 1));
+      World::assure_chunk(
+        &self.world_machine,
+        &mut self.chunks,
+        (chunk_key.0 + 1, chunk_key.1),
+      );
+      World::assure_chunk(
+        &self.world_machine,
+        &mut self.chunks,
+        (chunk_key.0 - 1, chunk_key.1),
+      );
+      World::assure_chunk(
+        &self.world_machine,
+        &mut self.chunks,
+        (chunk_key.0, chunk_key.1 + 1),
+      );
+      World::assure_chunk(
+        &self.world_machine,
+        &mut self.chunks,
+        (chunk_key.0, chunk_key.1 - 1),
+      );
     }
 
     for chunk_to_update_key in &self.chunk_geometry_update_set {
-      self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry =  
-      Some(Chunk::create_geometry(&self.chunks, *chunk_to_update_key, renderer))
+      self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry = Some(Chunk::create_geometry(
+        &self.chunks,
+        *chunk_to_update_key,
+        renderer,
+      ))
     }
     self.chunk_geometry_update_set.clear();
   }
 
-  pub fn try_get_block<'a>(
-    chunks: &'a HashMap<(i32, i32), Chunk>,
+  pub fn try_get_block(
+    chunks: &HashMap<(i32, i32), Chunk>,
     block_position: &Vec3<i32>,
-  ) -> Option<&'a Block> {
+  ) -> Option<Block> {
     let chunk_position = query_block_in_chunk(block_position);
     let chunk_op = chunks.get(&chunk_position);
     if let Some(chunk) = chunk_op {
@@ -89,7 +114,8 @@ impl World {
   ) -> bool {
     if let Some(opposite_position) = World::block_face_opposite_position(*block_position, face) {
       if let Some(block) = World::try_get_block(chunks, &opposite_position) {
-        if let Block::Void = block {
+        if block.is_void() {
+          // this is verbose but clear
           true // surface
         } else {
           false // inner

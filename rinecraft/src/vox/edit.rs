@@ -1,3 +1,4 @@
+use crate::vox::world_machine::STONE;
 use crate::vox::block::*;
 use crate::vox::chunk::*;
 use crate::vox::util::*;
@@ -42,7 +43,7 @@ fn pick_block(
         for y in 0..CHUNK_HEIGHT {
           let block = chunk.data[x][z][y];
 
-          if let Block::Void = block {
+          if block.is_void() {
             continue;
           }
 
@@ -157,21 +158,19 @@ impl World {
     let (chunk_key, local_position) = world_to_local(block_position);
 
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
-    chunk.set_block(local_position, Block::Void);
+    chunk.set_block(local_position, Block::void());
 
     self.chunk_geometry_update_set.insert(chunk_key);
     World::notify_side_chunk_dirty(&mut self.chunk_geometry_update_set, chunk_key, &local_position);
   }
 
-  pub fn add_block_by_ray(&mut self, ray: &Ray, block: Block) {
+  pub fn add_block_by_ray(&mut self, ray: &Ray, block: usize) {
     let pick_result = self.pick_block(ray);
     if let Some(re) = pick_result {
       if let Some(b) = &World::block_face_opposite_position(re.block_position, re.face) {
         self.add_block(
           b,
-          Block::Solid {
-            style: SolidBlockType::Stone,
-          },
+          STONE,
         );
       }
     }

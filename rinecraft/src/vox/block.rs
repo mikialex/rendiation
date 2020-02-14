@@ -1,9 +1,26 @@
 use rendiation::*;
 
-#[derive(Debug, Copy, Clone)]
-pub enum Block {
-  Solid { style: SolidBlockType },
-  Void,
+#[derive(Clone, Copy)]
+pub struct Block{
+  id: Option<usize>
+}
+
+impl Block{
+  pub const fn new(id: usize) -> Self {
+    Block{
+      id: Some(id)
+    }
+  }
+  
+  pub fn void() -> Self {
+    Block{
+      id: None
+    }
+  }
+
+  pub fn is_void(&self) -> bool {
+    self.id.is_none()
+  }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -17,11 +34,6 @@ pub enum BlockFace {
 }
 
 pub const BLOCK_WORLD_SIZE: f32 = 1.0;
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum SolidBlockType {
-  Stone,
-}
 
 pub const BLOCK_FACES: [BlockFace; 6] = [
   BlockFace::XYMin,

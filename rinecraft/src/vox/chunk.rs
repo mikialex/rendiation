@@ -1,3 +1,4 @@
+use crate::vox::world_machine::WorldMachine;
 use crate::vox::block::*;
 use crate::vox::util::local_to_world;
 use crate::vox::world::*;
@@ -47,18 +48,9 @@ impl PartialEq for Chunk {
 
 impl Eq for Chunk {}
 
-pub fn world_gen(x: i32, y: i32, z: i32) -> Block {
-  if y <= x.abs() && y <= z.abs() {
-    Block::Solid {
-      style: SolidBlockType::Stone,
-    }
-  } else {
-    Block::Void
-  }
-}
 
 impl Chunk {
-  pub fn new(chunk_id: (i32, i32)) -> Self {
+  pub fn new(chunk_id: (i32, i32), world_machine: &impl WorldMachine) -> Self {
     let chunk_x = chunk_id.0;
     let chunk_z = chunk_id.1;
     let mut x_row = Vec::new();
@@ -67,7 +59,7 @@ impl Chunk {
       for j in 0..CHUNK_WIDTH {
         let mut z_row = Vec::new();
         for k in 0..CHUNK_HEIGHT {
-          z_row.push(world_gen(
+          z_row.push(world_machine.world_gen(
             chunk_x * (CHUNK_WIDTH as i32) + i as i32,
             k as i32,
             chunk_z * (CHUNK_WIDTH as i32) + j as i32,
@@ -98,8 +90,8 @@ impl Chunk {
     }
   }
 
-  pub fn get_block(&self, block_local_position: Vec3<usize>) -> &Block {
-    &self.data[block_local_position.x][block_local_position.z][block_local_position.y]
+  pub fn get_block(&self, block_local_position: Vec3<usize>) -> Block {
+    self.data[block_local_position.x][block_local_position.z][block_local_position.y]
   }
 
   pub fn set_block(&mut self, block_local_position: Vec3<usize>, block: Block) {
@@ -124,7 +116,7 @@ impl Chunk {
         for y in 0..CHUNK_HEIGHT {
           let block = data[x][z][y];
 
-          if let Block::Void = block {
+          if block.is_void() {
             continue;
           }
 
