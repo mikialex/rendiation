@@ -10,19 +10,22 @@ pub struct WorldMachineImpl {
   block_registry: BlockRegistry,
   version: usize,
   seed: usize,
-  block_texture_atlas: Texture2D<image::DynamicImage>
+  block_texture_atlas: Option<WGPUTexture>
 }
 
 impl WorldMachineImpl {
   pub fn new() -> Self {
     let block_registry = BlockRegistry::new_default();
-    let block_texture_atlas = block_registry.create_atlas();
     WorldMachineImpl {
       block_registry,
       version: 0,
       seed: 0,
-      block_texture_atlas
+      block_texture_atlas: None
     }
+  }
+
+  pub fn create_block_atlas_gpu(&mut self, renderer: &mut WGPURenderer){
+    self.block_texture_atlas = Some(self.block_registry.create_atlas(renderer));
   }
 }
 

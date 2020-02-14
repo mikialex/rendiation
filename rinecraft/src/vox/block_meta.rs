@@ -1,9 +1,9 @@
 use image::DynamicImage;
 use image::ImageResult;
 use image::{ImageBuffer, Rgba};
+use rendiation::*;
 use std::collections::HashMap;
 use std::rc::Rc;
-use rendiation::*;
 
 pub struct BlockMetaInfo {
   name: String,
@@ -88,7 +88,11 @@ impl BlockRegistry {
     self
   }
 
-  pub fn create_atlas(&self) ->  Texture2D<image::DynamicImage>{
-    todo!();
+  pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
+    let imgd = image::open("rinecraft/src/vox/assets/stone.png").unwrap();
+    let img = imgd.as_bgra8().unwrap().clone();
+    let size = (img.width(),  img.height(), 1);
+    let data = img.into_raw();
+    WGPUTexture::new(&renderer.device, &mut renderer.encoder, &data,size)
   }
 }

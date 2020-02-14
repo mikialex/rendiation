@@ -1,22 +1,18 @@
 use crate::renderer::buffer::WGPUBuffer;
 
-pub trait ImageProvider {
-  fn get_size(&self) -> (u32, u32, u32);
-  fn get_data(&self) -> &[u8];
-}
-
 pub struct WGPUTexture {
   gpu_texture: wgpu::Texture,
   descriptor: wgpu::TextureDescriptor,
 }
 
 impl WGPUTexture {
-  pub fn new<Img: ImageProvider>(
+  pub fn new(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
-    value: &Img,
+    data: &[u8],
+    size: (u32, u32, u32),
   ) -> WGPUTexture {
-    let (width, height, depth) = value.get_size();
+    let (width, height, depth) = size;
     let descriptor = wgpu::TextureDescriptor {
       size: wgpu::Extent3d {
         width,
@@ -37,7 +33,7 @@ impl WGPUTexture {
       descriptor,
     };
 
-    wgpu_texture.upload(device, encoder, value.get_data());
+    wgpu_texture.upload(device, encoder, data);
     wgpu_texture
   }
 

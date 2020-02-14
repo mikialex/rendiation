@@ -1,8 +1,10 @@
+use image::Rgba;
 use crate::watch::GPUItem;
 use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation::*;
 use rendiation_render_entity::*;
 use rendiation_math::{Vec2, Vec3};
+use image::ImageBuffer;
 
 impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
@@ -22,11 +24,16 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   }
 }
 
-impl GPUItem<ImageData> for WGPUTexture {
-  fn create_gpu(image: &ImageData, renderer: &mut WGPURenderer) -> Self {
-    WGPUTexture::new(&renderer.device, &mut renderer.encoder, image)
+impl GPUItem<ImageBuffer<Rgba<u8>, Vec<u8>>> for WGPUTexture {
+  fn create_gpu(image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) -> Self {
+    WGPUTexture::new(
+      &renderer.device, 
+      &mut renderer.encoder, 
+      &image.clone().into_raw(),
+      (image.width(), image.height(), 1)
+    )
   }
-  fn update_gpu(&mut self, item: &ImageData, renderer: &mut WGPURenderer) {
+  fn update_gpu(&mut self, image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) {
     todo!()
   }
 }
@@ -86,7 +93,7 @@ pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
   (vertex_data.to_vec(), index_data.to_vec())
 }
 
-pub fn create_texels(size: usize) -> ImageData {
+pub fn create_texels(size: usize) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
   use std::iter;
 
   let data = (0..size * size)
@@ -107,8 +114,7 @@ pub fn create_texels(size: usize) -> ImageData {
         .chain(iter::once(1))
     })
     .collect();
-
-  ImageData::new(data, size, size)
+    image::ImageBuffer::from_raw(size as u32, size as u32, data).unwrap()
 }
 
 #[allow(dead_code)]

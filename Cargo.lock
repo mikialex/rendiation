@@ -1079,7 +1079,6 @@ name = "rendiation"
 version = "0.1.0"
 dependencies = [
  "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "image 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",

@@ -9,11 +9,15 @@ use crate::vox::world::World;
 use crate::watch::*;
 use rendiation::*;
 use rendiation_render_entity::*;
+use image::ImageBuffer;
+use image::Rgba;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
   pub state: RinecraftState,
 }
+
+type ImageData = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
 pub struct RinecraftState {
   pub window_state: WindowState,
