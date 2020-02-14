@@ -1,3 +1,4 @@
+use crate::vox::block_meta::BlockRegistry;
 use crate::vox::block::{Block, BlockFace};
 use crate::vox::chunk::*;
 use crate::vox::util::*;
@@ -7,6 +8,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub struct World {
+  pub block_registry: BlockRegistry,
   pub chunk_visible_distance: usize,
   pub chunks: HashMap<(i32, i32), Chunk>,
   pub chunk_geometry_update_set: HashSet<(i32, i32)>,
@@ -19,6 +21,7 @@ impl World {
       chunk_visible_distance: 2,
       chunks,
       chunk_geometry_update_set: HashSet::new(),
+      block_registry: BlockRegistry::new_default()
     }
   }
 

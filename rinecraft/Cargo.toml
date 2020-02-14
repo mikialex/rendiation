@@ -14,3 +14,4 @@ rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation = { path ="../rendiation" }
+image = "*"
