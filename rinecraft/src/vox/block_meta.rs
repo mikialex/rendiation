@@ -106,37 +106,37 @@ impl BlockRegistry {
   }
 
   pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
-    // let imgd = image::open("rinecraft/src/vox/assets/stone.png").unwrap();
-    // let img = imgd.as_rgba8().unwrap().clone();
-    // let size = (img.width(),  img.height(), 1);
-    // let data = img.into_raw();
-    // WGPUTexture::new_by_data(&renderer.device, &mut renderer.encoder, &data,size)
-    pub fn tex(path: &str, renderer: &mut WGPURenderer) -> wgpu::TextureView {
-      let imgd = image::open(path).unwrap();
-      let img = imgd.as_rgba8().unwrap().clone();
-      let size = (img.width(),  img.height(), 1);
-      let data = img.into_raw();
-      let texture = WGPUTexture::new_by_data(&renderer.device, &mut renderer.encoder, &data,size);
-      texture.make_default_view()
-    }
+    let imgd = image::open("rinecraft/src/vox/assets/stone.png").unwrap();
+    let img = imgd.as_rgba8().unwrap().clone();
+    let size = (img.width(),  img.height(), 1);
+    let data = img.into_raw();
+    WGPUTexture::new_by_data(&renderer.device, &mut renderer.encoder, &data,size)
+    // pub fn tex(path: &str, renderer: &mut WGPURenderer) -> wgpu::TextureView {
+    //   let imgd = image::open(path).unwrap();
+    //   let img = imgd.as_rgba8().unwrap().clone();
+    //   let size = (img.width(),  img.height(), 1);
+    //   let data = img.into_raw();
+    //   let texture = WGPUTexture::new_by_data(&renderer.device, &mut renderer.encoder, &data,size);
+    //   texture.make_default_view()
+    // }
 
-    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 32, 1));
-    let target_view = target_texture.make_default_view();
+    // let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 32, 1));
+    // let target_view = target_texture.make_default_view();
 
-    let quad = StandardGeometry::new_pair(quad_maker(), renderer);
-    let sampler = WGPUSampler::new(&renderer.device);
-    let copy_shading = CopierShading::new(renderer);
-    let src_tex = tex("rinecraft/src/vox/assets/stone.png", renderer);
-    let params = CopyShadingParamGroup::new(renderer, &copy_shading, &src_tex, &sampler);
+    // let quad = StandardGeometry::new_pair(quad_maker(), renderer);
+    // let sampler = WGPUSampler::new(&renderer.device);
+    // let copy_shading = CopierShading::new(renderer);
+    // let src_tex = tex("rinecraft/src/vox/assets/stone.png", renderer);
+    // let params = CopyShadingParamGroup::new(renderer, &copy_shading, &src_tex, &sampler);
 
-    let mut pass = WGPURenderPass::build()
-      .output_with_clear(&target_view, (0., 0., 0., 1.0))
-      .create(&mut renderer.encoder);
+    // let mut pass = WGPURenderPass::build()
+    //   .output_with_clear(&target_view, (0., 0., 0., 1.0))
+    //   .create(&mut renderer.encoder);
 
-    // pass.use_viewport(&state.viewport);
-    copy_shading.provide_pipeline(&mut pass, &params);
-    quad.render(&mut pass);
+    // // pass.use_viewport(&state.viewport);
+    // copy_shading.provide_pipeline(&mut pass, &params);
+    // quad.render(&mut pass);
 
-    target_texture
+    // target_texture
   }
 }

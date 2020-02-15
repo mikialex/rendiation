@@ -1,4 +1,3 @@
-pub mod attachment_texture;
 pub mod bindgroup;
 pub mod buffer;
 pub mod consts;
@@ -8,7 +7,6 @@ pub mod sampler;
 pub mod shader_util;
 pub mod texture;
 
-pub use attachment_texture::*;
 pub use bindgroup::*;
 pub use buffer::*;
 pub use pipeline::*;

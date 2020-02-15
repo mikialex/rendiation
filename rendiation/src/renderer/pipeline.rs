@@ -1,5 +1,4 @@
-
-use crate::renderer::attachment_texture::WGPUAttachmentTexture;
+use crate::WGPUTexture;
 
 pub trait GeometryProvider<'a> {
   fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>>;
@@ -39,7 +38,6 @@ pub struct WGPUPipelineDescriptorBuilder {
   binding_groups: Vec<BindGroupLayoutBuilder>,
   pub depth_format: Option<wgpu::TextureFormat>,
   pub color_target_format: wgpu::TextureFormat,
-  
 }
 
 impl<'a> WGPUPipelineDescriptorBuilder {
@@ -49,17 +47,17 @@ impl<'a> WGPUPipelineDescriptorBuilder {
       frag_shader: String::from(""),
       binding_groups: Vec::new(),
       depth_format: None,
-      color_target_format: wgpu::TextureFormat::Rgba8UnormSrgb
+      color_target_format: wgpu::TextureFormat::Rgba8UnormSrgb,
     }
   }
 
-  pub fn with_depth_target(&mut self, target: WGPUAttachmentTexture) -> &mut Self {
-    self.depth_format = Some(target.descriptor.format);
+  pub fn with_depth_target(&mut self, target: WGPUTexture) -> &mut Self {
+    self.depth_format = Some(*target.format());
     self
   }
 
-  pub fn with_color_target(&mut self, target: WGPUAttachmentTexture) -> &mut Self {
-    self.color_target_format = target.descriptor.format;
+  pub fn with_color_target(&mut self, target: WGPUTexture) -> &mut Self {
+    self.color_target_format = *target.format();
     self
   }
 
@@ -83,10 +81,7 @@ impl<'a> WGPUPipelineDescriptorBuilder {
     self
   }
 
-  pub fn build<T: GeometryProvider<'a>>(
-    &self,
-    device: &wgpu::Device,
-  ) -> WGPUPipeline {
+  pub fn build<T: GeometryProvider<'a>>(&self, device: &wgpu::Device) -> WGPUPipeline {
     let bind_group_layouts: Vec<_> = self
       .binding_groups
       .iter()

@@ -22,9 +22,8 @@ impl WorldMachineImpl {
     }
   }
 
-  pub fn create_block_atlas_gpu(&mut self, renderer: &mut WGPURenderer) -> wgpu::TextureView{
-    let texture = self.block_registry.create_atlas(renderer);
-    texture.make_default_view()
+  pub fn get_block_atlas(&mut self, renderer: &mut WGPURenderer) -> WGPUTexture{
+    self.block_registry.create_atlas(renderer)
   }
 }
 

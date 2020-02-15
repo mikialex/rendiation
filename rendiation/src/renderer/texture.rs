@@ -3,9 +3,38 @@ use crate::renderer::buffer::WGPUBuffer;
 pub struct WGPUTexture {
   gpu_texture: wgpu::Texture,
   descriptor: wgpu::TextureDescriptor,
+  view: wgpu::TextureView,
 }
 
 impl WGPUTexture {
+  pub fn new_as_depth(
+    device: &wgpu::Device,
+    format: wgpu::TextureFormat,
+    size: (usize, usize),
+  ) -> Self {
+    let descriptor = wgpu::TextureDescriptor {
+      size: wgpu::Extent3d {
+        width: size.0 as u32,
+        height: size.1 as u32,
+        depth: 1,
+      },
+      array_layer_count: 1,
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: wgpu::TextureDimension::D2,
+      format,
+      usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+    };
+    let depth_texture = device.create_texture(&descriptor);
+    let view = depth_texture.create_default_view();
+    Self {
+      descriptor,
+      gpu_texture: depth_texture,
+      view,
+    }
+  }
+
+
   pub fn new_as_target(
     device: &wgpu::Device,
     size: (u32, u32, u32),
@@ -27,9 +56,11 @@ impl WGPUTexture {
       wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
     let gpu_texture = device.create_texture(&descriptor);
+    let view = gpu_texture.create_default_view();
     Self {
       gpu_texture,
       descriptor,
+      view
     }
   }
 
@@ -54,18 +85,31 @@ impl WGPUTexture {
       usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
     };
     let gpu_texture = device.create_texture(&descriptor);
-
+    let view = gpu_texture.create_default_view();
     let wgpu_texture = Self {
       gpu_texture,
       descriptor,
+      view
     };
 
     wgpu_texture.upload(device, encoder, data);
     wgpu_texture
   }
 
-  pub fn make_default_view(&self) -> wgpu::TextureView {
-    self.gpu_texture.create_default_view()
+  pub fn view(&self) -> &wgpu::TextureView {
+    &self.view
+  }
+
+  pub fn format(&self) -> &wgpu::TextureFormat {
+    &self.descriptor.format
+  }
+
+  /// this will not keep content resize, just recreate the gpu resource with new size
+  pub fn resize(&mut self, device: &wgpu::Device, size: (usize, usize)) {
+    self.descriptor.size.width = size.0 as u32;
+    self.descriptor.size.height = size.1 as u32;
+    self.gpu_texture = device.create_texture(&self.descriptor);
+    self.view = self.gpu_texture.create_default_view();
   }
 
   fn upload(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, image_data: &[u8]) {

@@ -9,8 +9,6 @@ use crate::vox::world::World;
 use crate::watch::*;
 use rendiation::*;
 use rendiation_render_entity::*;
-use image::ImageBuffer;
-use image::Rgba;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -28,13 +26,13 @@ pub struct RinecraftState {
   world: World,
   shading: BlockShading,
   shading_params: BlockShadingParamGroup,
-  depth: WGPUAttachmentTexture,
+  depth: WGPUTexture,
 }
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {
     let mut world = World::new();
-    let block_atlas_view = world.world_machine.create_block_atlas_gpu(renderer);
+    let block_atlas = world.world_machine.get_block_atlas(renderer);
 
     let shading = BlockShading::new(renderer);
 
@@ -49,9 +47,9 @@ impl Application for Rinecraft {
 
     let buffer = camera.get_update_gpu(renderer);
     let shading_params =
-      BlockShadingParamGroup::new(&renderer, &shading, &block_atlas_view, &sampler, buffer);
+      BlockShadingParamGroup::new(&renderer, &shading, &block_atlas.view(), &sampler, buffer);
 
-    let depth = WGPUAttachmentTexture::new_as_depth(
+    let depth = WGPUTexture::new_as_depth(
       &renderer.device,
       wgpu::TextureFormat::Depth32Float,
       renderer.size,
@@ -95,7 +93,7 @@ impl Application for Rinecraft {
       {
         let mut pass = WGPURenderPass::build()
           .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
-          .with_depth(state.depth.get_view())
+          .with_depth(state.depth.view())
           .create(&mut renderer.encoder);
         pass.use_viewport(&state.viewport);
 
