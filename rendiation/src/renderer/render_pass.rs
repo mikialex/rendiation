@@ -44,12 +44,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
         resolve_target: None,
         load_op: wgpu::LoadOp::Clear,
         store_op: wgpu::StoreOp::Store,
-        clear_color: wgpu::Color {
-          r: 0.1,
-          g: 0.2,
-          b: 0.3,
-          a: 1.0,
-        },
+        clear_color: self.color_attachments[0].1.unwrap(), // todo
       }],
       depth_stencil_attachment: self.depth_attachments.map(|depth_view| {
         wgpu::RenderPassDepthStencilAttachmentDescriptor {

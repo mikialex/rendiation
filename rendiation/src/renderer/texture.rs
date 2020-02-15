@@ -6,7 +6,34 @@ pub struct WGPUTexture {
 }
 
 impl WGPUTexture {
-  pub fn new(
+  pub fn new_as_target(
+    device: &wgpu::Device,
+    size: (u32, u32, u32),
+  ) -> Self {
+    let (width, height, depth) = size;
+    let descriptor = wgpu::TextureDescriptor {
+      size: wgpu::Extent3d {
+        width,
+        height,
+        depth,
+      },
+      array_layer_count: 1,
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: wgpu::TextureDimension::D2,
+      format: wgpu::TextureFormat::Rgba8UnormSrgb,
+      usage: wgpu::TextureUsage::SAMPLED | 
+      wgpu::TextureUsage::COPY_DST | 
+      wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+    };
+    let gpu_texture = device.create_texture(&descriptor);
+    Self {
+      gpu_texture,
+      descriptor,
+    }
+  }
+
+  pub fn new_by_data(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     data: &[u8],
@@ -28,7 +55,7 @@ impl WGPUTexture {
     };
     let gpu_texture = device.create_texture(&descriptor);
 
-    let wgpu_texture = WGPUTexture {
+    let wgpu_texture = Self {
       gpu_texture,
       descriptor,
     };

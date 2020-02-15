@@ -17,7 +17,8 @@ pub struct BlockMetaInfo {
 }
 
 struct TextureAtlas {
-  // pack_info:
+  width_all: usize,
+  height_all: usize,
 }
 
 struct NormalizedTexturePackInfo {
@@ -28,8 +29,8 @@ struct NormalizedTexturePackInfo {
 }
 
 struct BlockFaceTextureInfo {
-  img: DynamicImage,
-  pack_info: NormalizedTexturePackInfo,
+  pub img: DynamicImage,
+  pub pack_info: NormalizedTexturePackInfo,
 }
 
 impl BlockFaceTextureInfo {
@@ -38,7 +39,7 @@ impl BlockFaceTextureInfo {
     let pack_info = NormalizedTexturePackInfo {
       x: 0.0,
       y: 0.0,
-      w: 1.0,
+      w: 0.5,
       h: 1.0,
     };
     BlockFaceTextureInfo { img, pack_info }
@@ -61,11 +62,12 @@ impl BlockRegistry {
 
   pub fn new_default() -> Self {
     let mut re = BlockRegistry::new();
-    let path = std::env::current_dir().unwrap();
-    println!("The current directory is {}", path.display());
-    let img = Rc::new(BlockFaceTextureInfo::new(
-      "rinecraft/src/vox/assets/stone.png",
-    ));
+
+    fn load_img(p: &str) -> Rc<BlockFaceTextureInfo> {
+      Rc::new(BlockFaceTextureInfo::new(p))
+    }
+    let img = load_img("rinecraft/src/vox/assets/stone.png");
+
     let stone = BlockMetaInfo {
       name: String::from("stone"),
       id: 0,
@@ -77,6 +79,20 @@ impl BlockRegistry {
       z_min_texture: img.clone(),
     };
     re.register_block(stone);
+
+    // let dirt = load_img("rinecraft/src/vox/assets/dirt.png");
+    // let dirt_block = BlockMetaInfo {
+    //   name: String::from("stone"),
+    //   id: 0,
+    //   top_texture: dirt.clone(),
+    //   bottom_texture: dirt.clone(),
+    //   x_max_texture: dirt.clone(),
+    //   x_min_texture: dirt.clone(),
+    //   z_max_texture: dirt.clone(),
+    //   z_min_texture: dirt.clone(),
+    // };
+    // re.register_block(dirt_block);
+
     re
   }
 
@@ -89,10 +105,21 @@ impl BlockRegistry {
   }
 
   pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
-    let imgd = image::open("rinecraft/src/vox/assets/stone.png").unwrap();
-    let img = imgd.as_rgba8().unwrap().clone();
-    let size = (img.width(),  img.height(), 1);
-    let data = img.into_raw();
-    WGPUTexture::new(&renderer.device, &mut renderer.encoder, &data,size)
+    // let imgd = image::open("rinecraft/src/vox/assets/stone.png").unwrap();
+    // let img = imgd.as_rgba8().unwrap().clone();
+    // let size = (img.width(),  img.height(), 1);
+    // let data = img.into_raw();
+    // WGPUTexture::new_by_data(&renderer.device, &mut renderer.encoder, &data,size)
+
+    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 32, 1));
+    let target_view = target_texture.make_default_view();
+
+    let mut pass = WGPURenderPass::build()
+      .output_with_clear(&target_view, (0., 0., 0., 1.0))
+      .create(&mut renderer.encoder);
+
+    // pass.use_viewport(&state.viewport);
+
+    target_texture
   }
 }

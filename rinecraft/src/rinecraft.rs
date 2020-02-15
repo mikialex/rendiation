@@ -17,8 +17,6 @@ pub struct Rinecraft {
   pub state: RinecraftState,
 }
 
-type ImageData = ImageBuffer<Rgba<u8>, Vec<u8>>;
-
 pub struct RinecraftState {
   pub window_state: WindowState,
   pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
