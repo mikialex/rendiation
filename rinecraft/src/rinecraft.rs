@@ -34,7 +34,13 @@ impl Application for Rinecraft {
     let mut world = World::new();
     let block_atlas = world.world_machine.get_block_atlas(renderer);
 
-    let shading = BlockShading::new(renderer);
+    let depth = WGPUTexture::new_as_depth(
+      &renderer.device,
+      wgpu::TextureFormat::Depth32Float,
+      renderer.size,
+    );
+
+    let shading = BlockShading::new(renderer, &depth);
 
     // Create the vertex and index buffers
     let cube = StandardGeometry::new_pair(create_vertices(), &renderer);
@@ -48,12 +54,6 @@ impl Application for Rinecraft {
     let buffer = camera.get_update_gpu(renderer);
     let shading_params =
       BlockShadingParamGroup::new(&renderer, &shading, &block_atlas.view(), &sampler, buffer);
-
-    let depth = WGPUTexture::new_as_depth(
-      &renderer.device,
-      wgpu::TextureFormat::Depth32Float,
-      renderer.size,
-    );
 
     let viewport = Viewport::new(renderer.size);
 

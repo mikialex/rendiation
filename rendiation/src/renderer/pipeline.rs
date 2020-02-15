@@ -51,12 +51,12 @@ impl<'a> WGPUPipelineDescriptorBuilder {
     }
   }
 
-  pub fn with_depth_target(&mut self, target: WGPUTexture) -> &mut Self {
+  pub fn with_depth_target(&mut self, target: &WGPUTexture) -> &mut Self {
     self.depth_format = Some(*target.format());
     self
   }
 
-  pub fn with_color_target(&mut self, target: WGPUTexture) -> &mut Self {
+  pub fn with_color_target(&mut self, target: &WGPUTexture) -> &mut Self {
     self.color_target_format = *target.format();
     self
   }
@@ -111,6 +111,18 @@ impl<'a> WGPUPipelineDescriptorBuilder {
     let vs_module = device.create_shader_module(&vs_bytes);
     let fs_module = device.create_shader_module(&fs_bytes);
 
+    let depth_stencil_state = self.depth_format.map(|format|{
+      wgpu::DepthStencilStateDescriptor {
+        format,
+        depth_write_enabled: true,
+        depth_compare: wgpu::CompareFunction::LessEqual,
+        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_read_mask: 0,
+        stencil_write_mask: 0,
+      }
+    });
+
     let pipeline_des = wgpu::RenderPipelineDescriptor {
       layout: &pipeline_layout,
       vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -135,16 +147,7 @@ impl<'a> WGPUPipelineDescriptorBuilder {
         alpha_blend: wgpu::BlendDescriptor::REPLACE,
         write_mask: wgpu::ColorWrite::ALL,
       }],
-      depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-        format: wgpu::TextureFormat::Depth32Float,
-        depth_write_enabled: true,
-        depth_compare: wgpu::CompareFunction::LessEqual,
-        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_read_mask: 0,
-        stencil_write_mask: 0,
-      }),
-      // depth_stencil_state: None,
+      depth_stencil_state,
       index_format: wgpu::IndexFormat::Uint16,
       vertex_buffers: &T::get_geometry_layout_descriptor(),
       sample_count: 1,

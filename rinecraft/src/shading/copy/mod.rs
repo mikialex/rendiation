@@ -27,41 +27,41 @@ impl CopierShading {
             ty: wgpu::BindingType::Sampler,
           }),
       )
-      .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor);
+      .with_color_target(target);
 
-    let pipeline = pipeline_builder
-      .build::<StandardGeometry>(&renderer.device);
+    let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
 
     Self { pipeline }
   }
 
-  pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout{
+  pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
     &self.pipeline.bind_group_layouts[0]
   }
 
   pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &CopyShadingParamGroup) {
     pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
-    pass.gpu_pass.set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
+    pass
+      .gpu_pass
+      .set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
   }
 }
 
-pub struct CopyShadingParamGroup{
-  pub bindgroup: WGPUBindGroup
+pub struct CopyShadingParamGroup {
+  pub bindgroup: WGPUBindGroup,
 }
 
-impl CopyShadingParamGroup{
+impl CopyShadingParamGroup {
   pub fn new(
     renderer: &WGPURenderer,
     shading: &CopierShading,
     texture_view: &wgpu::TextureView,
     sampler: &WGPUSampler,
   ) -> Self {
-    Self{
-      bindgroup: 
-      BindGroupBuilder::new()
+    Self {
+      bindgroup: BindGroupBuilder::new()
         .texture(texture_view)
         .sampler(sampler)
-        .build(&renderer.device, shading.get_bind_group_layout())
+        .build(&renderer.device, shading.get_bind_group_layout()),
     }
   }
 }

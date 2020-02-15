@@ -26,7 +26,7 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
 
 impl GPUItem<ImageBuffer<Rgba<u8>, Vec<u8>>> for WGPUTexture {
   fn create_gpu(image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) -> Self {
-    WGPUTexture::new_by_data(
+    WGPUTexture::new_from_image_data(
       &renderer.device, 
       &mut renderer.encoder, 
       &image.clone().into_raw(),

@@ -64,7 +64,7 @@ impl WGPUTexture {
     }
   }
 
-  pub fn new_by_data(
+  pub fn new_from_image_data(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     data: &[u8],

@@ -6,7 +6,7 @@ pub struct BlockShading {
 }
 
 impl BlockShading {
-  pub fn new(renderer: &WGPURenderer) -> Self {
+  pub fn new(renderer: &WGPURenderer, depth_target: &WGPUTexture) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
       .vertex_shader(include_str!("./block.vert"))
@@ -32,7 +32,8 @@ impl BlockShading {
             ty: wgpu::BindingType::Sampler,
           }),
       )
-      .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor);
+      .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor)
+      .with_depth_target(depth_target);
 
     let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
 
