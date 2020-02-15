@@ -112,6 +112,27 @@ impl BlockRegistry {
     };
     re.register_block(dirt_block);
 
+    let grass_top = load_img(
+      "rinecraft/src/vox/assets/grass_top.png",
+      (0.0, 0.5, 0.5, 0.5),
+    );
+    let grass_side = load_img(
+      "rinecraft/src/vox/assets/grass_side.png",
+      (0.5, 0.5, 0.5, 0.5),
+    );
+
+    let dirt_block = BlockMetaInfo {
+      name: String::from("stone"),
+      id: 0,
+      top_texture: grass_top.clone(),
+      bottom_texture: dirt.clone(),
+      x_max_texture: grass_side.clone(),
+      x_min_texture: grass_side.clone(),
+      z_max_texture: grass_side.clone(),
+      z_min_texture: grass_side.clone(),
+    };
+    re.register_block(dirt_block);
+
     re
   }
 
@@ -128,6 +149,8 @@ impl BlockRegistry {
     let mut face_list: Vec<Rc<BlockFaceTextureInfo>> = Vec::new();
     face_list.push(self.lut[0].top_texture.clone());
     face_list.push(self.lut[1].top_texture.clone());
+    face_list.push(self.lut[2].top_texture.clone());
+    face_list.push(self.lut[2].x_max_texture.clone());
 
     pub fn tex(imgd: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
       let img = imgd.as_rgba8().unwrap().clone();

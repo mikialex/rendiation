@@ -1,5 +1,6 @@
 use super::world_machine::WorldMachine;
 use rendiation::*;
+use std::mem;
 
 #[derive(Clone, Copy)]
 pub struct Block {
@@ -11,7 +12,7 @@ impl Block {
     Block { id: Some(id) }
   }
 
-  pub fn void() -> Self {
+  pub const fn void() -> Self {
     Block { id: None }
   }
 
@@ -69,9 +70,16 @@ pub fn build_block_face(
     BlockFace::YZMax => [1.0, 0.0, 0.0],
   };
 
-  let tex_coords = world_machine
+  let mut tex_coords = world_machine
     .get_block_info(block.id.unwrap())
     .get_uv_info(face);
+
+    
+  if face == BlockFace::YZMax || face == BlockFace::XYMin {
+    let temp = tex_coords[1];
+    tex_coords[1] = tex_coords[2];
+    tex_coords[2] = temp;
+  }
 
   let table = match face {
     BlockFace::XYMin => [

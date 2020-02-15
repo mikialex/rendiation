@@ -4,6 +4,7 @@ use rendiation::*;
 use super::block_meta::BlockMetaInfo;
 
 pub trait WorldMachine {
+  //  y is up
   fn world_gen(&self, x: i32, y: i32, z: i32) -> Block;
   fn get_block_info(&self, block: usize) -> &BlockMetaInfo;
 }
@@ -30,11 +31,21 @@ impl WorldMachineImpl {
 }
 
 pub const STONE: Block = Block::new(0);
+pub const DIRT: Block = Block::new(1);
+pub const GRASS: Block = Block::new(2);
+pub const VOID: Block = Block::void();
+
 impl WorldMachine for WorldMachineImpl {
 
   fn world_gen(&self, x: i32, y: i32, z: i32) -> Block {
     if y <= x.abs() && y <= z.abs() {
-      STONE
+      if y >= 3 {
+        GRASS
+      } else if y >= 2{
+        DIRT
+      }else {
+        STONE
+      }
     } else {
       Block::void()
     }

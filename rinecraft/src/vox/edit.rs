@@ -7,6 +7,7 @@ use rendiation_math::Vec3;
 use rendiation_math_entity::Ray;
 use rendiation_math_entity::*;
 use std::collections::HashSet;
+use super::world_machine::VOID;
 
 #[derive(Debug)]
 pub struct BlockPickResult {
@@ -158,7 +159,7 @@ impl World {
     let (chunk_key, local_position) = world_to_local(block_position);
 
     let chunk = self.chunks.get_mut(&chunk_key).unwrap();
-    chunk.set_block(local_position, Block::void());
+    chunk.set_block(local_position, VOID);
 
     self.chunk_geometry_update_set.insert(chunk_key);
     World::notify_side_chunk_dirty(&mut self.chunk_geometry_update_set, chunk_key, &local_position);
