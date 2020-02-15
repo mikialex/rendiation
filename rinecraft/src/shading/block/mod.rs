@@ -31,29 +31,31 @@ impl BlockShading {
             visibility: wgpu::ShaderStage::FRAGMENT,
             ty: wgpu::BindingType::Sampler,
           }),
-      );
+      )
+      .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor);
 
-    let pipeline = pipeline_builder
-      .build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
+    let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
 
     Self { pipeline }
   }
 
-  pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout{
+  pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
     &self.pipeline.bind_group_layouts[0]
   }
 
   pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &BlockShadingParamGroup) {
     pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
-    pass.gpu_pass.set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
+    pass
+      .gpu_pass
+      .set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
   }
 }
 
-pub struct BlockShadingParamGroup{
-  pub bindgroup: WGPUBindGroup
+pub struct BlockShadingParamGroup {
+  pub bindgroup: WGPUBindGroup,
 }
 
-impl BlockShadingParamGroup{
+impl BlockShadingParamGroup {
   pub fn new(
     renderer: &WGPURenderer,
     shading: &BlockShading,
@@ -61,13 +63,12 @@ impl BlockShadingParamGroup{
     sampler: &WGPUSampler,
     buffer: &WGPUBuffer,
   ) -> Self {
-    Self{
-      bindgroup: 
-      BindGroupBuilder::new()
+    Self {
+      bindgroup: BindGroupBuilder::new()
         .buffer(buffer)
         .texture(texture_view)
         .sampler(sampler)
-        .build(&renderer.device, shading.get_bind_group_layout())
+        .build(&renderer.device, shading.get_bind_group_layout()),
     }
   }
 }

@@ -1,8 +1,20 @@
+use crate::vertex::vertex;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::pipeline::*;
 use crate::renderer::render_pass::WGPURenderPass;
 use crate::renderer::WGPURenderer;
 use crate::vertex::Vertex;
+
+pub fn quad_maker() -> (Vec<Vertex>, Vec<u16>) {
+  let data = [
+    vertex([-1.0, -1.0, 0.0], [-1.0, -1.0, 1.0], [0.0, 0.0]),
+    vertex([-1.0, 1.0, 0.0], [-1.0, -1.0, 1.0], [0.0, 0.0]),
+    vertex([1.0, 1.0, 0.0], [-1.0, -1.0, 1.0], [0.0, 0.0]),
+    vertex([1.0, -1.0, 0.0], [-1.0, -1.0, 1.0], [0.0, 0.0]),
+  ];
+  let index = [0, 2, 1, 2, 0, 3];
+  (data.to_vec(), index.to_vec())
+}
 
 /// A indexed geometry that use vertex primitive;
 pub struct StandardGeometry {

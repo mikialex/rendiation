@@ -9,7 +9,7 @@ layout(location = 1) out vec3 v_world;
 layout(location = 2) out vec3 v_normal;
 
 void main() {
-    gl_Position = u_Transform * vec4(a_position, 1.0);
+    gl_Position = vec4(a_position, 1.0);
 
     v_uv = a_uv;
     v_world = a_position;

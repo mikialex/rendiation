@@ -22,6 +22,7 @@
         "rasterization",
         "rustfmt",
         "spirv",
+        "swapchain",
         "texels",
         "vsync",
         "webgpu",

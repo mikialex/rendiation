@@ -1,5 +1,6 @@
+
 pub struct WGPUAttachmentTexture {
-  descriptor: wgpu::TextureDescriptor,
+  pub descriptor: wgpu::TextureDescriptor,
   gpu_texture: wgpu::Texture,
   view: wgpu::TextureView,
 }
@@ -36,6 +37,7 @@ impl WGPUAttachmentTexture {
     &self.view
   }
 
+  // this will not keep content resize
   pub fn resize(&mut self, device: &wgpu::Device, size: (usize, usize)) {
     self.descriptor.size.width = size.0 as u32;
     self.descriptor.size.height = size.1 as u32;

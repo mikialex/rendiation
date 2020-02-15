@@ -1,4 +1,6 @@
 
+use crate::renderer::attachment_texture::WGPUAttachmentTexture;
+
 pub trait GeometryProvider<'a> {
   fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>>;
   fn get_index_format() -> wgpu::IndexFormat;
@@ -35,6 +37,9 @@ pub struct WGPUPipelineDescriptorBuilder {
   vertex_shader: String,
   frag_shader: String,
   binding_groups: Vec<BindGroupLayoutBuilder>,
+  pub depth_format: Option<wgpu::TextureFormat>,
+  pub color_target_format: wgpu::TextureFormat,
+  
 }
 
 impl<'a> WGPUPipelineDescriptorBuilder {
@@ -43,7 +48,24 @@ impl<'a> WGPUPipelineDescriptorBuilder {
       vertex_shader: String::from(""),
       frag_shader: String::from(""),
       binding_groups: Vec::new(),
+      depth_format: None,
+      color_target_format: wgpu::TextureFormat::Rgba8UnormSrgb
     }
+  }
+
+  pub fn with_depth_target(&mut self, target: WGPUAttachmentTexture) -> &mut Self {
+    self.depth_format = Some(target.descriptor.format);
+    self
+  }
+
+  pub fn with_color_target(&mut self, target: WGPUAttachmentTexture) -> &mut Self {
+    self.color_target_format = target.descriptor.format;
+    self
+  }
+
+  pub fn with_swapchain_target(&mut self, des: &wgpu::SwapChainDescriptor) -> &mut Self {
+    self.color_target_format = des.format;
+    self
   }
 
   pub fn vertex_shader(&mut self, v: &str) -> &mut Self {
@@ -64,7 +86,6 @@ impl<'a> WGPUPipelineDescriptorBuilder {
   pub fn build<T: GeometryProvider<'a>>(
     &self,
     device: &wgpu::Device,
-    sc_desc: &wgpu::SwapChainDescriptor,
   ) -> WGPUPipeline {
     let bind_group_layouts: Vec<_> = self
       .binding_groups
@@ -114,7 +135,7 @@ impl<'a> WGPUPipelineDescriptorBuilder {
       }),
       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
       color_states: &[wgpu::ColorStateDescriptor {
-        format: sc_desc.format,
+        format: self.color_target_format,
         color_blend: wgpu::BlendDescriptor::REPLACE,
         alpha_blend: wgpu::BlendDescriptor::REPLACE,
         write_mask: wgpu::ColorWrite::ALL,

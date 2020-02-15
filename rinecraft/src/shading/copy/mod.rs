@@ -5,8 +5,8 @@ pub struct CopierShading {
   pipeline: WGPUPipeline,
 }
 
-impl BlockShading {
-  pub fn new(renderer: &WGPURenderer) -> Self {
+impl CopierShading {
+  pub fn new(renderer: &WGPURenderer, target: &WGPUTexture) -> Self {
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     pipeline_builder
       .vertex_shader(include_str!("./copy.vert"))
@@ -26,10 +26,11 @@ impl BlockShading {
             visibility: wgpu::ShaderStage::FRAGMENT,
             ty: wgpu::BindingType::Sampler,
           }),
-      );
+      )
+      .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor);
 
     let pipeline = pipeline_builder
-      .build::<StandardGeometry>(&renderer.device, &renderer.swap_chain.swap_chain_descriptor);
+      .build::<StandardGeometry>(&renderer.device);
 
     Self { pipeline }
   }
@@ -38,28 +39,26 @@ impl BlockShading {
     &self.pipeline.bind_group_layouts[0]
   }
 
-  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &BlockShadingParamGroup) {
+  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &CopyShadingParamGroup) {
     pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
     pass.gpu_pass.set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
   }
 }
 
-pub struct BlockShadingParamGroup{
+pub struct CopyShadingParamGroup{
   pub bindgroup: WGPUBindGroup
 }
 
-impl BlockShadingParamGroup{
+impl CopyShadingParamGroup{
   pub fn new(
     renderer: &WGPURenderer,
-    shading: &BlockShading,
+    shading: &CopierShading,
     texture_view: &wgpu::TextureView,
     sampler: &WGPUSampler,
-    buffer: &WGPUBuffer,
   ) -> Self {
     Self{
       bindgroup: 
       BindGroupBuilder::new()
-        .buffer(buffer)
         .texture(texture_view)
         .sampler(sampler)
         .build(&renderer.device, shading.get_bind_group_layout())
