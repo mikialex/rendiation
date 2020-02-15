@@ -84,6 +84,7 @@ impl World {
 
     for chunk_to_update_key in &self.chunk_geometry_update_set {
       self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry = Some(Chunk::create_geometry(
+        &self.world_machine,
         &self.chunks,
         *chunk_to_update_key,
         renderer,

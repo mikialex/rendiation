@@ -1,9 +1,11 @@
 use crate::vox::block::Block;
 use crate::vox::block_meta::BlockRegistry;
 use rendiation::*;
+use super::block_meta::BlockMetaInfo;
 
 pub trait WorldMachine {
   fn world_gen(&self, x: i32, y: i32, z: i32) -> Block;
+  fn get_block_info(&self, block: usize) -> &BlockMetaInfo;
 }
 
 pub struct WorldMachineImpl {
@@ -29,11 +31,17 @@ impl WorldMachineImpl {
 
 pub const STONE: Block = Block::new(0);
 impl WorldMachine for WorldMachineImpl {
+
   fn world_gen(&self, x: i32, y: i32, z: i32) -> Block {
     if y <= x.abs() && y <= z.abs() {
       STONE
     } else {
       Block::void()
     }
+  }
+
+  
+  fn get_block_info(&self, block_id: usize) -> &BlockMetaInfo {
+    &self.block_registry.lut[block_id]
   }
 }

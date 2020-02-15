@@ -99,6 +99,7 @@ impl Chunk {
   }
 
   pub fn create_geometry(
+    world_machine: &impl WorldMachine,
     chunks: &HashMap<(i32, i32), Chunk>,
     chunk_position: (i32, i32),
     renderer: &mut WGPURenderer,
@@ -132,6 +133,8 @@ impl Chunk {
           for face in BLOCK_FACES.iter() {
             if World::check_block_face_visibility(chunks, &world_position, *face) {
               build_block_face(
+                world_machine,
+                block,
                 &(min_x, min_y, min_z),
                 &(max_x, max_y, max_z),
                 *face,

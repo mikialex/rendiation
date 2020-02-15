@@ -1,10 +1,9 @@
-use image::DynamicImage;
-use image::ImageResult;
-use image::{ImageBuffer, Rgba};
+use super::block::BlockFace;
+use crate::shading::*;
+use image::*;
 use rendiation::*;
 use std::collections::HashMap;
 use std::rc::Rc;
-use crate::shading::*;
 
 pub struct BlockMetaInfo {
   name: String,
@@ -17,10 +16,24 @@ pub struct BlockMetaInfo {
   z_min_texture: Rc<BlockFaceTextureInfo>,
 }
 
-struct TextureAtlas {
-  width_all: usize,
-  height_all: usize,
+impl BlockMetaInfo {
+  pub fn get_uv_info(&self, face: BlockFace) -> [[f32; 2]; 4] {
+    match face {
+      BlockFace::XYMax => self.z_max_texture.uv,
+      BlockFace::XYMin => self.z_min_texture.uv,
+      BlockFace::YZMax => self.x_max_texture.uv,
+      BlockFace::YZMin => self.x_min_texture.uv,
+      BlockFace::XZMax => self.top_texture.uv,
+      BlockFace::XZMin => self.bottom_texture.uv,
+      _ => unreachable!(),
+    }
+  }
 }
+
+// struct TextureAtlas {
+//   width_all: usize,
+//   height_all: usize,
+// }
 
 struct NormalizedTexturePackInfo {
   x: f32,
@@ -32,26 +45,31 @@ struct NormalizedTexturePackInfo {
 struct BlockFaceTextureInfo {
   pub img: DynamicImage,
   pub pack_info: NormalizedTexturePackInfo,
+  pub uv: [[f32; 2]; 4],
 }
 
 impl BlockFaceTextureInfo {
-  pub fn new(path: &str) -> Self {
+  pub fn new(path: &str, uv: (f32, f32, f32, f32)) -> Self {
     let img = image::open(path).unwrap();
     let pack_info = NormalizedTexturePackInfo {
-      x: 0.0,
-      y: 0.0,
-      w: 0.5,
-      h: 1.0,
+      x: uv.0,
+      y: uv.1,
+      w: uv.2,
+      h: uv.3,
     };
-    BlockFaceTextureInfo { img, pack_info }
+    let uv = [
+      [pack_info.x, pack_info.y],
+      [pack_info.x + pack_info.w, pack_info.y],
+      [pack_info.x, pack_info.y + pack_info.h],
+      [pack_info.x + pack_info.w, pack_info.y + pack_info.h],
+    ];
+    BlockFaceTextureInfo { img, pack_info, uv }
   }
 }
 
-impl TextureAtlas {}
-
 pub struct BlockRegistry {
   data: HashMap<String, Rc<BlockMetaInfo>>,
-  lut: Vec<Rc<BlockMetaInfo>>,
+  pub lut: Vec<Rc<BlockMetaInfo>>,
 }
 
 impl BlockRegistry {
@@ -64,10 +82,10 @@ impl BlockRegistry {
   pub fn new_default() -> Self {
     let mut re = BlockRegistry::new();
 
-    fn load_img(p: &str) -> Rc<BlockFaceTextureInfo> {
-      Rc::new(BlockFaceTextureInfo::new(p))
+    fn load_img(p: &str, uv: (f32, f32, f32, f32)) -> Rc<BlockFaceTextureInfo> {
+      Rc::new(BlockFaceTextureInfo::new(p, uv))
     }
-    let img = load_img("rinecraft/src/vox/assets/stone.png");
+    let img = load_img("rinecraft/src/vox/assets/stone.png", (0.0, 0.0, 0.5, 0.5));
 
     let stone = BlockMetaInfo {
       name: String::from("stone"),
@@ -81,18 +99,18 @@ impl BlockRegistry {
     };
     re.register_block(stone);
 
-    // let dirt = load_img("rinecraft/src/vox/assets/dirt.png");
-    // let dirt_block = BlockMetaInfo {
-    //   name: String::from("stone"),
-    //   id: 0,
-    //   top_texture: dirt.clone(),
-    //   bottom_texture: dirt.clone(),
-    //   x_max_texture: dirt.clone(),
-    //   x_min_texture: dirt.clone(),
-    //   z_max_texture: dirt.clone(),
-    //   z_min_texture: dirt.clone(),
-    // };
-    // re.register_block(dirt_block);
+    let dirt = load_img("rinecraft/src/vox/assets/dirt.png", (0.5, 0.0, 0.5, 0.5));
+    let dirt_block = BlockMetaInfo {
+      name: String::from("stone"),
+      id: 0,
+      top_texture: dirt.clone(),
+      bottom_texture: dirt.clone(),
+      x_max_texture: dirt.clone(),
+      x_min_texture: dirt.clone(),
+      z_max_texture: dirt.clone(),
+      z_min_texture: dirt.clone(),
+    };
+    re.register_block(dirt_block);
 
     re
   }
@@ -106,36 +124,51 @@ impl BlockRegistry {
   }
 
   pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
-    // let imgd = image::open("rinecraft/src/vox/assets/stone.png").unwrap();
-    // let img = imgd.as_rgba8().unwrap().clone();
-    // let size = (img.width(),  img.height(), 1);
-    // let data = img.into_raw();
-    // WGPUTexture::new_from_image_data(&renderer.device, &mut renderer.encoder, &data,size)
+    // todo filter same face
+    let mut face_list: Vec<Rc<BlockFaceTextureInfo>> = Vec::new();
+    face_list.push(self.lut[0].top_texture.clone());
+    face_list.push(self.lut[1].top_texture.clone());
 
-
-    pub fn tex(path: &str, renderer: &mut WGPURenderer) -> WGPUTexture {
-      let imgd = image::open(path).unwrap();
+    pub fn tex(imgd: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
       let img = imgd.as_rgba8().unwrap().clone();
-      let size = (img.width(),  img.height(), 1);
+      let size = (img.width(), img.height(), 1);
       let data = img.into_raw();
-      WGPUTexture::new_from_image_data(&renderer.device, &mut renderer.encoder, &data,size)
+      WGPUTexture::new_from_image_data(&renderer.device, &mut renderer.encoder, &data, size)
     }
 
-    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 32, 1));
+    let quad = StandardGeometry::new_pair(quad_maker(), renderer);
+    let sampler = WGPUSampler::new(&renderer.device);
+    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 64, 1));
+
     {
-      let quad = StandardGeometry::new_pair(quad_maker(), renderer);
-      let sampler = WGPUSampler::new(&renderer.device);
       let copy_shading = CopierShading::new(renderer, &target_texture);
-      let src_tex = tex("rinecraft/src/vox/assets/stone.png", renderer);
-      let params = CopyShadingParamGroup::new(renderer, &copy_shading, src_tex.view(), &sampler);
-  
+      let dest_size_width = 64.;
+
+      let gpu: Vec<_> = face_list
+        .iter()
+        .map(|face| {
+          let src_tex = tex(&face.img, renderer);
+          let params =
+            CopyShadingParamGroup::new(renderer, &copy_shading, src_tex.view(), &sampler);
+
+          let mut viewport = Viewport::new((32, 32));
+          viewport.x = face.pack_info.x * dest_size_width;
+          viewport.y = face.pack_info.y * dest_size_width;
+          viewport.w = face.pack_info.w * dest_size_width;
+          viewport.h = face.pack_info.h * dest_size_width;
+          (params, viewport)
+        })
+        .collect();
+
       let mut pass = WGPURenderPass::build()
         .output_with_clear(target_texture.view(), (0., 0., 0., 1.0))
         .create(&mut renderer.encoder);
-  
-      // pass.use_viewport(&state.viewport);
-      copy_shading.provide_pipeline(&mut pass, &params);
-      quad.render(&mut pass);
+
+      for (params, viewport) in gpu {
+        pass.use_viewport(&viewport);
+        copy_shading.provide_pipeline(&mut pass, &params);
+        quad.render(&mut pass);
+      }
     }
 
     target_texture

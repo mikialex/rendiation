@@ -1,21 +1,18 @@
+use super::world_machine::WorldMachine;
 use rendiation::*;
 
 #[derive(Clone, Copy)]
-pub struct Block{
-  id: Option<usize>
+pub struct Block {
+  id: Option<usize>,
 }
 
-impl Block{
+impl Block {
   pub const fn new(id: usize) -> Self {
-    Block{
-      id: Some(id)
-    }
+    Block { id: Some(id) }
   }
-  
+
   pub fn void() -> Self {
-    Block{
-      id: None
-    }
+    Block { id: None }
   }
 
   pub fn is_void(&self) -> bool {
@@ -45,6 +42,8 @@ pub const BLOCK_FACES: [BlockFace; 6] = [
 ];
 
 pub fn build_block_face(
+  world_machine: &impl WorldMachine,
+  block: Block,
   min: &(f32, f32, f32),
   max: &(f32, f32, f32),
   face: BlockFace,
@@ -70,7 +69,9 @@ pub fn build_block_face(
     BlockFace::YZMax => [1.0, 0.0, 0.0],
   };
 
-  let tex_coords = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
+  let tex_coords = world_machine
+    .get_block_info(block.id.unwrap())
+    .get_uv_info(face);
 
   let table = match face {
     BlockFace::XYMin => [
