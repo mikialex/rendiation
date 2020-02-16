@@ -1,4 +1,5 @@
 pub mod quad;
+use rendiation_math::*;
 pub use quad::*;
 use crate::{event::Event, renderer::GUIRenderer};
 pub mod tree;
@@ -7,6 +8,7 @@ pub trait Element<T> {
   fn render(&self, renderer: &mut GUIRenderer);
   fn event(&self, event: &Event, state: &mut T);
   fn get_element_state(&self) -> &ElementState;
+  fn is_point_in(&self, point: Vec2<f32>) -> bool;
 }
 
 pub struct ElementState{

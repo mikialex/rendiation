@@ -60,4 +60,7 @@ impl<T> Element<T> for Quad<T> {
   fn get_element_state(&self) -> &ElementState {
     &self.element_state
   }
+  fn is_point_in(&self, point: Vec2<f32>) -> bool { 
+    self.quad.is_point_in(point)
+  }
 }
