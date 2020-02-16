@@ -1,6 +1,7 @@
 use rendiation_util::Tree;
 use crate::renderer::GUIRenderer;
 use crate::element::*;
+use crate::event::*;
 
 pub trait Component<C:> {
   fn render(&self) -> ComponentTree<C>;
@@ -51,7 +52,9 @@ pub struct ComponentTree<T> {
 }
 
 impl<T> ComponentTree<T> {
-  fn event(&self, event: &Event, state: &mut T) {}
+  fn event(&self, event: &Event, state: &mut T) {
+    
+  }
 }
 
 

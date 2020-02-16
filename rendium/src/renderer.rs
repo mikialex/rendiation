@@ -6,7 +6,7 @@ use rendiation_math::Vec4;
 pub struct GUIRenderer {
   renderer: WGPURenderer,
   quad: StandardGeometry,
-  view_port: Vec4<f32>,
+  view: Vec4<f32>,
 }
 
 impl GUIRenderer {
@@ -15,9 +15,9 @@ impl GUIRenderer {
     GUIRenderer {
       renderer,
       quad,
-      view_port: Vec4::new(0.0, 0.0, 100., 100.),
+      view: Vec4::new(0.0, 0.0, 100., 100.),
     }
   }
 
-  pub fn draw_rect(&mut self) {}
+  pub fn draw_rect(&mut self, x: f32, y: f32, width: f32, height: f32) {}
 }

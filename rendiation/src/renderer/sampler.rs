@@ -1,3 +1,5 @@
+
+/// webgpu sampler wrapper
 pub struct WGPUSampler {
   gpu_sampler: wgpu::Sampler,
   descriptor: wgpu::SamplerDescriptor,

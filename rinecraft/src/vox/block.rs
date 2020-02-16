@@ -1,6 +1,5 @@
 use super::world_machine::WorldMachine;
 use rendiation::*;
-use std::mem;
 
 #[derive(Clone, Copy)]
 pub struct Block {
