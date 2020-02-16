@@ -1,21 +1,21 @@
 use rendiation::geometry::quad_maker;
-use rendiation::StandardGeometry;
-use rendiation::{vertex, Vertex, WGPURenderer};
+use rendiation::*;
 use rendiation_math::Vec4;
 
 pub struct GUIRenderer {
-  renderer: WGPURenderer,
   quad: StandardGeometry,
   view: Vec4<f32>,
+  canvas: WGPUTexture,
 }
 
 impl GUIRenderer {
-  pub fn new(renderer: WGPURenderer) -> Self {
+  pub fn new(renderer: &WGPURenderer, size: (f32, f32)) -> Self {
     let quad = StandardGeometry::new_pair(quad_maker(), &renderer);
+    let canvas = WGPUTexture::new_as_target(&renderer.device, (size.0 as u32, size.1 as u32));
     GUIRenderer {
-      renderer,
       quad,
-      view: Vec4::new(0.0, 0.0, 100., 100.),
+      view: Vec4::new(0.0, 0.0, size.0, size.1),
+      canvas
     }
   }
 

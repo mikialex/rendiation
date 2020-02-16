@@ -7,6 +7,7 @@ use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
 use crate::watch::*;
+use rendium::*;
 use rendiation::*;
 use rendiation_render_entity::*;
 
@@ -31,6 +32,8 @@ pub struct RinecraftState {
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {
+    let gui_renderer = GUIRenderer::new(renderer, (500., 500.));
+
     let mut world = World::new();
     let block_atlas = world.world_machine.get_block_atlas(renderer);
 

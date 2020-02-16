@@ -2,7 +2,7 @@ use rendiation_math::Vec2;
 use super::Element;
 use crate::{renderer::GUIRenderer, event::Event};
 
-struct ElementsTree<T> {
+pub struct ElementsTree<T> {
   elements: Vec<Box<dyn Element<T>>>,
   focus_element_index: Option<usize>
 }
@@ -26,7 +26,7 @@ impl<T> ElementsTree<T> {
     }
   }
 
-  pub fn test_new() -> Self{
+  pub fn new() -> Self{
     Self {
       elements: Vec::new(),
       focus_element_index: None,

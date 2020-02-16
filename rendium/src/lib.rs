@@ -1,11 +1,11 @@
+
 pub mod component;
-pub mod components;
 pub mod element;
 pub mod event;
 pub mod lens;
 pub mod renderer;
-use crate::renderer::GUIRenderer;
-use component::*;
+pub use renderer::*;
+pub use component::*;
 use event::Event;
 
 pub struct GUI<T: Component<T>> {

@@ -1156,6 +1156,7 @@ dependencies = [
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
  "rendiation-render-entity 0.1.0",
+ "rendium 0.1.0",
 ]
 
 [[package]]

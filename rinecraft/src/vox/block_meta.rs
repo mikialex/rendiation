@@ -161,7 +161,7 @@ impl BlockRegistry {
 
     let quad = StandardGeometry::new_pair(quad_maker(), renderer);
     let sampler = WGPUSampler::new(&renderer.device);
-    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 64, 1));
+    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 64));
 
     {
       let copy_shading = CopierShading::new(renderer, &target_texture);
