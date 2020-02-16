@@ -1,4 +1,5 @@
 pub mod field;
+pub use field::*;
 pub mod lens_wrap;
 pub use lens_wrap::*;
 

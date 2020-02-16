@@ -6,6 +6,7 @@ pub mod lens;
 pub mod renderer;
 pub use renderer::*;
 pub use component::*;
+pub use lens::*;
 use event::Event;
 
 pub struct GUI<T: Component<T>> {

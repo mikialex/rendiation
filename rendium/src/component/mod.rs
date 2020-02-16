@@ -3,8 +3,9 @@ use crate::renderer::GUIRenderer;
 use crate::element::*;
 use crate::event::*;
 
-pub trait Component<C:> {
+pub trait Component<C> {
   fn render(&self) -> ComponentTree<C>;
+  // fn event(&mut self);
 }
 
 pub struct ComponentInstance<C: Component<C>> {
