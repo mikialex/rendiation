@@ -7,9 +7,9 @@ use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
 use crate::watch::*;
-use rendium::*;
 use rendiation::*;
 use rendiation_render_entity::*;
+use rendium::*;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -19,6 +19,7 @@ pub struct Rinecraft {
 pub struct RinecraftState {
   pub window_state: WindowState,
   pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
+  pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
   pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
@@ -54,7 +55,10 @@ impl Application for Rinecraft {
     let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
     camera.resize((renderer.size.0 as f32, renderer.size.1 as f32));
 
-    let buffer = camera.get_update_gpu(renderer);
+    let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
+    camera_orth.resize((renderer.size.0 as f32, renderer.size.1 as f32));
+
+    let buffer = camera_orth.get_update_gpu(renderer);
     let shading_params =
       BlockShadingParamGroup::new(&renderer, &shading, &block_atlas.view(), &sampler, buffer);
 
@@ -63,11 +67,16 @@ impl Application for Rinecraft {
     let mut window_session = WindowEventSession::new();
 
     window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
+      state.viewport.set_size(renderer.size.0 as f32, renderer.size.1 as f32);
       state.depth.resize(&renderer.device, renderer.size);
       state
         .camera
         .resize((renderer.size.0 as f32, renderer.size.1 as f32));
+      state
+        .camera_orth
+        .resize((renderer.size.0 as f32, renderer.size.1 as f32));
       state.camera.get_update_gpu(renderer);
+      state.camera_orth.get_update_gpu(renderer);
     });
 
     init_orbit_controller(&mut window_session);
@@ -83,6 +92,11 @@ impl Application for Rinecraft {
 
     // render
     window_session.add_events_clear_listener(|state, renderer| {
+      state
+        .orbit_controller
+        .update(&mut state.camera_orth as &mut ViewFrustumOrthographicCamera);
+      state.camera_orth.get_update_gpu(renderer);
+
       state
         .orbit_controller
         .update(&mut state.camera as &mut PerspectiveCamera);
@@ -127,6 +141,7 @@ impl Application for Rinecraft {
         cube,
         world,
         camera,
+        camera_orth,
         viewport,
         orbit_controller: OrbitController::new(),
         fps_controller: FPSController::new(),

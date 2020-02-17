@@ -1,5 +1,5 @@
 use super::Camera;
-use crate::transformed_object::TransformedObject;
+use crate::{ResizableCamera, transformed_object::TransformedObject};
 use rendiation_math::*;
 use rendiation_math_entity::*;
 
@@ -56,6 +56,9 @@ impl Camera for PerspectiveCamera {
     &self.projection_matrix
   }
 
+}
+
+impl ResizableCamera for PerspectiveCamera {
   fn resize(&mut self, size: (f32, f32)) {
     self.aspect = size.0 / size.1;
     self.update_projection();

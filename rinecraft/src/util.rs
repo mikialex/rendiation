@@ -24,6 +24,24 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   }
 }
 
+impl GPUItem<ViewFrustumOrthographicCamera> for WGPUBuffer {
+  fn create_gpu(item: &ViewFrustumOrthographicCamera, renderer: &mut WGPURenderer) -> Self {
+    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+
+    WGPUBuffer::new(
+      &renderer.device,
+      mx_ref,
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    )
+  }
+  fn update_gpu(&mut self, item: &ViewFrustumOrthographicCamera, renderer: &mut WGPURenderer) {
+    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+    self.update(&renderer.device, &mut renderer.encoder, mx_ref);
+  }
+}
+
 impl GPUItem<ImageBuffer<Rgba<u8>, Vec<u8>>> for WGPUTexture {
   fn create_gpu(image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) -> Self {
     WGPUTexture::new_from_image_data(

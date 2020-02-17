@@ -469,7 +469,7 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 		let tz = -znear / (zfar - znear);
 		let cx = T::two() / (right - left);
 		let cy = T::two() / (top - bottom);
-		let cz = T::one() / (zfar - znear);
+		let cz = T::two() / (zfar - znear);
 
 		Mat4::new(
 			cx, T::zero(), T::zero(), T::zero(),
@@ -485,13 +485,30 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 		let tz = -(zfar + znear) / (zfar - znear);
 		let cx = T::two() / (right - left);
 		let cy = T::two() / (top - bottom);
-		let cz = -T::one() / (zfar - znear);
+		let cz = -T::two() / (zfar - znear);
 
 		Mat4::new(
 			cx, T::zero(), T::zero(), T::zero(),
 			T::zero(), cy, T::zero(), T::zero(),
 			T::zero(), T::zero(), cz, T::zero(),
 			tx, ty, tz, T::one())
+	}
+
+	pub fn ortho(left:T, right:T, bottom:T, top:T, znear:T, zfar:T) -> Self
+	{
+		let w = T::one() / ( right - left );
+		let h = T::one() / ( top - bottom );
+		let p = T::one() / ( zfar - znear );
+
+		let x = ( right + left ) * w;
+		let y = ( top + bottom ) * h;
+		let z = ( zfar + znear ) * p;
+
+		Mat4::new(
+			T::two() * w, T::zero(), T::zero(), T::zero(),
+			T::zero(), T::two() * h, T::zero(), T::zero(),
+			T::zero(), T::zero(),  -T::two() * p, T::zero(),
+			-x, -y, -z, T::one())
 	}
 
 	pub fn perspective_fov_lh(fov:T, aspect:T, znear:T, zfar:T) -> Self

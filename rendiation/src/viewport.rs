@@ -19,4 +19,9 @@ impl Viewport {
       max_depth: 1.0,
     }
   }
+
+  pub fn set_size(&mut self, w: f32, h: f32) {
+    self.w = w;
+    self.h = h;
+  }
 }
