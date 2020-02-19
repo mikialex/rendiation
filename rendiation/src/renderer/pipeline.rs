@@ -1,3 +1,4 @@
+use crate::renderer::bindgroup_layout::BindGroupLayoutBuilder;
 use crate::WGPUTexture;
 
 pub trait GeometryProvider<'a> {
@@ -13,23 +14,6 @@ pub trait VertexProvider<'a> {
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
   pub bind_group_layouts: Vec<wgpu::BindGroupLayout>,
-}
-
-pub struct BindGroupLayoutBuilder {
-  pub bindings: Vec<wgpu::BindGroupLayoutBinding>,
-}
-
-impl BindGroupLayoutBuilder {
-  pub fn new() -> Self {
-    Self {
-      bindings: Vec::new(),
-    }
-  }
-
-  pub fn binding(mut self, b: wgpu::BindGroupLayoutBinding) -> Self {
-    self.bindings.push(b);
-    self
-  }
 }
 
 pub struct WGPUPipelineDescriptorBuilder {

@@ -13,19 +13,8 @@ impl CopierShading {
       .frag_shader(include_str!("./copy.frag"))
       .binding_group(
         BindGroupLayoutBuilder::new()
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 0,
-            visibility: wgpu::ShaderStage::FRAGMENT,
-            ty: wgpu::BindingType::SampledTexture {
-              multisampled: false,
-              dimension: wgpu::TextureViewDimension::D2,
-            },
-          })
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 1,
-            visibility: wgpu::ShaderStage::FRAGMENT,
-            ty: wgpu::BindingType::Sampler,
-          }),
+          .bind_texture2d(ShaderStage::Fragment)
+          .bind_sampler(ShaderStage::Fragment),
       )
       .with_color_target(target);
 
@@ -43,6 +32,29 @@ impl CopierShading {
     pass
       .gpu_pass
       .set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
+  }
+}
+
+struct CopyParam<'a> {
+  texture: &'a wgpu::TextureView,
+  sampler: &'a WGPUSampler,
+  bindgroup: Option<WGPUBindGroup>
+}
+
+pub trait BindGroupProvider {
+  fn provide_layout() -> BindGroupLayoutBuilder;
+  fn get_bindgroup(&mut self, renderer: &mut WGPURenderer) -> &WGPUBindGroup;
+}
+
+impl<'a> BindGroupProvider for CopyParam<'a> {
+  fn provide_layout() -> BindGroupLayoutBuilder{
+    BindGroupLayoutBuilder::new()
+    .bind_texture2d(ShaderStage::Fragment)
+    .bind_sampler(ShaderStage::Fragment)
+  }
+
+  fn get_bindgroup(&mut self, renderer: &mut WGPURenderer) -> &WGPUBindGroup {
+    todo!()
   }
 }
 

@@ -1,11 +1,16 @@
 use crate::renderer::WGPURenderer;
 use crate::renderer::render_pass::WGPURenderPass;
 
-struct Scene {
-
+pub struct Scene {
+    // geometries: 
 }
 
-trait Renderable {
+pub trait Renderable {
     fn prepare(&mut self, renderer: &mut WGPURenderer);
     fn render(&self, pass: &WGPURenderPass);
 }
+
+// pub struct RenderObject {
+//     geometry: StandardGeometry,
+//     shading: 
+// }
