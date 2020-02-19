@@ -13,24 +13,9 @@ impl BlockShading {
       .frag_shader(include_str!("./block.frag"))
       .binding_group(
         BindGroupLayoutBuilder::new()
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-          })
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 1,
-            visibility: wgpu::ShaderStage::FRAGMENT,
-            ty: wgpu::BindingType::SampledTexture {
-              multisampled: false,
-              dimension: wgpu::TextureViewDimension::D2,
-            },
-          })
-          .binding(wgpu::BindGroupLayoutBinding {
-            binding: 2,
-            visibility: wgpu::ShaderStage::FRAGMENT,
-            ty: wgpu::BindingType::Sampler,
-          }),
+          .bind_uniform_buffer(ShaderStage::Vertex)
+          .bind_texture2d(ShaderStage::Fragment)
+          .bind_sampler(ShaderStage::Fragment)
       )
       .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor)
       .with_depth_target(depth_target);

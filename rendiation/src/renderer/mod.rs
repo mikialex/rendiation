@@ -2,6 +2,7 @@ pub mod bindgroup;
 pub mod buffer;
 pub mod consts;
 pub mod pipeline;
+pub mod bindgroup_layout;
 pub mod render_pass;
 pub mod sampler;
 pub mod shader_util;
@@ -10,10 +11,12 @@ pub mod texture;
 pub use bindgroup::*;
 pub use buffer::*;
 pub use pipeline::*;
+pub use bindgroup_layout::*;
 pub use render_pass::*;
 pub use sampler::*;
 pub use texture::*;
 pub use consts::*;
+pub use shader_util::*;
 
 /// The renderer trait.
 ///
