@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 pub const CHUNK_WIDTH: usize = 8;
-pub const CHUNK_HEIGHT: usize = 4;
+pub const CHUNK_HEIGHT: usize = 64;
 
 pub const CHUNK_ABS_WIDTH: f32 = (CHUNK_WIDTH as f32) * BLOCK_WORLD_SIZE;
 pub const CHUNK_ABS_HEIGHT: f32 = (CHUNK_HEIGHT as f32) * BLOCK_WORLD_SIZE;

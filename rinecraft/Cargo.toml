@@ -16,3 +16,4 @@ rendiation-render-entity = { path = "../render-entity" }
 rendiation = { path ="../rendiation" }
 rendium = { path = "../rendium" }
 image = "*"
+noise = "0.6"

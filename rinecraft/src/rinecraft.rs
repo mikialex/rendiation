@@ -58,7 +58,7 @@ impl Application for Rinecraft {
     let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     camera_orth.resize((renderer.size.0 as f32, renderer.size.1 as f32));
 
-    let buffer = camera_orth.get_update_gpu(renderer);
+    let buffer = camera.get_update_gpu(renderer);
     let shading_params =
       BlockShadingParamGroup::new(&renderer, &shading, &block_atlas.view(), &sampler, buffer);
 
