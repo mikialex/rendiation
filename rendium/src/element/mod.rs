@@ -1,4 +1,5 @@
 pub mod quad;
+use core::any::Any;
 use rendiation_math::*;
 pub use quad::*;
 use crate::{event::Event, renderer::GUIRenderer};
@@ -27,4 +28,34 @@ impl ElementState{
       z_index: 0,
     }
   }
+}
+
+struct Message {
+  target: dyn Any
+}
+
+struct EventHub {
+  listeners: Vec<Box<dyn FnMut(&mut Message)>>
+}
+
+impl EventHub {
+  fn add<T: FnMut(&mut Message) + 'static>(&mut self, listener: T) {
+    self.listeners.push(Box::new(listener));
+  }
+}
+
+
+fn test(){
+  let mut hub = EventHub {
+    listeners: Vec::new()
+  };
+  hub.add(|m: &mut Message|{
+    let value = m.target.downcast_mut::<bool>().unwrap();
+    println!("{}", value)
+  });
+  
+  hub.add(|m: &mut Message|{
+    let value = m.target.downcast_mut::<usize>().unwrap();
+    println!("{}", value)
+  })
 }

@@ -132,5 +132,3 @@ impl WGPUTexture {
     );
   }
 }
-
-// fn update_texture
