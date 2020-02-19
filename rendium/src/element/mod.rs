@@ -30,8 +30,8 @@ impl ElementState{
   }
 }
 
-struct Message {
-  target: dyn Any
+struct Message<'a> {
+  target: &'a mut dyn Any
 }
 
 struct EventHub {
@@ -57,5 +57,14 @@ fn test(){
   hub.add(|m: &mut Message|{
     let value = m.target.downcast_mut::<usize>().unwrap();
     println!("{}", value)
-  })
+  });
+  let mut test1 = false;
+  let mut m1 = Message {target: &mut test1};
+  let lis1 = &mut hub.listeners[0];
+  lis1(&mut m1);
+
+  let mut test2 = 0 as usize;
+  let mut m2 = Message {target: &mut test2};
+  let lis2 = &mut hub.listeners[1];
+  lis2(&mut m2);
 }
