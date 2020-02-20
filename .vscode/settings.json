@@ -1,8 +1,10 @@
 {
     "cSpell.words": [
         "Lerp",
+        "Mesher",
         "OPENGL",
         "Raycastable",
+        "Renderable",
         "Rendiation",
         "Rendium",
         "Rinecraft",
@@ -12,6 +14,7 @@
         "backends",
         "bbox",
         "bindgroup",
+        "bindpoint",
         "consts",
         "glsl",
         "glutin",
