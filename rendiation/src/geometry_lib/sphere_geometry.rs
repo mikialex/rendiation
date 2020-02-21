@@ -1,20 +1,32 @@
+use crate::geometry_lib::Mesher;
 use crate::vertex::Vertex;
 use rendiation_math::*;
 
-pub trait Mesher {
-  fn create_mesh(&self) -> (Vec<Vertex>, Vec<u16>);
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct SphereGeometryParameter {
-  radius: f32,
-  width_segments: usize,
-  height_segments: usize,
-  phi_start: f32,
-  phi_length: f32,
-  theta_start: f32,
-  theta_length: f32,
-  theta_end: f32,
+  pub radius: f32,
+  pub width_segments: usize,
+  pub height_segments: usize,
+  pub phi_start: f32,
+  pub phi_length: f32,
+  pub theta_start: f32,
+  pub theta_length: f32,
+  pub theta_end: f32,
+}
+
+impl Default for SphereGeometryParameter{
+  fn default() -> Self {
+    Self {
+      radius: 1.0,
+      width_segments: 12,
+      height_segments: 12,
+      phi_start: 0.,
+      phi_length: std::f32::consts::PI * 2.,
+      theta_start: 0.,
+      theta_length: std::f32::consts::PI * 2.,
+      theta_end: std::f32::consts::PI * 2.,
+    }
+  }
 }
 
 impl Mesher for SphereGeometryParameter {
