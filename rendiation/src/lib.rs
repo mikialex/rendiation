@@ -4,6 +4,7 @@ pub mod event;
 pub mod window;
 pub mod vertex;
 pub mod geometry;
+pub mod geometry_lib;
 pub mod scene;
 // pub mod texture;
 pub mod viewport;

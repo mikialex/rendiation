@@ -1,8 +1,9 @@
+use crate::geometry::StandardGeometry;
 use crate::renderer::WGPURenderer;
 use crate::renderer::render_pass::WGPURenderPass;
 
 pub struct Scene {
-    // geometries: 
+    geometries: Vec<StandardGeometry>
 }
 
 pub trait Renderable {
@@ -14,3 +15,11 @@ pub trait Renderable {
 //     geometry: StandardGeometry,
 //     shading: 
 // }
+
+pub trait Background: Renderable {
+
+}
+
+pub struct Sky{
+    geometry: StandardGeometry,
+}

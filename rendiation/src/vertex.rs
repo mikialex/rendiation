@@ -8,6 +8,16 @@ pub struct Vertex {
   pub uv: Vec2<f32>,
 }
 
+impl Vertex {
+  pub fn new(position: Vec3<f32>, normal: Vec3<f32>, uv: Vec2<f32>) -> Self {
+    Vertex {
+      position,
+      normal,
+      uv,
+    }
+  }
+}
+
 impl<'a> VertexProvider<'a> for Vertex {
   fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'a> {
     use std::mem;
