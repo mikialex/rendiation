@@ -1,7 +1,8 @@
+use crate::element::RenderCtx;
+use super::{Element, Message};
 use crate::element::ElementState;
+use crate::{event::Event, renderer::GUIRenderer};
 use rendiation_math::*;
-use crate::{renderer::GUIRenderer, event::Event};
-use super::{Message, Element};
 
 pub struct QuadLayout {
   width: f32,
@@ -33,15 +34,14 @@ impl Quad {
         x: 0.,
         y: 0.,
       },
-      element_state: ElementState::new()
+      element_state: ElementState::new(),
     }
   }
-
 }
 
 impl Element for Quad {
-  fn render(&self, renderer: &mut GUIRenderer) {
-    renderer.draw_rect(0.0, 0.0, 0.0, 0.0);
+  fn render(&self, renderer: &mut RenderCtx) {
+    // renderer.draw_rect(0.0, 0.0, 0.0, 0.0);
   }
   fn event(&self, event: &mut Message) {
     // decide if event need handled
@@ -49,7 +49,7 @@ impl Element for Quad {
   fn get_element_state(&self) -> &ElementState {
     &self.element_state
   }
-  fn is_point_in(&self, point: Vec2<f32>) -> bool { 
+  fn is_point_in(&self, point: Vec2<f32>) -> bool {
     self.quad.is_point_in(point)
   }
 }

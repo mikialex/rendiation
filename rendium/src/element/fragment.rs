@@ -2,7 +2,7 @@ use super::Message;
 use crate::element::Element;
 use crate::element::ElementState;
 use crate::event::Event;
-use crate::renderer::GUIRenderer;
+use crate::{Quad, renderer::GUIRenderer};
 use core::any::Any;
 use rendiation_math::Vec2;
 
@@ -30,11 +30,17 @@ pub struct ElementFragment {
 
 impl ElementFragment {
   pub fn new() -> Self {
-    ElementFragment {
+
+    let a = Quad::new();
+
+
+    let mut fragment = ElementFragment {
       elements: Vec::new(),
       elements_event: Vec::new(),
       events: EventHub::new(),
-    }
+    };
+    fragment.add_element(a);
+    fragment
   }
 
   pub fn add_element<T: Element>(&mut self, element: T) -> usize {

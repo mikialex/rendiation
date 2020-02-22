@@ -11,8 +11,12 @@ pub struct Message<'a> {
   target: &'a mut dyn Any,
 }
 
+pub struct RenderCtx<'a> {
+  renderer: &'a mut GUIRenderer
+}
+
 pub trait Element {
-  fn render(&self, renderer: &mut GUIRenderer);
+  fn render(&self, renderer: &mut RenderCtx);
   fn event(&self, event: &mut Message);
   fn get_element_state(&self) -> &ElementState;
   fn is_point_in(&self, point: Vec2<f32>) -> bool;

@@ -29,11 +29,12 @@ pub struct RinecraftState {
   shading: BlockShading,
   shading_params: BlockShadingParamGroup,
   depth: WGPUTexture,
+  gui: GUI,
 }
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer) -> Self {
-    let gui_renderer = GUIRenderer::new(renderer, (500., 500.));
+    let gui = GUI::new(renderer);
 
     let mut world = World::new();
     let block_atlas = world.world_machine.get_block_atlas(renderer);
@@ -106,7 +107,10 @@ impl Application for Rinecraft {
         .world
         .update(renderer, &state.camera.get_transform().matrix.position());
 
+      state.gui.render(renderer);
+
       let output = renderer.swap_chain.request_output();
+
       {
         let mut pass = WGPURenderPass::build()
           .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
@@ -149,6 +153,7 @@ impl Application for Rinecraft {
         shading,
         shading_params,
         depth,
+        gui
       },
     }
   }

@@ -8,7 +8,26 @@ pub use renderer::*;
 // use event::Event;
 
 pub use element::*;
+use rendiation::WGPURenderer;
 
-struct GUI {
+pub struct GUI {
   fragment: ElementFragment,
+  renderer: GUIRenderer,
+}
+
+impl GUI {
+  pub fn new(renderer: & WGPURenderer) -> Self {
+    GUI {
+      fragment: ElementFragment::new(),
+      renderer: GUIRenderer::new(renderer, (500., 500.))
+    }
+  }
+
+  pub fn event() {
+
+  }
+
+  pub fn render(&self, renderer: &mut WGPURenderer) {
+
+  }
 }
