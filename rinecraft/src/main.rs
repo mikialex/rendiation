@@ -1,7 +1,7 @@
 use rendiation::*;
 
 mod rinecraft;
-mod gui;
+// mod gui;
 mod shading;
 mod util;
 mod watch;

@@ -94,11 +94,21 @@ fn test2(){
 //     lis2(&mut m2);
 //   }
 
-trait Component<T: UIInstance> {
-  fn create_ui() -> T;
+
+
+trait Component<T> {
+  fn render(&self, renderer: &mut GUIRenderer);
+  fn event(&self, state: &mut T);
 }
 
-trait UIInstance {
-  fn render(&self, renderer: &mut GUIRenderer);
-  fn event(&self, state: &mut Message);
+struct SlideBar {}
+
+struct UIState{
+  value: f32,
+  text: String,
 }
+
+fn create_ui() -> impl Component<UIState>{
+  todo!()
+}
+
