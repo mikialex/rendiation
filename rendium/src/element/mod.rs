@@ -1,5 +1,6 @@
 pub mod quad;
 pub mod fragment;
+use rendiation::WGPURenderer;
 pub use fragment::*;
 use core::any::Any;
 use rendiation_math::*;
@@ -12,7 +13,8 @@ pub struct Message<'a> {
 }
 
 pub struct RenderCtx<'a> {
-  renderer: &'a mut GUIRenderer
+  renderer: &'a GUIRenderer,
+  backend: &'a mut WGPURenderer,
 }
 
 pub trait Element {

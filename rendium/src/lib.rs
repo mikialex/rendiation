@@ -24,10 +24,10 @@ impl GUI {
   }
 
   pub fn event() {
-
+    
   }
 
   pub fn render(&self, renderer: &mut WGPURenderer) {
-
+    self.fragment.render(renderer, &self.renderer);
   }
 }

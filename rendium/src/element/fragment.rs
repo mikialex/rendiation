@@ -1,8 +1,9 @@
+use rendiation::WGPURenderer;
 use super::Message;
 use crate::element::Element;
 use crate::element::ElementState;
 use crate::event::Event;
-use crate::{Quad, renderer::GUIRenderer};
+use crate::{Quad, renderer::GUIRenderer, RenderCtx};
 use core::any::Any;
 use rendiation_math::Vec2;
 
@@ -43,8 +44,11 @@ impl ElementFragment {
     fragment
   }
 
-  pub fn add_element<T: Element>(&mut self, element: T) -> usize {
-    todo!();
+  pub fn add_element<T: Element + 'static>(&mut self, element: T) -> usize {
+    let boxed = Box::new(element);
+    let index = self.elements.len();
+    self.elements.push(boxed);
+    index
   }
 
   pub fn add_event_listener<T: FnMut(&mut Message) + 'static>(
@@ -53,6 +57,16 @@ impl ElementFragment {
     listener: T,
   ) -> usize {
     todo!();
+  }
+
+  pub fn render(&self, renderer: &mut WGPURenderer, gui_renderer: &GUIRenderer) {
+    let mut ctx =  RenderCtx {
+      renderer: gui_renderer,
+      backend: renderer,
+    };
+    for element in &self.elements {
+      element.render(&mut ctx)
+    }
   }
 
   pub fn event<T: Any>(&mut self, payload: &mut T, event: Event, point: Vec2<f32>) {
