@@ -1,13 +1,19 @@
 pub mod quad;
+pub mod fragment;
+pub use fragment::*;
 use core::any::Any;
 use rendiation_math::*;
 pub use quad::*;
 use crate::{event::Event, renderer::GUIRenderer};
-pub mod tree;
+// pub mod tree;
 
-pub trait Element<T> {
+pub struct Message<'a> {
+  target: &'a mut dyn Any,
+}
+
+pub trait Element {
   fn render(&self, renderer: &mut GUIRenderer);
-  fn event(&self, event: &Event, state: &mut T);
+  fn event(&self, event: &mut Message);
   fn get_element_state(&self) -> &ElementState;
   fn is_point_in(&self, point: Vec2<f32>) -> bool;
 }

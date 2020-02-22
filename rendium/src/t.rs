@@ -97,7 +97,7 @@ fn test2(){
 
 
 trait Component<T> {
-  fn render(&self, renderer: &mut GUIRenderer);
+  fn view(&self) -> ElementFragment;
   fn event(&self, state: &mut T);
 }
 

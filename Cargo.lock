@@ -1225,6 +1225,7 @@ version = "0.1.0"
 dependencies = [
  "rendiation 0.1.0",
  "rendiation-math 0.1.0",
+ "rendiation-render-entity 0.1.0",
  "rendiation-util 0.1.0",
  "winit 0.20.0-alpha5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

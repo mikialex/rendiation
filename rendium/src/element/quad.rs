@@ -1,7 +1,7 @@
 use crate::element::ElementState;
 use rendiation_math::*;
 use crate::{renderer::GUIRenderer, event::Event};
-use super::Element;
+use super::{Message, Element};
 
 pub struct QuadLayout {
   width: f32,
@@ -19,16 +19,14 @@ impl QuadLayout {
   }
 }
 
-pub struct Quad<C> {
-  listeners: Vec<Box<dyn Fn(&Event, &mut C)>>,
+pub struct Quad {
   pub quad: QuadLayout,
   element_state: ElementState,
 }
 
-impl<C> Quad<C> {
+impl Quad {
   pub fn new() -> Self {
     Self {
-      listeners: Vec::new(),
       quad: QuadLayout {
         width: 100.,
         height: 100.,
@@ -39,22 +37,13 @@ impl<C> Quad<C> {
     }
   }
 
-  pub fn listener<T: Fn(&Event, &mut C) + 'static>(&mut self, func: T) {
-    self.listeners.push(Box::new(func));
-  }
-
-  pub fn trigger_listener(&self, event: &Event, component_state: &mut C) {
-    for listener in self.listeners.iter() {
-      listener(event, component_state);
-    }
-  }
 }
 
-impl<T> Element<T> for Quad<T> {
+impl Element for Quad {
   fn render(&self, renderer: &mut GUIRenderer) {
     renderer.draw_rect(0.0, 0.0, 0.0, 0.0);
   }
-  fn event(&self, event: &Event, state: &mut T) {
+  fn event(&self, event: &mut Message) {
     // decide if event need handled
   }
   fn get_element_state(&self) -> &ElementState {

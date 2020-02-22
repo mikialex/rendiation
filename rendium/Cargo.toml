@@ -8,4 +8,5 @@ edition = "2018"
 winit = "0.20.0-alpha4"
 rendiation = { path = "../rendiation" }
 rendiation-math = { path = "../math" }
+rendiation-render-entity = { path = "../render-entity" }
 rendiation-util = { path = "../util" }

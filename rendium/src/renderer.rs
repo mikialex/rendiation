@@ -1,10 +1,12 @@
 use rendiation::geometry::quad_maker;
 use rendiation::*;
+use rendiation_render_entity::*;
 use rendiation_math::Vec4;
 
 pub struct GUIRenderer {
   quad: StandardGeometry,
   view: Vec4<f32>,
+  camera: OrthographicCamera,
   canvas: WGPUTexture,
 }
 
@@ -15,6 +17,7 @@ impl GUIRenderer {
     GUIRenderer {
       quad,
       view: Vec4::new(0.0, 0.0, size.0, size.1),
+      camera: OrthographicCamera::new(),
       canvas
     }
   }
