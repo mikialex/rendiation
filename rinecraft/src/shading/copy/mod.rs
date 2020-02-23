@@ -24,7 +24,7 @@ impl CopierShading {
   }
 
   pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
-    &self.pipeline.bind_group_layouts[0]
+    &self.pipeline.get_bindgroup_layout(0)
   }
 
   pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &CopyShadingParamGroup) {
@@ -35,28 +35,31 @@ impl CopierShading {
   }
 }
 
-struct CopyParam<'a> {
-  texture: &'a wgpu::TextureView,
-  sampler: &'a WGPUSampler,
-  bindgroup: Option<WGPUBindGroup>
-}
+// struct CopyParam<'a> {
+//   pub texture: &'a wgpu::TextureView,
+//   pub sampler: &'a WGPUSampler,
+//   pub bindgroup: Option<WGPUBindGroup>,
+// }
 
-pub trait BindGroupProvider {
-  fn provide_layout() -> BindGroupLayoutBuilder;
-  fn get_bindgroup(&mut self, renderer: &mut WGPURenderer) -> &WGPUBindGroup;
-}
+// pub trait BindGroupProvider {
+//   fn provide_layout() -> BindGroupLayoutBuilder;
+//   fn create_bindgroup(&mut self, renderer: &mut WGPURenderer) -> WGPUBindGroup;
+// }
 
-impl<'a> BindGroupProvider for CopyParam<'a> {
-  fn provide_layout() -> BindGroupLayoutBuilder{
-    BindGroupLayoutBuilder::new()
-    .bind_texture2d(ShaderStage::Fragment)
-    .bind_sampler(ShaderStage::Fragment)
-  }
+// impl<'a> BindGroupProvider for CopyParam<'a> {
+//   fn provide_layout() -> BindGroupLayoutBuilder {
+//     BindGroupLayoutBuilder::new()
+//       .bind_texture2d(ShaderStage::Fragment)
+//       .bind_sampler(ShaderStage::Fragment)
+//   }
 
-  fn get_bindgroup(&mut self, renderer: &mut WGPURenderer) -> &WGPUBindGroup {
-    todo!()
-  }
-}
+//   fn create_bindgroup(&mut self, renderer: &mut WGPURenderer) -> WGPUBindGroup {
+//     BindGroupBuilder::new()
+//       .texture(self.texture)
+//       .sampler(self.sampler)
+//       .build(&renderer.device, shading.get_bind_group_layout())
+//   }
+// }
 
 pub struct CopyShadingParamGroup {
   pub bindgroup: WGPUBindGroup,

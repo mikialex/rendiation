@@ -124,6 +124,9 @@ impl Application for Rinecraft {
         state.cube.render(&mut pass);
         state.world.render(&mut pass);
       }
+
+      state.gui.renderer.update_to_screen(renderer, &output.view);
+
       renderer
         .queue
         .submit(&renderer.device, &mut renderer.encoder);

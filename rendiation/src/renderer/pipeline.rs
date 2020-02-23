@@ -13,7 +13,13 @@ pub trait VertexProvider<'a> {
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
-  pub bind_group_layouts: Vec<wgpu::BindGroupLayout>,
+  bind_group_layouts: Vec<wgpu::BindGroupLayout>,
+}
+
+impl WGPUPipeline {
+  pub fn get_bindgroup_layout(&self, index: usize) -> &wgpu::BindGroupLayout{
+    &self.bind_group_layouts[index]
+  }
 }
 
 pub struct WGPUPipelineDescriptorBuilder {

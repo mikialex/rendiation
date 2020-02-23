@@ -12,7 +12,7 @@ use rendiation::WGPURenderer;
 
 pub struct GUI {
   fragment: ElementFragment,
-  renderer: GUIRenderer,
+  pub renderer: GUIRenderer,
 }
 
 impl GUI {

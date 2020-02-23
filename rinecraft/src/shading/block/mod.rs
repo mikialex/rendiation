@@ -26,7 +26,7 @@ impl BlockShading {
   }
 
   pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
-    &self.pipeline.bind_group_layouts[0]
+    &self.pipeline.get_bindgroup_layout(0)
   }
 
   pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &BlockShadingParamGroup) {
@@ -56,5 +56,9 @@ impl BlockShadingParamGroup {
         .sampler(sampler)
         .build(&renderer.device, shading.get_bind_group_layout()),
     }
+  }
+
+  pub fn provide_bindgroup_layout(){
+    
   }
 }
