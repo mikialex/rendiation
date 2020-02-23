@@ -5,7 +5,7 @@ pub struct WGPURenderPass<'a> {
 }
 
 pub struct WGPURenderPassBuilder<'a> {
-  color_attachments: Vec<(&'a wgpu::TextureView, wgpu::Color)>,
+  color_attachments: Vec<(&'a wgpu::TextureView, wgpu::Color, bool)>,
   depth_attachments: Option<&'a wgpu::TextureView>,
 }
 
@@ -19,6 +19,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
         b: 0.,
         a: 0.,
       },
+      false,
     ));
     self
   }
@@ -36,6 +37,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
         b: color.2 as f64,
         a: color.3 as f64,
       },
+      true,
     ));
     self
   }
@@ -50,9 +52,13 @@ impl<'a> WGPURenderPassBuilder<'a> {
       color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
         attachment: self.color_attachments[0].0,
         resolve_target: None,
-        load_op: wgpu::LoadOp::Clear,
+        load_op: if self.color_attachments[0].2 {
+          wgpu::LoadOp::Clear
+        } else {
+          wgpu::LoadOp::Load
+        },
         store_op: wgpu::StoreOp::Store,
-        clear_color: self.color_attachments[0].1, // todo
+        clear_color: self.color_attachments[0].1,
       }],
       depth_stencil_attachment: self.depth_attachments.map(|depth_view| {
         wgpu::RenderPassDepthStencilAttachmentDescriptor {

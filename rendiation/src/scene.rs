@@ -23,3 +23,9 @@ pub trait Background: Renderable {
 pub struct Sky{
     geometry: StandardGeometry,
 }
+
+impl Sky {
+    pub fn new() -> Self {
+        
+    }
+}
