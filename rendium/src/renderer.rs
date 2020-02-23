@@ -15,8 +15,9 @@ pub struct GUIRenderer {
 }
 
 impl GUIRenderer {
-  pub fn new(renderer: &WGPURenderer, size: (f32, f32)) -> Self {
-    let quad = StandardGeometry::new_pair(quad_maker(), &renderer);
+  pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
+    let mut quad = StandardGeometry::new_pair(quad_maker());
+    quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer.device, (size.0 as u32, size.1 as u32));
 
     let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();

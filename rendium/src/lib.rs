@@ -16,7 +16,7 @@ pub struct GUI {
 }
 
 impl GUI {
-  pub fn new(renderer: & WGPURenderer) -> Self {
+  pub fn new(renderer: &mut WGPURenderer) -> Self {
     GUI {
       fragment: ElementFragment::new(),
       renderer: GUIRenderer::new(renderer, (500., 500.))

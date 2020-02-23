@@ -22,27 +22,25 @@ pub struct StandardGeometry {
   data_changed: bool,
   index: Vec<u16>,
   index_changed: bool,
-  gpu_data: WGPUBuffer,
-  gpu_index: WGPUBuffer,
+  gpu_data: Option<WGPUBuffer>,
+  gpu_index: Option<WGPUBuffer>,
 }
 
 impl StandardGeometry {
-  pub fn new(v: Vec<Vertex>, index: Vec<u16>, renderer: &WGPURenderer) -> Self {
-    let gpu_data = WGPUBuffer::new(&renderer.device, &v, wgpu::BufferUsage::VERTEX);
-    let gpu_index = WGPUBuffer::new(&renderer.device, &index, wgpu::BufferUsage::INDEX);
+  pub fn new(v: Vec<Vertex>, index: Vec<u16>) -> Self {
     Self {
       data: v,
       data_changed: false,
       index,
       index_changed: false,
-      gpu_data,
-      gpu_index,
+      gpu_data: None,
+      gpu_index: None,
     }
   }
 
-  pub fn new_pair(data: (Vec<Vertex>, Vec<u16>), renderer: &WGPURenderer) -> Self {
+  pub fn new_pair(data: (Vec<Vertex>, Vec<u16>)) -> Self {
     let (vertex_data, index_data) = data;
-    StandardGeometry::new(vertex_data, index_data, renderer)
+    StandardGeometry::new(vertex_data, index_data)
   }
 
   pub fn get_full_count(&self) -> u32 {
@@ -68,25 +66,43 @@ impl StandardGeometry {
   }
 
   pub fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
-    if self.data_changed {
-      self
-        .gpu_data
-        .update(&renderer.device, &mut renderer.encoder, &self.data);
+
+    if let Some(gpu_data) = &mut self.gpu_data {
+      if self.data_changed {
+        gpu_data
+          .update(&renderer.device, &mut renderer.encoder, &self.data);
+      }
+    } else {
+      self.gpu_data = Some(WGPUBuffer::new(&renderer.device, &self.data, wgpu::BufferUsage::VERTEX))
     }
-    if self.index_changed {
-      self
-        .gpu_index
-        .update(&renderer.device, &mut renderer.encoder, &self.index);
+
+    if let Some(gpu_index) = &mut self.gpu_index {
+      if self.index_changed {
+        gpu_index
+          .update(&renderer.device, &mut renderer.encoder, &self.index);
+      }
+    } else {
+      self.gpu_index = Some(WGPUBuffer::new(&renderer.device, &self.index, wgpu::BufferUsage::INDEX))
     }
+
   }
 
   pub fn provide_geometry(&self, pass: &mut WGPURenderPass) {
-    pass
+    if let Some(gpu_data) = &self.gpu_data {
+      pass
       .gpu_pass
-      .set_index_buffer(self.gpu_index.get_gpu_buffer(), 0);
-    pass
+      .set_vertex_buffers(0, &[(gpu_data.get_gpu_buffer(), 0)]);
+    } else {
+      panic!("geometry not prepared")
+    }
+
+    if let Some(gpu_index) = &self.gpu_index {
+      pass
       .gpu_pass
-      .set_vertex_buffers(0, &[(self.gpu_data.get_gpu_buffer(), 0)]);
+      .set_index_buffer(gpu_index.get_gpu_buffer(), 0);
+    } else {
+      panic!("geometry not prepared")
+    }
   }
 
   pub fn render(&self, pass: &mut WGPURenderPass) {

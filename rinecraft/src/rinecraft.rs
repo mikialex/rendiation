@@ -49,7 +49,8 @@ impl Application for Rinecraft {
     let shading = BlockShading::new(renderer, &depth);
 
     // Create the vertex and index buffers
-    let cube = StandardGeometry::new_pair(create_vertices(), &renderer);
+    let mut cube = StandardGeometry::new_pair(create_vertices());
+    cube.update_gpu(renderer);
 
     // Create other resources
     let sampler = WGPUSampler::new(&renderer.device);

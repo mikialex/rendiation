@@ -26,6 +26,6 @@ pub struct Sky{
 
 impl Sky {
     pub fn new() -> Self {
-        
+        todo!()
     }
 }

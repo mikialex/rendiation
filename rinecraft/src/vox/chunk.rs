@@ -147,7 +147,9 @@ impl Chunk {
       }
     }
 
-    StandardGeometry::new(new_vertex, new_index, renderer)
+    let mut geom = StandardGeometry::new(new_vertex, new_index);
+    geom.update_gpu(renderer);
+    geom
   }
 
   pub fn iter<'a>(&'a self) -> ChunkDataIterator<'a> {
