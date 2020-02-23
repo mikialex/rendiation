@@ -1,3 +1,4 @@
+use crate::renderer::WGPURenderer;
 use crate::renderer::bindgroup_layout::BindGroupLayoutBuilder;
 use crate::WGPUTexture;
 
@@ -41,18 +42,18 @@ impl<'a> WGPUPipelineDescriptorBuilder {
     }
   }
 
-  pub fn with_depth_target(&mut self, target: &WGPUTexture) -> &mut Self {
+  pub fn with_depth_stencil(&mut self, target: &WGPUTexture) -> &mut Self {
     self.depth_format = Some(*target.format());
     self
   }
 
-  pub fn with_color_target(&mut self, target: &WGPUTexture) -> &mut Self {
+  pub fn to_color_target(&mut self, target: &WGPUTexture) -> &mut Self {
     self.color_target_format = *target.format();
     self
   }
 
-  pub fn with_swapchain_target(&mut self, des: &wgpu::SwapChainDescriptor) -> &mut Self {
-    self.color_target_format = des.format;
+  pub fn to_screen_target(&mut self, renderer: &WGPURenderer) -> &mut Self {
+    self.color_target_format = renderer.swap_chain_format;
     self
   }
 

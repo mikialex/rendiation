@@ -17,8 +17,8 @@ impl BlockShading {
           .bind_texture2d(ShaderStage::Fragment)
           .bind_sampler(ShaderStage::Fragment)
       )
-      .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor)
-      .with_depth_target(depth_target);
+      .to_screen_target(&renderer)
+      .with_depth_stencil(depth_target);
 
     let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
 

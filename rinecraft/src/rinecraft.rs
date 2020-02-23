@@ -1,4 +1,5 @@
 use crate::application::*;
+use crate::application::RenderCtx;
 use crate::geometry::*;
 use crate::init::init_orbit_controller;
 use crate::renderer::*;
@@ -33,7 +34,7 @@ pub struct RinecraftState {
 }
 
 impl Application for Rinecraft {
-  fn init(renderer: &mut WGPURenderer) -> Self {
+  fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
     let gui = GUI::new(renderer);
 
     let mut world = World::new();
@@ -42,7 +43,7 @@ impl Application for Rinecraft {
     let depth = WGPUTexture::new_as_depth(
       &renderer.device,
       wgpu::TextureFormat::Depth32Float,
-      renderer.size,
+      swap_chain.size,
     );
 
     let shading = BlockShading::new(renderer, &depth);
@@ -54,28 +55,30 @@ impl Application for Rinecraft {
     let sampler = WGPUSampler::new(&renderer.device);
 
     let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
-    camera.resize((renderer.size.0 as f32, renderer.size.1 as f32));
+    camera.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
-    camera_orth.resize((renderer.size.0 as f32, renderer.size.1 as f32));
+    camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let buffer = camera.get_update_gpu(renderer);
     let shading_params =
       BlockShadingParamGroup::new(&renderer, &shading, &block_atlas.view(), &sampler, buffer);
 
-    let viewport = Viewport::new(renderer.size);
+    let viewport = Viewport::new(swap_chain.size);
 
     let mut window_session = WindowEventSession::new();
 
     window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
-      state.viewport.set_size(renderer.size.0 as f32, renderer.size.1 as f32);
-      state.depth.resize(&renderer.device, renderer.size);
+      let swap_chain = &mut renderer.swap_chain;
+      let renderer = &mut renderer.renderer;
+      state.viewport.set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
+      state.depth.resize(&renderer.device, swap_chain.size);
       state
         .camera
-        .resize((renderer.size.0 as f32, renderer.size.1 as f32));
+        .resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
       state
         .camera_orth
-        .resize((renderer.size.0 as f32, renderer.size.1 as f32));
+        .resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
       state.camera.get_update_gpu(renderer);
       state.camera_orth.get_update_gpu(renderer);
     });
@@ -93,6 +96,8 @@ impl Application for Rinecraft {
 
     // render
     window_session.add_events_clear_listener(|state, renderer| {
+      let swap_chain = &mut renderer.swap_chain;
+      let renderer = &mut renderer.renderer;
       state
         .orbit_controller
         .update(&mut state.camera_orth as &mut ViewFrustumOrthographicCamera);
@@ -109,7 +114,7 @@ impl Application for Rinecraft {
 
       state.gui.render(renderer);
 
-      let output = renderer.swap_chain.request_output();
+      let output = swap_chain.request_output();
 
       {
         let mut pass = WGPURenderPass::build()
@@ -125,7 +130,7 @@ impl Application for Rinecraft {
         state.world.render(&mut pass);
       }
 
-      state.gui.renderer.update_to_screen(renderer, &output.view);
+      // state.gui.renderer.update_to_screen(renderer, &output.view);
 
       renderer
         .queue
@@ -134,10 +139,10 @@ impl Application for Rinecraft {
 
     let window_state = WindowState::new(
       (
-        renderer.size.0 as f32 / renderer.hidpi_factor,
-        renderer.size.1 as f32 / renderer.hidpi_factor,
+        swap_chain.size.0 as f32 / swap_chain.hidpi_factor,
+        swap_chain.size.1 as f32 / swap_chain.hidpi_factor,
       ),
-      renderer.hidpi_factor,
+      swap_chain.hidpi_factor,
     );
 
     // Done
@@ -161,7 +166,7 @@ impl Application for Rinecraft {
     }
   }
 
-  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer) {
+  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut RenderCtx) {
     self.state.window_state.event(event.clone());
     self.window_session.event(event, &mut self.state, renderer);
   }

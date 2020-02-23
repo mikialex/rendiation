@@ -10,7 +10,8 @@ pub struct GUIRenderer {
   camera_gpu_buffer: WGPUBuffer,
   canvas: WGPUTexture,
   quad_pipeline: WGPUPipeline,
-  // copy_screen_pipeline: WGPUPipeline,
+  copy_screen_sampler: WGPUSampler,
+  copy_screen_pipeline: WGPUPipeline,
 }
 
 impl GUIRenderer {
@@ -26,7 +27,7 @@ impl GUIRenderer {
         BindGroupLayoutBuilder::new()
           .bind_uniform_buffer(ShaderStage::Vertex)
       )
-      .with_color_target(&canvas);
+      .to_color_target(&canvas);
 
     let quad_pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
 
@@ -49,8 +50,10 @@ impl GUIRenderer {
           .bind_texture2d(ShaderStage::Fragment)
           .bind_sampler(ShaderStage::Fragment),
       )
-      .with_swapchain_target(&renderer.swap_chain.swap_chain_descriptor);
+      .to_screen_target(&renderer);
 
+    let copy_screen_pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
+    let copy_screen_sampler =  WGPUSampler::new(&renderer.device);
     GUIRenderer {
       quad,
       view: Vec4::new(0.0, 0.0, size.0, size.1),
@@ -58,19 +61,22 @@ impl GUIRenderer {
       camera_gpu_buffer,
       canvas,
       quad_pipeline,
+      copy_screen_pipeline,
+      copy_screen_sampler,
     }
   }
 
   pub fn update_to_screen(&self, renderer: &mut WGPURenderer, screen_view: &wgpu::TextureView){
     let bindgroup = BindGroupBuilder::new()
-    .buffer(&self.camera_gpu_buffer)
-    .build(&renderer.device, &self.quad_pipeline.get_bindgroup_layout(0));
+    .texture(self.canvas.view())
+    .sampler(&self.copy_screen_sampler)
+    .build(&renderer.device, &self.copy_screen_pipeline.get_bindgroup_layout(0));
 
     let mut pass = WGPURenderPass::build()
       .output(screen_view)
       .create(&mut renderer.encoder);
 
-    pass.gpu_pass.set_pipeline(&self.quad_pipeline.pipeline);
+    pass.gpu_pass.set_pipeline(&self.copy_screen_pipeline.pipeline);
     pass
       .gpu_pass
       .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);

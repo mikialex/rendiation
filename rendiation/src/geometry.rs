@@ -28,8 +28,8 @@ pub struct StandardGeometry {
 
 impl StandardGeometry {
   pub fn new(v: Vec<Vertex>, index: Vec<u16>, renderer: &WGPURenderer) -> Self {
-    let gpu_data = renderer.create_vertex_buffer(&v);
-    let gpu_index = renderer.create_index_buffer(&index);
+    let gpu_data = WGPUBuffer::new(&renderer.device, &v, wgpu::BufferUsage::VERTEX);
+    let gpu_index = WGPUBuffer::new(&renderer.device, &index, wgpu::BufferUsage::INDEX);
     Self {
       data: v,
       data_changed: false,

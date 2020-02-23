@@ -1,9 +1,14 @@
 use crate::renderer::*;
 use winit::event::WindowEvent;
 
+pub struct RenderCtx<'a> {
+  pub renderer: &'a mut WGPURenderer,
+  pub swap_chain: &'a mut SwapChain,
+}
+
 pub trait Application: 'static + Sized {
-  fn init(renderer: &mut WGPURenderer) -> Self;
-  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut WGPURenderer);
+  fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self;
+  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut RenderCtx);
 }
 
 pub fn run<E: Application>(title: &str) {
@@ -47,14 +52,16 @@ pub fn run<E: Application>(title: &str) {
     (window, instance, hidpi_factor, size, surface)
   };
 
-  let mut renderer = WGPURenderer::new(
-    surface,
+  let mut renderer = WGPURenderer::new();
+
+  let mut swap_chain = SwapChain::new(surface, 
     (size.width.round() as usize, size.height.round() as usize),
+    &renderer,
     hidpi_factor as f32,
   );
 
   log::info!("Initializing the example...");
-  let mut example = E::init(&mut renderer);
+  let mut example = E::init(&mut renderer, &swap_chain);
 
   log::info!("Entering render loop...");
   event_loop.run(move |event, _, control_flow| {
@@ -66,10 +73,10 @@ pub fn run<E: Application>(title: &str) {
       } => {
         let physical = size.to_physical(hidpi_factor);
         log::info!("Resizing to {:?}", physical);
-        renderer.resize((
+        swap_chain.resize((
           physical.width.round() as usize,
           physical.height.round() as usize,
-        ));
+        ), &renderer.device);
       }
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::CloseRequested => {
@@ -79,6 +86,12 @@ pub fn run<E: Application>(title: &str) {
       },
       _ => (),
     }
-    example.update(event_clone, &mut renderer);
+
+    let mut ctx= RenderCtx {
+      renderer: &mut renderer,
+      swap_chain: &mut swap_chain,
+    };
+
+    example.update(event_clone, &mut ctx);
   });
 }

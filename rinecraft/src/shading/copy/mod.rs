@@ -16,7 +16,7 @@ impl CopierShading {
           .bind_texture2d(ShaderStage::Fragment)
           .bind_sampler(ShaderStage::Fragment),
       )
-      .with_color_target(target);
+      .to_color_target(target);
 
     let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
 
