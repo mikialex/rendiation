@@ -35,31 +35,47 @@ impl CopierShading {
   }
 }
 
-// struct CopyParam<'a> {
-//   pub texture: &'a wgpu::TextureView,
-//   pub sampler: &'a WGPUSampler,
-//   pub bindgroup: Option<WGPUBindGroup>,
-// }
+struct CopyParam<'a> {
+  pub texture: &'a wgpu::TextureView,
+  pub sampler: &'a WGPUSampler,
+  pub bindgroup: Option<WGPUBindGroup>,
+}
 
-// pub trait BindGroupProvider {
-//   fn provide_layout() -> BindGroupLayoutBuilder;
-//   fn create_bindgroup(&mut self, renderer: &mut WGPURenderer) -> WGPUBindGroup;
-// }
+static mut COPY_PARAM_LAYOUT: Option<wgpu::BindGroupLayout> = None;
 
-// impl<'a> BindGroupProvider for CopyParam<'a> {
-//   fn provide_layout() -> BindGroupLayoutBuilder {
-//     BindGroupLayoutBuilder::new()
-//       .bind_texture2d(ShaderStage::Fragment)
-//       .bind_sampler(ShaderStage::Fragment)
-//   }
+impl<'a> BindGroupProvider for CopyParam<'a> {
+  fn provide_layout(renderer: &WGPURenderer) -> &'static wgpu::BindGroupLayout {
+    unsafe {
+      if let Some(layout) = &COPY_PARAM_LAYOUT {
+        &layout
+      } else {
+        let builder = BindGroupLayoutBuilder::new()
+          .bind_texture2d(ShaderStage::Fragment)
+          .bind_sampler(ShaderStage::Fragment);
+        let layout = renderer
+          .device
+          .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            bindings: &builder.bindings,
+          });
+        COPY_PARAM_LAYOUT = Some(layout);
+        COPY_PARAM_LAYOUT.as_ref().unwrap()
+      }
+    }
+  }
 
-//   fn create_bindgroup(&mut self, renderer: &mut WGPURenderer) -> WGPUBindGroup {
-//     BindGroupBuilder::new()
-//       .texture(self.texture)
-//       .sampler(self.sampler)
-//       .build(&renderer.device, shading.get_bind_group_layout())
-//   }
-// }
+  fn create_bindgroup(&mut self, renderer: &WGPURenderer) -> WGPUBindGroup {
+    BindGroupBuilder::new()
+      .texture(self.texture)
+      .sampler(self.sampler)
+      .build(&renderer.device, CopyParam::provide_layout(renderer))
+  }
+}
+
+pub trait BindGroupProvider {
+  fn provide_layout(renderer: &WGPURenderer) -> &'static wgpu::BindGroupLayout;
+  fn create_bindgroup(&mut self, renderer: &WGPURenderer) -> WGPUBindGroup;
+}
+
 
 pub struct CopyShadingParamGroup {
   pub bindgroup: WGPUBindGroup,

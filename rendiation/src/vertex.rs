@@ -18,8 +18,8 @@ impl Vertex {
   }
 }
 
-impl<'a> VertexProvider<'a> for Vertex {
-  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'a> {
+impl VertexProvider for Vertex {
+  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static> {
     use std::mem;
     wgpu::VertexBufferDescriptor {
       stride: mem::size_of::<Self>() as wgpu::BufferAddress,

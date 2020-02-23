@@ -2,14 +2,14 @@ use crate::renderer::WGPURenderer;
 use crate::renderer::bindgroup_layout::BindGroupLayoutBuilder;
 use crate::WGPUTexture;
 
-pub trait GeometryProvider<'a> {
-  fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'a>>;
+pub trait GeometryProvider {
+  fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'static>>;
   fn get_index_format() -> wgpu::IndexFormat;
 }
 
 /// impl your custom vertex data layout
-pub trait VertexProvider<'a> {
-  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'a>;
+pub trait VertexProvider {
+  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static>;
 }
 
 pub struct WGPUPipeline {
@@ -31,7 +31,7 @@ pub struct WGPUPipelineDescriptorBuilder {
   pub color_target_format: wgpu::TextureFormat,
 }
 
-impl<'a> WGPUPipelineDescriptorBuilder {
+impl WGPUPipelineDescriptorBuilder {
   pub fn new() -> Self {
     WGPUPipelineDescriptorBuilder {
       vertex_shader: String::from(""),
@@ -72,7 +72,7 @@ impl<'a> WGPUPipelineDescriptorBuilder {
     self
   }
 
-  pub fn build<T: GeometryProvider<'a>>(&self, device: &wgpu::Device) -> WGPUPipeline {
+  pub fn build<T: GeometryProvider>(&self, device: &wgpu::Device) -> WGPUPipeline {
     let bind_group_layouts: Vec<_> = self
       .binding_groups
       .iter()
