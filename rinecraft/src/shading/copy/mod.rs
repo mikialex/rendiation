@@ -7,27 +7,23 @@ pub struct CopierShading {
 
 impl CopierShading {
   pub fn new(renderer: &WGPURenderer, target: &WGPUTexture) -> Self {
-    let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-    pipeline_builder
-      .vertex_shader(include_str!("./copy.vert"))
-      .frag_shader(include_str!("./copy.frag"))
-      .binding_group(
-        BindGroupLayoutBuilder::new()
-          .bind_texture2d(ShaderStage::Fragment)
-          .bind_sampler(ShaderStage::Fragment),
-      )
-      .to_color_target(target);
+    let mut pipeline_builder = StaticPipelineBuilder::new(
+      &renderer,
+      include_str!("./copy.vert"),
+      include_str!("./copy.frag"),
+    );
+    let pipeline = pipeline_builder
+      .binding_group::<CopyParam>()
+      .geometry::<StandardGeometry>()
+      .to_color_target(target)
+      .build();
 
-    let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
-
-    Self { pipeline }
+    Self {
+      pipeline,
+    }
   }
 
-  pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
-    &self.pipeline.get_bindgroup_layout(0)
-  }
-
-  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &CopyShadingParamGroup) {
+  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &CopyParamGPU) {
     pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
     pass
       .gpu_pass
@@ -71,28 +67,17 @@ impl<'a> BindGroupProvider for CopyParam<'a> {
   }
 }
 
-pub trait BindGroupProvider {
-  fn provide_layout(renderer: &WGPURenderer) -> &'static wgpu::BindGroupLayout;
-  fn create_bindgroup(&mut self, renderer: &WGPURenderer) -> WGPUBindGroup;
-}
-
-
-pub struct CopyShadingParamGroup {
+pub struct CopyParamGPU {
   pub bindgroup: WGPUBindGroup,
 }
 
-impl CopyShadingParamGroup {
+impl CopyParamGPU {
   pub fn new(
     renderer: &WGPURenderer,
-    shading: &CopierShading,
-    texture_view: &wgpu::TextureView,
-    sampler: &WGPUSampler,
+    param: &CopyParam,
   ) -> Self {
     Self {
-      bindgroup: BindGroupBuilder::new()
-        .texture(texture_view)
-        .sampler(sampler)
-        .build(&renderer.device, shading.get_bind_group_layout()),
+      bindgroup: param.create_bindgroup(renderer)
     }
   }
 }

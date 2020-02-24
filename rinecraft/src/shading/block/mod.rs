@@ -7,26 +7,28 @@ pub struct BlockShading {
 
 impl BlockShading {
   pub fn new(renderer: &WGPURenderer, depth_target: &WGPUTexture) -> Self {
-    let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-    pipeline_builder
-      .vertex_shader(include_str!("./block.vert"))
-      .frag_shader(include_str!("./block.frag"))
-      .binding_group(
-        BindGroupLayoutBuilder::new()
-          .bind_uniform_buffer(ShaderStage::Vertex)
-          .bind_texture2d(ShaderStage::Fragment)
-          .bind_sampler(ShaderStage::Fragment)
-      )
-      .to_screen_target(&renderer)
-      .with_depth_stencil(depth_target);
+    todo!();
+    // let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
+    // pipeline_builder
+    //   .vertex_shader(include_str!("./block.vert"))
+    //   .frag_shader(include_str!("./block.frag"))
+    //   .binding_group(
+    //     BindGroupLayoutBuilder::new()
+    //       .bind_uniform_buffer(ShaderStage::Vertex)
+    //       .bind_texture2d(ShaderStage::Fragment)
+    //       .bind_sampler(ShaderStage::Fragment)
+    //   )
+    //   .to_screen_target(&renderer)
+    //   .with_depth_stencil(depth_target);
 
-    let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
+    // let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
 
-    Self { pipeline }
+    // Self { pipeline }
   }
 
   pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
-    &self.pipeline.get_bindgroup_layout(0)
+    todo!();
+    // &self.pipeline.get_bindgroup_layout(0)
   }
 
   pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &BlockShadingParamGroup) {

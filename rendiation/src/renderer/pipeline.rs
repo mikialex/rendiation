@@ -82,7 +82,8 @@ impl<'a> StaticPipelineBuilder<'a> {
     self
   }
 
-  pub fn build(&self, device: &wgpu::Device) -> WGPUPipeline {
+  pub fn build(&self) -> WGPUPipeline {
+    let device = &self.renderer.device;
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       bind_group_layouts: &self.bindgroup_layouts,
     });
