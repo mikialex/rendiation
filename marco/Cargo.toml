@@ -1,0 +1,15 @@
+[package]
+name = "rendiation-marco"
+version = "0.0.1"
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0.11"
+quote = "1.0.2"
+proc-macro2 = "1.0.4"
+
+[dev-dependencies]
+rendiation = { path = "../rendiation", version = "0.1.0" }
