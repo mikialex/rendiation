@@ -14,22 +14,9 @@ pub trait GeometryProvider {
   fn get_index_format() -> wgpu::IndexFormat;
 }
 
-pub struct ShaderParamGPU<T> {
-  pub bindgroup: WGPUBindGroup,
-  phantom: PhantomData<*const T>,
-}
-impl<T> ShaderParamGPU<T>{
-  pub fn new(bindgroup: WGPUBindGroup) -> Self {
-    ShaderParamGPU {
-      bindgroup,
-      phantom: PhantomData::default(),
-    }
-  }
-}
-
 pub trait BindGroupProvider: Sized {
   fn provide_layout(renderer: &WGPURenderer) -> &'static wgpu::BindGroupLayout;
-  fn create_bindgroup(&self, renderer: &WGPURenderer) -> ShaderParamGPU<Self>;
+  fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup;
 }
 
 pub struct StaticPipelineBuilder<'a> {

@@ -18,16 +18,12 @@ impl CopierShading {
       .to_color_target(target)
       .build();
 
-    Self {
-      pipeline,
-    }
+    Self { pipeline }
   }
 
-  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &ShaderParamGPU<CopyParam>) {
+  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &WGPUBindGroup) {
     pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
-    pass
-      .gpu_pass
-      .set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
+    pass.gpu_pass.set_bind_group(0, &param.gpu_bindgroup, &[]);
   }
 }
 
@@ -58,13 +54,10 @@ impl<'a> BindGroupProvider for CopyParam<'a> {
     }
   }
 
-  fn create_bindgroup(&self, renderer: &WGPURenderer) -> ShaderParamGPU<Self> {
-    let bindgroup = BindGroupBuilder::new()
+  fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup {
+    BindGroupBuilder::new()
       .texture(self.texture)
       .sampler(self.sampler)
-      .build(&renderer.device, CopyParam::provide_layout(renderer));
-
-      ShaderParamGPU::<Self>::new(bindgroup)
+      .build(&renderer.device, CopyParam::provide_layout(renderer))
   }
 }
-
