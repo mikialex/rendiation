@@ -31,10 +31,9 @@ impl CopierShading {
   }
 }
 
-struct CopyParam<'a> {
+pub struct CopyParam<'a> {
   pub texture: &'a wgpu::TextureView,
   pub sampler: &'a WGPUSampler,
-  pub bindgroup: Option<WGPUBindGroup>,
 }
 
 static mut COPY_PARAM_LAYOUT: Option<wgpu::BindGroupLayout> = None;
@@ -59,7 +58,7 @@ impl<'a> BindGroupProvider for CopyParam<'a> {
     }
   }
 
-  fn create_bindgroup(&mut self, renderer: &WGPURenderer) -> ShaderParamGPU<Self> {
+  fn create_bindgroup(&self, renderer: &WGPURenderer) -> ShaderParamGPU<Self> {
     let bindgroup = BindGroupBuilder::new()
       .texture(self.texture)
       .sampler(self.sampler)
