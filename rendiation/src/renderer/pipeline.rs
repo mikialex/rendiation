@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use crate::renderer::texture::WGPUTexture;
 use crate::{WGPUBindGroup, WGPURenderer};
 
@@ -13,9 +14,22 @@ pub trait GeometryProvider {
   fn get_index_format() -> wgpu::IndexFormat;
 }
 
-pub trait BindGroupProvider {
+pub struct ShaderParamGPU<T> {
+  pub bindgroup: WGPUBindGroup,
+  phantom: PhantomData<T>,
+}
+impl<T> ShaderParamGPU<T>{
+  pub fn new(bindgroup: WGPUBindGroup) -> Self {
+    ShaderParamGPU {
+      bindgroup,
+      phantom: PhantomData::default(),
+    }
+  }
+}
+
+pub trait BindGroupProvider: Sized {
   fn provide_layout(renderer: &WGPURenderer) -> &'static wgpu::BindGroupLayout;
-  fn create_bindgroup(&mut self, renderer: &WGPURenderer) -> WGPUBindGroup;
+  fn create_bindgroup(&mut self, renderer: &WGPURenderer) -> ShaderParamGPU<Self>;
 }
 
 pub struct StaticPipelineBuilder<'a> {

@@ -145,56 +145,57 @@ impl BlockRegistry {
   }
 
   pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
-    // todo filter same face
-    let mut face_list: Vec<Rc<BlockFaceTextureInfo>> = Vec::new();
-    face_list.push(self.lut[0].top_texture.clone());
-    face_list.push(self.lut[1].top_texture.clone());
-    face_list.push(self.lut[2].top_texture.clone());
-    face_list.push(self.lut[2].x_max_texture.clone());
+    todo!()
+    // // todo filter same face
+    // let mut face_list: Vec<Rc<BlockFaceTextureInfo>> = Vec::new();
+    // face_list.push(self.lut[0].top_texture.clone());
+    // face_list.push(self.lut[1].top_texture.clone());
+    // face_list.push(self.lut[2].top_texture.clone());
+    // face_list.push(self.lut[2].x_max_texture.clone());
 
-    pub fn tex(imgd: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
-      let img = imgd.as_rgba8().unwrap().clone();
-      let size = (img.width(), img.height(), 1);
-      let data = img.into_raw();
-      WGPUTexture::new_from_image_data(&renderer.device, &mut renderer.encoder, &data, size)
-    }
+    // pub fn tex(imgd: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
+    //   let img = imgd.as_rgba8().unwrap().clone();
+    //   let size = (img.width(), img.height(), 1);
+    //   let data = img.into_raw();
+    //   WGPUTexture::new_from_image_data(&renderer.device, &mut renderer.encoder, &data, size)
+    // }
 
-    let mut quad = StandardGeometry::from(quad_maker());
-    quad.update_gpu(renderer);
-    let sampler = WGPUSampler::new(&renderer.device);
-    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 64));
+    // let mut quad = StandardGeometry::from(quad_maker());
+    // quad.update_gpu(renderer);
+    // let sampler = WGPUSampler::new(&renderer.device);
+    // let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 64));
 
-    {
-      let copy_shading = CopierShading::new(renderer, &target_texture);
-      let dest_size_width = 64.;
+    // {
+    //   let copy_shading = CopierShading::new(renderer, &target_texture);
+    //   let dest_size_width = 64.;
 
-      let gpu: Vec<_> = face_list
-        .iter()
-        .map(|face| {
-          let src_tex = tex(&face.img, renderer);
-          let params =
-            CopyShadingParamGroup::new(renderer, &copy_shading, src_tex.view(), &sampler);
+    //   let gpu: Vec<_> = face_list
+    //     .iter()
+    //     .map(|face| {
+    //       let src_tex = tex(&face.img, renderer);
+    //       let params =
+    //         CopyShadingParamGroup::new(renderer, &copy_shading, src_tex.view(), &sampler);
 
-          let mut viewport = Viewport::new((32, 32));
-          viewport.x = face.pack_info.x * dest_size_width;
-          viewport.y = face.pack_info.y * dest_size_width;
-          viewport.w = face.pack_info.w * dest_size_width;
-          viewport.h = face.pack_info.h * dest_size_width;
-          (params, viewport)
-        })
-        .collect();
+    //       let mut viewport = Viewport::new((32, 32));
+    //       viewport.x = face.pack_info.x * dest_size_width;
+    //       viewport.y = face.pack_info.y * dest_size_width;
+    //       viewport.w = face.pack_info.w * dest_size_width;
+    //       viewport.h = face.pack_info.h * dest_size_width;
+    //       (params, viewport)
+    //     })
+    //     .collect();
 
-      let mut pass = WGPURenderPass::build()
-        .output_with_clear(target_texture.view(), (0., 0., 0., 1.0))
-        .create(&mut renderer.encoder);
+    //   let mut pass = WGPURenderPass::build()
+    //     .output_with_clear(target_texture.view(), (0., 0., 0., 1.0))
+    //     .create(&mut renderer.encoder);
 
-      for (params, viewport) in gpu {
-        pass.use_viewport(&viewport);
-        copy_shading.provide_pipeline(&mut pass, &params);
-        quad.render(&mut pass);
-      }
-    }
+    //   for (params, viewport) in gpu {
+    //     pass.use_viewport(&viewport);
+    //     copy_shading.provide_pipeline(&mut pass, &params);
+    //     quad.render(&mut pass);
+    //   }
+    // }
 
-    target_texture
+    // target_texture
   }
 }
