@@ -8,7 +8,6 @@ pub mod sampler;
 pub mod shader_util;
 pub mod texture;
 pub mod swap_chain;
-pub mod pipeline_builder;
 
 pub use bindgroup::*;
 pub use buffer::*;
