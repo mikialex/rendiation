@@ -13,6 +13,7 @@ env_logger = "0.7"
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
+rendiation-marco = { path = "../marco" }
 rendiation = { path ="../rendiation" }
 rendium = { path = "../rendium" }
 image = "*"

@@ -1274,6 +1274,7 @@ dependencies = [
  "image 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "noise 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rendiation 0.1.0",
+ "rendiation-marco 0.0.1",
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
  "rendiation-render-entity 0.1.0",
