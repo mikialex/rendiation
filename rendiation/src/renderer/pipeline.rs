@@ -91,8 +91,8 @@ impl<'a> StaticPipelineBuilder<'a> {
 
      // Create the render pipeline
      use crate::renderer::shader_util::*;
-     let vs_bytes = load_glsl(&self.vertex_shader, ShaderStage::Vertex);
-     let fs_bytes = load_glsl(&self.frag_shader, ShaderStage::Fragment);
+     let vs_bytes = load_glsl(&self.vertex_shader, ShaderType::Vertex);
+     let fs_bytes = load_glsl(&self.frag_shader, ShaderType::Fragment);
      let vs_module = device.create_shader_module(&vs_bytes);
      let fs_module = device.create_shader_module(&fs_bytes);
  

@@ -1,13 +1,13 @@
-use crate::renderer::shader_util::ShaderStage;
+use crate::renderer::shader_util::ShaderType;
 
 pub struct BindGroupLayoutBuilder {
   pub bindings: Vec<wgpu::BindGroupLayoutBinding>,
 }
 
-fn shader_stage_convert(s: ShaderStage) -> wgpu::ShaderStage {
+fn shader_stage_convert(s: ShaderType) -> wgpu::ShaderStage {
   match s {
-    ShaderStage::Fragment => wgpu::ShaderStage::FRAGMENT,
-    ShaderStage::Vertex => wgpu::ShaderStage::VERTEX,
+    ShaderType::Fragment => wgpu::ShaderStage::FRAGMENT,
+    ShaderType::Vertex => wgpu::ShaderStage::VERTEX,
     _ => panic!()
   }
 }
@@ -27,7 +27,7 @@ impl BindGroupLayoutBuilder {
 
   // }
 
-  pub fn bind_uniform_buffer(mut self, visibility: ShaderStage) -> Self {
+  pub fn bind_uniform_buffer(mut self, visibility: ShaderType) -> Self {
     let bindpoint = self.bindings.len() as u32;
     let visibility = shader_stage_convert(visibility);
     self.bindings.push(wgpu::BindGroupLayoutBinding {
@@ -38,7 +38,7 @@ impl BindGroupLayoutBuilder {
     self
   }
 
-  pub fn bind_texture2d(mut self, visibility: ShaderStage) -> Self {
+  pub fn bind_texture2d(mut self, visibility: ShaderType) -> Self {
     let bindpoint = self.bindings.len() as u32;
     let visibility = shader_stage_convert(visibility);
     self.bindings.push(wgpu::BindGroupLayoutBinding {
@@ -52,7 +52,7 @@ impl BindGroupLayoutBuilder {
     self
   }
 
-  pub fn bind_sampler(mut self, visibility: ShaderStage) -> Self {
+  pub fn bind_sampler(mut self, visibility: ShaderType) -> Self {
     let bindpoint = self.bindings.len() as u32;
     let visibility = shader_stage_convert(visibility);
     self.bindings.push(wgpu::BindGroupLayoutBinding {

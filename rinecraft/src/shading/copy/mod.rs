@@ -41,8 +41,8 @@ impl<'a> BindGroupProvider for CopyParam<'a> {
         &layout
       } else {
         let builder = BindGroupLayoutBuilder::new()
-          .bind_texture2d(ShaderStage::Fragment)
-          .bind_sampler(ShaderStage::Fragment);
+          .bind_texture2d(ShaderType::Fragment)
+          .bind_sampler(ShaderType::Fragment); 
         let layout = renderer
           .device
           .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

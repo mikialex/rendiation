@@ -18,3 +18,5 @@ pub use vertex::*;
 pub use geometry::*;
 pub use viewport::*;
 // pub use texture::*;
+
+pub use wgpu::*;
