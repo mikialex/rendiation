@@ -3,7 +3,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
-#[proc_macro_derive(BindGroup)]
+#[proc_macro_derive(BindGroup, attributes(bind_type))]
 pub fn derive_lens(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
   derive_bindgroup_impl(input)
@@ -30,18 +30,82 @@ pub(crate) fn derive_bindgroup_impl(
   }
 }
 
+enum BindGroupType {
+  Texture2d,
+  Sampler,
+}
+
+enum ShaderType{
+  Fragment,
+  Vertex
+}
+
 fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
-  // todo!()
   let struct_name = &input.ident;
   let struct_generic = &input.generics;
   let static_name_string = struct_name.to_string() + "_bindgroup_layout";
-  let static_bindgroup_name = proc_macro2::Ident::new(&static_name_string, proc_macro2::Span::call_site());
-  
+  let static_bindgroup_name =
+    proc_macro2::Ident::new(&static_name_string, proc_macro2::Span::call_site());
+
   let struct_bindgroup_static = {
     quote! {
         static mut #static_bindgroup_name : Option<rendiation::BindGroupLayout> = None;
     }
   };
+
+  let fields = if let syn::Data::Struct(syn::DataStruct {
+    fields: syn::Fields::Named(syn::FieldsNamed { ref named, .. }),
+    ..
+  }) = input.data
+  {
+    named
+  } else {
+    return Err(syn::Error::new(
+      input.span(),
+      "BindGroup implementations can only be derived from structs with named fields",
+    ));
+  };
+
+  let defs = fields.iter().filter_map(|f| {
+    let field_name = &f.ident;
+    // let ty = &f.ty;
+    let attr = f.attrs.iter().find(|a| a.path.is_ident("bind_type"))?;
+
+    let parse = match attr.parse_meta() {
+      Ok(syn::Meta::NameValue(nv)) => Ok(nv),
+      Ok(_) => Err(
+        syn::Error::new_spanned(attr, "attribute should be in the format of a name value")
+          .to_compile_error(),
+      ),
+      Err(e) => Err(e.to_compile_error()),
+    };
+    let parse =parse.unwrap().lit; // todo
+    let parse = match parse {
+      syn::Lit::Str(s) => {Some(s.value())},
+      _ => None,
+    }.unwrap();
+
+    if parse =="texture2d-fragment" {
+      Some((
+        quote!{.bind_texture2d(rendiation::ShaderType::Fragment)},
+        quote!{.texture(self.#field_name)}
+      ))
+    }else if parse == "sampler-fragment" {
+      Some((
+        quote!{.bind_sampler(rendiation::ShaderType::Fragment)},
+        quote!{.sampler(self.#field_name)}
+    ))
+    } else {
+      None
+    }
+  });
+
+  let layout_build = defs.map(|v|{v.0});
+
+  // for i in &defs {
+
+  // }
+  // let bg_build = defs.map(|v|{v.1});
 
   let result = quote! {
     #struct_bindgroup_static
@@ -53,8 +117,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
               &layout
             } else {
               let builder = rendiation::BindGroupLayoutBuilder::new()
-                .bind_texture2d(rendiation::ShaderType::Fragment)
-                .bind_sampler(rendiation::ShaderType::Fragment);
+                #(#layout_build)*;
               let layout = renderer
                 .device
                 .create_bind_group_layout(&rendiation::BindGroupLayoutDescriptor {
@@ -65,7 +128,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
             }
           }
         }
-      
+
         fn create_bindgroup(&self, renderer: &rendiation::WGPURenderer) -> rendiation::WGPUBindGroup {
           rendiation::BindGroupBuilder::new()
             .texture(self.texture)
@@ -73,21 +136,8 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
             .build(&renderer.device, CopyParam::provide_layout(renderer))
         }
       }
-      
+
   };
 
   Ok(result)
-  // todo!()
-
-  // quote! {
-  //     impl druid::Lens<#ty, #field_ty> for #twizzled_name::#field_name {
-  //         fn with<V, F: FnOnce(&#field_ty) -> V>(&self, data: &#ty, f: F) -> V {
-  //             f(&data.#field_name)
-  //         }
-
-  //         fn with_mut<V, F: FnOnce(&mut #field_ty) -> V>(&self, data: &mut #ty, f: F) -> V {
-  //             f(&mut data.#field_name)
-  //         }
-  //     }
-  // }
 }

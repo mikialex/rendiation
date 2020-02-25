@@ -31,7 +31,11 @@ use rendiation_marco::BindGroup;
 
 #[derive(BindGroup)]
 pub struct CopyParam<'a> {
+
+  #[bind_type = "texture2d-fragment"]
   pub texture: &'a wgpu::TextureView,
+  
+  #[bind_type = "sampler-fragment"]
   pub sampler: &'a WGPUSampler,
 }
 
