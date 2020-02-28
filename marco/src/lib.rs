@@ -35,9 +35,9 @@ enum BindGroupType {
   Sampler,
 }
 
-enum ShaderType{
+enum ShaderType {
   Fragment,
-  Vertex
+  Vertex,
 }
 
 fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
@@ -68,44 +68,46 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
 
   let defs = fields.iter().filter_map(|f| {
     let field_name = &f.ident;
-    // let ty = &f.ty;
+
     let attr = f.attrs.iter().find(|a| a.path.is_ident("bind_type"))?;
 
     let parse = match attr.parse_meta() {
-      Ok(syn::Meta::NameValue(nv)) => Ok(nv),
-      Ok(_) => Err(
-        syn::Error::new_spanned(attr, "attribute should be in the format of a name value")
-          .to_compile_error(),
-      ),
-      Err(e) => Err(e.to_compile_error()),
+      Ok(syn::Meta::NameValue(nv)) => Some(nv),
+      Ok(_) => None,
+      Err(_) => None,
     };
-    let parse =parse.unwrap().lit; // todo
-    let parse = match parse {
-      syn::Lit::Str(s) => {Some(s.value())},
-      _ => None,
-    }.unwrap();
 
-    if parse =="texture2d-fragment" {
+    let parse = match parse?.lit {
+      syn::Lit::Str(s) => Some(s.value()),
+      _ => None,
+    }?;
+
+    if parse == "texture2d-fragment" {
       Some((
-        quote!{.bind_texture2d(rendiation::ShaderType::Fragment)},
-        quote!{.texture(self.#field_name)}
+        quote! {.bind_texture2d(rendiation::ShaderType::Fragment)},
+        quote! {.texture(self.#field_name)},
       ))
-    }else if parse == "sampler-fragment" {
+    } else if parse == "sampler-fragment" {
       Some((
-        quote!{.bind_sampler(rendiation::ShaderType::Fragment)},
-        quote!{.sampler(self.#field_name)}
-    ))
+        quote! {.bind_sampler(rendiation::ShaderType::Fragment)},
+        quote! {.sampler(self.#field_name)},
+      ))
+    }else if parse == "uniform-buffer-vertex" {
+      Some((
+        quote! {.bind_uniform_buffer(rendiation::ShaderType::Vertex)},
+        quote! {.buffer(self.#field_name)},
+      ))
     } else {
       None
     }
   });
 
-  let layout_build = defs.map(|v|{v.0});
-
-  // for i in &defs {
-
-  // }
-  // let bg_build = defs.map(|v|{v.1});
+  let mut layout_build = Vec::new();
+  let mut bg_build = Vec::new();
+  for v in defs{
+    layout_build.push(v.0);
+    bg_build.push(v.1);
+  }
 
   let result = quote! {
     #struct_bindgroup_static
@@ -131,9 +133,8 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
 
         fn create_bindgroup(&self, renderer: &rendiation::WGPURenderer) -> rendiation::WGPUBindGroup {
           rendiation::BindGroupBuilder::new()
-            .texture(self.texture)
-            .sampler(self.sampler)
-            .build(&renderer.device, CopyParam::provide_layout(renderer))
+            #(#bg_build)*
+            .build(&renderer.device,  #struct_name::provide_layout(renderer))
         }
       }
 

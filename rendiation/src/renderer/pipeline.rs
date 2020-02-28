@@ -1,4 +1,3 @@
-use core::marker::PhantomData;
 use crate::renderer::texture::WGPUTexture;
 use crate::{WGPUBindGroup, WGPURenderer};
 
@@ -28,6 +27,8 @@ pub struct StaticPipelineBuilder<'a> {
   index_format: wgpu::IndexFormat,
   pub depth_format: Option<wgpu::TextureFormat>,
   pub color_target_format: wgpu::TextureFormat,
+  rasterization: wgpu::RasterizationStateDescriptor,
+  primitive_topology: wgpu::PrimitiveTopology,
 }
 
 impl<'a> StaticPipelineBuilder<'a> {
@@ -45,6 +46,14 @@ impl<'a> StaticPipelineBuilder<'a> {
       index_format: wgpu::IndexFormat::Uint16,
       depth_format: None,
       color_target_format: wgpu::TextureFormat::Rgba8UnormSrgb,
+      rasterization: wgpu::RasterizationStateDescriptor {
+        front_face: wgpu::FrontFace::Ccw,
+        cull_mode: wgpu::CullMode::None,
+        depth_bias: 0,
+        depth_bias_slope_scale: 0.0,
+        depth_bias_clamp: 0.0,
+      },
+      primitive_topology: wgpu::PrimitiveTopology::TriangleList,
     }
   }
 
@@ -78,8 +87,8 @@ impl<'a> StaticPipelineBuilder<'a> {
     self
   }
 
-  pub fn to_screen_target(&mut self, renderer: &WGPURenderer) -> &mut Self {
-    self.color_target_format = renderer.swap_chain_format;
+  pub fn to_screen_target(&mut self) -> &mut Self {
+    self.color_target_format = self.renderer.swap_chain_format;
     self
   }
 
@@ -118,14 +127,8 @@ impl<'a> StaticPipelineBuilder<'a> {
          module: &fs_module,
          entry_point: "main",
        }),
-       rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-         front_face: wgpu::FrontFace::Ccw,
-         cull_mode: wgpu::CullMode::None,
-         depth_bias: 0,
-         depth_bias_slope_scale: 0.0,
-         depth_bias_clamp: 0.0,
-       }),
-       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+       rasterization_state: Some(self.rasterization.clone()),
+       primitive_topology: self.primitive_topology,
        color_states: &[wgpu::ColorStateDescriptor {
          format: self.color_target_format,
          color_blend: wgpu::BlendDescriptor::REPLACE,

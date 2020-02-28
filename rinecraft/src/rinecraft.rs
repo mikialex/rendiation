@@ -28,7 +28,7 @@ pub struct RinecraftState {
   cube: StandardGeometry,
   world: World,
   shading: BlockShading,
-  shading_params: BlockShadingParamGroup,
+  shading_params: WGPUBindGroup,
   depth: WGPUTexture,
   gui: GUI,
 }
@@ -62,9 +62,12 @@ impl Application for Rinecraft {
     camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let buffer = camera.get_update_gpu(renderer);
-    let shading_params =
-      BlockShadingParamGroup::new(&renderer, &shading, &block_atlas.view(), &sampler, buffer);
-
+    let shading_params =BlockShadingParamGroup{
+      texture_view: &block_atlas.view(),
+      sampler: &sampler,
+      buffer,
+    }.create_bindgroup(renderer);
+    
     let viewport = Viewport::new(swap_chain.size);
 
     let mut window_session = WindowEventSession::new();
