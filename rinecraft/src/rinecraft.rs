@@ -1,5 +1,5 @@
-use crate::application::*;
 use crate::application::RenderCtx;
+use crate::application::*;
 use crate::geometry::*;
 use crate::init::init_orbit_controller;
 use crate::renderer::*;
@@ -62,12 +62,13 @@ impl Application for Rinecraft {
     camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let buffer = camera.get_update_gpu(renderer);
-    let shading_params =BlockShadingParamGroup{
+    let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),
       sampler: &sampler,
       buffer,
-    }.create_bindgroup(renderer);
-    
+    }
+    .create_bindgroup(renderer);
+
     let viewport = Viewport::new(swap_chain.size);
 
     let mut window_session = WindowEventSession::new();
@@ -75,7 +76,9 @@ impl Application for Rinecraft {
     window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
       let swap_chain = &mut renderer.swap_chain;
       let renderer = &mut renderer.renderer;
-      state.viewport.set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
+      state
+        .viewport
+        .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.depth.resize(&renderer.device, swap_chain.size);
       state
         .camera
@@ -131,7 +134,7 @@ impl Application for Rinecraft {
           .shading
           .provide_pipeline(&mut pass, &state.shading_params);
         state.cube.render(&mut pass);
-        state.world.render(&mut pass);
+        // state.world.render(&mut pass);
       }
 
       // state.gui.renderer.update_to_screen(renderer, &output.view);
@@ -165,7 +168,7 @@ impl Application for Rinecraft {
         shading,
         shading_params,
         depth,
-        gui
+        gui,
       },
     }
   }
