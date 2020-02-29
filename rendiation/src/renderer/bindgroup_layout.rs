@@ -12,20 +12,12 @@ fn shader_stage_convert(s: ShaderType) -> wgpu::ShaderStage {
   }
 }
 
-pub trait UniformBufferProvider{
-  
-}
-
 impl BindGroupLayoutBuilder {
   pub fn new() -> Self {
     Self {
       bindings: Vec::new(),
     }
   }
-
-  // pub fn generate_shader_header_str(&self) -> String {
-
-  // }
 
   pub fn bind_uniform_buffer(mut self, visibility: ShaderType) -> Self {
     let bindpoint = self.bindings.len() as u32;

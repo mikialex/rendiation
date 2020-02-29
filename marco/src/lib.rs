@@ -77,29 +77,37 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
       Err(_) => None,
     };
 
-    let parse = match parse?.lit {
+    let tag = match parse?.lit {
       syn::Lit::Str(s) => Some(s.value()),
       _ => None,
     }?;
 
-    if parse == "texture2d-fragment" {
-      Some((
-        quote! {.bind_texture2d(rendiation::ShaderType::Fragment)},
-        quote! {.texture(self.#field_name)},
-      ))
-    } else if parse == "sampler-fragment" {
-      Some((
-        quote! {.bind_sampler(rendiation::ShaderType::Fragment)},
-        quote! {.sampler(self.#field_name)},
-      ))
-    }else if parse == "uniform-buffer-vertex" {
-      Some((
-        quote! {.bind_uniform_buffer(rendiation::ShaderType::Vertex)},
-        quote! {.buffer(self.#field_name)},
-      ))
-    } else {
-      None
+    let tags: Vec<&str> = tag.split(':').collect();
+    if tags.len() != 2 {
+      return None
     }
+    let shader_type = match tags[1] {
+      "fragment" => quote! {rendiation::ShaderType::Fragment},
+      "vertex" => quote! {rendiation::ShaderType::Vertex},
+      _ => {return None}
+    };
+
+    let re = match tags[0] {
+      "uniform-buffer" =>  Some((
+        quote! {.bind_uniform_buffer(#shader_type)},
+        quote! {.buffer(self.#field_name)},
+      )),
+      "texture2d" => Some((
+        quote! {.bind_texture2d(#shader_type)},
+        quote! {.texture(self.#field_name)},
+      )),
+      "sampler" =>  Some((
+        quote! {.bind_sampler(#shader_type)},
+        quote! {.sampler(self.#field_name)},
+      )),
+      _ =>  None
+    };
+    re
   });
 
   let mut layout_build = Vec::new();
