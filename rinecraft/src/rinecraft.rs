@@ -134,7 +134,7 @@ impl Application for Rinecraft {
           .shading
           .provide_pipeline(&mut pass, &state.shading_params);
         state.cube.render(&mut pass);
-        // state.world.render(&mut pass);
+        state.world.render(&mut pass);
       }
 
       // state.gui.renderer.update_to_screen(renderer, &output.view);
