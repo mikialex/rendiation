@@ -1227,6 +1227,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-rendergraph"
+version = "0.0.1"
+dependencies = [
+ "rendiation 0.1.0",
+]
+
+[[package]]
 name = "rendiation-util"
 version = "0.1.0"
 

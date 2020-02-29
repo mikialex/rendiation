@@ -5,6 +5,7 @@ members = [
     "math-entity",
     "render-entity",
     "rendiation",
+    "render-graph",
     "rendium",
     "rinecraft",
 ]

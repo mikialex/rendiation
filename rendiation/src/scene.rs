@@ -1,5 +1,5 @@
-use crate::renderer::pipeline::WGPUPipeline;
 use crate::geometry::StandardGeometry;
+use crate::renderer::pipeline::WGPUPipeline;
 use crate::renderer::WGPURenderer;
 use crate::{
   geometry_lib::{sphere_geometry::SphereGeometryParameter, Mesher},
@@ -24,14 +24,14 @@ pub trait Background: Renderable {}
 
 pub struct Sky {
   geometry: StandardGeometry,
-//   pipeline: WGPUPipeline,
+  //   pipeline: WGPUPipeline,
 }
 
 impl Sky {
   pub fn new(renderer: &mut WGPURenderer) -> Self {
     let mut geometry: StandardGeometry = SphereGeometryParameter::default().create_mesh().into();
     geometry.update_gpu(renderer);
-    
+
     // let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
     // pipeline_builder
     //   .vertex_shader(include_str!("./block.vert"))
@@ -46,5 +46,4 @@ impl Sky {
 
     Sky { geometry }
   }
-
 }
