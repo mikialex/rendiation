@@ -1,4 +1,5 @@
 use super::block::BlockFace;
+use crate::shading::copy::CopyParam;
 use crate::shading::*;
 use image::*;
 use rendiation::*;
@@ -145,6 +146,7 @@ impl BlockRegistry {
   }
 
   pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
+    // todo!()
     // todo filter same face
     let mut face_list: Vec<Rc<BlockFaceTextureInfo>> = Vec::new();
     face_list.push(self.lut[0].top_texture.clone());
@@ -172,8 +174,10 @@ impl BlockRegistry {
         .iter()
         .map(|face| {
           let src_tex = tex(&face.img, renderer);
-          let params =
-            CopyShadingParamGroup::new(renderer, &copy_shading, src_tex.view(), &sampler);
+          let params = CopyParam {
+            texture: &src_tex.view(),
+            sampler: &sampler,
+          }.create_bindgroup(renderer);
 
           let mut viewport = Viewport::new((32, 32));
           viewport.x = face.pack_info.x * dest_size_width;

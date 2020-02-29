@@ -7,58 +7,41 @@ pub struct BlockShading {
 
 impl BlockShading {
   pub fn new(renderer: &WGPURenderer, depth_target: &WGPUTexture) -> Self {
-    let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-    pipeline_builder
-      .vertex_shader(include_str!("./block.vert"))
-      .frag_shader(include_str!("./block.frag"))
-      .binding_group(
-        BindGroupLayoutBuilder::new()
-          .bind_uniform_buffer(ShaderStage::Vertex)
-          .bind_texture2d(ShaderStage::Fragment)
-          .bind_sampler(ShaderStage::Fragment)
-      )
-      .to_screen_target(&renderer)
-      .with_depth_stencil(depth_target);
-
-    let pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
-
+    let mut pipeline_builder = StaticPipelineBuilder::new(
+      renderer,
+      include_str!("./block.vert"),
+      include_str!("./block.frag")
+    );
+    let pipeline = pipeline_builder
+    .binding_group::<BlockShadingParamGroup>()
+    .geometry::<StandardGeometry>()
+    .to_screen_target()
+    .with_depth_stencil(depth_target)
+    .build();
     Self { pipeline }
   }
 
-  pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
-    &self.pipeline.get_bindgroup_layout(0)
-  }
-
-  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &BlockShadingParamGroup) {
+  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, bg: &WGPUBindGroup) {
     pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
     pass
       .gpu_pass
-      .set_bind_group(0, &param.bindgroup.gpu_bindgroup, &[]);
+      .set_bind_group(0, &bg.gpu_bindgroup, &[]);
   }
 }
 
-pub struct BlockShadingParamGroup {
-  pub bindgroup: WGPUBindGroup,
+use rendiation_marco::BindGroup;
+
+#[derive(BindGroup)]
+pub struct BlockShadingParamGroup<'a> {
+  
+  #[bind_type = "uniform-buffer-vertex"]
+  pub buffer: &'a WGPUBuffer,
+  
+  #[bind_type = "texture2d-fragment"]
+  pub texture_view: &'a wgpu::TextureView,
+  
+  #[bind_type = "sampler-fragment"]
+  pub sampler: &'a WGPUSampler,
+
 }
 
-impl BlockShadingParamGroup {
-  pub fn new(
-    renderer: &WGPURenderer,
-    shading: &BlockShading,
-    texture_view: &wgpu::TextureView,
-    sampler: &WGPUSampler,
-    buffer: &WGPUBuffer,
-  ) -> Self {
-    Self {
-      bindgroup: BindGroupBuilder::new()
-        .buffer(buffer)
-        .texture(texture_view)
-        .sampler(sampler)
-        .build(&renderer.device, shading.get_bind_group_layout()),
-    }
-  }
-
-  pub fn provide_bindgroup_layout(){
-    
-  }
-}
