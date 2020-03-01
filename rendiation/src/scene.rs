@@ -4,11 +4,23 @@ use crate::renderer::WGPURenderer;
 use crate::{
   geometry_lib::{sphere_geometry::SphereGeometryParameter, Mesher},
   renderer::render_pass::WGPURenderPass,
+  StaticPipelineBuilder,
 };
+use rendiation_render_entity::Camera;
 
 pub struct Scene {
+  background: Box<dyn Background>,
+  cameras: Vec<Box<dyn Camera>>,
   geometries: Vec<StandardGeometry>,
+  // nodes: Vec<SceneNode>
 }
+
+impl Scene {
+  // pub fn
+}
+
+// pub trait SceneNode{
+// }
 
 pub trait Renderable {
   fn prepare(&mut self, renderer: &mut WGPURenderer);
@@ -24,26 +36,19 @@ pub trait Background: Renderable {}
 
 pub struct Sky {
   geometry: StandardGeometry,
-  //   pipeline: WGPUPipeline,
+  pipeline: WGPUPipeline,
 }
 
 impl Sky {
   pub fn new(renderer: &mut WGPURenderer) -> Self {
     let mut geometry: StandardGeometry = SphereGeometryParameter::default().create_mesh().into();
     geometry.update_gpu(renderer);
-
-    // let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-    // pipeline_builder
-    //   .vertex_shader(include_str!("./block.vert"))
-    //   .frag_shader(include_str!("./block.frag"))
-    //   .binding_group(
-    //     BindGroupLayoutBuilder::new()
-    //       .bind_uniform_buffer(ShaderStage::Vertex)
-    //       .bind_texture2d(ShaderStage::Fragment)
-    //       .bind_sampler(ShaderStage::Fragment)
-    //   )
-    //   .to_screen_target(&renderer)
-
-    Sky { geometry }
+    todo!()
+    // let mut builder = StaticPipelineBuilder::new(
+    //   renderer,
+    //   include_str!(),
+    //   include_str!(),
+    // );
+    // Sky { geometry }
   }
 }
