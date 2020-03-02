@@ -150,3 +150,15 @@ impl<'a> StaticPipelineBuilder<'a> {
      }
   }
 }
+
+trait Shading{
+  fn new(pipeline: WGPUPipeline) -> Self;
+}
+
+trait RenderTargetsDescriptor {
+  fn provide_color_states() -> &'static [wgpu::ColorStateDescriptor];
+}
+
+struct MultiRenderTargetDemo{
+
+}

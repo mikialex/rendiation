@@ -39,3 +39,13 @@ impl ShaderFunction<ShaderFunctionInput2<f32, f32>, f32> for HgPhaseShaderFuncti
     f
   }
 }
+
+struct ShaderComputeNode<T>{
+    factory: T,
+}
+
+impl ShaderComputeNode<HgPhaseShaderFunction>{
+    pub fn input_cosTheta<I, U: ShaderFunction<I, f32>>(node: ShaderComputeNode<U>){
+        
+    }
+}

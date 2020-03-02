@@ -5,6 +5,10 @@ pub struct BlockShading {
   pipeline: WGPUPipeline,
 }
 
+struct PipelineStateBuilder{
+
+}
+
 impl BlockShading {
   pub fn new(renderer: &WGPURenderer, depth_target: &WGPUTexture) -> Self {
     let mut pipeline_builder = StaticPipelineBuilder::new(
@@ -45,3 +49,4 @@ pub struct BlockShadingParamGroup<'a> {
 
 }
 
+pub struct BlockShadingParamGroupGPU(WGPUBindGroup);
