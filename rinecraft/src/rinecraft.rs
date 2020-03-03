@@ -137,7 +137,7 @@ impl Application for Rinecraft {
         state.world.render(&mut pass);
       }
 
-      // state.gui.renderer.update_to_screen(renderer, &output.view);
+      state.gui.renderer.update_to_screen(renderer, &output.view);
 
       renderer
         .queue

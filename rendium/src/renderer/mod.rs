@@ -1,4 +1,5 @@
 use crate::renderer::shader::CopyShading;
+use crate::renderer::shader::CopyShadingParam;
 use crate::renderer::shader::QuadShading;
 use rendiation::geometry::quad_maker;
 use rendiation::*;
@@ -50,33 +51,31 @@ impl GUIRenderer {
   }
 
   pub fn update_to_screen(&self, renderer: &mut WGPURenderer, screen_view: &wgpu::TextureView) {
-    // let bindgroup = BindGroupBuilder::new()
-    //   .texture(self.canvas.view())
-    //   .sampler(&self.copy_screen_sampler)
-    //   .build(
-    //     &renderer.device,
-    //     &self.copy_screen_pipeline.get_bindgroup_layout(0),
-    //   );
+    let bindgroup = CopyShadingParam {
+      texture_view: self.canvas.view(),
+      sampler: &self.copy_screen_sampler,
+    }
+    .create_bindgroup(renderer);
 
-    // {
-    //   let mut pass = WGPURenderPass::build()
-    //     // .output(self.canvas.view())
-    //     .output_with_clear(self.canvas.view(), (1., 1., 1., 0.))
-    //     .create(&mut renderer.encoder);
-    // }
+    {
+      WGPURenderPass::build()
+        // .output(self.canvas.view())
+        .output_with_clear(self.canvas.view(), (1., 1., 1., 0.))
+        .create(&mut renderer.encoder);
+    }
 
-    // let mut pass = WGPURenderPass::build()
-    //   .output(screen_view)
-    //   .create(&mut renderer.encoder);
+    let mut pass = WGPURenderPass::build()
+      .output(screen_view)
+      .create(&mut renderer.encoder);
 
-    // pass
-    //   .gpu_pass
-    //   .set_pipeline(&self.copy_screen_pipeline.pipeline);
-    // pass
-    //   .gpu_pass
-    //   .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
+    pass
+      .gpu_pass
+      .set_pipeline(&self.copy_screen_pipeline.pipeline.pipeline);
+    pass
+      .gpu_pass
+      .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
 
-    // self.quad.render(&mut pass);
+    self.quad.render(&mut pass);
   }
 
   pub fn draw_rect(
@@ -87,23 +86,21 @@ impl GUIRenderer {
     width: f32,
     height: f32,
   ) {
-    // let bindgroup = BindGroupBuilder::new()
-    //   .buffer(&self.camera_gpu_buffer)
-    //   .build(
-    //     &renderer.device,
-    //     &self.quad_pipeline.get_bindgroup_layout(0),
-    //   );
+    let bindgroup = QuadShadingParam{
+      buffer: &self.camera_gpu_buffer
+    }.create_bindgroup(renderer);
+    
 
-    // let mut pass = WGPURenderPass::build()
-    //   // .output(self.canvas.view())
-    //   .output_with_clear(self.canvas.view(), (1., 1., 1., 1.))
-    //   .create(&mut renderer.encoder);
+    let mut pass = WGPURenderPass::build()
+      // .output(self.canvas.view())
+      .output_with_clear(self.canvas.view(), (1., 1., 1., 1.))
+      .create(&mut renderer.encoder);
 
-    // pass.gpu_pass.set_pipeline(&self.quad_pipeline.pipeline);
-    // pass
-    //   .gpu_pass
-    //   .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
+    pass.gpu_pass.set_pipeline(&self.quad_pipeline.pipeline.pipeline);
+    pass
+      .gpu_pass
+      .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
 
-    // // self.quad.render(&mut pass);
+    // self.quad.render(&mut pass);
   }
 }

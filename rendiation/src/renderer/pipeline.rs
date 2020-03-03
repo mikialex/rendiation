@@ -27,6 +27,7 @@ pub struct StaticPipelineBuilder<'a> {
   index_format: wgpu::IndexFormat,
   pub depth_format: Option<wgpu::TextureFormat>,
   pub color_target_format: wgpu::TextureFormat,
+  blend: wgpu::BlendDescriptor,
   rasterization: wgpu::RasterizationStateDescriptor,
   primitive_topology: wgpu::PrimitiveTopology,
 }
@@ -46,6 +47,7 @@ impl<'a> StaticPipelineBuilder<'a> {
       index_format: wgpu::IndexFormat::Uint16,
       depth_format: None,
       color_target_format: wgpu::TextureFormat::Rgba8UnormSrgb,
+      blend: wgpu::BlendDescriptor::REPLACE,
       rasterization: wgpu::RasterizationStateDescriptor {
         front_face: wgpu::FrontFace::Ccw,
         cull_mode: wgpu::CullMode::None,
@@ -92,6 +94,11 @@ impl<'a> StaticPipelineBuilder<'a> {
     self
   }
 
+  pub fn color_blend(&mut self, b: wgpu::BlendDescriptor) -> &mut Self {
+    self.blend = b;
+    self
+  }
+
   pub fn build(&self) -> WGPUPipeline {
     let device = &self.renderer.device;
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -131,7 +138,7 @@ impl<'a> StaticPipelineBuilder<'a> {
        primitive_topology: self.primitive_topology,
        color_states: &[wgpu::ColorStateDescriptor {
          format: self.color_target_format,
-         color_blend: wgpu::BlendDescriptor::REPLACE,
+         color_blend: self.blend.clone(),
          alpha_blend: wgpu::BlendDescriptor::REPLACE,
          write_mask: wgpu::ColorWrite::ALL,
        }],

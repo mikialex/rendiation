@@ -6,7 +6,7 @@ pub struct QuadShading {
 }
 
 #[derive(BindGroup)]
-struct QuadShadingParam<'a> {
+pub struct QuadShadingParam<'a> {
   #[bind_type = "uniform-buffer:vertex"]
   pub buffer: &'a WGPUBuffer,
 }
@@ -41,6 +41,11 @@ impl CopyShading {
     let pipeline = pipeline_builder
       .geometry::<StandardGeometry>()
       .binding_group::<CopyShadingParam>()
+      .color_blend(wgpu::BlendDescriptor {
+        src_factor: BlendFactor::SrcAlpha,
+        dst_factor: BlendFactor::OneMinusSrcAlpha,
+        operation: BlendOperation::Add,
+      })
       .to_screen_target()
       .build();
     Self { pipeline }
@@ -48,7 +53,7 @@ impl CopyShading {
 }
 
 #[derive(BindGroup)]
-struct CopyShadingParam<'a> {
+pub struct CopyShadingParam<'a> {
   #[bind_type = "texture2d:fragment"]
   pub texture_view: &'a wgpu::TextureView,
 

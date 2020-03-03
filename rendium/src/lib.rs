@@ -12,14 +12,14 @@ use rendiation::WGPURenderer;
 
 pub struct GUI {
   fragment: ElementFragment,
-  // pub renderer: GUIRenderer,
+  pub renderer: GUIRenderer,
 }
 
 impl GUI {
   pub fn new(renderer: &mut WGPURenderer) -> Self {
     GUI {
       fragment: ElementFragment::new(),
-      // renderer: GUIRenderer::new(renderer, (500., 500.))
+      renderer: GUIRenderer::new(renderer, (500., 500.))
     }
   }
 
