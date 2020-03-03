@@ -5,6 +5,19 @@ pub struct WGPUSampler {
   descriptor: wgpu::SamplerDescriptor,
 }
 
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum TextureWrapping {
+    ClampToEdge,
+    Repeat,
+    MirrorRepeat,
+}
+
+pub struct WGPUSamplerBuilder{
+  wrapping_u: TextureWrapping,
+  wrapping_v: TextureWrapping,
+  wrapping_w: TextureWrapping,
+}
+
 impl WGPUSampler {
   pub fn new(device: &wgpu::Device) -> Self {
     let des = wgpu::SamplerDescriptor {

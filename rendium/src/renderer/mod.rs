@@ -1,7 +1,12 @@
+use crate::renderer::shader::CopyShading;
+use crate::renderer::shader::QuadShading;
 use rendiation::geometry::quad_maker;
 use rendiation::*;
 use rendiation_math::Vec4;
 use rendiation_render_entity::*;
+
+mod shader;
+pub use shader::*;
 
 pub struct GUIRenderer {
   quad: StandardGeometry,
@@ -9,60 +14,39 @@ pub struct GUIRenderer {
   camera: OrthographicCamera,
   camera_gpu_buffer: WGPUBuffer,
   canvas: WGPUTexture,
-  quad_pipeline: WGPUPipeline,
+  quad_pipeline: QuadShading,
   copy_screen_sampler: WGPUSampler,
-  copy_screen_pipeline: WGPUPipeline,
+  copy_screen_pipeline: CopyShading,
 }
 
 impl GUIRenderer {
   pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
-    // let mut quad = StandardGeometry::from(quad_maker());
-    // quad.update_gpu(renderer);
-    // let canvas = WGPUTexture::new_as_target(&renderer.device, (size.0 as u32, size.1 as u32));
+    let mut quad = StandardGeometry::from(quad_maker());
+    quad.update_gpu(renderer);
+    let canvas = WGPUTexture::new_as_target(&renderer.device, (size.0 as u32, size.1 as u32));
 
-    // let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-    // pipeline_builder
-    //   .vertex_shader(include_str!("./quad.vert"))
-    //   .frag_shader(include_str!("./quad.frag"))
-    //   .binding_group(BindGroupLayoutBuilder::new().bind_uniform_buffer(ShaderStage::Vertex))
-    //   .to_color_target(&canvas);
+    let camera = OrthographicCamera::new();
+    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+    let camera_gpu_buffer = WGPUBuffer::new(
+      &renderer.device,
+      mx_ref,
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    );
 
-    // let quad_pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
-
-    // let camera = OrthographicCamera::new();
-    // let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-    // let mx_ref: &[f32; 16] = mx_total.as_ref();
-    // let camera_gpu_buffer = WGPUBuffer::new(
-    //   &renderer.device,
-    //   mx_ref,
-    //   wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    // );
-
-    // let mut pipeline_builder = WGPUPipelineDescriptorBuilder::new();
-    // pipeline_builder
-    //   .vertex_shader(include_str!("./copy.vert"))
-    //   .frag_shader(include_str!("./copy.frag"))
-    //   .binding_group(
-    //     BindGroupLayoutBuilder::new()
-    //       // .bind_uniform_buffer(ShaderStage::Vertex)
-    //       .bind_texture2d(ShaderStage::Fragment)
-    //       .bind_sampler(ShaderStage::Fragment),
-    //   )
-    //   .to_screen_target(&renderer);
-
-    // let copy_screen_pipeline = pipeline_builder.build::<StandardGeometry>(&renderer.device);
-    // let copy_screen_sampler = WGPUSampler::new(&renderer.device);
-    // GUIRenderer {
-    //   quad,
-    //   view: Vec4::new(0.0, 0.0, size.0, size.1),
-    //   camera,
-    //   camera_gpu_buffer,
-    //   canvas,
-    //   quad_pipeline,
-    //   copy_screen_pipeline,
-    //   copy_screen_sampler,
-    // }
-    todo!()
+    let quad_pipeline = QuadShading::new(renderer, &canvas);
+    let copy_screen_pipeline = CopyShading::new(renderer);
+    let copy_screen_sampler = WGPUSampler::new(&renderer.device);
+    GUIRenderer {
+      quad,
+      view: Vec4::new(0.0, 0.0, size.0, size.1),
+      camera,
+      camera_gpu_buffer,
+      canvas,
+      quad_pipeline,
+      copy_screen_pipeline,
+      copy_screen_sampler,
+    }
   }
 
   pub fn update_to_screen(&self, renderer: &mut WGPURenderer, screen_view: &wgpu::TextureView) {

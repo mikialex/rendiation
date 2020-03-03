@@ -10,3 +10,4 @@ rendiation = { path = "../rendiation" }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-util = { path = "../util" }
+rendiation-marco = { path = "../marco" }
