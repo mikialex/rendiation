@@ -34,7 +34,6 @@ impl ElementFragment {
 
     let a = Quad::new();
 
-
     let mut fragment = ElementFragment {
       elements: Vec::new(),
       elements_event: Vec::new(),

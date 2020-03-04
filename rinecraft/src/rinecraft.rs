@@ -119,8 +119,6 @@ impl Application for Rinecraft {
         .world
         .update(renderer, &state.camera.get_transform().matrix.position());
 
-      state.gui.render(renderer);
-
       let output = swap_chain.request_output();
 
       {
@@ -137,6 +135,7 @@ impl Application for Rinecraft {
         state.world.render(&mut pass);
       }
 
+      state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output.view);
 
       renderer

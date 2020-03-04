@@ -28,6 +28,6 @@ impl GUI {
   }
 
   pub fn render(&self, renderer: &mut WGPURenderer) {
-    // self.fragment.render(renderer, &self.renderer);
+    self.fragment.render(renderer, &self.renderer);
   }
 }

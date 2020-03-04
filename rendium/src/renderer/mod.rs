@@ -59,8 +59,8 @@ impl GUIRenderer {
 
     {
       WGPURenderPass::build()
-        // .output(self.canvas.view())
-        .output_with_clear(self.canvas.view(), (1., 1., 1., 0.))
+        .output(self.canvas.view())
+        .output_with_clear(self.canvas.view(), (1., 1., 1., 0.5))
         .create(&mut renderer.encoder);
     }
 
@@ -86,20 +86,20 @@ impl GUIRenderer {
     width: f32,
     height: f32,
   ) {
-    let bindgroup = QuadShadingParam{
-      buffer: &self.camera_gpu_buffer
-    }.create_bindgroup(renderer);
+    // let bindgroup = QuadShadingParam{
+    //   buffer: &self.camera_gpu_buffer
+    // }.create_bindgroup(renderer);
     
 
-    let mut pass = WGPURenderPass::build()
-      // .output(self.canvas.view())
-      .output_with_clear(self.canvas.view(), (1., 1., 1., 1.))
-      .create(&mut renderer.encoder);
+    // let mut pass = WGPURenderPass::build()
+    //   .output(self.canvas.view())
+    //   .output_with_clear(self.canvas.view(), (1., 1., 1., 1.))
+    //   .create(&mut renderer.encoder);
 
-    pass.gpu_pass.set_pipeline(&self.quad_pipeline.pipeline.pipeline);
-    pass
-      .gpu_pass
-      .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
+    // pass.gpu_pass.set_pipeline(&self.quad_pipeline.pipeline.pipeline);
+    // pass
+    //   .gpu_pass
+    //   .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
 
     // self.quad.render(&mut pass);
   }
