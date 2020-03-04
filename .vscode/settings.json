@@ -24,6 +24,7 @@
         "multisampled",
         "perlin",
         "rasterization",
+        "renderables",
         "rustfmt",
         "spirv",
         "swapchain",

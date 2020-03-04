@@ -11,6 +11,7 @@ wgpu = "0.4.0"
 log = "0.4"
 glsl-to-spirv = "0.1"
 winit = "0.20.0-alpha4"
+generational-arena = { version = "0.2" }
 
 rendiation-math = { path = "../math" }
 rendiation-util = { path = "../util" }
