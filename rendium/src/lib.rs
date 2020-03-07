@@ -27,7 +27,7 @@ impl GUI {
     
   }
 
-  pub fn render(&self, renderer: &mut WGPURenderer) {
-    self.fragment.render(renderer, &self.renderer);
+  pub fn render(&mut self, renderer: &mut WGPURenderer) {
+    self.fragment.render(renderer, &mut self.renderer);
   }
 }

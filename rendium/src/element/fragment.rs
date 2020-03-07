@@ -58,7 +58,7 @@ impl ElementFragment {
     todo!();
   }
 
-  pub fn render(&self, renderer: &mut WGPURenderer, gui_renderer: &GUIRenderer) {
+  pub fn render(&self, renderer: &mut WGPURenderer, gui_renderer: &mut GUIRenderer) {
     let mut ctx =  RenderCtx {
       renderer: gui_renderer,
       backend: renderer,

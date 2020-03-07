@@ -41,7 +41,8 @@ impl Quad {
 
 impl Element for Quad {
   fn render(&self, renderer: &mut RenderCtx) {
-    // renderer.draw_rect(0.0, 0.0, 0.0, 0.0);
+    // let r = &mut renderer.renderer;
+    // r.draw_rect(&mut renderer.backend,0.0, 0.0, 100.0, 100.0);
   }
   fn event(&self, event: &mut Message) {
     // decide if event need handled

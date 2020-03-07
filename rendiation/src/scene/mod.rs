@@ -34,9 +34,9 @@ impl Scene {
   }
 
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
-    for (_, renderable) in &mut self.renderables {
-      renderable.prepare(renderer, self);
-    }
+    // for (_, renderable) in &mut self.renderables {
+    //   renderable.prepare(renderer, self);
+    // }
   }
 
   pub fn render() {
@@ -46,9 +46,9 @@ impl Scene {
     //       .create(&mut renderer.encoder);
     //     pass.use_viewport(&state.viewport);
 
-    for (_, renderable) in &mut self.renderables {
-      renderable.prepare(renderer, self);
-    }
+    // for (_, renderable) in &mut self.renderables {
+    //   renderable.prepare(renderer, self);
+    // }
   }
 }
 

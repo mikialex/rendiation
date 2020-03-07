@@ -13,7 +13,7 @@ pub struct Message<'a> {
 }
 
 pub struct RenderCtx<'a> {
-  renderer: &'a GUIRenderer,
+  renderer: &'a mut GUIRenderer,
   backend: &'a mut WGPURenderer,
 }
 
