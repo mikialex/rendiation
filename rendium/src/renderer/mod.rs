@@ -116,12 +116,15 @@ impl GUIRenderer {
     width: f32,
     height: f32,
   ) {
-    let model_mat = Mat4::new(
-      width, 0.0, 0.0, 0.0, 
-			0.0, height, 0.0, 0.0, 
-			0.0, 0.0, 1.0, 0.0, 
-			x, y, 0.0, 1.0
-    );
+    let scale_mat = Mat4::scale(width / 2., height / 2., 1.0);
+    let position_mat  = Mat4::translate(-x, -y, 0.0);
+    let model_mat = position_mat * scale_mat *  Mat4::translate(-1., -1., 0.0);
+    // let model_mat = Mat4::new(
+    //   width / 2., 0.0, 0.0, 0.0, 
+		// 	0.0, height / 2., 0.0, 0.0, 
+		// 	0.0, 0.0, 1.0, 0.0, 
+		// 	-x, -y, 0.0, 1.0
+    // );
     let mvp = self.camera.get_vp_matrix() * model_mat;
     let mx_ref: &[f32; 16] = mvp.as_ref();
     self.camera_gpu_buffer.update(&renderer.device, &mut renderer.encoder, mx_ref);
