@@ -3,7 +3,7 @@ use crate::renderer::shader::CopyShadingParam;
 use crate::renderer::shader::QuadShading;
 use rendiation::geometry::quad_maker;
 use rendiation::*;
-use rendiation_math::Vec4;
+use rendiation_math::{Mat4, Vec4};
 use rendiation_render_entity::*;
 
 mod shader;
@@ -20,13 +20,29 @@ pub struct GUIRenderer {
   copy_screen_pipeline: CopyShading,
 }
 
+fn computeQuadMatrix( 
+  camera: &OrthographicCamera,
+  x: f32,
+  y: f32,
+  width: f32,
+  height: f32,){
+
+}
+
 impl GUIRenderer {
   pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
     let mut quad = StandardGeometry::from(quad_maker());
     quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer.device, (size.0 as u32, size.1 as u32));
 
-    let camera = OrthographicCamera::new();
+    let mut camera = OrthographicCamera::new();
+    camera.top = 0.;
+    camera.left = 0.;
+    camera.bottom = -1000.;
+    camera.right = -1000.;
+    camera.near = -1.;
+    camera.far= 1.;
+
     let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     let camera_gpu_buffer = WGPUBuffer::new(
@@ -40,7 +56,7 @@ impl GUIRenderer {
     let copy_screen_sampler = WGPUSampler::new(&renderer.device);
     GUIRenderer {
       quad,
-      view: Vec4::new(0.0, 0.0, size.0, size.1),
+      view: Vec4::new(0.0, 0.0, 1000., 1000.),
       camera,
       camera_gpu_buffer,
       canvas,
@@ -86,6 +102,15 @@ impl GUIRenderer {
     width: f32,
     height: f32,
   ) {
+    let model_mat = Mat4::new(
+      width, 0.0, 0.0, 0.0, 
+			0.0, height, 0.0, 0.0, 
+			0.0, 0.0, 1.0, 0.0, 
+			x, y, 0.0, 1.0
+    );
+    let mvp = self.camera.get_vp_matrix() * model_mat;
+    let mx_ref: &[f32; 16] = mvp.as_ref();
+    self.camera_gpu_buffer.update(&renderer.device, &mut renderer.encoder, mx_ref);
     let bindgroup = QuadShadingParam {
       buffer: &self.camera_gpu_buffer,
     }
