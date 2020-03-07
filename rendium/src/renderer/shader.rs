@@ -8,7 +8,10 @@ pub struct QuadShading {
 #[derive(BindGroup)]
 pub struct QuadShadingParam<'a> {
   #[bind_type = "uniform-buffer:vertex"]
-  pub buffer: &'a WGPUBuffer,
+  pub transform: &'a WGPUBuffer,
+
+  #[bind_type = "uniform-buffer:fragment"]
+  pub color: &'a WGPUBuffer,
 }
 
 impl QuadShading {

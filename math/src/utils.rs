@@ -1,4 +1,5 @@
 
+use crate::vec4::Vec4;
 use crate::vec3::Vec3;
 use crate::mat4::Mat4;
 
@@ -28,12 +29,18 @@ impl Mat4<f32> {
 	}
 }
 
+use std::mem;
+
 impl<T> AsRef<[T; 16]> for Mat4<T> {
 	#[inline]
 	fn as_ref(&self) -> &[T; 16] {
-		use std::mem;
 		unsafe { mem::transmute(self) }
+	}
+}
 
-		// unsafe { &*(self as *const Mat4<T> as *const [T; 16]) }
+impl<T> AsRef<[T; 4]> for Vec4<T> {
+	#[inline]
+	fn as_ref(&self) -> &[T; 4] {
+		unsafe { mem::transmute(self) }
 	}
 }
