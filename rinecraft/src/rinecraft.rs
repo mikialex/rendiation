@@ -35,7 +35,7 @@ pub struct RinecraftState {
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
-    let gui = GUI::new(renderer);
+    let gui = GUI::new(renderer, (swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let mut world = World::new();
     let block_atlas = world.world_machine.get_block_atlas(renderer);
@@ -76,18 +76,20 @@ impl Application for Rinecraft {
     window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
       let swap_chain = &mut renderer.swap_chain;
       let renderer = &mut renderer.renderer;
+      let size = (swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.depth.resize(&renderer.device, swap_chain.size);
       state
         .camera
-        .resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+        .resize(size);
       state
         .camera_orth
-        .resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+        .resize(size);
       state.camera.get_update_gpu(renderer);
       state.camera_orth.get_update_gpu(renderer);
+      state.gui.renderer.resize(size, renderer);
     });
 
     init_orbit_controller(&mut window_session);

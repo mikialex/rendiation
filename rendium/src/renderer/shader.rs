@@ -59,4 +59,5 @@ pub struct CopyShadingParam<'a> {
 
   #[bind_type = "sampler:fragment"]
   pub sampler: &'a WGPUSampler,
+  
 }

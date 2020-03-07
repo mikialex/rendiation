@@ -16,10 +16,10 @@ pub struct GUI {
 }
 
 impl GUI {
-  pub fn new(renderer: &mut WGPURenderer) -> Self {
+  pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
     GUI {
       fragment: ElementFragment::new(),
-      renderer: GUIRenderer::new(renderer, (500., 500.))
+      renderer: GUIRenderer::new(renderer, size)
     }
   }
 
