@@ -34,12 +34,20 @@ impl ElementFragment {
 
     let a = Quad::new();
 
+    let mut b = Quad::new();
+
+    b.position(200., 200.);
+
     let mut fragment = ElementFragment {
       elements: Vec::new(),
       elements_event: Vec::new(),
       events: EventHub::new(),
     };
-    fragment.add_element(a);
+    let a = fragment.add_element(a);
+    let b = fragment.add_element(b);
+    // fragment.add_event_listener(a, |m|{
+    //   println!("dd");
+    // });
     fragment
   }
 

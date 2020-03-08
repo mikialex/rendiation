@@ -32,7 +32,16 @@ impl SwapChain {
     }
   }
 
-  pub fn resize(&mut self, size: (usize, usize), device: &wgpu::Device) {
+  pub fn resize(&mut self, mut size: (usize, usize), device: &wgpu::Device) {
+    
+    if size.0 == 0 {
+      size.0 = 1;
+    }
+
+    if size.1 == 0 {
+      size.1 = 1;
+    }
+
     self.swap_chain_descriptor.width = size.0 as u32;
     self.swap_chain_descriptor.height = size.1 as u32;
     self.swap_chain =

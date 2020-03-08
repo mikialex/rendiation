@@ -4,7 +4,7 @@ use crate::renderer::shader::CopyShadingParam;
 use crate::renderer::shader::QuadShading;
 use rendiation::geometry::quad_maker;
 use rendiation::*;
-use rendiation_math::{Mat4, Vec4};
+use rendiation_math::Vec4;
 use rendiation_render_entity::*;
 
 mod shader;
@@ -104,12 +104,12 @@ impl GUIRenderer {
     &mut self,
     renderer: &mut WGPURenderer,
     quad_layout: &QuadLayout,
+    color: &Vec4<f32>,
   ) {
     let mvp = quad_layout.compute_matrix(&self.camera);
     let mx_ref: &[f32; 16] = mvp.as_ref();
     self.camera_gpu_buffer.update(&renderer.device, &mut renderer.encoder, mx_ref);
 
-    let color = Vec4::new(1.0, 0.0, 0.0, 0.5);
     let color_ref: &[f32; 4] = color.as_ref();
     let color_uniform = WGPUBuffer::new(
       &renderer.device,
