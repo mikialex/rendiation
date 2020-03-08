@@ -1,3 +1,4 @@
+use crate::element::quad::QuadLayout;
 use crate::renderer::shader::CopyShading;
 use crate::renderer::shader::CopyShadingParam;
 use crate::renderer::shader::QuadShading;
@@ -18,15 +19,6 @@ pub struct GUIRenderer {
   quad_pipeline: QuadShading,
   copy_screen_sampler: WGPUSampler,
   copy_screen_pipeline: CopyShading,
-}
-
-fn computeQuadMatrix( 
-  camera: &OrthographicCamera,
-  x: f32,
-  y: f32,
-  width: f32,
-  height: f32,){
-
 }
 
 impl GUIRenderer {
@@ -111,15 +103,9 @@ impl GUIRenderer {
   pub fn draw_rect(
     &mut self,
     renderer: &mut WGPURenderer,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
+    quad_layout: &QuadLayout,
   ) {
-    let scale_mat = Mat4::scale(width / 2., height / 2., 1.0);
-    let position_mat  = Mat4::translate(-x, -y, 0.0);
-    let model_mat = position_mat * scale_mat *  Mat4::translate(-1., -1., 0.0);
-    let mvp = self.camera.get_vp_matrix() * model_mat;
+    let mvp = quad_layout.compute_matrix(&self.camera);
     let mx_ref: &[f32; 16] = mvp.as_ref();
     self.camera_gpu_buffer.update(&renderer.device, &mut renderer.encoder, mx_ref);
 
