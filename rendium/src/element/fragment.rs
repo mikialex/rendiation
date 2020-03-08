@@ -18,14 +18,17 @@ impl EventHub {
     }
   }
 
-  pub fn add<T: FnMut(&mut Message) + 'static>(&mut self, listener: T) {
+  pub fn add<T: FnMut(&mut Message) + 'static>(&mut self, listener: T) -> usize {
+    let index = self.listeners.len();
     self.listeners.push(Box::new(listener));
+    index
   }
 }
 
 pub struct ElementFragment {
   elements: Vec<Box<dyn Element>>,
   elements_event: Vec<Vec<usize>>,
+  listener_element_index: Vec<usize>,
   events: EventHub,
 }
 
@@ -41,13 +44,14 @@ impl ElementFragment {
     let mut fragment = ElementFragment {
       elements: Vec::new(),
       elements_event: Vec::new(),
+      listener_element_index: Vec::new(),
       events: EventHub::new(),
     };
     let a = fragment.add_element(a);
     let b = fragment.add_element(b);
-    // fragment.add_event_listener(a, |m|{
-    //   println!("dd");
-    // });
+    fragment.add_event_listener(a, |m|{
+      println!("dd");
+    });
     fragment
   }
 
@@ -55,6 +59,7 @@ impl ElementFragment {
     let boxed = Box::new(element);
     let index = self.elements.len();
     self.elements.push(boxed);
+    self.elements_event.push(vec![]);
     index
   }
 
@@ -63,7 +68,10 @@ impl ElementFragment {
     element_index: usize,
     listener: T,
   ) -> usize {
-    todo!();
+    let event_index = self.events.add(listener);
+    self.listener_element_index.push(element_index);
+    self.elements_event[element_index].push(event_index);
+    event_index
   }
 
   pub fn render(&self, renderer: &mut WGPURenderer, gui_renderer: &mut GUIRenderer) {
