@@ -69,7 +69,7 @@ impl StandardGeometry {
   pub fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
     if let Some(gpu_data) = &mut self.gpu_data {
       if self.data_changed {
-        gpu_data.update(&renderer.device, &mut renderer.encoder, &self.data);
+        gpu_data.update(renderer, &self.data);
       }
     } else {
       self.gpu_data = Some(WGPUBuffer::new(
@@ -81,7 +81,7 @@ impl StandardGeometry {
 
     if let Some(gpu_index) = &mut self.gpu_index {
       if self.index_changed {
-        gpu_index.update(&renderer.device, &mut renderer.encoder, &self.index);
+        gpu_index.update(renderer, &self.index);
       }
     } else {
       self.gpu_index = Some(WGPUBuffer::new(

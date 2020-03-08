@@ -7,6 +7,8 @@ pub use renderer::*;
 // pub mod t;
 // use event::Event;
 
+pub mod component;
+
 pub use element::*;
 use rendiation::WGPURenderer;
 

@@ -1,3 +1,5 @@
+use crate::renderer::WGPURenderer;
+
 pub struct WGPUBuffer {
   gpu_buffer: wgpu::Buffer,
   size: usize,
@@ -36,14 +38,13 @@ impl WGPUBuffer {
 
   pub fn update<T: 'static + Copy>(
     &mut self,
-    device: &wgpu::Device,
-    encoder: &mut wgpu::CommandEncoder,
+    renderer: &mut WGPURenderer,
     value: &[T],
   ) -> &Self {
     assert_eq!(self.size, value.len());
 
-    let new_gpu = create_buffer(device, value, wgpu::BufferUsage::COPY_SRC);
-    encoder.copy_buffer_to_buffer(
+    let new_gpu = create_buffer(&renderer.device, value, wgpu::BufferUsage::COPY_SRC);
+    renderer.encoder.copy_buffer_to_buffer(
       &new_gpu,
       0,
       &self.gpu_buffer,

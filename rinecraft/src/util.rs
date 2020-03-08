@@ -20,7 +20,7 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn update_gpu(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer) {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
-    self.update(&renderer.device, &mut renderer.encoder, mx_ref);
+    self.update(renderer, mx_ref);
   }
 }
 
@@ -38,7 +38,7 @@ impl GPUItem<ViewFrustumOrthographicCamera> for WGPUBuffer {
   fn update_gpu(&mut self, item: &ViewFrustumOrthographicCamera, renderer: &mut WGPURenderer) {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
-    self.update(&renderer.device, &mut renderer.encoder, mx_ref);
+    self.update(renderer, mx_ref);
   }
 }
 
