@@ -1,3 +1,4 @@
+use crate::renderer::texture::WGPUTexture;
 use crate::geometry::StandardGeometry;
 use crate::renderer::pipeline::WGPUPipeline;
 use crate::renderer::WGPURenderer;
@@ -19,6 +20,7 @@ pub struct Scene {
   geometries: Arena<StandardGeometry>,
   renderables: Arena<Box<dyn Renderable>>,
   // nodes: Vec<SceneNode>
+  canvas: WGPUTexture
 }
 
 impl Scene {
@@ -57,7 +59,7 @@ impl Scene {
 
 pub trait Renderable {
   fn prepare(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene);
-  fn render(&self, pass: &WGPURenderPass);
+  fn render(&self, renderer: &WGPURenderer, scene: &mut Scene);
 }
 
 // pub struct RenderObject {

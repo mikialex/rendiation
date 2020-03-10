@@ -1,9 +1,27 @@
-use crate::scene::Renderable;
-use crate::renderer::WGPURenderer;
 use crate::renderer::pipeline::WGPUPipeline;
-use crate::geometry::StandardGeometry;
+use crate::renderer::WGPURenderer;
+use crate::scene::Renderable;
+use crate::scene::Scene;
+use crate::{geometry::StandardGeometry, WGPURenderPass};
+use rendiation_math::Vec3;
 
 pub trait Background: Renderable {}
+
+pub struct SolidBackground {
+  pub color: Vec3<f32>,
+}
+
+impl Renderable for SolidBackground {
+  fn prepare(&mut self, _: &mut WGPURenderer, _: &mut Scene) {}
+  fn render(&self, _: &WGPURenderer, scene: &mut Scene) {
+    WGPURenderPass::build().output_with_clear(
+      &scene.canvas.view(),
+      (self.color.x, self.color.y, self.color.z, 1.0),
+    );
+  }
+}
+
+impl Background for SolidBackground{}
 
 pub struct Sky {
   geometry: StandardGeometry,
