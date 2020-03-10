@@ -7,32 +7,36 @@ use crate::{
   renderer::render_pass::WGPURenderPass,
   StaticPipelineBuilder,
 };
-use generational_arena::Arena;
-use rendiation_render_entity::Camera;
+use generational_arena::{Arena, Index};
+use rendiation_render_entity::{PerspectiveCamera, Camera};
 
 mod background;
 pub use background::*;
 
 pub struct Scene {
   background: Box<dyn Background>,
-  // active_camera_index:
+  active_camera_index: Index,
   cameras: Arena<Box<dyn Camera>>,
   geometries: Arena<StandardGeometry>,
-  renderables: Arena<Box<dyn Renderable>>,
+  // renderables: Arena<Box<dyn Renderable>>,
   // nodes: Vec<SceneNode>
   canvas: WGPUTexture
 }
 
 impl Scene {
-  pub fn new() -> Self {
-    todo!()
-    // Scene {
-    //   background: Box<dyn Background>,
-    //   // active_camera_index:
-    //   cameras: Arena<Box<dyn Camera>>,
-    //   geometries: Arena<StandardGeometry>,
-    //   // nodes: Vec<SceneNode>
-    // }
+  pub fn new(renderer: &WGPURenderer) -> Self {
+    let camera_default = Box::new(PerspectiveCamera::new());
+    let mut cameras: Arena<Box<dyn Camera>> = Arena::new();
+    let active_camera_index = cameras.insert(camera_default);
+    // todo!()
+    Self {
+      background: Box::new(SolidBackground::new()),
+      active_camera_index,
+      cameras,
+      geometries: Arena::new(),
+      canvas: WGPUTexture::new_as_target(&renderer.device, (100, 100))
+      // nodes: Vec<SceneNode>
+    }
   }
 
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
