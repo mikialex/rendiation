@@ -13,12 +13,16 @@ use rendiation_render_entity::{PerspectiveCamera, Camera};
 mod background;
 pub use background::*;
 
+pub struct SceneNode{
+  parent: Index,
+}
+
 pub struct Scene {
   background: Box<dyn Background>,
   active_camera_index: Index,
   cameras: Arena<Box<dyn Camera>>,
   geometries: Arena<StandardGeometry>,
-  // renderables: Arena<Box<dyn Renderable>>,
+  renderables: Arena<Box<dyn Renderable>>,
   // nodes: Vec<SceneNode>
   canvas: WGPUTexture
 }
@@ -34,9 +38,15 @@ impl Scene {
       active_camera_index,
       cameras,
       geometries: Arena::new(),
-      canvas: WGPUTexture::new_as_target(&renderer.device, (100, 100))
+      canvas: WGPUTexture::new_as_target(&renderer.device, (100, 100)),
+      renderables: Arena::new(),
       // nodes: Vec<SceneNode>
     }
+  }
+
+  pub fn add_renderable(&mut self, renderable: impl Renderable + 'static) -> Index {
+    let boxed = Box::new(renderable);
+    self.renderables.insert(boxed)
   }
 
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
@@ -45,7 +55,7 @@ impl Scene {
     // }
   }
 
-  pub fn render() {
+  pub fn render(&self, renderer: &WGPURenderer) {
     // let mut pass = WGPURenderPass::build()
     //       .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
     //       .with_depth(state.depth.view())
