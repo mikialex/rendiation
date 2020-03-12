@@ -1,7 +1,7 @@
-use crate::vox::world_machine::WorldMachine;
 use crate::vox::block::*;
 use crate::vox::util::local_to_world;
 use crate::vox::world::*;
+use crate::vox::world_machine::WorldMachine;
 use rendiation::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
@@ -47,7 +47,6 @@ impl PartialEq for Chunk {
 }
 
 impl Eq for Chunk {}
-
 
 impl Chunk {
   pub fn new(chunk_id: (i32, i32), world_machine: &impl WorldMachine) -> Self {
@@ -106,46 +105,76 @@ impl Chunk {
   ) -> StandardGeometry {
     let chunk = chunks.get(&chunk_position).unwrap();
 
-    let data = &chunk.data;
+    // let data = &chunk.data;
 
     let mut new_index = Vec::new();
     let mut new_vertex = Vec::new();
     let world_offset_x = chunk_position.0 as f32 * CHUNK_ABS_WIDTH;
     let world_offset_z = chunk_position.1 as f32 * CHUNK_ABS_WIDTH;
-    for x in 0..CHUNK_WIDTH {
-      for z in 0..CHUNK_WIDTH {
-        for y in 0..CHUNK_HEIGHT {
-          let block = data[x][z][y];
 
-          if block.is_void() {
-            continue;
-          }
+    for (block, x, y, z) in chunk.iter() {
+      if block.is_void() {
+        continue;
+      }
 
-          let min_x = x as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-          let min_y = y as f32 * BLOCK_WORLD_SIZE;
-          let min_z = z as f32 * BLOCK_WORLD_SIZE + world_offset_z;
+      let min_x = x as f32 * BLOCK_WORLD_SIZE + world_offset_x;
+      let min_y = y as f32 * BLOCK_WORLD_SIZE;
+      let min_z = z as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
-          let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-          let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
-          let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
+      let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_x;
+      let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
+      let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
-          let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
-          for face in BLOCK_FACES.iter() {
-            if World::check_block_face_visibility(chunks, &world_position, *face) {
-              build_block_face(
-                world_machine,
-                block,
-                &(min_x, min_y, min_z),
-                &(max_x, max_y, max_z),
-                *face,
-                &mut new_index,
-                &mut new_vertex,
-              );
-            }
-          }
+      let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
+      for face in BLOCK_FACES.iter() {
+        if World::check_block_face_visibility(chunks, &world_position, *face) {
+          build_block_face(
+            world_machine,
+            *block,
+            &(min_x, min_y, min_z),
+            &(max_x, max_y, max_z),
+            *face,
+            &mut new_index,
+            &mut new_vertex,
+          );
         }
       }
     }
+
+    // for x in 0..CHUNK_WIDTH {
+    //   for z in 0..CHUNK_WIDTH {
+    //     for y in 0..CHUNK_HEIGHT {
+    //       let block = data[x][z][y];
+
+    //       if block.is_void() {
+    //         continue;
+    //       }
+
+    //       let min_x = x as f32 * BLOCK_WORLD_SIZE + world_offset_x;
+    //       let min_y = y as f32 * BLOCK_WORLD_SIZE;
+    //       let min_z = z as f32 * BLOCK_WORLD_SIZE + world_offset_z;
+
+    //       let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_x;
+    //       let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
+    //       let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
+
+    //       let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
+    //       for face in BLOCK_FACES.iter() {
+    //         if World::check_block_face_visibility(chunks, &world_position, *face) {
+    //           build_block_face(
+    //             world_machine,
+    //             block,
+    //             &(min_x, min_y, min_z),
+    //             &(max_x, max_y, max_z),
+    //             *face,
+    //             &mut new_index,
+    //             &mut new_vertex,
+    //           );
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
 
     let mut geom = StandardGeometry::new::<TriangleList>(new_vertex, new_index);
     geom.update_gpu(renderer);
@@ -185,13 +214,18 @@ impl<'a> ChunkDataIterator<'a> {
 }
 
 impl<'a> Iterator for ChunkDataIterator<'a> {
-  type Item = &'a Block;
+  type Item = (&'a Block, usize, usize, usize);
 
-  fn next(&mut self) -> Option<&'a Block> {
+  fn next(&mut self) -> Option<(&'a Block, usize, usize, usize)> {
     if self.over {
       return None;
     }
-    let result = Some(&self.chunk.data[self.position.0][self.position.1][self.position.2]);
+    let result = Some((
+      &self.chunk.data[self.position.0][self.position.1][self.position.2],
+      self.position.0,
+      self.position.2,
+      self.position.1,
+    ));
     self.step_position();
     result
   }

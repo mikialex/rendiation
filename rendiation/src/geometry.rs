@@ -1,3 +1,4 @@
+use core::num::NonZeroU32;
 use core::marker::PhantomData;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::pipeline::*;
@@ -17,10 +18,14 @@ pub fn quad_maker() -> (Vec<Vertex>, Vec<u16>) {
   (data.to_vec(), index.to_vec())
 }
 
-pub trait PrimitiveTopology{}
+pub trait PrimitiveTopology{
+  const STRIDE: usize;
+}
 
 pub struct TriangleList;
-impl PrimitiveTopology for TriangleList{}
+impl PrimitiveTopology for TriangleList{
+  const STRIDE: usize = 3;
+}
 
 /// A indexed geometry that use vertex primitive;
 pub struct StandardGeometry<T: PrimitiveTopology = TriangleList> {
@@ -50,6 +55,10 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
       gpu_index: None,
       _phantom: PhantomData
     }
+  }
+
+  pub fn get_primitive_count(&self) -> u32 {
+    self.index.len() as u32 / T::STRIDE as u32
   }
 
   pub fn get_full_count(&self) -> u32 {
