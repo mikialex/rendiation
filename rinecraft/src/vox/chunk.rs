@@ -147,7 +147,7 @@ impl Chunk {
       }
     }
 
-    let mut geom = StandardGeometry::new(new_vertex, new_index);
+    let mut geom = StandardGeometry::new::<TriangleList>(new_vertex, new_index);
     geom.update_gpu(renderer);
     geom
   }

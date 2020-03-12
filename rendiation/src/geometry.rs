@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::pipeline::*;
 use crate::renderer::render_pass::WGPURenderPass;
@@ -16,24 +17,30 @@ pub fn quad_maker() -> (Vec<Vertex>, Vec<u16>) {
   (data.to_vec(), index.to_vec())
 }
 
+pub trait PrimitiveTopology{}
+
+pub struct TriangleList;
+impl PrimitiveTopology for TriangleList{}
+
 /// A indexed geometry that use vertex primitive;
-pub struct StandardGeometry {
+pub struct StandardGeometry<T: PrimitiveTopology = TriangleList> {
   data: Vec<Vertex>,
   data_changed: bool,
   index: Vec<u16>,
   index_changed: bool,
   gpu_data: Option<WGPUBuffer>,
   gpu_index: Option<WGPUBuffer>,
+  _phantom: PhantomData<T>,
 }
 
 impl From<(Vec<Vertex>, Vec<u16>)> for StandardGeometry {
   fn from(item: (Vec<Vertex>, Vec<u16>)) -> Self {
-    StandardGeometry::new(item.0, item.1)
+    StandardGeometry::new::<TriangleList>(item.0, item.1)
   }
 }
 
-impl StandardGeometry {
-  pub fn new(v: Vec<Vertex>, index: Vec<u16>) -> Self {
+impl<T: PrimitiveTopology> StandardGeometry<T> {
+  pub fn new<U: PrimitiveTopology>(v: Vec<Vertex>, index: Vec<u16>) -> Self {
     Self {
       data: v,
       data_changed: false,
@@ -41,6 +48,7 @@ impl StandardGeometry {
       index_changed: false,
       gpu_data: None,
       gpu_index: None,
+      _phantom: PhantomData
     }
   }
 
