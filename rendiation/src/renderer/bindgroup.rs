@@ -53,7 +53,6 @@ impl WGPUBindGroup {
       gpu_bindgroup: wgpu_bindgroup,
     }
   }
-
 }
 
 #[derive(Default)]

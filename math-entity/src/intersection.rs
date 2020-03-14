@@ -3,16 +3,21 @@ use crate::ray::Ray;
 use crate::sphere::Sphere;
 use rendiation_math::Vec3;
 
-pub trait IntersectAble<T, R> {
-  fn intersect(&self, other: &T) -> Option<R>;
+pub struct NearestPoint3D(pub Vec3<f32>);
+
+pub trait IntersectAble<T> {
+  type IntersectResult;
+  fn intersect(&self, other: &T) -> Option<Self::IntersectResult>;
   fn if_intersect(&self, other: &T) -> bool {
     // ok, maybe it will be optimized by compiler;
     self.intersect(other).is_some()
   }
 }
 
-impl IntersectAble<Box3, Vec3<f32>> for Ray {
-  fn intersect(&self, box3: &Box3) -> Option<Vec3<f32>> {
+impl IntersectAble<Box3> for Ray {
+  type IntersectResult = NearestPoint3D;
+
+  fn intersect(&self, box3: &Box3) -> Option<NearestPoint3D> {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
       (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -79,16 +84,15 @@ impl IntersectAble<Box3, Vec3<f32>> for Ray {
       return None;
     }
 
-    Some(self.at(if t_min >= 0. {
-      t_min
-    } else {
-      t_max
-    }))
+    Some(NearestPoint3D(self.at(if t_min >= 0. { t_min } else { t_max })))
   }
 }
 
-impl IntersectAble<Sphere, Vec3<f32>> for Ray {
-  fn intersect(&self, sphere: &Sphere) -> Option<Vec3<f32>> {
+impl IntersectAble<Sphere> for Ray {
+  
+  type IntersectResult = NearestPoint3D;
+
+  fn intersect(&self, sphere: &Sphere) -> Option<NearestPoint3D> {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
     let d2 = oc.dot(oc) - tca * tca;
@@ -115,10 +119,10 @@ impl IntersectAble<Sphere, Vec3<f32>> for Ray {
     // if it is, the ray is inside the sphere, so return the second exit point scaled by t1,
     // in order to always return an intersect point that is in front of the ray.
     if t0 < 0. {
-      return Some(self.at(t1));
+      return Some(NearestPoint3D(self.at(t1)));
     };
 
     // else t0 is in front of the ray, so return the first collision point scaled by t0
-    Some(self.at(t0))
+    Some(NearestPoint3D(self.at(t0)))
   }
 }
