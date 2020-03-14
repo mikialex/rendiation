@@ -1,4 +1,3 @@
-use crate::ray::Ray;
 use rendiation_math::vec::Math;
 use rendiation_math::*;
 

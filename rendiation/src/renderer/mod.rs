@@ -8,6 +8,7 @@ pub mod sampler;
 pub mod shader_util;
 pub mod texture;
 pub mod swap_chain;
+pub mod blend;
 
 pub use bindgroup::*;
 pub use buffer::*;
@@ -19,6 +20,7 @@ pub use texture::*;
 pub use consts::*;
 pub use shader_util::*;
 pub use swap_chain::*;
+pub use blend::*;
 
 /// The renderer trait.
 ///
