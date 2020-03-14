@@ -1,3 +1,4 @@
+use crate::geometry_primitive::*;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::pipeline::*;
 use crate::renderer::render_pass::WGPURenderPass;
@@ -5,7 +6,6 @@ use crate::renderer::WGPURenderer;
 use crate::vertex::vertex;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
-use rendiation_math_entity::Face;
 
 pub fn quad_maker() -> (Vec<Vertex>, Vec<u16>) {
   let data = [
@@ -16,55 +16,6 @@ pub fn quad_maker() -> (Vec<Vertex>, Vec<u16>) {
   ];
   let index = [0, 2, 1, 2, 0, 3];
   (data.to_vec(), index.to_vec())
-}
-
-impl PrimitiveFromGeometryData for Face{
-  fn from_data(index: &[u16], data: &[Vertex], offset: usize) -> Self{
-    todo!()
-  }
-}
-
-pub trait PrimitiveTopology {
-  type Primitive: PrimitiveFromGeometryData;
-  // type PrimitiveIter: Iterator<Item =Self::Primitive>;
-  const STRIDE: usize;
-
-  // fn get_iter(index: &[u16], vertex: &[Vertex]) -> Self::PrimitiveIter;
-}
-
-pub struct TriangleList;
-impl PrimitiveTopology for TriangleList {
-  type Primitive = Face;
-  // type PrimitiveIter = Iterator<Item =Face>;
-
-  const STRIDE: usize = 3;
-
-  // fn get_iter(index: &[u16], vertex: &[Vertex]) -> Self::PrimitiveIter{
-  //   todo!()
-  // }
-}
-
-pub trait PrimitiveFromGeometryData {
-  fn from_data(index: &[u16], data: &[Vertex], offset: usize) -> Self;
-}
-
-pub struct PrimitiveIter<'a, T: PrimitiveFromGeometryData> {
-  index: &'a [u16],
-  data: &'a [Vertex],
-  current: usize,
-  _phantom: PhantomData<T>,
-}
-
-impl<'a, T: PrimitiveFromGeometryData> Iterator for PrimitiveIter<'a, T> {
-  type Item = T;
-
-  fn next(&mut self) -> Option<T> {
-    if self.current == self.index.len() {
-      None
-    } else {
-      Some(T::from_data(self.index, self.data, self.current))
-    }
-  }
 }
 
 /// A indexed geometry that use vertex as primitive;
@@ -97,8 +48,13 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
     }
   }
 
-  pub fn primitive_iter<'a>(&'a self) -> PrimitiveIter<'a, T::Primitive>{
-    todo!()
+  pub fn primitive_iter<'a>(&'a self) -> PrimitiveIter<'a, T::Primitive> {
+    PrimitiveIter {
+      index: &self.index,
+      data: &self.data,
+      current: 0,
+      _phantom: PhantomData,
+    }
   }
 
   pub fn get_primitive_count(&self) -> u32 {
