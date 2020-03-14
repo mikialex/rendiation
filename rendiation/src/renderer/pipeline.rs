@@ -11,6 +11,7 @@ pub trait VertexProvider {
 pub trait GeometryProvider {
   fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'static>>;
   fn get_index_format() -> wgpu::IndexFormat;
+  fn get_primitive_topology() -> wgpu::PrimitiveTopology;
 }
 
 pub trait BindGroupProvider: Sized {
@@ -71,6 +72,7 @@ impl<'a> StaticPipelineBuilder<'a> {
       .vertex_layouts
       .extend(T::get_geometry_layout_descriptor());
     self.index_format = T::get_index_format();
+    self.primitive_topology = T::get_primitive_topology();
     self
   }
 
@@ -105,60 +107,58 @@ impl<'a> StaticPipelineBuilder<'a> {
       bind_group_layouts: &self.bindgroup_layouts,
     });
 
-     // Create the render pipeline
-     use crate::renderer::shader_util::*;
-     let vs_bytes = load_glsl(&self.vertex_shader, ShaderType::Vertex);
-     let fs_bytes = load_glsl(&self.frag_shader, ShaderType::Fragment);
-     let vs_module = device.create_shader_module(&vs_bytes);
-     let fs_module = device.create_shader_module(&fs_bytes);
- 
-     let depth_stencil_state = self.depth_format.map(|format|{
-       wgpu::DepthStencilStateDescriptor {
-         format,
-         depth_write_enabled: true,
-         depth_compare: wgpu::CompareFunction::LessEqual,
-         stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-         stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-         stencil_read_mask: 0,
-         stencil_write_mask: 0,
-       }
-     });
- 
-     let pipeline_des = wgpu::RenderPipelineDescriptor {
-       layout: &pipeline_layout,
-       vertex_stage: wgpu::ProgrammableStageDescriptor {
-         module: &vs_module,
-         entry_point: "main",
-       },
-       fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-         module: &fs_module,
-         entry_point: "main",
-       }),
-       rasterization_state: Some(self.rasterization.clone()),
-       primitive_topology: self.primitive_topology,
-       color_states: &[wgpu::ColorStateDescriptor {
-         format: self.color_target_format,
-         color_blend: self.blend.clone(),
-         alpha_blend: wgpu::BlendDescriptor::REPLACE,
-         write_mask: wgpu::ColorWrite::ALL,
-       }],
-       depth_stencil_state,
-       index_format: self.index_format,
-       vertex_buffers: &self.vertex_layouts,
-       sample_count: 1,
-       sample_mask: !0,
-       alpha_to_coverage_enabled: false,
-     };
- 
-     let pipeline = device.create_render_pipeline(&pipeline_des);
- 
-     WGPUPipeline {
-       pipeline,
-     }
+    // Create the render pipeline
+    use crate::renderer::shader_util::*;
+    let vs_bytes = load_glsl(&self.vertex_shader, ShaderType::Vertex);
+    let fs_bytes = load_glsl(&self.frag_shader, ShaderType::Fragment);
+    let vs_module = device.create_shader_module(&vs_bytes);
+    let fs_module = device.create_shader_module(&fs_bytes);
+
+    let depth_stencil_state = self
+      .depth_format
+      .map(|format| wgpu::DepthStencilStateDescriptor {
+        format,
+        depth_write_enabled: true,
+        depth_compare: wgpu::CompareFunction::LessEqual,
+        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_read_mask: 0,
+        stencil_write_mask: 0,
+      });
+
+    let pipeline_des = wgpu::RenderPipelineDescriptor {
+      layout: &pipeline_layout,
+      vertex_stage: wgpu::ProgrammableStageDescriptor {
+        module: &vs_module,
+        entry_point: "main",
+      },
+      fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+        module: &fs_module,
+        entry_point: "main",
+      }),
+      rasterization_state: Some(self.rasterization.clone()),
+      primitive_topology: self.primitive_topology,
+      color_states: &[wgpu::ColorStateDescriptor {
+        format: self.color_target_format,
+        color_blend: self.blend.clone(),
+        alpha_blend: wgpu::BlendDescriptor::REPLACE,
+        write_mask: wgpu::ColorWrite::ALL,
+      }],
+      depth_stencil_state,
+      index_format: self.index_format,
+      vertex_buffers: &self.vertex_layouts,
+      sample_count: 1,
+      sample_mask: !0,
+      alpha_to_coverage_enabled: false,
+    };
+
+    let pipeline = device.create_render_pipeline(&pipeline_des);
+
+    WGPUPipeline { pipeline }
   }
 }
 
-trait Shading{
+trait Shading {
   fn new(pipeline: WGPUPipeline) -> Self;
 }
 
@@ -166,6 +166,4 @@ trait RenderTargetsDescriptor {
   fn provide_color_states() -> &'static [wgpu::ColorStateDescriptor];
 }
 
-struct MultiRenderTargetDemo{
-
-}
+struct MultiRenderTargetDemo {}

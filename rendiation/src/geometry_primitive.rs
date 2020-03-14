@@ -1,3 +1,4 @@
+use rendiation_math_entity::Line3;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
 use rendiation_math_entity::Face;
@@ -15,9 +16,18 @@ impl PrimitiveFromGeometryData for Face {
   }
 }
 
+impl PrimitiveFromGeometryData for Line3 {
+  fn from_data(index: &[u16], data: &[Vertex], offset: usize) -> Self {
+    let start = data[index[offset] as usize].position;
+    let end = data[index[offset + 1] as usize].position;
+    Line3 { start, end }
+  }
+}
+
 pub trait PrimitiveTopology {
   type Primitive: PrimitiveFromGeometryData;
   const STRIDE: usize;
+  const WGPU_ENUM: wgpu::PrimitiveTopology;
 }
 
 pub struct TriangleList;
@@ -25,6 +35,15 @@ pub struct TriangleList;
 impl PrimitiveTopology for TriangleList {
   type Primitive = Face;
   const STRIDE: usize = 3;
+  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::TriangleList;
+}
+
+pub struct LineList;
+
+impl PrimitiveTopology for LineList {
+  type Primitive = Line3;
+  const STRIDE: usize = 2;
+  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineList;
 }
 
 pub struct PrimitiveIter<'a, T: PrimitiveFromGeometryData> {
@@ -33,7 +52,6 @@ pub struct PrimitiveIter<'a, T: PrimitiveFromGeometryData> {
   pub current: usize,
   pub _phantom: PhantomData<T>,
 }
-
 
 impl<'a, T: PrimitiveFromGeometryData> Iterator for PrimitiveIter<'a, T> {
   type Item = T;

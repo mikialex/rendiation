@@ -141,41 +141,6 @@ impl Chunk {
       }
     }
 
-    // for x in 0..CHUNK_WIDTH {
-    //   for z in 0..CHUNK_WIDTH {
-    //     for y in 0..CHUNK_HEIGHT {
-    //       let block = data[x][z][y];
-
-    //       if block.is_void() {
-    //         continue;
-    //       }
-
-    //       let min_x = x as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-    //       let min_y = y as f32 * BLOCK_WORLD_SIZE;
-    //       let min_z = z as f32 * BLOCK_WORLD_SIZE + world_offset_z;
-
-    //       let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-    //       let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
-    //       let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
-
-    //       let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
-    //       for face in BLOCK_FACES.iter() {
-    //         if World::check_block_face_visibility(chunks, &world_position, *face) {
-    //           build_block_face(
-    //             world_machine,
-    //             block,
-    //             &(min_x, min_y, min_z),
-    //             &(max_x, max_y, max_z),
-    //             *face,
-    //             &mut new_index,
-    //             &mut new_vertex,
-    //           );
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
-
     let mut geom = StandardGeometry::new::<TriangleList>(new_vertex, new_index);
     geom.update_gpu(renderer);
     geom
