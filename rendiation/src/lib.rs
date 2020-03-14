@@ -4,6 +4,7 @@ pub mod event;
 pub mod window;
 pub mod vertex;
 pub mod geometry;
+pub mod none_indexed_geometry;
 pub mod geometry_primitive;
 pub mod geometry_lib;
 pub mod scene;

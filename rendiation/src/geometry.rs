@@ -48,13 +48,8 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
     }
   }
 
-  pub fn primitive_iter<'a>(&'a self) -> PrimitiveIter<'a, T::Primitive> {
-    PrimitiveIter {
-      index: &self.index,
-      data: &self.data,
-      current: 0,
-      _phantom: PhantomData,
-    }
+  pub fn primitive_iter<'a>(&'a self) -> IndexedPrimitiveIter<'a, T::Primitive> {
+    IndexedPrimitiveIter::new(&self.index, &self.data)
   }
 
   pub fn get_primitive_count(&self) -> u32 {
