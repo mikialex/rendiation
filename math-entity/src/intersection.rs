@@ -1,22 +1,97 @@
 use crate::box3::Box3;
+use crate::face::Face;
+use crate::line3::Line3;
 use crate::ray::Ray;
 use crate::sphere::Sphere;
 use rendiation_math::Vec3;
 
 pub struct NearestPoint3D(pub Vec3<f32>);
+pub struct IntersectionList(pub Vec<Vec3<f32>>);
 
-pub trait IntersectAble<T> {
-  type IntersectResult;
-  fn intersect(&self, other: &T) -> Option<Self::IntersectResult>;
-  fn if_intersect(&self, other: &T) -> bool {
-    // ok, maybe it will be optimized by compiler;
-    self.intersect(other).is_some()
+pub trait IntersectAble<IntersectTarget, IntersectResult> {
+  fn intersect(&self, other: &IntersectTarget) -> IntersectResult;
+}
+
+impl IntersectAble<Face, Option<NearestPoint3D>> for Ray {
+  #[allow(non_snake_case)]
+  fn intersect(&self, face: &Face) -> Option<NearestPoint3D> {
+    // Compute the offset origin, edges, and normal.
+
+    // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
+    let Face { a, b, c } = *face;
+    let blackfaceCulling = false;
+    let _edge1 = b - a;
+    let _edge2 = c - a;
+    let _normal = _edge1.cross(_edge2);
+
+    // Solve Q + t*D = b1*E1 + b2*E2 (Q = kDiff, D = ray direction,
+    // E1 = kEdge1, E2 = kEdge2, N = Cross(E1,E2)) by
+    //   |Dot(D,N)|*b1 = sign(Dot(D,N))*Dot(D,Cross(Q,E2))
+    //   |Dot(D,N)|*b2 = sign(Dot(D,N))*Dot(D,Cross(E1,Q))
+    //   |Dot(D,N)|*t = -sign(Dot(D,N))*Dot(Q,N)
+    let mut DdN = self.direction.dot(_normal);
+    #[allow(unused_assignments)]
+    let mut sign: f32 = 0.;
+
+    if DdN > 0. {
+      if blackfaceCulling {
+        return None;
+      }
+      sign = 1.;
+    } else if DdN < 0.0 {
+      sign = -1.;
+      DdN = -DdN;
+    } else {
+      return None;
+    }
+
+    let _diff = self.origin - a;
+    let DdQxE2 = sign * self.direction.dot(_diff.cross(_edge2));
+
+    // b1 < 0, no intersection
+    if DdQxE2 < 0. {
+      return None;
+    }
+
+    let DdE1xQ = sign * self.direction.dot(_edge1.cross(_diff));
+
+    // b2 < 0, no intersection
+    if DdE1xQ < 0. {
+      return None;
+    }
+
+    // b1+b2 > 1, no intersection
+    if DdQxE2 + DdE1xQ > DdN {
+      return None;
+    }
+
+    // Line intersects triangle, check if ray does.
+    let QdN = -sign * _diff.dot(_normal);
+
+    // t < 0, no intersection
+    if QdN < 0. {
+      return None;
+    }
+
+    // Ray intersects triangle.
+    return Some(NearestPoint3D(self.at(QdN / DdN)));
   }
 }
 
-impl IntersectAble<Box3> for Ray {
-  type IntersectResult = NearestPoint3D;
+impl IntersectAble<Ray, Option<NearestPoint3D>> for Face {
+  #[allow(unconditional_recursion)]
+  fn intersect(&self, ray: &Ray) -> Option<NearestPoint3D> {
+    self.intersect(ray)
+  }
+}
 
+impl IntersectAble<Ray, Option<NearestPoint3D>> for Line3 {
+  fn intersect(&self, ray: &Ray) -> Option<NearestPoint3D> {
+    todo!()
+  }
+}
+
+impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
   fn intersect(&self, box3: &Box3) -> Option<NearestPoint3D> {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
@@ -84,14 +159,22 @@ impl IntersectAble<Box3> for Ray {
       return None;
     }
 
-    Some(NearestPoint3D(self.at(if t_min >= 0. { t_min } else { t_max })))
+    Some(NearestPoint3D(self.at(if t_min >= 0. {
+      t_min
+    } else {
+      t_max
+    })))
   }
 }
 
-impl IntersectAble<Sphere> for Ray {
-  
-  type IntersectResult = NearestPoint3D;
+impl IntersectAble<Box3, bool> for Ray {
+  #[allow(unconditional_recursion)]
+  fn intersect(&self, other: &Box3) -> bool {
+    IntersectAble::intersect(self, other)
+  }
+}
 
+impl IntersectAble<Sphere, Option<NearestPoint3D>> for Ray {
   fn intersect(&self, sphere: &Sphere) -> Option<NearestPoint3D> {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
@@ -124,5 +207,18 @@ impl IntersectAble<Sphere> for Ray {
 
     // else t0 is in front of the ray, so return the first collision point scaled by t0
     Some(NearestPoint3D(self.at(t0)))
+  }
+}
+
+impl IntersectAble<Sphere, bool> for Ray {
+  #[allow(unconditional_recursion)]
+  fn intersect(&self, other: &Sphere) -> bool {
+    IntersectAble::intersect(self, other)
+  }
+}
+
+impl IntersectAble<Sphere, Option<IntersectionList>> for Ray {
+  fn intersect(&self, sphere: &Sphere) -> Option<IntersectionList> {
+    todo!();
   }
 }

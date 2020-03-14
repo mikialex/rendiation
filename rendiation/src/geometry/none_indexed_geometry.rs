@@ -1,4 +1,4 @@
-use crate::geometry_primitive::*;
+use crate::primitive::*;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;

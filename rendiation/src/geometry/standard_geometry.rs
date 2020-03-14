@@ -1,4 +1,4 @@
-use crate::geometry_primitive::*;
+use crate::primitive::*;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::pipeline::*;
 use crate::renderer::render_pass::WGPURenderPass;
@@ -31,12 +31,12 @@ pub struct StandardGeometry<T: PrimitiveTopology = TriangleList> {
 
 impl From<(Vec<Vertex>, Vec<u16>)> for StandardGeometry {
   fn from(item: (Vec<Vertex>, Vec<u16>)) -> Self {
-    StandardGeometry::new::<TriangleList>(item.0, item.1)
+    StandardGeometry::new(item.0, item.1)
   }
 }
 
 impl<T: PrimitiveTopology> StandardGeometry<T> {
-  pub fn new<U: PrimitiveTopology>(v: Vec<Vertex>, index: Vec<u16>) -> Self {
+  pub fn new(v: Vec<Vertex>, index: Vec<u16>) -> Self {
     Self {
       data: v,
       data_changed: false,
