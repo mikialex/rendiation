@@ -7,6 +7,7 @@ pub mod transformation;
 pub mod spherical;
 pub mod ray;
 pub mod intersection;
+pub mod face;
 
 pub use box3::*;
 pub use sphere::*;
@@ -16,3 +17,4 @@ pub use transformation::*;
 pub use spherical::*;
 pub use ray::*;
 pub use intersection::*;
+pub use face::*;
