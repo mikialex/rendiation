@@ -3,6 +3,7 @@ pub mod event;
 // pub mod lens;
 pub mod renderer;
 // pub use lens::*;
+use crate::event::Event;
 pub use renderer::*;
 // pub mod t;
 // use event::Event;
@@ -25,7 +26,7 @@ impl GUI {
     }
   }
 
-  pub fn event() {
+  pub fn event(event: Event) {
     
   }
 
