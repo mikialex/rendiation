@@ -1,8 +1,7 @@
 use crate::rinecraft::Rinecraft;
-use rendiation::WindowEventSession;
+use rendium::WindowEventSession;
 use crate::rinecraft::RinecraftState;
 use rendiation_math::*;
-use rendiation_render_entity::*;
 
 impl Rinecraft{
   pub fn use_orbit_controller(&mut self){

@@ -1,5 +1,8 @@
 use rendiation_math::Vec3;
 
+pub mod window_event;
+pub use window_event::*;
+
 pub enum MouseActionType {
   Down,
   Up,
@@ -18,5 +21,5 @@ pub struct MouseActionEvent {
 }
 
 pub struct Event{
-    
+
 }

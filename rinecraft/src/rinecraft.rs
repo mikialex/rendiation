@@ -1,14 +1,11 @@
-use crate::application::RenderCtx;
-use crate::application::*;
-use crate::geometry::*;
+use rendiation::renderer::SwapChain;
 use crate::init::init_orbit_controller;
-use crate::renderer::*;
+use rendiation::*;
 use crate::shading::BlockShading;
 use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
 use crate::watch::*;
-use rendiation::*;
 use rendiation_render_entity::*;
 use rendium::*;
 
@@ -174,7 +171,7 @@ impl Application for Rinecraft {
     }
   }
 
-  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut RenderCtx) {
+  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut AppRenderCtx) {
     self.state.window_state.event(event.clone());
     self.window_session.event(event, &mut self.state, renderer);
   }

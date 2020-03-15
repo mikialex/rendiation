@@ -8,9 +8,7 @@ edition = "2018"
 
 [dependencies]
 wgpu = "0.4.0"
-log = "0.4"
 glsl-to-spirv = "0.1"
-winit = "0.20.0-alpha4"
 generational-arena = { version = "0.2" }
 # spec = {version= "0.16.1"}
 

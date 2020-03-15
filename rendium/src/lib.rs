@@ -1,16 +1,22 @@
+pub mod application;
+pub mod component;
 pub mod element;
 pub mod event;
+pub mod window;
 // pub mod lens;
 pub mod renderer;
+
+pub use application::*;
+pub use window::*;
+pub use event::*;
 // pub use lens::*;
-use crate::event::Event;
 pub use renderer::*;
-// pub mod t;
-// use event::Event;
 
-pub mod component;
 
+pub use winit;
 pub use element::*;
+
+
 use rendiation::WGPURenderer;
 
 pub struct GUI {

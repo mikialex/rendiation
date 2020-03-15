@@ -1,5 +1,3 @@
-use rendiation::*;
-
 mod rinecraft;
 // mod gui;
 mod shading;
@@ -8,6 +6,7 @@ mod watch;
 mod vox;
 mod init;
 use rinecraft::*;
+use rendium::application;
 
 fn main() {
     env_logger::init();

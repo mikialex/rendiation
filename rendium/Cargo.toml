@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 winit = "0.20.0-alpha4"
+log = "0.4"
+
 rendiation = { path = "../rendiation" }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
