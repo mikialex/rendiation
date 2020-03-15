@@ -79,9 +79,8 @@ impl IntersectAble<Face, Option<NearestPoint3D>> for Ray {
 }
 
 impl IntersectAble<Ray, Option<NearestPoint3D>> for Face {
-  #[allow(unconditional_recursion)]
   fn intersect(&self, ray: &Ray) -> Option<NearestPoint3D> {
-    self.intersect(ray)
+    IntersectAble::<Face, Option<NearestPoint3D>>::intersect(ray, self)
   }
 }
 
@@ -168,9 +167,8 @@ impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
 }
 
 impl IntersectAble<Box3, bool> for Ray {
-  #[allow(unconditional_recursion)]
   fn intersect(&self, other: &Box3) -> bool {
-    IntersectAble::intersect(self, other)
+    IntersectAble::<Box3, Option<NearestPoint3D>>::intersect(self, other).is_some()
   }
 }
 
@@ -211,9 +209,8 @@ impl IntersectAble<Sphere, Option<NearestPoint3D>> for Ray {
 }
 
 impl IntersectAble<Sphere, bool> for Ray {
-  #[allow(unconditional_recursion)]
   fn intersect(&self, other: &Sphere) -> bool {
-    IntersectAble::intersect(self, other)
+    IntersectAble::<Sphere, Option<NearestPoint3D>>::intersect(self, other).is_some()
   }
 }
 
