@@ -1,14 +1,15 @@
-use crate::renderer::*;
+use rendiation::renderer::SwapChain;
+use rendiation::WGPURenderer;
 use winit::event::WindowEvent;
 
-pub struct RenderCtx<'a> {
+pub struct AppRenderCtx<'a> {
   pub renderer: &'a mut WGPURenderer,
   pub swap_chain: &'a mut SwapChain,
 }
 
 pub trait Application: 'static + Sized {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self;
-  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut RenderCtx);
+  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut AppRenderCtx);
 }
 
 pub fn run<E: Application>(title: &str) {
@@ -26,7 +27,7 @@ pub fn run<E: Application>(title: &str) {
     window.set_title(title);
     let hidpi_factor = window.hidpi_factor();
     let size = window.inner_size().to_physical(hidpi_factor);
-    let surface = wgpu::Surface::create(&window);
+    let surface = rendiation::Surface::create(&window);
     (window, hidpi_factor, size, surface)
   };
 
@@ -54,7 +55,8 @@ pub fn run<E: Application>(title: &str) {
 
   let mut renderer = WGPURenderer::new();
 
-  let mut swap_chain = SwapChain::new(surface, 
+  let mut swap_chain = SwapChain::new(
+    surface,
     (size.width.round() as usize, size.height.round() as usize),
     &renderer,
     hidpi_factor as f32,
@@ -73,21 +75,24 @@ pub fn run<E: Application>(title: &str) {
       } => {
         let physical = size.to_physical(hidpi_factor);
         log::info!("Resizing to {:?}", physical);
-        swap_chain.resize((
-          physical.width.round() as usize,
-          physical.height.round() as usize,
-        ), &renderer.device);
+        swap_chain.resize(
+          (
+            physical.width.round() as usize,
+            physical.height.round() as usize,
+          ),
+          &renderer.device,
+        );
       }
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::CloseRequested => {
           *control_flow = ControlFlow::Exit;
         }
-        _ => { }
+        _ => {}
       },
       _ => (),
     }
 
-    let mut ctx= RenderCtx {
+    let mut ctx = AppRenderCtx {
       renderer: &mut renderer,
       swap_chain: &mut swap_chain,
     };

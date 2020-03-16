@@ -13,8 +13,8 @@ pub trait WorldMachine {
 pub struct WorldMachineImpl {
   pub block_registry: BlockRegistry,
   pub perlin: Fbm,
-  version: usize,
-  seed: usize,
+  _version: usize,
+  _seed: usize,
 }
 
 impl WorldMachineImpl {
@@ -24,8 +24,8 @@ impl WorldMachineImpl {
     WorldMachineImpl {
       block_registry,
       perlin,
-      version: 0,
-      seed: 0,
+      _version: 0,
+      _seed: 0,
     }
   }
 
@@ -35,8 +35,8 @@ impl WorldMachineImpl {
 }
 
 pub const STONE: Block = Block::new(0);
-pub const DIRT: Block = Block::new(1);
-pub const GRASS: Block = Block::new(2);
+// pub const DIRT: Block = Block::new(1);
+// pub const GRASS: Block = Block::new(2);
 pub const VOID: Block = Block::void();
 
 // // this is per x,z block,cache the level height generate by the noise function;

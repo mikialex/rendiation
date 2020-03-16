@@ -1,14 +1,13 @@
-use crate::application::RenderCtx;
-use crate::application::*;
-use crate::geometry::*;
 use crate::init::init_orbit_controller;
-use crate::renderer::*;
 use crate::shading::BlockShading;
 use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
 use crate::watch::*;
+use raycaster::Raycaster;
+use rendiation::renderer::SwapChain;
 use rendiation::*;
+use rendiation_math::Vec2;
 use rendiation_render_entity::*;
 use rendium::*;
 
@@ -35,7 +34,10 @@ pub struct RinecraftState {
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
-    let gui = GUI::new(renderer, (swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+    let gui = GUI::new(
+      renderer,
+      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
+    );
 
     let mut world = World::new();
     let block_atlas = world.world_machine.get_block_atlas(renderer);
@@ -81,12 +83,8 @@ impl Application for Rinecraft {
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.depth.resize(&renderer.device, swap_chain.size);
-      state
-        .camera
-        .resize(size);
-      state
-        .camera_orth
-        .resize(size);
+      state.camera.resize(size);
+      state.camera_orth.resize(size);
       state.camera.get_update_gpu(renderer);
       state.camera_orth.get_update_gpu(renderer);
       state.gui.renderer.resize(size, renderer);
@@ -99,7 +97,7 @@ impl Application for Rinecraft {
       let y_ratio = 1. - state.window_state.mouse_position.1 / state.window_state.size.1;
       assert!(x_ratio <= 1.);
       assert!(y_ratio <= 1.);
-      let ray = state.camera.create_screen_ray(x_ratio, y_ratio);
+      let ray = state.camera.create_screen_ray(Vec2::new(x_ratio, y_ratio));
       state.world.delete_block_by_ray(&ray);
     });
 
@@ -174,7 +172,7 @@ impl Application for Rinecraft {
     }
   }
 
-  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut RenderCtx) {
+  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut AppRenderCtx) {
     self.state.window_state.event(event.clone());
     self.window_session.event(event, &mut self.state, renderer);
   }

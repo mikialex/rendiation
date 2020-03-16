@@ -1,4 +1,3 @@
-use crate::geometry::StandardGeometry;
 use rendiation::*;
 
 pub struct CopierShading {
