@@ -1,5 +1,6 @@
 use super::Camera;
-use crate::{ResizableCamera, transformed_object::TransformedObject};
+use crate::raycaster::Raycaster;
+use crate::{transformed_object::TransformedObject, ResizableCamera};
 use rendiation_math::*;
 use rendiation_math_entity::*;
 
@@ -27,11 +28,14 @@ impl PerspectiveCamera {
       zoom: 1.,
     }
   }
+}
 
-  pub fn create_screen_ray(&self, screen_x_ratio: f32, screen_y_ratio: f32) -> Ray {
+impl Raycaster for PerspectiveCamera {
+  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray {
     let position = self.get_transform().matrix.position();
-    let target = Vec3::new(screen_x_ratio * 2. - 1., screen_y_ratio * 2. - 1., 0.5);
-    let un_projected = target * self.get_projection_matrix().inverse() * self.get_transform().matrix;
+    let target = Vec3::new(view_position.x * 2. - 1., view_position.y * 2. - 1., 0.5);
+    let un_projected =
+      target * self.get_projection_matrix().inverse() * self.get_transform().matrix;
     let direction = (un_projected - position).normalize();
     Ray::new(position, direction)
   }
@@ -55,7 +59,6 @@ impl Camera for PerspectiveCamera {
   fn get_projection_matrix(&self) -> &Mat4<f32> {
     &self.projection_matrix
   }
-
 }
 
 impl ResizableCamera for PerspectiveCamera {

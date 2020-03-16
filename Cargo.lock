@@ -1196,7 +1196,6 @@ version = "0.1.0"
 dependencies = [
  "generational-arena 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "rendiation-marco 0.0.1",
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
  "rendiation-render-entity 0.1.0",
