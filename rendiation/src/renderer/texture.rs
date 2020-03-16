@@ -1,9 +1,20 @@
+use crate::renderer::texture_dimension::*;
 use crate::renderer::buffer::WGPUBuffer;
+use core::marker::PhantomData;
 
-pub struct WGPUTexture {
+
+pub trait TextureFormat {}
+
+pub struct Rgba8UnormSrgb;
+
+impl TextureFormat for Rgba8UnormSrgb {}
+
+pub struct WGPUTexture<T: TextureFormat = Rgba8UnormSrgb, V: TextureDimension = TextureSize2D> {
   gpu_texture: wgpu::Texture,
   descriptor: wgpu::TextureDescriptor,
+  size: V,
   view: wgpu::TextureView,
+  _phantom_format: PhantomData<T>,
 }
 
 impl WGPUTexture {
@@ -31,6 +42,11 @@ impl WGPUTexture {
       descriptor,
       gpu_texture: depth_texture,
       view,
+      size: TextureSize2D {
+        width: size.0 as u32,
+        height: size.1 as u32,
+      },
+      _phantom_format: PhantomData,
     }
   }
 
@@ -57,6 +73,11 @@ impl WGPUTexture {
       gpu_texture,
       descriptor,
       view,
+      size: TextureSize2D {
+        width: size.0 as u32,
+        height: size.1 as u32,
+      },
+      _phantom_format: PhantomData,
     }
   }
 
@@ -86,6 +107,11 @@ impl WGPUTexture {
       gpu_texture,
       descriptor,
       view,
+      size: TextureSize2D {
+        width: size.0 as u32,
+        height: size.1 as u32,
+      },
+      _phantom_format: PhantomData,
     };
 
     wgpu_texture.upload(device, encoder, data);
