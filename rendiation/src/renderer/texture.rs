@@ -1,7 +1,6 @@
-use crate::renderer::texture_dimension::*;
 use crate::renderer::buffer::WGPUBuffer;
+use crate::renderer::texture_dimension::*;
 use core::marker::PhantomData;
-
 
 pub trait TextureFormat {}
 
@@ -23,12 +22,9 @@ impl WGPUTexture {
     format: wgpu::TextureFormat,
     size: (usize, usize),
   ) -> Self {
+    let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
-      size: wgpu::Extent3d {
-        width: size.0 as u32,
-        height: size.1 as u32,
-        depth: 1,
-      },
+      size: size.to_wgpu(),
       array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
@@ -42,10 +38,7 @@ impl WGPUTexture {
       descriptor,
       gpu_texture: depth_texture,
       view,
-      size: TextureSize2D {
-        width: size.0 as u32,
-        height: size.1 as u32,
-      },
+      size,
       _phantom_format: PhantomData,
     }
   }
