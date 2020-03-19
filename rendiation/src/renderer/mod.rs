@@ -9,8 +9,6 @@ pub mod shader_util;
 pub mod swap_chain;
 pub mod blend;
 pub mod texture;
-pub mod texture_cube;
-pub mod texture_dimension;
 
 pub use bindgroup::*;
 pub use buffer::*;

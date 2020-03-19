@@ -3,6 +3,9 @@ use crate::renderer::texture_dimension::*;
 use crate::renderer::WGPURenderer;
 use core::marker::PhantomData;
 
+pub mod texture_cube;
+pub mod texture_dimension;
+
 pub trait TextureFormat {}
 
 pub struct Rgba8UnormSrgb;

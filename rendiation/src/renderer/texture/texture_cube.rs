@@ -18,26 +18,31 @@ impl WGPUTextureCube {
     pz: &[u8],
     nz: &[u8],
   ) -> Self {
-      todo!()
-    // let size: TextureSize2D = size.into();
-    // let descriptor = wgpu::TextureDescriptor {
-    //   size: size.to_wgpu(),
-    //   array_layer_count: 6, // that's the cube?
-    //   mip_level_count: 1,
-    //   sample_count: 1,
-    //   dimension: TextureSize2D::WGPU_CONST,
-    //   format,
-    //   usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-    // };
-    // let gpu_texture = renderer.device.create_texture(&descriptor);
-    // let view = gpu_texture.create_default_view();
-    // let texture = WGPUTexture {
-    //   gpu_texture,
-    //   descriptor,
-    //   view,
-    //   size,
-    //   _phantom_format: PhantomData,
-    // };
+      // todo!()
+    let size: TextureSize2D = size.into();
+    let descriptor = wgpu::TextureDescriptor {
+      size: size.to_wgpu(),
+      array_layer_count: 6, // that's the cube?
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: TextureSize2D::WGPU_CONST,
+      format: wgpu::TextureFormat::Rgba8UnormSrgb,
+      usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+    };
+    let gpu_texture = renderer.device.create_texture(&descriptor);
+    let view = gpu_texture.create_default_view();
+    let texture = WGPUTexture {
+      gpu_texture,
+      descriptor,
+      view,
+      size,
+      _phantom_format: PhantomData,
+    };
+    let tex = Self{
+      texture
+    };
+    tex.upload_all(renderer, px, nx, py, ny, pz, nz);
+    tex
   }
 
   pub fn upload_all(
