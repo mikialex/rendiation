@@ -29,7 +29,7 @@ impl WGPUTexture {
       array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
-      dimension: wgpu::TextureDimension::D2,
+      dimension: TextureSize2D::WGPU_CONST,
       format,
       usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
@@ -51,7 +51,7 @@ impl WGPUTexture {
       array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
-      dimension: wgpu::TextureDimension::D2,
+      dimension: TextureSize2D::WGPU_CONST,
       format: wgpu::TextureFormat::Rgba8UnormSrgb,
       usage: wgpu::TextureUsage::SAMPLED
         | wgpu::TextureUsage::COPY_DST
@@ -83,7 +83,7 @@ impl WGPUTexture {
       array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
-      dimension: wgpu::TextureDimension::D2,
+      dimension: TextureSize2D::WGPU_CONST,
       format: wgpu::TextureFormat::Rgba8UnormSrgb,
       usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
     };
@@ -121,26 +121,26 @@ impl WGPUTexture {
   }
 
   fn upload(&self, renderer: &mut WGPURenderer, image_data: &[u8]) {
-    let buffer = WGPUBuffer::new(renderer, image_data, wgpu::BufferUsage::COPY_SRC);
-
-    renderer.encoder.copy_buffer_to_texture(
-      wgpu::BufferCopyView {
-        buffer: buffer.get_gpu_buffer(),
-        offset: 0,
-        row_pitch: 4 * self.descriptor.size.width,
-        image_height: self.descriptor.size.height,
-      },
-      wgpu::TextureCopyView {
-        texture: &self.gpu_texture,
-        mip_level: 0,
-        array_layer: 0,
-        origin: wgpu::Origin3d {
-          x: 0.0,
-          y: 0.0,
-          z: 0.0,
-        },
-      },
-      self.descriptor.size,
-    );
+    upload(renderer, &self, image_data, 0)
   }
+}
+
+pub fn upload(renderer: &mut WGPURenderer, texture: &WGPUTexture, image_data: &[u8], target_layer: u32) {
+  let buffer = WGPUBuffer::new(renderer, image_data, wgpu::BufferUsage::COPY_SRC);
+
+  renderer.encoder.copy_buffer_to_texture(
+    wgpu::BufferCopyView {
+      buffer: buffer.get_gpu_buffer(),
+      offset: 0,
+      row_pitch: 4 * texture.descriptor.size.width,
+      image_height: texture.descriptor.size.height,
+    },
+    wgpu::TextureCopyView {
+      texture: &texture.gpu_texture,
+      mip_level: 0,
+      array_layer: target_layer,
+      origin: wgpu::Origin3d::ZERO,
+    },
+    texture.descriptor.size,
+  );
 }

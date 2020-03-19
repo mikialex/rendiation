@@ -6,9 +6,10 @@ pub mod bindgroup_layout;
 pub mod render_pass;
 pub mod sampler;
 pub mod shader_util;
-pub mod texture;
 pub mod swap_chain;
 pub mod blend;
+pub mod texture;
+pub mod texture_cube;
 pub mod texture_dimension;
 
 pub use bindgroup::*;
