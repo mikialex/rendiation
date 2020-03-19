@@ -85,7 +85,7 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
       }
     } else {
       self.gpu_data = Some(WGPUBuffer::new(
-        &renderer.device,
+        renderer,
         &self.data,
         wgpu::BufferUsage::VERTEX,
       ))
@@ -97,7 +97,7 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
       }
     } else {
       self.gpu_index = Some(WGPUBuffer::new(
-        &renderer.device,
+        renderer,
         &self.index,
         wgpu::BufferUsage::INDEX,
       ))

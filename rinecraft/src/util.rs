@@ -1,10 +1,10 @@
-use image::Rgba;
 use crate::watch::GPUItem;
+use image::ImageBuffer;
+use image::Rgba;
 use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation::*;
-use rendiation_render_entity::*;
 use rendiation_math::{Vec2, Vec3};
-use image::ImageBuffer;
+use rendiation_render_entity::*;
 
 impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
@@ -12,7 +12,7 @@ impl GPUItem<PerspectiveCamera> for WGPUBuffer {
     let mx_ref: &[f32; 16] = mx_total.as_ref();
 
     WGPUBuffer::new(
-      &renderer.device,
+      renderer,
       mx_ref,
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     )
@@ -30,7 +30,7 @@ impl GPUItem<ViewFrustumOrthographicCamera> for WGPUBuffer {
     let mx_ref: &[f32; 16] = mx_total.as_ref();
 
     WGPUBuffer::new(
-      &renderer.device,
+      renderer,
       mx_ref,
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     )
@@ -45,10 +45,9 @@ impl GPUItem<ViewFrustumOrthographicCamera> for WGPUBuffer {
 impl GPUItem<ImageBuffer<Rgba<u8>, Vec<u8>>> for WGPUTexture {
   fn create_gpu(image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) -> Self {
     WGPUTexture::new_from_image_data(
-      &renderer.device, 
-      &mut renderer.encoder, 
+      renderer,
       &image.clone().into_raw(),
-      (image.width(), image.height(), 1)
+      (image.width(), image.height(), 1),
     )
   }
   fn update_gpu(&mut self, image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) {
@@ -63,7 +62,6 @@ pub fn vertex(pos: [i8; 3], tc: [i8; 2]) -> Vertex {
     uv: Vec2::new(tc[0] as f32, tc[1] as f32),
   }
 }
-
 
 pub fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
   let vertex_data = [
@@ -132,7 +130,7 @@ pub fn create_texels(size: usize) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
         .chain(iter::once(1))
     })
     .collect();
-    image::ImageBuffer::from_raw(size as u32, size as u32, data).unwrap()
+  image::ImageBuffer::from_raw(size as u32, size as u32, data).unwrap()
 }
 
 #[allow(dead_code)]

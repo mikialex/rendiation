@@ -38,7 +38,7 @@ impl Scene {
       active_camera_index,
       cameras,
       geometries: Arena::new(),
-      canvas: WGPUTexture::new_as_target(&renderer.device, (100, 100)),
+      canvas: WGPUTexture::new_as_target(&renderer, (100, 100)),
       renderables: Arena::new(),
       // nodes: Vec<SceneNode>
     }

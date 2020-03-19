@@ -158,13 +158,13 @@ impl BlockRegistry {
       let img = imgd.as_rgba8().unwrap().clone();
       let size = (img.width(), img.height(), 1);
       let data = img.into_raw();
-      WGPUTexture::new_from_image_data(&renderer.device, &mut renderer.encoder, &data, size)
+      WGPUTexture::new_from_image_data(renderer, &data, size)
     }
 
     let mut quad = StandardGeometry::from(quad_maker());
     quad.update_gpu(renderer);
     let sampler = WGPUSampler::new(&renderer.device);
-    let target_texture = WGPUTexture::new_as_target(&renderer.device, (64, 64));
+    let target_texture = WGPUTexture::new_as_target(&renderer, (64, 64));
 
     {
       let copy_shading = CopierShading::new(renderer, &target_texture);
@@ -177,7 +177,8 @@ impl BlockRegistry {
           let params = CopyParam {
             texture: &src_tex.view(),
             sampler: &sampler,
-          }.create_bindgroup(renderer);
+          }
+          .create_bindgroup(renderer);
 
           let mut viewport = Viewport::new((32, 32));
           viewport.x = face.pack_info.x * dest_size_width;

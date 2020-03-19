@@ -8,42 +8,39 @@ pub struct WGPUBuffer {
 }
 
 fn create_buffer<T: 'static + Copy>(
-  device: &wgpu::Device,
+  renderer: &WGPURenderer,
   value: &[T],
   usage: wgpu::BufferUsage,
 ) -> wgpu::Buffer {
-  device
+  renderer
+    .device
     .create_buffer_mapped(value.len(), usage)
     .fill_from_slice(value)
 }
 
 impl WGPUBuffer {
   pub fn new<T: 'static + Copy>(
-    device: &wgpu::Device,
+    renderer: &WGPURenderer,
     value: &[T],
     usage: wgpu::BufferUsage,
   ) -> Self {
     use std::mem;
     Self {
-      gpu_buffer: create_buffer(device, value, usage),
+      gpu_buffer: create_buffer(renderer, value, usage),
       size: value.len(),
       stride: mem::size_of::<T>(),
       usage,
     }
   }
 
-  pub fn usage(&self) -> wgpu::BufferUsage{
+  pub fn usage(&self) -> wgpu::BufferUsage {
     self.usage
   }
 
-  pub fn update<T: 'static + Copy>(
-    &mut self,
-    renderer: &mut WGPURenderer,
-    value: &[T],
-  ) -> &Self {
+  pub fn update<T: 'static + Copy>(&mut self, renderer: &mut WGPURenderer, value: &[T]) -> &Self {
     assert_eq!(self.size, value.len());
 
-    let new_gpu = create_buffer(&renderer.device, value, wgpu::BufferUsage::COPY_SRC);
+    let new_gpu = create_buffer(renderer, value, wgpu::BufferUsage::COPY_SRC);
     renderer.encoder.copy_buffer_to_buffer(
       &new_gpu,
       0,

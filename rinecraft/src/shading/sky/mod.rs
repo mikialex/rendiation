@@ -48,3 +48,7 @@ impl ShaderComputeNode<HgPhaseShaderFunction>{
         
     }
 }
+
+pub trait ShaderNode{
+  
+}

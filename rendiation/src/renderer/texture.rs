@@ -1,5 +1,6 @@
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::texture_dimension::*;
+use crate::renderer::WGPURenderer;
 use core::marker::PhantomData;
 
 pub trait TextureFormat {}
@@ -18,7 +19,7 @@ pub struct WGPUTexture<T: TextureFormat = Rgba8UnormSrgb, V: TextureDimension = 
 
 impl WGPUTexture {
   pub fn new_as_depth(
-    device: &wgpu::Device,
+    renderer: &WGPURenderer,
     format: wgpu::TextureFormat,
     size: (usize, usize),
   ) -> Self {
@@ -32,7 +33,7 @@ impl WGPUTexture {
       format,
       usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
-    let depth_texture = device.create_texture(&descriptor);
+    let depth_texture = renderer.device.create_texture(&descriptor);
     let view = depth_texture.create_default_view();
     Self {
       descriptor,
@@ -43,14 +44,10 @@ impl WGPUTexture {
     }
   }
 
-  pub fn new_as_target(device: &wgpu::Device, size: (u32, u32)) -> Self {
-    let (width, height) = size;
+  pub fn new_as_target(renderer: &WGPURenderer, size: (usize, usize)) -> Self {
+    let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
-      size: wgpu::Extent3d {
-        width,
-        height,
-        depth: 1,
-      },
+      size: size.to_wgpu(),
       array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
@@ -60,23 +57,19 @@ impl WGPUTexture {
         | wgpu::TextureUsage::COPY_DST
         | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
-    let gpu_texture = device.create_texture(&descriptor);
+    let gpu_texture = renderer.device.create_texture(&descriptor);
     let view = gpu_texture.create_default_view();
     Self {
       gpu_texture,
       descriptor,
       view,
-      size: TextureSize2D {
-        width: size.0 as u32,
-        height: size.1 as u32,
-      },
+      size,
       _phantom_format: PhantomData,
     }
   }
 
   pub fn new_from_image_data(
-    device: &wgpu::Device,
-    encoder: &mut wgpu::CommandEncoder,
+    renderer: &mut WGPURenderer,
     data: &[u8],
     size: (u32, u32, u32),
   ) -> WGPUTexture {
@@ -94,7 +87,7 @@ impl WGPUTexture {
       format: wgpu::TextureFormat::Rgba8UnormSrgb,
       usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
     };
-    let gpu_texture = device.create_texture(&descriptor);
+    let gpu_texture = renderer.device.create_texture(&descriptor);
     let view = gpu_texture.create_default_view();
     let wgpu_texture = Self {
       gpu_texture,
@@ -107,7 +100,7 @@ impl WGPUTexture {
       _phantom_format: PhantomData,
     };
 
-    wgpu_texture.upload(device, encoder, data);
+    wgpu_texture.upload(renderer, data);
     wgpu_texture
   }
 
@@ -127,10 +120,10 @@ impl WGPUTexture {
     self.view = self.gpu_texture.create_default_view();
   }
 
-  fn upload(&self, device: &wgpu::Device, encoder: &mut wgpu::CommandEncoder, image_data: &[u8]) {
-    let buffer = WGPUBuffer::new(device, image_data, wgpu::BufferUsage::COPY_SRC);
+  fn upload(&self, renderer: &mut WGPURenderer, image_data: &[u8]) {
+    let buffer = WGPUBuffer::new(renderer, image_data, wgpu::BufferUsage::COPY_SRC);
 
-    encoder.copy_buffer_to_texture(
+    renderer.encoder.copy_buffer_to_texture(
       wgpu::BufferCopyView {
         buffer: buffer.get_gpu_buffer(),
         offset: 0,

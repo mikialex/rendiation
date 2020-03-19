@@ -43,7 +43,7 @@ impl Application for Rinecraft {
     let block_atlas = world.world_machine.get_block_atlas(renderer);
 
     let depth = WGPUTexture::new_as_depth(
-      &renderer.device,
+      &renderer,
       wgpu::TextureFormat::Depth32Float,
       swap_chain.size,
     );

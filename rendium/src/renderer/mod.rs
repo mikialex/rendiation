@@ -26,14 +26,14 @@ impl GUIRenderer {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
     let mut quad = StandardGeometry::from(quad_maker());
     quad.update_gpu(renderer);
-    let canvas = WGPUTexture::new_as_target(&renderer.device, (size.0 as u32, size.1 as u32));
+    let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
 
     let camera = OrthographicCamera::new();
 
     let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     let camera_gpu_buffer = WGPUBuffer::new(
-      &renderer.device,
+      renderer,
       mx_ref,
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
@@ -55,28 +55,30 @@ impl GUIRenderer {
     renderer
   }
 
-  fn update_camera(&mut self){
+  fn update_camera(&mut self) {
     let camera = &mut self.camera;
     camera.top = 0.;
     camera.left = 0.;
     camera.bottom = -self.view.w;
     camera.right = -self.view.z;
     camera.near = -1.;
-    camera.far= 1.;
+    camera.far = 1.;
     camera.update_projection();
   }
 
   pub fn resize(&mut self, size: (f32, f32), renderer: &WGPURenderer) {
     self.view.z = size.0;
     self.view.w = size.1;
-    self.canvas.resize(&renderer.device, (size.0 as usize, size.1 as usize));
+    self
+      .canvas
+      .resize(&renderer.device, (size.0 as usize, size.1 as usize));
     self.update_camera();
   }
 
-  pub fn clear_canvas(&self, renderer: &mut WGPURenderer){
-      WGPURenderPass::build()
-        .output_with_clear(self.canvas.view(), (1., 1., 1., 0.5))
-        .create(&mut renderer.encoder);
+  pub fn clear_canvas(&self, renderer: &mut WGPURenderer) {
+    WGPURenderPass::build()
+      .output_with_clear(self.canvas.view(), (1., 1., 1., 0.5))
+      .create(&mut renderer.encoder);
   }
 
   pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen_view: &wgpu::TextureView) {
@@ -112,7 +114,7 @@ impl GUIRenderer {
 
     let color_ref: &[f32; 4] = color.as_ref();
     let color_uniform = WGPUBuffer::new(
-      &renderer.device,
+      renderer,
       color_ref,
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
