@@ -4,6 +4,7 @@ use rendiation::*;
 use super::block_meta::BlockMetaInfo;
 use noise::*;
 
+
 pub trait WorldMachine {
   //  y is up
   fn world_gen(&self, x: i32, y: i32, z: i32) -> Block;
