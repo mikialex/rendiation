@@ -147,3 +147,7 @@ pub fn upload(renderer: &mut WGPURenderer, texture: &WGPUTexture, image_data: &[
     texture.descriptor.size,
   );
 }
+
+pub fn read(){
+  
+}

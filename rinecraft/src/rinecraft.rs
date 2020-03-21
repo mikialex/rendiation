@@ -1,13 +1,10 @@
-use crate::init::init_orbit_controller;
 use crate::shading::BlockShading;
 use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
 use crate::watch::*;
-use raycaster::Raycaster;
 use rendiation::renderer::SwapChain;
 use rendiation::*;
-use rendiation_math::Vec2;
 use rendiation_render_entity::*;
 use rendium::*;
 
@@ -24,12 +21,12 @@ pub struct RinecraftState {
   pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
   pub viewport: Viewport,
-  cube: StandardGeometry,
-  world: World,
-  shading: BlockShading,
-  shading_params: WGPUBindGroup,
-  depth: WGPUTexture,
-  gui: GUI,
+  pub cube: StandardGeometry,
+  pub world: World,
+  pub shading: BlockShading,
+  pub shading_params: WGPUBindGroup,
+  pub depth: WGPUTexture,
+  pub gui: GUI,
 }
 
 impl Application for Rinecraft {
@@ -90,17 +87,6 @@ impl Application for Rinecraft {
       state.gui.renderer.resize(size, renderer);
     });
 
-    init_orbit_controller(&mut window_session);
-
-    window_session.add_mouse_down_listener(|state: &mut RinecraftState, _| {
-      let x_ratio = state.window_state.mouse_position.0 / state.window_state.size.0;
-      let y_ratio = 1. - state.window_state.mouse_position.1 / state.window_state.size.1;
-      assert!(x_ratio <= 1.);
-      assert!(y_ratio <= 1.);
-      let ray = state.camera.create_screen_ray(Vec2::new(x_ratio, y_ratio));
-      state.world.delete_block_by_ray(&ray);
-    });
-
     // render
     window_session.add_events_clear_listener(|state, renderer| {
       let swap_chain = &mut renderer.swap_chain;
@@ -152,7 +138,7 @@ impl Application for Rinecraft {
     );
 
     // Done
-    Rinecraft {
+    let mut rinecraft = Rinecraft {
       window_session,
       state: RinecraftState {
         window_state,
@@ -169,7 +155,13 @@ impl Application for Rinecraft {
         depth,
         gui,
       },
-    }
+    };
+
+    
+    rinecraft.use_orbit_controller();
+    rinecraft.init_world();
+
+    rinecraft
   }
 
   fn update(&mut self, event: winit::event::Event<()>, renderer: &mut AppRenderCtx) {
