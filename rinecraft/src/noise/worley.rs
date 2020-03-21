@@ -45,12 +45,6 @@ impl WorleyNoise {
 
   pub fn get(&self, point: Vec3<f32>) -> f32 {
     // for any given point3d.min(ceil to get a cell position;
-    let cell = Vec3::new(
-      point.x.ceil() as i32,
-      point.y.ceil() as i32,
-      point.z.ceil() as i32,
-    );
-
     let cx = point.x.ceil() as i32;
     let cy = point.y.ceil() as i32;
     let cz = point.z.ceil() as i32;
