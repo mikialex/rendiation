@@ -49,7 +49,7 @@ impl PartialEq for Chunk {
 impl Eq for Chunk {}
 
 impl Chunk {
-  pub fn new(chunk_id: (i32, i32), world_machine: &impl WorldMachine) -> Self {
+  pub fn new(chunk_id: (i32, i32), world_machine: &mut impl WorldMachine) -> Self {
     let chunk_x = chunk_id.0;
     let chunk_z = chunk_id.1;
     let mut x_row = Vec::new();

@@ -27,7 +27,7 @@ impl World {
   }
 
   pub fn assure_chunk(
-    world_machine: &impl WorldMachine,
+    world_machine: &mut impl WorldMachine,
     chunks: &mut HashMap<(i32, i32), Chunk>,
     chunk_key: (i32, i32),
   ) -> bool {
@@ -49,7 +49,7 @@ impl World {
     let mut create_list = Vec::new();
     for x in x_low..x_high {
       for z in z_low..z_high {
-        if !World::assure_chunk(&self.world_machine, &mut self.chunks, (x, z)) {
+        if !World::assure_chunk(&mut self.world_machine, &mut self.chunks, (x, z)) {
           create_list.push((x, z));
         }
         if self.chunks.get(&(x, z)).unwrap().geometry.is_none() {
@@ -61,22 +61,22 @@ impl World {
     for chunk_key in create_list {
       self.chunk_geometry_update_set.insert(chunk_key);
       World::assure_chunk(
-        &self.world_machine,
+        &mut self.world_machine,
         &mut self.chunks,
         (chunk_key.0 + 1, chunk_key.1),
       );
       World::assure_chunk(
-        &self.world_machine,
+        &mut self.world_machine,
         &mut self.chunks,
         (chunk_key.0 - 1, chunk_key.1),
       );
       World::assure_chunk(
-        &self.world_machine,
+        &mut self.world_machine,
         &mut self.chunks,
         (chunk_key.0, chunk_key.1 + 1),
       );
       World::assure_chunk(
-        &self.world_machine,
+        &mut self.world_machine,
         &mut self.chunks,
         (chunk_key.0, chunk_key.1 - 1),
       );
