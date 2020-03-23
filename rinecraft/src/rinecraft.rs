@@ -21,7 +21,7 @@ pub struct RinecraftState {
   pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
   pub viewport: Viewport,
-  pub cube: StandardGeometry,
+  pub cube: GPUGeometry,
   pub world: World,
   pub shading: BlockShading,
   pub shading_params: WGPUBindGroup,
@@ -48,7 +48,7 @@ impl Application for Rinecraft {
     let shading = BlockShading::new(renderer, &depth);
 
     // Create the vertex and index buffers
-    let mut cube = StandardGeometry::from(create_vertices());
+    let mut cube = GPUGeometry::from(create_vertices());
     cube.update_gpu(renderer);
 
     // Create other resources

@@ -42,8 +42,8 @@ pub struct Sky {
 
 impl Sky {
   pub fn new(renderer: &mut WGPURenderer) -> Self {
-    let mut geometry: StandardGeometry = SphereGeometryParameter::default().create_mesh().into();
-    geometry.update_gpu(renderer);
+    // let mut geometry: StandardGeometry = SphereGeometryParameter::default().create_mesh().into();
+    // geometry.update_gpu(renderer);
     todo!()
     // let mut builder = StaticPipelineBuilder::new(
     //   renderer,

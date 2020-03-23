@@ -11,7 +11,7 @@ mod shader;
 pub use shader::*;
 
 pub struct GUIRenderer {
-  quad: StandardGeometry,
+  quad: GPUGeometry,
   view: Vec4<f32>,
   camera: OrthographicCamera,
   camera_gpu_buffer: WGPUBuffer,
@@ -24,7 +24,7 @@ pub struct GUIRenderer {
 impl GUIRenderer {
   pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
-    let mut quad = StandardGeometry::from(quad_maker());
+    let mut quad = GPUGeometry::from(quad_maker());
     quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
 

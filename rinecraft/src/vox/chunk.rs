@@ -27,7 +27,7 @@ pub type ChunkData = Vec<Vec<Vec<Block>>>;
 pub struct Chunk {
   pub chunk_position: (i32, i32),
   pub data: ChunkData,
-  pub geometry: Option<StandardGeometry>,
+  pub geometry: Option<GPUGeometry>,
   pub bounding: BoundingData,
 }
 
@@ -102,7 +102,7 @@ impl Chunk {
     chunks: &HashMap<(i32, i32), Chunk>,
     chunk_position: (i32, i32),
     renderer: &mut WGPURenderer,
-  ) -> StandardGeometry {
+  ) -> GPUGeometry {
     let chunk = chunks.get(&chunk_position).unwrap();
 
     // let data = &chunk.data;
@@ -141,7 +141,7 @@ impl Chunk {
       }
     }
 
-    let mut geom = StandardGeometry::new(new_vertex, new_index);
+    let mut geom = GPUGeometry::from((new_vertex, new_index));
     geom.update_gpu(renderer);
     geom
   }
