@@ -70,11 +70,12 @@ impl Application for Rinecraft {
 
     let viewport = Viewport::new(swap_chain.size);
 
-    let mut window_session = WindowEventSession::new();
+    let mut window_session: WindowEventSession<RinecraftState> = WindowEventSession::new();
 
-    window_session.add_resize_listener(|state: &mut RinecraftState, renderer| {
-      let swap_chain = &mut renderer.swap_chain;
-      let renderer = &mut renderer.renderer;
+    window_session.add_resize_listener(|event_ctx| {
+      let swap_chain = &mut event_ctx.render_ctx.swap_chain;
+      let renderer = &mut event_ctx.render_ctx.renderer;
+      let state = &mut event_ctx.state;
       let size = (swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state
         .viewport
@@ -88,9 +89,10 @@ impl Application for Rinecraft {
     });
 
     // render
-    window_session.add_events_clear_listener(|state, renderer| {
-      let swap_chain = &mut renderer.swap_chain;
-      let renderer = &mut renderer.renderer;
+    window_session.add_events_clear_listener(|event_ctx| {
+      let swap_chain = &mut event_ctx.render_ctx.swap_chain;
+      let renderer = &mut event_ctx.render_ctx.renderer;
+      let state = &mut event_ctx.state;
       state
         .orbit_controller
         .update(&mut state.camera_orth as &mut ViewFrustumOrthographicCamera);

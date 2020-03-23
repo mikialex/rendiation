@@ -21,11 +21,7 @@ pub fn quad_maker() -> (Vec<Vertex>, Vec<u16>) {
 /// A indexed geometry that use vertex as primitive;
 pub struct StandardGeometry<T: PrimitiveTopology = TriangleList> {
   data: Vec<Vertex>,
-  data_changed: bool,
   index: Vec<u16>,
-  index_changed: bool,
-  gpu_data: Option<WGPUBuffer>,
-  gpu_index: Option<WGPUBuffer>,
   _phantom: PhantomData<T>,
 }
 

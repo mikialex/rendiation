@@ -3,7 +3,7 @@ use rendiation_math::Vec3;
 pub mod window_event;
 pub use window_event::*;
 
-pub enum MouseActionType {
+pub enum ActionType {
   Down,
   Up,
 }
@@ -16,8 +16,13 @@ pub enum MouseButton {
 
 pub struct MouseActionEvent {
   position: Vec3<f32>,
-  action: MouseActionType,
+  action: ActionType,
   mouse_button: MouseButton,
+}
+
+pub struct KeyBoardEvent{
+  key: String,
+  action: ActionType,
 }
 
 pub struct Event{
