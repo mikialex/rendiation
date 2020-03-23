@@ -1,11 +1,11 @@
+use crate::geometry::primitive::*;
+use crate::geometry::standard_geometry::StandardGeometry;
+use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::render_pass::WGPURenderPass;
 use crate::renderer::WGPURenderer;
-use crate::geometry::primitive::*;
 use crate::vertex::Vertex;
-use crate::renderer::buffer::WGPUBuffer;
-use crate::geometry::standard_geometry::StandardGeometry;
 
-pub struct GPUGeometry<T: PrimitiveTopology = TriangleList>{
+pub struct GPUGeometry<T: PrimitiveTopology = TriangleList> {
   geometry: StandardGeometry<T>,
   data_changed: bool,
   index_changed: bool,
@@ -14,13 +14,13 @@ pub struct GPUGeometry<T: PrimitiveTopology = TriangleList>{
 }
 
 impl<T: PrimitiveTopology> From<StandardGeometry<T>> for GPUGeometry<T> {
-  fn from(geometry:  StandardGeometry<T>) -> Self {
-    GPUGeometry{
+  fn from(geometry: StandardGeometry<T>) -> Self {
+    GPUGeometry {
       geometry,
       data_changed: true,
       index_changed: true,
-      gpu_data: None, 
-      gpu_index:  None, 
+      gpu_data: None,
+      gpu_index: None,
     }
   }
 }
@@ -32,7 +32,6 @@ impl From<(Vec<Vertex>, Vec<u16>)> for GPUGeometry {
 }
 
 impl GPUGeometry {
-
   pub fn mutate_data(&mut self) -> &mut Vec<Vertex> {
     self.data_changed = true;
     &mut self.geometry.data

@@ -1,4 +1,3 @@
-
 /// webgpu sampler wrapper
 pub struct WGPUSampler {
   gpu_sampler: wgpu::Sampler,
@@ -7,15 +6,44 @@ pub struct WGPUSampler {
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum TextureWrapping {
-    ClampToEdge,
-    Repeat,
-    MirrorRepeat,
+  ClampToEdge,
+  Repeat,
+  MirrorRepeat,
 }
 
-pub struct WGPUSamplerBuilder{
+pub struct WGPUSamplerBuilder {
   wrapping_u: TextureWrapping,
   wrapping_v: TextureWrapping,
   wrapping_w: TextureWrapping,
+}
+
+impl WGPUSamplerBuilder {
+  pub fn new() -> Self {
+    Self {
+      wrapping_u: TextureWrapping::ClampToEdge,
+      wrapping_v: TextureWrapping::ClampToEdge,
+      wrapping_w: TextureWrapping::ClampToEdge,
+    }
+  }
+
+  pub fn wrapping_u(mut self: Self, value: TextureWrapping) -> Self {
+    self.wrapping_u = value;
+    self
+  }
+
+  pub fn wrapping_v(mut self: Self, value: TextureWrapping) -> Self {
+    self.wrapping_v = value;
+    self
+  }
+
+  pub fn wrapping_w(mut self: Self, value: TextureWrapping) -> Self {
+    self.wrapping_w = value;
+    self
+  }
+
+  pub fn build() -> WGPUSampler {
+    todo!()
+  }
 }
 
 impl WGPUSampler {
