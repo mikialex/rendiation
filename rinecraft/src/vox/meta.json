@@ -1,0 +1,13 @@
+{
+    "assetBase": "rinecraft/src/vox/assets",
+    "blockImages": {
+        "stone": {
+            "url": "rinecraft/src/vox/assets/stone.png"
+        }
+    },
+    "blocks":[
+        {
+            "name": "stone"
+        }
+    ]
+}
