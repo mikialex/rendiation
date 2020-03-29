@@ -80,7 +80,7 @@ impl Application for Rinecraft {
       state
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
-      state.depth.resize(&renderer.device, swap_chain.size);
+      state.depth.resize(renderer, swap_chain.size);
       state.camera.resize(size);
       state.camera_orth.resize(size);
       state.camera.get_update_gpu(renderer);

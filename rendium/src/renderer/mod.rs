@@ -71,7 +71,7 @@ impl GUIRenderer {
     self.view.w = size.1;
     self
       .canvas
-      .resize(&renderer.device, (size.0 as usize, size.1 as usize));
+      .resize(&renderer, (size.0 as usize, size.1 as usize));
     self.update_camera();
   }
 

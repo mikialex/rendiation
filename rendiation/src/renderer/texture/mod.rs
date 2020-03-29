@@ -111,10 +111,10 @@ impl WGPUTexture {
   }
 
   /// this will not keep content resize, just recreate the gpu resource with new size
-  pub fn resize(&mut self, device: &wgpu::Device, size: (usize, usize)) {
+  pub fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) {
     self.descriptor.size.width = size.0 as u32;
     self.descriptor.size.height = size.1 as u32;
-    self.gpu_texture = device.create_texture(&self.descriptor);
+    self.gpu_texture = renderer.device.create_texture(&self.descriptor);
     self.view = self.gpu_texture.create_default_view();
   }
 
