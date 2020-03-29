@@ -1,7 +1,7 @@
 use crate::renderer::texture::upload;
 use core::marker::PhantomData;
 use crate::renderer::texture::WGPUTexture;
-use crate::{WGPURenderer, renderer::texture_dimension::*};
+use crate::{WGPURenderer, renderer::texture_dimension::*, renderer::texture_format::*};
 
 pub struct WGPUTextureCube {
    texture: WGPUTexture,
@@ -18,7 +18,6 @@ impl WGPUTextureCube {
     pz: &[u8],
     nz: &[u8],
   ) -> Self {
-      // todo!()
     let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
       size: size.to_wgpu(),
@@ -36,7 +35,7 @@ impl WGPUTextureCube {
       descriptor,
       view,
       size,
-      _phantom_format: PhantomData,
+      format: Rgba8UnormSrgb,
     };
     let tex = Self{
       texture

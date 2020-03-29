@@ -1,23 +1,18 @@
 use crate::renderer::buffer::WGPUBuffer;
-use crate::renderer::texture_dimension::*;
 use crate::renderer::WGPURenderer;
-use core::marker::PhantomData;
 
 pub mod texture_cube;
 pub mod texture_dimension;
-
-pub trait TextureFormat {}
-
-pub struct Rgba8UnormSrgb;
-
-impl TextureFormat for Rgba8UnormSrgb {}
+pub mod texture_format;
+use crate::renderer::texture_dimension::*;
+use crate::renderer::texture_format::*;
 
 pub struct WGPUTexture<T: TextureFormat = Rgba8UnormSrgb, V: TextureDimension = TextureSize2D> {
   gpu_texture: wgpu::Texture,
   descriptor: wgpu::TextureDescriptor,
   size: V,
   view: wgpu::TextureView,
-  _phantom_format: PhantomData<T>,
+  format: T,
 }
 
 impl WGPUTexture {
@@ -43,7 +38,7 @@ impl WGPUTexture {
       gpu_texture: depth_texture,
       view,
       size,
-      _phantom_format: PhantomData,
+      format: Rgba8UnormSrgb,
     }
   }
 
@@ -67,7 +62,7 @@ impl WGPUTexture {
       descriptor,
       view,
       size,
-      _phantom_format: PhantomData,
+      format: Rgba8UnormSrgb,
     }
   }
 
@@ -100,7 +95,7 @@ impl WGPUTexture {
         width: size.0 as u32,
         height: size.1 as u32,
       },
-      _phantom_format: PhantomData,
+      format: Rgba8UnormSrgb,
     };
 
     wgpu_texture.upload(renderer, data);
@@ -126,9 +121,25 @@ impl WGPUTexture {
   fn upload(&self, renderer: &mut WGPURenderer, image_data: &[u8]) {
     upload(renderer, &self, image_data, 0)
   }
+
 }
 
-pub fn upload(renderer: &mut WGPURenderer, texture: &WGPUTexture, image_data: &[u8], target_layer: u32) {
+impl<T: TextureFormat, V: TextureDimension> WGPUTexture<T, V> {
+  pub fn read(&self, renderer: &mut WGPURenderer) {
+    use std::mem::size_of;
+    let output_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+      size: self.size.get_pixel_size() as u64 * size_of::<T::PixelDataType>() as u64,
+      usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+    });
+  }
+}
+
+pub fn upload(
+  renderer: &mut WGPURenderer,
+  texture: &WGPUTexture,
+  image_data: &[u8],
+  target_layer: u32,
+) {
   let buffer = WGPUBuffer::new(renderer, image_data, wgpu::BufferUsage::COPY_SRC);
 
   renderer.encoder.copy_buffer_to_texture(
@@ -146,8 +157,4 @@ pub fn upload(renderer: &mut WGPURenderer, texture: &WGPUTexture, image_data: &[
     },
     texture.descriptor.size,
   );
-}
-
-pub fn read(){
-  
 }

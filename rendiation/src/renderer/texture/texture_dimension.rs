@@ -1,6 +1,10 @@
 pub trait TextureDimension {
   const WGPU_CONST: wgpu::TextureDimension;
   fn to_wgpu(&self) -> wgpu::Extent3d;
+  fn get_pixel_size(&self) -> u32 {
+    let gpu = self.to_wgpu();
+    gpu.width * gpu.height * gpu.depth
+  }
 }
 
 pub struct TextureSize2D {
