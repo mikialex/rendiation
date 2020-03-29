@@ -14,12 +14,12 @@ pub struct FPSController {
   y_motion: f32,
   motion_rate: f32,
 
-  a_press: bool,
-  d_press: bool,
-  w_press: bool,
-  s_press: bool,
-  space_press: bool,
-  l_shift_press: bool,
+  pub a_press: bool,
+  pub d_press: bool,
+  pub w_press: bool,
+  pub s_press: bool,
+  pub space_press: bool,
+  pub l_shift_press: bool,
 }
 
 impl FPSController {
@@ -32,6 +32,7 @@ impl FPSController {
       x_motion: 0., 
       y_motion: 0.,
       motion_rate: 0.1,
+
       a_press: false,
       d_press: false,
       w_press: false,

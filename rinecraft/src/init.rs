@@ -27,6 +27,15 @@ impl Rinecraft{
     });
   }
 
+  pub fn use_fps_controller(&mut self) {
+    self.window_session.add_listener(|event_ctx| {
+      let state = &mut event_ctx.state;
+      // match event_ctx.event {
+        
+      // }
+    })
+  }
+
   pub fn init_world(&mut self){
     self.window_session.add_mouse_down_listener(|event_ctx| {
       let state = &mut event_ctx.state;

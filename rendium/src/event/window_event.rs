@@ -13,7 +13,7 @@ pub struct EventCtx<'a, 'b, 'c, T> {
 type ListenerContainer<AppState> = IndexContainer<Box<dyn FnMut(&mut EventCtx<AppState>)>>;
 
 pub struct WindowEventSession<AppState> {
-  raw_listeners: IndexContainer<Box<dyn FnMut(&mut Any)>>,
+  raw_listeners: ListenerContainer<AppState>,
 
   events_cleared_listeners: ListenerContainer<AppState>,
   mouse_down_listeners: ListenerContainer<AppState>,
@@ -32,6 +32,10 @@ fn emit_listener<AppState>(
 }
 
 impl<AppState> WindowEventSession<AppState> {
+  pub fn add_listener<T: FnMut(&mut EventCtx<AppState>) + 'static>(&mut self, func: T) {
+    self.raw_listeners.set_item(Box::new(func));
+  }
+
   pub fn add_mouse_down_listener<T: FnMut(&mut EventCtx<AppState>) + 'static>(
     &mut self,
     func: T,
@@ -89,6 +93,8 @@ impl<AppState> WindowEventSession<AppState> {
       state: s,
       render_ctx: renderer,
     };
+
+    emit_listener(&mut self.raw_listeners, &mut event_ctx);
 
     match event {
       event::Event::WindowEvent { event, .. } => match event {

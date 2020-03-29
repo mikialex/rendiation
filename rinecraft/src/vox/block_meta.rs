@@ -9,7 +9,6 @@ use std::rc::Rc;
 pub struct BlockMetaInfo {
   name: String,
   id: usize,
-  minimap_color: Vec3<f32>,
   top_texture: Rc<BlockFaceTextureInfo>,
   bottom_texture: Rc<BlockFaceTextureInfo>,
   x_max_texture: Rc<BlockFaceTextureInfo>,
