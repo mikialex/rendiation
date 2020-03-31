@@ -135,6 +135,24 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'rivermesh'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rivermesh",
+                    "--package=rivermesh"
+                ],
+                "filter": {
+                    "name": "rivermesh",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

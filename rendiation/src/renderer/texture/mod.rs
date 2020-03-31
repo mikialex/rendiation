@@ -121,16 +121,21 @@ impl WGPUTexture {
   fn upload(&self, renderer: &mut WGPURenderer, image_data: &[u8]) {
     upload(renderer, &self, image_data, 0)
   }
-
 }
 
 impl<T: TextureFormat, V: TextureDimension> WGPUTexture<T, V> {
   pub fn read(&self, renderer: &mut WGPURenderer) {
+    let pixel_count = self.size.get_pixel_size() as u64;
+    let data_size = pixel_count * size_of::<T::PixelDataType>() as u64;
+
     use std::mem::size_of;
     let output_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
-      size: self.size.get_pixel_size() as u64 * size_of::<T::PixelDataType>() as u64,
+      size: data_size,
       usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
     });
+
+    // need wait for wgpu-rs update
+    // let buffer_future = output_buffer.map_read(0, data_size);
   }
 }
 

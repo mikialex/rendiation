@@ -8,6 +8,7 @@ members = [
     "render-graph",
     "rendium",
     "rinecraft",
+    "rivermesh",
 ]
 
 [profile.release]
