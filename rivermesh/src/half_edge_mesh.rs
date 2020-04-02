@@ -2,16 +2,14 @@ use std::collections::{HashMap};
 use rendiation_math::*;
 
 pub struct HalfEdgeVertex<T> {
-    position: Vec3<T>,
-    normal: Vec3<T>,
+    vertex_data: T,
     edge: *mut HalfEdge<T>, // one of the half-edges emantating from the vertex
 }
 
 impl<T> HalfEdgeVertex<T> {
-    pub fn new(position: Vec3<T>, normal: Vec3<T>) -> HalfEdgeVertex<T> {
+    pub fn new(vertex_data: T) -> HalfEdgeVertex<T> {
         HalfEdgeVertex {
-            position,
-            normal,
+            vertex_data,
             edge: std::ptr::null_mut(),
         }
     }
@@ -213,7 +211,12 @@ pub struct HalfEdgeMesh<T> {
     pub vertices: Vec<*mut HalfEdgeVertex<T>>,
 }
 
-impl HalfEdgeMesh<f32> {
+pub struct PositionNormalVertexData {
+    positions: Vec3<f32>,
+    normal: Vec3<f32>,
+}
+
+impl HalfEdgeMesh<PositionNormalVertexData> {
     pub fn from_geometry(positions: &Vec<f32>, indices: &Vec<u32>) -> Self {
         let mut vertices = Vec::new();
         let mut faces = Vec::new();
@@ -223,8 +226,10 @@ impl HalfEdgeMesh<f32> {
 
         for v in 0..positions.len() / 3 {
             let vert = HalfEdgeVertex::new(
-                Vec3::new(positions[3 * v], positions[3 * v + 1], positions[3 * v + 2]),
-                Vec3::new(1.0, 0.0, 0.0),
+                PositionNormalVertexData {
+                    positions: Vec3::new(positions[3 * v], positions[3 * v + 1], positions[3 * v + 2]),
+                    normal:  Vec3::new(1.0, 0.0, 0.0),
+                }
             );
             let vert = Box::into_raw(Box::new(vert));
             vertices.push(vert);
