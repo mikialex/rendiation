@@ -1,5 +1,5 @@
 use crate::box3::Box3;
-use crate::face::Face;
+use crate::face3::Face3;
 use crate::line3::Line3;
 use crate::ray::Ray;
 use crate::sphere::Sphere;
@@ -12,13 +12,13 @@ pub trait IntersectAble<IntersectTarget, IntersectResult> {
   fn intersect(&self, other: &IntersectTarget) -> IntersectResult;
 }
 
-impl IntersectAble<Face, Option<NearestPoint3D>> for Ray {
+impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Face) -> Option<NearestPoint3D> {
+  fn intersect(&self, face: &Face3) -> Option<NearestPoint3D> {
     // Compute the offset origin, edges, and normal.
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
-    let Face { a, b, c } = *face;
+    let Face3 { a, b, c } = *face;
     let blackfaceCulling = false;
     let _edge1 = b - a;
     let _edge2 = c - a;
@@ -78,9 +78,9 @@ impl IntersectAble<Face, Option<NearestPoint3D>> for Ray {
   }
 }
 
-impl IntersectAble<Ray, Option<NearestPoint3D>> for Face {
+impl IntersectAble<Ray, Option<NearestPoint3D>> for Face3 {
   fn intersect(&self, ray: &Ray) -> Option<NearestPoint3D> {
-    IntersectAble::<Face, Option<NearestPoint3D>>::intersect(ray, self)
+    IntersectAble::<Face3, Option<NearestPoint3D>>::intersect(ray, self)
   }
 }
 

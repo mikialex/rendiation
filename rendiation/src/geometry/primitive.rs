@@ -1,6 +1,6 @@
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
-use rendiation_math_entity::Face;
+use rendiation_math_entity::Face3;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::Line3;
 use rendiation_math_entity::NearestPoint3D;
@@ -11,19 +11,19 @@ pub trait PrimitiveFromGeometryData {
   fn from_data(data: &[Vertex], offset: usize) -> Self;
 }
 
-impl PrimitiveFromGeometryData for Face {
+impl PrimitiveFromGeometryData for Face3 {
   fn from_indexed_data(index: &[u16], data: &[Vertex], offset: usize) -> Self {
     let a = data[index[offset] as usize].position;
     let b = data[index[offset + 1] as usize].position;
     let c = data[index[offset + 2] as usize].position;
-    Face { a, b, c }
+    Face3 { a, b, c }
   }
 
   fn from_data(data: &[Vertex], offset: usize) -> Self {
     let a = data[offset].position;
     let b = data[offset + 1].position;
     let c = data[offset + 2].position;
-    Face { a, b, c }
+    Face3 { a, b, c }
   }
 }
 
@@ -49,7 +49,7 @@ pub trait PrimitiveTopology {
 pub struct TriangleList;
 
 impl PrimitiveTopology for TriangleList {
-  type Primitive = Face;
+  type Primitive = Face3;
   const STRIDE: usize = 3;
   const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::TriangleList;
 }
