@@ -2,6 +2,7 @@
 use std::{path::Path};
 
 pub mod half_edge_mesh;
+pub mod simplification;
 
 use half_edge_mesh::*;
 

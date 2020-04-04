@@ -1302,6 +1302,7 @@ name = "rivermesh"
 version = "0.1.0"
 dependencies = [
  "rendiation-math 0.1.0",
+ "rendiation-math-entity 0.1.0",
  "tobj 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

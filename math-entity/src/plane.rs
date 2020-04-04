@@ -1,4 +1,5 @@
 use rendiation_math::*;
+use crate::Face3;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Plane {
@@ -26,5 +27,15 @@ impl Plane {
     self.normal *= inverse_normal_length;
     self.constant *= inverse_normal_length;
     self
+  }
+}
+
+impl From<Face3> for Plane {
+  fn from(face: Face3) -> Plane {
+    let v1 = face.b - face.a;
+    let v2 = face.c - face.a;
+    let normal = v1.cross(v2).normalize();
+    let constant = normal.dot(face.a);
+    Plane::new(normal, constant)
   }
 }

@@ -115,7 +115,7 @@ pub struct HalfEdge<T> {
 }
 
 impl<T> HalfEdge<T> {
-    fn new(from: *mut HalfEdgeVertex<T>, to: *mut HalfEdgeVertex<T>) -> HalfEdge<T> {
+    fn new(from: *mut HalfEdgeVertex<T>, _to: *mut HalfEdgeVertex<T>) -> HalfEdge<T> {
         let mut half_edge = HalfEdge {
             vert: from,
             pair: std::ptr::null_mut(),
