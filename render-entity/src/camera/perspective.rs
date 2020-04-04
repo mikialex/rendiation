@@ -35,7 +35,7 @@ impl Raycaster for PerspectiveCamera {
     let position = self.get_transform().matrix.position();
     let target = Vec3::new(view_position.x * 2. - 1., view_position.y * 2. - 1., 0.5);
     let un_projected =
-      target * self.get_projection_matrix().inverse() * self.get_transform().matrix;
+      target * self.get_projection_matrix().inverse().unwrap() * self.get_transform().matrix;
     let direction = (un_projected - position).normalize();
     Ray::new(position, direction)
   }

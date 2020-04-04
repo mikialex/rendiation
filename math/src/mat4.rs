@@ -398,18 +398,17 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 		m.a4*m.b2*m.c3*m.d1 + m.a4*m.b2*m.c1*m.d3 - m.a4*m.b3*m.c1*m.d2 + m.a4*m.b3*m.c2*m.d1
 	}
 
-	pub fn inverse(&self) -> Self
+	pub fn inverse(&self) -> Option<Self>
 	{
 		let det = self.det();
-		if det.eq(T::zero())
-		{
-			return Mat4::one();
+		if det.eq(T::zero()) {
+			return None;
 		}
 
 		let m = self;
 		let invdet = T::one() / det;
 
-		Self
+		Some(Self
 		{
 			a1: invdet * (m.b2 * (m.c3 * m.d4 - m.c4 * m.d3) + m.b3 * (m.c4 * m.d2 - m.c2 * m.d4) + m.b4 * (m.c2 * m.d3 - m.c3 * m.d2)),
 			a2:-invdet * (m.a2 * (m.c3 * m.d4 - m.c4 * m.d3) + m.a3 * (m.c4 * m.d2 - m.c2 * m.d4) + m.a4 * (m.c2 * m.d3 - m.c3 * m.d2)),
@@ -427,21 +426,20 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 			d2: invdet * (m.a1 * (m.c2 * m.d3 - m.c3 * m.d2) + m.a2 * (m.c3 * m.d1 - m.c1 * m.d3) + m.a3 * (m.c1 * m.d2 - m.c2 * m.d1)),
 			d3:-invdet * (m.a1 * (m.b2 * m.d3 - m.b3 * m.d2) + m.a2 * (m.b3 * m.d1 - m.b1 * m.d3) + m.a3 * (m.b1 * m.d2 - m.b2 * m.d1)),
 			d4: invdet * (m.a1 * (m.b2 * m.c3 - m.b3 * m.c2) + m.a2 * (m.b3 * m.c1 - m.b1 * m.c3) + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
-		}
+		})
 	}
 
-	pub fn transform_inverse(&self) -> Self
+	pub fn transform_inverse(&self) -> Option<Self>
 	{
 		let m = self;
 		let det = (m.a1 * m.b2 - m.a2 * m.b1) * (m.c3) - (m.a1 * m.b3 - m.a3 * m.b1) * (m.c2) + (m.a2 * m.b3 - m.a3 * m.b2) * (m.c1);
-		if det.eq(T::zero())
-		{
-			return Mat4::one();
+		if det.eq(T::zero()) {
+			return None;
 		}
 
 		let invdet = T::one() / det;
 
-		Self
+		Some(Self
 		{
 			a1 : invdet * (m.b2 * m.c3 + m.b3 * -m.c2),
 			a2 : invdet * (m.c2 * m.a3 + m.c3 * -m.a2),
@@ -459,7 +457,7 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 			d2 : invdet * (m.c1 * (m.a3 * m.d2 - m.a2 * m.d3) + m.c2 * (m.a1 * m.d3 - m.a3 * m.d1) + m.c3 * (m.a2 * m.d1 - m.a1 * m.d2)),
 			d3 : invdet * (m.d1 * (m.a3 * m.b2 - m.a2 * m.b3) + m.d2 * (m.a1 * m.b3 - m.a3 * m.b1) + m.d3 * (m.a2 * m.b1 - m.a1 * m.b2)),
 			d4 : invdet * (m.a1 * (m.b2 * m.c3 - m.b3 * m.c2) + m.a2 * (m.b3 * m.c1 - m.b1 * m.c3) + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
-		}
+		})
 	}
 
 	pub fn ortho_lh(left:T, right:T, bottom:T, top:T, znear:T, zfar:T) -> Self

@@ -1,5 +1,6 @@
-use rendiation_math::{Mat4, Zero};
+use rendiation_math::{Mat4, Zero, Vec3, Vec4};
 use rendiation_math_entity::Plane;
+use std::ops::Add;
 
 // Quadric Error Metrics
 pub struct QEM {
@@ -9,6 +10,17 @@ pub struct QEM {
 impl QEM {
   pub fn zero() -> Self {
     QEM { mat: Mat4::zero() }
+  }
+
+  pub fn compute_optimal_position(&self) -> Option<Vec3<f32>> {
+    let mut mat = self.mat.clone();
+    mat.c1 = 0.0;
+    mat.c2 = 0.0;
+    mat.c3 = 0.0;
+    mat.c4 = 1.0;
+    mat.inverse().map(|m|{
+        (Vec4::new(0.0,0.0,0.0,1.0) * m).xyz()
+    })
   }
 }
 
@@ -28,5 +40,15 @@ impl From<Plane> for QEM {
     );
     
     QEM { mat }
+  }
+}
+
+impl Add for QEM {
+  type Output = Self;
+
+  fn add(self, b: Self) -> Self {
+    Self {
+      mat: self.mat + b.mat,
+    }
   }
 }
