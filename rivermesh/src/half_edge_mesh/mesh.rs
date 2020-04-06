@@ -10,9 +10,9 @@ pub struct HalfEdgeMesh<T = PositionNormalVertexData> {
 
 impl<T> HalfEdgeMesh<T> {
   pub fn remove_face(&mut self, face_id: usize) {
-      assert!(face_id < self.faces.len());
-      let face = unsafe{ &mut *self.faces[face_id] };
-      face.visit_around_edge_mut(|_|{})
+    assert!(face_id < self.faces.len());
+    let face = unsafe { &mut *self.faces[face_id] };
+    face.visit_around_edge_mut(|_| {})
   }
 }
 
@@ -103,15 +103,17 @@ impl<T> EdgePairFinder<T> {
   }
 
   pub fn find_edge_pairs(&self, edges: &mut Vec<*mut HalfEdge<T>>) {
-    for edge in edges {
-      let edge = unsafe { &mut **edge };
-      if edge.pair_mut().is_none() {
-        let key = (
-          edge.next_mut().vert_mut() as *mut HalfEdgeVertex<T>,
-          edge.vert_mut() as *mut HalfEdgeVertex<T>,
-        );
-        if let Some(pair) = self.0.get(&key) {
-          edge.pair = *pair as *mut HalfEdge<T>;
+    unsafe {
+      for edge in edges {
+        let edge = &mut **edge;
+        if edge.pair_mut().is_none() {
+          let key = (
+            edge.next_mut().vert_mut() as *mut HalfEdgeVertex<T>,
+            edge.vert_mut() as *mut HalfEdgeVertex<T>,
+          );
+          if let Some(pair) = self.0.get(&key) {
+            edge.pair = *pair as *mut HalfEdge<T>;
+          }
         }
       }
     }

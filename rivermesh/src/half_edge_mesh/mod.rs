@@ -16,30 +16,28 @@ impl<T> HalfEdgeVertex<T> {
     }
   }
 
-  pub fn edge(&self) -> &HalfEdge<T> {
-    // it should always valid in valid half edge mesh
-    unsafe { &*self.edge }
+  pub unsafe fn edge(&self) -> &HalfEdge<T> {
+    &*self.edge
   }
 
-  pub fn edge_mut(&self) -> &mut HalfEdge<T> {
-    // it should always valid in valid half edge mesh
-    unsafe { &mut *self.edge }
+  pub unsafe fn edge_mut(&self) -> &mut HalfEdge<T> {
+    &mut *self.edge
   }
 
-  pub fn visit_around_edge_mut(&self, visitor: &mut dyn FnMut(&mut HalfEdge<T>)) {
-    let edge = self.edge_mut();
-    visitor(edge);
-    loop {
-      if let Some(pair) = edge.pair_mut() {
-        let next_edge = pair.next_mut();
-        if next_edge as *const HalfEdge<T> != edge as *const HalfEdge<T> {
-          visitor(next_edge);
-        } else {
-          break;
-        }
-      }
-    }
-  }
+  // pub fn visit_around_edge_mut(&self, visitor: &mut dyn FnMut(&mut HalfEdge<T>)) {
+  //   let edge = self.edge_mut();
+  //   visitor(edge);
+  //   loop {
+  //     if let Some(pair) = edge.pair_mut() {
+  //       let next_edge = pair.next_mut();
+  //       if next_edge as *const HalfEdge<T> != edge as *const HalfEdge<T> {
+  //         visitor(next_edge);
+  //       } else {
+  //         break;
+  //       }
+  //     }
+  //   }
+  // }
 }
 
 pub struct HalfEdgeFace<T> {
@@ -80,25 +78,26 @@ impl<T> HalfEdgeFace<T> {
     face
   }
 
-  pub fn edge_mut(&mut self) -> Option<&mut HalfEdge<T>> {
+  pub unsafe fn edge_mut(&mut self) -> Option<&mut HalfEdge<T>> {
     if self.edge.is_null() {
-      return None;
-    }
-    unsafe {
-      return Some(&mut *self.edge);
+      None
+    } else {
+      Some(&mut *self.edge)
     }
   }
 
   pub fn visit_around_edge_mut(&mut self, visitor: impl Fn(&HalfEdge<T>)) {
-    if let Some(edge) = self.edge_mut() {
-      visitor(edge);
-      let edge_ptr = edge as *const HalfEdge<T>;
-      loop {
-        let next_edge = edge.next_mut();
-        if next_edge as *const HalfEdge<T> != edge_ptr {
-          visitor(next_edge);
-        } else {
-          break;
+    unsafe {
+      if let Some(edge) = self.edge_mut() {
+        visitor(edge);
+        let edge_ptr = edge as *const HalfEdge<T>;
+        loop {
+          let next_edge = edge.next_mut();
+          if next_edge as *const HalfEdge<T> != edge_ptr {
+            visitor(next_edge);
+          } else {
+            break;
+          }
         }
       }
     }
@@ -152,31 +151,31 @@ impl<T> HalfEdge<T> {
     self
   }
 
-  pub fn vert(&self) -> &HalfEdgeVertex<T> {
-    unsafe { &*self.vert }
+  pub unsafe fn vert(&self) -> &HalfEdgeVertex<T> {
+    &*self.vert
   }
 
-  pub fn vert_mut(&mut self) -> &mut HalfEdgeVertex<T> {
-    unsafe { &mut *self.vert }
+  pub unsafe fn vert_mut(&self) -> &mut HalfEdgeVertex<T> {
+    &mut *self.vert
   }
 
-  pub fn next(&self) -> &Self {
-    unsafe { &*self.next }
+  pub unsafe fn next(&self) -> &Self {
+    &*self.next
   }
 
-  pub fn next_mut(&mut self) -> &mut Self {
-    unsafe { &mut *self.next }
+  pub unsafe fn next_mut(&self) -> &mut Self {
+    &mut *self.next
   }
 
-  pub fn face(&self) -> &HalfEdgeFace<T> {
-    unsafe { &*self.face }
+  pub unsafe fn face(&self) -> &HalfEdgeFace<T> {
+    &*self.face
   }
 
-  pub fn pair_mut(&self) -> Option<&mut Self> {
+  pub unsafe fn pair_mut(&self) -> Option<&mut Self> {
     if self.pair.is_null() {
       None
     } else {
-      unsafe { Some(&mut *self.pair) }
+      Some(&mut *self.pair)
     }
   }
 
