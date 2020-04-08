@@ -30,16 +30,6 @@ pub(crate) fn derive_bindgroup_impl(
   }
 }
 
-enum BindGroupType {
-  Texture2d,
-  Sampler,
-}
-
-enum ShaderType {
-  Fragment,
-  Vertex,
-}
-
 fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
   let struct_name = &input.ident;
   let struct_generic = &input.generics;
@@ -92,7 +82,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
       _ => {return None}
     };
 
-    let re = match tags[0] {
+    match tags[0] {
       "uniform-buffer" =>  Some((
         quote! {.bind_uniform_buffer(#shader_type)},
         quote! {.buffer(self.#field_name)},
@@ -106,8 +96,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
         quote! {.sampler(self.#field_name)},
       )),
       _ =>  None
-    };
-    re
+    }
   });
 
   let mut layout_build = Vec::new();

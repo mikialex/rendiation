@@ -1,4 +1,4 @@
-use crate::geometry_lib::Mesher;
+use crate::geometry_lib::IndexedBufferMesher;
 use crate::vertex::Vertex;
 use rendiation_math::*;
 
@@ -29,7 +29,7 @@ impl Default for SphereGeometryParameter{
   }
 }
 
-impl Mesher for SphereGeometryParameter {
+impl IndexedBufferMesher for SphereGeometryParameter {
   fn create_mesh(&self) -> (Vec<Vertex>, Vec<u16>) {
     let Self {
       radius,

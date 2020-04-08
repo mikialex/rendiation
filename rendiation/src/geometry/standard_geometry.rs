@@ -16,8 +16,12 @@ pub fn quad_maker() -> (Vec<Vertex>, Vec<u16>) {
 }
 
 /// A indexed geometry that use vertex as primitive;
-pub struct StandardGeometry<T: PrimitiveTopology = TriangleList> {
-  pub data: Vec<Vertex>,
+pub struct StandardGeometry<T = TriangleList, V = Vertex>
+where
+  V: VertexProvider,
+  T: PrimitiveTopology,
+{
+  pub data: Vec<V>,
   pub index: Vec<u16>,
   _phantom: PhantomData<T>,
 }
@@ -48,7 +52,6 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
   pub fn get_full_count(&self) -> u32 {
     self.index.len() as u32
   }
-
 }
 
 impl<'a, T: PrimitiveTopology> GeometryProvider for StandardGeometry<T> {

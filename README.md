@@ -15,4 +15,6 @@ RiverMesh for mesh processing experiments.
 
 Rendium for UI.
 
+Noize for noise pattern generation;
+
 ...

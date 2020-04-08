@@ -1,6 +1,6 @@
 use rendiation_math::Vec3;
 
-struct WorleyNoise {
+pub struct WorleyNoise {
   repeat: i32,
   hasher: Hasher,
   kIDOffs1: i32,
@@ -109,7 +109,7 @@ impl Hasher {
   }
 
   fn rotl32(x: u32, r: i32) -> u32 {
-    return (x << r) | (x >> 32 - r);
+    (x << r) | (x >> 32 - r)
   }
 
   pub fn hash(&self, value: i32) -> u32 {
@@ -122,7 +122,7 @@ impl Hasher {
     h32 ^= h32 >> 13;
     h32 *= PRIME32_3;
     h32 ^= h32 >> 16;
-    return h32;
+    h32
   }
 
   pub fn hash_f(&self, value: i32) -> f32 {

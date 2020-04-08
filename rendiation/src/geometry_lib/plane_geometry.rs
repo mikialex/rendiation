@@ -1,6 +1,20 @@
-use crate::geometry_lib::Mesher;
+use crate::geometry_lib::IndexedBufferMesher;
 use crate::vertex::Vertex;
 use rendiation_math::*;
+
+pub struct Quad;
+
+impl IndexedBufferMesher for Quad {
+  fn create_mesh(&self) -> (Vec<Vertex>, Vec<u16>) {
+    PlaneGeometryParameter {
+      width: 2.,
+      height: 2.,
+      width_segments: 1,
+      height_segments: 1,
+    }.create_mesh()
+  }
+}
+
 
 #[derive(Copy, Clone, Debug)]
 pub struct PlaneGeometryParameter {
@@ -21,7 +35,7 @@ impl Default for PlaneGeometryParameter {
   }
 }
 
-impl Mesher for PlaneGeometryParameter {
+impl IndexedBufferMesher for PlaneGeometryParameter {
   fn create_mesh(&self) -> (Vec<Vertex>, Vec<u16>) {
     let Self {
       width,

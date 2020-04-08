@@ -848,6 +848,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "noize"
+version = "0.0.1"
+dependencies = [
+ "rendiation-math 0.1.0",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"

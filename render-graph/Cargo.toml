@@ -4,5 +4,6 @@ version = "0.0.1"
 edition = "2018"
 
 [dependencies]
-[dev-dependencies]
 rendiation = { path = "../rendiation", version = "0.1.0" }
+
+[dev-dependencies]
