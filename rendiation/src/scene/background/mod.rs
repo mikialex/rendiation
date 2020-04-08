@@ -1,10 +1,10 @@
 use crate::renderer::pipeline::WGPUPipeline;
 use crate::renderer::WGPURenderer;
-use crate::scene::Renderable;
-use crate::scene::Scene;
+use crate::scene::*;
+
 use crate::{
   geometry::StandardGeometry,
-  geometry_lib::{sphere_geometry::SphereGeometryParameter, Mesher},
+  geometry_lib::{sphere_geometry::SphereGeometryParameter, IndexedBufferMesher},
   WGPURenderPass,
 };
 use rendiation_math::Vec3;
@@ -24,8 +24,8 @@ impl SolidBackground{
 }
 
 impl Renderable for SolidBackground {
-  fn prepare(&mut self, _: &mut WGPURenderer, _: &mut Scene) {}
-  fn render(&self, _: &WGPURenderer, scene: &mut Scene) {
+  fn prepare(&mut self, _: &mut WGPURenderer, _: &mut ScenePrepareCtx) {}
+  fn render(&self, _: &WGPURenderer, scene: &Scene) {
     WGPURenderPass::build().output_with_clear(
       &scene.canvas.view(),
       (self.color.x, self.color.y, self.color.z, 1.0),

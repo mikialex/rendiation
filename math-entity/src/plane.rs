@@ -16,6 +16,10 @@ impl Plane {
     self.normal.dot(point) + self.constant
   }
 
+  pub fn project_point(&self,point: Vec3<f32>) -> Vec3<f32> {
+    self.normal * (- self.distance_to_point(point)) + point
+  }
+
   pub fn set_components(&mut self, x: f32, y: f32, z: f32, w: f32) -> &mut Self {
     self.normal.set(x, y, z);
     self.constant = w;

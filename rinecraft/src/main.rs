@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod rinecraft;
 // mod gui;
 mod shading;
@@ -6,7 +8,6 @@ mod watch;
 mod vox;
 mod sky;
 mod init;
-mod noise;
 use rinecraft::*;
 use rendium::application;
 

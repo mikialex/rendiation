@@ -23,6 +23,7 @@ impl Transformation {
   }
 }
 
+// one step fast compose
 pub fn compose(position: &Vec3<f32>, quaternion: &Quat<f32>, scale: &Vec3<f32>) -> Mat4<f32> {
   let x = quaternion.x;
   let y = quaternion.y;

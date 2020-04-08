@@ -1,4 +1,4 @@
-use rendiation_math::{Mat4, Zero, Vec3, Vec4};
+use rendiation_math::{Mat4, Vec3, Vec4, Zero};
 use rendiation_math_entity::Plane;
 use std::ops::Add;
 
@@ -18,9 +18,9 @@ impl QEM {
     mat.c2 = 0.0;
     mat.c3 = 0.0;
     mat.c4 = 1.0;
-    mat.inverse().map(|m|{
-        (Vec4::new(0.0,0.0,0.0,1.0) * m).xyz()
-    })
+    mat
+      .inverse()
+      .map(|m| (Vec4::new(0.0, 0.0, 0.0, 1.0) * m).xyz())
   }
 }
 

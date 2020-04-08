@@ -1,6 +1,5 @@
 
 use crate::vec4::Vec4;
-use crate::vec3::Vec3;
 use crate::mat4::Mat4;
 
 impl Mat4<f32> {
