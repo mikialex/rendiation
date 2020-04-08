@@ -9,10 +9,22 @@ pub struct HalfEdgeMesh<T = PositionNormalVertexData> {
 }
 
 impl<T> HalfEdgeMesh<T> {
-  pub fn remove_face(&mut self, face_id: usize) {
-    assert!(face_id < self.faces.len());
-    let face = unsafe { &mut *self.faces[face_id] };
-    face.visit_around_edge_mut(|_| {})
+  pub fn remove_face(&mut self, face: &mut HalfEdgeFace<T>) {
+    face.visit_around_edge_mut(|edge| {
+      unsafe{
+        self.remove_edge(edge)
+      }
+    })
+  }
+  pub unsafe fn remove_edge(&mut self, edge: &mut HalfEdge<T>){
+    if let Some(pair)= edge.pair_mut(){
+      pair.delete_pair();
+    }
+    let id = edge.id();
+    {
+      let _ = Box::from_raw(*&self.edges[id]);
+    }
+    self.edges.swap_remove(id);
   }
 }
 

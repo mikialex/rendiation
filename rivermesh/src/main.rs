@@ -7,6 +7,7 @@ pub mod simplification;
 use half_edge_mesh::*;
 
 fn main() {
+
     let bunny = tobj::load_obj(&Path::new("assets/bunny.obj"));
     assert!(bunny.is_ok());
     let (models, materials) = bunny.unwrap();

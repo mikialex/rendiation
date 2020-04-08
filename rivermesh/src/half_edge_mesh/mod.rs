@@ -16,6 +16,10 @@ impl<T> HalfEdgeVertex<T> {
     }
   }
 
+  pub fn id(&self) -> usize {
+    self.id
+  }
+
   pub unsafe fn edge(&self) -> &HalfEdge<T> {
     &*self.edge
   }
@@ -78,6 +82,10 @@ impl<T> HalfEdgeFace<T> {
     face
   }
 
+  pub fn id(&self) -> usize {
+    self.id
+  }
+
   pub unsafe fn edge_mut(&mut self) -> Option<&mut HalfEdge<T>> {
     if self.edge.is_null() {
       None
@@ -86,7 +94,7 @@ impl<T> HalfEdgeFace<T> {
     }
   }
 
-  pub fn visit_around_edge_mut(&mut self, visitor: impl Fn(&HalfEdge<T>)) {
+  pub fn visit_around_edge_mut(&mut self, mut visitor: impl FnMut(&mut HalfEdge<T>)) {
     unsafe {
       if let Some(edge) = self.edge_mut() {
         visitor(edge);
@@ -141,6 +149,10 @@ impl<T> HalfEdge<T> {
     half_edge
   }
 
+  pub fn id(&self) -> usize {
+    self.id
+  }
+
   fn connect_next_edge_for_face(
     &mut self,
     next: *mut Self,
@@ -177,6 +189,10 @@ impl<T> HalfEdge<T> {
     } else {
       Some(&mut *self.pair)
     }
+  }
+
+  pub unsafe fn delete_pair(&mut self) {
+    self.pair = std::ptr::null_mut()
   }
 
   pub fn is_border(&self) -> bool {
