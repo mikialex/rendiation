@@ -1,8 +1,8 @@
 use super::block::BlockFace;
 use crate::shading::copy::CopyParam;
 use crate::shading::*;
-// use rendiation::geometry_lib::{IndexedBufferMesher};
-// use rendiation::geometry_lib::plane_geometry::*;
+use rendiation::geometry_lib::{IndexedBufferMesher};
+use geometry_lib::plane_geometry::Quad;
 use image::*;
 use rendiation::*;
 use std::collections::HashMap;
@@ -156,14 +156,14 @@ impl BlockRegistry {
     face_list.push(self.lut[2].top_texture.clone());
     face_list.push(self.lut[2].x_max_texture.clone());
 
-    pub fn tex(imgd: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
-      let img = imgd.as_rgba8().unwrap().clone();
+    pub fn tex(img_d: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
+      let img = img_d.as_rgba8().unwrap().clone();
       let size = (img.width(), img.height(), 1);
       let data = img.into_raw();
       WGPUTexture::new_from_image_data(renderer, &data, size)
     }
 
-    let mut quad = GPUGeometry::from(quad_maker());
+    let mut quad = GPUGeometry::from(Quad.create_mesh());
     quad.update_gpu(renderer);
     let sampler = WGPUSampler::new(&renderer.device);
     let target_texture = WGPUTexture::new_as_target(&renderer, (64, 64));

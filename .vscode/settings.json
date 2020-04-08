@@ -27,6 +27,7 @@
         "perlin",
         "rasterization",
         "renderables",
+        "rgba",
         "rustfmt",
         "spirv",
         "swapchain",

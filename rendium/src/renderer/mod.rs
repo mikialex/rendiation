@@ -2,10 +2,12 @@ use crate::element::quad::QuadLayout;
 use crate::renderer::shader::CopyShading;
 use crate::renderer::shader::CopyShadingParam;
 use crate::renderer::shader::QuadShading;
-use rendiation::geometry::quad_maker;
 use rendiation::*;
 use rendiation_math::Vec4;
 use rendiation_render_entity::*;
+
+use rendiation::geometry_lib::{IndexedBufferMesher};
+use geometry_lib::plane_geometry::Quad;
 
 mod shader;
 pub use shader::*;
@@ -24,7 +26,7 @@ pub struct GUIRenderer {
 impl GUIRenderer {
   pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
-    let mut quad = GPUGeometry::from(quad_maker());
+    let mut quad = GPUGeometry::from(Quad.create_mesh());
     quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
 
