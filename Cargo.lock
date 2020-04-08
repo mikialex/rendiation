@@ -851,6 +851,7 @@ dependencies = [
 name = "noize"
 version = "0.0.1"
 dependencies = [
+ "image 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rendiation-math 0.1.0",
 ]
 

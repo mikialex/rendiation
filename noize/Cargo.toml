@@ -7,3 +7,4 @@ edition = "2018"
 rendiation-math = { path = "../math", version = "0.1.0" }
 
 [dev-dependencies]
+image = "*"

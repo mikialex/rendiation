@@ -51,78 +51,78 @@ impl WorleyNoise {
 
     let mut d = self.distance_to_feature(point, Vec3::new(cx, cy, cz));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy - 1, cz - 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy - 1, cz - 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy - 1, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy - 1, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy - 1, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy - 1, cz - 1)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy, cz - 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy, cz - 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy, cz - 1)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy + 1, cz - 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy + 1, cz - 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy + 1, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy + 1, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy + 1, cz - 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy + 1, cz - 1)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy - 1, cz)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy - 1, cz)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy - 1, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy - 1, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy - 1, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy - 1, cz)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy, cz)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy, cz)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy + 1, cz)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy + 1, cz)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy + 1, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy + 1, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy + 1, cz)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy + 1, cz)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy - 1, cz + 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy - 1, cz + 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy - 1, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy - 1, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy - 1, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy - 1, cz + 1)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy, cz + 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy, cz + 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy, cz + 1)));
 
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy + 1, cz + 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy + 1, cz + 1)));
-    d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy + 1, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx - 1, cy + 1, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy + 1, cz + 1)));
+    // d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy + 1, cz + 1)));
 
-    d
+    d 
+    // / 2f32.sqrt()
   }
 }
 
+use std::num::Wrapping;
 
-const PRIME32_1: u32 = 2654435761;
-const PRIME32_2: u32 = 2246822519;
-const PRIME32_3: u32 = 3266489917;
-const PRIME32_4: u32 = 668265263;
-const PRIME32_5: u32 = 374761393;
+const PRIME32_1: Wrapping<u32> = Wrapping(2654435761);
+const PRIME32_2: Wrapping<u32> = Wrapping(2246822519);
+const PRIME32_3: Wrapping<u32> = Wrapping(3266489917);
+const PRIME32_4: Wrapping<u32> = Wrapping(668265263);
+const PRIME32_5: Wrapping<u32> = Wrapping(374761393);
 
 struct Hasher {
-  seeds: i32,
+  seeds: Wrapping<u32>,
 }
 
 impl Hasher {
   pub fn new() -> Self {
-    Hasher {
-      seeds: 0,
-    }
+    Hasher { seeds: Wrapping(0) }
   }
 
-  fn rotl32(x: u32, r: i32) -> u32 {
-    (x << r) | (x >> 32 - r)
+  fn rotl32(x: u32, r: u32) -> Wrapping<u32> {
+    Wrapping((x << r) | (x >> 32 - r))
   }
 
   pub fn hash(&self, value: i32) -> u32 {
-    let mut h32 = self.seeds as u32 + PRIME32_5;
-    h32 += 4;
-    h32 += value as u32 * PRIME32_3;
-    h32 = Hasher::rotl32(h32, 17) * PRIME32_4;
+    let mut h32 = self.seeds + PRIME32_5;
+    h32 += Wrapping(4);
+    h32 += Wrapping(value as u32) * PRIME32_3;
+    h32 = Hasher::rotl32(h32.0, 17) * PRIME32_4;
     h32 ^= h32 >> 15;
     h32 *= PRIME32_2;
     h32 ^= h32 >> 13;
     h32 *= PRIME32_3;
     h32 ^= h32 >> 16;
-    h32
+    h32.0
   }
 
   pub fn hash_f(&self, value: i32) -> f32 {
