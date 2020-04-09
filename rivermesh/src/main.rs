@@ -23,7 +23,7 @@ fn main() {
         println!("model[{}].vertices: {}", i, mesh.positions.len() / 3);
         assert!(mesh.positions.len() % 3 == 0);
 
-        let _mesh = HalfEdgeMesh::from_geometry(&mesh.positions, &mesh.indices);
+        let _mesh = HalfEdgeMesh::from_buffer(&mesh.positions, &mesh.indices);
         let _a = 1;
     }
     let _b = 1;

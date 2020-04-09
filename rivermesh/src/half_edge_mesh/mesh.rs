@@ -1,23 +1,18 @@
 use super::{HalfEdge, HalfEdgeFace, HalfEdgeVertex};
-use rendiation_math::Vec3;
 use std::collections::HashMap;
 
-pub struct HalfEdgeMesh<T = PositionNormalVertexData> {
-  pub edges: Vec<*mut HalfEdge<T>>,
-  pub faces: Vec<*mut HalfEdgeFace<T>>,
-  pub vertices: Vec<*mut HalfEdgeVertex<T>>,
+pub struct HalfEdgeMesh<V = (), HE = (), F = ()> {
+  pub edges: Vec<*mut HalfEdge<V, HE, F>>,
+  pub faces: Vec<*mut HalfEdgeFace<V, HE, F>>,
+  pub vertices: Vec<*mut HalfEdgeVertex<V, HE, F>>,
 }
 
-impl<T> HalfEdgeMesh<T> {
-  pub fn remove_face(&mut self, face: &mut HalfEdgeFace<T>) {
-    face.visit_around_edge_mut(|edge| {
-      unsafe{
-        self.remove_edge(edge)
-      }
-    })
+impl<V, HE, F> HalfEdgeMesh<V, HE, F> {
+  pub fn remove_face(&mut self, face: &mut HalfEdgeFace<V, HE, F>) {
+    face.visit_around_edge_mut(|edge| unsafe { self.remove_edge(edge) })
   }
-  pub unsafe fn remove_edge(&mut self, edge: &mut HalfEdge<T>){
-    if let Some(pair)= edge.pair_mut(){
+  pub unsafe fn remove_edge(&mut self, edge: &mut HalfEdge<V, HE, F>) {
+    if let Some(pair) = edge.pair_mut() {
       pair.delete_pair();
     }
     let id = edge.id();
@@ -28,54 +23,7 @@ impl<T> HalfEdgeMesh<T> {
   }
 }
 
-pub struct PositionNormalVertexData {
-  pub positions: Vec3<f32>,
-  pub normal: Vec3<f32>,
-}
-
-impl HalfEdgeMesh {
-  pub fn from_geometry(positions: &Vec<f32>, indices: &Vec<u32>) -> Self {
-    let mut vertices = Vec::new();
-    let mut faces = Vec::new();
-    let mut edges = Vec::new();
-
-    let mut edge_pairs = EdgePairFinder::new();
-
-    for v in 0..positions.len() / 3 {
-      let vert = HalfEdgeVertex::new(
-        PositionNormalVertexData {
-          positions: Vec3::new(positions[3 * v], positions[3 * v + 1], positions[3 * v + 2]),
-          normal: Vec3::new(1.0, 0.0, 0.0),
-        },
-        vertices.len(),
-      );
-      let vert = Box::into_raw(Box::new(vert));
-      vertices.push(vert);
-    }
-
-    for f in 0..indices.len() / 3 {
-      let face = HalfEdgeFace::new_tri(
-        vertices[indices[3 * f] as usize],
-        vertices[indices[3 * f + 1] as usize],
-        vertices[indices[3 * f + 2] as usize],
-        &mut edges,
-        &mut edge_pairs,
-        vertices.len(),
-      );
-      faces.push(Box::into_raw(Box::new(face)));
-    }
-
-    edge_pairs.find_edge_pairs(&mut edges);
-
-    Self {
-      edges,
-      faces,
-      vertices,
-    }
-  }
-}
-
-impl<T> Drop for HalfEdgeMesh<T> {
+impl<V, HE, F> Drop for HalfEdgeMesh<V, HE, F> {
   fn drop(&mut self) {
     println!("drop");
     for v in &self.vertices {
@@ -96,35 +44,35 @@ impl<T> Drop for HalfEdgeMesh<T> {
   }
 }
 
-pub struct EdgePairFinder<T>(
-  HashMap<(*mut HalfEdgeVertex<T>, *mut HalfEdgeVertex<T>), *mut HalfEdge<T>>,
+pub struct EdgePairFinder<V, HE, F>(
+  HashMap<(*mut HalfEdgeVertex<V, HE, F>, *mut HalfEdgeVertex<V, HE, F>), *mut HalfEdge<V, HE, F>>,
 );
 
-impl<T> EdgePairFinder<T> {
+impl<V, HE, F> EdgePairFinder<V, HE, F> {
   pub fn new() -> Self {
     EdgePairFinder(HashMap::new())
   }
   pub fn insert(
     &mut self,
-    k: (*mut HalfEdgeVertex<T>, *mut HalfEdgeVertex<T>),
-    v: *mut HalfEdge<T>,
+    k: (*mut HalfEdgeVertex<V, HE, F>, *mut HalfEdgeVertex<V, HE, F>),
+    v: *mut HalfEdge<V, HE, F>,
   ) {
     if let Some(_) = self.0.insert(k, v) {
       panic!("not support none manifold geometry")
     }
   }
 
-  pub fn find_edge_pairs(&self, edges: &mut Vec<*mut HalfEdge<T>>) {
+  pub fn find_edge_pairs(&self, edges: &mut Vec<*mut HalfEdge<V, HE, F>>) {
     unsafe {
       for edge in edges {
         let edge = &mut **edge;
         if edge.pair_mut().is_none() {
           let key = (
-            edge.next_mut().vert_mut() as *mut HalfEdgeVertex<T>,
-            edge.vert_mut() as *mut HalfEdgeVertex<T>,
+            edge.next_mut().vert_mut() as *mut HalfEdgeVertex<V, HE, F>,
+            edge.vert_mut() as *mut HalfEdgeVertex<V, HE, F>,
           );
           if let Some(pair) = self.0.get(&key) {
-            edge.pair = *pair as *mut HalfEdge<T>;
+            edge.pair = *pair as *mut HalfEdge<V, HE, F>;
           }
         }
       }
