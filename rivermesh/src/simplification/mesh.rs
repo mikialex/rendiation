@@ -51,4 +51,8 @@ impl Mesh {
       vertices,
     }
   }
+
+  pub fn computeAllVerticesQEM(&mut self){
+    todo!()
+  }
 }

@@ -2,12 +2,16 @@ use super::{HalfEdge, HalfEdgeFace, HalfEdgeVertex};
 use std::collections::HashMap;
 
 pub struct HalfEdgeMesh<V = (), HE = (), F = ()> {
-  pub edges: Vec<*mut HalfEdge<V, HE, F>>,
-  pub faces: Vec<*mut HalfEdgeFace<V, HE, F>>,
-  pub vertices: Vec<*mut HalfEdgeVertex<V, HE, F>>,
+  pub(crate) edges: Vec<*mut HalfEdge<V, HE, F>>,
+  pub(crate) faces: Vec<*mut HalfEdgeFace<V, HE, F>>,
+  pub(crate) vertices: Vec<*mut HalfEdgeVertex<V, HE, F>>,
 }
 
 impl<V, HE, F> HalfEdgeMesh<V, HE, F> {
+  pub fn face_count(&self) -> usize{
+    self.faces.len()
+  }
+
   pub fn remove_face(&mut self, face: &mut HalfEdgeFace<V, HE, F>) {
     face.visit_around_edge_mut(|edge| unsafe { self.remove_edge(edge) })
   }

@@ -22,6 +22,7 @@
         "glutin",
         "hidpi",
         "lookat",
+        "mikialex",
         "mipmap",
         "multisampled",
         "perlin",

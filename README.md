@@ -1,4 +1,6 @@
-# Rendiation Renderer Framework
+# Rendiation Rendering Framework & mikialex 's GFX crates
+
+## Rendiation
 
 This repo is in very early stage.
 
@@ -9,7 +11,7 @@ Some direction:
 
 Use WebGPU as backend support. Support multiple native platform and web.
 
-## Other graphics suite also exist here
+## Other graphics crates also exist here
 
 RiverMesh for mesh processing experiments.
 
