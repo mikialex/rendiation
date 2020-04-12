@@ -1,9 +1,10 @@
-use crate::half_edge_mesh::{HalfEdgeMesh, EdgePairFinder, HalfEdgeVertex, HalfEdgeFace};
+use crate::half_edge_mesh::{HalfEdgeMesh, EdgePairFinder, HalfEdgeVertex, HalfEdgeFace, HalfEdge};
 use rendiation_math::Vec3;
 use super::qem::QEM;
 
 pub(super) type Mesh = HalfEdgeMesh<VertexData, (), ()>;
 pub(super) type Vertex = HalfEdgeVertex<VertexData, (), ()>;
+pub(super) type HEdge = HalfEdge<VertexData, (), ()>;
 
 pub struct VertexData {
   pub positions: Vec3<f32>,
@@ -54,6 +55,8 @@ impl Mesh {
   }
 
   pub fn computeAllVerticesQEM(&mut self){
-    todo!()
+    self.foreach_vertex_mut(|v|{
+      
+    })
   }
 }

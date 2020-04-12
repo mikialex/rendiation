@@ -1,6 +1,9 @@
-use mesh::{Mesh, Vertex};
+use mesh::{HEdge, Mesh, Vertex};
 use rendiation_math::Vec3;
-use std::{cmp::Ordering, collections::BTreeSet};
+use std::{
+  cmp::Ordering,
+  collections::{BTreeMap, BTreeSet},
+};
 
 pub mod mesh;
 pub mod qem;
@@ -18,23 +21,9 @@ impl OptionEdge {
   }
 }
 
-// impl PartialEq for OptionEdge {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.error == other.error
-//     }
-// }
-
-// impl PartialOrd for OptionEdge {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         self.error.partial_cmp(&other.error)
-//     }
-// }
-
-// impl Ord for OptionEdge{}
-
 pub struct SimplificationCtx {
   mesh: Mesh,
-  //   pub qem_edge: BTreeSet<OptionEdge>,
+  qem_edge: BTreeMap<*mut HEdge, OptionEdge>,
   pub target_face_count: usize,
 }
 
@@ -42,11 +31,18 @@ impl SimplificationCtx {
   pub fn new(positions: &Vec<f32>, indices: &Vec<u32>) -> Self {
     let mut mesh = Mesh::from_buffer(positions, indices);
     mesh.computeAllVerticesQEM();
-    Self {
+    let mut ctx = Self {
       mesh,
-      //   qem_edge: BTreeSet::new(),
+      qem_edge: BTreeMap::new(),
       target_face_count: 1000,
-    }
+    };
+    ctx.computeOptionEdges();
+    ctx
+  }
+
+  fn computeOptionEdges(&mut self) {
+    
+
   }
 
   fn decimate_edge(&mut self) {

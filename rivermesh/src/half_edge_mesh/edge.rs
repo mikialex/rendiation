@@ -71,6 +71,14 @@ impl<V, HE, F> HalfEdge<V, HE, F> {
     &mut *self.next
   }
 
+  pub unsafe fn prev(&self) -> &Self {
+    self.next().next()
+  }
+
+  pub unsafe fn prev_mut(&self) -> &mut Self {
+    self.next_mut().next_mut()
+  }
+
   pub unsafe fn face(&self) -> &HalfEdgeFace<V, HE, F> {
     &*self.face
   }
@@ -80,6 +88,14 @@ impl<V, HE, F> HalfEdge<V, HE, F> {
       None
     } else {
       Some(&mut *self.pair)
+    }
+  }
+
+  pub unsafe fn pair(&self) -> Option<&Self> {
+    if self.pair.is_null() {
+      None
+    } else {
+      Some(&*self.pair)
     }
   }
 

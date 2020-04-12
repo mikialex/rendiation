@@ -8,8 +8,14 @@ pub struct HalfEdgeMesh<V = (), HE = (), F = ()> {
 }
 
 impl<V, HE, F> HalfEdgeMesh<V, HE, F> {
-  pub fn face_count(&self) -> usize{
+  pub fn face_count(&self) -> usize {
     self.faces.len()
+  }
+
+  pub fn foreach_vertex_mut(&mut self, visitor: impl Fn(&mut HalfEdgeVertex<V, HE, F>)) {
+    self.vertices.iter().for_each(|ptr| unsafe {
+      visitor(&mut **ptr);
+    })
   }
 
   pub fn remove_face(&mut self, face: &mut HalfEdgeFace<V, HE, F>) {

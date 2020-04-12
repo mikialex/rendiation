@@ -27,18 +27,36 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
     &mut *self.edge
   }
 
-  // pub fn visit_around_edge_mut(&self, visitor: &mut dyn FnMut(&mut HalfEdge<V, HE, F>)) {
-  //   let edge = self.edge_mut();
-  //   visitor(edge);
-  //   loop {
-  //     if let Some(pair) = edge.pair_mut() {
-  //       let next_edge = pair.next_mut();
-  //       if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
-  //         visitor(next_edge);
-  //       } else {
-  //         break;
-  //       }
-  //     }
-  //   }
-  // }
+  pub fn visit_surrounding_half_edge(&self, visitor: impl Fn(&HalfEdge<V, HE, F>)) {
+    unsafe {
+      let edge = self.edge_mut();
+      visitor(edge);
+
+      let mut no_border_meet = false;
+      while let Some(pair) = edge.pair() {
+        visitor(pair);
+        let next_edge = pair.next();
+        if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
+          visitor(next_edge);
+        } else {
+          no_border_meet = true;
+          break;
+        }
+      }
+
+      if no_border_meet {
+        return;
+      }
+
+      let edge_prev = edge.prev();
+      visitor(edge_prev);
+
+      while let Some(pair) = edge_prev.pair() {
+        visitor(pair);
+        let prev_edge = pair.prev();
+        visitor(prev_edge);
+      }
+    }
+  }
+
 }
