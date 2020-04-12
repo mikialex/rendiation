@@ -1,4 +1,4 @@
-use super::HalfEdge;
+use super::{HalfEdge, HalfEdgeFace};
 
 pub struct HalfEdgeVertex<V, HE, F> {
   id: usize,
@@ -27,36 +27,70 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
     &mut *self.edge
   }
 
-  pub fn visit_surrounding_half_edge(&self, visitor: impl Fn(&HalfEdge<V, HE, F>)) {
+  pub fn foreach_surrounding_face(&self, mut visitor: impl FnMut(&mut HalfEdgeFace<V, HE, F>)) {
     unsafe {
-      let edge = self.edge_mut();
-      visitor(edge);
+      let mut edge = self.edge();
+      let face = edge.face_mut();
+      visitor(face);
 
-      let mut no_border_meet = false;
+      let mut has_around = false;
       while let Some(pair) = edge.pair() {
-        visitor(pair);
+        let face = pair.face_mut();
+        visitor(face);
         let next_edge = pair.next();
         if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
-          visitor(next_edge);
+          edge = next_edge
         } else {
-          no_border_meet = true;
+          has_around = true;
           break;
         }
       }
 
-      if no_border_meet {
+      if has_around {
         return;
       }
 
-      let edge_prev = edge.prev();
-      visitor(edge_prev);
+      let mut edge_prev = edge.prev();
 
-      while let Some(pair) = edge_prev.pair() {
-        visitor(pair);
-        let prev_edge = pair.prev();
-        visitor(prev_edge);
+      while let Some(pair) = edge_prev.pair_mut() {
+        let face = pair.face_mut();
+        visitor(face);
+        edge_prev = pair.prev();
       }
     }
   }
 
+  pub fn visit_surrounding_half_edge_mut(&self, mut visitor: impl FnMut(&mut HalfEdge<V, HE, F>)) {
+    unsafe {
+      let mut edge = self.edge_mut();
+      visitor(edge);
+
+      let mut has_around = false;
+      while let Some(pair) = edge.pair_mut() {
+        visitor(pair);
+        let next_edge = pair.next_mut();
+        if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
+          visitor(next_edge);
+          edge = next_edge;
+        } else {
+          has_around = true;
+          break;
+        }
+      }
+
+      if has_around {
+        return;
+      }
+
+      let mut edge_prev = edge.prev_mut();
+      visitor(edge_prev);
+
+      while let Some(pair) = edge_prev.pair_mut() {
+        visitor(pair);
+        let prev_edge = pair.prev_mut();
+        visitor(prev_edge);
+        edge_prev = prev_edge;
+      }
+    }
+  }
 }

@@ -83,6 +83,10 @@ impl<V, HE, F> HalfEdge<V, HE, F> {
     &*self.face
   }
 
+  pub unsafe fn face_mut(&self) -> &mut HalfEdgeFace<V, HE, F> {
+    &mut *self.face
+  }
+
   pub unsafe fn pair_mut(&self) -> Option<&mut Self> {
     if self.pair.is_null() {
       None

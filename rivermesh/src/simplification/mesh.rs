@@ -1,10 +1,20 @@
 use crate::half_edge_mesh::{HalfEdgeMesh, EdgePairFinder, HalfEdgeVertex, HalfEdgeFace, HalfEdge};
 use rendiation_math::Vec3;
 use super::qem::QEM;
+use rendiation_math_entity::Face3;
 
 pub(super) type Mesh = HalfEdgeMesh<VertexData, (), ()>;
 pub(super) type Vertex = HalfEdgeVertex<VertexData, (), ()>;
 pub(super) type HEdge = HalfEdge<VertexData, (), ()>;
+pub(super) type Face = HalfEdgeFace<VertexData, (), ()>;
+
+// impl From<Face> for Face3 {
+//   fn from(face: Face) -> Self {
+
+//   }
+// }
+
+// fn to_face3
 
 pub struct VertexData {
   pub positions: Vec3<f32>,
@@ -56,7 +66,9 @@ impl Mesh {
 
   pub fn computeAllVerticesQEM(&mut self){
     self.foreach_vertex_mut(|v|{
-      
+      v.foreach_surrounding_face(|f|{
+        
+      })
     })
   }
 }
