@@ -42,28 +42,37 @@ impl<V, HE, F> HalfEdgeFace<V, HE, F> {
     self.id
   }
 
-  pub unsafe fn edge_mut(&mut self) -> Option<&mut HalfEdge<V, HE, F>> {
-    if self.edge.is_null() {
-      None
-    } else {
-      Some(&mut *self.edge)
+  pub unsafe fn edge_mut(&self) -> &mut HalfEdge<V, HE, F> {
+    &mut *self.edge
+  }
+
+  pub unsafe fn edge(&self) -> &HalfEdge<V, HE, F> {
+    &*self.edge
+  }
+
+  pub unsafe fn visit_around_edge(&mut self, mut visitor: impl FnMut(&HalfEdge<V, HE, F>)) {
+    let mut edge = self.edge();
+
+    loop {
+      visitor(edge);
+      let next_edge = edge.next();
+      if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
+        break;
+      }
+      edge = next_edge;
     }
   }
 
-  pub fn visit_around_edge_mut(&mut self, mut visitor: impl FnMut(&mut HalfEdge<V, HE, F>)) {
-    unsafe {
-      if let Some(edge) = self.edge_mut() {
-        visitor(edge);
-        let edge_ptr = edge as *const HalfEdge<V, HE, F>;
-        loop {
-          let next_edge = edge.next_mut();
-          if next_edge as *const HalfEdge<V, HE, F> != edge_ptr {
-            visitor(next_edge);
-          } else {
-            break;
-          }
-        }
+  pub unsafe fn visit_around_edge_mut(&mut self, mut visitor: impl FnMut(&mut HalfEdge<V, HE, F>)) {
+    let mut edge = self.edge_mut();
+
+    loop {
+      visitor(edge);
+      let next_edge = edge.next_mut();
+      if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
+        break;
       }
+      edge = next_edge;
     }
   }
 }

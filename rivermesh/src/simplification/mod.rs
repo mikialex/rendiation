@@ -30,7 +30,7 @@ pub struct SimplificationCtx {
 impl SimplificationCtx {
   pub fn new(positions: &Vec<f32>, indices: &Vec<u32>) -> Self {
     let mut mesh = Mesh::from_buffer(positions, indices);
-    mesh.computeAllVerticesQEM();
+    mesh.compute_all_vertices_QEM();
     let mut ctx = Self {
       mesh,
       qem_edge: BTreeMap::new(),
@@ -41,7 +41,7 @@ impl SimplificationCtx {
   }
 
   fn computeOptionEdges(&mut self) {
-    
+
 
   }
 

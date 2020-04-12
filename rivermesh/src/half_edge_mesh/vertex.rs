@@ -1,8 +1,9 @@
 use super::{HalfEdge, HalfEdgeFace};
+use std::cell::UnsafeCell;
 
 pub struct HalfEdgeVertex<V, HE, F> {
   id: usize,
-  pub vertex_data: V,
+  pub vertex_data: UnsafeCell<V>,
   pub(super) edge: *mut HalfEdge<V, HE, F>, // one of the half-edges emanating from the vertex
 }
 
@@ -10,7 +11,7 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
   pub fn new(vertex_data: V, id: usize) -> HalfEdgeVertex<V, HE, F> {
     HalfEdgeVertex {
       id,
-      vertex_data,
+      vertex_data: UnsafeCell::new(vertex_data),
       edge: std::ptr::null_mut(),
     }
   }
@@ -27,7 +28,7 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
     &mut *self.edge
   }
 
-  pub fn foreach_surrounding_face(&self, mut visitor: impl FnMut(&mut HalfEdgeFace<V, HE, F>)) {
+  pub fn foreach_surrounding_face(&self, mut visitor: impl FnMut(&HalfEdgeFace<V, HE, F>)) {
     unsafe {
       let mut edge = self.edge();
       let face = edge.face_mut();
@@ -60,7 +61,7 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
     }
   }
 
-  pub fn visit_surrounding_half_edge_mut(&self, mut visitor: impl FnMut(&mut HalfEdge<V, HE, F>)) {
+  pub fn visit_surrounding_half_edge_mut(&self, mut visitor: impl FnMut(&HalfEdge<V, HE, F>)) {
     unsafe {
       let mut edge = self.edge_mut();
       visitor(edge);

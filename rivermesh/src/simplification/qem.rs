@@ -3,6 +3,8 @@ use rendiation_math_entity::Plane;
 use std::ops::Add;
 
 // Quadric Error Metrics
+
+#[derive(Debug, Copy, Clone)]
 pub struct QEM {
   mat: Mat4<f32>,
 }

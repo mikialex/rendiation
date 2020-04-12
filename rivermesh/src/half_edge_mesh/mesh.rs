@@ -12,25 +12,25 @@ impl<V, HE, F> HalfEdgeMesh<V, HE, F> {
     self.faces.len()
   }
 
-  pub fn foreach_vertex_mut(&mut self, visitor: impl Fn(&mut HalfEdgeVertex<V, HE, F>)) {
+  pub fn foreach_vertex(&mut self, visitor: impl Fn(&HalfEdgeVertex<V, HE, F>)) {
     self.vertices.iter().for_each(|ptr| unsafe {
-      visitor(&mut **ptr);
+      visitor(&**ptr);
     })
   }
 
-  pub fn remove_face(&mut self, face: &mut HalfEdgeFace<V, HE, F>) {
-    face.visit_around_edge_mut(|edge| unsafe { self.remove_edge(edge) })
-  }
-  pub unsafe fn remove_edge(&mut self, edge: &mut HalfEdge<V, HE, F>) {
-    if let Some(pair) = edge.pair_mut() {
-      pair.delete_pair();
-    }
-    let id = edge.id();
-    {
-      let _ = Box::from_raw(*&self.edges[id]);
-    }
-    self.edges.swap_remove(id);
-  }
+  // pub fn remove_face(&mut self, face: &mut HalfEdgeFace<V, HE, F>) {
+  //   face.visit_around_edge_mut(|edge| unsafe { self.remove_edge(edge) })
+  // }
+  // pub unsafe fn remove_edge(&mut self, edge: &mut HalfEdge<V, HE, F>) {
+  //   if let Some(pair) = edge.pair_mut() {
+  //     pair.delete_pair();
+  //   }
+  //   let id = edge.id();
+  //   {
+  //     let _ = Box::from_raw(*&self.edges[id]);
+  //   }
+  //   self.edges.swap_remove(id);
+  // }
 }
 
 impl<V, HE, F> Drop for HalfEdgeMesh<V, HE, F> {
