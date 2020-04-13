@@ -17,6 +17,18 @@ impl Graph {
     }
   }
 
+  pub fn build(&mut self, root: WrapNode){
+    
+  }
+
+  // getAllDependency(): Set<DAGNode>{
+  //   const result: Set<DAGNode> = new Set();
+  //   this.traverseDFS((n) => {
+  //     result.add(n);
+  //   })
+  //   return result;
+  // }
+
   pub fn create_node(&mut self) -> WrapNode {
     let node = Node {
       id: self.nodes.len(),
@@ -40,6 +52,10 @@ struct Node {
 struct WrapNode(Weak<RefCell<Node>>);
 
 impl WrapNode {
+  pub fn id(&self) -> usize{
+    self.0.upgrade().unwrap().borrow().id
+  }
+
   pub fn connect_to(&self, node: WrapNode) {
     let self_node = self.0.upgrade().unwrap();
     let mut self_node = self_node.borrow_mut();
@@ -47,6 +63,45 @@ impl WrapNode {
     let mut n = n.borrow_mut();
     self_node.to_target_id.insert(n.id);
     n.from_target_id.insert(self_node.id);
+  }
+
+  // traverseDFS(visitor: (node: DAGNode) => void) {
+  //   const visited: Set<DAGNode> = new Set();
+  //   function visit(node: DAGNode) {
+  //     if (!visited.has(node)) {
+  //       visited.add(node);
+  //       visitor(node);
+  //       node.fromNodes.forEach(n => {
+  //         visit(n);
+  //       });
+  //       visited.delete(node);
+  //     } else {
+  //       throw 'node graph contains cycles.';
+  //     }
+  //   }
+  //   visit(this);
+  // }
+
+  pub fn traverse_DFS(&self, mut visitor: impl FnMut(WrapNode), graph: &Graph) -> Result<(), String> {
+    let mut visited: BTreeSet<usize> = BTreeSet::new();
+
+    let mut nodes = Vec::new();
+    nodes.push(self.id());
+
+    while let Some(n_id) = nodes.pop() {
+      let node = graph.get_node(n_id);
+      if !visited.contains(&node.id()) {
+        visited.insert(node.id());
+        visitor(node);
+        
+        node.foreach_from(|from_id|{nodes.push(from_id)});
+        visited.remove(node.id());
+      } else {
+        return  Err(String::from("node graph contains cycles."));
+      }
+    }
+
+    Ok(())
   }
 }
 
