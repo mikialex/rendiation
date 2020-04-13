@@ -1,14 +1,15 @@
+pub mod graph;
+
+
 #[derive(Default)]
 pub struct RenderGraph {
   nodes: Vec<RenderGraphNode>,
-  sorted: Vec<usize>,
 }
 
 impl RenderGraph {
   pub fn new() -> Self {
     let mut graph = Self {
       nodes: Vec::new(),
-      sorted: Vec::new(),
     };
     let root = TargetNode::new();
     graph.nodes.push(RenderGraphNode::Target(root));
@@ -19,7 +20,6 @@ impl RenderGraph {
 
   pub fn reset(&mut self) -> &mut Self {
     self.nodes.clear();
-    self.sorted.clear();
     let root = TargetNode::new();
     self.nodes.push(RenderGraphNode::Target(root));
     self
@@ -62,6 +62,10 @@ impl PassNode {
 
   pub fn draw() {}
 }
+
+// pub fn pass(name: &'static str) -> PassNode {
+
+// }
 
 pub struct TargetNode {
   name: String,
