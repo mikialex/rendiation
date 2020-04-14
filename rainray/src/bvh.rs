@@ -134,7 +134,7 @@ impl BVHAccel {
 fn get_range_primitives_bounding(primitive_list: &Vec<Primitive>, start: u64, count: u64) -> Box3 {
     let mut bbox = primitive_list[start as usize].bounding_box.clone();
     for pid in start..(start + count) {
-        bbox.extend_by_box(&primitive_list[pid as usize].bounding_box);
+        bbox.expand_by_box(primitive_list[pid as usize].bounding_box);
     }
     bbox
 }

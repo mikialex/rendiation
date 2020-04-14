@@ -2,17 +2,17 @@ extern crate image;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Color {
-    pub r: f64,
-    pub g: f64,
-    pub b: f64,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
 }
 
 impl Color {
-    pub fn new(r: f64, g: f64, b: f64) -> Color {
+    pub fn new(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b }
     }
 
-    pub fn gamma_rgb(&self, gamma_correction: f64) -> Color {
+    pub fn gamma_rgb(&self, gamma_correction: f32) -> Color {
         Color::new(
             self.r.min(1.0).max(0.0).powf(gamma_correction),
             self.g.min(1.0).max(0.0).powf(gamma_correction),
@@ -21,8 +21,8 @@ impl Color {
     }
 }
 
-impl std::ops::Mul<f64> for Color {
-    fn mul(self, scalar: f64) -> Color {
+impl std::ops::Mul<f32> for Color {
+    fn mul(self, scalar: f32) -> Color {
         Color {
             r: self.r * scalar,
             g: self.g * scalar,
@@ -93,9 +93,9 @@ impl Frame {
 }
 
 // impl Iterator for MyFunkyIterator {
-//     type Item = (f64, Position);
+//     type Item = (f32, Position);
 
-//     fn next(&mut self) -> Option<(f64, Position)> {
+//     fn next(&mut self) -> Option<(f32, Position)> {
 //         // @target_san's example has the inner iterator at self.0
 //         // so maybe call self.0.next(), tweak the result, and return it.
 //     }

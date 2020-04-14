@@ -11,6 +11,14 @@ impl Box3 {
   pub fn new(min: Vec3<f32>, max: Vec3<f32>) -> Self {
     Box3 { min, max }
   }
+
+  pub fn from_3points(p1: Vec3<f32>, p2: Vec3<f32>, p3: Vec3<f32>) -> Box3 {
+    Box3 {
+      min: p1.min(p2).min(p3),
+      max: p1.max(p2).max(p3),
+    }
+  }
+
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
@@ -24,6 +32,11 @@ impl Box3 {
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
     self.min.min(point);
     self.max.max(point);
+  }
+
+  pub fn expand_by_box(&mut self, box3: Box3) {
+    self.min.min(box3.min);
+    self.max.max(box3.max);
   }
 
   pub fn new_from_position_data<'a, T>(iter: &mut T) -> Self

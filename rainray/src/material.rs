@@ -16,7 +16,7 @@ impl Material {
         }
     }
 
-    pub fn color(&mut self, r: f64, g: f64, b: f64) -> &Self {
+    pub fn color(&mut self, r: f32, g: f32, b: f32) -> &Self {
         self.diffuse_color.r = r;
         self.diffuse_color.g = g;
         self.diffuse_color.b = b;
@@ -34,8 +34,8 @@ impl Material {
         // )
 
         Ray::from_point_to_point(
-            &intersection.hit_position,
-            &(intersection.hit_position + intersection.hit_normal + rand_point_in_unit_sphere()),
+            intersection.hit_position,
+            intersection.hit_position + intersection.hit_normal + rand_point_in_unit_sphere(),
         )
 
         // Ray::from_point_to_point(
@@ -56,11 +56,11 @@ impl Material {
         intersection: &Intersection,
         in_ray: &Ray,
         out_ray: &Ray,
-    ) -> f64 {
+    ) -> f32 {
         1.
     }
 
-    pub fn BRDF(&self, intersection: &Intersection, in_ray: &Ray, out_ray: &Ray) -> f64 {
+    pub fn BRDF(&self, intersection: &Intersection, in_ray: &Ray, out_ray: &Ray) -> f32 {
         let w_m = (-in_ray.direction + out_ray.direction).normalize();
         0.8
     }

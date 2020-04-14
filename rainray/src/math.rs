@@ -1,17 +1,20 @@
-use crate::math::*;
+use rendiation_math::{Vec3 as V3};
+
+pub type Vec3 = V3<f32>;
+pub use rendiation_math_entity::*;
 
 extern crate rand as randx;
 
-pub fn rand() -> f64 {
+pub fn rand() -> f32 {
     randx::random()
 }
 
-pub fn rand2() -> (f64, f64) {
+pub fn rand2() -> (f32, f32) {
     (randx::random(), randx::random())
 }
 
 pub fn cosine_sample_hemisphere(normal: &Vec3) -> Vec3 {
-    // let r1 = rand() * std::f64::consts::PI;
+    // let r1 = rand() * std::f32::consts::PI;
     // let r2 = rand();
     // let r3 = r2.sqrt();
 
@@ -27,7 +30,7 @@ pub fn cosine_sample_hemisphere(normal: &Vec3) -> Vec3 {
     // let u1 = rand();
     // let u2 = rand();
     // let r = (1. - u1 * u1).sqrt();
-    // let phi = 2. * std::f64::consts::PI * u2;
+    // let phi = 2. * std::f32::consts::PI * u2;
     // *Vec3::new(phi.cos() * r, phi.sin() * r, u2).normalize()
 
     // *Vec3::new(rand(), rand(), rand()).normalize()

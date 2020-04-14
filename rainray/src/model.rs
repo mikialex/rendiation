@@ -2,12 +2,12 @@ use crate::material::Material;
 use crate::ray::*;
 
 pub struct Model {
-    pub geometry: Box<dyn Intersecterable>,
+    pub geometry: Box<RayIntersectAble>,
     pub material: Material,
 }
 
 impl Model {
-    pub fn new(geometry: Box<dyn Intersecterable>, material: Material) -> Self {
+    pub fn new(geometry: Box<RayIntersectAble>, material: Material) -> Self {
         Model { geometry, material }
     }
 }

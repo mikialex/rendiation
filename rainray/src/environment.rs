@@ -1,5 +1,5 @@
-use crate::math::vec3::Vec3;
-use crate::ray::*;
+use rendiation_math_entity::Ray;
+use crate::math::Vec3;
 
 pub struct SolidEnvironment {
     pub intensity: Vec3,
@@ -31,6 +31,6 @@ impl Environment for GradientEnvironment {
     }
 }
 
-fn lerp(t: f64, min: f64, max: f64) -> f64 {
+fn lerp(t: f32, min: f32, max: f32) -> f32 {
     (1. - t) * max + t * min
 }

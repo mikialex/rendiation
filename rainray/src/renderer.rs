@@ -9,8 +9,8 @@ use std::time::Instant;
 
 pub struct Renderer {
     super_sample_rate: u64,
-    exposure_upper_bound: f64,
-    gamma: f64,
+    exposure_upper_bound: f32,
+    gamma: f32,
 
     trace_fix_sample_count: u64,
     bounce_time_limit: u64,
@@ -22,7 +22,7 @@ fn test_intersection_is_visible_to_point(
     point: &Vec3,
 ) -> bool {
     let distance = (*point - intersection.hit_position).length();
-    let test_ray = Ray::from_point_to_point(&intersection.hit_position, point);
+    let test_ray = Ray::from_point_to_point(intersection.hit_position, *point);
     let hit_result = scene.get_min_dist_hit(&test_ray);
 
     if let Some(hit_result) = hit_result {
@@ -91,17 +91,17 @@ impl Renderer {
             frame.height * self.super_sample_rate,
         );
 
-        let x_ratio_unit = 1.0 / render_frame.width as f64;
-        let y_ratio_unit = 1.0 / render_frame.width as f64;
-        let energy_div = self.trace_fix_sample_count as f64 * self.exposure_upper_bound;
+        let x_ratio_unit = 1.0 / render_frame.width as f32;
+        let y_ratio_unit = 1.0 / render_frame.width as f32;
+        let energy_div = self.trace_fix_sample_count as f32 * self.exposure_upper_bound;
 
         let progress_bar = ProgressBar::new(100);
-        let bar_inv = (render_frame.width as f64 / 100.).ceil() as usize;
+        let bar_inv = (render_frame.width as f32 / 100.).ceil() as usize;
 
         for (i, row) in render_frame.data.iter_mut().enumerate() {
             for (j, pixel) in row.iter_mut().enumerate() {
-                let x_ratio = i as f64 * x_ratio_unit;
-                let y_ratio = j as f64 * y_ratio_unit;
+                let x_ratio = i as f32 * x_ratio_unit;
+                let y_ratio = j as f32 * y_ratio_unit;
                 let ray = camera.generate_pixel_ray(x_ratio, y_ratio);
 
                 let mut energy_acc = Vec3::new(0., 0., 0.);
@@ -120,14 +120,14 @@ impl Renderer {
         progress_bar.finish_and_clear();
         println!("frame data render finished.");
 
-        println!("start super sample down sample and gamma corration");
+        println!("start super sample down sample and gamma correction");
 
         let result_data = &mut frame.data;
         let super_sample_rate = self.super_sample_rate as usize;
         for (i, row) in result_data.iter_mut().enumerate() {
             for (j, pixel) in row.iter_mut().enumerate() {
                 let super_sample_count =
-                    self.super_sample_rate as f64 * self.super_sample_rate as f64;
+                    self.super_sample_rate as f32 * self.super_sample_rate as f32;
                 let mut r_all = 0.0;
                 let mut g_all = 0.0;
                 let mut b_all = 0.0;
