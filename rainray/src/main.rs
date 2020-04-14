@@ -29,7 +29,7 @@ fn main() {
     let scene = Scene {
         models: vec![
             Rc::new(model::Model::new(
-                Box::new(Sphere::new((-1., -1., -5.), 3.0)),
+                Box::new(Sphere::new((-1., -1., -5.).into(), 3.0)),
                 Material::new(),
             )),
             Rc::new(model::Model::new(
