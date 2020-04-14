@@ -1,0 +1,10 @@
+[package]
+name = "rainray"
+version = "0.1.0"
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2018"
+
+[dependencies]
+image = "*"
+rand = "0.6"
+indicatif = "0.11"
