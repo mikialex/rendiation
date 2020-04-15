@@ -31,16 +31,17 @@ impl Sphere {
     Sphere::new(center, max_distance2.sqrt())
   }
 
-  pub fn new_from_position_data<'a, T: Iterator<Item = &'a Vec3<f32>>>(iter: &mut T) -> Self {
-    let box3 = Box3::new_from_position_data(iter);
-    let center = (box3.max + box3.min) / 2.;
-    let mut max_distance2 = 0.;
-    for point in iter {
-      let d = (*point - center).length2();
-      max_distance2 = max_distance2.max(d);
-    }
-    Sphere::new(center, max_distance2.sqrt())
-  }
+  // iter reuse issue
+  // pub fn from_points(iter: &mut impl Iterator<Item = Vec3<f32>>) -> Self {
+  //   let box3 = Box3::from_points(iter);
+  //   let center = (box3.max + box3.min) / 2.;
+  //   let mut max_distance2 = 0.;
+  //   iter.for_each(|point|{
+  //     let d = (point - center).length2();
+  //     max_distance2 = max_distance2.max(d);
+  //   });
+  //   Sphere::new(center, max_distance2.sqrt())
+  // }
 
   pub fn apply_matrix(mut self, mat: &Mat4<f32>) -> Self {
     self.center = self.center.apply_mat4(mat);

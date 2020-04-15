@@ -66,13 +66,16 @@ impl Box3 {
     self.max.max(box3.max);
   }
 
-  pub fn new_from_position_data<'a, T>(iter: &mut T) -> Self
-  where
-    T: Iterator<Item = &'a Vec3<f32>>,
-  {
-    let mut b = Box3::empty();
-    iter.for_each(|p| b.expand_by_point(*p));
-    b
+  pub fn from_points(iter: impl Iterator<Item = Vec3<f32>>) -> Self {
+    let mut bbox = Box3::empty();
+    iter.for_each(|p| bbox.expand_by_point(p));
+    bbox
+  }
+
+  pub fn from_boxes(iter: impl Iterator<Item = Box3>) -> Self {
+    let mut bbox = Box3::empty();
+    iter.for_each(|p| bbox.expand_by_box(p));
+    bbox
   }
 }
 
