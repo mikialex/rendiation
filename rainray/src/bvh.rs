@@ -1,6 +1,6 @@
 use rendiation_math::*;
 use rendiation_math_entity::*;
-use std::ops::Range;
+use std::{cmp::Ordering, ops::Range};
 
 struct FlattenBVH {
   nodes: Vec<FlattenBVHNode>,
@@ -10,12 +10,18 @@ struct FlattenBVH {
 impl FlattenBVH {
   pub fn build<T: BVHBuildStrategy>(source: impl FlattenBVHBuildSource) -> Self {
     let items_count = source.get_items_count();
-    let a = 1..2;
     let mut index_list: Vec<usize> = (0..items_count).map(|x| x).collect();
-    let mut index_source_list: Vec<BuildPrimitive> = (0..items_count)
+    let primitives: Vec<BuildPrimitive> = (0..items_count)
       .map(|x| BuildPrimitive::new(source.get_items_bounding_box(x)))
       .collect();
-    todo!()
+
+    let root = FlattenBVHNode::new(&primitives, &index_list, 0..items_count, 0);
+    let mut nodes = Vec::new();
+    nodes.push(root);
+    Self {
+      nodes,
+      sorted_primitive_index: index_list,
+    }
   }
 }
 
@@ -31,6 +37,14 @@ impl BuildPrimitive {
       center: bbox.center(),
     }
   }
+
+  fn compare_center(&self, axis: Axis, other: &BuildPrimitive) -> Ordering{
+    match axis {
+      Axis::X => self.center.x.partial_cmp(&other.center.x).unwrap(),
+      Axis::Y => self.center.y.partial_cmp(&other.center.y).unwrap(),
+      Axis::Z => self.center.z.partial_cmp(&other.center.z).unwrap(),
+    }
+  }
 }
 
 trait FlattenBVHBuildSource {
@@ -39,7 +53,32 @@ trait FlattenBVHBuildSource {
 }
 
 trait BVHBuildStrategy {
-  fn split(node: &FlattenBVHNode);
+  fn split(
+    build_source: &Vec<BuildPrimitive>,
+    index_source: &mut Vec<usize>,
+    nodes: &mut Vec<FlattenBVHNode>,
+    node: &FlattenBVHNode,
+  );
+}
+
+struct SAH;
+
+impl BVHBuildStrategy for SAH {
+  fn split(
+    build_source: &Vec<BuildPrimitive>,
+    index_source: &mut Vec<usize>,
+    nodes: &mut Vec<FlattenBVHNode>,
+    node: &FlattenBVHNode,
+  ) {
+    let ranged_index = index_source.get_mut(node.primitive_range.clone()).unwrap();
+    let split_axis = node.bbox.longest_axis();
+    ranged_index.sort_unstable_by(|a, b|{
+      let bp_a = &build_source[*a];
+      let bp_b = &build_source[*b];
+      bp_a.compare_center(split_axis, bp_b)
+    })
+    
+  }
 }
 
 pub struct FlattenBVHNode {
@@ -50,7 +89,12 @@ pub struct FlattenBVHNode {
 }
 
 impl FlattenBVHNode {
-  fn new(build_source: &Vec<BuildPrimitive>, range: Range<usize>, depth: usize) -> Self {
+  fn new(
+    build_source: &Vec<BuildPrimitive>,
+    index_source: &Vec<usize>,
+    range: Range<usize>,
+    depth: usize,
+  ) -> Self {
     let primitive_range = range.clone();
     let ranged_index_source = build_source.get(range).unwrap();
     let bbox = Box3::from_boxes(ranged_index_source.iter().map(|p| p.bbox));
