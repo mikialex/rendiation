@@ -46,6 +46,7 @@ impl Element for Quad {
 
   fn event(&self, event: &mut Message) {
     // decide if event need handled
+    
   }
 
   fn get_element_state(&self) -> &ElementState {

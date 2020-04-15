@@ -92,7 +92,8 @@ impl ElementFragment {
     };
     for element in &mut self.elements {
       if element.is_point_in(point) {
-        element.event(&mut message)
+        element.event(&mut message);
+        // self.elements_event[element.index()];
       }
     }
   }

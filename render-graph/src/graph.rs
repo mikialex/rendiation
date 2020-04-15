@@ -4,21 +4,47 @@ use std::{
   rc::{Rc, Weak},
 };
 
-struct Graph {
+pub struct Graph {
   nodes: Vec<Rc<RefCell<Node>>>,
-  sorted: Vec<usize>,
 }
 
 impl Graph {
   pub fn new() -> Self {
     Self {
       nodes: Vec::new(),
-      sorted: Vec::new(),
     }
   }
 
-  pub fn build(&mut self, root: WrapNode){
-    
+  pub fn build(&mut self, root: WrapNode) {}
+
+  pub fn get_node(&self, id: usize) -> WrapNode {
+    WrapNode(Rc::downgrade(&self.nodes[id].clone()))
+  }
+
+  pub fn traverse_dfs(
+    &self,
+    node: &WrapNode,
+    mut visitor: impl FnMut(&WrapNode),
+  ) -> Result<(), String> {
+    let mut visited: BTreeSet<usize> = BTreeSet::new();
+
+    let mut nodes = Vec::new();
+    nodes.push(node.id());
+
+    while let Some(n_id) = nodes.pop() {
+      let node = self.get_node(n_id);
+      if !visited.contains(&node.id()) {
+        visited.insert(node.id());
+        visitor(&node);
+
+        node.foreach_from(|from_id| nodes.push(from_id));
+        visited.remove(&node.id());
+      } else {
+        return Err(String::from("node graph contains cycles."));
+      }
+    }
+
+    Ok(())
   }
 
   // getAllDependency(): Set<DAGNode>{
@@ -32,7 +58,6 @@ impl Graph {
   pub fn create_node(&mut self) -> WrapNode {
     let node = Node {
       id: self.nodes.len(),
-      // graph: Rc<RefCell<Graph>>,
       from_target_id: BTreeSet::new(),
       to_target_id: BTreeSet::new(),
     };
@@ -42,18 +67,28 @@ impl Graph {
   }
 }
 
-struct Node {
+pub struct Node {
   id: usize,
-  // graph: Rc<RefCell<Graph>>,
   from_target_id: BTreeSet<usize>,
   to_target_id: BTreeSet<usize>,
 }
 
-struct WrapNode(Weak<RefCell<Node>>);
+pub struct WrapNode(Weak<RefCell<Node>>);
 
 impl WrapNode {
-  pub fn id(&self) -> usize{
+  pub fn id(&self) -> usize {
     self.0.upgrade().unwrap().borrow().id
+  }
+
+  pub fn foreach_from(&self, mut visitor: impl FnMut(usize)) {
+    self
+      .0
+      .upgrade()
+      .unwrap()
+      .borrow()
+      .from_target_id
+      .iter()
+      .for_each(|id| visitor(*id));
   }
 
   pub fn connect_to(&self, node: WrapNode) {
@@ -63,45 +98,6 @@ impl WrapNode {
     let mut n = n.borrow_mut();
     self_node.to_target_id.insert(n.id);
     n.from_target_id.insert(self_node.id);
-  }
-
-  // traverseDFS(visitor: (node: DAGNode) => void) {
-  //   const visited: Set<DAGNode> = new Set();
-  //   function visit(node: DAGNode) {
-  //     if (!visited.has(node)) {
-  //       visited.add(node);
-  //       visitor(node);
-  //       node.fromNodes.forEach(n => {
-  //         visit(n);
-  //       });
-  //       visited.delete(node);
-  //     } else {
-  //       throw 'node graph contains cycles.';
-  //     }
-  //   }
-  //   visit(this);
-  // }
-
-  pub fn traverse_DFS(&self, mut visitor: impl FnMut(WrapNode), graph: &Graph) -> Result<(), String> {
-    let mut visited: BTreeSet<usize> = BTreeSet::new();
-
-    let mut nodes = Vec::new();
-    nodes.push(self.id());
-
-    while let Some(n_id) = nodes.pop() {
-      let node = graph.get_node(n_id);
-      if !visited.contains(&node.id()) {
-        visited.insert(node.id());
-        visitor(node);
-        
-        node.foreach_from(|from_id|{nodes.push(from_id)});
-        visited.remove(node.id());
-      } else {
-        return  Err(String::from("node graph contains cycles."));
-      }
-    }
-
-    Ok(())
   }
 }
 
@@ -113,21 +109,3 @@ fn test_add() {
   node_a.connect_to(node_b);
   assert_eq!(3, 3);
 }
-
-// #[cfg(test)]
-// mod tests {
-//     // Note this useful idiom: importing names from outer (for mod tests) scope.
-//     use super::*;
-
-//     #[test]
-//     fn test_add() {
-//         assert_eq!(add(1, 2), 3);
-//     }
-
-//     #[test]
-//     fn test_bad_add() {
-//         // This assert would fire and test will fail.
-//         // Please note, that private functions can be tested too!
-//         assert_eq!(bad_add(1, 2), 3);
-//     }
-// }

@@ -5,6 +5,7 @@ pub mod event;
 pub mod window;
 // pub mod lens;
 pub mod renderer;
+pub mod data;
 
 pub use application::*;
 pub use window::*;
