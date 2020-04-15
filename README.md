@@ -17,6 +17,12 @@ RiverMesh for mesh processing experiments.
 
 Rendium for UI.
 
-Noize for noise pattern generation;
+Noize for noise pattern generation.
+
+RainRay for ray tracing
+
+RineCraft for minecraft like game dev experiments.
 
 ...
+
+Include them in one mono repo is to make code reuse easier and clean.

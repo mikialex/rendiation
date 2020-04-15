@@ -9,7 +9,8 @@ members = [
     "rendium",
     "rinecraft",
     "rivermesh",
-    "noize"
+    "noize",
+    "rainray"
 ]
 
 [profile.release]
