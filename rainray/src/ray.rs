@@ -6,7 +6,7 @@ pub static EPS: f32 = 0.00001;
 // pub type RayIntersectAble = dyn IntersectAble<Ray, Option<Intersection>>;
 
 pub trait RayIntersectAble {
-    fn intersect(&self, ray: &Ray) -> Option<Intersection>;
+  fn intersect(&self, ray: &Ray) -> Option<Intersection>;
 }
 
 pub struct Intersection {
@@ -16,39 +16,39 @@ pub struct Intersection {
 }
 
 impl RayIntersectAble for Sphere {
-    fn intersect(&self, ray: &Ray) -> Option<Intersection> {
-        let voc = self.center - ray.origin; // Vector from the origin to the sphere center
-        let voc_len_sqr = voc.length2(); // The length squared of voc
-        let vod_len = voc.dot(ray.direction); // The length of the projected vector voc into the ray direction
+  fn intersect(&self, ray: &Ray) -> Option<Intersection> {
+    let voc = self.center - ray.origin; // Vector from the origin to the sphere center
+    let voc_len_sqr = voc.length2(); // The length squared of voc
+    let vod_len = voc.dot(ray.direction); // The length of the projected vector voc into the ray direction
 
-        let a_sqr = voc_len_sqr - (vod_len * vod_len); // The length squared of the line between c and the ray
-        let radius_square = self.radius * self.radius; // Radius squared
-                                                       // println!("{}", a_sqr);
-        if a_sqr <= radius_square + EPS {
-            let b = (radius_square - a_sqr).sqrt(); // the distance between o and the intersection with the sphere
+    let a_sqr = voc_len_sqr - (vod_len * vod_len); // The length squared of the line between c and the ray
+    let radius_square = self.radius * self.radius; // Radius squared
+                                                   // println!("{}", a_sqr);
+    if a_sqr <= radius_square + EPS {
+      let b = (radius_square - a_sqr).sqrt(); // the distance between o and the intersection with the sphere
 
-            let distance = if vod_len - b < 0.0 {
-                vod_len + b
-            } else {
-                vod_len - b
-            };
+      let distance = if vod_len - b < 0.0 {
+        vod_len + b
+      } else {
+        vod_len - b
+      };
 
-            if distance > EPS {
-                if distance > MAX_RAY_HIT_DISTANCE {
-                    return None; // too far
-                }
-                let hit_position = ray.at(distance);
-                let hit_normal = (hit_position - self.center).normalize();
-                Some(Intersection {
-                    distance,
-                    hit_normal,
-                    hit_position,
-                })
-            } else {
-                None // opposite direction
-            }
-        } else {
-            None // not intersect
+      if distance > EPS {
+        if distance > MAX_RAY_HIT_DISTANCE {
+          return None; // too far
         }
+        let hit_position = ray.at(distance);
+        let hit_normal = (hit_position - self.center).normalize();
+        Some(Intersection {
+          distance,
+          hit_normal,
+          hit_position,
+        })
+      } else {
+        None // opposite direction
+      }
+    } else {
+      None // not intersect
     }
+  }
 }

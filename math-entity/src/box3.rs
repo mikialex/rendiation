@@ -2,6 +2,13 @@ use rendiation_math::vec::Math;
 use rendiation_math::*;
 
 #[derive(Debug, Copy, Clone)]
+pub enum Axis {
+  X,
+  Y,
+  Z,
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct Box3 {
   pub min: Vec3<f32>,
   pub max: Vec3<f32>,
@@ -27,6 +34,26 @@ impl Box3 {
 
   pub fn center(&self) -> Vec3<f32> {
     (self.min + self.max) * 0.5
+  }
+
+  pub fn longest_axis(&self) -> Axis {
+    let x_length = self.max.x - self.min.x;
+    let y_length = self.max.y - self.min.y;
+    let z_length = self.max.z - self.min.z;
+
+    if x_length > y_length {
+      if x_length > z_length {
+        Axis::X
+      } else {
+        Axis::Z
+      }
+    } else {
+      if y_length > z_length {
+        Axis::Y
+      } else {
+        Axis::Z
+      }
+    }
   }
 
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
