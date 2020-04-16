@@ -44,36 +44,36 @@ impl<T: 'static + Clone> Data<T>{
 
 }
 
-struct ComputeData2<T1, T2>{
+// struct ComputeData2<T1, T2>{
     
-}
+// }
 
-impl<T1, T2> ComputeData2<T1, T2>{
-    pub fn subscribe(v1: Data<T1>, v2: Data<T2>){
+// impl<T1, T2> ComputeData2<T1, T2>{
+//     pub fn subscribe(v1: Data<T1>, v2: Data<T2>){
         
-    }
+//     }
 
-    pub fn compute(exp: impl FnOnce(&T1, &T2)){
+//     pub fn compute(exp: impl FnOnce(&T1, &T2)){
 
-    }
-}
+//     }
+// }
 
-#[test]
-fn test(){
-    let mut states = StateGraph::new();
+// #[test]
+// fn test(){
+//     let mut states = StateGraph::new();
 
-    data1 = Data::new(3);
-    data2 = Data::new(4);
-    data3 = ComputeData2::subscribe(data1, data2)
-    .compute(|d1, d2|{d1 + d2})
-}
+//     data1 = Data::new(3);
+//     data2 = Data::new(4);
+//     data3 = ComputeData2::subscribe(data1, data2)
+//     .compute(|d1, d2|{d1 + d2})
+// }
 
-fn c(state: State){
-    Button::new()
-    .text(state.name)
-    .width(state.width)
-    .height_raw(50)
-    .on_click::<State>(|s|{
-        s.width.set(s.width.get() + 1);
-    })
-}
+// fn c(state: State){
+//     Button::new()
+//     .text(state.name)
+//     .width(state.width)
+//     .height_raw(50)
+//     .on_click::<State>(|s|{
+//         s.width.set(s.width.get() + 1);
+//     })
+// }

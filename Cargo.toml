@@ -10,7 +10,8 @@ members = [
     "rinecraft",
     "rivermesh",
     "noize",
-    "rainray"
+    "rainray",
+    "space-indexer"
 ]
 
 [profile.release]

@@ -1594,6 +1594,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "space-indexer"
+version = "0.1.0"
+dependencies = [
+ "rendiation-math 0.1.0",
+ "rendiation-math-entity 0.1.0",
+]
+
+[[package]]
 name = "spirv_cross"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

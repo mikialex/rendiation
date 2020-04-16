@@ -1,0 +1,10 @@
+[package]
+name = "space-indexer"
+version = "0.1.0"
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2018"
+
+[dependencies]
+
+rendiation-math = { path = "../math" }
+rendiation-math-entity = { path = "../math-entity" }

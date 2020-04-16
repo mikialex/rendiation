@@ -1,4 +1,3 @@
-mod bvh;
 mod camera;
 mod environment;
 mod frame;

@@ -13,6 +13,7 @@
         "Slerp",
         "Uint",
         "Worley",
+        "artgl",
         "azim",
         "backends",
         "bbox",
