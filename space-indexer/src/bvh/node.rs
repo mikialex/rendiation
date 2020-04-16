@@ -1,5 +1,5 @@
-use rendiation_math_entity::{Axis, Box3};
 use super::BuildPrimitive;
+use rendiation_math_entity::{Axis, Box3};
 use std::ops::Range;
 
 pub struct FlattenBVHNode {
@@ -17,8 +17,12 @@ impl FlattenBVHNode {
     depth: usize,
   ) -> Self {
     let primitive_range = range.clone();
-    let ranged_index_source = build_source.get(range).unwrap();
-    let bbox = Box3::from_boxes(ranged_index_source.iter().map(|p| p.bbox));
+    let ranged_index_source = index_source.get(range).unwrap();
+    let bbox = Box3::from_boxes(
+      ranged_index_source
+        .iter()
+        .map(|index| build_source[*index].bbox),
+    );
     Self {
       bbox,
       primitive_range,
