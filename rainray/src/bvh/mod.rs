@@ -44,12 +44,11 @@ impl FlattenBVH {
       .collect();
 
     // prepare root
-    let root = FlattenBVHNode::new(&primitives, &index_list, 0..items_count, 0);
     let mut nodes = Vec::new();
-    nodes.push(root);
+    nodes.push(FlattenBVHNode::new(&primitives, &index_list, 0..items_count, 0));
 
     // build
-    T::build(&option, &primitives, &mut index_list, &mut nodes, 0);
+    T::build(&option, &primitives, &mut index_list, &mut nodes);
 
     Self {
       nodes,
