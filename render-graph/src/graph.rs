@@ -10,9 +10,7 @@ pub struct Graph {
 
 impl Graph {
   pub fn new() -> Self {
-    Self {
-      nodes: Vec::new(),
-    }
+    Self { nodes: Vec::new() }
   }
 
   pub fn build(&mut self, root: WrapNode) {}
@@ -21,39 +19,47 @@ impl Graph {
     WrapNode(Rc::downgrade(&self.nodes[id].clone()))
   }
 
-  pub fn traverse_dfs(
-    &self,
-    node: &WrapNode,
-    mut visitor: impl FnMut(&WrapNode),
-  ) -> Result<(), String> {
-    let mut visited: BTreeSet<usize> = BTreeSet::new();
-
-    let mut nodes = Vec::new();
-    nodes.push(node.id());
-
-    while let Some(n_id) = nodes.pop() {
-      let node = self.get_node(n_id);
-      if !visited.contains(&node.id()) {
-        visited.insert(node.id());
-        visitor(&node);
-
-        node.foreach_from(|from_id| nodes.push(from_id));
-        visited.remove(&node.id());
-      } else {
-        return Err(String::from("node graph contains cycles."));
-      }
-    }
-
-    Ok(())
+  pub fn topologyical_order_list(&self, node: &WrapNode) -> Vec<usize> {
+    let mut list = Vec::new();
+    self.traverse_dfs_in_topologyical_order(node, &mut |node| list.push(node.id()));
+    list
   }
 
-  // getAllDependency(): Set<DAGNode>{
-  //   const result: Set<DAGNode> = new Set();
-  //   this.traverseDFS((n) => {
-  //     result.add(n);
-  //   })
-  //   return result;
-  // }
+  pub fn traverse_dfs_in_topologyical_order(
+    &self,
+    node: &WrapNode,
+    visitor: &mut impl FnMut(&WrapNode),
+  ) {
+    let mut unresovled: BTreeSet<usize> = BTreeSet::new();
+    let mut visited: BTreeSet<usize> = BTreeSet::new();
+
+    fn visit(
+      n_id: usize,
+      visited: &mut BTreeSet<usize>,
+      unresovled: &mut BTreeSet<usize>,
+      graph: &Graph,
+      visitor: &mut impl FnMut(&WrapNode),
+    ) {
+      if visited.contains(&n_id) {
+        return;
+      }
+      if unresovled.contains(&n_id) {
+        panic!("graph contains loops");
+      }
+
+      unresovled.insert(n_id);
+
+      let node = graph.get_node(n_id);
+      node.foreach_from(|from_id| visit(from_id, visited, unresovled, graph, visitor));
+
+      unresovled.remove(&n_id);
+      visited.insert(n_id);
+      visitor(&node)
+    }
+
+    visit(node.id(), &mut visited, &mut unresovled, self, visitor);
+
+  }
 
   pub fn create_node(&mut self) -> WrapNode {
     let node = Node {

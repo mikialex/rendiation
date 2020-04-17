@@ -1,10 +1,11 @@
 mod node;
 mod strategy;
+mod traverse;
 
 pub use node::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::{Axis, Box3};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, ops::Range};
 pub use strategy::*;
 
 pub trait FlattenBVHBuildSource {
@@ -33,7 +34,7 @@ pub struct FlattenBVH {
 }
 
 impl FlattenBVH {
-  pub fn build<T: BVHBuildStrategy>(source: impl FlattenBVHBuildSource) -> Self {
+  pub fn new<T: BVHBuildStrategy>(source: impl FlattenBVHBuildSource) -> Self {
     let option = BVHOption::default();
 
     // parepare build source;
@@ -44,8 +45,10 @@ impl FlattenBVH {
       .collect();
 
     // prepare root
+    let root_bbox = box_from_build_source(&index_list, &primitives, 0..items_count);
+
     let mut nodes = Vec::new();
-    nodes.push(FlattenBVHNode::new(&primitives, &index_list, 0..items_count, 0));
+    nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0, 0));
 
     // build
     T::build(&option, &primitives, &mut index_list, &mut nodes);
@@ -56,6 +59,28 @@ impl FlattenBVH {
       option,
     }
   }
+
+  pub fn option(&self) -> &BVHOption {
+    &self.option
+  }
+
+  pub fn sorted_primitive_index(&self) -> &Vec<usize> {
+    &self.sorted_primitive_index
+  }
+}
+
+fn box_from_build_source(
+  index_list: &Vec<usize>,
+  primitives: &Vec<BuildPrimitive>,
+  range: Range<usize>,
+) -> Box3 {
+  Box3::from_boxes(
+    index_list
+      .get(range.clone())
+      .unwrap()
+      .iter()
+      .map(|index| primitives[*index].bbox),
+  )
 }
 
 pub struct BuildPrimitive {

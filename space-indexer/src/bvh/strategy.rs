@@ -1,7 +1,11 @@
-use super::{node::FlattenBVHNode, BVHOption, BuildPrimitive, FlattenBVHNodeChildInfo};
+use super::{node::FlattenBVHNode, BVHOption, BuildPrimitive, FlattenBVHNodeChildInfo, box_from_build_source};
+use rendiation_math_entity::Box3;
 use std::ops::Range;
 
 pub trait BVHBuildStrategy {
+
+  /// build the bvh tree in given range of primitive source and index.
+  /// return the size of tree. 
   fn build(
     option: &BVHOption,
     build_source: &Vec<BuildPrimitive>,
@@ -30,13 +34,15 @@ pub trait BVHBuildStrategy {
       (node.depth, range, split_axis)
     };
 
-    let (left_node, right_node) = Self::split(range, build_source, index_source, depth);
+    let ((left_bbox, left_range), (right_bbox, right_range)) =
+      Self::split(range, build_source, index_source);
 
-    let node_index = nodes.len();
+    let node_index = nodes.len() - 1;
 
-    nodes.push(left_node);
+    nodes.push(FlattenBVHNode::new(left_bbox, left_range, nodes.len(), depth + 1));
     let left_count = Self::build(option, build_source, index_source, nodes);
-    nodes.push(right_node);
+
+    nodes.push(FlattenBVHNode::new(right_bbox, right_range, nodes.len(), depth + 1));
     let right_count = Self::build(option, build_source, index_source, nodes);
 
     let node = &mut nodes[node_index];
@@ -49,12 +55,16 @@ pub trait BVHBuildStrategy {
     left_count + right_count
   }
 
+  /// different strategy has different split method;
+  /// given a range, and return the left, right partition;
+  /// 
+  /// the reason why return box is to avoid extra box calulation: 
+  /// partition decision maybe has already computed box;
   fn split(
     range: Range<usize>,
     build_source: &Vec<BuildPrimitive>,
     index_source: &Vec<usize>,
-    depth: usize,
-  ) -> (FlattenBVHNode, FlattenBVHNode);
+  ) -> ((Box3, Range<usize>), (Box3, Range<usize>));
 }
 
 pub struct BalanceTree;
@@ -64,14 +74,14 @@ impl BVHBuildStrategy for BalanceTree {
     range: Range<usize>,
     build_source: &Vec<BuildPrimitive>,
     index_source: &Vec<usize>,
-    depth: usize,
-  ) -> (FlattenBVHNode, FlattenBVHNode) {
+  ) -> ((Box3, Range<usize>), (Box3, Range<usize>)) {
     let middle = (range.end - range.start) / 2;
     let left_range = range.start..middle;
     let right_range = middle..range.end;
-    (
-      FlattenBVHNode::new(build_source, index_source, left_range, depth + 1),
-      FlattenBVHNode::new(build_source, index_source, right_range, depth + 1),
-    )
+
+    let left_bbox = box_from_build_source(&index_source, &build_source, left_range.clone());
+    let right_bbox = box_from_build_source(&index_source, &build_source, right_range.clone());
+
+    ((left_bbox, left_range), (right_bbox, right_range))
   }
 }
