@@ -6,7 +6,6 @@ use core::marker::PhantomData;
 pub struct NoneIndexedGeometry<T: PrimitiveTopology = TriangleList> {
   data: Vec<Vertex>,
   data_changed: bool,
-  gpu_data: Option<WGPUBuffer>,
   _phantom: PhantomData<T>,
 }
 
@@ -15,7 +14,6 @@ impl<T: PrimitiveTopology> NoneIndexedGeometry<T> {
     Self {
       data: v,
       data_changed: false,
-      gpu_data: None,
       _phantom: PhantomData,
     }
   }

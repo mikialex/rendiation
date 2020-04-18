@@ -13,52 +13,49 @@ impl Graph {
     Self { nodes: Vec::new() }
   }
 
-  pub fn build(&mut self, root: WrapNode) {}
-
   pub fn get_node(&self, id: usize) -> WrapNode {
     WrapNode(Rc::downgrade(&self.nodes[id].clone()))
   }
 
-  pub fn topologyical_order_list(&self, node: &WrapNode) -> Vec<usize> {
+  pub fn topological_order_list(&self, node: &WrapNode) -> Vec<usize> {
     let mut list = Vec::new();
-    self.traverse_dfs_in_topologyical_order(node, &mut |node| list.push(node.id()));
+    self.traverse_dfs_in_topological_order(node, &mut |node| list.push(node.id()));
     list
   }
 
-  pub fn traverse_dfs_in_topologyical_order(
+  pub fn traverse_dfs_in_topological_order(
     &self,
     node: &WrapNode,
     visitor: &mut impl FnMut(&WrapNode),
   ) {
-    let mut unresovled: BTreeSet<usize> = BTreeSet::new();
+    let mut unresolved: BTreeSet<usize> = BTreeSet::new();
     let mut visited: BTreeSet<usize> = BTreeSet::new();
 
     fn visit(
       n_id: usize,
       visited: &mut BTreeSet<usize>,
-      unresovled: &mut BTreeSet<usize>,
+      unresolved: &mut BTreeSet<usize>,
       graph: &Graph,
       visitor: &mut impl FnMut(&WrapNode),
     ) {
       if visited.contains(&n_id) {
         return;
       }
-      if unresovled.contains(&n_id) {
+      if unresolved.contains(&n_id) {
         panic!("graph contains loops");
       }
 
-      unresovled.insert(n_id);
+      unresolved.insert(n_id);
 
       let node = graph.get_node(n_id);
-      node.foreach_from(|from_id| visit(from_id, visited, unresovled, graph, visitor));
+      node.foreach_from(|from_id| visit(from_id, visited, unresolved, graph, visitor));
 
-      unresovled.remove(&n_id);
+      unresolved.remove(&n_id);
       visited.insert(n_id);
       visitor(&node)
     }
 
-    visit(node.id(), &mut visited, &mut unresovled, self, visitor);
-
+    visit(node.id(), &mut visited, &mut unresolved, self, visitor);
   }
 
   pub fn create_node(&mut self) -> WrapNode {
