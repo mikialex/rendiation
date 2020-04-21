@@ -4,20 +4,20 @@ use std::{
   rc::{Rc, Weak},
 };
 
-pub struct Graph {
-  nodes: Vec<Rc<RefCell<Node>>>,
+pub struct Graph<T> {
+  nodes: Vec<Rc<RefCell<Node<T>>>>,
 }
 
-impl Graph {
+impl<T> Graph<T> {
   pub fn new() -> Self {
     Self { nodes: Vec::new() }
   }
 
-  pub fn get_node(&self, id: usize) -> WrapNode {
+  pub fn get_node(&self, id: usize) -> WrapNode<T> {
     WrapNode(Rc::downgrade(&self.nodes[id].clone()))
   }
 
-  pub fn topological_order_list(&self, node: &WrapNode) -> Vec<usize> {
+  pub fn topological_order_list(&self, node: &WrapNode<T>) -> Vec<usize> {
     let mut list = Vec::new();
     self.traverse_dfs_in_topological_order(node, &mut |node| list.push(node.id()));
     list
@@ -25,24 +25,24 @@ impl Graph {
 
   pub fn traverse_dfs_in_topological_order(
     &self,
-    node: &WrapNode,
-    visitor: &mut impl FnMut(&WrapNode),
+    node: &WrapNode<T>,
+    visitor: &mut impl FnMut(&WrapNode<T>),
   ) {
     let mut unresolved: BTreeSet<usize> = BTreeSet::new();
     let mut visited: BTreeSet<usize> = BTreeSet::new();
 
-    fn visit(
+    fn visit<T>(
       n_id: usize,
       visited: &mut BTreeSet<usize>,
       unresolved: &mut BTreeSet<usize>,
-      graph: &Graph,
-      visitor: &mut impl FnMut(&WrapNode),
+      graph: &Graph<T>,
+      visitor: &mut impl FnMut(&WrapNode<T>),
     ) {
       if visited.contains(&n_id) {
         return;
       }
       if unresolved.contains(&n_id) {
-        panic!("graph contains loops");
+        panic!("graph contains loops"); // todo
       }
 
       unresolved.insert(n_id);
@@ -58,11 +58,12 @@ impl Graph {
     visit(node.id(), &mut visited, &mut unresolved, self, visitor);
   }
 
-  pub fn create_node(&mut self) -> WrapNode {
+  pub fn create_node(&mut self, payload: T) -> WrapNode<T> {
     let node = Node {
       id: self.nodes.len(),
       from_target_id: BTreeSet::new(),
       to_target_id: BTreeSet::new(),
+      payload
     };
     let rc = Rc::new(RefCell::new(node));
     self.nodes.push(rc.clone());
@@ -70,15 +71,16 @@ impl Graph {
   }
 }
 
-pub struct Node {
+pub struct Node<T> {
   id: usize,
   from_target_id: BTreeSet<usize>,
   to_target_id: BTreeSet<usize>,
+  payload: T,
 }
 
-pub struct WrapNode(Weak<RefCell<Node>>);
+pub struct WrapNode<T>(Weak<RefCell<Node<T>>>);
 
-impl WrapNode {
+impl<T> WrapNode<T> {
   pub fn id(&self) -> usize {
     self.0.upgrade().unwrap().borrow().id
   }
@@ -94,7 +96,7 @@ impl WrapNode {
       .for_each(|id| visitor(*id));
   }
 
-  pub fn connect_to(&self, node: WrapNode) {
+  pub fn connect_to(&self, node: WrapNode<T>) {
     let self_node = self.0.upgrade().unwrap();
     let mut self_node = self_node.borrow_mut();
     let n = node.0.upgrade().unwrap();

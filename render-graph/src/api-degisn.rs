@@ -1,8 +1,8 @@
-pub fn build_graph(){
-    let normal_pass = pass("normal");
-    let normal_target = target("normal");
+pub fn build_graph() {
+  let graph = Graph::new();
+  let normal_pass = graph.pass("normal");
+  let normal_target = graph.target("normal");
 
-    let pass = pass("scene").useQuad();
-    RenderGraph::new()
-    .root().from_pass(pass)
+  let pass = graph.pass("scene").useQuad();
+  RenderGraph::new().root().from_pass(pass)
 }

@@ -1,12 +1,20 @@
+use crate::WrapNode;
 
-
-pub struct TargetNode {
-  name: String,
-  from_pass_id: Vec<usize>,
-  to_pass_id: Vec<usize>,
+pub enum GraphNodeType {
+  Pass,
+  Target
 }
 
-impl TargetNode {
+pub struct GraphData {
+  index: usize,
+  node_type: GraphNodeType,
+}
+
+pub struct TargetNode<GraphData> {
+  node: WrapNode<GraphData>,
+}
+
+impl TargetNode<GraphData> {
   pub fn new() -> Self {
     todo!();
   }
@@ -16,16 +24,15 @@ impl TargetNode {
   }
 }
 
-
 pub struct PassNode {
   name: String,
-  from_target_id: Vec<usize>,
-  to_target_id: Vec<usize>,
+  node: WrapNode<GraphData>,
+  // clearColor:
 }
 
 impl PassNode {
-  pub fn new() -> Self {
-    todo!();
+  pub fn new(name: String, node: WrapNode<GraphData>) -> Self {
+    Self { name, node }
   }
 
   pub fn draw() {}
