@@ -63,7 +63,7 @@ impl<T> Graph<T> {
       id: self.nodes.len(),
       from_target_id: BTreeSet::new(),
       to_target_id: BTreeSet::new(),
-      payload
+      payload,
     };
     let rc = Rc::new(RefCell::new(node));
     self.nodes.push(rc.clone());

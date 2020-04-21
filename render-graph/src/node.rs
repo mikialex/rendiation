@@ -1,8 +1,9 @@
 use crate::WrapNode;
+use std::{cell::RefCell, rc::Rc};
 
 pub enum GraphNodeType {
   Pass,
-  Target
+  Target,
 }
 
 pub struct GraphData {
@@ -24,15 +25,27 @@ impl TargetNode<GraphData> {
   }
 }
 
-pub struct PassNode {
-  name: String,
-  node: WrapNode<GraphData>,
+pub struct PassNodeData {
   // clearColor:
 }
 
+pub struct PassNode {
+  name: String,
+  node: WrapNode<GraphData>,
+  pass_info: Rc<RefCell<PassNodeData>>,
+}
+
 impl PassNode {
-  pub fn new(name: String, node: WrapNode<GraphData>) -> Self {
-    Self { name, node }
+  pub fn new(
+    name: String,
+    node: WrapNode<GraphData>,
+    pass_info: Rc<RefCell<PassNodeData>>,
+  ) -> Self {
+    Self {
+      name,
+      node,
+      pass_info,
+    }
   }
 
   pub fn draw() {}
