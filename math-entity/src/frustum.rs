@@ -9,7 +9,7 @@ pub struct Frustum {
 }
 
 impl Default for Frustum {
-    fn default() -> Self {
+    fn default() -> Self { 
         Self::new()
     }
 }

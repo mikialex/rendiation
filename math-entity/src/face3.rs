@@ -17,7 +17,7 @@ impl Face3 {
         }
     }
 
-    pub fn barycentric(&self, p: Vec3<f32>) -> Vec3<f32>{
+    pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>>{
         let v0 = self.b-self.a;
         let v1 = self.c-self.a;
         let v2 = p-self.a;
@@ -30,10 +30,14 @@ impl Face3 {
 
         let denom = d00*d11-d01*d01;
 
+        if denom == 0.0 {
+            return None;
+        }
+
         let v = (d11 * d20 - d01 * d21) / denom;
         let w = (d00 * d21 - d01 * d20) / denom;
         let u = 1.0 - v - w;
         
-        Vec3::new(u,v,w)
+        Some(Vec3::new(u,v,w))
     }
 }
