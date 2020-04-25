@@ -17,6 +17,7 @@ impl Face3 {
         }
     }
 
+    /// return null when point is outside of triangle
     pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>>{
         let v0 = self.b-self.a;
         let v1 = self.c-self.a;
