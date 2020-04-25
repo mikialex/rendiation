@@ -5,10 +5,10 @@ pub mod vec4;
 pub mod mat2;
 pub mod mat3;
 pub mod mat4;
+pub mod math;
 pub mod utils;
 pub mod quat;
 pub mod dual;
-pub mod type_size;
 pub mod consts;
 // pub mod ser;
 

@@ -1,5 +1,6 @@
 use std::ops::{Add, Sub, Mul};
-use super::vec::{Vec, Math};
+use super::vec::Vec;
+use super::math::Math;
 use super::vec2::Vec2;
 use super::vec3::Vec3;
 use super::consts::{Zero, One};

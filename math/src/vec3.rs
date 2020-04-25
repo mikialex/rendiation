@@ -1,7 +1,6 @@
 use super::consts::{One, UnitX, UnitY, UnitZ, Zero};
-use super::vec::{Lerp, Math, Slerp, Vec};
-use super::vec2::Vec2;
-use super::vec4::Vec4;
+use super::vec::{Lerp, Slerp, Vec};
+use super::math::Math;
 use crate::mat4::Mat4;
 use std::fmt;
 use std::fmt::Debug;
@@ -229,7 +228,6 @@ where
   pub fn to_tuple(&self) -> (T, T, T) {
     (self.x, self.y, self.z)
   }
-
 }
 
 impl<T> Vec3<T>

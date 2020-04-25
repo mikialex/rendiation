@@ -1,5 +1,5 @@
 use crate::box3::Box3;
-use rendiation_math::vec::Math;
+use rendiation_math::math::Math;
 use rendiation_math::*;
 
 #[derive(Debug, Copy, Clone)]
