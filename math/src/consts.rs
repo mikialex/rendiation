@@ -37,3 +37,8 @@ impl Pi8 for f64      { #[inline(always)] fn pi8() -> Self { Self::pi() * 8.0_f6
 impl PiByC180 for f64 { #[inline(always)] fn pi_by_c180() -> Self { Self::pi() / 180.0_f64 } }
 impl C180ByPi for f64 { #[inline(always)] fn c180_by_pi() -> Self { 180.0_f64 / Self::pi() } }
 impl Epsilon for f64  { #[inline(always)] fn epsilon() -> Self { 0.000_000_01_f64 } }
+
+
+impl One for i32      { #[inline(always)] fn one() -> Self { 1 } }
+impl Zero for i32     { #[inline(always)] fn zero() -> Self { 0 } }
+impl Two for i32      { #[inline(always)] fn two() -> Self { 2 } }

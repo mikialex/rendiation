@@ -1,6 +1,6 @@
 use super::consts::{One, UnitX, UnitY, UnitZ, Zero};
-use super::vec::{Lerp, Slerp, Vec};
 use super::math::Math;
+use super::vec::{Lerp, Slerp, Vec};
 use crate::mat4::Mat4;
 use std::fmt;
 use std::fmt::Debug;
@@ -216,6 +216,18 @@ where
   #[inline(always)]
   pub fn new(x: T, y: T, z: T) -> Self {
     Self { x, y, z }
+  }
+
+  #[inline(always)]
+  pub fn map<U>(self, mapper: impl Fn(T) -> U) -> Vec3<U> {
+    let mx = mapper(self.x);
+    let my = mapper(self.y);
+    let mz = mapper(self.z);
+    Vec3::<U> {
+      x: mx,
+      y: my,
+      z: mz,
+    }
   }
 
   /// return the length of element
