@@ -10,6 +10,7 @@ pub mod utils;
 pub mod quat;
 pub mod dual;
 pub mod consts;
+pub mod swizzle;
 // pub mod ser;
 
 pub use self::vec2::*;

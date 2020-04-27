@@ -27,7 +27,7 @@ impl RenderGraph {
     let pass_data = PassNodeData {};
     let pass_data_wrap = Rc::new(RefCell::new(pass_data));
     let index = self.pass_nodes.len();
-    self.pass_nodes.push(pass_data_wrap);
+    self.pass_nodes.push(pass_data_wrap.clone());
 
     let data = GraphData {
       index,

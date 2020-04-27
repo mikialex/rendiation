@@ -7,8 +7,8 @@ pub enum GraphNodeType {
 }
 
 pub struct GraphData {
-  index: usize,
-  node_type: GraphNodeType,
+  pub(crate) index: usize,
+  pub(crate) node_type: GraphNodeType,
 }
 
 pub struct TargetNode<GraphData> {
