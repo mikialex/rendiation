@@ -23,7 +23,16 @@ impl SceneNode {
     self
   }
 
-  pub fn traverse(scene: &mut Scene, visitor: impl FnMut(&RenderObject)) {}
+  pub fn traverse(&self, scene: &mut Scene, visitor: impl FnMut(&SceneNode)) {
+    let mut visit_stack: Vec<Index> = Vec::new();
+    visit_stack.push(self.self_id);
+
+    while let Some(index) = visit_stack.pop() {
+      let node_to_visit = scene.get_node(index);
+      visitor(node_to_visit);
+      visit_stack.extend(node_to_visit.children.iter().cloned())
+    }
+  }
 
   pub fn add(&mut self, child_to_add: &mut SceneNode) -> &mut Self {
     if child_to_add.parent.is_some() {

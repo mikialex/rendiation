@@ -15,6 +15,7 @@ pub struct Scene {
 
   render_objects: Arena<RenderObject>,
 
+  root: Index,
   nodes: Arena<SceneNode>,
   nodes_render_data: Arena<RenderData>,
 
@@ -36,6 +37,22 @@ impl Scene {
     //   renderables: Arena::new(),
     //   // nodes: Vec<SceneNode>
     // }
+  }
+
+  // pub fn get_camera_mut(&mut self, index: Index) -> {
+
+  // }
+
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode{
+    self.get_node_mut(self.root)
+  }
+
+  pub fn get_node(&self, index: Index) -> &SceneNode{
+    self.nodes.get(index).unwrap()
+  }
+
+  pub fn get_node_mut(&mut self, index: Index) -> &mut SceneNode{
+    self.nodes.get_mut(index).unwrap()
   }
 
   pub fn add_dynamic_renderable(&mut self, renderable: impl Renderable + 'static) -> Index {
