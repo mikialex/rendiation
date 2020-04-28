@@ -43,12 +43,16 @@ impl Scene {
     self.renderables_dynamic.insert(boxed)
   }
 
-  pub fn create_new_node(&mut self) -> Index {
+  pub fn create_new_node(&mut self) -> &mut SceneNode {
     let new_node = SceneNode::new();
     let index = self.nodes.insert(new_node);
-    self.nodes.get_mut(index).unwrap().set_self_id(index);
+    let new_node = self.nodes.get_mut(index).unwrap().set_self_id(index);
     self.nodes_render_data.insert(RenderData::new());
-    index
+    new_node
+  }
+
+  pub fn free_node(&mut self, index: Index) {
+    self.nodes.remove(index);
   }
 
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
