@@ -1,30 +1,19 @@
+use generational_arena::Index;
+use rendiation_math::Mat4;
+use rendiation_render_entity::{BoundingData};
+use super::scene::Scene;
+
 pub struct SceneNode {
   transform_dirty_id: usize,
   self_id: Index,
-  parent: Index,
+  parent: Option<Index>,
   children: Vec<Index>
 }
 
 impl SceneNode {
-  fn traverse(scene: Scene){
-
+  fn traverse(scene: &mut Scene, visitor: impl FnMut(&RenderObject)){
+    
   }
-}
-
-pub trait RenderEntity{
-
-}
-
-pub struct Scene {
-  background: Box<dyn Background>,
-  active_camera_index: Index,
-  cameras: Arena<Box<dyn Camera>>,
-
-  render_objects: Arena<RenderObject>,
-  nodes: Arena<SceneNode>,
-
-  renderables_dynamic: Arena<Box<dyn Renderable>>,
-  canvas: WGPUTexture,
 }
 
 pub trait TransformLocalWorld{
@@ -37,12 +26,13 @@ pub trait TransformLocalWorld{
 pub struct RenderObject{
   shading_index: Index,
   geometry_index: Index,
+}
 
-  world_bounding: Bounding,
+pub struct RenderData {
+  world_bounding: BoundingData,
   world_matrix: Mat4<f32>,
   local_matrix: Mat4<f32>,
   normal_matrix: Mat4<f32>,
-
 }
 
 pub struct ResourceManager{

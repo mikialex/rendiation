@@ -1,7 +1,7 @@
 use crate::renderer::pipeline::WGPUPipeline;
 use crate::renderer::WGPURenderer;
-use crate::scene::*;
 
+use super::scene::{Renderable, Scene, ScenePrepareCtx};
 use crate::{
   geometry::StandardGeometry,
   geometry_lib::{sphere_geometry::SphereGeometryParameter, IndexedBufferMesher},
@@ -15,10 +15,10 @@ pub struct SolidBackground {
   pub color: Vec3<f32>,
 }
 
-impl SolidBackground{
-  pub fn new() -> Self{
+impl SolidBackground {
+  pub fn new() -> Self {
     Self {
-      color: Vec3::new(0.6, 0.6, 0.6)
+      color: Vec3::new(0.6, 0.6, 0.6),
     }
   }
 }
@@ -26,10 +26,10 @@ impl SolidBackground{
 impl Renderable for SolidBackground {
   fn prepare(&mut self, _: &mut WGPURenderer, _: &mut ScenePrepareCtx) {}
   fn render(&self, _: &WGPURenderer, scene: &Scene) {
-    WGPURenderPass::build().output_with_clear(
-      &scene.canvas.view(),
-      (self.color.x, self.color.y, self.color.z, 1.0),
-    );
+    // WGPURenderPass::build().output_with_clear(
+    //   &scene.canvas.view(),
+    //   (self.color.x, self.color.y, self.color.z, 1.0),
+    // );
   }
 }
 
