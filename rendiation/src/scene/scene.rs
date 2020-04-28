@@ -38,9 +38,17 @@ impl Scene {
     // }
   }
 
-  pub fn add_renderable(&mut self, renderable: impl Renderable + 'static) -> Index {
+  pub fn add_dynamic_renderable(&mut self, renderable: impl Renderable + 'static) -> Index {
     let boxed = Box::new(renderable);
     self.renderables_dynamic.insert(boxed)
+  }
+
+  pub fn create_new_node(&mut self) -> Index {
+    let new_node = SceneNode::new();
+    let index = self.nodes.insert(new_node);
+    self.nodes.get_mut(index).unwrap().set_self_id(index);
+    self.nodes_render_data.insert(RenderData::new());
+    index
   }
 
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {

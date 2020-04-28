@@ -1,5 +1,5 @@
 use generational_arena::Index;
-use rendiation_math::Mat4;
+use rendiation_math::{Mat4, One};
 use rendiation_render_entity::{BoundingData};
 use super::scene::Scene;
 
@@ -11,7 +11,20 @@ pub struct SceneNode {
 }
 
 impl SceneNode {
-  fn traverse(scene: &mut Scene, visitor: impl FnMut(&RenderObject)){
+  pub(crate) fn new() -> Self {
+    Self{
+      transform_dirty_id: 0,
+      self_id: Index::from_raw_parts(0, 0), // later 
+      parent: None,
+      children: Vec::new()
+    }
+  }
+
+  pub(crate) fn set_self_id(&mut self, id: Index) {
+    self.self_id = id;
+  }
+
+  pub fn traverse(scene: &mut Scene, visitor: impl FnMut(&RenderObject)){
     
   }
 }
@@ -29,10 +42,21 @@ pub struct RenderObject{
 }
 
 pub struct RenderData {
-  world_bounding: BoundingData,
+  world_bounding: Option<BoundingData>,
   world_matrix: Mat4<f32>,
   local_matrix: Mat4<f32>,
   normal_matrix: Mat4<f32>,
+}
+
+impl RenderData{
+  pub fn new() -> Self{
+    Self{
+      world_bounding: None,
+      world_matrix: Mat4::one(),
+      local_matrix: Mat4::one(),
+      normal_matrix: Mat4::one(),
+    }
+  }
 }
 
 pub struct ResourceManager{
