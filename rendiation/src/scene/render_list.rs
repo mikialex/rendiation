@@ -1,4 +1,5 @@
 use super::scene::Scene;
+use generational_arena::Index;
 
 pub struct RenderList {
   render_objects: Vec<usize>,
@@ -9,6 +10,15 @@ impl RenderList {
     Self {
       render_objects: Vec::new(),
     }
+  }
+
+  pub fn build(&mut self, scene: &Scene) -> &mut Self {
+    self
+  }
+
+  pub fn push(&mut self, index: Index) -> &mut Self {
+    self.render_objects.push(index.into_raw_parts().0);
+    self
   }
 
   pub fn get_len(&self) -> usize {

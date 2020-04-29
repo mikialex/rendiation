@@ -20,7 +20,6 @@ pub struct Scene {
   pub(crate) nodes_render_data: Arena<RenderData>,
 
   renderables_dynamic: Arena<Box<dyn Renderable>>,
-  canvas: WGPUTexture,
 }
 
 impl Scene {

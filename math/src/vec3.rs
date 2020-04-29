@@ -246,6 +246,19 @@ impl<T> Vec3<T>
 where
   T: Vec + Math,
 {
+  /// input: Matrix4 affine matrix
+  /// 
+  /// vector interpreted as a direction
+  #[inline]
+  pub fn transform_direction(&self, m: Mat4<T>) -> Self {
+    Self {
+      x: m.a1 * self.x + m.b1 * self.y + m.c1 * self.z,
+      y: m.a2 * self.x + m.b2 * self.y + m.c2 * self.z,
+      z: m.a3 * self.x + m.b3 * self.y + m.c3 * self.z,
+    }
+    .normalize()
+  }
+
   #[inline]
   pub fn dot(&self, b: Self) -> T {
     return self.x * b.x + self.y * b.y + self.z * b.z;
