@@ -68,10 +68,11 @@ pub struct RenderObject {
 }
 
 pub struct RenderData {
-  world_bounding: Option<BoundingData>,
-  world_matrix: Mat4<f32>,
-  local_matrix: Mat4<f32>,
-  normal_matrix: Mat4<f32>,
+  pub world_bounding: Option<BoundingData>,
+  pub world_matrix: Mat4<f32>,
+  pub local_matrix: Mat4<f32>,
+  pub normal_matrix: Mat4<f32>,
+  pub camera_distance: f32,
 }
 
 impl RenderData {
@@ -81,6 +82,7 @@ impl RenderData {
       world_matrix: Mat4::one(),
       local_matrix: Mat4::one(),
       normal_matrix: Mat4::one(),
+      camera_distance: 0.,
     }
   }
 }

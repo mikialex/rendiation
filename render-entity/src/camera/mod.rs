@@ -20,7 +20,7 @@ pub trait Camera: TransformedObject {
   }
 }
 
-/// Resizeable Camera is a camera that can response to canvas size change
+/// ResizeAble Camera is a camera that can response to canvas size change
 pub trait ResizableCamera: Camera {
   fn resize(&mut self, size: (f32, f32));
 }
