@@ -6,6 +6,20 @@ use rendiation::*;
 use rendiation_math::{Vec2, Vec3};
 use rendiation_render_entity::*;
 
+pub struct CameraGPUWrap{
+  camera: PerspectiveCamera
+}
+
+impl CameraGPUWrap{
+  pub fn get_gpu_world_position(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer{
+    todo!()
+  }
+
+  pub fn get_gpu_mvp_matrix(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer{
+    todo!()
+  }
+}
+
 impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();

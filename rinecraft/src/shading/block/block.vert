@@ -10,11 +10,11 @@ layout(location = 2) out vec3 v_normal;
 
 
 layout(set = 0, binding = 0) uniform Locals {
-    mat4 u_Transform;
+    mat4 u_mvp_matrix;
 };
 
 void main() {
-    gl_Position = u_Transform * vec4(a_position, 1.0);
+    gl_Position = u_mvp_matrix * vec4(a_position, 1.0);
 
     v_uv = a_uv;
     v_world = a_position;

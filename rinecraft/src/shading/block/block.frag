@@ -8,6 +8,9 @@ layout(location = 0) out vec4 o_color;
 
 layout(set = 0, binding = 1) uniform texture2D t_Color;
 layout(set = 0, binding = 2) uniform sampler s_Color;
+layout(set = 0, binding = 3) uniform Locals {
+    vec3 u_camera_world_position;
+};
 
 const vec3 sph0 = vec3(1.0); // just ramdom values ;)
 const vec3 sph1 = vec3(0.3);

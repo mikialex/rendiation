@@ -60,11 +60,12 @@ impl Application for Rinecraft {
     let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
-    let buffer = camera.get_update_gpu(renderer);
+    let u_mvp_matrix = camera.get_update_gpu(renderer);
     let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),
       sampler: &sampler,
-      buffer,
+      u_mvp_matrix,
+      u_camera_world_position: 
     }
     .create_bindgroup(renderer);
 

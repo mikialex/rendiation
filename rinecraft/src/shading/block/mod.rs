@@ -38,13 +38,16 @@ use rendiation_marco::BindGroup;
 pub struct BlockShadingParamGroup<'a> {
   
   #[bind_type = "uniform-buffer:vertex"]
-  pub buffer: &'a WGPUBuffer,
+  pub u_mvp_matrix: &'a WGPUBuffer,
   
   #[bind_type = "texture2d:fragment"]
   pub texture_view: &'a wgpu::TextureView,
   
   #[bind_type = "sampler:fragment"]
   pub sampler: &'a WGPUSampler,
+
+  #[bind_type = "uniform-buffer:fragment"]
+  pub u_camera_world_position: &'a WGPUBuffer,
 
 }
 
