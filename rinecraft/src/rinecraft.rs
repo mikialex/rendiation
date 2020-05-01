@@ -86,8 +86,6 @@ impl Application for Rinecraft {
       state.depth.resize(renderer, swap_chain.size);
       state.camera_wrap.mutate_camera().resize(size);
       // state.camera_orth.resize(size);
-      state.camera_wrap.update_all(renderer);
-      // state.camera_orth.get_update_gpu(renderer);
       state.gui.renderer.resize(size, renderer);
     });
 

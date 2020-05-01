@@ -109,6 +109,7 @@ impl<T: TransformedObject> Controller<T> for OrbitController {
       let transform = target.get_transform_mut();
       let eye = self.spherical.to_vec3();
       transform.matrix = Mat4::lookat(eye, self.spherical.center, Vec3::unit_y());
+      transform.position = eye; // todo;
     }
     self.need_update = false;
 

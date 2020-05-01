@@ -19,7 +19,7 @@ impl World {
   pub fn new() -> Self {
     let chunks = HashMap::new();
     World {
-      chunk_visible_distance: 2,
+      chunk_visible_distance: 4,
       chunks,
       chunk_geometry_update_set: HashSet::new(),
       world_machine: WorldMachineImpl::new(),
