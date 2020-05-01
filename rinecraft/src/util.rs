@@ -23,15 +23,39 @@ use rendiation_render_entity::*;
 
 pub struct CameraGPUWrap {
   camera: PerspectiveCamera,
-  gpu_camera_position: WGPUBuffer,
+  pub gpu_camera_position: WGPUBuffer,
   gpu_camera_position_dirty: bool,
-  gpu_mvp_matrix: WGPUBuffer,
+  pub gpu_mvp_matrix: WGPUBuffer,
   gpu_mvp_matrix_dirty: bool,
 }
 
 impl CameraGPUWrap {
-  pub fn new() -> Self {
-    todo!()
+  pub fn new(renderer: &WGPURenderer, camera: PerspectiveCamera) -> Self {
+    let gpu_camera_position = WGPUBuffer::new(
+      renderer,
+      CameraGPUWrap::get_world_position_data(&camera),
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    );
+
+    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
+    let mx_total_ref: &[f32; 16] = mx_total.as_ref();
+
+    let gpu_mvp_matrix = WGPUBuffer::new(
+      renderer,
+      mx_total_ref,
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    );
+    Self {
+      camera,
+      gpu_camera_position,
+      gpu_camera_position_dirty: false,
+      gpu_mvp_matrix,
+      gpu_mvp_matrix_dirty: false,
+    }
+  }
+
+  pub fn camera(&self) -> &PerspectiveCamera {
+    &self.camera
   }
 
   pub fn mutate_camera(&mut self) -> &mut PerspectiveCamera {
@@ -45,7 +69,7 @@ impl CameraGPUWrap {
     transform.position.as_ref()
   }
 
-  pub fn update_gpu_world_position(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer {
+  pub fn update_gpu_world_position(&mut self, renderer: &mut WGPURenderer) -> &WGPUBuffer {
     if !self.gpu_camera_position_dirty {
       return &self.gpu_camera_position;
     }
@@ -57,20 +81,27 @@ impl CameraGPUWrap {
     &self.gpu_camera_position
   }
 
-  fn get_mvp_matrix_data(camera: &PerspectiveCamera) -> &[f32; 16] {
-    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-    mx_total.as_ref()
-  }
+  // fn get_mvp_matrix_data(camera: &PerspectiveCamera) -> &[f32; 16] {
+  //   let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
+  //   mx_total.as_ref()
+  // }
 
-  pub fn update_gpu_mvp_matrix(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer {
+  pub fn update_gpu_mvp_matrix(&mut self, renderer: &mut WGPURenderer) -> &WGPUBuffer {
     if !self.gpu_mvp_matrix_dirty {
       return &self.gpu_mvp_matrix;
     }
     self.gpu_mvp_matrix_dirty = false;
-    self
-      .gpu_mvp_matrix
-      .update(renderer, CameraGPUWrap::get_mvp_matrix_data(&self.camera));
+
+    let mx_total = OPENGL_TO_WGPU_MATRIX * self.camera.get_vp_matrix();
+    let mx_total_ref: &[f32; 16] = mx_total.as_ref();
+
+    self.gpu_mvp_matrix.update(renderer, mx_total_ref);
     &self.gpu_mvp_matrix
+  }
+
+  pub fn update_all(&mut self, renderer: &mut WGPURenderer) {
+    self.update_gpu_mvp_matrix(renderer);
+    self.update_gpu_world_position(renderer);
   }
 }
 
