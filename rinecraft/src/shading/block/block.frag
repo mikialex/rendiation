@@ -45,10 +45,20 @@ vec3 sphericalHarmonics(const in vec3 normal )
     return max(result, vec3(0.0));
 }
 
-// vec3 sph
+// exponential fog
+// https://www.cs.rit.edu/usr/local/pub/ncs/java3d/slides/mt0416.htm
+
+const float density = 1.0;
+const vec3 fogColor = vec3(1.0, 1.0, 1.0);
 
 void main() {
+    float distance = length(u_camera_world_position - v_world);
+    float effect = exp(-density * distance);
+
     vec3 diffuse = texture(sampler2D(t_Color, s_Color), v_uv).rgb;
-    o_color = vec4(diffuse * sphericalHarmonics(v_normal), 1.0);
+    vec3 color = diffuse * sphericalHarmonics(v_normal);
+
+    color = effect * color + (1.0-effect) * fogColor;
+    o_color = vec4(color, 1.0);
 
 }
