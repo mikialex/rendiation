@@ -6,17 +6,71 @@ use rendiation::*;
 use rendiation_math::{Vec2, Vec3};
 use rendiation_render_entity::*;
 
-pub struct CameraGPUWrap{
-  camera: PerspectiveCamera
+// pub struct WrappedGPUResource<T> {
+//   resource: T,
+//   dirty: bool,
+// }
+
+// impl<T> WrappedGPUResource<T>{
+//   pub fn notify_changed(&mut self){
+//     self.dirty = true;
+//   }
+
+//   pub fn get_with(value_provider: impl FnOnce()){
+
+//   }
+// }
+
+pub struct CameraGPUWrap {
+  camera: PerspectiveCamera,
+  gpu_camera_position: WGPUBuffer,
+  gpu_camera_position_dirty: bool,
+  gpu_mvp_matrix: WGPUBuffer,
+  gpu_mvp_matrix_dirty: bool,
 }
 
-impl CameraGPUWrap{
-  pub fn get_gpu_world_position(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer{
+impl CameraGPUWrap {
+  pub fn new() -> Self {
     todo!()
   }
 
-  pub fn get_gpu_mvp_matrix(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer{
-    todo!()
+  pub fn mutate_camera(&mut self) -> &mut PerspectiveCamera {
+    self.gpu_mvp_matrix_dirty = true;
+    self.gpu_camera_position_dirty = true;
+    &mut self.camera
+  }
+
+  fn get_world_position_data(camera: &PerspectiveCamera) -> &[f32; 3] {
+    let transform = camera.get_transform();
+    transform.position.as_ref()
+  }
+
+  pub fn update_gpu_world_position(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer {
+    if !self.gpu_camera_position_dirty {
+      return &self.gpu_camera_position;
+    }
+    self.gpu_camera_position_dirty = false;
+    self.gpu_camera_position.update(
+      renderer,
+      CameraGPUWrap::get_world_position_data(&self.camera),
+    );
+    &self.gpu_camera_position
+  }
+
+  fn get_mvp_matrix_data(camera: &PerspectiveCamera) -> &[f32; 16] {
+    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
+    mx_total.as_ref()
+  }
+
+  pub fn update_gpu_mvp_matrix(&self, renderer: &mut WGPURenderer) -> &WGPUBuffer {
+    if !self.gpu_mvp_matrix_dirty {
+      return &self.gpu_mvp_matrix;
+    }
+    self.gpu_mvp_matrix_dirty = false;
+    self
+      .gpu_mvp_matrix
+      .update(renderer, CameraGPUWrap::get_mvp_matrix_data(&self.camera));
+    &self.gpu_mvp_matrix
   }
 }
 
