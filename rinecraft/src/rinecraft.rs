@@ -15,8 +15,9 @@ pub struct Rinecraft {
 
 pub struct RinecraftState {
   pub window_state: WindowState,
-  pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
-  pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
+  pub camera_wrap: CameraGPUWrap,
+  // pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
+  // pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
   pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
@@ -54,17 +55,19 @@ impl Application for Rinecraft {
     // Create other resources
     let sampler = WGPUSampler::new(&renderer.device);
 
-    let mut camera = GPUPair::new(PerspectiveCamera::new(), renderer);
+    // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
+    // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+
+    let mut camera = PerspectiveCamera::new();
     camera.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+    let mut camera_wrap = CameraGPUWrap::new(renderer, camera);
 
-    let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
-    camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
-
-    let buffer = camera.get_update_gpu(renderer);
+    camera_wrap.update_all(renderer);
     let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),
       sampler: &sampler,
-      buffer,
+      u_mvp_matrix: &camera_wrap.gpu_mvp_matrix,
+      u_camera_world_position: &camera_wrap.gpu_camera_position,
     }
     .create_bindgroup(renderer);
 
@@ -81,10 +84,8 @@ impl Application for Rinecraft {
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.depth.resize(renderer, swap_chain.size);
-      state.camera.resize(size);
-      state.camera_orth.resize(size);
-      state.camera.get_update_gpu(renderer);
-      state.camera_orth.get_update_gpu(renderer);
+      state.camera_wrap.mutate_camera().resize(size);
+      // state.camera_orth.resize(size);
       state.gui.renderer.resize(size, renderer);
     });
 
@@ -93,19 +94,20 @@ impl Application for Rinecraft {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
-      state
-        .orbit_controller
-        .update(&mut state.camera_orth as &mut ViewFrustumOrthographicCamera);
-      state.camera_orth.get_update_gpu(renderer);
+      // state
+      //   .orbit_controller
+      //   .update(&mut state.camera_orth as &mut ViewFrustumOrthographicCamera);
+      // state.camera_orth.get_update_gpu(renderer);
 
       state
         .orbit_controller
-        .update(&mut state.camera as &mut PerspectiveCamera);
-      state.camera.get_update_gpu(renderer);
+        .update(state.camera_wrap.mutate_camera());
+      state.camera_wrap.update_all(renderer);
 
-      state
-        .world
-        .update(renderer, &state.camera.get_transform().matrix.position());
+      state.world.update(
+        renderer,
+        &state.camera_wrap.camera().get_transform().matrix.position(),
+      );
 
       let output = swap_chain.request_output();
 
@@ -146,8 +148,9 @@ impl Application for Rinecraft {
         window_state,
         cube,
         world,
-        camera,
-        camera_orth,
+        camera_wrap,
+        // camera,
+        // camera_orth,
         viewport,
         orbit_controller: OrbitController::new(),
         fps_controller: FPSController::new(),
@@ -159,7 +162,6 @@ impl Application for Rinecraft {
       },
     };
 
-    
     rinecraft.use_orbit_controller();
     rinecraft.init_world();
 

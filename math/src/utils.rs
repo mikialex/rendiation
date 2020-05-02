@@ -1,6 +1,6 @@
 
 use crate::vec4::Vec4;
-use crate::mat4::Mat4;
+use crate::{Vec3, mat4::Mat4};
 
 impl Mat4<f32> {
 	pub fn max_scale_on_axis(&self) -> f32
@@ -40,6 +40,14 @@ impl<T> AsRef<[T; 16]> for Mat4<T> {
 impl<T> AsRef<[T; 4]> for Vec4<T> {
 	#[inline]
 	fn as_ref(&self) -> &[T; 4] {
+		unsafe { mem::transmute(self) }
+	}
+}
+
+
+impl<T> AsRef<[T; 3]> for Vec3<T> {
+	#[inline]
+	fn as_ref(&self) -> &[T; 3] {
 		unsafe { mem::transmute(self) }
 	}
 }

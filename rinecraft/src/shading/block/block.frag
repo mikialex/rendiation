@@ -8,6 +8,9 @@ layout(location = 0) out vec4 o_color;
 
 layout(set = 0, binding = 1) uniform texture2D t_Color;
 layout(set = 0, binding = 2) uniform sampler s_Color;
+layout(set = 0, binding = 3) uniform Locals {
+    vec3 u_camera_world_position;
+};
 
 const vec3 sph0 = vec3(1.0); // just ramdom values ;)
 const vec3 sph1 = vec3(0.3);
@@ -42,10 +45,29 @@ vec3 sphericalHarmonics(const in vec3 normal )
     return max(result, vec3(0.0));
 }
 
-// vec3 sph
+// fog
+// https://docs.microsoft.com/en-us/windows/win32/direct3d9/fog-formulas
+
+const float density = 1.0;
+const vec3 fog_color = vec3(1.0, 1.0, 1.0);
+
+const float fog_end = 60.0;
+const float fog_start = 30.0;
 
 void main() {
+    float distance = length(u_camera_world_position - v_world);
+
+    // distance = distance  / 100000.; // far plane
+    // float effect = exp(-density * distance);
+
+    float effect = clamp(0.0, 1.0, (fog_end - distance) / (fog_end - fog_start));
+
+    
+
     vec3 diffuse = texture(sampler2D(t_Color, s_Color), v_uv).rgb;
-    o_color = vec4(diffuse * sphericalHarmonics(v_normal), 1.0);
+    vec3 color = diffuse * sphericalHarmonics(v_normal);
+
+    color = effect * color + (1.0-effect) * fog_color;
+    o_color = vec4(color, 1.0);
 
 }

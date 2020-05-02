@@ -5,6 +5,16 @@ pub enum ShaderType {
   Compute,
 }
 
+impl ShaderType {
+  pub fn to_wgpu(&self) -> wgpu::ShaderStage {
+    match self {
+      ShaderType::Fragment => wgpu::ShaderStage::FRAGMENT,
+      ShaderType::Vertex => wgpu::ShaderStage::VERTEX,
+      ShaderType::Compute => wgpu::ShaderStage::COMPUTE,
+    }
+  }
+}
+
 pub fn load_glsl(code: &str, stage: ShaderType) -> Vec<u32> {
   let ty = match stage {
     ShaderType::Vertex => glsl_to_spirv::ShaderType::Vertex,
