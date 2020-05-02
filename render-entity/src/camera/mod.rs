@@ -14,6 +14,7 @@ pub trait Camera: TransformedObject {
   fn update_projection(&mut self);
   fn get_projection_matrix(&self) -> &Mat4<f32>;
 
+  // todo make it cache
   fn get_vp_matrix(&self) -> Mat4<f32> {
     *self.get_projection_matrix() * self.get_transform().matrix.inverse().unwrap()
   }

@@ -36,7 +36,7 @@ impl Camera {
       self.eye_position,
       self.get_pixel_world_position(x_ratio, y_ratio),
     );
-    ray.direction.normalize();
+    ray.direction = ray.direction.normalize();
     ray
   }
 }
