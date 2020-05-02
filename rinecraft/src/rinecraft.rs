@@ -2,11 +2,11 @@ use crate::shading::BlockShading;
 use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
-use crate::watch::*;
 use rendiation::renderer::SwapChain;
 use rendiation::*;
 use rendiation_render_entity::*;
 use rendium::*;
+use scene::scene::Scene;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -16,6 +16,7 @@ pub struct Rinecraft {
 pub struct RinecraftState {
   pub window_state: WindowState,
   pub camera_wrap: CameraGPUWrap,
+  pub scene: Scene,
   // pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   // pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
@@ -141,6 +142,8 @@ impl Application for Rinecraft {
       swap_chain.hidpi_factor,
     );
 
+    let scene = Scene::new();
+
     // Done
     let mut rinecraft = Rinecraft {
       window_session,
@@ -149,6 +152,7 @@ impl Application for Rinecraft {
         cube,
         world,
         camera_wrap,
+        scene,
         // camera,
         // camera_orth,
         viewport,
