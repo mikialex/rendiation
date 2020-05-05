@@ -2,7 +2,7 @@ use super::{
   background::{Background, SolidBackground},
   node::{RenderData, RenderObject, SceneNode},
 };
-use crate::{WGPURenderer, WGPUTexture};
+use crate::{WGPURenderer, WGPUTexture, GPUGeometry};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
