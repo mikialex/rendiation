@@ -16,7 +16,7 @@ impl Shading for BlockShading{
 struct PipelineStateBuilder {}
 
 impl BlockShading {
-  pub fn new(renderer: &WGPURenderer, depth_target: &WGPUTexture) -> Self {
+  pub fn new(renderer: &WGPURenderer) -> Self {
     let mut pipeline_builder = StaticPipelineBuilder::new(
       renderer,
       include_str!("./block.vert"),
@@ -26,7 +26,7 @@ impl BlockShading {
       .binding_group::<BlockShadingParamGroup>()
       .geometry::<StandardGeometry>()
       .to_screen_target()
-      .with_depth_stencil(depth_target)
+      .with_default_depth()
       .build();
     Self { pipeline }
   }

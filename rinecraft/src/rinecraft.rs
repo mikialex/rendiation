@@ -47,7 +47,7 @@ impl Application for Rinecraft {
       swap_chain.size,
     );
 
-    let shading = BlockShading::new(renderer, &depth);
+    let shading = BlockShading::new(renderer);
 
     // Create the vertex and index buffers
     let mut cube = GPUGeometry::from(create_vertices());
@@ -108,6 +108,7 @@ impl Application for Rinecraft {
       state.world.update(
         renderer,
         &state.camera_wrap.camera().get_transform().matrix.position(),
+        &mut state.scene,
       );
 
       let output = swap_chain.request_output();

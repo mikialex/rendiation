@@ -1,4 +1,4 @@
-use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline};
+use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPUTexture};
 use generational_arena::{Arena, Index};
 use std::any::Any;
 

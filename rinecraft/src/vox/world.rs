@@ -2,9 +2,10 @@ use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::*;
 use crate::vox::util::*;
-use crate::vox::world_machine::*;
+use crate::{shading::BlockShading, vox::world_machine::*};
 use rendiation::*;
 use rendiation_math::*;
+use scene::scene::Scene;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -13,6 +14,13 @@ pub struct World {
   pub chunk_visible_distance: usize,
   pub chunks: HashMap<(i32, i32), Chunk>,
   pub chunk_geometry_update_set: HashSet<(i32, i32)>,
+  scene_data: Option<WorldSceneAttachment>,
+}
+
+struct WorldSceneAttachment {
+  root_node_index: Index,
+  block_shading: Index,
+  geometries: Vec<Index>,
 }
 
 impl World {
@@ -23,7 +31,30 @@ impl World {
       chunks,
       chunk_geometry_update_set: HashSet::new(),
       world_machine: WorldMachineImpl::new(),
+      scene_data: None,
     }
+  }
+
+  pub fn attach_scene(&mut self, scene: &mut Scene, renderer: &mut WGPURenderer) {
+    if self.scene_data.is_some() {
+      return;
+    }
+
+    let block_shading = BlockShading::new(renderer);
+    let block_shading = scene.resources.add_shading(block_shading);
+
+    let root_node_index = scene.create_new_node().get_id();
+
+    self.scene_data = Some(WorldSceneAttachment {
+      root_node_index,
+      block_shading,
+      geometries: Vec::new(),
+    })
+  }
+
+  pub fn detach_scene(&mut self) {
+    // free the resource in scene
+    todo!()
   }
 
   pub fn assure_chunk(
@@ -40,7 +71,14 @@ impl World {
     exist
   }
 
-  pub fn update(&mut self, renderer: &mut WGPURenderer, view_position: &Vec3<f32>) {
+  pub fn update(
+    &mut self,
+    renderer: &mut WGPURenderer,
+    view_position: &Vec3<f32>,
+    scene: &mut Scene,
+  ) {
+    self.attach_scene(scene, renderer);
+
     let stand_point_chunk = query_point_in_chunk(view_position);
     let x_low = stand_point_chunk.0 - self.chunk_visible_distance as i32;
     let x_high = stand_point_chunk.0 + self.chunk_visible_distance as i32;

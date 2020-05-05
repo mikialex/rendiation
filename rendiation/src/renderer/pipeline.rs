@@ -19,7 +19,7 @@ pub trait BindGroupProvider: Sized {
   fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup;
 }
 
-pub struct PipelineStateBuilder{
+pub struct PipelineStateBuilder {
   // blend: Blend,
   rasterization: wgpu::RasterizationStateDescriptor,
   depth_stencil: wgpu::DepthStencilStateDescriptor,
@@ -89,6 +89,11 @@ impl<'a> StaticPipelineBuilder<'a> {
 
   pub fn with_depth_stencil(&mut self, target: &WGPUTexture) -> &mut Self {
     self.depth_format = Some(*target.format());
+    self
+  }
+
+  pub fn with_default_depth(&mut self) -> &mut Self {
+    self.depth_format = Some(wgpu::TextureFormat::Depth32Float);
     self
   }
 

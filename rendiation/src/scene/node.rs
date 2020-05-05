@@ -23,6 +23,10 @@ impl SceneNode {
     self
   }
 
+  pub fn get_id(&self) -> Index {
+    self.self_id
+  }
+
   pub fn traverse(&self, scene: &mut Scene, mut visitor: impl FnMut(&SceneNode)) {
     let mut visit_stack: Vec<Index> = Vec::new();
     visit_stack.push(self.self_id);
