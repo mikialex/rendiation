@@ -1,7 +1,16 @@
 use rendiation::*;
 
+use rendiation_marco::BindGroup;
+use scene::resource::Shading;
+
 pub struct BlockShading {
   pipeline: WGPUPipeline,
+}
+
+impl Shading for BlockShading{
+  fn get_gpu_pipeline(&self) -> &WGPUPipeline{
+    &self.pipeline
+  }
 }
 
 struct PipelineStateBuilder {}
@@ -27,8 +36,6 @@ impl BlockShading {
     pass.gpu_pass.set_bind_group(0, &bg.gpu_bindgroup, &[]);
   }
 }
-
-use rendiation_marco::BindGroup;
 
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup<'a> {

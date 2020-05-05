@@ -1,6 +1,6 @@
 use super::{
   background::{Background, SolidBackground},
-  node::{RenderData, RenderObject, SceneNode},
+  node::{RenderData, RenderObject, SceneNode}, resource::ResourceManager,
 };
 use crate::{WGPURenderer, WGPUTexture, GPUGeometry};
 use generational_arena::{Arena, Index};
@@ -23,6 +23,7 @@ pub struct Scene {
   pub(crate) nodes_render_data: Arena<RenderData>,
 
   renderables_dynamic: Arena<Box<dyn Renderable>>,
+  pub resources: ResourceManager,
 }
 
 impl Scene {
@@ -49,6 +50,7 @@ impl Scene {
       nodes,
       nodes_render_data,
       renderables_dynamic: Arena::new(),
+      resources: ResourceManager::new()
     }
   }
 

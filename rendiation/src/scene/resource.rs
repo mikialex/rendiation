@@ -3,15 +3,15 @@ use generational_arena::{Arena, Index};
 use std::any::Any;
 
 pub trait Geometry: Any {
-  fn get_gpu_index_buffer(&self) -> WGPUBuffer;
+  fn get_gpu_index_buffer(&self) -> &WGPUBuffer;
 }
 
 pub trait Shading: Any {
-  fn get_gpu_pipeline(&self) -> WGPUPipeline;
+  fn get_gpu_pipeline(&self) -> &WGPUPipeline;
 }
 
 pub trait ShadingParamGroup: Any {
-  fn get_gpu_bindgroup(&self) -> WGPUBindGroup;
+  fn get_gpu_bindgroup(&self) -> &WGPUBindGroup;
 }
 
 pub struct ResourceManager {
@@ -21,6 +21,14 @@ pub struct ResourceManager {
 }
 
 impl ResourceManager {
+  pub fn new() -> Self {
+    Self {
+      geometries: Arena::new(),
+      shadings: Arena::new(),
+      shading_params: Arena::new(),
+    }
+  }
+
   pub fn add_geometry(&mut self, geometry: impl Geometry) -> Index {
     self.geometries.insert(Box::new(geometry))
   }
@@ -35,5 +43,13 @@ impl ResourceManager {
 
   pub fn get_shading(&mut self, index: Index) -> &mut dyn Shading {
     self.shadings.get_mut(index).unwrap().as_mut()
+  }
+
+  pub fn add_shading_params(&mut self, shading_params: impl ShadingParamGroup) -> Index {
+    self.shading_params.insert(Box::new(shading_params))
+  }
+
+  pub fn get_shading_params(&mut self, index: Index) -> &mut dyn ShadingParamGroup {
+    self.shading_params.get_mut(index).unwrap().as_mut()
   }
 }

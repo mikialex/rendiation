@@ -86,8 +86,3 @@ impl RenderData {
     }
   }
 }
-
-pub struct ResourceManager {
-  // shadings
-// geometries
-}
