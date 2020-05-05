@@ -1,9 +1,11 @@
-use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPUTexture};
+use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPURenderer};
 use generational_arena::{Arena, Index};
 use std::any::Any;
 
 pub trait Geometry: Any {
+  fn update_gpu(&mut self, renderer: &mut WGPURenderer);
   fn get_gpu_index_buffer(&self) -> &WGPUBuffer;
+  fn get_gpu_geometry_buffer(&self) -> &WGPUBuffer;
 }
 
 pub trait Shading: Any {
@@ -35,6 +37,10 @@ impl ResourceManager {
 
   pub fn get_geometry(&mut self, index: Index) -> &mut dyn Geometry {
     self.geometries.get_mut(index).unwrap().as_mut()
+  }
+
+  pub fn delete_geometry(&mut self, index: Index) {
+    self.geometries.remove(index);
   }
 
   pub fn add_shading(&mut self, shading: impl Shading) -> Index {

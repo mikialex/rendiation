@@ -111,21 +111,25 @@ impl Application for Rinecraft {
         &mut state.scene,
       );
 
+      state.scene.prepare(renderer);
+
       let output = swap_chain.request_output();
 
-      {
-        let mut pass = WGPURenderPass::build()
-          .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
-          .with_depth(state.depth.view())
-          .create(&mut renderer.encoder);
-        pass.use_viewport(&state.viewport);
+      state.scene.render(&output.view, renderer);
+      
+      // {
+      //   let mut pass = WGPURenderPass::build()
+      //     .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
+      //     .with_depth(state.depth.view())
+      //     .create(&mut renderer.encoder);
+      //   pass.use_viewport(&state.viewport);
 
-        state
-          .shading
-          .provide_pipeline(&mut pass, &state.shading_params);
-        state.cube.render(&mut pass);
-        state.world.render(&mut pass);
-      }
+      //   state
+      //     .shading
+      //     .provide_pipeline(&mut pass, &state.shading_params);
+      //   state.cube.render(&mut pass);
+      //   state.world.render(&mut pass);
+      // }
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output.view);

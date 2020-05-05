@@ -7,7 +7,7 @@ use rendiation::*;
 use rendiation_math::*;
 use scene::scene::Scene;
 use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 pub struct World {
   pub world_machine: WorldMachineImpl,
@@ -20,7 +20,7 @@ pub struct World {
 struct WorldSceneAttachment {
   root_node_index: Index,
   block_shading: Index,
-  geometries: Vec<Index>,
+  blocks: BTreeMap<(i32, i32), (Index, Index, Index)>, // node, render_object, geometry
 }
 
 impl World {
@@ -48,7 +48,7 @@ impl World {
     self.scene_data = Some(WorldSceneAttachment {
       root_node_index,
       block_shading,
-      geometries: Vec::new(),
+      blocks: BTreeMap::new(),
     })
   }
 
@@ -90,9 +90,6 @@ impl World {
         if !World::assure_chunk(&mut self.world_machine, &mut self.chunks, (x, z)) {
           create_list.push((x, z));
         }
-        if self.chunks.get(&(x, z)).unwrap().geometry.is_none() {
-          create_list.push((x, z));
-        }
       }
     }
 
@@ -120,13 +117,34 @@ impl World {
       );
     }
 
-    for chunk_to_update_key in &self.chunk_geometry_update_set {
-      self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry = Some(Chunk::create_geometry(
-        &self.world_machine,
-        &self.chunks,
-        *chunk_to_update_key,
-        renderer,
-      ))
+    if let Some(scene_data) = &mut self.scene_data {
+      for chunk_to_update_key in &self.chunk_geometry_update_set {
+        if let Some((node_index, render_object_index, geometry_index)) =
+          scene_data.blocks.get(chunk_to_update_key)
+        {
+          scene.free_node(*node_index);
+          scene.delete_render_object(*render_object_index);
+          scene.resources.delete_geometry(*geometry_index);
+          scene_data.blocks.remove(chunk_to_update_key);
+        }
+
+        let geometry = Chunk::create_geometry(
+          &self.world_machine,
+          &self.chunks,
+          *chunk_to_update_key,
+          renderer,
+        );
+        let geometry_index = scene.resources.add_geometry(geometry);
+        let render_object_index =
+          scene.create_render_object(geometry_index, scene_data.block_shading);
+        let new_node = scene.create_new_node();
+        new_node.add_render_object(render_object_index);
+        let node_index = new_node.get_id();
+        scene_data.blocks.insert(
+          *chunk_to_update_key,
+          (node_index, render_object_index, geometry_index),
+        );
+      }
     }
     self.chunk_geometry_update_set.clear();
   }
@@ -167,11 +185,11 @@ impl World {
   }
 
   pub fn render(&self, pass: &mut WGPURenderPass) {
-    for (_key, chunk) in &self.chunks {
-      if let Some(geometry) = &chunk.geometry {
-        geometry.render(pass);
-      }
-    }
+    // for (_key, chunk) in &self.chunks {
+    //   if let Some(geometry) = &chunk.geometry {
+    //     geometry.render(pass);
+    //   }
+    // }
   }
 
   pub fn block_face_opposite_position(

@@ -83,6 +83,18 @@ impl Scene {
     self.nodes.remove(index);
   }
 
+  pub fn create_render_object(&mut self, geometry_index: Index, shading_index: Index) -> Index {
+    let obj = RenderObject {
+      shading_index,
+      geometry_index,
+    };
+    self.render_objects.insert(obj)
+  }
+
+  pub fn delete_render_object(&mut self, index: Index) {
+    self.render_objects.remove(index);
+  }
+
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
     let mut ctx = ScenePrepareCtx {};
     self
@@ -93,7 +105,7 @@ impl Scene {
       })
   }
 
-  pub fn render(&self, target: &WGPUTexture, renderer: &WGPURenderer) {}
+  pub fn render(&self, target: &wgpu::TextureView, renderer: &WGPURenderer) {}
 }
 
 pub struct ScenePrepareCtx {}

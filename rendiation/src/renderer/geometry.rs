@@ -3,7 +3,7 @@ use crate::geometry::standard_geometry::StandardGeometry;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::render_pass::WGPURenderPass;
 use crate::renderer::WGPURenderer;
-use crate::vertex::Vertex;
+use crate::{scene::resource::Geometry, vertex::Vertex};
 
 pub struct GPUGeometry<T: PrimitiveTopology = TriangleList> {
   geometry: StandardGeometry<T>,
@@ -11,6 +11,50 @@ pub struct GPUGeometry<T: PrimitiveTopology = TriangleList> {
   index_changed: bool,
   gpu_data: Option<WGPUBuffer>,
   gpu_index: Option<WGPUBuffer>,
+}
+
+impl<T: PrimitiveTopology + 'static> Geometry for GPUGeometry<T> {
+  fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
+    if let Some(gpu_data) = &mut self.gpu_data {
+      if self.data_changed {
+        gpu_data.update(renderer, &self.geometry.data);
+      }
+    } else {
+      self.gpu_data = Some(WGPUBuffer::new(
+        renderer,
+        &self.geometry.data,
+        wgpu::BufferUsage::VERTEX,
+      ))
+    }
+
+    if let Some(gpu_index) = &mut self.gpu_index {
+      if self.index_changed {
+        gpu_index.update(renderer, &self.geometry.index);
+      }
+    } else {
+      self.gpu_index = Some(WGPUBuffer::new(
+        renderer,
+        &self.geometry.index,
+        wgpu::BufferUsage::INDEX,
+      ))
+    }
+  }
+
+  fn get_gpu_index_buffer(&self) -> &WGPUBuffer {
+    if let Some(gpu_index) = &self.gpu_index {
+      gpu_index
+    } else {
+      panic!("geometry not prepared")
+    }
+  }
+
+  fn get_gpu_geometry_buffer(&self) -> &WGPUBuffer {
+    if let Some(gpu_data) = &self.gpu_data {
+      gpu_data
+    } else {
+      panic!("geometry not prepared")
+    }
+  }
 }
 
 impl<T: PrimitiveTopology> From<StandardGeometry<T>> for GPUGeometry<T> {

@@ -7,6 +7,7 @@ pub struct SceneNode {
   self_id: Index,
   parent: Option<Index>,
   children: Vec<Index>,
+  render_objects: Vec<Index>,
 }
 
 impl SceneNode {
@@ -15,6 +16,7 @@ impl SceneNode {
       self_id: Index::from_raw_parts(0, 0), // later
       parent: None,
       children: Vec::new(),
+      render_objects: Vec::new(),
     }
   }
 
@@ -25,6 +27,10 @@ impl SceneNode {
 
   pub fn get_id(&self) -> Index {
     self.self_id
+  }
+
+  pub fn add_render_object(&mut self, id: Index) {
+    self.render_objects.push(id)
   }
 
   pub fn traverse(&self, scene: &mut Scene, mut visitor: impl FnMut(&SceneNode)) {
@@ -67,8 +73,8 @@ pub trait TransformLocalWorld {
 }
 
 pub struct RenderObject {
-  shading_index: Index,
-  geometry_index: Index,
+  pub shading_index: Index,
+  pub geometry_index: Index,
 }
 
 pub struct RenderData {

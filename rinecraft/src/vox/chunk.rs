@@ -27,7 +27,6 @@ pub type ChunkData = Vec<Vec<Vec<Block>>>;
 pub struct Chunk {
   pub chunk_position: (i32, i32),
   pub data: ChunkData,
-  pub geometry: Option<GPUGeometry>,
   pub bounding: BoundingData,
 }
 
@@ -84,7 +83,6 @@ impl Chunk {
     Chunk {
       chunk_position: (chunk_x, chunk_z),
       data: x_row,
-      geometry: None,
       bounding,
     }
   }
