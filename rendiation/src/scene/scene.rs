@@ -1,7 +1,7 @@
 use super::{
   background::{Background, SolidBackground},
   node::{RenderData, RenderObject, SceneNode},
-  resource::ResourceManager,
+  resource::ResourceManager, render_list::RenderList, culling::Culler,
 };
 use crate::{GPUGeometry, WGPURenderer, WGPUTexture};
 use generational_arena::{Arena, Index};
@@ -25,6 +25,9 @@ pub struct Scene {
 
   renderables_dynamic: Arena<Box<dyn Renderable>>,
   pub resources: ResourceManager,
+  
+  render_list: RenderList,
+  culler: Culler,
 }
 
 impl Scene {
@@ -52,6 +55,8 @@ impl Scene {
       nodes_render_data,
       renderables_dynamic: Arena::new(),
       resources: ResourceManager::new(),
+      render_list: RenderList::new(),
+      culler: Culler::new(),
     }
   }
 
@@ -125,9 +130,13 @@ impl Scene {
       .for_each(|(_, renderable)| {
         renderable.prepare(renderer, &mut ctx);
       })
+
+    // todo hierarchy updating;
   }
 
-  pub fn render(&self, target: &wgpu::TextureView, renderer: &WGPURenderer) {}
+  pub fn render(&self, target: &wgpu::TextureView, renderer: &WGPURenderer) {
+
+  }
 }
 
 pub struct ScenePrepareCtx {}

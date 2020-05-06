@@ -13,8 +13,6 @@ impl Shading for BlockShading{
   }
 }
 
-struct PipelineStateBuilder {}
-
 impl BlockShading {
   pub fn new(renderer: &WGPURenderer) -> Self {
     let mut pipeline_builder = StaticPipelineBuilder::new(

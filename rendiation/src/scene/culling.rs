@@ -8,6 +8,13 @@ pub struct Culler {
 }
 
 impl Culler {
+  pub fn new() -> Self {
+    Self {
+      frustum: Frustum::new(),
+      enable_frustum_culling: true,
+    }
+  }
+
   pub fn update(&mut self, camera: &impl Camera) -> &mut Self {
     let m = camera.get_vp_matrix();
     self.frustum.set_from_matrix(m);
