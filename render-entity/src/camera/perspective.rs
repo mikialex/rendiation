@@ -48,6 +48,12 @@ impl TransformedObject for PerspectiveCamera {
   fn get_transform_mut(&mut self) -> &mut Transformation {
     &mut self.transform
   }
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+  fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+    self
+  }
 }
 
 impl Camera for PerspectiveCamera {

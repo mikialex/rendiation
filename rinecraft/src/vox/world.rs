@@ -74,12 +74,14 @@ impl World {
   pub fn update(
     &mut self,
     renderer: &mut WGPURenderer,
-    view_position: &Vec3<f32>,
     scene: &mut Scene,
   ) {
     self.attach_scene(scene, renderer);
 
-    let stand_point_chunk = query_point_in_chunk(view_position);
+    let camera = scene.get_active_camera_mut();
+    let camera_position = camera.get_transform().matrix.position();
+
+    let stand_point_chunk = query_point_in_chunk(camera_position);
     let x_low = stand_point_chunk.0 - self.chunk_visible_distance as i32;
     let x_high = stand_point_chunk.0 + self.chunk_visible_distance as i32;
     let z_low = stand_point_chunk.1 - self.chunk_visible_distance as i32;
@@ -93,6 +95,7 @@ impl World {
       }
     }
 
+    // dispatch change to adjacent chunk
     for chunk_key in create_list {
       self.chunk_geometry_update_set.insert(chunk_key);
       World::assure_chunk(
@@ -117,8 +120,11 @@ impl World {
       );
     }
 
+    // sync change to scene
     if let Some(scene_data) = &mut self.scene_data {
       for chunk_to_update_key in &self.chunk_geometry_update_set {
+
+        // remove node in scene;
         if let Some((node_index, render_object_index, geometry_index)) =
           scene_data.blocks.get(chunk_to_update_key)
         {
@@ -128,18 +134,21 @@ impl World {
           scene_data.blocks.remove(chunk_to_update_key);
         }
 
+        // add new node in scene;
         let geometry = Chunk::create_geometry(
           &self.world_machine,
           &self.chunks,
           *chunk_to_update_key,
           renderer,
         );
+        
         let geometry_index = scene.resources.add_geometry(geometry);
         let render_object_index =
           scene.create_render_object(geometry_index, scene_data.block_shading);
         let new_node = scene.create_new_node();
         new_node.add_render_object(render_object_index);
         let node_index = new_node.get_id();
+
         scene_data.blocks.insert(
           *chunk_to_update_key,
           (node_index, render_object_index, geometry_index),

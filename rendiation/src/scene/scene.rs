@@ -1,8 +1,9 @@
 use super::{
   background::{Background, SolidBackground},
-  node::{RenderData, RenderObject, SceneNode}, resource::ResourceManager,
+  node::{RenderData, RenderObject, SceneNode},
+  resource::ResourceManager,
 };
-use crate::{WGPURenderer, WGPUTexture, GPUGeometry};
+use crate::{GPUGeometry, WGPURenderer, WGPUTexture};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
@@ -50,8 +51,29 @@ impl Scene {
       nodes,
       nodes_render_data,
       renderables_dynamic: Arena::new(),
-      resources: ResourceManager::new()
+      resources: ResourceManager::new(),
     }
+  }
+
+  pub fn set_new_active_camera(&mut self, camera: impl Camera + 'static) -> Index {
+    let boxed = Box::new(camera);
+    let index = self.cameras.insert(boxed);
+    self.active_camera_index = index;
+    index
+  }
+
+  pub fn get_active_camera_mut(&mut self) -> &mut Box<dyn Camera> {
+    self.cameras.get_mut(self.active_camera_index).unwrap()
+  }
+
+  pub fn get_active_camera_mut_downcast<T: 'static>(&mut self) -> &mut T {
+    self
+      .cameras
+      .get_mut(self.active_camera_index)
+      .unwrap()
+      .as_any_mut()
+      .downcast_mut::<T>()
+      .unwrap()
   }
 
   pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
@@ -100,7 +122,7 @@ impl Scene {
     self
       .renderables_dynamic
       .iter_mut()
-      .for_each(|(i, renderable)| {
+      .for_each(|(_, renderable)| {
         renderable.prepare(renderer, &mut ctx);
       })
   }
