@@ -132,10 +132,12 @@ impl Scene {
       })
 
     // todo hierarchy updating;
+
+    // todo prepare render list;
   }
 
   pub fn render(&self, target: &wgpu::TextureView, renderer: &WGPURenderer) {
-
+    
   }
 }
 

@@ -18,6 +18,7 @@
         "backends",
         "bbox",
         "bindgroup",
+        "bindgroups",
         "bindpoint",
         "consts",
         "glsl",

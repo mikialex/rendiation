@@ -1,4 +1,5 @@
 use super::scene::Scene;
+use crate::WGPURenderPass;
 use generational_arena::Index;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
@@ -75,6 +76,22 @@ pub trait TransformLocalWorld {
 pub struct RenderObject {
   pub shading_index: Index,
   pub geometry_index: Index,
+}
+
+impl RenderObject {
+  pub fn render(&self, pass: &mut WGPURenderPass, scene: &Scene) {
+    let shading = scene.resources.get_shading(self.shading_index);
+    let geometry = scene.resources.get_geometry(self.geometry_index);
+
+    pass.set_pipeline(shading.get_gpu_pipeline());
+    pass.set_index_buffer(geometry.get_gpu_index_buffer());
+    pass.set_vertex_buffers(geometry.get_gpu_vertex_buffer());
+    
+    for i in 0..shading.get_bindgroup_count() {
+      let bindgroup = scene.resources.get_bindgroup(shading.get_bindgroup(i));
+      pass.set_bindgroup(i, bindgroup);
+    }
+  }
 }
 
 pub struct RenderData {

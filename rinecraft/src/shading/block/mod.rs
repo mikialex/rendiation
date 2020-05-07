@@ -1,16 +1,9 @@
 use rendiation::*;
 
 use rendiation_marco::BindGroup;
-use scene::resource::Shading;
 
 pub struct BlockShading {
   pipeline: WGPUPipeline,
-}
-
-impl Shading for BlockShading{
-  fn get_gpu_pipeline(&self) -> &WGPUPipeline{
-    &self.pipeline
-  }
 }
 
 impl BlockShading {

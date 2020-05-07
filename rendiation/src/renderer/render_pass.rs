@@ -1,7 +1,33 @@
-use crate::viewport::*;
+use crate::{viewport::*, WGPUBindGroup, WGPUBuffer, WGPUPipeline};
 
 pub struct WGPURenderPass<'a> {
   pub gpu_pass: wgpu::RenderPass<'a>,
+}
+
+impl<'a> WGPURenderPass<'a> {
+  pub fn set_pipeline(&mut self, pipeline: &WGPUPipeline) -> &mut Self {
+    self.gpu_pass.set_pipeline(&pipeline.pipeline);
+    self
+  }
+
+  pub fn set_bindgroup(&mut self, index: usize, bindgroup: &WGPUBindGroup) -> &mut Self {
+    self
+      .gpu_pass
+      .set_bind_group(index as u32, &bindgroup.gpu_bindgroup, &[]);
+    self
+  }
+
+  pub fn set_index_buffer(&mut self, buffer: &WGPUBuffer) -> &mut Self {
+    self.gpu_pass.set_index_buffer(buffer.get_gpu_buffer(), 0);
+    self
+  }
+
+  pub fn set_vertex_buffers(&mut self, buffers: &[WGPUBuffer]) -> &mut Self {
+    let mapped_buffers: Vec<(&wgpu::Buffer, u64)> =
+      buffers.iter().map(|b| (b.get_gpu_buffer(), 0)).collect(); // todo use small vec opt
+    self.gpu_pass.set_vertex_buffers(0, &mapped_buffers);
+    self
+  }
 }
 
 pub struct WGPURenderPassBuilder<'a> {
