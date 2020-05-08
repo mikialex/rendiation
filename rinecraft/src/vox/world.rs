@@ -53,7 +53,7 @@ impl World {
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::new(renderer);
-    
+
     let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),
       sampler: &sampler,
@@ -109,6 +109,11 @@ impl World {
       for z in z_low..z_high {
         if !World::assure_chunk(&mut self.world_machine, &mut self.chunks, (x, z)) {
           create_list.push((x, z));
+        }
+        if let Some(scene_data) = &mut self.scene_data {
+          if !scene_data.blocks.contains_key(&(x, z)){
+            create_list.push((x, z));
+          }
         }
       }
     }
