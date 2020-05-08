@@ -8,7 +8,7 @@ pub struct SceneNode {
   self_id: Index,
   parent: Option<Index>,
   children: Vec<Index>,
-  render_objects: Vec<Index>,
+  pub render_objects: Vec<Index>,
 }
 
 impl SceneNode {

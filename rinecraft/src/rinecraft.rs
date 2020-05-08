@@ -20,7 +20,6 @@ pub struct RinecraftState {
   pub fps_controller: FPSController,
   pub controller_listener_handle: Vec<usize>,
   pub viewport: Viewport,
-  pub cube: GPUGeometry,
   pub world: World,
   pub depth: WGPUTexture,
   pub gui: GUI,
@@ -34,19 +33,13 @@ impl Application for Rinecraft {
     );
 
     let mut scene = Scene::new();
-
     let mut world = World::new();
-    let block_atlas = world.world_machine.get_block_atlas(renderer);
 
     let depth = WGPUTexture::new_as_depth(
       &renderer,
       wgpu::TextureFormat::Depth32Float,
       swap_chain.size,
     );
-
-    // Create the vertex and index buffers
-    let mut cube = GPUGeometry::from(create_vertices());
-    cube.update_gpu(renderer);
 
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
@@ -103,21 +96,7 @@ impl Application for Rinecraft {
 
       let output = swap_chain.request_output();
 
-      state.scene.render(&output.view, renderer);
-
-      // {
-      //   let mut pass = WGPURenderPass::build()
-      //     .output_with_clear(&output.view, (0.1, 0.2, 0.3, 1.0))
-      //     .with_depth(state.depth.view())
-      //     .create(&mut renderer.encoder);
-      //   pass.use_viewport(&state.viewport);
-
-      //   state
-      //     .shading
-      //     .provide_pipeline(&mut pass, &state.shading_params);
-      //   state.cube.render(&mut pass);
-      //   state.world.render(&mut pass);
-      // }
+      state.scene.render(&output.view, &state.depth.view(), renderer);
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output.view);
@@ -140,7 +119,6 @@ impl Application for Rinecraft {
       window_session,
       state: RinecraftState {
         window_state,
-        cube,
         world,
         scene,
         camera_gpu,

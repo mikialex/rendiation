@@ -1,9 +1,11 @@
 use super::{
   background::{Background, SolidBackground},
+  culling::Culler,
   node::{RenderData, RenderObject, SceneNode},
-  resource::ResourceManager, render_list::RenderList, culling::Culler,
+  render_list::RenderList,
+  resource::ResourceManager,
 };
-use crate::{GPUGeometry, WGPURenderer, WGPUTexture};
+use crate::{GPUGeometry, WGPURenderPass, WGPURenderer, WGPUTexture};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
@@ -25,7 +27,7 @@ pub struct Scene {
 
   renderables_dynamic: Arena<Box<dyn Renderable>>,
   pub resources: ResourceManager,
-  
+
   render_list: RenderList,
   culler: Culler,
 }
@@ -136,8 +138,26 @@ impl Scene {
     // todo prepare render list;
   }
 
-  pub fn render(&self, target: &wgpu::TextureView, renderer: &WGPURenderer) {
-    
+  pub fn render(
+    &self,
+    target: &wgpu::TextureView,
+    depth: &wgpu::TextureView,
+    renderer: &mut WGPURenderer,
+  ) {
+    let mut pass = WGPURenderPass::build()
+      .output_with_clear(target, (0.1, 0.2, 0.3, 1.0))
+      .with_depth(depth)
+      .create(&mut renderer.encoder);
+
+    // pass.use_viewport(&state.viewport);
+
+    for node_id in &self.render_list.render_objects {
+      let (node, _) = self.nodes.get_unknown_gen(*node_id).unwrap();
+      for render_obj_id in &node.render_objects {
+        let render_obj = self.render_objects.get(*render_obj_id).unwrap();
+        render_obj.render(&mut pass, self);
+      }
+    }
   }
 }
 

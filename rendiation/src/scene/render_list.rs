@@ -2,7 +2,7 @@ use super::scene::Scene;
 use generational_arena::Index;
 
 pub struct RenderList {
-  render_objects: Vec<usize>,
+  pub render_objects: Vec<usize>,
 }
 
 impl RenderList {

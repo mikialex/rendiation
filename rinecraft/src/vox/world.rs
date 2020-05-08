@@ -209,14 +209,6 @@ impl World {
     }
   }
 
-  pub fn render(&self, pass: &mut WGPURenderPass) {
-    // for (_key, chunk) in &self.chunks {
-    //   if let Some(geometry) = &chunk.geometry {
-    //     geometry.render(pass);
-    //   }
-    // }
-  }
-
   pub fn block_face_opposite_position(
     block_position: Vec3<i32>,
     face: BlockFace,
