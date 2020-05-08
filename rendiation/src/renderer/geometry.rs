@@ -4,6 +4,7 @@ use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::render_pass::WGPURenderPass;
 use crate::renderer::WGPURenderer;
 use crate::{scene::resource::Geometry, vertex::Vertex};
+use std::ops::Range;
 
 pub struct GPUGeometry<T: PrimitiveTopology = TriangleList> {
   geometry: StandardGeometry<T>,
@@ -54,6 +55,10 @@ impl<T: PrimitiveTopology + 'static> Geometry for GPUGeometry<T> {
     } else {
       panic!("geometry not prepared")
     }
+  }
+
+  fn get_draw_range(&self) -> Range<u32> {
+    0..self.geometry.get_full_count()
   }
 }
 

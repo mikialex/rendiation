@@ -144,9 +144,15 @@ impl Scene {
     // prepare render list;
     let mut render_list = self.render_list.borrow_mut();
     render_list.clear();
-    self.get_root().traverse(self, |node|{
-      render_list.push(node.get_id());
-    });
+    for (index, n) in &self.nodes {
+      if n.render_objects.len() > 0 {
+        render_list.push(index);
+      }
+    }
+    // todo
+    // self.get_root().traverse(self, |node|{
+    //   render_list.push(node.get_id());
+    // });
   }
 
   pub fn render(

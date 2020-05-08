@@ -1,4 +1,5 @@
 use crate::{viewport::*, WGPUBindGroup, WGPUBuffer, WGPUPipeline};
+use std::ops::Range;
 
 pub struct WGPURenderPass<'a> {
   pub gpu_pass: wgpu::RenderPass<'a>,
@@ -27,6 +28,10 @@ impl<'a> WGPURenderPass<'a> {
       buffers.iter().map(|b| (b.get_gpu_buffer(), 0)).collect(); // todo use small vec opt
     self.gpu_pass.set_vertex_buffers(0, &mapped_buffers);
     self
+  }
+
+  pub fn draw_indexed(&mut self, index_range: Range<u32>) {
+    self.gpu_pass.draw_indexed(index_range, 0, 0..1);
   }
 }
 

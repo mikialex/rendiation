@@ -1,11 +1,12 @@
 use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPURenderer};
 use generational_arena::{Arena, Index};
-use std::any::Any;
+use std::{ops::Range, any::Any};
 
 pub trait Geometry: Any {
   fn update_gpu(&mut self, renderer: &mut WGPURenderer);
   fn get_gpu_index_buffer(&self) -> &WGPUBuffer;
   fn get_gpu_vertex_buffer(&self) -> &[WGPUBuffer];
+  fn get_draw_range(&self) -> Range<u32>;
 }
 
 // maybe not need trait now
