@@ -1,7 +1,7 @@
 use crate::vox::chunk::*;
 use rendiation_math::Vec3;
 
-pub fn query_point_in_chunk(point: &Vec3<f32>) -> (i32, i32) {
+pub fn query_point_in_chunk(point: Vec3<f32>) -> (i32, i32) {
   let x = (point.x / CHUNK_ABS_WIDTH).floor() as i32;
   let z = (point.z / CHUNK_ABS_WIDTH).floor() as i32;
   (x, z)

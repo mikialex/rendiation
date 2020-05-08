@@ -28,7 +28,6 @@ pub struct OrbitController {
   view_width: f32,
   view_height: f32,
 
-  need_update: bool,
 }
 
 impl OrbitController {
@@ -57,7 +56,6 @@ impl OrbitController {
       view_width: 1000.,
       view_height: 1000.,
 
-      need_update: true,
     }
   }
 
@@ -66,12 +64,10 @@ impl OrbitController {
     offset *= self.spherical.radius * self.pan_factor;
     self.pan_offset.x += offset.x;
     self.pan_offset.z += offset.y;
-    self.need_update = true;
   }
 
   pub fn zoom(&mut self, factor: f32) {
     self.zooming = 1. + (factor - 1.) * self.zoom_factor;
-    self.need_update = true;
   }
 
   pub fn rotate(&mut self, offset: Vec2<f32>) {
@@ -79,39 +75,35 @@ impl OrbitController {
       offset.y / self.view_height * std::f32::consts::PI * self.rotate_angle_factor;
     self.spherical_delta.azim +=
       offset.x / self.view_width * std::f32::consts::PI * self.rotate_angle_factor;
-    self.need_update = true;
   }
 }
 
 impl<T: TransformedObject> Controller<T> for OrbitController {
-  fn update(&mut self, target: &mut T) {
+  fn update(&mut self, target: &mut T) -> bool {
 
-    if self.spherical_delta.azim.abs() > 0.0001
-      || self.spherical_delta.polar.abs() > 0.0001
-      || self.spherical_delta.radius.abs() > 0.0001
-      || (self.zooming - 1.).abs() > 0.0001
-      || self.pan_offset.length2() > 0.000_000_1
+    if self.spherical_delta.azim.abs() < 0.0001
+      && self.spherical_delta.polar.abs() < 0.0001
+      && self.spherical_delta.radius.abs() < 0.0001
+      && (self.zooming - 1.).abs() < 0.0001
+      && self.pan_offset.length2() < 0.000_000_1
     {
-      self.need_update = true;
+      return false;
     }
 
-    if self.need_update {
-      self.spherical.radius *= self.zooming;
+    self.spherical.radius *= self.zooming;
 
-      self.spherical.azim += self.spherical_delta.azim;
+    self.spherical.azim += self.spherical_delta.azim;
 
-      self.spherical.polar = (self.spherical.polar + self.spherical_delta.polar)
-        .max(self.min_polar_angle)
-        .min(self.max_polar_angle);
+    self.spherical.polar = (self.spherical.polar + self.spherical_delta.polar)
+      .max(self.min_polar_angle)
+      .min(self.max_polar_angle);
 
-      self.spherical.center += self.pan_offset;
+    self.spherical.center += self.pan_offset;
 
-      let transform = target.get_transform_mut();
-      let eye = self.spherical.to_vec3();
-      transform.matrix = Mat4::lookat(eye, self.spherical.center, Vec3::unit_y());
-      transform.position = eye; // todo;
-    }
-    self.need_update = false;
+    let transform = target.get_transform_mut();
+    let eye = self.spherical.to_vec3();
+    transform.matrix = Mat4::lookat(eye, self.spherical.center, Vec3::unit_y());
+    transform.position = eye; // todo;
 
     // update damping effect
     if self.enable_damping {
@@ -124,5 +116,6 @@ impl<T: TransformedObject> Controller<T> for OrbitController {
       self.zooming = 1.;
       self.pan_offset = Vec3::zero();
     }
+    true
   }
 }

@@ -3,14 +3,63 @@ use crate::geometry::standard_geometry::StandardGeometry;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::render_pass::WGPURenderPass;
 use crate::renderer::WGPURenderer;
-use crate::vertex::Vertex;
+use crate::{scene::resource::Geometry, vertex::Vertex};
+use std::ops::Range;
 
 pub struct GPUGeometry<T: PrimitiveTopology = TriangleList> {
   geometry: StandardGeometry<T>,
   data_changed: bool,
   index_changed: bool,
-  gpu_data: Option<WGPUBuffer>,
+  gpu_data: Option<[WGPUBuffer; 1]>,
   gpu_index: Option<WGPUBuffer>,
+}
+
+impl<T: PrimitiveTopology + 'static> Geometry for GPUGeometry<T> {
+  fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
+    if let Some(gpu_data) = &mut self.gpu_data {
+      if self.data_changed {
+        gpu_data[0].update(renderer, &self.geometry.data);
+      }
+    } else {
+      self.gpu_data = Some([WGPUBuffer::new(
+        renderer,
+        &self.geometry.data,
+        wgpu::BufferUsage::VERTEX,
+      )])
+    }
+
+    if let Some(gpu_index) = &mut self.gpu_index {
+      if self.index_changed {
+        gpu_index.update(renderer, &self.geometry.index);
+      }
+    } else {
+      self.gpu_index = Some(WGPUBuffer::new(
+        renderer,
+        &self.geometry.index,
+        wgpu::BufferUsage::INDEX,
+      ))
+    }
+  }
+
+  fn get_gpu_index_buffer(&self) -> &WGPUBuffer {
+    if let Some(gpu_index) = &self.gpu_index {
+      gpu_index
+    } else {
+      panic!("geometry not prepared")
+    }
+  }
+
+  fn get_gpu_vertex_buffer(&self) -> &[WGPUBuffer] {
+    if let Some(gpu_data) = &self.gpu_data {
+      gpu_data
+    } else {
+      panic!("geometry not prepared")
+    }
+  }
+
+  fn get_draw_range(&self) -> Range<u32> {
+    0..self.geometry.get_full_count()
+  }
 }
 
 impl<T: PrimitiveTopology> From<StandardGeometry<T>> for GPUGeometry<T> {
@@ -45,14 +94,14 @@ impl GPUGeometry {
   pub fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
     if let Some(gpu_data) = &mut self.gpu_data {
       if self.data_changed {
-        gpu_data.update(renderer, &self.geometry.data);
+        gpu_data[0].update(renderer, &self.geometry.data);
       }
     } else {
-      self.gpu_data = Some(WGPUBuffer::new(
+      self.gpu_data = Some([WGPUBuffer::new(
         renderer,
         &self.geometry.data,
         wgpu::BufferUsage::VERTEX,
-      ))
+      )])
     }
 
     if let Some(gpu_index) = &mut self.gpu_index {
@@ -72,7 +121,7 @@ impl GPUGeometry {
     if let Some(gpu_data) = &self.gpu_data {
       pass
         .gpu_pass
-        .set_vertex_buffers(0, &[(gpu_data.get_gpu_buffer(), 0)]);
+        .set_vertex_buffers(0, &[(gpu_data[0].get_gpu_buffer(), 0)]);
     } else {
       panic!("geometry not prepared")
     }

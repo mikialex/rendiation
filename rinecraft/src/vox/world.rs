@@ -2,17 +2,29 @@ use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::*;
 use crate::vox::util::*;
-use crate::vox::world_machine::*;
+use crate::{
+  shading::{create_block_shading, BlockShadingParamGroup},
+  util::CameraGPU,
+  vox::world_machine::*,
+};
 use rendiation::*;
 use rendiation_math::*;
+use scene::scene::Scene;
 use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 pub struct World {
   pub world_machine: WorldMachineImpl,
   pub chunk_visible_distance: usize,
   pub chunks: HashMap<(i32, i32), Chunk>,
   pub chunk_geometry_update_set: HashSet<(i32, i32)>,
+  scene_data: Option<WorldSceneAttachment>,
+}
+
+struct WorldSceneAttachment {
+  root_node_index: Index,
+  block_shading: Index,
+  blocks: BTreeMap<(i32, i32), (Index, Index, Index)>, // node, render_object, geometry
 }
 
 impl World {
@@ -23,7 +35,50 @@ impl World {
       chunks,
       chunk_geometry_update_set: HashSet::new(),
       world_machine: WorldMachineImpl::new(),
+      scene_data: None,
     }
+  }
+
+  pub fn attach_scene(
+    &mut self,
+    scene: &mut Scene,
+    renderer: &mut WGPURenderer,
+    camera_gpu: &CameraGPU,
+  ) {
+    if self.scene_data.is_some() {
+      return;
+    }
+
+    let mut block_shading = create_block_shading(renderer);
+
+    let block_atlas = self.world_machine.get_block_atlas(renderer);
+    let sampler = WGPUSampler::new(renderer);
+
+    let shading_params = BlockShadingParamGroup {
+      texture_view: &block_atlas.view(),
+      sampler: &sampler,
+      u_mvp_matrix: &camera_gpu.gpu_mvp_matrix,
+      u_camera_world_position: &camera_gpu.gpu_camera_position,
+    }
+    .create_bindgroup(renderer);
+
+    let bindgroup_index = scene.resources.add_bindgroup(shading_params);
+    block_shading.set_bindgroup(bindgroup_index);
+
+    let block_shading = scene.resources.add_shading(block_shading);
+
+    let root_node_index = scene.create_new_node().get_id();
+
+    self.scene_data = Some(WorldSceneAttachment {
+      root_node_index,
+      block_shading,
+      blocks: BTreeMap::new(),
+    })
+  }
+
+  pub fn detach_scene(&mut self) {
+    // free the resource in scene
+    todo!()
   }
 
   pub fn assure_chunk(
@@ -40,8 +95,11 @@ impl World {
     exist
   }
 
-  pub fn update(&mut self, renderer: &mut WGPURenderer, view_position: &Vec3<f32>) {
-    let stand_point_chunk = query_point_in_chunk(view_position);
+  pub fn update(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene) {
+    let camera = scene.get_active_camera_mut();
+    let camera_position = camera.get_transform().matrix.position();
+
+    let stand_point_chunk = query_point_in_chunk(camera_position);
     let x_low = stand_point_chunk.0 - self.chunk_visible_distance as i32;
     let x_high = stand_point_chunk.0 + self.chunk_visible_distance as i32;
     let z_low = stand_point_chunk.1 - self.chunk_visible_distance as i32;
@@ -52,12 +110,15 @@ impl World {
         if !World::assure_chunk(&mut self.world_machine, &mut self.chunks, (x, z)) {
           create_list.push((x, z));
         }
-        if self.chunks.get(&(x, z)).unwrap().geometry.is_none() {
-          create_list.push((x, z));
+        if let Some(scene_data) = &mut self.scene_data {
+          if !scene_data.blocks.contains_key(&(x, z)){
+            create_list.push((x, z));
+          }
         }
       }
     }
 
+    // dispatch change to adjacent chunk
     for chunk_key in create_list {
       self.chunk_geometry_update_set.insert(chunk_key);
       World::assure_chunk(
@@ -82,13 +143,39 @@ impl World {
       );
     }
 
-    for chunk_to_update_key in &self.chunk_geometry_update_set {
-      self.chunks.get_mut(&chunk_to_update_key).unwrap().geometry = Some(Chunk::create_geometry(
-        &self.world_machine,
-        &self.chunks,
-        *chunk_to_update_key,
-        renderer,
-      ))
+    // sync change to scene
+    if let Some(scene_data) = &mut self.scene_data {
+      for chunk_to_update_key in &self.chunk_geometry_update_set {
+        // remove node in scene;
+        if let Some((node_index, render_object_index, geometry_index)) =
+          scene_data.blocks.get(chunk_to_update_key)
+        {
+          scene.free_node(*node_index);
+          scene.delete_render_object(*render_object_index);
+          scene.resources.delete_geometry(*geometry_index);
+          scene_data.blocks.remove(chunk_to_update_key);
+        }
+
+        // add new node in scene;
+        let geometry = Chunk::create_geometry(
+          &self.world_machine,
+          &self.chunks,
+          *chunk_to_update_key,
+          renderer,
+        );
+
+        let geometry_index = scene.resources.add_geometry(geometry);
+        let render_object_index =
+          scene.create_render_object(geometry_index, scene_data.block_shading);
+        let new_node = scene.create_new_node();
+        new_node.add_render_object(render_object_index);
+        let node_index = new_node.get_id();
+
+        scene_data.blocks.insert(
+          *chunk_to_update_key,
+          (node_index, render_object_index, geometry_index),
+        );
+      }
     }
     self.chunk_geometry_update_set.clear();
   }
@@ -125,14 +212,6 @@ impl World {
       }
     } else {
       true // top bottom world of world
-    }
-  }
-
-  pub fn render(&self, pass: &mut WGPURenderPass) {
-    for (_key, chunk) in &self.chunks {
-      if let Some(geometry) = &chunk.geometry {
-        geometry.render(pass);
-      }
     }
   }
 

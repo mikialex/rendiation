@@ -49,7 +49,7 @@ vec3 sphericalHarmonics(const in vec3 normal )
 // https://docs.microsoft.com/en-us/windows/win32/direct3d9/fog-formulas
 
 const float density = 1.0;
-const vec3 fog_color = vec3(1.0, 1.0, 1.0);
+const vec3 fog_color = vec3(0.1, 0.2, 0.3);
 
 const float fog_end = 60.0;
 const float fog_start = 30.0;
@@ -60,14 +60,15 @@ void main() {
     // distance = distance  / 100000.; // far plane
     // float effect = exp(-density * distance);
 
-    float effect = clamp(0.0, 1.0, (fog_end - distance) / (fog_end - fog_start));
+    float effect = clamp((fog_end - distance) / (fog_end - fog_start), 0.0, 1.0);
 
     
 
     vec3 diffuse = texture(sampler2D(t_Color, s_Color), v_uv).rgb;
     vec3 color = diffuse * sphericalHarmonics(v_normal);
 
-    color = effect * color + (1.0-effect) * fog_color;
+    // color = effect * color + (1.0-effect) * fog_color;
+    color = mix(color, fog_color, 1.0 - effect);
     o_color = vec4(color, 1.0);
 
 }

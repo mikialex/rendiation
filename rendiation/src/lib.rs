@@ -13,4 +13,6 @@ pub use geometry::*;
 pub use viewport::*;
 // pub use texture::*;
 
+// reexport core dependency
 pub use wgpu::*;
+pub use generational_arena::*;

@@ -1,4 +1,5 @@
 use super::scene::Scene;
+use crate::WGPURenderPass;
 use generational_arena::Index;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
@@ -7,6 +8,7 @@ pub struct SceneNode {
   self_id: Index,
   parent: Option<Index>,
   children: Vec<Index>,
+  pub render_objects: Vec<Index>,
 }
 
 impl SceneNode {
@@ -15,6 +17,7 @@ impl SceneNode {
       self_id: Index::from_raw_parts(0, 0), // later
       parent: None,
       children: Vec::new(),
+      render_objects: Vec::new(),
     }
   }
 
@@ -23,7 +26,15 @@ impl SceneNode {
     self
   }
 
-  pub fn traverse(&self, scene: &mut Scene, mut visitor: impl FnMut(&SceneNode)) {
+  pub fn get_id(&self) -> Index {
+    self.self_id
+  }
+
+  pub fn add_render_object(&mut self, id: Index) {
+    self.render_objects.push(id)
+  }
+
+  pub fn traverse(&self, scene: &Scene, mut visitor: impl FnMut(&SceneNode)) {
     let mut visit_stack: Vec<Index> = Vec::new();
     visit_stack.push(self.self_id);
 
@@ -63,8 +74,26 @@ pub trait TransformLocalWorld {
 }
 
 pub struct RenderObject {
-  shading_index: Index,
-  geometry_index: Index,
+  pub shading_index: Index,
+  pub geometry_index: Index,
+}
+
+impl RenderObject {
+  pub fn render(&self, pass: &mut WGPURenderPass, scene: &Scene) {
+    let shading = scene.resources.get_shading(self.shading_index);
+    let geometry = scene.resources.get_geometry(self.geometry_index);
+
+    pass.set_pipeline(shading.get_gpu_pipeline());
+    pass.set_index_buffer(geometry.get_gpu_index_buffer());
+    pass.set_vertex_buffers(geometry.get_gpu_vertex_buffer());
+
+    for i in 0..shading.get_bindgroup_count() {
+      let bindgroup = scene.resources.get_bindgroup(shading.get_bindgroup(i));
+      pass.set_bindgroup(i, bindgroup);
+    }
+
+    pass.draw_indexed(geometry.get_draw_range())
+  }
 }
 
 pub struct RenderData {
@@ -85,9 +114,4 @@ impl RenderData {
       camera_distance: 0.,
     }
   }
-}
-
-pub struct ResourceManager {
-  // shadings
-// geometries
 }

@@ -10,7 +10,7 @@ pub struct FPSController {
   max_polar_angle: f32,
   min_polar_angle: f32,
 
-  x_motion: f32, 
+  x_motion: f32,
   y_motion: f32,
   motion_rate: f32,
 
@@ -29,7 +29,7 @@ impl FPSController {
       max_polar_angle: 179. / 180. * std::f32::consts::PI,
       min_polar_angle: 0.01,
 
-      x_motion: 0., 
+      x_motion: 0.,
       y_motion: 0.,
       motion_rate: 0.1,
 
@@ -44,7 +44,7 @@ impl FPSController {
 }
 
 impl<T: TransformedObject> Controller<T> for FPSController {
-  fn update(&mut self, target: &mut T) {
+  fn update(&mut self, target: &mut T) -> bool {
     let mut mat = target.get_transform_mut().matrix;
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);
 
@@ -71,10 +71,16 @@ impl<T: TransformedObject> Controller<T> for FPSController {
     let position_new = mat.position() + position_move;
 
     self.spherical.polar = (self.spherical.polar + self.y_motion * self.motion_rate)
-    .max(self.min_polar_angle)
-    .min(self.max_polar_angle);
+      .max(self.min_polar_angle)
+      .min(self.max_polar_angle);
     self.spherical.azim -= self.x_motion * self.motion_rate;
 
-    mat = Mat4::lookat(position_new, position_new + self.spherical.to_vec3(), Vec3::unit_y());
+    mat = Mat4::lookat(
+      position_new,
+      position_new + self.spherical.to_vec3(),
+      Vec3::unit_y(),
+    );
+
+    true
   }
 }
