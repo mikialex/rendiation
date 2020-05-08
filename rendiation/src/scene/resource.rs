@@ -23,11 +23,15 @@ pub struct Shading {
 }
 
 impl Shading {
-  pub fn new(pipeline: WGPUPipeline, bindgroup_indices: Vec<Index>) -> Self {
+  pub fn new(pipeline: WGPUPipeline) -> Self {
     Self {
       pipeline,
-      bindgroup_indices,
+      bindgroup_indices: Vec::new(),
     }
+  }
+
+  pub fn set_bindgroup(&mut self, index: Index) {
+    self.bindgroup_indices.push(index);
   }
 
   pub fn get_gpu_pipeline(&self) -> &WGPUPipeline {

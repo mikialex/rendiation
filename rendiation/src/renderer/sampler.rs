@@ -1,3 +1,5 @@
+use crate::WGPURenderer;
+
 /// webgpu sampler wrapper
 pub struct WGPUSampler {
   gpu_sampler: wgpu::Sampler,
@@ -47,7 +49,7 @@ impl WGPUSamplerBuilder {
 }
 
 impl WGPUSampler {
-  pub fn new(device: &wgpu::Device) -> Self {
+  pub fn new(renderer: &WGPURenderer) -> Self {
     let des = wgpu::SamplerDescriptor {
       address_mode_u: wgpu::AddressMode::ClampToEdge,
       address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -59,7 +61,7 @@ impl WGPUSampler {
       lod_max_clamp: 100.0,
       compare_function: wgpu::CompareFunction::Always,
     };
-    let sampler = device.create_sampler(&des);
+    let sampler = renderer.device.create_sampler(&des);
 
     Self {
       gpu_sampler: sampler,

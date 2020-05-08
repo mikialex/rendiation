@@ -2,7 +2,11 @@ use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::*;
 use crate::vox::util::*;
-use crate::{shading::BlockShading, vox::world_machine::*};
+use crate::{
+  shading::{create_block_shading, BlockShadingParamGroup},
+  util::CameraGPU,
+  vox::world_machine::*,
+};
 use rendiation::*;
 use rendiation_math::*;
 use scene::scene::Scene;
@@ -35,12 +39,31 @@ impl World {
     }
   }
 
-  pub fn attach_scene(&mut self, scene: &mut Scene, renderer: &mut WGPURenderer) {
+  pub fn attach_scene(
+    &mut self,
+    scene: &mut Scene,
+    renderer: &mut WGPURenderer,
+    camera_gpu: &CameraGPU,
+  ) {
     if self.scene_data.is_some() {
       return;
     }
 
-    let block_shading = BlockShading::new(renderer);
+    let mut block_shading = create_block_shading(renderer);
+
+    let block_atlas = self.world_machine.get_block_atlas(renderer);
+    let sampler = WGPUSampler::new(renderer);
+    let shading_params = BlockShadingParamGroup {
+      texture_view: &block_atlas.view(),
+      sampler: &sampler,
+      u_mvp_matrix: &camera_gpu.gpu_mvp_matrix,
+      u_camera_world_position: &camera_gpu.gpu_camera_position,
+    }
+    .create_bindgroup(renderer);
+
+    let bindgroup_index = scene.resources.add_bindgroup(shading_params);
+    block_shading.set_bindgroup(bindgroup_index);
+
     let block_shading = scene.resources.add_shading(block_shading);
 
     let root_node_index = scene.create_new_node().get_id();
@@ -71,13 +94,7 @@ impl World {
     exist
   }
 
-  pub fn update(
-    &mut self,
-    renderer: &mut WGPURenderer,
-    scene: &mut Scene,
-  ) {
-    self.attach_scene(scene, renderer);
-
+  pub fn update(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene) {
     let camera = scene.get_active_camera_mut();
     let camera_position = camera.get_transform().matrix.position();
 
@@ -123,7 +140,6 @@ impl World {
     // sync change to scene
     if let Some(scene_data) = &mut self.scene_data {
       for chunk_to_update_key in &self.chunk_geometry_update_set {
-
         // remove node in scene;
         if let Some((node_index, render_object_index, geometry_index)) =
           scene_data.blocks.get(chunk_to_update_key)
@@ -141,7 +157,7 @@ impl World {
           *chunk_to_update_key,
           renderer,
         );
-        
+
         let geometry_index = scene.resources.add_geometry(geometry);
         let render_object_index =
           scene.create_render_object(geometry_index, scene_data.block_shading);

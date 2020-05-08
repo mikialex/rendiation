@@ -165,7 +165,7 @@ impl BlockRegistry {
 
     let mut quad = GPUGeometry::from(Quad.create_mesh());
     quad.update_gpu(renderer);
-    let sampler = WGPUSampler::new(&renderer.device);
+    let sampler = WGPUSampler::new(renderer);
     let target_texture = WGPUTexture::new_as_target(&renderer, (64, 64));
 
     {

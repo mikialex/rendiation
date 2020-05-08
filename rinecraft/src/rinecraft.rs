@@ -1,5 +1,3 @@
-use crate::shading::BlockShading;
-use crate::shading::BlockShadingParamGroup;
 use crate::util::*;
 use crate::vox::world::World;
 use rendiation::renderer::SwapChain;
@@ -17,7 +15,6 @@ pub struct RinecraftState {
   pub window_state: WindowState,
   pub scene: Scene,
   pub camera_gpu: CameraGPU,
-  // pub camera: GPUPair<PerspectiveCamera, WGPUBuffer>,
   // pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
   pub fps_controller: FPSController,
@@ -25,8 +22,6 @@ pub struct RinecraftState {
   pub viewport: Viewport,
   pub cube: GPUGeometry,
   pub world: World,
-  pub shading: BlockShading,
-  pub shading_params: WGPUBindGroup,
   pub depth: WGPUTexture,
   pub gui: GUI,
 }
@@ -49,14 +44,9 @@ impl Application for Rinecraft {
       swap_chain.size,
     );
 
-    let shading = BlockShading::new(renderer);
-
     // Create the vertex and index buffers
     let mut cube = GPUGeometry::from(create_vertices());
     cube.update_gpu(renderer);
-
-    // Create other resources
-    let sampler = WGPUSampler::new(&renderer.device);
 
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
@@ -66,15 +56,9 @@ impl Application for Rinecraft {
     let mut camera_gpu = CameraGPU::new(renderer, &camera);
     camera_gpu.update_all(renderer, &camera);
 
-    let shading_params = BlockShadingParamGroup {
-      texture_view: &block_atlas.view(),
-      sampler: &sampler,
-      u_mvp_matrix: &camera_gpu.gpu_mvp_matrix,
-      u_camera_world_position: &camera_gpu.gpu_camera_position,
-    }
-    .create_bindgroup(renderer);
-
     scene.set_new_active_camera(camera);
+
+    world.attach_scene(&mut scene, renderer, &camera_gpu);
 
     let viewport = Viewport::new(swap_chain.size);
 
@@ -165,8 +149,6 @@ impl Application for Rinecraft {
         orbit_controller: OrbitController::new(),
         fps_controller: FPSController::new(),
         controller_listener_handle: Vec::new(),
-        shading,
-        shading_params,
         depth,
         gui,
       },
