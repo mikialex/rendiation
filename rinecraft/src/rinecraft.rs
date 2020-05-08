@@ -71,6 +71,7 @@ impl Application for Rinecraft {
         .get_active_camera_mut_downcast::<PerspectiveCamera>()
         .resize(size);
       // state.camera_orth.resize(size);
+      state.camera_gpu.mark_dirty();
       state.gui.renderer.resize(size, renderer);
     });
 
@@ -87,7 +88,9 @@ impl Application for Rinecraft {
       let camera = state
         .scene
         .get_active_camera_mut_downcast::<PerspectiveCamera>();
-      state.orbit_controller.update(camera);
+      if state.orbit_controller.update(camera) {
+        state.camera_gpu.mark_dirty();
+      }
       state.camera_gpu.update_all(renderer, camera);
 
       state.world.update(renderer, &mut state.scene);

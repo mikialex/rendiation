@@ -53,6 +53,7 @@ impl World {
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::new(renderer);
+    
     let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),
       sampler: &sampler,
