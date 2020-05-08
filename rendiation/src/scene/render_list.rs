@@ -2,7 +2,7 @@ use super::scene::Scene;
 use generational_arena::Index;
 
 pub struct RenderList {
-  pub render_objects: Vec<usize>,
+  pub render_objects: Vec<Index>,
 }
 
 impl RenderList {
@@ -12,12 +12,13 @@ impl RenderList {
     }
   }
 
-  pub fn build(&mut self, scene: &Scene) -> &mut Self {
+  pub fn clear(&mut self) -> &mut Self{
+    self.render_objects.clear();
     self
   }
 
-  pub fn push(&mut self, index: Index) -> &mut Self {
-    self.render_objects.push(index.into_raw_parts().0);
+  pub fn push(&mut self, node_index: Index) -> &mut Self {
+    self.render_objects.push(node_index);
     self
   }
 
@@ -25,14 +26,10 @@ impl RenderList {
     self.render_objects.len()
   }
 
-  pub fn clear(&mut self) {
-    self.render_objects.clear();
-  }
-
   pub fn sort_for_opaque(&mut self, scene: &Scene) {
     self.render_objects.sort_unstable_by(|a, b| {
-      let (a_render_data, _) = scene.nodes_render_data.get_unknown_gen(*a).unwrap();
-      let (b_render_data, _) = scene.nodes_render_data.get_unknown_gen(*b).unwrap();
+      let a_render_data = scene.nodes_render_data.get(*a).unwrap();
+      let b_render_data = scene.nodes_render_data.get(*b).unwrap();
 
       // near to far;
       a_render_data
@@ -44,8 +41,8 @@ impl RenderList {
 
   pub fn sort_for_transparent(&mut self, scene: &Scene) {
     self.render_objects.sort_unstable_by(|a, b| {
-      let (a_render_data, _) = scene.nodes_render_data.get_unknown_gen(*a).unwrap();
-      let (b_render_data, _) = scene.nodes_render_data.get_unknown_gen(*b).unwrap();
+      let a_render_data = scene.nodes_render_data.get(*a).unwrap();
+      let b_render_data = scene.nodes_render_data.get(*b).unwrap();
 
       // far to near;
       b_render_data

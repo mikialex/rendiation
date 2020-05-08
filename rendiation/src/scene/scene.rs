@@ -8,6 +8,7 @@ use super::{
 use crate::{GPUGeometry, WGPURenderPass, WGPURenderer, WGPUTexture};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
+use std::cell::RefCell;
 
 pub trait Renderable {
   fn prepare(&mut self, renderer: &mut WGPURenderer, scene: &mut ScenePrepareCtx);
@@ -28,9 +29,10 @@ pub struct Scene {
   renderables_dynamic: Arena<Box<dyn Renderable>>,
   pub resources: ResourceManager,
 
-  render_list: RenderList,
+  pub render_list: RefCell<RenderList>,
   culler: Culler,
 }
+
 
 impl Scene {
   pub fn new() -> Self {
@@ -57,7 +59,7 @@ impl Scene {
       nodes_render_data,
       renderables_dynamic: Arena::new(),
       resources: ResourceManager::new(),
-      render_list: RenderList::new(),
+      render_list: RefCell::new(RenderList::new()),
       culler: Culler::new(),
     }
   }
@@ -89,6 +91,10 @@ impl Scene {
 
   pub fn get_node(&self, index: Index) -> &SceneNode {
     self.nodes.get(index).unwrap()
+  }
+
+  pub fn get_root(&self) -> &SceneNode {
+    self.nodes.get(self.root).unwrap()
   }
 
   pub fn get_node_mut(&mut self, index: Index) -> &mut SceneNode {
@@ -131,11 +137,16 @@ impl Scene {
       .iter_mut()
       .for_each(|(_, renderable)| {
         renderable.prepare(renderer, &mut ctx);
-      })
+      });
 
     // todo hierarchy updating;
 
-    // todo prepare render list;
+    // prepare render list;
+    let mut render_list = self.render_list.borrow_mut();
+    render_list.clear();
+    self.get_root().traverse(self, |node|{
+      render_list.push(node.get_id());
+    });
   }
 
   pub fn render(
@@ -151,8 +162,8 @@ impl Scene {
 
     // pass.use_viewport(&state.viewport);
 
-    for node_id in &self.render_list.render_objects {
-      let (node, _) = self.nodes.get_unknown_gen(*node_id).unwrap();
+    for node_id in &self.render_list.borrow().render_objects {
+      let node = self.nodes.get(*node_id).unwrap();
       for render_obj_id in &node.render_objects {
         let render_obj = self.render_objects.get(*render_obj_id).unwrap();
         render_obj.render(&mut pass, self);
