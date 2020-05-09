@@ -1,10 +1,11 @@
 use rendiation_math_entity::Frustum;
 use rendiation_render_entity::Camera;
 use super::{scene::Scene, render_list::RenderList};
+use crate::Index;
 
 pub struct Culler {
   frustum: Frustum,
-  enable_frustum_culling: bool,
+  pub enable_frustum_culling: bool,
 }
 
 impl Culler {
@@ -21,9 +22,16 @@ impl Culler {
     self
   }
 
-  pub fn execute_culling(&self, render_list: &mut RenderList, scene: &Scene){
+  pub fn test_is_visible(&self, node_id: Index, scene: &Scene) -> bool{
+    let render_data = scene.nodes_render_data.get(node_id).unwrap();
     if self.enable_frustum_culling {
-      todo!()
+      if let Some(bounding) = &render_data.world_bounding {
+        if !bounding.if_intersect_frustum(&self.frustum){
+          return false
+        }
+      }
     }
+    true
   }
+
 }

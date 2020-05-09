@@ -1,9 +1,9 @@
 use rendiation::*;
 
 use rendiation_marco::BindGroup;
-use scene::resource::Shading;
+use scene::resource::SceneShading;
 
-pub fn create_block_shading(renderer: &WGPURenderer) -> Shading {
+pub fn create_block_shading(renderer: &WGPURenderer) -> SceneShading {
   let mut pipeline_builder = StaticPipelineBuilder::new(
     renderer,
     include_str!("./block.vert"),
@@ -15,7 +15,7 @@ pub fn create_block_shading(renderer: &WGPURenderer) -> Shading {
     .to_screen_target()
     .with_default_depth()
     .build();
-  Shading::new(pipeline)
+  SceneShading::new(pipeline)
 }
 
 #[derive(BindGroup)]

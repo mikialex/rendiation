@@ -169,7 +169,7 @@ impl<'a> StaticPipelineBuilder<'a> {
   }
 }
 
-trait Shading {
+trait SceneShading {
   fn new(pipeline: WGPUPipeline) -> Self;
 }
 

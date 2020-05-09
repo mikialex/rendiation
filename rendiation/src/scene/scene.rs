@@ -29,10 +29,10 @@ pub struct Scene {
   renderables_dynamic: Arena<Box<dyn Renderable>>,
   pub resources: ResourceManager,
 
-  pub render_list: RefCell<RenderList>,
+  scene_raw_list: RefCell<RenderList>,
+  culled_list: RefCell<RenderList>,
   culler: Culler,
 }
-
 
 impl Scene {
   pub fn new() -> Self {
@@ -59,7 +59,8 @@ impl Scene {
       nodes_render_data,
       renderables_dynamic: Arena::new(),
       resources: ResourceManager::new(),
-      render_list: RefCell::new(RenderList::new()),
+      scene_raw_list: RefCell::new(RenderList::new()),
+      culled_list: RefCell::new(RenderList::new()),
       culler: Culler::new(),
     }
   }
@@ -142,7 +143,7 @@ impl Scene {
     // todo hierarchy updating;
 
     // prepare render list;
-    let mut render_list = self.render_list.borrow_mut();
+    let mut render_list = self.scene_raw_list.borrow_mut();
     render_list.clear();
     for (index, n) in &self.nodes {
       if n.render_objects.len() > 0 {
@@ -168,12 +169,27 @@ impl Scene {
 
     // pass.use_viewport(&state.viewport);
 
-    for node_id in &self.render_list.borrow().render_objects {
+    for node_id in &self.scene_raw_list.borrow().render_objects {
       let node = self.nodes.get(*node_id).unwrap();
       for render_obj_id in &node.render_objects {
         let render_obj = self.render_objects.get(*render_obj_id).unwrap();
         render_obj.render(&mut pass, self);
       }
+    }
+  }
+
+  pub fn execute_culling(&mut self) {
+    let from = self.scene_raw_list.borrow_mut();
+    let mut to = self.culled_list.borrow_mut();
+    to.clear();
+
+    for node_id in &from.render_objects {
+      // let node = self.nodes.get(*node_id).unwrap();
+      // for render_obj_id in &node.render_objects {
+      if self.culler.test_is_visible(*node_id, self) {
+        to.push(*node_id);
+      }
+      // }
     }
   }
 }

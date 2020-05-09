@@ -11,19 +11,19 @@ pub trait Geometry: Any {
 
 // maybe not need trait now
 
-// pub trait Shading: Any {
+// pub trait SceneShading: Any {
 //   fn get_gpu_pipeline(&self) -> &WGPUPipeline;
 //   fn get_bindgroup_count(&self) -> usize;
 //   fn get_bindgroup(&self, index: usize) -> Index;
 // }
 
-pub struct Shading {
+pub struct SceneShading {
   pipeline: WGPUPipeline,
   bindgroup_indices: Vec<Index>,
   // geometry_type
 }
 
-impl Shading {
+impl SceneShading {
   pub fn new(pipeline: WGPUPipeline) -> Self {
     Self {
       pipeline,
@@ -52,7 +52,7 @@ impl Shading {
 
 pub struct ResourceManager {
   geometries: Arena<Box<dyn Geometry>>,
-  shadings: Arena<Shading>,
+  shadings: Arena<SceneShading>,
   bindgroups: Arena<WGPUBindGroup>,
 }
 
@@ -81,15 +81,15 @@ impl ResourceManager {
     self.geometries.remove(index);
   }
 
-  pub fn add_shading(&mut self, shading: Shading) -> Index {
+  pub fn add_shading(&mut self, shading: SceneShading) -> Index {
     self.shadings.insert(shading)
   }
 
-  pub fn get_shading_mut(&mut self, index: Index) -> &mut Shading {
+  pub fn get_shading_mut(&mut self, index: Index) -> &mut SceneShading {
     self.shadings.get_mut(index).unwrap()
   }
 
-  pub fn get_shading(&self, index: Index) -> &Shading {
+  pub fn get_shading(&self, index: Index) -> &SceneShading {
     self.shadings.get(index).unwrap()
   }
 
