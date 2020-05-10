@@ -1,3 +1,4 @@
+use render_target::RenderTarget;
 use rendiation::*;
 use rendiation_marco::BindGroup;
 
@@ -15,17 +16,17 @@ pub struct QuadShadingParam<'a> {
 }
 
 impl QuadShading {
-  pub fn new(renderer: &WGPURenderer, target: &WGPUTexture) -> Self {
-    let mut pipeline_builder = StaticPipelineBuilder::new(
+  pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
+    let pipeline = StaticPipelineBuilder::new(
       renderer,
       include_str!("./quad.vert"),
       include_str!("./quad.frag"),
-    );
-    let pipeline = pipeline_builder
-      .geometry::<StandardGeometry>()
-      .binding_group::<QuadShadingParam>()
-      .to_color_target(target)
-      .build();
+    )
+    .as_mut()
+    .geometry::<StandardGeometry>()
+    .binding_group::<QuadShadingParam>()
+    .target_states(target.create_target_states().as_ref())
+    .build();
     Self { pipeline }
   }
 }
@@ -35,22 +36,23 @@ pub struct CopyShading {
 }
 
 impl CopyShading {
-  pub fn new(renderer: &WGPURenderer) -> Self {
-    let mut pipeline_builder = StaticPipelineBuilder::new(
+  pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
+    let pipeline = StaticPipelineBuilder::new(
       renderer,
       include_str!("./copy.vert"),
       include_str!("./copy.frag"),
-    );
-    let pipeline = pipeline_builder
-      .geometry::<StandardGeometry>()
-      .binding_group::<CopyShadingParam>()
-      .color_blend(wgpu::BlendDescriptor {
+    )
+    .as_mut()
+    .geometry::<StandardGeometry>()
+    .binding_group::<CopyShadingParam>()
+    .target_states(target.create_target_states().as_mut().first_color(|s| {
+      s.color_blend(wgpu::BlendDescriptor {
         src_factor: BlendFactor::SrcAlpha,
         dst_factor: BlendFactor::OneMinusSrcAlpha,
         operation: BlendOperation::Add,
       })
-      .to_screen_target()
-      .build();
+    }))
+    .build();
     Self { pipeline }
   }
 }
@@ -62,5 +64,4 @@ pub struct CopyShadingParam<'a> {
 
   #[bind_type = "sampler:fragment"]
   pub sampler: &'a WGPUSampler,
-  
 }

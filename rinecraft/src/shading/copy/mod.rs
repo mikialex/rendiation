@@ -6,16 +6,16 @@ pub struct CopierShading {
 
 impl CopierShading {
   pub fn new(renderer: &WGPURenderer, target: &WGPUTexture) -> Self {
-    let mut pipeline_builder = StaticPipelineBuilder::new(
+    let pipeline = StaticPipelineBuilder::new(
       &renderer,
       include_str!("./copy.vert"),
       include_str!("./copy.frag"),
-    );
-    let pipeline = pipeline_builder
-      .binding_group::<CopyParam>()
-      .geometry::<StandardGeometry>()
-      .to_color_target(target)
-      .build();
+    )
+    .as_mut()
+    .binding_group::<CopyParam>()
+    .geometry::<StandardGeometry>()
+    .to_color_target(target)
+    .build();
 
     Self { pipeline }
   }
@@ -30,11 +30,9 @@ use rendiation_marco::BindGroup;
 
 #[derive(BindGroup)]
 pub struct CopyParam<'a> {
-
   #[bind_type = "texture2d:fragment"]
   pub texture: &'a wgpu::TextureView,
-  
+
   #[bind_type = "sampler:fragment"]
   pub sampler: &'a WGPUSampler,
 }
-

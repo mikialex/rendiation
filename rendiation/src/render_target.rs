@@ -1,6 +1,6 @@
 use crate::{texture_format::TextureFormat, WGPUTexture};
 
-struct RenderTarget {
+pub struct RenderTarget {
   attachments: Vec<WGPUTexture>,
   depth: Option<WGPUTexture>,
 }
@@ -14,10 +14,10 @@ impl RenderTarget {
   }
 
   pub fn get_first_color_attachment(&self) -> &WGPUTexture {
-    &self.attachments[0]
+    self.get_nth_color_attachment(0)
   }
 
-  pub fn create_target_states_configurer(&self) -> TargetStates {
+  pub fn create_target_states(&self) -> TargetStates {
     let color_states = self
       .attachments
       .iter()
@@ -55,6 +55,30 @@ pub struct TargetStates {
   pub depth_state: Option<wgpu::DepthStencilStateDescriptor>,
 }
 
+pub struct ColorStateModifier<'a> {
+  state: &'a mut wgpu::ColorStateDescriptor,
+}
+
+impl<'a> ColorStateModifier<'a> {
+  pub fn color_blend(&mut self, blend: wgpu::BlendDescriptor) {
+    self.state.color_blend = blend;
+  }
+}
+
+impl TargetStates {
+  pub fn nth_color(&mut self, i: usize, visitor: impl Fn(ColorStateModifier)) -> &mut Self {
+    let modifier = ColorStateModifier {
+      state: &mut self.color_states[i],
+    };
+    visitor(modifier);
+    self
+  }
+
+  pub fn first_color(&mut self, visitor: impl Fn(ColorStateModifier)) -> &mut Self {
+    self.nth_color(0, visitor)
+  }
+}
+
 impl Default for TargetStates {
   fn default() -> Self {
     Self {
@@ -66,5 +90,17 @@ impl Default for TargetStates {
       }],
       depth_state: None,
     }
+  }
+}
+
+impl AsRef<Self> for TargetStates {
+  fn as_ref(&self) -> &Self {
+    self
+  }
+}
+
+impl AsMut<Self> for TargetStates {
+  fn as_mut(&mut self) -> &mut Self {
+    self
   }
 }

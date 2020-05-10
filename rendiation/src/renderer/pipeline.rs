@@ -19,12 +19,6 @@ pub trait BindGroupProvider: Sized {
   fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup;
 }
 
-pub struct PipelineStateBuilder {
-  // blend: Blend,
-  rasterization: wgpu::RasterizationStateDescriptor,
-  depth_stencil: wgpu::DepthStencilStateDescriptor,
-}
-
 pub struct StaticPipelineBuilder<'a> {
   renderer: &'a WGPURenderer,
   vertex_shader: &'static str,
@@ -35,6 +29,12 @@ pub struct StaticPipelineBuilder<'a> {
   target_states: TargetStates,
   rasterization: wgpu::RasterizationStateDescriptor,
   primitive_topology: wgpu::PrimitiveTopology,
+}
+
+impl<'a> AsMut<Self> for StaticPipelineBuilder<'a> {
+  fn as_mut(&mut self) -> &mut Self {
+    self
+  }
 }
 
 impl<'a> StaticPipelineBuilder<'a> {

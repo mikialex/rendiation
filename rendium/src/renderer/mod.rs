@@ -11,13 +11,14 @@ use geometry_lib::plane_geometry::Quad;
 
 mod shader;
 pub use shader::*;
+use render_target::RenderTarget;
 
 pub struct GUIRenderer {
   quad: GPUGeometry,
   view: Vec4<f32>,
   camera: OrthographicCamera,
   camera_gpu_buffer: WGPUBuffer,
-  canvas: WGPUTexture,
+  canvas: RenderTarget,
   quad_pipeline: QuadShading,
   copy_screen_sampler: WGPUSampler,
   copy_screen_pipeline: CopyShading,
@@ -29,6 +30,7 @@ impl GUIRenderer {
     let mut quad = GPUGeometry::from(Quad.create_mesh());
     quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
+    // let canvas = //
 
     let camera = OrthographicCamera::new();
 
