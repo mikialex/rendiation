@@ -5,6 +5,7 @@ use rendiation::*;
 use rendiation_render_entity::*;
 use rendium::*;
 use scene::scene::Scene;
+use render_target::ScreenRenderTarget;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -98,8 +99,9 @@ impl Application for Rinecraft {
       state.scene.prepare(renderer);
 
       let output = swap_chain.request_output();
+      let screen_target = ScreenRenderTarget::new();
 
-      state.scene.render(&output.view, &state.depth.view(), renderer);
+      state.scene.render(&screen_target, renderer);
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output.view);

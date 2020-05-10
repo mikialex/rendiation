@@ -1,5 +1,25 @@
 use crate::{texture_format::TextureFormat, WGPURenderPassBuilder, WGPURenderer, WGPUTexture};
 
+pub trait RenderTargetAble{
+  fn create_target_states(&self) -> TargetStates;
+  fn create_render_pass_builder(&self) -> WGPURenderPassBuilder;
+}
+
+pub struct ScreenRenderTarget{
+  swap_chain_view: wgpu::TextureView,
+  depth: Option<WGPUTexture>,
+}
+
+impl ScreenRenderTarget{
+  pub fn create_target_states(&self) -> TargetStates {
+    todo!()
+  }
+
+  pub fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
+    todo!()
+  }
+}
+
 pub struct RenderTarget {
   attachments: Vec<WGPUTexture>,
   depth: Option<WGPUTexture>,
@@ -8,6 +28,12 @@ pub struct RenderTarget {
 impl RenderTarget {
   pub fn new(attachments: Vec<WGPUTexture>, depth: Option<WGPUTexture>) -> Self {
     Self { attachments, depth }
+  }
+  pub fn from_one_texture(attachment: WGPUTexture) -> Self {
+    RenderTarget::new(vec![attachment], None)
+  }
+  pub fn from_one_texture_and_depth(attachment: WGPUTexture, depth: WGPUTexture) -> Self {
+    RenderTarget::new(vec![attachment], Some(depth))
   }
 
   pub fn get_nth_color_attachment(&self, n: usize) -> &WGPUTexture {
@@ -115,15 +141,15 @@ impl<'a> ColorStateModifier<'a> {
 }
 
 impl TargetStates {
-  pub fn nth_color(&mut self, i: usize, visitor: impl Fn(ColorStateModifier)) -> &mut Self {
-    let modifier = ColorStateModifier {
+  pub fn nth_color(&mut self, i: usize, visitor: impl Fn(&mut ColorStateModifier)) -> &mut Self {
+    let mut modifier = ColorStateModifier {
       state: &mut self.color_states[i],
     };
-    visitor(modifier);
+    visitor(&mut modifier);
     self
   }
 
-  pub fn first_color(&mut self, visitor: impl Fn(ColorStateModifier)) -> &mut Self {
+  pub fn first_color(&mut self, visitor: impl Fn(&mut ColorStateModifier)) -> &mut Self {
     self.nth_color(0, visitor)
   }
 }

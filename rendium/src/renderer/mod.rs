@@ -30,6 +30,7 @@ impl GUIRenderer {
     let mut quad = GPUGeometry::from(Quad.create_mesh());
     quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
+    let canvas = RenderTarget::from_one_texture(canvas);
     // let canvas = //
 
     let camera = OrthographicCamera::new();
@@ -43,7 +44,7 @@ impl GUIRenderer {
     );
 
     let quad_pipeline = QuadShading::new(renderer, &canvas);
-    let copy_screen_pipeline = CopyShading::new(renderer);
+    let copy_screen_pipeline = CopyShading::new(renderer, &canvas);
     let copy_screen_sampler = WGPUSampler::new(renderer);
     let mut renderer = GUIRenderer {
       quad,
@@ -80,20 +81,23 @@ impl GUIRenderer {
   }
 
   pub fn clear_canvas(&self, renderer: &mut WGPURenderer) {
-    WGPURenderPass::build()
-      .output_with_clear(self.canvas.view(), (1., 1., 1., 0.5))
+    self
+      .canvas
+      .create_render_pass_builder()
+      .first_color(|c| c.load_with_clear((1., 1., 1.).into(), 0.5).ok())
       .create(&mut renderer.encoder);
   }
 
   pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen_view: &wgpu::TextureView) {
     let bindgroup = CopyShadingParam {
-      texture_view: self.canvas.view(),
+      texture_view: self.canvas.get_first_color_attachment().view(),
       sampler: &self.copy_screen_sampler,
     }
     .create_bindgroup(renderer);
 
-    let mut pass = WGPURenderPass::build()
-      .output(screen_view)
+    let mut pass = self
+      .canvas
+      .create_render_pass_builder()
       .create(&mut renderer.encoder);
 
     pass
@@ -129,8 +133,9 @@ impl GUIRenderer {
     }
     .create_bindgroup(renderer);
 
-    let mut pass = WGPURenderPass::build()
-      .output(self.canvas.view())
+    let mut pass = self
+      .canvas
+      .create_render_pass_builder()
       .create(&mut renderer.encoder);
 
     pass

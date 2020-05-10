@@ -1,29 +1,29 @@
 pub mod bindgroup;
+pub mod bindgroup_layout;
+pub mod blend;
 pub mod buffer;
 pub mod consts;
+pub mod geometry;
 pub mod pipeline;
-pub mod bindgroup_layout;
 pub mod render_pass;
 pub mod sampler;
 pub mod shader_util;
 pub mod swap_chain;
-pub mod blend;
 pub mod texture;
-pub mod geometry;
 
 pub use bindgroup::*;
-pub use buffer::*;
-pub use pipeline::*;
 pub use bindgroup_layout::*;
+pub use blend::*;
+pub use buffer::*;
+pub use consts::*;
+pub use geometry::*;
+pub use pipeline::*;
 pub use render_pass::*;
 pub use sampler::*;
-pub use texture::*;
-pub use consts::*;
 pub use shader_util::*;
 pub use swap_chain::*;
-pub use blend::*;
+pub use texture::*;
 pub use texture_dimension::*;
-pub use geometry::*;
 
 /// The renderer trait.
 ///
@@ -96,5 +96,4 @@ impl WGPURenderer {
   // pub fn create_vertex_buffer<D: 'static + Copy>(&self, data: &[D]) -> WGPUBuffer {
   //   WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::VERTEX)
   // }
-
 }
