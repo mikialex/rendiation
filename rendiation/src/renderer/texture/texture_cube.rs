@@ -1,10 +1,9 @@
 use crate::renderer::texture::upload;
-use core::marker::PhantomData;
 use crate::renderer::texture::WGPUTexture;
-use crate::{WGPURenderer, renderer::texture_dimension::*, renderer::texture_format::*};
+use crate::{renderer::texture_dimension::*, renderer::texture_format::*, WGPURenderer};
 
 pub struct WGPUTextureCube {
-   texture: WGPUTexture,
+  texture: WGPUTexture,
 }
 
 impl WGPUTextureCube {
@@ -35,17 +34,15 @@ impl WGPUTextureCube {
       descriptor,
       view,
       size,
-      format: Rgba8UnormSrgb,
+      format: TextureFormat::Rgba8UnormSrgb,
     };
-    let tex = Self{
-      texture
-    };
+    let tex = Self { texture };
     tex.upload_all(renderer, px, nx, py, ny, pz, nz);
     tex
   }
 
   pub fn upload_all(
-    &self, 
+    &self,
     renderer: &mut WGPURenderer,
     px: &[u8],
     nx: &[u8],
@@ -53,7 +50,7 @@ impl WGPUTextureCube {
     ny: &[u8],
     pz: &[u8],
     nz: &[u8],
-  ){
+  ) {
     upload(renderer, &self.texture, px, 0);
     upload(renderer, &self.texture, nx, 0);
     upload(renderer, &self.texture, py, 0);

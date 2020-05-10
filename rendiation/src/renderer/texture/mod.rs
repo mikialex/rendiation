@@ -7,12 +7,12 @@ pub mod texture_format;
 use crate::renderer::texture_dimension::*;
 use crate::renderer::texture_format::*;
 
-pub struct WGPUTexture<T: TextureFormat = Rgba8UnormSrgb, V: TextureDimension = TextureSize2D> {
+pub struct WGPUTexture<V: TextureDimension = TextureSize2D> {
   gpu_texture: wgpu::Texture,
   descriptor: wgpu::TextureDescriptor,
   size: V,
   view: wgpu::TextureView,
-  format: T,
+  format: TextureFormat,
 }
 
 impl WGPUTexture {
@@ -38,7 +38,7 @@ impl WGPUTexture {
       gpu_texture: depth_texture,
       view,
       size,
-      format: Rgba8UnormSrgb,
+      format: TextureFormat::Rgba8UnormSrgb,
     }
   }
 
@@ -62,7 +62,7 @@ impl WGPUTexture {
       descriptor,
       view,
       size,
-      format: Rgba8UnormSrgb,
+      format: TextureFormat::Rgba8UnormSrgb,
     }
   }
 
@@ -95,7 +95,7 @@ impl WGPUTexture {
         width: size.0 as u32,
         height: size.1 as u32,
       },
-      format: Rgba8UnormSrgb,
+      format: TextureFormat::Rgba8UnormSrgb,
     };
 
     wgpu_texture.upload(renderer, data);
@@ -123,12 +123,11 @@ impl WGPUTexture {
   }
 }
 
-impl<T: TextureFormat, V: TextureDimension> WGPUTexture<T, V> {
+impl<V: TextureDimension> WGPUTexture<V> {
   pub fn read(&self, renderer: &mut WGPURenderer) {
     let pixel_count = self.size.get_pixel_size() as u64;
-    let data_size = pixel_count * size_of::<T::PixelDataType>() as u64;
+    let data_size = pixel_count * self.format.get_pixel_data_stride() as u64;
 
-    use std::mem::size_of;
     let output_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
       size: data_size,
       usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,

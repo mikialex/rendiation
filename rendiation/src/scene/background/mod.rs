@@ -25,11 +25,12 @@ impl SolidBackground {
 
 impl Renderable for SolidBackground {
   fn prepare(&mut self, _: &mut WGPURenderer, _: &mut ScenePrepareCtx) {}
-  fn render(&self, _: &WGPURenderer, scene: &Scene) {
-    // WGPURenderPass::build().output_with_clear(
-    //   &scene.canvas.view(),
-    //   (self.color.x, self.color.y, self.color.z, 1.0),
-    // );
+  fn render(&self, renderer: &WGPURenderer, _: &Scene) {
+
+    // // just use a clear pass, todo, merge clear pass to follower pass
+    // let mut pass = WGPURenderPass::build()
+    //   .output_with_clear(target, (0.1, 0.2, 0.3, 1.0))
+    //   .create(&mut renderer.encoder);
   }
 }
 

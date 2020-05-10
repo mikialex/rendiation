@@ -1,9 +1,17 @@
-pub trait TextureFormat {
-    type PixelDataType;
+use std::mem::size_of;
+
+pub enum TextureFormat {
+  Rgba8UnormSrgb,
 }
 
-pub struct Rgba8UnormSrgb;
+impl TextureFormat {
+  pub fn get_pixel_data_stride(&self) -> usize {
+    match self {
+      TextureFormat::Rgba8UnormSrgb => size_of::<u32>(),
+    }
+  }
 
-impl TextureFormat for Rgba8UnormSrgb {
-    type PixelDataType = u32;
+  pub fn get_wgpu_format(&self) -> wgpu::TextureFormat {
+    todo!()
+  }
 }
