@@ -7,7 +7,7 @@ use crate::{
   util::CameraGPU,
   vox::world_machine::*,
 };
-use render_target::RenderTargetAble;
+use render_target::TargetStates;
 use rendiation::*;
 use rendiation_math::*;
 use scene::scene::Scene;
@@ -45,7 +45,7 @@ impl World {
     scene: &mut Scene,
     renderer: &mut WGPURenderer,
     camera_gpu: &CameraGPU,
-    target: &impl RenderTargetAble,
+    target: &TargetStates,
   ) {
     if self.scene_data.is_some() {
       return;

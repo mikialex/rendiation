@@ -1,13 +1,10 @@
 use rendiation::*;
 
-use render_target::RenderTargetAble;
+use render_target::TargetStates;
 use rendiation_marco::BindGroup;
 use scene::resource::SceneShading;
 
-pub fn create_block_shading(
-  renderer: &WGPURenderer,
-  target: &impl RenderTargetAble,
-) -> SceneShading {
+pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> SceneShading {
   let pipeline = StaticPipelineBuilder::new(
     renderer,
     include_str!("./block.vert"),
@@ -16,7 +13,7 @@ pub fn create_block_shading(
   .as_mut()
   .binding_group::<BlockShadingParamGroup>()
   .geometry::<StandardGeometry>()
-  .target_states(target.create_target_states().as_ref())
+  .target_states(target)
   .build();
   SceneShading::new(pipeline)
 }

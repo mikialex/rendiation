@@ -10,7 +10,7 @@ use geometry_lib::plane_geometry::Quad;
 use rendiation::geometry_lib::IndexedBufferMesher;
 
 mod shader;
-use render_target::RenderTarget;
+use render_target::{RenderTargetAble, RenderTarget};
 pub use shader::*;
 
 pub struct GUIRenderer {
@@ -88,15 +88,14 @@ impl GUIRenderer {
       .create(&mut renderer.encoder);
   }
 
-  pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen_view: &wgpu::TextureView) {
+  pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen: & impl RenderTargetAble) {
     let bindgroup = CopyShadingParam {
       texture_view: self.canvas.get_first_color_attachment().view(),
       sampler: &self.copy_screen_sampler,
     }
     .create_bindgroup(renderer);
 
-    let mut pass = self
-      .canvas
+    let mut pass = screen
       .create_render_pass_builder()
       .create(&mut renderer.encoder);
 

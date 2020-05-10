@@ -1,21 +1,58 @@
 use crate::{texture_format::TextureFormat, WGPURenderPassBuilder, WGPURenderer, WGPUTexture};
 
-pub trait RenderTargetAble{
+pub trait RenderTargetAble {
   fn create_target_states(&self) -> TargetStates;
   fn create_render_pass_builder(&self) -> WGPURenderPassBuilder;
+  fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize));
 }
 
-pub struct ScreenRenderTarget{
-  swap_chain_view: wgpu::TextureView,
+pub struct ScreenRenderTarget {
+  swap_chain_format: wgpu::TextureFormat,
   depth: Option<WGPUTexture>,
 }
 
-impl ScreenRenderTarget{
-  pub fn create_target_states(&self) -> TargetStates {
+impl RenderTargetAble for ScreenRenderTarget {
+  fn create_target_states(&self) -> TargetStates {
     todo!()
   }
 
-  pub fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
+  fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
+    todo!()
+  }
+  fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) {
+    todo!()
+  }
+}
+
+impl ScreenRenderTarget {
+  pub fn new(swap_chain_format: wgpu::TextureFormat, depth: Option<WGPUTexture>) -> Self {
+    Self {
+      swap_chain_format,
+      depth,
+    }
+  }
+
+  // pub fn create_instance(&self, swap_chain_view: &wgpu::TextureView) -> ScreenRenderTargetInstance {
+  //   ScreenRenderTargetInstance {
+  //     swap_chain_view,
+  //     base: self,
+  //   }
+  // }
+}
+
+pub struct ScreenRenderTargetInstance<'a> {
+  pub swap_chain_view: &'a wgpu::TextureView, // todo remove pub 
+  pub  base: &'a ScreenRenderTarget,
+}
+impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
+  fn create_target_states(&self) -> TargetStates {
+    todo!()
+  }
+
+  fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
+    todo!()
+  }
+  fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) {
     todo!()
   }
 }
@@ -44,23 +81,48 @@ impl RenderTarget {
     self.get_nth_color_attachment(0)
   }
 
-  pub fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) -> &mut Self {
-    self
-      .attachments
-      .iter_mut()
-      .for_each(|color| color.resize(renderer, size));
-    self
-      .depth
-      .as_mut()
-      .map(|depth| depth.resize(renderer, size));
-    self
+  pub fn dissemble(self) -> (Vec<WGPUTexture>, Option<WGPUTexture>) {
+    (self.attachments, self.depth)
   }
 
   pub fn swap_attachment(&mut self, index: usize, texture: WGPUTexture) {
     todo!()
   }
+}
 
-  pub fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
+impl RenderTargetAble for RenderTarget {
+  fn create_target_states(&self) -> TargetStates {
+    let color_states = self
+      .attachments
+      .iter()
+      .map(|t| wgpu::ColorStateDescriptor {
+        format: *t.format(),
+        color_blend: wgpu::BlendDescriptor::REPLACE,
+        alpha_blend: wgpu::BlendDescriptor::REPLACE,
+        write_mask: wgpu::ColorWrite::ALL,
+      })
+      .collect();
+
+    let depth_state = self
+      .depth
+      .as_ref()
+      .map(|d| wgpu::DepthStencilStateDescriptor {
+        format: *d.format(),
+        depth_write_enabled: true,
+        depth_compare: wgpu::CompareFunction::LessEqual,
+        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+        stencil_read_mask: 0,
+        stencil_write_mask: 0,
+      });
+
+    TargetStates {
+      color_states,
+      depth_state,
+    }
+  }
+
+  fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
     let attachments = self
       .attachments
       .iter()
@@ -92,35 +154,15 @@ impl RenderTarget {
     WGPURenderPassBuilder { attachments, depth }
   }
 
-  pub fn create_target_states(&self) -> TargetStates {
-    let color_states = self
+  fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) {
+    self
       .attachments
-      .iter()
-      .map(|t| wgpu::ColorStateDescriptor {
-        format: *t.format(),
-        color_blend: wgpu::BlendDescriptor::REPLACE,
-        alpha_blend: wgpu::BlendDescriptor::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
-      })
-      .collect();
-
-    let depth_state = self
+      .iter_mut()
+      .for_each(|color| color.resize(renderer, size));
+    self
       .depth
-      .as_ref()
-      .map(|d| wgpu::DepthStencilStateDescriptor {
-        format: *d.format(),
-        depth_write_enabled: true,
-        depth_compare: wgpu::CompareFunction::LessEqual,
-        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_read_mask: 0,
-        stencil_write_mask: 0,
-      });
-
-    TargetStates {
-      color_states,
-      depth_state,
-    }
+      .as_mut()
+      .map(|depth| depth.resize(renderer, size));
   }
 }
 

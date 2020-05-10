@@ -1,4 +1,4 @@
-use render_target::RenderTarget;
+use render_target::{RenderTargetAble, RenderTarget};
 use rendiation::*;
 use rendiation_marco::BindGroup;
 

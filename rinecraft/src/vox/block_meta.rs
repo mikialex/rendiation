@@ -3,7 +3,7 @@ use crate::shading::copy::CopyParam;
 use crate::shading::*;
 use geometry_lib::plane_geometry::Quad;
 use image::*;
-use render_target::RenderTarget;
+use render_target::{RenderTarget, RenderTargetAble};
 use rendiation::geometry_lib::IndexedBufferMesher;
 use rendiation::*;
 use std::collections::HashMap;
@@ -205,6 +205,7 @@ impl BlockRegistry {
       }
     }
 
-    target_texture
+    let (mut t, _) = target.dissemble();
+    t.remove(0)
   }
 }

@@ -1,11 +1,11 @@
 use crate::util::*;
 use crate::vox::world::World;
+use render_target::{RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance};
 use rendiation::renderer::SwapChain;
 use rendiation::*;
 use rendiation_render_entity::*;
 use rendium::*;
 use scene::scene::Scene;
-use render_target::ScreenRenderTarget;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -22,7 +22,7 @@ pub struct RinecraftState {
   pub controller_listener_handle: Vec<usize>,
   pub viewport: Viewport,
   pub world: World,
-  pub depth: WGPUTexture,
+  pub screen_target: ScreenRenderTarget,
   pub gui: GUI,
 }
 
@@ -42,6 +42,8 @@ impl Application for Rinecraft {
       swap_chain.size,
     );
 
+    let screen_target = ScreenRenderTarget::new(renderer.swap_chain_format, Some(depth));
+
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
@@ -52,7 +54,12 @@ impl Application for Rinecraft {
 
     scene.set_new_active_camera(camera);
 
-    world.attach_scene(&mut scene, renderer, &camera_gpu);
+    world.attach_scene(
+      &mut scene,
+      renderer,
+      &camera_gpu,
+      &screen_target.create_target_states(),
+    );
 
     let viewport = Viewport::new(swap_chain.size);
 
@@ -66,7 +73,7 @@ impl Application for Rinecraft {
       state
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
-      state.depth.resize(renderer, swap_chain.size);
+      state.screen_target.resize(renderer, swap_chain.size);
       state
         .scene
         .get_active_camera_mut_downcast::<PerspectiveCamera>()
@@ -99,12 +106,15 @@ impl Application for Rinecraft {
       state.scene.prepare(renderer);
 
       let output = swap_chain.request_output();
-      let screen_target = ScreenRenderTarget::new();
+      let output = ScreenRenderTargetInstance {
+        swap_chain_view: &output.view,
+        base: &state.screen_target,
+      };
 
-      state.scene.render(&screen_target, renderer);
+      state.scene.render(&output, renderer);
 
       state.gui.render(renderer);
-      state.gui.renderer.update_to_screen(renderer, &output.view);
+      state.gui.renderer.update_to_screen(renderer, &output);
 
       renderer
         .queue
@@ -132,7 +142,7 @@ impl Application for Rinecraft {
         orbit_controller: OrbitController::new(),
         fps_controller: FPSController::new(),
         controller_listener_handle: Vec::new(),
-        depth,
+        screen_target,
         gui,
       },
     };
