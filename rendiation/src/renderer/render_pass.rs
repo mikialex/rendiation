@@ -49,8 +49,8 @@ impl<'a> WGPURenderPass<'a> {
 }
 
 pub struct WGPURenderPassBuilder<'a> {
-  attachments: Vec<wgpu::RenderPassColorAttachmentDescriptor<'a>>,
-  depth: Option<wgpu::RenderPassDepthStencilAttachmentDescriptor<&'a wgpu::TextureView>>,
+  pub attachments: Vec<wgpu::RenderPassColorAttachmentDescriptor<'a>>,
+  pub depth: Option<wgpu::RenderPassDepthStencilAttachmentDescriptor<&'a wgpu::TextureView>>,
 }
 
 pub struct RenderPassColorAttachmentDescriptorModifier<'a, 'b> {
@@ -68,6 +68,8 @@ impl<'a, 'b> RenderPassColorAttachmentDescriptorModifier<'a, 'b> {
     };
     self
   }
+
+  pub fn ok(&mut self) {}
 }
 
 pub struct RenderPassDepthStencilAttachmentDescriptorModifier<'a, 'b> {
@@ -80,35 +82,37 @@ impl<'a, 'b> RenderPassDepthStencilAttachmentDescriptorModifier<'a, 'b> {
     self.depth.clear_depth = depth;
     self
   }
+  pub fn ok(&mut self) {}
 }
 
 impl<'a> WGPURenderPassBuilder<'a> {
   pub fn nth_color(
     &mut self,
     i: usize,
-    visitor: impl Fn(RenderPassColorAttachmentDescriptorModifier),
+    visitor: impl Fn(&mut RenderPassColorAttachmentDescriptorModifier),
   ) -> &mut Self {
-    let modifier = RenderPassColorAttachmentDescriptorModifier {
+    let mut modifier = RenderPassColorAttachmentDescriptorModifier {
       attachment: &mut self.attachments[i],
     };
-    visitor(modifier);
+    visitor(&mut modifier);
     self
   }
 
   pub fn first_color(
-    &mut self,
-    visitor: impl Fn(RenderPassColorAttachmentDescriptorModifier),
-  ) -> &mut Self {
-    self.nth_color(0, visitor)
+    mut self,
+    visitor: impl Fn(&mut RenderPassColorAttachmentDescriptorModifier),
+  ) -> Self {
+    &mut self.nth_color(0, visitor);
+    self
   }
 
   pub fn depth(
-    &mut self,
-    visitor: impl Fn(RenderPassDepthStencilAttachmentDescriptorModifier),
-  ) -> &mut Self {
+    mut self,
+    visitor: impl Fn(&mut RenderPassDepthStencilAttachmentDescriptorModifier),
+  ) -> Self {
     if let Some(depth) = &mut self.depth {
-      let modifier = RenderPassDepthStencilAttachmentDescriptorModifier { depth };
-      visitor(modifier);
+      let mut modifier = RenderPassDepthStencilAttachmentDescriptorModifier { depth };
+      visitor(&mut modifier);
     } else {
       // do we need panic here?
     }

@@ -5,7 +5,7 @@ use super::{
   render_list::RenderList,
   resource::ResourceManager,
 };
-use crate::{GPUGeometry, WGPURenderPass, WGPURenderer, WGPUTexture};
+use crate::{render_target::RenderTarget, WGPURenderer};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 use std::cell::RefCell;
@@ -156,15 +156,10 @@ impl Scene {
     // });
   }
 
-  pub fn render(
-    &self,
-    target: &wgpu::TextureView,
-    depth: &wgpu::TextureView,
-    renderer: &mut WGPURenderer,
-  ) {
-    let mut pass = WGPURenderPass::build()
-      .output_with_clear(target, (0.1, 0.2, 0.3, 1.0))
-      .with_depth(depth)
+  pub fn render(&self, target: &RenderTarget, renderer: &mut WGPURenderer) {
+    let mut pass = target
+      .create_render_pass_builder()
+      .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
       .create(&mut renderer.encoder);
 
     // pass.use_viewport(&state.viewport);

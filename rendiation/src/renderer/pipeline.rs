@@ -1,4 +1,3 @@
-use crate::renderer::texture::WGPUTexture;
 use crate::{WGPUBindGroup, WGPURenderer, render_target::TargetStates};
 
 pub struct WGPUPipeline {
@@ -87,31 +86,6 @@ impl<'a> StaticPipelineBuilder<'a> {
     self.vertex_layouts.push(T::get_buffer_layout_descriptor());
     self
   }
-
-  // pub fn with_depth_stencil(&mut self, target: &WGPUTexture) -> &mut Self {
-  //   self.depth_format = Some(*target.format());
-  //   self
-  // }
-
-  // pub fn with_default_depth(&mut self) -> &mut Self {
-  //   self.depth_format = Some(wgpu::TextureFormat::Depth32Float);
-  //   self
-  // }
-
-  // pub fn to_color_target(&mut self, target: &WGPUTexture) -> &mut Self {
-  //   self.color_target_format = *target.format();
-  //   self
-  // }
-
-  // pub fn to_screen_target(&mut self) -> &mut Self {
-  //   self.color_target_format = self.renderer.swap_chain_format;
-  //   self
-  // }
-
-  // pub fn color_blend(&mut self, b: wgpu::BlendDescriptor) -> &mut Self {
-  //   self.blend = b;
-  //   self
-  // }
 
   pub fn build(&self) -> WGPUPipeline {
     let device = &self.renderer.device;

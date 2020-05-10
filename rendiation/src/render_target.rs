@@ -53,6 +53,7 @@ impl RenderTarget {
       .collect();
     let depth = self
       .depth
+      .as_ref()
       .map(|d| wgpu::RenderPassDepthStencilAttachmentDescriptor {
         attachment: d.view(),
         depth_load_op: wgpu::LoadOp::Clear,
