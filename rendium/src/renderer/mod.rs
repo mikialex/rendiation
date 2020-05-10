@@ -6,12 +6,12 @@ use rendiation::*;
 use rendiation_math::Vec4;
 use rendiation_render_entity::*;
 
-use rendiation::geometry_lib::{IndexedBufferMesher};
 use geometry_lib::plane_geometry::Quad;
+use rendiation::geometry_lib::IndexedBufferMesher;
 
 mod shader;
-pub use shader::*;
 use render_target::RenderTarget;
+pub use shader::*;
 
 pub struct GUIRenderer {
   quad: GPUGeometry,

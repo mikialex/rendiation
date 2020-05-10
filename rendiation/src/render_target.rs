@@ -1,4 +1,4 @@
-use crate::{texture_format::TextureFormat, WGPUTexture};
+use crate::{texture_format::TextureFormat, WGPURenderPassBuilder, WGPURenderer, WGPUTexture};
 
 pub struct RenderTarget {
   attachments: Vec<WGPUTexture>,
@@ -6,8 +6,9 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-  // todo with builder
-  pub fn new() {}
+  pub fn new(attachments: Vec<WGPUTexture>, depth: Option<WGPUTexture>) -> Self {
+    Self { attachments, depth }
+  }
 
   pub fn get_nth_color_attachment(&self, n: usize) -> &WGPUTexture {
     &self.attachments[n]
@@ -15,6 +16,53 @@ impl RenderTarget {
 
   pub fn get_first_color_attachment(&self) -> &WGPUTexture {
     self.get_nth_color_attachment(0)
+  }
+
+  pub fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) -> &mut Self {
+    self
+      .attachments
+      .iter_mut()
+      .for_each(|color| color.resize(renderer, size));
+    self
+      .depth
+      .as_mut()
+      .map(|depth| depth.resize(renderer, size));
+    self
+  }
+
+  pub fn swap_attachment(&mut self, index: usize, texture: WGPUTexture) {
+    todo!()
+  }
+
+  pub fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
+    let attachments = self
+      .attachments
+      .iter()
+      .map(|att| wgpu::RenderPassColorAttachmentDescriptor {
+        attachment: att.view(),
+        resolve_target: None,
+        load_op: wgpu::LoadOp::Load,
+        store_op: wgpu::StoreOp::Store,
+        clear_color: wgpu::Color {
+          r: 0.,
+          g: 0.,
+          b: 0.,
+          a: 1.,
+        },
+      })
+      .collect();
+    let depth = self
+      .depth
+      .map(|d| wgpu::RenderPassDepthStencilAttachmentDescriptor {
+        attachment: d.view(),
+        depth_load_op: wgpu::LoadOp::Clear,
+        depth_store_op: wgpu::StoreOp::Store,
+        stencil_load_op: wgpu::LoadOp::Clear,
+        stencil_store_op: wgpu::StoreOp::Store,
+        clear_depth: 1.0,
+        clear_stencil: 0,
+      });
+    WGPURenderPassBuilder { attachments, depth }
   }
 
   pub fn create_target_states(&self) -> TargetStates {

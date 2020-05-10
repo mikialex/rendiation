@@ -12,6 +12,8 @@ impl TextureFormat {
   }
 
   pub fn get_wgpu_format(&self) -> wgpu::TextureFormat {
-    todo!()
+    match self {
+      TextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
+    }
   }
 }
