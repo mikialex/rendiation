@@ -32,17 +32,20 @@ impl ScreenRenderTarget {
     }
   }
 
-  // pub fn create_instance(&self, swap_chain_view: &wgpu::TextureView) -> ScreenRenderTargetInstance {
-  //   ScreenRenderTargetInstance {
-  //     swap_chain_view,
-  //     base: self,
-  //   }
-  // }
+  pub fn create_instance<'a>(
+    &'a self,
+    swap_chain_view: &'a wgpu::TextureView,
+  ) -> ScreenRenderTargetInstance<'a> {
+    ScreenRenderTargetInstance {
+      swap_chain_view,
+      base: self,
+    }
+  }
 }
 
 pub struct ScreenRenderTargetInstance<'a> {
-  pub swap_chain_view: &'a wgpu::TextureView, // todo remove pub 
-  pub  base: &'a ScreenRenderTarget,
+  pub swap_chain_view: &'a wgpu::TextureView, // todo remove pub
+  pub base: &'a ScreenRenderTarget,
 }
 impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
   fn create_target_states(&self) -> TargetStates {

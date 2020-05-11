@@ -106,10 +106,7 @@ impl Application for Rinecraft {
       state.scene.prepare(renderer);
 
       let output = swap_chain.request_output();
-      let output = ScreenRenderTargetInstance {
-        swap_chain_view: &output.view,
-        base: &state.screen_target,
-      };
+      let output = state.screen_target.create_instance(&output.view);
 
       state.scene.render(&output, renderer);
 
