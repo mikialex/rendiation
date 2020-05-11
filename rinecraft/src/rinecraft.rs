@@ -38,7 +38,7 @@ impl Application for Rinecraft {
     let gui = GUI::new(
       renderer,
       (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
-      &screen_target
+      &screen_target,
     );
 
     let mut scene = Scene::new();

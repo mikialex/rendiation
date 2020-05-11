@@ -5,7 +5,6 @@ pub mod geometry_lib;
 pub mod scene;
 // pub mod texture;
 pub mod viewport;
-pub mod render_target;
 
 pub use wgpu;
 pub use renderer::*;

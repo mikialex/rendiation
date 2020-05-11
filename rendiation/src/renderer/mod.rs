@@ -10,6 +10,7 @@ pub mod sampler;
 pub mod shader_util;
 pub mod swap_chain;
 pub mod texture;
+pub mod render_target;
 
 pub use bindgroup::*;
 pub use bindgroup_layout::*;
@@ -24,6 +25,7 @@ pub use shader_util::*;
 pub use swap_chain::*;
 pub use texture::*;
 pub use texture_dimension::*;
+pub use render_target::*;
 
 /// The renderer trait.
 ///
