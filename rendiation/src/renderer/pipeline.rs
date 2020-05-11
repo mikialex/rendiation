@@ -18,7 +18,7 @@ pub trait BindGroupProvider: Sized {
   fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup;
 }
 
-pub struct StaticPipelineBuilder<'a> {
+pub struct PipelineBuilder<'a> {
   renderer: &'a WGPURenderer,
   vertex_shader: &'static str,
   frag_shader: &'static str,
@@ -30,13 +30,13 @@ pub struct StaticPipelineBuilder<'a> {
   primitive_topology: wgpu::PrimitiveTopology,
 }
 
-impl<'a> AsMut<Self> for StaticPipelineBuilder<'a> {
+impl<'a> AsMut<Self> for PipelineBuilder<'a> {
   fn as_mut(&mut self) -> &mut Self {
     self
   }
 }
 
-impl<'a> StaticPipelineBuilder<'a> {
+impl<'a> PipelineBuilder<'a> {
   pub fn new(
     renderer: &'a WGPURenderer,
     vertex_shader: &'static str,

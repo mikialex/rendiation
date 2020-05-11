@@ -5,7 +5,7 @@ use rendiation_marco::BindGroup;
 use scene::resource::SceneShading;
 
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> SceneShading {
-  let pipeline = StaticPipelineBuilder::new(
+  let pipeline = PipelineBuilder::new(
     renderer,
     include_str!("./block.vert"),
     include_str!("./block.frag"),

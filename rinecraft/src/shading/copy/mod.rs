@@ -6,7 +6,7 @@ pub struct CopierShading {
 
 impl CopierShading {
   pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
-    let pipeline = StaticPipelineBuilder::new(
+    let pipeline = PipelineBuilder::new(
       &renderer,
       include_str!("./copy.vert"),
       include_str!("./copy.frag"),
