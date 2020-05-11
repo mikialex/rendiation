@@ -10,7 +10,7 @@ use geometry_lib::plane_geometry::Quad;
 use rendiation::geometry_lib::IndexedBufferMesher;
 
 mod shader;
-use render_target::{RenderTargetAble, RenderTarget};
+use render_target::{RenderTarget, RenderTargetAble, TargetStatesProvider};
 pub use shader::*;
 
 pub struct GUIRenderer {
@@ -25,7 +25,11 @@ pub struct GUIRenderer {
 }
 
 impl GUIRenderer {
-  pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
+  pub fn new(
+    renderer: &mut WGPURenderer,
+    size: (f32, f32),
+    screen_target: &impl TargetStatesProvider,
+  ) -> Self {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
     let mut quad = GPUGeometry::from(Quad.create_mesh());
     quad.update_gpu(renderer);
@@ -44,7 +48,7 @@ impl GUIRenderer {
     );
 
     let quad_pipeline = QuadShading::new(renderer, &canvas);
-    let copy_screen_pipeline = CopyShading::new(renderer, &canvas);
+    let copy_screen_pipeline = CopyShading::new(renderer, screen_target);
     let copy_screen_sampler = WGPUSampler::new(renderer);
     let mut renderer = GUIRenderer {
       quad,
@@ -88,7 +92,7 @@ impl GUIRenderer {
       .create(&mut renderer.encoder);
   }
 
-  pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen: & impl RenderTargetAble) {
+  pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen: &impl RenderTargetAble) {
     let bindgroup = CopyShadingParam {
       texture_view: self.canvas.get_first_color_attachment().view(),
       sampler: &self.copy_screen_sampler,

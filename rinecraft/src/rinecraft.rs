@@ -1,6 +1,6 @@
 use crate::util::*;
 use crate::vox::world::World;
-use render_target::{RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance};
+use render_target::{ScreenRenderTarget, TargetStatesProvider};
 use rendiation::renderer::SwapChain;
 use rendiation::*;
 use rendiation_render_entity::*;
@@ -28,21 +28,21 @@ pub struct RinecraftState {
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
-    let gui = GUI::new(
-      renderer,
-      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
-    );
-
-    let mut scene = Scene::new();
-    let mut world = World::new();
-
     let depth = WGPUTexture::new_as_depth(
       &renderer,
       wgpu::TextureFormat::Depth32Float,
       swap_chain.size,
     );
-
     let screen_target = ScreenRenderTarget::new(renderer.swap_chain_format, Some(depth));
+
+    let gui = GUI::new(
+      renderer,
+      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
+      &screen_target
+    );
+
+    let mut scene = Scene::new();
+    let mut world = World::new();
 
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));

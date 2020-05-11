@@ -1,4 +1,4 @@
-use render_target::{RenderTargetAble, RenderTarget};
+use render_target::{TargetStatesProvider, RenderTarget};
 use rendiation::*;
 use rendiation_marco::BindGroup;
 
@@ -36,7 +36,7 @@ pub struct CopyShading {
 }
 
 impl CopyShading {
-  pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
+  pub fn new(renderer: &WGPURenderer, target: & impl TargetStatesProvider) -> Self {
     let pipeline = StaticPipelineBuilder::new(
       renderer,
       include_str!("./copy.vert"),
