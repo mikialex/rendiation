@@ -1,5 +1,4 @@
-use crate::renderer::texture::WGPUTexture;
-use crate::{WGPUBindGroup, WGPURenderer};
+use crate::{WGPUBindGroup, WGPURenderer, render_target::TargetStates};
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
@@ -19,12 +18,6 @@ pub trait BindGroupProvider: Sized {
   fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup;
 }
 
-pub struct PipelineStateBuilder {
-  // blend: Blend,
-  rasterization: wgpu::RasterizationStateDescriptor,
-  depth_stencil: wgpu::DepthStencilStateDescriptor,
-}
-
 pub struct StaticPipelineBuilder<'a> {
   renderer: &'a WGPURenderer,
   vertex_shader: &'static str,
@@ -32,11 +25,15 @@ pub struct StaticPipelineBuilder<'a> {
   bindgroup_layouts: Vec<&'static wgpu::BindGroupLayout>,
   vertex_layouts: Vec<wgpu::VertexBufferDescriptor<'static>>,
   index_format: wgpu::IndexFormat,
-  pub depth_format: Option<wgpu::TextureFormat>,
-  pub color_target_format: wgpu::TextureFormat,
-  blend: wgpu::BlendDescriptor,
+  target_states: TargetStates,
   rasterization: wgpu::RasterizationStateDescriptor,
   primitive_topology: wgpu::PrimitiveTopology,
+}
+
+impl<'a> AsMut<Self> for StaticPipelineBuilder<'a> {
+  fn as_mut(&mut self) -> &mut Self {
+    self
+  }
 }
 
 impl<'a> StaticPipelineBuilder<'a> {
@@ -52,9 +49,6 @@ impl<'a> StaticPipelineBuilder<'a> {
       bindgroup_layouts: Vec::new(),
       vertex_layouts: Vec::new(),
       index_format: wgpu::IndexFormat::Uint16,
-      depth_format: None,
-      color_target_format: wgpu::TextureFormat::Rgba8UnormSrgb,
-      blend: wgpu::BlendDescriptor::REPLACE,
       rasterization: wgpu::RasterizationStateDescriptor {
         front_face: wgpu::FrontFace::Ccw,
         cull_mode: wgpu::CullMode::None,
@@ -62,6 +56,7 @@ impl<'a> StaticPipelineBuilder<'a> {
         depth_bias_slope_scale: 0.0,
         depth_bias_clamp: 0.0,
       },
+      target_states: TargetStates::default(),
       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
     }
   }
@@ -82,33 +77,13 @@ impl<'a> StaticPipelineBuilder<'a> {
     self
   }
 
+  pub fn target_states(&mut self, states: &TargetStates) -> &mut Self {
+    self.target_states = states.clone();
+    self
+  }
+
   pub fn vertex<T: VertexProvider>(&mut self) -> &mut Self {
     self.vertex_layouts.push(T::get_buffer_layout_descriptor());
-    self
-  }
-
-  pub fn with_depth_stencil(&mut self, target: &WGPUTexture) -> &mut Self {
-    self.depth_format = Some(*target.format());
-    self
-  }
-
-  pub fn with_default_depth(&mut self) -> &mut Self {
-    self.depth_format = Some(wgpu::TextureFormat::Depth32Float);
-    self
-  }
-
-  pub fn to_color_target(&mut self, target: &WGPUTexture) -> &mut Self {
-    self.color_target_format = *target.format();
-    self
-  }
-
-  pub fn to_screen_target(&mut self) -> &mut Self {
-    self.color_target_format = self.renderer.swap_chain_format;
-    self
-  }
-
-  pub fn color_blend(&mut self, b: wgpu::BlendDescriptor) -> &mut Self {
-    self.blend = b;
     self
   }
 
@@ -125,20 +100,9 @@ impl<'a> StaticPipelineBuilder<'a> {
     let vs_module = device.create_shader_module(&vs_bytes);
     let fs_module = device.create_shader_module(&fs_bytes);
 
-    let depth_stencil_state = self
-      .depth_format
-      .map(|format| wgpu::DepthStencilStateDescriptor {
-        format,
-        depth_write_enabled: true,
-        depth_compare: wgpu::CompareFunction::LessEqual,
-        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_read_mask: 0,
-        stencil_write_mask: 0,
-      });
-
     let pipeline_des = wgpu::RenderPipelineDescriptor {
       layout: &pipeline_layout,
+
       vertex_stage: wgpu::ProgrammableStageDescriptor {
         module: &vs_module,
         entry_point: "main",
@@ -147,20 +111,18 @@ impl<'a> StaticPipelineBuilder<'a> {
         module: &fs_module,
         entry_point: "main",
       }),
-      rasterization_state: Some(self.rasterization.clone()),
+
+      color_states: &self.target_states.color_states,
+      depth_stencil_state: self.target_states.depth_state.to_owned(),
+
       primitive_topology: self.primitive_topology,
-      color_states: &[wgpu::ColorStateDescriptor {
-        format: self.color_target_format,
-        color_blend: self.blend.clone(),
-        alpha_blend: wgpu::BlendDescriptor::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
-      }],
-      depth_stencil_state,
       index_format: self.index_format,
       vertex_buffers: &self.vertex_layouts,
+
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,
+      rasterization_state: Some(self.rasterization.clone()),
     };
 
     let pipeline = device.create_render_pipeline(&pipeline_des);
@@ -168,13 +130,3 @@ impl<'a> StaticPipelineBuilder<'a> {
     WGPUPipeline { pipeline }
   }
 }
-
-trait SceneShading {
-  fn new(pipeline: WGPUPipeline) -> Self;
-}
-
-trait RenderTargetsDescriptor {
-  fn provide_color_states() -> &'static [wgpu::ColorStateDescriptor];
-}
-
-struct MultiRenderTargetDemo {}

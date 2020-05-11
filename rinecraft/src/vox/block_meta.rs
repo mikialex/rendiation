@@ -1,9 +1,10 @@
 use super::block::BlockFace;
 use crate::shading::copy::CopyParam;
 use crate::shading::*;
-use rendiation::geometry_lib::{IndexedBufferMesher};
 use geometry_lib::plane_geometry::Quad;
 use image::*;
+use render_target::{RenderTarget, RenderTargetAble};
+use rendiation::geometry_lib::IndexedBufferMesher;
 use rendiation::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -167,9 +168,10 @@ impl BlockRegistry {
     quad.update_gpu(renderer);
     let sampler = WGPUSampler::new(renderer);
     let target_texture = WGPUTexture::new_as_target(&renderer, (64, 64));
+    let target = RenderTarget::from_one_texture(target_texture);
 
     {
-      let copy_shading = CopierShading::new(renderer, &target_texture);
+      let copy_shading = CopierShading::new(renderer, &target);
       let dest_size_width = 64.;
 
       let gpu: Vec<_> = face_list
@@ -191,8 +193,9 @@ impl BlockRegistry {
         })
         .collect();
 
-      let mut pass = WGPURenderPass::build()
-        .output_with_clear(target_texture.view(), (0., 0., 0., 1.0))
+      let mut pass = target
+        .create_render_pass_builder()
+        .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())
         .create(&mut renderer.encoder);
 
       for (params, viewport) in gpu {
@@ -202,6 +205,7 @@ impl BlockRegistry {
       }
     }
 
-    target_texture
+    let (mut t, _) = target.dissemble();
+    t.remove(0)
   }
 }

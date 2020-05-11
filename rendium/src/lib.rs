@@ -4,21 +4,19 @@ pub mod element;
 pub mod event;
 pub mod window;
 // pub mod lens;
-pub mod renderer;
 pub mod data;
+pub mod renderer;
 
 pub use application::*;
-pub use window::*;
 pub use event::*;
+pub use window::*;
 // pub use lens::*;
 pub use renderer::*;
 
-
-pub use winit;
 pub use element::*;
+pub use winit;
 
-
-use rendiation::WGPURenderer;
+use rendiation::{render_target::ScreenRenderTarget, WGPURenderer};
 
 pub struct GUI {
   fragment: ElementFragment,
@@ -26,16 +24,14 @@ pub struct GUI {
 }
 
 impl GUI {
-  pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
+  pub fn new(renderer: &mut WGPURenderer, size: (f32, f32), screen: &ScreenRenderTarget) -> Self {
     GUI {
       fragment: ElementFragment::new(),
-      renderer: GUIRenderer::new(renderer, size)
+      renderer: GUIRenderer::new(renderer, size, screen),
     }
   }
 
-  pub fn event(event: Event) {
-    
-  }
+  pub fn event(event: Event) {}
 
   pub fn render(&mut self, renderer: &mut WGPURenderer) {
     self.fragment.render(renderer, &mut self.renderer);

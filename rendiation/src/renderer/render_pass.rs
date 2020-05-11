@@ -1,4 +1,5 @@
 use crate::{viewport::*, WGPUBindGroup, WGPUBuffer, WGPUPipeline};
+use rendiation_math::Vec3;
 use std::ops::Range;
 
 pub struct WGPURenderPass<'a> {
@@ -33,88 +34,6 @@ impl<'a> WGPURenderPass<'a> {
   pub fn draw_indexed(&mut self, index_range: Range<u32>) {
     self.gpu_pass.draw_indexed(index_range, 0, 0..1);
   }
-}
-
-pub struct WGPURenderPassBuilder<'a> {
-  color_attachments: Vec<(&'a wgpu::TextureView, wgpu::Color, bool)>,
-  depth_attachments: Option<&'a wgpu::TextureView>,
-}
-
-impl<'a> WGPURenderPassBuilder<'a> {
-  pub fn output(mut self, target: &'a wgpu::TextureView) -> Self {
-    self.color_attachments.push((
-      target,
-      wgpu::Color {
-        r: 0.,
-        g: 0.,
-        b: 0.,
-        a: 0.,
-      },
-      false,
-    ));
-    self
-  }
-
-  pub fn output_with_clear(
-    mut self,
-    target: &'a wgpu::TextureView,
-    color: (f32, f32, f32, f32),
-  ) -> Self {
-    self.color_attachments.push((
-      target,
-      wgpu::Color {
-        r: color.0 as f64,
-        g: color.1 as f64,
-        b: color.2 as f64,
-        a: color.3 as f64,
-      },
-      true,
-    ));
-    self
-  }
-
-  pub fn with_depth(mut self, target: &'a wgpu::TextureView) -> Self {
-    self.depth_attachments = Some(target);
-    self
-  }
-
-  pub fn create(self, encoder: &'a mut wgpu::CommandEncoder) -> WGPURenderPass {
-    let pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-      color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-        attachment: self.color_attachments[0].0,
-        resolve_target: None,
-        load_op: if self.color_attachments[0].2 {
-          wgpu::LoadOp::Clear
-        } else {
-          wgpu::LoadOp::Load
-        },
-        store_op: wgpu::StoreOp::Store,
-        clear_color: self.color_attachments[0].1,
-      }],
-      depth_stencil_attachment: self.depth_attachments.map(|depth_view| {
-        wgpu::RenderPassDepthStencilAttachmentDescriptor {
-          attachment: depth_view,
-          depth_load_op: wgpu::LoadOp::Clear,
-          depth_store_op: wgpu::StoreOp::Store,
-          stencil_load_op: wgpu::LoadOp::Clear,
-          stencil_store_op: wgpu::StoreOp::Store,
-          clear_depth: 1.0,
-          clear_stencil: 0,
-        }
-      }),
-    });
-
-    WGPURenderPass { gpu_pass: pass }
-  }
-}
-
-impl<'a> WGPURenderPass<'a> {
-  pub fn build() -> WGPURenderPassBuilder<'a> {
-    WGPURenderPassBuilder {
-      color_attachments: Vec::new(),
-      depth_attachments: None,
-    }
-  }
 
   pub fn use_viewport(&mut self, viewport: &Viewport) -> &mut Self {
     self.gpu_pass.set_viewport(
@@ -127,6 +46,85 @@ impl<'a> WGPURenderPass<'a> {
     );
     self
   }
+}
 
-  pub fn render_object(&mut self) {}
+pub struct WGPURenderPassBuilder<'a> {
+  pub attachments: Vec<wgpu::RenderPassColorAttachmentDescriptor<'a>>,
+  pub depth: Option<wgpu::RenderPassDepthStencilAttachmentDescriptor<&'a wgpu::TextureView>>,
+}
+
+pub struct RenderPassColorAttachmentDescriptorModifier<'a, 'b> {
+  attachment: &'a mut wgpu::RenderPassColorAttachmentDescriptor<'b>,
+}
+
+impl<'a, 'b> RenderPassColorAttachmentDescriptorModifier<'a, 'b> {
+  pub fn load_with_clear(&mut self, clear_color: Vec3<f32>, alpha: f32) -> &mut Self {
+    self.attachment.load_op = wgpu::LoadOp::Clear;
+    self.attachment.clear_color = wgpu::Color {
+      r: clear_color.x as f64,
+      g: clear_color.y as f64,
+      b: clear_color.z as f64,
+      a: alpha as f64,
+    };
+    self
+  }
+
+  pub fn ok(&mut self) {}
+}
+
+pub struct RenderPassDepthStencilAttachmentDescriptorModifier<'a, 'b> {
+  depth: &'a mut wgpu::RenderPassDepthStencilAttachmentDescriptor<&'b wgpu::TextureView>,
+}
+
+impl<'a, 'b> RenderPassDepthStencilAttachmentDescriptorModifier<'a, 'b> {
+  pub fn load_with_clear(&mut self, depth: f32) -> &mut Self {
+    self.depth.depth_load_op = wgpu::LoadOp::Clear;
+    self.depth.clear_depth = depth;
+    self
+  }
+  pub fn ok(&mut self) {}
+}
+
+impl<'a> WGPURenderPassBuilder<'a> {
+  pub fn nth_color(
+    &mut self,
+    i: usize,
+    visitor: impl Fn(&mut RenderPassColorAttachmentDescriptorModifier),
+  ) -> &mut Self {
+    let mut modifier = RenderPassColorAttachmentDescriptorModifier {
+      attachment: &mut self.attachments[i],
+    };
+    visitor(&mut modifier);
+    self
+  }
+
+  pub fn first_color(
+    mut self,
+    visitor: impl Fn(&mut RenderPassColorAttachmentDescriptorModifier),
+  ) -> Self {
+    &mut self.nth_color(0, visitor);
+    self
+  }
+
+  pub fn depth(
+    mut self,
+    visitor: impl Fn(&mut RenderPassDepthStencilAttachmentDescriptorModifier),
+  ) -> Self {
+    if let Some(depth) = &mut self.depth {
+      let mut modifier = RenderPassDepthStencilAttachmentDescriptorModifier { depth };
+      visitor(&mut modifier);
+    } else {
+      // do we need panic here?
+    }
+    self
+  }
+
+  pub fn create(self, encoder: &'a mut wgpu::CommandEncoder) -> WGPURenderPass {
+    let pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+      color_attachments: &self.attachments,
+      depth_stencil_attachment: self.depth,
+    });
+
+    WGPURenderPass { gpu_pass: pass }
+  }
 }

@@ -1,5 +1,6 @@
 use crate::util::*;
 use crate::vox::world::World;
+use render_target::{ScreenRenderTarget, TargetStatesProvider};
 use rendiation::renderer::SwapChain;
 use rendiation::*;
 use rendiation_render_entity::*;
@@ -21,25 +22,27 @@ pub struct RinecraftState {
   pub controller_listener_handle: Vec<usize>,
   pub viewport: Viewport,
   pub world: World,
-  pub depth: WGPUTexture,
+  pub screen_target: ScreenRenderTarget,
   pub gui: GUI,
 }
 
 impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
-    let gui = GUI::new(
-      renderer,
-      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
-    );
-
-    let mut scene = Scene::new();
-    let mut world = World::new();
-
     let depth = WGPUTexture::new_as_depth(
       &renderer,
       wgpu::TextureFormat::Depth32Float,
       swap_chain.size,
     );
+    let screen_target = ScreenRenderTarget::new(renderer.swap_chain_format, Some(depth));
+
+    let gui = GUI::new(
+      renderer,
+      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
+      &screen_target,
+    );
+
+    let mut scene = Scene::new();
+    let mut world = World::new();
 
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
@@ -51,7 +54,12 @@ impl Application for Rinecraft {
 
     scene.set_new_active_camera(camera);
 
-    world.attach_scene(&mut scene, renderer, &camera_gpu);
+    world.attach_scene(
+      &mut scene,
+      renderer,
+      &camera_gpu,
+      &screen_target.create_target_states(),
+    );
 
     let viewport = Viewport::new(swap_chain.size);
 
@@ -65,7 +73,7 @@ impl Application for Rinecraft {
       state
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
-      state.depth.resize(renderer, swap_chain.size);
+      state.screen_target.resize(renderer, swap_chain.size);
       state
         .scene
         .get_active_camera_mut_downcast::<PerspectiveCamera>()
@@ -98,11 +106,12 @@ impl Application for Rinecraft {
       state.scene.prepare(renderer);
 
       let output = swap_chain.request_output();
+      let output = state.screen_target.create_instance(&output.view);
 
-      state.scene.render(&output.view, &state.depth.view(), renderer);
+      state.scene.render(&output, renderer);
 
       state.gui.render(renderer);
-      state.gui.renderer.update_to_screen(renderer, &output.view);
+      state.gui.renderer.update_to_screen(renderer, &output);
 
       renderer
         .queue
@@ -130,7 +139,7 @@ impl Application for Rinecraft {
         orbit_controller: OrbitController::new(),
         fps_controller: FPSController::new(),
         controller_listener_handle: Vec::new(),
-        depth,
+        screen_target,
         gui,
       },
     };

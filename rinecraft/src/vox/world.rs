@@ -7,6 +7,7 @@ use crate::{
   util::CameraGPU,
   vox::world_machine::*,
 };
+use render_target::TargetStates;
 use rendiation::*;
 use rendiation_math::*;
 use scene::scene::Scene;
@@ -44,12 +45,13 @@ impl World {
     scene: &mut Scene,
     renderer: &mut WGPURenderer,
     camera_gpu: &CameraGPU,
+    target: &TargetStates,
   ) {
     if self.scene_data.is_some() {
       return;
     }
 
-    let mut block_shading = create_block_shading(renderer);
+    let mut block_shading = create_block_shading(renderer, target);
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::new(renderer);
@@ -111,7 +113,7 @@ impl World {
           create_list.push((x, z));
         }
         if let Some(scene_data) = &mut self.scene_data {
-          if !scene_data.blocks.contains_key(&(x, z)){
+          if !scene_data.blocks.contains_key(&(x, z)) {
             create_list.push((x, z));
           }
         }

@@ -1,20 +1,20 @@
 use rendiation::*;
 
+use render_target::TargetStates;
 use rendiation_marco::BindGroup;
 use scene::resource::SceneShading;
 
-pub fn create_block_shading(renderer: &WGPURenderer) -> SceneShading {
-  let mut pipeline_builder = StaticPipelineBuilder::new(
+pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> SceneShading {
+  let pipeline = StaticPipelineBuilder::new(
     renderer,
     include_str!("./block.vert"),
     include_str!("./block.frag"),
-  );
-  let pipeline = pipeline_builder
-    .binding_group::<BlockShadingParamGroup>()
-    .geometry::<StandardGeometry>()
-    .to_screen_target()
-    .with_default_depth()
-    .build();
+  )
+  .as_mut()
+  .binding_group::<BlockShadingParamGroup>()
+  .geometry::<StandardGeometry>()
+  .target_states(target)
+  .build();
   SceneShading::new(pipeline)
 }
 

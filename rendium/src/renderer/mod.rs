@@ -6,10 +6,11 @@ use rendiation::*;
 use rendiation_math::Vec4;
 use rendiation_render_entity::*;
 
-use rendiation::geometry_lib::{IndexedBufferMesher};
 use geometry_lib::plane_geometry::Quad;
+use rendiation::geometry_lib::IndexedBufferMesher;
 
 mod shader;
+use render_target::{RenderTarget, RenderTargetAble, TargetStatesProvider};
 pub use shader::*;
 
 pub struct GUIRenderer {
@@ -17,18 +18,24 @@ pub struct GUIRenderer {
   view: Vec4<f32>,
   camera: OrthographicCamera,
   camera_gpu_buffer: WGPUBuffer,
-  canvas: WGPUTexture,
+  canvas: RenderTarget,
   quad_pipeline: QuadShading,
   copy_screen_sampler: WGPUSampler,
   copy_screen_pipeline: CopyShading,
 }
 
 impl GUIRenderer {
-  pub fn new(renderer: &mut WGPURenderer, size: (f32, f32)) -> Self {
+  pub fn new(
+    renderer: &mut WGPURenderer,
+    size: (f32, f32),
+    screen_target: &impl TargetStatesProvider,
+  ) -> Self {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
     let mut quad = GPUGeometry::from(Quad.create_mesh());
     quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
+    let canvas = RenderTarget::from_one_texture(canvas);
+    // let canvas = //
 
     let camera = OrthographicCamera::new();
 
@@ -41,7 +48,7 @@ impl GUIRenderer {
     );
 
     let quad_pipeline = QuadShading::new(renderer, &canvas);
-    let copy_screen_pipeline = CopyShading::new(renderer);
+    let copy_screen_pipeline = CopyShading::new(renderer, screen_target);
     let copy_screen_sampler = WGPUSampler::new(renderer);
     let mut renderer = GUIRenderer {
       quad,
@@ -78,20 +85,22 @@ impl GUIRenderer {
   }
 
   pub fn clear_canvas(&self, renderer: &mut WGPURenderer) {
-    WGPURenderPass::build()
-      .output_with_clear(self.canvas.view(), (1., 1., 1., 0.5))
+    self
+      .canvas
+      .create_render_pass_builder()
+      .first_color(|c| c.load_with_clear((1., 1., 1.).into(), 0.5).ok())
       .create(&mut renderer.encoder);
   }
 
-  pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen_view: &wgpu::TextureView) {
+  pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen: &impl RenderTargetAble) {
     let bindgroup = CopyShadingParam {
-      texture_view: self.canvas.view(),
+      texture_view: self.canvas.get_first_color_attachment().view(),
       sampler: &self.copy_screen_sampler,
     }
     .create_bindgroup(renderer);
 
-    let mut pass = WGPURenderPass::build()
-      .output(screen_view)
+    let mut pass = screen
+      .create_render_pass_builder()
       .create(&mut renderer.encoder);
 
     pass
@@ -127,8 +136,9 @@ impl GUIRenderer {
     }
     .create_bindgroup(renderer);
 
-    let mut pass = WGPURenderPass::build()
-      .output(self.canvas.view())
+    let mut pass = self
+      .canvas
+      .create_render_pass_builder()
       .create(&mut renderer.encoder);
 
     pass
