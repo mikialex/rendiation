@@ -1,9 +1,12 @@
 use crate::{texture_format::TextureFormat, WGPURenderPassBuilder, WGPURenderer, WGPUTexture};
 
-pub trait RenderTargetAble {
-  fn create_target_states(&self) -> TargetStates;
+pub trait RenderTargetAble: TargetStatesProvider {
   fn create_render_pass_builder(&self) -> WGPURenderPassBuilder;
   fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize));
+}
+
+pub trait TargetStatesProvider {
+  fn create_target_states(&self) -> TargetStates;
 }
 
 pub struct ScreenRenderTarget {
@@ -11,11 +14,13 @@ pub struct ScreenRenderTarget {
   depth: Option<WGPUTexture>,
 }
 
-impl RenderTargetAble for ScreenRenderTarget {
+impl TargetStatesProvider for ScreenRenderTarget {
   fn create_target_states(&self) -> TargetStates {
     todo!()
   }
+}
 
+impl RenderTargetAble for ScreenRenderTarget {
   fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
     todo!()
   }
@@ -47,11 +52,12 @@ pub struct ScreenRenderTargetInstance<'a> {
   pub swap_chain_view: &'a wgpu::TextureView, // todo remove pub
   pub base: &'a ScreenRenderTarget,
 }
-impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
+impl<'a> TargetStatesProvider for ScreenRenderTargetInstance<'a> {
   fn create_target_states(&self) -> TargetStates {
     todo!()
   }
-
+}
+impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
   fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
     todo!()
   }
@@ -93,7 +99,7 @@ impl RenderTarget {
   }
 }
 
-impl RenderTargetAble for RenderTarget {
+impl TargetStatesProvider for RenderTarget {
   fn create_target_states(&self) -> TargetStates {
     let color_states = self
       .attachments
@@ -124,7 +130,9 @@ impl RenderTargetAble for RenderTarget {
       depth_state,
     }
   }
+}
 
+impl RenderTargetAble for RenderTarget {
   fn create_render_pass_builder(&self) -> WGPURenderPassBuilder {
     let attachments = self
       .attachments
