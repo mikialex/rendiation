@@ -1,4 +1,4 @@
-use crate::{WGPUBindGroup, WGPURenderer, render_target::TargetStates};
+use crate::{render_target::TargetStates, WGPUBindGroup, WGPURenderer};
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
@@ -8,8 +8,7 @@ pub trait VertexProvider {
   fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static>;
 }
 pub trait GeometryProvider {
-  fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'static>>;
-  fn get_index_format() -> wgpu::IndexFormat;
+  fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static>;
   fn get_primitive_topology() -> wgpu::PrimitiveTopology;
 }
 
@@ -23,8 +22,7 @@ pub struct PipelineBuilder<'a> {
   vertex_shader: &'static str,
   frag_shader: &'static str,
   bindgroup_layouts: Vec<&'static wgpu::BindGroupLayout>,
-  vertex_layouts: Vec<wgpu::VertexBufferDescriptor<'static>>,
-  index_format: wgpu::IndexFormat,
+  vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   target_states: TargetStates,
   rasterization: wgpu::RasterizationStateDescriptor,
   primitive_topology: wgpu::PrimitiveTopology,
@@ -47,8 +45,7 @@ impl<'a> PipelineBuilder<'a> {
       vertex_shader,
       frag_shader,
       bindgroup_layouts: Vec::new(),
-      vertex_layouts: Vec::new(),
-      index_format: wgpu::IndexFormat::Uint16,
+      vertex_state: None,
       rasterization: wgpu::RasterizationStateDescriptor {
         front_face: wgpu::FrontFace::Ccw,
         cull_mode: wgpu::CullMode::None,
@@ -69,21 +66,13 @@ impl<'a> PipelineBuilder<'a> {
   }
 
   pub fn geometry<T: GeometryProvider>(&mut self) -> &mut Self {
-    self
-      .vertex_layouts
-      .extend(T::get_geometry_layout_descriptor());
-    self.index_format = T::get_index_format();
+    self.vertex_state = Some(T::get_geometry_vertex_state_descriptor());
     self.primitive_topology = T::get_primitive_topology();
     self
   }
 
   pub fn target_states(&mut self, states: &TargetStates) -> &mut Self {
     self.target_states = states.clone();
-    self
-  }
-
-  pub fn vertex<T: VertexProvider>(&mut self) -> &mut Self {
-    self.vertex_layouts.push(T::get_buffer_layout_descriptor());
     self
   }
 
@@ -116,9 +105,9 @@ impl<'a> PipelineBuilder<'a> {
       depth_stencil_state: self.target_states.depth_state.to_owned(),
 
       primitive_topology: self.primitive_topology,
-      index_format: self.index_format,
-      vertex_buffers: &self.vertex_layouts,
-
+      vertex_state: self.vertex_state.unwrap(),
+      // index_format: self.index_format,
+      // vertex_buffers: &self.vertex_layouts,
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,

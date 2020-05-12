@@ -43,15 +43,14 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
 }
 
 impl<'a, T: PrimitiveTopology> GeometryProvider for StandardGeometry<T> {
-  fn get_geometry_layout_descriptor() -> Vec<wgpu::VertexBufferDescriptor<'static>> {
-    vec![Vertex::get_buffer_layout_descriptor()]
+  fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
+    wgpu::VertexStateDescriptor {
+      index_format: wgpu::IndexFormat::Uint16,
+      vertex_buffers: &[Vertex::get_buffer_layout_descriptor()],
+    }
   }
 
   fn get_primitive_topology() -> wgpu::PrimitiveTopology {
     T::WGPU_ENUM
-  }
-
-  fn get_index_format() -> wgpu::IndexFormat {
-    wgpu::IndexFormat::Uint16
   }
 }
