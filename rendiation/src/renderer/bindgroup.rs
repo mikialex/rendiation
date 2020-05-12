@@ -45,6 +45,7 @@ impl WGPUBindGroup {
       .collect();
 
     let wgpu_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+      label: None,
       layout,
       bindings: &wgpu_bindings,
     });

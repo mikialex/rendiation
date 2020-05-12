@@ -51,7 +51,7 @@ pub struct WGPURenderer {
 pub struct Queue(pub wgpu::Queue);
 impl Queue {
   pub fn submit(&mut self, device: &wgpu::Device, old_encoder: &mut wgpu::CommandEncoder) {
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     use std::mem;
     mem::swap(&mut encoder, old_encoder);
 
@@ -61,11 +61,12 @@ impl Queue {
 }
 
 impl WGPURenderer {
-  pub fn new() -> Self {
+  pub fn new(surface: &wgpu::Surface) -> Self {
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
       power_preference: wgpu::PowerPreference::Default,
-      backends: wgpu::BackendBit::PRIMARY,
-    })
+      compatible_surface: Some(&surface),
+    },
+    wgpu::BackendBit::PRIMARY,)
     .unwrap();
 
     let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
@@ -75,7 +76,7 @@ impl WGPURenderer {
       limits: wgpu::Limits::default(),
     });
 
-    let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+    let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     Self {
       adapter,
       device,

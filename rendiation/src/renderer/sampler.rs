@@ -59,7 +59,7 @@ impl WGPUSampler {
       mipmap_filter: wgpu::FilterMode::Nearest,
       lod_min_clamp: -100.0,
       lod_max_clamp: 100.0,
-      compare_function: wgpu::CompareFunction::Always,
+      compare: wgpu::CompareFunction::Undefined,
     };
     let sampler = renderer.device.create_sampler(&des);
 
