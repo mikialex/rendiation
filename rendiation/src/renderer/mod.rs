@@ -6,11 +6,11 @@ pub mod consts;
 pub mod geometry;
 pub mod pipeline;
 pub mod render_pass;
+pub mod render_target;
 pub mod sampler;
 pub mod shader_util;
 pub mod swap_chain;
 pub mod texture;
-pub mod render_target;
 
 pub use bindgroup::*;
 pub use bindgroup_layout::*;
@@ -20,12 +20,12 @@ pub use consts::*;
 pub use geometry::*;
 pub use pipeline::*;
 pub use render_pass::*;
+pub use render_target::*;
 pub use sampler::*;
 pub use shader_util::*;
 pub use swap_chain::*;
 pub use texture::*;
 pub use texture_dimension::*;
-pub use render_target::*;
 
 /// The renderer trait.
 ///
@@ -51,7 +51,8 @@ pub struct WGPURenderer {
 pub struct Queue(pub wgpu::Queue);
 impl Queue {
   pub fn submit(&mut self, device: &wgpu::Device, old_encoder: &mut wgpu::CommandEncoder) {
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    let mut encoder =
+      device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     use std::mem;
     mem::swap(&mut encoder, old_encoder);
 
@@ -61,20 +62,25 @@ impl Queue {
 }
 
 impl WGPURenderer {
-  pub fn new(surface: &wgpu::Surface) -> Self {
-    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-      power_preference: wgpu::PowerPreference::Default,
-      compatible_surface: Some(&surface),
-    },
-    wgpu::BackendBit::PRIMARY,)
+  pub async fn new(surface: &wgpu::Surface) -> Self {
+    let adapter = wgpu::Adapter::request(
+      &wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::Default,
+        compatible_surface: Some(&surface),
+      },
+      wgpu::BackendBit::PRIMARY,
+    )
+    .await
     .unwrap();
 
-    let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-      extensions: wgpu::Extensions {
-        anisotropic_filtering: false,
-      },
-      limits: wgpu::Limits::default(),
-    });
+    let (device, queue) = adapter
+      .request_device(&wgpu::DeviceDescriptor {
+        extensions: wgpu::Extensions {
+          anisotropic_filtering: false,
+        },
+        limits: wgpu::Limits::default(),
+      })
+      .await;
 
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     Self {

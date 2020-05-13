@@ -1,6 +1,6 @@
 use crate::primitive::*;
 use crate::renderer::pipeline::*;
-use crate::vertex::Vertex;
+use crate::{vertex::Vertex, VertexBufferDescriptor};
 use core::marker::PhantomData;
 
 /// A indexed geometry that use vertex as primitive;
@@ -41,12 +41,16 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
     self.index.len() as u32
   }
 }
-
+use lazy_static::lazy_static;
+lazy_static! {
+  static ref vertex_buffers: Vec<VertexBufferDescriptor<'static>> =
+    { vec![Vertex::get_buffer_layout_descriptor()] };
+}
 impl<'a, T: PrimitiveTopology> GeometryProvider for StandardGeometry<T> {
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {
       index_format: wgpu::IndexFormat::Uint16,
-      vertex_buffers: &[Vertex::get_buffer_layout_descriptor()],
+      vertex_buffers: &vertex_buffers,
     }
   }
 
