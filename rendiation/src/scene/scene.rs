@@ -5,10 +5,7 @@ use super::{
   render_list::RenderList,
   resource::ResourceManager,
 };
-use crate::{
-  render_target::{RenderTargetAble},
-  WGPURenderer,
-};
+use crate::{render_target::RenderTargetAble, WGPURenderer};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 use std::cell::RefCell;

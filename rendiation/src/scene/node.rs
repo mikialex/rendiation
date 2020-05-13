@@ -79,8 +79,7 @@ pub struct RenderObject {
 }
 
 impl RenderObject {
-  pub fn render<'a>(&self, pass: &'a mut WGPURenderPass<'a>, scene: &'a Scene)
-  {
+  pub fn render<'a, 'b: 'a>(&self, pass: &mut WGPURenderPass<'a>, scene: &'b Scene) {
     let shading = scene.resources.get_shading(self.shading_index);
     let geometry = scene.resources.get_geometry(self.geometry_index);
 
