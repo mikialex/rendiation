@@ -2,7 +2,7 @@ use crate::geometry::primitive::*;
 use crate::geometry::standard_geometry::StandardGeometry;
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::WGPURenderer;
-use crate::{scene::resource::Geometry, vertex::*};
+use crate::{scene::resource::Geometry, vertex::*, WGPURenderPass};
 use std::ops::Range;
 
 pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
@@ -126,5 +126,30 @@ impl GPUGeometry {
         wgpu::BufferUsage::INDEX,
       ))
     }
+  }
+
+  pub fn provide_geometry<'a,  'b: 'a>(&'b self, pass: &mut WGPURenderPass<'a>) {
+    if let Some(gpu_data) = &self.gpu_data {
+      pass
+        .gpu_pass
+        .set_vertex_buffer(0, gpu_data[0].get_gpu_buffer(), 0, 0);
+    } else {
+      panic!("geometry not prepared")
+    }
+
+    if let Some(gpu_index) = &self.gpu_index {
+      pass
+        .gpu_pass
+        .set_index_buffer(gpu_index.get_gpu_buffer(), 0, 0);
+    } else {
+      panic!("geometry not prepared")
+    }
+  }
+
+  pub fn render<'a,  'b: 'a>(&'b self, pass: &mut WGPURenderPass<'a>) {
+    self.provide_geometry(pass);
+    pass
+      .gpu_pass
+      .draw_indexed(0..self.geometry.get_full_count(), 0, 0..1);
   }
 }

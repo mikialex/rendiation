@@ -13,6 +13,10 @@ pub trait Application: 'static + Sized {
 }
 
 pub fn run<E: Application>(title: &str) {
+  futures::executor::block_on(run_async::<E>(title));
+}
+
+pub async fn run_async<E: Application>(title: &str) {
   use winit::{
     event,
     event_loop::{ControlFlow, EventLoop},
@@ -53,7 +57,7 @@ pub fn run<E: Application>(title: &str) {
     (window, instance, hidpi_factor, size, surface)
   };
 
-  let mut renderer = WGPURenderer::new();
+  let mut renderer = WGPURenderer::new(&surface).await;
 
   let mut swap_chain = SwapChain::new(
     surface,

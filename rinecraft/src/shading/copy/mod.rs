@@ -1,7 +1,7 @@
 use rendiation::*;
 
 pub struct CopierShading {
-  pipeline: WGPUPipeline,
+  pub pipeline: WGPUPipeline,
 }
 
 impl CopierShading {
@@ -20,10 +20,6 @@ impl CopierShading {
     Self { pipeline }
   }
 
-  pub fn provide_pipeline(&self, pass: &mut WGPURenderPass, param: &WGPUBindGroup) {
-    pass.gpu_pass.set_pipeline(&self.pipeline.pipeline);
-    pass.gpu_pass.set_bind_group(0, &param.gpu_bindgroup, &[]);
-  }
 }
 
 use rendiation_marco::BindGroup;

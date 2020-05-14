@@ -3,7 +3,7 @@ use crate::renderer::shader::CopyShading;
 use crate::renderer::shader::CopyShadingParam;
 use crate::renderer::shader::QuadShading;
 use rendiation::*;
-use rendiation_math::Vec4;
+use rendiation_math::{Mat4, Vec4};
 use rendiation_render_entity::*;
 
 use geometry_lib::plane_geometry::Quad;
@@ -40,7 +40,7 @@ impl GUIRenderer {
     let camera = OrthographicCamera::new();
 
     let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
+    let mx_ref: &[u8] = mx_total.as_ref();
     let camera_gpu_buffer = WGPUBuffer::new(
       renderer,
       mx_ref,
@@ -93,24 +93,24 @@ impl GUIRenderer {
   }
 
   pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen: &impl RenderTargetAble) {
-    let bindgroup = CopyShadingParam {
-      texture_view: self.canvas.get_first_color_attachment().view(),
-      sampler: &self.copy_screen_sampler,
-    }
-    .create_bindgroup(renderer);
+    // let bindgroup = CopyShadingParam {
+    //   texture_view: self.canvas.get_first_color_attachment().view(),
+    //   sampler: &self.copy_screen_sampler,
+    // }
+    // .create_bindgroup(renderer);
 
-    let mut pass = screen
-      .create_render_pass_builder()
-      .create(&mut renderer.encoder);
+    // let mut pass = screen
+    //   .create_render_pass_builder()
+    //   .create(&mut renderer.encoder);
 
-    pass
-      .gpu_pass
-      .set_pipeline(&self.copy_screen_pipeline.pipeline.pipeline);
-    pass
-      .gpu_pass
-      .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
+    // pass
+    //   .gpu_pass
+    //   .set_pipeline(&self.copy_screen_pipeline.pipeline.pipeline);
+    // pass
+    //   .gpu_pass
+    //   .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
 
-    self.quad.render(&mut pass);
+    // // self.quad.render(&mut pass); // todo
   }
 
   pub fn draw_rect(
@@ -119,35 +119,35 @@ impl GUIRenderer {
     quad_layout: &QuadLayout,
     color: &Vec4<f32>,
   ) {
-    let mvp = quad_layout.compute_matrix(&self.camera);
-    let mx_ref: &[f32; 16] = mvp.as_ref();
-    self.camera_gpu_buffer.update(renderer, mx_ref);
+    // let mvp = quad_layout.compute_matrix(&self.camera);
+    // let mx_ref: &[f32; 16] = mvp.as_ref();
+    // self.camera_gpu_buffer.update(renderer, mx_ref);
 
-    let color_ref: &[f32; 4] = color.as_ref();
-    let color_uniform = WGPUBuffer::new(
-      renderer,
-      color_ref,
-      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    );
+    // let color_ref: &[f32; 4] = color.as_ref();
+    // let color_uniform = WGPUBuffer::new(
+    //   renderer,
+    //   color_ref,
+    //   wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    // );
 
-    let bindgroup = QuadShadingParam {
-      transform: &self.camera_gpu_buffer,
-      color: &color_uniform,
-    }
-    .create_bindgroup(renderer);
+    // let bindgroup = QuadShadingParam {
+    //   transform: &self.camera_gpu_buffer,
+    //   color: &color_uniform,
+    // }
+    // .create_bindgroup(renderer);
 
-    let mut pass = self
-      .canvas
-      .create_render_pass_builder()
-      .create(&mut renderer.encoder);
+    // let mut pass = self
+    //   .canvas
+    //   .create_render_pass_builder()
+    //   .create(&mut renderer.encoder);
 
-    pass
-      .gpu_pass
-      .set_pipeline(&self.quad_pipeline.pipeline.pipeline);
-    pass
-      .gpu_pass
-      .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
+    // pass
+    //   .gpu_pass
+    //   .set_pipeline(&self.quad_pipeline.pipeline.pipeline);
+    // pass
+    //   .gpu_pass
+    //   .set_bind_group(0, &bindgroup.gpu_bindgroup, &[]);
 
-    self.quad.render(&mut pass);
+    // self.quad.render(&mut pass);
   }
 }
