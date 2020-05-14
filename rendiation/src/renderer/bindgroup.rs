@@ -22,7 +22,7 @@ impl WGPUBindGroup {
       .map(|binding| match binding {
         WGPUBinding::BindBuffer(buffer) => wgpu::BindingResource::Buffer {
           buffer: &buffer.get_gpu_buffer(),
-          range: 0..buffer.get_byte_length() as u64,
+          range: 0..buffer.byte_size() as u64,
         },
         WGPUBinding::BindTexture(texture) => wgpu::BindingResource::TextureView(&texture),
         WGPUBinding::BindSampler(sampler) => {
@@ -45,6 +45,7 @@ impl WGPUBindGroup {
       .collect();
 
     let wgpu_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+      label: None,
       layout,
       bindings: &wgpu_bindings,
     });

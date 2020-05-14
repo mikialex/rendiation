@@ -120,6 +120,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
               let layout = renderer
                 .device
                 .create_bind_group_layout(&rendiation::BindGroupLayoutDescriptor {
+                  label: None,
                   bindings: &builder.bindings,
                 });
                 #static_bindgroup_name = Some(layout);

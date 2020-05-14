@@ -198,9 +198,10 @@ impl BlockRegistry {
         .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())
         .create(&mut renderer.encoder);
 
-      for (params, viewport) in gpu {
+      for (params, viewport) in &gpu {
         pass.use_viewport(&viewport);
-        copy_shading.provide_pipeline(&mut pass, &params);
+        pass.set_pipeline(&copy_shading.pipeline);
+        pass.set_bindgroup(0,  &params);
         quad.render(&mut pass);
       }
     }

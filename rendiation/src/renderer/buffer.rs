@@ -2,57 +2,39 @@ use crate::renderer::WGPURenderer;
 
 pub struct WGPUBuffer {
   gpu_buffer: wgpu::Buffer,
-  size: usize,
-  stride: usize,
+  byte_size: usize,
   usage: wgpu::BufferUsage,
 }
 
-fn create_buffer<T: 'static + Copy>(
-  renderer: &WGPURenderer,
-  value: &[T],
-  usage: wgpu::BufferUsage,
-) -> wgpu::Buffer {
-  renderer
-    .device
-    .create_buffer_mapped(value.len(), usage)
-    .fill_from_slice(value)
+fn create_buffer(renderer: &WGPURenderer, value: &[u8], usage: wgpu::BufferUsage) -> wgpu::Buffer {
+  renderer.device.create_buffer_with_data(value, usage)
 }
 
 impl WGPUBuffer {
-  pub fn new<T: 'static + Copy>(
-    renderer: &WGPURenderer,
-    value: &[T],
-    usage: wgpu::BufferUsage,
-  ) -> Self {
-    use std::mem;
+  pub fn new(renderer: &WGPURenderer, value: &[u8], usage: wgpu::BufferUsage) -> Self {
     Self {
       gpu_buffer: create_buffer(renderer, value, usage),
-      size: value.len(),
-      stride: mem::size_of::<T>(),
+      byte_size: value.len(),
       usage,
     }
+  }
+
+  pub fn byte_size(&self) -> usize {
+    self.byte_size
   }
 
   pub fn usage(&self) -> wgpu::BufferUsage {
     self.usage
   }
 
-  pub fn update<T: 'static + Copy>(&mut self, renderer: &mut WGPURenderer, value: &[T]) -> &Self {
-    assert_eq!(self.size, value.len());
+  pub fn update(&mut self, renderer: &mut WGPURenderer, value: &[u8]) -> &Self {
+    assert_eq!(self.byte_size, value.len());
 
     let new_gpu = create_buffer(renderer, value, wgpu::BufferUsage::COPY_SRC);
-    renderer.encoder.copy_buffer_to_buffer(
-      &new_gpu,
-      0,
-      &self.gpu_buffer,
-      0,
-      self.get_byte_length() as u64,
-    );
+    renderer
+      .encoder
+      .copy_buffer_to_buffer(&new_gpu, 0, &self.gpu_buffer, 0, self.byte_size as u64);
     self
-  }
-
-  pub fn get_byte_length(&self) -> usize {
-    self.size * self.stride
   }
 
   pub fn get_gpu_buffer(&self) -> &wgpu::Buffer {

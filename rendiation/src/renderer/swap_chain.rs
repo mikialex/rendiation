@@ -20,7 +20,7 @@ impl SwapChain {
       format: renderer.swap_chain_format,
       width: size.0 as u32,
       height: size.1 as u32,
-      present_mode: wgpu::PresentMode::Vsync,
+      present_mode: wgpu::PresentMode::Fifo,
     };
     let swap_chain = renderer.device.create_swap_chain(&surface, &swap_chain_descriptor);
     Self {
@@ -50,6 +50,6 @@ impl SwapChain {
   }
 
   pub fn request_output(&mut self) -> wgpu::SwapChainOutput {
-    self.swap_chain.get_next_texture()
+    self.swap_chain.get_next_texture().unwrap()
   }
 }

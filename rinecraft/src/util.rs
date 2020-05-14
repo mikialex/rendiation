@@ -22,11 +22,10 @@ impl CameraGPU {
     );
 
     let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-    let mx_total_ref: &[f32; 16] = mx_total.as_ref();
 
     let gpu_mvp_matrix = WGPUBuffer::new(
       renderer,
-      mx_total_ref,
+      mx_total.as_ref(),
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
     Self {
@@ -42,7 +41,7 @@ impl CameraGPU {
     self.gpu_camera_position_dirty = true;
   }
 
-  fn get_world_position_data(camera: &impl Camera) -> &[f32; 3] {
+  fn get_world_position_data(camera: &impl Camera) -> &[u8] {
     let transform = camera.get_transform();
     transform.position.as_ref()
   }
@@ -78,9 +77,8 @@ impl CameraGPU {
     self.gpu_mvp_matrix_dirty = false;
 
     let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-    let mx_total_ref: &[f32; 16] = mx_total.as_ref();
 
-    self.gpu_mvp_matrix.update(renderer, mx_total_ref);
+    self.gpu_mvp_matrix.update(renderer, mx_total.as_ref());
     &self.gpu_mvp_matrix
   }
 
@@ -93,36 +91,32 @@ impl CameraGPU {
 impl GPUItem<PerspectiveCamera> for WGPUBuffer {
   fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
 
     WGPUBuffer::new(
       renderer,
-      mx_ref,
+      mx_total.as_ref(),
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     )
   }
   fn update_gpu(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer) {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-    self.update(renderer, mx_ref);
+    self.update(renderer, mx_total.as_ref());
   }
 }
 
 impl GPUItem<ViewFrustumOrthographicCamera> for WGPUBuffer {
   fn create_gpu(item: &ViewFrustumOrthographicCamera, renderer: &mut WGPURenderer) -> Self {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
 
     WGPUBuffer::new(
       renderer,
-      mx_ref,
+      mx_total.as_ref(),
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     )
   }
   fn update_gpu(&mut self, item: &ViewFrustumOrthographicCamera, renderer: &mut WGPURenderer) {
     let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-    self.update(renderer, mx_ref);
+    self.update(renderer,  mx_total.as_ref());
   }
 }
 

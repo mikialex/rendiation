@@ -19,6 +19,7 @@ impl WGPUTextureCube {
   ) -> Self {
     let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
+      label: None,
       size: size.to_wgpu(),
       array_layer_count: 6, // that's the cube?
       mip_level_count: 1,

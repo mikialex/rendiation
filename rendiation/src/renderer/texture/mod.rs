@@ -9,7 +9,7 @@ use crate::renderer::texture_format::*;
 
 pub struct WGPUTexture<V: TextureDimension = TextureSize2D> {
   gpu_texture: wgpu::Texture,
-  descriptor: wgpu::TextureDescriptor,
+  descriptor: wgpu::TextureDescriptor<'static>,
   size: V,
   view: wgpu::TextureView,
   format: TextureFormat,
@@ -23,6 +23,7 @@ impl WGPUTexture {
   ) -> Self {
     let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
+      label: None,
       size: size.to_wgpu(),
       array_layer_count: 1,
       mip_level_count: 1,
@@ -45,6 +46,7 @@ impl WGPUTexture {
   pub fn new_as_target(renderer: &WGPURenderer, size: (usize, usize)) -> Self {
     let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
+      label: None,
       size: size.to_wgpu(),
       array_layer_count: 1,
       mip_level_count: 1,
@@ -73,6 +75,7 @@ impl WGPUTexture {
   ) -> WGPUTexture {
     let (width, height, depth) = size;
     let descriptor = wgpu::TextureDescriptor {
+      label: None,
       size: wgpu::Extent3d {
         width,
         height,
@@ -129,6 +132,7 @@ impl<V: TextureDimension> WGPUTexture<V> {
     let data_size = pixel_count * self.format.get_pixel_data_stride() as u64;
 
     let output_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+      label: None,
       size: data_size,
       usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
     });
@@ -150,8 +154,8 @@ pub fn upload(
     wgpu::BufferCopyView {
       buffer: buffer.get_gpu_buffer(),
       offset: 0,
-      row_pitch: 4 * texture.descriptor.size.width,
-      image_height: texture.descriptor.size.height,
+      bytes_per_row: 4 * texture.descriptor.size.width,
+      rows_per_image: 0,
     },
     wgpu::TextureCopyView {
       texture: &texture.gpu_texture,
