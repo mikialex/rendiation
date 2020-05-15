@@ -11,3 +11,4 @@ indicatif = "0.11"
 
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
+rendiation-render-entity = {path = "../render-entity"}

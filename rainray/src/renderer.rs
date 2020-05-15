@@ -1,8 +1,8 @@
-use crate::camera::*;
 use crate::frame::*;
 use crate::math::*;
 use crate::ray::*;
 use crate::scene::*;
+use rendiation_render_entity::*;
 
 use indicatif::ProgressBar;
 use std::time::Instant;
@@ -44,7 +44,7 @@ impl Renderer {
     }
   }
 
-  pub fn path_trace(&self, ray: &Ray, scene: &Scene, _camera: &Camera) -> Vec3 {
+  pub fn path_trace(&self, ray: &Ray, scene: &Scene, _camera: & impl Camera) -> Vec3 {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = *ray;
@@ -82,7 +82,7 @@ impl Renderer {
     energy
   }
 
-  pub fn render(&self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
+  pub fn render(&self, camera: &PerspectiveCamera, scene: &Scene, frame: &mut Frame) {
     println!("start render");
     let now = Instant::now();
     let mut render_frame = Frame::new(
@@ -101,7 +101,7 @@ impl Renderer {
       for (j, pixel) in row.iter_mut().enumerate() {
         let x_ratio = i as f32 * x_ratio_unit;
         let y_ratio = j as f32 * y_ratio_unit;
-        let ray = camera.generate_pixel_ray(x_ratio, y_ratio);
+        let ray = camera.create_screen_ray((x_ratio, y_ratio).into());
 
         let mut energy_acc = Vec3::new(0., 0., 0.);
 

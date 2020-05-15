@@ -5,7 +5,7 @@ use rendiation::renderer::SwapChain;
 use rendiation::*;
 use rendiation_render_entity::*;
 use rendium::*;
-use scene::scene::Scene;
+use rendiation_scenegraph::*;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,

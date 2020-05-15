@@ -4,22 +4,22 @@ use crate::ray::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Material {
-  pub diffuse_color: Color,
+  pub albedo: Color,
   pub emissive: Vec3,
 }
 
 impl Material {
   pub fn new() -> Material {
     Material {
-      diffuse_color: Color::new(0.95, 0.95, 0.95),
+      albedo: Color::new(0.95, 0.95, 0.95),
       emissive: Vec3::new(0.0, 0.0, 0.0),
     }
   }
 
   pub fn color(&mut self, r: f32, g: f32, b: f32) -> &Self {
-    self.diffuse_color.r = r;
-    self.diffuse_color.g = g;
-    self.diffuse_color.b = b;
+    self.albedo.r = r;
+    self.albedo.g = g;
+    self.albedo.b = b;
     self
   }
 

@@ -10,7 +10,7 @@ use crate::{
 use render_target::TargetStates;
 use rendiation::*;
 use rendiation_math::*;
-use scene::scene::Scene;
+use rendiation_scenegraph::*;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 
