@@ -15,6 +15,7 @@ rendiation-render-entity = { path = "../render-entity" }
 rendiation-marco = { path = "../marco" }
 rendiation = { path ="../rendiation" }
 rendium = { path = "../rendium" }
+rendiation-scenegraph = { path = "../scene-graph" }
 image = "*"
 noise = "0.6"
 serde = { version = "1.0.105", features = ["derive"] }

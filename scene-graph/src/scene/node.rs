@@ -1,6 +1,6 @@
-use super::{resource::SceneShading, scene::Scene};
-use crate::{WGPUPipeline, WGPURenderPass};
+use super::scene::Scene;
 use generational_arena::Index;
+use rendiation::*;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
 

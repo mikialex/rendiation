@@ -8,3 +8,4 @@ pub use camera::*;
 pub use controller::*;
 pub use transformed_object::*;
 pub use bounding::*;
+pub use raycaster::*;

@@ -6,6 +6,7 @@ members = [
     "render-entity",
     "rendiation",
     "render-graph",
+    "scene-graph",
     "rendium",
     "rinecraft",
     "rivermesh",

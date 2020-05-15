@@ -1,7 +1,7 @@
 use rendiation_math_entity::Frustum;
 use rendiation_render_entity::Camera;
 use super::{scene::Scene};
-use crate::Index;
+use generational_arena::Index;
 
 pub struct Culler {
   frustum: Frustum,

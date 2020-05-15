@@ -1,4 +1,3 @@
-mod camera;
 mod environment;
 mod frame;
 mod light;
@@ -9,7 +8,6 @@ mod ray;
 mod renderer;
 mod scene;
 
-use crate::camera::*;
 use crate::environment::*;
 use crate::frame::*;
 use crate::light::*;
@@ -18,12 +16,12 @@ use crate::math::*;
 use crate::renderer::*;
 use crate::scene::*;
 use std::rc::Rc;
-
+use rendiation_render_entity::*;
 use std::env;
 
 fn main() {
   let renderer = Renderer::new();
-  let camera = Camera::new();
+  let camera = PerspectiveCamera::new();
   let mut frame = Frame::new(500, 500);
   let scene = Scene {
     models: vec![

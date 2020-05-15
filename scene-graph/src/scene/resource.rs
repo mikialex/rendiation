@@ -1,4 +1,4 @@
-use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPURenderer};
+use rendiation::*;
 use generational_arena::{Arena, Index};
 use std::{any::Any, ops::Range};
 

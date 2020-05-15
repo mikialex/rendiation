@@ -2,7 +2,7 @@ use rendiation::*;
 
 use render_target::TargetStates;
 use rendiation_marco::BindGroup;
-use scene::resource::SceneShading;
+use rendiation_scenegraph::SceneShading;
 
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> SceneShading {
   let pipeline = PipelineBuilder::new(

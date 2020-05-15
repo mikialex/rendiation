@@ -1,12 +1,5 @@
-use crate::renderer::pipeline::WGPUPipeline;
-use crate::renderer::WGPURenderer;
-
 use super::scene::{Renderable, Scene, ScenePrepareCtx};
-use crate::{
-  geometry::StandardGeometry,
-  geometry_lib::{sphere_geometry::SphereGeometryParameter, IndexedBufferMesher},
-  WGPURenderPass,
-};
+use rendiation::*;
 use rendiation_math::Vec3;
 
 pub trait Background: Renderable {}
