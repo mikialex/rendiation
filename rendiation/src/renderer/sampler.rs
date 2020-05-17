@@ -41,6 +41,13 @@ pub struct WGPUSamplerBuilder {
   descriptor: wgpu::SamplerDescriptor,
 }
 
+impl AsMut<Self> for WGPUSamplerBuilder {
+  fn as_mut(&mut self) -> &mut Self {
+    self
+  }
+}
+
+
 impl WGPUSamplerBuilder {
   pub fn new() -> Self {
     Self {
