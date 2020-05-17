@@ -92,17 +92,4 @@ impl WGPURenderer {
     }
   }
 
-  // pub fn create_buffer<D: 'static + Copy>(
-  //   &self,
-  //   data: &[D],
-  //   usage: wgpu::BufferUsage,
-  // ) -> WGPUBuffer {
-  //   WGPUBuffer::new(&self.device, &data, usage)
-  // }
-  // pub fn create_index_buffer<D: 'static + Copy>(&self, data: &[D]) -> WGPUBuffer {
-  //   WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::INDEX)
-  // }
-  // pub fn create_vertex_buffer<D: 'static + Copy>(&self, data: &[D]) -> WGPUBuffer {
-  //   WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::VERTEX)
-  // }
 }
