@@ -6,6 +6,20 @@ pub struct WGPUSampler {
   descriptor: wgpu::SamplerDescriptor,
 }
 
+impl WGPUSampler {
+  pub fn default(renderer: &WGPURenderer) -> Self {
+    WGPUSamplerBuilder::new().build(renderer)
+  }
+
+  pub fn get_gpu_sampler(&self) -> &wgpu::Sampler {
+    &self.gpu_sampler
+  }
+  pub fn get_descripor(&self) -> &wgpu::SamplerDescriptor{
+    &self.descriptor
+  }
+}
+
+
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum TextureWrapping {
   ClampToEdge,
@@ -13,63 +27,58 @@ pub enum TextureWrapping {
   MirrorRepeat,
 }
 
+impl TextureWrapping {
+  pub fn to_wgpu(&self) -> wgpu::AddressMode {
+    match self {
+      TextureWrapping::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+      TextureWrapping::Repeat => wgpu::AddressMode::Repeat,
+      TextureWrapping::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+    }
+  }
+}
+
 pub struct WGPUSamplerBuilder {
-  wrapping_u: TextureWrapping,
-  wrapping_v: TextureWrapping,
-  wrapping_w: TextureWrapping,
+  descriptor: wgpu::SamplerDescriptor,
 }
 
 impl WGPUSamplerBuilder {
   pub fn new() -> Self {
     Self {
-      wrapping_u: TextureWrapping::ClampToEdge,
-      wrapping_v: TextureWrapping::ClampToEdge,
-      wrapping_w: TextureWrapping::ClampToEdge,
+      descriptor: wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        lod_min_clamp: -100.0,
+        lod_max_clamp: 100.0,
+        compare: wgpu::CompareFunction::Undefined,
+      },
     }
   }
 
-  pub fn wrapping_u(mut self: Self, value: TextureWrapping) -> Self {
-    self.wrapping_u = value;
+  pub fn wrapping_u(self: &mut Self, value: TextureWrapping) -> &mut Self {
+    self.descriptor.address_mode_u = value.to_wgpu();
     self
   }
 
-  pub fn wrapping_v(mut self: Self, value: TextureWrapping) -> Self {
-    self.wrapping_v = value;
+  pub fn wrapping_v(self: &mut Self, value: TextureWrapping) -> &mut Self {
+    self.descriptor.address_mode_u = value.to_wgpu();
     self
   }
 
-  pub fn wrapping_w(mut self: Self, value: TextureWrapping) -> Self {
-    self.wrapping_w = value;
+  pub fn wrapping_w(self: &mut Self, value: TextureWrapping) -> &mut Self {
+    self.descriptor.address_mode_u = value.to_wgpu();
     self
   }
 
-  pub fn build() -> WGPUSampler {
-    todo!()
-  }
-}
+  pub fn build(self, renderer: &WGPURenderer) -> WGPUSampler {
+    let sampler = renderer.device.create_sampler(&self.descriptor);
 
-impl WGPUSampler {
-  pub fn new(renderer: &WGPURenderer) -> Self {
-    let des = wgpu::SamplerDescriptor {
-      address_mode_u: wgpu::AddressMode::ClampToEdge,
-      address_mode_v: wgpu::AddressMode::ClampToEdge,
-      address_mode_w: wgpu::AddressMode::ClampToEdge,
-      mag_filter: wgpu::FilterMode::Nearest,
-      min_filter: wgpu::FilterMode::Linear,
-      mipmap_filter: wgpu::FilterMode::Nearest,
-      lod_min_clamp: -100.0,
-      lod_max_clamp: 100.0,
-      compare: wgpu::CompareFunction::Undefined,
-    };
-    let sampler = renderer.device.create_sampler(&des);
-
-    Self {
+    WGPUSampler {
       gpu_sampler: sampler,
-      descriptor: des,
+      descriptor: self.descriptor,
     }
-  }
-
-  pub fn get_gpu_sampler(&self) -> &wgpu::Sampler {
-    &self.gpu_sampler
   }
 }
