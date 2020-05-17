@@ -54,7 +54,7 @@ impl World {
     let mut block_shading = create_block_shading(renderer, target);
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);
-    let sampler = WGPUSampler::new(renderer);
+    let sampler = WGPUSampler::default(renderer);
 
     let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),

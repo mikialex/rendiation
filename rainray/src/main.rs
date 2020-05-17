@@ -18,20 +18,28 @@ use crate::scene::*;
 use std::rc::Rc;
 use rendiation_render_entity::*;
 use std::env;
+use rendiation_math::Mat4;
 
 fn main() {
   let renderer = Renderer::new();
-  let camera = PerspectiveCamera::new();
+  let mut camera = PerspectiveCamera::new();
+  camera.transform.matrix = Mat4::lookat(
+    Vec3::new(0.,0.,10.),
+    Vec3::new(0.,0.,0.),
+    Vec3::new(0.,1.,0.),
+  );
+  camera.update_projection();
+
   let mut frame = Frame::new(500, 500);
   let scene = Scene {
     models: vec![
       Rc::new(model::Model::new(
-        Box::new(Sphere::new((-1., -1., -5.).into(), 3.0)),
+        Box::new(Sphere::new((-0., -0., -0.).into(), 3.0)),
         Material::new(),
       )),
       Rc::new(model::Model::new(
         Box::new(Sphere {
-          center: Vec3::new(0., 4., -5.),
+          center: Vec3::new(0., 0., 0.),
           radius: 1.5,
         }),
         *Material::new().color(0.6, 0.4, 0.8),

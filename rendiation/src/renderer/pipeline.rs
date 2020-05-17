@@ -106,8 +106,6 @@ impl<'a> PipelineBuilder<'a> {
 
       primitive_topology: self.primitive_topology,
       vertex_state: self.vertex_state.to_owned().unwrap(),
-      // index_format: self.index_format,
-      // vertex_buffers: &self.vertex_layouts,
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,

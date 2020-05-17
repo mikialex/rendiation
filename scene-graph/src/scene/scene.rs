@@ -5,14 +5,13 @@ use super::{
   render_list::RenderList,
   resource::ResourceManager,
 };
-use rendiation::*;
 use generational_arena::{Arena, Index};
+use rendiation::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 use std::cell::RefCell;
 
 pub trait Renderable {
-  fn prepare(&mut self, renderer: &mut WGPURenderer, scene: &mut ScenePrepareCtx);
-  fn render(&self, renderer: &WGPURenderer, scene: &Scene);
+  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
 }
 
 pub struct Scene {
@@ -132,13 +131,13 @@ impl Scene {
   }
 
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
-    let mut ctx = ScenePrepareCtx {};
-    self
-      .renderables_dynamic
-      .iter_mut()
-      .for_each(|(_, renderable)| {
-        renderable.prepare(renderer, &mut ctx);
-      });
+    // let mut ctx = ScenePrepareCtx {};
+    // self
+    //   .renderables_dynamic
+    //   .iter_mut()
+    //   .for_each(|(_, renderable)| {
+    //     renderable.prepare(renderer, &mut ctx);
+    //   });
 
     // todo hierarchy updating;
 
@@ -157,6 +156,10 @@ impl Scene {
   }
 
   pub fn render(&self, target: &impl RenderTargetAble, renderer: &mut WGPURenderer) {
+    self
+      .background
+      .render(renderer, target.create_render_pass_builder());
+
     let mut pass = target
       .create_render_pass_builder()
       .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
@@ -188,5 +191,3 @@ impl Scene {
     }
   }
 }
-
-pub struct ScenePrepareCtx {}

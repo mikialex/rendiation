@@ -1,4 +1,4 @@
-use super::scene::{Renderable, Scene, ScenePrepareCtx};
+use super::scene::Renderable;
 use rendiation::*;
 use rendiation_math::Vec3;
 
@@ -17,13 +17,10 @@ impl SolidBackground {
 }
 
 impl Renderable for SolidBackground {
-  fn prepare(&mut self, _: &mut WGPURenderer, _: &mut ScenePrepareCtx) {}
-  fn render(&self, renderer: &WGPURenderer, _: &Scene) {
-
-    // // just use a clear pass, todo, merge clear pass to follower pass
-    // let mut pass = WGPURenderPass::build()
-    //   .output_with_clear(target, (0.1, 0.2, 0.3, 1.0))
-    //   .create(&mut renderer.encoder);
+  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder) {
+    builder
+      .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
+      .create(&mut renderer.encoder);
   }
 }
 

@@ -49,7 +49,7 @@ impl GUIRenderer {
 
     let quad_pipeline = QuadShading::new(renderer, &canvas);
     let copy_screen_pipeline = CopyShading::new(renderer, screen_target);
-    let copy_screen_sampler = WGPUSampler::new(renderer);
+    let copy_screen_sampler = WGPUSampler::default(renderer);
     let mut renderer = GUIRenderer {
       quad,
       view,

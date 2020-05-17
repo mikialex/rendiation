@@ -127,7 +127,7 @@ impl WGPUTexture {
 }
 
 impl<V: TextureDimension> WGPUTexture<V> {
-  pub fn read(&self, renderer: &mut WGPURenderer) {
+  pub async fn read(&self, renderer: &mut WGPURenderer) -> Result<wgpu::BufferReadMapping, wgpu::BufferAsyncErr> {
     let pixel_count = self.size.get_pixel_size() as u64;
     let data_size = pixel_count * self.format.get_pixel_data_stride() as u64;
 
@@ -137,8 +137,11 @@ impl<V: TextureDimension> WGPUTexture<V> {
       usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
     });
 
-    // need wait for wgpu-rs update
-    // let buffer_future = output_buffer.map_read(0, data_size);
+    let buffer_future = output_buffer.map_read(0, data_size);
+
+    renderer.device.poll(wgpu::Maintain::Wait);
+
+    buffer_future.await
   }
 }
 

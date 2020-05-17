@@ -2,7 +2,6 @@ pub mod bindgroup;
 pub mod bindgroup_layout;
 pub mod blend;
 pub mod buffer;
-pub mod consts;
 pub mod geometry;
 pub mod pipeline;
 pub mod render_pass;
@@ -16,7 +15,6 @@ pub use bindgroup::*;
 pub use bindgroup_layout::*;
 pub use blend::*;
 pub use buffer::*;
-pub use consts::*;
 pub use geometry::*;
 pub use pipeline::*;
 pub use render_pass::*;
@@ -91,18 +89,4 @@ impl WGPURenderer {
       swap_chain_format: wgpu::TextureFormat::Bgra8UnormSrgb,
     }
   }
-
-  // pub fn create_buffer<D: 'static + Copy>(
-  //   &self,
-  //   data: &[D],
-  //   usage: wgpu::BufferUsage,
-  // ) -> WGPUBuffer {
-  //   WGPUBuffer::new(&self.device, &data, usage)
-  // }
-  // pub fn create_index_buffer<D: 'static + Copy>(&self, data: &[D]) -> WGPUBuffer {
-  //   WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::INDEX)
-  // }
-  // pub fn create_vertex_buffer<D: 'static + Copy>(&self, data: &[D]) -> WGPUBuffer {
-  //   WGPUBuffer::new(&self.device, &data, wgpu::BufferUsage::VERTEX)
-  // }
 }
