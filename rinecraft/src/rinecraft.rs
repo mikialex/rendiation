@@ -4,12 +4,39 @@ use render_target::{ScreenRenderTarget, TargetStatesProvider};
 use rendiation::renderer::SwapChain;
 use rendiation::*;
 use rendiation_render_entity::*;
-use rendium::*;
 use rendiation_scenegraph::*;
+use rendium::*;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
   pub state: RinecraftState,
+}
+
+pub enum CameraControllerType {
+  FPS,
+  ORBIT,
+}
+
+pub enum CameraController {
+  FPS(FPSController),
+  ORBIT(OrbitController),
+}
+
+impl CameraController {
+  pub fn update(&mut self, camera: &mut impl Camera) -> bool {
+    match self {
+      Self::FPS(controller) => controller.update(camera),
+      Self::ORBIT(controller) => controller.update(camera),
+    }
+  }
+
+  pub fn use_mode(
+    camera: & impl Camera,
+    controller_type: CameraControllerType,
+    event: WindowEventSession<RinecraftState>,
+  ) -> Self {
+    CameraController::FPS(FPSController::new())
+  }
 }
 
 pub struct RinecraftState {
@@ -19,6 +46,7 @@ pub struct RinecraftState {
   // pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
   pub fps_controller: FPSController,
+  pub controller_type: CameraController,
   pub controller_listener_handle: Vec<usize>,
   pub viewport: Viewport,
   pub world: World,
@@ -88,10 +116,6 @@ impl Application for Rinecraft {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
-      // state
-      //   .orbit_controller
-      //   .update(&mut state.camera_orth as &mut ViewFrustumOrthographicCamera);
-      // state.camera_orth.get_update_gpu(renderer);
 
       let camera = state
         .scene
@@ -138,6 +162,7 @@ impl Application for Rinecraft {
         viewport,
         orbit_controller: OrbitController::new(),
         fps_controller: FPSController::new(),
+        controller_type: CameraController::ORBIT(OrbitController::new()),
         controller_listener_handle: Vec::new(),
         screen_target,
         gui,

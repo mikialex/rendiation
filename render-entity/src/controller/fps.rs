@@ -45,7 +45,8 @@ impl FPSController {
 
 impl<T: TransformedObject> Controller<T> for FPSController {
   fn update(&mut self, target: &mut T) -> bool {
-    let mut mat = target.get_transform_mut().matrix;
+    let mut transform = target.get_transform_mut();
+    let mat = transform.matrix;
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);
 
     if self.w_press {
@@ -75,7 +76,7 @@ impl<T: TransformedObject> Controller<T> for FPSController {
       .min(self.max_polar_angle);
     self.spherical.azim -= self.x_motion * self.motion_rate;
 
-    mat = Mat4::lookat(
+    transform.matrix = Mat4::lookat(
       position_new,
       position_new + self.spherical.to_vec3(),
       Vec3::unit_y(),

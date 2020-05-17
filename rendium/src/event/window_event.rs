@@ -1,8 +1,8 @@
 use crate::application::AppRenderCtx;
+use core::any::Any;
 use rendiation_util::IndexContainer;
 use winit::event;
 use winit::event::*;
-use core::any::Any;
 
 pub struct EventCtx<'a, 'b, 'c, T> {
   pub event: winit::event::Event<()>, // todo use self event
@@ -11,6 +11,36 @@ pub struct EventCtx<'a, 'b, 'c, T> {
 }
 
 type ListenerContainer<AppState> = IndexContainer<Box<dyn FnMut(&mut EventCtx<AppState>)>>;
+
+
+
+struct Message<'a> {
+  target: &'a mut dyn Any,
+}
+
+struct EventSession {
+  listeners: Vec<Box<dyn FnMut(&mut Message)>>,
+}
+
+impl EventSession {
+  pub fn new() -> Self {
+    Self {
+      listeners: Vec::new(),
+    }
+  }
+
+  pub fn emit(){
+    
+  }
+
+  pub fn add<T: FnMut(&mut Message) + 'static>(&mut self, listener: T) {
+    self.listeners.push(Box::new(listener));
+  }
+}
+
+
+
+
 
 pub struct WindowEventSession<AppState> {
   raw_listeners: ListenerContainer<AppState>,
@@ -36,6 +66,10 @@ impl<AppState> WindowEventSession<AppState> {
     self.raw_listeners.set_item(Box::new(func));
   }
 
+  pub fn add_listener_any<T: FnMut(&mut EventCtx<AppState>) + 'static>(&mut self, func: T) {
+
+  }
+
   pub fn add_mouse_down_listener<T: FnMut(&mut EventCtx<AppState>) + 'static>(
     &mut self,
     func: T,
@@ -51,7 +85,7 @@ impl<AppState> WindowEventSession<AppState> {
   }
 
   pub fn add_events_clear_listener<T: FnMut(&mut EventCtx<AppState>) + 'static>(
-    &mut self, 
+    &mut self,
     func: T,
   ) -> usize {
     self.events_cleared_listeners.set_item(Box::new(func))
