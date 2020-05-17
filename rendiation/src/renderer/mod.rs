@@ -91,5 +91,4 @@ impl WGPURenderer {
       swap_chain_format: wgpu::TextureFormat::Bgra8UnormSrgb,
     }
   }
-
 }
