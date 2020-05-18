@@ -85,6 +85,22 @@ impl Scene {
       .unwrap()
   }
 
+  pub fn node_add_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+    let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
+    let (parent, child) = (parent.unwrap(), child.unwrap());
+    parent.add(child);
+  }
+
+  pub fn node_remove_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+    let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
+    let (parent, child) = (parent.unwrap(), child.unwrap());
+    parent.remove(child);
+  }
+
+  pub fn add_to_scene_root(&mut self, child_id: Index) {
+    self.node_add_child_by_id(self.root, child_id);
+  }
+
   pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
     self.get_node_mut(self.root)
   }
@@ -141,18 +157,12 @@ impl Scene {
 
     // todo hierarchy updating;
 
-    // prepare render list;
+    // // prepare render list;
     let mut render_list = self.scene_raw_list.borrow_mut();
     render_list.clear();
-    for (index, n) in &self.nodes {
-      if n.render_objects.len() > 0 {
-        render_list.push(index);
-      }
-    }
-    // todo
-    // self.get_root().traverse(self, |node|{
-    //   render_list.push(node.get_id());
-    // });
+    self.get_root().traverse(self, |node| {
+      render_list.push(node.get_id());
+    });
   }
 
   pub fn render(&self, target: &impl RenderTargetAble, renderer: &mut WGPURenderer) {

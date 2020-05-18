@@ -35,7 +35,7 @@ impl SceneNode {
   }
 
   pub fn traverse(&self, scene: &Scene, mut visitor: impl FnMut(&SceneNode)) {
-    let mut visit_stack: Vec<Index> = Vec::new();
+    let mut visit_stack: Vec<Index> = Vec::new(); // TODO reuse
     visit_stack.push(self.self_id);
 
     while let Some(index) = visit_stack.pop() {
