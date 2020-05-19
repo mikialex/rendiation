@@ -8,6 +8,8 @@ pub struct SceneNode {
   pub(crate) parent: Option<Index>,
   pub(crate) children: Vec<Index>,
   pub render_objects: Vec<Index>,
+  pub visible: bool,
+  pub net_visible: bool,
   pub(crate) render_data: RenderData,
 }
 
@@ -18,7 +20,9 @@ impl SceneNode {
       parent: None,
       children: Vec::new(),
       render_objects: Vec::new(),
-      render_data: RenderData::new()
+      visible: true,
+      net_visible: true,
+      render_data: RenderData::new(),
     }
   }
 

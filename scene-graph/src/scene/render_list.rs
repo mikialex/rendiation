@@ -36,7 +36,7 @@ impl RenderList {
     self
   }
 
-  pub fn get_len(&self) -> usize {
+  pub fn len(&self) -> usize {
     self.drawcalls.len()
   }
 

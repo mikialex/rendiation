@@ -36,6 +36,15 @@ impl SceneGraphRenderEngine {
     scene.traverse(
       scene.get_root().self_id,
       |this: &mut SceneNode, parent: Option<&mut SceneNode>| {
+        if let Some(parent) = parent {
+          this.render_data.world_matrix =
+            parent.render_data.world_matrix * this.render_data.local_matrix;
+          this.net_visible = this.visible && parent.net_visible;
+        }
+        if !this.visible {
+          return; // skip drawcall collect
+        }
+
         this.render_objects.iter().for_each(|id| {
           self.scene_raw_list.push(this.get_id(), *id);
         });
