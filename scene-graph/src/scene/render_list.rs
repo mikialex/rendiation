@@ -1,35 +1,49 @@
 use super::scene::Scene;
 use generational_arena::Index;
 
+#[derive(Copy, Clone)]
+pub struct Drawcall {
+  pub render_object: Index,
+  pub node: Index,
+}
+
 pub struct RenderList {
-  pub render_objects: Vec<Index>,
+  pub drawcalls: Vec<Drawcall>,
 }
 
 impl RenderList {
   pub fn new() -> Self {
     Self {
-      render_objects: Vec::new(),
+      drawcalls: Vec::new(),
     }
   }
 
-  pub fn clear(&mut self) -> &mut Self{
-    self.render_objects.clear();
+  pub fn clear(&mut self) -> &mut Self {
+    self.drawcalls.clear();
     self
   }
 
-  pub fn push(&mut self, node_index: Index) -> &mut Self {
-    self.render_objects.push(node_index);
+  pub fn push_drawcall(&mut self, drawcall: Drawcall) -> &mut Self {
+    self.drawcalls.push(drawcall);
+    self
+  }
+
+  pub fn push(&mut self, node: Index, render_object: Index) -> &mut Self {
+    self.drawcalls.push(Drawcall {
+      render_object,
+      node,
+    });
     self
   }
 
   pub fn get_len(&self) -> usize {
-    self.render_objects.len()
+    self.drawcalls.len()
   }
 
   pub fn sort_for_opaque(&mut self, scene: &Scene) {
-    self.render_objects.sort_unstable_by(|a, b| {
-      let a_render_data = scene.get_node_render_data(*a);
-      let b_render_data = scene.get_node_render_data(*b);
+    self.drawcalls.sort_unstable_by(|a, b| {
+      let a_render_data = scene.get_node_render_data(a.node);
+      let b_render_data = scene.get_node_render_data(b.node);
 
       // near to far;
       a_render_data
@@ -40,9 +54,9 @@ impl RenderList {
   }
 
   pub fn sort_for_transparent(&mut self, scene: &Scene) {
-    self.render_objects.sort_unstable_by(|a, b| {
-      let a_render_data = scene.get_node_render_data(*a);
-      let b_render_data = scene.get_node_render_data(*b);
+    self.drawcalls.sort_unstable_by(|a, b| {
+      let a_render_data = scene.get_node_render_data(a.node);
+      let b_render_data = scene.get_node_render_data(b.node);
 
       // far to near;
       b_render_data

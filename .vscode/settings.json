@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "BRDF",
+        "Drawcall",
         "Lerp",
         "Mesher",
         "Noize",
@@ -21,6 +22,7 @@
         "bindgroups",
         "bindpoint",
         "consts",
+        "drawcalls",
         "glsl",
         "glutin",
         "hidpi",

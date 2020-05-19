@@ -1,15 +1,15 @@
 use super::{
   background::{Background, SolidBackground},
   culling::Culler,
-  node::{SceneNode},
+  node::SceneNode,
   render_list::RenderList,
   resource::ResourceManager,
 };
+use crate::{RenderData, RenderObject};
 use generational_arena::{Arena, Index};
 use rendiation::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 use std::cell::RefCell;
-use crate::{RenderData, RenderObject};
 
 pub trait Renderable {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
@@ -126,7 +126,7 @@ impl Scene {
     new_node
   }
 
-  pub fn get_node_render_data(&self, id: Index) -> &RenderData{
+  pub fn get_node_render_data(&self, id: Index) -> &RenderData {
     &self.nodes.get(id).unwrap().render_data
   }
 
@@ -162,7 +162,9 @@ impl Scene {
     let mut render_list = self.scene_raw_list.borrow_mut();
     render_list.clear();
     self.get_root().traverse(self, |node| {
-      render_list.push(node.get_id());
+      node.render_objects.iter().for_each(|id| {
+        render_list.push(node.get_id(), *id);
+      });
     });
   }
 
@@ -176,14 +178,10 @@ impl Scene {
       .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
       .create(&mut renderer.encoder);
 
-    // pass.use_viewport(&state.viewport);
-
-    for node_id in &self.scene_raw_list.borrow().render_objects {
-      let node = self.nodes.get(*node_id).unwrap();
-      for render_obj_id in &node.render_objects {
-        let render_obj = self.render_objects.get(*render_obj_id).unwrap();
-        render_obj.render(&mut pass, self);
-      }
+    for drawcall in &self.scene_raw_list.borrow().drawcalls {
+      // let node = self.nodes.get(drawcall.node).unwrap();
+      let render_obj = self.render_objects.get(drawcall.render_object).unwrap();
+      render_obj.render(&mut pass, self);
     }
   }
 
@@ -192,13 +190,10 @@ impl Scene {
     let mut to = self.culled_list.borrow_mut();
     to.clear();
 
-    for node_id in &from.render_objects {
-      // let node = self.nodes.get(*node_id).unwrap();
-      // for render_obj_id in &node.render_objects {
-      if self.culler.test_is_visible(*node_id, self) {
-        to.push(*node_id);
+    for drawcall in &from.drawcalls {
+      if self.culler.test_is_visible(drawcall.node, self) {
+        to.push_drawcall(*drawcall);
       }
-      // }
     }
   }
 }
