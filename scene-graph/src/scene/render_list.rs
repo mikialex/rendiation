@@ -28,8 +28,8 @@ impl RenderList {
 
   pub fn sort_for_opaque(&mut self, scene: &Scene) {
     self.render_objects.sort_unstable_by(|a, b| {
-      let a_render_data = scene.nodes_render_data.get(*a).unwrap();
-      let b_render_data = scene.nodes_render_data.get(*b).unwrap();
+      let a_render_data = scene.get_node_render_data(*a);
+      let b_render_data = scene.get_node_render_data(*b);
 
       // near to far;
       a_render_data
@@ -41,8 +41,8 @@ impl RenderList {
 
   pub fn sort_for_transparent(&mut self, scene: &Scene) {
     self.render_objects.sort_unstable_by(|a, b| {
-      let a_render_data = scene.nodes_render_data.get(*a).unwrap();
-      let b_render_data = scene.nodes_render_data.get(*b).unwrap();
+      let a_render_data = scene.get_node_render_data(*a);
+      let b_render_data = scene.get_node_render_data(*b);
 
       // far to near;
       b_render_data

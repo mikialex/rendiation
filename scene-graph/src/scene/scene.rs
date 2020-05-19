@@ -1,7 +1,7 @@
 use super::{
   background::{Background, SolidBackground},
   culling::Culler,
-  node::{RenderData, RenderObject, SceneNode},
+  node::{SceneNode},
   render_list::RenderList,
   resource::ResourceManager,
 };
@@ -9,6 +9,7 @@ use generational_arena::{Arena, Index};
 use rendiation::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 use std::cell::RefCell;
+use crate::{RenderData, RenderObject};
 
 pub trait Renderable {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
@@ -22,8 +23,7 @@ pub struct Scene {
   render_objects: Arena<RenderObject>,
 
   root: Index,
-  nodes: Arena<SceneNode>,
-  pub(crate) nodes_render_data: Arena<RenderData>,
+  pub(crate) nodes: Arena<SceneNode>,
 
   renderables_dynamic: Arena<Box<dyn Renderable>>,
   pub resources: ResourceManager,
@@ -41,12 +41,10 @@ impl Scene {
     let active_camera_index = cameras.insert(camera_default);
 
     let mut nodes = Arena::new();
-    let mut nodes_render_data = Arena::new();
 
     let root = SceneNode::new();
     let index = nodes.insert(root);
     nodes.get_mut(index).unwrap().set_self_id(index);
-    nodes_render_data.insert(RenderData::new());
 
     Self {
       background: Box::new(SolidBackground::new()),
@@ -55,7 +53,6 @@ impl Scene {
       render_objects: Arena::new(),
       root: index,
       nodes,
-      nodes_render_data,
       renderables_dynamic: Arena::new(),
       resources: ResourceManager::new(),
       scene_raw_list: RefCell::new(RenderList::new()),
@@ -126,8 +123,11 @@ impl Scene {
     let new_node = SceneNode::new();
     let index = self.nodes.insert(new_node);
     let new_node = self.nodes.get_mut(index).unwrap().set_self_id(index);
-    self.nodes_render_data.insert(RenderData::new());
     new_node
+  }
+
+  pub fn get_node_render_data(&self, id: Index) -> &RenderData{
+    &self.nodes.get(id).unwrap().render_data
   }
 
   pub fn free_node(&mut self, index: Index) {
