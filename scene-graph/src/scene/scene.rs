@@ -16,11 +16,11 @@ pub trait Renderable {
 }
 
 pub struct Scene {
-  background: Box<dyn Background>,
+  pub background: Box<dyn Background>,
   active_camera_index: Index,
   cameras: Arena<Box<dyn Camera>>,
 
-  render_objects: Arena<RenderObject>,
+  pub render_objects: Arena<RenderObject>,
 
   root: Index,
   pub(crate) nodes: Arena<SceneNode>,
@@ -82,15 +82,22 @@ impl Scene {
       .unwrap()
   }
 
-  pub fn node_add_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+  pub fn get_parent_child_pair(
+    &mut self,
+    parent_id: Index,
+    child_id: Index,
+  ) -> (&mut SceneNode, &mut SceneNode) {
     let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
-    let (parent, child) = (parent.unwrap(), child.unwrap());
+    (parent.unwrap(), child.unwrap())
+  }
+
+  pub fn node_add_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.add(child);
   }
 
   pub fn node_remove_child_by_id(&mut self, parent_id: Index, child_id: Index) {
-    let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
-    let (parent, child) = (parent.unwrap(), child.unwrap());
+    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.remove(child);
   }
 
@@ -147,6 +154,29 @@ impl Scene {
     self.render_objects.remove(index);
   }
 
+  pub fn traverse(
+    &mut self,
+    start_index: Index,
+    mut visitor: impl FnMut(&mut SceneNode, Option<&mut SceneNode>),
+  ) {
+    let mut visit_stack: Vec<Index> = Vec::new(); // TODO reuse
+    visit_stack.push(start_index);
+
+    while let Some(index) = visit_stack.pop() {
+
+      if let Some(parent_index) = self.get_node(index).parent {
+        let (parent, this) = self.get_parent_child_pair(parent_index, index);
+        visitor(this, Some(parent));
+        visit_stack.extend(this.children.iter().cloned())
+      } else{
+        let this = self.get_node_mut(index);
+        visitor(this, None);
+        visit_stack.extend(this.children.iter().cloned())
+      }
+
+    }
+  }
+
   pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
     // let mut ctx = ScenePrepareCtx {};
     // self
@@ -161,11 +191,17 @@ impl Scene {
     // // prepare render list;
     let mut render_list = self.scene_raw_list.borrow_mut();
     render_list.clear();
-    self.get_root().traverse(self, |node| {
-      node.render_objects.iter().for_each(|id| {
-        render_list.push(node.get_id(), *id);
-      });
+
+    self.traverse(self.root, |this: &mut SceneNode, parent: Option<&mut SceneNode>|{
+
     });
+
+
+    // self.get_root().traverse(self, |node| {
+    //   node.render_objects.iter().for_each(|id| {
+    //     render_list.push(node.get_id(), *id);
+    //   });
+    // });
   }
 
   pub fn render(&self, target: &impl RenderTargetAble, renderer: &mut WGPURenderer) {

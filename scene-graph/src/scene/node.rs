@@ -4,9 +4,9 @@ use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
 
 pub struct SceneNode {
-  self_id: Index,
-  parent: Option<Index>,
-  children: Vec<Index>,
+  pub(crate) self_id: Index,
+  pub(crate) parent: Option<Index>,
+  pub(crate) children: Vec<Index>,
   pub render_objects: Vec<Index>,
   pub(crate) render_data: RenderData,
 }
