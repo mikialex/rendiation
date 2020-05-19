@@ -136,6 +136,7 @@ impl Scene {
 
   pub fn create_render_object(&mut self, geometry_index: Index, shading_index: Index) -> Index {
     let obj = RenderObject {
+      render_order: 0,
       shading_index,
       geometry_index,
     };

@@ -67,13 +67,6 @@ impl SceneNode {
   }
 }
 
-pub trait TransformLocalWorld {
-  fn get_local_transform();
-  fn set_local_transform();
-  fn get_world_transform();
-  fn set_world_transform();
-}
-
 pub struct RenderData {
   pub world_bounding: Option<BoundingData>,
   pub world_matrix: Mat4<f32>,
