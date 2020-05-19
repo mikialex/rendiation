@@ -42,6 +42,7 @@ impl CameraController {
 pub struct RinecraftState {
   pub window_state: WindowState,
   pub scene: Scene,
+  pub scene_renderer: SceneGraphRenderEngine,
   pub camera_gpu: CameraGPU,
   // pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
@@ -127,12 +128,10 @@ impl Application for Rinecraft {
 
       state.world.update(renderer, &mut state.scene);
 
-      state.scene.prepare(renderer);
-
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
-      state.scene.render(&output, renderer);
+      state.scene_renderer.render(&mut state.scene, renderer, &output);
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output);
@@ -157,6 +156,7 @@ impl Application for Rinecraft {
         window_state,
         world,
         scene,
+        scene_renderer: SceneGraphRenderEngine::new(),
         camera_gpu,
         // camera_orth,
         viewport,

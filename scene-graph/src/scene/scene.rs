@@ -1,15 +1,12 @@
 use super::{
   background::{Background, SolidBackground},
-  culling::Culler,
   node::SceneNode,
-  render_list::RenderList,
   resource::ResourceManager,
 };
 use crate::{RenderData, RenderObject};
 use generational_arena::{Arena, Index};
 use rendiation::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
-use std::cell::RefCell;
 
 pub trait Renderable {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
@@ -28,9 +25,6 @@ pub struct Scene {
   renderables_dynamic: Arena<Box<dyn Renderable>>,
   pub resources: ResourceManager,
 
-  scene_raw_list: RefCell<RenderList>,
-  culled_list: RefCell<RenderList>,
-  culler: Culler,
 }
 
 impl Scene {
@@ -55,9 +49,6 @@ impl Scene {
       nodes,
       renderables_dynamic: Arena::new(),
       resources: ResourceManager::new(),
-      scene_raw_list: RefCell::new(RenderList::new()),
-      culled_list: RefCell::new(RenderList::new()),
-      culler: Culler::new(),
     }
   }
 
@@ -163,72 +154,14 @@ impl Scene {
     visit_stack.push(start_index);
 
     while let Some(index) = visit_stack.pop() {
-
       if let Some(parent_index) = self.get_node(index).parent {
         let (parent, this) = self.get_parent_child_pair(parent_index, index);
         visitor(this, Some(parent));
         visit_stack.extend(this.children.iter().cloned())
-      } else{
+      } else {
         let this = self.get_node_mut(index);
         visitor(this, None);
         visit_stack.extend(this.children.iter().cloned())
-      }
-
-    }
-  }
-
-  pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
-    // let mut ctx = ScenePrepareCtx {};
-    // self
-    //   .renderables_dynamic
-    //   .iter_mut()
-    //   .for_each(|(_, renderable)| {
-    //     renderable.prepare(renderer, &mut ctx);
-    //   });
-
-    // todo hierarchy updating;
-
-    // // prepare render list;
-    let mut render_list = self.scene_raw_list.borrow_mut();
-    render_list.clear();
-
-    self.traverse(self.root, |this: &mut SceneNode, parent: Option<&mut SceneNode>|{
-
-    });
-
-
-    // self.get_root().traverse(self, |node| {
-    //   node.render_objects.iter().for_each(|id| {
-    //     render_list.push(node.get_id(), *id);
-    //   });
-    // });
-  }
-
-  pub fn render(&self, target: &impl RenderTargetAble, renderer: &mut WGPURenderer) {
-    self
-      .background
-      .render(renderer, target.create_render_pass_builder());
-
-    let mut pass = target
-      .create_render_pass_builder()
-      .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
-      .create(&mut renderer.encoder);
-
-    for drawcall in &self.scene_raw_list.borrow().drawcalls {
-      // let node = self.nodes.get(drawcall.node).unwrap();
-      let render_obj = self.render_objects.get(drawcall.render_object).unwrap();
-      render_obj.render(&mut pass, self);
-    }
-  }
-
-  pub fn execute_culling(&mut self) {
-    let from = self.scene_raw_list.borrow_mut();
-    let mut to = self.culled_list.borrow_mut();
-    to.clear();
-
-    for drawcall in &from.drawcalls {
-      if self.culler.test_is_visible(drawcall.node, self) {
-        to.push_drawcall(*drawcall);
       }
     }
   }
