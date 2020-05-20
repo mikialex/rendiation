@@ -41,6 +41,7 @@
         "swapchain",
         "texels",
         "vsync",
+        "webgl",
         "webgpu",
         "wgpu",
         "winit",

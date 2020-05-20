@@ -42,7 +42,7 @@ impl CameraController {
 pub struct RinecraftState {
   pub window_state: WindowState,
   pub scene: Scene,
-  pub scene_renderer: SceneGraphRenderEngine,
+  pub scene_renderer: SceneGraphWebGPURenderEngine,
   pub camera_gpu: CameraGPU,
   // pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
   pub orbit_controller: OrbitController,
@@ -156,7 +156,7 @@ impl Application for Rinecraft {
         window_state,
         world,
         scene,
-        scene_renderer: SceneGraphRenderEngine::new(),
+        scene_renderer: SceneGraphWebGPURenderEngine::new(),
         camera_gpu,
         // camera_orth,
         viewport,

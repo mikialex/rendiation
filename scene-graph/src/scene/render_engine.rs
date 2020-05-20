@@ -1,10 +1,9 @@
-use crate::{Culler, RenderList, Scene, SceneNode};
-use rendiation::{RenderTargetAble, WGPURenderer};
+use crate::{Culler, RenderList, Scene};
 
 pub struct SceneGraphRenderEngine {
-  scene_raw_list: RenderList,
-  culled_list: RenderList,
-  culler: Culler,
+  pub scene_raw_list: RenderList,
+  pub culled_list: RenderList,
+  pub culler: Culler,
 }
 
 impl SceneGraphRenderEngine {
@@ -23,47 +22,6 @@ impl SceneGraphRenderEngine {
       if self.culler.test_is_visible(drawcall.node, scene) {
         self.culled_list.push_drawcall(*drawcall);
       }
-    }
-  }
-
-  pub fn render(
-    &mut self,
-    scene: &mut Scene,
-    renderer: &mut WGPURenderer,
-    target: &impl RenderTargetAble,
-  ) {
-    self.scene_raw_list.clear();
-    scene.traverse(
-      scene.get_root().self_id,
-      |this: &mut SceneNode, parent: Option<&mut SceneNode>| {
-        if let Some(parent) = parent {
-          this.render_data.world_matrix =
-            parent.render_data.world_matrix * this.render_data.local_matrix;
-          this.net_visible = this.visible && parent.net_visible;
-        }
-        if !this.visible {
-          return; // skip drawcall collect
-        }
-
-        this.render_objects.iter().for_each(|id| {
-          self.scene_raw_list.push(this.get_id(), *id);
-        });
-      },
-    );
-
-    scene
-      .background
-      .render(renderer, target.create_render_pass_builder());
-
-    let mut pass = target
-      .create_render_pass_builder()
-      .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
-      .create(&mut renderer.encoder);
-
-    for drawcall in &self.scene_raw_list.drawcalls {
-      // let node = self.nodes.get(drawcall.node).unwrap();
-      let render_obj = scene.render_objects.get(drawcall.render_object).unwrap();
-      render_obj.render(&mut pass, scene);
     }
   }
 }

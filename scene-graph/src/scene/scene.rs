@@ -5,12 +5,7 @@ use super::{
 };
 use crate::{RenderData, RenderObject};
 use generational_arena::{Arena, Index};
-use rendiation::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
-
-pub trait Renderable {
-  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
-}
 
 pub struct Scene {
   pub background: Box<dyn Background>,
@@ -22,7 +17,6 @@ pub struct Scene {
   root: Index,
   pub(crate) nodes: Arena<SceneNode>,
 
-  renderables_dynamic: Arena<Box<dyn Renderable>>,
   pub resources: ResourceManager,
 
 }
@@ -47,7 +41,6 @@ impl Scene {
       render_objects: Arena::new(),
       root: index,
       nodes,
-      renderables_dynamic: Arena::new(),
       resources: ResourceManager::new(),
     }
   }
@@ -110,11 +103,6 @@ impl Scene {
 
   pub fn get_node_mut(&mut self, index: Index) -> &mut SceneNode {
     self.nodes.get_mut(index).unwrap()
-  }
-
-  pub fn add_dynamic_renderable(&mut self, renderable: impl Renderable + 'static) -> Index {
-    let boxed = Box::new(renderable);
-    self.renderables_dynamic.insert(boxed)
   }
 
   pub fn create_new_node(&mut self) -> &mut SceneNode {

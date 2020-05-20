@@ -1,8 +1,9 @@
-use super::scene::Renderable;
 use rendiation::*;
 use rendiation_math::Vec3;
 
-pub trait Background: Renderable {}
+pub trait Background {
+  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
+}
 
 pub struct SolidBackground {
   pub color: Vec3<f32>,
@@ -16,15 +17,13 @@ impl SolidBackground {
   }
 }
 
-impl Renderable for SolidBackground {
+impl Background for SolidBackground {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder) {
     builder
       .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
       .create(&mut renderer.encoder);
   }
 }
-
-impl Background for SolidBackground {}
 
 pub struct Sky {
   geometry: StandardGeometry,
