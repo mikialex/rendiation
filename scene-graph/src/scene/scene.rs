@@ -3,11 +3,11 @@ use super::{
   node::SceneNode,
   resource::ResourceManager,
 };
-use crate::{RenderData, RenderObject};
+use crate::{RenderData, RenderObject, SceneGraphBackEnd};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
-pub struct Scene {
+pub struct Scene<T: SceneGraphBackEnd> {
   pub background: Box<dyn Background>,
   active_camera_index: Index,
   cameras: Arena<Box<dyn Camera>>,
@@ -17,11 +17,11 @@ pub struct Scene {
   root: Index,
   pub(crate) nodes: Arena<SceneNode>,
 
-  pub resources: ResourceManager,
+  pub resources: ResourceManager<T>,
 
 }
 
-impl Scene {
+impl<T: SceneGraphBackEnd> Scene<T> {
   pub fn new() -> Self {
     let camera_default = Box::new(PerspectiveCamera::new());
 
@@ -56,7 +56,7 @@ impl Scene {
     self.cameras.get_mut(self.active_camera_index).unwrap()
   }
 
-  pub fn get_active_camera_mut_downcast<T: 'static>(&mut self) -> &mut T {
+  pub fn get_active_camera_mut_downcast<U: 'static>(&mut self) -> &mut U {
     self
       .cameras
       .get_mut(self.active_camera_index)

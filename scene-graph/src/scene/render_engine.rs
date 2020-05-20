@@ -15,7 +15,7 @@ impl SceneGraphRenderEngine {
     }
   }
 
-  pub fn execute_culling(&mut self, scene: &Scene) {
+  pub fn execute_culling<T>(&mut self, scene: &Scene<T>) {
     self.culled_list.clear();
 
     for drawcall in &self.scene_raw_list.drawcalls {

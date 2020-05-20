@@ -22,7 +22,7 @@ impl Culler {
     self
   }
 
-  pub fn test_is_visible(&self, node_id: Index, scene: &Scene) -> bool{
+  pub fn test_is_visible<T>(&self, node_id: Index, scene: &Scene<T>) -> bool{
     let render_data = scene.get_node_render_data(node_id);
     if self.enable_frustum_culling {
       if let Some(bounding) = &render_data.world_bounding {
