@@ -1,6 +1,7 @@
 use rendiation::*;
 use generational_arena::Index;
 use crate::Scene;
+use rendiation_render_entity::BoundingData;
 
 pub struct RenderObject {
   pub shading_index: Index,
@@ -26,5 +27,9 @@ impl RenderObject {
     }
 
     pass.draw_indexed(geometry.get_draw_range())
+  }
+
+  pub fn get_bounding_local(&self, scene: &Scene) -> &BoundingData{
+    todo!()
   }
 }
