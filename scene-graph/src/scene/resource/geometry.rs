@@ -2,13 +2,16 @@ use crate::{Index, ResourceManager, SceneGraphBackEnd};
 use std::ops::Range;
 
 pub trait Geometry<T: SceneGraphBackEnd> {
-  fn provide_gpu(&mut self, renderer: &mut T::Renderer);
+  fn update_gpu(&mut self, renderer: &mut T::Renderer);
+  fn get_gpu_index_buffer(&self) -> & T::IndexBuffer;
+  fn get_gpu_vertex_buffer(&self, index: usize) -> & T::VertexBuffer;
+  fn vertex_buffer_count(&self) -> usize;
   fn get_draw_range(&self) -> Range<u32>;
 }
 
 pub struct SceneGeometry<T: SceneGraphBackEnd> {
   index: Index,
-  data: Box<dyn Geometry<T>>,
+  pub data: Box<dyn Geometry<T>>,
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {

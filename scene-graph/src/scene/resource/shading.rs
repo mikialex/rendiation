@@ -14,6 +14,12 @@ pub struct SceneShading<T: SceneGraphBackEnd> {
   gpu: T::Shading,
 }
 
+impl<T: SceneGraphBackEnd> SceneShading<T> {
+  pub fn get_gpu(&self) -> &T::Shading {
+    &self.gpu
+  }
+}
+
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
   pub fn create_shading(&mut self, shading: SceneShadingDescriptor) -> SceneShading<T> {
     todo!()

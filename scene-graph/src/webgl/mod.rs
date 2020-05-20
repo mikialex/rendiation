@@ -4,7 +4,10 @@ use crate::{Scene, SceneGraphRenderEngine, RenderObject, SceneNode, SceneGraphBa
 pub struct WebGLBackend;
 
 impl SceneGraphBackEnd for WebGLBackend{
-  // todo!();
+  type Renderer = WebGLRenderer;
+  type Shading = WebGLProgram;
+  type IndexBuffer = WebGLBuffer;
+  type VertexBuffer = WebGLBuffer;
 }
 
 pub struct WebGLRenderer{

@@ -3,14 +3,13 @@ use crate::{SceneShading, Arena, SceneGeometry};
 
 pub trait SceneGraphBackEnd{
   type Renderer;
-  type Geometry;
   type Shading;
-  type ShadingParameterGroup;
+  type IndexBuffer;
+  type VertexBuffer;
 }
 
 pub struct ResourceManager<T: SceneGraphBackEnd> {
   pub geometries: Arena<SceneGeometry<T>>,
-  // vertex_buffers: Arena<Buffer>,
   pub shadings: Arena<SceneShading<T>>,
   // shading_parameter_group: Arena<WGPUBindGroup>,
 }
@@ -23,23 +22,6 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
       // bindgroups: Arena::new(),
     }
   }
-
-  // pub fn add_geometry(&mut self, geometry: impl Geometry) -> Index {
-  //   self.geometries.insert(Box::new(geometry))
-  // }
-
-  // pub fn get_geometry_mut(&mut self, index: Index) -> &mut dyn Geometry {
-  //   self.geometries.get_mut(index).unwrap().as_mut()
-  // }
-
-  // pub fn get_geometry(&self, index: Index) -> &dyn Geometry {
-  //   self.geometries.get(index).unwrap().as_ref()
-  // }
-
-  // pub fn delete_geometry(&mut self, index: Index) {
-  //   self.geometries.remove(index);
-  // }
-
 
   // pub fn add_bindgroup(&mut self, shading_params: WGPUBindGroup) -> Index {
   //   self.bindgroups.insert(shading_params)

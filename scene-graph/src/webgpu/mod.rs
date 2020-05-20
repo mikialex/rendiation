@@ -1,10 +1,13 @@
-use crate::{Scene, SceneGraphRenderEngine, SceneNode, RenderObject, SceneGraphBackEnd};
-use rendiation::{RenderTargetAble, WGPURenderer, WGPURenderPass};
+use crate::{RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine, SceneNode};
+use rendiation::*;
 
 pub struct WebGPUBackend;
 
-impl SceneGraphBackEnd for WebGPUBackend{
-  // todo!();
+impl SceneGraphBackEnd for WebGPUBackend {
+  type Renderer = WGPURenderer;
+  type Shading = WGPUPipeline;
+  type IndexBuffer = WGPUBuffer;
+  type VertexBuffer = WGPUBuffer;
 }
 
 pub struct SceneGraphWebGPURenderEngine {
@@ -61,23 +64,27 @@ impl SceneGraphWebGPURenderEngine {
 }
 
 impl RenderObject {
-  pub fn render_webgpu<'a, 'b: 'a>(&self, pass: &mut WGPURenderPass<'a>, scene: &'b Scene<WebGPUBackend>) {
+  pub fn render_webgpu<'a, 'b: 'a>(
+    &self,
+    pass: &mut WGPURenderPass<'a>,
+    scene: &'b Scene<WebGPUBackend>,
+  ) {
     let shading = scene.resources.get_shading(self.shading_index);
-    let geometry = scene.resources.get_geometry(self.geometry_index);
+    let geometry = scene.resources.get_geometry(self.geometry_index).data;
 
-    pass.set_pipeline(shading.get_gpu_pipeline());
+    pass.set_pipeline(shading.get_gpu());
+
     pass.set_index_buffer(geometry.get_gpu_index_buffer());
     for i in 0..geometry.vertex_buffer_count() {
       let buffer = geometry.get_gpu_vertex_buffer(i);
       pass.set_vertex_buffer(i, buffer);
     }
 
-    for i in 0..shading.get_bindgroup_count() {
-      let bindgroup = scene.resources.get_bindgroup(shading.get_bindgroup(i));
-      pass.set_bindgroup(i, bindgroup);
-    }
+    // for i in 0..shading.get_bindgroup_count() {
+    //   let bindgroup = scene.resources.get_bindgroup(shading.get_bindgroup(i));
+    //   pass.set_bindgroup(i, bindgroup);
+    // }
 
-    pass.draw_indexed(geometry.get_draw_range())
+    // pass.draw_indexed(geometry.get_draw_range())
   }
-
 }
