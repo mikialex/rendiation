@@ -1,7 +1,5 @@
 use crate::{Index, ResourceManager, SceneGraphBackEnd};
 
-/// webgpu => bindgroup
-/// webgl => nothing
 pub struct SceneShadingParameterGroup<T: SceneGraphBackEnd> {
   index: Index,
   items: Vec<(Index, ShadingParameterType)>,

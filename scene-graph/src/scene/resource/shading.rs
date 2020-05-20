@@ -6,8 +6,6 @@ pub struct SceneShadingDescriptor {
   // .. blend state stuff
 }
 
-/// webgpu => pipeline
-/// webgl => program
 pub struct SceneShading<T: SceneGraphBackEnd> {
   index: Index,
   parameters: Vec<Index>,

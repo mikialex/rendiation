@@ -1,12 +1,17 @@
+use crate::{
+  Arena, SceneGeometry, SceneShading, SceneShadingDescriptor, SceneShadingParameterGroup,
+};
 
-use crate::{SceneShading, Arena, SceneGeometry, SceneShadingParameterGroup};
-
-pub trait SceneGraphBackEnd{
+pub trait SceneGraphBackEnd {
+  // resource type injection
   type Renderer;
   type Shading;
   type ShadingParameterGroup;
   type IndexBuffer;
   type VertexBuffer;
+
+  // resource type middle layer translation
+  fn create_shading(shading_desc: &SceneShadingDescriptor) -> Self::Shading;
 }
 
 pub struct ResourceManager<T: SceneGraphBackEnd> {
@@ -23,16 +28,4 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
       shading_parameter_groups: Arena::new(),
     }
   }
-
-  // pub fn add_bindgroup(&mut self, shading_params: WGPUBindGroup) -> Index {
-  //   self.bindgroups.insert(shading_params)
-  // }
-
-  // pub fn get_bindgroup_mut(&mut self, index: Index) -> &mut WGPUBindGroup {
-  //   self.bindgroups.get_mut(index).unwrap()
-  // }
-
-  // pub fn get_bindgroup(&self, index: Index) -> &WGPUBindGroup {
-  //   self.bindgroups.get(index).unwrap()
-  // }
 }
