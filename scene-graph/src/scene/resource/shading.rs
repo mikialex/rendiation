@@ -10,17 +10,34 @@ pub struct SceneShadingDescriptor {
 /// webgl => program
 pub struct SceneShading<T: SceneGraphBackEnd> {
   index: Index,
-  parameters: Vec<Option<Index>>,
+  parameters: Vec<Index>,
   gpu: T::Shading,
 }
 
 impl<T: SceneGraphBackEnd> SceneShading<T> {
+  pub fn set_parameter(&mut self, index: Index) {
+    self.parameters.push(index);
+  }
+
   pub fn get_gpu(&self) -> &T::Shading {
     &self.gpu
+  }
+
+  pub fn get_parameters_count(&self) -> usize {
+    self.parameters.len()
+  }
+
+  pub fn get_parameter(&self, index: usize) -> Index {
+    self.parameters[index]
   }
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
+  pub fn create_shading_raw(&mut self, shading: T::Shading) -> SceneShading<T> {
+    todo!()
+    // self.shadings.insert(shading)
+  }
+
   pub fn create_shading(&mut self, shading: SceneShadingDescriptor) -> SceneShading<T> {
     todo!()
     // self.shadings.insert(shading)

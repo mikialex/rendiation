@@ -37,6 +37,7 @@
         "renderables",
         "rgba",
         "rustfmt",
+        "scenegraph",
         "spirv",
         "swapchain",
         "texels",

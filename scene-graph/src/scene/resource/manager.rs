@@ -1,9 +1,10 @@
 
-use crate::{SceneShading, Arena, SceneGeometry};
+use crate::{SceneShading, Arena, SceneGeometry, SceneShadingParameterGroup};
 
 pub trait SceneGraphBackEnd{
   type Renderer;
   type Shading;
+  type ShadingParameterGroup;
   type IndexBuffer;
   type VertexBuffer;
 }
@@ -11,7 +12,7 @@ pub trait SceneGraphBackEnd{
 pub struct ResourceManager<T: SceneGraphBackEnd> {
   pub geometries: Arena<SceneGeometry<T>>,
   pub shadings: Arena<SceneShading<T>>,
-  // shading_parameter_group: Arena<WGPUBindGroup>,
+  pub shading_parameter_groups: Arena<SceneShadingParameterGroup<T>>,
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
@@ -19,7 +20,7 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
     Self {
       geometries: Arena::new(),
       shadings: Arena::new(),
-      // bindgroups: Arena::new(),
+      shading_parameter_groups: Arena::new(),
     }
   }
 

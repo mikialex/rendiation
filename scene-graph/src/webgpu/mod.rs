@@ -1,20 +1,19 @@
 use crate::{RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine, SceneNode};
 use rendiation::*;
 
-pub struct WebGPUBackend;
-
-impl SceneGraphBackEnd for WebGPUBackend {
+impl SceneGraphBackEnd for SceneGraphWebGPURendererBackend {
   type Renderer = WGPURenderer;
   type Shading = WGPUPipeline;
+  type ShadingParameterGroup = WGPUBindGroup;
   type IndexBuffer = WGPUBuffer;
   type VertexBuffer = WGPUBuffer;
 }
 
-pub struct SceneGraphWebGPURenderEngine {
+pub struct SceneGraphWebGPURendererBackend {
   engine: SceneGraphRenderEngine,
 }
 
-impl SceneGraphWebGPURenderEngine {
+impl SceneGraphWebGPURendererBackend {
   pub fn new() -> Self {
     Self {
       engine: SceneGraphRenderEngine::new(),
@@ -23,7 +22,7 @@ impl SceneGraphWebGPURenderEngine {
 
   pub fn render(
     &mut self,
-    scene: &mut Scene<WebGPUBackend>,
+    scene: &mut Scene<SceneGraphWebGPURendererBackend>,
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
@@ -67,10 +66,10 @@ impl RenderObject {
   pub fn render_webgpu<'a, 'b: 'a>(
     &self,
     pass: &mut WGPURenderPass<'a>,
-    scene: &'b Scene<WebGPUBackend>,
+    scene: &'b Scene<SceneGraphWebGPURendererBackend>,
   ) {
     let shading = scene.resources.get_shading(self.shading_index);
-    let geometry = scene.resources.get_geometry(self.geometry_index).data;
+    let geometry = &scene.resources.get_geometry(self.geometry_index).data;
 
     pass.set_pipeline(shading.get_gpu());
 
@@ -80,11 +79,13 @@ impl RenderObject {
       pass.set_vertex_buffer(i, buffer);
     }
 
-    // for i in 0..shading.get_bindgroup_count() {
-    //   let bindgroup = scene.resources.get_bindgroup(shading.get_bindgroup(i));
-    //   pass.set_bindgroup(i, bindgroup);
-    // }
+    for i in 0..shading.get_parameters_count() {
+      let bindgroup = scene
+        .resources
+        .get_shading_param_group(shading.get_parameter(i));
+      pass.set_bindgroup(i, &bindgroup.gpu);
+    }
 
-    // pass.draw_indexed(geometry.get_draw_range())
+    pass.draw_indexed(geometry.get_draw_range())
   }
 }
