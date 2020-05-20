@@ -1,4 +1,11 @@
-use crate::{Scene, SceneGraphRenderEngine, RenderObject, SceneNode};
+use crate::{Scene, SceneGraphRenderEngine, RenderObject, SceneNode, SceneGraphBackEnd};
+
+
+pub struct WebGLBackend;
+
+impl SceneGraphBackEnd for WebGLBackend{
+  // todo!();
+}
 
 pub struct WebGLRenderer{
 
@@ -58,7 +65,7 @@ impl SceneGraphWebGLEngine {
 }
 
 impl RenderObject {
-  pub fn render_webgl<'a, 'b: 'a>(&self, renderer: WebGLRenderer, scene: &'b Scene) {
+  pub fn render_webgl<'a, 'b: 'a>(&self, renderer: WebGLRenderer, scene: &'b Scene<WebGLBackend>) {
   }
 
 }

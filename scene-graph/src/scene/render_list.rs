@@ -1,4 +1,5 @@
 use super::scene::Scene;
+use crate::SceneGraphBackEnd;
 use generational_arena::Index;
 
 #[derive(Copy, Clone)]
@@ -40,7 +41,7 @@ impl RenderList {
     self.drawcalls.len()
   }
 
-  pub fn sort_for_opaque<T>(&mut self, scene: &Scene<T>) {
+  pub fn sort_for_opaque<T: SceneGraphBackEnd>(&mut self, scene: &Scene<T>) {
     self.drawcalls.sort_unstable_by(|a, b| {
       let a_render_data = scene.get_node_render_data(a.node);
       let b_render_data = scene.get_node_render_data(b.node);
@@ -53,7 +54,7 @@ impl RenderList {
     });
   }
 
-  pub fn sort_for_transparent<T>(&mut self, scene: &Scene<T>) {
+  pub fn sort_for_transparent<T: SceneGraphBackEnd>(&mut self, scene: &Scene<T>) {
     self.drawcalls.sort_unstable_by(|a, b| {
       let a_render_data = scene.get_node_render_data(a.node);
       let b_render_data = scene.get_node_render_data(b.node);

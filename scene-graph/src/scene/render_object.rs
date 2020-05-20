@@ -1,4 +1,4 @@
-use crate::Scene;
+use crate::{Scene, SceneGraphBackEnd};
 use generational_arena::Index;
 use rendiation_render_entity::BoundingData;
 
@@ -9,7 +9,7 @@ pub struct RenderObject {
 }
 
 impl RenderObject {
-  pub fn get_bounding_local<T>(&self, scene: &Scene<T>) -> &BoundingData {
+  pub fn get_bounding_local<T: SceneGraphBackEnd>(&self, scene: &Scene<T>) -> &BoundingData {
     todo!()
   }
 }

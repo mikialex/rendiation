@@ -1,4 +1,4 @@
-use crate::{Culler, RenderList, Scene};
+use crate::{Culler, RenderList, Scene, SceneGraphBackEnd};
 
 pub struct SceneGraphRenderEngine {
   pub scene_raw_list: RenderList,
@@ -15,7 +15,7 @@ impl SceneGraphRenderEngine {
     }
   }
 
-  pub fn execute_culling<T>(&mut self, scene: &Scene<T>) {
+  pub fn execute_culling<T: SceneGraphBackEnd>(&mut self, scene: &Scene<T>) {
     self.culled_list.clear();
 
     for drawcall in &self.scene_raw_list.drawcalls {

@@ -16,7 +16,8 @@ pub struct SceneShading<T: SceneGraphBackEnd> {
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
   pub fn create_shading(&mut self, shading: SceneShadingDescriptor) -> SceneShading<T> {
-    self.shadings.insert(shading)
+    todo!()
+    // self.shadings.insert(shading)
   }
 
   pub fn get_shading_mut(&mut self, index: Index) -> &mut SceneShading<T> {

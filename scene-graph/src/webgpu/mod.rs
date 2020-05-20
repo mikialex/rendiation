@@ -1,5 +1,11 @@
-use crate::{Scene, SceneGraphRenderEngine, SceneNode, RenderObject};
+use crate::{Scene, SceneGraphRenderEngine, SceneNode, RenderObject, SceneGraphBackEnd};
 use rendiation::{RenderTargetAble, WGPURenderer, WGPURenderPass};
+
+pub struct WebGPUBackend;
+
+impl SceneGraphBackEnd for WebGPUBackend{
+  // todo!();
+}
 
 pub struct SceneGraphWebGPURenderEngine {
   engine: SceneGraphRenderEngine,
@@ -14,7 +20,7 @@ impl SceneGraphWebGPURenderEngine {
 
   pub fn render(
     &mut self,
-    scene: &mut Scene,
+    scene: &mut Scene<WebGPUBackend>,
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
@@ -55,7 +61,7 @@ impl SceneGraphWebGPURenderEngine {
 }
 
 impl RenderObject {
-  pub fn render_webgpu<'a, 'b: 'a>(&self, pass: &mut WGPURenderPass<'a>, scene: &'b Scene) {
+  pub fn render_webgpu<'a, 'b: 'a>(&self, pass: &mut WGPURenderPass<'a>, scene: &'b Scene<WebGPUBackend>) {
     let shading = scene.resources.get_shading(self.shading_index);
     let geometry = scene.resources.get_geometry(self.geometry_index);
 

@@ -62,7 +62,7 @@ impl<T: SceneGraphBackEnd> Scene<T> {
       .get_mut(self.active_camera_index)
       .unwrap()
       .as_any_mut()
-      .downcast_mut::<T>()
+      .downcast_mut::<U>()
       .unwrap()
   }
 

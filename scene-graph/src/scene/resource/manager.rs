@@ -1,5 +1,5 @@
 
-use crate::{SceneShading, Arena};
+use crate::{SceneShading, Arena, SceneGeometry};
 
 pub trait SceneGraphBackEnd{
   type Renderer;
@@ -9,16 +9,16 @@ pub trait SceneGraphBackEnd{
 }
 
 pub struct ResourceManager<T: SceneGraphBackEnd> {
-  // geometries: Arena<Box<dyn Geometry>>,
+  pub geometries: Arena<SceneGeometry<T>>,
   // vertex_buffers: Arena<Buffer>,
-  shadings: Arena<SceneShading<T>>,
+  pub shadings: Arena<SceneShading<T>>,
   // shading_parameter_group: Arena<WGPUBindGroup>,
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
   pub fn new() -> Self {
     Self {
-      // geometries: Arena::new(),
+      geometries: Arena::new(),
       shadings: Arena::new(),
       // bindgroups: Arena::new(),
     }
