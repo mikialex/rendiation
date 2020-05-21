@@ -1,7 +1,8 @@
+use super::scene::Scene;
+use crate::SceneGraphBackEnd;
+use generational_arena::Index;
 use rendiation_math_entity::Frustum;
 use rendiation_render_entity::Camera;
-use super::{scene::Scene};
-use generational_arena::Index;
 
 pub struct Culler {
   frustum: Frustum,
@@ -22,16 +23,15 @@ impl Culler {
     self
   }
 
-  pub fn test_is_visible(&self, node_id: Index, scene: &Scene) -> bool{
+  pub fn test_is_visible<T: SceneGraphBackEnd>(&self, node_id: Index, scene: &Scene<T>) -> bool {
     let render_data = scene.get_node_render_data(node_id);
     if self.enable_frustum_culling {
       if let Some(bounding) = &render_data.world_bounding {
-        if !bounding.if_intersect_frustum(&self.frustum){
-          return false
+        if !bounding.if_intersect_frustum(&self.frustum) {
+          return false;
         }
       }
     }
     true
   }
-
 }

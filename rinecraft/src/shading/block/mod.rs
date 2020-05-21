@@ -2,10 +2,10 @@ use rendiation::*;
 
 use render_target::TargetStates;
 use rendiation_marco::BindGroup;
-use rendiation_scenegraph::SceneShading;
 
-pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> SceneShading {
-  let pipeline = PipelineBuilder::new(
+pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) 
+-> WGPUPipeline {
+  PipelineBuilder::new(
     renderer,
     include_str!("./block.vert"),
     include_str!("./block.frag"),
@@ -14,8 +14,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> S
   .binding_group::<BlockShadingParamGroup>()
   .geometry::<StandardGeometry>()
   .target_states(target)
-  .build();
-  SceneShading::new(pipeline)
+  .build()
 }
 
 #[derive(BindGroup)]

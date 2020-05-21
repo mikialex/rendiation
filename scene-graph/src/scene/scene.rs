@@ -1,39 +1,27 @@
 use super::{
-  background::{Background, SolidBackground},
-  culling::Culler,
+  background::{Background},
   node::SceneNode,
-  render_list::RenderList,
   resource::ResourceManager,
 };
-use crate::{RenderData, RenderObject};
+use crate::{RenderData, RenderObject, SceneGraphBackEnd};
 use generational_arena::{Arena, Index};
-use rendiation::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
-use std::cell::RefCell;
 
-pub trait Renderable {
-  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
-}
-
-pub struct Scene {
-  background: Box<dyn Background>,
+pub struct Scene<T: SceneGraphBackEnd> {
+  pub background: Option<Box<dyn Background<T>>>,
   active_camera_index: Index,
   cameras: Arena<Box<dyn Camera>>,
 
-  render_objects: Arena<RenderObject>,
+  pub render_objects: Arena<RenderObject>,
 
   root: Index,
   pub(crate) nodes: Arena<SceneNode>,
 
-  renderables_dynamic: Arena<Box<dyn Renderable>>,
-  pub resources: ResourceManager,
+  pub resources: ResourceManager<T>,
 
-  scene_raw_list: RefCell<RenderList>,
-  culled_list: RefCell<RenderList>,
-  culler: Culler,
 }
 
-impl Scene {
+impl<T: SceneGraphBackEnd> Scene<T> {
   pub fn new() -> Self {
     let camera_default = Box::new(PerspectiveCamera::new());
 
@@ -47,17 +35,13 @@ impl Scene {
     nodes.get_mut(index).unwrap().set_self_id(index);
 
     Self {
-      background: Box::new(SolidBackground::new()),
+      background: None,
       active_camera_index,
       cameras,
       render_objects: Arena::new(),
       root: index,
       nodes,
-      renderables_dynamic: Arena::new(),
       resources: ResourceManager::new(),
-      scene_raw_list: RefCell::new(RenderList::new()),
-      culled_list: RefCell::new(RenderList::new()),
-      culler: Culler::new(),
     }
   }
 
@@ -72,25 +56,32 @@ impl Scene {
     self.cameras.get_mut(self.active_camera_index).unwrap()
   }
 
-  pub fn get_active_camera_mut_downcast<T: 'static>(&mut self) -> &mut T {
+  pub fn get_active_camera_mut_downcast<U: 'static>(&mut self) -> &mut U {
     self
       .cameras
       .get_mut(self.active_camera_index)
       .unwrap()
       .as_any_mut()
-      .downcast_mut::<T>()
+      .downcast_mut::<U>()
       .unwrap()
   }
 
-  pub fn node_add_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+  pub fn get_parent_child_pair(
+    &mut self,
+    parent_id: Index,
+    child_id: Index,
+  ) -> (&mut SceneNode, &mut SceneNode) {
     let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
-    let (parent, child) = (parent.unwrap(), child.unwrap());
+    (parent.unwrap(), child.unwrap())
+  }
+
+  pub fn node_add_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.add(child);
   }
 
   pub fn node_remove_child_by_id(&mut self, parent_id: Index, child_id: Index) {
-    let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
-    let (parent, child) = (parent.unwrap(), child.unwrap());
+    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.remove(child);
   }
 
@@ -112,11 +103,6 @@ impl Scene {
 
   pub fn get_node_mut(&mut self, index: Index) -> &mut SceneNode {
     self.nodes.get_mut(index).unwrap()
-  }
-
-  pub fn add_dynamic_renderable(&mut self, renderable: impl Renderable + 'static) -> Index {
-    let boxed = Box::new(renderable);
-    self.renderables_dynamic.insert(boxed)
   }
 
   pub fn create_new_node(&mut self) -> &mut SceneNode {
@@ -147,52 +133,24 @@ impl Scene {
     self.render_objects.remove(index);
   }
 
-  pub fn prepare(&mut self, renderer: &mut WGPURenderer) {
-    // let mut ctx = ScenePrepareCtx {};
-    // self
-    //   .renderables_dynamic
-    //   .iter_mut()
-    //   .for_each(|(_, renderable)| {
-    //     renderable.prepare(renderer, &mut ctx);
-    //   });
+  pub fn traverse(
+    &mut self,
+    start_index: Index,
+    visit_stack: &mut Vec<Index>,
+    mut visitor: impl FnMut(&mut SceneNode, Option<&mut SceneNode>),
+  ) {
+    visit_stack.clear();
+    visit_stack.push(start_index);
 
-    // todo hierarchy updating;
-
-    // // prepare render list;
-    let mut render_list = self.scene_raw_list.borrow_mut();
-    render_list.clear();
-    self.get_root().traverse(self, |node| {
-      node.render_objects.iter().for_each(|id| {
-        render_list.push(node.get_id(), *id);
-      });
-    });
-  }
-
-  pub fn render(&self, target: &impl RenderTargetAble, renderer: &mut WGPURenderer) {
-    self
-      .background
-      .render(renderer, target.create_render_pass_builder());
-
-    let mut pass = target
-      .create_render_pass_builder()
-      .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
-      .create(&mut renderer.encoder);
-
-    for drawcall in &self.scene_raw_list.borrow().drawcalls {
-      // let node = self.nodes.get(drawcall.node).unwrap();
-      let render_obj = self.render_objects.get(drawcall.render_object).unwrap();
-      render_obj.render(&mut pass, self);
-    }
-  }
-
-  pub fn execute_culling(&mut self) {
-    let from = self.scene_raw_list.borrow_mut();
-    let mut to = self.culled_list.borrow_mut();
-    to.clear();
-
-    for drawcall in &from.drawcalls {
-      if self.culler.test_is_visible(drawcall.node, self) {
-        to.push_drawcall(*drawcall);
+    while let Some(index) = visit_stack.pop() {
+      if let Some(parent_index) = self.get_node(index).parent {
+        let (parent, this) = self.get_parent_child_pair(parent_index, index);
+        visitor(this, Some(parent));
+        visit_stack.extend(this.children.iter().cloned())
+      } else {
+        let this = self.get_node_mut(index);
+        visitor(this, None);
+        visit_stack.extend(this.children.iter().cloned())
       }
     }
   }

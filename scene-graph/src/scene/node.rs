@@ -1,13 +1,16 @@
 use super::scene::Scene;
+use crate::SceneGraphBackEnd;
 use generational_arena::Index;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
 
 pub struct SceneNode {
-  self_id: Index,
-  parent: Option<Index>,
-  children: Vec<Index>,
+  pub(crate) self_id: Index,
+  pub(crate) parent: Option<Index>,
+  pub(crate) children: Vec<Index>,
   pub render_objects: Vec<Index>,
+  pub visible: bool,
+  pub net_visible: bool,
   pub(crate) render_data: RenderData,
 }
 
@@ -18,7 +21,9 @@ impl SceneNode {
       parent: None,
       children: Vec::new(),
       render_objects: Vec::new(),
-      render_data: RenderData::new()
+      visible: true,
+      net_visible: true,
+      render_data: RenderData::new(),
     }
   }
 
@@ -35,8 +40,13 @@ impl SceneNode {
     self.render_objects.push(id)
   }
 
-  pub fn traverse(&self, scene: &Scene, mut visitor: impl FnMut(&SceneNode)) {
-    let mut visit_stack: Vec<Index> = Vec::new(); // TODO reuse
+  pub fn traverse<T: SceneGraphBackEnd>(
+    &self,
+    scene: &Scene<T>,
+    visit_stack: &mut Vec<Index>,
+    mut visitor: impl FnMut(&SceneNode),
+  ) {
+    visit_stack.clear();
     visit_stack.push(self.self_id);
 
     while let Some(index) = visit_stack.pop() {
