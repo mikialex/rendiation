@@ -14,8 +14,14 @@ pub struct SceneGeometry<T: SceneGraphBackEnd> {
   pub data: Box<dyn Geometry<T>>,
 }
 
+impl<T: SceneGraphBackEnd> SceneGeometry<T>{
+  pub fn index(&self) -> Index {
+    self.index
+  }
+}
+
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
-  pub fn create_geometry(&mut self, geometry: impl Geometry<T> + 'static) -> &mut SceneGeometry<T> {
+  pub fn add_geometry(&mut self, geometry: impl Geometry<T> + 'static) -> &mut SceneGeometry<T> {
     let wrapped = SceneGeometry {
       index: Index::from_raw_parts(0, 0),
       data: Box::new(geometry),

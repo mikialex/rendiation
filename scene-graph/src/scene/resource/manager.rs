@@ -1,18 +1,6 @@
 use crate::{
-  Arena, SceneGeometry, SceneShading, SceneShadingDescriptor, SceneShadingParameterGroup,
+  Arena, SceneGeometry, SceneShading, SceneGraphBackEnd, SceneShadingParameterGroup,
 };
-
-pub trait SceneGraphBackEnd {
-  // resource type injection
-  type Renderer;
-  type Shading;
-  type ShadingParameterGroup;
-  type IndexBuffer;
-  type VertexBuffer;
-
-  // resource type middle layer translation
-  fn create_shading(shading_desc: &SceneShadingDescriptor) -> Self::Shading;
-}
 
 pub struct ResourceManager<T: SceneGraphBackEnd> {
   pub geometries: Arena<SceneGeometry<T>>,

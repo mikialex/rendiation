@@ -1,7 +1,8 @@
 use rendiation::*;
 use rendiation_math::Vec3;
+use crate::SceneGraphBackEnd;
 
-pub trait Background {
+pub trait Background<T: SceneGraphBackEnd> {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
 }
 
@@ -14,32 +15,5 @@ impl SolidBackground {
     Self {
       color: Vec3::new(0.6, 0.6, 0.6),
     }
-  }
-}
-
-impl Background for SolidBackground {
-  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder) {
-    builder
-      .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
-      .create(&mut renderer.encoder);
-  }
-}
-
-pub struct Sky {
-  geometry: StandardGeometry,
-  pipeline: WGPUPipeline,
-}
-
-impl Sky {
-  pub fn new(renderer: &mut WGPURenderer) -> Self {
-    // let mut geometry: StandardGeometry = SphereGeometryParameter::default().create_mesh().into();
-    // geometry.update_gpu(renderer);
-    todo!()
-    // let mut builder = StaticPipelineBuilder::new(
-    //   renderer,
-    //   include_str!(),
-    //   include_str!(),
-    // );
-    // Sky { geometry }
   }
 }

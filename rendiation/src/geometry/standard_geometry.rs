@@ -41,16 +41,18 @@ impl<T: PrimitiveTopology> StandardGeometry<T> {
     self.index.len() as u32
   }
 }
+
 use lazy_static::lazy_static;
 lazy_static! {
-  static ref vertex_buffers: Vec<VertexBufferDescriptor<'static>> =
+  static ref VERTEX_BUFFERS: Vec<VertexBufferDescriptor<'static>> =
     { vec![Vertex::get_buffer_layout_descriptor()] };
 }
+
 impl<'a, T: PrimitiveTopology> GeometryProvider for StandardGeometry<T> {
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {
       index_format: wgpu::IndexFormat::Uint16,
-      vertex_buffers: &vertex_buffers,
+      vertex_buffers: &VERTEX_BUFFERS,
     }
   }
 

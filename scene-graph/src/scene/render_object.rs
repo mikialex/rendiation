@@ -9,7 +9,7 @@ pub struct RenderObject {
 }
 
 impl RenderObject {
-  pub fn get_bounding_local<T: SceneGraphBackEnd>(&self, scene: &Scene<T>) -> &BoundingData {
+  pub fn get_bounding_local<T: SceneGraphBackEnd>(&self, _scene: &Scene<T>) -> &BoundingData {
     todo!()
   }
 }

@@ -1,5 +1,5 @@
 use super::{
-  background::{Background, SolidBackground},
+  background::{Background},
   node::SceneNode,
   resource::ResourceManager,
 };
@@ -8,7 +8,7 @@ use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
 pub struct Scene<T: SceneGraphBackEnd> {
-  pub background: Box<dyn Background>,
+  pub background: Option<Box<dyn Background<T>>>,
   active_camera_index: Index,
   cameras: Arena<Box<dyn Camera>>,
 
@@ -35,7 +35,7 @@ impl<T: SceneGraphBackEnd> Scene<T> {
     nodes.get_mut(index).unwrap().set_self_id(index);
 
     Self {
-      background: Box::new(SolidBackground::new()),
+      background: None,
       active_camera_index,
       cameras,
       render_objects: Arena::new(),
@@ -136,9 +136,10 @@ impl<T: SceneGraphBackEnd> Scene<T> {
   pub fn traverse(
     &mut self,
     start_index: Index,
+    visit_stack: &mut Vec<Index>,
     mut visitor: impl FnMut(&mut SceneNode, Option<&mut SceneNode>),
   ) {
-    let mut visit_stack: Vec<Index> = Vec::new(); // TODO reuse
+    visit_stack.clear();
     visit_stack.push(start_index);
 
     while let Some(index) = visit_stack.pop() {

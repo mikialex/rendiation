@@ -17,8 +17,12 @@ impl<T: SceneGraphBackEnd> SceneShading<T> {
     self.parameters.push(index);
   }
 
-  pub fn get_gpu(&self) -> &T::Shading {
+  pub fn gpu(&self) -> &T::Shading {
     &self.gpu
+  }
+
+  pub fn index(&self) -> Index {
+    self.index
   }
 
   pub fn get_parameters_count(&self) -> usize {
@@ -31,14 +35,16 @@ impl<T: SceneGraphBackEnd> SceneShading<T> {
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
-  pub fn create_shading_raw(&mut self, shading: T::Shading) -> SceneShading<T> {
-    todo!()
-    // self.shadings.insert(shading)
-  }
-
-  pub fn create_shading(&mut self, shading: SceneShadingDescriptor) -> SceneShading<T> {
-    todo!()
-    // self.shadings.insert(shading)
+  pub fn create_shading(&mut self, shading: T::Shading) -> &mut SceneShading<T> {
+    let wrapped = SceneShading {
+      index: Index::from_raw_parts(0, 0),
+      parameters: Vec::new(),
+      gpu: shading,
+    };
+    let index = self.shadings.insert(wrapped);
+    let s = self.get_shading_mut(index);
+    s.index = index;
+    s
   }
 
   pub fn get_shading_mut(&mut self, index: Index) -> &mut SceneShading<T> {

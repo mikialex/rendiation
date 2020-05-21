@@ -1,4 +1,7 @@
-use crate::{RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine, SceneNode};
+use crate::{
+  Background, Geometry, RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine,
+  SolidBackground,
+};
 use rendiation::*;
 
 impl SceneGraphBackEnd for SceneGraphWebGPURendererBackend {
@@ -7,6 +10,14 @@ impl SceneGraphBackEnd for SceneGraphWebGPURendererBackend {
   type ShadingParameterGroup = WGPUBindGroup;
   type IndexBuffer = WGPUBuffer;
   type VertexBuffer = WGPUBuffer;
+}
+
+impl Background<SceneGraphWebGPURendererBackend> for SolidBackground {
+  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder) {
+    builder
+      .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
+      .create(&mut renderer.encoder);
+  }
 }
 
 pub struct SceneGraphWebGPURendererBackend {
@@ -26,28 +37,12 @@ impl SceneGraphWebGPURendererBackend {
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
-    self.engine.scene_raw_list.clear();
-    scene.traverse(
-      scene.get_root().self_id,
-      |this: &mut SceneNode, parent: Option<&mut SceneNode>| {
-        if let Some(parent) = parent {
-          this.render_data.world_matrix =
-            parent.render_data.world_matrix * this.render_data.local_matrix;
-          this.net_visible = this.visible && parent.net_visible;
-        }
-        if !this.visible {
-          return; // skip drawcall collect
-        }
-
-        this.render_objects.iter().for_each(|id| {
-          self.engine.scene_raw_list.push(this.get_id(), *id);
-        });
-      },
-    );
+    self.engine.update_render_list(scene);
 
     scene
       .background
-      .render(renderer, target.create_render_pass_builder());
+      .as_ref()
+      .map(|b| b.render(renderer, target.create_render_pass_builder()));
 
     let mut pass = target
       .create_render_pass_builder()
@@ -71,7 +66,7 @@ impl RenderObject {
     let shading = scene.resources.get_shading(self.shading_index);
     let geometry = &scene.resources.get_geometry(self.geometry_index).data;
 
-    pass.set_pipeline(shading.get_gpu());
+    pass.set_pipeline(shading.gpu());
 
     pass.set_index_buffer(geometry.get_gpu_index_buffer());
     for i in 0..geometry.vertex_buffer_count() {
@@ -83,9 +78,32 @@ impl RenderObject {
       let bindgroup = scene
         .resources
         .get_shading_param_group(shading.get_parameter(i));
-      pass.set_bindgroup(i, &bindgroup.gpu);
+      pass.set_bindgroup(i, bindgroup.gpu());
     }
 
     pass.draw_indexed(geometry.get_draw_range())
+  }
+}
+
+use rendiation::geometry::*;
+use std::ops::Range;
+impl<T: PrimitiveTopology + 'static> Geometry<SceneGraphWebGPURendererBackend> for GPUGeometry<T> {
+  fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
+    self.update_gpu(renderer)
+  }
+
+  fn get_gpu_index_buffer(&self) -> &WGPUBuffer {
+    self.get_index_buffer_unwrap()
+  }
+
+  fn get_gpu_vertex_buffer(&self, _index: usize) -> &WGPUBuffer {
+    self.get_vertex_buffer_unwrap()
+  }
+
+  fn get_draw_range(&self) -> Range<u32> {
+    self.get_draw_range()
+  }
+  fn vertex_buffer_count(&self) -> usize {
+    1
   }
 }

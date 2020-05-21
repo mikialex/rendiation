@@ -51,7 +51,6 @@ impl World {
       return;
     }
 
-    let mut block_shading = create_block_shading(renderer, target);
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::default(renderer);
@@ -64,10 +63,11 @@ impl World {
     }
     .create_bindgroup(renderer);
 
-    let bindgroup_index = scene.resources.add_bindgroup(shading_params);
-    block_shading.set_bindgroup(bindgroup_index);
-
-    let block_shading = scene.resources.add_shading(block_shading);
+    let block_shading = create_block_shading(renderer, target);
+    let bindgroup_index = scene.resources.create_shading_param_group(shading_params).index();
+    let block_shading = scene.resources.create_shading(block_shading);
+    block_shading.set_parameter(bindgroup_index);
+    let block_shading = block_shading.index();
 
     let root_node_index = scene.create_new_node().get_id();
     scene.add_to_scene_root(root_node_index);
@@ -172,9 +172,9 @@ impl World {
           renderer,
         );
 
-        let geometry_index = scene.resources.add_geometry(geometry);
+        let scene_geometry = scene.resources.add_geometry(geometry).index();
         let render_object_index =
-          scene.create_render_object(geometry_index, scene_data.block_shading);
+          scene.create_render_object(scene_geometry, scene_data.block_shading);
         let new_node = scene.create_new_node();
         new_node.add_render_object(render_object_index);
         let node_index = new_node.get_id();
@@ -183,7 +183,7 @@ impl World {
 
         scene_data.blocks.insert(
           *chunk_to_update_key,
-          (node_index, render_object_index, geometry_index),
+          (node_index, render_object_index, scene_geometry),
         );
       }
     }

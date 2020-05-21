@@ -2,8 +2,18 @@ use crate::{Index, ResourceManager, SceneGraphBackEnd};
 
 pub struct SceneShadingParameterGroup<T: SceneGraphBackEnd> {
   index: Index,
-  items: Vec<(Index, ShadingParameterType)>,
-  pub gpu: T::ShadingParameterGroup, // todo private
+  // items: Vec<(Index, ShadingParameterType)>, // todo
+  gpu: T::ShadingParameterGroup, // todo private
+}
+
+impl<T: SceneGraphBackEnd> SceneShadingParameterGroup<T> {
+  pub fn gpu(&self) -> &T::ShadingParameterGroup {
+    &self.gpu
+  }
+
+  pub fn index(&self) -> Index {
+    self.index
+  }
 }
 
 pub enum ShadingParameterType {
@@ -15,17 +25,18 @@ pub enum ShadingParameterType {
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
   pub fn create_shading_param_group(
     &mut self,
-    items: Vec<(Index, ShadingParameterType)>,
+    gpu: T::ShadingParameterGroup,
+    // items: Vec<(Index, ShadingParameterType)>,
   ) -> &mut SceneShadingParameterGroup<T> {
-    todo!()
-    // let wrapped = SceneGeometry {
-    //   index: Index::from_raw_parts(0, 0),
-    //   data: Box::new(shading_param_group),
-    // };
-    // let index = self.geometries.insert(wrapped);
-    // let g = self.get_shading_param_group_mut(index);
-    // g.index = index;
-    // g
+    let wrapped = SceneShadingParameterGroup {
+      index: Index::from_raw_parts(0, 0),
+      // items: Vec::new(),
+      gpu,
+    };
+    let index = self.shading_parameter_groups.insert(wrapped);
+    let p = self.get_shading_param_group_mut(index);
+    p.index = index;
+    p
   }
 
   pub fn get_shading_param_group_mut(
