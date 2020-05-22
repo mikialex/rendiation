@@ -1,9 +1,8 @@
-use rendiation::*;
 use rendiation_math::Vec3;
 use crate::SceneGraphBackEnd;
 
 pub trait Background<T: SceneGraphBackEnd> {
-  fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder);
+  fn render(&self, renderer: &mut T::Renderer, builder: T::RenderTarget);
 }
 
 pub struct SolidBackground {

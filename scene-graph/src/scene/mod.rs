@@ -18,6 +18,7 @@ pub use scene::*;
 
 pub trait SceneGraphBackEnd {
   // resource type injection
+  type RenderTarget;
   type Renderer;
   type Shading;
   type ShadingParameterGroup;

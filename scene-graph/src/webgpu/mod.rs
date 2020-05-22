@@ -5,6 +5,7 @@ use crate::{
 use rendiation::*;
 
 impl SceneGraphBackEnd for SceneGraphWebGPURendererBackend {
+  type RenderTarget = WGPURenderPassBuilder<'static>;
   type Renderer = WGPURenderer;
   type Shading = WGPUPipeline;
   type ShadingParameterGroup = WGPUBindGroup;
@@ -18,6 +19,10 @@ impl Background<SceneGraphWebGPURendererBackend> for SolidBackground {
       .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
       .create(&mut renderer.encoder);
   }
+}
+
+fn extend_lifetime<'b>(r: WGPURenderPassBuilder<'b>) -> WGPURenderPassBuilder<'static> {
+  unsafe { std::mem::transmute::<WGPURenderPassBuilder<'b>, WGPURenderPassBuilder<'static>>(r) }
 }
 
 pub struct SceneGraphWebGPURendererBackend {
@@ -39,10 +44,12 @@ impl SceneGraphWebGPURendererBackend {
   ) {
     self.engine.update_render_list(scene);
 
-    scene
-      .background
-      .as_ref()
-      .map(|b| b.render(renderer, target.create_render_pass_builder()));
+    scene.background.as_ref().map(|b| {
+      b.render(
+        renderer,
+        extend_lifetime(target.create_render_pass_builder()),
+      )
+    });
 
     let mut pass = target
       .create_render_pass_builder()
