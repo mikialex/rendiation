@@ -1,4 +1,5 @@
-
+#![allow(dead_code)]
+#![allow(unused)]
 use std::{path::Path};
 
 pub mod half_edge_mesh;

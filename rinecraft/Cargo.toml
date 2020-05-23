@@ -5,17 +5,15 @@ authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-
 env_logger = "0.7"
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-marco = { path = "../marco" }
-rendiation = { path ="../rendiation" }
+rendiation = { path = "../rendiation" }
 rendium = { path = "../rendium" }
-rendiation-scenegraph = { path = "../scene-graph" }
+rendiation-scenegraph = { path = "../scene-graph", features = ["webgpu"] }
 image = "*"
 noise = "0.6"
 serde = { version = "1.0.105", features = ["derive"] }

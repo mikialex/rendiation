@@ -58,7 +58,7 @@ pub trait BVHBuildStrategy {
   /// different strategy has different split method;
   /// given a range, and return the left, right partition;
   /// 
-  /// the reason why return box is to avoid extra box calulation: 
+  /// the reason why return box is to avoid extra box calculation: 
   /// partition decision maybe has already computed box;
   fn split(
     range: Range<usize>,

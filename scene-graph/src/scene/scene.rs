@@ -7,6 +7,13 @@ use crate::{RenderData, RenderObject, SceneGraphBackEnd};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+struct Test{
+  pub t: usize
+}
+
 pub struct Scene<T: SceneGraphBackEnd> {
   pub background: Option<Box<dyn Background<T>>>,
   active_camera_index: Index,
