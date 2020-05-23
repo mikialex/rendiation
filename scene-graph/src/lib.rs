@@ -1,5 +1,5 @@
 pub mod scene;
-
+pub mod wasm;
 pub mod webgl;
 
 pub use scene::*;

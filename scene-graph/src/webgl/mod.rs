@@ -1,19 +1,21 @@
-// use crate::{Scene, SceneGraphRenderEngine, RenderObject, SceneNode, SceneGraphBackEnd};
+use crate::{ SceneGraphBackEnd};
+use web_sys::*;
 
 
-// pub struct WebGLBackend;
+pub struct WebGLBackend;
 
-// impl SceneGraphBackEnd for WebGLBackend{
-//   type Renderer = WebGLRenderer;
-//   type Shading = WebGLProgram;
-//   type ShadingParameterGroup = ();
-//   type IndexBuffer = WebGLBuffer;
-//   type VertexBuffer = WebGLBuffer;
-// }
+impl SceneGraphBackEnd for WebGLBackend{
+  type RenderTarget = WebGlFramebuffer;
+  type Renderer = WebGLRenderer;
+  type Shading = WebGlProgram;
+  type ShadingParameterGroup = ();
+  type IndexBuffer = WebGlBuffer;
+  type VertexBuffer = WebGlBuffer;
+}
 
-// pub struct WebGLRenderer{
+pub struct WebGLRenderer{
 
-// }
+}
 
 // pub struct SceneGraphWebGLEngine{
 //   engine: SceneGraphRenderEngine

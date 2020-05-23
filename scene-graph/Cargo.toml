@@ -12,6 +12,7 @@ webgpu = ["rendiation", "rendiation-marco"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2.62" }
+js-sys = "0.3.39"
 generational-arena = { version = "0.2" }
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
@@ -21,3 +22,17 @@ rendiation-util = { path = "../util" }
 rendiation = { path = "../rendiation", optional = true }
 rendiation-marco = { path = "../marco", optional = true }
 
+[dependencies.web-sys]
+version = "0.3.39"
+features = [
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'WebGlBuffer',
+  'WebGlRenderingContext',
+  'WebGlProgram',
+  'WebGlUniformLocation',
+  'WebGlShader',
+  'WebGlFramebuffer',
+  'Window',
+]
