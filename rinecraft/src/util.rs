@@ -1,4 +1,3 @@
-use crate::watch::GPUItem;
 use image::ImageBuffer;
 use image::Rgba;
 use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
@@ -88,58 +87,6 @@ impl CameraGPU {
   }
 }
 
-impl GPUItem<PerspectiveCamera> for WGPUBuffer {
-  fn create_gpu(item: &PerspectiveCamera, renderer: &mut WGPURenderer) -> Self {
-    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-
-    WGPUBuffer::new(
-      renderer,
-      mx_total.as_ref(),
-      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    )
-  }
-  fn update_gpu(&mut self, item: &PerspectiveCamera, renderer: &mut WGPURenderer) {
-    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    self.update(renderer, mx_total.as_ref());
-  }
-}
-
-impl GPUItem<ViewFrustumOrthographicCamera> for WGPUBuffer {
-  fn create_gpu(item: &ViewFrustumOrthographicCamera, renderer: &mut WGPURenderer) -> Self {
-    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-
-    WGPUBuffer::new(
-      renderer,
-      mx_total.as_ref(),
-      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    )
-  }
-  fn update_gpu(&mut self, item: &ViewFrustumOrthographicCamera, renderer: &mut WGPURenderer) {
-    let mx_total = OPENGL_TO_WGPU_MATRIX * item.get_vp_matrix();
-    self.update(renderer,  mx_total.as_ref());
-  }
-}
-
-impl GPUItem<ImageBuffer<Rgba<u8>, Vec<u8>>> for WGPUTexture {
-  fn create_gpu(image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) -> Self {
-    WGPUTexture::new_from_image_data(
-      renderer,
-      &image.clone().into_raw(),
-      (image.width(), image.height(), 1),
-    )
-  }
-  fn update_gpu(&mut self, image: &ImageBuffer<Rgba<u8>, Vec<u8>>, renderer: &mut WGPURenderer) {
-    todo!()
-  }
-}
-
-pub fn vertex(pos: [i8; 3], tc: [i8; 2]) -> Vertex {
-  Vertex {
-    position: Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
-    normal: Vec3::new(0.0, 1.0, 0.0),
-    uv: Vec2::new(tc[0] as f32, tc[1] as f32),
-  }
-}
 
 pub fn create_texels(size: usize) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
   use std::iter;

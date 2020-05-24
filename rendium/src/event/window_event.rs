@@ -11,7 +11,8 @@ pub struct EventCtx<'a, 'b, 'c, T> {
   pub render_ctx: &'b mut AppRenderCtx<'c>,
 }
 
-type ListenerContainer<AppState> = Arena<Box<dyn FnMut(&mut EventCtx<AppState>)>>;
+type ListenerStorage<T> = Box<dyn FnMut(&mut EventCtx<T>)>;
+type ListenerContainer<T> = Arena<ListenerStorage<T>>;
 
 struct Message<'a> {
   target: &'a mut dyn Any,
@@ -45,16 +46,20 @@ pub enum EventType {
 }
 
 pub struct WindowEventSession<AppState> {
-  raw_listeners: ListenerContainer<AppState>,
-  fixed_listeners: HashMap<EventType, ListenerContainer<AppState>>,
+  raw_listeners: Arena<(Option<(EventType, Index)>, ListenerStorage<AppState>)>,
+  fixed_listeners: HashMap<EventType, Arena<Index>>,
 }
 
 fn emit_listener<AppState>(
-  listeners: Option<&mut ListenerContainer<AppState>>,
+  raw_listeners: &mut Arena<(Option<(EventType, Index)>, ListenerStorage<AppState>)>,
+  listeners: Option<&mut Arena<Index>>,
   event: &mut EventCtx<AppState>,
 ) {
   if let Some(listeners) = listeners {
-    listeners.iter_mut().for_each(|(_, f)| f(event))
+    listeners.iter_mut().for_each(|(_, f)| {
+      let (_, function) = raw_listeners.get_mut(*f).unwrap();
+      function(event)
+    })
   }
 }
 
@@ -63,7 +68,7 @@ impl<AppState> WindowEventSession<AppState> {
     &mut self,
     func: T,
   ) -> Index {
-    self.raw_listeners.insert(Box::new(func))
+    self.raw_listeners.insert((None, Box::new(func)))
   }
 
   pub fn add_listener<T: FnMut(&mut EventCtx<AppState>) + 'static>(
@@ -71,11 +76,33 @@ impl<AppState> WindowEventSession<AppState> {
     event_type: EventType,
     func: T,
   ) -> Index {
+    let id = self.raw_listeners.insert((
+      Some((event_type, Index::from_raw_parts(0, 0))),
+      Box::new(func),
+    ));
+
     let container = self
       .fixed_listeners
       .entry(event_type)
       .or_insert_with(|| Arena::new());
-    container.insert(Box::new(func))
+    let raw_index = container.insert(id);
+
+    self.raw_listeners.get(id).unwrap().0.unwrap().1 = raw_index;
+    id
+  }
+
+  pub fn remove_listener(&mut self, id: Index) {
+    if let Some((Some((event_type, index)), _)) = self.raw_listeners.get(id) {
+      let container = self
+        .fixed_listeners
+        .entry(*event_type)
+        .or_insert_with(|| Arena::new());
+      let raw_index = *container.get(*index).unwrap();
+      container.remove(*index);
+      self.raw_listeners.remove(raw_index);
+    } else {
+      panic!("corrupt listener")
+    }
   }
 
   pub fn new() -> Self {
@@ -97,12 +124,17 @@ impl<AppState> WindowEventSession<AppState> {
       render_ctx: renderer,
     };
 
-    emit_listener(Some(&mut self.raw_listeners), &mut event_ctx);
+    self.raw_listeners.iter_mut().for_each(|(_, (t, f))| {
+      if t.is_none() {
+        f(&mut event_ctx);
+      }
+    });
 
     match event {
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
           emit_listener(
+            &mut self.raw_listeners,
             self.fixed_listeners.get_mut(&EventType::Resize),
             &mut event_ctx,
           );
@@ -111,6 +143,7 @@ impl<AppState> WindowEventSession<AppState> {
         WindowEvent::MouseInput { button, state, .. } => match button {
           MouseButton::Left => match state {
             ElementState::Pressed => emit_listener(
+              &mut self.raw_listeners,
               self.fixed_listeners.get_mut(&EventType::MouseDown),
               &mut event_ctx,
             ),
@@ -125,6 +158,7 @@ impl<AppState> WindowEventSession<AppState> {
         WindowEvent::MouseWheel { delta, .. } => {
           if let MouseScrollDelta::LineDelta(x, y) = delta {
             emit_listener(
+              &mut self.raw_listeners,
               self.fixed_listeners.get_mut(&EventType::MouseWheel),
               &mut event_ctx,
             );
@@ -135,12 +169,14 @@ impl<AppState> WindowEventSession<AppState> {
       },
       event::Event::DeviceEvent { event, .. } => match event {
         DeviceEvent::MouseMotion { delta } => emit_listener(
+          &mut self.raw_listeners,
           self.fixed_listeners.get_mut(&EventType::MouseMotion),
           &mut event_ctx,
         ),
         _ => (),
       },
       event::Event::EventsCleared => emit_listener(
+        &mut self.raw_listeners,
         self.fixed_listeners.get_mut(&EventType::EventCleared),
         &mut event_ctx,
       ),
