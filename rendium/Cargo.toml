@@ -12,5 +12,5 @@ futures = "0.3"
 rendiation = { path = "../rendiation", features= ["glsl-spirv"] }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
-rendiation-util = { path = "../util" }
 rendiation-marco = { path = "../marco" }
+generational-arena = { version = "0.2" }

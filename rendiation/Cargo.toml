@@ -16,6 +16,5 @@ lazy_static = "1.4.0"
 # spec = {version= "0.16.1"}
 
 rendiation-math = { path = "../math" }
-rendiation-util = { path = "../util" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }

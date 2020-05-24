@@ -94,7 +94,7 @@ impl Application for Rinecraft {
 
     let mut window_session: WindowEventSession<RinecraftState> = WindowEventSession::new();
 
-    window_session.add_resize_listener(|event_ctx| {
+    window_session.add_listener(EventType::Resize, |event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
@@ -113,7 +113,7 @@ impl Application for Rinecraft {
     });
 
     // render
-    window_session.add_events_clear_listener(|event_ctx| {
+    window_session.add_listener(EventType::EventCleared, |event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;

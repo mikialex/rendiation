@@ -14,7 +14,6 @@ generational-arena = { version = "0.2" }
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
-rendiation-util = { path = "../util" }
 
 rendiation = { path = "../rendiation"}
 rendiation-marco = { path = "../marco"}

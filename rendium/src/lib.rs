@@ -17,6 +17,7 @@ pub use element::*;
 pub use winit;
 
 use rendiation::{render_target::ScreenRenderTarget, WGPURenderer};
+pub use generational_arena::*;
 
 pub struct GUI {
   fragment: ElementFragment,

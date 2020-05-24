@@ -9,6 +9,7 @@ mod watch;
 mod vox;
 mod sky;
 mod init;
+mod camera_controls;
 use rinecraft::*;
 use rendium::application;
 

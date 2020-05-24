@@ -1,4 +1,4 @@
-use crate::{Scene, SceneGraphWebGLRendererBackend};
+use crate::{Scene, SceneGraphWebGLRendererBackend, SceneGraphWebGPURendererBackend};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

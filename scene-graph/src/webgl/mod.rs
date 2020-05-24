@@ -52,6 +52,10 @@ impl SceneGraphWebGLRendererBackend {
   }
 }
 
+struct ShadingParameterGroup{
+  
+}
+
 impl RenderObject {
   pub fn render_webgl(
     &self,
