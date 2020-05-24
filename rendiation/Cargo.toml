@@ -6,9 +6,12 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+glsl-spirv = ["glsl-to-spirv"]
+
 [dependencies]
 wgpu = "0.5.0"
-glsl-to-spirv = "0.1"
+glsl-to-spirv = {version = "0.1", optional = true}
 lazy_static = "1.4.0"
 # spec = {version= "0.16.1"}
 

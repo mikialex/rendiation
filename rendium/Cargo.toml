@@ -9,7 +9,7 @@ winit = "0.20.0-alpha4"
 log = "0.4"
 
 futures = "0.3"
-rendiation = { path = "../rendiation" }
+rendiation = { path = "../rendiation", features= ["glsl-spirv"] }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-util = { path = "../util" }

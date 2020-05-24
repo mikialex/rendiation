@@ -7,9 +7,6 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[features]
-webgpu = ["rendiation", "rendiation-marco"]
-
 [dependencies]
 wasm-bindgen = { version = "0.2.62" }
 js-sys = "0.3.39"
@@ -19,8 +16,8 @@ rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-util = { path = "../util" }
 
-rendiation = { path = "../rendiation", optional = true }
-rendiation-marco = { path = "../marco", optional = true }
+rendiation = { path = "../rendiation"}
+rendiation-marco = { path = "../marco"}
 
 [dependencies.web-sys]
 version = "0.3.39"

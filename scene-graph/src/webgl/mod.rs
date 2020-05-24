@@ -15,7 +15,13 @@ impl SceneGraphBackEnd for SceneGraphWebGLRendererBackend {
 }
 
 pub struct WebGLRenderer {
-  ctx: WebGlRenderingContext,
+  pub ctx: WebGlRenderingContext,
+}
+
+impl WebGLRenderer {
+  pub fn use_program(&mut self, p: &WebGlProgram) {
+    self.ctx.use_program(Some(p))
+  }
 }
 
 impl SceneGraphWebGLRendererBackend {
@@ -52,6 +58,33 @@ impl RenderObject {
     renderer: &mut WebGLRenderer,
     scene: &Scene<SceneGraphWebGLRendererBackend>,
   ) {
-    todo!()
+    // todo!()
+    let shading = scene.resources.get_shading(self.shading_index);
+    let geometry = &scene.resources.get_geometry(self.geometry_index).data;
+
+    renderer.use_program(shading.gpu());
+
+    // geometry bind
+    // pass.set_index_buffer(geometry.get_gpu_index_buffer());
+    // for i in 0..geometry.vertex_buffer_count() {
+    //   let buffer = geometry.get_gpu_vertex_buffer(i);
+    //   pass.set_vertex_buffer(i, buffer);
+    // }
+
+    // shading bind
+    for i in 0..shading.get_parameters_count() {
+      let parameter_group = scene
+        .resources
+        .get_shading_param_group(shading.get_parameter(i));
+      // pass.set_bindgroup(i, bindgroup.gpu());
+    }
+
+    let range = geometry.get_draw_range();
+    renderer.ctx.draw_elements_with_i32(
+      WebGlRenderingContext::TRIANGLES,
+      range.start as i32,
+      WebGlRenderingContext::UNSIGNED_INT,
+      range.end as i32,
+    );
   }
 }

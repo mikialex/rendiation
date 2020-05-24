@@ -15,6 +15,7 @@ impl ShaderType {
   }
 }
 
+#[cfg(feature = "glsl-to-spirv")]
 pub fn load_glsl(code: &str, stage: ShaderType) -> Vec<u32> {
   let ty = match stage {
     ShaderType::Vertex => glsl_to_spirv::ShaderType::Vertex,

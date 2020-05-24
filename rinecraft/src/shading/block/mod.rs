@@ -7,8 +7,8 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates)
 -> WGPUPipeline {
   PipelineBuilder::new(
     renderer,
-    include_str!("./block.vert"),
-    include_str!("./block.frag"),
+    load_glsl(include_str!("./block.vert"), ShaderType::Vertex),
+    load_glsl(include_str!("./block.frag"), ShaderType::Fragment),
   )
   .as_mut()
   .binding_group::<BlockShadingParamGroup>()

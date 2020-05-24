@@ -19,8 +19,8 @@ pub trait BindGroupProvider: Sized {
 
 pub struct PipelineBuilder<'a> {
   renderer: &'a WGPURenderer,
-  vertex_shader: &'static str,
-  frag_shader: &'static str,
+  vertex_shader: Vec<u32>,
+  frag_shader: Vec<u32>,
   bindgroup_layouts: Vec<&'static wgpu::BindGroupLayout>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   target_states: TargetStates,
@@ -35,11 +35,7 @@ impl<'a> AsMut<Self> for PipelineBuilder<'a> {
 }
 
 impl<'a> PipelineBuilder<'a> {
-  pub fn new(
-    renderer: &'a WGPURenderer,
-    vertex_shader: &'static str,
-    frag_shader: &'static str,
-  ) -> Self {
+  pub fn new(renderer: &'a WGPURenderer, vertex_shader: Vec<u32>, frag_shader: Vec<u32>) -> Self {
     Self {
       renderer,
       vertex_shader,
@@ -83,11 +79,8 @@ impl<'a> PipelineBuilder<'a> {
     });
 
     // Create the render pipeline
-    use crate::renderer::shader_util::*;
-    let vs_bytes = load_glsl(&self.vertex_shader, ShaderType::Vertex);
-    let fs_bytes = load_glsl(&self.frag_shader, ShaderType::Fragment);
-    let vs_module = device.create_shader_module(&vs_bytes);
-    let fs_module = device.create_shader_module(&fs_bytes);
+    let vs_module = device.create_shader_module(&self.vertex_shader);
+    let fs_module = device.create_shader_module(&self.frag_shader);
 
     let pipeline_des = wgpu::RenderPipelineDescriptor {
       layout: &pipeline_layout,

@@ -19,8 +19,8 @@ impl QuadShading {
   pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
     let pipeline = PipelineBuilder::new(
       renderer,
-      include_str!("./quad.vert"),
-      include_str!("./quad.frag"),
+      load_glsl(include_str!("./quad.vert"), ShaderType::Vertex),
+      load_glsl(include_str!("./quad.frag"), ShaderType::Fragment),
     )
     .as_mut()
     .geometry::<StandardGeometry>()
@@ -39,8 +39,8 @@ impl CopyShading {
   pub fn new(renderer: &WGPURenderer, target: & impl TargetStatesProvider) -> Self {
     let pipeline = PipelineBuilder::new(
       renderer,
-      include_str!("./copy.vert"),
-      include_str!("./copy.frag"),
+      load_glsl(include_str!("./copy.vert"), ShaderType::Vertex),
+      load_glsl(include_str!("./copy.frag"), ShaderType::Fragment),
     )
     .as_mut()
     .geometry::<StandardGeometry>()
