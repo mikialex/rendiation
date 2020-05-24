@@ -1,5 +1,8 @@
 use crate::util::*;
-use crate::vox::world::World;
+use crate::{
+  camera_controls::{CameraController, CameraControllerType},
+  vox::world::World,
+};
 use render_target::{ScreenRenderTarget, TargetStatesProvider};
 use rendiation::renderer::SwapChain;
 use rendiation::*;
@@ -12,47 +15,24 @@ pub struct Rinecraft {
   pub state: RinecraftState,
 }
 
-pub enum CameraControllerType {
-  FPS,
-  ORBIT,
-}
-
-pub enum CameraController {
-  FPS(FPSController),
-  ORBIT(OrbitController),
-}
-
-impl CameraController {
-  pub fn update(&mut self, camera: &mut impl Camera) -> bool {
-    match self {
-      Self::FPS(controller) => controller.update(camera),
-      Self::ORBIT(controller) => controller.update(camera),
-    }
-  }
-
-  pub fn use_mode(
-    camera: & impl Camera,
-    controller_type: CameraControllerType,
-    event: WindowEventSession<RinecraftState>,
-  ) -> Self {
-    CameraController::FPS(FPSController::new())
-  }
-}
-
 pub struct RinecraftState {
   pub window_state: WindowState,
   pub scene: Scene<SceneGraphWebGPURendererBackend>,
   pub scene_renderer: SceneGraphWebGPURendererBackend,
   pub camera_gpu: CameraGPU,
-  // pub camera_orth: GPUPair<ViewFrustumOrthographicCamera, WGPUBuffer>,
-  pub orbit_controller: OrbitController,
-  pub fps_controller: FPSController,
-  pub controller_type: CameraController,
-  pub controller_listener_handle: Vec<usize>,
+  pub camera_controller: CameraController,
   pub viewport: Viewport,
   pub world: World,
   pub screen_target: ScreenRenderTarget,
   pub gui: GUI,
+}
+
+impl RinecraftState {
+  fn get_camera(&mut self) -> &mut PerspectiveCamera {
+    self
+      .scene
+      .get_active_camera_mut_downcast::<PerspectiveCamera>()
+  }
 }
 
 impl Application for Rinecraft {
@@ -103,10 +83,7 @@ impl Application for Rinecraft {
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.screen_target.resize(renderer, swap_chain.size);
-      state
-        .scene
-        .get_active_camera_mut_downcast::<PerspectiveCamera>()
-        .resize(size);
+      state.get_camera().resize(size);
       // state.camera_orth.resize(size);
       state.camera_gpu.mark_dirty();
       state.gui.renderer.resize(size, renderer);
@@ -121,7 +98,7 @@ impl Application for Rinecraft {
       let camera = state
         .scene
         .get_active_camera_mut_downcast::<PerspectiveCamera>();
-      if state.orbit_controller.update(camera) {
+      if state.camera_controller.update(camera) {
         state.camera_gpu.mark_dirty();
       }
       state.camera_gpu.update_all(renderer, camera);
@@ -131,7 +108,9 @@ impl Application for Rinecraft {
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
-      state.scene_renderer.render(&mut state.scene, renderer, &output);
+      state
+        .scene_renderer
+        .render(&mut state.scene, renderer, &output);
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output);
@@ -158,18 +137,17 @@ impl Application for Rinecraft {
         scene,
         scene_renderer: SceneGraphWebGPURendererBackend::new(),
         camera_gpu,
-        // camera_orth,
         viewport,
-        orbit_controller: OrbitController::new(),
-        fps_controller: FPSController::new(),
-        controller_type: CameraController::ORBIT(OrbitController::new()),
-        controller_listener_handle: Vec::new(),
+        camera_controller: CameraController::new(),
         screen_target,
         gui,
       },
     };
 
-    rinecraft.use_orbit_controller();
+    rinecraft
+      .state
+      .camera_controller
+      .use_mode(CameraControllerType::ORBIT, &mut rinecraft.window_session);
     rinecraft.init_world();
 
     rinecraft

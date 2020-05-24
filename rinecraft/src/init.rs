@@ -3,44 +3,12 @@ use rendiation_math::*;
 use rendiation_render_entity::{raycaster::Raycaster, PerspectiveCamera};
 use rendium::*;
 
+// pub trait WindowEventWatcher<T>{
+//   fn init_window(&mut self, session: &mut WindowEventSession<T>);
+//   fn un_init_window(&mut self, session: &mut WindowEventSession<T>);
+// }
+
 impl Rinecraft {
-  pub fn use_orbit_controller(&mut self) {
-    self
-      .window_session
-      .add_listener(EventType::MouseMotion, |event_ctx| {
-        let state = &mut event_ctx.state;
-        if state.window_state.is_left_mouse_down {
-          state.orbit_controller.rotate(Vec2::new(
-            -state.window_state.mouse_motion.0,
-            -state.window_state.mouse_motion.1,
-          ))
-        }
-        if state.window_state.is_right_mouse_down {
-          state.orbit_controller.pan(Vec2::new(
-            -state.window_state.mouse_motion.0,
-            -state.window_state.mouse_motion.1,
-          ))
-        }
-      });
-
-    self
-      .window_session
-      .add_listener(EventType::MouseWheel, |event_ctx| {
-        let state = &mut event_ctx.state;
-        let delta = state.window_state.mouse_wheel_delta.1;
-        state.orbit_controller.zoom(1.0 - delta * 0.1);
-      });
-  }
-
-  pub fn use_fps_controller(&mut self) {
-    self.window_session.add_listener_raw(|event_ctx| {
-      let state = &mut event_ctx.state;
-      // match event_ctx.event {
-
-      // }
-    });
-  }
-
   pub fn init_world(&mut self) {
     self
       .window_session
