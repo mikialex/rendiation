@@ -36,22 +36,22 @@ impl Box3 {
     (self.min + self.max) * 0.5
   }
 
-  pub fn longest_axis(&self) -> Axis {
+  pub fn longest_axis(&self) -> (Axis, f32) {
     let x_length = self.max.x - self.min.x;
     let y_length = self.max.y - self.min.y;
     let z_length = self.max.z - self.min.z;
 
     if x_length > y_length {
       if x_length > z_length {
-        Axis::X
+        (Axis::X, x_length)
       } else {
-        Axis::Z
+        (Axis::Z, z_length)
       }
     } else {
       if y_length > z_length {
-        Axis::Y
+        (Axis::Y, y_length)
       } else {
-        Axis::Z
+        (Axis::Z, z_length)
       }
     }
   }

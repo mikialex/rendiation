@@ -24,7 +24,7 @@ pub trait BVHBuildStrategy {
       }
 
       let ranged_index = index_source.get_mut(range.clone()).unwrap();
-      let split_axis = node.bbox.longest_axis();
+      let (split_axis, _) = node.bbox.longest_axis();
 
       ranged_index.sort_unstable_by(|a, b| {
         let bp_a = &build_source[*a];
