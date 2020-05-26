@@ -9,10 +9,10 @@ pub struct FPSController {
   // restriction
   max_polar_angle: f32,
   min_polar_angle: f32,
-
-  x_motion: f32,
-  y_motion: f32,
-  motion_rate: f32,
+  
+  view_width: f32,
+  view_height: f32,
+  rotate_angle_factor: f32,
 
   pub a_press: bool,
   pub d_press: bool,
@@ -24,14 +24,17 @@ pub struct FPSController {
 
 impl FPSController {
   pub fn new() -> Self {
+    let mut spherical = Spherical::new();
+    spherical.polar = 1.;
+    spherical.azim = 1.;
     FPSController {
-      spherical: Spherical::new(),
+      spherical,
       max_polar_angle: 179. / 180. * std::f32::consts::PI,
       min_polar_angle: 0.01,
-
-      x_motion: 0.,
-      y_motion: 0.,
-      motion_rate: 0.1,
+      
+      view_width: 1000.,
+      view_height: 1000.,
+      rotate_angle_factor: 0.5,
 
       a_press: false,
       d_press: false,
@@ -40,6 +43,13 @@ impl FPSController {
       space_press: false,
       l_shift_press: false,
     }
+  }
+
+  pub fn rotate(&mut self, offset: Vec2<f32>) {
+    self.spherical.polar +=
+      offset.y / self.view_height * std::f32::consts::PI * self.rotate_angle_factor;
+    self.spherical.azim +=
+      offset.x / self.view_width * std::f32::consts::PI * self.rotate_angle_factor;
   }
 }
 
@@ -68,19 +78,30 @@ impl<T: TransformedObject> Controller<T> for FPSController {
       move_dir.y -= 1.0;
     }
 
-    let position_move = move_dir * mat;
-    let position_new = mat.position() + position_move;
 
-    self.spherical.polar = (self.spherical.polar + self.y_motion * self.motion_rate)
-      .max(self.min_polar_angle)
-      .min(self.max_polar_angle);
-    self.spherical.azim -= self.x_motion * self.motion_rate;
+      // self.spherical.polar = (self.spherical.polar + self.y_motion * self.motion_rate)
+      //   .max(self.min_polar_angle)
+      //   .min(self.max_polar_angle);
+      // self.spherical.azim -= self.x_motion * self.motion_rate;
 
-    transform.matrix = Mat4::lookat(
-      position_new,
-      position_new + self.spherical.to_vec3(),
-      Vec3::unit_y(),
-    );
+    if move_dir.length() >0.01 {
+      let position_new = move_dir * mat;
+      let position_dir = (position_new -  mat.position()).normalize();
+      let position_new = mat.position() + position_dir;
+  
+      transform.matrix = Mat4::lookat(
+        position_new,
+        position_new + self.spherical.to_vec3(),
+        Vec3::unit_y(),
+      );
+    } else{
+      transform.matrix = Mat4::lookat(
+        mat.position(),
+        mat.position() + self.spherical.to_vec3(),
+        Vec3::unit_y(),
+      );
+    }
+
 
     true
   }

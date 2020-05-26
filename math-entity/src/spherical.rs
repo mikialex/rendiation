@@ -11,14 +11,14 @@ impl Spherical {
   pub fn new() -> Self {
     Spherical {
       center: Vec3::new(0.0, 0.0, 0.0),
-      radius: 10.,
+      radius: 1.,
       polar: 0.,
       azim: 0.,
     }
   }
 
   pub fn reset_pose(&mut self) {
-    self.radius = 0.;
+    self.radius = 1.;
     self.polar = 0.;
     self.azim = 0.;
   }

@@ -143,7 +143,7 @@ impl Application for Rinecraft {
     rinecraft
       .state
       .camera_controller
-      .use_mode(CameraControllerType::ORBIT, &mut rinecraft.window_session);
+      .use_mode(CameraControllerType::FPS, &mut rinecraft.window_session);
     rinecraft.init_world();
 
     rinecraft

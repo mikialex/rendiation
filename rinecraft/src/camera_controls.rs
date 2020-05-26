@@ -68,6 +68,48 @@ impl CameraController {
       }))
   }
 
+  fn attach_fps(&mut self, events: &mut WindowEventSession<RinecraftState>) {
+    use rendium::winit::event::*;
+    self
+      .listener_records
+      .push(events.add_listener(EventType::MouseMotion, |event_ctx| {
+        let state = &mut event_ctx.state;
+        state.camera_controller.fps.rotate(Vec2::new(
+          -state.window_state.mouse_motion.0,
+          -state.window_state.mouse_motion.1,
+        ))
+      }));
+    self.listener_records.push(events.add_listener_raw(|ctx| {
+      let app_state = &mut ctx.state;
+      match ctx.event {
+        Event::WindowEvent { event, .. } => match event {
+          WindowEvent::KeyboardInput {
+            input:
+              KeyboardInput {
+                virtual_keycode: Some(virtual_keycode),
+                state,
+                ..
+              },
+            ..
+          } => {
+            let pressed = *state == ElementState::Pressed;
+            if *virtual_keycode == VirtualKeyCode::A {
+              app_state.camera_controller.fps.a_press = pressed
+            } else if *virtual_keycode == VirtualKeyCode::W {
+              app_state.camera_controller.fps.w_press = pressed
+            } else if *virtual_keycode == VirtualKeyCode::S {
+              app_state.camera_controller.fps.s_press = pressed
+            } else if *virtual_keycode == VirtualKeyCode::D {
+              app_state.camera_controller.fps.d_press = pressed
+            }
+          }
+          _ => (),
+        },
+        _ => (),
+      }
+    }))
+  }
+
   pub fn use_mode(
     &mut self,
     // camera: &impl Camera,
@@ -78,7 +120,7 @@ impl CameraController {
     self.active_type = controller_type;
     // todo sync camera state;
     match self.active_type {
-      CameraControllerType::FPS => todo!(),
+      CameraControllerType::FPS => self.attach_fps(events),
       CameraControllerType::ORBIT => self.attach_orbit(events),
     }
     self
