@@ -77,13 +77,18 @@ impl Box3 {
     iter.for_each(|p| bbox.expand_by_box(p));
     bbox
   }
-}
 
-use std::ops::Mul;
-impl Mul<Mat4<f32>> for Box3 {
-  type Output = Self;
-
-  fn mul(self, m: Mat4<f32>) -> Self {
-    Self::new(self.min * m, self.max * m)
+  pub fn apply_matrix(&mut self, m: Mat4<f32>) -> Self {
+    let points = [
+      Vec3::new(self.min.x, self.min.y, self.min.z) * m, // 000
+      Vec3::new(self.min.x, self.min.y, self.max.z) * m, // 001
+      Vec3::new(self.min.x, self.max.y, self.min.z) * m, // 010
+      Vec3::new(self.min.x, self.max.y, self.max.z) * m, // 011
+      Vec3::new(self.max.x, self.min.y, self.min.z) * m, // 100
+      Vec3::new(self.max.x, self.min.y, self.max.z) * m, // 101
+      Vec3::new(self.max.x, self.max.y, self.min.z) * m, // 110
+      Vec3::new(self.max.x, self.max.y, self.max.z) * m, // 111
+    ];
+    Self::from_points(points.iter().map(|v|*v))
   }
 }
