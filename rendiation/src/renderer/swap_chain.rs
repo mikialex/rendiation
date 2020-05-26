@@ -4,7 +4,6 @@ pub struct SwapChain {
   surface: wgpu::Surface,
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
-  pub hidpi_factor: f32,
   pub size: (usize, usize),
 }
 
@@ -13,7 +12,6 @@ impl SwapChain {
     surface: wgpu::Surface,
     size: (usize, usize),
     renderer: &WGPURenderer,
-    hidpi_factor: f32,
   ) -> Self {
     let swap_chain_descriptor = wgpu::SwapChainDescriptor {
       usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -27,7 +25,6 @@ impl SwapChain {
       surface,
       swap_chain_descriptor,
       swap_chain,
-      hidpi_factor,
       size,
     }
   }

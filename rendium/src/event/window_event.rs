@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use winit::event;
 use winit::event::*;
 
-pub struct EventCtx<'a, 'b, 'c, T> {
-  pub event: winit::event::Event<()>, // todo use self event
+pub struct EventCtx<'a, 'b, 'c, 'd, 'e, T> {
+  pub event: &'e winit::event::Event<'d, ()>, // todo use self event
   pub state: &'a mut T,
   pub render_ctx: &'b mut AppRenderCtx<'c>,
 }
@@ -114,12 +114,12 @@ impl<AppState> WindowEventSession<AppState> {
 
   pub fn event(
     &mut self,
-    event: winit::event::Event<()>,
+    event: &winit::event::Event<()>,
     s: &mut AppState,
     renderer: &mut AppRenderCtx,
   ) {
     let mut event_ctx = EventCtx {
-      event: event.clone(),
+      event: &event,
       state: s,
       render_ctx: renderer,
     };
@@ -175,7 +175,7 @@ impl<AppState> WindowEventSession<AppState> {
         ),
         _ => (),
       },
-      event::Event::EventsCleared => emit_listener(
+      event::Event::MainEventsCleared => emit_listener(
         &mut self.raw_listeners,
         self.fixed_listeners.get_mut(&EventType::EventCleared),
         &mut event_ctx,

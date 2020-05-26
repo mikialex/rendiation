@@ -121,11 +121,7 @@ impl Application for Rinecraft {
     });
 
     let window_state = WindowState::new(
-      (
-        swap_chain.size.0 as f32 / swap_chain.hidpi_factor,
-        swap_chain.size.1 as f32 / swap_chain.hidpi_factor,
-      ),
-      swap_chain.hidpi_factor,
+      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
     );
 
     // Done
@@ -153,8 +149,8 @@ impl Application for Rinecraft {
     rinecraft
   }
 
-  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut AppRenderCtx) {
-    self.state.window_state.event(event.clone());
+  fn update(&mut self, event: &winit::event::Event<()>, renderer: &mut AppRenderCtx) {
+    self.state.window_state.event(event);
     self.window_session.event(event, &mut self.state, renderer);
   }
 }
