@@ -1,5 +1,6 @@
 use super::world_machine::WorldMachine;
 use rendiation::*;
+use rendiation_mesh_buffer::vertex::*;
 
 #[derive(Clone, Copy)]
 pub struct Block {
@@ -73,7 +74,6 @@ pub fn build_block_face(
     .get_block_info(block.id.unwrap())
     .get_uv_info(face);
 
-    
   if face == BlockFace::YZMax || face == BlockFace::XYMin {
     let temp = tex_coords[1];
     tex_coords[1] = tex_coords[2];

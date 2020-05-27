@@ -92,7 +92,8 @@ impl RenderObject {
   }
 }
 
-use rendiation::geometry::*;
+use rendiation_mesh_buffer::geometry::PrimitiveTopology;
+use rendiation_mesh_buffer::wgpu::GPUGeometry;
 use std::ops::Range;
 impl<T: PrimitiveTopology + 'static> Geometry<SceneGraphWebGPURendererBackend> for GPUGeometry<T> {
   fn update_gpu(&mut self, renderer: &mut WGPURenderer) {

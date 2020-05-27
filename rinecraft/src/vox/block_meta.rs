@@ -1,11 +1,11 @@
 use super::block::BlockFace;
 use crate::shading::copy::CopyParam;
 use crate::shading::*;
-use geometry_lib::plane_geometry::Quad;
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
-use rendiation::geometry_lib::IndexedBufferMesher;
 use rendiation::*;
+use rendiation_mesh_buffer::mesh_creator::{plane::Quad, IndexedBufferMesher};
+use rendiation_mesh_buffer::wgpu::*;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -201,7 +201,7 @@ impl BlockRegistry {
       for (params, viewport) in &gpu {
         pass.use_viewport(&viewport);
         pass.set_pipeline(&copy_shading.pipeline);
-        pass.set_bindgroup(0,  &params);
+        pass.set_bindgroup(0, &params);
         quad.render(&mut pass);
       }
     }

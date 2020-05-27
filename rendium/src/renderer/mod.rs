@@ -6,11 +6,12 @@ use rendiation::*;
 use rendiation_math::{Mat4, Vec4};
 use rendiation_render_entity::*;
 
-use geometry_lib::plane_geometry::Quad;
-use rendiation::geometry_lib::IndexedBufferMesher;
-
 mod shader;
 use render_target::{RenderTarget, RenderTargetAble, TargetStatesProvider};
+use rendiation_mesh_buffer::{
+  mesh_creator::{plane::Quad, IndexedBufferMesher},
+  wgpu::GPUGeometry,
+};
 pub use shader::*;
 
 pub struct GUIRenderer {

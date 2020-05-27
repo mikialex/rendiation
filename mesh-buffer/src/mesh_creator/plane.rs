@@ -1,4 +1,4 @@
-use crate::geometry_lib::IndexedBufferMesher;
+use super::IndexedBufferMesher;
 use crate::vertex::Vertex;
 use rendiation_math::*;
 

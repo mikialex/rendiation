@@ -11,11 +11,6 @@ members = [
     "rivermesh",
     "noize",
     "rainray",
-    "space-indexer"
+    "space-indexer",
+    "mesh-buffer"
 ]
-
-[profile.release]
-# Tell `rustc` to optimize for small code size.
-# opt-level = 's'
-
-# opt-level = 3

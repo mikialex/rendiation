@@ -1,4 +1,5 @@
 use rendiation::*;
+use rendiation_mesh_buffer::geometry::*;
 
 pub struct CopierShading {
   pub pipeline: WGPUPipeline,
@@ -13,17 +14,16 @@ impl CopierShading {
     )
     .as_mut()
     .binding_group::<CopyParam>()
-    .geometry::<StandardGeometry>()
+    .geometry::<IndexedGeometry>()
     .target_states(target.create_target_states().as_ref())
     .build();
 
     Self { pipeline }
   }
-
 }
 
-use rendiation_marco::BindGroup;
 use render_target::{RenderTarget, TargetStatesProvider};
+use rendiation_marco::BindGroup;
 
 #[derive(BindGroup)]
 pub struct CopyParam<'a> {

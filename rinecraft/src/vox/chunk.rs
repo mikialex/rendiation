@@ -5,6 +5,7 @@ use crate::vox::world_machine::WorldMachine;
 use rendiation::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
+use rendiation_mesh_buffer::wgpu::*;
 use rendiation_render_entity::BoundingData;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};

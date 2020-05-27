@@ -1,10 +1,10 @@
 use rendiation::*;
+use rendiation_mesh_buffer::geometry::*;
 
 use render_target::TargetStates;
 use rendiation_marco::BindGroup;
 
-pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) 
--> WGPUPipeline {
+pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
   PipelineBuilder::new(
     renderer,
     load_glsl(include_str!("./block.vert"), ShaderType::Vertex),
@@ -12,7 +12,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates)
   )
   .as_mut()
   .binding_group::<BlockShadingParamGroup>()
-  .geometry::<StandardGeometry>()
+  .geometry::<IndexedGeometry>()
   .target_states(target)
   .build()
 }

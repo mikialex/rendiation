@@ -1,4 +1,4 @@
-use crate::geometry_lib::IndexedBufferMesher;
+use super::IndexedBufferMesher;
 use crate::vertex::Vertex;
 use rendiation_math::*;
 
@@ -14,7 +14,7 @@ pub struct SphereGeometryParameter {
   pub theta_end: f32,
 }
 
-impl Default for SphereGeometryParameter{
+impl Default for SphereGeometryParameter {
   fn default() -> Self {
     Self {
       radius: 1.0,

@@ -1,6 +1,7 @@
-use render_target::{TargetStatesProvider, RenderTarget};
+use render_target::{RenderTarget, TargetStatesProvider};
 use rendiation::*;
 use rendiation_marco::BindGroup;
+use rendiation_mesh_buffer::geometry::IndexedGeometry;
 
 pub struct QuadShading {
   pub pipeline: WGPUPipeline,
@@ -23,7 +24,7 @@ impl QuadShading {
       load_glsl(include_str!("./quad.frag"), ShaderType::Fragment),
     )
     .as_mut()
-    .geometry::<StandardGeometry>()
+    .geometry::<IndexedGeometry>()
     .binding_group::<QuadShadingParam>()
     .target_states(target.create_target_states().as_ref())
     .build();
@@ -36,14 +37,14 @@ pub struct CopyShading {
 }
 
 impl CopyShading {
-  pub fn new(renderer: &WGPURenderer, target: & impl TargetStatesProvider) -> Self {
+  pub fn new(renderer: &WGPURenderer, target: &impl TargetStatesProvider) -> Self {
     let pipeline = PipelineBuilder::new(
       renderer,
       load_glsl(include_str!("./copy.vert"), ShaderType::Vertex),
       load_glsl(include_str!("./copy.frag"), ShaderType::Fragment),
     )
     .as_mut()
-    .geometry::<StandardGeometry>()
+    .geometry::<IndexedGeometry>()
     .binding_group::<CopyShadingParam>()
     .target_states(target.create_target_states().as_mut().first_color(|s| {
       s.color_blend(wgpu::BlendDescriptor {

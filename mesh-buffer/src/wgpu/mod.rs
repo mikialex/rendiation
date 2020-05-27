@@ -1,9 +1,39 @@
-use crate::geometry::primitive::*;
-use crate::geometry::standard_geometry::StandardGeometry;
-use crate::renderer::buffer::WGPUBuffer;
-use crate::renderer::WGPURenderer;
-use crate::{vertex::*, WGPURenderPass};
+use crate::geometry::primitive::PrimitiveTopology;
+use crate::{
+  geometry::{indexed_geometry::IndexedGeometry, LineList, TriangleList},
+  vertex::Vertex,
+};
+use rendiation::*;
 use std::ops::Range;
+
+use lazy_static::lazy_static;
+lazy_static! {
+  static ref VERTEX_BUFFERS: Vec<VertexBufferDescriptor<'static>> =
+    { vec![Vertex::get_buffer_layout_descriptor()] };
+}
+
+impl<'a, T: PrimitiveTopology + WGPUPrimitiveTopology> GeometryProvider for IndexedGeometry<T> {
+  fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
+    wgpu::VertexStateDescriptor {
+      index_format: wgpu::IndexFormat::Uint16,
+      vertex_buffers: &VERTEX_BUFFERS,
+    }
+  }
+
+  fn get_primitive_topology() -> wgpu::PrimitiveTopology {
+    T::WGPU_ENUM
+  }
+}
+
+pub trait WGPUPrimitiveTopology {
+  const WGPU_ENUM: wgpu::PrimitiveTopology;
+}
+impl WGPUPrimitiveTopology for TriangleList {
+  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::TriangleList;
+}
+impl WGPUPrimitiveTopology for LineList {
+  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineList;
+}
 
 pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
   unsafe {
@@ -14,16 +44,43 @@ pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
   }
 }
 
+impl VertexProvider for Vertex {
+  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static> {
+    use std::mem;
+    wgpu::VertexBufferDescriptor {
+      stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+      step_mode: wgpu::InputStepMode::Vertex,
+      attributes: &[
+        wgpu::VertexAttributeDescriptor {
+          format: wgpu::VertexFormat::Float3,
+          offset: 0,
+          shader_location: 0,
+        },
+        wgpu::VertexAttributeDescriptor {
+          format: wgpu::VertexFormat::Float3,
+          offset: 4 * 3,
+          shader_location: 1,
+        },
+        wgpu::VertexAttributeDescriptor {
+          format: wgpu::VertexFormat::Float2,
+          offset: 4 * 3 + 4 * 3,
+          shader_location: 2,
+        },
+      ],
+    }
+  }
+}
+
 pub struct GPUGeometry<T: PrimitiveTopology = TriangleList> {
-  geometry: StandardGeometry<T>,
+  geometry: IndexedGeometry<T>,
   data_changed: bool,
   index_changed: bool,
   gpu_data: Option<[WGPUBuffer; 1]>,
   gpu_index: Option<WGPUBuffer>,
 }
 
-impl<T: PrimitiveTopology> From<StandardGeometry<T>> for GPUGeometry<T> {
-  fn from(geometry: StandardGeometry<T>) -> Self {
+impl<T: PrimitiveTopology> From<IndexedGeometry<T>> for GPUGeometry<T> {
+  fn from(geometry: IndexedGeometry<T>) -> Self {
     GPUGeometry {
       geometry,
       data_changed: true,
@@ -36,7 +93,7 @@ impl<T: PrimitiveTopology> From<StandardGeometry<T>> for GPUGeometry<T> {
 
 impl From<(Vec<Vertex>, Vec<u16>)> for GPUGeometry {
   fn from(item: (Vec<Vertex>, Vec<u16>)) -> Self {
-    StandardGeometry::new(item.0, item.1).into()
+    IndexedGeometry::new(item.0, item.1).into()
   }
 }
 

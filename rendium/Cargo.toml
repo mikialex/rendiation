@@ -7,10 +7,10 @@ edition = "2018"
 [dependencies]
 winit = "0.22.2"
 log = "0.4"
-
 futures = "0.3"
-rendiation = { path = "../rendiation", features= ["glsl-spirv"] }
+rendiation = { path = "../rendiation", features = ["glsl-spirv"] }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
+rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
 rendiation-marco = { path = "../marco" }
 generational-arena = { version = "0.2" }

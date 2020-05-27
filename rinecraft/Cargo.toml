@@ -10,6 +10,7 @@ env_logger = "0.7"
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
+rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
 rendiation-marco = { path = "../marco" }
 rendiation = { path = "../rendiation" }
 rendium = { path = "../rendium" }

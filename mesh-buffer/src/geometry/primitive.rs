@@ -43,7 +43,6 @@ impl PrimitiveFromGeometryData for Line3 {
 pub trait PrimitiveTopology {
   type Primitive: PrimitiveFromGeometryData + IntersectAble<Ray, Option<NearestPoint3D>>;
   const STRIDE: usize;
-  const WGPU_ENUM: wgpu::PrimitiveTopology;
 }
 
 pub struct TriangleList;
@@ -51,7 +50,6 @@ pub struct TriangleList;
 impl PrimitiveTopology for TriangleList {
   type Primitive = Face3;
   const STRIDE: usize = 3;
-  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::TriangleList;
 }
 
 pub struct LineList;
@@ -59,7 +57,6 @@ pub struct LineList;
 impl PrimitiveTopology for LineList {
   type Primitive = Line3;
   const STRIDE: usize = 2;
-  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineList;
 }
 
 pub struct IndexedPrimitiveIter<'a, T: PrimitiveFromGeometryData> {
