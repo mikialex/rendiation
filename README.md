@@ -1,29 +1,47 @@
-# Rendiation Rendering Framework & mikialex 's GFX crates
+# Rendiation Rendering Framework
 
-## Rendiation
+Rendiation is a group of crates that can be composed to impl graphics project. For example, build your own renderer, realtime viewer or offline tracer, game engine, physics engine, graphics data processing, generative content creation..
 
-This repo is in very early stage.
+Use WebGPU as first class realtime graphics API support.
 
-Some direction:
+This repo is in very early stage and very unstable. most of crates highly unfinished.
 
-* In high level abstraction, port the architecture implementation of [artgl](https://github.com/mikialex/artgl).
-* In low level abstraction, wrap wgpu-rs and provide lots of convenience api such as builder patten, marcos.., as well as composable render primitives.
+## Crates
 
-Use WebGPU as backend support. Support multiple native platform and web.
+### Primitives
 
-## Other graphics crates also exist here
+Math for linear algebra primitives. Vec. Mat..
 
-RiverMesh for mesh processing experiments.
+MathEntity for geometric primitives. Box. Sphere..
 
-Rendium for UI.
+RenderEntity for graphics primitives. Camera. Controller..
+
+### Rendering
+
+RendiationWebGPU for WebGPU.
+
+RendiationWebGL for WebGL2. // planed
+
+### Framework
+
+SceneGraph for backEnd agnostic 3D scene description and rendering;
+
+RenderGraph for backEnd agnostic multi-pass dependency resolve and composition;
+
+Rendium for UI system.
+
+### Library
+
+MeshBuffer for geometry mesh creating conversion utils.
+
+SpaceIndexer for space acceleration data structure algorithms.
+
+RiverMesh for mesh processing experiments. (mesh edit)
 
 Noize for noise pattern generation.
 
-RainRay for ray tracing
+### Application incubation
 
-RineCraft for minecraft like game dev experiments.
+RineCraft for testing minecraft like game.
 
-SpaceIndexer for space acceleration data structure algorithms.
-...
-
-Include them in one mono repo is to make code reuse easier and clean. Wish you find what you want here~
+RainRay for testing ray tracing.
