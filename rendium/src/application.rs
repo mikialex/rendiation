@@ -9,7 +9,7 @@ pub struct AppRenderCtx<'a> {
 
 pub trait Application: 'static + Sized {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self;
-  fn update(&mut self, event: winit::event::Event<()>, renderer: &mut AppRenderCtx);
+  fn update(&mut self, event: &winit::event::Event<()>, renderer: &mut AppRenderCtx);
 }
 
 pub fn run<E: Application>(title: &str) {
@@ -26,17 +26,22 @@ pub async fn run_async<E: Application>(title: &str) {
   log::info!("Initializing the window...");
 
   #[cfg(not(feature = "gl"))]
-  let (_window, hidpi_factor, size, surface) = {
-    let window = winit::window::Window::new(&event_loop).unwrap();
-    window.set_title(title);
-    let hidpi_factor = window.hidpi_factor();
-    let size = window.inner_size().to_physical(hidpi_factor);
+  let (window, size, surface) = {
+    let mut builder = winit::window::WindowBuilder::new();
+    builder = builder.with_title(title);
+    // #[cfg(windows_OFF)] //TODO
+    // {
+    //     use winit::platform::windows::WindowBuilderExtWindows;
+    //     builder = builder.with_no_redirection_bitmap(true);
+    // }
+    let window = builder.build(&event_loop).unwrap();
+    let size = window.inner_size();
     let surface = rendiation::Surface::create(&window);
-    (window, hidpi_factor, size, surface)
+    (window, size, surface)
   };
 
   #[cfg(feature = "gl")]
-  let (_window, instance, hidpi_factor, size, surface) = {
+  let (window, instance, size, surface) = {
     let wb = winit::WindowBuilder::new();
     let cb = wgpu::glutin::ContextBuilder::new().with_vsync(true);
     let context = cb.build_windowed(wb, &event_loop).unwrap();
@@ -54,16 +59,15 @@ pub async fn run_async<E: Application>(title: &str) {
     let instance = wgpu::Instance::new(context);
     let surface = instance.get_surface();
 
-    (window, instance, hidpi_factor, size, surface)
+    (window, instance, size, surface)
   };
 
   let mut renderer = WGPURenderer::new(&surface).await;
 
   let mut swap_chain = SwapChain::new(
     surface,
-    (size.width.round() as usize, size.height.round() as usize),
+    (size.width as usize, size.height as usize),
     &renderer,
-    hidpi_factor as f32,
   );
 
   log::info!("Initializing the example...");
@@ -71,19 +75,14 @@ pub async fn run_async<E: Application>(title: &str) {
 
   log::info!("Entering render loop...");
   event_loop.run(move |event, _, control_flow| {
-    let event_clone = event.clone();
-    match event {
+    match &event {
       event::Event::WindowEvent {
         event: WindowEvent::Resized(size),
         ..
       } => {
-        let physical = size.to_physical(hidpi_factor);
-        log::info!("Resizing to {:?}", physical);
+        log::info!("Resizing to {:?}", size);
         swap_chain.resize(
-          (
-            physical.width.round() as usize,
-            physical.height.round() as usize,
-          ),
+          (size.width as usize, size.height as usize),
           &renderer.device,
         );
       }
@@ -101,6 +100,6 @@ pub async fn run_async<E: Application>(title: &str) {
       swap_chain: &mut swap_chain,
     };
 
-    example.update(event_clone, &mut ctx);
+    example.update(&event, &mut ctx);
   });
 }

@@ -1,29 +1,18 @@
 use crate::geometry_lib::IndexedBufferMesher;
 use crate::vertex::Vertex;
 use rendiation_math::*;
-use crate::vertex::vertex;
 
 pub struct Quad;
 
 impl IndexedBufferMesher for Quad {
   fn create_mesh(&self) -> (Vec<Vertex>, Vec<u16>) {
-    // this uv need y flip but i don t know how to flip in webgpu yet TODO
-    // PlaneGeometryParameter {
-    //   width: 2.,
-    //   height: 2.,
-    //   width_segments: 1,
-    //   height_segments: 1,
-    // }
-    // .create_mesh()
-
-    let data = [
-      vertex([-1.0, -1.0, 0.0], [-1.0, -1.0, 1.0], [0.0, 1.0]),
-      vertex([-1.0, 1.0, 0.0], [-1.0, -1.0, 1.0], [0.0, 0.0]),
-      vertex([1.0, 1.0, 0.0], [-1.0, -1.0, 1.0], [1.0, 0.0]),
-      vertex([1.0, -1.0, 0.0], [-1.0, -1.0, 1.0], [1.0, 1.0]),
-    ];
-    let index = [0, 2, 1, 2, 0, 3];
-    (data.to_vec(), index.to_vec())
+    PlaneGeometryParameter {
+      width: 2.,
+      height: 2.,
+      width_segments: 1,
+      height_segments: 1,
+    }
+    .create_mesh()
   }
 }
 
