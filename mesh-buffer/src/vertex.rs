@@ -1,4 +1,9 @@
+use crate::geometry::PositionedPoint;
 use rendiation_math::*;
+use std::{
+  hash::{Hash, Hasher},
+  mem,
+};
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -6,6 +11,31 @@ pub struct Vertex {
   pub position: Vec3<f32>,
   pub normal: Vec3<f32>,
   pub uv: Vec2<f32>,
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq)]
+pub struct HashableVertex {
+  pub position: Vec3<u32>,
+  pub normal: Vec3<u32>,
+  pub uv: Vec2<u32>,
+}
+
+impl PositionedPoint for Vertex {
+  type HashAble = HashableVertex;
+
+  fn position(&self) -> Vec3<f32> {
+    self.position
+  }
+
+  fn to_hashable(&self) -> Self::HashAble {
+    unsafe { mem::transmute(*self) }
+  }
+}
+
+impl PartialEq for Vertex {
+  fn eq(&self, other: &Self) -> bool {
+    self.position == other.position && self.normal == other.normal && self.uv == other.uv
+  }
 }
 
 impl Vertex {

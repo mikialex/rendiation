@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 
 pub struct NoneIndexedGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = TriangleList>
 {
-  data: Vec<V>,
+  pub data: Vec<V>,
   _phantom: PhantomData<T>,
 }
 
@@ -18,5 +18,13 @@ impl<V: PositionedPoint, T: PrimitiveTopology<V>> NoneIndexedGeometry<V, T> {
 
   pub fn primitive_iter<'a>(&'a self) -> PrimitiveIter<'a, V, T::Primitive> {
     PrimitiveIter::new(&self.data)
+  }
+
+  pub fn get_primitive_count(&self) -> u32 {
+    self.data.len() as u32 / T::STRIDE as u32
+  }
+
+  pub fn get_full_count(&self) -> u32 {
+    self.data.len() as u32
   }
 }

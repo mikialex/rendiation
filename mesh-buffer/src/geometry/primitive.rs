@@ -1,4 +1,3 @@
-use crate::vertex::Vertex;
 use core::marker::PhantomData;
 use rendiation_math::Vec3;
 use rendiation_math_entity::Face3;
@@ -6,15 +5,12 @@ use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::Line3;
 use rendiation_math_entity::NearestPoint3D;
 use rendiation_math_entity::Ray;
+use std::hash::Hash;
 
 pub trait PositionedPoint {
+  type HashAble: Hash + Eq;
   fn position(&self) -> Vec3<f32>;
-}
-
-impl PositionedPoint for Vertex {
-  fn position(&self) -> Vec3<f32> {
-    self.position
-  }
+  fn to_hashable(&self) -> Self::HashAble;
 }
 
 pub trait PrimitiveFromGeometryData<T: PositionedPoint> {

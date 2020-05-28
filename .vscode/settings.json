@@ -27,6 +27,7 @@
         "drawcalls",
         "glsl",
         "glutin",
+        "hashable",
         "hidpi",
         "lookat",
         "mikialex",

@@ -28,7 +28,7 @@ impl Mat4<f32> {
 	}
 }
 
-use std::mem;
+use std::{hash::{Hasher, Hash}, mem};
 
 impl AsRef<[u8]> for Mat4<f32> {
 	#[inline]
