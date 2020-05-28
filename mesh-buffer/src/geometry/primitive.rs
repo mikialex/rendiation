@@ -1,72 +1,85 @@
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
+use rendiation_math::Vec3;
 use rendiation_math_entity::Face3;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::Line3;
 use rendiation_math_entity::NearestPoint3D;
 use rendiation_math_entity::Ray;
 
-pub trait PrimitiveFromGeometryData {
-  fn from_indexed_data(index: &[u16], data: &[Vertex], offset: usize) -> Self;
-  fn from_data(data: &[Vertex], offset: usize) -> Self;
+pub trait PositionedPoint {
+  fn position(&self) -> Vec3<f32>;
 }
 
-impl PrimitiveFromGeometryData for Face3 {
-  fn from_indexed_data(index: &[u16], data: &[Vertex], offset: usize) -> Self {
-    let a = data[index[offset] as usize].position;
-    let b = data[index[offset + 1] as usize].position;
-    let c = data[index[offset + 2] as usize].position;
+impl PositionedPoint for Vertex {
+  fn position(&self) -> Vec3<f32> {
+    self.position
+  }
+}
+
+pub trait PrimitiveFromGeometryData<T: PositionedPoint> {
+  fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self;
+  fn from_data(data: &[T], offset: usize) -> Self;
+}
+
+impl<T: PositionedPoint> PrimitiveFromGeometryData<T> for Face3 {
+  fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self {
+    let a = data[index[offset] as usize].position();
+    let b = data[index[offset + 1] as usize].position();
+    let c = data[index[offset + 2] as usize].position();
     Face3 { a, b, c }
   }
 
-  fn from_data(data: &[Vertex], offset: usize) -> Self {
-    let a = data[offset].position;
-    let b = data[offset + 1].position;
-    let c = data[offset + 2].position;
+  fn from_data(data: &[T], offset: usize) -> Self {
+    let a = data[offset].position();
+    let b = data[offset + 1].position();
+    let c = data[offset + 2].position();
     Face3 { a, b, c }
   }
 }
 
-impl PrimitiveFromGeometryData for Line3 {
-  fn from_indexed_data(index: &[u16], data: &[Vertex], offset: usize) -> Self {
-    let start = data[index[offset] as usize].position;
-    let end = data[index[offset + 1] as usize].position;
+impl<T: PositionedPoint> PrimitiveFromGeometryData<T> for Line3 {
+  fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self {
+    let start = data[index[offset] as usize].position();
+    let end = data[index[offset + 1] as usize].position();
     Line3 { start, end }
   }
-  fn from_data(data: &[Vertex], offset: usize) -> Self {
-    let start = data[offset].position;
-    let end = data[offset + 1].position;
+  fn from_data(data: &[T], offset: usize) -> Self {
+    let start = data[offset].position();
+    let end = data[offset + 1].position();
     Line3 { start, end }
   }
 }
 
-pub trait PrimitiveTopology {
-  type Primitive: PrimitiveFromGeometryData + IntersectAble<Ray, Option<NearestPoint3D>>;
+pub trait PrimitiveTopology<T: PositionedPoint> {
+  type Primitive: PrimitiveFromGeometryData<T> + IntersectAble<Ray, Option<NearestPoint3D>>;
   const STRIDE: usize;
 }
 
 pub struct TriangleList;
 
-impl PrimitiveTopology for TriangleList {
+impl<T: PositionedPoint> PrimitiveTopology<T> for TriangleList {
   type Primitive = Face3;
   const STRIDE: usize = 3;
 }
 
 pub struct LineList;
 
-impl PrimitiveTopology for LineList {
+impl<T: PositionedPoint> PrimitiveTopology<T> for LineList {
   type Primitive = Line3;
   const STRIDE: usize = 2;
 }
 
-pub struct IndexedPrimitiveIter<'a, T: PrimitiveFromGeometryData> {
+pub struct IndexedPrimitiveIter<'a, V: PositionedPoint, T: PrimitiveFromGeometryData<V>> {
   index: &'a [u16],
-  data: &'a [Vertex],
+  data: &'a [V],
   current: i16,
   _phantom: PhantomData<T>,
 }
 
-impl<'a, T: PrimitiveFromGeometryData> Iterator for IndexedPrimitiveIter<'a, T> {
+impl<'a, V: PositionedPoint, T: PrimitiveFromGeometryData<V>> Iterator
+  for IndexedPrimitiveIter<'a, V, T>
+{
   type Item = T;
 
   fn next(&mut self) -> Option<T> {
@@ -83,8 +96,8 @@ impl<'a, T: PrimitiveFromGeometryData> Iterator for IndexedPrimitiveIter<'a, T> 
   }
 }
 
-impl<'a, T: PrimitiveFromGeometryData> IndexedPrimitiveIter<'a, T> {
-  pub fn new(index: &'a [u16], data: &'a [Vertex]) -> Self {
+impl<'a, V: PositionedPoint, T: PrimitiveFromGeometryData<V>> IndexedPrimitiveIter<'a, V, T> {
+  pub fn new(index: &'a [u16], data: &'a [V]) -> Self {
     Self {
       index,
       data,
@@ -94,14 +107,14 @@ impl<'a, T: PrimitiveFromGeometryData> IndexedPrimitiveIter<'a, T> {
   }
 }
 
-pub struct PrimitiveIter<'a, T: PrimitiveFromGeometryData> {
-  data: &'a [Vertex],
+pub struct PrimitiveIter<'a, V: PositionedPoint, T: PrimitiveFromGeometryData<V>> {
+  data: &'a [V],
   current: i16,
   _phantom: PhantomData<T>,
 }
 
-impl<'a, T: PrimitiveFromGeometryData> PrimitiveIter<'a, T> {
-  pub fn new(data: &'a [Vertex]) -> Self {
+impl<'a, V: PositionedPoint, T: PrimitiveFromGeometryData<V>> PrimitiveIter<'a, V, T> {
+  pub fn new(data: &'a [V]) -> Self {
     Self {
       data,
       current: -1,
@@ -110,7 +123,7 @@ impl<'a, T: PrimitiveFromGeometryData> PrimitiveIter<'a, T> {
   }
 }
 
-impl<'a, T: PrimitiveFromGeometryData> Iterator for PrimitiveIter<'a, T> {
+impl<'a, V: PositionedPoint, T: PrimitiveFromGeometryData<V>> Iterator for PrimitiveIter<'a, V, T> {
   type Item = T;
 
   fn next(&mut self) -> Option<T> {

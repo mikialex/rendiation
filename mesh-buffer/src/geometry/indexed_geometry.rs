@@ -1,25 +1,24 @@
-use core::marker::PhantomData;
-use super::{TriangleList, IndexedPrimitiveIter, PrimitiveTopology};
+use super::{IndexedPrimitiveIter, PositionedPoint, PrimitiveTopology, TriangleList};
 use crate::vertex::Vertex;
+use core::marker::PhantomData;
 
 /// A indexed geometry that use vertex as primitive;
-pub struct IndexedGeometry<T = TriangleList, V = Vertex>
-where
-  T: PrimitiveTopology,
-{
+pub struct IndexedGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = TriangleList> {
   pub data: Vec<V>,
   pub index: Vec<u16>,
   _phantom: PhantomData<T>,
 }
 
-impl From<(Vec<Vertex>, Vec<u16>)> for IndexedGeometry {
-  fn from(item: (Vec<Vertex>, Vec<u16>)) -> Self {
+impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
+  for IndexedGeometry<V, T>
+{
+  fn from(item: (Vec<V>, Vec<u16>)) -> Self {
     IndexedGeometry::new(item.0, item.1)
   }
 }
 
-impl<T: PrimitiveTopology> IndexedGeometry<T> {
-  pub fn new(v: Vec<Vertex>, index: Vec<u16>) -> Self {
+impl<V: PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+  pub fn new(v: Vec<V>, index: Vec<u16>) -> Self {
     Self {
       data: v,
       index,
@@ -27,7 +26,7 @@ impl<T: PrimitiveTopology> IndexedGeometry<T> {
     }
   }
 
-  pub fn primitive_iter<'a>(&'a self) -> IndexedPrimitiveIter<'a, T::Primitive> {
+  pub fn primitive_iter<'a>(&'a self) -> IndexedPrimitiveIter<'a, V, T::Primitive> {
     IndexedPrimitiveIter::new(&self.index, &self.data)
   }
 

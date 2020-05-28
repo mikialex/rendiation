@@ -1,6 +1,6 @@
 use crate::geometry::primitive::PrimitiveTopology;
 use crate::{
-  geometry::{indexed_geometry::IndexedGeometry, LineList, TriangleList},
+  geometry::{indexed_geometry::IndexedGeometry, LineList, PositionedPoint, TriangleList},
   vertex::Vertex,
 };
 use rendiation::*;
@@ -12,7 +12,9 @@ lazy_static! {
     { vec![Vertex::get_buffer_layout_descriptor()] };
 }
 
-impl<'a, T: PrimitiveTopology + WGPUPrimitiveTopology> GeometryProvider for IndexedGeometry<T> {
+impl<'a, V: PositionedPoint, T: PrimitiveTopology<V> + WGPUPrimitiveTopology> GeometryProvider
+  for IndexedGeometry<V, T>
+{
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {
       index_format: wgpu::IndexFormat::Uint16,
@@ -71,16 +73,16 @@ impl VertexProvider for Vertex {
   }
 }
 
-pub struct GPUGeometry<T: PrimitiveTopology = TriangleList> {
-  geometry: IndexedGeometry<T>,
+pub struct GPUGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = TriangleList> {
+  geometry: IndexedGeometry<V, T>,
   data_changed: bool,
   index_changed: bool,
   gpu_data: Option<[WGPUBuffer; 1]>,
   gpu_index: Option<WGPUBuffer>,
 }
 
-impl<T: PrimitiveTopology> From<IndexedGeometry<T>> for GPUGeometry<T> {
-  fn from(geometry: IndexedGeometry<T>) -> Self {
+impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>> for GPUGeometry<V, T> {
+  fn from(geometry: IndexedGeometry<V, T>) -> Self {
     GPUGeometry {
       geometry,
       data_changed: true,
@@ -91,14 +93,14 @@ impl<T: PrimitiveTopology> From<IndexedGeometry<T>> for GPUGeometry<T> {
   }
 }
 
-impl From<(Vec<Vertex>, Vec<u16>)> for GPUGeometry {
-  fn from(item: (Vec<Vertex>, Vec<u16>)) -> Self {
+impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)> for GPUGeometry<V, T> {
+  fn from(item: (Vec<V>, Vec<u16>)) -> Self {
     IndexedGeometry::new(item.0, item.1).into()
   }
 }
 
-impl<T: PrimitiveTopology> GPUGeometry<T> {
-  pub fn mutate_data(&mut self) -> &mut Vec<Vertex> {
+impl<V: PositionedPoint, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
+  pub fn mutate_data(&mut self) -> &mut Vec<V> {
     self.data_changed = true;
     &mut self.geometry.data
   }

@@ -164,7 +164,8 @@ impl BlockRegistry {
       WGPUTexture::new_from_image_data(renderer, &data, size)
     }
 
-    let mut quad = GPUGeometry::from(Quad.create_mesh());
+    use rendiation_mesh_buffer::geometry::TriangleList;
+    let mut quad = GPUGeometry::<_, TriangleList>::from(Quad.create_mesh());
     quad.update_gpu(renderer);
     let sampler = WGPUSampler::default(renderer);
     let target_texture = WGPUTexture::new_as_target(&renderer, (64, 64));
