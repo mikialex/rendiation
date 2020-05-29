@@ -51,7 +51,7 @@ fn pick_block(
           let local_position = Vec3::new(x, y, z);
           let world_position = local_to_world(&local_position, chunk.chunk_position);
           let box3 = get_block_bbox(world_position);
-          let hit = ray.intersect(&box3);
+          let hit = ray.intersect(&box3, &());
           if let Some(NearestPoint3D(h)) = hit {
             let length2 = (h - ray.origin).length2();
             if let Some(clo) = &closest {

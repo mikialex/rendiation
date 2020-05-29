@@ -34,7 +34,7 @@ impl Frustum {
 }
 
 impl IntersectAble<Sphere, bool> for Frustum {
-  fn intersect(&self, sphere: &Sphere) -> bool {
+  fn intersect(&self, sphere: &Sphere, _: &()) -> bool {
     let neg_radius = -sphere.radius;
 
     for p in &self.planes {

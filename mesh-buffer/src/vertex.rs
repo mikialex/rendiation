@@ -1,7 +1,7 @@
-use crate::geometry::PositionedPoint;
+use crate::geometry::{HashAbleByConversion, PositionedPoint};
 use rendiation_math::*;
 use std::{
-  hash::{Hash, Hasher},
+  hash::{Hash},
   mem,
 };
 
@@ -20,15 +20,16 @@ pub struct HashableVertex {
   pub uv: Vec2<u32>,
 }
 
-impl PositionedPoint for Vertex {
+impl HashAbleByConversion for Vertex {
   type HashAble = HashableVertex;
-
-  fn position(&self) -> Vec3<f32> {
-    self.position
-  }
-
   fn to_hashable(&self) -> Self::HashAble {
     unsafe { mem::transmute(*self) }
+  }
+}
+
+impl PositionedPoint for Vertex {
+  fn position(&self) -> Vec3<f32> {
+    self.position
   }
 }
 

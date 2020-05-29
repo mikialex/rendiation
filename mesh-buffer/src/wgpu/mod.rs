@@ -1,6 +1,6 @@
 use crate::geometry::primitive::PrimitiveTopology;
 use crate::{
-  geometry::{indexed_geometry::IndexedGeometry, LineList, PositionedPoint, TriangleList},
+  geometry::*, 
   vertex::Vertex,
 };
 use rendiation::*;
@@ -35,6 +35,12 @@ impl WGPUPrimitiveTopology for TriangleList {
 }
 impl WGPUPrimitiveTopology for LineList {
   const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineList;
+}
+impl WGPUPrimitiveTopology for TriangleStrip {
+  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::TriangleStrip;
+}
+impl WGPUPrimitiveTopology for LineStrip {
+  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineStrip;
 }
 
 pub fn as_bytes<T>(vec: &[T]) -> &[u8] {

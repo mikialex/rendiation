@@ -1,44 +1,52 @@
+use crate::Line3;
 use rendiation_math::Vec3;
 
-pub struct Face3 {
-    pub a: Vec3<f32>,
-    pub b: Vec3<f32>,
-    pub c: Vec3<f32>,
+pub struct Face3<T = Vec3<f32>> {
+  pub a: T,
+  pub b: T,
+  pub c: T,
+}
+
+impl<T> Face3<T> {
+  pub fn new(a: T, b: T, c: T) -> Self {
+    Self { a, b, c }
+  }
+}
+
+impl<T: Copy> Face3<T> {
+  pub fn for_each_edge(&self, mut visitor: impl FnMut(Line3<T>)) {
+    let ab = Line3::new(self.a, self.b);
+    let bc = Line3::new(self.b, self.c);
+    let ca = Line3::new(self.c, self.a);
+    visitor(ab);
+    visitor(bc);
+    visitor(ca);
+  }
 }
 
 impl Face3 {
-    pub fn new(
-        a: Vec3<f32>,
-        b: Vec3<f32>,
-        c: Vec3<f32>,
-    ) -> Self {
-        Self {
-            a, b, c
-        }
+  /// return null when point is outside of triangle
+  pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>> {
+    let v0 = self.b - self.a;
+    let v1 = self.c - self.a;
+    let v2 = p - self.a;
+
+    let d00 = v0.dot(v0);
+    let d01 = v0.dot(v1);
+    let d11 = v1.dot(v1);
+    let d20 = v2.dot(v0);
+    let d21 = v2.dot(v1);
+
+    let denom = d00 * d11 - d01 * d01;
+
+    if denom == 0.0 {
+      return None;
     }
 
-    /// return null when point is outside of triangle
-    pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>>{
-        let v0 = self.b-self.a;
-        let v1 = self.c-self.a;
-        let v2 = p-self.a;
+    let v = (d11 * d20 - d01 * d21) / denom;
+    let w = (d00 * d21 - d01 * d20) / denom;
+    let u = 1.0 - v - w;
 
-        let d00 = v0.dot(v0);
-        let d01 = v0.dot(v1);
-        let d11 = v1.dot(v1);
-        let d20 = v2.dot(v0);
-        let d21 = v2.dot(v1);
-
-        let denom = d00*d11-d01*d01;
-
-        if denom == 0.0 {
-            return None;
-        }
-
-        let v = (d11 * d20 - d01 * d21) / denom;
-        let w = (d00 * d21 - d01 * d20) / denom;
-        let u = 1.0 - v - w;
-        
-        Some(Vec3::new(u,v,w))
-    }
+    Some(Vec3::new(u, v, w))
+  }
 }

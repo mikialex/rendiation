@@ -8,13 +8,13 @@ use rendiation_math::Vec3;
 pub struct NearestPoint3D(pub Vec3<f32>);
 pub struct IntersectionList(pub Vec<Vec3<f32>>);
 
-pub trait IntersectAble<IntersectTarget, IntersectResult> {
-  fn intersect(&self, other: &IntersectTarget) -> IntersectResult;
+pub trait IntersectAble<Target, Result, Parameter = ()> {
+  fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
 impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Face3) -> Option<NearestPoint3D> {
+  fn intersect(&self, face: &Face3, _: &()) -> Option<NearestPoint3D> {
     // Compute the offset origin, edges, and normal.
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
@@ -79,19 +79,19 @@ impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
 }
 
 impl IntersectAble<Ray, Option<NearestPoint3D>> for Face3 {
-  fn intersect(&self, ray: &Ray) -> Option<NearestPoint3D> {
-    IntersectAble::<Face3, Option<NearestPoint3D>>::intersect(ray, self)
+  fn intersect(&self, ray: &Ray, p: &()) -> Option<NearestPoint3D> {
+    IntersectAble::<Face3, Option<NearestPoint3D>>::intersect(ray, self, p)
   }
 }
 
 impl IntersectAble<Ray, Option<NearestPoint3D>> for Line3 {
-  fn intersect(&self, ray: &Ray) -> Option<NearestPoint3D> {
+  fn intersect(&self, ray: &Ray, _: &()) -> Option<NearestPoint3D> {
     todo!()
   }
 }
 
 impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
-  fn intersect(&self, box3: &Box3) -> Option<NearestPoint3D> {
+  fn intersect(&self, box3: &Box3, _: &()) -> Option<NearestPoint3D> {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
       (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -167,13 +167,13 @@ impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
 }
 
 impl IntersectAble<Box3, bool> for Ray {
-  fn intersect(&self, other: &Box3) -> bool {
-    IntersectAble::<Box3, Option<NearestPoint3D>>::intersect(self, other).is_some()
+  fn intersect(&self, other: &Box3, p: &()) -> bool {
+    IntersectAble::<Box3, Option<NearestPoint3D>>::intersect(self, other, p).is_some()
   }
 }
 
 impl IntersectAble<Sphere, Option<NearestPoint3D>> for Ray {
-  fn intersect(&self, sphere: &Sphere) -> Option<NearestPoint3D> {
+  fn intersect(&self, sphere: &Sphere, _: &()) -> Option<NearestPoint3D> {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
     let d2 = oc.dot(oc) - tca * tca;
@@ -209,13 +209,13 @@ impl IntersectAble<Sphere, Option<NearestPoint3D>> for Ray {
 }
 
 impl IntersectAble<Sphere, bool> for Ray {
-  fn intersect(&self, other: &Sphere) -> bool {
-    IntersectAble::<Sphere, Option<NearestPoint3D>>::intersect(self, other).is_some()
+  fn intersect(&self, other: &Sphere, p: &()) -> bool {
+    IntersectAble::<Sphere, Option<NearestPoint3D>>::intersect(self, other, p).is_some()
   }
 }
 
 impl IntersectAble<Sphere, Option<IntersectionList>> for Ray {
-  fn intersect(&self, sphere: &Sphere) -> Option<IntersectionList> {
+  fn intersect(&self, sphere: &Sphere, _: &()) -> Option<IntersectionList> {
     todo!();
   }
 }
