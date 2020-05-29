@@ -12,7 +12,10 @@ use super::{
   PrimitiveTopology,
 };
 use rendiation_math_entity::{Face3, Line3};
-use std::collections::{HashMap, HashSet};
+use std::{
+  cmp::Ordering,
+  collections::{HashMap, HashSet},
+};
 
 impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V, Primitive = Face3<V>>>
   IndexedGeometry<V, T>
@@ -30,13 +33,43 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V, Primitiv
 }
 
 impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+  pub fn merge_vertex(
+    &self,
+    sorter: impl FnMut(&V, &V) -> Ordering,
+    mut merger: impl FnMut(&V, &V) -> bool,
+  ) -> IndexedGeometry<V, T> {
+    let mut data = self.data.clone();
+    let mut merge_data = Vec::with_capacity(data.len());
+    let mut index_remapping = HashMap::new();
+    data.sort_unstable_by(sorter);
+    data.windows(2).enumerate().for_each(|(i, v)| {
+      if merger(&v[0], &v[1]) {
+        index_remapping.insert(i + 1, merge_data.len() - 1);
+      } else {
+        merge_data.push(v[1]);
+      }
+    });
+    let new_index = self
+      .index
+      .iter()
+      .map(|i| {
+        let k = *i as usize;
+        *index_remapping.get(&k).unwrap_or(&k) as u16
+      })
+      .collect();
+
+    IndexedGeometry::new(merge_data, new_index)
+  }
+}
+
+impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T> {
     NoneIndexedGeometry::new(self.index.iter().map(|i| self.data[*i as usize]).collect())
   }
 }
 
 impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> NoneIndexedGeometry<V, T> {
-  pub fn expand_to_none_index_geometry<U>(&self) -> IndexedGeometry<V, T> {
+  pub fn create_index_geometry<U>(&self) -> IndexedGeometry<V, T> {
     let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
     let index = self
