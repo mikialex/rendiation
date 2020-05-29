@@ -11,6 +11,40 @@ impl<T> Face3<T> {
   pub fn new(a: T, b: T, c: T) -> Self {
     Self { a, b, c }
   }
+
+  pub fn iter<'a>(&'a self) -> Face3Iter<'a, T> {
+    Face3Iter::new(self)
+  }
+}
+
+pub struct Face3Iter<'a, T> {
+  face3: &'a Face3<T>,
+  visit_count: i8,
+}
+
+impl<'a, T> Face3Iter<'a, T> {
+  pub fn new(face3: &'a Face3<T>) -> Self {
+    Self {
+      face3,
+      visit_count: -1,
+    }
+  }
+}
+
+impl<'a, T: Copy> Iterator for Face3Iter<'a, T> {
+  type Item = T;
+  fn next(&mut self) -> Option<Self::Item> {
+    self.visit_count += 1;
+    if self.visit_count == 0 {
+      Some(self.face3.a)
+    } else if self.visit_count == 1 {
+      Some(self.face3.b)
+    } else if self.visit_count == 2 {
+      Some(self.face3.c)
+    } else {
+      None
+    }
+  }
 }
 
 impl<T: Copy> Face3<T> {

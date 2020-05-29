@@ -50,6 +50,7 @@
         "webgpu",
         "wgpu",
         "winit",
+        "wireframe",
         "zerocopy"
     ]
 }
