@@ -12,7 +12,7 @@ impl<T> Line3<T> {
     Self { start, end }
   }
 
-  pub fn iter<'a>(&'a self) -> Line3Iter<'a, T> {
+  pub fn iter_point<'a>(&'a self) -> Line3Iter<'a, T> {
     Line3Iter::new(self)
   }
 }

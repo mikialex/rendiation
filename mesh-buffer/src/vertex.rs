@@ -34,12 +34,6 @@ impl PositionedPoint for Vertex {
   }
 }
 
-impl PartialEq for Vertex {
-  fn eq(&self, other: &Self) -> bool {
-    self.position == other.position && self.normal == other.normal && self.uv == other.uv
-  }
-}
-
 impl Vertex {
   pub fn new(position: Vec3<f32>, normal: Vec3<f32>, uv: Vec2<f32>) -> Self {
     Vertex {

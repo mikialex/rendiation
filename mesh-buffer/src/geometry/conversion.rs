@@ -8,7 +8,7 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry, PrimitiveTopology,
+  HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry, PrimitiveTopology, PointList,
 };
 use rendiation_math::Vec3;
 use rendiation_math_entity::{Face3, Line3, PositionedPoint};
@@ -27,7 +27,10 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V, Primitiv
         deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
       })
     });
-    let new_index = deduplicate_set.iter().flat_map(|l| l.iter()).collect();
+    let new_index = deduplicate_set
+      .iter()
+      .flat_map(|l| l.iter_point())
+      .collect();
     IndexedGeometry::<V, LineList>::new(self.data.clone(), new_index)
   }
 
@@ -56,7 +59,7 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V, Primitiv
       .iter()
       .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
       .map(|(e, _)| e)
-      .flat_map(|l| l.iter())
+      .flat_map(|l| l.iter_point())
       .map(|i| self.data[i as usize])
       .collect();
     NoneIndexedGeometry::new(data)
@@ -118,3 +121,10 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> NoneInd
     IndexedGeometry::new(deduplicate_buffer, index)
   }
 }
+
+impl<V: PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+  pub fn create_point_cloud(&self) -> NoneIndexedGeometry<V, PointList> {
+    NoneIndexedGeometry::new(self.data.clone())
+  }
+}
+

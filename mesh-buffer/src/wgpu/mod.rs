@@ -40,6 +40,9 @@ impl WGPUPrimitiveTopology for TriangleStrip {
 impl WGPUPrimitiveTopology for LineStrip {
   const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineStrip;
 }
+impl WGPUPrimitiveTopology for PointList {
+  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::PointList;
+}
 
 pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
   unsafe {

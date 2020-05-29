@@ -4,7 +4,7 @@ use rendiation_math_entity::Face3;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::Line3;
 use rendiation_math_entity::NearestPoint3D;
-use rendiation_math_entity::{PositionedPoint, Ray};
+use rendiation_math_entity::{Point, PositionedPoint, Ray};
 use std::hash::Hash;
 
 pub trait HashAbleByConversion {
@@ -62,10 +62,31 @@ impl<T: PositionedPoint> PrimitiveData<T> for Line3<T> {
   }
 }
 
+impl<T: PositionedPoint> PrimitiveData<T> for Point<T> {
+  type IndexIndicator = u16;
+  fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self {
+    Point(data[index[offset] as usize])
+  }
+
+  fn create_index_indicator(index: &[u16], offset: usize) -> Self::IndexIndicator {
+    index[offset]
+  }
+
+  fn from_data(data: &[T], offset: usize) -> Self {
+    Point(data[offset])
+  }
+}
+
 pub trait PrimitiveTopology<T: PositionedPoint> {
   type Primitive: PrimitiveData<T>
     + IntersectAble<Ray, Option<NearestPoint3D>, Box<dyn MeshBufferIntersectionConfigProvider>>;
   const STRIDE: usize;
+}
+
+pub struct PointList;
+impl<T: PositionedPoint> PrimitiveTopology<T> for PointList {
+  type Primitive = Point<T>;
+  const STRIDE: usize = 1;
 }
 
 pub struct TriangleList;

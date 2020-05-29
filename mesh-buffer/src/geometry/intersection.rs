@@ -3,7 +3,7 @@ use crate::geometry::indexed_geometry::IndexedGeometry;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::IntersectionList;
 use rendiation_math_entity::NearestPoint3D;
-use rendiation_math_entity::{Face3, Line3, Ray, PositionedPoint};
+use rendiation_math_entity::{Face3, Line3, Ray, PositionedPoint, Point};
 
 impl<V: PositionedPoint, T: PrimitiveTopology<V>>
   IntersectAble<IndexedGeometry<V, T>, IntersectionList, Config> for Ray
@@ -57,6 +57,12 @@ impl<T: PositionedPoint> IntersectAble<Ray, Option<NearestPoint3D>, Config> for 
 }
 
 impl<T: PositionedPoint> IntersectAble<Ray, Option<NearestPoint3D>, Config> for Line3<T> {
+  fn intersect(&self, ray: &Ray, _: &Config) -> Option<NearestPoint3D> {
+    todo!()
+  }
+}
+
+impl<T: PositionedPoint> IntersectAble<Ray, Option<NearestPoint3D>, Config> for Point<T> {
   fn intersect(&self, ray: &Ray, _: &Config) -> Option<NearestPoint3D> {
     todo!()
   }

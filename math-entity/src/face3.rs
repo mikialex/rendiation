@@ -1,16 +1,7 @@
-use crate::Line3;
+use crate::{PositionedPoint, Line3};
 use rendiation_math::Vec3;
 
-pub trait PositionedPoint: Copy {
-  fn position(&self) -> Vec3<f32>;
-}
-
-impl PositionedPoint for Vec3<f32> {
-  fn position(&self) -> Vec3<f32> {
-    *self
-  }
-}
-
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Face3<T = Vec3<f32>> {
   pub a: T,
   pub b: T,
@@ -22,7 +13,7 @@ impl<T> Face3<T> {
     Self { a, b, c }
   }
 
-  pub fn iter<'a>(&'a self) -> Face3Iter<'a, T> {
+  pub fn iter_point<'a>(&'a self) -> Face3Iter<'a, T> {
     Face3Iter::new(self)
   }
 }
