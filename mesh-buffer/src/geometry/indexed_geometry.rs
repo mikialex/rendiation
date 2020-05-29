@@ -1,6 +1,7 @@
-use super::{IndexedPrimitiveIter, PositionedPoint, PrimitiveTopology, TriangleList};
+use super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList};
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
+use rendiation_math_entity::PositionedPoint;
 
 /// A indexed geometry that use vertex as primitive;
 pub struct IndexedGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = TriangleList> {

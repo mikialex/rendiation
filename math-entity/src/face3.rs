@@ -1,6 +1,16 @@
 use crate::Line3;
 use rendiation_math::Vec3;
 
+pub trait PositionedPoint: Copy {
+  fn position(&self) -> Vec3<f32>;
+}
+
+impl PositionedPoint for Vec3<f32> {
+  fn position(&self) -> Vec3<f32> {
+    *self
+  }
+}
+
 pub struct Face3<T = Vec3<f32>> {
   pub a: T,
   pub b: T,
@@ -14,6 +24,15 @@ impl<T> Face3<T> {
 
   pub fn iter<'a>(&'a self) -> Face3Iter<'a, T> {
     Face3Iter::new(self)
+  }
+}
+
+impl<T: PositionedPoint> Face3<T> {
+  pub fn face_normal_by_position(&self) -> Vec3<f32> {
+    let cb = self.a.position() - self.b.position();
+    let ab = self.a.position() - self.b.position();
+    let n = cb.cross(ab);
+    n.normalize()
   }
 }
 

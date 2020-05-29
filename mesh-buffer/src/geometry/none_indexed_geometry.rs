@@ -1,6 +1,7 @@
 use super::*;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
+use rendiation_math_entity::PositionedPoint;
 
 pub struct NoneIndexedGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = TriangleList>
 {

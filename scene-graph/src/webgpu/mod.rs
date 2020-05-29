@@ -92,9 +92,10 @@ impl RenderObject {
   }
 }
 
-use rendiation_mesh_buffer::geometry::{PositionedPoint, PrimitiveTopology};
+use rendiation_mesh_buffer::geometry::{PrimitiveTopology};
 use rendiation_mesh_buffer::wgpu::GPUGeometry;
 use std::ops::Range;
+use rendiation_math_entity::PositionedPoint;
 impl<V: PositionedPoint, T: PrimitiveTopology<V> + 'static>
   Geometry<SceneGraphWebGPURendererBackend> for GPUGeometry<V, T>
 {

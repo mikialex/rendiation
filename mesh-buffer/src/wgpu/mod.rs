@@ -1,12 +1,10 @@
 use crate::geometry::primitive::PrimitiveTopology;
-use crate::{
-  geometry::*, 
-  vertex::Vertex,
-};
+use crate::{geometry::*, vertex::Vertex};
 use rendiation::*;
 use std::ops::Range;
 
 use lazy_static::lazy_static;
+use rendiation_math_entity::PositionedPoint;
 lazy_static! {
   static ref VERTEX_BUFFERS: Vec<VertexBufferDescriptor<'static>> =
     { vec![Vertex::get_buffer_layout_descriptor()] };
@@ -87,7 +85,9 @@ pub struct GPUGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = Tr
   gpu_index: Option<WGPUBuffer>,
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>> for GPUGeometry<V, T> {
+impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>>
+  for GPUGeometry<V, T>
+{
   fn from(geometry: IndexedGeometry<V, T>) -> Self {
     GPUGeometry {
       geometry,

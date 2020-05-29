@@ -1,9 +1,10 @@
-use crate::geometry::{HashAbleByConversion, PositionedPoint};
+use crate::geometry::{HashAbleByConversion};
 use rendiation_math::*;
 use std::{
   hash::{Hash},
   mem,
 };
+use rendiation_math_entity::PositionedPoint;
 
 #[repr(C)]
 #[derive(Clone, Copy)]

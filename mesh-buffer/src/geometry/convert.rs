@@ -8,10 +8,10 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry, PositionedPoint,
-  PrimitiveTopology,
+  HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry, PrimitiveTopology,
 };
-use rendiation_math_entity::{Face3, Line3};
+use rendiation_math::Vec3;
+use rendiation_math_entity::{Face3, Line3, PositionedPoint};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
@@ -22,18 +22,49 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V, Primitiv
 {
   pub fn create_wireframe(&self) -> IndexedGeometry<V, LineList> {
     let mut deduplicate_set = HashSet::<Line3<u16>>::new();
-    self.primitive_iter().for_each(|(_, pi)| {
-      pi.for_each_edge(|edge| {
+    self.primitive_iter().for_each(|(_, f)| {
+      f.for_each_edge(|edge| {
         deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
       })
     });
     let new_index = deduplicate_set.iter().flat_map(|l| l.iter()).collect();
     IndexedGeometry::<V, LineList>::new(self.data.clone(), new_index)
   }
+
+  /// maybe you should merge vertex before create edge
+  /// non manifold mesh may affect result
+  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedGeometry<V, LineList> {
+    // Map: edge id => (edge face idA, edge face idB(optional));
+    let mut edges = HashMap::<Line3<u16>, (usize, Option<usize>)>::new();
+    self
+      .primitive_iter()
+      .enumerate()
+      .for_each(|(face_id, (_, f))| {
+        f.for_each_edge(|edge| {
+          edges
+            .entry(edge.swap_if(|l| l.start < l.end))
+            .and_modify(|e| e.1 = Some(face_id))
+            .or_insert_with(|| (face_id, None));
+        })
+      });
+    let normals = self
+      .primitive_iter()
+      .map(|(f, _)| f.face_normal_by_position())
+      .collect::<Vec<Vec3<f32>>>();
+    let threshold_dot = edge_threshold_angle.cos();
+    let data = edges
+      .iter()
+      .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
+      .map(|(e, _)| e)
+      .flat_map(|l| l.iter())
+      .map(|i| self.data[i as usize])
+      .collect();
+    NoneIndexedGeometry::new(data)
+  }
 }
 
 impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
-  pub fn merge_vertex(
+  pub fn merge_vertex_by_sorting(
     &self,
     sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,

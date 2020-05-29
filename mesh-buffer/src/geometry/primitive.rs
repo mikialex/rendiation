@@ -1,16 +1,11 @@
 use super::intersection::MeshBufferIntersectionConfigProvider;
 use core::marker::PhantomData;
-use rendiation_math::Vec3;
 use rendiation_math_entity::Face3;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::Line3;
 use rendiation_math_entity::NearestPoint3D;
-use rendiation_math_entity::Ray;
+use rendiation_math_entity::{PositionedPoint, Ray};
 use std::hash::Hash;
-
-pub trait PositionedPoint: Copy {
-  fn position(&self) -> Vec3<f32>;
-}
 
 pub trait HashAbleByConversion {
   type HashAble: Hash + Eq;

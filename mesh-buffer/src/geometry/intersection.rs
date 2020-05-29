@@ -1,10 +1,9 @@
-use super::PositionedPoint;
 use super::{NoneIndexedGeometry, PrimitiveTopology};
 use crate::geometry::indexed_geometry::IndexedGeometry;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::IntersectionList;
 use rendiation_math_entity::NearestPoint3D;
-use rendiation_math_entity::{Face3, Line3, Ray};
+use rendiation_math_entity::{Face3, Line3, Ray, PositionedPoint};
 
 impl<V: PositionedPoint, T: PrimitiveTopology<V>>
   IntersectAble<IndexedGeometry<V, T>, IntersectionList, Config> for Ray
@@ -35,18 +34,18 @@ impl<V: PositionedPoint, T: PrimitiveTopology<V>>
 }
 
 pub trait MeshBufferIntersectionConfigProvider {
-  fn line_percision(&self) -> f32;
+  fn line_precision(&self) -> f32;
 }
 
 type Config = Box<dyn MeshBufferIntersectionConfigProvider>;
 
 pub struct MeshBufferIntersectionConfig {
-  line_percision: f32,
+  line_precision: f32,
 }
 
 impl MeshBufferIntersectionConfigProvider for MeshBufferIntersectionConfig {
-  fn line_percision(&self) -> f32 {
-    self.line_percision
+  fn line_precision(&self) -> f32 {
+    self.line_precision
   }
 }
 
