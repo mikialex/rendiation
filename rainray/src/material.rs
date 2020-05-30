@@ -60,7 +60,7 @@ impl Material {
     1.
   }
 
-  pub fn BRDF(&self, intersection: &Intersection, in_ray: &Ray, out_ray: &Ray) -> f32 {
+  pub fn brdf(&self, intersection: &Intersection, in_ray: &Ray, out_ray: &Ray) -> f32 {
     let w_m = (-in_ray.direction + out_ray.direction).normalize();
     0.8
   }

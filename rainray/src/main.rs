@@ -1,3 +1,4 @@
+#![allow(unused)]
 mod environment;
 mod frame;
 mod light;
@@ -15,18 +16,18 @@ use crate::material::*;
 use crate::math::*;
 use crate::renderer::*;
 use crate::scene::*;
-use std::rc::Rc;
+use rendiation_math::Mat4;
 use rendiation_render_entity::*;
 use std::env;
-use rendiation_math::Mat4;
+use std::rc::Rc;
 
 fn main() {
   let renderer = Renderer::new();
   let mut camera = PerspectiveCamera::new();
   camera.transform.matrix = Mat4::lookat(
-    Vec3::new(0.,0.,10.),
-    Vec3::new(0.,0.,0.),
-    Vec3::new(0.,1.,0.),
+    Vec3::new(0., 0., 10.),
+    Vec3::new(0., 0., 0.),
+    Vec3::new(0., 1., 0.),
   );
   camera.update_projection();
 

@@ -9,14 +9,14 @@ pub mod mesh;
 pub mod qem;
 
 struct OptionEdge {
-  vertexA: *mut Vertex,
-  vertexB: *mut Vertex,
+  vertex_a: *mut Vertex,
+  vertex_b: *mut Vertex,
   error: f32,
   new_merge_vertex_position: Vec3<f32>,
 }
 
 impl OptionEdge {
-  pub fn compute(vertexA: &Vertex, vertexB: &Vertex) -> Self {
+  pub fn compute(vertex_a: &Vertex, vertex_b: &Vertex) -> Self {
     todo!()
   }
 }
@@ -30,20 +30,17 @@ pub struct SimplificationCtx {
 impl SimplificationCtx {
   pub fn new(positions: &Vec<f32>, indices: &Vec<u32>) -> Self {
     let mut mesh = Mesh::from_buffer(positions, indices);
-    mesh.compute_all_vertices_QEM();
+    mesh.compute_all_vertices_qem();
     let mut ctx = Self {
       mesh,
       qem_edge: BTreeMap::new(),
       target_face_count: 1000,
     };
-    ctx.computeOptionEdges();
+    ctx.compute_option_edges();
     ctx
   }
 
-  fn computeOptionEdges(&mut self) {
-
-
-  }
+  fn compute_option_edges(&mut self) {}
 
   fn decimate_edge(&mut self) {
     // remove a edge in mesh

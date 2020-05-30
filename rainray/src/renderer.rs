@@ -67,7 +67,7 @@ impl Renderer {
 
       let brdf = model
         .material
-        .BRDF(&min_distance_intersection, &current_ray, &next_ray);
+        .brdf(&min_distance_intersection, &current_ray, &next_ray);
 
       let pdf =
         model

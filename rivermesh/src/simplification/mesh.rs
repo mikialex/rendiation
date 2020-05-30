@@ -70,7 +70,7 @@ impl Mesh {
     }
   }
 
-  pub fn compute_all_vertices_QEM(&mut self) {
+  pub fn compute_all_vertices_qem(&mut self) {
     self.foreach_vertex(|v| {
       let mut vert_qem = QEM::zero();
       v.foreach_surrounding_face(|f| {

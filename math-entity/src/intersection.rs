@@ -12,6 +12,14 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
+// impl<T, Target, Result, Parameter> IntersectAble<Target, Result, Parameter> for T
+//   where Target: IntersectAble<T, Result, Parameter>
+// {
+//   fn intersect(&self, other: &Target, param: &Parameter) -> Result{
+//     IntersectAble::<T, Result, Parameter>::intersect(other, self, param)
+//   }
+// }
+
 impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
   #[allow(non_snake_case)]
   fn intersect(&self, face: &Face3, _: &()) -> Option<NearestPoint3D> {
@@ -171,6 +179,21 @@ impl IntersectAble<Box3, bool> for Ray {
     IntersectAble::<Box3, Option<NearestPoint3D>>::intersect(self, other, p).is_some()
   }
 }
+
+macro_rules! intersect_reverse {
+  ($self_item: ty, $result:ty, $param:ty, $target:ty) => {
+    
+      impl IntersectAble<$target, $result, $param> for $self_item {
+        fn intersect(&self, other: &$target, p: &$param) -> $result {
+          IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
+        }
+      }
+    
+  }
+}
+
+intersect_reverse!(Box3, bool, (), Ray);
+
 
 impl IntersectAble<Sphere, Option<NearestPoint3D>> for Ray {
   fn intersect(&self, sphere: &Sphere, _: &()) -> Option<NearestPoint3D> {

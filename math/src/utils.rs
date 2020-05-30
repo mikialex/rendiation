@@ -1,6 +1,7 @@
 
 use crate::vec4::Vec4;
 use crate::{Vec3, mat4::Mat4};
+use std::mem;
 
 impl Mat4<f32> {
 	pub fn max_scale_on_axis(&self) -> f32
@@ -28,7 +29,6 @@ impl Mat4<f32> {
 	}
 }
 
-use std::{hash::{Hasher, Hash}, mem};
 
 impl AsRef<[u8]> for Mat4<f32> {
 	#[inline]

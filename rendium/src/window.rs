@@ -72,7 +72,7 @@ impl WindowState {
       event::Event::MainEventsCleared => {
         self.mouse_wheel_delta = (0.0, 0.0);
       }
-      DeviceEvent => {}
+      _ => {}
     }
   }
 }

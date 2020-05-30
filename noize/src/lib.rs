@@ -1,3 +1,4 @@
+#![allow(unused)]
 use rendiation_math::Vec3;
 
 pub mod worley;

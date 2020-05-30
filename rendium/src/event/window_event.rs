@@ -1,5 +1,5 @@
 use crate::application::AppRenderCtx;
-use core::any::Any;
+// use core::any::Any;
 use generational_arena::*;
 use std::collections::HashMap;
 use winit::event;
@@ -12,29 +12,29 @@ pub struct EventCtx<'a, 'b, 'c, 'd, 'e, T> {
 }
 
 type ListenerStorage<T> = Box<dyn FnMut(&mut EventCtx<T>)>;
-type ListenerContainer<T> = Arena<ListenerStorage<T>>;
+// type ListenerContainer<T> = Arena<ListenerStorage<T>>;
 
-struct Message<'a> {
-  target: &'a mut dyn Any,
-}
+// struct Message<'a> {
+//   target: &'a mut dyn Any,
+// }
 
-struct EventSession {
-  listeners: Vec<Box<dyn FnMut(&mut Message)>>,
-}
+// struct EventSession {
+//   listeners: Vec<Box<dyn FnMut(&mut Message)>>,
+// }
 
-impl EventSession {
-  pub fn new() -> Self {
-    Self {
-      listeners: Vec::new(),
-    }
-  }
+// impl EventSession {
+//   pub fn new() -> Self {
+//     Self {
+//       listeners: Vec::new(),
+//     }
+//   }
 
-  pub fn emit() {}
+//   pub fn emit() {}
 
-  pub fn add<T: FnMut(&mut Message) + 'static>(&mut self, listener: T) {
-    self.listeners.push(Box::new(listener));
-  }
-}
+//   pub fn add<T: FnMut(&mut Message) + 'static>(&mut self, listener: T) {
+//     self.listeners.push(Box::new(listener));
+//   }
+// }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum EventType {
@@ -164,11 +164,11 @@ impl<AppState> WindowEventSession<AppState> {
             );
           }
         }
-        WindowEvent::CursorMoved { position, .. } => {}
+        // WindowEvent::CursorMoved { position, .. } => {}
         _ => (),
       },
       event::Event::DeviceEvent { event, .. } => match event {
-        DeviceEvent::MouseMotion { delta } => emit_listener(
+        DeviceEvent::MouseMotion { .. } => emit_listener(
           &mut self.raw_listeners,
           self.fixed_listeners.get_mut(&EventType::MouseMotion),
           &mut event_ctx,
@@ -181,7 +181,7 @@ impl<AppState> WindowEventSession<AppState> {
         &mut event_ctx,
       ),
 
-      DeviceEvent => {}
+      _ => {}
     }
   }
 }

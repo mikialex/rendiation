@@ -15,7 +15,8 @@ impl BoundingData {
   }
 
   pub fn if_intersect_ray(&self, ray: &Ray) -> bool {
-    ray.intersect(&self.bounding_sphere, &()) && ray.intersect(&self.bounding_box, &())
+    // ray.intersect(&self.bounding_sphere, &()) && ray.intersect(&self.bounding_box, &())
+    ray.intersect(&self.bounding_sphere, &()) && self.bounding_box.intersect(ray, &())
   }
 
   pub fn if_intersect_frustum(&self, f: &Frustum) -> bool {

@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub mod application;
 pub mod component;
 pub mod element;
@@ -16,8 +18,8 @@ pub use renderer::*;
 pub use element::*;
 pub use winit;
 
-use rendiation::{render_target::ScreenRenderTarget, WGPURenderer};
 pub use generational_arena::*;
+use rendiation::{render_target::ScreenRenderTarget, WGPURenderer};
 
 pub struct GUI {
   fragment: ElementFragment,

@@ -75,7 +75,7 @@ pub struct Node<T> {
   id: usize,
   from_target_id: BTreeSet<usize>,
   to_target_id: BTreeSet<usize>,
-  payload: T,
+  pub payload: T,
 }
 
 pub struct WrapNode<T>(Weak<RefCell<Node<T>>>);

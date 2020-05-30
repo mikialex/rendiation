@@ -52,9 +52,9 @@ impl SceneGraphWebGLRendererBackend {
   }
 }
 
-struct ShadingParameterGroup{
+// struct ShadingParameterGroup{
   
-}
+// }
 
 impl RenderObject {
   pub fn render_webgl(
@@ -77,7 +77,7 @@ impl RenderObject {
 
     // shading bind
     for i in 0..shading.get_parameters_count() {
-      let parameter_group = scene
+      let _parameter_group = scene
         .resources
         .get_shading_param_group(shading.get_parameter(i));
       // pass.set_bindgroup(i, bindgroup.gpu());

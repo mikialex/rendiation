@@ -8,7 +8,8 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry, PrimitiveTopology, PointList,
+  HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry, PointList,
+  PrimitiveTopology,
 };
 use rendiation_math::Vec3;
 use rendiation_math_entity::{Face3, Line3, PositionedPoint};
@@ -127,4 +128,3 @@ impl<V: PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
     NoneIndexedGeometry::new(self.data.clone())
   }
 }
-

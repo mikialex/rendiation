@@ -1,3 +1,4 @@
+#![allow(unused)]
 pub mod graph;
 pub mod node;
 pub use graph::*;
