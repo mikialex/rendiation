@@ -22,7 +22,6 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
-
 // this not work, conflict impl
 // impl<T, Target, Result, Parameter> IntersectAble<Target, Result, Parameter> for T
 //   where Target: IntersectAble<T, Result, Parameter>
@@ -32,6 +31,7 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
 //   }
 // }
 
+intersect_reverse!(Face3, NearestPoint3D, (), Ray);
 impl IntersectAble<Face3, NearestPoint3D> for Ray {
   #[allow(non_snake_case)]
   fn intersect(&self, face: &Face3, _: &()) -> NearestPoint3D {
@@ -98,18 +98,14 @@ impl IntersectAble<Face3, NearestPoint3D> for Ray {
   }
 }
 
-impl IntersectAble<Ray, NearestPoint3D> for Face3 {
-  fn intersect(&self, ray: &Ray, p: &()) -> NearestPoint3D {
-    IntersectAble::<Face3, NearestPoint3D>::intersect(ray, self, p)
-  }
-}
-
+intersect_reverse!(Ray, NearestPoint3D, (), Line3);
 impl IntersectAble<Ray, NearestPoint3D> for Line3 {
   fn intersect(&self, _ray: &Ray, _: &()) -> NearestPoint3D {
     todo!()
   }
 }
 
+intersect_reverse!(Box3, NearestPoint3D, (), Ray);
 impl IntersectAble<Box3, NearestPoint3D> for Ray {
   fn intersect(&self, box3: &Box3, _: &()) -> NearestPoint3D {
     #[allow(unused_assignments)]
@@ -191,6 +187,7 @@ impl IntersectAble<Box3, bool> for Ray {
   }
 }
 
+intersect_reverse!(Sphere, NearestPoint3D, (), Ray);
 impl IntersectAble<Sphere, NearestPoint3D> for Ray {
   fn intersect(&self, sphere: &Sphere, _: &()) -> NearestPoint3D {
     let oc = sphere.center - self.origin;
@@ -227,14 +224,18 @@ impl IntersectAble<Sphere, NearestPoint3D> for Ray {
   }
 }
 
+intersect_reverse!(Sphere, bool, (), Ray);
 impl IntersectAble<Sphere, bool> for Ray {
   fn intersect(&self, other: &Sphere, p: &()) -> bool {
-    IntersectAble::<Sphere, NearestPoint3D>::intersect(self, other, p).0.is_some()
+    IntersectAble::<Sphere, NearestPoint3D>::intersect(self, other, p)
+      .0
+      .is_some()
   }
 }
 
-impl IntersectAble<Sphere, Option<IntersectionList>> for Ray {
-  fn intersect(&self, _sphere: &Sphere, _: &()) -> Option<IntersectionList> {
+intersect_reverse!(Sphere, IntersectionList, (), Ray);
+impl IntersectAble<Sphere, IntersectionList> for Ray {
+  fn intersect(&self, _sphere: &Sphere, _: &()) -> IntersectionList {
     todo!();
   }
 }
