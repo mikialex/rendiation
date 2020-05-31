@@ -37,7 +37,7 @@ fn pick_block(
   ray: &Ray,
   previous_result: &Option<BlockPickResult>,
 ) -> Option<BlockPickResult> {
-  if chunk.bounding.if_intersect_ray(ray) {
+  if chunk.bounding.intersect(ray, &()) {
     let mut closest: Option<BlockPickResult> = None;
     for x in 0..CHUNK_WIDTH {
       for z in 0..CHUNK_WIDTH {

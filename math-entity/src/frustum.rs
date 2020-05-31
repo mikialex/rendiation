@@ -1,6 +1,6 @@
 use crate::intersection::IntersectAble;
 use crate::plane::Plane;
-use crate::sphere::Sphere;
+use crate::{sphere::Sphere, Box3};
 use rendiation_math::*;
 
 #[derive(Clone)]
@@ -9,9 +9,9 @@ pub struct Frustum {
 }
 
 impl Default for Frustum {
-    fn default() -> Self { 
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Frustum {
@@ -40,6 +40,18 @@ impl IntersectAble<Sphere, bool> for Frustum {
     for p in &self.planes {
       let distance = p.distance_to_point(sphere.center);
       if distance < neg_radius {
+        return false;
+      }
+    }
+
+    true
+  }
+}
+
+impl IntersectAble<Box3, bool> for Frustum {
+  fn intersect(&self, box3: &Box3, _: &()) -> bool {
+    for p in &self.planes {
+      if p.distance_to_point(box3.max_corner(p.normal)) < 0. {
         return false;
       }
     }

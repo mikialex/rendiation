@@ -1,7 +1,7 @@
 use super::scene::Scene;
 use crate::SceneGraphBackEnd;
 use generational_arena::Index;
-use rendiation_math_entity::Frustum;
+use rendiation_math_entity::{IntersectAble, Frustum};
 use rendiation_render_entity::Camera;
 
 pub struct Culler {
@@ -27,7 +27,7 @@ impl Culler {
     let render_data = scene.get_node_render_data(node_id);
     if self.enable_frustum_culling {
       if let Some(bounding) = &render_data.world_bounding {
-        if !bounding.if_intersect_frustum(&self.frustum) {
+        if !bounding.intersect(&self.frustum, &()) {
           return false;
         }
       }

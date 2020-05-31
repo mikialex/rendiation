@@ -46,6 +46,7 @@ impl Ray {
     // let s0, s1, sqrDist, extDet;
     let mut s0 = 0.;
     let mut s1 = 0.;
+    #[allow(unused_assignments)]
     let mut sq_dist = 0.;
 
     if det > 0. {

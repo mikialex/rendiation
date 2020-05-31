@@ -36,6 +36,15 @@ impl Box3 {
     (self.min + self.max) * 0.5
   }
 
+  #[rustfmt::skip]
+  pub fn max_corner(&self, direction: Vec3<f32>) -> Vec3<f32> {
+    Vec3::new(
+      if direction.x > 0. { self.max.x } else {self.min.x},
+      if direction.y > 0. { self.max.y } else {self.min.y},
+      if direction.z > 0. { self.max.z } else {self.min.z},
+    )
+  }
+
   pub fn longest_axis(&self) -> (Axis, f32) {
     let x_length = self.max.x - self.min.x;
     let y_length = self.max.y - self.min.y;
@@ -89,6 +98,6 @@ impl Box3 {
       Vec3::new(self.max.x, self.max.y, self.min.z) * m, // 110
       Vec3::new(self.max.x, self.max.y, self.max.z) * m, // 111
     ];
-    Self::from_points(points.iter().map(|v|*v))
+    Self::from_points(points.iter().map(|v| *v))
   }
 }

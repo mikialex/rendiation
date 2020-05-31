@@ -1,5 +1,10 @@
 use rendiation_math_entity::*;
 
+pub trait Bounding<T> {
+  fn create(item: &T) -> BoundingData;
+  fn update(item: &T, bounding: BoundingData);
+}
+
 pub struct BoundingData {
   pub bounding_box: Box3,
   pub bounding_sphere: Sphere,
@@ -14,18 +19,16 @@ impl BoundingData {
     }
   }
 
-  pub fn if_intersect_ray(&self, ray: &Ray) -> bool {
-    // ray.intersect(&self.bounding_sphere, &()) && ray.intersect(&self.bounding_box, &())
-    ray.intersect(&self.bounding_sphere, &()) && self.bounding_box.intersect(ray, &())
-  }
+}
 
-  pub fn if_intersect_frustum(&self, _f: &Frustum) -> bool {
-    todo!()
-    // f.intersect(&self.bounding_sphere) && f.intersect(&self.bounding_box)
+impl IntersectAble<Ray, bool> for BoundingData{
+  fn intersect(&self, ray: &Ray, _: &()) -> bool {
+    ray.intersect(&self.bounding_sphere, &()) && self.bounding_box.intersect(ray, &())
   }
 }
 
-pub trait Bounding<T> {
-  fn create(item: &T) -> BoundingData;
-  fn update(item: &T, bounding: BoundingData);
+impl IntersectAble<Frustum, bool> for BoundingData{
+  fn intersect(&self, f: &Frustum, _: &()) -> bool {
+    f.intersect(&self.bounding_sphere, &()) && f.intersect(&self.bounding_box, &())
+  }
 }
