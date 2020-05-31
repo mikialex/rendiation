@@ -32,7 +32,7 @@ impl Box3 {
     Box3::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
   }
 
-  pub fn center(&self) -> Vec3<f32> {
+  pub fn get_center(&self) -> Vec3<f32> {
     (self.min + self.max) * 0.5
   }
 
