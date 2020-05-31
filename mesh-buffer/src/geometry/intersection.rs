@@ -50,20 +50,20 @@ impl MeshBufferIntersectionConfigProvider for MeshBufferIntersectionConfig {
 }
 
 impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Face3<T> {
-  fn intersect(&self, ray: &Ray, p: &Config) -> NearestPoint3D {
+  fn intersect(&self, _ray: &Ray, _p: &Config) -> NearestPoint3D {
     todo!()
     // IntersectAble::<Face3, NearestPoint3D>::intersect(ray, self, p)
   }
 }
 
 impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Line3<T> {
-  fn intersect(&self, ray: &Ray, _: &Config) -> NearestPoint3D {
+  fn intersect(&self, _ray: &Ray, _: &Config) -> NearestPoint3D {
     todo!()
   }
 }
 
 impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Point<T> {
-  fn intersect(&self, ray: &Ray, _: &Config) -> NearestPoint3D {
+  fn intersect(&self, _ray: &Ray, _: &Config) -> NearestPoint3D {
     todo!()
   }
 }

@@ -183,6 +183,7 @@ impl<T> Mul for Mat4<T> where T:Copy + Mul<Output=T> + Add<Output=T>
 
 impl<T> Mat4<T> where T: Copy
 {
+	#[clippy::skip]
 	pub fn new(
 		m11:T, m12:T, m13:T, m14:T, 
 		m21:T, m22:T, m23:T, m24:T, 
@@ -732,6 +733,7 @@ impl<T> From<[T;16]> for Mat4<T> where T:Copy
 
 impl<T> From<(T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T)> for Mat4<T> where T:Copy
 {
+	#[clippy::skip]
 	fn from(v:(T,T,T,T,T,T,T,T,T,T,T,T,T,T,T,T)) -> Self
 	{
 		Self

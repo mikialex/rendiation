@@ -273,7 +273,7 @@ where
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
-    return self * (T::one() - t) + b * t;
+    self * (T::one() - t) + b * t
   }
 }
 

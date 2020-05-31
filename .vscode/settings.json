@@ -23,6 +23,7 @@
         "bindgroup",
         "bindgroups",
         "bindpoint",
+        "clippy",
         "consts",
         "drawcalls",
         "glsl",

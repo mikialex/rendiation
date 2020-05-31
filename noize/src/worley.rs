@@ -109,7 +109,7 @@ impl Hasher {
   }
 
   fn rotl32(x: u32, r: u32) -> Wrapping<u32> {
-    Wrapping((x << r) | (x >> 32 - r))
+    Wrapping((x << r) | (x >> (32 - r)))
   }
 
   pub fn hash(&self, value: i32) -> u32 {

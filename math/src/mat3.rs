@@ -71,6 +71,7 @@ impl<T> Mul for Mat3<T> where T:Copy + Mul<Output=T> + Add<Output=T>
 
 impl<T> Mat3<T> where T:Copy
 {
+	#[clippy::skip]
 	pub fn new(
 		m11:T, m12:T, m13:T, 
 		m21:T, m22:T, m23:T, 

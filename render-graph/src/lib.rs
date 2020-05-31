@@ -36,8 +36,8 @@ impl RenderGraph {
     };
 
     let wrap_node = self.graph.create_node(data);
-    let node = PassNode::new(name.into(), wrap_node, pass_data_wrap);
-    node
+    
+    PassNode::new(name.into(), wrap_node, pass_data_wrap)
   }
 
   pub fn target() {}

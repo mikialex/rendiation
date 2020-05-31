@@ -22,6 +22,8 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
+
+// this not work, conflict impl
 // impl<T, Target, Result, Parameter> IntersectAble<Target, Result, Parameter> for T
 //   where Target: IntersectAble<T, Result, Parameter>
 // {
@@ -103,7 +105,7 @@ impl IntersectAble<Ray, NearestPoint3D> for Face3 {
 }
 
 impl IntersectAble<Ray, NearestPoint3D> for Line3 {
-  fn intersect(&self, ray: &Ray, _: &()) -> NearestPoint3D {
+  fn intersect(&self, _ray: &Ray, _: &()) -> NearestPoint3D {
     todo!()
   }
 }
@@ -232,7 +234,7 @@ impl IntersectAble<Sphere, bool> for Ray {
 }
 
 impl IntersectAble<Sphere, Option<IntersectionList>> for Ray {
-  fn intersect(&self, sphere: &Sphere, _: &()) -> Option<IntersectionList> {
+  fn intersect(&self, _sphere: &Sphere, _: &()) -> Option<IntersectionList> {
     todo!();
   }
 }

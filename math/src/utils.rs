@@ -13,6 +13,7 @@ impl Mat4<f32> {
 		scale_x_sq.max(scale_y_sq).max(scale_z_sq).sqrt()
 	}
 	
+	#[clippy::skip]
 	pub const fn const_new(
 		m11:f32, m12:f32, m13:f32, m14:f32, 
 		m21:f32, m22:f32, m23:f32, m24:f32, 
