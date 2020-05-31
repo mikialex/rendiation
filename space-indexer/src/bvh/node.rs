@@ -12,18 +12,18 @@ pub struct FlattenBVHNode<B: BVHBounding> {
 pub struct FlattenBVHNodeChildInfo<B: BVHBounding> {
   pub left_count: usize,
   pub right_count: usize,
-  pub split_axis: B::PartitionMarker,
+  pub split_axis: B::AxisType,
 }
 
 impl<B: BVHBounding> FlattenBVHNode<B> {
   pub(super) fn new(
-    bbox: B,
+    bounding: B,
     primitive_range: Range<usize>,
     self_index: usize, 
     depth: usize,
   ) -> Self {
     Self {
-      bounding: bbox,
+      bounding,
       primitive_range,
       depth,
       self_index,

@@ -1,10 +1,12 @@
-use super::{node::FlattenBVHNode, BVHOption, BuildPrimitive, FlattenBVHNodeChildInfo, box_from_build_source, BVHBounding};
+use super::{
+  box_from_build_source, node::FlattenBVHNode, BVHBounding, BVHOption, BuildPrimitive,
+  FlattenBVHNodeChildInfo,
+};
 use std::ops::Range;
 
 pub trait BVHBuildStrategy<B: BVHBounding> {
-
   /// build the bvh tree in given range of primitive source and index.
-  /// return the size of tree. 
+  /// return the size of tree.
   fn build(
     option: &BVHOption,
     build_source: &Vec<BuildPrimitive<B>>,
@@ -22,8 +24,8 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
         return 1;
       }
 
+      let split_axis = B::get_partition_axis(node, build_source, index_source);
       let ranged_index = index_source.get_mut(range.clone()).unwrap();
-      let split_axis = node.bounding.get_partition_axis();
 
       ranged_index.sort_unstable_by(|a, b| {
         let bp_a = &build_source[*a];
@@ -38,10 +40,20 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
 
     let node_index = nodes.len() - 1;
 
-    nodes.push(FlattenBVHNode::new(left_bbox, left_range, nodes.len(), depth + 1));
+    nodes.push(FlattenBVHNode::new(
+      left_bbox,
+      left_range,
+      nodes.len(),
+      depth + 1,
+    ));
     let left_count = Self::build(option, build_source, index_source, nodes);
 
-    nodes.push(FlattenBVHNode::new(right_bbox, right_range, nodes.len(), depth + 1));
+    nodes.push(FlattenBVHNode::new(
+      right_bbox,
+      right_range,
+      nodes.len(),
+      depth + 1,
+    ));
     let right_count = Self::build(option, build_source, index_source, nodes);
 
     let node = &mut nodes[node_index];
@@ -56,9 +68,9 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
 
   /// different strategy has different split method;
   /// given a range, and return the left, right partition;
-  /// 
-  /// the reason why return box is to avoid extra box calculation: 
-  /// partition decision maybe has already computed box;
+  ///
+  /// the reason why return bounding is to avoid extra bounding calculation:
+  /// partition decision maybe has already computed bounding;
   fn split(
     range: Range<usize>,
     build_source: &Vec<BuildPrimitive<B>>,

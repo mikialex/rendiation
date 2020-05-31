@@ -1,10 +1,10 @@
 mod node;
 mod strategy;
 mod traverse;
+mod apply;
 
 pub use node::*;
 use rendiation_math::Vec3;
-use rendiation_math_entity::{Axis, Box3};
 use std::{cmp::Ordering, ops::Range};
 pub use strategy::*;
 
@@ -15,57 +15,36 @@ pub trait FlattenBVHBuildSource<B: BVHBounding> {
 }
 
 pub trait BVHBounding: Sized + Copy {
-  type PartitionMarker: Copy;
+  type AxisType: Copy;
   fn get_center(&self) -> Vec3<f32>;
   fn from_groups(iter: impl Iterator<Item = Self>) -> Self;
-  fn get_partition_axis(&self) -> Self::PartitionMarker;
+  fn get_partition_axis(
+    node: &FlattenBVHNode<Self>,
+    build_source: &Vec<BuildPrimitive<Self>>,
+    index_source: &Vec<usize>,
+  ) -> Self::AxisType;
   fn compare(
     self_primitive: &BuildPrimitive<Self>,
-    axis: Self::PartitionMarker,
+    axis: Self::AxisType,
     other_primitive: &BuildPrimitive<Self>,
   ) -> Ordering;
 }
 
 pub struct BuildPrimitive<B: BVHBounding> {
-  bbox: B,
+  bounding: B,
   center: Vec3<f32>,
 }
 
 impl<B: BVHBounding> BuildPrimitive<B> {
-  fn new(bbox: B) -> Self {
+  fn new(bounding: B) -> Self {
     Self {
-      bbox,
-      center: bbox.get_center(),
+      bounding,
+      center: bounding.get_center(),
     }
   }
 
-  fn compare_center(&self, axis: B::PartitionMarker, other: &BuildPrimitive<B>) -> Ordering {
+  fn compare_center(&self, axis: B::AxisType, other: &BuildPrimitive<B>) -> Ordering {
     B::compare(self, axis, &other)
-  }
-}
-
-impl BVHBounding for Box3 {
-  type PartitionMarker = Axis;
-  fn get_center(&self) -> Vec3<f32> {
-    self.center()
-  }
-  fn from_groups(iter: impl Iterator<Item = Self>) -> Self {
-    Self::from_boxes(iter)
-  }
-  fn get_partition_axis(&self) -> Self::PartitionMarker {
-    self.longest_axis().0
-  }
-
-  fn compare(
-    self_p: &BuildPrimitive<Self>,
-    axis: Self::PartitionMarker,
-    other: &BuildPrimitive<Self>,
-  ) -> Ordering {
-    match axis {
-      Axis::X => self_p.center.x.partial_cmp(&other.center.x).unwrap(),
-      Axis::Y => self_p.center.y.partial_cmp(&other.center.y).unwrap(),
-      Axis::Z => self_p.center.z.partial_cmp(&other.center.z).unwrap(),
-    }
   }
 }
 
@@ -135,6 +114,6 @@ fn box_from_build_source<B: BVHBounding>(
       .get(range.clone())
       .unwrap()
       .iter()
-      .map(|index| primitives[*index].bbox),
+      .map(|index| primitives[*index].bounding),
   )
 }
