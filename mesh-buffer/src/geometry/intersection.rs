@@ -11,7 +11,7 @@ impl<V: PositionedPoint, T: PrimitiveTopology<V>>
   fn intersect(&self, geometry: &IndexedGeometry<V, T>, p: &Config) -> IntersectionList {
     let mut result = Vec::new();
     for (primitive, _) in geometry.primitive_iter() {
-      if let Some(NearestPoint3D(hit)) = primitive.intersect(self, p) {
+      if let NearestPoint3D(Some(hit)) = primitive.intersect(self, p) {
         result.push(hit)
       }
     }
@@ -25,7 +25,7 @@ impl<V: PositionedPoint, T: PrimitiveTopology<V>>
   fn intersect(&self, geometry: &NoneIndexedGeometry<V, T>, p: &Config) -> IntersectionList {
     let mut result = Vec::new();
     for primitive in geometry.primitive_iter() {
-      if let Some(NearestPoint3D(hit)) = primitive.intersect(self, p) {
+      if let NearestPoint3D(Some(hit)) = primitive.intersect(self, p) {
         result.push(hit)
       }
     }
@@ -49,21 +49,21 @@ impl MeshBufferIntersectionConfigProvider for MeshBufferIntersectionConfig {
   }
 }
 
-impl<T: PositionedPoint> IntersectAble<Ray, Option<NearestPoint3D>, Config> for Face3<T> {
-  fn intersect(&self, ray: &Ray, p: &Config) -> Option<NearestPoint3D> {
+impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Face3<T> {
+  fn intersect(&self, ray: &Ray, p: &Config) -> NearestPoint3D {
     todo!()
-    // IntersectAble::<Face3, Option<NearestPoint3D>>::intersect(ray, self, p)
+    // IntersectAble::<Face3, NearestPoint3D>::intersect(ray, self, p)
   }
 }
 
-impl<T: PositionedPoint> IntersectAble<Ray, Option<NearestPoint3D>, Config> for Line3<T> {
-  fn intersect(&self, ray: &Ray, _: &Config) -> Option<NearestPoint3D> {
+impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Line3<T> {
+  fn intersect(&self, ray: &Ray, _: &Config) -> NearestPoint3D {
     todo!()
   }
 }
 
-impl<T: PositionedPoint> IntersectAble<Ray, Option<NearestPoint3D>, Config> for Point<T> {
-  fn intersect(&self, ray: &Ray, _: &Config) -> Option<NearestPoint3D> {
+impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Point<T> {
+  fn intersect(&self, ray: &Ray, _: &Config) -> NearestPoint3D {
     todo!()
   }
 }

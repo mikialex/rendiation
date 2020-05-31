@@ -79,7 +79,7 @@ impl<T: PositionedPoint> PrimitiveData<T> for Point<T> {
 
 pub trait PrimitiveTopology<T: PositionedPoint> {
   type Primitive: PrimitiveData<T>
-    + IntersectAble<Ray, Option<NearestPoint3D>, Box<dyn MeshBufferIntersectionConfigProvider>>;
+    + IntersectAble<Ray, NearestPoint3D, Box<dyn MeshBufferIntersectionConfigProvider>>;
   const STRIDE: usize;
 }
 

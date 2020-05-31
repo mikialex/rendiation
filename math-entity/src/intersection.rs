@@ -5,7 +5,17 @@ use crate::ray::Ray;
 use crate::sphere::Sphere;
 use rendiation_math::Vec3;
 
-pub struct NearestPoint3D(pub Vec3<f32>);
+macro_rules! intersect_reverse {
+  ($self_item: ty, $result:ty, $param:ty, $target:ty) => {
+    impl IntersectAble<$target, $result, $param> for $self_item {
+      fn intersect(&self, other: &$target, p: &$param) -> $result {
+        IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
+      }
+    }
+  };
+}
+
+pub struct NearestPoint3D(pub Option<Vec3<f32>>);
 pub struct IntersectionList(pub Vec<Vec3<f32>>);
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
@@ -20,9 +30,9 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
 //   }
 // }
 
-impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
+impl IntersectAble<Face3, NearestPoint3D> for Ray {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Face3, _: &()) -> Option<NearestPoint3D> {
+  fn intersect(&self, face: &Face3, _: &()) -> NearestPoint3D {
     // Compute the offset origin, edges, and normal.
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
@@ -43,14 +53,14 @@ impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
 
     if DdN > 0. {
       if blackfaceCulling {
-        return None;
+        return NearestPoint3D(None);
       }
       sign = 1.;
     } else if DdN < 0.0 {
       sign = -1.;
       DdN = -DdN;
     } else {
-      return None;
+      return NearestPoint3D(None);
     }
 
     let _diff = self.origin - a;
@@ -58,19 +68,19 @@ impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
 
     // b1 < 0, no intersection
     if DdQxE2 < 0. {
-      return None;
+      return NearestPoint3D(None);
     }
 
     let DdE1xQ = sign * self.direction.dot(_edge1.cross(_diff));
 
     // b2 < 0, no intersection
     if DdE1xQ < 0. {
-      return None;
+      return NearestPoint3D(None);
     }
 
     // b1+b2 > 1, no intersection
     if DdQxE2 + DdE1xQ > DdN {
-      return None;
+      return NearestPoint3D(None);
     }
 
     // Line intersects triangle, check if ray does.
@@ -78,28 +88,28 @@ impl IntersectAble<Face3, Option<NearestPoint3D>> for Ray {
 
     // t < 0, no intersection
     if QdN < 0. {
-      return None;
+      return NearestPoint3D(None);
     }
 
     // Ray intersects triangle.
-    return Some(NearestPoint3D(self.at(QdN / DdN)));
+    return NearestPoint3D(Some(self.at(QdN / DdN)));
   }
 }
 
-impl IntersectAble<Ray, Option<NearestPoint3D>> for Face3 {
-  fn intersect(&self, ray: &Ray, p: &()) -> Option<NearestPoint3D> {
-    IntersectAble::<Face3, Option<NearestPoint3D>>::intersect(ray, self, p)
+impl IntersectAble<Ray, NearestPoint3D> for Face3 {
+  fn intersect(&self, ray: &Ray, p: &()) -> NearestPoint3D {
+    IntersectAble::<Face3, NearestPoint3D>::intersect(ray, self, p)
   }
 }
 
-impl IntersectAble<Ray, Option<NearestPoint3D>> for Line3 {
-  fn intersect(&self, ray: &Ray, _: &()) -> Option<NearestPoint3D> {
+impl IntersectAble<Ray, NearestPoint3D> for Line3 {
+  fn intersect(&self, ray: &Ray, _: &()) -> NearestPoint3D {
     todo!()
   }
 }
 
-impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
-  fn intersect(&self, box3: &Box3, _: &()) -> Option<NearestPoint3D> {
+impl IntersectAble<Box3, NearestPoint3D> for Ray {
+  fn intersect(&self, box3: &Box3, _: &()) -> NearestPoint3D {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
       (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -126,7 +136,7 @@ impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
     }
 
     if (t_min > ty_max) || (ty_min > t_max) {
-      return None;
+      return NearestPoint3D(None);
     }
 
     // These lines also handle the case where t_min or t_max is NaN
@@ -149,7 +159,7 @@ impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
     }
 
     if (t_min > tz_max) || (tz_min > t_max) {
-      return None;
+      return NearestPoint3D(None);
     }
 
     if tz_min > t_min || t_min != t_min {
@@ -163,47 +173,31 @@ impl IntersectAble<Box3, Option<NearestPoint3D>> for Ray {
     //return point closest to the ray (positive side)
 
     if t_max < 0. {
-      return None;
+      return NearestPoint3D(None);
     }
 
-    Some(NearestPoint3D(self.at(if t_min >= 0. {
-      t_min
-    } else {
-      t_max
-    })))
-  }
-}
-
-impl IntersectAble<Box3, bool> for Ray {
-  fn intersect(&self, other: &Box3, p: &()) -> bool {
-    IntersectAble::<Box3, Option<NearestPoint3D>>::intersect(self, other, p).is_some()
-  }
-}
-
-macro_rules! intersect_reverse {
-  ($self_item: ty, $result:ty, $param:ty, $target:ty) => {
-    
-      impl IntersectAble<$target, $result, $param> for $self_item {
-        fn intersect(&self, other: &$target, p: &$param) -> $result {
-          IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
-        }
-      }
-    
+    NearestPoint3D(Some(self.at(if t_min >= 0. { t_min } else { t_max })))
   }
 }
 
 intersect_reverse!(Box3, bool, (), Ray);
+impl IntersectAble<Box3, bool> for Ray {
+  fn intersect(&self, other: &Box3, p: &()) -> bool {
+    IntersectAble::<Box3, NearestPoint3D>::intersect(self, other, p)
+      .0
+      .is_some()
+  }
+}
 
-
-impl IntersectAble<Sphere, Option<NearestPoint3D>> for Ray {
-  fn intersect(&self, sphere: &Sphere, _: &()) -> Option<NearestPoint3D> {
+impl IntersectAble<Sphere, NearestPoint3D> for Ray {
+  fn intersect(&self, sphere: &Sphere, _: &()) -> NearestPoint3D {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
     let d2 = oc.dot(oc) - tca * tca;
     let radius2 = sphere.radius * sphere.radius;
 
     if d2 > radius2 {
-      return None;
+      return NearestPoint3D(None);
     };
 
     let thc = (radius2 - d2).sqrt();
@@ -216,24 +210,24 @@ impl IntersectAble<Sphere, Option<NearestPoint3D>> for Ray {
 
     // test to see if both t0 and t1 are behind the ray - if so, return null
     if t0 < 0. && t1 < 0. {
-      return None;
+      return NearestPoint3D(None);
     };
 
     // test to see if t0 is behind the ray:
     // if it is, the ray is inside the sphere, so return the second exit point scaled by t1,
     // in order to always return an intersect point that is in front of the ray.
     if t0 < 0. {
-      return Some(NearestPoint3D(self.at(t1)));
+      return NearestPoint3D(Some(self.at(t1)));
     };
 
     // else t0 is in front of the ray, so return the first collision point scaled by t0
-    Some(NearestPoint3D(self.at(t0)))
+    NearestPoint3D(Some(self.at(t0)))
   }
 }
 
 impl IntersectAble<Sphere, bool> for Ray {
   fn intersect(&self, other: &Sphere, p: &()) -> bool {
-    IntersectAble::<Sphere, Option<NearestPoint3D>>::intersect(self, other, p).is_some()
+    IntersectAble::<Sphere, NearestPoint3D>::intersect(self, other, p).0.is_some()
   }
 }
 

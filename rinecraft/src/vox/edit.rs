@@ -52,7 +52,7 @@ fn pick_block(
           let world_position = local_to_world(&local_position, chunk.chunk_position);
           let box3 = get_block_bbox(world_position);
           let hit = ray.intersect(&box3, &());
-          if let Some(NearestPoint3D(h)) = hit {
+          if let NearestPoint3D(Some(h)) = hit {
             let length2 = (h - ray.origin).length2();
             if let Some(clo) = &closest {
               if length2 < clo.distance2 {
