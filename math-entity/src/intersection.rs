@@ -98,9 +98,12 @@ impl IntersectAble<Face3, NearestPoint3D> for Ray {
   }
 }
 
-intersect_reverse!(Ray, NearestPoint3D, (), Line3);
-impl IntersectAble<Ray, NearestPoint3D> for Line3 {
-  fn intersect(&self, _ray: &Ray, _: &()) -> NearestPoint3D {
+pub struct LineRayIntersectionLocalTolerance(pub f32);
+type LL = LineRayIntersectionLocalTolerance;
+
+intersect_reverse!(Ray, NearestPoint3D, LL, Line3);
+impl IntersectAble<Ray, NearestPoint3D, LL> for Line3 {
+  fn intersect(&self, _ray: &Ray, _: &LL) -> NearestPoint3D {
     todo!()
   }
 }
