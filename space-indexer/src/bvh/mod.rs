@@ -1,16 +1,51 @@
 mod node;
 mod strategy;
 mod traverse;
+mod apply;
 
 pub use node::*;
 use rendiation_math::Vec3;
-use rendiation_math_entity::{Axis, Box3};
 use std::{cmp::Ordering, ops::Range};
 pub use strategy::*;
 
-pub trait FlattenBVHBuildSource {
+// input data protocol
+pub trait FlattenBVHBuildSource<B: BVHBounding> {
   fn get_items_count(&self) -> usize;
-  fn get_items_bounding_box(&self, item_index: usize) -> Box3;
+  fn get_items_bounding_box(&self, item_index: usize) -> B;
+}
+
+pub trait BVHBounding: Sized + Copy {
+  type AxisType: Copy;
+  fn get_center(&self) -> Vec3<f32>;
+  fn from_groups(iter: impl Iterator<Item = Self>) -> Self;
+  fn get_partition_axis(
+    node: &FlattenBVHNode<Self>,
+    build_source: &Vec<BuildPrimitive<Self>>,
+    index_source: &Vec<usize>,
+  ) -> Self::AxisType;
+  fn compare(
+    self_primitive: &BuildPrimitive<Self>,
+    axis: Self::AxisType,
+    other_primitive: &BuildPrimitive<Self>,
+  ) -> Ordering;
+}
+
+pub struct BuildPrimitive<B: BVHBounding> {
+  bounding: B,
+  center: Vec3<f32>,
+}
+
+impl<B: BVHBounding> BuildPrimitive<B> {
+  fn new(bounding: B) -> Self {
+    Self {
+      bounding,
+      center: bounding.get_center(),
+    }
+  }
+
+  fn compare_center(&self, axis: B::AxisType, other: &BuildPrimitive<B>) -> Ordering {
+    B::compare(self, axis, &other)
+  }
 }
 
 pub struct BVHOption {
@@ -27,20 +62,20 @@ impl Default for BVHOption {
   }
 }
 
-pub struct FlattenBVH {
-  nodes: Vec<FlattenBVHNode>,
+pub struct FlattenBVH<B: BVHBounding> {
+  nodes: Vec<FlattenBVHNode<B>>,
   sorted_primitive_index: Vec<usize>,
   option: BVHOption,
 }
 
-impl FlattenBVH {
-  pub fn new<T: BVHBuildStrategy>(source: impl FlattenBVHBuildSource) -> Self {
+impl<B: BVHBounding> FlattenBVH<B> {
+  pub fn new<T: BVHBuildStrategy<B>>(source: impl FlattenBVHBuildSource<B>) -> Self {
     let option = BVHOption::default();
 
-    // parepare build source;
+    // prepare build source;
     let items_count = source.get_items_count();
     let mut index_list: Vec<usize> = (0..items_count).map(|x| x).collect();
-    let primitives: Vec<BuildPrimitive> = (0..items_count)
+    let primitives: Vec<BuildPrimitive<B>> = (0..items_count)
       .map(|x| BuildPrimitive::new(source.get_items_bounding_box(x)))
       .collect();
 
@@ -69,38 +104,16 @@ impl FlattenBVH {
   }
 }
 
-fn box_from_build_source(
+fn box_from_build_source<B: BVHBounding>(
   index_list: &Vec<usize>,
-  primitives: &Vec<BuildPrimitive>,
+  primitives: &Vec<BuildPrimitive<B>>,
   range: Range<usize>,
-) -> Box3 {
-  Box3::from_boxes(
+) -> B {
+  B::from_groups(
     index_list
       .get(range.clone())
       .unwrap()
       .iter()
-      .map(|index| primitives[*index].bbox),
+      .map(|index| primitives[*index].bounding),
   )
-}
-
-pub struct BuildPrimitive {
-  bbox: Box3,
-  center: Vec3<f32>,
-}
-
-impl BuildPrimitive {
-  fn new(bbox: Box3) -> Self {
-    Self {
-      bbox,
-      center: bbox.center(),
-    }
-  }
-
-  fn compare_center(&self, axis: Axis, other: &BuildPrimitive) -> Ordering {
-    match axis {
-      Axis::X => self.center.x.partial_cmp(&other.center.x).unwrap(),
-      Axis::Y => self.center.y.partial_cmp(&other.center.y).unwrap(),
-      Axis::Z => self.center.z.partial_cmp(&other.center.z).unwrap(),
-    }
-  }
 }

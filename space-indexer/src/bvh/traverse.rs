@@ -1,12 +1,12 @@
-use super::{FlattenBVH, FlattenBVHNode};
+use super::{FlattenBVH, FlattenBVHNode, BVHBounding};
 
-impl FlattenBVH {
+impl<B: BVHBounding> FlattenBVH<B> {
 
   /// reused_history_stack is a preallocate stack to avoid too frequent allocation
   pub fn traverse(
     &self,
-    mut leaf_visitor: impl FnMut(&FlattenBVHNode) -> bool,
-    mut enter_visitor: impl FnMut(&FlattenBVHNode) -> bool,
+    mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
+    mut enter_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
     reused_history_stack: &mut Vec<usize>,
   ) {
 
