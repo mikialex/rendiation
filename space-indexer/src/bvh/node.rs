@@ -1,20 +1,21 @@
 use std::ops::Range;
+use super::BVHBounding;
 
-pub struct FlattenBVHNode<B, P> {
+pub struct FlattenBVHNode<B: BVHBounding> {
   pub bounding: B,
   pub primitive_range: Range<usize>,
   pub depth: usize,
   pub self_index: usize,
-  pub child: Option<FlattenBVHNodeChildInfo<P>>,
+  pub child: Option<FlattenBVHNodeChildInfo<B>>,
 }
 
-pub struct FlattenBVHNodeChildInfo<P> {
+pub struct FlattenBVHNodeChildInfo<B: BVHBounding> {
   pub left_count: usize,
   pub right_count: usize,
-  pub split_axis: P,
+  pub split_axis: B::PartitionMarker,
 }
 
-impl<B, P> FlattenBVHNode<B, P> {
+impl<B: BVHBounding> FlattenBVHNode<B> {
   pub(super) fn new(
     bbox: B,
     primitive_range: Range<usize>,

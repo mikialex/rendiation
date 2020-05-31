@@ -1,15 +1,15 @@
 use super::{node::FlattenBVHNode, BVHOption, BuildPrimitive, FlattenBVHNodeChildInfo, box_from_build_source, BVHBounding};
 use std::ops::Range;
 
-pub trait BVHBuildStrategy<P, B: BVHBounding<P>> {
+pub trait BVHBuildStrategy<B: BVHBounding> {
 
   /// build the bvh tree in given range of primitive source and index.
   /// return the size of tree. 
   fn build(
     option: &BVHOption,
-    build_source: &Vec<BuildPrimitive<P, B>>,
+    build_source: &Vec<BuildPrimitive<B>>,
     index_source: &mut Vec<usize>,
-    nodes: &mut Vec<FlattenBVHNode<B, P>>,
+    nodes: &mut Vec<FlattenBVHNode<B>>,
   ) -> usize {
     let (depth, range, split_axis) = {
       let node = nodes.last_mut().unwrap();
@@ -61,17 +61,17 @@ pub trait BVHBuildStrategy<P, B: BVHBounding<P>> {
   /// partition decision maybe has already computed box;
   fn split(
     range: Range<usize>,
-    build_source: &Vec<BuildPrimitive<P, B>>,
+    build_source: &Vec<BuildPrimitive<B>>,
     index_source: &Vec<usize>,
   ) -> ((B, Range<usize>), (B, Range<usize>));
 }
 
 pub struct BalanceTree;
 
-impl<P, B: BVHBounding<P>> BVHBuildStrategy<P, B> for BalanceTree {
+impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
   fn split(
     range: Range<usize>,
-    build_source: &Vec<BuildPrimitive<P, B>>,
+    build_source: &Vec<BuildPrimitive<B>>,
     index_source: &Vec<usize>,
   ) -> ((B, Range<usize>), (B, Range<usize>)) {
     let middle = (range.end - range.start) / 2;
