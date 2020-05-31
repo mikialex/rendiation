@@ -1,16 +1,15 @@
-use super::{node::FlattenBVHNode, BVHOption, BuildPrimitive, FlattenBVHNodeChildInfo, box_from_build_source};
-use rendiation_math_entity::Box3;
+use super::{node::FlattenBVHNode, BVHOption, BuildPrimitive, FlattenBVHNodeChildInfo, box_from_build_source, BVHBounding};
 use std::ops::Range;
 
-pub trait BVHBuildStrategy {
+pub trait BVHBuildStrategy<P, B: BVHBounding<P>> {
 
   /// build the bvh tree in given range of primitive source and index.
   /// return the size of tree. 
   fn build(
     option: &BVHOption,
-    build_source: &Vec<BuildPrimitive>,
+    build_source: &Vec<BuildPrimitive<P, B>>,
     index_source: &mut Vec<usize>,
-    nodes: &mut Vec<FlattenBVHNode>,
+    nodes: &mut Vec<FlattenBVHNode<B, P>>,
   ) -> usize {
     let (depth, range, split_axis) = {
       let node = nodes.last_mut().unwrap();
@@ -24,7 +23,7 @@ pub trait BVHBuildStrategy {
       }
 
       let ranged_index = index_source.get_mut(range.clone()).unwrap();
-      let (split_axis, _) = node.bbox.longest_axis();
+      let split_axis = node.bounding.get_partition_axis();
 
       ranged_index.sort_unstable_by(|a, b| {
         let bp_a = &build_source[*a];
@@ -62,19 +61,19 @@ pub trait BVHBuildStrategy {
   /// partition decision maybe has already computed box;
   fn split(
     range: Range<usize>,
-    build_source: &Vec<BuildPrimitive>,
+    build_source: &Vec<BuildPrimitive<P, B>>,
     index_source: &Vec<usize>,
-  ) -> ((Box3, Range<usize>), (Box3, Range<usize>));
+  ) -> ((B, Range<usize>), (B, Range<usize>));
 }
 
 pub struct BalanceTree;
 
-impl BVHBuildStrategy for BalanceTree {
+impl<P, B: BVHBounding<P>> BVHBuildStrategy<P, B> for BalanceTree {
   fn split(
     range: Range<usize>,
-    build_source: &Vec<BuildPrimitive>,
+    build_source: &Vec<BuildPrimitive<P, B>>,
     index_source: &Vec<usize>,
-  ) -> ((Box3, Range<usize>), (Box3, Range<usize>)) {
+  ) -> ((B, Range<usize>), (B, Range<usize>)) {
     let middle = (range.end - range.start) / 2;
     let left_range = range.start..middle;
     let right_range = middle..range.end;

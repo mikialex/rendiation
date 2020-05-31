@@ -1,23 +1,28 @@
-use rendiation_math_entity::{Axis, Box3};
 use std::ops::Range;
 
-pub struct FlattenBVHNode {
-  pub bbox: Box3,
+pub struct FlattenBVHNode<B, P> {
+  pub bounding: B,
   pub primitive_range: Range<usize>,
   pub depth: usize,
   pub self_index: usize,
-  pub child: Option<FlattenBVHNodeChildInfo>,
+  pub child: Option<FlattenBVHNodeChildInfo<P>>,
 }
 
-impl FlattenBVHNode {
+pub struct FlattenBVHNodeChildInfo<P> {
+  pub left_count: usize,
+  pub right_count: usize,
+  pub split_axis: P,
+}
+
+impl<B, P> FlattenBVHNode<B, P> {
   pub(super) fn new(
-    bbox: Box3,
+    bbox: B,
     primitive_range: Range<usize>,
     self_index: usize, 
     depth: usize,
   ) -> Self {
     Self {
-      bbox,
+      bounding: bbox,
       primitive_range,
       depth,
       self_index,
@@ -36,10 +41,4 @@ impl FlattenBVHNode {
   pub fn right_child_offset(&self) -> Option<usize> {
     self.child.as_ref().map(|c| self.self_index + c.left_count + 1)
   }
-}
-
-pub struct FlattenBVHNodeChildInfo {
-  pub left_count: usize,
-  pub right_count: usize,
-  pub split_axis: Axis,
 }
