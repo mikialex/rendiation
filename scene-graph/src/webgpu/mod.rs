@@ -11,6 +11,7 @@ impl SceneGraphBackEnd for SceneGraphWebGPURendererBackend {
   type ShadingParameterGroup = WGPUBindGroup;
   type IndexBuffer = WGPUBuffer;
   type VertexBuffer = WGPUBuffer;
+  type UniformBuffer = WGPUBuffer;
 }
 
 impl Background<SceneGraphWebGPURendererBackend> for SolidBackground {

@@ -1,11 +1,22 @@
-use super::{
-  background::{Background},
-  node::SceneNode,
-  resource::ResourceManager,
-};
+use super::{background::Background, node::SceneNode, resource::ResourceManager};
 use crate::{RenderData, RenderObject, SceneGraphBackEnd};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
+
+pub struct ResourceUpdateCtx {
+  changed_uniforms: Vec<Index>,
+}
+
+impl ResourceUpdateCtx {
+  pub fn new() -> Self {
+    Self {
+      changed_uniforms: Vec::new(),
+    }
+  }
+  pub fn notify_uniform_update(&mut self, index: Index) {
+    self.changed_uniforms.push(index)
+  }
+}
 
 pub struct Scene<T: SceneGraphBackEnd> {
   pub background: Option<Box<dyn Background<T>>>,
@@ -18,7 +29,7 @@ pub struct Scene<T: SceneGraphBackEnd> {
   pub(crate) nodes: Arena<SceneNode>,
 
   pub resources: ResourceManager<T>,
-
+  pub resource_update_ctx: ResourceUpdateCtx,
 }
 
 impl<T: SceneGraphBackEnd> Scene<T> {
@@ -42,6 +53,7 @@ impl<T: SceneGraphBackEnd> Scene<T> {
       root: index,
       nodes,
       resources: ResourceManager::new(),
+      resource_update_ctx: ResourceUpdateCtx::new(),
     }
   }
 
