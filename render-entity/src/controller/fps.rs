@@ -82,11 +82,6 @@ impl<T: TransformedObject> Controller<T> for FPSController {
       move_dir.y -= 1.0;
     }
 
-    // self.spherical.polar = (self.spherical.polar + self.y_motion * self.motion_rate)
-    //   .max(self.min_polar_angle)
-    //   .min(self.max_polar_angle);
-    // self.spherical.azim -= self.x_motion * self.motion_rate;
-
     if move_dir.length() > 0.01 {
       let position_new = move_dir * mat;
       let position_dir = (position_new - mat.position()).normalize();

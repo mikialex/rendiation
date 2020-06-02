@@ -60,11 +60,6 @@ impl CameraGPU {
     &self.gpu_camera_position
   }
 
-  // fn get_mvp_matrix_data(camera: &PerspectiveCamera) -> &[f32; 16] {
-  //   let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-  //   mx_total.as_ref()
-  // }
-
   pub fn update_gpu_mvp_matrix(
     &mut self,
     renderer: &mut WGPURenderer,

@@ -1,9 +1,7 @@
-use crate::{Index, ResourceUpdateCtx, SceneGraphBackEnd};
-use std::any::Any;
+use crate::{Index, ResourceManager, SceneGraphBackEnd};
 
 pub struct Uniform<T: SceneGraphBackEnd> {
   index: Index,
-  data: Box<dyn Any>,
   gpu: T::UniformBuffer,
 }
 
@@ -15,9 +13,29 @@ impl<T: SceneGraphBackEnd> Uniform<T> {
   pub fn gpu(&self) -> &T::UniformBuffer {
     &self.gpu
   }
+}
 
-  pub fn mutate<V: 'static>(&mut self, update_ctx: &mut ResourceUpdateCtx) -> &V {
-    update_ctx.notify_uniform_update(self.index);
-    self.data.downcast_mut::<V>().unwrap()
+impl<T: SceneGraphBackEnd> ResourceManager<T> {
+  pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut Uniform<T> {
+    let wrapped = Uniform {
+      index: Index::from_raw_parts(0, 0),
+      gpu,
+    };
+    let index = self.uniforms.insert(wrapped);
+    let u = self.get_uniform_mut(index);
+    u.index = index;
+    u
+  }
+
+  pub fn get_uniform_mut(&mut self, index: Index) -> &mut Uniform<T> {
+    self.uniforms.get_mut(index).unwrap()
+  }
+
+  pub fn get_uniform(&self, index: Index) -> &Uniform<T> {
+    self.uniforms.get(index).unwrap()
+  }
+
+  pub fn delete_uniform(&mut self, index: Index) {
+    self.uniforms.remove(index);
   }
 }
