@@ -14,10 +14,10 @@ pub struct FPSController {
   view_height: f32,
   rotate_angle_factor: f32,
 
-  pub a_press: bool,
-  pub d_press: bool,
-  pub w_press: bool,
-  pub s_press: bool,
+  pub leftward_active: bool,
+  pub rightward_active: bool,
+  pub forward_active: bool,
+  pub backward_active: bool,
   pub space_press: bool,
   pub l_shift_press: bool,
 }
@@ -36,10 +36,10 @@ impl FPSController {
       view_height: 1000.,
       rotate_angle_factor: 0.5,
 
-      a_press: false,
-      d_press: false,
-      w_press: false,
-      s_press: false,
+      leftward_active: false,
+      rightward_active: false,
+      forward_active: false,
+      backward_active: false,
       space_press: false,
       l_shift_press: false,
     }
@@ -63,16 +63,16 @@ impl<T: TransformedObject> Controller<T> for FPSController {
     let mat = transform.matrix;
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);
 
-    if self.w_press {
+    if self.forward_active {
       move_dir.z -= 1.0;
     }
-    if self.s_press {
+    if self.backward_active {
       move_dir.z += 1.0;
     }
-    if self.a_press {
+    if self.leftward_active {
       move_dir.x -= 1.0;
     }
-    if self.d_press {
+    if self.rightward_active {
       move_dir.x += 1.0;
     }
     if self.space_press {
