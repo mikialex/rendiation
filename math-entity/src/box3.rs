@@ -19,20 +19,13 @@ impl Box3 {
     Box3 { min, max }
   }
 
-  pub fn from_3points(p1: Vec3<f32>, p2: Vec3<f32>, p3: Vec3<f32>) -> Box3 {
-    Box3 {
-      min: p1.min(p2).min(p3),
-      max: p1.max(p2).max(p3),
-    }
-  }
-
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
     Box3::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
   }
 
-  pub fn get_center(&self) -> Vec3<f32> {
+  pub fn center(&self) -> Vec3<f32> {
     (self.min + self.max) * 0.5
   }
 

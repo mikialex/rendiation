@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 impl BVHBounding for Box3 {
   type AxisType = Axis;
   fn get_center(&self) -> Vec3<f32> {
-    self.get_center()
+    self.center()
   }
   fn from_groups(iter: impl Iterator<Item = Self>) -> Self {
     Self::from_boxes(iter)

@@ -20,7 +20,7 @@ impl Sphere {
   }
 
   pub fn make_from_position_buffer_with_box(position: &[f32], box3: &Box3) -> Self {
-    let center = (box3.max + box3.min) / 2.;
+    let center = box3.center();
     let mut max_distance2 = 0.;
     for index in 0..position.len() / 3 {
       let i = index * 3;
