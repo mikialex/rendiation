@@ -20,7 +20,8 @@ impl Rinecraft {
         assert!(y_ratio <= 1.);
         let ray = state
           .scene
-          .get_active_camera_mut_downcast::<PerspectiveCamera>()
+          .cameras
+          .get_active_camera_mut::<PerspectiveCamera>()
           .create_screen_ray(Vec2::new(x_ratio, y_ratio));
         state.world.delete_block_by_ray(&ray);
       });

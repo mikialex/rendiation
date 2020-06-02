@@ -13,6 +13,7 @@ use rendiation_math::*;
 use rendiation_scenegraph::*;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
+use rendiation_render_entity::{TransformedObject, PerspectiveCamera};
 
 pub struct World {
   pub world_machine: WorldMachineImpl,
@@ -51,20 +52,25 @@ impl World {
       return;
     }
 
-
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::default(renderer);
 
     let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),
       sampler: &sampler,
-      u_mvp_matrix: &camera_gpu.gpu_mvp_matrix,
-      u_camera_world_position: &camera_gpu.gpu_camera_position,
+      u_mvp_matrix: scene.resources.get_uniform(camera_gpu.gpu_mvp_matrix).gpu(),
+      u_camera_world_position: scene
+        .resources
+        .get_uniform(camera_gpu.gpu_camera_position)
+        .gpu(),
     }
     .create_bindgroup(renderer);
 
     let block_shading = create_block_shading(renderer, target);
-    let bindgroup_index = scene.resources.create_shading_param_group(shading_params).index();
+    let bindgroup_index = scene
+      .resources
+      .create_shading_param_group(shading_params)
+      .index();
     let block_shading = scene.resources.create_shading(block_shading);
     block_shading.set_parameter(bindgroup_index);
     let block_shading = block_shading.index();
@@ -103,7 +109,7 @@ impl World {
     renderer: &mut WGPURenderer,
     scene: &mut Scene<SceneGraphWebGPURendererBackend>,
   ) {
-    let camera = scene.get_active_camera_mut();
+    let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     let camera_position = camera.get_transform().matrix.position();
 
     let stand_point_chunk = query_point_in_chunk(camera_position);

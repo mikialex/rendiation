@@ -13,6 +13,10 @@ impl<T: SceneGraphBackEnd> Uniform<T> {
   pub fn gpu(&self) -> &T::UniformBuffer {
     &self.gpu
   }
+
+  pub fn gpu_mut(&mut self) -> &mut T::UniformBuffer {
+    &mut self.gpu
+  }
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
