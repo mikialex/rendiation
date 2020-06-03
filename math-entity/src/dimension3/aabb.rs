@@ -3,9 +3,6 @@ use rendiation_math::*;
 use crate::{AABB, Axis3};
 
 impl AABB {
-  pub fn new(min: Vec3<f32>, max: Vec3<f32>) -> Self {
-    Self { min, max }
-  }
 
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
