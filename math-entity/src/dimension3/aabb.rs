@@ -1,14 +1,8 @@
 use rendiation_math::math::Math;
 use rendiation_math::*;
-use crate::Axis3;
+use crate::{AABB, Axis3};
 
-#[derive(Debug, Copy, Clone)]
-pub struct Box3<T = f32> {
-  pub min: Vec3<T>,
-  pub max: Vec3<T>,
-}
-
-impl Box3 {
+impl AABB {
   pub fn new(min: Vec3<f32>, max: Vec3<f32>) -> Self {
     Self { min, max }
   }

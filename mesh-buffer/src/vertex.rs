@@ -4,7 +4,7 @@ use std::{
   hash::{Hash},
   mem,
 };
-use rendiation_math_entity::PositionedPoint3;
+use rendiation_math_entity::Positioned3D;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -28,7 +28,7 @@ impl HashAbleByConversion for Vertex {
   }
 }
 
-impl PositionedPoint3 for Vertex {
+impl Positioned3D for Vertex {
   fn position(&self) -> Vec3<f32> {
     self.position
   }

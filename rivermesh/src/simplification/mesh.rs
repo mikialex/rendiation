@@ -1,14 +1,14 @@
 use super::qem::QEM;
 use crate::half_edge_mesh::{EdgePairFinder, HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeVertex};
 use rendiation_math::Vec3;
-use rendiation_math_entity::{Face3, Plane};
+use rendiation_math_entity::{Triangle, Plane};
 
 pub(super) type Mesh = HalfEdgeMesh<VertexData, (), ()>;
 pub(super) type Vertex = HalfEdgeVertex<VertexData, (), ()>;
 pub(super) type HEdge = HalfEdge<VertexData, (), ()>;
 pub(super) type Face = HalfEdgeFace<VertexData, (), ()>;
 
-impl From<&Face> for Face3 {
+impl From<&Face> for Triangle {
   fn from(face: &Face) -> Self {
     unsafe {
       let edge_a = face.edge();
@@ -17,7 +17,7 @@ impl From<&Face> for Face3 {
       let vert_b = (*edge_b.vert().vertex_data.get()).positions;
       let edge_c = edge_b.next();
       let vert_c = (*edge_c.vert().vertex_data.get()).positions;
-      Face3::new(vert_a, vert_b, vert_c)
+      Triangle::new(vert_a, vert_b, vert_c)
     }
   }
 }
@@ -74,7 +74,7 @@ impl Mesh {
     self.foreach_vertex(|v| {
       let mut vert_qem = QEM::zero();
       v.foreach_surrounding_face(|f| {
-        let face3 = Face3::from(f);
+        let face3 = Triangle::from(f);
         let plane = Plane::from(face3);
         let face_qem = QEM::from(plane);
         vert_qem = vert_qem + face_qem;

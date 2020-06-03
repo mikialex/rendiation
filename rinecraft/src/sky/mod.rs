@@ -1,6 +1,6 @@
 use rendiation::WGPUTexture;
 use rendiation::WGPURenderer;
-use rendiation_math_entity::Box3;
+use rendiation_math_entity::AABB;
 
 struct VolumetricCloud{
     // region: Box3

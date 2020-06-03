@@ -1,6 +1,6 @@
-use crate::box3::Box3;
 use rendiation_math::math::Math;
 use rendiation_math::*;
+use crate::AABB;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sphere {
@@ -13,13 +13,13 @@ impl Sphere {
     Sphere { center, radius }
   }
 
-  pub fn new_from_box(box3: Box3) -> Self {
+  pub fn new_from_box(box3: AABB) -> Self {
     let center = (box3.max + box3.min) / 2.;
     let radius = (box3.max - center).length();
     Sphere::new(center, radius)
   }
 
-  pub fn make_from_position_buffer_with_box(position: &[f32], box3: &Box3) -> Self {
+  pub fn make_from_position_buffer_with_box(position: &[f32], box3: &AABB) -> Self {
     let center = box3.center();
     let mut max_distance2 = 0.;
     for index in 0..position.len() / 3 {

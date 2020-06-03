@@ -1,53 +1,51 @@
 use rendiation_math::Mat4;
 use rendiation_math::Vec3;
 
-// pub type Line3<T> = Line3Container<Vec3<T>>;
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Line3<T = Vec3<f32>> {
+pub struct LineSegment<T = Vec3<f32>> {
   pub start: T,
   pub end: T,
 }
 
-impl<T> Line3<T> {
+impl<T> LineSegment<T> {
   pub fn new(start: T, end: T) -> Self {
     Self { start, end }
   }
 
-  pub fn iter_point<'a>(&'a self) -> Line3Iter<'a, T> {
-    Line3Iter::new(self)
+  pub fn iter_point<'a>(&'a self) -> LineSegmentIter<'a, T> {
+    LineSegmentIter::new(self)
   }
 }
 
-pub struct Line3Iter<'a, T> {
-  line3: &'a Line3<T>,
+pub struct LineSegmentIter<'a, T> {
+  line_segment: &'a LineSegment<T>,
   visit_count: i8,
 }
 
-impl<'a, T> Line3Iter<'a, T> {
-  pub fn new(line3: &'a Line3<T>) -> Self {
+impl<'a, T> LineSegmentIter<'a, T> {
+  pub fn new(line3: &'a LineSegment<T>) -> Self {
     Self {
-      line3,
+      line_segment: line3,
       visit_count: -1,
     }
   }
 }
 
-impl<'a, T: Copy> Iterator for Line3Iter<'a, T> {
+impl<'a, T: Copy> Iterator for LineSegmentIter<'a, T> {
   type Item = T;
   fn next(&mut self) -> Option<Self::Item> {
     self.visit_count += 1;
     if self.visit_count == 0 {
-      Some(self.line3.start)
+      Some(self.line_segment.start)
     } else if self.visit_count == 1 {
-      Some(self.line3.end)
+      Some(self.line_segment.end)
     } else {
       None
     }
   }
 }
 
-impl<T: Copy> Line3<T> {
+impl<T: Copy> LineSegment<T> {
   pub fn swap(&self) -> Self {
     Self::new(self.end, self.start)
   }
@@ -61,14 +59,14 @@ impl<T: Copy> Line3<T> {
   }
 }
 
-impl Line3 {
+impl LineSegment {
   pub fn length(&self) -> f32 {
     (self.start - self.end).length()
   }
 }
 
 use std::ops::Mul;
-impl Mul<Mat4<f32>> for Line3 {
+impl Mul<Mat4<f32>> for LineSegment {
   type Output = Self;
 
   fn mul(self, m: Mat4<f32>) -> Self {

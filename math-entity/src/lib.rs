@@ -3,6 +3,16 @@ pub use dimension3::*;
 pub mod dimension2;
 pub use dimension2::*;
 
+pub mod line_segment;
+pub mod triangle;
+pub mod point;
+pub mod aabb;
+
+pub use line_segment::*;
+pub use triangle::*;
+pub use point::*;
+pub use aabb::*;
+
 pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }

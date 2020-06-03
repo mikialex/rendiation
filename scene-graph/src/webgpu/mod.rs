@@ -96,8 +96,8 @@ impl RenderObject {
 use rendiation_mesh_buffer::geometry::{PrimitiveTopology};
 use rendiation_mesh_buffer::wgpu::GPUGeometry;
 use std::ops::Range;
-use rendiation_math_entity::PositionedPoint3;
-impl<V: PositionedPoint3, T: PrimitiveTopology<V> + 'static>
+use rendiation_math_entity::Positioned3D;
+impl<V: Positioned3D, T: PrimitiveTopology<V> + 'static>
   Geometry<SceneGraphWebGPURendererBackend> for GPUGeometry<V, T>
 {
   fn update_gpu(&mut self, renderer: &mut WGPURenderer) {

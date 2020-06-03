@@ -1,9 +1,9 @@
 use super::{BuildPrimitive, BVHBounding, FlattenBVHNode};
-use rendiation_math_entity::{Axis3, Box3, Sphere};
+use rendiation_math_entity::{Axis3, AABB, Sphere};
 use rendiation_math::Vec3;
 use std::cmp::Ordering;
 
-impl BVHBounding for Box3 {
+impl BVHBounding for AABB {
   type AxisType = Axis3;
   fn get_center(&self) -> Vec3<f32> {
     self.center()

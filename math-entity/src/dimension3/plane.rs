@@ -1,5 +1,5 @@
 use rendiation_math::*;
-use crate::Face3;
+use crate::Triangle;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Plane<T = f32> {
@@ -34,8 +34,8 @@ impl Plane {
   }
 }
 
-impl From<Face3> for Plane {
-  fn from(face: Face3) -> Plane {
+impl From<Triangle> for Plane {
+  fn from(face: Triangle) -> Plane {
     let v1 = face.b - face.a;
     let v2 = face.c - face.a;
     let normal = v1.cross(v2).normalize();
