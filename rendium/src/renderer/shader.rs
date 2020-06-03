@@ -1,6 +1,6 @@
 use render_target::{RenderTarget, TargetStatesProvider};
 use rendiation::*;
-use rendiation_marco::BindGroup;
+use rendiation_derives::BindGroup;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
 
 pub struct QuadShading {

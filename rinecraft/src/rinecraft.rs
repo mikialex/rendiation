@@ -29,9 +29,7 @@ pub struct RinecraftState {
 
 impl RinecraftState {
   fn get_camera(&mut self) -> &mut PerspectiveCamera {
-    self
-      .scene
-      .get_active_camera_mut_downcast::<PerspectiveCamera>()
+    self.scene.cameras.get_active_camera_mut::<PerspectiveCamera>()
   }
 }
 
@@ -58,10 +56,10 @@ impl Application for Rinecraft {
 
     let mut camera = PerspectiveCamera::new();
     camera.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
-    let mut camera_gpu = CameraGPU::new(renderer, &camera);
-    camera_gpu.update_all(renderer, &camera);
+    let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut scene);
+    camera_gpu.update_all(renderer, &mut scene);
 
-    scene.set_new_active_camera(camera);
+    scene.cameras.set_new_active_camera(camera);
 
     world.attach_scene(
       &mut scene,
@@ -94,23 +92,24 @@ impl Application for Rinecraft {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
+      let scene = &mut state.scene;
 
-      let camera = state
-        .scene
-        .get_active_camera_mut_downcast::<PerspectiveCamera>();
+      let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
       if state.camera_controller.update(camera) {
         state.camera_gpu.mark_dirty();
       }
-      state.camera_gpu.update_all(renderer, camera);
+      state
+        .camera_gpu
+        .update_all(renderer, scene);
 
-      state.world.update(renderer, &mut state.scene);
+      state.world.update(renderer, scene);
 
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
       state
         .scene_renderer
-        .render(&mut state.scene, renderer, &output);
+        .render(scene, renderer, &output);
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output);
@@ -120,9 +119,7 @@ impl Application for Rinecraft {
         .submit(&renderer.device, &mut renderer.encoder);
     });
 
-    let window_state = WindowState::new(
-      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
-    );
+    let window_state = WindowState::new((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     // Done
     let mut rinecraft = Rinecraft {

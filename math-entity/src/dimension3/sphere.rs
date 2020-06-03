@@ -1,18 +1,10 @@
-use crate::box3::Box3;
+use crate::{MultiDimensionalCircle, Box3};
 use rendiation_math::math::Math;
 use rendiation_math::*;
 
-#[derive(Debug, Copy, Clone)]
-pub struct Sphere {
-  pub center: Vec3<f32>,
-  pub radius: f32,
-}
+pub type Sphere = MultiDimensionalCircle<f32, Vec3<f32>>;
 
 impl Sphere {
-  pub fn new(center: Vec3<f32>, radius: f32) -> Self {
-    Sphere { center, radius }
-  }
-
   pub fn new_from_box(box3: Box3) -> Self {
     let center = (box3.max + box3.min) / 2.;
     let radius = (box3.max - center).length();
@@ -20,7 +12,7 @@ impl Sphere {
   }
 
   pub fn make_from_position_buffer_with_box(position: &[f32], box3: &Box3) -> Self {
-    let center = (box3.max + box3.min) / 2.;
+    let center = box3.center();
     let mut max_distance2 = 0.;
     for index in 0..position.len() / 3 {
       let i = index * 3;

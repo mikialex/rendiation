@@ -4,13 +4,13 @@ use rendiation::*;
 use std::ops::Range;
 
 use lazy_static::lazy_static;
-use rendiation_math_entity::PositionedPoint;
+use rendiation_math_entity::Positioned3D;
 lazy_static! {
   static ref VERTEX_BUFFERS: Vec<VertexBufferDescriptor<'static>> =
     { vec![Vertex::get_buffer_layout_descriptor()] };
 }
 
-impl<'a, V: PositionedPoint, T: PrimitiveTopology<V> + WGPUPrimitiveTopology> GeometryProvider
+impl<'a, V: Positioned3D, T: PrimitiveTopology<V> + WGPUPrimitiveTopology> GeometryProvider
   for IndexedGeometry<V, T>
 {
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
@@ -80,7 +80,7 @@ impl VertexProvider for Vertex {
   }
 }
 
-pub struct GPUGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = TriangleList> {
+pub struct GPUGeometry<V: Positioned3D = Vertex, T: PrimitiveTopology<V> = TriangleList> {
   geometry: IndexedGeometry<V, T>,
   data_changed: bool,
   index_changed: bool,
@@ -88,7 +88,7 @@ pub struct GPUGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = Tr
   gpu_index: Option<WGPUBuffer>,
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>>
+impl<V: Positioned3D, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>>
   for GPUGeometry<V, T>
 {
   fn from(geometry: IndexedGeometry<V, T>) -> Self {
@@ -102,13 +102,13 @@ impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>>
   }
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)> for GPUGeometry<V, T> {
+impl<V: Positioned3D, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)> for GPUGeometry<V, T> {
   fn from(item: (Vec<V>, Vec<u16>)) -> Self {
     IndexedGeometry::new(item.0, item.1).into()
   }
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
+impl<V: Positioned3D, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
   pub fn mutate_data(&mut self) -> &mut Vec<V> {
     self.data_changed = true;
     &mut self.geometry.data

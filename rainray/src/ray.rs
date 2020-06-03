@@ -3,10 +3,10 @@ use crate::math::*;
 pub static MAX_RAY_HIT_DISTANCE: f32 = 1000.0;
 pub static EPS: f32 = 0.00001;
 
-// pub type RayIntersectAble = dyn IntersectAble<Ray, Option<Intersection>>;
+// pub type RayIntersectAble = dyn IntersectAble<Ray3, Option<Intersection>>;
 
 pub trait RayIntersectAble {
-  fn intersect(&self, ray: &Ray) -> Option<Intersection>;
+  fn intersect(&self, ray: &Ray3) -> Option<Intersection>;
 }
 
 pub struct Intersection {
@@ -16,7 +16,7 @@ pub struct Intersection {
 }
 
 impl RayIntersectAble for Sphere {
-  fn intersect(&self, ray: &Ray) -> Option<Intersection> {
+  fn intersect(&self, ray: &Ray3) -> Option<Intersection> {
     let voc = self.center - ray.origin; // Vector from the origin to the sphere center
     let voc_len_sqr = voc.length2(); // The length squared of voc
     let vod_len = voc.dot(ray.direction); // The length of the projected vector voc into the ray direction

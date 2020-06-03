@@ -17,7 +17,7 @@ rendiation-render-entity = { path = "../render-entity" }
 rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
 
 rendiation = { path = "../rendiation"}
-rendiation-marco = { path = "../marco"}
+rendiation-derives = { path = "../rendiation-derives" }
 
 [dependencies.web-sys]
 version = "0.3.39"

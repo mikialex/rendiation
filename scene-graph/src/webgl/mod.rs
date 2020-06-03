@@ -12,6 +12,7 @@ impl SceneGraphBackEnd for SceneGraphWebGLRendererBackend {
   type ShadingParameterGroup = ();
   type IndexBuffer = WebGlBuffer;
   type VertexBuffer = WebGlBuffer;
+  type UniformBuffer = WebGlBuffer;
 }
 
 pub struct WebGLRenderer {

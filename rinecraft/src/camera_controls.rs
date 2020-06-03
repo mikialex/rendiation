@@ -75,8 +75,8 @@ impl CameraController {
       .push(events.add_listener(EventType::MouseMotion, |event_ctx| {
         let state = &mut event_ctx.state;
         state.camera_controller.fps.rotate(Vec2::new(
-          -state.window_state.mouse_motion.0,
-          -state.window_state.mouse_motion.1,
+          state.window_state.mouse_motion.0,
+          state.window_state.mouse_motion.1,
         ))
       }));
     self.listener_records.push(events.add_listener_raw(|ctx| {
@@ -94,13 +94,13 @@ impl CameraController {
           } => {
             let pressed = *state == ElementState::Pressed;
             if *virtual_keycode == VirtualKeyCode::A {
-              app_state.camera_controller.fps.a_press = pressed
+              app_state.camera_controller.fps.leftward_active = pressed
             } else if *virtual_keycode == VirtualKeyCode::W {
-              app_state.camera_controller.fps.w_press = pressed
+              app_state.camera_controller.fps.forward_active = pressed
             } else if *virtual_keycode == VirtualKeyCode::S {
-              app_state.camera_controller.fps.s_press = pressed
+              app_state.camera_controller.fps.backward_active = pressed
             } else if *virtual_keycode == VirtualKeyCode::D {
-              app_state.camera_controller.fps.d_press = pressed
+              app_state.camera_controller.fps.rightward_active = pressed
             }
           }
           _ => (),

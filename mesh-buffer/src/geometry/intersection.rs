@@ -1,35 +1,35 @@
 use super::{NoneIndexedGeometry, PrimitiveTopology};
 use crate::geometry::indexed_geometry::IndexedGeometry;
 use rendiation_math_entity::IntersectAble;
-use rendiation_math_entity::IntersectionList;
+use rendiation_math_entity::IntersectionList3D;
 use rendiation_math_entity::NearestPoint3D;
-use rendiation_math_entity::{Face3, Line3, Ray, PositionedPoint, Point};
+use rendiation_math_entity::{Triangle, LineSegment, Ray3, Positioned3D, Point3};
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>>
-  IntersectAble<IndexedGeometry<V, T>, IntersectionList, Config> for Ray
+impl<V: Positioned3D, T: PrimitiveTopology<V>>
+  IntersectAble<IndexedGeometry<V, T>, IntersectionList3D, Config> for Ray3
 {
-  fn intersect(&self, geometry: &IndexedGeometry<V, T>, p: &Config) -> IntersectionList {
+  fn intersect(&self, geometry: &IndexedGeometry<V, T>, p: &Config) -> IntersectionList3D {
     let mut result = Vec::new();
     for (primitive, _) in geometry.primitive_iter() {
       if let NearestPoint3D(Some(hit)) = primitive.intersect(self, p) {
         result.push(hit)
       }
     }
-    IntersectionList(result)
+    IntersectionList3D(result)
   }
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>>
-  IntersectAble<NoneIndexedGeometry<V, T>, IntersectionList, Config> for Ray
+impl<V: Positioned3D, T: PrimitiveTopology<V>>
+  IntersectAble<NoneIndexedGeometry<V, T>, IntersectionList3D, Config> for Ray3
 {
-  fn intersect(&self, geometry: &NoneIndexedGeometry<V, T>, p: &Config) -> IntersectionList {
+  fn intersect(&self, geometry: &NoneIndexedGeometry<V, T>, p: &Config) -> IntersectionList3D {
     let mut result = Vec::new();
     for primitive in geometry.primitive_iter() {
       if let NearestPoint3D(Some(hit)) = primitive.intersect(self, p) {
         result.push(hit)
       }
     }
-    IntersectionList(result)
+    IntersectionList3D(result)
   }
 }
 
@@ -49,21 +49,21 @@ impl MeshBufferIntersectionConfigProvider for MeshBufferIntersectionConfig {
   }
 }
 
-impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Face3<T> {
-  fn intersect(&self, _ray: &Ray, _p: &Config) -> NearestPoint3D {
+impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Triangle<T> {
+  fn intersect(&self, _ray: &Ray3, _p: &Config) -> NearestPoint3D {
     todo!()
     // IntersectAble::<Face3, NearestPoint3D>::intersect(ray, self, p)
   }
 }
 
-impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Line3<T> {
-  fn intersect(&self, _ray: &Ray, _: &Config) -> NearestPoint3D {
+impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for LineSegment<T> {
+  fn intersect(&self, _ray: &Ray3, _: &Config) -> NearestPoint3D {
     todo!()
   }
 }
 
-impl<T: PositionedPoint> IntersectAble<Ray, NearestPoint3D, Config> for Point<T> {
-  fn intersect(&self, _ray: &Ray, _: &Config) -> NearestPoint3D {
+impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Point3<T> {
+  fn intersect(&self, _ray: &Ray3, _: &Config) -> NearestPoint3D {
     todo!()
   }
 }

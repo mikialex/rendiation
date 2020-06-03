@@ -4,7 +4,7 @@ use crate::vox::chunk::*;
 use crate::vox::util::*;
 use crate::vox::world::*;
 use rendiation_math::Vec3;
-use rendiation_math_entity::Ray;
+use rendiation_math_entity::Ray3;
 use rendiation_math_entity::*;
 use std::collections::HashSet;
 use super::world_machine::VOID;
@@ -34,7 +34,7 @@ fn get_block_bbox(world_position: Vec3<i32>) -> Box3 {
 // todo optimize
 fn pick_block(
   chunk: &Chunk,
-  ray: &Ray,
+  ray: &Ray3,
   previous_result: &Option<BlockPickResult>,
 ) -> Option<BlockPickResult> {
   if chunk.bounding.intersect(ray, &()) {
@@ -102,7 +102,7 @@ fn pick_block(
 }
 
 impl World {
-  pub fn pick_block(&self, ray: &Ray) -> Option<BlockPickResult> {
+  pub fn pick_block(&self, ray: &Ray3) -> Option<BlockPickResult> {
     let mut nearest: Option<BlockPickResult> = None;
     for (_, chunk) in &self.chunks {
       if let Some(hit) = pick_block(chunk, ray, &nearest) {
@@ -165,7 +165,7 @@ impl World {
     World::notify_side_chunk_dirty(&mut self.chunk_geometry_update_set, chunk_key, &local_position);
   }
 
-  pub fn add_block_by_ray(&mut self, ray: &Ray, block: usize) {
+  pub fn add_block_by_ray(&mut self, ray: &Ray3, block: usize) {
     let pick_result = self.pick_block(ray);
     if let Some(re) = pick_result {
       if let Some(b) = &World::block_face_opposite_position(re.block_position, re.face) {
@@ -177,7 +177,7 @@ impl World {
     }
   }
 
-  pub fn delete_block_by_ray(&mut self, ray: &Ray) {
+  pub fn delete_block_by_ray(&mut self, ray: &Ray3) {
     let pick_result = self.pick_block(ray);
     if let Some(re) = pick_result {
       self.delete_block(&re.block_position);

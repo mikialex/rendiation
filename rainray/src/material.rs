@@ -23,22 +23,22 @@ impl Material {
     self
   }
 
-  pub fn next_ray(&self, into_ray: &Ray, intersection: &Intersection) -> Ray {
-    // Ray::new(
+  pub fn next_ray(&self, into_ray: &Ray3, intersection: &Intersection) -> Ray3 {
+    // Ray3::new(
     //     intersection.hit_position,
     //     cosine_sample_hemisphere(&intersection.hit_normal),
     // )
-    // Ray::new(
+    // Ray3::new(
     //     intersection.hit_position,
     //     Vec3::reflect(&intersection.hit_normal, &into_ray.direction),
     // )
 
-    Ray::from_point_to_point(
+    Ray3::from_point_to_point(
       intersection.hit_position,
       intersection.hit_position + intersection.hit_normal + rand_point_in_unit_sphere(),
     )
 
-    // Ray::from_point_to_point(
+    // Ray3::from_point_to_point(
     //     &intersection.hit_position,
     //     &(intersection.hit_position
     //         + intersection.hit_normal
@@ -47,20 +47,20 @@ impl Material {
     // )
   }
 
-  pub fn collect_energy(&self, look_up_ray: &Ray) -> Vec3 {
+  pub fn collect_energy(&self, look_up_ray: &Ray3) -> Vec3 {
     self.emissive
   }
 
   pub fn brdf_importance_pdf(
     &self,
     intersection: &Intersection,
-    in_ray: &Ray,
-    out_ray: &Ray,
+    in_ray: &Ray3,
+    out_ray: &Ray3,
   ) -> f32 {
     1.
   }
 
-  pub fn brdf(&self, intersection: &Intersection, in_ray: &Ray, out_ray: &Ray) -> f32 {
+  pub fn brdf(&self, intersection: &Intersection, in_ray: &Ray3, out_ray: &Ray3) -> f32 {
     let w_m = (-in_ray.direction + out_ray.direction).normalize();
     0.8
   }

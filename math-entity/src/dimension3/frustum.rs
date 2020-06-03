@@ -1,6 +1,6 @@
-use crate::intersection::IntersectAble;
 use crate::plane::Plane;
-use crate::{sphere::Sphere, Box3};
+use crate::IntersectAble;
+use crate::{intersect_reverse, sphere::Sphere, Box3};
 use rendiation_math::*;
 
 #[derive(Clone)]
@@ -33,6 +33,7 @@ impl Frustum {
   }
 }
 
+intersect_reverse!(Sphere, bool, (), Frustum);
 impl IntersectAble<Sphere, bool> for Frustum {
   fn intersect(&self, sphere: &Sphere, _: &()) -> bool {
     let neg_radius = -sphere.radius;
@@ -48,6 +49,7 @@ impl IntersectAble<Sphere, bool> for Frustum {
   }
 }
 
+intersect_reverse!(Box3, bool, (), Frustum);
 impl IntersectAble<Box3, bool> for Frustum {
   fn intersect(&self, box3: &Box3, _: &()) -> bool {
     for p in &self.planes {

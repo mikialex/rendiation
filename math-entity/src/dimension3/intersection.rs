@@ -1,44 +1,19 @@
-use crate::box3::Box3;
-use crate::face3::Face3;
-use crate::line3::Line3;
-use crate::ray::Ray;
+use crate::ray3::Ray3;
 use crate::sphere::Sphere;
+use crate::{intersect_reverse, IntersectAble, Triangle, Box3, LineSegment3D};
 use rendiation_math::Vec3;
 
-macro_rules! intersect_reverse {
-  ($self_item: ty, $result:ty, $param:ty, $target:ty) => {
-    impl IntersectAble<$target, $result, $param> for $self_item {
-      fn intersect(&self, other: &$target, p: &$param) -> $result {
-        IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
-      }
-    }
-  };
-}
-
 pub struct NearestPoint3D(pub Option<Vec3<f32>>);
-pub struct IntersectionList(pub Vec<Vec3<f32>>);
+pub struct IntersectionList3D(pub Vec<Vec3<f32>>);
 
-pub trait IntersectAble<Target, Result, Parameter = ()> {
-  fn intersect(&self, other: &Target, param: &Parameter) -> Result;
-}
-
-// this not work, conflict impl
-// impl<T, Target, Result, Parameter> IntersectAble<Target, Result, Parameter> for T
-//   where Target: IntersectAble<T, Result, Parameter>
-// {
-//   fn intersect(&self, other: &Target, param: &Parameter) -> Result{
-//     IntersectAble::<T, Result, Parameter>::intersect(other, self, param)
-//   }
-// }
-
-intersect_reverse!(Face3, NearestPoint3D, (), Ray);
-impl IntersectAble<Face3, NearestPoint3D> for Ray {
+intersect_reverse!(Triangle, NearestPoint3D, (), Ray3);
+impl IntersectAble<Triangle, NearestPoint3D> for Ray3 {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Face3, _: &()) -> NearestPoint3D {
+  fn intersect(&self, face: &Triangle, _: &()) -> NearestPoint3D {
     // Compute the offset origin, edges, and normal.
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
-    let Face3 { a, b, c } = *face;
+    let Triangle { a, b, c } = *face;
     let blackfaceCulling = false;
     let _edge1 = b - a;
     let _edge2 = c - a;
@@ -93,7 +68,7 @@ impl IntersectAble<Face3, NearestPoint3D> for Ray {
       return NearestPoint3D(None);
     }
 
-    // Ray intersects triangle.
+    // Ray3 intersects triangle.
     return NearestPoint3D(Some(self.at(QdN / DdN)));
   }
 }
@@ -101,15 +76,15 @@ impl IntersectAble<Face3, NearestPoint3D> for Ray {
 pub struct LineRayIntersectionLocalTolerance(pub f32);
 type LL = LineRayIntersectionLocalTolerance;
 
-intersect_reverse!(Ray, NearestPoint3D, LL, Line3);
-impl IntersectAble<Ray, NearestPoint3D, LL> for Line3 {
-  fn intersect(&self, _ray: &Ray, _: &LL) -> NearestPoint3D {
+intersect_reverse!(Ray3, NearestPoint3D, LL, LineSegment3D);
+impl IntersectAble<Ray3, NearestPoint3D, LL> for LineSegment3D {
+  fn intersect(&self, _ray: &Ray3, _: &LL) -> NearestPoint3D {
     todo!()
   }
 }
 
-intersect_reverse!(Box3, NearestPoint3D, (), Ray);
-impl IntersectAble<Box3, NearestPoint3D> for Ray {
+intersect_reverse!(Box3, NearestPoint3D, (), Ray3);
+impl IntersectAble<Box3, NearestPoint3D> for Ray3 {
   fn intersect(&self, box3: &Box3, _: &()) -> NearestPoint3D {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
@@ -181,8 +156,8 @@ impl IntersectAble<Box3, NearestPoint3D> for Ray {
   }
 }
 
-intersect_reverse!(Box3, bool, (), Ray);
-impl IntersectAble<Box3, bool> for Ray {
+intersect_reverse!(Box3, bool, (), Ray3);
+impl IntersectAble<Box3, bool> for Ray3 {
   fn intersect(&self, other: &Box3, p: &()) -> bool {
     IntersectAble::<Box3, NearestPoint3D>::intersect(self, other, p)
       .0
@@ -190,8 +165,8 @@ impl IntersectAble<Box3, bool> for Ray {
   }
 }
 
-intersect_reverse!(Sphere, NearestPoint3D, (), Ray);
-impl IntersectAble<Sphere, NearestPoint3D> for Ray {
+intersect_reverse!(Sphere, NearestPoint3D, (), Ray3);
+impl IntersectAble<Sphere, NearestPoint3D> for Ray3 {
   fn intersect(&self, sphere: &Sphere, _: &()) -> NearestPoint3D {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
@@ -227,8 +202,8 @@ impl IntersectAble<Sphere, NearestPoint3D> for Ray {
   }
 }
 
-intersect_reverse!(Sphere, bool, (), Ray);
-impl IntersectAble<Sphere, bool> for Ray {
+intersect_reverse!(Sphere, bool, (), Ray3);
+impl IntersectAble<Sphere, bool> for Ray3 {
   fn intersect(&self, other: &Sphere, p: &()) -> bool {
     IntersectAble::<Sphere, NearestPoint3D>::intersect(self, other, p)
       .0
@@ -236,9 +211,9 @@ impl IntersectAble<Sphere, bool> for Ray {
   }
 }
 
-intersect_reverse!(Sphere, IntersectionList, (), Ray);
-impl IntersectAble<Sphere, IntersectionList> for Ray {
-  fn intersect(&self, _sphere: &Sphere, _: &()) -> IntersectionList {
+intersect_reverse!(Sphere, IntersectionList3D, (), Ray3);
+impl IntersectAble<Sphere, IntersectionList3D> for Ray3 {
+  fn intersect(&self, _sphere: &Sphere, _: &()) -> IntersectionList3D {
     todo!();
   }
 }

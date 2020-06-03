@@ -4,14 +4,14 @@ pub mod application;
 pub mod component;
 pub mod element;
 pub mod event;
-pub mod window;
+pub mod window_state;
 // pub mod lens;
 pub mod data;
 pub mod renderer;
 
 pub use application::*;
 pub use event::*;
-pub use window::*;
+pub use window_state::*;
 // pub use lens::*;
 pub use renderer::*;
 

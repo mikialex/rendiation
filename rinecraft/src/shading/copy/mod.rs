@@ -23,7 +23,7 @@ impl CopierShading {
 }
 
 use render_target::{RenderTarget, TargetStatesProvider};
-use rendiation_marco::BindGroup;
+use rendiation_derives::BindGroup;
 
 #[derive(BindGroup)]
 pub struct CopyParam<'a> {

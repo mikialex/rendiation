@@ -1,24 +1,71 @@
-use super::{
-  background::{Background},
-  node::SceneNode,
-  resource::ResourceManager,
-};
+use super::{background::Background, node::SceneNode, resource::ResourceManager};
 use crate::{RenderData, RenderObject, SceneGraphBackEnd};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
-pub struct Scene<T: SceneGraphBackEnd> {
-  pub background: Option<Box<dyn Background<T>>>,
+pub struct ResourceUpdateCtx {
+  changed_uniforms: Vec<Index>,
+}
+
+impl ResourceUpdateCtx {
+  pub fn new() -> Self {
+    Self {
+      changed_uniforms: Vec::new(),
+    }
+  }
+  pub fn notify_uniform_update(&mut self, index: Index) {
+    self.changed_uniforms.push(index)
+  }
+}
+
+pub struct CameraData {
   active_camera_index: Index,
   cameras: Arena<Box<dyn Camera>>,
+}
 
+impl CameraData {
+  pub fn set_new_active_camera(&mut self, camera: impl Camera + 'static) -> Index {
+    let boxed = Box::new(camera);
+    let index = self.cameras.insert(boxed);
+    self.active_camera_index = index;
+    index
+  }
+
+  pub fn get_active_camera_mut_any(&mut self) -> &mut Box<dyn Camera> {
+    self.cameras.get_mut(self.active_camera_index).unwrap()
+  }
+
+  pub fn get_active_camera_mut<U: 'static>(&mut self) -> &mut U {
+    self
+      .cameras
+      .get_mut(self.active_camera_index)
+      .unwrap()
+      .as_any_mut()
+      .downcast_mut::<U>()
+      .unwrap()
+  }
+
+  pub fn get_active_camera<U: 'static>(&mut self) -> &U {
+    self
+      .cameras
+      .get(self.active_camera_index)
+      .unwrap()
+      .as_any()
+      .downcast_ref::<U>()
+      .unwrap()
+  }
+}
+
+pub struct Scene<T: SceneGraphBackEnd> {
+  pub background: Option<Box<dyn Background<T>>>,
+  pub cameras: CameraData,
   pub render_objects: Arena<RenderObject>,
 
   root: Index,
   pub(crate) nodes: Arena<SceneNode>,
 
   pub resources: ResourceManager<T>,
-
+  pub resource_update_ctx: ResourceUpdateCtx,
 }
 
 impl<T: SceneGraphBackEnd> Scene<T> {
@@ -36,34 +83,16 @@ impl<T: SceneGraphBackEnd> Scene<T> {
 
     Self {
       background: None,
-      active_camera_index,
-      cameras,
+      cameras: CameraData {
+        active_camera_index,
+        cameras,
+      },
       render_objects: Arena::new(),
       root: index,
       nodes,
       resources: ResourceManager::new(),
+      resource_update_ctx: ResourceUpdateCtx::new(),
     }
-  }
-
-  pub fn set_new_active_camera(&mut self, camera: impl Camera + 'static) -> Index {
-    let boxed = Box::new(camera);
-    let index = self.cameras.insert(boxed);
-    self.active_camera_index = index;
-    index
-  }
-
-  pub fn get_active_camera_mut(&mut self) -> &mut Box<dyn Camera> {
-    self.cameras.get_mut(self.active_camera_index).unwrap()
-  }
-
-  pub fn get_active_camera_mut_downcast<U: 'static>(&mut self) -> &mut U {
-    self
-      .cameras
-      .get_mut(self.active_camera_index)
-      .unwrap()
-      .as_any_mut()
-      .downcast_mut::<U>()
-      .unwrap()
   }
 
   pub fn get_parent_child_pair(

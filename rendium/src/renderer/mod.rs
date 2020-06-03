@@ -9,7 +9,7 @@ use rendiation_render_entity::*;
 mod shader;
 use render_target::{RenderTarget, RenderTargetAble, TargetStatesProvider};
 use rendiation_mesh_buffer::{
-  mesh_creator::{plane::Quad, IndexedBufferMesher},
+  tesserlation::{plane::Quad, IndexedBufferTesserlator},
   wgpu::GPUGeometry,
 };
 pub use shader::*;
@@ -32,7 +32,7 @@ impl GUIRenderer {
     screen_target: &impl TargetStatesProvider,
   ) -> Self {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
-    let mut quad = GPUGeometry::from(Quad.create_mesh());
+    let mut quad = GPUGeometry::from(Quad.create_mesh(&()));
     quad.update_gpu(renderer);
     let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
     let canvas = RenderTarget::from_one_texture(canvas);

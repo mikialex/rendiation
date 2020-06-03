@@ -1,4 +1,4 @@
-# 3D Math primitives
+# Math primitives
 
 ## Intersections
 

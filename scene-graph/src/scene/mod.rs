@@ -24,4 +24,5 @@ pub trait SceneGraphBackEnd {
   type ShadingParameterGroup;
   type IndexBuffer;
   type VertexBuffer;
+  type UniformBuffer;
 }

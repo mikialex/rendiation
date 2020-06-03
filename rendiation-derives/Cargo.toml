@@ -1,0 +1,16 @@
+[package]
+name = "rendiation-derives"
+version = "0.1.0"
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0.11"
+quote = "1.0.2"
+proc-macro2 = "1.0.4"
+
+rendiation = { path = "../rendiation" }

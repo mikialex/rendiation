@@ -7,6 +7,7 @@ pub trait Geometry<T: SceneGraphBackEnd> {
   fn get_gpu_vertex_buffer(&self, index: usize) -> & T::VertexBuffer;
   fn vertex_buffer_count(&self) -> usize;
   fn get_draw_range(&self) -> Range<u32>;
+  // fn get_bounding_local(&self) -> &BoundingData;
 }
 
 pub struct SceneGeometry<T: SceneGraphBackEnd> {

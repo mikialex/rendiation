@@ -4,6 +4,7 @@ members = [
     "math-entity",
     "render-entity",
     "rendiation",
+    "rendiation-derives",
     "render-graph",
     "scene-graph",
     "rendium",
@@ -12,5 +13,5 @@ members = [
     "noize",
     "rainray",
     "space-indexer",
-    "mesh-buffer"
+    "mesh-buffer",
 ]

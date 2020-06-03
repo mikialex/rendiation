@@ -21,8 +21,8 @@ impl BoundingData {
 
 }
 
-impl IntersectAble<Ray, bool> for BoundingData{
-  fn intersect(&self, ray: &Ray, _: &()) -> bool {
+impl IntersectAble<Ray3, bool> for BoundingData{
+  fn intersect(&self, ray: &Ray3, _: &()) -> bool {
     ray.intersect(&self.bounding_sphere, &()) && self.bounding_box.intersect(ray, &())
   }
 }
