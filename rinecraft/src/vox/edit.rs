@@ -17,7 +17,7 @@ pub struct BlockPickResult {
   pub distance2: f32,
 }
 
-fn get_block_bbox(world_position: Vec3<i32>) -> AABB {
+fn get_block_bbox(world_position: Vec3<i32>) -> Box3 {
   let min = Vec3::new(
     world_position.x as f32 * BLOCK_WORLD_SIZE,
     world_position.y as f32 * BLOCK_WORLD_SIZE,
@@ -28,7 +28,7 @@ fn get_block_bbox(world_position: Vec3<i32>) -> AABB {
     (world_position.y + 1) as f32 * BLOCK_WORLD_SIZE,
     (world_position.z + 1) as f32 * BLOCK_WORLD_SIZE,
   );
-  AABB::new(min, max)
+  Box3::new(min, max)
 }
 
 // todo optimize

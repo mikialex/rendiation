@@ -1,6 +1,6 @@
 use crate::plane::Plane;
 use crate::IntersectAble;
-use crate::{intersect_reverse, sphere::Sphere, AABB};
+use crate::{intersect_reverse, sphere::Sphere, Box3};
 use rendiation_math::*;
 
 #[derive(Clone)]
@@ -49,9 +49,9 @@ impl IntersectAble<Sphere, bool> for Frustum {
   }
 }
 
-intersect_reverse!(AABB, bool, (), Frustum);
-impl IntersectAble<AABB, bool> for Frustum {
-  fn intersect(&self, box3: &AABB, _: &()) -> bool {
+intersect_reverse!(Box3, bool, (), Frustum);
+impl IntersectAble<Box3, bool> for Frustum {
+  fn intersect(&self, box3: &Box3, _: &()) -> bool {
     for p in &self.planes {
       if p.distance_to_point(box3.max_corner(p.normal)) < 0. {
         return false;

@@ -1,8 +1,10 @@
 use rendiation_math::math::Math;
 use rendiation_math::*;
-use crate::{AABB, Axis3};
+use crate::{Axis3, AABB};
 
-impl AABB {
+pub type Box3 = AABB<Vec3<f32>>;
+
+impl Box3 {
 
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;

@@ -1,6 +1,6 @@
 use crate::ray3::Ray3;
 use crate::sphere::Sphere;
-use crate::{intersect_reverse, IntersectAble, LineSegment, Triangle, AABB};
+use crate::{intersect_reverse, IntersectAble, LineSegment, Triangle, Box3};
 use rendiation_math::Vec3;
 
 pub struct NearestPoint3D(pub Option<Vec3<f32>>);
@@ -83,9 +83,9 @@ impl IntersectAble<Ray3, NearestPoint3D, LL> for LineSegment {
   }
 }
 
-intersect_reverse!(AABB, NearestPoint3D, (), Ray3);
-impl IntersectAble<AABB, NearestPoint3D> for Ray3 {
-  fn intersect(&self, box3: &AABB, _: &()) -> NearestPoint3D {
+intersect_reverse!(Box3, NearestPoint3D, (), Ray3);
+impl IntersectAble<Box3, NearestPoint3D> for Ray3 {
+  fn intersect(&self, box3: &Box3, _: &()) -> NearestPoint3D {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
       (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -156,10 +156,10 @@ impl IntersectAble<AABB, NearestPoint3D> for Ray3 {
   }
 }
 
-intersect_reverse!(AABB, bool, (), Ray3);
-impl IntersectAble<AABB, bool> for Ray3 {
-  fn intersect(&self, other: &AABB, p: &()) -> bool {
-    IntersectAble::<AABB, NearestPoint3D>::intersect(self, other, p)
+intersect_reverse!(Box3, bool, (), Ray3);
+impl IntersectAble<Box3, bool> for Ray3 {
+  fn intersect(&self, other: &Box3, p: &()) -> bool {
+    IntersectAble::<Box3, NearestPoint3D>::intersect(self, other, p)
       .0
       .is_some()
   }
