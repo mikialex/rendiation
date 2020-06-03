@@ -1,8 +1,5 @@
-use rendiation_math::Mat4;
-use rendiation_math::Vec3;
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LineSegment<T = Vec3<f32>> {
+pub struct LineSegment<T> {
   pub start: T,
   pub end: T,
 }
@@ -56,20 +53,5 @@ impl<T: Copy> LineSegment<T> {
     } else {
       *self
     }
-  }
-}
-
-impl LineSegment {
-  pub fn length(&self) -> f32 {
-    (self.start - self.end).length()
-  }
-}
-
-use std::ops::Mul;
-impl Mul<Mat4<f32>> for LineSegment {
-  type Output = Self;
-
-  fn mul(self, m: Mat4<f32>) -> Self {
-    Self::new(self.start * m, self.end * m)
   }
 }

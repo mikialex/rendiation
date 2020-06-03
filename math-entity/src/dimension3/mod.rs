@@ -6,6 +6,7 @@ pub mod spherical;
 pub mod ray3;
 pub mod intersection;
 pub mod triangle;
+pub mod line_segment;
 
 pub use box3::*;
 pub use sphere::*;
@@ -15,6 +16,7 @@ pub use spherical::*;
 pub use ray3::*;
 pub use intersection::*;
 pub use triangle::*;
+pub use line_segment::*;
 use rendiation_math::Vec3;
 
 #[derive(Debug, Copy, Clone)]

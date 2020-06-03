@@ -1,6 +1,6 @@
 use crate::ray3::Ray3;
 use crate::sphere::Sphere;
-use crate::{intersect_reverse, IntersectAble, LineSegment, Triangle, Box3};
+use crate::{intersect_reverse, IntersectAble, Triangle, Box3, LineSegment3D};
 use rendiation_math::Vec3;
 
 pub struct NearestPoint3D(pub Option<Vec3<f32>>);
@@ -76,8 +76,8 @@ impl IntersectAble<Triangle, NearestPoint3D> for Ray3 {
 pub struct LineRayIntersectionLocalTolerance(pub f32);
 type LL = LineRayIntersectionLocalTolerance;
 
-intersect_reverse!(Ray3, NearestPoint3D, LL, LineSegment);
-impl IntersectAble<Ray3, NearestPoint3D, LL> for LineSegment {
+intersect_reverse!(Ray3, NearestPoint3D, LL, LineSegment3D);
+impl IntersectAble<Ray3, NearestPoint3D, LL> for LineSegment3D {
   fn intersect(&self, _ray: &Ray3, _: &LL) -> NearestPoint3D {
     todo!()
   }
