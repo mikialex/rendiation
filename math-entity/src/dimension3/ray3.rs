@@ -1,18 +1,18 @@
 use rendiation_math::*;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Ray {
+pub struct Ray3 {
   pub origin: Vec3<f32>,
   pub direction: Vec3<f32>,
 }
 
-impl Ray {
+impl Ray3 {
   pub fn new(origin: Vec3<f32>, direction: Vec3<f32>) -> Self {
-    Ray { origin, direction }
+    Ray3 { origin, direction }
   }
 
   pub fn from_point_to_point(origin: Vec3<f32>, target: Vec3<f32>) -> Self {
-    Ray::new(origin, (target - origin).normalize())
+    Ray3::new(origin, (target - origin).normalize())
   }
 
   pub fn at(&self, distance: f32) -> Vec3<f32> {
@@ -104,7 +104,7 @@ impl Ray {
         }
       }
     } else {
-      // Ray and segment are parallel.
+      // Ray3 and segment are parallel.
       let s1 = if a01 > 0. { -seg_length } else { seg_length };
       let s0 = 0.0_f32.max(-(a01 * s1 + b0));
       sq_dist = -s0 * s0 + s1 * (s1 + 2. * b1) + c;

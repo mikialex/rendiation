@@ -12,13 +12,13 @@ use super::{
   PrimitiveTopology,
 };
 use rendiation_math::Vec3;
-use rendiation_math_entity::{Face3, Line3, PositionedPoint};
+use rendiation_math_entity::{Face3, Line3, PositionedPoint3};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
 };
 
-impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V, Primitive = Face3<V>>>
+impl<V: HashAbleByConversion + PositionedPoint3, T: PrimitiveTopology<V, Primitive = Face3<V>>>
   IndexedGeometry<V, T>
 {
   pub fn create_wireframe(&self) -> IndexedGeometry<V, LineList> {
@@ -67,7 +67,7 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V, Primitiv
   }
 }
 
-impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+impl<V: HashAbleByConversion + PositionedPoint3, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
   pub fn merge_vertex_by_sorting(
     &self,
     sorter: impl FnMut(&V, &V) -> Ordering,
@@ -97,13 +97,13 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> Indexed
   }
 }
 
-impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+impl<V: HashAbleByConversion + PositionedPoint3, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T> {
     NoneIndexedGeometry::new(self.index.iter().map(|i| self.data[*i as usize]).collect())
   }
 }
 
-impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> NoneIndexedGeometry<V, T> {
+impl<V: HashAbleByConversion + PositionedPoint3, T: PrimitiveTopology<V>> NoneIndexedGeometry<V, T> {
   pub fn create_index_geometry<U>(&self) -> IndexedGeometry<V, T> {
     let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
@@ -123,7 +123,7 @@ impl<V: HashAbleByConversion + PositionedPoint, T: PrimitiveTopology<V>> NoneInd
   }
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+impl<V: PositionedPoint3, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
   pub fn create_point_cloud(&self) -> NoneIndexedGeometry<V, PointList> {
     NoneIndexedGeometry::new(self.data.clone())
   }

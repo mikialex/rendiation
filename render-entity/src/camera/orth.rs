@@ -30,7 +30,7 @@ impl OrthographicCamera {
 }
 
 impl Raycaster for OrthographicCamera {
-  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray {
+  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3 {
     let coords_x = view_position.x * 2. - 1.;
     let coords_y = view_position.y * 2. - 1.;
 
@@ -40,7 +40,7 @@ impl Raycaster for OrthographicCamera {
       (self.near + self.far) / (self.near - self.far),
     ) * self.get_vp_matrix_inverse();
     let direction = Vec3::new(0., 0., -1.).transform_direction(self.get_transform().matrix);
-    Ray::new(origin, direction)
+    Ray3::new(origin, direction)
   }
 }
 
@@ -94,7 +94,7 @@ impl ViewFrustumOrthographicCamera {
 }
 
 impl Raycaster for ViewFrustumOrthographicCamera {
-  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray {
+  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3 {
     self.camera.create_screen_ray(view_position)
   }
 }

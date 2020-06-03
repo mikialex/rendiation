@@ -1,16 +1,16 @@
-use super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList};
+use super::super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList};
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
-use rendiation_math_entity::PositionedPoint;
+use rendiation_math_entity::PositionedPoint3;
 
 /// A indexed geometry that use vertex as primitive;
-pub struct IndexedGeometry<V: PositionedPoint = Vertex, T: PrimitiveTopology<V> = TriangleList> {
+pub struct IndexedGeometry<V: PositionedPoint3 = Vertex, T: PrimitiveTopology<V> = TriangleList> {
   pub data: Vec<V>,
   pub index: Vec<u16>,
   _phantom: PhantomData<T>,
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
+impl<V: PositionedPoint3, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
   for IndexedGeometry<V, T>
 {
   fn from(item: (Vec<V>, Vec<u16>)) -> Self {
@@ -18,7 +18,7 @@ impl<V: PositionedPoint, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
   }
 }
 
-impl<V: PositionedPoint, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+impl<V: PositionedPoint3, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
   pub fn new(v: Vec<V>, index: Vec<u16>) -> Self {
     Self {
       data: v,

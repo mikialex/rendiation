@@ -1,4 +1,4 @@
-use crate::{PositionedPoint, Line3};
+use crate::{PositionedPoint3, Line3};
 use rendiation_math::Vec3;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -18,7 +18,7 @@ impl<T> Face3<T> {
   }
 }
 
-impl<T: PositionedPoint> Face3<T> {
+impl<T: PositionedPoint3> Face3<T> {
   pub fn face_normal_by_position(&self) -> Vec3<f32> {
     let cb = self.a.position() - self.b.position();
     let ab = self.a.position() - self.b.position();

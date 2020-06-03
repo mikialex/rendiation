@@ -12,5 +12,5 @@ rendiation = { path = "../rendiation", features = ["glsl-spirv"] }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
-rendiation-marco = { path = "../marco" }
+rendiation-derives = { path = "../rendiation-derives" }
 generational-arena = { version = "0.2" }

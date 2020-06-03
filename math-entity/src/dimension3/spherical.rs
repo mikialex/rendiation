@@ -1,10 +1,10 @@
 use rendiation_math::Vec3;
 
-pub struct Spherical {
-  pub center: Vec3<f32>,
-  pub radius: f32,
-  pub polar: f32,
-  pub azim: f32,
+pub struct Spherical<T = f32> {
+  pub center: Vec3<T>,
+  pub radius: T,
+  pub polar: T,
+  pub azim: T,
 }
 
 impl Spherical {

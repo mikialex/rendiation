@@ -1,28 +1,22 @@
 use rendiation_math::math::Math;
 use rendiation_math::*;
+use crate::Axis3;
 
 #[derive(Debug, Copy, Clone)]
-pub enum Axis {
-  X,
-  Y,
-  Z,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct Box3 {
-  pub min: Vec3<f32>,
-  pub max: Vec3<f32>,
+pub struct Box3<T = f32> {
+  pub min: Vec3<T>,
+  pub max: Vec3<T>,
 }
 
 impl Box3 {
   pub fn new(min: Vec3<f32>, max: Vec3<f32>) -> Self {
-    Box3 { min, max }
+    Self { min, max }
   }
 
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
-    Box3::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
+    Self::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
   }
 
   pub fn center(&self) -> Vec3<f32> {
@@ -38,22 +32,22 @@ impl Box3 {
     )
   }
 
-  pub fn longest_axis(&self) -> (Axis, f32) {
+  pub fn longest_axis(&self) -> (Axis3, f32) {
     let x_length = self.max.x - self.min.x;
     let y_length = self.max.y - self.min.y;
     let z_length = self.max.z - self.min.z;
 
     if x_length > y_length {
       if x_length > z_length {
-        (Axis::X, x_length)
+        (Axis3::X, x_length)
       } else {
-        (Axis::Z, z_length)
+        (Axis3::Z, z_length)
       }
     } else {
       if y_length > z_length {
-        (Axis::Y, y_length)
+        (Axis3::Y, y_length)
       } else {
-        (Axis::Z, z_length)
+        (Axis3::Z, z_length)
       }
     }
   }
@@ -63,19 +57,23 @@ impl Box3 {
     self.max.max(point);
   }
 
-  pub fn expand_by_box(&mut self, box3: Box3) {
+  pub fn union(&mut self, box3: Self) {
+    self.expand_by_box(box3)
+  }
+
+  pub fn expand_by_box(&mut self, box3: Self) {
     self.min.min(box3.min);
     self.max.max(box3.max);
   }
 
   pub fn from_points(iter: impl Iterator<Item = Vec3<f32>>) -> Self {
-    let mut bbox = Box3::empty();
+    let mut bbox = Self::empty();
     iter.for_each(|p| bbox.expand_by_point(p));
     bbox
   }
 
-  pub fn from_boxes(iter: impl Iterator<Item = Box3>) -> Self {
-    let mut bbox = Box3::empty();
+  pub fn from_boxes(iter: impl Iterator<Item = Self>) -> Self {
+    let mut bbox = Self::empty();
     iter.for_each(|p| bbox.expand_by_box(p));
     bbox
   }

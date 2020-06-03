@@ -22,7 +22,7 @@ fn test_intersection_is_visible_to_point(
   point: &Vec3,
 ) -> bool {
   let distance = (*point - intersection.hit_position).length();
-  let test_ray = Ray::from_point_to_point(intersection.hit_position, *point);
+  let test_ray = Ray3::from_point_to_point(intersection.hit_position, *point);
   let hit_result = scene.get_min_dist_hit(&test_ray);
 
   if let Some(hit_result) = hit_result {
@@ -44,7 +44,7 @@ impl Renderer {
     }
   }
 
-  pub fn path_trace(&self, ray: &Ray, scene: &Scene, _camera: & impl Camera) -> Vec3 {
+  pub fn path_trace(&self, ray: &Ray3, scene: &Scene, _camera: & impl Camera) -> Vec3 {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = *ray;

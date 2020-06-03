@@ -4,7 +4,7 @@ use crate::shading::*;
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
 use rendiation::*;
-use rendiation_mesh_buffer::mesh_creator::{plane::Quad, IndexedBufferMesher};
+use rendiation_mesh_buffer::tesserlation::{plane::Quad, IndexedBufferTesserlator};
 use rendiation_mesh_buffer::wgpu::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -165,7 +165,7 @@ impl BlockRegistry {
     }
 
     use rendiation_mesh_buffer::geometry::TriangleList;
-    let mut quad = GPUGeometry::<_, TriangleList>::from(Quad.create_mesh());
+    let mut quad = GPUGeometry::<_, TriangleList>::from(Quad.create_mesh(&()));
     quad.update_gpu(renderer);
     let sampler = WGPUSampler::default(renderer);
     let target_texture = WGPUTexture::new_as_target(&renderer, (64, 64));

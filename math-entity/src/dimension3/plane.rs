@@ -2,9 +2,9 @@ use rendiation_math::*;
 use crate::Face3;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Plane {
-  pub normal: Vec3<f32>,
-  pub constant: f32,
+pub struct Plane<T = f32> {
+  pub normal: Vec3<T>,
+  pub constant: T,
 }
 
 impl Plane {

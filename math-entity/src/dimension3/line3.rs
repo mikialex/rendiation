@@ -1,6 +1,8 @@
 use rendiation_math::Mat4;
 use rendiation_math::Vec3;
 
+// pub type Line3<T> = Line3Container<Vec3<T>>;
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Line3<T = Vec3<f32>> {
   pub start: T,

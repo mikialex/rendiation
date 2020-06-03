@@ -2,7 +2,7 @@ use crate::environment::*;
 use crate::light::*;
 use crate::model::*;
 use crate::ray::*;
-use rendiation_math_entity::Ray;
+use rendiation_math_entity::Ray3;
 use std::rc::Rc;
 
 pub struct Scene {
@@ -12,7 +12,7 @@ pub struct Scene {
 }
 
 impl Scene {
-  pub fn get_min_dist_hit(&self, ray: &Ray) -> Option<(Intersection, Rc<Model>)> {
+  pub fn get_min_dist_hit(&self, ray: &Ray3) -> Option<(Intersection, Rc<Model>)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result: Option<(Intersection, Rc<Model>)> = None;
     for model in &self.models {

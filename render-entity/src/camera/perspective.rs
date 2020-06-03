@@ -31,12 +31,12 @@ impl PerspectiveCamera {
 }
 
 impl Raycaster for PerspectiveCamera {
-  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray {
+  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3 {
     let origin = self.get_transform().matrix.position();
     let target = Vec3::new(view_position.x * 2. - 1., view_position.y * 2. - 1., 0.5)
       * self.get_vp_matrix_inverse();
     let direction = (target - origin).normalize();
-    Ray::new(origin, direction)
+    Ray3::new(origin, direction)
   }
 }
 
