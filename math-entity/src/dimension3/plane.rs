@@ -1,23 +1,16 @@
+use crate::{MultiDimensionalLine, Triangle};
 use rendiation_math::*;
-use crate::Triangle;
 
-#[derive(Debug, Copy, Clone)]
-pub struct Plane<T = f32> {
-  pub normal: Vec3<T>,
-  pub constant: T,
-}
+// we cant use type alias for trait bound in stable: https://github.com/rust-lang/rust/issues/52662
+pub type Plane = MultiDimensionalLine<f32, Vec3<f32>>;
 
 impl Plane {
-  pub fn new(normal: Vec3<f32>, constant: f32) -> Self {
-    Plane { normal, constant }
-  }
-
   pub fn distance_to_point(&self, point: Vec3<f32>) -> f32 {
     self.normal.dot(point) + self.constant
   }
 
-  pub fn project_point(&self,point: Vec3<f32>) -> Vec3<f32> {
-    self.normal * (- self.distance_to_point(point)) + point
+  pub fn project_point(&self, point: Vec3<f32>) -> Vec3<f32> {
+    self.normal * (-self.distance_to_point(point)) + point
   }
 
   pub fn set_components(&mut self, x: f32, y: f32, z: f32, w: f32) -> &mut Self {

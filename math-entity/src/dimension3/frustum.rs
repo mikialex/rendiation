@@ -1,11 +1,11 @@
-use crate::IntersectAble;
 use crate::plane::Plane;
-use crate::{sphere::Sphere, AABB, intersect_reverse};
+use crate::IntersectAble;
+use crate::{intersect_reverse, sphere::Sphere, AABB};
 use rendiation_math::*;
 
 #[derive(Clone)]
-pub struct Frustum<T = f32> {
-  planes: [Plane<T>; 6],
+pub struct Frustum {
+  planes: [Plane; 6],
 }
 
 impl Default for Frustum {

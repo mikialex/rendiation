@@ -1,16 +1,9 @@
 use rendiation_math::*;
+use crate::Ray;
 
-#[derive(Debug, Copy, Clone)]
-pub struct Ray3 {
-  pub origin: Vec3<f32>,
-  pub direction: Vec3<f32>,
-}
+pub type Ray3 = Ray<Vec3<f32>>;
 
 impl Ray3 {
-  pub fn new(origin: Vec3<f32>, direction: Vec3<f32>) -> Self {
-    Ray3 { origin, direction }
-  }
-
   pub fn from_point_to_point(origin: Vec3<f32>, target: Vec3<f32>) -> Self {
     Ray3::new(origin, (target - origin).normalize())
   }

@@ -1,6 +1,4 @@
 use rendiation_math::Vec2;
+use crate::MultiDimensionalCircle;
 
-pub struct Circle<T> {
-  pub center: Vec2<T>,
-  pub radius: T,
-}
+pub type Circle = MultiDimensionalCircle<f32, Vec2<f32>>;

@@ -10,11 +10,17 @@ pub mod aabb;
 pub mod line_segment;
 pub mod point;
 pub mod triangle;
+pub mod md_line;
+pub mod md_circle;
+pub mod ray;
 
 pub use aabb::*;
 pub use line_segment::*;
 pub use point::*;
 pub use triangle::*;
+pub use md_line::*;
+pub use md_circle::*;
+pub use ray::*;
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;

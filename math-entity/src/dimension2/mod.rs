@@ -1,7 +1,7 @@
-pub mod box2;
 pub mod circle;
-pub use box2::*;
+pub mod rectangle;
 pub use circle::*;
+pub use rectangle::*;
 use rendiation_math::Vec2;
 
 #[derive(Debug, Copy, Clone)]
