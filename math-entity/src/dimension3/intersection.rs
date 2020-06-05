@@ -6,19 +6,18 @@ use rendiation_math::Vec3;
 pub struct NearestPoint3D(pub Option<Vec3<f32>>);
 pub struct IntersectionList3D(pub Vec<Vec3<f32>>);
 
-// #[macro_export]
-// macro_rules! intersect_reverse_generics {
-//   ($self_item: ty, $result:ty, $param:ty, $target:ty, $impl_gen:ty) => {
-//     impl<$impl_gen> IntersectAble<$target, $result, $param> for $self_item {
-//       fn intersect(&self, other: &$target, p: &$param) -> $result {
-//         IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
-//       }
-//     }
-//   };
-// }
+#[macro_export]
+macro_rules! intersect_reverse_generics {
+  ($self_item: ty, $result:ty, $param:ty, $target:ty, $impl_gen:tt, $impl_gen_bound:tt) => {
+    impl<$impl_gen: $impl_gen_bound> IntersectAble<$target, $result, $param> for $self_item {
+      fn intersect(&self, other: &$target, p: &$param) -> $result {
+        IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
+      }
+    }
+  };
+}
 
-// how can i match this ?!
-// intersect_reverse_generics!(T: Positioned3D, Triangle<T>, NearestPoint3D, (), Ray3);
+intersect_reverse_generics!(Triangle<T>, NearestPoint3D, (), Ray3, T, Positioned3D);
 impl<T: Positioned3D> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
   #[allow(non_snake_case)]
   fn intersect(&self, face: &Triangle<T>, _: &()) -> NearestPoint3D {
