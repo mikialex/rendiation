@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use rendiation_math_entity::Positioned3D;
 lazy_static! {
   static ref VERTEX_BUFFERS: Vec<VertexBufferDescriptor<'static>> =
-    { vec![Vertex::get_buffer_layout_descriptor()] };
+    vec![Vertex::get_buffer_layout_descriptor()];
 }
 
 impl<'a, V: Positioned3D, T: PrimitiveTopology<V> + WGPUPrimitiveTopology> GeometryProvider
@@ -88,9 +88,7 @@ pub struct GPUGeometry<V: Positioned3D = Vertex, T: PrimitiveTopology<V> = Trian
   gpu_index: Option<WGPUBuffer>,
 }
 
-impl<V: Positioned3D, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>>
-  for GPUGeometry<V, T>
-{
+impl<V: Positioned3D, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>> for GPUGeometry<V, T> {
   fn from(geometry: IndexedGeometry<V, T>) -> Self {
     GPUGeometry {
       geometry,

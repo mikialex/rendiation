@@ -1,19 +1,31 @@
 use crate::ray3::Ray3;
 use crate::sphere::Sphere;
-use crate::{intersect_reverse, IntersectAble, Triangle, Box3, LineSegment3D};
+use crate::{intersect_reverse, Box3, IntersectAble, LineSegment3D, Positioned3D, Triangle};
 use rendiation_math::Vec3;
 
 pub struct NearestPoint3D(pub Option<Vec3<f32>>);
 pub struct IntersectionList3D(pub Vec<Vec3<f32>>);
 
-intersect_reverse!(Triangle, NearestPoint3D, (), Ray3);
-impl IntersectAble<Triangle, NearestPoint3D> for Ray3 {
+// #[macro_export]
+// macro_rules! intersect_reverse_generics {
+//   ($self_item: ty, $result:ty, $param:ty, $target:ty, $impl_gen:ty) => {
+//     impl<$impl_gen> IntersectAble<$target, $result, $param> for $self_item {
+//       fn intersect(&self, other: &$target, p: &$param) -> $result {
+//         IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
+//       }
+//     }
+//   };
+// }
+
+// how can i match this ?!
+// intersect_reverse_generics!(T: Positioned3D, Triangle<T>, NearestPoint3D, (), Ray3);
+impl<T: Positioned3D> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Triangle, _: &()) -> NearestPoint3D {
+  fn intersect(&self, face: &Triangle<T>, _: &()) -> NearestPoint3D {
     // Compute the offset origin, edges, and normal.
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
-    let Triangle { a, b, c } = *face;
+    let Triangle { a, b, c } = face.map(|v| v.position());
     let blackfaceCulling = false;
     let _edge1 = b - a;
     let _edge2 = c - a;

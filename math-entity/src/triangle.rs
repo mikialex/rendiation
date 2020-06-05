@@ -1,4 +1,4 @@
-use crate::{LineSegment};
+use crate::LineSegment;
 use rendiation_math::Vec3;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -15,6 +15,16 @@ impl<T> Triangle<T> {
 
   pub fn iter_point<'a>(&'a self) -> Face3Iter<'a, T> {
     Face3Iter::new(self)
+  }
+}
+
+impl<T: Copy> Triangle<T> {
+  pub fn map<U>(&self, f: impl Fn(T) -> U) -> Triangle<U> {
+    Triangle {
+      a: f(self.a),
+      b: f(self.b),
+      c: f(self.c),
+    }
   }
 }
 
