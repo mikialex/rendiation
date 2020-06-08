@@ -38,6 +38,7 @@
         "multisampled",
         "octree",
         "perlin",
+        "powf",
         "rasterization",
         "renderables",
         "rgba",
