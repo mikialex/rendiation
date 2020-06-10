@@ -43,7 +43,7 @@ impl World {
 
   pub fn attach_scene(
     &mut self,
-    scene: &mut Scene<SceneGraphWebGPURendererBackend>,
+    scene: &mut Scene<SceneGraphWebGPUBackend>,
     renderer: &mut WGPURenderer,
     camera_gpu: &CameraGPU,
     target: &TargetStates,
@@ -107,7 +107,7 @@ impl World {
   pub fn update(
     &mut self,
     renderer: &mut WGPURenderer,
-    scene: &mut Scene<SceneGraphWebGPURendererBackend>,
+    scene: &mut Scene<SceneGraphWebGPUBackend>,
   ) {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     let camera_position = camera.get_transform().matrix.position();

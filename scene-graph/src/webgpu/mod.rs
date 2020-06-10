@@ -4,7 +4,7 @@ use crate::{
 };
 use rendiation::*;
 
-impl SceneGraphBackEnd for SceneGraphWebGPURendererBackend {
+impl SceneGraphBackEnd for SceneGraphWebGPUBackend {
   type RenderTarget = WGPURenderPassBuilder<'static>;
   type Renderer = WGPURenderer;
   type Shading = WGPUPipeline;
@@ -14,7 +14,7 @@ impl SceneGraphBackEnd for SceneGraphWebGPURendererBackend {
   type UniformBuffer = WGPUBuffer;
 }
 
-impl Background<SceneGraphWebGPURendererBackend> for SolidBackground {
+impl Background<SceneGraphWebGPUBackend> for SolidBackground {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder) {
     builder
       .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
@@ -26,11 +26,11 @@ fn extend_lifetime<'b>(r: WGPURenderPassBuilder<'b>) -> WGPURenderPassBuilder<'s
   unsafe { std::mem::transmute::<WGPURenderPassBuilder<'b>, WGPURenderPassBuilder<'static>>(r) }
 }
 
-pub struct SceneGraphWebGPURendererBackend {
+pub struct SceneGraphWebGPUBackend {
   engine: SceneGraphRenderEngine,
 }
 
-impl SceneGraphWebGPURendererBackend {
+impl SceneGraphWebGPUBackend {
   pub fn new() -> Self {
     Self {
       engine: SceneGraphRenderEngine::new(),
@@ -39,7 +39,7 @@ impl SceneGraphWebGPURendererBackend {
 
   pub fn render(
     &mut self,
-    scene: &mut Scene<SceneGraphWebGPURendererBackend>,
+    scene: &mut Scene<SceneGraphWebGPUBackend>,
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
@@ -69,7 +69,7 @@ impl RenderObject {
   pub fn render_webgpu<'a, 'b: 'a>(
     &self,
     pass: &mut WGPURenderPass<'a>,
-    scene: &'b Scene<SceneGraphWebGPURendererBackend>,
+    scene: &'b Scene<SceneGraphWebGPUBackend>,
   ) {
     let shading = scene.resources.get_shading(self.shading_index);
     let geometry = &scene.resources.get_geometry(self.geometry_index).data;
@@ -98,7 +98,7 @@ use rendiation_mesh_buffer::wgpu::GPUGeometry;
 use std::ops::Range;
 use rendiation_math_entity::Positioned3D;
 impl<V: Positioned3D, T: PrimitiveTopology<V> + 'static>
-  Geometry<SceneGraphWebGPURendererBackend> for GPUGeometry<V, T>
+  Geometry<SceneGraphWebGPUBackend> for GPUGeometry<V, T>
 {
   fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
     self.update_gpu(renderer)

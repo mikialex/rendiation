@@ -1,37 +1,6 @@
+use rendiation_render_entity::color::{RGBColor, Color};
+
 extern crate image;
-
-#[derive(Clone, Copy, Debug)]
-pub struct Color {
-  pub r: f32,
-  pub g: f32,
-  pub b: f32,
-}
-
-impl Color {
-  pub fn new(r: f32, g: f32, b: f32) -> Color {
-    Color { r, g, b }
-  }
-
-  pub fn gamma_rgb(&self, gamma_correction: f32) -> Color {
-    Color::new(
-      self.r.min(1.0).max(0.0).powf(gamma_correction),
-      self.g.min(1.0).max(0.0).powf(gamma_correction),
-      self.b.min(1.0).max(0.0).powf(gamma_correction),
-    )
-  }
-}
-
-impl std::ops::Mul<f32> for Color {
-  fn mul(self, scalar: f32) -> Color {
-    Color {
-      r: self.r * scalar,
-      g: self.g * scalar,
-      b: self.b * scalar,
-    }
-  }
-
-  type Output = Color;
-}
 
 pub struct Frame {
   pub width: u64,
@@ -44,7 +13,7 @@ impl Frame {
     Frame {
       width,
       height,
-      data: vec![vec![Color::new(0.0, 0.0, 0.0); height as usize]; width as usize],
+      data: vec![vec![Color::from_value((0.0, 0.0, 0.0)); height as usize]; width as usize],
     }
   }
 
@@ -53,9 +22,9 @@ impl Frame {
     for i in 0..data.len() {
       let row = &mut data[i];
       for j in 0..row.len() {
-        data[i][j].r = color.r;
-        data[i][j].g = color.g;
-        data[i][j].b = color.b;
+        data[i][j].mut_r(color.r());
+        data[i][j].mut_g(color.g());
+        data[i][j].mut_b(color.b());
       }
     }
   }

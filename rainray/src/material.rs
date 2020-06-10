@@ -1,17 +1,18 @@
 use crate::frame::*;
 use crate::math::*;
 use crate::ray::*;
+use rendiation_render_entity::color::{LinearRGBColorSpace, Color};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Material {
-  pub albedo: Color,
+  pub albedo: Color<LinearRGBColorSpace<f32>>,
   pub emissive: Vec3,
 }
 
 impl Material {
   pub fn new() -> Material {
     Material {
-      albedo: Color::new(0.95, 0.95, 0.95),
+      albedo: Color::from_value((0.95, 0.95, 0.95)),
       emissive: Vec3::new(0.0, 0.0, 0.0),
     }
   }
