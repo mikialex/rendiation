@@ -258,7 +258,7 @@ where
   T: Vec + Math,
 {
   pub fn rotation_x(theta: T) -> Self {
-    let theta_half = theta * T::onehalf();
+    let theta_half = theta * T::half();
 
     Self {
       w: theta_half.cos(),
@@ -269,7 +269,7 @@ where
   }
 
   pub fn rotation_y(theta: T) -> Self {
-    let theta_half = theta * T::onehalf();
+    let theta_half = theta * T::half();
 
     Self {
       w: theta_half.cos(),
@@ -280,7 +280,7 @@ where
   }
 
   pub fn rotation_z(theta: T) -> Self {
-    let theta_half = theta * T::onehalf();
+    let theta_half = theta * T::half();
 
     Self {
       w: theta_half.cos(),
@@ -291,7 +291,7 @@ where
   }
 
   pub fn rotation(axis: &Vec3<T>, theta: T) -> Self {
-    let (s, c) = (theta * T::onehalf()).sincos();
+    let (s, c) = (theta * T::half()).sincos();
 
     Self {
       w: c,
@@ -307,7 +307,7 @@ where
 
     let t0 = T::one() + cos_angle;
     let t1 = (t0 + t0).rsqrt();
-    let t2 = (t0 + t0) * t1 * T::onehalf();
+    let t2 = (t0 + t0) * t1 * T::half();
 
     Self {
       x: axis.x * t1,
@@ -318,9 +318,9 @@ where
   }
 
   pub fn euler_xyz(euler: &Vec3<T>) -> Self {
-    let p = (euler.x * T::onehalf()).sincos();
-    let h = (euler.y * T::onehalf()).sincos();
-    let b = (euler.z * T::onehalf()).sincos();
+    let p = (euler.x * T::half()).sincos();
+    let h = (euler.y * T::half()).sincos();
+    let b = (euler.z * T::half()).sincos();
 
     let sp = p.0;
     let sb = b.0;
@@ -338,9 +338,9 @@ where
   }
 
   pub fn euler_zxy(euler: &Vec3<T>) -> Self {
-    let p = (euler.x * T::onehalf()).sincos();
-    let h = (euler.y * T::onehalf()).sincos();
-    let b = (euler.z * T::onehalf()).sincos();
+    let p = (euler.x * T::half()).sincos();
+    let h = (euler.y * T::half()).sincos();
+    let b = (euler.z * T::half()).sincos();
 
     let sp = p.0;
     let sb = b.0;

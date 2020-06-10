@@ -1,7 +1,7 @@
 use crate::frame::*;
 use crate::math::*;
 use crate::ray::*;
-use rendiation_render_entity::color::{LinearRGBColorSpace, Color};
+use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
 #[derive(Clone, Copy)]
 pub struct Material {
@@ -18,9 +18,9 @@ impl Material {
   }
 
   pub fn color(&mut self, r: f32, g: f32, b: f32) -> &Self {
-    self.albedo.r = r;
-    self.albedo.g = g;
-    self.albedo.b = b;
+    self.albedo.mut_r(r);
+    self.albedo.mut_g(g);
+    self.albedo.mut_b(b);
     self
   }
 

@@ -5,7 +5,7 @@ pub trait UnitX: Sized { fn unit_x() -> Self; }
 pub trait UnitY: Sized { fn unit_y() -> Self; }
 pub trait UnitZ: Sized { fn unit_z() -> Self; }
 pub trait UnitW: Sized { fn unit_w() -> Self; }
-pub trait OneHalf: Sized { fn onehalf() -> Self; }
+pub trait Half: Sized { fn half() -> Self; }
 pub trait Pi: Sized { fn pi() -> Self; }
 pub trait Pi2: Sized { fn pi2() -> Self; }
 pub trait Pi4: Sized { fn pi4() -> Self; }
@@ -17,7 +17,7 @@ pub trait Epsilon: Sized { fn epsilon() -> Self; }
 impl One for f32      { #[inline(always)] fn one() -> Self { 1.0_f32 } }
 impl Zero for f32     { #[inline(always)] fn zero() -> Self { 0.0_f32 } }
 impl Two for f32      { #[inline(always)] fn two() -> Self { 2.0_f32 } }
-impl OneHalf for f32  { #[inline(always)] fn onehalf() -> Self { 0.5_f32 } }
+impl Half for f32     { #[inline(always)] fn half() -> Self { 0.5_f32 } }
 impl Pi for f32       { #[inline(always)] fn pi() -> Self { std::f32::consts::PI } }
 impl Pi2 for f32      { #[inline(always)] fn pi2() -> Self { Self::pi() * 2.0_f32 } }
 impl Pi4 for f32      { #[inline(always)] fn pi4() -> Self { Self::pi() * 4.0_f32 } }
@@ -29,7 +29,7 @@ impl Epsilon for f32  { #[inline(always)] fn epsilon() -> Self { 0.00001_f32 } }
 impl One for f64      { #[inline(always)] fn one() -> Self { 1.0_f64 } }
 impl Zero for f64     { #[inline(always)] fn zero() -> Self { 0.0_f64 } }
 impl Two for f64      { #[inline(always)] fn two() -> Self { 2.0_f64 } }
-impl OneHalf for f64  { #[inline(always)] fn onehalf() -> Self { 0.5_f64 } }
+impl Half for f64     { #[inline(always)] fn half() -> Self { 0.5_f64 } }
 impl Pi for f64       { #[inline(always)] fn pi() -> Self { std::f64::consts::PI } }
 impl Pi2 for f64      { #[inline(always)] fn pi2() -> Self { Self::pi() * 2.0_f64 } }
 impl Pi4 for f64      { #[inline(always)] fn pi4() -> Self { Self::pi() * 4.0_f64 } }

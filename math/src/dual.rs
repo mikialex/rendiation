@@ -175,7 +175,7 @@ impl<T> Dual<T> where T:Vec + Math
 		Self
 		{
 			real:rotation,
-			dual:Quat::new(t.x,t.y,t.z,T::zero()) * rotation * T::onehalf()
+			dual:Quat::new(t.x,t.y,t.z,T::zero()) * rotation * T::half()
 		}
 	}
 

@@ -18,7 +18,7 @@ pub trait Vec:
 	+ DivAssign<Self>
 	+ Neg<Output = Self>
 	+ Cmp
-	+ One + Two + Zero + OneHalf
+	+ One + Two + Zero + Half
 {
 }
 

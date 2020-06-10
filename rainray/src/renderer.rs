@@ -2,6 +2,7 @@ use crate::frame::*;
 use crate::math::*;
 use crate::ray::*;
 use crate::scene::*;
+use rendiation_render_entity::color::RGBColor;
 use rendiation_render_entity::*;
 
 use indicatif::ProgressBar;
@@ -10,7 +11,6 @@ use std::time::Instant;
 pub struct Renderer {
   super_sample_rate: u64,
   exposure_upper_bound: f32,
-  gamma: f32,
 
   trace_fix_sample_count: u64,
   bounce_time_limit: u64,
@@ -38,13 +38,12 @@ impl Renderer {
     Renderer {
       super_sample_rate,
       exposure_upper_bound: 1.0,
-      gamma: 2.2,
       bounce_time_limit: 5,
       trace_fix_sample_count: 40,
     }
   }
 
-  pub fn path_trace(&self, ray: &Ray3, scene: &Scene, _camera: & impl Camera) -> Vec3 {
+  pub fn path_trace(&self, ray: &Ray3, scene: &Scene, _camera: &impl Camera) -> Vec3 {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = *ray;
@@ -108,9 +107,10 @@ impl Renderer {
         for _sample in 0..self.trace_fix_sample_count {
           energy_acc += self.path_trace(&ray, scene, camera);
         }
-        pixel.r = energy_acc.x / energy_div;
-        pixel.g = energy_acc.y / energy_div;
-        pixel.b = energy_acc.z / energy_div;
+        pixel
+          .mut_r(energy_acc.x / energy_div)
+          .mut_g(energy_acc.y / energy_div)
+          .mut_b(energy_acc.z / energy_div);
       }
       if i % bar_inv == 0 {
         progress_bar.inc(1);
@@ -133,15 +133,16 @@ impl Renderer {
           for l in 0..super_sample_rate {
             let sample_pix =
               render_frame.data[i * super_sample_rate + k][j * super_sample_rate + l];
-            let gammared_pix = sample_pix.gamma_rgb(self.gamma);
-            r_all += gammared_pix.r;
-            g_all += gammared_pix.g;
-            b_all += gammared_pix.b;
+            let srgb = sample_pix.to_linear_rgb();
+            r_all += srgb.r();
+            g_all += srgb.g();
+            b_all += srgb.b();
           }
         }
-        pixel.r = r_all / super_sample_count;
-        pixel.g = g_all / super_sample_count;
-        pixel.b = b_all / super_sample_count;
+        pixel
+          .mut_r(r_all / super_sample_count)
+          .mut_g(g_all / super_sample_count)
+          .mut_b(b_all / super_sample_count);
       }
     }
 
