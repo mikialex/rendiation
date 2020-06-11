@@ -1,6 +1,6 @@
 use crate::math::*;
 
-pub static MAX_RAY_HIT_DISTANCE: f32 = 1000.0;
+pub static MAX_RAY_HIT_DISTANCE: f32 = 1000000.0;
 pub static EPS: f32 = 0.00001;
 
 // pub type RayIntersectAble = dyn IntersectAble<Ray3, Option<Intersection>>;

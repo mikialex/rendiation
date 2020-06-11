@@ -10,7 +10,7 @@ pub fn rand() -> f32 {
 }
 
 pub fn rand2() -> (f32, f32) {
-  (randx::random(), randx::random())
+  (rand(), rand())
 }
 
 pub fn cosine_sample_hemisphere(normal: &Vec3) -> Vec3 {

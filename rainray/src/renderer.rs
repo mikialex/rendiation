@@ -39,7 +39,7 @@ impl Renderer {
       super_sample_rate,
       exposure_upper_bound: 1.0,
       bounce_time_limit: 5,
-      trace_fix_sample_count: 40,
+      trace_fix_sample_count: 10,
     }
   }
 
