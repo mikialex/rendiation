@@ -7,7 +7,7 @@ pub struct Model {
 }
 
 impl Model {
-  pub fn new(geometry: Box<dyn RayIntersectAble>, material: Material) -> Self {
-    Model { geometry, material }
+  pub fn new(geometry: impl RayIntersectAble + 'static, material: Material) -> Self {
+    Model { geometry: Box::new(geometry), material }
   }
 }

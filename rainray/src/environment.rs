@@ -32,5 +32,5 @@ impl Environment for GradientEnvironment {
 }
 
 fn lerp(t: f32, min: f32, max: f32) -> f32 {
-  (1. - t) * max + t * min
+  (1. - t) * min + t * max
 }

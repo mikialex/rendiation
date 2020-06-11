@@ -99,7 +99,7 @@ impl Renderer {
     for (i, row) in render_frame.data.iter_mut().enumerate() {
       for (j, pixel) in row.iter_mut().enumerate() {
         let x_ratio = i as f32 * x_ratio_unit;
-        let y_ratio = j as f32 * y_ratio_unit;
+        let y_ratio = 1.0 - j as f32 * y_ratio_unit;
         let ray = camera.create_screen_ray((x_ratio, y_ratio).into());
 
         let mut energy_acc = Vec3::new(0., 0., 0.);

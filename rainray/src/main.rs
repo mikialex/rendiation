@@ -28,34 +28,24 @@ fn main() {
     Vec3::new(0., 0., 10.),
     Vec3::new(0., 0., 0.),
     Vec3::new(0., 1., 0.),
-  );
+  ) * Mat4::translate(0., 5., 0.);
   camera.update_projection();
 
   let mut frame = Frame::new(500, 500);
   let scene = Scene {
     models: vec![
       Rc::new(model::Model::new(
-        Box::new(Sphere::new((-0., -0., -0.).into(), 3.0)),
+        Sphere::new((0., 5., 0.).into(), 5.0), // main ball
         Material::new(),
       )),
       Rc::new(model::Model::new(
-        Box::new(Sphere {
-          center: Vec3::new(0., 0., 0.),
-          radius: 1.5,
-        }),
+        Sphere::new((0., -10000., 0.).into(), 10000.0), // ground
         *Material::new().color(0.6, 0.4, 0.8),
       )),
-      Rc::new(model::Model {
-        geometry: Box::new(Sphere {
-          center: Vec3 {
-            x: 3.,
-            y: -1.,
-            z: -5.,
-          },
-          radius: 2.,
-        }),
-        material: *Material::new().color(0.8, 0.6, 0.2),
-      }),
+      Rc::new(model::Model::new (
+        Sphere::new((3., 2., 2.).into(), 2.0),
+        *Material::new().color(0.8, 0.6, 0.2),
+      )),
     ],
     point_lights: vec![PointLight {
       position: Vec3 {
@@ -66,9 +56,8 @@ fn main() {
       color: Vec3::new(1.0, 1.0, 1.0),
     }],
     env: Box::new(GradientEnvironment {
-      top_intensity: Vec3::new(1.0, 1.0, 1.0),
-      bottom_intensity: Vec3::new(1.0, 1.0, 1.0),
-      // bottom_intensity: Vec3::new(0.9, 0.9, 0.9),
+      top_intensity: Vec3::new(0.4, 0.4, 0.4),
+      bottom_intensity: Vec3::new(0.6, 0.6, 0.6),
     }),
   };
 

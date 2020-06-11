@@ -56,16 +56,4 @@ impl Frame {
     println!("{} pixels has write to {}", self.pixel_count(), path);
   }
 
-  // pub fn iter_pixels(){
-
-  // }
 }
-
-// impl Iterator for MyFunkyIterator {
-//     type Item = (f32, Position);
-
-//     fn next(&mut self) -> Option<(f32, Position)> {
-//         // @target_san's example has the inner iterator at self.0
-//         // so maybe call self.0.next(), tweak the result, and return it.
-//     }
-// }
