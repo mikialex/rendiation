@@ -26,7 +26,7 @@ fn test_intersection_is_visible_to_point(
   let hit_result = scene.get_min_dist_hit(&test_ray);
 
   if let Some(hit_result) = hit_result {
-    hit_result.0.distance > distance + EPS
+    hit_result.0.distance > distance
   } else {
     true
   }
@@ -38,7 +38,7 @@ impl Renderer {
     Renderer {
       super_sample_rate,
       exposure_upper_bound: 1.0,
-      bounce_time_limit: 5,
+      bounce_time_limit: 10,
       trace_fix_sample_count: 10,
     }
   }

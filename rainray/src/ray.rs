@@ -1,7 +1,7 @@
 use crate::math::*;
 
 pub static MAX_RAY_HIT_DISTANCE: f32 = 1000000.0;
-pub static EPS: f32 = 0.00001;
+pub static EPS: f32 = 0.001;
 
 // pub type RayIntersectAble = dyn IntersectAble<Ray3, Option<Intersection>>;
 
@@ -24,7 +24,7 @@ impl RayIntersectAble for Sphere {
     let a_sqr = voc_len_sqr - (vod_len * vod_len); // The length squared of the line between c and the ray
     let radius_square = self.radius * self.radius; // Radius squared
                                                    // println!("{}", a_sqr);
-    if a_sqr <= radius_square + EPS {
+    if a_sqr <= radius_square {
       let b = (radius_square - a_sqr).sqrt(); // the distance between o and the intersection with the sphere
 
       let distance = if vod_len - b < 0.0 {
@@ -33,12 +33,13 @@ impl RayIntersectAble for Sphere {
         vod_len - b
       };
 
-      if distance > EPS {
+      if distance > 0.0 {
         if distance > MAX_RAY_HIT_DISTANCE {
           return None; // too far
         }
-        let hit_position = ray.at(distance);
+        let mut hit_position = ray.at(distance);
         let hit_normal = (hit_position - self.center).normalize();
+        hit_position += hit_normal * EPS;
         Some(Intersection {
           distance,
           hit_normal,
