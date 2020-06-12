@@ -1,41 +1,34 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd};
+use crate::{Index, ResourceManager, SceneGraphBackEnd, ResouceWrap};
 
-pub struct Uniform<T: SceneGraphBackEnd> {
-  index: Index,
-  gpu: T::UniformBuffer,
-}
+// pub struct Uniform<T: SceneGraphBackEnd> {
+//   index: Index,
+//   gpu: T::UniformBuffer,
+// }
 
-impl<T: SceneGraphBackEnd> Uniform<T> {
-  pub fn index(&self) -> Index {
-    self.index
-  }
+// impl<T: SceneGraphBackEnd> Uniform<T> {
+//   pub fn index(&self) -> Index {
+//     self.index
+//   }
 
-  pub fn gpu(&self) -> &T::UniformBuffer {
-    &self.gpu
-  }
+//   pub fn gpu(&self) -> &T::UniformBuffer {
+//     &self.gpu
+//   }
 
-  pub fn gpu_mut(&mut self) -> &mut T::UniformBuffer {
-    &mut self.gpu
-  }
-}
+//   pub fn gpu_mut(&mut self) -> &mut T::UniformBuffer {
+//     &mut self.gpu
+//   }
+// }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
-  pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut Uniform<T> {
-    let wrapped = Uniform {
-      index: Index::from_raw_parts(0, 0),
-      gpu,
-    };
-    let index = self.uniforms.insert(wrapped);
-    let u = self.get_uniform_mut(index);
-    u.index = index;
-    u
+  pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut ResouceWrap<T::UniformBuffer> {
+    ResouceWrap::new_wrap(&mut self.uniforms, gpu)
   }
 
-  pub fn get_uniform_mut(&mut self, index: Index) -> &mut Uniform<T> {
+  pub fn get_uniform_mut(&mut self, index: Index) -> &mut ResouceWrap<T::UniformBuffer> {
     self.uniforms.get_mut(index).unwrap()
   }
 
-  pub fn get_uniform(&self, index: Index) -> &Uniform<T> {
+  pub fn get_uniform(&self, index: Index) -> &ResouceWrap<T::UniformBuffer> {
     self.uniforms.get(index).unwrap()
   }
 

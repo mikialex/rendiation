@@ -1,11 +1,5 @@
 use crate::{Index, ResourceManager, SceneGraphBackEnd};
 
-pub struct SceneShadingDescriptor {
-  pub vertex_shader_str: String,
-  pub frag_shader_str: String,
-  // .. blend state stuff
-}
-
 pub struct SceneShading<T: SceneGraphBackEnd> {
   index: Index,
   parameters: Vec<Index>,

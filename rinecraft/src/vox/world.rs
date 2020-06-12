@@ -10,10 +10,10 @@ use crate::{
 use render_target::TargetStates;
 use rendiation::*;
 use rendiation_math::*;
+use rendiation_render_entity::{PerspectiveCamera, TransformedObject};
 use rendiation_scenegraph::*;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
-use rendiation_render_entity::{TransformedObject, PerspectiveCamera};
 
 pub struct World {
   pub world_machine: WorldMachineImpl,
@@ -58,11 +58,14 @@ impl World {
     let shading_params = BlockShadingParamGroup {
       texture_view: &block_atlas.view(),
       sampler: &sampler,
-      u_mvp_matrix: scene.resources.get_uniform(camera_gpu.gpu_mvp_matrix).gpu(),
+      u_mvp_matrix: scene
+        .resources
+        .get_uniform(camera_gpu.gpu_mvp_matrix)
+        .resource(),
       u_camera_world_position: scene
         .resources
         .get_uniform(camera_gpu.gpu_camera_position)
-        .gpu(),
+        .resource(),
     }
     .create_bindgroup(renderer);
 
@@ -166,19 +169,24 @@ impl World {
           scene.node_remove_child_by_id(scene_data.root_node_index, *node_index);
           scene.free_node(*node_index);
           scene.delete_render_object(*render_object_index);
-          scene.resources.delete_geometry(*geometry_index);
+          scene
+            .resources
+            .delete_geometry_with_buffers(*geometry_index);
           scene_data.blocks.remove(chunk_to_update_key);
         }
 
         // add new node in scene;
-        let geometry = Chunk::create_geometry(
+        let mesh_buffer = Chunk::create_mesh_buffer(
           &self.world_machine,
           &self.chunks,
           *chunk_to_update_key,
+        );
+        let scene_geometry = Chunk::create_add_geometry(
+          &mesh_buffer,
           renderer,
+          scene,
         );
 
-        let scene_geometry = scene.resources.add_geometry(geometry).index();
         let render_object_index =
           scene.create_render_object(scene_geometry, scene_data.block_shading);
         let new_node = scene.create_new_node();

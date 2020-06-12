@@ -1,5 +1,5 @@
 use crate::{
-  Background, Geometry, RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine,
+  Background, RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine,
   SolidBackground,
 };
 use rendiation::*;
@@ -72,14 +72,17 @@ impl RenderObject {
     scene: &'b Scene<SceneGraphWebGPUBackend>,
   ) {
     let shading = scene.resources.get_shading(self.shading_index);
-    let geometry = &scene.resources.get_geometry(self.geometry_index).data;
+    let geometry = scene.resources.get_geometry(self.geometry_index).resource();
 
     pass.set_pipeline(shading.gpu());
 
-    pass.set_index_buffer(geometry.get_gpu_index_buffer());
-    for i in 0..geometry.vertex_buffer_count() {
-      let buffer = geometry.get_gpu_vertex_buffer(i);
-      pass.set_vertex_buffer(i, buffer);
+    geometry.index_buffer.map(|b|{
+      let index = scene.resources.index_buffers.get(b).unwrap(); // todo remove upwrap
+      pass.set_index_buffer(index.resource());
+    });
+    for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
+      let buffer = scene.resources.vertex_buffers.get(*vertex_buffer).unwrap(); // todo remove upwrap
+      pass.set_vertex_buffer(i, buffer.resource());
     }
 
     for i in 0..shading.get_parameters_count() {
@@ -89,33 +92,32 @@ impl RenderObject {
       pass.set_bindgroup(i, bindgroup.gpu());
     }
 
-    pass.draw_indexed(geometry.get_draw_range())
+    pass.draw_indexed(geometry.draw_range.clone())
   }
 }
 
-use rendiation_mesh_buffer::geometry::{PrimitiveTopology};
-use rendiation_mesh_buffer::wgpu::GPUGeometry;
-use std::ops::Range;
-use rendiation_math_entity::Positioned3D;
-impl<V: Positioned3D, T: PrimitiveTopology<V> + 'static>
-  Geometry<SceneGraphWebGPUBackend> for GPUGeometry<V, T>
-{
-  fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
-    self.update_gpu(renderer)
-  }
+// use rendiation_mesh_buffer::geometry::{PrimitiveTopology};
+// use rendiation_mesh_buffer::wgpu::GPUGeometry;
+// use std::ops::Range;
+// use rendiation_math_entity::Positioned3D;
+// impl<V: Positioned3D, T: PrimitiveTopology<V> + 'static> GPUGeometry<V, T>
+// {
+//   fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
+//     self.update_gpu(renderer)
+//   }
 
-  fn get_gpu_index_buffer(&self) -> &WGPUBuffer {
-    self.get_index_buffer_unwrap()
-  }
+//   fn get_gpu_index_buffer(&self) -> &WGPUBuffer {
+//     self.get_index_buffer_unwrap()
+//   }
 
-  fn get_gpu_vertex_buffer(&self, _index: usize) -> &WGPUBuffer {
-    self.get_vertex_buffer_unwrap()
-  }
+//   fn get_gpu_vertex_buffer(&self, _index: usize) -> &WGPUBuffer {
+//     self.get_vertex_buffer_unwrap()
+//   }
 
-  fn get_draw_range(&self) -> Range<u32> {
-    self.get_draw_range()
-  }
-  fn vertex_buffer_count(&self) -> usize {
-    1
-  }
-}
+//   fn get_draw_range(&self) -> Range<u32> {
+//     self.get_draw_range()
+//   }
+//   fn vertex_buffer_count(&self) -> usize {
+//     1
+//   }
+// }

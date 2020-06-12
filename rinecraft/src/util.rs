@@ -61,7 +61,7 @@ impl CameraGPU {
     scene
       .resources
       .get_uniform_mut(self.gpu_camera_position)
-      .gpu_mut()
+      .resource_mut()
       .update(renderer,data);
   }
 
@@ -78,7 +78,7 @@ impl CameraGPU {
     scene
       .resources
       .get_uniform_mut(self.gpu_mvp_matrix)
-      .gpu_mut()
+      .resource_mut()
       .update(renderer, mx_total.as_ref());
   }
 
