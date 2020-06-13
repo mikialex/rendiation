@@ -1,4 +1,4 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd};
+use crate::{Index, ResourceManager, SceneGraphBackEnd, ResouceWrap};
 
 pub struct SceneShadingParameterGroup<T: SceneGraphBackEnd> {
   index: Index,
@@ -52,5 +52,23 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
 
   pub fn delete_shading_param_group(&mut self, index: Index) {
     self.shading_parameter_groups.remove(index);
+  }
+}
+
+impl<T: SceneGraphBackEnd> ResourceManager<T> {
+  pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut ResouceWrap<T::UniformBuffer> {
+    ResouceWrap::new_wrap(&mut self.uniforms, gpu)
+  }
+
+  pub fn get_uniform_mut(&mut self, index: Index) -> &mut ResouceWrap<T::UniformBuffer> {
+    self.uniforms.get_mut(index).unwrap()
+  }
+
+  pub fn get_uniform(&self, index: Index) -> &ResouceWrap<T::UniformBuffer> {
+    self.uniforms.get(index).unwrap()
+  }
+
+  pub fn delete_uniform(&mut self, index: Index) {
+    self.uniforms.remove(index);
   }
 }

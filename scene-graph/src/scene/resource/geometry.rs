@@ -1,21 +1,6 @@
 use crate::{Index, ResourceManager, SceneGraphBackEnd, ResouceWrap};
 use std::{marker::PhantomData, ops::Range};
 
-// pub trait Geometry<T: SceneGraphBackEnd> {
-//   fn update_gpu(&mut self, renderer: &mut T::Renderer);
-//   fn get_gpu_index_buffer(&self) -> & T::IndexBuffer;
-//   fn get_gpu_vertex_buffer(&self, index: usize) -> & T::VertexBuffer;
-//   fn vertex_buffer_count(&self) -> usize;
-//   fn get_draw_range(&self) -> Range<u32>;
-//   // fn get_bounding_local(&self) -> &BoundingData;
-// }
-
-// pub struct SceneGeometry<T: SceneGraphBackEnd> {
-//   index: Index,
-//   // pub data: Box<dyn Geometry<T>>,
-//   pub gpu: SceneGeometryData<T>,
-// }
-
 pub struct SceneGeometryData<T: SceneGraphBackEnd>{
   pub draw_range: Range<u32>,
   pub index_buffer: Option<Index>,
@@ -33,20 +18,6 @@ impl<T: SceneGraphBackEnd> SceneGeometryData<T> {
     }
   }
 }
-
-// impl<T: SceneGraphBackEnd> SceneGeometry<T>{
-//   pub fn index(&self) -> Index {
-//     self.index
-//   }
-
-//   // pub fn gpu(&self) -> &T::UniformBuffer {
-//   //   &self.gpu
-//   // }
-
-//   // pub fn gpu_mut(&mut self) -> &mut T::UniformBuffer {
-//   //   &mut self.gpu
-//   // }
-// }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
   pub fn add_geometry(&mut self, g: SceneGeometryData<T>) -> &mut ResouceWrap<SceneGeometryData<T>> {

@@ -2,7 +2,6 @@
 
 use rendiation::*;
 use std::any::Any;
-use rendiation_mesh_buffer::geometry::IndexedGeometry;
 
 pub trait CALBackend {
   type Shading;

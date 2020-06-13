@@ -2,39 +2,17 @@ use crate::{
   Arena, Index, SceneGraphBackEnd, SceneShading, SceneShadingParameterGroup, SceneGeometryData,
 };
 
-pub struct ResourceManager<T: SceneGraphBackEnd> {
-  // pub resources: Vec<Box<dyn ResourceArena>>,
+type ResourceArena<T> = Arena<ResouceWrap<T>>;
 
-  pub geometries: Arena<ResouceWrap<SceneGeometryData<T>>>,
+pub struct ResourceManager<T: SceneGraphBackEnd> {
+  pub geometries: ResourceArena<SceneGeometryData<T>>,
   pub shadings: Arena<SceneShading<T>>,
   pub shading_parameter_groups: Arena<SceneShadingParameterGroup<T>>,
-  pub uniforms: Arena<ResouceWrap<T::UniformBuffer>>,
-  pub index_buffers: Arena<ResouceWrap<T::IndexBuffer>>,
-  pub vertex_buffers: Arena<ResouceWrap<T::VertexBuffer>>,
-  // pub textures: Arena<ResouceWrap<T::Texture>>,
+  pub uniforms: ResourceArena<T::UniformBuffer>,
+  pub textures: ResourceArena<T::VertexBuffer>,
+  pub index_buffers: ResourceArena<T::IndexBuffer>,
+  pub vertex_buffers: ResourceArena<T::VertexBuffer>,
 }
-
-// try reduce boilplate code, wip
-// pub trait Resource{
-//   fn type_index(&self) -> usize;
-// }
-
-// impl<T: SceneGraphBackEnd> Resource for SceneGeometryData<T>{
-//   fn type_index(&self) -> usize{
-//     0
-//   }
-// }
-
-// pub trait ResourceArena{
-
-// }
-
-// impl<T: SceneGraphBackEnd> ResourceManager<T>{
-//   pub fn get_resource_wrap<U:Resource>(&mut self, resource: U){
-//     let arena = self.resources[resource.type_index()];
-
-//   }
-// }
 
 /// wrap any resouce with an index;
 pub struct ResouceWrap<T> {
@@ -74,7 +52,7 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
       shadings: Arena::new(),
       shading_parameter_groups: Arena::new(),
       uniforms: Arena::new(),
-      // textures: Arena::new(),
+      textures: Arena::new(),
       index_buffers: Arena::new(),
       vertex_buffers: Arena::new(),
     }

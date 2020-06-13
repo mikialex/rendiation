@@ -142,55 +142,25 @@ impl Chunk {
   }
 
   pub fn create_add_geometry(
-    geomtry: &IndexedGeometry,
+    geometry: &IndexedGeometry,
     renderer: &mut WGPURenderer,
     scene: &mut Scene<SceneGraphWebGPUBackend>,
   ) -> Index {
-    todo!();
-    // let geometry = SceneGeometryData::new();
-    // let index_buffer = WGPUBuffer::new()
-    // geometry.index_buffer = Some(scene.resources.add_index_buffer(value))
-    // let chunk = chunks.get(&chunk_position).unwrap();
-
-    // // let data = &chunk.data;
-
-    // let mut new_index = Vec::new();
-    // let mut new_vertex = Vec::new();
-    // let world_offset_x = chunk_position.0 as f32 * CHUNK_ABS_WIDTH;
-    // let world_offset_z = chunk_position.1 as f32 * CHUNK_ABS_WIDTH;
-
-    // for (block, x, y, z) in chunk.iter() {
-    //   if block.is_void() {
-    //     continue;
-    //   }
-
-    //   let min_x = x as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-    //   let min_y = y as f32 * BLOCK_WORLD_SIZE;
-    //   let min_z = z as f32 * BLOCK_WORLD_SIZE + world_offset_z;
-
-    //   let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-    //   let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
-    //   let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
-
-    //   let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
-    //   for face in BLOCK_FACES.iter() {
-    //     if World::check_block_face_visibility(chunks, &world_position, *face) {
-    //       build_block_face(
-    //         world_machine,
-    //         *block,
-    //         &(min_x, min_y, min_z),
-    //         &(max_x, max_y, max_z),
-    //         *face,
-    //         &mut new_index,
-    //         &mut new_vertex,
-    //       );
-    //     }
-    //   }
-    // }
-
-    // let mut geom = GPUGeometry::from((new_vertex, new_index));
-    // geom.update_gpu(renderer);
-    // geom
+    let mut geometry_data = SceneGeometryData::new();
+    let index_buffer = WGPUBuffer::new(
+      renderer,
+      as_bytes(&geometry.index),
+      wgpu::BufferUsage::INDEX,
+    );
+    let vertex_buffer = WGPUBuffer::new(
+      renderer,
+      as_bytes(&geometry.data),
+      wgpu::BufferUsage::VERTEX,
+    );
+    geometry_data.index_buffer = Some(scene.resources.add_index_buffer(index_buffer).index());
+    geometry_data.vertex_buffers = vec![scene.resources.add_vertex_buffer(vertex_buffer).index()];
+    geometry_data.draw_range = 0..geometry.get_full_count();
+    scene.resources.add_geometry(geometry_data).index()
   }
 
   pub fn iter<'a>(&'a self) -> ChunkDataIterator<'a> {
@@ -240,5 +210,14 @@ impl<'a> Iterator for ChunkDataIterator<'a> {
     ));
     self.step_position();
     result
+  }
+}
+
+pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
+  unsafe {
+    std::slice::from_raw_parts(
+      (vec as *const [T]) as *const u8,
+      ::std::mem::size_of::<T>() * vec.len(),
+    )
   }
 }
