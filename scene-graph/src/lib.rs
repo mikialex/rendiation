@@ -7,8 +7,8 @@ pub use cal::*;
 pub mod webgpu;
 pub use webgpu::*;
 
-// pub mod webgl;
-// pub use webgl::*;
+pub mod webgl;
+pub use webgl::*;
 
 pub mod wasm;
 

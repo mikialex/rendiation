@@ -1,6 +1,9 @@
 use crate::{RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine};
 use web_sys::*;
 
+pub mod renderer;
+pub use renderer::*;
+
 pub struct SceneGraphWebGLBackend {
   engine: SceneGraphRenderEngine,
 }
@@ -45,39 +48,6 @@ pub struct WebGLVertexBuffer {
                                                // todo optional VAO
 }
 
-pub struct WebGLRenderer {
-  pub gl: WebGlRenderingContext,
-}
-
-impl WebGLRenderer {
-  pub fn use_program(&mut self, p: &WebGlProgram) {
-    self.gl.use_program(Some(p))
-  }
-
-  pub fn set_index_buffer(&self, buffer: Option<&WebGlBuffer>) {
-    self
-      .gl
-      .bind_buffer(WebGlRenderingContext::ELEMENT_ARRAY_BUFFER, buffer)
-  }
-
-  pub fn set_vertex_buffer(&self, _index: usize, vertex_buffer: &WebGLVertexBuffer) {
-    vertex_buffer.attributes.iter().for_each(|a| {
-      self
-        .gl
-        .bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&a.buffer));
-      self.gl.vertex_attrib_pointer_with_i32(
-        a.location,
-        a.desciptor.size,
-        a.desciptor.data_type.to_webgl(),
-        false,
-        vertex_buffer.stride,
-        a.desciptor.offset,
-      );
-      self.gl.enable_vertex_attrib_array(a.location);
-    })
-  }
-}
-
 impl SceneGraphWebGLBackend {
   pub fn new() -> Self {
     Self {
@@ -106,23 +76,21 @@ impl SceneGraphWebGLBackend {
   }
 }
 
-// struct ShadingParameterGroup{
-
-// }
-
 impl RenderObject {
   pub fn render_webgl(&self, renderer: &mut WebGLRenderer, scene: &Scene<SceneGraphWebGLBackend>) {
-    // todo!()
-    let shading = scene.resources.get_shading(self.shading_index);
-    let geometry = &scene.resources.get_geometry(self.geometry_index).data;
+    let shading = scene.resources.get_shading(self.shading_index).resource();
+    let geometry = &scene.resources.get_geometry(self.geometry_index).resource();
 
-    renderer.use_program(shading.gpu());
+    renderer.use_program(&shading.gpu);
 
     // geometry bind
-    renderer.set_index_buffer(geometry.get_gpu_index_buffer().as_ref());
-    for i in 0..geometry.vertex_buffer_count() {
-      let buffer = geometry.get_gpu_vertex_buffer(i);
-      renderer.set_vertex_buffer(i, buffer);
+    geometry.index_buffer.map(|b| {
+      let index = scene.resources.get_index_buffer(b);
+      renderer.set_index_buffer(index.resource().as_ref());
+    });
+    for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
+      let buffer = scene.resources.get_vertex_buffer(*vertex_buffer);
+      renderer.set_vertex_buffer(i, buffer.resource());
     }
 
     // shading bind
@@ -131,9 +99,10 @@ impl RenderObject {
         .resources
         .get_shading_param_group(shading.get_parameter(i));
       // pass.set_bindgroup(i, bindgroup.gpu());
+      // todo!()
     }
 
-    let range = geometry.get_draw_range();
+    let range = &geometry.draw_range;
     renderer.gl.draw_elements_with_i32(
       WebGlRenderingContext::TRIANGLES,
       range.start as i32,

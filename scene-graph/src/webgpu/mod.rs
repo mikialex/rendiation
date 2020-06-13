@@ -76,11 +76,11 @@ impl RenderObject {
     pass.set_pipeline(&shading.gpu);
 
     geometry.index_buffer.map(|b| {
-      let index = scene.resources.index_buffers.get(b).unwrap(); // todo remove upwrap
+      let index = scene.resources.get_index_buffer(b);
       pass.set_index_buffer(index.resource());
     });
     for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
-      let buffer = scene.resources.vertex_buffers.get(*vertex_buffer).unwrap(); // todo remove upwrap
+      let buffer = scene.resources.get_vertex_buffer(*vertex_buffer);
       pass.set_vertex_buffer(i, buffer.resource());
     }
 
