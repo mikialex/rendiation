@@ -10,7 +10,7 @@ use std::{ops::Mul};
 
 #[derive(Debug)]
 pub struct Color<T: ColorSpace = SRGBColorSpace<f32>> {
-  value: T::ContainerValue,
+  pub value: T::ContainerValue,
 }
 
 // why i cant derive ??

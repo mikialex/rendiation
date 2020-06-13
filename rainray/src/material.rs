@@ -17,10 +17,10 @@ impl Material {
     }
   }
 
-  pub fn color(&mut self, r: f32, g: f32, b: f32) -> &Self {
-    self.albedo.mut_r(r);
-    self.albedo.mut_g(g);
-    self.albedo.mut_b(b);
+  pub fn albedo(&mut self, r: f32, g: f32, b: f32) -> &Self {
+    *self.albedo.mut_r() = r;
+    *self.albedo.mut_g() = g;
+    *self.albedo.mut_b() = b;
     self
   }
 
@@ -28,17 +28,17 @@ impl Material {
     self.emissive
   }
 
-  pub fn brdf_importance_pdf(
-    &self,
-    intersection: &Intersection,
-    in_ray: &Ray3,
-    out_ray: &Ray3,
-  ) -> f32 {
-    1.
-  }
+  // pub fn brdf_importance_pdf(
+  //   &self,
+  //   intersection: &Intersection,
+  //   in_ray: &Ray3,
+  //   out_ray: &Ray3,
+  // ) -> f32 {
+  //   1.
+  // }
 
-  pub fn brdf(&self, intersection: &Intersection, in_ray: &Ray3, out_ray: &Ray3) -> f32 {
-    let w_m = (-in_ray.direction + out_ray.direction).normalize();
-    0.8
-  }
+  // pub fn brdf(&self, intersection: &Intersection, in_ray: &Ray3, out_ray: &Ray3) -> f32 {
+  //   let w_m = (-in_ray.direction + out_ray.direction).normalize();
+  //   0.8
+  // }
 }

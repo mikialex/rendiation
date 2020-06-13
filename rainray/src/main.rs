@@ -8,6 +8,7 @@ mod model;
 mod ray;
 mod renderer;
 mod scene;
+mod integrator;
 
 use crate::environment::*;
 use crate::frame::*;
@@ -20,9 +21,10 @@ use rendiation_math::Mat4;
 use rendiation_render_entity::*;
 use std::env;
 use std::rc::Rc;
+use integrator::*;
 
 fn main() {
-  let renderer = Renderer::new();
+  let mut renderer = Renderer::new(PathTraceIntegrator::new());
   let mut camera = PerspectiveCamera::new();
   camera.transform.matrix = Mat4::lookat(
     Vec3::new(0., 0., 10.),
@@ -35,16 +37,20 @@ fn main() {
   let scene = Scene {
     models: vec![
       Rc::new(model::Model::new(
-        Sphere::new((0., 5., 0.).into(), 5.0), // main ball
+        Sphere::new((0., 5., 0.).into(), 4.0), // main ball
         Material::new(),
       )),
       Rc::new(model::Model::new(
         Sphere::new((0., -10000., 0.).into(), 10000.0), // ground
-        *Material::new().color(0.6, 0.4, 0.8),
+        *Material::new().albedo(0.3, 0.4, 0.8),
       )),
       Rc::new(model::Model::new (
         Sphere::new((3., 2., 2.).into(), 2.0),
-        *Material::new().color(0.8, 0.6, 0.2),
+        *Material::new().albedo(0.4, 0.8, 0.2),
+      )),
+      Rc::new(model::Model::new (
+        Sphere::new((-3., 2., 4.).into(), 1.0),
+        *Material::new().albedo(1.0, 0.1, 0.0),
       )),
     ],
     point_lights: vec![PointLight {
@@ -57,7 +63,7 @@ fn main() {
     }],
     env: Box::new(GradientEnvironment {
       top_intensity: Vec3::new(0.4, 0.4, 0.4),
-      bottom_intensity: Vec3::new(0.6, 0.6, 0.6),
+      bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
     }),
   };
 

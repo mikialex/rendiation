@@ -6,9 +6,9 @@ pub trait RGBColor<T> {
   fn r(&self) -> T;
   fn g(&self) -> T;
   fn b(&self) -> T;
-  fn mut_r(&mut self, v: T) -> &mut Self;
-  fn mut_g(&mut self, v: T) -> &mut Self;
-  fn mut_b(&mut self, v: T) -> &mut Self;
+  fn mut_r(&mut self) -> &mut T;
+  fn mut_g(&mut self) -> &mut T;
+  fn mut_b(&mut self) -> &mut T;
 }
 
 // auto impl <rgb channel fetch> for all color that <marked as rgbcolorspace and their value types is vec3<T>>
@@ -22,17 +22,14 @@ impl<T: Copy, U: RGBColorSpace<T> + ColorSpace<ContainerValue = Vec3<T>>> RGBCol
   fn b(&self) -> T {
     self.value.z
   }
-  fn mut_r(&mut self, v: T) -> &mut Self{
-    self.value.x = v;
-    self
+  fn mut_r(&mut self) -> &mut T{
+    &mut self.value.x
   }
-  fn mut_g(&mut self, v: T) -> &mut Self{
-    self.value.y = v;
-    self
+  fn mut_g(&mut self) -> &mut T{
+    &mut self.value.y
   }
-  fn mut_b(&mut self, v: T) -> &mut Self{
-    self.value.z = v;
-    self
+  fn mut_b(&mut self) -> &mut T{
+    &mut self.value.z
   }
 }
 

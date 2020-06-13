@@ -22,9 +22,9 @@ impl Frame {
     for i in 0..data.len() {
       let row = &mut data[i];
       for j in 0..row.len() {
-        data[i][j].mut_r(color.r());
-        data[i][j].mut_g(color.g());
-        data[i][j].mut_b(color.b());
+        *data[i][j].mut_r() = color.r();
+        *data[i][j].mut_g() = color.g();
+        *data[i][j].mut_b() = color.b();
       }
     }
   }
