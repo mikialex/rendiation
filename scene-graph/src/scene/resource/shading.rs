@@ -1,22 +1,13 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd};
+use crate::{Index, ResourceManager, SceneGraphBackEnd, ResouceWrap};
 
-pub struct SceneShading<T: SceneGraphBackEnd> {
-  index: Index,
-  parameters: Vec<Index>,
-  gpu: T::Shading,
+pub struct SceneShadingData<T: SceneGraphBackEnd>{
+  pub gpu: T::Shading,
+  pub parameters: Vec<Index>,
 }
 
-impl<T: SceneGraphBackEnd> SceneShading<T> {
-  pub fn set_parameter(&mut self, index: Index) {
+impl<T: SceneGraphBackEnd> SceneShadingData<T> {
+  pub fn push_parameter(&mut self, index: Index) {
     self.parameters.push(index);
-  }
-
-  pub fn gpu(&self) -> &T::Shading {
-    &self.gpu
-  }
-
-  pub fn index(&self) -> Index {
-    self.index
   }
 
   pub fn get_parameters_count(&self) -> usize {
@@ -29,23 +20,16 @@ impl<T: SceneGraphBackEnd> SceneShading<T> {
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
-  pub fn create_shading(&mut self, shading: T::Shading) -> &mut SceneShading<T> {
-    let wrapped = SceneShading {
-      index: Index::from_raw_parts(0, 0),
-      parameters: Vec::new(),
-      gpu: shading,
-    };
-    let index = self.shadings.insert(wrapped);
-    let s = self.get_shading_mut(index);
-    s.index = index;
-    s
+  pub fn add_shading(&mut self, resource: SceneShadingData<T>) -> &mut ResouceWrap<SceneShadingData<T>> {
+    ResouceWrap::new_wrap(&mut self.shadings, resource)
   }
 
-  pub fn get_shading_mut(&mut self, index: Index) -> &mut SceneShading<T> {
+
+  pub fn get_shading_mut(&mut self, index: Index) -> &mut ResouceWrap<SceneShadingData<T>> {
     self.shadings.get_mut(index).unwrap()
   }
 
-  pub fn get_shading(&self, index: Index) -> &SceneShading<T> {
+  pub fn get_shading(&self, index: Index) -> &ResouceWrap<SceneShadingData<T>> {
     self.shadings.get(index).unwrap()
   }
 

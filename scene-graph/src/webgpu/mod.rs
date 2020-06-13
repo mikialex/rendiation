@@ -1,6 +1,5 @@
 use crate::{
-  Background, RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine,
-  SolidBackground,
+  Background, RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine, SolidBackground,
 };
 use rendiation::*;
 
@@ -71,12 +70,12 @@ impl RenderObject {
     pass: &mut WGPURenderPass<'a>,
     scene: &'b Scene<SceneGraphWebGPUBackend>,
   ) {
-    let shading = scene.resources.get_shading(self.shading_index);
+    let shading = scene.resources.get_shading(self.shading_index).resource();
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();
 
-    pass.set_pipeline(shading.gpu());
+    pass.set_pipeline(&shading.gpu);
 
-    geometry.index_buffer.map(|b|{
+    geometry.index_buffer.map(|b| {
       let index = scene.resources.index_buffers.get(b).unwrap(); // todo remove upwrap
       pass.set_index_buffer(index.resource());
     });
@@ -88,36 +87,11 @@ impl RenderObject {
     for i in 0..shading.get_parameters_count() {
       let bindgroup = scene
         .resources
-        .get_shading_param_group(shading.get_parameter(i));
-      pass.set_bindgroup(i, bindgroup.gpu());
+        .get_shading_param_group(shading.get_parameter(i))
+        .resource();
+      pass.set_bindgroup(i, &bindgroup.gpu);
     }
 
     pass.draw_indexed(geometry.draw_range.clone())
   }
 }
-
-// use rendiation_mesh_buffer::geometry::{PrimitiveTopology};
-// use rendiation_mesh_buffer::wgpu::GPUGeometry;
-// use std::ops::Range;
-// use rendiation_math_entity::Positioned3D;
-// impl<V: Positioned3D, T: PrimitiveTopology<V> + 'static> GPUGeometry<V, T>
-// {
-//   fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
-//     self.update_gpu(renderer)
-//   }
-
-//   fn get_gpu_index_buffer(&self) -> &WGPUBuffer {
-//     self.get_index_buffer_unwrap()
-//   }
-
-//   fn get_gpu_vertex_buffer(&self, _index: usize) -> &WGPUBuffer {
-//     self.get_vertex_buffer_unwrap()
-//   }
-
-//   fn get_draw_range(&self) -> Range<u32> {
-//     self.get_draw_range()
-//   }
-//   fn vertex_buffer_count(&self) -> usize {
-//     1
-//   }
-// }

@@ -72,10 +72,15 @@ impl World {
     let block_shading = create_block_shading(renderer, target);
     let bindgroup_index = scene
       .resources
-      .create_shading_param_group(shading_params)
+      .add_shading_param_group(SceneShadingParameterGroupData {
+        gpu: shading_params,
+        items: vec![], // this is a todo
+      })
       .index();
-    let block_shading = scene.resources.create_shading(block_shading);
-    block_shading.set_parameter(bindgroup_index);
+    let block_shading = scene.resources.add_shading(SceneShadingData {
+      gpu: block_shading,
+      parameters: vec![bindgroup_index],
+    });
     let block_shading = block_shading.index();
 
     let root_node_index = scene.create_new_node().get_id();
@@ -176,16 +181,9 @@ impl World {
         }
 
         // add new node in scene;
-        let mesh_buffer = Chunk::create_mesh_buffer(
-          &self.world_machine,
-          &self.chunks,
-          *chunk_to_update_key,
-        );
-        let scene_geometry = Chunk::create_add_geometry(
-          &mesh_buffer,
-          renderer,
-          scene,
-        );
+        let mesh_buffer =
+          Chunk::create_mesh_buffer(&self.world_machine, &self.chunks, *chunk_to_update_key);
+        let scene_geometry = Chunk::create_add_geometry(&mesh_buffer, renderer, scene);
 
         let render_object_index =
           scene.create_render_object(scene_geometry, scene_data.block_shading);

@@ -1,13 +1,14 @@
 use crate::{
-  Arena, Index, SceneGraphBackEnd, SceneShading, SceneShadingParameterGroup, SceneGeometryData,
+  Arena, Index, SceneGeometryData, SceneGraphBackEnd, SceneShadingData,
+  SceneShadingParameterGroupData,
 };
 
 type ResourceArena<T> = Arena<ResouceWrap<T>>;
 
 pub struct ResourceManager<T: SceneGraphBackEnd> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
-  pub shadings: Arena<SceneShading<T>>,
-  pub shading_parameter_groups: Arena<SceneShadingParameterGroup<T>>,
+  pub shadings: ResourceArena<SceneShadingData<T>>,
+  pub shading_parameter_groups: ResourceArena<SceneShadingParameterGroupData<T>>,
   pub uniforms: ResourceArena<T::UniformBuffer>,
   pub textures: ResourceArena<T::VertexBuffer>,
   pub index_buffers: ResourceArena<T::IndexBuffer>,
@@ -33,7 +34,7 @@ impl<T> ResouceWrap<T> {
     &mut self.resource
   }
 
-  pub fn new_wrap(arena: &mut Arena<Self>, resource: T) -> &mut Self{
+  pub fn new_wrap(arena: &mut Arena<Self>, resource: T) -> &mut Self {
     let wrapped = Self {
       index: Index::from_raw_parts(0, 0),
       resource,
