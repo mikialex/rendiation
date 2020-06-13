@@ -120,6 +120,24 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'rainray'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rainray",
+                    "--package=rainray"
+                ],
+                "filter": {
+                    "name": "rainray",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in executable 'rendiation'",
             "cargo": {
                 "args": [

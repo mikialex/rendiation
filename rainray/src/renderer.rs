@@ -60,21 +60,20 @@ impl Renderer {
 
       energy += material.collect_energy(&current_ray) * throughput;
 
-      let next_ray = Ray3::from_point_to_point(
+      // let next_ray = Ray3::from_point_to_point(
+      //   intersection.hit_position,
+      //   intersection.hit_position + intersection.hit_normal + rand_point_in_unit_sphere(),
+      // );
+      let next_ray = Ray3::new(
         intersection.hit_position,
-        intersection.hit_position
-          + intersection.hit_normal
-          + rand_point_in_unit_sphere(),
+        cosine_sample_hemisphere_in_dir(intersection.hit_normal),
       );
 
-      let brdf = model
-        .material
-        .brdf(&intersection, &current_ray, &next_ray);
+      let brdf = model.material.brdf(&intersection, &current_ray, &next_ray);
 
-      let pdf =
-        model
-          .material
-          .brdf_importance_pdf(&intersection, &current_ray, &next_ray);
+      let pdf = model
+        .material
+        .brdf_importance_pdf(&intersection, &current_ray, &next_ray);
 
       throughput = throughput * brdf / pdf;
 

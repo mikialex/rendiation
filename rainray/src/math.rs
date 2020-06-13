@@ -45,6 +45,24 @@ pub fn cosine_sample_hemisphere(u: Vec2<f32>) -> Vec3 {
   Vec3::new(d.x, d.y, z)
 }
 
+pub fn cosine_sample_hemisphere_in_dir(dir: Vec3) -> Vec3 {
+  let offset = cosine_sample_hemisphere(rand2());
+
+  let left = Vec3::new(0.0, 1.0, 0.0).cross(dir).normalize();
+  let up = left.cross(dir);
+
+  let xy_r = (offset.x * offset.x + offset.y * offset.y).sqrt();
+  if xy_r == 0. {
+    return dir;
+  }
+  let cos_phi = offset.x / xy_r;
+  let sin_phi = offset.y / xy_r;
+  let cos_theta = xy_r;
+  let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+
+  (left * sin_theta * cos_phi + up * sin_theta * sin_phi + dir * cos_theta).normalize()
+}
+
 pub fn rand_point_in_unit_sphere() -> Vec3 {
   loop {
     let test_point = Vec3::new(rand() * 2.0 - 1.0, rand() * 2.0 - 1.0, rand() * 2.0 - 1.0);
