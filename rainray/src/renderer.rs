@@ -55,23 +55,26 @@ impl Renderer {
         energy += scene.env.sample(&current_ray) * throughput;
         break;
       }
-      let (min_distance_intersection, model) = hit_result.unwrap();
+      let (intersection, model) = hit_result.unwrap();
       let material = model.material;
 
       energy += material.collect_energy(&current_ray) * throughput;
 
-      let next_ray = model
-        .material
-        .next_ray(&current_ray, &min_distance_intersection);
+      let next_ray = Ray3::from_point_to_point(
+        intersection.hit_position,
+        intersection.hit_position
+          + intersection.hit_normal
+          + rand_point_in_unit_sphere(),
+      );
 
       let brdf = model
         .material
-        .brdf(&min_distance_intersection, &current_ray, &next_ray);
+        .brdf(&intersection, &current_ray, &next_ray);
 
       let pdf =
         model
           .material
-          .brdf_importance_pdf(&min_distance_intersection, &current_ray, &next_ray);
+          .brdf_importance_pdf(&intersection, &current_ray, &next_ray);
 
       throughput = throughput * brdf / pdf;
 
@@ -133,7 +136,7 @@ impl Renderer {
           for l in 0..super_sample_rate {
             let sample_pix =
               render_frame.data[i * super_sample_rate + k][j * super_sample_rate + l];
-            let srgb = sample_pix.to_linear_rgb();
+            let srgb = sample_pix.to_srgb();
             r_all += srgb.r();
             g_all += srgb.g();
             b_all += srgb.b();

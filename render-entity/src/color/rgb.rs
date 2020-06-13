@@ -73,7 +73,7 @@ impl<T: Copy + Clone> ColorSpace for LinearRGBColorSpace<T> {
 }
 
 impl Color<LinearRGBColorSpace<f32>> {
-  pub fn to_linear_rgb(&self) -> Color<SRGBColorSpace<f32>> {
+  pub fn to_srgb(&self) -> Color<SRGBColorSpace<f32>> {
     Color::new(self.value.map(|c| {
       if c < 0.0031308 {
         c * 12.92

@@ -1,4 +1,4 @@
-use rendiation_math::Vec3 as V3;
+use rendiation_math::{Vec2, Vec3 as V3};
 
 pub type Vec3 = V3<f32>;
 pub use rendiation_math_entity::*;
@@ -9,33 +9,40 @@ pub fn rand() -> f32 {
   randx::random()
 }
 
-pub fn rand2() -> (f32, f32) {
-  (rand(), rand())
+pub fn rand2() -> Vec2<f32> {
+  (rand(), rand()).into()
 }
 
-pub fn cosine_sample_hemisphere(normal: &Vec3) -> Vec3 {
-  // let r1 = rand() * std::f32::consts::PI;
-  // let r2 = rand();
-  // let r3 = r2.sqrt();
+pub const PI_OVER_4: f32 = std::f32::consts::PI / 4.0;
+pub const PI_OVER_2: f32 = std::f32::consts::PI / 2.0;
+pub const PI: f32 = std::f32::consts::PI;
 
-  // let mut u = if normal.x.abs() > 0.1 {
-  //     Vec3::new(normal.z, 0.0, -normal.x)
-  // } else {
-  //     Vec3::new(0.0, -normal.z, normal.y)
-  // };
-  // u.normalize();
-  // // vec3 u = normalize((abs(normal.x) > 0.1) ? vec3(normal.z, 0.0, -normal.x) : vec3(0.0, -normal.z, normal.y));
-  // (u * r1.cos() + Vec3::cross(&normal, &u) * r1.sin()) * r3 + *normal * (1.0 - r2).sqrt()
+/// http://l2program.co.uk/900/concentric-disk-sampling
+/// Uniformly distribute samples over a unit disk.
+pub fn concentric_sample_disk(u: Vec2<f32>) -> Vec2<f32> {
+  // map uniform random numbers to $[-1,1]^2$s
+  let u_offset = u * 2.0 - Vec2::new(1.0, 1.0);
+  // handle degeneracy at the origin
+  if u_offset.x == 0.0 && u_offset.y == 0.0 {
+    return Vec2::new(0.0, 0.0);
+  }
+  // apply concentric mapping to point
+  let theta: f32;
+  let r: f32;
+  if u_offset.x.abs() > u_offset.y.abs() {
+    r = u_offset.x;
+    theta = PI_OVER_4 * (u_offset.y / u_offset.x);
+  } else {
+    r = u_offset.y;
+    theta = PI_OVER_2 - PI_OVER_4 * (u_offset.x / u_offset.y);
+  }
+  Vec2::new(theta.cos(), theta.sin()) * r
+}
 
-  // let u1 = rand();
-  // let u2 = rand();
-  // let r = (1. - u1 * u1).sqrt();
-  // let phi = 2. * std::f32::consts::PI * u2;
-  // *Vec3::new(phi.cos() * r, phi.sin() * r, u2).normalize()
-
-  // *Vec3::new(rand(), rand(), rand()).normalize()
-
-  Vec3::new(0.0, 1.0, 0.0)
+pub fn cosine_sample_hemisphere(u: Vec2<f32>) -> Vec3 {
+  let d = concentric_sample_disk(u);
+  let z = 0.0_f32.max(1.0 - d.x * d.x - d.y * d.y).sqrt();
+  Vec3::new(d.x, d.y, z)
 }
 
 pub fn rand_point_in_unit_sphere() -> Vec3 {

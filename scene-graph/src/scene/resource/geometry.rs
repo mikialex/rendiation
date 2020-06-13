@@ -1,4 +1,4 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd, ResouceWrap};
+use crate::{Index, ResourceManager, SceneGraphBackEnd, ResourceWrap};
 use std::{marker::PhantomData, ops::Range};
 
 pub struct SceneGeometryData<T: SceneGraphBackEnd>{
@@ -20,15 +20,15 @@ impl<T: SceneGraphBackEnd> SceneGeometryData<T> {
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
-  pub fn add_geometry(&mut self, g: SceneGeometryData<T>) -> &mut ResouceWrap<SceneGeometryData<T>> {
-    ResouceWrap::new_wrap(&mut self.geometries, g)
+  pub fn add_geometry(&mut self, g: SceneGeometryData<T>) -> &mut ResourceWrap<SceneGeometryData<T>> {
+    ResourceWrap::new_wrap(&mut self.geometries, g)
   }
 
-  pub fn get_geometry_mut(&mut self, index: Index) -> &mut ResouceWrap<SceneGeometryData<T>> {
+  pub fn get_geometry_mut(&mut self, index: Index) -> &mut ResourceWrap<SceneGeometryData<T>> {
     self.geometries.get_mut(index).unwrap()
   }
 
-  pub fn get_geometry(&self, index: Index) -> &ResouceWrap<SceneGeometryData<T>> {
+  pub fn get_geometry(&self, index: Index) -> &ResourceWrap<SceneGeometryData<T>> {
     self.geometries.get(index).unwrap()
   }
 
@@ -47,15 +47,15 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
     self.geometries.remove(index);
   }
 
-  pub fn add_index_buffer(&mut self, g: T::IndexBuffer) -> &mut ResouceWrap<T::IndexBuffer> {
-    ResouceWrap::new_wrap(&mut self.index_buffers, g)
+  pub fn add_index_buffer(&mut self, g: T::IndexBuffer) -> &mut ResourceWrap<T::IndexBuffer> {
+    ResourceWrap::new_wrap(&mut self.index_buffers, g)
   }
 
-  pub fn get_index_buffer_mut(&mut self, index: Index) -> &mut ResouceWrap<T::IndexBuffer> {
+  pub fn get_index_buffer_mut(&mut self, index: Index) -> &mut ResourceWrap<T::IndexBuffer> {
     self.index_buffers.get_mut(index).unwrap()
   }
 
-  pub fn get_index_buffer(&self, index: Index) -> &ResouceWrap<T::IndexBuffer> {
+  pub fn get_index_buffer(&self, index: Index) -> &ResourceWrap<T::IndexBuffer> {
     self.index_buffers.get(index).unwrap()
   }
 
@@ -63,15 +63,15 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
     self.index_buffers.remove(index);
   }
 
-  pub fn add_vertex_buffer(&mut self, g: T::VertexBuffer) -> &mut ResouceWrap<T::VertexBuffer> {
-    ResouceWrap::new_wrap(&mut self.vertex_buffers, g)
+  pub fn add_vertex_buffer(&mut self, g: T::VertexBuffer) -> &mut ResourceWrap<T::VertexBuffer> {
+    ResourceWrap::new_wrap(&mut self.vertex_buffers, g)
   }
 
-  pub fn get_vertex_buffer_mut(&mut self, index: Index) -> &mut ResouceWrap<T::VertexBuffer> {
+  pub fn get_vertex_buffer_mut(&mut self, index: Index) -> &mut ResourceWrap<T::VertexBuffer> {
     self.vertex_buffers.get_mut(index).unwrap()
   }
 
-  pub fn get_vertex_buffer(&self, index: Index) -> &ResouceWrap<T::VertexBuffer> {
+  pub fn get_vertex_buffer(&self, index: Index) -> &ResourceWrap<T::VertexBuffer> {
     self.vertex_buffers.get(index).unwrap()
   }
 

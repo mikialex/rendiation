@@ -3,7 +3,7 @@ use crate::{
   SceneShadingParameterGroupData,
 };
 
-type ResourceArena<T> = Arena<ResouceWrap<T>>;
+type ResourceArena<T> = Arena<ResourceWrap<T>>;
 
 pub struct ResourceManager<T: SceneGraphBackEnd> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
@@ -15,13 +15,13 @@ pub struct ResourceManager<T: SceneGraphBackEnd> {
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
 }
 
-/// wrap any resouce with an index;
-pub struct ResouceWrap<T> {
+/// wrap any resource with an index;
+pub struct ResourceWrap<T> {
   index: Index,
   resource: T,
 }
 
-impl<T> ResouceWrap<T> {
+impl<T> ResourceWrap<T> {
   pub fn index(&self) -> Index {
     self.index
   }

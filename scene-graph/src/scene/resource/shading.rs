@@ -1,4 +1,4 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd, ResouceWrap};
+use crate::{Index, ResourceManager, SceneGraphBackEnd, ResourceWrap};
 
 pub struct SceneShadingData<T: SceneGraphBackEnd>{
   pub gpu: T::Shading,
@@ -20,16 +20,16 @@ impl<T: SceneGraphBackEnd> SceneShadingData<T> {
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
-  pub fn add_shading(&mut self, resource: SceneShadingData<T>) -> &mut ResouceWrap<SceneShadingData<T>> {
-    ResouceWrap::new_wrap(&mut self.shadings, resource)
+  pub fn add_shading(&mut self, resource: SceneShadingData<T>) -> &mut ResourceWrap<SceneShadingData<T>> {
+    ResourceWrap::new_wrap(&mut self.shadings, resource)
   }
 
 
-  pub fn get_shading_mut(&mut self, index: Index) -> &mut ResouceWrap<SceneShadingData<T>> {
+  pub fn get_shading_mut(&mut self, index: Index) -> &mut ResourceWrap<SceneShadingData<T>> {
     self.shadings.get_mut(index).unwrap()
   }
 
-  pub fn get_shading(&self, index: Index) -> &ResouceWrap<SceneShadingData<T>> {
+  pub fn get_shading(&self, index: Index) -> &ResourceWrap<SceneShadingData<T>> {
     self.shadings.get(index).unwrap()
   }
 
