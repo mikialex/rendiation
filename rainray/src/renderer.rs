@@ -10,7 +10,7 @@ use indicatif::ProgressBar;
 use std::time::Instant;
 
 pub struct Renderer {
-  super_sample_rate: u64,
+  super_sample_rate: usize,
 
   integrator: Box<dyn Integrator>,
 }
@@ -42,18 +42,18 @@ impl Renderer {
 
   pub fn render(&mut self, camera: &PerspectiveCamera, scene: &Scene, frame: &mut Frame) {
     self.integrator.prepare();
-    println!("start render");
+    println!("rendering...");
     let now = Instant::now();
     let mut render_frame = Frame::new(
-      frame.width * self.super_sample_rate,
-      frame.height * self.super_sample_rate,
+      frame.width() * self.super_sample_rate,
+      frame.height() * self.super_sample_rate,
     );
 
-    let x_ratio_unit = 1.0 / render_frame.width as f32;
-    let y_ratio_unit = 1.0 / render_frame.width as f32;
+    let x_ratio_unit = 1.0 / render_frame.width() as f32;
+    let y_ratio_unit = 1.0 / render_frame.width() as f32;
 
     let progress_bar = ProgressBar::new(100);
-    let bar_inv = (render_frame.width as f32 / 100.).ceil() as usize;
+    let bar_inv = (render_frame.width() as f32 / 100.).ceil() as usize;
 
     for (i, row) in render_frame.data.iter_mut().enumerate() {
       for (j, pixel) in row.iter_mut().enumerate() {
@@ -71,7 +71,7 @@ impl Renderer {
     progress_bar.finish_and_clear();
     println!("frame data render finished.");
 
-    println!("start super sample down sample and gamma correction");
+    println!("down sample and output");
 
     let result_data = &mut frame.data;
     let super_sample_rate = self.super_sample_rate as usize;

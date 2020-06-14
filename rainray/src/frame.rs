@@ -3,18 +3,23 @@ use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 extern crate image;
 
 pub struct Frame {
-  pub width: u64,
-  pub height: u64,
   pub data: Vec<Vec<Color<LinearRGBColorSpace<f32>>>>,
 }
 
 impl Frame {
-  pub fn new(width: u64, height: u64) -> Frame {
+  pub fn new(width: usize, height: usize) -> Frame {
+    assert!(width >= 1);
+    assert!(height >= 1);
     Frame {
-      width,
-      height,
       data: vec![vec![Color::from_value((0.0, 0.0, 0.0)); height as usize]; width as usize],
     }
+  }
+
+  pub fn width(&self) -> usize {
+    self.data.len()
+  }
+  pub fn height(&self) -> usize {
+    self.data[0].len()
   }
 
   pub fn clear(&mut self, color: &Color) {
@@ -35,12 +40,12 @@ impl Frame {
     data[x as usize][y as usize] = *color;
   }
 
-  pub fn pixel_count(&self) -> u64 {
-    self.width * self.height
+  pub fn pixel_count(&self) -> usize {
+    self.width() * self.height()
   }
 
   pub fn write_to_file(&self, path: &str) {
-    let mut img_buf = image::ImageBuffer::new(self.width as u32, self.height as u32);
+    let mut img_buf = image::ImageBuffer::new(self.width() as u32, self.height() as u32);
 
     // Iterate over the coordinates and pixels of the image
     for (x, y, pixel) in img_buf.enumerate_pixels_mut() {

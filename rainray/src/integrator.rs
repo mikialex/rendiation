@@ -46,7 +46,7 @@ impl PathTraceIntegrator {
       let (intersection, model) = hit_result.unwrap();
       let material = model.material;
 
-      energy += material.collect_energy(&current_ray) * throughput;
+      // energy += material.collect_energy(&current_ray) * throughput;
 
       // let next_ray = Ray3::from_point_to_point(
       //   intersection.hit_position,

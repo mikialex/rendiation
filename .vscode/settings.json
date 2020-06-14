@@ -1,8 +1,10 @@
 {
     "cSpell.words": [
         "BRDF",
+        "BSDF",
         "Drawcall",
         "Framebuffer",
+        "Lambertian",
         "Lerp",
         "Mesher",
         "Noize",

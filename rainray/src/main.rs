@@ -38,19 +38,19 @@ fn main() {
     models: vec![
       Rc::new(model::Model::new(
         Sphere::new((0., 5., 0.).into(), 4.0), // main ball
-        Material::new(),
+        Lambertian::new(),
       )),
       Rc::new(model::Model::new(
         Sphere::new((0., -10000., 0.).into(), 10000.0), // ground
-        *Material::new().albedo(0.3, 0.4, 0.8),
+        *Lambertian::new().albedo(0.3, 0.4, 0.8),
       )),
       Rc::new(model::Model::new (
         Sphere::new((3., 2., 2.).into(), 2.0),
-        *Material::new().albedo(0.4, 0.8, 0.2),
+        *Lambertian::new().albedo(0.4, 0.8, 0.2),
       )),
       Rc::new(model::Model::new (
         Sphere::new((-3., 2., 4.).into(), 1.0),
-        *Material::new().albedo(1.0, 0.1, 0.0),
+        *Lambertian::new().albedo(1.0, 0.1, 0.0),
       )),
     ],
     point_lights: vec![PointLight {
