@@ -303,6 +303,12 @@ where
 
     return *self;
   }
+
+  #[inline]
+  pub fn max_channel(self) -> T {
+    self.x.max(self.y).max(self.z)
+  }
+
 }
 
 impl<T> Vec3<T> {
