@@ -25,8 +25,8 @@ impl PathTraceIntegrator {
   pub fn new() -> Self{
     Self{
       exposure_upper_bound: 1.0,
-      bounce_time_limit: 10,
-      trace_fix_sample_count: 20,
+      bounce_time_limit: 2,
+      trace_fix_sample_count: 1000,
       energy_div: 0.0,
     }
   }
@@ -44,28 +44,23 @@ impl PathTraceIntegrator {
         break;
       }
       let (intersection, model) = hit_result.unwrap();
-      let material = model.material;
+      let material = &model.material;
 
-      // energy += material.collect_energy(&current_ray) * throughput;
+      if let Some(scatter) = material.scatter(&intersection) {
+        let next_ray = Ray3::new(
+          intersection.hit_position,
+          scatter.out_dir
+        );
 
-      // let next_ray = Ray3::from_point_to_point(
-      //   intersection.hit_position,
-      //   intersection.hit_position + intersection.hit_normal + rand_point_in_unit_sphere(),
-      // );
-      let next_ray = Ray3::new(
-        intersection.hit_position,
-        cosine_sample_hemisphere_in_dir(intersection.hit_normal),
-      );
+        energy += material.sample_lighting(&intersection) * throughput;
 
-      // let brdf = model.material.brdf(&intersection, &current_ray, &next_ray);
+        let cos = scatter.out_dir.dot(intersection.hit_normal).abs();
+        throughput = throughput * cos * scatter.brdf / scatter.pdf;
 
-      // let pdf = model
-      //   .material
-      //   .brdf_importance_pdf(&intersection, &current_ray, &next_ray);
-
-      throughput = throughput * material.albedo.value;
-
-      current_ray = next_ray;
+        current_ray = next_ray;
+      } else{
+        break
+      }
     }
 
     energy

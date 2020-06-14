@@ -4,11 +4,14 @@ use crate::ray::*;
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
 pub struct ScatteringEvent{
-  
+  pub out_dir: Vec3,
+  pub brdf: Vec3,
+  pub pdf: f32
 }
 
 pub trait Material{
-
+  fn scatter(&self, intersection: &Intersection) -> Option<ScatteringEvent>;
+  fn sample_lighting(&self, intersection: &Intersection) -> Vec3;
 }
 
 #[derive(Clone, Copy)]
@@ -16,7 +19,22 @@ pub struct Lambertian {
     albedo: Color<LinearRGBColorSpace<f32>>,
 }
 
-impl Material for Lambertian{}
+impl Material for Lambertian{
+  fn scatter(&self, intersection: &Intersection) -> Option<ScatteringEvent>{
+    let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
+    let pdf = cos / PI;
+    let brdf = self.albedo.value / Vec3::new(PI, PI, PI);
+    Some(ScatteringEvent{
+      out_dir,
+      brdf,
+      pdf
+    })
+  }
+
+  fn sample_lighting(&self, _: &Intersection) -> Vec3{
+    Vec3::new(0., 0., 0.)
+  }
+}
 
 impl Lambertian {
   pub fn new() -> Self {
