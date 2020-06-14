@@ -57,12 +57,12 @@ pub fn cosine_sample_hemisphere_in_dir(dir: Vec3) -> (Vec3, f32) {
   }
   let cos_phi = offset.x / xy_r;
   let sin_phi = offset.y / xy_r;
-  let cos_theta = xy_r;
-  let sin_theta = offset.z;
+  let cos_theta = offset.z;
+  let sin_theta = xy_r;
 
   (
     (left * sin_theta * cos_phi + up * sin_theta * sin_phi + dir * cos_theta).normalize(),
-    offset.z,
+    cos_theta,
   )
 }
 

@@ -34,7 +34,7 @@ impl PathTraceIntegrator {
     Self {
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
-      trace_fix_sample_count: 30,
+      trace_fix_sample_count: 200,
       energy_div: 0.0,
       roulette_threshold: 0.05,
       roulette_factor: 0.05,
@@ -59,6 +59,10 @@ impl PathTraceIntegrator {
       let material = &model.material;
 
       if let Some(scatter) = material.scatter(&current_ray.direction, &intersection) {
+        if scatter.pdf == 0.0 {
+          break;
+        }
+
         let next_ray = Ray3::new(intersection.hit_position, scatter.out_dir);
 
         energy += material.sample_lighting(&intersection) * throughput;
