@@ -25,8 +25,8 @@ impl PathTraceIntegrator {
   pub fn new() -> Self{
     Self{
       exposure_upper_bound: 1.0,
-      bounce_time_limit: 2,
-      trace_fix_sample_count: 1000,
+      bounce_time_limit: 20,
+      trace_fix_sample_count: 30,
       energy_div: 0.0,
     }
   }
@@ -46,7 +46,7 @@ impl PathTraceIntegrator {
       let (intersection, model) = hit_result.unwrap();
       let material = &model.material;
 
-      if let Some(scatter) = material.scatter(&intersection) {
+      if let Some(scatter) = material.scatter(&current_ray.direction, &intersection) {
         let next_ray = Ray3::new(
           intersection.hit_position,
           scatter.out_dir

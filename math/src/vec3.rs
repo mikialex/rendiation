@@ -260,6 +260,11 @@ where
   }
 
   #[inline]
+  pub fn reflect(&self, normal: Self) -> Self {
+    *self - normal * self.dot(normal) * T::two()
+  }
+
+  #[inline]
   pub fn dot(&self, b: Self) -> T {
     return self.x * b.x + self.y * b.y + self.z * b.z;
   }

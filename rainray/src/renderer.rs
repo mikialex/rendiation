@@ -33,9 +33,8 @@ fn test_intersection_is_visible_to_point(
 
 impl Renderer {
   pub fn new(integrator: impl Integrator + 'static) -> Renderer {
-    let super_sample_rate = 1;
     Renderer {
-      super_sample_rate,
+      super_sample_rate: 1,
       integrator: Box::new(integrator),
     }
   }

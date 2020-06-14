@@ -10,7 +10,7 @@ pub struct ScatteringEvent{
 }
 
 pub trait Material{
-  fn scatter(&self, intersection: &Intersection) -> Option<ScatteringEvent>;
+  fn scatter(&self, in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>;
   fn sample_lighting(&self, intersection: &Intersection) -> Vec3;
 }
 
@@ -20,7 +20,7 @@ pub struct Lambertian {
 }
 
 impl Material for Lambertian{
-  fn scatter(&self, intersection: &Intersection) -> Option<ScatteringEvent>{
+  fn scatter(&self, _in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>{
     let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     let pdf = cos / PI;
     let brdf = self.albedo.value / Vec3::new(PI, PI, PI);
@@ -29,6 +29,14 @@ impl Material for Lambertian{
       brdf,
       pdf
     })
+    // // let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
+    // let pdf = in_dir.reflect(intersection.hit_normal).dot(intersection.hit_normal).abs();
+    // let brdf = self.albedo.value;
+    // Some(ScatteringEvent{
+    //   out_dir: in_dir.reflect(intersection.hit_normal),
+    //   brdf,
+    //   pdf
+    // })
   }
 
   fn sample_lighting(&self, _: &Intersection) -> Vec3{
