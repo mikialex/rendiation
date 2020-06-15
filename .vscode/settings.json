@@ -2,6 +2,7 @@
     "cSpell.words": [
         "BRDF",
         "BSDF",
+        "Blinn",
         "Drawcall",
         "Framebuffer",
         "Lambertian",
@@ -9,6 +10,7 @@
         "Mesher",
         "Noize",
         "OPENGL",
+        "Phong",
         "Raycastable",
         "Renderable",
         "Rendiation",
