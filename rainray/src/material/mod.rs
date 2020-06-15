@@ -3,6 +3,8 @@ use crate::math::*;
 use crate::ray::*;
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
+mod cook_torrance;
+
 pub struct ScatteringEvent{
   pub out_dir: Vec3,
   pub brdf: Vec3,
