@@ -1,21 +1,23 @@
-use crate::{RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine, ShadingParameterType};
+use crate::{RenderObject, Scene, SceneGraphBackend, RenderEngine, ShadingParameterType};
 use web_sys::*;
 
 pub mod renderer;
 pub mod attribute;
 pub mod program;
 pub mod uniform;
+pub mod cal;
 
 pub use renderer::*;
 pub use attribute::*;
 pub use program::*;
 pub use uniform::*;
+pub use cal::*;
 
-pub struct SceneGraphWebGLBackend {
-  engine: SceneGraphRenderEngine,
+pub struct WebGLBackend {
+  engine: RenderEngine,
 }
 
-impl SceneGraphBackEnd for SceneGraphWebGLBackend {
+impl SceneGraphBackend for WebGLBackend {
   type RenderTarget = Option<WebGlFramebuffer>;
   type Renderer = WebGLRenderer;
   type Shading = WebGlProgram;
@@ -25,16 +27,16 @@ impl SceneGraphBackEnd for SceneGraphWebGLBackend {
   type UniformBuffer = WebGlBuffer;
 }
 
-impl SceneGraphWebGLBackend {
+impl WebGLBackend {
   pub fn new() -> Self {
     Self {
-      engine: SceneGraphRenderEngine::new(),
+      engine: RenderEngine::new(),
     }
   }
 
   pub fn render(
     &mut self,
-    scene: &mut Scene<SceneGraphWebGLBackend>,
+    scene: &mut Scene<WebGLBackend>,
     renderer: &mut WebGLRenderer,
     target: Option<WebGlFramebuffer>,
   ) {
@@ -54,7 +56,7 @@ impl SceneGraphWebGLBackend {
 }
 
 impl RenderObject {
-  pub fn render_webgl(&self, renderer: &mut WebGLRenderer, scene: &Scene<SceneGraphWebGLBackend>) {
+  pub fn render_webgl(&self, renderer: &mut WebGLRenderer, scene: &Scene<WebGLBackend>) {
     let resources = &scene.resources;
     let shading = resources.get_shading(self.shading_index).resource();
     let geometry = &resources.get_geometry(self.geometry_index).resource();

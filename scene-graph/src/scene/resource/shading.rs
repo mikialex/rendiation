@@ -1,11 +1,11 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd, ResourceWrap};
+use crate::{Index, ResourceManager, SceneGraphBackend, ResourceWrap};
 
-pub struct SceneShadingData<T: SceneGraphBackEnd>{
+pub struct SceneShadingData<T: SceneGraphBackend>{
   pub gpu: T::Shading,
   pub parameters: Vec<Index>,
 }
 
-impl<T: SceneGraphBackEnd> SceneShadingData<T> {
+impl<T: SceneGraphBackend> SceneShadingData<T> {
   pub fn push_parameter(&mut self, index: Index) {
     self.parameters.push(index);
   }
@@ -19,7 +19,7 @@ impl<T: SceneGraphBackEnd> SceneShadingData<T> {
   }
 }
 
-impl<T: SceneGraphBackEnd> ResourceManager<T> {
+impl<T: SceneGraphBackend> ResourceManager<T> {
   pub fn add_shading(&mut self, resource: SceneShadingData<T>) -> &mut ResourceWrap<SceneShadingData<T>> {
     ResourceWrap::new_wrap(&mut self.shadings, resource)
   }

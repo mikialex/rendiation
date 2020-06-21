@@ -1,6 +1,6 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd, ResourceWrap};
+use crate::{Index, ResourceManager, SceneGraphBackend, ResourceWrap};
 
-pub struct SceneShadingParameterGroupData<T: SceneGraphBackEnd>{
+pub struct SceneShadingParameterGroupData<T: SceneGraphBackend>{
   pub gpu: T::ShadingParameterGroup,
   pub items: Vec<ShadingParameterType>,
 }
@@ -12,7 +12,7 @@ pub enum ShadingParameterType {
   SampledTexture(Index),
 }
 
-impl<T: SceneGraphBackEnd> ResourceManager<T> {
+impl<T: SceneGraphBackend> ResourceManager<T> {
   pub fn add_shading_param_group(
     &mut self,
     resource: SceneShadingParameterGroupData<T>
@@ -37,7 +37,7 @@ impl<T: SceneGraphBackEnd> ResourceManager<T> {
 }
 
 /// uniforms
-impl<T: SceneGraphBackEnd> ResourceManager<T> {
+impl<T: SceneGraphBackend> ResourceManager<T> {
   pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut ResourceWrap<T::UniformBuffer> {
     ResourceWrap::new_wrap(&mut self.uniforms, gpu)
   }

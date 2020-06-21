@@ -1,19 +1,15 @@
-use crate::{make_webgl_program, CALBackend, SceneShadingDescriptor, SceneUniform, WebGLRenderer};
+use crate::{make_webgl_program, CALBackend, SceneShadingDescriptor, SceneUniform, WebGLRenderer, WebGLBackend};
 use web_sys::*;
 
-struct WebGLCALBackend {}
-
-impl CALBackend for WebGLCALBackend {
-  type Renderer = WebGLRenderer;
-  type Shading = WebGlProgram;
+impl CALBackend for WebGLBackend {
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
     make_webgl_program(&renderer.gl, &des.vertex_shader_str, &des.frag_shader_str).unwrap()
   }
   fn dispose_shading(renderer: &mut WebGLRenderer, shading: Self::Shading) {
     renderer.gl.delete_program(Some(&shading))
   }
-  type Uniform = WebGlBuffer;
-  fn create_uniform_buffer(renderer: &mut WebGLRenderer, des: SceneUniform) -> Self::Uniform {
+
+  fn create_uniform_buffer(renderer: &mut WebGLRenderer, des: SceneUniform) -> Self::UniformBuffer {
     let gl = &renderer.gl;
     let buffer = renderer
       .gl
@@ -29,11 +25,10 @@ impl CALBackend for WebGLCALBackend {
     );
     return buffer;
   }
-  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::Uniform) {
+  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer) {
     renderer.gl.delete_buffer(Some(&uniform));
   }
 
-  type IndexBuffer = WebGlBuffer;
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer {
     let buffer = renderer
       .gl
@@ -56,7 +51,6 @@ impl CALBackend for WebGLCALBackend {
     buffer
   }
 
-  type VertexBuffer = WebGlBuffer;
   fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer {
     let buffer = renderer
       .gl

@@ -1,14 +1,14 @@
-use crate::{Index, ResourceManager, SceneGraphBackEnd, ResourceWrap};
+use crate::{Index, ResourceManager, SceneGraphBackend, ResourceWrap};
 use std::{marker::PhantomData, ops::Range};
 
-pub struct SceneGeometryData<T: SceneGraphBackEnd>{
+pub struct SceneGeometryData<T: SceneGraphBackend>{
   pub draw_range: Range<u32>,
   pub index_buffer: Option<Index>,
   pub vertex_buffers: Vec<Index>,
   phantom: PhantomData<T>
 }
 
-impl<T: SceneGraphBackEnd> SceneGeometryData<T> {
+impl<T: SceneGraphBackend> SceneGeometryData<T> {
   pub fn new() ->Self{
     Self{
       draw_range: 0..0,
@@ -19,7 +19,7 @@ impl<T: SceneGraphBackEnd> SceneGeometryData<T> {
   }
 }
 
-impl<T: SceneGraphBackEnd> ResourceManager<T> {
+impl<T: SceneGraphBackend> ResourceManager<T> {
   pub fn add_geometry(&mut self, g: SceneGeometryData<T>) -> &mut ResourceWrap<SceneGeometryData<T>> {
     ResourceWrap::new_wrap(&mut self.geometries, g)
   }

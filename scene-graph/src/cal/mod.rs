@@ -1,35 +1,22 @@
 // cal for Content abstraction layer
 
-
-#[cfg(feature = "webgl")]
-pub mod webgl;
-
-#[cfg(feature = "wgpu")]
-pub mod webgpu;
-
 use std::any::Any;
 
-pub trait CALBackend {
-  type Renderer;
-  type Shading;
+pub trait CALBackend: SceneGraphBackend {
   fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
 
-  type Uniform;
-  fn create_uniform_buffer(renderer: &mut Self::Renderer, des: SceneUniform) -> Self::Uniform;
-  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::Uniform);
+  fn create_uniform_buffer(renderer: &mut Self::Renderer, des: SceneUniform)
+    -> Self::UniformBuffer;
+  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer);
 
-  //   type Geometry;
-  //   fn create_geometry(des: IndexedGeometry) -> Self::Geometry;
-  type IndexBuffer;
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer;
 
-  type VertexBuffer;
   fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer;
 }
 
+use crate::SceneGraphBackend;
 use wasm_bindgen::prelude::*;
-
 
 #[wasm_bindgen]
 pub struct SceneShadingDescriptor {

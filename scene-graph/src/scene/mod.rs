@@ -6,7 +6,6 @@ pub mod render_list;
 pub mod render_object;
 pub mod resource;
 pub mod scene;
-pub mod backend;
 
 pub use background::*;
 pub use culling::*;
@@ -16,9 +15,8 @@ pub use render_list::*;
 pub use render_object::*;
 pub use resource::*;
 pub use scene::*;
-pub use backend::*;
 
-pub trait SceneGraphBackEnd {
+pub trait SceneGraphBackend {
   // resource type injection
   type RenderTarget;
   type Renderer;

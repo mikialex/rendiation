@@ -1,5 +1,5 @@
 use super::scene::Scene;
-use crate::SceneGraphBackEnd;
+use crate::SceneGraphBackend;
 use generational_arena::Index;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
@@ -40,7 +40,7 @@ impl SceneNode {
     self.render_objects.push(id)
   }
 
-  pub fn traverse<T: SceneGraphBackEnd>(
+  pub fn traverse<T: SceneGraphBackend>(
     &self,
     scene: &Scene<T>,
     visit_stack: &mut Vec<Index>,

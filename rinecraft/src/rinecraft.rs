@@ -17,8 +17,8 @@ pub struct Rinecraft {
 
 pub struct RinecraftState {
   pub window_state: WindowState,
-  pub scene: Scene<SceneGraphWebGPUBackend>,
-  pub scene_renderer: SceneGraphWebGPUBackend,
+  pub scene: Scene<WebGPUBackend>,
+  pub scene_renderer: WebGPUBackend,
   pub camera_gpu: CameraGPU,
   pub camera_controller: CameraController,
   pub viewport: Viewport,
@@ -128,7 +128,7 @@ impl Application for Rinecraft {
         window_state,
         world,
         scene,
-        scene_renderer: SceneGraphWebGPUBackend::new(),
+        scene_renderer: WebGPUBackend::new(),
         camera_gpu,
         viewport,
         camera_controller: CameraController::new(),

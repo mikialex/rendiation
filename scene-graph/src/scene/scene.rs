@@ -1,5 +1,5 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
-use crate::{RenderData, RenderObject, SceneGraphBackEnd};
+use crate::{RenderData, RenderObject, SceneGraphBackend};
 use generational_arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
@@ -56,7 +56,7 @@ impl CameraData {
   }
 }
 
-pub struct Scene<T: SceneGraphBackEnd> {
+pub struct Scene<T: SceneGraphBackend> {
   pub background: Option<Box<dyn Background<T>>>,
   pub cameras: CameraData,
   pub render_objects: Arena<RenderObject>,
@@ -68,7 +68,7 @@ pub struct Scene<T: SceneGraphBackEnd> {
   pub resource_update_ctx: ResourceUpdateCtx,
 }
 
-impl<T: SceneGraphBackEnd> Scene<T> {
+impl<T: SceneGraphBackend> Scene<T> {
   pub fn new() -> Self {
     let camera_default = Box::new(PerspectiveCamera::new());
 

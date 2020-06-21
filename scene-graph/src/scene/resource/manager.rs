@@ -1,11 +1,11 @@
 use crate::{
-  Arena, Index, SceneGeometryData, SceneGraphBackEnd, SceneShadingData,
+  Arena, Index, SceneGeometryData, SceneGraphBackend, SceneShadingData,
   SceneShadingParameterGroupData,
 };
 
 type ResourceArena<T> = Arena<ResourceWrap<T>>;
 
-pub struct ResourceManager<T: SceneGraphBackEnd> {
+pub struct ResourceManager<T: SceneGraphBackend> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
   pub shadings: ResourceArena<SceneShadingData<T>>,
   pub shading_parameter_groups: ResourceArena<SceneShadingParameterGroupData<T>>,
@@ -46,7 +46,7 @@ impl<T> ResourceWrap<T> {
   }
 }
 
-impl<T: SceneGraphBackEnd> ResourceManager<T> {
+impl<T: SceneGraphBackend> ResourceManager<T> {
   pub fn new() -> Self {
     Self {
       geometries: Arena::new(),

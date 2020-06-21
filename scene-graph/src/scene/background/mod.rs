@@ -1,7 +1,7 @@
 use rendiation_math::Vec3;
-use crate::SceneGraphBackEnd;
+use crate::SceneGraphBackend;
 
-pub trait Background<T: SceneGraphBackEnd> {
+pub trait Background<T: SceneGraphBackend> {
   fn render(&self, renderer: &mut T::Renderer, builder: T::RenderTarget);
 }
 

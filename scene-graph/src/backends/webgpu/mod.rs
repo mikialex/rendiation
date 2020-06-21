@@ -1,9 +1,11 @@
 use crate::{
-  Background, RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine, SolidBackground,
+  Background, RenderObject, Scene, SceneGraphBackend, RenderEngine, SolidBackground,
 };
 use rendiation::*;
+pub mod cal;
+pub use cal::*;
 
-impl SceneGraphBackEnd for SceneGraphWebGPUBackend {
+impl SceneGraphBackend for WebGPUBackend {
   type RenderTarget = WGPURenderPassBuilder<'static>;
   type Renderer = WGPURenderer;
   type Shading = WGPUPipeline;
@@ -13,7 +15,7 @@ impl SceneGraphBackEnd for SceneGraphWebGPUBackend {
   type UniformBuffer = WGPUBuffer;
 }
 
-impl Background<SceneGraphWebGPUBackend> for SolidBackground {
+impl Background<WebGPUBackend> for SolidBackground {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder) {
     builder
       .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
@@ -25,20 +27,20 @@ fn extend_lifetime<'b>(r: WGPURenderPassBuilder<'b>) -> WGPURenderPassBuilder<'s
   unsafe { std::mem::transmute::<WGPURenderPassBuilder<'b>, WGPURenderPassBuilder<'static>>(r) }
 }
 
-pub struct SceneGraphWebGPUBackend {
-  engine: SceneGraphRenderEngine,
+pub struct WebGPUBackend {
+  engine: RenderEngine,
 }
 
-impl SceneGraphWebGPUBackend {
+impl WebGPUBackend {
   pub fn new() -> Self {
     Self {
-      engine: SceneGraphRenderEngine::new(),
+      engine: RenderEngine::new(),
     }
   }
 
   pub fn render(
     &mut self,
-    scene: &mut Scene<SceneGraphWebGPUBackend>,
+    scene: &mut Scene<WebGPUBackend>,
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
@@ -68,7 +70,7 @@ impl RenderObject {
   pub fn render_webgpu<'a, 'b: 'a>(
     &self,
     pass: &mut WGPURenderPass<'a>,
-    scene: &'b Scene<SceneGraphWebGPUBackend>,
+    scene: &'b Scene<WebGPUBackend>,
   ) {
     let shading = scene.resources.get_shading(self.shading_index).resource();
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();
