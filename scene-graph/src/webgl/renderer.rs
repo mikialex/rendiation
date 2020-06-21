@@ -23,11 +23,11 @@ impl WebGLRenderer {
         .bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&a.buffer));
       self.gl.vertex_attrib_pointer_with_i32(
         a.location,
-        a.desciptor.size,
-        a.desciptor.data_type.to_webgl(),
+        a.descriptor.size,
+        a.descriptor.data_type.to_webgl(),
         false,
         vertex_buffer.stride,
-        a.desciptor.offset,
+        a.descriptor.offset,
       );
       self.gl.enable_vertex_attrib_array(a.location);
     })

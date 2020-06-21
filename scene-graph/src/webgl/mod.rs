@@ -21,7 +21,7 @@ impl SceneGraphBackEnd for SceneGraphWebGLBackend {
 pub struct WebGLVertexAttributeBuffer {
   buffer: WebGlBuffer,
   location: u32,
-  desciptor: WebGLVertexAttributeBufferDescriptor,
+  descriptor: WebGLVertexAttributeBufferDescriptor,
 }
 
 pub struct WebGLVertexAttributeBufferDescriptor {

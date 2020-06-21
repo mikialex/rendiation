@@ -1,4 +1,4 @@
-// Content abstaction layer
+// Content abstraction layer
 pub mod webgl;
 pub mod webgpu;
 
@@ -12,6 +12,7 @@ pub trait CALBackend {
 
   type Uniform;
   fn create_uniform_buffer(renderer: &mut Self::Renderer, des: SceneUniform) -> Self::Uniform;
+  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::Uniform);
 
   //   type Geometry;
   //   fn create_geometry(des: IndexedGeometry) -> Self::Geometry;
@@ -46,5 +47,10 @@ impl SceneShadingDescriptor {
 }
 
 pub struct SceneUniform {
-  pub value: Box<dyn Any>,
+  pub value: Box<dyn SceneUniformValue>,
+}
+
+pub trait SceneUniformValue: Any {
+  fn as_any(&self) -> dyn Any;
+  fn as_byte(&self) -> &[u8];
 }

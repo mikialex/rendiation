@@ -13,8 +13,24 @@ impl CALBackend for WebGLCALBackend {
     renderer.gl.delete_program(Some(&shading))
   }
   type Uniform = WebGlBuffer;
-  fn create_uniform_buffer(_renderer: &mut WebGLRenderer, _des: SceneUniform) -> Self::Uniform {
-    todo!()
+  fn create_uniform_buffer(renderer: &mut WebGLRenderer, des: SceneUniform) -> Self::Uniform {
+    let gl = &renderer.gl;
+    let buffer = renderer
+      .gl
+      .create_buffer()
+      .ok_or("failed to create ubo buffer")
+      .unwrap();
+    gl.bind_buffer(WebGl2RenderingContext::UNIFORM_BUFFER, Some(&buffer));
+    gl.buffer_data_with_u8_array_and_src_offset(
+      WebGl2RenderingContext::UNIFORM_BUFFER,
+      des.value.as_byte(),
+      WebGl2RenderingContext::STATIC_DRAW,
+      0,
+    );
+    return buffer;
+  }
+  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::Uniform) {
+    renderer.gl.delete_buffer(Some(&uniform));
   }
 
   type IndexBuffer = WebGlBuffer;
