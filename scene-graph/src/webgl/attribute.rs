@@ -26,6 +26,7 @@ impl WebGLRenderer {
   }
 }
 
+#[derive(Copy, Clone)]
 pub struct WebGLAttributeTypeId(u32);
 
 pub struct WebGLVertexAttributeBuffer {

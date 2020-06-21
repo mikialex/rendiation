@@ -4,10 +4,12 @@ use web_sys::*;
 pub mod renderer;
 pub mod attribute;
 pub mod program;
+pub mod uniform;
 
 pub use renderer::*;
 pub use attribute::*;
 pub use program::*;
+pub use uniform::*;
 
 pub struct SceneGraphWebGLBackend {
   engine: SceneGraphRenderEngine,
@@ -66,6 +68,7 @@ impl RenderObject {
     });
     for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
       let buffer = resources.get_vertex_buffer(*vertex_buffer);
+      // we should make sure that the i is match the attribute location
       renderer.set_vertex_buffer(i, buffer.resource());
     }
 
