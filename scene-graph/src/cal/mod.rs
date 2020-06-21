@@ -52,6 +52,16 @@ impl SceneShadingDescriptor {
       frag_shader_str: frag_shader_str.to_owned(),
     }
   }
+
+  #[wasm_bindgen]
+  pub fn vertex_shader_str_wasm(&self) -> String {
+    self.vertex_shader_str.clone()
+  }
+
+  #[wasm_bindgen]
+  pub fn frag_shader_str_wasm(&self) -> String {
+    self.frag_shader_str.clone()
+  }
 }
 
 pub struct SceneUniform {

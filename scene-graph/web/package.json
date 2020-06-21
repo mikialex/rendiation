@@ -1,0 +1,24 @@
+{
+  "name": "rendiation-scene-web-testbed",
+  "version": "0.1.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "serve": "webpack-dev-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rustwasm/create-wasm-app.git"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^5.0.0",
+    "webpack": "^4.29.3",
+    "webpack-cli": "^3.1.0",
+    "webpack-dev-server": "^3.1.5"
+  },
+  "dependencies": {
+    "three": "^0.104.0",
+    "ts-loader": "^5.4.3",
+    "typescript": "^3.4.4"
+  }
+}
