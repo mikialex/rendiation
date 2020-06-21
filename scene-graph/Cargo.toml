@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 wgpu = ["rendiation", "rendiation-derives", "rendiation-mesh-buffer/wgpu"]
+webgl = []
 
 [dependencies]
 wasm-bindgen = { version = "0.2.62" }
