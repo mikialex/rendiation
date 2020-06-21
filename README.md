@@ -24,7 +24,7 @@ RendiationWebGL for WebGL2. // planed
 
 ### Framework
 
-SceneGraph for backEnd agnostic 3D scene description and rendering;
+[SceneGraph](./scene-graph/README.md) for backEnd agnostic 3D scene description and rendering;
 
 RenderGraph for backEnd agnostic multi-pass dependency resolve and composition;
 

@@ -37,7 +37,7 @@ pub enum WebGLVertexAttributeDataType {
 impl WebGLVertexAttributeDataType {
   pub fn to_webgl(&self) -> u32 {
     match self {
-      Self::Float => WebGlRenderingContext::FLOAT,
+      Self::Float => WebGl2RenderingContext::FLOAT,
     }
   }
 }
@@ -104,9 +104,9 @@ impl RenderObject {
 
     let range = &geometry.draw_range;
     renderer.gl.draw_elements_with_i32(
-      WebGlRenderingContext::TRIANGLES,
+      WebGl2RenderingContext::TRIANGLES,
       range.start as i32,
-      WebGlRenderingContext::UNSIGNED_INT,
+      WebGl2RenderingContext::UNSIGNED_INT,
       range.end as i32,
     );
   }

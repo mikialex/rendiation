@@ -9,8 +9,8 @@ impl CALBackend for WebGLCALBackend {
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
     make_webgl_program(&renderer.gl, &des.vertex_shader_str, &des.frag_shader_str).unwrap()
   }
-  fn dispose_shading(_renderer: &mut WebGLRenderer, _shading: Self::Shading) {
-    todo!()
+  fn dispose_shading(renderer: &mut WebGLRenderer, shading: Self::Shading) {
+    renderer.gl.delete_program(Some(&shading))
   }
   type Uniform = WebGlBuffer;
   fn create_uniform_buffer(_renderer: &mut WebGLRenderer, _des: SceneUniform) -> Self::Uniform {
@@ -26,15 +26,15 @@ impl CALBackend for WebGLCALBackend {
       .unwrap();
     renderer
       .gl
-      .bind_buffer(WebGlRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer));
+      .bind_buffer(WebGl2RenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer));
     unsafe {
       // unsafe for transmute and avoid allocation(cause heap grow and move in wasm)
       let transmuted = std::mem::transmute::<&[u8], &[u16]>(data);
       let vert_array = js_sys::Uint16Array::view(transmuted);
       renderer.gl.buffer_data_with_array_buffer_view(
-        WebGlRenderingContext::ELEMENT_ARRAY_BUFFER,
+        WebGl2RenderingContext::ELEMENT_ARRAY_BUFFER,
         &vert_array,
-        WebGlRenderingContext::STATIC_DRAW,
+        WebGl2RenderingContext::STATIC_DRAW,
       );
     };
     buffer
@@ -42,7 +42,6 @@ impl CALBackend for WebGLCALBackend {
 
   type VertexBuffer = WebGlBuffer;
   fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer {
-    // todo!()
     let buffer = renderer
       .gl
       .create_buffer()
@@ -50,14 +49,14 @@ impl CALBackend for WebGLCALBackend {
       .unwrap();
     renderer
       .gl
-      .bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&buffer));
+      .bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
     unsafe {
       let transmuted = std::mem::transmute::<&[u8], &[f32]>(data);
       let vert_array = js_sys::Float32Array::view(transmuted);
       renderer.gl.buffer_data_with_array_buffer_view(
-        WebGlRenderingContext::ARRAY_BUFFER,
+        WebGl2RenderingContext::ARRAY_BUFFER,
         &vert_array,
-        WebGlRenderingContext::STATIC_DRAW,
+        WebGl2RenderingContext::STATIC_DRAW,
       );
     };
     buffer

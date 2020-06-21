@@ -29,9 +29,9 @@ pub struct SceneShadingDescriptor {
   // .. target state stuff,
 
   // some think?
-  // in opengl like backend, blend/target state is dynamicly set on the ctx, target state is not be used at all.
+  // in opengl like backend, blend/target state is dynamically set on the ctx, target state is not be used at all.
   // in webgpu like backend, two mode:
-  // 1. these state should explictly and correctly provided and not perform runtime check, panic when not ok
+  // 1. these state should explicitly and correctly provided and not perform runtime check, panic when not ok
   // 2. these state hashing to choose cached pso or create new in runtime, extra overhead and always ok.
   // but where should the strategy impl
 }

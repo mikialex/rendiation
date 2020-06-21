@@ -5,6 +5,8 @@
         "Blinn",
         "Drawcall",
         "Framebuffer",
+        "GLCAL",
+        "GPUCAL",
         "Lambertian",
         "Lerp",
         "Mesher",

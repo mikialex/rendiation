@@ -2,7 +2,7 @@ use crate::WebGLVertexBuffer;
 use web_sys::*;
 
 pub struct WebGLRenderer {
-  pub gl: WebGlRenderingContext,
+  pub gl: WebGl2RenderingContext,
 }
 
 impl WebGLRenderer {
@@ -13,14 +13,14 @@ impl WebGLRenderer {
   pub fn set_index_buffer(&self, buffer: Option<&WebGlBuffer>) {
     self
       .gl
-      .bind_buffer(WebGlRenderingContext::ELEMENT_ARRAY_BUFFER, buffer)
+      .bind_buffer(WebGl2RenderingContext::ELEMENT_ARRAY_BUFFER, buffer)
   }
 
   pub fn set_vertex_buffer(&self, _index: usize, vertex_buffer: &WebGLVertexBuffer) {
     vertex_buffer.attributes.iter().for_each(|a| {
       self
         .gl
-        .bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&a.buffer));
+        .bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&a.buffer));
       self.gl.vertex_attrib_pointer_with_i32(
         a.location,
         a.desciptor.size,
@@ -35,25 +35,25 @@ impl WebGLRenderer {
 }
 
 pub fn make_webgl_program(
-  context: &WebGlRenderingContext,
+  context: &WebGl2RenderingContext,
   vertex_shader_str: &str,
   frag_shader_str: &str,
 ) -> Result<WebGlProgram, String> {
   let vertex_shader = compile_shader(
     &context,
-    WebGlRenderingContext::VERTEX_SHADER,
+    WebGl2RenderingContext::VERTEX_SHADER,
     vertex_shader_str,
   )?;
   let frag_shader = compile_shader(
     &context,
-    WebGlRenderingContext::FRAGMENT_SHADER,
+    WebGl2RenderingContext::FRAGMENT_SHADER,
     frag_shader_str,
   )?;
   link_program(&context, &vertex_shader, &frag_shader)
 }
 
 fn compile_shader(
-  context: &WebGlRenderingContext,
+  context: &WebGl2RenderingContext,
   shader_type: u32,
   source: &str,
 ) -> Result<WebGlShader, String> {
@@ -64,7 +64,7 @@ fn compile_shader(
   context.compile_shader(&shader);
 
   if context
-    .get_shader_parameter(&shader, WebGlRenderingContext::COMPILE_STATUS)
+    .get_shader_parameter(&shader, WebGl2RenderingContext::COMPILE_STATUS)
     .as_bool()
     .unwrap_or(false)
   {
@@ -79,7 +79,7 @@ fn compile_shader(
 }
 
 fn link_program(
-  context: &WebGlRenderingContext,
+  context: &WebGl2RenderingContext,
   vert_shader: &WebGlShader,
   frag_shader: &WebGlShader,
 ) -> Result<WebGlProgram, String> {
@@ -92,7 +92,7 @@ fn link_program(
   context.link_program(&program);
 
   if context
-    .get_program_parameter(&program, WebGlRenderingContext::LINK_STATUS)
+    .get_program_parameter(&program, WebGl2RenderingContext::LINK_STATUS)
     .as_bool()
     .unwrap_or(false)
   {
