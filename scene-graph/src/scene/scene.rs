@@ -1,6 +1,6 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
 use crate::{RenderData, RenderObject, SceneGraphBackend};
-use generational_arena::{Arena, Index};
+use arena::{Arena, Index};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
 pub struct ResourceUpdateCtx {

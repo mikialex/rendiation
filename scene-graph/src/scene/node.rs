@@ -1,6 +1,6 @@
 use super::scene::Scene;
 use crate::SceneGraphBackend;
-use generational_arena::Index;
+use arena::Index;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
 

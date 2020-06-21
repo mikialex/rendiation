@@ -1,6 +1,6 @@
 use crate::application::AppRenderCtx;
 // use core::any::Any;
-use generational_arena::*;
+use arena::*;
 use std::collections::HashMap;
 use winit::event;
 use winit::event::*;

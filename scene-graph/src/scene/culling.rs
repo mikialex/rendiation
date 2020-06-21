@@ -1,6 +1,6 @@
 use super::scene::Scene;
 use crate::SceneGraphBackend;
-use generational_arena::Index;
+use arena::Index;
 use rendiation_math_entity::{IntersectAble, Frustum};
 use rendiation_render_entity::Camera;
 

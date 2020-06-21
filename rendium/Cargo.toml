@@ -13,4 +13,4 @@ rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
 rendiation-derives = { path = "../rendiation-derives" }
-generational-arena = { version = "0.2" }
+arena = { path = "../utils/arena" }

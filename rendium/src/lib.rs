@@ -18,7 +18,7 @@ pub use renderer::*;
 pub use element::*;
 pub use winit;
 
-pub use generational_arena::*;
+pub use arena::*;
 use rendiation::{render_target::ScreenRenderTarget, WGPURenderer};
 
 pub struct GUI {

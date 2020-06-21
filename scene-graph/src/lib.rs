@@ -8,4 +8,4 @@ pub use scene::*;
 
 pub mod wasm;
 
-pub use generational_arena::*;
+pub use arena::*;

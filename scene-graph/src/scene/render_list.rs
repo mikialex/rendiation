@@ -1,6 +1,6 @@
 use super::scene::Scene;
 use crate::SceneGraphBackend;
-use generational_arena::Index;
+use arena::Index;
 
 #[derive(Copy, Clone)]
 pub struct Drawcall {

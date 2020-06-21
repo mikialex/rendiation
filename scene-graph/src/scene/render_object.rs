@@ -1,5 +1,5 @@
 use crate::{Scene, SceneGraphBackend};
-use generational_arena::Index;
+use arena::Index;
 use rendiation_render_entity::BoundingData;
 
 pub struct RenderObject {

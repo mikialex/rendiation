@@ -15,7 +15,7 @@ webgl = []
 [dependencies]
 wasm-bindgen = { version = "0.2.62" }
 js-sys = "0.3.39"
-generational-arena = { version = "0.2" }
+arena = { path = "../utils/arena" }
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
