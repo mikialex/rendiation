@@ -1,8 +1,13 @@
-use crate::{RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine};
+use crate::{RenderObject, Scene, SceneGraphBackEnd, SceneGraphRenderEngine, ShadingParameterType};
 use web_sys::*;
 
 pub mod renderer;
+pub mod attribute;
+pub mod program;
+
 pub use renderer::*;
+pub use attribute::*;
+pub use program::*;
 
 pub struct SceneGraphWebGLBackend {
   engine: SceneGraphRenderEngine,
@@ -16,36 +21,6 @@ impl SceneGraphBackEnd for SceneGraphWebGLBackend {
   type IndexBuffer = Option<WebGlBuffer>;
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;
-}
-
-pub struct WebGLVertexAttributeBuffer {
-  buffer: WebGlBuffer,
-  location: u32,
-  descriptor: WebGLVertexAttributeBufferDescriptor,
-}
-
-pub struct WebGLVertexAttributeBufferDescriptor {
-  offset: i32,
-  size: i32,
-  data_type: WebGLVertexAttributeDataType,
-}
-
-pub enum WebGLVertexAttributeDataType {
-  Float,
-}
-
-impl WebGLVertexAttributeDataType {
-  pub fn to_webgl(&self) -> u32 {
-    match self {
-      Self::Float => WebGl2RenderingContext::FLOAT,
-    }
-  }
-}
-
-pub struct WebGLVertexBuffer {
-  stride: i32,
-  attributes: Vec<WebGLVertexAttributeBuffer>, // todo use smallvec opt
-                                               // todo optional VAO
 }
 
 impl SceneGraphWebGLBackend {
@@ -78,28 +53,38 @@ impl SceneGraphWebGLBackend {
 
 impl RenderObject {
   pub fn render_webgl(&self, renderer: &mut WebGLRenderer, scene: &Scene<SceneGraphWebGLBackend>) {
-    let shading = scene.resources.get_shading(self.shading_index).resource();
-    let geometry = &scene.resources.get_geometry(self.geometry_index).resource();
+    let resources = &scene.resources;
+    let shading = resources.get_shading(self.shading_index).resource();
+    let geometry = &resources.get_geometry(self.geometry_index).resource();
 
     renderer.use_program(&shading.gpu);
 
     // geometry bind
     geometry.index_buffer.map(|b| {
-      let index = scene.resources.get_index_buffer(b);
+      let index = resources.get_index_buffer(b);
       renderer.set_index_buffer(index.resource().as_ref());
     });
     for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
-      let buffer = scene.resources.get_vertex_buffer(*vertex_buffer);
+      let buffer = resources.get_vertex_buffer(*vertex_buffer);
       renderer.set_vertex_buffer(i, buffer.resource());
     }
 
     // shading bind
     for i in 0..shading.get_parameters_count() {
-      let _parameter_group = scene
-        .resources
-        .get_shading_param_group(shading.get_parameter(i));
-      // pass.set_bindgroup(i, bindgroup.gpu());
-      // todo!()
+      let parameter_group = resources
+        .get_shading_param_group(shading.get_parameter(i))
+        .resource();
+      parameter_group.items.iter().for_each(|p| {
+        use ShadingParameterType::*;
+        match p {
+          UniformBuffer(index) => {
+            let _uniform = resources.get_uniform(*index).resource();
+            todo!()
+          }
+          SampledTexture(_index) => todo!(),
+          _ => panic!("unsupported webgl resource type"),
+        }
+      })
     }
 
     let range = &geometry.draw_range;

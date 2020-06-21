@@ -2,13 +2,14 @@ use crate::{Index, ResourceManager, SceneGraphBackEnd, ResourceWrap};
 
 pub struct SceneShadingParameterGroupData<T: SceneGraphBackEnd>{
   pub gpu: T::ShadingParameterGroup,
-  pub items: Vec<(Index, ShadingParameterType)>,
+  pub items: Vec<ShadingParameterType>,
 }
 
 pub enum ShadingParameterType {
-  UniformBuffer,
-  Texture,
-  Sampler,
+  UniformBuffer(Index),
+  Texture(Index),
+  Sampler(Index),
+  SampledTexture(Index),
 }
 
 impl<T: SceneGraphBackEnd> ResourceManager<T> {
