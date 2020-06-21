@@ -1,4 +1,4 @@
-use super::IndexedBufferTesserlator;
+use super::IndexedBufferTessellator;
 use crate::vertex::Vertex;
 use rendiation_math::*;
 
@@ -29,8 +29,8 @@ impl Default for SphereGeometryParameter {
   }
 }
 
-impl IndexedBufferTesserlator for SphereGeometryParameter {
-  type TesserlationParameter = ();
+impl IndexedBufferTessellator for SphereGeometryParameter {
+  type TessellationParameter = ();
   fn create_mesh(&self, _: &()) -> (Vec<Vertex>, Vec<u16>) {
     let Self {
       radius,

@@ -1,6 +1,6 @@
 pub mod geometry;
 pub mod vertex;
-pub mod tesserlation;
+pub mod tessellation;
 
 #[cfg(feature = "wgpu")]
 pub mod wgpu;

@@ -9,7 +9,7 @@ use rendiation_render_entity::*;
 mod shader;
 use render_target::{RenderTarget, RenderTargetAble, TargetStatesProvider};
 use rendiation_mesh_buffer::{
-  tesserlation::{plane::Quad, IndexedBufferTesserlator},
+  tessellation::{plane::Quad, IndexedBufferTessellator},
   wgpu::GPUGeometry,
 };
 pub use shader::*;

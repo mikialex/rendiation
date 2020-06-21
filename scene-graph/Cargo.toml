@@ -7,6 +7,10 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+
+[features]
+wgpu = ["rendiation", "rendiation-derives", "rendiation-mesh-buffer/wgpu"]
+
 [dependencies]
 wasm-bindgen = { version = "0.2.62" }
 js-sys = "0.3.39"
@@ -14,10 +18,10 @@ generational-arena = { version = "0.2" }
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
-rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
+rendiation-mesh-buffer = { path = "../mesh-buffer" }
 
-rendiation = { path = "../rendiation"}
-rendiation-derives = { path = "../rendiation-derives" }
+rendiation = { path = "../rendiation", optional = true}
+rendiation-derives = { path = "../rendiation-derives", optional = true }
 
 [dependencies.web-sys]
 version = "0.3.39"

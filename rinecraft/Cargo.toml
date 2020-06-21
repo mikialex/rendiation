@@ -14,7 +14,7 @@ rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
 rendiation = { path = "../rendiation" }
 rendiation-derives = { path = "../rendiation-derives" }
 rendium = { path = "../rendium" }
-rendiation-scenegraph = { path = "../scene-graph" }
+rendiation-scenegraph = { path = "../scene-graph", features = ["wgpu"] }
 image = "*"
 noise = "0.6"
 serde = { version = "1.0.105", features = ["derive"] }

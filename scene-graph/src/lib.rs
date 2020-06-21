@@ -4,7 +4,9 @@ pub mod cal;
 pub use scene::*;
 pub use cal::*;
 
+#[cfg(feature = "wgpu")]
 pub mod webgpu;
+#[cfg(feature = "wgpu")]
 pub use webgpu::*;
 
 pub mod webgl;

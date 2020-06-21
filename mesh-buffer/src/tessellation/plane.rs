@@ -1,11 +1,11 @@
-use super::IndexedBufferTesserlator;
+use super::IndexedBufferTessellator;
 use crate::vertex::Vertex;
 use rendiation_math::*;
 
 pub struct Quad;
 
-impl IndexedBufferTesserlator for Quad {
-  type TesserlationParameter = ();
+impl IndexedBufferTessellator for Quad {
+  type TessellationParameter = ();
   fn create_mesh(&self, p: &()) -> (Vec<Vertex>, Vec<u16>) {
     PlaneGeometryParameter {
       width: 2.,
@@ -36,8 +36,8 @@ impl Default for PlaneGeometryParameter {
   }
 }
 
-impl IndexedBufferTesserlator for PlaneGeometryParameter {
-  type TesserlationParameter = ();
+impl IndexedBufferTessellator for PlaneGeometryParameter {
+  type TessellationParameter = ();
   fn create_mesh(&self, _p: &()) -> (Vec<Vertex>, Vec<u16>) {
     let Self {
       width,

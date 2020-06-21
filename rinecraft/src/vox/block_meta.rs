@@ -4,7 +4,7 @@ use crate::shading::*;
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
 use rendiation::*;
-use rendiation_mesh_buffer::tesserlation::{plane::Quad, IndexedBufferTesserlator};
+use rendiation_mesh_buffer::tessellation::{plane::Quad, IndexedBufferTessellator};
 use rendiation_mesh_buffer::wgpu::*;
 use std::collections::HashMap;
 use std::rc::Rc;

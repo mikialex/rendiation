@@ -1,5 +1,7 @@
 // Content abstraction layer
 pub mod webgl;
+
+#[cfg(feature = "wgpu")]
 pub mod webgpu;
 
 use std::any::Any;
@@ -23,9 +25,13 @@ pub trait CALBackend {
   fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer;
 }
 
+use wasm_bindgen::prelude::*;
+
+
+#[wasm_bindgen]
 pub struct SceneShadingDescriptor {
-  pub vertex_shader_str: String, // new sal(shading abstraction layer) is in design, assume shader just works
-  pub frag_shader_str: String,
+  vertex_shader_str: String, // new sal(shading abstraction layer) is in design, assume shader just works
+  frag_shader_str: String,
   // .. blend state stuff
   // .. target state stuff,
 
@@ -37,7 +43,9 @@ pub struct SceneShadingDescriptor {
   // but where should the strategy impl
 }
 
+#[wasm_bindgen]
 impl SceneShadingDescriptor {
+  #[wasm_bindgen]
   pub fn new(vertex_shader_str: &str, frag_shader_str: &str) -> Self {
     Self {
       vertex_shader_str: vertex_shader_str.to_owned(),
