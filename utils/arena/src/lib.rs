@@ -39,12 +39,13 @@ enum Entry<T> {
 /// assert_eq!(arena[idx], 123);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Handle {
+pub struct Handle<T> {
   handle: usize,
   generation: u64,
+  phantom: PhantomData<T>
 }
 
-impl Handle {
+impl<T> Handle<T> {
   /// Create a new `Handle` from its raw parts.
   ///
   /// The parts must have been returned from an earlier call to
@@ -52,10 +53,11 @@ impl Handle {
   ///
   /// Providing arbitrary values will lead to malformed indices and ultimately
   /// panics.
-  pub fn from_raw_parts(a: usize, b: u64) -> Handle {
+  pub fn from_raw_parts(a: usize, b: u64) -> Handle<T> {
     Handle {
       handle: a,
       generation: b,
+      PhantomData
     }
   }
 
@@ -184,7 +186,7 @@ impl<T> Arena<T> {
   /// };
   /// ```
   #[inline]
-  pub fn try_insert(&mut self, value: T) -> Result<Handle, T> {
+  pub fn try_insert(&mut self, value: T) -> Result<Handle<T>, T> {
     match self.try_alloc_next_index() {
       None => Err(value),
       Some(handle) => {
@@ -225,7 +227,7 @@ impl<T> Arena<T> {
   /// };
   /// ```
   #[inline]
-  pub fn try_insert_with<F: FnOnce(Handle) -> T>(&mut self, create: F) -> Result<Handle, F> {
+  pub fn try_insert_with<F: FnOnce(Handle<T>) -> T>(&mut self, create: F) -> Result<Handle<T>, F> {
     match self.try_alloc_next_index() {
       None => Err(create),
       Some(handle) => {
@@ -239,7 +241,7 @@ impl<T> Arena<T> {
   }
 
   #[inline]
-  fn try_alloc_next_index(&mut self) -> Option<Handle> {
+  fn try_alloc_next_index(&mut self) -> Option<Handle<T>> {
     match self.free_list_head {
       None => None,
       Some(i) => match self.items[i] {
@@ -271,7 +273,7 @@ impl<T> Arena<T> {
   /// assert_eq!(arena[idx], 42);
   /// ```
   #[inline]
-  pub fn insert(&mut self, value: T) -> Handle {
+  pub fn insert(&mut self, value: T) -> Handle<T> {
     match self.try_insert(value) {
       Ok(i) => i,
       Err(value) => self.insert_slow_path(value),
@@ -295,7 +297,7 @@ impl<T> Arena<T> {
   /// assert_eq!(arena[idx].1, idx);
   /// ```
   #[inline]
-  pub fn insert_with(&mut self, create: impl FnOnce(Handle) -> T) -> Handle {
+  pub fn insert_with(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {
     match self.try_insert_with(create) {
       Ok(i) => i,
       Err(create) => self.insert_with_slow_path(create),
@@ -303,7 +305,7 @@ impl<T> Arena<T> {
   }
 
   #[inline(never)]
-  fn insert_slow_path(&mut self, value: T) -> Handle {
+  fn insert_slow_path(&mut self, value: T) -> Handle<T> {
     let len = self.items.len();
     self.reserve(len);
     self
@@ -313,7 +315,7 @@ impl<T> Arena<T> {
   }
 
   #[inline(never)]
-  fn insert_with_slow_path(&mut self, create: impl FnOnce(Handle) -> T) -> Handle {
+  fn insert_with_slow_path(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {
     let len = self.items.len();
     self.reserve(len);
     self
@@ -338,7 +340,7 @@ impl<T> Arena<T> {
   /// assert_eq!(arena.remove(idx), Some(42));
   /// assert_eq!(arena.remove(idx), None);
   /// ```
-  pub fn remove(&mut self, i: Handle) -> Option<T> {
+  pub fn remove(&mut self, i: Handle<T>) -> Option<T> {
     if i.handle >= self.items.len() {
       return None;
     }
@@ -385,11 +387,11 @@ impl<T> Arena<T> {
   /// assert_eq!(crew_members.next(), Some("Alexander Smollett"));
   /// assert!(crew_members.next().is_none());
   /// ```
-  pub fn retain(&mut self, mut predicate: impl FnMut(Handle, &mut T) -> bool) {
+  pub fn retain(&mut self, mut predicate: impl FnMut(Handle<T>, &mut T) -> bool) {
     for i in 0..self.capacity() {
       let remove = match &mut self.items[i] {
         Entry::Occupied { generation, value } => {
-          let handle = Handle {
+          let handle = Handle<T> {
             handle: i,
             generation: *generation,
           };
@@ -424,7 +426,7 @@ impl<T> Arena<T> {
   /// arena.remove(idx);
   /// assert!(!arena.contains(idx));
   /// ```
-  pub fn contains(&self, i: Handle) -> bool {
+  pub fn contains(&self, i: Handle<T>) -> bool {
     self.get(i).is_some()
   }
 
@@ -445,7 +447,7 @@ impl<T> Arena<T> {
   /// arena.remove(idx);
   /// assert!(arena.get(idx).is_none());
   /// ```
-  pub fn get(&self, i: Handle) -> Option<&T> {
+  pub fn get(&self, i: Handle<T>) -> Option<&T> {
     match self.items.get(i.handle) {
       Some(Entry::Occupied { generation, value }) if *generation == i.generation => Some(value),
       _ => None,
@@ -469,7 +471,7 @@ impl<T> Arena<T> {
   /// assert_eq!(arena.remove(idx), Some(43));
   /// assert!(arena.get_mut(idx).is_none());
   /// ```
-  pub fn get_mut(&mut self, i: Handle) -> Option<&mut T> {
+  pub fn get_mut(&mut self, i: Handle<T>) -> Option<&mut T> {
     match self.items.get_mut(i.handle) {
       Some(Entry::Occupied { generation, value }) if *generation == i.generation => Some(value),
       _ => None,
@@ -505,7 +507,7 @@ impl<T> Arena<T> {
   /// assert_eq!(arena[idx1], 3);
   /// assert_eq!(arena[idx2], 4);
   /// ```
-  pub fn get2_mut(&mut self, i1: Handle, i2: Handle) -> (Option<&mut T>, Option<&mut T>) {
+  pub fn get2_mut(&mut self, i1: Handle<T>, i2: Handle<T>) -> (Option<&mut T>, Option<&mut T>) {
     let len = self.items.len();
 
     if i1.handle == i2.handle {
@@ -748,7 +750,7 @@ impl<T> Arena<T> {
   /// other kinds of bit-efficient indexing.
   ///
   /// You should use the `get` method instead most of the time.
-  pub fn get_unknown_gen(&self, i: usize) -> Option<(&T, Handle)> {
+  pub fn get_unknown_gen(&self, i: usize) -> Option<(&T, Handle<T>)> {
     match self.items.get(i) {
       Some(Entry::Occupied { generation, value }) => Some((
         value,
@@ -771,7 +773,7 @@ impl<T> Arena<T> {
   /// other kinds of bit-efficient indexing.
   ///
   /// You should use the `get_mut` method instead most of the time.
-  pub fn get_unknown_gen_mut(&mut self, i: usize) -> Option<(&mut T, Handle)> {
+  pub fn get_unknown_gen_mut(&mut self, i: usize) -> Option<(&mut T, Handle<T>)> {
     match self.items.get_mut(i) {
       Some(Entry::Occupied { generation, value }) => Some((
         value,
@@ -873,7 +875,7 @@ impl<T> ExactSizeIterator for IntoIter<T> {
 impl<T> FusedIterator for IntoIter<T> {}
 
 impl<'a, T> IntoIterator for &'a Arena<T> {
-  type Item = (Handle, &'a T);
+  type Item = (Handle<T>, &'a T);
   type IntoIter = Iter<'a, T>;
   fn into_iter(self) -> Self::IntoIter {
     self.iter()
@@ -907,7 +909,7 @@ pub struct Iter<'a, T: 'a> {
 }
 
 impl<'a, T> Iterator for Iter<'a, T> {
-  type Item = (Handle, &'a T);
+  type Item = (Handle<T>, &'a T);
 
   fn next(&mut self) -> Option<Self::Item> {
     loop {
@@ -971,7 +973,7 @@ impl<'a, T> ExactSizeIterator for Iter<'a, T> {
 impl<'a, T> FusedIterator for Iter<'a, T> {}
 
 impl<'a, T> IntoIterator for &'a mut Arena<T> {
-  type Item = (Handle, &'a mut T);
+  type Item = (Handle<T>, &'a mut T);
   type IntoIter = IterMut<'a, T>;
   fn into_iter(self) -> Self::IntoIter {
     self.iter_mut()
@@ -1005,7 +1007,7 @@ pub struct IterMut<'a, T: 'a> {
 }
 
 impl<'a, T> Iterator for IterMut<'a, T> {
-  type Item = (Handle, &'a mut T);
+  type Item = (Handle<T>, &'a mut T);
 
   fn next(&mut self) -> Option<Self::Item> {
     loop {
@@ -1099,7 +1101,7 @@ pub struct Drain<'a, T: 'a> {
 }
 
 impl<'a, T> Iterator for Drain<'a, T> {
-  type Item = (Handle, T);
+  type Item = (Handle<T>, T);
 
   fn next(&mut self) -> Option<Self::Item> {
     loop {
@@ -1135,16 +1137,16 @@ impl<T> FromIterator<T> for Arena<T> {
   }
 }
 
-impl<T> ops::Index<Handle> for Arena<T> {
+impl<T> ops::Index<Handle<T>> for Arena<T> {
   type Output = T;
 
-  fn index(&self, handle: Handle) -> &Self::Output {
+  fn index(&self, handle: Handle<T>) -> &Self::Output {
     self.get(handle).expect("No element at handle")
   }
 }
 
-impl<T> ops::IndexMut<Handle> for Arena<T> {
-  fn index_mut(&mut self, handle: Handle) -> &mut Self::Output {
+impl<T> ops::IndexMut<Handle<T>> for Arena<T> {
+  fn index_mut(&mut self, handle: Handle<T>) -> &mut Self::Output {
     self.get_mut(handle).expect("No element at handle")
   }
 }
