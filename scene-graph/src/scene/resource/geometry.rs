@@ -1,47 +1,57 @@
-use crate::{Index, ResourceManager, SceneGraphBackend, ResourceWrap};
+use crate::{Handle, ResourceManager, ResourceWrap, SceneGraphBackend};
 use std::{marker::PhantomData, ops::Range};
 
-pub struct SceneGeometryData<T: SceneGraphBackend>{
+pub type IndexBufferHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::IndexBuffer>>;
+pub type VertexBufferHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::VertexBuffer>>;
+pub type GeometryHandle<T: SceneGraphBackend> = Handle<ResourceWrap<SceneGeometryData<T>>>;
+
+pub struct SceneGeometryData<T: SceneGraphBackend> {
   pub draw_range: Range<u32>,
-  pub index_buffer: Option<Index>,
-  pub vertex_buffers: Vec<Index>,
-  phantom: PhantomData<T>
+  pub index_buffer: Option<IndexBufferHandle<T>>,
+  pub vertex_buffers: Vec<VertexBufferHandle<T>>,
+  phantom: PhantomData<T>,
 }
 
 impl<T: SceneGraphBackend> SceneGeometryData<T> {
-  pub fn new() ->Self{
-    Self{
+  pub fn new() -> Self {
+    Self {
       draw_range: 0..0,
       index_buffer: None,
       vertex_buffers: Vec::new(),
-      phantom: PhantomData
+      phantom: PhantomData,
     }
   }
 }
 
 impl<T: SceneGraphBackend> ResourceManager<T> {
-  pub fn add_geometry(&mut self, g: SceneGeometryData<T>) -> &mut ResourceWrap<SceneGeometryData<T>> {
+  pub fn add_geometry(
+    &mut self,
+    g: SceneGeometryData<T>,
+  ) -> &mut ResourceWrap<SceneGeometryData<T>> {
     ResourceWrap::new_wrap(&mut self.geometries, g)
   }
 
-  pub fn get_geometry_mut(&mut self, index: Index) -> &mut ResourceWrap<SceneGeometryData<T>> {
+  pub fn get_geometry_mut(
+    &mut self,
+    index: GeometryHandle<T>,
+  ) -> &mut ResourceWrap<SceneGeometryData<T>> {
     self.geometries.get_mut(index).unwrap()
   }
 
-  pub fn get_geometry(&self, index: Index) -> &ResourceWrap<SceneGeometryData<T>> {
+  pub fn get_geometry(&self, index: GeometryHandle<T>) -> &ResourceWrap<SceneGeometryData<T>> {
     self.geometries.get(index).unwrap()
   }
 
-  pub fn delete_geometry(&mut self, index: Index) {
+  pub fn delete_geometry(&mut self, index: GeometryHandle<T>) {
     self.geometries.remove(index);
   }
 
-  pub fn delete_geometry_with_buffers(&mut self, index: Index) {
+  pub fn delete_geometry_with_buffers(&mut self, index: GeometryHandle<T>) {
     let geometry = self.geometries.get(index).unwrap().resource();
-    if let Some(b) = geometry.index_buffer{
+    if let Some(b) = geometry.index_buffer {
       self.index_buffers.remove(b);
     }
-    for b in &geometry.vertex_buffers{
+    for b in &geometry.vertex_buffers {
       self.vertex_buffers.remove(*b);
     }
     self.geometries.remove(index);
@@ -51,15 +61,18 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
     ResourceWrap::new_wrap(&mut self.index_buffers, g)
   }
 
-  pub fn get_index_buffer_mut(&mut self, index: Index) -> &mut ResourceWrap<T::IndexBuffer> {
+  pub fn get_index_buffer_mut(
+    &mut self,
+    index: IndexBufferHandle<T>,
+  ) -> &mut ResourceWrap<T::IndexBuffer> {
     self.index_buffers.get_mut(index).unwrap()
   }
 
-  pub fn get_index_buffer(&self, index: Index) -> &ResourceWrap<T::IndexBuffer> {
+  pub fn get_index_buffer(&self, index: IndexBufferHandle<T>) -> &ResourceWrap<T::IndexBuffer> {
     self.index_buffers.get(index).unwrap()
   }
 
-  pub fn delete_index_buffer(&mut self, index: Index) {
+  pub fn delete_index_buffer(&mut self, index: IndexBufferHandle<T>) {
     self.index_buffers.remove(index);
   }
 
@@ -67,15 +80,18 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
     ResourceWrap::new_wrap(&mut self.vertex_buffers, g)
   }
 
-  pub fn get_vertex_buffer_mut(&mut self, index: Index) -> &mut ResourceWrap<T::VertexBuffer> {
+  pub fn get_vertex_buffer_mut(
+    &mut self,
+    index: VertexBufferHandle<T>,
+  ) -> &mut ResourceWrap<T::VertexBuffer> {
     self.vertex_buffers.get_mut(index).unwrap()
   }
 
-  pub fn get_vertex_buffer(&self, index: Index) -> &ResourceWrap<T::VertexBuffer> {
+  pub fn get_vertex_buffer(&self, index: VertexBufferHandle<T>) -> &ResourceWrap<T::VertexBuffer> {
     self.vertex_buffers.get(index).unwrap()
   }
 
-  pub fn delete_vertex_buffer(&mut self, index: Index) {
+  pub fn delete_vertex_buffer(&mut self, index: VertexBufferHandle<T>) {
     self.vertex_buffers.remove(index);
   }
 }

@@ -1,15 +1,17 @@
-use crate::{Scene, SceneGraphBackend};
-use arena::Index;
+use crate::{GeometryHandle, Scene, SceneGraphBackend, ShadingHandle};
 use rendiation_render_entity::BoundingData;
+use arena::Handle;
 
-pub struct RenderObject {
-  pub shading_index: Index,
-  pub geometry_index: Index,
+pub type RenderObjectHandle<T: SceneGraphBackend> = Handle<RenderObject<T>>;
+
+pub struct RenderObject<T: SceneGraphBackend> {
+  pub shading_index: ShadingHandle<T>,
+  pub geometry_index: GeometryHandle<T>,
   pub render_order: i32, // todo for sorting
 }
 
-impl RenderObject {
-  pub fn get_bounding_local<T: SceneGraphBackend>(&self, _scene: &Scene<T>) -> &BoundingData {
+impl<T: SceneGraphBackend> RenderObject<T> {
+  pub fn get_bounding_local(&self, _scene: &Scene<T>) -> &BoundingData {
     todo!()
   }
 }

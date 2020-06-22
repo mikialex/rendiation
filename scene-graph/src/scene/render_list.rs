@@ -1,18 +1,18 @@
 use super::scene::Scene;
-use crate::SceneGraphBackend;
-use arena::Index;
+use crate::{RenderObjectHandle, SceneGraphBackend, SceneNode};
+use arena::Handle;
 
 #[derive(Copy, Clone)]
-pub struct Drawcall {
-  pub render_object: Index,
-  pub node: Index,
+pub struct Drawcall<T: SceneGraphBackend> {
+  pub render_object: RenderObjectHandle<T>,
+  pub node: Handle<SceneNode>,
 }
 
-pub struct RenderList {
-  pub drawcalls: Vec<Drawcall>,
+pub struct RenderList<T: SceneGraphBackend> {
+  pub drawcalls: Vec<Drawcall<T>>,
 }
 
-impl RenderList {
+impl<T: SceneGraphBackend> RenderList<T> {
   pub fn new() -> Self {
     Self {
       drawcalls: Vec::new(),
@@ -24,12 +24,16 @@ impl RenderList {
     self
   }
 
-  pub fn push_drawcall(&mut self, drawcall: Drawcall) -> &mut Self {
+  pub fn push_drawcall(&mut self, drawcall: Drawcall<T>) -> &mut Self {
     self.drawcalls.push(drawcall);
     self
   }
 
-  pub fn push(&mut self, node: Index, render_object: Index) -> &mut Self {
+  pub fn push(
+    &mut self,
+    node: Handle<SceneNode>,
+    render_object: RenderObjectHandle<T>,
+  ) -> &mut Self {
     self.drawcalls.push(Drawcall {
       render_object,
       node,
@@ -41,7 +45,7 @@ impl RenderList {
     self.drawcalls.len()
   }
 
-  pub fn sort_for_opaque<T: SceneGraphBackend>(&mut self, scene: &Scene<T>) {
+  pub fn sort_for_opaque(&mut self, scene: &Scene<T>) {
     self.drawcalls.sort_unstable_by(|a, b| {
       let a_render_data = scene.get_node_render_data(a.node);
       let b_render_data = scene.get_node_render_data(b.node);
@@ -54,7 +58,7 @@ impl RenderList {
     });
   }
 
-  pub fn sort_for_transparent<T: SceneGraphBackend>(&mut self, scene: &Scene<T>) {
+  pub fn sort_for_transparent(&mut self, scene: &Scene<T>) {
     self.drawcalls.sort_unstable_by(|a, b| {
       let a_render_data = scene.get_node_render_data(a.node);
       let b_render_data = scene.get_node_render_data(b.node);

@@ -1,12 +1,12 @@
 use crate::{Culler, RenderList, Scene, SceneGraphBackend, SceneNode};
 
-pub struct RenderEngine {
-  pub scene_raw_list: RenderList,
-  pub culled_list: RenderList,
+pub struct RenderEngine<T: SceneGraphBackend> {
+  pub scene_raw_list: RenderList<T>,
+  pub culled_list: RenderList<T>,
   pub culler: Culler,
 }
 
-impl RenderEngine {
+impl<T: SceneGraphBackend> RenderEngine<T> {
   pub fn new() -> Self {
     Self {
       scene_raw_list: RenderList::new(),
@@ -15,7 +15,7 @@ impl RenderEngine {
     }
   }
 
-  pub fn update_render_list<T: SceneGraphBackend>(&mut self, scene: &mut Scene<T>) {
+  pub fn update_render_list(&mut self, scene: &mut Scene<T>) {
     self.scene_raw_list.clear();
     let mut stack = Vec::new(); // todo
     scene.traverse(
@@ -38,7 +38,7 @@ impl RenderEngine {
     );
   }
 
-  pub fn execute_culling<T: SceneGraphBackend>(&mut self, scene: &Scene<T>) {
+  pub fn execute_culling(&mut self, scene: &Scene<T>) {
     self.culled_list.clear();
 
     for drawcall in &self.scene_raw_list.drawcalls {

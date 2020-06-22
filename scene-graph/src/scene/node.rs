@@ -1,14 +1,14 @@
 use super::scene::Scene;
 use crate::SceneGraphBackend;
-use arena::Index;
+use arena::Handle;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
 
 pub struct SceneNode {
-  pub(crate) self_id: Index,
-  pub(crate) parent: Option<Index>,
-  pub(crate) children: Vec<Index>,
-  pub render_objects: Vec<Index>,
+  pub(crate) self_id: Handle<SceneNode>,
+  pub(crate) parent: Option<Handle<SceneNode>>,
+  pub(crate) children: Vec<Handle<SceneNode>>,
+  pub render_objects: Vec<Handle<SceneNode>>,
   pub visible: bool,
   pub net_visible: bool,
   pub(crate) render_data: RenderData,
@@ -17,7 +17,7 @@ pub struct SceneNode {
 impl SceneNode {
   pub(crate) fn new() -> Self {
     Self {
-      self_id: Index::from_raw_parts(0, 0), // later
+      self_id: Handle::from_raw_parts(0, 0), // later
       parent: None,
       children: Vec::new(),
       render_objects: Vec::new(),
@@ -27,23 +27,23 @@ impl SceneNode {
     }
   }
 
-  pub(crate) fn set_self_id(&mut self, id: Index) -> &mut Self {
+  pub(crate) fn set_self_id(&mut self, id: Handle<SceneNode>) -> &mut Self {
     self.self_id = id;
     self
   }
 
-  pub fn get_id(&self) -> Index {
+  pub fn get_id(&self) -> Handle<SceneNode> {
     self.self_id
   }
 
-  pub fn add_render_object(&mut self, id: Index) {
+  pub fn add_render_object(&mut self, id: Handle<SceneNode>) {
     self.render_objects.push(id)
   }
 
   pub fn traverse<T: SceneGraphBackend>(
     &self,
     scene: &Scene<T>,
-    visit_stack: &mut Vec<Index>,
+    visit_stack: &mut Vec<Handle<SceneNode>>,
     mut visitor: impl FnMut(&SceneNode),
   ) {
     visit_stack.clear();
