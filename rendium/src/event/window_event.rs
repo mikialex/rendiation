@@ -43,72 +43,61 @@ pub enum EventType {
   MouseMotion,
   MouseWheel,
   Resize,
+  Raw,
 }
 
 pub struct WindowEventSession<AppState> {
-  raw_listeners: Arena<(Option<(EventType, Index)>, ListenerStorage<AppState>)>,
-  fixed_listeners: HashMap<EventType, Arena<Index>>,
+  listeners: Arena<ListenerStorage<AppState>>, // real listener storage
+  listeners_tags: HashMap<EventType, Arena<Handle<ListenerStorage<AppState>>>>,
 }
 
 fn emit_listener<AppState>(
-  raw_listeners: &mut Arena<(Option<(EventType, Index)>, ListenerStorage<AppState>)>,
-  listeners: Option<&mut Arena<Index>>,
+  ty: EventType,
+  listeners: &mut Arena<ListenerStorage<AppState>>,
+  listeners_tags: &mut HashMap<EventType, Arena<Handle<ListenerStorage<AppState>>>>,
   event: &mut EventCtx<AppState>,
 ) {
-  if let Some(listeners) = listeners {
-    listeners.iter_mut().for_each(|(_, f)| {
-      let (_, function) = raw_listeners.get_mut(*f).unwrap();
-      function(event)
+  listeners_tags.get(&ty).map(|a| {
+    a.iter().for_each(|(_, h)| {
+      listeners.get_mut(*h).unwrap()(event);
     })
-  }
+  });
 }
+
+pub type WindowEventSessionRemoveToken<T> = (EventType, Handle<Handle<ListenerStorage<T>>>);
 
 impl<AppState> WindowEventSession<AppState> {
   pub fn add_listener_raw<T: FnMut(&mut EventCtx<AppState>) + 'static>(
     &mut self,
     func: T,
-  ) -> Index {
-    self.raw_listeners.insert((None, Box::new(func)))
+  ) -> WindowEventSessionRemoveToken<AppState> {
+    self.add_listener(EventType::Raw, func)
   }
 
   pub fn add_listener<T: FnMut(&mut EventCtx<AppState>) + 'static>(
     &mut self,
     event_type: EventType,
     func: T,
-  ) -> Index {
-    let id = self.raw_listeners.insert((
-      Some((event_type, Index::from_raw_parts(0, 0))),
-      Box::new(func),
-    ));
+  ) -> WindowEventSessionRemoveToken<AppState> {
+    let id = self.listeners.insert(Box::new(func));
 
     let container = self
-      .fixed_listeners
+      .listeners_tags
       .entry(event_type)
       .or_insert_with(|| Arena::new());
-    let raw_index = container.insert(id);
+    let container_id = container.insert(id);
 
-    self.raw_listeners.get(id).unwrap().0.unwrap().1 = raw_index;
-    id
+    (event_type, container_id)
   }
 
-  pub fn remove_listener(&mut self, id: Index) {
-    if let Some((Some((event_type, index)), _)) = self.raw_listeners.get(id) {
-      let container = self
-        .fixed_listeners
-        .entry(*event_type)
-        .or_insert_with(|| Arena::new());
-      let raw_index = *container.get(*index).unwrap();
-      container.remove(*index);
-      self.raw_listeners.remove(raw_index);
-    } else {
-      panic!("corrupt listener")
-    }
+  pub fn remove_listener(&mut self, id: Handle<ListenerStorage<AppState>>) {
+    self.listeners.remove(id);
   }
 
   pub fn new() -> Self {
     Self {
-      raw_listeners: Arena::new(),
-      fixed_listeners: HashMap::new(),
+      listeners: Arena::new(),
+      listeners_tags: HashMap::new(),
     }
   }
 
@@ -124,18 +113,20 @@ impl<AppState> WindowEventSession<AppState> {
       render_ctx: renderer,
     };
 
-    self.raw_listeners.iter_mut().for_each(|(_, (t, f))| {
-      if t.is_none() {
-        f(&mut event_ctx);
-      }
-    });
+    emit_listener(
+      EventType::Raw,
+      &mut self.listeners,
+      &mut self.listeners_tags,
+      &mut event_ctx,
+    );
 
     match event {
       event::Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
           emit_listener(
-            &mut self.raw_listeners,
-            self.fixed_listeners.get_mut(&EventType::Resize),
+            EventType::Resize,
+            &mut self.listeners,
+            &mut self.listeners_tags,
             &mut event_ctx,
           );
           log::info!("Resizing to {:?}", size);
@@ -143,8 +134,9 @@ impl<AppState> WindowEventSession<AppState> {
         WindowEvent::MouseInput { button, state, .. } => match button {
           MouseButton::Left => match state {
             ElementState::Pressed => emit_listener(
-              &mut self.raw_listeners,
-              self.fixed_listeners.get_mut(&EventType::MouseDown),
+              EventType::MouseDown,
+              &mut self.listeners,
+              &mut self.listeners_tags,
               &mut event_ctx,
             ),
             ElementState::Released => (),
@@ -158,8 +150,9 @@ impl<AppState> WindowEventSession<AppState> {
         WindowEvent::MouseWheel { delta, .. } => {
           if let MouseScrollDelta::LineDelta(x, y) = delta {
             emit_listener(
-              &mut self.raw_listeners,
-              self.fixed_listeners.get_mut(&EventType::MouseWheel),
+              EventType::MouseWheel,
+              &mut self.listeners,
+              &mut self.listeners_tags,
               &mut event_ctx,
             );
           }
@@ -169,15 +162,17 @@ impl<AppState> WindowEventSession<AppState> {
       },
       event::Event::DeviceEvent { event, .. } => match event {
         DeviceEvent::MouseMotion { .. } => emit_listener(
-          &mut self.raw_listeners,
-          self.fixed_listeners.get_mut(&EventType::MouseMotion),
+          EventType::MouseMotion,
+          &mut self.listeners,
+          &mut self.listeners_tags,
           &mut event_ctx,
         ),
         _ => (),
       },
       event::Event::MainEventsCleared => emit_listener(
-        &mut self.raw_listeners,
-        self.fixed_listeners.get_mut(&EventType::EventCleared),
+        EventType::EventCleared,
+        &mut self.listeners,
+        &mut self.listeners_tags,
         &mut event_ctx,
       ),
 

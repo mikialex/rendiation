@@ -1,10 +1,9 @@
-
 use core::cmp;
 use core::iter::{self, Extend, FromIterator, FusedIterator};
 use core::mem;
 use core::ops;
 use core::slice;
-use std::vec;
+use std::{marker::PhantomData, vec};
 
 /// The `Arena` allows inserting and removing elements that are referred to by
 /// `Handle`.
@@ -38,12 +37,25 @@ enum Entry<T> {
 /// let idx = arena.insert(123);
 /// assert_eq!(arena[idx], 123);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Handle<T> {
   handle: usize,
   generation: u64,
-  phantom: PhantomData<T>
+  phantom: PhantomData<T>,
 }
+
+// https://stackoverflow.com/questions/31371027/copy-trait-and-phantomdata-should-this-really-move
+impl<T> Clone for Handle<T> {
+  fn clone(&self) -> Handle<T> {
+    Handle {
+      handle: self.handle,
+      generation: self.generation,
+      phantom: PhantomData,
+    }
+  }
+}
+
+impl<T> Copy for Handle<T> {}
 
 impl<T> Handle<T> {
   /// Create a new `Handle` from its raw parts.
@@ -57,7 +69,7 @@ impl<T> Handle<T> {
     Handle {
       handle: a,
       generation: b,
-      PhantomData
+      phantom: PhantomData,
     }
   }
 
@@ -252,6 +264,7 @@ impl<T> Arena<T> {
           Some(Handle {
             handle: i,
             generation: self.generation,
+            phantom: PhantomData,
           })
         }
       },
@@ -391,9 +404,10 @@ impl<T> Arena<T> {
     for i in 0..self.capacity() {
       let remove = match &mut self.items[i] {
         Entry::Occupied { generation, value } => {
-          let handle = Handle<T> {
+          let handle = Handle {
             handle: i,
             generation: *generation,
+            phantom: PhantomData,
           };
           if predicate(handle, value) {
             None
@@ -757,6 +771,7 @@ impl<T> Arena<T> {
         Handle {
           generation: *generation,
           handle: i,
+          phantom: PhantomData,
         },
       )),
       _ => None,
@@ -780,6 +795,7 @@ impl<T> Arena<T> {
         Handle {
           generation: *generation,
           handle: i,
+          phantom: PhantomData,
         },
       )),
       _ => None,
@@ -923,7 +939,11 @@ impl<'a, T> Iterator for Iter<'a, T> {
           },
         )) => {
           self.len -= 1;
-          let idx = Handle { handle, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -952,7 +972,11 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
           },
         )) => {
           self.len -= 1;
-          let idx = Handle { handle, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -1021,7 +1045,11 @@ impl<'a, T> Iterator for IterMut<'a, T> {
           },
         )) => {
           self.len -= 1;
-          let idx = Handle { handle, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -1050,7 +1078,11 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
           },
         )) => {
           self.len -= 1;
-          let idx = Handle { handle, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -1108,7 +1140,11 @@ impl<'a, T> Iterator for Drain<'a, T> {
       match self.inner.next() {
         Some((_, Entry::Free { .. })) => continue,
         Some((handle, Entry::Occupied { generation, value })) => {
-          let idx = Handle { handle, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => return None,
