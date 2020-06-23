@@ -21,7 +21,7 @@ impl<T: SceneGraphBackend> RenderEngine<T> {
     scene.traverse(
       scene.get_root().self_id,
       &mut stack,
-      |this: &mut SceneNode, parent: Option<&mut SceneNode>| {
+      |this: &mut SceneNode<T>, parent: Option<&mut SceneNode<T>>| {
         if let Some(parent) = parent {
           this.render_data.world_matrix =
             parent.render_data.world_matrix * this.render_data.local_matrix;

@@ -1,20 +1,22 @@
 use super::scene::Scene;
-use crate::SceneGraphBackend;
+use crate::{RenderObjectHandle, SceneGraphBackend};
 use arena::Handle;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
 
-pub struct SceneNode {
-  pub(crate) self_id: Handle<SceneNode>,
-  pub(crate) parent: Option<Handle<SceneNode>>,
-  pub(crate) children: Vec<Handle<SceneNode>>,
-  pub render_objects: Vec<Handle<SceneNode>>,
+pub type SceneNodeHandle<T: SceneGraphBackend> =  Handle<SceneNode<T>>;
+
+pub struct SceneNode<T: SceneGraphBackend> {
+  pub(crate) self_id: SceneNodeHandle<T>,
+  pub(crate) parent: Option<SceneNodeHandle<T>>,
+  pub(crate) children: Vec<SceneNodeHandle<T>>,
+  pub render_objects: Vec<RenderObjectHandle<T>>,
   pub visible: bool,
   pub net_visible: bool,
   pub(crate) render_data: RenderData,
 }
 
-impl SceneNode {
+impl<T: SceneGraphBackend> SceneNode<T> {
   pub(crate) fn new() -> Self {
     Self {
       self_id: Handle::from_raw_parts(0, 0), // later
@@ -27,24 +29,24 @@ impl SceneNode {
     }
   }
 
-  pub(crate) fn set_self_id(&mut self, id: Handle<SceneNode>) -> &mut Self {
+  pub(crate) fn set_self_id(&mut self, id: SceneNodeHandle<T>) -> &mut Self {
     self.self_id = id;
     self
   }
 
-  pub fn get_id(&self) -> Handle<SceneNode> {
+  pub fn get_id(&self) -> SceneNodeHandle<T> {
     self.self_id
   }
 
-  pub fn add_render_object(&mut self, id: Handle<SceneNode>) {
+  pub fn add_render_object(&mut self, id: RenderObjectHandle<T>) {
     self.render_objects.push(id)
   }
 
-  pub fn traverse<T: SceneGraphBackend>(
+  pub fn traverse(
     &self,
     scene: &Scene<T>,
-    visit_stack: &mut Vec<Handle<SceneNode>>,
-    mut visitor: impl FnMut(&SceneNode),
+    visit_stack: &mut Vec<SceneNodeHandle<T>>,
+    mut visitor: impl FnMut(&SceneNode<T>),
   ) {
     visit_stack.clear();
     visit_stack.push(self.self_id);
@@ -56,7 +58,7 @@ impl SceneNode {
     }
   }
 
-  pub fn add(&mut self, child_to_add: &mut SceneNode) -> &mut Self {
+  pub fn add(&mut self, child_to_add: &mut SceneNode<T>) -> &mut Self {
     if child_to_add.parent.is_some() {
       panic!("child node already has a parent");
     }
@@ -65,7 +67,7 @@ impl SceneNode {
     self
   }
 
-  pub fn remove(&mut self, child_to_remove: &mut SceneNode) -> &mut Self {
+  pub fn remove(&mut self, child_to_remove: &mut SceneNode<T>) -> &mut Self {
     let child_index = self
       .children
       .iter()

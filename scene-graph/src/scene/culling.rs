@@ -1,6 +1,5 @@
 use super::scene::Scene;
-use crate::{SceneGraphBackend, SceneNode};
-use arena::Handle;
+use crate::{SceneGraphBackend, SceneNodeHandle};
 use rendiation_math_entity::{Frustum, IntersectAble};
 use rendiation_render_entity::Camera;
 
@@ -25,7 +24,7 @@ impl Culler {
 
   pub fn test_is_visible<T: SceneGraphBackend>(
     &self,
-    node_id: Handle<SceneNode>,
+    node_id: SceneNodeHandle<T>,
     scene: &Scene<T>,
   ) -> bool {
     let render_data = scene.get_node_render_data(node_id);

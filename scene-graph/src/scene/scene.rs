@@ -1,7 +1,7 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
 use crate::{
-  GeometryHandle, RenderData, RenderObject, RenderObjectHandle, SceneGraphBackend, ShadingHandle,
-  UniformHandle,
+  GeometryHandle, RenderData, RenderObject, RenderObjectHandle, SceneGraphBackend, SceneNodeHandle,
+  ShadingHandle, UniformHandle,
 };
 use arena::{Arena, Handle};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
@@ -66,8 +66,8 @@ pub struct Scene<T: SceneGraphBackend> {
   pub cameras: CameraData,
   pub render_objects: Arena<RenderObject<T>>,
 
-  root: Handle<SceneNode>,
-  pub(crate) nodes: Arena<SceneNode>,
+  root: SceneNodeHandle<T>,
+  pub(crate) nodes: Arena<SceneNode<T>>,
 
   pub resources: ResourceManager<T>,
   pub resource_update_ctx: ResourceUpdateCtx<T>,
@@ -102,17 +102,17 @@ impl<T: SceneGraphBackend> Scene<T> {
 
   pub fn get_parent_child_pair(
     &mut self,
-    parent_id: Handle<SceneNode>,
-    child_id: Handle<SceneNode>,
-  ) -> (&mut SceneNode, &mut SceneNode) {
+    parent_id: SceneNodeHandle<T>,
+    child_id: SceneNodeHandle<T>,
+  ) -> (&mut SceneNode<T>, &mut SceneNode<T>) {
     let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
     (parent.unwrap(), child.unwrap())
   }
 
   pub fn node_add_child_by_id(
     &mut self,
-    parent_id: Handle<SceneNode>,
-    child_id: Handle<SceneNode>,
+    parent_id: SceneNodeHandle<T>,
+    child_id: SceneNodeHandle<T>,
   ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.add(child);
@@ -120,45 +120,45 @@ impl<T: SceneGraphBackend> Scene<T> {
 
   pub fn node_remove_child_by_id(
     &mut self,
-    parent_id: Handle<SceneNode>,
-    child_id: Handle<SceneNode>,
+    parent_id: SceneNodeHandle<T>,
+    child_id: SceneNodeHandle<T>,
   ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.remove(child);
   }
 
-  pub fn add_to_scene_root(&mut self, child_id: Handle<SceneNode>) {
+  pub fn add_to_scene_root(&mut self, child_id: SceneNodeHandle<T>) {
     self.node_add_child_by_id(self.root, child_id);
   }
 
-  pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode<T> {
     self.get_node_mut(self.root)
   }
 
-  pub fn get_node(&self, index: Handle<SceneNode>) -> &SceneNode {
+  pub fn get_node(&self, index: SceneNodeHandle<T>) -> &SceneNode<T> {
     self.nodes.get(index).unwrap()
   }
 
-  pub fn get_root(&self) -> &SceneNode {
+  pub fn get_root(&self) -> &SceneNode<T> {
     self.nodes.get(self.root).unwrap()
   }
 
-  pub fn get_node_mut(&mut self, index: Handle<SceneNode>) -> &mut SceneNode {
+  pub fn get_node_mut(&mut self, index: SceneNodeHandle<T>) -> &mut SceneNode<T> {
     self.nodes.get_mut(index).unwrap()
   }
 
-  pub fn create_new_node(&mut self) -> &mut SceneNode {
+  pub fn create_new_node(&mut self) -> &mut SceneNode<T> {
     let new_node = SceneNode::new();
     let index = self.nodes.insert(new_node);
     let new_node = self.nodes.get_mut(index).unwrap().set_self_id(index);
     new_node
   }
 
-  pub fn get_node_render_data(&self, id: Handle<SceneNode>) -> &RenderData {
+  pub fn get_node_render_data(&self, id: SceneNodeHandle<T>) -> &RenderData {
     &self.nodes.get(id).unwrap().render_data
   }
 
-  pub fn free_node(&mut self, index: Handle<SceneNode>) {
+  pub fn free_node(&mut self, index: SceneNodeHandle<T>) {
     self.nodes.remove(index);
   }
 
@@ -181,9 +181,9 @@ impl<T: SceneGraphBackend> Scene<T> {
 
   pub fn traverse(
     &mut self,
-    start_index: Handle<SceneNode>,
-    visit_stack: &mut Vec<Handle<SceneNode>>,
-    mut visitor: impl FnMut(&mut SceneNode, Option<&mut SceneNode>),
+    start_index: SceneNodeHandle<T>,
+    visit_stack: &mut Vec<SceneNodeHandle<T>>,
+    mut visitor: impl FnMut(&mut SceneNode<T>, Option<&mut SceneNode<T>>),
   ) {
     visit_stack.clear();
     visit_stack.push(start_index);

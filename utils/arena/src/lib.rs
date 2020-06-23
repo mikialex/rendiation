@@ -37,7 +37,7 @@ enum Entry<T> {
 /// let idx = arena.insert(123);
 /// assert_eq!(arena[idx], 123);
 /// ```
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialOrd, Ord, Hash)]
 pub struct Handle<T> {
   handle: usize,
   generation: u64,
@@ -56,6 +56,14 @@ impl<T> Clone for Handle<T> {
 }
 
 impl<T> Copy for Handle<T> {}
+
+impl<T> PartialEq for Handle<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.handle == other.handle && self.generation == other.generation
+  }
+}
+
+impl<T> Eq for Handle<T> {}
 
 impl<T> Handle<T> {
   /// Create a new `Handle` from its raw parts.

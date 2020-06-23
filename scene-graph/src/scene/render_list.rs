@@ -1,12 +1,21 @@
 use super::scene::Scene;
-use crate::{RenderObjectHandle, SceneGraphBackend, SceneNode};
-use arena::Handle;
+use crate::{RenderObjectHandle, SceneGraphBackend, SceneNodeHandle};
 
-#[derive(Copy, Clone)]
 pub struct Drawcall<T: SceneGraphBackend> {
   pub render_object: RenderObjectHandle<T>,
-  pub node: Handle<SceneNode>,
+  pub node: SceneNodeHandle<T>,
 }
+
+impl<T: SceneGraphBackend> Clone for Drawcall<T> {
+  fn clone(&self) -> Self {
+    Self {
+      render_object: self.render_object.clone(),
+      node: self.node.clone(),
+    }
+  }
+}
+
+impl<T: SceneGraphBackend> Copy for Drawcall<T> {}
 
 pub struct RenderList<T: SceneGraphBackend> {
   pub drawcalls: Vec<Drawcall<T>>,
@@ -31,7 +40,7 @@ impl<T: SceneGraphBackend> RenderList<T> {
 
   pub fn push(
     &mut self,
-    node: Handle<SceneNode>,
+    node: SceneNodeHandle<T>,
     render_object: RenderObjectHandle<T>,
   ) -> &mut Self {
     self.drawcalls.push(Drawcall {

@@ -5,7 +5,7 @@ pub struct SceneShadingParameterGroupData<T: SceneGraphBackend> {
   pub items: Vec<ShadingParameterType<T>>,
 }
 
-pub type ParameterHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::ShadingParameterGroup>>;
+pub type ParameterHandle<T: SceneGraphBackend> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;
 pub type UniformHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::UniformBuffer>>;
 // pub type SamplerHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Sampler>>;
 // pub type TextureHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Texture>>;
@@ -26,19 +26,19 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
 
   pub fn get_shading_param_group_mut(
     &mut self,
-    index: UniformHandle<T>,
+    index: ParameterHandle<T>,
   ) -> &mut ResourceWrap<SceneShadingParameterGroupData<T>> {
     self.shading_parameter_groups.get_mut(index).unwrap()
   }
 
   pub fn get_shading_param_group(
     &self,
-    index: UniformHandle<T>,
+    index: ParameterHandle<T>,
   ) -> &ResourceWrap<SceneShadingParameterGroupData<T>> {
     self.shading_parameter_groups.get(index).unwrap()
   }
 
-  pub fn delete_shading_param_group(&mut self, index: UniformHandle<T>) {
+  pub fn delete_shading_param_group(&mut self, index: ParameterHandle<T>) {
     self.shading_parameter_groups.remove(index);
   }
 }
