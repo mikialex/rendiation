@@ -1,7 +1,7 @@
 use super::scene::Scene;
-use crate::SceneGraphBackend;
+use crate::{SceneGraphBackend, SceneNode};
 use arena::Handle;
-use rendiation_math_entity::{IntersectAble, Frustum};
+use rendiation_math_entity::{Frustum, IntersectAble};
 use rendiation_render_entity::Camera;
 
 pub struct Culler {
@@ -23,7 +23,11 @@ impl Culler {
     self
   }
 
-  pub fn test_is_visible<T: SceneGraphBackend>(&self, node_id: Handle, scene: &Scene<T>) -> bool {
+  pub fn test_is_visible<T: SceneGraphBackend>(
+    &self,
+    node_id: Handle<SceneNode>,
+    scene: &Scene<T>,
+  ) -> bool {
     let render_data = scene.get_node_render_data(node_id);
     if self.enable_frustum_culling {
       if let Some(bounding) = &render_data.world_bounding {

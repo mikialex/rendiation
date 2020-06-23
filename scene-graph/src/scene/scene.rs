@@ -1,19 +1,22 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
-use crate::{RenderData, RenderObject, SceneGraphBackend, GeometryHandle, ShadingHandle, RenderObjectHandle};
+use crate::{
+  GeometryHandle, RenderData, RenderObject, RenderObjectHandle, SceneGraphBackend, ShadingHandle,
+  UniformHandle,
+};
 use arena::{Arena, Handle};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
-pub struct ResourceUpdateCtx {
-  changed_uniforms: Vec<Handle>,
+pub struct ResourceUpdateCtx<T: SceneGraphBackend> {
+  changed_uniforms: Vec<UniformHandle<T>>,
 }
 
-impl ResourceUpdateCtx {
+impl<T: SceneGraphBackend> ResourceUpdateCtx<T> {
   pub fn new() -> Self {
     Self {
       changed_uniforms: Vec::new(),
     }
   }
-  pub fn notify_uniform_update(&mut self, index: Handle) {
+  pub fn notify_uniform_update(&mut self, index: UniformHandle<T>) {
     self.changed_uniforms.push(index)
   }
 }
@@ -67,7 +70,7 @@ pub struct Scene<T: SceneGraphBackend> {
   pub(crate) nodes: Arena<SceneNode>,
 
   pub resources: ResourceManager<T>,
-  pub resource_update_ctx: ResourceUpdateCtx,
+  pub resource_update_ctx: ResourceUpdateCtx<T>,
 }
 
 impl<T: SceneGraphBackend> Scene<T> {

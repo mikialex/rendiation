@@ -28,7 +28,7 @@ fn extend_lifetime<'b>(r: WGPURenderPassBuilder<'b>) -> WGPURenderPassBuilder<'s
 }
 
 pub struct WebGPUBackend {
-  engine: RenderEngine,
+  engine: RenderEngine<WebGPUBackend>,
 }
 
 impl WebGPUBackend {
@@ -66,7 +66,7 @@ impl WebGPUBackend {
   }
 }
 
-impl RenderObject {
+impl RenderObject<WebGPUBackend> {
   pub fn render_webgpu<'a, 'b: 'a>(
     &self,
     pass: &mut WGPURenderPass<'a>,
