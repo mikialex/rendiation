@@ -25,6 +25,7 @@ impl SceneGraphBackend for WebGLBackend {
   type IndexBuffer = Option<WebGlBuffer>;
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;
+  type UniformValue = UniformValue;
 }
 
 impl WebGLBackend {
@@ -74,6 +75,7 @@ impl RenderObject<WebGLBackend> {
       renderer.set_vertex_buffer(i, buffer.resource());
     }
 
+    let program = &shading.gpu;
     // shading bind
     for i in 0..shading.get_parameters_count() {
       let parameter_group = resources
@@ -86,7 +88,12 @@ impl RenderObject<WebGLBackend> {
             let _uniform = resources.get_uniform(*index).resource();
             todo!()
           }
-          SampledTexture(_index) => todo!(),
+          UniformValue(index) => {
+            let uniform_value = resources.get_uniform_value(*index).resource();
+            // program.upload_uniform_value(uniform_value, renderer);
+            todo!()
+          }
+          // SampledTexture(_index) => todo!(),
           _ => panic!("unsupported webgl resource type"),
         }
       })

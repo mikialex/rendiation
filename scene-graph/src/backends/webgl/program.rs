@@ -9,11 +9,11 @@ pub struct WebGLProgram {
 }
 
 impl WebGLProgram {
-  pub fn query_uniform_location(input_id: UniformTypeId) -> WebGlUniformLocation {
+  pub fn query_uniform_location(&self, input_id: UniformTypeId) -> &WebGlUniformLocation {
     todo!()
   }
 
-  pub fn query_attribute_location(input_id: WebGLAttributeTypeId) -> u32 {
+  pub fn query_attribute_location(&self, input_id: WebGLAttributeTypeId) -> u32 {
     todo!()
   }
 }

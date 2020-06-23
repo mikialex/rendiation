@@ -25,4 +25,5 @@ pub trait SceneGraphBackend {
   type IndexBuffer;
   type VertexBuffer;
   type UniformBuffer;
+  type UniformValue;
 }

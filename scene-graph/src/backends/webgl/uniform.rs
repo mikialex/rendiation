@@ -1,5 +1,8 @@
 // https://github.com/glium/glium/blob/master/src/uniforms/value.rs
 
+use crate::{WebGLProgram, WebGLRenderer};
+use web_sys::*;
+
 #[derive(Copy, Clone)]
 pub struct UniformTypeId(u32);
 
@@ -47,5 +50,21 @@ pub enum UniformValue {
   BoolVec2([bool; 2]),
   BoolVec3([bool; 3]),
   BoolVec4([bool; 4]),
-  // todo sampler
+}
+
+impl WebGLProgram {
+  pub fn upload_uniform_value(
+    &self,
+    value: &UniformValue,
+    uniform: UniformTypeId,
+    renderer: &WebGLRenderer,
+  ) {
+    let location = self.query_uniform_location(uniform);
+    let gl = &renderer.gl;
+    use UniformValue::*;
+    match value {
+      Float(v) => gl.uniform1fv_with_f32_array(Some(location), &[*v; 1]),
+      _ => {}
+    }
+  }
 }

@@ -9,4 +9,8 @@
 // intoWasmScene();
 
 export const a = 1;
-console.log('web test')
+
+import { SceneShadingDescriptor } from '../pkg/rendiation_scenegraph';
+
+const shading = SceneShadingDescriptor.new("", "");
+console.log(shading) 

@@ -7,10 +7,12 @@ pub struct SceneShadingParameterGroupData<T: SceneGraphBackend> {
 
 pub type ParameterHandle<T> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;
 pub type UniformHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::UniformBuffer>>;
+pub type UniformValueHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::UniformValue>>;
 // pub type SamplerHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Sampler>>;
 // pub type TextureHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Texture>>;
 
 pub enum ShadingParameterType<T: SceneGraphBackend> {
+  UniformValue(UniformValueHandle<T>),
   UniformBuffer(UniformHandle<T>),
   // Texture(Handle),
   // Sampler(Handle),
@@ -62,5 +64,27 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
 
   pub fn delete_uniform(&mut self, index: UniformHandle<T>) {
     self.uniforms.remove(index);
+  }
+}
+
+/// uniforms
+impl<T: SceneGraphBackend> ResourceManager<T> {
+  pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut ResourceWrap<T::UniformValue> {
+    ResourceWrap::new_wrap(&mut self.uniform_values, gpu)
+  }
+
+  pub fn get_uniform_value_mut(
+    &mut self,
+    index: UniformValueHandle<T>,
+  ) -> &mut ResourceWrap<T::UniformValue> {
+    self.uniform_values.get_mut(index).unwrap()
+  }
+
+  pub fn get_uniform_value(&self, index: UniformValueHandle<T>) -> &ResourceWrap<T::UniformValue> {
+    self.uniform_values.get(index).unwrap()
+  }
+
+  pub fn delete_uniform_value(&mut self, index: UniformValueHandle<T>) {
+    self.uniform_values.remove(index);
   }
 }

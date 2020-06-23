@@ -55,6 +55,7 @@ impl WebGLVertexAttributeDataType {
 
 pub struct WebGLVertexBuffer {
   stride: i32,
-  attributes: Vec<WebGLVertexAttributeBuffer>, // todo use smallvec opt
-                                               // todo optional VAO
+  attributes: Vec<WebGLVertexAttributeBuffer>,
+  // todo use smallvec opt
+  // todo optional VAO
 }

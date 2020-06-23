@@ -49,6 +49,7 @@
         "powi",
         "rasterization",
         "renderables",
+        "repr",
         "rgba",
         "rustfmt",
         "scenegraph",

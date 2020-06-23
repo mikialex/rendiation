@@ -1,9 +1,9 @@
-use crate::{make_webgl_program, CALBackend, SceneShadingDescriptor, SceneUniform, WebGLRenderer, WebGLBackend};
+use crate::{make_webgl_program, CALBackend, SceneShadingDescriptor, SceneUniform, WebGLRenderer, WebGLBackend, WebGLVertexBuffer};
 use web_sys::*;
 
 impl CALBackend for WebGLBackend {
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
-    make_webgl_program(&renderer.gl, &des.vertex_shader_str, &des.frag_shader_str).unwrap()
+    make_webgl_program(&renderer.gl, &des.vertex_shader_str(), &des.frag_shader_str()).unwrap()
   }
   fn dispose_shading(renderer: &mut WebGLRenderer, shading: Self::Shading) {
     renderer.gl.delete_program(Some(&shading))
@@ -48,7 +48,7 @@ impl CALBackend for WebGLBackend {
         WebGl2RenderingContext::STATIC_DRAW,
       );
     };
-    buffer
+    Some(buffer)
   }
 
   fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer {
@@ -69,6 +69,10 @@ impl CALBackend for WebGLBackend {
         WebGl2RenderingContext::STATIC_DRAW,
       );
     };
-    buffer
+    todo!()
+    // WebGLVertexBuffer{
+    //   stride: i32,
+    //   attributes: Vec<WebGLVertexAttributeBuffer>,
+    // }
   }
 }

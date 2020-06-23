@@ -13,6 +13,7 @@ impl SceneGraphBackend for WebGPUBackend {
   type IndexBuffer = WGPUBuffer;
   type VertexBuffer = WGPUBuffer;
   type UniformBuffer = WGPUBuffer;
+  type UniformValue = ();
 }
 
 impl Background<WebGPUBackend> for SolidBackground {
