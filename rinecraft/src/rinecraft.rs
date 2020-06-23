@@ -20,7 +20,7 @@ pub struct RinecraftState {
   pub scene: Scene<WebGPUBackend>,
   pub scene_renderer: WebGPUBackend,
   pub camera_gpu: CameraGPU,
-  pub camera_controller: CameraController,
+  pub camera_controller: CameraController<Self>,
   pub viewport: Viewport,
   pub world: World,
   pub screen_target: ScreenRenderTarget,

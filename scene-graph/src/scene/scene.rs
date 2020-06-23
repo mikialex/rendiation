@@ -1,30 +1,35 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
-use crate::{RenderData, RenderObject, SceneGraphBackend};
-use arena::{Arena, Index};
+use crate::{
+  GeometryHandle, RenderData, RenderObject, RenderObjectHandle, SceneGraphBackend, SceneNodeHandle,
+  ShadingHandle, UniformHandle,
+};
+use arena::{Arena, Handle};
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
-pub struct ResourceUpdateCtx {
-  changed_uniforms: Vec<Index>,
+pub struct ResourceUpdateCtx<T: SceneGraphBackend> {
+  changed_uniforms: Vec<UniformHandle<T>>,
 }
 
-impl ResourceUpdateCtx {
+impl<T: SceneGraphBackend> ResourceUpdateCtx<T> {
   pub fn new() -> Self {
     Self {
       changed_uniforms: Vec::new(),
     }
   }
-  pub fn notify_uniform_update(&mut self, index: Index) {
+  pub fn notify_uniform_update(&mut self, index: UniformHandle<T>) {
     self.changed_uniforms.push(index)
   }
 }
 
+pub type CameraHandle = Handle<Box<dyn Camera>>;
+
 pub struct CameraData {
-  active_camera_index: Index,
+  active_camera_index: CameraHandle,
   cameras: Arena<Box<dyn Camera>>,
 }
 
 impl CameraData {
-  pub fn set_new_active_camera(&mut self, camera: impl Camera + 'static) -> Index {
+  pub fn set_new_active_camera(&mut self, camera: impl Camera + 'static) -> CameraHandle {
     let boxed = Box::new(camera);
     let index = self.cameras.insert(boxed);
     self.active_camera_index = index;
@@ -59,13 +64,13 @@ impl CameraData {
 pub struct Scene<T: SceneGraphBackend> {
   pub background: Option<Box<dyn Background<T>>>,
   pub cameras: CameraData,
-  pub render_objects: Arena<RenderObject>,
+  pub render_objects: Arena<RenderObject<T>>,
 
-  root: Index,
-  pub(crate) nodes: Arena<SceneNode>,
+  root: SceneNodeHandle<T>,
+  pub(crate) nodes: Arena<SceneNode<T>>,
 
   pub resources: ResourceManager<T>,
-  pub resource_update_ctx: ResourceUpdateCtx,
+  pub resource_update_ctx: ResourceUpdateCtx<T>,
 }
 
 impl<T: SceneGraphBackend> Scene<T> {
@@ -97,59 +102,71 @@ impl<T: SceneGraphBackend> Scene<T> {
 
   pub fn get_parent_child_pair(
     &mut self,
-    parent_id: Index,
-    child_id: Index,
-  ) -> (&mut SceneNode, &mut SceneNode) {
+    parent_id: SceneNodeHandle<T>,
+    child_id: SceneNodeHandle<T>,
+  ) -> (&mut SceneNode<T>, &mut SceneNode<T>) {
     let (parent, child) = self.nodes.get2_mut(parent_id, child_id);
     (parent.unwrap(), child.unwrap())
   }
 
-  pub fn node_add_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+  pub fn node_add_child_by_id(
+    &mut self,
+    parent_id: SceneNodeHandle<T>,
+    child_id: SceneNodeHandle<T>,
+  ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.add(child);
   }
 
-  pub fn node_remove_child_by_id(&mut self, parent_id: Index, child_id: Index) {
+  pub fn node_remove_child_by_id(
+    &mut self,
+    parent_id: SceneNodeHandle<T>,
+    child_id: SceneNodeHandle<T>,
+  ) {
     let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
     parent.remove(child);
   }
 
-  pub fn add_to_scene_root(&mut self, child_id: Index) {
+  pub fn add_to_scene_root(&mut self, child_id: SceneNodeHandle<T>) {
     self.node_add_child_by_id(self.root, child_id);
   }
 
-  pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode<T> {
     self.get_node_mut(self.root)
   }
 
-  pub fn get_node(&self, index: Index) -> &SceneNode {
+  pub fn get_node(&self, index: SceneNodeHandle<T>) -> &SceneNode<T> {
     self.nodes.get(index).unwrap()
   }
 
-  pub fn get_root(&self) -> &SceneNode {
+  pub fn get_root(&self) -> &SceneNode<T> {
     self.nodes.get(self.root).unwrap()
   }
 
-  pub fn get_node_mut(&mut self, index: Index) -> &mut SceneNode {
+  pub fn get_node_mut(&mut self, index: SceneNodeHandle<T>) -> &mut SceneNode<T> {
     self.nodes.get_mut(index).unwrap()
   }
 
-  pub fn create_new_node(&mut self) -> &mut SceneNode {
+  pub fn create_new_node(&mut self) -> &mut SceneNode<T> {
     let new_node = SceneNode::new();
     let index = self.nodes.insert(new_node);
     let new_node = self.nodes.get_mut(index).unwrap().set_self_id(index);
     new_node
   }
 
-  pub fn get_node_render_data(&self, id: Index) -> &RenderData {
+  pub fn get_node_render_data(&self, id: SceneNodeHandle<T>) -> &RenderData {
     &self.nodes.get(id).unwrap().render_data
   }
 
-  pub fn free_node(&mut self, index: Index) {
+  pub fn free_node(&mut self, index: SceneNodeHandle<T>) {
     self.nodes.remove(index);
   }
 
-  pub fn create_render_object(&mut self, geometry_index: Index, shading_index: Index) -> Index {
+  pub fn create_render_object(
+    &mut self,
+    geometry_index: GeometryHandle<T>,
+    shading_index: ShadingHandle<T>,
+  ) -> RenderObjectHandle<T> {
     let obj = RenderObject {
       render_order: 0,
       shading_index,
@@ -158,15 +175,15 @@ impl<T: SceneGraphBackend> Scene<T> {
     self.render_objects.insert(obj)
   }
 
-  pub fn delete_render_object(&mut self, index: Index) {
+  pub fn delete_render_object(&mut self, index: RenderObjectHandle<T>) {
     self.render_objects.remove(index);
   }
 
   pub fn traverse(
     &mut self,
-    start_index: Index,
-    visit_stack: &mut Vec<Index>,
-    mut visitor: impl FnMut(&mut SceneNode, Option<&mut SceneNode>),
+    start_index: SceneNodeHandle<T>,
+    visit_stack: &mut Vec<SceneNodeHandle<T>>,
+    mut visitor: impl FnMut(&mut SceneNode<T>, Option<&mut SceneNode<T>>),
   ) {
     visit_stack.clear();
     visit_stack.push(start_index);

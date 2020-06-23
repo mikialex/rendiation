@@ -1,15 +1,14 @@
-
 use core::cmp;
 use core::iter::{self, Extend, FromIterator, FusedIterator};
 use core::mem;
 use core::ops;
 use core::slice;
-use std::vec;
+use std::{marker::PhantomData, vec};
 
 /// The `Arena` allows inserting and removing elements that are referred to by
-/// `Index`.
+/// `Handle`.
 ///
-/// [See the module-level documentation for example usage and motivation.](./index.html)
+/// [See the module-level documentation for example usage and motivation.](./handle.html)
 #[derive(Clone, Debug)]
 pub struct Arena<T> {
   items: Vec<Entry<T>>,
@@ -24,9 +23,9 @@ enum Entry<T> {
   Occupied { generation: u64, value: T },
 }
 
-/// An index (and generation) into an `Arena`.
+/// An handle (and generation) into an `Arena`.
 ///
-/// To get an `Index`, insert an element into an `Arena`, and the `Index` for
+/// To get an `Handle`, insert an element into an `Arena`, and the `Handle` for
 /// that element will be returned.
 ///
 /// # Examples
@@ -38,36 +37,59 @@ enum Entry<T> {
 /// let idx = arena.insert(123);
 /// assert_eq!(arena[idx], 123);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Index {
-  index: usize,
+#[derive(Debug, PartialOrd, Ord, Hash)]
+pub struct Handle<T> {
+  handle: usize,
   generation: u64,
+  phantom: PhantomData<T>,
 }
 
-impl Index {
-  /// Create a new `Index` from its raw parts.
+// https://stackoverflow.com/questions/31371027/copy-trait-and-phantomdata-should-this-really-move
+impl<T> Clone for Handle<T> {
+  fn clone(&self) -> Handle<T> {
+    Handle {
+      handle: self.handle,
+      generation: self.generation,
+      phantom: PhantomData,
+    }
+  }
+}
+
+impl<T> Copy for Handle<T> {}
+
+impl<T> PartialEq for Handle<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.handle == other.handle && self.generation == other.generation
+  }
+}
+
+impl<T> Eq for Handle<T> {}
+
+impl<T> Handle<T> {
+  /// Create a new `Handle` from its raw parts.
   ///
   /// The parts must have been returned from an earlier call to
   /// `into_raw_parts`.
   ///
   /// Providing arbitrary values will lead to malformed indices and ultimately
   /// panics.
-  pub fn from_raw_parts(a: usize, b: u64) -> Index {
-    Index {
-      index: a,
+  pub fn from_raw_parts(a: usize, b: u64) -> Handle<T> {
+    Handle {
+      handle: a,
       generation: b,
+      phantom: PhantomData,
     }
   }
 
-  /// Convert this `Index` into its raw parts.
+  /// Convert this `Handle` into its raw parts.
   ///
-  /// This niche method is useful for converting an `Index` into another
+  /// This niche method is useful for converting an `Handle` into another
   /// identifier type. Usually, you should prefer a newtype wrapper around
-  /// `Index` like `pub struct MyIdentifier(Index);`.  However, for external
+  /// `Handle` like `pub struct MyIdentifier(Handle);`.  However, for external
   /// types whose definition you can't customize, but which you can construct
   /// instances of, this method can be useful.
   pub fn into_raw_parts(self) -> (usize, u64) {
-    (self.index, self.generation)
+    (self.handle, self.generation)
   }
 }
 
@@ -161,7 +183,7 @@ impl<T> Arena<T> {
   ///
   /// This method will never allocate new capacity in the arena.
   ///
-  /// If insertion succeeds, then the `value`'s index is returned. If
+  /// If insertion succeeds, then the `value`'s handle is returned. If
   /// insertion fails, then `Err(value)` is returned to give ownership of
   /// `value` back to the caller.
   ///
@@ -184,32 +206,32 @@ impl<T> Arena<T> {
   /// };
   /// ```
   #[inline]
-  pub fn try_insert(&mut self, value: T) -> Result<Index, T> {
+  pub fn try_insert(&mut self, value: T) -> Result<Handle<T>, T> {
     match self.try_alloc_next_index() {
       None => Err(value),
-      Some(index) => {
-        self.items[index.index] = Entry::Occupied {
+      Some(handle) => {
+        self.items[handle.handle] = Entry::Occupied {
           generation: self.generation,
           value,
         };
-        Ok(index)
+        Ok(handle)
       }
     }
   }
 
   /// Attempts to insert the value returned by `create` into the arena using existing capacity.
-  /// `create` is called with the new value's associated index, allowing values that know their own index.
+  /// `create` is called with the new value's associated handle, allowing values that know their own handle.
   ///
   /// This method will never allocate new capacity in the arena.
   ///
-  /// If insertion succeeds, then the new index is returned. If
+  /// If insertion succeeds, then the new handle is returned. If
   /// insertion fails, then `Err(create)` is returned to give ownership of
   /// `create` back to the caller.
   ///
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::{Arena, Index};
+  /// use generational_arena::{Arena, Handle};
   ///
   /// let mut arena = Arena::new();
   ///
@@ -225,21 +247,21 @@ impl<T> Arena<T> {
   /// };
   /// ```
   #[inline]
-  pub fn try_insert_with<F: FnOnce(Index) -> T>(&mut self, create: F) -> Result<Index, F> {
+  pub fn try_insert_with<F: FnOnce(Handle<T>) -> T>(&mut self, create: F) -> Result<Handle<T>, F> {
     match self.try_alloc_next_index() {
       None => Err(create),
-      Some(index) => {
-        self.items[index.index] = Entry::Occupied {
+      Some(handle) => {
+        self.items[handle.handle] = Entry::Occupied {
           generation: self.generation,
-          value: create(index),
+          value: create(handle),
         };
-        Ok(index)
+        Ok(handle)
       }
     }
   }
 
   #[inline]
-  fn try_alloc_next_index(&mut self) -> Option<Index> {
+  fn try_alloc_next_index(&mut self) -> Option<Handle<T>> {
     match self.free_list_head {
       None => None,
       Some(i) => match self.items[i] {
@@ -247,9 +269,10 @@ impl<T> Arena<T> {
         Entry::Free { next_free } => {
           self.free_list_head = next_free;
           self.len += 1;
-          Some(Index {
-            index: i,
+          Some(Handle {
+            handle: i,
             generation: self.generation,
+            phantom: PhantomData,
           })
         }
       },
@@ -258,7 +281,7 @@ impl<T> Arena<T> {
 
   /// Insert `value` into the arena, allocating more capacity if necessary.
   ///
-  /// The `value`'s associated index in the arena is returned.
+  /// The `value`'s associated handle in the arena is returned.
   ///
   /// # Examples
   ///
@@ -271,7 +294,7 @@ impl<T> Arena<T> {
   /// assert_eq!(arena[idx], 42);
   /// ```
   #[inline]
-  pub fn insert(&mut self, value: T) -> Index {
+  pub fn insert(&mut self, value: T) -> Handle<T> {
     match self.try_insert(value) {
       Ok(i) => i,
       Err(value) => self.insert_slow_path(value),
@@ -279,14 +302,14 @@ impl<T> Arena<T> {
   }
 
   /// Insert the value returned by `create` into the arena, allocating more capacity if necessary.
-  /// `create` is called with the new value's associated index, allowing values that know their own index.
+  /// `create` is called with the new value's associated handle, allowing values that know their own handle.
   ///
-  /// The new value's associated index in the arena is returned.
+  /// The new value's associated handle in the arena is returned.
   ///
   /// # Examples
   ///
   /// ```
-  /// use generational_arena::{Arena, Index};
+  /// use generational_arena::{Arena, Handle};
   ///
   /// let mut arena = Arena::new();
   ///
@@ -295,7 +318,7 @@ impl<T> Arena<T> {
   /// assert_eq!(arena[idx].1, idx);
   /// ```
   #[inline]
-  pub fn insert_with(&mut self, create: impl FnOnce(Index) -> T) -> Index {
+  pub fn insert_with(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {
     match self.try_insert_with(create) {
       Ok(i) => i,
       Err(create) => self.insert_with_slow_path(create),
@@ -303,7 +326,7 @@ impl<T> Arena<T> {
   }
 
   #[inline(never)]
-  fn insert_slow_path(&mut self, value: T) -> Index {
+  fn insert_slow_path(&mut self, value: T) -> Handle<T> {
     let len = self.items.len();
     self.reserve(len);
     self
@@ -313,7 +336,7 @@ impl<T> Arena<T> {
   }
 
   #[inline(never)]
-  fn insert_with_slow_path(&mut self, create: impl FnOnce(Index) -> T) -> Index {
+  fn insert_with_slow_path(&mut self, create: impl FnOnce(Handle<T>) -> T) -> Handle<T> {
     let len = self.items.len();
     self.reserve(len);
     self
@@ -322,9 +345,9 @@ impl<T> Arena<T> {
       .expect("inserting will always succeed after reserving additional space")
   }
 
-  /// Remove the element at index `i` from the arena.
+  /// Remove the element at handle `i` from the arena.
   ///
-  /// If the element at index `i` is still in the arena, then it is
+  /// If the element at handle `i` is still in the arena, then it is
   /// returned. If it is not in the arena, then `None` is returned.
   ///
   /// # Examples
@@ -338,21 +361,21 @@ impl<T> Arena<T> {
   /// assert_eq!(arena.remove(idx), Some(42));
   /// assert_eq!(arena.remove(idx), None);
   /// ```
-  pub fn remove(&mut self, i: Index) -> Option<T> {
-    if i.index >= self.items.len() {
+  pub fn remove(&mut self, i: Handle<T>) -> Option<T> {
+    if i.handle >= self.items.len() {
       return None;
     }
 
-    match self.items[i.index] {
+    match self.items[i.handle] {
       Entry::Occupied { generation, .. } if i.generation == generation => {
         let entry = mem::replace(
-          &mut self.items[i.index],
+          &mut self.items[i.handle],
           Entry::Free {
             next_free: self.free_list_head,
           },
         );
         self.generation += 1;
-        self.free_list_head = Some(i.index);
+        self.free_list_head = Some(i.handle);
         self.len -= 1;
 
         match entry {
@@ -369,7 +392,7 @@ impl<T> Arena<T> {
 
   /// Retains only the elements specified by the predicate.
   ///
-  /// In other words, remove all indices such that `predicate(index, &value)` returns `false`.
+  /// In other words, remove all indices such that `predicate(handle, &value)` returns `false`.
   ///
   /// # Examples
   ///
@@ -385,30 +408,31 @@ impl<T> Arena<T> {
   /// assert_eq!(crew_members.next(), Some("Alexander Smollett"));
   /// assert!(crew_members.next().is_none());
   /// ```
-  pub fn retain(&mut self, mut predicate: impl FnMut(Index, &mut T) -> bool) {
+  pub fn retain(&mut self, mut predicate: impl FnMut(Handle<T>, &mut T) -> bool) {
     for i in 0..self.capacity() {
       let remove = match &mut self.items[i] {
         Entry::Occupied { generation, value } => {
-          let index = Index {
-            index: i,
+          let handle = Handle {
+            handle: i,
             generation: *generation,
+            phantom: PhantomData,
           };
-          if predicate(index, value) {
+          if predicate(handle, value) {
             None
           } else {
-            Some(index)
+            Some(handle)
           }
         }
 
         _ => None,
       };
-      if let Some(index) = remove {
-        self.remove(index);
+      if let Some(handle) = remove {
+        self.remove(handle);
       }
     }
   }
 
-  /// Is the element at index `i` in the arena?
+  /// Is the element at handle `i` in the arena?
   ///
   /// Returns `true` if the element at `i` is in the arena, `false` otherwise.
   ///
@@ -424,14 +448,14 @@ impl<T> Arena<T> {
   /// arena.remove(idx);
   /// assert!(!arena.contains(idx));
   /// ```
-  pub fn contains(&self, i: Index) -> bool {
+  pub fn contains(&self, i: Handle<T>) -> bool {
     self.get(i).is_some()
   }
 
-  /// Get a shared reference to the element at index `i` if it is in the
+  /// Get a shared reference to the element at handle `i` if it is in the
   /// arena.
   ///
-  /// If the element at index `i` is not in the arena, then `None` is returned.
+  /// If the element at handle `i` is not in the arena, then `None` is returned.
   ///
   /// # Examples
   ///
@@ -445,17 +469,17 @@ impl<T> Arena<T> {
   /// arena.remove(idx);
   /// assert!(arena.get(idx).is_none());
   /// ```
-  pub fn get(&self, i: Index) -> Option<&T> {
-    match self.items.get(i.index) {
+  pub fn get(&self, i: Handle<T>) -> Option<&T> {
+    match self.items.get(i.handle) {
       Some(Entry::Occupied { generation, value }) if *generation == i.generation => Some(value),
       _ => None,
     }
   }
 
-  /// Get an exclusive reference to the element at index `i` if it is in the
+  /// Get an exclusive reference to the element at handle `i` if it is in the
   /// arena.
   ///
-  /// If the element at index `i` is not in the arena, then `None` is returned.
+  /// If the element at handle `i` is not in the arena, then `None` is returned.
   ///
   /// # Examples
   ///
@@ -469,17 +493,17 @@ impl<T> Arena<T> {
   /// assert_eq!(arena.remove(idx), Some(43));
   /// assert!(arena.get_mut(idx).is_none());
   /// ```
-  pub fn get_mut(&mut self, i: Index) -> Option<&mut T> {
-    match self.items.get_mut(i.index) {
+  pub fn get_mut(&mut self, i: Handle<T>) -> Option<&mut T> {
+    match self.items.get_mut(i.handle) {
       Some(Entry::Occupied { generation, value }) if *generation == i.generation => Some(value),
       _ => None,
     }
   }
 
-  /// Get a pair of exclusive references to the elements at index `i1` and `i2` if it is in the
+  /// Get a pair of exclusive references to the elements at handle `i1` and `i2` if it is in the
   /// arena.
   ///
-  /// If the element at index `i1` or `i2` is not in the arena, then `None` is returned for this
+  /// If the element at handle `i1` or `i2` is not in the arena, then `None` is returned for this
   /// element.
   ///
   /// # Panics
@@ -505,10 +529,10 @@ impl<T> Arena<T> {
   /// assert_eq!(arena[idx1], 3);
   /// assert_eq!(arena[idx2], 4);
   /// ```
-  pub fn get2_mut(&mut self, i1: Index, i2: Index) -> (Option<&mut T>, Option<&mut T>) {
+  pub fn get2_mut(&mut self, i1: Handle<T>, i2: Handle<T>) -> (Option<&mut T>, Option<&mut T>) {
     let len = self.items.len();
 
-    if i1.index == i2.index {
+    if i1.handle == i2.handle {
       assert!(i1.generation != i2.generation);
 
       if i1.generation > i2.generation {
@@ -517,18 +541,18 @@ impl<T> Arena<T> {
       return (None, self.get_mut(i2));
     }
 
-    if i1.index >= len {
+    if i1.handle >= len {
       return (None, self.get_mut(i2));
-    } else if i2.index >= len {
+    } else if i2.handle >= len {
       return (self.get_mut(i1), None);
     }
 
     let (raw_item1, raw_item2) = {
-      let (xs, ys) = self.items.split_at_mut(cmp::max(i1.index, i2.index));
-      if i1.index < i2.index {
-        (&mut xs[i1.index], &mut ys[0])
+      let (xs, ys) = self.items.split_at_mut(cmp::max(i1.handle, i2.handle));
+      if i1.handle < i2.handle {
+        (&mut xs[i1.handle], &mut ys[0])
       } else {
-        (&mut ys[0], &mut xs[i2.index])
+        (&mut ys[0], &mut xs[i2.handle])
       }
     };
 
@@ -655,7 +679,7 @@ impl<T> Arena<T> {
 
   /// Iterate over shared references to the elements in this arena.
   ///
-  /// Yields pairs of `(Index, &T)` items.
+  /// Yields pairs of `(Handle, &T)` items.
   ///
   /// Order of iteration is not defined.
   ///
@@ -670,7 +694,7 @@ impl<T> Arena<T> {
   /// }
   ///
   /// for (idx, value) in arena.iter() {
-  ///     println!("{} is at index {:?}", value, idx);
+  ///     println!("{} is at handle {:?}", value, idx);
   /// }
   /// ```
   pub fn iter(&self) -> Iter<T> {
@@ -682,7 +706,7 @@ impl<T> Arena<T> {
 
   /// Iterate over exclusive references to the elements in this arena.
   ///
-  /// Yields pairs of `(Index, &mut T)` items.
+  /// Yields pairs of `(Handle, &mut T)` items.
   ///
   /// Order of iteration is not defined.
   ///
@@ -709,7 +733,7 @@ impl<T> Arena<T> {
 
   /// Iterate over elements of the arena and remove them.
   ///
-  /// Yields pairs of `(Index, T)` items.
+  /// Yields pairs of `(Handle, T)` items.
   ///
   /// Order of iteration is not defined.
   ///
@@ -739,22 +763,23 @@ impl<T> Arena<T> {
   }
 
   /// Given an i of `usize` without a generation, get a shared reference
-  /// to the element and the matching `Index` of the entry behind `i`.
+  /// to the element and the matching `Handle` of the entry behind `i`.
   ///
   /// This method is useful when you know there might be an element at the
-  /// position i, but don't know its generation or precise Index.
+  /// position i, but don't know its generation or precise Handle.
   ///
   /// Use cases include using indexing such as Hierarchical BitMap Indexing or
   /// other kinds of bit-efficient indexing.
   ///
   /// You should use the `get` method instead most of the time.
-  pub fn get_unknown_gen(&self, i: usize) -> Option<(&T, Index)> {
+  pub fn get_unknown_gen(&self, i: usize) -> Option<(&T, Handle<T>)> {
     match self.items.get(i) {
       Some(Entry::Occupied { generation, value }) => Some((
         value,
-        Index {
+        Handle {
           generation: *generation,
-          index: i,
+          handle: i,
+          phantom: PhantomData,
         },
       )),
       _ => None,
@@ -762,22 +787,23 @@ impl<T> Arena<T> {
   }
 
   /// Given an i of `usize` without a generation, get an exclusive reference
-  /// to the element and the matching `Index` of the entry behind `i`.
+  /// to the element and the matching `Handle` of the entry behind `i`.
   ///
   /// This method is useful when you know there might be an element at the
-  /// position i, but don't know its generation or precise Index.
+  /// position i, but don't know its generation or precise Handle.
   ///
   /// Use cases include using indexing such as Hierarchical BitMap Indexing or
   /// other kinds of bit-efficient indexing.
   ///
   /// You should use the `get_mut` method instead most of the time.
-  pub fn get_unknown_gen_mut(&mut self, i: usize) -> Option<(&mut T, Index)> {
+  pub fn get_unknown_gen_mut(&mut self, i: usize) -> Option<(&mut T, Handle<T>)> {
     match self.items.get_mut(i) {
       Some(Entry::Occupied { generation, value }) => Some((
         value,
-        Index {
+        Handle {
           generation: *generation,
-          index: i,
+          handle: i,
+          phantom: PhantomData,
         },
       )),
       _ => None,
@@ -873,7 +899,7 @@ impl<T> ExactSizeIterator for IntoIter<T> {
 impl<T> FusedIterator for IntoIter<T> {}
 
 impl<'a, T> IntoIterator for &'a Arena<T> {
-  type Item = (Index, &'a T);
+  type Item = (Handle<T>, &'a T);
   type IntoIter = Iter<'a, T>;
   fn into_iter(self) -> Self::IntoIter {
     self.iter()
@@ -882,7 +908,7 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
 
 /// An iterator over shared references to the elements in an arena.
 ///
-/// Yields pairs of `(Index, &T)` items.
+/// Yields pairs of `(Handle, &T)` items.
 ///
 /// Order of iteration is not defined.
 ///
@@ -897,7 +923,7 @@ impl<'a, T> IntoIterator for &'a Arena<T> {
 /// }
 ///
 /// for (idx, value) in &arena {
-///     println!("{} is at index {:?}", value, idx);
+///     println!("{} is at handle {:?}", value, idx);
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -907,21 +933,25 @@ pub struct Iter<'a, T: 'a> {
 }
 
 impl<'a, T> Iterator for Iter<'a, T> {
-  type Item = (Index, &'a T);
+  type Item = (Handle<T>, &'a T);
 
   fn next(&mut self) -> Option<Self::Item> {
     loop {
       match self.inner.next() {
         Some((_, &Entry::Free { .. })) => continue,
         Some((
-          index,
+          handle,
           &Entry::Occupied {
             generation,
             ref value,
           },
         )) => {
           self.len -= 1;
-          let idx = Index { index, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -943,14 +973,18 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
       match self.inner.next_back() {
         Some((_, &Entry::Free { .. })) => continue,
         Some((
-          index,
+          handle,
           &Entry::Occupied {
             generation,
             ref value,
           },
         )) => {
           self.len -= 1;
-          let idx = Index { index, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -971,7 +1005,7 @@ impl<'a, T> ExactSizeIterator for Iter<'a, T> {
 impl<'a, T> FusedIterator for Iter<'a, T> {}
 
 impl<'a, T> IntoIterator for &'a mut Arena<T> {
-  type Item = (Index, &'a mut T);
+  type Item = (Handle<T>, &'a mut T);
   type IntoIter = IterMut<'a, T>;
   fn into_iter(self) -> Self::IntoIter {
     self.iter_mut()
@@ -980,7 +1014,7 @@ impl<'a, T> IntoIterator for &'a mut Arena<T> {
 
 /// An iterator over exclusive references to elements in this arena.
 ///
-/// Yields pairs of `(Index, &mut T)` items.
+/// Yields pairs of `(Handle, &mut T)` items.
 ///
 /// Order of iteration is not defined.
 ///
@@ -1005,21 +1039,25 @@ pub struct IterMut<'a, T: 'a> {
 }
 
 impl<'a, T> Iterator for IterMut<'a, T> {
-  type Item = (Index, &'a mut T);
+  type Item = (Handle<T>, &'a mut T);
 
   fn next(&mut self) -> Option<Self::Item> {
     loop {
       match self.inner.next() {
         Some((_, &mut Entry::Free { .. })) => continue,
         Some((
-          index,
+          handle,
           &mut Entry::Occupied {
             generation,
             ref mut value,
           },
         )) => {
           self.len -= 1;
-          let idx = Index { index, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -1041,14 +1079,18 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
       match self.inner.next_back() {
         Some((_, &mut Entry::Free { .. })) => continue,
         Some((
-          index,
+          handle,
           &mut Entry::Occupied {
             generation,
             ref mut value,
           },
         )) => {
           self.len -= 1;
-          let idx = Index { index, generation };
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => {
@@ -1070,7 +1112,7 @@ impl<'a, T> FusedIterator for IterMut<'a, T> {}
 
 /// An iterator that removes elements from the arena.
 ///
-/// Yields pairs of `(Index, T)` items.
+/// Yields pairs of `(Handle, T)` items.
 ///
 /// Order of iteration is not defined.
 ///
@@ -1099,14 +1141,18 @@ pub struct Drain<'a, T: 'a> {
 }
 
 impl<'a, T> Iterator for Drain<'a, T> {
-  type Item = (Index, T);
+  type Item = (Handle<T>, T);
 
   fn next(&mut self) -> Option<Self::Item> {
     loop {
       match self.inner.next() {
         Some((_, Entry::Free { .. })) => continue,
-        Some((index, Entry::Occupied { generation, value })) => {
-          let idx = Index { index, generation };
+        Some((handle, Entry::Occupied { generation, value })) => {
+          let idx = Handle {
+            handle,
+            generation,
+            phantom: PhantomData,
+          };
           return Some((idx, value));
         }
         None => return None,
@@ -1135,16 +1181,16 @@ impl<T> FromIterator<T> for Arena<T> {
   }
 }
 
-impl<T> ops::Index<Index> for Arena<T> {
+impl<T> ops::Index<Handle<T>> for Arena<T> {
   type Output = T;
 
-  fn index(&self, index: Index) -> &Self::Output {
-    self.get(index).expect("No element at index")
+  fn index(&self, handle: Handle<T>) -> &Self::Output {
+    self.get(handle).expect("No element at handle")
   }
 }
 
-impl<T> ops::IndexMut<Index> for Arena<T> {
-  fn index_mut(&mut self, index: Index) -> &mut Self::Output {
-    self.get_mut(index).expect("No element at index")
+impl<T> ops::IndexMut<Handle<T>> for Arena<T> {
+  fn index_mut(&mut self, handle: Handle<T>) -> &mut Self::Output {
+    self.get_mut(handle).expect("No element at handle")
   }
 }

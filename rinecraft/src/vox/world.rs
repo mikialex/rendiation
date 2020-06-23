@@ -24,9 +24,16 @@ pub struct World {
 }
 
 struct WorldSceneAttachment {
-  root_node_index: Index,
-  block_shading: Index,
-  blocks: BTreeMap<(i32, i32), (Index, Index, Index)>, // node, render_object, geometry
+  root_node_index: SceneNodeHandle<WebGPUBackend>,
+  block_shading: ShadingHandle<WebGPUBackend>,
+  blocks: BTreeMap<
+    (i32, i32),
+    (
+      SceneNodeHandle<WebGPUBackend>,
+      RenderObjectHandle<WebGPUBackend>,
+      GeometryHandle<WebGPUBackend>,
+    ),
+  >,
 }
 
 impl World {
@@ -112,11 +119,7 @@ impl World {
     exist
   }
 
-  pub fn update(
-    &mut self,
-    renderer: &mut WGPURenderer,
-    scene: &mut Scene<WebGPUBackend>,
-  ) {
+  pub fn update(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WebGPUBackend>) {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     let camera_position = camera.get_transform().matrix.position();
 

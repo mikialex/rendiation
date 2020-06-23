@@ -14,7 +14,7 @@ pub use uniform::*;
 pub use cal::*;
 
 pub struct WebGLBackend {
-  engine: RenderEngine,
+  engine: RenderEngine<WebGLBackend>,
 }
 
 impl SceneGraphBackend for WebGLBackend {
@@ -55,7 +55,7 @@ impl WebGLBackend {
   }
 }
 
-impl RenderObject {
+impl RenderObject<WebGLBackend> {
   pub fn render_webgl(&self, renderer: &mut WebGLRenderer, scene: &Scene<WebGLBackend>) {
     let resources = &scene.resources;
     let shading = resources.get_shading(self.shading_index).resource();

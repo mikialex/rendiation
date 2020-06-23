@@ -1,18 +1,27 @@
 use super::scene::Scene;
-use crate::SceneGraphBackend;
-use arena::Index;
+use crate::{RenderObjectHandle, SceneGraphBackend, SceneNodeHandle};
 
-#[derive(Copy, Clone)]
-pub struct Drawcall {
-  pub render_object: Index,
-  pub node: Index,
+pub struct Drawcall<T: SceneGraphBackend> {
+  pub render_object: RenderObjectHandle<T>,
+  pub node: SceneNodeHandle<T>,
 }
 
-pub struct RenderList {
-  pub drawcalls: Vec<Drawcall>,
+impl<T: SceneGraphBackend> Clone for Drawcall<T> {
+  fn clone(&self) -> Self {
+    Self {
+      render_object: self.render_object.clone(),
+      node: self.node.clone(),
+    }
+  }
 }
 
-impl RenderList {
+impl<T: SceneGraphBackend> Copy for Drawcall<T> {}
+
+pub struct RenderList<T: SceneGraphBackend> {
+  pub drawcalls: Vec<Drawcall<T>>,
+}
+
+impl<T: SceneGraphBackend> RenderList<T> {
   pub fn new() -> Self {
     Self {
       drawcalls: Vec::new(),
@@ -24,12 +33,16 @@ impl RenderList {
     self
   }
 
-  pub fn push_drawcall(&mut self, drawcall: Drawcall) -> &mut Self {
+  pub fn push_drawcall(&mut self, drawcall: Drawcall<T>) -> &mut Self {
     self.drawcalls.push(drawcall);
     self
   }
 
-  pub fn push(&mut self, node: Index, render_object: Index) -> &mut Self {
+  pub fn push(
+    &mut self,
+    node: SceneNodeHandle<T>,
+    render_object: RenderObjectHandle<T>,
+  ) -> &mut Self {
     self.drawcalls.push(Drawcall {
       render_object,
       node,
@@ -41,7 +54,7 @@ impl RenderList {
     self.drawcalls.len()
   }
 
-  pub fn sort_for_opaque<T: SceneGraphBackend>(&mut self, scene: &Scene<T>) {
+  pub fn sort_for_opaque(&mut self, scene: &Scene<T>) {
     self.drawcalls.sort_unstable_by(|a, b| {
       let a_render_data = scene.get_node_render_data(a.node);
       let b_render_data = scene.get_node_render_data(b.node);
@@ -54,7 +67,7 @@ impl RenderList {
     });
   }
 
-  pub fn sort_for_transparent<T: SceneGraphBackend>(&mut self, scene: &Scene<T>) {
+  pub fn sort_for_transparent(&mut self, scene: &Scene<T>) {
     self.drawcalls.sort_unstable_by(|a, b| {
       let a_render_data = scene.get_node_render_data(a.node);
       let b_render_data = scene.get_node_render_data(b.node);

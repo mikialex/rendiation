@@ -1,5 +1,5 @@
 use crate::{
-  Arena, Index, SceneGeometryData, SceneGraphBackend, SceneShadingData,
+  Arena, Handle, SceneGeometryData, SceneGraphBackend, SceneShadingData,
   SceneShadingParameterGroupData,
 };
 
@@ -17,12 +17,12 @@ pub struct ResourceManager<T: SceneGraphBackend> {
 
 /// wrap any resource with an index;
 pub struct ResourceWrap<T> {
-  index: Index,
+  index: Handle<Self>,
   resource: T,
 }
 
 impl<T> ResourceWrap<T> {
-  pub fn index(&self) -> Index {
+  pub fn index(&self) -> Handle<Self> {
     self.index
   }
 
@@ -36,7 +36,7 @@ impl<T> ResourceWrap<T> {
 
   pub fn new_wrap(arena: &mut Arena<Self>, resource: T) -> &mut Self {
     let wrapped = Self {
-      index: Index::from_raw_parts(0, 0),
+      index: Handle::from_raw_parts(0, 0),
       resource,
     };
     let index = arena.insert(wrapped);
