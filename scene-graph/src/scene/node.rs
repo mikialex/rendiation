@@ -4,7 +4,7 @@ use arena::Handle;
 use rendiation_math::{Mat4, One};
 use rendiation_render_entity::BoundingData;
 
-pub type SceneNodeHandle<T: SceneGraphBackend> =  Handle<SceneNode<T>>;
+pub type SceneNodeHandle<T> =  Handle<SceneNode<T>>;
 
 pub struct SceneNode<T: SceneGraphBackend> {
   pub(crate) self_id: SceneNodeHandle<T>,

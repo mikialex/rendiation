@@ -1,22 +1,21 @@
 use crate::rinecraft::RinecraftState;
 use rendiation_math::Vec2;
 use rendiation_render_entity::*;
-use rendiation_scenegraph::Index;
-use rendium::{EventType, WindowEventSession};
+use rendium::{EventType, WindowEventSession, WindowEventSessionRemoveToken};
 
 pub enum CameraControllerType {
   FPS,
   ORBIT,
 }
 
-pub struct CameraController {
+pub struct CameraController<T> {
   fps: FPSController,
   orbit: OrbitController,
   active_type: CameraControllerType,
-  listener_records: Vec<Index>,
+  listener_records: Vec<WindowEventSessionRemoveToken<T>>,
 }
 
-impl CameraController {
+impl CameraController<RinecraftState> {
   pub fn new() -> Self {
     Self {
       fps: FPSController::new(),

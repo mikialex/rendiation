@@ -5,8 +5,8 @@ pub struct SceneShadingParameterGroupData<T: SceneGraphBackend> {
   pub items: Vec<ShadingParameterType<T>>,
 }
 
-pub type ParameterHandle<T: SceneGraphBackend> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;
-pub type UniformHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::UniformBuffer>>;
+pub type ParameterHandle<T> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;
+pub type UniformHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::UniformBuffer>>;
 // pub type SamplerHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Sampler>>;
 // pub type TextureHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Texture>>;
 

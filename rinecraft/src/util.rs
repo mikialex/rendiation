@@ -4,12 +4,12 @@ use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation::*;
 use rendiation_math::{Vec2, Vec3};
 use rendiation_render_entity::*;
-use rendiation_scenegraph::{Index, Scene, WebGPUBackend};
+use rendiation_scenegraph::{Scene, UniformHandle, WebGPUBackend};
 
 pub struct CameraGPU {
-  pub gpu_camera_position: Index,
+  pub gpu_camera_position: UniformHandle<WebGPUBackend>,
   gpu_camera_position_dirty: bool,
-  pub gpu_mvp_matrix: Index,
+  pub gpu_mvp_matrix: UniformHandle<WebGPUBackend>,
   gpu_mvp_matrix_dirty: bool,
 }
 
@@ -56,13 +56,13 @@ impl CameraGPU {
     scene: &mut Scene<WebGPUBackend>,
   ) {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
-    let data =  CameraGPU::get_world_position_data(camera);
+    let data = CameraGPU::get_world_position_data(camera);
     self.gpu_camera_position_dirty = false;
     scene
       .resources
       .get_uniform_mut(self.gpu_camera_position)
       .resource_mut()
-      .update(renderer,data);
+      .update(renderer, data);
   }
 
   pub fn update_gpu_mvp_matrix(
@@ -82,11 +82,7 @@ impl CameraGPU {
       .update(renderer, mx_total.as_ref());
   }
 
-  pub fn update_all(
-    &mut self,
-    renderer: &mut WGPURenderer,
-    scene: &mut Scene<WebGPUBackend>,
-  ) {
+  pub fn update_all(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WebGPUBackend>) {
     self.update_gpu_mvp_matrix(renderer, scene);
     self.update_gpu_world_position(renderer, scene);
   }

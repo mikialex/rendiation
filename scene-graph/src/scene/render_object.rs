@@ -2,7 +2,7 @@ use crate::{GeometryHandle, Scene, SceneGraphBackend, ShadingHandle};
 use rendiation_render_entity::BoundingData;
 use arena::Handle;
 
-pub type RenderObjectHandle<T: SceneGraphBackend> = Handle<RenderObject<T>>;
+pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
 
 pub struct RenderObject<T: SceneGraphBackend> {
   pub shading_index: ShadingHandle<T>,

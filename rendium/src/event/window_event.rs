@@ -90,8 +90,12 @@ impl<AppState> WindowEventSession<AppState> {
     (event_type, container_id)
   }
 
-  pub fn remove_listener(&mut self, id: Handle<ListenerStorage<AppState>>) {
-    self.listeners.remove(id);
+  pub fn remove_listener(&mut self, id: WindowEventSessionRemoveToken<AppState>) {
+    let listeners = &mut self.listeners;
+    self
+      .listeners_tags
+      .get(&id.0)
+      .map(|a| a.get(id.1).map(|l_id| listeners.remove(*l_id)));
   }
 
   pub fn new() -> Self {

@@ -19,7 +19,7 @@ impl<T: SceneGraphBackend> SceneShadingData<T> {
   }
 }
 
-pub type ShadingHandle<T: SceneGraphBackend> = Handle<ResourceWrap<SceneShadingData<T>>>;
+pub type ShadingHandle<T> = Handle<ResourceWrap<SceneShadingData<T>>>;
 
 impl<T: SceneGraphBackend> ResourceManager<T> {
   pub fn add_shading(

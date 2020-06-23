@@ -7,7 +7,7 @@ use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::*};
 use rendiation_render_entity::BoundingData;
-use rendiation_scenegraph::{Index, Scene, SceneGeometryData, WebGPUBackend};
+use rendiation_scenegraph::{GeometryHandle, Scene, SceneGeometryData, WebGPUBackend};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -101,7 +101,7 @@ impl Chunk {
     world_machine: &impl WorldMachine,
     chunks: &HashMap<(i32, i32), Chunk>,
     chunk_position: (i32, i32),
-  ) -> IndexedGeometry{
+  ) -> IndexedGeometry {
     let chunk = chunks.get(&chunk_position).unwrap();
 
     let mut new_index = Vec::new();
@@ -145,7 +145,7 @@ impl Chunk {
     geometry: &IndexedGeometry,
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPUBackend>,
-  ) -> Index {
+  ) -> GeometryHandle<WebGPUBackend> {
     let mut geometry_data = SceneGeometryData::new();
     let index_buffer = WGPUBuffer::new(
       renderer,

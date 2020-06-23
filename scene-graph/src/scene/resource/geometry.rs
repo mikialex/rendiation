@@ -1,9 +1,9 @@
 use crate::{Handle, ResourceManager, ResourceWrap, SceneGraphBackend};
 use std::{marker::PhantomData, ops::Range};
 
-pub type IndexBufferHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::IndexBuffer>>;
-pub type VertexBufferHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::VertexBuffer>>;
-pub type GeometryHandle<T: SceneGraphBackend> = Handle<ResourceWrap<SceneGeometryData<T>>>;
+pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::IndexBuffer>>;
+pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::VertexBuffer>>;
+pub type GeometryHandle<T> = Handle<ResourceWrap<SceneGeometryData<T>>>;
 
 pub struct SceneGeometryData<T: SceneGraphBackend> {
   pub draw_range: Range<u32>,
