@@ -1,12 +1,22 @@
-use crate::{make_webgl_program, CALBackend, SceneShadingDescriptor, SceneUniform, WebGLRenderer, WebGLBackend, WebGLVertexBuffer};
+use crate::{
+  make_webgl_program, CALAttributeTypeId, CALBackend, CALVertexBufferLayout,
+  SceneShadingDescriptor, SceneUniform, WebGLBackend, WebGLRenderer, WebGLVertexBuffer,
+};
 use web_sys::*;
 
 impl CALBackend for WebGLBackend {
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
-    make_webgl_program(&renderer.gl, &des.vertex_shader_str(), &des.frag_shader_str()).unwrap()
+    // this should do in sal
+    let gpu_program = make_webgl_program(
+      &renderer.gl,
+      &des.vertex_shader_str(),
+      &des.frag_shader_str(),
+    )
+    .unwrap();
+    todo!()
   }
   fn dispose_shading(renderer: &mut WebGLRenderer, shading: Self::Shading) {
-    renderer.gl.delete_program(Some(&shading))
+    renderer.gl.delete_program(Some(shading.program()))
   }
 
   fn create_uniform_buffer(renderer: &mut WebGLRenderer, des: SceneUniform) -> Self::UniformBuffer {
@@ -51,7 +61,12 @@ impl CALBackend for WebGLBackend {
     Some(buffer)
   }
 
-  fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer {
+  fn create_vertex_buffer(
+    renderer: &mut Self::Renderer,
+    data: &[u8],
+    input_id: CALAttributeTypeId,
+    layout: CALVertexBufferLayout,
+  ) -> Self::VertexBuffer {
     let buffer = renderer
       .gl
       .create_buffer()
@@ -69,10 +84,10 @@ impl CALBackend for WebGLBackend {
         WebGl2RenderingContext::STATIC_DRAW,
       );
     };
-    todo!()
-    // WebGLVertexBuffer{
-    //   stride: i32,
-    //   attributes: Vec<WebGLVertexAttributeBuffer>,
-    // }
+    WebGLVertexBuffer {
+      input_id,
+      buffer,
+      layout,
+    }
   }
 }

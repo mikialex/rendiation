@@ -2,7 +2,9 @@
 
 use std::any::Any;
 
+mod geometry;
 mod shading;
+pub use geometry::*;
 pub use shading::*;
 
 pub trait CALBackend: SceneGraphBackend {
@@ -15,7 +17,12 @@ pub trait CALBackend: SceneGraphBackend {
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer;
 
-  fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer;
+  fn create_vertex_buffer(
+    renderer: &mut Self::Renderer,
+    data: &[u8],
+    input_id: CALAttributeTypeId,
+    layout: CALVertexBufferLayout,
+  ) -> Self::VertexBuffer;
 }
 
 use crate::SceneGraphBackend;

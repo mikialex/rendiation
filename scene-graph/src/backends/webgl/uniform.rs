@@ -1,7 +1,6 @@
 // https://github.com/glium/glium/blob/master/src/uniforms/value.rs
 
 use crate::{WebGLProgram, WebGLRenderer};
-use web_sys::*;
 
 #[derive(Copy, Clone)]
 pub struct UniformTypeId(u32);

@@ -1,4 +1,4 @@
-use crate::{CALBackend, SceneShadingDescriptor, SceneUniform, WebGPUBackend};
+use crate::{CALBackend, SceneShadingDescriptor, SceneUniform, WebGPUBackend, CALVertexBufferLayout, CALAttributeTypeId};
 use rendiation::*;
 
 impl CALBackend for WebGPUBackend {
@@ -19,7 +19,12 @@ impl CALBackend for WebGPUBackend {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::INDEX)
   }
 
-  fn create_vertex_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::VertexBuffer {
+  fn create_vertex_buffer(
+    renderer: &mut Self::Renderer,
+    data: &[u8],
+    _input_id: CALAttributeTypeId,
+    _layout: CALVertexBufferLayout, // so can we use this to add additional runtime check?
+  ) -> Self::VertexBuffer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::VERTEX)
   }
 }

@@ -1,19 +1,23 @@
-use crate::{UniformTypeId, WebGLAttributeTypeId, WebGLRenderer};
+use crate::{UniformTypeId, CALAttributeTypeId, WebGLRenderer};
 use std::collections::HashMap;
 use web_sys::*;
 
 pub struct WebGLProgram {
   program: WebGlProgram,
-  attributes: HashMap<WebGLAttributeTypeId, u32>,
+  attributes: HashMap<CALAttributeTypeId, u32>,
   uniforms: HashMap<UniformTypeId, WebGlUniformLocation>,
 }
 
 impl WebGLProgram {
+  pub fn program(&self) -> &WebGlProgram{
+    &self.program
+  }
+
   pub fn query_uniform_location(&self, input_id: UniformTypeId) -> &WebGlUniformLocation {
     todo!()
   }
 
-  pub fn query_attribute_location(&self, input_id: WebGLAttributeTypeId) -> u32 {
+  pub fn query_attribute_location(&self, input_id: CALAttributeTypeId) -> u32 {
     todo!()
   }
 }

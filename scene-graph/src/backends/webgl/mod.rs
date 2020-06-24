@@ -20,7 +20,7 @@ pub struct WebGLBackend {
 impl SceneGraphBackend for WebGLBackend {
   type RenderTarget = Option<WebGlFramebuffer>;
   type Renderer = WebGLRenderer;
-  type Shading = WebGlProgram;
+  type Shading = WebGLProgram;
   type ShadingParameterGroup = ();
   type IndexBuffer = Option<WebGlBuffer>;
   type VertexBuffer = WebGLVertexBuffer;
@@ -61,21 +61,21 @@ impl RenderObject<WebGLBackend> {
     let resources = &scene.resources;
     let shading = resources.get_shading(self.shading_index).resource();
     let geometry = &resources.get_geometry(self.geometry_index).resource();
+    let program = &shading.gpu;
 
-    renderer.use_program(&shading.gpu);
+    renderer.use_program(&shading.gpu.program());
 
     // geometry bind
     geometry.index_buffer.map(|b| {
       let index = resources.get_index_buffer(b);
       renderer.set_index_buffer(index.resource().as_ref());
     });
-    for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
-      let buffer = resources.get_vertex_buffer(*vertex_buffer);
-      // we should make sure that the i is match the attribute location
-      renderer.set_vertex_buffer(i, buffer.resource());
-    }
+    geometry.vertex_buffers.iter().for_each(|v|{
+      let buffer = resources.get_vertex_buffer(*v).resource();
+      let att_location = program.query_attribute_location(buffer.input_id);
+      renderer.set_vertex_buffer(att_location, buffer);
+    });
 
-    let program = &shading.gpu;
     // shading bind
     for i in 0..shading.get_parameters_count() {
       let parameter_group = resources
