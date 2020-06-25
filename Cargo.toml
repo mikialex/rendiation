@@ -15,4 +15,5 @@ members = [
     "space-indexer",
     "mesh-buffer",
     "utils/arena",
+    "utils/arena-graph",
 ]
