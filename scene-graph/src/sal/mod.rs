@@ -41,56 +41,72 @@ pub fn glsl(source: &'static str) -> ShaderFunction {
   }
 }
 
-pub struct ShaderFunctionNode{
-    function: Handle<ShaderFunction>,
-
+pub struct ShaderFunctionNode {
+  function: Handle<ShaderFunction>,
 }
 
-pub struct ShaderGraph{
-    nodes: Arena<ShaderFunctionNode>
+pub struct ShaderGraph {
+  nodes: Arena<ShaderFunctionNode>,
 }
 
-fn test2() {
-    // let MyMaterial = graph!("MyMaterial", [
-    //     Camera, 
-    //     Phong,
-    // ]);
-    let base = BaseShading::new();
-    let mvp_base = PositionAttributeInput::new(base);
-    mvp_base/
+// fn test2() {
+//   let MyMaterial = graph!("MyMaterial", [
+//       Camera,
+//       Phong,
+//   ]);
+//   let base = BaseShading::new();
+//   let base_with_position = PositionAttributeInput::new(base);
+//   let mvp_trans_formed = MVPTransform::new(base_with_position);
+//   // mvp_base/
+// }
+
+struct BaseShading {
+  graph: ShaderGraph,
 }
 
+impl BaseShading {
+  pub fn new() -> Self {
+    todo!()
+  }
 
-struct BaseShading{
-    graph: ShaderGraph,
+  // pub fn mvp(&mut self) -> Self {todo!()}
 }
 
-impl BaseShading{
-    pub fn new() -> Self {
-        todo!()
-    }
+pub struct Node {}
 
-    // pub fn mvp(&mut self) -> Self {todo!()} 
-}
-
-pub struct Node{}
-
-pub struct PositionAttributeInput<T>{
-    before: T,
-    attibute_input_node: Node,
+pub struct PositionAttributeInput<T> {
+  before: T,
+  attribute_input_node: Node,
 }
 
 impl<T> PositionAttributeInput<T> {
-    pub fn new(before: T) -> Self{
+  pub fn new(before: T) -> Self {
+    todo!()
+  }
+}
+
+impl MVPTransformInput for PositionAttributeInput<BaseShading>{
+    fn position(&self) -> Node {
         todo!()
     }
+
 }
 
-pub struct MVPTransform{
-    
+pub trait MVPTransformInput{
+  fn position(&self) -> Node;
 }
 
+pub struct MVPTransform<T: MVPTransformInput> {
+  before: T,
+  mvp_uniform: Node,
+}
 
-pub trait ShaderGraphDecorator{
-    fn decorate(graph: &mut ShaderGraph);
+impl<T: MVPTransformInput> MVPTransform<T> {
+  pub fn new(before: impl MVPTransformInput) -> Self {
+    todo!()
+  }
+}
+
+pub trait ShaderGraphDecorator {
+  fn decorate(graph: &mut ShaderGraph);
 }

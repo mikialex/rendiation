@@ -1,6 +1,6 @@
 [package]
 name = "arena"
-version = "0.1.1"
+version = "0.0.1"
 edition = "2018"
 
 # I stole this from https://github.com/fitzgen/generational-arena;

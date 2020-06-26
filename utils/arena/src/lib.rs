@@ -37,7 +37,7 @@ enum Entry<T> {
 /// let idx = arena.insert(123);
 /// assert_eq!(arena[idx], 123);
 /// ```
-#[derive(Debug, PartialOrd, Ord, Hash)]
+#[derive(Debug, Hash)]
 pub struct Handle<T> {
   handle: usize,
   generation: u64,
@@ -60,6 +60,18 @@ impl<T> Copy for Handle<T> {}
 impl<T> PartialEq for Handle<T> {
   fn eq(&self, other: &Self) -> bool {
     self.handle == other.handle && self.generation == other.generation
+  }
+}
+
+impl<T> PartialOrd for Handle<T> {
+  fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+    Some(self.handle.cmp(&other.handle))
+  }
+}
+
+impl<T> Ord for Handle<T> {
+  fn cmp(&self, other: &Self) -> cmp::Ordering {
+    self.handle.cmp(&other.handle)
   }
 }
 
