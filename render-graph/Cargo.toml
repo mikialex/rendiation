@@ -4,6 +4,5 @@ version = "0.0.1"
 edition = "2018"
 
 [dependencies]
-# rendiation = { path = "../rendiation", version = "0.1.0" }
+arena-graph = { path = "../utils/arena-graph" }
 
-[dev-dependencies]

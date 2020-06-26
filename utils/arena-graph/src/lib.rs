@@ -1,4 +1,4 @@
-use arena::*;
+pub use arena::*;
 use std::collections::BTreeSet;
 
 pub struct ArenaGraph<T> {

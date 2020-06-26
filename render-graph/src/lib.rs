@@ -1,22 +1,41 @@
-#![allow(unused)]
-pub mod graph;
-pub mod node;
-pub use graph::*;
-pub use node::*;
-use std::{cell::RefCell, rc::Rc};
+pub use arena_graph::*;
+
+pub fn build_graph() {
+  let mut graph = RenderGraph::new();
+  let normal_pass = graph.pass("normal");
+  let normal_target = graph.target("normal");
+
+  // let pass = graph.pass("scene").useQuad();
+  // RenderGraph::new().root().from_pass(pass)
+}
+
+
+pub enum RenderGraphNode{
+  PassNode(PassNodeData),
+  Target(TargetNodeData)
+}
+
+pub struct PassNodeData {
+  name: String
+}
+
+pub struct TargetNodeData{
+  name: String,
+}
+
+pub struct NodeBuilder<'a> {
+  handle: ArenaGraphNodeHandle<RenderGraphNode>,
+  graph: &'a mut RenderGraph,
+}
 
 pub struct RenderGraph {
-  graph: Graph<GraphData>,
-  passes: Vec<usize>,
-  pass_nodes: Vec<Rc<RefCell<PassNodeData>>>,
+  graph: ArenaGraph<RenderGraphNode>
 }
 
 impl RenderGraph {
   pub fn new() -> Self {
     Self {
-      graph: Graph::new(),
-      passes: Vec::new(),
-      pass_nodes: Vec::new(),
+      graph: ArenaGraph::new(),
     }
   }
 
@@ -24,21 +43,11 @@ impl RenderGraph {
 
   pub fn render() {}
 
-  pub fn pass(&mut self, name: &str) -> PassNode {
-    let pass_data = PassNodeData {};
-    let pass_data_wrap = Rc::new(RefCell::new(pass_data));
-    let index = self.pass_nodes.len();
-    self.pass_nodes.push(pass_data_wrap.clone());
-
-    let data = GraphData {
-      index,
-      node_type: GraphNodeType::Pass,
-    };
-
-    let wrap_node = self.graph.create_node(data);
-    
-    PassNode::new(name.into(), wrap_node, pass_data_wrap)
+  pub fn pass(&mut self, name: &str) -> NodeBuilder {
+    todo!()
   }
 
-  pub fn target() {}
+  pub fn target(&mut self, name: &str) -> NodeBuilder {
+    todo!()
+  }
 }

@@ -1606,6 +1606,9 @@ dependencies = [
 [[package]]
 name = "rendiation-rendergraph"
 version = "0.0.1"
+dependencies = [
+ "arena-graph 0.0.1",
+]
 
 [[package]]
 name = "rendiation-scenegraph"
