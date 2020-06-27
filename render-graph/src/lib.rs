@@ -26,6 +26,12 @@ pub struct TargetNodeBuilder<'a> {
   builder: NodeBuilder<'a>,
 }
 
+impl<'a> TargetNodeBuilder<'a> {
+  pub fn from_pass(self, passes: &PassNodeBuilder<'a>) -> Self {
+    self
+  }
+}
+
 pub struct PassNodeBuilder<'a> {
   builder: NodeBuilder<'a>,
 }
@@ -38,6 +44,10 @@ impl<'a> PassNodeBuilder<'a> {
     if let RenderGraphNode::Pass(data) = data {
       mutator(data)
     }
+  }
+
+  pub fn input(self, name: &str ,target: &TargetNodeBuilder<'a>) -> Self {
+    self
   }
 
   pub fn viewport(self) -> Self {
@@ -81,7 +91,7 @@ impl RenderGraph {
     }
   }
 
-  pub fn screen(&self, target: PassNodeBuilder) {
+  pub fn screen(&self, target: &PassNodeBuilder) {
     self.root_handle.set(Some(target.builder.handle));
   }
 
@@ -102,11 +112,11 @@ impl RenderGraph {
 }
 
 pub fn build_test_graph() {
-  let mut graph = RenderGraph::new();
+  let graph = RenderGraph::new();
   let normal_pass = graph.pass("normal").viewport();
-  let normal_target = graph.target("normal");
-  let copy_screen = graph.pass("copy_screen").viewport();
-  graph.screen(copy_screen);
+  let normal_target = graph.target("normal").from_pass(&normal_pass);
+  let copy_screen = graph.pass("copy_screen").viewport().input("from", &normal_target);
+  graph.screen(&copy_screen);
   // let pass = graph.pass("scene").useQuad();
   // RenderGraph::new().root().from_pass(pass)
 }
