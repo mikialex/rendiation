@@ -9,7 +9,7 @@ pub struct Viewport {
 }
 
 impl Viewport {
-  pub fn new(size: (usize,usize)) -> Self {
+  pub fn new(size: (usize, usize)) -> Self {
     Self {
       x: 0.0,
       y: 0.0,

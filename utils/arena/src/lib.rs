@@ -3,7 +3,7 @@ use core::iter::{self, Extend, FromIterator, FusedIterator};
 use core::mem;
 use core::ops;
 use core::slice;
-use std::{marker::PhantomData, vec};
+use std::{marker::PhantomData, vec, hash::Hash};
 
 /// The `Arena` allows inserting and removing elements that are referred to by
 /// `Handle`.
@@ -37,7 +37,7 @@ enum Entry<T> {
 /// let idx = arena.insert(123);
 /// assert_eq!(arena[idx], 123);
 /// ```
-#[derive(Debug, Hash)]
+#[derive(Debug)]
 pub struct Handle<T> {
   handle: usize,
   generation: u64,
@@ -76,6 +76,12 @@ impl<T> Ord for Handle<T> {
 }
 
 impl<T> Eq for Handle<T> {}
+
+impl<T> Hash for Handle<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+      self.handle.hash(state);
+    }
+}
 
 impl<T> Handle<T> {
   /// Create a new `Handle` from its raw parts.

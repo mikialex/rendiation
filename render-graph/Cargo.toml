@@ -6,4 +6,5 @@ edition = "2018"
 [dependencies]
 arena-graph = { path = "../utils/arena-graph" }
 rendiation-math = { path = "../math" }
+rendiation-render-entity = { path = "../render-entity" }
 

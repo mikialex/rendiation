@@ -1609,6 +1609,7 @@ version = "0.0.1"
 dependencies = [
  "arena-graph 0.0.1",
  "rendiation-math 0.1.0",
+ "rendiation-render-entity 0.1.0",
 ]
 
 [[package]]
