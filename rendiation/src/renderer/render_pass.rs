@@ -1,5 +1,6 @@
-use crate::{viewport::*, WGPUBindGroup, WGPUBuffer, WGPUPipeline};
+use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline};
 use rendiation_math::Vec3;
+use rendiation_render_entity::Viewport;
 use std::ops::Range;
 
 pub struct WGPURenderPass<'a> {
@@ -20,12 +21,16 @@ impl<'a> WGPURenderPass<'a> {
   }
 
   pub fn set_index_buffer(&mut self, buffer: &'a WGPUBuffer) -> &mut Self {
-    self.gpu_pass.set_index_buffer(buffer.get_gpu_buffer(), 0, 0);
+    self
+      .gpu_pass
+      .set_index_buffer(buffer.get_gpu_buffer(), 0, 0);
     self
   }
 
   pub fn set_vertex_buffer(&mut self, slot: usize, buffer: &'a WGPUBuffer) -> &mut Self {
-    self.gpu_pass.set_vertex_buffer(slot as u32, buffer.get_gpu_buffer(), 0, 0);
+    self
+      .gpu_pass
+      .set_vertex_buffer(slot as u32, buffer.get_gpu_buffer(), 0, 0);
     self
   }
 

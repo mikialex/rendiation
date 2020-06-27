@@ -10,7 +10,7 @@ pub struct Viewport {
 
 impl Viewport {
   pub fn new(size: (usize,usize)) -> Self {
-    Viewport {
+    Self {
       x: 0.0,
       y: 0.0,
       w: size.0 as f32,
