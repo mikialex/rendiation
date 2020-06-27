@@ -54,6 +54,10 @@ impl<T> ArenaGraph<T> {
     self.nodes.get(handle).unwrap()
   }
 
+  pub fn get_node_data_mut(&mut self, handle: Handle<T>) -> &mut T {
+    self.nodes_data.get_mut(handle).unwrap()
+  }
+
   pub fn connect_node(&mut self, from: ArenaGraphNodeHandle<T>, to: ArenaGraphNodeHandle<T>) {
     let from_node = self.nodes.get_mut(from).unwrap();
     from_node.to.insert(to);

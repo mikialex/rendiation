@@ -31,7 +31,19 @@ pub struct PassNodeBuilder<'a> {
 }
 
 impl<'a> PassNodeBuilder<'a> {
+  pub fn pass_data_mut(&self, mutator: impl FnOnce(&mut PassNodeData)) {
+    let mut graph = self.builder.graph.graph.borrow_mut();
+    let data_handle = graph.get_node(self.builder.handle).data_handle();
+    let data = graph.get_node_data_mut(data_handle);
+    if let RenderGraphNode::Pass(data) = data {
+      mutator(data)
+    }
+  }
+
   pub fn viewport(self) -> Self {
+    self.pass_data_mut(|p| {
+      // p.viewport
+    });
     self
   }
 }
@@ -74,7 +86,18 @@ impl RenderGraph {
   }
 
   pub fn target(&self, name: &str) -> TargetNodeBuilder {
-    todo!()
+    let handle = self
+      .graph
+      .borrow_mut()
+      .new_node(RenderGraphNode::Target(TargetNodeData {
+        name: name.to_owned(),
+      }));
+    TargetNodeBuilder {
+      builder: NodeBuilder {
+        handle,
+        graph: self,
+      },
+    }
   }
 }
 
