@@ -32,10 +32,6 @@ impl RenderGraph {
     }
   }
 
-  pub fn build(&mut self) {}
-
-  pub fn render() {}
-
   pub fn pass(&self, name: &str) -> PassNodeBuilder {
     let handle = self
       .graph
@@ -77,7 +73,7 @@ impl RenderGraph {
         name.to_owned(),
       )));
 
-    TargetNodeBuilder { 
+    TargetNodeBuilder {
       builder: NodeBuilder {
         handle,
         graph: self,
@@ -87,7 +83,49 @@ impl RenderGraph {
 }
 
 fn build_pass_queue(graph: &RenderGraph) -> Vec<PassExecuteInfo> {
-  todo!()
+  let root = graph.root_handle.get().unwrap();
+  let graph = graph.graph.borrow_mut();
+  let node_list: Vec<RenderGraphNodeHandle> = graph
+    .topological_order_list(root)
+    .into_iter()
+    .filter(|n| graph.get_node_data_by_node(*n).is_pass())
+    .collect();
+
+  let mut exe_info_list: Vec<PassExecuteInfo> = node_list
+    .iter()
+    .map(|&n| PassExecuteInfo {
+      pass_node_handle: n,
+      target_drop_list: Vec::new(),
+    })
+    .collect();
+  node_list.iter().enumerate().for_each(|(index, &n)| {
+    let node = graph.get_node(n);
+    let output_node = *node.to().iter().next().unwrap();
+    let output_node_data = graph.get_node_data_by_node(output_node);
+    if output_node_data.unwrap_target_data().is_screen() {
+      return;
+    }
+    let mut last_used_index = node_list.len();
+    node_list
+      .iter()
+      .enumerate()
+      .skip(index)
+      .rev()
+      .take_while(|&(rev_index, n)| {
+        let check_node = graph.get_node(*n);
+        let result = check_node.from().contains(&output_node);
+        if result {
+          last_used_index = rev_index;
+        }
+        result
+      })
+      .for_each(|_| {});
+    let list = &mut exe_info_list[last_used_index].target_drop_list;
+    if list.iter().position(|&x| x == output_node).is_none() {
+      list.push(output_node)
+    }
+  });
+  exe_info_list
 }
 
 pub fn build_test_graph() {

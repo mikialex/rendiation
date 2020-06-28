@@ -2,9 +2,9 @@ use crate::{
   build_pass_queue, RenderGraph, RenderGraphBackend, RenderGraphNodeHandle, RenderTargetPool,
 };
 
-pub struct PassExecuteInfo {
-  pass_node_handle: RenderGraphNodeHandle,
-  target_drop_list: Vec<RenderGraphNodeHandle>,
+pub(crate) struct PassExecuteInfo {
+  pub pass_node_handle: RenderGraphNodeHandle,
+  pub target_drop_list: Vec<RenderGraphNodeHandle>,
 }
 
 pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {

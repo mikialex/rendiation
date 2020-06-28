@@ -10,6 +10,13 @@ pub enum RenderGraphNode {
 
 // marco?
 impl RenderGraphNode{
+  pub fn is_pass(&self) -> bool { 
+    if let RenderGraphNode::Pass(data) = self{
+      true
+    }else{
+      false
+    }
+  }
   pub fn unwrap_target_data(&self) -> &TargetNodeData{
     if let RenderGraphNode::Target(data) = self{
       data
