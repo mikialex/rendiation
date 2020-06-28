@@ -17,7 +17,7 @@ impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
   }
 
   pub fn return_back(&mut self, target: T::RenderTarget) {
-    todo!()
+    self.available.push(target)
   }
 }
 
