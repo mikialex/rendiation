@@ -24,6 +24,14 @@ impl<T> ArenaGraphNode<T> {
     self.data_handle
   }
 
+  pub fn from(&self) -> &BTreeSet<ArenaGraphNodeHandle<T>> {
+    &self.from
+  }
+
+  pub fn to(&self) -> &BTreeSet<ArenaGraphNodeHandle<T>> {
+    &self.to
+  }
+
   pub fn new(data_handle: Handle<T>, handle: ArenaGraphNodeHandle<T>) -> Self {
     Self {
       data_handle,
@@ -56,6 +64,18 @@ impl<T> ArenaGraph<T> {
 
   pub fn get_node_data_mut(&mut self, handle: Handle<T>) -> &mut T {
     self.nodes_data.get_mut(handle).unwrap()
+  }
+
+  pub fn get_node_data(&self, handle: Handle<T>) -> &T {
+    self.nodes_data.get(handle).unwrap()
+  }
+
+  pub fn get_node_data_by_node(&self, handle: ArenaGraphNodeHandle<T>) -> &T {
+    self.nodes_data.get(self.get_node(handle).data_handle).unwrap()
+  }
+
+  pub fn get_node_data_mut_by_node(&mut self, handle: ArenaGraphNodeHandle<T>) -> &mut T {
+    self.nodes_data.get_mut(self.get_node(handle).data_handle).unwrap()
   }
 
   pub fn connect_node(&mut self, from: ArenaGraphNodeHandle<T>, to: ArenaGraphNodeHandle<T>) {

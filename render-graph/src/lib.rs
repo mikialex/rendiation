@@ -6,14 +6,21 @@ use std::{
   collections::HashSet,
 };
 
+mod backend;
+mod executor;
 mod nodes;
+mod target_pool;
+pub use backend::*;
+pub use executor::*;
 pub use nodes::*;
+pub use target_pool::*;
 
 pub type RenderGraphNodeHandle = ArenaGraphNodeHandle<RenderGraphNode>;
 
 pub struct RenderGraph {
   graph: RefCell<ArenaGraph<RenderGraphNode>>,
   root_handle: Cell<Option<RenderGraphNodeHandle>>,
+  pass_queue: RefCell<Option<Vec<PassExecuteInfo>>>,
 }
 
 impl RenderGraph {
@@ -21,6 +28,7 @@ impl RenderGraph {
     Self {
       graph: RefCell::new(ArenaGraph::new()),
       root_handle: Cell::new(None),
+      pass_queue: RefCell::new(None),
     }
   }
 
@@ -46,18 +54,30 @@ impl RenderGraph {
     }
   }
 
-  pub fn screen(&self, target: &PassNodeBuilder) {
-    self.root_handle.set(Some(target.handle()));
+  pub fn screen(&self) -> TargetNodeBuilder {
+    let handle = self
+      .graph
+      .borrow_mut()
+      .new_node(RenderGraphNode::Target(TargetNodeData::screen()));
+    self.root_handle.set(Some(handle));
+
+    TargetNodeBuilder {
+      builder: NodeBuilder {
+        handle,
+        graph: self,
+      },
+    }
   }
 
   pub fn target(&self, name: &str) -> TargetNodeBuilder {
     let handle = self
       .graph
       .borrow_mut()
-      .new_node(RenderGraphNode::Target(TargetNodeData {
-        name: name.to_owned(),
-      }));
-    TargetNodeBuilder {
+      .new_node(RenderGraphNode::Target(TargetNodeData::target(
+        name.to_owned(),
+      )));
+
+    TargetNodeBuilder { 
       builder: NodeBuilder {
         handle,
         graph: self,
@@ -66,15 +86,14 @@ impl RenderGraph {
   }
 }
 
+fn build_pass_queue(graph: &RenderGraph) -> Vec<PassExecuteInfo> {
+  todo!()
+}
+
 pub fn build_test_graph() {
   let graph = RenderGraph::new();
   let normal_pass = graph.pass("normal").viewport();
   let normal_target = graph.target("normal").from_pass(&normal_pass);
-  let copy_screen = graph
-    .pass("copy_screen")
-    .viewport()
-    .depend(&normal_target);
-  graph.screen(&copy_screen);
-  // let pass = graph.pass("scene").useQuad();
-  // RenderGraph::new().root().from_pass(pass)
+  let copy_screen = graph.pass("copy_screen").viewport().depend(&normal_target);
+  graph.screen().from_pass(&copy_screen);
 }

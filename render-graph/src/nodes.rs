@@ -8,6 +8,31 @@ pub enum RenderGraphNode {
   Target(TargetNodeData),
 }
 
+// marco?
+impl RenderGraphNode{
+  pub fn unwrap_target_data(&self) -> &TargetNodeData{
+    if let RenderGraphNode::Target(data) = self{
+      data
+    }else{
+      panic!("unwrap_as_target failed")
+    }
+  }
+  pub fn unwrap_pass_data(&self) -> &PassNodeData{
+    if let RenderGraphNode::Pass(data) = self{
+      data
+    }else{
+      panic!("unwrap_pass_data failed")
+    }
+  }
+  pub fn unwrap_pass_data_mut(&mut self) -> &mut PassNodeData{
+    if let RenderGraphNode::Pass(data) = self{
+      data
+    }else{
+      panic!("unwrap_pass_data failed")
+    }
+  }
+}
+
 pub struct PassNodeData {
   pub(crate) name: String,
   pub(crate) viewport: Viewport,
@@ -17,6 +42,25 @@ pub struct PassNodeData {
 
 pub struct TargetNodeData {
   pub name: String,
+  is_screen: bool,
+}
+
+impl TargetNodeData{
+  pub fn target(name: String) -> Self{
+    Self {
+      name,
+      is_screen: false,
+    }
+  }
+  pub fn screen() -> Self{
+    Self {
+      name: "root".to_owned(),
+      is_screen: true,
+    }
+  }
+  pub fn is_screen(&self)-> bool {
+    self.is_screen
+  }
 }
 
 pub struct NodeBuilder<'a> {
