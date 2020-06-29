@@ -1,4 +1,4 @@
-use crate::{NodeBuilder, PassNodeBuilder, RenderGraphNodeHandle, RenderGraphBackend};
+use crate::{NodeBuilder, PassNodeBuilder, RenderGraphBackend, RenderGraphNodeHandle};
 
 pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
   pub(crate) builder: NodeBuilder<'a, T>,
@@ -9,6 +9,12 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
     self.builder.handle
   }
   pub fn from_pass(self, passes: &PassNodeBuilder<'a, T>) -> Self {
+    todo!();
+    self
+  }
+
+  pub fn format(self, modify: impl FnOnce(&mut T::RenderTargetFormatKey)) -> Self {
+    todo!();
     self
   }
 }
@@ -16,11 +22,11 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
 pub struct TargetNodeData<T: RenderGraphBackend> {
   pub name: String,
   is_screen: bool,
-  format: T::RenderTargetFormatKey
+  format: T::RenderTargetFormatKey,
 }
 
 impl<T: RenderGraphBackend> TargetNodeData<T> {
-  pub fn format(&self) ->  &T::RenderTargetFormatKey {
+  pub fn format(&self) -> &T::RenderTargetFormatKey {
     &self.format
   }
 

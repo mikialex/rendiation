@@ -31,21 +31,37 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     if self.active_targets.len() > 0 {
       panic!("some target still in use")
     }
-    self.cached.drain().for_each(|(_, p)|{
-      p.available.into_iter().for_each(|t|{
-        T::dispose_render_target(renderer, t)
-      })
+    self.cached.drain().for_each(|(_, p)| {
+      p.available
+        .into_iter()
+        .for_each(|t| T::dispose_render_target(renderer, t))
     })
   }
 
   fn get_pool(&mut self, key: &T::RenderTargetFormatKey) -> &mut RenderTargetTypePooling<T> {
-    self
-      .cached
-      .entry(key.clone()) // todo, cost
-      .or_insert_with(|| RenderTargetTypePooling {
-        key: key.clone(),
-        available: Vec::new(),
-      })
+    if !self.cached.contains_key(&key) {
+      self.cached.insert(
+        key.clone(),
+        RenderTargetTypePooling {
+          key: key.clone(),
+          available: Vec::new(),
+        },
+      );
+    }
+
+    self.cached.get_mut(&key).unwrap()
+
+    // is clone expensive?, need profile?
+    // https://stackoverflow.com/questions/51542024/how-do-i-use-the-entry-api-with-an-expensive-key-that-is-only-constructed-if-the
+    // wtf why this is not stable??
+
+    // self
+    //   .cached
+    //   .entry(key.clone())
+    //   .or_insert_with(|| RenderTargetTypePooling {
+    //     key: key.clone(),
+    //     available: Vec::new(),
+    //   })
   }
 
   /// get a RenderTarget from pool,if there is no fbo meet the config, create a new one, and pool it
