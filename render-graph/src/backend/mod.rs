@@ -1,12 +1,14 @@
-use crate::TargetNodeData;
 use std::hash::Hash;
+
+#[cfg(feature = "wgpu")]
+pub mod webgpu;
+#[cfg(feature = "wgpu")]
+pub use webgpu::*;
 
 pub trait RenderGraphBackend {
   type RenderTarget: 'static;
-  type RenderTargetFormatKey: Eq + Hash + Copy;
+  type RenderTargetFormatKey: Eq + Hash + Clone + Default;
   type Renderer;
-
-  fn to_format_key(target_info: &TargetNodeData) -> Self::RenderTargetFormatKey;
 
   fn create_render_target(
     renderer: &Self::Renderer,

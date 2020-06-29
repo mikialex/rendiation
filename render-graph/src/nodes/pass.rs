@@ -1,20 +1,20 @@
-use crate::{NodeBuilder, RenderGraphNode, RenderGraphNodeHandle, TargetNodeBuilder};
+use crate::{NodeBuilder, RenderGraphNode, RenderGraphNodeHandle, TargetNodeBuilder, RenderGraphBackend};
 use rendiation_render_entity::Viewport;
 use std::collections::HashSet;
 
-pub struct PassNodeData {
+pub struct PassNodeData<T: RenderGraphBackend> {
   pub(crate) name: String,
   pub(crate) viewport: Viewport,
-  pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle>,
+  pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T>>,
   pub(crate) render: Option<Box<dyn FnMut()>>,
 }
 
-pub struct PassNodeBuilder<'a> {
-  pub(crate) builder: NodeBuilder<'a>,
+pub struct PassNodeBuilder<'a, T: RenderGraphBackend> {
+  pub(crate) builder: NodeBuilder<'a, T>,
 }
 
-impl<'a> PassNodeBuilder<'a> {
-  pub fn handle(&self) -> RenderGraphNodeHandle {
+impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
+  pub fn handle(&self) -> RenderGraphNodeHandle<T> {
     self.builder.handle
   }
 
@@ -23,7 +23,7 @@ impl<'a> PassNodeBuilder<'a> {
     self
   }
 
-  pub fn pass_data_mut(&self, mutator: impl FnOnce(&mut PassNodeData)) {
+  pub fn pass_data_mut(&self, mutator: impl FnOnce(&mut PassNodeData<T>)) {
     let mut graph = self.builder.graph.graph.borrow_mut();
     let data_handle = graph.get_node(self.handle()).data_handle();
     let data = graph.get_node_data_mut(data_handle);
@@ -32,7 +32,7 @@ impl<'a> PassNodeBuilder<'a> {
     }
   }
 
-  pub fn depend(self, target: &TargetNodeBuilder<'a>) -> Self {
+  pub fn depend(self, target: &TargetNodeBuilder<'a, T>) -> Self {
     self.pass_data_mut(|p| {
       p.input_targets_map.insert(target.handle());
     });

@@ -2,9 +2,9 @@ use crate::{
   build_pass_queue, RenderGraph, RenderGraphBackend, RenderGraphNodeHandle, RenderTargetPool,
 };
 
-pub(crate) struct PassExecuteInfo {
-  pub pass_node_handle: RenderGraphNodeHandle,
-  pub target_drop_list: Vec<RenderGraphNodeHandle>,
+pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
+  pub pass_node_handle: RenderGraphNodeHandle<T>,
+  pub target_drop_list: Vec<RenderGraphNodeHandle<T>>,
 }
 
 pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {
@@ -13,7 +13,7 @@ pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {
 }
 
 impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
-  pub fn render(&mut self, graph: &RenderGraph) {
+  pub fn render(&mut self, graph: &RenderGraph<T>) {
     let mut pass_queue = graph.pass_queue.borrow_mut();
     let queue = pass_queue.get_or_insert_with(|| build_pass_queue(graph));
 

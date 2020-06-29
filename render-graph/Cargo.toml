@@ -7,4 +7,7 @@ edition = "2018"
 arena-graph = { path = "../utils/arena-graph" }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
+rendiation = { path = "../rendiation", optional = true}
 
+[features]
+wgpu = ["rendiation"]

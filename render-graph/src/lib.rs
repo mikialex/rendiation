@@ -15,15 +15,15 @@ pub use executor::*;
 pub use nodes::*;
 pub use target_pool::*;
 
-pub type RenderGraphNodeHandle = ArenaGraphNodeHandle<RenderGraphNode>;
+pub type RenderGraphNodeHandle<T> = ArenaGraphNodeHandle<RenderGraphNode<T>>;
 
-pub struct RenderGraph {
-  graph: RefCell<ArenaGraph<RenderGraphNode>>,
-  root_handle: Cell<Option<RenderGraphNodeHandle>>,
-  pass_queue: RefCell<Option<Vec<PassExecuteInfo>>>,
+pub struct RenderGraph<T: RenderGraphBackend> {
+  graph: RefCell<ArenaGraph<RenderGraphNode<T>>>,
+  root_handle: Cell<Option<RenderGraphNodeHandle<T>>>,
+  pass_queue: RefCell<Option<Vec<PassExecuteInfo<T>>>>,
 }
 
-impl RenderGraph {
+impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn new() -> Self {
     Self {
       graph: RefCell::new(ArenaGraph::new()),
@@ -32,7 +32,7 @@ impl RenderGraph {
     }
   }
 
-  pub fn pass(&self, name: &str) -> PassNodeBuilder {
+  pub fn pass(&self, name: &str) -> PassNodeBuilder<T> {
     let handle = self
       .graph
       .borrow_mut()
@@ -50,7 +50,7 @@ impl RenderGraph {
     }
   }
 
-  pub fn screen(&self) -> TargetNodeBuilder {
+  pub fn screen(&self) -> TargetNodeBuilder<T> {
     let handle = self
       .graph
       .borrow_mut()
@@ -65,7 +65,7 @@ impl RenderGraph {
     }
   }
 
-  pub fn target(&self, name: &str) -> TargetNodeBuilder {
+  pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
     let handle = self
       .graph
       .borrow_mut()
@@ -82,16 +82,16 @@ impl RenderGraph {
   }
 }
 
-fn build_pass_queue(graph: &RenderGraph) -> Vec<PassExecuteInfo> {
+fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassExecuteInfo<T>> {
   let root = graph.root_handle.get().unwrap();
   let graph = graph.graph.borrow_mut();
-  let node_list: Vec<RenderGraphNodeHandle> = graph
+  let node_list: Vec<RenderGraphNodeHandle<T>> = graph
     .topological_order_list(root)
     .into_iter()
     .filter(|n| graph.get_node_data_by_node(*n).is_pass())
     .collect();
 
-  let mut exe_info_list: Vec<PassExecuteInfo> = node_list
+  let mut exe_info_list: Vec<PassExecuteInfo<T>> = node_list
     .iter()
     .map(|&n| PassExecuteInfo {
       pass_node_handle: n,
@@ -126,12 +126,4 @@ fn build_pass_queue(graph: &RenderGraph) -> Vec<PassExecuteInfo> {
     }
   });
   exe_info_list
-}
-
-pub fn build_test_graph() {
-  let graph = RenderGraph::new();
-  let normal_pass = graph.pass("normal").viewport();
-  let normal_target = graph.target("normal").from_pass(&normal_pass);
-  let copy_screen = graph.pass("copy_screen").viewport().depend(&normal_target);
-  graph.screen().from_pass(&copy_screen);
 }

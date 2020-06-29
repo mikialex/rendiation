@@ -23,7 +23,7 @@ impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
 
 pub struct RenderTargetPool<T: RenderGraphBackend> {
   cached: HashMap<T::RenderTargetFormatKey, RenderTargetTypePooling<T>>,
-  active_targets: HashMap<RenderGraphNodeHandle, T::RenderTarget>,
+  active_targets: HashMap<RenderGraphNodeHandle<T>, T::RenderTarget>,
 }
 
 impl<T: RenderGraphBackend> RenderTargetPool<T> {
@@ -38,12 +38,12 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     })
   }
 
-  fn get_pool(&mut self, key: T::RenderTargetFormatKey) -> &mut RenderTargetTypePooling<T> {
+  fn get_pool(&mut self, key: &T::RenderTargetFormatKey) -> &mut RenderTargetTypePooling<T> {
     self
       .cached
-      .entry(key)
+      .entry(key.clone()) // todo, cost
       .or_insert_with(|| RenderTargetTypePooling {
-        key,
+        key: key.clone(),
         available: Vec::new(),
       })
   }
@@ -51,21 +51,21 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
   /// get a RenderTarget from pool,if there is no fbo meet the config, create a new one, and pool it
   pub fn request_render_target(
     &mut self,
-    node_handle: RenderGraphNodeHandle,
-    node: &TargetNodeData,
+    node_handle: RenderGraphNodeHandle<T>,
+    data: &TargetNodeData<T>,
     renderer: &T::Renderer,
   ) -> &T::RenderTarget {
-    let target = self.get_pool(T::to_format_key(node)).request(renderer);
+    let target = self.get_pool(data.format()).request(renderer);
     self.active_targets.entry(node_handle).or_insert(target)
   }
 
   /// return a framebuffer that maybe request before, which will be pooling and reused
   pub fn return_render_target(
     &mut self,
-    node_handle: RenderGraphNodeHandle,
-    node: &TargetNodeData,
+    node_handle: RenderGraphNodeHandle<T>,
+    data: &TargetNodeData<T>,
   ) {
     let target = self.active_targets.remove(&node_handle).unwrap();
-    self.get_pool(T::to_format_key(node)).return_back(target);
+    self.get_pool(data.format()).return_back(target);
   }
 }
