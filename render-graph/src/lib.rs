@@ -50,11 +50,11 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     }
   }
 
-  pub fn screen(&self) -> TargetNodeBuilder<T> {
+  pub fn finally(&self) -> TargetNodeBuilder<T> {
     let handle = self
       .graph
       .borrow_mut()
-      .new_node(RenderGraphNode::Target(TargetNodeData::screen()));
+      .new_node(RenderGraphNode::Target(TargetNodeData::finally()));
     self.root_handle.set(Some(handle));
 
     TargetNodeBuilder {
@@ -102,7 +102,7 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
     let node = graph.get_node(n);
     let output_node = *node.to().iter().next().unwrap();
     let output_node_data = graph.get_node_data_by_node(output_node);
-    if output_node_data.unwrap_target_data().is_screen() {
+    if output_node_data.unwrap_target_data().is_final_target() {
       return;
     }
     let mut last_used_index = node_list.len();

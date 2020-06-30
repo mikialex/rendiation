@@ -37,7 +37,7 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
 
 pub struct TargetNodeData<T: RenderGraphBackend> {
   pub name: String,
-  is_screen: bool,
+  is_final_target: bool,
   format: T::RenderTargetFormatKey,
 }
 
@@ -50,17 +50,17 @@ impl<T: RenderGraphBackend> TargetNodeData<T> {
     Self {
       name,
       format: T::RenderTargetFormatKey::default(),
-      is_screen: false,
+      is_final_target: false,
     }
   }
-  pub fn screen() -> Self {
+  pub fn finally() -> Self {
     Self {
       name: "root".to_owned(),
       format: T::RenderTargetFormatKey::default(), // not actually useful
-      is_screen: true,
+      is_final_target: true,
     }
   }
-  pub fn is_screen(&self) -> bool {
-    self.is_screen
+  pub fn is_final_target(&self) -> bool {
+    self.is_final_target
   }
 }

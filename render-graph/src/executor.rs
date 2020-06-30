@@ -10,12 +10,16 @@ pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
 pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {
   renderer: &'a T::Renderer,
   target_pool: RenderTargetPool<T>,
+  // yes i believe this should has same lifetime with renderer
+  final_target: &'a T::RenderTarget,
 }
 
 impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
-  pub fn new(renderer: &'a T::Renderer) -> Self{
-    Self{
-      renderer, target_pool: RenderTargetPool::new()
+  pub fn new(renderer: &'a T::Renderer, final_target: &'a T::RenderTarget) -> Self {
+    Self {
+      renderer,
+      target_pool: RenderTargetPool::new(),
+      final_target,
     }
   }
 
@@ -38,22 +42,24 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
             .data_handle(),
         );
         let target_data = target_to.unwrap_target_data();
-        if target_data.is_screen() {
-          T::set_render_target_screen(self.renderer);
-        } else {
-          T::set_render_target(
-            self.renderer,
+        let mut render_pass = T::begin_render_pass(
+          self.renderer,
+          if target_data.is_final_target() {
+            self.final_target
+          } else {
             self
               .target_pool
-              .request_render_target(handle, target_data, self.renderer),
-          )
-        }
+              .request_render_target(handle, target_data, self.renderer)
+          },
+        );
 
         let pass_data = graph
           .get_node_data_mut_by_node(handle)
           .unwrap_pass_data_mut();
 
-        pass_data.render.as_mut().unwrap()(&self.target_pool); // do render
+        pass_data.render.as_mut().unwrap()(&self.target_pool, &mut render_pass); // do render
+
+        T::end_render_pass(self.renderer, render_pass);
 
         target_drop_list.iter().for_each(|n| {
           self

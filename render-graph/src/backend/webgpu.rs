@@ -9,10 +9,10 @@ pub fn build_test_graph() {
     .pass("copy_screen")
     .viewport()
     .depend(&normal_target)
-    .render_by(|_| {
+    .render_by(|_, _| {
       let _a = 1;
     });
-  graph.screen().from_pass(&copy_screen);
+  graph.finally().from_pass(&copy_screen);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -25,7 +25,7 @@ impl Default for WGPURenderTargetFormat {
   fn default() -> Self {
     Self {
       attachments: vec![TextureFormat::Rgba8UnormSrgb],
-      depth: TextureFormat::Depth32Float,
+      depth: Some(TextureFormat::Depth32Float),
     }
   }
 }
@@ -38,6 +38,7 @@ impl RenderGraphBackend for WebGPURenderGraphBackend {
   // can we use some enum stuff that cheaper?
   type RenderTargetFormatKey = WGPURenderTargetFormat;
   type Renderer = WGPURenderer;
+  type RenderPass = WGPURenderPass<'static>;
 
   fn create_render_target(
     renderer: &Self::Renderer,
@@ -47,13 +48,14 @@ impl RenderGraphBackend for WebGPURenderGraphBackend {
   }
 
   fn dispose_render_target(renderer: &Self::Renderer, target: Self::RenderTarget) {
-    todo!()
+    // just do target drop
   }
 
-  fn set_render_target(renderer: &Self::Renderer, target: &Self::RenderTarget) {
-    todo!()
+  fn begin_render_pass(renderer: &Self::Renderer, target: &Self::RenderTarget) -> Self::RenderPass {
+    // target.create_render_pass_builder()
+    // todo load op, store op...
   }
-  fn set_render_target_screen(renderer: &Self::Renderer) {
-    todo!()
+  fn end_render_pass(renderer: &Self::Renderer, pass: Self::RenderPass) {
+    // just do pass drop
   }
 }
