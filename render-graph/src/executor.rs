@@ -9,10 +9,16 @@ pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
 
 pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {
   renderer: &'a T::Renderer,
-  target_pool: &'a mut RenderTargetPool<T>,
+  target_pool: RenderTargetPool<T>,
 }
 
 impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
+  pub fn new(renderer: &'a T::Renderer) -> Self{
+    Self{
+      renderer, target_pool: RenderTargetPool::new()
+    }
+  }
+
   pub fn render(&mut self, graph: &RenderGraph<T>) {
     let mut pass_queue = graph.pass_queue.borrow_mut();
     let queue = pass_queue.get_or_insert_with(|| build_pass_queue(graph));
@@ -47,7 +53,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
           .get_node_data_mut_by_node(handle)
           .unwrap_pass_data_mut();
 
-        pass_data.render.as_mut().unwrap()(); // do render
+        pass_data.render.as_mut().unwrap()(&self.target_pool); // do render
 
         target_drop_list.iter().for_each(|n| {
           self

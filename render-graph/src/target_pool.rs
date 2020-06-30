@@ -27,6 +27,13 @@ pub struct RenderTargetPool<T: RenderGraphBackend> {
 }
 
 impl<T: RenderGraphBackend> RenderTargetPool<T> {
+  pub fn new() -> Self {
+    Self {
+      cached: HashMap::new(),
+      active_targets: HashMap::new(),
+    }
+  }
+
   pub fn clear_all(&mut self, renderer: &T::Renderer) {
     if self.active_targets.len() > 0 {
       panic!("some target still in use")
