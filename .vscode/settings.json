@@ -22,6 +22,7 @@
         "Slerp",
         "Tessellator",
         "Uint",
+        "Unorm",
         "Worley",
         "artgl",
         "azim",

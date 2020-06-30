@@ -12,9 +12,11 @@ impl RenderTarget {
   pub fn new(attachments: Vec<WGPUTexture>, depth: Option<WGPUTexture>) -> Self {
     Self { attachments, depth }
   }
+
   pub fn from_one_texture(attachment: WGPUTexture) -> Self {
     RenderTarget::new(vec![attachment], None)
   }
+
   pub fn from_one_texture_and_depth(attachment: WGPUTexture, depth: WGPUTexture) -> Self {
     RenderTarget::new(vec![attachment], Some(depth))
   }
