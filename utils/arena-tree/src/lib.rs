@@ -14,6 +14,28 @@ pub struct ArenaTreeNode<T> {
 }
 
 impl<T> ArenaTreeNode<T> {
+  pub fn add(&mut self, child_to_add: &mut ArenaTreeNode<T>) -> &mut Self {
+    if child_to_add.parent.is_some() {
+      panic!("child node already has a parent");
+    }
+    child_to_add.parent = Some(self.handle);
+    self.children.push(child_to_add.handle);
+    self
+  }
+
+  pub fn remove(&mut self, child_to_remove: &mut ArenaTreeNode<T>) -> &mut Self {
+    let child_index = self
+      .children
+      .iter()
+      .position(|&x| x == child_to_remove.handle)
+      .expect("tried to remove nonexistent child");
+
+    self.children.swap_remove(child_index);
+    self
+  }
+}
+
+impl<T> ArenaTreeNode<T> {
   pub fn new(data_handle: Handle<T>) -> Self {
     Self {
       data_handle,
@@ -68,6 +90,24 @@ impl<T> ArenaTree<T> {
       .nodes_data
       .get_mut(self.get_node(handle).data_handle)
       .unwrap()
+  }
+
+  pub fn node_add_child_by_id(
+    &mut self,
+    parent_id: ArenaTreeNodeHandle<T>,
+    child_id: ArenaTreeNodeHandle<T>,
+  ) {
+    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
+    parent.add(child);
+  }
+
+  pub fn node_remove_child_by_id(
+    &mut self,
+    parent_id: ArenaTreeNodeHandle<T>,
+    child_id: ArenaTreeNodeHandle<T>,
+  ) {
+    let (parent, child) = self.get_parent_child_pair(parent_id, child_id);
+    parent.remove(child);
   }
 
   pub fn add_to_root(&mut self, child_id: ArenaTreeNodeHandle<T>) {
