@@ -1,8 +1,42 @@
 use crate::{RenderGraphBackend, RenderGraphNodeHandle, TargetNodeData};
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct RenderTargetSize(pub NonZeroUsize, pub NonZeroUsize);
+
+impl Default for RenderTargetSize{
+    fn default() -> Self {
+        Self::new(5, 5)
+    }
+}
+
+impl RenderTargetSize {
+  pub fn new(width: usize, height: usize) -> Self {
+    Self (NonZeroUsize::new(width).unwrap(), NonZeroUsize::new(height).unwrap())
+  }
+  pub fn to_tuple(&self) -> (usize, usize) {
+    (self.0.get(), self.1.get())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RenderTargetFormatKey<T> {
+  pub size: RenderTargetSize,
+  pub format: T,
+}
+
+impl<T> RenderTargetFormatKey<T> {
+  pub fn default_with_format(format: T) -> Self {
+    Self {
+      size: RenderTargetSize::default(),
+      format,
+    }
+  }
+}
 
 pub struct RenderTargetTypePooling<T: RenderGraphBackend> {
-  key: T::RenderTargetFormatKey,
+  key: RenderTargetFormatKey<T::RenderTargetFormatKey>,
   available: Vec<T::RenderTarget>,
 }
 
@@ -22,7 +56,7 @@ impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
 }
 
 pub struct RenderTargetPool<T: RenderGraphBackend> {
-  cached: HashMap<T::RenderTargetFormatKey, RenderTargetTypePooling<T>>,
+  cached: HashMap<RenderTargetFormatKey<T::RenderTargetFormatKey>, RenderTargetTypePooling<T>>,
   active_targets: HashMap<RenderGraphNodeHandle<T>, T::RenderTarget>,
 }
 
@@ -45,7 +79,10 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     })
   }
 
-  fn get_pool(&mut self, key: &T::RenderTargetFormatKey) -> &mut RenderTargetTypePooling<T> {
+  fn get_pool(
+    &mut self,
+    key: &RenderTargetFormatKey<T::RenderTargetFormatKey>,
+  ) -> &mut RenderTargetTypePooling<T> {
     if !self.cached.contains_key(&key) {
       self.cached.insert(
         key.clone(),
@@ -78,7 +115,7 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     data: &TargetNodeData<T>,
     renderer: &T::Renderer,
   ) -> &T::RenderTarget {
-    let target = self.get_pool(data.format()).request(renderer);
+    let target = self.get_pool(&data.format).request(renderer);
     self.active_targets.entry(node_handle).or_insert(target)
   }
 
@@ -89,6 +126,6 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     data: &TargetNodeData<T>,
   ) {
     let target = self.active_targets.remove(&node_handle).unwrap();
-    self.get_pool(data.format()).return_back(target);
+    self.get_pool(&data.format).return_back(target);
   }
 }

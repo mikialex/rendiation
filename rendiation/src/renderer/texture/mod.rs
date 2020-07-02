@@ -43,7 +43,11 @@ impl WGPUTexture {
     }
   }
 
-  pub fn new_as_target(renderer: &WGPURenderer, size: (usize, usize)) -> Self {
+  pub fn new_as_target_default(renderer: &WGPURenderer, size: (usize, usize)) -> Self {
+    WGPUTexture::new_as_target(renderer, TextureFormat::Rgba8UnormSrgb, size)
+  }
+
+  pub fn new_as_target(renderer: &WGPURenderer, format: TextureFormat, size: (usize, usize)) -> Self {
     let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
       label: None,
@@ -52,7 +56,7 @@ impl WGPUTexture {
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
-      format: wgpu::TextureFormat::Rgba8UnormSrgb,
+      format: format.get_wgpu_format(),
       usage: wgpu::TextureUsage::SAMPLED
         | wgpu::TextureUsage::COPY_DST
         | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -64,7 +68,7 @@ impl WGPUTexture {
       descriptor,
       view,
       size,
-      format: TextureFormat::Rgba8UnormSrgb,
+      format,
     }
   }
 

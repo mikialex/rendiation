@@ -8,14 +8,14 @@ pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
 }
 
 pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {
-  renderer: &'a T::Renderer,
+  renderer: &'a mut T::Renderer,
   target_pool: RenderTargetPool<T>,
   // yes i believe this should has same lifetime with renderer
   final_target: &'a T::RenderTarget,
 }
 
 impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
-  pub fn new(renderer: &'a T::Renderer, final_target: &'a T::RenderTarget) -> Self {
+  pub fn new(renderer: &'a mut T::Renderer, final_target: &'a T::RenderTarget) -> Self {
     Self {
       renderer,
       target_pool: RenderTargetPool::new(),

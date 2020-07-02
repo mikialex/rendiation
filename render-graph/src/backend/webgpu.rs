@@ -21,6 +21,21 @@ pub struct WGPURenderTargetFormat {
   depth: Option<TextureFormat>,
 }
 
+impl WGPURenderTargetFormat {
+  fn create_render_target(&self, renderer: &WGPURenderer, size: RenderTargetSize) -> RenderTarget {
+    RenderTarget::new(
+      self
+        .attachments
+        .iter()
+        .map(|a| WGPUTexture::new_as_depth(renderer, *a, size.to_tuple()))
+        .collect(),
+      self
+        .depth
+        .map(|d| WGPUTexture::new_as_depth(renderer, d, size.to_tuple())),
+    )
+  }
+}
+
 impl Default for WGPURenderTargetFormat {
   fn default() -> Self {
     Self {
@@ -35,27 +50,32 @@ pub struct WebGPURenderGraphBackend {}
 impl RenderGraphBackend for WebGPURenderGraphBackend {
   type RenderTarget = RenderTarget;
 
-  // can we use some enum stuff that cheaper?
   type RenderTargetFormatKey = WGPURenderTargetFormat;
   type Renderer = WGPURenderer;
   type RenderPass = WGPURenderPass<'static>;
 
   fn create_render_target(
     renderer: &Self::Renderer,
-    key: &Self::RenderTargetFormatKey,
+    key: &RenderTargetFormatKey<Self::RenderTargetFormatKey>,
   ) -> Self::RenderTarget {
-    todo!()
+    key.format.create_render_target(renderer, key.size)
   }
 
-  fn dispose_render_target(renderer: &Self::Renderer, target: Self::RenderTarget) {
+  fn dispose_render_target(_: &Self::Renderer, _: Self::RenderTarget) {
     // just do target drop
   }
 
-  fn begin_render_pass(renderer: &Self::Renderer, target: &Self::RenderTarget) -> Self::RenderPass {
+  fn begin_render_pass(
+    renderer: &mut Self::Renderer,
+    target: &Self::RenderTarget,
+  ) -> Self::RenderPass {
     // target.create_render_pass_builder()
     // todo load op, store op...
+    let builder = target.create_render_pass_builder();
+    let pass = builder.create(&mut renderer.encoder);
+    unsafe { std::mem::transmute(pass) }
   }
-  fn end_render_pass(renderer: &Self::Renderer, pass: Self::RenderPass) {
+  fn end_render_pass(_: &Self::Renderer, _: Self::RenderPass) {
     // just do pass drop
   }
 }

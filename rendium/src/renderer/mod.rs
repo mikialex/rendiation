@@ -34,7 +34,7 @@ impl GUIRenderer {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
     let mut quad = GPUGeometry::from(Quad.create_mesh(&()));
     quad.update_gpu(renderer);
-    let canvas = WGPUTexture::new_as_target(&renderer, (size.0 as usize, size.1 as usize));
+    let canvas = WGPUTexture::new_as_target_default(&renderer, (size.0 as usize, size.1 as usize));
     let canvas = RenderTarget::from_one_texture(canvas);
     // let canvas = //
 

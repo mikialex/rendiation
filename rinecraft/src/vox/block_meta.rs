@@ -169,7 +169,7 @@ impl BlockRegistry {
     let mut quad = GPUGeometry::<_, TriangleList>::from(Quad.create_mesh(&()));
     quad.update_gpu(renderer);
     let sampler = WGPUSampler::default(renderer);
-    let target_texture = WGPUTexture::new_as_target(&renderer, (64, 64));
+    let target_texture = WGPUTexture::new_as_target_default(&renderer, (64, 64));
     let target = RenderTarget::from_one_texture(target_texture);
 
     {

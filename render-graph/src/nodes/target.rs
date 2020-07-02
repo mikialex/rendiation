@@ -1,5 +1,6 @@
 use crate::{
   NodeBuilder, PassNodeBuilder, RenderGraphBackend, RenderGraphNode, RenderGraphNodeHandle,
+  RenderTargetFormatKey,
 };
 
 pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
@@ -21,7 +22,7 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
   }
 
   pub fn format(self, modifier: impl FnOnce(&mut T::RenderTargetFormatKey)) -> Self {
-    self.target_data_mut(|t| modifier(&mut t.format));
+    self.target_data_mut(|t| modifier(t.format_mut()));
     self
   }
 
@@ -38,25 +39,28 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
 pub struct TargetNodeData<T: RenderGraphBackend> {
   pub name: String,
   is_final_target: bool,
-  format: T::RenderTargetFormatKey,
+  pub format: RenderTargetFormatKey<T::RenderTargetFormatKey>,
 }
 
 impl<T: RenderGraphBackend> TargetNodeData<T> {
   pub fn format(&self) -> &T::RenderTargetFormatKey {
-    &self.format
+    &self.format.format
+  }
+  pub fn format_mut(&mut self) -> &mut T::RenderTargetFormatKey {
+    &mut self.format.format
   }
 
   pub fn target(name: String) -> Self {
     Self {
       name,
-      format: T::RenderTargetFormatKey::default(),
+      format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()),
       is_final_target: false,
     }
   }
   pub fn finally() -> Self {
     Self {
       name: "root".to_owned(),
-      format: T::RenderTargetFormatKey::default(), // not actually useful
+      format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()), // not actually useful
       is_final_target: true,
     }
   }

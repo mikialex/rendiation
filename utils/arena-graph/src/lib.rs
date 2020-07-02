@@ -62,12 +62,16 @@ impl<T> ArenaGraph<T> {
     self.nodes.get(handle).unwrap()
   }
 
-  pub fn get_node_data_mut(&mut self, handle: Handle<T>) -> &mut T {
-    self.nodes_data.get_mut(handle).unwrap()
+  pub fn get_node_mut(&mut self, handle: ArenaGraphNodeHandle<T>) -> &mut ArenaGraphNode<T> {
+    self.nodes.get_mut(handle).unwrap()
   }
 
   pub fn get_node_data(&self, handle: Handle<T>) -> &T {
     self.nodes_data.get(handle).unwrap()
+  }
+
+  pub fn get_node_data_mut(&mut self, handle: Handle<T>) -> &mut T {
+    self.nodes_data.get_mut(handle).unwrap()
   }
 
   pub fn get_node_data_by_node(&self, handle: ArenaGraphNodeHandle<T>) -> &T {

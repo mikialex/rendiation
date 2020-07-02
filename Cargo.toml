@@ -16,4 +16,5 @@ members = [
     "mesh-buffer",
     "utils/arena",
     "utils/arena-graph",
+    "utils/arena-tree",
 ]
