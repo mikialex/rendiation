@@ -1,5 +1,5 @@
 use crate::{
-  AttributeTypeId, CALVertexAttributeDataType, CALVertexBufferDescriptor, WebGLRenderer,
+  CALVertexAttributeDataType, CALVertexBufferDescriptor, WebGLRenderer,
 };
 use web_sys::*;
 
@@ -95,7 +95,6 @@ impl WebGLRenderer {
 }
 
 pub struct WebGLVertexBuffer {
-  pub input_id: AttributeTypeId,
   pub buffer: WebGlBuffer,
   pub layout: CALVertexBufferDescriptor,
   // todo use smallvec opt

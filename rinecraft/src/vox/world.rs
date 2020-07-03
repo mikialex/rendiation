@@ -80,6 +80,7 @@ impl World {
     let bindgroup_index = scene
       .resources
       .add_shading_param_group(SceneShadingParameterGroupData {
+        type_id: ParameterGroupTypeId(0), // todo
         gpu: shading_params,
         items: vec![], // this is a todo
       })

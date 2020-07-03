@@ -1,4 +1,4 @@
-use crate::{Handle, ResourceManager, ResourceWrap, SceneGraphBackend};
+use crate::{Handle, ResourceManager, ResourceWrap, SceneGraphBackend, AttributeTypeId};
 use std::{marker::PhantomData, ops::Range};
 
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::IndexBuffer>>;
@@ -8,7 +8,7 @@ pub type GeometryHandle<T> = Handle<ResourceWrap<SceneGeometryData<T>>>;
 pub struct SceneGeometryData<T: SceneGraphBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
-  pub vertex_buffers: Vec<VertexBufferHandle<T>>,
+  pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
   phantom: PhantomData<T>,
 }
 
@@ -52,7 +52,7 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
       self.index_buffers.remove(b);
     }
     for b in &geometry.vertex_buffers {
-      self.vertex_buffers.remove(*b);
+      self.vertex_buffers.remove(b.1);
     }
     self.geometries.remove(index);
   }

@@ -3,15 +3,7 @@ use std::{
   hash::{Hash, Hasher},
 };
 use wasm_bindgen::prelude::*;
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct AttributeTypeId(u64);
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct UniformTypeId(u64);
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ParameterGroupTypeId(u64);
+use crate::{UniformTypeId, ParameterGroupTypeId, AttributeTypeId};
 
 fn to_hash<T>(obj: &T) -> u64
 where

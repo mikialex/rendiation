@@ -59,7 +59,6 @@ impl CALBackend for WebGLBackend {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    input_id: AttributeTypeId,
     layout: CALVertexBufferDescriptor,
   ) -> Self::VertexBuffer {
     let buffer = renderer
@@ -80,7 +79,6 @@ impl CALBackend for WebGLBackend {
       );
     };
     WebGLVertexBuffer {
-      input_id,
       buffer,
       layout,
     }

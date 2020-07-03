@@ -83,7 +83,7 @@ impl RenderObject<WebGPUBackend> {
       pass.set_index_buffer(index.resource());
     });
     for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
-      let buffer = scene.resources.get_vertex_buffer(*vertex_buffer);
+      let buffer = scene.resources.get_vertex_buffer(vertex_buffer.1);
       pass.set_vertex_buffer(i, buffer.resource());
     }
 

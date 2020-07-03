@@ -7,7 +7,9 @@ use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::*};
 use rendiation_render_entity::BoundingData;
-use rendiation_scenegraph::{GeometryHandle, Scene, SceneGeometryData, WebGPUBackend};
+use rendiation_scenegraph::{
+  AttributeTypeId, GeometryHandle, Scene, SceneGeometryData, WebGPUBackend,
+};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -158,7 +160,10 @@ impl Chunk {
       wgpu::BufferUsage::VERTEX,
     );
     geometry_data.index_buffer = Some(scene.resources.add_index_buffer(index_buffer).index());
-    geometry_data.vertex_buffers = vec![scene.resources.add_vertex_buffer(vertex_buffer).index()];
+    geometry_data.vertex_buffers = vec![(
+      AttributeTypeId(0), // todo
+      scene.resources.add_vertex_buffer(vertex_buffer).index(),
+    )];
     geometry_data.draw_range = 0..geometry.get_full_count();
     scene.resources.add_geometry(geometry_data).index()
   }

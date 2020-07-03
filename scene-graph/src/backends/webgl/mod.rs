@@ -72,8 +72,8 @@ impl RenderObject<WebGLBackend> {
       renderer.set_index_buffer(index.resource().as_ref());
     });
     geometry.vertex_buffers.iter().for_each(|v| {
-      let buffer = resources.get_vertex_buffer(*v).resource();
-      let att_location = program.query_attribute_location(buffer.input_id);
+      let buffer = resources.get_vertex_buffer(v.1).resource();
+      let att_location = program.query_attribute_location(v.0);
       renderer.set_vertex_buffer(att_location, buffer);
     });
     renderer
@@ -87,13 +87,13 @@ impl RenderObject<WebGLBackend> {
         .resource();
       parameter_group.items.iter().for_each(|p| {
         use ShadingParameterType::*;
-        match p {
+        match p.1 {
           UniformBuffer(index) => {
-            let _uniform = resources.get_uniform(*index).resource();
+            let _uniform = resources.get_uniform(index).resource();
             todo!()
           }
           UniformValue(index) => {
-            let uniform_value = resources.get_uniform_value(*index).resource();
+            let uniform_value = resources.get_uniform_value(index).resource();
             // program.upload_uniform_value(uniform_value, renderer);
             todo!()
           }

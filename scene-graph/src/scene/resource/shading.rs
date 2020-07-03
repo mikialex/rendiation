@@ -1,5 +1,14 @@
 use crate::{Handle, ParameterHandle, ResourceManager, ResourceWrap, SceneGraphBackend};
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct AttributeTypeId(pub u64);
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct UniformTypeId(pub u64);
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct ParameterGroupTypeId(pub u64);
+
 pub struct SceneShadingData<T: SceneGraphBackend> {
   pub gpu: T::Shading,
   pub parameters: Vec<ParameterHandle<T>>,
