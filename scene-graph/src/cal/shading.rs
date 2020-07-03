@@ -1,9 +1,9 @@
+use crate::SceneShaderDescriptor;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct SceneShadingDescriptor {
-  vertex_shader_str: String, // new sal(shading abstraction layer) is in design, assume shader just works
-  frag_shader_str: String,
+  shader_descriptor: SceneShaderDescriptor,
   pub rasterization_state: RasterizationState,
   // .. blend state stuff
   // .. target state stuff,
@@ -16,36 +16,20 @@ pub struct SceneShadingDescriptor {
   // but where should the strategy impl
 }
 
-
-impl SceneShadingDescriptor {  
-  pub fn vertex_shader_str(&self) -> &str {
-  &self.vertex_shader_str
-}
-
-pub fn frag_shader_str(&self) -> &str {
-  &self.frag_shader_str
-}
-}
-
 #[wasm_bindgen]
 impl SceneShadingDescriptor {
   #[wasm_bindgen]
-  pub fn new(vertex_shader_str: &str, frag_shader_str: &str) -> Self {
+  pub fn new(shader_descriptor: SceneShaderDescriptor) -> Self {
     Self {
-      vertex_shader_str: vertex_shader_str.to_owned(),
-      frag_shader_str: frag_shader_str.to_owned(),
+      shader_descriptor,
       rasterization_state: RasterizationState::default(),
     }
   }
+}
 
-  #[wasm_bindgen]
-  pub fn vertex_shader_str_wasm(&self) -> String {
-    self.vertex_shader_str.clone()
-  }
-
-  #[wasm_bindgen]
-  pub fn frag_shader_str_wasm(&self) -> String {
-    self.frag_shader_str.clone()
+impl SceneShadingDescriptor {
+  pub fn shader_descriptor(&self) -> &SceneShaderDescriptor {
+    &self.shader_descriptor
   }
 }
 

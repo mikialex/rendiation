@@ -2,10 +2,10 @@
 
 use std::any::Any;
 
-mod geometry;
 mod shading;
-pub use geometry::*;
+mod shader;
 pub use shading::*;
+pub use shader::*;
 
 pub trait CALBackend: SceneGraphBackend {
   fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
@@ -21,7 +21,7 @@ pub trait CALBackend: SceneGraphBackend {
     renderer: &mut Self::Renderer,
     data: &[u8],
     input_id: CALAttributeTypeId,
-    layout: CALVertexBufferLayout,
+    layout: CALVertexBufferDescriptor,
   ) -> Self::VertexBuffer;
 }
 

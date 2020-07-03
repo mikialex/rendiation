@@ -6,7 +6,7 @@ use crate::RenderTargetFormatKey;
 #[cfg(feature = "wgpu")]
 pub use webgpu::*;
 
-pub trait RenderGraphBackend {
+pub trait RenderGraphBackend: 'static {
   type RenderTarget: 'static;
   type RenderTargetFormatKey: Eq + Hash + Clone + Default + Sized;
   type Renderer;

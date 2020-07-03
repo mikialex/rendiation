@@ -1,17 +1,17 @@
-use crate::{RenderObject, Scene, SceneGraphBackend, RenderEngine, ShadingParameterType};
+use crate::{RenderEngine, RenderObject, Scene, SceneGraphBackend, ShadingParameterType};
 use web_sys::*;
 
-pub mod renderer;
 pub mod attribute;
-pub mod program;
-pub mod uniform;
 pub mod cal;
+pub mod program;
+pub mod renderer;
+pub mod uniform;
 
-pub use renderer::*;
 pub use attribute::*;
-pub use program::*;
-pub use uniform::*;
 pub use cal::*;
+pub use program::*;
+pub use renderer::*;
+pub use uniform::*;
 
 pub struct WebGLBackend {
   engine: RenderEngine<WebGLBackend>,
@@ -66,15 +66,19 @@ impl RenderObject<WebGLBackend> {
     renderer.use_program(&shading.gpu.program());
 
     // geometry bind
+    renderer.attribute_states.prepare_new_bindings();
     geometry.index_buffer.map(|b| {
       let index = resources.get_index_buffer(b);
       renderer.set_index_buffer(index.resource().as_ref());
     });
-    geometry.vertex_buffers.iter().for_each(|v|{
+    geometry.vertex_buffers.iter().for_each(|v| {
       let buffer = resources.get_vertex_buffer(*v).resource();
       let att_location = program.query_attribute_location(buffer.input_id);
       renderer.set_vertex_buffer(att_location, buffer);
     });
+    renderer
+      .attribute_states
+      .disable_old_unused_bindings(&renderer.gl);
 
     // shading bind
     for i in 0..shading.get_parameters_count() {

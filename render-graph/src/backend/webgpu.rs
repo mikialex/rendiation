@@ -3,11 +3,10 @@ use rendiation::*;
 
 pub fn build_test_graph() {
   let graph: RenderGraph<WebGPURenderGraphBackend> = RenderGraph::new();
-  let normal_pass = graph.pass("normal").viewport();
+  let normal_pass = graph.pass("normal");
   let normal_target = graph.target("normal").from_pass(&normal_pass);
   let copy_screen = graph
     .pass("copy_screen")
-    .viewport()
     .depend(&normal_target)
     .render_by(|_, _| {
       let _a = 1;

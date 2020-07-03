@@ -32,13 +32,17 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     }
   }
 
+  pub fn same_as_target(size: RenderTargetSize) -> Viewport {
+    Viewport::new(size.to_tuple())
+  }
+
   pub fn pass(&self, name: &str) -> PassNodeBuilder<T> {
     let handle = self
       .graph
       .borrow_mut()
       .new_node(RenderGraphNode::Pass(PassNodeData {
         name: name.to_owned(),
-        viewport: Viewport::new((1, 1)),
+        viewport_creator: Box::new(Self::same_as_target),
         input_targets_map: HashSet::new(),
         render: None,
       }));

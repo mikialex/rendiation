@@ -1,10 +1,13 @@
-use crate::{NodeBuilder, RenderGraphNode, RenderGraphNodeHandle, TargetNodeBuilder, RenderGraphBackend, RenderTargetPool};
+use crate::{
+  NodeBuilder, RenderGraphBackend, RenderGraphNode, RenderGraphNodeHandle, RenderTargetPool,
+  RenderTargetSize, TargetNodeBuilder,
+};
 use rendiation_render_entity::Viewport;
 use std::collections::HashSet;
 
 pub struct PassNodeData<T: RenderGraphBackend> {
-  pub(crate) name: String,
-  pub(crate) viewport: Viewport,
+  pub name: String,
+  pub(crate) viewport_creator: Box<dyn FnOnce(RenderTargetSize) -> Viewport>,
   pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T>>,
   pub(crate) render: Option<Box<dyn FnMut(&RenderTargetPool<T>, &mut T::RenderPass)>>,
 }
@@ -18,8 +21,19 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self.builder.handle
   }
 
-  pub fn render_by(self, renderer: impl FnMut(&RenderTargetPool<T>, &mut T::RenderPass) + 'static) -> Self {
+  pub fn render_by(
+    self,
+    renderer: impl FnMut(&RenderTargetPool<T>, &mut T::RenderPass) + 'static,
+  ) -> Self {
     self.pass_data_mut(|p| p.render = Some(Box::new(renderer)));
+    self
+  }
+
+  pub fn viewport_creator(
+    self,
+    creator: impl FnOnce(RenderTargetSize) -> Viewport + 'static,
+  ) -> Self {
+    self.pass_data_mut(|p| p.viewport_creator = Box::new(creator));
     self
   }
 
@@ -42,13 +56,6 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
       .graph
       .borrow_mut()
       .connect_node(target.handle(), self.handle());
-    self
-  }
-
-  pub fn viewport(self) -> Self {
-    self.pass_data_mut(|p| {
-      // p.viewport
-    });
     self
   }
 }

@@ -1,19 +1,14 @@
 use crate::{
-  make_webgl_program, CALAttributeTypeId, CALBackend, CALVertexBufferLayout,
-  SceneShadingDescriptor, SceneUniform, WebGLBackend, WebGLRenderer, WebGLVertexBuffer,
+  CALAttributeTypeId, CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform,
+  WebGLBackend, WebGLProgram, WebGLRenderer, WebGLVertexBuffer,
 };
+
 use web_sys::*;
 
 impl CALBackend for WebGLBackend {
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
-    // this should do in sal
-    let gpu_program = make_webgl_program(
-      &renderer.gl,
-      &des.vertex_shader_str(),
-      &des.frag_shader_str(),
-    )
-    .unwrap();
-    todo!()
+    // extra shader conversion should do in sal
+    WebGLProgram::new(renderer, des)
   }
   fn dispose_shading(renderer: &mut WebGLRenderer, shading: Self::Shading) {
     renderer.gl.delete_program(Some(shading.program()))
@@ -65,7 +60,7 @@ impl CALBackend for WebGLBackend {
     renderer: &mut Self::Renderer,
     data: &[u8],
     input_id: CALAttributeTypeId,
-    layout: CALVertexBufferLayout,
+    layout: CALVertexBufferDescriptor,
   ) -> Self::VertexBuffer {
     let buffer = renderer
       .gl
