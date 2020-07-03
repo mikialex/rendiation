@@ -1,9 +1,9 @@
+use crate::{AttributeTypeId, ParameterGroupTypeId, UniformTypeId};
 use std::{
   collections::hash_map::DefaultHasher,
   hash::{Hash, Hasher},
 };
 use wasm_bindgen::prelude::*;
-use crate::{UniformTypeId, ParameterGroupTypeId, AttributeTypeId};
 
 fn to_hash<T>(obj: &T) -> u64
 where
@@ -83,6 +83,9 @@ pub struct ShaderInputGroupDescriptor {
 impl ShaderInputGroupDescriptor {
   pub fn inputs(&self) -> &Vec<ShaderInputDescriptor> {
     &self.inputs
+  }
+  pub fn id(&self) -> ParameterGroupTypeId {
+    self.id
   }
 }
 

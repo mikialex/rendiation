@@ -1,6 +1,6 @@
 use crate::{
-  AttributeTypeId, CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform,
-  WebGLBackend, WebGLProgram, WebGLRenderer, WebGLVertexBuffer,
+  CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform, WebGLBackend,
+  WebGLProgram, WebGLRenderer, WebGLVertexBuffer,
 };
 
 use web_sys::*;
@@ -78,9 +78,6 @@ impl CALBackend for WebGLBackend {
         WebGl2RenderingContext::STATIC_DRAW,
       );
     };
-    WebGLVertexBuffer {
-      buffer,
-      layout,
-    }
+    WebGLVertexBuffer { buffer, layout }
   }
 }

@@ -47,16 +47,16 @@ impl<T> ArenaTreeNode<T> {
 }
 
 impl<T> ArenaTree<T> {
-  pub fn new(root_data: T) -> Self {
-    todo!();
-    // let mut tree = Self{
-    //   nodes_data: Arena::new(),
-    //   nodes: Arena::new(),
-    // };
-    // let root = tree.nodes_data.insert(root_data);
-    // tree.nodes.insert(ArenaTreeNode::new(root));
-    // tree
-  }
+  // pub fn new(root_data: T) -> Self {
+  //   todo!();
+  //   // let mut tree = Self{
+  //   //   nodes_data: Arena::new(),
+  //   //   nodes: Arena::new(),
+  //   // };
+  //   // let root = tree.nodes_data.insert(root_data);
+  //   // tree.nodes.insert(ArenaTreeNode::new(root));
+  //   // tree
+  // }
 
   pub fn new_node() -> ArenaTreeNodeHandle<T> {
     todo!()
@@ -110,10 +110,10 @@ impl<T> ArenaTree<T> {
     parent.remove(child);
   }
 
-  pub fn add_to_root(&mut self, child_id: ArenaTreeNodeHandle<T>) {
-    todo!()
-    // self.node_add_child_by_id(self.root, child_id);
-  }
+  // pub fn add_to_root(&mut self, child_id: ArenaTreeNodeHandle<T>) {
+  //   todo!()
+  //   // self.node_add_child_by_id(self.root, child_id);
+  // }
 
   pub fn get_parent_child_pair(
     &mut self,
