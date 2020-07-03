@@ -1,5 +1,5 @@
 use crate::{
-  CALAttributeTypeId, CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform,
+  AttributeTypeId, CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform,
   WebGLBackend, WebGLProgram, WebGLRenderer, WebGLVertexBuffer,
 };
 
@@ -59,7 +59,7 @@ impl CALBackend for WebGLBackend {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    input_id: CALAttributeTypeId,
+    input_id: AttributeTypeId,
     layout: CALVertexBufferDescriptor,
   ) -> Self::VertexBuffer {
     let buffer = renderer

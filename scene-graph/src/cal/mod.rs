@@ -20,7 +20,7 @@ pub trait CALBackend: SceneGraphBackend {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    input_id: CALAttributeTypeId,
+    input_id: AttributeTypeId,
     layout: CALVertexBufferDescriptor,
   ) -> Self::VertexBuffer;
 }

@@ -5,13 +5,13 @@ use std::{
 use wasm_bindgen::prelude::*;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct CALAttributeTypeId(u64);
+pub struct AttributeTypeId(u64);
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct CALUniformTypeId(u64);
+pub struct UniformTypeId(u64);
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct CALParameterGroupTypeId(u64);
+pub struct ParameterGroupTypeId(u64);
 
 fn to_hash<T>(obj: &T) -> u64
 where
@@ -85,7 +85,7 @@ impl SceneShaderDescriptor {
 #[wasm_bindgen]
 pub struct ShaderInputGroupDescriptor {
   inputs: Vec<ShaderInputDescriptor>,
-  id: CALParameterGroupTypeId,
+  id: ParameterGroupTypeId,
 }
 
 impl ShaderInputGroupDescriptor {
@@ -99,7 +99,7 @@ impl ShaderInputGroupDescriptor {
   pub fn new(unique_name: &str) -> Self {
     Self {
       inputs: Vec::new(),
-      id: CALParameterGroupTypeId(to_hash(&unique_name)),
+      id: ParameterGroupTypeId(to_hash(&unique_name)),
     }
   }
 
@@ -112,11 +112,11 @@ impl ShaderInputGroupDescriptor {
 pub struct ShaderInputDescriptor {
   pub input_type: ShaderInputType,
   name: String,
-  id: CALUniformTypeId,
+  id: UniformTypeId,
 }
 
 impl ShaderInputDescriptor {
-  pub fn id(&self) -> CALUniformTypeId {
+  pub fn id(&self) -> UniformTypeId {
     self.id
   }
   pub fn name(&self) -> &str {
@@ -128,7 +128,7 @@ impl ShaderInputDescriptor {
 impl ShaderInputDescriptor {
   #[wasm_bindgen]
   pub fn new(name: String, input_type: ShaderInputType) -> Self {
-    let id = CALUniformTypeId(to_hash(&name));
+    let id = UniformTypeId(to_hash(&name));
     Self {
       input_type,
       name,
@@ -158,14 +158,14 @@ impl CALVertexBufferDescriptor {
 #[wasm_bindgen]
 pub struct CALVertexAttributeBufferDescriptor {
   name: String,
-  id: CALAttributeTypeId,
+  id: AttributeTypeId,
   pub byte_offset: i32,
   pub size: i32,
   pub data_type: CALVertexAttributeDataType,
 }
 
 impl CALVertexAttributeBufferDescriptor {
-  pub fn id(&self) -> CALAttributeTypeId {
+  pub fn id(&self) -> AttributeTypeId {
     self.id
   }
   pub fn name(&self) -> &str {

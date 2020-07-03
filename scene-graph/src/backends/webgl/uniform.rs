@@ -1,6 +1,6 @@
 // https://github.com/glium/glium/blob/master/src/uniforms/value.rs
 
-use crate::{WebGLProgram, WebGLRenderer, CALUniformTypeId};
+use crate::{WebGLProgram, WebGLRenderer, UniformTypeId};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UniformType {
@@ -52,7 +52,7 @@ impl WebGLProgram {
   pub fn upload_uniform_value(
     &self,
     value: &UniformValue,
-    uniform: CALUniformTypeId,
+    uniform: UniformTypeId,
     renderer: &WebGLRenderer,
   ) {
     let location = self.query_uniform_location(uniform);

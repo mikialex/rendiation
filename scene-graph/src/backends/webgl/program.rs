@@ -1,11 +1,11 @@
-use crate::{CALAttributeTypeId, CALUniformTypeId, SceneShadingDescriptor, WebGLRenderer};
+use crate::{AttributeTypeId, UniformTypeId, SceneShadingDescriptor, WebGLRenderer};
 use std::collections::HashMap;
 use web_sys::*;
 
 pub struct WebGLProgram {
   program: WebGlProgram,
-  attributes: HashMap<CALAttributeTypeId, i32>,
-  uniforms: HashMap<CALUniformTypeId, WebGlUniformLocation>,
+  attributes: HashMap<AttributeTypeId, i32>,
+  uniforms: HashMap<UniformTypeId, WebGlUniformLocation>,
 }
 
 impl WebGLProgram {
@@ -18,7 +18,7 @@ impl WebGLProgram {
     )
     .unwrap();
 
-    let uniforms: HashMap<CALUniformTypeId, WebGlUniformLocation> = des
+    let uniforms: HashMap<UniformTypeId, WebGlUniformLocation> = des
       .shader_descriptor()
       .input_group()
       .iter()
@@ -26,7 +26,7 @@ impl WebGLProgram {
       .map(|d| (d.id(), gl.get_uniform_location(&program, d.name()).unwrap()))
       .collect();
 
-    let attributes: HashMap<CALAttributeTypeId, i32> = des
+    let attributes: HashMap<AttributeTypeId, i32> = des
       .shader_descriptor()
       .attribute_inputs()
       .iter()
@@ -45,11 +45,11 @@ impl WebGLProgram {
     &self.program
   }
 
-  pub fn query_uniform_location(&self, input_id: CALUniformTypeId) -> &WebGlUniformLocation {
+  pub fn query_uniform_location(&self, input_id: UniformTypeId) -> &WebGlUniformLocation {
     self.uniforms.get(&input_id).unwrap()
   }
 
-  pub fn query_attribute_location(&self, input_id: CALAttributeTypeId) -> i32 {
+  pub fn query_attribute_location(&self, input_id: AttributeTypeId) -> i32 {
     *self.attributes.get(&input_id).unwrap()
   }
 }
