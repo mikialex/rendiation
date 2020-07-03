@@ -77,4 +77,11 @@ impl RenderGraphBackend for WebGPURenderGraphBackend {
   fn end_render_pass(_: &Self::Renderer, _: Self::RenderPass) {
     // just do pass drop
   }
+
+  fn get_target_size(_target: &Self::RenderTarget) -> RenderTargetSize {
+    todo!()
+  }
+  fn set_viewport(_: &Self::Renderer, pass: &mut Self::RenderPass, viewport: Viewport) {
+    pass.use_viewport(&viewport);
+  }
 }

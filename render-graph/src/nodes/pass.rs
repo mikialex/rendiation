@@ -7,9 +7,15 @@ use std::collections::HashSet;
 
 pub struct PassNodeData<T: RenderGraphBackend> {
   pub name: String,
-  pub(crate) viewport_creator: Box<dyn FnOnce(RenderTargetSize) -> Viewport>,
+  pub(crate) viewport_creator: Box<dyn Fn(RenderTargetSize) -> Viewport>,
   pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T>>,
   pub(crate) render: Option<Box<dyn FnMut(&RenderTargetPool<T>, &mut T::RenderPass)>>,
+}
+
+impl<T: RenderGraphBackend> PassNodeData<T> {
+  pub fn viewport(&mut self, target_size: RenderTargetSize) -> Viewport {
+    (&self.viewport_creator)(target_size)
+  }
 }
 
 pub struct PassNodeBuilder<'a, T: RenderGraphBackend> {
@@ -29,10 +35,7 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self
   }
 
-  pub fn viewport_creator(
-    self,
-    creator: impl FnOnce(RenderTargetSize) -> Viewport + 'static,
-  ) -> Self {
+  pub fn viewport_creator(self, creator: impl Fn(RenderTargetSize) -> Viewport + 'static) -> Self {
     self.pass_data_mut(|p| p.viewport_creator = Box::new(creator));
     self
   }

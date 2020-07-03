@@ -28,6 +28,13 @@ impl<T: RenderGraphBackend> RenderGraphNode<T> {
       panic!("unwrap_as_target failed")
     }
   }
+  pub fn unwrap_target_data_mut(&mut self) -> &mut TargetNodeData<T> {
+    if let RenderGraphNode::Target(data) = self {
+      data
+    } else {
+      panic!("unwrap_as_target failed")
+    }
+  }
   pub fn unwrap_pass_data(&self) -> &PassNodeData<T> {
     if let RenderGraphNode::Pass(data) = self {
       data

@@ -93,9 +93,8 @@ impl RenderObject<WebGLBackend> {
             todo!()
           }
           UniformValue(index) => {
-            let _uniform_value = resources.get_uniform_value(index).resource();
-            // program.upload_uniform_value(uniform_value, renderer);
-            todo!()
+            let uniform_value = resources.get_uniform_value(index).resource();
+            program.upload_uniform_value(uniform_value, p.0, renderer);
           }
           // SampledTexture(_index) => todo!(),
           // _ => panic!("unsupported webgl resource type"),

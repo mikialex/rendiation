@@ -1,8 +1,9 @@
+use crate::{RenderTargetFormatKey, RenderTargetSize};
+use rendiation_render_entity::Viewport;
 use std::hash::Hash;
 
 #[cfg(feature = "wgpu")]
 pub mod webgpu;
-use crate::RenderTargetFormatKey;
 #[cfg(feature = "wgpu")]
 pub use webgpu::*;
 
@@ -24,4 +25,7 @@ pub trait RenderGraphBackend: 'static {
     target: &Self::RenderTarget,
   ) -> Self::RenderPass;
   fn end_render_pass(renderer: &Self::Renderer, pass: Self::RenderPass);
+
+  fn get_target_size(target: &Self::RenderTarget) -> RenderTargetSize;
+  fn set_viewport(renderer: &Self::Renderer, pass: &mut Self::RenderPass, viewport: Viewport);
 }

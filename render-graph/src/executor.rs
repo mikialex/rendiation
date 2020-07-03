@@ -1,5 +1,6 @@
 use crate::{
   build_pass_queue, RenderGraph, RenderGraphBackend, RenderGraphNodeHandle, RenderTargetPool,
+  RenderTargetSize,
 };
 
 pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
@@ -10,20 +11,29 @@ pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
 pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {
   renderer: &'a mut T::Renderer,
   target_pool: RenderTargetPool<T>,
-  // yes i believe this should has same lifetime with renderer
-  final_target: &'a T::RenderTarget,
+  current_final_size: RenderTargetSize,
 }
 
 impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
-  pub fn new(renderer: &'a mut T::Renderer, final_target: &'a T::RenderTarget) -> Self {
+  pub fn new(renderer: &'a mut T::Renderer) -> Self {
     Self {
       renderer,
       target_pool: RenderTargetPool::new(),
-      final_target,
+      current_final_size: RenderTargetSize::default(),
     }
   }
 
-  pub fn render(&mut self, graph: &RenderGraph<T>) {
+  pub fn force_clear_reuse_pool(&mut self) {
+    self.target_pool.clear_all(self.renderer)
+  }
+
+  pub fn render(&mut self, graph: &RenderGraph<T>, final_target: &T::RenderTarget) {
+    let new_size = T::get_target_size(final_target);
+    if self.current_final_size != new_size {
+      self.force_clear_reuse_pool();
+      self.current_final_size = new_size
+    }
+
     let mut pass_queue = graph.pass_queue.borrow_mut();
     let queue = pass_queue.get_or_insert_with(|| build_pass_queue(graph));
 
@@ -36,16 +46,19 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
         let mut graph = graph.graph.borrow_mut();
 
         // do target binding
-        let target_to = graph.get_node_data(
-          graph
-            .get_node(*graph.get_node(handle).to().iter().next().unwrap())
-            .data_handle(),
-        );
-        let target_data = target_to.unwrap_target_data();
+        let target_to_handle = graph
+          .get_node(*graph.get_node(handle).to().iter().next().unwrap())
+          .data_handle();
+        let target_to = graph.get_node_data_mut(target_to_handle);
+
+        let target_data = target_to
+          .unwrap_target_data_mut()
+          .update_real_size(self.current_final_size);
+        let real_size = target_data.real_size();
         let mut render_pass = T::begin_render_pass(
           self.renderer,
           if target_data.is_final_target() {
-            self.final_target
+            final_target
           } else {
             self
               .target_pool
@@ -56,6 +69,12 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
         let pass_data = graph
           .get_node_data_mut_by_node(handle)
           .unwrap_pass_data_mut();
+
+        T::set_viewport(
+          self.renderer,
+          &mut render_pass,
+          pass_data.viewport(real_size),
+        );
 
         pass_data.render.as_mut().unwrap()(&self.target_pool, &mut render_pass); // do render
 

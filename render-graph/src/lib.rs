@@ -35,6 +35,10 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn same_as_target(size: RenderTargetSize) -> Viewport {
     Viewport::new(size.to_tuple())
   }
+  
+  pub fn same_as_final(size: RenderTargetSize) -> RenderTargetSize {
+    size
+  }
 
   pub fn pass(&self, name: &str) -> PassNodeBuilder<T> {
     let handle = self
