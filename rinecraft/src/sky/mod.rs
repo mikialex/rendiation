@@ -1,5 +1,5 @@
-use rendiation::WGPUTexture;
-use rendiation::WGPURenderer;
+use rendiation_webgpu::WGPUTexture;
+use rendiation_webgpu::WGPURenderer;
 use rendiation_math_entity::Box3;
 
 struct VolumetricCloud{

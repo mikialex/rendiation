@@ -1,6 +1,6 @@
 pub mod quad;
 pub mod fragment;
-use rendiation::WGPURenderer;
+use rendiation_webgpu::WGPURenderer;
 pub use fragment::*;
 use core::any::Any;
 use rendiation_math::*;

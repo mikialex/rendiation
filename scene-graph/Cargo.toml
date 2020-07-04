@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 
 [features]
-wgpu = ["rendiation", "rendiation-derives", "rendiation-mesh-buffer/wgpu"]
+webgpu = ["rendiation-webgpu", "rendiation-webgpu-derives", "rendiation-mesh-buffer/webgpu"]
 webgl = []
 
 [dependencies]
@@ -21,8 +21,8 @@ rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-mesh-buffer = { path = "../mesh-buffer" }
 
-rendiation = { path = "../rendiation", optional = true}
-rendiation-derives = { path = "../rendiation-derives", optional = true }
+rendiation-webgpu = { path = "../webgpu", optional = true}
+rendiation-webgpu-derives = { path = "../webgpu-derives", optional = true }
 
 arena-tree = { path = "../utils/arena-tree" }
 

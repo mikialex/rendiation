@@ -19,7 +19,7 @@ pub use element::*;
 pub use winit;
 
 pub use arena::*;
-use rendiation::{render_target::ScreenRenderTarget, WGPURenderer};
+use rendiation_webgpu::{render_target::ScreenRenderTarget, WGPURenderer};
 
 pub struct GUI {
   fragment: ElementFragment,

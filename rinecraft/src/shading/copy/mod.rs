@@ -1,4 +1,4 @@
-use rendiation::*;
+use rendiation_webgpu::*;
 use rendiation_mesh_buffer::geometry::*;
 
 pub struct CopierShading {
@@ -23,7 +23,7 @@ impl CopierShading {
 }
 
 use render_target::{RenderTarget, TargetStatesProvider};
-use rendiation_derives::BindGroup;
+use rendiation_webgpu_derives::BindGroup;
 
 #[derive(BindGroup)]
 pub struct CopyParam<'a> {

@@ -1561,27 +1561,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rendiation"
-version = "0.1.0"
-dependencies = [
- "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "rendiation-math 0.1.0",
- "rendiation-math-entity 0.1.0",
- "rendiation-render-entity 0.1.0",
- "wgpu 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "rendiation-derives"
-version = "0.1.0"
-dependencies = [
- "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "rendiation 0.1.0",
- "syn 1.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "rendiation-math"
 version = "0.1.0"
 
@@ -1597,9 +1576,9 @@ name = "rendiation-mesh-buffer"
 version = "0.1.0"
 dependencies = [
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rendiation 0.1.0",
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
+ "rendiation-webgpu 0.1.0",
 ]
 
 [[package]]
@@ -1615,9 +1594,9 @@ name = "rendiation-rendergraph"
 version = "0.0.1"
 dependencies = [
  "arena-graph 0.0.1",
- "rendiation 0.1.0",
  "rendiation-math 0.1.0",
  "rendiation-render-entity 0.1.0",
+ "rendiation-webgpu 0.1.0",
 ]
 
 [[package]]
@@ -1627,14 +1606,35 @@ dependencies = [
  "arena 0.0.1",
  "arena-tree 0.0.1",
  "js-sys 0.3.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "rendiation 0.1.0",
- "rendiation-derives 0.1.0",
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
  "rendiation-mesh-buffer 0.1.0",
  "rendiation-render-entity 0.1.0",
+ "rendiation-webgpu 0.1.0",
+ "rendiation-webgpu-derives 0.1.0",
  "wasm-bindgen 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "web-sys 0.3.39 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "rendiation-webgpu"
+version = "0.1.0"
+dependencies = [
+ "glsl-to-spirv 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rendiation-math 0.1.0",
+ "rendiation-math-entity 0.1.0",
+ "rendiation-render-entity 0.1.0",
+ "wgpu 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "rendiation-webgpu-derives"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rendiation-webgpu 0.1.0",
+ "syn 1.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1644,11 +1644,11 @@ dependencies = [
  "arena 0.0.1",
  "futures 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "rendiation 0.1.0",
- "rendiation-derives 0.1.0",
  "rendiation-math 0.1.0",
  "rendiation-mesh-buffer 0.1.0",
  "rendiation-render-entity 0.1.0",
+ "rendiation-webgpu 0.1.0",
+ "rendiation-webgpu-derives 0.1.0",
  "winit 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1659,13 +1659,13 @@ dependencies = [
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "noise 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rendiation 0.1.0",
- "rendiation-derives 0.1.0",
  "rendiation-math 0.1.0",
  "rendiation-math-entity 0.1.0",
  "rendiation-mesh-buffer 0.1.0",
  "rendiation-render-entity 0.1.0",
  "rendiation-scenegraph 0.1.0",
+ "rendiation-webgpu 0.1.0",
+ "rendiation-webgpu-derives 0.1.0",
  "rendium 0.1.0",
  "serde 1.0.105 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

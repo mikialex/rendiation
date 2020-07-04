@@ -2,5 +2,5 @@ pub mod geometry;
 pub mod vertex;
 pub mod tessellation;
 
-#[cfg(feature = "wgpu")]
+#[cfg(feature = "webgpu")]
 pub mod wgpu;

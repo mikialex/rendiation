@@ -39,7 +39,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
 
   let struct_bindgroup_static = {
     quote! {
-        static mut #static_bindgroup_name : Option<rendiation::BindGroupLayout> = None;
+        static mut #static_bindgroup_name : Option<rendiation_webgpu::BindGroupLayout> = None;
     }
   };
 
@@ -77,8 +77,8 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
       return None
     }
     let shader_type = match tags[1] {
-      "fragment" => quote! {rendiation::ShaderType::Fragment},
-      "vertex" => quote! {rendiation::ShaderType::Vertex},
+      "fragment" => quote! {rendiation_webgpu::ShaderType::Fragment},
+      "vertex" => quote! {rendiation_webgpu::ShaderType::Vertex},
       _ => {return None}
     };
 
@@ -109,17 +109,17 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
   let result = quote! {
     #struct_bindgroup_static
 
-    impl #struct_generic rendiation::BindGroupProvider for #struct_name #struct_generic {
-        fn provide_layout(renderer: &rendiation::WGPURenderer) -> &'static rendiation::BindGroupLayout {
+    impl #struct_generic rendiation_webgpu::BindGroupProvider for #struct_name #struct_generic {
+        fn provide_layout(renderer: &rendiation_webgpu::WGPURenderer) -> &'static rendiation_webgpu::BindGroupLayout {
           unsafe {
             if let Some(layout) = &#static_bindgroup_name {
               &layout
             } else {
-              let builder = rendiation::BindGroupLayoutBuilder::new()
+              let builder = rendiation_webgpu::BindGroupLayoutBuilder::new()
                 #(#layout_build)*;
               let layout = renderer
                 .device
-                .create_bind_group_layout(&rendiation::BindGroupLayoutDescriptor {
+                .create_bind_group_layout(&rendiation_webgpu::BindGroupLayoutDescriptor {
                   label: None,
                   bindings: &builder.bindings,
                 });
@@ -129,8 +129,8 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
           }
         }
 
-        fn create_bindgroup(&self, renderer: &rendiation::WGPURenderer) -> rendiation::WGPUBindGroup {
-          rendiation::BindGroupBuilder::new()
+        fn create_bindgroup(&self, renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::WGPUBindGroup {
+          rendiation_webgpu::BindGroupBuilder::new()
             #(#bg_build)*
             .build(&renderer.device,  #struct_name::provide_layout(renderer))
         }

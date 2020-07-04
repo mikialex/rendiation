@@ -1,4 +1,4 @@
-use rendiation::WGPURenderer;
+use rendiation_webgpu::WGPURenderer;
 use super::Message;
 use crate::element::Element;
 use crate::element::ElementState;

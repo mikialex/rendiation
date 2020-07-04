@@ -138,25 +138,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'rendiation'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=rendiation",
-                    "--package=rendiation"
-                ],
-                "filter": {
-                    "name": "rendiation",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug executable 'rivermesh'",
             "cargo": {
                 "args": [

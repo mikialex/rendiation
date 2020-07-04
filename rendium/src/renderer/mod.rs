@@ -2,7 +2,7 @@ use crate::element::quad::QuadLayout;
 use crate::renderer::shader::CopyShading;
 use crate::renderer::shader::CopyShadingParam;
 use crate::renderer::shader::QuadShading;
-use rendiation::*;
+use rendiation_webgpu::*;
 use rendiation_math::{Mat4, Vec4};
 use rendiation_render_entity::*;
 

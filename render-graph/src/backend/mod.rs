@@ -2,9 +2,9 @@ use crate::{RenderTargetFormatKey, RenderTargetSize};
 use rendiation_render_entity::Viewport;
 use std::hash::Hash;
 
-#[cfg(feature = "wgpu")]
+#[cfg(feature = "webgpu")]
 pub mod webgpu;
-#[cfg(feature = "wgpu")]
+#[cfg(feature = "webgpu")]
 pub use webgpu::*;
 
 pub trait RenderGraphBackend: 'static {

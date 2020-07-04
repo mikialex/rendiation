@@ -4,8 +4,8 @@ use crate::{
   vox::world::World,
 };
 use render_target::{ScreenRenderTarget, TargetStatesProvider};
-use rendiation::renderer::SwapChain;
-use rendiation::*;
+use rendiation_webgpu::renderer::SwapChain;
+use rendiation_webgpu::*;
 use rendiation_render_entity::*;
 use rendiation_scenegraph::*;
 use rendium::*;

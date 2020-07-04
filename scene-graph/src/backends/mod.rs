@@ -1,6 +1,6 @@
-#[cfg(feature = "wgpu")]
+#[cfg(feature = "webgpu")]
 pub mod webgpu;
-#[cfg(feature = "wgpu")]
+#[cfg(feature = "webgpu")]
 pub use webgpu::*;
 
 // #[cfg(feature = "webgl")]

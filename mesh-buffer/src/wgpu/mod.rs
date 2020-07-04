@@ -1,6 +1,6 @@
 use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
-use rendiation::*;
+use rendiation_webgpu::*;
 use std::ops::Range;
 
 use lazy_static::lazy_static;

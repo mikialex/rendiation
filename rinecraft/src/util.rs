@@ -1,7 +1,7 @@
 use image::ImageBuffer;
 use image::Rgba;
-use rendiation::consts::OPENGL_TO_WGPU_MATRIX;
-use rendiation::*;
+use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
+use rendiation_webgpu::*;
 use rendiation_math::{Vec2, Vec3};
 use rendiation_render_entity::*;
 use rendiation_scenegraph::{Scene, UniformHandle, WebGPUBackend};

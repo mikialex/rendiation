@@ -8,7 +8,7 @@ use crate::{
   vox::world_machine::*,
 };
 use render_target::TargetStates;
-use rendiation::*;
+use rendiation_webgpu::*;
 use rendiation_math::*;
 use rendiation_render_entity::{PerspectiveCamera, TransformedObject};
 use rendiation_scenegraph::*;

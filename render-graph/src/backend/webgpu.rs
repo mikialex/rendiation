@@ -1,5 +1,5 @@
 use crate::*;
-use rendiation::*;
+use rendiation_webgpu::*;
 
 pub fn build_test_graph() {
   let graph: RenderGraph<WebGPURenderGraphBackend> = RenderGraph::new();

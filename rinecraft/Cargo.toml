@@ -10,11 +10,11 @@ env_logger = "0.7"
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
-rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
-rendiation = { path = "../rendiation" }
-rendiation-derives = { path = "../rendiation-derives" }
+rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["webgpu"] }
+rendiation-webgpu = { path = "../webgpu" }
+rendiation-webgpu-derives = { path = "../webgpu-derives" }
 rendium = { path = "../rendium" }
-rendiation-scenegraph = { path = "../scene-graph", features = ["wgpu"] }
+rendiation-scenegraph = { path = "../scene-graph", features = ["webgpu"] }
 image = "*"
 noise = "0.6"
 serde = { version = "1.0.105", features = ["derive"] }

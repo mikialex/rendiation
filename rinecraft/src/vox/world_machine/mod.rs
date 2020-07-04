@@ -3,7 +3,7 @@ use super::block_meta::BlockMetaInfo;
 use crate::vox::block::Block;
 use crate::vox::block_meta::BlockRegistry;
 use noise::*;
-use rendiation::*;
+use rendiation_webgpu::*;
 use std::collections::BTreeMap;
 
 pub trait WorldMachine {

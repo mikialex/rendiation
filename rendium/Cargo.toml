@@ -8,9 +8,9 @@ edition = "2018"
 winit = "0.22.2"
 log = "0.4"
 futures = "0.3"
-rendiation = { path = "../rendiation", features = ["glsl-spirv"] }
+rendiation-webgpu = { path = "../webgpu", features = ["glsl-spirv"] }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
-rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["wgpu"] }
-rendiation-derives = { path = "../rendiation-derives" }
+rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["webgpu"] }
+rendiation-webgpu-derives = { path = "../webgpu-derives" }
 arena = { path = "../utils/arena" }

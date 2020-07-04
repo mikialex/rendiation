@@ -5,7 +5,7 @@ authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
 
 [features]
-wgpu = ["rendiation"]
+webgpu = ["rendiation-webgpu"]
 
 [dependencies]
 lazy_static = "1.4.0"
@@ -13,4 +13,4 @@ lazy_static = "1.4.0"
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 
-rendiation = { path = "../rendiation", optional= true }
+rendiation-webgpu = { path = "../webgpu", optional= true }

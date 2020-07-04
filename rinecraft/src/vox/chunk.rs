@@ -2,7 +2,7 @@ use crate::vox::block::*;
 use crate::vox::util::local_to_world;
 use crate::vox::world::*;
 use crate::vox::world_machine::WorldMachine;
-use rendiation::*;
+use rendiation_webgpu::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::*};

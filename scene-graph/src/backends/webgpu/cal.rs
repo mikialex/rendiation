@@ -1,7 +1,7 @@
 use crate::{
   CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform, WebGPUBackend,
 };
-use rendiation::*;
+use rendiation_webgpu::*;
 
 impl CALBackend for WebGPUBackend {
   fn create_shading(_renderer: &mut WGPURenderer, _des: &SceneShadingDescriptor) -> Self::Shading {

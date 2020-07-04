@@ -1,5 +1,5 @@
 use super::world_machine::WorldMachine;
-use rendiation::*;
+use rendiation_webgpu::*;
 use rendiation_mesh_buffer::vertex::*;
 
 #[derive(Clone, Copy)]

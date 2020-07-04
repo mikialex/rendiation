@@ -3,7 +3,7 @@ use crate::shading::copy::CopyParam;
 use crate::shading::*;
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
-use rendiation::*;
+use rendiation_webgpu::*;
 use rendiation_mesh_buffer::tessellation::{plane::Quad, IndexedBufferTessellator};
 use rendiation_mesh_buffer::wgpu::*;
 use rendiation_render_entity::Viewport;

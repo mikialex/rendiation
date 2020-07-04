@@ -1,5 +1,5 @@
-use rendiation::renderer::SwapChain;
-use rendiation::WGPURenderer;
+use rendiation_webgpu::renderer::SwapChain;
+use rendiation_webgpu::WGPURenderer;
 use winit::event::WindowEvent;
 
 pub struct AppRenderCtx<'a> {
@@ -36,7 +36,7 @@ pub async fn run_async<E: Application>(title: &str) {
     // }
     let window = builder.build(&event_loop).unwrap();
     let size = window.inner_size();
-    let surface = rendiation::Surface::create(&window);
+    let surface = rendiation_webgpu::Surface::create(&window);
     (window, size, surface)
   };
 

@@ -1,7 +1,7 @@
 use crate::{
   Background, RenderObject, Scene, SceneGraphBackend, RenderEngine, SolidBackground,
 };
-use rendiation::*;
+use rendiation_webgpu::*;
 pub mod cal;
 pub use cal::*;
 
