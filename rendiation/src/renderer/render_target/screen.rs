@@ -1,6 +1,10 @@
-use crate::{WGPURenderer, WGPUTexture, TargetStates, TargetStatesProvider, RenderTargetAble, WGPURenderPassBuilder};
+use crate::{
+  RenderTargetAble, TargetStates, TargetStatesProvider, WGPURenderPassBuilder, WGPURenderer,
+  WGPUTexture,
+};
 
 pub struct ScreenRenderTarget {
+  size: (usize, usize),
   swap_chain_format: wgpu::TextureFormat,
   depth: Option<WGPUTexture>,
 }
@@ -10,9 +14,9 @@ impl ScreenRenderTarget {
     if let Some(depth) = &mut self.depth {
       depth.resize(renderer, size)
     }
+    self.size = size;
   }
 }
-
 
 impl TargetStatesProvider for ScreenRenderTarget {
   fn create_target_states(&self) -> TargetStates {
@@ -44,10 +48,15 @@ impl TargetStatesProvider for ScreenRenderTarget {
 }
 
 impl ScreenRenderTarget {
-  pub fn new(swap_chain_format: wgpu::TextureFormat, depth: Option<WGPUTexture>) -> Self {
+  pub fn new(
+    swap_chain_format: wgpu::TextureFormat,
+    depth: Option<WGPUTexture>,
+    size: (usize, usize),
+  ) -> Self {
     Self {
       swap_chain_format,
       depth,
+      size,
     }
   }
 
@@ -102,7 +111,12 @@ impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
         });
     WGPURenderPassBuilder { attachments, depth }
   }
+
   fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) {
     self.base.resize(renderer, size)
+  }
+
+  fn get_size(&self) -> (usize, usize) {
+    self.base.size
   }
 }

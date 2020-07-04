@@ -70,7 +70,7 @@ pub async fn run_async<E: Application>(title: &str) {
     &renderer,
   );
 
-  log::info!("Initializing the example...");
+  log::info!("Initializing the application...");
   let mut example = E::init(&mut renderer, &swap_chain);
 
   log::info!("Entering render loop...");

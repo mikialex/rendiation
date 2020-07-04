@@ -1,4 +1,4 @@
-pub trait TextureDimension {
+pub trait TextureDimension: Copy + Clone {
   const WGPU_CONST: wgpu::TextureDimension;
   fn to_wgpu(&self) -> wgpu::Extent3d;
   fn get_pixel_size(&self) -> u32 {
@@ -7,9 +7,16 @@ pub trait TextureDimension {
   }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct TextureSize2D {
   pub width: u32,
   pub height: u32,
+}
+
+impl TextureSize2D {
+  pub fn to_tuple(&self) -> (usize, usize) {
+    (self.width as usize, self.height as usize)
+  }
 }
 
 impl From<(usize, usize)> for TextureSize2D {
@@ -32,12 +39,12 @@ impl TextureDimension for TextureSize2D {
   }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct TextureSize3D {
   pub width: u32,
   pub height: u32,
   pub depth: u32,
 }
-
 
 impl From<(usize, usize, usize)> for TextureSize3D {
   fn from(size: (usize, usize, usize)) -> Self {

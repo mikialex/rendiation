@@ -51,7 +51,7 @@ impl RenderGraphBackend for WebGPURenderGraphBackend {
 
   type RenderTargetFormatKey = WGPURenderTargetFormat;
   type Renderer = WGPURenderer;
-  type RenderPass = WGPURenderPass<'static>;
+  type RenderPass = WGPURenderPass<'static>; // this need unbound lifetime
 
   fn create_render_target(
     renderer: &Self::Renderer,
@@ -78,8 +78,9 @@ impl RenderGraphBackend for WebGPURenderGraphBackend {
     // just do pass drop
   }
 
-  fn get_target_size(_target: &Self::RenderTarget) -> RenderTargetSize {
-    todo!()
+  fn get_target_size(target: &Self::RenderTarget) -> RenderTargetSize {
+    let size = target.get_size();
+    RenderTargetSize::new(size.0, size.1)
   }
   fn set_viewport(_: &Self::Renderer, pass: &mut Self::RenderPass, viewport: Viewport) {
     pass.use_viewport(&viewport);

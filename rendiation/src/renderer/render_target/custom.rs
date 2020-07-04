@@ -110,4 +110,8 @@ impl RenderTargetAble for RenderTarget {
       .as_mut()
       .map(|depth| depth.resize(renderer, size));
   }
+
+  fn get_size(&self) -> (usize, usize) {
+    self.attachments.iter().next().unwrap().size().to_tuple()
+  }
 }

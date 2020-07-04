@@ -113,6 +113,10 @@ impl WGPUTexture {
     &self.view
   }
 
+  pub fn size(&self) -> TextureSize2D {
+    self.size
+  }
+
   pub fn format(&self) -> &wgpu::TextureFormat {
     &self.descriptor.format
   }

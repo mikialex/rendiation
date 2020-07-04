@@ -29,7 +29,10 @@ pub struct RinecraftState {
 
 impl RinecraftState {
   fn get_camera(&mut self) -> &mut PerspectiveCamera {
-    self.scene.cameras.get_active_camera_mut::<PerspectiveCamera>()
+    self
+      .scene
+      .cameras
+      .get_active_camera_mut::<PerspectiveCamera>()
   }
 }
 
@@ -40,7 +43,8 @@ impl Application for Rinecraft {
       wgpu::TextureFormat::Depth32Float,
       swap_chain.size,
     );
-    let screen_target = ScreenRenderTarget::new(renderer.swap_chain_format, Some(depth));
+    let screen_target =
+      ScreenRenderTarget::new(renderer.swap_chain_format, Some(depth), swap_chain.size);
 
     let gui = GUI::new(
       renderer,
@@ -98,18 +102,14 @@ impl Application for Rinecraft {
       if state.camera_controller.update(camera) {
         state.camera_gpu.mark_dirty();
       }
-      state
-        .camera_gpu
-        .update_all(renderer, scene);
+      state.camera_gpu.update_all(renderer, scene);
 
       state.world.update(renderer, scene);
 
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
-      state
-        .scene_renderer
-        .render(scene, renderer, &output);
+      state.scene_renderer.render(scene, renderer, &output);
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output);
