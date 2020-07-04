@@ -11,6 +11,7 @@ pub trait RenderGraphBackend: 'static {
   type RenderTarget: 'static;
   type RenderTargetFormatKey: Eq + Hash + Clone + Default + Sized;
   type Renderer;
+  type RenderPassBuilder;
   type RenderPass;
 
   fn create_render_target(
@@ -20,9 +21,14 @@ pub trait RenderGraphBackend: 'static {
 
   fn dispose_render_target(renderer: &Self::Renderer, target: Self::RenderTarget);
 
+  fn create_render_pass_builder(
+    renderer: &Self::Renderer,
+    target: &Self::RenderTarget,
+  ) -> Self::RenderPassBuilder;
+
   fn begin_render_pass(
     renderer: &mut Self::Renderer,
-    target: &Self::RenderTarget,
+    builder: Self::RenderPassBuilder,
   ) -> Self::RenderPass;
   fn end_render_pass(renderer: &Self::Renderer, pass: Self::RenderPass);
 

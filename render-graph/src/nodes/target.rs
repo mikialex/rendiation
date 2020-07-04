@@ -26,11 +26,11 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
     self
   }
 
-  pub fn size_creator(
+  pub fn size_modifier(
     self,
-    creator: impl Fn(RenderTargetSize) -> RenderTargetSize + 'static,
+    modifier: impl Fn(RenderTargetSize) -> RenderTargetSize + 'static,
   ) -> Self {
-    self.target_data_mut(|t| t.size_creator = Box::new(creator));
+    self.target_data_mut(|t| t.size_modifier = Box::new(modifier));
     self
   }
 
@@ -47,7 +47,7 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
 pub struct TargetNodeData<T: RenderGraphBackend> {
   pub name: String,
   is_final_target: bool,
-  size_creator: Box<dyn Fn(RenderTargetSize) -> RenderTargetSize>,
+  size_modifier: Box<dyn Fn(RenderTargetSize) -> RenderTargetSize>,
   pub format: RenderTargetFormatKey<T::RenderTargetFormatKey>,
 }
 
@@ -64,7 +64,7 @@ impl<T: RenderGraphBackend> TargetNodeData<T> {
   }
 
   pub fn update_real_size(&mut self, final_size: RenderTargetSize) -> &mut Self {
-    self.format.size = (self.size_creator)(final_size);
+    self.format.size = (self.size_modifier)(final_size);
     self
   }
 
@@ -73,7 +73,7 @@ impl<T: RenderGraphBackend> TargetNodeData<T> {
       name,
       format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()),
       is_final_target: false,
-      size_creator: Box::new(RenderGraph::<T>::same_as_final),
+      size_modifier: Box::new(RenderGraph::<T>::same_as_final),
     }
   }
 
@@ -82,7 +82,7 @@ impl<T: RenderGraphBackend> TargetNodeData<T> {
       name: "root".to_owned(),
       format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()), // not actually useful
       is_final_target: true,
-      size_creator: Box::new(RenderGraph::<T>::same_as_final),
+      size_modifier: Box::new(RenderGraph::<T>::same_as_final),
     }
   }
 

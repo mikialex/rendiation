@@ -45,7 +45,6 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
         let handle = *pass_node_handle;
         let mut graph = graph.graph.borrow_mut();
 
-        // do target binding
         let target_to_handle = graph
           .get_node(*graph.get_node(handle).to().iter().next().unwrap())
           .data_handle();
@@ -55,7 +54,8 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
           .unwrap_target_data_mut()
           .update_real_size(self.current_final_size);
         let real_size = target_data.real_size();
-        let mut render_pass = T::begin_render_pass(
+
+        let mut pass_builder = T::create_render_pass_builder(
           self.renderer,
           if target_data.is_final_target() {
             final_target
@@ -69,6 +69,10 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
         let pass_data = graph
           .get_node_data_mut_by_node(handle)
           .unwrap_pass_data_mut();
+
+        (pass_data.pass_op_modifier)(&mut pass_builder);
+
+        let mut render_pass = T::begin_render_pass(self.renderer, pass_builder);
 
         T::set_viewport(
           self.renderer,

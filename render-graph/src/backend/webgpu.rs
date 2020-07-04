@@ -47,30 +47,36 @@ impl Default for WGPURenderTargetFormat {
 pub struct WebGPURenderGraphBackend {}
 
 impl RenderGraphBackend for WebGPURenderGraphBackend {
-  type RenderTarget = RenderTarget;
+  type RenderTarget = Box<dyn RenderTargetAble>;
 
   type RenderTargetFormatKey = WGPURenderTargetFormat;
   type Renderer = WGPURenderer;
+  type RenderPassBuilder = WGPURenderPassBuilder<'static>;
   type RenderPass = WGPURenderPass<'static>; // this need unbound lifetime
 
   fn create_render_target(
     renderer: &Self::Renderer,
     key: &RenderTargetFormatKey<Self::RenderTargetFormatKey>,
   ) -> Self::RenderTarget {
-    key.format.create_render_target(renderer, key.size)
+    Box::new(key.format.create_render_target(renderer, key.size))
   }
 
   fn dispose_render_target(_: &Self::Renderer, _: Self::RenderTarget) {
     // just do target drop
   }
 
+  fn create_render_pass_builder(
+    _: &Self::Renderer,
+    target: &Self::RenderTarget,
+  ) -> Self::RenderPassBuilder {
+    let builder = target.create_render_pass_builder();
+    unsafe { std::mem::transmute(builder) }
+  }
+
   fn begin_render_pass(
     renderer: &mut Self::Renderer,
-    target: &Self::RenderTarget,
+    builder: Self::RenderPassBuilder,
   ) -> Self::RenderPass {
-    // target.create_render_pass_builder()
-    // todo load op, store op...
-    let builder = target.create_render_pass_builder();
     let pass = builder.create(&mut renderer.encoder);
     unsafe { std::mem::transmute(pass) }
   }

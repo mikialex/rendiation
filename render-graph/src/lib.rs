@@ -35,7 +35,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn same_as_target(size: RenderTargetSize) -> Viewport {
     Viewport::new(size.to_tuple())
   }
-  
+
   pub fn same_as_final(size: RenderTargetSize) -> RenderTargetSize {
     size
   }
@@ -46,7 +46,8 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       .borrow_mut()
       .new_node(RenderGraphNode::Pass(PassNodeData {
         name: name.to_owned(),
-        viewport_creator: Box::new(Self::same_as_target),
+        viewport_modifier: Box::new(Self::same_as_target),
+        pass_op_modifier: Box::new(|_| {}),
         input_targets_map: HashSet::new(),
         render: None,
       }));

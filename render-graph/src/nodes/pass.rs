@@ -7,14 +7,15 @@ use std::collections::HashSet;
 
 pub struct PassNodeData<T: RenderGraphBackend> {
   pub name: String,
-  pub(crate) viewport_creator: Box<dyn Fn(RenderTargetSize) -> Viewport>,
+  pub(crate) viewport_modifier: Box<dyn Fn(RenderTargetSize) -> Viewport>,
+  pub(crate) pass_op_modifier: Box<dyn FnMut(&mut T::RenderPassBuilder)>,
   pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T>>,
   pub(crate) render: Option<Box<dyn FnMut(&RenderTargetPool<T>, &mut T::RenderPass)>>,
 }
 
 impl<T: RenderGraphBackend> PassNodeData<T> {
   pub fn viewport(&mut self, target_size: RenderTargetSize) -> Viewport {
-    (&self.viewport_creator)(target_size)
+    (&self.viewport_modifier)(target_size)
   }
 }
 
@@ -27,6 +28,11 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self.builder.handle
   }
 
+  pub fn define_pass_ops(self, modifier: impl FnMut(&mut T::RenderPassBuilder) + 'static) -> Self {
+    self.pass_data_mut(|p| p.pass_op_modifier = Box::new(modifier));
+    self
+  }
+
   pub fn render_by(
     self,
     renderer: impl FnMut(&RenderTargetPool<T>, &mut T::RenderPass) + 'static,
@@ -35,8 +41,8 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self
   }
 
-  pub fn viewport_creator(self, creator: impl Fn(RenderTargetSize) -> Viewport + 'static) -> Self {
-    self.pass_data_mut(|p| p.viewport_creator = Box::new(creator));
+  pub fn viewport_modifier(self, modifier: impl Fn(RenderTargetSize) -> Viewport + 'static) -> Self {
+    self.pass_data_mut(|p| p.viewport_modifier = Box::new(modifier));
     self
   }
 
