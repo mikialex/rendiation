@@ -91,7 +91,7 @@ impl World {
     });
     let block_shading = block_shading.index();
 
-    let root_node_index = scene.create_new_node().get_id();
+    let root_node_index = scene.create_new_node().handle();
     scene.add_to_scene_root(root_node_index);
 
     self.scene_data = Some(WorldSceneAttachment {
@@ -175,7 +175,7 @@ impl World {
         if let Some((node_index, render_object_index, geometry_index)) =
           scene_data.blocks.get(chunk_to_update_key)
         {
-          scene.node_remove_child_by_id(scene_data.root_node_index, *node_index);
+          scene.node_remove_child_by_handle(scene_data.root_node_index, *node_index);
           scene.free_node(*node_index);
           scene.delete_render_object(*render_object_index);
           scene
@@ -192,10 +192,10 @@ impl World {
         let render_object_index =
           scene.create_render_object(scene_geometry, scene_data.block_shading);
         let new_node = scene.create_new_node();
-        new_node.add_render_object(render_object_index);
-        let node_index = new_node.get_id();
+        new_node.data_mut().add_render_object(render_object_index);
+        let node_index = new_node.handle();
 
-        scene.node_add_child_by_id(scene_data.root_node_index, node_index);
+        scene.node_add_child_by_handle(scene_data.root_node_index, node_index);
 
         scene_data.blocks.insert(
           *chunk_to_update_key,

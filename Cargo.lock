@@ -1625,6 +1625,7 @@ name = "rendiation-scenegraph"
 version = "0.1.0"
 dependencies = [
  "arena 0.0.1",
+ "arena-tree 0.0.1",
  "js-sys 0.3.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "rendiation 0.1.0",
  "rendiation-derives 0.1.0",

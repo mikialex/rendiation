@@ -17,22 +17,25 @@ impl<T: SceneGraphBackend> RenderEngine<T> {
 
   pub fn update_render_list(&mut self, scene: &mut Scene<T>) {
     self.scene_raw_list.clear();
-    let mut stack = Vec::new(); // todo
-    scene.traverse(
-      scene.get_root().self_id,
+    let mut stack = Vec::new(); // todo, where should I reuse;
+    scene.nodes.traverse(
+      scene.get_root().handle(),
       &mut stack,
       |this: &mut SceneNode<T>, parent: Option<&mut SceneNode<T>>| {
+        let this_handle = this.handle();
+        let this_data = this.data_mut();
         if let Some(parent) = parent {
-          this.render_data.world_matrix =
-            parent.render_data.world_matrix * this.render_data.local_matrix;
-          this.net_visible = this.visible && parent.net_visible;
+          let parent = parent.data();
+          this_data.render_data.world_matrix =
+            parent.render_data.world_matrix * this_data.render_data.local_matrix;
+          this_data.net_visible = this_data.visible && parent.net_visible;
         }
-        if !this.visible {
+        if !this_data.visible {
           return; // skip drawcall collect
         }
 
-        this.render_objects.iter().for_each(|id| {
-          self.scene_raw_list.push(this.get_id(), *id);
+        this_data.render_objects.iter().for_each(|id| {
+          self.scene_raw_list.push(this_handle, *id);
         });
       },
     );
