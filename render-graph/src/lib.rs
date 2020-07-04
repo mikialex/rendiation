@@ -44,7 +44,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     let handle = self
       .graph
       .borrow_mut()
-      .new_node(RenderGraphNode::Pass(PassNodeData {
+      .create_node(RenderGraphNode::Pass(PassNodeData {
         name: name.to_owned(),
         viewport_modifier: Box::new(Self::same_as_target),
         pass_op_modifier: Box::new(|_| {}),
@@ -63,7 +63,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     let handle = self
       .graph
       .borrow_mut()
-      .new_node(RenderGraphNode::Target(TargetNodeData::finally()));
+      .create_node(RenderGraphNode::Target(TargetNodeData::finally()));
     self.root_handle.set(Some(handle));
 
     TargetNodeBuilder {
@@ -75,12 +75,13 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   }
 
   pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .new_node(RenderGraphNode::Target(TargetNodeData::target(
-        name.to_owned(),
-      )));
+    let handle =
+      self
+        .graph
+        .borrow_mut()
+        .create_node(RenderGraphNode::Target(TargetNodeData::target(
+          name.to_owned(),
+        )));
 
     TargetNodeBuilder {
       builder: NodeBuilder {
@@ -97,7 +98,7 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
   let node_list: Vec<RenderGraphNodeHandle<T>> = graph
     .topological_order_list(root)
     .into_iter()
-    .filter(|n| graph.get_node_data_by_node(*n).is_pass())
+    .filter(|&n| graph.get_node(n).data().is_pass())
     .collect();
 
   let mut exe_info_list: Vec<PassExecuteInfo<T>> = node_list
@@ -110,7 +111,7 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
   node_list.iter().enumerate().for_each(|(index, &n)| {
     let node = graph.get_node(n);
     let output_node = *node.to().iter().next().unwrap();
-    let output_node_data = graph.get_node_data_by_node(output_node);
+    let output_node_data = graph.get_node(output_node).data();
     if output_node_data.unwrap_target_data().is_final_target() {
       return;
     }

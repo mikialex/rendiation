@@ -36,8 +36,7 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
 
   pub fn target_data_mut(&self, mutator: impl FnOnce(&mut TargetNodeData<T>)) {
     let mut graph = self.builder.graph.graph.borrow_mut();
-    let data_handle = graph.get_node(self.handle()).data_handle();
-    let data = graph.get_node_data_mut(data_handle);
+    let data = graph.get_node_mut(self.handle()).data_mut();
     if let RenderGraphNode::Target(data) = data {
       mutator(data)
     }

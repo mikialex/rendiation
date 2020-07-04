@@ -2,26 +2,29 @@ pub use arena::*;
 use std::collections::BTreeSet;
 
 pub struct ArenaGraph<T> {
-  nodes_data: Arena<T>,
   nodes: Arena<ArenaGraphNode<T>>,
 }
 
 pub type ArenaGraphNodeHandle<T> = Handle<ArenaGraphNode<T>>;
 
 pub struct ArenaGraphNode<T> {
-  data_handle: Handle<T>,
+  data: T,
   handle: ArenaGraphNodeHandle<T>,
   from: BTreeSet<ArenaGraphNodeHandle<T>>,
   to: BTreeSet<ArenaGraphNodeHandle<T>>,
 }
 
 impl<T> ArenaGraphNode<T> {
-  pub fn handle(&self) -> ArenaGraphNodeHandle<T> {
-    self.handle
+  pub fn data(&self) -> &T {
+    &self.data
   }
 
-  pub fn data_handle(&self) -> Handle<T> {
-    self.data_handle
+  pub fn data_mut(&mut self) -> &mut T {
+    &mut self.data
+  }
+
+  pub fn handle(&self) -> ArenaGraphNodeHandle<T> {
+    self.handle
   }
 
   pub fn from(&self) -> &BTreeSet<ArenaGraphNodeHandle<T>> {
@@ -32,10 +35,10 @@ impl<T> ArenaGraphNode<T> {
     &self.to
   }
 
-  pub fn new(data_handle: Handle<T>, handle: ArenaGraphNodeHandle<T>) -> Self {
+  fn new(data: T) -> Self {
     Self {
-      data_handle,
-      handle,
+      data,
+      handle: Handle::from_raw_parts(0, 0),
       from: BTreeSet::new(),
       to: BTreeSet::new(),
     }
@@ -45,16 +48,14 @@ impl<T> ArenaGraphNode<T> {
 impl<T> ArenaGraph<T> {
   pub fn new() -> Self {
     Self {
-      nodes_data: Arena::new(),
       nodes: Arena::new(),
     }
   }
 
-  pub fn new_node(&mut self, node_data: T) -> ArenaGraphNodeHandle<T> {
-    let handle = self.nodes_data.insert(node_data);
-    let node = ArenaGraphNode::new(handle, Handle::from_raw_parts(0, 0));
+  pub fn create_node(&mut self, node_data: T) -> ArenaGraphNodeHandle<T> {
+    let node = ArenaGraphNode::new(node_data);
     let handle = self.nodes.insert(node);
-    self.nodes.get_mut(handle).unwrap().handle = handle; // improvements need
+    self.nodes.get_mut(handle).unwrap().handle = handle;
     handle
   }
 
@@ -64,22 +65,6 @@ impl<T> ArenaGraph<T> {
 
   pub fn get_node_mut(&mut self, handle: ArenaGraphNodeHandle<T>) -> &mut ArenaGraphNode<T> {
     self.nodes.get_mut(handle).unwrap()
-  }
-
-  pub fn get_node_data(&self, handle: Handle<T>) -> &T {
-    self.nodes_data.get(handle).unwrap()
-  }
-
-  pub fn get_node_data_mut(&mut self, handle: Handle<T>) -> &mut T {
-    self.nodes_data.get_mut(handle).unwrap()
-  }
-
-  pub fn get_node_data_by_node(&self, handle: ArenaGraphNodeHandle<T>) -> &T {
-    self.nodes_data.get(self.get_node(handle).data_handle).unwrap()
-  }
-
-  pub fn get_node_data_mut_by_node(&mut self, handle: ArenaGraphNodeHandle<T>) -> &mut T {
-    self.nodes_data.get_mut(self.get_node(handle).data_handle).unwrap()
   }
 
   pub fn connect_node(&mut self, from: ArenaGraphNodeHandle<T>, to: ArenaGraphNodeHandle<T>) {

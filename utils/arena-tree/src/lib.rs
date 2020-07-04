@@ -1,19 +1,27 @@
 use arena::*;
 
 pub struct ArenaTree<T> {
-  nodes_data: Arena<T>,
   nodes: Arena<ArenaTreeNode<T>>,
 }
 pub type ArenaTreeNodeHandle<T> = Handle<ArenaTreeNode<T>>;
 
 pub struct ArenaTreeNode<T> {
-  data_handle: Handle<T>,
+  pub data: T,
   handle: ArenaTreeNodeHandle<T>,
   parent: Option<ArenaTreeNodeHandle<T>>,
   children: Vec<ArenaTreeNodeHandle<T>>,
 }
 
 impl<T> ArenaTreeNode<T> {
+  fn new(data: T) -> Self {
+    Self {
+      data,
+      handle: Handle::from_raw_parts(0, 0),
+      parent: None,
+      children: Vec::new(),
+    }
+  }
+
   pub fn add(&mut self, child_to_add: &mut ArenaTreeNode<T>) -> &mut Self {
     if child_to_add.parent.is_some() {
       panic!("child node already has a parent");
@@ -35,31 +43,20 @@ impl<T> ArenaTreeNode<T> {
   }
 }
 
-impl<T> ArenaTreeNode<T> {
-  pub fn new(data_handle: Handle<T>) -> Self {
-    Self {
-      data_handle,
-      handle: Handle::from_raw_parts(0, 0),
-      parent: None,
-      children: Vec::new(),
-    }
-  }
-}
-
 impl<T> ArenaTree<T> {
-  // pub fn new(root_data: T) -> Self {
-  //   todo!();
-  //   // let mut tree = Self{
-  //   //   nodes_data: Arena::new(),
-  //   //   nodes: Arena::new(),
-  //   // };
-  //   // let root = tree.nodes_data.insert(root_data);
-  //   // tree.nodes.insert(ArenaTreeNode::new(root));
-  //   // tree
-  // }
+  pub fn new(root_data: T) -> Self {
+    let mut tree = Self {
+      nodes: Arena::new(),
+    };
+    tree.create_node(root_data);
+    tree
+  }
 
-  pub fn new_node() -> ArenaTreeNodeHandle<T> {
-    todo!()
+  pub fn create_node(&mut self, node_data: T) -> ArenaTreeNodeHandle<T> {
+    let node = ArenaTreeNode::new(node_data);
+    let handle = self.nodes.insert(node);
+    self.nodes.get_mut(handle).unwrap().handle = handle;
+    handle
   }
 
   pub fn get_node(&self, handle: ArenaTreeNodeHandle<T>) -> &ArenaTreeNode<T> {
@@ -68,28 +65,6 @@ impl<T> ArenaTree<T> {
 
   pub fn get_node_mut(&mut self, handle: ArenaTreeNodeHandle<T>) -> &mut ArenaTreeNode<T> {
     self.nodes.get_mut(handle).unwrap()
-  }
-
-  pub fn get_node_data(&self, handle: Handle<T>) -> &T {
-    self.nodes_data.get(handle).unwrap()
-  }
-
-  pub fn get_node_data_mut(&mut self, handle: Handle<T>) -> &mut T {
-    self.nodes_data.get_mut(handle).unwrap()
-  }
-
-  pub fn get_node_data_by_node(&self, handle: ArenaTreeNodeHandle<T>) -> &T {
-    self
-      .nodes_data
-      .get(self.get_node(handle).data_handle)
-      .unwrap()
-  }
-
-  pub fn get_node_data_mut_by_node(&mut self, handle: ArenaTreeNodeHandle<T>) -> &mut T {
-    self
-      .nodes_data
-      .get_mut(self.get_node(handle).data_handle)
-      .unwrap()
   }
 
   pub fn node_add_child_by_id(

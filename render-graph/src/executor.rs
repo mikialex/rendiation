@@ -45,10 +45,8 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
         let handle = *pass_node_handle;
         let mut graph = graph.graph.borrow_mut();
 
-        let target_to_handle = graph
-          .get_node(*graph.get_node(handle).to().iter().next().unwrap())
-          .data_handle();
-        let target_to = graph.get_node_data_mut(target_to_handle);
+        let target_to_handle = *graph.get_node(handle).to().iter().next().unwrap();
+        let target_to = graph.get_node_mut(target_to_handle).data_mut();
 
         let target_data = target_to
           .unwrap_target_data_mut()
@@ -66,9 +64,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
           },
         );
 
-        let pass_data = graph
-          .get_node_data_mut_by_node(handle)
-          .unwrap_pass_data_mut();
+        let pass_data = graph.get_node_mut(handle).data_mut().unwrap_pass_data_mut();
 
         (pass_data.pass_op_modifier)(&mut pass_builder);
 
@@ -84,10 +80,10 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
 
         T::end_render_pass(self.renderer, render_pass);
 
-        target_drop_list.iter().for_each(|n| {
+        target_drop_list.iter().for_each(|&n| {
           self
             .target_pool
-            .return_render_target(*n, graph.get_node_data_by_node(*n).unwrap_target_data())
+            .return_render_target(n, graph.get_node(n).data().unwrap_target_data())
         })
       },
     )

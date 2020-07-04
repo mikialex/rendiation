@@ -41,15 +41,17 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self
   }
 
-  pub fn viewport_modifier(self, modifier: impl Fn(RenderTargetSize) -> Viewport + 'static) -> Self {
+  pub fn viewport_modifier(
+    self,
+    modifier: impl Fn(RenderTargetSize) -> Viewport + 'static,
+  ) -> Self {
     self.pass_data_mut(|p| p.viewport_modifier = Box::new(modifier));
     self
   }
 
   pub fn pass_data_mut(&self, mutator: impl FnOnce(&mut PassNodeData<T>)) {
     let mut graph = self.builder.graph.graph.borrow_mut();
-    let data_handle = graph.get_node(self.handle()).data_handle();
-    let data = graph.get_node_data_mut(data_handle);
+    let data = graph.get_node_mut(self.handle()).data_mut();
     if let RenderGraphNode::Pass(data) = data {
       mutator(data)
     }
