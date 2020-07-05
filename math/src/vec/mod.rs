@@ -61,44 +61,44 @@ macro_rules! impl_vector {
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFrom<usize>);
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFull);
 
-    impl_operator!(<S: Arithmetic> Add<$VectorN<S> > for $VectorN<S> {
+    impl_operator!(<S> Add<$VectorN<S> > for $VectorN<S> {
       fn add(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field + rhs.$field),+) }
     });
-    impl_assignment_operator!(<S: Arithmetic> AddAssign<$VectorN<S> > for $VectorN<S> {
+    impl_assignment_operator!(<S> AddAssign<$VectorN<S> > for $VectorN<S> {
       fn add_assign(&mut self, other) { $(self.$field += other.$field);+ }
     });
 
-    impl_operator!(<S: Arithmetic> Sub<$VectorN<S> > for $VectorN<S> {
+    impl_operator!(<S> Sub<$VectorN<S> > for $VectorN<S> {
       fn sub(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field - rhs.$field),+) }
     });
-    impl_assignment_operator!(<S: Arithmetic> SubAssign<$VectorN<S> > for $VectorN<S> {
+    impl_assignment_operator!(<S> SubAssign<$VectorN<S> > for $VectorN<S> {
       fn sub_assign(&mut self, other) { $(self.$field -= other.$field);+ }
     });
 
-    impl_operator!(<S: Arithmetic> Mul<S> for $VectorN<S> {
+    impl_operator!(<S> Mul<S> for $VectorN<S> {
       fn mul(vector, scalar) -> $VectorN<S> { $VectorN::new($(vector.$field * scalar),+) }
     });
-    impl_operator!(<S: Arithmetic> Mul<$VectorN<S>> for $VectorN<S> {
+    impl_operator!(<S> Mul<$VectorN<S>> for $VectorN<S> {
       fn mul(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field * rhs.$field),+) }
     });
-    impl_assignment_operator!(<S: Arithmetic> MulAssign<S> for $VectorN<S> {
+    impl_assignment_operator!(<S> MulAssign<S> for $VectorN<S> {
       fn mul_assign(&mut self, scalar) { $(self.$field *= scalar);+ }
     });
 
-    impl_operator!(<S: Arithmetic> Div<S> for $VectorN<S> {
+    impl_operator!(<S> Div<S> for $VectorN<S> {
       fn div(vector, scalar) -> $VectorN<S> { $VectorN::new($(vector.$field / scalar),+) }
     });
-    impl_operator!(<S: Arithmetic> Div<$VectorN<S>> for $VectorN<S> {
+    impl_operator!(<S> Div<$VectorN<S>> for $VectorN<S> {
       fn div(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field / rhs.$field),+) }
     });
-    impl_assignment_operator!(<S: Arithmetic> DivAssign<S> for $VectorN<S> {
+    impl_assignment_operator!(<S> DivAssign<S> for $VectorN<S> {
       fn div_assign(&mut self, scalar) { $(self.$field /= scalar);+ }
     });
 
-    impl_operator!(<S: Arithmetic> Rem<S> for $VectorN<S> {
+    impl_operator!(<S> Rem<S> for $VectorN<S> {
       fn rem(vector, scalar) -> $VectorN<S> { $VectorN::new($(vector.$field % scalar),+) }
     });
-    impl_assignment_operator!(<S: Arithmetic> RemAssign<S> for $VectorN<S> {
+    impl_assignment_operator!(<S> RemAssign<S> for $VectorN<S> {
       fn rem_assign(&mut self, scalar) { $(self.$field %= scalar);+ }
     });
     impl_scalar_ops!($VectorN<usize> { $($field),+ });
