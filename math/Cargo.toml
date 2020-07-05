@@ -1,4 +1,10 @@
 [package]
+edition = "2018"
 name = "rendiation-math"
 version = "0.1.0"
-edition = "2018"
+
+[features]
+swizzle = ["paste"]
+
+[dependencies]
+paste = { version = "0.1", optional = true }

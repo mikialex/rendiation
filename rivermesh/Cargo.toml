@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 tobj = "0.1.10"
-rendiation-math = { path = "../math" }
+rendiation-math = { path = "../math", features = ["swizzle"]}
 rendiation-math-entity = { path = "../math-entity" }
