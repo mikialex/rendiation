@@ -101,6 +101,7 @@ macro_rules! impl_vector {
     impl_assignment_operator!(<S> RemAssign<S> for $VectorN<S> {
       fn rem_assign(&mut self, scalar) { $(self.$field %= scalar);+ }
     });
+
     impl_scalar_ops!($VectorN<usize> { $($field),+ });
     impl_scalar_ops!($VectorN<u8> { $($field),+ });
     impl_scalar_ops!($VectorN<u16> { $($field),+ });

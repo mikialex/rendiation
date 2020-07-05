@@ -45,6 +45,7 @@
         "mipmap",
         "multisampled",
         "octree",
+        "opensource",
         "perlin",
         "powf",
         "powi",
