@@ -1,5 +1,5 @@
 use std::ops::{Add, Sub, Mul};
-use super::vec::Vec;
+use super::vec::Arithmetic;
 use super::math::Math;
 use super::vec3::Vec3;
 use super::quat::Quat;
@@ -115,7 +115,7 @@ impl<T> Mat3<T> where T:Copy
 	}
 }
 
-impl<T> Mat3<T> where T:Vec + Math {
+impl<T> Mat3<T> where T:Arithmetic + Math {
 
 	pub fn det(&self) -> T {
 		let t11 = self.c3 * self.b2 - self.b3 * self.c2;
@@ -309,7 +309,7 @@ impl<T> One for Mat3<T> where T:One + Zero
 	}
 }
 
-impl<T:Vec> From<Quat<T>> for Mat3<T>
+impl<T:Arithmetic> From<Quat<T>> for Mat3<T>
 {
 	fn from(q:Quat<T>) -> Self
 	{

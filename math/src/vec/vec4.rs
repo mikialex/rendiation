@@ -1,7 +1,4 @@
-use super::consts::{One, UnitW, UnitX, UnitY, UnitZ, Zero};
-use super::vec::{Lerp, Slerp, Vec};
-use super::math::Math;
-use super::vec3::Vec3;
+use crate::*;
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -228,16 +225,6 @@ impl<T> Vec4<T>
 where
   T: Copy,
 {
-  /// Creates a new Vec4 from multiple components
-  #[inline(always)]
-  pub fn new(x: T, y: T, z: T, w: T) -> Self {
-    Self { x, y, z, w }
-  }
-
-  #[inline(always)]
-  pub fn len() -> usize {
-    return 4;
-  }
 
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T, T) {
@@ -247,7 +234,7 @@ where
 
 impl<T> Vec4<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   #[inline]
   pub fn dot(&self, b: Self) -> T {
@@ -648,7 +635,7 @@ where
 
 impl<T> Slerp<T> for Vec4<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -766,7 +753,7 @@ where
 
 impl<T> fmt::Binary for Vec4<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();
@@ -799,34 +786,6 @@ where
       x: v.x / v.w,
       y: v.y / v.w,
       z: v.z / v.w,
-    }
-  }
-}
-
-impl<T> From<[T; 4]> for Vec4<T>
-where
-  T: Copy,
-{
-  fn from(v: [T; 4]) -> Self {
-    Self {
-      x: v[0],
-      y: v[1],
-      z: v[2],
-      w: v[3],
-    }
-  }
-}
-
-impl<T> From<(T, T, T, T)> for Vec4<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T, T, T)) -> Self {
-    Self {
-      x: v.0,
-      y: v.1,
-      z: v.2,
-      w: v.3,
     }
   }
 }

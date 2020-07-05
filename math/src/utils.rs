@@ -44,19 +44,3 @@ impl AsRef<[u8]> for Vec3<f32> {
 		unsafe { mem::transmute::<&Vec3<f32>, &[u8; 3 * 4]>(self) }
 	}
 }
-
-
-impl<T> AsRef<[T; 4]> for Vec4<T> {
-	#[inline]
-	fn as_ref(&self) -> &[T; 4] {
-		unsafe { mem::transmute(self) }
-	}
-}
-
-
-impl<T> AsRef<[T; 3]> for Vec3<T> {
-	#[inline]
-	fn as_ref(&self) -> &[T; 3] {
-		unsafe { mem::transmute(self) }
-	}
-}

@@ -1,7 +1,4 @@
-use super::consts::{One, UnitX, UnitY, UnitZ, Zero};
-use super::math::Math;
-use super::vec::{Lerp, Slerp, Vec};
-use crate::mat4::Mat4;
+use crate::*;
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -212,29 +209,6 @@ impl<T> Vec3<T>
 where
   T: Copy,
 {
-  /// Creates a new Vec3 from multiple components
-  #[inline(always)]
-  pub fn new(x: T, y: T, z: T) -> Self {
-    Self { x, y, z }
-  }
-
-  #[inline(always)]
-  pub fn map<U>(self, mapper: impl Fn(T) -> U) -> Vec3<U> {
-    let mx = mapper(self.x);
-    let my = mapper(self.y);
-    let mz = mapper(self.z);
-    Vec3::<U> {
-      x: mx,
-      y: my,
-      z: mz,
-    }
-  }
-
-  /// return the length of element
-  #[inline(always)]
-  pub fn len() -> usize {
-    return 3;
-  }
 
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T) {
@@ -244,10 +218,10 @@ where
 
 impl<T> Vec3<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   /// input: Matrix4 affine matrix
-  /// 
+  ///
   /// vector interpreted as a direction
   #[inline]
   pub fn transform_direction(&self, m: Mat4<T>) -> Self {
@@ -308,7 +282,6 @@ where
   pub fn max_channel(self) -> T {
     self.x.max(self.y).max(self.z)
   }
-
 }
 
 impl<T> Vec3<T> {
@@ -632,7 +605,7 @@ where
 
 impl<T> Slerp<T> for Vec3<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -726,39 +699,13 @@ where
 
 impl<T> fmt::Binary for Vec3<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();
     let decimals = f.precision().unwrap_or(3);
     let string = format!("{:.*?}", decimals, len);
     f.pad_integral(true, "", &string)
-  }
-}
-
-impl<T> From<[T; 3]> for Vec3<T>
-where
-  T: Copy,
-{
-  fn from(v: [T; 3]) -> Self {
-    Self {
-      x: v[0],
-      y: v[1],
-      z: v[2],
-    }
-  }
-}
-
-impl<T> From<(T, T, T)> for Vec3<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T, T)) -> Self {
-    Self {
-      x: v.0,
-      y: v.1,
-      z: v.2,
-    }
   }
 }
 

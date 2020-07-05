@@ -1,5 +1,5 @@
 use std::ops::{Add, Sub, Mul, Div};
-use super::vec::Vec;
+use super::vec::Arithmetic;
 use super::math::Math;
 use super::vec3::Vec3;
 use super::vec4::Vec4;
@@ -220,7 +220,7 @@ impl<T> Mat4<T> where T: Copy
 	}
 }
 
-impl<T> Mat4<T> where T:Vec + Math + PiByC180
+impl<T> Mat4<T> where T:Arithmetic + Math + PiByC180
 {
 	pub fn rotate_x(theta:T) -> Self
 	{
@@ -629,7 +629,7 @@ impl<T> One for Mat4<T> where T:One + Zero
 	}
 }
 
-impl<T:Vec> From<Mat3<T>> for Mat4<T>
+impl<T:Arithmetic> From<Mat3<T>> for Mat4<T>
 {
 	fn from(m:Mat3<T>) -> Self
 	{
@@ -643,7 +643,7 @@ impl<T:Vec> From<Mat3<T>> for Mat4<T>
 	}
 }
 
-impl<T:Vec> From<Quat<T>> for Mat4<T>
+impl<T:Arithmetic> From<Quat<T>> for Mat4<T>
 {
 	fn from(q:Quat<T>) -> Self
 	{
@@ -678,7 +678,7 @@ impl<T:Vec> From<Quat<T>> for Mat4<T>
 	}
 }
 
-impl<T:Vec> From<Dual<T>> for Mat4<T> where T:Math
+impl<T:Arithmetic> From<Dual<T>> for Mat4<T> where T:Math
 {
 	fn from(dual:Dual<T>) -> Self
 	{

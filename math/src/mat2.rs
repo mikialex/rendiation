@@ -1,5 +1,5 @@
 use std::ops::{Add, Sub, Mul};
-use super::vec::Vec;
+use super::vec::Arithmetic;
 use super::math::Math;
 use super::vec2::Vec2;
 use super::vec3::Vec3;
@@ -98,7 +98,7 @@ impl<T> Mat2<T> where T:Copy
 	}
 }
 
-impl<T> Mat2<T> where T:Vec + Math
+impl<T> Mat2<T> where T:Arithmetic + Math
 {
 	pub fn rotate_x(theta:T) -> Self
 	{
@@ -165,7 +165,7 @@ impl<T> Mat2<T> where T:Vec + Math
 	}
 }
 
-impl<T:Vec> Zero for Mat2<T>
+impl<T:Arithmetic> Zero for Mat2<T>
 {
 	#[inline(always)]
 	fn zero() -> Self
@@ -178,7 +178,7 @@ impl<T:Vec> Zero for Mat2<T>
 	}
 }
 
-impl<T:Vec> One for Mat2<T>
+impl<T:Arithmetic> One for Mat2<T>
 {
 	#[inline(always)]
 	fn one() -> Self

@@ -2,11 +2,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::ops::{Add, Sub, Mul, Div, Neg};
 use std::ops::{AddAssign, SubAssign, MulAssign, DivAssign};
-use super::vec::{Vec, Lerp, Slerp};
-use super::math::Math;
-use super::quat::Quat;
-use super::vec3::Vec3;
-use super::consts::{Zero, One};
+use crate::*;
 
 // http://wscg.zcu.cz/wscg2012/short/a29-full.pdf
 #[repr(C)]
@@ -168,7 +164,7 @@ impl<T> Dual<T> where T:Copy
 	}
 }
 
-impl<T> Dual<T> where T:Vec + Math
+impl<T> Dual<T> where T:Arithmetic + Math
 {
 	pub fn from_transform(rotation:Quat<T>, t:Vec3<T>) -> Self
 	{
@@ -251,7 +247,7 @@ impl<T> Lerp<T> for Dual<T> where T: Copy + One + Mul<Output=T> + Add<Output=T> 
 }
 
 // http://dcgi.felk.cvut.cz/home/zara/papers/TCD-CS-2006-46.pdf
-impl<T> Slerp<T> for Dual<T> where T: Vec + Math
+impl<T> Slerp<T> for Dual<T> where T: Arithmetic + Math
 {
 	fn slerp(self, q2: Self, factor: T) -> Self 
 	{
