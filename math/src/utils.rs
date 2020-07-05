@@ -1,5 +1,3 @@
-
-use crate::vec4::Vec4;
 use crate::{Vec3, mat4::Mat4};
 use std::mem;
 

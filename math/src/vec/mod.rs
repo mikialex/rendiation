@@ -12,7 +12,6 @@ use std::{f32, f64};
 
 use super::consts::*;
 
-#[macro_use]
 use crate::*;
 
 macro_rules! impl_vector {
@@ -55,7 +54,29 @@ macro_rules! impl_vector {
     pub const fn $constructor<S>($($field: S),+) -> $VectorN<S> {
       $VectorN::new($($field),+)
     }
+
+    impl_index_operators!($VectorN<S>, $n, S, usize);
+    impl_index_operators!($VectorN<S>, $n, [S], std::ops::Range<usize>);
+    impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeTo<usize>);
+    impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFrom<usize>);
+    impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFull);
+
+    impl_scalar_ops!($VectorN<usize> { $($field),+ });
   }
+}
+
+macro_rules! impl_scalar_ops {
+  ($VectorN:ident<$S:ident> { $($field:ident),+ }) => {
+    impl_operator!(Mul<$VectorN<$S>> for $S {
+      fn mul(scalar, vector) -> $VectorN<$S> { $VectorN::new($(scalar * vector.$field),+) }
+    });
+    impl_operator!(Div<$VectorN<$S>> for $S {
+      fn div(scalar, vector) -> $VectorN<$S> { $VectorN::new($(scalar / vector.$field),+) }
+    });
+    impl_operator!(Rem<$VectorN<$S>> for $S {
+      fn rem(scalar, vector) -> $VectorN<$S> { $VectorN::new($(scalar % vector.$field),+) }
+    });
+  };
 }
 
 impl_vector!(Vec2 { x, y }, 2, vec2);

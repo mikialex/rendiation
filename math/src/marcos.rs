@@ -1,4 +1,3 @@
-
 /// Generate array conversion implementations for a compound array type
 #[macro_export]
 macro_rules! impl_fixed_array_conversions {
@@ -100,22 +99,139 @@ macro_rules! impl_tuple_conversions {
 #[macro_export]
 macro_rules! impl_index_operators {
   ($VectorN:ident<$S:ident>, $n:expr, $Output:ty, $I:ty) => {
-    impl<$S> Index<$I> for $VectorN<$S> {
+    impl<$S> std::ops::Index<$I> for $VectorN<$S> {
       type Output = $Output;
 
       #[inline]
       fn index<'a>(&'a self, i: $I) -> &'a $Output {
-          let v: &[$S; $n] = self.as_ref();
-          &v[i]
+        let v: &[$S; $n] = self.as_ref();
+        &v[i]
       }
     }
 
-    impl<$S> IndexMut<$I> for $VectorN<$S> {
+    impl<$S> std::ops::IndexMut<$I> for $VectorN<$S> {
       #[inline]
       fn index_mut<'a>(&'a mut self, i: $I) -> &'a mut $Output {
-          let v: &mut [$S; $n] = self.as_mut();
-          &mut v[i]
+        let v: &mut [$S; $n] = self.as_mut();
+        &mut v[i]
       }
     }
+  };
+}
+
+#[macro_export]
+macro_rules! default_fn {
+  { $($tt:tt)* } => { fn $( $tt )* };
+}
+
+/// Generates a binary operator implementation for the permutations of by-ref and by-val
+#[macro_export]
+macro_rules! impl_operator {
+  // When it is an unary operator
+  (<$S:ident: $Constraint:ident> $Op:ident for $Lhs:ty {
+    fn $op:ident($x:ident) -> $Output:ty { $body:expr }
+  }) => {
+    impl<$S: $Constraint> $Op for $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!($op(self) -> $Output {
+        let $x = self; $body
+      });
+    }
+
+    impl<'a, $S: $Constraint> $Op for &'a $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!($op(self) -> $Output {
+        let $x = self; $body
+      });
+    }
+  };
+  // When the right operand is a scalar
+  (<$S:ident: $Constraint:ident> $Op:ident<$Rhs:ident> for $Lhs:ty {
+    fn $op:ident($lhs:ident, $rhs:ident) -> $Output:ty { $body:expr }
+  }) => {
+    impl<$S: $Constraint> $Op<$Rhs> for $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!($op(self, other: $Rhs) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+
+    impl<'a, $S: $Constraint> $Op<$Rhs> for &'a $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!($op(self, other: $Rhs) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+  };
+  // When the right operand is a compound type
+  (<$S:ident: $Constraint:ident> $Op:ident<$Rhs:ty> for $Lhs:ty {
+    fn $op:ident($lhs:ident, $rhs:ident) -> $Output:ty { $body:expr }
+  }) => {
+    impl<$S: $Constraint> $Op<$Rhs> for $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!( $op(self, other: $Rhs) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+
+    impl<'a, $S: $Constraint> $Op<&'a $Rhs> for $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!( $op(self, other: &'a $Rhs) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+
+    impl<'a, $S: $Constraint> $Op<$Rhs> for &'a $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!( $op(self, other: $Rhs) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+
+    impl<'a, 'b, $S: $Constraint> $Op<&'a $Rhs> for &'b $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!( $op(self, other: &'a $Rhs) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+  };
+  // When the left operand is a scalar
+  ($Op:ident<$Rhs:ident<$S:ident>> for $Lhs:ty {
+      fn $op:ident($lhs:ident, $rhs:ident) -> $Output:ty { $body:expr }
+  }) => {
+    impl $Op<$Rhs<$S>> for $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!( $op(self, other: $Rhs<$S>) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+
+    impl<'a> $Op<&'a $Rhs<$S>> for $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!( $op(self, other: &'a $Rhs<$S>) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+  };
+}
+
+macro_rules! impl_assignment_operator {
+  (<$S:ident: $Constraint:ident> $Op:ident<$Rhs:ty> for $Lhs:ty {
+      fn $op:ident(&mut $lhs:ident, $rhs:ident) $body:block
+  }) => {
+      impl<$S: $Constraint + $Op<$S>> $Op<$Rhs> for $Lhs {
+          #[inline]
+          default_fn!( $op(&mut $lhs, $rhs: $Rhs) $body );
+      }
   };
 }
