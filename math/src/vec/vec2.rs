@@ -3,8 +3,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
 
-pub mod operator;
-
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
 pub struct Vec2<T> {
@@ -253,7 +251,7 @@ where
   }
 }
 
-impl<T> Lerp<T> for Vec2<T>
+impl<T: Arithmetic> Lerp<T> for Vec2<T>
 where
   T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
 {

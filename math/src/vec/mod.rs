@@ -7,7 +7,7 @@ pub use vec4::*;
 
 use std::fmt::Debug;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign, RemAssign};
 use std::{f32, f64};
 
 use super::consts::*;
@@ -61,7 +61,59 @@ macro_rules! impl_vector {
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFrom<usize>);
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFull);
 
+    impl_operator!(<S: Arithmetic> Add<$VectorN<S> > for $VectorN<S> {
+      fn add(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field + rhs.$field),+) }
+    });
+    impl_assignment_operator!(<S: Arithmetic> AddAssign<$VectorN<S> > for $VectorN<S> {
+      fn add_assign(&mut self, other) { $(self.$field += other.$field);+ }
+    });
+
+    impl_operator!(<S: Arithmetic> Sub<$VectorN<S> > for $VectorN<S> {
+      fn sub(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field - rhs.$field),+) }
+    });
+    impl_assignment_operator!(<S: Arithmetic> SubAssign<$VectorN<S> > for $VectorN<S> {
+      fn sub_assign(&mut self, other) { $(self.$field -= other.$field);+ }
+    });
+
+    impl_operator!(<S: Arithmetic> Mul<S> for $VectorN<S> {
+      fn mul(vector, scalar) -> $VectorN<S> { $VectorN::new($(vector.$field * scalar),+) }
+    });
+    impl_operator!(<S: Arithmetic> Mul<$VectorN<S>> for $VectorN<S> {
+      fn mul(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field * rhs.$field),+) }
+    });
+    impl_assignment_operator!(<S: Arithmetic> MulAssign<S> for $VectorN<S> {
+      fn mul_assign(&mut self, scalar) { $(self.$field *= scalar);+ }
+    });
+
+    impl_operator!(<S: Arithmetic> Div<S> for $VectorN<S> {
+      fn div(vector, scalar) -> $VectorN<S> { $VectorN::new($(vector.$field / scalar),+) }
+    });
+    impl_operator!(<S: Arithmetic> Div<$VectorN<S>> for $VectorN<S> {
+      fn div(lhs, rhs) -> $VectorN<S> { $VectorN::new($(lhs.$field / rhs.$field),+) }
+    });
+    impl_assignment_operator!(<S: Arithmetic> DivAssign<S> for $VectorN<S> {
+      fn div_assign(&mut self, scalar) { $(self.$field /= scalar);+ }
+    });
+
+    impl_operator!(<S: Arithmetic> Rem<S> for $VectorN<S> {
+      fn rem(vector, scalar) -> $VectorN<S> { $VectorN::new($(vector.$field % scalar),+) }
+    });
+    impl_assignment_operator!(<S: Arithmetic> RemAssign<S> for $VectorN<S> {
+      fn rem_assign(&mut self, scalar) { $(self.$field %= scalar);+ }
+    });
     impl_scalar_ops!($VectorN<usize> { $($field),+ });
+    impl_scalar_ops!($VectorN<u8> { $($field),+ });
+    impl_scalar_ops!($VectorN<u16> { $($field),+ });
+    impl_scalar_ops!($VectorN<u32> { $($field),+ });
+    impl_scalar_ops!($VectorN<u64> { $($field),+ });
+    impl_scalar_ops!($VectorN<isize> { $($field),+ });
+    impl_scalar_ops!($VectorN<i8> { $($field),+ });
+    impl_scalar_ops!($VectorN<i16> { $($field),+ });
+    impl_scalar_ops!($VectorN<i32> { $($field),+ });
+    impl_scalar_ops!($VectorN<i64> { $($field),+ });
+    impl_scalar_ops!($VectorN<f32> { $($field),+ });
+    impl_scalar_ops!($VectorN<f64> { $($field),+ });
+
   }
 }
 
@@ -110,8 +162,7 @@ pub trait Arithmetic:
   + Two
   + Zero
   + Half
-{
-}
+{}
 
 impl Arithmetic for f32 {}
 impl Arithmetic for f64 {}

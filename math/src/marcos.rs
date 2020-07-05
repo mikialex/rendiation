@@ -124,6 +124,21 @@ macro_rules! default_fn {
   { $($tt:tt)* } => { fn $( $tt )* };
 }
 
+#[macro_export]
+macro_rules! impl_operator_by_op_inner_and_copy {
+ (<$S:ident> $Op:ident<$Rhs:ty> for $Lhs:ty {
+    fn $op:ident($lhs:ident, $rhs:ident) -> $Output:ty { $body:expr }
+  }) => {
+    impl<$S: $Op<Output = $S> + Copy> $Op<$Rhs> for $Lhs {
+      type Output = $Output;
+      #[inline]
+      default_fn!( $op(self, other: $Rhs) -> $Output {
+        let ($lhs, $rhs) = (self, other); $body
+      });
+    }
+  };
+}
+
 /// Generates a binary operator implementation for the permutations of by-ref and by-val
 #[macro_export]
 macro_rules! impl_operator {
@@ -171,6 +186,15 @@ macro_rules! impl_operator {
   (<$S:ident: $Constraint:ident> $Op:ident<$Rhs:ty> for $Lhs:ty {
     fn $op:ident($lhs:ident, $rhs:ident) -> $Output:ty { $body:expr }
   }) => {
+    // // no constraint but ops through
+    // impl<$S: $Op<Output = $S> + Copy> $Op<$Rhs> for $Lhs {
+    //   type Output = $Output;
+    //   #[inline]
+    //   default_fn!( $op(self, other: $Rhs) -> $Output {
+    //     let ($lhs, $rhs) = (self, other); $body
+    //   });
+    // }
+
     impl<$S: $Constraint> $Op<$Rhs> for $Lhs {
       type Output = $Output;
       #[inline]
@@ -205,7 +229,7 @@ macro_rules! impl_operator {
   };
   // When the left operand is a scalar
   ($Op:ident<$Rhs:ident<$S:ident>> for $Lhs:ty {
-      fn $op:ident($lhs:ident, $rhs:ident) -> $Output:ty { $body:expr }
+    fn $op:ident($lhs:ident, $rhs:ident) -> $Output:ty { $body:expr }
   }) => {
     impl $Op<$Rhs<$S>> for $Lhs {
       type Output = $Output;
@@ -225,6 +249,7 @@ macro_rules! impl_operator {
   };
 }
 
+#[macro_export]
 macro_rules! impl_assignment_operator {
   (<$S:ident: $Constraint:ident> $Op:ident<$Rhs:ty> for $Lhs:ty {
       fn $op:ident(&mut $lhs:ident, $rhs:ident) $body:block
