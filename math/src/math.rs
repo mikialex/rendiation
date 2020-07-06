@@ -1,29 +1,28 @@
-#[rustfmt::skip]
 pub trait Math: Sized {
-	fn abs(self) -> Self;
-	fn recip(self) -> Self;
-	fn sqrt(self) -> Self;
-	fn rsqrt(self) -> Self;
-	fn sin(self) -> Self;
-	fn cos(self) -> Self;
-	fn tan(self) -> Self;
-	fn sincos(self) -> (Self, Self);
-	fn acos(self) -> Self;
-	fn asin(self) -> Self;
-	fn atan(self) -> Self;
-	fn exp(self) -> Self;
-	fn exp2(self) -> Self;
-	fn log(self, rhs: Self) -> Self;
-	fn log2(self) -> Self;
-	fn log10(self) -> Self;
-	fn to_radians(self) -> Self;
-	fn to_degrees(self) -> Self;
-	fn min(self, rhs: Self) -> Self;
-	fn max(self, rhs: Self) -> Self;
-	fn saturate(self) -> Self;
-	fn snorm2unorm(self) -> Self;
-	fn unorm2snorm(self) -> Self;
-	fn clamp(self, minval: Self, maxval: Self) -> Self;
+  fn abs(self) -> Self;
+  fn recip(self) -> Self;
+  fn sqrt(self) -> Self;
+  fn rsqrt(self) -> Self;
+  fn sin(self) -> Self;
+  fn cos(self) -> Self;
+  fn tan(self) -> Self;
+  fn sincos(self) -> (Self, Self);
+  fn acos(self) -> Self;
+  fn asin(self) -> Self;
+  fn atan(self) -> Self;
+  fn exp(self) -> Self;
+  fn exp2(self) -> Self;
+  fn log(self, rhs: Self) -> Self;
+  fn log2(self) -> Self;
+  fn log10(self) -> Self;
+  fn to_radians(self) -> Self;
+  fn to_degrees(self) -> Self;
+  fn min(self, rhs: Self) -> Self;
+  fn max(self, rhs: Self) -> Self;
+  fn saturate(self) -> Self;
+  fn snorm2unorm(self) -> Self;
+  fn unorm2snorm(self) -> Self;
+  fn clamp(self, minval: Self, maxval: Self) -> Self;
 }
 
 #[rustfmt::skip]

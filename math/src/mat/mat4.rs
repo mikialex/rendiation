@@ -1,12 +1,5 @@
 use std::ops::{Add, Sub, Mul, Div};
-use super::vec::Arithmetic;
-use super::math::Math;
-use super::vec3::Vec3;
-use super::vec4::Vec4;
-use super::quat::Quat;
-use super::dual::Dual;
-use super::mat3::Mat3;
-use super::consts::{Zero, One, PiByC180};
+use crate::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -181,10 +174,9 @@ impl<T> Mul for Mat4<T> where T:Copy + Mul<Output=T> + Add<Output=T>
 	}
 }
 
-impl<T> Mat4<T> where T: Copy
-{
+impl<T: Sized> Mat4<T> {
 	#[clippy::skip]
-	pub fn new(
+	pub const fn new(
 		m11:T, m12:T, m13:T, m14:T, 
 		m21:T, m22:T, m23:T, m24:T, 
 		m31:T, m32:T, m33:T, m34:T, 
@@ -198,7 +190,11 @@ impl<T> Mat4<T> where T: Copy
 			d1:m41, d2:m42, d3:m43, d4:m44,
 		}
 	}
+}
 
+
+impl<T> Mat4<T> where T: Copy
+{
 	pub fn right(&self) -> Vec3<T>
 	{
 		Vec3::new(self.a1, self.a2, self.a3)

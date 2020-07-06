@@ -1,9 +1,5 @@
 use std::ops::{Add, Sub, Mul};
-use super::vec::Arithmetic;
-use super::math::Math;
-use super::vec3::Vec3;
-use super::quat::Quat;
-use super::consts::{Zero, One};
+use crate::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]

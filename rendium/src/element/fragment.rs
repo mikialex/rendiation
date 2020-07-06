@@ -35,11 +35,11 @@ pub struct ElementFragment {
 impl ElementFragment {
   pub fn new() -> Self {
 
-    let a = Quad::new();
+    // let a = Quad::new();
 
-    let mut b = Quad::new();
+    // let mut b = Quad::new();
 
-    b.position(200., 200.);
+    // b.position(200., 200.);
 
     let mut fragment = ElementFragment {
       elements: Vec::new(),
@@ -47,11 +47,11 @@ impl ElementFragment {
       listener_element_index: Vec::new(),
       events: EventHub::new(),
     };
-    let a = fragment.add_element(a);
-    let b = fragment.add_element(b);
-    fragment.add_event_listener(a, |m|{
-      println!("dd");
-    });
+    // let a = fragment.add_element(a);
+    // let b = fragment.add_element(b);
+    // fragment.add_event_listener(a, |m|{
+    //   println!("dd");
+    // });
     fragment
   }
 

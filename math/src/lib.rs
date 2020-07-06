@@ -1,8 +1,6 @@
 pub mod vec;
 pub mod mat;
-pub mod mat2;
-pub mod mat3;
-pub mod mat4;
+pub mod space;
 pub mod math;
 pub mod utils;
 pub mod quat;
@@ -13,18 +11,17 @@ pub mod interpolation;
 
 #[macro_use]
 pub mod marcos;
-// pub mod ser;
-
+pub use space::*;
 pub use vec::*;
+pub use mat::*;
 pub use math::*;
 pub use interpolation::*;
 
-pub use self::mat2::*;
-pub use self::mat3::*;
-pub use self::mat4::*;
 pub use self::quat::*;
 pub use self::dual::*;
 pub use self::consts::*;
+
+// pub mod ser;
 // pub use self::ser::*;
 
 

@@ -1,18 +1,24 @@
 pub mod vec2;
 pub mod vec3;
 pub mod vec4;
+pub mod normalized;
 pub use vec2::*;
 pub use vec3::*;
 pub use vec4::*;
+pub use normalized::*;
 
 use std::fmt::Debug;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign, RemAssign};
+use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 use std::{f32, f64};
 
 use super::consts::*;
 
 use crate::*;
+
+pub trait Vector: Copy {
+  fn normalize(&self) -> Self;
+}
 
 macro_rules! impl_vector {
   ($VectorN:ident { $($field:ident),+ }, $n:expr, $constructor:ident) => {
@@ -163,7 +169,8 @@ pub trait Arithmetic:
   + Two
   + Zero
   + Half
-{}
+{
+}
 
 impl Arithmetic for f32 {}
 impl Arithmetic for f64 {}

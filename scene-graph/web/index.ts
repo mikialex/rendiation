@@ -10,7 +10,9 @@
 
 export const a = 1;
 
-import { SceneShadingDescriptor } from '../pkg/rendiation_scenegraph';
+import { SceneShadingDescriptor, SceneShaderDescriptor } from '../pkg/rendiation_scenegraph';
 
-const shading = SceneShadingDescriptor.new("", "");
+const shader = SceneShaderDescriptor.new("", "");
+const shading = SceneShadingDescriptor.new(shader);
+
 console.log(shading) 
