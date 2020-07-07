@@ -44,7 +44,7 @@ where
   fn dot(self, other: Self) -> Self::Scalar;
 
   /// Returns the squared length of the value.
-  fn magnitude2(self) -> Self::Scalar {
+  fn length2(self) -> Self::Scalar {
     self.clone().dot(self)
   }
 
@@ -73,9 +73,8 @@ impl<T: Arithmetic> MetricSpace for Vec3<T> {
 }
 
 impl<T: Arithmetic> InnerSpace for Vec3<T> {
-  fn dot(self, _other: Self) -> Self::Scalar{
-    todo!()
-    // self.dot(self);
+  fn dot(self, b: Self) -> Self::Scalar{
+    self.x * b.x + self.y * b.y + self.z * b.z
   }
 }
 
