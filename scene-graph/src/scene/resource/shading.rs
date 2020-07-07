@@ -10,13 +10,25 @@ pub struct UniformTypeId(pub u64);
 pub struct ParameterGroupTypeId(pub u64);
 
 pub struct SceneShadingData<T: SceneGraphBackend> {
-  pub gpu: T::Shading,
-  pub parameters: Vec<ParameterHandle<T>>,
+  gpu: T::Shading,
+  parameters: Vec<ParameterHandle<T>>,
 }
 
 impl<T: SceneGraphBackend> SceneShadingData<T> {
-  pub fn push_parameter(&mut self, index: ParameterHandle<T>) {
+  pub fn new(gpu: T::Shading) -> Self {
+    Self { 
+      gpu,
+      parameters: Vec::new(),
+    }
+  }
+
+  pub fn gpu(&self) -> &T::Shading {
+    &self.gpu
+  }
+
+  pub fn push_parameter(mut self, index: ParameterHandle<T>) -> Self {
     self.parameters.push(index);
+    self
   }
 
   pub fn get_parameters_count(&self) -> usize {

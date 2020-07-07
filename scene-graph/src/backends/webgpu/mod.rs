@@ -76,7 +76,7 @@ impl RenderObject<WebGPUBackend> {
     let shading = scene.resources.get_shading(self.shading_index).resource();
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();
 
-    pass.set_pipeline(&shading.gpu);
+    pass.set_pipeline(shading.gpu());
 
     geometry.index_buffer.map(|b| {
       let index = scene.resources.get_index_buffer(b);

@@ -8,10 +8,10 @@ use crate::{
   vox::world_machine::*,
 };
 use render_target::TargetStates;
-use rendiation_webgpu::*;
 use rendiation_math::*;
 use rendiation_render_entity::{PerspectiveCamera, TransformedObject};
 use rendiation_scenegraph::*;
+use rendiation_webgpu::*;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 
@@ -85,10 +85,9 @@ impl World {
         items: vec![], // this is a todo
       })
       .index();
-    let block_shading = scene.resources.add_shading(SceneShadingData {
-      gpu: block_shading,
-      parameters: vec![bindgroup_index],
-    });
+    let block_shading = scene
+      .resources
+      .add_shading(SceneShadingData::new(block_shading).push_parameter(bindgroup_index));
     let block_shading = block_shading.index();
 
     let root_node_index = scene.create_new_node().handle();

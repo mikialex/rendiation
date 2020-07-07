@@ -61,9 +61,9 @@ impl RenderObject<WebGLBackend> {
     let resources = &scene.resources;
     let shading = resources.get_shading(self.shading_index).resource();
     let geometry = &resources.get_geometry(self.geometry_index).resource();
-    let program = &shading.gpu;
+    let program = shading.gpu();
 
-    renderer.use_program(&shading.gpu.program());
+    renderer.use_program(program.program());
 
     // geometry bind
     renderer.attribute_states.prepare_new_bindings();
