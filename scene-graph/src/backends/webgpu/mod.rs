@@ -92,7 +92,7 @@ impl RenderObject<WebGPUBackend> {
         .resources
         .get_shading_param_group(shading.get_parameter(i))
         .resource();
-      pass.set_bindgroup(i, &bindgroup.gpu);
+      pass.set_bindgroup(i, bindgroup.gpu());
     }
 
     pass.draw_indexed(geometry.draw_range.clone())

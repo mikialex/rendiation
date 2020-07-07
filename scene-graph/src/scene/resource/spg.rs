@@ -1,9 +1,33 @@
-use crate::{Handle, ResourceManager, ResourceWrap, SceneGraphBackend, ParameterGroupTypeId, UniformTypeId};
+use crate::{
+  Handle, ParameterGroupTypeId, ResourceManager, ResourceWrap, SceneGraphBackend, UniformTypeId,
+};
 
 pub struct SceneShadingParameterGroupData<T: SceneGraphBackend> {
-  pub type_id: ParameterGroupTypeId,
-  pub gpu: T::ShadingParameterGroup,
-  pub items: Vec<(UniformTypeId, ShadingParameterType<T>)>,
+  type_id: ParameterGroupTypeId,
+  gpu: T::ShadingParameterGroup,
+  items: Vec<(UniformTypeId, ShadingParameterType<T>)>,
+}
+
+impl<T: SceneGraphBackend> SceneShadingParameterGroupData<T> {
+  pub fn new(type_id: ParameterGroupTypeId, gpu: T::ShadingParameterGroup) -> Self {
+    Self {
+      type_id,
+      gpu,
+      items: Vec::new(),
+    }
+  }
+
+  pub fn type_id(&self) -> ParameterGroupTypeId {
+    self.type_id
+  }
+
+  pub fn gpu(&self) -> &T::ShadingParameterGroup {
+    &self.gpu
+  }
+
+  pub fn items(&self) -> &Vec<(UniformTypeId, ShadingParameterType<T>)> {
+    &self.items
+  }
 }
 
 pub type ParameterHandle<T> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;

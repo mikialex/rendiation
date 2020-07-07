@@ -79,11 +79,7 @@ impl World {
     let block_shading = create_block_shading(renderer, target);
     let bindgroup_index = scene
       .resources
-      .add_shading_param_group(SceneShadingParameterGroupData {
-        type_id: ParameterGroupTypeId(0), // todo
-        gpu: shading_params,
-        items: vec![], // this is a todo
-      })
+      .add_shading_param_group(SceneShadingParameterGroupData::new(ParameterGroupTypeId(0), shading_params))
       .index();
     let block_shading = scene
       .resources

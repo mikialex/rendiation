@@ -85,7 +85,7 @@ impl RenderObject<WebGLBackend> {
       let parameter_group = resources
         .get_shading_param_group(shading.get_parameter(i))
         .resource();
-      parameter_group.items.iter().for_each(|p| {
+      parameter_group.items().iter().for_each(|p| {
         use ShadingParameterType::*;
         match p.1 {
           UniformBuffer(index) => {
