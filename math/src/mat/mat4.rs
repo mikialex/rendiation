@@ -11,38 +11,6 @@ pub struct Mat4<T>
 	pub d1:T, pub d2:T, pub d3:T, pub d4:T,
 }
 
-impl<T> Add for Mat4<T>  where T:Add<Output=T>
-{
-	type Output = Mat4<T>;
-
-	fn add(self, m:Self) -> Self
-	{
-		Mat4
-		{
-			a1:self.a1 + m.a1, a2:self.a2 + m.a2, a3:self.a3 + m.a3, a4:self.a4 + m.a4,
-			b1:self.b1 + m.b1, b2:self.b2 + m.b2, b3:self.b3 + m.b3, b4:self.b4 + m.b4,
-			c1:self.c1 + m.c1, c2:self.c2 + m.c2, c3:self.c3 + m.c3, c4:self.c4 + m.c4,
-			d1:self.d1 + m.d1, d2:self.d2 + m.d2, d3:self.d3 + m.d3, d4:self.d4 + m.d4,
-		}
-	}
-}
-
-impl<T> Sub for Mat4<T>  where T:Sub<Output=T>
-{
-	type Output = Mat4<T>;
-
-	fn sub(self, m:Self) -> Self
-	{
-		Mat4
-		{
-			a1:self.a1 - m.a1, a2:self.a2 - m.a2, a3:self.a3 - m.a3, a4:self.a4 - m.a4,
-			b1:self.b1 - m.b1, b2:self.b2 - m.b2, b3:self.b3 - m.b3, b4:self.b4 - m.b4,
-			c1:self.c1 - m.c1, c2:self.c2 - m.c2, c3:self.c3 - m.c3, c4:self.c4 - m.c4,
-			d1:self.d1 - m.d1, d2:self.d2 - m.d2, d3:self.d3 - m.d3, d4:self.d4 - m.d4,
-		}
-	}
-}
-
 impl<T> Mul<Mat4<T>> for Vec3<T> where T:Copy + Add<Output=T> + Div<Output=T> + Mul<Output=T> + One
 {
 	type Output = Self;
@@ -564,16 +532,6 @@ impl<T> Mat4<T> where T:Arithmetic + Math + PiByC180
 		&self.a1
 	}
 
-	pub fn to_array(&self) -> [T; 16]
-	{
-		[
-			self.a1, self.a2, self.a3, self.a4,
-			self.b1, self.b2, self.b3, self.b4,
-			self.c1, self.c2, self.c3, self.c4,
-			self.d1, self.d2, self.d3, self.d4,
-		]
-	}
-
 	pub fn to_array_transpose(&self) -> [T; 16]
 	{
 		[
@@ -709,20 +667,6 @@ impl<T:Arithmetic> From<Dual<T>> for Mat4<T> where T:Math
 			d2:t.y,
 			d3:t.z,
 			d4:T::one()
-		}
-	}
-}
-
-impl<T> From<[T;16]> for Mat4<T> where T:Copy
-{
-	fn from(v:[T;16]) -> Self
-	{
-		Self
-		{
-			a1:v[0],a2:v[1],a3:v[2],a4:v[3],
-			b1:v[4],b2:v[5],b3:v[6],b4:v[7],
-			c1:v[8],c2:v[9],c3:v[10],c4:v[11],
-			d1:v[12],d2:v[13],d3:v[14],d4:v[15],
 		}
 	}
 }

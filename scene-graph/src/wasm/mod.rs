@@ -65,7 +65,15 @@ impl WASMScene {
   //   self.nodes.get_node_mut(handle)
   // }
 
-  pub fn create_new_node(&mut self) -> (usize, u64) {
+  #[wasm_bindgen]
+  pub fn create_new_node(&mut self) -> usize {
+    let handle = self.scene.create_new_node();
+    todo!()
+    // self.nodes.get_node_mut(handle)
+  }
+  #[wasm_bindgen]
+  pub fn get_node_g(&mut self) -> u64 {
+    todo!()
     // let handle = self.nodes.create_node(SceneNodeData::new());
     // self.nodes.get_node_mut(handle)
   }
@@ -74,6 +82,7 @@ impl WASMScene {
   //   &self.nodes.get_node(handle).data().render_data
   // }
 
+  #[wasm_bindgen]
   pub fn free_node(&mut self, h: usize, g: u64) {
     self.scene.free_node(Handle::from_raw_parts(h, g));
   }

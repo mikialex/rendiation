@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Mul};
 use crate::*;
 
 #[repr(C)]
@@ -7,38 +7,6 @@ pub struct Mat2<T>
 {
 	pub a1:T, pub a2:T,
 	pub b1:T, pub b2:T,
-}
-
-impl<T> Add for Mat2<T>  where T:Add<Output=T>
-{
-	type Output = Self;
-
-	fn add(self, b: Self) -> Self
-	{
-		Mat2
-		{
-			a1:self.a1 + b.a1,
-			a2:self.a2 + b.a2,
-			b1:self.b1 + b.b1,
-			b2:self.b2 + b.b2,
-		}
-	}
-}
-
-impl<T> Sub for Mat2<T>  where T:Sub<Output=T>
-{
-	type Output = Self;
-
-	fn sub(self, b: Self) -> Self
-	{
-		Mat2
-		{
-			a1:self.a1 - b.a1,
-			a2:self.a2 - b.a2,
-			b1:self.b1 - b.b1,
-			b2:self.b2 - b.b2,
-		}
-	}
 }
 
 impl<T> Mul for Mat2<T> where T:Copy + Mul<Output=T> + Add<Output=T>
@@ -85,13 +53,6 @@ impl<T> Mat2<T> where T:Copy
 		&self.a1
 	}
 
-	pub fn to_array(&self) -> [T; 4]
-	{
-		[
-			self.a1, self.a2,
-			self.b1, self.b2,
-		]
-	}
 }
 
 impl<T> Mat2<T> where T:Arithmetic + Math
@@ -183,18 +144,6 @@ impl<T:Arithmetic> One for Mat2<T>
 		{
 			a1:T::one(), a2:T::zero(),
 			b1:T::zero(), b2:T::one()
-		}
-	}
-}
-
-impl<T> From<[T;4]> for Mat2<T> where T:Copy
-{
-	fn from(v:[T;4]) -> Self
-	{
-		Self
-		{
-			a1:v[0],a2:v[1],
-			b1:v[2],b2:v[3],
 		}
 	}
 }

@@ -61,7 +61,7 @@ macro_rules! impl_vector {
       $VectorN::new($($field),+)
     }
 
-    impl_index_operators!($VectorN<S>, $n, S, usize);
+    impl_index_operators!($VectorN<S>, $n,  S,  usize);
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::Range<usize>);
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeTo<usize>);
     impl_index_operators!($VectorN<S>, $n, [S], std::ops::RangeFrom<usize>);
@@ -109,17 +109,17 @@ macro_rules! impl_vector {
     });
 
     impl_scalar_ops!($VectorN<usize> { $($field),+ });
-    impl_scalar_ops!($VectorN<u8> { $($field),+ });
-    impl_scalar_ops!($VectorN<u16> { $($field),+ });
-    impl_scalar_ops!($VectorN<u32> { $($field),+ });
-    impl_scalar_ops!($VectorN<u64> { $($field),+ });
+    impl_scalar_ops!($VectorN<u8>    { $($field),+ });
+    impl_scalar_ops!($VectorN<u16>   { $($field),+ });
+    impl_scalar_ops!($VectorN<u32>   { $($field),+ });
+    impl_scalar_ops!($VectorN<u64>   { $($field),+ });
     impl_scalar_ops!($VectorN<isize> { $($field),+ });
-    impl_scalar_ops!($VectorN<i8> { $($field),+ });
-    impl_scalar_ops!($VectorN<i16> { $($field),+ });
-    impl_scalar_ops!($VectorN<i32> { $($field),+ });
-    impl_scalar_ops!($VectorN<i64> { $($field),+ });
-    impl_scalar_ops!($VectorN<f32> { $($field),+ });
-    impl_scalar_ops!($VectorN<f64> { $($field),+ });
+    impl_scalar_ops!($VectorN<i8>    { $($field),+ });
+    impl_scalar_ops!($VectorN<i16>   { $($field),+ });
+    impl_scalar_ops!($VectorN<i32>   { $($field),+ });
+    impl_scalar_ops!($VectorN<i64>   { $($field),+ });
+    impl_scalar_ops!($VectorN<f32>   { $($field),+ });
+    impl_scalar_ops!($VectorN<f64>   { $($field),+ });
 
   }
 }

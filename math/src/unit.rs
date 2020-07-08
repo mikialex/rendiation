@@ -3,11 +3,15 @@ pub trait Unit {}
 pub trait LengthUnit: Unit {}
 pub trait AngleUnit: Unit {}
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
 pub struct UnitScalar<T, U: LengthUnit> {
   value: T,
   phantom: PhantomData<U>,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
 pub struct UnitAngle<T, U: AngleUnit> {
   value: T,
   phantom: PhantomData<U>,

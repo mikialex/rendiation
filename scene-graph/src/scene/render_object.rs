@@ -1,6 +1,6 @@
 use crate::{GeometryHandle, Scene, SceneGraphBackend, ShadingHandle};
-use rendiation_render_entity::BoundingData;
 use arena::Handle;
+use rendiation_render_entity::BoundingData;
 
 pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
 
@@ -11,7 +11,8 @@ pub struct RenderObject<T: SceneGraphBackend> {
 }
 
 impl<T: SceneGraphBackend> RenderObject<T> {
-  pub fn get_bounding_local(&self, _scene: &Scene<T>) -> &BoundingData {
-    todo!()
+  pub fn get_bounding_local<'a>(&self, scene: &'a Scene<T>) -> &'a BoundingData {
+    let geometry = scene.resources.get_geometry(self.geometry_index).resource();
+    geometry.get_bounding_local()
   }
 }
