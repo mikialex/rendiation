@@ -1,8 +1,4 @@
-use super::consts::{One, Zero};
-use super::math::Math;
-use super::vec::{Lerp, Slerp, Vec};
-use super::vec3::Vec3;
-use super::vec4::Vec4;
+use crate::*;
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -255,7 +251,7 @@ where
 
 impl<T> Quat<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   pub fn rotation_x(theta: T) -> Self {
     let theta_half = theta * T::half();
@@ -769,7 +765,7 @@ where
 
 impl<T> Slerp<T> for Quat<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -827,7 +823,7 @@ where
 
 impl<T> fmt::Binary for Quat<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

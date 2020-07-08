@@ -26,4 +26,7 @@ pub trait SceneGraphBackend {
   type VertexBuffer;
   type UniformBuffer;
   type UniformValue;
+  // type Texture;
+  // type Sampler;
+  // type SampledTexture;
 }

@@ -1,5 +1,6 @@
-use crate::{Handle, ResourceManager, ResourceWrap, SceneGraphBackend, AttributeTypeId};
-use std::{marker::PhantomData, ops::Range};
+use crate::{AttributeTypeId, Handle, ResourceManager, ResourceWrap, SceneGraphBackend};
+use rendiation_render_entity::BoundingData;
+use std::{ops::Range};
 
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::IndexBuffer>>;
 pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::VertexBuffer>>;
@@ -9,7 +10,6 @@ pub struct SceneGeometryData<T: SceneGraphBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
-  phantom: PhantomData<T>,
 }
 
 impl<T: SceneGraphBackend> SceneGeometryData<T> {
@@ -18,8 +18,11 @@ impl<T: SceneGraphBackend> SceneGeometryData<T> {
       draw_range: 0..0,
       index_buffer: None,
       vertex_buffers: Vec::new(),
-      phantom: PhantomData,
     }
+  }
+
+  pub fn get_bounding_local(&self) -> &BoundingData {
+    todo!()
   }
 }
 

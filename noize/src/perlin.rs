@@ -1,5 +1,4 @@
-use rendiation_math::vec::Lerp;
-use rendiation_math::{One, Vec3};
+use rendiation_math::*;
 
 /// https://flafla2.github.io/2014/08/09/perlinnoise.html
 pub struct PerlinNoise {

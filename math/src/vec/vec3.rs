@@ -1,11 +1,6 @@
-use super::consts::{One, UnitX, UnitY, UnitZ, Zero};
-use super::math::Math;
-use super::vec::{Lerp, Slerp, Vec};
-use crate::mat4::Mat4;
+use crate::*;
 use std::fmt;
 use std::fmt::Debug;
-use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -15,226 +10,10 @@ pub struct Vec3<T> {
   pub z: T,
 }
 
-impl<T> Neg for Vec3<T>
-where
-  T: Neg<Output = T>,
-{
-  type Output = Self;
-
-  fn neg(self) -> Self {
-    Self {
-      x: -self.x,
-      y: -self.y,
-      z: -self.z,
-    }
-  }
-}
-
-impl<T> Add for Vec3<T>
-where
-  T: Add<Output = T>,
-{
-  type Output = Self;
-
-  fn add(self, other: Self) -> Self {
-    Self {
-      x: self.x + other.x,
-      y: self.y + other.y,
-      z: self.z + other.z,
-    }
-  }
-}
-
-impl<T> Sub for Vec3<T>
-where
-  T: Sub<Output = T>,
-{
-  type Output = Self;
-
-  fn sub(self, other: Self) -> Self {
-    Self {
-      x: self.x - other.x,
-      y: self.y - other.y,
-      z: self.z - other.z,
-    }
-  }
-}
-
-impl<T> Mul<T> for Vec3<T>
-where
-  T: Mul<Output = T> + Copy,
-{
-  type Output = Self;
-
-  fn mul(self, s: T) -> Self {
-    Self {
-      x: self.x * s,
-      y: self.y * s,
-      z: self.z * s,
-    }
-  }
-}
-
-impl<T> Mul for Vec3<T>
-where
-  T: Mul<Output = T>,
-{
-  type Output = Self;
-
-  fn mul(self, other: Self) -> Self {
-    Self {
-      x: self.x * other.x,
-      y: self.y * other.y,
-      z: self.z * other.z,
-    }
-  }
-}
-
-impl<T> Div<T> for Vec3<T>
-where
-  T: Div<Output = T> + Copy,
-{
-  type Output = Self;
-
-  fn div(self, s: T) -> Self {
-    Self {
-      x: self.x / s,
-      y: self.y / s,
-      z: self.z / s,
-    }
-  }
-}
-
-impl<T> Div for Vec3<T>
-where
-  T: Div<Output = T>,
-{
-  type Output = Self;
-
-  fn div(self, other: Self) -> Self {
-    Self {
-      x: self.x / other.x,
-      y: self.y / other.y,
-      z: self.z / other.z,
-    }
-  }
-}
-
-impl<T> AddAssign for Vec3<T>
-where
-  T: AddAssign<T>,
-{
-  fn add_assign(&mut self, other: Self) {
-    self.x += other.x;
-    self.y += other.y;
-    self.z += other.z;
-  }
-}
-
-impl<T> SubAssign for Vec3<T>
-where
-  T: SubAssign<T>,
-{
-  fn sub_assign(&mut self, other: Self) {
-    self.x -= other.x;
-    self.y -= other.y;
-    self.z -= other.z;
-  }
-}
-
-impl<T> MulAssign<T> for Vec3<T>
-where
-  T: MulAssign<T> + Copy,
-{
-  fn mul_assign(&mut self, s: T) {
-    self.x *= s;
-    self.y *= s;
-    self.z *= s;
-  }
-}
-
-impl<T> MulAssign for Vec3<T>
-where
-  T: MulAssign<T>,
-{
-  fn mul_assign(&mut self, other: Self) {
-    self.x *= other.x;
-    self.y *= other.y;
-    self.z *= other.z;
-  }
-}
-
-impl<'a, T> MulAssign<&'a T> for Vec3<T>
-where
-  T: MulAssign<T> + Copy,
-{
-  fn mul_assign(&mut self, other: &'a T) {
-    self.x *= *other;
-    self.y *= *other;
-    self.z *= *other;
-  }
-}
-
-impl<T> DivAssign<T> for Vec3<T>
-where
-  T: DivAssign<T> + Copy,
-{
-  fn div_assign(&mut self, s: T) {
-    self.x /= s;
-    self.y /= s;
-    self.z /= s;
-  }
-}
-
-impl<T> DivAssign for Vec3<T>
-where
-  T: DivAssign<T>,
-{
-  fn div_assign(&mut self, other: Self) {
-    self.x /= other.x;
-    self.y /= other.y;
-    self.z /= other.z;
-  }
-}
-
-impl<'a, T> DivAssign<&'a T> for Vec3<T>
-where
-  T: DivAssign<T> + Copy,
-{
-  fn div_assign(&mut self, s: &'a T) {
-    self.x /= *s;
-    self.y /= *s;
-    self.z /= *s;
-  }
-}
-
 impl<T> Vec3<T>
 where
   T: Copy,
 {
-  /// Creates a new Vec3 from multiple components
-  #[inline(always)]
-  pub fn new(x: T, y: T, z: T) -> Self {
-    Self { x, y, z }
-  }
-
-  #[inline(always)]
-  pub fn map<U>(self, mapper: impl Fn(T) -> U) -> Vec3<U> {
-    let mx = mapper(self.x);
-    let my = mapper(self.y);
-    let mz = mapper(self.z);
-    Vec3::<U> {
-      x: mx,
-      y: my,
-      z: mz,
-    }
-  }
-
-  /// return the length of element
-  #[inline(always)]
-  pub fn len() -> usize {
-    return 3;
-  }
 
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T) {
@@ -244,10 +23,10 @@ where
 
 impl<T> Vec3<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   /// input: Matrix4 affine matrix
-  /// 
+  ///
   /// vector interpreted as a direction
   #[inline]
   pub fn transform_direction(&self, m: Mat4<T>) -> Self {
@@ -308,7 +87,6 @@ where
   pub fn max_channel(self) -> T {
     self.x.max(self.y).max(self.z)
   }
-
 }
 
 impl<T> Vec3<T> {
@@ -620,9 +398,7 @@ where
   }
 }
 
-impl<T> Lerp<T> for Vec3<T>
-where
-  T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
+impl<T: Arithmetic> Lerp<T> for Vec3<T>
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
@@ -632,7 +408,7 @@ where
 
 impl<T> Slerp<T> for Vec3<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -726,39 +502,13 @@ where
 
 impl<T> fmt::Binary for Vec3<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();
     let decimals = f.precision().unwrap_or(3);
     let string = format!("{:.*?}", decimals, len);
     f.pad_integral(true, "", &string)
-  }
-}
-
-impl<T> From<[T; 3]> for Vec3<T>
-where
-  T: Copy,
-{
-  fn from(v: [T; 3]) -> Self {
-    Self {
-      x: v[0],
-      y: v[1],
-      z: v[2],
-    }
-  }
-}
-
-impl<T> From<(T, T, T)> for Vec3<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T, T)) -> Self {
-    Self {
-      x: v.0,
-      y: v.1,
-      z: v.2,
-    }
   }
 }
 

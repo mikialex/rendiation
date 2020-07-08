@@ -1,12 +1,7 @@
-use super::consts::{One, UnitX, UnitY, Zero};
-use super::math::Math;
-use super::vec::Vec;
-use super::vec::{Lerp, Slerp};
+use crate::*;
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
-
-pub mod operator;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -19,17 +14,6 @@ impl<T> Vec2<T>
 where
   T: Copy,
 {
-  /// Creates a new Vec2 from multiple components
-  #[inline(always)]
-  pub fn new(x: T, y: T) -> Self {
-    Self { x, y }
-  }
-
-  /// return the length of element
-  #[inline(always)]
-  pub fn len() -> usize {
-    return 2;
-  }
 
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T) {
@@ -39,7 +23,7 @@ where
 
 impl<T> Vec2<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   #[inline]
   pub fn rotate(&self, anchor: Self, radians: T) -> Self {
@@ -267,7 +251,7 @@ where
   }
 }
 
-impl<T> Lerp<T> for Vec2<T>
+impl<T: Arithmetic> Lerp<T> for Vec2<T>
 where
   T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
 {
@@ -279,7 +263,7 @@ where
 
 impl<T> Slerp<T> for Vec2<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -355,31 +339,13 @@ where
 
 impl<T> fmt::Binary for Vec2<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();
     let decimals = f.precision().unwrap_or(3);
     let string = format!("{:.*?}", decimals, len);
     f.pad_integral(true, "", &string)
-  }
-}
-
-impl<T> From<[T; 2]> for Vec2<T>
-where
-  T: Copy,
-{
-  fn from(v: [T; 2]) -> Self {
-    Self { x: v[0], y: v[1] }
-  }
-}
-
-impl<T> From<(T, T)> for Vec2<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T)) -> Self {
-    Self { x: v.0, y: v.1 }
   }
 }
 

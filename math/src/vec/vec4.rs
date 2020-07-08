@@ -1,11 +1,6 @@
-use super::consts::{One, UnitW, UnitX, UnitY, UnitZ, Zero};
-use super::vec::{Lerp, Slerp, Vec};
-use super::math::Math;
-use super::vec3::Vec3;
+use crate::*;
 use std::fmt;
 use std::fmt::Debug;
-use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -16,228 +11,10 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
-impl<T> Neg for Vec4<T>
-where
-  T: Neg<Output = T>,
-{
-  type Output = Self;
-
-  fn neg(self) -> Self {
-    Self {
-      x: -self.x,
-      y: -self.y,
-      z: -self.z,
-      w: -self.w,
-    }
-  }
-}
-
-impl<T> Add for Vec4<T>
-where
-  T: Add<Output = T>,
-{
-  type Output = Self;
-
-  fn add(self, other: Self) -> Self {
-    Self {
-      x: self.x + other.x,
-      y: self.y + other.y,
-      z: self.z + other.z,
-      w: self.w + other.w,
-    }
-  }
-}
-
-impl<T> Sub for Vec4<T>
-where
-  T: Sub<Output = T>,
-{
-  type Output = Self;
-
-  fn sub(self, other: Self) -> Self {
-    Self {
-      x: self.x - other.x,
-      y: self.y - other.y,
-      z: self.z - other.z,
-      w: self.w - other.w,
-    }
-  }
-}
-
-impl<T> Mul<T> for Vec4<T>
-where
-  T: Mul<Output = T> + Copy,
-{
-  type Output = Self;
-
-  fn mul(self, s: T) -> Self {
-    Self {
-      x: self.x * s,
-      y: self.y * s,
-      z: self.z * s,
-      w: self.w * s,
-    }
-  }
-}
-
-impl<T> Mul for Vec4<T>
-where
-  T: Mul<Output = T>,
-{
-  type Output = Self;
-
-  fn mul(self, other: Self) -> Self {
-    Self {
-      x: self.x * other.x,
-      y: self.y * other.y,
-      z: self.z * other.z,
-      w: self.w * other.w,
-    }
-  }
-}
-
-impl<T> Div<T> for Vec4<T>
-where
-  T: Div<Output = T> + Copy,
-{
-  type Output = Self;
-
-  fn div(self, s: T) -> Self {
-    Self {
-      x: self.x / s,
-      y: self.y / s,
-      z: self.z / s,
-      w: self.w / s,
-    }
-  }
-}
-
-impl<T> Div for Vec4<T>
-where
-  T: Div<Output = T>,
-{
-  type Output = Self;
-
-  fn div(self, other: Self) -> Self {
-    Self {
-      x: self.x / other.x,
-      y: self.y / other.y,
-      z: self.z / other.z,
-      w: self.w / other.w,
-    }
-  }
-}
-
-impl<T> AddAssign for Vec4<T>
-where
-  T: AddAssign<T>,
-{
-  fn add_assign(&mut self, other: Self) {
-    self.x += other.x;
-    self.y += other.y;
-    self.z += other.z;
-    self.w += other.w;
-  }
-}
-
-impl<T> SubAssign for Vec4<T>
-where
-  T: SubAssign<T>,
-{
-  fn sub_assign(&mut self, other: Self) {
-    self.x -= other.x;
-    self.y -= other.y;
-    self.z -= other.z;
-    self.w -= other.w;
-  }
-}
-
-impl<T> MulAssign<T> for Vec4<T>
-where
-  T: MulAssign<T> + Copy,
-{
-  fn mul_assign(&mut self, s: T) {
-    self.x *= s;
-    self.y *= s;
-    self.z *= s;
-    self.w *= s;
-  }
-}
-
-impl<T> MulAssign for Vec4<T>
-where
-  T: MulAssign<T>,
-{
-  fn mul_assign(&mut self, other: Self) {
-    self.x *= other.x;
-    self.y *= other.y;
-    self.z *= other.z;
-    self.w *= other.w;
-  }
-}
-
-impl<'a, T> MulAssign<&'a T> for Vec4<T>
-where
-  T: MulAssign<T> + Copy,
-{
-  fn mul_assign(&mut self, other: &'a T) {
-    self.x *= *other;
-    self.y *= *other;
-    self.z *= *other;
-    self.w *= *other;
-  }
-}
-
-impl<T> DivAssign<T> for Vec4<T>
-where
-  T: DivAssign<T> + Copy,
-{
-  fn div_assign(&mut self, s: T) {
-    self.x /= s;
-    self.y /= s;
-    self.z /= s;
-    self.w /= s;
-  }
-}
-
-impl<T> DivAssign for Vec4<T>
-where
-  T: DivAssign<T>,
-{
-  fn div_assign(&mut self, other: Self) {
-    self.x /= other.x;
-    self.y /= other.y;
-    self.z /= other.z;
-    self.w /= other.w;
-  }
-}
-
-impl<'a, T> DivAssign<&'a T> for Vec4<T>
-where
-  T: DivAssign<T> + Copy,
-{
-  fn div_assign(&mut self, s: &'a T) {
-    self.x /= *s;
-    self.y /= *s;
-    self.z /= *s;
-    self.w /= *s;
-  }
-}
-
 impl<T> Vec4<T>
 where
   T: Copy,
 {
-  /// Creates a new Vec4 from multiple components
-  #[inline(always)]
-  pub fn new(x: T, y: T, z: T, w: T) -> Self {
-    Self { x, y, z, w }
-  }
-
-  #[inline(always)]
-  pub fn len() -> usize {
-    return 4;
-  }
 
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T, T) {
@@ -247,7 +24,7 @@ where
 
 impl<T> Vec4<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   #[inline]
   pub fn dot(&self, b: Self) -> T {
@@ -636,10 +413,7 @@ where
   }
 }
 
-impl<T> Lerp<T> for Vec4<T>
-where
-  T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
-{
+impl<T: Arithmetic> Lerp<T> for Vec4<T> {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
     return self * (T::one() - t) + b * t;
@@ -648,7 +422,7 @@ where
 
 impl<T> Slerp<T> for Vec4<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -766,68 +540,13 @@ where
 
 impl<T> fmt::Binary for Vec4<T>
 where
-  T: Vec + Math,
+  T: Arithmetic + Math,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();
     let decimals = f.precision().unwrap_or(3);
     let string = format!("{:.*?}", decimals, len);
     f.pad_integral(true, "", &string)
-  }
-}
-
-impl<T> From<Vec3<T>> for Vec4<T>
-where
-  T: Copy + One,
-{
-  fn from(v: Vec3<T>) -> Self {
-    Self {
-      x: v.x,
-      y: v.y,
-      z: v.z,
-      w: T::one(),
-    }
-  }
-}
-
-impl<T> From<Vec4<T>> for Vec3<T>
-where
-  T: Copy + Div<Output = T>,
-{
-  fn from(v: Vec4<T>) -> Self {
-    Self {
-      x: v.x / v.w,
-      y: v.y / v.w,
-      z: v.z / v.w,
-    }
-  }
-}
-
-impl<T> From<[T; 4]> for Vec4<T>
-where
-  T: Copy,
-{
-  fn from(v: [T; 4]) -> Self {
-    Self {
-      x: v[0],
-      y: v[1],
-      z: v[2],
-      w: v[3],
-    }
-  }
-}
-
-impl<T> From<(T, T, T, T)> for Vec4<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T, T, T)) -> Self {
-    Self {
-      x: v.0,
-      y: v.1,
-      z: v.2,
-      w: v.3,
-    }
   }
 }
 

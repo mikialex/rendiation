@@ -1,12 +1,5 @@
 use std::ops::{Add, Sub, Mul, Div};
-use super::vec::Vec;
-use super::math::Math;
-use super::vec3::Vec3;
-use super::vec4::Vec4;
-use super::quat::Quat;
-use super::dual::Dual;
-use super::mat3::Mat3;
-use super::consts::{Zero, One, PiByC180};
+use crate::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -16,38 +9,6 @@ pub struct Mat4<T>
 	pub b1:T, pub b2:T, pub b3:T, pub b4:T,
 	pub c1:T, pub c2:T, pub c3:T, pub c4:T,
 	pub d1:T, pub d2:T, pub d3:T, pub d4:T,
-}
-
-impl<T> Add for Mat4<T>  where T:Add<Output=T>
-{
-	type Output = Mat4<T>;
-
-	fn add(self, m:Self) -> Self
-	{
-		Mat4
-		{
-			a1:self.a1 + m.a1, a2:self.a2 + m.a2, a3:self.a3 + m.a3, a4:self.a4 + m.a4,
-			b1:self.b1 + m.b1, b2:self.b2 + m.b2, b3:self.b3 + m.b3, b4:self.b4 + m.b4,
-			c1:self.c1 + m.c1, c2:self.c2 + m.c2, c3:self.c3 + m.c3, c4:self.c4 + m.c4,
-			d1:self.d1 + m.d1, d2:self.d2 + m.d2, d3:self.d3 + m.d3, d4:self.d4 + m.d4,
-		}
-	}
-}
-
-impl<T> Sub for Mat4<T>  where T:Sub<Output=T>
-{
-	type Output = Mat4<T>;
-
-	fn sub(self, m:Self) -> Self
-	{
-		Mat4
-		{
-			a1:self.a1 - m.a1, a2:self.a2 - m.a2, a3:self.a3 - m.a3, a4:self.a4 - m.a4,
-			b1:self.b1 - m.b1, b2:self.b2 - m.b2, b3:self.b3 - m.b3, b4:self.b4 - m.b4,
-			c1:self.c1 - m.c1, c2:self.c2 - m.c2, c3:self.c3 - m.c3, c4:self.c4 - m.c4,
-			d1:self.d1 - m.d1, d2:self.d2 - m.d2, d3:self.d3 - m.d3, d4:self.d4 - m.d4,
-		}
-	}
 }
 
 impl<T> Mul<Mat4<T>> for Vec3<T> where T:Copy + Add<Output=T> + Div<Output=T> + Mul<Output=T> + One
@@ -181,10 +142,9 @@ impl<T> Mul for Mat4<T> where T:Copy + Mul<Output=T> + Add<Output=T>
 	}
 }
 
-impl<T> Mat4<T> where T: Copy
-{
+impl<T: Sized> Mat4<T> {
 	#[clippy::skip]
-	pub fn new(
+	pub const fn new(
 		m11:T, m12:T, m13:T, m14:T, 
 		m21:T, m22:T, m23:T, m24:T, 
 		m31:T, m32:T, m33:T, m34:T, 
@@ -198,7 +158,11 @@ impl<T> Mat4<T> where T: Copy
 			d1:m41, d2:m42, d3:m43, d4:m44,
 		}
 	}
+}
 
+
+impl<T> Mat4<T> where T: Copy
+{
 	pub fn right(&self) -> Vec3<T>
 	{
 		Vec3::new(self.a1, self.a2, self.a3)
@@ -220,7 +184,7 @@ impl<T> Mat4<T> where T: Copy
 	}
 }
 
-impl<T> Mat4<T> where T:Vec + Math + PiByC180
+impl<T> Mat4<T> where T:Arithmetic + Math + PiByC180
 {
 	pub fn rotate_x(theta:T) -> Self
 	{
@@ -568,16 +532,6 @@ impl<T> Mat4<T> where T:Vec + Math + PiByC180
 		&self.a1
 	}
 
-	pub fn to_array(&self) -> [T; 16]
-	{
-		[
-			self.a1, self.a2, self.a3, self.a4,
-			self.b1, self.b2, self.b3, self.b4,
-			self.c1, self.c2, self.c3, self.c4,
-			self.d1, self.d2, self.d3, self.d4,
-		]
-	}
-
 	pub fn to_array_transpose(&self) -> [T; 16]
 	{
 		[
@@ -629,7 +583,7 @@ impl<T> One for Mat4<T> where T:One + Zero
 	}
 }
 
-impl<T:Vec> From<Mat3<T>> for Mat4<T>
+impl<T:Arithmetic> From<Mat3<T>> for Mat4<T>
 {
 	fn from(m:Mat3<T>) -> Self
 	{
@@ -643,7 +597,7 @@ impl<T:Vec> From<Mat3<T>> for Mat4<T>
 	}
 }
 
-impl<T:Vec> From<Quat<T>> for Mat4<T>
+impl<T:Arithmetic> From<Quat<T>> for Mat4<T>
 {
 	fn from(q:Quat<T>) -> Self
 	{
@@ -678,7 +632,7 @@ impl<T:Vec> From<Quat<T>> for Mat4<T>
 	}
 }
 
-impl<T:Vec> From<Dual<T>> for Mat4<T> where T:Math
+impl<T:Arithmetic> From<Dual<T>> for Mat4<T> where T:Math
 {
 	fn from(dual:Dual<T>) -> Self
 	{
@@ -713,20 +667,6 @@ impl<T:Vec> From<Dual<T>> for Mat4<T> where T:Math
 			d2:t.y,
 			d3:t.z,
 			d4:T::one()
-		}
-	}
-}
-
-impl<T> From<[T;16]> for Mat4<T> where T:Copy
-{
-	fn from(v:[T;16]) -> Self
-	{
-		Self
-		{
-			a1:v[0],a2:v[1],a3:v[2],a4:v[3],
-			b1:v[4],b2:v[5],b3:v[6],b4:v[7],
-			c1:v[8],c2:v[9],c3:v[10],c4:v[11],
-			d1:v[12],d2:v[13],d3:v[14],d4:v[15],
 		}
 	}
 }

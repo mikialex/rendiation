@@ -6,7 +6,6 @@ use core::any::Any;
 use rendiation_math::*;
 pub use quad::*;
 use crate::{event::Event, renderer::GUIRenderer};
-// pub mod tree;
 
 pub struct Message<'a> {
   target: &'a mut dyn Any,
@@ -29,7 +28,6 @@ pub struct ElementState{
   is_hover: bool,
   is_focus: bool,
   z_index: i32,
-  
 }
 
 impl ElementState{

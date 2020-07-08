@@ -1,6 +1,7 @@
 // https://github.com/glium/glium/blob/master/src/uniforms/value.rs
 
-use crate::{WebGLProgram, WebGLRenderer, UniformTypeId};
+use crate::{UniformTypeId, WebGLProgram, WebGLRenderer};
+use rendiation_math::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UniformType {
@@ -26,16 +27,16 @@ pub enum UniformType {
 #[derive(Copy, Clone)]
 pub enum UniformValue {
   /// 2x2 column-major matrix.
-  Mat2([[f32; 2]; 2]),
+  Mat2(Mat2<f32>),
   /// 3x3 column-major matrix.
-  Mat3([[f32; 3]; 3]),
+  Mat3(Mat3<f32>),
   /// 4x4 column-major matrix.
-  Mat4([[f32; 4]; 4]),
+  Mat4(Mat4<f32>),
 
   Float(f32),
-  Vec2([f32; 2]),
-  Vec3([f32; 3]),
-  Vec4([f32; 4]),
+  Vec2(Vec2<f32>),
+  Vec3(Vec3<f32>),
+  Vec4(Vec4<f32>),
 
   Int(i32),
   IntVec2([i32; 2]),
@@ -60,6 +61,22 @@ impl WebGLProgram {
     use UniformValue::*;
     match value {
       Float(v) => gl.uniform1fv_with_f32_array(Some(location), &[*v; 1]),
+      Vec2(v) => {
+        let slice: &[f32; 2] = v.as_ref();
+        gl.uniform1fv_with_f32_array(Some(location), slice)
+      }
+      Vec3(v) => {
+        let slice: &[f32; 3] = v.as_ref();
+        gl.uniform1fv_with_f32_array(Some(location), slice)
+      }
+      Vec4(v) => {
+        let slice: &[f32; 4] = v.as_ref();
+        gl.uniform1fv_with_f32_array(Some(location), slice)
+      }
+      // Mat2(v) => {
+      //   let slice: &[f32; 4] = v.as_ref();
+      //   gl.uniform1fv_with_f32_array(Some(location), slice)
+      // }
       _ => {}
     }
   }
