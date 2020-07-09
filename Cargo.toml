@@ -7,6 +7,8 @@ members = [
     "webgpu-derives",
     "render-graph",
     "scene-graph",
+    "shader-graph",
+    "shader-graph-derives",
     "rendium",
     "rinecraft",
     "rivermesh",

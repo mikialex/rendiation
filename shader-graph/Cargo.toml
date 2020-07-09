@@ -1,0 +1,9 @@
+[package]
+name = "rendiation-shadergraph"
+version = "0.1.0"
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+
+[dependencies]
+arena-graph = { path = "../utils/arena-graph" }
+rendiation-shadergraph-derives = { path = "../shader-graph-derives" }
