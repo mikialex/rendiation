@@ -16,3 +16,9 @@ pub struct AnyType{}
 pub trait ShaderGraphDecorator {
   fn decorate(&self, graph: &mut ShaderGraph);
 }
+
+
+pub trait StaticShaderFunction{
+  fn name() -> &'static str;
+  fn source() -> &'static str;
+}

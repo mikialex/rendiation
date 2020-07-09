@@ -12,3 +12,9 @@ vec3 uncharted2ToneMapping(
 }
 
 ");
+
+#[test]
+fn test(){
+  let a = uncharted2ToneMappingFunction::name();
+  println!("{}", uncharted2ToneMappingFunction::name());
+}
