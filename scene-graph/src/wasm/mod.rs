@@ -1,4 +1,4 @@
-use crate::{ResourceManager, Scene, WebGLBackend};
+use crate::{Scene, WebGLBackend};
 use arena::Handle;
 use wasm_bindgen::prelude::*;
 
@@ -67,7 +67,7 @@ impl WASMScene {
 
   #[wasm_bindgen]
   pub fn create_new_node(&mut self) -> usize {
-    let handle = self.scene.create_new_node();
+    let _handle = self.scene.create_new_node();
     todo!()
     // self.nodes.get_node_mut(handle)
   }
@@ -105,17 +105,17 @@ impl WASMScene {
   // }
 }
 
-#[wasm_bindgen]
-pub struct WASMResourceManager {
-  manager: ResourceManager<WebGLBackend>,
-}
+// #[wasm_bindgen]
+// pub struct WASMResourceManager {
+//   manager: ResourceManager<WebGLBackend>,
+// }
 
-#[wasm_bindgen]
-impl WASMResourceManager {
-  #[wasm_bindgen]
-  pub fn new() -> Self {
-    Self {
-      manager: ResourceManager::new(),
-    }
-  }
-}
+// #[wasm_bindgen]
+// impl WASMResourceManager {
+//   #[wasm_bindgen]
+//   pub fn new() -> Self {
+//     Self {
+//       manager: ResourceManager::new(),
+//     }
+//   }
+// }

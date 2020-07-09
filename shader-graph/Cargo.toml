@@ -7,4 +7,3 @@ edition = "2018"
 [dependencies]
 lazy_static = "1.4.0"
 arena-graph = { path = "../utils/arena-graph" }
-rendiation-shadergraph-derives = { path = "../shader-graph-derives" }

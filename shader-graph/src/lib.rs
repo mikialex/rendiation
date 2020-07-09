@@ -16,7 +16,3 @@ pub struct AnyType{}
 pub trait ShaderGraphDecorator {
   fn decorate(&self, graph: &mut ShaderGraph);
 }
-
-struct ToneMapping {
-  value: f32,
-}

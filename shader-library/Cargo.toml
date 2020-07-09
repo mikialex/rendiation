@@ -1,16 +1,10 @@
 [package]
-name = "rendiation-shadergraph-derives"
+name = "rendiation-shader-library"
 version = "0.1.0"
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
 
-[lib]
-proc-macro = true
-
 [dependencies]
-glsl = "4.1.1"
-syn = "1.0.11"
-quote = "1.0.2"
-proc-macro2 = "1.0.4"
 rendiation-math = { path = "../math" }
 rendiation-shadergraph = { path = "../shader-graph" }
+rendiation-shadergraph-derives = { path = "../shader-graph-derives" }

@@ -9,6 +9,7 @@ members = [
     "scene-graph",
     "shader-graph",
     "shader-graph-derives",
+    "shader-library",
     "rendium",
     "rinecraft",
     "rivermesh",
