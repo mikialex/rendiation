@@ -1641,6 +1641,7 @@ name = "rendiation-shadergraph"
 version = "0.1.0"
 dependencies = [
  "arena-graph 0.0.1",
+ "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rendiation-shadergraph-derives 0.1.0",
 ]
 
