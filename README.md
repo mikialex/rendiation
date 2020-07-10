@@ -26,6 +26,8 @@ RendiationWebGL for WebGL2. // planed
 
 [SceneGraph](./scene-graph/README.md) for backEnd agnostic 3D scene description and rendering;
 
+[ShaderGraph](./shader-graph/README.md) as a shader linker, for Shading Abstraction Layer;
+
 RenderGraph for backEnd agnostic multi-pass dependency resolve and composition;
 
 Rendium for UI system.
