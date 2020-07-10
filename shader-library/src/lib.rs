@@ -1,7 +1,7 @@
 use rendiation_shadergraph_derives::glsl_function;
+use rendiation_shadergraph::*;
 
-glsl_function!(
-"
+glsl_function!("
 vec3 uncharted2ToneMapping(
   vec3 intensity, 
   float toneMappingExposure,
@@ -10,11 +10,10 @@ vec3 uncharted2ToneMapping(
   intensity *= toneMappingExposure;
   return Uncharted2Helper(intensity) / Uncharted2Helper(vec3(toneMappingWhitePoint));
 }
-
 ");
 
 #[test]
 fn test(){
-  let a = uncharted2ToneMappingFunction::name();
-  println!("{}", uncharted2ToneMappingFunction::name());
+  // let a = uncharted2ToneMappingFunction::name();
+  // println!("{}", uncharted2ToneMappingFunction::name());
 }

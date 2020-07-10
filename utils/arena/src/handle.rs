@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData, cmp};
+use std::{cmp, hash::Hash, marker::PhantomData};
 
 /// An handle (and generation) into an `Arena`.
 ///
@@ -22,6 +22,11 @@ pub struct Handle<T> {
 }
 
 impl<T> Handle<T> {
+  pub unsafe fn cast_type<U>(&self) -> Handle<U> {
+    let t: &Handle<U> = std::mem::transmute(self);
+    *t
+  }
+
   /// Create a new `Handle` from its raw parts.
   ///
   /// The parts must have been returned from an earlier call to
@@ -83,11 +88,10 @@ impl<T> Ord for Handle<T> {
 impl<T> Eq for Handle<T> {}
 
 impl<T> Hash for Handle<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-      self.handle.hash(state);
-    }
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.handle.hash(state);
+  }
 }
-
 
 // // impl for Handle<Handle<T>>
 // impl<T> Clone for Handle<Handle<T>> {
