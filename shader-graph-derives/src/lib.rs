@@ -104,7 +104,7 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
 //     .create_node(ShaderGraphNode::new(ShaderGraphNodeData::Function(
 //       FunctionNode {
 //         function_name: "test",
-//         function_source: "sdfsdfadsfadfsdf",
+//         function_source: "source",
 //       },
 //     )));
 //   unsafe {
