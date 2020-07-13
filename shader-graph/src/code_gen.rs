@@ -8,7 +8,7 @@ struct CodeGenCtx {
 }
 
 impl CodeGenCtx {
-  pub fn add_node_result(&mut self, mut result: MiddleVariableCodeGenResult) -> &str {
+  fn add_node_result(&mut self, mut result: MiddleVariableCodeGenResult) -> &str {
     result.var_name = format!("{}", self.var_guid);
     self.var_guid += 1;
     self
@@ -17,6 +17,10 @@ impl CodeGenCtx {
       .or_insert(result)
       .expression_str
       .as_str()
+  }
+
+  fn gen_function_depends(&self, builder: &mut CodeBuilder) {
+    todo!()
   }
 }
 
@@ -93,6 +97,23 @@ impl ShaderGraph {
       &mut ctx,
       &mut builder,
     );
+
+    builder.write_ln("").un_tab().write_ln("}");
+    builder.output()
+  }
+
+  pub fn gen_code_frag(&self) -> String {
+    let mut builder = CodeBuilder::new();
+    builder.write_ln("void main() {").tab();
+
+    let mut ctx = CodeGenCtx {
+      var_guid: 0,
+      code_gen_history: HashMap::new(),
+    };
+
+    self.frag_outputs.iter().for_each(|&v| {
+      self.gen_code_node(v, &mut ctx, &mut builder);
+    });
 
     builder.write_ln("").un_tab().write_ln("}");
     builder.output()
