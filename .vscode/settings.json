@@ -60,6 +60,7 @@
         "spirv",
         "swapchain",
         "texels",
+        "varyings",
         "vsync",
         "wasm",
         "webgl",
