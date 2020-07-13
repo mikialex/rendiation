@@ -2,7 +2,7 @@ use arena_graph::*;
 use std::marker::PhantomData;
 
 use lazy_static::lazy_static;
-use std::sync::Mutex;
+use std::{collections::HashSet, sync::Mutex};
 
 mod code_gen;
 pub mod nodes;
@@ -18,6 +18,8 @@ pub type ShaderGraphNodeHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
 
 pub struct ShaderGraph {
+  pub uniforms: HashSet<ShaderGraphNodeHandleUntyped>,
+  pub attributes: HashSet<ShaderGraphNodeHandleUntyped>,
   pub nodes: ArenaGraph<ShaderGraphNode<AnyType>>,
 }
 
@@ -25,6 +27,8 @@ impl ShaderGraph {
   fn new() -> Self {
     Self {
       nodes: ArenaGraph::new(),
+      uniforms: HashSet::new(),
+      attributes: HashSet::new(),
     }
   }
 }
@@ -51,8 +55,8 @@ impl ShaderGraphBuilder {
 
 pub struct ShaderGraphNode<T> {
   phantom: PhantomData<T>,
-  data: ShaderGraphNodeData,
-  node_type: NodeType
+  pub data: ShaderGraphNodeData,
+  pub node_type: NodeType,
 }
 
 impl<T> ShaderGraphNode<T> {
@@ -60,18 +64,27 @@ impl<T> ShaderGraphNode<T> {
     Self {
       data,
       phantom: PhantomData,
-      node_type
+      node_type,
     }
   }
 }
 
 pub enum ShaderGraphNodeData {
   Function(FunctionNode),
-  Uniform(UniformNode),
-  Attribute(AttributeNode),
+  Input(ShaderGraphInputNode),
 }
 
-pub struct ShaderFunction{
+pub struct ShaderGraphInputNode {
+  node_type: ShaderGraphInputNodeType,
+  name: String,
+}
+
+pub enum ShaderGraphInputNodeType {
+  Uniform,
+  Attribute,
+}
+
+pub struct ShaderFunction {
   pub function_name: &'static str,
   pub function_source: &'static str,
 }

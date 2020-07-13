@@ -1,16 +1,3 @@
-pub trait ShaderInputNode {}
-
-pub struct UniformNode {
-  name: String,
-}
-
-impl ShaderInputNode for UniformNode {}
-
-pub struct AttributeNode {
-  name: String,
-}
-
-impl ShaderInputNode for AttributeNode {}
 
 pub enum NodeType {
   Float,
