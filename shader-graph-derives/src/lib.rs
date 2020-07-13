@@ -6,7 +6,7 @@ use quote::{format_ident, quote};
 use syn::parse_macro_input;
 
 #[proc_macro]
-pub fn glsl(input: TokenStream) -> TokenStream {
+pub fn glsl(_input: TokenStream) -> TokenStream {
   todo!()
 }
 
@@ -23,12 +23,14 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
 
   let function_name = parsed.prototype.name.as_str();
 
+  let prototype_name = format_ident!("{}_FUNCTION", function_name);
   let function_name = format_ident!("{}", function_name);
   let quoted_function_name = format!("\"{}\"", function_name);
   let quoted_source = format!("\"{}\"", glsl);
 
   // https://docs.rs/glsl/4.1.1/glsl/syntax/struct.FunctionPrototype.html
   let return_type = convert_type(&parsed.prototype.ty.ty.ty);
+  let function_node_type = convert_node_type(&parsed.prototype.ty.ty.ty);
 
   // https://docs.rs/glsl/4.1.1/glsl/syntax/struct.FunctionParameterDeclarator.html
   let params: Vec<_> = parsed
@@ -52,7 +54,7 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
   let gen_function_inputs: Vec<_> = params
     .iter()
     .map(|(ty, name)| {
-      quote! { #name: ShaderGraphNodeHandle<#ty>, }
+      quote! { #name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, }
     })
     .collect();
 
@@ -63,13 +65,21 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
     })
     .collect();
 
+    // we cant use lazy_static in marco so let's try once_cell
   quote! {
-    use rendiation_math::*;
-    use rendiation_shadergraph::*;
+    pub static #prototype_name: once_cell::sync::Lazy<rendiation_shadergraph::ShaderFunction> = 
+    once_cell::sync::Lazy::new(||{
+      rendiation_shadergraph::ShaderFunction{
+        function_name: #quoted_function_name,
+        function_source: #quoted_source,
+      }
+    });
 
     pub fn #function_name (
       #(#gen_function_inputs)*
-    ) -> ShaderGraphNodeHandle<#return_type> {
+    ) -> rendiation_shadergraph::ShaderGraphNodeHandle<#return_type> {
+      use rendiation_shadergraph::*;
+
       let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
       let graph = guard.as_mut().unwrap();
       let result = graph
@@ -77,10 +87,10 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
         .create_node(ShaderGraphNode::new(
             ShaderGraphNodeData::Function(
             FunctionNode {
-              function_name: #quoted_function_name,
-              function_source: #quoted_source,
+              prototype: & #prototype_name
             },
-          )
+          ),
+          #function_node_type
         )
       );
       unsafe {
@@ -92,36 +102,24 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
   }
 }
 
-// fn uncharted2ToneMapping(
-//   intensity: ShaderGraphNodeHandle<f32>,
-//   toneMappingExposure: ShaderGraphNodeHandle<f32>,
-//   toneMappingWhitePoint: ShaderGraphNodeHandle<f32>,
-// ) -> ShaderGraphNodeHandle<f32> {
-//   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-//   let graph = guard.as_mut().unwrap();
-//   let result = graph
-//     .nodes
-//     .create_node(ShaderGraphNode::new(ShaderGraphNodeData::Function(
-//       FunctionNode {
-//         function_name: "test",
-//         function_source: "source",
-//       },
-//     )));
-//   unsafe {
-//     graph.nodes.connect_node(intensity.cast_type(), result);
-//     graph.nodes.connect_node(toneMappingExposure.cast_type(), result);
-//     graph.nodes.connect_node(toneMappingWhitePoint.cast_type(), result);
-//     result.cast_type()
-//   }
-// }
-
 fn convert_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStream {
   use syntax::TypeSpecifierNonArray::*;
   match glsl {
     Float => quote! { f32 },
-    Vec2 => quote! { Vec2<f32> },
-    Vec3 => quote! { Vec3<f32> },
-    Vec4 => quote! { Vec4<f32> },
+    Vec2 => quote! { rendiation_math::Vec2<f32> },
+    Vec3 => quote! { rendiation_math::Vec3<f32> },
+    Vec4 => quote! { rendiation_math::Vec4<f32> },
+    _ => panic!("unsupported param type"),
+  }
+}
+
+fn convert_node_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStream {
+  use syntax::TypeSpecifierNonArray::*;
+  match glsl {
+    Float => quote! { NodeType::Float },
+    Vec2 => quote! { NodeType::Vec2 },
+    Vec3 => quote! { NodeType::Vec3 },
+    Vec4 => quote! { NodeType::Vec4 },
     _ => panic!("unsupported param type"),
   }
 }

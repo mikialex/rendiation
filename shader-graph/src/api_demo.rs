@@ -6,7 +6,7 @@ struct TSSAOShading {
 }
 
 impl ShaderGraphDecorator for TSSAOShading {
-  fn decorate(&mut self, graph: ShaderGraph) {
+  fn decorate(&mut self, graph: &mut ShaderGraphBuilder) {
     graph.component(self);
 
     let VPMatrix = graph.uniform("VPMatrix");
