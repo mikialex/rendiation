@@ -59,6 +59,9 @@ impl ShaderGraphBuilder {
   pub fn create(self) -> ShaderGraph {
     IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
   }
+
+  // pub fn uniform(&mut self, name: &str,  ) {
+  // }
 }
 
 pub struct ShaderGraphNode<T> {

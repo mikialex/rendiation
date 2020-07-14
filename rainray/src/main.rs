@@ -26,7 +26,7 @@ use integrator::*;
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::new());
   let mut camera = PerspectiveCamera::new();
-  camera.transform.matrix = Mat4::lookat(
+  camera.world_matrix = Mat4::lookat(
     Vec3::new(0., 0., 10.),
     Vec3::new(0., 0., 0.),
     Vec3::new(0., 1., 0.),

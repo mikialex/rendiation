@@ -21,7 +21,7 @@ impl CameraGPU {
   ) -> Self {
     let gpu_camera_position = WGPUBuffer::new(
       renderer,
-      CameraGPU::get_world_position_data(camera),
+      CameraGPU::get_world_position_data(camera).as_ref(),
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
 
@@ -45,9 +45,8 @@ impl CameraGPU {
     self.gpu_camera_position_dirty = true;
   }
 
-  fn get_world_position_data(camera: &impl Camera) -> &[u8] {
-    let transform = camera.get_transform();
-    transform.position.as_ref()
+  fn get_world_position_data(camera: &impl Camera) -> Vec3<f32> {
+    camera.matrix().position()
   }
 
   pub fn update_gpu_world_position(
@@ -62,7 +61,7 @@ impl CameraGPU {
       .resources
       .get_uniform_mut(self.gpu_camera_position)
       .resource_mut()
-      .update(renderer, data);
+      .update(renderer, data.as_ref());
   }
 
   pub fn update_gpu_mvp_matrix(

@@ -16,11 +16,11 @@ pub trait Camera: TransformedObject {
 
   // todo make it cache
   fn get_vp_matrix(&self) -> Mat4<f32> {
-    *self.get_projection_matrix() * self.get_transform().matrix.inverse().unwrap()
+    *self.get_projection_matrix() * self.matrix().inverse().unwrap()
   }
 
   fn get_vp_matrix_inverse(&self) -> Mat4<f32> {
-    self.get_transform().matrix * self.get_projection_matrix().inverse().unwrap()
+    *self.matrix() * self.get_projection_matrix().inverse().unwrap()
   }
 }
 

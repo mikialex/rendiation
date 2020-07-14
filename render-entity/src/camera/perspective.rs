@@ -7,7 +7,7 @@ use rendiation_math_entity::*;
 #[derive(Default)]
 pub struct PerspectiveCamera {
   pub projection_matrix: Mat4<f32>,
-  pub transform: Transformation,
+  pub world_matrix: Mat4<f32>,
 
   pub near: f32,
   pub far: f32,
@@ -19,8 +19,8 @@ pub struct PerspectiveCamera {
 impl PerspectiveCamera {
   pub fn new() -> Self {
     Self {
-      projection_matrix: Mat4::<f32>::one(),
-      transform: Transformation::new(),
+      projection_matrix: Mat4::one(),
+      world_matrix: Mat4::one(),
       near: 1.,
       far: 100_000.,
       fov: 90.,
@@ -32,7 +32,7 @@ impl PerspectiveCamera {
 
 impl Raycaster for PerspectiveCamera {
   fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3 {
-    let origin = self.get_transform().matrix.position();
+    let origin = self.matrix().position();
     let target = Vec3::new(view_position.x * 2. - 1., view_position.y * 2. - 1., 0.5)
       * self.get_vp_matrix_inverse();
     let direction = (target - origin).normalize();
@@ -41,12 +41,12 @@ impl Raycaster for PerspectiveCamera {
 }
 
 impl TransformedObject for PerspectiveCamera {
-  fn get_transform(&self) -> &Transformation {
-    &self.transform
+  fn matrix(&self) -> &Mat4<f32> {
+    &self.world_matrix
   }
 
-  fn get_transform_mut(&mut self) -> &mut Transformation {
-    &mut self.transform
+  fn matrix_mut(&mut self) -> &mut Mat4<f32> {
+    &mut self.world_matrix
   }
   fn as_any(&self) -> &dyn std::any::Any {
     self

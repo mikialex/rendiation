@@ -117,7 +117,7 @@ impl World {
 
   pub fn update(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WebGPUBackend>) {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
-    let camera_position = camera.get_transform().matrix.position();
+    let camera_position = camera.world_matrix.position();
 
     let stand_point_chunk = query_point_in_chunk(camera_position);
     let x_low = stand_point_chunk.0 - self.chunk_visible_distance as i32;

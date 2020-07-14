@@ -10,15 +10,15 @@ pub struct OrthographicCamera {
   pub bottom: f32,
   pub near: f32,
   pub far: f32,
-  transform: Transformation,
+  world_matrix: Mat4<f32>,
   projection_matrix: Mat4<f32>,
 }
 
 impl OrthographicCamera {
   pub fn new() -> Self {
     Self {
-      projection_matrix: Mat4::<f32>::one(),
-      transform: Transformation::new(),
+      projection_matrix: Mat4::one(),
+      world_matrix: Mat4::one(),
       left: -50.0,
       right: 50.0,
       top: 50.0,
@@ -39,18 +39,18 @@ impl Raycaster for OrthographicCamera {
       coords_y,
       (self.near + self.far) / (self.near - self.far),
     ) * self.get_vp_matrix_inverse();
-    let direction = Vec3::new(0., 0., -1.).transform_direction(self.get_transform().matrix);
+    let direction = Vec3::new(0., 0., -1.).transform_direction(*self.matrix());
     Ray3::new(origin, direction)
   }
 }
 
 impl TransformedObject for OrthographicCamera {
-  fn get_transform(&self) -> &Transformation {
-    &self.transform
+  fn matrix(&self) -> &Mat4<f32> {
+    &self.world_matrix
   }
 
-  fn get_transform_mut(&mut self) -> &mut Transformation {
-    &mut self.transform
+  fn matrix_mut(&mut self) -> &mut Mat4<f32> {
+    &mut self.world_matrix
   }
   fn as_any(&self) -> &dyn std::any::Any {
     self
@@ -100,13 +100,14 @@ impl Raycaster for ViewFrustumOrthographicCamera {
 }
 
 impl TransformedObject for ViewFrustumOrthographicCamera {
-  fn get_transform(&self) -> &Transformation {
-    &self.camera.transform
+  fn matrix(&self) -> &Mat4<f32> {
+    &self.camera.world_matrix
   }
 
-  fn get_transform_mut(&mut self) -> &mut Transformation {
-    &mut self.camera.transform
+  fn matrix_mut(&mut self) -> &mut Mat4<f32> {
+    &mut self.camera.world_matrix
   }
+
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }
