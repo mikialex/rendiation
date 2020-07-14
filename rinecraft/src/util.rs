@@ -110,11 +110,3 @@ pub fn create_texels(size: usize) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     .collect();
   image::ImageBuffer::from_raw(size as u32, size as u32, data).unwrap()
 }
-
-#[allow(dead_code)]
-pub fn cast_slice<T>(data: &[T]) -> &[u8] {
-  use std::mem::size_of;
-  use std::slice::from_raw_parts;
-
-  unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
-}

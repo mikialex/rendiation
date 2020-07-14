@@ -217,12 +217,3 @@ impl<'a> Iterator for ChunkDataIterator<'a> {
     result
   }
 }
-
-pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
-  unsafe {
-    std::slice::from_raw_parts(
-      (vec as *const [T]) as *const u8,
-      ::std::mem::size_of::<T>() * vec.len(),
-    )
-  }
-}
