@@ -13,6 +13,7 @@ pub struct CameraController<T> {
   orbit: OrbitController,
   active_type: CameraControllerType,
   listener_records: Vec<WindowEventSessionRemoveToken<T>>,
+  self_listeners: Vec<WindowEventSessionRemoveToken<T>>
 }
 
 impl CameraController<RinecraftState> {
@@ -22,6 +23,7 @@ impl CameraController<RinecraftState> {
       orbit: OrbitController::new(),
       active_type: CameraControllerType::ORBIT, // todo maybe option?
       listener_records: Vec::new(),
+      self_listeners: Vec::new(),
     }
   }
 
@@ -74,7 +76,7 @@ impl CameraController<RinecraftState> {
       .push(events.add_listener(EventType::MouseMotion, |event_ctx| {
         let state = &mut event_ctx.state;
         state.camera_controller.fps.rotate(Vec2::new(
-          state.window_state.mouse_motion.0,
+          -state.window_state.mouse_motion.0,
           state.window_state.mouse_motion.1,
         ))
       }));
@@ -92,14 +94,15 @@ impl CameraController<RinecraftState> {
             ..
           } => {
             let pressed = *state == ElementState::Pressed;
-            if *virtual_keycode == VirtualKeyCode::A {
-              app_state.camera_controller.fps.leftward_active = pressed
-            } else if *virtual_keycode == VirtualKeyCode::W {
-              app_state.camera_controller.fps.forward_active = pressed
-            } else if *virtual_keycode == VirtualKeyCode::S {
-              app_state.camera_controller.fps.backward_active = pressed
-            } else if *virtual_keycode == VirtualKeyCode::D {
-              app_state.camera_controller.fps.rightward_active = pressed
+            let fps = &mut app_state.camera_controller.fps;
+            match virtual_keycode {
+              VirtualKeyCode::A => fps.leftward_active = pressed,
+              VirtualKeyCode::W => fps.forward_active = pressed,
+              VirtualKeyCode::S => fps.backward_active = pressed,
+              VirtualKeyCode::D => fps.rightward_active = pressed,
+              VirtualKeyCode::Space => fps.ascend_active = pressed,
+              VirtualKeyCode::LShift => fps.descend_active = pressed,
+              _ => (),
             }
           }
           _ => (),
@@ -108,6 +111,37 @@ impl CameraController<RinecraftState> {
       }
     }))
   }
+
+  // pub fn attach_event( &mut self,events: &mut WindowEventSession<RinecraftState>){
+  //   use rendium::winit::event::*;
+  //   self
+  //   .self_listeners
+  //   .push(events.add_listener_raw(|ctx| {
+  //     let app_state = &mut ctx.state;
+  //     match ctx.event {
+  //       Event::WindowEvent { event, .. } => match event {
+  //         WindowEvent::KeyboardInput {
+  //           input:
+  //             KeyboardInput {
+  //               virtual_keycode: Some(virtual_keycode),
+  //               state,
+  //               ..
+  //             },
+  //           ..
+  //         } => {
+  //           let pressed = *state == ElementState::Pressed;
+  //           match virtual_keycode {
+  //             VirtualKeyCode::Number1 => self.use_mode(CameraControllerType::FPS),
+  //             VirtualKeyCode::W => fps.forward_active = pressed,
+  //             _ => (),
+  //           }
+  //         }
+  //         _ => (),
+  //       },
+  //       _ => (),
+  //     }
+  //   }));
+  // }
 
   pub fn use_mode(
     &mut self,

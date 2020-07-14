@@ -18,8 +18,8 @@ pub struct FPSController {
   pub rightward_active: bool,
   pub forward_active: bool,
   pub backward_active: bool,
-  pub space_press: bool,
-  pub l_shift_press: bool,
+  pub ascend_active: bool,
+  pub descend_active: bool,
 }
 
 impl FPSController {
@@ -40,8 +40,8 @@ impl FPSController {
       rightward_active: false,
       forward_active: false,
       backward_active: false,
-      space_press: false,
-      l_shift_press: false,
+      ascend_active: false,
+      descend_active: false,
     }
   }
 
@@ -74,10 +74,10 @@ impl<T: TransformedObject> Controller<T> for FPSController {
     if self.rightward_active {
       move_dir.x += 1.0;
     }
-    if self.space_press {
+    if self.ascend_active {
       move_dir.y += 1.0;
     }
-    if self.l_shift_press {
+    if self.descend_active {
       move_dir.y -= 1.0;
     }
 
