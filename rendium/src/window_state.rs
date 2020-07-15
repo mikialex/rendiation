@@ -1,3 +1,5 @@
+use crate::WindowEventSession;
+use std::collections::HashSet;
 use winit::event;
 use winit::event::*;
 
@@ -8,6 +10,7 @@ pub struct WindowState {
   pub is_left_mouse_down: bool,
   pub is_right_mouse_down: bool,
   pub mouse_wheel_delta: (f32, f32),
+  pub pressed_key: HashSet<VirtualKeyCode>,
 }
 
 impl WindowState {
@@ -19,6 +22,7 @@ impl WindowState {
       is_left_mouse_down: false,
       is_right_mouse_down: false,
       mouse_wheel_delta: (0.0, 0.0),
+      pressed_key: HashSet::new(),
     }
   }
   pub fn update_size(&mut self, size: &winit::dpi::PhysicalSize<u32>) {
@@ -34,6 +38,28 @@ impl WindowState {
   pub fn mouse_motion(&mut self, motion: (f64, f64)) {
     self.mouse_motion.0 = motion.0 as f32;
     self.mouse_motion.1 = motion.1 as f32;
+  }
+
+  pub fn attach_event<T, U: FnOnce(&mut T) -> &mut Self + 'static + Copy>(
+    &self,
+    events: &mut WindowEventSession<T>,
+    lens: U,
+  ) {
+    events.active.key_down.on(move |ctx| {
+      lens(&mut ctx.state).pressed_key.insert(*ctx.event_data);
+    });
+    events.active.key_up.on(move |ctx| {
+      lens(&mut ctx.state).pressed_key.remove(ctx.event_data);
+    });
+    events.active.mouse_motion.on(move |ctx| {
+      lens(&mut ctx.state).mouse_motion(*ctx.event_data);
+    });
+    events.active.event_cleared.on(move |ctx| {
+      lens(&mut ctx.state).mouse_wheel_delta = (0.0, 0.0);
+    });
+
+    // need impl piority
+    todo!()
   }
 
   pub fn event(&mut self, event: &winit::event::Event<()>) {
@@ -60,6 +86,22 @@ impl WindowState {
         }
         WindowEvent::CursorMoved { position, .. } => {
           self.mouse_move_to(&position);
+        }
+        WindowEvent::KeyboardInput {
+          input:
+            KeyboardInput {
+              virtual_keycode: Some(virtual_keycode),
+              state,
+              ..
+            },
+          ..
+        } => {
+          let pressed = *state == ElementState::Pressed;
+          if pressed {
+            self.pressed_key.insert(*virtual_keycode);
+          } else {
+            self.pressed_key.remove(virtual_keycode);
+          }
         }
         _ => (),
       },

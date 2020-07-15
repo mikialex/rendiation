@@ -4,10 +4,10 @@ use crate::{
   vox::world::World,
 };
 use render_target::{ScreenRenderTarget, TargetStatesProvider};
-use rendiation_webgpu::renderer::SwapChain;
-use rendiation_webgpu::*;
 use rendiation_render_entity::*;
 use rendiation_scenegraph::*;
+use rendiation_webgpu::renderer::SwapChain;
+use rendiation_webgpu::*;
 use rendium::*;
 
 pub struct Rinecraft {
@@ -76,7 +76,7 @@ impl Application for Rinecraft {
 
     let mut window_session: WindowEventSession<RinecraftState> = WindowEventSession::new();
 
-    window_session.add_listener(EventType::Resize, |event_ctx| {
+    window_session.active.resize.on(|event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
@@ -92,7 +92,7 @@ impl Application for Rinecraft {
     });
 
     // render
-    window_session.add_listener(EventType::EventCleared, |event_ctx| {
+    window_session.active.event_cleared.on(|event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
@@ -137,10 +137,18 @@ impl Application for Rinecraft {
       },
     };
 
+    // rinecraft.state.window_state.attach_event(
+    //   &mut rinecraft.window_session,
+    //   |r|&mut r.window_state
+    // );
+
     rinecraft
       .state
       .camera_controller
-      .use_mode(CameraControllerType::FPS, &mut rinecraft.window_session);
+      .attach_event(&mut rinecraft.window_session, |r| {
+        (&mut r.camera_controller, &r.window_state)
+      });
+
     rinecraft.init_world();
 
     rinecraft

@@ -1,12 +1,10 @@
 #![allow(unused)]
 
 pub mod application;
-pub mod component;
 pub mod element;
 pub mod event;
 pub mod window_state;
 // pub mod lens;
-pub mod data;
 pub mod renderer;
 
 pub use application::*;
