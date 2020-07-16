@@ -1,4 +1,4 @@
-use super::world::World;
+use super::{chunks::WorldChunkData, world::World};
 use crate::{
   shading::{create_block_shading, BlockShadingParamGroup},
   util::CameraGPU,
@@ -6,6 +6,7 @@ use crate::{
 use rendiation_scenegraph::*;
 use rendiation_webgpu::*;
 use std::collections::BTreeMap;
+use rendiation_mesh_buffer::{wgpu::as_bytes, geometry::IndexedGeometry};
 
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WebGPUBackend>,
@@ -20,10 +21,72 @@ pub struct WorldSceneAttachment {
   >,
 }
 
-impl WorldSceneAttachment{
+impl WorldSceneAttachment {
   pub fn has_block_attach_to_scene(&self, block_position: (i32, i32)) -> bool {
     self.blocks.contains_key(&block_position)
   }
+
+  pub fn sync_chunk_in_scene(&mut self, 
+    chunk: &(i32, i32), 
+    chunks: &WorldChunkData,
+    scene: &mut Scene<WebGPUBackend>,
+    renderer: &mut WGPURenderer,
+  ){
+    // remove node in scene;
+    if let Some((node_index, render_object_index, geometry_index)) =
+    self.blocks.get(chunk)
+    {
+    scene.node_remove_child_by_handle(self.root_node_index, *node_index);
+    scene.free_node(*node_index);
+    scene.delete_render_object(*render_object_index);
+    scene
+      .resources
+      .delete_geometry_with_buffers(*geometry_index);
+    self.blocks.remove(chunk);
+    }
+
+    // add new node in scene;
+    let mesh_buffer = chunks.create_mesh_buffer(*chunk);
+    let scene_geometry = create_add_geometry(&mesh_buffer, renderer, scene);
+
+    let render_object_index =
+    scene.create_render_object(scene_geometry, self.block_shading);
+    let new_node = scene.create_new_node();
+    new_node.data_mut().add_render_object(render_object_index);
+    let node_index = new_node.handle();
+
+    scene.node_add_child_by_handle(self.root_node_index, node_index);
+
+    self.blocks.insert(
+    *chunk,
+    (node_index, render_object_index, scene_geometry),
+    );
+  }
+}
+
+pub fn create_add_geometry(
+  geometry: &IndexedGeometry,
+  renderer: &mut WGPURenderer,
+  scene: &mut Scene<WebGPUBackend>,
+) -> GeometryHandle<WebGPUBackend> {
+  let mut geometry_data = SceneGeometryData::new();
+  let index_buffer = WGPUBuffer::new(
+    renderer,
+    as_bytes(&geometry.index),
+    wgpu::BufferUsage::INDEX,
+  );
+  let vertex_buffer = WGPUBuffer::new(
+    renderer,
+    as_bytes(&geometry.data),
+    wgpu::BufferUsage::VERTEX,
+  );
+  geometry_data.index_buffer = Some(scene.resources.add_index_buffer(index_buffer).index());
+  geometry_data.vertex_buffers = vec![(
+    AttributeTypeId(0), // todo
+    scene.resources.add_vertex_buffer(vertex_buffer).index(),
+  )];
+  geometry_data.draw_range = 0..geometry.get_full_count();
+  scene.resources.add_geometry(geometry_data).index()
 }
 
 impl World {

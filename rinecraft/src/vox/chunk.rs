@@ -99,31 +99,6 @@ impl Chunk {
     self.data[block_local_position.x][block_local_position.z][block_local_position.y] = block;
   }
 
-  pub fn create_add_geometry(
-    geometry: &IndexedGeometry,
-    renderer: &mut WGPURenderer,
-    scene: &mut Scene<WebGPUBackend>,
-  ) -> GeometryHandle<WebGPUBackend> {
-    let mut geometry_data = SceneGeometryData::new();
-    let index_buffer = WGPUBuffer::new(
-      renderer,
-      as_bytes(&geometry.index),
-      wgpu::BufferUsage::INDEX,
-    );
-    let vertex_buffer = WGPUBuffer::new(
-      renderer,
-      as_bytes(&geometry.data),
-      wgpu::BufferUsage::VERTEX,
-    );
-    geometry_data.index_buffer = Some(scene.resources.add_index_buffer(index_buffer).index());
-    geometry_data.vertex_buffers = vec![(
-      AttributeTypeId(0), // todo
-      scene.resources.add_vertex_buffer(vertex_buffer).index(),
-    )];
-    geometry_data.draw_range = 0..geometry.get_full_count();
-    scene.resources.add_geometry(geometry_data).index()
-  }
-
   pub fn iter<'a>(&'a self) -> ChunkDataIterator<'a> {
     ChunkDataIterator {
       chunk: self,

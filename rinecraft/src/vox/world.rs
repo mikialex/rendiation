@@ -83,52 +83,13 @@ impl World {
     // dispatch change to adjacent chunk
     for chunk_key in create_list {
       self.chunk_geometry_update_set.insert(chunk_key);
-      self
-        .chunks
-        .assure_chunk_has_generated((chunk_key.0 + 1, chunk_key.1));
-      self
-        .chunks
-        .assure_chunk_has_generated((chunk_key.0 - 1, chunk_key.1));
-      self
-        .chunks
-        .assure_chunk_has_generated((chunk_key.0, chunk_key.1 + 1));
-      self
-        .chunks
-        .assure_chunk_has_generated((chunk_key.0, chunk_key.1 - 1));
+      self.chunks.assure_chunk_surround_has_generated(chunk_key);
     }
 
     // sync change to scene
     if let Some(scene_data) = &mut self.scene_data {
-      for chunk_to_update_key in &self.chunk_geometry_update_set {
-        // remove node in scene;
-        if let Some((node_index, render_object_index, geometry_index)) =
-          scene_data.blocks.get(chunk_to_update_key)
-        {
-          scene.node_remove_child_by_handle(scene_data.root_node_index, *node_index);
-          scene.free_node(*node_index);
-          scene.delete_render_object(*render_object_index);
-          scene
-            .resources
-            .delete_geometry_with_buffers(*geometry_index);
-          scene_data.blocks.remove(chunk_to_update_key);
-        }
-
-        // add new node in scene;
-        let mesh_buffer = self.chunks.create_mesh_buffer(*chunk_to_update_key);
-        let scene_geometry = Chunk::create_add_geometry(&mesh_buffer, renderer, scene);
-
-        let render_object_index =
-          scene.create_render_object(scene_geometry, scene_data.block_shading);
-        let new_node = scene.create_new_node();
-        new_node.data_mut().add_render_object(render_object_index);
-        let node_index = new_node.handle();
-
-        scene.node_add_child_by_handle(scene_data.root_node_index, node_index);
-
-        scene_data.blocks.insert(
-          *chunk_to_update_key,
-          (node_index, render_object_index, scene_geometry),
-        );
+      for chunk_to_update in &self.chunk_geometry_update_set {
+        scene_data.sync_chunk_in_scene(chunk_to_update, &self.chunks, scene, renderer)
       }
     }
     self.chunk_geometry_update_set.clear();

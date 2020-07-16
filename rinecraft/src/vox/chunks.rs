@@ -26,6 +26,13 @@ impl WorldChunkData {
     exist
   }
 
+  pub fn assure_chunk_surround_has_generated(&mut self, chunk_key: (i32, i32)) {
+    self.assure_chunk_has_generated((chunk_key.0 + 1, chunk_key.1));
+    self.assure_chunk_has_generated((chunk_key.0 - 1, chunk_key.1));
+    self.assure_chunk_has_generated((chunk_key.0, chunk_key.1 + 1));
+    self.assure_chunk_has_generated((chunk_key.0, chunk_key.1 - 1));
+  }
+
   pub fn try_get_block(&self, block_position: &Vec3<i32>) -> Option<Block> {
     let chunk_position = query_block_in_chunk(block_position);
     let chunk_op = self.chunks.get(&chunk_position);
