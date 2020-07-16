@@ -9,6 +9,7 @@ use rendiation_scenegraph::*;
 use rendiation_webgpu::renderer::SwapChain;
 use rendiation_webgpu::*;
 use rendium::*;
+use rendiation_math::Mat4;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -59,6 +60,7 @@ impl Application for Rinecraft {
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let mut camera = PerspectiveCamera::new();
+    *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
     camera.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
     let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut scene);
     camera_gpu.update_all(renderer, &mut scene);

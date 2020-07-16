@@ -49,25 +49,25 @@ impl<T> CameraController<T> {
       active,
       l,
     );
-    self.self_listeners.push(
-      EventType::KeyDown.wrap_as_token(active.key_down.on(move |ctx| {
-        use rendium::winit::event::*;
-        let virtual_keycode = ctx.event_data;
-        match virtual_keycode {
-          VirtualKeyCode::O => {
-            ctx
-              .event_update_ctx
-              .mutate(move |e| use_mode_callback(e, CameraControllerType::ORBIT, l));
-          }
-          VirtualKeyCode::F => {
-            ctx
-              .event_update_ctx
-              .mutate(move |e| use_mode_callback(e, CameraControllerType::FPS, l));
-          }
-          _ => (),
-        }
-      })),
-    );
+    // self.self_listeners.push(
+    //   EventType::KeyDown.wrap_as_token(active.key_down.on(move |ctx| {
+    //     use rendium::winit::event::*;
+    //     let virtual_keycode = ctx.event_data;
+    //     match virtual_keycode {
+    //       VirtualKeyCode::O => {
+    //         ctx
+    //           .event_update_ctx
+    //           .mutate(move |e| use_mode_callback(e, CameraControllerType::ORBIT, l));
+    //       }
+    //       VirtualKeyCode::F => {
+    //         ctx
+    //           .event_update_ctx
+    //           .mutate(move |e| use_mode_callback(e, CameraControllerType::FPS, l));
+    //       }
+    //       _ => (),
+    //     }
+    //   })),
+    // );
   }
 
   fn detach_event(&mut self, events: &mut WindowEventSession<T>) {

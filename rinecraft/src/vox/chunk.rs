@@ -99,50 +99,6 @@ impl Chunk {
     self.data[block_local_position.x][block_local_position.z][block_local_position.y] = block;
   }
 
-  pub fn create_mesh_buffer(
-    world_machine: &impl WorldMachine,
-    chunks: &HashMap<(i32, i32), Chunk>,
-    chunk_position: (i32, i32),
-  ) -> IndexedGeometry {
-    let chunk = chunks.get(&chunk_position).unwrap();
-
-    let mut new_index = Vec::new();
-    let mut new_vertex = Vec::new();
-    let world_offset_x = chunk_position.0 as f32 * CHUNK_ABS_WIDTH;
-    let world_offset_z = chunk_position.1 as f32 * CHUNK_ABS_WIDTH;
-
-    for (block, x, y, z) in chunk.iter() {
-      if block.is_void() {
-        continue;
-      }
-
-      let min_x = x as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-      let min_y = y as f32 * BLOCK_WORLD_SIZE;
-      let min_z = z as f32 * BLOCK_WORLD_SIZE + world_offset_z;
-
-      let max_x = (x + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_x;
-      let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
-      let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
-
-      let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
-      for face in BLOCK_FACES.iter() {
-        if World::check_block_face_visibility(chunks, &world_position, *face) {
-          build_block_face(
-            world_machine,
-            *block,
-            &(min_x, min_y, min_z),
-            &(max_x, max_y, max_z),
-            *face,
-            &mut new_index,
-            &mut new_vertex,
-          );
-        }
-      }
-    }
-
-    IndexedGeometry::new(new_vertex, new_index)
-  }
-
   pub fn create_add_geometry(
     geometry: &IndexedGeometry,
     renderer: &mut WGPURenderer,

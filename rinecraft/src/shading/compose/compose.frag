@@ -14,7 +14,7 @@ layout(set = 0, binding = 2) uniform Locals {
 };
 
 grain(float time_stamp, float amout){
-fract(10000* sin((gl_FragCoord.x + gl_FragCoord.y * u_frame_id) * pi.y))
+    fract(10000* sin((gl_FragCoord.x + gl_FragCoord.y * u_frame_id) * pi.y))
 }
 
 void main() {

@@ -6,7 +6,6 @@ mod rinecraft;
 mod shading;
 mod util;
 mod vox;
-mod sky;
 mod init;
 mod camera_controls;
 use rinecraft::*;

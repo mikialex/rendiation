@@ -104,7 +104,7 @@ fn pick_block(
 impl World {
   pub fn pick_block(&self, ray: &Ray3) -> Option<BlockPickResult> {
     let mut nearest: Option<BlockPickResult> = None;
-    for (_, chunk) in &self.chunks {
+    for (_, chunk) in &self.chunks.chunks {
       if let Some(hit) = pick_block(chunk, ray, &nearest) {
         if let Some(n) = &nearest {
           if hit.distance2 < n.distance2 {
@@ -148,7 +148,7 @@ impl World {
 
   pub fn add_block(&mut self, block_position: &Vec3<i32>, block: Block) {
     let (chunk_key, local_position) = world_to_local(block_position);
-    let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+    let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, block);
     
     self.chunk_geometry_update_set.insert(chunk_key);
@@ -158,7 +158,7 @@ impl World {
   pub fn delete_block(&mut self, block_position: &Vec3<i32>) {
     let (chunk_key, local_position) = world_to_local(block_position);
 
-    let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+    let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, VOID);
 
     self.chunk_geometry_update_set.insert(chunk_key);

@@ -200,22 +200,22 @@ impl<T> WindowEventSession<T> {
             active.mouse_wheel.emit(&mut event_ctx);
           }
         }
-        WindowEvent::KeyboardInput {
-          input:
-            KeyboardInput {
-              virtual_keycode: Some(virtual_keycode),
-              state,
-              ..
-            },
-          ..
-        } => {
-          let pressed = *state == ElementState::Pressed;
-          if pressed {
-            active
-              .key_down
-              .emit(&mut event_ctx.use_data(virtual_keycode));
-          } else {
-            active.key_up.emit(&mut event_ctx.use_data(virtual_keycode));
+        WindowEvent::KeyboardInput { input, .. } => {
+          let mut event_ctx = event_ctx.use_data(input);
+          active.key_input.emit(&mut event_ctx);
+          if let KeyboardInput {
+            virtual_keycode: Some(virtual_keycode),
+            state,
+            ..
+          } = input
+          {
+            if *state == ElementState::Pressed {
+              active
+                .key_down
+                .emit(&mut event_ctx.use_data(virtual_keycode));
+            } else {
+              active.key_up.emit(&mut event_ctx.use_data(virtual_keycode));
+            }
           }
         }
         // WindowEvent::CursorMoved { position, .. } => {}
