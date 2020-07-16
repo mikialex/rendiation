@@ -1,10 +1,9 @@
 pub mod block;
+pub mod block_coords;
+pub mod block_meta;
 pub mod chunk;
 pub mod chunks;
 pub mod edit;
-pub mod util;
-pub mod world;
-pub mod block_meta;
-pub mod world_machine;
 pub mod scene_attach;
-pub mod block_coords;
+pub mod world;
+pub mod world_machine;

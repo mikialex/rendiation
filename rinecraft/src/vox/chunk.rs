@@ -1,8 +1,7 @@
+use super::block_coords::*;
 use crate::vox::block::*;
-use crate::vox::util::local_to_world;
 use crate::vox::world::*;
 use crate::vox::world_machine::WorldMachine;
-use rendiation_webgpu::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::*};
@@ -10,6 +9,7 @@ use rendiation_render_entity::BoundingData;
 use rendiation_scenegraph::{
   AttributeTypeId, GeometryHandle, Scene, SceneGeometryData, WebGPUBackend,
 };
+use rendiation_webgpu::*;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -29,7 +29,7 @@ pub enum ChunkSide {
 pub type ChunkData = Vec<Vec<Vec<Block>>>;
 
 pub struct Chunk {
-  pub chunk_position: (i32, i32),
+  pub chunk_position: ChunkCoords,
   pub data: ChunkData,
   pub bounding: BoundingData,
 }
@@ -52,9 +52,8 @@ impl PartialEq for Chunk {
 impl Eq for Chunk {}
 
 impl Chunk {
-  pub fn new(chunk_id: (i32, i32), world_machine: &mut impl WorldMachine) -> Self {
-    let chunk_x = chunk_id.0;
-    let chunk_z = chunk_id.1;
+  pub fn new(chunk_position: ChunkCoords, world_machine: &mut impl WorldMachine) -> Self {
+    let ChunkCoords((chunk_x, chunk_z)) = chunk_position;
     let mut x_row = Vec::new();
     for i in 0..CHUNK_WIDTH {
       let mut y_row = Vec::new();
@@ -85,17 +84,19 @@ impl Chunk {
     let bounding = BoundingData::new_from_box(Box3::new(min, max));
 
     Chunk {
-      chunk_position: (chunk_x, chunk_z),
+      chunk_position,
       data: x_row,
       bounding,
     }
   }
 
-  pub fn get_block(&self, block_local_position: Vec3<usize>) -> Block {
+  pub fn get_block(&self, block_local_position: BlockLocalCoords) -> Block {
+    let block_local_position = block_local_position.0;
     self.data[block_local_position.x][block_local_position.z][block_local_position.y]
   }
 
-  pub fn set_block(&mut self, block_local_position: Vec3<usize>, block: Block) {
+  pub fn set_block(&mut self, block_local_position: BlockLocalCoords, block: Block) {
+    let block_local_position = block_local_position.0;
     self.data[block_local_position.x][block_local_position.z][block_local_position.y] = block;
   }
 

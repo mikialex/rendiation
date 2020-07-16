@@ -1,18 +1,19 @@
+use super::block_coords::*;
 use super::{chunks::WorldChunkData, world::World};
 use crate::{
   shading::{create_block_shading, BlockShadingParamGroup},
   util::CameraGPU,
 };
+use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::as_bytes};
 use rendiation_scenegraph::*;
 use rendiation_webgpu::*;
 use std::collections::BTreeMap;
-use rendiation_mesh_buffer::{wgpu::as_bytes, geometry::IndexedGeometry};
 
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WebGPUBackend>,
   pub block_shading: ShadingHandle<WebGPUBackend>,
   pub blocks: BTreeMap<
-    (i32, i32),
+    ChunkCoords,
     (
       SceneNodeHandle<WebGPUBackend>,
       RenderObjectHandle<WebGPUBackend>,
@@ -22,45 +23,42 @@ pub struct WorldSceneAttachment {
 }
 
 impl WorldSceneAttachment {
-  pub fn has_block_attach_to_scene(&self, block_position: (i32, i32)) -> bool {
+  pub fn has_block_attach_to_scene(&self, block_position: ChunkCoords) -> bool {
     self.blocks.contains_key(&block_position)
   }
 
-  pub fn sync_chunk_in_scene(&mut self, 
-    chunk: &(i32, i32), 
+  pub fn sync_chunk_in_scene(
+    &mut self,
+    chunk: &ChunkCoords,
     chunks: &WorldChunkData,
     scene: &mut Scene<WebGPUBackend>,
     renderer: &mut WGPURenderer,
-  ){
+  ) {
     // remove node in scene;
-    if let Some((node_index, render_object_index, geometry_index)) =
-    self.blocks.get(chunk)
-    {
-    scene.node_remove_child_by_handle(self.root_node_index, *node_index);
-    scene.free_node(*node_index);
-    scene.delete_render_object(*render_object_index);
-    scene
-      .resources
-      .delete_geometry_with_buffers(*geometry_index);
-    self.blocks.remove(chunk);
+    if let Some((node_index, render_object_index, geometry_index)) = self.blocks.get(chunk) {
+      scene.node_remove_child_by_handle(self.root_node_index, *node_index);
+      scene.free_node(*node_index);
+      scene.delete_render_object(*render_object_index);
+      scene
+        .resources
+        .delete_geometry_with_buffers(*geometry_index);
+      self.blocks.remove(chunk);
     }
 
     // add new node in scene;
     let mesh_buffer = chunks.create_mesh_buffer(*chunk);
     let scene_geometry = create_add_geometry(&mesh_buffer, renderer, scene);
 
-    let render_object_index =
-    scene.create_render_object(scene_geometry, self.block_shading);
+    let render_object_index = scene.create_render_object(scene_geometry, self.block_shading);
     let new_node = scene.create_new_node();
     new_node.data_mut().add_render_object(render_object_index);
     let node_index = new_node.handle();
 
     scene.node_add_child_by_handle(self.root_node_index, node_index);
 
-    self.blocks.insert(
-    *chunk,
-    (node_index, render_object_index, scene_geometry),
-    );
+    self
+      .blocks
+      .insert(*chunk, (node_index, render_object_index, scene_geometry));
   }
 }
 

@@ -1,7 +1,7 @@
 use super::{
   block::{build_block_face, Block, BlockFace, BLOCK_FACES, BLOCK_WORLD_SIZE},
-  chunk::{Chunk, CHUNK_ABS_WIDTH},
-  util::{get_local_block_position, local_to_world, query_block_in_chunk},
+  block_coords::*,
+  chunk::{Chunk, ChunkSide, CHUNK_ABS_WIDTH},
   world::World,
   world_machine::WorldMachineImpl,
 };
@@ -10,12 +10,12 @@ use rendiation_mesh_buffer::geometry::IndexedGeometry;
 use std::collections::HashMap;
 
 pub struct WorldChunkData {
-  pub chunks: HashMap<(i32, i32), Chunk>,
+  pub chunks: HashMap<ChunkCoords, Chunk>,
   pub world_machine: WorldMachineImpl,
 }
 
 impl WorldChunkData {
-  pub fn assure_chunk_has_generated(&mut self, chunk_key: (i32, i32)) -> bool {
+  pub fn assure_chunk_has_generated(&mut self, chunk_key: ChunkCoords) -> bool {
     let mut exist = true;
     let world_machine = &mut self.world_machine;
     self.chunks.entry(chunk_key).or_insert_with(|| {
@@ -26,27 +26,31 @@ impl WorldChunkData {
     exist
   }
 
-  pub fn assure_chunk_surround_has_generated(&mut self, chunk_key: (i32, i32)) {
-    self.assure_chunk_has_generated((chunk_key.0 + 1, chunk_key.1));
-    self.assure_chunk_has_generated((chunk_key.0 - 1, chunk_key.1));
-    self.assure_chunk_has_generated((chunk_key.0, chunk_key.1 + 1));
-    self.assure_chunk_has_generated((chunk_key.0, chunk_key.1 - 1));
+  pub fn assure_chunk_surround_has_generated(&mut self, chunk_key: ChunkCoords) {
+    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMin));
+    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMax));
+    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMin));
+    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMax));
   }
 
-  pub fn try_get_block(&self, block_position: &Vec3<i32>) -> Option<Block> {
-    let chunk_position = query_block_in_chunk(block_position);
+  pub fn try_get_block(&self, block_position: BlockWorldCoords) -> Option<Block> {
+    let chunk_position = block_position.to_chunk_coords();
     let chunk_op = self.chunks.get(&chunk_position);
     if let Some(chunk) = chunk_op {
-      let chunk_local_position = get_local_block_position(block_position);
+      let chunk_local_position = block_position.to_local_mod();
       Some(chunk.get_block(chunk_local_position))
     } else {
       None
     }
   }
 
-  pub fn check_block_face_visibility(&self, block_position: &Vec3<i32>, face: BlockFace) -> bool {
-    if let Some(opposite_position) = World::block_face_opposite_position(*block_position, face) {
-      if let Some(block) = self.try_get_block(&opposite_position) {
+  pub fn check_block_face_visibility(
+    &self,
+    block_position: BlockWorldCoords,
+    face: BlockFace,
+  ) -> bool {
+    if let Some(opposite_position) = World::block_face_opposite_position(block_position, face) {
+      if let Some(block) = self.try_get_block(opposite_position) {
         if block.is_void() {
           // this is verbose but clear
           true // surface
@@ -61,13 +65,12 @@ impl WorldChunkData {
     }
   }
 
-  pub fn create_mesh_buffer(&self, chunk_position: (i32, i32)) -> IndexedGeometry {
+  pub fn create_mesh_buffer(&self, chunk_position: ChunkCoords) -> IndexedGeometry {
     let chunk = self.chunks.get(&chunk_position).unwrap();
 
     let mut new_index = Vec::new();
     let mut new_vertex = Vec::new();
-    let world_offset_x = chunk_position.0 as f32 * CHUNK_ABS_WIDTH;
-    let world_offset_z = chunk_position.1 as f32 * CHUNK_ABS_WIDTH;
+    let (world_offset_x, world_offset_z) = chunk_position.world_start();
 
     for (block, x, y, z) in chunk.iter() {
       if block.is_void() {
@@ -82,9 +85,10 @@ impl WorldChunkData {
       let max_y = (y + 1) as f32 * BLOCK_WORLD_SIZE;
       let max_z = (z + 1) as f32 * BLOCK_WORLD_SIZE + world_offset_z;
 
-      let world_position = local_to_world(&Vec3::new(x, y, z), chunk_position);
+      let local: BlockLocalCoords = (x, y, z).into();
+      let world_position = local.to_world(chunk_position);
       for face in BLOCK_FACES.iter() {
-        if self.check_block_face_visibility(&world_position, *face) {
+        if self.check_block_face_visibility(world_position, *face) {
           build_block_face(
             &self.world_machine,
             *block,

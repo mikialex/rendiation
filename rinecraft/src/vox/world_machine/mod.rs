@@ -1,7 +1,7 @@
-use crate::vox::chunk::CHUNK_HEIGHT;
-use super::block_meta::BlockMetaInfo;
+use super::{block_coords::*, block_meta::BlockMetaInfo};
 use crate::vox::block::Block;
 use crate::vox::block_meta::BlockRegistry;
+use crate::vox::chunk::CHUNK_HEIGHT;
 use noise::*;
 use rendiation_webgpu::*;
 use std::collections::BTreeMap;
@@ -13,7 +13,7 @@ pub trait WorldMachine {
 }
 
 pub struct WorldMachineImpl {
-  pub level_cache: BTreeMap<(i32, i32), LevelCache>,
+  pub level_cache: BTreeMap<ChunkCoords, LevelCache>,
   pub block_registry: BlockRegistry,
   pub fbm_noise: Fbm,
   _version: usize,
@@ -71,7 +71,7 @@ impl WorldMachine for WorldMachineImpl {
     let fbm = &self.fbm_noise;
     let level_cache = self
       .level_cache
-      .entry((x, z))
+      .entry((x, z).into())
       .or_insert_with(|| LevelCache::new(x, z, fbm));
 
     let dirt_height = level_cache.land_level;
@@ -88,9 +88,9 @@ impl WorldMachine for WorldMachineImpl {
       VOID
     };
 
-    level_cache.generation_time +=1;
-    if level_cache.generation_time == CHUNK_HEIGHT{
-      self.level_cache.remove(&(x, z));
+    level_cache.generation_time += 1;
+    if level_cache.generation_time == CHUNK_HEIGHT {
+      self.level_cache.remove(&(x, z).into());
     }
 
     result

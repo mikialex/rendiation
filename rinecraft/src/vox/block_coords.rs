@@ -1,27 +1,46 @@
-use super::chunk::{CHUNK_ABS_WIDTH, CHUNK_WIDTH};
+use super::{
+  block::BLOCK_WORLD_SIZE,
+  chunk::{ChunkSide, CHUNK_ABS_WIDTH, CHUNK_WIDTH},
+};
 use rendiation_math::Vec3;
+use rendiation_math_entity::Box3;
 
-#[derive(Copy, Clone)]
-struct ChunkCoords(pub (i32, i32));
+#[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Debug)]
+pub struct ChunkCoords(pub (i32, i32));
 
 impl ChunkCoords {
   /// calculate chunk coords from a point, (which chunk is point in)
-  fn from_world_position(point: Vec3<f32>) -> Self {
+  pub fn from_world_position(point: Vec3<f32>) -> Self {
     let x = (point.x / CHUNK_ABS_WIDTH).floor() as i32;
     let z = (point.z / CHUNK_ABS_WIDTH).floor() as i32;
     ChunkCoords((x, z))
   }
 
-  fn from_block_world_coords(block_position: BlockWorldCoords) -> Self {
-    let block_position = block_position.0;
-    let x = (block_position.x as f32 / CHUNK_ABS_WIDTH).floor() as i32;
-    let z = (block_position.z as f32 / CHUNK_ABS_WIDTH).floor() as i32;
-    ChunkCoords((x, z))
+  pub fn world_start(&self) -> (f32, f32) {
+    let p = self.0;
+    (p.0 as f32 * CHUNK_ABS_WIDTH, p.1 as f32 * CHUNK_ABS_WIDTH)
+  }
+
+  pub fn get_side_chunk(&self, side: ChunkSide) -> Self {
+    let chunk = self.0;
+    match side {
+      ChunkSide::XYMax => (chunk.0 + 1, chunk.1),
+      ChunkSide::XYMin => (chunk.0 - 1, chunk.1),
+      ChunkSide::ZYMax => (chunk.0, chunk.1 + 1),
+      ChunkSide::ZYMin => (chunk.0, chunk.1 - 1),
+    }
+    .into()
   }
 }
 
-#[derive(Copy, Clone)]
-struct BlockLocalCoords(pub Vec3<usize>);
+impl From<(i32, i32)> for ChunkCoords {
+  fn from(other: (i32, i32)) -> ChunkCoords {
+    ChunkCoords(other)
+  }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct BlockLocalCoords(pub Vec3<usize>);
 
 impl From<(usize, usize, usize)> for BlockLocalCoords {
   fn from(other: (usize, usize, usize)) -> BlockLocalCoords {
@@ -30,7 +49,8 @@ impl From<(usize, usize, usize)> for BlockLocalCoords {
 }
 
 impl BlockLocalCoords {
-  pub fn to_world(&self, chunk_position: (i32, i32)) -> BlockWorldCoords {
+  pub fn to_world(&self, chunk_position: ChunkCoords) -> BlockWorldCoords {
+    let chunk_position = chunk_position.0;
     let local_block_position = self.0;
     (
       local_block_position.x as i32 + chunk_position.0 * CHUNK_WIDTH as i32,
@@ -41,8 +61,8 @@ impl BlockLocalCoords {
   }
 }
 
-#[derive(Copy, Clone)]
-struct BlockWorldCoords(pub Vec3<i32>);
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct BlockWorldCoords(pub Vec3<i32>);
 
 impl From<(i32, i32, i32)> for BlockWorldCoords {
   fn from(other: (i32, i32, i32)) -> BlockWorldCoords {
@@ -72,9 +92,28 @@ impl BlockWorldCoords {
   }
 
   pub fn to_local_pair(&self) -> (ChunkCoords, BlockLocalCoords) {
-    (
-      ChunkCoords::from_block_world_coords(*self),
-      self.to_local_mod(),
-    )
+    (self.to_chunk_coords(), self.to_local_mod())
+  }
+
+  pub fn to_chunk_coords(&self) -> ChunkCoords {
+    let block_position = self.0;
+    let x = (block_position.x as f32 / CHUNK_ABS_WIDTH).floor() as i32;
+    let z = (block_position.z as f32 / CHUNK_ABS_WIDTH).floor() as i32;
+    ChunkCoords((x, z))
+  }
+
+  pub fn get_block_bbox(&self) -> Box3 {
+    let world_position = self.0;
+    let min = Vec3::new(
+      world_position.x as f32 * BLOCK_WORLD_SIZE,
+      world_position.y as f32 * BLOCK_WORLD_SIZE,
+      world_position.z as f32 * BLOCK_WORLD_SIZE,
+    );
+    let max = Vec3::new(
+      (world_position.x + 1) as f32 * BLOCK_WORLD_SIZE,
+      (world_position.y + 1) as f32 * BLOCK_WORLD_SIZE,
+      (world_position.z + 1) as f32 * BLOCK_WORLD_SIZE,
+    );
+    Box3::new(min, max)
   }
 }
