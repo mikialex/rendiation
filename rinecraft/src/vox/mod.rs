@@ -7,4 +7,4 @@ pub mod world;
 pub mod block_meta;
 pub mod world_machine;
 pub mod scene_attach;
-// pub mod block_coord;
+pub mod block_coords;
