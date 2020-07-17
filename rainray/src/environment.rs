@@ -5,7 +5,7 @@ pub struct SolidEnvironment {
   pub intensity: Vec3,
 }
 
-pub trait Environment {
+pub trait Environment: Sync {
   fn sample(&self, ray: &Ray3) -> Vec3;
 }
 

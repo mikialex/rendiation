@@ -30,7 +30,6 @@ impl BlockMetaInfo {
       BlockFace::YZMin => self.x_min_texture.uv,
       BlockFace::XZMax => self.top_texture.uv,
       BlockFace::XZMin => self.bottom_texture.uv,
-      _ => unreachable!(),
     }
   }
 }

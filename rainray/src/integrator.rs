@@ -10,7 +10,7 @@ use rendiation_render_entity::{
   Camera,
 };
 
-pub trait Integrator {
+pub trait Integrator: Sync {
   fn prepare(&mut self);
   fn integrate(
     &self,

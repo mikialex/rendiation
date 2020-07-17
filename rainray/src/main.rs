@@ -1,6 +1,7 @@
 #![allow(unused)]
 mod environment;
 mod frame;
+mod integrator;
 mod light;
 mod material;
 mod math;
@@ -8,7 +9,6 @@ mod model;
 mod ray;
 mod renderer;
 mod scene;
-mod integrator;
 
 use crate::environment::*;
 use crate::frame::*;
@@ -17,11 +17,11 @@ use crate::material::*;
 use crate::math::*;
 use crate::renderer::*;
 use crate::scene::*;
+use integrator::*;
 use rendiation_math::Mat4;
 use rendiation_render_entity::*;
 use std::env;
-use std::rc::Rc;
-use integrator::*;
+use std::sync::Arc;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::new());
@@ -36,19 +36,19 @@ fn main() {
   let mut frame = Frame::new(500, 500);
   let scene = Scene {
     models: vec![
-      Rc::new(model::Model::new(
+      Arc::new(model::Model::new(
         Sphere::new((0., 5., 0.).into(), 4.0), // main ball
         Lambertian::new(),
       )),
-      Rc::new(model::Model::new(
+      Arc::new(model::Model::new(
         Sphere::new((0., -10000., 0.).into(), 10000.0), // ground
         *Lambertian::new().albedo(0.3, 0.4, 0.8),
       )),
-      Rc::new(model::Model::new (
+      Arc::new(model::Model::new(
         Sphere::new((3., 2., 2.).into(), 2.0),
         *Lambertian::new().albedo(0.4, 0.8, 0.2),
       )),
-      Rc::new(model::Model::new (
+      Arc::new(model::Model::new(
         Sphere::new((-3., 2., 4.).into(), 1.0),
         *Lambertian::new().albedo(1.0, 0.1, 0.0),
       )),

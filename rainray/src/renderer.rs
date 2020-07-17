@@ -8,6 +8,7 @@ use rendiation_render_entity::*;
 use color::Color;
 use indicatif::ProgressBar;
 use std::time::Instant;
+use rayon::prelude::*;
 
 pub struct Renderer {
   super_sample_rate: usize,
@@ -52,21 +53,29 @@ impl Renderer {
     let y_ratio_unit = 1.0 / render_frame.width() as f32;
 
     let progress_bar = ProgressBar::new(100);
-    let bar_inv = (render_frame.width() as f32 / 100.).ceil() as usize;
+    let bar_inv = (render_frame.pixel_count() as f32 / 100.).ceil() as usize;
+    let width = frame.width();
 
-    for (i, row) in render_frame.data.iter_mut().enumerate() {
-      for (j, pixel) in row.iter_mut().enumerate() {
+    render_frame
+      .data
+      .par_iter_mut()
+      .enumerate()
+      .flat_map(|f| {
+        let x = f.0;
+        f.1.par_iter_mut().enumerate().map(move |i| ((x, i.0), i.1))
+      })
+      .for_each(|((i, j), pixel)| {
         let x_ratio = i as f32 * x_ratio_unit;
         let y_ratio = 1.0 - j as f32 * y_ratio_unit;
 
         *pixel = self
           .integrator
           .integrate(camera, scene, (x_ratio, y_ratio).into());
-      }
-      if i % bar_inv == 0 {
-        progress_bar.inc(1);
-      }
-    }
+
+        if (i * width + j) % bar_inv == 0 {
+          progress_bar.inc(1);
+        }
+      });
     progress_bar.finish_and_clear();
     println!("frame data render finished.");
 

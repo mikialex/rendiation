@@ -5,7 +5,7 @@ pub static EPS: f32 = 0.005;
 
 // pub type RayIntersectAble = dyn IntersectAble<Ray3, Option<Intersection>>;
 
-pub trait RayIntersectAble {
+pub trait RayIntersectAble: Send + Sync {
   fn intersect(&self, ray: &Ray3) -> Option<Intersection>;
 }
 

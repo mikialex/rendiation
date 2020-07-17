@@ -51,6 +51,10 @@ impl PartialEq for Chunk {
 
 impl Eq for Chunk {}
 
+pub async fn gen_chunk_async(chunk_position: ChunkCoords, world_machine: &mut impl WorldMachine) -> Chunk{
+  todo!()
+}
+
 impl Chunk {
   pub fn new(chunk_position: ChunkCoords, world_machine: &mut impl WorldMachine) -> Self {
     let ChunkCoords((chunk_x, chunk_z)) = chunk_position;

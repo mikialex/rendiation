@@ -5,32 +5,28 @@ use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
 mod cook_torrance;
 
-pub struct ScatteringEvent{
+pub struct ScatteringEvent {
   pub out_dir: Vec3,
   pub brdf: Vec3,
-  pub pdf: f32
+  pub pdf: f32,
 }
 
-pub trait Material{
+pub trait Material: Send + Sync {
   fn scatter(&self, in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>;
   fn sample_lighting(&self, intersection: &Intersection) -> Vec3;
 }
 
 #[derive(Clone, Copy)]
 pub struct Lambertian {
-    albedo: Color<LinearRGBColorSpace<f32>>,
+  albedo: Color<LinearRGBColorSpace<f32>>,
 }
 
-impl Material for Lambertian{
-  fn scatter(&self, _in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>{
+impl Material for Lambertian {
+  fn scatter(&self, _in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
     let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     let pdf = cos / PI;
     let brdf = self.albedo.value / Vec3::new(PI, PI, PI);
-    Some(ScatteringEvent{
-      out_dir,
-      brdf,
-      pdf
-    })
+    Some(ScatteringEvent { out_dir, brdf, pdf })
     // // let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     // let pdf = in_dir.reflect(intersection.hit_normal).dot(intersection.hit_normal).abs();
     // let brdf = self.albedo.value;
@@ -41,7 +37,7 @@ impl Material for Lambertian{
     // })
   }
 
-  fn sample_lighting(&self, _: &Intersection) -> Vec3{
+  fn sample_lighting(&self, _: &Intersection) -> Vec3 {
     Vec3::new(0., 0., 0.)
   }
 }

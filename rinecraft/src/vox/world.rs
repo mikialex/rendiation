@@ -2,7 +2,7 @@ use super::block_coords::*;
 use super::{
   block::{BLOCK_FACES, BLOCK_WORLD_SIZE},
   chunks::WorldChunkData,
-  scene_attach::WorldSceneAttachment,
+  scene_attach::WorldSceneAttachment, io::WorldIOManager,
 };
 use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 
 pub struct World {
+  pub io: WorldIOManager,
   pub chunks: WorldChunkData,
   pub chunk_visible_distance: i32,
   pub chunk_geometry_update_set: HashSet<ChunkCoords>,
@@ -29,8 +30,12 @@ pub struct World {
 }
 
 impl World {
-  pub fn new() -> Self {
+
+  // https://stackoverflow.com/questions/52521201/how-do-i-synchronously-return-a-value-calculated-in-an-asynchronous-future-in-st
+  #[tokio::main]
+  pub async fn new() -> Self {
     World {
+      io: WorldIOManager::new(),
       chunk_visible_distance: 4,
       chunk_geometry_update_set: HashSet::new(),
       scene_data: None,
