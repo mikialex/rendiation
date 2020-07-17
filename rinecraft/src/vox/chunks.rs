@@ -7,14 +7,27 @@ use super::{
 };
 use rendiation_math::Vec3;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct WorldChunkData {
   pub chunks: HashMap<ChunkCoords, Chunk>,
+  pub chunks_in_generating: HashSet<ChunkCoords>,
+  pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
+  pub chunks_to_update_gpu: HashMap<ChunkCoords, IndexedGeometry>,
   pub world_machine: WorldMachineImpl,
 }
 
 impl WorldChunkData {
+  pub fn new() -> Self {
+    Self{
+      chunks: HashMap::new(),
+      chunks_in_generating: HashSet::new(),
+      chunks_in_updating_geometry: HashSet::new(),
+      chunks_to_update_gpu: HashMap::new(),
+      world_machine: WorldMachineImpl::new(),
+    }
+  }
+
   pub fn assure_chunk_has_generated(&mut self, chunk_key: ChunkCoords) -> bool {
     let mut exist = true;
     let world_machine = &mut self.world_machine;
@@ -49,7 +62,7 @@ impl WorldChunkData {
     block_position: BlockWorldCoords,
     face: BlockFace,
   ) -> bool {
-    if let Some(opposite_position) = World::block_face_opposite_position(block_position, face) {
+    if let Some(opposite_position) = block_position.face_opposite(face) {
       if let Some(block) = self.try_get_block(opposite_position) {
         if block.is_void() {
           // this is verbose but clear

@@ -51,7 +51,10 @@ impl PartialEq for Chunk {
 
 impl Eq for Chunk {}
 
-pub async fn gen_chunk_async(chunk_position: ChunkCoords, world_machine: &mut impl WorldMachine) -> Chunk{
+pub async fn gen_chunk_async(
+  chunk_position: ChunkCoords,
+  world_machine: &mut impl WorldMachine,
+) -> Chunk {
   todo!()
 }
 

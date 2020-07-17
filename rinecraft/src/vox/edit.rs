@@ -153,7 +153,7 @@ impl World {
   pub fn add_block_by_ray(&mut self, ray: &Ray3, block: usize) {
     let pick_result = self.pick_block(ray);
     if let Some(re) = pick_result {
-      if let Some(b) = World::block_face_opposite_position(re.block_position, re.face) {
+      if let Some(b) = re.block_position.face_opposite(re.face) {
         self.add_block(b, STONE);
       }
     }

@@ -39,25 +39,8 @@ impl World {
       chunk_visible_distance: 4,
       chunk_geometry_update_set: HashSet::new(),
       scene_data: None,
-      chunks: WorldChunkData {
-        chunks: HashMap::new(),
-        world_machine: WorldMachineImpl::new(),
-      },
+      chunks: WorldChunkData::new(),
     }
-  }
-
-  pub fn assure_chunk_has_generated(
-    world_machine: &mut impl WorldMachine,
-    chunks: &mut HashMap<ChunkCoords, Chunk>,
-    chunk_key: ChunkCoords,
-  ) -> bool {
-    let mut exist = true;
-    chunks.entry(chunk_key).or_insert_with(|| {
-      println!("chunk generate {:?}", chunk_key);
-      exist = false;
-      Chunk::new(chunk_key, world_machine)
-    });
-    exist
   }
 
   // create new chunk , remove old chunk
@@ -100,27 +83,4 @@ impl World {
     self.chunk_geometry_update_set.clear();
   }
 
-  pub fn block_face_opposite_position(
-    block_position: BlockWorldCoords,
-    face: BlockFace,
-  ) -> Option<BlockWorldCoords> {
-    let mut result = block_position.0;
-    match face {
-      BlockFace::XZMin => result.y -= 1,
-      BlockFace::XZMax => result.y += 1,
-      BlockFace::XYMin => result.z -= 1,
-      BlockFace::XYMax => result.z += 1,
-      BlockFace::YZMin => result.x -= 1,
-      BlockFace::YZMax => result.x += 1,
-    };
-
-    if result.y < 0 {
-      return None;
-    }
-
-    if result.y >= CHUNK_HEIGHT as i32 {
-      return None;
-    }
-    Some(BlockWorldCoords(result))
-  }
 }

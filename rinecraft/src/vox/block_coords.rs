@@ -1,6 +1,6 @@
 use super::{
-  block::BLOCK_WORLD_SIZE,
-  chunk::{ChunkSide, CHUNK_ABS_WIDTH, CHUNK_WIDTH},
+  block::{BlockFace, BLOCK_WORLD_SIZE},
+  chunk::{ChunkSide, CHUNK_ABS_WIDTH, CHUNK_HEIGHT, CHUNK_WIDTH},
 };
 use rendiation_math::Vec3;
 use rendiation_math_entity::Box3;
@@ -100,6 +100,27 @@ impl BlockWorldCoords {
     let x = (block_position.x as f32 / CHUNK_ABS_WIDTH).floor() as i32;
     let z = (block_position.z as f32 / CHUNK_ABS_WIDTH).floor() as i32;
     ChunkCoords((x, z))
+  }
+
+  pub fn face_opposite(&self, face: BlockFace) -> Option<BlockWorldCoords> {
+    let mut result = self.0;
+    match face {
+      BlockFace::XZMin => result.y -= 1,
+      BlockFace::XZMax => result.y += 1,
+      BlockFace::XYMin => result.z -= 1,
+      BlockFace::XYMax => result.z += 1,
+      BlockFace::YZMin => result.x -= 1,
+      BlockFace::YZMax => result.x += 1,
+    };
+
+    if result.y < 0 {
+      return None;
+    }
+
+    if result.y >= CHUNK_HEIGHT as i32 {
+      return None;
+    }
+    Some(BlockWorldCoords(result))
   }
 
   pub fn get_block_bbox(&self) -> Box3 {
