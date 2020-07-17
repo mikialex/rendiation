@@ -1,6 +1,6 @@
-use super::world_machine::WorldMachine;
 use rendiation_webgpu::*;
 use rendiation_mesh_buffer::vertex::*;
+use super::world_machine::WorldMachine;
 
 #[derive(Clone, Copy)]
 pub struct Block {
@@ -43,7 +43,7 @@ pub const BLOCK_FACES: [BlockFace; 6] = [
 ];
 
 pub fn build_block_face(
-  world_machine: &impl WorldMachine,
+  world_machine: &WorldMachine,
   block: Block,
   min: &(f32, f32, f32),
   max: &(f32, f32, f32),

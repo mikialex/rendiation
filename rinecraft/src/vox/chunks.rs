@@ -3,7 +3,7 @@ use super::{
   block_coords::*,
   chunk::{Chunk, ChunkSide, CHUNK_ABS_WIDTH},
   world::World,
-  world_machine::WorldMachineImpl,
+  world_machine::WorldMachine,
 };
 use rendiation_math::Vec3;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
@@ -14,17 +14,17 @@ pub struct WorldChunkData {
   pub chunks_in_generating: HashSet<ChunkCoords>,
   pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
   pub chunks_to_update_gpu: HashMap<ChunkCoords, IndexedGeometry>,
-  pub world_machine: WorldMachineImpl,
+  pub world_machine: WorldMachine,
 }
 
 impl WorldChunkData {
   pub fn new() -> Self {
-    Self{
+    Self {
       chunks: HashMap::new(),
       chunks_in_generating: HashSet::new(),
       chunks_in_updating_geometry: HashSet::new(),
       chunks_to_update_gpu: HashMap::new(),
-      world_machine: WorldMachineImpl::new(),
+      world_machine: WorldMachine::new(),
     }
   }
 

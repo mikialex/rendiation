@@ -1,7 +1,6 @@
-use super::block_coords::*;
+use super::{block_coords::*, world_machine::WorldMachine};
 use crate::vox::block::*;
 use crate::vox::world::*;
-use crate::vox::world_machine::WorldMachine;
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::*};
@@ -53,24 +52,35 @@ impl Eq for Chunk {}
 
 pub async fn gen_chunk_async(
   chunk_position: ChunkCoords,
-  world_machine: &mut impl WorldMachine,
+  world_machine: &mut WorldMachine,
 ) -> Chunk {
+  let blocking_task = tokio::task::spawn_blocking(|| {
+    // This is running on a blocking thread.
+    // Blocking here is ok.
+  });
+
+  // We can wait for the blocking task like this:
+  // If the blocking task panics, the unwrap below will propagate the
+  // panic.
+  blocking_task.await.unwrap();
   todo!()
 }
 
 impl Chunk {
-  pub fn new(chunk_position: ChunkCoords, world_machine: &mut impl WorldMachine) -> Self {
+  pub fn new(chunk_position: ChunkCoords, world_machine: &WorldMachine) -> Self {
     let ChunkCoords((chunk_x, chunk_z)) = chunk_position;
     let mut x_row = Vec::new();
     for i in 0..CHUNK_WIDTH {
       let mut y_row = Vec::new();
       for j in 0..CHUNK_WIDTH {
         let mut z_row = Vec::new();
+        let level_cache = world_machine.create_chunk_level_cache((i, j));
         for k in 0..CHUNK_HEIGHT {
           z_row.push(world_machine.world_gen(
             chunk_x * (CHUNK_WIDTH as i32) + i as i32,
             k as i32,
             chunk_z * (CHUNK_WIDTH as i32) + j as i32,
+            &level_cache,
           ));
         }
         y_row.push(z_row);

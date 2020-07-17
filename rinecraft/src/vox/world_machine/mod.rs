@@ -6,13 +6,7 @@ use noise::*;
 use rendiation_webgpu::*;
 use std::collections::BTreeMap;
 
-pub trait WorldMachine {
-  //  y is up
-  fn world_gen(&mut self, x: i32, y: i32, z: i32) -> Block;
-  fn get_block_info(&self, block: usize) -> &BlockMetaInfo;
-}
-
-pub struct WorldMachineImpl {
+pub struct WorldMachine {
   pub level_cache: BTreeMap<ChunkCoords, LevelCache>,
   pub block_registry: BlockRegistry,
   pub fbm_noise: Fbm,
@@ -20,17 +14,44 @@ pub struct WorldMachineImpl {
   _seed: usize,
 }
 
-impl WorldMachineImpl {
+impl WorldMachine {
   pub fn new() -> Self {
     let block_registry = BlockRegistry::new_default();
     let fbm_noise = Fbm::new();
-    WorldMachineImpl {
+    Self {
       level_cache: BTreeMap::new(),
       block_registry,
       fbm_noise,
       _version: 0,
       _seed: 0,
     }
+  }
+
+  pub fn create_chunk_level_cache(&self, (x, z): (usize, usize)) -> LevelCache {
+    LevelCache::new(x as i32, z as i32, &self.fbm_noise)
+  }
+
+  pub fn world_gen(&self, x: i32, y: i32, z: i32, level_cache: &LevelCache) -> Block {
+    let fbm = &self.fbm_noise;
+
+    let dirt_height = level_cache.land_level;
+    let stone_height = level_cache.rock_level;
+    let result = if y <= dirt_height {
+      if y == dirt_height {
+        GRASS
+      } else if y > stone_height {
+        DIRT
+      } else {
+        STONE
+      }
+    } else {
+      VOID
+    };
+    result
+  }
+
+  pub fn get_block_info(&self, block_id: usize) -> &BlockMetaInfo {
+    &self.block_registry.lut[block_id]
   }
 
   pub fn get_block_atlas(&mut self, renderer: &mut WGPURenderer) -> WGPUTexture {
@@ -63,40 +84,5 @@ impl LevelCache {
       rock_level: rock_level as i32,
       generation_time: 0,
     }
-  }
-}
-
-impl WorldMachine for WorldMachineImpl {
-  fn world_gen(&mut self, x: i32, y: i32, z: i32) -> Block {
-    let fbm = &self.fbm_noise;
-    let level_cache = self
-      .level_cache
-      .entry((x, z).into())
-      .or_insert_with(|| LevelCache::new(x, z, fbm));
-
-    let dirt_height = level_cache.land_level;
-    let stone_height = level_cache.rock_level;
-    let result = if y <= dirt_height {
-      if y == dirt_height {
-        GRASS
-      } else if y > stone_height {
-        DIRT
-      } else {
-        STONE
-      }
-    } else {
-      VOID
-    };
-
-    level_cache.generation_time += 1;
-    if level_cache.generation_time == CHUNK_HEIGHT {
-      self.level_cache.remove(&(x, z).into());
-    }
-
-    result
-  }
-
-  fn get_block_info(&self, block_id: usize) -> &BlockMetaInfo {
-    &self.block_registry.lut[block_id]
   }
 }
