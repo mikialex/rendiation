@@ -10,7 +10,11 @@ use rendiation_scenegraph::{
 };
 use rendiation_webgpu::*;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::{
+  future::Future,
+  hash::{Hash, Hasher},
+  sync::Arc,
+};
 
 pub const CHUNK_WIDTH: usize = 8;
 pub const CHUNK_HEIGHT: usize = 64;
@@ -50,20 +54,15 @@ impl PartialEq for Chunk {
 
 impl Eq for Chunk {}
 
-pub async fn gen_chunk_async(
-  chunk_position: ChunkCoords,
-  world_machine: &mut WorldMachine,
-) -> Chunk {
-  let blocking_task = tokio::task::spawn_blocking(|| {
-    // This is running on a blocking thread.
-    // Blocking here is ok.
-  });
+use futures::*;
 
-  // We can wait for the blocking task like this:
-  // If the blocking task panics, the unwrap below will propagate the
-  // panic.
-  blocking_task.await.unwrap();
-  todo!()
+#[tokio::main]
+pub async fn gen_chunk(
+  chunk_position: ChunkCoords,
+  world_machine: Arc<WorldMachine>,
+) -> impl Future<Output = Chunk> {
+  tokio::task::spawn_blocking(move || Chunk::new(chunk_position, world_machine.as_ref()))
+    .map(|r| r.unwrap())
 }
 
 impl Chunk {
