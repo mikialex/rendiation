@@ -38,7 +38,7 @@ impl World {
     World {
       io: WorldIOManager::new(),
       world_machine: Arc::new(WorldMachine::new()),
-      chunk_visible_distance: 4,
+      chunk_visible_distance: 3,
       scene_data: None,
       chunks: Arc::new(Mutex::new(WorldChunkData::new())),
     }
@@ -51,13 +51,17 @@ impl World {
 
       let chunk_c = self.chunks.clone();
 
-      tokio::task::spawn_blocking(move || {
+      println!("spawn");
+      // tokio::task::spawn_blocking(move || {
+        std::thread::spawn(move || {
         let chunk = Chunk::new(chunk_key, machine.as_ref());
-        let mut chunks = chunk_c.lock().unwrap();
-        println!("{:?}", chunk_key);
-        chunks.chunks_in_generating.remove(&chunk_key);
-        chunks.chunks.insert(chunk_key, chunk);
-        chunks.chunks_to_sync_scene.insert(chunk_key);
+        {
+          let mut chunks = chunk_c.lock().unwrap();
+          println!("{:?}", chunk_key);
+          chunks.chunks_in_generating.remove(&chunk_key);
+          chunks.chunks.insert(chunk_key, chunk);
+          chunks.chunks_to_sync_scene.insert(chunk_key);
+        }
       });
     }
   }
@@ -90,10 +94,11 @@ impl World {
 
     // sync change to scene
     if let Some(scene_data) = &mut self.scene_data {
-      let data = self.chunks.lock().unwrap();
+      let mut data = self.chunks.lock().unwrap();
       for chunk_to_update in &data.chunks_to_sync_scene {
         scene_data.sync_chunk_in_scene(chunk_to_update, &data, scene, renderer, &self.world_machine)
       }
+      data.chunks_to_sync_scene.clear();
     }
   }
 }
