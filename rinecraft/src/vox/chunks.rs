@@ -20,7 +20,6 @@ pub struct WorldChunkData {
   pub chunks_to_sync_scene: HashSet<ChunkCoords>,
   // pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
   // pub chunks_to_update_gpu: HashMap<ChunkCoords, IndexedGeometry>,
-  pub world_machine: WorldMachine,
 }
 
 impl WorldChunkData {
@@ -31,7 +30,6 @@ impl WorldChunkData {
       chunks_to_sync_scene: HashSet::new(),
       // chunks_in_updating_geometry: HashSet::new(),
       // chunks_to_update_gpu: HashMap::new(),
-      world_machine: WorldMachine::new(),
     }
   }
 
@@ -67,7 +65,11 @@ impl WorldChunkData {
     }
   }
 
-  pub fn create_mesh_buffer(&self, chunk_position: ChunkCoords) -> IndexedGeometry {
+  pub fn create_mesh_buffer(
+    &self,
+    chunk_position: ChunkCoords,
+    machine: &WorldMachine,
+  ) -> IndexedGeometry {
     let chunk = self.chunks.get(&chunk_position).unwrap();
 
     let mut new_index = Vec::new();
@@ -92,7 +94,7 @@ impl WorldChunkData {
       for face in BLOCK_FACES.iter() {
         if self.check_block_face_visibility(world_position, *face) {
           build_block_face(
-            &self.world_machine,
+            machine,
             *block,
             &(min_x, min_y, min_z),
             &(max_x, max_y, max_z),

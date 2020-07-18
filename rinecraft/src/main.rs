@@ -11,7 +11,8 @@ mod camera_controls;
 use rinecraft::*;
 use rendium::application;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
     application::run::<Rinecraft>("rinecraft");
 }

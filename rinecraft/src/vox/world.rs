@@ -27,6 +27,7 @@ use std::{
 
 pub struct World {
   pub io: WorldIOManager,
+  pub world_machine: Arc<WorldMachine>,
   pub chunks: Arc<Mutex<WorldChunkData>>,
   pub chunk_visible_distance: i32,
   pub scene_data: Option<WorldSceneAttachment>,
@@ -36,22 +37,23 @@ impl World {
   pub fn new() -> Self {
     World {
       io: WorldIOManager::new(),
+      world_machine: Arc::new(WorldMachine::new()),
       chunk_visible_distance: 4,
       scene_data: None,
       chunks: Arc::new(Mutex::new(WorldChunkData::new())),
     }
   }
 
-  pub fn assure_chunk_has_generated(&self, chunk_key: ChunkCoords) {
-    let data = self.chunks.lock().unwrap();
+  pub fn assure_chunk_has_generated(&self, chunk_key: ChunkCoords, machine: Arc<WorldMachine>) {
+    let mut data = self.chunks.lock().unwrap();
     if !data.chunks.contains_key(&chunk_key) && !data.chunks_in_generating.contains(&chunk_key) {
       data.chunks_in_generating.insert(chunk_key);
 
       let chunk_c = self.chunks.clone();
 
       tokio::task::spawn_blocking(move || {
-        let chunks = chunk_c.lock().unwrap();
-        let chunk = Chunk::new(chunk_key, &chunks.world_machine);
+        let chunk = Chunk::new(chunk_key, machine.as_ref());
+        let mut chunks = chunk_c.lock().unwrap();
         println!("{:?}", chunk_key);
         chunks.chunks_in_generating.remove(&chunk_key);
         chunks.chunks.insert(chunk_key, chunk);
@@ -81,7 +83,7 @@ impl World {
     for x in x_low..x_high {
       for z in z_low..z_high {
         let chunk_key = (x, z).into();
-        self.assure_chunk_has_generated(chunk_key);
+        self.assure_chunk_has_generated(chunk_key, self.world_machine.clone());
         // self.chunks.assure_chunk_surround_has_generated(chunk_key);
       }
     }
@@ -90,7 +92,7 @@ impl World {
     if let Some(scene_data) = &mut self.scene_data {
       let data = self.chunks.lock().unwrap();
       for chunk_to_update in &data.chunks_to_sync_scene {
-        scene_data.sync_chunk_in_scene(chunk_to_update, &data, scene, renderer)
+        scene_data.sync_chunk_in_scene(chunk_to_update, &data, scene, renderer, &self.world_machine)
       }
     }
   }

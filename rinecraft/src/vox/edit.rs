@@ -89,7 +89,7 @@ fn pick_block(
 impl World {
   pub fn pick_block(&self, ray: &Ray3) -> Option<BlockPickResult> {
     let mut nearest: Option<BlockPickResult> = None;
-    for (_, chunk) in &self.chunks.chunks {
+    for (_, chunk) in &self.chunks.lock().unwrap().chunks {
       if let Some(hit) = pick_block(chunk, ray, &nearest) {
         if let Some(n) = &nearest {
           if hit.distance2 < n.distance2 {
@@ -125,29 +125,24 @@ impl World {
 
   pub fn add_block(&mut self, block_position: BlockWorldCoords, block: Block) {
     let (chunk_key, local_position) = block_position.to_local_pair();
-    let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
+    let mut data = self.chunks.lock().unwrap();
+
+    let chunk = data.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, block);
 
-    self.chunks.chunks_to_sync_scene.insert(chunk_key);
-    World::notify_side_chunk_dirty(
-      &mut self.chunks.chunks_to_sync_scene,
-      chunk_key,
-      local_position,
-    );
+    data.chunks_to_sync_scene.insert(chunk_key);
+    World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
   }
 
   pub fn delete_block(&mut self, block_position: BlockWorldCoords) {
     let (chunk_key, local_position) = block_position.to_local_pair();
+    let mut data = self.chunks.lock().unwrap();
 
-    let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
+    let chunk = data.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, VOID);
 
-    self.chunks.chunks_to_sync_scene.insert(chunk_key);
-    World::notify_side_chunk_dirty(
-      &mut self.chunks.chunks_to_sync_scene,
-      chunk_key,
-      local_position,
-    );
+    data.chunks_to_sync_scene.insert(chunk_key);
+    World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
   }
 
   pub fn add_block_by_ray(&mut self, ray: &Ray3, block: usize) {
