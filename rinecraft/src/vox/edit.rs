@@ -128,9 +128,9 @@ impl World {
     let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, block);
 
-    self.chunk_geometry_update_set.insert(chunk_key);
+    self.chunks.chunks_to_sync_scene.insert(chunk_key);
     World::notify_side_chunk_dirty(
-      &mut self.chunk_geometry_update_set,
+      &mut self.chunks.chunks_to_sync_scene,
       chunk_key,
       local_position,
     );
@@ -142,9 +142,9 @@ impl World {
     let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
     chunk.set_block(local_position, VOID);
 
-    self.chunk_geometry_update_set.insert(chunk_key);
+    self.chunks.chunks_to_sync_scene.insert(chunk_key);
     World::notify_side_chunk_dirty(
-      &mut self.chunk_geometry_update_set,
+      &mut self.chunks.chunks_to_sync_scene,
       chunk_key,
       local_position,
     );

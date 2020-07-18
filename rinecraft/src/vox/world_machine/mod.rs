@@ -28,8 +28,8 @@ impl WorldMachine {
     }
   }
 
-  pub fn create_chunk_level_cache(&self, (x, z): (usize, usize)) -> LevelCache {
-    LevelCache::new(x as i32, z as i32, &self.fbm_noise)
+  pub fn create_chunk_level_cache(&self, (x, z): (i32, i32)) -> LevelCache {
+    LevelCache::new(x, z, &self.fbm_noise)
   }
 
   pub fn world_gen(&self, x: i32, y: i32, z: i32, level_cache: &LevelCache) -> Block {

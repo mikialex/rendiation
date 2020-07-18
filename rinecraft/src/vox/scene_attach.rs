@@ -34,6 +34,10 @@ impl WorldSceneAttachment {
     scene: &mut Scene<WebGPUBackend>,
     renderer: &mut WGPURenderer,
   ) {
+    if chunks.chunks.get(&chunk).is_none() {
+      return;
+    }
+    
     // remove node in scene;
     if let Some((node_index, render_object_index, geometry_index)) = self.blocks.get(chunk) {
       scene.node_remove_child_by_handle(self.root_node_index, *node_index);

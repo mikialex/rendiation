@@ -17,9 +17,10 @@ use tokio::prelude::*;
 pub struct WorldChunkData {
   pub chunks: HashMap<ChunkCoords, Chunk>,
   pub chunks_in_generating: HashSet<ChunkCoords>,
-  pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
-  pub chunks_to_update_gpu: HashMap<ChunkCoords, IndexedGeometry>,
-  pub world_machine: Arc<WorldMachine>,
+  pub chunks_to_sync_scene: HashSet<ChunkCoords>,
+  // pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
+  // pub chunks_to_update_gpu: HashMap<ChunkCoords, IndexedGeometry>,
+  pub world_machine: WorldMachine,
 }
 
 impl WorldChunkData {
@@ -27,37 +28,11 @@ impl WorldChunkData {
     Self {
       chunks: HashMap::new(),
       chunks_in_generating: HashSet::new(),
-      chunks_in_updating_geometry: HashSet::new(),
-      chunks_to_update_gpu: HashMap::new(),
-      world_machine: Arc::new(WorldMachine::new()),
+      chunks_to_sync_scene: HashSet::new(),
+      // chunks_in_updating_geometry: HashSet::new(),
+      // chunks_to_update_gpu: HashMap::new(),
+      world_machine: WorldMachine::new(),
     }
-  }
-
-  pub fn assure_chunk_has_generated(&mut self, chunk_key: ChunkCoords) -> bool {
-    let mut exist = true;
-    if !self.chunks.contains_key(&chunk_key) && !self.chunks_in_generating.contains(&chunk_key) {
-      exist = false;
-      self.chunks_in_generating.insert(chunk_key);
-      gen_chunk(chunk_key, self.world_machine.clone()).map(|c| {
-        self.chunks_in_generating.remove(&chunk_key);
-        self.chunks.insert(chunk_key, c);
-      });
-    }
-
-    // self.chunks.entry(chunk_key).is(|| {
-    //   println!("chunk generate {:?}", chunk_key);
-    //   exist = false;
-    //   gen_chunk_async(chunk_key,world_machine)
-    //   // Chunk::new(chunk_key, world_machine)
-    // });
-    exist
-  }
-
-  pub fn assure_chunk_surround_has_generated(&mut self, chunk_key: ChunkCoords) {
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMin));
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMax));
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMin));
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMax));
   }
 
   pub fn try_get_block(&self, block_position: BlockWorldCoords) -> Option<Block> {

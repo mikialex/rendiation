@@ -56,8 +56,7 @@ impl Eq for Chunk {}
 
 use futures::*;
 
-#[tokio::main]
-pub async fn gen_chunk(
+pub fn gen_chunk(
   chunk_position: ChunkCoords,
   world_machine: Arc<WorldMachine>,
 ) -> impl Future<Output = Chunk> {
@@ -73,14 +72,11 @@ impl Chunk {
       let mut y_row = Vec::new();
       for j in 0..CHUNK_WIDTH {
         let mut z_row = Vec::new();
-        let level_cache = world_machine.create_chunk_level_cache((i, j));
-        for k in 0..CHUNK_HEIGHT {
-          z_row.push(world_machine.world_gen(
-            chunk_x * (CHUNK_WIDTH as i32) + i as i32,
-            k as i32,
-            chunk_z * (CHUNK_WIDTH as i32) + j as i32,
-            &level_cache,
-          ));
+        let x = chunk_x * (CHUNK_WIDTH as i32) + i as i32;
+        let z = chunk_z * (CHUNK_WIDTH as i32) + j as i32;
+        let level_cache = world_machine.create_chunk_level_cache((x, z));
+        for y in 0..CHUNK_HEIGHT {
+          z_row.push(world_machine.world_gen(x, y as i32, z, &level_cache));
         }
         y_row.push(z_row);
       }
