@@ -52,8 +52,7 @@ impl World {
       let chunk_c = self.chunks.clone();
 
       println!("spawn");
-      // tokio::task::spawn_blocking(move || {
-        std::thread::spawn(move || {
+      tokio::task::spawn_blocking(move || {
         let chunk = Chunk::new(chunk_key, machine.as_ref());
         {
           let mut chunks = chunk_c.lock().unwrap();
