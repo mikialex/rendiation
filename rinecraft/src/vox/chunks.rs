@@ -17,8 +17,8 @@ use tokio::prelude::*;
 pub struct WorldChunkData {
   pub chunks: HashMap<ChunkCoords, Chunk>,
   pub chunks_in_generating: HashSet<ChunkCoords>,
-  pub chunks_to_sync_scene: HashSet<ChunkCoords>,
-  // pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
+  pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
+  pub chunks_to_sync_scene: HashMap<ChunkCoords, IndexedGeometry>,
   // pub chunks_to_update_gpu: HashMap<ChunkCoords, IndexedGeometry>,
 }
 
@@ -27,8 +27,8 @@ impl WorldChunkData {
     Self {
       chunks: HashMap::new(),
       chunks_in_generating: HashSet::new(),
-      chunks_to_sync_scene: HashSet::new(),
-      // chunks_in_updating_geometry: HashSet::new(),
+      chunks_in_updating_geometry: HashSet::new(),
+      chunks_to_sync_scene: HashMap::new(),
       // chunks_to_update_gpu: HashMap::new(),
     }
   }
