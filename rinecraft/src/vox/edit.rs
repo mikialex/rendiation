@@ -1,4 +1,4 @@
-use super::{block_coords::*, world_machine::VOID};
+use super::{block_coords::*, chunks::WorldChunkData, world_machine::VOID};
 use crate::vox::block::*;
 use crate::vox::chunk::*;
 use crate::vox::world::*;
@@ -88,21 +88,20 @@ fn pick_block(
 
 impl World {
   pub fn pick_block(&self, ray: &Ray3) -> Option<BlockPickResult> {
-    todo!()
-    // let mut nearest: Option<BlockPickResult> = None;
-    // for (_, chunk) in &self.chunks.lock().unwrap().chunks {
-    //   if let Some(hit) = pick_block(chunk, ray, &nearest) {
-    //     if let Some(n) = &nearest {
-    //       if hit.distance2 < n.distance2 {
-    //         nearest = Some(hit)
-    //       }
-    //     } else {
-    //       nearest = Some(hit)
-    //     }
-    //   }
-    // }
-    // println!("chunk hit {:?}", nearest);
-    // nearest
+    let mut nearest: Option<BlockPickResult> = None;
+    for (_, chunk) in self.chunks.chunks.lock().unwrap().iter() {
+      if let Some(hit) = pick_block(chunk, ray, &nearest) {
+        if let Some(n) = &nearest {
+          if hit.distance2 < n.distance2 {
+            nearest = Some(hit)
+          }
+        } else {
+          nearest = Some(hit)
+        }
+      }
+    }
+    println!("chunk hit {:?}", nearest);
+    nearest
   }
 
   fn notify_side_chunk_dirty(
@@ -125,24 +124,47 @@ impl World {
   }
 
   pub fn add_block(&mut self, block_position: BlockWorldCoords, block: Block) {
-    // let (chunk_key, local_position) = block_position.to_local_pair();
-    // let mut data = self.chunks.lock().unwrap();
+    let (chunk_key, local_position) = block_position.to_local_pair();
+    {
+      let mut chunks = self.chunks.chunks.lock().unwrap();
+      let chunk = chunks.get_mut(&chunk_key).unwrap();
+      chunk.set_block(local_position, block);
+    }
 
-    // let chunk = data.chunks.get_mut(&chunk_key).unwrap();
-    // chunk.set_block(local_position, block);
-
-    // data.chunks_to_sync_scene.insert(chunk_key);
+    let g = WorldChunkData::create_mesh_buffer(
+      self.chunks.chunks.clone(),
+      chunk_key,
+      self.world_machine.as_ref(),
+    );
+    self
+      .chunks
+      .chunks_to_sync_scene
+      .lock()
+      .unwrap()
+      .insert(chunk_key, g);
     // World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
   }
 
   pub fn delete_block(&mut self, block_position: BlockWorldCoords) {
-    // let (chunk_key, local_position) = block_position.to_local_pair();
-    // let mut data = self.chunks.lock().unwrap();
+    let (chunk_key, local_position) = block_position.to_local_pair();
+    {
+      let mut chunks = self.chunks.chunks.lock().unwrap();
+      let chunk = chunks.get_mut(&chunk_key).unwrap();
+      chunk.set_block(local_position, VOID);
+    }
 
-    // let chunk = data.chunks.get_mut(&chunk_key).unwrap();
-    // chunk.set_block(local_position, VOID);
+    let g = WorldChunkData::create_mesh_buffer(
+      self.chunks.chunks.clone(),
+      chunk_key,
+      self.world_machine.as_ref(),
+    );
+    self
+      .chunks
+      .chunks_to_sync_scene
+      .lock()
+      .unwrap()
+      .insert(chunk_key, g);
 
-    // data.chunks_to_sync_scene.insert(chunk_key);
     // World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
   }
 
