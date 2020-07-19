@@ -1,4 +1,4 @@
-use super::{block_coords::*, world_machine::VOID};
+use super::{block_coords::*, chunks::WorldChunkData, world_machine::VOID};
 use crate::vox::block::*;
 use crate::vox::chunk::*;
 use crate::vox::world::*;
@@ -89,7 +89,7 @@ fn pick_block(
 impl World {
   pub fn pick_block(&self, ray: &Ray3) -> Option<BlockPickResult> {
     let mut nearest: Option<BlockPickResult> = None;
-    for (_, chunk) in &self.chunks.chunks {
+    for (_, chunk) in self.chunks.chunks.lock().unwrap().iter() {
       if let Some(hit) = pick_block(chunk, ray, &nearest) {
         if let Some(n) = &nearest {
           if hit.distance2 < n.distance2 {
@@ -125,29 +125,47 @@ impl World {
 
   pub fn add_block(&mut self, block_position: BlockWorldCoords, block: Block) {
     let (chunk_key, local_position) = block_position.to_local_pair();
-    let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
-    chunk.set_block(local_position, block);
+    {
+      let mut chunks = self.chunks.chunks.lock().unwrap();
+      let chunk = chunks.get_mut(&chunk_key).unwrap();
+      chunk.set_block(local_position, block);
+    }
 
-    self.chunk_geometry_update_set.insert(chunk_key);
-    World::notify_side_chunk_dirty(
-      &mut self.chunk_geometry_update_set,
+    let g = WorldChunkData::create_mesh_buffer(
+      self.chunks.chunks.clone(),
       chunk_key,
-      local_position,
+      self.world_machine.as_ref(),
     );
+    self
+      .chunks
+      .chunks_to_sync_scene
+      .lock()
+      .unwrap()
+      .insert(chunk_key, g);
+    // World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
   }
 
   pub fn delete_block(&mut self, block_position: BlockWorldCoords) {
     let (chunk_key, local_position) = block_position.to_local_pair();
+    {
+      let mut chunks = self.chunks.chunks.lock().unwrap();
+      let chunk = chunks.get_mut(&chunk_key).unwrap();
+      chunk.set_block(local_position, VOID);
+    }
 
-    let chunk = self.chunks.chunks.get_mut(&chunk_key).unwrap();
-    chunk.set_block(local_position, VOID);
-
-    self.chunk_geometry_update_set.insert(chunk_key);
-    World::notify_side_chunk_dirty(
-      &mut self.chunk_geometry_update_set,
+    let g = WorldChunkData::create_mesh_buffer(
+      self.chunks.chunks.clone(),
       chunk_key,
-      local_position,
+      self.world_machine.as_ref(),
     );
+    self
+      .chunks
+      .chunks_to_sync_scene
+      .lock()
+      .unwrap()
+      .insert(chunk_key, g);
+
+    // World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
   }
 
   pub fn add_block_by_ray(&mut self, ray: &Ray3, block: usize) {

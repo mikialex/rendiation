@@ -1,7 +1,8 @@
-use super::{block_coords::*, block_meta::BlockMetaInfo};
 use crate::vox::block::Block;
-use crate::vox::block_meta::BlockRegistry;
 use crate::vox::chunk::CHUNK_HEIGHT;
+pub mod block_meta;
+use super::block_coords::ChunkCoords;
+use block_meta::*;
 use noise::*;
 use rendiation_webgpu::*;
 use std::collections::BTreeMap;
@@ -27,8 +28,8 @@ impl WorldMachine {
     }
   }
 
-  pub fn create_chunk_level_cache(&self, (x, z): (usize, usize)) -> LevelCache {
-    LevelCache::new(x as i32, z as i32, &self.fbm_noise)
+  pub fn create_chunk_level_cache(&self, (x, z): (i32, i32)) -> LevelCache {
+    LevelCache::new(x, z, &self.fbm_noise)
   }
 
   pub fn world_gen(&self, x: i32, y: i32, z: i32, level_cache: &LevelCache) -> Block {
@@ -54,7 +55,7 @@ impl WorldMachine {
     &self.block_registry.lut[block_id]
   }
 
-  pub fn get_block_atlas(&mut self, renderer: &mut WGPURenderer) -> WGPUTexture {
+  pub fn get_block_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
     self.block_registry.create_atlas(renderer)
   }
 }

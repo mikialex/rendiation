@@ -1,5 +1,5 @@
 use super::block_coords::*;
-use super::{chunks::WorldChunkData, world::World};
+use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
   shading::{create_block_shading, BlockShadingParamGroup},
   util::CameraGPU,
@@ -7,7 +7,7 @@ use crate::{
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::as_bytes};
 use rendiation_scenegraph::*;
 use rendiation_webgpu::*;
-use std::collections::BTreeMap;
+use std::{time::Instant, collections::BTreeMap};
 
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WebGPUBackend>,
@@ -27,38 +27,44 @@ impl WorldSceneAttachment {
     self.blocks.contains_key(&block_position)
   }
 
-  pub fn sync_chunk_in_scene(
+  pub fn sync_chunks_in_scene(
     &mut self,
-    chunk: &ChunkCoords,
-    chunks: &WorldChunkData,
+    chunks: &mut WorldChunkData,
     scene: &mut Scene<WebGPUBackend>,
     renderer: &mut WGPURenderer,
   ) {
-    // remove node in scene;
-    if let Some((node_index, render_object_index, geometry_index)) = self.blocks.get(chunk) {
-      scene.node_remove_child_by_handle(self.root_node_index, *node_index);
-      scene.free_node(*node_index);
-      scene.delete_render_object(*render_object_index);
-      scene
-        .resources
-        .delete_geometry_with_buffers(*geometry_index);
-      self.blocks.remove(chunk);
+
+    for (chunk, g) in chunks.chunks_to_sync_scene.lock().unwrap().drain() {
+      // if chunks.chunks.get(&chunk).is_none() {
+      //   return;
+      // }
+  
+      // remove node in scene;
+      if let Some((node_index, render_object_index, geometry_index)) = self.blocks.get(&chunk) {
+        scene.node_remove_child_by_handle(self.root_node_index, *node_index);
+        scene.free_node(*node_index);
+        scene.delete_render_object(*render_object_index);
+        scene
+          .resources
+          .delete_geometry_with_buffers(*geometry_index);
+        self.blocks.remove(&chunk);
+      }
+  
+      // add new node in scene;
+      let scene_geometry = create_add_geometry(&g, renderer, scene);
+  
+      let render_object_index = scene.create_render_object(scene_geometry, self.block_shading);
+      let new_node = scene.create_new_node();
+      new_node.data_mut().add_render_object(render_object_index);
+      let node_index = new_node.handle();
+  
+      scene.node_add_child_by_handle(self.root_node_index, node_index);
+  
+      self
+        .blocks
+        .insert(chunk, (node_index, render_object_index, scene_geometry));
     }
 
-    // add new node in scene;
-    let mesh_buffer = chunks.create_mesh_buffer(*chunk);
-    let scene_geometry = create_add_geometry(&mesh_buffer, renderer, scene);
-
-    let render_object_index = scene.create_render_object(scene_geometry, self.block_shading);
-    let new_node = scene.create_new_node();
-    new_node.data_mut().add_render_object(render_object_index);
-    let node_index = new_node.handle();
-
-    scene.node_add_child_by_handle(self.root_node_index, node_index);
-
-    self
-      .blocks
-      .insert(*chunk, (node_index, render_object_index, scene_geometry));
   }
 }
 
@@ -99,7 +105,7 @@ impl World {
       return;
     }
 
-    let block_atlas = self.chunks.world_machine.get_block_atlas(renderer);
+    let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::default(renderer);
 
     let shading_params = BlockShadingParamGroup {

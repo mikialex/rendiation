@@ -1,54 +1,42 @@
 use super::{
   block::{build_block_face, Block, BlockFace, BLOCK_FACES, BLOCK_WORLD_SIZE},
   block_coords::*,
-  chunk::{Chunk, ChunkSide, CHUNK_ABS_WIDTH},
+  chunk::*,
   world::World,
   world_machine::WorldMachine,
 };
+use futures::*;
 use rendiation_math::Vec3;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
-use std::collections::{HashMap, HashSet};
+use std::{
+  collections::{HashMap, HashSet},
+  sync::{Arc, Mutex},
+};
+use tokio::prelude::*;
 
 pub struct WorldChunkData {
-  pub chunks: HashMap<ChunkCoords, Chunk>,
-  pub chunks_in_generating: HashSet<ChunkCoords>,
-  pub chunks_in_updating_geometry: HashSet<ChunkCoords>,
-  pub chunks_to_update_gpu: HashMap<ChunkCoords, IndexedGeometry>,
-  pub world_machine: WorldMachine,
+  pub chunks: Arc<Mutex<HashMap<ChunkCoords, Chunk>>>,
+  pub chunks_in_generating: Arc<Mutex<HashSet<ChunkCoords>>>,
+  pub chunks_in_updating_geometry: Arc<Mutex<HashSet<ChunkCoords>>>,
+  pub chunks_to_sync_scene: Arc<Mutex<HashMap<ChunkCoords, IndexedGeometry>>>,
 }
 
 impl WorldChunkData {
   pub fn new() -> Self {
     Self {
-      chunks: HashMap::new(),
-      chunks_in_generating: HashSet::new(),
-      chunks_in_updating_geometry: HashSet::new(),
-      chunks_to_update_gpu: HashMap::new(),
-      world_machine: WorldMachine::new(),
+      chunks: Arc::new(Mutex::new(HashMap::new())),
+      chunks_in_generating: Arc::new(Mutex::new(HashSet::new())),
+      chunks_in_updating_geometry: Arc::new(Mutex::new(HashSet::new())),
+      chunks_to_sync_scene: Arc::new(Mutex::new(HashMap::new())),
     }
   }
 
-  pub fn assure_chunk_has_generated(&mut self, chunk_key: ChunkCoords) -> bool {
-    let mut exist = true;
-    let world_machine = &mut self.world_machine;
-    self.chunks.entry(chunk_key).or_insert_with(|| {
-      println!("chunk generate {:?}", chunk_key);
-      exist = false;
-      Chunk::new(chunk_key, world_machine)
-    });
-    exist
-  }
-
-  pub fn assure_chunk_surround_has_generated(&mut self, chunk_key: ChunkCoords) {
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMin));
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMax));
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMin));
-    self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMax));
-  }
-
-  pub fn try_get_block(&self, block_position: BlockWorldCoords) -> Option<Block> {
+  pub fn try_get_block(
+    chunks: &HashMap<ChunkCoords, Chunk>,
+    block_position: BlockWorldCoords,
+  ) -> Option<Block> {
     let chunk_position = block_position.to_chunk_coords();
-    let chunk_op = self.chunks.get(&chunk_position);
+    let chunk_op = chunks.get(&chunk_position);
     if let Some(chunk) = chunk_op {
       let chunk_local_position = block_position.to_local_mod();
       Some(chunk.get_block(chunk_local_position))
@@ -58,12 +46,12 @@ impl WorldChunkData {
   }
 
   pub fn check_block_face_visibility(
-    &self,
+    chunks: &HashMap<ChunkCoords, Chunk>,
     block_position: BlockWorldCoords,
     face: BlockFace,
   ) -> bool {
     if let Some(opposite_position) = block_position.face_opposite(face) {
-      if let Some(block) = self.try_get_block(opposite_position) {
+      if let Some(block) = WorldChunkData::try_get_block(chunks, opposite_position) {
         if block.is_void() {
           // this is verbose but clear
           true // surface
@@ -78,8 +66,13 @@ impl WorldChunkData {
     }
   }
 
-  pub fn create_mesh_buffer(&self, chunk_position: ChunkCoords) -> IndexedGeometry {
-    let chunk = self.chunks.get(&chunk_position).unwrap();
+  pub fn create_mesh_buffer(
+    chunks: Arc<Mutex<HashMap<ChunkCoords, Chunk>>>,
+    chunk_position: ChunkCoords,
+    machine: &WorldMachine,
+  ) -> IndexedGeometry {
+    let chunks = chunks.lock().unwrap();
+    let chunk = chunks.get(&chunk_position).unwrap();
 
     let mut new_index = Vec::new();
     let mut new_vertex = Vec::new();
@@ -101,9 +94,9 @@ impl WorldChunkData {
       let local: BlockLocalCoords = (x, y, z).into();
       let world_position = local.to_world(chunk_position);
       for face in BLOCK_FACES.iter() {
-        if self.check_block_face_visibility(world_position, *face) {
+        if WorldChunkData::check_block_face_visibility(&chunks, world_position, *face) {
           build_block_face(
-            &self.world_machine,
+            machine,
             *block,
             &(min_x, min_y, min_z),
             &(max_x, max_y, max_z),

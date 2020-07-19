@@ -10,7 +10,11 @@ use rendiation_scenegraph::{
 };
 use rendiation_webgpu::*;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::{
+  future::Future,
+  hash::{Hash, Hasher},
+  sync::Arc,
+};
 
 pub const CHUNK_WIDTH: usize = 8;
 pub const CHUNK_HEIGHT: usize = 64;
@@ -50,20 +54,14 @@ impl PartialEq for Chunk {
 
 impl Eq for Chunk {}
 
-pub async fn gen_chunk_async(
-  chunk_position: ChunkCoords,
-  world_machine: &mut WorldMachine,
-) -> Chunk {
-  let blocking_task = tokio::task::spawn_blocking(|| {
-    // This is running on a blocking thread.
-    // Blocking here is ok.
-  });
+use futures::*;
 
-  // We can wait for the blocking task like this:
-  // If the blocking task panics, the unwrap below will propagate the
-  // panic.
-  blocking_task.await.unwrap();
-  todo!()
+pub fn gen_chunk(
+  chunk_position: ChunkCoords,
+  world_machine: Arc<WorldMachine>,
+) -> impl Future<Output = Chunk> {
+  tokio::task::spawn_blocking(move || Chunk::new(chunk_position, world_machine.as_ref()))
+    .map(|r| r.unwrap())
 }
 
 impl Chunk {
@@ -74,14 +72,11 @@ impl Chunk {
       let mut y_row = Vec::new();
       for j in 0..CHUNK_WIDTH {
         let mut z_row = Vec::new();
-        let level_cache = world_machine.create_chunk_level_cache((i, j));
-        for k in 0..CHUNK_HEIGHT {
-          z_row.push(world_machine.world_gen(
-            chunk_x * (CHUNK_WIDTH as i32) + i as i32,
-            k as i32,
-            chunk_z * (CHUNK_WIDTH as i32) + j as i32,
-            &level_cache,
-          ));
+        let x = chunk_x * (CHUNK_WIDTH as i32) + i as i32;
+        let z = chunk_z * (CHUNK_WIDTH as i32) + j as i32;
+        let level_cache = world_machine.create_chunk_level_cache((x, z));
+        for y in 0..CHUNK_HEIGHT {
+          z_row.push(world_machine.world_gen(x, y as i32, z, &level_cache));
         }
         y_row.push(z_row);
       }

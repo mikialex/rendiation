@@ -10,6 +10,7 @@ env_logger = "0.7"
 image = "*"
 noise = "0.6"
 serde = { version = "1.0.105", features = ["derive"] }
+futures = "0.3"
 tokio = { version = "0.2", features = ["full"] }
 
 rendiation-math = { path = "../math" }

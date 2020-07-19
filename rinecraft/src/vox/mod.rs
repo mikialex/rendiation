@@ -1,6 +1,5 @@
 pub mod block;
 pub mod block_coords;
-pub mod block_meta;
 pub mod chunk;
 pub mod chunks;
 pub mod edit;

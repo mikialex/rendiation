@@ -1,24 +1,22 @@
-use super::block::BlockFace;
 use crate::shading::copy::CopyParam;
-use crate::shading::*;
+use crate::{vox::block::BlockFace, shading::*};
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
 use rendiation_webgpu::*;
 use rendiation_mesh_buffer::tessellation::{plane::Quad, IndexedBufferTessellator};
 use rendiation_mesh_buffer::wgpu::*;
 use rendiation_render_entity::Viewport;
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::{sync::Arc, collections::HashMap};
 
 pub struct BlockMetaInfo {
   name: String,
   id: usize,
-  top_texture: Rc<BlockFaceTextureInfo>,
-  bottom_texture: Rc<BlockFaceTextureInfo>,
-  x_max_texture: Rc<BlockFaceTextureInfo>,
-  x_min_texture: Rc<BlockFaceTextureInfo>,
-  z_max_texture: Rc<BlockFaceTextureInfo>,
-  z_min_texture: Rc<BlockFaceTextureInfo>,
+  top_texture: Arc<BlockFaceTextureInfo>,
+  bottom_texture: Arc<BlockFaceTextureInfo>,
+  x_max_texture: Arc<BlockFaceTextureInfo>,
+  x_min_texture: Arc<BlockFaceTextureInfo>,
+  z_max_texture: Arc<BlockFaceTextureInfo>,
+  z_min_texture: Arc<BlockFaceTextureInfo>,
 }
 
 impl BlockMetaInfo {
@@ -72,8 +70,8 @@ impl BlockFaceTextureInfo {
 }
 
 pub struct BlockRegistry {
-  data: HashMap<String, Rc<BlockMetaInfo>>,
-  pub lut: Vec<Rc<BlockMetaInfo>>,
+  data: HashMap<String, Arc<BlockMetaInfo>>,
+  pub lut: Vec<Arc<BlockMetaInfo>>,
 }
 
 impl BlockRegistry {
@@ -86,8 +84,8 @@ impl BlockRegistry {
   pub fn new_default() -> Self {
     let mut re = BlockRegistry::new();
 
-    fn load_img(p: &str, uv: (f32, f32, f32, f32)) -> Rc<BlockFaceTextureInfo> {
-      Rc::new(BlockFaceTextureInfo::new(p, uv))
+    fn load_img(p: &str, uv: (f32, f32, f32, f32)) -> Arc<BlockFaceTextureInfo> {
+      Arc::new(BlockFaceTextureInfo::new(p, uv))
     }
     let img = load_img("rinecraft/src/vox/assets/stone.png", (0.0, 0.0, 0.5, 0.5));
 
@@ -142,7 +140,7 @@ impl BlockRegistry {
 
   pub fn register_block(&mut self, mut block: BlockMetaInfo) -> &mut Self {
     block.id = self.lut.len();
-    let b = Rc::new(block);
+    let b = Arc::new(block);
     self.lut.push(b.clone());
     self.data.insert(b.name.clone(), b);
     self
@@ -151,7 +149,7 @@ impl BlockRegistry {
   pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
     // todo!()
     // todo filter same face
-    let mut face_list: Vec<Rc<BlockFaceTextureInfo>> = Vec::new();
+    let mut face_list: Vec<Arc<BlockFaceTextureInfo>> = Vec::new();
     face_list.push(self.lut[0].top_texture.clone());
     face_list.push(self.lut[1].top_texture.clone());
     face_list.push(self.lut[2].top_texture.clone());
