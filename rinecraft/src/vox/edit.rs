@@ -88,20 +88,21 @@ fn pick_block(
 
 impl World {
   pub fn pick_block(&self, ray: &Ray3) -> Option<BlockPickResult> {
-    let mut nearest: Option<BlockPickResult> = None;
-    for (_, chunk) in &self.chunks.lock().unwrap().chunks {
-      if let Some(hit) = pick_block(chunk, ray, &nearest) {
-        if let Some(n) = &nearest {
-          if hit.distance2 < n.distance2 {
-            nearest = Some(hit)
-          }
-        } else {
-          nearest = Some(hit)
-        }
-      }
-    }
-    println!("chunk hit {:?}", nearest);
-    nearest
+    todo!()
+    // let mut nearest: Option<BlockPickResult> = None;
+    // for (_, chunk) in &self.chunks.lock().unwrap().chunks {
+    //   if let Some(hit) = pick_block(chunk, ray, &nearest) {
+    //     if let Some(n) = &nearest {
+    //       if hit.distance2 < n.distance2 {
+    //         nearest = Some(hit)
+    //       }
+    //     } else {
+    //       nearest = Some(hit)
+    //     }
+    //   }
+    // }
+    // println!("chunk hit {:?}", nearest);
+    // nearest
   }
 
   fn notify_side_chunk_dirty(

@@ -28,7 +28,7 @@ use std::{
 pub struct World {
   pub io: WorldIOManager,
   pub world_machine: Arc<WorldMachine>,
-  pub chunks: Arc<Mutex<WorldChunkData>>,
+  pub chunks: WorldChunkData,
   pub chunk_visible_distance: i32,
   pub scene_data: Option<WorldSceneAttachment>,
 }
@@ -40,7 +40,7 @@ impl World {
       world_machine: Arc::new(WorldMachine::new()),
       chunk_visible_distance: 4,
       scene_data: None,
-      chunks: Arc::new(Mutex::new(WorldChunkData::new())),
+      chunks: WorldChunkData::new(),
     }
   }
 
@@ -50,25 +50,37 @@ impl World {
     machine: Arc<WorldMachine>,
     should_update_geometry: bool,
   ) {
-    let mut data = self.chunks.lock().unwrap();
-    if !data.chunks.contains_key(&chunk_key) && !data.chunks_in_generating.contains(&chunk_key) {
-      data.chunks_in_generating.insert(chunk_key);
+    // let mut data = self.chunks.lock().unwrap();
+    let chunks_clone = self.chunks.chunks.clone();
+    let chunks = self.chunks.chunks.lock().unwrap();
+    let chunks_in_generating_clone = self.chunks.chunks_in_generating.clone();
+    let mut chunks_in_generating = self.chunks.chunks_in_generating.lock().unwrap();
+    let chunks_to_sync_scene = self.chunks.chunks_to_sync_scene.clone();
 
-      let chunk_c = self.chunks.clone();
+    if !chunks.contains_key(&chunk_key) && !chunks_in_generating.contains(&chunk_key) {
+      chunks_in_generating.insert(chunk_key);
 
       tokio::task::spawn_blocking(move || {
-        let chunk_cc = chunk_c.clone();
         let chunk = Chunk::new(chunk_key, machine.as_ref());
+        let chunks_clone2 = chunks_clone.clone();
 
         {
-          let mut chunks = chunk_cc.lock().unwrap();
-          println!("{:?}", chunk_key);
-          chunks.chunks_in_generating.remove(&chunk_key);
-          chunks.chunks.insert(chunk_key, chunk);
+          let mut chunks = chunks_clone2.lock().unwrap();
+          // println!("{:?}", chunk_key);
+          chunks_in_generating_clone
+            .lock()
+            .unwrap()
+            .remove(&chunk_key);
+          chunks.insert(chunk_key, chunk);
         }
 
         if should_update_geometry {
-          World::create_chunk_geometry_worker(chunk_c, chunk_key, machine)
+          World::create_chunk_geometry_worker(
+            chunks_to_sync_scene,
+            chunks_clone2,
+            chunk_key,
+            machine,
+          )
         }
       });
     }
@@ -87,14 +99,14 @@ impl World {
   // }
 
   fn create_chunk_geometry_worker(
-    chunks: Arc<Mutex<WorldChunkData>>,
+    chunks_to_sync_scene: Arc<Mutex<HashMap<ChunkCoords, IndexedGeometry>>>,
+    chunks: Arc<Mutex<HashMap<ChunkCoords, Chunk>>>,
     chunk: ChunkCoords,
     machine: Arc<WorldMachine>,
   ) {
     tokio::task::spawn_blocking(move || {
-      let mut chunks = chunks.lock().unwrap();
-      let g = chunks.create_mesh_buffer(chunk, machine.as_ref());
-      chunks.chunks_to_sync_scene.insert(chunk, g);
+      let g = WorldChunkData::create_mesh_buffer(chunks, chunk, machine.as_ref());
+      chunks_to_sync_scene.lock().unwrap().insert(chunk, g);
     });
   }
 
@@ -118,8 +130,7 @@ impl World {
 
     // sync change to scene
     if let Some(scene_data) = &mut self.scene_data {
-      let mut data = self.chunks.lock().unwrap();
-      scene_data.sync_chunks_in_scene(&mut data, scene, renderer)
+      scene_data.sync_chunks_in_scene(&mut self.chunks, scene, renderer)
     }
   }
 }

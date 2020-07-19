@@ -7,7 +7,7 @@ use crate::{
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::as_bytes};
 use rendiation_scenegraph::*;
 use rendiation_webgpu::*;
-use std::collections::BTreeMap;
+use std::{time::Instant, collections::BTreeMap};
 
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WebGPUBackend>,
@@ -34,10 +34,10 @@ impl WorldSceneAttachment {
     renderer: &mut WGPURenderer,
   ) {
 
-    for (chunk, g) in chunks.chunks_to_sync_scene.drain() {
-      if chunks.chunks.get(&chunk).is_none() {
-        return;
-      }
+    for (chunk, g) in chunks.chunks_to_sync_scene.lock().unwrap().drain() {
+      // if chunks.chunks.get(&chunk).is_none() {
+      //   return;
+      // }
   
       // remove node in scene;
       if let Some((node_index, render_object_index, geometry_index)) = self.blocks.get(&chunk) {
