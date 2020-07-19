@@ -2,7 +2,7 @@
 
 Minecraft in rust. for testing and developing rendiation framework
 
-Some new point want to try:
+Some new point want to try in future:
 
 * new world generation algorithm. (realistic, some physical method maybe?)
 

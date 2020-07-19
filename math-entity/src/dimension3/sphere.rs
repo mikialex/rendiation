@@ -1,4 +1,4 @@
-use crate::{MultiDimensionalCircle, Box3};
+use crate::{Box3, MultiDimensionalCircle};
 use rendiation_math::math::Math;
 use rendiation_math::*;
 
@@ -11,29 +11,19 @@ impl Sphere {
     Sphere::new(center, radius)
   }
 
-  pub fn make_from_position_buffer_with_box(position: &[f32], box3: &Box3) -> Self {
-    let center = box3.center();
+  pub fn from_points<'a, I>(items: &'a I) -> Self
+  where
+    &'a I: IntoIterator<Item = &'a Vec3<f32>>,
+  {
+    let box3 = Box3::from_points(items.into_iter());
+    let center = (box3.max + box3.min) / 2.;
     let mut max_distance2 = 0.;
-    for index in 0..position.len() / 3 {
-      let i = index * 3;
-      let p = Vec3::new(position[i], position[i + 1], position[i + 2]);
-      let d = (p - center).length2();
+    items.into_iter().for_each(|&point| {
+      let d = (point - center).length2();
       max_distance2 = max_distance2.max(d);
-    }
+    });
     Sphere::new(center, max_distance2.sqrt())
   }
-
-  // iter reuse issue
-  // pub fn from_points(iter: &mut impl Iterator<Item = Vec3<f32>>) -> Self {
-  //   let box3 = Box3::from_points(iter);
-  //   let center = (box3.max + box3.min) / 2.;
-  //   let mut max_distance2 = 0.;
-  //   iter.for_each(|point|{
-  //     let d = (point - center).length2();
-  //     max_distance2 = max_distance2.max(d);
-  //   });
-  //   Sphere::new(center, max_distance2.sqrt())
-  // }
 
   pub fn apply_matrix(mut self, mat: Mat4<f32>) -> Self {
     self.center = self.center * mat;

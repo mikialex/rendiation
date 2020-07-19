@@ -59,9 +59,9 @@ impl Box3 {
     self.max.max(box3.max);
   }
 
-  pub fn from_points(iter: impl Iterator<Item = Vec3<f32>>) -> Self {
+  pub fn from_points<'a>(iter: impl Iterator<Item = &'a Vec3<f32>>) -> Self {
     let mut bbox = Self::empty();
-    iter.for_each(|p| bbox.expand_by_point(p));
+    iter.for_each(|p| bbox.expand_by_point(*p));
     bbox
   }
 
@@ -82,6 +82,6 @@ impl Box3 {
       Vec3::new(self.max.x, self.max.y, self.min.z) * m, // 110
       Vec3::new(self.max.x, self.max.y, self.max.z) * m, // 111
     ];
-    Self::from_points(points.iter().map(|v| *v))
+    Self::from_points(points.iter())
   }
 }

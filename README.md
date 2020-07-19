@@ -44,6 +44,6 @@ Noize for noise pattern generation.
 
 ### Application incubation
 
-RineCraft for testing minecraft like game.
+[Rinecraft](./rinecraft/README.md) for testing minecraft like game.
 
 RainRay for testing ray tracing.
