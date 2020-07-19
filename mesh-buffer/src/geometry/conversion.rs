@@ -1,3 +1,6 @@
+//! The conversion method between different geometry types
+
+
 // todo for convert between different geometry type
 
 // downgrade:
@@ -12,7 +15,7 @@ use super::{
   PrimitiveTopology,
 };
 use rendiation_math::Vec3;
-use rendiation_math_entity::{Triangle, LineSegment, Positioned3D};
+use rendiation_math_entity::{LineSegment, Positioned3D, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},

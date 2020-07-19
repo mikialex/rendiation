@@ -19,9 +19,9 @@ impl Box3 {
   #[rustfmt::skip]
   pub fn max_corner(&self, direction: Vec3<f32>) -> Vec3<f32> {
     Vec3::new(
-      if direction.x > 0. { self.max.x } else {self.min.x},
-      if direction.y > 0. { self.max.y } else {self.min.y},
-      if direction.z > 0. { self.max.z } else {self.min.z},
+      if direction.x > 0. { self.max.x } else { self.min.x },
+      if direction.y > 0. { self.max.y } else { self.min.y },
+      if direction.z > 0. { self.max.z } else { self.min.z },
     )
   }
 

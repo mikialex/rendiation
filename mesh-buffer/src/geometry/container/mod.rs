@@ -1,3 +1,5 @@
+//! The actually geometry data container, define how we store the vertex
+
 pub mod indexed_geometry;
 pub mod none_indexed_geometry;
 pub use indexed_geometry::*;

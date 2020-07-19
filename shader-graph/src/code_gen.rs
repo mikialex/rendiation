@@ -52,6 +52,7 @@ impl ShaderGraph {
     self
       .nodes
       .topological_order_list(handle)
+      .unwrap()
       .iter()
       .for_each(|&h| {
         // this node has generated, skip

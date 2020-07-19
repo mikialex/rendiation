@@ -10,9 +10,7 @@ pub struct IndexedGeometry<V: Positioned3D = Vertex, T: PrimitiveTopology<V> = T
   _phantom: PhantomData<T>,
 }
 
-impl<V: Positioned3D, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
-  for IndexedGeometry<V, T>
-{
+impl<V: Positioned3D, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)> for IndexedGeometry<V, T> {
   fn from(item: (Vec<V>, Vec<u16>)) -> Self {
     IndexedGeometry::new(item.0, item.1)
   }

@@ -79,6 +79,7 @@ impl<T> ArenaGraph<T> {
     &self,
     node: ArenaGraphNodeHandle<T>,
     visitor: &mut impl FnMut(&ArenaGraphNode<T>),
+    if_loop_exist: &mut impl FnMut(),
   ) {
     let mut unresolved: BTreeSet<ArenaGraphNodeHandle<T>> = BTreeSet::new();
     let mut visited: BTreeSet<ArenaGraphNodeHandle<T>> = BTreeSet::new();
@@ -89,12 +90,14 @@ impl<T> ArenaGraph<T> {
       unresolved: &mut BTreeSet<ArenaGraphNodeHandle<T>>,
       graph: &ArenaGraph<T>,
       visitor: &mut impl FnMut(&ArenaGraphNode<T>),
-    ) {
+      if_loop_exist: &mut impl FnMut(),
+    ) -> bool {
       if visited.contains(&n_handle) {
-        return;
+        return true;
       }
       if unresolved.contains(&n_handle) {
-        panic!("graph contains loops"); // todo
+        if_loop_exist();
+        return false;
       }
 
       unresolved.insert(n_handle);
@@ -103,22 +106,38 @@ impl<T> ArenaGraph<T> {
       node
         .from
         .iter()
-        .for_each(|from_id| visit(*from_id, visited, unresolved, graph, visitor));
+        .take_while(|&&from_id| visit(from_id, visited, unresolved, graph, visitor, if_loop_exist))
+        .for_each(|_| {});
 
       unresolved.remove(&n_handle);
       visited.insert(n_handle);
-      visitor(node)
+      visitor(node);
+      true
     }
 
-    visit(node, &mut visited, &mut unresolved, self, visitor);
+    visit(
+      node,
+      &mut visited,
+      &mut unresolved,
+      self,
+      visitor,
+      if_loop_exist,
+    );
   }
 
   pub fn topological_order_list(
     &self,
     node: ArenaGraphNodeHandle<T>,
-  ) -> Vec<ArenaGraphNodeHandle<T>> {
+  ) -> Option<Vec<ArenaGraphNodeHandle<T>>> {
     let mut list = Vec::new();
-    self.traverse_dfs_in_topological_order(node, &mut |node| list.push(node.handle()));
-    list
+    let mut looped = false;
+    self.traverse_dfs_in_topological_order(node, &mut |node| list.push(node.handle()), &mut || {
+      looped = true
+    });
+    if looped {
+      None
+    } else {
+      Some(list)
+    }
   }
 }

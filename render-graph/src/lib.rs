@@ -97,6 +97,7 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
   let graph = graph.graph.borrow_mut();
   let node_list: Vec<RenderGraphNodeHandle<T>> = graph
     .topological_order_list(root)
+    .unwrap()
     .into_iter()
     .filter(|&n| graph.get_node(n).data().is_pass())
     .collect();
