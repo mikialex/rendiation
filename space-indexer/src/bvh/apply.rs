@@ -9,7 +9,7 @@ impl BVHBounding for Box3 {
     self.center()
   }
   fn from_groups(iter: impl Iterator<Item = Self>) -> Self {
-    Self::from_boxes(iter)
+    iter.collect()
   }
   fn get_partition_axis(
     node: &FlattenBVHNode<Self>,

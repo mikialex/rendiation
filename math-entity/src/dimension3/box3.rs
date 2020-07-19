@@ -1,11 +1,11 @@
+use crate::{Axis3, AABB};
 use rendiation_math::math::Math;
 use rendiation_math::*;
-use crate::{Axis3, AABB};
+use std::iter::FromIterator;
 
 pub type Box3 = AABB<Vec3<f32>>;
 
 impl Box3 {
-
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
@@ -59,18 +59,6 @@ impl Box3 {
     self.max.max(box3.max);
   }
 
-  pub fn from_points<'a>(iter: impl Iterator<Item = &'a Vec3<f32>>) -> Self {
-    let mut bbox = Self::empty();
-    iter.for_each(|p| bbox.expand_by_point(*p));
-    bbox
-  }
-
-  pub fn from_boxes(iter: impl Iterator<Item = Self>) -> Self {
-    let mut bbox = Self::empty();
-    iter.for_each(|p| bbox.expand_by_box(p));
-    bbox
-  }
-
   pub fn apply_matrix(&mut self, m: Mat4<f32>) -> Self {
     let points = [
       Vec3::new(self.min.x, self.min.y, self.min.z) * m, // 000
@@ -82,6 +70,38 @@ impl Box3 {
       Vec3::new(self.max.x, self.max.y, self.min.z) * m, // 110
       Vec3::new(self.max.x, self.max.y, self.max.z) * m, // 111
     ];
-    Self::from_points(points.iter())
+    points.iter().collect()
+  }
+}
+
+impl<'a> FromIterator<&'a Vec3<f32>> for Box3 {
+  fn from_iter<I: IntoIterator<Item = &'a Vec3<f32>>>(items: I) -> Self {
+    let mut bbox = Self::empty();
+    items.into_iter().for_each(|p| bbox.expand_by_point(*p));
+    bbox
+  }
+}
+
+impl FromIterator<Vec3<f32>> for Box3 {
+  fn from_iter<I: IntoIterator<Item = Vec3<f32>>>(items: I) -> Self {
+    let mut bbox = Self::empty();
+    items.into_iter().for_each(|p| bbox.expand_by_point(p));
+    bbox
+  }
+}
+
+impl<'a> FromIterator<&'a Box3> for Box3 {
+  fn from_iter<I: IntoIterator<Item = &'a Box3>>(items: I) -> Self {
+    let mut bbox = Self::empty();
+    items.into_iter().for_each(|p| bbox.expand_by_box(*p));
+    bbox
+  }
+}
+
+impl FromIterator<Box3> for Box3 {
+  fn from_iter<I: IntoIterator<Item = Box3>>(items: I) -> Self {
+    let mut bbox = Self::empty();
+    items.into_iter().for_each(|p| bbox.expand_by_box(p));
+    bbox
   }
 }

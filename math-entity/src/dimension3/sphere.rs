@@ -11,11 +11,12 @@ impl Sphere {
     Sphere::new(center, radius)
   }
 
+  // we cant impl from iter trait because it need iter twice
   pub fn from_points<'a, I>(items: &'a I) -> Self
   where
     &'a I: IntoIterator<Item = &'a Vec3<f32>>,
   {
-    let box3 = Box3::from_points(items.into_iter());
+    let box3: Box3 = items.into_iter().collect();
     let center = (box3.max + box3.min) / 2.;
     let mut max_distance2 = 0.;
     items.into_iter().for_each(|&point| {
