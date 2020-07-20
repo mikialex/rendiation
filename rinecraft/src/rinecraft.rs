@@ -4,12 +4,12 @@ use crate::{
   vox::world::World,
 };
 use render_target::{ScreenRenderTarget, TargetStatesProvider};
+use rendiation_math::Mat4;
 use rendiation_render_entity::*;
 use rendiation_scenegraph::*;
 use rendiation_webgpu::renderer::SwapChain;
 use rendiation_webgpu::*;
 use rendium::*;
-use rendiation_math::Mat4;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -18,13 +18,17 @@ pub struct Rinecraft {
 
 pub struct RinecraftState {
   pub window_state: WindowState,
+
+  pub world: World,
   pub scene: Scene<WebGPUBackend>,
   pub scene_renderer: WebGPUBackend,
+
+  pub screen_target: ScreenRenderTarget,
+
   pub camera_gpu: CameraGPU,
   pub camera_controller: CameraController<Self>,
+
   pub viewport: Viewport,
-  pub world: World,
-  pub screen_target: ScreenRenderTarget,
   pub gui: GUI,
 }
 

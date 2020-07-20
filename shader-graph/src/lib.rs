@@ -2,7 +2,11 @@ use arena_graph::*;
 use std::marker::PhantomData;
 
 use lazy_static::lazy_static;
-use std::{collections::HashSet, sync::Mutex};
+use std::{
+  collections::HashSet,
+  hash::{Hash, Hasher},
+  sync::{Arc, Mutex},
+};
 
 mod code_builder;
 mod code_gen;
@@ -95,13 +99,47 @@ pub enum ShaderGraphInputNodeType {
   Attribute,
 }
 
+#[derive(Debug, Eq)]
 pub struct ShaderFunction {
   pub function_name: &'static str,
   pub function_source: &'static str,
+  pub depend_functions: HashSet<Arc<ShaderFunction>>,
+}
+
+impl ShaderFunction {
+  pub fn declare_funtion_dep(mut self, f: Arc<ShaderFunction>) -> Self {
+    self.depend_functions.insert(f);
+    self
+  }
+}
+
+impl Hash for ShaderFunction {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
+    self.function_name.hash(state);
+  }
+}
+
+impl PartialEq for ShaderFunction {
+  fn eq(&self, other: &Self) -> bool {
+    self.function_name == other.function_name
+  }
+}
+
+impl ShaderFunction {
+  pub fn new(function_name: &'static str, function_source: &'static str) -> Self {
+    Self {
+      function_name,
+      function_source,
+      depend_functions: HashSet::new(),
+    }
+  }
 }
 
 pub struct FunctionNode {
-  pub prototype: &'static ShaderFunction,
+  pub prototype: Arc<ShaderFunction>,
 }
 
 pub trait ShaderGraphDecorator {

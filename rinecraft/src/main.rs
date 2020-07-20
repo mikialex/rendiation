@@ -4,6 +4,7 @@
 mod rinecraft;
 // mod gui;
 mod shading;
+mod effect;
 mod util;
 mod vox;
 mod init;

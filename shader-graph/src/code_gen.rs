@@ -5,9 +5,18 @@ use std::collections::HashMap;
 struct CodeGenCtx {
   var_guid: usize,
   code_gen_history: HashMap<ShaderGraphNodeHandleUntyped, MiddleVariableCodeGenResult>,
+  depend_functions: HashSet<Arc<ShaderFunction>>,
 }
 
 impl CodeGenCtx {
+  fn new() -> Self {
+    Self {
+      var_guid: 0,
+      code_gen_history: HashMap::new(),
+      depend_functions: HashSet::new(),
+    }
+  }
+
   fn add_node_result(&mut self, mut result: MiddleVariableCodeGenResult) -> &str {
     result.var_name = format!("{}", self.var_guid);
     self.var_guid += 1;
@@ -19,7 +28,11 @@ impl CodeGenCtx {
       .as_str()
   }
 
-  fn gen_function_depends(&self, builder: &mut CodeBuilder) {
+  fn add_fn_dep(&mut self, node: &FunctionNode) {
+    self.depend_functions.insert(node.prototype.clone());
+  }
+
+  fn gen_fn_depends(&self, builder: &mut CodeBuilder) {
     todo!()
   }
 }
@@ -63,15 +76,18 @@ impl ShaderGraph {
         let node_wrap = self.nodes.get_node(h);
         use ShaderGraphNodeData::*;
         let result = match &node_wrap.data().data {
-          Function(_) => ctx.add_node_result(MiddleVariableCodeGenResult::new(
-            h,
-            node_wrap
-              .from()
-              .iter()
-              .map(|from| ctx.code_gen_history.get(from).unwrap().var_name.as_str())
-              .collect::<Vec<_>>()
-              .join(", "),
-          )),
+          Function(n) => {
+            ctx.add_fn_dep(n);
+            ctx.add_node_result(MiddleVariableCodeGenResult::new(
+              h,
+              node_wrap
+                .from()
+                .iter()
+                .map(|from| ctx.code_gen_history.get(from).unwrap().var_name.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            ))
+          }
           Input(node) => {
             ctx.add_node_result(MiddleVariableCodeGenResult::new(h, node.name.clone()))
           }
@@ -81,13 +97,9 @@ impl ShaderGraph {
   }
 
   pub fn gen_code_vertex(&self) -> String {
+    let mut ctx = CodeGenCtx::new();
     let mut builder = CodeBuilder::new();
     builder.write_ln("void main() {").tab();
-
-    let mut ctx = CodeGenCtx {
-      var_guid: 0,
-      code_gen_history: HashMap::new(),
-    };
 
     self.varyings.iter().for_each(|&v| {
       self.gen_code_node(v, &mut ctx, &mut builder);
@@ -104,13 +116,9 @@ impl ShaderGraph {
   }
 
   pub fn gen_code_frag(&self) -> String {
+    let mut ctx = CodeGenCtx::new();
     let mut builder = CodeBuilder::new();
     builder.write_ln("void main() {").tab();
-
-    let mut ctx = CodeGenCtx {
-      var_guid: 0,
-      code_gen_history: HashMap::new(),
-    };
 
     self.frag_outputs.iter().for_each(|&v| {
       self.gen_code_node(v, &mut ctx, &mut builder);

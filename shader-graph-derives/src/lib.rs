@@ -3,6 +3,7 @@ use proc_macro::TokenStream;
 use glsl::parser::Parse;
 use glsl::syntax;
 use quote::{format_ident, quote};
+use std::collections::HashSet;
 use syn::parse_macro_input;
 
 #[proc_macro]
@@ -17,9 +18,50 @@ pub fn glsl_function(input: TokenStream) -> TokenStream {
   gen_glsl_function(&glsl).into()
 }
 
+fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro2::TokenStream> {
+  use glsl::syntax::*;
+  use glsl::visitor::*;
+
+  // https://docs.rs/glsl/4.1.1/glsl/visitor/index.html
+  struct ForeignFunctionCollector {
+    depend_functions: HashSet<String>,
+    exclude_functions: HashSet<String>,
+  }
+
+  impl Visitor for ForeignFunctionCollector {
+    fn visit_expr(&mut self, exp: &mut Expr) -> Visit {
+      if let Expr::FunCall(FunIdentifier::Identifier(ident), _) = exp {
+        self.depend_functions.insert(ident.as_str().to_owned());
+      }
+      Visit::Children
+    }
+  }
+
+  let mut collector = ForeignFunctionCollector {
+    depend_functions: HashSet::new(),
+    exclude_functions: vec!["vec2", "vec3", "vec4", "max", "min", "pow"]
+      .into_iter()
+      .map(|s| s.to_owned())
+      .collect(),
+  };
+
+  def.visit(&mut collector);
+
+  collector
+    .depend_functions
+    .iter()
+    .filter(|&f| !collector.exclude_functions.contains(f))
+    .map(|f| {
+      let prototype_name = format_ident!("{}_FUNCTION", f);
+      quote! { .declare_funtion_dep(#prototype_name.clone()) }
+    })
+    .collect()
+}
+
 fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
   let glsl = glsl.trim_start();
-  let parsed = syntax::FunctionDefinition::parse(glsl).unwrap();
+  let mut parsed = syntax::FunctionDefinition::parse(glsl).unwrap();
+  let foreign = find_foreign_function(&mut parsed);
 
   let function_name = parsed.prototype.name.as_str();
 
@@ -51,28 +93,30 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
     })
     .collect();
 
-  let gen_function_inputs: Vec<_> = params
+  let (gen_function_inputs, gen_node_connect): (Vec<_>, Vec<_>) = params
     .iter()
     .map(|(ty, name)| {
-      quote! { #name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, }
+      (
+        quote! { #name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, },
+        quote! { graph.nodes.connect_node(#name.cast_type(), result); },
+      )
     })
-    .collect();
+    .unzip();
 
-  let gen_node_connect: Vec<_> = params
-    .iter()
-    .map(|(_, name)| {
-      quote! { graph.nodes.connect_node(#name.cast_type(), result); }
-    })
-    .collect();
-
-    // we cant use lazy_static in marco so let's try once_cell
+  // we cant use lazy_static in marco so let's try once_cell
   quote! {
-    pub static #prototype_name: once_cell::sync::Lazy<rendiation_shadergraph::ShaderFunction> = 
+    pub static #prototype_name: once_cell::sync::Lazy<
+    std::sync::Arc<
+      rendiation_shadergraph::ShaderFunction
+    >> =
     once_cell::sync::Lazy::new(||{
-      rendiation_shadergraph::ShaderFunction{
-        function_name: #quoted_function_name,
-        function_source: #quoted_source,
-      }
+      std::sync::Arc::new(
+        rendiation_shadergraph::ShaderFunction::new(
+          #quoted_function_name,
+          #quoted_source
+        )
+        #(#foreign)*
+      )
     });
 
     pub fn #function_name (
@@ -87,7 +131,7 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
         .create_node(ShaderGraphNode::new(
             ShaderGraphNodeData::Function(
             FunctionNode {
-              prototype: & #prototype_name
+              prototype: #prototype_name.clone()
             },
           ),
           #function_node_type

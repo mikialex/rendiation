@@ -8,29 +8,32 @@ pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
   pub target_drop_list: Vec<RenderGraphNodeHandle<T>>,
 }
 
-pub struct RenderGraphExecutor<'a, T: RenderGraphBackend> {
-  renderer: &'a mut T::Renderer,
+pub struct RenderGraphExecutor<T: RenderGraphBackend> {
   target_pool: RenderTargetPool<T>,
   current_final_size: RenderTargetSize,
 }
 
-impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
-  pub fn new(renderer: &'a mut T::Renderer) -> Self {
+impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
+  pub fn new() -> Self {
     Self {
-      renderer,
       target_pool: RenderTargetPool::new(),
       current_final_size: RenderTargetSize::default(),
     }
   }
 
-  pub fn force_clear_reuse_pool(&mut self) {
-    self.target_pool.clear_all(self.renderer)
+  pub fn force_clear_reuse_pool(&mut self, renderer: &T::Renderer) {
+    self.target_pool.clear_all(renderer)
   }
 
-  pub fn render(&mut self, graph: &RenderGraph<T>, final_target: &T::RenderTarget) {
+  pub fn render(
+    &mut self,
+    graph: &RenderGraph<T>,
+    final_target: &T::RenderTarget,
+    renderer: &mut T::Renderer,
+  ) {
     let new_size = T::get_target_size(final_target);
     if self.current_final_size != new_size {
-      self.force_clear_reuse_pool();
+      self.force_clear_reuse_pool(renderer);
       self.current_final_size = new_size
     }
 
@@ -54,13 +57,13 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
         let real_size = target_data.real_size();
 
         let mut pass_builder = T::create_render_pass_builder(
-          self.renderer,
+          renderer,
           if target_data.is_final_target() {
             final_target
           } else {
             self
               .target_pool
-              .request_render_target(handle, target_data, self.renderer)
+              .request_render_target(handle, target_data, renderer)
           },
         );
 
@@ -68,17 +71,13 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<'a, T> {
 
         (pass_data.pass_op_modifier)(&mut pass_builder);
 
-        let mut render_pass = T::begin_render_pass(self.renderer, pass_builder);
+        let mut render_pass = T::begin_render_pass(renderer, pass_builder);
 
-        T::set_viewport(
-          self.renderer,
-          &mut render_pass,
-          pass_data.viewport(real_size),
-        );
+        T::set_viewport(renderer, &mut render_pass, pass_data.viewport(real_size));
 
         pass_data.render.as_mut().unwrap()(&self.target_pool, &mut render_pass); // do render
 
-        T::end_render_pass(self.renderer, render_pass);
+        T::end_render_pass(renderer, render_pass);
 
         target_drop_list.iter().for_each(|&n| {
           self

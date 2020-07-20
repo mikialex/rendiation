@@ -74,16 +74,16 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
 
     let tags: Vec<&str> = tag.split(':').collect();
     if tags.len() != 2 {
-      return None
+      return None;
     }
     let shader_type = match tags[1] {
       "fragment" => quote! {rendiation_webgpu::ShaderType::Fragment},
       "vertex" => quote! {rendiation_webgpu::ShaderType::Vertex},
-      _ => {return None}
+      _ => return None,
     };
 
     match tags[0] {
-      "uniform-buffer" =>  Some((
+      "uniform-buffer" => Some((
         quote! {.bind_uniform_buffer(#shader_type)},
         quote! {.buffer(self.#field_name)},
       )),
@@ -91,17 +91,17 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
         quote! {.bind_texture2d(#shader_type)},
         quote! {.texture(self.#field_name)},
       )),
-      "sampler" =>  Some((
+      "sampler" => Some((
         quote! {.bind_sampler(#shader_type)},
         quote! {.sampler(self.#field_name)},
       )),
-      _ =>  None
+      _ => None,
     }
   });
 
   let mut layout_build = Vec::new();
   let mut bg_build = Vec::new();
-  for v in defs{
+  for v in defs {
     layout_build.push(v.0);
     bg_build.push(v.1);
   }

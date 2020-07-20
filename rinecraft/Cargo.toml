@@ -20,4 +20,6 @@ rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["webgpu"] }
 rendiation-webgpu = { path = "../webgpu" }
 rendiation-webgpu-derives = { path = "../webgpu-derives" }
 rendium = { path = "../rendium" }
+
 rendiation-scenegraph = { path = "../scene-graph", features = ["webgpu"] }
+rendiation-rendergraph = { path = "../render-graph", features = ["webgpu"] }
