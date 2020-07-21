@@ -3,8 +3,11 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct SceneShadingDescriptor {
-  shader_descriptor: SceneShaderDescriptor,
+
+  #[wasm_bindgen(skip)]
+  pub shader_descriptor: SceneShaderDescriptor,
   pub rasterization_state: RasterizationState,
+  // primitive_topology: wgpu::PrimitiveTopology,
   // .. blend state stuff
   // .. target state stuff,
 
@@ -18,18 +21,12 @@ pub struct SceneShadingDescriptor {
 
 #[wasm_bindgen]
 impl SceneShadingDescriptor {
-  #[wasm_bindgen]
+  #[wasm_bindgen(constructor)]
   pub fn new(shader_descriptor: SceneShaderDescriptor) -> Self {
     Self {
       shader_descriptor,
       rasterization_state: RasterizationState::default(),
     }
-  }
-}
-
-impl SceneShadingDescriptor {
-  pub fn shader_descriptor(&self) -> &SceneShaderDescriptor {
-    &self.shader_descriptor
   }
 }
 

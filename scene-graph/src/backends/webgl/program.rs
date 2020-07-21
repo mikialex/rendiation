@@ -1,4 +1,4 @@
-use crate::{AttributeTypeId, UniformTypeId, SceneShadingDescriptor, WebGLRenderer};
+use crate::{AttributeTypeId, SceneShadingDescriptor, UniformTypeId, WebGLRenderer};
 use std::collections::HashMap;
 use web_sys::*;
 
@@ -13,13 +13,13 @@ impl WebGLProgram {
     let gl = &renderer.gl;
     let program = make_webgl_program(
       &renderer.gl,
-      &des.shader_descriptor().vertex_shader_str(),
-      &des.shader_descriptor().frag_shader_str(),
+      &des.shader_descriptor.vertex_shader_str,
+      &des.shader_descriptor.frag_shader_str,
     )
     .unwrap();
 
     let uniforms: HashMap<UniformTypeId, WebGlUniformLocation> = des
-      .shader_descriptor()
+      .shader_descriptor
       .input_group()
       .iter()
       .flat_map(|d| d.inputs().iter())
@@ -27,7 +27,7 @@ impl WebGLProgram {
       .collect();
 
     let attributes: HashMap<AttributeTypeId, i32> = des
-      .shader_descriptor()
+      .shader_descriptor
       .attribute_inputs()
       .iter()
       .flat_map(|d| d.attributes().iter())

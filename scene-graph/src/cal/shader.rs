@@ -16,10 +16,17 @@ where
 
 #[wasm_bindgen]
 pub struct SceneShaderDescriptor {
-  vertex_shader_str: String, // new sal(shading abstraction layer) is in design, assume shader just works
-  frag_shader_str: String,
-  input_group: Vec<ShaderInputGroupDescriptor>,
-  attribute_inputs: Vec<CALVertexBufferDescriptor>,
+  #[wasm_bindgen(skip)]
+  pub vertex_shader_str: String, // new sal(shading abstraction layer) is in design, assume shader just works
+
+  #[wasm_bindgen(skip)]
+  pub frag_shader_str: String,
+
+  #[wasm_bindgen(skip)]
+  pub input_group: Vec<ShaderInputGroupDescriptor>,
+
+  #[wasm_bindgen(skip)]
+  pub attribute_inputs: Vec<CALVertexBufferDescriptor>,
 }
 
 impl SceneShaderDescriptor {
@@ -33,7 +40,7 @@ impl SceneShaderDescriptor {
 
 #[wasm_bindgen]
 impl SceneShaderDescriptor {
-  #[wasm_bindgen]
+  #[wasm_bindgen(constructor)]
   pub fn new(vertex_shader_str: &str, frag_shader_str: &str) -> Self {
     Self {
       vertex_shader_str: vertex_shader_str.to_owned(),
@@ -61,16 +68,6 @@ impl SceneShaderDescriptor {
   #[wasm_bindgen]
   pub fn push_attribute_input(&mut self, g: CALVertexBufferDescriptor) {
     self.attribute_inputs.push(g)
-  }
-}
-
-impl SceneShaderDescriptor {
-  pub fn vertex_shader_str(&self) -> &str {
-    &self.vertex_shader_str
-  }
-
-  pub fn frag_shader_str(&self) -> &str {
-    &self.frag_shader_str
   }
 }
 

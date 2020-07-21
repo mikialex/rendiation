@@ -1,5 +1,5 @@
-use crate::{Scene, WebGLBackend};
-use arena::Handle;
+use crate::{Scene, WebGLBackend, SceneNodeData};
+use arena::{AnyHandle, Handle};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -10,7 +10,7 @@ pub struct WASMScene {
 
 #[wasm_bindgen]
 impl WASMScene {
-  #[wasm_bindgen]
+  #[wasm_bindgen(constructor)]
   pub fn new() -> Self {
     Self {
       scene: Scene::new(),
@@ -34,15 +34,10 @@ impl WASMScene {
   #[wasm_bindgen]
   pub fn node_remove_child_by_handle(
     &mut self,
-    parent_handle: usize,
-    parent_handle_generation: u64,
-    child_handle: usize,
-    child_handle_generation: u64,
+    parent_handle: AnyHandle,
+    child_handle: AnyHandle,
   ) {
-    self.scene.node_remove_child_by_handle(
-      Handle::from_raw_parts(parent_handle, parent_handle_generation),
-      Handle::from_raw_parts(child_handle, child_handle_generation),
-    );
+    self.scene.node_remove_child_by_handle(parent_handle.into(), child_handle.into());
   }
 
   // pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T>) {
@@ -66,17 +61,22 @@ impl WASMScene {
   // }
 
   #[wasm_bindgen]
-  pub fn create_new_node(&mut self) -> usize {
-    let _handle = self.scene.create_new_node();
-    todo!()
-    // self.nodes.get_node_mut(handle)
+  pub fn create_new_node(&mut self) -> AnyHandle {
+    self.scene.nodes.create_node(SceneNodeData::new()).into()
   }
-  #[wasm_bindgen]
-  pub fn get_node_g(&mut self) -> u64 {
-    todo!()
-    // let handle = self.nodes.create_node(SceneNodeData::new());
-    // self.nodes.get_node_mut(handle)
-  }
+
+  // #[wasm_bindgen]
+  // pub fn create_new_node(&mut self) -> usize {
+  //   let _handle = self.scene.create_new_node();
+  //   todo!()
+  //   // self.nodes.get_node_mut(handle)
+  // }
+  // #[wasm_bindgen]
+  // pub fn get_node_g(&mut self) -> u64 {
+  //   todo!()
+  //   // let handle = self.nodes.create_node(SceneNodeData::new());
+  //   // self.nodes.get_node_mut(handle)
+  // }
 
   // pub fn get_node_render_data(&self, handle: SceneNodeHandle<T>) -> &RenderData {
   //   &self.nodes.get_node(handle).data().render_data

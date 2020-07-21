@@ -4,3 +4,6 @@ version = "0.0.1"
 edition = "2018"
 
 # I stole this from https://github.com/fitzgen/generational-arena;
+
+[dependencies]
+wasm-bindgen = { version = "0.2.62" }
