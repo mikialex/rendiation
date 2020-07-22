@@ -12,6 +12,7 @@ pub struct SceneNodeData<T: SceneGraphBackend> {
   pub visible: bool,
   pub net_visible: bool,
   pub(crate) render_data: RenderData,
+  pub local_matrix: Mat4<f32>,
 }
 
 impl<T: SceneGraphBackend> SceneNodeData<T> {
@@ -21,6 +22,7 @@ impl<T: SceneGraphBackend> SceneNodeData<T> {
       visible: true,
       net_visible: true,
       render_data: RenderData::new(),
+      local_matrix: Mat4::one(),
     }
   }
 
@@ -32,7 +34,6 @@ impl<T: SceneGraphBackend> SceneNodeData<T> {
 pub struct RenderData {
   pub world_bounding: Option<BoundingData>,
   pub world_matrix: Mat4<f32>,
-  pub local_matrix: Mat4<f32>,
   pub normal_matrix: Mat4<f32>,
   pub camera_distance: f32,
 }
@@ -42,7 +43,6 @@ impl RenderData {
     Self {
       world_bounding: None,
       world_matrix: Mat4::one(),
-      local_matrix: Mat4::one(),
       normal_matrix: Mat4::one(),
       camera_distance: 0.,
     }

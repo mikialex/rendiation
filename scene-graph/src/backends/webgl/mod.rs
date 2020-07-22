@@ -12,7 +12,10 @@ pub use cal::*;
 pub use program::*;
 pub use renderer::*;
 pub use uniform::*;
+use wasm_bindgen::prelude::*;
 
+
+#[wasm_bindgen]
 pub struct WebGLBackend {
   engine: RenderEngine<WebGLBackend>,
 }

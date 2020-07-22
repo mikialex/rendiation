@@ -8,13 +8,15 @@
 // intoThree()
 // intoWasmScene();
 
-import { SceneShadingDescriptor, SceneShaderDescriptor, WebGLRenderer, WASMScene } from '../pkg/rendiation_scenegraph';
+import { SceneShadingDescriptor, SceneShaderDescriptor, WebGLRenderer, WASMScene, WebGLBackend } from '../pkg/rendiation_scenegraph';
 
 const shader = new SceneShaderDescriptor("", "");
 const shading = new SceneShadingDescriptor(shader);
 
 const canvas = document.getElementById("wasm") as HTMLCanvasElement
 const renderer = new WebGLRenderer(canvas);
+
+const backend = new WebGLBackend();
 
 const scene = new WASMScene();
 const handle = scene.create_new_node();

@@ -27,7 +27,7 @@ impl<T: SceneGraphBackend> RenderEngine<T> {
         if let Some(parent) = parent {
           let parent = parent.data();
           this_data.render_data.world_matrix =
-            parent.render_data.world_matrix * this_data.render_data.local_matrix;
+            parent.render_data.world_matrix * this_data.local_matrix;
           this_data.net_visible = this_data.visible && parent.net_visible;
         }
         if !this_data.visible {
