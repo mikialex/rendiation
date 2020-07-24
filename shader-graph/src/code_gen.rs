@@ -1,6 +1,7 @@
 use crate::code_builder::*;
 use crate::*;
 use std::collections::HashMap;
+use arena_graph::*;
 
 struct CodeGenCtx {
   var_guid: usize,
@@ -33,7 +34,43 @@ impl CodeGenCtx {
   }
 
   fn gen_fn_depends(&self, builder: &mut CodeBuilder) {
+    // let mut resolved_fn: HashSet<Arc<ShaderFunction>> = HashSet::new();
+    // self.depend_functions.iter().for_each(|f|{
+    //   if f.depend_functions.len() > 0{
+    //     let root = fn_dep_graph.create_node(f.clone());
+    //     let mut fn_dep_graph: ArenaGraph<Arc<ShaderFunction>> = ArenaGraph::new();
+    //     let mut resolving_fn: HashMap<Arc<ShaderFunction>, ArenaGraphNodeHandle<Arc<ShaderFunction>>> = HashSet::new();
+
+
+
+    //     fn push_node(
+    //       n: ArenaGraphNodeHandle<Arc<ShaderFunction>>, 
+    //       g: &mut ArenaGraph<Arc<ShaderFunction>>,
+    //       resolving_fn: HashMap<Arc<ShaderFunction>, ArenaGraphNodeHandle<Arc<ShaderFunction>>>
+    //     ){
+    //       let node = g.get_node(n);
+    //       let node_f = node.data();
+
+    //       node_f.depend_functions.iter().for_each(|f_d|{
+    //         if !resolving_fn.contains_key(&f_d){
+    //           let dep_n = fn_dep_graph.create_node(f_d.clone());
+    //           g.connect_node(dep_n, node);
+    //           resolving_fn.insert(node, dep_n)
+    //         } else{
+
+    //         }
+    //       });
+          
+    //       node.from().iter().for_each(|from|{
+    //         push_node(n, g)
+    //       })
+    //     }
+
+    //     push_node(root, &mut fn_dep_graph)
+    //   }
+    // });
     todo!()
+
   }
 }
 

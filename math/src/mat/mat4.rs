@@ -527,11 +527,6 @@ impl<T> Mat4<T> where T:Arithmetic + Math + PiByC180
 		return m;
 	}
 
-	pub fn as_ptr(&self) -> *const T
-	{
-		&self.a1
-	}
-
 	pub fn to_array_transpose(&self) -> [T; 16]
 	{
 		[

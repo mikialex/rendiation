@@ -1,4 +1,4 @@
-use crate::{RenderObjectHandle, SceneGraphBackend};
+use crate::{RenderObjectHandle, SceneGraphBackend, Scene};
 use arena::Handle;
 use arena_tree::*;
 use rendiation_math::{Mat4, One};
@@ -28,6 +28,51 @@ impl<T: SceneGraphBackend> SceneNodeData<T> {
 
   pub fn add_render_object(&mut self, handle: RenderObjectHandle<T>) {
     self.render_objects.push(handle)
+  }
+}
+
+impl<T: SceneGraphBackend> Scene<T> {
+  pub fn node_add_child_by_handle(
+    &mut self,
+    parent_handle: SceneNodeHandle<T>,
+    child_handle: SceneNodeHandle<T>,
+  ) {
+    let (parent, child) = self
+      .nodes
+      .get_parent_child_pair(parent_handle, child_handle);
+    parent.add(child);
+  }
+
+  pub fn node_remove_child_by_handle(
+    &mut self,
+    parent_handle: SceneNodeHandle<T>,
+    child_handle: SceneNodeHandle<T>,
+  ) {
+    let (parent, child) = self
+      .nodes
+      .get_parent_child_pair(parent_handle, child_handle);
+    parent.remove(child);
+  }
+
+  pub fn get_node(&self, handle: SceneNodeHandle<T>) -> &SceneNode<T> {
+    self.nodes.get_node(handle)
+  }
+
+  pub fn get_node_mut(&mut self, handle: SceneNodeHandle<T>) -> &mut SceneNode<T> {
+    self.nodes.get_node_mut(handle)
+  }
+
+  pub fn create_new_node(&mut self) -> &mut SceneNode<T> {
+    let handle = self.nodes.create_node(SceneNodeData::new());
+    self.nodes.get_node_mut(handle)
+  }
+
+  pub fn get_node_render_data(&self, handle: SceneNodeHandle<T>) -> &RenderData {
+    &self.nodes.get_node(handle).data().render_data
+  }
+
+  pub fn free_node(&mut self, handle: SceneNodeHandle<T>) {
+    self.nodes.free_node(handle);
   }
 }
 

@@ -140,6 +140,9 @@ macro_rules! impl_scalar_ops {
   };
 }
 
+impl_as_ptr!(Mat2);
+impl_as_ptr!(Mat3);
+impl_as_ptr!(Mat4);
 impl_matrix!(Mat2{ a1, a2, b1, b2 }, 4, mat2);
 impl_matrix!(Mat3{ a1, a2, a3, b1, b2, b3, c1, c2, c3 }, 9, mat3);
 impl_matrix!(Mat4{ a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4 }, 16, mat4);

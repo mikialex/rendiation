@@ -26,6 +26,12 @@ impl CodeBuilder {
     self.str.push_str(content);
     self
   }
+
+  pub fn write_raw(&mut self, content: &str) -> &mut Self {
+    self.str.push_str(content);
+    self
+  }
+
   pub fn output(self) -> String {
     self.str
   }

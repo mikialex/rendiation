@@ -1,12 +1,15 @@
-use crate::{ResourceManager, Scene, SceneNodeData, WebGLBackend, SceneShadingDescriptor, WebGLRenderer};
+use crate::{CALBackend, SceneShadingData};
+use crate::{Scene, SceneNodeData, SceneShadingDescriptor, WebGLBackend, WebGLRenderer};
 use arena::{AnyHandle, Handle};
+use rendiation_math::Mat4;
 use wasm_bindgen::prelude::*;
-use crate::{SceneShadingData, CALBackend};
 
 #[wasm_bindgen]
 pub struct WASMScene {
   // we will use feature gate to control backend selection later
   scene: Scene<WebGLBackend>,
+  handle_pool: Vec<AnyHandle>,
+  handle_pool_empty: Vec<usize>,
 }
 
 #[wasm_bindgen]
@@ -15,70 +18,78 @@ impl WASMScene {
   pub fn new() -> Self {
     Self {
       scene: Scene::new(),
+      handle_pool: Vec::new(),
+      handle_pool_empty: Vec::new(),
     }
   }
 
+  fn save_handle<T>(&mut self, h: Handle<T>) -> usize {
+    if let Some(hole) = self.handle_pool_empty.pop() {
+      self.handle_pool[hole] = h.into();
+      hole
+    } else {
+      self.handle_pool.push(h.into());
+      self.handle_pool.len() - 1
+    }
+  }
+  fn get_handle(&self, h: usize) -> AnyHandle {
+    self.handle_pool[h]
+  }
+  fn free_handle(&mut self, h: usize) {
+    self.handle_pool_empty.push(h);
+  }
+
   #[wasm_bindgen]
-  pub fn node_add_child_by_handle(
-    &mut self,
-    parent_handle: usize,
-    parent_handle_generation: u64,
-    child_handle: usize,
-    child_handle_generation: u64,
-  ) {
+  pub fn scene_node_local_matrix_ptr(&mut self, handle: usize) -> *const Mat4<f32> {
+    self
+      .scene
+      .get_node(self.get_handle(handle).into())
+      .data()
+      .local_matrix
+      .as_ptr()
+  }
+
+  #[wasm_bindgen]
+  pub fn node_add_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
     self.scene.node_add_child_by_handle(
-      Handle::from_raw_parts(parent_handle, parent_handle_generation),
-      Handle::from_raw_parts(child_handle, child_handle_generation),
+      self.get_handle(parent_handle).into(),
+      self.get_handle(child_handle).into(),
     );
   }
 
   #[wasm_bindgen]
-  pub fn node_remove_child_by_handle(&mut self, parent_handle: AnyHandle, child_handle: AnyHandle) {
-    self
-      .scene
-      .node_remove_child_by_handle(parent_handle.into(), child_handle.into());
+  pub fn node_remove_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
+    self.scene.node_remove_child_by_handle(
+      self.get_handle(parent_handle).into(),
+      self.get_handle(child_handle).into(),
+    );
   }
 
   #[wasm_bindgen]
-  pub fn create_new_node(&mut self) -> AnyHandle {
-    self.scene.nodes.create_node(SceneNodeData::new()).into()
+  pub fn create_new_node(&mut self) -> usize {
+    let h = self.scene.nodes.create_node(SceneNodeData::new());
+    self.save_handle(h)
   }
 
   #[wasm_bindgen]
-  pub fn free_node(&mut self, h: AnyHandle) {
-    self.scene.free_node(h.into());
+  pub fn free_node(&mut self, h: usize) {
+    let hd = self.get_handle(h).into();
+    self.scene.free_node(hd);
+    self.free_handle(h)
   }
 
   #[wasm_bindgen]
-  pub fn create_render_object(
-    &mut self,
-    geometry_index: AnyHandle,
-    shading_index: AnyHandle,
-  ) -> AnyHandle {
-    self
-      .scene
-      .create_render_object(geometry_index.into(), shading_index.into())
-      .into()
+  pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
+    let h = self.scene.create_render_object(
+      self.get_handle(geometry_index).into(),
+      self.get_handle(shading_index).into(),
+    );
+    self.save_handle(h)
   }
 
   #[wasm_bindgen]
-  pub fn delete_render_object(&mut self, h: AnyHandle) {
-    self.scene.delete_render_object(h.into());
-  }
-}
-
-#[wasm_bindgen]
-pub struct WASMResourceManager {
-  manager: ResourceManager<WebGLBackend>,
-}
-
-#[wasm_bindgen]
-impl WASMResourceManager {
-  #[wasm_bindgen(constructor)]
-  pub fn new() -> Self {
-    Self {
-      manager: ResourceManager::new(),
-    }
+  pub fn delete_render_object(&mut self, h: usize) {
+    self.scene.delete_render_object(self.get_handle(h).into());
   }
 
   #[wasm_bindgen]
@@ -86,13 +97,22 @@ impl WASMResourceManager {
     &mut self,
     resource: &SceneShadingDescriptor,
     renderer: &mut WebGLRenderer,
-  ) -> AnyHandle {
+  ) -> usize {
     let gpu_shading = WebGLBackend::create_shading(renderer, resource);
-    self.manager.add_shading(SceneShadingData::new(gpu_shading)).index().into()
+    let h = self
+      .scene
+      .resources
+      .add_shading(SceneShadingData::new(gpu_shading))
+      .index();
+    self.save_handle(h)
   }
 
   #[wasm_bindgen]
-  pub fn delete_shading(&mut self, h: AnyHandle) {
-    self.manager.shadings.remove(h.into());
+  pub fn delete_shading(&mut self, h: usize) {
+    self
+      .scene
+      .resources
+      .shadings
+      .remove(self.get_handle(h).into());
   }
 }

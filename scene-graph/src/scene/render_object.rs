@@ -16,3 +16,22 @@ impl<T: SceneGraphBackend> RenderObject<T> {
     geometry.get_bounding_local()
   }
 }
+
+impl<T: SceneGraphBackend> Scene<T> {
+  pub fn create_render_object(
+    &mut self,
+    geometry_index: GeometryHandle<T>,
+    shading_index: ShadingHandle<T>,
+  ) -> RenderObjectHandle<T> {
+    let obj = RenderObject {
+      render_order: 0,
+      shading_index,
+      geometry_index,
+    };
+    self.render_objects.insert(obj)
+  }
+
+  pub fn delete_render_object(&mut self, index: RenderObjectHandle<T>) {
+    self.render_objects.remove(index);
+  }
+}

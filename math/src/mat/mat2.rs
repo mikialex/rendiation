@@ -48,11 +48,6 @@ impl<T> Mat2<T> where T:Copy
 		Vec2::new(self.b1, self.b2)
 	}
 
-	pub fn as_ptr(&self) -> *const T
-	{
-		&self.a1
-	}
-
 }
 
 impl<T> Mat2<T> where T:Arithmetic + Math

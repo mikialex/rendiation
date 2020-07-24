@@ -138,6 +138,10 @@ macro_rules! impl_scalar_ops {
   };
 }
 
+impl_as_ptr!(Vec2);
+impl_as_ptr!(Vec3);
+impl_as_ptr!(Vec4);
+
 impl_vector!(Vec2 { x, y }, 2, vec2);
 impl_vector!(Vec3 { x, y, z }, 3, vec3);
 impl_vector!(Vec4 { x, y, z, w }, 4, vec4);

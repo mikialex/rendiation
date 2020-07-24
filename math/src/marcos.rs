@@ -188,3 +188,14 @@ macro_rules! impl_assignment_operator {
       }
   };
 }
+
+#[macro_export]
+macro_rules! impl_as_ptr {
+  ($Item:ident) => {
+    impl<T> $Item<T> {
+      pub fn as_ptr(&self) -> *const Self{
+        unsafe { std::mem::transmute(self) }
+      }
+    }
+  };
+}
