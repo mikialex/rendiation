@@ -53,7 +53,7 @@ fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro
     .filter(|&f| !collector.exclude_functions.contains(f))
     .map(|f| {
       let prototype_name = format_ident!("{}_FUNCTION", f);
-      quote! { .declare_funtion_dep(#prototype_name.clone()) }
+      quote! { .declare_function_dep(#prototype_name.clone()) }
     })
     .collect()
 }

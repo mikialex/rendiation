@@ -107,7 +107,7 @@ pub struct ShaderFunction {
 }
 
 impl ShaderFunction {
-  pub fn declare_funtion_dep(mut self, f: Arc<ShaderFunction>) -> Self {
+  pub fn declare_function_dep(mut self, f: Arc<ShaderFunction>) -> Self {
     self.depend_functions.insert(f);
     self
   }

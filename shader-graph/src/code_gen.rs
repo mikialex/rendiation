@@ -1,7 +1,6 @@
 use crate::code_builder::*;
 use crate::*;
 use std::collections::HashMap;
-use arena_graph::*;
 
 struct CodeGenCtx {
   var_guid: usize,
@@ -33,44 +32,46 @@ impl CodeGenCtx {
     self.depend_functions.insert(node.prototype.clone());
   }
 
-  fn gen_fn_depends(&self, builder: &mut CodeBuilder) {
-    // let mut resolved_fn: HashSet<Arc<ShaderFunction>> = HashSet::new();
-    // self.depend_functions.iter().for_each(|f|{
-    //   if f.depend_functions.len() > 0{
-    //     let root = fn_dep_graph.create_node(f.clone());
-    //     let mut fn_dep_graph: ArenaGraph<Arc<ShaderFunction>> = ArenaGraph::new();
-    //     let mut resolving_fn: HashMap<Arc<ShaderFunction>, ArenaGraphNodeHandle<Arc<ShaderFunction>>> = HashSet::new();
+  fn gen_fn_depends(&self) -> String {
+    let mut builder = CodeBuilder::new();
+    let mut resolved_fn: HashSet<Arc<ShaderFunction>> = HashSet::new();
+    self.depend_functions.iter().for_each(|f| {
+      if f.depend_functions.len() == 0 {
+        builder.write_ln("").write_raw(f.function_source);
+        resolved_fn.insert(f.clone());
+      }
 
+      let mut fn_dep_graph: ArenaGraph<Arc<ShaderFunction>> = ArenaGraph::new();
+      let mut resolving_fn: HashMap<
+        Arc<ShaderFunction>,
+        ArenaGraphNodeHandle<Arc<ShaderFunction>>,
+      > = HashMap::new();
+      let mut fn_to_expand = vec![f.clone()];
 
-
-    //     fn push_node(
-    //       n: ArenaGraphNodeHandle<Arc<ShaderFunction>>, 
-    //       g: &mut ArenaGraph<Arc<ShaderFunction>>,
-    //       resolving_fn: HashMap<Arc<ShaderFunction>, ArenaGraphNodeHandle<Arc<ShaderFunction>>>
-    //     ){
-    //       let node = g.get_node(n);
-    //       let node_f = node.data();
-
-    //       node_f.depend_functions.iter().for_each(|f_d|{
-    //         if !resolving_fn.contains_key(&f_d){
-    //           let dep_n = fn_dep_graph.create_node(f_d.clone());
-    //           g.connect_node(dep_n, node);
-    //           resolving_fn.insert(node, dep_n)
-    //         } else{
-
-    //         }
-    //       });
-          
-    //       node.from().iter().for_each(|from|{
-    //         push_node(n, g)
-    //       })
-    //     }
-
-    //     push_node(root, &mut fn_dep_graph)
-    //   }
-    // });
-    todo!()
-
+      while let Some(f) = fn_to_expand.pop() {
+        let self_node_handle = *resolving_fn
+          .entry(f.clone())
+          .or_insert_with(|| fn_dep_graph.create_node(f.clone()));
+        f.depend_functions.iter().for_each(|f_d| {
+          let dep_node_handle = resolving_fn
+            .entry(f_d.clone())
+            .or_insert_with(|| fn_dep_graph.create_node(f_d.clone()));
+          fn_dep_graph.connect_node(*dep_node_handle, self_node_handle);
+        });
+      }
+      fn_dep_graph.traverse_dfs_in_topological_order(
+        Handle::from_raw_parts(0, 0),
+        &mut |n| {
+          let f = n.data();
+          if !resolved_fn.contains(f) {
+            builder.write_ln("").write_raw(f.function_source);
+            resolved_fn.insert(f.clone());
+          }
+        },
+        &mut || panic!("loop exist"),
+      )
+    });
+    builder.output()
   }
 }
 
@@ -149,7 +150,10 @@ impl ShaderGraph {
     );
 
     builder.write_ln("").un_tab().write_ln("}");
-    builder.output()
+
+    let main = builder.output();
+    let lib = ctx.gen_fn_depends();
+    lib + "\n" + &main
   }
 
   pub fn gen_code_frag(&self) -> String {
@@ -162,6 +166,9 @@ impl ShaderGraph {
     });
 
     builder.write_ln("").un_tab().write_ln("}");
-    builder.output()
+
+    let main = builder.output();
+    let lib = ctx.gen_fn_depends();
+    lib + "\n" + &main
   }
 }
