@@ -2,7 +2,7 @@ use arena_graph::*;
 
 use lazy_static::lazy_static;
 use std::{
-  collections::HashSet,
+  collections::{HashMap, HashSet},
   sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -14,7 +14,6 @@ pub use nodes::*;
 pub use shader_function::*;
 
 lazy_static! {
-  // we should remove mutex and use unsafe in future
   pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
 }
 
@@ -23,9 +22,15 @@ pub type ShaderGraphNodeHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
+pub struct BindGroupInfo {
+
+}
+
 pub struct ShaderGraph {
-  pub uniforms: HashSet<ShaderGraphNodeHandleUntyped>,
+  pub uniforms_vertex: HashMap<String, ShaderGraphNodeHandleUntyped>,
+  pub uniforms_frag: HashMap<String, ShaderGraphNodeHandleUntyped>,
   pub attributes: HashSet<ShaderGraphNodeHandleUntyped>,
+  pub bindgroups: Vec<BindGroupInfo>,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
   pub vertex_position: Option<ShaderGraphNodeHandleUntyped>,
   pub varyings: HashSet<ShaderGraphNodeHandleUntyped>,
@@ -35,8 +40,10 @@ pub struct ShaderGraph {
 impl ShaderGraph {
   fn new() -> Self {
     Self {
-      uniforms: HashSet::new(),
+      uniforms_vertex: HashMap::new(),
+      uniforms_frag: HashMap::new(),
       attributes: HashSet::new(),
+      bindgroups: Vec::new(),
       nodes: ArenaGraph::new(),
       vertex_position: None,
       varyings: HashSet::new(),
@@ -45,6 +52,7 @@ impl ShaderGraph {
   }
 }
 
+/// The builder will hold the mutex guard to make sure the in building shadergraph is singleton
 pub struct ShaderGraphBuilder<'a> {
   guard: MutexGuard<'a, Option<ShaderGraph>>,
 }
@@ -61,8 +69,9 @@ impl<'a> ShaderGraphBuilder<'a> {
     self.guard.take().unwrap()
   }
 
-  // pub fn uniform(&mut self, name: &str,  ) {
-  // }
+  pub fn uniform(&mut self, name: &str, ty: NodeType) {
+    
+  }
 }
 
 pub trait ShaderGraphDecorator {

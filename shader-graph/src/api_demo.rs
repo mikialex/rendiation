@@ -29,8 +29,10 @@ impl ShaderGraphDecorator for TSSAOShading {
 
     let newPositionRand = newSamplePosition(worldPosition.xyz(), aoRadius, randDir, Random2D1);
 
-    let newDepth = unPackDepth
-      (depthTex.fetch(NDCxyToUV(NDCFromWorldPositionAndVPMatrix(newPositionRand, VPMatrix))));
+    let newDepth = unPackDepth(depthTex.fetch(NDCxyToUV(NDCFromWorldPositionAndVPMatrix(
+      newPositionRand,
+      VPMatrix,
+    ))));
 
     graph.set_output0(tssaoMix(
       AOAcc.fetch(vUV).xyz(),
@@ -38,6 +40,22 @@ impl ShaderGraphDecorator for TSSAOShading {
       sampleCount,
     ));
   }
+}
+
+struct VertexProvider{
+
+}
+
+struct MVPTransformed {
+  projection: Mat4<f32>,
+  view: Mat4<f32>,
+  model: Mat4<f32>,
+}
+
+struct MyMaterial {
+  vertex: VertexProvider,
+  mvp: MVPTransformed,
+
 }
 
 // this is what artgl is
@@ -144,5 +162,4 @@ fn uncharted2ToneMapping(
   toneMappingExposure: &ShaderGraphNode<f32>,
   toneMappingWhitePoint: &ShaderGraphNode<f32>,
 ) -> ShaderGraphNode<Vec3<f32>> {
-  
 }
