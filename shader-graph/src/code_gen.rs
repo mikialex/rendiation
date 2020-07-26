@@ -34,18 +34,15 @@ impl CodeGenCtx {
 
   fn gen_fn_depends(&self) -> String {
     let mut builder = CodeBuilder::new();
-    let mut resolved_fn: HashSet<Arc<ShaderFunction>> = HashSet::new();
+    let mut resolved_fn = HashSet::new();
     self.depend_functions.iter().for_each(|f| {
       if f.depend_functions.len() == 0 {
         builder.write_ln("").write_raw(f.function_source);
         resolved_fn.insert(f.clone());
       }
 
-      let mut fn_dep_graph: ArenaGraph<Arc<ShaderFunction>> = ArenaGraph::new();
-      let mut resolving_fn: HashMap<
-        Arc<ShaderFunction>,
-        ArenaGraphNodeHandle<Arc<ShaderFunction>>,
-      > = HashMap::new();
+      let mut fn_dep_graph = ArenaGraph::new();
+      let mut resolving_fn = HashMap::new();
       let mut fn_to_expand = vec![f.clone()];
 
       while let Some(f) = fn_to_expand.pop() {

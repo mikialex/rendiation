@@ -1,17 +1,17 @@
 use arena_graph::*;
-use std::marker::PhantomData;
 
 use lazy_static::lazy_static;
 use std::{
   collections::HashSet,
-  hash::{Hash, Hasher},
   sync::{Arc, Mutex},
 };
 
 mod code_builder;
 mod code_gen;
 pub mod nodes;
+pub mod shader_function;
 pub use nodes::*;
+pub use shader_function::*;
 
 lazy_static! {
   // we should remove mutex and use unsafe in future
@@ -66,80 +66,6 @@ impl ShaderGraphBuilder {
 
   // pub fn uniform(&mut self, name: &str,  ) {
   // }
-}
-
-pub struct ShaderGraphNode<T> {
-  phantom: PhantomData<T>,
-  pub data: ShaderGraphNodeData,
-  pub node_type: NodeType,
-}
-
-impl<T> ShaderGraphNode<T> {
-  pub fn new(data: ShaderGraphNodeData, node_type: NodeType) -> Self {
-    Self {
-      data,
-      phantom: PhantomData,
-      node_type,
-    }
-  }
-}
-
-pub enum ShaderGraphNodeData {
-  Function(FunctionNode),
-  Input(ShaderGraphInputNode),
-}
-
-pub struct ShaderGraphInputNode {
-  pub node_type: ShaderGraphInputNodeType,
-  name: String,
-}
-
-pub enum ShaderGraphInputNodeType {
-  Uniform,
-  Attribute,
-}
-
-#[derive(Debug, Eq)]
-pub struct ShaderFunction {
-  pub function_name: &'static str,
-  pub function_source: &'static str,
-  pub depend_functions: HashSet<Arc<ShaderFunction>>,
-}
-
-impl ShaderFunction {
-  pub fn declare_function_dep(mut self, f: Arc<ShaderFunction>) -> Self {
-    self.depend_functions.insert(f);
-    self
-  }
-}
-
-impl Hash for ShaderFunction {
-  fn hash<H>(&self, state: &mut H)
-  where
-    H: Hasher,
-  {
-    self.function_name.hash(state);
-  }
-}
-
-impl PartialEq for ShaderFunction {
-  fn eq(&self, other: &Self) -> bool {
-    self.function_name == other.function_name
-  }
-}
-
-impl ShaderFunction {
-  pub fn new(function_name: &'static str, function_source: &'static str) -> Self {
-    Self {
-      function_name,
-      function_source,
-      depend_functions: HashSet::new(),
-    }
-  }
-}
-
-pub struct FunctionNode {
-  pub prototype: Arc<ShaderFunction>,
 }
 
 pub trait ShaderGraphDecorator {

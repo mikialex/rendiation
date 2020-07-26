@@ -1,0 +1,44 @@
+use std::{
+  collections::HashSet,
+  hash::{Hash, Hasher},
+  sync::Arc,
+};
+
+#[derive(Debug, Eq)]
+pub struct ShaderFunction {
+  pub function_name: &'static str,
+  pub function_source: &'static str,
+  pub depend_functions: HashSet<Arc<ShaderFunction>>,
+}
+
+impl ShaderFunction {
+  pub fn declare_function_dep(mut self, f: Arc<ShaderFunction>) -> Self {
+    self.depend_functions.insert(f);
+    self
+  }
+}
+
+impl Hash for ShaderFunction {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
+    self.function_name.hash(state);
+  }
+}
+
+impl PartialEq for ShaderFunction {
+  fn eq(&self, other: &Self) -> bool {
+    self.function_name == other.function_name
+  }
+}
+
+impl ShaderFunction {
+  pub fn new(function_name: &'static str, function_source: &'static str) -> Self {
+    Self {
+      function_name,
+      function_source,
+      depend_functions: HashSet::new(),
+    }
+  }
+}
