@@ -3,7 +3,7 @@ use arena_graph::*;
 use lazy_static::lazy_static;
 use std::{
   collections::HashSet,
-  sync::{Arc, Mutex},
+  sync::{Arc, Mutex, MutexGuard},
 };
 
 mod code_builder;
@@ -45,23 +45,20 @@ impl ShaderGraph {
   }
 }
 
-pub struct ShaderGraphBuilder {}
+pub struct ShaderGraphBuilder<'a> {
+  guard: MutexGuard<'a, Option<ShaderGraph>>,
+}
 
-impl ShaderGraphBuilder {
+impl<'a> ShaderGraphBuilder<'a> {
   pub fn new() -> Self {
     let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-    let graph = guard.as_mut();
-    if graph.is_some() {
-      panic!("already has one graph in building")
-    }
-
     *guard = Some(ShaderGraph::new());
 
-    Self {}
+    Self { guard }
   }
 
-  pub fn create(self) -> ShaderGraph {
-    IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
+  pub fn create(mut self) -> ShaderGraph {
+    self.guard.take().unwrap()
   }
 
   // pub fn uniform(&mut self, name: &str,  ) {
