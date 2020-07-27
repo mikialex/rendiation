@@ -5,15 +5,18 @@ pub mod attribute;
 pub mod cal;
 pub mod program;
 pub mod renderer;
+pub mod texture;
+pub mod texture_slots;
 pub mod uniform;
 
 pub use attribute::*;
 pub use cal::*;
 pub use program::*;
 pub use renderer::*;
+pub use texture::*;
+pub use texture_slots::*;
 pub use uniform::*;
 use wasm_bindgen::prelude::*;
-
 
 #[wasm_bindgen]
 pub struct WebGLBackend {
@@ -29,6 +32,9 @@ impl SceneGraphBackend for WebGLBackend {
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;
   type UniformValue = UniformValue;
+  type Texture = ();
+  type Sampler = ();
+  type SampledTexture = WebGLTexture;
 }
 
 impl WebGLBackend {
@@ -100,7 +106,7 @@ impl RenderObject<WebGLBackend> {
             program.upload_uniform_value(uniform_value, p.0, renderer);
           }
           // SampledTexture(_index) => todo!(),
-          // _ => panic!("unsupported webgl resource type"),
+          _ => panic!("unsupported webgl resource type"),
         }
       })
     }

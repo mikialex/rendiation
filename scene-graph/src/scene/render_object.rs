@@ -11,9 +11,12 @@ pub struct RenderObject<T: SceneGraphBackend> {
 }
 
 impl<T: SceneGraphBackend> RenderObject<T> {
-  pub fn get_bounding_local<'a>(&self, scene: &'a Scene<T>) -> &'a BoundingData {
-    let geometry = scene.resources.get_geometry(self.geometry_index).resource();
-    geometry.get_bounding_local()
+  pub fn get_bounding_local<'a>(&self, scene: &'a Scene<T>) -> &'a Option<BoundingData> {
+    &scene
+      .resources
+      .get_geometry(self.geometry_index)
+      .resource()
+      .bounding_local
   }
 }
 

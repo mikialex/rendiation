@@ -1,10 +1,11 @@
 use rendiation_shadergraph_derives::glsl_function;
 
-glsl_function!("
+glsl_function!(
+  "
 vec3 LinearToneMapping(vec3 intensity, float toneMappingExposure){
   return toneMappingExposure * intensity;
-}
-");
+}"
+);
 
 glsl_function!("
 vec3 OptimizedCineonToneMapping(vec3 intensity, float toneMappingExposure) {
@@ -16,13 +17,15 @@ vec3 OptimizedCineonToneMapping(vec3 intensity, float toneMappingExposure) {
 }
 ");
 
-glsl_function!("
+glsl_function!(
+  "
 vec3 ReinhardToneMapping(vec3 intensity, float toneMappingExposure) {
   intensity *= toneMappingExposure;
   return intensity/(vec3(1.0) + intensity);
   // source: https://www.cs.utah.edu/~reinhard/cdrom/
 }
-");
+"
+);
 
 glsl_function!("
 vec3 Uncharted2Helper(vec3 x){
@@ -30,7 +33,8 @@ vec3 Uncharted2Helper(vec3 x){
 }
 ");
 
-glsl_function!("
+glsl_function!(
+  "
 vec3 Uncharted2ToneMapping(
   vec3 intensity, 
   float toneMappingExposure,
@@ -39,7 +43,8 @@ vec3 Uncharted2ToneMapping(
   intensity *= toneMappingExposure;
   return Uncharted2Helper(intensity) / Uncharted2Helper(vec3(toneMappingWhitePoint));
 }
-");
+"
+);
 
 glsl_function!("
 vec3 ACESFilmicToneMapping(vec3 intensity, float toneMappingExposure) {

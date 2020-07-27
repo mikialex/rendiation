@@ -64,6 +64,10 @@ impl<T> ArenaTree<T> {
     tree
   }
 
+  pub fn root(&self) ->  ArenaTreeNodeHandle<T> {
+    Handle::from_raw_parts(0, 0)
+  }
+
   pub fn nodes(&self) -> &Arena<ArenaTreeNode<T>> {
     &self.nodes
   }

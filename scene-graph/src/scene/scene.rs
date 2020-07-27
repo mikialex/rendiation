@@ -9,7 +9,6 @@ pub struct Scene<T: SceneGraphBackend> {
   pub cameras: CameraData,
   pub render_objects: Arena<RenderObject<T>>,
 
-  root: SceneNodeHandle<T>,
   pub(crate) nodes: ArenaTree<SceneNodeData<T>>,
 
   pub resources: ResourceManager<T>,
@@ -30,7 +29,6 @@ impl<T: SceneGraphBackend> Scene<T> {
         cameras,
       },
       render_objects: Arena::new(),
-      root: Handle::from_raw_parts(0, 0),
       nodes: ArenaTree::new(SceneNodeData::new()),
       resources: ResourceManager::new(),
       resource_update_ctx: ResourceUpdateCtx::new(),
@@ -38,15 +36,15 @@ impl<T: SceneGraphBackend> Scene<T> {
   }
 
   pub fn get_root(&self) -> &SceneNode<T> {
-    self.nodes.get_node(self.root)
+    self.nodes.get_node(self.nodes.root())
   }
 
   pub fn get_root_node_mut(&mut self) -> &mut SceneNode<T> {
-    self.get_node_mut(self.root)
+    self.get_node_mut(self.nodes.root())
   }
 
   pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T>) {
-    self.node_add_child_by_handle(self.root, child_handle);
+    self.node_add_child_by_handle(self.nodes.root(), child_handle);
   }
 }
 

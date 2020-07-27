@@ -37,6 +37,7 @@ features = [
   'WebGlProgram',
   'WebGlUniformLocation',
   'WebGlShader',
+  'WebGlTexture',
   'WebGlFramebuffer',
   'Window',
 ]

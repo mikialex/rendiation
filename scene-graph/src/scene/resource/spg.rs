@@ -33,14 +33,16 @@ impl<T: SceneGraphBackend> SceneShadingParameterGroupData<T> {
 pub type ParameterHandle<T> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;
 pub type UniformHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::UniformBuffer>>;
 pub type UniformValueHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::UniformValue>>;
-// pub type SamplerHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Sampler>>;
-// pub type TextureHandle<T: SceneGraphBackend> = Handle<ResourceWrap<T::Texture>>;
+pub type SamplerHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::Sampler>>;
+pub type TextureHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::Texture>>;
+pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::Texture>>;
 
 pub enum ShadingParameterType<T: SceneGraphBackend> {
   UniformValue(UniformValueHandle<T>),
   UniformBuffer(UniformHandle<T>),
-  // Texture(Handle),
-  // Sampler(Handle),
+  Texture(SamplerHandle<T>),
+  Sampler(TextureHandle<T>),
+  SampledTexture(SampledTextureHandle<T>),
 }
 
 impl<T: SceneGraphBackend> ResourceManager<T> {
@@ -92,7 +94,7 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
   }
 }
 
-/// uniforms
+/// uniform values
 impl<T: SceneGraphBackend> ResourceManager<T> {
   pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut ResourceWrap<T::UniformValue> {
     ResourceWrap::new_wrap(&mut self.uniform_values, gpu)

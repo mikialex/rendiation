@@ -115,4 +115,20 @@ impl WASMScene {
       .shadings
       .remove(self.get_handle(h).into());
   }
+
+  #[wasm_bindgen]
+  pub fn add_index_buffer(&mut self, data: &[u32], renderer: &mut WebGLRenderer) -> usize {
+    let index_buffer =
+      WebGLBackend::create_index_buffer(renderer, unsafe { std::mem::transmute(data) });
+    let h = self.scene.resources.add_index_buffer(index_buffer).index();
+    self.save_handle(h)
+  }
+
+  #[wasm_bindgen]
+  pub fn delete_index_buffer(&mut self, h: usize) {
+    self
+      .scene
+      .resources
+      .delete_index_buffer(self.get_handle(h).into())
+  }
 }

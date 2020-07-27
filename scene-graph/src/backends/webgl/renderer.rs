@@ -5,7 +5,6 @@ use web_sys::*;
 
 #[wasm_bindgen]
 pub struct WebGLRenderer {
-
   #[wasm_bindgen(skip)]
   pub canvas: HtmlCanvasElement,
 
@@ -31,5 +30,22 @@ impl WebGLRenderer {
       gl,
       attribute_states: VertexEnableStates::new(10), // todo!()
     }
+  }
+}
+
+pub struct WebGLCapabilities {
+  pub max_combined_texture_image_units: u32,
+}
+
+impl WebGLCapabilities {
+  pub fn new(_gl: &WebGl2RenderingContext) -> Self {
+    todo!()
+    // Self {
+    //   max_combined_texture_image_units: gl
+    //     .get_parameter(WebGl2RenderingContext::MAX_COMBINED_TEXTURE_IMAGE_UNITS)
+    //     .unwrap()
+    //     .dyn_into::<u32>()
+    //     .unwrap(),
+    // }
   }
 }

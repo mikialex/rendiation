@@ -1,4 +1,4 @@
-use crate::{RenderObjectHandle, SceneGraphBackend, Scene};
+use crate::{RenderObjectHandle, Scene, SceneGraphBackend};
 use arena::Handle;
 use arena_tree::*;
 use rendiation_math::{Mat4, One};

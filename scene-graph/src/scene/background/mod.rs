@@ -1,5 +1,5 @@
-use rendiation_math::Vec3;
 use crate::SceneGraphBackend;
+use rendiation_math::Vec3;
 
 pub trait Background<T: SceneGraphBackend> {
   fn render(&self, renderer: &mut T::Renderer, builder: T::RenderTarget);

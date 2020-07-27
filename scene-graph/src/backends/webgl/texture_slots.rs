@@ -1,13 +1,88 @@
-pub struct TextureSlotStates{
-    slots: Vec<TextureSlot>
+use web_sys::*;
+
+pub struct TextureSlotStates {
+  slot: u32,
+  slots: Vec<Option<TextureSlotBindInfo>>,
+  active_slot: Option<u32>,
+  max_support_slot: u32,
 }
 
-pub enum WebGLTextureBindType{
-    Texture2D = 0x0DE1, // todo use webglctx const
-    TextureCubeMap = 0x8513,
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WebGLTextureBindType {
+  Texture2D = WebGl2RenderingContext::TEXTURE_BINDING_2D,
+  TextureCubeMap = WebGl2RenderingContext::TEXTURE_BINDING_CUBE_MAP,
 }
 
-pub struct TextureSlotBindInfo{
+impl TextureSlotStates {
+  pub fn new(max_combined_texture_image_units: u32) -> Self {
+    Self {
+      slot: 0,
+      slots: vec![None; max_combined_texture_image_units as usize],
+      active_slot: None,
+      max_support_slot: max_combined_texture_image_units,
+    }
+  }
+
+  pub fn active_texture(&mut self, slot: u32, gl: &WebGl2RenderingContext) {
+    if let Some(active_slot) = self.active_slot {
+      if active_slot == slot {
+        return;
+      }
+    }
+    gl.active_texture(slot);
+    self.active_slot = Some(slot);
+  }
+
+  pub fn bind_texture(
+    &mut self,
     bind_type: WebGLTextureBindType,
-    // texture_handle: Handle<>
+    texture: &WebGlTexture,
+    texture_id: usize,
+    gl: &WebGl2RenderingContext,
+  ) {
+    let active_slot = self.active_slot.unwrap_or_else(|| {
+      let slot = WebGl2RenderingContext::TEXTURE0 + self.max_support_slot - 1;
+      self.active_texture(slot, gl);
+      slot
+    });
+    let slot_bound = &mut self.slots[active_slot as usize];
+    slot_bound.as_mut().map(|v| {
+      if v.bind_type != bind_type || v.texture_id != texture_id {
+        gl.bind_texture(bind_type as u32, Some(texture));
+        *v = TextureSlotBindInfo {
+          bind_type,
+          texture_id,
+        }
+      }
+    });
+
+    slot_bound.get_or_insert_with(|| {
+      gl.bind_texture(bind_type as u32, Some(texture));
+      TextureSlotBindInfo {
+        bind_type,
+        texture_id,
+      }
+    });
+  }
+
+  pub fn reset_slots(&mut self) {
+    self.slot = 0;
+  }
+
+  pub fn get_free_slot(&mut self) -> Option<u32> {
+    let re = self.slot;
+    self.slot += 1;
+    if re > self.max_support_slot {
+      None
+    } else {
+      Some(re)
+    }
+  }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextureSlotBindInfo {
+  bind_type: WebGLTextureBindType,
+  texture_id: usize,
 }

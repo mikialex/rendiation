@@ -9,9 +9,12 @@ pub struct ResourceManager<T: SceneGraphBackend> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
   pub shadings: ResourceArena<SceneShadingData<T>>,
   pub shading_parameter_groups: ResourceArena<SceneShadingParameterGroupData<T>>,
+
   pub uniforms: ResourceArena<T::UniformBuffer>,
   pub uniform_values: ResourceArena<T::UniformValue>,
+
   pub textures: ResourceArena<T::VertexBuffer>,
+
   pub index_buffers: ResourceArena<T::IndexBuffer>,
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
 }

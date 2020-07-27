@@ -3,7 +3,6 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct SceneShadingDescriptor {
-
   #[wasm_bindgen(skip)]
   pub shader_descriptor: SceneShaderDescriptor,
   pub rasterization_state: RasterizationState,

@@ -22,9 +22,7 @@ pub type ShaderGraphNodeHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
-pub struct BindGroupInfo {
-
-}
+pub struct BindGroupInfo {}
 
 pub struct ShaderGraph {
   pub uniforms_vertex: HashMap<String, ShaderGraphNodeHandleUntyped>,
@@ -69,9 +67,7 @@ impl<'a> ShaderGraphBuilder<'a> {
     self.guard.take().unwrap()
   }
 
-  pub fn uniform(&mut self, name: &str, ty: NodeType) {
-    
-  }
+  pub fn uniform(&mut self, name: &str, ty: NodeType) {}
 }
 
 pub trait ShaderGraphDecorator {

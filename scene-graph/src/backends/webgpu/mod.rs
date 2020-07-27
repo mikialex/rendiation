@@ -1,6 +1,4 @@
-use crate::{
-  Background, RenderObject, Scene, SceneGraphBackend, RenderEngine, SolidBackground,
-};
+use crate::{Background, RenderEngine, RenderObject, Scene, SceneGraphBackend, SolidBackground};
 use rendiation_webgpu::*;
 pub mod cal;
 pub use cal::*;
@@ -14,6 +12,9 @@ impl SceneGraphBackend for WebGPUBackend {
   type VertexBuffer = WGPUBuffer;
   type UniformBuffer = WGPUBuffer;
   type UniformValue = ();
+  type Texture = WGPUTexture;
+  type Sampler = WGPUSampler;
+  type SampledTexture = ();
 }
 
 impl Background<WebGPUBackend> for SolidBackground {

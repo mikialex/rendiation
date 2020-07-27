@@ -10,6 +10,7 @@ pub struct SceneGeometryData<T: SceneGraphBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
+  pub bounding_local: Option<BoundingData>
 }
 
 impl<T: SceneGraphBackend> SceneGeometryData<T> {
@@ -18,11 +19,8 @@ impl<T: SceneGraphBackend> SceneGeometryData<T> {
       draw_range: 0..0,
       index_buffer: None,
       vertex_buffers: Vec::new(),
+      bounding_local: None,
     }
-  }
-
-  pub fn get_bounding_local(&self) -> &BoundingData {
-    todo!()
   }
 }
 
