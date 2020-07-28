@@ -2,7 +2,7 @@ use arena_graph::*;
 
 use lazy_static::lazy_static;
 use std::{
-  collections::{HashMap, HashSet},
+  collections::HashSet,
   sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -22,31 +22,42 @@ pub type ShaderGraphNodeHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
-pub struct BindGroupInfo {}
-
 pub struct ShaderGraph {
-  pub uniforms_vertex: HashMap<String, ShaderGraphNodeHandleUntyped>,
-  pub uniforms_frag: HashMap<String, ShaderGraphNodeHandleUntyped>,
-  pub attributes: HashSet<ShaderGraphNodeHandleUntyped>,
-  pub bindgroups: Vec<BindGroupInfo>,
-  pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
+  pub attributes: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub bindgroups_vertex: Vec<ShaderGraphBindGroup>,
   pub vertex_position: Option<ShaderGraphNodeHandleUntyped>,
-  pub varyings: HashSet<ShaderGraphNodeHandleUntyped>,
-  pub frag_outputs: HashSet<ShaderGraphNodeHandleUntyped>,
+
+  pub varyings: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub bindgroups_frag: Vec<ShaderGraphBindGroup>,
+  pub frag_outputs: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+
+  pub uniforms: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
 }
 
 impl ShaderGraph {
   fn new() -> Self {
     Self {
-      uniforms_vertex: HashMap::new(),
-      uniforms_frag: HashMap::new(),
+      uniforms: HashSet::new(),
       attributes: HashSet::new(),
-      bindgroups: Vec::new(),
+      bindgroups_vertex: Vec::new(),
+      bindgroups_frag: Vec::new(),
       nodes: ArenaGraph::new(),
       vertex_position: None,
       varyings: HashSet::new(),
       frag_outputs: HashSet::new(),
     }
+  }
+}
+
+pub struct ShaderGraphBindGroup {
+  inputs: Vec<ShaderGraphNodeHandleUntyped>,
+}
+
+impl ShaderGraphBindGroup {
+  pub fn gen_header(&self, graph: &ShaderGraph) -> String {
+    let result = String::new();
+    result
   }
 }
 
@@ -67,7 +78,61 @@ impl<'a> ShaderGraphBuilder<'a> {
     self.guard.take().unwrap()
   }
 
-  pub fn uniform(&mut self, name: &str, ty: NodeType) {}
+  pub fn bindgroup(&mut self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder), is_vert: bool) {
+    self.guard.as_mut().map(|g| {
+      let mut builder = ShaderGraphBindGroupBuilder::new(g, is_vert);
+      b(&mut builder);
+      builder.resolve();
+    });
+  }
+  pub fn bindgroup_vert(&mut self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder)) {
+    self.bindgroup(b, true)
+  }
+  pub fn bindgroup_frag(&mut self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder)) {
+    self.bindgroup(b, false)
+  }
+}
+
+pub struct ShaderGraphBindGroupBuilder<'a> {
+  index: usize,
+  graph: &'a mut ShaderGraph,
+  bindgroup: ShaderGraphBindGroup,
+  is_vert: bool,
+}
+
+impl<'a> ShaderGraphBindGroupBuilder<'a> {
+  pub fn new(graph: &'a mut ShaderGraph, is_vert: bool) -> Self {
+    let index = if is_vert {
+      graph.bindgroups_vertex.len()
+    } else {
+      graph.bindgroups_frag.len()
+    };
+    Self {
+      index,
+      graph,
+      bindgroup: ShaderGraphBindGroup { inputs: Vec::new() },
+      is_vert,
+    }
+  }
+
+  pub fn uniform(&mut self, name: &str, node_type: NodeType) {
+    let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
+      node_type: ShaderGraphInputNodeType::Uniform,
+      name: name.to_owned(),
+    });
+    let node = ShaderGraphNode::<AnyType>::new(data, node_type);
+    let handle = self.graph.nodes.create_node(node);
+    self.graph.uniforms.insert((handle, self.index));
+    self.bindgroup.inputs.push(handle);
+  }
+
+  pub fn resolve(self) {
+    if self.is_vert {
+      self.graph.bindgroups_vertex.push(self.bindgroup)
+    } else {
+      self.graph.bindgroups_frag.push(self.bindgroup)
+    }
+  }
 }
 
 pub trait ShaderGraphDecorator {

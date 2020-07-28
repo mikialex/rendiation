@@ -1,11 +1,24 @@
 use crate::ShaderFunction;
 use std::{marker::PhantomData, sync::Arc};
 
+#[derive(Debug, Copy, Clone)]
 pub enum NodeType {
   Float,
   Vec2,
   Vec3,
   Vec4,
+}
+
+impl NodeType {
+  pub fn to_glsl(self) -> &'static str {
+    use NodeType::*;
+    match self {
+      Float => "float",
+      Vec2 => "vec2",
+      Vec3 => "vec3",
+      Vec4 => "vec4",
+    }
+  }
 }
 
 pub struct ShaderGraphNode<T> {
@@ -20,6 +33,12 @@ impl<T> ShaderGraphNode<T> {
       data,
       phantom: PhantomData,
       node_type,
+    }
+  }
+  pub fn unwrap_as_input(&self) -> &ShaderGraphInputNode {
+    match &self.data {
+      ShaderGraphNodeData::Input(n) => n,
+      _ => panic!("unwrap as input failed"),
     }
   }
 }

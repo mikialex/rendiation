@@ -137,7 +137,7 @@ impl ShaderGraph {
     builder.write_ln("void main() {").tab();
 
     self.varyings.iter().for_each(|&v| {
-      self.gen_code_node(v, &mut ctx, &mut builder);
+      self.gen_code_node(v.0, &mut ctx, &mut builder);
     });
 
     self.gen_code_node(
@@ -148,9 +148,10 @@ impl ShaderGraph {
 
     builder.write_ln("").un_tab().write_ln("}");
 
+    let header = self.gen_header_vert();
     let main = builder.output();
     let lib = ctx.gen_fn_depends();
-    lib + "\n" + &main
+    header + "\n" + &lib + "\n" + &main
   }
 
   pub fn gen_code_frag(&self) -> String {
@@ -159,13 +160,62 @@ impl ShaderGraph {
     builder.write_ln("void main() {").tab();
 
     self.frag_outputs.iter().for_each(|&v| {
-      self.gen_code_node(v, &mut ctx, &mut builder);
+      self.gen_code_node(v.0, &mut ctx, &mut builder);
     });
 
     builder.write_ln("").un_tab().write_ln("}");
 
+    let header = self.gen_header_frag();
     let main = builder.output();
     let lib = ctx.gen_fn_depends();
-    lib + "\n" + &main
+    header + "\n" + &lib + "\n" + &main
+  }
+
+  fn gen_header_vert(&self) -> String {
+    let mut result = String::new();
+
+    // attributes
+    result += self
+      .attributes
+      .iter()
+      .map(|a| {
+        let info = self.nodes.get_node(a.0).data();
+        let input = info.unwrap_as_input();
+        format!(
+          "layout(location = {}) in {} {};",
+          a.1,
+          info.node_type.to_glsl(),
+          input.name
+        )
+      })
+      .collect::<Vec<String>>()
+      .join("\n")
+      .as_ref();
+
+    result
+  }
+
+  fn gen_header_frag(&self) -> String {
+    let mut result = String::new();
+
+    // varyings
+    result += self
+      .varyings
+      .iter()
+      .map(|a| {
+        let info = self.nodes.get_node(a.0).data();
+        let input = info.unwrap_as_input();
+        format!(
+          "layout(location = {}) in {} {};",
+          a.1,
+          info.node_type.to_glsl(),
+          input.name
+        )
+      })
+      .collect::<Vec<String>>()
+      .join("\n")
+      .as_ref();
+
+    result
   }
 }
