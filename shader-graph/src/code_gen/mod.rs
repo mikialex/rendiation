@@ -1,5 +1,6 @@
-use crate::code_builder::*;
+mod code_builder;
 use crate::*;
+use code_builder::CodeBuilder;
 use std::collections::HashMap;
 
 struct CodeGenCtx {
@@ -184,7 +185,7 @@ impl ShaderGraph {
         format!(
           "layout(location = {}) in {} {};",
           a.1,
-          info.node_type.to_glsl(),
+          self.type_id_map.get(&info.node_type).unwrap(),
           input.name
         )
       })
@@ -208,7 +209,7 @@ impl ShaderGraph {
         format!(
           "layout(location = {}) in {} {};",
           a.1,
-          info.node_type.to_glsl(),
+          self.type_id_map.get(&info.node_type).unwrap(),
           input.name
         )
       })
@@ -216,6 +217,13 @@ impl ShaderGraph {
       .join("\n")
       .as_ref();
 
+    result
+  }
+}
+
+impl ShaderGraphBindGroup {
+  pub fn gen_header(&self, graph: &ShaderGraph) -> String {
+    let result = String::new();
     result
   }
 }

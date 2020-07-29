@@ -72,7 +72,6 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
 
   // https://docs.rs/glsl/4.1.1/glsl/syntax/struct.FunctionPrototype.html
   let return_type = convert_type(&parsed.prototype.ty.ty.ty);
-  let function_node_type = convert_node_type(&parsed.prototype.ty.ty.ty);
 
   // https://docs.rs/glsl/4.1.1/glsl/syntax/struct.FunctionParameterDeclarator.html
   let params: Vec<_> = parsed
@@ -128,15 +127,14 @@ fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
       let graph = guard.as_mut().unwrap();
       let result = graph
         .nodes
-        .create_node(ShaderGraphNode::new(
+        .create_node(ShaderGraphNode::<#return_type>::new(
             ShaderGraphNodeData::Function(
-            FunctionNode {
-              prototype: #prototype_name.clone()
-            },
-          ),
-          #function_node_type
-        )
-      );
+              FunctionNode {
+                prototype: #prototype_name.clone()
+              },
+            )
+          ).to_any()
+        );
       unsafe {
         #(#gen_node_connect)*
         result.cast_type()
@@ -153,17 +151,6 @@ fn convert_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStrea
     Vec2 => quote! { rendiation_math::Vec2<f32> },
     Vec3 => quote! { rendiation_math::Vec3<f32> },
     Vec4 => quote! { rendiation_math::Vec4<f32> },
-    _ => panic!("unsupported param type"),
-  }
-}
-
-fn convert_node_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStream {
-  use syntax::TypeSpecifierNonArray::*;
-  match glsl {
-    Float => quote! { NodeType::Float },
-    Vec2 => quote! { NodeType::Vec2 },
-    Vec3 => quote! { NodeType::Vec3 },
-    Vec4 => quote! { NodeType::Vec4 },
     _ => panic!("unsupported param type"),
   }
 }

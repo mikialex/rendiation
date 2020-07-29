@@ -1,40 +1,64 @@
-use crate::ShaderFunction;
-use std::{marker::PhantomData, sync::Arc};
+use crate::{ShaderFunction, ShaderGraphNodeUntyped};
+use rendiation_math::*;
+use std::{any::TypeId, marker::PhantomData, sync::Arc};
 
-#[derive(Debug, Copy, Clone)]
-pub enum NodeType {
-  Float,
-  Vec2,
-  Vec3,
-  Vec4,
+pub trait ShaderGraphNodeType: 'static {
+  fn to_glsl_type() -> &'static str;
 }
 
-impl NodeType {
-  pub fn to_glsl(self) -> &'static str {
-    use NodeType::*;
-    match self {
-      Float => "float",
-      Vec2 => "vec2",
-      Vec3 => "vec3",
-      Vec4 => "vec4",
-    }
+pub struct AnyType {}
+
+impl ShaderGraphNodeType for AnyType {
+  fn to_glsl_type() -> &'static str {
+    unreachable!("Node can't newed with type AnyType")
   }
 }
 
-pub struct ShaderGraphNode<T> {
-  phantom: PhantomData<T>,
-  pub data: ShaderGraphNodeData,
-  pub node_type: NodeType,
+impl ShaderGraphNodeType for f32 {
+  fn to_glsl_type() -> &'static str {
+    "float"
+  }
 }
 
-impl<T> ShaderGraphNode<T> {
-  pub fn new(data: ShaderGraphNodeData, node_type: NodeType) -> Self {
+impl ShaderGraphNodeType for Vec2<f32> {
+  fn to_glsl_type() -> &'static str {
+    "vec2"
+  }
+}
+
+impl ShaderGraphNodeType for Vec3<f32> {
+  fn to_glsl_type() -> &'static str {
+    "vec3"
+  }
+}
+
+impl ShaderGraphNodeType for Vec4<f32> {
+  fn to_glsl_type() -> &'static str {
+    "vec4"
+  }
+}
+
+pub struct ShaderGraphNode<T: ShaderGraphNodeType> {
+  phantom: PhantomData<T>,
+  pub data: ShaderGraphNodeData,
+  pub node_type: TypeId,
+}
+
+impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
+  pub fn new(data: ShaderGraphNodeData) -> Self {
     Self {
       data,
       phantom: PhantomData,
-      node_type,
+      node_type: TypeId::of::<T>(),
     }
   }
+  pub fn to_any(self) -> ShaderGraphNodeUntyped {
+    unsafe { std::mem::transmute(self) }
+  }
+  pub fn from_any(self) -> ShaderGraphNode<T> {
+    unsafe { std::mem::transmute(self) }
+  }
+
   pub fn unwrap_as_input(&self) -> &ShaderGraphInputNode {
     match &self.data {
       ShaderGraphNodeData::Input(n) => n,
@@ -48,6 +72,10 @@ pub enum ShaderGraphNodeData {
   Input(ShaderGraphInputNode),
 }
 
+pub struct FunctionNode {
+  pub prototype: Arc<ShaderFunction>,
+}
+
 pub struct ShaderGraphInputNode {
   pub node_type: ShaderGraphInputNodeType,
   pub name: String,
@@ -56,8 +84,4 @@ pub struct ShaderGraphInputNode {
 pub enum ShaderGraphInputNodeType {
   Uniform,
   Attribute,
-}
-
-pub struct FunctionNode {
-  pub prototype: Arc<ShaderFunction>,
 }
