@@ -1,7 +1,8 @@
 // https://github.com/glium/glium/blob/master/src/uniforms/value.rs
 
-use crate::{UniformTypeId, WebGLProgram, WebGLRenderer};
+use crate::{WebGLProgram, WebGLRenderer};
 use rendiation_math::*;
+use rendiation_ral::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UniformType {

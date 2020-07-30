@@ -1,23 +1,7 @@
-use crate::{Background, RenderEngine, RenderObject, Scene, SceneGraphBackend, SolidBackground};
+use crate::{Background, RenderEngine, RenderObject, Scene, SolidBackground};
 use rendiation_webgpu::*;
-pub mod cal;
-pub use cal::*;
 
-impl SceneGraphBackend for WebGPUBackend {
-  type RenderTarget = WGPURenderPassBuilder<'static>;
-  type Renderer = WGPURenderer;
-  type Shading = WGPUPipeline;
-  type ShadingParameterGroup = WGPUBindGroup;
-  type IndexBuffer = WGPUBuffer;
-  type VertexBuffer = WGPUBuffer;
-  type UniformBuffer = WGPUBuffer;
-  type UniformValue = ();
-  type Texture = WGPUTexture;
-  type Sampler = WGPUSampler;
-  type SampledTexture = ();
-}
-
-impl Background<WebGPUBackend> for SolidBackground {
+impl Background<WGPURenderer> for SolidBackground {
   fn render(&self, renderer: &mut WGPURenderer, builder: WGPURenderPassBuilder) {
     builder
       .first_color(|c| c.load_with_clear(self.color, 1.0).ok())
@@ -30,7 +14,7 @@ fn extend_lifetime<'b>(r: WGPURenderPassBuilder<'b>) -> WGPURenderPassBuilder<'s
 }
 
 pub struct WebGPUBackend {
-  engine: RenderEngine<WebGPUBackend>,
+  engine: RenderEngine<WGPURenderer>,
 }
 
 impl WebGPUBackend {
@@ -42,7 +26,7 @@ impl WebGPUBackend {
 
   pub fn render(
     &mut self,
-    scene: &mut Scene<WebGPUBackend>,
+    scene: &mut Scene<WGPURenderer>,
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
@@ -68,11 +52,11 @@ impl WebGPUBackend {
   }
 }
 
-impl RenderObject<WebGPUBackend> {
+impl RenderObject<WGPURenderer> {
   pub fn render_webgpu<'a, 'b: 'a>(
     &self,
     pass: &mut WGPURenderPass<'a>,
-    scene: &'b Scene<WebGPUBackend>,
+    scene: &'b Scene<WGPURenderer>,
   ) {
     let shading = scene.resources.get_shading(self.shading_index).resource();
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();

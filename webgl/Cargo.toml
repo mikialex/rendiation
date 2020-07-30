@@ -1,0 +1,28 @@
+[package]
+name = "rendiation-webgl"
+version = "0.1.0"
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+
+[dependencies]
+wasm-bindgen = { version = "0.2.62" }
+js-sys = "0.3.39"
+
+rendiation-ral = { path = "../ral" }
+rendiation-math = { path = "../math" }
+
+[dependencies.web-sys]
+version = "0.3.39"
+features = [
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'WebGlBuffer',
+  'WebGl2RenderingContext',
+  'WebGlProgram',
+  'WebGlUniformLocation',
+  'WebGlShader',
+  'WebGlTexture',
+  'WebGlFramebuffer',
+  'Window',
+]

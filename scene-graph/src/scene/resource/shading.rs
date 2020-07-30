@@ -1,22 +1,13 @@
-use crate::{Handle, ParameterHandle, ResourceManager, ResourceWrap, SceneGraphBackend};
+use crate::{Handle, ParameterHandle, ResourceManager, ResourceWrap, RALBackend};
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct AttributeTypeId(pub u64);
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct UniformTypeId(pub u64);
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ParameterGroupTypeId(pub u64);
-
-pub struct SceneShadingData<T: SceneGraphBackend> {
+pub struct SceneShadingData<T: RALBackend> {
   gpu: T::Shading,
   parameters: Vec<ParameterHandle<T>>,
 }
 
-impl<T: SceneGraphBackend> SceneShadingData<T> {
+impl<T: RALBackend> SceneShadingData<T> {
   pub fn new(gpu: T::Shading) -> Self {
-    Self { 
+    Self {
       gpu,
       parameters: Vec::new(),
     }
@@ -42,7 +33,7 @@ impl<T: SceneGraphBackend> SceneShadingData<T> {
 
 pub type ShadingHandle<T> = Handle<ResourceWrap<SceneShadingData<T>>>;
 
-impl<T: SceneGraphBackend> ResourceManager<T> {
+impl<T: RALBackend> ResourceManager<T> {
   pub fn add_shading(
     &mut self,
     resource: SceneShadingData<T>,

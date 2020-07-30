@@ -111,7 +111,7 @@ impl World {
   }
 
   // create new chunk, remove old chunk
-  pub fn update(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WebGPUBackend>) {
+  pub fn update(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WGPURenderer>) {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     let camera_position = camera.world_matrix.position();
 

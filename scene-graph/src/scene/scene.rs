@@ -1,10 +1,10 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
-use crate::{RenderObject, SceneGraphBackend, SceneNodeData, SceneNodeHandle, UniformHandle};
+use crate::{RALBackend, RenderObject, SceneNodeData, SceneNodeHandle, UniformHandle};
 use arena::{Arena, Handle};
 use arena_tree::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
-pub struct Scene<T: SceneGraphBackend> {
+pub struct Scene<T: RALBackend> {
   pub background: Option<Box<dyn Background<T>>>,
   pub cameras: CameraData,
   pub render_objects: Arena<RenderObject<T>>,
@@ -15,7 +15,7 @@ pub struct Scene<T: SceneGraphBackend> {
   pub resource_update_ctx: ResourceUpdateCtx<T>,
 }
 
-impl<T: SceneGraphBackend> Scene<T> {
+impl<T: RALBackend> Scene<T> {
   pub fn new() -> Self {
     let camera_default = Box::new(PerspectiveCamera::new());
 
@@ -48,11 +48,11 @@ impl<T: SceneGraphBackend> Scene<T> {
   }
 }
 
-pub struct ResourceUpdateCtx<T: SceneGraphBackend> {
+pub struct ResourceUpdateCtx<T: RALBackend> {
   changed_uniforms: Vec<UniformHandle<T>>,
 }
 
-impl<T: SceneGraphBackend> ResourceUpdateCtx<T> {
+impl<T: RALBackend> ResourceUpdateCtx<T> {
   pub fn new() -> Self {
     Self {
       changed_uniforms: Vec::new(),

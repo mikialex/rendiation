@@ -26,14 +26,14 @@ pub struct SceneShaderDescriptor {
   pub input_group: Vec<ShaderInputGroupDescriptor>,
 
   #[wasm_bindgen(skip)]
-  pub attribute_inputs: Vec<CALVertexBufferDescriptor>,
+  pub attribute_inputs: Vec<RALVertexBufferDescriptor>,
 }
 
 impl SceneShaderDescriptor {
   pub fn input_group(&self) -> &Vec<ShaderInputGroupDescriptor> {
     &self.input_group
   }
-  pub fn attribute_inputs(&self) -> &Vec<CALVertexBufferDescriptor> {
+  pub fn attribute_inputs(&self) -> &Vec<RALVertexBufferDescriptor> {
     &self.attribute_inputs
   }
 }
@@ -66,7 +66,7 @@ impl SceneShaderDescriptor {
   }
 
   #[wasm_bindgen]
-  pub fn push_attribute_input(&mut self, g: CALVertexBufferDescriptor) {
+  pub fn push_attribute_input(&mut self, g: RALVertexBufferDescriptor) {
     self.attribute_inputs.push(g)
   }
 }
@@ -136,27 +136,27 @@ pub enum ShaderInputType {
 }
 
 #[wasm_bindgen]
-pub struct CALVertexBufferDescriptor {
+pub struct RALVertexBufferDescriptor {
   pub byte_stride: i32,
-  attributes: Vec<CALVertexAttributeBufferDescriptor>,
+  attributes: Vec<RALVertexAttributeBufferDescriptor>,
 }
 
-impl CALVertexBufferDescriptor {
-  pub fn attributes(&self) -> &Vec<CALVertexAttributeBufferDescriptor> {
+impl RALVertexBufferDescriptor {
+  pub fn attributes(&self) -> &Vec<RALVertexAttributeBufferDescriptor> {
     &self.attributes
   }
 }
 
 #[wasm_bindgen]
-pub struct CALVertexAttributeBufferDescriptor {
+pub struct RALVertexAttributeBufferDescriptor {
   name: String,
   id: AttributeTypeId,
   pub byte_offset: i32,
   pub size: i32,
-  pub data_type: CALVertexAttributeDataType,
+  pub data_type: RALVertexAttributeDataType,
 }
 
-impl CALVertexAttributeBufferDescriptor {
+impl RALVertexAttributeBufferDescriptor {
   pub fn id(&self) -> AttributeTypeId {
     self.id
   }
@@ -167,7 +167,7 @@ impl CALVertexAttributeBufferDescriptor {
 
 #[wasm_bindgen]
 #[derive(Copy, Clone, Debug)]
-pub enum CALVertexAttributeDataType {
+pub enum RALVertexAttributeDataType {
   F32,
   U16,
   I16,

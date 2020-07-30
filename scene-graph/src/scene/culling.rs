@@ -1,5 +1,5 @@
 use super::scene::Scene;
-use crate::{SceneGraphBackend, SceneNodeHandle};
+use crate::{RALBackend, SceneNodeHandle};
 use rendiation_math_entity::{Frustum, IntersectAble};
 use rendiation_render_entity::Camera;
 
@@ -22,7 +22,7 @@ impl Culler {
     self
   }
 
-  pub fn test_is_visible<T: SceneGraphBackend>(
+  pub fn test_is_visible<T: RALBackend>(
     &self,
     node_id: SceneNodeHandle<T>,
     scene: &Scene<T>,
