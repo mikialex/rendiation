@@ -12,7 +12,7 @@ pub struct Scene<T: RALBackend> {
   pub(crate) nodes: ArenaTree<SceneNodeData<T>>,
 
   pub resources: ResourceManager<T>,
-  pub resource_update_ctx: ResourceUpdateCtx<T>,
+  // pub resource_update_ctx: ResourceUpdateCtx<T>,
 }
 
 impl<T: RALBackend> Scene<T> {
@@ -31,7 +31,7 @@ impl<T: RALBackend> Scene<T> {
       render_objects: Arena::new(),
       nodes: ArenaTree::new(SceneNodeData::new()),
       resources: ResourceManager::new(),
-      resource_update_ctx: ResourceUpdateCtx::new(),
+      // resource_update_ctx: ResourceUpdateCtx::new(),
     }
   }
 
@@ -48,20 +48,20 @@ impl<T: RALBackend> Scene<T> {
   }
 }
 
-pub struct ResourceUpdateCtx<T: RALBackend> {
-  changed_uniforms: Vec<UniformHandle<T>>,
-}
+// pub struct ResourceUpdateCtx<T: RALBackend> {
+//   changed_uniforms: Vec<UniformHandle<T>>,
+// }
 
-impl<T: RALBackend> ResourceUpdateCtx<T> {
-  pub fn new() -> Self {
-    Self {
-      changed_uniforms: Vec::new(),
-    }
-  }
-  pub fn notify_uniform_update(&mut self, index: UniformHandle<T>) {
-    self.changed_uniforms.push(index)
-  }
-}
+// impl<T: RALBackend> ResourceUpdateCtx<T> {
+//   pub fn new() -> Self {
+//     Self {
+//       changed_uniforms: Vec::new(),
+//     }
+//   }
+//   pub fn notify_uniform_update(&mut self, index: UniformHandle<T>) {
+//     self.changed_uniforms.push(index)
+//   }
+// }
 
 pub type CameraHandle = Handle<Box<dyn Camera>>;
 
