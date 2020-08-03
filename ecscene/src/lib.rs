@@ -1,3 +1,14 @@
+pub struct Entity {}
+
+pub struct Registry {
+  entities: Arena<Entity>,
+  components: HashMap<TypeId, Arena<Any>>,
+}
+
+impl Registry {
+  pub fn new() -> Self {}
+}
+
 pub fn test() {
   let some_drawable = scene
     .create_entity()
@@ -14,7 +25,7 @@ pub fn test() {
 
   let object = scene
     .create_entity()
-    .set(some_hierachy)
+    .set(some_hierarchy)
     .set(some_hit_volume)
     .set(some_culling_bound)
     .set(some_drawable);
@@ -33,17 +44,3 @@ pub fn test() {
       // do work
     });
 }
-
-struct Registry {
-  components: HashMap<TypeId, Arena<Any>>,
-}
-
-impl Registry {
-  pub fn get<T: 'static>(&self, handle: Handle<T>) -> Option<&T> {
-    let id = TypeId::of::<T>();
-    let data = self.components.get(id)?;
-    data.get(handle)
-  }
-}
-
-struct Entity {}
