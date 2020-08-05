@@ -9,6 +9,7 @@ members = [
     "webgl",
     "render-graph",
     "scene-graph",
+    "ecscene",
     "shader-graph",
     "shader-graph-derives",
     "shader-library",
