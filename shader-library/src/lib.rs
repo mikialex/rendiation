@@ -38,13 +38,11 @@ pub struct BlockShadingParamGroup {
   pub uniforms: MVPTransformed,
 
   // #[bind_stage = "fragment"]
-  // pub texture_view: TextureView,
+  // pub texture_view: TextureView, // need cal stuff?
 
   // #[bind_stage = "fragment"]
   // pub sampler: Sampler,
 
-  // #[bind_stage = "fragment"]
-  // pub u_camera_world_position: UniformBuffer,
 }
 
 impl BlockShadingParamGroup{
@@ -52,11 +50,13 @@ impl BlockShadingParamGroup{
 
   }
 
-  pub fn create_bindgroup(){
+  pub fn create_bindgroup(
+    // .. many params
+  ){
 
   }
 }
 
 pub struct BlockShadingParamGroupShaderGraphInstance {
-  uniforms: <MVPTransformed as ShaderGraphUniformBufferProvider>::ShaderGraphUniformBufferInstance
+  pub uniforms: <MVPTransformed as ShaderGraphUniformBufferProvider>::ShaderGraphUniformBufferInstance
 }

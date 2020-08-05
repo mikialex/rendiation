@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
-use syn::{spanned::Spanned, Data};
 use quote::{format_ident, quote};
+use syn::{spanned::Spanned, Data};
 
 pub(crate) fn derive_ubo_impl(
   input: syn::DeriveInput,
@@ -37,18 +37,24 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
     ));
   };
 
-  let instance_fields: Vec<_> = fields.iter().map(|f| {
-    let field_name = f.ident.as_ref().unwrap();
-    let ty = &f.ty;
-    quote! { #field_name: rendiation_shadergraph::ShaderGraphNodeHandle< #ty >, }
-  }).collect();
+  let instance_fields: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! { #field_name: rendiation_shadergraph::ShaderGraphNodeHandle< #ty >, }
+    })
+    .collect();
 
-  let instance_new: Vec<_> = fields.iter().map(|f| {
-    let field_name = f.ident.as_ref().unwrap();
-    let ty = &f.ty;
-    let field_str = format!("\"{}\"", field_name);
-    quote! { #field_name: bindgroup_builder.uniform::<#ty>(#field_str), }
-  }).collect();
+  let instance_new: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      let field_str = format!("\"{}\"", field_name);
+      quote! { #field_name: bindgroup_builder.uniform::<#ty>(#field_str), }
+    })
+    .collect();
 
   let result = quote! {
 
@@ -65,7 +71,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
         }
       }
     }
-    
+
   };
 
   Ok(result)

@@ -1,4 +1,4 @@
-use crate::{ShaderGraphBuilder, ShaderGraphBindGroupBuilder};
+use crate::{ShaderGraphBindGroupBuilder, ShaderGraphBuilder};
 
 pub trait ShaderGraphUniformBufferProvider {
   type ShaderGraphUniformBufferInstance;
@@ -8,19 +8,10 @@ pub trait ShaderGraphUniformBufferProvider {
   ) -> Self::ShaderGraphUniformBufferInstance;
 }
 
-pub trait ShaderGraphBindGroupProvider{
-    type ShaderGraphBindGroupInstance;
+pub trait ShaderGraphBindGroupProvider {
+  type ShaderGraphBindGroupInstance;
 
-    fn create_instance<'a>(
-        bindgroup_builder: &mut ShaderGraphBuilder<'a>,
-    ) -> Self::ShaderGraphBindGroupInstance;
-
+  fn create_instance<'a>(
+    bindgroup_builder: &mut ShaderGraphBuilder<'a>,
+  ) -> Self::ShaderGraphBindGroupInstance;
 }
-
-// pub trait ShaderGraphUniformBuffer {
-//   type ShaderGraphUniformBufferInstance;
-
-//   fn create_instance<'a>(
-//     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
-//   ) -> Self::ShaderGraphUniformBufferInstance;
-// }
