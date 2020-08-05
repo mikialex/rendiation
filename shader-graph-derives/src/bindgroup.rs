@@ -3,7 +3,7 @@ extern crate proc_macro;
 use syn::{spanned::Spanned, Data};
 use quote::{format_ident, quote};
 
-pub(crate) fn derive_bindgroup_impl(
+pub fn derive_bindgroup_impl(
   input: syn::DeriveInput,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
   match &input.data {

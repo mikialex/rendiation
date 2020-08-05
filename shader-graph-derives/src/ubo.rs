@@ -3,7 +3,7 @@ extern crate proc_macro;
 use quote::{format_ident, quote};
 use syn::{spanned::Spanned, Data};
 
-pub(crate) fn derive_ubo_impl(
+pub fn derive_ubo_impl(
   input: syn::DeriveInput,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
   match &input.data {
