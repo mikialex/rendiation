@@ -56,8 +56,7 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
       #(#instance_fields)*
     }
 
-
-    impl rendiation_shadergraph::ShaderGraphUniformBuffer for #struct_name {
+    impl rendiation_shadergraph::ShaderGraphUniformBufferProvider for #struct_name {
       type ShaderGraphUniformBufferInstance = #shadergraph_instance_name;
       fn create_instance<'a>(bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>)
        -> Self::ShaderGraphUniformBufferInstance {

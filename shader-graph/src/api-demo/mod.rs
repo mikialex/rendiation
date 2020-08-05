@@ -44,25 +44,6 @@
 
 struct VertexProvider {}
 
-#[UniformBuffer]
-struct MVPTransformed {
-  projection: Mat4<f32>,
-  model_view: Mat4<f32>,
-}
-
-struct ShaderParameterPool {}
-
-struct MVPTransformedShaderGraphInstance {
-  projection: ShaderGraphNodeHandle<Mat4<f32>>,
-  model_view: ShaderGraphNodeHandle<Mat4<f32>>,
-}
-
-impl MVPTransformedShaderGraphInstance{
-  pub fn new<'a>(bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>) -> Self{
-    
-  }
-}
-
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
   #[bind_stage = "vertex"]

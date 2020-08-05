@@ -9,6 +9,7 @@ fn test(){
 
 use rendiation_shadergraph_derives::UniformBuffer;
 use rendiation_math::Mat4;
+use rendiation_shadergraph::ShaderGraphUniformBufferProvider;
 
 #[derive(UniformBuffer)]
 pub struct MVPTransformed {
@@ -16,13 +17,12 @@ pub struct MVPTransformed {
   pub model_view: Mat4<f32>,
 }
 
-
 // struct MVPTransformedShaderGraphInstance {
 //   projection: ShaderGraphNodeHandle<Mat4<f32>>,
 //   model_view: ShaderGraphNodeHandle<Mat4<f32>>,
 // }
 
-// impl ShaderGraphUniformBuffer for MVPTransformed{
+// impl ShaderGraphUniformBufferProvider for MVPTransformed{
 //   type ShaderGraphUniformBufferInstance = MVPTransformedShaderGraphInstance
 //   fn create_instance<'a>(bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>) -> Self::ShaderGraphUniformBufferInstance {
 //     Self{
@@ -31,3 +31,32 @@ pub struct MVPTransformed {
 //     }
 //   }
 // }
+
+// #[derive(BindGroup)]
+pub struct BlockShadingParamGroup {
+  // #[bind_stage = "vertex"]
+  pub uniforms: MVPTransformed,
+
+  // #[bind_stage = "fragment"]
+  // pub texture_view: TextureView,
+
+  // #[bind_stage = "fragment"]
+  // pub sampler: Sampler,
+
+  // #[bind_stage = "fragment"]
+  // pub u_camera_world_position: UniformBuffer,
+}
+
+impl BlockShadingParamGroup{
+  pub fn create_layout(){
+
+  }
+
+  pub fn create_bindgroup(){
+
+  }
+}
+
+pub struct BlockShadingParamGroupShaderGraphInstance {
+  uniforms: <MVPTransformed as ShaderGraphUniformBufferProvider>::ShaderGraphUniformBufferInstance
+}
