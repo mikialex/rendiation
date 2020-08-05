@@ -57,6 +57,12 @@ struct MVPTransformedShaderGraphInstance {
   model_view: ShaderGraphNodeHandle<Mat4<f32>>,
 }
 
+impl MVPTransformedShaderGraphInstance{
+  pub fn new<'a>(bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>) -> Self{
+    
+  }
+}
+
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
   #[bind_stage = "vertex"]
@@ -78,7 +84,7 @@ impl BlockShadingParamGroup{
   }
 
   pub fn create_bindgroup(){
-    
+
   }
 }
 

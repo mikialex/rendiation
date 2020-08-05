@@ -38,25 +38,35 @@ fn derive_struct(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, s
   };
 
   let instance_fields: Vec<_> = fields.iter().map(|f| {
-    let field_name = &f.ident;
+    let field_name = f.ident.as_ref().unwrap();
     let ty = &f.ty;
     quote! { #field_name: rendiation_shadergraph::ShaderGraphNodeHandle< #ty >, }
   }).collect();
 
+  let instance_new: Vec<_> = fields.iter().map(|f| {
+    let field_name = f.ident.as_ref().unwrap();
+    let ty = &f.ty;
+    let field_str = format!("\"{}\"", field_name);
+    quote! { #field_name: bindgroup_builder.uniform::<#ty>(#field_str), }
+  }).collect();
+
   let result = quote! {
 
-    struct #shadergraph_instance_name {
+    pub struct #shadergraph_instance_name {
       #(#instance_fields)*
     }
 
-    impl #shadergraph_instance_name {
-        // fn provide_layout(renderer: &rendiation_webgpu::WGPURenderer) -> &'static rendiation_webgpu::BindGroupLayout {
-        // }
 
-        // fn create_bindgroup(&self, renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::WGPUBindGroup {
-        // }
+    impl rendiation_shadergraph::ShaderGraphUniformBuffer for #struct_name {
+      type ShaderGraphUniformBufferInstance = #shadergraph_instance_name;
+      fn create_instance<'a>(bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>)
+       -> Self::ShaderGraphUniformBufferInstance {
+        Self::ShaderGraphUniformBufferInstance {
+          #(#instance_new)*
+        }
       }
-
+    }
+    
   };
 
   Ok(result)

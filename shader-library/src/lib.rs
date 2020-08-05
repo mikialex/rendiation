@@ -15,3 +15,19 @@ pub struct MVPTransformed {
   pub projection: Mat4<f32>,
   pub model_view: Mat4<f32>,
 }
+
+
+// struct MVPTransformedShaderGraphInstance {
+//   projection: ShaderGraphNodeHandle<Mat4<f32>>,
+//   model_view: ShaderGraphNodeHandle<Mat4<f32>>,
+// }
+
+// impl ShaderGraphUniformBuffer for MVPTransformed{
+//   type ShaderGraphUniformBufferInstance = MVPTransformedShaderGraphInstance
+//   fn create_instance<'a>(bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>) -> Self::ShaderGraphUniformBufferInstance {
+//     Self{
+//       projection: bindgroup_builder.uniform::<Mat4<f32>>("projection"),
+//       model_view:bindgroup_builder.uniform::<Mat4<f32>>("model_view"),
+//     }
+//   }
+// }
