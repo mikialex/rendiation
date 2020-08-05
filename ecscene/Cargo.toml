@@ -5,7 +5,7 @@ authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
 
 [dependencies]
-specs = "0.16.1"
+specs = {version = "0.16.1", features = ["shred-derive"]}
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }

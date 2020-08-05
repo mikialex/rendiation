@@ -15,29 +15,49 @@ impl Component for HitVolumeComponent {
 }
 
 struct IndexBufferComponent();
+impl Component for IndexBufferComponent {
+  type Storage = VecStorage<Self>;
+}
+
 struct IndexBufferUpdateSourceComponent();
+impl Component for IndexBufferUpdateSourceComponent {
+  type Storage = VecStorage<Self>;
+}
+
 struct VertexBufferComponent();
+impl Component for VertexBufferComponent {
+  type Storage = VecStorage<Self>;
+}
+
 struct VertexBufferUpdateSourceComponent();
+impl Component for VertexBufferUpdateSourceComponent {
+  type Storage = VecStorage<Self>;
+}
+struct GeoemtryGPUUpdateSystem {
+  index_updated_entity: Vec<Entity>,
+  vertex_updated_entity: Vec<Entity>
+}
 
-// struct GeoemtryGPUUpdateSystem {}
+#[derive(SystemData)]
+struct GeoemtryUpdateSysData<'a> {
+  index: ReadStorage<'a, IndexBufferComponent>,
+  index_to_update: WriteStorage<'a, IndexBufferUpdateSourceComponent>,
+  vertex: ReadStorage<'a, VertexBufferComponent>,
+  vertex_to_update: WriteStorage<'a, VertexBufferUpdateSourceComponent>,
+  entities: Entities<'a>,
+}
 
-// #[derive(SystemData)]
-// struct IntAndBoolData<'a> {
-//     comp_int: ReadStorage<'a, CompInt>,
-//     comp_bool: WriteStorage<'a, CompBool>,
-// }
+impl<'a> System<'a> for GeoemtryGPUUpdateSystem {
+  type SystemData = GeoemtryUpdateSysData<'a>;
 
-// impl<'a> System<'a> for GeoemtryGPUUpdateSystem {
-//     type SystemData = IntAndBoolData<'a>;
-
-//     fn run(&mut self, mut data: IntAndBoolData) {
-//         // Join merges the two component storages,
-//         // so you get all (CompInt, CompBool) pairs.
-//         for (ci, cb) in (&data.comp_int, &mut data.comp_bool).join() {
-//             cb.0 = ci.0 > 0;
-//         }
-//     }
-// }
+  fn run(&mut self, mut data: GeoemtryUpdateSysData) {
+    // // Join merges the two component storages,
+    // // so you get all (CompInt, CompBool) pairs.
+    for (index, index_to_update) in (&data.index, &mut data.index_to_update).join() {
+        // cb.0 = ci.0 > 0;
+    }
+  }
+}
 
 #[test]
 fn test() {
