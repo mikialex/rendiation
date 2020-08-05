@@ -59,20 +59,32 @@ struct MVPTransformedShaderGraphInstance {
 
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
-  #[bind_type = "vertex"]
-  pub u_mvp_matrix: MyUniformBuffer,
+  #[bind_stage = "vertex"]
+  pub uniforms: MyUniformBuffer,
 
-  #[bind_type = "fragment"]
+  #[bind_stage = "fragment"]
   pub texture_view: TextureView,
 
-  #[bind_type = "fragment"]
+  #[bind_stage = "fragment"]
   pub sampler: Sampler,
 
-  #[bind_type = "fragment"]
+  #[bind_stage = "fragment"]
   pub u_camera_world_position: UniformBuffer,
 }
 
-struct BlockShadingParamGroupShaderGraphInstance {}
+impl BlockShadingParamGroup{
+  pub fn create_layout(){
+
+  }
+
+  pub fn create_bindgroup(){
+    
+  }
+}
+
+struct BlockShadingParamGroupShaderGraphInstance {
+  uniforms: MVPTransformedShaderGraphInstance
+}
 
 struct BlockShader {
   fog_type: bool,
@@ -86,18 +98,18 @@ shading_builder!(
 
 struct BlockShaderBuilder {
   builder: ShaderGraphBuilder,
-  // block:
 }
 
-impl BlockShaderBuilder {}
+impl BlockShaderBuilder {
+  // pub fn 
+}
 
 impl ShaderFactory for BlockShader {
   type Builder = BlockShaderBuilder;
   fn create_shader(&self, builder: Self::Builder) -> ShaderGraph {
     let builder = ShaderGraphBuilder::new();
-    let geometry = builder.geometry::<IndexedGeometry>();
-    let paramter = builder.bindgroup::<BlockShadingParamGroup>();
-    let uniform = paramter.model_view;
+    let block_paramter = builder.block();
+    let model_view = block_paramter.uniforms.model_view;
     builder.vertex = mvp();
 
     builder.output()

@@ -6,6 +6,18 @@ use quote::{format_ident, quote};
 use std::collections::HashSet;
 use syn::parse_macro_input;
 
+mod ubo;
+use ubo::*;
+
+#[proc_macro_derive(UniformBuffer, attributes(bind_type))]
+pub fn derive_ubo(input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as syn::DeriveInput);
+  derive_ubo_impl(input)
+    .unwrap_or_else(|err| err.to_compile_error())
+    .into()
+}
+
+
 #[proc_macro]
 pub fn glsl(_input: TokenStream) -> TokenStream {
   todo!()

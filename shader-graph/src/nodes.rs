@@ -38,6 +38,12 @@ impl ShaderGraphNodeType for Vec4<f32> {
   }
 }
 
+impl ShaderGraphNodeType for Mat4<f32> {
+  fn to_glsl_type() -> &'static str {
+    "mat4"
+  }
+}
+
 pub struct ShaderGraphNode<T: ShaderGraphNodeType> {
   phantom: PhantomData<T>,
   pub data: ShaderGraphNodeData,
