@@ -29,6 +29,14 @@ impl<'a> ShaderGraphBuilder<'a> {
     });
   }
 
+  pub fn bindgroup_by<T: ShaderGraphBindGroupProvider>(&mut self) -> T::ShaderGraphBindGroupInstance {
+    let mut re: Option<T::ShaderGraphBindGroupInstance> = None;
+    self.bindgroup(|b|{
+      re = Some(T::create_instance(b));
+    });
+    re.unwrap()
+  }
+
   pub fn attribute<T: ShaderGraphNodeType>(&mut self, name: &str) -> ShaderGraphNodeHandle<T> {
     let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
       node_type: ShaderGraphInputNodeType::Uniform,
@@ -42,6 +50,9 @@ impl<'a> ShaderGraphBuilder<'a> {
     unsafe { handle.cast_type() }
   }
 
+  pub fn geometry_by<T: ShaderGraphGeometryProvider>(&mut self) -> T::ShaderGraphGeometryInstance {
+    T::create_instance(self)
+  }
 }
 
 pub struct ShaderGraphBindGroupBuilder<'a> {

@@ -9,7 +9,7 @@ fn test(){
 
 use rendiation_shadergraph_derives::{UniformBuffer, BindGroup, Geometry};
 use rendiation_math::{Vec3, Mat4, Vec2};
-use rendiation_shadergraph::{ShaderGraphSampler};
+use rendiation_shadergraph::*;
 
 #[derive(UniformBuffer)]
 pub struct MVPTransformed {
@@ -50,3 +50,27 @@ impl BlockShadingParamGroup{
 
   }
 }
+
+
+pub struct BlockShader {
+  pub fog_type: bool,
+}
+
+impl BlockShader {
+  pub fn create_shader(&self) -> ShaderGraph {
+    let mut builder = ShaderGraphBuilder::new();
+    let geometry = builder.geometry_by::<Vertex>();
+    let block_paramter = builder.bindgroup_by::<BlockShadingParamGroup>();
+
+    let uniforms = block_paramter.uniforms;
+    let projection = uniforms.projection;
+    let position = geometry.position;
+
+    builder.create()
+  }
+}
+
+// trait ShaderFactory {
+//   type Builder;
+//   fn create_shader(&self, builder: Builder) -> ShaderGraph;
+// }
