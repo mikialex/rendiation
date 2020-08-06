@@ -38,9 +38,12 @@ fn main() {
     let geometry = builder.geometry_by::<Vertex>();
     let block_paramter = builder.bindgroup_by::<BlockShadingParamGroup>();
     let uniforms = block_paramter.uniforms;
+
+    let vertex_position = mvp_projection(geometry.position, uniforms.projection, uniforms.model_view);
+    builder.set_vertex_root(vertex_position);
+
     let mut graph = builder.create();
 
-    graph.vertex_position = Some(mvp_projection(geometry.position, uniforms.projection, uniforms.model_view));
     println!("{}", graph.gen_code_vertex());
     println!("{}", graph.gen_code_frag());
 }

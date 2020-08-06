@@ -4,34 +4,41 @@ pub struct ShaderGraphBindGroup {
   pub inputs: Vec<ShaderGraphNodeHandleUntyped>,
 }
 
-/// The builder will hold the mutex guard to make sure the in building shadergraph is singleton
-pub struct ShaderGraphBuilder<'a> {
-  guard: MutexGuard<'a, Option<ShaderGraph>>,
-}
+pub struct ShaderGraphBuilder;
 
-impl<'a> ShaderGraphBuilder<'a> {
+impl ShaderGraphBuilder {
   pub fn new() -> Self {
     let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
     *guard = Some(ShaderGraph::new());
 
-    Self { guard }
+    Self {}
   }
 
-  pub fn create(mut self) -> ShaderGraph {
-    self.guard.take().unwrap()
+  fn guard(&self) -> MutexGuard<'static, Option<ShaderGraph>> {
+    IN_BUILDING_SHADER_GRAPH.lock().unwrap()
+  }
+
+  pub fn set_vertex_root(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
+    self.guard().as_mut().unwrap().vertex_position = Some(n)
+  }
+
+  pub fn create(self) -> ShaderGraph {
+    self.guard().take().unwrap()
   }
 
   pub fn bindgroup(&mut self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder)) {
-    self.guard.as_mut().map(|g| {
+    self.guard().as_mut().map(|g| {
       let mut builder = ShaderGraphBindGroupBuilder::new(g);
       b(&mut builder);
       builder.resolve();
     });
   }
 
-  pub fn bindgroup_by<T: ShaderGraphBindGroupProvider>(&mut self) -> T::ShaderGraphBindGroupInstance {
+  pub fn bindgroup_by<T: ShaderGraphBindGroupProvider>(
+    &mut self,
+  ) -> T::ShaderGraphBindGroupInstance {
     let mut re: Option<T::ShaderGraphBindGroupInstance> = None;
-    self.bindgroup(|b|{
+    self.bindgroup(|b| {
       re = Some(T::create_instance(b));
     });
     re.unwrap()
@@ -42,7 +49,8 @@ impl<'a> ShaderGraphBuilder<'a> {
       node_type: ShaderGraphInputNodeType::Uniform,
       name: name.to_owned(),
     });
-    let graph = self.guard.as_mut().unwrap();
+    let mut g = self.guard();
+    let graph = g.as_mut().unwrap();
     let node = ShaderGraphNode::<T>::new(data);
     graph.register_type::<T>();
     let handle = graph.nodes.create_node(node.to_any());

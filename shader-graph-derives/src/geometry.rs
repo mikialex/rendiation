@@ -36,8 +36,8 @@ pub fn derive_geometry_impl(
 
     impl rendiation_shadergraph::ShaderGraphGeometryProvider for #struct_name {
       type ShaderGraphGeometryInstance = #shadergraph_instance_name;
-      fn create_instance<'a>(
-        builder: &mut rendiation_shadergraph::ShaderGraphBuilder<'a>)
+      fn create_instance(
+        builder: &mut rendiation_shadergraph::ShaderGraphBuilder)
        -> Self::ShaderGraphGeometryInstance {
         Self::ShaderGraphGeometryInstance {
           #(#instance_new)*

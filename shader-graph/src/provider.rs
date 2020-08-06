@@ -41,7 +41,7 @@ pub trait ShaderGraphBindGroupProvider {
 pub trait ShaderGraphGeometryProvider{
   type ShaderGraphGeometryInstance;
 
-  fn create_instance<'a>(
-    builder: &mut ShaderGraphBuilder<'a>,
+  fn create_instance(
+    builder: &mut ShaderGraphBuilder,
   ) -> Self::ShaderGraphGeometryInstance;
 }
