@@ -13,7 +13,7 @@ use ubo::*;
 #[proc_macro_derive(UniformBuffer, attributes(bind_type))]
 pub fn derive_ubo(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
-  derive_ubo_impl(input)
+  derive_ubo_impl(&input)
     .unwrap_or_else(|err| err.to_compile_error())
     .into()
 }
