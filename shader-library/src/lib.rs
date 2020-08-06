@@ -7,30 +7,15 @@ fn test(){
   // println!("{}", uncharted2ToneMappingFunction::name());
 }
 
-use rendiation_shadergraph_derives::{UniformBuffer, BindGroup};
-use rendiation_math::Mat4;
-use rendiation_shadergraph::ShaderGraphBindGroupItemProvider;
+use rendiation_shadergraph_derives::{UniformBuffer, BindGroup, Geometry};
+use rendiation_math::{Vec3, Mat4, Vec2};
+use rendiation_shadergraph::{ShaderGraphSampler};
 
 #[derive(UniformBuffer)]
 pub struct MVPTransformed {
   pub projection: Mat4<f32>,
   pub model_view: Mat4<f32>,
 }
-
-// struct MVPTransformedShaderGraphInstance {
-//   projection: ShaderGraphNodeHandle<Mat4<f32>>,
-//   model_view: ShaderGraphNodeHandle<Mat4<f32>>,
-// }
-
-// impl ShaderGraphUniformBufferProvider for MVPTransformed{
-//   type ShaderGraphUniformBufferInstance = MVPTransformedShaderGraphInstance
-//   fn create_instance<'a>(bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>) -> Self::ShaderGraphUniformBufferInstance {
-//     Self{
-//       projection: bindgroup_builder.uniform::<Mat4<f32>>("projection"),
-//       model_view:bindgroup_builder.uniform::<Mat4<f32>>("model_view"),
-//     }
-//   }
-// }
 
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
@@ -41,10 +26,19 @@ pub struct BlockShadingParamGroup {
   // pub texture_view: TextureView, // need cal stuff?
 
   // #[bind_stage = "fragment"]
-  // pub sampler: Sampler,
-
+  pub sampler: ShaderGraphSampler,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Geometry)]
+pub struct Vertex {
+  pub position: Vec3<f32>,
+  pub normal: Vec3<f32>,
+  pub uv: Vec2<f32>,
+}
+
+
+// this will be marco yes!
 impl BlockShadingParamGroup{
   pub fn create_layout(){
 

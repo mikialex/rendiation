@@ -1,5 +1,3 @@
-extern crate proc_macro;
-
 use crate::utils::only_named_struct_fields;
 use quote::{format_ident, quote};
 

@@ -29,10 +29,6 @@ impl<'a> ShaderGraphBuilder<'a> {
     });
   }
 
-  // pub fn bindgroup_type<T: ShaderGraphBindgroupProvider>(&mut self) {
-  //   self.bindgroup(|b| T::provide(b))
-  // }
-
   pub fn attribute<T: ShaderGraphNodeType>(&mut self, name: &str) -> ShaderGraphNodeHandle<T> {
     let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
       node_type: ShaderGraphInputNodeType::Uniform,
@@ -46,13 +42,6 @@ impl<'a> ShaderGraphBuilder<'a> {
     unsafe { handle.cast_type() }
   }
 
-  // pub fn attribute_type<T: ShaderGraphGeometryProvider>(&mut self) {
-  //   self.guard.as_mut().map(|g| T::provide(g));
-  // }
-}
-
-pub trait ShaderGraphGeometryProvider {
-  fn provide(builder: &mut ShaderGraph);
 }
 
 pub struct ShaderGraphBindGroupBuilder<'a> {
