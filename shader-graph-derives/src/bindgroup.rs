@@ -16,7 +16,6 @@ pub fn derive_bindgroup_impl(
   .map(|f| {
     let field_name = f.ident.as_ref().unwrap();
     let ty = &f.ty;
-
     quote! { pub #field_name: < #ty as rendiation_shadergraph::ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance, }
   })
   .collect();
@@ -40,10 +39,9 @@ pub fn derive_bindgroup_impl(
     impl rendiation_shadergraph::ShaderGraphBindGroupProvider for #struct_name {
       type ShaderGraphBindGroupInstance = #shadergraph_instance_name;
       fn create_instance<'a>(
-        name: &'static str,
-        bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBuilder<'a>)
+        bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>)
        -> Self::ShaderGraphBindGroupInstance {
-        Self::ShaderGraphUniformBufferInstance {
+        Self::ShaderGraphBindGroupInstance {
           #(#instance_new)*
         }
       }

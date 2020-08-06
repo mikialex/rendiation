@@ -7,7 +7,7 @@ fn test(){
   // println!("{}", uncharted2ToneMappingFunction::name());
 }
 
-use rendiation_shadergraph_derives::UniformBuffer;
+use rendiation_shadergraph_derives::{UniformBuffer, BindGroup};
 use rendiation_math::Mat4;
 use rendiation_shadergraph::ShaderGraphBindGroupItemProvider;
 
@@ -32,7 +32,7 @@ pub struct MVPTransformed {
 //   }
 // }
 
-// #[derive(BindGroup)]
+#[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
   // #[bind_stage = "vertex"]
   pub uniforms: MVPTransformed,
@@ -55,8 +55,4 @@ impl BlockShadingParamGroup{
   ){
 
   }
-}
-
-pub struct BlockShadingParamGroupShaderGraphInstance {
-  pub uniforms: <MVPTransformed as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance
 }

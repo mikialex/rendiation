@@ -15,7 +15,7 @@ struct ShaderGraphSampler;
 
 impl ShaderGraphNodeType for ShaderGraphSampler {
   fn to_glsl_type() -> &'static str {
-    "sampler2D"
+    "sampler"
   }
 }
 
@@ -34,6 +34,6 @@ pub trait ShaderGraphBindGroupProvider {
   type ShaderGraphBindGroupInstance;
 
   fn create_instance<'a>(
-    bindgroup_builder: &mut ShaderGraphBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
   ) -> Self::ShaderGraphBindGroupInstance;
 }
