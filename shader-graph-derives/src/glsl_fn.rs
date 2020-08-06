@@ -136,6 +136,7 @@ fn convert_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStrea
     Vec2 => quote! { rendiation_math::Vec2<f32> },
     Vec3 => quote! { rendiation_math::Vec3<f32> },
     Vec4 => quote! { rendiation_math::Vec4<f32> },
+    Mat4 => quote! { rendiation_math::Mat4<f32> },
     _ => panic!("unsupported param type"),
   }
 }

@@ -142,7 +142,12 @@ impl ShaderGraph {
     });
 
     self.gen_code_node(
-      self.vertex_position.expect("vertex position not set"),
+      unsafe {
+        self
+          .vertex_position
+          .expect("vertex position not set")
+          .cast_type()
+      },
       &mut ctx,
       &mut builder,
     );

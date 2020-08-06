@@ -16,6 +16,7 @@ pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
 pub use shader_function::*;
+use rendiation_math::*;
 
 lazy_static! {
   pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
@@ -27,7 +28,7 @@ pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub struct ShaderGraph {
   pub attributes: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
-  pub vertex_position: Option<ShaderGraphNodeHandleUntyped>,
+  pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
 
   pub varyings: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
   pub frag_outputs: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
