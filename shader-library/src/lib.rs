@@ -12,6 +12,7 @@ use rendiation_math::{Vec3, Mat4, Vec2};
 use rendiation_shadergraph::*;
 
 #[derive(UniformBuffer)]
+#[repr(align(16))]
 pub struct MVPTransformed {
   pub projection: Mat4<f32>,
   pub model_view: Mat4<f32>,

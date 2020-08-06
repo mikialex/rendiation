@@ -10,12 +10,12 @@ use std::{
 pub mod builder;
 mod code_gen;
 pub mod nodes;
+pub mod provider;
 pub mod shader_function;
-pub mod sal;
 pub use builder::*;
 pub use nodes::*;
+pub use provider::*;
 pub use shader_function::*;
-pub use sal::*;
 
 lazy_static! {
   pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
