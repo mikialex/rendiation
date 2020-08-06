@@ -23,7 +23,7 @@ pub fn derive_geometry_impl(
   .map(|f| {
     let field_name = f.ident.as_ref().unwrap();
     let ty = &f.ty;
-    let field_str = format!("\"{}\"", field_name);
+    let field_str = format!("{}", field_name);
     quote! { #field_name: builder.attribute::<#ty>(#field_str), }
   })
   .collect();

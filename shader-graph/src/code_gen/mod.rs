@@ -191,7 +191,7 @@ impl ShaderGraph {
           "layout(location = {}) in {} {};",
           a.1,
           self.type_id_map.get(&info.node_type).unwrap(),
-          input.name
+          input.name.as_str()
         )
       })
       .collect::<Vec<String>>()

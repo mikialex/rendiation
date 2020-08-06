@@ -21,7 +21,7 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      let field_str = format!("\"{}\"", field_name);
+      let field_str = format!("{}", field_name);
       quote! { #field_name: bindgroup_builder.uniform::<#ty>(#field_str), }
     })
     .collect();

@@ -52,8 +52,8 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
 
   let prototype_name = format_ident!("{}_FUNCTION", function_name);
   let function_name = format_ident!("{}", function_name);
-  let quoted_function_name = format!("\"{}\"", function_name);
-  let quoted_source = format!("\"{}\"", glsl);
+  let quoted_function_name = format!("{}", function_name);
+  let quoted_source = format!("{}", glsl);
 
   // https://docs.rs/glsl/4.1.1/glsl/syntax/struct.FunctionPrototype.html
   let return_type = convert_type(&parsed.prototype.ty.ty.ty);

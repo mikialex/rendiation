@@ -25,7 +25,7 @@ pub fn derive_bindgroup_impl(
   .map(|f| {
     let field_name = f.ident.as_ref().unwrap();
     let ty = &f.ty;
-    let field_str = format!("\"{}\"", field_name);
+    let field_str = format!("{}", field_name);
     quote! { #field_name:< #ty as rendiation_shadergraph::ShaderGraphBindGroupItemProvider>::create_instance(#field_str, bindgroup_builder), }
   })
   .collect();
