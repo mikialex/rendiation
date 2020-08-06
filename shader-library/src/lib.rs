@@ -9,7 +9,7 @@ fn test(){
 
 use rendiation_shadergraph_derives::UniformBuffer;
 use rendiation_math::Mat4;
-use rendiation_shadergraph::ShaderGraphUniformBufferProvider;
+use rendiation_shadergraph::ShaderGraphBindGroupItemProvider;
 
 #[derive(UniformBuffer)]
 pub struct MVPTransformed {
@@ -58,5 +58,5 @@ impl BlockShadingParamGroup{
 }
 
 pub struct BlockShadingParamGroupShaderGraphInstance {
-  pub uniforms: <MVPTransformed as ShaderGraphUniformBufferProvider>::ShaderGraphUniformBufferInstance
+  pub uniforms: <MVPTransformed as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance
 }
