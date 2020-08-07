@@ -42,7 +42,9 @@ fn main() {
     let vertex_position = mvp_projection(geometry.position, uniforms.projection, uniforms.model_view);
     builder.set_vertex_root(vertex_position);
 
-    let mut graph = builder.create();
+    builder.set_vary(geometry.normal);
+
+    let graph = builder.create();
 
     println!("{}", graph.gen_code_vertex());
     println!("{}", graph.gen_code_frag());

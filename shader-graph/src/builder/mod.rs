@@ -22,6 +22,30 @@ impl ShaderGraphBuilder {
     self.guard().as_mut().unwrap().vertex_position = Some(n)
   }
 
+  pub fn set_frag_output(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
+    todo!()
+  }
+
+  pub fn set_vary<T: ShaderGraphNodeType>(
+    &self,
+    h: ShaderGraphNodeHandle<T>,
+  ) -> ShaderGraphNodeHandle<T> {
+    let mut g = self.guard();
+    let graph = g.as_mut().unwrap();
+
+    let index = graph.varyings.len();
+    let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Vary(index));
+    graph.register_type::<T>();
+
+    let handle = graph.nodes.create_node(node.to_any());
+    graph
+      .nodes
+      .connect_node(unsafe { h.cast_type() }, handle);
+
+    graph.varyings.insert((handle, index));
+    unsafe { handle.cast_type() }
+  }
+
   pub fn create(self) -> ShaderGraph {
     self.guard().take().unwrap()
   }

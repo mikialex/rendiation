@@ -78,11 +78,19 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
       _ => panic!("unwrap as input failed"),
     }
   }
+
+  pub fn unwrap_as_vary(&self) -> usize {
+    match &self.data {
+      ShaderGraphNodeData::Vary(n) => *n,
+      _ => panic!("unwrap as input failed"),
+    }
+  }
 }
 
 pub enum ShaderGraphNodeData {
   Function(FunctionNode),
   Input(ShaderGraphInputNode),
+  Vary(usize)
 }
 
 pub struct FunctionNode {
