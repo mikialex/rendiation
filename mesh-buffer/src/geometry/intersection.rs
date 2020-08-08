@@ -7,7 +7,7 @@ use rendiation_math_entity::{
 };
 
 pub trait GeometryRayIntersection: AbstractGeometry {
-  fn intersect_list<G: AbstractGeometry>(&self, ray: &Ray3, conf: &Config) -> IntersectionList3D {
+  fn intersect_list(&self, ray: &Ray3, conf: &Config) -> IntersectionList3D {
     IntersectionList3D(
       self
         .primitive_iter()
@@ -16,7 +16,7 @@ pub trait GeometryRayIntersection: AbstractGeometry {
     )
   }
 
-  fn intersect_nearest<G: AbstractGeometry>(&self, _ray: &Ray3, _conf: &Config) -> NearestPoint3D {
+  fn intersect_nearest(&self, _ray: &Ray3, _conf: &Config) -> NearestPoint3D {
     todo!()
     // self.primitive_iter().fold(None, |re, (p, _)| {
     //   let new_re =  primitive.intersect(ray, p);

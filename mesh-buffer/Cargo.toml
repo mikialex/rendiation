@@ -5,6 +5,7 @@ name = "rendiation-mesh-buffer"
 version = "0.1.0"
 
 [features]
+bvh = ["space-indexer"]
 webgpu = ["rendiation-webgpu"]
 
 [dependencies]
@@ -15,3 +16,4 @@ rendiation-math = {path = "../math"}
 rendiation-math-entity = {path = "../math-entity"}
 
 rendiation-webgpu = {path = "../webgpu", optional = true}
+space-indexer = {path = "../space-indexer", optional = true}

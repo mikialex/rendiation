@@ -62,14 +62,15 @@ impl Default for BVHOption {
   }
 }
 
-pub struct FlattenBVH<B: BVHBounding> {
+pub struct FlattenBVH<B: BVHBounding, S: BVHBuildStrategy<B>> {
   nodes: Vec<FlattenBVHNode<B>>,
   sorted_primitive_index: Vec<usize>,
   option: BVHOption,
+  strategy: S,
 }
 
-impl<B: BVHBounding> FlattenBVH<B> {
-  pub fn new<T: BVHBuildStrategy<B>>(source: impl FlattenBVHBuildSource<B>) -> Self {
+impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
+  pub fn new(source: impl FlattenBVHBuildSource<B>, strategy: S) -> Self {
     let option = BVHOption::default();
 
     // prepare build source;
@@ -86,12 +87,13 @@ impl<B: BVHBounding> FlattenBVH<B> {
     nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0, 0));
 
     // build
-    T::build(&option, &primitives, &mut index_list, &mut nodes);
+    S::build(&option, &primitives, &mut index_list, &mut nodes);
 
     Self {
       nodes,
       sorted_primitive_index: index_list,
       option,
+      strategy,
     }
   }
 
