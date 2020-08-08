@@ -10,8 +10,11 @@ lazy_static! {
     vec![Vertex::get_buffer_layout_descriptor()];
 }
 
-impl<'a, V: Positioned3D, T: PrimitiveTopology<V> + WGPUPrimitiveTopology> GeometryProvider
-  for IndexedGeometry<V, T>
+impl<'a, V, T, U> GeometryProvider for IndexedGeometry<V, T, U>
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V> + WGPUPrimitiveTopology,
+  U: GeometryDataContainer<V>,
 {
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {

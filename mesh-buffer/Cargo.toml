@@ -1,16 +1,17 @@
 [package]
-name = "rendiation-mesh-buffer"
-version = "0.1.0"
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
+name = "rendiation-mesh-buffer"
+version = "0.1.0"
 
 [features]
 webgpu = ["rendiation-webgpu"]
 
 [dependencies]
 lazy_static = "1.4.0"
+soa_derive = "0.8.1"
 
-rendiation-math = { path = "../math" }
-rendiation-math-entity = { path = "../math-entity" }
+rendiation-math = {path = "../math"}
+rendiation-math-entity = {path = "../math-entity"}
 
-rendiation-webgpu = { path = "../webgpu", optional= true }
+rendiation-webgpu = {path = "../webgpu", optional = true}

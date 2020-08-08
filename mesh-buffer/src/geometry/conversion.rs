@@ -1,6 +1,5 @@
 //! The conversion method between different geometry types
 
-
 // todo for convert between different geometry type
 
 // downgrade:
@@ -11,8 +10,8 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry, PointList,
-  PrimitiveTopology,
+  GeometryDataContainer, HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry,
+  PointList, PrimitiveTopology,
 };
 use rendiation_math::Vec3;
 use rendiation_math_entity::{LineSegment, Positioned3D, Triangle};
@@ -21,10 +20,13 @@ use std::{
   collections::{HashMap, HashSet},
 };
 
-impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V, Primitive = Triangle<V>>>
-  IndexedGeometry<V, T>
+impl<V, T, U> IndexedGeometry<V, T, U>
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V, Primitive = Triangle<V>>,
+  U: GeometryDataContainer<V>,
 {
-  pub fn create_wireframe(&self) -> IndexedGeometry<V, LineList> {
+  pub fn create_wireframe(&self) -> IndexedGeometry<V, LineList, U> {
     let mut deduplicate_set = HashSet::<LineSegment<u16>>::new();
     self.primitive_iter().for_each(|(_, f)| {
       f.for_each_edge(|edge| {
@@ -35,12 +37,12 @@ impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V, Primitive =
       .iter()
       .flat_map(|l| l.iter_point())
       .collect();
-    IndexedGeometry::<V, LineList>::new(self.data.clone(), new_index)
+    IndexedGeometry::<V, LineList, U>::new(self.data.clone(), new_index)
   }
 
   /// maybe you should merge vertex before create edge
   /// non manifold mesh may affect result
-  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedGeometry<V, LineList> {
+  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedGeometry<V, LineList, U> {
     // Map: edge id => (edge face idA, edge face idB(optional));
     let mut edges = HashMap::<LineSegment<u16>, (usize, Option<usize>)>::new();
     self
@@ -70,7 +72,12 @@ impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V, Primitive =
   }
 }
 
-impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
+impl<V, T> IndexedGeometry<V, T>
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  // U: GeometryDataContainer<V>, // todo add more constrain like push?
+{
   pub fn merge_vertex_by_sorting(
     &self,
     sorter: impl FnMut(&V, &V) -> Ordering,
@@ -100,14 +107,24 @@ impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V>> IndexedGeo
   }
 }
 
-impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
-  pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T> {
+impl<V, T, U> IndexedGeometry<V, T, U>
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V>,
+{
+  pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T, U> {
     NoneIndexedGeometry::new(self.index.iter().map(|i| self.data[*i as usize]).collect())
   }
 }
 
-impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V>> NoneIndexedGeometry<V, T> {
-  pub fn create_index_geometry<U>(&self) -> IndexedGeometry<V, T> {
+impl<V, T> NoneIndexedGeometry<V, T>
+where
+  V: Positioned3D + HashAbleByConversion,
+  T: PrimitiveTopology<V>,
+  // U: GeometryDataContainer<V>, // ditto
+{
+  pub fn create_index_geometry(&self) -> IndexedGeometry<V, T> {
     let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
     let index = self
@@ -126,8 +143,13 @@ impl<V: HashAbleByConversion + Positioned3D, T: PrimitiveTopology<V>> NoneIndexe
   }
 }
 
-impl<V: Positioned3D, T: PrimitiveTopology<V>> IndexedGeometry<V, T> {
-  pub fn create_point_cloud(&self) -> NoneIndexedGeometry<V, PointList> {
+impl<V, T, U> IndexedGeometry<V, T, U>
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V>,
+{
+  pub fn create_point_cloud(&self) -> NoneIndexedGeometry<V, PointList, U> {
     NoneIndexedGeometry::new(self.data.clone())
   }
 }

@@ -1,14 +1,17 @@
-use super::{NoneIndexedGeometry, PrimitiveTopology};
+use super::{GeometryDataContainer, NoneIndexedGeometry, PrimitiveTopology};
 use crate::geometry::indexed_geometry::IndexedGeometry;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::IntersectionList3D;
 use rendiation_math_entity::NearestPoint3D;
-use rendiation_math_entity::{Triangle, LineSegment, Ray3, Positioned3D, Point3};
+use rendiation_math_entity::{LineSegment, Point3, Positioned3D, Ray3, Triangle};
 
-impl<V: Positioned3D, T: PrimitiveTopology<V>>
-  IntersectAble<IndexedGeometry<V, T>, IntersectionList3D, Config> for Ray3
+impl<V, T, U> IntersectAble<IndexedGeometry<V, T, U>, IntersectionList3D, Config> for Ray3
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V>,
 {
-  fn intersect(&self, geometry: &IndexedGeometry<V, T>, p: &Config) -> IntersectionList3D {
+  fn intersect(&self, geometry: &IndexedGeometry<V, T, U>, p: &Config) -> IntersectionList3D {
     let mut result = Vec::new();
     for (primitive, _) in geometry.primitive_iter() {
       if let NearestPoint3D(Some(hit)) = primitive.intersect(self, p) {
@@ -19,10 +22,13 @@ impl<V: Positioned3D, T: PrimitiveTopology<V>>
   }
 }
 
-impl<V: Positioned3D, T: PrimitiveTopology<V>>
-  IntersectAble<NoneIndexedGeometry<V, T>, IntersectionList3D, Config> for Ray3
+impl<V, T, U> IntersectAble<NoneIndexedGeometry<V, T, U>, IntersectionList3D, Config> for Ray3
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V>,
 {
-  fn intersect(&self, geometry: &NoneIndexedGeometry<V, T>, p: &Config) -> IntersectionList3D {
+  fn intersect(&self, geometry: &NoneIndexedGeometry<V, T, U>, p: &Config) -> IntersectionList3D {
     let mut result = Vec::new();
     for primitive in geometry.primitive_iter() {
       if let NearestPoint3D(Some(hit)) = primitive.intersect(self, p) {
