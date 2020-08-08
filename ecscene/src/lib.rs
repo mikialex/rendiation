@@ -1,87 +1,74 @@
-pub struct Entity {}
+use rendiation_mesh_buffer::geometry::IndexedGeometry;
+use rendiation_render_entity::*;
+use specs::prelude::*;
 
-pub struct Registry {
-  entities: Arena<Entity>,
-  components: HashMap<TypeId, Arena<Any>>,
+struct BoundingComponent(pub BoundingData);
+
+impl Component for BoundingComponent {
+  type Storage = VecStorage<Self>;
 }
 
-pub enum EntityFilterKey {
-  Optional,
-  Require,
-  Refuse,
+struct HitVolumeComponent(pub IndexedGeometry);
+
+impl Component for HitVolumeComponent {
+  type Storage = VecStorage<Self>;
 }
 
-pub struct EntityType {
-  types: Vec<(TypeId, EntityFilterKey)>,
+struct IndexBufferComponent();
+impl Component for IndexBufferComponent {
+  type Storage = VecStorage<Self>;
 }
 
-impl Registry {
-  pub fn new() -> Self {
-    todo!()
+struct IndexBufferUpdateSourceComponent();
+impl Component for IndexBufferUpdateSourceComponent {
+  type Storage = VecStorage<Self>;
+}
+
+struct VertexBufferComponent();
+impl Component for VertexBufferComponent {
+  type Storage = VecStorage<Self>;
+}
+
+struct VertexBufferUpdateSourceComponent();
+impl Component for VertexBufferUpdateSourceComponent {
+  type Storage = VecStorage<Self>;
+}
+struct GeoemtryGPUUpdateSystem {
+  index_updated_entity: Vec<Entity>,
+  vertex_updated_entity: Vec<Entity>
+}
+
+#[derive(SystemData)]
+struct GeoemtryUpdateSysData<'a> {
+  index: ReadStorage<'a, IndexBufferComponent>,
+  index_to_update: WriteStorage<'a, IndexBufferUpdateSourceComponent>,
+  vertex: ReadStorage<'a, VertexBufferComponent>,
+  vertex_to_update: WriteStorage<'a, VertexBufferUpdateSourceComponent>,
+  entities: Entities<'a>,
+}
+
+impl<'a> System<'a> for GeoemtryGPUUpdateSystem {
+  type SystemData = GeoemtryUpdateSysData<'a>;
+
+  fn run(&mut self, mut data: GeoemtryUpdateSysData) {
+    // // Join merges the two component storages,
+    // // so you get all (CompInt, CompBool) pairs.
+    for (index, index_to_update) in (&data.index, &mut data.index_to_update).join() {
+        // cb.0 = ci.0 > 0;
+    }
   }
-
-  pub fn iter_entity(ty: EntityType) {
-    todo!()
-  }
 }
 
-pub struct ECScene {
-  registry: Registry,
-  update_system: SceneUpdateSystem,
-  culling_system: CullingSystem,
-}
+#[test]
+fn test() {
+  let mut w = World::new();
 
-pub struct WorkGraph {
-  //
-}
-
-pub fn test() {
-  let geometry = scene
+  let geometry = w
     .create_entity()
-    .set(index_buffer)
-    .set(vertex_buffers)
-    .set(group);
+    .with(BoundingComponent(BoundingData::empty()))
+    .with(HitVolumeComponent(IndexedGeometry::new(vec![], vec![])))
+    .build();
 
-  let shading = scene
-    .create_entity()
-    .set(target_states)
-    .set(ras_states)
-    .set();
-
-  let shader = scene.create_entity().set();
-
-  let scene_node_root = scene.create_entity().set(transform);
-  let scene_node = scene
-    .create_entity()
-    .set(transform)
-    .set(parent(scene_node_root));
-
-  let some_drawable = scene.create_entity().set(geometry).set(shading);
-
-  let some_drawable = scene.create_entity().set(geometry).set(group).set(shading);
-  // let some_material = scene.create_entity()
-  //     .with(bindgroups)
-  //     .with(pipeline)
-  //     .with();
-
-  let object = scene
-    .create_entity()
-    .set(some_hierarchy)
-    .set(some_hit_volume)
-    .set(some_culling_bound)
-    .set(some_drawable);
-
-  scene.get_entity(object).set(other_drawable);
-
-  let process_pick = graph().process().on::<PickEvent>().work(|| {
-    // do pick
-    // foreach entity<require(some_hit_bound), optional(some_culling_bound)>
-  });
-
-  let list_gen = graph
-    .process()
-    .read_write::<(Read<A>, Write<B>)>()
-    .work(|dep| {
-      // do work
-    });
+  w.maintain();
+  //   w.write_component()
 }

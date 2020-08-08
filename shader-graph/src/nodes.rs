@@ -6,6 +6,9 @@ pub trait ShaderGraphNodeType: 'static {
   fn to_glsl_type() -> &'static str;
 }
 
+// this for not include samplers/textures as attributes
+pub trait ShaderGraphAttributeNodeType: ShaderGraphNodeType{}
+
 pub struct AnyType {}
 
 impl ShaderGraphNodeType for AnyType {
@@ -19,22 +22,32 @@ impl ShaderGraphNodeType for f32 {
     "float"
   }
 }
+impl ShaderGraphAttributeNodeType for f32{}
 
 impl ShaderGraphNodeType for Vec2<f32> {
   fn to_glsl_type() -> &'static str {
     "vec2"
   }
 }
+impl ShaderGraphAttributeNodeType for Vec2<f32>{}
 
 impl ShaderGraphNodeType for Vec3<f32> {
   fn to_glsl_type() -> &'static str {
     "vec3"
   }
 }
+impl ShaderGraphAttributeNodeType for Vec3<f32>{}
 
 impl ShaderGraphNodeType for Vec4<f32> {
   fn to_glsl_type() -> &'static str {
     "vec4"
+  }
+}
+impl ShaderGraphAttributeNodeType for Vec4<f32>{}
+
+impl ShaderGraphNodeType for Mat4<f32> {
+  fn to_glsl_type() -> &'static str {
+    "mat4"
   }
 }
 

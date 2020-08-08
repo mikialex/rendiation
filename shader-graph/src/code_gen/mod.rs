@@ -142,7 +142,12 @@ impl ShaderGraph {
     });
 
     self.gen_code_node(
-      self.vertex_position.expect("vertex position not set"),
+      unsafe {
+        self
+          .vertex_position
+          .expect("vertex position not set")
+          .cast_type()
+      },
       &mut ctx,
       &mut builder,
     );
@@ -186,7 +191,7 @@ impl ShaderGraph {
           "layout(location = {}) in {} {};",
           a.1,
           self.type_id_map.get(&info.node_type).unwrap(),
-          input.name
+          input.name.as_str()
         )
       })
       .collect::<Vec<String>>()
