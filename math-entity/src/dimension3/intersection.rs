@@ -3,6 +3,7 @@ use crate::sphere::Sphere;
 use crate::{intersect_reverse, Box3, IntersectAble, LineSegment3D, Positioned3D, Triangle};
 use rendiation_math::Vec3;
 
+// todo maybe we should store the distance in this
 pub struct NearestPoint3D(pub Option<Vec3<f32>>);
 pub struct IntersectionList3D(pub Vec<Vec3<f32>>);
 
