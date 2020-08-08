@@ -1,15 +1,37 @@
-use super::super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList};
-use crate::vertex::Vertex;
+use super::{
+  super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList},
+  AbstractGeometry, GeometryDataContainer,
+};
+use crate::{geometry::intersection::GeometryRayIntersection, vertex::Vertex};
 use core::marker::PhantomData;
 use rendiation_math_entity::Positioned3D;
-use std::{iter::FromIterator, ops::Index};
 
-pub trait GeometryDataContainer<T>:
-  AsRef<[T]> + Clone + Index<usize, Output = T> + FromIterator<T>
+impl<V, T, U> AbstractGeometry for IndexedGeometry<V, T, U>
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V>,
+{
+  type Vertex = V;
+  type Topology = T;
+
+  fn primitive_iter<'a>(
+    &'a self,
+  ) -> IndexedPrimitiveIter<
+    'a,
+    Self::Vertex,
+    <Self::Topology as PrimitiveTopology<Self::Vertex>>::Primitive,
+  > {
+    self.primitive_iter()
+  }
+}
+impl<V, T, U> GeometryRayIntersection for IndexedGeometry<V, T, U>
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V>,
 {
 }
-
-impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
 
 /// A indexed geometry that use vertex as primitive;
 pub struct IndexedGeometry<
