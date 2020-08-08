@@ -1,5 +1,5 @@
 use super::{
-  box_from_build_source, node::FlattenBVHNode, BVHBounding, BVHOption, BuildPrimitive,
+  bounding_from_build_source, node::FlattenBVHNode, BVHBounding, BVHOption, BuildPrimitive,
   FlattenBVHNodeChildInfo,
 };
 use std::ops::Range;
@@ -90,8 +90,8 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
     let left_range = range.start..middle;
     let right_range = middle..range.end;
 
-    let left_bbox = box_from_build_source(&index_source, &build_source, left_range.clone());
-    let right_bbox = box_from_build_source(&index_source, &build_source, right_range.clone());
+    let left_bbox = bounding_from_build_source(&index_source, &build_source, left_range.clone());
+    let right_bbox = bounding_from_build_source(&index_source, &build_source, right_range.clone());
 
     ((left_bbox, left_range), (right_bbox, right_range))
   }

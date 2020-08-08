@@ -1,7 +1,7 @@
+mod apply;
 mod node;
 mod strategy;
 mod traverse;
-mod apply;
 
 pub use node::*;
 use rendiation_math::Vec3;
@@ -80,7 +80,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
       .collect();
 
     // prepare root
-    let root_bbox = box_from_build_source(&index_list, &primitives, 0..items_count);
+    let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..items_count);
 
     let mut nodes = Vec::new();
     nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0, 0));
@@ -104,7 +104,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
   }
 }
 
-fn box_from_build_source<B: BVHBounding>(
+fn bounding_from_build_source<B: BVHBounding>(
   index_list: &Vec<usize>,
   primitives: &Vec<BuildPrimitive<B>>,
   range: Range<usize>,
