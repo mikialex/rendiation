@@ -17,21 +17,11 @@ pub trait GeometryRayIntersection: AbstractGeometry {
   }
 }
 
-pub trait MeshBufferIntersectionConfigProvider {
-  fn line_precision(&self) -> f32;
-}
-
-type Config = Box<dyn MeshBufferIntersectionConfigProvider>;
-
 pub struct MeshBufferIntersectionConfig {
   line_precision: f32,
 }
 
-impl MeshBufferIntersectionConfigProvider for MeshBufferIntersectionConfig {
-  fn line_precision(&self) -> f32 {
-    self.line_precision
-  }
-}
+type Config = MeshBufferIntersectionConfig;
 
 impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Triangle<T> {
   fn intersect(&self, ray: &Ray3, _p: &Config) -> NearestPoint3D {

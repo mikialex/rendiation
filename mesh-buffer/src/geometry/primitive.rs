@@ -1,9 +1,9 @@
-use super::intersection::MeshBufferIntersectionConfigProvider;
+use super::intersection::MeshBufferIntersectionConfig;
 use core::marker::PhantomData;
-use rendiation_math_entity::Triangle;
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::LineSegment;
 use rendiation_math_entity::NearestPoint3D;
+use rendiation_math_entity::Triangle;
 use rendiation_math_entity::{Point3, Positioned3D, Ray3};
 use std::hash::Hash;
 
@@ -79,7 +79,7 @@ impl<T: Positioned3D> PrimitiveData<T> for Point3<T> {
 
 pub trait PrimitiveTopology<T: Positioned3D> {
   type Primitive: PrimitiveData<T>
-    + IntersectAble<Ray3, NearestPoint3D, Box<dyn MeshBufferIntersectionConfigProvider>>;
+    + IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig>;
   const STRIDE: usize;
 }
 
