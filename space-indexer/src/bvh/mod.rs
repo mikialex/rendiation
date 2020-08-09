@@ -101,6 +101,10 @@ impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
     &self.option
   }
 
+  pub fn strategy(&self) -> &S {
+    &self.strategy
+  }
+
   pub fn sorted_primitive_index(&self) -> &Vec<usize> {
     &self.sorted_primitive_index
   }

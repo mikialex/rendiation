@@ -14,6 +14,7 @@ pub trait HashAbleByConversion {
 
 pub trait PrimitiveData<T: Positioned3D> {
   type IndexIndicator;
+  const DATA_STRIDE: usize;
   fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self;
   fn create_index_indicator(index: &[u16], offset: usize) -> Self::IndexIndicator;
   fn from_data(data: &[T], offset: usize) -> Self;
@@ -21,6 +22,7 @@ pub trait PrimitiveData<T: Positioned3D> {
 
 impl<T: Positioned3D> PrimitiveData<T> for Triangle<T> {
   type IndexIndicator = Triangle<u16>;
+  const DATA_STRIDE: usize = 3;
   fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self {
     let a = data[index[offset] as usize];
     let b = data[index[offset + 1] as usize];
@@ -45,6 +47,7 @@ impl<T: Positioned3D> PrimitiveData<T> for Triangle<T> {
 
 impl<T: Positioned3D> PrimitiveData<T> for LineSegment<T> {
   type IndexIndicator = LineSegment<u16>;
+  const DATA_STRIDE: usize = 2;
   fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self {
     let start = data[index[offset] as usize];
     let end = data[index[offset + 1] as usize];
@@ -64,6 +67,7 @@ impl<T: Positioned3D> PrimitiveData<T> for LineSegment<T> {
 
 impl<T: Positioned3D> PrimitiveData<T> for Point3<T> {
   type IndexIndicator = u16;
+  const DATA_STRIDE: usize = 1;
   fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self {
     Point3(data[index[offset] as usize])
   }
@@ -116,7 +120,7 @@ impl<T: Positioned3D> PrimitiveTopology<T> for LineStrip {
 pub struct IndexedPrimitiveIter<'a, V: Positioned3D, T: PrimitiveData<V>> {
   index: &'a [u16],
   data: &'a [V],
-  current: i16,
+  current: usize,
   _phantom: PhantomData<T>,
 }
 
@@ -125,7 +129,7 @@ impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator for IndexedPrimitiveIter
 
   fn next(&mut self) -> Option<(T, T::IndexIndicator)> {
     self.current += 1;
-    if self.current == self.index.len() as i16 {
+    if self.current == self.index.len() - 1 {
       None
     } else {
       Some((
@@ -136,12 +140,21 @@ impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator for IndexedPrimitiveIter
   }
 }
 
+impl<'a, V: Positioned3D, T: PrimitiveData<V>> ExactSizeIterator
+  for IndexedPrimitiveIter<'a, V, T>
+{
+  // We can easily calculate the remaining number of iterations.
+  fn len(&self) -> usize {
+    self.index.len() / T::DATA_STRIDE - self.current
+  }
+}
+
 impl<'a, V: Positioned3D, T: PrimitiveData<V>> IndexedPrimitiveIter<'a, V, T> {
   pub fn new(index: &'a [u16], data: &'a [V]) -> Self {
     Self {
       index,
       data,
-      current: -1,
+      current: 0,
       _phantom: PhantomData,
     }
   }

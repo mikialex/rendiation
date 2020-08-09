@@ -1,9 +1,32 @@
+use super::primitive::*;
 use super::AbstractGeometry;
 use rendiation_math_entity::*;
 use space_indexer::bvh::*;
 
+// struct GeometryWithBVH<G: AbstractGeometry> {
+//   geometry: G,
+// }
+
+impl<V, T, G> FlattenBVHBuildSource<Box3> for G
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  G: AbstractGeometry<Vertex = V, Topology = T>,
+{
+  fn get_items_count(&self) -> usize {
+    self.primitive_iter().len()
+  }
+  fn get_items_bounding_box(&self, item_index: usize) -> Box3 {
+    todo!()
+  }
+}
+
 pub trait GeometryBVH: AbstractGeometry {
-  fn gen_bvh(&self, conf: &BVHOption, strategy: impl BVHBuildStrategy<Box3>) -> FlattenBVH<Box3> {
+  fn gen_bvh<S: BVHBuildStrategy<Box3>>(
+    &self,
+    conf: &BVHOption,
+    strategy: S,
+  ) -> FlattenBVH<Box3, S> {
     todo!()
   }
 }
