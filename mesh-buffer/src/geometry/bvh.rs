@@ -7,7 +7,12 @@ use space_indexer::bvh::*;
 //   geometry: G,
 // }
 
-impl<V, T, G> FlattenBVHBuildSource<Box3> for G
+pub trait FlattenBVHBuildSourceC<B: BVHBounding> {
+  fn get_items_count(&self) -> usize;
+  fn get_items_bounding_box(&self, item_index: usize) -> B;
+}
+
+impl<V, T, G> FlattenBVHBuildSourceC<Box3> for G
 where
   V: Positioned3D,
   T: PrimitiveTopology<V>,

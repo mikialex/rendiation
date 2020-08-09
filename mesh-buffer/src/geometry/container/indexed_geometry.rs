@@ -2,7 +2,7 @@ use super::{
   super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList},
   AbstractGeometry, GeometryDataContainer,
 };
-use crate::{geometry::intersection::GeometryRayIntersection, vertex::Vertex};
+use crate::vertex::Vertex;
 use core::marker::PhantomData;
 use rendiation_math_entity::Positioned3D;
 
@@ -24,13 +24,6 @@ where
   > {
     self.primitive_iter()
   }
-}
-impl<V, T, U> GeometryRayIntersection for IndexedGeometry<V, T, U>
-where
-  V: Positioned3D,
-  T: PrimitiveTopology<V>,
-  U: GeometryDataContainer<V>,
-{
 }
 
 /// A indexed geometry that use vertex as primitive;

@@ -1,4 +1,4 @@
-use super::AbstractGeometry;
+use super::{AbstractGeometry, AbstractGeometryRef, PrimitiveTopology};
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::NearestPoint3D;
 use rendiation_math_entity::{
@@ -6,17 +6,29 @@ use rendiation_math_entity::{
   Triangle,
 };
 
-pub trait GeometryRayIntersection: AbstractGeometry {
-  fn intersect_list(&self, ray: &Ray3, conf: &Config) -> IntersectionList3D {
+impl<'a, V, T, G> IntersectAble<AbstractGeometryRef<'a, G>, IntersectionList3D, Config> for Ray3
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  G: AbstractGeometry<Vertex = V, Topology = T>,
+{
+  fn intersect(&self, geometry: &AbstractGeometryRef<'a, G>, conf: &Config) -> IntersectionList3D {
     IntersectionList3D(
-      self
+      geometry
         .primitive_iter()
-        .filter_map(|(p, _)| p.intersect(ray, conf).0)
+        .filter_map(|(p, _)| p.intersect(self, conf).0)
         .collect(),
     )
   }
+}
 
-  fn intersect_nearest(&self, _ray: &Ray3, _conf: &Config) -> NearestPoint3D {
+impl<'a, V, T, G> IntersectAble<AbstractGeometryRef<'a, G>, NearestPoint3D, Config> for Ray3
+where
+  V: Positioned3D,
+  T: PrimitiveTopology<V>,
+  G: AbstractGeometry<Vertex = V, Topology = T>,
+{
+  fn intersect(&self, _geometry: &AbstractGeometryRef<'a, G>, _conf: &Config) -> NearestPoint3D {
     todo!()
     // self.primitive_iter().fold(None, |re, (p, _)| {
     //   let new_re =  primitive.intersect(ray, p);
@@ -24,16 +36,8 @@ pub trait GeometryRayIntersection: AbstractGeometry {
 
     //   })
     // })
-
-    // for (primitive, _) in self.primitive_iter() {
-    //   if let NearestPoint3D(Some(hit)) = primitive.intersect(ray, p) {
-    //     result.push(hit)
-    //   }
-    // }
   }
 }
-
-// maybe we should still need impl intersection trait for geometry. use marco for convenience
 
 pub struct MeshBufferIntersectionConfig {
   pub line_precision: LineRayIntersectionLocalTolerance,
