@@ -4,8 +4,8 @@ use super::{
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::NearestPoint3D;
 use rendiation_math_entity::{
-  IntersectionList3D, LineRayIntersectionLocalTolerance, LineSegment, Point3, Positioned3D, Ray3,
-  Triangle,
+  HitPoint3D, IntersectionList3D, LineRayIntersectionLocalTolerance, LineSegment, Point3,
+  Positioned3D, Ray3, Triangle,
 };
 
 impl<'a, V, P, T, G> IntersectAble<AbstractGeometryRef<'a, G>, IntersectionList3D, Config> for Ray3
@@ -27,20 +27,29 @@ where
   }
 }
 
-impl<'a, V, T, G> IntersectAble<AbstractGeometryRef<'a, G>, NearestPoint3D, Config> for Ray3
+impl<'a, V, P, T, G> IntersectAble<AbstractGeometryRef<'a, G>, NearestPoint3D, Config> for Ray3
 where
   V: Positioned3D,
-  T: PrimitiveTopology<V>,
+  P: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig> + PrimitiveData<V>,
+  T: PrimitiveTopology<V, Primitive = P>,
   G: AbstractGeometry<Vertex = V, Topology = T>,
+  for<'b> AbstractPrimitiveIter<'b, G>: IntoIterator<Item = T::Primitive>,
 {
-  fn intersect(&self, _geometry: &AbstractGeometryRef<'a, G>, _conf: &Config) -> NearestPoint3D {
-    todo!()
-    // self.primitive_iter().fold(None, |re, (p, _)| {
-    //   let new_re =  primitive.intersect(ray, p);
-    //   re.map_or_else(||new_re, |r|{
-
-    //   })
-    // })
+  fn intersect(&self, geometry: &AbstractGeometryRef<'a, G>, conf: &Config) -> NearestPoint3D {
+    let mut closest: Option<HitPoint3D> = None;
+    geometry.primitive_iter().into_iter().for_each(|p| {
+      let hit = p.intersect(self, conf);
+      if let NearestPoint3D(Some(h)) = hit {
+        if let Some(clo) = &closest {
+          if h.distance < clo.distance {
+            closest = Some(h)
+          }
+        } else {
+          closest = Some(h)
+        }
+      }
+    });
+    NearestPoint3D(closest)
   }
 }
 
