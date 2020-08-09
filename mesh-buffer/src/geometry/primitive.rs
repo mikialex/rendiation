@@ -120,6 +120,20 @@ pub struct IndexedPrimitiveIter<'a, V: Positioned3D, T: PrimitiveData<V>> {
   _phantom: PhantomData<T>,
 }
 
+pub struct IndexedPrimitiveIterForPrimitiveOnly<'a, V: Positioned3D, T: PrimitiveData<V>>(
+  pub IndexedPrimitiveIter<'a, V, T>,
+);
+
+impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator
+  for IndexedPrimitiveIterForPrimitiveOnly<'a, V, T>
+{
+  type Item = T;
+
+  fn next(&mut self) -> Option<T> {
+    self.0.next().map(|r| r.0)
+  }
+}
+
 impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator for IndexedPrimitiveIter<'a, V, T> {
   type Item = (T, T::IndexIndicator);
 
@@ -139,7 +153,6 @@ impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator for IndexedPrimitiveIter
 impl<'a, V: Positioned3D, T: PrimitiveData<V>> ExactSizeIterator
   for IndexedPrimitiveIter<'a, V, T>
 {
-  // We can easily calculate the remaining number of iterations.
   fn len(&self) -> usize {
     self.index.len() / T::DATA_STRIDE - self.current
   }
@@ -158,15 +171,21 @@ impl<'a, V: Positioned3D, T: PrimitiveData<V>> IndexedPrimitiveIter<'a, V, T> {
 
 pub struct PrimitiveIter<'a, V: Positioned3D, T: PrimitiveData<V>> {
   data: &'a [V],
-  current: i16,
+  current: usize,
   _phantom: PhantomData<T>,
+}
+
+impl<'a, V: Positioned3D, T: PrimitiveData<V>> ExactSizeIterator for PrimitiveIter<'a, V, T> {
+  fn len(&self) -> usize {
+    self.data.len() / T::DATA_STRIDE - self.current
+  }
 }
 
 impl<'a, V: Positioned3D, T: PrimitiveData<V>> PrimitiveIter<'a, V, T> {
   pub fn new(data: &'a [V]) -> Self {
     Self {
       data,
-      current: -1,
+      current: 0,
       _phantom: PhantomData,
     }
   }
@@ -177,7 +196,7 @@ impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator for PrimitiveIter<'a, V,
 
   fn next(&mut self) -> Option<T> {
     self.current += 1;
-    if self.current == self.data.len() as i16 {
+    if self.current == self.data.len() - 1 {
       None
     } else {
       Some(T::from_data(self.data, self.current as usize))

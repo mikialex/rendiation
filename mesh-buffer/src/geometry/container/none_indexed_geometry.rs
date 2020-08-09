@@ -3,6 +3,26 @@ use crate::vertex::Vertex;
 use core::marker::PhantomData;
 use rendiation_math_entity::Positioned3D;
 
+impl<V, T, U> AbstractGeometry for NoneIndexedGeometry<V, T, U>
+where
+  V: Positioned3D + 'static,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V>,
+{
+  type Vertex = V;
+  type Topology = T;
+}
+
+impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoIterator
+  for AbstractPrimitiveIter<'a, NoneIndexedGeometry<V, T>>
+{
+  type Item = T::Primitive;
+  type IntoIter = PrimitiveIter<'a, V, Self::Item>;
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.primitive_iter()
+  }
+}
+
 pub struct NoneIndexedGeometry<
   V: Positioned3D = Vertex,
   T: PrimitiveTopology<V> = TriangleList,

@@ -1,28 +1,28 @@
 use super::{
   super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList},
-  AbstractGeometry, GeometryDataContainer,
+  AbstractGeometry, AbstractPrimitiveIter, GeometryDataContainer,
 };
-use crate::vertex::Vertex;
+use crate::{geometry::IndexedPrimitiveIterForPrimitiveOnly, vertex::Vertex};
 use core::marker::PhantomData;
 use rendiation_math_entity::Positioned3D;
 
 impl<V, T, U> AbstractGeometry for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned3D + 'static,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
   type Vertex = V;
   type Topology = T;
+}
 
-  fn primitive_iter<'a>(
-    &'a self,
-  ) -> IndexedPrimitiveIter<
-    'a,
-    Self::Vertex,
-    <Self::Topology as PrimitiveTopology<Self::Vertex>>::Primitive,
-  > {
-    self.primitive_iter()
+impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoIterator
+  for AbstractPrimitiveIter<'a, IndexedGeometry<V, T>>
+{
+  type Item = T::Primitive;
+  type IntoIter = IndexedPrimitiveIterForPrimitiveOnly<'a, V, Self::Item>;
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.primitive_iter_no_index()
   }
 }
 
@@ -66,6 +66,12 @@ where
 
   pub fn primitive_iter<'a>(&'a self) -> IndexedPrimitiveIter<'a, V, T::Primitive> {
     IndexedPrimitiveIter::new(&self.index, self.data.as_ref())
+  }
+
+  pub fn primitive_iter_no_index<'a>(
+    &'a self,
+  ) -> IndexedPrimitiveIterForPrimitiveOnly<'a, V, T::Primitive> {
+    IndexedPrimitiveIterForPrimitiveOnly(self.primitive_iter())
   }
 
   pub fn get_primitive_count(&self) -> u32 {

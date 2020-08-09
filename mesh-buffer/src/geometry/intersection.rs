@@ -1,4 +1,6 @@
-use super::{AbstractGeometry, AbstractGeometryRef, PrimitiveData, PrimitiveTopology};
+use super::{
+  AbstractGeometry, AbstractGeometryRef, AbstractPrimitiveIter, PrimitiveData, PrimitiveTopology,
+};
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::NearestPoint3D;
 use rendiation_math_entity::{
@@ -12,12 +14,14 @@ where
   P: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig> + PrimitiveData<V>,
   T: PrimitiveTopology<V, Primitive = P>,
   G: AbstractGeometry<Vertex = V, Topology = T>,
+  for<'b> AbstractPrimitiveIter<'b, G>: IntoIterator<Item = T::Primitive>,
 {
   fn intersect(&self, geometry: &AbstractGeometryRef<'a, G>, conf: &Config) -> IntersectionList3D {
     IntersectionList3D(
       geometry
         .primitive_iter()
-        .filter_map(|(p, _)| p.intersect(self, conf).0)
+        .into_iter()
+        .filter_map(|p| p.intersect(self, conf).0)
         .collect(),
     )
   }

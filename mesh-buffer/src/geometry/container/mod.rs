@@ -2,7 +2,7 @@
 
 pub mod indexed_geometry;
 pub mod none_indexed_geometry;
-use super::{IndexedPrimitiveIter, PrimitiveTopology};
+use super::PrimitiveTopology;
 pub use indexed_geometry::*;
 pub use none_indexed_geometry::*;
 use rendiation_math_entity::Positioned3D;
@@ -19,18 +19,16 @@ pub trait AbstractGeometry: Sized {
   type Vertex: Positioned3D;
   type Topology: PrimitiveTopology<Self::Vertex>;
 
-  fn primitive_iter<'a>(
-    &'a self,
-  ) -> IndexedPrimitiveIter<
-    'a,
-    Self::Vertex,
-    <Self::Topology as PrimitiveTopology<Self::Vertex>>::Primitive,
-  >;
-
   fn wrap<'a>(&'a self) -> AbstractGeometryRef<'a, Self> {
     AbstractGeometryRef { wrapped: self }
   }
+
+  fn primitive_iter<'a>(&'a self) -> AbstractPrimitiveIter<'a, Self> {
+    AbstractPrimitiveIter(self)
+  }
 }
+
+pub struct AbstractPrimitiveIter<'a, G: AbstractGeometry>(pub &'a G);
 
 // wrapped struct for solve cross crate trait impl issue
 pub struct AbstractGeometryRef<'a, G: AbstractGeometry> {
