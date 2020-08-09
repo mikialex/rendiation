@@ -13,7 +13,7 @@ pub struct BlockPickResult {
   pub world_position: Vec3<f32>,
   pub block_position: BlockWorldCoords,
   pub face: BlockFace,
-  pub distance2: f32,
+  pub distance: f32,
 }
 
 // todo optimize
@@ -38,23 +38,18 @@ fn pick_block(
           let box3 = world_position.get_block_bbox();
           let hit = ray.intersect(&box3, &());
           if let NearestPoint3D(Some(h)) = hit {
-            let length2 = (h - ray.origin).length2();
+            let new = BlockPickResult {
+              world_position: h.position,
+              block_position: world_position,
+              face: BlockFace::XYMax,
+              distance: h.distance,
+            };
             if let Some(clo) = &closest {
-              if length2 < clo.distance2 {
-                closest = Some(BlockPickResult {
-                  world_position: h,
-                  block_position: world_position,
-                  face: BlockFace::XYMax, // do face decide later
-                  distance2: length2,
-                })
+              if new.distance < clo.distance {
+                closest = Some(new)
               }
             } else {
-              closest = Some(BlockPickResult {
-                world_position: h,
-                block_position: world_position,
-                face: BlockFace::XYMax,
-                distance2: length2,
-              })
+              closest = Some(new)
             }
           }
         }
@@ -92,7 +87,7 @@ impl World {
     for (_, chunk) in self.chunks.chunks.lock().unwrap().iter() {
       if let Some(hit) = pick_block(chunk, ray, &nearest) {
         if let Some(n) = &nearest {
-          if hit.distance2 < n.distance2 {
+          if hit.distance < n.distance {
             nearest = Some(hit)
           }
         } else {

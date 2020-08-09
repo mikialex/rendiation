@@ -1,3 +1,3 @@
 # Ecscene
 
-ECS style scene, some new ideal.
+ECS style scene, some new idea.
