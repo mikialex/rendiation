@@ -6,6 +6,8 @@ pub mod primitive;
 pub use container::*;
 pub use primitive::*;
 
+pub use intersection::*;
+
 // #[cfg(feature = "bvh")]
 
 pub mod bvh;

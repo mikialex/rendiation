@@ -15,6 +15,21 @@ where
   type Vertex = V;
   type Topology = T;
 }
+pub trait IntoExactSizeIterator {
+  type Item;
+  type IntoIter: ExactSizeIterator<Item = Self::Item>;
+  fn into_iter(self) -> Self::IntoIter;
+}
+
+impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoExactSizeIterator
+  for AbstractPrimitiveIter<'a, IndexedGeometry<V, T>>
+{
+  type Item = T::Primitive;
+  type IntoIter = IndexedPrimitiveIterForPrimitiveOnly<'a, V, Self::Item>;
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.primitive_iter_no_index()
+  }
+}
 
 impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoIterator
   for AbstractPrimitiveIter<'a, IndexedGeometry<V, T>>

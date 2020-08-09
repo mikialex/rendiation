@@ -7,12 +7,6 @@ pub use node::*;
 use std::{cmp::Ordering, ops::Range};
 pub use strategy::*;
 
-// input data protocol
-pub trait FlattenBVHBuildSource<B: BVHBounding> {
-  type Iter: ExactSizeIterator<Item = B>;
-  fn iter_primitive_bounding(&self) -> Self::Iter;
-}
-
 pub trait BVHBounding: Sized + Copy {
   type AxisType: Copy;
   type CenterType;
@@ -70,15 +64,13 @@ pub struct FlattenBVH<B: BVHBounding, S: BVHBuildStrategy<B>> {
 }
 
 impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
-  pub fn new(source: &impl FlattenBVHBuildSource<B>, strategy: S, option: BVHOption) -> Self {
+  pub fn new(source: impl ExactSizeIterator<Item = B>, strategy: S, option: BVHOption) -> Self {
     // prepare build source;
+    let items_count = source.len();
     let (mut index_list, primitives) = source
-      .iter_primitive_bounding()
       .enumerate()
       .map(|(i, b)| (i, BuildPrimitive::new(b)))
       .unzip();
-
-    let items_count = source.iter_primitive_bounding().len();
 
     // prepare root
     let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..items_count);
