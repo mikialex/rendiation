@@ -1,4 +1,4 @@
-use super::{AbstractGeometry, AbstractGeometryRef, PrimitiveTopology};
+use super::{AbstractGeometry, AbstractGeometryRef, PrimitiveData, PrimitiveTopology};
 use rendiation_math_entity::IntersectAble;
 use rendiation_math_entity::NearestPoint3D;
 use rendiation_math_entity::{
@@ -6,10 +6,11 @@ use rendiation_math_entity::{
   Triangle,
 };
 
-impl<'a, V, T, G> IntersectAble<AbstractGeometryRef<'a, G>, IntersectionList3D, Config> for Ray3
+impl<'a, V, P, T, G> IntersectAble<AbstractGeometryRef<'a, G>, IntersectionList3D, Config> for Ray3
 where
   V: Positioned3D,
-  T: PrimitiveTopology<V>,
+  P: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig> + PrimitiveData<V>,
+  T: PrimitiveTopology<V, Primitive = P>,
   G: AbstractGeometry<Vertex = V, Topology = T>,
 {
   fn intersect(&self, geometry: &AbstractGeometryRef<'a, G>, conf: &Config) -> IntersectionList3D {
