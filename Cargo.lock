@@ -1708,7 +1708,6 @@ dependencies = [
  "rendiation-math-entity 0.1.0",
  "rendiation-webgpu 0.1.0",
  "soa_derive 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "space-indexer 0.1.0",
 ]
 
 [[package]]

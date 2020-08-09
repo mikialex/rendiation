@@ -7,10 +7,3 @@ pub use container::*;
 pub use primitive::*;
 
 pub use intersection::*;
-
-// #[cfg(feature = "bvh")]
-
-pub mod bvh;
-
-// #[cfg(feature = "bvh")]
-pub use bvh::*;
