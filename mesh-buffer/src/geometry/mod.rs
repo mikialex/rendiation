@@ -6,7 +6,9 @@ pub mod primitive;
 pub use container::*;
 pub use primitive::*;
 
-#[cfg(feature = "bvh")]
+// #[cfg(feature = "bvh")]
+
 pub mod bvh;
-#[cfg(feature = "bvh")]
+
+// #[cfg(feature = "bvh")]
 pub use bvh::*;

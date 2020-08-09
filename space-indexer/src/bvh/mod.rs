@@ -70,9 +70,7 @@ pub struct FlattenBVH<B: BVHBounding, S: BVHBuildStrategy<B>> {
 }
 
 impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
-  pub fn new(source: impl FlattenBVHBuildSource<B>, strategy: S) -> Self {
-    let option = BVHOption::default();
-
+  pub fn new(source: &impl FlattenBVHBuildSource<B>, strategy: S, option: BVHOption) -> Self {
     // prepare build source;
     let (mut index_list, primitives) = source
       .iter_primitive_bounding()

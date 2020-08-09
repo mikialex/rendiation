@@ -134,6 +134,14 @@ impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator
   }
 }
 
+impl<'a, V: Positioned3D, T: PrimitiveData<V>> ExactSizeIterator
+  for IndexedPrimitiveIterForPrimitiveOnly<'a, V, T>
+{
+  fn len(&self) -> usize {
+    self.0.len()
+  }
+}
+
 impl<'a, V: Positioned3D, T: PrimitiveData<V>> Iterator for IndexedPrimitiveIter<'a, V, T> {
   type Item = (T, T::IndexIndicator);
 
