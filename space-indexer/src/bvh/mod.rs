@@ -79,7 +79,7 @@ impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
     nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0, 0));
 
     // build
-    S::build(&option, &primitives, &mut index_list, &mut nodes);
+    strategy.build(&option, &primitives, &mut index_list, &mut nodes);
 
     Self {
       nodes,
