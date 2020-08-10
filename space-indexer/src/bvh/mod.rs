@@ -4,19 +4,21 @@ mod strategy;
 mod traverse;
 
 pub use node::*;
-use std::{cmp::Ordering, ops::Range};
+use std::{cmp::Ordering, iter::FromIterator, ops::Range};
 pub use strategy::*;
 
-pub trait BVHBounding: Sized + Copy {
+pub trait BVHBounding: Sized + Copy + FromIterator<Self> {
   type AxisType: Copy;
   type CenterType;
+
   fn get_center(&self) -> Self::CenterType;
-  fn from_groups(iter: impl Iterator<Item = Self>) -> Self;
+
   fn get_partition_axis(
     node: &FlattenBVHNode<Self>,
     build_source: &Vec<BuildPrimitive<Self>>,
     index_source: &Vec<usize>,
   ) -> Self::AxisType;
+
   fn compare(
     self_primitive: &BuildPrimitive<Self>,
     axis: Self::AxisType,
@@ -64,7 +66,7 @@ pub struct FlattenBVH<B: BVHBounding, S: BVHBuildStrategy<B>> {
 }
 
 impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
-  pub fn new(source: impl ExactSizeIterator<Item = B>, strategy: S, option: BVHOption) -> Self {
+  pub fn new(source: impl ExactSizeIterator<Item = B>, mut strategy: S, option: BVHOption) -> Self {
     // prepare build source;
     let items_count = source.len();
     let (mut index_list, primitives) = source
@@ -107,11 +109,10 @@ fn bounding_from_build_source<B: BVHBounding>(
   primitives: &Vec<BuildPrimitive<B>>,
   range: Range<usize>,
 ) -> B {
-  B::from_groups(
-    index_list
-      .get(range.clone())
-      .unwrap()
-      .iter()
-      .map(|index| primitives[*index].bounding),
-  )
+  index_list
+    .get(range.clone())
+    .unwrap()
+    .iter()
+    .map(|index| primitives[*index].bounding)
+    .collect()
 }

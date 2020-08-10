@@ -6,12 +6,11 @@ use std::cmp::Ordering;
 impl BVHBounding for Box3 {
   type AxisType = Axis3;
   type CenterType = Vec3<f32>;
+
   fn get_center(&self) -> Vec3<f32> {
     self.center()
   }
-  fn from_groups(iter: impl Iterator<Item = Self>) -> Self {
-    iter.collect()
-  }
+
   fn get_partition_axis(
     node: &FlattenBVHNode<Self>,
     _build_source: &Vec<BuildPrimitive<Self>>,

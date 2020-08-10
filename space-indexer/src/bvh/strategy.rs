@@ -92,7 +92,7 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
     build_source: &Vec<BuildPrimitive<B>>,
     index_source: &Vec<usize>,
   ) -> ((B, Range<usize>), (B, Range<usize>)) {
-    let range = parent_node.primitive_range;
+    let range = parent_node.primitive_range.clone();
     let middle = (range.end - range.start) / 2;
     let left_range = range.start..middle;
     let right_range = middle..range.end;
@@ -104,45 +104,48 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
   }
 }
 
-pub trait BVHSAHBounding: BVHBounding {
-  // type AxisType: Copy;
-  // type CenterType;
-  // fn get_center(&self) -> Self::CenterType;
-  // fn from_groups(iter: impl Iterator<Item = Self>) -> Self;
-  // fn get_partition_axis(
-  //   node: &FlattenBVHNode<Self>,
-  //   build_source: &Vec<BuildPrimitive<Self>>,
-  //   index_source: &Vec<usize>,
-  // ) -> Self::AxisType;
-  // fn compare(
-  //   self_primitive: &BuildPrimitive<Self>,
-  //   axis: Self::AxisType,
-  //   other_primitive: &BuildPrimitive<Self>,
-  // ) -> Ordering;
+pub trait SAHBounding: BVHBounding {
+  fn get_surface_heuristic(&self) -> f32;
+  fn get_unit_from_center_by_axis(center: &Self::CenterType, axis: Self::AxisType) -> f32;
+  fn get_unit_range_by_axis(&self, split: Self::AxisType) -> Range<f32>;
 }
 
-pub struct SAH<B: BVHBounding> {
+pub struct SAH<B: SAHBounding> {
   pub pre_partition_check_count: usize,
-  checks: Vec<SAHPrePartitionCache<B>>
+  pre_partition: Vec<SAHPrePartitionCache<B>>,
 }
 
-impl<B: BVHBounding> SAH<B>{
-  pub fn new(pre_partition_check_count: usize)-> Self{
-    Self{
+impl<B: SAHBounding> SAH<B> {
+  pub fn new(pre_partition_check_count: usize) -> Self {
+    Self {
       pre_partition_check_count,
-      checks: Vec::with_capacity(pre_partition_check_count)
+      pre_partition: Vec::with_capacity(pre_partition_check_count),
     }
   }
-
-  pub fn get_split()
+  fn group_box(&self, range: Range<usize>) -> B {
+    self
+      .pre_partition
+      .get(range)
+      .unwrap()
+      .iter()
+      .map(|p| p.bounding)
+      .collect()
+  }
 }
 
-struct SAHPrePartitionCache<B: BVHBounding>{
+#[derive(Clone, Debug)]
+struct SAHPrePartitionCache<B: SAHBounding> {
   bounding: B,
-  primitive_count: usize,
+  primitive_range: Range<usize>,
 }
 
-impl<B: BVHBounding> BVHBuildStrategy<B> for SAH<B> {
+impl<B: SAHBounding> SAHPrePartitionCache<B> {
+  fn cost(&self) -> f32 {
+    self.bounding.get_surface_heuristic() * self.primitive_range.clone().count() as f32
+  }
+}
+
+impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
   fn split(
     &mut self,
     split: B::AxisType,
@@ -150,7 +153,67 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for SAH<B> {
     build_source: &Vec<BuildPrimitive<B>>,
     index_source: &Vec<usize>,
   ) -> ((B, Range<usize>), (B, Range<usize>)) {
-    todo!()
-    let extent = 
+    // step 1, update pre_partition_check_cache
+    let range = parent_node.bounding.get_unit_range_by_axis(split);
+    let range_len = range.end - range.start;
+    let step = range_len / self.pre_partition_check_count as f32;
+
+    let primitive_range = &parent_node.primitive_range;
+    let mut primitive_checked_count = primitive_range.start;
+
+    self
+      .pre_partition
+      .iter_mut()
+      .enumerate()
+      .for_each(|(i, p)| {
+        let extent_largest = range.start + step * (i + 1) as f32;
+        let mut exceed = false;
+        let start_primitive_range = primitive_checked_count;
+
+        while exceed || primitive_checked_count == primitive_range.end {
+          let build_primitive = index_source[primitive_checked_count];
+          exceed = B::get_unit_from_center_by_axis(&build_source[build_primitive].center, split)
+            < extent_largest;
+          primitive_checked_count += 1;
+        }
+
+        p.bounding = bounding_from_build_source(
+          &index_source,
+          &build_source,
+          start_primitive_range..primitive_checked_count,
+        );
+        p.primitive_range = start_primitive_range..primitive_checked_count;
+      });
+
+    // step 2, find best partition;
+
+    let mut left = self.pre_partition[0].clone(); // just need a initial value;
+    let mut right = left.clone(); // ditto
+    right.primitive_range = primitive_range.clone();
+
+    let mut best_cost = std::f32::MAX;
+    let mut best_left = left.clone(); // ditto
+    let mut best_right = left.clone(); // ditto
+
+    for partition in 0..self.pre_partition_check_count - 1 {
+      let add_part = &self.pre_partition[partition];
+      let move_count = add_part.primitive_range.clone().count();
+      left.primitive_range.end += move_count;
+      right.primitive_range.start += move_count;
+      left.bounding = self.group_box(0..partition + 1);
+      right.bounding = self.group_box(partition + 1..self.pre_partition_check_count);
+
+      let new_cost = left.cost() + right.cost();
+      if new_cost < best_cost {
+        best_cost = new_cost;
+        best_left = left.clone();
+        best_right = right.clone();
+      }
+    }
+
+    (
+      (best_left.bounding, best_left.primitive_range),
+      (best_right.bounding, best_right.primitive_range),
+    )
   }
 }
