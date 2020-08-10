@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 use rendiation_math_entity::LineSegment;
 use rendiation_math_entity::Triangle;
-use rendiation_math_entity::{Point3, Positioned3D};
+use rendiation_math_entity::{Point, Positioned3D};
 use std::hash::Hash;
 
 pub trait HashAbleByConversion {
@@ -62,11 +62,11 @@ impl<T: Positioned3D> PrimitiveData<T> for LineSegment<T> {
   }
 }
 
-impl<T: Positioned3D> PrimitiveData<T> for Point3<T> {
+impl<T: Positioned3D> PrimitiveData<T> for Point<T> {
   type IndexIndicator = u16;
   const DATA_STRIDE: usize = 1;
   fn from_indexed_data(index: &[u16], data: &[T], offset: usize) -> Self {
-    Point3(data[index[offset] as usize])
+    Point(data[index[offset] as usize])
   }
 
   fn create_index_indicator(index: &[u16], offset: usize) -> Self::IndexIndicator {
@@ -74,7 +74,7 @@ impl<T: Positioned3D> PrimitiveData<T> for Point3<T> {
   }
 
   fn from_data(data: &[T], offset: usize) -> Self {
-    Point3(data[offset])
+    Point(data[offset])
   }
 }
 
@@ -85,7 +85,7 @@ pub trait PrimitiveTopology<T: Positioned3D> {
 
 pub struct PointList;
 impl<T: Positioned3D> PrimitiveTopology<T> for PointList {
-  type Primitive = Point3<T>;
+  type Primitive = Point<T>;
   const STRIDE: usize = 1;
 }
 

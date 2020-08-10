@@ -1,6 +1,6 @@
 use crate::ray3::Ray3;
 use crate::sphere::Sphere;
-use crate::{intersect_reverse, Box3, IntersectAble, LineSegment3D, Positioned3D, Triangle};
+use crate::{intersect_reverse, Box3, IntersectAble, LineSegment3D, Positioned3D, Triangle, LineSegment, Point};
 use rendiation_math::Vec3;
 
 pub struct HitPoint3D {
@@ -102,13 +102,28 @@ impl<T: Positioned3D> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
   }
 }
 
-pub struct LineRayIntersectionLocalTolerance(pub f32);
-type LL = LineRayIntersectionLocalTolerance;
+intersect_reverse_generics!(LineSegment<T>, NearestPoint3D, f32, Ray3, T, Positioned3D);
+impl<T: Positioned3D> IntersectAble<LineSegment<T>, NearestPoint3D, f32> for Ray3 {
+  fn intersect(&self, line: &LineSegment<T>, t: &f32) -> NearestPoint3D {
+    let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(*line);
+    if dist_sq > t * t {
+      return NearestPoint3D(None);
+    }
+    let distance = self.origin.distance(inter_ray);
+    NearestPoint3D(Some(HitPoint3D::new(inter_ray, distance)))
+  }
+}
 
-intersect_reverse!(Ray3, NearestPoint3D, LL, LineSegment3D);
-impl IntersectAble<Ray3, NearestPoint3D, LL> for LineSegment3D {
-  fn intersect(&self, _ray: &Ray3, _: &LL) -> NearestPoint3D {
-    todo!()
+intersect_reverse_generics!(Point<T>, NearestPoint3D, f32, Ray3, T, Positioned3D);
+impl<T: Positioned3D> IntersectAble<Point<T>, NearestPoint3D, f32> for Ray3 {
+  fn intersect(&self, point: &Point<T>, t: &f32) -> NearestPoint3D {
+    let point = point.0.position();
+    let dist_sq = self.distance_sq_to_point(point);
+    if dist_sq > t * t {
+      return NearestPoint3D(None);
+    }
+    let distance = self.origin.distance(point);
+    NearestPoint3D(Some(HitPoint3D::new(point, distance)))
   }
 }
 
@@ -237,12 +252,5 @@ impl IntersectAble<Sphere, bool> for Ray3 {
     IntersectAble::<Sphere, NearestPoint3D>::intersect(self, other, p)
       .0
       .is_some()
-  }
-}
-
-intersect_reverse!(Sphere, IntersectionList3D, (), Ray3);
-impl IntersectAble<Sphere, IntersectionList3D> for Ray3 {
-  fn intersect(&self, _sphere: &Sphere, _: &()) -> IntersectionList3D {
-    todo!();
   }
 }

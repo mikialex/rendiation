@@ -1,7 +1,7 @@
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Point3<T>(pub T);
+pub struct Point<T>(pub T);
 
-impl<T: Copy> Point3<T> {
+impl<T: Copy> Point<T> {
   pub fn new(v: T) -> Self {
     Self(v)
   }

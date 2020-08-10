@@ -1,12 +1,7 @@
 use super::{
   AbstractGeometry, AbstractGeometryRef, AbstractPrimitiveIter, PrimitiveData, PrimitiveTopology,
 };
-use rendiation_math_entity::IntersectAble;
-use rendiation_math_entity::NearestPoint3D;
-use rendiation_math_entity::{
-  HitPoint3D, IntersectionList3D, LineRayIntersectionLocalTolerance, LineSegment, Point3,
-  Positioned3D, Ray3, Triangle,
-};
+use rendiation_math_entity::*;
 
 impl<'a, V, P, T, G> IntersectAble<AbstractGeometryRef<'a, G>, IntersectionList3D, Config> for Ray3
 where
@@ -53,26 +48,30 @@ where
   }
 }
 
+pub struct LineRayIntersectionLocalTolerance(pub f32);
+pub struct PointRayIntersectionLocalTolerance(pub f32);
+
 pub struct MeshBufferIntersectionConfig {
   pub line_precision: LineRayIntersectionLocalTolerance,
+  pub point_precision: PointRayIntersectionLocalTolerance,
 }
 
 type Config = MeshBufferIntersectionConfig;
 
 impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Triangle<T> {
-  fn intersect(&self, ray: &Ray3, _p: &Config) -> NearestPoint3D {
+  fn intersect(&self, ray: &Ray3, _: &Config) -> NearestPoint3D {
     self.intersect(ray, &())
   }
 }
 
 impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for LineSegment<T> {
-  fn intersect(&self, _ray: &Ray3, _: &Config) -> NearestPoint3D {
-    todo!()
+  fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
+    self.intersect(ray, &conf.line_precision.0)
   }
 }
 
-impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Point3<T> {
-  fn intersect(&self, _ray: &Ray3, _: &Config) -> NearestPoint3D {
-    todo!()
+impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Point<T> {
+  fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
+    self.intersect(ray, &conf.point_precision.0)
   }
 }

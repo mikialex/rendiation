@@ -1,5 +1,5 @@
 use rendiation_math::*;
-use crate::Ray;
+use crate::{Ray, Positioned3D, LineSegment};
 
 pub type Ray3 = Ray<Vec3<f32>>;
 
@@ -12,12 +12,19 @@ impl Ray3 {
     self.origin + self.direction * distance
   }
 
-  pub fn distance_sq_to_segment(
+  pub fn distance_sq_to_point(&self, point: Vec3<f32>) -> f32{
+    let oc = point - self.origin;
+    let tca = oc.dot(self.direction);
+    oc.dot(oc) - tca * tca
+  }
+
+  pub fn distance_sq_to_segment<T: Positioned3D>(
     &self,
-    v0: Vec3<f32>,
-    v1: Vec3<f32>,
+    line: LineSegment<T>,
   ) -> (f32, Vec3<f32>, Vec3<f32>) {
     // (distance_sq_to_segment, optionalPointOnRay, optionalPointOnSegment)
+    let v0 = line.start.position();
+    let v1 = line.end.position();
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteDistRaySegment.h
     // It returns the min distance between the ray and the segment
