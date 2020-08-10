@@ -1,18 +1,15 @@
-use crate::{
-  CALVertexAttributeDataType, CALVertexBufferDescriptor, WebGLRenderer,
-};
+use crate::WebGLRenderer;
+use rendiation_ral::*;
 use web_sys::*;
 
-impl CALVertexAttributeDataType {
-  pub fn to_webgl(&self) -> u32 {
-    use CALVertexAttributeDataType::*;
-    match self {
-      F32 => WebGl2RenderingContext::FLOAT,
-      U16 => WebGl2RenderingContext::UNSIGNED_SHORT,
-      I16 => WebGl2RenderingContext::SHORT,
-      I8 => WebGl2RenderingContext::BYTE,
-      U8 => WebGl2RenderingContext::UNSIGNED_BYTE,
-    }
+pub fn to_webgl(d: RALVertexAttributeDataType) -> u32 {
+  use RALVertexAttributeDataType::*;
+  match d {
+    F32 => WebGl2RenderingContext::FLOAT,
+    U16 => WebGl2RenderingContext::UNSIGNED_SHORT,
+    I16 => WebGl2RenderingContext::SHORT,
+    I8 => WebGl2RenderingContext::BYTE,
+    U8 => WebGl2RenderingContext::UNSIGNED_BYTE,
   }
 }
 
@@ -82,7 +79,7 @@ impl WebGLRenderer {
       self.gl.vertex_attrib_pointer_with_i32(
         index as u32,
         b.size,
-        b.data_type.to_webgl(),
+        to_webgl(b.data_type),
         false,
         vertex_buffer.layout.byte_stride,
         b.byte_offset,
@@ -96,7 +93,7 @@ impl WebGLRenderer {
 
 pub struct WebGLVertexBuffer {
   pub buffer: WebGlBuffer,
-  pub layout: CALVertexBufferDescriptor,
+  pub layout: RALVertexBufferDescriptor,
   // todo use smallvec opt
   // todo optional VAO
 }

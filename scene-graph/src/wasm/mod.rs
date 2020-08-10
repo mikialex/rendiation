@@ -1,13 +1,15 @@
-use crate::{CALBackend, SceneShadingData};
-use crate::{Scene, SceneNodeData, SceneShadingDescriptor, WebGLBackend, WebGLRenderer};
+use crate::SceneShadingData;
+use crate::{Scene, SceneNodeData};
 use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
+use rendiation_ral::*;
+use rendiation_webgl::WebGLRenderer;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WASMScene {
   // we will use feature gate to control backend selection later
-  scene: Scene<WebGLBackend>,
+  scene: Scene<WebGLRenderer>,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -98,7 +100,7 @@ impl WASMScene {
     resource: &SceneShadingDescriptor,
     renderer: &mut WebGLRenderer,
   ) -> usize {
-    let gpu_shading = WebGLBackend::create_shading(renderer, resource);
+    let gpu_shading = WebGLRenderer::create_shading(renderer, resource);
     let h = self
       .scene
       .resources
@@ -119,7 +121,7 @@ impl WASMScene {
   #[wasm_bindgen]
   pub fn add_index_buffer(&mut self, data: &[u32], renderer: &mut WebGLRenderer) -> usize {
     let index_buffer =
-      WebGLBackend::create_index_buffer(renderer, unsafe { std::mem::transmute(data) });
+      WebGLRenderer::create_index_buffer(renderer, unsafe { std::mem::transmute(data) });
     let h = self.scene.resources.add_index_buffer(index_buffer).index();
     self.save_handle(h)
   }

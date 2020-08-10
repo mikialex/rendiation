@@ -1,0 +1,12 @@
+[package]
+name = "rendiation-ecscene"
+version = "0.1.0"
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+
+[dependencies]
+specs = {version = "0.16.1", features = ["shred-derive"]}
+rendiation-math = { path = "../math" }
+rendiation-math-entity = { path = "../math-entity" }
+rendiation-render-entity = { path = "../render-entity" }
+rendiation-mesh-buffer = { path = "../mesh-buffer" }

@@ -16,3 +16,5 @@ glsl-to-spirv = {version = "0.1", optional = true}
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
+
+rendiation-ral = { path = "../ral" }

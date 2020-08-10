@@ -7,7 +7,19 @@ mod shading;
 pub use shader::*;
 pub use shading::*;
 
-pub trait CALBackend: SceneGraphBackend {
+pub trait RALBackend {
+  type RenderTarget;
+  type Renderer;
+  type Shading;
+  type ShadingParameterGroup;
+  type IndexBuffer;
+  type VertexBuffer;
+  type UniformBuffer;
+  type UniformValue;
+  type Texture;
+  type Sampler;
+  type SampledTexture;
+
   fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
 
@@ -20,11 +32,18 @@ pub trait CALBackend: SceneGraphBackend {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    layout: CALVertexBufferDescriptor,
+    layout: RALVertexBufferDescriptor,
   ) -> Self::VertexBuffer;
 }
 
-use crate::SceneGraphBackend;
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct AttributeTypeId(pub u64);
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct UniformTypeId(pub u64);
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct ParameterGroupTypeId(pub u64);
 
 pub struct SceneUniform {
   pub value: Box<dyn SceneUniformValue>,

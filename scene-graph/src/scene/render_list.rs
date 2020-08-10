@@ -1,12 +1,12 @@
 use super::scene::Scene;
-use crate::{RenderObjectHandle, SceneGraphBackend, SceneNodeHandle};
+use crate::{RALBackend, RenderObjectHandle, SceneNodeHandle};
 
-pub struct Drawcall<T: SceneGraphBackend> {
+pub struct Drawcall<T: RALBackend> {
   pub render_object: RenderObjectHandle<T>,
   pub node: SceneNodeHandle<T>,
 }
 
-impl<T: SceneGraphBackend> Clone for Drawcall<T> {
+impl<T: RALBackend> Clone for Drawcall<T> {
   fn clone(&self) -> Self {
     Self {
       render_object: self.render_object.clone(),
@@ -15,13 +15,13 @@ impl<T: SceneGraphBackend> Clone for Drawcall<T> {
   }
 }
 
-impl<T: SceneGraphBackend> Copy for Drawcall<T> {}
+impl<T: RALBackend> Copy for Drawcall<T> {}
 
-pub struct RenderList<T: SceneGraphBackend> {
+pub struct RenderList<T: RALBackend> {
   pub drawcalls: Vec<Drawcall<T>>,
 }
 
-impl<T: SceneGraphBackend> RenderList<T> {
+impl<T: RALBackend> RenderList<T> {
   pub fn new() -> Self {
     Self {
       drawcalls: Vec::new(),

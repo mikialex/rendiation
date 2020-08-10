@@ -1,11 +1,11 @@
 pub mod backends;
-pub mod cal;
 pub mod scene;
 
 pub use backends::*;
-pub use cal::*;
+pub use rendiation_ral::*;
 pub use scene::*;
 
+#[cfg(feature = "webgl")]
 pub mod wasm;
 
 pub use arena::*;

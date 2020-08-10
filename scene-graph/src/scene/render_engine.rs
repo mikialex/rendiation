@@ -1,12 +1,12 @@
-use crate::{Culler, RenderList, Scene, SceneGraphBackend, SceneNode};
+use crate::{Culler, RALBackend, RenderList, Scene, SceneNode};
 
-pub struct RenderEngine<T: SceneGraphBackend> {
+pub struct RenderEngine<T: RALBackend> {
   pub scene_raw_list: RenderList<T>,
   pub culled_list: RenderList<T>,
   pub culler: Culler,
 }
 
-impl<T: SceneGraphBackend> RenderEngine<T> {
+impl<T: RALBackend> RenderEngine<T> {
   pub fn new() -> Self {
     Self {
       scene_raw_list: RenderList::new(),

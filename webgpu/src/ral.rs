@@ -1,9 +1,19 @@
-use crate::{
-  CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform, WebGPUBackend,
-};
-use rendiation_webgpu::*;
+use crate::*;
+use rendiation_ral::*;
 
-impl CALBackend for WebGPUBackend {
+impl RALBackend for WGPURenderer {
+  type RenderTarget = WGPURenderPassBuilder<'static>;
+  type Renderer = WGPURenderer;
+  type Shading = WGPUPipeline;
+  type ShadingParameterGroup = WGPUBindGroup;
+  type IndexBuffer = WGPUBuffer;
+  type VertexBuffer = WGPUBuffer;
+  type UniformBuffer = WGPUBuffer;
+  type UniformValue = ();
+  type Texture = WGPUTexture;
+  type Sampler = WGPUSampler;
+  type SampledTexture = ();
+
   fn create_shading(renderer: &mut WGPURenderer, des: &SceneShadingDescriptor) -> Self::Shading {
     let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderType::Vertex);
     let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderType::Fragment);
@@ -28,7 +38,7 @@ impl CALBackend for WebGPUBackend {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    _layout: CALVertexBufferDescriptor, // so can we use this to add additional runtime check?
+    _layout: RALVertexBufferDescriptor, // so can we use this to add additional runtime check?
   ) -> Self::VertexBuffer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::VERTEX)
   }

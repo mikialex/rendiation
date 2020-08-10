@@ -1,19 +1,20 @@
-use crate::{AttributeTypeId, Handle, ResourceManager, ResourceWrap, SceneGraphBackend};
+use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
+use rendiation_ral::*;
 use rendiation_render_entity::BoundingData;
-use std::{ops::Range};
+use std::ops::Range;
 
-pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::IndexBuffer>>;
-pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::VertexBuffer>>;
+pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
+pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;
 pub type GeometryHandle<T> = Handle<ResourceWrap<SceneGeometryData<T>>>;
 
-pub struct SceneGeometryData<T: SceneGraphBackend> {
+pub struct SceneGeometryData<T: RALBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
-  pub bounding_local: Option<BoundingData>
+  pub bounding_local: Option<BoundingData>,
 }
 
-impl<T: SceneGraphBackend> SceneGeometryData<T> {
+impl<T: RALBackend> SceneGeometryData<T> {
   pub fn new() -> Self {
     Self {
       draw_range: 0..0,
@@ -24,7 +25,7 @@ impl<T: SceneGraphBackend> SceneGeometryData<T> {
   }
 }
 
-impl<T: SceneGraphBackend> ResourceManager<T> {
+impl<T: RALBackend> ResourceManager<T> {
   pub fn add_geometry(
     &mut self,
     g: SceneGeometryData<T>,

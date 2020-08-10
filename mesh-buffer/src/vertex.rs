@@ -1,13 +1,10 @@
-use crate::geometry::{HashAbleByConversion};
+use crate::geometry::HashAbleByConversion;
 use rendiation_math::*;
-use std::{
-  hash::{Hash},
-  mem,
-};
 use rendiation_math_entity::Positioned3D;
+use std::{hash::Hash, mem};
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, soa_derive::StructOfArray)]
 pub struct Vertex {
   pub position: Vec3<f32>,
   pub normal: Vec3<f32>,

@@ -15,18 +15,3 @@ pub use render_list::*;
 pub use render_object::*;
 pub use resource::*;
 pub use scene::*;
-
-pub trait SceneGraphBackend {
-  // resource type injection
-  type RenderTarget;
-  type Renderer;
-  type Shading;
-  type ShadingParameterGroup;
-  type IndexBuffer;
-  type VertexBuffer;
-  type UniformBuffer;
-  type UniformValue;
-  type Texture;
-  type Sampler;
-  type SampledTexture;
-}

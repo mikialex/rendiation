@@ -1,16 +1,16 @@
-use crate::{GeometryHandle, Scene, SceneGraphBackend, ShadingHandle};
+use crate::{GeometryHandle, RALBackend, Scene, ShadingHandle};
 use arena::Handle;
 use rendiation_render_entity::BoundingData;
 
 pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
 
-pub struct RenderObject<T: SceneGraphBackend> {
+pub struct RenderObject<T: RALBackend> {
   pub shading_index: ShadingHandle<T>,
   pub geometry_index: GeometryHandle<T>,
   pub render_order: i32, // todo for sorting
 }
 
-impl<T: SceneGraphBackend> RenderObject<T> {
+impl<T: RALBackend> RenderObject<T> {
   pub fn get_bounding_local<'a>(&self, scene: &'a Scene<T>) -> &'a Option<BoundingData> {
     &scene
       .resources
@@ -20,7 +20,7 @@ impl<T: SceneGraphBackend> RenderObject<T> {
   }
 }
 
-impl<T: SceneGraphBackend> Scene<T> {
+impl<T: RALBackend> Scene<T> {
   pub fn create_render_object(
     &mut self,
     geometry_index: GeometryHandle<T>,

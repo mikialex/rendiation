@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 webgpu = ["rendiation-webgpu", "rendiation-webgpu-derives", "rendiation-mesh-buffer/webgpu"]
-webgl = []
+webgl = ["rendiation-webgl"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2.62" }
@@ -20,24 +20,11 @@ rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-mesh-buffer = { path = "../mesh-buffer" }
+rendiation-ral = { path = "../ral" }
 
-rendiation-webgpu = { path = "../webgpu", optional = true}
+rendiation-webgpu = { path = "../webgpu", optional = true }
 rendiation-webgpu-derives = { path = "../webgpu-derives", optional = true }
+rendiation-webgl = { path = "../webgl", optional = true }
 
 arena-tree = { path = "../utils/arena-tree" }
 
-[dependencies.web-sys]
-version = "0.3.39"
-features = [
-  'Document',
-  'Element',
-  'HtmlCanvasElement',
-  'WebGlBuffer',
-  'WebGl2RenderingContext',
-  'WebGlProgram',
-  'WebGlUniformLocation',
-  'WebGlShader',
-  'WebGlTexture',
-  'WebGlFramebuffer',
-  'Window',
-]

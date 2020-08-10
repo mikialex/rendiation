@@ -1,0 +1,11 @@
+[package]
+name = "rendiation-ral"
+version = "0.1.0"
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2.62" }

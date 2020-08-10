@@ -1,11 +1,21 @@
-use crate::{
-  CALBackend, CALVertexBufferDescriptor, SceneShadingDescriptor, SceneUniform, WebGLBackend,
-  WebGLProgram, WebGLRenderer, WebGLVertexBuffer,
-};
+use crate::{UniformValue, WebGLProgram, WebGLRenderer, WebGLTexture, WebGLVertexBuffer};
 
+use rendiation_ral::*;
 use web_sys::*;
 
-impl CALBackend for WebGLBackend {
+impl RALBackend for WebGLRenderer {
+  type RenderTarget = Option<WebGlFramebuffer>;
+  type Renderer = WebGLRenderer;
+  type Shading = WebGLProgram;
+  type ShadingParameterGroup = ();
+  type IndexBuffer = Option<WebGlBuffer>;
+  type VertexBuffer = WebGLVertexBuffer;
+  type UniformBuffer = WebGlBuffer;
+  type UniformValue = UniformValue;
+  type Texture = ();
+  type Sampler = ();
+  type SampledTexture = WebGLTexture;
+
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
     // extra shader conversion should do in sal
     WebGLProgram::new(renderer, des)
@@ -59,7 +69,7 @@ impl CALBackend for WebGLBackend {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    layout: CALVertexBufferDescriptor,
+    layout: RALVertexBufferDescriptor,
   ) -> Self::VertexBuffer {
     let buffer = renderer
       .gl

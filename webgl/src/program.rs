@@ -1,4 +1,5 @@
-use crate::{AttributeTypeId, SceneShadingDescriptor, UniformTypeId, WebGLRenderer};
+use crate::WebGLRenderer;
+use rendiation_ral::*;
 use std::collections::HashMap;
 use web_sys::*;
 

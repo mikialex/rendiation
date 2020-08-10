@@ -1,40 +1,10 @@
-use crate::{RenderEngine, RenderObject, Scene, SceneGraphBackend, ShadingParameterType};
-use web_sys::*;
-
-pub mod attribute;
-pub mod cal;
-pub mod program;
-pub mod renderer;
-pub mod texture;
-pub mod texture_slots;
-pub mod uniform;
-
-pub use attribute::*;
-pub use cal::*;
-pub use program::*;
-pub use renderer::*;
-pub use texture::*;
-pub use texture_slots::*;
-pub use uniform::*;
+use crate::{RenderEngine, RenderObject, Scene, ShadingParameterType};
+use rendiation_webgl::WebGLRenderer;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WebGLBackend {
-  engine: RenderEngine<WebGLBackend>,
-}
-
-impl SceneGraphBackend for WebGLBackend {
-  type RenderTarget = Option<WebGlFramebuffer>;
-  type Renderer = WebGLRenderer;
-  type Shading = WebGLProgram;
-  type ShadingParameterGroup = ();
-  type IndexBuffer = Option<WebGlBuffer>;
-  type VertexBuffer = WebGLVertexBuffer;
-  type UniformBuffer = WebGlBuffer;
-  type UniformValue = UniformValue;
-  type Texture = ();
-  type Sampler = ();
-  type SampledTexture = WebGLTexture;
+  engine: RenderEngine<WebGLRenderer>,
 }
 
 impl WebGLBackend {
@@ -46,9 +16,9 @@ impl WebGLBackend {
 
   pub fn render(
     &mut self,
-    scene: &mut Scene<WebGLBackend>,
+    scene: &mut Scene<WebGLRenderer>,
     renderer: &mut WebGLRenderer,
-    target: Option<WebGlFramebuffer>,
+    target: <WebGLRenderer as rendiation_ral::RALBackend>::RenderTarget,
   ) {
     self.engine.update_render_list(scene);
 
@@ -65,8 +35,8 @@ impl WebGLBackend {
   }
 }
 
-impl RenderObject<WebGLBackend> {
-  pub fn render_webgl(&self, renderer: &mut WebGLRenderer, scene: &Scene<WebGLBackend>) {
+impl RenderObject<WebGLRenderer> {
+  pub fn render_webgl(&self, renderer: &mut WebGLRenderer, scene: &Scene<WebGLRenderer>) {
     let resources = &scene.resources;
     let shading = resources.get_shading(self.shading_index).resource();
     let geometry = &resources.get_geometry(self.geometry_index).resource();
@@ -111,12 +81,13 @@ impl RenderObject<WebGLBackend> {
       })
     }
 
-    let range = &geometry.draw_range;
-    renderer.gl.draw_elements_with_i32(
-      WebGl2RenderingContext::TRIANGLES,
-      range.start as i32,
-      WebGl2RenderingContext::UNSIGNED_INT,
-      range.end as i32,
-    );
+    todo!()
+    // let range = &geometry.draw_range;
+    // renderer.gl.draw_elements_with_i32(
+    //   WebGl2RenderingContext::TRIANGLES,
+    //   range.start as i32,
+    //   WebGl2RenderingContext::UNSIGNED_INT,
+    //   range.end as i32,
+    // );
   }
 }

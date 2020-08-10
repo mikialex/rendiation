@@ -1,14 +1,13 @@
-use crate::{
-  Handle, ParameterGroupTypeId, ResourceManager, ResourceWrap, SceneGraphBackend, UniformTypeId,
-};
+use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
+use rendiation_ral::*;
 
-pub struct SceneShadingParameterGroupData<T: SceneGraphBackend> {
+pub struct SceneShadingParameterGroupData<T: RALBackend> {
   type_id: ParameterGroupTypeId,
   gpu: T::ShadingParameterGroup,
   items: Vec<(UniformTypeId, ShadingParameterType<T>)>,
 }
 
-impl<T: SceneGraphBackend> SceneShadingParameterGroupData<T> {
+impl<T: RALBackend> SceneShadingParameterGroupData<T> {
   pub fn new(type_id: ParameterGroupTypeId, gpu: T::ShadingParameterGroup) -> Self {
     Self {
       type_id,
@@ -31,13 +30,13 @@ impl<T: SceneGraphBackend> SceneShadingParameterGroupData<T> {
 }
 
 pub type ParameterHandle<T> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;
-pub type UniformHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::UniformBuffer>>;
-pub type UniformValueHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::UniformValue>>;
-pub type SamplerHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::Sampler>>;
-pub type TextureHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::Texture>>;
-pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as SceneGraphBackend>::Texture>>;
+pub type UniformHandle<T> = Handle<ResourceWrap<<T as RALBackend>::UniformBuffer>>;
+pub type UniformValueHandle<T> = Handle<ResourceWrap<<T as RALBackend>::UniformValue>>;
+pub type SamplerHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Sampler>>;
+pub type TextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
+pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
 
-pub enum ShadingParameterType<T: SceneGraphBackend> {
+pub enum ShadingParameterType<T: RALBackend> {
   UniformValue(UniformValueHandle<T>),
   UniformBuffer(UniformHandle<T>),
   Texture(SamplerHandle<T>),
@@ -45,7 +44,7 @@ pub enum ShadingParameterType<T: SceneGraphBackend> {
   SampledTexture(SampledTextureHandle<T>),
 }
 
-impl<T: SceneGraphBackend> ResourceManager<T> {
+impl<T: RALBackend> ResourceManager<T> {
   pub fn add_shading_param_group(
     &mut self,
     resource: SceneShadingParameterGroupData<T>,
@@ -73,7 +72,7 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
 }
 
 /// uniforms
-impl<T: SceneGraphBackend> ResourceManager<T> {
+impl<T: RALBackend> ResourceManager<T> {
   pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut ResourceWrap<T::UniformBuffer> {
     ResourceWrap::new_wrap(&mut self.uniforms, gpu)
   }
@@ -95,7 +94,7 @@ impl<T: SceneGraphBackend> ResourceManager<T> {
 }
 
 /// uniform values
-impl<T: SceneGraphBackend> ResourceManager<T> {
+impl<T: RALBackend> ResourceManager<T> {
   pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut ResourceWrap<T::UniformValue> {
     ResourceWrap::new_wrap(&mut self.uniform_values, gpu)
   }

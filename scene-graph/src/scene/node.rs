@@ -1,4 +1,4 @@
-use crate::{RenderObjectHandle, Scene, SceneGraphBackend};
+use crate::{RALBackend, RenderObjectHandle, Scene};
 use arena::Handle;
 use arena_tree::*;
 use rendiation_math::{Mat4, One};
@@ -7,7 +7,7 @@ use rendiation_render_entity::BoundingData;
 pub type SceneNodeHandle<T> = Handle<SceneNode<T>>;
 pub type SceneNode<T> = ArenaTreeNode<SceneNodeData<T>>;
 
-pub struct SceneNodeData<T: SceneGraphBackend> {
+pub struct SceneNodeData<T: RALBackend> {
   pub render_objects: Vec<RenderObjectHandle<T>>,
   pub visible: bool,
   pub net_visible: bool,
@@ -15,7 +15,7 @@ pub struct SceneNodeData<T: SceneGraphBackend> {
   pub local_matrix: Mat4<f32>,
 }
 
-impl<T: SceneGraphBackend> SceneNodeData<T> {
+impl<T: RALBackend> SceneNodeData<T> {
   pub(crate) fn new() -> Self {
     Self {
       render_objects: Vec::new(),
@@ -31,7 +31,7 @@ impl<T: SceneGraphBackend> SceneNodeData<T> {
   }
 }
 
-impl<T: SceneGraphBackend> Scene<T> {
+impl<T: RALBackend> Scene<T> {
   pub fn node_add_child_by_handle(
     &mut self,
     parent_handle: SceneNodeHandle<T>,
