@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused)]
+
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
 use rendiation_render_entity::*;
 use specs::prelude::*;
@@ -35,7 +38,7 @@ impl Component for VertexBufferUpdateSourceComponent {
 }
 struct GeoemtryGPUUpdateSystem {
   index_updated_entity: Vec<Entity>,
-  vertex_updated_entity: Vec<Entity>
+  vertex_updated_entity: Vec<Entity>,
 }
 
 #[derive(SystemData)]
@@ -54,7 +57,7 @@ impl<'a> System<'a> for GeoemtryGPUUpdateSystem {
     // // Join merges the two component storages,
     // // so you get all (CompInt, CompBool) pairs.
     for (index, index_to_update) in (&data.index, &mut data.index_to_update).join() {
-        // cb.0 = ci.0 > 0;
+      // cb.0 = ci.0 > 0;
     }
   }
 }

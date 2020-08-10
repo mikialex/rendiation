@@ -1,22 +1,16 @@
+mod apply;
 mod node;
 mod strategy;
 mod traverse;
-mod apply;
 
 pub use node::*;
-use rendiation_math::Vec3;
 use std::{cmp::Ordering, ops::Range};
 pub use strategy::*;
 
-// input data protocol
-pub trait FlattenBVHBuildSource<B: BVHBounding> {
-  fn get_items_count(&self) -> usize;
-  fn get_items_bounding_box(&self, item_index: usize) -> B;
-}
-
 pub trait BVHBounding: Sized + Copy {
   type AxisType: Copy;
-  fn get_center(&self) -> Vec3<f32>;
+  type CenterType;
+  fn get_center(&self) -> Self::CenterType;
   fn from_groups(iter: impl Iterator<Item = Self>) -> Self;
   fn get_partition_axis(
     node: &FlattenBVHNode<Self>,
@@ -32,7 +26,7 @@ pub trait BVHBounding: Sized + Copy {
 
 pub struct BuildPrimitive<B: BVHBounding> {
   bounding: B,
-  center: Vec3<f32>,
+  center: B::CenterType,
 }
 
 impl<B: BVHBounding> BuildPrimitive<B> {
@@ -62,36 +56,36 @@ impl Default for BVHOption {
   }
 }
 
-pub struct FlattenBVH<B: BVHBounding> {
+pub struct FlattenBVH<B: BVHBounding, S: BVHBuildStrategy<B>> {
   nodes: Vec<FlattenBVHNode<B>>,
   sorted_primitive_index: Vec<usize>,
   option: BVHOption,
+  strategy: S,
 }
 
-impl<B: BVHBounding> FlattenBVH<B> {
-  pub fn new<T: BVHBuildStrategy<B>>(source: impl FlattenBVHBuildSource<B>) -> Self {
-    let option = BVHOption::default();
-
+impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
+  pub fn new(source: impl ExactSizeIterator<Item = B>, strategy: S, option: BVHOption) -> Self {
     // prepare build source;
-    let items_count = source.get_items_count();
-    let mut index_list: Vec<usize> = (0..items_count).map(|x| x).collect();
-    let primitives: Vec<BuildPrimitive<B>> = (0..items_count)
-      .map(|x| BuildPrimitive::new(source.get_items_bounding_box(x)))
-      .collect();
+    let items_count = source.len();
+    let (mut index_list, primitives) = source
+      .enumerate()
+      .map(|(i, b)| (i, BuildPrimitive::new(b)))
+      .unzip();
 
     // prepare root
-    let root_bbox = box_from_build_source(&index_list, &primitives, 0..items_count);
+    let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..items_count);
 
     let mut nodes = Vec::new();
     nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0, 0));
 
     // build
-    T::build(&option, &primitives, &mut index_list, &mut nodes);
+    S::build(&option, &primitives, &mut index_list, &mut nodes);
 
     Self {
       nodes,
       sorted_primitive_index: index_list,
       option,
+      strategy,
     }
   }
 
@@ -99,12 +93,16 @@ impl<B: BVHBounding> FlattenBVH<B> {
     &self.option
   }
 
+  pub fn strategy(&self) -> &S {
+    &self.strategy
+  }
+
   pub fn sorted_primitive_index(&self) -> &Vec<usize> {
     &self.sorted_primitive_index
   }
 }
 
-fn box_from_build_source<B: BVHBounding>(
+fn bounding_from_build_source<B: BVHBounding>(
   index_list: &Vec<usize>,
   primitives: &Vec<BuildPrimitive<B>>,
   range: Range<usize>,
