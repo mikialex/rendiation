@@ -26,6 +26,11 @@ pub trait AbstractGeometry: Sized {
   fn primitive_iter<'a>(&'a self) -> AbstractPrimitiveIter<'a, Self> {
     AbstractPrimitiveIter(self)
   }
+
+  fn privimitve_at(
+    &self,
+    primitive_index: usize,
+  ) -> Option<<Self::Topology as PrimitiveTopology<Self::Vertex>>::Primitive>;
 }
 
 pub struct AbstractPrimitiveIter<'a, G: AbstractGeometry>(pub &'a G);

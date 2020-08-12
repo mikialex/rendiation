@@ -2,7 +2,7 @@ use super::{
   super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList},
   AbstractGeometry, AbstractPrimitiveIter, GeometryDataContainer,
 };
-use crate::{geometry::IndexedPrimitiveIterForPrimitiveOnly, vertex::Vertex};
+use crate::{geometry::{PrimitiveData, IndexedPrimitiveIterForPrimitiveOnly}, vertex::Vertex};
 use core::marker::PhantomData;
 use rendiation_math_entity::Positioned3D;
 
@@ -14,6 +14,12 @@ where
 {
   type Vertex = V;
   type Topology = T;
+
+  fn privimitve_at(&self, primitive_index: usize) -> Option<<T as PrimitiveTopology<V>>::Primitive>{
+    let stride = <<T as PrimitiveTopology<V>>::Primitive as PrimitiveData<V>>::DATA_STRIDE;
+    let index = self.index.get(primitive_index * stride)?;
+    Some(<<T as PrimitiveTopology<V>>::Primitive as PrimitiveData<V>>::from_indexed_data(&self.index, &self.data, index))
+  }
 }
 pub trait IntoExactSizeIterator {
   type Item;
