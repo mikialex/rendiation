@@ -1,28 +1,33 @@
 use super::{
-  AbstractGeometry, AbstractPrimitiveIter, MeshBufferIntersectionConfig, PrimitiveData,
-  PrimitiveTopology,
+  AbstractGeometry, AbstractPrimitiveIter, IntoExactSizeIterator, MeshBufferIntersectionConfig,
+  PrimitiveData, PrimitiveTopology,
 };
 use rendiation_math_entity::*;
 use space_indexer::bvh::*;
 
-pub struct BVHAcceleratedGeometry<G: AbstractGeometry> {
+pub struct BVHAcceleratedGeometry<G, B>
+where
+  G: AbstractGeometry,
+  B: BVHBounding,
+{
   geometry: G,
-  bvh: Option<FlattenBVH<Box3, BalanceTree>>,
+  bvh: Option<FlattenBVH<B, BalanceTree>>,
 }
 
-impl<V, P, T, G>
-  IntersectAble<BVHAcceleratedGeometry<G>, IntersectionList3D, MeshBufferIntersectionConfig>
+impl<V, P, T, G, B>
+  IntersectAble<BVHAcceleratedGeometry<G, B>, IntersectionList3D, MeshBufferIntersectionConfig>
   for Ray3
 where
   V: Positioned3D,
   P: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig> + PrimitiveData<V>,
   T: PrimitiveTopology<V, Primitive = P>,
   G: AbstractGeometry<Vertex = V, Topology = T>,
-  for<'a> AbstractPrimitiveIter<'a, G>: IntoIterator<Item = T::Primitive>,
+  B: BVHBounding + IntersectAble<Ray3, bool, ()> + From<T::Primitive>,
+  for<'a> AbstractPrimitiveIter<'a, G>: IntoExactSizeIterator<Item = T::Primitive>,
 {
   fn intersect(
     &self,
-    geometry: &BVHAcceleratedGeometry<G>,
+    geometry: &BVHAcceleratedGeometry<G, B>,
     conf: &MeshBufferIntersectionConfig,
   ) -> IntersectionList3D {
     let mut result = IntersectionList3D(Vec::new());
@@ -44,7 +49,15 @@ where
   }
 }
 
-impl<G: AbstractGeometry> BVHAcceleratedGeometry<G> {
+impl<V, P, T, G, B> BVHAcceleratedGeometry<G, B>
+where
+  V: Positioned3D,
+  P: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig> + PrimitiveData<V>,
+  T: PrimitiveTopology<V, Primitive = P>,
+  G: AbstractGeometry<Vertex = V, Topology = T>,
+  B: BVHBounding + IntersectAble<Ray3, bool, ()> + From<T::Primitive>,
+  for<'a> AbstractPrimitiveIter<'a, G>: IntoExactSizeIterator<Item = T::Primitive>,
+{
   pub fn new(geometry: G) -> Self {
     Self {
       geometry,
@@ -52,7 +65,22 @@ impl<G: AbstractGeometry> BVHAcceleratedGeometry<G> {
     }
   }
 
+  pub fn check_update_bvh(
+    &mut self,
+    strategy: BalanceTree,
+    option: BVHOption,
+  ) -> &FlattenBVH<B, BalanceTree> {
+    self.bvh.get_or_insert_with(|| {
+      FlattenBVH::new(
+        self.geometry.primitive_iter().into_iter().map(|p| p.into()),
+        strategy,
+        option,
+      )
+    })
+  }
+
   pub fn geometry_mut(&mut self) -> &mut G {
+    self.bvh = None;
     &mut self.geometry
   }
 

@@ -1,10 +1,16 @@
 //! The actually geometry data container, define how we store the vertex
 
 pub mod indexed_geometry;
+pub mod indexed_iter;
 pub mod none_indexed_geometry;
-use super::PrimitiveTopology;
+pub mod none_indexed_iter;
+
 pub use indexed_geometry::*;
+pub use indexed_iter::*;
 pub use none_indexed_geometry::*;
+pub use none_indexed_iter::*;
+
+use super::PrimitiveTopology;
 use rendiation_math_entity::Positioned3D;
 use std::{iter::FromIterator, ops::Index};
 
@@ -46,4 +52,10 @@ impl<'a, G: AbstractGeometry> Deref for AbstractGeometryRef<'a, G> {
   fn deref(&self) -> &Self::Target {
     &self.wrapped
   }
+}
+
+pub trait IntoExactSizeIterator {
+  type Item;
+  type IntoIter: ExactSizeIterator<Item = Self::Item>;
+  fn into_iter(self) -> Self::IntoIter;
 }
