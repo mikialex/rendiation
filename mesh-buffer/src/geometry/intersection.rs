@@ -6,7 +6,7 @@ use rendiation_math_entity::*;
 impl<'a, V, P, T, G> IntersectAble<AbstractGeometryRef<'a, G>, IntersectionList3D, Config> for Ray3
 where
   V: Positioned3D,
-  P: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig> + PrimitiveData<V>,
+  P: IntersectAble<Ray3, NearestPoint3D, Config> + PrimitiveData<V>,
   T: PrimitiveTopology<V, Primitive = P>,
   G: AbstractGeometry<Vertex = V, Topology = T>,
   for<'b> AbstractPrimitiveIter<'b, G>: IntoIterator<Item = T::Primitive>,
@@ -25,7 +25,7 @@ where
 impl<'a, V, P, T, G> IntersectAble<AbstractGeometryRef<'a, G>, NearestPoint3D, Config> for Ray3
 where
   V: Positioned3D,
-  P: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectionConfig> + PrimitiveData<V>,
+  P: IntersectAble<Ray3, NearestPoint3D, Config> + PrimitiveData<V>,
   T: PrimitiveTopology<V, Primitive = P>,
   G: AbstractGeometry<Vertex = V, Topology = T>,
   for<'b> AbstractPrimitiveIter<'b, G>: IntoIterator<Item = T::Primitive>,

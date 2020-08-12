@@ -1,8 +1,11 @@
 use super::{
   super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList},
-  AbstractGeometry, AbstractPrimitiveIter, GeometryDataContainer,
+  AbstractGeometry, AbstractPrimitiveIter, GeometryDataContainer, IntoExactSizeIterator,
 };
-use crate::{geometry::IndexedPrimitiveIterForPrimitiveOnly, vertex::Vertex};
+use crate::{
+  geometry::{IndexedPrimitiveIterForPrimitiveOnly, PrimitiveData},
+  vertex::Vertex,
+};
 use core::marker::PhantomData;
 use rendiation_math_entity::Positioned3D;
 
@@ -14,11 +17,18 @@ where
 {
   type Vertex = V;
   type Topology = T;
-}
-pub trait IntoExactSizeIterator {
-  type Item;
-  type IntoIter: ExactSizeIterator<Item = Self::Item>;
-  fn into_iter(self) -> Self::IntoIter;
+
+  fn primitive_at(&self, primitive_index: usize) -> Option<<T as PrimitiveTopology<V>>::Primitive> {
+    let stride = <<T as PrimitiveTopology<V>>::Primitive as PrimitiveData<V>>::DATA_STRIDE;
+    let index = self.index.get(primitive_index * stride)?;
+    Some(<<T as PrimitiveTopology<V>>::Primitive as PrimitiveData<
+      V,
+    >>::from_indexed_data(
+      &self.index,
+      self.data.as_ref(),
+      *index as usize,
+    ))
+  }
 }
 
 impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoExactSizeIterator
@@ -27,7 +37,7 @@ impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoExactSizeIterat
   type Item = T::Primitive;
   type IntoIter = IndexedPrimitiveIterForPrimitiveOnly<'a, V, Self::Item>;
   fn into_iter(self) -> Self::IntoIter {
-    self.0.primitive_iter_no_index()
+    self.0.primitive_iter_only_primitive()
   }
 }
 
@@ -37,7 +47,7 @@ impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoIterator
   type Item = T::Primitive;
   type IntoIter = IndexedPrimitiveIterForPrimitiveOnly<'a, V, Self::Item>;
   fn into_iter(self) -> Self::IntoIter {
-    self.0.primitive_iter_no_index()
+    self.0.primitive_iter_only_primitive()
   }
 }
 
@@ -83,7 +93,7 @@ where
     IndexedPrimitiveIter::new(&self.index, self.data.as_ref())
   }
 
-  pub fn primitive_iter_no_index<'a>(
+  pub fn primitive_iter_only_primitive<'a>(
     &'a self,
   ) -> IndexedPrimitiveIterForPrimitiveOnly<'a, V, T::Primitive> {
     IndexedPrimitiveIterForPrimitiveOnly(self.primitive_iter())

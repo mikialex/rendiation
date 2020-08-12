@@ -1,5 +1,5 @@
+use super::{BVHBounding, FlattenBVH};
 use std::ops::Range;
-use super::BVHBounding;
 
 pub struct FlattenBVHNode<B: BVHBounding> {
   pub bounding: B,
@@ -7,6 +7,16 @@ pub struct FlattenBVHNode<B: BVHBounding> {
   pub depth: usize,
   pub self_index: usize,
   pub child: Option<FlattenBVHNodeChildInfo<B>>,
+}
+
+impl<B: BVHBounding> FlattenBVHNode<B> {
+  pub fn iter_primitive<'a>(&'a self, tree: &'a FlattenBVH<B>) -> impl Iterator<Item = &'a usize> {
+    tree
+      .sorted_primitive_index
+      .get(self.primitive_range.clone())
+      .unwrap()
+      .iter()
+  }
 }
 
 pub struct FlattenBVHNodeChildInfo<B: BVHBounding> {
@@ -19,7 +29,7 @@ impl<B: BVHBounding> FlattenBVHNode<B> {
   pub(super) fn new(
     bounding: B,
     primitive_range: Range<usize>,
-    self_index: usize, 
+    self_index: usize,
     depth: usize,
   ) -> Self {
     Self {
@@ -40,6 +50,9 @@ impl<B: BVHBounding> FlattenBVHNode<B> {
   }
 
   pub fn right_child_offset(&self) -> Option<usize> {
-    self.child.as_ref().map(|c| self.self_index + c.left_count + 1)
+    self
+      .child
+      .as_ref()
+      .map(|c| self.self_index + c.left_count + 1)
   }
 }

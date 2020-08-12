@@ -58,15 +58,17 @@ impl Default for BVHOption {
   }
 }
 
-pub struct FlattenBVH<B: BVHBounding, S: BVHBuildStrategy<B>> {
+pub struct FlattenBVH<B: BVHBounding> {
   nodes: Vec<FlattenBVHNode<B>>,
   sorted_primitive_index: Vec<usize>,
-  option: BVHOption,
-  strategy: S,
 }
 
-impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
-  pub fn new(source: impl ExactSizeIterator<Item = B>, mut strategy: S, option: BVHOption) -> Self {
+impl<B: BVHBounding> FlattenBVH<B> {
+  pub fn new<S: BVHBuildStrategy<B>>(
+    source: impl ExactSizeIterator<Item = B>,
+    strategy: &mut S,
+    option: &BVHOption,
+  ) -> Self {
     // prepare build source;
     let items_count = source.len();
     let (mut index_list, primitives) = source
@@ -86,17 +88,7 @@ impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
     Self {
       nodes,
       sorted_primitive_index: index_list,
-      option,
-      strategy,
     }
-  }
-
-  pub fn option(&self) -> &BVHOption {
-    &self.option
-  }
-
-  pub fn strategy(&self) -> &S {
-    &self.strategy
   }
 
   pub fn sorted_primitive_index(&self) -> &Vec<usize> {
