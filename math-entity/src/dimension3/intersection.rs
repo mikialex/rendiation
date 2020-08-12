@@ -1,6 +1,6 @@
 use crate::ray3::Ray3;
 use crate::sphere::Sphere;
-use crate::{intersect_reverse, Box3, IntersectAble, LineSegment3D, Positioned3D, Triangle, LineSegment, Point};
+use crate::{intersect_reverse, Box3, IntersectAble, LineSegment, Point, Positioned3D, Triangle};
 use rendiation_math::Vec3;
 
 pub struct HitPoint3D {
@@ -23,6 +23,14 @@ impl Ray3 {
 // todo maybe we should store the distance in this
 pub struct NearestPoint3D(pub Option<HitPoint3D>);
 pub struct IntersectionList3D(pub Vec<HitPoint3D>);
+
+impl IntersectionList3D {
+  pub fn push_nearest(&mut self, hit: NearestPoint3D) {
+    if let NearestPoint3D(Some(hit)) = hit {
+      self.0.push(hit);
+    }
+  }
+}
 
 #[macro_export]
 macro_rules! intersect_reverse_generics {

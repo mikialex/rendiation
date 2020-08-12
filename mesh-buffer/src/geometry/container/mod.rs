@@ -27,7 +27,7 @@ pub trait AbstractGeometry: Sized {
     AbstractPrimitiveIter(self)
   }
 
-  fn privimitve_at(
+  fn primitive_at(
     &self,
     primitive_index: usize,
   ) -> Option<<Self::Topology as PrimitiveTopology<Self::Vertex>>::Primitive>;
