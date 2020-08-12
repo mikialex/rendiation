@@ -25,7 +25,7 @@ impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoExactSizeIterat
   for AbstractPrimitiveIter<'a, NoneIndexedGeometry<V, T>>
 {
   type Item = T::Primitive;
-  type IntoIter = IndexedPrimitiveIterForPrimitiveOnly<'a, V, Self::Item>;
+  type IntoIter = PrimitiveIter<'a, V, Self::Item>;
   fn into_iter(self) -> Self::IntoIter {
     self.0.primitive_iter()
   }

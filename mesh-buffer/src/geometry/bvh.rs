@@ -70,9 +70,10 @@ where
     strategy: BalanceTree,
     option: BVHOption,
   ) -> &FlattenBVH<B, BalanceTree> {
+    let geometry = &self.geometry;
     self.bvh.get_or_insert_with(|| {
       FlattenBVH::new(
-        self.geometry.primitive_iter().into_iter().map(|p| p.into()),
+        geometry.primitive_iter().into_iter().map(|p| p.into()),
         strategy,
         option,
       )
