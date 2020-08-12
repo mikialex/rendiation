@@ -25,6 +25,9 @@ pub struct NearestPoint3D(pub Option<HitPoint3D>);
 pub struct IntersectionList3D(pub Vec<HitPoint3D>);
 
 impl IntersectionList3D {
+  pub fn new() -> Self {
+    Self(Vec::new())
+  }
   pub fn push_nearest(&mut self, hit: NearestPoint3D) {
     if let NearestPoint3D(Some(hit)) = hit {
       self.0.push(hit);

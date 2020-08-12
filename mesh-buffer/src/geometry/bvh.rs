@@ -30,7 +30,7 @@ where
     geometry: &BVHAcceleratedGeometry<G, B>,
     conf: &MeshBufferIntersectionConfig,
   ) -> IntersectionList3D {
-    let mut result = IntersectionList3D(Vec::new());
+    let mut result = IntersectionList3D::new();
     let geo_view = geometry.geometry.wrap();
     geometry.bvh.as_ref().map(|bvh| {
       bvh.traverse(
@@ -39,9 +39,7 @@ where
           leaf
             .iter_primitive(bvh)
             .map(|&i| geo_view.primitive_at(i).unwrap())
-            .for_each(|p| {
-              result.push_nearest(p.intersect(self, conf));
-            })
+            .for_each(|p| result.push_nearest(p.intersect(self, conf)))
         },
       );
     });
