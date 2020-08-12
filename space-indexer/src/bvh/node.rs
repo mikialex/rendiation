@@ -1,4 +1,4 @@
-use super::{BVHBounding, BVHBuildStrategy, FlattenBVH};
+use super::{BVHBounding, FlattenBVH};
 use std::ops::Range;
 
 pub struct FlattenBVHNode<B: BVHBounding> {
@@ -10,10 +10,7 @@ pub struct FlattenBVHNode<B: BVHBounding> {
 }
 
 impl<B: BVHBounding> FlattenBVHNode<B> {
-  pub fn iter_primitive<'a, S: BVHBuildStrategy<B>>(
-    &'a self,
-    tree: &'a FlattenBVH<B, S>,
-  ) -> impl Iterator<Item = &'a usize> {
+  pub fn iter_primitive<'a>(&'a self, tree: &'a FlattenBVH<B>) -> impl Iterator<Item = &'a usize> {
     tree
       .sorted_primitive_index
       .get(self.primitive_range.clone())

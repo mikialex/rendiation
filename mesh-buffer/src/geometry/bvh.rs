@@ -11,7 +11,7 @@ where
   B: BVHBounding,
 {
   geometry: G,
-  bvh: Option<FlattenBVH<B, BalanceTree>>,
+  bvh: Option<FlattenBVH<B>>,
 }
 
 impl<V, P, T, G, B>
@@ -65,11 +65,11 @@ where
     }
   }
 
-  pub fn check_update_bvh(
+  pub fn check_update_bvh<S: BVHBuildStrategy<B>>(
     &mut self,
-    strategy: BalanceTree,
-    option: BVHOption,
-  ) -> &FlattenBVH<B, BalanceTree> {
+    strategy: &mut S,
+    option: &BVHOption,
+  ) -> &FlattenBVH<B> {
     let geometry = &self.geometry;
     self.bvh.get_or_insert_with(|| {
       FlattenBVH::new(

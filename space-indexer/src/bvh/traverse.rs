@@ -1,6 +1,6 @@
-use super::{BVHBounding, BVHBuildStrategy, FlattenBVH, FlattenBVHNode};
+use super::{BVHBounding, FlattenBVH, FlattenBVHNode};
 
-impl<B: BVHBounding, S: BVHBuildStrategy<B>> FlattenBVH<B, S> {
+impl<B: BVHBounding> FlattenBVH<B> {
   /// reused_history_stack is a preallocate stack to avoid too frequent allocation
   pub fn traverse(
     &self,
