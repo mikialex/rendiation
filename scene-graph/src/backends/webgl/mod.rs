@@ -60,6 +60,7 @@ impl RenderObject<WebGLRenderer> {
       .disable_old_unused_bindings(&renderer.gl);
 
     // shading bind
+    renderer.texture_slot_states.reset_slots();
     for i in 0..shading.get_parameters_count() {
       let parameter_group = resources
         .get_shading_param_group(shading.get_parameter(i))
@@ -73,9 +74,11 @@ impl RenderObject<WebGLRenderer> {
           }
           UniformValue(index) => {
             let uniform_value = resources.get_uniform_value(index).resource();
-            program.upload_uniform_value(uniform_value, p.0, renderer);
+            program.upload_uniform_value(uniform_value, p.0, &renderer.gl);
           }
-          // SampledTexture(_index) => todo!(),
+          SampledTexture(_) => {
+            // let texture = resources.get_sampled_texture(index).respirce();
+          }
           _ => panic!("unsupported webgl resource type"),
         }
       })

@@ -1,8 +1,9 @@
 // https://github.com/glium/glium/blob/master/src/uniforms/value.rs
 
-use crate::{WebGLProgram, WebGLRenderer};
+use crate::{WebGLProgram};
 use rendiation_math::*;
 use rendiation_ral::*;
+use web_sys::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UniformType {
@@ -55,10 +56,9 @@ impl WebGLProgram {
     &self,
     value: &UniformValue,
     uniform: UniformTypeId,
-    renderer: &WebGLRenderer,
+    gl: &WebGl2RenderingContext,
   ) {
     let location = self.query_uniform_location(uniform);
-    let gl = &renderer.gl;
     use UniformValue::*;
     match value {
       Float(v) => gl.uniform1fv_with_f32_array(Some(location), &[*v; 1]),

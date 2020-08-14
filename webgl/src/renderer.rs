@@ -1,4 +1,4 @@
-use crate::VertexEnableStates;
+use crate::{TextureSlotStates, VertexEnableStates};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::*;
@@ -13,6 +13,9 @@ pub struct WebGLRenderer {
 
   #[wasm_bindgen(skip)]
   pub attribute_states: VertexEnableStates,
+
+  #[wasm_bindgen(skip)]
+  pub texture_slot_states: TextureSlotStates,
 }
 
 #[wasm_bindgen]
@@ -29,6 +32,7 @@ impl WebGLRenderer {
       canvas,
       gl,
       attribute_states: VertexEnableStates::new(10), // todo!()
+      texture_slot_states: TextureSlotStates::new(8),
     }
   }
 }
