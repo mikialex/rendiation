@@ -24,7 +24,7 @@ fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro
 
   let mut collector = ForeignFunctionCollector {
     depend_functions: HashSet::new(),
-    exclude_functions: vec!["vec2", "vec3", "vec4", "max", "min", "pow"]
+    exclude_functions: vec!["vec2", "vec3", "vec4", "max", "min", "pow", "clamp", "mix"]
       .into_iter()
       .map(|s| s.to_owned())
       .collect(),

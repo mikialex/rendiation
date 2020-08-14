@@ -23,7 +23,11 @@ impl ShaderGraphBuilder {
   }
 
   pub fn set_frag_output(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
-    todo!()
+    let mut g = self.guard();
+    let graph = g.as_mut().unwrap();
+
+    let index = graph.frag_outputs.len();
+    graph.frag_outputs.insert((unsafe { n.cast_type() }, index));
   }
 
   pub fn set_vary<T: ShaderGraphNodeType>(
@@ -38,9 +42,7 @@ impl ShaderGraphBuilder {
     graph.register_type::<T>();
 
     let handle = graph.nodes.create_node(node.to_any());
-    graph
-      .nodes
-      .connect_node(unsafe { h.cast_type() }, handle);
+    graph.nodes.connect_node(unsafe { h.cast_type() }, handle);
 
     graph.varyings.insert((handle, index));
     unsafe { handle.cast_type() }
