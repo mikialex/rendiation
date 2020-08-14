@@ -28,4 +28,4 @@ impl WebGLProgram {
   }
 }
 
-pub struct WebGLSamplerDiscriptor {}
+pub struct WebGLSamplerDescriptor {}

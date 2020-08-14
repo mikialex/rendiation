@@ -97,7 +97,7 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
       std::sync::Arc::new(
         rendiation_shadergraph::ShaderFunction::new(
           #quoted_function_name,
-          #quoted_source
+          Some(#quoted_source)
         )
         #(#foreign)*
       )

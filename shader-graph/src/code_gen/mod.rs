@@ -39,7 +39,7 @@ impl CodeGenCtx {
     let mut resolved_fn = HashSet::new();
     self.depend_functions.iter().for_each(|f| {
       if f.depend_functions.len() == 0 {
-        builder.write_ln("").write_raw(f.function_source);
+        f.function_source.map(|s| builder.write_ln("").write_raw(s));
         resolved_fn.insert(f.clone());
       }
 
@@ -63,7 +63,7 @@ impl CodeGenCtx {
         &mut |n| {
           let f = n.data();
           if !resolved_fn.contains(f) {
-            builder.write_ln("").write_raw(f.function_source);
+            f.function_source.map(|s| builder.write_ln("").write_raw(s));
             resolved_fn.insert(f.clone());
           }
         },
@@ -132,7 +132,7 @@ impl ShaderGraph {
           ctx.add_node_result(MiddleVariableCodeGenResult::new(h, fn_call))
         }
         Input(node) => ctx.add_node_result(MiddleVariableCodeGenResult::new(h, node.name.clone())),
-        Vary(i) => ctx.add_node_result(MiddleVariableCodeGenResult::new(h, format!("vary{}", i)))
+        Vary(i) => ctx.add_node_result(MiddleVariableCodeGenResult::new(h, format!("vary{}", i))),
       };
 
       builder.write_ln(&format!("{}", result));
