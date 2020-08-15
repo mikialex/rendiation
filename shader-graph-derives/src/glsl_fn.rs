@@ -108,9 +108,8 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
     ) -> rendiation_shadergraph::ShaderGraphNodeHandle<#return_type> {
       use rendiation_shadergraph::*;
 
-      let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-      let graph = guard.as_mut().unwrap();
-      let result = graph
+      modify_graph(|graph| {
+        let result = graph
         .nodes
         .create_node(ShaderGraphNode::<#return_type>::new(
             ShaderGraphNodeData::Function(
@@ -120,10 +119,12 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
             )
           ).to_any()
         );
-      unsafe {
-        #(#gen_node_connect)*
-        result.cast_type()
-      }
+        unsafe {
+          #(#gen_node_connect)*
+          result.cast_type()
+        }
+      })
+
     }
 
   }

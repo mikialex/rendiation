@@ -14,46 +14,40 @@ impl ShaderGraphBuilder {
     Self {}
   }
 
-  fn guard(&self) -> MutexGuard<'static, Option<ShaderGraph>> {
-    IN_BUILDING_SHADER_GRAPH.lock().unwrap()
-  }
-
   pub fn set_vertex_root(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
-    self.guard().as_mut().unwrap().vertex_position = Some(n)
+    modify_graph(|g| g.vertex_position = Some(n));
   }
 
   pub fn set_frag_output(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
-    let mut g = self.guard();
-    let graph = g.as_mut().unwrap();
-
-    let index = graph.frag_outputs.len();
-    graph.frag_outputs.insert((unsafe { n.cast_type() }, index));
+    modify_graph(|g| {
+      let index = g.frag_outputs.len();
+      g.frag_outputs.insert((unsafe { n.cast_type() }, index));
+    });
   }
 
   pub fn set_vary<T: ShaderGraphNodeType>(
     &self,
     h: ShaderGraphNodeHandle<T>,
   ) -> ShaderGraphNodeHandle<T> {
-    let mut g = self.guard();
-    let graph = g.as_mut().unwrap();
+    modify_graph(|graph| {
+      let index = graph.varyings.len();
+      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Vary(index));
+      graph.register_type::<T>();
 
-    let index = graph.varyings.len();
-    let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Vary(index));
-    graph.register_type::<T>();
+      let handle = graph.nodes.create_node(node.to_any());
+      graph.nodes.connect_node(unsafe { h.cast_type() }, handle);
 
-    let handle = graph.nodes.create_node(node.to_any());
-    graph.nodes.connect_node(unsafe { h.cast_type() }, handle);
-
-    graph.varyings.insert((handle, index));
-    unsafe { handle.cast_type() }
+      graph.varyings.insert((handle, index));
+      unsafe { handle.cast_type() }
+    })
   }
 
   pub fn create(self) -> ShaderGraph {
-    self.guard().take().unwrap()
+    IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
   }
 
   pub fn bindgroup(&mut self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder)) {
-    self.guard().as_mut().map(|g| {
+    modify_graph(|g| {
       let mut builder = ShaderGraphBindGroupBuilder::new(g);
       b(&mut builder);
       builder.resolve();
@@ -71,17 +65,17 @@ impl ShaderGraphBuilder {
   }
 
   pub fn attribute<T: ShaderGraphNodeType>(&mut self, name: &str) -> ShaderGraphNodeHandle<T> {
-    let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
-      node_type: ShaderGraphInputNodeType::Uniform,
-      name: name.to_owned(),
-    });
-    let mut g = self.guard();
-    let graph = g.as_mut().unwrap();
-    let node = ShaderGraphNode::<T>::new(data);
-    graph.register_type::<T>();
-    let handle = graph.nodes.create_node(node.to_any());
-    graph.attributes.insert((handle, graph.attributes.len()));
-    unsafe { handle.cast_type() }
+    modify_graph(|graph| {
+      let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
+        node_type: ShaderGraphInputNodeType::Uniform,
+        name: name.to_owned(),
+      });
+      let node = ShaderGraphNode::<T>::new(data);
+      graph.register_type::<T>();
+      let handle = graph.nodes.create_node(node.to_any());
+      graph.attributes.insert((handle, graph.attributes.len()));
+      unsafe { handle.cast_type() }
+    })
   }
 
   pub fn geometry_by<T: ShaderGraphGeometryProvider>(&mut self) -> T::ShaderGraphGeometryInstance {

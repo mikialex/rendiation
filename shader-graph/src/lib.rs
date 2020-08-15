@@ -15,8 +15,8 @@ pub mod shader_function;
 pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
-pub use shader_function::*;
 use rendiation_math::*;
+pub use shader_function::*;
 
 lazy_static! {
   pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
@@ -60,4 +60,10 @@ impl ShaderGraph {
       .entry(TypeId::of::<T>())
       .or_insert_with(|| T::to_glsl_type());
   }
+}
+
+pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
+  let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
+  let graph = guard.as_mut().unwrap();
+  modifier(graph)
 }

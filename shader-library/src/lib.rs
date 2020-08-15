@@ -1,3 +1,4 @@
+pub mod builtin;
 pub mod fog;
 pub mod sph;
 pub mod tone_mapping;
