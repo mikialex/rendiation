@@ -24,10 +24,22 @@ fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro
 
   let mut collector = ForeignFunctionCollector {
     depend_functions: HashSet::new(),
-    exclude_functions: vec!["vec2", "vec3", "vec4", "max", "min", "pow", "clamp", "mix"]
-      .into_iter()
-      .map(|s| s.to_owned())
-      .collect(),
+    exclude_functions: vec![
+      "vec2",
+      "vec3",
+      "vec4",
+      "max",
+      "min",
+      "pow",
+      "clamp",
+      "mix",
+      "length",
+      "texture",
+      "sampler2D",
+    ]
+    .into_iter()
+    .map(|s| s.to_owned())
+    .collect(),
   };
 
   def.visit(&mut collector);
@@ -132,12 +144,23 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
 
 fn convert_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStream {
   use syntax::TypeSpecifierNonArray::*;
+  let sampler_type = glsl::syntax::TypeName("sampler".to_owned());
+  let texture_type = glsl::syntax::TypeName("texture2D".to_owned());
   match glsl {
     Float => quote! { f32 },
     Vec2 => quote! { rendiation_math::Vec2<f32> },
     Vec3 => quote! { rendiation_math::Vec3<f32> },
     Vec4 => quote! { rendiation_math::Vec4<f32> },
     Mat4 => quote! { rendiation_math::Mat4<f32> },
-    _ => panic!("unsupported param type"),
+    TypeName(ty) => {
+      if ty == &sampler_type {
+        quote! { rendiation_shadergraph::ShaderGraphSampler }
+      } else if ty == &texture_type {
+        quote! { rendiation_shadergraph::ShaderGraphTexture }
+      } else {
+        panic!("unsupported param type {:?}", glsl)
+      }
+    }
+    _ => panic!("unsupported param type {:?}", glsl),
   }
 }

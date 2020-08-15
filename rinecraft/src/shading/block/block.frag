@@ -12,18 +12,20 @@ layout(set = 0, binding = 3) uniform Locals {
     vec3 u_camera_world_position;
 };
 
-const vec3 sph0 = vec3(1.0); // just ramdom values ;)
-const vec3 sph1 = vec3(0.3);
-const vec3 sph2 = vec3(-0.2);
-const vec3 sph3 = vec3(0.1);
-const vec3 sph4 = vec3(0.0);
-const vec3 sph5 = vec3(0.0);
-const vec3 sph6 = vec3(0.0);
-const vec3 sph7 = vec3(0.0);
-const vec3 sph8 = vec3(0.0);
-
 vec3 sphericalHarmonics(const in vec3 normal )
 {
+
+    const vec3 sph0 = vec3(1.0); // just ramdom values ;)
+    const vec3 sph1 = vec3(0.3);
+    const vec3 sph2 = vec3(-0.2);
+    const vec3 sph3 = vec3(0.1);
+    const vec3 sph4 = vec3(0.0);
+    const vec3 sph5 = vec3(0.0);
+    const vec3 sph6 = vec3(0.0);
+    const vec3 sph7 = vec3(0.0);
+    const vec3 sph8 = vec3(0.0);
+
+
     float x = normal.x;
     float y = normal.y;
     float z = normal.z;

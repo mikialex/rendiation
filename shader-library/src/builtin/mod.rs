@@ -1,15 +1,12 @@
 use rendiation_shadergraph::*;
 
-pub static MAX_FUNCTION: once_cell::sync::Lazy<
-  std::sync::Arc<rendiation_shadergraph::ShaderFunction>,
-> = once_cell::sync::Lazy::new(|| {
-  std::sync::Arc::new(rendiation_shadergraph::ShaderFunction::new("max", None))
-});
+pub static MAX_FUNCTION: once_cell::sync::Lazy<std::sync::Arc<ShaderFunction>> =
+  once_cell::sync::Lazy::new(|| std::sync::Arc::new(ShaderFunction::new("max", None)));
 
 pub fn max<T: ShaderGraphNodeType>(
   a: ShaderGraphNodeHandle<T>,
   b: ShaderGraphNodeHandle<T>,
-) -> rendiation_shadergraph::ShaderGraphNodeHandle<T> {
+) -> ShaderGraphNodeHandle<T> {
   modify_graph(|graph| {
     let result = graph.nodes.create_node(
       ShaderGraphNode::<T>::new(ShaderGraphNodeData::Function(FunctionNode {
@@ -18,8 +15,15 @@ pub fn max<T: ShaderGraphNodeType>(
       .to_any(),
     );
     unsafe {
-      // #(#gen_node_connect)*
+      graph.nodes.connect_node(a.cast_type(), result);
+      graph.nodes.connect_node(b.cast_type(), result);
       result.cast_type()
     }
   })
 }
+
+// pub fn sampler2D(
+//   texture: ShaderGraphNodeHandle<ShaderGraphTexture>,
+//   sampler: ShaderGraphNodeHandle<ShaderGraphSampler>,
+// ) -> ShaderGraphNodeHandle<ShaderGraphSampler> {
+// }

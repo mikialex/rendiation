@@ -2,7 +2,7 @@ use crate::*;
 
 glsl_function!(
   "
-vec3 sphericalHarmonics(const in vec3 normal)
+vec3 spherical_harmonics(const in vec3 normal)
 {
 
   const vec3 sph0 = vec3(1.0); // just random values ;)

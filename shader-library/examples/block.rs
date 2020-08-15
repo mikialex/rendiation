@@ -1,15 +1,16 @@
+use rendiation_shader_library::fog::*;
+use rendiation_shader_library::sph::*;
 use rendiation_shader_library::*;
 use transform::*;
 
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
-  // #[bind_stage = "vertex"]
-  pub uniforms: MVPTransformation,
+  pub mvp: MVPTransformation,
 
-  // #[bind_stage = "fragment"]
-  // pub texture_view: TextureView, // need cal stuff?
+  pub fog: FogData,
 
-  // #[bind_stage = "fragment"]
+  pub texture_view: ShaderGraphTexture,
+
   pub sampler: ShaderGraphSampler,
 }
 
@@ -21,18 +22,44 @@ pub struct Vertex {
   pub uv: Vec2<f32>,
 }
 
+glsl_function!(
+  "
+  vec4 block_frag_color(
+      vec3 diffuse,
+      vec2 uv, 
+      vec4 mv_position,
+      sampler sa,
+      texture2D tex
+    ){
+    vec3 color = diffuse * spherical_harmonics(v_normal);
+    color *= texture(sampler2D(tex, sa), uv).rgb;
+    float distance = length(mv_position);
+    return vec4(linear_fog(color, distance), 1.0);
+  }
+  "
+);
+
 fn main() {
   let mut builder = ShaderGraphBuilder::new();
   let geometry = builder.geometry_by::<Vertex>();
   let block_parameter = builder.bindgroup_by::<BlockShadingParamGroup>();
-  let uniforms = block_parameter.uniforms;
+  let uniforms = block_parameter.mvp;
 
-  let vertex_position = mvp_projection(geometry.position, uniforms.projection, uniforms.model_view);
-  builder.set_vertex_root(vertex_position);
+  let mv_position = to_mv_position(geometry.position, uniforms.model_view);
+  let clip_position = projection(mv_position, uniforms.projection);
+  builder.set_vertex_root(clip_position);
 
   let frag_normal = builder.set_vary(geometry.normal);
+  let frag_uv = builder.set_vary(geometry.uv);
+  let frag_mv_position = builder.set_vary(mv_position);
 
-  // builder.set_frag_output(vec4_31(frag_normal, con(1.0)));
+  builder.set_frag_output(block_frag_color(
+    frag_normal,
+    frag_uv,
+    frag_mv_position,
+    block_parameter.sampler,
+    block_parameter.texture_view,
+  ));
 
   let graph = builder.create();
 
