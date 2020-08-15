@@ -32,7 +32,7 @@ fn main() {
 
   let frag_normal = builder.set_vary(geometry.normal);
 
-  builder.set_frag_output(frag_normal);
+  // builder.set_frag_output(vec4_31(frag_normal, con(1.0)));
 
   let graph = builder.create();
 

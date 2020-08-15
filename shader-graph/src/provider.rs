@@ -1,5 +1,5 @@
 use crate::{
-  ShaderGraphBindGroupBuilder, ShaderGraphNodeHandle, ShaderGraphNodeType, ShaderGraphBuilder,
+  ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeHandle, ShaderGraphNodeType,
 };
 
 pub trait ShaderGraphBindGroupItemProvider {
@@ -30,6 +30,25 @@ impl ShaderGraphBindGroupItemProvider for ShaderGraphSampler {
   }
 }
 
+pub struct ShaderGraphTexture;
+
+impl ShaderGraphNodeType for ShaderGraphTexture {
+  fn to_glsl_type() -> &'static str {
+    "texture2D"
+  }
+}
+
+impl ShaderGraphBindGroupItemProvider for ShaderGraphTexture {
+  type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderGraphTexture>;
+
+  fn create_instance<'a>(
+    name: &'static str,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+  ) -> Self::ShaderGraphBindGroupItemInstance {
+    bindgroup_builder.uniform::<ShaderGraphTexture>(name)
+  }
+}
+
 pub trait ShaderGraphBindGroupProvider {
   type ShaderGraphBindGroupInstance;
 
@@ -38,10 +57,8 @@ pub trait ShaderGraphBindGroupProvider {
   ) -> Self::ShaderGraphBindGroupInstance;
 }
 
-pub trait ShaderGraphGeometryProvider{
+pub trait ShaderGraphGeometryProvider {
   type ShaderGraphGeometryInstance;
 
-  fn create_instance(
-    builder: &mut ShaderGraphBuilder,
-  ) -> Self::ShaderGraphGeometryInstance;
+  fn create_instance(builder: &mut ShaderGraphBuilder) -> Self::ShaderGraphGeometryInstance;
 }
