@@ -80,16 +80,13 @@ impl ShaderGraphBuilder {
 }
 
 pub struct ShaderGraphBindGroupBuilder<'a> {
-  index: usize,
   graph: &'a mut ShaderGraph,
   bindgroup: ShaderGraphBindGroup,
 }
 
 impl<'a> ShaderGraphBindGroupBuilder<'a> {
   pub fn new(graph: &'a mut ShaderGraph) -> Self {
-    let index = graph.bindgroups.len();
     Self {
-      index,
       graph,
       bindgroup: ShaderGraphBindGroup { inputs: Vec::new() },
     }

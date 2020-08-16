@@ -211,11 +211,25 @@ impl ShaderGraph {
       .join("\n")
       .as_ref();
 
+    result += self.gen_bindgroups_header().as_str();
+
     result
+  }
+
+  fn gen_bindgroups_header(&self) -> String {
+    self
+      .bindgroups
+      .iter()
+      .enumerate()
+      .map(|(i, b)| b.gen_header(self, i))
+      .collect::<Vec<_>>()
+      .join("\n")
   }
 
   fn gen_header_frag(&self) -> String {
     let mut result = String::from("#version 450\n");
+
+    result += self.gen_bindgroups_header().as_str();
 
     // varyings
     result += self
@@ -240,16 +254,27 @@ impl ShaderGraph {
 }
 
 impl ShaderGraphBindGroup {
-  pub fn gen_header(&self, graph: &ShaderGraph) -> String {
+  pub fn gen_header(&self, graph: &ShaderGraph, index: usize) -> String {
     self
       .inputs
       .iter()
-      .map(|h| match &h {
+      .enumerate()
+      .map(|(i, h)| match &h {
         ShaderGraphUniformInputType::NoneUBO(node) => {
-          let input = graph.nodes.get_node(*node).data().unwrap_as_input();
-          format!("")
+          let info = graph.nodes.get_node(*node).data();
+          let input = info.unwrap_as_input();
+          format!(
+            "layout(set = {}, binding = {}) uniform {} {};\n",
+            index,
+            i,
+            graph.type_id_map.get(&info.node_type).unwrap(),
+            input.name.as_str()
+          )
         }
-        _ => todo!(),
+        ShaderGraphUniformInputType::UBO((info, _)) => format!(
+          "layout(set = {}, binding = {}) {};",
+          index, i, info.code_cache
+        ),
       })
       .collect::<Vec<_>>()
       .join("\n")

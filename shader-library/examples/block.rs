@@ -7,8 +7,8 @@ use transform::*;
 pub struct BlockShadingParamGroup {
   pub mvp: MVPTransformation,
   pub fog: FogData,
-  pub texture_view: ShaderGraphTexture,
-  pub sampler: ShaderGraphSampler,
+  pub my_texture_view: ShaderGraphTexture,
+  pub my_sampler: ShaderGraphSampler,
 }
 
 #[repr(C)]
@@ -54,8 +54,8 @@ fn main() {
     frag_normal,
     frag_uv,
     frag_mv_position,
-    block_parameter.sampler,
-    block_parameter.texture_view,
+    block_parameter.my_sampler,
+    block_parameter.my_texture_view,
   ));
 
   let graph = builder.create();

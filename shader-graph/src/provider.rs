@@ -103,7 +103,7 @@ impl UBOInfo {
         .collect::<Vec<_>>()
         .join(";\n")
         .as_str()
-      + " \n}\n";
+      + " \n}";
 
     self
   }
