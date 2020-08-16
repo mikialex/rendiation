@@ -83,12 +83,12 @@ impl UBOInfo {
       code_cache: String::new(),
     }
   }
-  pub fn add_field<T: ShaderGraphNodeType>(&mut self, name: &'static str) -> &mut Self {
+  pub fn add_field<T: ShaderGraphNodeType>(mut self, name: &'static str) -> Self {
     self.fields.insert(name, T::to_glsl_type());
     self
   }
 
-  pub fn gen_code_cache(&mut self) -> &mut Self {
+  pub fn gen_code_cache(mut self) -> Self {
     self.code_cache = String::from("uniform ")
       + &self.name
       + " {\n"

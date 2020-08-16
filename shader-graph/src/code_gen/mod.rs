@@ -241,7 +241,14 @@ impl ShaderGraph {
 
 impl ShaderGraphBindGroup {
   pub fn gen_header(&self, graph: &ShaderGraph) -> String {
-    let result = String::new();
-    result
+    self
+      .inputs
+      .iter()
+      .map(|&h| {
+        let input = graph.nodes.get_node(h).data().unwrap_as_input();
+        format!("")
+      })
+      .collect::<Vec<_>>()
+      .join("\n")
   }
 }
