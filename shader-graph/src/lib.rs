@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use std::{
   any::TypeId,
   collections::{HashMap, HashSet},
-  sync::{Arc, Mutex, MutexGuard},
+  sync::{Arc, Mutex},
 };
 
 pub mod builder;
@@ -26,6 +26,11 @@ pub type ShaderGraphNodeHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
+pub enum ShaderGraphUniformInputType {
+  NoneUBO(ShaderGraphNodeHandleUntyped),
+  UBO((Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)),
+}
+
 pub struct ShaderGraph {
   pub attributes: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
   pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
@@ -34,7 +39,6 @@ pub struct ShaderGraph {
   pub frag_outputs: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
 
   pub bindgroups: Vec<ShaderGraphBindGroup>,
-  pub uniforms: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
 
   pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
@@ -43,7 +47,6 @@ pub struct ShaderGraph {
 impl ShaderGraph {
   fn new() -> Self {
     Self {
-      uniforms: HashSet::new(),
       attributes: HashSet::new(),
       bindgroups: Vec::new(),
       nodes: ArenaGraph::new(),
@@ -66,4 +69,8 @@ pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   let graph = guard.as_mut().unwrap();
   modifier(graph)
+}
+
+pub struct ShaderGraphBindGroup {
+  pub inputs: Vec<ShaderGraphUniformInputType>,
 }

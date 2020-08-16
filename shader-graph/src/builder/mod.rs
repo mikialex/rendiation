@@ -1,9 +1,5 @@
 use crate::*;
 
-pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<ShaderGraphNodeHandleUntyped>,
-}
-
 pub struct ShaderGraphBuilder;
 
 impl ShaderGraphBuilder {
@@ -99,20 +95,64 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
     }
   }
 
-  pub fn uniform<T: ShaderGraphNodeType>(&mut self, name: &str) -> ShaderGraphNodeHandle<T> {
+  pub fn create_uniform_node<T: ShaderGraphNodeType>(
+    &mut self,
+    name: &str,
+  ) -> ShaderGraphNodeHandle<T> {
     let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
       node_type: ShaderGraphInputNodeType::Uniform,
       name: name.to_owned(),
     });
     let node = ShaderGraphNode::<T>::new(data);
-    let handle = self.graph.nodes.create_node(node.to_any());
     self.graph.register_type::<T>();
-    self.graph.uniforms.insert((handle, self.index));
-    self.bindgroup.inputs.push(handle);
+    let handle = self.graph.nodes.create_node(node.to_any());
     unsafe { handle.cast_type() }
+  }
+
+  pub fn add_none_ubo(&mut self, h: ShaderGraphNodeHandleUntyped) {
+    self
+      .bindgroup
+      .inputs
+      .push(ShaderGraphUniformInputType::NoneUBO(h));
+  }
+
+  pub fn add_ubo(&mut self, info: (Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)) {
+    self
+      .bindgroup
+      .inputs
+      .push(ShaderGraphUniformInputType::UBO(info));
   }
 
   pub fn resolve(self) {
     self.graph.bindgroups.push(self.bindgroup)
+  }
+}
+
+pub struct UBOBuilder<'a, 'b> {
+  bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a>,
+  meta_info: Arc<UBOInfo>,
+  nodes: Vec<ShaderGraphNodeHandleUntyped>,
+}
+
+impl<'a, 'b> UBOBuilder<'a, 'b> {
+  pub fn new(
+    meta_info: Arc<UBOInfo>,
+    bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a>,
+  ) -> Self {
+    Self {
+      bindgroup_builder,
+      meta_info,
+      nodes: Vec::new(),
+    }
+  }
+
+  pub fn uniform<T: ShaderGraphNodeType>(&mut self, name: &str) -> ShaderGraphNodeHandle<T> {
+    let handle = self.bindgroup_builder.create_uniform_node::<T>(name);
+    self.nodes.push(unsafe { handle.cast_type() });
+    handle
+  }
+
+  pub fn ok(self) {
+    self.bindgroup_builder.add_ubo((self.meta_info, self.nodes));
   }
 }

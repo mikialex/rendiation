@@ -34,27 +34,11 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
       let field_str = format!("{}", field_name);
-      quote! { #field_name: bindgroup_builder.uniform::<#ty>(#field_str), }
+      quote! { #field_name: ubo_builder.uniform::<#ty>(#field_str), }
     })
     .collect();
 
   let result = quote! {
-
-    pub struct #shadergraph_instance_name {
-      #(#instance_fields)*
-    }
-
-    impl rendiation_shadergraph::ShaderGraphBindGroupItemProvider for #struct_name {
-      type ShaderGraphBindGroupItemInstance = #shadergraph_instance_name;
-      fn create_instance<'a>(
-        name: &'static str, // uniform buffer group not need set name
-        bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>)
-       -> Self::ShaderGraphBindGroupItemInstance {
-        Self::ShaderGraphBindGroupItemInstance {
-          #(#instance_new)*
-        }
-      }
-    }
 
     #[allow(non_upper_case_globals)]
     pub static #ubo_info_name: once_cell::sync::Lazy<
@@ -70,6 +54,31 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
         .gen_code_cache()
       )
     });
+
+    pub struct #shadergraph_instance_name {
+      #(#instance_fields)*
+    }
+
+    impl rendiation_shadergraph::ShaderGraphBindGroupItemProvider for #struct_name {
+      type ShaderGraphBindGroupItemInstance = #shadergraph_instance_name;
+      fn create_instance<'a>(
+        name: &'static str, // uniform buffer group not need set name
+        bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>)
+       -> Self::ShaderGraphBindGroupItemInstance {
+
+        let mut ubo_builder = rendiation_shadergraph::UBOBuilder::new(
+          #ubo_info_name.clone(),
+          bindgroup_builder
+        );
+
+        let instance = Self::ShaderGraphBindGroupItemInstance {
+          #(#instance_new)*
+        };
+
+        ubo_builder.ok();
+        instance
+      }
+    }
 
   };
 

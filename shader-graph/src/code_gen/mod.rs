@@ -244,9 +244,12 @@ impl ShaderGraphBindGroup {
     self
       .inputs
       .iter()
-      .map(|&h| {
-        let input = graph.nodes.get_node(h).data().unwrap_as_input();
-        format!("")
+      .map(|h| match &h {
+        ShaderGraphUniformInputType::NoneUBO(node) => {
+          let input = graph.nodes.get_node(*node).data().unwrap_as_input();
+          format!("")
+        }
+        _ => todo!(),
       })
       .collect::<Vec<_>>()
       .join("\n")

@@ -27,7 +27,9 @@ impl ShaderGraphBindGroupItemProvider for ShaderGraphSampler {
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
   ) -> Self::ShaderGraphBindGroupItemInstance {
-    bindgroup_builder.uniform::<ShaderGraphSampler>(name)
+    let node = bindgroup_builder.create_uniform_node::<ShaderGraphSampler>(name);
+    bindgroup_builder.add_none_ubo(unsafe { node.cast_type() });
+    node
   }
 }
 
@@ -46,7 +48,9 @@ impl ShaderGraphBindGroupItemProvider for ShaderGraphTexture {
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
   ) -> Self::ShaderGraphBindGroupItemInstance {
-    bindgroup_builder.uniform::<ShaderGraphTexture>(name)
+    let node = bindgroup_builder.create_uniform_node::<ShaderGraphTexture>(name);
+    bindgroup_builder.add_none_ubo(unsafe { node.cast_type() });
+    node
   }
 }
 
