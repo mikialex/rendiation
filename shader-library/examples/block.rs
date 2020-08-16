@@ -6,11 +6,8 @@ use transform::*;
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
   pub mvp: MVPTransformation,
-
   pub fog: FogData,
-
   pub texture_view: ShaderGraphTexture,
-
   pub sampler: ShaderGraphSampler,
 }
 

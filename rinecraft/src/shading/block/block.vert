@@ -9,7 +9,8 @@ layout(location = 1) out vec3 v_world;
 layout(location = 2) out vec3 v_normal;
 
 
-layout(set = 0, binding = 0) uniform Locals {
+layout(set = 0, binding = 0) 
+uniform Locals {
     mat4 u_mvp_matrix;
 };
 
