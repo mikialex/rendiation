@@ -1,3 +1,0 @@
-struct Hierarchy {
-  parent: Entity,
-}

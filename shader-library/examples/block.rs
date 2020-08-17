@@ -36,30 +36,38 @@ glsl_function!(
   "
 );
 
+struct BlockShader;
+
+impl BlockShader{
+  pub fn build_shader(){
+    let mut builder = ShaderGraphBuilder::new();
+    let geometry = builder.geometry_by::<Vertex>();
+    let block_parameter = builder.bindgroup_by::<BlockShadingParamGroup>();
+    let uniforms = block_parameter.mvp;
+
+    let mv_position = to_mv_position(geometry.position, uniforms.model_view);
+    let clip_position = projection(mv_position, uniforms.projection);
+    builder.set_vertex_root(clip_position);
+
+    let frag_normal = builder.set_vary(geometry.normal);
+    let frag_uv = builder.set_vary(geometry.uv);
+    let frag_mv_position = builder.set_vary(mv_position);
+
+    builder.set_frag_output(block_frag_color(
+      frag_normal,
+      frag_uv,
+      frag_mv_position,
+      block_parameter.my_sampler,
+      block_parameter.my_texture_view,
+    ));
+
+    let graph = builder.create();
+
+    println!("{}", graph.gen_code_vertex());
+    println!("{}", graph.gen_code_frag());
+  }
+}
+
 fn main() {
-  let mut builder = ShaderGraphBuilder::new();
-  let geometry = builder.geometry_by::<Vertex>();
-  let block_parameter = builder.bindgroup_by::<BlockShadingParamGroup>();
-  let uniforms = block_parameter.mvp;
-
-  let mv_position = to_mv_position(geometry.position, uniforms.model_view);
-  let clip_position = projection(mv_position, uniforms.projection);
-  builder.set_vertex_root(clip_position);
-
-  let frag_normal = builder.set_vary(geometry.normal);
-  let frag_uv = builder.set_vary(geometry.uv);
-  let frag_mv_position = builder.set_vary(mv_position);
-
-  builder.set_frag_output(block_frag_color(
-    frag_normal,
-    frag_uv,
-    frag_mv_position,
-    block_parameter.my_sampler,
-    block_parameter.my_texture_view,
-  ));
-
-  let graph = builder.create();
-
-  println!("{}", graph.gen_code_vertex());
-  println!("{}", graph.gen_code_frag());
+  BlockShader::build_shader();
 }

@@ -30,7 +30,24 @@ pub fn derive_bindgroup_impl(
   })
   .collect();
 
+    // let wgpu_new: Vec<_> = fields
+    // .iter()
+    // .map(|f| {
+    //   let field_name = f.ident.as_ref().unwrap();
+    //   let ty = &f.ty;
+    //   let field_str = format!("{}", field_name);
+    //   quote! { #field_name:< #ty as rendiation_shadergraph::ShaderGraphBindGroupItemProvider>::create_instance(#field_str, bindgroup_builder), }
+    // })
+    // .collect();
+
   let result = quote! {
+    // impl #struct_name{
+    //   fn create_bindgroup(&self, renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::WGPUBindGroup {
+    //     rendiation_webgpu::BindGroupBuilder::new()
+    //       #(#bg_build)*
+    //       .build(&renderer.device,  #struct_name::provide_layout(renderer))
+    //   }
+    // }
 
     pub struct #shadergraph_instance_name {
       #(#instance_fields)*
