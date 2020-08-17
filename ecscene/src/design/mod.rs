@@ -30,7 +30,7 @@ fn test() {
   let index_buffer = registy.entity_builder().with(index_buffer);
 
   let geometry = registy
-    .entity_builder()
+    .entity_builder(Geomtry)
     .reference(index_buffer)
     .reference(vertex_buffer)
     .reference(range)
@@ -49,6 +49,9 @@ fn test() {
   registry.watch(change, LocalMatrix, ||{
 
   });
+
+  registry.read().query(..).iter();
+  registry.write().query(..).iter();
 
   // registry.watch()
   //     .filter(|f|)
