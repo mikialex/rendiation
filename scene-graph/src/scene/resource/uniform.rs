@@ -1,12 +1,13 @@
 use rendiation_ral::RALBackend;
 use std::{
   any::{Any, TypeId},
-  collections::HashMap,
+  collections::{HashMap, HashSet},
   marker::PhantomData,
 };
 
 pub struct UBOManager<T: RALBackend> {
   data: HashMap<TypeId, Box<dyn UBOStorageTrait<T, dyn Any>>>,
+  modified: HashSet<TypeId>,
   phantom: PhantomData<T>,
 }
 
@@ -14,9 +15,30 @@ impl<T: RALBackend> UBOManager<T> {
   pub fn new() -> Self {
     Self {
       data: HashMap::new(),
+      modified: HashSet::new(),
       phantom: PhantomData,
     }
   }
+
+  // fn insert(&mut self, value: U) -> usize {
+  //   let result = self.storage.len();
+  //   self.storage.push(value);
+  //   self.dirty = true;
+  //   result
+  // }
+
+  fn delete<U>(&mut self, handle: usize) {
+    self
+      .data
+      .get_mut(&TypeId::of::<U>())
+      .unwrap()
+      .delete(handle);
+  }
+
+  // fn update(&mut self, handle: usize, new_value: U) {
+  //   self.dirty = true;
+  //   self.storage[handle] = new_value;
+  // }
 }
 
 trait UBOStorageTrait<T: RALBackend, U> {
