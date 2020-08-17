@@ -74,22 +74,22 @@ impl<T: RALBackend> ResourceManager<T> {
 /// uniforms
 impl<T: RALBackend> ResourceManager<T> {
   pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut ResourceWrap<T::UniformBuffer> {
-    ResourceWrap::new_wrap(&mut self.uniforms, gpu)
+    ResourceWrap::new_wrap(&mut self.uniform_buffers, gpu)
   }
 
   pub fn get_uniform_mut(
     &mut self,
     index: UniformHandle<T>,
   ) -> &mut ResourceWrap<T::UniformBuffer> {
-    self.uniforms.get_mut(index).unwrap()
+    self.uniform_buffers.get_mut(index).unwrap()
   }
 
   pub fn get_uniform(&self, index: UniformHandle<T>) -> &ResourceWrap<T::UniformBuffer> {
-    self.uniforms.get(index).unwrap()
+    self.uniform_buffers.get(index).unwrap()
   }
 
   pub fn delete_uniform(&mut self, index: UniformHandle<T>) {
-    self.uniforms.remove(index);
+    self.uniform_buffers.remove(index);
   }
 }
 

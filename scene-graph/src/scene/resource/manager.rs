@@ -1,6 +1,5 @@
 use crate::{
-  Arena, Handle, SceneGeometryData, RALBackend, SceneShadingData,
-  SceneShadingParameterGroupData,
+  Arena, Handle, RALBackend, SceneGeometryData, SceneShadingData, SceneShadingParameterGroupData,
 };
 
 type ResourceArena<T> = Arena<ResourceWrap<T>>;
@@ -10,7 +9,7 @@ pub struct ResourceManager<T: RALBackend> {
   pub shadings: ResourceArena<SceneShadingData<T>>,
   pub shading_parameter_groups: ResourceArena<SceneShadingParameterGroupData<T>>,
 
-  pub uniforms: ResourceArena<T::UniformBuffer>,
+  pub uniform_buffers: ResourceArena<T::UniformBuffer>,
   pub uniform_values: ResourceArena<T::UniformValue>,
 
   pub textures: ResourceArena<T::VertexBuffer>,
@@ -56,7 +55,7 @@ impl<T: RALBackend> ResourceManager<T> {
       geometries: Arena::new(),
       shadings: Arena::new(),
       shading_parameter_groups: Arena::new(),
-      uniforms: Arena::new(),
+      uniform_buffers: Arena::new(),
       uniform_values: Arena::new(),
       textures: Arena::new(),
       index_buffers: Arena::new(),
