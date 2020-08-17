@@ -7,7 +7,7 @@ mod shading;
 pub use shader::*;
 pub use shading::*;
 
-pub trait RALBackend {
+pub trait RALBackend: 'static {
   type RenderTarget;
   type Renderer;
   type Shading;
