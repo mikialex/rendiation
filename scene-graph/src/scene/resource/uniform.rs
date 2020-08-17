@@ -6,7 +6,7 @@ use std::{
 };
 
 pub struct UBOManager<T: RALBackend> {
-  data: HashMap<TypeId, Box<dyn UBOStorageTrait<dyn Any>>>,
+  data: HashMap<TypeId, Box<dyn UBOStorageTrait<T, dyn Any>>>,
   phantom: PhantomData<T>,
 }
 
@@ -19,12 +19,15 @@ impl<T: RALBackend> UBOManager<T> {
   }
 }
 
-trait UBOStorageTrait<T> {
-  fn insert(&mut self, value: T) -> usize;
+trait UBOStorageTrait<T: RALBackend, U> {
+  fn insert(&mut self, value: U) -> usize;
   fn delete(&mut self, handle: usize);
+  fn update(&mut self, handle: usize, new_value: U);
+  fn maintain_gpu(&mut self, renderer: &mut T::Renderer);
+  fn get_gpu(&self) -> &T::UniformBuffer;
 }
 
-impl<T: RALBackend, U> UBOStorageTrait<U> for UBOStorage<T, U> {
+impl<T: RALBackend, U> UBOStorageTrait<T, U> for UBOStorage<T, U> {
   fn insert(&mut self, value: U) -> usize {
     let result = self.storage.len();
     self.storage.push(value);
@@ -32,7 +35,22 @@ impl<T: RALBackend, U> UBOStorageTrait<U> for UBOStorage<T, U> {
     result
   }
 
-  fn delete(&mut self, handle: usize) {}
+  fn delete(&mut self, handle: usize) {
+    self.storage.swap_remove(handle);
+  }
+
+  fn update(&mut self, handle: usize, new_value: U) {
+    self.dirty = true;
+    self.storage[handle] = new_value;
+  }
+
+  fn maintain_gpu(&mut self, _renderer: &mut T::Renderer) {
+    todo!()
+  }
+
+  fn get_gpu(&self) -> &T::UniformBuffer {
+    self.gpu.as_ref().unwrap()
+  }
 }
 
 pub struct UBOStorage<T: RALBackend, U> {
