@@ -13,7 +13,7 @@ pub trait GeometryProvider {
 }
 
 pub trait BindGroupProvider: Sized {
-  fn provide_layout(renderer: &WGPURenderer) -> &'static wgpu::BindGroupLayout;
+  fn provide_layout(renderer: &WGPURenderer) -> &wgpu::BindGroupLayout;
   fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup;
 }
 
@@ -21,7 +21,7 @@ pub struct PipelineBuilder<'a> {
   renderer: &'a WGPURenderer,
   vertex_shader: Vec<u32>,
   frag_shader: Vec<u32>,
-  bindgroup_layouts: Vec<&'static wgpu::BindGroupLayout>,
+  bindgroup_layouts: Vec<&'a wgpu::BindGroupLayout>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   target_states: TargetStates,
   rasterization: wgpu::RasterizationStateDescriptor,
