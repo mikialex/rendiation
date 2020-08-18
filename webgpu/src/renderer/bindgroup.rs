@@ -17,30 +17,24 @@ impl WGPUBindGroup {
     bindings: &[WGPUBinding],
     layout: &wgpu::BindGroupLayout,
   ) -> Self {
-    let resource_wrap: Vec<_> = bindings
+    let wgpu_bindings: Vec<_> = bindings
       .iter()
-      .map(|binding| match binding {
-        WGPUBinding::BindBuffer(buffer) => wgpu::BindingResource::Buffer {
-          buffer: &buffer.get_gpu_buffer(),
-          range: 0..buffer.byte_size() as u64,
-        },
-        WGPUBinding::BindTexture(texture) => wgpu::BindingResource::TextureView(&texture),
-        WGPUBinding::BindSampler(sampler) => {
-          wgpu::BindingResource::Sampler(sampler.get_gpu_sampler())
-        }
-      })
-      .collect();
-
-    let mut count = 0;
-    let wgpu_bindings: Vec<_> = resource_wrap
-      .iter()
-      .map(|resource| {
-        let b = wgpu::Binding {
-          binding: count,
-          resource: resource.clone(), // todo improvement
+      .enumerate()
+      .map(|(i, binding)| {
+        let resource = match binding {
+          WGPUBinding::BindBuffer(buffer) => wgpu::BindingResource::Buffer {
+            buffer: &buffer.get_gpu_buffer(),
+            range: 0..buffer.byte_size() as u64,
+          },
+          WGPUBinding::BindTexture(texture) => wgpu::BindingResource::TextureView(&texture),
+          WGPUBinding::BindSampler(sampler) => {
+            wgpu::BindingResource::Sampler(sampler.get_gpu_sampler())
+          }
         };
-        count += 1;
-        b
+        wgpu::Binding {
+          binding: i as u32,
+          resource,
+        }
       })
       .collect();
 
