@@ -1,6 +1,6 @@
 // cal for Content abstraction layer
 
-use std::any::Any;
+use std::{ops::Range, any::Any};
 
 mod shader;
 mod shading;
@@ -23,9 +23,10 @@ pub trait RALBackend: 'static {
   fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
 
-  fn create_uniform_buffer(renderer: &mut Self::Renderer, des: SceneUniform)
+  fn create_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8])
     -> Self::UniformBuffer;
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer);
+  fn update_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8], range: Range<usize>);
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer;
 

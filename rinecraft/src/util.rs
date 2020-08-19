@@ -7,9 +7,9 @@ use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
 
 pub struct CameraGPU {
-  pub gpu_camera_position: UniformHandle<WGPURenderer>,
+  pub gpu_camera_position: UniformHandle,
   gpu_camera_position_dirty: bool,
-  pub gpu_mvp_matrix: UniformHandle<WGPURenderer>,
+  pub gpu_mvp_matrix: UniformHandle,
   gpu_mvp_matrix_dirty: bool,
 }
 
@@ -33,7 +33,7 @@ impl CameraGPU {
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
     Self {
-      gpu_camera_position: scene.resources.add_uniform(gpu_camera_position).index(),
+      gpu_camera_position: scene.resources.add_uniform(gpu_camera_position),
       gpu_camera_position_dirty: false,
       gpu_mvp_matrix: scene.resources.add_uniform(gpu_mvp_matrix).index(),
       gpu_mvp_matrix_dirty: false,

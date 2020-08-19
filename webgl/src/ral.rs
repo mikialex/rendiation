@@ -2,6 +2,7 @@ use crate::{UniformValue, WebGLProgram, WebGLRenderer, WebGLTexture, WebGLVertex
 
 use rendiation_ral::*;
 use web_sys::*;
+use std::ops::Range;
 
 impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
@@ -24,7 +25,7 @@ impl RALBackend for WebGLRenderer {
     renderer.gl.delete_program(Some(shading.program()))
   }
 
-  fn create_uniform_buffer(renderer: &mut WebGLRenderer, des: SceneUniform) -> Self::UniformBuffer {
+  fn create_uniform_buffer(renderer: &mut WebGLRenderer, data: &[u8]) -> Self::UniformBuffer {
     let gl = &renderer.gl;
     let buffer = renderer
       .gl
@@ -34,7 +35,7 @@ impl RALBackend for WebGLRenderer {
     gl.bind_buffer(WebGl2RenderingContext::UNIFORM_BUFFER, Some(&buffer));
     gl.buffer_data_with_u8_array_and_src_offset(
       WebGl2RenderingContext::UNIFORM_BUFFER,
-      des.value.as_byte(),
+      data,
       WebGl2RenderingContext::STATIC_DRAW,
       0,
     );
@@ -42,6 +43,9 @@ impl RALBackend for WebGLRenderer {
   }
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer) {
     renderer.gl.delete_buffer(Some(&uniform));
+  }
+  fn update_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8], range: Range<usize>){
+    todo!()
   }
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer {

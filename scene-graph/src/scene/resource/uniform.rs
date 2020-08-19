@@ -1,12 +1,41 @@
+use crate::{ResourceManager};
 use rendiation_ral::RALBackend;
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
   marker::PhantomData,
+  ops::Range,
 };
 
+pub struct UniformHandle<U>(usize);
+
+/// uniform buffer
+impl<T: RALBackend> ResourceManager<T> {
+  pub fn add_uniform<U: 'static>(&mut self, value: U) -> &mut UniformHandle<U> {
+    // ResourceWrap::new_wrap(&mut self.uniform_buffers, gpu)
+    todo!()
+  }
+
+  pub fn mut_uniform<U: 'static>(
+    &mut self,
+    index: UniformHandle<U>,
+  ) -> &mut U {
+    // self.uniform_buffers.get_mut(index).unwrap()
+    todo!()
+  }
+
+  pub fn get_uniform_gpu<U: 'static>(&self, index: UniformHandle<U>) -> (&T::UniformBuffer, Range<usize>) {
+    // self.uniform_buffers.get(index).unwrap()
+    todo!()
+  }
+
+  pub fn delete_uniform<U: 'static>(&mut self, index: UniformHandle<U>) {
+    // self.uniform_buffers.remove(index);
+  }
+}
+
 pub struct UBOManager<T: RALBackend> {
-  data: HashMap<TypeId, Box<dyn Any>>,
+  data: HashMap<TypeId, Box<dyn UBOStorageTrait<T>>>,
   modified: HashSet<TypeId>,
   phantom: PhantomData<T>,
 }
@@ -23,22 +52,72 @@ impl<T: RALBackend> UBOManager<T> {
   pub fn get_storage<U: 'static>(&mut self) -> &mut UBOStorage<T, U> {
     self
       .data
-      .get_mut(&TypeId::of::<U>())
-      .unwrap()
+      .entry(TypeId::of::<U>())
+      .or_insert_with(|| Box::new(UBOStorage::<T, U>::new()))
+      .as_any_mut()
       .downcast_mut::<UBOStorage<T, U>>()
       .unwrap()
+  }
+  pub fn get_storage_should_ok<U: 'static>(&self) -> &UBOStorage<T, U> {
+    self
+      .data
+      .get(&TypeId::of::<U>())
+      .unwrap()
+      .as_any()
+      .downcast_ref::<UBOStorage<T, U>>()
+      .unwrap()
+  }
+
+  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+    let data = &mut self.data;
+    self.modified.drain().for_each(|ty| {
+      data.get_mut(&ty).map(|storage| {
+        storage.maintain_gpu(renderer);
+      });
+    });
+  }
+
+  pub fn get_gpu_with_range<U: 'static>(&self, handle: usize) -> (&T::UniformBuffer, Range<usize>) {
+    let stride = std::mem::size_of::<U>();
+    (
+      self.get_storage_should_ok::<U>().get_gpu(),
+      handle * stride..(handle + 1) * stride,
+    )
   }
 
   pub fn delete<U: 'static>(&mut self, handle: usize) {
     self.get_storage::<U>().delete(handle);
   }
 
-  pub fn insert<U: 'static>(&mut self, value: U) {
-    self.get_storage::<U>().insert(value);
+  pub fn insert<U: 'static>(&mut self, value: U) -> usize {
+    self.get_storage::<U>().insert(value)
   }
 
   pub fn update<U: 'static>(&mut self, handle: usize, new_value: U) {
     self.get_storage::<U>().update(handle, new_value);
+  }
+}
+
+trait UBOStorageTrait<T: RALBackend>: Any {
+  fn maintain_gpu(&mut self, _renderer: &mut T::Renderer);
+  fn as_any(&self) -> &dyn Any;
+  fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+impl<T: RALBackend, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
+  fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+    if self.dirty {
+      let data = self.storage.as_slice();
+      let data = unsafe { std::mem::transmute(data) };
+      self.gpu = Some(T::create_uniform_buffer(renderer, data))
+    }
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
   }
 }
 
@@ -72,10 +151,6 @@ impl<T: RALBackend, U> UBOStorage<T, U> {
   fn update(&mut self, handle: usize, new_value: U) {
     self.dirty = true;
     self.storage[handle] = new_value;
-  }
-
-  fn maintain_gpu(&mut self, _renderer: &mut T::Renderer) {
-    todo!()
   }
 
   fn get_gpu(&self) -> &T::UniformBuffer {

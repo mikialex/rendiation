@@ -69,7 +69,7 @@ impl RenderObject<WebGLRenderer> {
         use ShadingParameterType::*;
         match p.1 {
           UniformBuffer(index) => {
-            let _uniform = resources.get_uniform(index).resource();
+            // let _uniform = resources.get_uniform(index).resource();
             todo!()
           }
           UniformValue(index) => {
