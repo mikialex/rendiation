@@ -1,4 +1,4 @@
-use crate::{ResourceManager};
+use crate::ResourceManager;
 use rendiation_ral::RALBackend;
 use std::{
   any::{Any, TypeId},
@@ -7,9 +7,9 @@ use std::{
   ops::Range,
 };
 
-pub struct UniformHandle<U>{
+pub struct UniformHandle<U> {
   index: usize,
-  phantom: PhantomData<U>
+  phantom: PhantomData<U>,
 }
 
 /// uniform buffer
@@ -19,15 +19,15 @@ impl<T: RALBackend> ResourceManager<T> {
     todo!()
   }
 
-  pub fn mut_uniform<U: 'static>(
-    &mut self,
-    index: UniformHandle<U>,
-  ) -> &mut U {
+  pub fn mut_uniform<U: 'static>(&mut self, index: UniformHandle<U>) -> &mut U {
     // self.uniform_buffers.get_mut(index).unwrap()
     todo!()
   }
 
-  pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<U>) -> (&T::UniformBuffer, Range<usize>) {
+  pub fn get_uniform_gpu<U: 'static>(
+    &self,
+    handle: UniformHandle<U>,
+  ) -> (&T::UniformBuffer, Range<usize>) {
     self.uniform_buffers.get_gpu_with_range::<U>(handle.index)
   }
 

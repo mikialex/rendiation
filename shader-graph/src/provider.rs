@@ -69,7 +69,7 @@ pub trait ShaderGraphGeometryProvider {
 }
 
 pub trait ShaderGraphUBO: ShaderGraphBindGroupItemProvider {
-  fn gen_header() -> &'static str;
+  // todo maybe return static ubo info
 }
 
 /// use for compile time ubo field reflection by procedure macro;

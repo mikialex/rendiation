@@ -80,6 +80,8 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
       }
     }
 
+    impl rendiation_shadergraph::ShaderGraphUBO for #struct_name {}
+
   };
 
   Ok(result)

@@ -14,7 +14,6 @@ pub trait GeometryProvider {
 
 pub trait BindGroupProvider: Sized {
   fn provide_layout(renderer: &WGPURenderer) -> &wgpu::BindGroupLayout;
-  fn create_bindgroup(&self, renderer: &WGPURenderer) -> WGPUBindGroup;
 }
 
 pub struct PipelineBuilder<'a> {

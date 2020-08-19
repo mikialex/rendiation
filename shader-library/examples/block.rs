@@ -5,7 +5,6 @@ use transform::*;
 
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
-  
   #[stage(vert)]
   pub mvp: MVPTransformation,
 
@@ -23,7 +22,7 @@ pub struct BlockShadingParamGroup {
 //   pub fn create_bindgroup(
 //     mvp: UniformHandle<MVPTransformation>,
 //     fog: UniformHandle<FogData>,
-    
+
 //   ) -> WGPUBindgroup{
 //     ..
 //   }
@@ -56,8 +55,8 @@ glsl_function!(
 
 struct BlockShader;
 
-impl BlockShader{
-  pub fn build_shader(){
+impl BlockShader {
+  pub fn build_shader() {
     let mut builder = ShaderGraphBuilder::new();
     let geometry = builder.geometry_by::<Vertex>();
     let block_parameter = builder.bindgroup_by::<BlockShadingParamGroup>();
