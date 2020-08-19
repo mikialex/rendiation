@@ -16,8 +16,8 @@ impl RALBackend for WGPURenderer {
   type SampledTexture = ();
 
   fn create_shading(renderer: &mut WGPURenderer, des: &SceneShadingDescriptor) -> Self::Shading {
-    let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderType::Vertex);
-    let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderType::Fragment);
+    let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderStage::VERTEX);
+    let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderStage::FRAGMENT);
     PipelineBuilder::new(renderer, vertex, frag)
       // .geometry(des)
       .build() // todo add bindgroup state stuff
@@ -31,7 +31,7 @@ impl RALBackend for WGPURenderer {
   fn dispose_uniform_buffer(_renderer: &mut Self::Renderer, _uniform: Self::UniformBuffer) {
     // just drop!
   }
-  fn update_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8], range: Range<usize>){
+  fn update_uniform_buffer(_renderer: &mut Self::Renderer, _data: &[u8], _range: Range<usize>){
     todo!()
   }
 

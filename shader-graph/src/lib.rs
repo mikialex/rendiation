@@ -12,9 +12,11 @@ mod code_gen;
 pub mod nodes;
 pub mod provider;
 pub mod shader_function;
+pub mod webgpu;
 pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
+pub use webgpu::*;
 use rendiation_math::*;
 pub use shader_function::*;
 

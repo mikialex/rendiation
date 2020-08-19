@@ -1,6 +1,6 @@
-use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
+use crate::{Handle, RALBackend, ResourceManager, ResourceWrap, UniformHandle};
 use rendiation_ral::*;
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 pub struct SceneShadingParameterGroupData<T: RALBackend> {
   type_id: ParameterGroupTypeId,
@@ -38,7 +38,7 @@ pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Textur
 
 pub enum ShadingParameterType<T: RALBackend> {
   UniformValue(UniformValueHandle<T>),
-  UniformBuffer(UniformHandle),
+  UniformBuffer(Box<dyn Any>), // todo
   Texture(SamplerHandle<T>),
   Sampler(TextureHandle<T>),
   SampledTexture(SampledTextureHandle<T>),

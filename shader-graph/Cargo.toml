@@ -8,3 +8,4 @@ edition = "2018"
 lazy_static = "1.4.0"
 arena-graph = { path = "../utils/arena-graph" }
 rendiation-math = { path = "../math" }
+rendiation-webgpu = { path = "../webgpu" }

@@ -1,7 +1,6 @@
 use std::{any::TypeId, cell::RefCell, collections::HashMap};
 
 pub mod bindgroup;
-pub mod bindgroup_layout;
 pub mod blend;
 pub mod buffer;
 pub mod pipeline;
@@ -13,7 +12,6 @@ pub mod swap_chain;
 pub mod texture;
 
 pub use bindgroup::*;
-pub use bindgroup_layout::*;
 pub use blend::*;
 pub use buffer::*;
 pub use pipeline::*;

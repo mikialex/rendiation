@@ -1,15 +1,15 @@
 use image::ImageBuffer;
 use image::Rgba;
-use rendiation_math::{Vec2, Vec3};
+use rendiation_math::{Vec2, Vec3, Mat4};
 use rendiation_render_entity::*;
 use rendiation_scenegraph::{Scene, UniformHandle, WebGPUBackend};
 use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
 
 pub struct CameraGPU {
-  pub gpu_camera_position: UniformHandle,
+  pub gpu_camera_position: UniformHandle<Vec3<f32>>,
   gpu_camera_position_dirty: bool,
-  pub gpu_mvp_matrix: UniformHandle,
+  pub gpu_mvp_matrix: UniformHandle<Mat4<f32>>,
   gpu_mvp_matrix_dirty: bool,
 }
 
@@ -19,23 +19,10 @@ impl CameraGPU {
     camera: &PerspectiveCamera,
     scene: &mut Scene<WGPURenderer>,
   ) -> Self {
-    let gpu_camera_position = WGPUBuffer::new(
-      renderer,
-      CameraGPU::get_world_position_data(camera).as_ref(),
-      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    );
-
-    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-
-    let gpu_mvp_matrix = WGPUBuffer::new(
-      renderer,
-      mx_total.as_ref(),
-      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    );
     Self {
-      gpu_camera_position: scene.resources.add_uniform(gpu_camera_position),
+      gpu_camera_position: scene.resources.add_uniform(camera.matrix().position()),
       gpu_camera_position_dirty: false,
-      gpu_mvp_matrix: scene.resources.add_uniform(gpu_mvp_matrix).index(),
+      gpu_mvp_matrix: scene.resources.add_uniform(OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix()),
       gpu_mvp_matrix_dirty: false,
     }
   }
@@ -45,23 +32,17 @@ impl CameraGPU {
     self.gpu_camera_position_dirty = true;
   }
 
-  fn get_world_position_data(camera: &impl Camera) -> Vec3<f32> {
-    camera.matrix().position()
-  }
-
   pub fn update_gpu_world_position(
     &mut self,
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WGPURenderer>,
   ) {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
-    let data = CameraGPU::get_world_position_data(camera);
     self.gpu_camera_position_dirty = false;
-    scene
+    *scene
       .resources
-      .get_uniform_mut(self.gpu_camera_position)
-      .resource_mut()
-      .update(renderer, data.as_ref());
+      .mut_uniform(self.gpu_camera_position)
+      = camera.matrix().position();
   }
 
   pub fn update_gpu_mvp_matrix(
@@ -72,13 +53,9 @@ impl CameraGPU {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     self.gpu_mvp_matrix_dirty = false;
 
-    let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
-
-    scene
+    *scene
       .resources
-      .get_uniform_mut(self.gpu_mvp_matrix)
-      .resource_mut()
-      .update(renderer, mx_total.as_ref());
+      .mut_uniform(self.gpu_mvp_matrix) = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
   }
 
   pub fn update_all(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WGPURenderer>) {

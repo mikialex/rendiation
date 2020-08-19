@@ -5,11 +5,29 @@ use transform::*;
 
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
+  
+  #[stage(vert)]
   pub mvp: MVPTransformation,
+
+  #[stage(frag)]
   pub fog: FogData,
+
+  #[stage(frag)]
   pub my_texture_view: ShaderGraphTexture,
+
+  #[stage(frag)]
   pub my_sampler: ShaderGraphSampler,
 }
+
+// impl BlockShadingParamGroup{
+//   pub fn create_bindgroup(
+//     mvp: UniformHandle<MVPTransformation>,
+//     fog: UniformHandle<FogData>,
+    
+//   ) -> WGPUBindgroup{
+//     ..
+//   }
+// }
 
 #[repr(C)]
 #[derive(Clone, Copy, Geometry)]

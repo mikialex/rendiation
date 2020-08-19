@@ -1,8 +1,9 @@
 use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::sampler::WGPUSampler;
+use std::ops::Range;
 
 pub enum WGPUBinding<'a> {
-  BindBuffer(&'a WGPUBuffer),
+  BindBuffer((&'a WGPUBuffer, Range<u64>)),
   BindTexture(&'a wgpu::TextureView),
   BindSampler(&'a WGPUSampler),
 }
@@ -22,9 +23,9 @@ impl WGPUBindGroup {
       .enumerate()
       .map(|(i, binding)| {
         let resource = match binding {
-          WGPUBinding::BindBuffer(buffer) => wgpu::BindingResource::Buffer {
+          WGPUBinding::BindBuffer((buffer, range)) => wgpu::BindingResource::Buffer {
             buffer: &buffer.get_gpu_buffer(),
-            range: 0..buffer.byte_size() as u64,
+            range: range.clone(),
           },
           WGPUBinding::BindTexture(texture) => wgpu::BindingResource::TextureView(&texture),
           WGPUBinding::BindSampler(sampler) => {
@@ -62,7 +63,12 @@ impl<'a> BindGroupBuilder<'a> {
     }
   }
 
-  pub fn buffer(mut self, b: &'a WGPUBuffer) -> Self {
+  pub fn push(mut self, b: WGPUBinding<'a>) -> Self {
+    self.bindings.push(b);
+    self
+  }
+
+  pub fn buffer(mut self, b: (&'a WGPUBuffer, Range<u64>)) -> Self {
     self.bindings.push(WGPUBinding::BindBuffer(b));
     self
   }
@@ -80,4 +86,27 @@ impl<'a> BindGroupBuilder<'a> {
   pub fn build(&self, device: &wgpu::Device, layout: &wgpu::BindGroupLayout) -> WGPUBindGroup {
     WGPUBindGroup::new(device, &self.bindings, layout)
   }
+}
+
+pub struct BindGroupLayoutBuilder {
+  pub bindings: Vec<wgpu::BindGroupLayoutEntry>,
+}
+
+impl BindGroupLayoutBuilder {
+  pub fn new() -> Self {
+    Self {
+      bindings: Vec::new(),
+    }
+  }
+
+  pub fn bind(mut self, ty: wgpu::BindingType, visibility: wgpu::ShaderStage) -> Self {
+    let binding = self.bindings.len() as u32;
+    self.bindings.push(wgpu::BindGroupLayoutEntry {
+      binding,
+      visibility,
+      ty,
+    });
+    self
+  } 
+
 }

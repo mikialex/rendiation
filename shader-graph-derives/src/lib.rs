@@ -20,7 +20,7 @@ pub fn derive_ubo(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(BindGroup)]
+#[proc_macro_derive(BindGroup, attributes(stage))]
 pub fn derive_bindgroup(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
   derive_bindgroup_impl(input)

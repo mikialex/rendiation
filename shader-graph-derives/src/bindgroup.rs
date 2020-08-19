@@ -30,24 +30,66 @@ pub fn derive_bindgroup_impl(
   })
   .collect();
 
-    // let wgpu_new: Vec<_> = fields
-    // .iter()
-    // .map(|f| {
-    //   let field_name = f.ident.as_ref().unwrap();
-    //   let ty = &f.ty;
-    //   let field_str = format!("{}", field_name);
-    //   quote! { #field_name:< #ty as rendiation_shadergraph::ShaderGraphBindGroupItemProvider>::create_instance(#field_str, bindgroup_builder), }
-    // })
-    // .collect();
+    let wgpu_create_bindgroup_fn_param: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! { #field_name: < #ty as rendiation_shadergraph::WGPUBindgroupItem>::Type, }
+    })
+    .collect();
+
+    let wgpu_create_bindgroup_create: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(self.#field_name))}
+    })
+    .collect();
+
+    let wgpu_create_bindgroup_layout_create: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      let attr = f.attrs.iter().find(|a| a.path.is_ident("bind_type")).unwrap();
+      print!("{:?}", attr);
+      quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(self.#field_name))}
+    })
+    .collect();
 
   let result = quote! {
-    // impl #struct_name{
-    //   fn create_bindgroup(&self, renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::WGPUBindGroup {
-    //     rendiation_webgpu::BindGroupBuilder::new()
-    //       #(#bg_build)*
-    //       .build(&renderer.device,  #struct_name::provide_layout(renderer))
-    //   }
-    // }
+    impl rendiation_webgpu::BindGroupProvider for #struct_name{
+
+      fn provide_layout(renderer: &rendiation_webgpu:WGPURenderer) -> &rendiation_webgpu::BindGroupLayout{
+        let cache = renderer.bindgroup_layout_cache.borrow_mut();
+        cache.entry(std::any::TypeId::of::<#struct_name>()).or_insert_with(||{
+
+          let builder = rendiation_webgpu::BindGroupLayoutBuilder::new()
+            #(#wgpu_create_bindgroup_layout_create)*;
+
+          renderer
+            .device
+            .create_bind_group_layout(&rendiation_webgpu::BindGroupLayoutDescriptor {
+              label: None,
+              bindings: &builder.bindings,
+            })
+        })
+      }
+
+      fn create_bindgroup(&self, 
+        renderer: &rendiation_webgpu::WGPURenderer,
+        #(#wgpu_create_bindgroup_fn_param)*
+      ) -> rendiation_webgpu::WGPUBindGroup{
+
+        rendiation_webgpu::BindGroupBuilder::new()
+          #(#wgpu_create_bindgroup_create)*
+          .build(&renderer.device,  #struct_name::provide_layout(renderer))
+          
+      }
+
+    }
 
     pub struct #shadergraph_instance_name {
       #(#instance_fields)*

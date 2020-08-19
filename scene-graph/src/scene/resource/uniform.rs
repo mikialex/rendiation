@@ -7,11 +7,14 @@ use std::{
   ops::Range,
 };
 
-pub struct UniformHandle<U>(usize);
+pub struct UniformHandle<U>{
+  index: usize,
+  phantom: PhantomData<U>
+}
 
 /// uniform buffer
 impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_uniform<U: 'static>(&mut self, value: U) -> &mut UniformHandle<U> {
+  pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<U> {
     // ResourceWrap::new_wrap(&mut self.uniform_buffers, gpu)
     todo!()
   }
@@ -24,13 +27,12 @@ impl<T: RALBackend> ResourceManager<T> {
     todo!()
   }
 
-  pub fn get_uniform_gpu<U: 'static>(&self, index: UniformHandle<U>) -> (&T::UniformBuffer, Range<usize>) {
-    // self.uniform_buffers.get(index).unwrap()
-    todo!()
+  pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<U>) -> (&T::UniformBuffer, Range<usize>) {
+    self.uniform_buffers.get_gpu_with_range::<U>(handle.index)
   }
 
-  pub fn delete_uniform<U: 'static>(&mut self, index: UniformHandle<U>) {
-    // self.uniform_buffers.remove(index);
+  pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<U>) {
+    self.uniform_buffers.delete::<U>(handle.index);
   }
 }
 
