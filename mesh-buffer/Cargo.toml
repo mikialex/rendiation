@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [features]
 webgpu = ["rendiation-webgpu"]
+shader-graph = ["rendiation-shadergraph"]
 
 [dependencies]
 lazy_static = "1.4.0"
@@ -16,3 +17,6 @@ rendiation-math-entity = {path = "../math-entity"}
 
 rendiation-webgpu = {path = "../webgpu", optional = true}
 space-indexer = {path = "../space-indexer"}
+
+rendiation-shadergraph = {path = "../shader-graph", optional = true}
+rendiation-shadergraph-derives = {path = "../shader-graph-derives", optional = true}

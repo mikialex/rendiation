@@ -1,5 +1,5 @@
 use crate::renderer::buffer::WGPUBuffer;
-use crate::renderer::sampler::WGPUSampler;
+use crate::{WGPURenderer, renderer::sampler::WGPUSampler};
 use std::ops::Range;
 
 pub enum WGPUBinding<'a> {
@@ -109,4 +109,12 @@ impl BindGroupLayoutBuilder {
     self
   } 
 
+  pub fn build(self, renderer: &WGPURenderer) -> wgpu::BindGroupLayout{
+    renderer
+    .device
+    .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: None,
+      bindings: &self.bindings,
+    })
+  }
 }

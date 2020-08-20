@@ -1,14 +1,59 @@
 use rendiation_webgpu::*;
-use rendiation_mesh_buffer::geometry::*;
+use rendiation_mesh_buffer::{vertex::Vertex, geometry::*};
 
 use render_target::TargetStates;
 use rendiation_webgpu_derives::BindGroup;
 
+use rendiation_shader_library::fog::*;
+use rendiation_shader_library::sph::*;
+use rendiation_shader_library::*;
+
+glsl_function!(
+  "
+  vec4 block_frag_color(
+      vec3 diffuse,
+      vec2 uv, 
+      vec4 mv_position,
+      sampler sa,
+      texture2D tex
+    ){
+    vec3 color = diffuse * spherical_harmonics(v_normal);
+    color *= texture(sampler2D(tex, sa), uv).rgb;
+    float distance = length(mv_position);
+    return vec4(linear_fog(color, distance), 1.0);
+  }
+  "
+);
+
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
+
+  let mut builder = ShaderGraphBuilder::new();
+  let geometry = builder.geometry_by::<Vertex>();
+  let block_parameter = builder.bindgroup_by::<BlockShadingParamGroup>();
+  let uniforms = block_parameter.mvp;
+
+  let mv_position = to_mv_position(geometry.position, uniforms.model_view);
+  let clip_position = projection(mv_position, uniforms.projection);
+  builder.set_vertex_root(clip_position);
+
+  let frag_normal = builder.set_vary(geometry.normal);
+  let frag_uv = builder.set_vary(geometry.uv);
+  let frag_mv_position = builder.set_vary(mv_position);
+
+  builder.set_frag_output(block_frag_color(
+    frag_normal,
+    frag_uv,
+    frag_mv_position,
+    block_parameter.my_sampler,
+    block_parameter.my_texture_view,
+  ));
+
+  let graph = builder.create();
+
   PipelineBuilder::new(
     renderer,
-    load_glsl(include_str!("./block.vert"), ShaderType::Vertex),
-    load_glsl(include_str!("./block.frag"), ShaderType::Fragment),
+    load_glsl(graph.gen_code_frag(), ShaderStage::VERTEX),
+    load_glsl(graph.gen_code_vertex(), ShaderStage::FRAGMENT),
   )
   .as_mut()
   .binding_group::<BlockShadingParamGroup>()
@@ -18,16 +63,16 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
 }
 
 #[derive(BindGroup)]
-pub struct BlockShadingParamGroup<'a> {
-  #[bind_type = "uniform-buffer:vertex"]
-  pub u_mvp_matrix: &'a WGPUBuffer,
+pub struct BlockShadingParamGroup {
+  #[stage(vert)]
+  pub mvp: MVPTransformation,
 
-  #[bind_type = "texture2d:fragment"]
-  pub texture_view: &'a wgpu::TextureView,
+  #[stage(frag)]
+  pub fog: FogData,
 
-  #[bind_type = "sampler:fragment"]
-  pub sampler: &'a WGPUSampler,
+  #[stage(frag)]
+  pub my_texture_view: ShaderGraphTexture,
 
-  #[bind_type = "uniform-buffer:fragment"]
-  pub u_camera_world_position: &'a WGPUBuffer,
+  #[stage(frag)]
+  pub my_sampler: ShaderGraphSampler,
 }

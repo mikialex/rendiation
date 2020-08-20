@@ -1,5 +1,9 @@
+use super::BlockShadingParamGroup;
+use render_target::{RenderTarget, TargetStatesProvider};
+use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
+use rendiation_shader_library::{ShaderGraphBuilder, ShaderGraphSampler, ShaderGraphTexture};
 use rendiation_webgpu::*;
-use rendiation_mesh_buffer::geometry::*;
+use rendiation_webgpu_derives::BindGroup;
 
 pub struct CopierShading {
   pub pipeline: WGPUPipeline,
@@ -7,10 +11,22 @@ pub struct CopierShading {
 
 impl CopierShading {
   pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
+    let mut builder = ShaderGraphBuilder::new();
+    let geometry = builder.geometry_by::<Vertex>();
+
+    let parameter = builder.bindgroup_by::<BlockShadingParamGroup>();
+    let uniforms = parameter.mvp;
+
+    builder.set_vertex_root(geometry.position);
+
+    builder.set_frag_output();
+
+    let graph = builder.create();
+
     let pipeline = PipelineBuilder::new(
       &renderer,
-      load_glsl(include_str!("./copy.vert"), ShaderType::Vertex),
-      load_glsl(include_str!("./copy.frag"), ShaderType::Fragment),
+      load_glsl(graph.gen_code_frag(), ShaderStage::VERTEX),
+      load_glsl(graph.gen_code_vertex(), ShaderStage::FRAGMENT),
     )
     .as_mut()
     .binding_group::<CopyParam>()
@@ -22,14 +38,11 @@ impl CopierShading {
   }
 }
 
-use render_target::{RenderTarget, TargetStatesProvider};
-use rendiation_webgpu_derives::BindGroup;
-
 #[derive(BindGroup)]
-pub struct CopyParam<'a> {
-  #[bind_type = "texture2d:fragment"]
-  pub texture: &'a wgpu::TextureView,
+pub struct CopyParam {
+  #[stage(frag)]
+  pub texture: ShaderGraphTexture,
 
-  #[bind_type = "sampler:fragment"]
-  pub sampler: &'a WGPUSampler,
+  #[stage(frag)]
+  pub sampler: ShaderGraphSampler,
 }
