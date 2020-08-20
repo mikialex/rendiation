@@ -1,4 +1,4 @@
-use std::{any::TypeId, cell::RefCell, collections::HashMap};
+use std::{any::TypeId, cell::RefCell, collections::HashMap, rc::Rc};
 
 pub mod bindgroup;
 pub mod blend;
@@ -42,7 +42,7 @@ pub struct WGPURenderer {
   pub queue: Queue,
   pub encoder: wgpu::CommandEncoder,
   pub swap_chain_format: wgpu::TextureFormat,
-  pub bindgroup_layout_cache: HashMap<TypeId, wgpu::BindGroupLayout>,
+  pub bindgroup_layout_cache: RefCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
 }
 
 pub struct Queue(pub wgpu::Queue);
@@ -86,7 +86,7 @@ impl WGPURenderer {
       queue: Queue(queue),
       encoder,
       swap_chain_format: wgpu::TextureFormat::Bgra8UnormSrgb,
-      bindgroup_layout_cache: HashMap::new(),
+      bindgroup_layout_cache: RefCell::new(HashMap::new()),
     }
   }
 }

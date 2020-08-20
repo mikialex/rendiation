@@ -52,11 +52,11 @@ pub fn derive_bindgroup_impl(
     .iter()
     .map(|f| {
       let ty = &f.ty;
-      let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
-      println!("mkmkmkmk {:?}", attr);
+      // let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
+      // println!("mkmkmkmk {:?}", attr);
       quote! {.bind(
        <#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_layout_type(),
-       rendiation_webgpu::ShaderStage::VERTEX
+       rendiation_webgpu::ShaderStage::VERTEX // todo
       )}
     })
     .collect();
@@ -64,21 +64,10 @@ pub fn derive_bindgroup_impl(
   let result = quote! {
     impl rendiation_webgpu::BindGroupProvider for #struct_name {
 
-      fn provide_layout(renderer: &mut rendiation_webgpu::WGPURenderer) -> &rendiation_webgpu::BindGroupLayout {
-        renderer.bindgroup_layout_cache
-        .entry(std::any::TypeId::of::<#struct_name>())
-        .or_insert_with(||{
-          todo!()
-          // let builder = rendiation_webgpu::BindGroupLayoutBuilder::new()
-          //   #(#wgpu_create_bindgroup_layout_create)*;
-
-          // renderer
-          //   .device
-          //   .create_bind_group_layout(&rendiation_webgpu::BindGroupLayoutDescriptor {
-          //     label: None,
-          //     bindings: &builder.bindings,
-          //   })
-        })
+      fn provide_layout(renderer: &rendiation_webgpu::WGPURenderer) -> &rendiation_webgpu::BindGroupLayout {
+        rendiation_webgpu::BindGroupLayoutBuilder::new()
+        #(#wgpu_create_bindgroup_layout_create)*
+        .build(renderer)
       }
     }
 

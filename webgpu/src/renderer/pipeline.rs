@@ -1,4 +1,5 @@
-use crate::{render_target::TargetStates, WGPUBindGroup, WGPURenderer};
+use crate::{render_target::TargetStates, WGPURenderer};
+use std::{rc::Rc, any::TypeId};
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
@@ -12,15 +13,15 @@ pub trait GeometryProvider {
   fn get_primitive_topology() -> wgpu::PrimitiveTopology;
 }
 
-pub trait BindGroupProvider: Sized {
-  fn provide_layout(renderer: &WGPURenderer) -> &wgpu::BindGroupLayout;
+pub trait BindGroupProvider: Sized + 'static{
+  fn provide_layout(renderer: &WGPURenderer) -> wgpu::BindGroupLayout;
 }
 
 pub struct PipelineBuilder<'a> {
   renderer: &'a WGPURenderer,
   vertex_shader: Vec<u32>,
   frag_shader: Vec<u32>,
-  bindgroup_layouts: Vec<&'a wgpu::BindGroupLayout>,
+  bindgroup_layouts: Vec<Rc<wgpu::BindGroupLayout>>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   target_states: TargetStates,
   rasterization: wgpu::RasterizationStateDescriptor,
@@ -54,9 +55,15 @@ impl<'a> PipelineBuilder<'a> {
   }
 
   pub fn binding_group<T: BindGroupProvider>(&mut self) -> &mut Self {
+    let id = TypeId::of::<T>();
+    let mut cache = self.renderer.bindgroup_layout_cache.borrow_mut();
+    let layout = cache.entry(id)
+    .or_insert_with(||{
+      Rc::new(T::provide_layout(self.renderer))
+    }).clone();
     self
       .bindgroup_layouts
-      .push(T::provide_layout(self.renderer));
+      .push(layout);
     self
   }
 
@@ -73,8 +80,9 @@ impl<'a> PipelineBuilder<'a> {
 
   pub fn build(&self) -> WGPUPipeline {
     let device = &self.renderer.device;
+    let bind_group_layouts: Vec<_> = self.bindgroup_layouts.iter().map(|l|l.as_ref()).collect();
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-      bind_group_layouts: &self.bindgroup_layouts,
+      bind_group_layouts: &bind_group_layouts,
     });
 
     // Create the render pipeline
