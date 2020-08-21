@@ -63,7 +63,8 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
       type ShaderGraphBindGroupItemInstance = #shadergraph_instance_name;
       fn create_instance<'a>(
         name: &'static str, // uniform buffer group not need set name
-        bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>)
+        bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>,
+        stage: rendiation_shadergraph::ShaderStage)
        -> Self::ShaderGraphBindGroupItemInstance {
 
         let mut ubo_builder = rendiation_shadergraph::UBOBuilder::new(
@@ -75,7 +76,7 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
           #(#instance_new)*
         };
 
-        ubo_builder.ok();
+        ubo_builder.ok(stage);
         instance
       }
     }

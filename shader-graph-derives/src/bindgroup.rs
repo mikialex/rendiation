@@ -26,7 +26,15 @@ pub fn derive_bindgroup_impl(
     let field_name = f.ident.as_ref().unwrap();
     let ty = &f.ty;
     let field_str = format!("{}", field_name);
-    quote! { #field_name:< #ty as rendiation_shadergraph::ShaderGraphBindGroupItemProvider>::create_instance(#field_str, bindgroup_builder), }
+    let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
+    let name = format!("{}", attr.tokens); // can i do better?
+    let visibility = match name.as_str() {
+      "(vert)" => quote! { rendiation_shadergraph::ShaderStage::Vertex },
+      "(frag)" => quote! { rendiation_shadergraph::ShaderStage::Fragment },
+      _ => panic!("unsupported"),
+    };
+
+    quote! { #field_name:<#ty as rendiation_shadergraph::ShaderGraphBindGroupItemProvider>::create_instance(#field_str, bindgroup_builder, #visibility), }
   })
   .collect();
 
@@ -48,15 +56,22 @@ pub fn derive_bindgroup_impl(
     })
     .collect();
 
+
   let wgpu_create_bindgroup_layout_create: Vec<_> = fields
     .iter()
     .map(|f| {
       let ty = &f.ty;
-      // let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
-      // println!("mkmkmkmk {:?}", attr);
+      let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
+      let name = format!("{}", attr.tokens); // can i do better?
+      let visibility = match name.as_str() {
+        "(vert)" => quote! { rendiation_webgpu::ShaderStage::VERTEX },
+        "(frag)" => quote! { rendiation_webgpu::ShaderStage::FRAGMENT },
+        _ => panic!("unsupported"),
+      };
+
       quote! {.bind(
        <#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_layout_type(),
-       rendiation_webgpu::ShaderStage::VERTEX // todo
+       #visibility
       )}
     })
     .collect();

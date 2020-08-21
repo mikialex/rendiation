@@ -73,6 +73,12 @@ pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
   modifier(graph)
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ShaderStage{
+  Vertex,
+  Fragment,
+}
+
 pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<ShaderGraphUniformInputType>,
+  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }

@@ -90,7 +90,15 @@ impl WGPURenderer {
     }
   }
 
-  pub fn register_bindgroup(){
-    todo!()
+  pub fn register_bindgroup<T: BindGroupProvider>(&mut self) -> &mut Self {
+    let id = TypeId::of::<T>();
+    {
+      let mut cache = self.bindgroup_layout_cache.borrow_mut();
+      cache.entry(id)
+      .or_insert_with(||{
+        Rc::new(T::provide_layout(self))
+      });
+    }
+    self
   }
 }

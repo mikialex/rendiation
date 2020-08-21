@@ -1,7 +1,7 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
-  shading::{create_block_shading, BlockShadingParamGroup},
+  shading::{create_block_shading, BlockShadingParamGroup, CopyParam},
   util::CameraGPU,
 };
 use rendiation_math::{Vec3, Vec4};
@@ -104,6 +104,10 @@ impl World {
     if self.scene_data.is_some() {
       return;
     }
+    renderer
+      .register_bindgroup::<BlockShadingParamGroup>()
+      .register_bindgroup::<CopyParam>();
+
     let resources = &mut scene.resources;
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);

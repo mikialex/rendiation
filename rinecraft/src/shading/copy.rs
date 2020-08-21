@@ -41,8 +41,8 @@ impl CopierShading {
 
     let pipeline = PipelineBuilder::new(
       &renderer,
-      load_glsl(graph.gen_code_frag(), ShaderStage::VERTEX),
-      load_glsl(graph.gen_code_vertex(), ShaderStage::FRAGMENT),
+      load_glsl(graph.gen_code_frag(), rendiation_webgpu::ShaderStage::VERTEX),
+      load_glsl(graph.gen_code_vertex(), rendiation_webgpu::ShaderStage::FRAGMENT),
     )
     .as_mut()
     .binding_group::<CopyParam>()

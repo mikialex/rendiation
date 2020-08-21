@@ -106,18 +106,22 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
     unsafe { handle.cast_type() }
   }
 
-  pub fn add_none_ubo(&mut self, h: ShaderGraphNodeHandleUntyped) {
+  pub fn add_none_ubo(&mut self, h: ShaderGraphNodeHandleUntyped, stage: ShaderStage) {
     self
       .bindgroup
       .inputs
-      .push(ShaderGraphUniformInputType::NoneUBO(h));
+      .push((ShaderGraphUniformInputType::NoneUBO(h), stage));
   }
 
-  pub fn add_ubo(&mut self, info: (Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)) {
+  pub fn add_ubo(
+    &mut self,
+    info: (Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>),
+    stage: ShaderStage,
+  ) {
     self
       .bindgroup
       .inputs
-      .push(ShaderGraphUniformInputType::UBO(info));
+      .push((ShaderGraphUniformInputType::UBO(info), stage));
   }
 
   pub fn resolve(self) {
@@ -149,7 +153,9 @@ impl<'a, 'b> UBOBuilder<'a, 'b> {
     handle
   }
 
-  pub fn ok(self) {
-    self.bindgroup_builder.add_ubo((self.meta_info, self.nodes));
+  pub fn ok(self, stage: ShaderStage) {
+    self
+      .bindgroup_builder
+      .add_ubo((self.meta_info, self.nodes), stage);
   }
 }
