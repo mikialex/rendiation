@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [features]
 webgpu = ["rendiation-webgpu"]
-shader-graph = ["rendiation-shadergraph"]
+shader-graph = ["rendiation-shadergraph", "rendiation-shadergraph-derives"]
 
 [dependencies]
 lazy_static = "1.4.0"

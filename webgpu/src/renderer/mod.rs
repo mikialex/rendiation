@@ -89,4 +89,8 @@ impl WGPURenderer {
       bindgroup_layout_cache: RefCell::new(HashMap::new()),
     }
   }
+
+  pub fn register_bindgroup(){
+    todo!()
+  }
 }

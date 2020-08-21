@@ -18,7 +18,6 @@ rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["webgpu", "shader-graph"] }
 rendiation-webgpu = { path = "../webgpu" }
-rendiation-webgpu-derives = { path = "../webgpu-derives" }
 rendium = { path = "../rendium" }
 
 rendiation-scenegraph = { path = "../scene-graph", features = ["webgpu"] }

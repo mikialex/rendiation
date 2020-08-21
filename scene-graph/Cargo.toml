@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 
 [features]
-webgpu = ["rendiation-webgpu", "rendiation-webgpu-derives", "rendiation-mesh-buffer/webgpu"]
+webgpu = ["rendiation-webgpu", "rendiation-mesh-buffer/webgpu"]
 webgl = ["rendiation-webgl"]
 
 [dependencies]

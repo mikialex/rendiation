@@ -1896,7 +1896,6 @@ dependencies = [
  "rendiation-mesh-buffer 0.1.0",
  "rendiation-render-entity 0.1.0",
  "rendiation-webgpu 0.1.0",
- "rendiation-webgpu-derives 0.1.0",
  "winit 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1919,7 +1918,6 @@ dependencies = [
  "rendiation-shadergraph 0.1.0",
  "rendiation-shadergraph-derives 0.1.0",
  "rendiation-webgpu 0.1.0",
- "rendiation-webgpu-derives 0.1.0",
  "rendium 0.1.0",
  "serde 1.0.105 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
