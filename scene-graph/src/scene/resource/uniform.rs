@@ -27,7 +27,7 @@ impl<T: RALBackend> ResourceManager<T> {
   pub fn get_uniform_gpu<U: 'static>(
     &self,
     handle: UniformHandle<U>,
-  ) -> (&T::UniformBuffer, Range<usize>) {
+  ) -> (&T::UniformBuffer, Range<u64>) {
     self.uniform_buffers.get_gpu_with_range::<U>(handle.index)
   }
 
@@ -79,11 +79,11 @@ impl<T: RALBackend> UBOManager<T> {
     });
   }
 
-  pub fn get_gpu_with_range<U: 'static>(&self, handle: usize) -> (&T::UniformBuffer, Range<usize>) {
+  pub fn get_gpu_with_range<U: 'static>(&self, handle: usize) -> (&T::UniformBuffer, Range<u64>) {
     let stride = std::mem::size_of::<U>();
     (
       self.get_storage_should_ok::<U>().get_gpu(),
-      handle * stride..(handle + 1) * stride,
+      (handle * stride) as u64..((handle + 1) * stride) as u64,
     )
   }
 

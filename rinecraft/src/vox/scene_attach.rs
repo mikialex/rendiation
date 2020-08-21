@@ -106,19 +106,17 @@ impl World {
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::default(renderer);
 
-    let shading_params = BlockShadingParamGroup {
-      texture_view: &block_atlas.view(),
-      sampler: &sampler,
-      u_mvp_matrix: scene
+    let shading_params = BlockShadingParamGroup::create_bindgroup(
+      renderer,
+      scene
         .resources
-        .get_uniform(camera_gpu.gpu_mvp_matrix)
-        .resource(),
-      u_camera_world_position: scene
+        .get_uniform_gpu(camera_gpu.gpu_mvp_matrix),
+      scene
         .resources
-        .get_uniform(camera_gpu.gpu_camera_position)
-        .resource(),
-    }
-    .create_bindgroup(renderer);
+        .get_uniform_gpu(camera_gpu.gpu_camera_position),
+      &block_atlas.view(),
+      &sampler,
+    );
 
     let block_shading = create_block_shading(renderer, target);
     let bindgroup_index = scene
