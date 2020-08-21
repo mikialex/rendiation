@@ -12,25 +12,30 @@ pub struct UniformHandle<U> {
   phantom: PhantomData<U>,
 }
 
+impl<T> Clone for UniformHandle<T> {
+  fn clone(&self) -> Self {
+      *self
+  }
+}
+impl<T> Copy for UniformHandle<T> { }
+
 /// uniform buffer
 impl<T: RALBackend> ResourceManager<T> {
   pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<U> {
-    // ResourceWrap::new_wrap(&mut self.uniform_buffers, gpu)
-    todo!()
+    UniformHandle {
+      index: self.uniform_buffers.insert(value),
+      phantom: PhantomData,
+    }
   }
 
-  pub fn mut_uniform<U: 'static>(&mut self, index: UniformHandle<U>) -> &mut U {
-    // self.uniform_buffers.get_mut(index).unwrap()
-    todo!()
+  pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<U>, new_value: U) {
+    self.uniform_buffers.update(handle.index, new_value);
   }
 
-  pub fn get_uniform_gpu<U: 'static>(
-    &self,
-    handle: UniformHandle<U>,
-  ) -> UniformBufferRef<T, U> {
-    UniformBufferRef{
-      ty: PhantomData, 
-      data: self.uniform_buffers.get_gpu_with_range::<U>(handle.index)
+  pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<U>) -> UniformBufferRef<T, U> {
+    UniformBufferRef {
+      ty: PhantomData,
+      data: self.uniform_buffers.get_gpu_with_range::<U>(handle.index),
     }
   }
 

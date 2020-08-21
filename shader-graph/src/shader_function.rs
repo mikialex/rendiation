@@ -4,6 +4,10 @@ use std::{
   sync::Arc,
 };
 
+pub struct ShaderBuiltInFunction {
+  pub function_name: &'static str,
+}
+
 #[derive(Debug, Eq)]
 pub struct ShaderFunction {
   pub function_name: &'static str,

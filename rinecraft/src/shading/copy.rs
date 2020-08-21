@@ -1,4 +1,4 @@
-use super::BlockShadingParamGroup;
+
 use render_target::{RenderTarget, TargetStatesProvider};
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 
@@ -13,17 +13,29 @@ pub struct CopierShading {
   pub pipeline: WGPUPipeline,
 }
 
+glsl_function!(
+  "
+  vec4 copy(
+      vec2 uv,
+      sampler sa,
+      texture2D tex
+    ){
+    return texture(sampler2D(tex, sa), uv);
+  }
+  "
+);
+
 impl CopierShading {
   pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
     let mut builder = ShaderGraphBuilder::new();
     let geometry = builder.geometry_by::<Vertex>();
 
-    let parameter = builder.bindgroup_by::<BlockShadingParamGroup>();
-    let uniforms = parameter.mvp;
+    let parameter = builder.bindgroup_by::<CopyParam>();
 
-    builder.set_vertex_root(geometry.position);
+    builder.set_vertex_root(position(geometry.position));
+    let frag_uv = builder.set_vary(geometry.uv);
 
-    builder.set_frag_output();
+    builder.set_frag_output(copy(frag_uv, parameter.sampler, parameter.texture));
 
     let graph = builder.create();
 

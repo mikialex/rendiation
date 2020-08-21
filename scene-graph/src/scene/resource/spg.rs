@@ -1,6 +1,6 @@
-use crate::{Handle, RALBackend, ResourceManager, ResourceWrap, UniformHandle};
+use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
 use rendiation_ral::*;
-use std::any::{Any, TypeId};
+use std::any::{Any};
 
 pub struct SceneShadingParameterGroupData<T: RALBackend> {
   type_id: ParameterGroupTypeId,

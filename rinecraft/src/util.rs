@@ -5,11 +5,10 @@ use rendiation_render_entity::*;
 use rendiation_scenegraph::{Scene, UniformHandle, WebGPUBackend};
 use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
+use rendiation_shader_library::transform::MVPTransformation;
 
 pub struct CameraGPU {
-  pub gpu_camera_position: UniformHandle<Vec3<f32>>,
-  gpu_camera_position_dirty: bool,
-  pub gpu_mvp_matrix: UniformHandle<Mat4<f32>>,
+  pub gpu_mvp_matrix: UniformHandle<MVPTransformation>,
   gpu_mvp_matrix_dirty: bool,
 }
 
@@ -19,30 +18,18 @@ impl CameraGPU {
     camera: &PerspectiveCamera,
     scene: &mut Scene<WGPURenderer>,
   ) -> Self {
+    let mvp = MVPTransformation{
+      projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
+      model_view: camera.get_view_matrix() 
+    };
     Self {
-      gpu_camera_position: scene.resources.add_uniform(camera.matrix().position()),
-      gpu_camera_position_dirty: false,
-      gpu_mvp_matrix: scene.resources.add_uniform(OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix()),
+      gpu_mvp_matrix: scene.resources.add_uniform(mvp),
       gpu_mvp_matrix_dirty: false,
     }
   }
 
   pub fn mark_dirty(&mut self) {
     self.gpu_mvp_matrix_dirty = true;
-    self.gpu_camera_position_dirty = true;
-  }
-
-  pub fn update_gpu_world_position(
-    &mut self,
-    renderer: &mut WGPURenderer,
-    scene: &mut Scene<WGPURenderer>,
-  ) {
-    let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
-    self.gpu_camera_position_dirty = false;
-    *scene
-      .resources
-      .mut_uniform(self.gpu_camera_position)
-      = camera.matrix().position();
   }
 
   pub fn update_gpu_mvp_matrix(
@@ -53,14 +40,18 @@ impl CameraGPU {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     self.gpu_mvp_matrix_dirty = false;
 
-    *scene
+    let mvp = MVPTransformation{
+      projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
+      model_view: camera.get_view_matrix() 
+    };
+
+    scene
       .resources
-      .mut_uniform(self.gpu_mvp_matrix) = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
+      .update_uniform(self.gpu_mvp_matrix, mvp);
   }
 
   pub fn update_all(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WGPURenderer>) {
     self.update_gpu_mvp_matrix(renderer, scene);
-    self.update_gpu_world_position(renderer, scene);
   }
 }
 

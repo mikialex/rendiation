@@ -68,11 +68,11 @@ impl RenderObject<WebGLRenderer> {
       parameter_group.items().iter().for_each(|p| {
         use ShadingParameterType::*;
         match &p.1 {
-          UniformBuffer(index) => {
+          UniformBuffer(_index) => {
             // let _uniform = resources.get_uniform(index).resource();
             todo!()
           }
-          UniformValue(index) => {
+          UniformValue(_index) => {
             // let uniform_value = resources.get_uniform_value(index).resource();
             // program.upload_uniform_value(uniform_value, p.0, &renderer.gl);
           }

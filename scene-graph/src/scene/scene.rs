@@ -1,5 +1,5 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
-use crate::{RALBackend, RenderObject, SceneNodeData, SceneNodeHandle, UniformHandle};
+use crate::{RALBackend, RenderObject, SceneNodeData, SceneNodeHandle};
 use arena::{Arena, Handle};
 use arena_tree::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
