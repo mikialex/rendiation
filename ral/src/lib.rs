@@ -1,6 +1,6 @@
 // cal for Content abstraction layer
 
-use std::{ops::Range, any::Any};
+use std::{ops::Range, any::Any, marker::PhantomData};
 
 mod shader;
 mod shading;
@@ -35,6 +35,11 @@ pub trait RALBackend: 'static {
     data: &[u8],
     layout: RALVertexBufferDescriptor,
   ) -> Self::VertexBuffer;
+}
+
+pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized>{
+  pub ty: PhantomData<U>,
+  pub data: (&'a T::UniformBuffer, Range<u64>),
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

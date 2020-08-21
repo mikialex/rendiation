@@ -1,6 +1,5 @@
 use crate::{ShaderGraphSampler, ShaderGraphTexture, ShaderGraphUBO};
 use rendiation_webgpu::*;
-use std::ops::Range;
 
 pub trait WGPUBindgroupItem<'a> {
   type Type;
@@ -33,12 +32,14 @@ impl<'a> WGPUBindgroupItem<'a> for ShaderGraphSampler {
   }
 }
 
-// oh my god we need specialization here in the future
-impl<'a, T: ShaderGraphUBO> WGPUBindgroupItem<'a> for T {
-  type Type = (&'a WGPUBuffer, Range<u64>);
+use rendiation_ral::UniformBufferRef;
+impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
+  type Type = UniformBufferRef<'a, WGPURenderer, T>;
   fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
-    WGPUBinding::BindBuffer(item)
+    WGPUBinding::BindBuffer(item.data)
   }
+
+  // oh my god we need specialization here in the future
   fn to_layout_type() -> BindingType {
     BindingType::UniformBuffer { dynamic: false }
   }

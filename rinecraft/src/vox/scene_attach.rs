@@ -102,32 +102,29 @@ impl World {
     if self.scene_data.is_some() {
       return;
     }
+    let resources = &scene.resources;
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::default(renderer);
 
     let shading_params = BlockShadingParamGroup::create_bindgroup(
       renderer,
-      scene
-        .resources
+      resources
         .get_uniform_gpu(camera_gpu.gpu_mvp_matrix),
-      scene
-        .resources
+      resources
         .get_uniform_gpu(camera_gpu.gpu_camera_position),
       &block_atlas.view(),
       &sampler,
     );
 
     let block_shading = create_block_shading(renderer, target);
-    let bindgroup_index = scene
-      .resources
+    let bindgroup_index = resources
       .add_shading_param_group(SceneShadingParameterGroupData::new(
         ParameterGroupTypeId(0),
         shading_params,
       ))
       .index();
-    let block_shading = scene
-      .resources
+    let block_shading = resources
       .add_shading(SceneShadingData::new(block_shading).push_parameter(bindgroup_index));
     let block_shading = block_shading.index();
 

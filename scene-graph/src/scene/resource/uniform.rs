@@ -1,5 +1,5 @@
 use crate::ResourceManager;
-use rendiation_ral::RALBackend;
+use rendiation_ral::*;
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
@@ -27,8 +27,11 @@ impl<T: RALBackend> ResourceManager<T> {
   pub fn get_uniform_gpu<U: 'static>(
     &self,
     handle: UniformHandle<U>,
-  ) -> (&T::UniformBuffer, Range<u64>) {
-    self.uniform_buffers.get_gpu_with_range::<U>(handle.index)
+  ) -> UniformBufferRef<T, U> {
+    UniformBufferRef{
+      ty: PhantomData, 
+      data: self.uniform_buffers.get_gpu_with_range::<U>(handle.index)
+    }
   }
 
   pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<U>) {

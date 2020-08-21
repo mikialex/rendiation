@@ -1839,6 +1839,7 @@ dependencies = [
  "arena-graph 0.0.1",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rendiation-math 0.1.0",
+ "rendiation-ral 0.1.0",
  "rendiation-webgpu 0.1.0",
 ]
 
