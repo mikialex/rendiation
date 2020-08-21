@@ -15,12 +15,13 @@ impl RALBackend for WGPURenderer {
   type Sampler = WGPUSampler;
   type SampledTexture = ();
 
-  fn create_shading(renderer: &mut WGPURenderer, des: &SceneShadingDescriptor) -> Self::Shading {
-    let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderStage::VERTEX);
-    let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderStage::FRAGMENT);
-    PipelineBuilder::new(renderer, vertex, frag)
-      // .geometry(des)
-      .build() // todo add bindgroup state stuff
+  fn create_shading(_renderer: &mut WGPURenderer, _des: &SceneShadingDescriptor) -> Self::Shading {
+    todo!()
+    // let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderStage::VERTEX);
+    // let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderStage::FRAGMENT);
+    // PipelineBuilder::new(renderer, vertex, frag)
+    //   // .geometry(des)
+    //   .build() // todo add bindgroup state stuff
   }
   fn dispose_shading(_renderer: &mut WGPURenderer, _shading: Self::Shading) {
     // just drop!

@@ -35,7 +35,7 @@ impl CopierShading {
     builder.set_vertex_root(position(geometry.position));
     let frag_uv = builder.set_vary(geometry.uv);
 
-    builder.set_frag_output(copy(frag_uv, parameter.sampler, parameter.texture));
+    builder.set_frag_output(copy(frag_uv, parameter.my_sampler, parameter.my_texture));
 
     let graph = builder.create();
 
@@ -57,8 +57,8 @@ impl CopierShading {
 #[derive(BindGroup)]
 pub struct CopyParam {
   #[stage(frag)]
-  pub texture: ShaderGraphTexture,
+  pub my_texture: ShaderGraphTexture,
 
   #[stage(frag)]
-  pub sampler: ShaderGraphSampler,
+  pub my_sampler: ShaderGraphSampler,
 }
