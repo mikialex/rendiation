@@ -27,7 +27,10 @@ impl ShaderGraphBuilder {
   ) -> ShaderGraphNodeHandle<T> {
     modify_graph(|graph| {
       let index = graph.varyings.len();
-      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Vary(index));
+      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Output((
+        index,
+        ShaderGraphOutputType::Vary,
+      )));
       graph.register_type::<T>();
 
       let handle = graph.nodes.create_node(node.to_any());

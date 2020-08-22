@@ -145,7 +145,7 @@ impl ShaderGraph {
         Input(node) => {
           ctx.add_node_result(MiddleVariableCodeGenResult::new(h, node.name.clone(), self))
         }
-        Vary(i) => ctx.add_node_result(MiddleVariableCodeGenResult::new(
+        Output((i, _)) => ctx.add_node_result(MiddleVariableCodeGenResult::new(
           h,
           format!("vary{}", i),
           self,
