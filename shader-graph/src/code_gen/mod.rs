@@ -76,13 +76,20 @@ impl CodeGenCtx {
 
 struct MiddleVariableCodeGenResult {
   ref_node: ShaderGraphNodeHandleUntyped,
+  type_name: &'static str,
   var_name: String,
   expression_str: String,
 }
 
 impl MiddleVariableCodeGenResult {
-  fn new(ref_node: ShaderGraphNodeHandleUntyped, expression_str: String) -> Self {
+  fn new(
+    ref_node: ShaderGraphNodeHandleUntyped,
+    expression_str: String,
+    graph: &ShaderGraph,
+  ) -> Self {
+    let info = graph.nodes.get_node(ref_node).data();
     Self {
+      type_name: graph.type_id_map.get(&info.node_type).unwrap(),
       ref_node,
       var_name: String::new(), // this will initialize in code gen ctx
       expression_str,
@@ -92,7 +99,11 @@ impl MiddleVariableCodeGenResult {
 
 impl Display for MiddleVariableCodeGenResult {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{} = {};", self.var_name, self.expression_str)
+    write!(
+      f,
+      "{} {} = {};",
+      self.type_name, self.var_name, self.expression_str
+    )
   }
 }
 
@@ -129,10 +140,16 @@ impl ShaderGraph {
               .collect::<Vec<_>>()
               .join(", ")
           );
-          ctx.add_node_result(MiddleVariableCodeGenResult::new(h, fn_call))
+          ctx.add_node_result(MiddleVariableCodeGenResult::new(h, fn_call, self))
         }
-        Input(node) => ctx.add_node_result(MiddleVariableCodeGenResult::new(h, node.name.clone())),
-        Vary(i) => ctx.add_node_result(MiddleVariableCodeGenResult::new(h, format!("vary{}", i))),
+        Input(node) => {
+          ctx.add_node_result(MiddleVariableCodeGenResult::new(h, node.name.clone(), self))
+        }
+        Vary(i) => ctx.add_node_result(MiddleVariableCodeGenResult::new(
+          h,
+          format!("vary{}", i),
+          self,
+        )),
       };
 
       builder.write_ln(&format!("{}", result));

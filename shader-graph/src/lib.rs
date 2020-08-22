@@ -16,9 +16,9 @@ pub mod webgpu;
 pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
-pub use webgpu::*;
 use rendiation_math::*;
 pub use shader_function::*;
+pub use webgpu::*;
 
 lazy_static! {
   pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
@@ -59,7 +59,7 @@ impl ShaderGraph {
     }
   }
 
-  fn register_type<T: ShaderGraphNodeType>(&mut self) {
+  pub fn register_type<T: ShaderGraphNodeType>(&mut self) {
     self
       .type_id_map
       .entry(TypeId::of::<T>())
@@ -74,7 +74,7 @@ pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ShaderStage{
+pub enum ShaderStage {
   Vertex,
   Fragment,
 }
