@@ -46,6 +46,10 @@ impl<T: RALBackend> Scene<T> {
   pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T>) {
     self.node_add_child_by_handle(self.nodes.root(), child_handle);
   }
+
+  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+    self.resources.maintain_gpu(renderer);
+  }
 }
 
 // pub struct ResourceUpdateCtx<T: RALBackend> {

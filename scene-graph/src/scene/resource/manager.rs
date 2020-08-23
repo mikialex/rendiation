@@ -1,5 +1,6 @@
 use crate::{
-  Arena, Handle, RALBackend, SceneGeometryData, SceneShadingData, SceneShadingParameterGroupData, UBOManager,
+  Arena, Handle, RALBackend, SceneGeometryData, SceneShadingData, SceneShadingParameterGroupData,
+  UBOManager,
 };
 
 type ResourceArena<T> = Arena<ResourceWrap<T>>;
@@ -61,5 +62,9 @@ impl<T: RALBackend> ResourceManager<T> {
       index_buffers: Arena::new(),
       vertex_buffers: Arena::new(),
     }
+  }
+
+  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+    self.uniform_buffers.maintain_gpu(renderer);
   }
 }

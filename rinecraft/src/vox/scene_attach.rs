@@ -120,6 +120,7 @@ impl World {
     };
     let fog = resources.add_uniform(fog);
 
+    resources.maintain_gpu(renderer);
     let shading_params = BlockShadingParamGroup::create_bindgroup(
       renderer,
       resources.get_uniform_gpu(camera_gpu.gpu_mvp_matrix),

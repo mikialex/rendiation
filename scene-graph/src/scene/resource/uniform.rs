@@ -59,7 +59,7 @@ impl<T: RALBackend> UBOManager<T> {
     }
   }
 
-  pub fn get_storage<U: 'static>(&mut self) -> &mut UBOStorage<T, U> {
+  pub fn get_storage_or_create<U: 'static>(&mut self) -> &mut UBOStorage<T, U> {
     let id = TypeId::of::<U>();
     let modified = &mut self.modified;
     self
@@ -101,15 +101,15 @@ impl<T: RALBackend> UBOManager<T> {
   }
 
   pub fn delete<U: 'static>(&mut self, handle: usize) {
-    self.get_storage::<U>().delete(handle);
+    self.get_storage_or_create::<U>().delete(handle);
   }
 
   pub fn insert<U: 'static>(&mut self, value: U) -> usize {
-    self.get_storage::<U>().insert(value)
+    self.get_storage_or_create::<U>().insert(value)
   }
 
   pub fn update<U: 'static>(&mut self, handle: usize, new_value: U) {
-    self.get_storage::<U>().update(handle, new_value);
+    self.get_storage_or_create::<U>().update(handle, new_value);
   }
 }
 
