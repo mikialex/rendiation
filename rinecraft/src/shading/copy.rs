@@ -1,4 +1,3 @@
-
 use render_target::{RenderTarget, TargetStatesProvider};
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 
@@ -20,7 +19,7 @@ glsl_function!(
       sampler sa,
       texture2D tex
     ){
-    return texture(sampler2D(tex, sa), uv);
+    return texture(sampler2D(tex, sa), uv); 
   }
   "
 );
@@ -35,14 +34,24 @@ impl CopierShading {
     builder.set_vertex_root(make_position(geometry.position));
     let frag_uv = builder.set_vary(geometry.uv);
 
-    builder.set_frag_output(just_copy(frag_uv, parameter.my_sampler, parameter.my_texture));
+    builder.set_frag_output(just_copy(
+      frag_uv,
+      parameter.my_sampler,
+      parameter.my_texture,
+    ));
 
     let graph = builder.create();
 
     let pipeline = PipelineBuilder::new(
       &renderer,
-      load_glsl(graph.gen_code_vertex(), rendiation_webgpu::ShaderStage::VERTEX),
-      load_glsl(graph.gen_code_frag(), rendiation_webgpu::ShaderStage::FRAGMENT),
+      load_glsl(
+        graph.gen_code_vertex(),
+        rendiation_webgpu::ShaderStage::VERTEX,
+      ),
+      load_glsl(
+        graph.gen_code_frag(),
+        rendiation_webgpu::ShaderStage::FRAGMENT,
+      ),
     )
     .as_mut()
     .binding_group::<CopyParam>()

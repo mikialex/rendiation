@@ -17,7 +17,7 @@ vec4 mvp_projection(vec3 raw, mat4 projection, mat4 model_view){
 
 glsl_function!(
   "
-vec4 projection(vec4 mv_position, mat4 projection){
+vec4 apply_projection(vec4 mv_position, mat4 projection){
     return projection * mv_position;
 }
 "

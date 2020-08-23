@@ -232,7 +232,6 @@ impl ShaderGraphNode<AnyType> {
           node
             .from()
             .iter()
-            .rev()
             .map(|from| { get_node_gen_result_var(*from, graph, ctx) })
             .collect::<Vec<_>>()
             .join(", ")

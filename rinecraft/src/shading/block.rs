@@ -18,8 +18,8 @@ glsl_function!(
       sampler sa,
       texture2D tex
     ){
-    vec3 color = spherical_harmonics(normal);
-    color *= texture(sampler2D(tex, sa), uv).rgb;
+    vec3 color = texture(sampler2D(tex, sa), uv).rgb;
+    color *= spherical_harmonics(normal); 
     return color;
   }
   "
@@ -35,7 +35,8 @@ glsl_function!(
       float fog_end
     ){
     float distance = length(mv_position);
-    return vec4(linear_fog(color, fog_color, distance, fog_start, fog_end), 1.0);
+    // return vec4(linear_fog(color, fog_color, distance, fog_start, fog_end), 1.0);
+    return vec4(1.0);
   }
   "
 );
@@ -46,7 +47,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   let p = builder.bindgroup_by::<BlockShadingParamGroup>();
 
   let mv_position = to_mv_position(geometry.position, p.mvp.model_view);
-  let clip_position = projection(mv_position, p.mvp.projection);
+  let clip_position = apply_projection(mv_position, p.mvp.projection);
   builder.set_vertex_root(clip_position);
 
   let frag_normal = builder.set_vary(geometry.normal);
@@ -68,11 +69,11 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   PipelineBuilder::new(
     renderer,
     load_glsl(
-      graph.gen_code_frag(),
+      graph.gen_code_vertex(),
       rendiation_webgpu::ShaderStage::VERTEX,
     ),
     load_glsl(
-      graph.gen_code_vertex(),
+      graph.gen_code_frag(),
       rendiation_webgpu::ShaderStage::FRAGMENT,
     ),
   )
