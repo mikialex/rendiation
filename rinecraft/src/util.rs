@@ -1,11 +1,11 @@
 use image::ImageBuffer;
 use image::Rgba;
-use rendiation_math::{Vec2, Vec3, Mat4};
+use rendiation_math::{Mat4, Vec2, Vec3};
 use rendiation_render_entity::*;
 use rendiation_scenegraph::{Scene, UniformHandle, WebGPUBackend};
+use rendiation_shader_library::transform::MVPTransformation;
 use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
-use rendiation_shader_library::transform::MVPTransformation;
 
 pub struct CameraGPU {
   pub gpu_mvp_matrix: UniformHandle<MVPTransformation>,
@@ -18,9 +18,9 @@ impl CameraGPU {
     camera: &PerspectiveCamera,
     scene: &mut Scene<WGPURenderer>,
   ) -> Self {
-    let mvp = MVPTransformation{
+    let mvp = MVPTransformation {
       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
-      model_view: camera.get_view_matrix() 
+      model_view: camera.get_view_matrix(),
     };
     Self {
       gpu_mvp_matrix: scene.resources.add_uniform(mvp),
@@ -40,14 +40,12 @@ impl CameraGPU {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     self.gpu_mvp_matrix_dirty = false;
 
-    let mvp = MVPTransformation{
+    let mvp = MVPTransformation {
       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
-      model_view: camera.get_view_matrix() 
+      model_view: camera.get_view_matrix(),
     };
 
-    scene
-      .resources
-      .update_uniform(self.gpu_mvp_matrix, mvp);
+    scene.resources.update_uniform(self.gpu_mvp_matrix, mvp);
   }
 
   pub fn update_all(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WGPURenderer>) {

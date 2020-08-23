@@ -14,10 +14,10 @@ pub struct UniformHandle<U> {
 
 impl<T> Clone for UniformHandle<T> {
   fn clone(&self) -> Self {
-      *self
+    *self
   }
 }
-impl<T> Copy for UniformHandle<T> { }
+impl<T> Copy for UniformHandle<T> {}
 
 /// uniform buffer
 impl<T: RALBackend> ResourceManager<T> {
@@ -60,10 +60,15 @@ impl<T: RALBackend> UBOManager<T> {
   }
 
   pub fn get_storage<U: 'static>(&mut self) -> &mut UBOStorage<T, U> {
+    let id = TypeId::of::<U>();
+    let modified = &mut self.modified;
     self
       .data
-      .entry(TypeId::of::<U>())
-      .or_insert_with(|| Box::new(UBOStorage::<T, U>::new()))
+      .entry(id)
+      .or_insert_with(|| {
+        modified.insert(id);
+        Box::new(UBOStorage::<T, U>::new())
+      })
       .as_any_mut()
       .downcast_mut::<UBOStorage<T, U>>()
       .unwrap()

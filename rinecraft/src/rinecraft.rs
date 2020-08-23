@@ -66,6 +66,7 @@ impl Application for Rinecraft {
     let mut camera = PerspectiveCamera::new();
     *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
     camera.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+
     let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut scene);
     camera_gpu.update_all(renderer, &mut scene);
 
@@ -115,6 +116,7 @@ impl Application for Rinecraft {
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
+      scene.resources.uniform_buffers.maintain_gpu(renderer);
       state.scene_renderer.render(scene, renderer, &output);
 
       state.gui.render(renderer);
