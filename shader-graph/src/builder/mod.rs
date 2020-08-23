@@ -11,13 +11,27 @@ impl ShaderGraphBuilder {
   }
 
   pub fn set_vertex_root(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
-    modify_graph(|g| g.vertex_position = Some(n));
+    modify_graph(|g| {
+      let node =
+        ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vert));
+      let handle = g.nodes.create_node(node.to_any());
+      g.nodes.connect_node(unsafe { n.cast_type() }, handle);
+
+      g.vertex_position = Some(unsafe { handle.cast_type() })
+    });
   }
 
   pub fn set_frag_output(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
     modify_graph(|g| {
       let index = g.frag_outputs.len();
-      g.frag_outputs.insert((unsafe { n.cast_type() }, index));
+
+      let node = ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(
+        ShaderGraphOutput::Frag(index),
+      ));
+      let handle = g.nodes.create_node(node.to_any());
+      g.nodes.connect_node(unsafe { n.cast_type() }, handle);
+      g.frag_outputs
+        .insert((unsafe { handle.cast_type() }, index));
     });
   }
 
@@ -29,10 +43,8 @@ impl ShaderGraphBuilder {
       graph.register_type::<T>();
 
       let index = graph.varyings.len();
-      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Output((
-        index,
-        ShaderGraphOutputType::Vary,
-      )));
+      let node =
+        ShaderGraphNode::<T>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vary(index)));
       graph.register_type::<T>();
 
       let handle = graph.nodes.create_node(node.to_any());
@@ -41,10 +53,11 @@ impl ShaderGraphBuilder {
       graph.varyings.insert((handle, index)); // this for output, so with output type
 
       // this for input in fragment shader , so with input type
-      let return_node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Input(ShaderGraphInputNode {
-        node_type: ShaderGraphInputNodeType::Vary,
-        name: format!("vary{}", index),
-      }));
+      let return_node =
+        ShaderGraphNode::<T>::new(ShaderGraphNodeData::Input(ShaderGraphInputNode {
+          node_type: ShaderGraphInputNodeType::Vary,
+          name: format!("vary{}", index),
+        }));
       let handle = graph.nodes.create_node(return_node.to_any());
 
       unsafe { handle.cast_type() }

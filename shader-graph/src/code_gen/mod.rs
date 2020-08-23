@@ -223,9 +223,9 @@ impl ShaderGraphNode<AnyType> {
         );
         Some((ctx.create_new_temp_name(), fn_call))
       },
-      Output((n, ty)) => {
+      Output(n) => {
         let from = node.from().iter().next().expect("output not set");
-        Some((ty.to_shader_var_name(*n), get_node_gen_result_var(*from, graph, ctx)))
+        Some((n.to_shader_var_name(), get_node_gen_result_var(*from, graph, ctx)))
       },
       _ => None,
     }
@@ -241,15 +241,16 @@ fn get_node_gen_result_var(
   match data {
     Function(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
     Input(n) => n.name.clone(),
-    Output((n, ty)) => ty.to_shader_var_name(*n)
+    Output(n) => n.to_shader_var_name()
   }
 }
 
-impl ShaderGraphOutputType {
-  pub fn to_shader_var_name(&self, index: usize) -> String {
+impl ShaderGraphOutput {
+  pub fn to_shader_var_name(&self) -> String {
     match self {
-      ShaderGraphOutputType::Vary =>format!("vary{}", index),
-      ShaderGraphOutputType::Frag =>format!("frag{}", index),
+      Self::Vary(index) =>format!("vary{}", index),
+      Self::Frag(index) =>format!("frag{}", index),
+      Vert => "gl_Position".to_owned(),
     }
   }
 }
