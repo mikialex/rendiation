@@ -55,6 +55,24 @@ impl ShaderGraph {
       .join("\n")
       .as_ref();
 
+    // varyings
+    result += self
+      .varyings
+      .iter()
+      .map(|a| {
+        let info = self.nodes.get_node(a.0).data();
+        // let id = info.unwrap_as_vary();
+        format!(
+          "layout(location = {}) out {} {};",
+          a.1,
+          self.type_id_map.get(&info.node_type).unwrap(),
+          format!("vary{}", a.1)
+        )
+      })
+      .collect::<Vec<_>>()
+      .join("\n")
+      .as_ref();
+
     result += self.gen_bindgroups_header(ShaderStage::Vertex).as_str();
 
     result
@@ -89,7 +107,17 @@ impl ShaderGraph {
           format!("vary{}", a.1)
         )
       })
-      .collect::<Vec<String>>()
+      .collect::<Vec<_>>()
+      .join("\n")
+      .as_ref();
+
+    result += "\n";
+
+    result += self
+      .frag_outputs
+      .iter()
+      .map(|(_, index)| format!("layout(location = {}) out vec4 frag{};", index, index))
+      .collect::<Vec<_>>()
       .join("\n")
       .as_ref();
 

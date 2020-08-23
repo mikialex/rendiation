@@ -1,5 +1,6 @@
 use crate::{
-  ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeHandle, ShaderGraphNodeType, ShaderStage,
+  ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeHandle, ShaderGraphNodeType,
+  ShaderStage,
 };
 use std::collections::HashMap;
 
@@ -9,7 +10,7 @@ pub trait ShaderGraphBindGroupItemProvider {
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
-    stage: ShaderStage
+    stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance;
 }
 
@@ -27,7 +28,7 @@ impl ShaderGraphBindGroupItemProvider for ShaderGraphSampler {
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
-    stage: ShaderStage
+    stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderGraphSampler>(name);
     bindgroup_builder.add_none_ubo(unsafe { node.cast_type() }, stage);
@@ -49,7 +50,7 @@ impl ShaderGraphBindGroupItemProvider for ShaderGraphTexture {
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
-    stage: ShaderStage
+    stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderGraphTexture>(name);
     bindgroup_builder.add_none_ubo(unsafe { node.cast_type() }, stage);
@@ -106,6 +107,7 @@ impl UBOInfo {
         .collect::<Vec<_>>()
         .join(";\n")
         .as_str()
+      + ";"
       + " \n}";
 
     self
