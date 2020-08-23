@@ -129,7 +129,11 @@ impl<T: RALBackend, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
     if self.dirty {
       let data = self.storage.as_slice();
       let data = unsafe { std::mem::transmute(data) };
-      self.gpu = Some(T::create_uniform_buffer(renderer, data))
+      if let Some(gpu) = &mut self.gpu {
+        T::update_uniform_buffer(renderer, gpu, data, 0..self.storage.len());
+      } else {
+        self.gpu = Some(T::create_uniform_buffer(renderer, data))
+      }
     }
   }
 

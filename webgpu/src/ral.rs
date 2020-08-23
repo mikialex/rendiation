@@ -32,8 +32,13 @@ impl RALBackend for WGPURenderer {
   fn dispose_uniform_buffer(_renderer: &mut Self::Renderer, _uniform: Self::UniformBuffer) {
     // just drop!
   }
-  fn update_uniform_buffer(_renderer: &mut Self::Renderer, _data: &[u8], _range: Range<usize>){
-    todo!()
+  fn update_uniform_buffer(
+    renderer: &mut Self::Renderer,
+    gpu: &mut Self::UniformBuffer,
+    data: &[u8],
+    _range: Range<usize>, // todo
+  ) {
+    gpu.update(renderer, data);
   }
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer {

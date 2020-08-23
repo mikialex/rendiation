@@ -1,6 +1,6 @@
 // cal for Content abstraction layer
 
-use std::{ops::Range, any::Any, marker::PhantomData};
+use std::{any::Any, marker::PhantomData, ops::Range};
 
 mod shader;
 mod shading;
@@ -23,10 +23,14 @@ pub trait RALBackend: 'static {
   fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
 
-  fn create_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8])
-    -> Self::UniformBuffer;
+  fn create_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::UniformBuffer;
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer);
-  fn update_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8], range: Range<usize>);
+  fn update_uniform_buffer(
+    renderer: &mut Self::Renderer,
+    gpu: &mut Self::UniformBuffer,
+    data: &[u8],
+    range: Range<usize>,
+  );
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer;
 
@@ -37,7 +41,7 @@ pub trait RALBackend: 'static {
   ) -> Self::VertexBuffer;
 }
 
-pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized>{
+pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
   pub ty: PhantomData<U>,
   pub data: (&'a T::UniformBuffer, Range<u64>),
 }
