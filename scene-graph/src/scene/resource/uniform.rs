@@ -93,10 +93,15 @@ impl<T: RALBackend> UBOManager<T> {
   }
 
   pub fn get_gpu_with_range<U: 'static>(&self, handle: usize) -> (&T::UniformBuffer, Range<u64>) {
-    let stride = std::mem::size_of::<U>();
+    // let stride = std::mem::size_of::<U>();
+    // (
+    //   self.get_storage_should_ok::<U>().get_gpu(),
+    //   (handle * stride) as u64..((handle + 1) * stride) as u64,
+    // )
+    // todo check if we really not need stride
     (
       self.get_storage_should_ok::<U>().get_gpu(),
-      (handle * stride) as u64..((handle + 1) * stride) as u64,
+      handle as u64..(handle + 1) as u64,
     )
   }
 
