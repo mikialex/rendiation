@@ -15,7 +15,7 @@ pub struct CopierShading {
 
 glsl_function!(
   "
-  vec4 copy(
+  vec4 just_copy(
       vec2 uv,
       sampler sa,
       texture2D tex
@@ -32,17 +32,17 @@ impl CopierShading {
 
     let parameter = builder.bindgroup_by::<CopyParam>();
 
-    builder.set_vertex_root(position(geometry.position));
+    builder.set_vertex_root(make_position(geometry.position));
     let frag_uv = builder.set_vary(geometry.uv);
 
-    builder.set_frag_output(copy(frag_uv, parameter.my_sampler, parameter.my_texture));
+    builder.set_frag_output(just_copy(frag_uv, parameter.my_sampler, parameter.my_texture));
 
     let graph = builder.create();
 
     let pipeline = PipelineBuilder::new(
       &renderer,
-      load_glsl(graph.gen_code_frag(), rendiation_webgpu::ShaderStage::VERTEX),
-      load_glsl(graph.gen_code_vertex(), rendiation_webgpu::ShaderStage::FRAGMENT),
+      load_glsl(graph.gen_code_vertex(), rendiation_webgpu::ShaderStage::VERTEX),
+      load_glsl(graph.gen_code_frag(), rendiation_webgpu::ShaderStage::FRAGMENT),
     )
     .as_mut()
     .binding_group::<CopyParam>()

@@ -33,7 +33,7 @@ vec4 to_mv_position(vec3 raw, mat4 model_view){
 
 glsl_function!(
   "
-vec4 position(vec3 raw){
+vec4 make_position(vec3 raw){
     return vec4(raw, 1.0);
 }
 "

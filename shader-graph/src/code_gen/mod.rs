@@ -83,6 +83,7 @@ struct MiddleVariableCodeGenResult {
   type_name: &'static str,
   var_name: String,
   expression_str: String,
+  is_builtin_target: bool,
 }
 
 impl MiddleVariableCodeGenResult {
@@ -91,6 +92,7 @@ impl MiddleVariableCodeGenResult {
     var_name: String,
     expression_str: String,
     graph: &ShaderGraph,
+    is_builtin_target: bool
   ) -> Self {
     let info = graph.nodes.get_node(ref_node).data();
     Self {
@@ -98,6 +100,7 @@ impl MiddleVariableCodeGenResult {
       ref_node,
       var_name,
       expression_str,
+      is_builtin_target
     }
   }
 }
@@ -107,7 +110,7 @@ impl Display for MiddleVariableCodeGenResult {
     write!(
       f,
       "{} {} = {};",
-      self.type_name, self.var_name, self.expression_str
+      if !self.is_builtin_target { self.type_name } else { "" }, self.var_name, self.expression_str
     )
   }
 }
@@ -193,8 +196,8 @@ impl ShaderGraphNode<AnyType> {
     graph: &ShaderGraph,
     ctx: &mut CodeGenCtx) -> Option<MiddleVariableCodeGenResult>{
       let node = graph.nodes.get_node(handle);
-      if let Some((var_name, expression_str)) = self.gen_code_record_exp(node, graph, ctx) {
-        Some(MiddleVariableCodeGenResult::new(handle, var_name, expression_str, graph))
+      if let Some((var_name, expression_str, is_builtin)) = self.gen_code_record_exp(node, graph, ctx) {
+        Some(MiddleVariableCodeGenResult::new(handle, var_name, expression_str, graph, is_builtin))
       } else {
         None
       }
@@ -205,7 +208,7 @@ impl ShaderGraphNode<AnyType> {
     node: &ArenaGraphNode<Self>,
     graph: &ShaderGraph,
     ctx: &mut CodeGenCtx,
-  ) -> Option<(String, String)> {
+  ) -> Option<(String, String, bool)> {
     match &self.data {
       Function(n) => {
         ctx.add_fn_dep(n);
@@ -215,17 +218,18 @@ impl ShaderGraphNode<AnyType> {
           node
             .from()
             .iter()
+            .rev()
             .map(|from| {
               get_node_gen_result_var(*from, graph, ctx)
             })
             .collect::<Vec<_>>()
             .join(", ")
         );
-        Some((ctx.create_new_temp_name(), fn_call))
+        Some((ctx.create_new_temp_name(), fn_call, false))
       },
       Output(n) => {
         let from = node.from().iter().next().expect("output not set");
-        Some((n.to_shader_var_name(), get_node_gen_result_var(*from, graph, ctx)))
+        Some((n.to_shader_var_name(), get_node_gen_result_var(*from, graph, ctx), n.is_builtin()))
       },
       _ => None,
     }
@@ -250,7 +254,13 @@ impl ShaderGraphOutput {
     match self {
       Self::Vary(index) =>format!("vary{}", index),
       Self::Frag(index) =>format!("frag{}", index),
-      Vert => "gl_Position".to_owned(),
+      Self::Vert => "gl_Position".to_owned(),
+    }
+  }
+  pub fn is_builtin(&self) -> bool {
+    match self {
+      Self::Vert => true,
+      _ => false,
     }
   }
 }
