@@ -26,6 +26,8 @@ impl ShaderGraphBuilder {
     h: ShaderGraphNodeHandle<T>,
   ) -> ShaderGraphNodeHandle<T> {
     modify_graph(|graph| {
+      graph.register_type::<T>();
+
       let index = graph.varyings.len();
       let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Output((
         index,
@@ -36,7 +38,15 @@ impl ShaderGraphBuilder {
       let handle = graph.nodes.create_node(node.to_any());
       graph.nodes.connect_node(unsafe { h.cast_type() }, handle);
 
-      graph.varyings.insert((handle, index));
+      graph.varyings.insert((handle, index)); // this for output, so with output type
+
+      // this for input in fragment shader , so with input type
+      let return_node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Input(ShaderGraphInputNode {
+        node_type: ShaderGraphInputNodeType::Vary,
+        name: format!("vary{}", index),
+      }));
+      let handle = graph.nodes.create_node(return_node.to_any());
+
       unsafe { handle.cast_type() }
     })
   }

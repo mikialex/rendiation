@@ -110,4 +110,5 @@ pub struct ShaderGraphInputNode {
 pub enum ShaderGraphInputNodeType {
   Uniform,
   Attribute,
+  Vary
 }

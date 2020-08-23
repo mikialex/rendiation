@@ -75,7 +75,7 @@ impl<T> ArenaGraph<T> {
     to_node.from.insert(from);
   }
 
-  // visit contains self node
+  /// visit contains self node
   pub fn traverse_dfs_in_topological_order(
     &self,
     node: ArenaGraphNodeHandle<T>,

@@ -19,12 +19,15 @@ impl CodeGenCtx {
     }
   }
 
+  fn create_new_temp_name(&mut self) -> String {
+    self.var_guid += 1;
+    format!("temp{}", self.var_guid)
+  }
+
   fn add_node_result(
     &mut self,
-    mut result: MiddleVariableCodeGenResult,
+    result: MiddleVariableCodeGenResult,
   ) -> &MiddleVariableCodeGenResult {
-    result.var_name = format!("temp{}", self.var_guid);
-    self.var_guid += 1;
     self
       .code_gen_history
       .entry(result.ref_node)
@@ -85,6 +88,7 @@ struct MiddleVariableCodeGenResult {
 impl MiddleVariableCodeGenResult {
   fn new(
     ref_node: ShaderGraphNodeHandleUntyped,
+    var_name: String,
     expression_str: String,
     graph: &ShaderGraph,
   ) -> Self {
@@ -92,7 +96,7 @@ impl MiddleVariableCodeGenResult {
     Self {
       type_name: graph.type_id_map.get(&info.node_type).unwrap(),
       ref_node,
-      var_name: String::new(), // this will initialize in code gen ctx
+      var_name,
       expression_str,
     }
   }
@@ -113,51 +117,24 @@ impl ShaderGraph {
     &self,
     handle: ShaderGraphNodeHandleUntyped,
     ctx: &mut CodeGenCtx,
-    builder: &mut CodeBuilder,
-    assign_name: &str,
+    builder: &mut CodeBuilder
   ) {
     builder.write_ln("");
 
     let depends = self.nodes.topological_order_list(handle).unwrap();
 
-    depends.iter().enumerate().for_each(|(i, &h)| {
+    depends.iter().for_each(|&h| {
       // this node has generated, skip
       if ctx.code_gen_history.contains_key(&h) {
         return;
       }
 
       let node_wrap = self.nodes.get_node(h);
-      use ShaderGraphNodeData::*;
-      let result = match &node_wrap.data().data {
-        Function(n) => {
-          ctx.add_fn_dep(n);
-          let fn_call = format!(
-            "{}({})",
-            n.prototype.function_name,
-            node_wrap
-              .from()
-              .iter()
-              .map(|from| ctx.code_gen_history.get(from).unwrap().var_name.as_str())
-              .collect::<Vec<_>>()
-              .join(", ")
-          );
-          ctx.add_node_result(MiddleVariableCodeGenResult::new(h, fn_call, self))
-        }
-        Input(node) => {
-          ctx.add_node_result(MiddleVariableCodeGenResult::new(h, node.name.clone(), self))
-        }
-        Output((i, _)) => ctx.add_node_result(MiddleVariableCodeGenResult::new(
-          h,
-          format!("vary{}", i),
-          self,
-        )),
-      };
 
-      builder.write_ln(&format!("{}", result));
-
-      if i == depends.len() - 1 {
-        // the last one should extra output
-        builder.write_ln(&format!("{} = {}", assign_name, result.var_name));
+      // None is input node, skip
+      if let Some(result) = node_wrap.data().gen_node_record(h, self, ctx) {
+        builder.write_ln(&format!("{}", result));
+        ctx.add_node_result(result);
       }
     });
   }
@@ -168,7 +145,7 @@ impl ShaderGraph {
     builder.write_ln("void main() {").tab();
 
     self.varyings.iter().for_each(|&v| {
-      self.gen_code_node(v.0, &mut ctx, &mut builder, &format!("vary{}", v.1));
+      self.gen_code_node(v.0, &mut ctx, &mut builder);
     });
 
     self.gen_code_node(
@@ -180,7 +157,6 @@ impl ShaderGraph {
       },
       &mut ctx,
       &mut builder,
-      "gl_Position",
     );
 
     builder.write_ln("").un_tab().write_ln("}");
@@ -197,7 +173,7 @@ impl ShaderGraph {
     builder.write_ln("void main() {").tab();
 
     self.frag_outputs.iter().for_each(|&v| {
-      self.gen_code_node(v.0, &mut ctx, &mut builder, &format!("output{}", v.1));
+      self.gen_code_node(v.0, &mut ctx, &mut builder);
     });
 
     builder.write_ln("").un_tab().write_ln("}");
@@ -206,5 +182,66 @@ impl ShaderGraph {
     let main = builder.output();
     let lib = ctx.gen_fn_depends();
     header + "\n" + &lib + "\n" + &main
+  }
+}
+
+
+use ShaderGraphNodeData::*;
+impl ShaderGraphNode<AnyType> {
+  fn gen_node_record(&self,
+    handle: ArenaGraphNodeHandle<Self>,
+    graph: &ShaderGraph,
+    ctx: &mut CodeGenCtx) -> Option<MiddleVariableCodeGenResult>{
+      let node = graph.nodes.get_node(handle);
+      if let Some((var_name, expression_str)) = self.gen_code_record_exp(node, graph, ctx) {
+        Some(MiddleVariableCodeGenResult::new(handle, var_name, expression_str, graph))
+      } else {
+        None
+      }
+  }
+
+  fn gen_code_record_exp(
+    &self,
+    node: &ArenaGraphNode<Self>,
+    graph: &ShaderGraph,
+    ctx: &mut CodeGenCtx,
+  ) -> Option<(String, String)> {
+    match &self.data {
+      Function(n) => {
+        ctx.add_fn_dep(n);
+        let fn_call = format!(
+          "{}({})",
+          n.prototype.function_name,
+          node
+            .from()
+            .iter()
+            .map(|from| {
+              get_node_gen_result_var(*from, graph, ctx)
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+        );
+        Some((ctx.create_new_temp_name(), fn_call))
+      }
+      _ => None,
+    }
+  }
+}
+
+fn get_node_gen_result_var(
+  node: ArenaGraphNodeHandle<ShaderGraphNodeUntyped>,
+  graph: &ShaderGraph,
+  ctx: &CodeGenCtx,
+) -> String {
+  let data = &graph.nodes.get_node(node).data().data;
+  match data {
+    Function(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
+    Input(n) => n.name.clone(),
+    Output((n, ty)) => {
+      match ty {
+        ShaderGraphOutputType::Vary =>format!("vary{}", n),
+        ShaderGraphOutputType::Frag =>format!("frag{}", n),
+      }
+    }
   }
 }
