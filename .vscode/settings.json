@@ -7,6 +7,7 @@
         "Framebuffer",
         "GLRAL",
         "GPURAL",
+        "Hasher",
         "Lambertian",
         "Lerp",
         "Mesher",

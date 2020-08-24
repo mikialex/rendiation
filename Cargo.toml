@@ -5,7 +5,6 @@ members = [
     "render-entity",
     "ral",
     "webgpu",
-    "webgpu-derives",
     "webgl",
     "render-graph",
     "scene-graph",

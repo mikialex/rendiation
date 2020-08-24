@@ -1,5 +1,6 @@
 use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
 use rendiation_ral::*;
+use std::any::{Any};
 
 pub struct SceneShadingParameterGroupData<T: RALBackend> {
   type_id: ParameterGroupTypeId,
@@ -30,7 +31,6 @@ impl<T: RALBackend> SceneShadingParameterGroupData<T> {
 }
 
 pub type ParameterHandle<T> = Handle<ResourceWrap<SceneShadingParameterGroupData<T>>>;
-pub type UniformHandle<T> = Handle<ResourceWrap<<T as RALBackend>::UniformBuffer>>;
 pub type UniformValueHandle<T> = Handle<ResourceWrap<<T as RALBackend>::UniformValue>>;
 pub type SamplerHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Sampler>>;
 pub type TextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
@@ -38,7 +38,7 @@ pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Textur
 
 pub enum ShadingParameterType<T: RALBackend> {
   UniformValue(UniformValueHandle<T>),
-  UniformBuffer(UniformHandle<T>),
+  UniformBuffer(Box<dyn Any>), // todo
   Texture(SamplerHandle<T>),
   Sampler(TextureHandle<T>),
   SampledTexture(SampledTextureHandle<T>),
@@ -68,28 +68,6 @@ impl<T: RALBackend> ResourceManager<T> {
 
   pub fn delete_shading_param_group(&mut self, index: ParameterHandle<T>) {
     self.shading_parameter_groups.remove(index);
-  }
-}
-
-/// uniforms
-impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_uniform(&mut self, gpu: T::UniformBuffer) -> &mut ResourceWrap<T::UniformBuffer> {
-    ResourceWrap::new_wrap(&mut self.uniforms, gpu)
-  }
-
-  pub fn get_uniform_mut(
-    &mut self,
-    index: UniformHandle<T>,
-  ) -> &mut ResourceWrap<T::UniformBuffer> {
-    self.uniforms.get_mut(index).unwrap()
-  }
-
-  pub fn get_uniform(&self, index: UniformHandle<T>) -> &ResourceWrap<T::UniformBuffer> {
-    self.uniforms.get(index).unwrap()
-  }
-
-  pub fn delete_uniform(&mut self, index: UniformHandle<T>) {
-    self.uniforms.remove(index);
   }
 }
 

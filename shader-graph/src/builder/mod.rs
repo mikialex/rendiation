@@ -11,13 +11,26 @@ impl ShaderGraphBuilder {
   }
 
   pub fn set_vertex_root(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
-    modify_graph(|g| g.vertex_position = Some(n));
+    modify_graph(|g| {
+      let node =
+        ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vert));
+      let handle = g.nodes.create_node(node.to_any());
+      g.nodes.connect_node(unsafe { n.cast_type() }, handle);
+
+      g.vertex_position = Some(unsafe { handle.cast_type() })
+    });
   }
 
   pub fn set_frag_output(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
     modify_graph(|g| {
       let index = g.frag_outputs.len();
-      g.frag_outputs.insert((unsafe { n.cast_type() }, index));
+
+      let node = ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(
+        ShaderGraphOutput::Frag(index),
+      ));
+      let handle = g.nodes.create_node(node.to_any());
+      g.nodes.connect_node(unsafe { n.cast_type() }, handle);
+      g.frag_outputs.push((unsafe { handle.cast_type() }, index));
     });
   }
 
@@ -26,14 +39,26 @@ impl ShaderGraphBuilder {
     h: ShaderGraphNodeHandle<T>,
   ) -> ShaderGraphNodeHandle<T> {
     modify_graph(|graph| {
+      graph.register_type::<T>();
+
       let index = graph.varyings.len();
-      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Vary(index));
+      let node =
+        ShaderGraphNode::<T>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vary(index)));
       graph.register_type::<T>();
 
       let handle = graph.nodes.create_node(node.to_any());
       graph.nodes.connect_node(unsafe { h.cast_type() }, handle);
 
-      graph.varyings.insert((handle, index));
+      graph.varyings.push((handle, index)); // this for output, so with output type
+
+      // this for input in fragment shader , so with input type
+      let return_node =
+        ShaderGraphNode::<T>::new(ShaderGraphNodeData::Input(ShaderGraphInputNode {
+          node_type: ShaderGraphInputNodeType::Vary,
+          name: format!("vary{}", index),
+        }));
+      let handle = graph.nodes.create_node(return_node.to_any());
+
       unsafe { handle.cast_type() }
     })
   }
@@ -69,7 +94,7 @@ impl ShaderGraphBuilder {
       let node = ShaderGraphNode::<T>::new(data);
       graph.register_type::<T>();
       let handle = graph.nodes.create_node(node.to_any());
-      graph.attributes.insert((handle, graph.attributes.len()));
+      graph.attributes.push((handle, graph.attributes.len()));
       unsafe { handle.cast_type() }
     })
   }
@@ -106,18 +131,22 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
     unsafe { handle.cast_type() }
   }
 
-  pub fn add_none_ubo(&mut self, h: ShaderGraphNodeHandleUntyped) {
+  pub fn add_none_ubo(&mut self, h: ShaderGraphNodeHandleUntyped, stage: ShaderStage) {
     self
       .bindgroup
       .inputs
-      .push(ShaderGraphUniformInputType::NoneUBO(h));
+      .push((ShaderGraphUniformInputType::NoneUBO(h), stage));
   }
 
-  pub fn add_ubo(&mut self, info: (Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)) {
+  pub fn add_ubo(
+    &mut self,
+    info: (Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>),
+    stage: ShaderStage,
+  ) {
     self
       .bindgroup
       .inputs
-      .push(ShaderGraphUniformInputType::UBO(info));
+      .push((ShaderGraphUniformInputType::UBO(info), stage));
   }
 
   pub fn resolve(self) {
@@ -149,7 +178,9 @@ impl<'a, 'b> UBOBuilder<'a, 'b> {
     handle
   }
 
-  pub fn ok(self) {
-    self.bindgroup_builder.add_ubo((self.meta_info, self.nodes));
+  pub fn ok(self, stage: ShaderStage) {
+    self
+      .bindgroup_builder
+      .add_ubo((self.meta_info, self.nodes), stage);
   }
 }

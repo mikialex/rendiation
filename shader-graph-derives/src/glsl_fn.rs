@@ -131,6 +131,8 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
             )
           ).to_any()
         );
+
+        graph.register_type::<#return_type>();
         unsafe {
           #(#gen_node_connect)*
           result.cast_type()

@@ -1,5 +1,5 @@
 use super::{background::Background, node::SceneNode, resource::ResourceManager};
-use crate::{RALBackend, RenderObject, SceneNodeData, SceneNodeHandle, UniformHandle};
+use crate::{RALBackend, RenderObject, SceneNodeData, SceneNodeHandle};
 use arena::{Arena, Handle};
 use arena_tree::*;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
@@ -45,6 +45,10 @@ impl<T: RALBackend> Scene<T> {
 
   pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T>) {
     self.node_add_child_by_handle(self.nodes.root(), child_handle);
+  }
+
+  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+    self.resources.maintain_gpu(renderer);
   }
 }
 

@@ -1,10 +1,10 @@
 use crate::element::quad::QuadLayout;
-use crate::renderer::shader::CopyShading;
-use crate::renderer::shader::CopyShadingParam;
-use crate::renderer::shader::QuadShading;
-use rendiation_webgpu::*;
+// use crate::renderer::shader::CopyShading;
+// use crate::renderer::shader::CopyShadingParam;
+// use crate::renderer::shader::QuadShading;
 use rendiation_math::{Mat4, Vec4};
 use rendiation_render_entity::*;
+use rendiation_webgpu::*;
 
 mod shader;
 use render_target::{RenderTarget, RenderTargetAble, TargetStatesProvider};
@@ -20,9 +20,9 @@ pub struct GUIRenderer {
   camera: OrthographicCamera,
   camera_gpu_buffer: WGPUBuffer,
   canvas: RenderTarget,
-  quad_pipeline: QuadShading,
-  copy_screen_sampler: WGPUSampler,
-  copy_screen_pipeline: CopyShading,
+  // quad_pipeline: QuadShading,
+  // copy_screen_sampler: WGPUSampler,
+  // copy_screen_pipeline: CopyShading,
 }
 
 impl GUIRenderer {
@@ -48,8 +48,8 @@ impl GUIRenderer {
       wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
 
-    let quad_pipeline = QuadShading::new(renderer, &canvas);
-    let copy_screen_pipeline = CopyShading::new(renderer, screen_target);
+    // let quad_pipeline = QuadShading::new(renderer, &canvas);
+    // let copy_screen_pipeline = CopyShading::new(renderer, screen_target);
     let copy_screen_sampler = WGPUSampler::default(renderer);
     let mut renderer = GUIRenderer {
       quad,
@@ -57,9 +57,9 @@ impl GUIRenderer {
       camera,
       camera_gpu_buffer,
       canvas,
-      quad_pipeline,
-      copy_screen_pipeline,
-      copy_screen_sampler,
+      // quad_pipeline,
+      // copy_screen_pipeline,
+      // copy_screen_sampler,
     };
     renderer.update_camera();
     renderer

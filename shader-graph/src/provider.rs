@@ -1,5 +1,6 @@
 use crate::{
   ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeHandle, ShaderGraphNodeType,
+  ShaderStage,
 };
 use std::collections::HashMap;
 
@@ -9,6 +10,7 @@ pub trait ShaderGraphBindGroupItemProvider {
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance;
 }
 
@@ -26,9 +28,10 @@ impl ShaderGraphBindGroupItemProvider for ShaderGraphSampler {
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderGraphSampler>(name);
-    bindgroup_builder.add_none_ubo(unsafe { node.cast_type() });
+    bindgroup_builder.add_none_ubo(unsafe { node.cast_type() }, stage);
     node
   }
 }
@@ -47,9 +50,10 @@ impl ShaderGraphBindGroupItemProvider for ShaderGraphTexture {
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderGraphTexture>(name);
-    bindgroup_builder.add_none_ubo(unsafe { node.cast_type() });
+    bindgroup_builder.add_none_ubo(unsafe { node.cast_type() }, stage);
     node
   }
 }
@@ -69,13 +73,14 @@ pub trait ShaderGraphGeometryProvider {
 }
 
 pub trait ShaderGraphUBO: ShaderGraphBindGroupItemProvider {
-  fn gen_header() -> &'static str;
+  // todo maybe return static ubo info
 }
 
 /// use for compile time ubo field reflection by procedure macro;
 pub struct UBOInfo {
   pub name: &'static str,
-  pub fields: HashMap<&'static str, &'static str>,
+  pub fields: HashMap<&'static str, &'static str>, // fields name -> shader type name
+  pub fields_record: Vec<&'static str>,
   pub code_cache: String,
 }
 
@@ -84,11 +89,13 @@ impl UBOInfo {
     Self {
       name,
       fields: HashMap::new(),
+      fields_record: Vec::new(),
       code_cache: String::new(),
     }
   }
   pub fn add_field<T: ShaderGraphNodeType>(mut self, name: &'static str) -> Self {
     self.fields.insert(name, T::to_glsl_type());
+    self.fields_record.push(name);
     self
   }
 
@@ -97,12 +104,14 @@ impl UBOInfo {
       + &self.name
       + " {\n"
       + self
-        .fields
+        .fields_record
         .iter()
-        .map(|(&name, &ty)| format!("  {} {}", ty, name))
+        .map(|&s| (s, *self.fields.get(s).unwrap()))
+        .map(|(name, ty)| format!("  {} {}", ty, name))
         .collect::<Vec<_>>()
         .join(";\n")
         .as_str()
+      + ";"
       + " \n}";
 
     self

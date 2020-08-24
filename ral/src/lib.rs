@@ -1,13 +1,13 @@
 // cal for Content abstraction layer
 
-use std::any::Any;
+use std::{any::Any, marker::PhantomData, ops::Range};
 
 mod shader;
 mod shading;
 pub use shader::*;
 pub use shading::*;
 
-pub trait RALBackend {
+pub trait RALBackend: 'static {
   type RenderTarget;
   type Renderer;
   type Shading;
@@ -23,9 +23,14 @@ pub trait RALBackend {
   fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
 
-  fn create_uniform_buffer(renderer: &mut Self::Renderer, des: SceneUniform)
-    -> Self::UniformBuffer;
+  fn create_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::UniformBuffer;
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer);
+  fn update_uniform_buffer(
+    renderer: &mut Self::Renderer,
+    gpu: &mut Self::UniformBuffer,
+    data: &[u8],
+    range: Range<usize>,
+  );
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer;
 
@@ -34,6 +39,11 @@ pub trait RALBackend {
     data: &[u8],
     layout: RALVertexBufferDescriptor,
   ) -> Self::VertexBuffer;
+}
+
+pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
+  pub ty: PhantomData<U>,
+  pub data: (&'a T::UniformBuffer, Range<u64>),
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

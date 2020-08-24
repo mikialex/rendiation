@@ -1,5 +1,6 @@
-pub use arena::*;
 use std::collections::BTreeSet;
+
+pub use arena::*;
 
 pub struct ArenaGraph<T> {
   nodes: Arena<ArenaGraphNode<T>>,
@@ -10,8 +11,8 @@ pub type ArenaGraphNodeHandle<T> = Handle<ArenaGraphNode<T>>;
 pub struct ArenaGraphNode<T> {
   data: T,
   handle: ArenaGraphNodeHandle<T>,
-  from: BTreeSet<ArenaGraphNodeHandle<T>>,
-  to: BTreeSet<ArenaGraphNodeHandle<T>>,
+  from: Vec<ArenaGraphNodeHandle<T>>,
+  to: Vec<ArenaGraphNodeHandle<T>>,
 }
 
 impl<T> ArenaGraphNode<T> {
@@ -27,11 +28,11 @@ impl<T> ArenaGraphNode<T> {
     self.handle
   }
 
-  pub fn from(&self) -> &BTreeSet<ArenaGraphNodeHandle<T>> {
+  pub fn from(&self) -> &Vec<ArenaGraphNodeHandle<T>> {
     &self.from
   }
 
-  pub fn to(&self) -> &BTreeSet<ArenaGraphNodeHandle<T>> {
+  pub fn to(&self) -> &Vec<ArenaGraphNodeHandle<T>> {
     &self.to
   }
 
@@ -39,8 +40,8 @@ impl<T> ArenaGraphNode<T> {
     Self {
       data,
       handle: Handle::from_raw_parts(0, 0),
-      from: BTreeSet::new(),
-      to: BTreeSet::new(),
+      from: Vec::new(),
+      to: Vec::new(),
     }
   }
 }
@@ -69,13 +70,13 @@ impl<T> ArenaGraph<T> {
 
   pub fn connect_node(&mut self, from: ArenaGraphNodeHandle<T>, to: ArenaGraphNodeHandle<T>) {
     let from_node = self.nodes.get_mut(from).unwrap();
-    from_node.to.insert(to);
+    from_node.to.push(to);
 
     let to_node = self.nodes.get_mut(to).unwrap();
-    to_node.from.insert(from);
+    to_node.from.push(from);
   }
 
-  // visit contains self node
+  /// visit contains self node
   pub fn traverse_dfs_in_topological_order(
     &self,
     node: ArenaGraphNodeHandle<T>,

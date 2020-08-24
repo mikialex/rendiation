@@ -1,5 +1,6 @@
 use crate::*;
 use rendiation_ral::*;
+use std::ops::Range;
 
 impl RALBackend for WGPURenderer {
   type RenderTarget = WGPURenderPassBuilder<'static>;
@@ -14,21 +15,30 @@ impl RALBackend for WGPURenderer {
   type Sampler = WGPUSampler;
   type SampledTexture = ();
 
-  fn create_shading(renderer: &mut WGPURenderer, des: &SceneShadingDescriptor) -> Self::Shading {
-    let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderType::Vertex);
-    let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderType::Fragment);
-    PipelineBuilder::new(renderer, vertex, frag)
-      // .geometry(des)
-      .build() // todo add bindgroup state stuff
+  fn create_shading(_renderer: &mut WGPURenderer, _des: &SceneShadingDescriptor) -> Self::Shading {
+    todo!()
+    // let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderStage::VERTEX);
+    // let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderStage::FRAGMENT);
+    // PipelineBuilder::new(renderer, vertex, frag)
+    //   // .geometry(des)
+    //   .build() // todo add bindgroup state stuff
   }
   fn dispose_shading(_renderer: &mut WGPURenderer, _shading: Self::Shading) {
     // just drop!
   }
-  fn create_uniform_buffer(renderer: &mut WGPURenderer, des: SceneUniform) -> Self::UniformBuffer {
-    WGPUBuffer::new(renderer, des.value.as_byte(), wgpu::BufferUsage::UNIFORM)
+  fn create_uniform_buffer(renderer: &mut WGPURenderer, data: &[u8]) -> Self::UniformBuffer {
+    WGPUBuffer::new(renderer, data, wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST)
   }
   fn dispose_uniform_buffer(_renderer: &mut Self::Renderer, _uniform: Self::UniformBuffer) {
     // just drop!
+  }
+  fn update_uniform_buffer(
+    renderer: &mut Self::Renderer,
+    gpu: &mut Self::UniformBuffer,
+    data: &[u8],
+    _range: Range<usize>, // todo
+  ) {
+    gpu.update(renderer, data);
   }
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer {

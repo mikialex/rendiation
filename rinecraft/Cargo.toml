@@ -16,10 +16,14 @@ tokio = { version = "0.2", features = ["full"] }
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
-rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["webgpu"] }
+rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["webgpu", "shader-graph"] }
 rendiation-webgpu = { path = "../webgpu" }
-rendiation-webgpu-derives = { path = "../webgpu-derives" }
 rendium = { path = "../rendium" }
 
 rendiation-scenegraph = { path = "../scene-graph", features = ["webgpu"] }
 rendiation-rendergraph = { path = "../render-graph", features = ["webgpu"] }
+
+once_cell = "1.4.0"
+rendiation-shadergraph = { path = "../shader-graph" }
+rendiation-shadergraph-derives = { path = "../shader-graph-derives" }
+rendiation-shader-library = { path = "../shader-library" }

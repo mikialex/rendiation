@@ -12,11 +12,14 @@ mod code_gen;
 pub mod nodes;
 pub mod provider;
 pub mod shader_function;
+pub mod webgpu;
 pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
+use rendiation_webgpu::{PipelineBuilder, load_glsl, WGPURenderer};
 pub use shader_function::*;
+pub use webgpu::*;
 
 lazy_static! {
   pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
@@ -32,11 +35,11 @@ pub enum ShaderGraphUniformInputType {
 }
 
 pub struct ShaderGraph {
-  pub attributes: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub attributes: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
   pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
 
-  pub varyings: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
-  pub frag_outputs: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub varyings: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub frag_outputs: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
 
   pub bindgroups: Vec<ShaderGraphBindGroup>,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
@@ -47,17 +50,31 @@ pub struct ShaderGraph {
 impl ShaderGraph {
   fn new() -> Self {
     Self {
-      attributes: HashSet::new(),
+      attributes: Vec::new(),
       bindgroups: Vec::new(),
       nodes: ArenaGraph::new(),
       vertex_position: None,
-      varyings: HashSet::new(),
-      frag_outputs: HashSet::new(),
+      varyings: Vec::new(),
+      frag_outputs: Vec::new(),
       type_id_map: HashMap::new(),
     }
   }
 
-  fn register_type<T: ShaderGraphNodeType>(&mut self) {
+  pub fn create_pipeline<'a>(&self, renderer: &'a WGPURenderer) -> PipelineBuilder<'a> {
+    PipelineBuilder::new(
+      renderer,
+      load_glsl(
+        self.gen_code_vertex(),
+        rendiation_webgpu::ShaderStage::VERTEX,
+      ),
+      load_glsl(
+        self.gen_code_frag(),
+        rendiation_webgpu::ShaderStage::FRAGMENT,
+      ),
+    )
+  }
+
+  pub fn register_type<T: ShaderGraphNodeType>(&mut self) {
     self
       .type_id_map
       .entry(TypeId::of::<T>())
@@ -71,6 +88,12 @@ pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
   modifier(graph)
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ShaderStage {
+  Vertex,
+  Fragment,
+}
+
 pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<ShaderGraphUniformInputType>,
+  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }

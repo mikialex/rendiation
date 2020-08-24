@@ -1,27 +1,24 @@
-#[allow(dead_code)]
-pub enum ShaderType {
-  Vertex,
-  Fragment,
-  Compute,
-}
-
-impl ShaderType {
-  pub fn to_wgpu(&self) -> wgpu::ShaderStage {
-    match self {
-      ShaderType::Fragment => wgpu::ShaderStage::FRAGMENT,
-      ShaderType::Vertex => wgpu::ShaderStage::VERTEX,
-      ShaderType::Compute => wgpu::ShaderStage::COMPUTE,
-    }
-  }
-}
+use std::fmt::{Display};
 
 #[cfg(feature = "glsl-to-spirv")]
-pub fn load_glsl(code: &str, stage: ShaderType) -> Vec<u32> {
+pub fn load_glsl(code: impl AsRef<str> + Display, stage: wgpu::ShaderStage) -> Vec<u32> {
+  print!("{}", code);
   let ty = match stage {
-    ShaderType::Vertex => glsl_to_spirv::ShaderType::Vertex,
-    ShaderType::Fragment => glsl_to_spirv::ShaderType::Fragment,
-    ShaderType::Compute => glsl_to_spirv::ShaderType::Compute,
+    wgpu::ShaderStage::VERTEX => glsl_to_spirv::ShaderType::Vertex,
+    wgpu::ShaderStage::FRAGMENT => glsl_to_spirv::ShaderType::Fragment,
+    wgpu::ShaderStage::COMPUTE => glsl_to_spirv::ShaderType::Compute,
+    _ => panic!("unsupported"),
   };
 
-  wgpu::read_spirv(glsl_to_spirv::compile(&code, ty).unwrap()).unwrap()
+  let spirv = glsl_to_spirv::compile(code.as_ref(), ty);
+  if let Err(err) =  &spirv {
+    print!("{}", code);
+    println!("{}", err);
+  }
+  let spirv = wgpu::read_spirv(spirv.unwrap());
+  if let Err(err) =  &spirv {
+    print!("{}", code);
+    println!("{}", err);
+  }
+  spirv.unwrap()
 }

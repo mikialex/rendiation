@@ -1,5 +1,6 @@
+use std::{any::TypeId, cell::RefCell, collections::HashMap, rc::Rc};
+
 pub mod bindgroup;
-pub mod bindgroup_layout;
 pub mod blend;
 pub mod buffer;
 pub mod pipeline;
@@ -11,7 +12,6 @@ pub mod swap_chain;
 pub mod texture;
 
 pub use bindgroup::*;
-pub use bindgroup_layout::*;
 pub use blend::*;
 pub use buffer::*;
 pub use pipeline::*;
@@ -42,6 +42,7 @@ pub struct WGPURenderer {
   pub queue: Queue,
   pub encoder: wgpu::CommandEncoder,
   pub swap_chain_format: wgpu::TextureFormat,
+  pub bindgroup_layout_cache: RefCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
 }
 
 pub struct Queue(pub wgpu::Queue);
@@ -85,6 +86,19 @@ impl WGPURenderer {
       queue: Queue(queue),
       encoder,
       swap_chain_format: wgpu::TextureFormat::Bgra8UnormSrgb,
+      bindgroup_layout_cache: RefCell::new(HashMap::new()),
     }
+  }
+
+  pub fn register_bindgroup<T: BindGroupProvider>(&mut self) -> &mut Self {
+    let id = TypeId::of::<T>();
+    {
+      let mut cache = self.bindgroup_layout_cache.borrow_mut();
+      cache.entry(id)
+      .or_insert_with(||{
+        Rc::new(T::provide_layout(self))
+      });
+    }
+    self
   }
 }
