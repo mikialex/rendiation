@@ -17,6 +17,7 @@ pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
+use rendiation_webgpu::{PipelineBuilder, load_glsl, WGPURenderer};
 pub use shader_function::*;
 pub use webgpu::*;
 
@@ -57,6 +58,20 @@ impl ShaderGraph {
       frag_outputs: HashSet::new(),
       type_id_map: HashMap::new(),
     }
+  }
+
+  pub fn create_pipeline<'a>(&self, renderer: &'a WGPURenderer) -> PipelineBuilder<'a> {
+    PipelineBuilder::new(
+      renderer,
+      load_glsl(
+        self.gen_code_vertex(),
+        rendiation_webgpu::ShaderStage::VERTEX,
+      ),
+      load_glsl(
+        self.gen_code_frag(),
+        rendiation_webgpu::ShaderStage::FRAGMENT,
+      ),
+    )
   }
 
   pub fn register_type<T: ShaderGraphNodeType>(&mut self) {

@@ -114,7 +114,7 @@ impl World {
     let sampler = WGPUSampler::default(renderer);
 
     let fog = FogData {
-      fog_color: Vec3::new(0.1, 0.2, 0.3),
+      fog_color: Vec4::new(0.1, 0.2, 0.3, 1.0),
       fog_end: 60.,
       fog_start: 30.,
     };

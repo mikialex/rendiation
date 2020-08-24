@@ -29,7 +29,7 @@ glsl_function!(
   "
   vec4 apply_fog(
       vec3 color,
-      vec3 fog_color,
+      vec4 fog_color,
       vec4 mv_position,
       float fog_start,
       float fog_end
@@ -64,18 +64,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   ));
 
   let graph = builder.create();
-
-  PipelineBuilder::new(
-    renderer,
-    load_glsl(
-      graph.gen_code_vertex(),
-      rendiation_webgpu::ShaderStage::VERTEX,
-    ),
-    load_glsl(
-      graph.gen_code_frag(),
-      rendiation_webgpu::ShaderStage::FRAGMENT,
-    ),
-  )
+  graph.create_pipeline(renderer)
   .as_mut()
   .binding_group::<BlockShadingParamGroup>()
   .geometry::<IndexedGeometry>()

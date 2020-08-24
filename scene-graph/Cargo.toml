@@ -23,7 +23,6 @@ rendiation-mesh-buffer = { path = "../mesh-buffer" }
 rendiation-ral = { path = "../ral" }
 
 rendiation-webgpu = { path = "../webgpu", optional = true }
-rendiation-webgpu-derives = { path = "../webgpu-derives", optional = true }
 rendiation-webgl = { path = "../webgl", optional = true }
 
 arena-tree = { path = "../utils/arena-tree" }
