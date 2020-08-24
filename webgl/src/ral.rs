@@ -44,8 +44,17 @@ impl RALBackend for WebGLRenderer {
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer) {
     renderer.gl.delete_buffer(Some(&uniform));
   }
-  fn update_uniform_buffer(_renderer: &mut Self::Renderer, _data: &[u8], _range: Range<usize>){
+  // fn update_uniform_buffer(_renderer: &mut Self::Renderer, _data: &[u8], _range: Range<usize>){
+  //   todo!()
+  // }
+  fn update_uniform_buffer(
+    _renderer: &mut Self::Renderer,
+    _gpu: &mut Self::UniformBuffer,
+    _data: &[u8],
+    _range: Range<usize>, // todo
+  ) {
     todo!()
+    // gpu.update(renderer, data);
   }
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer {

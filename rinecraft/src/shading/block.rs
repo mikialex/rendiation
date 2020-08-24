@@ -35,8 +35,7 @@ glsl_function!(
       float fog_end
     ){
     float distance = length(mv_position);
-    // return vec4(linear_fog(color, fog_color, distance, fog_start, fog_end), 1.0);
-    return vec4(1.0);
+    return vec4(linear_fog(color, fog_color, distance, fog_start, fog_end), 1.0);
   }
   "
 );
@@ -47,8 +46,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   let p = builder.bindgroup_by::<BlockShadingParamGroup>();
 
   let mv_position = to_mv_position(geometry.position, p.mvp.model_view);
-  // let clip_position = apply_projection(mv_position, p.mvp.projection);
-  let clip_position = mvp_projection_one(geometry.position, p.mvp.mvp);
+  let clip_position = apply_projection(mv_position, p.mvp.projection);
   builder.set_vertex_root(clip_position);
 
   let frag_normal = builder.set_vary(geometry.normal);

@@ -133,8 +133,12 @@ trait UBOStorageTrait<T: RALBackend>: Any {
 impl<T: RALBackend, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
     if self.dirty {
-      let data = self.storage.as_slice();
-      let data = unsafe { std::mem::transmute(data) };
+      let ptr = self.storage.as_ptr();
+      let data = unsafe { 
+        let ptr = std::mem::transmute(ptr);
+        std::slice::from_raw_parts::<u8>(ptr, self.storage.len() * std::mem::size_of::<U>())
+       };
+
       if let Some(gpu) = &mut self.gpu {
         T::update_uniform_buffer(renderer, gpu, data, 0..self.storage.len());
       } else {
