@@ -19,6 +19,7 @@ impl CameraGPU {
     scene: &mut Scene<WGPURenderer>,
   ) -> Self {
     let mvp = MVPTransformation {
+      mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
       model_view: camera.get_view_matrix(),
     };
@@ -41,6 +42,7 @@ impl CameraGPU {
     self.gpu_mvp_matrix_dirty = false;
 
     let mvp = MVPTransformation {
+      mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
       model_view: camera.get_view_matrix(),
     };

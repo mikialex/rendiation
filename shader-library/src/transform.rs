@@ -3,9 +3,18 @@ use crate::*;
 #[derive(UniformBuffer)]
 #[repr(align(16))]
 pub struct MVPTransformation {
+  pub mvp: Mat4<f32>,
   pub projection: Mat4<f32>,
   pub model_view: Mat4<f32>,
 }
+
+glsl_function!(
+  "
+vec4 mvp_projection_one(vec3 raw, mat4 mvp){
+    return mvp * vec4(raw, 1.0);
+}
+"
+);
 
 glsl_function!(
   "
