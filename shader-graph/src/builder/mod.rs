@@ -30,8 +30,7 @@ impl ShaderGraphBuilder {
       ));
       let handle = g.nodes.create_node(node.to_any());
       g.nodes.connect_node(unsafe { n.cast_type() }, handle);
-      g.frag_outputs
-        .insert((unsafe { handle.cast_type() }, index));
+      g.frag_outputs.push((unsafe { handle.cast_type() }, index));
     });
   }
 
@@ -50,7 +49,7 @@ impl ShaderGraphBuilder {
       let handle = graph.nodes.create_node(node.to_any());
       graph.nodes.connect_node(unsafe { h.cast_type() }, handle);
 
-      graph.varyings.insert((handle, index)); // this for output, so with output type
+      graph.varyings.push((handle, index)); // this for output, so with output type
 
       // this for input in fragment shader , so with input type
       let return_node =
@@ -95,7 +94,7 @@ impl ShaderGraphBuilder {
       let node = ShaderGraphNode::<T>::new(data);
       graph.register_type::<T>();
       let handle = graph.nodes.create_node(node.to_any());
-      graph.attributes.insert((handle, graph.attributes.len()));
+      graph.attributes.push((handle, graph.attributes.len()));
       unsafe { handle.cast_type() }
     })
   }

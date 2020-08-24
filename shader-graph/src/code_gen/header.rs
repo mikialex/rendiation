@@ -55,6 +55,8 @@ impl ShaderGraph {
       .join("\n")
       .as_ref();
 
+    result += "\n";
+
     // varyings
     result += self
       .varyings
@@ -72,6 +74,8 @@ impl ShaderGraph {
       .collect::<Vec<_>>()
       .join("\n")
       .as_ref();
+
+    result += "\n";
 
     result += self.gen_bindgroups_header(ShaderStage::Vertex).as_str();
 

@@ -35,11 +35,11 @@ pub enum ShaderGraphUniformInputType {
 }
 
 pub struct ShaderGraph {
-  pub attributes: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub attributes: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
   pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
 
-  pub varyings: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
-  pub frag_outputs: HashSet<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub varyings: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub frag_outputs: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
 
   pub bindgroups: Vec<ShaderGraphBindGroup>,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
@@ -50,12 +50,12 @@ pub struct ShaderGraph {
 impl ShaderGraph {
   fn new() -> Self {
     Self {
-      attributes: HashSet::new(),
+      attributes: Vec::new(),
       bindgroups: Vec::new(),
       nodes: ArenaGraph::new(),
       vertex_position: None,
-      varyings: HashSet::new(),
-      frag_outputs: HashSet::new(),
+      varyings: Vec::new(),
+      frag_outputs: Vec::new(),
       type_id_map: HashMap::new(),
     }
   }
