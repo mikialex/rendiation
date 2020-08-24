@@ -94,10 +94,9 @@ impl WGPURenderer {
     let id = TypeId::of::<T>();
     {
       let mut cache = self.bindgroup_layout_cache.borrow_mut();
-      cache.entry(id)
-      .or_insert_with(||{
-        Rc::new(T::provide_layout(self))
-      });
+      cache
+        .entry(id)
+        .or_insert_with(|| Rc::new(T::provide_layout(self)));
     }
     self
   }

@@ -14,11 +14,10 @@ impl WGPUSampler {
   pub fn get_gpu_sampler(&self) -> &wgpu::Sampler {
     &self.gpu_sampler
   }
-  pub fn get_descripor(&self) -> &wgpu::SamplerDescriptor{
+  pub fn get_descriptor(&self) -> &wgpu::SamplerDescriptor {
     &self.descriptor
   }
 }
-
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum TextureWrapping {
@@ -46,7 +45,6 @@ impl AsMut<Self> for WGPUSamplerBuilder {
     self
   }
 }
-
 
 impl WGPUSamplerBuilder {
   pub fn new() -> Self {

@@ -6,6 +6,10 @@ pub trait ShaderGraphNodeType: 'static {
   fn to_glsl_type() -> &'static str;
 }
 
+pub trait ShaderGraphConstableNodeType: 'static + Send + Sync {
+  fn const_to_glsl(&self) -> String;
+}
+
 // this for not include samplers/textures as attributes
 pub trait ShaderGraphAttributeNodeType: ShaderGraphNodeType {}
 
@@ -91,12 +95,13 @@ pub enum ShaderGraphNodeData {
   Function(FunctionNode),
   Input(ShaderGraphInputNode),
   Output(ShaderGraphOutput),
+  Const(Box<dyn ShaderGraphConstableNodeType>),
 }
 
 pub enum ShaderGraphOutput {
   Vary(usize),
   Frag(usize),
-  Vert
+  Vert,
 }
 
 pub struct FunctionNode {
@@ -111,5 +116,5 @@ pub struct ShaderGraphInputNode {
 pub enum ShaderGraphInputNodeType {
   Uniform,
   Attribute,
-  Vary
+  Vary,
 }

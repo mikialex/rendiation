@@ -47,7 +47,11 @@ impl WGPUTexture {
     WGPUTexture::new_as_target(renderer, TextureFormat::Rgba8UnormSrgb, size)
   }
 
-  pub fn new_as_target(renderer: &WGPURenderer, format: TextureFormat, size: (usize, usize)) -> Self {
+  pub fn new_as_target(
+    renderer: &WGPURenderer,
+    format: TextureFormat,
+    size: (usize, usize),
+  ) -> Self {
     let size: TextureSize2D = size.into();
     let descriptor = wgpu::TextureDescriptor {
       label: None,
@@ -135,7 +139,10 @@ impl WGPUTexture {
 }
 
 impl<V: TextureDimension> WGPUTexture<V> {
-  pub async fn read(&self, renderer: &mut WGPURenderer) -> Result<wgpu::BufferReadMapping, wgpu::BufferAsyncErr> {
+  pub async fn read(
+    &self,
+    renderer: &mut WGPURenderer,
+  ) -> Result<wgpu::BufferReadMapping, wgpu::BufferAsyncErr> {
     let pixel_count = self.size.get_pixel_size() as u64;
     let data_size = pixel_count * self.format.get_pixel_data_stride() as u64;
 

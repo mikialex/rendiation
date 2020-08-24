@@ -7,7 +7,6 @@ pub fn load_glsl(code: impl AsRef<str> + Display, stage: rendiation_ral::ShaderS
   let ty = match stage {
     Vertex => glsl_to_spirv::ShaderType::Vertex,
     Fragment => glsl_to_spirv::ShaderType::Fragment,
-    _ => panic!("unsupported"),
   };
 
   let spirv = glsl_to_spirv::compile(code.as_ref(), ty);

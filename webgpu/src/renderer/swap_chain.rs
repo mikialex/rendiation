@@ -8,11 +8,7 @@ pub struct SwapChain {
 }
 
 impl SwapChain {
-  pub fn new(
-    surface: wgpu::Surface,
-    size: (usize, usize),
-    renderer: &WGPURenderer,
-  ) -> Self {
+  pub fn new(surface: wgpu::Surface, size: (usize, usize), renderer: &WGPURenderer) -> Self {
     let swap_chain_descriptor = wgpu::SwapChainDescriptor {
       usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
       format: renderer.swap_chain_format,
@@ -20,7 +16,9 @@ impl SwapChain {
       height: size.1 as u32,
       present_mode: wgpu::PresentMode::Fifo,
     };
-    let swap_chain = renderer.device.create_swap_chain(&surface, &swap_chain_descriptor);
+    let swap_chain = renderer
+      .device
+      .create_swap_chain(&surface, &swap_chain_descriptor);
     Self {
       surface,
       swap_chain_descriptor,
@@ -30,7 +28,6 @@ impl SwapChain {
   }
 
   pub fn resize(&mut self, mut size: (usize, usize), device: &wgpu::Device) {
-    
     if size.0 == 0 {
       size.0 = 1;
     }
@@ -41,8 +38,7 @@ impl SwapChain {
 
     self.swap_chain_descriptor.width = size.0 as u32;
     self.swap_chain_descriptor.height = size.1 as u32;
-    self.swap_chain =
-      device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+    self.swap_chain = device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
     self.size = size;
   }
 
