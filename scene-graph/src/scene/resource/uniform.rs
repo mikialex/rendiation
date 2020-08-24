@@ -110,10 +110,16 @@ impl<T: RALBackend> UBOManager<T> {
   }
 
   pub fn insert<U: 'static>(&mut self, value: U) -> usize {
+    self.notify_modified::<U>();
     self.get_storage_or_create::<U>().insert(value)
   }
 
+  pub fn notify_modified<U: 'static>(&mut self) {
+    self.modified.insert(TypeId::of::<U>());
+  }
+
   pub fn update<U: 'static>(&mut self, handle: usize, new_value: U) {
+    self.notify_modified::<U>();
     self.get_storage_or_create::<U>().update(handle, new_value);
   }
 }
@@ -135,6 +141,7 @@ impl<T: RALBackend, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
         self.gpu = Some(T::create_uniform_buffer(renderer, data))
       }
     }
+    self.dirty = false;
   }
 
   fn as_any(&self) -> &dyn Any {
