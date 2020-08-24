@@ -1,12 +1,13 @@
 [package]
-name = "rendiation-shader-library"
-version = "0.1.0"
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
+name = "rendiation-shader-library"
+version = "0.1.0"
 
 [dependencies]
 once_cell = "1.4.0"
-rendiation-math = { path = "../math" }
-rendiation-shadergraph = { path = "../shader-graph" }
-rendiation-shadergraph-derives = { path = "../shader-graph-derives" }
-rendiation-webgpu = { path = "../webgpu" }
+rendiation-math = {path = "../math"}
+rendiation-ral = {path = "../ral"}
+rendiation-shadergraph = {path = "../shader-graph"}
+rendiation-shadergraph-derives = {path = "../shader-graph-derives"}
+rendiation-webgpu = {path = "../webgpu"}

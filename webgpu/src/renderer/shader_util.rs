@@ -1,22 +1,22 @@
-use std::fmt::{Display};
+use std::fmt::Display;
 
 #[cfg(feature = "glsl-to-spirv")]
-pub fn load_glsl(code: impl AsRef<str> + Display, stage: wgpu::ShaderStage) -> Vec<u32> {
+pub fn load_glsl(code: impl AsRef<str> + Display, stage: rendiation_ral::ShaderStage) -> Vec<u32> {
   print!("{}", code);
+  use rendiation_ral::ShaderStage::*;
   let ty = match stage {
-    wgpu::ShaderStage::VERTEX => glsl_to_spirv::ShaderType::Vertex,
-    wgpu::ShaderStage::FRAGMENT => glsl_to_spirv::ShaderType::Fragment,
-    wgpu::ShaderStage::COMPUTE => glsl_to_spirv::ShaderType::Compute,
+    Vertex => glsl_to_spirv::ShaderType::Vertex,
+    Fragment => glsl_to_spirv::ShaderType::Fragment,
     _ => panic!("unsupported"),
   };
 
   let spirv = glsl_to_spirv::compile(code.as_ref(), ty);
-  if let Err(err) =  &spirv {
+  if let Err(err) = &spirv {
     print!("{}", code);
     println!("{}", err);
   }
   let spirv = wgpu::read_spirv(spirv.unwrap());
-  if let Err(err) =  &spirv {
+  if let Err(err) = &spirv {
     print!("{}", code);
     println!("{}", err);
   }

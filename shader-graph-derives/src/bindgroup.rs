@@ -29,8 +29,8 @@ pub fn derive_bindgroup_impl(
     let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
     let name = format!("{}", attr.tokens); // can i do better?
     let visibility = match name.as_str() {
-      "(vert)" => quote! { rendiation_shadergraph::ShaderStage::Vertex },
-      "(frag)" => quote! { rendiation_shadergraph::ShaderStage::Fragment },
+      "(vert)" => quote! { rendiation_ral::ShaderStage::Vertex },
+      "(frag)" => quote! { rendiation_ral::ShaderStage::Fragment },
       _ => panic!("unsupported"),
     };
 
@@ -56,7 +56,6 @@ pub fn derive_bindgroup_impl(
     })
     .collect();
 
-
   let wgpu_create_bindgroup_layout_create: Vec<_> = fields
     .iter()
     .map(|f| {
@@ -64,8 +63,8 @@ pub fn derive_bindgroup_impl(
       let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
       let name = format!("{}", attr.tokens); // can i do better?
       let visibility = match name.as_str() {
-        "(vert)" => quote! { rendiation_webgpu::ShaderStage::VERTEX },
-        "(frag)" => quote! { rendiation_webgpu::ShaderStage::FRAGMENT },
+        "(vert)" => quote! { rendiation_ral::ShaderStage::Vertex },
+        "(frag)" => quote! { rendiation_ral::ShaderStage::Fragment },
         _ => panic!("unsupported"),
       };
 

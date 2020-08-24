@@ -27,7 +27,11 @@ impl RALBackend for WGPURenderer {
     // just drop!
   }
   fn create_uniform_buffer(renderer: &mut WGPURenderer, data: &[u8]) -> Self::UniformBuffer {
-    WGPUBuffer::new(renderer, data, wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST)
+    WGPUBuffer::new(
+      renderer,
+      data,
+      wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    )
   }
   fn dispose_uniform_buffer(_renderer: &mut Self::Renderer, _uniform: Self::UniformBuffer) {
     // just drop!
@@ -51,5 +55,13 @@ impl RALBackend for WGPURenderer {
     _layout: RALVertexBufferDescriptor, // so can we use this to add additional runtime check?
   ) -> Self::VertexBuffer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::VERTEX)
+  }
+}
+
+pub fn shader_stage_convert(stage: rendiation_ral::ShaderStage) -> wgpu::ShaderStage {
+  use rendiation_ral::ShaderStage::*;
+  match stage {
+    Vertex => wgpu::ShaderStage::VERTEX,
+    Fragment => wgpu::ShaderStage::FRAGMENT,
   }
 }

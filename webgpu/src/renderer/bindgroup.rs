@@ -1,5 +1,5 @@
 use crate::renderer::buffer::WGPUBuffer;
-use crate::{WGPURenderer, renderer::sampler::WGPUSampler};
+use crate::{renderer::sampler::WGPUSampler, shader_stage_convert, WGPURenderer};
 use std::ops::Range;
 
 pub enum WGPUBinding<'a> {
@@ -99,22 +99,22 @@ impl BindGroupLayoutBuilder {
     }
   }
 
-  pub fn bind(mut self, ty: wgpu::BindingType, visibility: wgpu::ShaderStage) -> Self {
+  pub fn bind(mut self, ty: wgpu::BindingType, visibility: rendiation_ral::ShaderStage) -> Self {
     let binding = self.bindings.len() as u32;
     self.bindings.push(wgpu::BindGroupLayoutEntry {
       binding,
-      visibility,
+      visibility: shader_stage_convert(visibility),
       ty,
     });
     self
-  } 
+  }
 
-  pub fn build(self, renderer: &WGPURenderer) -> wgpu::BindGroupLayout{
+  pub fn build(self, renderer: &WGPURenderer) -> wgpu::BindGroupLayout {
     renderer
-    .device
-    .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: None,
-      bindings: &self.bindings,
-    })
+      .device
+      .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        bindings: &self.bindings,
+      })
   }
 }

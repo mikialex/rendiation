@@ -17,7 +17,8 @@ pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
-use rendiation_webgpu::{PipelineBuilder, load_glsl, WGPURenderer};
+use rendiation_ral::ShaderStage;
+use rendiation_webgpu::{load_glsl, PipelineBuilder, WGPURenderer};
 pub use shader_function::*;
 pub use webgpu::*;
 
@@ -63,14 +64,8 @@ impl ShaderGraph {
   pub fn create_pipeline<'a>(&self, renderer: &'a WGPURenderer) -> PipelineBuilder<'a> {
     PipelineBuilder::new(
       renderer,
-      load_glsl(
-        self.gen_code_vertex(),
-        rendiation_webgpu::ShaderStage::VERTEX,
-      ),
-      load_glsl(
-        self.gen_code_frag(),
-        rendiation_webgpu::ShaderStage::FRAGMENT,
-      ),
+      load_glsl(self.gen_code_vertex(), rendiation_ral::ShaderStage::Vertex),
+      load_glsl(self.gen_code_frag(), rendiation_ral::ShaderStage::Fragment),
     )
   }
 
@@ -86,12 +81,6 @@ pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   let graph = guard.as_mut().unwrap();
   modifier(graph)
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ShaderStage {
-  Vertex,
-  Fragment,
 }
 
 pub struct ShaderGraphBindGroup {

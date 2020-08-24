@@ -64,12 +64,13 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   ));
 
   let graph = builder.create();
-  graph.create_pipeline(renderer)
-  .as_mut()
-  .binding_group::<BlockShadingParamGroup>()
-  .geometry::<IndexedGeometry>()
-  .target_states(target)
-  .build()
+  graph
+    .create_pipeline(renderer)
+    .as_mut()
+    .binding_group::<BlockShadingParamGroup>()
+    .geometry::<IndexedGeometry>()
+    .target_states(target)
+    .build()
 }
 
 #[derive(BindGroup)]

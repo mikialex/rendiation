@@ -63,3 +63,9 @@ pub trait SceneUniformValue: Any {
   fn as_any(&self) -> dyn Any;
   fn as_byte(&self) -> &[u8];
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ShaderStage {
+  Vertex,
+  Fragment,
+}

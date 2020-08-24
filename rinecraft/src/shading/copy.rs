@@ -42,11 +42,12 @@ impl CopierShading {
 
     let graph = builder.create();
 
-    let pipeline = graph.create_pipeline(renderer)
-    .binding_group::<CopyParam>()
-    .geometry::<IndexedGeometry>()
-    .target_states(target.create_target_states().as_ref())
-    .build();
+    let pipeline = graph
+      .create_pipeline(renderer)
+      .binding_group::<CopyParam>()
+      .geometry::<IndexedGeometry>()
+      .target_states(target.create_target_states().as_ref())
+      .build();
 
     Self { pipeline }
   }

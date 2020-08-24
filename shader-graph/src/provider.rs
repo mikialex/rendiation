@@ -1,7 +1,7 @@
 use crate::{
   ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeHandle, ShaderGraphNodeType,
-  ShaderStage,
 };
+use rendiation_ral::ShaderStage;
 use std::collections::HashMap;
 
 pub trait ShaderGraphBindGroupItemProvider {
