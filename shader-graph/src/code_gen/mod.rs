@@ -271,6 +271,7 @@ fn get_node_gen_result_var(
   match data {
     Function(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
     TextureSampling(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
+    Operator(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
     Input(n) => n.name.clone(),
     Output(n) => n.to_shader_var_name(),
     Const(value) => value.const_to_glsl(),

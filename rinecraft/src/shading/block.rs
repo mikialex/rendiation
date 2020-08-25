@@ -12,28 +12,15 @@ use transform::MVPTransformation;
 
 glsl_function!(
   "
-  vec3 block_frag_color(
-      vec3 normal,
-      vec2 uv,
-      sampler sa,
-      texture2D tex
-    ){
-    vec3 color = texture(sampler2D(tex, sa), uv).rgb;
-    color *= spherical_harmonics(normal); 
-    return color;
-  }
-  "
-);
-
-glsl_function!(
-  "
   vec4 apply_fog(
-      vec3 color,
+      vec4 block_color,
+      vec3 sph,
       vec4 fog_color,
       vec4 mv_position,
       float fog_start,
       float fog_end
     ){
+    vec3 color = block_color.xyz * sph;
     float distance = length(mv_position);
     return vec4(linear_fog(color, fog_color, distance, fog_start, fog_end), 1.0);
   }
@@ -53,10 +40,12 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   let frag_uv = builder.set_vary(geometry.uv);
   let frag_mv_position = builder.set_vary(mv_position);
 
-  let block_color = block_frag_color(frag_normal, frag_uv, p.my_sampler, p.my_texture_view);
+  let block_color = p.my_texture_view.sample(p.my_sampler, frag_uv);
+  let sph = spherical_harmonics(frag_normal);
 
   builder.set_frag_output(apply_fog(
     block_color,
+    sph,
     p.fog.fog_color,
     frag_mv_position,
     p.fog.fog_start,

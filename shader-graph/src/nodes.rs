@@ -1,6 +1,6 @@
 use crate::{
-  ShaderFunction, ShaderGraphNodeRawHandle, ShaderGraphNodeUntyped, ShaderGraphSampler,
-  ShaderGraphTexture,
+  ShaderFunction, ShaderGraphNodeRawHandle, ShaderGraphNodeRawHandleUntyped,
+  ShaderGraphNodeUntyped, ShaderGraphSampler, ShaderGraphTexture,
 };
 use rendiation_math::Vec2;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
@@ -58,6 +58,7 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
 pub enum ShaderGraphNodeData {
   Function(FunctionNode),
   TextureSampling(TextureSamplingNode),
+  Operator(OperatorNode),
   Input(ShaderGraphInputNode),
   Output(ShaderGraphOutput),
   Const(Box<dyn ShaderGraphConstableNodeType>),
@@ -77,6 +78,12 @@ pub struct TextureSamplingNode {
   pub texture: ShaderGraphNodeRawHandle<ShaderGraphTexture>,
   pub sampler: ShaderGraphNodeRawHandle<ShaderGraphSampler>,
   pub position: ShaderGraphNodeRawHandle<Vec2<f32>>,
+}
+
+pub struct OperatorNode {
+  pub left: ShaderGraphNodeRawHandleUntyped,
+  pub right: ShaderGraphNodeRawHandleUntyped,
+  pub operator: &'static str,
 }
 
 pub struct ShaderGraphInputNode {

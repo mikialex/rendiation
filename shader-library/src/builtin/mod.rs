@@ -23,11 +23,5 @@ pub fn max<T: ShaderGraphNodeType>(
   })
 }
 
-// pub fn sampler2D(
-//   texture: ShaderGraphNodeHandle<ShaderGraphTexture>,
-//   sampler: ShaderGraphNodeHandle<ShaderGraphSampler>,
-// ) -> ShaderGraphNodeHandle<ShaderGraphSampler> {
-// }
-
 glsl_function_inner!("vec4 vec4_31(vec3 a, float b){}///vec4");
 glsl_function_inner!("vec4 vec3_21(vec2 a, float b){}///vec4");
