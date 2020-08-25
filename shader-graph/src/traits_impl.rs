@@ -1,7 +1,7 @@
 use crate::{
-  AnyType, ShaderGraphAttributeNodeType, ShaderGraphBindGroupBuilder,
-  ShaderGraphBindGroupItemProvider, ShaderGraphConstableNodeType, ShaderGraphNodeHandle,
-  ShaderGraphNodeType,
+  modify_graph, AnyType, ShaderGraphAttributeNodeType, ShaderGraphBindGroupBuilder,
+  ShaderGraphBindGroupItemProvider, ShaderGraphConstableNodeType, ShaderGraphNode,
+  ShaderGraphNodeData, ShaderGraphNodeHandle, ShaderGraphNodeType, TextureSamplingNode,
 };
 use rendiation_math::*;
 use rendiation_ral::ShaderStage;
@@ -91,10 +91,26 @@ impl ShaderGraphNodeType for ShaderGraphTexture {
 
 impl ShaderGraphNodeHandle<ShaderGraphTexture> {
   pub fn sample(
-    _sampler: ShaderGraphNodeHandle<ShaderGraphSampler>,
-    _position: ShaderGraphNodeHandle<Vec2<f32>>,
-  ) {
-    todo!()
+    &self,
+    sampler: ShaderGraphNodeHandle<ShaderGraphSampler>,
+    position: ShaderGraphNodeHandle<Vec2<f32>>,
+  ) -> ShaderGraphNodeHandle<Vec4<f32>> {
+    modify_graph(|g| {
+      let node = ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::TextureSampling(
+        TextureSamplingNode {
+          texture: self.handle,
+          sampler: sampler.handle,
+          position: position.handle,
+        },
+      ));
+      let handle = g.nodes.create_node(node.to_any());
+      unsafe {
+        g.nodes.connect_node(sampler.handle.cast_type(), handle);
+        g.nodes.connect_node(position.handle.cast_type(), handle);
+        g.nodes.connect_node(self.handle.cast_type(), handle);
+        handle.cast_type().into()
+      }
+    })
   }
 }
 

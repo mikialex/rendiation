@@ -240,6 +240,15 @@ impl ShaderGraphNode<AnyType> {
         );
         Some((ctx.create_new_temp_name(), fn_call, false))
       }
+      TextureSampling(n) => unsafe {
+        let sampling_code = format!(
+          "texture(sampler2D({}, {}), {})",
+          get_node_gen_result_var(n.texture.cast_type(), graph, ctx),
+          get_node_gen_result_var(n.sampler.cast_type(), graph, ctx),
+          get_node_gen_result_var(n.position.cast_type(), graph, ctx),
+        );
+        Some((ctx.create_new_temp_name(), sampling_code, false))
+      },
       Output(n) => {
         let from = node.from().iter().next().expect("output not set");
         Some((
@@ -261,6 +270,7 @@ fn get_node_gen_result_var(
   let data = &graph.nodes.get_node(node).data().data;
   match data {
     Function(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
+    TextureSampling(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
     Input(n) => n.name.clone(),
     Output(n) => n.to_shader_var_name(),
     Const(value) => value.const_to_glsl(),

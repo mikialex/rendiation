@@ -13,18 +13,6 @@ pub struct CopierShading {
   pub pipeline: WGPUPipeline,
 }
 
-glsl_function!(
-  "
-  vec4 just_copy(
-      vec2 uv,
-      sampler sa,
-      texture2D tex
-    ){
-    return texture(sampler2D(tex, sa), uv); 
-  }
-  "
-);
-
 impl CopierShading {
   pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
     let mut builder = ShaderGraphBuilder::new();
@@ -35,11 +23,7 @@ impl CopierShading {
     builder.set_vertex_root(vec4_31(geometry.position, builder.c(1.0)));
     let frag_uv = builder.set_vary(geometry.uv);
 
-    builder.set_frag_output(just_copy(
-      frag_uv,
-      parameter.my_sampler,
-      parameter.my_texture,
-    ));
+    builder.set_frag_output(parameter.my_texture.sample(parameter.my_sampler, frag_uv));
 
     let graph = builder.create();
 
