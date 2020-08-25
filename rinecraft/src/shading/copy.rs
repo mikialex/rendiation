@@ -1,6 +1,7 @@
 use render_target::{RenderTarget, TargetStatesProvider};
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 
+use rendiation_shader_library::builtin::*;
 use rendiation_shader_library::fog::*;
 use rendiation_shader_library::sph::*;
 use rendiation_shader_library::transform::*;
@@ -31,7 +32,7 @@ impl CopierShading {
 
     let parameter = builder.bindgroup_by::<CopyParam>();
 
-    builder.set_vertex_root(make_position(geometry.position));
+    builder.set_vertex_root(vec4_31(geometry.position, builder.c(1.0)));
     let frag_uv = builder.set_vary(geometry.uv);
 
     builder.set_frag_output(just_copy(

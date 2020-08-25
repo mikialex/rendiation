@@ -12,6 +12,7 @@ mod code_gen;
 pub mod nodes;
 pub mod provider;
 pub mod shader_function;
+pub mod traits_impl;
 pub mod webgpu;
 pub use builder::*;
 pub use nodes::*;
@@ -20,14 +21,29 @@ use rendiation_math::*;
 use rendiation_ral::ShaderStage;
 use rendiation_webgpu::{load_glsl, PipelineBuilder, WGPURenderer};
 pub use shader_function::*;
+pub use traits_impl::*;
 pub use webgpu::*;
 
 lazy_static! {
   pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
 }
 
-pub type ShaderGraphNodeHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
+#[derive(Copy, Clone)]
+pub struct ShaderGraphNodeHandle<T: ShaderGraphNodeType> {
+  pub handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
+}
+
+impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>>
+  for ShaderGraphNodeHandle<T>
+{
+  fn from(handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>) -> Self {
+    ShaderGraphNodeHandle { handle }
+  }
+}
+
 pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
+pub type ShaderGraphNodeRawHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
+pub type ShaderGraphNodeRawHandleUntyped = ArenaGraphNodeHandle<ShaderGraphNode<AnyType>>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub enum ShaderGraphUniformInputType {
@@ -67,6 +83,14 @@ impl ShaderGraph {
       load_glsl(self.gen_code_vertex(), rendiation_ral::ShaderStage::Vertex),
       load_glsl(self.gen_code_frag(), rendiation_ral::ShaderStage::Fragment),
     )
+  }
+
+  pub fn insert_node<T: ShaderGraphNodeType>(
+    &mut self,
+    node: ShaderGraphNode<T>,
+  ) -> ShaderGraphNodeHandleUntyped {
+    self.register_type::<T>();
+    self.nodes.create_node(node.to_any()).into()
   }
 
   pub fn register_type<T: ShaderGraphNodeType>(&mut self) {

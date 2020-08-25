@@ -6,7 +6,7 @@ mod header;
 
 struct CodeGenCtx {
   var_guid: usize,
-  code_gen_history: HashMap<ShaderGraphNodeHandleUntyped, MiddleVariableCodeGenResult>,
+  code_gen_history: HashMap<ShaderGraphNodeRawHandleUntyped, MiddleVariableCodeGenResult>,
   depend_functions: HashSet<Arc<ShaderFunction>>,
 }
 
@@ -79,7 +79,7 @@ impl CodeGenCtx {
 }
 
 struct MiddleVariableCodeGenResult {
-  ref_node: ShaderGraphNodeHandleUntyped,
+  ref_node: ShaderGraphNodeRawHandleUntyped,
   type_name: &'static str,
   var_name: String,
   expression_str: String,
@@ -88,7 +88,7 @@ struct MiddleVariableCodeGenResult {
 
 impl MiddleVariableCodeGenResult {
   fn new(
-    ref_node: ShaderGraphNodeHandleUntyped,
+    ref_node: ShaderGraphNodeRawHandleUntyped,
     var_name: String,
     expression_str: String,
     graph: &ShaderGraph,
@@ -130,7 +130,7 @@ impl ShaderGraph {
   ) {
     builder.write_ln("");
 
-    let depends = self.nodes.topological_order_list(handle).unwrap();
+    let depends = self.nodes.topological_order_list(handle.handle).unwrap();
 
     depends.iter().for_each(|&h| {
       // this node has generated, skip
@@ -162,7 +162,9 @@ impl ShaderGraph {
         self
           .vertex_position
           .expect("vertex position not set")
+          .handle
           .cast_type()
+          .into()
       },
       &mut ctx,
       &mut builder,

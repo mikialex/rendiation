@@ -1,8 +1,7 @@
 use crate::{ShaderFunction, ShaderGraphNodeUntyped};
-use rendiation_math::*;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
 
-pub trait ShaderGraphNodeType: 'static {
+pub trait ShaderGraphNodeType: 'static + Copy {
   fn to_glsl_type() -> &'static str;
 }
 
@@ -13,47 +12,8 @@ pub trait ShaderGraphConstableNodeType: 'static + Send + Sync {
 // this for not include samplers/textures as attributes
 pub trait ShaderGraphAttributeNodeType: ShaderGraphNodeType {}
 
+#[derive(Copy, Clone)]
 pub struct AnyType {}
-
-impl ShaderGraphNodeType for AnyType {
-  fn to_glsl_type() -> &'static str {
-    unreachable!("Node can't newed with type AnyType")
-  }
-}
-
-impl ShaderGraphNodeType for f32 {
-  fn to_glsl_type() -> &'static str {
-    "float"
-  }
-}
-impl ShaderGraphAttributeNodeType for f32 {}
-
-impl ShaderGraphNodeType for Vec2<f32> {
-  fn to_glsl_type() -> &'static str {
-    "vec2"
-  }
-}
-impl ShaderGraphAttributeNodeType for Vec2<f32> {}
-
-impl ShaderGraphNodeType for Vec3<f32> {
-  fn to_glsl_type() -> &'static str {
-    "vec3"
-  }
-}
-impl ShaderGraphAttributeNodeType for Vec3<f32> {}
-
-impl ShaderGraphNodeType for Vec4<f32> {
-  fn to_glsl_type() -> &'static str {
-    "vec4"
-  }
-}
-impl ShaderGraphAttributeNodeType for Vec4<f32> {}
-
-impl ShaderGraphNodeType for Mat4<f32> {
-  fn to_glsl_type() -> &'static str {
-    "mat4"
-  }
-}
 
 pub struct ShaderGraphNode<T: ShaderGraphNodeType> {
   phantom: PhantomData<T>,

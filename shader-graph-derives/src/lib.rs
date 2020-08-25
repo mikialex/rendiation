@@ -40,5 +40,13 @@ pub fn derive_geometry(input: TokenStream) -> TokenStream {
 pub fn glsl_function(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::LitStr);
   let glsl = input.value();
-  gen_glsl_function(&glsl).into()
+  gen_glsl_function(&glsl, false, "").into()
+}
+
+#[proc_macro]
+pub fn glsl_function_inner(input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as syn::LitStr);
+  let glsl = input.value();
+  let v: Vec<_> = glsl.split("///").collect();
+  gen_glsl_function(&v[0], true, v[1]).into()
 }
