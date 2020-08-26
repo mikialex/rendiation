@@ -77,9 +77,15 @@ impl ShaderGraphBuilder {
     });
   }
 
-  pub fn bindgroup_by<T: ShaderGraphBindGroupProvider>(
+  pub fn bindgroup_by<T: ShaderGraphBindGroupProvider + rendiation_webgpu::BindGroupProvider>(
     &mut self,
+    layout: Arc<rendiation_webgpu::BindGroupLayout>,
   ) -> T::ShaderGraphBindGroupInstance {
+    modify_graph(|graph| {
+      graph.wgpu_shader_interface.binding_group::<T>(layout);
+    });
+
+    // can we do better??
     let mut re: Option<T::ShaderGraphBindGroupInstance> = None;
     self.bindgroup(|b| {
       re = Some(T::create_instance(b));
@@ -112,8 +118,14 @@ impl ShaderGraphBuilder {
     })
   }
 
-  pub fn geometry_by<T: ShaderGraphGeometryProvider>(&mut self) -> T::ShaderGraphGeometryInstance {
+  pub fn vertex_by<T: ShaderGraphGeometryProvider>(&mut self) -> T::ShaderGraphGeometryInstance {
     T::create_instance(self)
+  }
+
+  pub fn geometry_by<T: rendiation_webgpu::GeometryProvider>(&mut self) {
+    modify_graph(|graph| {
+      graph.wgpu_shader_interface.geometry::<T>();
+    });
   }
 }
 

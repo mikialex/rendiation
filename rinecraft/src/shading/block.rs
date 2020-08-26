@@ -29,15 +29,18 @@ glsl_function!(
 
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
   let mut builder = ShaderGraphBuilder::new();
-  let geometry = builder.geometry_by::<Vertex>();
-  let p = builder.bindgroup_by::<BlockShadingParamGroup>();
+  builder.geometry_by::<IndexedGeometry>();
 
-  let mv_position = to_mv_position(geometry.position, p.mvp.model_view);
+  let vertex = builder.vertex_by::<Vertex>();
+  let p = builder
+    .bindgroup_by::<BlockShadingParamGroup>(renderer.get_bindgroup::<BlockShadingParamGroup>());
+
+  let mv_position = to_mv_position(vertex.position, p.mvp.model_view);
   let clip_position = apply_projection(mv_position, p.mvp.projection);
   builder.set_vertex_root(clip_position);
 
-  let frag_normal = builder.set_vary(geometry.normal);
-  let frag_uv = builder.set_vary(geometry.uv);
+  let frag_normal = builder.set_vary(vertex.normal);
+  let frag_uv = builder.set_vary(vertex.uv);
   let frag_mv_position = builder.set_vary(mv_position);
 
   let block_color = p.my_texture_view.sample(p.my_sampler, frag_uv);
@@ -52,12 +55,10 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
     p.fog.fog_end,
   ));
 
-  let graph = builder.create();
-  graph
+  builder
+    .create()
     .create_pipeline(renderer)
     .as_mut()
-    .binding_group::<BlockShadingParamGroup>()
-    .geometry::<IndexedGeometry>()
     .target_states(target)
     .build()
 }

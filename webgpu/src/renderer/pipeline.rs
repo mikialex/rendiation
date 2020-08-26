@@ -1,5 +1,5 @@
 use crate::{render_target::TargetStates, WGPURenderer};
-use std::{any::TypeId, rc::Rc};
+use std::sync::Arc;
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
@@ -17,49 +17,31 @@ pub trait BindGroupProvider: Sized + 'static {
   fn provide_layout(renderer: &WGPURenderer) -> wgpu::BindGroupLayout;
 }
 
-pub struct PipelineBuilder<'a> {
-  renderer: &'a WGPURenderer,
-  vertex_shader: Vec<u32>,
-  frag_shader: Vec<u32>,
-  bindgroup_layouts: Vec<Rc<wgpu::BindGroupLayout>>,
+#[derive(Clone)]
+pub struct PipelineShaderInterfaceInfo {
+  bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
-  target_states: TargetStates,
-  rasterization: wgpu::RasterizationStateDescriptor,
   primitive_topology: wgpu::PrimitiveTopology,
 }
 
-impl<'a> AsMut<Self> for PipelineBuilder<'a> {
-  fn as_mut(&mut self) -> &mut Self {
-    self
-  }
-}
-
-impl<'a> PipelineBuilder<'a> {
-  pub fn new(renderer: &'a WGPURenderer, vertex_shader: Vec<u32>, frag_shader: Vec<u32>) -> Self {
+impl PipelineShaderInterfaceInfo {
+  pub fn new() -> Self {
     Self {
-      renderer,
-      vertex_shader,
-      frag_shader,
       bindgroup_layouts: Vec::new(),
       vertex_state: None,
-      rasterization: wgpu::RasterizationStateDescriptor {
-        front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::None,
-        depth_bias: 0,
-        depth_bias_slope_scale: 0.0,
-        depth_bias_clamp: 0.0,
-      },
-      target_states: TargetStates::default(),
       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
     }
   }
 
-  pub fn binding_group<T: BindGroupProvider>(&mut self) -> &mut Self {
-    let id = TypeId::of::<T>();
-    let cache = self.renderer.bindgroup_layout_cache.borrow_mut();
-    let layout = cache
-      .get(&id)
-      .expect("bindgroup need register into renderer before use");
+  pub fn binding_group<T: BindGroupProvider>(
+    &mut self,
+    layout: Arc<wgpu::BindGroupLayout>,
+  ) -> &mut Self {
+    // let id = TypeId::of::<T>();
+    // let cache = self.renderer.bindgroup_layout_cache.borrow_mut();
+    // let layout = cache
+    //   .get(&id)
+    //   .expect("bindgroup need register into renderer before use");
     self.bindgroup_layouts.push(layout.clone());
     self
   }
@@ -69,6 +51,45 @@ impl<'a> PipelineBuilder<'a> {
     self.primitive_topology = T::get_primitive_topology();
     self
   }
+}
+
+pub struct PipelineBuilder<'a> {
+  renderer: &'a WGPURenderer,
+  vertex_shader: Vec<u32>,
+  frag_shader: Vec<u32>,
+  shader_interface_info: PipelineShaderInterfaceInfo,
+  target_states: TargetStates,
+  rasterization: wgpu::RasterizationStateDescriptor,
+}
+
+impl<'a> AsMut<Self> for PipelineBuilder<'a> {
+  fn as_mut(&mut self) -> &mut Self {
+    self
+  }
+}
+
+impl<'a> PipelineBuilder<'a> {
+  pub fn new(
+    renderer: &'a WGPURenderer,
+    vertex_shader: Vec<u32>,
+    frag_shader: Vec<u32>,
+    shader_interface_info: PipelineShaderInterfaceInfo,
+  ) -> Self {
+    Self {
+      renderer,
+      vertex_shader,
+      frag_shader,
+      shader_interface_info,
+      rasterization: wgpu::RasterizationStateDescriptor {
+        front_face: wgpu::FrontFace::Ccw,
+        cull_mode: wgpu::CullMode::None,
+        depth_bias: 0,
+        depth_bias_slope_scale: 0.0,
+        depth_bias_clamp: 0.0,
+      },
+      target_states: TargetStates::default(),
+    }
+  }
 
   pub fn target_states(&mut self, states: &TargetStates) -> &mut Self {
     self.target_states = states.clone();
@@ -77,7 +98,12 @@ impl<'a> PipelineBuilder<'a> {
 
   pub fn build(&self) -> WGPUPipeline {
     let device = &self.renderer.device;
-    let bind_group_layouts: Vec<_> = self.bindgroup_layouts.iter().map(|l| l.as_ref()).collect();
+    let bind_group_layouts: Vec<_> = self
+      .shader_interface_info
+      .bindgroup_layouts
+      .iter()
+      .map(|l| l.as_ref())
+      .collect();
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       bind_group_layouts: &bind_group_layouts,
     });
@@ -101,8 +127,8 @@ impl<'a> PipelineBuilder<'a> {
       color_states: &self.target_states.color_states,
       depth_stencil_state: self.target_states.depth_state.to_owned(),
 
-      primitive_topology: self.primitive_topology,
-      vertex_state: self.vertex_state.to_owned().unwrap(),
+      primitive_topology: self.shader_interface_info.primitive_topology,
+      vertex_state: self.shader_interface_info.vertex_state.to_owned().unwrap(),
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,

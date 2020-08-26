@@ -16,9 +16,10 @@ pub struct CopierShading {
 impl CopierShading {
   pub fn new(renderer: &WGPURenderer, target: &RenderTarget) -> Self {
     let mut builder = ShaderGraphBuilder::new();
-    let geometry = builder.geometry_by::<Vertex>();
+    builder.geometry_by::<IndexedGeometry>();
+    let geometry = builder.vertex_by::<Vertex>();
 
-    let parameter = builder.bindgroup_by::<CopyParam>();
+    let parameter = builder.bindgroup_by::<CopyParam>(renderer.get_bindgroup::<CopyParam>());
 
     builder.set_vertex_root(vec4_31(geometry.position, builder.c(1.0)));
     let frag_uv = builder.set_vary(geometry.uv);
@@ -27,14 +28,12 @@ impl CopierShading {
 
     let graph = builder.create();
 
-    let pipeline = graph
-      .create_pipeline(renderer)
-      .binding_group::<CopyParam>()
-      .geometry::<IndexedGeometry>()
-      .target_states(target.create_target_states().as_ref())
-      .build();
-
-    Self { pipeline }
+    Self {
+      pipeline: graph
+        .create_pipeline(renderer)
+        .target_states(target.create_target_states().as_ref())
+        .build(),
+    }
   }
 }
 

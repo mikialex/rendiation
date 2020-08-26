@@ -19,7 +19,7 @@ pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
 use rendiation_ral::ShaderStage;
-use rendiation_webgpu::{load_glsl, PipelineBuilder, WGPURenderer};
+use rendiation_webgpu::{load_glsl, PipelineBuilder, PipelineShaderInterfaceInfo, WGPURenderer};
 pub use shader_function::*;
 pub use traits_impl::*;
 pub use webgpu::*;
@@ -62,6 +62,8 @@ pub struct ShaderGraph {
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
 
   pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
+
+  wgpu_shader_interface: PipelineShaderInterfaceInfo,
 }
 
 impl ShaderGraph {
@@ -74,6 +76,7 @@ impl ShaderGraph {
       varyings: Vec::new(),
       frag_outputs: Vec::new(),
       type_id_map: HashMap::new(),
+      wgpu_shader_interface: PipelineShaderInterfaceInfo::new(),
     }
   }
 
@@ -82,6 +85,7 @@ impl ShaderGraph {
       renderer,
       load_glsl(self.gen_code_vertex(), rendiation_ral::ShaderStage::Vertex),
       load_glsl(self.gen_code_frag(), rendiation_ral::ShaderStage::Fragment),
+      self.wgpu_shader_interface.clone(),
     )
   }
 
