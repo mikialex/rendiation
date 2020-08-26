@@ -90,20 +90,12 @@ impl WGPURenderer {
     }
   }
 
-  pub fn register_bindgroup<T: BindGroupProvider>(&mut self) -> &mut Self {
+  pub fn register_bindgroup<T: BindGroupProvider>(&self) -> Arc<wgpu::BindGroupLayout> {
     let id = TypeId::of::<T>();
-    {
-      let mut cache = self.bindgroup_layout_cache.borrow_mut();
-      cache
-        .entry(id)
-        .or_insert_with(|| Arc::new(T::provide_layout(self)));
-    }
-    self
-  }
-
-  pub fn get_bindgroup<T: BindGroupProvider>(&self) -> Arc<wgpu::BindGroupLayout> {
-    let id = TypeId::of::<T>();
-    let cache = self.bindgroup_layout_cache.borrow_mut();
-    cache.get(&id).unwrap().clone()
+    let mut cache = self.bindgroup_layout_cache.borrow_mut();
+    cache
+      .entry(id)
+      .or_insert_with(|| Arc::new(T::provide_layout(self)))
+      .clone()
   }
 }

@@ -1,6 +1,4 @@
-use crate::{
-  ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeHandle, ShaderGraphNodeType,
-};
+use crate::{ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeType};
 use rendiation_ral::ShaderStage;
 use std::collections::HashMap;
 

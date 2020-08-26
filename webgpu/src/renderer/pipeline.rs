@@ -37,11 +37,6 @@ impl PipelineShaderInterfaceInfo {
     &mut self,
     layout: Arc<wgpu::BindGroupLayout>,
   ) -> &mut Self {
-    // let id = TypeId::of::<T>();
-    // let cache = self.renderer.bindgroup_layout_cache.borrow_mut();
-    // let layout = cache
-    //   .get(&id)
-    //   .expect("bindgroup need register into renderer before use");
     self.bindgroup_layouts.push(layout.clone());
     self
   }

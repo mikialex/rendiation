@@ -32,8 +32,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   builder.geometry_by::<IndexedGeometry>();
 
   let vertex = builder.vertex_by::<Vertex>();
-  let p = builder
-    .bindgroup_by::<BlockShadingParamGroup>(renderer.get_bindgroup::<BlockShadingParamGroup>());
+  let p = builder.bindgroup_by::<BlockShadingParamGroup>(renderer);
 
   let mv_position = to_mv_position(vertex.position, p.mvp.model_view);
   let clip_position = apply_projection(mv_position, p.mvp.projection);
