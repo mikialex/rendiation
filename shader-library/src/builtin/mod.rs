@@ -9,12 +9,10 @@ pub fn max<T: ShaderGraphNodeType>(
   b: ShaderGraphNodeHandle<T>,
 ) -> ShaderGraphNodeHandle<T> {
   modify_graph(|graph| {
-    let result = graph.nodes.create_node(
-      ShaderGraphNode::<T>::new(ShaderGraphNodeData::Function(FunctionNode {
-        prototype: MAX_FUNCTION.clone(),
-      }))
-      .to_any(),
-    );
+    let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Function(FunctionNode {
+      prototype: MAX_FUNCTION.clone(),
+    }));
+    let result = graph.insert_node(node).handle;
     unsafe {
       graph.nodes.connect_node(a.handle.cast_type(), result);
       graph.nodes.connect_node(b.handle.cast_type(), result);
@@ -23,5 +21,10 @@ pub fn max<T: ShaderGraphNodeType>(
   })
 }
 
+// could we do better?
 glsl_function_inner!("vec4 vec4_31(vec3 a, float b){}///vec4");
-glsl_function_inner!("vec4 vec3_21(vec2 a, float b){}///vec4");
+glsl_function_inner!("vec4 vec4_13(float a, vec3 b){}///vec4");
+glsl_function_inner!("vec4 vec4_22(vec2 a, vec2 b){}///vec4");
+
+glsl_function_inner!("vec3 vec3_21(vec2 a, float b){}///vec3");
+glsl_function_inner!("vec3 vec3_12(float a, vec2 b){}///vec3");

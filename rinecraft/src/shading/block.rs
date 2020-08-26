@@ -43,6 +43,11 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
   let frag_mv_position = builder.set_vary(mv_position);
 
   let block_color = p.my_texture_view.sample(p.my_sampler, frag_uv);
+
+  // let block_color = block_color.xyz() * spherical_harmonics(frag_normal);
+  // let final_color = apply_fog(p.fog, block_color, frag_mv_position.length());
+  // builder.set_frag_output(vec4_31(final_color, c(1.0)));
+
   let sph = spherical_harmonics(frag_normal);
 
   builder.set_frag_output(apply_fog(

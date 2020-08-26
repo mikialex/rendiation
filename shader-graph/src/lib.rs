@@ -10,6 +10,7 @@ use std::{
 pub mod builder;
 mod code_gen;
 pub mod nodes;
+pub mod operator;
 pub mod provider;
 pub mod shader_function;
 pub mod traits_impl;
