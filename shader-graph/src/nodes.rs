@@ -57,7 +57,9 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
 
 pub enum ShaderGraphNodeData {
   Function(FunctionNode),
+  BuiltInFunction(&'static str),
   TextureSampling(TextureSamplingNode),
+  Swizzle(&'static str),
   Operator(OperatorNode),
   Input(ShaderGraphInputNode),
   Output(ShaderGraphOutput),

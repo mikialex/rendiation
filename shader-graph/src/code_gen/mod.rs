@@ -240,6 +240,25 @@ impl ShaderGraphNode<AnyType> {
         );
         Some((ctx.create_new_temp_name(), fn_call, false))
       }
+      BuiltInFunction(n) => {
+        let fn_call = format!(
+          "{}({})",
+          n,
+          node
+            .from()
+            .iter()
+            .map(|from| { get_node_gen_result_var(*from, graph, ctx) })
+            .collect::<Vec<_>>()
+            .join(", ")
+        );
+        Some((ctx.create_new_temp_name(), fn_call, false))
+      }
+      Swizzle(s) => {
+        let from = node.from().iter().next().unwrap();
+        let from = get_node_gen_result_var(*from, graph, ctx);
+        let swizzle_code = format!("{}.{}", from, s);
+        Some((ctx.create_new_temp_name(), swizzle_code, false))
+      }
       TextureSampling(n) => unsafe {
         let sampling_code = format!(
           "texture(sampler2D({}, {}), {})",
@@ -270,7 +289,9 @@ fn get_node_gen_result_var(
   let data = &graph.nodes.get_node(node).data().data;
   match data {
     Function(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
+    BuiltInFunction(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
     TextureSampling(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
+    Swizzle(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
     Operator(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
     Input(n) => n.name.clone(),
     Output(n) => n.to_shader_var_name(),

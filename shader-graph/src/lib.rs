@@ -13,6 +13,7 @@ pub mod nodes;
 pub mod operator;
 pub mod provider;
 pub mod shader_function;
+pub mod swizzle;
 pub mod traits_impl;
 pub mod webgpu;
 pub use builder::*;
