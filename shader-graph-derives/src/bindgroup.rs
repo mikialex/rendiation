@@ -91,12 +91,14 @@ pub fn derive_bindgroup_impl(
         #(#wgpu_create_bindgroup_fn_param)*
       ) -> rendiation_webgpu::WGPUBindGroup{
 
+        renderer.register_bindgroup::<Self>();
+
         rendiation_webgpu::BindGroupBuilder::new()
           #(#wgpu_create_bindgroup_create)*
           .build(
             &renderer.device,
             renderer.bindgroup_layout_cache.borrow().get(&std::any::TypeId::of::<#struct_name>())
-            .expect("bindgroup need register into renderer before use")
+            .unwrap()
           )
 
       }

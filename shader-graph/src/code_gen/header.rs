@@ -12,7 +12,7 @@ impl ShaderGraphBindGroup {
         }
         match &h.0 {
           ShaderGraphUniformInputType::NoneUBO(node) => {
-            let info = graph.nodes.get_node(*node).data();
+            let info = graph.nodes.get_node(node.handle).data();
             let input = info.unwrap_as_input();
             Some(format!(
               "layout(set = {}, binding = {}) uniform {} {};\n",
@@ -42,7 +42,7 @@ impl ShaderGraph {
       .attributes
       .iter()
       .map(|a| {
-        let info = self.nodes.get_node(a.0).data();
+        let info = self.nodes.get_node(a.0.handle).data();
         let input = info.unwrap_as_input();
         format!(
           "layout(location = {}) in {} {};",
@@ -62,7 +62,7 @@ impl ShaderGraph {
       .varyings
       .iter()
       .map(|a| {
-        let info = self.nodes.get_node(a.0).data();
+        let info = self.nodes.get_node(a.0.handle).data();
         // let id = info.unwrap_as_vary();
         format!(
           "layout(location = {}) out {} {};",
@@ -102,7 +102,7 @@ impl ShaderGraph {
       .varyings
       .iter()
       .map(|a| {
-        let info = self.nodes.get_node(a.0).data();
+        let info = self.nodes.get_node(a.0.handle).data();
         // let id = info.unwrap_as_vary();
         format!(
           "layout(location = {}) in {} {};",

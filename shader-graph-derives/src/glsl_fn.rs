@@ -55,7 +55,11 @@ fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro
     .collect()
 }
 
-pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
+pub fn gen_glsl_function(
+  glsl: &str,
+  as_inner: bool,
+  override_name: &str,
+) -> proc_macro2::TokenStream {
   let glsl = glsl.trim_start();
   let mut parsed = syntax::FunctionDefinition::parse(glsl).unwrap();
   let foreign = find_foreign_function(&mut parsed);
@@ -64,8 +68,17 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
 
   let prototype_name = format_ident!("{}_FUNCTION", function_name);
   let function_name = format_ident!("{}", function_name);
-  let quoted_function_name = format!("{}", function_name);
+  let quoted_function_name = if as_inner {
+    override_name.to_owned()
+  } else {
+    format!("{}", function_name)
+  };
   let quoted_source = format!("{}", glsl);
+  let function_source = if as_inner {
+    quote! { None }
+  } else {
+    quote! {Some(#quoted_source)}
+  };
 
   // https://docs.rs/glsl/4.1.1/glsl/syntax/struct.FunctionPrototype.html
   let return_type = convert_type(&parsed.prototype.ty.ty.ty);
@@ -94,7 +107,7 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
     .map(|(ty, name)| {
       (
         quote! { #name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, },
-        quote! { graph.nodes.connect_node(#name.cast_type(), result); },
+        quote! { graph.nodes.connect_node(#name.handle.cast_type(), result); },
       )
     })
     .unzip();
@@ -109,7 +122,7 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
       std::sync::Arc::new(
         rendiation_shadergraph::ShaderFunction::new(
           #quoted_function_name,
-          Some(#quoted_source)
+          #function_source
         )
         #(#foreign)*
       )
@@ -121,21 +134,17 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
       use rendiation_shadergraph::*;
 
       modify_graph(|graph| {
-        let result = graph
-        .nodes
-        .create_node(ShaderGraphNode::<#return_type>::new(
-            ShaderGraphNodeData::Function(
-              FunctionNode {
-                prototype: #prototype_name.clone()
-              },
-            )
-          ).to_any()
+        let node = ShaderGraphNode::<#return_type>::new(
+          ShaderGraphNodeData::Function(
+            FunctionNode {
+              prototype: #prototype_name.clone()
+            },
+          )
         );
-
-        graph.register_type::<#return_type>();
+        let result = graph.insert_node(node).handle;
         unsafe {
           #(#gen_node_connect)*
-          result.cast_type()
+          result.cast_type().into()
         }
       })
 

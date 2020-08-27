@@ -1,8 +1,11 @@
-use crate::{ShaderFunction, ShaderGraphNodeUntyped};
-use rendiation_math::*;
+use crate::{
+  ShaderFunction, ShaderGraphNodeRawHandle, ShaderGraphNodeRawHandleUntyped,
+  ShaderGraphNodeUntyped, ShaderGraphSampler, ShaderGraphTexture,
+};
+use rendiation_math::Vec2;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
 
-pub trait ShaderGraphNodeType: 'static {
+pub trait ShaderGraphNodeType: 'static + Copy {
   fn to_glsl_type() -> &'static str;
 }
 
@@ -13,47 +16,8 @@ pub trait ShaderGraphConstableNodeType: 'static + Send + Sync {
 // this for not include samplers/textures as attributes
 pub trait ShaderGraphAttributeNodeType: ShaderGraphNodeType {}
 
+#[derive(Copy, Clone)]
 pub struct AnyType {}
-
-impl ShaderGraphNodeType for AnyType {
-  fn to_glsl_type() -> &'static str {
-    unreachable!("Node can't newed with type AnyType")
-  }
-}
-
-impl ShaderGraphNodeType for f32 {
-  fn to_glsl_type() -> &'static str {
-    "float"
-  }
-}
-impl ShaderGraphAttributeNodeType for f32 {}
-
-impl ShaderGraphNodeType for Vec2<f32> {
-  fn to_glsl_type() -> &'static str {
-    "vec2"
-  }
-}
-impl ShaderGraphAttributeNodeType for Vec2<f32> {}
-
-impl ShaderGraphNodeType for Vec3<f32> {
-  fn to_glsl_type() -> &'static str {
-    "vec3"
-  }
-}
-impl ShaderGraphAttributeNodeType for Vec3<f32> {}
-
-impl ShaderGraphNodeType for Vec4<f32> {
-  fn to_glsl_type() -> &'static str {
-    "vec4"
-  }
-}
-impl ShaderGraphAttributeNodeType for Vec4<f32> {}
-
-impl ShaderGraphNodeType for Mat4<f32> {
-  fn to_glsl_type() -> &'static str {
-    "mat4"
-  }
-}
 
 pub struct ShaderGraphNode<T: ShaderGraphNodeType> {
   phantom: PhantomData<T>,
@@ -93,6 +57,10 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
 
 pub enum ShaderGraphNodeData {
   Function(FunctionNode),
+  BuiltInFunction(&'static str),
+  TextureSampling(TextureSamplingNode),
+  Swizzle(&'static str),
+  Operator(OperatorNode),
   Input(ShaderGraphInputNode),
   Output(ShaderGraphOutput),
   Const(Box<dyn ShaderGraphConstableNodeType>),
@@ -106,6 +74,18 @@ pub enum ShaderGraphOutput {
 
 pub struct FunctionNode {
   pub prototype: Arc<ShaderFunction>,
+}
+
+pub struct TextureSamplingNode {
+  pub texture: ShaderGraphNodeRawHandle<ShaderGraphTexture>,
+  pub sampler: ShaderGraphNodeRawHandle<ShaderGraphSampler>,
+  pub position: ShaderGraphNodeRawHandle<Vec2<f32>>,
+}
+
+pub struct OperatorNode {
+  pub left: ShaderGraphNodeRawHandleUntyped,
+  pub right: ShaderGraphNodeRawHandleUntyped,
+  pub operator: &'static str,
 }
 
 pub struct ShaderGraphInputNode {

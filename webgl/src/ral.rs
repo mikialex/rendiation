@@ -1,8 +1,8 @@
 use crate::{UniformValue, WebGLProgram, WebGLRenderer, WebGLTexture, WebGLVertexBuffer};
 
 use rendiation_ral::*;
-use web_sys::*;
 use std::ops::Range;
+use web_sys::*;
 
 impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;

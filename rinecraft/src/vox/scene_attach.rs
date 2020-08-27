@@ -104,9 +104,6 @@ impl World {
     if self.scene_data.is_some() {
       return;
     }
-    renderer
-      .register_bindgroup::<BlockShadingParamGroup>()
-      .register_bindgroup::<CopyParam>();
 
     let resources = &mut scene.resources;
 
