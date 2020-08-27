@@ -46,6 +46,11 @@ pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
   pub data: (&'a T::UniformBuffer, Range<u64>),
 }
 
+pub struct BindgroupRef<'a, T: RALBackend, U: 'static + Sized> {
+  pub ty: PhantomData<U>,
+  pub data: (&'a T::ShadingParameterGroup, Range<u64>),
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct AttributeTypeId(pub u64);
 
