@@ -24,7 +24,7 @@ use rendiation_shadergraph_derives::glsl_function_inner;
 
 pub fn length<T: ShaderGraphNodeType>(a: ShaderGraphNodeHandle<T>) -> ShaderGraphNodeHandle<f32> {
   modify_graph(|graph| {
-    let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::BuiltInFunction("length"));
+    let node = ShaderGraphNode::<f32>::new(ShaderGraphNodeData::BuiltInFunction("length"));
     let result = graph.insert_node(node).handle;
     unsafe {
       graph.nodes.connect_node(a.handle.cast_type(), result);

@@ -259,6 +259,12 @@ impl ShaderGraphNode<AnyType> {
         let swizzle_code = format!("{}.{}", from, s);
         Some((ctx.create_new_temp_name(), swizzle_code, false))
       }
+      Operator(o) => {
+        let left = get_node_gen_result_var(o.left, graph, ctx);
+        let right = get_node_gen_result_var(o.right, graph, ctx);
+        let code = format!("{} {} {}", left, o.operator, right);
+        Some((ctx.create_new_temp_name(), code, false))
+      }
       TextureSampling(n) => unsafe {
         let sampling_code = format!(
           "texture(sampler2D({}, {}), {})",

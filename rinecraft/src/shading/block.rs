@@ -24,7 +24,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
 
   let frag_normal = builder.set_vary(vertex.normal);
   let frag_uv = builder.set_vary(vertex.uv);
-  let frag_mv_position = builder.set_vary(mv_position);
+  let frag_mv_position = builder.set_vary(mv_position.xyz());
 
   let block_color = p.my_texture_view.sample(p.my_sampler, frag_uv);
 
