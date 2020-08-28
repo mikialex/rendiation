@@ -8,7 +8,7 @@ impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
   type Renderer = WebGLRenderer;
   type Shading = WebGLProgram;
-  type ShadingParameterGroup = ();
+  type BindGroup = ();
   type IndexBuffer = Option<WebGlBuffer>;
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;

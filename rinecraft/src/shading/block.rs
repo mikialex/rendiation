@@ -11,6 +11,14 @@ use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 use transform::MVPTransformation;
 
+// new design
+// #[derive(Shader)]
+// struct BlockShader {
+//   #[bindgroup(0)]
+//   parameter: BlockShadingParamGroup,
+
+// }
+
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
   let mut builder = ShaderGraphBuilder::new();
   builder.geometry_by::<IndexedGeometry>();

@@ -6,7 +6,7 @@ impl RALBackend for WGPURenderer {
   type RenderTarget = WGPURenderPassBuilder<'static>;
   type Renderer = WGPURenderer;
   type Shading = WGPUPipeline;
-  type ShadingParameterGroup = WGPUBindGroup;
+  type BindGroup = WGPUBindGroup;
   type IndexBuffer = WGPUBuffer;
   type VertexBuffer = WGPUBuffer;
   type UniformBuffer = WGPUBuffer;

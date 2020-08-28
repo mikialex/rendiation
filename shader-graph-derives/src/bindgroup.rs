@@ -76,7 +76,7 @@ pub fn derive_bindgroup_impl(
     .collect();
 
   let result = quote! {
-    impl rendiation_webgpu::BindGroupProvider for #struct_name {
+    impl rendiation_webgpu::BindGroupLayoutProvider for #struct_name {
 
       fn provide_layout(renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::BindGroupLayout {
         rendiation_webgpu::BindGroupLayoutBuilder::new()

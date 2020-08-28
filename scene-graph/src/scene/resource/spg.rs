@@ -1,15 +1,15 @@
 use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
 use rendiation_ral::*;
-use std::any::{Any};
+use std::any::Any;
 
 pub struct SceneShadingParameterGroupData<T: RALBackend> {
   type_id: ParameterGroupTypeId,
-  gpu: T::ShadingParameterGroup,
+  gpu: T::BindGroup,
   items: Vec<(UniformTypeId, ShadingParameterType<T>)>,
 }
 
 impl<T: RALBackend> SceneShadingParameterGroupData<T> {
-  pub fn new(type_id: ParameterGroupTypeId, gpu: T::ShadingParameterGroup) -> Self {
+  pub fn new(type_id: ParameterGroupTypeId, gpu: T::BindGroup) -> Self {
     Self {
       type_id,
       gpu,
@@ -21,7 +21,7 @@ impl<T: RALBackend> SceneShadingParameterGroupData<T> {
     self.type_id
   }
 
-  pub fn gpu(&self) -> &T::ShadingParameterGroup {
+  pub fn gpu(&self) -> &T::BindGroup {
     &self.gpu
   }
 

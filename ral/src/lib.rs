@@ -11,7 +11,7 @@ pub trait RALBackend: 'static {
   type RenderTarget;
   type Renderer;
   type Shading;
-  type ShadingParameterGroup;
+  type BindGroup;
   type IndexBuffer;
   type VertexBuffer;
   type UniformBuffer;
@@ -46,9 +46,13 @@ pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
   pub data: (&'a T::UniformBuffer, Range<u64>),
 }
 
-pub struct BindgroupRef<'a, T: RALBackend, U: 'static + Sized> {
+pub struct BindGroupRef<'a, T: RALBackend, U: 'static + Sized> {
   pub ty: PhantomData<U>,
-  pub data: (&'a T::ShadingParameterGroup, Range<u64>),
+  pub data: (&'a T::BindGroup, Range<u64>),
+}
+
+pub trait BindGroupProvider<T: RALBackend>: 'static {
+  fn create_bindgroup(&self, renderer: &T::Renderer) -> T::BindGroup;
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
