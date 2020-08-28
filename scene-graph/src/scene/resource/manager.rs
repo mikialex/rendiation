@@ -36,8 +36,8 @@ impl<T: RALBackend> ShaderBindableResourceManager<T> {
     }
   }
 
-  pub fn as_resource(boxed: &Box<Self>) -> &Box<dyn Any> {
-    boxed
+  pub fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 

@@ -96,11 +96,7 @@ impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for Bindgr
     renderer: &R::Renderer,
     resources: &Box<ShaderBindableResourceManager<R>>,
   ) {
-    self.gpu = Some(
-      self
-        .data
-        .create_bindgroup(renderer, resources.as_resource()),
-    );
+    self.gpu = Some(self.data.create_bindgroup(renderer, resources.as_any()));
   }
   fn get_gpu(&self) -> &R::BindGroup {
     self.gpu.as_ref().unwrap()

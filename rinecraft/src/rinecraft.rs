@@ -116,7 +116,7 @@ impl Application for Rinecraft {
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
-      scene.resources.uniform_buffers.maintain_gpu(renderer);
+      scene.resources.maintain_gpu(renderer);
       state.scene_renderer.render(scene, renderer, &output);
 
       state.gui.render(renderer);
