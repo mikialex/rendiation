@@ -12,12 +12,21 @@ use rendiation_shader_library::*;
 use transform::MVPTransformation;
 
 // new design
-// #[derive(Shader)]
-// struct BlockShader {
-//   #[bindgroup(0)]
-//   parameter: BlockShadingParamGroup,
+#[derive(Shader)]
+struct BlockShader {
+  #[bindgroup(0)]
+  parameter: BlockShadingParamGroup,
+}
 
-// }
+struct BlockShaderInstance {
+  parameter: BindTypeHandle<BlockShadingParamGroup>,
+}
+
+pub trait ShaderProvider {
+  type Instance;
+  fn create_shadergraph_builder() -> ShaderGraphBuilder;
+  fn active_render_pass(&self, resources: dyn Any); // todo move resource manager in ral
+}
 
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
   let mut builder = ShaderGraphBuilder::new();
@@ -61,4 +70,11 @@ pub struct BlockShadingParamGroup {
 
   #[stage(frag)]
   pub my_sampler: ShaderGraphSampler,
+}
+
+struct BlockShadingParamGroupInstance<T> {
+  pub mvp: UniformHandle<T, MVPTransformation>,
+  pub fog: UniformHandle<T, FogData>,
+  pub my_texture_view: TextureViewHandle<T>,
+  pub my_sampler: SamplerHandle<T>,
 }

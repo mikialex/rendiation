@@ -3,6 +3,8 @@ use arena::{Arena, Handle};
 use rendiation_ral::{BindGroupProvider, RALBackend};
 use std::{any::Any, collections::HashSet};
 
+pub type BindTypeHandle<R, T> = Handle<BindgroupPair<R, T>>;
+
 pub struct BindGroupManager<R: RALBackend> {
   storage: Arena<Box<dyn BindgroupStorageTrait<R>>>,
   modified: HashSet<Handle<Box<dyn BindgroupStorageTrait<R>>>>,
@@ -29,18 +31,12 @@ impl<R: RALBackend> BindGroupManager<R> {
     })
   }
 
-  pub fn get_gpu<T: BindGroupProvider<R>>(
-    &self,
-    handle: Handle<BindgroupPair<R, T>>,
-  ) -> &R::BindGroup {
+  pub fn get_gpu<T: BindGroupProvider<R>>(&self, handle: BindTypeHandle<R, T>) -> &R::BindGroup {
     let handle = unsafe { handle.cast_type() };
     self.storage.get(handle).unwrap().get_gpu()
   }
 
-  pub fn add_bindgroup<T: BindGroupProvider<R>>(
-    &mut self,
-    bindgroup: T,
-  ) -> Handle<BindgroupPair<R, T>> {
+  pub fn add_bindgroup<T: BindGroupProvider<R>>(&mut self, bindgroup: T) -> BindTypeHandle<R, T> {
     let pair = BindgroupPair {
       data: bindgroup,
       gpu: None,
@@ -52,7 +48,7 @@ impl<R: RALBackend> BindGroupManager<R> {
 
   pub fn update_bindgroup<T: BindGroupProvider<R>>(
     &mut self,
-    handle: Handle<BindgroupPair<R, T>>,
+    handle: BindTypeHandle<R, T>,
   ) -> &mut T {
     let handle = unsafe { handle.cast_type() };
     self.modified.insert(handle);
@@ -64,7 +60,7 @@ impl<R: RALBackend> BindGroupManager<R> {
       .update()
   }
 
-  pub fn delete_bindgroup<T: BindGroupProvider<R>>(&mut self, handle: Handle<BindgroupPair<R, T>>) {
+  pub fn delete_bindgroup<T: BindGroupProvider<R>>(&mut self, handle: BindTypeHandle<R, T>) {
     let handle = unsafe { handle.cast_type() };
     self.modified.remove(&handle);
     self.storage.remove(handle);
@@ -80,14 +76,6 @@ trait BindgroupStorageTrait<R: RALBackend>: Any {
   fn get_gpu(&self) -> &R::BindGroup;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-fn test(a: Box<dyn Any>) {
-  todo!()
-}
-
-fn test2(a: Box<dyn Any>) {
-  test(Box::new(1))
 }
 
 impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for BindgroupPair<R, T> {

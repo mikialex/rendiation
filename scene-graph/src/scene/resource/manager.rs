@@ -1,6 +1,5 @@
 use crate::{
-  Arena, BindGroupManager, Handle, RALBackend, SceneGeometryData, SceneShadingData,
-  SceneShadingParameterGroupData, UBOManager,
+  Arena, BindGroupManager, Handle, RALBackend, SceneGeometryData, SceneShadingData, UBOManager,
 };
 use std::any::Any;
 
@@ -11,8 +10,6 @@ pub struct ResourceManager<T: RALBackend> {
   pub shadings: ResourceArena<SceneShadingData<T>>,
 
   pub bindgroups: BindGroupManager<T>,
-  pub shading_parameter_groups: ResourceArena<SceneShadingParameterGroupData<T>>,
-
   pub bindable: Box<ShaderBindableResourceManager<T>>,
 
   pub index_buffers: ResourceArena<T::IndexBuffer>,
@@ -54,7 +51,6 @@ impl<T: RALBackend> ResourceManager<T> {
       shadings: Arena::new(),
       bindgroups: BindGroupManager::new(),
       bindable: Box::new(ShaderBindableResourceManager::new()),
-      shading_parameter_groups: Arena::new(),
       index_buffers: Arena::new(),
       vertex_buffers: Arena::new(),
     }
