@@ -1,9 +1,7 @@
-use crate::ShaderBindableResourceManager;
+use super::ShaderBindableResourceManager;
+use crate::{BindGroupProvider, BindTypeHandle, RALBackend};
 use arena::{Arena, Handle};
-use rendiation_ral::{BindGroupProvider, RALBackend};
 use std::{any::Any, collections::HashSet};
-
-pub type BindTypeHandle<R, T> = Handle<BindgroupPair<R, T>>;
 
 pub struct BindGroupManager<R: RALBackend> {
   storage: Arena<Box<dyn BindgroupStorageTrait<R>>>,

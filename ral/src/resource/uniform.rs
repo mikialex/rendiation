@@ -1,23 +1,11 @@
-use crate::ResourceManager;
-use rendiation_ral::*;
+use super::ResourceManager;
+use crate::{RALBackend, UniformBufferRef, UniformHandle};
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
   marker::PhantomData,
   ops::Range,
 };
-
-pub struct UniformHandle<U> {
-  index: usize,
-  phantom: PhantomData<U>,
-}
-
-impl<T> Clone for UniformHandle<T> {
-  fn clone(&self) -> Self {
-    *self
-  }
-}
-impl<T> Copy for UniformHandle<T> {}
 
 /// uniform buffer
 impl<T: RALBackend> ResourceManager<T> {

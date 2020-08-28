@@ -1,7 +1,8 @@
-use super::{background::Background, node::SceneNode, resource::ResourceManager};
+use super::{background::Background, node::SceneNode};
 use crate::{RALBackend, RenderObject, SceneNodeData, SceneNodeHandle};
 use arena::{Arena, Handle};
 use arena_tree::*;
+use rendiation_ral::ResourceManager;
 use rendiation_render_entity::{Camera, PerspectiveCamera};
 
 pub struct Scene<T: RALBackend> {
@@ -11,8 +12,7 @@ pub struct Scene<T: RALBackend> {
 
   pub(crate) nodes: ArenaTree<SceneNodeData<T>>,
 
-  pub resources: ResourceManager<T>,
-  // pub resource_update_ctx: ResourceUpdateCtx<T>,
+  pub resources: ResourceManager<T>, // todo move resources out of scene
 }
 
 impl<T: RALBackend> Scene<T> {
@@ -51,21 +51,6 @@ impl<T: RALBackend> Scene<T> {
     self.resources.maintain_gpu(renderer);
   }
 }
-
-// pub struct ResourceUpdateCtx<T: RALBackend> {
-//   changed_uniforms: Vec<UniformHandle<T>>,
-// }
-
-// impl<T: RALBackend> ResourceUpdateCtx<T> {
-//   pub fn new() -> Self {
-//     Self {
-//       changed_uniforms: Vec::new(),
-//     }
-//   }
-//   pub fn notify_uniform_update(&mut self, index: UniformHandle<T>) {
-//     self.changed_uniforms.push(index)
-//   }
-// }
 
 pub type CameraHandle = Handle<Box<dyn Camera>>;
 

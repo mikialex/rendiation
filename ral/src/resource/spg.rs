@@ -1,7 +1,3 @@
-use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
-use rendiation_ral::*;
-use std::any::Any;
-
 // pub struct SceneShadingParameterGroupData<T: RALBackend> {
 //   type_id: ParameterGroupTypeId,
 //   gpu: T::BindGroup,
@@ -30,9 +26,9 @@ use std::any::Any;
 //   }
 // }
 
-pub type SamplerHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Sampler>>;
-pub type TextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
-pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
+use super::{ResourceManager, ResourceWrap};
+use crate::RALBackend;
+use arena::Handle;
 
 // pub enum ShadingParameterType<T: RALBackend> {
 //   UniformValue(UniformValueHandle<T>),

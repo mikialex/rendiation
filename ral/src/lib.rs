@@ -2,8 +2,10 @@
 
 use std::{any::Any, marker::PhantomData, ops::Range};
 
+mod resource;
 mod shader;
 mod shading;
+pub use resource::*;
 pub use shader::*;
 pub use shading::*;
 
