@@ -74,21 +74,21 @@ impl<T: RALBackend> ResourceManager<T> {
 /// uniform values
 impl<T: RALBackend> ResourceManager<T> {
   pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut ResourceWrap<T::UniformValue> {
-    ResourceWrap::new_wrap(&mut self.uniform_values, gpu)
+    ResourceWrap::new_wrap(&mut self.bindable.uniform_values, gpu)
   }
 
   pub fn get_uniform_value_mut(
     &mut self,
     index: UniformValueHandle<T>,
   ) -> &mut ResourceWrap<T::UniformValue> {
-    self.uniform_values.get_mut(index).unwrap()
+    self.bindable.uniform_values.get_mut(index).unwrap()
   }
 
   pub fn get_uniform_value(&self, index: UniformValueHandle<T>) -> &ResourceWrap<T::UniformValue> {
-    self.uniform_values.get(index).unwrap()
+    self.bindable.uniform_values.get(index).unwrap()
   }
 
   pub fn delete_uniform_value(&mut self, index: UniformValueHandle<T>) {
-    self.uniform_values.remove(index);
+    self.bindable.uniform_values.remove(index);
   }
 }

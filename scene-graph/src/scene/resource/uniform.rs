@@ -23,24 +23,30 @@ impl<T> Copy for UniformHandle<T> {}
 impl<T: RALBackend> ResourceManager<T> {
   pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<U> {
     UniformHandle {
-      index: self.uniform_buffers.insert(value),
+      index: self.bindable.uniform_buffers.insert(value),
       phantom: PhantomData,
     }
   }
 
   pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<U>, new_value: U) {
-    self.uniform_buffers.update(handle.index, new_value);
+    self
+      .bindable
+      .uniform_buffers
+      .update(handle.index, new_value);
   }
 
   pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<U>) -> UniformBufferRef<T, U> {
     UniformBufferRef {
       ty: PhantomData,
-      data: self.uniform_buffers.get_gpu_with_range::<U>(handle.index),
+      data: self
+        .bindable
+        .uniform_buffers
+        .get_gpu_with_range::<U>(handle.index),
     }
   }
 
   pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<U>) {
-    self.uniform_buffers.delete::<U>(handle.index);
+    self.bindable.uniform_buffers.delete::<U>(handle.index);
   }
 }
 
@@ -128,10 +134,10 @@ impl<T: RALBackend, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
     if self.dirty {
       let ptr = self.storage.as_ptr();
-      let data = unsafe { 
+      let data = unsafe {
         let ptr = std::mem::transmute(ptr);
         std::slice::from_raw_parts::<u8>(ptr, self.storage.len() * std::mem::size_of::<U>())
-       };
+      };
 
       if let Some(gpu) = &mut self.gpu {
         T::update_uniform_buffer(renderer, gpu, data, 0..self.storage.len());

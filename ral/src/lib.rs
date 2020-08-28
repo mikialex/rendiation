@@ -52,7 +52,8 @@ pub struct BindGroupRef<'a, T: RALBackend, U: 'static + Sized> {
 }
 
 pub trait BindGroupProvider<T: RALBackend>: 'static {
-  fn create_bindgroup(&self, renderer: &T::Renderer) -> T::BindGroup;
+  // we never care what exact type is, just downcast and use any get method on it
+  fn create_bindgroup(&self, renderer: &T::Renderer, resources: &Box<dyn Any>) -> T::BindGroup;
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

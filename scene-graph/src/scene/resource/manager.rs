@@ -2,28 +2,68 @@ use crate::{
   Arena, BindGroupManager, Handle, RALBackend, SceneGeometryData, SceneShadingData,
   SceneShadingParameterGroupData, UBOManager,
 };
+use std::any::Any;
 
 type ResourceArena<T> = Arena<ResourceWrap<T>>;
 
 pub struct ResourceManager<T: RALBackend> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
   pub shadings: ResourceArena<SceneShadingData<T>>,
+
   pub bindgroups: BindGroupManager<T>,
   pub shading_parameter_groups: ResourceArena<SceneShadingParameterGroupData<T>>,
 
-  pub uniform_buffers: UBOManager<T>,
-  pub uniform_values: ResourceArena<T::UniformValue>,
-
-  pub textures: ResourceArena<T::VertexBuffer>,
+  pub bindable: Box<ShaderBindableResourceManager<T>>,
 
   pub index_buffers: ResourceArena<T::IndexBuffer>,
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
+}
+
+pub struct ShaderBindableResourceManager<T: RALBackend> {
+  pub uniform_buffers: UBOManager<T>,
+  pub uniform_values: ResourceArena<T::UniformValue>,
+  pub samplers: ResourceArena<T::Sampler>,
+  pub textures: ResourceArena<T::Texture>,
+}
+
+impl<T: RALBackend> ShaderBindableResourceManager<T> {
+  pub fn new() -> Self {
+    Self {
+      uniform_buffers: UBOManager::new(),
+      uniform_values: Arena::new(),
+      textures: Arena::new(),
+      samplers: Arena::new(),
+    }
+  }
+
+  pub fn as_resource(boxed: &Box<Self>) -> &Box<dyn Any> {
+    boxed
+  }
 }
 
 /// wrap any resource with an index;
 pub struct ResourceWrap<T> {
   index: Handle<Self>,
   resource: T,
+}
+
+impl<T: RALBackend> ResourceManager<T> {
+  pub fn new() -> Self {
+    Self {
+      geometries: Arena::new(),
+      shadings: Arena::new(),
+      bindgroups: BindGroupManager::new(),
+      bindable: Box::new(ShaderBindableResourceManager::new()),
+      shading_parameter_groups: Arena::new(),
+      index_buffers: Arena::new(),
+      vertex_buffers: Arena::new(),
+    }
+  }
+
+  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+    self.bindable.uniform_buffers.maintain_gpu(renderer);
+    self.bindgroups.maintain_gpu(renderer, &self.bindable)
+  }
 }
 
 impl<T> ResourceWrap<T> {
@@ -48,25 +88,5 @@ impl<T> ResourceWrap<T> {
     let w = arena.get_mut(index).unwrap();
     w.index = index;
     w
-  }
-}
-
-impl<T: RALBackend> ResourceManager<T> {
-  pub fn new() -> Self {
-    Self {
-      geometries: Arena::new(),
-      shadings: Arena::new(),
-      bindgroups: BindGroupManager::new(),
-      shading_parameter_groups: Arena::new(),
-      uniform_buffers: UBOManager::new(),
-      uniform_values: Arena::new(),
-      textures: Arena::new(),
-      index_buffers: Arena::new(),
-      vertex_buffers: Arena::new(),
-    }
-  }
-
-  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
-    self.uniform_buffers.maintain_gpu(renderer);
   }
 }
