@@ -1,5 +1,6 @@
 use super::ResourceManager;
-use crate::{RALBackend, UniformBufferRef, UniformHandle};
+use crate::{RALBackend, ResourceWrap, UniformBufferRef, UniformHandle};
+use arena::Handle;
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
@@ -178,5 +179,29 @@ impl<T: RALBackend, U> UBOStorage<T, U> {
 
   fn get_gpu(&self) -> &T::UniformBuffer {
     self.gpu.as_ref().unwrap()
+  }
+}
+
+pub type UniformValueHandle<T> = Handle<ResourceWrap<<T as RALBackend>::UniformValue>>;
+
+/// uniform values
+impl<T: RALBackend> ResourceManager<T> {
+  pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut ResourceWrap<T::UniformValue> {
+    ResourceWrap::new_wrap(&mut self.bindable.uniform_values, gpu)
+  }
+
+  pub fn get_uniform_value_mut(
+    &mut self,
+    index: UniformValueHandle<T>,
+  ) -> &mut ResourceWrap<T::UniformValue> {
+    self.bindable.uniform_values.get_mut(index).unwrap()
+  }
+
+  pub fn get_uniform_value(&self, index: UniformValueHandle<T>) -> &ResourceWrap<T::UniformValue> {
+    self.bindable.uniform_values.get(index).unwrap()
+  }
+
+  pub fn delete_uniform_value(&mut self, index: UniformValueHandle<T>) {
+    self.bindable.uniform_values.remove(index);
   }
 }
