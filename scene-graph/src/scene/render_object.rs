@@ -1,11 +1,12 @@
 use crate::{GeometryHandle, RALBackend, Scene, ShadingHandle};
 use arena::Handle;
+use std::any::Any;
 // use rendiation_render_entity::BoundingData;
 
 pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
 
 pub struct RenderObject<T: RALBackend> {
-  pub shading_index: ShadingHandle<T>,
+  pub shading_index: ShadingHandle<T, dyn Any>,
   pub geometry_index: GeometryHandle<T>,
   pub render_order: i32, // todo for sorting
 }

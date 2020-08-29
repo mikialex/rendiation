@@ -1,5 +1,5 @@
 use super::ShaderBindableResourceManager;
-use crate::{BindGroupProvider, BindTypeHandle, RALBackend};
+use crate::{BindGroupHandle, BindGroupProvider, RALBackend};
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
@@ -29,12 +29,12 @@ impl<R: RALBackend> BindGroupManager<R> {
     })
   }
 
-  pub fn get_gpu<T: BindGroupProvider<R>>(&self, handle: BindTypeHandle<R, T>) -> &R::BindGroup {
+  pub fn get_gpu<T: BindGroupProvider<R>>(&self, handle: BindGroupHandle<R, T>) -> &R::BindGroup {
     let handle = unsafe { handle.cast_type() };
     self.storage.get(handle).unwrap().get_gpu()
   }
 
-  pub fn add_bindgroup<T: BindGroupProvider<R>>(&mut self, bindgroup: T) -> BindTypeHandle<R, T> {
+  pub fn add_bindgroup<T: BindGroupProvider<R>>(&mut self, bindgroup: T) -> BindGroupHandle<R, T> {
     let pair = BindgroupPair {
       data: bindgroup,
       gpu: None,
@@ -46,7 +46,7 @@ impl<R: RALBackend> BindGroupManager<R> {
 
   pub fn update_bindgroup<T: BindGroupProvider<R>>(
     &mut self,
-    handle: BindTypeHandle<R, T>,
+    handle: BindGroupHandle<R, T>,
   ) -> &mut T {
     let handle = unsafe { handle.cast_type() };
     self.modified.insert(handle);
@@ -58,7 +58,7 @@ impl<R: RALBackend> BindGroupManager<R> {
       .update()
   }
 
-  pub fn delete_bindgroup<T: BindGroupProvider<R>>(&mut self, handle: BindTypeHandle<R, T>) {
+  pub fn delete_bindgroup<T: BindGroupProvider<R>>(&mut self, handle: BindGroupHandle<R, T>) {
     let handle = unsafe { handle.cast_type() };
     self.modified.remove(&handle);
     self.storage.remove(handle);

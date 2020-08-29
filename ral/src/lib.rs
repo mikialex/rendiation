@@ -48,14 +48,14 @@ pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
   pub data: (&'a T::UniformBuffer, Range<u64>),
 }
 
-pub struct BindGroupRef<'a, T: RALBackend, U: 'static + Sized> {
-  pub ty: PhantomData<U>,
-  pub data: (&'a T::BindGroup, Range<u64>),
-}
-
 pub trait BindGroupProvider<T: RALBackend>: 'static {
   // we never care what exact type is, just downcast and use any get method on it
   fn create_bindgroup(&self, renderer: &T::Renderer, resources: &dyn Any) -> T::BindGroup;
+}
+
+pub trait ShadingProvider<T: RALBackend>: 'static {
+  // we never care what exact type is, just downcast and use any get method on it
+  fn create_shading(&self, renderer: &T::Renderer, resources: &dyn Any) -> T::Shading;
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

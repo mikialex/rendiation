@@ -19,7 +19,7 @@ struct BlockShader {
 }
 
 struct BlockShaderInstance {
-  parameter: BindTypeHandle<BlockShadingParamGroup>,
+  parameter: BindGroupHandle<BlockShadingParamGroup>,
 }
 
 pub trait ShaderProvider {

@@ -14,7 +14,8 @@ pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
 
-pub type BindTypeHandle<R, T> = Handle<BindgroupPair<R, T>>;
+pub type ShadingHandle<R, T> = Handle<ShadingPair<R, T>>;
+pub type BindGroupHandle<R, T> = Handle<BindgroupPair<R, T>>;
 pub type SamplerHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Sampler>>;
 pub type TextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
 pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
