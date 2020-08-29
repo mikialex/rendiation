@@ -1,12 +1,13 @@
 use crate::{GeometryHandle, RALBackend, Scene, ShadingHandle};
 use arena::Handle;
+use rendiation_ral::ShadingProvider;
 use std::any::Any;
 // use rendiation_render_entity::BoundingData;
 
 pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
 
 pub struct RenderObject<T: RALBackend> {
-  pub shading_index: ShadingHandle<T, dyn Any>,
+  pub shading_index: ShadingHandle<T, AnyPlaceHolder>,
   pub geometry_index: GeometryHandle<T>,
   pub render_order: i32, // todo for sorting
 }
@@ -22,15 +23,17 @@ pub struct RenderObject<T: RALBackend> {
 // }
 
 impl<T: RALBackend> Scene<T> {
-  pub fn create_render_object(
+  pub fn create_render_object<S: ShadingProvider<T>>(
     &mut self,
     geometry_index: GeometryHandle<T>,
-    shading_index: ShadingHandle<T>,
+    shading_index: ShadingHandle<T, S>,
   ) -> RenderObjectHandle<T> {
-    let obj = RenderObject {
-      render_order: 0,
-      shading_index,
-      geometry_index,
+    let obj = unsafe {
+      RenderObject {
+        render_order: 0,
+        shading_index: shading_index.cast_type(),
+        geometry_index,
+      }
     };
     self.render_objects.insert(obj)
   }

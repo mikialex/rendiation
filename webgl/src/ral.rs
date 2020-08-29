@@ -6,6 +6,7 @@ use web_sys::*;
 
 impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
+  type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
   type Shading = WebGLProgram;
   type BindGroup = ();

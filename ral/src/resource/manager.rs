@@ -1,5 +1,5 @@
 use super::{BindGroupManager, SceneGeometryData, UBOManager};
-use crate::RALBackend;
+use crate::{RALBackend, ShadingManager};
 use arena::{Arena, Handle};
 use std::any::Any;
 
@@ -7,7 +7,7 @@ type ResourceArena<T> = Arena<ResourceWrap<T>>;
 
 pub struct ResourceManager<T: RALBackend> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
-  // pub shadings: ResourceArena<SceneShadingData<T>>,
+  pub shadings: ShadingManager<T>,
   pub bindgroups: BindGroupManager<T>,
   pub bindable: Box<ShaderBindableResourceManager<T>>,
 
@@ -47,7 +47,7 @@ impl<T: RALBackend> ResourceManager<T> {
   pub fn new() -> Self {
     Self {
       geometries: Arena::new(),
-      // shadings: Arena::new(),
+      shadings: ShadingManager::new(),
       bindgroups: BindGroupManager::new(),
       bindable: Box::new(ShaderBindableResourceManager::new()),
       index_buffers: Arena::new(),

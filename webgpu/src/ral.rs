@@ -4,6 +4,7 @@ use std::ops::Range;
 
 impl RALBackend for WGPURenderer {
   type RenderTarget = WGPURenderPassBuilder<'static>;
+  type RenderPass = WGPURenderPass<'static>;
   type Renderer = WGPURenderer;
   type Shading = WGPUPipeline;
   type BindGroup = WGPUBindGroup;

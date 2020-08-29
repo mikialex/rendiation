@@ -58,10 +58,12 @@ impl RenderObject<WGPURenderer> {
     pass: &mut WGPURenderPass<'a>,
     scene: &'b Scene<WGPURenderer>,
   ) {
-    let shading = scene.resources.get_shading(self.shading_index).resource();
+    let shading = scene
+      .resources
+      .shadings
+      .get_shading_boxed(self.shading_index)
+      .apply(pass);
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();
-
-    pass.set_pipeline(shading.gpu());
 
     geometry.index_buffer.map(|b| {
       let index = scene.resources.get_index_buffer(b);
@@ -72,13 +74,14 @@ impl RenderObject<WGPURenderer> {
       pass.set_vertex_buffer(i, buffer.resource());
     }
 
-    for i in 0..shading.get_parameters_count() {
-      let bindgroup = scene
-        .resources
-        .get_shading_param_group(shading.get_parameter(i))
-        .resource();
-      pass.set_bindgroup(i, bindgroup.gpu());
-    }
+    // pass.set_pipeline(shading.gpu());
+    // for i in 0..shading.get_parameters_count() {
+    //   let bindgroup = scene
+    //     .resources
+    //     .get_shading_param_group(shading.get_parameter(i))
+    //     .resource();
+    //   pass.set_bindgroup(i, bindgroup.gpu());
+    // }
 
     pass.draw_indexed(geometry.draw_range.clone())
   }

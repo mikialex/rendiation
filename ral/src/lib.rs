@@ -11,6 +11,7 @@ pub use shading::*;
 
 pub trait RALBackend: 'static {
   type RenderTarget;
+  type RenderPass;
   type Renderer;
   type Shading;
   type BindGroup;
@@ -56,7 +57,17 @@ pub trait BindGroupProvider<T: RALBackend>: 'static {
 pub trait ShadingProvider<T: RALBackend>: 'static {
   // we never care what exact type is, just downcast and use any get method on it
   fn create_shading(&self, renderer: &T::Renderer, resources: &dyn Any) -> T::Shading;
+  fn apply(&self, render_pass: &mut T::RenderPass, gpu_shading: &T::Shading);
 }
+
+// pub trait Renderable<T: RALBackend> {
+//   fn render(renderer: );
+// }
+
+// pub struct RenderObject<T: RALBackend, S> {
+//   pub shading_index: ShadingHandle<T, dyn Any>,
+//   pub geometry_index: GeometryHandle<T>,
+// }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct AttributeTypeId(pub u64);
