@@ -10,21 +10,22 @@ use std::{
 
 /// uniform buffer
 impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<U> {
+  pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<T, U> {
     UniformHandle {
       index: self.bindable.uniform_buffers.insert(value),
       phantom: PhantomData,
+      phantom2: PhantomData,
     }
   }
 
-  pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<U>, new_value: U) {
+  pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>, new_value: U) {
     self
       .bindable
       .uniform_buffers
       .update(handle.index, new_value);
   }
 
-  pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<U>) -> UniformBufferRef<T, U> {
+  pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<T, U>) -> UniformBufferRef<T, U> {
     UniformBufferRef {
       ty: PhantomData,
       data: self
@@ -34,7 +35,7 @@ impl<T: RALBackend> ResourceManager<T> {
     }
   }
 
-  pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<U>) {
+  pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>) {
     self.bindable.uniform_buffers.delete::<U>(handle.index);
   }
 }

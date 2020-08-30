@@ -32,7 +32,7 @@ impl<'a> WGPUBindgroupItem<'a> for ShaderGraphSampler {
   }
 }
 
-use rendiation_ral::UniformBufferRef;
+use rendiation_ral::*;
 impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
   type Type = UniformBufferRef<'a, WGPURenderer, T>;
   fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
@@ -43,4 +43,12 @@ impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
   fn to_layout_type() -> BindingType {
     BindingType::UniformBuffer { dynamic: false }
   }
+}
+
+impl<T: RALBackend> RALBindGroupItemResourceHandle<T> for ShaderGraphTexture {
+  type HandleType = SamplerHandle<T>;
+}
+
+impl<T: RALBackend> RALBindGroupItemResourceHandle<T> for ShaderGraphSampler {
+  type HandleType = SamplerHandle<T>;
 }

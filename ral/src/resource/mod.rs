@@ -21,17 +21,18 @@ pub type BindGroupHandle<R, T> = Handle<BindgroupPair<R, T>>;
 pub type SamplerHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Sampler>>;
 pub type TextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
 pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
-pub struct UniformHandle<U> {
+pub struct UniformHandle<R: RALBackend, U> {
   index: usize,
   phantom: PhantomData<U>,
+  phantom2: PhantomData<R>,
 }
 
-impl<T> Clone for UniformHandle<T> {
+impl<R: RALBackend, T> Clone for UniformHandle<R, T> {
   fn clone(&self) -> Self {
     *self
   }
 }
-impl<T> Copy for UniformHandle<T> {}
+impl<R: RALBackend, T> Copy for UniformHandle<R, T> {}
 
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
 pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;

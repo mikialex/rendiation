@@ -12,6 +12,58 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated
 }
 
+fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let fields = only_named_struct_fields(&input).unwrap();
+
+  let ral_instance_name = format_ident!("{}RALInstance", struct_name);
+
+  let ral_fields: Vec<_> = fields
+  .iter()
+  .map(|f| {
+    let field_name = f.ident.as_ref().unwrap();
+    let ty = &f.ty;
+    quote! { pub #field_name: < #ty as rendiation_shadergraph::RALBindGroupItemResourceHandle<R>>::HandleType, }
+  })
+  .collect();
+
+  // let wgpu_create_bindgroup_create: Vec<_> = fields
+  //   .iter()
+  //   .map(|f| {
+  //     let field_name = f.ident.as_ref().unwrap();
+  //     let ty = &f.ty;
+  //     quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
+  //   })
+  //   .collect();
+
+  quote! {
+    pub struct #ral_instance_name<R: rendiation_ral::RALBackend> {
+      #(#ral_fields)*
+    }
+
+    impl<T: rendiation_ral::RALBackend> BindGroupProvider<T> for #ral_instance_name {
+      // pub fn create_bindgroup(
+      //   renderer: &rendiation_webgpu::WGPURenderer,
+      //   #(#wgpu_create_bindgroup_fn_param)*
+      // ) -> rendiation_webgpu::WGPUBindGroup{
+
+      //   renderer.register_bindgroup::<Self>();
+
+      //   rendiation_webgpu::BindGroupBuilder::new()
+      //     #(#wgpu_create_bindgroup_create)*
+      //     .build(
+      //       &renderer.device,
+      //       renderer.bindgroup_layout_cache.borrow().get(&std::any::TypeId::of::<#struct_name>())
+      //       .unwrap()
+      //     )
+
+      // }
+
+    }
+
+  }
+}
+
 fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let fields = only_named_struct_fields(&input).unwrap();
@@ -93,7 +145,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   .collect();
 
   quote! {
-     pub struct #shadergraph_instance_name {
+    pub struct #shadergraph_instance_name {
       #(#instance_fields)*
     }
 

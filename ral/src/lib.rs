@@ -58,6 +58,16 @@ pub trait BindGroupProvider<T: RALBackend>: 'static {
   fn apply(&self, render_pass: &mut T::RenderPass, gpu_bindgroup: &T::BindGroup);
 }
 
+pub trait UBOData {}
+
+pub trait RALBindGroupItemResourceHandle<T: RALBackend> {
+  type HandleType;
+}
+
+impl<T: RALBackend, U: UBOData> RALBindGroupItemResourceHandle<T> for U {
+  type HandleType = UniformHandle<T, U>;
+}
+
 pub trait ShadingProvider<T: RALBackend>: 'static {
   fn create_shading(&self, renderer: &T::Renderer, resources: &BindGroupManager<T>) -> T::Shading;
   fn apply(&self, render_pass: &mut T::RenderPass, gpu_shading: &T::Shading);

@@ -1,5 +1,5 @@
 use crate::{ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeType};
-use rendiation_ral::ShaderStage;
+use rendiation_ral::{ShaderStage, UBOData};
 use std::collections::HashMap;
 
 pub trait ShaderGraphBindGroupItemProvider {
@@ -26,7 +26,7 @@ pub trait ShaderGraphGeometryProvider {
   fn create_instance(builder: &mut ShaderGraphBuilder) -> Self::ShaderGraphGeometryInstance;
 }
 
-pub trait ShaderGraphUBO: ShaderGraphBindGroupItemProvider {
+pub trait ShaderGraphUBO: ShaderGraphBindGroupItemProvider + UBOData {
   // todo maybe return static ubo info
 }
 
