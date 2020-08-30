@@ -1,6 +1,6 @@
 // cal for Content abstraction layer
 
-use std::{any::Any, marker::PhantomData, ops::Range};
+use std::{marker::PhantomData, ops::Range};
 
 mod resource;
 mod shader;
@@ -63,15 +63,6 @@ pub trait ShadingProvider<T: RALBackend>: 'static {
   fn apply(&self, render_pass: &mut T::RenderPass, gpu_shading: &T::Shading);
 }
 
-// pub trait Renderable<T: RALBackend> {
-//   fn render(renderer: );
-// }
-
-// pub struct RenderObject<T: RALBackend, S> {
-//   pub shading_index: ShadingHandle<T, dyn Any>,
-//   pub geometry_index: GeometryHandle<T>,
-// }
-
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct AttributeTypeId(pub u64);
 
@@ -80,15 +71,6 @@ pub struct UniformTypeId(pub u64);
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ParameterGroupTypeId(pub u64);
-
-pub struct SceneUniform {
-  pub value: Box<dyn SceneUniformValue>,
-}
-
-pub trait SceneUniformValue: Any {
-  fn as_any(&self) -> dyn Any;
-  fn as_byte(&self) -> &[u8];
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ShaderStage {
