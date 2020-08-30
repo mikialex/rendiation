@@ -58,14 +58,24 @@ pub trait BindGroupProvider<T: RALBackend>: 'static {
   fn apply(&self, render_pass: &mut T::RenderPass, gpu_bindgroup: &T::BindGroup);
 }
 
-pub trait UBOData {}
-
-pub trait RALBindGroupItemResourceHandle<T: RALBackend> {
+pub trait UBOData: 'static + Sized {}
+pub trait RALBindgroupHandle<T: RALBackend> {
   type HandleType;
 }
 
-impl<T: RALBackend, U: UBOData> RALBindGroupItemResourceHandle<T> for U {
+pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
+  type Resource;
+  fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource;
+}
+
+impl<T: RALBackend, U: UBOData> RALBindgroupHandle<T> for U {
   type HandleType = UniformHandle<T, U>;
+}
+impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
+  type Resource = UniformBufferRef<'a, T, U>;
+  fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource {
+    resources.get_uniform_gpu(handle)
+  }
 }
 
 pub trait ShadingProvider<T: RALBackend>: 'static {
