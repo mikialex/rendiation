@@ -9,7 +9,7 @@ pub struct ResourceManager<T: RALBackend> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
   pub shadings: ShadingManager<T>,
   pub bindgroups: BindGroupManager<T>,
-  pub bindable: Box<ShaderBindableResourceManager<T>>,
+  pub bindable: ShaderBindableResourceManager<T>,
 
   pub index_buffers: ResourceArena<T::IndexBuffer>,
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
@@ -49,7 +49,7 @@ impl<T: RALBackend> ResourceManager<T> {
       geometries: Arena::new(),
       shadings: ShadingManager::new(),
       bindgroups: BindGroupManager::new(),
-      bindable: Box::new(ShaderBindableResourceManager::new()),
+      bindable: ShaderBindableResourceManager::new(),
       index_buffers: Arena::new(),
       vertex_buffers: Arena::new(),
     }

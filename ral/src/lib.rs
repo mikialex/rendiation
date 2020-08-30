@@ -50,13 +50,16 @@ pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
 }
 
 pub trait BindGroupProvider<T: RALBackend>: 'static {
-  // we never care what exact type is, just downcast and use any get method on it
-  fn create_bindgroup(&self, renderer: &T::Renderer, resources: &dyn Any) -> T::BindGroup;
+  fn create_bindgroup(
+    &self,
+    renderer: &T::Renderer,
+    resources: &ShaderBindableResourceManager<T>,
+  ) -> T::BindGroup;
+  fn apply(&self, render_pass: &mut T::RenderPass, gpu_bindgroup: &T::BindGroup);
 }
 
 pub trait ShadingProvider<T: RALBackend>: 'static {
-  // we never care what exact type is, just downcast and use any get method on it
-  fn create_shading(&self, renderer: &T::Renderer, resources: &dyn Any) -> T::Shading;
+  fn create_shading(&self, renderer: &T::Renderer, resources: &BindGroupManager<T>) -> T::Shading;
   fn apply(&self, render_pass: &mut T::RenderPass, gpu_shading: &T::Shading);
 }
 

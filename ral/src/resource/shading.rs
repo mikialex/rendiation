@@ -1,10 +1,13 @@
-use super::ShaderBindableResourceManager;
-use crate::{AnyPlaceHolder, RALBackend, ShadingHandle, ShadingProvider};
+use crate::{AnyPlaceHolder, BindGroupManager, RALBackend, ShadingHandle, ShadingProvider};
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
 impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
-  fn create_shading(&self, _renderer: &T::Renderer, _resources: &dyn Any) -> T::Shading {
+  fn create_shading(
+    &self,
+    _renderer: &T::Renderer,
+    _resources: &BindGroupManager<T>,
+  ) -> T::Shading {
     unreachable!()
   }
   fn apply(&self, _render_pass: &mut T::RenderPass, _gpu_shading: &T::Shading) {
@@ -25,11 +28,7 @@ impl<R: RALBackend> ShadingManager<R> {
     }
   }
 
-  pub fn maintain_gpu(
-    &mut self,
-    renderer: &R::Renderer,
-    resources: &Box<ShaderBindableResourceManager<R>>,
-  ) {
+  pub fn maintain_gpu(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
     let storage = &mut self.storage;
     self.modified.drain().for_each(|d| {
       storage.get_mut(d).map(|bp| {
@@ -84,11 +83,7 @@ impl<R: RALBackend> ShadingManager<R> {
 }
 
 pub trait ShadingStorageTrait<R: RALBackend>: Any {
-  fn maintain_gpu(
-    &mut self,
-    renderer: &R::Renderer,
-    resources: &Box<ShaderBindableResourceManager<R>>,
-  );
+  fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>);
   fn get_gpu(&self) -> &R::Shading;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -96,12 +91,8 @@ pub trait ShadingStorageTrait<R: RALBackend>: Any {
 }
 
 impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPair<R, T> {
-  fn maintain_gpu<'a>(
-    &mut self,
-    renderer: &R::Renderer,
-    resources: &Box<ShaderBindableResourceManager<R>>,
-  ) {
-    self.gpu = Some(self.data.create_shading(renderer, resources.as_any()));
+  fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
+    self.gpu = Some(self.data.create_shading(renderer, resources));
   }
   fn get_gpu(&self) -> &R::Shading {
     self.gpu.as_ref().unwrap()

@@ -62,7 +62,7 @@ impl RenderObject<WGPURenderer> {
       .resources
       .shadings
       .get_shading_boxed(self.shading_index)
-      .apply(pass);
+      .apply(unsafe { std::mem::transmute_copy(pass) });
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();
 
     geometry.index_buffer.map(|b| {

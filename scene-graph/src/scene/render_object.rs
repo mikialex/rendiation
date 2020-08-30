@@ -1,7 +1,6 @@
 use crate::{GeometryHandle, RALBackend, Scene, ShadingHandle};
 use arena::Handle;
-use rendiation_ral::ShadingProvider;
-use std::any::Any;
+use rendiation_ral::{AnyPlaceHolder, ShadingProvider};
 // use rendiation_render_entity::BoundingData;
 
 pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
