@@ -70,8 +70,19 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
           )
       }
 
-      fn apply(&self, render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass, gpu_bindgroup: &<WGPURenderer as rendiation_ral::RALBackend>::BindGroup){
+      fn apply(
+        &self,
+        render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
+        gpu_bindgroup: &<WGPURenderer as rendiation_ral::RALBackend>::BindGroup
+      ){
+        // webgpu not need this;
         unreachable!()
+      }
+    }
+
+    impl #struct_name {
+      pub fn create_resource_instance() ->  #ral_instance_name {
+        todo!()
       }
     }
 

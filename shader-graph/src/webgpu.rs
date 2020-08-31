@@ -50,8 +50,11 @@ impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphTexture {
 }
 impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphTexture {
   type Resource = &'a T::Texture;
-  fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource {
-    resources.bindable.textures.get(handle).unwrap().resource()
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource {
+    resources.textures.get(handle).unwrap().resource()
   }
 }
 
@@ -60,7 +63,10 @@ impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphSampler {
 }
 impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphSampler {
   type Resource = &'a T::Sampler;
-  fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource {
-    resources.bindable.samplers.get(handle).unwrap().resource()
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource {
+    resources.samplers.get(handle).unwrap().resource()
   }
 }

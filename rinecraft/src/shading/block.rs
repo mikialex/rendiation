@@ -40,20 +40,20 @@ struct BlockShader {
 //   parameter: BindGroupHandle<T, BlockShadingParamGroup>,
 // }
 
-impl rendiation_ral::ShadingProvider<WGPURenderer> for BlockShader {
-  fn apply(
-    &self,
-    render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
-    gpu_shading: &<WGPURenderer as rendiation_ral::RALBackend>::Shading,
-    resources: &rendiation_ral::BindGroupManager<WGPURenderer>,
-  ) {
-    render_pass.set_bindgroup(0, resources.get_gpu(self.parameter));
-    render_pass.set_bindgroup(1, resources.get_gpu(self.parameter));
-  }
-}
+// impl rendiation_ral::ShadingProvider<WGPURenderer> for BlockShader {
+//   fn apply(
+//     &self,
+//     render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
+//     gpu_shading: &<WGPURenderer as rendiation_ral::RALBackend>::Shading,
+//     resources: &rendiation_ral::BindGroupManager<WGPURenderer>,
+//   ) {
+//     render_pass.set_bindgroup(0, resources.get_gpu(self.parameter));
+//     render_pass.set_bindgroup(1, resources.get_gpu(self.parameter));
+//   }
+// }
 
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
-  let (mut builder, shader) = BlockShader::create_builder();
+  let (mut builder, shader) = BlockShader::create_builder(renderer);
   // let mut builder = ShaderGraphBuilder::new();
   builder.geometry_by::<IndexedGeometry>();
 

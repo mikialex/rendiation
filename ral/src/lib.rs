@@ -66,7 +66,10 @@ pub trait RALBindgroupHandle<T: RALBackend> {
 
 pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
   type Resource;
-  fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource;
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource;
 }
 
 impl<T: RALBackend, U: UBOData> RALBindgroupHandle<T> for U {
@@ -74,8 +77,12 @@ impl<T: RALBackend, U: UBOData> RALBindgroupHandle<T> for U {
 }
 impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
   type Resource = UniformBufferRef<'a, T, U>;
-  fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource {
-    resources.get_uniform_gpu(handle)
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource {
+    // resources.get_uniform_gpu(handle)
+    todo!()
   }
 }
 
