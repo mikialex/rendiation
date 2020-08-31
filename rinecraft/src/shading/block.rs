@@ -13,13 +13,8 @@ use transform::MVPTransformation;
 
 use rendiation_ral::BindGroupHandle;
 
-// new design
 #[derive(Shader)]
 struct BlockShader {
-  // #[vertex]
-  // vertex: Vertex,
-
-  // #[bindgroup]
   parameter: BlockShadingParamGroup,
 }
 
@@ -41,9 +36,9 @@ struct BlockShader {
 //   }
 // }
 
-struct BlockShaderInstance<T: rendiation_ral::RALBackend> {
-  parameter: BindGroupHandle<T, BlockShadingParamGroup>,
-}
+// struct BlockShaderInstance<T: rendiation_ral::RALBackend> {
+//   parameter: BindGroupHandle<T, BlockShadingParamGroup>,
+// }
 
 impl rendiation_ral::ShadingProvider<WGPURenderer> for BlockShader {
   fn apply(

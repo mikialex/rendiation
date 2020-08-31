@@ -50,8 +50,9 @@ pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
 }
 
 pub trait BindGroupProvider<T: RALBackend>: 'static {
+  type Instance;
   fn create_bindgroup(
-    &self,
+    instance: &Self::Instance,
     renderer: &T::Renderer,
     resources: &ShaderBindableResourceManager<T>,
   ) -> T::BindGroup;

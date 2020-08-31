@@ -64,7 +64,7 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! { pub #field_name: rendiation_ral::BindGroupHandle<T, #ty>, }
+      quote! { pub #field_name: rendiation_ral::BindGroupHandle<WGPURenderer, #ty>, }
     })
     .collect();
 
@@ -78,11 +78,11 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     .collect();
 
   quote! {
-    struct #resource_instance_name<T: rendiation_ral::RALBackend> {
+    struct #resource_instance_name {
       #(#resource_struct_fields)*
     }
 
-    impl rendiation_ral::ShadingProvider<WGPURenderer> for #resource_instance_name<WGPURenderer> {
+    impl rendiation_ral::ShadingProvider<WGPURenderer> for #resource_instance_name {
       fn apply(
         &self,
         render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,

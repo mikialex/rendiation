@@ -32,7 +32,7 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! {let #field_name = <#ty as rendiation_ral::RALBindgroupItem<WGPURenderer>>::get_item(self.#field_name, resources);}
+      quote! {let #field_name = <#ty as rendiation_ral::RALBindgroupItem<WGPURenderer>>::get_item(instance.#field_name, resources);}
     })
     .collect();
 
@@ -46,14 +46,14 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     .collect();
 
   quote! {
-    pub struct #ral_instance_name<WGPURenderer> {
+    pub struct #ral_instance_name {
       #(#ral_fields)*
     }
 
-    impl rendiation_ral::BindGroupProvider<WGPURenderer> for #ral_instance_name<WGPURenderer> {
-
+    impl rendiation_ral::BindGroupProvider<WGPURenderer> for #struct_name {
+      type Instance =  #ral_instance_name;
       fn create_bindgroup(
-        &self,
+        instance: &Self::Instance,
         renderer: &<WGPURenderer as rendiation_ral::RALBackend>::Renderer,
         resources: &rendiation_ral::ShaderBindableResourceManager<WGPURenderer>,
       ) -> <WGPURenderer as rendiation_ral::RALBackend>::BindGroup {
@@ -71,7 +71,7 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
       }
 
       fn apply(&self, render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass, gpu_bindgroup: &<WGPURenderer as rendiation_ral::RALBackend>::BindGroup){
-        todo!()
+        unreachable!()
       }
     }
 

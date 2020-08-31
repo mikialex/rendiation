@@ -34,8 +34,11 @@ impl<R: RALBackend> BindGroupManager<R> {
     self.storage.get(handle).unwrap().get_gpu()
   }
 
-  pub fn add_bindgroup<T: BindGroupProvider<R>>(&mut self, bindgroup: T) -> BindGroupHandle<R, T> {
-    let pair = BindgroupPair {
+  pub fn add_bindgroup<T: BindGroupProvider<R>>(
+    &mut self,
+    bindgroup: T::Instance,
+  ) -> BindGroupHandle<R, T> {
+    let pair = BindgroupPair::<R, T> {
       data: bindgroup,
       gpu: None,
     };
@@ -47,7 +50,7 @@ impl<R: RALBackend> BindGroupManager<R> {
   pub fn update_bindgroup<T: BindGroupProvider<R>>(
     &mut self,
     handle: BindGroupHandle<R, T>,
-  ) -> &mut T {
+  ) -> &mut T::Instance {
     let handle = unsafe { handle.cast_type() };
     self.modified.insert(handle);
     let pair = self.storage.get_mut(handle).unwrap();
@@ -78,7 +81,7 @@ impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for Bindgr
     renderer: &R::Renderer,
     resources: &ShaderBindableResourceManager<R>,
   ) {
-    self.gpu = Some(self.data.create_bindgroup(renderer, resources));
+    self.gpu = Some(T::create_bindgroup(&self.data, renderer, resources));
   }
   fn get_gpu(&self) -> &R::BindGroup {
     self.gpu.as_ref().unwrap()
@@ -92,12 +95,12 @@ impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for Bindgr
 }
 
 pub struct BindgroupPair<R: RALBackend, T: BindGroupProvider<R>> {
-  data: T,
+  data: T::Instance,
   gpu: Option<R::BindGroup>,
 }
 
 impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupPair<R, T> {
-  fn update(&mut self) -> &mut T {
+  fn update(&mut self) -> &mut T::Instance {
     &mut self.data
   }
 }
