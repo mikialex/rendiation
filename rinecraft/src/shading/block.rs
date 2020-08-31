@@ -11,29 +11,60 @@ use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 use transform::MVPTransformation;
 
-// // new design
-// #[derive(Shader)]
-// struct BlockShader {
-//   #[bindgroup(0)]
-//   parameter: BlockShadingParamGroup,
+use rendiation_ral::BindGroupHandle;
+
+// new design
+#[derive(Shader)]
+struct BlockShader {
+  // #[vertex]
+  // vertex: Vertex,
+
+  // #[bindgroup]
+  parameter: BlockShadingParamGroup,
+}
+
+// struct BlockShaderShaderGraphShaderInstance {
+//   // vertex: <Vertex as ShaderGraphGeometryProvider>::ShaderGraphGeometryInstance,
+//   parameter: <BlockShadingParamGroup as ShaderGraphBindGroupProvider>::ShaderGraphBindGroupInstance,
 // }
 
-// struct BlockShaderInstance {
-//   parameter: BindGroupHandle<BlockShadingParamGroup>,
+// impl rendiation_shadergraph::ShaderGraphFactory<WGPURenderer> for BlockShader {
+//   type ShaderGraphShaderInstance = BlockShaderShaderGraphShaderInstance;
+//   fn create_builder(
+//     renderer: &WGPURenderer,
+//   ) -> (ShaderGraphBuilder, Self::ShaderGraphShaderInstance) {
+//     let builder = ShaderGraphBuilder::new();
+//     let instance = BlockShaderShaderGraphShaderInstance {
+//       parameter: builder.bindgroup_by::<BlockShadingParamGroup>(renderer),
+//     };
+//     (builder, instance)
+//   }
 // }
 
-// pub trait ShaderProvider {
-//   type Instance;
-//   fn create_shadergraph_builder() -> ShaderGraphBuilder;
-//   fn active_render_pass(&self, resources: dyn Any); // todo move resource manager in ral
-// }
+struct BlockShaderInstance<T: rendiation_ral::RALBackend> {
+  parameter: BindGroupHandle<T, BlockShadingParamGroup>,
+}
+
+impl rendiation_ral::ShadingProvider<WGPURenderer> for BlockShader {
+  fn apply(
+    &self,
+    render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
+    gpu_shading: &<WGPURenderer as rendiation_ral::RALBackend>::Shading,
+    resources: &rendiation_ral::BindGroupManager<WGPURenderer>,
+  ) {
+    render_pass.set_bindgroup(0, resources.get_gpu(self.parameter));
+    render_pass.set_bindgroup(1, resources.get_gpu(self.parameter));
+  }
+}
 
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
-  let mut builder = ShaderGraphBuilder::new();
+  let (mut builder, shader) = BlockShader::create_builder();
+  // let mut builder = ShaderGraphBuilder::new();
   builder.geometry_by::<IndexedGeometry>();
 
   let vertex = builder.vertex_by::<Vertex>();
-  let p = builder.bindgroup_by::<BlockShadingParamGroup>(renderer);
+  let p = shader.parameter;
+  // let p = builder.bindgroup_by::<BlockShadingParamGroup>(renderer);
 
   let mv_position = to_mv_position(vertex.position, p.mvp.model_view);
   let clip_position = apply_projection(mv_position, p.mvp.projection);

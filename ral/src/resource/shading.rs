@@ -3,14 +3,12 @@ use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
 impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
-  fn create_shading(
+  fn apply(
     &self,
-    _renderer: &T::Renderer,
+    _render_pass: &mut T::RenderPass,
+    _gpu_shading: &T::Shading,
     _resources: &BindGroupManager<T>,
-  ) -> T::Shading {
-    unreachable!()
-  }
-  fn apply(&self, _render_pass: &mut T::RenderPass, _gpu_shading: &T::Shading) {
+  ) {
     unreachable!()
   }
 }
@@ -29,12 +27,12 @@ impl<R: RALBackend> ShadingManager<R> {
   }
 
   pub fn maintain_gpu(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
-    let storage = &mut self.storage;
-    self.modified.drain().for_each(|d| {
-      storage.get_mut(d).map(|bp| {
-        bp.maintain_gpu(renderer, resources);
-      });
-    })
+    // let storage = &mut self.storage;
+    // self.modified.drain().for_each(|d| {
+    //   storage.get_mut(d).map(|bp| {
+    //     bp.maintain_gpu(renderer, resources);
+    //   });
+    // })
   }
 
   pub fn get_shading<T: ShadingProvider<R>>(
@@ -83,17 +81,17 @@ impl<R: RALBackend> ShadingManager<R> {
 }
 
 pub trait ShadingStorageTrait<R: RALBackend>: Any {
-  fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>);
+  // fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>);
   fn get_gpu(&self) -> &R::Shading;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
-  fn apply(&self, render_pass: &mut R::RenderPass);
+  fn apply(&self, render_pass: &mut R::RenderPass, resources: &BindGroupManager<R>);
 }
 
 impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPair<R, T> {
-  fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
-    self.gpu = Some(self.data.create_shading(renderer, resources));
-  }
+  // fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
+  //   // self.gpu = Some(self.data.create_shading(renderer, resources));
+  // }
   fn get_gpu(&self) -> &R::Shading {
     self.gpu.as_ref().unwrap()
   }
@@ -103,8 +101,8 @@ impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPai
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
-  fn apply(&self, render_pass: &mut R::RenderPass) {
-    self.data.apply(render_pass, self.get_gpu());
+  fn apply(&self, render_pass: &mut R::RenderPass, resources: &BindGroupManager<R>) {
+    self.data.apply(render_pass, self.get_gpu(), resources);
   }
 }
 

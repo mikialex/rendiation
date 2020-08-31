@@ -46,12 +46,12 @@ impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
 }
 
 impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphTexture {
-  type HandleType = SamplerHandle<T>;
+  type HandleType = TextureHandle<T>;
 }
 impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphTexture {
-  type Resource = &'a TextureView;
+  type Resource = &'a T::Texture;
   fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource {
-    todo!()
+    resources.bindable.textures.get(handle).unwrap().resource()
   }
 }
 
@@ -59,8 +59,8 @@ impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphSampler {
   type HandleType = SamplerHandle<T>;
 }
 impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphSampler {
-  type Resource = &'a WGPUSampler;
+  type Resource = &'a T::Sampler;
   fn get_item(handle: Self::HandleType, resources: &'a ResourceManager<T>) -> Self::Resource {
-    todo!()
+    resources.bindable.samplers.get(handle).unwrap().resource()
   }
 }

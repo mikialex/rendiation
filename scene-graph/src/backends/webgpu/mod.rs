@@ -58,11 +58,15 @@ impl RenderObject<WGPURenderer> {
     pass: &mut WGPURenderPass<'a>,
     scene: &'b Scene<WGPURenderer>,
   ) {
-    let shading = scene
+    scene
       .resources
       .shadings
       .get_shading_boxed(self.shading_index)
-      .apply(unsafe { std::mem::transmute_copy(pass) });
+      .apply(
+        unsafe { std::mem::transmute_copy(pass) },
+        &scene.resources.bindgroups,
+      );
+
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();
 
     geometry.index_buffer.map(|b| {
@@ -73,15 +77,6 @@ impl RenderObject<WGPURenderer> {
       let buffer = scene.resources.get_vertex_buffer(vertex_buffer.1);
       pass.set_vertex_buffer(i, buffer.resource());
     }
-
-    // pass.set_pipeline(shading.gpu());
-    // for i in 0..shading.get_parameters_count() {
-    //   let bindgroup = scene
-    //     .resources
-    //     .get_shading_param_group(shading.get_parameter(i))
-    //     .resource();
-    //   pass.set_bindgroup(i, bindgroup.gpu());
-    // }
 
     pass.draw_indexed(geometry.draw_range.clone())
   }

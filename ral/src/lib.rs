@@ -79,8 +79,12 @@ impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
 }
 
 pub trait ShadingProvider<T: RALBackend>: 'static {
-  fn create_shading(&self, renderer: &T::Renderer, resources: &BindGroupManager<T>) -> T::Shading;
-  fn apply(&self, render_pass: &mut T::RenderPass, gpu_shading: &T::Shading);
+  fn apply(
+    &self,
+    render_pass: &mut T::RenderPass,
+    gpu_shading: &T::Shading,
+    resources: &BindGroupManager<T>,
+  );
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

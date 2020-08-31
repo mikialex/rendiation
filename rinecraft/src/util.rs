@@ -8,7 +8,7 @@ use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
 
 pub struct CameraGPU {
-  pub gpu_mvp_matrix: UniformHandle<MVPTransformation>,
+  pub gpu_mvp_matrix: UniformHandle<WGPURenderer, MVPTransformation>,
   gpu_mvp_matrix_dirty: bool,
 }
 

@@ -3,6 +3,7 @@ use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
   shading::{create_block_shading, BlockShadingParamGroup, CopyParam},
   util::CameraGPU,
+  BlockShader,
 };
 use rendiation_math::{Vec3, Vec4};
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::as_bytes};
@@ -13,7 +14,7 @@ use std::{collections::BTreeMap, time::Instant};
 
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WGPURenderer>,
-  pub block_shading: ShadingHandle<WGPURenderer>,
+  pub block_shading: ShadingHandle<WGPURenderer, BlockShader>,
   pub blocks: BTreeMap<
     ChunkCoords,
     (
