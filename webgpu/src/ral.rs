@@ -13,8 +13,8 @@ impl RALBackend for WGPURenderer {
   type UniformBuffer = WGPUBuffer;
   type UniformValue = ();
   type Texture = WGPUTexture;
+  type TextureView = wgpu::TextureView;
   type Sampler = WGPUSampler;
-  type SampledTexture = ();
 
   fn create_shading(_renderer: &mut WGPURenderer, _des: &SceneShadingDescriptor) -> Self::Shading {
     todo!()

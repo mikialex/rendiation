@@ -15,8 +15,8 @@ impl RALBackend for WebGLRenderer {
   type UniformBuffer = WebGlBuffer;
   type UniformValue = UniformValue;
   type Texture = ();
+  type TextureView = WebGLTexture;
   type Sampler = ();
-  type SampledTexture = WebGLTexture;
 
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
     // extra shader conversion should do in sal

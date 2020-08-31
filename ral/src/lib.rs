@@ -20,8 +20,8 @@ pub trait RALBackend: 'static {
   type UniformBuffer;
   type UniformValue;
   type Texture;
+  type TextureView;
   type Sampler;
-  type SampledTexture;
 
   fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
