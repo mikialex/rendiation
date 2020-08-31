@@ -20,6 +20,7 @@ pub type ShadingHandle<R, T> = Handle<ShadingPair<R, T>>;
 pub type BindGroupHandle<R, T> = Handle<BindgroupPair<R, T>>;
 pub type SamplerHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Sampler>>;
 pub type TextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
+pub type TextureViewHandle<T> = Handle<ResourceWrap<<T as RALBackend>::TextureView>>;
 pub type SampledTextureHandle<T> = Handle<ResourceWrap<<T as RALBackend>::Texture>>;
 pub struct UniformHandle<R: RALBackend, U> {
   index: usize,
