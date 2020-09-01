@@ -54,7 +54,7 @@ impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphTexture {
     handle: Self::HandleType,
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource {
-    resources.texture_views.get(handle).unwrap().resource()
+    resources.texture_views.get(handle).unwrap()
   }
 }
 
@@ -67,6 +67,6 @@ impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphSampler {
     handle: Self::HandleType,
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource {
-    resources.samplers.get(handle).unwrap().resource()
+    resources.samplers.get(handle).unwrap()
   }
 }

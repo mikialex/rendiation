@@ -183,22 +183,20 @@ impl<T: RALBackend, U> UBOStorage<T, U> {
   }
 }
 
-pub type UniformValueHandle<T> = Handle<ResourceWrap<<T as RALBackend>::UniformValue>>;
+pub type UniformValueHandle<T> = Handle<<T as RALBackend>::UniformValue>;
 
 /// uniform values
 impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut ResourceWrap<T::UniformValue> {
-    ResourceWrap::new_wrap(&mut self.bindable.uniform_values, gpu)
+  pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut T::UniformValue {
+    // ResourceWrap::new_wrap(&mut self.bindable.uniform_values, gpu)
+    todo!()
   }
 
-  pub fn get_uniform_value_mut(
-    &mut self,
-    index: UniformValueHandle<T>,
-  ) -> &mut ResourceWrap<T::UniformValue> {
+  pub fn get_uniform_value_mut(&mut self, index: UniformValueHandle<T>) -> &mut T::UniformValue {
     self.bindable.uniform_values.get_mut(index).unwrap()
   }
 
-  pub fn get_uniform_value(&self, index: UniformValueHandle<T>) -> &ResourceWrap<T::UniformValue> {
+  pub fn get_uniform_value(&self, index: UniformValueHandle<T>) -> &T::UniformValue {
     self.bindable.uniform_values.get(index).unwrap()
   }
 

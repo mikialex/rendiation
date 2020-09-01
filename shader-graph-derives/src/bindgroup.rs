@@ -49,7 +49,6 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     .iter()
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
-      let ty = &f.ty;
       quote! {#field_name,}
     })
     .collect();

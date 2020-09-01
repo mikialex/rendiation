@@ -17,10 +17,10 @@ pub struct ResourceManager<T: RALBackend> {
 
 pub struct ShaderBindableResourceManager<T: RALBackend> {
   pub uniform_buffers: UBOManager<T>,
-  pub uniform_values: ResourceArena<T::UniformValue>,
-  pub samplers: ResourceArena<T::Sampler>,
-  pub texture_views: ResourceArena<T::TextureView>,
-  pub textures: ResourceArena<T::Texture>,
+  pub uniform_values: Arena<T::UniformValue>,
+  pub samplers: Arena<T::Sampler>,
+  pub texture_views: Arena<T::TextureView>,
+  pub textures: Arena<T::Texture>,
 }
 
 impl<T: RALBackend> ShaderBindableResourceManager<T> {

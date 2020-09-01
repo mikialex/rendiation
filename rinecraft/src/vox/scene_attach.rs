@@ -119,15 +119,8 @@ impl World {
     let fog = resources.add_uniform(fog);
 
     resources.maintain_gpu(renderer);
-    let shading_params = BlockShadingParamGroup::create_bindgroup(
-      renderer,
-      resources.get_uniform_gpu(camera_gpu.gpu_mvp_matrix),
-      resources.get_uniform_gpu(fog),
-      &block_atlas.view(),
-      &sampler,
-    );
 
-    let block_atlas = resources.bindable.texture_views.insert(block_atlas.view());
+    let block_atlas = resources.bindable.textures.insert(block_atlas);
     let sampler = resources
       .bindable
       .samplers
@@ -143,13 +136,6 @@ impl World {
           block_atlas,
           sampler,
         ));
-
-    let bindgroup_index = resources
-      .add_shading_param_group(SceneShadingParameterGroupData::new(
-        ParameterGroupTypeId(0),
-        shading_params,
-      ))
-      .index();
 
     let block_shading =
       resources.add_shading(SceneShadingData::new(block_shading).push_parameter(bindgroup_index));
