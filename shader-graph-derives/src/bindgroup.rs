@@ -36,6 +36,24 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     })
     .collect();
 
+  let create_resource_instance_fn_param: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! {#field_name: < #ty as rendiation_ral::RALBindgroupHandle<WGPURenderer>>::HandleType,}
+    })
+    .collect();
+
+  let create_resource_instance_field: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! {#field_name,}
+    })
+    .collect();
+
   let wgpu_create_bindgroup_create: Vec<_> = fields
     .iter()
     .map(|f| {
@@ -81,8 +99,12 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     }
 
     impl #struct_name {
-      pub fn create_resource_instance() ->  #ral_instance_name {
-        todo!()
+      pub fn create_resource_instance(
+        #(#create_resource_instance_fn_param)*
+      ) ->  #ral_instance_name {
+        #ral_instance_name {
+          #(#create_resource_instance_field)*
+        }
       }
     }
 

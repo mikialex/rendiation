@@ -63,7 +63,7 @@ impl RenderObject<WGPURenderer> {
       .shadings
       .get_shading_boxed(self.shading_index)
       .apply(
-        unsafe { std::mem::transmute_copy(pass) },
+        unsafe { std::mem::transmute_copy(pass) }, // eh.. I'm not sure if this is UB
         &scene.resources.bindgroups,
       );
 

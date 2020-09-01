@@ -127,17 +127,22 @@ impl World {
       &sampler,
     );
 
-    let block_atlas = resources.bindable.textures.insert(block_atlas.view());
-    let sampler = resources.bindable.samplers.insert(WGPUSampler::default(renderer));
+    let block_atlas = resources.bindable.texture_views.insert(block_atlas.view());
+    let sampler = resources
+      .bindable
+      .samplers
+      .insert(WGPUSampler::default(renderer));
     let block_shading = create_block_shading(renderer, target);
-    
-    let bindgroup_index = resources.bindgroups.add_bindgroup(
-      <BlockShadingParamGroup as BindGroupProvider<WGPURenderer>>::Instance {
-        mvp: camera_gpu.gpu_mvp_matrix,
-        fog: fog,
-        my_texture_view: block_atlas,
-       my_sampler: sampler,
-    });
+
+    let bindgroup_index =
+      resources
+        .bindgroups
+        .add_bindgroup(BlockShadingParamGroup::create_resource_instance(
+          camera_gpu.gpu_mvp_matrix,
+          fog,
+          block_atlas,
+          sampler,
+        ));
 
     let bindgroup_index = resources
       .add_shading_param_group(SceneShadingParameterGroupData::new(
@@ -145,7 +150,7 @@ impl World {
         shading_params,
       ))
       .index();
-      
+
     let block_shading =
       resources.add_shading(SceneShadingData::new(block_shading).push_parameter(bindgroup_index));
     let block_shading = block_shading.index();
