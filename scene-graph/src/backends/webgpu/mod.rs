@@ -32,6 +32,8 @@ impl WebGPUBackend {
   ) {
     self.engine.update_render_list(scene);
 
+    let scene: &'static Scene<WGPURenderer> = unsafe { std::mem::transmute(scene) };
+
     scene.background.as_ref().map(|b| {
       b.render(
         renderer,
@@ -48,7 +50,7 @@ impl WebGPUBackend {
       // let node = self.nodes.get(drawcall.node).unwrap();
       let render_obj = scene.render_objects.get(drawcall.render_object).unwrap();
       unsafe {
-        render_obj.render_webgpu(std::mem::transmute(&mut pass), std::mem::transmute(&scene));
+        render_obj.render_webgpu(std::mem::transmute(&mut pass), scene);
       }
     }
   }
