@@ -29,6 +29,7 @@ impl<R: RALBackend> ShadingManager<R> {
   }
 
   pub fn maintain_gpu(&mut self, _renderer: &R::Renderer, _resources: &BindGroupManager<R>) {
+    self.modified.clear();
     // let storage = &mut self.storage;
     // self.modified.drain().for_each(|d| {
     //   storage.get_mut(d).map(|bp| {
@@ -56,6 +57,7 @@ impl<R: RALBackend> ShadingManager<R> {
     handle: ShadingHandle<R, AnyPlaceHolder>,
   ) -> &Box<dyn ShadingStorageTrait<R>> {
     let handle = unsafe { handle.cast_type() };
+    println!("get SIZE{}", self.storage.len());
     self.storage.get(handle).unwrap()
   }
 
@@ -70,6 +72,7 @@ impl<R: RALBackend> ShadingManager<R> {
     };
     let handle = self.storage.insert(Box::new(pair));
     self.modified.insert(handle);
+    println!("add SIZE{}", self.storage.len());
     unsafe { handle.cast_type() }
   }
 
@@ -88,6 +91,7 @@ impl<R: RALBackend> ShadingManager<R> {
   }
 
   pub fn delete_shading<T: ShadingProvider<R>>(&mut self, handle: ShadingHandle<R, T>) {
+    println!("delete");
     let handle = unsafe { handle.cast_type() };
     self.modified.remove(&handle);
     self.storage.remove(handle);

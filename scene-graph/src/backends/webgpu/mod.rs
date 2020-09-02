@@ -26,7 +26,7 @@ impl WebGPUBackend {
 
   pub fn render(
     &mut self,
-    scene: &mut Scene<WGPURenderer>,
+    scene: &'static mut Scene<WGPURenderer>,
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
@@ -47,25 +47,24 @@ impl WebGPUBackend {
     for drawcall in &self.engine.scene_raw_list.drawcalls {
       // let node = self.nodes.get(drawcall.node).unwrap();
       let render_obj = scene.render_objects.get(drawcall.render_object).unwrap();
-      render_obj.render_webgpu(&mut pass, scene);
+      unsafe {
+        render_obj.render_webgpu(std::mem::transmute(&mut pass), scene);
+      }
     }
   }
 }
 
 impl RenderObject<WGPURenderer> {
-  pub fn render_webgpu<'a, 'b: 'a>(
+  pub fn render_webgpu(
     &self,
-    pass: &mut WGPURenderPass<'a>,
-    scene: &'b Scene<WGPURenderer>,
+    pass: &mut WGPURenderPass<'static>,
+    scene: &'static Scene<WGPURenderer>,
   ) {
     scene
       .resources
       .shadings
       .get_shading_boxed(self.shading_index)
-      .apply(
-        unsafe { std::mem::transmute_copy(pass) }, // eh.. I'm not sure if this is UB
-        &scene.resources.bindgroups,
-      );
+      .apply(pass, &scene.resources.bindgroups);
 
     let geometry = scene.resources.get_geometry(self.geometry_index).resource();
 

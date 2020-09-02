@@ -102,7 +102,7 @@ impl Application for Rinecraft {
     window_session.active.event_cleared.on(|event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
-      let state = &mut event_ctx.state;
+      let state: &'static mut RinecraftState = unsafe { std::mem::transmute(&mut event_ctx.state) };
       let scene = &mut state.scene;
 
       let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
