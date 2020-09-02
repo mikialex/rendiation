@@ -26,7 +26,7 @@ impl WebGPUBackend {
 
   pub fn render(
     &mut self,
-    scene: &'static mut Scene<WGPURenderer>,
+    scene: &mut Scene<WGPURenderer>,
     renderer: &mut WGPURenderer,
     target: &impl RenderTargetAble,
   ) {
@@ -48,7 +48,7 @@ impl WebGPUBackend {
       // let node = self.nodes.get(drawcall.node).unwrap();
       let render_obj = scene.render_objects.get(drawcall.render_object).unwrap();
       unsafe {
-        render_obj.render_webgpu(std::mem::transmute(&mut pass), scene);
+        render_obj.render_webgpu(std::mem::transmute(&mut pass), std::mem::transmute(&scene));
       }
     }
   }
