@@ -124,7 +124,7 @@ impl World {
       .bindable
       .samplers
       .insert(WGPUSampler::default(renderer));
-    let block_shading = create_block_shading(renderer, target);
+    let block_shading_pipeline = create_block_shading(renderer, target);
 
     let bindgroup_index =
       resources
@@ -137,7 +137,9 @@ impl World {
         ));
 
     let block_shading = BlockShader::create_resource_instance(bindgroup_index);
-    let block_shading = resources.shadings.add_shading(block_shading);
+    let block_shading = resources
+      .shadings
+      .add_shading(block_shading, block_shading_pipeline);
 
     let root_node_index = scene.create_new_node().handle();
     scene.add_to_scene_root(root_node_index);

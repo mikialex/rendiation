@@ -73,7 +73,7 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     .enumerate()
     .map(|(i, f)| {
       let field_name = f.ident.as_ref().unwrap();
-      quote! { render_pass.set_bindgroup(#i, resources.get_gpu(instance.#field_name)); }
+      quote! { render_pass.set_bindgroup(#i, resources.get_gpu(handle_instance.#field_name)); }
     })
     .collect();
 
@@ -102,13 +102,16 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     impl rendiation_ral::ShadingProvider<WGPURenderer> for #struct_name {
       type Instance = #resource_instance_name;
       fn apply(
-        instance: &Self::Instance,
+        instance: &rendiation_ral::ShadingPair<WGPURenderer, Self>,
         render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
         gpu_shading: &<WGPURenderer as rendiation_ral::RALBackend>::Shading,
         resources: &rendiation_ral::BindGroupManager<WGPURenderer>,
       ) {
         // render_pass is cast to static, so resources must cast to static too..
         let resources: &'static rendiation_ral::BindGroupManager<WGPURenderer> = unsafe {std::mem::transmute(resources)};
+        let handle_instance = &instance.data;
+        let gpu: &'static WGPUPipeline = unsafe {std::mem::transmute(&instance.gpu)};
+        render_pass.set_pipeline(gpu);
         #(#bindgroup_active_pass)*
       }
     }

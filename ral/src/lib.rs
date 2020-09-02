@@ -85,10 +85,10 @@ impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
   }
 }
 
-pub trait ShadingProvider<T: RALBackend>: 'static {
+pub trait ShadingProvider<T: RALBackend>: 'static + Sized {
   type Instance;
   fn apply(
-    instance: &Self::Instance,
+    instance: &ShadingPair<T, Self>,
     render_pass: &mut T::RenderPass,
     gpu_shading: &T::Shading,
     resources: &BindGroupManager<T>,
