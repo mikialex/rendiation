@@ -81,14 +81,14 @@ impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
     handle: Self::HandleType,
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource {
-    // resources.get_uniform_gpu(handle)
-    todo!()
+    resources.uniform_buffers.get_uniform_gpu(handle)
   }
 }
 
 pub trait ShadingProvider<T: RALBackend>: 'static {
+  type Instance;
   fn apply(
-    &self,
+    instance: &Self::Instance,
     render_pass: &mut T::RenderPass,
     gpu_shading: &T::Shading,
     resources: &BindGroupManager<T>,

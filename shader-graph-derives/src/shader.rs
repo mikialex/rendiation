@@ -33,7 +33,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
     .collect();
 
   quote! {
-    struct #shadergraph_instance_name {
+    pub struct #shadergraph_instance_name {
       #(#shadergraph_instance_fields)*
     }
 
@@ -43,7 +43,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
       fn create_builder(
         renderer: &WGPURenderer,
       ) -> (rendiation_shadergraph::ShaderGraphBuilder, Self::ShaderGraphShaderInstance) {
-        let builder = rendiation_shadergraph::ShaderGraphBuilder::new();
+        let mut builder = rendiation_shadergraph::ShaderGraphBuilder::new();
         let instance = BlockShaderShaderGraphShaderInstance {
           #(#instance_create)*
         };
@@ -73,18 +73,36 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     .enumerate()
     .map(|(i, f)| {
       let field_name = f.ident.as_ref().unwrap();
-      quote! { render_pass.set_bindgroup(#i, resources.get_gpu(self.#field_name)); }
+      quote! { render_pass.set_bindgroup(#i, resources.get_gpu(instance.#field_name)); }
+    })
+    .collect();
+
+  let create_resource_instance_fn_param: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! {#field_name: rendiation_ral::BindGroupHandle<WGPURenderer, #ty>,}
+    })
+    .collect();
+
+  let create_resource_instance_field: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      quote! {#field_name,}
     })
     .collect();
 
   quote! {
-    struct #resource_instance_name {
+    pub struct #resource_instance_name {
       #(#resource_struct_fields)*
     }
 
-    impl rendiation_ral::ShadingProvider<WGPURenderer> for #resource_instance_name {
+    impl rendiation_ral::ShadingProvider<WGPURenderer> for #struct_name {
+      type Instance = #resource_instance_name;
       fn apply(
-        &self,
+        instance: &Self::Instance,
         render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
         gpu_shading: &<WGPURenderer as rendiation_ral::RALBackend>::Shading,
         resources: &rendiation_ral::BindGroupManager<WGPURenderer>,
@@ -92,6 +110,16 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
         // render_pass is cast to static, so resources must cast to static too..
         let resources: &'static rendiation_ral::BindGroupManager<WGPURenderer> = unsafe {std::mem::transmute(resources)};
         #(#bindgroup_active_pass)*
+      }
+    }
+
+    impl #struct_name {
+      pub fn create_resource_instance(
+        #(#create_resource_instance_fn_param)*
+      ) ->  #resource_instance_name {
+        #resource_instance_name {
+          #(#create_resource_instance_field)*
+        }
       }
     }
   }

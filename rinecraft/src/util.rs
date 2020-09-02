@@ -24,7 +24,7 @@ impl CameraGPU {
       model_view: camera.get_view_matrix(),
     };
     Self {
-      gpu_mvp_matrix: scene.resources.add_uniform(mvp),
+      gpu_mvp_matrix: scene.resources.bindable.uniform_buffers.add_uniform(mvp),
       gpu_mvp_matrix_dirty: false,
     }
   }
@@ -47,7 +47,11 @@ impl CameraGPU {
       model_view: camera.get_view_matrix(),
     };
 
-    scene.resources.update_uniform(self.gpu_mvp_matrix, mvp);
+    scene
+      .resources
+      .bindable
+      .uniform_buffers
+      .update(self.gpu_mvp_matrix, mvp);
   }
 
   pub fn update_all(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WGPURenderer>) {

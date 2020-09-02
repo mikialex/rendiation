@@ -2,9 +2,11 @@ use crate::{AnyPlaceHolder, BindGroupManager, RALBackend, ShadingHandle, Shading
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
+pub struct AnyPlaceHolderShaderProviderInstance;
 impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
+  type Instance = AnyPlaceHolderShaderProviderInstance;
   fn apply(
-    &self,
+    _instance: &Self::Instance,
     _render_pass: &mut T::RenderPass,
     _gpu_shading: &T::Shading,
     _resources: &BindGroupManager<T>,
@@ -26,7 +28,7 @@ impl<R: RALBackend> ShadingManager<R> {
     }
   }
 
-  pub fn maintain_gpu(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
+  pub fn maintain_gpu(&mut self, _renderer: &R::Renderer, _resources: &BindGroupManager<R>) {
     // let storage = &mut self.storage;
     // self.modified.drain().for_each(|d| {
     //   storage.get_mut(d).map(|bp| {
@@ -52,8 +54,11 @@ impl<R: RALBackend> ShadingManager<R> {
     self.storage.get(handle).unwrap()
   }
 
-  pub fn add_shading<T: ShadingProvider<R>>(&mut self, bindgroup: T) -> ShadingHandle<R, T> {
-    let pair = ShadingPair {
+  pub fn add_shading<T: ShadingProvider<R>>(
+    &mut self,
+    bindgroup: T::Instance,
+  ) -> ShadingHandle<R, T> {
+    let pair = ShadingPair::<R, T> {
       data: bindgroup,
       gpu: None,
     };
@@ -62,7 +67,10 @@ impl<R: RALBackend> ShadingManager<R> {
     unsafe { handle.cast_type() }
   }
 
-  pub fn update_shading<T: ShadingProvider<R>>(&mut self, handle: ShadingHandle<R, T>) -> &mut T {
+  pub fn update_shading<T: ShadingProvider<R>>(
+    &mut self,
+    handle: ShadingHandle<R, T>,
+  ) -> &mut T::Instance {
     let handle = unsafe { handle.cast_type() };
     self.modified.insert(handle);
     let pair = self.storage.get_mut(handle).unwrap();
@@ -102,17 +110,17 @@ impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPai
     self
   }
   fn apply(&self, render_pass: &mut R::RenderPass, resources: &BindGroupManager<R>) {
-    self.data.apply(render_pass, self.get_gpu(), resources);
+    T::apply(&self.data, render_pass, self.get_gpu(), resources);
   }
 }
 
 pub struct ShadingPair<R: RALBackend, T: ShadingProvider<R>> {
-  data: T,
+  data: T::Instance,
   gpu: Option<R::Shading>,
 }
 
 impl<R: RALBackend, T: ShadingProvider<R>> ShadingPair<R, T> {
-  fn update(&mut self) -> &mut T {
+  fn update(&mut self) -> &mut T::Instance {
     &mut self.data
   }
 }

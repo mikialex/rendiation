@@ -1,5 +1,5 @@
 use super::ResourceManager;
-use crate::{RALBackend, ResourceWrap, UniformBufferRef, UniformHandle};
+use crate::{RALBackend, UniformBufferRef, UniformHandle};
 use arena::Handle;
 use std::{
   any::{Any, TypeId},
@@ -8,37 +8,37 @@ use std::{
   ops::Range,
 };
 
-/// uniform buffer
-impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<T, U> {
-    UniformHandle {
-      index: self.bindable.uniform_buffers.insert(value),
-      phantom: PhantomData,
-      phantom2: PhantomData,
-    }
-  }
+// /// uniform buffer
+// impl<T: RALBackend> ResourceManager<T> {
+//   pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<T, U> {
+//     UniformHandle {
+//       index: self.bindable.uniform_buffers.insert(value),
+//       phantom: PhantomData,
+//       phantom2: PhantomData,
+//     }
+//   }
 
-  pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>, new_value: U) {
-    self
-      .bindable
-      .uniform_buffers
-      .update(handle.index, new_value);
-  }
+//   pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>, new_value: U) {
+//     self
+//       .bindable
+//       .uniform_buffers
+//       .update(handle.index, new_value);
+//   }
 
-  pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<T, U>) -> UniformBufferRef<T, U> {
-    UniformBufferRef {
-      ty: PhantomData,
-      data: self
-        .bindable
-        .uniform_buffers
-        .get_gpu_with_range::<U>(handle.index),
-    }
-  }
+//   pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<T, U>) -> UniformBufferRef<T, U> {
+//     UniformBufferRef {
+//       ty: PhantomData,
+//       data: self
+//         .bindable
+//         .uniform_buffers
+//         .get_gpu_with_range::<U>(handle.index),
+//     }
+//   }
 
-  pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>) {
-    self.bindable.uniform_buffers.delete::<U>(handle.index);
-  }
-}
+//   pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>) {
+//     self.bindable.uniform_buffers.delete::<U>(handle.index);
+//   }
+// }
 
 pub struct UBOManager<T: RALBackend> {
   data: HashMap<TypeId, Box<dyn UBOStorageTrait<T>>>,
@@ -52,6 +52,14 @@ impl<T: RALBackend> UBOManager<T> {
       data: HashMap::new(),
       modified: HashSet::new(),
       phantom: PhantomData,
+    }
+  }
+
+  pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<T, U> {
+    UniformHandle {
+      index: self.insert(value),
+      phantom: PhantomData,
+      phantom2: PhantomData,
     }
   }
 
@@ -88,18 +96,25 @@ impl<T: RALBackend> UBOManager<T> {
     });
   }
 
-  pub fn get_gpu_with_range<U: 'static>(&self, handle: usize) -> (&T::UniformBuffer, Range<u64>) {
+  fn get_gpu_with_range<U: 'static>(&self, handle: usize) -> (&T::UniformBuffer, Range<u64>) {
     (
       self.get_storage_should_ok::<U>().get_gpu(),
       handle as u64..(handle + 1) as u64,
     )
   }
 
+  pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<T, U>) -> UniformBufferRef<T, U> {
+    UniformBufferRef {
+      ty: PhantomData,
+      data: self.get_gpu_with_range::<U>(handle.index),
+    }
+  }
+
   pub fn delete<U: 'static>(&mut self, handle: usize) {
     self.get_storage_or_create::<U>().delete(handle);
   }
 
-  pub fn insert<U: 'static>(&mut self, value: U) -> usize {
+  fn insert<U: 'static>(&mut self, value: U) -> usize {
     self.notify_modified::<U>();
     self.get_storage_or_create::<U>().insert(value)
   }
@@ -108,10 +123,19 @@ impl<T: RALBackend> UBOManager<T> {
     self.modified.insert(TypeId::of::<U>());
   }
 
-  pub fn update<U: 'static>(&mut self, handle: usize, new_value: U) {
+  pub fn update<U: 'static>(&mut self, handle: UniformHandle<T, U>, new_value: U) {
     self.notify_modified::<U>();
-    self.get_storage_or_create::<U>().update(handle, new_value);
+    self
+      .get_storage_or_create::<U>()
+      .update(handle.index, new_value);
   }
+
+  // pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>, new_value: U) {
+  //   self
+  //     .bindable
+  //     .uniform_buffers
+  //     .update(handle.index, new_value);
+  // }
 }
 
 trait UBOStorageTrait<T: RALBackend>: Any {
@@ -187,7 +211,7 @@ pub type UniformValueHandle<T> = Handle<<T as RALBackend>::UniformValue>;
 
 /// uniform values
 impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_uniform_value(&mut self, gpu: T::UniformValue) -> &mut T::UniformValue {
+  pub fn add_uniform_value(&mut self, _gpu: T::UniformValue) -> &mut T::UniformValue {
     // ResourceWrap::new_wrap(&mut self.bindable.uniform_values, gpu)
     todo!()
   }

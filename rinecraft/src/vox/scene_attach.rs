@@ -1,9 +1,8 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
-  shading::{create_block_shading, BlockShadingParamGroup, CopyParam},
+  shading::{create_block_shading, BlockShader, BlockShadingParamGroup, CopyParam},
   util::CameraGPU,
-  BlockShader,
 };
 use rendiation_math::{Vec3, Vec4};
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::as_bytes};
@@ -116,7 +115,7 @@ impl World {
       fog_end: 60.,
       fog_start: 30.,
     };
-    let fog = resources.add_uniform(fog);
+    let fog = resources.bindable.uniform_buffers.add_uniform(fog);
 
     resources.maintain_gpu(renderer);
 
@@ -137,9 +136,8 @@ impl World {
           sampler,
         ));
 
-    let block_shading =
-      resources.add_shading(SceneShadingData::new(block_shading).push_parameter(bindgroup_index));
-    let block_shading = block_shading.index();
+    let block_shading = BlockShader::create_resource_instance(bindgroup_index);
+    let block_shading = resources.shadings.add_shading(block_shading);
 
     let root_node_index = scene.create_new_node().handle();
     scene.add_to_scene_root(root_node_index);

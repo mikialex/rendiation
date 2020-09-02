@@ -46,15 +46,15 @@ impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
 }
 
 impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphTexture {
-  type HandleType = TextureViewHandle<T>;
+  type HandleType = TextureHandle<T>;
 }
-impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphTexture {
-  type Resource = &'a T::TextureView;
+impl<'a> RALBindgroupItem<'a, WGPURenderer> for ShaderGraphTexture {
+  type Resource = &'a <WGPURenderer as RALBackend>::TextureView;
   fn get_item(
     handle: Self::HandleType,
-    resources: &'a ShaderBindableResourceManager<T>,
+    resources: &'a ShaderBindableResourceManager<WGPURenderer>,
   ) -> Self::Resource {
-    resources.texture_views.get(handle).unwrap()
+    resources.textures.get(handle).unwrap().view()
   }
 }
 
