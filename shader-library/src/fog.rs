@@ -8,12 +8,14 @@ pub struct FogData {
   pub fog_start: f32,
 }
 
-pub fn apply_fog(
-  fog: <FogData as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
-  input: ShaderGraphNodeHandle<Vec3<f32>>,
-  distance: ShaderGraphNodeHandle<f32>,
-) -> ShaderGraphNodeHandle<Vec3<f32>> {
-  linear_fog(input, fog.fog_color, distance, fog.fog_start, fog.fog_end)
+impl FogData {
+  pub fn apply_fog(
+    fog: <FogData as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
+    input: ShaderGraphNodeHandle<Vec3<f32>>,
+    distance: ShaderGraphNodeHandle<f32>,
+  ) -> ShaderGraphNodeHandle<Vec3<f32>> {
+    linear_fog(input, fog.fog_color, distance, fog.fog_start, fog.fog_end)
+  }
 }
 
 glsl_function!(

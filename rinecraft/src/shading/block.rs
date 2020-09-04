@@ -18,28 +18,33 @@ pub struct BlockShader {
   parameter: BlockShadingParamGroup,
 }
 
+impl BlockShader {
+  fn create_shader(renderer: &WGPURenderer) -> ShaderGraphBuilder {
+    let (mut builder, input) = BlockShader::create_builder(renderer);
+    builder.geometry_by::<IndexedGeometry>();
+
+    let vertex = builder.vertex_by::<Vertex>();
+    let p = input.parameter;
+
+    let mv_position = to_mv_position(vertex.position, p.mvp.model_view);
+    let clip_position = apply_projection(mv_position, p.mvp.projection);
+    builder.set_vertex_root(clip_position);
+
+    let frag_normal = builder.set_vary(vertex.normal);
+    let frag_uv = builder.set_vary(vertex.uv);
+    let frag_mv_position = builder.set_vary(mv_position.xyz());
+
+    let block_color = p.my_texture_view.sample(p.my_sampler, frag_uv);
+
+    let block_color = block_color.xyz() * spherical_harmonics(frag_normal);
+    let final_color = FogData::apply_fog(p.fog, block_color, length(frag_mv_position));
+    builder.set_frag_output(vec4_31(final_color, builder.c(1.0)));
+    builder
+  }
+}
+
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
-  let (mut builder, shader) = BlockShader::create_builder(renderer);
-  builder.geometry_by::<IndexedGeometry>();
-
-  let vertex = builder.vertex_by::<Vertex>();
-  let p = shader.parameter;
-
-  let mv_position = to_mv_position(vertex.position, p.mvp.model_view);
-  let clip_position = apply_projection(mv_position, p.mvp.projection);
-  builder.set_vertex_root(clip_position);
-
-  let frag_normal = builder.set_vary(vertex.normal);
-  let frag_uv = builder.set_vary(vertex.uv);
-  let frag_mv_position = builder.set_vary(mv_position.xyz());
-
-  let block_color = p.my_texture_view.sample(p.my_sampler, frag_uv);
-
-  let block_color = block_color.xyz() * spherical_harmonics(frag_normal);
-  let final_color = apply_fog(p.fog, block_color, length(frag_mv_position));
-  builder.set_frag_output(vec4_31(final_color, builder.c(1.0)));
-
-  builder
+  BlockShader::create_shader(renderer)
     .create()
     .create_pipeline(renderer)
     .as_mut()
