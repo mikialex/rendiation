@@ -57,7 +57,6 @@ impl<R: RALBackend> ShadingManager<R> {
     handle: ShadingHandle<R, AnyPlaceHolder>,
   ) -> &Box<dyn ShadingStorageTrait<R>> {
     let handle = unsafe { handle.cast_type() };
-    println!("get SIZE{}", self.storage.len());
     self.storage.get(handle).unwrap()
   }
 
@@ -72,7 +71,6 @@ impl<R: RALBackend> ShadingManager<R> {
     };
     let handle = self.storage.insert(Box::new(pair));
     self.modified.insert(handle);
-    println!("add SIZE{}", self.storage.len());
     unsafe { handle.cast_type() }
   }
 
