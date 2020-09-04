@@ -5,11 +5,13 @@ use syn::parse_macro_input;
 mod bindgroup;
 mod geometry;
 mod glsl_fn;
+mod shader;
 mod ubo;
 mod utils;
 use bindgroup::*;
 use geometry::*;
 use glsl_fn::*;
+use shader::*;
 use ubo::*;
 
 #[proc_macro_derive(UniformBuffer)]
@@ -23,9 +25,7 @@ pub fn derive_ubo(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(BindGroup, attributes(stage))]
 pub fn derive_bindgroup(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
-  derive_bindgroup_impl(input)
-    .unwrap_or_else(|err| err.to_compile_error())
-    .into()
+  derive_bindgroup_impl(&input).into()
 }
 
 #[proc_macro_derive(Geometry)]
@@ -34,6 +34,12 @@ pub fn derive_geometry(input: TokenStream) -> TokenStream {
   derive_geometry_impl(input)
     .unwrap_or_else(|err| err.to_compile_error())
     .into()
+}
+
+#[proc_macro_derive(Shader, attributes(bindgroup, vert))]
+pub fn derive_shader(input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as syn::DeriveInput);
+  derive_shader_impl(&input).into()
 }
 
 #[proc_macro]

@@ -1,4 +1,4 @@
-use crate::SceneShadingData;
+// use crate::SceneShadingData;
 use crate::{Scene, SceneNodeData};
 use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
@@ -80,43 +80,43 @@ impl WASMScene {
     self.free_handle(h)
   }
 
-  #[wasm_bindgen]
-  pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
-    let h = self.scene.create_render_object(
-      self.get_handle(geometry_index).into(),
-      self.get_handle(shading_index).into(),
-    );
-    self.save_handle(h)
-  }
+  // #[wasm_bindgen]
+  // pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
+  //   let h = self.scene.create_render_object(
+  //     self.get_handle(geometry_index).into(),
+  //     self.get_handle(shading_index).into(),
+  //   );
+  //   self.save_handle(h)
+  // }
 
   #[wasm_bindgen]
   pub fn delete_render_object(&mut self, h: usize) {
     self.scene.delete_render_object(self.get_handle(h).into());
   }
 
-  #[wasm_bindgen]
-  pub fn add_shading(
-    &mut self,
-    resource: &SceneShadingDescriptor,
-    renderer: &mut WebGLRenderer,
-  ) -> usize {
-    let gpu_shading = WebGLRenderer::create_shading(renderer, resource);
-    let h = self
-      .scene
-      .resources
-      .add_shading(SceneShadingData::new(gpu_shading))
-      .index();
-    self.save_handle(h)
-  }
+  // #[wasm_bindgen]
+  // pub fn add_shading(
+  //   &mut self,
+  //   resource: &SceneShadingDescriptor,
+  //   renderer: &mut WebGLRenderer,
+  // ) -> usize {
+  //   let gpu_shading = WebGLRenderer::create_shading(renderer, resource);
+  //   let h = self
+  //     .scene
+  //     .resources
+  //     .add_shading(SceneShadingData::new(gpu_shading))
+  //     .index();
+  //   self.save_handle(h)
+  // }
 
-  #[wasm_bindgen]
-  pub fn delete_shading(&mut self, h: usize) {
-    self
-      .scene
-      .resources
-      .shadings
-      .remove(self.get_handle(h).into());
-  }
+  // #[wasm_bindgen]
+  // pub fn delete_shading(&mut self, h: usize) {
+  //   self
+  //     .scene
+  //     .resources
+  //     .shadings
+  //     .remove(self.get_handle(h).into());
+  // }
 
   #[wasm_bindgen]
   pub fn add_index_buffer(&mut self, data: &[u32], renderer: &mut WebGLRenderer) -> usize {

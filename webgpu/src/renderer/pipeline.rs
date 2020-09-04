@@ -13,7 +13,7 @@ pub trait GeometryProvider {
   fn get_primitive_topology() -> wgpu::PrimitiveTopology;
 }
 
-pub trait BindGroupProvider: Sized + 'static {
+pub trait BindGroupLayoutProvider: Sized + 'static {
   fn provide_layout(renderer: &WGPURenderer) -> wgpu::BindGroupLayout;
 }
 
@@ -33,7 +33,7 @@ impl PipelineShaderInterfaceInfo {
     }
   }
 
-  pub fn binding_group<T: BindGroupProvider>(
+  pub fn binding_group<T: BindGroupLayoutProvider>(
     &mut self,
     layout: Arc<wgpu::BindGroupLayout>,
   ) -> &mut Self {

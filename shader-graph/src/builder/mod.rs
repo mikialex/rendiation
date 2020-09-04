@@ -77,7 +77,9 @@ impl ShaderGraphBuilder {
     });
   }
 
-  pub fn bindgroup_by<T: ShaderGraphBindGroupProvider + rendiation_webgpu::BindGroupProvider>(
+  pub fn bindgroup_by<
+    T: ShaderGraphBindGroupProvider + rendiation_webgpu::BindGroupLayoutProvider,
+  >(
     &mut self,
     renderer: &rendiation_webgpu::WGPURenderer,
   ) -> T::ShaderGraphBindGroupInstance {

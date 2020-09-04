@@ -1,7 +1,7 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
-  shading::{create_block_shading, BlockShadingParamGroup, CopyParam},
+  shading::{create_block_shading, BlockShader, BlockShadingParamGroup, CopyParam},
   util::CameraGPU,
 };
 use rendiation_math::{Vec3, Vec4};
@@ -13,7 +13,7 @@ use std::{collections::BTreeMap, time::Instant};
 
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WGPURenderer>,
-  pub block_shading: ShadingHandle<WGPURenderer>,
+  pub block_shading: ShadingHandle<WGPURenderer, BlockShader>,
   pub blocks: BTreeMap<
     ChunkCoords,
     (
@@ -115,27 +115,31 @@ impl World {
       fog_end: 60.,
       fog_start: 30.,
     };
-    let fog = resources.add_uniform(fog);
+    let fog = resources.bindable.uniform_buffers.add_uniform(fog);
 
     resources.maintain_gpu(renderer);
-    let shading_params = BlockShadingParamGroup::create_bindgroup(
-      renderer,
-      resources.get_uniform_gpu(camera_gpu.gpu_mvp_matrix),
-      resources.get_uniform_gpu(fog),
-      &block_atlas.view(),
-      &sampler,
-    );
 
-    let block_shading = create_block_shading(renderer, target);
-    let bindgroup_index = resources
-      .add_shading_param_group(SceneShadingParameterGroupData::new(
-        ParameterGroupTypeId(0),
-        shading_params,
-      ))
-      .index();
-    let block_shading =
-      resources.add_shading(SceneShadingData::new(block_shading).push_parameter(bindgroup_index));
-    let block_shading = block_shading.index();
+    let block_atlas = resources.bindable.textures.insert(block_atlas);
+    let sampler = resources
+      .bindable
+      .samplers
+      .insert(WGPUSampler::default(renderer));
+    let block_shading_pipeline = create_block_shading(renderer, target);
+
+    let bindgroup_index =
+      resources
+        .bindgroups
+        .add_bindgroup(BlockShadingParamGroup::create_resource_instance(
+          camera_gpu.gpu_mvp_matrix,
+          fog,
+          block_atlas,
+          sampler,
+        ));
+
+    let block_shading = BlockShader::create_resource_instance(bindgroup_index);
+    let block_shading = resources
+      .shadings
+      .add_shading(block_shading, block_shading_pipeline);
 
     let root_node_index = scene.create_new_node().handle();
     scene.add_to_scene_root(root_node_index);

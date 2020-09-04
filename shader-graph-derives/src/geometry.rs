@@ -10,23 +10,23 @@ pub fn derive_geometry_impl(
   let fields = only_named_struct_fields(&input)?;
 
   let instance_fields: Vec<_> = fields
-  .iter()
-  .map(|f| {
-    let field_name = f.ident.as_ref().unwrap();
-    let ty = &f.ty;
-    quote! { pub #field_name: rendiation_shadergraph::ShaderGraphNodeHandle< #ty >, }
-  })
-  .collect();
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! { pub #field_name: rendiation_shadergraph::ShaderGraphNodeHandle< #ty >, }
+    })
+    .collect();
 
   let instance_new: Vec<_> = fields
-  .iter()
-  .map(|f| {
-    let field_name = f.ident.as_ref().unwrap();
-    let ty = &f.ty;
-    let field_str = format!("{}", field_name);
-    quote! { #field_name: builder.attribute::<#ty>(#field_str), }
-  })
-  .collect();
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      let field_str = format!("{}", field_name);
+      quote! { #field_name: builder.attribute::<#ty>(#field_str), }
+    })
+    .collect();
 
   let result = quote! {
 

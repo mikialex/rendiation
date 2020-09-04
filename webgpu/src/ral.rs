@@ -4,16 +4,17 @@ use std::ops::Range;
 
 impl RALBackend for WGPURenderer {
   type RenderTarget = WGPURenderPassBuilder<'static>;
+  type RenderPass = WGPURenderPass<'static>;
   type Renderer = WGPURenderer;
   type Shading = WGPUPipeline;
-  type ShadingParameterGroup = WGPUBindGroup;
+  type BindGroup = WGPUBindGroup;
   type IndexBuffer = WGPUBuffer;
   type VertexBuffer = WGPUBuffer;
   type UniformBuffer = WGPUBuffer;
   type UniformValue = ();
   type Texture = WGPUTexture;
+  type TextureView = wgpu::TextureView;
   type Sampler = WGPUSampler;
-  type SampledTexture = ();
 
   fn create_shading(_renderer: &mut WGPURenderer, _des: &SceneShadingDescriptor) -> Self::Shading {
     todo!()

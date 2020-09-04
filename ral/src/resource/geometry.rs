@@ -1,17 +1,14 @@
-use crate::{Handle, RALBackend, ResourceManager, ResourceWrap};
-use rendiation_ral::*;
-use rendiation_render_entity::BoundingData;
+use crate::{
+  AttributeTypeId, GeometryHandle, IndexBufferHandle, RALBackend, ResourceManager, ResourceWrap,
+  VertexBufferHandle,
+};
 use std::ops::Range;
-
-pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
-pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;
-pub type GeometryHandle<T> = Handle<ResourceWrap<SceneGeometryData<T>>>;
 
 pub struct SceneGeometryData<T: RALBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
-  pub bounding_local: Option<BoundingData>,
+  // pub bounding_local: Option<BoundingData>,
 }
 
 impl<T: RALBackend> SceneGeometryData<T> {
@@ -20,7 +17,7 @@ impl<T: RALBackend> SceneGeometryData<T> {
       draw_range: 0..0,
       index_buffer: None,
       vertex_buffers: Vec::new(),
-      bounding_local: None,
+      // bounding_local: None,
     }
   }
 }

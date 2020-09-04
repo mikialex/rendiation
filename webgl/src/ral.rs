@@ -6,16 +6,17 @@ use web_sys::*;
 
 impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
+  type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
   type Shading = WebGLProgram;
-  type ShadingParameterGroup = ();
+  type BindGroup = ();
   type IndexBuffer = Option<WebGlBuffer>;
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;
   type UniformValue = UniformValue;
   type Texture = ();
+  type TextureView = WebGLTexture;
   type Sampler = ();
-  type SampledTexture = WebGLTexture;
 
   fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
     // extra shader conversion should do in sal

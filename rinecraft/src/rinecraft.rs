@@ -102,7 +102,7 @@ impl Application for Rinecraft {
     window_session.active.event_cleared.on(|event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
-      let state = &mut event_ctx.state;
+      let state: &mut RinecraftState = &mut event_ctx.state;
       let scene = &mut state.scene;
 
       let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
@@ -116,7 +116,7 @@ impl Application for Rinecraft {
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
-      scene.resources.uniform_buffers.maintain_gpu(renderer);
+      scene.resources.maintain_gpu(renderer);
       state.scene_renderer.render(scene, renderer, &output);
 
       state.gui.render(renderer);

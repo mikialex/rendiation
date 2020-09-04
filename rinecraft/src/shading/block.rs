@@ -11,12 +11,19 @@ use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 use transform::MVPTransformation;
 
+use rendiation_ral::BindGroupHandle;
+
+#[derive(Shader)]
+pub struct BlockShader {
+  parameter: BlockShadingParamGroup,
+}
+
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
-  let mut builder = ShaderGraphBuilder::new();
+  let (mut builder, shader) = BlockShader::create_builder(renderer);
   builder.geometry_by::<IndexedGeometry>();
 
   let vertex = builder.vertex_by::<Vertex>();
-  let p = builder.bindgroup_by::<BlockShadingParamGroup>(renderer);
+  let p = shader.parameter;
 
   let mv_position = to_mv_position(vertex.position, p.mvp.model_view);
   let clip_position = apply_projection(mv_position, p.mvp.projection);

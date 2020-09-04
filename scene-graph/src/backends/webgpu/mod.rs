@@ -32,6 +32,8 @@ impl WebGPUBackend {
   ) {
     self.engine.update_render_list(scene);
 
+    let scene: &'static Scene<WGPURenderer> = unsafe { std::mem::transmute(scene) };
+
     scene.background.as_ref().map(|b| {
       b.render(
         renderer,
@@ -47,21 +49,26 @@ impl WebGPUBackend {
     for drawcall in &self.engine.scene_raw_list.drawcalls {
       // let node = self.nodes.get(drawcall.node).unwrap();
       let render_obj = scene.render_objects.get(drawcall.render_object).unwrap();
-      render_obj.render_webgpu(&mut pass, scene);
+      unsafe {
+        render_obj.render_webgpu(std::mem::transmute(&mut pass), scene);
+      }
     }
   }
 }
 
 impl RenderObject<WGPURenderer> {
-  pub fn render_webgpu<'a, 'b: 'a>(
+  pub fn render_webgpu(
     &self,
-    pass: &mut WGPURenderPass<'a>,
-    scene: &'b Scene<WGPURenderer>,
+    pass: &mut WGPURenderPass<'static>,
+    scene: &'static Scene<WGPURenderer>,
   ) {
-    let shading = scene.resources.get_shading(self.shading_index).resource();
-    let geometry = scene.resources.get_geometry(self.geometry_index).resource();
+    scene
+      .resources
+      .shadings
+      .get_shading_boxed(self.shading_index)
+      .apply(pass, &scene.resources.bindgroups);
 
-    pass.set_pipeline(shading.gpu());
+    let geometry = scene.resources.get_geometry(self.geometry_index).resource();
 
     geometry.index_buffer.map(|b| {
       let index = scene.resources.get_index_buffer(b);
@@ -70,14 +77,6 @@ impl RenderObject<WGPURenderer> {
     for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
       let buffer = scene.resources.get_vertex_buffer(vertex_buffer.1);
       pass.set_vertex_buffer(i, buffer.resource());
-    }
-
-    for i in 0..shading.get_parameters_count() {
-      let bindgroup = scene
-        .resources
-        .get_shading_param_group(shading.get_parameter(i))
-        .resource();
-      pass.set_bindgroup(i, bindgroup.gpu());
     }
 
     pass.draw_indexed(geometry.draw_range.clone())
