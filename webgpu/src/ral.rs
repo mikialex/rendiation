@@ -57,6 +57,32 @@ impl RALBackend for WGPURenderer {
   ) -> Self::VertexBuffer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::VERTEX)
   }
+
+  fn render_object(
+    object: &RenderObject<Self>,
+    pass: &mut Self::RenderPass,
+    resources: &ResourceManager<Self>,
+  ) {
+    let resources: &'static ResourceManager<Self> = unsafe { std::mem::transmute(resources) };
+
+    resources
+      .shadings
+      .get_shading_boxed(object.shading)
+      .apply(pass, &resources.bindgroups);
+
+    let geometry = resources.get_geometry(object.geometry).resource();
+
+    geometry.index_buffer.map(|b| {
+      let index = resources.get_index_buffer(b);
+      pass.set_index_buffer(index.resource());
+    });
+    for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
+      let buffer = resources.get_vertex_buffer(vertex_buffer.1);
+      pass.set_vertex_buffer(i, buffer.resource());
+    }
+
+    pass.draw_indexed(geometry.draw_range.clone())
+  }
 }
 
 pub fn shader_stage_convert(stage: rendiation_ral::ShaderStage) -> wgpu::ShaderStage {
