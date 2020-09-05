@@ -110,9 +110,17 @@ impl Application for Rinecraft {
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
+      let list = scene.update(resource);
       resource.maintain_gpu(renderer);
 
-      state.scene_renderer.render(scene, renderer, &output);
+      {
+        let mut pass = output
+          .create_render_pass_builder()
+          .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
+          .create(&mut renderer.encoder);
+
+        list.render(unsafe { std::mem::transmute(&mut pass) }, scene, resource);
+      }
 
       state.gui.render(renderer);
       state.gui.renderer.update_to_screen(renderer, &output);
