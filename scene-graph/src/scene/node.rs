@@ -6,6 +6,18 @@ pub type SceneNodeHandle<T, S = DefaultSceneBackend> = Handle<SceneNode<T, S>>;
 pub type SceneNode<T, S = DefaultSceneBackend> = ArenaTreeNode<<S as SceneBackend<T>>::NodeData>;
 
 impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
+  pub fn get_root(&self) -> &SceneNode<T, S> {
+    self.nodes.get_node(self.nodes.root())
+  }
+
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode<T, S> {
+    self.get_node_mut(self.nodes.root())
+  }
+
+  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T, S>) {
+    self.node_add_child_by_handle(self.nodes.root(), child_handle);
+  }
+
   pub fn node_add_child_by_handle(
     &mut self,
     parent_handle: SceneNodeHandle<T, S>,
