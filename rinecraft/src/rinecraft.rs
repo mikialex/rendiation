@@ -20,8 +20,8 @@ pub struct RinecraftState {
   pub window_state: WindowState,
 
   pub world: World,
+  pub resource: ResourceManager<WGPURenderer>,
   pub scene: Scene<WGPURenderer>,
-  pub scene_renderer: WebGPUBackend,
 
   pub screen_target: ScreenRenderTarget,
 
@@ -136,7 +136,7 @@ impl Application for Rinecraft {
         window_state,
         world,
         scene,
-        scene_renderer: WebGPUBackend::new(),
+        resource: ResourceManager::new(),
         camera_gpu,
         viewport,
         camera_controller: CameraController::new(),

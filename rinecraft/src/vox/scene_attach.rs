@@ -33,6 +33,7 @@ impl WorldSceneAttachment {
     &mut self,
     chunks: &mut WorldChunkData,
     scene: &mut Scene<WGPURenderer>,
+    resources: &mut ResourceManager<WGPURenderer>,
     renderer: &mut WGPURenderer,
   ) {
     for (chunk, g) in chunks.chunks_to_sync_scene.lock().unwrap().drain() {
@@ -45,14 +46,12 @@ impl WorldSceneAttachment {
         scene.node_remove_child_by_handle(self.root_node_index, *node_index);
         scene.free_node(*node_index);
         scene.delete_render_object(*render_object_index);
-        scene
-          .resources
-          .delete_geometry_with_buffers(*geometry_index);
+        resources.delete_geometry_with_buffers(*geometry_index);
         self.blocks.remove(&chunk);
       }
 
       // add new node in scene;
-      let scene_geometry = create_add_geometry(&g, renderer, scene);
+      let scene_geometry = create_add_geometry(&g, renderer, resources);
 
       let render_object_index = scene.create_render_object(scene_geometry, self.block_shading);
       let new_node = scene.create_new_node();
@@ -71,7 +70,7 @@ impl WorldSceneAttachment {
 pub fn create_add_geometry(
   geometry: &IndexedGeometry,
   renderer: &mut WGPURenderer,
-  scene: &mut Scene<WGPURenderer>,
+  resources: &mut ResourceManager<WGPURenderer>,
 ) -> GeometryHandle<WGPURenderer> {
   let mut geometry_data = SceneGeometryData::new();
   let index_buffer = WGPUBuffer::new(
@@ -84,19 +83,20 @@ pub fn create_add_geometry(
     as_bytes(&geometry.data),
     wgpu::BufferUsage::VERTEX,
   );
-  geometry_data.index_buffer = Some(scene.resources.add_index_buffer(index_buffer).index());
+  geometry_data.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
   geometry_data.vertex_buffers = vec![(
     AttributeTypeId(0), // todo
-    scene.resources.add_vertex_buffer(vertex_buffer).index(),
+    resources.add_vertex_buffer(vertex_buffer).index(),
   )];
   geometry_data.draw_range = 0..geometry.get_full_count();
-  scene.resources.add_geometry(geometry_data).index()
+  resources.add_geometry(geometry_data).index()
 }
 
 impl World {
   pub fn attach_scene(
     &mut self,
     scene: &mut Scene<WGPURenderer>,
+    resources: &mut ResourceManager<WGPURenderer>,
     renderer: &mut WGPURenderer,
     camera_gpu: &CameraGPU,
     target: &TargetStates,
@@ -104,8 +104,6 @@ impl World {
     if self.scene_data.is_some() {
       return;
     }
-
-    let resources = &mut scene.resources;
 
     let block_atlas = self.world_machine.get_block_atlas(renderer);
     let sampler = WGPUSampler::default(renderer);

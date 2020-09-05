@@ -15,5 +15,5 @@ pub trait SceneBackend<T: RALBackend> {
 
 pub trait SceneNodeDataTrait<T: RALBackend>: Default {
   fn update_by_parent(&mut self, parent: Option<&Self>, resource: &mut ResourceManager<T>) -> bool;
-  fn provide_render_object<U: Iterator<Item = RenderObject<T>>>(self) -> U;
+  fn provide_render_object<U: Iterator<Item = RenderObject<T>>>(&self) -> U;
 }

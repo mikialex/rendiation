@@ -1,11 +1,14 @@
 use super::node::SceneNode;
-use crate::{scene_trait::SceneBackend, RALBackend, RenderObject, SceneNodeHandle};
+use crate::{
+  default_impl::DefaultSceneBackend, scene_trait::SceneBackend, RALBackend, RenderObject,
+  SceneNodeHandle,
+};
 use arena::{Arena, Handle};
 use arena_tree::*;
 
 pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
 
-pub struct Scene<T: RALBackend, S: SceneBackend<T>> {
+pub struct Scene<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
   pub render_objects: Arena<RenderObject<T>>,
   pub(crate) nodes: ArenaTree<S::NodeData>,
   scene_data: S::SceneData,

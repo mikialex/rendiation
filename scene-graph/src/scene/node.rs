@@ -1,9 +1,9 @@
-use crate::{scene_trait::SceneBackend, RALBackend, Scene};
+use crate::{default_impl::DefaultSceneBackend, scene_trait::SceneBackend, RALBackend, Scene};
 use arena::Handle;
 use arena_tree::*;
 
-pub type SceneNodeHandle<T, S> = Handle<SceneNode<T, S>>;
-pub type SceneNode<T, S> = ArenaTreeNode<<S as SceneBackend<T>>::NodeData>;
+pub type SceneNodeHandle<T, S = DefaultSceneBackend> = Handle<SceneNode<T, S>>;
+pub type SceneNode<T, S = DefaultSceneBackend> = ArenaTreeNode<<S as SceneBackend<T>>::NodeData>;
 
 impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
   pub fn node_add_child_by_handle(
