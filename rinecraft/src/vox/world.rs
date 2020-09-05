@@ -16,7 +16,7 @@ use crate::{
 use render_target::TargetStates;
 use rendiation_math::*;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
-use rendiation_render_entity::{PerspectiveCamera, TransformedObject};
+use rendiation_render_entity::{Camera, PerspectiveCamera, TransformedObject};
 use rendiation_scenegraph::*;
 use rendiation_webgpu::*;
 use std::collections::HashMap;
@@ -111,9 +111,14 @@ impl World {
   }
 
   // create new chunk, remove old chunk
-  pub fn update(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WGPURenderer>) {
-    let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
-    let camera_position = camera.world_matrix.position();
+  pub fn update(
+    &mut self,
+    renderer: &mut WGPURenderer,
+    scene: &mut Scene<WGPURenderer>,
+    resources: &mut ResourceManager<WGPURenderer>,
+    camera: &impl Camera,
+  ) {
+    let camera_position = camera.matrix().position();
 
     let ChunkCoords(stand_point_chunk) = ChunkCoords::from_world_position(camera_position);
     let x_low = stand_point_chunk.0 - self.chunk_visible_distance;
@@ -130,7 +135,7 @@ impl World {
 
     // sync change to scene
     if let Some(scene_data) = &mut self.scene_data {
-      scene_data.sync_chunks_in_scene(&mut self.chunks, scene, renderer)
+      scene_data.sync_chunks_in_scene(&mut self.chunks, scene, resources, renderer)
     }
   }
 }

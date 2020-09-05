@@ -1,4 +1,4 @@
-use crate::{default_impl::DefaultSceneBackend, scene_trait::SceneBackend, RALBackend, Scene};
+use crate::{default_impl::DefaultSceneBackend, RALBackend, Scene, SceneBackend};
 use arena::Handle;
 use arena_tree::*;
 

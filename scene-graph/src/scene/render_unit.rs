@@ -1,6 +1,6 @@
 use crate::{
-  scene_trait::SceneBackend, GeometryHandle, RALBackend, RenderObjectHandle, Scene,
-  SceneNodeHandle, ShadingHandle,
+  GeometryHandle, RALBackend, RenderObjectHandle, Scene, SceneBackend, SceneNodeHandle,
+  ShadingHandle,
 };
 use rendiation_ral::{RenderObject, ShadingProvider};
 

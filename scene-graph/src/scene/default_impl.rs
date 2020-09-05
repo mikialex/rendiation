@@ -1,7 +1,4 @@
-use crate::{
-  scene_trait::{SceneBackend, SceneNodeDataTrait},
-  RenderObjectHandle,
-};
+use crate::{RenderObjectHandle, SceneBackend, SceneNodeDataTrait};
 use rendiation_math::*;
 use rendiation_ral::{RALBackend, RenderObject, ResourceManager};
 use rendiation_render_entity::BoundingData;
@@ -11,13 +8,6 @@ pub struct DefaultSceneBackend;
 impl<T: RALBackend> SceneBackend<T> for DefaultSceneBackend {
   type NodeData = SceneNodeData<T>;
   type SceneData = ();
-  fn render_object(
-    object: RenderObject<T>,
-    renderer: &mut T::Renderer,
-    resources: &ResourceManager<T>,
-  ) {
-    todo!()
-  }
 }
 
 pub struct SceneNodeData<T: RALBackend> {

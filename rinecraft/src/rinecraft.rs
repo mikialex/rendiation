@@ -25,20 +25,12 @@ pub struct RinecraftState {
 
   pub screen_target: ScreenRenderTarget,
 
+  pub camera: PerspectiveCamera,
   pub camera_gpu: CameraGPU,
   pub camera_controller: CameraController<Self>,
 
   pub viewport: Viewport,
   pub gui: GUI,
-}
-
-impl RinecraftState {
-  fn get_camera(&mut self) -> &mut PerspectiveCamera {
-    self
-      .scene
-      .cameras
-      .get_active_camera_mut::<PerspectiveCamera>()
-  }
 }
 
 impl Application for Rinecraft {
@@ -58,6 +50,7 @@ impl Application for Rinecraft {
     );
 
     let mut scene = Scene::new();
+    let mut resource = ResourceManager::new();
     let mut world = World::new();
 
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
@@ -67,13 +60,12 @@ impl Application for Rinecraft {
     *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
     camera.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
-    let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut scene);
-    camera_gpu.update_all(renderer, &mut scene);
-
-    scene.cameras.set_new_active_camera(camera);
+    let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut resource);
+    camera_gpu.update_all(&camera, renderer, &mut resource);
 
     world.attach_scene(
       &mut scene,
+      &mut resource,
       renderer,
       &camera_gpu,
       &screen_target.create_target_states(),
@@ -92,7 +84,7 @@ impl Application for Rinecraft {
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.screen_target.resize(renderer, swap_chain.size);
-      state.get_camera().resize(size);
+      state.camera.resize(size);
       // state.camera_orth.resize(size);
       state.camera_gpu.mark_dirty();
       state.gui.renderer.resize(size, renderer);
@@ -104,19 +96,22 @@ impl Application for Rinecraft {
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state: &mut RinecraftState = &mut event_ctx.state;
       let scene = &mut state.scene;
+      let resource = &mut state.resource;
 
-      let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
-      if state.camera_controller.update(camera) {
+      if state.camera_controller.update(&mut state.camera) {
         state.camera_gpu.mark_dirty();
       }
-      state.camera_gpu.update_all(renderer, scene);
+      state
+        .camera_gpu
+        .update_all(&state.camera, renderer, resource);
 
-      state.world.update(renderer, scene);
+      state.world.update(renderer, scene, resource, &state.camera);
 
       let output = swap_chain.request_output();
       let output = state.screen_target.create_instance(&output.view);
 
-      scene.resources.maintain_gpu(renderer);
+      resource.maintain_gpu(renderer);
+
       state.scene_renderer.render(scene, renderer, &output);
 
       state.gui.render(renderer);
@@ -136,7 +131,8 @@ impl Application for Rinecraft {
         window_state,
         world,
         scene,
-        resource: ResourceManager::new(),
+        resource,
+        camera,
         camera_gpu,
         viewport,
         camera_controller: CameraController::new(),

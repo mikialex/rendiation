@@ -16,11 +16,7 @@ impl Rinecraft {
       let y_ratio = 1. - state.window_state.mouse_position.1 / state.window_state.size.1;
       assert!(x_ratio <= 1.);
       assert!(y_ratio <= 1.);
-      let ray = state
-        .scene
-        .cameras
-        .get_active_camera_mut::<PerspectiveCamera>()
-        .create_screen_ray(Vec2::new(x_ratio, y_ratio));
+      let ray = state.camera.create_screen_ray(Vec2::new(x_ratio, y_ratio));
       state.world.delete_block_by_ray(&ray);
     });
   }
