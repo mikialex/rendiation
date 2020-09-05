@@ -27,23 +27,10 @@ impl RALBackend for WebGLRenderer {
   }
 
   fn create_uniform_buffer(renderer: &mut WebGLRenderer, data: &[u8]) -> Self::UniformBuffer {
-    let gl = &renderer.gl;
-    let buffer = renderer
-      .gl
-      .create_buffer()
-      .ok_or("failed to create ubo buffer")
-      .unwrap();
-    gl.bind_buffer(WebGl2RenderingContext::UNIFORM_BUFFER, Some(&buffer));
-    gl.buffer_data_with_u8_array_and_src_offset(
-      WebGl2RenderingContext::UNIFORM_BUFFER,
-      data,
-      WebGl2RenderingContext::STATIC_DRAW,
-      0,
-    );
-    return buffer;
+    renderer.create_uniform_buffer(data)
   }
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer) {
-    renderer.gl.delete_buffer(Some(&uniform));
+    renderer.delete_uniform_buffer(uniform)
   }
   // fn update_uniform_buffer(_renderer: &mut Self::Renderer, _data: &[u8], _range: Range<usize>){
   //   todo!()

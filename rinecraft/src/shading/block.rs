@@ -9,7 +9,7 @@ use rendiation_shader_library::fog::*;
 use rendiation_shader_library::sph::*;
 use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
-use transform::MVPTransformation;
+use transform::CameraTransform;
 
 use rendiation_ral::BindGroupHandle;
 
@@ -21,14 +21,12 @@ pub struct BlockShader {
 impl BlockShader {
   fn create_shader(renderer: &WGPURenderer) -> ShaderGraphBuilder {
     let (mut builder, input) = BlockShader::create_builder(renderer);
-    builder.geometry_by::<IndexedGeometry>();
-
     let vertex = builder.vertex_by::<Vertex>();
     let p = input.parameter;
 
-    let mv_position = to_mv_position(vertex.position, p.mvp.model_view);
-    let clip_position = apply_projection(mv_position, p.mvp.projection);
-    builder.set_vertex_root(clip_position);
+    builder.geometry_by::<IndexedGeometry>();
+
+    let (clip_position, mv_position) = CameraTransform::apply(p.mvp, vertex.position, &builder);
 
     let frag_normal = builder.set_vary(vertex.normal);
     let frag_uv = builder.set_vary(vertex.uv);
@@ -55,7 +53,7 @@ pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> W
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
   #[stage(vert)]
-  pub mvp: MVPTransformation,
+  pub mvp: CameraTransform,
 
   #[stage(frag)]
   pub fog: FogData,

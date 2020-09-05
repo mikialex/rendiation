@@ -2,10 +2,26 @@ use crate::*;
 
 #[derive(UniformBuffer, Copy, Clone)]
 #[repr(C, align(16))]
-pub struct MVPTransformation {
+pub struct CameraTransform {
   pub mvp: Mat4<f32>,
   pub projection: Mat4<f32>,
   pub model_view: Mat4<f32>,
+}
+
+impl CameraTransform {
+  pub fn apply(
+    transform: <Self as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
+    raw_position: ShaderGraphNodeHandle<Vec3<f32>>,
+    builder: &ShaderGraphBuilder,
+  ) -> (
+    ShaderGraphNodeHandle<Vec4<f32>>,
+    ShaderGraphNodeHandle<Vec4<f32>>,
+  ) {
+    let mv_position = to_mv_position(raw_position, transform.model_view);
+    let clip_position = apply_projection(mv_position, transform.projection);
+    builder.set_vertex_root(clip_position);
+    (clip_position, mv_position)
+  }
 }
 
 glsl_function!(
