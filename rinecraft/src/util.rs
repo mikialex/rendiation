@@ -3,12 +3,12 @@ use image::Rgba;
 use rendiation_math::{Mat4, Vec2, Vec3};
 use rendiation_render_entity::*;
 use rendiation_scenegraph::{Scene, UniformHandle, WebGPUBackend};
-use rendiation_shader_library::transform::MVPTransformation;
+use rendiation_shader_library::transform::CameraTransform;
 use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
 
 pub struct CameraGPU {
-  pub gpu_mvp_matrix: UniformHandle<WGPURenderer, MVPTransformation>,
+  pub gpu_mvp_matrix: UniformHandle<WGPURenderer, CameraTransform>,
   gpu_mvp_matrix_dirty: bool,
 }
 
@@ -18,7 +18,7 @@ impl CameraGPU {
     camera: &PerspectiveCamera,
     scene: &mut Scene<WGPURenderer>,
   ) -> Self {
-    let mvp = MVPTransformation {
+    let mvp = CameraTransform {
       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
       model_view: camera.get_view_matrix(),
@@ -41,7 +41,7 @@ impl CameraGPU {
     let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     self.gpu_mvp_matrix_dirty = false;
 
-    let mvp = MVPTransformation {
+    let mvp = CameraTransform {
       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
       model_view: camera.get_view_matrix(),
