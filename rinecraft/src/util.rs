@@ -1,8 +1,9 @@
 use image::ImageBuffer;
 use image::Rgba;
 use rendiation_math::{Mat4, Vec2, Vec3};
+use rendiation_ral::ResourceManager;
 use rendiation_render_entity::*;
-use rendiation_scenegraph::{Scene, UniformHandle, WebGPUBackend};
+use rendiation_scenegraph::{Scene, UniformHandle};
 use rendiation_shader_library::transform::CameraTransform;
 use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
@@ -15,8 +16,8 @@ pub struct CameraGPU {
 impl CameraGPU {
   pub fn new(
     renderer: &WGPURenderer,
-    camera: &PerspectiveCamera,
-    scene: &mut Scene<WGPURenderer>,
+    camera: &impl Camera,
+    resources: &mut ResourceManager<WGPURenderer>,
   ) -> Self {
     let mvp = CameraTransform {
       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
@@ -24,7 +25,7 @@ impl CameraGPU {
       model_view: camera.get_view_matrix(),
     };
     Self {
-      gpu_mvp_matrix: scene.resources.bindable.uniform_buffers.add_uniform(mvp),
+      gpu_mvp_matrix: resources.bindable.uniform_buffers.add_uniform(mvp),
       gpu_mvp_matrix_dirty: false,
     }
   }
@@ -36,9 +37,9 @@ impl CameraGPU {
   pub fn update_gpu_mvp_matrix(
     &mut self,
     renderer: &mut WGPURenderer,
-    scene: &mut Scene<WGPURenderer>,
+    camera: &impl Camera,
+    resources: &mut ResourceManager<WGPURenderer>,
   ) {
-    let camera = scene.cameras.get_active_camera_mut::<PerspectiveCamera>();
     self.gpu_mvp_matrix_dirty = false;
 
     let mvp = CameraTransform {
@@ -47,15 +48,19 @@ impl CameraGPU {
       model_view: camera.get_view_matrix(),
     };
 
-    scene
-      .resources
+    resources
       .bindable
       .uniform_buffers
       .update(self.gpu_mvp_matrix, mvp);
   }
 
-  pub fn update_all(&mut self, renderer: &mut WGPURenderer, scene: &mut Scene<WGPURenderer>) {
-    self.update_gpu_mvp_matrix(renderer, scene);
+  pub fn update_all(
+    &mut self,
+    camera: &impl Camera,
+    renderer: &mut WGPURenderer,
+    resources: &mut ResourceManager<WGPURenderer>,
+  ) {
+    self.update_gpu_mvp_matrix(renderer, camera, resources);
   }
 }
 

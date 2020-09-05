@@ -1,41 +1,27 @@
-use crate::{RALBackend, RenderObjectHandle, Scene};
+use crate::{default_impl::DefaultSceneBackend, RALBackend, Scene, SceneBackend};
 use arena::Handle;
 use arena_tree::*;
-use rendiation_math::{Mat4, One};
-use rendiation_render_entity::BoundingData;
 
-pub type SceneNodeHandle<T> = Handle<SceneNode<T>>;
-pub type SceneNode<T> = ArenaTreeNode<SceneNodeData<T>>;
+pub type SceneNodeHandle<T, S = DefaultSceneBackend> = Handle<SceneNode<T, S>>;
+pub type SceneNode<T, S = DefaultSceneBackend> = ArenaTreeNode<<S as SceneBackend<T>>::NodeData>;
 
-pub struct SceneNodeData<T: RALBackend> {
-  pub render_objects: Vec<RenderObjectHandle<T>>,
-  pub visible: bool,
-  pub net_visible: bool,
-  pub(crate) render_data: RenderData,
-  pub local_matrix: Mat4<f32>,
-}
-
-impl<T: RALBackend> SceneNodeData<T> {
-  pub(crate) fn new() -> Self {
-    Self {
-      render_objects: Vec::new(),
-      visible: true,
-      net_visible: true,
-      render_data: RenderData::new(),
-      local_matrix: Mat4::one(),
-    }
+impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
+  pub fn get_root(&self) -> &SceneNode<T, S> {
+    self.nodes.get_node(self.nodes.root())
   }
 
-  pub fn add_render_object(&mut self, handle: RenderObjectHandle<T>) {
-    self.render_objects.push(handle)
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode<T, S> {
+    self.get_node_mut(self.nodes.root())
   }
-}
 
-impl<T: RALBackend> Scene<T> {
+  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T, S>) {
+    self.node_add_child_by_handle(self.nodes.root(), child_handle);
+  }
+
   pub fn node_add_child_by_handle(
     &mut self,
-    parent_handle: SceneNodeHandle<T>,
-    child_handle: SceneNodeHandle<T>,
+    parent_handle: SceneNodeHandle<T, S>,
+    child_handle: SceneNodeHandle<T, S>,
   ) {
     let (parent, child) = self
       .nodes
@@ -45,8 +31,8 @@ impl<T: RALBackend> Scene<T> {
 
   pub fn node_remove_child_by_handle(
     &mut self,
-    parent_handle: SceneNodeHandle<T>,
-    child_handle: SceneNodeHandle<T>,
+    parent_handle: SceneNodeHandle<T, S>,
+    child_handle: SceneNodeHandle<T, S>,
   ) {
     let (parent, child) = self
       .nodes
@@ -54,42 +40,20 @@ impl<T: RALBackend> Scene<T> {
     parent.remove(child);
   }
 
-  pub fn get_node(&self, handle: SceneNodeHandle<T>) -> &SceneNode<T> {
+  pub fn get_node(&self, handle: SceneNodeHandle<T, S>) -> &SceneNode<T, S> {
     self.nodes.get_node(handle)
   }
 
-  pub fn get_node_mut(&mut self, handle: SceneNodeHandle<T>) -> &mut SceneNode<T> {
+  pub fn get_node_mut(&mut self, handle: SceneNodeHandle<T, S>) -> &mut SceneNode<T, S> {
     self.nodes.get_node_mut(handle)
   }
 
-  pub fn create_new_node(&mut self) -> &mut SceneNode<T> {
-    let handle = self.nodes.create_node(SceneNodeData::new());
+  pub fn create_new_node(&mut self) -> &mut SceneNode<T, S> {
+    let handle = self.nodes.create_node(S::NodeData::default());
     self.nodes.get_node_mut(handle)
   }
 
-  pub fn get_node_render_data(&self, handle: SceneNodeHandle<T>) -> &RenderData {
-    &self.nodes.get_node(handle).data().render_data
-  }
-
-  pub fn free_node(&mut self, handle: SceneNodeHandle<T>) {
+  pub fn free_node(&mut self, handle: SceneNodeHandle<T, S>) {
     self.nodes.free_node(handle);
-  }
-}
-
-pub struct RenderData {
-  pub world_bounding: Option<BoundingData>,
-  pub world_matrix: Mat4<f32>,
-  pub normal_matrix: Mat4<f32>,
-  pub camera_distance: f32,
-}
-
-impl RenderData {
-  pub fn new() -> Self {
-    Self {
-      world_bounding: None,
-      world_matrix: Mat4::one(),
-      normal_matrix: Mat4::one(),
-      camera_distance: 0.,
-    }
   }
 }

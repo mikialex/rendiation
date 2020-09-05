@@ -9,7 +9,7 @@ pub use resource::*;
 pub use shader::*;
 pub use shading::*;
 
-pub trait RALBackend: 'static {
+pub trait RALBackend: 'static + Sized {
   type RenderTarget;
   type RenderPass;
   type Renderer;
@@ -42,6 +42,29 @@ pub trait RALBackend: 'static {
     data: &[u8],
     layout: RALVertexBufferDescriptor,
   ) -> Self::VertexBuffer;
+
+  fn render_object(
+    object: &RenderObject<Self>,
+    pass: &mut Self::RenderPass,
+    resources: &ResourceManager<Self>,
+  );
+}
+
+pub struct RenderObject<T: RALBackend> {
+  pub shading: ShadingHandle<T, AnyPlaceHolder>,
+  pub geometry: GeometryHandle<T>,
+}
+
+impl<T: RALBackend> RenderObject<T> {
+  pub fn new<SP: ShadingProvider<T>>(
+    geometry: GeometryHandle<T>,
+    shading: ShadingHandle<T, SP>,
+  ) -> Self {
+    Self {
+      shading: unsafe { shading.cast_type() },
+      geometry,
+    }
+  }
 }
 
 pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
