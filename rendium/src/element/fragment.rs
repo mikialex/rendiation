@@ -69,10 +69,11 @@ impl ElementFragment {
     element_index: usize,
     listener: T,
   ) -> usize {
-    let event_index = self.events.add(listener);
-    self.listener_element_index.push(element_index);
-    self.elements_event[element_index].push(event_index);
-    event_index
+    todo!()
+    // let event_index = self.events.add(listener);
+    // self.listener_element_index.push(element_index);
+    // self.elements_event[element_index].push(event_index);
+    // event_index
   }
 
   pub fn render(&self, renderer: &mut WGPURenderer, gui_renderer: &mut GUIRenderer) {

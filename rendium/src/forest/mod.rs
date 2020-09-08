@@ -1,0 +1,4 @@
+enum DocumentElement {
+  PrimitiveElement,
+  ComponentElement,
+}
