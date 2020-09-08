@@ -1,27 +1,29 @@
-use rendiation_webgpu::WGPURenderer;
 use super::Message;
 use crate::element::Element;
 use crate::element::ElementState;
 use crate::event::Event;
-use crate::{Quad, renderer::GUIRenderer, RenderCtx};
+use crate::{renderer::GUIRenderer, Quad, RenderCtx};
+use arena::*;
 use core::any::Any;
 use rendiation_math::Vec2;
+use rendiation_webgpu::WGPURenderer;
 
 pub struct EventHub {
-  listeners: Vec<Box<dyn FnMut(&mut Message)>>,
+  listeners: Arena<Box<dyn FnMut(&mut Message)>>,
 }
 
 impl EventHub {
   pub fn new() -> Self {
     EventHub {
-      listeners: Vec::new(),
+      listeners: Arena::new(),
     }
   }
 
-  pub fn add<T: FnMut(&mut Message) + 'static>(&mut self, listener: T) -> usize {
-    let index = self.listeners.len();
-    self.listeners.push(Box::new(listener));
-    index
+  pub fn add<T: FnMut(&mut Message) + 'static>(
+    &mut self,
+    listener: T,
+  ) -> Handle<Box<dyn FnMut(&mut Message)>> {
+    self.listeners.insert(Box::new(listener))
   }
 }
 
@@ -34,7 +36,6 @@ pub struct ElementFragment {
 
 impl ElementFragment {
   pub fn new() -> Self {
-
     // let a = Quad::new();
 
     // let mut b = Quad::new();
@@ -75,7 +76,7 @@ impl ElementFragment {
   }
 
   pub fn render(&self, renderer: &mut WGPURenderer, gui_renderer: &mut GUIRenderer) {
-    let mut ctx =  RenderCtx {
+    let mut ctx = RenderCtx {
       renderer: gui_renderer,
       backend: renderer,
     };
