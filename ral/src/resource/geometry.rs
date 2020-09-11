@@ -8,7 +8,6 @@ pub struct SceneGeometryData<T: RALBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
-  // pub bounding_local: Option<BoundingData>,
 }
 
 impl<T: RALBackend> SceneGeometryData<T> {
@@ -17,7 +16,6 @@ impl<T: RALBackend> SceneGeometryData<T> {
       draw_range: 0..0,
       index_buffer: None,
       vertex_buffers: Vec::new(),
-      // bounding_local: None,
     }
   }
 }

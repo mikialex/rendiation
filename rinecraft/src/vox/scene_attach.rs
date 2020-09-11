@@ -123,6 +123,7 @@ impl World {
       .samplers
       .insert(WGPUSampler::default(renderer));
     let block_shading_pipeline = create_block_shading(renderer, target);
+    let block_shading_pipeline = resources.shading_gpu.insert(block_shading_pipeline);
 
     let bindgroup_index =
       resources

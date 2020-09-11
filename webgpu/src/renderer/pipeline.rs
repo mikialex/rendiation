@@ -22,6 +22,7 @@ pub struct PipelineShaderInterfaceInfo {
   bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   primitive_topology: wgpu::PrimitiveTopology,
+  // todo frag output
 }
 
 impl PipelineShaderInterfaceInfo {
