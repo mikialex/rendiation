@@ -25,7 +25,6 @@ impl WGPUTexture {
     let descriptor = wgpu::TextureDescriptor {
       label: None,
       size: size.to_wgpu(),
-      array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
@@ -33,7 +32,7 @@ impl WGPUTexture {
       usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
     let depth_texture = renderer.device.create_texture(&descriptor);
-    let view = depth_texture.create_default_view();
+    let view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
     Self {
       descriptor,
       gpu_texture: depth_texture,
@@ -56,7 +55,6 @@ impl WGPUTexture {
     let descriptor = wgpu::TextureDescriptor {
       label: None,
       size: size.to_wgpu(),
-      array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
@@ -66,7 +64,7 @@ impl WGPUTexture {
         | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
     let gpu_texture = renderer.device.create_texture(&descriptor);
-    let view = gpu_texture.create_default_view();
+    let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
     Self {
       gpu_texture,
       descriptor,
@@ -89,7 +87,6 @@ impl WGPUTexture {
         height,
         depth,
       },
-      array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
@@ -97,7 +94,7 @@ impl WGPUTexture {
       usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
     };
     let gpu_texture = renderer.device.create_texture(&descriptor);
-    let view = gpu_texture.create_default_view();
+    let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
     let wgpu_texture = Self {
       gpu_texture,
       descriptor,
@@ -130,7 +127,9 @@ impl WGPUTexture {
     self.descriptor.size.width = size.0 as u32;
     self.descriptor.size.height = size.1 as u32;
     self.gpu_texture = renderer.device.create_texture(&self.descriptor);
-    self.view = self.gpu_texture.create_default_view();
+    self.view = self
+      .gpu_texture
+      .create_view(&wgpu::TextureViewDescriptor::default());
   }
 
   fn upload(&self, renderer: &mut WGPURenderer, image_data: &[u8]) {

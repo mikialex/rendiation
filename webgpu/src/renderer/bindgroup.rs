@@ -23,10 +23,9 @@ impl WGPUBindGroup {
       .enumerate()
       .map(|(i, binding)| {
         let resource = match binding {
-          WGPUBinding::BindBuffer((buffer, range)) => wgpu::BindingResource::Buffer {
-            buffer: &buffer.get_gpu_buffer(),
-            range: range.clone(),
-          },
+          WGPUBinding::BindBuffer((buffer, range)) => {
+            wgpu::BindingResource::Buffer(buffer.get_gpu_buffer().slice(*range))
+          }
           WGPUBinding::BindTexture(texture) => wgpu::BindingResource::TextureView(&texture),
           WGPUBinding::BindSampler(sampler) => {
             wgpu::BindingResource::Sampler(sampler.get_gpu_sampler())

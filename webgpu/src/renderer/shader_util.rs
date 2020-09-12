@@ -14,10 +14,5 @@ pub fn load_glsl(code: impl AsRef<str> + Display, stage: rendiation_ral::ShaderS
     print!("{}", code);
     println!("{}", err);
   }
-  let spirv = wgpu::read_spirv(spirv.unwrap());
-  if let Err(err) = &spirv {
-    print!("{}", code);
-    println!("{}", err);
-  }
   spirv.unwrap()
 }

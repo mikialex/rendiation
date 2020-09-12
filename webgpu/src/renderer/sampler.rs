@@ -3,7 +3,7 @@ use crate::WGPURenderer;
 /// webgpu sampler wrapper
 pub struct WGPUSampler {
   gpu_sampler: wgpu::Sampler,
-  descriptor: wgpu::SamplerDescriptor,
+  descriptor: wgpu::SamplerDescriptor<'static>,
 }
 
 impl WGPUSampler {
@@ -37,7 +37,7 @@ impl TextureWrapping {
 }
 
 pub struct WGPUSamplerBuilder {
-  descriptor: wgpu::SamplerDescriptor,
+  descriptor: wgpu::SamplerDescriptor<'static>,
 }
 
 impl AsMut<Self> for WGPUSamplerBuilder {
@@ -50,6 +50,8 @@ impl WGPUSamplerBuilder {
   pub fn new() -> Self {
     Self {
       descriptor: wgpu::SamplerDescriptor {
+        label: None,
+        anisotropy_clamp: None,
         address_mode_u: wgpu::AddressMode::ClampToEdge,
         address_mode_v: wgpu::AddressMode::ClampToEdge,
         address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -58,7 +60,7 @@ impl WGPUSamplerBuilder {
         mipmap_filter: wgpu::FilterMode::Nearest,
         lod_min_clamp: -100.0,
         lod_max_clamp: 100.0,
-        compare: wgpu::CompareFunction::Undefined,
+        compare: None,
       },
     }
   }

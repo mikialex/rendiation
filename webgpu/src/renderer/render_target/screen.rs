@@ -34,10 +34,7 @@ impl TargetStatesProvider for ScreenRenderTarget {
         format: *d.format(),
         depth_write_enabled: true,
         depth_compare: wgpu::CompareFunction::LessEqual,
-        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-        stencil_read_mask: 0,
-        stencil_write_mask: 0,
+        stencil: wgpu::StencilStateDescriptor::default(),
       });
 
     TargetStates {
@@ -85,13 +82,9 @@ impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
     let attachments = vec![wgpu::RenderPassColorAttachmentDescriptor {
       attachment: self.swap_chain_view,
       resolve_target: None,
-      load_op: wgpu::LoadOp::Load,
-      store_op: wgpu::StoreOp::Store,
-      clear_color: wgpu::Color {
-        r: 0.,
-        g: 0.,
-        b: 0.,
-        a: 1.,
+      ops: wgpu::Operations {
+        load: wgpu::LoadOp::Load,
+        store: true,
       },
     }];
 
@@ -102,12 +95,11 @@ impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
         .as_ref()
         .map(|d| wgpu::RenderPassDepthStencilAttachmentDescriptor {
           attachment: d.view(),
-          depth_load_op: wgpu::LoadOp::Clear,
-          depth_store_op: wgpu::StoreOp::Store,
-          stencil_load_op: wgpu::LoadOp::Clear,
-          stencil_store_op: wgpu::StoreOp::Store,
-          clear_depth: 1.0,
-          clear_stencil: 0,
+          depth_ops: Some(wgpu::Operations {
+            load: wgpu::LoadOp::Load,
+            store: true,
+          }),
+          stencil_ops: None,
         });
     WGPURenderPassBuilder { attachments, depth }
   }

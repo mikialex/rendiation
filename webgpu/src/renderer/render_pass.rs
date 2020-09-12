@@ -23,14 +23,14 @@ impl<'a> WGPURenderPass<'a> {
   pub fn set_index_buffer(&mut self, buffer: &'a WGPUBuffer) -> &mut Self {
     self
       .gpu_pass
-      .set_index_buffer(buffer.get_gpu_buffer(), 0, 0);
+      .set_index_buffer(buffer.get_gpu_buffer().slice(..)); // todo add range support
     self
   }
 
   pub fn set_vertex_buffer(&mut self, slot: usize, buffer: &'a WGPUBuffer) -> &mut Self {
     self
       .gpu_pass
-      .set_vertex_buffer(slot as u32, buffer.get_gpu_buffer(), 0, 0);
+      .set_vertex_buffer(slot as u32, buffer.get_gpu_buffer().slice(..)); // ditto
     self
   }
 
@@ -62,12 +62,14 @@ pub struct RenderPassColorAttachmentDescriptorModifier<'a, 'b> {
 
 impl<'a, 'b> RenderPassColorAttachmentDescriptorModifier<'a, 'b> {
   pub fn load_with_clear(&mut self, clear_color: Vec3<f32>, alpha: f32) -> &mut Self {
-    self.attachment.load_op = wgpu::LoadOp::Clear;
-    self.attachment.clear_color = wgpu::Color {
-      r: clear_color.x as f64,
-      g: clear_color.y as f64,
-      b: clear_color.z as f64,
-      a: alpha as f64,
+    self.attachment.ops = wgpu::Operations {
+      load: wgpu::LoadOp::Clear(wgpu::Color {
+        r: clear_color.x as f64,
+        g: clear_color.y as f64,
+        b: clear_color.z as f64,
+        a: alpha as f64,
+      }),
+      store: true,
     };
     self
   }
@@ -81,8 +83,10 @@ pub struct RenderPassDepthStencilAttachmentDescriptorModifier<'a, 'b> {
 
 impl<'a, 'b> RenderPassDepthStencilAttachmentDescriptorModifier<'a, 'b> {
   pub fn load_with_clear(&mut self, depth: f32) -> &mut Self {
-    self.depth.depth_load_op = wgpu::LoadOp::Clear;
-    self.depth.clear_depth = depth;
+    self.depth.depth_ops = Some(wgpu::Operations {
+      load: wgpu::LoadOp::Clear(depth),
+      store: true,
+    });
     self
   }
   pub fn ok(&mut self) {}
