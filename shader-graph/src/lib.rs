@@ -21,7 +21,7 @@ pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
 use rendiation_ral::ShaderStage;
-use rendiation_webgpu::{load_glsl, PipelineBuilder, PipelineShaderInterfaceInfo, WGPURenderer};
+use rendiation_webgpu::{load_glsl, PipelineBuilder, PipelineShaderInterfaceInfo};
 pub use shader_function::*;
 pub use traits_impl::*;
 pub use webgpu::*;
@@ -82,9 +82,8 @@ impl ShaderGraph {
     }
   }
 
-  pub fn create_pipeline<'a>(&self, renderer: &'a WGPURenderer) -> PipelineBuilder<'a> {
+  pub fn create_pipeline(&self) -> PipelineBuilder {
     PipelineBuilder::new(
-      renderer,
       load_glsl(self.gen_code_vertex(), rendiation_ral::ShaderStage::Vertex),
       load_glsl(self.gen_code_frag(), rendiation_ral::ShaderStage::Fragment),
       self.wgpu_shader_interface.clone(),
