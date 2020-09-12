@@ -44,10 +44,10 @@ impl BlockShader {
 pub fn create_block_shading(renderer: &WGPURenderer, target: &TargetStates) -> WGPUPipeline {
   BlockShader::create_shader(renderer)
     .create()
-    .create_pipeline(renderer)
+    .create_pipeline()
     .as_mut()
     .target_states(target)
-    .build()
+    .build(renderer)
 }
 
 #[derive(BindGroup)]

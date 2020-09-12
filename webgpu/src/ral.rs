@@ -68,7 +68,7 @@ impl RALBackend for WGPURenderer {
     resources
       .shadings
       .get_shading_boxed(object.shading)
-      .apply(pass, &resources.bindgroups);
+      .apply(pass, resources);
 
     let geometry = resources.get_geometry(object.geometry).resource();
 

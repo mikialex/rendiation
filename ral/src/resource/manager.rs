@@ -8,6 +8,7 @@ type ResourceArena<T> = Arena<ResourceWrap<T>>;
 pub struct ResourceManager<T: RALBackend> {
   pub geometries: ResourceArena<SceneGeometryData<T>>,
   pub shadings: ShadingManager<T>,
+  pub shading_gpu: Arena<T::Shading>,
   pub bindgroups: BindGroupManager<T>,
   pub bindable: ShaderBindableResourceManager<T>,
 
@@ -49,6 +50,7 @@ impl<T: RALBackend> ResourceManager<T> {
   pub fn new() -> Self {
     Self {
       geometries: Arena::new(),
+      shading_gpu: Arena::new(),
       shadings: ShadingManager::new(),
       bindgroups: BindGroupManager::new(),
       bindable: ShaderBindableResourceManager::new(),

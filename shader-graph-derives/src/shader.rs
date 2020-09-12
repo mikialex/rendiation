@@ -110,7 +110,7 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
         // render_pass is cast to static, so resources must cast to static too..
         let resources: &'static rendiation_ral::BindGroupManager<WGPURenderer> = unsafe {std::mem::transmute(resources)};
         let handle_instance = &instance.data;
-        let gpu: &'static WGPUPipeline = unsafe {std::mem::transmute(&instance.gpu)};
+        let gpu: &'static WGPUPipeline = unsafe {std::mem::transmute(gpu_shading)};
         render_pass.set_pipeline(gpu);
         #(#bindgroup_active_pass)*
       }

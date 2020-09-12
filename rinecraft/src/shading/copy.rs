@@ -30,9 +30,9 @@ impl CopierShading {
 
     Self {
       pipeline: graph
-        .create_pipeline(renderer)
+        .create_pipeline()
         .target_states(target.create_target_states().as_ref())
-        .build(),
+        .build(renderer),
     }
   }
 }
