@@ -1,6 +1,6 @@
 use crate::texture_format::TextureFormat;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TargetStates {
   pub color_states: Vec<wgpu::ColorStateDescriptor>,
   pub depth_state: Option<wgpu::DepthStencilStateDescriptor>,
