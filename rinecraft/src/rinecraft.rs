@@ -107,7 +107,7 @@ impl Application for Rinecraft {
 
       state.world.update(renderer, scene, resource, &state.camera);
 
-      let output = swap_chain.request_output();
+      let output = swap_chain.get_current_frame();
       let output = state.screen_target.create_instance(&output.view);
 
       let list = scene.update(resource);

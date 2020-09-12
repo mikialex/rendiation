@@ -79,6 +79,7 @@ impl PipelineBuilder {
         depth_bias: 0,
         depth_bias_slope_scale: 0.0,
         depth_bias_clamp: 0.0,
+        clamp_depth: false,
       },
       target_states: TargetStates::default(),
     }
@@ -98,6 +99,8 @@ impl PipelineBuilder {
       .map(|l| l.as_ref())
       .collect();
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+      label: None,
+      push_constant_ranges: &[],
       bind_group_layouts: &bind_group_layouts,
     });
 
@@ -106,7 +109,8 @@ impl PipelineBuilder {
     let fs_module = device.create_shader_module(&self.frag_shader);
 
     let pipeline_des = wgpu::RenderPipelineDescriptor {
-      layout: &pipeline_layout,
+      label: None,
+      layout: Some(&pipeline_layout),
 
       vertex_stage: wgpu::ProgrammableStageDescriptor {
         module: &vs_module,
