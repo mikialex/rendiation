@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, io::Read};
 
 #[cfg(feature = "glsl-to-spirv")]
 pub fn load_glsl(code: impl AsRef<str> + Display, stage: rendiation_ral::ShaderStage) -> Vec<u32> {
@@ -14,5 +14,9 @@ pub fn load_glsl(code: impl AsRef<str> + Display, stage: rendiation_ral::ShaderS
     print!("{}", code);
     println!("{}", err);
   }
-  spirv.unwrap()
+
+  let mut spirv_result = Vec::new();
+  spirv.unwrap().read_to_end(&mut spirv_result);
+
+  spirv_result
 }

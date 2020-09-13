@@ -72,12 +72,7 @@ impl WGPURenderer {
     .unwrap();
 
     let (device, queue) = adapter
-      .request_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions {
-          anisotropic_filtering: false,
-        },
-        limits: wgpu::Limits::default(),
-      })
+      .request_device(&wgpu::DeviceDescriptor::default())
       .await;
 
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
