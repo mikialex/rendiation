@@ -54,7 +54,8 @@ impl Queue {
     mem::swap(&mut encoder, old_encoder);
 
     let command_buf = encoder.finish();
-    self.0.submit(&[command_buf]);
+    let command_buf = vec![command_buf]; // todo avoid allocation
+    self.0.submit(command_buf);
   }
 }
 

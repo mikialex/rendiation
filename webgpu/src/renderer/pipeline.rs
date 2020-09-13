@@ -1,5 +1,5 @@
 use crate::{render_target::TargetStates, WGPURenderer};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, borrow::Cow};
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
@@ -105,8 +105,10 @@ impl PipelineBuilder {
     });
 
     // Create the render pipeline
-    let vs_module = device.create_shader_module(&self.vertex_shader);
-    let fs_module = device.create_shader_module(&self.frag_shader);
+    let vs_module_source = wgpu::ShaderModuleSource::SpirV(Cow::Borrowed(&self.vertex_shader));
+    let fs_module_source = wgpu::ShaderModuleSource::SpirV(Cow::Borrowed(&self.frag_shader));
+    let vs_module = device.create_shader_module(vs_module_source);
+    let fs_module = device.create_shader_module(fs_module_source);
 
     let pipeline_des = wgpu::RenderPipelineDescriptor {
       label: None,
