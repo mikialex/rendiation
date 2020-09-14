@@ -112,12 +112,7 @@ impl Application for Rinecraft {
 
       // rendering
       state.renderer.render(renderer, scene, resource, &output);
-
-      state.gui.render(renderer);
-      state.gui.renderer.update_to_screen(renderer, &output);
-      renderer
-        .queue
-        .submit(&renderer.device, &mut renderer.encoder);
+      state.gui.render(renderer, &output);
     });
 
     let window_state = WindowState::new((swap_chain.size.0 as f32, swap_chain.size.1 as f32));

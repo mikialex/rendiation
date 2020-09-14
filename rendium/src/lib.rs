@@ -17,7 +17,7 @@ pub use element::*;
 pub use winit;
 
 pub use arena::*;
-use rendiation_webgpu::{render_target::ScreenRenderTarget, WGPURenderer};
+use rendiation_webgpu::{render_target::ScreenRenderTarget, RenderTargetAble, WGPURenderer};
 
 pub struct GUI {
   fragment: ElementFragment,
@@ -34,7 +34,12 @@ impl GUI {
 
   pub fn event(event: Event) {}
 
-  pub fn render(&mut self, renderer: &mut WGPURenderer) {
+  pub fn render(&mut self, renderer: &mut WGPURenderer, target: &impl RenderTargetAble) {
     self.fragment.render(renderer, &mut self.renderer);
+
+    self.renderer.update_to_screen(renderer, target);
+    renderer
+      .queue
+      .submit(&renderer.device, &mut renderer.encoder);
   }
 }

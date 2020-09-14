@@ -47,7 +47,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       .create_node(RenderGraphNode::Pass(PassNodeData {
         name: name.to_owned(),
         viewport_modifier: Box::new(Self::same_as_target),
-        pass_op_modifier: Box::new(|_| {}),
+        pass_op_modifier: Box::new(|b| b),
         input_targets_map: HashSet::new(),
         render: None,
       }));
