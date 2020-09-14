@@ -11,7 +11,7 @@ pub struct WGPUTexture<V: TextureDimension = TextureSize2D> {
   descriptor: wgpu::TextureDescriptor<'static>,
   size: V,
   view: wgpu::TextureView,
-  format: TextureFormat,
+  pub format: TextureFormat, // todo improvement
 }
 
 impl WGPUTexture {
@@ -164,7 +164,6 @@ pub fn upload(
   image_data: &[u8],
   target_layer: u32,
 ) {
-
   renderer.queue.0.write_texture(
     wgpu::TextureCopyView {
       texture: &texture.gpu_texture,
@@ -173,15 +172,14 @@ pub fn upload(
         x: 0,
         y: 0,
         z: target_layer,
-    },
+      },
     },
     image_data,
     wgpu::TextureDataLayout {
-        offset: 0,
-        bytes_per_row: 4 * texture.descriptor.size.width, // todo 4
-        rows_per_image: 0,
+      offset: 0,
+      bytes_per_row: 4 * texture.descriptor.size.width, // todo 4
+      rows_per_image: 0,
     },
     texture.size.to_wgpu(),
   );
-
 }
