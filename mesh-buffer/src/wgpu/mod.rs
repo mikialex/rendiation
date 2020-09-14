@@ -167,13 +167,8 @@ impl<V: Positioned3D, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
   }
 
   pub fn provide_geometry<'a, 'b: 'a>(&'b self, pass: &mut WGPURenderPass<'a>) {
-    pass
-      .gpu_pass
-      .set_vertex_buffer(0, self.get_vertex_buffer_unwrap().get_gpu_buffer(), 0, 0);
-
-    pass
-      .gpu_pass
-      .set_index_buffer(self.get_index_buffer_unwrap().get_gpu_buffer(), 0, 0);
+    pass.set_vertex_buffer(0, self.get_vertex_buffer_unwrap());
+    pass.set_index_buffer(self.get_index_buffer_unwrap());
   }
 
   pub fn render<'a, 'b: 'a>(&'b self, pass: &mut WGPURenderPass<'a>) {

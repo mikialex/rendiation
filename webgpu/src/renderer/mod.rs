@@ -61,19 +61,12 @@ impl Queue {
 }
 
 impl WGPURenderer {
-  pub async fn new(instance: wgpu::Instance, surface: wgpu::Surface) -> Self {
-  //   let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
-    
-  //   let (size, surface) = unsafe {
-  //     let size = window.inner_size();
-  //     let surface = instance.create_surface(&window);
-  //     (size, surface)
-  // };
+  pub async fn new(instance: wgpu::Instance, surface: &wgpu::Surface) -> Self {
 
     let adapter = instance.request_adapter(
       &wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::Default,
-        compatible_surface: Some(&surface),
+        compatible_surface: Some(surface),
       },
     )
     .await
