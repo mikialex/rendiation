@@ -37,6 +37,7 @@ pub trait Renderer: 'static + Sized {
 /// the backend render not contains any specific render resource.
 /// just encapsulate webgpu functionality
 pub struct WGPURenderer {
+  pub instance: wgpu::Instance,
   pub adapter: wgpu::Adapter,
   pub device: wgpu::Device,
   pub queue: Queue,
@@ -60,23 +61,31 @@ impl Queue {
 }
 
 impl WGPURenderer {
-  pub async fn new(surface: &wgpu::Surface) -> Self {
-    let adapter = wgpu::Adapter::request(
+  pub async fn new(instance: wgpu::Instance, surface: wgpu::Surface) -> Self {
+  //   let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    
+  //   let (size, surface) = unsafe {
+  //     let size = window.inner_size();
+  //     let surface = instance.create_surface(&window);
+  //     (size, surface)
+  // };
+
+    let adapter = instance.request_adapter(
       &wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::Default,
         compatible_surface: Some(&surface),
       },
-      wgpu::BackendBit::PRIMARY,
     )
     .await
     .unwrap();
 
     let (device, queue) = adapter
-      .request_device(&wgpu::DeviceDescriptor::default())
-      .await;
+      .request_device(&wgpu::DeviceDescriptor::default(), None)
+      .await.unwrap();
 
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     Self {
+      instance,
       adapter,
       device,
       queue: Queue(queue),
