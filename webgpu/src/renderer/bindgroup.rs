@@ -23,16 +23,15 @@ impl WGPUBindGroup {
       .enumerate()
       .map(|(i, binding)| {
         let resource = match binding {
-          WGPUBinding::BindBuffer((buffer, range)) => wgpu::BindingResource::Buffer {
-            buffer: &buffer.get_gpu_buffer(),
-            range: range.clone(),
-          },
+          WGPUBinding::BindBuffer((buffer, range)) => {
+            wgpu::BindingResource::Buffer(buffer.get_gpu_buffer().slice(range.clone()))
+          }
           WGPUBinding::BindTexture(texture) => wgpu::BindingResource::TextureView(&texture),
           WGPUBinding::BindSampler(sampler) => {
             wgpu::BindingResource::Sampler(sampler.get_gpu_sampler())
           }
         };
-        wgpu::Binding {
+        wgpu::BindGroupEntry {
           binding: i as u32,
           resource,
         }
@@ -42,7 +41,7 @@ impl WGPUBindGroup {
     let wgpu_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
       label: None,
       layout,
-      bindings: &wgpu_bindings,
+      entries: &wgpu_bindings,
     });
 
     Self {
@@ -105,6 +104,7 @@ impl BindGroupLayoutBuilder {
       binding,
       visibility: shader_stage_convert(visibility),
       ty,
+      count: None,
     });
     self
   }
@@ -114,7 +114,7 @@ impl BindGroupLayoutBuilder {
       .device
       .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
-        bindings: &self.bindings,
+        entries: &self.bindings,
       })
   }
 }

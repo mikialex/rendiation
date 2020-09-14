@@ -37,6 +37,7 @@ pub trait Renderer: 'static + Sized {
 /// the backend render not contains any specific render resource.
 /// just encapsulate webgpu functionality
 pub struct WGPURenderer {
+  pub instance: wgpu::Instance,
   pub adapter: wgpu::Adapter,
   pub device: wgpu::Device,
   pub queue: Queue,
@@ -54,33 +55,30 @@ impl Queue {
     mem::swap(&mut encoder, old_encoder);
 
     let command_buf = encoder.finish();
-    self.0.submit(&[command_buf]);
+    let command_buf = vec![command_buf]; // todo avoid allocation
+    self.0.submit(command_buf);
   }
 }
 
 impl WGPURenderer {
-  pub async fn new(surface: &wgpu::Surface) -> Self {
-    let adapter = wgpu::Adapter::request(
+  pub async fn new(instance: wgpu::Instance, surface: &wgpu::Surface) -> Self {
+
+    let adapter = instance.request_adapter(
       &wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::Default,
-        compatible_surface: Some(&surface),
+        compatible_surface: Some(surface),
       },
-      wgpu::BackendBit::PRIMARY,
     )
     .await
     .unwrap();
 
     let (device, queue) = adapter
-      .request_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions {
-          anisotropic_filtering: false,
-        },
-        limits: wgpu::Limits::default(),
-      })
-      .await;
+      .request_device(&wgpu::DeviceDescriptor::default(), None)
+      .await.unwrap();
 
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     Self {
+      instance,
       adapter,
       device,
       queue: Queue(queue),

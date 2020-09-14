@@ -1,8 +1,8 @@
-use crate::util::*;
 use crate::{
   camera_controls::{CameraController, CameraControllerType},
   vox::world::World,
 };
+use crate::{rendering::RinecraftRenderer, util::*};
 use render_target::{ScreenRenderTarget, TargetStatesProvider};
 use rendiation_math::Mat4;
 use rendiation_render_entity::*;
@@ -31,6 +31,7 @@ pub struct RinecraftState {
 
   pub viewport: Viewport,
   pub gui: GUI,
+  pub renderer: RinecraftRenderer,
 }
 
 impl Application for Rinecraft {
@@ -90,7 +91,6 @@ impl Application for Rinecraft {
       state.gui.renderer.resize(size, renderer);
     });
 
-    // render
     window_session.active.event_cleared.on(|event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
@@ -98,36 +98,21 @@ impl Application for Rinecraft {
       let scene = &mut state.scene;
       let resource = &mut state.resource;
 
+      // update
       if state.camera_controller.update(&mut state.camera) {
         state.camera_gpu.mark_dirty();
       }
       state
         .camera_gpu
         .update_all(&state.camera, renderer, resource);
-
       state.world.update(renderer, scene, resource, &state.camera);
 
-      let output = swap_chain.request_output();
+      let output = swap_chain.get_current_frame();
       let output = state.screen_target.create_instance(&output.view);
 
-      let list = scene.update(resource);
-      resource.maintain_gpu(renderer);
-
-      {
-        let mut pass = output
-          .create_render_pass_builder()
-          .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
-          .create(&mut renderer.encoder);
-
-        list.render(unsafe { std::mem::transmute(&mut pass) }, scene, resource);
-      }
-
-      state.gui.render(renderer);
-      state.gui.renderer.update_to_screen(renderer, &output);
-
-      renderer
-        .queue
-        .submit(&renderer.device, &mut renderer.encoder);
+      // rendering
+      state.renderer.render(renderer, scene, resource, &output);
+      state.gui.render(renderer, &output);
     });
 
     let window_state = WindowState::new((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
@@ -146,6 +131,7 @@ impl Application for Rinecraft {
         camera_controller: CameraController::new(),
         screen_target,
         gui,
+        renderer: RinecraftRenderer::new(),
       },
     };
 

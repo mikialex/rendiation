@@ -1,4 +1,5 @@
 use crate::renderer::WGPURenderer;
+use wgpu::util::DeviceExt;
 
 pub struct WGPUBuffer {
   gpu_buffer: wgpu::Buffer,
@@ -6,8 +7,18 @@ pub struct WGPUBuffer {
   usage: wgpu::BufferUsage,
 }
 
-fn create_buffer(renderer: &WGPURenderer, value: &[u8], usage: wgpu::BufferUsage) -> wgpu::Buffer {
-  renderer.device.create_buffer_with_data(value, usage)
+fn create_buffer(
+  renderer: &WGPURenderer,
+  contents: &[u8],
+  usage: wgpu::BufferUsage,
+) -> wgpu::Buffer {
+  renderer
+    .device
+    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+      label: None,
+      contents,
+      usage,
+    })
 }
 
 impl WGPUBuffer {

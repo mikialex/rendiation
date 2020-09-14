@@ -1,4 +1,3 @@
-use crate::renderer::buffer::WGPUBuffer;
 use crate::renderer::WGPURenderer;
 
 pub mod texture_cube;
@@ -12,7 +11,7 @@ pub struct WGPUTexture<V: TextureDimension = TextureSize2D> {
   descriptor: wgpu::TextureDescriptor<'static>,
   size: V,
   view: wgpu::TextureView,
-  format: TextureFormat,
+  pub format: TextureFormat, // todo improvement
 }
 
 impl WGPUTexture {
@@ -25,7 +24,6 @@ impl WGPUTexture {
     let descriptor = wgpu::TextureDescriptor {
       label: None,
       size: size.to_wgpu(),
-      array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
@@ -33,7 +31,7 @@ impl WGPUTexture {
       usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
     let depth_texture = renderer.device.create_texture(&descriptor);
-    let view = depth_texture.create_default_view();
+    let view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
     Self {
       descriptor,
       gpu_texture: depth_texture,
@@ -56,7 +54,6 @@ impl WGPUTexture {
     let descriptor = wgpu::TextureDescriptor {
       label: None,
       size: size.to_wgpu(),
-      array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
@@ -66,7 +63,7 @@ impl WGPUTexture {
         | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
     let gpu_texture = renderer.device.create_texture(&descriptor);
-    let view = gpu_texture.create_default_view();
+    let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
     Self {
       gpu_texture,
       descriptor,
@@ -89,7 +86,6 @@ impl WGPUTexture {
         height,
         depth,
       },
-      array_layer_count: 1,
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
@@ -97,7 +93,7 @@ impl WGPUTexture {
       usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
     };
     let gpu_texture = renderer.device.create_texture(&descriptor);
-    let view = gpu_texture.create_default_view();
+    let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
     let wgpu_texture = Self {
       gpu_texture,
       descriptor,
@@ -130,7 +126,9 @@ impl WGPUTexture {
     self.descriptor.size.width = size.0 as u32;
     self.descriptor.size.height = size.1 as u32;
     self.gpu_texture = renderer.device.create_texture(&self.descriptor);
-    self.view = self.gpu_texture.create_default_view();
+    self.view = self
+      .gpu_texture
+      .create_view(&wgpu::TextureViewDescriptor::default());
   }
 
   fn upload(&self, renderer: &mut WGPURenderer, image_data: &[u8]) {
@@ -138,27 +136,27 @@ impl WGPUTexture {
   }
 }
 
-impl<V: TextureDimension> WGPUTexture<V> {
-  pub async fn read(
-    &self,
-    renderer: &mut WGPURenderer,
-  ) -> Result<wgpu::BufferReadMapping, wgpu::BufferAsyncErr> {
-    let pixel_count = self.size.get_pixel_size() as u64;
-    let data_size = pixel_count * self.format.get_pixel_data_stride() as u64;
+// impl<V: TextureDimension> WGPUTexture<V> {
+//   pub async fn read(
+//     &self,
+//     renderer: &mut WGPURenderer,
+//   ) -> Result<wgpu::BufferReadMapping, wgpu::BufferAsyncErr> {
+//     let pixel_count = self.size.get_pixel_size() as u64;
+//     let data_size = pixel_count * self.format.get_pixel_data_stride() as u64;
 
-    let output_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
-      label: None,
-      size: data_size,
-      usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
-    });
+//     let output_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+//       label: None,
+//       size: data_size,
+//       usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+//     });
 
-    let buffer_future = output_buffer.map_read(0, data_size);
+//     let buffer_future = output_buffer.map_read(0, data_size);
 
-    renderer.device.poll(wgpu::Maintain::Wait);
+//     renderer.device.poll(wgpu::Maintain::Wait);
 
-    buffer_future.await
-  }
-}
+//     buffer_future.await
+//   }
+// }
 
 pub fn upload(
   renderer: &mut WGPURenderer,
@@ -166,21 +164,22 @@ pub fn upload(
   image_data: &[u8],
   target_layer: u32,
 ) {
-  let buffer = WGPUBuffer::new(renderer, image_data, wgpu::BufferUsage::COPY_SRC);
-
-  renderer.encoder.copy_buffer_to_texture(
-    wgpu::BufferCopyView {
-      buffer: buffer.get_gpu_buffer(),
-      offset: 0,
-      bytes_per_row: 4 * texture.descriptor.size.width,
-      rows_per_image: 0,
-    },
+  renderer.queue.0.write_texture(
     wgpu::TextureCopyView {
       texture: &texture.gpu_texture,
       mip_level: 0,
-      array_layer: target_layer,
-      origin: wgpu::Origin3d::ZERO,
+      origin: wgpu::Origin3d {
+        x: 0,
+        y: 0,
+        z: target_layer,
+      },
     },
-    texture.descriptor.size,
+    image_data,
+    wgpu::TextureDataLayout {
+      offset: 0,
+      bytes_per_row: 4 * texture.descriptor.size.width, // todo 4
+      rows_per_image: 0,
+    },
+    texture.size.to_wgpu(),
   );
 }

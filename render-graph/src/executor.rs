@@ -56,7 +56,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
           .update_real_size(self.current_final_size);
         let real_size = target_data.real_size();
 
-        let mut pass_builder = T::create_render_pass_builder(
+        let pass_builder = T::create_render_pass_builder(
           renderer,
           if target_data.is_final_target() {
             final_target
@@ -69,7 +69,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
 
         let pass_data = graph.get_node_mut(handle).data_mut().unwrap_pass_data_mut();
 
-        (pass_data.pass_op_modifier)(&mut pass_builder);
+        let pass_builder = (pass_data.pass_op_modifier)(pass_builder);
 
         let mut render_pass = T::begin_render_pass(renderer, pass_builder);
 

@@ -4,8 +4,8 @@
 mod rinecraft;
 // mod gui;
 mod camera_controls;
-mod effect;
 mod init;
+mod rendering;
 mod shading;
 mod util;
 mod vox;

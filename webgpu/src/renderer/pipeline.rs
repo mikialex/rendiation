@@ -1,5 +1,5 @@
 use crate::{render_target::TargetStates, WGPURenderer};
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 pub struct WGPUPipeline {
   pub pipeline: wgpu::RenderPipeline,
@@ -79,6 +79,7 @@ impl PipelineBuilder {
         depth_bias: 0,
         depth_bias_slope_scale: 0.0,
         depth_bias_clamp: 0.0,
+        clamp_depth: false,
       },
       target_states: TargetStates::default(),
     }
@@ -98,15 +99,20 @@ impl PipelineBuilder {
       .map(|l| l.as_ref())
       .collect();
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+      label: None,
+      push_constant_ranges: &[],
       bind_group_layouts: &bind_group_layouts,
     });
 
     // Create the render pipeline
-    let vs_module = device.create_shader_module(&self.vertex_shader);
-    let fs_module = device.create_shader_module(&self.frag_shader);
+    let vs_module_source = wgpu::ShaderModuleSource::SpirV(Cow::Borrowed(&self.vertex_shader));
+    let fs_module_source = wgpu::ShaderModuleSource::SpirV(Cow::Borrowed(&self.frag_shader));
+    let vs_module = device.create_shader_module(vs_module_source);
+    let fs_module = device.create_shader_module(fs_module_source);
 
     let pipeline_des = wgpu::RenderPipelineDescriptor {
-      layout: &pipeline_layout,
+      label: None,
+      layout: Some(&pipeline_layout),
 
       vertex_stage: wgpu::ProgrammableStageDescriptor {
         module: &vs_module,
@@ -134,40 +140,40 @@ impl PipelineBuilder {
   }
 }
 
-pub struct PipelineCachePool {
-  pool: HashMap<(TargetStates, wgpu::RasterizationStateDescriptor), WGPUPipeline>, // todo optimize
-  builder: PipelineBuilder,
-}
+// pub struct PipelineCachePool {
+//   pool: HashMap<(TargetStates, wgpu::RasterizationStateDescriptor), WGPUPipeline>, // todo optimize
+//   builder: PipelineBuilder,
+// }
 
-impl PipelineCachePool {
-  pub fn new(
-    vertex_shader: Vec<u32>,
-    frag_shader: Vec<u32>,
-    shader_interface_info: PipelineShaderInterfaceInfo,
-  ) -> Self {
-    Self {
-      pool: HashMap::new(),
-      builder: PipelineBuilder::new(vertex_shader, frag_shader, shader_interface_info),
-    }
-  }
+// impl PipelineCachePool {
+//   pub fn new(
+//     vertex_shader: Vec<u32>,
+//     frag_shader: Vec<u32>,
+//     shader_interface_info: PipelineShaderInterfaceInfo,
+//   ) -> Self {
+//     Self {
+//       pool: HashMap::new(),
+//       builder: PipelineBuilder::new(vertex_shader, frag_shader, shader_interface_info),
+//     }
+//   }
 
-  pub fn clear(&mut self) {
-    self.pool.clear()
-  }
+//   pub fn clear(&mut self) {
+//     self.pool.clear()
+//   }
 
-  pub fn get(
-    &mut self,
-    target_states: &TargetStates,
-    raster_states: &wgpu::RasterizationStateDescriptor,
-    renderer: &WGPURenderer,
-  ) -> WGPUPipeline {
-    todo!()
-    // let key = (target_states, raster_states);
-    // self
-    //   .pool
-    //   .entry(key) // todo optimize
-    //   .or_insert_with(|| {
-    //     self.builder.target_states = target_states;
-    //   })
-  }
-}
+//   pub fn get(
+//     &mut self,
+//     target_states: &TargetStates,
+//     raster_states: &wgpu::RasterizationStateDescriptor,
+//     renderer: &WGPURenderer,
+//   ) -> WGPUPipeline {
+//     todo!()
+//     // let key = (target_states, raster_states);
+//     // self
+//     //   .pool
+//     //   .entry(key) // todo optimize
+//     //   .or_insert_with(|| {
+//     //     self.builder.target_states = target_states;
+//     //   })
+//   }
+// }

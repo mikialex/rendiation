@@ -41,7 +41,10 @@ impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
 
   // oh my god we need specialization here in the future
   fn to_layout_type() -> BindingType {
-    BindingType::UniformBuffer { dynamic: false }
+    BindingType::UniformBuffer { 
+      dynamic: false,
+      min_binding_size: None, // todo investigate
+    }
   }
 }
 

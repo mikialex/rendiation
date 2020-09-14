@@ -21,7 +21,6 @@ impl WGPUTextureCube {
     let descriptor = wgpu::TextureDescriptor {
       label: None,
       size: size.to_wgpu(),
-      array_layer_count: 6, // that's the cube?
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
@@ -29,7 +28,7 @@ impl WGPUTextureCube {
       usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
     };
     let gpu_texture = renderer.device.create_texture(&descriptor);
-    let view = gpu_texture.create_default_view();
+    let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
     let texture = WGPUTexture {
       gpu_texture,
       descriptor,
@@ -53,10 +52,10 @@ impl WGPUTextureCube {
     nz: &[u8],
   ) {
     upload(renderer, &self.texture, px, 0);
-    upload(renderer, &self.texture, nx, 0);
-    upload(renderer, &self.texture, py, 0);
-    upload(renderer, &self.texture, ny, 0);
-    upload(renderer, &self.texture, pz, 0);
-    upload(renderer, &self.texture, nz, 0);
+    upload(renderer, &self.texture, nx, 1);
+    upload(renderer, &self.texture, py, 2);
+    upload(renderer, &self.texture, ny, 3);
+    upload(renderer, &self.texture, pz, 4);
+    upload(renderer, &self.texture, nz, 5);
   }
 }
