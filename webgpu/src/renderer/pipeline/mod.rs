@@ -2,7 +2,7 @@ use builder::PipelineBuilder;
 use rendiation_ral::RasterizationState;
 use std::collections::HashMap;
 
-use crate::{TargetStates, WGPURenderer};
+use crate::{RenderTargetFormatsInfo, TargetStates};
 
 pub mod builder;
 pub mod interface;
@@ -10,8 +10,9 @@ pub use builder::*;
 pub use interface::*;
 
 pub struct WGPUPipeline {
-  pool: HashMap<(TargetStates, wgpu::RasterizationStateDescriptor), WGPUPipeline>, // todo optimize
+  pool: HashMap<(TargetStates, RasterizationState), WGPUPipeline>, // todo optimize
   builder: PipelineBuilder,
+  pub rasterization_state: RasterizationState,
 }
 
 impl WGPUPipeline {
@@ -23,6 +24,7 @@ impl WGPUPipeline {
     Self {
       pool: HashMap::new(),
       builder: PipelineBuilder::new(vertex_shader, frag_shader, shader_interface_info),
+      rasterization_state: RasterizationState::default(),
     }
   }
 
@@ -32,10 +34,9 @@ impl WGPUPipeline {
 
   pub fn get(
     &mut self,
-    target_states: &TargetStates,
-    raster_states: &RasterizationState,
-    renderer: &WGPURenderer,
-  ) -> WGPUPipeline {
+    target_states: &RenderTargetFormatsInfo,
+    renderer: &wgpu::Device,
+  ) -> &wgpu::RenderPipeline {
     todo!()
     // let key = (target_states, raster_states);
     // self

@@ -1,18 +1,19 @@
-use crate::{WGPUBindGroup, WGPUBuffer, WGPUPipeline};
+use crate::{RenderTargetFormatsInfo, WGPUBindGroup, WGPUBuffer, WGPUPipeline};
 use rendiation_math::Vec3;
 use rendiation_render_entity::Viewport;
 use std::ops::Range;
 
 pub struct WGPURenderPass<'a> {
+  device: &'a wgpu::Device,
   pub gpu_pass: wgpu::RenderPass<'a>,
-  // pub pass_format: 
+  pub pass_format: RenderTargetFormatsInfo,
 }
 
 impl<'a> WGPURenderPass<'a> {
-  pub fn set_pipeline(&mut self, pipeline: &'a WGPUPipeline) -> &mut Self {
-    todo!();
-    // self.gpu_pass.set_pipeline(&pipeline.pipeline);
-    // self
+  pub fn set_pipeline(&mut self, pipeline: &'a mut WGPUPipeline) -> &mut Self {
+    let pipeline = pipeline.get(&self.pass_format, &self.device);
+    self.gpu_pass.set_pipeline(pipeline);
+    self
   }
 
   pub fn set_bindgroup(&mut self, index: usize, bindgroup: &'a WGPUBindGroup) -> &mut Self {
@@ -134,6 +135,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
       depth_stencil_attachment: self.depth,
     });
 
-    WGPURenderPass { gpu_pass: pass }
+    // WGPURenderPass { gpu_pass: pass }
+    todo!()
   }
 }
