@@ -10,8 +10,9 @@ pub struct WGPURenderPass<'a> {
 
 impl<'a> WGPURenderPass<'a> {
   pub fn set_pipeline(&mut self, pipeline: &'a WGPUPipeline) -> &mut Self {
-    self.gpu_pass.set_pipeline(&pipeline.pipeline);
-    self
+    todo!();
+    // self.gpu_pass.set_pipeline(&pipeline.pipeline);
+    // self
   }
 
   pub fn set_bindgroup(&mut self, index: usize, bindgroup: &'a WGPUBindGroup) -> &mut Self {

@@ -1,5 +1,17 @@
 use crate::texture_format::TextureFormat;
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct RenderTargetFormatsInfo{
+  pub color: Vec<wgpu::TextureFormat>,
+  pub depth: Option<wgpu::TextureFormat>
+}
+
+impl RenderTargetFormatsInfo{
+  pub fn create_pipeline_states(&self) -> TargetStates{
+    todo!()
+  }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TargetStates {
   pub color_states: Vec<wgpu::ColorStateDescriptor>,
