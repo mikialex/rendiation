@@ -50,6 +50,8 @@ pub trait RALBackend: 'static + Sized {
   );
 }
 
+pub struct AnyPlaceHolder;
+
 pub struct RenderObject<T: RALBackend> {
   pub shading: ShadingHandle<T, AnyPlaceHolder>,
   pub geometry: GeometryHandle<T>,

@@ -72,7 +72,7 @@ pub fn create_add_geometry(
   renderer: &mut WGPURenderer,
   resources: &mut ResourceManager<WGPURenderer>,
 ) -> GeometryHandle<WGPURenderer> {
-  let mut geometry_data = SceneGeometryData::new();
+  let mut geometry_data = GeometryResourceInstance::new();
   let index_buffer = WGPUBuffer::new(
     renderer,
     as_bytes(&geometry.index),
@@ -128,7 +128,7 @@ impl World {
     let bindgroup_index =
       resources
         .bindgroups
-        .add_bindgroup(BlockShadingParamGroup::create_resource_instance(
+        .add(BlockShadingParamGroup::create_resource_instance(
           camera_gpu.gpu_mvp_matrix,
           fog,
           block_atlas,

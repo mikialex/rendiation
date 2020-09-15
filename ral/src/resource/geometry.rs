@@ -4,13 +4,13 @@ use crate::{
 };
 use std::ops::Range;
 
-pub struct SceneGeometryData<T: RALBackend> {
+pub struct GeometryResourceInstance<T: RALBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
 }
 
-impl<T: RALBackend> SceneGeometryData<T> {
+impl<T: RALBackend> GeometryResourceInstance<T> {
   pub fn new() -> Self {
     Self {
       draw_range: 0..0,
@@ -23,19 +23,19 @@ impl<T: RALBackend> SceneGeometryData<T> {
 impl<T: RALBackend> ResourceManager<T> {
   pub fn add_geometry(
     &mut self,
-    g: SceneGeometryData<T>,
-  ) -> &mut ResourceWrap<SceneGeometryData<T>> {
+    g: GeometryResourceInstance<T>,
+  ) -> &mut ResourceWrap<GeometryResourceInstance<T>> {
     ResourceWrap::new_wrap(&mut self.geometries, g)
   }
 
   pub fn get_geometry_mut(
     &mut self,
     index: GeometryHandle<T>,
-  ) -> &mut ResourceWrap<SceneGeometryData<T>> {
+  ) -> &mut ResourceWrap<GeometryResourceInstance<T>> {
     self.geometries.get_mut(index).unwrap()
   }
 
-  pub fn get_geometry(&self, index: GeometryHandle<T>) -> &ResourceWrap<SceneGeometryData<T>> {
+  pub fn get_geometry(&self, index: GeometryHandle<T>) -> &ResourceWrap<GeometryResourceInstance<T>> {
     self.geometries.get(index).unwrap()
   }
 

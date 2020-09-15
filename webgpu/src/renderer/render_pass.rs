@@ -5,6 +5,7 @@ use std::ops::Range;
 
 pub struct WGPURenderPass<'a> {
   pub gpu_pass: wgpu::RenderPass<'a>,
+  // pub pass_format: 
 }
 
 impl<'a> WGPURenderPass<'a> {

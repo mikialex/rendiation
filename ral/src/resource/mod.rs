@@ -14,8 +14,6 @@ pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
 
-pub struct AnyPlaceHolder;
-
 pub type ShadingHandle<R, T> = Handle<ShadingPair<R, T>>;
 pub type BindGroupHandle<R, T> = Handle<BindgroupPair<R, T>>;
 
@@ -38,4 +36,4 @@ impl<R: RALBackend, T> Copy for UniformHandle<R, T> {}
 
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
 pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;
-pub type GeometryHandle<T> = Handle<ResourceWrap<SceneGeometryData<T>>>;
+pub type GeometryHandle<T> = Handle<ResourceWrap<GeometryResourceInstance<T>>>;

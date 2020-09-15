@@ -34,7 +34,7 @@ impl<R: RALBackend> BindGroupManager<R> {
     self.storage.get(handle).unwrap().get_gpu()
   }
 
-  pub fn add_bindgroup<T: BindGroupProvider<R>>(
+  pub fn add<T: BindGroupProvider<R>>(
     &mut self,
     bindgroup: T::Instance,
   ) -> BindGroupHandle<R, T> {
@@ -47,7 +47,8 @@ impl<R: RALBackend> BindGroupManager<R> {
     unsafe { handle.cast_type() }
   }
 
-  pub fn update_bindgroup<T: BindGroupProvider<R>>(
+  // put updated handle into modified list, and return the instance for others to modify
+  pub fn update<T: BindGroupProvider<R>>(
     &mut self,
     handle: BindGroupHandle<R, T>,
   ) -> &mut T::Instance {
@@ -61,7 +62,7 @@ impl<R: RALBackend> BindGroupManager<R> {
       .update()
   }
 
-  pub fn delete_bindgroup<T: BindGroupProvider<R>>(&mut self, handle: BindGroupHandle<R, T>) {
+  pub fn delete<T: BindGroupProvider<R>>(&mut self, handle: BindGroupHandle<R, T>) {
     let handle = unsafe { handle.cast_type() };
     self.modified.remove(&handle);
     self.storage.remove(handle);
