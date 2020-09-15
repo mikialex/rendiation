@@ -7,6 +7,7 @@ pub struct PipelineShaderInterfaceInfo {
   bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   primitive_topology: wgpu::PrimitiveTopology,
+  pub color_output_size: usize,
 }
 
 impl PipelineShaderInterfaceInfo {
@@ -15,6 +16,7 @@ impl PipelineShaderInterfaceInfo {
       bindgroup_layouts: Vec::new(),
       vertex_state: None,
       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+      color_output_size: 1,
     }
   }
 
