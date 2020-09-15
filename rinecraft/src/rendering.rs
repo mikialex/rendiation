@@ -84,7 +84,7 @@ impl RinecraftRenderer {
         .create_render_pass_builder()
         .first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
         .depth(|d| d.load_with_clear(1.0).ok())
-        .create(&mut renderer.encoder);
+        .create(renderer);
 
       list.render(unsafe { std::mem::transmute(&mut pass) }, scene, resource);
     }

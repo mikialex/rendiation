@@ -1,4 +1,4 @@
-use render_target::{RenderTarget, TargetStatesProvider};
+use render_target::{RenderTarget, TargetInfoProvider};
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 
 use rendiation_shader_library::builtin::*;

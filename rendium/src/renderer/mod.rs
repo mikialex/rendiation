@@ -7,7 +7,7 @@ use rendiation_render_entity::*;
 use rendiation_webgpu::*;
 
 mod shader;
-use render_target::{RenderTarget, RenderTargetAble, TargetStatesProvider};
+use render_target::{RenderTarget, RenderTargetAble, TargetInfoProvider};
 use rendiation_mesh_buffer::{
   tessellation::{plane::Quad, IndexedBufferTessellator},
   wgpu::GPUGeometry,
@@ -29,7 +29,7 @@ impl GUIRenderer {
   pub fn new(
     renderer: &mut WGPURenderer,
     size: (f32, f32),
-    screen_target: &impl TargetStatesProvider,
+    screen_target: &impl TargetInfoProvider,
   ) -> Self {
     let view = Vec4::new(0.0, 0.0, size.0, size.1);
     let mut quad = GPUGeometry::from(Quad.create_mesh(&()));
@@ -90,7 +90,7 @@ impl GUIRenderer {
       .canvas
       .create_render_pass_builder()
       .first_color(|c| c.load_with_clear((1., 1., 1.).into(), 0.5).ok())
-      .create(&mut renderer.encoder);
+      .create(renderer);
   }
 
   pub fn update_to_screen(&mut self, renderer: &mut WGPURenderer, screen: &impl RenderTargetAble) {

@@ -1,6 +1,6 @@
 use crate::{
-  RenderTargetAble, TargetStates, TargetStatesProvider, WGPURenderPassBuilder, WGPURenderer,
-  WGPUTexture,
+  RenderTargetAble, RenderTargetFormatsInfo, TargetInfoProvider, TargetStates,
+  WGPURenderPassBuilder, WGPURenderer, WGPUTexture,
 };
 
 pub struct ScreenRenderTarget {
@@ -18,7 +18,7 @@ impl ScreenRenderTarget {
   }
 }
 
-impl TargetStatesProvider for ScreenRenderTarget {
+impl TargetInfoProvider for ScreenRenderTarget {
   fn create_target_states(&self) -> TargetStates {
     let color_states = vec![wgpu::ColorStateDescriptor {
       format: self.swap_chain_format,
@@ -41,6 +41,9 @@ impl TargetStatesProvider for ScreenRenderTarget {
       color_states,
       depth_state,
     }
+  }
+  fn provide_format_info(&self) -> RenderTargetFormatsInfo {
+    todo!()
   }
 }
 
@@ -72,9 +75,12 @@ pub struct ScreenRenderTargetInstance<'a> {
   swap_chain_view: &'a wgpu::TextureView,
   base: &'a mut ScreenRenderTarget,
 }
-impl<'a> TargetStatesProvider for ScreenRenderTargetInstance<'a> {
+impl<'a> TargetInfoProvider for ScreenRenderTargetInstance<'a> {
   fn create_target_states(&self) -> TargetStates {
     self.base.create_target_states()
+  }
+  fn provide_format_info(&self) -> RenderTargetFormatsInfo {
+    todo!()
   }
 }
 impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
@@ -101,7 +107,11 @@ impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {
           }),
           stencil_ops: None,
         });
-    WGPURenderPassBuilder { attachments, depth }
+    WGPURenderPassBuilder {
+      attachments,
+      depth,
+      format: self.provide_format_info(),
+    }
   }
 
   fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) {

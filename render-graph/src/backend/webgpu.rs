@@ -77,7 +77,7 @@ impl RenderGraphBackend for WebGPURenderGraphBackend {
     renderer: &mut Self::Renderer,
     builder: Self::RenderPassBuilder,
   ) -> Self::RenderPass {
-    let pass = builder.create(&mut renderer.encoder);
+    let pass = builder.create(renderer);
     unsafe { std::mem::transmute(pass) }
   }
   fn end_render_pass(_: &Self::Renderer, _: Self::RenderPass) {

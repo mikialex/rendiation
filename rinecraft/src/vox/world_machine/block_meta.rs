@@ -191,7 +191,7 @@ impl BlockRegistry {
       let mut pass = target
         .create_render_pass_builder()
         .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())
-        .create(&mut renderer.encoder);
+        .create(renderer);
 
       for (params, viewport) in &gpu {
         pass.use_viewport(&viewport);
