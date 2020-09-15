@@ -89,8 +89,6 @@ impl RinecraftRenderer {
       list.render(unsafe { std::mem::transmute(&mut pass) }, scene, resource);
     }
 
-    renderer
-      .queue
-      .submit(&renderer.device, &mut renderer.encoder);
+    renderer.submit();
   }
 }

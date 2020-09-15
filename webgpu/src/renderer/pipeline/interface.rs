@@ -1,7 +1,4 @@
-use rendiation_ral::RasterizationState;
-
-use crate::{render_target::TargetStates, WGPURenderer};
-use std::{borrow::Cow, sync::Arc, collections::HashMap};
+use crate::WGPURenderer;
 
 pub trait VertexProvider {
   fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static>;

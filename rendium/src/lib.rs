@@ -38,8 +38,6 @@ impl GUI {
     self.fragment.render(renderer, &mut self.renderer);
 
     self.renderer.update_to_screen(renderer, target);
-    renderer
-      .queue
-      .submit(&renderer.device, &mut renderer.encoder);
+    renderer.submit();
   }
 }

@@ -40,52 +40,51 @@ pub struct WGPURenderer {
   pub instance: wgpu::Instance,
   pub adapter: wgpu::Adapter,
   pub device: wgpu::Device,
-  pub queue: Queue,
+  pub queue: wgpu::Queue,
   pub encoder: wgpu::CommandEncoder,
   pub swap_chain_format: wgpu::TextureFormat,
   pub bindgroup_layout_cache: RefCell<HashMap<TypeId, Arc<wgpu::BindGroupLayout>>>,
 }
 
-pub struct Queue(pub wgpu::Queue);
-impl Queue {
-  pub fn submit(&mut self, device: &wgpu::Device, old_encoder: &mut wgpu::CommandEncoder) {
-    let mut encoder =
-      device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    use std::mem;
-    mem::swap(&mut encoder, old_encoder);
-
-    let command_buf = encoder.finish();
-    let command_buf = vec![command_buf]; // todo avoid allocation
-    self.0.submit(command_buf);
-  }
-}
-
 impl WGPURenderer {
   pub async fn new(instance: wgpu::Instance, surface: &wgpu::Surface) -> Self {
-
-    let adapter = instance.request_adapter(
-      &wgpu::RequestAdapterOptions {
+    let adapter = instance
+      .request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::Default,
         compatible_surface: Some(surface),
-      },
-    )
-    .await
-    .unwrap();
+      })
+      .await
+      .unwrap();
 
     let (device, queue) = adapter
       .request_device(&wgpu::DeviceDescriptor::default(), None)
-      .await.unwrap();
+      .await
+      .unwrap();
 
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
     Self {
       instance,
       adapter,
       device,
-      queue: Queue(queue),
+      queue,
       encoder,
       swap_chain_format: wgpu::TextureFormat::Bgra8UnormSrgb,
       bindgroup_layout_cache: RefCell::new(HashMap::new()),
     }
+  }
+
+  pub fn submit(&mut self) {
+    let mut encoder = self
+      .device
+      .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    use std::mem;
+
+    mem::swap(&mut encoder, &mut self.encoder);
+
+    let command_buf = encoder.finish();
+    let command_buf = vec![command_buf]; // todo avoid allocation
+    self.queue.submit(command_buf);
   }
 
   pub fn register_bindgroup<T: BindGroupLayoutProvider>(&self) -> Arc<wgpu::BindGroupLayout> {
