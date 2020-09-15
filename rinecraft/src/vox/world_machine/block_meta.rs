@@ -1,12 +1,12 @@
 use crate::shading::copy::CopyParam;
-use crate::{vox::block::BlockFace, shading::*};
+use crate::{shading::*, vox::block::BlockFace};
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
-use rendiation_webgpu::*;
 use rendiation_mesh_buffer::tessellation::{plane::Quad, IndexedBufferTessellator};
 use rendiation_mesh_buffer::wgpu::*;
 use rendiation_render_entity::Viewport;
-use std::{sync::Arc, collections::HashMap};
+use rendiation_webgpu::*;
+use std::{collections::HashMap, sync::Arc};
 
 pub struct BlockMetaInfo {
   name: String,
@@ -170,18 +170,14 @@ impl BlockRegistry {
     let target = RenderTarget::from_one_texture(target_texture);
 
     {
-      let copy_shading = CopierShading::new(renderer, &target);
+      let copy_shading = CopierShading::new(renderer);
       let dest_size_width = 64.;
 
       let gpu: Vec<_> = face_list
         .iter()
         .map(|face| {
           let src_tex = tex(&face.img, renderer);
-          let params = CopyParam::create_bindgroup(
-            renderer,
-            src_tex.view(),
-            &sampler,
-          );
+          let params = CopyParam::create_bindgroup(renderer, src_tex.view(), &sampler);
 
           let mut viewport = Viewport::new((32, 32));
           viewport.x = face.pack_info.x * dest_size_width;

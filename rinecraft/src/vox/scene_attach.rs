@@ -1,7 +1,7 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
-  shading::{create_block_shading, BlockShader, BlockShadingParamGroup, CopyParam},
+  shading::{BlockShader, BlockShadingParamGroup, CopyParam},
   util::CameraGPU,
 };
 use rendiation_math::{Vec3, Vec4};
@@ -122,7 +122,7 @@ impl World {
       .bindable
       .samplers
       .insert(WGPUSampler::default(renderer));
-    let block_shading_pipeline = create_block_shading(renderer, target);
+    let block_shading_pipeline = BlockShader::create_pipeline(renderer);
     let block_shading_pipeline = resources.shading_gpu.insert(block_shading_pipeline);
 
     let bindgroup_index =

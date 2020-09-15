@@ -8,11 +8,7 @@ use super::{
 use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::*;
-use crate::{
-  shading::{create_block_shading, BlockShadingParamGroup},
-  util::CameraGPU,
-  vox::world_machine::*,
-};
+use crate::{shading::BlockShadingParamGroup, util::CameraGPU, vox::world_machine::*};
 use render_target::TargetStates;
 use rendiation_math::*;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
