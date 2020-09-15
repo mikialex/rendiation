@@ -43,7 +43,9 @@ impl TargetInfoProvider for ScreenRenderTarget {
     }
   }
   fn provide_format_info(&self) -> RenderTargetFormatsInfo {
-    todo!()
+    let color = vec![self.swap_chain_format];
+    let depth = self.depth.as_ref().map(|d| *d.format());
+    RenderTargetFormatsInfo { color, depth }
   }
 }
 
@@ -80,7 +82,7 @@ impl<'a> TargetInfoProvider for ScreenRenderTargetInstance<'a> {
     self.base.create_target_states()
   }
   fn provide_format_info(&self) -> RenderTargetFormatsInfo {
-    todo!()
+    self.base.provide_format_info()
   }
 }
 impl<'a> RenderTargetAble for ScreenRenderTargetInstance<'a> {

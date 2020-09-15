@@ -64,7 +64,9 @@ impl TargetInfoProvider for RenderTarget {
   }
 
   fn provide_format_info(&self) -> RenderTargetFormatsInfo {
-    todo!()
+    let color = self.attachments.iter().map(|t| *t.format()).collect();
+    let depth = self.depth.as_ref().map(|d| *d.format());
+    RenderTargetFormatsInfo { color, depth }
   }
 }
 
