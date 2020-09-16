@@ -11,9 +11,8 @@ pub struct WGPURenderPass<'a> {
 
 impl<'a> WGPURenderPass<'a> {
   pub fn set_pipeline(&mut self, pipeline: &'a WGPUPipeline) -> &mut Self {
-    pipeline.get(&self.pass_format, &self.device, &mut |pipeline| {
-      self.gpu_pass.set_pipeline(pipeline);
-    });
+    let pipeline = pipeline.get(&self.pass_format, &self.device);
+    self.gpu_pass.set_pipeline(pipeline);
     self
   }
 

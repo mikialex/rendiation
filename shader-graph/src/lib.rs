@@ -83,12 +83,10 @@ impl ShaderGraph {
   }
 
   pub fn create_pipeline(&self) -> WGPUPipeline {
-    let mut wgpu_shader_interface = self.wgpu_shader_interface.clone();
-    wgpu_shader_interface.color_output_size = self.frag_outputs.len();
     WGPUPipeline::new(
       load_glsl(self.gen_code_vertex(), rendiation_ral::ShaderStage::Vertex),
       load_glsl(self.gen_code_frag(), rendiation_ral::ShaderStage::Fragment),
-      wgpu_shader_interface,
+      self.wgpu_shader_interface.clone(),
     )
   }
 

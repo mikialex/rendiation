@@ -1,6 +1,6 @@
 use builder::PipelineBuilder;
 use rendiation_ral::RasterizationState;
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::UnsafeCell, collections::HashMap};
 
 use crate::{RenderTargetFormatsInfo, TargetStates};
 
@@ -10,7 +10,7 @@ pub use builder::*;
 pub use interface::*;
 
 pub struct WGPUPipeline {
-  builder: RefCell<PipelineCacheBuilder>,
+  builder: UnsafeCell<PipelineCacheBuilder>,
   pub rasterization_state: RasterizationState,
 }
 
@@ -26,7 +26,7 @@ impl WGPUPipeline {
     shader_interface_info: PipelineShaderInterfaceInfo,
   ) -> Self {
     Self {
-      builder: RefCell::new(PipelineCacheBuilder {
+      builder: UnsafeCell::new(PipelineCacheBuilder {
         pool: HashMap::new(),
         builder: PipelineBuilder::new(vertex_shader, frag_shader, shader_interface_info),
       }),
@@ -35,34 +35,59 @@ impl WGPUPipeline {
   }
 
   pub fn clear(&self) {
-    let mut builder = self.builder.borrow_mut();
+    let builder = unsafe { &mut *self.builder.get() };
     builder.pool.clear();
   }
 
   // todo optimize
   pub fn get(
     &self,
-    _formats_info: &RenderTargetFormatsInfo,
+    formats_info: &RenderTargetFormatsInfo,
     renderer: &wgpu::Device,
-    getter: &mut impl FnMut(&wgpu::RenderPipeline),
-  ) {
-    let mut builder = self.builder.borrow_mut();
-    let target_states = builder
-      .builder
-      .shader_interface_info
-      .preferred_target_states
-      .clone();
+  ) -> &wgpu::RenderPipeline {
+    let builder = unsafe { &mut *self.builder.get() };
+
+    let target_states = merge_state(
+      &builder
+        .builder
+        .shader_interface_info
+        .preferred_target_states,
+      formats_info,
+    );
+
     let pool = &mut builder.pool;
-    // let pipeline_builder = &mut builder.builder;
+    let pipeline_builder = &mut builder.builder;
+
     let key = (target_states.clone(), self.rasterization_state);
-    let pipeline = pool.entry(key).or_insert_with(|| {
-      builder.builder.target_states = target_states; // todo merge income states safely
+
+    pool.entry(key).or_insert_with(|| {
+      println!("{:?}", &target_states.depth_state);
+      pipeline_builder.target_states = target_states;
 
       // pipeline_builder.rasterization = self.rasterization_state; // todo
-      builder.builder.build(renderer)
-    });
-    getter(pipeline);
+      pipeline_builder.build(renderer)
+    })
   }
+}
+
+fn merge_state(preferred: &TargetStates, input: &RenderTargetFormatsInfo) -> TargetStates {
+  let mut result = preferred.clone();
+  input.depth.as_ref().map(|d| {
+    if let Some(result_depth) = &mut result.depth_state {
+      result_depth.format = *d;
+    } else {
+      result.depth_state = Some(wgpu::DepthStencilStateDescriptor {
+        format: *d,
+        depth_write_enabled: true,
+        depth_compare: wgpu::CompareFunction::LessEqual,
+        stencil: wgpu::StencilStateDescriptor::default(),
+      });
+    }
+  });
+  if input.depth.is_none() {
+    result.depth_state = None;
+  }
+  result
 }
 
 impl AsMut<Self> for WGPUPipeline {
