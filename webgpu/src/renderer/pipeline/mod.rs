@@ -15,7 +15,7 @@ pub struct WGPUPipeline {
 }
 
 struct PipelineCacheBuilder {
-  pool: HashMap<(TargetStates, RasterizationState), WGPUPipeline>, // todo optimize
+  pool: HashMap<(TargetStates, RasterizationState), wgpu::RenderPipeline>, // todo optimize
   builder: PipelineBuilder,
 }
 
@@ -39,20 +39,29 @@ impl WGPUPipeline {
     builder.pool.clear();
   }
 
+  // todo optimize
   pub fn get(
     &self,
-    target_states: &RenderTargetFormatsInfo,
+    _formats_info: &RenderTargetFormatsInfo,
     renderer: &wgpu::Device,
-  ) -> &wgpu::RenderPipeline {
-    todo!()
-    // let mut builder = self.builder.borrow_mut();
-    // let key = (target_states, raster_states);
-    // self
-    //   .pool
-    //   .entry(key) // todo optimize
-    //   .or_insert_with(|| {
-    //     self.builder.target_states = target_states;
-    //   })
+    getter: &mut impl FnMut(&wgpu::RenderPipeline),
+  ) {
+    let mut builder = self.builder.borrow_mut();
+    let target_states = builder
+      .builder
+      .shader_interface_info
+      .preferred_target_states
+      .clone();
+    let pool = &mut builder.pool;
+    // let pipeline_builder = &mut builder.builder;
+    let key = (target_states.clone(), self.rasterization_state);
+    let pipeline = pool.entry(key).or_insert_with(|| {
+      builder.builder.target_states = target_states; // todo merge income states safely
+
+      // pipeline_builder.rasterization = self.rasterization_state; // todo
+      builder.builder.build(renderer)
+    });
+    getter(pipeline);
   }
 }
 

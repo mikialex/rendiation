@@ -7,7 +7,7 @@ pub struct PipelineShaderInterfaceInfo {
   bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   primitive_topology: wgpu::PrimitiveTopology,
-  pub color_output_size: usize,
+  pub preferred_target_states: TargetStates,
 }
 
 impl PipelineShaderInterfaceInfo {
@@ -16,7 +16,7 @@ impl PipelineShaderInterfaceInfo {
       bindgroup_layouts: Vec::new(),
       vertex_state: None,
       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-      color_output_size: 1,
+      preferred_target_states: TargetStates::default(),
     }
   }
 
@@ -38,9 +38,9 @@ impl PipelineShaderInterfaceInfo {
 pub struct PipelineBuilder {
   vertex_shader: Vec<u32>,
   frag_shader: Vec<u32>,
-  shader_interface_info: PipelineShaderInterfaceInfo,
-  target_states: TargetStates,
-  rasterization: wgpu::RasterizationStateDescriptor,
+  pub shader_interface_info: PipelineShaderInterfaceInfo,
+  pub target_states: TargetStates,
+  pub rasterization: wgpu::RasterizationStateDescriptor,
 }
 
 impl AsMut<Self> for PipelineBuilder {
@@ -76,8 +76,7 @@ impl PipelineBuilder {
     self
   }
 
-  pub fn build(&self, renderer: &WGPURenderer) -> wgpu::RenderPipeline {
-    let device = &renderer.device;
+  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
     let bind_group_layouts: Vec<_> = self
       .shader_interface_info
       .bindgroup_layouts
