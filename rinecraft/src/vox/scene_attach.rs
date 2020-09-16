@@ -1,7 +1,7 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
-  shading::{create_block_shading, BlockShader, BlockShadingParamGroup, CopyParam},
+  shading::{BlockShader, BlockShadingParamGroup, CopyParam},
   util::CameraGPU,
 };
 use rendiation_math::{Vec3, Vec4};
@@ -72,7 +72,7 @@ pub fn create_add_geometry(
   renderer: &mut WGPURenderer,
   resources: &mut ResourceManager<WGPURenderer>,
 ) -> GeometryHandle<WGPURenderer> {
-  let mut geometry_data = SceneGeometryData::new();
+  let mut geometry_data = GeometryResourceInstance::new();
   let index_buffer = WGPUBuffer::new(
     renderer,
     as_bytes(&geometry.index),
@@ -122,13 +122,13 @@ impl World {
       .bindable
       .samplers
       .insert(WGPUSampler::default(renderer));
-    let block_shading_pipeline = create_block_shading(renderer, target);
+    let block_shading_pipeline = BlockShader::create_pipeline(renderer);
     let block_shading_pipeline = resources.shading_gpu.insert(block_shading_pipeline);
 
     let bindgroup_index =
       resources
         .bindgroups
-        .add_bindgroup(BlockShadingParamGroup::create_resource_instance(
+        .add(BlockShadingParamGroup::create_resource_instance(
           camera_gpu.gpu_mvp_matrix,
           fog,
           block_atlas,

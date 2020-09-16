@@ -1,6 +1,6 @@
 use crate::{
-  RenderTargetAble, TargetStates, TargetStatesProvider, WGPURenderPassBuilder, WGPURenderer,
-  WGPUTexture,
+  RenderTargetAble, RenderTargetFormatsInfo, TargetInfoProvider, TargetStates,
+  WGPURenderPassBuilder, WGPURenderer, WGPUTexture,
 };
 
 pub struct RenderTarget {
@@ -34,7 +34,7 @@ impl RenderTarget {
   }
 }
 
-impl TargetStatesProvider for RenderTarget {
+impl TargetInfoProvider for RenderTarget {
   fn create_target_states(&self) -> TargetStates {
     let color_states = self
       .attachments
@@ -61,6 +61,12 @@ impl TargetStatesProvider for RenderTarget {
       color_states,
       depth_state,
     }
+  }
+
+  fn provide_format_info(&self) -> RenderTargetFormatsInfo {
+    let color = self.attachments.iter().map(|t| *t.format()).collect();
+    let depth = self.depth.as_ref().map(|d| *d.format());
+    RenderTargetFormatsInfo { color, depth }
   }
 }
 
@@ -89,7 +95,11 @@ impl RenderTargetAble for RenderTarget {
         }),
         stencil_ops: None,
       });
-    WGPURenderPassBuilder { attachments, depth }
+    WGPURenderPassBuilder {
+      attachments,
+      depth,
+      format: self.provide_format_info(),
+    }
   }
 
   fn resize(&mut self, renderer: &WGPURenderer, size: (usize, usize)) {

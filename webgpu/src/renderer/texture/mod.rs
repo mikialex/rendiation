@@ -164,7 +164,7 @@ pub fn upload(
   image_data: &[u8],
   target_layer: u32,
 ) {
-  renderer.queue.0.write_texture(
+  renderer.queue.write_texture(
     wgpu::TextureCopyView {
       texture: &texture.gpu_texture,
       mip_level: 0,

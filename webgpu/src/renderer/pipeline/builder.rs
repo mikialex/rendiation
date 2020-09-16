@@ -1,28 +1,13 @@
-use crate::{render_target::TargetStates, WGPURenderer};
+use crate::{BindGroupLayoutProvider, GeometryProvider, TargetStates, WGPURenderer};
 use std::{borrow::Cow, sync::Arc};
 
-pub struct WGPUPipeline {
-  pub pipeline: wgpu::RenderPipeline,
-}
-
-pub trait VertexProvider {
-  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static>;
-}
-pub trait GeometryProvider {
-  fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static>;
-  fn get_primitive_topology() -> wgpu::PrimitiveTopology;
-}
-
-pub trait BindGroupLayoutProvider: Sized + 'static {
-  fn provide_layout(renderer: &WGPURenderer) -> wgpu::BindGroupLayout;
-}
-
+/// Descriptor of the shader input
 #[derive(Clone)]
 pub struct PipelineShaderInterfaceInfo {
   bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
   primitive_topology: wgpu::PrimitiveTopology,
-  // todo frag output
+  pub preferred_target_states: TargetStates,
 }
 
 impl PipelineShaderInterfaceInfo {
@@ -31,6 +16,7 @@ impl PipelineShaderInterfaceInfo {
       bindgroup_layouts: Vec::new(),
       vertex_state: None,
       primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+      preferred_target_states: TargetStates::default(),
     }
   }
 
@@ -52,9 +38,9 @@ impl PipelineShaderInterfaceInfo {
 pub struct PipelineBuilder {
   vertex_shader: Vec<u32>,
   frag_shader: Vec<u32>,
-  shader_interface_info: PipelineShaderInterfaceInfo,
-  target_states: TargetStates,
-  rasterization: wgpu::RasterizationStateDescriptor,
+  pub shader_interface_info: PipelineShaderInterfaceInfo,
+  pub target_states: TargetStates,
+  pub rasterization: wgpu::RasterizationStateDescriptor,
 }
 
 impl AsMut<Self> for PipelineBuilder {
@@ -90,8 +76,7 @@ impl PipelineBuilder {
     self
   }
 
-  pub fn build(&self, renderer: &WGPURenderer) -> WGPUPipeline {
-    let device = &renderer.device;
+  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
     let bind_group_layouts: Vec<_> = self
       .shader_interface_info
       .bindgroup_layouts
@@ -134,46 +119,6 @@ impl PipelineBuilder {
       rasterization_state: Some(self.rasterization.clone()),
     };
 
-    let pipeline = device.create_render_pipeline(&pipeline_des);
-
-    WGPUPipeline { pipeline }
+    device.create_render_pipeline(&pipeline_des)
   }
 }
-
-// pub struct PipelineCachePool {
-//   pool: HashMap<(TargetStates, wgpu::RasterizationStateDescriptor), WGPUPipeline>, // todo optimize
-//   builder: PipelineBuilder,
-// }
-
-// impl PipelineCachePool {
-//   pub fn new(
-//     vertex_shader: Vec<u32>,
-//     frag_shader: Vec<u32>,
-//     shader_interface_info: PipelineShaderInterfaceInfo,
-//   ) -> Self {
-//     Self {
-//       pool: HashMap::new(),
-//       builder: PipelineBuilder::new(vertex_shader, frag_shader, shader_interface_info),
-//     }
-//   }
-
-//   pub fn clear(&mut self) {
-//     self.pool.clear()
-//   }
-
-//   pub fn get(
-//     &mut self,
-//     target_states: &TargetStates,
-//     raster_states: &wgpu::RasterizationStateDescriptor,
-//     renderer: &WGPURenderer,
-//   ) -> WGPUPipeline {
-//     todo!()
-//     // let key = (target_states, raster_states);
-//     // self
-//     //   .pool
-//     //   .entry(key) // todo optimize
-//     //   .or_insert_with(|| {
-//     //     self.builder.target_states = target_states;
-//     //   })
-//   }
-// }

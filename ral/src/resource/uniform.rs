@@ -8,42 +8,9 @@ use std::{
   ops::Range,
 };
 
-// /// uniform buffer
-// impl<T: RALBackend> ResourceManager<T> {
-//   pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<T, U> {
-//     UniformHandle {
-//       index: self.bindable.uniform_buffers.insert(value),
-//       phantom: PhantomData,
-//       phantom2: PhantomData,
-//     }
-//   }
-
-//   pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>, new_value: U) {
-//     self
-//       .bindable
-//       .uniform_buffers
-//       .update(handle.index, new_value);
-//   }
-
-//   pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<T, U>) -> UniformBufferRef<T, U> {
-//     UniformBufferRef {
-//       ty: PhantomData,
-//       data: self
-//         .bindable
-//         .uniform_buffers
-//         .get_gpu_with_range::<U>(handle.index),
-//     }
-//   }
-
-//   pub fn delete_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>) {
-//     self.bindable.uniform_buffers.delete::<U>(handle.index);
-//   }
-// }
-
 pub struct UBOManager<T: RALBackend> {
   data: HashMap<TypeId, Box<dyn UBOStorageTrait<T>>>,
   modified: HashSet<TypeId>,
-  phantom: PhantomData<T>,
 }
 
 impl<T: RALBackend> UBOManager<T> {
@@ -51,7 +18,6 @@ impl<T: RALBackend> UBOManager<T> {
     Self {
       data: HashMap::new(),
       modified: HashSet::new(),
-      phantom: PhantomData,
     }
   }
 
@@ -130,12 +96,6 @@ impl<T: RALBackend> UBOManager<T> {
       .update(handle.index, new_value);
   }
 
-  // pub fn update_uniform<U: 'static>(&mut self, handle: UniformHandle<T, U>, new_value: U) {
-  //   self
-  //     .bindable
-  //     .uniform_buffers
-  //     .update(handle.index, new_value);
-  // }
 }
 
 trait UBOStorageTrait<T: RALBackend>: Any {

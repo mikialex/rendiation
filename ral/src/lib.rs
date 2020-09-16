@@ -5,9 +5,11 @@ use std::{marker::PhantomData, ops::Range};
 mod resource;
 mod shader;
 mod shading;
+mod rasterization;
 pub use resource::*;
 pub use shader::*;
 pub use shading::*;
+pub use rasterization::*;
 
 pub trait RALBackend: 'static + Sized {
   type RenderTarget;
@@ -49,6 +51,8 @@ pub trait RALBackend: 'static + Sized {
     resources: &ResourceManager<Self>,
   );
 }
+
+pub struct AnyPlaceHolder;
 
 pub struct RenderObject<T: RALBackend> {
   pub shading: ShadingHandle<T, AnyPlaceHolder>,

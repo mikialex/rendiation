@@ -4,19 +4,6 @@ use crate::{
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
-pub struct AnyPlaceHolderShaderProviderInstance;
-impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
-  type Instance = AnyPlaceHolderShaderProviderInstance;
-  fn apply(
-    _instance: &ShadingPair<T, Self>,
-    _render_pass: &mut T::RenderPass,
-    _gpu_shading: &T::Shading,
-    _resources: &BindGroupManager<T>,
-  ) {
-    unreachable!()
-  }
-}
-
 pub struct ShadingManager<R: RALBackend> {
   storage: Arena<Box<dyn ShadingStorageTrait<R>>>,
   modified: HashSet<Handle<Box<dyn ShadingStorageTrait<R>>>>,
@@ -133,5 +120,18 @@ pub struct ShadingPair<R: RALBackend, T: ShadingProvider<R>> {
 impl<R: RALBackend, T: ShadingProvider<R>> ShadingPair<R, T> {
   fn update(&mut self) -> &mut T::Instance {
     &mut self.data
+  }
+}
+
+pub struct AnyPlaceHolderShaderProviderInstance;
+impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
+  type Instance = AnyPlaceHolderShaderProviderInstance;
+  fn apply(
+    _instance: &ShadingPair<T, Self>,
+    _render_pass: &mut T::RenderPass,
+    _gpu_shading: &T::Shading,
+    _resources: &BindGroupManager<T>,
+  ) {
+    unreachable!()
   }
 }

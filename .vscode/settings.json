@@ -15,6 +15,7 @@
         "OPENGL",
         "Phong",
         "Raycastable",
+        "Raycaster",
         "Renderable",
         "Rendiation",
         "Rendium",

@@ -2,7 +2,7 @@ use std::{fmt::Display, io::Read};
 
 #[cfg(feature = "glsl-to-spirv")]
 pub fn load_glsl(code: impl AsRef<str> + Display, stage: rendiation_ral::ShaderStage) -> Vec<u32> {
-  print!("{}", code);
+  // print!("{}", code);
   use rendiation_ral::ShaderStage::*;
   let ty = match stage {
     Vertex => glsl_to_spirv::ShaderType::Vertex,

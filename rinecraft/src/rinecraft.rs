@@ -3,7 +3,7 @@ use crate::{
   vox::world::World,
 };
 use crate::{rendering::RinecraftRenderer, util::*};
-use render_target::{ScreenRenderTarget, TargetStatesProvider};
+use render_target::{ScreenRenderTarget, TargetInfoProvider};
 use rendiation_math::Mat4;
 use rendiation_render_entity::*;
 use rendiation_scenegraph::*;
