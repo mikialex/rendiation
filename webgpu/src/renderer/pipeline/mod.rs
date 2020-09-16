@@ -61,7 +61,6 @@ impl WGPUPipeline {
     let key = (target_states.clone(), self.rasterization_state);
 
     pool.entry(key).or_insert_with(|| {
-      println!("{:?}", &target_states.depth_state);
       pipeline_builder.target_states = target_states;
 
       // pipeline_builder.rasterization = self.rasterization_state; // todo
@@ -87,6 +86,10 @@ fn merge_state(preferred: &TargetStates, input: &RenderTargetFormatsInfo) -> Tar
   if input.depth.is_none() {
     result.depth_state = None;
   }
+
+  // todo improve
+  result.color_states[0].format = input.color[0];
+
   result
 }
 
