@@ -1,4 +1,4 @@
-use crate::{UniformValue, WebGLProgram, WebGLRenderer, WebGLTexture, WebGLVertexBuffer};
+use crate::{WebGLProgram, WebGLRenderer, WebGLTexture, WebGLVertexBuffer};
 
 use rendiation_ral::*;
 use std::ops::Range;
@@ -14,7 +14,6 @@ impl RALBackend for WebGLRenderer {
   type IndexBuffer = Option<WebGlBuffer>;
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;
-  type UniformValue = UniformValue;
   type Texture = ();
   type TextureView = WebGLTexture;
   type Sampler = ();

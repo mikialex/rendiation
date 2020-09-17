@@ -12,7 +12,6 @@ impl RALBackend for WGPURenderer {
   type IndexBuffer = WGPUBuffer;
   type VertexBuffer = WGPUBuffer;
   type UniformBuffer = WGPUBuffer;
-  type UniformValue = ();
   type Texture = WGPUTexture;
   type TextureView = wgpu::TextureView;
   type Sampler = WGPUSampler;

@@ -24,7 +24,6 @@ pub trait RALBackend: 'static + Sized {
   type IndexBuffer;
   type VertexBuffer;
   type UniformBuffer;
-  type UniformValue;
   type Texture;
   type TextureView;
   type Sampler;

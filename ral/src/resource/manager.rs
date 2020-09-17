@@ -6,19 +6,18 @@ use std::any::Any;
 type ResourceArena<T> = Arena<ResourceWrap<T>>;
 
 pub struct ResourceManager<T: RALBackend> {
-  pub geometries: ResourceArena<GeometryResourceInstance<T>>,
   pub shadings: ShadingManager<T>,
   pub shading_gpu: Arena<T::Shading>,
   pub bindgroups: BindGroupManager<T>,
   pub bindable: ShaderBindableResourceManager<T>,
 
+  pub geometries: ResourceArena<GeometryResourceInstance<T>>,
   pub index_buffers: ResourceArena<T::IndexBuffer>,
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
 }
 
 pub struct ShaderBindableResourceManager<T: RALBackend> {
   pub uniform_buffers: UBOManager<T>,
-  pub uniform_values: Arena<T::UniformValue>,
   pub samplers: Arena<T::Sampler>,
   pub texture_views: Arena<T::TextureView>,
   pub textures: Arena<T::Texture>,
@@ -28,7 +27,6 @@ impl<T: RALBackend> ShaderBindableResourceManager<T> {
   pub fn new() -> Self {
     Self {
       uniform_buffers: UBOManager::new(),
-      uniform_values: Arena::new(),
       texture_views: Arena::new(),
       textures: Arena::new(),
       samplers: Arena::new(),
