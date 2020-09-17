@@ -1,20 +1,24 @@
-// cal for Content abstraction layer
+// CAL for Content abstraction layer
 
-use std::{marker::PhantomData, ops::Range};
+use std::ops::Range;
 
+mod rasterization;
 mod resource;
 mod shader;
 mod shading;
-mod rasterization;
+mod viewport;
+
+pub use rasterization::*;
 pub use resource::*;
 pub use shader::*;
 pub use shading::*;
-pub use rasterization::*;
+pub use viewport::*;
 
 pub trait RALBackend: 'static + Sized {
   type RenderTarget;
   type RenderPass;
   type Renderer;
+  type ShaderBuildSource;
   type Shading;
   type BindGroup;
   type IndexBuffer;
@@ -25,7 +29,7 @@ pub trait RALBackend: 'static + Sized {
   type TextureView;
   type Sampler;
 
-  fn create_shading(renderer: &mut Self::Renderer, des: &SceneShadingDescriptor) -> Self::Shading;
+  fn create_shading(renderer: &mut Self::Renderer, des: &Self::ShaderBuildSource) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
 
   fn create_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::UniformBuffer;
@@ -38,87 +42,19 @@ pub trait RALBackend: 'static + Sized {
   );
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer;
+  fn dispose_index_buffer(renderer: &mut Self::Renderer, buffer: Self::IndexBuffer);
 
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
     layout: RALVertexBufferDescriptor,
   ) -> Self::VertexBuffer;
+  fn dispose_vertex_buffer(renderer: &mut Self::Renderer, buffer: Self::VertexBuffer);
 
   fn render_object(
     object: &RenderObject<Self>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
-  );
-}
-
-pub struct AnyPlaceHolder;
-
-pub struct RenderObject<T: RALBackend> {
-  pub shading: ShadingHandle<T, AnyPlaceHolder>,
-  pub geometry: GeometryHandle<T>,
-}
-
-impl<T: RALBackend> RenderObject<T> {
-  pub fn new<SP: ShadingProvider<T>>(
-    geometry: GeometryHandle<T>,
-    shading: ShadingHandle<T, SP>,
-  ) -> Self {
-    Self {
-      shading: unsafe { shading.cast_type() },
-      geometry,
-    }
-  }
-}
-
-pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
-  pub ty: PhantomData<U>,
-  pub data: (&'a T::UniformBuffer, Range<u64>),
-}
-
-pub trait BindGroupProvider<T: RALBackend>: 'static {
-  type Instance;
-  fn create_bindgroup(
-    instance: &Self::Instance,
-    renderer: &T::Renderer,
-    resources: &ShaderBindableResourceManager<T>,
-  ) -> T::BindGroup;
-  fn apply(&self, render_pass: &mut T::RenderPass, gpu_bindgroup: &T::BindGroup);
-}
-
-pub trait UBOData: 'static + Sized {}
-pub trait RALBindgroupHandle<T: RALBackend> {
-  type HandleType;
-}
-
-pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
-  type Resource;
-  fn get_item(
-    handle: Self::HandleType,
-    resources: &'a ShaderBindableResourceManager<T>,
-  ) -> Self::Resource;
-}
-
-impl<T: RALBackend, U: UBOData> RALBindgroupHandle<T> for U {
-  type HandleType = UniformHandle<T, U>;
-}
-impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
-  type Resource = UniformBufferRef<'a, T, U>;
-  fn get_item(
-    handle: Self::HandleType,
-    resources: &'a ShaderBindableResourceManager<T>,
-  ) -> Self::Resource {
-    resources.uniform_buffers.get_uniform_gpu(handle)
-  }
-}
-
-pub trait ShadingProvider<T: RALBackend>: 'static + Sized {
-  type Instance;
-  fn apply(
-    instance: &ShadingPair<T, Self>,
-    render_pass: &mut T::RenderPass,
-    gpu_shading: &T::Shading,
-    resources: &BindGroupManager<T>,
   );
 }
 

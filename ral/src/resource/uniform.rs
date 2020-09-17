@@ -21,7 +21,7 @@ impl<T: RALBackend> UBOManager<T> {
     }
   }
 
-  pub fn add_uniform<U: 'static>(&mut self, value: U) -> UniformHandle<T, U> {
+  pub fn add<U: 'static>(&mut self, value: U) -> UniformHandle<T, U> {
     UniformHandle {
       index: self.insert(value),
       phantom: PhantomData,
@@ -95,7 +95,6 @@ impl<T: RALBackend> UBOManager<T> {
       .get_storage_or_create::<U>()
       .update(handle.index, new_value);
   }
-
 }
 
 trait UBOStorageTrait<T: RALBackend>: Any {

@@ -233,7 +233,7 @@ fn derive_wgpu_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
     .collect();
 
   quote! {
-    impl rendiation_webgpu::BindGroupLayoutProvider for #struct_name {
+    impl rendiation_webgpu::WGPUBindGroupLayoutProvider for #struct_name {
 
       fn provide_layout(renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::BindGroupLayout {
         rendiation_webgpu::BindGroupLayoutBuilder::new()

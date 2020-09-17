@@ -1,5 +1,5 @@
-use web_sys::*;
 use crate::WebGLTexture;
+use web_sys::*;
 
 pub struct TextureSlotStates {
   slot: u32,
@@ -35,12 +35,7 @@ impl TextureSlotStates {
     self.active_slot = Some(slot);
   }
 
-  pub fn bind_texture(
-    &mut self,
-    texture: &WebGLTexture,
-    gl: &WebGl2RenderingContext,
-  ) {
-
+  pub fn bind_texture(&mut self, texture: &WebGLTexture, gl: &WebGl2RenderingContext) {
     let bind_type = texture.ty;
     let texture_id = texture.id;
     let texture = &texture.texture;

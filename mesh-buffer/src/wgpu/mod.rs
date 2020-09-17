@@ -1,16 +1,43 @@
 use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
+use once_cell::sync::Lazy;
+use rendiation_math_entity::Positioned3D;
+use rendiation_ral::{GeometryResourceInstance, ResourceManager};
 use rendiation_webgpu::*;
 use std::ops::Range;
 
-use lazy_static::lazy_static;
-use rendiation_math_entity::Positioned3D;
-lazy_static! {
-  static ref VERTEX_BUFFERS: Vec<VertexBufferDescriptor<'static>> =
-    vec![Vertex::get_buffer_layout_descriptor()];
+// todo let's macro
+static VERTEX_BUFFERS: Lazy<Vec<VertexBufferDescriptor<'static>>> =
+  Lazy::new(|| vec![Vertex::get_buffer_layout_descriptor()]);
+
+impl WGPUVertexProvider for Vertex {
+  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static> {
+    use std::mem;
+    wgpu::VertexBufferDescriptor {
+      stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+      step_mode: wgpu::InputStepMode::Vertex,
+      attributes: &[
+        wgpu::VertexAttributeDescriptor {
+          format: wgpu::VertexFormat::Float3,
+          offset: 0,
+          shader_location: 0,
+        },
+        wgpu::VertexAttributeDescriptor {
+          format: wgpu::VertexFormat::Float3,
+          offset: 4 * 3,
+          shader_location: 1,
+        },
+        wgpu::VertexAttributeDescriptor {
+          format: wgpu::VertexFormat::Float2,
+          offset: 4 * 3 + 4 * 3,
+          shader_location: 2,
+        },
+      ],
+    }
+  }
 }
 
-impl<'a, V, T, U> GeometryProvider for IndexedGeometry<V, T, U>
+impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
 where
   V: Positioned3D,
   T: PrimitiveTopology<V> + WGPUPrimitiveTopology,
@@ -18,13 +45,31 @@ where
 {
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {
-      index_format: wgpu::IndexFormat::Uint16,
+      index_format: wgpu::IndexFormat::Uint16, // todo index format
       vertex_buffers: &VERTEX_BUFFERS,
     }
   }
 
   fn get_primitive_topology() -> wgpu::PrimitiveTopology {
     T::WGPU_ENUM
+  }
+
+  fn create_resource_instance(
+    &self,
+    renderer: &mut WGPURenderer,
+    resource: &mut ResourceManager<WGPURenderer>,
+  ) -> GeometryResourceInstance<WGPURenderer> {
+    let mut instance = GeometryResourceInstance::new();
+    let index_buffer = WGPUBuffer::new(renderer, as_bytes(&self.index), wgpu::BufferUsage::INDEX);
+    let vertex_buffer = WGPUBuffer::new(
+      renderer,
+      as_bytes(self.data.as_ref()),
+      wgpu::BufferUsage::VERTEX,
+    ); // this is not ok todo!
+    instance.index_buffer = Some(resource.add_index_buffer(index_buffer).index());
+    instance.vertex_buffers = vec![resource.add_vertex_buffer(vertex_buffer).index()];
+    instance.draw_range = 0..self.get_full_count();
+    instance
   }
 }
 
@@ -53,33 +98,6 @@ pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
       (vec as *const [T]) as *const u8,
       ::std::mem::size_of::<T>() * vec.len(),
     )
-  }
-}
-
-impl VertexProvider for Vertex {
-  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static> {
-    use std::mem;
-    wgpu::VertexBufferDescriptor {
-      stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-      step_mode: wgpu::InputStepMode::Vertex,
-      attributes: &[
-        wgpu::VertexAttributeDescriptor {
-          format: wgpu::VertexFormat::Float3,
-          offset: 0,
-          shader_location: 0,
-        },
-        wgpu::VertexAttributeDescriptor {
-          format: wgpu::VertexFormat::Float3,
-          offset: 4 * 3,
-          shader_location: 1,
-        },
-        wgpu::VertexAttributeDescriptor {
-          format: wgpu::VertexFormat::Float2,
-          offset: 4 * 3 + 4 * 3,
-          shader_location: 2,
-        },
-      ],
-    }
   }
 }
 

@@ -8,6 +8,7 @@ impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
+  type ShaderBuildSource = SceneShadingDescriptor; // todo
   type Shading = WebGLProgram;
   type BindGroup = ();
   type IndexBuffer = Option<WebGlBuffer>;
@@ -18,8 +19,7 @@ impl RALBackend for WebGLRenderer {
   type TextureView = WebGLTexture;
   type Sampler = ();
 
-  fn create_shading(renderer: &mut WebGLRenderer, des: &SceneShadingDescriptor) -> Self::Shading {
-    // extra shader conversion should do in sal
+  fn create_shading(renderer: &mut WebGLRenderer, des: &Self::ShaderBuildSource) -> Self::Shading {
     WebGLProgram::new(renderer, des)
   }
   fn dispose_shading(renderer: &mut WebGLRenderer, shading: Self::Shading) {
@@ -32,9 +32,6 @@ impl RALBackend for WebGLRenderer {
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer) {
     renderer.delete_uniform_buffer(uniform)
   }
-  // fn update_uniform_buffer(_renderer: &mut Self::Renderer, _data: &[u8], _range: Range<usize>){
-  //   todo!()
-  // }
   fn update_uniform_buffer(
     _renderer: &mut Self::Renderer,
     _gpu: &mut Self::UniformBuffer,
@@ -42,29 +39,14 @@ impl RALBackend for WebGLRenderer {
     _range: Range<usize>, // todo
   ) {
     todo!()
-    // gpu.update(renderer, data);
   }
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer {
-    let buffer = renderer
-      .gl
-      .create_buffer()
-      .ok_or("failed to create buffer")
-      .unwrap();
-    renderer
-      .gl
-      .bind_buffer(WebGl2RenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer));
-    unsafe {
-      // unsafe for transmute and avoid allocation(cause heap grow and move in wasm)
-      let transmuted = std::mem::transmute::<&[u8], &[u16]>(data);
-      let vert_array = js_sys::Uint16Array::view(transmuted);
-      renderer.gl.buffer_data_with_array_buffer_view(
-        WebGl2RenderingContext::ELEMENT_ARRAY_BUFFER,
-        &vert_array,
-        WebGl2RenderingContext::STATIC_DRAW,
-      );
-    };
-    Some(buffer)
+    Some(renderer.create_index_buffer(data))
+  }
+
+  fn dispose_index_buffer(renderer: &mut Self::Renderer, buffer: Self::IndexBuffer) {
+    buffer.map(|b| renderer.dispose_index_buffer(b));
   }
 
   fn create_vertex_buffer(
@@ -72,36 +54,23 @@ impl RALBackend for WebGLRenderer {
     data: &[u8],
     layout: RALVertexBufferDescriptor,
   ) -> Self::VertexBuffer {
-    let buffer = renderer
-      .gl
-      .create_buffer()
-      .ok_or("failed to create buffer")
-      .unwrap();
-    renderer
-      .gl
-      .bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
-    unsafe {
-      let transmuted = std::mem::transmute::<&[u8], &[f32]>(data);
-      let vert_array = js_sys::Float32Array::view(transmuted);
-      renderer.gl.buffer_data_with_array_buffer_view(
-        WebGl2RenderingContext::ARRAY_BUFFER,
-        &vert_array,
-        WebGl2RenderingContext::STATIC_DRAW,
-      );
-    };
-    WebGLVertexBuffer { buffer, layout }
+    renderer.create_vertex_buffer(data, layout)
+  }
+  fn dispose_vertex_buffer(renderer: &mut Self::Renderer, buffer: Self::VertexBuffer) {
+    renderer.dispose_vertex_buffer(buffer)
   }
 
   fn render_object(
-    _object: &RenderObject<Self>,
-    _pass: &mut Self::RenderPass,
-    _resources: &ResourceManager<Self>,
+    object: &RenderObject<Self>,
+    pass: &mut Self::RenderPass,
+    resources: &ResourceManager<Self>,
   ) {
-    todo!()
+    resources
+      .shadings
+      .get_shading_boxed(object.shading)
+      .apply(pass, resources);
 
-    // let resources = &scene.resources;
-    // let shading = resources.get_shading(self.shading_index).resource();
-    // let geometry = &resources.get_geometry(self.geometry_index).resource();
+    // let geometry = &resources.get_geometry(object.geometry).resource();
     // let program = shading.gpu();
 
     // renderer.use_program(program.program());

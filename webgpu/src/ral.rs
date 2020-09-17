@@ -6,6 +6,7 @@ impl RALBackend for WGPURenderer {
   type RenderTarget = WGPURenderPassBuilder<'static>;
   type RenderPass = WGPURenderPass<'static>;
   type Renderer = WGPURenderer;
+  type ShaderBuildSource = WGPUPipelineBuildSource;
   type Shading = WGPUPipeline;
   type BindGroup = WGPUBindGroup;
   type IndexBuffer = WGPUBuffer;
@@ -16,13 +17,8 @@ impl RALBackend for WGPURenderer {
   type TextureView = wgpu::TextureView;
   type Sampler = WGPUSampler;
 
-  fn create_shading(_renderer: &mut WGPURenderer, _des: &SceneShadingDescriptor) -> Self::Shading {
-    todo!()
-    // let vertex = load_glsl(&des.shader_descriptor.vertex_shader_str, ShaderStage::VERTEX);
-    // let frag = load_glsl(&des.shader_descriptor.frag_shader_str, ShaderStage::FRAGMENT);
-    // PipelineBuilder::new(renderer, vertex, frag)
-    //   // .geometry(des)
-    //   .build() // todo add bindgroup state stuff
+  fn create_shading(_renderer: &mut WGPURenderer, des: &Self::ShaderBuildSource) -> Self::Shading {
+    WGPUPipeline::new(des)
   }
   fn dispose_shading(_renderer: &mut WGPURenderer, _shading: Self::Shading) {
     // just drop!
@@ -50,12 +46,20 @@ impl RALBackend for WGPURenderer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::INDEX)
   }
 
+  fn dispose_index_buffer(_renderer: &mut Self::Renderer, _buffer: Self::IndexBuffer) {
+    // just drop
+  }
+
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
     _layout: RALVertexBufferDescriptor, // so can we use this to add additional runtime check?
   ) -> Self::VertexBuffer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::VERTEX)
+  }
+
+  fn dispose_vertex_buffer(_renderer: &mut Self::Renderer, _buffer: Self::VertexBuffer) {
+    // just drop
   }
 
   fn render_object(
@@ -65,22 +69,24 @@ impl RALBackend for WGPURenderer {
   ) {
     let resources: &'static ResourceManager<Self> = unsafe { std::mem::transmute(resources) };
 
+    // set shading
     resources
       .shadings
       .get_shading_boxed(object.shading)
       .apply(pass, resources);
 
+    // set geometry
     let geometry = resources.get_geometry(object.geometry).resource();
-
     geometry.index_buffer.map(|b| {
       let index = resources.get_index_buffer(b);
       pass.set_index_buffer(index.resource());
     });
     for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
-      let buffer = resources.get_vertex_buffer(vertex_buffer.1);
+      let buffer = resources.get_vertex_buffer(*vertex_buffer);
       pass.set_vertex_buffer(i, buffer.resource());
     }
 
+    // draw
     pass.draw_indexed(geometry.draw_range.clone())
   }
 }

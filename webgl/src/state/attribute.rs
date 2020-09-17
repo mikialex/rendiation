@@ -2,6 +2,13 @@ use crate::WebGLRenderer;
 use rendiation_ral::*;
 use web_sys::*;
 
+pub struct WebGLVertexBuffer {
+  pub buffer: WebGlBuffer,
+  pub layout: RALVertexBufferDescriptor,
+  // todo use small vec opt
+  // todo optional VAO
+}
+
 pub fn to_webgl(d: RALVertexAttributeDataType) -> u32 {
   use RALVertexAttributeDataType::*;
   match d {
@@ -89,11 +96,4 @@ impl WebGLRenderer {
     self.gl.enable_vertex_attrib_array(index as u32);
     self.attribute_states.enable(index as usize, None);
   }
-}
-
-pub struct WebGLVertexBuffer {
-  pub buffer: WebGlBuffer,
-  pub layout: RALVertexBufferDescriptor,
-  // todo use smallvec opt
-  // todo optional VAO
 }

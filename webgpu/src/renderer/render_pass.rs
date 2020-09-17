@@ -1,6 +1,6 @@
 use crate::{RenderTargetFormatsInfo, WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPURenderer};
 use rendiation_math::Vec3;
-use rendiation_render_entity::Viewport;
+use rendiation_ral::Viewport;
 use std::ops::Range;
 
 pub struct WGPURenderPass<'a> {

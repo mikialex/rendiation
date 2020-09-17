@@ -1,6 +1,6 @@
 use crate::RALBackend;
 use arena::Handle;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Range};
 
 pub mod bindgroup;
 pub mod geometry;
@@ -13,6 +13,23 @@ pub use geometry::*;
 pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
+
+pub struct RenderObject<T: RALBackend> {
+  pub shading: ShadingHandle<T, AnyPlaceHolder>,
+  pub geometry: GeometryHandle<T>,
+}
+
+impl<T: RALBackend> RenderObject<T> {
+  pub fn new<SP: ShadingProvider<T>>(
+    geometry: GeometryHandle<T>,
+    shading: ShadingHandle<T, SP>,
+  ) -> Self {
+    Self {
+      shading: unsafe { shading.cast_type() },
+      geometry,
+    }
+  }
+}
 
 pub type ShadingHandle<R, T> = Handle<ShadingPair<R, T>>;
 pub type BindGroupHandle<R, T> = Handle<BindgroupPair<R, T>>;
@@ -37,3 +54,84 @@ impl<R: RALBackend, T> Copy for UniformHandle<R, T> {}
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
 pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;
 pub type GeometryHandle<T> = Handle<ResourceWrap<GeometryResourceInstance<T>>>;
+
+pub struct AnyPlaceHolder;
+
+pub trait BindGroupProvider<T: RALBackend>: 'static {
+  type Instance;
+  fn create_bindgroup(
+    instance: &Self::Instance,
+    renderer: &T::Renderer,
+    resources: &ShaderBindableResourceManager<T>,
+  ) -> T::BindGroup;
+  fn apply(&self, render_pass: &mut T::RenderPass, gpu_bindgroup: &T::BindGroup);
+}
+
+pub trait RALBindgroupHandle<T: RALBackend> {
+  type HandleType;
+}
+impl<T: RALBackend, U: UBOData> RALBindgroupHandle<T> for U {
+  type HandleType = UniformHandle<T, U>;
+}
+impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
+  type Resource = UniformBufferRef<'a, T, U>;
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource {
+    resources.uniform_buffers.get_uniform_gpu(handle)
+  }
+}
+
+pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
+  pub ty: PhantomData<U>,
+  pub data: (&'a T::UniformBuffer, Range<u64>),
+}
+
+pub trait UBOData: 'static + Sized {}
+
+pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
+  type Resource;
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource;
+}
+
+pub trait ShadingProvider<T: RALBackend>: 'static + Sized {
+  type Instance;
+  fn apply(
+    instance: &ShadingPair<T, Self>,
+    render_pass: &mut T::RenderPass,
+    gpu_shading: &T::Shading,
+    resources: &BindGroupManager<T>,
+  );
+}
+
+pub trait GeometryProvider<T: RALBackend>: 'static + Sized {
+  type Instance;
+  fn apply(
+    instance: &Self::Instance,
+    render_pass: &mut T::RenderPass,
+    resources: &ResourceManager<T>,
+  );
+  fn get_primitive_topology();
+}
+
+pub struct GeometryResourceInstance2<T: RALBackend, V: GeometryVertexProvider<T>> {
+  pub draw_range: Range<u32>,
+  pub index_buffer: Option<IndexBufferHandle<T>>,
+  pub vertex_buffers: V,
+  // pub topology_info
+}
+
+// impl GeometryResourceInstance2 {}
+
+pub trait GeometryVertexProvider<T: RALBackend> {
+  type Instance;
+  fn apply(
+    instance: &Self::Instance,
+    render_pass: &mut T::RenderPass,
+    resources: &ResourceManager<T>,
+  );
+}

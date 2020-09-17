@@ -10,7 +10,6 @@ use rendiation_webgpu::*;
 
 pub struct CameraGPU {
   pub gpu_mvp_matrix: UniformHandle<WGPURenderer, CameraTransform>,
-  gpu_mvp_matrix_dirty: bool,
 }
 
 impl CameraGPU {
@@ -25,13 +24,8 @@ impl CameraGPU {
       model_view: camera.get_view_matrix(),
     };
     Self {
-      gpu_mvp_matrix: resources.bindable.uniform_buffers.add_uniform(mvp),
-      gpu_mvp_matrix_dirty: false,
+      gpu_mvp_matrix: resources.bindable.uniform_buffers.add(mvp),
     }
-  }
-
-  pub fn mark_dirty(&mut self) {
-    self.gpu_mvp_matrix_dirty = true;
   }
 
   pub fn update_gpu_mvp_matrix(
@@ -40,8 +34,6 @@ impl CameraGPU {
     camera: &impl Camera,
     resources: &mut ResourceManager<WGPURenderer>,
   ) {
-    self.gpu_mvp_matrix_dirty = false;
-
     let mvp = CameraTransform {
       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),

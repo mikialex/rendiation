@@ -1,4 +1,4 @@
-use crate::{BindGroupLayoutProvider, GeometryProvider, TargetStates, WGPURenderer};
+use crate::{TargetStates, WGPUBindGroupLayoutProvider, WGPUGeometryProvider};
 use std::{borrow::Cow, sync::Arc};
 
 /// Descriptor of the shader input
@@ -20,7 +20,7 @@ impl PipelineShaderInterfaceInfo {
     }
   }
 
-  pub fn binding_group<T: BindGroupLayoutProvider>(
+  pub fn binding_group<T: WGPUBindGroupLayoutProvider>(
     &mut self,
     layout: Arc<wgpu::BindGroupLayout>,
   ) -> &mut Self {
@@ -28,7 +28,7 @@ impl PipelineShaderInterfaceInfo {
     self
   }
 
-  pub fn geometry<T: GeometryProvider>(&mut self) -> &mut Self {
+  pub fn geometry<T: WGPUGeometryProvider>(&mut self) -> &mut Self {
     self.vertex_state = Some(T::get_geometry_vertex_state_descriptor());
     self.primitive_topology = T::get_primitive_topology();
     self
@@ -51,13 +51,13 @@ impl AsMut<Self> for PipelineBuilder {
 
 impl PipelineBuilder {
   pub fn new(
-    vertex_shader: Vec<u32>,
-    frag_shader: Vec<u32>,
+    vertex_shader: &Vec<u32>,
+    frag_shader: &Vec<u32>,
     shader_interface_info: PipelineShaderInterfaceInfo,
   ) -> Self {
     Self {
-      vertex_shader,
-      frag_shader,
+      vertex_shader: vertex_shader.clone(),
+      frag_shader: frag_shader.clone(),
       shader_interface_info,
       rasterization: wgpu::RasterizationStateDescriptor {
         front_face: wgpu::FrontFace::Ccw,

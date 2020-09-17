@@ -1,5 +1,5 @@
 use crate::{RenderTargetFormatKey, RenderTargetSize};
-use rendiation_render_entity::Viewport;
+use rendiation_ral::Viewport;
 use std::hash::Hash;
 
 #[cfg(feature = "webgpu")]

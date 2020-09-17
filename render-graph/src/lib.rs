@@ -1,6 +1,6 @@
 pub use arena_graph::*;
 pub use rendiation_math::*;
-pub use rendiation_render_entity::*;
+pub use rendiation_ral::*;
 use std::{
   cell::{Cell, RefCell},
   collections::HashSet,

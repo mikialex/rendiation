@@ -87,7 +87,6 @@ impl Application for Rinecraft {
       state.screen_target.resize(renderer, swap_chain.size);
       state.camera.resize(size);
       // state.camera_orth.resize(size);
-      state.camera_gpu.mark_dirty();
       state.gui.renderer.resize(size, renderer);
     });
 
@@ -99,9 +98,7 @@ impl Application for Rinecraft {
       let resource = &mut state.resource;
 
       // update
-      if state.camera_controller.update(&mut state.camera) {
-        state.camera_gpu.mark_dirty();
-      }
+      if state.camera_controller.update(&mut state.camera) {}
       state
         .camera_gpu
         .update_all(&state.camera, renderer, resource);

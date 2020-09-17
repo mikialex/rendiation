@@ -87,7 +87,7 @@ impl WGPURenderer {
     self.queue.submit(command_buf);
   }
 
-  pub fn register_bindgroup<T: BindGroupLayoutProvider>(&self) -> Arc<wgpu::BindGroupLayout> {
+  pub fn register_bindgroup<T: WGPUBindGroupLayoutProvider>(&self) -> Arc<wgpu::BindGroupLayout> {
     let id = TypeId::of::<T>();
     let mut cache = self.bindgroup_layout_cache.borrow_mut();
     cache

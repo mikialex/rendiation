@@ -8,6 +8,7 @@ arena-graph = { path = "../utils/arena-graph" }
 rendiation-math = { path = "../math" }
 rendiation-render-entity = { path = "../render-entity" }
 rendiation-webgpu = { path = "../webgpu", optional = true}
+rendiation-ral = {path = "../ral"}
 
 [features]
 webgpu = ["rendiation-webgpu"]

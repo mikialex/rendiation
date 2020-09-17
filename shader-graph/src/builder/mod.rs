@@ -78,7 +78,7 @@ impl ShaderGraphBuilder {
   }
 
   pub fn bindgroup_by<
-    T: ShaderGraphBindGroupProvider + rendiation_webgpu::BindGroupLayoutProvider,
+    T: ShaderGraphBindGroupProvider + rendiation_webgpu::WGPUBindGroupLayoutProvider,
   >(
     &mut self,
     renderer: &rendiation_webgpu::WGPURenderer,
@@ -125,7 +125,7 @@ impl ShaderGraphBuilder {
     T::create_instance(self)
   }
 
-  pub fn geometry_by<T: rendiation_webgpu::GeometryProvider>(&mut self) {
+  pub fn geometry_by<T: rendiation_webgpu::WGPUGeometryProvider>(&mut self) {
     modify_graph(|graph| {
       graph.wgpu_shader_interface.geometry::<T>();
     });

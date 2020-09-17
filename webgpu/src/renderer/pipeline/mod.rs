@@ -19,16 +19,22 @@ struct PipelineCacheBuilder {
   builder: PipelineBuilder,
 }
 
+pub struct WGPUPipelineBuildSource {
+  pub vertex_shader: Vec<u32>,
+  pub frag_shader: Vec<u32>,
+  pub shader_interface_info: PipelineShaderInterfaceInfo,
+}
+
 impl WGPUPipeline {
-  pub fn new(
-    vertex_shader: Vec<u32>,
-    frag_shader: Vec<u32>,
-    shader_interface_info: PipelineShaderInterfaceInfo,
-  ) -> Self {
+  pub fn new(source: &WGPUPipelineBuildSource) -> Self {
     Self {
       builder: UnsafeCell::new(PipelineCacheBuilder {
         pool: HashMap::new(),
-        builder: PipelineBuilder::new(vertex_shader, frag_shader, shader_interface_info),
+        builder: PipelineBuilder::new(
+          &source.vertex_shader,
+          &source.frag_shader,
+          source.shader_interface_info.clone(),
+        ),
       }),
       rasterization_state: RasterizationState::default(),
     }

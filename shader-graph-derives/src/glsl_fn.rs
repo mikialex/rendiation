@@ -112,7 +112,6 @@ pub fn gen_glsl_function(
     })
     .unzip();
 
-  // we cant use lazy_static in marco so let's try once_cell
   quote! {
     pub static #prototype_name: once_cell::sync::Lazy<
     std::sync::Arc<

@@ -51,7 +51,7 @@ impl WorldSceneAttachment {
       }
 
       // add new node in scene;
-      let scene_geometry = create_add_geometry(&g, renderer, resources);
+      let scene_geometry = g.create_resource_instance_handle(renderer, resources);
 
       let render_object_index = scene.create_render_object(scene_geometry, self.block_shading);
       let new_node = scene.create_new_node();
@@ -65,31 +65,6 @@ impl WorldSceneAttachment {
         .insert(chunk, (node_index, render_object_index, scene_geometry));
     }
   }
-}
-
-pub fn create_add_geometry(
-  geometry: &IndexedGeometry,
-  renderer: &mut WGPURenderer,
-  resources: &mut ResourceManager<WGPURenderer>,
-) -> GeometryHandle<WGPURenderer> {
-  let mut geometry_data = GeometryResourceInstance::new();
-  let index_buffer = WGPUBuffer::new(
-    renderer,
-    as_bytes(&geometry.index),
-    wgpu::BufferUsage::INDEX,
-  );
-  let vertex_buffer = WGPUBuffer::new(
-    renderer,
-    as_bytes(&geometry.data),
-    wgpu::BufferUsage::VERTEX,
-  );
-  geometry_data.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
-  geometry_data.vertex_buffers = vec![(
-    AttributeTypeId(0), // todo
-    resources.add_vertex_buffer(vertex_buffer).index(),
-  )];
-  geometry_data.draw_range = 0..geometry.get_full_count();
-  resources.add_geometry(geometry_data).index()
 }
 
 impl World {
@@ -113,7 +88,7 @@ impl World {
       fog_end: 60.,
       fog_start: 30.,
     };
-    let fog = resources.bindable.uniform_buffers.add_uniform(fog);
+    let fog = resources.bindable.uniform_buffers.add(fog);
 
     resources.maintain_gpu(renderer);
 

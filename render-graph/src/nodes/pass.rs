@@ -2,7 +2,7 @@ use crate::{
   NodeBuilder, RenderGraphBackend, RenderGraphNode, RenderGraphNodeHandle, RenderTargetPool,
   RenderTargetSize, TargetNodeBuilder,
 };
-use rendiation_render_entity::Viewport;
+use rendiation_ral::Viewport;
 use std::collections::HashSet;
 
 pub struct PassNodeData<T: RenderGraphBackend> {

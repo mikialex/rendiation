@@ -1,14 +1,19 @@
 use crate::{
-  AttributeTypeId, GeometryHandle, IndexBufferHandle, RALBackend, ResourceManager, ResourceWrap,
-  VertexBufferHandle,
+  GeometryHandle, IndexBufferHandle, RALBackend, ResourceManager, ResourceWrap, VertexBufferHandle,
 };
 use std::ops::Range;
 
 pub struct GeometryResourceInstance<T: RALBackend> {
   pub draw_range: Range<u32>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
-  pub vertex_buffers: Vec<(AttributeTypeId, VertexBufferHandle<T>)>,
+  pub vertex_buffers: Vec<VertexBufferHandle<T>>,
 }
+
+// pub struct VertexGeometryInstance<T: RALBackend> {
+//   position: VertexBufferHandle<T>,
+//   normal: VertexBufferHandle<T>,
+//   uv: VertexBufferHandle<T>,
+// }
 
 impl<T: RALBackend> GeometryResourceInstance<T> {
   pub fn new() -> Self {
@@ -35,7 +40,10 @@ impl<T: RALBackend> ResourceManager<T> {
     self.geometries.get_mut(index).unwrap()
   }
 
-  pub fn get_geometry(&self, index: GeometryHandle<T>) -> &ResourceWrap<GeometryResourceInstance<T>> {
+  pub fn get_geometry(
+    &self,
+    index: GeometryHandle<T>,
+  ) -> &ResourceWrap<GeometryResourceInstance<T>> {
     self.geometries.get(index).unwrap()
   }
 
@@ -49,7 +57,7 @@ impl<T: RALBackend> ResourceManager<T> {
       self.index_buffers.remove(b);
     }
     for b in &geometry.vertex_buffers {
-      self.vertex_buffers.remove(b.1);
+      self.vertex_buffers.remove(*b);
     }
     self.geometries.remove(index);
   }
