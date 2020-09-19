@@ -1,6 +1,4 @@
-use super::ResourceManager;
 use crate::{RALBackend, UniformBufferRef, UniformHandle};
-use arena::Handle;
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
