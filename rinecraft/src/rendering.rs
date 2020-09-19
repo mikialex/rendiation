@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::rinecraft::RinecraftState;
 use rendiation_ral::ResourceManager;
-use rendiation_rendergraph::{RenderGraph, RenderGraphExecutor, WebGPURenderGraphBackend};
+use rendiation_rendergraph::{
+  ContentProvider, RenderGraph, RenderGraphExecutor, WebGPURenderGraphBackend,
+};
 use rendiation_scenegraph::{default_impl::DefaultSceneBackend, DrawcallList, Scene};
 use rendiation_webgpu::{
   renderer::SwapChain, RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance,
@@ -20,6 +22,13 @@ pub struct RinecraftRenderer {
   executor: RenderGraphExecutor<WebGPURenderGraphBackend>,
 }
 
+struct DefaultContentProvider<'a> {
+  scene: &'a mut Scene<WGPURenderer>,
+  resource: &'a mut ResourceManager<WGPURenderer>,
+}
+
+impl<'a> ContentProvider for DefaultContentProvider<'a> {}
+
 impl RinecraftRenderer {
   pub fn new() -> Self {
     Self {
@@ -32,14 +41,20 @@ impl RinecraftRenderer {
     &mut self,
     renderer: &mut WGPURenderer,
     target: &ScreenRenderTargetInstance,
+    scene: &mut Scene<WGPURenderer>,
+    resource: &mut ResourceManager<WGPURenderer>,
     config: &EffectConfig,
   ) {
+    let content = DefaultContentProvider { scene, resource };
+
     let graph = self
       .cache
       .entry(*config)
       .or_insert_with(|| Self::build(config));
     let target = unsafe { std::mem::transmute(&target) };
-    self.executor.render(graph, target, renderer);
+    self
+      .executor
+      .render(graph, target, renderer, Box::new((content)));
   }
 
   fn build(config: &EffectConfig) -> RenderGraph<WebGPURenderGraphBackend> {
@@ -60,7 +75,7 @@ impl RinecraftRenderer {
         b.first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
           .depth(|d| d.load_with_clear(1.0).ok())
       })
-      .render_by(|_, pass| {
+      .render_by(|_, _, pass| {
         todo!();
         todo!()
       });

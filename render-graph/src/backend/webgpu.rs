@@ -8,7 +8,7 @@ pub fn build_test_graph() {
   let copy_screen = graph
     .pass("copy_screen")
     .depend(&normal_target)
-    .render_by(|_, _| {
+    .render_by(|_, _, _| {
       let _a = 1;
     });
   graph.finally().from_pass(&copy_screen);

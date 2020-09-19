@@ -1,6 +1,6 @@
 use crate::{
-  build_pass_queue, RenderGraph, RenderGraphBackend, RenderGraphNodeHandle, RenderTargetPool,
-  RenderTargetSize,
+  build_pass_queue, ContentProvider, RenderGraph, RenderGraphBackend, RenderGraphNodeHandle,
+  RenderTargetPool, RenderTargetSize,
 };
 
 pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
@@ -30,6 +30,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
     graph: &RenderGraph<T>,
     final_target: &T::RenderTarget,
     renderer: &mut T::Renderer,
+    mut content_provider: Box<dyn ContentProvider>,
   ) {
     let new_size = T::get_target_size(final_target);
     if self.current_final_size != new_size {
@@ -75,7 +76,11 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
 
         T::set_viewport(renderer, &mut render_pass, pass_data.viewport(real_size));
 
-        pass_data.render.as_mut().unwrap()(&self.target_pool, &mut render_pass); // do render
+        pass_data.render.as_mut().unwrap()(
+          &self.target_pool,
+          &mut content_provider,
+          &mut render_pass,
+        ); // do render
 
         T::end_render_pass(renderer, render_pass);
 

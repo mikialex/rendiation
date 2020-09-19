@@ -5,12 +5,15 @@ use crate::{
 use rendiation_ral::Viewport;
 use std::collections::HashSet;
 
+pub trait ContentProvider {}
+
 pub struct PassNodeData<T: RenderGraphBackend> {
   pub name: String,
   pub(crate) viewport_modifier: Box<dyn Fn(RenderTargetSize) -> Viewport>,
   pub(crate) pass_op_modifier: Box<dyn FnMut(T::RenderPassBuilder) -> T::RenderPassBuilder>,
   pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T>>,
-  pub(crate) render: Option<Box<dyn FnMut(&RenderTargetPool<T>, &mut T::RenderPass)>>,
+  pub(crate) render:
+    Option<Box<dyn FnMut(&RenderTargetPool<T>, &mut Box<dyn ContentProvider>, &mut T::RenderPass)>>,
 }
 
 impl<T: RenderGraphBackend> PassNodeData<T> {
@@ -38,7 +41,8 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
 
   pub fn render_by(
     self,
-    renderer: impl FnMut(&RenderTargetPool<T>, &mut T::RenderPass) + 'static,
+    renderer: impl FnMut(&RenderTargetPool<T>, &mut Box<dyn ContentProvider>, &mut T::RenderPass)
+      + 'static,
   ) -> Self {
     self.pass_data_mut(|p| p.render = Some(Box::new(renderer)));
     self
