@@ -45,16 +45,18 @@ impl RinecraftRenderer {
     resource: &mut ResourceManager<WGPURenderer>,
     config: &EffectConfig,
   ) {
-    let content = DefaultContentProvider { scene, resource };
-
     let graph = self
       .cache
       .entry(*config)
       .or_insert_with(|| Self::build(config));
+
+    let content = DefaultContentProvider { scene, resource };
+    let content: DefaultContentProvider<'static> = unsafe { std::mem::transmute(content) };
+    let content = Box::new(content);
+
     let target = unsafe { std::mem::transmute(&target) };
-    self
-      .executor
-      .render(graph, target, renderer, Box::new((content)));
+
+    self.executor.render(graph, target, renderer, content);
   }
 
   fn build(config: &EffectConfig) -> RenderGraph<WebGPURenderGraphBackend> {
