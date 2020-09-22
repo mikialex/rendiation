@@ -1,17 +1,19 @@
+use rendiation_ral::Viewport;
+
 use crate::{
-  NodeBuilder, PassNodeBuilder, RenderGraph, RenderGraphBackend, RenderGraphNode,
+  ContentProvider, NodeBuilder, PassNodeBuilder, RenderGraph, RenderGraphBackend, RenderGraphNode,
   RenderGraphNodeHandle, RenderTargetFormatKey, RenderTargetSize,
 };
 
-pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
-  pub(crate) builder: NodeBuilder<'a, T>,
+pub struct TargetNodeBuilder<'a, T: RenderGraphBackend, U: ContentProvider<T>> {
+  pub(crate) builder: NodeBuilder<'a, T, U>,
 }
 
-impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
-  pub fn handle(&self) -> RenderGraphNodeHandle<T> {
+impl<'a, T: RenderGraphBackend, U: ContentProvider<T>> TargetNodeBuilder<'a, T, U> {
+  pub fn handle(&self) -> RenderGraphNodeHandle<T, U> {
     self.builder.handle
   }
-  pub fn from_pass(self, pass: &PassNodeBuilder<'a, T>) -> Self {
+  pub fn from_pass(self, pass: &PassNodeBuilder<'a, T, U>) -> Self {
     self
       .builder
       .graph
@@ -72,7 +74,7 @@ impl<T: RenderGraphBackend> TargetNodeData<T> {
       name,
       format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()),
       is_final_target: false,
-      size_modifier: Box::new(RenderGraph::<T>::same_as_final),
+      size_modifier: Box::new(same_as_final),
     }
   }
 
@@ -81,11 +83,19 @@ impl<T: RenderGraphBackend> TargetNodeData<T> {
       name: "root".to_owned(),
       format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()), // not actually useful
       is_final_target: true,
-      size_modifier: Box::new(RenderGraph::<T>::same_as_final),
+      size_modifier: Box::new(same_as_final),
     }
   }
 
   pub fn is_final_target(&self) -> bool {
     self.is_final_target
   }
+}
+
+pub fn same_as_target(size: RenderTargetSize) -> Viewport {
+  Viewport::new(size.to_tuple())
+}
+
+pub fn same_as_final(size: RenderTargetSize) -> RenderTargetSize {
+  size
 }

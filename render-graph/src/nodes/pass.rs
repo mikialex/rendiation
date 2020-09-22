@@ -1,30 +1,30 @@
 use crate::{
-  ContentNodeBuilder, NodeBuilder, RenderGraphBackend, RenderGraphNode, RenderGraphNodeHandle,
-  RenderTargetSize, TargetNodeBuilder,
+  ContentNodeBuilder, ContentProvider, NodeBuilder, RenderGraphBackend, RenderGraphNode,
+  RenderGraphNodeHandle, RenderTargetSize, TargetNodeBuilder,
 };
 use rendiation_ral::Viewport;
 use std::collections::HashSet;
 
-pub struct PassNodeData<T: RenderGraphBackend> {
+pub struct PassNodeData<T: RenderGraphBackend, U: ContentProvider<T>> {
   pub name: String,
   pub(crate) viewport_modifier: Box<dyn Fn(RenderTargetSize) -> Viewport>,
   pub(crate) pass_op_modifier: Box<dyn FnMut(T::RenderPassBuilder) -> T::RenderPassBuilder>,
-  pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T>>,
-  pub(crate) contents_to_render: Vec<RenderGraphNodeHandle<T>>,
+  pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T, U>>,
+  pub(crate) contents_to_render: Vec<RenderGraphNodeHandle<T, U>>,
 }
 
-impl<T: RenderGraphBackend> PassNodeData<T> {
+impl<T: RenderGraphBackend, U: ContentProvider<T>> PassNodeData<T, U> {
   pub fn viewport(&mut self, target_size: RenderTargetSize) -> Viewport {
     (&self.viewport_modifier)(target_size)
   }
 }
 
-pub struct PassNodeBuilder<'a, T: RenderGraphBackend> {
-  pub(crate) builder: NodeBuilder<'a, T>,
+pub struct PassNodeBuilder<'a, T: RenderGraphBackend, U: ContentProvider<T>> {
+  pub(crate) builder: NodeBuilder<'a, T, U>,
 }
 
-impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
-  pub fn handle(&self) -> RenderGraphNodeHandle<T> {
+impl<'a, T: RenderGraphBackend, U: ContentProvider<T>> PassNodeBuilder<'a, T, U> {
+  pub fn handle(&self) -> RenderGraphNodeHandle<T, U> {
     self.builder.handle
   }
 
@@ -36,7 +36,7 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self
   }
 
-  pub fn render_by(self, content: &ContentNodeBuilder<'a, T>) -> Self {
+  pub fn render_by(self, content: &ContentNodeBuilder<'a, T, U>) -> Self {
     self
       .builder
       .graph
@@ -57,7 +57,7 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self
   }
 
-  pub fn pass_data_mut(&self, mutator: impl FnOnce(&mut PassNodeData<T>)) {
+  pub fn pass_data_mut(&self, mutator: impl FnOnce(&mut PassNodeData<T, U>)) {
     let mut graph = self.builder.graph.graph.borrow_mut();
     let data = graph.get_node_mut(self.handle()).data_mut();
     if let RenderGraphNode::Pass(data) = data {
@@ -65,7 +65,7 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     }
   }
 
-  pub fn depend(self, target: &TargetNodeBuilder<'a, T>) -> Self {
+  pub fn depend(self, target: &TargetNodeBuilder<'a, T, U>) -> Self {
     self.pass_data_mut(|p| {
       p.input_targets_map.insert(target.handle());
     });

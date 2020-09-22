@@ -8,7 +8,6 @@ pub mod webgpu;
 pub use webgpu::*;
 
 pub trait RenderGraphBackend: 'static + Sized {
-  type PassContentProvider: ContentProvider<Self>;
   type RenderTarget: 'static;
   type RenderTargetFormatKey: Eq + Hash + Clone + Default + Sized;
   type Renderer;

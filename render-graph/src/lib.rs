@@ -15,24 +15,24 @@ pub use executor::*;
 pub use nodes::*;
 pub use target_pool::*;
 
-pub trait RootContentProvider<T: RenderGraphBackend> {
-  fn get_source(&mut self, key: &str) -> T::PassContentProvider;
+pub trait RootContentProvider<T: RenderGraphBackend, U: ContentProvider<T>> {
+  fn get_source(&mut self, key: &str) -> U;
 }
 
-pub trait ContentProvider<T: RenderGraphBackend> {
-  fn prepare_pass(&mut self, pool: &RenderTargetPool<T>);
+pub trait ContentProvider<T: RenderGraphBackend>: Sized {
+  fn prepare_pass(&mut self, pool: &RenderTargetPool<T, Self>);
   fn render_pass(&self, pass: &mut T::RenderPass);
 }
 
-pub type RenderGraphNodeHandle<T> = ArenaGraphNodeHandle<RenderGraphNode<T>>;
+pub type RenderGraphNodeHandle<T, U> = ArenaGraphNodeHandle<RenderGraphNode<T, U>>;
 
-pub struct RenderGraph<T: RenderGraphBackend> {
-  graph: RefCell<ArenaGraph<RenderGraphNode<T>>>,
-  root_handle: Cell<Option<RenderGraphNodeHandle<T>>>,
-  pass_queue: RefCell<Option<Vec<PassExecuteInfo<T>>>>,
+pub struct RenderGraph<T: RenderGraphBackend, U: ContentProvider<T>> {
+  graph: RefCell<ArenaGraph<RenderGraphNode<T, U>>>,
+  root_handle: Cell<Option<RenderGraphNodeHandle<T, U>>>,
+  pass_queue: RefCell<Option<Vec<PassExecuteInfo<T, U>>>>,
 }
 
-impl<T: RenderGraphBackend> RenderGraph<T> {
+impl<T: RenderGraphBackend, U: ContentProvider<T> + 'static> RenderGraph<T, U> {
   pub fn new() -> Self {
     Self {
       graph: RefCell::new(ArenaGraph::new()),
@@ -41,21 +41,13 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     }
   }
 
-  pub fn same_as_target(size: RenderTargetSize) -> Viewport {
-    Viewport::new(size.to_tuple())
-  }
-
-  pub fn same_as_final(size: RenderTargetSize) -> RenderTargetSize {
-    size
-  }
-
-  pub fn pass(&self, name: &str) -> PassNodeBuilder<T> {
+  pub fn pass(&self, name: &str) -> PassNodeBuilder<T, U> {
     let handle = self
       .graph
       .borrow_mut()
       .create_node(RenderGraphNode::Pass(PassNodeData {
         name: name.to_owned(),
-        viewport_modifier: Box::new(Self::same_as_target),
+        viewport_modifier: Box::new(same_as_target),
         pass_op_modifier: Box::new(|b| b),
         input_targets_map: HashSet::new(),
         contents_to_render: Vec::new(),
@@ -68,7 +60,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     }
   }
 
-  pub fn finally(&self) -> TargetNodeBuilder<T> {
+  pub fn finally(&self) -> TargetNodeBuilder<T, U> {
     let handle = self
       .graph
       .borrow_mut()
@@ -83,7 +75,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     }
   }
 
-  pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
+  pub fn target(&self, name: &str) -> TargetNodeBuilder<T, U> {
     let handle =
       self
         .graph
@@ -101,17 +93,19 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   }
 }
 
-fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassExecuteInfo<T>> {
+fn build_pass_queue<T: RenderGraphBackend, U: ContentProvider<T>>(
+  graph: &RenderGraph<T, U>,
+) -> Vec<PassExecuteInfo<T, U>> {
   let root = graph.root_handle.get().unwrap();
   let graph = graph.graph.borrow_mut();
-  let node_list: Vec<RenderGraphNodeHandle<T>> = graph
+  let node_list: Vec<RenderGraphNodeHandle<T, U>> = graph
     .topological_order_list(root)
     .unwrap()
     .into_iter()
     .filter(|&n| graph.get_node(n).data().is_pass())
     .collect();
 
-  let mut exe_info_list: Vec<PassExecuteInfo<T>> = node_list
+  let mut exe_info_list: Vec<PassExecuteInfo<T, U>> = node_list
     .iter()
     .map(|&n| PassExecuteInfo {
       pass_node_handle: n,

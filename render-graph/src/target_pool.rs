@@ -1,19 +1,22 @@
-use crate::{RenderGraphBackend, RenderGraphNodeHandle, TargetNodeData};
+use crate::{ContentProvider, RenderGraphBackend, RenderGraphNodeHandle, TargetNodeData};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RenderTargetSize(pub NonZeroUsize, pub NonZeroUsize);
 
-impl Default for RenderTargetSize{
-    fn default() -> Self {
-        Self::new(5, 5)
-    }
+impl Default for RenderTargetSize {
+  fn default() -> Self {
+    Self::new(5, 5)
+  }
 }
 
 impl RenderTargetSize {
   pub fn new(width: usize, height: usize) -> Self {
-    Self (NonZeroUsize::new(width).unwrap(), NonZeroUsize::new(height).unwrap())
+    Self(
+      NonZeroUsize::new(width).unwrap(),
+      NonZeroUsize::new(height).unwrap(),
+    )
   }
   pub fn to_tuple(&self) -> (usize, usize) {
     (self.0.get(), self.1.get())
@@ -55,12 +58,12 @@ impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
   }
 }
 
-pub struct RenderTargetPool<T: RenderGraphBackend> {
+pub struct RenderTargetPool<T: RenderGraphBackend, U: ContentProvider<T>> {
   cached: HashMap<RenderTargetFormatKey<T::RenderTargetFormatKey>, RenderTargetTypePooling<T>>,
-  active_targets: HashMap<RenderGraphNodeHandle<T>, T::RenderTarget>,
+  active_targets: HashMap<RenderGraphNodeHandle<T, U>, T::RenderTarget>,
 }
 
-impl<T: RenderGraphBackend> RenderTargetPool<T> {
+impl<T: RenderGraphBackend, U: ContentProvider<T>> RenderTargetPool<T, U> {
   pub fn new() -> Self {
     Self {
       cached: HashMap::new(),
@@ -111,7 +114,7 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
   /// get a RenderTarget from pool,if there is no fbo meet the config, create a new one, and pool it
   pub fn request_render_target(
     &mut self,
-    node_handle: RenderGraphNodeHandle<T>,
+    node_handle: RenderGraphNodeHandle<T, U>,
     data: &TargetNodeData<T>,
     renderer: &T::Renderer,
   ) -> &T::RenderTarget {
@@ -122,7 +125,7 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
   /// return a framebuffer that maybe request before, which will be pooling and reused
   pub fn return_render_target(
     &mut self,
-    node_handle: RenderGraphNodeHandle<T>,
+    node_handle: RenderGraphNodeHandle<T, U>,
     data: &TargetNodeData<T>,
   ) {
     let target = self.active_targets.remove(&node_handle).unwrap();

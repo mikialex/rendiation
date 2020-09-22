@@ -3,17 +3,17 @@ use crate::{
   RenderTargetPool, RenderTargetSize, RootContentProvider,
 };
 
-pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
-  pub pass_node_handle: RenderGraphNodeHandle<T>,
-  pub target_drop_list: Vec<RenderGraphNodeHandle<T>>,
+pub(crate) struct PassExecuteInfo<T: RenderGraphBackend, U: ContentProvider<T>> {
+  pub pass_node_handle: RenderGraphNodeHandle<T, U>,
+  pub target_drop_list: Vec<RenderGraphNodeHandle<T, U>>,
 }
 
-pub struct RenderGraphExecutor<T: RenderGraphBackend> {
-  target_pool: RenderTargetPool<T>,
+pub struct RenderGraphExecutor<T: RenderGraphBackend, U: ContentProvider<T>> {
+  target_pool: RenderTargetPool<T, U>,
   current_final_size: RenderTargetSize,
 }
 
-impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
+impl<'a, T: RenderGraphBackend, U: ContentProvider<T>> RenderGraphExecutor<T, U> {
   pub fn new() -> Self {
     Self {
       target_pool: RenderTargetPool::new(),
@@ -27,10 +27,10 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
 
   pub fn render(
     &mut self,
-    graph: &RenderGraph<T>,
+    graph: &RenderGraph<T, U>,
     final_target: &T::RenderTarget,
     renderer: &mut T::Renderer,
-    root_content_provider: &mut Box<dyn RootContentProvider<T>>,
+    root_content_provider: &mut Box<dyn RootContentProvider<T, U>>,
   ) {
     let new_size = T::get_target_size(final_target);
     if self.current_final_size != new_size {
@@ -76,11 +76,11 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
 
         T::set_viewport(renderer, &mut render_pass, pass_data.viewport(real_size));
 
-        pass_data.render.as_mut().unwrap()(
-          &self.target_pool,
-          &mut content_provider,
-          &mut render_pass,
-        ); // do render
+        // pass_data.render.as_mut().unwrap()(
+        //   &self.target_pool,
+        //   &mut content_provider,
+        //   &mut render_pass,
+        // ); // do render
 
         T::end_render_pass(renderer, render_pass);
 
