@@ -61,9 +61,7 @@ impl<T: RALBackend, S: SceneBackend<T>> DrawcallList<T, S> {
 use rendiation_rendergraph::*;
 
 #[cfg(feature = "rendergraph")]
-impl<T: RenderGraphBackend + RALBackend, S: SceneBackend<T>> ContentProvider<T>
-  for DrawcallList<T, S>
-{
+impl<T: RenderGraphBackend, S: SceneBackend<T>> ContentProvider<T> for DrawcallList<T, S> {
   fn prepare_pass(&mut self, pool: &RenderTargetPool<T, Self>) {
     todo!()
   }
