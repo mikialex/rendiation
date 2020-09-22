@@ -45,12 +45,8 @@ impl Default for WGPURenderTargetFormat {
 }
 
 impl RenderGraphBackend for WGPURenderer {
-  type RenderTarget = Box<dyn RenderTargetAble>;
-
   type RenderTargetFormatKey = WGPURenderTargetFormat;
-  type Renderer = WGPURenderer;
   type RenderPassBuilder = WGPURenderPassBuilder<'static>;
-  type RenderPass = WGPURenderPass<'static>; // this need unbound lifetime
 
   fn create_render_target(
     renderer: &Self::Renderer,

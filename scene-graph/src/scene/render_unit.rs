@@ -67,7 +67,7 @@ impl<T: RenderGraphBackend + RALBackend, S: SceneBackend<T>> ContentProvider<T>
   fn prepare_pass(&mut self, pool: &RenderTargetPool<T, Self>) {
     todo!()
   }
-  fn render_pass(&self, pass: &mut <T as RenderGraphBackend>::RenderPass) {
+  fn render_pass(&self, pass: &mut T::RenderPass) {
     todo!()
   }
 }

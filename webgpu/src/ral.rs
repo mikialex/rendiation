@@ -3,7 +3,7 @@ use rendiation_ral::*;
 use std::ops::Range;
 
 impl RALBackend for WGPURenderer {
-  type RenderTarget = WGPURenderPassBuilder<'static>;
+  type RenderTarget = Box<dyn RenderTargetAble>;
   type RenderPass = WGPURenderPass<'static>;
   type Renderer = WGPURenderer;
   type ShaderBuildSource = WGPUPipelineBuildSource;
