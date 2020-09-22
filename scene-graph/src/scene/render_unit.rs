@@ -1,6 +1,6 @@
 use crate::{
-  GeometryHandle, RALBackend, RenderObjectHandle, Scene, SceneBackend, SceneNodeHandle,
-  ShadingHandle,
+  default_impl::DefaultSceneBackend, GeometryHandle, RALBackend, RenderObjectHandle, Scene,
+  SceneBackend, SceneNodeHandle, ShadingHandle,
 };
 use rendiation_ral::{RenderObject, ResourceManager, ShadingProvider};
 
@@ -19,7 +19,7 @@ impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
   }
 }
 
-pub struct Drawcall<T: RALBackend, S: SceneBackend<T>> {
+pub struct Drawcall<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
   pub render_object: RenderObjectHandle<T>,
   pub node: SceneNodeHandle<T, S>,
 }
@@ -35,7 +35,7 @@ impl<T: RALBackend, S: SceneBackend<T>> Clone for Drawcall<T, S> {
 
 impl<T: RALBackend, S: SceneBackend<T>> Copy for Drawcall<T, S> {}
 
-pub struct DrawcallList<T: RALBackend, S: SceneBackend<T>> {
+pub struct DrawcallList<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
   pub inner: Vec<Drawcall<T, S>>,
 }
 
@@ -54,5 +54,20 @@ impl<T: RALBackend, S: SceneBackend<T>> DrawcallList<T, S> {
       let render_object = scene.render_objects.get(d.render_object).unwrap();
       T::render_object(&render_object, pass, resources);
     })
+  }
+}
+
+#[cfg(feature = "rendergraph")]
+use rendiation_rendergraph::*;
+
+#[cfg(feature = "rendergraph")]
+impl<T: RenderGraphBackend + RALBackend, S: SceneBackend<T>> ContentProvider<T>
+  for DrawcallList<T, S>
+{
+  fn prepare_pass(&mut self, pool: &RenderTargetPool<T, Self>) {
+    todo!()
+  }
+  fn render_pass(&self, pass: &mut <T as RenderGraphBackend>::RenderPass) {
+    todo!()
   }
 }

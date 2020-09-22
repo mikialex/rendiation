@@ -1,4 +1,4 @@
-use crate::{ContentProvider, RenderTargetFormatKey, RenderTargetSize};
+use crate::{RenderTargetFormatKey, RenderTargetSize};
 use rendiation_ral::Viewport;
 use std::hash::Hash;
 

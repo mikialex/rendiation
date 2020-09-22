@@ -44,9 +44,7 @@ impl Default for WGPURenderTargetFormat {
   }
 }
 
-pub struct WebGPURenderGraphBackend {}
-
-impl RenderGraphBackend for WebGPURenderGraphBackend {
+impl RenderGraphBackend for WGPURenderer {
   type RenderTarget = Box<dyn RenderTargetAble>;
 
   type RenderTargetFormatKey = WGPURenderTargetFormat;

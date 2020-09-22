@@ -30,7 +30,7 @@ impl<'a, T: RenderGraphBackend, U: ContentProvider<T>> RenderGraphExecutor<T, U>
     graph: &RenderGraph<T, U>,
     final_target: &T::RenderTarget,
     renderer: &mut T::Renderer,
-    root_content_provider: &mut Box<dyn RootContentProvider<T, U>>,
+    root_content_provider: &mut impl RootContentProvider<T, U>,
   ) {
     let new_size = T::get_target_size(final_target);
     if self.current_final_size != new_size {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::rinecraft::RinecraftState;
 use rendiation_ral::ResourceManager;
 use rendiation_rendergraph::{
-  ContentProvider, RenderGraph, RenderGraphExecutor, WebGPURenderGraphBackend,
+  ContentProvider, RenderGraph, RenderGraphExecutor, RootContentProvider,
 };
 use rendiation_scenegraph::{default_impl::DefaultSceneBackend, DrawcallList, Scene};
 use rendiation_webgpu::{
@@ -18,16 +18,20 @@ pub struct EffectConfig {
 }
 
 pub struct RinecraftRenderer {
-  cache: HashMap<EffectConfig, RenderGraph<WebGPURenderGraphBackend>>,
-  executor: RenderGraphExecutor<WebGPURenderGraphBackend>,
+  cache: HashMap<EffectConfig, RenderGraph<WGPURenderer, DrawcallList<WGPURenderer>>>,
+  executor: RenderGraphExecutor<WGPURenderer, DrawcallList<WGPURenderer>>,
 }
 
-struct DefaultContentProvider<'a> {
-  scene: &'a mut Scene<WGPURenderer>,
-  resource: &'a mut ResourceManager<WGPURenderer>,
+struct DefaultContentProvider {
+  scene: &'static mut Scene<WGPURenderer>,
+  resource: &'static mut ResourceManager<WGPURenderer>,
 }
 
-impl<'a> ContentProvider for DefaultContentProvider<'a> {}
+impl RootContentProvider<WGPURenderer, DrawcallList<WGPURenderer>> for DefaultContentProvider {
+  fn get_source(&mut self, key: &str) -> DrawcallList<WGPURenderer> {
+    todo!()
+  }
+}
 
 impl RinecraftRenderer {
   pub fn new() -> Self {
@@ -50,16 +54,15 @@ impl RinecraftRenderer {
       .entry(*config)
       .or_insert_with(|| Self::build(config));
 
-    let content = DefaultContentProvider { scene, resource };
-    let content: DefaultContentProvider<'static> = unsafe { std::mem::transmute(content) };
-    let content = Box::new(content);
-
+    let scene = unsafe { std::mem::transmute(scene) };
+    let resource = unsafe { std::mem::transmute(resource) };
     let target = unsafe { std::mem::transmute(&target) };
+    let mut content = DefaultContentProvider { scene, resource };
 
-    self.executor.render(graph, target, renderer, content);
+    self.executor.render(graph, target, renderer, &mut content);
   }
 
-  fn build(config: &EffectConfig) -> RenderGraph<WebGPURenderGraphBackend> {
+  fn build(config: &EffectConfig) -> RenderGraph<WGPURenderer, DrawcallList<WGPURenderer>> {
     let graph = RenderGraph::new();
 
     // let normal_pass = graph.pass("normal");
@@ -76,11 +79,11 @@ impl RinecraftRenderer {
       .define_pass_ops(|b: WGPURenderPassBuilder| {
         b.first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
           .depth(|d| d.load_with_clear(1.0).ok())
-      })
-      .render_by(|_, _, pass| {
-        todo!();
-        todo!()
       });
+    // .render_by(|_, _, pass| {
+    //   todo!();
+    //   todo!()
+    // });
 
     graph.finally().from_pass(&scene_pass);
     graph
