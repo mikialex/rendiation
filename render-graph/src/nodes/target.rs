@@ -11,13 +11,13 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
   pub fn handle(&self) -> RenderGraphNodeHandle<T> {
     self.builder.handle
   }
-  pub fn from_pass(self, passes: &PassNodeBuilder<'a, T>) -> Self {
+  pub fn from_pass(self, pass: &PassNodeBuilder<'a, T>) -> Self {
     self
       .builder
       .graph
       .graph
       .borrow_mut()
-      .connect_node(passes.handle(), self.handle());
+      .connect_node(pass.handle(), self.handle());
     self
   }
 

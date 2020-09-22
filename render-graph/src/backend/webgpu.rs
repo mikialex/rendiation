@@ -2,16 +2,16 @@ use crate::*;
 use rendiation_webgpu::*;
 
 pub fn build_test_graph() {
-  let graph: RenderGraph<WebGPURenderGraphBackend> = RenderGraph::new();
-  let normal_pass = graph.pass("normal");
-  let normal_target = graph.target("normal").from_pass(&normal_pass);
-  let copy_screen = graph
-    .pass("copy_screen")
-    .depend(&normal_target)
-    .render_by(|_, _, _| {
-      let _a = 1;
-    });
-  graph.finally().from_pass(&copy_screen);
+  // let graph: RenderGraph<WebGPURenderGraphBackend> = RenderGraph::new();
+  // let normal_pass = graph.pass("normal");
+  // let normal_target = graph.target("normal").from_pass(&normal_pass);
+  // let copy_screen = graph
+  //   .pass("copy_screen")
+  //   .depend(&normal_target)
+  //   .render_by(|_, _, _| {
+  //     let _a = 1;
+  //   });
+  // graph.finally().from_pass(&copy_screen);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

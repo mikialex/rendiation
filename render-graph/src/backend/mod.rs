@@ -1,4 +1,4 @@
-use crate::{RenderTargetFormatKey, RenderTargetSize};
+use crate::{ContentProvider, RenderTargetFormatKey, RenderTargetSize};
 use rendiation_ral::Viewport;
 use std::hash::Hash;
 
@@ -7,7 +7,8 @@ pub mod webgpu;
 #[cfg(feature = "webgpu")]
 pub use webgpu::*;
 
-pub trait RenderGraphBackend: 'static {
+pub trait RenderGraphBackend: 'static + Sized {
+  type PassContentProvider: ContentProvider<Self>;
   type RenderTarget: 'static;
   type RenderTargetFormatKey: Eq + Hash + Clone + Default + Sized;
   type Renderer;

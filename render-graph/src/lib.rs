@@ -15,6 +15,15 @@ pub use executor::*;
 pub use nodes::*;
 pub use target_pool::*;
 
+pub trait RootContentProvider<T: RenderGraphBackend> {
+  fn get_source(&mut self, key: &str) -> T::PassContentProvider;
+}
+
+pub trait ContentProvider<T: RenderGraphBackend> {
+  fn prepare_pass(&mut self, pool: &RenderTargetPool<T>);
+  fn render_pass(&self, pass: &mut T::RenderPass);
+}
+
 pub type RenderGraphNodeHandle<T> = ArenaGraphNodeHandle<RenderGraphNode<T>>;
 
 pub struct RenderGraph<T: RenderGraphBackend> {
@@ -49,7 +58,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
         viewport_modifier: Box::new(Self::same_as_target),
         pass_op_modifier: Box::new(|b| b),
         input_targets_map: HashSet::new(),
-        render: None,
+        contents_to_render: Vec::new(),
       }));
     PassNodeBuilder {
       builder: NodeBuilder {

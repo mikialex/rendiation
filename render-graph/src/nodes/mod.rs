@@ -1,4 +1,4 @@
-use crate::{RenderGraph, RenderGraphNodeHandle, RenderGraphBackend};
+use crate::{RenderGraph, RenderGraphBackend, RenderGraphNodeHandle};
 pub use rendiation_math::*;
 pub use rendiation_render_entity::*;
 
@@ -6,10 +6,13 @@ pub mod pass;
 pub use pass::*;
 pub mod target;
 pub use target::*;
+pub mod content;
+pub use content::*;
 
 pub enum RenderGraphNode<T: RenderGraphBackend> {
   Pass(PassNodeData<T>),
   Target(TargetNodeData<T>),
+  Source(ContentSourceNodeData<T>),
 }
 
 // marco?
