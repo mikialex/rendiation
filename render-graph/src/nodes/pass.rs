@@ -1,9 +1,8 @@
 use crate::{
-  ContentNodeBuilder, ContentProvider, NodeBuilder, RenderGraph, RenderGraphBackend,
-  RenderGraphGraphicsBackend, RenderGraphNode, RenderGraphNodeHandle, RenderTargetSize,
-  TargetNodeBuilder,
+  ContentNodeBuilder, NodeBuilder, RenderGraphBackend, RenderGraphGraphicsBackend, RenderGraphNode,
+  RenderGraphNodeHandle, RenderTargetSize, TargetNodeBuilder,
 };
-use rendiation_ral::{RALBackend, Viewport};
+use rendiation_ral::Viewport;
 use std::collections::HashSet;
 
 pub struct PassNodeData<T: RenderGraphBackend> {
