@@ -7,6 +7,7 @@ pub mod geometry;
 pub mod manager;
 pub mod shading;
 pub mod uniform;
+pub mod ref_storage;
 
 pub use bindgroup::*;
 pub use geometry::*;
