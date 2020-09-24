@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::rinecraft::RinecraftState;
 use rendiation_ral::ResourceManager;
 use rendiation_rendergraph::{
-  ContentProvider, RenderGraph, RenderGraphExecutor, RootContentProvider,
+  ContentProvider, RenderGraph, RenderGraphBackend, RenderGraphExecutor, RenderTargetPool,
 };
 use rendiation_scenegraph::{default_impl::DefaultSceneBackend, DrawcallList, Scene};
 use rendiation_webgpu::{
@@ -18,8 +18,17 @@ pub struct EffectConfig {
 }
 
 pub struct RinecraftRenderer {
-  cache: HashMap<EffectConfig, RenderGraph<WGPURenderer, DrawcallList<WGPURenderer>>>,
-  executor: RenderGraphExecutor<WGPURenderer, DrawcallList<WGPURenderer>>,
+  cache: HashMap<EffectConfig, RenderGraph<DefaultRenderGraphBackend>>,
+  executor: RenderGraphExecutor<DefaultRenderGraphBackend>,
+}
+
+struct DefaultRenderGraphBackend;
+
+impl RenderGraphBackend for DefaultRenderGraphBackend {
+  type Graphics = WGPURenderer;
+  type ContentProviderImpl = DefaultContentProvider;
+  type ContentKey = RinecraftSourceType;
+  type ContentUnitImpl = DrawcallList<WGPURenderer>;
 }
 
 struct DefaultContentProvider {
@@ -27,8 +36,14 @@ struct DefaultContentProvider {
   resource: &'static mut ResourceManager<WGPURenderer>,
 }
 
-impl RootContentProvider<WGPURenderer, DrawcallList<WGPURenderer>> for DefaultContentProvider {
-  fn get_source(&mut self, key: &str) -> DrawcallList<WGPURenderer> {
+pub enum RinecraftSourceType {}
+
+impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
+  fn get_source(
+    &mut self,
+    key: RinecraftSourceType,
+    _: &RenderTargetPool<DefaultRenderGraphBackend>,
+  ) -> DrawcallList<WGPURenderer> {
     todo!()
   }
 }
@@ -62,7 +77,7 @@ impl RinecraftRenderer {
     self.executor.render(graph, target, renderer, &mut content);
   }
 
-  fn build(config: &EffectConfig) -> RenderGraph<WGPURenderer, DrawcallList<WGPURenderer>> {
+  fn build(config: &EffectConfig) -> RenderGraph<DefaultRenderGraphBackend> {
     let graph = RenderGraph::new();
 
     // let normal_pass = graph.pass("normal");
