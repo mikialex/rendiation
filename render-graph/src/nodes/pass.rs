@@ -1,15 +1,16 @@
 use crate::{
-  ContentNodeBuilder, ContentProvider, NodeBuilder, RenderGraphBackend, RenderGraphGraphicsBackend,
-  RenderGraphNode, RenderGraphNodeHandle, RenderTargetSize, TargetNodeBuilder,
+  ContentNodeBuilder, ContentProvider, NodeBuilder, RenderGraph, RenderGraphBackend,
+  RenderGraphGraphicsBackend, RenderGraphNode, RenderGraphNodeHandle, RenderTargetSize,
+  TargetNodeBuilder,
 };
-use rendiation_ral::Viewport;
+use rendiation_ral::{RALBackend, Viewport};
 use std::collections::HashSet;
 
 pub struct PassNodeData<T: RenderGraphBackend> {
   pub name: String,
   pub(crate) viewport_modifier: Box<dyn Fn(RenderTargetSize) -> Viewport>,
   pub(crate) pass_op_modifier: Box<
-    dyn FnMut(
+    dyn Fn(
       <T::Graphics as RenderGraphGraphicsBackend>::RenderPassBuilder,
     ) -> <T::Graphics as RenderGraphGraphicsBackend>::RenderPassBuilder,
   >,
@@ -18,7 +19,7 @@ pub struct PassNodeData<T: RenderGraphBackend> {
 }
 
 impl<T: RenderGraphBackend> PassNodeData<T> {
-  pub fn viewport(&mut self, target_size: RenderTargetSize) -> Viewport {
+  pub fn viewport(&self, target_size: RenderTargetSize) -> Viewport {
     (&self.viewport_modifier)(target_size)
   }
 }
@@ -34,7 +35,7 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
 
   pub fn define_pass_ops(
     self,
-    modifier: impl FnMut(
+    modifier: impl Fn(
         <T::Graphics as RenderGraphGraphicsBackend>::RenderPassBuilder,
       ) -> <T::Graphics as RenderGraphGraphicsBackend>::RenderPassBuilder
       + 'static,

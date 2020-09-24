@@ -1,8 +1,8 @@
 use rendiation_ral::RALBackend;
 
 use crate::{
-  build_pass_queue, RenderGraph, RenderGraphBackend, RenderGraphGraphicsBackend,
-  RenderGraphNodeHandle, RenderTargetPool, RenderTargetSize,
+  build_pass_queue, ContentProvider, ContentUnit, RenderGraph, RenderGraphBackend,
+  RenderGraphGraphicsBackend, RenderGraphNodeHandle, RenderTargetPool, RenderTargetSize,
 };
 
 pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
@@ -13,6 +13,7 @@ pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
 pub struct RenderGraphExecutor<T: RenderGraphBackend> {
   target_pool: RenderTargetPool<T>,
   current_final_size: RenderTargetSize,
+  working_content_unit: Vec<T::ContentUnitImpl>,
 }
 
 impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
@@ -20,6 +21,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
     Self {
       target_pool: RenderTargetPool::new(),
       current_final_size: RenderTargetSize::default(),
+      working_content_unit: Vec::new(),
     }
   }
 
@@ -51,6 +53,18 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
         let handle = *pass_node_handle;
         let mut graph = graph.graph.borrow_mut();
 
+        {
+          let pass_data = graph.get_node(handle).data().unwrap_pass_data();
+          self.working_content_unit.clear();
+          let pool = &self.target_pool;
+          let extender = pass_data
+            .contents_to_render
+            .iter()
+            .map(|&n| graph.get_node(n).data().unwrap_content_data().key)
+            .map(|key| root_content_provider.get_source(key, pool));
+          self.working_content_unit.extend(extender);
+        }
+
         let target_to_handle = *graph.get_node(handle).to().iter().next().unwrap();
         let target_to = graph.get_node_mut(target_to_handle).data_mut();
 
@@ -70,7 +84,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
           },
         );
 
-        let pass_data = graph.get_node_mut(handle).data_mut().unwrap_pass_data_mut();
+        let pass_data = graph.get_node(handle).data().unwrap_pass_data();
 
         let pass_builder = (pass_data.pass_op_modifier)(pass_builder);
 
@@ -83,11 +97,10 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
           pass_data.viewport(real_size),
         );
 
-        // pass_data.render.as_mut().unwrap()(
-        //   &self.target_pool,
-        //   &mut content_provider,
-        //   &mut render_pass,
-        // ); // do render
+        self
+          .working_content_unit
+          .iter()
+          .for_each(|i| i.render_pass(&mut render_pass));
 
         <T::Graphics as RenderGraphGraphicsBackend>::end_render_pass(renderer, render_pass);
 

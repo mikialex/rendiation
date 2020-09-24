@@ -36,6 +36,7 @@ struct DefaultContentProvider {
   resource: &'static mut ResourceManager<WGPURenderer>,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum RinecraftSourceType {}
 
 impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {

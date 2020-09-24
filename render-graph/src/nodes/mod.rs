@@ -52,6 +52,13 @@ impl<T: RenderGraphBackend> RenderGraphNode<T> {
       panic!("unwrap_pass_data failed")
     }
   }
+  pub fn unwrap_content_data(&self) -> &ContentSourceNodeData<T> {
+    if let RenderGraphNode::Source(data) = self {
+      data
+    } else {
+      panic!("unwrap_content_data failed")
+    }
+  }
 }
 
 pub struct NodeBuilder<'a, T: RenderGraphBackend> {

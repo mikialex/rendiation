@@ -18,8 +18,8 @@ pub use target_pool::*;
 pub trait RenderGraphBackend: Sized {
   type Graphics: RenderGraphGraphicsBackend;
   type ContentProviderImpl: ContentProvider<Self>;
-  type ContentKey;
-  type ContentUnitImpl;
+  type ContentKey: Copy;
+  type ContentUnitImpl: ContentUnit<Self>;
 }
 
 pub trait ContentProvider<T: RenderGraphBackend> {
@@ -74,6 +74,20 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     self.root_handle.set(Some(handle));
 
     TargetNodeBuilder {
+      builder: NodeBuilder {
+        handle,
+        graph: self,
+      },
+    }
+  }
+
+  pub fn content(&self, key: T::ContentKey) -> ContentNodeBuilder<T> {
+    let handle = self
+      .graph
+      .borrow_mut()
+      .create_node(RenderGraphNode::Source(ContentSourceNodeData { key }));
+
+    ContentNodeBuilder {
       builder: NodeBuilder {
         handle,
         graph: self,
