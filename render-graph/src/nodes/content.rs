@@ -1,7 +1,7 @@
 use crate::{ContentProvider, NodeBuilder, RenderGraphBackend, RenderGraphNodeHandle};
 
 pub struct ContentSourceNodeData<T: RenderGraphBackend> {
-  name: T::ContentKey,
+  key: T::ContentKey,
 }
 
 pub struct ContentNodeBuilder<'a, T: RenderGraphBackend> {
@@ -12,4 +12,8 @@ impl<'a, T: RenderGraphBackend> ContentNodeBuilder<'a, T> {
   pub fn handle(&self) -> RenderGraphNodeHandle<T> {
     self.builder.handle
   }
+}
+
+pub struct ContentFilterNodeData<T: RenderGraphBackend> {
+  name: T::ContentKey,
 }
