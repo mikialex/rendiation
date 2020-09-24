@@ -19,15 +19,15 @@ pub trait RenderGraphBackend: Sized {
   type Graphics: RenderGraphGraphicsBackend;
   type ContentProviderImpl: ContentProvider<Self>;
   type ContentKey: Copy;
-  type ContentUnitImpl: ContentUnit<Self>;
+  type ContentUnitImpl: ContentUnit<Self::Graphics, Self::ContentProviderImpl>;
 }
 
 pub trait ContentProvider<T: RenderGraphBackend> {
   fn get_source(&mut self, key: T::ContentKey, pool: &RenderTargetPool<T>) -> T::ContentUnitImpl;
 }
 
-pub trait ContentUnit<T: RenderGraphBackend>: Sized {
-  fn render_pass(&self, pass: &mut <T::Graphics as RALBackend>::RenderPass);
+pub trait ContentUnit<T: RenderGraphGraphicsBackend, P>: Sized {
+  fn render_pass(&self, pass: &mut <T as RALBackend>::RenderPass, provider: &mut P);
 }
 
 pub type RenderGraphNodeHandle<T> = ArenaGraphNodeHandle<RenderGraphNode<T>>;

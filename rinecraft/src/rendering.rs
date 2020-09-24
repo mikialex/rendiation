@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::rinecraft::RinecraftState;
-use rendiation_ral::ResourceManager;
+use rendiation_ral::{RALBackend, ResourceManager};
 use rendiation_rendergraph::{
   ContentProvider, RenderGraph, RenderGraphBackend, RenderGraphExecutor, RenderTargetPool,
 };
-use rendiation_scenegraph::{default_impl::DefaultSceneBackend, DrawcallList, Scene};
+use rendiation_scenegraph::{default_impl::DefaultSceneBackend, DrawcallList, Scene, SceneBackend};
 use rendiation_webgpu::{
   renderer::SwapChain, RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance,
   WGPURenderPassBuilder, WGPURenderer,
@@ -22,6 +22,25 @@ pub struct RinecraftRenderer {
   executor: RenderGraphExecutor<DefaultRenderGraphBackend>,
 }
 
+struct DefaultContentProvider {
+  scene: &'static mut Scene<WGPURenderer>,
+  resource: &'static mut ResourceManager<WGPURenderer>,
+}
+
+pub trait SceneRenderSource<T: RALBackend, S: SceneBackend<T>> {
+  fn get_scene(&self) -> &Scene<T, S>;
+  fn get_resource(&self) -> &ResourceManager<T>;
+}
+
+impl SceneRenderSource<WGPURenderer, DefaultSceneBackend> for DefaultContentProvider {
+  fn get_scene(&self) -> &Scene<WGPURenderer, DefaultSceneBackend> {
+    &self.scene
+  }
+  fn get_resource(&self) -> &ResourceManager<WGPURenderer> {
+    &self.resource
+  }
+}
+
 struct DefaultRenderGraphBackend;
 
 impl RenderGraphBackend for DefaultRenderGraphBackend {
@@ -29,11 +48,6 @@ impl RenderGraphBackend for DefaultRenderGraphBackend {
   type ContentProviderImpl = DefaultContentProvider;
   type ContentKey = RinecraftSourceType;
   type ContentUnitImpl = DrawcallList<WGPURenderer>;
-}
-
-struct DefaultContentProvider {
-  scene: &'static mut Scene<WGPURenderer>,
-  resource: &'static mut ResourceManager<WGPURenderer>,
 }
 
 #[derive(Copy, Clone, Debug)]

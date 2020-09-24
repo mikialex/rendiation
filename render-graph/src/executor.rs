@@ -34,7 +34,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
     graph: &RenderGraph<T>,
     final_target: &<T::Graphics as RALBackend>::RenderTarget,
     renderer: &mut <T::Graphics as RALBackend>::Renderer,
-    root_content_provider: &mut T::ContentProviderImpl,
+    content_provider: &mut T::ContentProviderImpl,
   ) {
     let new_size = <T::Graphics as RenderGraphGraphicsBackend>::get_target_size(final_target);
     if self.current_final_size != new_size {
@@ -61,7 +61,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
             .contents_to_render
             .iter()
             .map(|&n| graph.get_node(n).data().unwrap_content_data().key)
-            .map(|key| root_content_provider.get_source(key, pool));
+            .map(|key| content_provider.get_source(key, pool));
           self.working_content_unit.extend(extender);
         }
 
@@ -100,7 +100,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
         self
           .working_content_unit
           .iter()
-          .for_each(|i| i.render_pass(&mut render_pass));
+          .for_each(|i| i.render_pass(&mut render_pass, content_provider));
 
         <T::Graphics as RenderGraphGraphicsBackend>::end_render_pass(renderer, render_pass);
 

@@ -57,14 +57,19 @@ impl<T: RALBackend, S: SceneBackend<T>> DrawcallList<T, S> {
   }
 }
 
+pub trait SceneRenderSource<T: RALBackend, S: SceneBackend<T>> {
+  fn get_scene(&self) -> &Scene<T, S>;
+  fn get_resource(&self) -> &ResourceManager<T>;
+}
+
 #[cfg(feature = "rendergraph")]
 use rendiation_rendergraph::*;
 
 #[cfg(feature = "rendergraph")]
-impl<T: RenderGraphBackend, S: SceneBackend<T::Graphics>> ContentUnit<T>
-  for DrawcallList<T::Graphics, S>
+impl<T: RenderGraphGraphicsBackend, S: SceneBackend<T>, U: SceneRenderSource<T, S>>
+  ContentUnit<T, U> for DrawcallList<T, S>
 {
-  fn render_pass(&self, pass: &mut <T::Graphics as RALBackend>::RenderPass) {
-    todo!()
+  fn render_pass(&self, pass: &mut T::RenderPass, provider: &mut U) {
+    self.render(pass, provider.get_scene(), provider.get_resource())
   }
 }
