@@ -1,26 +1,26 @@
-struct RefStorage<T, U>{
-    data: T,
-    referenced_by: Vec<Handle<U>>,
-  }
-  
-struct RefStorageArena<T, U>{
-  data: Vec<RefStorage<T, U>>,
-  free_list: Vec<usize>,
-  on_item_mutated: Box<dyn FnMut(&T)>
-}
+// struct RefStorage<T, U>{
+//     data: T,
+//     referenced_by: Vec<Handle<U>>,
+//   }
 
-struct RefStorageHandle<T, U>{
-  index: usize,
-  phantom1: PhantomData<T>,
-  phantom2: PhantomData<U>,
-}
+// struct RefStorageArena<T, U>{
+//   data: Vec<RefStorage<T, U>>,
+//   free_list: Vec<usize>,
+//   on_item_mutated: Box<dyn FnMut(&T)>
+// }
 
-impl<T, U> RefStorageArena<T, U> {
-  pub fn insert(){
-    todo!()
-  }
+// struct RefStorageHandle<T, U>{
+//   index: usize,
+//   phantom1: PhantomData<T>,
+//   phantom2: PhantomData<U>,
+// }
 
-  pub fn update(handle: RefStorageHandle<T, U>) ->  &mut T {
-    todo!()
-  }
-}
+// impl<T, U> RefStorageArena<T, U> {
+//   pub fn insert(){
+//     todo!()
+//   }
+
+//   pub fn update(handle: RefStorageHandle<T, U>) ->  &mut T {
+//     todo!()
+//   }
+// }

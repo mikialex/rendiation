@@ -44,7 +44,7 @@ impl Default for WGPURenderTargetFormat {
   }
 }
 
-impl RenderGraphBackend for WGPURenderer {
+impl RenderGraphGraphicsBackend for WGPURenderer {
   type RenderTargetFormatKey = WGPURenderTargetFormat;
   type RenderPassBuilder = WGPURenderPassBuilder<'static>;
 

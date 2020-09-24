@@ -1,18 +1,15 @@
-use crate::{
-  ContentProvider, NodeBuilder, RenderGraphBackend, RenderGraphNodeHandle, RootContentProvider,
-};
+use crate::{ContentProvider, NodeBuilder, RenderGraphBackend, RenderGraphNodeHandle};
 
-pub struct ContentSourceNodeData<T: RenderGraphBackend, U: ContentProvider<T>> {
-  name: String,
-  source: Box<dyn FnMut(&mut Box<dyn RootContentProvider<T, U>>) -> U>,
+pub struct ContentSourceNodeData<T: RenderGraphBackend> {
+  name: T::ContentKey,
 }
 
-pub struct ContentNodeBuilder<'a, T: RenderGraphBackend, U: ContentProvider<T>> {
-  pub(crate) builder: NodeBuilder<'a, T, U>,
+pub struct ContentNodeBuilder<'a, T: RenderGraphBackend> {
+  pub(crate) builder: NodeBuilder<'a, T>,
 }
 
-impl<'a, T: RenderGraphBackend, U: ContentProvider<T>> ContentNodeBuilder<'a, T, U> {
-  pub fn handle(&self) -> RenderGraphNodeHandle<T, U> {
+impl<'a, T: RenderGraphBackend> ContentNodeBuilder<'a, T> {
+  pub fn handle(&self) -> RenderGraphNodeHandle<T> {
     self.builder.handle
   }
 }

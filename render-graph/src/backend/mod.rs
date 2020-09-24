@@ -7,7 +7,7 @@ pub mod webgpu;
 #[cfg(feature = "webgpu")]
 pub use webgpu::*;
 
-pub trait RenderGraphBackend: RALBackend {
+pub trait RenderGraphGraphicsBackend: RALBackend {
   type RenderTargetFormatKey: Eq + Hash + Clone + Default + Sized;
   type RenderPassBuilder;
 

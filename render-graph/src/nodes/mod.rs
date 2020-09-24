@@ -9,14 +9,14 @@ pub use target::*;
 pub mod content;
 pub use content::*;
 
-pub enum RenderGraphNode<T: RenderGraphBackend, U: ContentProvider<T>> {
-  Pass(PassNodeData<T, U>),
+pub enum RenderGraphNode<T: RenderGraphBackend> {
+  Pass(PassNodeData<T>),
   Target(TargetNodeData<T>),
-  Source(ContentSourceNodeData<T, U>),
+  Source(ContentSourceNodeData<T>),
 }
 
 // marco?
-impl<T: RenderGraphBackend, U: ContentProvider<T>> RenderGraphNode<T, U> {
+impl<T: RenderGraphBackend> RenderGraphNode<T> {
   pub fn is_pass(&self) -> bool {
     if let RenderGraphNode::Pass(_) = self {
       true
@@ -38,14 +38,14 @@ impl<T: RenderGraphBackend, U: ContentProvider<T>> RenderGraphNode<T, U> {
       panic!("unwrap_as_target failed")
     }
   }
-  pub fn unwrap_pass_data(&self) -> &PassNodeData<T, U> {
+  pub fn unwrap_pass_data(&self) -> &PassNodeData<T> {
     if let RenderGraphNode::Pass(data) = self {
       data
     } else {
       panic!("unwrap_pass_data failed")
     }
   }
-  pub fn unwrap_pass_data_mut(&mut self) -> &mut PassNodeData<T, U> {
+  pub fn unwrap_pass_data_mut(&mut self) -> &mut PassNodeData<T> {
     if let RenderGraphNode::Pass(data) = self {
       data
     } else {
@@ -54,7 +54,7 @@ impl<T: RenderGraphBackend, U: ContentProvider<T>> RenderGraphNode<T, U> {
   }
 }
 
-pub struct NodeBuilder<'a, T: RenderGraphBackend, U: ContentProvider<T>> {
-  pub(crate) handle: RenderGraphNodeHandle<T, U>,
-  pub(crate) graph: &'a RenderGraph<T, U>,
+pub struct NodeBuilder<'a, T: RenderGraphBackend> {
+  pub(crate) handle: RenderGraphNodeHandle<T>,
+  pub(crate) graph: &'a RenderGraph<T>,
 }
