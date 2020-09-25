@@ -4,13 +4,16 @@ pub use rendiation_ral::*;
 use std::{
   cell::{Cell, RefCell},
   collections::HashSet,
+  marker::PhantomData,
 };
 
 mod backend;
+mod content_pool;
 mod executor;
 mod nodes;
 mod target_pool;
 pub use backend::*;
+pub use content_pool::*;
 pub use executor::*;
 pub use nodes::*;
 pub use target_pool::*;
@@ -18,12 +21,17 @@ pub use target_pool::*;
 pub trait RenderGraphBackend: Sized {
   type Graphics: RenderGraphGraphicsBackend;
   type ContentProviderImpl: ContentProvider<Self>;
-  type ContentKey: Copy;
+  type ContentSourceKey: Copy;
+  type ContentMiddleKey: Copy;
   type ContentUnitImpl: ContentUnit<Self::Graphics, Self::ContentProviderImpl>;
 }
 
 pub trait ContentProvider<T: RenderGraphBackend> {
-  fn get_source(&mut self, key: T::ContentKey, pool: &RenderTargetPool<T>) -> T::ContentUnitImpl;
+  fn get_source(
+    &mut self,
+    key: T::ContentSourceKey,
+    pool: &RenderTargetPool<T>,
+  ) -> T::ContentUnitImpl;
 }
 
 pub trait ContentUnit<T: RenderGraphGraphicsBackend, P>: Sized {
@@ -62,6 +70,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       builder: NodeBuilder {
         handle,
         graph: self,
+        phantom: PhantomData,
       },
     }
   }
@@ -77,20 +86,22 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       builder: NodeBuilder {
         handle,
         graph: self,
+        phantom: PhantomData,
       },
     }
   }
 
-  pub fn content(&self, key: T::ContentKey) -> ContentNodeBuilder<T> {
+  pub fn source(&self, key: T::ContentSourceKey) -> ContentSourceNodeBuilder<T> {
     let handle = self
       .graph
       .borrow_mut()
       .create_node(RenderGraphNode::Source(ContentSourceNodeData { key }));
 
-    ContentNodeBuilder {
+    ContentSourceNodeBuilder {
       builder: NodeBuilder {
         handle,
         graph: self,
+        phantom: PhantomData,
       },
     }
   }
@@ -108,6 +119,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       builder: NodeBuilder {
         handle,
         graph: self,
+        phantom: PhantomData,
       },
     }
   }
@@ -127,14 +139,18 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
     .iter()
     .map(|&n| PassExecuteInfo {
       pass_node_handle: n,
-      target_drop_list: Vec::new(),
+      target_reuse_list: Vec::new(),
     })
     .collect();
   node_list.iter().enumerate().for_each(|(index, &n)| {
     let node = graph.get_node(n);
     let output_node = *node.to().iter().next().unwrap();
     let output_node_data = graph.get_node(output_node).data();
-    if output_node_data.unwrap_target_data().is_final_target() {
+    if output_node_data
+      .downcast::<TargetNodeData<_>>()
+      .unwrap()
+      .is_final_target()
+    {
       return;
     }
     let mut last_used_index = node_list.len();
@@ -152,7 +168,7 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
         result
       })
       .for_each(|_| {});
-    let list = &mut exe_info_list[last_used_index].target_drop_list;
+    let list = &mut exe_info_list[last_used_index].target_reuse_list;
     if list.iter().position(|&x| x == output_node).is_none() {
       list.push(output_node)
     }

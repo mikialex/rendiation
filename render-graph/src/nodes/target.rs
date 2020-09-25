@@ -1,25 +1,17 @@
 use rendiation_ral::Viewport;
 
 use crate::{
-  NodeBuilder, PassNodeBuilder, RenderGraphBackend, RenderGraphGraphicsBackend, RenderGraphNode,
-  RenderGraphNodeHandle, RenderTargetFormatKey, RenderTargetSize,
+  NodeBuilder, PassNodeBuilder, RenderGraphBackend, RenderGraphGraphicsBackend,
+  RenderTargetFormatKey, RenderTargetSize,
 };
 
 pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
-  pub(crate) builder: NodeBuilder<'a, T>,
+  pub(crate) builder: NodeBuilder<'a, T, TargetNodeData<T>>,
 }
 
 impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
-  pub fn handle(&self) -> RenderGraphNodeHandle<T> {
-    self.builder.handle
-  }
   pub fn from_pass(self, pass: &PassNodeBuilder<'a, T>) -> Self {
-    self
-      .builder
-      .graph
-      .graph
-      .borrow_mut()
-      .connect_node(pass.handle(), self.handle());
+    self.builder.connect_from(&pass.builder);
     self
   }
 
@@ -27,7 +19,7 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
     self,
     modifier: impl FnOnce(&mut <T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey),
   ) -> Self {
-    self.target_data_mut(|t| modifier(t.format_mut()));
+    self.builder.mutate_data(|t| modifier(t.format_mut()));
     self
   }
 
@@ -35,16 +27,10 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
     self,
     modifier: impl Fn(RenderTargetSize) -> RenderTargetSize + 'static,
   ) -> Self {
-    self.target_data_mut(|t| t.size_modifier = Box::new(modifier));
     self
-  }
-
-  pub fn target_data_mut(&self, mutator: impl FnOnce(&mut TargetNodeData<T>)) {
-    let mut graph = self.builder.graph.graph.borrow_mut();
-    let data = graph.get_node_mut(self.handle()).data_mut();
-    if let RenderGraphNode::Target(data) = data {
-      mutator(data)
-    }
+      .builder
+      .mutate_data(|t| t.size_modifier = Box::new(modifier));
+    self
   }
 }
 

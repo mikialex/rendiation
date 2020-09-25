@@ -5,7 +5,9 @@ use rendiation_ral::{RALBackend, ResourceManager};
 use rendiation_rendergraph::{
   ContentProvider, RenderGraph, RenderGraphBackend, RenderGraphExecutor, RenderTargetPool,
 };
-use rendiation_scenegraph::{default_impl::DefaultSceneBackend, DrawcallList, Scene, SceneBackend};
+use rendiation_scenegraph::{
+  default_impl::DefaultSceneBackend, DrawcallList, Scene, SceneBackend, SceneRenderSource,
+};
 use rendiation_webgpu::{
   renderer::SwapChain, RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance,
   WGPURenderPassBuilder, WGPURenderer,
@@ -27,11 +29,6 @@ struct DefaultContentProvider {
   resource: &'static mut ResourceManager<WGPURenderer>,
 }
 
-pub trait SceneRenderSource<T: RALBackend, S: SceneBackend<T>> {
-  fn get_scene(&self) -> &Scene<T, S>;
-  fn get_resource(&self) -> &ResourceManager<T>;
-}
-
 impl SceneRenderSource<WGPURenderer, DefaultSceneBackend> for DefaultContentProvider {
   fn get_scene(&self) -> &Scene<WGPURenderer, DefaultSceneBackend> {
     &self.scene
@@ -46,7 +43,8 @@ struct DefaultRenderGraphBackend;
 impl RenderGraphBackend for DefaultRenderGraphBackend {
   type Graphics = WGPURenderer;
   type ContentProviderImpl = DefaultContentProvider;
-  type ContentKey = RinecraftSourceType;
+  type ContentSourceKey = RinecraftSourceType;
+  type ContentMiddleKey = ();
   type ContentUnitImpl = DrawcallList<WGPURenderer>;
 }
 
