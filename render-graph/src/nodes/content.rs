@@ -1,4 +1,4 @@
-use crate::{NodeBuilder, RenderGraphBackend, RenderGraphNode, RenderGraphNodeHandle};
+use crate::{NodeBuilder, RenderGraphBackend, RenderGraphNodeHandle};
 use std::{collections::HashMap, hash::Hash};
 
 pub enum ContentKey<T: RenderGraphBackend> {

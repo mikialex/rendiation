@@ -1,14 +1,20 @@
 use rendiation_ral::RALBackend;
 
 use crate::{
-  build_pass_queue, ContentPool, ContentProvider, ContentSourceNodeData, ContentUnit,
-  FromRenderGraphNode, PassNodeData, RenderGraph, RenderGraphBackend, RenderGraphGraphicsBackend,
-  RenderGraphNodeHandle, RenderTargetPool, RenderTargetSize, TargetNodeData,
+  build_pass_queue, ContentPool, ContentProvider, ContentSourceNodeData, ContentUnit, PassNodeData,
+  RenderGraph, RenderGraphBackend, RenderGraphGraphicsBackend, RenderGraphNodeHandle,
+  RenderTargetPool, RenderTargetSize, TargetNodeData,
 };
+
+pub(crate) enum GraphExecutionInfo<T: RenderGraphBackend> {
+  Pass(PassExecuteInfo<T>),
+  SourceRetrieve(PassExecuteInfo<T>),
+  ContentTransform(PassExecuteInfo<T>),
+}
 
 pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
   pub pass_node_handle: RenderGraphNodeHandle<T>,
-  pub target_reuse_list: Vec<RenderGraphNodeHandle<T>>,
+  pub target_reuse_release_list: Vec<RenderGraphNodeHandle<T>>,
   // pub content_reuse_list: Vec<RenderGraphNodeHandle<T>>,
 }
 
@@ -52,7 +58,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
     queue.iter().for_each(
       |PassExecuteInfo {
          pass_node_handle,
-         target_reuse_list,
+         target_reuse_release_list,
        }| {
         let handle = *pass_node_handle;
         let mut graph = graph.graph.borrow_mut();
@@ -124,7 +130,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
 
         <T::Graphics as RenderGraphGraphicsBackend>::end_render_pass(renderer, render_pass);
 
-        target_reuse_list.iter().for_each(|&n| {
+        target_reuse_release_list.iter().for_each(|&n| {
           self.target_pool.return_render_target(
             n,
             graph

@@ -27,10 +27,11 @@ impl<T: RenderGraphBackend> RenderGraphNode<T> {
     FromRenderGraphNode::downcast_mut(self)
   }
   pub fn is_pass(&self) -> bool {
-    if let RenderGraphNode::Pass(_) = self {
-      true
-    } else {
-      false
+    match self {
+      RenderGraphNode::Pass(_) => true,
+      RenderGraphNode::Source(_) => true,
+      RenderGraphNode::Transformer(_) => true,
+      _ => false,
     }
   }
 }

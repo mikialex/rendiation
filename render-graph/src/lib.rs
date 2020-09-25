@@ -140,9 +140,10 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
     .iter()
     .map(|&n| PassExecuteInfo {
       pass_node_handle: n,
-      target_reuse_list: Vec::new(),
+      target_reuse_release_list: Vec::new(),
     })
     .collect();
+
   node_list.iter().enumerate().for_each(|(index, &n)| {
     let node = graph.get_node(n);
     let output_node = *node.to().iter().next().unwrap();
@@ -169,7 +170,7 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
         result
       })
       .for_each(|_| {});
-    let list = &mut exe_info_list[last_used_index].target_reuse_list;
+    let list = &mut exe_info_list[last_used_index].target_reuse_release_list;
     if list.iter().position(|&x| x == output_node).is_none() {
       list.push(output_node)
     }
