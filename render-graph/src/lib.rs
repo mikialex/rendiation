@@ -4,6 +4,7 @@ pub use rendiation_ral::*;
 use std::{
   cell::{Cell, RefCell},
   collections::HashSet,
+  hash::Hash,
   marker::PhantomData,
 };
 
@@ -21,8 +22,8 @@ pub use target_pool::*;
 pub trait RenderGraphBackend: Sized {
   type Graphics: RenderGraphGraphicsBackend;
   type ContentProviderImpl: ContentProvider<Self>;
-  type ContentSourceKey: Copy;
-  type ContentMiddleKey: Copy;
+  type ContentSourceKey: Copy + Eq + Hash;
+  type ContentMiddleKey: Copy + Eq + Hash;
   type ContentUnitImpl: ContentUnit<Self::Graphics, Self::ContentProviderImpl>;
 }
 
