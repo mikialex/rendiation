@@ -48,7 +48,7 @@ impl RenderGraphBackend for DefaultRenderGraphBackend {
   type ContentUnitImpl = DrawcallList<WGPURenderer>;
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum RinecraftSourceType {}
 
 impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {

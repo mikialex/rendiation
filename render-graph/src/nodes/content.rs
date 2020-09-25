@@ -1,10 +1,33 @@
 use crate::{NodeBuilder, RenderGraphBackend, RenderGraphNode, RenderGraphNodeHandle};
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
 pub enum ContentKey<T: RenderGraphBackend> {
   Source(T::ContentSourceKey),
   Inner(T::ContentMiddleKey),
+}
+
+impl<T: RenderGraphBackend> PartialEq for ContentKey<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self == other
+  }
+}
+impl<T: RenderGraphBackend> Eq for ContentKey<T> {}
+impl<T: RenderGraphBackend> Copy for ContentKey<T> {}
+impl<T: RenderGraphBackend> Clone for ContentKey<T> {
+  fn clone(&self) -> Self {
+    match self {
+      ContentKey::Source(s) => ContentKey::Source(*s),
+      ContentKey::Inner(i) => ContentKey::Inner(*i),
+    }
+  }
+}
+impl<T: RenderGraphBackend> Hash for ContentKey<T> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    match self {
+      ContentKey::Source(s) => s.hash(state),
+      ContentKey::Inner(i) => i.hash(state),
+    }
+  }
 }
 
 pub struct ContentSourceNodeData<T: RenderGraphBackend> {
@@ -54,36 +77,34 @@ pub struct ContentTransformerNodeBuilder<'a, T: RenderGraphBackend> {
 impl<'a, T: RenderGraphBackend> ContentTransformerNodeBuilder<'a, T> {
   pub fn read_source(self, source: &ContentSourceNodeBuilder<'a, T>) -> Self {
     self.builder.connect_from(&source.builder);
-    let handle = source.builder.handle;
-    let key;
+    let mut key = None;
     source
       .builder
-      .mutate_data(|d| key = ContentKey::Source(d.key));
+      .mutate_data(|d| key = Some(ContentKey::Source(d.key)));
     self.builder.mutate_data(|data| {
-      data.read.insert(key, source.builder.handle);
+      data.read.insert(key.unwrap(), source.builder.handle);
     });
     self
   }
 
   pub fn read_middle(self, source: &ContentMiddleNodeBuilder<'a, T>) -> Self {
     self.builder.connect_from(&source.builder);
-    let handle = source.builder.handle;
-    let key;
+    let mut key = None;
     source
       .builder
-      .mutate_data(|d| key = ContentKey::Inner(d.key));
+      .mutate_data(|d| key = Some(ContentKey::Inner(d.key)));
     self.builder.mutate_data(|data| {
-      data.read.insert(key, source.builder.handle);
+      data.read.insert(key.unwrap(), source.builder.handle);
     });
     self
   }
 
   pub fn write(self, middle: &ContentMiddleNodeBuilder<'a, T>) -> Self {
     middle.builder.connect_from(&self.builder);
-    let key;
-    middle.builder.mutate_data(|d| key = d.key);
+    let mut key = None;
+    middle.builder.mutate_data(|d| key = Some(d.key));
     self.builder.mutate_data(|data| {
-      data.write.insert(key, middle.builder.handle);
+      data.write.insert(key.unwrap(), middle.builder.handle);
     });
     self
   }
