@@ -44,7 +44,7 @@ pub type RenderGraphNodeHandle<T> = ArenaGraphNodeHandle<RenderGraphNode<T>>;
 pub struct RenderGraph<T: RenderGraphBackend> {
   graph: RefCell<ArenaGraph<RenderGraphNode<T>>>,
   root_handle: Cell<Option<RenderGraphNodeHandle<T>>>,
-  pass_queue: RefCell<Option<Vec<PassExecuteInfo<T>>>>,
+  pass_queue: RefCell<Option<Vec<GraphExecutionInfo<T>>>>,
 }
 
 impl<T: RenderGraphBackend> RenderGraph<T> {
@@ -126,7 +126,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   }
 }
 
-fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassExecuteInfo<T>> {
+fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<GraphExecutionInfo<T>> {
   let root = graph.root_handle.get().unwrap();
   let graph = graph.graph.borrow_mut();
   let node_list: Vec<RenderGraphNodeHandle<T>> = graph
@@ -139,11 +139,13 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<PassEx
   let mut exe_info_list: Vec<PassExecuteInfo<T>> = node_list
     .iter()
     .map(|&n| PassExecuteInfo {
-      pass_node_handle: n,
+      node: n,
       target_reuse_release_list: Vec::new(),
+      content_reuse_release_list: Vec::new(),
     })
     .collect();
 
+  // update target_reuse_release_list
   node_list.iter().enumerate().for_each(|(index, &n)| {
     let node = graph.get_node(n);
     let output_node = *node.to().iter().next().unwrap();
