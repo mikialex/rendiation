@@ -189,7 +189,7 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
             .unwrap()
             .key,
           &self.target_pool,
-          self.content_pool.request_content(*node),
+          self.content_pool.active(*node),
         ),
         ContentTransform(ContentTransformExecuteInfo { node }) => {
           let graph = graph.graph.borrow();
