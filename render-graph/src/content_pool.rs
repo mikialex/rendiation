@@ -14,6 +14,14 @@ impl<T: RenderGraphBackend> ContentPool<T> {
     }
   }
 
+  pub fn load(&mut self, node: RenderGraphNodeHandle<T>) -> T::ContentUnitImpl {
+    self.active_contents.remove(&node).unwrap()
+  }
+
+  pub fn store(&mut self, node: RenderGraphNodeHandle<T>, content: T::ContentUnitImpl) {
+    self.active_contents.insert(node, content);
+  }
+
   pub fn request_content(
     &mut self,
     node_handle: RenderGraphNodeHandle<T>,

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use rendiation_ral::RALBackend;
 
@@ -192,7 +192,6 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
           self.content_pool.request_content(*node),
         ),
         ContentTransform(ContentTransformExecuteInfo { node }) => {
-          todo!();
           let graph = graph.graph.borrow();
           let transformer = graph
             .get_node(*node)
@@ -200,7 +199,31 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
             .downcast::<ContentTransformerNodeData<_>>()
             .unwrap();
 
-          transformer.transformer();
+          let read_map = transformer
+            .read
+            .iter()
+            .map(|(&key, &value)| (key, self.content_pool.load(value)))
+            .collect();
+
+          let mut write_map = transformer
+            .write
+            .iter()
+            .map(|(&key, &value)| (key, self.content_pool.load(value)))
+            .collect();
+
+          (transformer.transformer)(&read_map, &mut write_map);
+
+          read_map.drain().for_each(|(key, content)| {
+            self
+              .content_pool
+              .store(*transformer.read.get(&key).unwrap(), content);
+          });
+
+          write_map.drain().for_each(|(key, content)| {
+            self
+              .content_pool
+              .store(*transformer.write.get(&key).unwrap(), content);
+          });
         }
       }
     })

@@ -60,12 +60,12 @@ impl<'a, T: RenderGraphBackend> ContentMiddleNodeBuilder<'a, T> {
 }
 
 pub struct ContentTransformerNodeData<T: RenderGraphBackend> {
-  read: HashMap<ContentKey<T>, RenderGraphNodeHandle<T>>,
-  write: HashMap<T::ContentMiddleKey, RenderGraphNodeHandle<T>>,
-  transformer: Box<
+  pub read: HashMap<ContentKey<T>, RenderGraphNodeHandle<T>>,
+  pub write: HashMap<T::ContentMiddleKey, RenderGraphNodeHandle<T>>,
+  pub transformer: Box<
     dyn FnMut(
       &HashMap<ContentKey<T>, T::ContentUnitImpl>,
-      &mut HashMap<ContentKey<T>, T::ContentUnitImpl>,
+      &mut HashMap<T::ContentMiddleKey, T::ContentUnitImpl>,
     ),
   >,
 }

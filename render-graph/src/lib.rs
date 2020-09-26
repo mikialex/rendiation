@@ -158,6 +158,7 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<GraphE
         .iter_mut()
         .rev()
         .filter_map(|info| {
+          // todo add transformer check
           if let GraphExecutionInfo::Pass(i) = info {
             Some(i)
           } else {
