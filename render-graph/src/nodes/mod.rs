@@ -1,6 +1,9 @@
-use std::marker::PhantomData;
+use std::{collections::HashSet, marker::PhantomData};
 
-use crate::{RenderGraph, RenderGraphBackend, RenderGraphNodeHandle};
+use crate::{
+  ContentTransformExecuteInfo, GraphExecutionInfo, PassExecuteInfo, RenderGraph,
+  RenderGraphBackend, RenderGraphNodeHandle, SourceRetrieveExecuteInfo,
+};
 pub use rendiation_math::*;
 pub use rendiation_render_entity::*;
 
@@ -26,12 +29,24 @@ impl<T: RenderGraphBackend> RenderGraphNode<T> {
   pub fn downcast_mut<U: FromRenderGraphNode<T>>(&mut self) -> Option<&mut U> {
     FromRenderGraphNode::downcast_mut(self)
   }
-  pub fn is_pass(&self) -> bool {
+  pub(crate) fn to_execution_info(
+    &self,
+    node: RenderGraphNodeHandle<T>,
+  ) -> Option<GraphExecutionInfo<T>> {
+    use RenderGraphNode::*;
     match self {
-      RenderGraphNode::Pass(_) => true,
-      RenderGraphNode::Source(_) => true,
-      RenderGraphNode::Transformer(_) => true,
-      _ => false,
+      Pass(_) => Some(GraphExecutionInfo::Pass(PassExecuteInfo {
+        node,
+        target_reuse_release_list: HashSet::new(),
+        content_reuse_release_list: HashSet::new(),
+      })),
+      Source(_) => Some(GraphExecutionInfo::SourceRetrieve(
+        SourceRetrieveExecuteInfo { node },
+      )),
+      Transformer(_) => Some(GraphExecutionInfo::ContentTransform(
+        ContentTransformExecuteInfo { node },
+      )),
+      _ => None,
     }
   }
 }
@@ -62,10 +77,13 @@ macro_rules! impl_downcast {
   };
 }
 
+// resource
 impl_downcast!(TargetNodeData, Target);
-impl_downcast!(PassNodeData, Pass);
 impl_downcast!(ContentSourceNodeData, Source);
 impl_downcast!(ContentMiddleNodeData, Middle);
+
+// processor
+impl_downcast!(PassNodeData, Pass);
 impl_downcast!(ContentTransformerNodeData, Transformer);
 
 pub struct NodeBuilder<'a, T: RenderGraphBackend, U: FromRenderGraphNode<T>> {

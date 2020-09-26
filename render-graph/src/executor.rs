@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use rendiation_ral::RALBackend;
 
 use crate::{
@@ -8,8 +10,8 @@ use crate::{
 
 pub(crate) enum GraphExecutionInfo<T: RenderGraphBackend> {
   Pass(PassExecuteInfo<T>),
-  SourceRetrieve(PassExecuteInfo<T>),
-  ContentTransform(PassExecuteInfo<T>),
+  SourceRetrieve(SourceRetrieveExecuteInfo<T>),
+  ContentTransform(ContentTransformExecuteInfo<T>),
 }
 
 pub(crate) struct SourceRetrieveExecuteInfo<T: RenderGraphBackend> {
@@ -22,8 +24,8 @@ pub(crate) struct ContentTransformExecuteInfo<T: RenderGraphBackend> {
 
 pub(crate) struct PassExecuteInfo<T: RenderGraphBackend> {
   pub node: RenderGraphNodeHandle<T>,
-  pub target_reuse_release_list: Vec<RenderGraphNodeHandle<T>>,
-  pub content_reuse_release_list: Vec<RenderGraphNodeHandle<T>>,
+  pub target_reuse_release_list: HashSet<RenderGraphNodeHandle<T>>,
+  pub content_reuse_release_list: HashSet<RenderGraphNodeHandle<T>>,
 }
 
 impl<T: RenderGraphBackend> PassExecuteInfo<T> {
