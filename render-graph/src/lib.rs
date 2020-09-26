@@ -32,10 +32,11 @@ pub trait ContentProvider<T: RenderGraphBackend> {
     &mut self,
     key: T::ContentSourceKey,
     pool: &RenderTargetPool<T>,
-  ) -> T::ContentUnitImpl;
+    result: &mut T::ContentUnitImpl,
+  );
 }
 
-pub trait ContentUnit<T: RenderGraphGraphicsBackend, P>: Sized {
+pub trait ContentUnit<T: RenderGraphGraphicsBackend, P>: Sized + Default {
   fn render_pass(&self, pass: &mut <T as RALBackend>::RenderPass, provider: &mut P);
 }
 

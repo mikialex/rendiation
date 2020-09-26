@@ -3,9 +3,10 @@ use std::collections::HashSet;
 use rendiation_ral::RALBackend;
 
 use crate::{
-  build_pass_queue, ContentPool, ContentProvider, ContentSourceNodeData, ContentUnit, PassNodeData,
-  RenderGraph, RenderGraphBackend, RenderGraphGraphicsBackend, RenderGraphNodeHandle,
-  RenderTargetPool, RenderTargetSize, TargetNodeData,
+  build_pass_queue, ContentPool, ContentProvider, ContentSourceNodeData,
+  ContentTransformerNodeData, ContentUnit, PassNodeData, RenderGraph, RenderGraphBackend,
+  RenderGraphGraphicsBackend, RenderGraphNodeHandle, RenderTargetPool, RenderTargetSize,
+  TargetNodeData,
 };
 
 pub(crate) enum GraphExecutionInfo<T: RenderGraphBackend> {
@@ -53,19 +54,19 @@ impl<T: RenderGraphBackend> PassExecuteInfo<T> {
         .downcast::<PassNodeData<_>>()
         .unwrap();
       executor.working_content_unit.clear();
+
       let pool = &executor.target_pool;
-      let extender = pass_data
-        .contents_to_render
-        .iter()
-        .map(|&n| {
-          graph
-            .get_node(n)
-            .data()
-            .downcast::<ContentSourceNodeData<_>>()
-            .unwrap()
-            .key
-        })
-        .map(|key| content_provider.get_source(key, pool));
+      let extender = pass_data.contents_to_render.iter().map(|&n| {
+        executor.content_pool.request_content(n)
+        // graph
+        //   .get_node(n)
+        //   .data()
+        //   .downcast::<ContentSourceNodeData<_>>()
+        //   .unwrap()
+        //   .key
+      });
+      // .map(|key| content_provider.get_source(key, pool));
+
       executor.working_content_unit.extend(extender);
     }
 
@@ -122,6 +123,17 @@ impl<T: RenderGraphBackend> PassExecuteInfo<T> {
           .downcast::<TargetNodeData<_>>()
           .unwrap(),
       )
+    });
+
+    content_reuse_release_list.iter().for_each(|&n| {
+      // executor.target_pool.return_render_target(
+      //   n,
+      //   graph
+      //     .get_node(n)
+      //     .data()
+      //     .downcast::<TargetNodeData<_>>()
+      //     .unwrap(),
+      // )
     })
   }
 }
@@ -167,8 +179,29 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
       use GraphExecutionInfo::*;
       match info {
         Pass(info) => info.execute(graph, self, final_target, renderer, content_provider),
-        SourceRetrieve(info) => todo!(),
-        ContentTransform(info) => todo!(),
+        SourceRetrieve(SourceRetrieveExecuteInfo { node }) => content_provider.get_source(
+          graph
+            .graph
+            .borrow()
+            .get_node(*node)
+            .data()
+            .downcast::<ContentSourceNodeData<_>>()
+            .unwrap()
+            .key,
+          &self.target_pool,
+          self.content_pool.request_content(*node),
+        ),
+        ContentTransform(ContentTransformExecuteInfo { node }) => {
+          todo!();
+          let graph = graph.graph.borrow();
+          let transformer = graph
+            .get_node(*node)
+            .data()
+            .downcast::<ContentTransformerNodeData<_>>()
+            .unwrap();
+
+          transformer.transformer();
+        }
       }
     })
   }
