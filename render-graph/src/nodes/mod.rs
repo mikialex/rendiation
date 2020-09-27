@@ -1,10 +1,8 @@
-use std::{collections::HashSet, marker::PhantomData};
+use std::marker::PhantomData;
 
-use crate::{
-  ContentTransformExecuteInfo, GraphExecutionInfo, PassExecuteInfo, RenderGraph,
-  RenderGraphBackend, RenderGraphNodeHandle, SourceRetrieveExecuteInfo,
-};
+use crate::{RenderGraph, RenderGraphBackend, RenderGraphExecutor, RenderGraphNodeHandle};
 pub use rendiation_math::*;
+use rendiation_ral::RALBackend;
 pub use rendiation_render_entity::*;
 
 pub mod pass;
@@ -29,25 +27,30 @@ impl<T: RenderGraphBackend> RenderGraphNode<T> {
   pub fn downcast_mut<U: FromRenderGraphNode<T>>(&mut self) -> Option<&mut U> {
     FromRenderGraphNode::downcast_mut(self)
   }
-  pub(crate) fn to_execution_info(
+
+  pub fn execute(
     &self,
-    node: RenderGraphNodeHandle<T>,
-  ) -> Option<GraphExecutionInfo<T>> {
+    self_handle: RenderGraphNodeHandle<T>,
+    graph: &RenderGraph<T>,
+    executor: &mut RenderGraphExecutor<T>,
+    provider: &mut T::ContentProviderImpl,
+    final_target: &<T::Graphics as RALBackend>::RenderTarget,
+    renderer: &mut <T::Graphics as RALBackend>::Renderer,
+  ) {
     use RenderGraphNode::*;
     match self {
-      Pass(_) => Some(GraphExecutionInfo::Pass(PassExecuteInfo {
-        node,
-        target_reuse_release_list: HashSet::new(),
-        content_reuse_release_list: HashSet::new(),
-      })),
-      Source(_) => Some(GraphExecutionInfo::SourceRetrieve(
-        SourceRetrieveExecuteInfo { node },
-      )),
-      Transformer(_) => Some(GraphExecutionInfo::ContentTransform(
-        ContentTransformExecuteInfo { node },
-      )),
-      _ => None,
-    }
+      Pass(n) => n.execute(
+        self_handle,
+        graph,
+        executor,
+        final_target,
+        renderer,
+        provider,
+      ),
+      Source(n) => n.execute(self_handle, executor, provider),
+      Transformer(n) => n.execute(executor),
+      _ => {}
+    };
   }
 }
 
@@ -94,7 +97,7 @@ pub struct NodeBuilder<'a, T: RenderGraphBackend, U: FromRenderGraphNode<T>> {
 
 impl<'a, T: RenderGraphBackend, U: FromRenderGraphNode<T>> NodeBuilder<'a, T, U> {
   pub fn mutate_data(&self, mutator: impl FnOnce(&mut U)) -> &Self {
-    let mut graph = self.graph.graph.borrow_mut();
+    let graph = &mut self.graph.graph.borrow_mut().graph;
     let data = graph.get_node_mut(self.handle).data_mut();
     U::downcast_mut(data).map(mutator);
     self
@@ -105,6 +108,7 @@ impl<'a, T: RenderGraphBackend, U: FromRenderGraphNode<T>> NodeBuilder<'a, T, U>
       .graph
       .graph
       .borrow_mut()
+      .graph
       .connect_node(other.handle, self.handle);
     self
   }

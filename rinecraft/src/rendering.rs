@@ -56,7 +56,8 @@ impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
     &mut self,
     key: RinecraftSourceType,
     _: &RenderTargetPool<DefaultRenderGraphBackend>,
-  ) -> DrawcallList<WGPURenderer> {
+    _: &mut DrawcallList<WGPURenderer>,
+  ) {
     todo!()
   }
 }

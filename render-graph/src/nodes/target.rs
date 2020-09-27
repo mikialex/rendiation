@@ -12,6 +12,9 @@ pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
 impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
   pub fn from_pass(self, pass: &PassNodeBuilder<'a, T>) -> Self {
     self.builder.connect_from(&pass.builder);
+    pass
+      .builder
+      .mutate_data(|p| p.target_to = Some(self.builder.handle));
     self
   }
 
@@ -52,13 +55,9 @@ impl<T: RenderGraphBackend> TargetNodeData<T> {
     &mut self.format.format
   }
 
-  pub fn real_size(&self) -> RenderTargetSize {
-    self.format.size
-  }
-
-  pub fn update_real_size(&mut self, final_size: RenderTargetSize) -> &mut Self {
+  pub fn update_real_size(&mut self, final_size: RenderTargetSize) -> RenderTargetSize {
     self.format.size = (self.size_modifier)(final_size);
-    self
+    self.format.size
   }
 
   pub fn target(name: String) -> Self {

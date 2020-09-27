@@ -42,16 +42,31 @@ pub trait ContentUnit<T: RenderGraphGraphicsBackend, P>: Sized + Default {
 
 pub type RenderGraphNodeHandle<T> = ArenaGraphNodeHandle<RenderGraphNode<T>>;
 
+pub struct RenderGraphData<T: RenderGraphBackend> {
+  graph: ArenaGraph<RenderGraphNode<T>>,
+}
+
+impl<T: RenderGraphBackend> RenderGraphData<T> {
+  pub fn get_node_data_unwrap<U: FromRenderGraphNode<T>>(
+    &self,
+    node: RenderGraphNodeHandle<T>,
+  ) -> &U {
+    self.graph.get_node(node).data().downcast::<U>().unwrap()
+  }
+}
+
 pub struct RenderGraph<T: RenderGraphBackend> {
-  graph: RefCell<ArenaGraph<RenderGraphNode<T>>>,
+  graph: RefCell<RenderGraphData<T>>,
   root_handle: Cell<Option<RenderGraphNodeHandle<T>>>,
-  pass_queue: RefCell<Option<Vec<GraphExecutionInfo<T>>>>,
+  pass_queue: RefCell<Option<Vec<RenderGraphNodeHandle<T>>>>,
 }
 
 impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn new() -> Self {
     Self {
-      graph: RefCell::new(ArenaGraph::new()),
+      graph: RefCell::new(RenderGraphData {
+        graph: ArenaGraph::new(),
+      }),
       root_handle: Cell::new(None),
       pass_queue: RefCell::new(None),
     }
@@ -61,12 +76,16 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     let handle = self
       .graph
       .borrow_mut()
+      .graph
       .create_node(RenderGraphNode::Pass(PassNodeData {
         name: name.to_owned(),
         viewport_modifier: Box::new(same_as_target),
         pass_op_modifier: Box::new(|b| b),
         input_targets_map: HashSet::new(),
         contents_to_render: Vec::new(),
+        target_to: None,
+        target_reuse_release_list: HashSet::new(),
+        content_reuse_release_list: HashSet::new(),
       }));
     PassNodeBuilder {
       builder: NodeBuilder {
@@ -81,6 +100,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     let handle = self
       .graph
       .borrow_mut()
+      .graph
       .create_node(RenderGraphNode::Target(TargetNodeData::finally()));
     self.root_handle.set(Some(handle));
 
@@ -97,6 +117,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
     let handle = self
       .graph
       .borrow_mut()
+      .graph
       .create_node(RenderGraphNode::Source(ContentSourceNodeData { key }));
 
     ContentSourceNodeBuilder {
@@ -109,13 +130,13 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   }
 
   pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
-    let handle =
-      self
-        .graph
-        .borrow_mut()
-        .create_node(RenderGraphNode::Target(TargetNodeData::target(
-          name.to_owned(),
-        )));
+    let handle = self
+      .graph
+      .borrow_mut()
+      .graph
+      .create_node(RenderGraphNode::Target(TargetNodeData::target(
+        name.to_owned(),
+      )));
 
     TargetNodeBuilder {
       builder: NodeBuilder {
@@ -127,9 +148,11 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   }
 }
 
-fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<GraphExecutionInfo<T>> {
+fn build_pass_queue<T: RenderGraphBackend>(
+  graph: &RenderGraph<T>,
+) -> Vec<RenderGraphNodeHandle<T>> {
   let root = graph.root_handle.get().unwrap();
-  let graph = graph.graph.borrow_mut();
+  let graph = &graph.graph.borrow_mut().graph;
 
   let node_list: Vec<RenderGraphNodeHandle<T>> = graph
     .topological_order_list(root)
@@ -137,80 +160,82 @@ fn build_pass_queue<T: RenderGraphBackend>(graph: &RenderGraph<T>) -> Vec<GraphE
     .into_iter()
     .collect();
 
-  let mut exe_info_list: Vec<_> = node_list
-    .iter()
-    .filter_map(|&n| graph.get_node(n).data().to_execution_info(n))
-    .collect();
+  node_list
 
-  node_list.iter().for_each(|&n| {
-    let node = graph.get_node(n).data();
-    let mut is_content = false;
-    if let Some(_) = node.downcast::<ContentSourceNodeData<_>>() {
-      is_content = true;
-    }
-    if let Some(_) = node.downcast::<ContentMiddleNodeData<_>>() {
-      is_content = true;
-    }
+  // let mut exe_info_list: Vec<_> = node_list
+  //   .iter()
+  //   .filter_map(|&n| graph.get_node(n).data().to_execution_info(n))
+  //   .collect();
 
-    if is_content {
-      let mut reverse_count = 0;
-      exe_info_list
-        .iter_mut()
-        .rev()
-        .filter_map(|info| {
-          // todo add transformer check
-          if let GraphExecutionInfo::Pass(i) = info {
-            Some(i)
-          } else {
-            None
-          }
-        })
-        .take_while(|info| {
-          let pass_info = graph
-            .get_node(info.node)
-            .data()
-            .downcast::<PassNodeData<T>>()
-            .unwrap();
-          reverse_count += 1;
-          !pass_info.contents_to_render.contains(&n)
-        })
-        .for_each(|_| {});
-      let last_used_index = exe_info_list.len() - reverse_count;
+  // node_list.iter().for_each(|&n| {
+  //   let node = graph.get_node(n).data();
+  //   let mut is_content = false;
+  //   if let Some(_) = node.downcast::<ContentSourceNodeData<_>>() {
+  //     is_content = true;
+  //   }
+  //   if let Some(_) = node.downcast::<ContentMiddleNodeData<_>>() {
+  //     is_content = true;
+  //   }
 
-      if let GraphExecutionInfo::Pass(i) = &mut exe_info_list[last_used_index] {
-        i.content_reuse_release_list.insert(n);
-      }
-    }
+  //   if is_content {
+  //     let mut reverse_count = 0;
+  //     exe_info_list
+  //       .iter_mut()
+  //       .rev()
+  //       .filter_map(|info| {
+  //         // todo add transformer check
+  //         if let GraphExecutionInfo::Pass(i) = info {
+  //           Some(i)
+  //         } else {
+  //           None
+  //         }
+  //       })
+  //       .take_while(|info| {
+  //         let pass_info = graph
+  //           .get_node(info.node)
+  //           .data()
+  //           .downcast::<PassNodeData<T>>()
+  //           .unwrap();
+  //         reverse_count += 1;
+  //         !pass_info.contents_to_render.contains(&n)
+  //       })
+  //       .for_each(|_| {});
+  //     let last_used_index = exe_info_list.len() - reverse_count;
 
-    if let Some(_) = node.downcast::<TargetNodeData<_>>() {
-      let mut reverse_count = 0;
-      exe_info_list
-        .iter_mut()
-        .rev()
-        .filter_map(|info| {
-          if let GraphExecutionInfo::Pass(i) = info {
-            Some(i)
-          } else {
-            None
-          }
-        })
-        .take_while(|info| {
-          let pass_info = graph
-            .get_node(info.node)
-            .data()
-            .downcast::<PassNodeData<T>>()
-            .unwrap();
-          reverse_count += 1;
-          !pass_info.input_targets_map.contains(&n)
-        })
-        .for_each(|_| {});
-      let last_used_index = exe_info_list.len() - reverse_count;
+  //     if let GraphExecutionInfo::Pass(i) = &mut exe_info_list[last_used_index] {
+  //       i.content_reuse_release_list.insert(n);
+  //     }
+  //   }
 
-      if let GraphExecutionInfo::Pass(i) = &mut exe_info_list[last_used_index] {
-        i.target_reuse_release_list.insert(n);
-      }
-    }
-  });
+  //   if let Some(_) = node.downcast::<TargetNodeData<_>>() {
+  //     let mut reverse_count = 0;
+  //     exe_info_list
+  //       .iter_mut()
+  //       .rev()
+  //       .filter_map(|info| {
+  //         if let GraphExecutionInfo::Pass(i) = info {
+  //           Some(i)
+  //         } else {
+  //           None
+  //         }
+  //       })
+  //       .take_while(|info| {
+  //         let pass_info = graph
+  //           .get_node(info.node)
+  //           .data()
+  //           .downcast::<PassNodeData<T>>()
+  //           .unwrap();
+  //         reverse_count += 1;
+  //         !pass_info.input_targets_map.contains(&n)
+  //       })
+  //       .for_each(|_| {});
+  //     let last_used_index = exe_info_list.len() - reverse_count;
 
-  exe_info_list
+  //     if let GraphExecutionInfo::Pass(i) = &mut exe_info_list[last_used_index] {
+  //       i.target_reuse_release_list.insert(n);
+  //     }
+  //   }
+  // });
+
+  // exe_info_list
 }

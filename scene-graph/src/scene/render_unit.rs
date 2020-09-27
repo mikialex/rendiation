@@ -39,6 +39,12 @@ pub struct DrawcallList<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend>
   pub inner: Vec<Drawcall<T, S>>,
 }
 
+impl<T: RALBackend, S: SceneBackend<T>> Default for DrawcallList<T, S> {
+  fn default() -> Self {
+    DrawcallList::new()
+  }
+}
+
 impl<T: RALBackend, S: SceneBackend<T>> DrawcallList<T, S> {
   pub fn new() -> Self {
     Self { inner: Vec::new() }
