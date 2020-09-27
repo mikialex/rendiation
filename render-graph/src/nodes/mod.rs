@@ -28,6 +28,24 @@ impl<T: RenderGraphBackend> RenderGraphNode<T> {
     FromRenderGraphNode::downcast_mut(self)
   }
 
+  pub fn is_content_node(&self) -> bool {
+    use RenderGraphNode::*;
+    match self {
+      Source(_) => true,
+      Middle(_) => true,
+      _ => false,
+    }
+  }
+
+  pub fn is_content_used_by(&self, content: RenderGraphNodeHandle<T>) -> bool {
+    use RenderGraphNode::*;
+    match self {
+      Pass(d) => d.contents_to_render.contains(&content),
+      Transformer(d) => d.read.values().any(|&c| c == content),
+      _ => false,
+    }
+  }
+
   pub fn execute(
     &self,
     self_handle: RenderGraphNodeHandle<T>,
