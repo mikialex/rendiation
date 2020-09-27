@@ -1,8 +1,8 @@
 use rendiation_ral::Viewport;
 
 use crate::{
-  NodeBuilder, PassNodeBuilder, RenderGraphBackend, RenderGraphGraphicsBackend,
-  RenderTargetFormatKey, RenderTargetSize,
+  NodeBuilder, PassNodeBuilder, RenderGraph, RenderGraphBackend, RenderGraphGraphicsBackend,
+  RenderGraphNode, RenderTargetFormatKey, RenderTargetSize,
 };
 
 pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
@@ -34,6 +34,35 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
       .builder
       .mutate_data(|t| t.size_modifier = Box::new(modifier));
     self
+  }
+}
+
+impl<T: RenderGraphBackend> RenderGraph<T> {
+  pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
+    let handle = self
+      .graph
+      .borrow_mut()
+      .graph
+      .create_node(RenderGraphNode::Target(TargetNodeData::target(
+        name.to_owned(),
+      )));
+
+    TargetNodeBuilder {
+      builder: NodeBuilder::new(self, handle),
+    }
+  }
+
+  pub fn finally(&self) -> TargetNodeBuilder<T> {
+    let handle = self
+      .graph
+      .borrow_mut()
+      .graph
+      .create_node(RenderGraphNode::Target(TargetNodeData::finally()));
+    self.root_handle.set(Some(handle));
+
+    TargetNodeBuilder {
+      builder: NodeBuilder::new(self, handle),
+    }
   }
 }
 

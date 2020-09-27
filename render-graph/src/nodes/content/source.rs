@@ -1,5 +1,6 @@
 use crate::{
-  ContentProvider, NodeBuilder, RenderGraphBackend, RenderGraphExecutor, RenderGraphNodeHandle,
+  ContentProvider, NodeBuilder, RenderGraph, RenderGraphBackend, RenderGraphExecutor,
+  RenderGraphNode, RenderGraphNodeHandle,
 };
 
 pub struct ContentSourceNodeData<T: RenderGraphBackend> {
@@ -31,4 +32,18 @@ pub struct ContentMiddleNodeData<T: RenderGraphBackend> {
 
 pub struct ContentMiddleNodeBuilder<'a, T: RenderGraphBackend> {
   pub(crate) builder: NodeBuilder<'a, T, ContentMiddleNodeData<T>>,
+}
+
+impl<T: RenderGraphBackend> RenderGraph<T> {
+  pub fn source(&self, key: T::ContentSourceKey) -> ContentSourceNodeBuilder<T> {
+    let handle = self
+      .graph
+      .borrow_mut()
+      .graph
+      .create_node(RenderGraphNode::Source(ContentSourceNodeData { key }));
+
+    ContentSourceNodeBuilder {
+      builder: NodeBuilder::new(self, handle),
+    }
+  }
 }

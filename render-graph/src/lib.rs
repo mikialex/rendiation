@@ -3,9 +3,7 @@ pub use rendiation_math::*;
 pub use rendiation_ral::*;
 use std::{
   cell::{Cell, RefCell},
-  collections::HashSet,
   hash::Hash,
-  marker::PhantomData,
 };
 
 mod backend;
@@ -80,81 +78,6 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       }),
       root_handle: Cell::new(None),
       pass_queue: RefCell::new(None),
-    }
-  }
-
-  pub fn pass(&self, name: &str) -> PassNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Pass(PassNodeData {
-        name: name.to_owned(),
-        viewport_modifier: Box::new(same_as_target),
-        pass_op_modifier: Box::new(|b| b),
-        input_targets_map: HashSet::new(),
-        contents_to_render: Vec::new(),
-        target_to: None,
-        target_reuse_release_list: HashSet::new(),
-        content_reuse_release_list: HashSet::new(),
-      }));
-    PassNodeBuilder {
-      builder: NodeBuilder {
-        handle,
-        graph: self,
-        phantom: PhantomData,
-      },
-    }
-  }
-
-  pub fn finally(&self) -> TargetNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Target(TargetNodeData::finally()));
-    self.root_handle.set(Some(handle));
-
-    TargetNodeBuilder {
-      builder: NodeBuilder {
-        handle,
-        graph: self,
-        phantom: PhantomData,
-      },
-    }
-  }
-
-  pub fn source(&self, key: T::ContentSourceKey) -> ContentSourceNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Source(ContentSourceNodeData { key }));
-
-    ContentSourceNodeBuilder {
-      builder: NodeBuilder {
-        handle,
-        graph: self,
-        phantom: PhantomData,
-      },
-    }
-  }
-
-  pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Target(TargetNodeData::target(
-        name.to_owned(),
-      )));
-
-    TargetNodeBuilder {
-      builder: NodeBuilder {
-        handle,
-        graph: self,
-        phantom: PhantomData,
-      },
     }
   }
 }

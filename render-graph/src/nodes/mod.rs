@@ -114,6 +114,14 @@ pub struct NodeBuilder<'a, T: RenderGraphBackend, U: FromRenderGraphNode<T>> {
 }
 
 impl<'a, T: RenderGraphBackend, U: FromRenderGraphNode<T>> NodeBuilder<'a, T, U> {
+  pub fn new(graph: &'a RenderGraph<T>, handle: RenderGraphNodeHandle<T>) -> Self {
+    Self {
+      handle,
+      graph,
+      phantom: PhantomData,
+    }
+  }
+
   pub fn mutate_data(&self, mutator: impl FnOnce(&mut U)) -> &Self {
     let graph = &mut self.graph.graph.borrow_mut().graph;
     let data = graph.get_node_mut(self.handle).data_mut();
