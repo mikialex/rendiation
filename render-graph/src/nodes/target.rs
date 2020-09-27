@@ -39,27 +39,16 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
 
 impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Target(TargetNodeData::target(
-        name.to_owned(),
-      )));
-
+    let handle = self.create_node(RenderGraphNode::Target(TargetNodeData::target(
+      name.to_owned(),
+    )));
     TargetNodeBuilder {
       builder: NodeBuilder::new(self, handle),
     }
   }
 
   pub fn finally(&self) -> TargetNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Target(TargetNodeData::finally()));
-    self.root_handle.set(Some(handle));
-
+    let handle = self.create_node(RenderGraphNode::Target(TargetNodeData::finally()));
     TargetNodeBuilder {
       builder: NodeBuilder::new(self, handle),
     }

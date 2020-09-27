@@ -36,11 +36,7 @@ pub struct ContentMiddleNodeBuilder<'a, T: RenderGraphBackend> {
 
 impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn source(&self, key: T::ContentSourceKey) -> ContentSourceNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Source(ContentSourceNodeData { key }));
+    let handle = self.create_node(RenderGraphNode::Source(ContentSourceNodeData { key }));
 
     ContentSourceNodeBuilder {
       builder: NodeBuilder::new(self, handle),

@@ -80,6 +80,10 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       pass_queue: RefCell::new(None),
     }
   }
+
+  pub fn create_node(&self, data: RenderGraphNode<T>) -> RenderGraphNodeHandle<T> {
+    self.graph.borrow_mut().graph.create_node(data)
+  }
 }
 
 fn build_pass_queue<T: RenderGraphBackend>(

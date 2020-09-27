@@ -157,20 +157,16 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
 
 impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn pass(&self, name: &str) -> PassNodeBuilder<T> {
-    let handle = self
-      .graph
-      .borrow_mut()
-      .graph
-      .create_node(RenderGraphNode::Pass(PassNodeData {
-        name: name.to_owned(),
-        viewport_modifier: Box::new(same_as_target),
-        pass_op_modifier: Box::new(|b| b),
-        input_targets_map: HashSet::new(),
-        contents_to_render: Vec::new(),
-        target_to: None,
-        target_reuse_release_list: HashSet::new(),
-        content_reuse_release_list: HashSet::new(),
-      }));
+    let handle = self.create_node(RenderGraphNode::Pass(PassNodeData {
+      name: name.to_owned(),
+      viewport_modifier: Box::new(same_as_target),
+      pass_op_modifier: Box::new(|b| b),
+      input_targets_map: HashSet::new(),
+      contents_to_render: Vec::new(),
+      target_to: None,
+      target_reuse_release_list: HashSet::new(),
+      content_reuse_release_list: HashSet::new(),
+    }));
     PassNodeBuilder {
       builder: NodeBuilder {
         handle,
