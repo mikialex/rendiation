@@ -1,8 +1,6 @@
 # Rendiation Rendering Framework
 
-Rendiation is a group of crates that can be composed to impl graphics project. For example, build your own renderer, realtime viewer or offline tracer, game engine, physics engine, graphics data processing, generative content creation..
-
-Use WebGPU as first class realtime graphics API support.
+Rendiation is a group of crates that can be composed to impl graphics project. Build your own renderer, realtime viewer or offline tracer, game engine, physics engine, graphics data processing, generative content creation..
 
 This repo is in very early stage and very unstable. most of crates highly unfinished.
 
@@ -20,15 +18,15 @@ RenderEntity for graphics primitives. Camera. Controller..
 
 RendiationWebGPU for WebGPU.
 
-RendiationWebGL for WebGL2. // planed
+RendiationWebGL for WebGL2.
 
 ### Framework
 
-[SceneGraph](./scene-graph/README.md) for backEnd agnostic 3D scene description and rendering;
+[SceneGraph](./scene-graph/README.md) for graphics API agnostic 3D scene description and rendering;
 
-[ShaderGraph](./shader-graph/README.md) as a shader linker, for Shading Abstraction Layer;
+[ShaderGraph](./shader-graph/README.md) for Shading Abstraction Layer;
 
-RenderGraph for backEnd agnostic multi-pass dependency resolve and composition;
+RenderGraph for graphics API agnostic multi-pass dependency resolve and composition;
 
 Rendium for UI system.
 
@@ -46,4 +44,4 @@ Noize for noise pattern generation.
 
 [Rinecraft](./rinecraft/README.md) for testing minecraft like game.
 
-RainRay for testing ray tracing.
+RainRay for yet another ray tracer.

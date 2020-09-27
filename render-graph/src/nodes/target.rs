@@ -1,28 +1,28 @@
+use rendiation_ral::Viewport;
+
 use crate::{
-  NodeBuilder, PassNodeBuilder, RenderGraph, RenderGraphBackend, RenderGraphNode,
-  RenderGraphNodeHandle, RenderTargetFormatKey, RenderTargetSize,
+  NodeBuilder, PassNodeBuilder, RenderGraph, RenderGraphBackend, RenderGraphGraphicsBackend,
+  RenderGraphNode, RenderTargetFormatKey, RenderTargetSize,
 };
 
 pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
-  pub(crate) builder: NodeBuilder<'a, T>,
+  pub(crate) builder: NodeBuilder<'a, T, TargetNodeData<T>>,
 }
 
 impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
-  pub fn handle(&self) -> RenderGraphNodeHandle<T> {
-    self.builder.handle
-  }
-  pub fn from_pass(self, passes: &PassNodeBuilder<'a, T>) -> Self {
-    self
+  pub fn from_pass(self, pass: &PassNodeBuilder<'a, T>) -> Self {
+    self.builder.connect_from(&pass.builder);
+    pass
       .builder
-      .graph
-      .graph
-      .borrow_mut()
-      .connect_node(passes.handle(), self.handle());
+      .mutate_data(|p| p.target_to = Some(self.builder.handle));
     self
   }
 
-  pub fn format(self, modifier: impl FnOnce(&mut T::RenderTargetFormatKey)) -> Self {
-    self.target_data_mut(|t| modifier(t.format_mut()));
+  pub fn format(
+    self,
+    modifier: impl FnOnce(&mut <T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey),
+  ) -> Self {
+    self.builder.mutate_data(|t| modifier(t.format_mut()));
     self
   }
 
@@ -30,15 +30,27 @@ impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
     self,
     modifier: impl Fn(RenderTargetSize) -> RenderTargetSize + 'static,
   ) -> Self {
-    self.target_data_mut(|t| t.size_modifier = Box::new(modifier));
+    self
+      .builder
+      .mutate_data(|t| t.size_modifier = Box::new(modifier));
     self
   }
+}
 
-  pub fn target_data_mut(&self, mutator: impl FnOnce(&mut TargetNodeData<T>)) {
-    let mut graph = self.builder.graph.graph.borrow_mut();
-    let data = graph.get_node_mut(self.handle()).data_mut();
-    if let RenderGraphNode::Target(data) = data {
-      mutator(data)
+impl<T: RenderGraphBackend> RenderGraph<T> {
+  pub fn target(&self, name: &str) -> TargetNodeBuilder<T> {
+    let handle = self.create_node(RenderGraphNode::Target(TargetNodeData::target(
+      name.to_owned(),
+    )));
+    TargetNodeBuilder {
+      builder: NodeBuilder::new(self, handle),
+    }
+  }
+
+  pub fn finally(&self) -> TargetNodeBuilder<T> {
+    let handle = self.create_node(RenderGraphNode::Target(TargetNodeData::finally()));
+    TargetNodeBuilder {
+      builder: NodeBuilder::new(self, handle),
     }
   }
 }
@@ -47,45 +59,56 @@ pub struct TargetNodeData<T: RenderGraphBackend> {
   pub name: String,
   is_final_target: bool,
   size_modifier: Box<dyn Fn(RenderTargetSize) -> RenderTargetSize>,
-  pub format: RenderTargetFormatKey<T::RenderTargetFormatKey>,
+  pub format:
+    RenderTargetFormatKey<<T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey>,
 }
 
 impl<T: RenderGraphBackend> TargetNodeData<T> {
-  pub fn format(&self) -> &T::RenderTargetFormatKey {
+  pub fn format(&self) -> &<T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey {
     &self.format.format
   }
-  pub fn format_mut(&mut self) -> &mut T::RenderTargetFormatKey {
+  pub fn format_mut(
+    &mut self,
+  ) -> &mut <T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey {
     &mut self.format.format
   }
 
-  pub fn real_size(&self) -> RenderTargetSize {
-    self.format.size
-  }
-
-  pub fn update_real_size(&mut self, final_size: RenderTargetSize) -> &mut Self {
+  pub fn update_real_size(&mut self, final_size: RenderTargetSize) -> RenderTargetSize {
     self.format.size = (self.size_modifier)(final_size);
-    self
+    self.format.size
   }
 
   pub fn target(name: String) -> Self {
     Self {
       name,
-      format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()),
+      format: RenderTargetFormatKey::default_with_format(
+        <T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey::default(),
+      ),
       is_final_target: false,
-      size_modifier: Box::new(RenderGraph::<T>::same_as_final),
+      size_modifier: Box::new(same_as_final),
     }
   }
 
   pub fn finally() -> Self {
     Self {
       name: "root".to_owned(),
-      format: RenderTargetFormatKey::default_with_format(T::RenderTargetFormatKey::default()), // not actually useful
+      format: RenderTargetFormatKey::default_with_format(
+        <T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey::default(),
+      ), // not actually useful
       is_final_target: true,
-      size_modifier: Box::new(RenderGraph::<T>::same_as_final),
+      size_modifier: Box::new(same_as_final),
     }
   }
 
   pub fn is_final_target(&self) -> bool {
     self.is_final_target
   }
+}
+
+pub fn same_as_target(size: RenderTargetSize) -> Viewport {
+  Viewport::new(size.to_tuple())
+}
+
+pub fn same_as_final(size: RenderTargetSize) -> RenderTargetSize {
+  size
 }

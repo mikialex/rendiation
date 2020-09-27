@@ -1,19 +1,26 @@
-use crate::{RenderGraphBackend, RenderGraphNodeHandle, TargetNodeData};
+use rendiation_ral::RALBackend;
+
+use crate::{
+  RenderGraphBackend, RenderGraphGraphicsBackend, RenderGraphNodeHandle, TargetNodeData,
+};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RenderTargetSize(pub NonZeroUsize, pub NonZeroUsize);
 
-impl Default for RenderTargetSize{
-    fn default() -> Self {
-        Self::new(5, 5)
-    }
+impl Default for RenderTargetSize {
+  fn default() -> Self {
+    Self::new(5, 5)
+  }
 }
 
 impl RenderTargetSize {
   pub fn new(width: usize, height: usize) -> Self {
-    Self (NonZeroUsize::new(width).unwrap(), NonZeroUsize::new(height).unwrap())
+    Self(
+      NonZeroUsize::new(width).unwrap(),
+      NonZeroUsize::new(height).unwrap(),
+    )
   }
   pub fn to_tuple(&self) -> (usize, usize) {
     (self.0.get(), self.1.get())
@@ -36,28 +43,34 @@ impl<T> RenderTargetFormatKey<T> {
 }
 
 pub struct RenderTargetTypePooling<T: RenderGraphBackend> {
-  key: RenderTargetFormatKey<T::RenderTargetFormatKey>,
-  available: Vec<T::RenderTarget>,
+  key: RenderTargetFormatKey<<T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey>,
+  available: Vec<<T::Graphics as RALBackend>::RenderTarget>,
 }
 
 impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
-  pub fn request(&mut self, renderer: &T::Renderer) -> T::RenderTarget {
+  pub fn request(
+    &mut self,
+    renderer: &<T::Graphics as RALBackend>::Renderer,
+  ) -> <T::Graphics as RALBackend>::RenderTarget {
     if self.available.len() == 0 {
-      self
-        .available
-        .push(T::create_render_target(renderer, &self.key))
+      self.available.push(
+        <T::Graphics as RenderGraphGraphicsBackend>::create_render_target(renderer, &self.key),
+      )
     }
     self.available.pop().unwrap()
   }
 
-  pub fn return_back(&mut self, target: T::RenderTarget) {
+  pub fn return_back(&mut self, target: <T::Graphics as RALBackend>::RenderTarget) {
     self.available.push(target)
   }
 }
 
 pub struct RenderTargetPool<T: RenderGraphBackend> {
-  cached: HashMap<RenderTargetFormatKey<T::RenderTargetFormatKey>, RenderTargetTypePooling<T>>,
-  active_targets: HashMap<RenderGraphNodeHandle<T>, T::RenderTarget>,
+  cached: HashMap<
+    RenderTargetFormatKey<<T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey>,
+    RenderTargetTypePooling<T>,
+  >,
+  active_targets: HashMap<RenderGraphNodeHandle<T>, <T::Graphics as RALBackend>::RenderTarget>,
 }
 
 impl<T: RenderGraphBackend> RenderTargetPool<T> {
@@ -68,20 +81,20 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     }
   }
 
-  pub fn clear_all(&mut self, renderer: &T::Renderer) {
+  pub fn clear_all(&mut self, renderer: &<T::Graphics as RALBackend>::Renderer) {
     if self.active_targets.len() > 0 {
       panic!("some target still in use")
     }
     self.cached.drain().for_each(|(_, p)| {
-      p.available
-        .into_iter()
-        .for_each(|t| T::dispose_render_target(renderer, t))
+      p.available.into_iter().for_each(|t| {
+        <T::Graphics as RenderGraphGraphicsBackend>::dispose_render_target(renderer, t)
+      })
     })
   }
 
   fn get_pool(
     &mut self,
-    key: &RenderTargetFormatKey<T::RenderTargetFormatKey>,
+    key: &RenderTargetFormatKey<<T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey>,
   ) -> &mut RenderTargetTypePooling<T> {
     if !self.cached.contains_key(&key) {
       self.cached.insert(
@@ -113,8 +126,8 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     &mut self,
     node_handle: RenderGraphNodeHandle<T>,
     data: &TargetNodeData<T>,
-    renderer: &T::Renderer,
-  ) -> &T::RenderTarget {
+    renderer: &<T::Graphics as RALBackend>::Renderer,
+  ) -> &<T::Graphics as RALBackend>::RenderTarget {
     let target = self.get_pool(&data.format).request(renderer);
     self.active_targets.entry(node_handle).or_insert(target)
   }
