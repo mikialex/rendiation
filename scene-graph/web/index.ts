@@ -22,7 +22,11 @@ const backend = new WebGLBackend();
 
 const scene = new Scene();
 const node = scene.createNode();
-console.log(node )
+console.log(node)
 console.log(node.transform)
 
-console.log(shading) 
+console.log(shading)
+
+material.update((m) => {
+
+});

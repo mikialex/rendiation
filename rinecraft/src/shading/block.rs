@@ -18,6 +18,21 @@ pub struct BlockShader {
   parameter: BlockShadingParamGroup,
 }
 
+#[derive(BindGroup)]
+pub struct BlockShadingParamGroup {
+  #[stage(vert)]
+  pub mvp: CameraTransform,
+
+  #[stage(frag)]
+  pub fog: FogData,
+
+  #[stage(frag)]
+  pub my_texture_view: ShaderGraphTexture,
+
+  #[stage(frag)]
+  pub my_sampler: ShaderGraphSampler,
+}
+
 impl BlockShader {
   pub fn create_pipeline(renderer: &WGPURenderer) -> WGPUPipeline {
     let (mut builder, input) = BlockShader::create_builder(renderer);
@@ -39,19 +54,4 @@ impl BlockShader {
     builder.set_frag_output(vec4_31(final_color, builder.c(1.0)));
     builder.create().create_pipeline()
   }
-}
-
-#[derive(BindGroup)]
-pub struct BlockShadingParamGroup {
-  #[stage(vert)]
-  pub mvp: CameraTransform,
-
-  #[stage(frag)]
-  pub fog: FogData,
-
-  #[stage(frag)]
-  pub my_texture_view: ShaderGraphTexture,
-
-  #[stage(frag)]
-  pub my_sampler: ShaderGraphSampler,
 }

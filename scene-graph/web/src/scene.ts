@@ -13,9 +13,9 @@ function sliceWASMArrayF32(offset: number, count: number): Float32Array {
     return getF32Memory0().slice(offset / 4, offset / 4 + count)
 }
 
-type Option<T> = null | T; 
+type Option<T> = null | T;
 
-class SceneResource{
+class SceneResource {
     constructor(handle: number, scene: WASMScene) {
         this.handle = handle;
         this.scene = scene;
@@ -29,13 +29,21 @@ class SceneResource{
     }
 }
 
-export class Geometry extends SceneResource{
+export class Geometry extends SceneResource {
 }
 
-export class Shading extends SceneResource{
+export class Shading<T> extends SceneResource {
+    constructor(scene: WASMScene, value: T) {
+        scene.create_shading(value);
+        super();
+    }
+    value: T;
+    mutate(modifier: (m: T) => any) {
+        this.scene.get_shading_copy(this.handle);
+    }
 }
 
-export class Scene{
+export class Scene {
     scene: WASMScene;
     constructor() {
         this.scene = new WASMScene();
@@ -50,7 +58,7 @@ export class Scene{
     }
 }
 
-export class SceneNode extends SceneResource{
+export class SceneNode extends SceneResource {
 
     private parent: Option<SceneNode> = null;
     private children: SceneNode[] = [];
@@ -77,5 +85,5 @@ export class SceneNode extends SceneResource{
     }
 }
 
-export class RenderObject extends SceneResource{
+export class RenderObject extends SceneResource {
 }

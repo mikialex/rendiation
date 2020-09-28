@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{TextureSlotStates, UniformValue, WebGLProgram, WebGLRenderer, WebGLTextureBindType};
+use crate::{TextureSlotStates, WebGLProgram, WebGLRenderer, WebGLTextureBindType};
 use rendiation_ral::UniformTypeId;
 use web_sys::*;
 
@@ -43,7 +43,7 @@ impl WebGLProgram {
   ) {
     let slot = texture_slot_states.get_free_slot().unwrap() as i32;
     texture_slot_states.bind_texture(&texture, gl);
-    self.upload_uniform_value(&UniformValue::Int(slot), texture_id, gl)
+    // self.upload_uniform_value(&UniformValue::Int(slot), texture_id, gl)
   }
 }
 

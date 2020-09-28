@@ -53,6 +53,12 @@ impl VertexEnableStates {
   }
 }
 
+impl WebGLRenderer {
+  pub fn disable_old_unused_bindings(&mut self) {
+    self.attribute_states.disable_old_unused_bindings(&self.gl);
+  }
+}
+
 #[derive(Copy, Clone)]
 pub struct VertexEnabledStateSlotInfo {
   generation: u64,

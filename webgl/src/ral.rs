@@ -11,7 +11,7 @@ impl RALBackend for WebGLRenderer {
   type ShaderBuildSource = SceneShadingDescriptor; // todo
   type Shading = WebGLProgram;
   type BindGroup = ();
-  type IndexBuffer = Option<WebGlBuffer>;
+  type IndexBuffer = WebGlBuffer;
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;
   type Texture = ();
@@ -41,11 +41,11 @@ impl RALBackend for WebGLRenderer {
   }
 
   fn create_index_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::IndexBuffer {
-    Some(renderer.create_index_buffer(data))
+    renderer.create_index_buffer(data)
   }
 
   fn dispose_index_buffer(renderer: &mut Self::Renderer, buffer: Self::IndexBuffer) {
-    buffer.map(|b| renderer.dispose_index_buffer(b));
+    renderer.dispose_index_buffer(buffer)
   }
 
   fn create_vertex_buffer(
@@ -69,27 +69,28 @@ impl RALBackend for WebGLRenderer {
       .get_shading_boxed(object.shading)
       .apply(pass, resources);
 
-    // let geometry = &resources.get_geometry(object.geometry).resource();
-    // let program = shading.gpu();
+    // geometry bind
+    let geometry = &resources.get_geometry(object.geometry).resource();
 
-    // renderer.use_program(program.program());
-
-    // // geometry bind
-    // renderer.attribute_states.prepare_new_bindings();
-    // geometry.index_buffer.map(|b| {
-    //   let index = resources.get_index_buffer(b);
-    //   renderer.set_index_buffer(index.resource().as_ref());
-    // });
-    // geometry.vertex_buffers.iter().for_each(|v| {
-    //   let buffer = resources.get_vertex_buffer(v.1).resource();
-    //   let att_location = program.query_attribute_location(v.0);
-    //   renderer.set_vertex_buffer(att_location, buffer);
-    // });
-    // renderer
-    //   .attribute_states
-    //   .disable_old_unused_bindings(&renderer.gl);
+    pass.attribute_states.prepare_new_bindings();
+    geometry.index_buffer.map(|b| {
+      let index = resources.get_index_buffer(b);
+      pass.set_index_buffer(Some(index.resource().as_ref()));
+    });
+    geometry
+      .vertex_buffers
+      .iter()
+      .enumerate()
+      .for_each(|(i, &v)| {
+        let buffer = resources.get_vertex_buffer(v).resource();
+        pass.set_vertex_buffer(i as i32, buffer);
+      });
+    pass.disable_old_unused_bindings();
 
     // // shading bind
+    // let program = shading.gpu();
+    // pass.use_program(program.program());
+
     // renderer.texture_slot_states.reset_slots();
     // for i in 0..shading.get_parameters_count() {
     //   let parameter_group = resources
