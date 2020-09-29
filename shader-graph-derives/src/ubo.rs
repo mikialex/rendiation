@@ -9,30 +9,33 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
   let ubo_info_name = format_ident!("{}_UBO_INFO", struct_name);
   let fields = only_named_struct_fields(input)?;
 
-  let ubo_info_gen: Vec<_> = fields
+  let fields_info: Vec<_> = fields
     .iter()
     .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  let ubo_info_gen: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
       let field_str = format!("{}", field_name);
-      let ty = &f.ty;
       quote! { .add_field::<#ty>(#field_str) }
     })
     .collect();
 
-  let instance_fields: Vec<_> = fields
+  let instance_fields: Vec<_> = fields_info
     .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
-      let ty = &f.ty;
-      quote! { pub #field_name: rendiation_shadergraph::ShaderGraphNodeHandle< #ty >, }
+    .map(|(field_name, ty)| {
+      quote! { pub #field_name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, }
     })
     .collect();
 
-  let instance_new: Vec<_> = fields
+  let instance_new: Vec<_> = fields_info
     .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
-      let ty = &f.ty;
+    .map(|(field_name, ty)| {
       let field_str = format!("{}", field_name);
       quote! { #field_name: ubo_builder.uniform::<#ty>(#field_str), }
     })

@@ -1,6 +1,6 @@
 use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field};
 
-pub fn only_accepct_struct(input: &syn::DeriveInput) -> Result<&syn::DeriveInput, syn::Error> {
+pub fn only_accept_struct(input: &syn::DeriveInput) -> Result<&syn::DeriveInput, syn::Error> {
   match &input.data {
     Data::Struct(_) => Ok(input),
     Data::Enum(e) => Err(syn::Error::new(
@@ -17,7 +17,7 @@ pub fn only_accepct_struct(input: &syn::DeriveInput) -> Result<&syn::DeriveInput
 pub fn only_named_struct_fields(
   input: &syn::DeriveInput,
 ) -> Result<&Punctuated<Field, syn::token::Comma>, syn::Error> {
-  only_accepct_struct(input)?;
+  only_accept_struct(input)?;
   let fields = if let syn::Data::Struct(syn::DataStruct {
     fields: syn::Fields::Named(syn::FieldsNamed { ref named, .. }),
     ..

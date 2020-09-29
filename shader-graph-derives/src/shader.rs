@@ -5,7 +5,7 @@ use quote::{format_ident, quote};
 pub fn derive_shader_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_shadergraph_instance(input));
-  generated.append_all(derive_ral_resource_instance(input));
+  generated.append_all(derive_ral_resource_instance_wgpu(input));
   generated
 }
 
@@ -54,9 +54,9 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   }
 }
 
-fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+fn derive_ral_resource_instance_wgpu(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
-  let resource_instance_name = format_ident!("{}RALResourceInstance", struct_name);
+  let resource_instance_name = format_ident!("{}RALResourceInstance_WGPU", struct_name);
   let fields = only_named_struct_fields(&input).unwrap();
 
   let resource_struct_fields: Vec<_> = fields
@@ -127,3 +127,38 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     }
   }
 }
+
+// fn derive_ral_resource_instance_webgl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+//   let struct_name = &input.ident;
+//   let resource_instance_name = format_ident!("{}RALResourceInstance_WebGL", struct_name);
+
+//   quote! {
+//     pub struct #resource_instance_name {
+//       #(#resource_struct_fields)*
+//     }
+
+//     impl rendiation_ral::ShadingProvider<WebGLRenderer> for #struct_name {
+//       type Instance = #resource_instance_name;
+//       fn apply(
+//         instance: &rendiation_ral::ShadingPair<WebGLRenderer, Self>,
+//         render_pass: &mut <WebGLRenderer as rendiation_ral::RALBackend>::RenderPass,
+//         gpu_shading: &<WebGLRenderer as rendiation_ral::RALBackend>::Shading,
+//         resources: &rendiation_ral::BindGroupManager<WebGLRenderer>,
+//       ) {
+//         let handle_instance = &instance.data;
+//         render_pass.use_program(Some(gpu_shading));
+//         #(#bindgroup_active_pass)*
+//       }
+//     }
+
+//     impl #struct_name {
+//       pub fn create_resource_instance(
+//         #(#create_resource_instance_fn_param)*
+//       ) ->  #resource_instance_name {
+//         #resource_instance_name {
+//           #(#create_resource_instance_field)*
+//         }
+//       }
+//     }
+//   }
+// }
