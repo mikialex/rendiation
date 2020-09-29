@@ -19,46 +19,46 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
 
   let ral_instance_name = format_ident!("{}RALInstance", struct_name);
 
-  let ral_fields: Vec<_> = fields
+  let fields_info: Vec<_> = fields
     .iter()
     .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
-      let ty = &f.ty;
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  let ral_fields: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
       quote! { pub #field_name: < #ty as rendiation_ral::RALBindgroupHandle<WGPURenderer>>::HandleType, }
     })
     .collect();
 
-  let wgpu_resource_get: Vec<_> = fields
+  let wgpu_resource_get: Vec<_> = fields_info
     .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
-      let ty = &f.ty;
+    .map(|(field_name, ty)| {
       quote! {let #field_name = <#ty as rendiation_ral::RALBindgroupItem<WGPURenderer>>::get_item(instance.#field_name, resources);}
     })
     .collect();
 
-  let create_resource_instance_fn_param: Vec<_> = fields
+  let create_resource_instance_fn_param: Vec<_> = fields_info
     .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
-      let ty = &f.ty;
+    .map(|(field_name, ty)| {
       quote! {#field_name: < #ty as rendiation_ral::RALBindgroupHandle<WGPURenderer>>::HandleType,}
     })
     .collect();
 
-  let create_resource_instance_field: Vec<_> = fields
+  let create_resource_instance_field: Vec<_> = fields_info
     .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
+    .map(|(field_name, _)| {
       quote! {#field_name,}
     })
     .collect();
 
-  let wgpu_create_bindgroup_create: Vec<_> = fields
+  let wgpu_create_bindgroup_create: Vec<_> = fields_info
     .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
-      let ty = &f.ty;
+    .map(|(field_name, ty)| {
       quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
     })
     .collect();
