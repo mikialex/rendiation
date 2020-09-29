@@ -5,9 +5,9 @@ use std::{marker::PhantomData, ops::Range};
 pub mod bindgroup;
 pub mod geometry;
 pub mod manager;
+pub mod ref_storage;
 pub mod shading;
 pub mod uniform;
-pub mod ref_storage;
 
 pub use bindgroup::*;
 pub use geometry::*;
@@ -102,9 +102,9 @@ pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
 pub trait ShadingProvider<T: RALBackend>: 'static + Sized {
   type Instance;
   fn apply(
-    instance: &ShadingPair<T, Self>,
-    render_pass: &mut T::RenderPass,
+    instance: &Self::Instance,
     gpu_shading: &T::Shading,
+    render_pass: &mut T::RenderPass,
     resources: &BindGroupManager<T>,
   );
 }
