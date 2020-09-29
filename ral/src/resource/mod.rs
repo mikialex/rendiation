@@ -81,6 +81,14 @@ pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
 
 pub trait UBOData: 'static + Sized {}
 
+pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
+  type Resource;
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource;
+}
+
 pub trait BindGroupProvider<T: RALBackend>: 'static {
   type Instance;
   fn create_bindgroup(
@@ -97,21 +105,13 @@ pub trait BindGroupProvider<T: RALBackend>: 'static {
   );
 }
 
-pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
-  type Resource;
-  fn get_item(
-    handle: Self::HandleType,
-    resources: &'a ShaderBindableResourceManager<T>,
-  ) -> Self::Resource;
-}
-
 pub trait ShadingProvider<T: RALBackend>: 'static + Sized {
   type Instance;
   fn apply(
     instance: &Self::Instance,
     gpu_shading: &T::Shading,
     render_pass: &mut T::RenderPass,
-    resources: &BindGroupManager<T>,
+    resources: &ResourceManager<T>,
   );
 }
 

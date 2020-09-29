@@ -108,7 +108,7 @@ impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPai
   }
   fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>) {
     let gpu = resources.shading_gpu.get(self.get_gpu()).unwrap();
-    T::apply(&self.data, gpu, render_pass, &resources.bindgroups);
+    T::apply(&self.data, gpu, render_pass, resources);
   }
 }
 
@@ -130,7 +130,7 @@ impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
     _instance: &Self::Instance,
     _gpu_shading: &T::Shading,
     _render_pass: &mut T::RenderPass,
-    _resources: &BindGroupManager<T>,
+    _resources: &ResourceManager<T>,
   ) {
     unreachable!()
   }
