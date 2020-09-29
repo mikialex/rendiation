@@ -89,12 +89,14 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
       }
 
       fn apply(
-        &self,
+        _instance: &Self::Instance,
+        gpu_bindgroup: &<WGPURenderer as rendiation_ral::RALBackend>::BindGroup,
+        index: usize,
+        _resources: &rendiation_ral::ShaderBindableResourceManager<WGPURenderer>,
         render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
-        gpu_bindgroup: &<WGPURenderer as rendiation_ral::RALBackend>::BindGroup
       ){
-        // webgpu not need this;
-        unreachable!()
+        let gpu_bindgroup = unsafe {std::mem::transmute(gpu_bindgroup)};
+        render_pass.set_bindgroup(index, gpu_bindgroup);
       }
     }
 

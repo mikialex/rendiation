@@ -1,5 +1,5 @@
 use super::ShaderBindableResourceManager;
-use crate::{BindGroupHandle, BindGroupProvider, RALBackend};
+use crate::{BindGroupHandle, BindGroupProvider, RALBackend, ResourceManager};
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
@@ -29,15 +29,20 @@ impl<R: RALBackend> BindGroupManager<R> {
     })
   }
 
+  pub fn get_bindgroup_boxed<T: BindGroupProvider<R>>(
+    &self,
+    handle: BindGroupHandle<R, T>,
+  ) -> &Box<dyn BindgroupStorageTrait<R>> {
+    let handle = unsafe { handle.cast_type() };
+    self.storage.get(handle).unwrap()
+  }
+
   pub fn get_gpu<T: BindGroupProvider<R>>(&self, handle: BindGroupHandle<R, T>) -> &R::BindGroup {
     let handle = unsafe { handle.cast_type() };
     self.storage.get(handle).unwrap().get_gpu()
   }
 
-  pub fn add<T: BindGroupProvider<R>>(
-    &mut self,
-    bindgroup: T::Instance,
-  ) -> BindGroupHandle<R, T> {
+  pub fn add<T: BindGroupProvider<R>>(&mut self, bindgroup: T::Instance) -> BindGroupHandle<R, T> {
     let pair = BindgroupPair::<R, T> {
       data: bindgroup,
       gpu: None,
@@ -69,11 +74,12 @@ impl<R: RALBackend> BindGroupManager<R> {
   }
 }
 
-trait BindgroupStorageTrait<R: RALBackend>: Any {
+pub trait BindgroupStorageTrait<R: RALBackend>: Any {
   fn maintain_gpu(&mut self, renderer: &R::Renderer, resources: &ShaderBindableResourceManager<R>);
   fn get_gpu(&self) -> &R::BindGroup;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
+  fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>, index: usize);
 }
 
 impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for BindgroupPair<R, T> {
@@ -92,6 +98,15 @@ impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for Bindgr
   }
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
+  }
+  fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>, index: usize) {
+    T::apply(
+      &self.data,
+      self.gpu.as_ref().unwrap(),
+      index,
+      &resources.bindable,
+      render_pass,
+    );
   }
 }
 

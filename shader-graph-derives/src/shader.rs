@@ -118,7 +118,7 @@ fn derive_ral_resource_instance_wgpu(input: &syn::DeriveInput) -> proc_macro2::T
     impl #struct_name {
       pub fn create_resource_instance(
         #(#create_resource_instance_fn_param)*
-      ) ->  #resource_instance_name {
+      ) -> #resource_instance_name {
         #resource_instance_name {
           #(#create_resource_instance_field)*
         }

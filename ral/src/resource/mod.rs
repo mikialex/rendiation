@@ -58,16 +58,6 @@ pub type GeometryHandle<T> = Handle<ResourceWrap<GeometryResourceInstance<T>>>;
 
 pub struct AnyPlaceHolder;
 
-pub trait BindGroupProvider<T: RALBackend>: 'static {
-  type Instance;
-  fn create_bindgroup(
-    instance: &Self::Instance,
-    renderer: &T::Renderer,
-    resources: &ShaderBindableResourceManager<T>,
-  ) -> T::BindGroup;
-  fn apply(&self, render_pass: &mut T::RenderPass, gpu_bindgroup: &T::BindGroup);
-}
-
 pub trait RALBindgroupHandle<T: RALBackend> {
   type HandleType;
 }
@@ -90,6 +80,22 @@ pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
 }
 
 pub trait UBOData: 'static + Sized {}
+
+pub trait BindGroupProvider<T: RALBackend>: 'static {
+  type Instance;
+  fn create_bindgroup(
+    instance: &Self::Instance,
+    renderer: &T::Renderer,
+    resources: &ShaderBindableResourceManager<T>,
+  ) -> T::BindGroup;
+  fn apply(
+    instance: &Self::Instance,
+    gpu_bindgroup: &T::BindGroup,
+    index: usize,
+    resources: &ShaderBindableResourceManager<T>,
+    render_pass: &mut T::RenderPass,
+  );
+}
 
 pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
   type Resource;
