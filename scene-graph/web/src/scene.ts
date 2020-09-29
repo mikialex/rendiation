@@ -1,4 +1,4 @@
-import { WASMScene } from "../../pkg/rendiation_scenegraph";
+import { WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry, WASMScene, WebGLRenderer } from "../../pkg/rendiation_scenegraph";
 import * as wasm from "../../pkg/rendiation_scenegraph_bg.wasm";
 
 
@@ -15,13 +15,13 @@ function sliceWASMArrayF32(offset: number, count: number): Float32Array {
 
 type Option<T> = null | T;
 
-class SceneResource {
-    constructor(handle: number, scene: WASMScene) {
+class ViewerResource {
+    constructor(handle: number, scene: Viewer) {
         this.handle = handle;
-        this.scene = scene;
+        this.viewer = scene;
     }
 
-    scene: WASMScene
+    viewer: Viewer
     handle: number
 
     dispose() {
@@ -29,43 +29,66 @@ class SceneResource {
     }
 }
 
-export class Geometry extends SceneResource {
+export class VertexBuffer extends ViewerResource {
+    wasmBuffer: WASMAttributeBufferF32
+
+    constructor(viewer: Viewer, value: WASMAttributeBufferF32) {
+        let id = viewer.scene.add_vertex_buffer(value, viewer.renderer);
+        super(id, viewer);
+    }
 }
 
-export class Shading<T> extends SceneResource {
-    constructor(scene: WASMScene, value: T) {
-        scene.create_shading(value);
-        super();
+export class IndexBuffer extends ViewerResource {
+    wasmBuffer: WASMAttributeBufferU16
+
+    constructor(viewer: Viewer, value: WASMAttributeBufferU16) {
+        let id = viewer.scene.add_index_buffer(value, viewer.renderer);
+        super(id, viewer);
+    }
+}
+
+export class Geometry extends ViewerResource {
+    geometry: WASMGeometry;
+    constructor(viewer: Viewer, value: WASMGeometry) {
+        let id = viewer.scene.add_geometry(value);
+        super(id, viewer);
+        this.geometry = value;
+    }
+}
+
+export class Shading<T> extends ViewerResource {
+    constructor(viewer: Viewer, value: T) {
+        const id = viewer.scene.add_shading();
+        super(id, viewer);
     }
     value: T;
-    mutate(modifier: (m: T) => any) {
-        this.scene.get_shading_copy(this.handle);
-    }
 }
 
-export class Scene {
+export class Viewer {
     scene: WASMScene;
-    constructor() {
+    renderer: WebGLRenderer
+    constructor(canvas: HTMLCanvasElement) {
         this.scene = new WASMScene();
+        this.renderer = new WebGLRenderer(canvas);
     }
 
     createNode() {
-        return new SceneNode(this.scene.create_new_node(), this.scene);
+        return new SceneNode(this.scene.create_new_node(), this);
     }
 
-    createRenderObject(geometry: Geometry, shading: Shading) {
-        return new RenderObject(this.scene.create_render_object(geometry.handle, shading.handle), this.scene)
+    createRenderObject(geometry: Geometry, shading: Shading<any>): RenderObject {
+        return new RenderObject(this.scene.create_render_object(geometry.handle, shading.handle), this)
     }
 }
 
-export class SceneNode extends SceneResource {
+export class SceneNode extends ViewerResource {
 
     private parent: Option<SceneNode> = null;
     private children: SceneNode[] = [];
     renderObjects: RenderObject[] = [];
 
     get transform() {
-        return sliceWASMArrayF32(this.scene.scene_node_local_matrix_ptr(this.handle), 16);
+        return sliceWASMArrayF32(this.viewer.scene.scene_node_local_matrix_ptr(this.handle), 16);
     }
 
     getParent() {
@@ -73,17 +96,17 @@ export class SceneNode extends SceneResource {
     }
 
     add(node: SceneNode) {
-        this.scene.node_add_child_by_handle(this.handle, node.handle);
+        this.viewer.scene.node_add_child_by_handle(this.handle, node.handle);
         this.children.push(node);
         node.parent = this;
     }
 
     remove(node: SceneNode) {
-        this.scene.node_remove_child_by_handle(this.handle, node.handle);
+        this.viewer.scene.node_remove_child_by_handle(this.handle, node.handle);
         this.children.splice(this.children.indexOf(node), 1);
         node.parent = null;
     }
 }
 
-export class RenderObject extends SceneResource {
+export class RenderObject extends ViewerResource {
 }

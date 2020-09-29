@@ -5,13 +5,11 @@ use std::ops::Range;
 mod rasterization;
 mod resource;
 mod shader;
-mod shading;
 mod viewport;
 
 pub use rasterization::*;
 pub use resource::*;
 pub use shader::*;
-pub use shading::*;
 pub use viewport::*;
 
 pub trait RALBackend: 'static + Sized {

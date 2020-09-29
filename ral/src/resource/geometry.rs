@@ -9,12 +9,6 @@ pub struct GeometryResourceInstance<T: RALBackend> {
   pub vertex_buffers: Vec<VertexBufferHandle<T>>,
 }
 
-// pub struct VertexGeometryInstance<T: RALBackend> {
-//   position: VertexBufferHandle<T>,
-//   normal: VertexBufferHandle<T>,
-//   uv: VertexBufferHandle<T>,
-// }
-
 impl<T: RALBackend> GeometryResourceInstance<T> {
   pub fn new() -> Self {
     Self {

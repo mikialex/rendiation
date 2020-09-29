@@ -1777,9 +1777,11 @@ dependencies = [
  "rendiation-ral 0.1.0",
  "rendiation-shadergraph 0.1.0",
  "rendiation-shadergraph-derives 0.1.0",
+ "rendiation-webgl 0.1.0",
  "rendiation-webgpu 0.1.0",
  "soa_derive 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "space-indexer 0.1.0",
+ "wasm-bindgen 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

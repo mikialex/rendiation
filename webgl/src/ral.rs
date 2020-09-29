@@ -8,7 +8,7 @@ impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
-  type ShaderBuildSource = SceneShadingDescriptor; // todo
+  type ShaderBuildSource = (); // todo
   type Shading = WebGLProgram;
   type BindGroup = ();
   type IndexBuffer = WebGlBuffer;

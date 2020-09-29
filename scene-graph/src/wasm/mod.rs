@@ -1,8 +1,9 @@
-// use crate::SceneShadingData;
 use crate::{default_impl::SceneNodeData, Scene};
 use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
+use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
+use rendiation_render_entity::PerspectiveCamera;
 use rendiation_webgl::WebGLRenderer;
 use wasm_bindgen::prelude::*;
 
@@ -10,6 +11,7 @@ use wasm_bindgen::prelude::*;
 pub struct WASMScene {
   resource: ResourceManager<WebGLRenderer>,
   scene: Scene<WebGLRenderer>,
+  camera: PerspectiveCamera,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -21,6 +23,7 @@ impl WASMScene {
     Self {
       resource: ResourceManager::new(),
       scene: Scene::new(),
+      camera: PerspectiveCamera::new(),
       handle_pool: Vec::new(),
       handle_pool_empty: Vec::new(),
     }
@@ -81,54 +84,84 @@ impl WASMScene {
     self.free_handle(h)
   }
 
-  // #[wasm_bindgen]
-  // pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
-  //   let h = self.scene.create_render_object(
-  //     self.get_handle(geometry_index).into(),
-  //     self.get_handle(shading_index).into(),
-  //   );
-  //   self.save_handle(h)
-  // }
+  #[wasm_bindgen]
+  pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
+    // let h = self.scene.create_render_object::<()>(
+    //   self.get_handle(geometry_index).into(),
+    //   self.get_handle(shading_index).into(),
+    // );
+    // self.save_handle(h)
+    todo!()
+  }
 
   #[wasm_bindgen]
   pub fn delete_render_object(&mut self, h: usize) {
     self.scene.delete_render_object(self.get_handle(h).into());
   }
 
-  //   #[wasm_bindgen]
-  //   pub fn add_shading(
-  //     &mut self,
-  //     resource: &SceneShadingDescriptor,
-  //     renderer: &mut WebGLRenderer,
-  //   ) -> usize {
-  //     let gpu_shading = WebGLRenderer::create_shading(renderer, resource);
-  //     let h = self
-  //       .scene
-  //       .resources
-  //       .add_shading(SceneShadingData::new(gpu_shading))
-  //       .index();
-  //     self.save_handle(h)
-  //   }
-
-  //   #[wasm_bindgen]
-  //   pub fn delete_shading(&mut self, h: usize) {
-  //     self
-  //       .scene
-  //       .resources
-  //       .shadings
-  //       .remove(self.get_handle(h).into());
-  //   }
+  #[wasm_bindgen]
+  pub fn add_shading(
+    &mut self,
+    // shading: Box<dyn Any>,
+  ) -> usize {
+    // let gpu_shading = WebGLRenderer::create_shading(renderer, resource);
+    // let h = self
+    //   .scene
+    //   .resources
+    //   .add_shading(SceneShadingData::new(gpu_shading))
+    //   .index();
+    // self.save_handle(h)
+    todo!()
+  }
 
   #[wasm_bindgen]
-  pub fn add_index_buffer(&mut self, data: &[u32], renderer: &mut WebGLRenderer) -> usize {
-    let index_buffer =
-      WebGLRenderer::create_index_buffer(renderer, unsafe { std::mem::transmute(data) });
+  pub fn delete_shading(&mut self, h: usize) {
+    // self
+    //   .resource
+    //   .shadings
+    //   .delete_shading(self.get_handle(h).into());
+  }
+
+  #[wasm_bindgen]
+  pub fn add_index_buffer(
+    &mut self,
+    data: &WASMAttributeBufferU16,
+    renderer: &mut WebGLRenderer,
+  ) -> usize {
+    let index_buffer = WebGLRenderer::create_index_buffer(renderer, unsafe { todo!() });
     let h = self.resource.add_index_buffer(index_buffer).index();
     self.save_handle(h)
   }
 
   #[wasm_bindgen]
   pub fn delete_index_buffer(&mut self, h: usize) {
+    self.resource.delete_index_buffer(self.get_handle(h).into());
+    // self.delete_handle(h);
+  }
+
+  #[wasm_bindgen]
+  pub fn add_vertex_buffer(
+    &mut self,
+    data: &WASMAttributeBufferF32,
+    renderer: &mut WebGLRenderer,
+  ) -> usize {
+    todo!()
+    // let index_buffer = WebGLRenderer::create_vertex_buffer(renderer, unsafe { todo!() });
+    // let h = self.resource.add_index_buffer(index_buffer).index();
+    // self.save_handle(h)
+  }
+
+  #[wasm_bindgen]
+  pub fn delete_vertex_buffer(&mut self, h: usize) {
     self.resource.delete_index_buffer(self.get_handle(h).into())
+  }
+
+  #[wasm_bindgen]
+  pub fn add_geometry(&mut self, geometry: &WASMGeometry) -> usize {
+    let h = self
+      .resource
+      .add_geometry(geometry.to_geometry_resource_instance())
+      .index();
+    self.save_handle(h)
   }
 }

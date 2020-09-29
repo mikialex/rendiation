@@ -9,24 +9,21 @@
 // intoWasmScene();
 import './declare'
 
-import { SceneShadingDescriptor, SceneShaderDescriptor, WebGLRenderer, WASMScene, WebGLBackend } from '../pkg/rendiation_scenegraph';
-import { Scene } from './src/scene';
+import { WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry } from '../pkg/rendiation_scenegraph';
+import { IndexBuffer, Viewer } from './src/scene';
 
-const shader = new SceneShaderDescriptor("", "");
-const shading = new SceneShadingDescriptor(shader);
 
 const canvas = document.getElementById("wasm") as HTMLCanvasElement
-const renderer = new WebGLRenderer(canvas);
 
-const backend = new WebGLBackend();
-
-const scene = new Scene();
-const node = scene.createNode();
+const viewer = new Viewer(canvas);
+const node = viewer.createNode();
 console.log(node)
 console.log(node.transform)
 
-console.log(shading)
+const index = new WASMAttributeBufferU16(new Uint16Array([1, 0, 0]), 3);
+const index_ = new IndexBuffer(viewer, index);
 
-material.update((m) => {
+const position = new WASMAttributeBufferF32(new Float32Array([1, 2, 3]), 3);
+const normal = new WASMAttributeBufferF32(new Float32Array([1, 0, 0]), 3);
 
-});
+// const geometry = new WASMGeometry(index, position);

@@ -38,7 +38,7 @@ impl Application for Rinecraft {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
     let depth = WGPUTexture::new_as_depth(
       &renderer,
-      wgpu::TextureFormat::Depth32Float,
+      rendiation_webgpu::wgpu::TextureFormat::Depth32Float,
       swap_chain.size,
     );
     let screen_target =
