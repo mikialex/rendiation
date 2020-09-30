@@ -29,16 +29,12 @@ impl RALVertexBufferDescriptor {
 #[wasm_bindgen]
 pub struct RALVertexAttributeBufferDescriptor {
   name: String,
-  id: AttributeTypeId,
   pub byte_offset: i32,
   pub size: i32,
   pub data_type: RALVertexAttributeDataType,
 }
 
 impl RALVertexAttributeBufferDescriptor {
-  pub fn id(&self) -> AttributeTypeId {
-    self.id
-  }
   pub fn name(&self) -> &str {
     &self.name
   }

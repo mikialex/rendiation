@@ -19,7 +19,6 @@ pub struct ResourceManager<T: RALBackend> {
 pub struct ShaderBindableResourceManager<T: RALBackend> {
   pub uniform_buffers: UBOManager<T>,
   pub samplers: Arena<T::Sampler>,
-  pub texture_views: Arena<T::TextureView>,
   pub textures: Arena<T::Texture>,
 }
 
@@ -27,7 +26,6 @@ impl<T: RALBackend> ShaderBindableResourceManager<T> {
   pub fn new() -> Self {
     Self {
       uniform_buffers: UBOManager::new(),
-      texture_views: Arena::new(),
       textures: Arena::new(),
       samplers: Arena::new(),
     }

@@ -177,7 +177,7 @@ impl BlockRegistry {
         .iter()
         .map(|face| {
           let src_tex = tex(&face.img, renderer);
-          let params = CopyParam::create_bindgroup(renderer, src_tex.view(), &sampler);
+          let params = CopyParam::create_bindgroup(renderer, &src_tex, &sampler);
 
           let mut viewport = Viewport::new((32, 32));
           viewport.x = face.pack_info.x * dest_size_width;

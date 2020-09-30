@@ -11,3 +11,4 @@ rendiation-ral = {path = "../ral"}
 rendiation-shadergraph = {path = "../shader-graph"}
 rendiation-shadergraph-derives = {path = "../shader-graph-derives"}
 rendiation-webgpu = {path = "../webgpu"}
+rendiation-webgl = {path = "../webgl"}

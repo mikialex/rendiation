@@ -1,12 +1,12 @@
+use std::any::Any;
+
 use crate::WebGLRenderer;
 use rendiation_ral::*;
-use std::collections::HashMap;
 use web_sys::*;
 
 pub struct WebGLProgram {
   program: WebGlProgram,
-  attributes: HashMap<AttributeTypeId, i32>,
-  uniforms: HashMap<UniformTypeId, WebGlUniformLocation>,
+  uniforms: Box<dyn Any>,
 }
 
 impl WebGLProgram {
@@ -46,19 +46,11 @@ impl WebGLProgram {
   pub fn program(&self) -> &WebGlProgram {
     &self.program
   }
-
-  pub fn query_uniform_location(&self, input_id: UniformTypeId) -> &WebGlUniformLocation {
-    self.uniforms.get(&input_id).unwrap()
-  }
-
-  pub fn query_attribute_location(&self, input_id: AttributeTypeId) -> i32 {
-    *self.attributes.get(&input_id).unwrap()
-  }
 }
 
 impl WebGLRenderer {
-  pub fn use_program(&mut self, p: &WebGlProgram) {
-    self.gl.use_program(Some(p))
+  pub fn use_program(&mut self, p: &WebGLProgram) {
+    self.gl.use_program(Some(&p.program))
   }
 }
 

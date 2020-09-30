@@ -1,5 +1,5 @@
 use super::ShaderBindableResourceManager;
-use crate::{BindGroupHandle, BindGroupProvider, RALBackend, ResourceManager};
+use crate::{BindGroupCreator, BindGroupHandle, BindGroupProvider, RALBackend, ResourceManager};
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
@@ -42,7 +42,7 @@ impl<R: RALBackend> BindGroupManager<R> {
     self.storage.get(handle).unwrap().get_gpu()
   }
 
-  pub fn add<T: BindGroupProvider<R>>(&mut self, bindgroup: T::Instance) -> BindGroupHandle<R, T> {
+  pub fn add<T: BindGroupCreator<R>>(&mut self, bindgroup: T::Instance) -> BindGroupHandle<R, T> {
     let pair = BindgroupPair::<R, T> {
       data: bindgroup,
       gpu: None,
@@ -79,10 +79,16 @@ pub trait BindgroupStorageTrait<R: RALBackend>: Any {
   fn get_gpu(&self) -> &R::BindGroup;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
-  fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>, index: usize);
+  fn apply(
+    &self,
+    render_pass: &mut R::RenderPass,
+    resources: &ResourceManager<R>,
+    index: usize,
+    shading: &R::Shading,
+  );
 }
 
-impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for BindgroupPair<R, T> {
+impl<R: RALBackend, T: BindGroupCreator<R>> BindgroupStorageTrait<R> for BindgroupPair<R, T> {
   fn maintain_gpu<'a>(
     &mut self,
     renderer: &R::Renderer,
@@ -99,11 +105,18 @@ impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupStorageTrait<R> for Bindgr
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
   }
-  fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>, index: usize) {
+  fn apply(
+    &self,
+    render_pass: &mut R::RenderPass,
+    resources: &ResourceManager<R>,
+    index: usize,
+    shading: &R::Shading,
+  ) {
     T::apply(
       &self.data,
       self.gpu.as_ref().unwrap(),
       index,
+      shading,
       &resources.bindable,
       render_pass,
     );

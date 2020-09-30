@@ -1,14 +1,95 @@
 use crate::utils::only_named_struct_fields;
+use quote::TokenStreamExt;
 use quote::{format_ident, quote};
 
-pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
+pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let mut generated = proc_macro2::TokenStream::new();
+  generated.append_all(derive_ubo_shadergraph_instance(input));
+  generated.append_all(derive_ubo_webgl_upload_instance(input));
+  generated
+}
+
+pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);
+
+  let fields = only_named_struct_fields(input).unwrap();
+  let fields_info: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  let instance_fields: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
+    })
+    .collect();
+
+  let instance_create: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      let field_str = format!("{}", field_name);
+      quote! { #field_name:
+       < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
+       as rendiation_webgl::UploadInstance<#ty> >::create(
+          format!("{}{}", query_name_prefix, #field_str).as_str(),
+          gl,
+          program
+       ),
+      }
+    })
+    .collect();
+
+  let instance_upload: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, _)| {
+      quote! { self.#field_name.upload(&value.#field_name, gl); }
+    })
+    .collect();
+
+  quote! {
+    pub struct #instance_name {
+      #(#instance_fields)*
+    }
+
+    impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
+      fn create(
+        query_name_prefix: &str,
+        gl: &rendiation_webgl::WebGl2RenderingContext,
+        program: &rendiation_webgl::WebGlProgram
+      ) -> Self{
+        Self {
+          #(#instance_create)*
+        }
+      }
+      fn upload(
+        &mut self,
+        value: &#struct_name,
+        gl: &rendiation_webgl::WebGl2RenderingContext
+      ){
+        #(#instance_upload)*
+      }
+    }
+
+    impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
+      type UploadValue = Self;
+      type UploadInstance = #instance_name;
+    }
+  }
+}
+
+pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let shadergraph_instance_name = format_ident!("{}ShaderGraphInstance", struct_name);
 
   let struct_name_str = format!("{}", struct_name);
   let ubo_info_name = format_ident!("{}_UBO_INFO", struct_name);
-  let fields = only_named_struct_fields(input)?;
-
+  let fields = only_named_struct_fields(input).unwrap();
   let fields_info: Vec<_> = fields
     .iter()
     .map(|f| {
@@ -41,7 +122,7 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
     })
     .collect();
 
-  let result = quote! {
+  quote! {
 
     #[allow(non_upper_case_globals)]
     pub static #ubo_info_name: once_cell::sync::Lazy<
@@ -83,11 +164,9 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> Result<proc_macro2::TokenStr
         instance
       }
     }
-    impl rendiation_ral::UBOData for #struct_name {}
 
+    impl rendiation_ral::UBOData for #struct_name {}
     impl rendiation_shadergraph::ShaderGraphUBO for #struct_name {}
 
-  };
-
-  Ok(result)
+  }
 }

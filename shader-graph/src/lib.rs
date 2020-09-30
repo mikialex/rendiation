@@ -15,6 +15,7 @@ pub mod provider;
 pub mod shader_function;
 pub mod swizzle;
 pub mod traits_impl;
+pub mod webgl;
 pub mod webgpu;
 pub use builder::*;
 pub use nodes::*;
@@ -26,6 +27,7 @@ use rendiation_webgpu::{
 };
 pub use shader_function::*;
 pub use traits_impl::*;
+pub use webgl::*;
 pub use webgpu::*;
 
 lazy_static! {

@@ -13,7 +13,6 @@ impl RALBackend for WGPURenderer {
   type VertexBuffer = WGPUBuffer;
   type UniformBuffer = WGPUBuffer;
   type Texture = WGPUTexture;
-  type TextureView = wgpu::TextureView;
   type Sampler = WGPUSampler;
 
   fn create_shading(_renderer: &mut WGPURenderer, des: &Self::ShaderBuildSource) -> Self::Shading {
@@ -22,6 +21,14 @@ impl RALBackend for WGPURenderer {
   fn dispose_shading(_renderer: &mut WGPURenderer, _shading: Self::Shading) {
     // just drop!
   }
+  fn apply_shading(pass: &mut Self::RenderPass, shading: &Self::Shading) {
+    pass.set_pipeline(unsafe { std::mem::transmute(shading) });
+  }
+
+  fn apply_bindgroup(pass: &mut Self::RenderPass, index: usize, bindgroup: &Self::BindGroup) {
+    pass.set_bindgroup(index, unsafe { std::mem::transmute(bindgroup) });
+  }
+
   fn create_uniform_buffer(renderer: &mut WGPURenderer, data: &[u8]) -> Self::UniformBuffer {
     WGPUBuffer::new(
       renderer,

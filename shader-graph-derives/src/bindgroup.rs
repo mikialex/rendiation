@@ -10,7 +10,82 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated.append_all(derive_shadergraph_instance(input));
   generated.append_all(derive_ral_wgpu_bindgroup(input));
   generated.append_all(derive_wgpu_bindgroup_direct_create(input));
+  // generated.append_all(derive_webgl_upload_instance(input));
   generated
+}
+
+fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);
+
+  let fields = only_named_struct_fields(input).unwrap();
+  let fields_info: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  let instance_fields: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
+    })
+    .collect();
+
+  let instance_create: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      let field_str = format!("{}", field_name);
+      quote! { #field_name:
+       < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
+       as rendiation_webgl::UploadInstance<#ty> >::create(
+          format!("{}{}", query_name_prefix, #field_str).as_str(),
+          gl,
+          program
+       ),
+      }
+    })
+    .collect();
+
+  let instance_upload: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, _)| {
+      quote! { self.#field_name.upload(&value.#field_name, gl); }
+    })
+    .collect();
+
+  quote! {
+    pub struct #instance_name {
+      #(#instance_fields)*
+    }
+
+    impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
+      fn create(
+        query_name_prefix: &str,
+        gl: &rendiation_webgl::WebGl2RenderingContext,
+        program: &rendiation_webgl::WebGlProgram
+      ) -> Self{
+        Self {
+          #(#instance_create)*
+        }
+      }
+      fn upload(
+        &mut self,
+        value: &#struct_name,
+        gl: &rendiation_webgl::WebGl2RenderingContext
+      ){
+        #(#instance_upload)*
+      }
+    }
+
+    impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
+      type UploadValue = Self;
+      type UploadInstance = #instance_name;
+    }
+  }
 }
 
 fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
@@ -31,7 +106,7 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   let ral_fields: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      quote! { pub #field_name: < #ty as rendiation_ral::RALBindgroupHandle<WGPURenderer>>::HandleType, }
+      quote! { pub #field_name: < #ty as rendiation_ral::RALBindgroupHandle<T>>::HandleType, }
     })
     .collect();
 
@@ -45,7 +120,7 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   let create_resource_instance_fn_param: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      quote! {#field_name: < #ty as rendiation_ral::RALBindgroupHandle<WGPURenderer>>::HandleType,}
+      quote! {#field_name: < #ty as rendiation_ral::RALBindgroupHandle<T>>::HandleType,}
     })
     .collect();
 
@@ -64,17 +139,16 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     .collect();
 
   quote! {
-    pub struct #ral_instance_name {
+    pub struct #ral_instance_name<T: rendiation_ral::RALBackend> {
       #(#ral_fields)*
     }
 
-    impl rendiation_ral::BindGroupProvider<WGPURenderer> for #struct_name {
-      type Instance =  #ral_instance_name;
+    impl rendiation_ral::BindGroupCreator<rendiation_webgpu::WGPURenderer> for #struct_name {
       fn create_bindgroup(
         instance: &Self::Instance,
-        renderer: &<WGPURenderer as rendiation_ral::RALBackend>::Renderer,
-        resources: &rendiation_ral::ShaderBindableResourceManager<WGPURenderer>,
-      ) -> <WGPURenderer as rendiation_ral::RALBackend>::BindGroup {
+        renderer: &<rendiation_webgpu::WGPURenderer as rendiation_ral::RALBackend>::Renderer,
+        resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgpu::WGPURenderer>,
+      ) -> <rendiation_webgpu::WGPURenderer as rendiation_ral::RALBackend>::BindGroup {
         renderer.register_bindgroup::<Self>();
 
          #(#wgpu_resource_get)*
@@ -87,23 +161,37 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
             .unwrap()
           )
       }
+    }
+
+    impl rendiation_ral::BindGroupCreator<rendiation_webgl::WebGLRenderer> for #struct_name {
+      fn create_bindgroup(
+        instance: &Self::Instance,
+        renderer: &<rendiation_webgl::WebGLRenderer as rendiation_ral::RALBackend>::Renderer,
+        resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgl::WebGLRenderer>,
+      ) -> <rendiation_webgl::WebGLRenderer as rendiation_ral::RALBackend>::BindGroup {
+        ()
+      }
+    }
+
+    impl<T: rendiation_ral::RALBackend> rendiation_ral::BindGroupProvider<T> for #struct_name {
+      type Instance =  #ral_instance_name<T>;
 
       fn apply(
-        _instance: &Self::Instance,
-        gpu_bindgroup: &<WGPURenderer as rendiation_ral::RALBackend>::BindGroup,
+        instance: &Self::Instance,
+        gpu_bindgroup: &T::BindGroup,
         index: usize,
-        _resources: &rendiation_ral::ShaderBindableResourceManager<WGPURenderer>,
-        render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
+        shading: &T::Shading,
+        resources: &rendiation_ral::ShaderBindableResourceManager<T>,
+        render_pass: &mut T::RenderPass,
       ){
-        let gpu_bindgroup = unsafe {std::mem::transmute(gpu_bindgroup)};
-        render_pass.set_bindgroup(index, gpu_bindgroup);
+        T::apply_bindgroup(render_pass, index, gpu_bindgroup);
       }
     }
 
     impl #struct_name {
-      pub fn create_resource_instance(
+      pub fn create_resource_instance<T: rendiation_ral::RALBackend>(
         #(#create_resource_instance_fn_param)*
-      ) ->  #ral_instance_name {
+      ) ->  #ral_instance_name<T> {
         #ral_instance_name {
           #(#create_resource_instance_field)*
         }
@@ -141,7 +229,7 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
       pub fn create_bindgroup(
         renderer: &rendiation_webgpu::WGPURenderer,
         #(#wgpu_create_bindgroup_fn_param)*
-      ) -> rendiation_webgpu::WGPUBindGroup{
+      ) -> rendiation_webgpu::WGPUBindGroup {
 
         renderer.register_bindgroup::<Self>();
 

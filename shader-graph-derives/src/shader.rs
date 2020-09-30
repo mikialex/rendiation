@@ -5,7 +5,7 @@ use quote::{format_ident, quote};
 pub fn derive_shader_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_shadergraph_instance(input));
-  generated.append_all(derive_ral_resource_instance_wgpu(input));
+  generated.append_all(derive_ral_resource_instance(input));
   generated
 }
 
@@ -54,9 +54,9 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   }
 }
 
-fn derive_ral_resource_instance_wgpu(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
-  let resource_instance_name = format_ident!("{}RALResourceInstance_WGPU", struct_name);
+  let resource_instance_name = format_ident!("{}RALResourceInstance", struct_name);
   let fields = only_named_struct_fields(&input).unwrap();
 
   let resource_struct_fields: Vec<_> = fields
@@ -64,7 +64,7 @@ fn derive_ral_resource_instance_wgpu(input: &syn::DeriveInput) -> proc_macro2::T
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! { pub #field_name: rendiation_ral::BindGroupHandle<WGPURenderer, #ty>, }
+      quote! { pub #field_name: rendiation_ral::BindGroupHandle<T, #ty>, }
     })
     .collect();
 
@@ -73,7 +73,7 @@ fn derive_ral_resource_instance_wgpu(input: &syn::DeriveInput) -> proc_macro2::T
     .enumerate()
     .map(|(i, f)| {
       let field_name = f.ident.as_ref().unwrap();
-      quote! { resources.bindgroups.get_bindgroup_boxed(instance.#field_name).apply(render_pass, resources, #i); }
+      quote! { resources.bindgroups.get_bindgroup_boxed(instance.#field_name).apply(render_pass, resources, #i, gpu_shading); }
     })
     .collect();
 
@@ -82,7 +82,7 @@ fn derive_ral_resource_instance_wgpu(input: &syn::DeriveInput) -> proc_macro2::T
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! {#field_name: rendiation_ral::BindGroupHandle<WGPURenderer, #ty>,}
+      quote! {#field_name: rendiation_ral::BindGroupHandle<T, #ty>,}
     })
     .collect();
 
@@ -95,30 +95,29 @@ fn derive_ral_resource_instance_wgpu(input: &syn::DeriveInput) -> proc_macro2::T
     .collect();
 
   quote! {
-    pub struct #resource_instance_name {
+    pub struct #resource_instance_name<T: rendiation_ral::RALBackend> {
       #(#resource_struct_fields)*
     }
 
-    impl rendiation_ral::ShadingProvider<WGPURenderer> for #struct_name {
-      type Instance = #resource_instance_name;
+    impl<T: rendiation_ral::RALBackend> rendiation_ral::ShadingProvider<T> for #struct_name {
+      type Instance = #resource_instance_name<T>;
       fn apply(
         instance: &Self::Instance,
-        gpu_shading: &<WGPURenderer as rendiation_ral::RALBackend>::Shading,
-        render_pass: &mut <WGPURenderer as rendiation_ral::RALBackend>::RenderPass,
-        resources: &rendiation_ral::ResourceManager<WGPURenderer>,
+        gpu_shading: &T::Shading,
+        render_pass: &mut T::RenderPass,
+        resources: &rendiation_ral::ResourceManager<T>,
       ) {
         // render_pass is cast to static, so resources must cast to static too..
-        let resources: &'static rendiation_ral::ResourceManager<WGPURenderer> = unsafe {std::mem::transmute(resources)};
-        let gpu: &'static WGPUPipeline = unsafe {std::mem::transmute(gpu_shading)};
-        render_pass.set_pipeline(gpu);
+        let resources: &'static rendiation_ral::ResourceManager<T> = unsafe {std::mem::transmute(resources)};
+        T::apply_shading(render_pass, gpu_shading);
         #(#bindgroup_active_pass)*
       }
     }
 
     impl #struct_name {
-      pub fn create_resource_instance(
+      pub fn create_resource_instance<T: rendiation_ral::RALBackend>(
         #(#create_resource_instance_fn_param)*
-      ) -> #resource_instance_name {
+      ) -> #resource_instance_name<T> {
         #resource_instance_name {
           #(#create_resource_instance_field)*
         }

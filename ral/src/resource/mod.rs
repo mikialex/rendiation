@@ -37,7 +37,6 @@ pub type BindGroupHandle<R, T> = Handle<BindgroupPair<R, T>>;
 
 pub type SamplerHandle<T> = Handle<<T as RALBackend>::Sampler>;
 pub type TextureHandle<T> = Handle<<T as RALBackend>::Texture>;
-pub type TextureViewHandle<T> = Handle<<T as RALBackend>::TextureView>;
 
 pub struct UniformHandle<R: RALBackend, U> {
   index: usize,
@@ -72,6 +71,9 @@ impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
   ) -> Self::Resource {
     resources.uniform_buffers.get_uniform_gpu(handle)
   }
+  fn apply(resource: &Self::Resource, pass: &mut T::RenderPass, shading: &T::Shading) {
+    todo!()
+  }
 }
 
 pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
@@ -87,19 +89,24 @@ pub trait RALBindgroupItem<'a, T: RALBackend>: RALBindgroupHandle<T> {
     handle: Self::HandleType,
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource;
+  fn apply(resource: &Self::Resource, pass: &mut T::RenderPass, shading: &T::Shading);
 }
 
-pub trait BindGroupProvider<T: RALBackend>: 'static {
-  type Instance;
+pub trait BindGroupCreator<T: RALBackend>: BindGroupProvider<T> {
   fn create_bindgroup(
     instance: &Self::Instance,
     renderer: &T::Renderer,
     resources: &ShaderBindableResourceManager<T>,
   ) -> T::BindGroup;
+}
+
+pub trait BindGroupProvider<T: RALBackend>: 'static {
+  type Instance;
   fn apply(
     instance: &Self::Instance,
     gpu_bindgroup: &T::BindGroup,
     index: usize,
+    shading: &T::Shading,
     resources: &ShaderBindableResourceManager<T>,
     render_pass: &mut T::RenderPass,
   );

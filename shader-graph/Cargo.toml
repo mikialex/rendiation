@@ -9,4 +9,5 @@ lazy_static = "1.4.0"
 arena-graph = { path = "../utils/arena-graph" }
 rendiation-math = { path = "../math" }
 rendiation-webgpu = { path = "../webgpu" }
+rendiation-webgl = { path = "../webgl" }
 rendiation-ral = { path = "../ral" }

@@ -14,8 +14,7 @@ impl RALBackend for WebGLRenderer {
   type IndexBuffer = WebGlBuffer;
   type VertexBuffer = WebGLVertexBuffer;
   type UniformBuffer = WebGlBuffer;
-  type Texture = ();
-  type TextureView = WebGLTexture;
+  type Texture = WebGLTexture;
   type Sampler = ();
 
   fn create_shading(renderer: &mut WebGLRenderer, des: &Self::ShaderBuildSource) -> Self::Shading {
@@ -24,6 +23,11 @@ impl RALBackend for WebGLRenderer {
   fn dispose_shading(renderer: &mut WebGLRenderer, shading: Self::Shading) {
     renderer.gl.delete_program(Some(shading.program()))
   }
+
+  fn apply_shading(pass: &mut Self::RenderPass, shading: &Self::Shading) {
+    pass.use_program(shading)
+  }
+  fn apply_bindgroup(_pass: &mut Self::RenderPass, _index: usize, _bindgroup: &Self::BindGroup) {}
 
   fn create_uniform_buffer(renderer: &mut WebGLRenderer, data: &[u8]) -> Self::UniformBuffer {
     renderer.create_uniform_buffer(data)
@@ -64,11 +68,6 @@ impl RALBackend for WebGLRenderer {
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
-    resources
-      .shadings
-      .get_shading_boxed(object.shading)
-      .apply(pass, resources);
-
     // geometry bind
     let geometry = &resources.get_geometry(object.geometry).resource();
 
@@ -87,7 +86,13 @@ impl RALBackend for WebGLRenderer {
       });
     pass.disable_old_unused_bindings();
 
-    // // shading bind
+    // shading bind
+    pass.texture_slot_states.reset_slots();
+    resources
+      .shadings
+      .get_shading_boxed(object.shading)
+      .apply(pass, resources);
+
     // let program = shading.gpu();
     // pass.use_program(program.program());
 

@@ -23,11 +23,12 @@ pub trait RALBackend: 'static + Sized {
   type VertexBuffer;
   type UniformBuffer;
   type Texture;
-  type TextureView;
   type Sampler;
 
   fn create_shading(renderer: &mut Self::Renderer, des: &Self::ShaderBuildSource) -> Self::Shading;
   fn dispose_shading(renderer: &mut Self::Renderer, shading: Self::Shading);
+  fn apply_shading(pass: &mut Self::RenderPass, shading: &Self::Shading);
+  fn apply_bindgroup(pass: &mut Self::RenderPass, index: usize, bindgroup: &Self::BindGroup);
 
   fn create_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::UniformBuffer;
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer);

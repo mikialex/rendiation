@@ -1838,6 +1838,7 @@ dependencies = [
  "rendiation-ral 0.1.0",
  "rendiation-shadergraph 0.1.0",
  "rendiation-shadergraph-derives 0.1.0",
+ "rendiation-webgl 0.1.0",
  "rendiation-webgpu 0.1.0",
 ]
 
@@ -1849,6 +1850,7 @@ dependencies = [
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rendiation-math 0.1.0",
  "rendiation-ral 0.1.0",
+ "rendiation-webgl 0.1.0",
  "rendiation-webgpu 0.1.0",
 ]
 
@@ -1918,6 +1920,7 @@ dependencies = [
  "rendiation-shader-library 0.1.0",
  "rendiation-shadergraph 0.1.0",
  "rendiation-shadergraph-derives 0.1.0",
+ "rendiation-webgl 0.1.0",
  "rendiation-webgpu 0.1.0",
  "rendium 0.1.0",
  "serde 1.0.105 (registry+https://github.com/rust-lang/crates.io-index)",
