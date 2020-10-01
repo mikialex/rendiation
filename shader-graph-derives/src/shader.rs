@@ -107,7 +107,6 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
         render_pass: &mut T::RenderPass,
         resources: &rendiation_ral::ResourceManager<T>,
       ) {
-        // render_pass is cast to static, so resources must cast to static too..
         let resources: &'static rendiation_ral::ResourceManager<T> = unsafe {std::mem::transmute(resources)};
         T::apply_shading(render_pass, gpu_shading);
         #(#bindgroup_active_pass)*
