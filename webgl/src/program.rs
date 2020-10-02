@@ -4,9 +4,13 @@ use crate::WebGLRenderer;
 use rendiation_ral::*;
 use web_sys::*;
 
+pub trait WebGLUniformUploadInstance {
+  fn upload(&self, gl: &WebGl2RenderingContext, resource_manager: ResourceManager<WebGLRenderer>);
+}
+
 pub struct WebGLProgram {
   program: WebGlProgram,
-  uniforms: Box<dyn Any>,
+  uniforms: Box<dyn WebGLUniformUploadInstance>,
 }
 
 impl WebGLProgram {

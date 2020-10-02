@@ -70,7 +70,8 @@ impl<T: RALBackend> UBOManager<T> {
   pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<T, U>) -> UniformBufferRef<T, U> {
     UniformBufferRef {
       ty: PhantomData,
-      data: self.get_gpu_with_range::<U>(handle.index),
+      gpu: self.get_gpu_with_range::<U>(handle.index),
+      data: self.get_storage_should_ok::<U>().get_data(handle.index),
     }
   }
 
@@ -161,5 +162,9 @@ impl<T: RALBackend, U> UBOStorage<T, U> {
 
   fn get_gpu(&self) -> &T::UniformBuffer {
     self.gpu.as_ref().unwrap()
+  }
+
+  fn get_data(&self, handle: usize) -> &U {
+    &self.storage[handle]
   }
 }

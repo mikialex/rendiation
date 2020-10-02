@@ -10,7 +10,7 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated.append_all(derive_shadergraph_instance(input));
   generated.append_all(derive_ral_wgpu_bindgroup(input));
   generated.append_all(derive_wgpu_bindgroup_direct_create(input));
-  // generated.append_all(derive_webgl_upload_instance(input));
+  generated.append_all(derive_webgl_upload_instance(input));
   generated
 }
 
@@ -52,21 +52,23 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
 
   let instance_upload: Vec<_> = fields_info
     .iter()
-    .map(|(field_name, _)| {
-      quote! { self.#field_name.upload(&value.#field_name, gl); }
+    .map(|(field_name, ty)| {
+      quote! { self.#field_name.upload(<#ty as rendiation_ral::RALBindgroupItem<rendiation_webgl::WebGLRenderer>>::get_item(value.#field_name, resources), gl, resources); }
     })
     .collect();
+
+  let ral_instance_name = format_ident!("{}RALInstance", struct_name);
 
   quote! {
     pub struct #instance_name {
       #(#instance_fields)*
     }
 
-    impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
+    impl rendiation_webgl::UploadInstance<<#struct_name as rendiation_ral::BindGroupProvider<rendiation_webgl::WebGLRenderer>>::Instance> for #instance_name {
       fn create(
         query_name_prefix: &str,
         gl: &rendiation_webgl::WebGl2RenderingContext,
-        program: &rendiation_webgl::WebGlProgram
+        program: &rendiation_webgl::WebGlProgram,
       ) -> Self{
         Self {
           #(#instance_create)*
@@ -74,15 +76,16 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       }
       fn upload(
         &mut self,
-        value: &#struct_name,
-        gl: &rendiation_webgl::WebGl2RenderingContext
+        value: &#ral_instance_name<rendiation_webgl::WebGLRenderer>,
+        gl: &rendiation_webgl::WebGl2RenderingContext,
+        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
       ){
         #(#instance_upload)*
       }
     }
 
-    impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
-      type UploadValue = Self;
+    impl<'a> rendiation_webgl::WebGLUniformUploadable<'a> for #struct_name {
+      type UploadValue = <#struct_name as rendiation_ral::BindGroupProvider<rendiation_webgl::WebGLRenderer>>::Instance;
       type UploadInstance = #instance_name;
     }
   }

@@ -78,7 +78,8 @@ impl<'a, T: RALBackend, U: UBOData> RALBindgroupItem<'a, T> for U {
 
 pub struct UniformBufferRef<'a, T: RALBackend, U: 'static + Sized> {
   pub ty: PhantomData<U>,
-  pub data: (&'a T::UniformBuffer, Range<u64>),
+  pub gpu: (&'a T::UniformBuffer, Range<u64>),
+  pub data: &'a U,
 }
 
 pub trait UBOData: 'static + Sized {}

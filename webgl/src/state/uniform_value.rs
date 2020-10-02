@@ -1,14 +1,22 @@
 use rendiation_math::*;
+use rendiation_ral::ResourceManager;
 use web_sys::*;
 
-pub trait WebGLUniformUploadable {
+use crate::WebGLRenderer;
+
+pub trait WebGLUniformUploadable: Sized {
   type UploadValue;
-  type UploadInstance: UploadInstance<Self::UploadValue>;
+  type UploadInstance: UploadInstance<Self>;
 }
 
-pub trait UploadInstance<T> {
+pub trait UploadInstance<T: WebGLUniformUploadable> {
   fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self;
-  fn upload(&mut self, value: &T, gl: &WebGl2RenderingContext);
+  fn upload(
+    &mut self,
+    value: &T::UploadValue,
+    gl: &WebGl2RenderingContext,
+    resource: &ResourceManager<WebGLRenderer>,
+  );
 }
 
 pub trait SingleUniformUploadSource: PartialEq + Default + Copy {
@@ -20,15 +28,23 @@ pub struct SingleUniformUploadInstance<T: SingleUniformUploadSource> {
   location: Option<WebGlUniformLocation>,
 }
 
-impl<T: SingleUniformUploadSource> UploadInstance<T> for SingleUniformUploadInstance<T> {
+impl<T: WebGLUniformUploadable> UploadInstance<T> for SingleUniformUploadInstance<T::UploadValue>
+where
+  T::UploadValue: SingleUniformUploadSource,
+{
   fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
     let location = gl.get_uniform_location(program, query_name_prefix);
     Self {
-      cache: T::default(),
+      cache: T::UploadValue::default(),
       location,
     }
   }
-  fn upload(&mut self, value: &T, gl: &WebGl2RenderingContext) {
+  fn upload(
+    &mut self,
+    value: &T::UploadValue,
+    gl: &WebGl2RenderingContext,
+    _resource: &ResourceManager<WebGLRenderer>,
+  ) {
     if self.cache != *value {
       self.cache = *value;
       value.upload(&self.location, gl);

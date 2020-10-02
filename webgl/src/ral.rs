@@ -13,7 +13,7 @@ impl RALBackend for WebGLRenderer {
   type BindGroup = ();
   type IndexBuffer = WebGlBuffer;
   type VertexBuffer = WebGLVertexBuffer;
-  type UniformBuffer = WebGlBuffer;
+  type UniformBuffer = (); // we use uniform value now
   type Texture = WebGLTexture;
   type Sampler = ();
 
@@ -29,11 +29,13 @@ impl RALBackend for WebGLRenderer {
   }
   fn apply_bindgroup(_pass: &mut Self::RenderPass, _index: usize, _bindgroup: &Self::BindGroup) {}
 
-  fn create_uniform_buffer(renderer: &mut WebGLRenderer, data: &[u8]) -> Self::UniformBuffer {
-    renderer.create_uniform_buffer(data)
+  fn create_uniform_buffer(_renderer: &mut WebGLRenderer, _data: &[u8]) -> Self::UniformBuffer {
+    // renderer.create_uniform_buffer(data)
+    todo!()
   }
-  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer) {
-    renderer.delete_uniform_buffer(uniform)
+  fn dispose_uniform_buffer(_renderer: &mut Self::Renderer, _uniform: Self::UniformBuffer) {
+    // renderer.delete_uniform_buffer(uniform)
+    todo!()
   }
   fn update_uniform_buffer(
     _renderer: &mut Self::Renderer,
