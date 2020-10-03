@@ -1,4 +1,4 @@
-use rendiation_ral::ShaderBindableResourceManager;
+use rendiation_ral::ResourceManager;
 use rendiation_webgl::*;
 
 use crate::{ShaderGraphSampler, ShaderGraphTexture};
@@ -20,7 +20,7 @@ impl UploadInstance<ShaderGraphTexture> for TextureUniformUploader {
     &mut self,
     value: &WebGLTexture,
     renderer: &WebGLRenderer,
-    resource: &ShaderBindableResourceManager<WebGLRenderer>,
+    resource: &ResourceManager<WebGLRenderer>,
   ) {
     // renderer.texture_slot_states.get_free_slot()
     todo!()
@@ -38,11 +38,5 @@ impl UploadInstance<ShaderGraphSampler> for EmptyImpl {
   fn create(_: &str, _: &WebGl2RenderingContext, _: &WebGlProgram) -> Self {
     Self
   }
-  fn upload(
-    &mut self,
-    _: &(),
-    _: &WebGLRenderer,
-    _resource: &ShaderBindableResourceManager<WebGLRenderer>,
-  ) {
-  }
+  fn upload(&mut self, _: &(), _: &WebGLRenderer, _resource: &ResourceManager<WebGLRenderer>) {}
 }

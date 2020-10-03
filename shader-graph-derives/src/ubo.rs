@@ -71,7 +71,7 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
         &mut self,
         value: &rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGLRenderer, #struct_name>,
         renderer: &rendiation_webgl::WebGLRenderer,
-        resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgl::WebGLRenderer>,
+        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
       ){
         #(#instance_upload)*
       }
