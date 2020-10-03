@@ -37,6 +37,19 @@ impl<R: RALBackend> BindGroupManager<R> {
     self.storage.get(handle).unwrap()
   }
 
+  pub fn get_bindgroup_unwrap<T: BindGroupProvider<R>>(
+    &self,
+    handle: BindGroupHandle<R, T>,
+  ) -> &<T as BindGroupProvider<R>>::Instance {
+    let handle = unsafe { handle.cast_type() };
+    let storage = self.storage.get(handle).unwrap();
+    let storage = storage
+      .as_any()
+      .downcast_ref::<BindgroupPair<R, T>>()
+      .unwrap();
+    &storage.data
+  }
+
   pub fn get_gpu<T: BindGroupProvider<R>>(&self, handle: BindGroupHandle<R, T>) -> &R::BindGroup {
     let handle = unsafe { handle.cast_type() };
     self.storage.get(handle).unwrap().get_gpu()
@@ -80,6 +93,7 @@ pub trait BindgroupStorageTrait<R: RALBackend>: Any {
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
   fn apply(
+    // maybe we can use unwrap downcast
     &self,
     render_pass: &mut R::RenderPass,
     resources: &ResourceManager<R>,
