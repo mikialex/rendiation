@@ -1,5 +1,5 @@
 use rendiation_math::*;
-use rendiation_ral::ResourceManager;
+use rendiation_ral::ShaderBindableResourceManager;
 use web_sys::*;
 
 use crate::WebGLRenderer;
@@ -7,6 +7,15 @@ use crate::WebGLRenderer;
 pub trait WebGLUniformUploadable: Sized {
   type UploadValue;
   type UploadInstance: UploadInstance<Self>;
+
+  fn upload(
+    value: &Self::UploadValue,
+    instance: &mut Self::UploadInstance,
+    gl: &WebGl2RenderingContext,
+    resource: &ShaderBindableResourceManager<WebGLRenderer>,
+  ) {
+    instance.upload(value, gl, resource)
+  }
 }
 
 pub trait UploadInstance<T: WebGLUniformUploadable> {
@@ -15,7 +24,7 @@ pub trait UploadInstance<T: WebGLUniformUploadable> {
     &mut self,
     value: &T::UploadValue,
     gl: &WebGl2RenderingContext,
-    resource: &ResourceManager<WebGLRenderer>,
+    resource: &ShaderBindableResourceManager<WebGLRenderer>,
   );
 }
 
@@ -43,7 +52,7 @@ where
     &mut self,
     value: &T::UploadValue,
     gl: &WebGl2RenderingContext,
-    _resource: &ResourceManager<WebGLRenderer>,
+    _resource: &ShaderBindableResourceManager<WebGLRenderer>,
   ) {
     if self.cache != *value {
       self.cache = *value;

@@ -64,7 +64,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       #(#instance_fields)*
     }
 
-    impl rendiation_webgl::UploadInstance<<#struct_name as rendiation_ral::BindGroupProvider<rendiation_webgl::WebGLRenderer>>::Instance> for #instance_name {
+    impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
       fn create(
         query_name_prefix: &str,
         gl: &rendiation_webgl::WebGl2RenderingContext,
@@ -78,13 +78,13 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
         &mut self,
         value: &#ral_instance_name<rendiation_webgl::WebGLRenderer>,
         gl: &rendiation_webgl::WebGl2RenderingContext,
-        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
+        resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgl::WebGLRenderer>,
       ){
         #(#instance_upload)*
       }
     }
 
-    impl<'a> rendiation_webgl::WebGLUniformUploadable<'a> for #struct_name {
+    impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
       type UploadValue = <#struct_name as rendiation_ral::BindGroupProvider<rendiation_webgl::WebGLRenderer>>::Instance;
       type UploadInstance = #instance_name;
     }

@@ -1,29 +1,47 @@
-use rendiation_ral::ResourceManager;
+use rendiation_ral::ShaderBindableResourceManager;
 use rendiation_webgl::*;
 
 use crate::{ShaderGraphSampler, ShaderGraphTexture};
 
 impl WebGLUniformUploadable for ShaderGraphTexture {
-  type UploadValue = i32;
-  type UploadInstance = SingleUniformUploadInstance<i32>;
+  type UploadValue = WebGLTexture;
+  type UploadInstance = TextureUniformUploader;
 }
 
-pub struct EmptyImpl;
+pub struct TextureUniformUploader {
+  instance: SingleUniformUploadInstance<i32>,
+}
 
-impl<T: WebGLUniformUploadable> UploadInstance<T> for EmptyImpl {
-  fn create(_: &str, _: &WebGl2RenderingContext, _: &WebGlProgram) -> Self {
-    Self
+impl UploadInstance<ShaderGraphTexture> for TextureUniformUploader {
+  fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
+    todo!()
   }
   fn upload(
     &mut self,
-    _: &T::UploadValue,
-    _: &WebGl2RenderingContext,
-    _resource: &ResourceManager<WebGLRenderer>,
+    value: &WebGLTexture,
+    gl: &WebGl2RenderingContext,
+    resource: &ShaderBindableResourceManager<WebGLRenderer>,
   ) {
+    todo!()
   }
 }
 
 impl WebGLUniformUploadable for ShaderGraphSampler {
   type UploadValue = ();
   type UploadInstance = EmptyImpl;
+}
+
+pub struct EmptyImpl;
+
+impl UploadInstance<ShaderGraphSampler> for EmptyImpl {
+  fn create(_: &str, _: &WebGl2RenderingContext, _: &WebGlProgram) -> Self {
+    Self
+  }
+  fn upload(
+    &mut self,
+    _: &(),
+    _: &WebGl2RenderingContext,
+    _resource: &ShaderBindableResourceManager<WebGLRenderer>,
+  ) {
+  }
 }
