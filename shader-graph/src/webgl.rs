@@ -19,9 +19,10 @@ impl UploadInstance<ShaderGraphTexture> for TextureUniformUploader {
   fn upload(
     &mut self,
     value: &WebGLTexture,
-    gl: &WebGl2RenderingContext,
+    renderer: &WebGLRenderer,
     resource: &ShaderBindableResourceManager<WebGLRenderer>,
   ) {
+    // renderer.texture_slot_states.get_free_slot()
     todo!()
   }
 }
@@ -40,7 +41,7 @@ impl UploadInstance<ShaderGraphSampler> for EmptyImpl {
   fn upload(
     &mut self,
     _: &(),
-    _: &WebGl2RenderingContext,
+    _: &WebGLRenderer,
     _resource: &ShaderBindableResourceManager<WebGLRenderer>,
   ) {
   }

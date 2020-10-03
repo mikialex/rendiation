@@ -33,18 +33,4 @@ impl WebGLRenderer {
   }
 }
 
-impl WebGLProgram {
-  pub fn use_texture(
-    &self,
-    texture: &WebGLTexture,
-    texture_id: UniformTypeId,
-    texture_slot_states: &mut TextureSlotStates,
-    gl: &WebGl2RenderingContext,
-  ) {
-    let slot = texture_slot_states.get_free_slot().unwrap() as i32;
-    texture_slot_states.bind_texture(&texture, gl);
-    // self.upload_uniform_value(&UniformValue::Int(slot), texture_id, gl)
-  }
-}
-
 pub struct WebGLSamplerDescriptor {}

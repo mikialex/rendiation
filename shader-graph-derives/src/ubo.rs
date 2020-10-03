@@ -48,8 +48,7 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
   let instance_upload: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      // quote! { self.#field_name.upload(&value.data.#field_name, gl, resources); }
-      quote! { <#ty as rendiation_webgl::WebGLUniformUploadable>::upload(&value.data.#field_name, &mut self.#field_name, gl, resources); }
+      quote! { <#ty as rendiation_webgl::WebGLUniformUploadable>::upload(&value.data.#field_name, &mut self.#field_name, renderer, resources); }
     })
     .collect();
 
@@ -71,7 +70,7 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
       fn upload(
         &mut self,
         value: &rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGLRenderer, #struct_name>,
-        gl: &rendiation_webgl::WebGl2RenderingContext,
+        renderer: &rendiation_webgl::WebGLRenderer,
         resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgl::WebGLRenderer>,
       ){
         #(#instance_upload)*
