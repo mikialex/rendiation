@@ -77,7 +77,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       fn upload(
         &mut self,
         value: &#ral_instance_name<rendiation_webgl::WebGLRenderer>,
-        renderer: &rendiation_webgl::WebGLRenderer,
+        renderer: &mut rendiation_webgl::WebGLRenderer,
         resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
       ){
         #(#instance_upload)*

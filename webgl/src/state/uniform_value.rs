@@ -11,10 +11,10 @@ pub trait WebGLUniformUploadable: Sized {
   fn upload(
     value: &Self::UploadValue,
     instance: &mut Self::UploadInstance,
-    renderer: &WebGLRenderer,
+    renderer: &mut WebGLRenderer,
     resource: &ResourceManager<WebGLRenderer>,
   ) {
-    instance.upload(value, &renderer, resource)
+    instance.upload(value, renderer, resource)
   }
 }
 
@@ -23,7 +23,7 @@ pub trait UploadInstance<T: WebGLUniformUploadable> {
   fn upload(
     &mut self,
     value: &T::UploadValue,
-    renderer: &WebGLRenderer,
+    renderer: &mut WebGLRenderer,
     resource: &ResourceManager<WebGLRenderer>,
   );
 }
@@ -45,6 +45,12 @@ impl<T: SingleUniformUploadSource> SingleUniformUploadInstance<T> {
       location,
     }
   }
+  pub fn upload(&mut self, value: &T, renderer: &mut WebGLRenderer) {
+    if self.cache != *value {
+      self.cache = *value;
+      value.upload(&self.location, &renderer.gl);
+    }
+  }
 }
 
 impl<T: WebGLUniformUploadable> UploadInstance<T> for SingleUniformUploadInstance<T::UploadValue>
@@ -57,13 +63,10 @@ where
   fn upload(
     &mut self,
     value: &T::UploadValue,
-    renderer: &WebGLRenderer,
+    renderer: &mut WebGLRenderer,
     _resource: &ResourceManager<WebGLRenderer>,
   ) {
-    if self.cache != *value {
-      self.cache = *value;
-      value.upload(&self.location, &renderer.gl);
-    }
+    self.upload(value, renderer);
   }
 }
 
