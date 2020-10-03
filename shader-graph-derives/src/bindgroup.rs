@@ -53,7 +53,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   let instance_upload: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      quote! { self.#field_name.upload(<#ty as rendiation_ral::RALBindgroupItem<rendiation_webgl::WebGLRenderer>>::get_item(value.#field_name, resources), gl, resources); }
+      quote! { self.#field_name.upload(unsafe{std::mem::transmute(&<#ty as rendiation_ral::RALBindgroupItem<rendiation_webgl::WebGLRenderer>>::get_item(value.#field_name, resources))}, gl, resources); }
     })
     .collect();
 
