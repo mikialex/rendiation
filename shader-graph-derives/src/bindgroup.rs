@@ -42,7 +42,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       quote! { #field_name:
        < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
        as rendiation_webgl::UploadInstance<#ty> >::create(
-          format!("{}{}", query_name_prefix, #field_str).as_str(),
+          format!("{}", #field_str).as_str(),
           gl,
           program
        ),

@@ -14,7 +14,9 @@ pub struct TextureUniformUploader {
 
 impl UploadInstance<ShaderGraphTexture> for TextureUniformUploader {
   fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
-    todo!()
+    Self {
+      instance: SingleUniformUploadInstance::<i32>::new(query_name_prefix, gl, program),
+    }
   }
   fn upload(
     &mut self,

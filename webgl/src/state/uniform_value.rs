@@ -37,16 +37,22 @@ pub struct SingleUniformUploadInstance<T: SingleUniformUploadSource> {
   location: Option<WebGlUniformLocation>,
 }
 
+impl<T: SingleUniformUploadSource> SingleUniformUploadInstance<T> {
+  pub fn new(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
+    let location = gl.get_uniform_location(program, query_name_prefix);
+    Self {
+      cache: T::default(),
+      location,
+    }
+  }
+}
+
 impl<T: WebGLUniformUploadable> UploadInstance<T> for SingleUniformUploadInstance<T::UploadValue>
 where
   T::UploadValue: SingleUniformUploadSource,
 {
   fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
-    let location = gl.get_uniform_location(program, query_name_prefix);
-    Self {
-      cache: T::UploadValue::default(),
-      location,
-    }
+    Self::new(query_name_prefix, gl, program)
   }
   fn upload(
     &mut self,
