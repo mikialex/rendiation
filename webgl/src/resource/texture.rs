@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{TextureSlotStates, WebGLProgram, WebGLRenderer, WebGLTextureBindType};
-use rendiation_ral::UniformTypeId;
+use crate::{WebGLRenderer, WebGLTextureBindType};
 use web_sys::*;
 
 static TEXTURE_GUID: AtomicUsize = AtomicUsize::new(0);

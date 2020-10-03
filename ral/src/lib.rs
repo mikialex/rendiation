@@ -56,15 +56,6 @@ pub trait RALBackend: 'static + Sized {
   );
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct AttributeTypeId(pub u64);
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct UniformTypeId(pub u64);
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ParameterGroupTypeId(pub u64);
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ShaderStage {
   Vertex,

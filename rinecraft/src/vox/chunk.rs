@@ -5,7 +5,7 @@ use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, wgpu::*};
 use rendiation_render_entity::BoundingData;
-use rendiation_scenegraph::{AttributeTypeId, GeometryHandle, Scene, GeometryResourceInstance};
+use rendiation_scenegraph::{GeometryHandle, GeometryResourceInstance, Scene};
 use rendiation_webgpu::*;
 use std::collections::HashMap;
 use std::{
