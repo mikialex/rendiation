@@ -86,6 +86,19 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       type UploadValue = <#struct_name as rendiation_ral::ShadingProvider<rendiation_webgl::WebGLRenderer>>::Instance;
       type UploadInstance = #instance_name;
     }
+
+    use rendiation_webgl::UploadInstance;
+    impl rendiation_webgl::WebGLUniformUploadShaderInstance for #instance_name {
+      fn upload_all(
+        &mut self,
+        renderer: &mut rendiation_webgl::WebGLRenderer,
+        resource_manager: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
+        handle_object: &dyn std::any::Any,
+      ){
+        self.upload(handle_object.downcast_ref::<&#ral_instance_name<rendiation_webgl::WebGLRenderer>>().unwrap(), renderer, resource_manager)
+      }
+    }
+
   }
 }
 

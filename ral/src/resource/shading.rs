@@ -90,6 +90,7 @@ pub trait ShadingStorageTrait<R: RALBackend>: Any {
   fn get_gpu(&self) -> Handle<R::Shading>;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
+  fn shading_provider_as_any(&self) -> &dyn Any;
   fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>);
 }
 
@@ -105,6 +106,9 @@ impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPai
   }
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
+  }
+  fn shading_provider_as_any(&self) -> &dyn Any {
+    &self.data
   }
   fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>) {
     let gpu = resources.shading_gpu.get(self.get_gpu()).unwrap();

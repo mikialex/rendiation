@@ -1,16 +1,21 @@
-use std::any::Any;
+use std::{any::Any, cell::RefCell};
 
 use crate::WebGLRenderer;
 use rendiation_ral::*;
 use web_sys::*;
 
-pub trait WebGLUniformUploadInstance {
-  fn upload(&self, gl: &WebGl2RenderingContext, resource_manager: ResourceManager<WebGLRenderer>);
+pub trait WebGLUniformUploadShaderInstance {
+  fn upload_all(
+    &mut self,
+    renderer: &mut WebGLRenderer,
+    resource_manager: &ResourceManager<WebGLRenderer>,
+    handle_object: &dyn Any,
+  );
 }
 
 pub struct WebGLProgram {
   program: WebGlProgram,
-  uniforms: Box<dyn WebGLUniformUploadInstance>,
+  uniforms: RefCell<Box<dyn WebGLUniformUploadShaderInstance>>,
 }
 
 impl WebGLProgram {
@@ -45,6 +50,18 @@ impl WebGLProgram {
     //   attributes,
     //   uniforms,
     // }
+  }
+
+  pub fn upload(
+    &self,
+    renderer: &mut WebGLRenderer,
+    resource_manager: &ResourceManager<WebGLRenderer>,
+    handle_object: &dyn Any,
+  ) {
+    self
+      .uniforms
+      .borrow_mut()
+      .upload_all(renderer, resource_manager, handle_object)
   }
 
   pub fn program(&self) -> &WebGlProgram {
