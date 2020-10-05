@@ -13,43 +13,32 @@ pub trait WebGLUniformUploadShaderInstance {
   );
 }
 
+pub trait WebGLUniformUploadShaderInstanceBuilder {
+  fn create_uploader(
+    &self,
+    gl: &WebGl2RenderingContext,
+    program: &WebGlProgram,
+  ) -> Box<dyn WebGLUniformUploadShaderInstance>;
+}
+
 pub struct WebGLProgram {
   program: WebGlProgram,
   uniforms: RefCell<Box<dyn WebGLUniformUploadShaderInstance>>,
 }
 
+pub struct WebGLProgramBuildSource {
+  glsl_vertex: String,
+  glsl_fragment: String,
+  uploader_creator: Box<dyn WebGLUniformUploadShaderInstanceBuilder>,
+}
+
 impl WebGLProgram {
-  pub fn new(renderer: &mut WebGLRenderer, des: &()) -> Self {
-    todo!();
-    // let gl = &renderer.gl;
-    // let program = make_webgl_program(
-    //   &renderer.gl,
-    //   &des.shader_descriptor.vertex_shader_str,
-    //   &des.shader_descriptor.frag_shader_str,
-    // )
-    // .unwrap();
+  pub fn new(renderer: &mut WebGLRenderer, des: &WebGLProgramBuildSource) -> Self {
+    let gl = &renderer.gl;
+    let program = make_webgl_program(gl, &des.glsl_vertex, &des.glsl_fragment).unwrap();
+    let uniforms = RefCell::new(des.uploader_creator.create_uploader(gl, &program));
 
-    // let uniforms: HashMap<UniformTypeId, WebGlUniformLocation> = des
-    //   .shader_descriptor
-    //   .input_group()
-    //   .iter()
-    //   .flat_map(|d| d.inputs().iter())
-    //   .map(|d| (d.id(), gl.get_uniform_location(&program, d.name()).unwrap()))
-    //   .collect();
-
-    // let attributes: HashMap<AttributeTypeId, i32> = des
-    //   .shader_descriptor
-    //   .attribute_inputs()
-    //   .iter()
-    //   .flat_map(|d| d.attributes().iter())
-    //   .map(|d| (d.id(), gl.get_attrib_location(&program, d.name())))
-    //   .collect();
-
-    // WebGLProgram {
-    //   program,
-    //   attributes,
-    //   uniforms,
-    // }
+    WebGLProgram { program, uniforms }
   }
 
   pub fn upload(

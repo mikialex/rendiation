@@ -1,4 +1,6 @@
-use crate::{WebGLProgram, WebGLRenderer, WebGLTexture, WebGLVertexBuffer};
+use crate::{
+  WebGLProgram, WebGLProgramBuildSource, WebGLRenderer, WebGLTexture, WebGLVertexBuffer,
+};
 
 use rendiation_ral::*;
 use std::ops::Range;
@@ -8,7 +10,7 @@ impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
-  type ShaderBuildSource = (); // todo
+  type ShaderBuildSource = WebGLProgramBuildSource; // todo
   type Shading = WebGLProgram;
   type BindGroup = ();
   type IndexBuffer = WebGlBuffer;
