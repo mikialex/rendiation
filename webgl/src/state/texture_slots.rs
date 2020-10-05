@@ -78,6 +78,17 @@ impl TextureSlotStates {
       Some(re)
     }
   }
+
+  pub fn bind_and_active_texture(
+    &mut self,
+    texture: &WebGLTexture,
+    gl: &WebGl2RenderingContext,
+  ) -> u32 {
+    let slot = self.get_free_slot().unwrap();
+    self.active_texture(slot, gl);
+    self.bind_texture(texture, gl);
+    slot
+  }
 }
 
 #[derive(Debug, Clone, Copy)]

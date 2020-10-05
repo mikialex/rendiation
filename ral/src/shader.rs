@@ -1,11 +1,10 @@
-use crate::{AttributeTypeId, ParameterGroupTypeId, UniformTypeId};
 use std::{
   collections::hash_map::DefaultHasher,
   hash::{Hash, Hasher},
 };
 use wasm_bindgen::prelude::*;
 
-fn to_hash<T>(obj: &T) -> u64
+pub fn to_hash<T>(obj: &T) -> u64
 where
   T: Hash,
 {

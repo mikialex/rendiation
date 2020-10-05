@@ -1,46 +1,56 @@
-use std::any::Any;
+use std::{any::Any, cell::RefCell};
 
 use crate::WebGLRenderer;
 use rendiation_ral::*;
 use web_sys::*;
 
+pub trait WebGLUniformUploadShaderInstance {
+  fn upload_all(
+    &mut self,
+    renderer: &mut WebGLRenderer,
+    resource_manager: &ResourceManager<WebGLRenderer>,
+    handle_object: &dyn Any,
+  );
+}
+
+pub trait WebGLUniformUploadShaderInstanceBuilder {
+  fn create_uploader(
+    &self,
+    gl: &WebGl2RenderingContext,
+    program: &WebGlProgram,
+  ) -> Box<dyn WebGLUniformUploadShaderInstance>;
+}
+
 pub struct WebGLProgram {
   program: WebGlProgram,
-  uniforms: Box<dyn Any>,
+  uniforms: RefCell<Box<dyn WebGLUniformUploadShaderInstance>>,
+}
+
+pub struct WebGLProgramBuildSource {
+  glsl_vertex: String,
+  glsl_fragment: String,
+  uploader_creator: Box<dyn WebGLUniformUploadShaderInstanceBuilder>,
 }
 
 impl WebGLProgram {
-  pub fn new(renderer: &mut WebGLRenderer, des: &()) -> Self {
-    todo!();
-    // let gl = &renderer.gl;
-    // let program = make_webgl_program(
-    //   &renderer.gl,
-    //   &des.shader_descriptor.vertex_shader_str,
-    //   &des.shader_descriptor.frag_shader_str,
-    // )
-    // .unwrap();
+  pub fn new(renderer: &mut WebGLRenderer, des: &WebGLProgramBuildSource) -> Self {
+    let gl = &renderer.gl;
+    let program = make_webgl_program(gl, &des.glsl_vertex, &des.glsl_fragment).unwrap();
+    let uniforms = RefCell::new(des.uploader_creator.create_uploader(gl, &program));
 
-    // let uniforms: HashMap<UniformTypeId, WebGlUniformLocation> = des
-    //   .shader_descriptor
-    //   .input_group()
-    //   .iter()
-    //   .flat_map(|d| d.inputs().iter())
-    //   .map(|d| (d.id(), gl.get_uniform_location(&program, d.name()).unwrap()))
-    //   .collect();
+    WebGLProgram { program, uniforms }
+  }
 
-    // let attributes: HashMap<AttributeTypeId, i32> = des
-    //   .shader_descriptor
-    //   .attribute_inputs()
-    //   .iter()
-    //   .flat_map(|d| d.attributes().iter())
-    //   .map(|d| (d.id(), gl.get_attrib_location(&program, d.name())))
-    //   .collect();
-
-    // WebGLProgram {
-    //   program,
-    //   attributes,
-    //   uniforms,
-    // }
+  pub fn upload(
+    &self,
+    renderer: &mut WebGLRenderer,
+    resource_manager: &ResourceManager<WebGLRenderer>,
+    handle_object: &dyn Any,
+  ) {
+    self
+      .uniforms
+      .borrow_mut()
+      .upload_all(renderer, resource_manager, handle_object)
   }
 
   pub fn program(&self) -> &WebGlProgram {

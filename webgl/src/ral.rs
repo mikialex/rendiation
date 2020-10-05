@@ -1,4 +1,6 @@
-use crate::{WebGLProgram, WebGLRenderer, WebGLTexture, WebGLVertexBuffer};
+use crate::{
+  WebGLProgram, WebGLProgramBuildSource, WebGLRenderer, WebGLTexture, WebGLVertexBuffer,
+};
 
 use rendiation_ral::*;
 use std::ops::Range;
@@ -8,12 +10,12 @@ impl RALBackend for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
-  type ShaderBuildSource = (); // todo
+  type ShaderBuildSource = WebGLProgramBuildSource; // todo
   type Shading = WebGLProgram;
   type BindGroup = ();
   type IndexBuffer = WebGlBuffer;
   type VertexBuffer = WebGLVertexBuffer;
-  type UniformBuffer = WebGlBuffer;
+  type UniformBuffer = (); // we use uniform value now
   type Texture = WebGLTexture;
   type Sampler = ();
 
@@ -29,11 +31,13 @@ impl RALBackend for WebGLRenderer {
   }
   fn apply_bindgroup(_pass: &mut Self::RenderPass, _index: usize, _bindgroup: &Self::BindGroup) {}
 
-  fn create_uniform_buffer(renderer: &mut WebGLRenderer, data: &[u8]) -> Self::UniformBuffer {
-    renderer.create_uniform_buffer(data)
+  fn create_uniform_buffer(_renderer: &mut WebGLRenderer, _data: &[u8]) -> Self::UniformBuffer {
+    // renderer.create_uniform_buffer(data)
+    todo!()
   }
-  fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer) {
-    renderer.delete_uniform_buffer(uniform)
+  fn dispose_uniform_buffer(_renderer: &mut Self::Renderer, _uniform: Self::UniformBuffer) {
+    // renderer.delete_uniform_buffer(uniform)
+    todo!()
   }
   fn update_uniform_buffer(
     _renderer: &mut Self::Renderer,
@@ -68,6 +72,15 @@ impl RALBackend for WebGLRenderer {
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
+    // shading bind
+    pass.texture_slot_states.reset_slots();
+    let shading_storage = resources.shadings.get_shading_boxed(object.shading);
+    shading_storage.apply(pass, resources);
+
+    let program = shading_storage.get_gpu();
+    let program = resources.shading_gpu.get(program).unwrap();
+    program.upload(pass, resources, shading_storage.shading_provider_as_any());
+
     // geometry bind
     let geometry = &resources.get_geometry(object.geometry).resource();
 
@@ -85,40 +98,6 @@ impl RALBackend for WebGLRenderer {
         pass.set_vertex_buffer(i as i32, buffer);
       });
     pass.disable_old_unused_bindings();
-
-    // shading bind
-    pass.texture_slot_states.reset_slots();
-    resources
-      .shadings
-      .get_shading_boxed(object.shading)
-      .apply(pass, resources);
-
-    // let program = shading.gpu();
-    // pass.use_program(program.program());
-
-    // renderer.texture_slot_states.reset_slots();
-    // for i in 0..shading.get_parameters_count() {
-    //   let parameter_group = resources
-    //     .get_shading_param_group(shading.get_parameter(i))
-    //     .resource();
-    //   parameter_group.items().iter().for_each(|p| {
-    //     use ShadingParameterType::*;
-    //     match &p.1 {
-    //       UniformBuffer(_index) => {
-    //         // let _uniform = resources.get_uniform(index).resource();
-    //         todo!()
-    //       }
-    //       UniformValue(_index) => {
-    //         // let uniform_value = resources.get_uniform_value(index).resource();
-    //         // program.upload_uniform_value(uniform_value, p.0, &renderer.gl);
-    //       }
-    //       SampledTexture(_) => {
-    //         // let texture = resources.get_sampled_texture(index).respirce();
-    //       }
-    //       _ => panic!("unsupported webgl resource type"),
-    //     }
-    //   })
-    // }
 
     // let range = &geometry.draw_range;
     // renderer.gl.draw_elements_with_i32(

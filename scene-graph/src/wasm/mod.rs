@@ -4,14 +4,14 @@ use rendiation_math::Mat4;
 use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
 use rendiation_render_entity::PerspectiveCamera;
-use rendiation_webgl::WebGLRenderer;
+use rendiation_webgl::{WebGLProgram, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WASMScene {
   resource: ResourceManager<WebGLRenderer>,
   scene: Scene<WebGLRenderer>,
-  camera: PerspectiveCamera,
+  _camera: PerspectiveCamera,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -23,7 +23,7 @@ impl WASMScene {
     Self {
       resource: ResourceManager::new(),
       scene: Scene::new(),
-      camera: PerspectiveCamera::new(),
+      _camera: PerspectiveCamera::new(),
       handle_pool: Vec::new(),
       handle_pool_empty: Vec::new(),
     }
@@ -86,12 +86,11 @@ impl WASMScene {
 
   #[wasm_bindgen]
   pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
-    // let h = self.scene.create_render_object::<()>(
-    //   self.get_handle(geometry_index).into(),
-    //   self.get_handle(shading_index).into(),
-    // );
-    // self.save_handle(h)
-    todo!()
+    let h = self.scene.create_render_object::<FakeShadingProvider>(
+      self.get_handle(geometry_index).into(),
+      self.get_handle(shading_index).into(),
+    );
+    self.save_handle(h)
   }
 
   #[wasm_bindgen]
@@ -115,7 +114,7 @@ impl WASMScene {
   }
 
   #[wasm_bindgen]
-  pub fn delete_shading(&mut self, h: usize) {
+  pub fn delete_shading(&mut self, _h: usize) {
     // self
     //   .resource
     //   .shadings
@@ -125,12 +124,13 @@ impl WASMScene {
   #[wasm_bindgen]
   pub fn add_index_buffer(
     &mut self,
-    data: &WASMAttributeBufferU16,
-    renderer: &mut WebGLRenderer,
+    _data: &WASMAttributeBufferU16,
+    _renderer: &mut WebGLRenderer,
   ) -> usize {
-    let index_buffer = WebGLRenderer::create_index_buffer(renderer, unsafe { todo!() });
-    let h = self.resource.add_index_buffer(index_buffer).index();
-    self.save_handle(h)
+    todo!()
+    // let index_buffer = WebGLRenderer::create_index_buffer(renderer, todo!());
+    // let h = self.resource.add_index_buffer(index_buffer).index();
+    // self.save_handle(h)
   }
 
   #[wasm_bindgen]
@@ -142,8 +142,8 @@ impl WASMScene {
   #[wasm_bindgen]
   pub fn add_vertex_buffer(
     &mut self,
-    data: &WASMAttributeBufferF32,
-    renderer: &mut WebGLRenderer,
+    _data: &WASMAttributeBufferF32,
+    _renderer: &mut WebGLRenderer,
   ) -> usize {
     todo!()
     // let index_buffer = WebGLRenderer::create_vertex_buffer(renderer, unsafe { todo!() });
@@ -163,5 +163,18 @@ impl WASMScene {
       .add_geometry(geometry.to_geometry_resource_instance())
       .index();
     self.save_handle(h)
+  }
+}
+
+pub struct FakeShadingProvider;
+impl ShadingProvider<WebGLRenderer> for FakeShadingProvider {
+  type Instance = ();
+  fn apply(
+    _: &Self::Instance,
+    _: &WebGLProgram,
+    _: &mut WebGLRenderer,
+    _: &ResourceManager<WebGLRenderer>,
+  ) {
+    unimplemented!()
   }
 }

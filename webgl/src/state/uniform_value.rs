@@ -1,14 +1,31 @@
 use rendiation_math::*;
+use rendiation_ral::ResourceManager;
 use web_sys::*;
 
-pub trait WebGLUniformUploadable {
+use crate::WebGLRenderer;
+
+pub trait WebGLUniformUploadable: Sized {
   type UploadValue;
-  type UploadInstance: UploadInstance<Self::UploadValue>;
+  type UploadInstance: UploadInstance<Self>;
+
+  fn upload(
+    value: &Self::UploadValue,
+    instance: &mut Self::UploadInstance,
+    renderer: &mut WebGLRenderer,
+    resource: &ResourceManager<WebGLRenderer>,
+  ) {
+    instance.upload(value, renderer, resource)
+  }
 }
 
-pub trait UploadInstance<T> {
+pub trait UploadInstance<T: WebGLUniformUploadable> {
   fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self;
-  fn upload(&mut self, value: &T, gl: &WebGl2RenderingContext);
+  fn upload(
+    &mut self,
+    value: &T::UploadValue,
+    renderer: &mut WebGLRenderer,
+    resource: &ResourceManager<WebGLRenderer>,
+  );
 }
 
 pub trait SingleUniformUploadSource: PartialEq + Default + Copy {
@@ -20,19 +37,36 @@ pub struct SingleUniformUploadInstance<T: SingleUniformUploadSource> {
   location: Option<WebGlUniformLocation>,
 }
 
-impl<T: SingleUniformUploadSource> UploadInstance<T> for SingleUniformUploadInstance<T> {
-  fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
+impl<T: SingleUniformUploadSource> SingleUniformUploadInstance<T> {
+  pub fn new(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
     let location = gl.get_uniform_location(program, query_name_prefix);
     Self {
       cache: T::default(),
       location,
     }
   }
-  fn upload(&mut self, value: &T, gl: &WebGl2RenderingContext) {
+  pub fn upload(&mut self, value: &T, renderer: &mut WebGLRenderer) {
     if self.cache != *value {
       self.cache = *value;
-      value.upload(&self.location, gl);
+      value.upload(&self.location, &renderer.gl);
     }
+  }
+}
+
+impl<T: WebGLUniformUploadable> UploadInstance<T> for SingleUniformUploadInstance<T::UploadValue>
+where
+  T::UploadValue: SingleUniformUploadSource,
+{
+  fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
+    Self::new(query_name_prefix, gl, program)
+  }
+  fn upload(
+    &mut self,
+    value: &T::UploadValue,
+    renderer: &mut WebGLRenderer,
+    _resource: &ResourceManager<WebGLRenderer>,
+  ) {
+    self.upload(value, renderer);
   }
 }
 

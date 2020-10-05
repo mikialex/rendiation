@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::{TextureSlotStates, WebGLProgram, WebGLRenderer, WebGLTextureBindType};
-use rendiation_ral::UniformTypeId;
+use crate::{WebGLRenderer, WebGLTextureBindType};
 use web_sys::*;
 
 static TEXTURE_GUID: AtomicUsize = AtomicUsize::new(0);
@@ -30,20 +29,6 @@ impl WebGLRenderer {
 
   pub fn delete_texture(&self, tex: WebGLTexture) {
     self.gl.delete_texture(Some(&tex.texture));
-  }
-}
-
-impl WebGLProgram {
-  pub fn use_texture(
-    &self,
-    texture: &WebGLTexture,
-    texture_id: UniformTypeId,
-    texture_slot_states: &mut TextureSlotStates,
-    gl: &WebGl2RenderingContext,
-  ) {
-    let slot = texture_slot_states.get_free_slot().unwrap() as i32;
-    texture_slot_states.bind_texture(&texture, gl);
-    // self.upload_uniform_value(&UniformValue::Int(slot), texture_id, gl)
   }
 }
 

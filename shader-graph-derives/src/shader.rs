@@ -6,7 +6,100 @@ pub fn derive_shader_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream 
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_shadergraph_instance(input));
   generated.append_all(derive_ral_resource_instance(input));
+  generated.append_all(derive_webgl_upload_instance(input));
   generated
+}
+
+fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);
+
+  let fields = only_named_struct_fields(input).unwrap();
+  let fields_info: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  let instance_fields: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
+    })
+    .collect();
+
+  let instance_create: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      let field_str = format!("{}", field_name);
+      quote! { #field_name:
+       < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
+       as rendiation_webgl::UploadInstance<#ty> >::create(
+          format!("{}{}", query_name_prefix, #field_str).as_str(),
+          gl,
+          program
+       ),
+      }
+    })
+    .collect();
+
+  let instance_upload: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      quote! { 
+        self.#field_name.upload(resources.bindgroups.get_bindgroup_unwrap::<#ty>(value.#field_name), renderer, resources);
+       }
+    })
+    .collect();
+
+  let ral_instance_name = format_ident!("{}RALResourceInstance", struct_name);
+
+  quote! {
+    pub struct #instance_name {
+      #(#instance_fields)*
+    }
+
+    impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
+      fn create(
+        query_name_prefix: &str,
+        gl: &rendiation_webgl::WebGl2RenderingContext,
+        program: &rendiation_webgl::WebGlProgram,
+      ) -> Self{
+        Self {
+          #(#instance_create)*
+        }
+      }
+      fn upload(
+        &mut self,
+        value: &#ral_instance_name<rendiation_webgl::WebGLRenderer>,
+        renderer: &mut rendiation_webgl::WebGLRenderer,
+        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
+      ){
+        #(#instance_upload)*
+      }
+    }
+
+    impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
+      type UploadValue = <#struct_name as rendiation_ral::ShadingProvider<rendiation_webgl::WebGLRenderer>>::Instance;
+      type UploadInstance = #instance_name;
+    }
+
+    use rendiation_webgl::UploadInstance;
+    impl rendiation_webgl::WebGLUniformUploadShaderInstance for #instance_name {
+      fn upload_all(
+        &mut self,
+        renderer: &mut rendiation_webgl::WebGLRenderer,
+        resource_manager: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
+        handle_object: &dyn std::any::Any,
+      ){
+        self.upload(handle_object.downcast_ref::<&#ral_instance_name<rendiation_webgl::WebGLRenderer>>().unwrap(), renderer, resource_manager)
+      }
+    }
+
+  }
 }
 
 fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
@@ -124,38 +217,3 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     }
   }
 }
-
-// fn derive_ral_resource_instance_webgl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-//   let struct_name = &input.ident;
-//   let resource_instance_name = format_ident!("{}RALResourceInstance_WebGL", struct_name);
-
-//   quote! {
-//     pub struct #resource_instance_name {
-//       #(#resource_struct_fields)*
-//     }
-
-//     impl rendiation_ral::ShadingProvider<WebGLRenderer> for #struct_name {
-//       type Instance = #resource_instance_name;
-//       fn apply(
-//         instance: &rendiation_ral::ShadingPair<WebGLRenderer, Self>,
-//         render_pass: &mut <WebGLRenderer as rendiation_ral::RALBackend>::RenderPass,
-//         gpu_shading: &<WebGLRenderer as rendiation_ral::RALBackend>::Shading,
-//         resources: &rendiation_ral::BindGroupManager<WebGLRenderer>,
-//       ) {
-//         let handle_instance = &instance.data;
-//         render_pass.use_program(Some(gpu_shading));
-//         #(#bindgroup_active_pass)*
-//       }
-//     }
-
-//     impl #struct_name {
-//       pub fn create_resource_instance(
-//         #(#create_resource_instance_fn_param)*
-//       ) ->  #resource_instance_name {
-//         #resource_instance_name {
-//           #(#create_resource_instance_field)*
-//         }
-//       }
-//     }
-//   }
-// }

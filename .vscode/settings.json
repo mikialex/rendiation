@@ -25,6 +25,7 @@
         "Tessellator",
         "Uint",
         "Unorm",
+        "Uploader",
         "Worley",
         "artgl",
         "azim",

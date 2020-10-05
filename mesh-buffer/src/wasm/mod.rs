@@ -1,4 +1,3 @@
-use super::geometry::*;
 use rendiation_ral::GeometryResourceInstance;
 use rendiation_webgl::*;
 use wasm_bindgen::prelude::*;
@@ -44,10 +43,10 @@ impl WASMAttributeBufferU16 {
 #[wasm_bindgen]
 pub struct WASMGeometry {
   // data: GeometryResourceInstance<WebGLRenderer>,
-  index: Option<usize>,
-  position: usize,
-  normal: Option<usize>,
-  uv: Option<usize>,
+  pub index: Option<usize>,
+  pub position: usize,
+  pub normal: Option<usize>,
+  pub uv: Option<usize>,
 }
 
 impl WASMGeometry {

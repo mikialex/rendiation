@@ -36,7 +36,7 @@ use rendiation_ral::*;
 impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
   type Type = UniformBufferRef<'a, WGPURenderer, T>;
   fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
-    WGPUBinding::BindBuffer(item.data)
+    WGPUBinding::BindBuffer(item.gpu)
   }
 
   // oh my god we need specialization here in the future
@@ -59,9 +59,6 @@ impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphTexture {
   ) -> Self::Resource {
     resources.textures.get(handle).unwrap()
   }
-  fn apply(resource: &Self::Resource, pass: &mut T::RenderPass, shading: &T::Shading) {
-    todo!()
-  }
 }
 
 impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphSampler {
@@ -74,8 +71,5 @@ impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphSampler {
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource {
     resources.samplers.get(handle).unwrap()
-  }
-  fn apply(resource: &Self::Resource, pass: &mut T::RenderPass, shading: &T::Shading) {
-    todo!()
   }
 }
