@@ -87,9 +87,23 @@ impl ShaderGraph {
   }
 
   pub fn create_pipeline(&self) -> WGPUPipeline {
+    let vertex = self.gen_code_vertex();
+    let frag = self.gen_code_frag();
+
+    let naga_vertex_ir = naga::front::glsl::parse_str(&vertex, "main", naga::ShaderStage::Vertex);
+    let naga_frag_ir = naga::front::glsl::parse_str(&frag, "main", naga::ShaderStage::Fragment);
+    if naga_vertex_ir.is_err() {
+      println!("{:?}", naga_vertex_ir);
+      println!("{:}", vertex);
+    }
+    if naga_frag_ir.is_err() {
+      println!("{:?}", naga_frag_ir);
+      println!("{:}", frag);
+    }
+
     WGPUPipeline::new(&WGPUPipelineBuildSource {
-      vertex_shader: load_glsl(self.gen_code_vertex(), rendiation_ral::ShaderStage::Vertex),
-      frag_shader: load_glsl(self.gen_code_frag(), rendiation_ral::ShaderStage::Fragment),
+      vertex_shader: load_glsl(vertex, rendiation_ral::ShaderStage::Vertex),
+      frag_shader: load_glsl(frag, rendiation_ral::ShaderStage::Fragment),
       shader_interface_info: self.wgpu_shader_interface.clone(),
     })
   }
