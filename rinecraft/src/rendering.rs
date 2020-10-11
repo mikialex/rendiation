@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::rinecraft::RinecraftState;
-use rendiation_ral::{RALBackend, ResourceManager};
+use rendiation_ral::{GeometryHandle, RALBackend, ResourceManager, ShadingHandle, ShadingProvider};
 use rendiation_rendergraph::{
-  ContentProvider, RenderGraph, RenderGraphBackend, RenderGraphExecutor, RenderTargetPool,
+  ContentProvider, ImmediateRenderableContent, RenderGraph, RenderGraphBackend,
+  RenderGraphExecutor, RenderTargetPool,
 };
 use rendiation_scenegraph::{
   default_impl::DefaultSceneBackend, DrawcallList, Scene, SceneBackend, SceneRenderSource,
@@ -40,7 +41,22 @@ impl SceneRenderSource<WGPURenderer, DefaultSceneBackend> for DefaultContentProv
 
 struct DefaultRenderGraphBackend;
 
-struct FullScreenQuad {}
+struct FullScreenQuad<T: RALBackend, SP: ShadingProvider<T>> {
+  geometry: GeometryHandle<T>,
+  shading: ShadingHandle<T, SP>,
+}
+
+impl<T: RALBackend, SP: ShadingProvider<T>> ImmediateRenderableContent<T>
+  for FullScreenQuad<T, SP>
+{
+  fn render(&self, pass: &mut T::RenderPass, root: &ResourceManager<T>) {
+    todo!()
+  }
+
+  fn prepare(&mut self, resource: &mut ResourceManager<T>) {
+    todo!()
+  }
+}
 
 impl RenderGraphBackend for DefaultRenderGraphBackend {
   type Graphics = WGPURenderer;
