@@ -6,6 +6,15 @@ use crate::{
 use rendiation_ral::{RALBackend, Viewport};
 use std::{collections::HashSet, marker::PhantomData};
 
+pub trait ImmediateRenderableContent<T: RenderGraphBackend> {
+  fn render(
+    &self,
+    pass: &mut <T::Graphics as RALBackend>::RenderPass,
+    root: &T::ContentProviderImpl,
+  );
+  fn prepare(&mut self, root: &mut T::ContentProviderImpl);
+}
+
 pub struct PassNodeData<T: RenderGraphBackend> {
   pub name: String,
   pub(crate) viewport_modifier: Box<dyn Fn(RenderTargetSize) -> Viewport>,
@@ -16,6 +25,7 @@ pub struct PassNodeData<T: RenderGraphBackend> {
   >,
   pub(crate) input_targets_map: HashSet<RenderGraphNodeHandle<T>>,
   pub(crate) contents_to_render: Vec<RenderGraphNodeHandle<T>>,
+  pub(crate) immediate_content_to_render: Vec<Box<dyn ImmediateRenderableContent<T>>>,
   pub(crate) target_to: Option<RenderGraphNodeHandle<T>>,
 
   pub target_reuse_release_list: HashSet<RenderGraphNodeHandle<T>>,
@@ -136,6 +146,13 @@ impl<'a, T: RenderGraphBackend> PassNodeBuilder<'a, T> {
     self
   }
 
+  pub fn render_immediate(self, content: impl ImmediateRenderableContent<T> + 'static) -> Self {
+    self.builder.mutate_data(|p| {
+      p.immediate_content_to_render.push(Box::new(content));
+    });
+    self
+  }
+
   pub fn viewport_modifier(
     self,
     modifier: impl Fn(RenderTargetSize) -> Viewport + 'static,
@@ -163,6 +180,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
       pass_op_modifier: Box::new(|b| b),
       input_targets_map: HashSet::new(),
       contents_to_render: Vec::new(),
+      immediate_content_to_render: Vec::new(),
       target_to: None,
       target_reuse_release_list: HashSet::new(),
       content_reuse_release_list: HashSet::new(),

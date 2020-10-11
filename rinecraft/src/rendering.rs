@@ -40,6 +40,8 @@ impl SceneRenderSource<WGPURenderer, DefaultSceneBackend> for DefaultContentProv
 
 struct DefaultRenderGraphBackend;
 
+struct FullScreenQuad {}
+
 impl RenderGraphBackend for DefaultRenderGraphBackend {
   type Graphics = WGPURenderer;
   type ContentProviderImpl = DefaultContentProvider;
@@ -49,7 +51,10 @@ impl RenderGraphBackend for DefaultRenderGraphBackend {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum RinecraftSourceType {}
+pub enum RinecraftSourceType {
+  Main,
+  Copier,
+}
 
 impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
   fn get_source(
@@ -94,27 +99,22 @@ impl RinecraftRenderer {
   fn build(config: &EffectConfig) -> RenderGraph<DefaultRenderGraphBackend> {
     let graph = RenderGraph::new();
 
-    // let normal_pass = graph.pass("normal");
-    // let normal_target = graph.target("normal").from_pass(&normal_pass);
-    // let copy_screen = graph
-    //   .pass("copy_screen")
-    //   .depend(&normal_target)
-    //   .render_by(|_, _| {
-    //     let _a = 1;
-    //   });
+    let scene_main_content = graph.source(RinecraftSourceType::Main);
 
     let scene_pass = graph
       .pass("scene-pass")
       .define_pass_ops(|b: WGPURenderPassBuilder| {
         b.first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
           .depth(|d| d.load_with_clear(1.0).ok())
-      });
-    // .render_by(|_, _, pass| {
-    //   todo!();
-    //   todo!()
-    // });
+      })
+      .render_by(&scene_main_content);
 
-    graph.finally().from_pass(&scene_pass);
+    let middle_target = graph.target("middle").from_pass(&scene_pass);
+
+    let copy_screen = graph.pass("copy_screen").depend(&middle_target);
+    // .render_immediate(todo!());
+
+    graph.finally().from_pass(&copy_screen);
     graph
   }
 
