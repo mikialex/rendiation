@@ -7,7 +7,7 @@ use rendiation_ral::{RALBackend, ResourceManager, Viewport};
 use std::{collections::HashSet, marker::PhantomData};
 
 pub trait ImmediateRenderableContent<T: RALBackend> {
-  fn render(&self, pass: &mut T::RenderPass, root: &ResourceManager<T>);
+  fn render(&self, pass: &mut T::RenderPass, res: &ResourceManager<T>);
   fn prepare(&mut self, resource: &mut ResourceManager<T>);
 }
 

@@ -20,7 +20,7 @@ pub trait WGPUGeometryProvider {
     resource: &mut ResourceManager<WGPURenderer>,
   ) -> GeometryHandle<WGPURenderer> {
     let instance = self.create_resource_instance(renderer, resource);
-    resource.add_geometry(instance).index()
+    resource.add_geometry(instance)
   }
 }
 

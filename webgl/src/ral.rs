@@ -82,7 +82,7 @@ impl RALBackend for WebGLRenderer {
     program.upload(pass, resources, shading_storage.shading_provider_as_any());
 
     // geometry bind
-    let geometry = &resources.get_geometry(object.geometry).resource();
+    let geometry = &resources.get_geometry(object.geometry);
 
     pass.attribute_states.prepare_new_bindings();
     geometry.index_buffer.map(|b| {

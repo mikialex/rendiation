@@ -160,8 +160,7 @@ impl WASMScene {
   pub fn add_geometry(&mut self, geometry: &WASMGeometry) -> usize {
     let h = self
       .resource
-      .add_geometry(geometry.to_geometry_resource_instance())
-      .index();
+      .add_geometry(geometry.to_geometry_resource_instance());
     self.save_handle(h)
   }
 }

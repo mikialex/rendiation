@@ -11,7 +11,7 @@ pub struct ResourceManager<T: RALBackend> {
   pub bindgroups: BindGroupManager<T>,
   pub bindable: ShaderBindableResourceManager<T>,
 
-  pub geometries: ResourceArena<GeometryResourceInstance<T>>,
+  pub geometries: Arena<GeometryResourceInstance<T>>,
   pub index_buffers: ResourceArena<T::IndexBuffer>,
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
 }

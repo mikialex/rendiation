@@ -15,8 +15,8 @@ pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
 
-pub struct RenderObject<T: RALBackend> {
-  pub shading: ShadingHandle<T, AnyPlaceHolder>,
+pub struct RenderObject<T: RALBackend, SP: ShadingProvider<T> = AnyPlaceHolder> {
+  pub shading: ShadingHandle<T, SP>,
   pub geometry: GeometryHandle<T>,
 }
 
@@ -53,7 +53,7 @@ impl<R: RALBackend, T> Copy for UniformHandle<R, T> {}
 
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
 pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;
-pub type GeometryHandle<T> = Handle<ResourceWrap<GeometryResourceInstance<T>>>;
+pub type GeometryHandle<T> = Handle<GeometryResourceInstance<T>>;
 
 pub struct AnyPlaceHolder;
 

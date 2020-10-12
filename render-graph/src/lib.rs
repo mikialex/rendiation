@@ -10,11 +10,13 @@ mod backend;
 mod content_pool;
 mod executor;
 mod nodes;
+mod quad;
 mod target_pool;
 pub use backend::*;
 pub use content_pool::*;
 pub use executor::*;
 pub use nodes::*;
+pub use quad::*;
 pub use target_pool::*;
 
 pub trait RenderGraphBackend: Sized {

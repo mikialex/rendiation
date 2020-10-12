@@ -82,7 +82,7 @@ impl RALBackend for WGPURenderer {
       .apply(pass, resources);
 
     // set geometry
-    let geometry = resources.get_geometry(object.geometry).resource();
+    let geometry = resources.get_geometry(object.geometry);
     geometry.index_buffer.map(|b| {
       let index = resources.get_index_buffer(b);
       pass.set_index_buffer(index.resource());

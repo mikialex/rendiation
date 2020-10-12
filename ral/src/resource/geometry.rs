@@ -20,24 +20,15 @@ impl<T: RALBackend> GeometryResourceInstance<T> {
 }
 
 impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_geometry(
-    &mut self,
-    g: GeometryResourceInstance<T>,
-  ) -> &mut ResourceWrap<GeometryResourceInstance<T>> {
-    ResourceWrap::new_wrap(&mut self.geometries, g)
+  pub fn add_geometry(&mut self, g: GeometryResourceInstance<T>) -> GeometryHandle<T> {
+    self.geometries.insert(g)
   }
 
-  pub fn get_geometry_mut(
-    &mut self,
-    index: GeometryHandle<T>,
-  ) -> &mut ResourceWrap<GeometryResourceInstance<T>> {
+  pub fn get_geometry_mut(&mut self, index: GeometryHandle<T>) -> &mut GeometryResourceInstance<T> {
     self.geometries.get_mut(index).unwrap()
   }
 
-  pub fn get_geometry(
-    &self,
-    index: GeometryHandle<T>,
-  ) -> &ResourceWrap<GeometryResourceInstance<T>> {
+  pub fn get_geometry(&self, index: GeometryHandle<T>) -> &GeometryResourceInstance<T> {
     self.geometries.get(index).unwrap()
   }
 
@@ -46,7 +37,7 @@ impl<T: RALBackend> ResourceManager<T> {
   }
 
   pub fn delete_geometry_with_buffers(&mut self, index: GeometryHandle<T>) {
-    let geometry = self.geometries.get(index).unwrap().resource();
+    let geometry = self.geometries.get(index).unwrap();
     if let Some(b) = geometry.index_buffer {
       self.index_buffers.remove(b);
     }

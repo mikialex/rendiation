@@ -41,23 +41,6 @@ impl SceneRenderSource<WGPURenderer, DefaultSceneBackend> for DefaultContentProv
 
 struct DefaultRenderGraphBackend;
 
-struct FullScreenQuad<T: RALBackend, SP: ShadingProvider<T>> {
-  geometry: GeometryHandle<T>,
-  shading: ShadingHandle<T, SP>,
-}
-
-impl<T: RALBackend, SP: ShadingProvider<T>> ImmediateRenderableContent<T>
-  for FullScreenQuad<T, SP>
-{
-  fn render(&self, pass: &mut T::RenderPass, root: &ResourceManager<T>) {
-    todo!()
-  }
-
-  fn prepare(&mut self, resource: &mut ResourceManager<T>) {
-    todo!()
-  }
-}
-
 impl RenderGraphBackend for DefaultRenderGraphBackend {
   type Graphics = WGPURenderer;
   type ContentProviderImpl = DefaultContentProvider;
