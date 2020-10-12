@@ -86,7 +86,7 @@ impl WASMScene {
 
   #[wasm_bindgen]
   pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
-    let h = self.scene.create_render_object::<FakeShadingProvider>(
+    let h = self.scene.create_render_object::<AnyPlaceHolder>(
       self.get_handle(geometry_index).into(),
       self.get_handle(shading_index).into(),
     );
@@ -162,18 +162,5 @@ impl WASMScene {
       .resource
       .add_geometry(geometry.to_geometry_resource_instance());
     self.save_handle(h)
-  }
-}
-
-pub struct FakeShadingProvider;
-impl ShadingProvider<WebGLRenderer> for FakeShadingProvider {
-  type Instance = ();
-  fn apply(
-    _: &Self::Instance,
-    _: &WebGLProgram,
-    _: &mut WebGLRenderer,
-    _: &ResourceManager<WebGLRenderer>,
-  ) {
-    unimplemented!()
   }
 }

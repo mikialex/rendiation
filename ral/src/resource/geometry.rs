@@ -1,42 +1,46 @@
 use crate::{
-  GeometryHandle, IndexBufferHandle, RALBackend, ResourceManager, ResourceWrap, VertexBufferHandle,
+  GeometryHandle, GeometryProvider, IndexBufferHandle, RALBackend, ResourceManager, ResourceWrap,
+  VertexBufferHandle,
 };
 use std::ops::Range;
 
-pub struct GeometryResourceInstance<T: RALBackend> {
+pub struct GeometryResourceInstance<T: RALBackend, G: GeometryProvider<T>> {
   pub draw_range: Range<u32>,
-  pub index_buffer: Option<IndexBufferHandle<T>>,
-  pub vertex_buffers: Vec<VertexBufferHandle<T>>,
+  pub data: G::Instance,
+  // pub index_buffer: Option<IndexBufferHandle<T>>,
+  // pub vertex_buffers: Vec<VertexBufferHandle<T>>
 }
 
-impl<T: RALBackend> GeometryResourceInstance<T> {
-  pub fn new() -> Self {
+impl<T: RALBackend, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
+  pub fn new(data: G) -> Self {
     Self {
       draw_range: 0..0,
-      index_buffer: None,
-      vertex_buffers: Vec::new(),
+      data,
     }
   }
 }
 
-impl<T: RALBackend> ResourceManager<T> {
-  pub fn add_geometry(&mut self, g: GeometryResourceInstance<T>) -> GeometryHandle<T> {
+impl<T: RALBackend, G: GeometryProvider<T>> ResourceManager<T> {
+  pub fn add_geometry(&mut self, g: GeometryResourceInstance<T, G>) -> GeometryHandle<T, G> {
     self.geometries.insert(g)
   }
 
-  pub fn get_geometry_mut(&mut self, index: GeometryHandle<T>) -> &mut GeometryResourceInstance<T> {
+  pub fn get_geometry_mut(
+    &mut self,
+    index: GeometryHandle<T, G>,
+  ) -> &mut GeometryResourceInstance<T, G> {
     self.geometries.get_mut(index).unwrap()
   }
 
-  pub fn get_geometry(&self, index: GeometryHandle<T>) -> &GeometryResourceInstance<T> {
+  pub fn get_geometry(&self, index: GeometryHandle<T, G>) -> &GeometryResourceInstance<T, G> {
     self.geometries.get(index).unwrap()
   }
 
-  pub fn delete_geometry(&mut self, index: GeometryHandle<T>) {
+  pub fn delete_geometry(&mut self, index: GeometryHandle<T, G>) {
     self.geometries.remove(index);
   }
 
-  pub fn delete_geometry_with_buffers(&mut self, index: GeometryHandle<T>) {
+  pub fn delete_geometry_with_buffers(&mut self, index: GeometryHandle<T, G>) {
     let geometry = self.geometries.get(index).unwrap();
     if let Some(b) = geometry.index_buffer {
       self.index_buffers.remove(b);
@@ -85,3 +89,8 @@ impl<T: RALBackend> ResourceManager<T> {
     self.vertex_buffers.remove(index);
   }
 }
+
+// pub struct GeometryPair<R: RALBackend, T: GeometryProvider<R>> {
+//   data: T::Instance,
+//   gpu: Option<R::>,
+// }

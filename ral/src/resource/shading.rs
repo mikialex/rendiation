@@ -1,5 +1,6 @@
 use crate::{
-  AnyPlaceHolder, BindGroupManager, RALBackend, ResourceManager, ShadingHandle, ShadingProvider,
+  AnyPlaceHolder, BindGroupManager, GeometryProvider, RALBackend, ResourceManager, ShadingHandle,
+  ShadingProvider,
 };
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
@@ -130,12 +131,28 @@ impl<R: RALBackend, T: ShadingProvider<R>> ShadingPair<R, T> {
 pub struct AnyPlaceHolderShaderProviderInstance;
 impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
   type Instance = AnyPlaceHolderShaderProviderInstance;
+  type Geometry = AnyGeometryProvider;
   fn apply(
     _instance: &Self::Instance,
     _gpu_shading: &T::Shading,
     _render_pass: &mut T::RenderPass,
     _resources: &ResourceManager<T>,
   ) {
+    unreachable!()
+  }
+}
+
+pub struct AnyGeometryProvider;
+impl<T: RALBackend> GeometryProvider<T> for AnyGeometryProvider {
+  type Instance = ();
+  fn apply(
+    _instance: &Self::Instance,
+    _render_pass: &mut T::RenderPass,
+    _resources: &ResourceManager<T>,
+  ) {
+    unreachable!()
+  }
+  fn get_primitive_topology() {
     unreachable!()
   }
 }

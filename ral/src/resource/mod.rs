@@ -15,14 +15,18 @@ pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
 
-pub struct RenderObject<T: RALBackend, SP: ShadingProvider<T> = AnyPlaceHolder> {
+pub struct RenderObject<
+  T: RALBackend,
+  G: GeometryProvider<T> = AnyGeometryProvider,
+  SP: ShadingProvider<T, Geometry = G> = AnyPlaceHolder,
+> {
   pub shading: ShadingHandle<T, SP>,
-  pub geometry: GeometryHandle<T>,
+  pub geometry: GeometryHandle<T, G>,
 }
 
 impl<T: RALBackend> RenderObject<T> {
-  pub fn new<SP: ShadingProvider<T>>(
-    geometry: GeometryHandle<T>,
+  pub fn new<SP: ShadingProvider<T>, G: GeometryProvider<T>>(
+    geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,
   ) -> Self {
     Self {
@@ -53,7 +57,7 @@ impl<R: RALBackend, T> Copy for UniformHandle<R, T> {}
 
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
 pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;
-pub type GeometryHandle<T> = Handle<GeometryResourceInstance<T>>;
+pub type GeometryHandle<T, G> = Handle<GeometryResourceInstance<T>>;
 
 pub struct AnyPlaceHolder;
 
@@ -111,6 +115,7 @@ pub trait BindGroupProvider<T: RALBackend>: 'static {
 
 pub trait ShadingProvider<T: RALBackend>: 'static + Sized {
   type Instance;
+  type Geometry: GeometryProvider<T>;
   fn apply(
     instance: &Self::Instance,
     gpu_shading: &T::Shading,
