@@ -15,6 +15,9 @@ use rendiation_ral::BindGroupHandle;
 
 #[derive(Shader)]
 pub struct BlockShader {
+  #[geometry]
+  geometry: Vertex,
+
   parameter: BlockShadingParamGroup,
 }
 

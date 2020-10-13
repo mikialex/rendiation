@@ -30,6 +30,9 @@ pub trait RALBackend: 'static + Sized {
   fn apply_shading(pass: &mut Self::RenderPass, shading: &Self::Shading);
   fn apply_bindgroup(pass: &mut Self::RenderPass, index: usize, bindgroup: &Self::BindGroup);
 
+  fn apply_vertex_buffer(pass: &mut Self::RenderPass, index: i32, vertex: &Self::VertexBuffer);
+  fn apply_index_buffer(pass: &mut Self::RenderPass, index: &Self::IndexBuffer);
+
   fn create_uniform_buffer(renderer: &mut Self::Renderer, data: &[u8]) -> Self::UniformBuffer;
   fn dispose_uniform_buffer(renderer: &mut Self::Renderer, uniform: Self::UniformBuffer);
   fn update_uniform_buffer(

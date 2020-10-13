@@ -29,7 +29,16 @@ impl RALBackend for WebGLRenderer {
   fn apply_shading(pass: &mut Self::RenderPass, shading: &Self::Shading) {
     pass.use_program(shading)
   }
-  fn apply_bindgroup(_pass: &mut Self::RenderPass, _index: usize, _bindgroup: &Self::BindGroup) {}
+  fn apply_bindgroup(_pass: &mut Self::RenderPass, _index: usize, _bindgroup: &Self::BindGroup) {
+    // empty impl
+  }
+
+  fn apply_vertex_buffer(pass: &mut Self::RenderPass, index: i32, vertex: &Self::VertexBuffer) {
+    pass.set_vertex_buffer(index, vertex);
+  }
+  fn apply_index_buffer(pass: &mut Self::RenderPass, index: &Self::IndexBuffer) {
+    pass.set_index_buffer(Some(index));
+  }
 
   fn create_uniform_buffer(_renderer: &mut WebGLRenderer, _data: &[u8]) -> Self::UniformBuffer {
     // renderer.create_uniform_buffer(data)
@@ -74,6 +83,7 @@ impl RALBackend for WebGLRenderer {
   ) {
     // shading bind
     pass.texture_slot_states.reset_slots();
+
     let shading_storage = resources.shadings.get_shading_boxed(object.shading);
     shading_storage.apply(pass, resources);
 
@@ -82,21 +92,11 @@ impl RALBackend for WebGLRenderer {
     program.upload(pass, resources, shading_storage.shading_provider_as_any());
 
     // geometry bind
-    let geometry = &resources.get_geometry(object.geometry);
-
     pass.attribute_states.prepare_new_bindings();
-    geometry.index_buffer.map(|b| {
-      let index = resources.get_index_buffer(b);
-      pass.set_index_buffer(Some(index.resource().as_ref()));
-    });
-    geometry
-      .vertex_buffers
-      .iter()
-      .enumerate()
-      .for_each(|(i, &v)| {
-        let buffer = resources.get_vertex_buffer(v).resource();
-        pass.set_vertex_buffer(i as i32, buffer);
-      });
+
+    let geometry = resources.get_geometry(object.geometry);
+    geometry.apply(pass, resources);
+
     pass.disable_old_unused_bindings();
 
     // let range = &geometry.draw_range;

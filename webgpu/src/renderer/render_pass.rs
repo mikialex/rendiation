@@ -30,7 +30,7 @@ impl<'a> WGPURenderPass<'a> {
     self
   }
 
-  pub fn set_vertex_buffer(&mut self, slot: usize, buffer: &'a WGPUBuffer) -> &mut Self {
+  pub fn set_vertex_buffer(&mut self, slot: u32, buffer: &'a WGPUBuffer) -> &mut Self {
     self
       .gpu_pass
       .set_vertex_buffer(slot as u32, buffer.get_gpu_buffer().slice(..)); // ditto

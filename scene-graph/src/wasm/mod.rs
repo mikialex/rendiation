@@ -86,10 +86,12 @@ impl WASMScene {
 
   #[wasm_bindgen]
   pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
-    let h = self.scene.create_render_object::<AnyPlaceHolder>(
-      self.get_handle(geometry_index).into(),
-      self.get_handle(shading_index).into(),
-    );
+    let h = self
+      .scene
+      .create_render_object::<AnyPlaceHolder, AnyGeometryProvider>(
+        self.get_handle(geometry_index).into(),
+        self.get_handle(shading_index).into(),
+      );
     self.save_handle(h)
   }
 

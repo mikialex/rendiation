@@ -2,7 +2,7 @@ use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
 use once_cell::sync::Lazy;
 use rendiation_math_entity::Positioned3D;
-use rendiation_ral::{GeometryResourceInstance, ResourceManager};
+use rendiation_ral::{GeometryProvider, GeometryResourceInstance, ResourceManager};
 use rendiation_webgpu::*;
 use std::ops::Range;
 
@@ -39,10 +39,11 @@ impl WGPUVertexProvider for Vertex {
 
 impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned3D + GeometryProvider<WGPURenderer>,
   T: PrimitiveTopology<V> + WGPUPrimitiveTopology,
   U: GeometryDataContainer<V>,
 {
+  type Geometry = V;
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {
       index_format: wgpu::IndexFormat::Uint16, // todo index format
@@ -58,7 +59,7 @@ where
     &self,
     renderer: &mut WGPURenderer,
     resource: &mut ResourceManager<WGPURenderer>,
-  ) -> GeometryResourceInstance<WGPURenderer> {
+  ) -> GeometryResourceInstance<WGPURenderer, Self::Geometry> {
     let mut instance = GeometryResourceInstance::new();
     let index_buffer = WGPUBuffer::new(renderer, as_bytes(&self.index), wgpu::BufferUsage::INDEX);
     let vertex_buffer = WGPUBuffer::new(

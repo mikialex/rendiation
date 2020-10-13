@@ -143,16 +143,4 @@ impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
 }
 
 pub struct AnyGeometryProvider;
-impl<T: RALBackend> GeometryProvider<T> for AnyGeometryProvider {
-  type Instance = ();
-  fn apply(
-    _instance: &Self::Instance,
-    _render_pass: &mut T::RenderPass,
-    _resources: &ResourceManager<T>,
-  ) {
-    unreachable!()
-  }
-  fn get_primitive_topology() {
-    unreachable!()
-  }
-}
+impl<T: RALBackend> GeometryProvider<T> for AnyGeometryProvider {}

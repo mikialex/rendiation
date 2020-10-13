@@ -31,7 +31,7 @@ impl<T: RALBackend> RenderObject<T> {
   ) -> Self {
     Self {
       shading: unsafe { shading.cast_type() },
-      geometry,
+      geometry: unsafe { geometry.cast_type() },
     }
   }
 }
@@ -57,7 +57,7 @@ impl<R: RALBackend, T> Copy for UniformHandle<R, T> {}
 
 pub type IndexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::IndexBuffer>>;
 pub type VertexBufferHandle<T> = Handle<ResourceWrap<<T as RALBackend>::VertexBuffer>>;
-pub type GeometryHandle<T, G> = Handle<GeometryResourceInstance<T>>;
+pub type GeometryHandle<T, G> = Handle<GeometryResourceInstance<T, G>>;
 
 pub struct AnyPlaceHolder;
 
@@ -125,29 +125,20 @@ pub trait ShadingProvider<T: RALBackend>: 'static + Sized {
 }
 
 pub trait GeometryProvider<T: RALBackend>: 'static + Sized {
-  type Instance;
-  fn apply(
-    instance: &Self::Instance,
-    render_pass: &mut T::RenderPass,
-    resources: &ResourceManager<T>,
-  );
-  fn get_primitive_topology();
+  // type Instance;
+  // fn apply(
+  //   instance: &Self::Instance,
+  //   render_pass: &mut T::RenderPass,
+  //   resources: &ResourceManager<T>,
+  // );
+  // fn get_primitive_topology();
 }
 
-pub struct GeometryResourceInstance2<T: RALBackend, V: GeometryVertexProvider<T>> {
-  pub draw_range: Range<u32>,
-  pub index_buffer: Option<IndexBufferHandle<T>>,
-  pub vertex_buffers: V,
-  // pub topology_info
-}
-
-// impl GeometryResourceInstance2 {}
-
-pub trait GeometryVertexProvider<T: RALBackend> {
-  type Instance;
-  fn apply(
-    instance: &Self::Instance,
-    render_pass: &mut T::RenderPass,
-    resources: &ResourceManager<T>,
-  );
-}
+// pub trait GeometryVertexProvider<T: RALBackend> {
+//   type Instance;
+//   fn apply(
+//     instance: &Self::Instance,
+//     render_pass: &mut T::RenderPass,
+//     resources: &ResourceManager<T>,
+//   );
+// }

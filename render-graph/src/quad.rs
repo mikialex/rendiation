@@ -1,13 +1,16 @@
 use crate::ImmediateRenderableContent;
-use rendiation_mesh_buffer::tessellation::{plane::Quad, IndexedBufferTessellator};
+use rendiation_mesh_buffer::{
+  tessellation::{plane::Quad, IndexedBufferTessellator},
+  vertex::Vertex,
+};
 use rendiation_ral::{GeometryHandle, RALBackend, RenderObject, ResourceManager, ShadingProvider};
 
-pub struct FullScreenQuad<T: RALBackend, SP: ShadingProvider<T>> {
-  obj: RenderObject<T, SP>,
+pub struct FullScreenQuad<T: RALBackend, SP: ShadingProvider<T, Geometry = Vertex>> {
+  obj: RenderObject<T, Vertex, SP>,
 }
 
 pub struct FullScreenQuadFactory<T: RALBackend> {
-  geometry: GeometryHandle<T>,
+  geometry: GeometryHandle<T, Vertex>,
 }
 
 impl<T: RALBackend> FullScreenQuadFactory<T> {
@@ -16,7 +19,7 @@ impl<T: RALBackend> FullScreenQuadFactory<T> {
     todo!()
   }
 
-  pub fn create_quad<SP: ShadingProvider<T>>(
+  pub fn create_quad<SP: ShadingProvider<T, Geometry = Vertex>>(
     res: &mut ResourceManager<T>,
     // s: SP
   ) -> FullScreenQuad<T, SP> {
@@ -24,13 +27,13 @@ impl<T: RALBackend> FullScreenQuadFactory<T> {
   }
 }
 
-impl<T: RALBackend, SP: ShadingProvider<T>> FullScreenQuad<T, SP> {
+impl<T: RALBackend, SP: ShadingProvider<T, Geometry = Vertex>> FullScreenQuad<T, SP> {
   pub fn new() -> Self {
     todo!()
   }
 }
 
-impl<T: RALBackend, SP: ShadingProvider<T>> ImmediateRenderableContent<T>
+impl<T: RALBackend, SP: ShadingProvider<T, Geometry = Vertex>> ImmediateRenderableContent<T>
   for FullScreenQuad<T, SP>
 {
   fn render(&self, pass: &mut T::RenderPass, res: &ResourceManager<T>) {

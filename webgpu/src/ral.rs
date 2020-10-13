@@ -29,6 +29,13 @@ impl RALBackend for WGPURenderer {
     pass.set_bindgroup(index, unsafe { std::mem::transmute(bindgroup) });
   }
 
+  fn apply_vertex_buffer(pass: &mut Self::RenderPass, index: i32, vertex: &Self::VertexBuffer) {
+    pass.set_vertex_buffer(index as u32, unsafe { std::mem::transmute(vertex) });
+  }
+  fn apply_index_buffer(pass: &mut Self::RenderPass, index: &Self::IndexBuffer) {
+    pass.set_index_buffer(unsafe { std::mem::transmute(index) });
+  }
+
   fn create_uniform_buffer(renderer: &mut WGPURenderer, data: &[u8]) -> Self::UniformBuffer {
     WGPUBuffer::new(
       renderer,
@@ -83,14 +90,7 @@ impl RALBackend for WGPURenderer {
 
     // set geometry
     let geometry = resources.get_geometry(object.geometry);
-    geometry.index_buffer.map(|b| {
-      let index = resources.get_index_buffer(b);
-      pass.set_index_buffer(index.resource());
-    });
-    for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
-      let buffer = resources.get_vertex_buffer(*vertex_buffer);
-      pass.set_vertex_buffer(i, buffer.resource());
-    }
+    geometry.apply(pass, resources);
 
     // draw
     pass.draw_indexed(geometry.draw_range.clone())

@@ -1,5 +1,5 @@
-use super::{BindGroupManager, GeometryResourceInstance, UBOManager};
-use crate::{RALBackend, ShadingManager};
+use super::{BindGroupManager, UBOManager};
+use crate::{GeometryResource, RALBackend, ShadingManager};
 use arena::{Arena, Handle};
 use std::any::Any;
 
@@ -11,7 +11,7 @@ pub struct ResourceManager<T: RALBackend> {
   pub bindgroups: BindGroupManager<T>,
   pub bindable: ShaderBindableResourceManager<T>,
 
-  pub geometries: Arena<GeometryResourceInstance<T>>,
+  pub geometries: Arena<Box<dyn GeometryResource<T>>>,
   pub index_buffers: ResourceArena<T::IndexBuffer>,
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
 }

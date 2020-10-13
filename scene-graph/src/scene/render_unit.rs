@@ -5,9 +5,9 @@ use crate::{
 use rendiation_ral::{RenderObject, ResourceManager, ShadingProvider};
 
 impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
-  pub fn create_render_object<SP: ShadingProvider<T>>(
+  pub fn create_render_object<SP: ShadingProvider<T>, G: GeometryProvider<T>>(
     &mut self,
-    geometry: GeometryHandle<T>,
+    geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,
   ) -> RenderObjectHandle<T> {
     let obj = RenderObject::new(geometry, shading);
