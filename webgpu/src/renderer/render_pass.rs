@@ -40,6 +40,9 @@ impl<'a> WGPURenderPass<'a> {
   pub fn draw_indexed(&mut self, index_range: Range<u32>) {
     self.gpu_pass.draw_indexed(index_range, 0, 0..1);
   }
+  pub fn draw(&mut self, range: Range<u32>) {
+    self.gpu_pass.draw(range, 0..1);
+  }
 
   pub fn use_viewport(&mut self, viewport: &Viewport) -> &mut Self {
     self.gpu_pass.set_viewport(

@@ -22,7 +22,7 @@ impl Culler {
     self
   }
 
-  pub fn test_is_visible<T: RALBackend>(
+  pub fn test_visibility<T: RALBackend>(
     &self,
     node_id: SceneNodeHandle<T>,
     scene: &Scene<T>,

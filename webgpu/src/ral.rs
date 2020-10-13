@@ -78,7 +78,7 @@ impl RALBackend for WGPURenderer {
     pass.draw_indexed(range)
   }
   fn draw_none_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
-    todo!()
+    pass.draw(range)
   }
 
   fn render_drawcall(

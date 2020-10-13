@@ -76,18 +76,20 @@ impl RALBackend for WebGLRenderer {
     renderer.dispose_vertex_buffer(buffer)
   }
 
-  fn draw_indexed(_pass: &mut Self::RenderPass, _range: Range<u32>) {
-    todo!()
-    // let range = &geometry.draw_range;
-    // renderer.gl.draw_elements_with_i32(
-    //   WebGl2RenderingContext::TRIANGLES,
-    //   range.start as i32,
-    //   WebGl2RenderingContext::UNSIGNED_INT,
-    //   range.end as i32,
-    // );
+  fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+    pass.gl.draw_elements_with_i32(
+      WebGl2RenderingContext::TRIANGLES,
+      (range.end - range.start) as i32,
+      WebGl2RenderingContext::UNSIGNED_INT,
+      range.end as i32,
+    );
   }
-  fn draw_none_indexed(_pass: &mut Self::RenderPass, _range: Range<u32>) {
-    todo!()
+  fn draw_none_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+    pass.gl.draw_arrays(
+      WebGl2RenderingContext::TRIANGLES,
+      range.start as i32,
+      (range.end - range.start) as i32,
+    );
   }
 
   fn render_drawcall(
