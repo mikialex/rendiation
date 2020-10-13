@@ -76,6 +76,20 @@ impl RALBackend for WebGLRenderer {
     renderer.dispose_vertex_buffer(buffer)
   }
 
+  fn draw_indexed(_pass: &mut Self::RenderPass, _range: Range<u32>) {
+    todo!()
+    // let range = &geometry.draw_range;
+    // renderer.gl.draw_elements_with_i32(
+    //   WebGl2RenderingContext::TRIANGLES,
+    //   range.start as i32,
+    //   WebGl2RenderingContext::UNSIGNED_INT,
+    //   range.end as i32,
+    // );
+  }
+  fn draw_none_indexed(_pass: &mut Self::RenderPass, _range: Range<u32>) {
+    todo!()
+  }
+
   fn render_object(
     object: &RenderObject<Self>,
     pass: &mut Self::RenderPass,
@@ -99,12 +113,6 @@ impl RALBackend for WebGLRenderer {
 
     pass.disable_old_unused_bindings();
 
-    // let range = &geometry.draw_range;
-    // renderer.gl.draw_elements_with_i32(
-    //   WebGl2RenderingContext::TRIANGLES,
-    //   range.start as i32,
-    //   WebGl2RenderingContext::UNSIGNED_INT,
-    //   range.end as i32,
-    // );
+    geometry.draw(pass);
   }
 }

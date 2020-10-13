@@ -62,7 +62,6 @@ impl RALBackend for WGPURenderer {
   fn dispose_index_buffer(_renderer: &mut Self::Renderer, _buffer: Self::IndexBuffer) {
     // just drop
   }
-
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
@@ -73,6 +72,13 @@ impl RALBackend for WGPURenderer {
 
   fn dispose_vertex_buffer(_renderer: &mut Self::Renderer, _buffer: Self::VertexBuffer) {
     // just drop
+  }
+
+  fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+    pass.draw_indexed(range)
+  }
+  fn draw_none_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+    todo!()
   }
 
   fn render_object(
@@ -89,11 +95,11 @@ impl RALBackend for WGPURenderer {
       .apply(pass, resources);
 
     // set geometry
-    let geometry = resources.get_geometry(object.geometry);
+    let geometry = resources.get_geometry_boxed(object.geometry);
     geometry.apply(pass, resources);
 
     // draw
-    pass.draw_indexed(geometry.draw_range.clone())
+    geometry.draw(pass);
   }
 }
 
