@@ -7,7 +7,7 @@ use rendiation_rendergraph::{
   RenderGraphExecutor, RenderTargetPool,
 };
 use rendiation_scenegraph::{
-  default_impl::DefaultSceneBackend, DrawcallList, Scene, SceneBackend, SceneRenderSource,
+  default_impl::DefaultSceneBackend, Scene, SceneBackend, SceneDrawcallList, SceneRenderSource,
 };
 use rendiation_webgpu::{
   renderer::SwapChain, RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance,
@@ -46,7 +46,7 @@ impl RenderGraphBackend for DefaultRenderGraphBackend {
   type ContentProviderImpl = DefaultContentProvider;
   type ContentSourceKey = RinecraftSourceType;
   type ContentMiddleKey = ();
-  type ContentUnitImpl = DrawcallList<WGPURenderer>;
+  type ContentUnitImpl = SceneDrawcallList<WGPURenderer>;
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -60,7 +60,7 @@ impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
     &mut self,
     key: RinecraftSourceType,
     _: &RenderTargetPool<DefaultRenderGraphBackend>,
-    _: &mut DrawcallList<WGPURenderer>,
+    _: &mut SceneDrawcallList<WGPURenderer>,
   ) {
     todo!()
   }

@@ -81,8 +81,8 @@ impl RALBackend for WGPURenderer {
     todo!()
   }
 
-  fn render_object(
-    object: &RenderObject<Self>,
+  fn render_drawcall(
+    drawcall: &Drawcall<Self>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
@@ -91,11 +91,11 @@ impl RALBackend for WGPURenderer {
     // set shading
     resources
       .shadings
-      .get_shading_boxed(object.shading)
+      .get_shading_boxed(drawcall.shading)
       .apply(pass, resources);
 
     // set geometry
-    let geometry = resources.get_geometry_boxed(object.geometry);
+    let geometry = resources.get_geometry_boxed(drawcall.geometry);
     geometry.apply(pass, resources);
 
     // draw

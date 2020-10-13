@@ -11,10 +11,10 @@ pub use background::*;
 pub use node::*;
 pub use render_unit::*;
 
-pub type RenderObjectHandle<T> = Handle<RenderObject<T>>;
+pub type DrawcallHandle<T> = Handle<Drawcall<T>>;
 
 use super::node::SceneNode;
-use crate::{default_impl::DefaultSceneBackend, RALBackend, RenderObject};
+use crate::{default_impl::DefaultSceneBackend, Drawcall, RALBackend};
 use arena::*;
 use arena_tree::*;
 use rendiation_ral::ResourceManager;
@@ -29,27 +29,26 @@ pub trait SceneBackend<T: RALBackend>: Sized {
 }
 
 pub fn render_list<T: RALBackend, S: SceneBackend<T>>(
-  raw_list: &Vec<Drawcall<T, S>>,
+  raw_list: &Vec<SceneDrawcall<T, S>>,
   pass: &mut T::RenderPass,
   scene: &Scene<T, S>,
   resources: &ResourceManager<T>,
 ) {
-  raw_list.iter().for_each(|d| {
-    let render_object = scene.render_objects.get(d.render_object).unwrap();
-    T::render_object(&render_object, pass, resources);
-  })
+  raw_list
+    .iter()
+    .for_each(|d| T::render_drawcall(scene.drawcalls.get(d.drawcall).unwrap(), pass, resources))
 }
 
 pub trait SceneNodeDataTrait<T: RALBackend>: Default {
-  type RenderObjectIntoIterType;
+  type DrawcallIntoIterType;
   fn update_by_parent(&mut self, parent: Option<&Self>, resource: &mut ResourceManager<T>) -> bool;
-  fn provide_render_object<'a>(&self) -> &Self::RenderObjectIntoIterType;
+  fn provide_drawcall<'a>(&self) -> &Self::DrawcallIntoIterType;
 }
 
-pub struct SceneNodeDataRenderObjectsProvider<'a, P>(pub &'a P);
+pub struct SceneNodeDataDrawcallsProvider<'a, P>(pub &'a P);
 
 pub struct Scene<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
-  pub render_objects: Arena<RenderObject<T>>,
+  pub drawcalls: Arena<Drawcall<T>>,
   pub(crate) nodes: ArenaTree<S::NodeData>,
   pub scene_data: S::SceneData,
   reused_traverse_stack: Vec<SceneNodeHandle<T, S>>,
@@ -58,21 +57,21 @@ pub struct Scene<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
 impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
   pub fn new() -> Self {
     Self {
-      render_objects: Arena::new(),
+      drawcalls: Arena::new(),
       nodes: ArenaTree::new(S::NodeData::default()),
       scene_data: S::SceneData::default(),
       reused_traverse_stack: Vec::new(),
     }
   }
 
-  pub fn update(&mut self, resources: &mut ResourceManager<T>) -> DrawcallList<T, S>
+  pub fn update(&mut self, resources: &mut ResourceManager<T>) -> SceneDrawcallList<T, S>
   where
-    for<'a> &'a <S::NodeData as SceneNodeDataTrait<T>>::RenderObjectIntoIterType:
-      IntoIterator<Item = &'a RenderObjectHandle<T>>,
+    for<'a> &'a <S::NodeData as SceneNodeDataTrait<T>>::DrawcallIntoIterType:
+      IntoIterator<Item = &'a DrawcallHandle<T>>,
     // maybe we could let SceneNodeDataTrait impl IntoExactSizeIterator for simplicity
   {
     let root = self.get_root().handle();
-    let mut list = DrawcallList::new();
+    let mut list = SceneDrawcallList::new();
     list.inner.clear();
     self.nodes.traverse(
       root,
@@ -83,15 +82,17 @@ impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
 
         node_data.update_by_parent(parent.map(|p| p.data()), resources);
 
-        list.inner.extend(
-          node_data
-            .provide_render_object()
-            .into_iter()
-            .map(|&render_object| Drawcall {
-              render_object,
-              node: this_handle,
-            }),
-        );
+        list
+          .inner
+          .extend(
+            node_data
+              .provide_drawcall()
+              .into_iter()
+              .map(|&drawcall| SceneDrawcall {
+                drawcall,
+                node: this_handle,
+              }),
+          );
       },
     );
     list

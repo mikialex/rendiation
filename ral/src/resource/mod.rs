@@ -15,7 +15,7 @@ pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
 
-pub struct RenderObject<
+pub struct Drawcall<
   T: RALBackend,
   G: GeometryProvider<T> = AnyGeometryProvider,
   SP: ShadingProvider<T, Geometry = G> = AnyPlaceHolder,
@@ -24,7 +24,7 @@ pub struct RenderObject<
   pub geometry: GeometryHandle<T, G>,
 }
 
-impl<T: RALBackend> RenderObject<T> {
+impl<T: RALBackend> Drawcall<T> {
   pub fn new<SP: ShadingProvider<T>, G: GeometryProvider<T>>(
     geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,

@@ -85,10 +85,10 @@ impl WASMScene {
   }
 
   #[wasm_bindgen]
-  pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
+  pub fn create_drawcall(&mut self, geometry_index: usize, shading_index: usize) -> usize {
     let h = self
       .scene
-      .create_render_object::<AnyPlaceHolder, AnyGeometryProvider>(
+      .create_drawcall::<AnyPlaceHolder, AnyGeometryProvider>(
         self.get_handle(geometry_index).into(),
         self.get_handle(shading_index).into(),
       );
@@ -96,8 +96,8 @@ impl WASMScene {
   }
 
   #[wasm_bindgen]
-  pub fn delete_render_object(&mut self, h: usize) {
-    self.scene.delete_render_object(self.get_handle(h).into());
+  pub fn delete_drawcall(&mut self, h: usize) {
+    self.scene.delete_drawcall(self.get_handle(h).into());
   }
 
   #[wasm_bindgen]

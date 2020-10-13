@@ -55,8 +55,8 @@ pub trait RALBackend: 'static + Sized {
   fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>);
   fn draw_none_indexed(pass: &mut Self::RenderPass, range: Range<u32>);
 
-  fn render_object(
-    object: &RenderObject<Self>,
+  fn render_drawcall(
+    object: &Drawcall<Self>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   );

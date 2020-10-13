@@ -90,15 +90,15 @@ impl RALBackend for WebGLRenderer {
     todo!()
   }
 
-  fn render_object(
-    object: &RenderObject<Self>,
+  fn render_drawcall(
+    drawcall: &Drawcall<Self>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
     // shading bind
     pass.texture_slot_states.reset_slots();
 
-    let shading_storage = resources.shadings.get_shading_boxed(object.shading);
+    let shading_storage = resources.shadings.get_shading_boxed(drawcall.shading);
     shading_storage.apply(pass, resources);
 
     let program = shading_storage.get_gpu();
@@ -108,7 +108,7 @@ impl RALBackend for WebGLRenderer {
     // geometry bind
     pass.attribute_states.prepare_new_bindings();
 
-    let geometry = resources.get_geometry(object.geometry);
+    let geometry = resources.get_geometry(drawcall.geometry);
     geometry.apply(pass, resources);
 
     pass.disable_old_unused_bindings();

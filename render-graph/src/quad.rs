@@ -3,10 +3,10 @@ use rendiation_mesh_buffer::{
   tessellation::{plane::Quad, IndexedBufferTessellator},
   vertex::Vertex,
 };
-use rendiation_ral::{GeometryHandle, RALBackend, RenderObject, ResourceManager, ShadingProvider};
+use rendiation_ral::{Drawcall, GeometryHandle, RALBackend, ResourceManager, ShadingProvider};
 
 pub struct FullScreenQuad<T: RALBackend, SP: ShadingProvider<T, Geometry = Vertex>> {
-  obj: RenderObject<T, Vertex, SP>,
+  obj: Drawcall<T, Vertex, SP>,
 }
 
 pub struct FullScreenQuadFactory<T: RALBackend> {

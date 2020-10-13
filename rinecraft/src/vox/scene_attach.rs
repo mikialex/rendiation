@@ -18,7 +18,7 @@ pub struct WorldSceneAttachment {
     ChunkCoords,
     (
       SceneNodeHandle<WGPURenderer>,
-      RenderObjectHandle<WGPURenderer>,
+      DrawcallHandle<WGPURenderer>,
       GeometryHandle<WGPURenderer, Vertex>,
     ),
   >,
@@ -42,10 +42,10 @@ impl WorldSceneAttachment {
       // }
 
       // remove node in scene;
-      if let Some((node_index, render_object_index, geometry_index)) = self.blocks.get(&chunk) {
+      if let Some((node_index, drawcall_handle, geometry_index)) = self.blocks.get(&chunk) {
         scene.node_remove_child_by_handle(self.root_node_index, *node_index);
         scene.free_node(*node_index);
-        scene.delete_render_object(*render_object_index);
+        scene.delete_drawcall(*drawcall_handle);
         resources.delete_geometry_with_buffers(*geometry_index);
         self.blocks.remove(&chunk);
       }
@@ -53,16 +53,16 @@ impl WorldSceneAttachment {
       // add new node in scene;
       let scene_geometry = g.create_resource_instance_handle(renderer, resources);
 
-      let render_object_index = scene.create_render_object(scene_geometry, self.block_shading);
+      let drawcall = scene.create_drawcall(scene_geometry, self.block_shading);
       let new_node = scene.create_new_node();
-      new_node.data_mut().add_render_object(render_object_index);
+      new_node.data_mut().append_drawcall(drawcall);
       let node_index = new_node.handle();
 
       scene.node_add_child_by_handle(self.root_node_index, node_index);
 
       self
         .blocks
-        .insert(chunk, (node_index, render_object_index, scene_geometry));
+        .insert(chunk, (node_index, drawcall, scene_geometry));
     }
   }
 }
