@@ -12,7 +12,7 @@ pub use resource::*;
 pub use shader::*;
 pub use viewport::*;
 
-pub trait RALBackend: 'static + Sized {
+pub trait RAL: 'static + Sized {
   type RenderTarget;
   type RenderPass;
   type Renderer;

@@ -1,10 +1,10 @@
 use crate::{
-  default_impl::DefaultSceneBackend, DrawcallHandle, GeometryHandle, RALBackend, Scene,
-  SceneBackend, SceneNodeHandle, ShadingHandle,
+  default_impl::DefaultSceneBackend, DrawcallHandle, GeometryHandle, Scene, SceneBackend,
+  SceneNodeHandle, ShadingHandle, RAL,
 };
 use rendiation_ral::{Drawcall, ResourceManager, ShadingProvider};
 
-impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
+impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
   pub fn create_drawcall<SP: ShadingProvider<T>, G: GeometryProvider<T>>(
     &mut self,
     geometry: GeometryHandle<T, G>,
@@ -19,12 +19,12 @@ impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
   }
 }
 
-pub struct SceneDrawcall<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
+pub struct SceneDrawcall<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
   pub drawcall: DrawcallHandle<T>,
   pub node: SceneNodeHandle<T, S>,
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> Clone for SceneDrawcall<T, S> {
+impl<T: RAL, S: SceneBackend<T>> Clone for SceneDrawcall<T, S> {
   fn clone(&self) -> Self {
     Self {
       drawcall: self.drawcall.clone(),
@@ -33,19 +33,19 @@ impl<T: RALBackend, S: SceneBackend<T>> Clone for SceneDrawcall<T, S> {
   }
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> Copy for SceneDrawcall<T, S> {}
+impl<T: RAL, S: SceneBackend<T>> Copy for SceneDrawcall<T, S> {}
 
-pub struct SceneDrawcallList<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
+pub struct SceneDrawcallList<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
   pub inner: Vec<SceneDrawcall<T, S>>,
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> Default for SceneDrawcallList<T, S> {
+impl<T: RAL, S: SceneBackend<T>> Default for SceneDrawcallList<T, S> {
   fn default() -> Self {
     SceneDrawcallList::new()
   }
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> SceneDrawcallList<T, S> {
+impl<T: RAL, S: SceneBackend<T>> SceneDrawcallList<T, S> {
   pub fn new() -> Self {
     Self { inner: Vec::new() }
   }
@@ -63,7 +63,7 @@ impl<T: RALBackend, S: SceneBackend<T>> SceneDrawcallList<T, S> {
   }
 }
 
-pub trait SceneRenderSource<T: RALBackend, S: SceneBackend<T>> {
+pub trait SceneRenderSource<T: RAL, S: SceneBackend<T>> {
   fn get_scene(&self) -> &Scene<T, S>;
   fn get_resource(&self) -> &ResourceManager<T>;
 }

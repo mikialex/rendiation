@@ -1,4 +1,4 @@
-use rendiation_ral::RALBackend;
+use rendiation_ral::RAL;
 
 use crate::{
   RenderGraphBackend, RenderGraphGraphicsBackend, RenderGraphNodeHandle, TargetNodeData,
@@ -44,14 +44,14 @@ impl<T> RenderTargetFormatKey<T> {
 
 pub struct RenderTargetTypePooling<T: RenderGraphBackend> {
   key: RenderTargetFormatKey<<T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey>,
-  available: Vec<<T::Graphics as RALBackend>::RenderTarget>,
+  available: Vec<<T::Graphics as RAL>::RenderTarget>,
 }
 
 impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
   pub fn request(
     &mut self,
-    renderer: &<T::Graphics as RALBackend>::Renderer,
-  ) -> <T::Graphics as RALBackend>::RenderTarget {
+    renderer: &<T::Graphics as RAL>::Renderer,
+  ) -> <T::Graphics as RAL>::RenderTarget {
     if self.available.len() == 0 {
       self.available.push(
         <T::Graphics as RenderGraphGraphicsBackend>::create_render_target(renderer, &self.key),
@@ -60,7 +60,7 @@ impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
     self.available.pop().unwrap()
   }
 
-  pub fn return_back(&mut self, target: <T::Graphics as RALBackend>::RenderTarget) {
+  pub fn return_back(&mut self, target: <T::Graphics as RAL>::RenderTarget) {
     self.available.push(target)
   }
 }
@@ -70,7 +70,7 @@ pub struct RenderTargetPool<T: RenderGraphBackend> {
     RenderTargetFormatKey<<T::Graphics as RenderGraphGraphicsBackend>::RenderTargetFormatKey>,
     RenderTargetTypePooling<T>,
   >,
-  active_targets: HashMap<RenderGraphNodeHandle<T>, <T::Graphics as RALBackend>::RenderTarget>,
+  active_targets: HashMap<RenderGraphNodeHandle<T>, <T::Graphics as RAL>::RenderTarget>,
 }
 
 impl<T: RenderGraphBackend> RenderTargetPool<T> {
@@ -81,7 +81,7 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     }
   }
 
-  pub fn clear_all(&mut self, renderer: &<T::Graphics as RALBackend>::Renderer) {
+  pub fn clear_all(&mut self, renderer: &<T::Graphics as RAL>::Renderer) {
     if self.active_targets.len() > 0 {
       panic!("some target still in use")
     }
@@ -126,8 +126,8 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
     &mut self,
     node_handle: RenderGraphNodeHandle<T>,
     data: &TargetNodeData<T>,
-    renderer: &<T::Graphics as RALBackend>::Renderer,
-  ) -> &<T::Graphics as RALBackend>::RenderTarget {
+    renderer: &<T::Graphics as RAL>::Renderer,
+  ) -> &<T::Graphics as RAL>::RenderTarget {
     let target = self.get_pool(&data.format).request(renderer);
     self.active_targets.entry(node_handle).or_insert(target)
   }

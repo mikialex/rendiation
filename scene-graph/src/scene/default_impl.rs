@@ -1,16 +1,16 @@
 use crate::{DrawcallHandle, SceneBackend, SceneNodeDataTrait};
 use rendiation_math::*;
-use rendiation_ral::{RALBackend, ResourceManager};
+use rendiation_ral::{ResourceManager, RAL};
 use rendiation_render_entity::BoundingData;
 
 pub struct DefaultSceneBackend;
 
-impl<T: RALBackend> SceneBackend<T> for DefaultSceneBackend {
+impl<T: RAL> SceneBackend<T> for DefaultSceneBackend {
   type NodeData = SceneNodeData<T>;
   type SceneData = ();
 }
 
-pub struct SceneNodeData<T: RALBackend> {
+pub struct SceneNodeData<T: RAL> {
   pub drawcalls: Vec<DrawcallHandle<T>>,
   pub visible: bool,
   pub net_visible: bool,
@@ -18,13 +18,13 @@ pub struct SceneNodeData<T: RALBackend> {
   pub local_matrix: Mat4<f32>,
 }
 
-impl<T: RALBackend> Default for SceneNodeData<T> {
+impl<T: RAL> Default for SceneNodeData<T> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<T: RALBackend> SceneNodeDataTrait<T> for SceneNodeData<T> {
+impl<T: RAL> SceneNodeDataTrait<T> for SceneNodeData<T> {
   type DrawcallIntoIterType = Vec<DrawcallHandle<T>>;
   fn update_by_parent(
     &mut self,
@@ -45,7 +45,7 @@ impl<T: RALBackend> SceneNodeDataTrait<T> for SceneNodeData<T> {
   }
 }
 
-impl<T: RALBackend> SceneNodeData<T> {
+impl<T: RAL> SceneNodeData<T> {
   pub fn new() -> Self {
     Self {
       drawcalls: Vec::new(),

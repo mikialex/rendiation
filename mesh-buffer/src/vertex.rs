@@ -1,7 +1,7 @@
 use crate::geometry::HashAbleByConversion;
 use rendiation_math::*;
 use rendiation_math_entity::Positioned3D;
-use rendiation_ral::{GeometryProvider, RALBackend};
+use rendiation_ral::{GeometryProvider, RAL};
 use std::{hash::Hash, mem};
 
 #[cfg(feature = "shader-graph")]
@@ -16,7 +16,7 @@ pub struct Vertex {
   pub uv: Vec2<f32>,
 }
 
-impl<T: RALBackend> GeometryProvider<T> for Vertex {}
+impl<T: RAL> GeometryProvider<T> for Vertex {}
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 pub struct HashableVertex {

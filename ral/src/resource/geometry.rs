@@ -1,17 +1,22 @@
 use crate::{
-  GeometryHandle, GeometryProvider, IndexBufferHandle, RALBackend, ResourceManager, ResourceWrap,
-  VertexBufferHandle,
+  GeometryHandle, GeometryProvider, IndexBufferHandle, ResourceManager, ResourceWrap,
+  VertexBufferHandle, RAL,
 };
 use std::{any::Any, marker::PhantomData, ops::Range};
 
-pub trait GeometryResource<T: RALBackend>: Any {
+pub trait GeometryResource<T: RAL>: Any {
   fn apply(&self, render_pass: &mut T::RenderPass, resources: &ResourceManager<T>);
   fn draw(&self, render_pass: &mut T::RenderPass);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T: RALBackend, G: GeometryProvider<T>> GeometryResource<T> for GeometryResourceInstance<T, G> {
+pub trait GeometryResourceProvider<T: RAL>: Any {
+  type Instance: GeometryResource<T>;
+  fn create(&self, resources: &ResourceManager<T>) -> Self::Instance;
+}
+
+impl<T: RAL, G: GeometryProvider<T>> GeometryResource<T> for GeometryResourceInstance<T, G> {
   fn apply(&self, render_pass: &mut T::RenderPass, resources: &ResourceManager<T>) {
     self.index_buffer.map(|b| {
       let index = resources.get_index_buffer(b).resource();
@@ -38,14 +43,14 @@ impl<T: RALBackend, G: GeometryProvider<T>> GeometryResource<T> for GeometryReso
   }
 }
 
-pub struct GeometryResourceInstance<T: RALBackend, G: GeometryProvider<T>> {
+pub struct GeometryResourceInstance<T: RAL, G: GeometryProvider<T>> {
   pub draw_range: Range<u32>,
   marker: PhantomData<G>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<VertexBufferHandle<T>>,
 }
 
-impl<T: RALBackend, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
+impl<T: RAL, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
   pub fn new() -> Self {
     Self {
       draw_range: 0..0,
@@ -56,7 +61,7 @@ impl<T: RALBackend, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
   }
 }
 
-impl<T: RALBackend> ResourceManager<T> {
+impl<T: RAL> ResourceManager<T> {
   pub fn add_geometry<G: GeometryProvider<T>>(
     &mut self,
     g: GeometryResourceInstance<T, G>,

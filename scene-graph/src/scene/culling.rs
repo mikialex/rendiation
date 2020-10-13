@@ -1,5 +1,5 @@
 use super::scene::Scene;
-use crate::{RALBackend, SceneNodeHandle};
+use crate::{SceneNodeHandle, RAL};
 use rendiation_math_entity::{Frustum, IntersectAble};
 use rendiation_render_entity::Camera;
 
@@ -22,11 +22,7 @@ impl Culler {
     self
   }
 
-  pub fn test_visibility<T: RALBackend>(
-    &self,
-    node_id: SceneNodeHandle<T>,
-    scene: &Scene<T>,
-  ) -> bool {
+  pub fn test_visibility<T: RAL>(&self, node_id: SceneNodeHandle<T>, scene: &Scene<T>) -> bool {
     let render_data = scene.get_node_render_data(node_id);
     if self.enable_frustum_culling {
       if let Some(bounding) = &render_data.world_bounding {

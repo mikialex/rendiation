@@ -2,7 +2,7 @@ use crate::*;
 use rendiation_ral::*;
 use std::ops::Range;
 
-impl RALBackend for WGPURenderer {
+impl RAL for WGPURenderer {
   type RenderTarget = Box<dyn RenderTargetAble>;
   type RenderPass = WGPURenderPass<'static>;
   type Renderer = WGPURenderer;

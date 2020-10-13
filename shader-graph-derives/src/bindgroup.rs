@@ -142,16 +142,16 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     .collect();
 
   quote! {
-    pub struct #ral_instance_name<T: rendiation_ral::RALBackend> {
+    pub struct #ral_instance_name<T: rendiation_ral::RAL> {
       #(#ral_fields)*
     }
 
     impl rendiation_ral::BindGroupCreator<rendiation_webgpu::WGPURenderer> for #struct_name {
       fn create_bindgroup(
         instance: &Self::Instance,
-        renderer: &<rendiation_webgpu::WGPURenderer as rendiation_ral::RALBackend>::Renderer,
+        renderer: &<rendiation_webgpu::WGPURenderer as rendiation_ral::RAL>::Renderer,
         resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgpu::WGPURenderer>,
-      ) -> <rendiation_webgpu::WGPURenderer as rendiation_ral::RALBackend>::BindGroup {
+      ) -> <rendiation_webgpu::WGPURenderer as rendiation_ral::RAL>::BindGroup {
         renderer.register_bindgroup::<Self>();
 
          #(#wgpu_resource_get)*
@@ -169,14 +169,14 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     impl rendiation_ral::BindGroupCreator<rendiation_webgl::WebGLRenderer> for #struct_name {
       fn create_bindgroup(
         instance: &Self::Instance,
-        renderer: &<rendiation_webgl::WebGLRenderer as rendiation_ral::RALBackend>::Renderer,
+        renderer: &<rendiation_webgl::WebGLRenderer as rendiation_ral::RAL>::Renderer,
         resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgl::WebGLRenderer>,
-      ) -> <rendiation_webgl::WebGLRenderer as rendiation_ral::RALBackend>::BindGroup {
+      ) -> <rendiation_webgl::WebGLRenderer as rendiation_ral::RAL>::BindGroup {
         ()
       }
     }
 
-    impl<T: rendiation_ral::RALBackend> rendiation_ral::BindGroupProvider<T> for #struct_name {
+    impl<T: rendiation_ral::RAL> rendiation_ral::BindGroupProvider<T> for #struct_name {
       type Instance =  #ral_instance_name<T>;
 
       fn apply(
@@ -192,7 +192,7 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
     }
 
     impl #struct_name {
-      pub fn create_resource_instance<T: rendiation_ral::RALBackend>(
+      pub fn create_resource_instance<T: rendiation_ral::RAL>(
         #(#create_resource_instance_fn_param)*
       ) ->  #ral_instance_name<T> {
         #ral_instance_name {

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{RenderGraph, RenderGraphBackend, RenderGraphExecutor, RenderGraphNodeHandle};
 pub use rendiation_math::*;
-use rendiation_ral::RALBackend;
+use rendiation_ral::RAL;
 pub use rendiation_render_entity::*;
 
 pub mod pass;
@@ -52,8 +52,8 @@ impl<T: RenderGraphBackend> RenderGraphNode<T> {
     graph: &RenderGraph<T>,
     executor: &mut RenderGraphExecutor<T>,
     provider: &mut T::ContentProviderImpl,
-    final_target: &<T::Graphics as RALBackend>::RenderTarget,
-    renderer: &mut <T::Graphics as RALBackend>::Renderer,
+    final_target: &<T::Graphics as RAL>::RenderTarget,
+    renderer: &mut <T::Graphics as RAL>::Renderer,
   ) {
     use RenderGraphNode::*;
     match self {

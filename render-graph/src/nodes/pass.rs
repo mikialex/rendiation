@@ -3,10 +3,10 @@ use crate::{
   RenderGraphBackend, RenderGraphExecutor, RenderGraphGraphicsBackend, RenderGraphNode,
   RenderGraphNodeHandle, RenderTargetSize, TargetNodeBuilder, TargetNodeData,
 };
-use rendiation_ral::{RALBackend, ResourceManager, Viewport};
+use rendiation_ral::{ResourceManager, Viewport, RAL};
 use std::{collections::HashSet, marker::PhantomData};
 
-pub trait ImmediateRenderableContent<T: RALBackend> {
+pub trait ImmediateRenderableContent<T: RAL> {
   fn render(&self, pass: &mut T::RenderPass, res: &ResourceManager<T>);
   fn prepare(&mut self, resource: &mut ResourceManager<T>);
 }
@@ -38,8 +38,8 @@ impl<T: RenderGraphBackend> PassNodeData<T> {
     self_handle: RenderGraphNodeHandle<T>,
     graph: &RenderGraph<T>,
     executor: &mut RenderGraphExecutor<T>,
-    final_target: &<T::Graphics as RALBackend>::RenderTarget,
-    renderer: &mut <T::Graphics as RALBackend>::Renderer,
+    final_target: &<T::Graphics as RAL>::RenderTarget,
+    renderer: &mut <T::Graphics as RAL>::Renderer,
     content_provider: &mut T::ContentProviderImpl,
   ) {
     let handle = self_handle;

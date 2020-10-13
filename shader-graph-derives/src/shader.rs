@@ -206,11 +206,11 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     .collect();
 
   quote! {
-    pub struct #resource_instance_name<T: rendiation_ral::RALBackend> {
+    pub struct #resource_instance_name<T: rendiation_ral::RAL> {
       #(#resource_struct_fields)*
     }
 
-    impl<T: rendiation_ral::RALBackend> rendiation_ral::ShadingProvider<T> for #struct_name {
+    impl<T: rendiation_ral::RAL> rendiation_ral::ShadingProvider<T> for #struct_name {
       type Instance = #resource_instance_name<T>;
       type Geometry = #geometry_type;
       fn apply(
@@ -226,7 +226,7 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     }
 
     impl #struct_name {
-      pub fn create_resource_instance<T: rendiation_ral::RALBackend>(
+      pub fn create_resource_instance<T: rendiation_ral::RAL>(
         #(#create_resource_instance_fn_param)*
       ) -> #resource_instance_name<T> {
         #resource_instance_name {

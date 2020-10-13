@@ -2,7 +2,9 @@ use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
 use once_cell::sync::Lazy;
 use rendiation_math_entity::Positioned3D;
-use rendiation_ral::{GeometryProvider, GeometryResourceInstance, ResourceManager};
+use rendiation_ral::{
+  GeometryProvider, GeometryResourceInstance, GeometryResourceProvider, ResourceManager, RAL,
+};
 use rendiation_webgpu::*;
 use std::ops::Range;
 
@@ -34,6 +36,20 @@ impl WGPUVertexProvider for Vertex {
         },
       ],
     }
+  }
+}
+
+impl<'a, V, T, U, R> GeometryResourceProvider<R> for IndexedGeometry<V, T, U>
+where
+  V: Positioned3D + GeometryProvider<R>,
+  T: PrimitiveTopology<V>,
+  U: GeometryDataContainer<V> + 'static,
+  R: RAL,
+{
+  type Instance = GeometryResourceInstance<R, V>;
+
+  fn create(&self, resources: &ResourceManager<R>) -> Self::Instance {
+    todo!()
   }
 }
 

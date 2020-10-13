@@ -4,7 +4,7 @@ use rendiation_math::Mat4;
 use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
 use rendiation_render_entity::PerspectiveCamera;
-use rendiation_webgl::{WebGLProgram, WebGLRenderer};
+use rendiation_webgl::WebGLRenderer;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

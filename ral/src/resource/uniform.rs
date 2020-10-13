@@ -1,4 +1,4 @@
-use crate::{RALBackend, UniformBufferRef, UniformHandle};
+use crate::{UniformBufferRef, UniformHandle, RAL};
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
@@ -6,12 +6,12 @@ use std::{
   ops::Range,
 };
 
-pub struct UBOManager<T: RALBackend> {
+pub struct UBOManager<T: RAL> {
   data: HashMap<TypeId, Box<dyn UBOStorageTrait<T>>>,
   modified: HashSet<TypeId>,
 }
 
-impl<T: RALBackend> UBOManager<T> {
+impl<T: RAL> UBOManager<T> {
   pub fn new() -> Self {
     Self {
       data: HashMap::new(),
@@ -96,13 +96,13 @@ impl<T: RALBackend> UBOManager<T> {
   }
 }
 
-trait UBOStorageTrait<T: RALBackend>: Any {
+trait UBOStorageTrait<T: RAL>: Any {
   fn maintain_gpu(&mut self, _renderer: &mut T::Renderer);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T: RALBackend, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
+impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
     if self.dirty {
       let ptr = self.storage.as_ptr();
@@ -128,14 +128,14 @@ impl<T: RALBackend, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   }
 }
 
-pub struct UBOStorage<T: RALBackend, U> {
+pub struct UBOStorage<T: RAL, U> {
   storage: Vec<U>,
   dirty: bool,
   // dirty_mark: Vec<bool>,
   gpu: Option<T::UniformBuffer>,
 }
 
-impl<T: RALBackend, U> UBOStorage<T, U> {
+impl<T: RAL, U> UBOStorage<T, U> {
   fn new() -> Self {
     Self {
       storage: Vec::new(),

@@ -1,16 +1,16 @@
 use crate::{
-  AnyPlaceHolder, BindGroupManager, GeometryProvider, RALBackend, ResourceManager, ShadingHandle,
-  ShadingProvider,
+  AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShadingHandle,
+  ShadingProvider, RAL,
 };
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
-pub struct ShadingManager<R: RALBackend> {
+pub struct ShadingManager<R: RAL> {
   storage: Arena<Box<dyn ShadingStorageTrait<R>>>,
   modified: HashSet<Handle<Box<dyn ShadingStorageTrait<R>>>>,
 }
 
-impl<R: RALBackend> ShadingManager<R> {
+impl<R: RAL> ShadingManager<R> {
   pub fn new() -> Self {
     Self {
       storage: Arena::new(),
@@ -86,7 +86,7 @@ impl<R: RALBackend> ShadingManager<R> {
   }
 }
 
-pub trait ShadingStorageTrait<R: RALBackend>: Any {
+pub trait ShadingStorageTrait<R: RAL>: Any {
   // fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>);
   fn get_gpu(&self) -> Handle<R::Shading>;
   fn as_any(&self) -> &dyn Any;
@@ -95,7 +95,7 @@ pub trait ShadingStorageTrait<R: RALBackend>: Any {
   fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>);
 }
 
-impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPair<R, T> {
+impl<R: RAL, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPair<R, T> {
   // fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
   //   // self.gpu = Some(self.data.create_shading(renderer, resources));
   // }
@@ -117,19 +117,19 @@ impl<R: RALBackend, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPai
   }
 }
 
-pub struct ShadingPair<R: RALBackend, T: ShadingProvider<R>> {
+pub struct ShadingPair<R: RAL, T: ShadingProvider<R>> {
   pub data: T::Instance,
   pub gpu: Handle<R::Shading>,
 }
 
-impl<R: RALBackend, T: ShadingProvider<R>> ShadingPair<R, T> {
+impl<R: RAL, T: ShadingProvider<R>> ShadingPair<R, T> {
   fn update(&mut self) -> &mut T::Instance {
     &mut self.data
   }
 }
 
 pub struct AnyPlaceHolderShaderProviderInstance;
-impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
+impl<T: RAL> ShadingProvider<T> for AnyPlaceHolder {
   type Instance = AnyPlaceHolderShaderProviderInstance;
   type Geometry = AnyGeometryProvider;
   fn apply(
@@ -143,4 +143,4 @@ impl<T: RALBackend> ShadingProvider<T> for AnyPlaceHolder {
 }
 
 pub struct AnyGeometryProvider;
-impl<T: RALBackend> GeometryProvider<T> for AnyGeometryProvider {}
+impl<T: RAL> GeometryProvider<T> for AnyGeometryProvider {}

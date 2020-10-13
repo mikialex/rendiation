@@ -6,7 +6,7 @@ use rendiation_ral::*;
 use std::ops::Range;
 use web_sys::*;
 
-impl RALBackend for WebGLRenderer {
+impl RAL for WebGLRenderer {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;

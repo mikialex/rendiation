@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::rinecraft::RinecraftState;
-use rendiation_ral::{GeometryHandle, RALBackend, ResourceManager, ShadingHandle, ShadingProvider};
+use rendiation_ral::{GeometryHandle, RAL, ResourceManager, ShadingHandle, ShadingProvider};
 use rendiation_rendergraph::{
   ContentProvider, ImmediateRenderableContent, RenderGraph, RenderGraphBackend,
   RenderGraphExecutor, RenderTargetPool,
