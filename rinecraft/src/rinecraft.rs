@@ -20,8 +20,8 @@ pub struct RinecraftState {
   pub window_state: WindowState,
 
   pub world: World,
-  pub resource: ResourceManager<WGPURenderer>,
-  pub scene: Scene<WGPURenderer>,
+  pub resource: ResourceManager<WebGPU>,
+  pub scene: Scene<WebGPU>,
 
   pub screen_target: ScreenRenderTarget,
 

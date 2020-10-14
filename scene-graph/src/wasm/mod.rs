@@ -4,13 +4,13 @@ use rendiation_math::Mat4;
 use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
 use rendiation_render_entity::PerspectiveCamera;
-use rendiation_webgl::WebGLRenderer;
+use rendiation_webgl::{WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WASMScene {
-  resource: ResourceManager<WebGLRenderer>,
-  scene: Scene<WebGLRenderer>,
+  resource: ResourceManager<WebGL>,
+  scene: Scene<WebGL>,
   _camera: PerspectiveCamera,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,

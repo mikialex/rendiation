@@ -34,7 +34,7 @@ impl<'a> WGPUBindgroupItem<'a> for ShaderGraphSampler {
 
 use rendiation_ral::*;
 impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
-  type Type = UniformBufferRef<'a, WGPURenderer, T>;
+  type Type = UniformBufferRef<'a, WebGPU, T>;
   fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
     WGPUBinding::BindBuffer(item.gpu)
   }

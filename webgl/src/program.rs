@@ -1,6 +1,6 @@
 use std::{any::Any, cell::RefCell};
 
-use crate::WebGLRenderer;
+use crate::{WebGL, WebGLRenderer};
 use rendiation_ral::*;
 use web_sys::*;
 
@@ -8,7 +8,7 @@ pub trait WebGLUniformUploadShaderInstance {
   fn upload_all(
     &mut self,
     renderer: &mut WebGLRenderer,
-    resource_manager: &ResourceManager<WebGLRenderer>,
+    resource_manager: &ResourceManager<WebGL>,
     handle_object: &dyn Any,
   );
 }
@@ -44,7 +44,7 @@ impl WebGLProgram {
   pub fn upload(
     &self,
     renderer: &mut WebGLRenderer,
-    resource_manager: &ResourceManager<WebGLRenderer>,
+    resource_manager: &ResourceManager<WebGL>,
     handle_object: &dyn Any,
   ) {
     self

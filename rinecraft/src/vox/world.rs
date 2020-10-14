@@ -110,8 +110,8 @@ impl World {
   pub fn update(
     &mut self,
     renderer: &mut WGPURenderer,
-    scene: &mut Scene<WGPURenderer>,
-    resources: &mut ResourceManager<WGPURenderer>,
+    scene: &mut Scene<WebGPU>,
+    resources: &mut ResourceManager<WebGPU>,
     camera: &impl Camera,
   ) {
     let camera_position = camera.matrix().position();

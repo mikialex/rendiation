@@ -2,7 +2,7 @@ use rendiation_math::*;
 use rendiation_ral::ResourceManager;
 use web_sys::*;
 
-use crate::WebGLRenderer;
+use crate::{WebGL, WebGLRenderer};
 
 pub trait WebGLUniformUploadable: Sized {
   type UploadValue;
@@ -12,7 +12,7 @@ pub trait WebGLUniformUploadable: Sized {
     value: &Self::UploadValue,
     instance: &mut Self::UploadInstance,
     renderer: &mut WebGLRenderer,
-    resource: &ResourceManager<WebGLRenderer>,
+    resource: &ResourceManager<WebGL>,
   ) {
     instance.upload(value, renderer, resource)
   }
@@ -24,7 +24,7 @@ pub trait UploadInstance<T: WebGLUniformUploadable> {
     &mut self,
     value: &T::UploadValue,
     renderer: &mut WebGLRenderer,
-    resource: &ResourceManager<WebGLRenderer>,
+    resource: &ResourceManager<WebGL>,
   );
 }
 
@@ -64,7 +64,7 @@ where
     &mut self,
     value: &T::UploadValue,
     renderer: &mut WebGLRenderer,
-    _resource: &ResourceManager<WebGLRenderer>,
+    _resource: &ResourceManager<WebGL>,
   ) {
     self.upload(value, renderer);
   }

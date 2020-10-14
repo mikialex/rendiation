@@ -52,7 +52,7 @@ pub struct WASMGeometry {
 impl WASMGeometry {
   pub fn to_geometry_resource_instance(
     &self,
-  ) -> GeometryResourceInstance<WebGLRenderer, AnyGeometryProvider> {
+  ) -> GeometryResourceInstance<WebGL, AnyGeometryProvider> {
     todo!()
   }
 }

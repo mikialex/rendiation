@@ -12,14 +12,14 @@ use rendiation_webgpu::*;
 use std::{collections::BTreeMap, time::Instant};
 
 pub struct WorldSceneAttachment {
-  pub root_node_index: SceneNodeHandle<WGPURenderer>,
-  pub block_shading: ShadingHandle<WGPURenderer, BlockShader>,
+  pub root_node_index: SceneNodeHandle<WebGPU>,
+  pub block_shading: ShadingHandle<WebGPU, BlockShader>,
   pub blocks: BTreeMap<
     ChunkCoords,
     (
-      SceneNodeHandle<WGPURenderer>,
-      DrawcallHandle<WGPURenderer>,
-      GeometryHandle<WGPURenderer, Vertex>,
+      SceneNodeHandle<WebGPU>,
+      DrawcallHandle<WebGPU>,
+      GeometryHandle<WebGPU, Vertex>,
     ),
   >,
 }
@@ -32,8 +32,8 @@ impl WorldSceneAttachment {
   pub fn sync_chunks_in_scene(
     &mut self,
     chunks: &mut WorldChunkData,
-    scene: &mut Scene<WGPURenderer>,
-    resources: &mut ResourceManager<WGPURenderer>,
+    scene: &mut Scene<WebGPU>,
+    resources: &mut ResourceManager<WebGPU>,
     renderer: &mut WGPURenderer,
   ) {
     for (chunk, g) in chunks.chunks_to_sync_scene.lock().unwrap().drain() {
@@ -70,8 +70,8 @@ impl WorldSceneAttachment {
 impl World {
   pub fn attach_scene(
     &mut self,
-    scene: &mut Scene<WGPURenderer>,
-    resources: &mut ResourceManager<WGPURenderer>,
+    scene: &mut Scene<WebGPU>,
+    resources: &mut ResourceManager<WebGPU>,
     renderer: &mut WGPURenderer,
     camera_gpu: &CameraGPU,
     target: &TargetStates,

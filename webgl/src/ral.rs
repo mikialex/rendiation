@@ -6,7 +6,9 @@ use rendiation_ral::*;
 use std::ops::Range;
 use web_sys::*;
 
-impl RAL for WebGLRenderer {
+pub struct WebGL;
+
+impl RAL for WebGL {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
@@ -74,6 +76,16 @@ impl RAL for WebGLRenderer {
   }
   fn dispose_vertex_buffer(renderer: &mut Self::Renderer, buffer: Self::VertexBuffer) {
     renderer.dispose_vertex_buffer(buffer)
+  }
+
+  fn set_viewport(pass: &mut Self::RenderPass, viewport: &Viewport) {
+    // todo check if has depth info and log
+    pass.gl.viewport(
+      viewport.x as i32,
+      viewport.y as i32,
+      viewport.w as i32,
+      viewport.h as i32,
+    );
   }
 
   fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {

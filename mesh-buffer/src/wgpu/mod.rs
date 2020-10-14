@@ -55,7 +55,7 @@ where
 
 impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D + GeometryProvider<WGPURenderer>,
+  V: Positioned3D + GeometryProvider<WebGPU>,
   T: PrimitiveTopology<V> + WGPUPrimitiveTopology,
   U: GeometryDataContainer<V>,
 {
@@ -74,8 +74,8 @@ where
   fn create_resource_instance(
     &self,
     renderer: &mut WGPURenderer,
-    resource: &mut ResourceManager<WGPURenderer>,
-  ) -> GeometryResourceInstance<WGPURenderer, Self::Geometry> {
+    resource: &mut ResourceManager<WebGPU>,
+  ) -> GeometryResourceInstance<WebGPU, Self::Geometry> {
     let mut instance = GeometryResourceInstance::new();
     let index_buffer = WGPUBuffer::new(renderer, as_bytes(&self.index), wgpu::BufferUsage::INDEX);
     let vertex_buffer = WGPUBuffer::new(

@@ -2,7 +2,9 @@ use crate::*;
 use rendiation_ral::*;
 use std::ops::Range;
 
-impl RAL for WGPURenderer {
+pub struct WebGPU;
+
+impl RAL for WebGPU {
   type RenderTarget = Box<dyn RenderTargetAble>;
   type RenderPass = WGPURenderPass<'static>;
   type Renderer = WGPURenderer;
@@ -72,6 +74,10 @@ impl RAL for WGPURenderer {
 
   fn dispose_vertex_buffer(_renderer: &mut Self::Renderer, _buffer: Self::VertexBuffer) {
     // just drop
+  }
+
+  fn set_viewport(pass: &mut Self::RenderPass, viewport: &Viewport) {
+    pass.use_viewport(&viewport);
   }
 
   fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {

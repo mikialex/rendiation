@@ -69,16 +69,16 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
       }
       fn upload(
         &mut self,
-        value: &rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGLRenderer, #struct_name>,
+        value: &rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGL, #struct_name>,
         renderer: &mut rendiation_webgl::WebGLRenderer,
-        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
+        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGL>,
       ){
         #(#instance_upload)*
       }
     }
 
     impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
-      type UploadValue = rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGLRenderer, #struct_name>;
+      type UploadValue = rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGL, #struct_name>;
       type UploadInstance = #instance_name;
     }
   }

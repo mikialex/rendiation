@@ -52,6 +52,8 @@ pub trait RAL: 'static + Sized {
   ) -> Self::VertexBuffer;
   fn dispose_vertex_buffer(renderer: &mut Self::Renderer, buffer: Self::VertexBuffer);
 
+  fn set_viewport(pass: &mut Self::RenderPass, viewport: &Viewport);
+
   fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>);
   fn draw_none_indexed(pass: &mut Self::RenderPass, range: Range<u32>);
 

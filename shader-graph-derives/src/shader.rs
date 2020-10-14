@@ -75,16 +75,16 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       }
       fn upload(
         &mut self,
-        value: &#ral_instance_name<rendiation_webgl::WebGLRenderer>,
+        value: &#ral_instance_name<rendiation_webgl::WebGL>,
         renderer: &mut rendiation_webgl::WebGLRenderer,
-        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
+        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGL>,
       ){
         #(#instance_upload)*
       }
     }
 
     impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
-      type UploadValue = <#struct_name as rendiation_ral::ShadingProvider<rendiation_webgl::WebGLRenderer>>::Instance;
+      type UploadValue = <#struct_name as rendiation_ral::ShadingProvider<rendiation_webgl::WebGL>>::Instance;
       type UploadInstance = #instance_name;
     }
 
@@ -93,10 +93,10 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       fn upload_all(
         &mut self,
         renderer: &mut rendiation_webgl::WebGLRenderer,
-        resource_manager: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
+        resource_manager: &rendiation_ral::ResourceManager<rendiation_webgl::WebGL>,
         handle_object: &dyn std::any::Any,
       ){
-        self.upload(handle_object.downcast_ref::<&#ral_instance_name<rendiation_webgl::WebGLRenderer>>().unwrap(), renderer, resource_manager)
+        self.upload(handle_object.downcast_ref::<&#ral_instance_name<rendiation_webgl::WebGL>>().unwrap(), renderer, resource_manager)
       }
     }
 
@@ -136,7 +136,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
       #(#shadergraph_instance_fields)*
     }
 
-    impl rendiation_shadergraph::ShaderGraphFactory<WGPURenderer> for #struct_name {
+    impl rendiation_shadergraph::ShaderGraphFactory<rendiation_webgpu::WebGPU> for #struct_name {
       type ShaderGraphShaderInstance = #shadergraph_instance_name;
 
       fn create_builder(
