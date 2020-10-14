@@ -88,17 +88,21 @@ impl RAL for WebGL {
     );
   }
 
-  fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+  fn draw_indexed(pass: &mut Self::RenderPass, topology: PrimitiveTopology, range: Range<u32>) {
     pass.gl.draw_elements_with_i32(
-      WebGl2RenderingContext::TRIANGLES,
+      ral_topology_to_webgl_topology(topology),
       (range.end - range.start) as i32,
       WebGl2RenderingContext::UNSIGNED_INT,
       range.end as i32,
     );
   }
-  fn draw_none_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+  fn draw_none_indexed(
+    pass: &mut Self::RenderPass,
+    topology: PrimitiveTopology,
+    range: Range<u32>,
+  ) {
     pass.gl.draw_arrays(
-      WebGl2RenderingContext::TRIANGLES,
+      ral_topology_to_webgl_topology(topology),
       range.start as i32,
       (range.end - range.start) as i32,
     );
@@ -128,5 +132,13 @@ impl RAL for WebGL {
     pass.disable_old_unused_bindings();
 
     geometry.draw(pass);
+  }
+}
+
+fn ral_topology_to_webgl_topology(t: PrimitiveTopology) -> u32 {
+  use PrimitiveTopology::*;
+  match t {
+    TriangleList => WebGl2RenderingContext::TRIANGLES,
+    _ => panic!("not support"),
   }
 }

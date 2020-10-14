@@ -80,10 +80,18 @@ impl RAL for WebGPU {
     pass.use_viewport(&viewport);
   }
 
-  fn draw_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+  fn draw_indexed(
+    pass: &mut Self::RenderPass,
+    _: rendiation_ral::PrimitiveTopology,
+    range: Range<u32>,
+  ) {
     pass.draw_indexed(range)
   }
-  fn draw_none_indexed(pass: &mut Self::RenderPass, range: Range<u32>) {
+  fn draw_none_indexed(
+    pass: &mut Self::RenderPass,
+    _: rendiation_ral::PrimitiveTopology,
+    range: Range<u32>,
+  ) {
     pass.draw(range)
   }
 
@@ -94,6 +102,9 @@ impl RAL for WebGPU {
   ) {
     let resources: &'static ResourceManager<Self> = unsafe { std::mem::transmute(resources) };
 
+    let geometry = resources.get_geometry_boxed(drawcall.geometry);
+    pass.current_topology = ral_topology_to_webgpu_topology(geometry.get_topology()); // todo
+
     // set shading
     resources
       .shadings
@@ -101,7 +112,6 @@ impl RAL for WebGPU {
       .apply(pass, resources);
 
     // set geometry
-    let geometry = resources.get_geometry_boxed(drawcall.geometry);
     geometry.apply(pass, resources);
 
     // draw
@@ -114,5 +124,15 @@ pub fn shader_stage_convert(stage: rendiation_ral::ShaderStage) -> wgpu::ShaderS
   match stage {
     Vertex => wgpu::ShaderStage::VERTEX,
     Fragment => wgpu::ShaderStage::FRAGMENT,
+  }
+}
+
+fn ral_topology_to_webgpu_topology(
+  t: rendiation_ral::PrimitiveTopology,
+) -> wgpu::PrimitiveTopology {
+  use rendiation_ral::PrimitiveTopology::*;
+  match t {
+    TriangleList => wgpu::PrimitiveTopology::TriangleList,
+    _ => panic!("not support"),
   }
 }

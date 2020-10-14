@@ -9,6 +9,9 @@ pub use indexed_geometry::*;
 pub use indexed_iter::*;
 pub use none_indexed_geometry::*;
 pub use none_indexed_iter::*;
+use rendiation_ral::{GeometryProvider, GeometryResourceInstance, ResourceManager, RAL};
+
+use crate::wgpu::as_bytes;
 
 use super::PrimitiveTopology;
 use rendiation_math_entity::Positioned3D;
@@ -19,7 +22,33 @@ pub trait GeometryDataContainer<T>:
 {
 }
 
+pub trait RALGeometryDataContainer<T, R>: GeometryDataContainer<T>
+where
+  T: GeometryProvider<R>,
+  R: RAL,
+{
+  fn create_gpu(
+    &self,
+    resources: &mut ResourceManager<R>,
+    renderer: &mut R::Renderer,
+    instance: &mut GeometryResourceInstance<R, T>,
+  );
+}
+
 impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
+
+impl<R: RAL, T: GeometryProvider<R> + Clone> RALGeometryDataContainer<T, R> for Vec<T> {
+  fn create_gpu(
+    &self,
+    resources: &mut ResourceManager<R>,
+    renderer: &mut R::Renderer,
+    instance: &mut GeometryResourceInstance<R, T>,
+  ) {
+    let layout = todo!();
+    let vertex_buffer = R::create_vertex_buffer(renderer, as_bytes(self.as_ref()), layout);
+    instance.vertex_buffers = vec![resources.add_vertex_buffer(vertex_buffer).index()];
+  }
+}
 
 pub trait AbstractGeometry: Sized {
   type Vertex: Positioned3D;

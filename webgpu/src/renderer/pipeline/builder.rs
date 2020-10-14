@@ -83,6 +83,7 @@ impl PipelineBuilder {
       .iter()
       .map(|l| l.as_ref())
       .collect();
+
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       label: None,
       push_constant_ranges: &[],

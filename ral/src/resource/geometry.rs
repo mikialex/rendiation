@@ -1,19 +1,24 @@
 use crate::{
-  GeometryHandle, GeometryProvider, IndexBufferHandle, ResourceManager, ResourceWrap,
-  VertexBufferHandle, RAL,
+  GeometryHandle, GeometryProvider, IndexBufferHandle, PrimitiveTopology, ResourceManager,
+  ResourceWrap, VertexBufferHandle, RAL,
 };
 use std::{any::Any, marker::PhantomData, ops::Range};
 
 pub trait GeometryResource<T: RAL>: Any {
   fn apply(&self, render_pass: &mut T::RenderPass, resources: &ResourceManager<T>);
   fn draw(&self, render_pass: &mut T::RenderPass);
+  fn get_topology(&self) -> PrimitiveTopology;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 pub trait GeometryResourceProvider<T: RAL>: Any {
   type Instance: GeometryResource<T>;
-  fn create(&self, resources: &ResourceManager<T>) -> Self::Instance;
+  fn create(
+    &self,
+    resources: &mut ResourceManager<T>,
+    renderer: &mut T::Renderer,
+  ) -> Self::Instance;
 }
 
 impl<T: RAL, G: GeometryProvider<T>> GeometryResource<T> for GeometryResourceInstance<T, G> {
@@ -30,10 +35,14 @@ impl<T: RAL, G: GeometryProvider<T>> GeometryResource<T> for GeometryResourceIns
 
   fn draw(&self, render_pass: &mut T::RenderPass) {
     if self.index_buffer.is_some() {
-      T::draw_indexed(render_pass, self.draw_range.clone())
+      T::draw_indexed(render_pass, self.topology, self.draw_range.clone())
     } else {
-      T::draw_none_indexed(render_pass, self.draw_range.clone())
+      T::draw_none_indexed(render_pass, self.topology, self.draw_range.clone())
     }
+  }
+
+  fn get_topology(&self) -> PrimitiveTopology {
+    self.topology
   }
   fn as_any(&self) -> &dyn Any {
     self
@@ -48,6 +57,7 @@ pub struct GeometryResourceInstance<T: RAL, G: GeometryProvider<T>> {
   marker: PhantomData<G>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
   pub vertex_buffers: Vec<VertexBufferHandle<T>>,
+  pub topology: PrimitiveTopology,
 }
 
 impl<T: RAL, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
@@ -57,6 +67,7 @@ impl<T: RAL, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
       marker: PhantomData,
       index_buffer: None,
       vertex_buffers: Vec::new(),
+      topology: PrimitiveTopology::TriangleList,
     }
   }
 }
