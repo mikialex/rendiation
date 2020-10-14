@@ -1,14 +1,8 @@
-use super::Camera;
-use crate::raycaster::Raycaster;
-use crate::{transformed_object::TransformedObject, ResizableCamera};
+use crate::Projection;
+use crate::ResizableProjection;
 use rendiation_math::*;
-use rendiation_math_entity::*;
 
-#[derive(Default)]
 pub struct PerspectiveCamera {
-  pub projection_matrix: Mat4<f32>,
-  pub world_matrix: Mat4<f32>,
-
   pub near: f32,
   pub far: f32,
   pub fov: f32,
@@ -19,8 +13,6 @@ pub struct PerspectiveCamera {
 impl PerspectiveCamera {
   pub fn new() -> Self {
     Self {
-      projection_matrix: Mat4::one(),
-      world_matrix: Mat4::one(),
       near: 1.,
       far: 100_000.,
       fov: 90.,
@@ -30,45 +22,14 @@ impl PerspectiveCamera {
   }
 }
 
-impl Raycaster for PerspectiveCamera {
-  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3 {
-    let origin = self.matrix().position();
-    let target = Vec3::new(view_position.x * 2. - 1., view_position.y * 2. - 1., 0.5)
-      * self.get_vp_matrix_inverse();
-    let direction = (target - origin).normalize();
-    Ray3::new(origin, direction)
+impl Projection for PerspectiveCamera {
+  fn update(&self, projection: &mut Mat4<f32>) {
+    *projection = Mat4::perspective_fov_rh(self.fov, self.aspect, self.near, self.far);
   }
 }
 
-impl TransformedObject for PerspectiveCamera {
-  fn matrix(&self) -> &Mat4<f32> {
-    &self.world_matrix
-  }
-
-  fn matrix_mut(&mut self) -> &mut Mat4<f32> {
-    &mut self.world_matrix
-  }
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
-  }
-  fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-    self
-  }
-}
-
-impl Camera for PerspectiveCamera {
-  fn update_projection(&mut self) {
-    self.projection_matrix = Mat4::perspective_fov_rh(self.fov, self.aspect, self.near, self.far);
-  }
-
-  fn get_projection_matrix(&self) -> &Mat4<f32> {
-    &self.projection_matrix
-  }
-}
-
-impl ResizableCamera for PerspectiveCamera {
+impl ResizableProjection for PerspectiveCamera {
   fn resize(&mut self, size: (f32, f32)) {
     self.aspect = size.0 / size.1;
-    self.update_projection();
   }
 }

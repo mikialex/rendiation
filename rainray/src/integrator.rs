@@ -7,14 +7,14 @@ use rendiation_math_entity::Ray3;
 use rendiation_render_entity::*;
 use rendiation_render_entity::{
   color::{Color, LinearRGBColorSpace},
-  Camera,
+  CameraData,
 };
 
 pub trait Integrator: Sync {
   fn prepare(&mut self);
   fn integrate(
     &self,
-    camera: &PerspectiveCamera,
+    camera: &CameraData,
     scene: &Scene,
     view_position: Vec2<f32>,
   ) -> Color<LinearRGBColorSpace<f32>>;
@@ -41,7 +41,7 @@ impl PathTraceIntegrator {
     }
   }
 
-  pub fn path_trace(&self, ray: &Ray3, scene: &Scene, _camera: &impl Camera) -> Vec3 {
+  pub fn path_trace(&self, ray: &Ray3, scene: &Scene, _camera: &CameraData) -> Vec3 {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = *ray;
@@ -95,7 +95,7 @@ impl Integrator for PathTraceIntegrator {
 
   fn integrate(
     &self,
-    camera: &PerspectiveCamera,
+    camera: &CameraData,
     scene: &Scene,
     view_position: Vec2<f32>,
   ) -> Color<LinearRGBColorSpace<f32>> {
