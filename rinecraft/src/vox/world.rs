@@ -12,7 +12,7 @@ use crate::{shading::BlockShadingParamGroup, util::CameraGPU, vox::world_machine
 use render_target::TargetStates;
 use rendiation_math::*;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
-use rendiation_render_entity::{CameraData, PerspectiveCamera, TransformedObject};
+use rendiation_render_entity::{Camera, PerspectiveProjection, TransformedObject};
 use rendiation_scenegraph::*;
 use rendiation_webgpu::*;
 use std::collections::HashMap;
@@ -112,7 +112,7 @@ impl World {
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPU>,
     resources: &mut ResourceManager<WebGPU>,
-    camera: &CameraData,
+    camera: &Camera,
   ) {
     let camera_position = camera.matrix().position();
 

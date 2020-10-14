@@ -40,7 +40,7 @@ impl Renderer {
     }
   }
 
-  pub fn render(&mut self, camera: &CameraData, scene: &Scene, frame: &mut Frame) {
+  pub fn render(&mut self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
     self.integrator.prepare();
     println!("rendering...");
     let now = Instant::now();

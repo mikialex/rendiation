@@ -25,14 +25,14 @@ use std::sync::Arc;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::new());
-  let mut perspective = PerspectiveCamera::new();
-  let mut camera = CameraData::new();
+  let mut perspective = PerspectiveProjection::default();
+  let mut camera = Camera::new();
   *camera.matrix_mut() = Mat4::lookat(
     Vec3::new(0., 0., 10.),
     Vec3::new(0., 0., 0.),
     Vec3::new(0., 1., 0.),
   ) * Mat4::translate(0., 5., 0.);
-  camera.update(&perspective);
+  camera.update_by(&perspective);
 
   let mut frame = Frame::new(500, 500);
   let scene = Scene {

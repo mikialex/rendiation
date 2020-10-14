@@ -3,7 +3,7 @@ use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
 use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
-use rendiation_render_entity::PerspectiveCamera;
+use rendiation_render_entity::PerspectiveProjection;
 use rendiation_webgl::{WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 pub struct WASMScene {
   resource: ResourceManager<WebGL>,
   scene: Scene<WebGL>,
-  _camera: PerspectiveCamera,
+  _camera: PerspectiveProjection,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -23,7 +23,7 @@ impl WASMScene {
     Self {
       resource: ResourceManager::new(),
       scene: Scene::new(),
-      _camera: PerspectiveCamera::new(),
+      _camera: PerspectiveProjection::default(),
       handle_pool: Vec::new(),
       handle_pool_empty: Vec::new(),
     }

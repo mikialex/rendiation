@@ -2,7 +2,7 @@ use crate::Projection;
 use crate::ResizableProjection;
 use rendiation_math::*;
 
-pub struct PerspectiveCamera {
+pub struct PerspectiveProjection {
   pub near: f32,
   pub far: f32,
   pub fov: f32,
@@ -10,8 +10,8 @@ pub struct PerspectiveCamera {
   pub zoom: f32,
 }
 
-impl PerspectiveCamera {
-  pub fn new() -> Self {
+impl Default for PerspectiveProjection {
+  fn default() -> Self {
     Self {
       near: 1.,
       far: 100_000.,
@@ -22,13 +22,13 @@ impl PerspectiveCamera {
   }
 }
 
-impl Projection for PerspectiveCamera {
-  fn update(&self, projection: &mut Mat4<f32>) {
+impl Projection for PerspectiveProjection {
+  fn update_projection(&self, projection: &mut Mat4<f32>) {
     *projection = Mat4::perspective_fov_rh(self.fov, self.aspect, self.near, self.far);
   }
 }
 
-impl ResizableProjection for PerspectiveCamera {
+impl ResizableProjection for PerspectiveProjection {
   fn resize(&mut self, size: (f32, f32)) {
     self.aspect = size.0 / size.1;
   }

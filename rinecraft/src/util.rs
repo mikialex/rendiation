@@ -15,7 +15,7 @@ pub struct CameraGPU {
 impl CameraGPU {
   pub fn new(
     renderer: &WGPURenderer,
-    camera: &CameraData,
+    camera: &Camera,
     resources: &mut ResourceManager<WebGPU>,
   ) -> Self {
     let mvp = CameraTransform {
@@ -31,7 +31,7 @@ impl CameraGPU {
   pub fn update_gpu_mvp_matrix(
     &mut self,
     renderer: &mut WGPURenderer,
-    camera: &CameraData,
+    camera: &Camera,
     resources: &mut ResourceManager<WebGPU>,
   ) {
     let mvp = CameraTransform {
@@ -48,7 +48,7 @@ impl CameraGPU {
 
   pub fn update_all(
     &mut self,
-    camera: &CameraData,
+    camera: &Camera,
     renderer: &mut WGPURenderer,
     resources: &mut ResourceManager<WebGPU>,
   ) {

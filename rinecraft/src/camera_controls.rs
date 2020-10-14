@@ -30,7 +30,7 @@ impl<T> CameraController<T> {
     }
   }
 
-  pub fn update(&mut self, camera: &mut CameraData) -> bool {
+  pub fn update(&mut self, camera: &mut Camera) -> bool {
     match self.active_type {
       CameraControllerType::FPS => self.fps.update(camera),
       CameraControllerType::ORBIT => self.orbit.update(camera),

@@ -18,7 +18,7 @@ pub struct GUIRenderer {
   quad: GPUGeometry,
   view: Vec4<f32>,
   projection: OrthographicProjection,
-  camera: CameraData,
+  camera: Camera,
   camera_gpu_buffer: WGPUBuffer,
   canvas: RenderTarget,
   // quad_pipeline: QuadShading,
@@ -40,7 +40,7 @@ impl GUIRenderer {
     // let canvas = //
 
     let projection = OrthographicProjection::default();
-    let camera = CameraData::new();
+    let camera = Camera::new();
 
     let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
     let mx_ref: &[u8] = mx_total.as_ref();
@@ -76,7 +76,7 @@ impl GUIRenderer {
     orth.right = -self.view.z;
     orth.near = -1.;
     orth.far = 1.;
-    self.camera.update(&self.projection);
+    self.camera.update_by(&self.projection);
   }
 
   pub fn resize(&mut self, size: (f32, f32), renderer: &WGPURenderer) {

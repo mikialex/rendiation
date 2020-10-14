@@ -24,7 +24,7 @@ impl Default for OrthographicProjection {
 }
 
 impl Projection for OrthographicProjection {
-  fn update(&self, projection: &mut Mat4<f32>) {
+  fn update_projection(&self, projection: &mut Mat4<f32>) {
     *projection = Mat4::ortho(
       self.left,
       self.right,
@@ -72,8 +72,8 @@ impl Default for ViewFrustumOrthographicProjection {
 }
 
 impl Projection for ViewFrustumOrthographicProjection {
-  fn update(&self, projection: &mut Mat4<f32>) {
-    self.orth.update(projection);
+  fn update_projection(&self, projection: &mut Mat4<f32>) {
+    self.orth.update_projection(projection);
   }
 }
 
