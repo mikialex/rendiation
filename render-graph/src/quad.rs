@@ -1,9 +1,14 @@
 use crate::ImmediateRenderableContent;
 use rendiation_mesh_buffer::{
+  geometry::IndexedGeometry,
+  geometry::TriangleList,
   tessellation::{plane::Quad, IndexedBufferTessellator},
   vertex::Vertex,
 };
-use rendiation_ral::{Drawcall, GeometryHandle, ResourceManager, ShadingProvider, RAL};
+use rendiation_ral::{
+  Drawcall, GeometryHandle, GeometryResourceProvider, ResourceManager, ShadingHandle,
+  ShadingProvider, RAL,
+};
 
 pub struct FullScreenQuad<T: RAL, SP: ShadingProvider<T, Geometry = Vertex>> {
   obj: Drawcall<T, Vertex, SP>,
@@ -14,23 +19,24 @@ pub struct FullScreenQuadFactory<T: RAL> {
 }
 
 impl<T: RAL> FullScreenQuadFactory<T> {
-  pub fn new(res: &mut ResourceManager<T>, renderer: T::Renderer) -> Self {
+  pub fn new(res: &mut ResourceManager<T>, renderer: &mut T::Renderer) -> Self {
     let geometry = Quad.create_mesh(&());
-    // geometry.
-    todo!()
+    let geometry = IndexedGeometry::<_, TriangleList>::new(geometry.0, geometry.1);
+    let geometry = geometry.create(res, renderer);
+    let geometry = res.add_geometry(geometry);
+    Self { geometry }
   }
 
   pub fn create_quad<SP: ShadingProvider<T, Geometry = Vertex>>(
-    res: &mut ResourceManager<T>,
-    // s: SP
+    &self,
+    shading: ShadingHandle<T, SP>,
   ) -> FullScreenQuad<T, SP> {
-    todo!()
-  }
-}
-
-impl<T: RAL, SP: ShadingProvider<T, Geometry = Vertex>> FullScreenQuad<T, SP> {
-  pub fn new() -> Self {
-    todo!()
+    FullScreenQuad {
+      obj: Drawcall {
+        geometry: self.geometry,
+        shading,
+      },
+    }
   }
 }
 
@@ -38,10 +44,10 @@ impl<T: RAL, SP: ShadingProvider<T, Geometry = Vertex>> ImmediateRenderableConte
   for FullScreenQuad<T, SP>
 {
   fn render(&self, pass: &mut T::RenderPass, res: &ResourceManager<T>) {
-    todo!()
+    T::render_drawcall(&self.obj, pass, res)
   }
 
-  fn prepare(&mut self, resource: &mut ResourceManager<T>) {
-    todo!()
+  fn prepare(&mut self, renderer: &mut T::Renderer, resource: &mut ResourceManager<T>) {
+    resource.maintain_gpu(renderer)
   }
 }

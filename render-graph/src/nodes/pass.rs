@@ -8,7 +8,7 @@ use std::{collections::HashSet, marker::PhantomData};
 
 pub trait ImmediateRenderableContent<T: RAL> {
   fn render(&self, pass: &mut T::RenderPass, res: &ResourceManager<T>);
-  fn prepare(&mut self, resource: &mut ResourceManager<T>);
+  fn prepare(&mut self, renderer: &mut T::Renderer, resource: &mut ResourceManager<T>);
 }
 
 pub struct PassNodeData<T: RenderGraphBackend> {

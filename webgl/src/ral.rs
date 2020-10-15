@@ -108,8 +108,8 @@ impl RAL for WebGL {
     );
   }
 
-  fn render_drawcall(
-    drawcall: &Drawcall<Self>,
+  fn render_drawcall<G: GeometryProvider<Self>, SP: ShadingProvider<Self, Geometry = G>>(
+    drawcall: &Drawcall<Self, G, SP>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {

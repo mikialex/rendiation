@@ -10,19 +10,25 @@ pub struct WebGLVertexBuffer {
 }
 
 pub fn format_to_webgl_data_type(d: RALVertexAttributeFormat) -> u32 {
-  todo!();
   use RALVertexAttributeFormat::*;
   match d {
-    F32 => WebGl2RenderingContext::FLOAT,
-    U16 => WebGl2RenderingContext::UNSIGNED_SHORT,
-    I16 => WebGl2RenderingContext::SHORT,
-    I8 => WebGl2RenderingContext::BYTE,
-    U8 => WebGl2RenderingContext::UNSIGNED_BYTE,
+    Float | Float2 | Float3 | Float4 => WebGl2RenderingContext::FLOAT,
+    // Float2 => WebGl2RenderingContext::UNSIGNED_SHORT,
+    // Float3 => WebGl2RenderingContext::SHORT,
+    // Float4 => WebGl2RenderingContext::BYTE,
+    _ => panic!("unsupported"),
   }
 }
 
 pub fn format_to_webgl_data_size(d: RALVertexAttributeFormat) -> i32 {
-  todo!();
+  use RALVertexAttributeFormat::*;
+  match d {
+    Float => 1,
+    Float2 => 2,
+    Float3 => 3,
+    Float4 => 4,
+    _ => panic!("unsupported"),
+  }
 }
 
 pub struct VertexEnableStates {

@@ -15,20 +15,25 @@ pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
 
-pub struct Drawcall<
+pub struct Drawcall<T, G = AnyGeometryProvider, SP = AnyPlaceHolder>
+where
   T: RAL,
-  G: GeometryProvider<T> = AnyGeometryProvider,
-  SP: ShadingProvider<T, Geometry = G> = AnyPlaceHolder,
-> {
+  G: GeometryProvider<T>,
+  SP: ShadingProvider<T, Geometry = G>,
+{
   pub shading: ShadingHandle<T, SP>,
   pub geometry: GeometryHandle<T, G>,
 }
 
 impl<T: RAL> Drawcall<T> {
-  pub fn new<SP: ShadingProvider<T>, G: GeometryProvider<T>>(
+  pub fn new_to_untyped<SP, G>(
     geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,
-  ) -> Self {
+  ) -> Self
+  where
+    SP: ShadingProvider<T>,
+    G: GeometryProvider<T>,
+  {
     Self {
       shading: unsafe { shading.cast_type() },
       geometry: unsafe { geometry.cast_type() },

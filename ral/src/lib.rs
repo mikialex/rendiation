@@ -57,8 +57,8 @@ pub trait RAL: 'static + Sized {
   fn draw_indexed(pass: &mut Self::RenderPass, topology: PrimitiveTopology, range: Range<u32>);
   fn draw_none_indexed(pass: &mut Self::RenderPass, topology: PrimitiveTopology, range: Range<u32>);
 
-  fn render_drawcall(
-    object: &Drawcall<Self>,
+  fn render_drawcall<G: GeometryProvider<Self>, SP: ShadingProvider<Self, Geometry = G>>(
+    drawcall: &Drawcall<Self, G, SP>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   );

@@ -10,7 +10,7 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
     geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,
   ) -> DrawcallHandle<T> {
-    let obj = Drawcall::new(geometry, shading);
+    let obj = Drawcall::new_to_untyped(geometry, shading);
     self.drawcalls.insert(obj)
   }
 
