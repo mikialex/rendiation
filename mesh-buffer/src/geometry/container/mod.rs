@@ -9,7 +9,10 @@ pub use indexed_geometry::*;
 pub use indexed_iter::*;
 pub use none_indexed_geometry::*;
 pub use none_indexed_iter::*;
-use rendiation_ral::{GeometryProvider, GeometryResourceInstance, ResourceManager, RAL};
+use rendiation_ral::{
+  GeometryProvider, GeometryResourceInstance, RALVertexBufferDescriptorProvider, ResourceManager,
+  RAL,
+};
 
 use crate::wgpu::as_bytes;
 
@@ -37,14 +40,18 @@ where
 
 impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
 
-impl<R: RAL, T: GeometryProvider<R> + Clone> RALGeometryDataContainer<T, R> for Vec<T> {
+impl<R, T> RALGeometryDataContainer<T, R> for Vec<T>
+where
+  R: RAL,
+  T: GeometryProvider<R> + Clone + RALVertexBufferDescriptorProvider,
+{
   fn create_gpu(
     &self,
     resources: &mut ResourceManager<R>,
     renderer: &mut R::Renderer,
     instance: &mut GeometryResourceInstance<R, T>,
   ) {
-    let layout = todo!();
+    let layout = T::create_descriptor();
     let vertex_buffer = R::create_vertex_buffer(renderer, as_bytes(self.as_ref()), layout);
     instance.vertex_buffers = vec![resources.add_vertex_buffer(vertex_buffer).index()];
   }

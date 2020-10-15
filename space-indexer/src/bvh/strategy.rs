@@ -159,7 +159,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
     let step = range_len / self.pre_partition_check_count as f32;
 
     let primitive_range = &parent_node.primitive_range;
-    let mut primitive_checked_count = primitive_range.start;
+    let mut primitive_checked_offset = primitive_range.start;
 
     self
       .pre_partition
@@ -168,21 +168,21 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
       .for_each(|(i, p)| {
         let extent_largest = range.start + step * (i + 1) as f32;
         let mut exceed = false;
-        let start_primitive_range = primitive_checked_count;
+        let start_primitive_range = primitive_checked_offset;
 
-        while exceed || primitive_checked_count == primitive_range.end {
-          let build_primitive = index_source[primitive_checked_count];
+        while exceed || primitive_checked_offset == primitive_range.end {
+          let build_primitive = index_source[primitive_checked_offset];
           exceed = B::get_unit_from_center_by_axis(&build_source[build_primitive].center, split)
             < extent_largest;
-          primitive_checked_count += 1;
+          primitive_checked_offset += 1;
         }
 
         p.bounding = bounding_from_build_source(
           &index_source,
           &build_source,
-          start_primitive_range..primitive_checked_count,
+          start_primitive_range..primitive_checked_offset,
         );
-        p.primitive_range = start_primitive_range..primitive_checked_count;
+        p.primitive_range = start_primitive_range..primitive_checked_offset;
       });
 
     // step 2, find best partition;
