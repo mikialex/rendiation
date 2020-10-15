@@ -1,6 +1,7 @@
 use crate::geometry::HashAbleByConversion;
 use rendiation_math::*;
 use rendiation_math_entity::Positioned3D;
+use rendiation_ral::*;
 use std::{hash::Hash, mem};
 
 #[cfg(feature = "shader-graph")]
@@ -14,6 +15,8 @@ pub struct Vertex {
   pub normal: Vec3<f32>,
   pub uv: Vec2<f32>,
 }
+
+impl<T: RAL> GeometryProvider<T> for Vertex {}
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 pub struct HashableVertex {
@@ -50,5 +53,27 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
     position: Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
     normal: Vec3::new(0.0, 1.0, 0.0),
     uv: Vec2::new(tc[0] as f32, tc[1] as f32),
+  }
+}
+
+impl RALVertexBufferDescriptorProvider for Vertex {
+  fn create_descriptor() -> RALVertexBufferDescriptor {
+    RALVertexBufferDescriptor {
+      byte_stride: mem::size_of::<Self>() as i32,
+      attributes: vec![
+        RALVertexAttributeBufferDescriptor {
+          byte_offset: 0,
+          format: RALVertexAttributeFormat::Float3,
+        },
+        RALVertexAttributeBufferDescriptor {
+          byte_offset: 4 * 3,
+          format: RALVertexAttributeFormat::Float3,
+        },
+        RALVertexAttributeBufferDescriptor {
+          byte_offset: 4 * 3 + 4 * 3,
+          format: RALVertexAttributeFormat::Float2,
+        },
+      ],
+    }
   }
 }

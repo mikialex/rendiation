@@ -34,7 +34,7 @@ impl<'a> WGPUBindgroupItem<'a> for ShaderGraphSampler {
 
 use rendiation_ral::*;
 impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
-  type Type = UniformBufferRef<'a, WGPURenderer, T>;
+  type Type = UniformBufferRef<'a, WebGPU, T>;
   fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
     WGPUBinding::BindBuffer(item.gpu)
   }
@@ -48,11 +48,11 @@ impl<'a, T: ShaderGraphUBO + 'static> WGPUBindgroupItem<'a> for T {
   }
 }
 
-impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphTexture {
+impl<T: RAL> RALBindgroupHandle<T> for ShaderGraphTexture {
   type HandleType = TextureHandle<T>;
 }
-impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphTexture {
-  type Resource = &'a <T as RALBackend>::Texture;
+impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderGraphTexture {
+  type Resource = &'a <T as RAL>::Texture;
   fn get_item(
     handle: Self::HandleType,
     resources: &'a ShaderBindableResourceManager<T>,
@@ -61,10 +61,10 @@ impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphTexture {
   }
 }
 
-impl<T: RALBackend> RALBindgroupHandle<T> for ShaderGraphSampler {
+impl<T: RAL> RALBindgroupHandle<T> for ShaderGraphSampler {
   type HandleType = SamplerHandle<T>;
 }
-impl<'a, T: RALBackend> RALBindgroupItem<'a, T> for ShaderGraphSampler {
+impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderGraphSampler {
   type Resource = &'a T::Sampler;
   fn get_item(
     handle: Self::HandleType,

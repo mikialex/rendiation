@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
 use crate::rinecraft::RinecraftState;
-use rendiation_ral::{GeometryHandle, RALBackend, ResourceManager, ShadingHandle, ShadingProvider};
+use rendiation_ral::{GeometryHandle, ResourceManager, ShadingHandle, ShadingProvider, RAL};
 use rendiation_rendergraph::{
   ContentProvider, ImmediateRenderableContent, RenderGraph, RenderGraphBackend,
   RenderGraphExecutor, RenderTargetPool,
 };
 use rendiation_scenegraph::{
-  default_impl::DefaultSceneBackend, DrawcallList, Scene, SceneBackend, SceneRenderSource,
+  default_impl::DefaultSceneBackend, Scene, SceneBackend, SceneDrawcallList, SceneRenderSource,
 };
 use rendiation_webgpu::{
   renderer::SwapChain, RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance,
-  WGPURenderPassBuilder, WGPURenderer,
+  WGPURenderPassBuilder, WGPURenderer, WebGPU,
 };
 use rendium::EventCtx;
 
@@ -26,50 +26,17 @@ pub struct RinecraftRenderer {
 }
 
 struct DefaultContentProvider {
-  scene: &'static mut Scene<WGPURenderer>,
-  resource: &'static mut ResourceManager<WGPURenderer>,
+  scene: &'static mut Scene<WebGPU>,
+  resource: &'static mut ResourceManager<WebGPU>,
 }
 
-impl SceneRenderSource<WGPURenderer, DefaultSceneBackend> for DefaultContentProvider {
-  fn get_scene(&self) -> &Scene<WGPURenderer, DefaultSceneBackend> {
+impl SceneRenderSource<WebGPU, DefaultSceneBackend> for DefaultContentProvider {
+  fn get_scene(&self) -> &Scene<WebGPU, DefaultSceneBackend> {
     &self.scene
   }
-  fn get_resource(&self) -> &ResourceManager<WGPURenderer> {
+  fn get_resource(&self) -> &ResourceManager<WebGPU> {
     &self.resource
   }
-}
-
-struct DefaultRenderGraphBackend;
-
-struct FullScreenQuad<T: RALBackend, SP: ShadingProvider<T>> {
-  geometry: GeometryHandle<T>,
-  shading: ShadingHandle<T, SP>,
-}
-
-impl<T: RALBackend, SP: ShadingProvider<T>> ImmediateRenderableContent<T>
-  for FullScreenQuad<T, SP>
-{
-  fn render(&self, pass: &mut T::RenderPass, root: &ResourceManager<T>) {
-    todo!()
-  }
-
-  fn prepare(&mut self, resource: &mut ResourceManager<T>) {
-    todo!()
-  }
-}
-
-impl RenderGraphBackend for DefaultRenderGraphBackend {
-  type Graphics = WGPURenderer;
-  type ContentProviderImpl = DefaultContentProvider;
-  type ContentSourceKey = RinecraftSourceType;
-  type ContentMiddleKey = ();
-  type ContentUnitImpl = DrawcallList<WGPURenderer>;
-}
-
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum RinecraftSourceType {
-  Main,
-  Copier,
 }
 
 impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
@@ -77,10 +44,26 @@ impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
     &mut self,
     key: RinecraftSourceType,
     _: &RenderTargetPool<DefaultRenderGraphBackend>,
-    _: &mut DrawcallList<WGPURenderer>,
+    _: &mut SceneDrawcallList<WebGPU>,
   ) {
     todo!()
   }
+}
+
+struct DefaultRenderGraphBackend;
+
+impl RenderGraphBackend for DefaultRenderGraphBackend {
+  type Graphics = WebGPU;
+  type ContentProviderImpl = DefaultContentProvider;
+  type ContentSourceKey = RinecraftSourceType;
+  type ContentMiddleKey = ();
+  type ContentUnitImpl = SceneDrawcallList<WebGPU>;
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum RinecraftSourceType {
+  Main,
+  Copier,
 }
 
 impl RinecraftRenderer {
@@ -95,8 +78,8 @@ impl RinecraftRenderer {
     &mut self,
     renderer: &mut WGPURenderer,
     target: &ScreenRenderTargetInstance,
-    scene: &mut Scene<WGPURenderer>,
-    resource: &mut ResourceManager<WGPURenderer>,
+    scene: &mut Scene<WebGPU>,
+    resource: &mut ResourceManager<WebGPU>,
     config: &EffectConfig,
   ) {
     let graph = self
@@ -137,8 +120,8 @@ impl RinecraftRenderer {
   pub fn render(
     &mut self,
     renderer: &mut WGPURenderer,
-    scene: &mut Scene<WGPURenderer>,
-    resource: &mut ResourceManager<WGPURenderer>,
+    scene: &mut Scene<WebGPU>,
+    resource: &mut ResourceManager<WebGPU>,
     output: &ScreenRenderTargetInstance,
   ) {
     let list = scene.update(resource);

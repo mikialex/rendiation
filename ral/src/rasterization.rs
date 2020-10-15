@@ -1,6 +1,16 @@
 use wasm_bindgen::prelude::*;
 
 #[repr(C)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum PrimitiveTopology {
+  PointList = 0,
+  LineList = 1,
+  LineStrip = 2,
+  TriangleList = 3,
+  TriangleStrip = 4,
+}
+
+#[repr(C)]
 #[wasm_bindgen]
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum CullMode {

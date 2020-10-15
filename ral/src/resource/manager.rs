@@ -1,28 +1,28 @@
-use super::{BindGroupManager, GeometryResourceInstance, UBOManager};
-use crate::{RALBackend, ShadingManager};
+use super::{BindGroupManager, UBOManager};
+use crate::{GeometryResource, RAL, ShadingManager};
 use arena::{Arena, Handle};
 use std::any::Any;
 
 type ResourceArena<T> = Arena<ResourceWrap<T>>;
 
-pub struct ResourceManager<T: RALBackend> {
+pub struct ResourceManager<T: RAL> {
   pub shadings: ShadingManager<T>,
   pub shading_gpu: Arena<T::Shading>,
   pub bindgroups: BindGroupManager<T>,
   pub bindable: ShaderBindableResourceManager<T>,
 
-  pub geometries: ResourceArena<GeometryResourceInstance<T>>,
+  pub geometries: Arena<Box<dyn GeometryResource<T>>>,
   pub index_buffers: ResourceArena<T::IndexBuffer>,
   pub vertex_buffers: ResourceArena<T::VertexBuffer>,
 }
 
-pub struct ShaderBindableResourceManager<T: RALBackend> {
+pub struct ShaderBindableResourceManager<T: RAL> {
   pub uniform_buffers: UBOManager<T>,
   pub samplers: Arena<T::Sampler>,
   pub textures: Arena<T::Texture>,
 }
 
-impl<T: RALBackend> ShaderBindableResourceManager<T> {
+impl<T: RAL> ShaderBindableResourceManager<T> {
   pub fn new() -> Self {
     Self {
       uniform_buffers: UBOManager::new(),
@@ -42,7 +42,7 @@ pub struct ResourceWrap<T> {
   resource: T,
 }
 
-impl<T: RALBackend> ResourceManager<T> {
+impl<T: RAL> ResourceManager<T> {
   pub fn new() -> Self {
     Self {
       geometries: Arena::new(),

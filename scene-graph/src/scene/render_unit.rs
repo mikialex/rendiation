@@ -1,51 +1,51 @@
 use crate::{
-  default_impl::DefaultSceneBackend, GeometryHandle, RALBackend, RenderObjectHandle, Scene,
-  SceneBackend, SceneNodeHandle, ShadingHandle,
+  default_impl::DefaultSceneBackend, DrawcallHandle, GeometryHandle, Scene, SceneBackend,
+  SceneNodeHandle, ShadingHandle, RAL,
 };
-use rendiation_ral::{RenderObject, ResourceManager, ShadingProvider};
+use rendiation_ral::{Drawcall, ResourceManager, ShadingProvider};
 
-impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
-  pub fn create_render_object<SP: ShadingProvider<T>>(
+impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
+  pub fn create_drawcall<SP: ShadingProvider<T>, G: GeometryProvider<T>>(
     &mut self,
-    geometry: GeometryHandle<T>,
+    geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,
-  ) -> RenderObjectHandle<T> {
-    let obj = RenderObject::new(geometry, shading);
-    self.render_objects.insert(obj)
+  ) -> DrawcallHandle<T> {
+    let obj = Drawcall::new_to_untyped(geometry, shading);
+    self.drawcalls.insert(obj)
   }
 
-  pub fn delete_render_object(&mut self, index: RenderObjectHandle<T>) {
-    self.render_objects.remove(index);
+  pub fn delete_drawcall(&mut self, index: DrawcallHandle<T>) {
+    self.drawcalls.remove(index);
   }
 }
 
-pub struct Drawcall<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
-  pub render_object: RenderObjectHandle<T>,
+pub struct SceneDrawcall<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
+  pub drawcall: DrawcallHandle<T>,
   pub node: SceneNodeHandle<T, S>,
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> Clone for Drawcall<T, S> {
+impl<T: RAL, S: SceneBackend<T>> Clone for SceneDrawcall<T, S> {
   fn clone(&self) -> Self {
     Self {
-      render_object: self.render_object.clone(),
+      drawcall: self.drawcall.clone(),
       node: self.node.clone(),
     }
   }
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> Copy for Drawcall<T, S> {}
+impl<T: RAL, S: SceneBackend<T>> Copy for SceneDrawcall<T, S> {}
 
-pub struct DrawcallList<T: RALBackend, S: SceneBackend<T> = DefaultSceneBackend> {
-  pub inner: Vec<Drawcall<T, S>>,
+pub struct SceneDrawcallList<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
+  pub inner: Vec<SceneDrawcall<T, S>>,
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> Default for DrawcallList<T, S> {
+impl<T: RAL, S: SceneBackend<T>> Default for SceneDrawcallList<T, S> {
   fn default() -> Self {
-    DrawcallList::new()
+    SceneDrawcallList::new()
   }
 }
 
-impl<T: RALBackend, S: SceneBackend<T>> DrawcallList<T, S> {
+impl<T: RAL, S: SceneBackend<T>> SceneDrawcallList<T, S> {
   pub fn new() -> Self {
     Self { inner: Vec::new() }
   }
@@ -57,13 +57,13 @@ impl<T: RALBackend, S: SceneBackend<T>> DrawcallList<T, S> {
     resources: &ResourceManager<T>,
   ) {
     self.inner.iter().for_each(|d| {
-      let render_object = scene.render_objects.get(d.render_object).unwrap();
-      T::render_object(&render_object, pass, resources);
+      let drawcall = scene.drawcalls.get(d.drawcall).unwrap();
+      T::render_drawcall(&drawcall, pass, resources);
     })
   }
 }
 
-pub trait SceneRenderSource<T: RALBackend, S: SceneBackend<T>> {
+pub trait SceneRenderSource<T: RAL, S: SceneBackend<T>> {
   fn get_scene(&self) -> &Scene<T, S>;
   fn get_resource(&self) -> &ResourceManager<T>;
 }
@@ -73,7 +73,7 @@ use rendiation_rendergraph::*;
 
 #[cfg(feature = "rendergraph")]
 impl<T: RenderGraphGraphicsBackend, S: SceneBackend<T>, U: SceneRenderSource<T, S>>
-  ContentUnit<T, U> for DrawcallList<T, S>
+  ContentUnit<T, U> for SceneDrawcallList<T, S>
 {
   fn render_pass(&self, pass: &mut T::RenderPass, provider: &mut U) {
     self.render(pass, provider.get_scene(), provider.get_resource())

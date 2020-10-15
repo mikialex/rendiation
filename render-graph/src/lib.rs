@@ -10,11 +10,13 @@ mod backend;
 mod content_pool;
 mod executor;
 mod nodes;
+mod quad;
 mod target_pool;
 pub use backend::*;
 pub use content_pool::*;
 pub use executor::*;
 pub use nodes::*;
+pub use quad::*;
 pub use target_pool::*;
 
 pub trait RenderGraphBackend: Sized {
@@ -35,7 +37,7 @@ pub trait ContentProvider<T: RenderGraphBackend> {
 }
 
 pub trait ContentUnit<T: RenderGraphGraphicsBackend, P>: Sized + Default {
-  fn render_pass(&self, pass: &mut <T as RALBackend>::RenderPass, provider: &mut P);
+  fn render_pass(&self, pass: &mut <T as RAL>::RenderPass, provider: &mut P);
 }
 
 pub type RenderGraphNodeHandle<T> = ArenaGraphNodeHandle<RenderGraphNode<T>>;

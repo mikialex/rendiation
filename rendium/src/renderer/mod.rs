@@ -17,7 +17,8 @@ pub use shader::*;
 pub struct GUIRenderer {
   quad: GPUGeometry,
   view: Vec4<f32>,
-  camera: OrthographicCamera,
+  projection: OrthographicProjection,
+  camera: Camera,
   camera_gpu_buffer: WGPUBuffer,
   canvas: RenderTarget,
   // quad_pipeline: QuadShading,
@@ -38,7 +39,8 @@ impl GUIRenderer {
     let canvas = RenderTarget::from_one_texture(canvas);
     // let canvas = //
 
-    let camera = OrthographicCamera::new();
+    let projection = OrthographicProjection::default();
+    let camera = Camera::new();
 
     let mx_total = OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix();
     let mx_ref: &[u8] = mx_total.as_ref();
@@ -54,6 +56,7 @@ impl GUIRenderer {
     let mut renderer = GUIRenderer {
       quad,
       view,
+      projection,
       camera,
       camera_gpu_buffer,
       canvas,
@@ -66,14 +69,14 @@ impl GUIRenderer {
   }
 
   fn update_camera(&mut self) {
-    let camera = &mut self.camera;
-    camera.top = 0.;
-    camera.left = 0.;
-    camera.bottom = -self.view.w;
-    camera.right = -self.view.z;
-    camera.near = -1.;
-    camera.far = 1.;
-    camera.update_projection();
+    let orth = &mut self.projection;
+    orth.top = 0.;
+    orth.left = 0.;
+    orth.bottom = -self.view.w;
+    orth.right = -self.view.z;
+    orth.near = -1.;
+    orth.far = 1.;
+    self.camera.update_by(&self.projection);
   }
 
   pub fn resize(&mut self, size: (f32, f32), renderer: &WGPURenderer) {

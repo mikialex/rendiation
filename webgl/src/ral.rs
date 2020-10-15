@@ -6,7 +6,9 @@ use rendiation_ral::*;
 use std::ops::Range;
 use web_sys::*;
 
-impl RALBackend for WebGLRenderer {
+pub struct WebGL;
+
+impl RAL for WebGL {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
@@ -29,7 +31,16 @@ impl RALBackend for WebGLRenderer {
   fn apply_shading(pass: &mut Self::RenderPass, shading: &Self::Shading) {
     pass.use_program(shading)
   }
-  fn apply_bindgroup(_pass: &mut Self::RenderPass, _index: usize, _bindgroup: &Self::BindGroup) {}
+  fn apply_bindgroup(_pass: &mut Self::RenderPass, _index: usize, _bindgroup: &Self::BindGroup) {
+    // empty impl
+  }
+
+  fn apply_vertex_buffer(pass: &mut Self::RenderPass, index: i32, vertex: &Self::VertexBuffer) {
+    pass.set_vertex_buffer(index, vertex);
+  }
+  fn apply_index_buffer(pass: &mut Self::RenderPass, index: &Self::IndexBuffer) {
+    pass.set_index_buffer(Some(index));
+  }
 
   fn create_uniform_buffer(_renderer: &mut WebGLRenderer, _data: &[u8]) -> Self::UniformBuffer {
     // renderer.create_uniform_buffer(data)
@@ -67,14 +78,45 @@ impl RALBackend for WebGLRenderer {
     renderer.dispose_vertex_buffer(buffer)
   }
 
-  fn render_object(
-    object: &RenderObject<Self>,
+  fn set_viewport(pass: &mut Self::RenderPass, viewport: &Viewport) {
+    // todo check if has depth info and log
+    pass.gl.viewport(
+      viewport.x as i32,
+      viewport.y as i32,
+      viewport.w as i32,
+      viewport.h as i32,
+    );
+  }
+
+  fn draw_indexed(pass: &mut Self::RenderPass, topology: PrimitiveTopology, range: Range<u32>) {
+    pass.gl.draw_elements_with_i32(
+      ral_topology_to_webgl_topology(topology),
+      (range.end - range.start) as i32,
+      WebGl2RenderingContext::UNSIGNED_INT,
+      range.end as i32,
+    );
+  }
+  fn draw_none_indexed(
+    pass: &mut Self::RenderPass,
+    topology: PrimitiveTopology,
+    range: Range<u32>,
+  ) {
+    pass.gl.draw_arrays(
+      ral_topology_to_webgl_topology(topology),
+      range.start as i32,
+      (range.end - range.start) as i32,
+    );
+  }
+
+  fn render_drawcall<G: GeometryProvider<Self>, SP: ShadingProvider<Self, Geometry = G>>(
+    drawcall: &Drawcall<Self, G, SP>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
     // shading bind
     pass.texture_slot_states.reset_slots();
-    let shading_storage = resources.shadings.get_shading_boxed(object.shading);
+
+    let shading_storage = resources.shadings.get_shading_boxed(drawcall.shading);
     shading_storage.apply(pass, resources);
 
     let program = shading_storage.get_gpu();
@@ -82,29 +124,21 @@ impl RALBackend for WebGLRenderer {
     program.upload(pass, resources, shading_storage.shading_provider_as_any());
 
     // geometry bind
-    let geometry = &resources.get_geometry(object.geometry).resource();
-
     pass.attribute_states.prepare_new_bindings();
-    geometry.index_buffer.map(|b| {
-      let index = resources.get_index_buffer(b);
-      pass.set_index_buffer(Some(index.resource().as_ref()));
-    });
-    geometry
-      .vertex_buffers
-      .iter()
-      .enumerate()
-      .for_each(|(i, &v)| {
-        let buffer = resources.get_vertex_buffer(v).resource();
-        pass.set_vertex_buffer(i as i32, buffer);
-      });
+
+    let geometry = resources.get_geometry(drawcall.geometry);
+    geometry.apply(pass, resources);
+
     pass.disable_old_unused_bindings();
 
-    // let range = &geometry.draw_range;
-    // renderer.gl.draw_elements_with_i32(
-    //   WebGl2RenderingContext::TRIANGLES,
-    //   range.start as i32,
-    //   WebGl2RenderingContext::UNSIGNED_INT,
-    //   range.end as i32,
-    // );
+    geometry.draw(pass);
+  }
+}
+
+fn ral_topology_to_webgl_topology(t: PrimitiveTopology) -> u32 {
+  use PrimitiveTopology::*;
+  match t {
+    TriangleList => WebGl2RenderingContext::TRIANGLES,
+    _ => panic!("not support"),
   }
 }

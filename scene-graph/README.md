@@ -1,6 +1,6 @@
 # SceneGraph
 
-Provide a 3d scene hierarchy structure for general usage. Support any backend that impl RALBackend(in rendiation_ral). Backend resource type and rendering specialized impl will be inject by generics trait implementation.
+Provide a 3d scene hierarchy structure for general usage. Support any backend that impl RAL(in rendiation_ral). Backend resource type and rendering specialized impl will be inject by generics trait implementation.
 
 ## Web Platform support
 

@@ -2,7 +2,9 @@ use crate::*;
 use rendiation_ral::*;
 use std::ops::Range;
 
-impl RALBackend for WGPURenderer {
+pub struct WebGPU;
+
+impl RAL for WebGPU {
   type RenderTarget = Box<dyn RenderTargetAble>;
   type RenderPass = WGPURenderPass<'static>;
   type Renderer = WGPURenderer;
@@ -27,6 +29,13 @@ impl RALBackend for WGPURenderer {
 
   fn apply_bindgroup(pass: &mut Self::RenderPass, index: usize, bindgroup: &Self::BindGroup) {
     pass.set_bindgroup(index, unsafe { std::mem::transmute(bindgroup) });
+  }
+
+  fn apply_vertex_buffer(pass: &mut Self::RenderPass, index: i32, vertex: &Self::VertexBuffer) {
+    pass.set_vertex_buffer(index as u32, unsafe { std::mem::transmute(vertex) });
+  }
+  fn apply_index_buffer(pass: &mut Self::RenderPass, index: &Self::IndexBuffer) {
+    pass.set_index_buffer(unsafe { std::mem::transmute(index) });
   }
 
   fn create_uniform_buffer(renderer: &mut WGPURenderer, data: &[u8]) -> Self::UniformBuffer {
@@ -55,7 +64,6 @@ impl RALBackend for WGPURenderer {
   fn dispose_index_buffer(_renderer: &mut Self::Renderer, _buffer: Self::IndexBuffer) {
     // just drop
   }
-
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
@@ -68,32 +76,46 @@ impl RALBackend for WGPURenderer {
     // just drop
   }
 
-  fn render_object(
-    object: &RenderObject<Self>,
+  fn set_viewport(pass: &mut Self::RenderPass, viewport: &Viewport) {
+    pass.use_viewport(&viewport);
+  }
+
+  fn draw_indexed(
+    pass: &mut Self::RenderPass,
+    _: rendiation_ral::PrimitiveTopology,
+    range: Range<u32>,
+  ) {
+    pass.draw_indexed(range)
+  }
+  fn draw_none_indexed(
+    pass: &mut Self::RenderPass,
+    _: rendiation_ral::PrimitiveTopology,
+    range: Range<u32>,
+  ) {
+    pass.draw(range)
+  }
+
+  fn render_drawcall<G: GeometryProvider<Self>, SP: ShadingProvider<Self, Geometry = G>>(
+    drawcall: &Drawcall<Self, G, SP>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
     let resources: &'static ResourceManager<Self> = unsafe { std::mem::transmute(resources) };
 
+    let geometry = resources.get_geometry_boxed(drawcall.geometry);
+    pass.current_topology = ral_topology_to_webgpu_topology(geometry.get_topology()); // todo
+
     // set shading
     resources
       .shadings
-      .get_shading_boxed(object.shading)
+      .get_shading_boxed(drawcall.shading)
       .apply(pass, resources);
 
     // set geometry
-    let geometry = resources.get_geometry(object.geometry).resource();
-    geometry.index_buffer.map(|b| {
-      let index = resources.get_index_buffer(b);
-      pass.set_index_buffer(index.resource());
-    });
-    for (i, vertex_buffer) in geometry.vertex_buffers.iter().enumerate() {
-      let buffer = resources.get_vertex_buffer(*vertex_buffer);
-      pass.set_vertex_buffer(i, buffer.resource());
-    }
+    geometry.apply(pass, resources);
 
     // draw
-    pass.draw_indexed(geometry.draw_range.clone())
+    geometry.draw(pass);
   }
 }
 
@@ -102,5 +124,15 @@ pub fn shader_stage_convert(stage: rendiation_ral::ShaderStage) -> wgpu::ShaderS
   match stage {
     Vertex => wgpu::ShaderStage::VERTEX,
     Fragment => wgpu::ShaderStage::FRAGMENT,
+  }
+}
+
+fn ral_topology_to_webgpu_topology(
+  t: rendiation_ral::PrimitiveTopology,
+) -> wgpu::PrimitiveTopology {
+  use rendiation_ral::PrimitiveTopology::*;
+  match t {
+    TriangleList => wgpu::PrimitiveTopology::TriangleList,
+    _ => panic!("not support"),
   }
 }

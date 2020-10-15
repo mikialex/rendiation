@@ -2,7 +2,9 @@ use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
 use once_cell::sync::Lazy;
 use rendiation_math_entity::Positioned3D;
-use rendiation_ral::{GeometryResourceInstance, ResourceManager};
+use rendiation_ral::{
+  GeometryProvider, GeometryResourceInstance, GeometryResourceProvider, ResourceManager, RAL,
+};
 use rendiation_webgpu::*;
 use std::ops::Range;
 
@@ -37,12 +39,37 @@ impl WGPUVertexProvider for Vertex {
   }
 }
 
+impl<'a, V, T, U, R> GeometryResourceProvider<R> for IndexedGeometry<V, T, U>
+where
+  V: Positioned3D + GeometryProvider<R>,
+  T: PrimitiveTopology<V>,
+  U: RALGeometryDataContainer<V, R> + 'static,
+  R: RAL,
+{
+  type Instance = GeometryResourceInstance<R, V>;
+
+  fn create(
+    &self,
+    resources: &mut ResourceManager<R>,
+    renderer: &mut R::Renderer,
+  ) -> Self::Instance {
+    let mut instance = GeometryResourceInstance::new();
+    let index_buffer = R::create_index_buffer(renderer, as_bytes(&self.index));
+    instance.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
+
+    self.data.create_gpu(resources, renderer, &mut instance);
+    instance.draw_range = 0..self.get_full_count();
+    instance
+  }
+}
+
 impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned3D + GeometryProvider<WebGPU>,
   T: PrimitiveTopology<V> + WGPUPrimitiveTopology,
   U: GeometryDataContainer<V>,
 {
+  type Geometry = V;
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {
       index_format: wgpu::IndexFormat::Uint16, // todo index format
@@ -57,8 +84,8 @@ where
   fn create_resource_instance(
     &self,
     renderer: &mut WGPURenderer,
-    resource: &mut ResourceManager<WGPURenderer>,
-  ) -> GeometryResourceInstance<WGPURenderer> {
+    resource: &mut ResourceManager<WebGPU>,
+  ) -> GeometryResourceInstance<WebGPU, Self::Geometry> {
     let mut instance = GeometryResourceInstance::new();
     let index_buffer = WGPUBuffer::new(renderer, as_bytes(&self.index), wgpu::BufferUsage::INDEX);
     let vertex_buffer = WGPUBuffer::new(

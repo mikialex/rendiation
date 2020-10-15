@@ -7,8 +7,8 @@ use rendiation_render_entity::*;
 
 use color::Color;
 use indicatif::ProgressBar;
-use std::time::Instant;
 use rayon::prelude::*;
+use std::time::Instant;
 
 pub struct Renderer {
   super_sample_rate: usize,
@@ -40,7 +40,7 @@ impl Renderer {
     }
   }
 
-  pub fn render(&mut self, camera: &PerspectiveCamera, scene: &Scene, frame: &mut Frame) {
+  pub fn render(&mut self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
     self.integrator.prepare();
     println!("rendering...");
     let now = Instant::now();

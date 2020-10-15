@@ -9,14 +9,14 @@ use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
 
 pub struct CameraGPU {
-  pub gpu_mvp_matrix: UniformHandle<WGPURenderer, CameraTransform>,
+  pub gpu_mvp_matrix: UniformHandle<WebGPU, CameraTransform>,
 }
 
 impl CameraGPU {
   pub fn new(
     renderer: &WGPURenderer,
-    camera: &impl Camera,
-    resources: &mut ResourceManager<WGPURenderer>,
+    camera: &Camera,
+    resources: &mut ResourceManager<WebGPU>,
   ) -> Self {
     let mvp = CameraTransform {
       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
@@ -31,8 +31,8 @@ impl CameraGPU {
   pub fn update_gpu_mvp_matrix(
     &mut self,
     renderer: &mut WGPURenderer,
-    camera: &impl Camera,
-    resources: &mut ResourceManager<WGPURenderer>,
+    camera: &Camera,
+    resources: &mut ResourceManager<WebGPU>,
   ) {
     let mvp = CameraTransform {
       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
@@ -48,9 +48,9 @@ impl CameraGPU {
 
   pub fn update_all(
     &mut self,
-    camera: &impl Camera,
+    camera: &Camera,
     renderer: &mut WGPURenderer,
-    resources: &mut ResourceManager<WGPURenderer>,
+    resources: &mut ResourceManager<WebGPU>,
   ) {
     self.update_gpu_mvp_matrix(renderer, camera, resources);
   }

@@ -2,16 +2,19 @@ use crate::{RenderTargetFormatsInfo, WGPUBindGroup, WGPUBuffer, WGPUPipeline, WG
 use rendiation_math::Vec3;
 use rendiation_ral::Viewport;
 use std::ops::Range;
+use wgpu::PrimitiveTopology;
 
 pub struct WGPURenderPass<'a> {
   device: &'a wgpu::Device,
   pub gpu_pass: wgpu::RenderPass<'a>,
   pub pass_format: RenderTargetFormatsInfo,
+
+  pub current_topology: PrimitiveTopology, // todo group with other raster state // todo state node, state resource!
 }
 
 impl<'a> WGPURenderPass<'a> {
   pub fn set_pipeline(&mut self, pipeline: &'a WGPUPipeline) -> &mut Self {
-    let pipeline = pipeline.get(&self.pass_format, &self.device);
+    let pipeline = pipeline.get(&self.pass_format, &self.device); // todo select other raster state
     self.gpu_pass.set_pipeline(pipeline);
     self
   }
@@ -30,7 +33,7 @@ impl<'a> WGPURenderPass<'a> {
     self
   }
 
-  pub fn set_vertex_buffer(&mut self, slot: usize, buffer: &'a WGPUBuffer) -> &mut Self {
+  pub fn set_vertex_buffer(&mut self, slot: u32, buffer: &'a WGPUBuffer) -> &mut Self {
     self
       .gpu_pass
       .set_vertex_buffer(slot as u32, buffer.get_gpu_buffer().slice(..)); // ditto
@@ -39,6 +42,9 @@ impl<'a> WGPURenderPass<'a> {
 
   pub fn draw_indexed(&mut self, index_range: Range<u32>) {
     self.gpu_pass.draw_indexed(index_range, 0, 0..1);
+  }
+  pub fn draw(&mut self, range: Range<u32>) {
+    self.gpu_pass.draw(range, 0..1);
   }
 
   pub fn use_viewport(&mut self, viewport: &Viewport) -> &mut Self {
@@ -142,6 +148,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
       gpu_pass: pass,
       device: &renderer.device,
       pass_format: self.format,
+      current_topology: PrimitiveTopology::TriangleList,
     }
   }
 }

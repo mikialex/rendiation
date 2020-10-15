@@ -3,15 +3,15 @@ use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
 use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
-use rendiation_render_entity::PerspectiveCamera;
-use rendiation_webgl::{WebGLProgram, WebGLRenderer};
+use rendiation_render_entity::PerspectiveProjection;
+use rendiation_webgl::{WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WASMScene {
-  resource: ResourceManager<WebGLRenderer>,
-  scene: Scene<WebGLRenderer>,
-  _camera: PerspectiveCamera,
+  resource: ResourceManager<WebGL>,
+  scene: Scene<WebGL>,
+  _camera: PerspectiveProjection,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -23,7 +23,7 @@ impl WASMScene {
     Self {
       resource: ResourceManager::new(),
       scene: Scene::new(),
-      _camera: PerspectiveCamera::new(),
+      _camera: PerspectiveProjection::default(),
       handle_pool: Vec::new(),
       handle_pool_empty: Vec::new(),
     }
@@ -85,17 +85,19 @@ impl WASMScene {
   }
 
   #[wasm_bindgen]
-  pub fn create_render_object(&mut self, geometry_index: usize, shading_index: usize) -> usize {
-    let h = self.scene.create_render_object::<FakeShadingProvider>(
-      self.get_handle(geometry_index).into(),
-      self.get_handle(shading_index).into(),
-    );
+  pub fn create_drawcall(&mut self, geometry_index: usize, shading_index: usize) -> usize {
+    let h = self
+      .scene
+      .create_drawcall::<AnyPlaceHolder, AnyGeometryProvider>(
+        self.get_handle(geometry_index).into(),
+        self.get_handle(shading_index).into(),
+      );
     self.save_handle(h)
   }
 
   #[wasm_bindgen]
-  pub fn delete_render_object(&mut self, h: usize) {
-    self.scene.delete_render_object(self.get_handle(h).into());
+  pub fn delete_drawcall(&mut self, h: usize) {
+    self.scene.delete_drawcall(self.get_handle(h).into());
   }
 
   #[wasm_bindgen]
@@ -160,21 +162,7 @@ impl WASMScene {
   pub fn add_geometry(&mut self, geometry: &WASMGeometry) -> usize {
     let h = self
       .resource
-      .add_geometry(geometry.to_geometry_resource_instance())
-      .index();
+      .add_geometry(geometry.to_geometry_resource_instance());
     self.save_handle(h)
-  }
-}
-
-pub struct FakeShadingProvider;
-impl ShadingProvider<WebGLRenderer> for FakeShadingProvider {
-  type Instance = ();
-  fn apply(
-    _: &Self::Instance,
-    _: &WebGLProgram,
-    _: &mut WebGLRenderer,
-    _: &ResourceManager<WebGLRenderer>,
-  ) {
-    unimplemented!()
   }
 }

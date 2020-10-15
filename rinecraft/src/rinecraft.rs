@@ -20,12 +20,13 @@ pub struct RinecraftState {
   pub window_state: WindowState,
 
   pub world: World,
-  pub resource: ResourceManager<WGPURenderer>,
-  pub scene: Scene<WGPURenderer>,
+  pub resource: ResourceManager<WebGPU>,
+  pub scene: Scene<WebGPU>,
 
   pub screen_target: ScreenRenderTarget,
 
-  pub camera: PerspectiveCamera,
+  pub perspective_projection: PerspectiveProjection,
+  pub camera: Camera,
   pub camera_gpu: CameraGPU,
   pub camera_controller: CameraController<Self>,
 
@@ -57,9 +58,12 @@ impl Application for Rinecraft {
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
-    let mut camera = PerspectiveCamera::new();
+    let mut perspective_projection = PerspectiveProjection::default();
+    let mut camera = Camera::new();
     *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
-    camera.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+
+    perspective_projection.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+    camera.update_by(&perspective_projection);
 
     let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut resource);
     camera_gpu.update_all(&camera, renderer, &mut resource);
@@ -85,7 +89,12 @@ impl Application for Rinecraft {
         .viewport
         .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.screen_target.resize(renderer, swap_chain.size);
-      state.camera.resize(size);
+
+      state
+        .perspective_projection
+        .resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+      state.camera.update_by(&state.perspective_projection);
+
       // state.camera_orth.resize(size);
       state.gui.renderer.resize(size, renderer);
     });
@@ -122,6 +131,7 @@ impl Application for Rinecraft {
         world,
         scene,
         resource,
+        perspective_projection,
         camera,
         camera_gpu,
         viewport,

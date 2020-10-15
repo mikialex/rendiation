@@ -34,7 +34,7 @@ pub fn derive_geometry(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(Shader, attributes(bindgroup, vert))]
+#[proc_macro_derive(Shader, attributes(geometry))]
 pub fn derive_shader(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
   derive_shader_impl(&input).into()

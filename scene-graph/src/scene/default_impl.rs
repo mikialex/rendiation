@@ -1,31 +1,31 @@
-use crate::{RenderObjectHandle, SceneBackend, SceneNodeDataTrait};
+use crate::{DrawcallHandle, SceneBackend, SceneNodeDataTrait};
 use rendiation_math::*;
-use rendiation_ral::{RALBackend, ResourceManager};
+use rendiation_ral::{ResourceManager, RAL};
 use rendiation_render_entity::BoundingData;
 
 pub struct DefaultSceneBackend;
 
-impl<T: RALBackend> SceneBackend<T> for DefaultSceneBackend {
+impl<T: RAL> SceneBackend<T> for DefaultSceneBackend {
   type NodeData = SceneNodeData<T>;
   type SceneData = ();
 }
 
-pub struct SceneNodeData<T: RALBackend> {
-  pub render_objects: Vec<RenderObjectHandle<T>>,
+pub struct SceneNodeData<T: RAL> {
+  pub drawcalls: Vec<DrawcallHandle<T>>,
   pub visible: bool,
   pub net_visible: bool,
   pub render_data: RenderData,
   pub local_matrix: Mat4<f32>,
 }
 
-impl<T: RALBackend> Default for SceneNodeData<T> {
+impl<T: RAL> Default for SceneNodeData<T> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<T: RALBackend> SceneNodeDataTrait<T> for SceneNodeData<T> {
-  type RenderObjectIntoIterType = Vec<RenderObjectHandle<T>>;
+impl<T: RAL> SceneNodeDataTrait<T> for SceneNodeData<T> {
+  type DrawcallIntoIterType = Vec<DrawcallHandle<T>>;
   fn update_by_parent(
     &mut self,
     parent: Option<&Self>,
@@ -40,15 +40,15 @@ impl<T: RALBackend> SceneNodeDataTrait<T> for SceneNodeData<T> {
 
     true
   }
-  fn provide_render_object(&self) -> &Self::RenderObjectIntoIterType {
-    &self.render_objects
+  fn provide_drawcall(&self) -> &Self::DrawcallIntoIterType {
+    &self.drawcalls
   }
 }
 
-impl<T: RALBackend> SceneNodeData<T> {
+impl<T: RAL> SceneNodeData<T> {
   pub fn new() -> Self {
     Self {
-      render_objects: Vec::new(),
+      drawcalls: Vec::new(),
       visible: true,
       net_visible: true,
       render_data: RenderData::new(),
@@ -56,8 +56,8 @@ impl<T: RALBackend> SceneNodeData<T> {
     }
   }
 
-  pub fn add_render_object(&mut self, handle: RenderObjectHandle<T>) {
-    self.render_objects.push(handle)
+  pub fn append_drawcall(&mut self, handle: DrawcallHandle<T>) {
+    self.drawcalls.push(handle)
   }
 }
 

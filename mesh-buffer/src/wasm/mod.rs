@@ -1,4 +1,4 @@
-use rendiation_ral::GeometryResourceInstance;
+use rendiation_ral::{AnyGeometryProvider, GeometryResourceInstance};
 use rendiation_webgl::*;
 use wasm_bindgen::prelude::*;
 
@@ -50,7 +50,9 @@ pub struct WASMGeometry {
 }
 
 impl WASMGeometry {
-  pub fn to_geometry_resource_instance(&self) -> GeometryResourceInstance<WebGLRenderer> {
+  pub fn to_geometry_resource_instance(
+    &self,
+  ) -> GeometryResourceInstance<WebGL, AnyGeometryProvider> {
     todo!()
   }
 }

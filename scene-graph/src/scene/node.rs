@@ -1,11 +1,11 @@
-use crate::{default_impl::DefaultSceneBackend, RALBackend, Scene, SceneBackend};
+use crate::{default_impl::DefaultSceneBackend, Scene, SceneBackend, RAL};
 use arena::Handle;
 use arena_tree::*;
 
 pub type SceneNodeHandle<T, S = DefaultSceneBackend> = Handle<SceneNode<T, S>>;
 pub type SceneNode<T, S = DefaultSceneBackend> = ArenaTreeNode<<S as SceneBackend<T>>::NodeData>;
 
-impl<T: RALBackend, S: SceneBackend<T>> Scene<T, S> {
+impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
   pub fn get_root(&self) -> &SceneNode<T, S> {
     self.nodes.get_node(self.nodes.root())
   }

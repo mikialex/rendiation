@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use rendiation_ral::RALBackend;
+use rendiation_ral::RAL;
 
 use crate::{
   build_pass_queue, ContentPool, RenderGraph, RenderGraphBackend, RenderGraphGraphicsBackend,
@@ -24,15 +24,15 @@ impl<'a, T: RenderGraphBackend> RenderGraphExecutor<T> {
     }
   }
 
-  pub fn force_clear_reuse_pool(&mut self, renderer: &<T::Graphics as RALBackend>::Renderer) {
+  pub fn force_clear_reuse_pool(&mut self, renderer: &<T::Graphics as RAL>::Renderer) {
     self.target_pool.clear_all(renderer)
   }
 
   pub fn render(
     &mut self,
     graph: &RenderGraph<T>,
-    final_target: &<T::Graphics as RALBackend>::RenderTarget,
-    renderer: &mut <T::Graphics as RALBackend>::Renderer,
+    final_target: &<T::Graphics as RAL>::RenderTarget,
+    renderer: &mut <T::Graphics as RAL>::Renderer,
     provider: &mut T::ContentProviderImpl,
   ) {
     let new_size = <T::Graphics as RenderGraphGraphicsBackend>::get_target_size(final_target);

@@ -1,14 +1,14 @@
 use super::ShaderBindableResourceManager;
-use crate::{BindGroupCreator, BindGroupHandle, BindGroupProvider, RALBackend, ResourceManager};
+use crate::{BindGroupCreator, BindGroupHandle, BindGroupProvider, ResourceManager, RAL};
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
-pub struct BindGroupManager<R: RALBackend> {
+pub struct BindGroupManager<R: RAL> {
   storage: Arena<Box<dyn BindgroupStorageTrait<R>>>,
   modified: HashSet<Handle<Box<dyn BindgroupStorageTrait<R>>>>,
 }
 
-impl<R: RALBackend> BindGroupManager<R> {
+impl<R: RAL> BindGroupManager<R> {
   pub fn new() -> Self {
     Self {
       storage: Arena::new(),
@@ -87,7 +87,7 @@ impl<R: RALBackend> BindGroupManager<R> {
   }
 }
 
-pub trait BindgroupStorageTrait<R: RALBackend>: Any {
+pub trait BindgroupStorageTrait<R: RAL>: Any {
   fn maintain_gpu(&mut self, renderer: &R::Renderer, resources: &ShaderBindableResourceManager<R>);
   fn get_gpu(&self) -> &R::BindGroup;
   fn as_any(&self) -> &dyn Any;
@@ -102,7 +102,7 @@ pub trait BindgroupStorageTrait<R: RALBackend>: Any {
   );
 }
 
-impl<R: RALBackend, T: BindGroupCreator<R>> BindgroupStorageTrait<R> for BindgroupPair<R, T> {
+impl<R: RAL, T: BindGroupCreator<R>> BindgroupStorageTrait<R> for BindgroupPair<R, T> {
   fn maintain_gpu<'a>(
     &mut self,
     renderer: &R::Renderer,
@@ -137,12 +137,12 @@ impl<R: RALBackend, T: BindGroupCreator<R>> BindgroupStorageTrait<R> for Bindgro
   }
 }
 
-pub struct BindgroupPair<R: RALBackend, T: BindGroupProvider<R>> {
+pub struct BindgroupPair<R: RAL, T: BindGroupProvider<R>> {
   data: T::Instance,
   gpu: Option<R::BindGroup>,
 }
 
-impl<R: RALBackend, T: BindGroupProvider<R>> BindgroupPair<R, T> {
+impl<R: RAL, T: BindGroupProvider<R>> BindgroupPair<R, T> {
   fn update(&mut self) -> &mut T::Instance {
     &mut self.data
   }

@@ -76,8 +76,8 @@ export class Viewer {
         return new SceneNode(this.scene.create_new_node(), this);
     }
 
-    createRenderObject(geometry: Geometry, shading: Shading<any>): RenderObject {
-        return new RenderObject(this.scene.create_render_object(geometry.handle, shading.handle), this)
+    createDrawcall(geometry: Geometry, shading: Shading<any>): Drawcall {
+        return new Drawcall(this.scene.create_drawcall(geometry.handle, shading.handle), this)
     }
 }
 
@@ -85,7 +85,7 @@ export class SceneNode extends ViewerResource {
 
     private parent: Option<SceneNode> = null;
     private children: SceneNode[] = [];
-    renderObjects: RenderObject[] = [];
+    drawcalls: Drawcall[] = [];
 
     get transform() {
         return sliceWASMArrayF32(this.viewer.scene.scene_node_local_matrix_ptr(this.handle), 16);
@@ -108,5 +108,5 @@ export class SceneNode extends ViewerResource {
     }
 }
 
-export class RenderObject extends ViewerResource {
+export class Drawcall extends ViewerResource {
 }

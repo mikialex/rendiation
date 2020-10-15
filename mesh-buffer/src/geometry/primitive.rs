@@ -77,7 +77,7 @@ impl<T: Positioned3D> PrimitiveData<T> for Point<T> {
   }
 }
 
-pub trait PrimitiveTopology<T: Positioned3D> {
+pub trait PrimitiveTopology<T: Positioned3D>: 'static {
   type Primitive: PrimitiveData<T>;
   const STRIDE: usize;
 }
