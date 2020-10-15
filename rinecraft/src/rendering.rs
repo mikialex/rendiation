@@ -39,6 +39,17 @@ impl SceneRenderSource<WebGPU, DefaultSceneBackend> for DefaultContentProvider {
   }
 }
 
+impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
+  fn get_source(
+    &mut self,
+    key: RinecraftSourceType,
+    _: &RenderTargetPool<DefaultRenderGraphBackend>,
+    _: &mut SceneDrawcallList<WebGPU>,
+  ) {
+    todo!()
+  }
+}
+
 struct DefaultRenderGraphBackend;
 
 impl RenderGraphBackend for DefaultRenderGraphBackend {
@@ -53,17 +64,6 @@ impl RenderGraphBackend for DefaultRenderGraphBackend {
 pub enum RinecraftSourceType {
   Main,
   Copier,
-}
-
-impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
-  fn get_source(
-    &mut self,
-    key: RinecraftSourceType,
-    _: &RenderTargetPool<DefaultRenderGraphBackend>,
-    _: &mut SceneDrawcallList<WebGPU>,
-  ) {
-    todo!()
-  }
 }
 
 impl RinecraftRenderer {

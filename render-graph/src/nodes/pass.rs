@@ -85,6 +85,12 @@ impl<T: RenderGraphBackend> PassNodeData<T> {
 
     let pass_data = graph.get_node_data_unwrap::<PassNodeData<_>>(handle);
 
+    // todo
+    // pass_data
+    //   .immediate_content_to_render
+    //   .iter()
+    //   .for_each(|c| c.prepare(renderer, resource));
+
     let pass_builder = (pass_data.pass_op_modifier)(pass_builder);
 
     let mut render_pass =
@@ -101,6 +107,11 @@ impl<T: RenderGraphBackend> PassNodeData<T> {
       c.render_pass(&mut render_pass, content_provider);
       pool.store(n, c)
     });
+
+    // pass_data
+    //   .immediate_content_to_render
+    //   .iter()
+    //   .for_each(|c| c.render(&mut render_pass, resource));
 
     <T::Graphics as RenderGraphGraphicsBackend>::end_render_pass(renderer, render_pass);
 
