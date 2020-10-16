@@ -163,9 +163,10 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
     index_source: &Vec<usize>,
   ) -> ((B, Range<usize>), (B, Range<usize>)) {
     // step 1, update pre_partition_check_cache
+    let partition_count = self.pre_partition_check_count;
     let range = parent_node.bounding.get_unit_range_by_axis(split);
     let range_len = range.end - range.start;
-    let step = range_len / self.pre_partition_check_count as f32;
+    let step = range_len / partition_count as f32;
 
     let primitive_range = &parent_node.primitive_range;
     let mut primitive_checked_offset = primitive_range.start;
@@ -175,7 +176,14 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
       .iter_mut()
       .enumerate()
       .for_each(|(i, p)| {
-        // todo last group pre exit
+        if i == partition_count - 1 {
+          p.bounding = bounding_from_build_source(
+            &index_source,
+            &build_source,
+            primitive_checked_offset..primitive_range.end,
+          );
+          p.primitive_range = primitive_checked_offset..primitive_range.end;
+        }
 
         let extent_largest = range.start + step * (i + 1) as f32;
         let mut exceed = false;
