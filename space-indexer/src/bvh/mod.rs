@@ -3,6 +3,8 @@ mod node;
 mod strategy;
 mod traverse;
 
+pub mod test;
+
 pub use node::*;
 use std::{cmp::Ordering, iter::FromIterator, ops::Range};
 pub use strategy::*;

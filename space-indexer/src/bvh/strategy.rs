@@ -93,7 +93,7 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
     index_source: &Vec<usize>,
   ) -> ((B, Range<usize>), (B, Range<usize>)) {
     let range = parent_node.primitive_range.clone();
-    let middle = (range.end - range.start) / 2;
+    let middle = (range.end + range.start) / 2;
     let left_range = range.start..middle;
     let right_range = middle..range.end;
 
