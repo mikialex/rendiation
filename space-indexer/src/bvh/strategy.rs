@@ -104,7 +104,7 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
   }
 }
 
-pub trait SAHBounding: BVHBounding {
+pub trait SAHBounding: BVHBounding + Default {
   fn get_surface_heuristic(&self) -> f32;
   fn get_unit_from_center_by_axis(center: &Self::CenterType, axis: Self::AxisType) -> f32;
   fn get_unit_range_by_axis(&self, split: Self::AxisType) -> Range<f32>;
@@ -119,7 +119,7 @@ impl<B: SAHBounding> SAH<B> {
   pub fn new(pre_partition_check_count: usize) -> Self {
     Self {
       pre_partition_check_count,
-      pre_partition: Vec::with_capacity(pre_partition_check_count),
+      pre_partition: vec![SAHPrePartitionCache::default(); pre_partition_check_count],
     }
   }
   fn group_box(&self, range: Range<usize>) -> B {
@@ -137,6 +137,15 @@ impl<B: SAHBounding> SAH<B> {
 struct SAHPrePartitionCache<B: SAHBounding> {
   bounding: B,
   primitive_range: Range<usize>,
+}
+
+impl<B: SAHBounding> Default for SAHPrePartitionCache<B> {
+  fn default() -> Self {
+    Self {
+      bounding: B::default(),
+      primitive_range: 0..0,
+    }
+  }
 }
 
 impl<B: SAHBounding> SAHPrePartitionCache<B> {
@@ -166,15 +175,21 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
       .iter_mut()
       .enumerate()
       .for_each(|(i, p)| {
+        // todo last group pre exit
+
         let extent_largest = range.start + step * (i + 1) as f32;
         let mut exceed = false;
         let start_primitive_range = primitive_checked_offset;
 
-        while exceed || primitive_checked_offset == primitive_range.end {
+        while !exceed && primitive_checked_offset < primitive_range.end {
           let build_primitive = index_source[primitive_checked_offset];
           exceed = B::get_unit_from_center_by_axis(&build_source[build_primitive].center, split)
-            < extent_largest;
+            > extent_largest;
           primitive_checked_offset += 1;
+        }
+
+        if exceed {
+          primitive_checked_offset -= 1;
         }
 
         p.bounding = bounding_from_build_source(
@@ -190,6 +205,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
     let mut left = self.pre_partition[0].clone(); // just need a initial value;
     let mut right = left.clone(); // ditto
     right.primitive_range = primitive_range.clone();
+    left.primitive_range.end = left.primitive_range.start;
 
     let mut best_cost = std::f32::MAX;
     let mut best_left = left.clone(); // ditto

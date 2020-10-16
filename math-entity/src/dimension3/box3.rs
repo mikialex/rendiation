@@ -5,6 +5,12 @@ use std::iter::FromIterator;
 
 pub type Box3 = AABB<Vec3<f32>>;
 
+impl Default for Box3 {
+  fn default() -> Self {
+    Self::empty()
+  }
+}
+
 impl Box3 {
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
