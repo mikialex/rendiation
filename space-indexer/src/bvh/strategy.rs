@@ -183,6 +183,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
             primitive_checked_offset..primitive_range.end,
           );
           p.primitive_range = primitive_checked_offset..primitive_range.end;
+          return;
         }
 
         let extent_largest = range.start + step * (i + 1) as f32;

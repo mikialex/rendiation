@@ -4,7 +4,7 @@ use space_indexer::{
 };
 
 fn criterion_benchmark(c: &mut Criterion) {
-  let boxes = generate_boxes_in_space(black_box(20000), black_box(1000.), black_box(1.));
+  let boxes = generate_boxes_in_space(black_box(20000), black_box(10000.), black_box(1.));
 
   c.bench_function("balance bvh build perf", |b| {
     b.iter(|| {
