@@ -1,8 +1,6 @@
 use rendiation_math_entity::Box3;
 
-use crate::utils::*;
-
-use super::{BVHBuildStrategy, BVHOption, BalanceTree, FlattenBVH, SAH};
+use super::{BVHBuildStrategy, BVHOption, FlattenBVH};
 
 pub fn bvh_build<S: BVHBuildStrategy<Box3>>(
   boxes: &Vec<Box3>,
@@ -14,6 +12,8 @@ pub fn bvh_build<S: BVHBuildStrategy<Box3>>(
 
 #[test]
 fn test_bvh_build() {
+  use super::{BalanceTree, SAH};
+  use crate::utils::*;
   let boxes = generate_boxes_in_space(10000, 1000., 1.);
   bvh_build(
     &boxes,
