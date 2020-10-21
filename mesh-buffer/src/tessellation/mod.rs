@@ -1,7 +1,9 @@
 use crate::vertex::Vertex;
 
 pub mod plane;
+pub use plane::*;
 pub mod sphere;
+pub use sphere::*;
 
 pub trait IndexedBufferTessellator<T = Vertex> {
   type TessellationParameter;
@@ -13,6 +15,6 @@ pub trait BufferTessellator<T = Vertex> {
   fn create_mesh(&self, p: &Self::TessellationParameter) -> Vec<T>;
 }
 
-pub trait IndexedGeometryBuilder<T = Vertex>{
+pub trait IndexedGeometryBuilder<T = Vertex> {
   fn add_vertex(&mut self, v: T) -> &mut Self;
 }
