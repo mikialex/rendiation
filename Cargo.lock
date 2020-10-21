@@ -1425,6 +1425,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "nyxt-viewer"
+version = "0.1.0"
+dependencies = [
+ "arena 0.0.1",
+ "arena-tree 0.0.1",
+ "js-sys 0.3.39 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rendiation-math 0.1.0",
+ "rendiation-math-entity 0.1.0",
+ "rendiation-mesh-buffer 0.1.0",
+ "rendiation-ral 0.1.0",
+ "rendiation-render-entity 0.1.0",
+ "rendiation-rendergraph 0.0.1",
+ "rendiation-scenegraph 0.1.0",
+ "rendiation-webgl 0.1.0",
+ "rendiation-webgpu 0.1.0",
+ "wasm-bindgen 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "objc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

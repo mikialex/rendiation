@@ -1,0 +1,30 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+name = "nyxt-viewer"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+webgpu = ["rendiation-webgpu", "rendiation-mesh-buffer/webgpu"]
+
+[dependencies]
+rendiation-math = {path = "../math"}
+rendiation-math-entity = {path = "../math-entity"}
+rendiation-mesh-buffer = {path = "../mesh-buffer"}
+rendiation-ral = {path = "../ral"}
+rendiation-render-entity = {path = "../render-entity"}
+
+js-sys = "0.3.39"
+wasm-bindgen = {version = "0.2.62"}
+
+rendiation-rendergraph = {path = "../render-graph"}
+rendiation-scenegraph = {path = "../scene-graph"}
+
+rendiation-webgl = {path = "../webgl"}
+rendiation-webgpu = {path = "../webgpu", optional = true}
+
+arena = {path = "../utils/arena"}
+arena-tree = {path = "../utils/arena-tree"}
