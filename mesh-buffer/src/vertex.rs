@@ -17,6 +17,8 @@ pub struct Vertex {
 }
 
 impl<T: RAL> GeometryProvider<T> for Vertex {}
+unsafe impl bytemuck::Zeroable for Vertex {}
+unsafe impl bytemuck::Pod for Vertex {}
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 pub struct HashableVertex {

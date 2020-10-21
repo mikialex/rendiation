@@ -5,7 +5,7 @@ use crate::{
   util::CameraGPU,
 };
 use rendiation_math::{Vec3, Vec4};
-use rendiation_mesh_buffer::{geometry::IndexedGeometry, vertex::Vertex, wgpu::as_bytes};
+use rendiation_mesh_buffer::{geometry::IndexedGeometry, vertex::Vertex};
 use rendiation_scenegraph::*;
 use rendiation_shader_library::fog::FogData;
 use rendiation_webgpu::*;

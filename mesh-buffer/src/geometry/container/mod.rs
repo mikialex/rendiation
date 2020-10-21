@@ -14,8 +14,6 @@ use rendiation_ral::{
   RAL,
 };
 
-use crate::wgpu::as_bytes;
-
 use super::PrimitiveTopology;
 use rendiation_math_entity::Positioned3D;
 use std::{iter::FromIterator, ops::Index};
@@ -43,7 +41,7 @@ impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
 impl<R, T> RALGeometryDataContainer<T, R> for Vec<T>
 where
   R: RAL,
-  T: GeometryProvider<R> + Clone + RALVertexBufferDescriptorProvider,
+  T: GeometryProvider<R> + Clone + RALVertexBufferDescriptorProvider + bytemuck::Pod,
 {
   fn create_gpu(
     &self,
@@ -52,7 +50,8 @@ where
     instance: &mut GeometryResourceInstance<R, T>,
   ) {
     let layout = T::create_descriptor();
-    let vertex_buffer = R::create_vertex_buffer(renderer, as_bytes(self.as_ref()), layout);
+    let vertex_buffer =
+      R::create_vertex_buffer(renderer, bytemuck::cast_slice(self.as_ref()), layout);
     instance.vertex_buffers = vec![resources.add_vertex_buffer(vertex_buffer).index()];
   }
 }

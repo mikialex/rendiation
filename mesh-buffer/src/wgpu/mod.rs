@@ -1,5 +1,6 @@
 use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
+use bytemuck::*;
 use once_cell::sync::Lazy;
 use rendiation_math_entity::Positioned3D;
 use rendiation_ral::{
@@ -54,7 +55,7 @@ where
     renderer: &mut R::Renderer,
   ) -> Self::Instance {
     let mut instance = GeometryResourceInstance::new();
-    let index_buffer = R::create_index_buffer(renderer, as_bytes(&self.index));
+    let index_buffer = R::create_index_buffer(renderer, cast_slice(&self.index));
     instance.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
 
     self.data.create_gpu(resources, renderer, &mut instance);
@@ -65,7 +66,7 @@ where
 
 impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D + GeometryProvider<WebGPU>,
+  V: Positioned3D + GeometryProvider<WebGPU> + Pod,
   T: PrimitiveTopology<V> + WGPUPrimitiveTopology,
   U: GeometryDataContainer<V>,
 {
@@ -87,10 +88,10 @@ where
     resource: &mut ResourceManager<WebGPU>,
   ) -> GeometryResourceInstance<WebGPU, Self::Geometry> {
     let mut instance = GeometryResourceInstance::new();
-    let index_buffer = WGPUBuffer::new(renderer, as_bytes(&self.index), wgpu::BufferUsage::INDEX);
+    let index_buffer = WGPUBuffer::new(renderer, cast_slice(&self.index), wgpu::BufferUsage::INDEX);
     let vertex_buffer = WGPUBuffer::new(
       renderer,
-      as_bytes(self.data.as_ref()),
+      cast_slice(self.data.as_ref()),
       wgpu::BufferUsage::VERTEX,
     ); // this is not ok todo!
     instance.index_buffer = Some(resource.add_index_buffer(index_buffer).index());
@@ -119,15 +120,6 @@ impl WGPUPrimitiveTopology for PointList {
   const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::PointList;
 }
 
-pub fn as_bytes<T>(vec: &[T]) -> &[u8] {
-  unsafe {
-    std::slice::from_raw_parts(
-      (vec as *const [T]) as *const u8,
-      ::std::mem::size_of::<T>() * vec.len(),
-    )
-  }
-}
-
 pub struct GPUGeometry<V: Positioned3D = Vertex, T: PrimitiveTopology<V> = TriangleList> {
   geometry: IndexedGeometry<V, T>,
   data_changed: bool,
@@ -154,7 +146,7 @@ impl<V: Positioned3D, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)> for GPUG
   }
 }
 
-impl<V: Positioned3D, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
+impl<V: Positioned3D + Pod, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
   pub fn mutate_data(&mut self) -> &mut Vec<V> {
     self.data_changed = true;
     &mut self.geometry.data
@@ -168,24 +160,24 @@ impl<V: Positioned3D, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
   pub fn update_gpu(&mut self, renderer: &mut WGPURenderer) {
     if let Some(gpu_data) = &mut self.gpu_data {
       if self.data_changed {
-        gpu_data[0].update(renderer, as_bytes(&self.geometry.data));
+        gpu_data[0].update(renderer, cast_slice(&self.geometry.data));
       }
     } else {
       self.gpu_data = Some([WGPUBuffer::new(
         renderer,
-        as_bytes(&self.geometry.data),
+        cast_slice(&self.geometry.data),
         wgpu::BufferUsage::VERTEX,
       )])
     }
 
     if let Some(gpu_index) = &mut self.gpu_index {
       if self.index_changed {
-        gpu_index.update(renderer, as_bytes(&self.geometry.index));
+        gpu_index.update(renderer, cast_slice(&self.geometry.index));
       }
     } else {
       self.gpu_index = Some(WGPUBuffer::new(
         renderer,
-        as_bytes(&self.geometry.index),
+        cast_slice(&self.geometry.index),
         wgpu::BufferUsage::INDEX,
       ))
     }
