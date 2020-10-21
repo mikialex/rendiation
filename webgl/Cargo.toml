@@ -1,18 +1,17 @@
 [package]
-name = "rendiation-webgl"
-version = "0.1.0"
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
+name = "rendiation-webgl"
+version = "0.1.0"
 
 [dependencies]
-wasm-bindgen = { version = "0.2.62" }
-js-sys = "0.3.39"
+js-sys = "0.3.45"
+wasm-bindgen = {version = "0.2.68"}
 
-rendiation-ral = { path = "../ral" }
-rendiation-math = { path = "../math" }
+rendiation-math = {path = "../math"}
+rendiation-ral = {path = "../ral"}
 
 [dependencies.web-sys]
-version = "0.3.39"
 features = [
   'Document',
   'Element',
@@ -26,3 +25,4 @@ features = [
   'WebGlFramebuffer',
   'Window',
 ]
+version = "0.3.39"

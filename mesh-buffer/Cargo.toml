@@ -24,4 +24,4 @@ rendiation-shadergraph = {path = "../shader-graph", optional = true}
 rendiation-shadergraph-derives = {path = "../shader-graph-derives", optional = true}
 
 rendiation-webgl = {path = "../webgl"}
-wasm-bindgen = {version = "0.2.62"}
+wasm-bindgen = {version = "0.2.68"}

@@ -15,8 +15,8 @@ rendiation-ral = {path = "../ral"}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-scenegraph = {path = "../scene-graph"}
 
-js-sys = "0.3.39"
-wasm-bindgen = {version = "0.2.62"}
+js-sys = "0.3.45"
+wasm-bindgen = {version = "0.2.68"}
 
 rendiation-webgl = {path = "../webgl"}
 # rendiation-webgpu = {path = "../webgpu"}
