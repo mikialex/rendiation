@@ -1,5 +1,5 @@
-import { WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry, WASMScene, WebGLRenderer } from "../../pkg/rendiation_scenegraph";
-import * as wasm from "../../pkg/rendiation_scenegraph_bg.wasm";
+import { WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry, WASMScene, WebGLRenderer } from "../../pkg/nyxt_viewer";
+import * as wasm from "../../pkg/nyxt_viewer_bg.wasm";
 
 
 let F32WasmMemoryViewCache = null;

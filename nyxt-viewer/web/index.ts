@@ -9,7 +9,7 @@
 // intoWasmScene();
 import './declare'
 
-import { WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry } from '../pkg/rendiation_scenegraph';
+import { WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry } from '../pkg/nyxt_viewer';
 import { IndexBuffer, Viewer } from './src/scene';
 
 
