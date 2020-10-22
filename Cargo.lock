@@ -2176,11 +2176,9 @@ dependencies = [
  "rendiation-ral",
  "rendiation-shadergraph",
  "rendiation-shadergraph-derives",
- "rendiation-webgl",
  "rendiation-webgpu",
  "soa_derive",
  "space-indexer",
- "wasm-bindgen",
 ]
 
 [[package]]

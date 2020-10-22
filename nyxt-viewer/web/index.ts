@@ -21,9 +21,9 @@ console.log(node)
 console.log(node.transform)
 
 const index = new WASMAttributeBufferU16(new Uint16Array([1, 0, 0]), 3);
-const index_ = new IndexBuffer(viewer, index);
+const index_buffer = new IndexBuffer(viewer, index);
 
 const position = new WASMAttributeBufferF32(new Float32Array([1, 2, 3]), 3);
 const normal = new WASMAttributeBufferF32(new Float32Array([1, 0, 0]), 3);
 
-// const geometry = new WASMGeometry(index, position);
+const geometry = new WASMGeometry(index_buffer, position);

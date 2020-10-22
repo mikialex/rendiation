@@ -1,6 +1,5 @@
 use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
-use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
 
 use rendiation_scenegraph::default_impl::*;
@@ -8,6 +7,9 @@ use rendiation_scenegraph::*;
 
 use rendiation_webgl::{WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
+
+mod geometry;
+use geometry::*;
 
 #[wasm_bindgen]
 pub struct WASMScene {
