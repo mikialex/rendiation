@@ -4,8 +4,8 @@ edition = "2018"
 name = "nyxt-viewer"
 version = "0.1.0"
 
-# [package.metadata.wasm-pack.profile.release]
-# wasm-opt = false
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -18,6 +18,7 @@ rendiation-ral = {path = "../ral"}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-scenegraph = {path = "../scene-graph"}
 
+console_error_panic_hook = "0.1.6"
 js-sys = "0.3.45"
 wasm-bindgen = {version = "0.2.68"}
 

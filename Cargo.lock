@@ -333,6 +333,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8d976903543e0c48546a91908f21588a680a8c8f984df9a5d69feccb2b2a211"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "copyless"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1371,20 +1381,6 @@ dependencies = [
 [[package]]
 name = "naga"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0873deb76cf44b7454fba7b2ba6a89d3de70c08aceffd2c489379b3d9d08e661"
-dependencies = [
- "bitflags",
- "fxhash",
- "log",
- "num-traits 0.2.12",
- "spirv_headers",
- "thiserror",
-]
-
-[[package]]
-name = "naga"
-version = "0.2.0"
 source = "git+https://github.com/gfx-rs/naga.git?rev=2b268c926c6dff5e366226a9502c06725107489d#2b268c926c6dff5e366226a9502c06725107489d"
 dependencies = [
  "bitflags",
@@ -1392,6 +1388,20 @@ dependencies = [
  "log",
  "num-traits 0.2.12",
  "pomelo",
+ "spirv_headers",
+ "thiserror",
+]
+
+[[package]]
+name = "naga"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0873deb76cf44b7454fba7b2ba6a89d3de70c08aceffd2c489379b3d9d08e661"
+dependencies = [
+ "bitflags",
+ "fxhash",
+ "log",
+ "num-traits 0.2.12",
  "spirv_headers",
  "thiserror",
 ]
@@ -1586,6 +1596,7 @@ version = "0.1.0"
 dependencies = [
  "arena",
  "arena-tree",
+ "console_error_panic_hook",
  "js-sys",
  "rendiation-math",
  "rendiation-math-entity",
