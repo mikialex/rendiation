@@ -18,6 +18,7 @@ rendiation-ral = {path = "../ral"}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-scenegraph = {path = "../scene-graph"}
 
+bytemuck = "1.4.1"
 console_error_panic_hook = "0.1.6"
 js-sys = "0.3.45"
 wasm-bindgen = {version = "0.2.68"}

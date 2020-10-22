@@ -2,7 +2,6 @@ use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
 use rendiation_mesh_buffer::wasm::{WASMAttributeBufferF32, WASMAttributeBufferU16, WASMGeometry};
 use rendiation_ral::*;
-use rendiation_render_entity::PerspectiveProjection;
 
 use rendiation_scenegraph::default_impl::*;
 use rendiation_scenegraph::*;
@@ -14,7 +13,6 @@ use wasm_bindgen::prelude::*;
 pub struct WASMScene {
   resource: ResourceManager<WebGL>,
   scene: Scene<WebGL>,
-  _camera: PerspectiveProjection,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -27,7 +25,6 @@ impl WASMScene {
     Self {
       resource: ResourceManager::new(),
       scene: Scene::new(),
-      _camera: PerspectiveProjection::default(),
       handle_pool: Vec::new(),
       handle_pool_empty: Vec::new(),
     }
@@ -130,36 +127,47 @@ impl WASMScene {
   #[wasm_bindgen]
   pub fn add_index_buffer(
     &mut self,
-    _data: &WASMAttributeBufferU16,
-    _renderer: &mut WebGLRenderer,
+    data: &WASMAttributeBufferU16,
+    renderer: &mut WebGLRenderer,
   ) -> usize {
-    todo!()
-    // let index_buffer = WebGLRenderer::create_index_buffer(renderer, todo!());
-    // let h = self.resource.add_index_buffer(index_buffer).index();
-    // self.save_handle(h)
+    let index_buffer =
+      WebGL::create_index_buffer(renderer, bytemuck::cast_slice(data.buffer.as_slice()));
+    let h = self.resource.add_index_buffer(index_buffer).index();
+    self.save_handle(h)
   }
 
   #[wasm_bindgen]
   pub fn delete_index_buffer(&mut self, h: usize) {
     self.resource.delete_index_buffer(self.get_handle(h).into());
-    // self.delete_handle(h);
+    self.free_handle(h);
   }
 
   #[wasm_bindgen]
   pub fn add_vertex_buffer(
     &mut self,
-    _data: &WASMAttributeBufferF32,
-    _renderer: &mut WebGLRenderer,
+    data: &WASMAttributeBufferF32,
+    renderer: &mut WebGLRenderer,
+    // WebGLAttributeBufferFormat => RALVertexAttributeFormat
   ) -> usize {
-    todo!()
-    // let index_buffer = WebGLRenderer::create_vertex_buffer(renderer, unsafe { todo!() });
-    // let h = self.resource.add_index_buffer(index_buffer).index();
-    // self.save_handle(h)
+    let vertex_buffer = WebGL::create_vertex_buffer(
+      renderer,
+      bytemuck::cast_slice(data.buffer.as_slice()),
+      RALVertexBufferDescriptor {
+        byte_stride: 4,
+        attributes: vec![RALVertexAttributeBufferDescriptor {
+          byte_offset: 0,
+          format: RALVertexAttributeFormat::Float,
+        }],
+      },
+    );
+    let h = self.resource.add_vertex_buffer(vertex_buffer).index();
+    self.save_handle(h)
   }
 
   #[wasm_bindgen]
   pub fn delete_vertex_buffer(&mut self, h: usize) {
-    self.resource.delete_index_buffer(self.get_handle(h).into())
+    self.resource.delete_index_buffer(self.get_handle(h).into());
+    self.free_handle(h);
   }
 
   #[wasm_bindgen]
@@ -169,4 +177,10 @@ impl WASMScene {
       .add_geometry(geometry.to_geometry_resource_instance());
     self.save_handle(h)
   }
+}
+
+pub enum WebGLAttributeBufferFormat {
+  Float,
+  Float2,
+  Float3,
 }
