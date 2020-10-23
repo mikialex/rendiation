@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, rc::Weak};
 
 use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
@@ -42,19 +42,27 @@ pub type GFX = WebGL;
 // }
 
 #[wasm_bindgen]
-pub struct WASMScene {
+pub struct NyxtViewer {
+  renderer: WebGLRenderer,
   resource: Rc<RefCell<ResourceManager<GFX>>>,
   scene: Scene<GFX>,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
 
+impl NyxtViewer {
+  pub fn make_resource(&self) -> Weak<RefCell<ResourceManager<GFX>>> {
+    Rc::downgrade(&self.resource)
+  }
+}
+
 #[wasm_bindgen]
-impl WASMScene {
+impl NyxtViewer {
   #[wasm_bindgen(constructor)]
-  pub fn new() -> Self {
+  pub fn new(canvas: HtmlCanvasElement) -> Self {
     console_error_panic_hook::set_once();
     Self {
+      renderer: WebGLRenderer::new(canvas),
       resource: Rc::new(RefCell::new(ResourceManager::new())),
       scene: Scene::new(),
       handle_pool: Vec::new(),
@@ -162,13 +170,11 @@ impl WASMScene {
   }
 
   #[wasm_bindgen]
-  pub fn add_index_buffer(
-    &mut self,
-    data: &WASMAttributeBufferU16,
-    renderer: &mut WebGLRenderer,
-  ) -> usize {
-    let index_buffer =
-      GFX::create_index_buffer(renderer, bytemuck::cast_slice(data.buffer.as_slice()));
+  pub fn add_index_buffer(&mut self, data: &AttributeBufferU16WASM) -> usize {
+    let index_buffer = GFX::create_index_buffer(
+      &mut self.renderer,
+      bytemuck::cast_slice(data.buffer.as_slice()),
+    );
     let h = self.mutate_resource(|r| r.add_index_buffer(index_buffer).index());
     self.save_handle(h)
   }
@@ -182,12 +188,11 @@ impl WASMScene {
   #[wasm_bindgen]
   pub fn add_vertex_buffer(
     &mut self,
-    data: &WASMAttributeBufferF32,
-    renderer: &mut WebGLRenderer,
+    data: &AttributeBufferF32WASM,
     // WebGLAttributeBufferFormat => RALVertexAttributeFormat
   ) -> usize {
     let vertex_buffer = GFX::create_vertex_buffer(
-      renderer,
+      &mut self.renderer,
       bytemuck::cast_slice(data.buffer.as_slice()),
       RALVertexBufferDescriptor {
         byte_stride: 4,
