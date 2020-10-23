@@ -22,6 +22,9 @@ pub struct Mat4<T> {
   pub d4: T,
 }
 
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat4<T> {}
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat4<T> {}
+
 impl<T> Mul<Mat4<T>> for Vec3<T>
 where
   T: Copy + Add<Output = T> + Div<Output = T> + Mul<Output = T> + One,

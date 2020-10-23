@@ -18,7 +18,7 @@ const canvas = document.getElementById("wasm") as HTMLCanvasElement
 const viewer = new NyxtViewer(canvas);
 const node = viewer.create_node();
 console.log(node)
-// console.log(node.transform)
+console.log(node.local_matrix)
 
 const index = new AttributeBufferU16WASM(new Uint16Array([1, 0, 0]), 3);
 const index_buffer = new IndexBufferWASM(viewer, index);

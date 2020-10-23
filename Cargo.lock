@@ -2142,6 +2142,7 @@ dependencies = [
 name = "rendiation-math"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "paste",
  "wasm-bindgen",
 ]
