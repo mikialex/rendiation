@@ -8,3 +8,5 @@ swizzle = ["paste"]
 
 [dependencies]
 paste = { version = "0.1", optional = true }
+
+wasm-bindgen = {version = "0.2.68"}

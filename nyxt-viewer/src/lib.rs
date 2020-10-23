@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use arena::{AnyHandle, Handle};
 use rendiation_math::Mat4;
 use rendiation_ral::*;
@@ -11,10 +13,38 @@ use wasm_bindgen::prelude::*;
 mod geometry;
 use geometry::*;
 
+pub type GFX = WebGL;
+
+// #[wasm_bindgen]
+// #[derive(Debug, Copy, Clone)]
+// pub struct Fog {
+//   pub data: f32,
+// }
+
+// #[wasm_bindgen]
+// pub struct FogWASM {
+//   index: usize,
+//   resource: Weak<RefCell<ResourceManager<GFX>>>,
+// }
+
+// #[wasm_bindgen]
+// pub struct BlockShadingParamGroupWASM {
+//   index: usize,
+//   resource: Weak<RefCell<ResourceManager<GFX>>>,
+// }
+
+// // create WASMWrappedItem_Fog from WASMScene by default value
+
+// #[wasm_bindgen]
+// impl BlockShadingParamGroupWASM {
+//   #[wasm_bindgen(setter)]
+//   pub fn set_fog(&mut self, fog: &FogWASM) {}
+// }
+
 #[wasm_bindgen]
 pub struct WASMScene {
-  resource: ResourceManager<WebGL>,
-  scene: Scene<WebGL>,
+  resource: Rc<RefCell<ResourceManager<GFX>>>,
+  scene: Scene<GFX>,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -25,11 +55,16 @@ impl WASMScene {
   pub fn new() -> Self {
     console_error_panic_hook::set_once();
     Self {
-      resource: ResourceManager::new(),
+      resource: Rc::new(RefCell::new(ResourceManager::new())),
       scene: Scene::new(),
       handle_pool: Vec::new(),
       handle_pool_empty: Vec::new(),
     }
+  }
+
+  fn mutate_resource<T>(&self, mutator: impl FnOnce(&mut ResourceManager<GFX>) -> T) -> T {
+    let mut resource = self.resource.borrow_mut();
+    mutator(&mut resource)
   }
 
   fn save_handle<T>(&mut self, h: Handle<T>) -> usize {
@@ -133,14 +168,14 @@ impl WASMScene {
     renderer: &mut WebGLRenderer,
   ) -> usize {
     let index_buffer =
-      WebGL::create_index_buffer(renderer, bytemuck::cast_slice(data.buffer.as_slice()));
-    let h = self.resource.add_index_buffer(index_buffer).index();
+      GFX::create_index_buffer(renderer, bytemuck::cast_slice(data.buffer.as_slice()));
+    let h = self.mutate_resource(|r| r.add_index_buffer(index_buffer).index());
     self.save_handle(h)
   }
 
   #[wasm_bindgen]
   pub fn delete_index_buffer(&mut self, h: usize) {
-    self.resource.delete_index_buffer(self.get_handle(h).into());
+    self.mutate_resource(|r| r.delete_index_buffer(self.get_handle(h).into()));
     self.free_handle(h);
   }
 
@@ -151,7 +186,7 @@ impl WASMScene {
     renderer: &mut WebGLRenderer,
     // WebGLAttributeBufferFormat => RALVertexAttributeFormat
   ) -> usize {
-    let vertex_buffer = WebGL::create_vertex_buffer(
+    let vertex_buffer = GFX::create_vertex_buffer(
       renderer,
       bytemuck::cast_slice(data.buffer.as_slice()),
       RALVertexBufferDescriptor {
@@ -162,21 +197,19 @@ impl WASMScene {
         }],
       },
     );
-    let h = self.resource.add_vertex_buffer(vertex_buffer).index();
+    let h = self.mutate_resource(|r| r.add_vertex_buffer(vertex_buffer).index());
     self.save_handle(h)
   }
 
   #[wasm_bindgen]
   pub fn delete_vertex_buffer(&mut self, h: usize) {
-    self.resource.delete_index_buffer(self.get_handle(h).into());
+    self.mutate_resource(|r| r.delete_vertex_buffer(self.get_handle(h).into()));
     self.free_handle(h);
   }
 
   #[wasm_bindgen]
   pub fn add_geometry(&mut self, geometry: &WASMGeometry) -> usize {
-    let h = self
-      .resource
-      .add_geometry(geometry.to_geometry_resource_instance());
+    let h = self.mutate_resource(|r| r.add_geometry(geometry.to_geometry_resource_instance()));
     self.save_handle(h)
   }
 }

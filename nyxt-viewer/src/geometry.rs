@@ -1,6 +1,7 @@
 use rendiation_ral::{AnyGeometryProvider, GeometryResourceInstance};
-use rendiation_webgl::*;
 use wasm_bindgen::prelude::*;
+
+use crate::GFX;
 
 #[wasm_bindgen]
 pub struct WASMAttributeBufferF32 {
@@ -52,7 +53,7 @@ pub struct WASMGeometry {
 impl WASMGeometry {
   pub fn to_geometry_resource_instance(
     &self,
-  ) -> GeometryResourceInstance<WebGL, AnyGeometryProvider> {
+  ) -> GeometryResourceInstance<GFX, AnyGeometryProvider> {
     todo!()
   }
 }
