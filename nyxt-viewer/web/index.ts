@@ -16,8 +16,8 @@ import { AttributeBufferF32WASM, AttributeBufferU16WASM, WASMGeometry, NyxtViewe
 const canvas = document.getElementById("wasm") as HTMLCanvasElement
 
 const viewer = new NyxtViewer(canvas);
-// const node = viewer.createNode();
-// console.log(node)
+const node = viewer.create_node();
+console.log(node)
 // console.log(node.transform)
 
 const index = new AttributeBufferU16WASM(new Uint16Array([1, 0, 0]), 3);

@@ -11,6 +11,7 @@ use rendiation_webgl::{WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
 mod geometry;
+mod scene;
 use geometry::*;
 
 pub type GFX = WebGL;
@@ -45,7 +46,7 @@ pub type GFX = WebGL;
 pub struct NyxtViewer {
   renderer: WebGLRenderer,
   resource: Rc<RefCell<ResourceManager<GFX>>>,
-  scene: Scene<GFX>,
+  scene: Rc<RefCell<Scene<GFX>>>,
   handle_pool: Vec<AnyHandle>,
   handle_pool_empty: Vec<usize>,
 }
@@ -64,7 +65,7 @@ impl NyxtViewer {
     Self {
       renderer: WebGLRenderer::new(canvas),
       resource: Rc::new(RefCell::new(ResourceManager::new())),
-      scene: Scene::new(),
+      scene: Rc::new(RefCell::new(Scene::new())),
       handle_pool: Vec::new(),
       handle_pool_empty: Vec::new(),
     }
@@ -91,60 +92,60 @@ impl NyxtViewer {
     self.handle_pool_empty.push(h);
   }
 
-  #[wasm_bindgen]
-  pub fn scene_node_local_matrix_ptr(&mut self, handle: usize) -> *const Mat4<f32> {
-    self
-      .scene
-      .get_node(self.get_handle(handle).into())
-      .data()
-      .local_matrix
-      .as_ptr()
-  }
+  // #[wasm_bindgen]
+  // pub fn scene_node_local_matrix_ptr(&mut self, handle: usize) -> *const Mat4<f32> {
+  //   self
+  //     .scene
+  //     .get_node(self.get_handle(handle).into())
+  //     .data()
+  //     .local_matrix
+  //     .as_ptr()
+  // }
 
-  #[wasm_bindgen]
-  pub fn node_add_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
-    self.scene.node_add_child_by_handle(
-      self.get_handle(parent_handle).into(),
-      self.get_handle(child_handle).into(),
-    );
-  }
+  // #[wasm_bindgen]
+  // pub fn node_add_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
+  //   self.scene.node_add_child_by_handle(
+  //     self.get_handle(parent_handle).into(),
+  //     self.get_handle(child_handle).into(),
+  //   );
+  // }
 
-  #[wasm_bindgen]
-  pub fn node_remove_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
-    self.scene.node_remove_child_by_handle(
-      self.get_handle(parent_handle).into(),
-      self.get_handle(child_handle).into(),
-    );
-  }
+  // #[wasm_bindgen]
+  // pub fn node_remove_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
+  //   self.scene.node_remove_child_by_handle(
+  //     self.get_handle(parent_handle).into(),
+  //     self.get_handle(child_handle).into(),
+  //   );
+  // }
 
-  #[wasm_bindgen]
-  pub fn create_new_node(&mut self) -> usize {
-    let h = self.scene.nodes.create_node(SceneNodeData::new());
-    self.save_handle(h)
-  }
+  // #[wasm_bindgen]
+  // pub fn create_new_node(&mut self) -> usize {
+  //   let h = self.scene.nodes.create_node(SceneNodeData::new());
+  //   self.save_handle(h)
+  // }
 
-  #[wasm_bindgen]
-  pub fn free_node(&mut self, h: usize) {
-    let hd = self.get_handle(h).into();
-    self.scene.free_node(hd);
-    self.free_handle(h)
-  }
+  // #[wasm_bindgen]
+  // pub fn free_node(&mut self, h: usize) {
+  //   let hd = self.get_handle(h).into();
+  //   self.scene.free_node(hd);
+  //   self.free_handle(h)
+  // }
 
-  #[wasm_bindgen]
-  pub fn create_drawcall(&mut self, geometry_index: usize, shading_index: usize) -> usize {
-    let h = self
-      .scene
-      .create_drawcall::<AnyPlaceHolder, AnyGeometryProvider>(
-        self.get_handle(geometry_index).into(),
-        self.get_handle(shading_index).into(),
-      );
-    self.save_handle(h)
-  }
+  // #[wasm_bindgen]
+  // pub fn create_drawcall(&mut self, geometry_index: usize, shading_index: usize) -> usize {
+  //   let h = self
+  //     .scene
+  //     .create_drawcall::<AnyPlaceHolder, AnyGeometryProvider>(
+  //       self.get_handle(geometry_index).into(),
+  //       self.get_handle(shading_index).into(),
+  //     );
+  //   self.save_handle(h)
+  // }
 
-  #[wasm_bindgen]
-  pub fn delete_drawcall(&mut self, h: usize) {
-    self.scene.delete_drawcall(self.get_handle(h).into());
-  }
+  // #[wasm_bindgen]
+  // pub fn delete_drawcall(&mut self, h: usize) {
+  //   self.scene.delete_drawcall(self.get_handle(h).into());
+  // }
 
   #[wasm_bindgen]
   pub fn add_shading(
