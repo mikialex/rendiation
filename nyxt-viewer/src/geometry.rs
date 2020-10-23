@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Weak};
 
-use rendiation_ral::{AnyGeometryProvider, GeometryResourceInstance, ResourceManager};
+use rendiation_ral::{
+  AnyGeometryProvider, GeometryResourceInstance, IndexBufferHandle, ResourceManager, RAL,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::{NyxtViewer, GFX};
@@ -45,7 +47,7 @@ impl AttributeBufferU16WASM {
 
 #[wasm_bindgen]
 pub struct IndexBufferWASM {
-  handle: usize,
+  handle: IndexBufferHandle<GFX>,
   resource: Weak<RefCell<ResourceManager<GFX>>>,
 }
 
@@ -53,7 +55,11 @@ pub struct IndexBufferWASM {
 impl IndexBufferWASM {
   #[wasm_bindgen(constructor)]
   pub fn new(viewer: &mut NyxtViewer, buffer: &AttributeBufferU16WASM) -> Self {
-    let handle = viewer.add_index_buffer(buffer);
+    let index_buffer = GFX::create_index_buffer(
+      &mut viewer.renderer,
+      bytemuck::cast_slice(buffer.buffer.as_slice()),
+    );
+    let handle = viewer.mutate_resource(|r| r.add_index_buffer(index_buffer).index());
     Self {
       handle,
       resource: viewer.make_resource(),
@@ -108,20 +114,20 @@ impl WASMGeometry {
   }
 }
 
-#[wasm_bindgen]
-impl WASMGeometry {
-  #[wasm_bindgen(constructor)]
-  pub fn new(
-    index: Option<IndexBufferWASM>,
-    position: VertexBufferWASM,
-    normal: Option<VertexBufferWASM>,
-    uv: Option<VertexBufferWASM>,
-  ) -> Self {
-    Self {
-      index: index.map(|d| d.handle),
-      position: position.handle,
-      normal: normal.map(|d| d.handle),
-      uv: uv.map(|d| d.handle),
-    }
-  }
-}
+// #[wasm_bindgen]
+// impl WASMGeometry {
+//   #[wasm_bindgen(constructor)]
+//   pub fn new(
+//     index: Option<IndexBufferWASM>,
+//     position: VertexBufferWASM,
+//     normal: Option<VertexBufferWASM>,
+//     uv: Option<VertexBufferWASM>,
+//   ) -> Self {
+//     Self {
+//       index: index.map(|d| d.handle),
+//       position: position.handle,
+//       normal: normal.map(|d| d.handle),
+//       uv: uv.map(|d| d.handle),
+//     }
+//   }
+// }

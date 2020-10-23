@@ -9,6 +9,29 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   generated
 }
 
+fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  // todo!()
+
+  let struct_name = &input.ident;
+  let instance_name = format_ident!("{}WASM", struct_name);
+
+  quote! {
+    use nyxt::{GFX};
+
+    #[wasm_bindgen]
+    pub struct #instance_name {
+      handle: UniformHandle<GFX, #struct_name>,
+      resource: Weak<RefCell<ResourceManager<GFX>>>,
+    }
+
+    #[wasm_bindgen]
+    impl #instance_name {
+      #[wasm_bindgen]
+      pub fn
+    }
+  }
+}
+
 pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);

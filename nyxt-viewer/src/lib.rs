@@ -171,16 +171,6 @@ impl NyxtViewer {
   }
 
   #[wasm_bindgen]
-  pub fn add_index_buffer(&mut self, data: &AttributeBufferU16WASM) -> usize {
-    let index_buffer = GFX::create_index_buffer(
-      &mut self.renderer,
-      bytemuck::cast_slice(data.buffer.as_slice()),
-    );
-    let h = self.mutate_resource(|r| r.add_index_buffer(index_buffer).index());
-    self.save_handle(h)
-  }
-
-  #[wasm_bindgen]
   pub fn delete_index_buffer(&mut self, h: usize) {
     self.mutate_resource(|r| r.delete_index_buffer(self.get_handle(h).into()));
     self.free_handle(h);

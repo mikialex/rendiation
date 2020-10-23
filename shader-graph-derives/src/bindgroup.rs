@@ -14,6 +14,10 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated
 }
 
+fn derive_bindgroup_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  todo!()
+}
+
 fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);
