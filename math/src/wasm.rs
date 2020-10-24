@@ -1,11 +1,21 @@
 use wasm_bindgen::prelude::*;
 
+use crate::{Mat4, Vec2, Vec3, Vec4};
+
+pub trait WASMAbleType {
+  type Type;
+}
+
 #[wasm_bindgen]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Vec2F32WASM {
   pub x: f32,
   pub y: f32,
+}
+
+impl WASMAbleType for Vec2<f32> {
+  type Type = Vec2F32WASM;
 }
 
 unsafe impl bytemuck::Zeroable for Vec2F32WASM {}
@@ -18,6 +28,10 @@ pub struct Vec3F32WASM {
   pub x: f32,
   pub y: f32,
   pub z: f32,
+}
+
+impl WASMAbleType for Vec3<f32> {
+  type Type = Vec3F32WASM;
 }
 
 unsafe impl bytemuck::Zeroable for Vec3F32WASM {}
@@ -33,6 +47,10 @@ pub struct Vec4F32WASM {
   pub w: f32,
 }
 
+impl WASMAbleType for Vec4<f32> {
+  type Type = Vec4F32WASM;
+}
+
 unsafe impl bytemuck::Zeroable for Vec4F32WASM {}
 unsafe impl bytemuck::Pod for Vec4F32WASM {}
 
@@ -45,6 +63,10 @@ pub struct Mat4F32WASM {
 	pub b1:f32, pub b2:f32, pub b3:f32, pub b4:f32,
 	pub c1:f32, pub c2:f32, pub c3:f32, pub c4:f32,
 	pub d1:f32, pub d2:f32, pub d3:f32, pub d4:f32,
+}
+
+impl WASMAbleType for Mat4<f32> {
+  type Type = Mat4F32WASM;
 }
 
 unsafe impl bytemuck::Zeroable for Mat4F32WASM {}

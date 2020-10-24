@@ -28,11 +28,11 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
       let getter_name = format_ident!("get_{}", field_name);
       let setter_name = format_ident!("set_{}", field_name);
       quote! {
-       #[wasm_bindgen]
+       #[wasm_bindgen(getter)]
        pub fn #getter_name() -> <#ty as WASMAbleType>::Type {
          todo!()
        }
-       #[wasm_bindgen]
+       #[wasm_bindgen(setter)]
        pub fn #setter_name(&mut self, value: <#ty as WASMAbleType>::Type) {
          todo!()
        }
