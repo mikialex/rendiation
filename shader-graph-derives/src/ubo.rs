@@ -10,14 +10,37 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
 }
 
 fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  // todo!()
-
   let struct_name = &input.ident;
   let instance_name = format_ident!("{}WASM", struct_name);
+  let fields = only_named_struct_fields(input).unwrap();
+  let fields_info: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  let fields_wasm_getter_setter: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      let getter_name = format_ident!("get_{}", field_name);
+      let setter_name = format_ident!("set_{}", field_name);
+      quote! {
+       #[wasm_bindgen]
+       pub fn #getter_name() -> <#ty as WASMAbleType>::Type {
+         todo!()
+       }
+       #[wasm_bindgen]
+       pub fn #setter_name(&mut self, value: <#ty as WASMAbleType>::Type) {
+         todo!()
+       }
+      }
+    })
+    .collect();
 
   quote! {
-    use nyxt::{GFX};
-
     #[wasm_bindgen]
     pub struct #instance_name {
       inner: UBONyxtWrap<#struct_name>
@@ -25,8 +48,7 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
 
     #[wasm_bindgen]
     impl #instance_name {
-      #[wasm_bindgen]
-      pub fn i
+      #(#fields_wasm_getter_setter)*
     }
   }
 }
