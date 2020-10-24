@@ -12,6 +12,7 @@ use wasm_bindgen::prelude::*;
 
 mod geometry;
 mod scene;
+pub mod ubo;
 use geometry::*;
 
 pub type GFX = WebGL;

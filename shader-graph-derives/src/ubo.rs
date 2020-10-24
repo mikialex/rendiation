@@ -20,14 +20,13 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
 
     #[wasm_bindgen]
     pub struct #instance_name {
-      handle: UniformHandle<GFX, #struct_name>,
-      resource: Weak<RefCell<ResourceManager<GFX>>>,
+      inner: UBONyxtWrap<#struct_name>
     }
 
     #[wasm_bindgen]
     impl #instance_name {
       #[wasm_bindgen]
-      pub fn
+      pub fn i
     }
   }
 }
