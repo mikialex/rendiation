@@ -56,6 +56,7 @@ pub struct IndexBufferWASM {
   inner: NyxtViewerHandledObject<IndexBufferHandleWrap>,
 }
 
+#[derive(Copy, Clone)]
 pub struct IndexBufferHandleWrap(IndexBufferHandle<GFX>);
 
 impl NyxtViewerHandle for IndexBufferHandleWrap {
@@ -91,6 +92,7 @@ pub struct VertexBufferWASM {
   inner: NyxtViewerHandledObject<VertexBufferHandleWrap>,
 }
 
+#[derive(Copy, Clone)]
 pub struct VertexBufferHandleWrap(VertexBufferHandle<GFX>);
 impl NyxtViewerHandle for VertexBufferHandleWrap {
   type Item = <GFX as RAL>::VertexBuffer;

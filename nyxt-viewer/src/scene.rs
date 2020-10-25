@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, rc::Weak};
+use std::{cell::RefCell, rc::Weak};
 
 use arena::Handle;
 use rendiation_math::wasm::Mat4F32WASM;
@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
   geometry::WASMGeometry, NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner,
-  GFX,
+  NyxtViewerMutableHandle, GFX,
 };
 
 #[wasm_bindgen]
@@ -15,6 +15,7 @@ pub struct SceneNodeDataWASM {
   inner: NyxtViewerHandledObject<SceneNodeHandleWrap>,
 }
 
+#[derive(Copy, Clone)]
 pub struct SceneNodeHandleWrap(SceneNodeHandle<GFX>);
 impl NyxtViewerHandle for SceneNodeHandleWrap {
   type Item = SceneNodeData<GFX>;
@@ -22,8 +23,13 @@ impl NyxtViewerHandle for SceneNodeHandleWrap {
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
     inner.scene.get_node(self.0).data()
   }
-  fn free(self, inner: &mut NyxtViewerInner) {
+  fn free(self, _inner: &mut NyxtViewerInner) {
     todo!()
+  }
+}
+impl NyxtViewerMutableHandle for SceneNodeHandleWrap {
+  fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
+    inner.scene.get_node_mut(self.0).data_mut()
   }
 }
 

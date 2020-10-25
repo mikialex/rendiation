@@ -1,10 +1,7 @@
-use std::{cell::RefCell, marker::PhantomData, rc::Rc, rc::Weak};
+use std::{cell::RefCell, rc::Rc, rc::Weak};
 
-use arena::Handle;
-use rendiation_math::Mat4;
 use rendiation_ral::*;
 
-use rendiation_scenegraph::default_impl::*;
 use rendiation_scenegraph::*;
 
 use rendiation_webgl::{WebGL, WebGLRenderer};
@@ -53,11 +50,15 @@ pub struct NyxtViewerInner {
   scene: Scene<GFX>,
 }
 
-pub trait NyxtViewerHandle {
+pub trait NyxtViewerHandle: Copy {
   type Item;
 
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item;
   fn free(self, inner: &mut NyxtViewerInner);
+}
+
+pub trait NyxtViewerMutableHandle: NyxtViewerHandle {
+  fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item;
 }
 
 pub struct NyxtViewerHandledObject<Handle: NyxtViewerHandle> {
@@ -66,11 +67,19 @@ pub struct NyxtViewerHandledObject<Handle: NyxtViewerHandle> {
 }
 
 impl<Handle: NyxtViewerHandle> NyxtViewerHandledObject<Handle> {
-  pub fn mutate_item<T>(&self, mutator: impl FnOnce(&mut Handle::Item) -> T) -> T {
-    todo!()
-  }
   pub fn mutate_inner<T>(&self, mutator: impl FnOnce(&mut NyxtViewerInner) -> T) -> T {
-    todo!()
+    let inner = Weak::upgrade(&self.inner).unwrap_throw();
+    let mut inner = inner.borrow_mut();
+    mutator(&mut inner)
+  }
+}
+
+impl<Handle: NyxtViewerMutableHandle> NyxtViewerHandledObject<Handle> {
+  pub fn mutate_item<T>(&self, mutator: impl FnOnce(&mut Handle::Item) -> T) -> T {
+    let inner = Weak::upgrade(&self.inner).unwrap_throw();
+    let mut inner = inner.borrow_mut();
+    let item = self.handle.get_mut(&mut inner);
+    mutator(item)
   }
 }
 
