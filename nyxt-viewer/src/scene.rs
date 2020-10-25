@@ -5,88 +5,87 @@ use rendiation_math::wasm::Mat4F32WASM;
 use rendiation_scenegraph::{default_impl::SceneNodeData, DrawcallHandle, Scene, SceneNodeHandle};
 use wasm_bindgen::prelude::*;
 
-use crate::{geometry::WASMGeometry, NyxtViewer, GFX};
+use crate::{
+  geometry::WASMGeometry, NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner,
+  GFX,
+};
 
 #[wasm_bindgen]
 pub struct SceneNodeDataWASM {
-  handle: SceneNodeHandle<GFX>,
-  scene: Weak<RefCell<Scene<GFX>>>,
+  inner: NyxtViewerHandledObject<SceneNodeHandleWrap>,
 }
 
-impl SceneNodeDataWASM {
-  fn mutate_scene<T>(&self, mutator: impl FnOnce(&mut Scene<GFX>) -> T) -> T {
-    mutator(&mut Weak::upgrade(&self.scene).unwrap().borrow_mut())
-  }
+pub struct SceneNodeHandleWrap(SceneNodeHandle<GFX>);
+impl NyxtViewerHandle for SceneNodeHandleWrap {
+  type Item = SceneNodeData<GFX>;
 
-  fn mutate<T>(&self, mutator: impl FnOnce(&mut SceneNodeData<GFX>) -> T) -> T {
-    mutator(
-      Weak::upgrade(&self.scene)
-        .unwrap()
-        .borrow_mut()
-        .get_node_mut(self.handle)
-        .data_mut(),
-    )
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
+    inner.scene.get_node(self.0).data()
+  }
+  fn free(self, inner: &mut NyxtViewerInner) {
+    todo!()
   }
 }
 
 #[wasm_bindgen]
 impl SceneNodeDataWASM {
+  #[wasm_bindgen(constructor)]
+  pub fn new(viewer: &NyxtViewer) -> SceneNodeDataWASM {
+    let handle = viewer.mutate_inner(|inner| inner.scene.create_new_node().handle());
+    Self {
+      inner: viewer.make_handle_object(SceneNodeHandleWrap(handle)),
+    }
+  }
+
   #[wasm_bindgen(getter)]
   pub fn get_local_matrix(&self) -> Mat4F32WASM {
-    bytemuck::cast(self.mutate(|d| d.local_matrix))
+    bytemuck::cast(self.inner.mutate_item(|d| d.local_matrix))
   }
 
   #[wasm_bindgen(setter)]
   pub fn set_local_matrix(&mut self, value: Mat4F32WASM) {
-    self.mutate(|d| d.local_matrix = bytemuck::cast(value))
+    self
+      .inner
+      .mutate_item(|d| d.local_matrix = bytemuck::cast(value))
   }
 
   pub fn get_visible(&self) -> bool {
-    self.mutate(|d| d.visible)
+    self.inner.mutate_item(|d| d.visible)
   }
 
   #[wasm_bindgen(setter)]
   pub fn set_visible(&mut self, value: bool) {
-    self.mutate(|d| d.visible = value)
+    self.inner.mutate_item(|d| d.visible = value)
   }
 
   #[wasm_bindgen]
   pub fn push_drawcall(&mut self, drawcall: &DrawcallWASM) {
-    self.mutate(|n| n.drawcalls.push(drawcall.handle))
+    self
+      .inner
+      .mutate_item(|n| n.drawcalls.push(drawcall.handle))
   }
 
   #[wasm_bindgen]
   pub fn clear_drawcall(&mut self) {
-    self.mutate(|n| n.drawcalls.clear())
+    self.inner.mutate_item(|n| n.drawcalls.clear())
   }
 
   #[wasm_bindgen]
   pub fn add_child(&mut self, child: &SceneNodeDataWASM) {
-    self.mutate_scene(|scene| scene.node_add_child_by_handle(self.handle, child.handle))
+    self.inner.mutate_inner(|inner| {
+      inner
+        .scene
+        .node_add_child_by_handle(self.inner.handle.0, child.inner.handle.0)
+    })
   }
 
   #[wasm_bindgen]
   pub fn remove_child(&mut self, child: &SceneNodeDataWASM) {
-    self.mutate_scene(|scene| scene.node_remove_child_by_handle(self.handle, child.handle))
-  }
-}
-
-#[wasm_bindgen]
-impl NyxtViewer {
-  pub fn create_node(&self) -> SceneNodeDataWASM {
-    let mut scene = self.scene.borrow_mut();
-    let node = scene.create_new_node();
-    SceneNodeDataWASM {
-      handle: node.handle(),
-      scene: Rc::downgrade(&self.scene),
-    }
-  }
-}
-
-impl Drop for SceneNodeDataWASM {
-  fn drop(&mut self) {
-    todo!()
-    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
+    self.inner.mutate_inner(|inner| {
+      inner
+        .scene
+        .node_remove_child_by_handle(self.inner.handle.0, child.inner.handle.0)
+    })
   }
 }
 

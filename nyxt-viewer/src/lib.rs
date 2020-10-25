@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, rc::Weak};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc, rc::Weak};
 
 use arena::Handle;
 use rendiation_math::Mat4;
@@ -10,10 +10,9 @@ use rendiation_scenegraph::*;
 use rendiation_webgl::{WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
-mod geometry;
-mod scene;
+pub mod geometry;
+pub mod scene;
 pub mod ubo;
-use geometry::*;
 
 pub type GFX = WebGL;
 
@@ -45,14 +44,40 @@ pub type GFX = WebGL;
 
 #[wasm_bindgen]
 pub struct NyxtViewer {
+  inner: Rc<RefCell<NyxtViewerInner>>,
+}
+
+pub struct NyxtViewerInner {
   renderer: WebGLRenderer,
-  resource: Rc<RefCell<ResourceManager<GFX>>>,
-  scene: Rc<RefCell<Scene<GFX>>>,
+  resource: ResourceManager<GFX>,
+  scene: Scene<GFX>,
+}
+
+pub trait NyxtViewerHandle {
+  type Item;
+
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item;
+  fn free(self, inner: &mut NyxtViewerInner);
+}
+
+pub struct NyxtViewerHandledObject<Handle: NyxtViewerHandle> {
+  handle: Handle,
+  inner: Weak<RefCell<NyxtViewerInner>>,
+}
+
+impl<Handle: NyxtViewerHandle> NyxtViewerHandledObject<Handle> {
+  pub fn mutate_item<T>(&self, mutator: impl FnOnce(&mut Handle::Item) -> T) -> T {
+    todo!()
+  }
+  pub fn mutate_inner<T>(&self, mutator: impl FnOnce(&mut NyxtViewerInner) -> T) -> T {
+    todo!()
+  }
 }
 
 impl NyxtViewer {
-  pub fn make_resource(&self) -> Weak<RefCell<ResourceManager<GFX>>> {
-    Rc::downgrade(&self.resource)
+  pub fn make_handle_object<T: NyxtViewerHandle>(&self, handle: T) -> NyxtViewerHandledObject<T> {
+    let inner = Rc::downgrade(&self.inner);
+    NyxtViewerHandledObject { handle, inner }
   }
 }
 
@@ -62,20 +87,16 @@ impl NyxtViewer {
   pub fn new(canvas: HtmlCanvasElement) -> Self {
     console_error_panic_hook::set_once();
     Self {
-      renderer: WebGLRenderer::new(canvas),
-      resource: Rc::new(RefCell::new(ResourceManager::new())),
-      scene: Rc::new(RefCell::new(Scene::new())),
+      inner: Rc::new(RefCell::new(NyxtViewerInner {
+        renderer: WebGLRenderer::new(canvas),
+        resource: ResourceManager::new(),
+        scene: Scene::new(),
+      })),
     }
   }
 
-  fn mutate_resource<T>(&self, mutator: impl FnOnce(&mut ResourceManager<GFX>) -> T) -> T {
-    let mut resource = self.resource.borrow_mut();
-    mutator(&mut resource)
+  fn mutate_inner<T>(&self, mutator: impl FnOnce(&mut NyxtViewerInner) -> T) -> T {
+    let mut inner = self.inner.borrow_mut();
+    mutator(&mut inner)
   }
-}
-
-pub enum WebGLAttributeBufferFormat {
-  Float,
-  Float2,
-  Float3,
 }

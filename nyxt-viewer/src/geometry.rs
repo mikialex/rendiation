@@ -1,13 +1,17 @@
-use std::{cell::RefCell, rc::Weak};
-
 use rendiation_ral::{
   AnyGeometryProvider, GeometryResourceInstance, IndexBufferHandle,
   RALVertexAttributeBufferDescriptor, RALVertexAttributeFormat, RALVertexBufferDescriptor,
-  ResourceManager, VertexBufferHandle, RAL,
+  VertexBufferHandle, RAL,
 };
 use wasm_bindgen::prelude::*;
 
-use crate::{NyxtViewer, GFX};
+use crate::{NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner, GFX};
+
+pub enum WebGLAttributeBufferFormat {
+  Float,
+  Float2,
+  Float3,
+}
 
 #[wasm_bindgen]
 pub struct AttributeBufferF32WASM {
@@ -49,68 +53,76 @@ impl AttributeBufferU16WASM {
 
 #[wasm_bindgen]
 pub struct IndexBufferWASM {
-  handle: IndexBufferHandle<GFX>,
-  resource: Weak<RefCell<ResourceManager<GFX>>>,
+  inner: NyxtViewerHandledObject<IndexBufferHandleWrap>,
 }
 
-// struct HandleAndResource<Handle, Resource, Item, Mutator> {
-//   handle: IndexBufferHandle<GFX>,
-//   resource: Weak<RefCell<ResourceManager<GFX>>>,
-//   mutator: Mutator
-// }
+pub struct IndexBufferHandleWrap(IndexBufferHandle<GFX>);
 
-// impl<Handle, Resource, Item, Mutator> HandleAndResource<Handle, Resource, Item, Mutator> {
-//   fn
-// }
+impl NyxtViewerHandle for IndexBufferHandleWrap {
+  type Item = <GFX as RAL>::IndexBuffer;
+
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
+    inner.resource.get_index_buffer(self.0).resource()
+  }
+  fn free(self, inner: &mut NyxtViewerInner) {
+    inner.resource.delete_index_buffer(self.0)
+  }
+}
 
 #[wasm_bindgen]
 impl IndexBufferWASM {
   #[wasm_bindgen(constructor)]
   pub fn new(viewer: &mut NyxtViewer, buffer: &AttributeBufferU16WASM) -> Self {
-    let index_buffer = GFX::create_index_buffer(
-      &mut viewer.renderer,
-      bytemuck::cast_slice(buffer.buffer.as_slice()),
-    );
-    let handle = viewer.mutate_resource(|r| r.add_index_buffer(index_buffer).index());
+    let handle = viewer.mutate_inner(|inner| {
+      let buffer = GFX::create_index_buffer(
+        &mut inner.renderer,
+        bytemuck::cast_slice(buffer.buffer.as_slice()),
+      );
+      inner.resource.add_index_buffer(buffer).index()
+    });
     Self {
-      handle,
-      resource: viewer.make_resource(),
+      inner: viewer.make_handle_object(IndexBufferHandleWrap(handle)),
     }
-  }
-}
-
-impl Drop for IndexBufferWASM {
-  fn drop(&mut self) {
-    todo!()
-    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
   }
 }
 
 #[wasm_bindgen]
 pub struct VertexBufferWASM {
-  handle: VertexBufferHandle<GFX>,
-  resource: Weak<RefCell<ResourceManager<GFX>>>,
+  inner: NyxtViewerHandledObject<VertexBufferHandleWrap>,
+}
+
+pub struct VertexBufferHandleWrap(VertexBufferHandle<GFX>);
+impl NyxtViewerHandle for VertexBufferHandleWrap {
+  type Item = <GFX as RAL>::VertexBuffer;
+
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
+    inner.resource.get_vertex_buffer(self.0).resource()
+  }
+  fn free(self, inner: &mut NyxtViewerInner) {
+    inner.resource.delete_vertex_buffer(self.0)
+  }
 }
 
 #[wasm_bindgen]
 impl VertexBufferWASM {
   #[wasm_bindgen(constructor)]
   pub fn new(viewer: &mut NyxtViewer, buffer: &AttributeBufferF32WASM) -> Self {
-    let vertex_buffer = GFX::create_vertex_buffer(
-      &mut viewer.renderer,
-      bytemuck::cast_slice(buffer.buffer.as_slice()),
-      RALVertexBufferDescriptor {
-        byte_stride: 4,
-        attributes: vec![RALVertexAttributeBufferDescriptor {
-          byte_offset: 0,
-          format: RALVertexAttributeFormat::Float,
-        }],
-      },
-    );
-    let handle = viewer.mutate_resource(|r| r.add_vertex_buffer(vertex_buffer).index());
+    let handle = viewer.mutate_inner(|inner| {
+      let buffer = GFX::create_vertex_buffer(
+        &mut inner.renderer,
+        bytemuck::cast_slice(buffer.buffer.as_slice()),
+        RALVertexBufferDescriptor {
+          byte_stride: 4,
+          attributes: vec![RALVertexAttributeBufferDescriptor {
+            byte_offset: 0,
+            format: RALVertexAttributeFormat::Float,
+          }],
+        },
+      );
+      inner.resource.add_vertex_buffer(buffer).index()
+    });
     Self {
-      handle,
-      resource: viewer.make_resource(),
+      inner: viewer.make_handle_object(VertexBufferHandleWrap(handle)),
     }
   }
 }
