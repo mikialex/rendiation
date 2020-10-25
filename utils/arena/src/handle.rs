@@ -1,5 +1,4 @@
 use std::{cmp, hash::Hash, marker::PhantomData};
-use wasm_bindgen::prelude::*;
 
 /// An handle (and generation) into an `Arena`.
 ///
