@@ -14,6 +14,10 @@ pub struct SceneNodeDataWASM {
 }
 
 impl SceneNodeDataWASM {
+  fn mutate_scene<T>(&self, mutator: impl FnOnce(&mut Scene<GFX>) -> T) -> T {
+    mutator(&mut Weak::upgrade(&self.scene).unwrap().borrow_mut())
+  }
+
   fn mutate<T>(&self, mutator: impl FnOnce(&mut SceneNodeData<GFX>) -> T) -> T {
     mutator(
       Weak::upgrade(&self.scene)
@@ -46,12 +50,24 @@ impl SceneNodeDataWASM {
     self.mutate(|d| d.visible = value)
   }
 
+  #[wasm_bindgen]
   pub fn push_drawcall(&mut self, drawcall: &DrawcallWASM) {
     self.mutate(|n| n.drawcalls.push(drawcall.handle))
   }
 
+  #[wasm_bindgen]
   pub fn clear_drawcall(&mut self) {
     self.mutate(|n| n.drawcalls.clear())
+  }
+
+  #[wasm_bindgen]
+  pub fn add_child(&mut self, child: &SceneNodeDataWASM) {
+    self.mutate_scene(|scene| scene.node_add_child_by_handle(self.handle, child.handle))
+  }
+
+  #[wasm_bindgen]
+  pub fn remove_child(&mut self, child: &SceneNodeDataWASM) {
+    self.mutate_scene(|scene| scene.node_remove_child_by_handle(self.handle, child.handle))
   }
 }
 

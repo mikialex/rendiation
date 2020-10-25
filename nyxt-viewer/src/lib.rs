@@ -72,22 +72,6 @@ impl NyxtViewer {
     let mut resource = self.resource.borrow_mut();
     mutator(&mut resource)
   }
-
-  // #[wasm_bindgen]
-  // pub fn node_add_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
-  //   self.scene.node_add_child_by_handle(
-  //     self.get_handle(parent_handle).into(),
-  //     self.get_handle(child_handle).into(),
-  //   );
-  // }
-
-  // #[wasm_bindgen]
-  // pub fn node_remove_child_by_handle(&mut self, parent_handle: usize, child_handle: usize) {
-  //   self.scene.node_remove_child_by_handle(
-  //     self.get_handle(parent_handle).into(),
-  //     self.get_handle(child_handle).into(),
-  //   );
-  // }
 }
 
 pub enum WebGLAttributeBufferFormat {
