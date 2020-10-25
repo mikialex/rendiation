@@ -45,6 +45,14 @@ impl SceneNodeDataWASM {
   pub fn set_visible(&mut self, value: bool) {
     self.mutate(|d| d.visible = value)
   }
+
+  pub fn push_drawcall(&mut self, drawcall: &DrawcallWASM) {
+    self.mutate(|n| n.drawcalls.push(drawcall.handle))
+  }
+
+  pub fn clear_drawcall(&mut self) {
+    self.mutate(|n| n.drawcalls.clear())
+  }
 }
 
 #[wasm_bindgen]
@@ -56,6 +64,13 @@ impl NyxtViewer {
       handle: node.handle(),
       scene: Rc::downgrade(&self.scene),
     }
+  }
+}
+
+impl Drop for SceneNodeDataWASM {
+  fn drop(&mut self) {
+    todo!()
+    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
   }
 }
 
@@ -79,5 +94,12 @@ impl NyxtViewer {
     //   handle: node.handle(),
     //   scene: Rc::downgrade(&self.scene),
     // }
+  }
+}
+
+impl Drop for DrawcallWASM {
+  fn drop(&mut self) {
+    todo!()
+    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
   }
 }

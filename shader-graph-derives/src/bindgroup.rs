@@ -28,19 +28,25 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
     })
     .collect();
 
-  // let instance_fields = self.
+  // let instance_fields = fields_info
+  //   .iter()
+  //   .map(|(field_name, ty)| {
+  //     quote! {}
+  //   })
+  //   .collect();
 
-  quote! {
-    #[wasm_bindgen]
-    pub struct #instance_name {
-      #(#instance_fields)*
-    }
+  // quote! {
+  //   #[wasm_bindgen]
+  //   pub struct #instance_name {
+  //     #(#instance_fields)*
+  //   }
 
-    #[wasm_bindgen]
-    impl #instance_name {
-      #(#fields_wasm_getter_setter)*
-    }
-  }
+  //   #[wasm_bindgen]
+  //   impl #instance_name {
+  //     #(#fields_wasm_getter_setter)*
+  //   }
+  // }
+  quote! {}
 }
 
 fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {

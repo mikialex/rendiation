@@ -1,7 +1,9 @@
 use std::{cell::RefCell, rc::Weak};
 
 use rendiation_ral::{
-  AnyGeometryProvider, GeometryResourceInstance, IndexBufferHandle, ResourceManager, RAL,
+  AnyGeometryProvider, GeometryResourceInstance, IndexBufferHandle,
+  RALVertexAttributeBufferDescriptor, RALVertexAttributeFormat, RALVertexBufferDescriptor,
+  ResourceManager, VertexBufferHandle, RAL,
 };
 use wasm_bindgen::prelude::*;
 
@@ -51,6 +53,16 @@ pub struct IndexBufferWASM {
   resource: Weak<RefCell<ResourceManager<GFX>>>,
 }
 
+// struct HandleAndResource<Handle, Resource, Item, Mutator> {
+//   handle: IndexBufferHandle<GFX>,
+//   resource: Weak<RefCell<ResourceManager<GFX>>>,
+//   mutator: Mutator
+// }
+
+// impl<Handle, Resource, Item, Mutator> HandleAndResource<Handle, Resource, Item, Mutator> {
+//   fn
+// }
+
 #[wasm_bindgen]
 impl IndexBufferWASM {
   #[wasm_bindgen(constructor)]
@@ -70,12 +82,13 @@ impl IndexBufferWASM {
 impl Drop for IndexBufferWASM {
   fn drop(&mut self) {
     todo!()
+    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
   }
 }
 
 #[wasm_bindgen]
 pub struct VertexBufferWASM {
-  handle: usize,
+  handle: VertexBufferHandle<GFX>,
   resource: Weak<RefCell<ResourceManager<GFX>>>,
 }
 
@@ -83,7 +96,18 @@ pub struct VertexBufferWASM {
 impl VertexBufferWASM {
   #[wasm_bindgen(constructor)]
   pub fn new(viewer: &mut NyxtViewer, buffer: &AttributeBufferF32WASM) -> Self {
-    let handle = viewer.add_vertex_buffer(buffer);
+    let vertex_buffer = GFX::create_vertex_buffer(
+      &mut viewer.renderer,
+      bytemuck::cast_slice(buffer.buffer.as_slice()),
+      RALVertexBufferDescriptor {
+        byte_stride: 4,
+        attributes: vec![RALVertexAttributeBufferDescriptor {
+          byte_offset: 0,
+          format: RALVertexAttributeFormat::Float,
+        }],
+      },
+    );
+    let handle = viewer.mutate_resource(|r| r.add_vertex_buffer(vertex_buffer).index());
     Self {
       handle,
       resource: viewer.make_resource(),
@@ -131,3 +155,10 @@ impl WASMGeometry {
 //     }
 //   }
 // }
+
+impl Drop for WASMGeometry {
+  fn drop(&mut self) {
+    todo!()
+    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
+  }
+}

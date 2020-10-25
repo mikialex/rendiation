@@ -22,40 +22,7 @@ pub struct Handle<T> {
   pub(crate) phantom: PhantomData<T>,
 }
 
-#[wasm_bindgen]
-#[derive(Copy, Clone, Debug)]
-pub struct AnyHandle {
-  pub handle: usize,
-  pub generation: u64,
-}
-
-impl<T> From<AnyHandle> for Handle<T>{
-  fn from(h: AnyHandle) -> Self {
-    Handle::from_any_handle(h)
-  }
-}
-
-impl<T> From<Handle<T>> for AnyHandle{
-  fn from(h: Handle<T>) -> Self {
-    h.to_any()
-  }
-}
-
 impl<T> Handle<T> {
-  pub fn from_any_handle(h: AnyHandle) -> Self {
-    unsafe {
-      let t: &Handle<T> = std::mem::transmute(&h);
-      *t
-    }
-  }
-
-  pub fn to_any(&self) -> AnyHandle{ 
-    unsafe {
-      let t: &AnyHandle = std::mem::transmute(self);
-      *t
-    }
-  }
-
   pub unsafe fn cast_type<U>(&self) -> Handle<U> {
     let t: &Handle<U> = std::mem::transmute(self);
     *t
