@@ -1,16 +1,22 @@
-use std::{cell::RefCell, rc::Weak};
+use rendiation_ral::UniformHandle;
 
-use rendiation_ral::{ResourceManager, UniformHandle};
+use crate::{NyxtViewerHandle, NyxtViewerInner, NyxtViewerMutableHandle, GFX};
 
-use crate::GFX;
+#[derive(Copy, Clone)]
+pub struct UniformHandleWrap<T>(UniformHandle<GFX, T>);
 
-pub struct UBONyxtWrap<T> {
-  handle: UniformHandle<GFX, T>,
-  resource: Weak<RefCell<ResourceManager<GFX>>>,
-}
+impl<T: Copy + 'static> NyxtViewerHandle for UniformHandleWrap<T> {
+  type Item = T;
 
-impl<T> UBONyxtWrap<T> {
-  pub fn mutate<R>(&self, mutator: impl FnOnce(&mut T) -> R) -> R {
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
+    inner.resource.bindable.uniform_buffers.get_data(self.0)
+  }
+  fn free(self, _inner: &mut NyxtViewerInner) {
     todo!()
+  }
+}
+impl<T: Copy + 'static> NyxtViewerMutableHandle for UniformHandleWrap<T> {
+  fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
+    inner.resource.bindable.uniform_buffers.mutate(self.0)
   }
 }
