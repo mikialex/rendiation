@@ -1,35 +1,31 @@
-use std::{cell::RefCell, rc::Weak};
-
-use arena::Handle;
 use rendiation_math::wasm::Mat4F32WASM;
-use rendiation_scenegraph::{default_impl::SceneNodeData, DrawcallHandle, Scene, SceneNodeHandle};
+use rendiation_ral::Drawcall;
+use rendiation_scenegraph::{default_impl::SceneNodeData, DrawcallHandle, SceneNodeHandle};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-  geometry::WASMGeometry, NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner,
-  NyxtViewerMutableHandle, GFX,
+  NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner, NyxtViewerMutableHandle,
+  GFX,
 };
 
 #[wasm_bindgen]
 pub struct SceneNodeDataWASM {
-  inner: NyxtViewerHandledObject<SceneNodeHandleWrap>,
+  inner: NyxtViewerHandledObject<SceneNodeHandle<GFX>>,
 }
 
-#[derive(Copy, Clone)]
-pub struct SceneNodeHandleWrap(SceneNodeHandle<GFX>);
-impl NyxtViewerHandle for SceneNodeHandleWrap {
+impl NyxtViewerHandle for SceneNodeHandle<GFX> {
   type Item = SceneNodeData<GFX>;
 
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
-    inner.scene.get_node(self.0).data()
+    inner.scene.get_node(self).data()
   }
   fn free(self, _inner: &mut NyxtViewerInner) {
     todo!()
   }
 }
-impl NyxtViewerMutableHandle for SceneNodeHandleWrap {
+impl NyxtViewerMutableHandle for SceneNodeHandle<GFX> {
   fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
-    inner.scene.get_node_mut(self.0).data_mut()
+    inner.scene.get_node_mut(self).data_mut()
   }
 }
 
@@ -39,7 +35,7 @@ impl SceneNodeDataWASM {
   pub fn new(viewer: &NyxtViewer) -> SceneNodeDataWASM {
     let handle = viewer.mutate_inner(|inner| inner.scene.create_new_node().handle());
     Self {
-      inner: viewer.make_handle_object(SceneNodeHandleWrap(handle)),
+      inner: viewer.make_handle_object(handle),
     }
   }
 
@@ -68,7 +64,7 @@ impl SceneNodeDataWASM {
   pub fn push_drawcall(&mut self, drawcall: &DrawcallWASM) {
     self
       .inner
-      .mutate_item(|n| n.drawcalls.push(drawcall.handle))
+      .mutate_item(|n| n.drawcalls.push(drawcall.inner.handle))
   }
 
   #[wasm_bindgen]
@@ -81,7 +77,7 @@ impl SceneNodeDataWASM {
     self.inner.mutate_inner(|inner| {
       inner
         .scene
-        .node_add_child_by_handle(self.inner.handle.0, child.inner.handle.0)
+        .node_add_child_by_handle(self.inner.handle, child.inner.handle)
     })
   }
 
@@ -90,37 +86,23 @@ impl SceneNodeDataWASM {
     self.inner.mutate_inner(|inner| {
       inner
         .scene
-        .node_remove_child_by_handle(self.inner.handle.0, child.inner.handle.0)
+        .node_remove_child_by_handle(self.inner.handle, child.inner.handle)
     })
   }
 }
 
 #[wasm_bindgen]
 pub struct DrawcallWASM {
-  handle: DrawcallHandle<GFX>,
-  scene: Weak<RefCell<Scene<GFX>>>,
+  inner: NyxtViewerHandledObject<DrawcallHandle<GFX>>,
 }
 
-#[wasm_bindgen]
-impl NyxtViewer {
-  pub fn create_drawcall(
-    &self,
-    geometry: WASMGeometry,
-    shading: *const Handle<usize>, // todo
-  ) -> DrawcallWASM {
-    todo!()
-    // let mut scene = self.scene.borrow_mut();
-    // let node = scene.create_drawcall();
-    // DrawcallWASM {
-    //   handle: node.handle(),
-    //   scene: Rc::downgrade(&self.scene),
-    // }
+impl NyxtViewerHandle for DrawcallHandle<GFX> {
+  type Item = Drawcall<GFX>;
+
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
+    inner.scene.drawcalls.get(self).unwrap()
   }
-}
-
-impl Drop for DrawcallWASM {
-  fn drop(&mut self) {
+  fn free(self, _inner: &mut NyxtViewerInner) {
     todo!()
-    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
   }
 }
