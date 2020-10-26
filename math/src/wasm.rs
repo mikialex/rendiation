@@ -4,8 +4,8 @@ use crate::{Mat4, Vec2, Vec3, Vec4};
 
 pub trait WASMAbleType {
   type Type;
-  fn from_origin(self) -> Self::Type;
-  fn to_origin(ty: Self::Type) -> Self;
+  fn to_wasm(self) -> Self::Type;
+  fn from_wasm(ty: Self::Type) -> Self;
 }
 
 macro_rules! impl_convert_bytemuck {
@@ -14,10 +14,10 @@ macro_rules! impl_convert_bytemuck {
     unsafe impl bytemuck::Pod for $WASM {}
     impl WASMAbleType for $Origin {
       type Type = $WASM;
-      fn from_origin(self) -> Self::Type {
+      fn to_wasm(self) -> Self::Type {
         bytemuck::cast(self)
       }
-      fn to_origin(ty: Self::Type) -> Self {
+      fn from_wasm(ty: Self::Type) -> Self {
         bytemuck::cast(ty)
       }
     }

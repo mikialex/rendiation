@@ -41,14 +41,14 @@ impl SceneNodeDataWASM {
 
   #[wasm_bindgen(getter)]
   pub fn get_local_matrix(&self) -> Mat4F32WASM {
-    WASMAbleType::from_origin(self.inner.mutate_item(|d| d.local_matrix))
+    self.inner.mutate_item(|d| d.local_matrix).to_wasm()
   }
 
   #[wasm_bindgen(setter)]
   pub fn set_local_matrix(&mut self, value: Mat4F32WASM) {
     self
       .inner
-      .mutate_item(|d| d.local_matrix = value.to_origin())
+      .mutate_item(|d| d.local_matrix = WASMAbleType::from_wasm(value))
   }
 
   pub fn get_visible(&self) -> bool {

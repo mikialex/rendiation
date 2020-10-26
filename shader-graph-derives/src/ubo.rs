@@ -28,14 +28,14 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
       let getter_name = format_ident!("get_{}", field_name);
       let setter_name = format_ident!("set_{}", field_name);
       quote! {
-       #[wasm_bindgen(getter)]
-       pub fn #getter_name() -> <#ty as WASMAbleType>::Type {
-         todo!()
-       }
-       #[wasm_bindgen(setter)]
-       pub fn #setter_name(&mut self, value: <#ty as WASMAbleType>::Type) {
-         todo!()
-       }
+        #[wasm_bindgen(getter)]
+        pub fn #getter_name(&self) -> <#ty as WASMAbleType>::Type {
+          self.inner.mutate_item(|d| d.#field_name).to_wasm()
+        }
+        #[wasm_bindgen(setter)]
+        pub fn #setter_name(&mut self, value: <#ty as WASMAbleType>::Type) {
+          self.inner.mutate_item(|d| d.#field_name = WASMAbleType::from_wasm(value))
+        }
       }
     })
     .collect();
@@ -43,7 +43,7 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
   quote! {
     #[wasm_bindgen]
     pub struct #instance_name {
-      inner: UBONyxtWrap<#struct_name>
+      inner: NyxtViewerHandledObject<UniformHandleWrap<#struct_name>>,
     }
 
     #[wasm_bindgen]
