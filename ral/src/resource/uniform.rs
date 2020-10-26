@@ -75,8 +75,8 @@ impl<T: RAL> UBOManager<T> {
     }
   }
 
-  pub fn delete<U: 'static>(&mut self, handle: usize) {
-    self.get_storage_or_create::<U>().delete(handle);
+  pub fn delete<U: 'static>(&mut self, handle: UniformHandle<T, U>) {
+    self.get_storage_or_create::<U>().delete(handle.index);
   }
 
   fn insert<U: 'static>(&mut self, value: U) -> usize {
