@@ -4,6 +4,8 @@ use crate::{Mat4, Vec2, Vec3, Vec4};
 
 pub trait WASMAbleType {
   type Type;
+  fn to_origin(self) -> Self::Type;
+  fn from_origin(origin: Self::Type) -> Self;
 }
 
 #[wasm_bindgen]
@@ -14,8 +16,14 @@ pub struct Vec2F32WASM {
   pub y: f32,
 }
 
-impl WASMAbleType for Vec2<f32> {
-  type Type = Vec2F32WASM;
+impl WASMAbleType for Vec2F32WASM {
+  type Type = Vec2<f32>;
+  fn to_origin(self) -> Self::Type {
+    bytemuck::cast(self)
+  }
+  fn from_origin(origin: Self::Type) -> Self {
+    bytemuck::cast(origin)
+  }
 }
 
 unsafe impl bytemuck::Zeroable for Vec2F32WASM {}
@@ -30,8 +38,14 @@ pub struct Vec3F32WASM {
   pub z: f32,
 }
 
-impl WASMAbleType for Vec3<f32> {
-  type Type = Vec3F32WASM;
+impl WASMAbleType for Vec3F32WASM {
+  type Type = Vec3<f32>;
+  fn to_origin(self) -> Self::Type {
+    bytemuck::cast(self)
+  }
+  fn from_origin(origin: Self::Type) -> Self {
+    bytemuck::cast(origin)
+  }
 }
 
 unsafe impl bytemuck::Zeroable for Vec3F32WASM {}
@@ -47,8 +61,14 @@ pub struct Vec4F32WASM {
   pub w: f32,
 }
 
-impl WASMAbleType for Vec4<f32> {
-  type Type = Vec4F32WASM;
+impl WASMAbleType for Vec4F32WASM {
+  type Type = Vec4<f32>;
+  fn to_origin(self) -> Self::Type {
+    bytemuck::cast(self)
+  }
+  fn from_origin(origin: Self::Type) -> Self {
+    bytemuck::cast(origin)
+  }
 }
 
 unsafe impl bytemuck::Zeroable for Vec4F32WASM {}
@@ -65,8 +85,14 @@ pub struct Mat4F32WASM {
 	pub d1:f32, pub d2:f32, pub d3:f32, pub d4:f32,
 }
 
-impl WASMAbleType for Mat4<f32> {
-  type Type = Mat4F32WASM;
+impl WASMAbleType for Mat4F32WASM {
+  type Type = Mat4<f32>;
+  fn to_origin(self) -> Self::Type {
+    bytemuck::cast(self)
+  }
+  fn from_origin(origin: Self::Type) -> Self {
+    bytemuck::cast(origin)
+  }
 }
 
 unsafe impl bytemuck::Zeroable for Mat4F32WASM {}

@@ -1,4 +1,4 @@
-use rendiation_math::wasm::Mat4F32WASM;
+use rendiation_math::wasm::{Mat4F32WASM, WASMAbleType};
 use rendiation_ral::Drawcall;
 use rendiation_scenegraph::{default_impl::SceneNodeData, DrawcallHandle, SceneNodeHandle};
 use wasm_bindgen::prelude::*;
@@ -41,14 +41,14 @@ impl SceneNodeDataWASM {
 
   #[wasm_bindgen(getter)]
   pub fn get_local_matrix(&self) -> Mat4F32WASM {
-    bytemuck::cast(self.inner.mutate_item(|d| d.local_matrix))
+    WASMAbleType::from_origin(self.inner.mutate_item(|d| d.local_matrix))
   }
 
   #[wasm_bindgen(setter)]
   pub fn set_local_matrix(&mut self, value: Mat4F32WASM) {
     self
       .inner
-      .mutate_item(|d| d.local_matrix = bytemuck::cast(value))
+      .mutate_item(|d| d.local_matrix = value.to_origin())
   }
 
   pub fn get_visible(&self) -> bool {
