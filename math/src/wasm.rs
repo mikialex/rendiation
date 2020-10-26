@@ -4,8 +4,24 @@ use crate::{Mat4, Vec2, Vec3, Vec4};
 
 pub trait WASMAbleType {
   type Type;
-  fn to_origin(self) -> Self::Type;
-  fn from_origin(origin: Self::Type) -> Self;
+  fn from_origin(self) -> Self::Type;
+  fn to_origin(ty: Self::Type) -> Self;
+}
+
+macro_rules! impl_convert_bytemuck {
+  ($Origin: ty, $WASM: ty) => {
+    unsafe impl bytemuck::Zeroable for $WASM {}
+    unsafe impl bytemuck::Pod for $WASM {}
+    impl WASMAbleType for $Origin {
+      type Type = $WASM;
+      fn from_origin(self) -> Self::Type {
+        bytemuck::cast(self)
+      }
+      fn to_origin(ty: Self::Type) -> Self {
+        bytemuck::cast(ty)
+      }
+    }
+  };
 }
 
 #[wasm_bindgen]
@@ -16,19 +32,6 @@ pub struct Vec2F32WASM {
   pub y: f32,
 }
 
-impl WASMAbleType for Vec2F32WASM {
-  type Type = Vec2<f32>;
-  fn to_origin(self) -> Self::Type {
-    bytemuck::cast(self)
-  }
-  fn from_origin(origin: Self::Type) -> Self {
-    bytemuck::cast(origin)
-  }
-}
-
-unsafe impl bytemuck::Zeroable for Vec2F32WASM {}
-unsafe impl bytemuck::Pod for Vec2F32WASM {}
-
 #[wasm_bindgen]
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -37,19 +40,6 @@ pub struct Vec3F32WASM {
   pub y: f32,
   pub z: f32,
 }
-
-impl WASMAbleType for Vec3F32WASM {
-  type Type = Vec3<f32>;
-  fn to_origin(self) -> Self::Type {
-    bytemuck::cast(self)
-  }
-  fn from_origin(origin: Self::Type) -> Self {
-    bytemuck::cast(origin)
-  }
-}
-
-unsafe impl bytemuck::Zeroable for Vec3F32WASM {}
-unsafe impl bytemuck::Pod for Vec3F32WASM {}
 
 #[wasm_bindgen]
 #[repr(C)]
@@ -60,19 +50,6 @@ pub struct Vec4F32WASM {
   pub z: f32,
   pub w: f32,
 }
-
-impl WASMAbleType for Vec4F32WASM {
-  type Type = Vec4<f32>;
-  fn to_origin(self) -> Self::Type {
-    bytemuck::cast(self)
-  }
-  fn from_origin(origin: Self::Type) -> Self {
-    bytemuck::cast(origin)
-  }
-}
-
-unsafe impl bytemuck::Zeroable for Vec4F32WASM {}
-unsafe impl bytemuck::Pod for Vec4F32WASM {}
 
 #[rustfmt::skip]
 #[wasm_bindgen]
@@ -85,15 +62,7 @@ pub struct Mat4F32WASM {
 	pub d1:f32, pub d2:f32, pub d3:f32, pub d4:f32,
 }
 
-impl WASMAbleType for Mat4F32WASM {
-  type Type = Mat4<f32>;
-  fn to_origin(self) -> Self::Type {
-    bytemuck::cast(self)
-  }
-  fn from_origin(origin: Self::Type) -> Self {
-    bytemuck::cast(origin)
-  }
-}
-
-unsafe impl bytemuck::Zeroable for Mat4F32WASM {}
-unsafe impl bytemuck::Pod for Mat4F32WASM {}
+impl_convert_bytemuck!(Vec2<f32>, Vec2F32WASM);
+impl_convert_bytemuck!(Vec3<f32>, Vec3F32WASM);
+impl_convert_bytemuck!(Vec4<f32>, Vec4F32WASM);
+impl_convert_bytemuck!(Mat4<f32>, Mat4F32WASM);
