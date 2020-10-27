@@ -9,11 +9,10 @@ pub use node::*;
 use std::{cmp::Ordering, iter::FromIterator, ops::Range};
 pub use strategy::*;
 
-pub trait BVHBounding: Sized + Copy + FromIterator<Self> {
-  type AxisType: Copy;
-  type CenterType;
+use crate::utils::{BuildPrimitive, CenterAblePrimitive};
 
-  fn get_center(&self) -> Self::CenterType;
+pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
+  type AxisType: Copy;
 
   fn get_partition_axis(
     node: &FlattenBVHNode<Self>,
@@ -28,19 +27,7 @@ pub trait BVHBounding: Sized + Copy + FromIterator<Self> {
   ) -> Ordering;
 }
 
-pub struct BuildPrimitive<B: BVHBounding> {
-  bounding: B,
-  center: B::CenterType,
-}
-
 impl<B: BVHBounding> BuildPrimitive<B> {
-  fn new(bounding: B) -> Self {
-    Self {
-      bounding,
-      center: bounding.get_center(),
-    }
-  }
-
   fn compare_center(&self, axis: B::AxisType, other: &BuildPrimitive<B>) -> Ordering {
     B::compare(self, axis, &other)
   }

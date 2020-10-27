@@ -5,11 +5,6 @@ use std::{cmp::Ordering, ops::Range};
 
 impl BVHBounding for Box3 {
   type AxisType = Axis3;
-  type CenterType = Vec3<f32>;
-
-  fn get_center(&self) -> Vec3<f32> {
-    self.center()
-  }
 
   fn get_partition_axis(
     node: &FlattenBVHNode<Self>,

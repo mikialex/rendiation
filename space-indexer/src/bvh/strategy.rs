@@ -106,7 +106,7 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
 
 pub trait SAHBounding: BVHBounding + Default {
   fn get_surface_heuristic(&self) -> f32;
-  fn get_unit_from_center_by_axis(center: &Self::CenterType, axis: Self::AxisType) -> f32;
+  fn get_unit_from_center_by_axis(center: &Self::Center, axis: Self::AxisType) -> f32;
   fn get_unit_range_by_axis(&self, split: Self::AxisType) -> Range<f32>;
 }
 
