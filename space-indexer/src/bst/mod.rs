@@ -6,12 +6,38 @@ pub struct Binary;
 pub struct Quad;
 pub struct Oc;
 
-pub trait BinarySpaceTree<const N: usize> {
+pub trait BinarySpaceTree<const N: usize>: Sized {
   type Bounding: CenterAblePrimitive;
+
   fn create_outer_bounding(
     build_source: &Vec<BuildPrimitive<Self::Bounding>>,
     index_source: &Vec<usize>,
   ) -> Self::Bounding;
+
+  fn prepare_partition(node: &mut BSTNode<Self, N>);
+
+  fn check_primitive_should_in_which_partition(
+    primitive: &BuildPrimitive<Self::Bounding>,
+  ) -> Option<usize>;
+
+  fn split(
+    node: &mut BSTNode<Self, N>,
+    build_source: &Vec<BuildPrimitive<Self::Bounding>>,
+    index_source: &mut Vec<usize>,
+  ) {
+    Self::prepare_partition(node);
+    index_source
+      .get(node.primitive_range.clone())
+      .unwrap()
+      .iter()
+      .map(|&index| &build_source[index].bounding)
+      .for_each(|b|{
+        if let Some(p) = Self::check_primitive_should_in_which_partition(b) {
+          
+        }
+      })
+    todo!()
+  }
 }
 
 // impl BinarySpaceTree<4> for Quad {
@@ -26,6 +52,16 @@ impl BinarySpaceTree<8> for Oc {
   ) -> Self::Bounding {
     todo!()
   }
+
+  fn check_primitive_should_in_which_partition(
+    primitive: &BuildPrimitive<Self::Bounding>,
+  ) -> Option<usize> {
+    todo!()
+  }
+
+  fn prepare_partition(node: &mut BSTNode<Oc, 8>) {
+    todo!()
+  }
 }
 
 pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
@@ -38,8 +74,8 @@ pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
 }
 
 pub struct BSTTree<T: BinarySpaceTree<N>, const N: usize> {
-  nodes: Vec<BSTNode<T, N>>,
-  sorted_primitive_index: Vec<usize>,
+  pub nodes: Vec<BSTNode<T, N>>,
+  pub sorted_primitive_index: Vec<usize>,
 }
 
 pub type BinaryTree = BSTTree<Binary, 2>;
@@ -90,6 +126,15 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<BSTNode<T, N>>,
   ) {
+    let building_node = nodes.last().unwrap();
+
+    if building_node.primitive_range.len() <= option.bin_size {
+      return;
+    }
+    if building_node.depth >= option.max_tree_depth {
+      return;
+    }
+
     todo!()
   }
 

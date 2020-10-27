@@ -17,14 +17,13 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
     let (depth, split_axis, node) = {
       let node = nodes.last().unwrap();
       let depth = node.depth;
-      if depth == option.max_tree_depth {
+      if depth >= option.max_tree_depth {
         return 1;
       }
-
+      if node.primitive_range.len() <= option.bin_size {
+        return 1;
+      }
       let range = node.primitive_range.clone();
-      if range.len() <= option.bin_size {
-        return 1;
-      }
 
       let split_axis = B::get_partition_axis(node, build_source, index_source);
       let ranged_index = index_source.get_mut(range.clone()).unwrap();
