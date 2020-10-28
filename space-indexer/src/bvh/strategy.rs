@@ -13,10 +13,10 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
     build_source: &Vec<BuildPrimitive<B>>,
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<FlattenBVHNode<B>>,
+    depth: usize,
   ) -> usize {
     let (depth, split_axis, node) = {
       let node = nodes.last().unwrap();
-      let depth = node.depth;
       if depth >= option.max_tree_depth {
         return 1;
       }
@@ -41,26 +41,15 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
 
     let node_index = nodes.len() - 1;
 
-    nodes.push(FlattenBVHNode::new(
-      left_bbox,
-      left_range,
-      nodes.len(),
-      depth + 1,
-    ));
-    let left_count = Self::build(self, option, build_source, index_source, nodes);
+    nodes.push(FlattenBVHNode::new(left_bbox, left_range, nodes.len()));
+    let left_count = Self::build(self, option, build_source, index_source, nodes, depth + 1);
 
-    nodes.push(FlattenBVHNode::new(
-      right_bbox,
-      right_range,
-      nodes.len(),
-      depth + 1,
-    ));
-    let right_count = Self::build(self, option, build_source, index_source, nodes);
+    nodes.push(FlattenBVHNode::new(right_bbox, right_range, nodes.len()));
+    let right_count = Self::build(self, option, build_source, index_source, nodes, depth + 1);
 
     let node = &mut nodes[node_index];
     node.child = Some(FlattenBVHNodeChildInfo {
       left_count,
-      right_count,
       split_axis,
     });
 

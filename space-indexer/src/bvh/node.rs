@@ -4,7 +4,6 @@ use std::ops::Range;
 pub struct FlattenBVHNode<B: BVHBounding> {
   pub bounding: B,
   pub primitive_range: Range<usize>,
-  pub depth: usize,
   pub self_index: usize,
   pub child: Option<FlattenBVHNodeChildInfo<B>>,
 }
@@ -21,21 +20,14 @@ impl<B: BVHBounding> FlattenBVHNode<B> {
 
 pub struct FlattenBVHNodeChildInfo<B: BVHBounding> {
   pub left_count: usize,
-  pub right_count: usize,
   pub split_axis: B::AxisType,
 }
 
 impl<B: BVHBounding> FlattenBVHNode<B> {
-  pub(super) fn new(
-    bounding: B,
-    primitive_range: Range<usize>,
-    self_index: usize,
-    depth: usize,
-  ) -> Self {
+  pub(super) fn new(bounding: B, primitive_range: Range<usize>, self_index: usize) -> Self {
     Self {
       bounding,
       primitive_range,
-      depth,
       self_index,
       child: None,
     }
