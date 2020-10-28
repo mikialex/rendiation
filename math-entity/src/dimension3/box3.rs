@@ -52,8 +52,8 @@ impl Box3 {
   }
 
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
-    self.min.min(point);
-    self.max.max(point);
+    self.min = self.min.min(point);
+    self.max = self.max.max(point);
   }
 
   pub fn union(&mut self, box3: Self) {
