@@ -14,7 +14,7 @@ pub fn bvh_build<S: BVHBuildStrategy<Box3>>(
 pub fn test_bvh_build() {
   use super::{BalanceTree, SAH};
   use crate::utils::*;
-  let boxes = generate_boxes_in_space(10000, 1000., 1.);
+  let boxes = generate_boxes_in_space(32, 1000., 1.);
   bvh_build(
     &boxes,
     &mut BalanceTree,
@@ -23,12 +23,12 @@ pub fn test_bvh_build() {
       bin_size: 10,
     },
   );
-  bvh_build(
-    &boxes,
-    &mut SAH::new(4),
-    &BVHOption {
-      max_tree_depth: 15,
-      bin_size: 10,
-    },
-  );
+  // bvh_build(
+  //   &boxes,
+  //   &mut SAH::new(4),
+  //   &BVHOption {
+  //     max_tree_depth: 15,
+  //     bin_size: 10,
+  //   },
+  // );
 }

@@ -31,11 +31,11 @@ pub trait BinarySpaceTree<const N: usize>: Sized {
       .unwrap()
       .iter()
       .map(|&index| &build_source[index].bounding)
-      .for_each(|b|{
-        if let Some(p) = Self::check_primitive_should_in_which_partition(b) {
-          
-        }
-      })
+      .for_each(
+        |b| {
+          if let Some(p) = Self::check_primitive_should_in_which_partition(b) {}
+        },
+      );
     todo!()
   }
 }
@@ -87,10 +87,10 @@ pub struct BinarySpaceTreeOption {
   pub bin_size: usize,
 }
 
-impl BinarySpaceTreeOption{
+impl BinarySpaceTreeOption {
   fn should_split<T: BinarySpaceTree<N>, const N: usize>(&self, node: &BSTNode<T, N>) -> bool {
-    return node.primitive_range.len() <= self.bin_size &&  node.depth < self.max_tree_depth;
-  } 
+    return node.primitive_range.len() <= self.bin_size && node.depth < self.max_tree_depth;
+  }
 }
 
 impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
@@ -126,7 +126,6 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
         continue;
       }
       T::split(building_node, &mut primitives, &mut index_list)
-      
     }
 
     Self {
