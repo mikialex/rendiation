@@ -6,7 +6,7 @@ mod traverse;
 pub mod test;
 
 pub use node::*;
-use std::{cmp::Ordering, iter::FromIterator, ops::Range};
+use std::{iter::FromIterator, ops::Range};
 pub use strategy::*;
 
 use crate::utils::{BuildPrimitive, CenterAblePrimitive};
@@ -20,11 +20,12 @@ pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
     index_source: &Vec<usize>,
   ) -> Self::AxisType;
 
-  fn compare(
-    self_primitive: &BuildPrimitive<Self>,
-    other_primitive: &BuildPrimitive<Self>,
+  fn sort_range(
+    range: Range<usize>,
+    build_source: &Vec<BuildPrimitive<Self>>,
+    index_source: &mut Vec<usize>,
     axis: Self::AxisType,
-  ) -> Ordering;
+  );
 }
 
 pub struct BVHOption {

@@ -1,7 +1,7 @@
 use super::{BVHBounding, BuildPrimitive, FlattenBVHNode, SAHBounding};
 use rendiation_math::Vec3;
 use rendiation_math_entity::{Axis3, Box3};
-use std::{cmp::Ordering, ops::Range};
+use std::ops::Range;
 
 impl BVHBounding for Box3 {
   type AxisType = Axis3;
@@ -14,15 +14,29 @@ impl BVHBounding for Box3 {
     node.bounding.longest_axis().0
   }
 
-  fn compare(
-    self_p: &BuildPrimitive<Self>,
-    other: &BuildPrimitive<Self>,
+  fn sort_range(
+    range: Range<usize>,
+    build_source: &Vec<BuildPrimitive<Self>>,
+    index_source: &mut Vec<usize>,
     axis: Self::AxisType,
-  ) -> Ordering {
+  ) {
+    let ranged_index = index_source.get_mut(range.clone()).unwrap();
     match axis {
-      Axis3::X => self_p.center.x.partial_cmp(&other.center.x).unwrap(),
-      Axis3::Y => self_p.center.y.partial_cmp(&other.center.y).unwrap(),
-      Axis3::Z => self_p.center.z.partial_cmp(&other.center.z).unwrap(),
+      Axis3::X => ranged_index.sort_unstable_by(|&a, &b| unsafe {
+        let bp_a = build_source.get_unchecked(a);
+        let bp_b = build_source.get_unchecked(b);
+        bp_a.center.x.partial_cmp(&bp_b.center.x).unwrap()
+      }),
+      Axis3::Y => ranged_index.sort_unstable_by(|&a, &b| unsafe {
+        let bp_a = build_source.get_unchecked(a);
+        let bp_b = build_source.get_unchecked(b);
+        bp_a.center.y.partial_cmp(&bp_b.center.y).unwrap()
+      }),
+      Axis3::Z => ranged_index.sort_unstable_by(|&a, &b| unsafe {
+        let bp_a = build_source.get_unchecked(a);
+        let bp_b = build_source.get_unchecked(b);
+        bp_a.center.z.partial_cmp(&bp_b.center.z).unwrap()
+      }),
     }
   }
 }

@@ -26,13 +26,7 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
       let range = node.primitive_range.clone();
 
       let split_axis = B::get_partition_axis(node, build_source, index_source);
-      let ranged_index = index_source.get_mut(range.clone()).unwrap();
-
-      ranged_index.sort_unstable_by(|&a, &b| unsafe {
-        let bp_a = build_source.get_unchecked(a);
-        let bp_b = build_source.get_unchecked(b);
-        B::compare(bp_a, bp_b, split_axis)
-      });
+      B::sort_range(range, build_source, index_source, split_axis);
       (depth, split_axis, node)
     };
 
