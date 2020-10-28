@@ -17,6 +17,7 @@ rendiation-mesh-buffer = {path = "../mesh-buffer"}
 rendiation-ral = {path = "../ral"}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-scenegraph = {path = "../scene-graph"}
+space-indexer = {path="../space-indexer"}
 
 bytemuck = "1.4.1"
 console_error_panic_hook = "0.1.6"

@@ -87,6 +87,12 @@ pub struct BinarySpaceTreeOption {
   pub bin_size: usize,
 }
 
+impl BinarySpaceTreeOption{
+  fn should_split<T: BinarySpaceTree<N>, const N: usize>(&self, node: &BSTNode<T, N>) -> bool {
+    return node.primitive_range.len() <= self.bin_size &&  node.depth < self.max_tree_depth;
+  } 
+}
+
 impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
   pub fn new(
     source: impl ExactSizeIterator<Item = T::Bounding>,
@@ -112,7 +118,16 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
     });
 
     // build
-    Self::build(&option, &primitives, &mut index_list, &mut nodes);
+    let mut building_nodes = Vec::with_capacity(source.len() / 4);
+    building_nodes.push(0);
+    while let Some(index) = building_nodes.pop() {
+      let building_node = &mut nodes[index];
+      if !option.should_split(building_node) {
+        continue;
+      }
+      T::split(building_node, &mut primitives, &mut index_list)
+      
+    }
 
     Self {
       nodes,

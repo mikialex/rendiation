@@ -5,6 +5,9 @@ use rendiation_ral::*;
 use rendiation_scenegraph::*;
 
 use rendiation_webgl::{WebGL, WebGLRenderer};
+use space_indexer::{
+  bvh::test::bvh_build, bvh::BVHOption, bvh::BalanceTree, utils::generate_boxes_in_space,
+};
 use wasm_bindgen::prelude::*;
 
 pub mod geometry;
@@ -107,5 +110,21 @@ impl NyxtViewer {
   fn mutate_inner<T>(&self, mutator: impl FnOnce(&mut NyxtViewerInner) -> T) -> T {
     let mut inner = self.inner.borrow_mut();
     mutator(&mut inner)
+  }
+}
+
+#[wasm_bindgen]
+pub fn test_bvh() {
+  let boxes = generate_boxes_in_space(10000, 1000., 1.);
+
+  for i in 0..10 {
+    let bvh = bvh_build(
+      &boxes,
+      &mut BalanceTree,
+      &BVHOption {
+        max_tree_depth: 15,
+        bin_size: 10,
+      },
+    );
   }
 }
