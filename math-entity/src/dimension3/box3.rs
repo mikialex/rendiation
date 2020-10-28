@@ -68,8 +68,8 @@ impl Box3 {
     if self.is_empty() {
       *self = box3;
     }
-    self.min.min(box3.min);
-    self.max.max(box3.max);
+    self.min = self.min.min(box3.min);
+    self.max = self.max.max(box3.max);
   }
 
   pub fn apply_matrix(&mut self, m: Mat4<f32>) -> Self {
