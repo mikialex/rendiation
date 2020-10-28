@@ -16,8 +16,8 @@ impl BVHBounding for Box3 {
 
   fn compare(
     self_p: &BuildPrimitive<Self>,
-    axis: Self::AxisType,
     other: &BuildPrimitive<Self>,
+    axis: Self::AxisType,
   ) -> Ordering {
     match axis {
       Axis3::X => self_p.center.x.partial_cmp(&other.center.x).unwrap(),

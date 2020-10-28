@@ -22,15 +22,9 @@ pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
 
   fn compare(
     self_primitive: &BuildPrimitive<Self>,
-    axis: Self::AxisType,
     other_primitive: &BuildPrimitive<Self>,
+    axis: Self::AxisType,
   ) -> Ordering;
-}
-
-impl<B: BVHBounding> BuildPrimitive<B> {
-  fn compare_center(&self, axis: B::AxisType, other: &BuildPrimitive<B>) -> Ordering {
-    B::compare(self, axis, &other)
-  }
 }
 
 pub struct BVHOption {

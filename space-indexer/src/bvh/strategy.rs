@@ -31,7 +31,7 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
       ranged_index.sort_unstable_by(|&a, &b| unsafe {
         let bp_a = build_source.get_unchecked(a);
         let bp_b = build_source.get_unchecked(b);
-        bp_a.compare_center(split_axis, bp_b)
+        B::compare(bp_a, bp_b, split_axis)
       });
       (depth, split_axis, node)
     };
