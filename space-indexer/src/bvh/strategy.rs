@@ -120,21 +120,24 @@ impl<B: SAHBounding> SAH<B> {
 #[derive(Clone, Debug)]
 struct SAHPrePartitionCache<B: SAHBounding> {
   bounding: B,
-  primitive_range: Range<usize>,
+  primitive_bucket: Vec<usize>,
 }
 
 impl<B: SAHBounding> Default for SAHPrePartitionCache<B> {
   fn default() -> Self {
     Self {
+      primitive_bucket: Vec::new(),
       bounding: B::default(),
-      primitive_range: 0..0,
     }
   }
 }
 
 impl<B: SAHBounding> SAHPrePartitionCache<B> {
   fn cost(&self) -> f32 {
-    self.bounding.get_surface_heuristic() * self.primitive_range.clone().count() as f32
+    self.bounding.get_surface_heuristic() * self.primitive_bucket.len() as f32
+  }
+  fn reset(&mut self) {
+    self.primitive_bucket.clear()
   }
 }
 
