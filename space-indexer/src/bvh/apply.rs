@@ -47,6 +47,7 @@ impl BalanceTreeBounding for Box3 {
 }
 
 impl SAHBounding for Box3 {
+  #[inline(always)]
   fn get_unit_range_by_axis(&self, axis: Axis3) -> Range<f32> {
     match axis {
       Axis3::X => self.min.x..self.max.x,
@@ -55,6 +56,7 @@ impl SAHBounding for Box3 {
     }
   }
 
+  #[inline(always)]
   fn get_unit_from_center_by_axis(center: &Vec3<f32>, axis: Axis3) -> f32 {
     match axis {
       Axis3::X => center.x,
@@ -63,6 +65,7 @@ impl SAHBounding for Box3 {
     }
   }
 
+  #[inline(always)]
   fn get_surface_heuristic(&self) -> f32 {
     let x_expand = self.max.x - self.min.x;
     let y_expand = self.max.y - self.min.y;
@@ -74,9 +77,11 @@ impl SAHBounding for Box3 {
     }
   }
 
+  #[inline(always)]
   fn empty() -> Self {
     Self::empty()
   }
+  #[inline(always)]
   fn union(&mut self, other: Self) {
     self.union(other)
   }

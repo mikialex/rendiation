@@ -208,7 +208,11 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
       .map(|&index| (&build_source[index], index))
       .for_each(|(p, index)| {
         let axis_value = B::get_unit_from_center_by_axis(&p.center, axis);
-        let which_partition = ((axis_value - axis_range.start) / step).floor() as usize;
+        let mut which_partition = ((axis_value - axis_range.start) / step).floor() as usize;
+        // edge case
+        if which_partition == self.pre_partition.len() {
+          which_partition -= 1;
+        }
         self.pre_partition[which_partition].set_primitive(p, index)
       });
 
