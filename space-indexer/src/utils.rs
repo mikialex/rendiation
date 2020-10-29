@@ -16,10 +16,6 @@ impl CenterAblePrimitive for Box3 {
   }
 }
 
-pub trait SpacePartitionTreeNode {
-  fn contained_item_count(&self) -> usize;
-}
-
 pub struct TreeBuildOption {
   pub max_tree_depth: usize,
   pub bin_size: usize,
@@ -35,8 +31,8 @@ impl Default for TreeBuildOption {
 }
 
 impl TreeBuildOption {
-  pub fn should_continue(&self, node: &impl SpacePartitionTreeNode, depth: usize) -> bool {
-    depth < self.max_tree_depth && node.contained_item_count() > self.bin_size
+  pub fn should_continue(&self, item_count: usize, depth: usize) -> bool {
+    depth < self.max_tree_depth && item_count > self.bin_size
   }
 }
 

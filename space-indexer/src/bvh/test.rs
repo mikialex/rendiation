@@ -25,12 +25,12 @@ pub fn test_bvh_build() {
       bin_size: 10,
     },
   );
-  //   bvh_build(
-  //     &boxes,
-  //     &mut SAH::new(4),
-  //     &TreeBuildOption {
-  //       max_tree_depth: 15,
-  //       bin_size: 10,
-  //     },
-  //   );
+  bvh_build(
+    &boxes,
+    &mut SAH::new(4),
+    &TreeBuildOption {
+      max_tree_depth: 15,
+      bin_size: 10,
+    },
+  );
 }

@@ -4,7 +4,7 @@ use super::{
   bounding_from_build_source, node::FlattenBVHNode, BVHBounding, BuildPrimitive,
   FlattenBVHNodeChildInfo,
 };
-use std::ops::Range;
+use std::{iter::FromIterator, ops::Range};
 
 pub trait BVHBuildStrategy<B: BVHBounding> {
   /// build the bvh tree in given range of primitive source and index.
@@ -18,7 +18,7 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
     depth: usize,
   ) -> usize {
     let node = nodes.last().unwrap();
-    if !option.should_continue(node, depth) {
+    if !option.should_continue(node.primitive_range.len(), depth) {
       return 1;
     }
 
@@ -92,21 +92,30 @@ pub trait SAHBounding: BVHBounding + Default {
   fn get_surface_heuristic(&self) -> f32;
   fn get_unit_from_center_by_axis(center: &Self::Center, axis: Self::AxisType) -> f32;
   fn get_unit_range_by_axis(&self, split: Self::AxisType) -> Range<f32>;
+  fn empty() -> Self;
+  fn union(&mut self, other: Self);
 }
 
 pub struct SAH<B: SAHBounding> {
-  pub pre_partition_check_count: usize,
   pre_partition: Vec<SAHPrePartitionCache<B>>,
+  partition_decision: Vec<(SAHPartitionGroup<B>, SAHPartitionGroup<B>, f32)>,
 }
 
 impl<B: SAHBounding> SAH<B> {
   pub fn new(pre_partition_check_count: usize) -> Self {
     Self {
-      pre_partition_check_count,
       pre_partition: vec![SAHPrePartitionCache::default(); pre_partition_check_count],
+      partition_decision: vec![
+        (
+          SAHPartitionGroup::default(),
+          SAHPartitionGroup::default(),
+          0.0
+        );
+        pre_partition_check_count - 1
+      ],
     }
   }
-  fn group_box(&self, range: Range<usize>) -> B {
+  fn group_bounding(&self, range: Range<usize>) -> B {
     self
       .pre_partition
       .get(range)
@@ -114,6 +123,13 @@ impl<B: SAHBounding> SAH<B> {
       .iter()
       .map(|p| p.bounding)
       .collect()
+  }
+
+  fn partition_count(&self) -> usize {
+    self.pre_partition.len()
+  }
+  fn reset(&mut self) {
+    self.pre_partition.iter_mut().for_each(|p| p.reset());
   }
 }
 
@@ -132,12 +148,51 @@ impl<B: SAHBounding> Default for SAHPrePartitionCache<B> {
   }
 }
 
-impl<B: SAHBounding> SAHPrePartitionCache<B> {
+#[derive(Clone, Debug)]
+struct SAHPartitionGroup<B: SAHBounding> {
+  bounding: B,
+  primitive_count: usize,
+}
+impl<B: SAHBounding> SAHPartitionGroup<B> {
   fn cost(&self) -> f32 {
-    self.bounding.get_surface_heuristic() * self.primitive_bucket.len() as f32
+    self.bounding.get_surface_heuristic() * self.primitive_count as f32
   }
+}
+
+impl<B: SAHBounding> Default for SAHPartitionGroup<B> {
+  fn default() -> Self {
+    Self {
+      bounding: B::empty(),
+      primitive_count: 0,
+    }
+  }
+}
+
+impl<'a, B: SAHBounding> FromIterator<&'a SAHPrePartitionCache<B>> for SAHPartitionGroup<B> {
+  fn from_iter<I: IntoIterator<Item = &'a SAHPrePartitionCache<B>>>(items: I) -> Self {
+    let mut primitive_count = 0;
+    let bounding = items
+      .into_iter()
+      .map(|p| {
+        primitive_count += p.primitive_bucket.len();
+        p.bounding
+      })
+      .collect();
+    Self {
+      bounding,
+      primitive_count,
+    }
+  }
+}
+
+impl<B: SAHBounding> SAHPrePartitionCache<B> {
   fn reset(&mut self) {
-    self.primitive_bucket.clear()
+    self.primitive_bucket.clear();
+    self.bounding = B::empty();
+  }
+  fn set_primitive(&mut self, p: &BuildPrimitive<B>, index: usize) {
+    self.bounding.union(p.bounding);
+    self.primitive_bucket.push(index);
   }
 }
 
@@ -149,84 +204,71 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
     index_source: &mut Vec<usize>,
   ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>)) {
     // step 1, update pre_partition_check_cache
+    let range = parent_node.primitive_range.clone();
+    self.reset();
     let axis = parent_node.bounding.get_partition_axis();
-    let partition_count = self.pre_partition_check_count;
-    let range = parent_node.bounding.get_unit_range_by_axis(axis);
-    let range_len = range.end - range.start;
-    let step = range_len / partition_count as f32;
+    let axis_range = parent_node.bounding.get_unit_range_by_axis(axis);
+    let step = (axis_range.end - axis_range.start) / self.partition_count() as f32;
 
-    let primitive_range = &parent_node.primitive_range;
-    let mut primitive_checked_offset = primitive_range.start;
-
-    self
-      .pre_partition
-      .iter_mut()
-      .enumerate()
-      .for_each(|(i, p)| {
-        if i == partition_count - 1 {
-          p.bounding = bounding_from_build_source(
-            &index_source,
-            &build_source,
-            primitive_checked_offset..primitive_range.end,
-          );
-          p.primitive_range = primitive_checked_offset..primitive_range.end;
-          return;
-        }
-
-        let extent_largest = range.start + step * (i + 1) as f32;
-        let mut exceed = false;
-        let start_primitive_range = primitive_checked_offset;
-
-        while !exceed && primitive_checked_offset < primitive_range.end {
-          let build_primitive = index_source[primitive_checked_offset];
-          exceed = B::get_unit_from_center_by_axis(&build_source[build_primitive].center, axis)
-            > extent_largest;
-          primitive_checked_offset += 1;
-        }
-
-        if exceed {
-          primitive_checked_offset -= 1;
-        }
-
-        p.bounding = bounding_from_build_source(
-          &index_source,
-          &build_source,
-          start_primitive_range..primitive_checked_offset,
-        );
-        p.primitive_range = start_primitive_range..primitive_checked_offset;
+    index_source
+      .get(range.clone())
+      .unwrap()
+      .iter()
+      .map(|&index| (&build_source[index], index))
+      .for_each(|(p, index)| {
+        let axis_value = B::get_unit_from_center_by_axis(&p.center, axis);
+        let which_partition = ((axis_value - axis_range.start) / step).floor() as usize;
+        self.pre_partition[which_partition].set_primitive(p, index)
       });
 
     // step 2, find best partition;
+    let pre_partition = &self.pre_partition;
+    self
+      .partition_decision
+      .iter_mut()
+      .enumerate()
+      .for_each(|(i, (l, r, cost))| {
+        let (left, right) = pre_partition.as_slice().split_at(i + 1);
+        *l = left.iter().collect();
+        *r = right.iter().collect();
+        *cost = l.cost() + r.cost();
+      });
 
-    let mut left = self.pre_partition[0].clone(); // just need a initial value;
-    let mut right = left.clone(); // ditto
-    right.primitive_range = primitive_range.clone();
-    left.primitive_range.end = left.primitive_range.start;
+    let mut best = 0;
+    let mut best_cost = std::f32::INFINITY;
+    self
+      .partition_decision
+      .iter()
+      .enumerate()
+      .for_each(|(i, &(_, _, cost))| {
+        if cost < best_cost {
+          best_cost = cost;
+          best = i;
+        }
+      });
+    let best_pair = &self.partition_decision[best];
 
-    let mut best_cost = std::f32::MAX;
-    let mut best_left = left.clone(); // ditto
-    let mut best_right = left.clone(); // ditto
-
-    for partition in 0..self.pre_partition_check_count - 1 {
-      let add_part = &self.pre_partition[partition];
-      let move_count = add_part.primitive_range.clone().count();
-      left.primitive_range.end += move_count;
-      right.primitive_range.start += move_count;
-      left.bounding = self.group_box(0..partition + 1);
-      right.bounding = self.group_box(partition + 1..self.pre_partition_check_count);
-
-      let new_cost = left.cost() + right.cost();
-      if new_cost < best_cost {
-        best_cost = new_cost;
-        best_left = left.clone();
-        best_right = right.clone();
-      }
+    // step3. update and return
+    // todo use unsafe for perf
+    let mut ptr = range.start;
+    for i in 0..self.partition_count() + 1 {
+      let p = &self.pre_partition[i];
+      p.primitive_bucket.iter().for_each(|i| {
+        index_source[ptr] = *i;
+        ptr += 1;
+      })
     }
 
     (
-      (best_left.bounding, best_left.primitive_range),
+      (
+        best_pair.0.bounding,
+        range.start..(range.start + best_pair.0.primitive_count),
+      ),
       axis,
-      (best_right.bounding, best_right.primitive_range),
+      (
+        best_pair.1.bounding,
+        (range.start + best_pair.0.primitive_count)..range.end,
+      ),
     )
   }
 }

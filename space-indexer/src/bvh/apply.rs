@@ -73,4 +73,11 @@ impl SAHBounding for Box3 {
       x_expand * y_expand + x_expand * z_expand + y_expand * z_expand
     }
   }
+
+  fn empty() -> Self {
+    Self::empty()
+  }
+  fn union(&mut self, other: Self) {
+    self.union(other)
+  }
 }
