@@ -35,7 +35,7 @@ impl Default for TreeBuildOption {
 
 impl TreeBuildOption {
   pub fn should_continue(&self, node: &impl SpacePartitionTreeNode, depth: usize) -> bool {
-    depth < self.max_tree_depth || node.contained_item_count() > self.bin_size
+    depth < self.max_tree_depth && node.contained_item_count() > self.bin_size
   }
 }
 

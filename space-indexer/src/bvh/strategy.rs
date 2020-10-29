@@ -50,24 +50,36 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
     &mut self,
     parent_node: &FlattenBVHNode<B>,
     build_source: &Vec<BuildPrimitive<B>>,
-    index_source: &Vec<usize>,
+    index_source: &mut Vec<usize>,
   ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>));
 }
 
 pub struct BalanceTree;
 
-impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
+pub trait BalanceTreeBounding: BVHBounding {
+  fn median_partition_at_axis(
+    range: Range<usize>,
+    build_source: &Vec<BuildPrimitive<Self>>,
+    index_source: &mut Vec<usize>,
+    axis: Self::AxisType,
+  );
+}
+
+impl<B: BalanceTreeBounding> BVHBuildStrategy<B> for BalanceTree {
   fn split(
     &mut self,
     parent_node: &FlattenBVHNode<B>,
     build_source: &Vec<BuildPrimitive<B>>,
-    index_source: &Vec<usize>,
+    index_source: &mut Vec<usize>,
   ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>)) {
     let axis = parent_node.bounding.get_partition_axis();
+
     let range = parent_node.primitive_range.clone();
     let middle = (range.end + range.start) / 2;
     let left_range = range.start..middle;
     let right_range = middle..range.end;
+
+    B::median_partition_at_axis(range, build_source, index_source, axis);
 
     let left_bbox = bounding_from_build_source(&index_source, &build_source, left_range.clone());
     let right_bbox = bounding_from_build_source(&index_source, &build_source, right_range.clone());
@@ -131,7 +143,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
     &mut self,
     parent_node: &FlattenBVHNode<B>,
     build_source: &Vec<BuildPrimitive<B>>,
-    index_source: &Vec<usize>,
+    index_source: &mut Vec<usize>,
   ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>)) {
     // step 1, update pre_partition_check_cache
     let axis = parent_node.bounding.get_partition_axis();

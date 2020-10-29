@@ -6,7 +6,7 @@ use rendiation_scenegraph::*;
 
 use rendiation_webgl::{WebGL, WebGLRenderer};
 use space_indexer::{
-  bvh::test::bvh_build, bvh::BVHOption, bvh::BalanceTree, utils::generate_boxes_in_space,
+  bvh::test::bvh_build, bvh::BalanceTree, utils::generate_boxes_in_space, utils::TreeBuildOption,
 };
 use wasm_bindgen::prelude::*;
 
@@ -115,13 +115,13 @@ impl NyxtViewer {
 
 #[wasm_bindgen]
 pub fn test_bvh() {
-  let boxes = generate_boxes_in_space(10000, 1000., 1.);
+  let boxes = generate_boxes_in_space(20000, 10000., 1.);
 
   for i in 0..10 {
     let bvh = bvh_build(
       &boxes,
       &mut BalanceTree,
-      &BVHOption {
+      &TreeBuildOption {
         max_tree_depth: 15,
         bin_size: 10,
       },
