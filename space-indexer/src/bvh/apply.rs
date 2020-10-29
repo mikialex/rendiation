@@ -8,6 +8,7 @@ use std::ops::Range;
 impl BVHBounding for Box3 {
   type AxisType = Axis3;
 
+  #[inline(always)]
   fn get_partition_axis(&self) -> Self::AxisType {
     self.longest_axis().0
   }

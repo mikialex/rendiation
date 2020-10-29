@@ -12,17 +12,20 @@ impl Default for Box3 {
 }
 
 impl Box3 {
+  #[inline(always)]
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
     Self::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
   }
 
+  #[inline(always)]
   pub fn center(&self) -> Vec3<f32> {
     (self.min + self.max) * 0.5
   }
 
   #[rustfmt::skip]
+  #[inline(always)]
   pub fn max_corner(&self, direction: Vec3<f32>) -> Vec3<f32> {
     Vec3::new(
       if direction.x > 0. { self.max.x } else { self.min.x },
@@ -31,6 +34,7 @@ impl Box3 {
     )
   }
 
+  #[inline(always)]
   pub fn longest_axis(&self) -> (Axis3, f32) {
     let x_length = self.max.x - self.min.x;
     let y_length = self.max.y - self.min.y;

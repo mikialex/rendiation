@@ -10,6 +10,7 @@ pub trait CenterAblePrimitive {
 impl CenterAblePrimitive for Box3 {
   type Center = Vec3<f32>;
 
+  #[inline(always)]
   fn get_center(&self) -> Vec3<f32> {
     self.center()
   }
