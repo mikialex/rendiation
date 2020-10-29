@@ -20,18 +20,18 @@ fn criterion_benchmark(c: &mut Criterion) {
     })
   });
 
-  // c.bench_function("sah bvh build perf", |b| {
-  //   b.iter(|| {
-  //     bvh_build(
-  //       &boxes,
-  //       &mut SAH::new(4),
-  //       &TreeBuildOption {
-  //         max_tree_depth: 15,
-  //         bin_size: 10,
-  //       },
-  //     )
-  //   })
-  // });
+  c.bench_function("sah bvh build perf", |b| {
+    b.iter(|| {
+      bvh_build(
+        &boxes,
+        &mut SAH::new(4),
+        &TreeBuildOption {
+          max_tree_depth: 15,
+          bin_size: 10,
+        },
+      )
+    })
+  });
 }
 
 criterion_group!(benches, criterion_benchmark);

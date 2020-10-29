@@ -115,15 +115,6 @@ impl<B: SAHBounding> SAH<B> {
       ],
     }
   }
-  fn group_bounding(&self, range: Range<usize>) -> B {
-    self
-      .pre_partition
-      .get(range)
-      .unwrap()
-      .iter()
-      .map(|p| p.bounding)
-      .collect()
-  }
 
   fn partition_count(&self) -> usize {
     self.pre_partition.len()
@@ -251,7 +242,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
     // step3. update and return
     // todo use unsafe for perf
     let mut ptr = range.start;
-    for i in 0..self.partition_count() + 1 {
+    for i in 0..self.partition_count() {
       let p = &self.pre_partition[i];
       p.primitive_bucket.iter().for_each(|i| {
         index_source[ptr] = *i;
