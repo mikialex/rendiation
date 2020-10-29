@@ -9,37 +9,11 @@ pub use node::*;
 use std::{iter::FromIterator, ops::Range};
 pub use strategy::*;
 
-use crate::utils::{BuildPrimitive, CenterAblePrimitive};
+use crate::utils::{BuildPrimitive, CenterAblePrimitive, TreeBuildOption};
 
 pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
   type AxisType: Copy;
-
-  fn get_partition_axis(
-    node: &FlattenBVHNode<Self>,
-    build_source: &Vec<BuildPrimitive<Self>>,
-    index_source: &Vec<usize>,
-  ) -> Self::AxisType;
-
-  fn sort_range(
-    range: Range<usize>,
-    build_source: &Vec<BuildPrimitive<Self>>,
-    index_source: &mut Vec<usize>,
-    axis: Self::AxisType,
-  );
-}
-
-pub struct BVHOption {
-  pub max_tree_depth: usize,
-  pub bin_size: usize,
-}
-
-impl Default for BVHOption {
-  fn default() -> Self {
-    Self {
-      max_tree_depth: 10,
-      bin_size: 1,
-    }
-  }
+  fn get_partition_axis(&self) -> Self::AxisType;
 }
 
 pub struct FlattenBVH<B: BVHBounding> {
@@ -51,7 +25,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
   pub fn new<S: BVHBuildStrategy<B>>(
     source: impl ExactSizeIterator<Item = B>,
     strategy: &mut S,
-    option: &BVHOption,
+    option: &TreeBuildOption,
   ) -> Self {
     // prepare build source;
     let items_count = source.len();

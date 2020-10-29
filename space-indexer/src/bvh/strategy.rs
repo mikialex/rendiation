@@ -1,5 +1,7 @@
+use crate::utils::TreeBuildOption;
+
 use super::{
-  bounding_from_build_source, node::FlattenBVHNode, BVHBounding, BVHOption, BuildPrimitive,
+  bounding_from_build_source, node::FlattenBVHNode, BVHBounding, BuildPrimitive,
   FlattenBVHNodeChildInfo,
 };
 use std::ops::Range;
@@ -9,29 +11,19 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
   /// return the size of tree.
   fn build(
     &mut self,
-    option: &BVHOption,
+    option: &TreeBuildOption,
     build_source: &Vec<BuildPrimitive<B>>,
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<FlattenBVHNode<B>>,
     depth: usize,
   ) -> usize {
-    let (depth, split_axis, node) = {
-      let node = nodes.last().unwrap();
-      if depth >= option.max_tree_depth {
-        return 1;
-      }
-      if node.primitive_range.len() <= option.bin_size {
-        return 1;
-      }
-      let range = node.primitive_range.clone();
+    let node = nodes.last().unwrap();
+    if !option.should_continue(node, depth) {
+      return 1;
+    }
 
-      let split_axis = B::get_partition_axis(node, build_source, index_source);
-      B::sort_range(range, build_source, index_source, split_axis);
-      (depth, split_axis, node)
-    };
-
-    let ((left_bbox, left_range), (right_bbox, right_range)) =
-      Self::split(self, split_axis, node, build_source, index_source);
+    let ((left_bbox, left_range), split_axis, (right_bbox, right_range)) =
+      Self::split(self, node, build_source, index_source);
 
     let node_index = nodes.len() - 1;
 
@@ -42,6 +34,7 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
     let right_count = Self::build(self, option, build_source, index_source, nodes, depth + 1);
 
     let node = &mut nodes[node_index];
+
     node.child = Some(FlattenBVHNodeChildInfo {
       left_count,
       split_axis,
@@ -51,17 +44,14 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
   }
 
   /// different strategy has different split method;
-  /// given a range, and return the left, right partition;
+  /// given a range, and return the left, right partition and split decision;
   ///
-  /// the reason why return bounding is to avoid extra bounding calculation:
-  /// partition decision maybe has already computed bounding;
   fn split(
     &mut self,
-    split: B::AxisType,
     parent_node: &FlattenBVHNode<B>,
     build_source: &Vec<BuildPrimitive<B>>,
     index_source: &Vec<usize>,
-  ) -> ((B, Range<usize>), (B, Range<usize>));
+  ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>));
 }
 
 pub struct BalanceTree;
@@ -69,11 +59,11 @@ pub struct BalanceTree;
 impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
   fn split(
     &mut self,
-    _: B::AxisType,
     parent_node: &FlattenBVHNode<B>,
     build_source: &Vec<BuildPrimitive<B>>,
     index_source: &Vec<usize>,
-  ) -> ((B, Range<usize>), (B, Range<usize>)) {
+  ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>)) {
+    let axis = parent_node.bounding.get_partition_axis();
     let range = parent_node.primitive_range.clone();
     let middle = (range.end + range.start) / 2;
     let left_range = range.start..middle;
@@ -82,7 +72,7 @@ impl<B: BVHBounding> BVHBuildStrategy<B> for BalanceTree {
     let left_bbox = bounding_from_build_source(&index_source, &build_source, left_range.clone());
     let right_bbox = bounding_from_build_source(&index_source, &build_source, right_range.clone());
 
-    ((left_bbox, left_range), (right_bbox, right_range))
+    ((left_bbox, left_range), axis, (right_bbox, right_range))
   }
 }
 
@@ -139,14 +129,14 @@ impl<B: SAHBounding> SAHPrePartitionCache<B> {
 impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
   fn split(
     &mut self,
-    split: B::AxisType,
     parent_node: &FlattenBVHNode<B>,
     build_source: &Vec<BuildPrimitive<B>>,
     index_source: &Vec<usize>,
-  ) -> ((B, Range<usize>), (B, Range<usize>)) {
+  ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>)) {
     // step 1, update pre_partition_check_cache
+    let axis = parent_node.bounding.get_partition_axis();
     let partition_count = self.pre_partition_check_count;
-    let range = parent_node.bounding.get_unit_range_by_axis(split);
+    let range = parent_node.bounding.get_unit_range_by_axis(axis);
     let range_len = range.end - range.start;
     let step = range_len / partition_count as f32;
 
@@ -174,7 +164,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
 
         while !exceed && primitive_checked_offset < primitive_range.end {
           let build_primitive = index_source[primitive_checked_offset];
-          exceed = B::get_unit_from_center_by_axis(&build_source[build_primitive].center, split)
+          exceed = B::get_unit_from_center_by_axis(&build_source[build_primitive].center, axis)
             > extent_largest;
           primitive_checked_offset += 1;
         }
@@ -220,6 +210,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
 
     (
       (best_left.bounding, best_left.primitive_range),
+      axis,
       (best_right.bounding, best_right.primitive_range),
     )
   }

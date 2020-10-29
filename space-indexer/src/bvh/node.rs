@@ -1,3 +1,5 @@
+use crate::utils::SpacePartitionTreeNode;
+
 use super::{BVHBounding, FlattenBVH};
 use std::ops::Range;
 
@@ -6,6 +8,12 @@ pub struct FlattenBVHNode<B: BVHBounding> {
   pub primitive_range: Range<usize>,
   pub self_index: usize,
   pub child: Option<FlattenBVHNodeChildInfo<B>>,
+}
+
+impl<B: BVHBounding> SpacePartitionTreeNode for FlattenBVHNode<B> {
+  fn contained_item_count(&self) -> usize {
+    self.primitive_range.len()
+  }
 }
 
 impl<B: BVHBounding> FlattenBVHNode<B> {

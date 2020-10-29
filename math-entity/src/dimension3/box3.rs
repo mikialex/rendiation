@@ -51,19 +51,23 @@ impl Box3 {
     }
   }
 
+  #[inline(always)]
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
     self.min = self.min.min(point);
     self.max = self.max.max(point);
   }
 
+  #[inline(always)]
   pub fn union(&mut self, box3: Self) {
     self.expand_by_box(box3)
   }
 
+  #[inline(always)]
   pub fn is_empty(&self) -> bool {
     (self.max.x < self.min.x) || (self.max.y < self.min.y) || (self.max.z < self.min.z)
   }
 
+  #[inline(always)]
   pub fn expand_by_box(&mut self, box3: Self) {
     if self.is_empty() {
       *self = box3;

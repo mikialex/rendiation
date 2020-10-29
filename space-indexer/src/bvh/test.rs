@@ -1,11 +1,13 @@
 use rendiation_math_entity::Box3;
 
-use super::{BVHBuildStrategy, BVHOption, FlattenBVH};
+use crate::utils::TreeBuildOption;
+
+use super::{BVHBuildStrategy, FlattenBVH};
 
 pub fn bvh_build<S: BVHBuildStrategy<Box3>>(
   boxes: &Vec<Box3>,
   strategy: &mut S,
-  option: &BVHOption,
+  option: &TreeBuildOption,
 ) -> FlattenBVH<Box3> {
   FlattenBVH::new(boxes.iter().map(|&b| b), strategy, option)
 }
@@ -18,7 +20,7 @@ pub fn test_bvh_build() {
   bvh_build(
     &boxes,
     &mut BalanceTree,
-    &BVHOption {
+    &TreeBuildOption {
       max_tree_depth: 15,
       bin_size: 10,
     },
@@ -26,7 +28,7 @@ pub fn test_bvh_build() {
   bvh_build(
     &boxes,
     &mut SAH::new(4),
-    &BVHOption {
+    &TreeBuildOption {
       max_tree_depth: 15,
       bin_size: 10,
     },
