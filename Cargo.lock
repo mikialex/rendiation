@@ -2239,7 +2239,6 @@ dependencies = [
  "naga 0.2.0 (git+https://github.com/gfx-rs/naga.git?rev=2b268c926c6dff5e366226a9502c06725107489d)",
  "rendiation-math",
  "rendiation-ral",
- "rendiation-webgl",
  "rendiation-webgpu",
 ]
 

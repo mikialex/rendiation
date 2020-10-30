@@ -1,5 +1,6 @@
 use crate::{
-  WebGLProgram, WebGLProgramBuildSource, WebGLRenderer, WebGLTexture, WebGLVertexBuffer,
+  SingleUniformUploadInstance, UploadInstance, WebGLProgram, WebGLProgramBuildSource,
+  WebGLRenderer, WebGLTexture, WebGLUniformUploadable, WebGLVertexBuffer,
 };
 
 use rendiation_ral::*;
@@ -141,4 +142,46 @@ fn ral_topology_to_webgl_topology(t: PrimitiveTopology) -> u32 {
     TriangleList => WebGl2RenderingContext::TRIANGLES,
     _ => panic!("not support"),
   }
+}
+
+impl WebGLUniformUploadable for ShaderTexture {
+  type UploadValue = WebGLTexture;
+  type UploadInstance = TextureUniformUploader;
+}
+
+pub struct TextureUniformUploader {
+  instance: SingleUniformUploadInstance<i32>,
+}
+
+impl UploadInstance<ShaderTexture> for TextureUniformUploader {
+  fn create(query_name_prefix: &str, gl: &WebGl2RenderingContext, program: &WebGlProgram) -> Self {
+    Self {
+      instance: SingleUniformUploadInstance::<i32>::new(query_name_prefix, gl, program),
+    }
+  }
+  fn upload(
+    &mut self,
+    value: &WebGLTexture,
+    renderer: &mut WebGLRenderer,
+    _resource: &ResourceManager<WebGL>,
+  ) {
+    let slot = renderer
+      .texture_slot_states
+      .bind_and_active_texture(value, &renderer.gl);
+    self.instance.upload(&(slot as i32), renderer)
+  }
+}
+
+impl WebGLUniformUploadable for ShaderSampler {
+  type UploadValue = ();
+  type UploadInstance = EmptyImpl;
+}
+
+pub struct EmptyImpl;
+
+impl UploadInstance<ShaderSampler> for EmptyImpl {
+  fn create(_: &str, _: &WebGl2RenderingContext, _: &WebGlProgram) -> Self {
+    Self
+  }
+  fn upload(&mut self, _: &(), _: &mut WebGLRenderer, _resource: &ResourceManager<WebGL>) {}
 }

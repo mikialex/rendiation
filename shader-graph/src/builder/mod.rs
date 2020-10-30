@@ -69,12 +69,13 @@ impl ShaderGraphBuilder {
     IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
   }
 
-  pub fn bindgroup(&self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder)) {
+  pub fn bindgroup<T>(&self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder) -> T) -> T {
     modify_graph(|g| {
       let mut builder = ShaderGraphBindGroupBuilder::new(g);
-      b(&mut builder);
+      let instance = b(&mut builder);
       builder.resolve();
-    });
+      instance
+    })
   }
 
   pub fn bindgroup_by<
@@ -88,12 +89,7 @@ impl ShaderGraphBuilder {
       graph.wgpu_shader_interface.binding_group::<T>(layout);
     });
 
-    // can we do better??
-    let mut re: Option<T::ShaderGraphBindGroupInstance> = None;
-    self.bindgroup(|b| {
-      re = Some(T::create_instance(b));
-    });
-    re.unwrap()
+    self.bindgroup(|b| T::create_instance(b))
   }
 
   pub fn attribute<T: ShaderGraphNodeType>(&self, name: &str) -> ShaderGraphNodeHandle<T> {

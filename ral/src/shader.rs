@@ -1,3 +1,9 @@
+#[derive(Copy, Clone)]
+pub struct ShaderSampler;
+
+#[derive(Copy, Clone)]
+pub struct ShaderTexture;
+
 pub trait RALVertexBufferDescriptorProvider {
   fn create_descriptor() -> RALVertexBufferDescriptor;
 }

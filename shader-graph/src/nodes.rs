@@ -1,8 +1,8 @@
 use crate::{
-  ShaderFunction, ShaderGraphNodeRawHandle, ShaderGraphNodeRawHandleUntyped,
-  ShaderGraphNodeUntyped, ShaderGraphSampler, ShaderGraphTexture,
+  ShaderFunction, ShaderGraphNodeRawHandle, ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped,
 };
 use rendiation_math::Vec2;
+use rendiation_ral::{ShaderSampler, ShaderTexture};
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
 
 pub trait ShaderGraphNodeType: 'static + Copy {
@@ -77,8 +77,8 @@ pub struct FunctionNode {
 }
 
 pub struct TextureSamplingNode {
-  pub texture: ShaderGraphNodeRawHandle<ShaderGraphTexture>,
-  pub sampler: ShaderGraphNodeRawHandle<ShaderGraphSampler>,
+  pub texture: ShaderGraphNodeRawHandle<ShaderTexture>,
+  pub sampler: ShaderGraphNodeRawHandle<ShaderSampler>,
   pub position: ShaderGraphNodeRawHandle<Vec2<f32>>,
 }
 

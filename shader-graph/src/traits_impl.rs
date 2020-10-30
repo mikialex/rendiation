@@ -4,7 +4,7 @@ use crate::{
   ShaderGraphNodeData, ShaderGraphNodeHandle, ShaderGraphNodeType, TextureSamplingNode,
 };
 use rendiation_math::*;
-use rendiation_ral::ShaderStage;
+use rendiation_ral::{ShaderSampler, ShaderStage, ShaderTexture};
 
 impl ShaderGraphNodeType for AnyType {
   fn to_glsl_type() -> &'static str {
@@ -87,42 +87,36 @@ impl ShaderGraphNodeType for Mat4<f32> {
   }
 }
 
-#[derive(Copy, Clone)]
-pub struct ShaderGraphSampler;
-
-impl ShaderGraphNodeType for ShaderGraphSampler {
+impl ShaderGraphNodeType for ShaderSampler {
   fn to_glsl_type() -> &'static str {
     "sampler"
   }
 }
 
-impl ShaderGraphBindGroupItemProvider for ShaderGraphSampler {
-  type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderGraphSampler>;
+impl ShaderGraphBindGroupItemProvider for ShaderSampler {
+  type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderSampler>;
 
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
-    let node = bindgroup_builder.create_uniform_node::<ShaderGraphSampler>(name);
+    let node = bindgroup_builder.create_uniform_node::<ShaderSampler>(name);
     bindgroup_builder.add_none_ubo(unsafe { node.handle.cast_type().into() }, stage);
     node
   }
 }
 
-#[derive(Copy, Clone)]
-pub struct ShaderGraphTexture;
-
-impl ShaderGraphNodeType for ShaderGraphTexture {
+impl ShaderGraphNodeType for ShaderTexture {
   fn to_glsl_type() -> &'static str {
     "texture2D"
   }
 }
 
-impl ShaderGraphNodeHandle<ShaderGraphTexture> {
+impl ShaderGraphNodeHandle<ShaderTexture> {
   pub fn sample(
     &self,
-    sampler: ShaderGraphNodeHandle<ShaderGraphSampler>,
+    sampler: ShaderGraphNodeHandle<ShaderSampler>,
     position: ShaderGraphNodeHandle<Vec2<f32>>,
   ) -> ShaderGraphNodeHandle<Vec4<f32>> {
     modify_graph(|g| {
@@ -144,15 +138,15 @@ impl ShaderGraphNodeHandle<ShaderGraphTexture> {
   }
 }
 
-impl ShaderGraphBindGroupItemProvider for ShaderGraphTexture {
-  type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderGraphTexture>;
+impl ShaderGraphBindGroupItemProvider for ShaderTexture {
+  type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderTexture>;
 
   fn create_instance<'a>(
     name: &'static str,
     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
-    let node = bindgroup_builder.create_uniform_node::<ShaderGraphTexture>(name);
+    let node = bindgroup_builder.create_uniform_node::<ShaderTexture>(name);
     bindgroup_builder.add_none_ubo(unsafe { node.handle.cast_type().into() }, stage);
     node
   }

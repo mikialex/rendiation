@@ -164,9 +164,9 @@ fn convert_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStrea
     Mat4 => quote! { rendiation_math::Mat4<f32> },
     TypeName(ty) => {
       if ty == &sampler_type {
-        quote! { rendiation_shadergraph::ShaderGraphSampler }
+        quote! { rendiation_shadergraph::ShaderSampler }
       } else if ty == &texture_type {
-        quote! { rendiation_shadergraph::ShaderGraphTexture }
+        quote! { rendiation_shadergraph::ShaderTexture }
       } else {
         panic!("unsupported param type {:?}", glsl)
       }

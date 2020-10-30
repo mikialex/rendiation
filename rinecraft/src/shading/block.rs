@@ -11,7 +11,7 @@ use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 use transform::CameraTransform;
 
-use rendiation_ral::BindGroupHandle;
+use rendiation_ral::{BindGroupHandle, ShaderSampler, ShaderTexture};
 
 #[derive(Shader)]
 pub struct BlockShader {
@@ -30,10 +30,10 @@ pub struct BlockShadingParamGroup {
   pub fog: FogData,
 
   #[stage(frag)]
-  pub my_texture_view: ShaderGraphTexture,
+  pub my_texture_view: ShaderTexture,
 
   #[stage(frag)]
-  pub my_sampler: ShaderGraphSampler,
+  pub my_sampler: ShaderSampler,
 }
 
 impl BlockShader {

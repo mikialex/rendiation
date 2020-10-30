@@ -216,5 +216,7 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
     impl rendiation_ral::UBOData for #struct_name {}
     impl rendiation_shadergraph::ShaderGraphUBO for #struct_name {}
 
+    // todo move to feature gate webgpu
+    impl rendiation_webgpu::WGPUUBOData for #struct_name {}
   }
 }

@@ -136,3 +136,51 @@ fn ral_topology_to_webgpu_topology(
     _ => panic!("not support"),
   }
 }
+
+pub trait WGPUBindgroupItem<'a> {
+  type Type;
+  fn to_binding(item: Self::Type) -> WGPUBinding<'a>;
+  fn to_layout_type() -> BindingType;
+}
+
+pub trait WGPUUBOData: UBOData {}
+
+impl<'a, T: WGPUUBOData + 'static> WGPUBindgroupItem<'a> for T {
+  type Type = UniformBufferRef<'a, WebGPU, T>;
+  fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
+    WGPUBinding::BindBuffer(item.gpu)
+  }
+
+  // oh my god we need specialization here in the future
+  fn to_layout_type() -> BindingType {
+    BindingType::UniformBuffer {
+      dynamic: false,
+      min_binding_size: None, // todo investigate
+    }
+  }
+}
+
+impl<'a> WGPUBindgroupItem<'a> for ShaderTexture {
+  type Type = &'a WGPUTexture;
+  fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
+    WGPUBinding::BindTexture(item.view())
+  }
+  fn to_layout_type() -> BindingType {
+    BindingType::SampledTexture {
+      multisampled: false,
+      component_type: wgpu::TextureComponentType::Float,
+      dimension: wgpu::TextureViewDimension::D2,
+    }
+  }
+}
+
+impl<'a> WGPUBindgroupItem<'a> for ShaderSampler {
+  type Type = &'a WGPUSampler;
+  fn to_binding(item: Self::Type) -> WGPUBinding<'a> {
+    WGPUBinding::BindSampler(item)
+  }
+  // any other situation could be inject by generics over ShaderSampler
+  fn to_layout_type() -> BindingType {
+    BindingType::Sampler { comparison: false }
+  }
+}

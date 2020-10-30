@@ -1,4 +1,4 @@
-use crate::RAL;
+use crate::{ShaderSampler, ShaderTexture, RAL};
 use arena::Handle;
 use std::{marker::PhantomData, ops::Range};
 
@@ -79,6 +79,32 @@ impl<'a, T: RAL, U: UBOData> RALBindgroupItem<'a, T> for U {
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource {
     resources.uniform_buffers.get_uniform_gpu(handle)
+  }
+}
+
+impl<T: RAL> RALBindgroupHandle<T> for ShaderTexture {
+  type HandleType = TextureHandle<T>;
+}
+impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderTexture {
+  type Resource = &'a <T as RAL>::Texture;
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource {
+    resources.textures.get(handle).unwrap()
+  }
+}
+
+impl<T: RAL> RALBindgroupHandle<T> for ShaderSampler {
+  type HandleType = SamplerHandle<T>;
+}
+impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderSampler {
+  type Resource = &'a T::Sampler;
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource {
+    resources.samplers.get(handle).unwrap()
   }
 }
 
