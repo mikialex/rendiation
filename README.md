@@ -1,3 +1,7 @@
+<div style="display: flex">
+    <img src="./asset/rrf.svg" alt="rrf logo" style="margin: auto">
+</div>
+
 # Rendiation Rendering Framework
 
 Rendiation is a group of crates that can be composed to impl graphics project. Build your own renderer, realtime viewer or offline tracer, game engine, physics engine, graphics data processing, generative content creation..
