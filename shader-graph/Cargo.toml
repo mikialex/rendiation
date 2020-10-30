@@ -11,4 +11,4 @@ naga = {git = "https://github.com/gfx-rs/naga.git", rev = "2b268c926c6dff5e36622
 rendiation-math = {path = "../math"}
 rendiation-ral = {path = "../ral"}
 rendiation-webgl = {path = "../webgl"}
-rendiation-webgpu = {path = "../webgpu"}
+rendiation-webgpu = {path = "../webgpu", features = ['glsl-to-spirv']}

@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[wasm_bindgen]
-pub struct SceneNodeDataWASM {
+pub struct SceneNodeWASM {
   inner: NyxtViewerHandledObject<SceneNodeHandle<GFX>>,
 }
 
@@ -30,9 +30,9 @@ impl NyxtViewerMutableHandle for SceneNodeHandle<GFX> {
 }
 
 #[wasm_bindgen]
-impl SceneNodeDataWASM {
+impl SceneNodeWASM {
   #[wasm_bindgen(constructor)]
-  pub fn new(viewer: &NyxtViewer) -> SceneNodeDataWASM {
+  pub fn new(viewer: &NyxtViewer) -> SceneNodeWASM {
     let handle = viewer.mutate_inner(|inner| inner.scene.create_new_node().handle());
     Self {
       inner: viewer.make_handle_object(handle),
@@ -40,15 +40,15 @@ impl SceneNodeDataWASM {
   }
 
   #[wasm_bindgen(getter)]
-  pub fn get_local_matrix(&self) -> Mat4F32WASM {
+  pub fn local_matrix(&self) -> Mat4F32WASM {
     self.inner.mutate_item(|d| d.local_matrix).to_wasm()
   }
 
   #[wasm_bindgen(setter)]
-  pub fn set_local_matrix(&mut self, value: Mat4F32WASM) {
+  pub fn set_local_matrix(&mut self, value: &Mat4F32WASM) {
     self
       .inner
-      .mutate_item(|d| d.local_matrix = WASMAbleType::from_wasm(value))
+      .mutate_item(|d| d.local_matrix = WASMAbleType::from_wasm(*value))
   }
 
   pub fn get_visible(&self) -> bool {
@@ -73,7 +73,7 @@ impl SceneNodeDataWASM {
   }
 
   #[wasm_bindgen]
-  pub fn add_child(&mut self, child: &SceneNodeDataWASM) {
+  pub fn add_child(&mut self, child: &SceneNodeWASM) {
     self.inner.mutate_inner(|inner| {
       inner
         .scene
@@ -82,7 +82,7 @@ impl SceneNodeDataWASM {
   }
 
   #[wasm_bindgen]
-  pub fn remove_child(&mut self, child: &SceneNodeDataWASM) {
+  pub fn remove_child(&mut self, child: &SceneNodeWASM) {
     self.inner.mutate_inner(|inner| {
       inner
         .scene

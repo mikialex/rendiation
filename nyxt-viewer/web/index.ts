@@ -7,18 +7,25 @@
 // /// test renderer
 // intoThree()
 // intoWasmScene();
-import './declare'
 
-import { AttributeBufferF32WASM, AttributeBufferU16WASM, WASMGeometry, NyxtViewer, IndexBufferWASM, VertexBufferWASM, test_bvh } from '../pkg/nyxt_viewer';
-// import { IndexBuffer, VertexBuffer, Viewer, Geometry } from './src/scene';
+import { AttributeBufferF32WASM, AttributeBufferU16WASM, WASMGeometry, NyxtViewer, IndexBufferWASM, VertexBufferWASM, test_bvh, SceneNodeWASM } from '../pkg/nyxt_viewer';
 
 
 const canvas = document.getElementById("wasm") as HTMLCanvasElement
 
 const viewer = new NyxtViewer(canvas);
-// const node = viewer.create_node();
-// console.log(node)
-// console.log(node.local_matrix)
+const node = new SceneNodeWASM(viewer);
+
+// node.local_matrix.a1 = 2; // this not work
+
+let new_local = node.local_matrix;
+new_local.a1 = 2;
+node.local_matrix = new_local;
+new_local.free();
+
+
+console.log(node)
+console.log(new_local)
 
 const index = new AttributeBufferU16WASM(new Uint16Array([1, 0, 0]), 3);
 const index_buffer = new IndexBufferWASM(viewer, index);

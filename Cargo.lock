@@ -1603,6 +1603,7 @@ dependencies = [
  "rendiation-ral",
  "rendiation-render-entity",
  "rendiation-scenegraph",
+ "rendiation-shader-library",
  "rendiation-webgl",
  "space-indexer",
  "wasm-bindgen",

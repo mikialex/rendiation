@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc, rc::Weak};
 
 use rendiation_ral::*;
+pub use rendiation_shader_library::fog::*;
 
 use rendiation_scenegraph::*;
 

@@ -6,6 +6,7 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_ubo_shadergraph_instance(input));
   generated.append_all(derive_ubo_webgl_upload_instance(input));
+  generated.append_all(derive_ubo_nyxt_wasm_instance_impl(input));
   generated
 }
 
@@ -41,11 +42,13 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
     .collect();
 
   quote! {
+    #[cfg(feature = "wasm_bindgen")]
     #[wasm_bindgen]
     pub struct #instance_name {
       inner: NyxtViewerHandledObject<UniformHandleWrap<#struct_name>>,
     }
 
+    #[cfg(feature = "wasm_bindgen")]
     #[wasm_bindgen]
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
