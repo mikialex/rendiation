@@ -10,6 +10,9 @@ pub struct Mat3<T>
 	pub c1:T, pub c2:T, pub c3:T,
 }
 
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat3<T> {}
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat3<T> {}
+
 impl<T> Mul for Mat3<T> where T:Copy + Mul<Output=T> + Add<Output=T>
 {
 	type Output = Self;

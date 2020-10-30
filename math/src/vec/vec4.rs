@@ -11,6 +11,9 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
+
 impl<T> Vec4<T>
 where
   T: Copy,

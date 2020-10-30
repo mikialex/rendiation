@@ -1,8 +1,7 @@
 use crate::{
-  default_impl::DefaultSceneBackend, DrawcallHandle, GeometryHandle, Scene, SceneBackend,
-  SceneNodeHandle, ShadingHandle, RAL,
+  default_impl::DefaultSceneBackend, DrawcallHandle, Scene, SceneBackend, SceneNodeHandle,
 };
-use rendiation_ral::{Drawcall, ResourceManager, ShadingProvider};
+use rendiation_ral::*;
 
 impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
   pub fn create_drawcall<SP: ShadingProvider<T>, G: GeometryProvider<T>>(

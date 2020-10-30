@@ -14,13 +14,13 @@ webgpu = ["rendiation-webgpu", "rendiation-mesh-buffer/webgpu"]
 
 [dependencies]
 arena = {path = "../utils/arena"}
-js-sys = "0.3.39"
+js-sys = "0.3.45"
 rendiation-math = {path = "../math"}
 rendiation-math-entity = {path = "../math-entity"}
 rendiation-mesh-buffer = {path = "../mesh-buffer"}
 rendiation-ral = {path = "../ral"}
 rendiation-render-entity = {path = "../render-entity"}
-wasm-bindgen = {version = "0.2.62"}
+wasm-bindgen = {version = "0.2.68"}
 
 rendiation-rendergraph = {path = "../render-graph", optional = true}
 rendiation-webgl = {path = "../webgl"}

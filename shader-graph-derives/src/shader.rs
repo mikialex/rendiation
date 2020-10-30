@@ -206,6 +206,8 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     .collect();
 
   quote! {
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
     pub struct #resource_instance_name<T: rendiation_ral::RAL> {
       #(#resource_struct_fields)*
     }

@@ -75,8 +75,8 @@ impl<T: RAL> UBOManager<T> {
     }
   }
 
-  pub fn delete<U: 'static>(&mut self, handle: usize) {
-    self.get_storage_or_create::<U>().delete(handle);
+  pub fn delete<U: 'static>(&mut self, handle: UniformHandle<T, U>) {
+    self.get_storage_or_create::<U>().delete(handle.index);
   }
 
   fn insert<U: 'static>(&mut self, value: U) -> usize {
@@ -93,6 +93,15 @@ impl<T: RAL> UBOManager<T> {
     self
       .get_storage_or_create::<U>()
       .update(handle.index, new_value);
+  }
+
+  pub fn mutate<U: 'static>(&mut self, handle: UniformHandle<T, U>) -> &mut U {
+    self.notify_modified::<U>();
+    self.get_storage_or_create::<U>().mutate(handle.index)
+  }
+
+  pub fn get_data<U: 'static>(&self, handle: UniformHandle<T, U>) -> &U {
+    self.get_storage_should_ok::<U>().get_data(handle.index)
   }
 }
 
@@ -158,6 +167,10 @@ impl<T: RAL, U> UBOStorage<T, U> {
   fn update(&mut self, handle: usize, new_value: U) {
     self.dirty = true;
     self.storage[handle] = new_value;
+  }
+
+  fn mutate(&mut self, handle: usize) -> &mut U {
+    &mut self.storage[handle]
   }
 
   fn get_gpu(&self) -> &T::UniformBuffer {

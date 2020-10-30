@@ -1,6 +1,7 @@
 use render_target::{RenderTarget, TargetInfoProvider};
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 
+use rendiation_ral::{ShaderSampler, ShaderTexture};
 use rendiation_shader_library::builtin::*;
 use rendiation_shader_library::fog::*;
 use rendiation_shader_library::sph::*;
@@ -37,8 +38,8 @@ impl CopierShading {
 #[derive(BindGroup)]
 pub struct CopyParam {
   #[stage(frag)]
-  pub my_texture: ShaderGraphTexture,
+  pub my_texture: ShaderTexture,
 
   #[stage(frag)]
-  pub my_sampler: ShaderGraphSampler,
+  pub my_sampler: ShaderSampler,
 }

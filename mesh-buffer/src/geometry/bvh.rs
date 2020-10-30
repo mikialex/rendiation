@@ -3,7 +3,7 @@ use super::{
   PrimitiveData, PrimitiveTopology,
 };
 use rendiation_math_entity::*;
-use space_indexer::bvh::*;
+use space_indexer::{bvh::*, utils::TreeBuildOption};
 
 pub struct BVHAcceleratedGeometry<G, B>
 where
@@ -66,7 +66,7 @@ where
   pub fn check_update_bvh<S: BVHBuildStrategy<B>>(
     &mut self,
     strategy: &mut S,
-    option: &BVHOption,
+    option: &TreeBuildOption,
   ) -> &FlattenBVH<B> {
     let geometry = &self.geometry;
     self.bvh.get_or_insert_with(|| {

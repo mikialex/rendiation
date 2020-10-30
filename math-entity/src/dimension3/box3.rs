@@ -12,17 +12,20 @@ impl Default for Box3 {
 }
 
 impl Box3 {
+  #[inline(always)]
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
     Self::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
   }
 
+  #[inline(always)]
   pub fn center(&self) -> Vec3<f32> {
     (self.min + self.max) * 0.5
   }
 
   #[rustfmt::skip]
+  #[inline(always)]
   pub fn max_corner(&self, direction: Vec3<f32>) -> Vec3<f32> {
     Vec3::new(
       if direction.x > 0. { self.max.x } else { self.min.x },
@@ -31,6 +34,7 @@ impl Box3 {
     )
   }
 
+  #[inline(always)]
   pub fn longest_axis(&self) -> (Axis3, f32) {
     let x_length = self.max.x - self.min.x;
     let y_length = self.max.y - self.min.y;
@@ -51,18 +55,29 @@ impl Box3 {
     }
   }
 
+  #[inline(always)]
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
-    self.min.min(point);
-    self.max.max(point);
+    self.min = self.min.min(point);
+    self.max = self.max.max(point);
   }
 
+  #[inline(always)]
   pub fn union(&mut self, box3: Self) {
     self.expand_by_box(box3)
   }
 
+  #[inline(always)]
+  pub fn is_empty(&self) -> bool {
+    (self.max.x < self.min.x) || (self.max.y < self.min.y) || (self.max.z < self.min.z)
+  }
+
+  #[inline(always)]
   pub fn expand_by_box(&mut self, box3: Self) {
-    self.min.min(box3.min);
-    self.max.max(box3.max);
+    if self.is_empty() {
+      *self = box3;
+    }
+    self.min = self.min.min(box3.min);
+    self.max = self.max.max(box3.max);
   }
 
   pub fn apply_matrix(&mut self, m: Mat4<f32>) -> Self {

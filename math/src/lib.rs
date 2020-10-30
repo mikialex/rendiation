@@ -9,6 +9,8 @@ pub mod consts;
 pub mod swizzle;
 pub mod interpolation;
 
+pub mod wasm;
+
 #[macro_use]
 pub mod marcos;
 pub use space::*;

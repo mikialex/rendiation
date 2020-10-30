@@ -1,14 +1,6 @@
 use crate::ImmediateRenderableContent;
-use rendiation_mesh_buffer::{
-  geometry::IndexedGeometry,
-  geometry::TriangleList,
-  tessellation::{plane::Quad, IndexedBufferTessellator},
-  vertex::Vertex,
-};
-use rendiation_ral::{
-  Drawcall, GeometryHandle, GeometryResourceProvider, ResourceManager, ShadingHandle,
-  ShadingProvider, RAL,
-};
+use rendiation_mesh_buffer::{geometry::*, tessellation::*, vertex::*};
+use rendiation_ral::*;
 
 pub struct FullScreenQuad<T: RAL, SP: ShadingProvider<T, Geometry = Vertex>> {
   obj: Drawcall<T, Vertex, SP>,

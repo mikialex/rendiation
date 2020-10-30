@@ -14,6 +14,41 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated
 }
 
+fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let instance_name = format_ident!("{}WASM", struct_name);
+
+  let fields = only_named_struct_fields(input).unwrap();
+  let fields_info: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  // let instance_fields = fields_info
+  //   .iter()
+  //   .map(|(field_name, ty)| {
+  //     quote! {}
+  //   })
+  //   .collect();
+
+  // quote! {
+  //   #[wasm_bindgen]
+  //   pub struct #instance_name {
+  //     #(#instance_fields)*
+  //   }
+
+  //   #[wasm_bindgen]
+  //   impl #instance_name {
+  //     #(#fields_wasm_getter_setter)*
+  //   }
+  // }
+  quote! {}
+}
+
 fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);

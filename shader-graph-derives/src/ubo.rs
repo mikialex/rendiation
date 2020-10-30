@@ -6,7 +6,54 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_ubo_shadergraph_instance(input));
   generated.append_all(derive_ubo_webgl_upload_instance(input));
+  generated.append_all(derive_ubo_nyxt_wasm_instance_impl(input));
   generated
+}
+
+fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let instance_name = format_ident!("{}WASM", struct_name);
+  let fields = only_named_struct_fields(input).unwrap();
+  let fields_info: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
+
+  let fields_wasm_getter_setter: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      let getter_name = format_ident!("get_{}", field_name);
+      let setter_name = format_ident!("set_{}", field_name);
+      quote! {
+        #[wasm_bindgen(getter)]
+        pub fn #getter_name(&self) -> <#ty as WASMAbleType>::Type {
+          self.inner.mutate_item(|d| d.#field_name).to_wasm()
+        }
+        #[wasm_bindgen(setter)]
+        pub fn #setter_name(&mut self, value: <#ty as WASMAbleType>::Type) {
+          self.inner.mutate_item(|d| d.#field_name = WASMAbleType::from_wasm(value))
+        }
+      }
+    })
+    .collect();
+
+  quote! {
+    #[cfg(feature = "wasm_bindgen")]
+    #[wasm_bindgen]
+    pub struct #instance_name {
+      inner: NyxtViewerHandledObject<UniformHandleWrap<#struct_name>>,
+    }
+
+    #[cfg(feature = "wasm_bindgen")]
+    #[wasm_bindgen]
+    impl #instance_name {
+      #(#fields_wasm_getter_setter)*
+    }
+  }
 }
 
 pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
@@ -169,5 +216,7 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
     impl rendiation_ral::UBOData for #struct_name {}
     impl rendiation_shadergraph::ShaderGraphUBO for #struct_name {}
 
+    // todo move to feature gate webgpu
+    impl rendiation_webgpu::WGPUUBOData for #struct_name {}
   }
 }

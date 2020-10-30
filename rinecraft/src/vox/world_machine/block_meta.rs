@@ -2,7 +2,7 @@ use crate::shading::copy::CopyParam;
 use crate::{shading::*, vox::block::BlockFace};
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
-use rendiation_mesh_buffer::tessellation::{plane::Quad, IndexedBufferTessellator};
+use rendiation_mesh_buffer::tessellation::*;
 use rendiation_mesh_buffer::wgpu::*;
 use rendiation_ral::Viewport;
 use rendiation_webgpu::*;

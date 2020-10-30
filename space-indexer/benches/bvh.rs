@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use space_indexer::{
-  bvh::test::bvh_build, bvh::BVHOption, bvh::BalanceTree, bvh::SAH, utils::generate_boxes_in_space,
+  bvh::test::bvh_build, bvh::BalanceTree, bvh::SAH, utils::generate_boxes_in_space,
+  utils::TreeBuildOption,
 };
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -11,7 +12,7 @@ fn criterion_benchmark(c: &mut Criterion) {
       bvh_build(
         &boxes,
         &mut BalanceTree,
-        &BVHOption {
+        &TreeBuildOption {
           max_tree_depth: 15,
           bin_size: 10,
         },
@@ -24,7 +25,7 @@ fn criterion_benchmark(c: &mut Criterion) {
       bvh_build(
         &boxes,
         &mut SAH::new(4),
-        &BVHOption {
+        &TreeBuildOption {
           max_tree_depth: 15,
           bin_size: 10,
         },

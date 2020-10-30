@@ -49,7 +49,7 @@ pub struct SceneNodeDataDrawcallsProvider<'a, P>(pub &'a P);
 
 pub struct Scene<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
   pub drawcalls: Arena<Drawcall<T>>,
-  pub(crate) nodes: ArenaTree<S::NodeData>,
+  pub nodes: ArenaTree<S::NodeData>,
   pub scene_data: S::SceneData,
   reused_traverse_stack: Vec<SceneNodeHandle<T, S>>,
 }

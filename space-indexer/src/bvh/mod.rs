@@ -6,58 +6,14 @@ mod traverse;
 pub mod test;
 
 pub use node::*;
-use std::{cmp::Ordering, iter::FromIterator, ops::Range};
+use std::{iter::FromIterator, ops::Range};
 pub use strategy::*;
 
-pub trait BVHBounding: Sized + Copy + FromIterator<Self> {
+use crate::utils::{BuildPrimitive, CenterAblePrimitive, TreeBuildOption};
+
+pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
   type AxisType: Copy;
-  type CenterType;
-
-  fn get_center(&self) -> Self::CenterType;
-
-  fn get_partition_axis(
-    node: &FlattenBVHNode<Self>,
-    build_source: &Vec<BuildPrimitive<Self>>,
-    index_source: &Vec<usize>,
-  ) -> Self::AxisType;
-
-  fn compare(
-    self_primitive: &BuildPrimitive<Self>,
-    axis: Self::AxisType,
-    other_primitive: &BuildPrimitive<Self>,
-  ) -> Ordering;
-}
-
-pub struct BuildPrimitive<B: BVHBounding> {
-  bounding: B,
-  center: B::CenterType,
-}
-
-impl<B: BVHBounding> BuildPrimitive<B> {
-  fn new(bounding: B) -> Self {
-    Self {
-      bounding,
-      center: bounding.get_center(),
-    }
-  }
-
-  fn compare_center(&self, axis: B::AxisType, other: &BuildPrimitive<B>) -> Ordering {
-    B::compare(self, axis, &other)
-  }
-}
-
-pub struct BVHOption {
-  pub max_tree_depth: usize,
-  pub bin_size: usize,
-}
-
-impl Default for BVHOption {
-  fn default() -> Self {
-    Self {
-      max_tree_depth: 10,
-      bin_size: 1,
-    }
-  }
+  fn get_partition_axis(&self) -> Self::AxisType;
 }
 
 pub struct FlattenBVH<B: BVHBounding> {
@@ -69,7 +25,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
   pub fn new<S: BVHBuildStrategy<B>>(
     source: impl ExactSizeIterator<Item = B>,
     strategy: &mut S,
-    option: &BVHOption,
+    option: &TreeBuildOption,
   ) -> Self {
     // prepare build source;
     let items_count = source.len();
@@ -82,10 +38,10 @@ impl<B: BVHBounding> FlattenBVH<B> {
     let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..items_count);
 
     let mut nodes = Vec::new();
-    nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0, 0));
+    nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0));
 
     // build
-    strategy.build(&option, &primitives, &mut index_list, &mut nodes);
+    strategy.build(&option, &primitives, &mut index_list, &mut nodes, 0);
 
     Self {
       nodes,

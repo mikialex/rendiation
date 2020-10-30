@@ -8,10 +8,7 @@ use rendiation_webgpu::*;
 
 mod shader;
 use render_target::{RenderTarget, RenderTargetAble, TargetInfoProvider};
-use rendiation_mesh_buffer::{
-  tessellation::{plane::Quad, IndexedBufferTessellator},
-  wgpu::GPUGeometry,
-};
+use rendiation_mesh_buffer::{tessellation::*, wgpu::GPUGeometry};
 pub use shader::*;
 
 pub struct GUIRenderer {
