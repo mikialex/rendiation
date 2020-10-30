@@ -1,6 +1,6 @@
-<div style="display: flex">
-    <img src="./asset/rrf.svg" alt="rrf logo" style="margin: auto">
-</div>
+
+<p align="center"><img src="./asset/rrf.svg" alt="rrf logo" style="margin: auto">
+</p>
 
 # Rendiation Rendering Framework
 
