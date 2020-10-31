@@ -1,13 +1,19 @@
+use std::marker::PhantomData;
+
 use crate::*;
 
-pub struct ShaderGraphBuilder;
+pub struct ShaderGraphBuilder<B: ShaderGraphBackend> {
+  phantom: PhantomData<B>,
+}
 
-impl ShaderGraphBuilder {
+impl<B: ShaderGraphBackend> ShaderGraphBuilder<B> {
   pub fn new() -> Self {
     let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
     *guard = Some(ShaderGraph::new());
 
-    Self {}
+    Self {
+      phantom: PhantomData,
+    }
   }
 
   pub fn set_vertex_root(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
@@ -65,11 +71,11 @@ impl ShaderGraphBuilder {
     })
   }
 
-  pub fn create(self) -> ShaderGraph {
+  pub fn create(self) -> ShaderGraph<B> {
     IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
   }
 
-  pub fn bindgroup<T>(&self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder) -> T) -> T {
+  pub fn bindgroup<T>(&self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder<B>) -> T) -> T {
     modify_graph(|g| {
       let mut builder = ShaderGraphBindGroupBuilder::new(g);
       let instance = b(&mut builder);
@@ -79,7 +85,7 @@ impl ShaderGraphBuilder {
   }
 
   pub fn bindgroup_by<
-    T: ShaderGraphBindGroupProvider + rendiation_webgpu::WGPUBindGroupLayoutProvider,
+    T: ShaderGraphBindGroupProvider<B> + rendiation_webgpu::WGPUBindGroupLayoutProvider,
   >(
     &mut self,
     renderer: &rendiation_webgpu::WGPURenderer,
@@ -117,7 +123,7 @@ impl ShaderGraphBuilder {
     })
   }
 
-  pub fn vertex_by<T: ShaderGraphGeometryProvider>(&mut self) -> T::ShaderGraphGeometryInstance {
+  pub fn vertex_by<T: ShaderGraphGeometryProvider<B>>(&mut self) -> T::ShaderGraphGeometryInstance {
     T::create_instance(self)
   }
 
@@ -128,13 +134,13 @@ impl ShaderGraphBuilder {
   }
 }
 
-pub struct ShaderGraphBindGroupBuilder<'a> {
-  graph: &'a mut ShaderGraph,
+pub struct ShaderGraphBindGroupBuilder<'a, B: ShaderGraphBackend> {
+  graph: &'a mut ShaderGraph<B>,
   bindgroup: ShaderGraphBindGroup,
 }
 
-impl<'a> ShaderGraphBindGroupBuilder<'a> {
-  pub fn new(graph: &'a mut ShaderGraph) -> Self {
+impl<'a, B: ShaderGraphBackend> ShaderGraphBindGroupBuilder<'a, B> {
+  pub fn new(graph: &'a mut ShaderGraph<B>) -> Self {
     Self {
       graph,
       bindgroup: ShaderGraphBindGroup { inputs: Vec::new() },
@@ -176,16 +182,16 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
   }
 }
 
-pub struct UBOBuilder<'a, 'b> {
-  bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a>,
+pub struct UBOBuilder<'a, 'b, B: ShaderGraphBackend> {
+  bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a, B>,
   meta_info: Arc<UBOInfo>,
   nodes: Vec<ShaderGraphNodeHandleUntyped>,
 }
 
-impl<'a, 'b> UBOBuilder<'a, 'b> {
+impl<'a, 'b, B: ShaderGraphBackend> UBOBuilder<'a, 'b, B> {
   pub fn new(
     meta_info: Arc<UBOInfo>,
-    bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a, B>,
   ) -> Self {
     Self {
       bindgroup_builder,

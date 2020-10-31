@@ -91,7 +91,7 @@ impl MiddleVariableCodeGenResult {
     ref_node: ShaderGraphNodeRawHandleUntyped,
     var_name: String,
     expression_str: String,
-    graph: &ShaderGraph,
+    graph: &ShaderGraph<AnyBackend>,
     is_builtin_target: bool,
   ) -> Self {
     let info = graph.nodes.get_node(ref_node).data();
@@ -121,7 +121,7 @@ impl Display for MiddleVariableCodeGenResult {
   }
 }
 
-impl ShaderGraph {
+impl ShaderGraph<AnyBackend> {
   fn gen_code_node(
     &self,
     handle: ShaderGraphNodeHandleUntyped,
@@ -201,7 +201,7 @@ impl ShaderGraphNode<AnyType> {
   fn gen_node_record(
     &self,
     handle: ArenaGraphNodeHandle<Self>,
-    graph: &ShaderGraph,
+    graph: &ShaderGraph<AnyBackend>,
     ctx: &mut CodeGenCtx,
   ) -> Option<MiddleVariableCodeGenResult> {
     let node = graph.nodes.get_node(handle);
@@ -222,7 +222,7 @@ impl ShaderGraphNode<AnyType> {
   fn gen_code_record_exp(
     &self,
     node: &ArenaGraphNode<Self>,
-    graph: &ShaderGraph,
+    graph: &ShaderGraph<AnyBackend>,
     ctx: &mut CodeGenCtx,
   ) -> Option<(String, String, bool)> {
     match &self.data {
@@ -289,7 +289,7 @@ impl ShaderGraphNode<AnyType> {
 
 fn get_node_gen_result_var(
   node: ArenaGraphNodeHandle<ShaderGraphNodeUntyped>,
-  graph: &ShaderGraph,
+  graph: &ShaderGraph<AnyBackend>,
   ctx: &CodeGenCtx,
 ) -> String {
   let data = &graph.nodes.get_node(node).data().data;

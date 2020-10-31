@@ -25,8 +25,14 @@ pub use rendiation_webgpu::*;
 pub use shader_function::*;
 pub use traits_impl::*;
 
+pub mod util;
+pub use util::*;
+pub mod backend;
+pub use backend::*;
+
 lazy_static! {
-  pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
+  pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph<AnyBackend>>> =
+    Mutex::new(None);
 }
 
 #[derive(Copy, Clone)]
@@ -52,7 +58,11 @@ pub enum ShaderGraphUniformInputType {
   UBO((Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)),
 }
 
-pub struct ShaderGraph {
+pub struct ShaderGraphBindGroup {
+  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
+}
+
+pub struct ShaderGraph<T: ShaderGraphBackend> {
   pub attributes: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
   pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
 
@@ -64,10 +74,10 @@ pub struct ShaderGraph {
 
   pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
 
-  wgpu_shader_interface: PipelineShaderInterfaceInfo,
+  wgpu_shader_interface: ShaderInterfaceInfo<T>,
 }
 
-impl ShaderGraph {
+impl<B: ShaderGraphBackend> ShaderGraph<B> {
   fn new() -> Self {
     Self {
       attributes: Vec::new(),
@@ -77,7 +87,7 @@ impl ShaderGraph {
       varyings: Vec::new(),
       frag_outputs: Vec::new(),
       type_id_map: HashMap::new(),
-      wgpu_shader_interface: PipelineShaderInterfaceInfo::new(),
+      wgpu_shader_interface: ShaderInterfaceInfo::new(),
     }
   }
 
@@ -119,12 +129,8 @@ impl ShaderGraph {
   }
 }
 
-pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
+pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph<AnyBackend>) -> T) -> T {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   let graph = guard.as_mut().unwrap();
   modifier(graph)
-}
-
-pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }

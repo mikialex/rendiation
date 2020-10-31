@@ -1,7 +1,8 @@
 use crate::{
-  modify_graph, AnyType, ShaderGraphAttributeNodeType, ShaderGraphBindGroupBuilder,
-  ShaderGraphBindGroupItemProvider, ShaderGraphConstableNodeType, ShaderGraphNode,
-  ShaderGraphNodeData, ShaderGraphNodeHandle, ShaderGraphNodeType, TextureSamplingNode,
+  modify_graph, AnyType, ShaderGraphAttributeNodeType, ShaderGraphBackend,
+  ShaderGraphBindGroupBuilder, ShaderGraphBindGroupItemProvider, ShaderGraphConstableNodeType,
+  ShaderGraphNode, ShaderGraphNodeData, ShaderGraphNodeHandle, ShaderGraphNodeType,
+  TextureSamplingNode,
 };
 use rendiation_math::*;
 use rendiation_ral::{ShaderSampler, ShaderStage, ShaderTexture};
@@ -93,12 +94,12 @@ impl ShaderGraphNodeType for ShaderSampler {
   }
 }
 
-impl ShaderGraphBindGroupItemProvider for ShaderSampler {
+impl<T: ShaderGraphBackend> ShaderGraphBindGroupItemProvider<T> for ShaderSampler {
   type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderSampler>;
 
   fn create_instance<'a>(
     name: &'static str,
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a, T>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderSampler>(name);
@@ -138,12 +139,12 @@ impl ShaderGraphNodeHandle<ShaderTexture> {
   }
 }
 
-impl ShaderGraphBindGroupItemProvider for ShaderTexture {
+impl<T: ShaderGraphBackend> ShaderGraphBindGroupItemProvider<T> for ShaderTexture {
   type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderTexture>;
 
   fn create_instance<'a>(
     name: &'static str,
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a, T>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderTexture>(name);

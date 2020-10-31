@@ -1,7 +1,12 @@
 use crate::*;
 
 impl ShaderGraphBindGroup {
-  pub fn gen_header(&self, graph: &ShaderGraph, index: usize, stage: ShaderStage) -> String {
+  pub fn gen_header<B: ShaderGraphBackend>(
+    &self,
+    graph: &ShaderGraph<B>,
+    index: usize,
+    stage: ShaderStage,
+  ) -> String {
     self
       .inputs
       .iter()
@@ -33,7 +38,7 @@ impl ShaderGraphBindGroup {
   }
 }
 
-impl ShaderGraph {
+impl<B: ShaderGraphBackend> ShaderGraph<B> {
   pub(super) fn gen_header_vert(&self) -> String {
     let mut result = String::from("#version 450\n");
 
