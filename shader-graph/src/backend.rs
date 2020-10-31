@@ -18,6 +18,20 @@ impl<T: ShaderGraphBackend> ShaderInterfaceInfo<T> {
       depth_stencil_state: Vec::new(),
     }
   }
+
+  pub fn binding_group<T: WGPUBindGroupLayoutProvider>(
+    &mut self,
+    layout: Arc<wgpu::BindGroupLayout>,
+  ) -> &mut Self {
+    self.bindgroup_layouts.push(layout.clone());
+    self
+  }
+
+  pub fn geometry<T: WGPUGeometryProvider>(&mut self) -> &mut Self {
+    self.vertex_state = Some(T::get_geometry_vertex_state_descriptor());
+    self.primitive_topology = T::get_primitive_topology();
+    self
+  }
 }
 
 pub struct ShaderGraphOutput<T: ShaderGraphBackend> {

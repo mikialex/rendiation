@@ -9,7 +9,8 @@ pub struct ShaderGraphBuilder<B: ShaderGraphBackend> {
 impl<B: ShaderGraphBackend> ShaderGraphBuilder<B> {
   pub fn new() -> Self {
     let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-    *guard = Some(ShaderGraph::new());
+    let real = ShaderGraph::<B>::new();
+    *guard = Some(unsafe { std::mem::transmute(real) });
 
     Self {
       phantom: PhantomData,
@@ -72,11 +73,12 @@ impl<B: ShaderGraphBackend> ShaderGraphBuilder<B> {
   }
 
   pub fn create(self) -> ShaderGraph<B> {
-    IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
+    unsafe { std::mem::transmute(IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()) }
   }
 
   pub fn bindgroup<T>(&self, b: impl FnOnce(&mut ShaderGraphBindGroupBuilder<B>) -> T) -> T {
     modify_graph(|g| {
+      let g: &ShaderGraph<B> = unsafe { std::mem::transmute(g) };
       let mut builder = ShaderGraphBindGroupBuilder::new(g);
       let instance = b(&mut builder);
       builder.resolve();
