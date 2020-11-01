@@ -2,15 +2,13 @@
 
 use std::ops::Range;
 
-mod rasterization;
 mod resource;
-mod shader;
 mod viewport;
+mod wgpu_re;
 
-pub use rasterization::*;
 pub use resource::*;
-pub use shader::*;
 pub use viewport::*;
+pub use wgpu_re::*;
 
 pub trait RAL: 'static + Sized {
   type RenderTarget;
@@ -48,7 +46,7 @@ pub trait RAL: 'static + Sized {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    layout: RALVertexBufferDescriptor,
+    layout: VertexBufferDescriptor<'static>,
   ) -> Self::VertexBuffer;
   fn dispose_vertex_buffer(renderer: &mut Self::Renderer, buffer: Self::VertexBuffer);
 
@@ -64,8 +62,18 @@ pub trait RAL: 'static + Sized {
   );
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ShaderStage {
-  Vertex,
-  Fragment,
+#[derive(Copy, Clone)]
+pub struct ShaderSampler;
+
+#[derive(Copy, Clone)]
+pub struct ShaderTexture;
+
+/// should impl for vertex that geometry used
+pub trait VertexBufferDescriptorProvider {
+  fn create_descriptor() -> VertexBufferDescriptor<'static>;
+}
+
+/// should impl for geometry
+pub trait VertexStateDescriptorProvider {
+  fn create_descriptor() -> VertexStateDescriptor<'static>;
 }

@@ -58,7 +58,7 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
   }
 }
 
-impl RALVertexBufferDescriptorProvider for Vertex {
+impl VertexBufferDescriptorProvider for Vertex {
   fn create_descriptor() -> RALVertexBufferDescriptor {
     RALVertexBufferDescriptor {
       byte_stride: mem::size_of::<Self>() as i32,

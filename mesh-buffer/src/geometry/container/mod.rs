@@ -10,8 +10,7 @@ pub use indexed_iter::*;
 pub use none_indexed_geometry::*;
 pub use none_indexed_iter::*;
 use rendiation_ral::{
-  GeometryProvider, GeometryResourceInstance, RALVertexBufferDescriptorProvider, ResourceManager,
-  RAL,
+  GeometryProvider, GeometryResourceInstance, ResourceManager, VertexBufferDescriptorProvider, RAL,
 };
 
 use super::PrimitiveTopology;
@@ -41,7 +40,7 @@ impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
 impl<R, T> RALGeometryDataContainer<T, R> for Vec<T>
 where
   R: RAL,
-  T: GeometryProvider<R> + Clone + RALVertexBufferDescriptorProvider + bytemuck::Pod,
+  T: GeometryProvider<R> + Clone + VertexBufferDescriptorProvider + bytemuck::Pod,
 {
   fn create_gpu(
     &self,
