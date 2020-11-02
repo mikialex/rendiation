@@ -70,7 +70,7 @@ pub struct ShaderTexture;
 
 /// should impl for vertex that geometry used
 pub trait VertexBufferDescriptorProvider {
-  fn create_descriptor() -> VertexBufferDescriptor<'static>;
+  const DESCRIPTOR: VertexBufferDescriptor<'static>;
 }
 
 /// should impl for geometry

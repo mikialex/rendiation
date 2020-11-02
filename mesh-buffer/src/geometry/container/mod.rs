@@ -48,9 +48,8 @@ where
     renderer: &mut R::Renderer,
     instance: &mut GeometryResourceInstance<R, T>,
   ) {
-    let layout = T::create_descriptor();
     let vertex_buffer =
-      R::create_vertex_buffer(renderer, bytemuck::cast_slice(self.as_ref()), layout);
+      R::create_vertex_buffer(renderer, bytemuck::cast_slice(self.as_ref()), T::DESCRIPTOR);
     instance.vertex_buffers = vec![resources.add_vertex_buffer(vertex_buffer).index()];
   }
 }

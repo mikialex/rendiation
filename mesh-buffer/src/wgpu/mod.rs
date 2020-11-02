@@ -1,7 +1,6 @@
 use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
 use bytemuck::*;
-use once_cell::sync::Lazy;
 use rendiation_math_entity::Positioned3D;
 use rendiation_ral::{
   GeometryProvider, GeometryResourceInstance, ResourceManager, VertexBufferDescriptorProvider,
@@ -10,20 +9,20 @@ use rendiation_webgpu::*;
 use std::ops::Range;
 
 // todo let's macro
-static VERTEX_BUFFERS: Lazy<Vec<VertexBufferDescriptor<'static>>> =
-  Lazy::new(|| vec![Vertex::create_descriptor()]);
+// static VERTEX_BUFFERS: Lazy<Vec<VertexBufferDescriptor<'static>>> =
+//   Lazy::new(|| vec![Vertex::create_descriptor(0)]);
 
 impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D + GeometryProvider<WebGPU> + Pod,
-  T: PrimitiveTopology<V> + PrimitiveTopology<V>,
+  V: Positioned3D + GeometryProvider<WebGPU> + Pod + VertexBufferDescriptorProvider,
+  T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
   type Geometry = V;
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
     wgpu::VertexStateDescriptor {
       index_format: wgpu::IndexFormat::Uint16, // todo index format
-      vertex_buffers: &VERTEX_BUFFERS,
+      vertex_buffers: &[V::DESCRIPTOR],
     }
   }
 

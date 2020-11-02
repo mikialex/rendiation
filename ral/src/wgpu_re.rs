@@ -1,6 +1,6 @@
 pub use wgpu::{
   BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite, CullMode,
-  DepthStencilStateDescriptor, FrontFace, InputStepMode, PrimitiveTopology,
+  DepthStencilStateDescriptor, FrontFace, IndexFormat, InputStepMode, PrimitiveTopology,
   RasterizationStateDescriptor, ShaderStage, StencilStateDescriptor, TextureFormat,
   VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, VertexStateDescriptor,
 };
