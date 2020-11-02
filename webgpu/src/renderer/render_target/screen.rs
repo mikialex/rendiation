@@ -1,6 +1,7 @@
+use rendiation_ral::{RenderTargetFormatsInfo, TargetStates};
+
 use crate::{
-  RenderTargetAble, RenderTargetFormatsInfo, TargetInfoProvider, TargetStates,
-  WGPURenderPassBuilder, WGPURenderer, WGPUTexture,
+  RenderTargetAble, TargetInfoProvider, WGPURenderPassBuilder, WGPURenderer, WGPUTexture,
 };
 
 pub struct ScreenRenderTarget {

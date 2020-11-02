@@ -3,10 +3,14 @@
 use std::ops::Range;
 
 mod resource;
+mod shader_info;
+mod target_state;
 mod viewport;
 mod wgpu_re;
 
 pub use resource::*;
+pub use shader_info::*;
+pub use target_state::*;
 pub use viewport::*;
 pub use wgpu_re::*;
 
@@ -80,4 +84,12 @@ pub trait VertexStateDescriptorProvider {
 
 pub trait GeometryDescriptorProvider: VertexStateDescriptorProvider {
   fn get_primitive_topology() -> PrimitiveTopology;
+}
+
+pub trait BindGroupLayoutDescriptorProvider {
+  fn create_descriptor() -> BindGroupLayoutDescriptor<'static>;
+}
+
+pub trait BindGroupLayoutEntryProvider {
+  fn create_layout_entry(index: u32) -> BindGroupLayoutEntry;
 }

@@ -6,7 +6,7 @@ use quote::{format_ident, quote};
 
 pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_wgpu_layout(input));
+  generated.append_all(derive_ral_bindgroup_layout(input));
   generated.append_all(derive_shadergraph_instance(input));
   generated.append_all(derive_ral_wgpu_bindgroup(input));
   generated.append_all(derive_wgpu_bindgroup_direct_create(input));
@@ -337,7 +337,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   }
 }
 
-fn derive_wgpu_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+fn derive_ral_bindgroup_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let fields = only_named_struct_fields(&input).unwrap();
 
@@ -353,17 +353,14 @@ fn derive_wgpu_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
         _ => panic!("unsupported"),
       };
 
-      quote! {.bind(
-       <#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_layout_type(),
-       #visibility
-      )}
+      quote! {.bind::<#ty>( #visibility)}
     })
     .collect();
 
   quote! {
-    impl rendiation_webgpu::WGPUBindGroupLayoutProvider for #struct_name {
+    impl rendiation_ral::BindGroupLayoutDescriptorProvider for #struct_name {
 
-      fn provide_layout(renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::BindGroupLayout {
+      fn create_descriptor() -> rendiation_ral::BindGroupLayoutDescriptor<'static> {
         rendiation_webgpu::BindGroupLayoutBuilder::new()
         #(#wgpu_create_bindgroup_layout_create)*
         .build(renderer)

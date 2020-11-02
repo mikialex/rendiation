@@ -1,4 +1,7 @@
-use std::{any::TypeId, cell::RefCell, collections::HashMap, sync::Arc};
+use std::{
+  any::TypeId, cell::RefCell, collections::hash_map::DefaultHasher, collections::HashMap,
+  hash::Hash, hash::Hasher, sync::Arc,
+};
 
 pub mod bindgroup;
 pub mod blend;
@@ -17,6 +20,7 @@ pub use buffer::*;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use render_target::*;
+use rendiation_ral::BindGroupLayoutDescriptor;
 pub use sampler::*;
 pub use shader_util::*;
 pub use swap_chain::*;
@@ -43,7 +47,7 @@ pub struct WGPURenderer {
   pub queue: wgpu::Queue,
   pub encoder: wgpu::CommandEncoder,
   pub swap_chain_format: wgpu::TextureFormat,
-  pub bindgroup_layout_cache: RefCell<HashMap<TypeId, Arc<wgpu::BindGroupLayout>>>,
+  pub bindgroup_layout_cache: BindGroupLayoutCache,
 }
 
 impl WGPURenderer {
@@ -70,7 +74,9 @@ impl WGPURenderer {
       queue,
       encoder,
       swap_chain_format: wgpu::TextureFormat::Bgra8UnormSrgb,
-      bindgroup_layout_cache: RefCell::new(HashMap::new()),
+      bindgroup_layout_cache: BindGroupLayoutCache {
+        cache: RefCell::new(HashMap::new()),
+      },
     }
   }
 
@@ -86,13 +92,27 @@ impl WGPURenderer {
     let command_buf = vec![command_buf]; // todo avoid allocation
     self.queue.submit(command_buf);
   }
+}
 
-  pub fn register_bindgroup<T: WGPUBindGroupLayoutProvider>(&self) -> Arc<wgpu::BindGroupLayout> {
-    let id = TypeId::of::<T>();
-    let mut cache = self.bindgroup_layout_cache.borrow_mut();
+pub struct BindGroupLayoutCache {
+  cache: RefCell<HashMap<u64, Arc<wgpu::BindGroupLayout>>>,
+}
+
+impl BindGroupLayoutCache {
+  pub fn get_bindgroup_layout(
+    &self,
+    desc: &BindGroupLayoutDescriptor,
+    device: &wgpu::Device,
+  ) -> Arc<wgpu::BindGroupLayout> {
+    let mut hasher = DefaultHasher::new();
+    desc.entries.iter().for_each(|e| {
+      e.hash(&mut hasher);
+    });
+    let hash = hasher.finish();
+    let mut cache = self.cache.borrow_mut();
     cache
-      .entry(id)
-      .or_insert_with(|| Arc::new(T::provide_layout(self)))
+      .entry(hash)
+      .or_insert_with(|| Arc::new(device.create_bind_group_layout(desc)))
       .clone()
   }
 }

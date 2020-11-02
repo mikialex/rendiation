@@ -86,35 +86,3 @@ impl<'a> BindGroupBuilder<'a> {
     WGPUBindGroup::new(device, &self.bindings, layout)
   }
 }
-
-pub struct BindGroupLayoutBuilder {
-  pub bindings: Vec<wgpu::BindGroupLayoutEntry>,
-}
-
-impl BindGroupLayoutBuilder {
-  pub fn new() -> Self {
-    Self {
-      bindings: Vec::new(),
-    }
-  }
-
-  pub fn bind(mut self, ty: wgpu::BindingType, visibility: rendiation_ral::ShaderStage) -> Self {
-    let binding = self.bindings.len() as u32;
-    self.bindings.push(wgpu::BindGroupLayoutEntry {
-      binding,
-      visibility,
-      ty,
-      count: None,
-    });
-    self
-  }
-
-  pub fn build(self, renderer: &WGPURenderer) -> wgpu::BindGroupLayout {
-    renderer
-      .device
-      .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &self.bindings,
-      })
-  }
-}

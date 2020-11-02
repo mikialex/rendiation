@@ -20,7 +20,7 @@ pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
-use rendiation_ral::ShaderStage;
+use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage};
 pub use rendiation_webgpu::*;
 pub use shader_function::*;
 pub use traits_impl::*;

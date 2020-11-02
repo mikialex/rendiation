@@ -1,13 +1,15 @@
 use builder::PipelineBuilder;
-use rendiation_ral::RasterizationStateDescriptor;
+use rendiation_ral::{
+  PipelineShaderInterfaceInfo, RasterizationStateDescriptor, RenderTargetFormatsInfo, TargetStates,
+};
 use std::{cell::UnsafeCell, collections::HashMap, hash::Hash, hash::Hasher};
-
-use crate::{RenderTargetFormatsInfo, TargetStates};
 
 pub mod builder;
 pub mod interface;
 pub use builder::*;
 pub use interface::*;
+
+use crate::BindGroupLayoutCache;
 
 #[derive(Default, Debug, Clone)]
 pub struct HashAbleRasterizationStateDescriptor {
@@ -77,6 +79,7 @@ impl WGPUPipeline {
     &self,
     formats_info: &RenderTargetFormatsInfo,
     renderer: &wgpu::Device,
+    cache: &BindGroupLayoutCache,
   ) -> &wgpu::RenderPipeline {
     let builder = unsafe { &mut *self.builder.get() };
 
@@ -97,7 +100,7 @@ impl WGPUPipeline {
       pipeline_builder.target_states = target_states;
 
       // pipeline_builder.rasterization = self.rasterization_state; // todo
-      pipeline_builder.build(renderer)
+      pipeline_builder.build(renderer, cache)
     })
   }
 }

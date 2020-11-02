@@ -1,23 +1,23 @@
-use crate::texture_format::TextureFormat;
+use crate::*;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct RenderTargetFormatsInfo {
-  pub color: Vec<wgpu::TextureFormat>,
-  pub depth: Option<wgpu::TextureFormat>,
+  pub color: Vec<TextureFormat>,
+  pub depth: Option<TextureFormat>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TargetStates {
-  pub color_states: Vec<wgpu::ColorStateDescriptor>,
-  pub depth_state: Option<wgpu::DepthStencilStateDescriptor>,
+  pub color_states: Vec<ColorStateDescriptor>,
+  pub depth_state: Option<DepthStencilStateDescriptor>,
 }
 
 pub struct ColorStateModifier<'a> {
-  state: &'a mut wgpu::ColorStateDescriptor,
+  state: &'a mut ColorStateDescriptor,
 }
 
 impl<'a> ColorStateModifier<'a> {
-  pub fn color_blend(&mut self, blend: wgpu::BlendDescriptor) {
+  pub fn color_blend(&mut self, blend: BlendDescriptor) {
     self.state.color_blend = blend;
   }
 }
@@ -39,11 +39,11 @@ impl TargetStates {
 impl Default for TargetStates {
   fn default() -> Self {
     Self {
-      color_states: vec![wgpu::ColorStateDescriptor {
-        format: TextureFormat::Rgba8UnormSrgb.get_wgpu_format(),
-        color_blend: wgpu::BlendDescriptor::REPLACE,
-        alpha_blend: wgpu::BlendDescriptor::REPLACE,
-        write_mask: wgpu::ColorWrite::ALL,
+      color_states: vec![ColorStateDescriptor {
+        format: TextureFormat::Rgba8UnormSrgb,
+        color_blend: BlendDescriptor::REPLACE,
+        alpha_blend: BlendDescriptor::REPLACE,
+        write_mask: ColorWrite::ALL,
       }],
       depth_state: None,
     }

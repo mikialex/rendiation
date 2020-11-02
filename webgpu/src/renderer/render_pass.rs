@@ -1,11 +1,12 @@
-use crate::{RenderTargetFormatsInfo, WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPURenderer};
+use crate::{BindGroupLayoutCache, WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPURenderer};
 use rendiation_math::Vec3;
-use rendiation_ral::Viewport;
+use rendiation_ral::{RenderTargetFormatsInfo, Viewport};
 use std::ops::Range;
 use wgpu::PrimitiveTopology;
 
 pub struct WGPURenderPass<'a> {
   device: &'a wgpu::Device,
+  cache: &'a BindGroupLayoutCache,
   pub gpu_pass: wgpu::RenderPass<'a>,
   pub pass_format: RenderTargetFormatsInfo,
 
@@ -14,7 +15,7 @@ pub struct WGPURenderPass<'a> {
 
 impl<'a> WGPURenderPass<'a> {
   pub fn set_pipeline(&mut self, pipeline: &'a WGPUPipeline) -> &mut Self {
-    let pipeline = pipeline.get(&self.pass_format, &self.device); // todo select other raster state
+    let pipeline = pipeline.get(&self.pass_format, &self.device, &self.cache); // todo select other raster state
     self.gpu_pass.set_pipeline(pipeline);
     self
   }
@@ -149,6 +150,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
       device: &renderer.device,
       pass_format: self.format,
       current_topology: PrimitiveTopology::TriangleList,
+      cache: &renderer.bindgroup_layout_cache,
     }
   }
 }
