@@ -4,70 +4,19 @@ use bytemuck::*;
 use once_cell::sync::Lazy;
 use rendiation_math_entity::Positioned3D;
 use rendiation_ral::{
-  GeometryProvider, GeometryResourceInstance, GeometryResourceProvider, ResourceManager, RAL,
+  GeometryProvider, GeometryResourceInstance, ResourceManager, VertexBufferDescriptorProvider,
 };
 use rendiation_webgpu::*;
 use std::ops::Range;
 
 // todo let's macro
 static VERTEX_BUFFERS: Lazy<Vec<VertexBufferDescriptor<'static>>> =
-  Lazy::new(|| vec![Vertex::get_buffer_layout_descriptor()]);
-
-impl WGPUVertexProvider for Vertex {
-  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static> {
-    use std::mem;
-    wgpu::VertexBufferDescriptor {
-      stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-      step_mode: wgpu::InputStepMode::Vertex,
-      attributes: &[
-        wgpu::VertexAttributeDescriptor {
-          format: wgpu::VertexFormat::Float3,
-          offset: 0,
-          shader_location: 0,
-        },
-        wgpu::VertexAttributeDescriptor {
-          format: wgpu::VertexFormat::Float3,
-          offset: 4 * 3,
-          shader_location: 1,
-        },
-        wgpu::VertexAttributeDescriptor {
-          format: wgpu::VertexFormat::Float2,
-          offset: 4 * 3 + 4 * 3,
-          shader_location: 2,
-        },
-      ],
-    }
-  }
-}
-
-impl<'a, V, T, U, R> GeometryResourceProvider<R> for IndexedGeometry<V, T, U>
-where
-  V: Positioned3D + GeometryProvider<R>,
-  T: PrimitiveTopology<V>,
-  U: RALGeometryDataContainer<V, R> + 'static,
-  R: RAL,
-{
-  type Instance = GeometryResourceInstance<R, V>;
-
-  fn create(
-    &self,
-    resources: &mut ResourceManager<R>,
-    renderer: &mut R::Renderer,
-  ) -> Self::Instance {
-    let mut instance = GeometryResourceInstance::new();
-    let index_buffer = R::create_index_buffer(renderer, cast_slice(&self.index));
-    instance.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
-
-    self.data.create_gpu(resources, renderer, &mut instance);
-    instance.draw_range = 0..self.get_full_count();
-    instance
-  }
-}
+  Lazy::new(|| vec![Vertex::create_descriptor()]);
 
 impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
 where
   V: Positioned3D + GeometryProvider<WebGPU> + Pod,
-  T: PrimitiveTopology<V> + WGPUPrimitiveTopology,
+  T: PrimitiveTopology<V> + PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
   type Geometry = V;
@@ -79,7 +28,7 @@ where
   }
 
   fn get_primitive_topology() -> wgpu::PrimitiveTopology {
-    T::WGPU_ENUM
+    T::ENUM
   }
 
   fn create_resource_instance(
@@ -99,25 +48,6 @@ where
     instance.draw_range = 0..self.get_full_count();
     instance
   }
-}
-
-pub trait WGPUPrimitiveTopology {
-  const WGPU_ENUM: wgpu::PrimitiveTopology;
-}
-impl WGPUPrimitiveTopology for TriangleList {
-  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::TriangleList;
-}
-impl WGPUPrimitiveTopology for LineList {
-  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineList;
-}
-impl WGPUPrimitiveTopology for TriangleStrip {
-  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::TriangleStrip;
-}
-impl WGPUPrimitiveTopology for LineStrip {
-  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::LineStrip;
-}
-impl WGPUPrimitiveTopology for PointList {
-  const WGPU_ENUM: wgpu::PrimitiveTopology = wgpu::PrimitiveTopology::PointList;
 }
 
 pub struct GPUGeometry<V: Positioned3D = Vertex, T: PrimitiveTopology<V> = TriangleList> {

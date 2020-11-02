@@ -2,9 +2,6 @@ use rendiation_ral::{GeometryHandle, GeometryProvider, GeometryResourceInstance,
 
 use crate::{WGPURenderer, WebGPU};
 
-pub trait WGPUVertexProvider {
-  fn get_buffer_layout_descriptor() -> wgpu::VertexBufferDescriptor<'static>;
-}
 pub trait WGPUGeometryProvider {
   type Geometry: GeometryProvider<WebGPU>;
   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static>;

@@ -80,34 +80,40 @@ impl<T: Positioned3D> PrimitiveData<T> for Point<T> {
 pub trait PrimitiveTopology<T: Positioned3D>: 'static {
   type Primitive: PrimitiveData<T>;
   const STRIDE: usize;
+  const ENUM: rendiation_ral::PrimitiveTopology;
 }
 
 pub struct PointList;
 impl<T: Positioned3D> PrimitiveTopology<T> for PointList {
   type Primitive = Point<T>;
   const STRIDE: usize = 1;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::PointList;
 }
 
 pub struct TriangleList;
 impl<T: Positioned3D> PrimitiveTopology<T> for TriangleList {
   type Primitive = Triangle<T>;
   const STRIDE: usize = 3;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::TriangleList;
 }
 
 pub struct TriangleStrip;
 impl<T: Positioned3D> PrimitiveTopology<T> for TriangleStrip {
   type Primitive = Triangle<T>;
   const STRIDE: usize = 1;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::TriangleStrip;
 }
 
 pub struct LineList;
 impl<T: Positioned3D> PrimitiveTopology<T> for LineList {
   type Primitive = LineSegment<T>;
   const STRIDE: usize = 2;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::LineList;
 }
 
 pub struct LineStrip;
 impl<T: Positioned3D> PrimitiveTopology<T> for LineStrip {
   type Primitive = LineSegment<T>;
   const STRIDE: usize = 1;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::LineStrip;
 }

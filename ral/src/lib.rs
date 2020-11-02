@@ -77,3 +77,7 @@ pub trait VertexBufferDescriptorProvider {
 pub trait VertexStateDescriptorProvider {
   fn create_descriptor() -> VertexStateDescriptor<'static>;
 }
+
+pub trait GeometryDescriptorProvider: VertexStateDescriptorProvider {
+  fn get_primitive_topology() -> PrimitiveTopology;
+}
