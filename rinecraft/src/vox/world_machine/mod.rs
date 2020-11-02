@@ -1,5 +1,4 @@
 use crate::vox::block::Block;
-use crate::vox::chunk::CHUNK_HEIGHT;
 pub mod block_meta;
 use super::block_coords::ChunkCoords;
 use block_meta::*;

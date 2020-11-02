@@ -2,17 +2,13 @@ use super::{
   block::{build_block_face, Block, BlockFace, BLOCK_FACES, BLOCK_WORLD_SIZE},
   block_coords::*,
   chunk::*,
-  world::World,
   world_machine::WorldMachine,
 };
-use futures::*;
-use rendiation_math::Vec3;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
 use std::{
   collections::{HashMap, HashSet},
   sync::{Arc, Mutex},
 };
-use tokio::prelude::*;
 
 pub struct WorldChunkData {
   pub chunks: Arc<Mutex<HashMap<ChunkCoords, Chunk>>>,

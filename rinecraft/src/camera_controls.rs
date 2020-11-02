@@ -1,7 +1,7 @@
 use rendiation_math::Vec2;
 use rendiation_render_entity::*;
 use rendium::{
-  EventCtx, EventType, EventUpdateCtx, WindowEventSession, WindowEventSessionData,
+  EventType, EventUpdateCtx, WindowEventSession, WindowEventSessionData,
   WindowEventSessionRemoveToken, WindowState,
 };
 
