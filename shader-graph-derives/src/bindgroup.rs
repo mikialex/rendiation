@@ -310,8 +310,8 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
     let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
     let name = format!("{}", attr.tokens); // can i do better?
     let visibility = match name.as_str() {
-      "(vert)" => quote! { rendiation_ral::ShaderStage::Vertex },
-      "(frag)" => quote! { rendiation_ral::ShaderStage::Fragment },
+      "(vert)" => quote! { rendiation_ral::ShaderStage::VERTEX },
+      "(frag)" => quote! { rendiation_ral::ShaderStage::FRAGMENT },
       _ => panic!("unsupported"),
     };
 
@@ -348,8 +348,8 @@ fn derive_wgpu_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
       let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
       let name = format!("{}", attr.tokens); // can i do better?
       let visibility = match name.as_str() {
-        "(vert)" => quote! { rendiation_ral::ShaderStage::Vertex },
-        "(frag)" => quote! { rendiation_ral::ShaderStage::Fragment },
+        "(vert)" => quote! { rendiation_ral::ShaderStage::VERTEX },
+        "(frag)" => quote! { rendiation_ral::ShaderStage::FRAGMENT },
         _ => panic!("unsupported"),
       };
 

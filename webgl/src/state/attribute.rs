@@ -4,13 +4,13 @@ use web_sys::*;
 
 pub struct WebGLVertexBuffer {
   pub buffer: WebGlBuffer,
-  pub layout: RALVertexBufferDescriptor,
+  pub layout: VertexBufferDescriptor<'static>,
   // todo use small vec opt
   // todo optional VAO
 }
 
-pub fn format_to_webgl_data_type(d: RALVertexAttributeFormat) -> u32 {
-  use RALVertexAttributeFormat::*;
+pub fn format_to_webgl_data_type(d: VertexFormat) -> u32 {
+  use VertexFormat::*;
   match d {
     Float | Float2 | Float3 | Float4 => WebGl2RenderingContext::FLOAT,
     // Float2 => WebGl2RenderingContext::UNSIGNED_SHORT,
@@ -20,8 +20,8 @@ pub fn format_to_webgl_data_type(d: RALVertexAttributeFormat) -> u32 {
   }
 }
 
-pub fn format_to_webgl_data_size(d: RALVertexAttributeFormat) -> i32 {
-  use RALVertexAttributeFormat::*;
+pub fn format_to_webgl_data_size(d: VertexFormat) -> i32 {
+  use VertexFormat::*;
   match d {
     Float => 1,
     Float2 => 2,
@@ -106,8 +106,8 @@ impl WebGLRenderer {
         format_to_webgl_data_size(b.format),
         format_to_webgl_data_type(b.format),
         false,
-        vertex_buffer.layout.byte_stride,
-        b.byte_offset,
+        vertex_buffer.layout.stride as i32,
+        b.offset as i32,
       );
     });
 

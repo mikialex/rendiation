@@ -1,5 +1,5 @@
 use crate::renderer::buffer::WGPUBuffer;
-use crate::{renderer::sampler::WGPUSampler, shader_stage_convert, WGPURenderer};
+use crate::{renderer::sampler::WGPUSampler, WGPURenderer};
 use std::ops::Range;
 
 pub enum WGPUBinding<'a> {
@@ -102,7 +102,7 @@ impl BindGroupLayoutBuilder {
     let binding = self.bindings.len() as u32;
     self.bindings.push(wgpu::BindGroupLayoutEntry {
       binding,
-      visibility: shader_stage_convert(visibility),
+      visibility,
       ty,
       count: None,
     });

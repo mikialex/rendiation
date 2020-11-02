@@ -1,6 +1,6 @@
 use builder::PipelineBuilder;
-use rendiation_ral::RasterizationState;
-use std::{cell::UnsafeCell, collections::HashMap};
+use rendiation_ral::RasterizationStateDescriptor;
+use std::{cell::UnsafeCell, collections::HashMap, hash::Hash, hash::Hasher};
 
 use crate::{RenderTargetFormatsInfo, TargetStates};
 
@@ -9,13 +9,40 @@ pub mod interface;
 pub use builder::*;
 pub use interface::*;
 
+#[derive(Default, Debug, Clone)]
+pub struct HashAbleRasterizationStateDescriptor {
+  desc: RasterizationStateDescriptor,
+}
+
+impl Hash for HashAbleRasterizationStateDescriptor {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
+    self.desc.front_face.hash(state);
+    self.desc.depth_bias.hash(state);
+    self.desc.cull_mode.hash(state);
+    // todo unsafe float hash
+  }
+}
+
+impl PartialEq for HashAbleRasterizationStateDescriptor {
+  fn eq(&self, other: &Self) -> bool {
+    self.desc.front_face.eq(&other.desc.front_face)
+      && self.desc.depth_bias.eq(&other.desc.depth_bias)
+      && self.desc.cull_mode.eq(&other.desc.cull_mode)
+  }
+}
+
+impl Eq for HashAbleRasterizationStateDescriptor {}
+
 pub struct WGPUPipeline {
   builder: UnsafeCell<PipelineCacheBuilder>,
-  pub rasterization_state: RasterizationState,
+  pub rasterization_state: HashAbleRasterizationStateDescriptor,
 }
 
 struct PipelineCacheBuilder {
-  pool: HashMap<(TargetStates, RasterizationState), wgpu::RenderPipeline>, // todo optimize
+  pool: HashMap<(TargetStates, HashAbleRasterizationStateDescriptor), wgpu::RenderPipeline>, // todo optimize
   builder: PipelineBuilder,
 }
 
@@ -36,7 +63,7 @@ impl WGPUPipeline {
           source.shader_interface_info.clone(),
         ),
       }),
-      rasterization_state: RasterizationState::default(),
+      rasterization_state: HashAbleRasterizationStateDescriptor::default(),
     }
   }
 
@@ -64,7 +91,7 @@ impl WGPUPipeline {
     let pool = &mut builder.pool;
     let pipeline_builder = &mut builder.builder;
 
-    let key = (target_states.clone(), self.rasterization_state);
+    let key = (target_states.clone(), self.rasterization_state.clone());
 
     pool.entry(key).or_insert_with(|| {
       pipeline_builder.target_states = target_states;

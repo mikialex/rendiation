@@ -67,7 +67,7 @@ impl RAL for WebGPU {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    _layout: RALVertexBufferDescriptor, // so can we use this to add additional runtime check?
+    _layout: VertexBufferDescriptor<'static>, // so can we use this to add additional runtime check?
   ) -> Self::VertexBuffer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::VERTEX)
   }
@@ -116,14 +116,6 @@ impl RAL for WebGPU {
 
     // draw
     geometry.draw(pass);
-  }
-}
-
-pub fn shader_stage_convert(stage: rendiation_ral::ShaderStage) -> wgpu::ShaderStage {
-  use rendiation_ral::ShaderStage::*;
-  match stage {
-    Vertex => wgpu::ShaderStage::VERTEX,
-    Fragment => wgpu::ShaderStage::FRAGMENT,
   }
 }
 
