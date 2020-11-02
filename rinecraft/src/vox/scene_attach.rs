@@ -97,7 +97,7 @@ impl World {
       .bindable
       .samplers
       .insert(WGPUSampler::default(renderer));
-    let block_shading_pipeline = BlockShader::create_pipeline(renderer);
+    let block_shading_pipeline = BlockShader::create_pipeline();
     let block_shading_pipeline = resources.shading_gpu.insert(block_shading_pipeline);
 
     let bindgroup_index =

@@ -2,9 +2,6 @@ use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
 use bytemuck::*;
 use rendiation_math_entity::Positioned3D;
-use rendiation_ral::{
-  GeometryProvider, GeometryResourceInstance, ResourceManager, VertexBufferDescriptorProvider,
-};
 use rendiation_webgpu::*;
 use std::ops::Range;
 

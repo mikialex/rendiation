@@ -36,8 +36,8 @@ pub struct BlockShadingParamGroup {
 }
 
 impl BlockShader {
-  pub fn create_pipeline(renderer: &WGPURenderer) -> WGPUPipeline {
-    let (mut builder, input) = BlockShader::create_builder(renderer);
+  pub fn create_pipeline() -> WGPUPipeline {
+    let (mut builder, input) = BlockShader::create_builder();
     let vertex = builder.vertex_by::<Vertex>();
     let p = input.parameter;
 

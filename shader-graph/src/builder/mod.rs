@@ -82,7 +82,6 @@ impl ShaderGraphBuilder {
     T: ShaderGraphBindGroupProvider + rendiation_ral::BindGroupLayoutDescriptorProvider,
   >(
     &mut self,
-    renderer: &rendiation_webgpu::WGPURenderer,
   ) -> T::ShaderGraphBindGroupInstance {
     modify_graph(|graph| {
       graph.wgpu_shader_interface.binding_group::<T>();

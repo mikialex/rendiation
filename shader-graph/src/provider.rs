@@ -4,9 +4,7 @@ use std::collections::HashMap;
 
 pub trait ShaderGraphFactory<T: RAL> {
   type ShaderGraphShaderInstance;
-  fn create_builder(
-    renderer: &T::Renderer,
-  ) -> (ShaderGraphBuilder, Self::ShaderGraphShaderInstance);
+  fn create_builder() -> (ShaderGraphBuilder, Self::ShaderGraphShaderInstance);
 }
 
 pub trait ShaderGraphBindGroupItemProvider {

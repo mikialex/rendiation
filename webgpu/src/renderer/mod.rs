@@ -1,6 +1,6 @@
 use std::{
-  any::TypeId, cell::RefCell, collections::hash_map::DefaultHasher, collections::HashMap,
-  hash::Hash, hash::Hasher, sync::Arc,
+  cell::RefCell, collections::hash_map::DefaultHasher, collections::HashMap, hash::Hash,
+  hash::Hasher, sync::Arc,
 };
 
 pub mod bindgroup;
