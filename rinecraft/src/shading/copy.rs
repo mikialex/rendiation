@@ -15,7 +15,7 @@ pub struct CopierShading {
 }
 
 impl CopierShading {
-  pub fn new(renderer: &WGPURenderer) -> Self {
+  pub fn new() -> Self {
     let mut builder = ShaderGraphBuilder::new();
     builder.geometry_by::<IndexedGeometry>();
     let geometry = builder.vertex_by::<Vertex>();

@@ -1,5 +1,5 @@
 use crate::renderer::buffer::WGPUBuffer;
-use crate::{renderer::sampler::WGPUSampler, WGPURenderer};
+use crate::renderer::sampler::WGPUSampler;
 use std::ops::Range;
 
 pub enum WGPUBinding<'a> {

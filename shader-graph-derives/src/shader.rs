@@ -136,7 +136,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
       #(#shadergraph_instance_fields)*
     }
 
-    impl rendiation_shadergraph::ShaderGraphFactory<rendiation_webgpu::WebGPU> for #struct_name {
+    impl rendiation_shadergraph::ShaderGraphBuilderCreator<rendiation_webgpu::WebGPU> for #struct_name {
       type ShaderGraphShaderInstance = #shadergraph_instance_name;
 
       fn create_builder(

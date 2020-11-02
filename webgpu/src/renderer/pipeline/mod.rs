@@ -5,9 +5,7 @@ use rendiation_ral::{
 use std::{cell::UnsafeCell, collections::HashMap, hash::Hash, hash::Hasher};
 
 pub mod builder;
-pub mod interface;
 pub use builder::*;
-pub use interface::*;
 
 use crate::BindGroupLayoutCache;
 

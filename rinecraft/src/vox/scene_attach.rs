@@ -7,7 +7,7 @@ use crate::{
 use rendiation_math::{Vec3, Vec4};
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, vertex::Vertex};
 use rendiation_scenegraph::*;
-use rendiation_shader_library::fog::FogData;
+use rendiation_shader_library::{fog::FogData, ShaderGraphProvider};
 use rendiation_webgpu::*;
 use std::{collections::BTreeMap, time::Instant};
 
@@ -97,7 +97,7 @@ impl World {
       .bindable
       .samplers
       .insert(WGPUSampler::default(renderer));
-    let block_shading_pipeline = BlockShader::create_pipeline();
+    let block_shading_pipeline = BlockShader::build_graph().create_pipeline();
     let block_shading_pipeline = resources.shading_gpu.insert(block_shading_pipeline);
 
     let bindgroup_index =

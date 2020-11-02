@@ -1,8 +1,12 @@
-use crate::{ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeType};
+use crate::{ShaderGraph, ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeType};
 use rendiation_ral::{ShaderStage, UBOData, RAL};
 use std::collections::HashMap;
 
-pub trait ShaderGraphFactory<T: RAL> {
+pub trait ShaderGraphProvider {
+  fn build_graph() -> ShaderGraph;
+}
+
+pub trait ShaderGraphBuilderCreator<T: RAL> {
   type ShaderGraphShaderInstance;
   fn create_builder() -> (ShaderGraphBuilder, Self::ShaderGraphShaderInstance);
 }
