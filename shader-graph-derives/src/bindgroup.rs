@@ -9,7 +9,7 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated.append_all(derive_ral_bindgroup_layout(input));
   generated.append_all(derive_shadergraph_instance(input));
   generated.append_all(derive_ral_wgpu_bindgroup(input));
-  // generated.append_all(derive_wgpu_bindgroup_direct_create(input));
+  generated.append_all(derive_wgpu_bindgroup_direct_create(input));
   generated.append_all(derive_webgl_upload_instance(input));
   generated
 }
@@ -237,50 +237,49 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   }
 }
 
-// fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-//   let struct_name = &input.ident;
-//   let fields = only_named_struct_fields(&input).unwrap();
+fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let fields = only_named_struct_fields(&input).unwrap();
 
-//   let wgpu_create_bindgroup_fn_param: Vec<_> = fields
-//     .iter()
-//     .map(|f| {
-//       let field_name = f.ident.as_ref().unwrap();
-//       let ty = &f.ty;
-//       quote! { #field_name: < #ty as rendiation_shadergraph::WGPUBindgroupItem>::Type, }
-//     })
-//     .collect();
+  let wgpu_create_bindgroup_fn_param: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! { #field_name: < #ty as rendiation_shadergraph::WGPUBindgroupItem>::Type, }
+    })
+    .collect();
 
-//   let wgpu_create_bindgroup_create: Vec<_> = fields
-//     .iter()
-//     .map(|f| {
-//       let field_name = f.ident.as_ref().unwrap();
-//       let ty = &f.ty;
-//       quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
-//     })
-//     .collect();
+  let wgpu_create_bindgroup_create: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap();
+      let ty = &f.ty;
+      quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
+    })
+    .collect();
 
-//   quote! {
+  quote! {
 
-//     impl #struct_name {
-//       pub fn create_bindgroup(
-//         renderer: &rendiation_webgpu::WGPURenderer,
-//         #(#wgpu_create_bindgroup_fn_param)*
-//       ) -> rendiation_webgpu::WGPUBindGroup {
+    impl #struct_name {
+      pub fn create_bindgroup(
+        renderer: &rendiation_webgpu::WGPURenderer,
+        #(#wgpu_create_bindgroup_fn_param)*
+      ) -> rendiation_webgpu::WGPUBindGroup {
 
-//         rendiation_webgpu::BindGroupBuilder::new()
-//           #(#wgpu_create_bindgroup_create)*
-//           .build(
-//             &renderer.device,
-//             renderer.bindgroup_layout_cache.borrow().get(&std::any::TypeId::of::<#struct_name>())
-//             .unwrap()
-//           )
+        rendiation_webgpu::BindGroupBuilder::new()
+          #(#wgpu_create_bindgroup_create)*
+          .build(
+            &renderer.device,
+            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>()
+          )
 
-//       }
+      }
 
-//     }
+    }
 
-//   }
-// }
+  }
+}
 
 fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;

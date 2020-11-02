@@ -8,47 +8,6 @@ use rendiation_ral::{
 use rendiation_webgpu::*;
 use std::ops::Range;
 
-// todo let's macro
-// static VERTEX_BUFFERS: Lazy<Vec<VertexBufferDescriptor<'static>>> =
-//   Lazy::new(|| vec![Vertex::create_descriptor(0)]);
-
-// impl<'a, V, T, U> WGPUGeometryProvider for IndexedGeometry<V, T, U>
-// where
-//   V: Positioned3D + GeometryProvider<WebGPU> + Pod + VertexBufferDescriptorProvider,
-//   T: PrimitiveTopology<V>,
-//   U: GeometryDataContainer<V>,
-// {
-//   type Geometry = V;
-//   fn get_geometry_vertex_state_descriptor() -> wgpu::VertexStateDescriptor<'static> {
-//     wgpu::VertexStateDescriptor {
-//       index_format: wgpu::IndexFormat::Uint16, // todo index format
-//       vertex_buffers: &[V::DESCRIPTOR],
-//     }
-//   }
-
-//   fn get_primitive_topology() -> wgpu::PrimitiveTopology {
-//     T::ENUM
-//   }
-
-//   fn create_resource_instance(
-//     &self,
-//     renderer: &mut WGPURenderer,
-//     resource: &mut ResourceManager<WebGPU>,
-//   ) -> GeometryResourceInstance<WebGPU, Self::Geometry> {
-//     let mut instance = GeometryResourceInstance::new();
-//     let index_buffer = WGPUBuffer::new(renderer, cast_slice(&self.index), wgpu::BufferUsage::INDEX);
-//     let vertex_buffer = WGPUBuffer::new(
-//       renderer,
-//       cast_slice(self.data.as_ref()),
-//       wgpu::BufferUsage::VERTEX,
-//     ); // this is not ok todo!
-//     instance.index_buffer = Some(resource.add_index_buffer(index_buffer).index());
-//     instance.vertex_buffers = vec![resource.add_vertex_buffer(vertex_buffer).index()];
-//     instance.draw_range = 0..self.get_full_count();
-//     instance
-//   }
-// }
-
 pub struct GPUGeometry<V: Positioned3D = Vertex, T: PrimitiveTopology<V> = TriangleList> {
   geometry: IndexedGeometry<V, T>,
   data_changed: bool,

@@ -12,13 +12,26 @@ pub trait GeometryResource<T: RAL>: Any {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-pub trait GeometryResourceProvider<T: RAL>: Any {
+pub trait GeometryResourceCreator<T: RAL>: Any {
   type Instance: GeometryResource<T>;
   fn create(
     &self,
     resources: &mut ResourceManager<T>,
     renderer: &mut T::Renderer,
   ) -> Self::Instance;
+}
+
+pub trait GeometryResourceInstanceCreator<T: RAL, G: GeometryProvider<T>>:
+  GeometryResourceCreator<T, Instance = GeometryResourceInstance<T, G>>
+{
+  fn create_resource_instance_handle(
+    &self,
+    renderer: &mut T::Renderer,
+    resource: &mut ResourceManager<T>,
+  ) -> GeometryHandle<T, G> {
+    let instance = self.create(resource, renderer);
+    resource.add_geometry(instance)
+  }
 }
 
 impl<T: RAL, G: GeometryProvider<T>> GeometryResource<T> for GeometryResourceInstance<T, G> {

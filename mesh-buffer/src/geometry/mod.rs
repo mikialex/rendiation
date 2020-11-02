@@ -12,12 +12,12 @@ pub use bvh::*;
 pub use intersection::*;
 use rendiation_math_entity::Positioned3D;
 use rendiation_ral::{
-  GeometryDescriptorProvider, GeometryProvider, GeometryResourceInstance, GeometryResourceProvider,
-  IndexFormat, ResourceManager, VertexBufferDescriptorProvider, VertexStateDescriptor,
-  VertexStateDescriptorProvider, RAL,
+  GeometryDescriptorProvider, GeometryProvider, GeometryResourceCreator, GeometryResourceInstance,
+  GeometryResourceInstanceCreator, IndexFormat, ResourceManager, VertexBufferDescriptorProvider,
+  VertexStateDescriptor, VertexStateDescriptorProvider, RAL,
 };
 
-impl<'a, V, T, U, R> GeometryResourceProvider<R> for IndexedGeometry<V, T, U>
+impl<'a, V, T, U, R> GeometryResourceCreator<R> for IndexedGeometry<V, T, U>
 where
   V: Positioned3D + GeometryProvider<R>,
   T: PrimitiveTopology<V>,
@@ -39,6 +39,15 @@ where
     instance.draw_range = 0..self.get_full_count();
     instance
   }
+}
+
+impl<V, T, U, R> GeometryResourceInstanceCreator<R, V> for IndexedGeometry<V, T, U>
+where
+  V: Positioned3D + GeometryProvider<R>,
+  T: PrimitiveTopology<V>,
+  U: RALGeometryDataContainer<V, R> + 'static,
+  R: RAL,
+{
 }
 
 impl<'a, V, T, U> VertexStateDescriptorProvider for IndexedGeometry<V, T, U>
