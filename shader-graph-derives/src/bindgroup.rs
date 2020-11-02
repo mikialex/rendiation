@@ -8,7 +8,7 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_ral_bindgroup_layout(input));
   generated.append_all(derive_shadergraph_instance(input));
-  generated.append_all(derive_ral_wgpu_bindgroup(input));
+  generated.append_all(derive_ral_bindgroup(input));
   generated.append_all(derive_wgpu_bindgroup_direct_create(input));
   generated.append_all(derive_webgl_upload_instance(input));
   generated
@@ -126,7 +126,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   }
 }
 
-fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let fields = only_named_struct_fields(&input).unwrap();
 
@@ -187,14 +187,13 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
         renderer: &<rendiation_webgpu::WebGPU as rendiation_ral::RAL>::Renderer,
         resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgpu::WebGPU>,
       ) -> <rendiation_webgpu::WebGPU as rendiation_ral::RAL>::BindGroup {
-
          #(#wgpu_resource_get)*
 
         rendiation_webgpu::BindGroupBuilder::new()
           #(#wgpu_create_bindgroup_create)*
           .build(
             &renderer.device,
-            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>()
+            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>(&renderer.device)
           )
       }
     }
@@ -271,7 +270,7 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
           #(#wgpu_create_bindgroup_create)*
           .build(
             &renderer.device,
-            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>()
+            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>(&renderer.device)
           )
 
       }
