@@ -3,7 +3,7 @@ use crate::*;
 /// Descriptor of the shader input
 #[derive(Clone)]
 pub struct PipelineShaderInterfaceInfo {
-  pub bindgroup_layouts: Vec<BindGroupLayoutDescriptor<'static>>,
+  pub bindgroup_layouts: Vec<Vec<BindGroupLayoutEntry>>,
   pub vertex_state: Option<VertexStateDescriptor<'static>>,
   pub primitive_topology: PrimitiveTopology,
   pub preferred_target_states: TargetStates,
@@ -42,9 +42,11 @@ impl BindGroupLayoutBuilder {
     }
   }
 
-  pub fn bind<T: BindGroupLayoutEntryProvider>(mut self) -> Self {
+  pub fn bind<T: BindGroupLayoutEntryProvider>(mut self, visibility: ShaderStage) -> Self {
     let binding = self.bindings.len() as u32;
-    self.bindings.push(T::create_layout_entry(binding));
+    self
+      .bindings
+      .push(T::create_layout_entry(binding, visibility));
     self
   }
 

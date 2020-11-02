@@ -87,9 +87,49 @@ pub trait GeometryDescriptorProvider: VertexStateDescriptorProvider {
 }
 
 pub trait BindGroupLayoutDescriptorProvider {
-  fn create_descriptor() -> BindGroupLayoutDescriptor<'static>;
+  fn create_descriptor() -> Vec<BindGroupLayoutEntry>;
 }
 
 pub trait BindGroupLayoutEntryProvider {
-  fn create_layout_entry(index: u32) -> BindGroupLayoutEntry;
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry;
+}
+
+impl<T: UBOData> BindGroupLayoutEntryProvider for T {
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry {
+    BindGroupLayoutEntry {
+      binding,
+      visibility,
+      ty: BindingType::UniformBuffer {
+        dynamic: false,
+        min_binding_size: None, // todo investigate
+      },
+      count: None,
+    }
+  }
+}
+
+impl BindGroupLayoutEntryProvider for ShaderTexture {
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry {
+    BindGroupLayoutEntry {
+      binding,
+      visibility,
+      ty: BindingType::SampledTexture {
+        multisampled: false,
+        component_type: wgpu::TextureComponentType::Float,
+        dimension: wgpu::TextureViewDimension::D2,
+      },
+      count: None,
+    }
+  }
+}
+
+impl BindGroupLayoutEntryProvider for ShaderSampler {
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry {
+    BindGroupLayoutEntry {
+      binding,
+      visibility,
+      ty: BindingType::Sampler { comparison: false },
+      count: None,
+    }
+  }
 }

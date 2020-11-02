@@ -20,7 +20,9 @@ pub use buffer::*;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use render_target::*;
-use rendiation_ral::BindGroupLayoutDescriptor;
+use rendiation_ral::{
+  BindGroupLayoutDescriptor, BindGroupLayoutDescriptorProvider, BindGroupLayoutEntry,
+};
 pub use sampler::*;
 pub use shader_util::*;
 pub use swap_chain::*;
@@ -99,20 +101,31 @@ pub struct BindGroupLayoutCache {
 }
 
 impl BindGroupLayoutCache {
+  pub fn get_bindgroup_layout_by_type<T: BindGroupLayoutDescriptorProvider>(
+    &self,
+    device: &wgpu::Device,
+  ) -> Arc<wgpu::BindGroupLayout> {
+    self.get_bindgroup_layout(&T::create_descriptor(), device)
+  }
   pub fn get_bindgroup_layout(
     &self,
-    desc: &BindGroupLayoutDescriptor,
+    desc: &Vec<BindGroupLayoutEntry>,
     device: &wgpu::Device,
   ) -> Arc<wgpu::BindGroupLayout> {
     let mut hasher = DefaultHasher::new();
-    desc.entries.iter().for_each(|e| {
+    desc.iter().for_each(|e| {
       e.hash(&mut hasher);
     });
     let hash = hasher.finish();
     let mut cache = self.cache.borrow_mut();
     cache
       .entry(hash)
-      .or_insert_with(|| Arc::new(device.create_bind_group_layout(desc)))
+      .or_insert_with(|| {
+        Arc::new(device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+          label: None,
+          entries: desc,
+        }))
+      })
       .clone()
   }
 }
