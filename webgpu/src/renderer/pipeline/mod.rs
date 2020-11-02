@@ -1,21 +1,48 @@
 use builder::PipelineBuilder;
-use rendiation_ral::RasterizationState;
-use std::{cell::UnsafeCell, collections::HashMap};
-
-use crate::{RenderTargetFormatsInfo, TargetStates};
+use rendiation_ral::{
+  PipelineShaderInterfaceInfo, RasterizationStateDescriptor, RenderTargetFormatsInfo, TargetStates,
+};
+use std::{cell::UnsafeCell, collections::HashMap, hash::Hash, hash::Hasher};
 
 pub mod builder;
-pub mod interface;
 pub use builder::*;
-pub use interface::*;
+
+use crate::BindGroupLayoutCache;
+
+#[derive(Default, Debug, Clone)]
+pub struct HashAbleRasterizationStateDescriptor {
+  desc: RasterizationStateDescriptor,
+}
+
+impl Hash for HashAbleRasterizationStateDescriptor {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
+    self.desc.front_face.hash(state);
+    self.desc.depth_bias.hash(state);
+    self.desc.cull_mode.hash(state);
+    // todo unsafe float hash
+  }
+}
+
+impl PartialEq for HashAbleRasterizationStateDescriptor {
+  fn eq(&self, other: &Self) -> bool {
+    self.desc.front_face.eq(&other.desc.front_face)
+      && self.desc.depth_bias.eq(&other.desc.depth_bias)
+      && self.desc.cull_mode.eq(&other.desc.cull_mode)
+  }
+}
+
+impl Eq for HashAbleRasterizationStateDescriptor {}
 
 pub struct WGPUPipeline {
   builder: UnsafeCell<PipelineCacheBuilder>,
-  pub rasterization_state: RasterizationState,
+  pub rasterization_state: HashAbleRasterizationStateDescriptor,
 }
 
 struct PipelineCacheBuilder {
-  pool: HashMap<(TargetStates, RasterizationState), wgpu::RenderPipeline>, // todo optimize
+  pool: HashMap<(TargetStates, HashAbleRasterizationStateDescriptor), wgpu::RenderPipeline>, // todo optimize
   builder: PipelineBuilder,
 }
 
@@ -36,7 +63,7 @@ impl WGPUPipeline {
           source.shader_interface_info.clone(),
         ),
       }),
-      rasterization_state: RasterizationState::default(),
+      rasterization_state: HashAbleRasterizationStateDescriptor::default(),
     }
   }
 
@@ -50,6 +77,7 @@ impl WGPUPipeline {
     &self,
     formats_info: &RenderTargetFormatsInfo,
     renderer: &wgpu::Device,
+    cache: &BindGroupLayoutCache,
   ) -> &wgpu::RenderPipeline {
     let builder = unsafe { &mut *self.builder.get() };
 
@@ -64,13 +92,13 @@ impl WGPUPipeline {
     let pool = &mut builder.pool;
     let pipeline_builder = &mut builder.builder;
 
-    let key = (target_states.clone(), self.rasterization_state);
+    let key = (target_states.clone(), self.rasterization_state.clone());
 
     pool.entry(key).or_insert_with(|| {
       pipeline_builder.target_states = target_states;
 
       // pipeline_builder.rasterization = self.rasterization_state; // todo
-      pipeline_builder.build(renderer)
+      pipeline_builder.build(renderer, cache)
     })
   }
 }

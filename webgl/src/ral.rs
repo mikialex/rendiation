@@ -71,7 +71,7 @@ impl RAL for WebGL {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    layout: RALVertexBufferDescriptor,
+    layout: VertexBufferDescriptor<'static>,
   ) -> Self::VertexBuffer {
     renderer.create_vertex_buffer(data, layout)
   }

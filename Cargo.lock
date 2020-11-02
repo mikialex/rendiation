@@ -2175,7 +2175,7 @@ name = "rendiation-ral"
 version = "0.1.0"
 dependencies = [
  "arena",
- "wasm-bindgen",
+ "wgpu",
 ]
 
 [[package]]

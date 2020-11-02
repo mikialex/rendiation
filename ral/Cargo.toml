@@ -9,4 +9,4 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 arena = {path = "../utils/arena"}
-wasm-bindgen = {version = "0.2.68"}
+wgpu = "0.6.0"

@@ -1,7 +1,6 @@
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 use rendiation_webgpu::*;
 
-use render_target::TargetStates;
 use rendiation_shadergraph_derives::BindGroup;
 
 use rendiation_shader_library::builtin::*;
@@ -36,9 +35,9 @@ pub struct BlockShadingParamGroup {
   pub my_sampler: ShaderSampler,
 }
 
-impl BlockShader {
-  pub fn create_pipeline(renderer: &WGPURenderer) -> WGPUPipeline {
-    let (mut builder, input) = BlockShader::create_builder(renderer);
+impl ShaderGraphProvider for BlockShader {
+  fn build_graph() -> ShaderGraph {
+    let (mut builder, input) = BlockShader::create_builder();
     let vertex = builder.vertex_by::<Vertex>();
     let p = input.parameter;
 
@@ -55,6 +54,6 @@ impl BlockShader {
     let block_color = block_color.xyz() * spherical_harmonics(frag_normal);
     let final_color = FogData::apply_fog(p.fog, block_color, length(frag_mv_position));
     builder.set_frag_output(vec4_31(final_color, builder.c(1.0)));
-    builder.create().create_pipeline()
+    builder.create()
   }
 }

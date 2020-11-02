@@ -170,7 +170,7 @@ impl BlockRegistry {
     let target = RenderTarget::from_one_texture(target_texture);
 
     {
-      let copy_shading = CopierShading::new(renderer);
+      let copy_shading = CopierShading::new();
       let dest_size_width = 64.;
 
       let gpu: Vec<_> = face_list

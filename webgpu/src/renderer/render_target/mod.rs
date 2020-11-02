@@ -1,11 +1,10 @@
 pub mod custom;
 pub mod screen;
-pub mod target_state;
 
 use crate::{WGPURenderPassBuilder, WGPURenderer};
 pub use custom::*;
+use rendiation_ral::{RenderTargetFormatsInfo, TargetStates};
 pub use screen::*;
-pub use target_state::*;
 
 pub trait RenderTargetAble: TargetInfoProvider {
   fn create_render_pass_builder(&self) -> WGPURenderPassBuilder;

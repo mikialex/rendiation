@@ -77,7 +77,7 @@ impl ShaderGraph {
 
     result += "\n";
 
-    result += self.gen_bindgroups_header(ShaderStage::Vertex).as_str();
+    result += self.gen_bindgroups_header(ShaderStage::VERTEX).as_str();
 
     result
   }
@@ -95,7 +95,7 @@ impl ShaderGraph {
   pub(super) fn gen_header_frag(&self) -> String {
     let mut result = String::from("#version 450\n");
 
-    result += self.gen_bindgroups_header(ShaderStage::Fragment).as_str();
+    result += self.gen_bindgroups_header(ShaderStage::FRAGMENT).as_str();
 
     // varyings
     result += self

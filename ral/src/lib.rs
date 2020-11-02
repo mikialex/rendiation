@@ -2,15 +2,17 @@
 
 use std::ops::Range;
 
-mod rasterization;
 mod resource;
-mod shader;
+mod shader_info;
+mod target_state;
 mod viewport;
+mod wgpu_re;
 
-pub use rasterization::*;
 pub use resource::*;
-pub use shader::*;
+pub use shader_info::*;
+pub use target_state::*;
 pub use viewport::*;
+pub use wgpu_re::*;
 
 pub trait RAL: 'static + Sized {
   type RenderTarget;
@@ -48,7 +50,7 @@ pub trait RAL: 'static + Sized {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    layout: RALVertexBufferDescriptor,
+    layout: VertexBufferDescriptor<'static>,
   ) -> Self::VertexBuffer;
   fn dispose_vertex_buffer(renderer: &mut Self::Renderer, buffer: Self::VertexBuffer);
 
@@ -64,8 +66,70 @@ pub trait RAL: 'static + Sized {
   );
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ShaderStage {
-  Vertex,
-  Fragment,
+#[derive(Copy, Clone)]
+pub struct ShaderSampler;
+
+#[derive(Copy, Clone)]
+pub struct ShaderTexture;
+
+/// should impl for vertex that geometry used
+pub trait VertexBufferDescriptorProvider {
+  const DESCRIPTOR: VertexBufferDescriptor<'static>;
+}
+
+/// should impl for geometry
+pub trait VertexStateDescriptorProvider {
+  fn create_descriptor() -> VertexStateDescriptor<'static>;
+}
+
+pub trait GeometryDescriptorProvider: VertexStateDescriptorProvider {
+  fn get_primitive_topology() -> PrimitiveTopology;
+}
+
+pub trait BindGroupLayoutDescriptorProvider {
+  fn create_descriptor() -> Vec<BindGroupLayoutEntry>;
+}
+
+pub trait BindGroupLayoutEntryProvider {
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry;
+}
+
+impl<T: UBOData> BindGroupLayoutEntryProvider for T {
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry {
+    BindGroupLayoutEntry {
+      binding,
+      visibility,
+      ty: BindingType::UniformBuffer {
+        dynamic: false,
+        min_binding_size: None, // todo investigate
+      },
+      count: None,
+    }
+  }
+}
+
+impl BindGroupLayoutEntryProvider for ShaderTexture {
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry {
+    BindGroupLayoutEntry {
+      binding,
+      visibility,
+      ty: BindingType::SampledTexture {
+        multisampled: false,
+        component_type: wgpu::TextureComponentType::Float,
+        dimension: wgpu::TextureViewDimension::D2,
+      },
+      count: None,
+    }
+  }
+}
+
+impl BindGroupLayoutEntryProvider for ShaderSampler {
+  fn create_layout_entry(binding: u32, visibility: ShaderStage) -> BindGroupLayoutEntry {
+    BindGroupLayoutEntry {
+      binding,
+      visibility,
+      ty: BindingType::Sampler { comparison: false },
+      count: None,
+    }
+  }
 }

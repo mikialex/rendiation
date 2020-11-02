@@ -1,39 +1,7 @@
-use crate::{TargetStates, WGPUBindGroupLayoutProvider, WGPUGeometryProvider};
-use std::{borrow::Cow, sync::Arc};
+use rendiation_ral::{PipelineShaderInterfaceInfo, TargetStates};
+use std::borrow::Cow;
 
-/// Descriptor of the shader input
-#[derive(Clone)]
-pub struct PipelineShaderInterfaceInfo {
-  bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
-  vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
-  primitive_topology: wgpu::PrimitiveTopology,
-  pub preferred_target_states: TargetStates,
-}
-
-impl PipelineShaderInterfaceInfo {
-  pub fn new() -> Self {
-    Self {
-      bindgroup_layouts: Vec::new(),
-      vertex_state: None,
-      primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-      preferred_target_states: TargetStates::default(),
-    }
-  }
-
-  pub fn binding_group<T: WGPUBindGroupLayoutProvider>(
-    &mut self,
-    layout: Arc<wgpu::BindGroupLayout>,
-  ) -> &mut Self {
-    self.bindgroup_layouts.push(layout.clone());
-    self
-  }
-
-  pub fn geometry<T: WGPUGeometryProvider>(&mut self) -> &mut Self {
-    self.vertex_state = Some(T::get_geometry_vertex_state_descriptor());
-    self.primitive_topology = T::get_primitive_topology();
-    self
-  }
-}
+use crate::BindGroupLayoutCache;
 
 pub struct PipelineBuilder {
   vertex_shader: Vec<u32>,
@@ -76,18 +44,19 @@ impl PipelineBuilder {
     self
   }
 
-  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
+  pub fn build(&self, device: &wgpu::Device, cache: &BindGroupLayoutCache) -> wgpu::RenderPipeline {
     let bind_group_layouts: Vec<_> = self
       .shader_interface_info
       .bindgroup_layouts
       .iter()
-      .map(|l| l.as_ref())
+      .map(|desc| cache.get_bindgroup_layout(desc, device))
       .collect();
+    let bind_group_layouts: Vec<_> = bind_group_layouts.iter().map(|d| d.as_ref()).collect();
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       label: None,
       push_constant_ranges: &[],
-      bind_group_layouts: &bind_group_layouts,
+      bind_group_layouts: bind_group_layouts.as_slice(),
     });
 
     // Create the render pipeline

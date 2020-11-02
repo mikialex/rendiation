@@ -1,7 +1,7 @@
 use rendiation_math::Vec2;
 use rendiation_render_entity::*;
 use rendium::{
-  EventCtx, EventType, EventUpdateCtx, WindowEventSession, WindowEventSessionData,
+  EventType, EventUpdateCtx, WindowEventSession, WindowEventSessionData,
   WindowEventSessionRemoveToken, WindowState,
 };
 
@@ -71,7 +71,7 @@ impl<T> CameraController<T> {
   }
 
   fn detach_event(&mut self, events: &mut WindowEventSession<T>) {
-    remove_all_active_controll_listeners(&mut self.listener_records, &mut events.active);
+    remove_all_active_control_listeners(&mut self.listener_records, &mut events.active);
     self
       .self_listeners
       .drain(..)
@@ -79,7 +79,7 @@ impl<T> CameraController<T> {
   }
 }
 
-fn remove_all_active_controll_listeners<T>(
+fn remove_all_active_control_listeners<T>(
   listener_records: &mut Vec<WindowEventSessionRemoveToken<T>>,
   events: &mut WindowEventSessionData<T>,
 ) {
@@ -111,7 +111,7 @@ fn use_mode<T, U>(
 ) where
   U: FnOnce(&mut T) -> (&mut CameraController<T>, &WindowState) + 'static + Copy,
 {
-  remove_all_active_controll_listeners(listener_records, events);
+  remove_all_active_control_listeners(listener_records, events);
   *active_type = controller_type;
   // todo sync camera state;
   match controller_type {

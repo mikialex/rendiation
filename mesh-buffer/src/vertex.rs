@@ -58,24 +58,26 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
   }
 }
 
-impl RALVertexBufferDescriptorProvider for Vertex {
-  fn create_descriptor() -> RALVertexBufferDescriptor {
-    RALVertexBufferDescriptor {
-      byte_stride: mem::size_of::<Self>() as i32,
-      attributes: vec![
-        RALVertexAttributeBufferDescriptor {
-          byte_offset: 0,
-          format: RALVertexAttributeFormat::Float3,
-        },
-        RALVertexAttributeBufferDescriptor {
-          byte_offset: 4 * 3,
-          format: RALVertexAttributeFormat::Float3,
-        },
-        RALVertexAttributeBufferDescriptor {
-          byte_offset: 4 * 3 + 4 * 3,
-          format: RALVertexAttributeFormat::Float2,
-        },
-      ],
-    }
-  }
+impl VertexBufferDescriptorProvider for Vertex {
+  const DESCRIPTOR: VertexBufferDescriptor<'static> = VertexBufferDescriptor {
+    step_mode: InputStepMode::Vertex,
+    stride: mem::size_of::<Self>() as u64,
+    attributes: &[
+      VertexAttributeDescriptor {
+        offset: 0,
+        shader_location: 0, // todo shader location should append by providers before
+        format: VertexFormat::Float3,
+      },
+      VertexAttributeDescriptor {
+        offset: 4 * 3,
+        shader_location: 1,
+        format: VertexFormat::Float3,
+      },
+      VertexAttributeDescriptor {
+        offset: 4 * 3 + 4 * 3,
+        shader_location: 2,
+        format: VertexFormat::Float2,
+      },
+    ],
+  };
 }

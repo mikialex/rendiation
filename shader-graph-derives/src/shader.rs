@@ -127,7 +127,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   let instance_create: Vec<_> = fields_info
   .iter()
   .map(|(field_name, ty)| {
-      quote! { #field_name: builder.bindgroup_by::<#ty>(renderer), }
+      quote! { #field_name: builder.bindgroup_by::<#ty>(), }
     })
     .collect();
 
@@ -136,11 +136,10 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
       #(#shadergraph_instance_fields)*
     }
 
-    impl rendiation_shadergraph::ShaderGraphFactory<rendiation_webgpu::WebGPU> for #struct_name {
+    impl rendiation_shadergraph::ShaderGraphBuilderCreator<rendiation_webgpu::WebGPU> for #struct_name {
       type ShaderGraphShaderInstance = #shadergraph_instance_name;
 
       fn create_builder(
-        renderer: &WGPURenderer,
       ) -> (rendiation_shadergraph::ShaderGraphBuilder, Self::ShaderGraphShaderInstance) {
         let mut builder = rendiation_shadergraph::ShaderGraphBuilder::new();
         let instance = BlockShaderShaderGraphShaderInstance {

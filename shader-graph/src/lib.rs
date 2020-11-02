@@ -20,7 +20,7 @@ pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
-use rendiation_ral::ShaderStage;
+use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage};
 pub use rendiation_webgpu::*;
 pub use shader_function::*;
 pub use traits_impl::*;
@@ -97,8 +97,8 @@ impl ShaderGraph {
     }
 
     WGPUPipeline::new(&WGPUPipelineBuildSource {
-      vertex_shader: load_glsl(vertex, rendiation_ral::ShaderStage::Vertex),
-      frag_shader: load_glsl(frag, rendiation_ral::ShaderStage::Fragment),
+      vertex_shader: load_glsl(vertex, rendiation_ral::ShaderStage::VERTEX),
+      frag_shader: load_glsl(frag, rendiation_ral::ShaderStage::FRAGMENT),
       shader_interface_info: self.wgpu_shader_interface.clone(),
     })
   }
@@ -128,3 +128,10 @@ pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
 pub struct ShaderGraphBindGroup {
   pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }
+
+// pub struct PipelineShaderInterfaceInfo {
+//   bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
+//   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
+//   primitive_topology: wgpu::PrimitiveTopology,
+//   pub preferred_target_states: TargetStates,
+// }

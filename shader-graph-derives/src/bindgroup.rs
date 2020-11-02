@@ -6,48 +6,48 @@ use quote::{format_ident, quote};
 
 pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_wgpu_layout(input));
+  generated.append_all(derive_ral_bindgroup_layout(input));
   generated.append_all(derive_shadergraph_instance(input));
-  generated.append_all(derive_ral_wgpu_bindgroup(input));
+  generated.append_all(derive_ral_bindgroup(input));
   generated.append_all(derive_wgpu_bindgroup_direct_create(input));
   generated.append_all(derive_webgl_upload_instance(input));
   generated
 }
 
-fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
-  let instance_name = format_ident!("{}WASM", struct_name);
+// fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+//   let struct_name = &input.ident;
+//   let instance_name = format_ident!("{}WASM", struct_name);
 
-  let fields = only_named_struct_fields(input).unwrap();
-  let fields_info: Vec<_> = fields
-    .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap().clone();
-      let ty = f.ty.clone();
-      (field_name, ty)
-    })
-    .collect();
+//   let fields = only_named_struct_fields(input).unwrap();
+//   let fields_info: Vec<_> = fields
+//     .iter()
+//     .map(|f| {
+//       let field_name = f.ident.as_ref().unwrap().clone();
+//       let ty = f.ty.clone();
+//       (field_name, ty)
+//     })
+//     .collect();
 
-  // let instance_fields = fields_info
-  //   .iter()
-  //   .map(|(field_name, ty)| {
-  //     quote! {}
-  //   })
-  //   .collect();
+//   // let instance_fields = fields_info
+//   //   .iter()
+//   //   .map(|(field_name, ty)| {
+//   //     quote! {}
+//   //   })
+//   //   .collect();
 
-  // quote! {
-  //   #[wasm_bindgen]
-  //   pub struct #instance_name {
-  //     #(#instance_fields)*
-  //   }
+//   // quote! {
+//   //   #[wasm_bindgen]
+//   //   pub struct #instance_name {
+//   //     #(#instance_fields)*
+//   //   }
 
-  //   #[wasm_bindgen]
-  //   impl #instance_name {
-  //     #(#fields_wasm_getter_setter)*
-  //   }
-  // }
-  quote! {}
-}
+//   //   #[wasm_bindgen]
+//   //   impl #instance_name {
+//   //     #(#fields_wasm_getter_setter)*
+//   //   }
+//   // }
+//   quote! {}
+// }
 
 fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
@@ -126,7 +126,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   }
 }
 
-fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let fields = only_named_struct_fields(&input).unwrap();
 
@@ -187,16 +187,13 @@ fn derive_ral_wgpu_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStre
         renderer: &<rendiation_webgpu::WebGPU as rendiation_ral::RAL>::Renderer,
         resources: &rendiation_ral::ShaderBindableResourceManager<rendiation_webgpu::WebGPU>,
       ) -> <rendiation_webgpu::WebGPU as rendiation_ral::RAL>::BindGroup {
-        renderer.register_bindgroup::<Self>();
-
          #(#wgpu_resource_get)*
 
         rendiation_webgpu::BindGroupBuilder::new()
           #(#wgpu_create_bindgroup_create)*
           .build(
             &renderer.device,
-            renderer.bindgroup_layout_cache.borrow().get(&std::any::TypeId::of::<#struct_name>())
-            .unwrap()
+            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>(&renderer.device)
           )
       }
     }
@@ -269,14 +266,11 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
         #(#wgpu_create_bindgroup_fn_param)*
       ) -> rendiation_webgpu::WGPUBindGroup {
 
-        renderer.register_bindgroup::<Self>();
-
         rendiation_webgpu::BindGroupBuilder::new()
           #(#wgpu_create_bindgroup_create)*
           .build(
             &renderer.device,
-            renderer.bindgroup_layout_cache.borrow().get(&std::any::TypeId::of::<#struct_name>())
-            .unwrap()
+            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>(&renderer.device)
           )
 
       }
@@ -310,8 +304,8 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
     let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
     let name = format!("{}", attr.tokens); // can i do better?
     let visibility = match name.as_str() {
-      "(vert)" => quote! { rendiation_ral::ShaderStage::Vertex },
-      "(frag)" => quote! { rendiation_ral::ShaderStage::Fragment },
+      "(vert)" => quote! { rendiation_ral::ShaderStage::VERTEX },
+      "(frag)" => quote! { rendiation_ral::ShaderStage::FRAGMENT },
       _ => panic!("unsupported"),
     };
 
@@ -337,7 +331,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   }
 }
 
-fn derive_wgpu_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+fn derive_ral_bindgroup_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
   let fields = only_named_struct_fields(&input).unwrap();
 
@@ -348,25 +342,22 @@ fn derive_wgpu_layout(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
       let attr = f.attrs.iter().find(|a| a.path.is_ident("stage")).unwrap();
       let name = format!("{}", attr.tokens); // can i do better?
       let visibility = match name.as_str() {
-        "(vert)" => quote! { rendiation_ral::ShaderStage::Vertex },
-        "(frag)" => quote! { rendiation_ral::ShaderStage::Fragment },
+        "(vert)" => quote! { rendiation_ral::ShaderStage::VERTEX },
+        "(frag)" => quote! { rendiation_ral::ShaderStage::FRAGMENT },
         _ => panic!("unsupported"),
       };
 
-      quote! {.bind(
-       <#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_layout_type(),
-       #visibility
-      )}
+      quote! {.bind::<#ty>( #visibility)}
     })
     .collect();
 
   quote! {
-    impl rendiation_webgpu::WGPUBindGroupLayoutProvider for #struct_name {
+    impl rendiation_ral::BindGroupLayoutDescriptorProvider for #struct_name {
 
-      fn provide_layout(renderer: &rendiation_webgpu::WGPURenderer) -> rendiation_webgpu::BindGroupLayout {
-        rendiation_webgpu::BindGroupLayoutBuilder::new()
+      fn create_descriptor() -> Vec<BindGroupLayoutEntry> {
+        rendiation_ral::BindGroupLayoutBuilder::new()
         #(#wgpu_create_bindgroup_layout_create)*
-        .build(renderer)
+        .build()
       }
     }
   }

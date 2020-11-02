@@ -1,25 +1,15 @@
 use super::block_coords::*;
-use super::{
-  block::{BLOCK_FACES, BLOCK_WORLD_SIZE},
-  chunks::WorldChunkData,
-  io::WorldIOManager,
-  scene_attach::WorldSceneAttachment,
-};
+use super::{chunks::WorldChunkData, io::WorldIOManager, scene_attach::WorldSceneAttachment};
 use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::*;
-use crate::{shading::BlockShadingParamGroup, util::CameraGPU, vox::world_machine::*};
-use render_target::TargetStates;
-use rendiation_math::*;
+use crate::vox::world_machine::*;
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
-use rendiation_render_entity::{Camera, PerspectiveProjection, TransformedObject};
+use rendiation_render_entity::{Camera, TransformedObject};
 use rendiation_scenegraph::*;
 use rendiation_webgpu::*;
 use std::collections::HashMap;
-use std::{
-  collections::{BTreeMap, HashSet},
-  sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 pub struct World {
   pub io: WorldIOManager,
