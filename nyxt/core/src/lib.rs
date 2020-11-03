@@ -89,7 +89,7 @@ impl NyxtViewer {
 }
 
 #[derive(Copy, Clone)]
-pub struct UniformHandleWrap<T>(UniformHandle<GFX, T>);
+pub struct UniformHandleWrap<T>(pub UniformHandle<GFX, T>);
 
 impl<T: Copy + 'static> NyxtViewerHandle for UniformHandleWrap<T> {
   type Item = T;

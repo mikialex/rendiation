@@ -8,6 +8,16 @@ pub struct CameraTransform {
   pub model_view: Mat4<f32>,
 }
 
+impl Default for CameraTransform {
+  fn default() -> Self {
+    Self {
+      mvp: Mat4::one(),
+      projection: Mat4::one(),
+      model_view: Mat4::one(),
+    }
+  }
+}
+
 impl CameraTransform {
   pub fn apply(
     transform: <Self as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,

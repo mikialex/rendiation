@@ -55,7 +55,18 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
     #[wasm_bindgen]
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
+
+      pub fn new(viewer: &mut nyxt_core::NyxtViewer) -> Self {
+        let handle = viewer.mutate_inner(|inner| {
+          let default_value = #struct_name::default();
+          inner.resource.bindable.uniform_buffers.add(default_value)
+        });
+        Self {
+          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
+        }
+      }
     }
+
   }
 }
 

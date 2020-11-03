@@ -8,6 +8,16 @@ pub struct FogData {
   pub fog_start: f32,
 }
 
+impl Default for FogData {
+  fn default() -> Self {
+    Self {
+      fog_color: Vec4::new(1., 1., 1., 1.),
+      fog_end: 0.,
+      fog_start: 100.,
+    }
+  }
+}
+
 impl FogData {
   pub fn apply_fog(
     fog: <FogData as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
