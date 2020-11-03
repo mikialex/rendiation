@@ -5,7 +5,7 @@ name = "rendiation-shader-library"
 version = "0.1.0"
 
 [features]
-wasm = ["wasm-bindgen"]
+nyxt = ["wasm-bindgen"]
 webgpu = ["rendiation-webgpu"]
 webgl = ["rendiation-webgl"]
 

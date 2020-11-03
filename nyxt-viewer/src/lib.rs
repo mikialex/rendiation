@@ -144,3 +144,5 @@ pub fn test_bvh() {
     );
   }
 }
+
+pub use rendiation_shader_library::fog::*;

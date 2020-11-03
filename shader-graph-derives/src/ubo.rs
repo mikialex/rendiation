@@ -30,25 +30,28 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
       let setter_name = format_ident!("set_{}", field_name);
       quote! {
         #[wasm_bindgen(getter)]
-        pub fn #getter_name(&self) -> <#ty as WASMAbleType>::Type {
+        pub fn #getter_name(&self) -> <#ty as rendiation_math::WASMAbleType>::Type {
           self.inner.mutate_item(|d| d.#field_name).to_wasm()
         }
         #[wasm_bindgen(setter)]
-        pub fn #setter_name(&mut self, value: <#ty as WASMAbleType>::Type) {
-          self.inner.mutate_item(|d| d.#field_name = WASMAbleType::from_wasm(value))
+        pub fn #setter_name(&mut self, value: <#ty as rendiation_math::WASMAbleType>::Type) {
+          self.inner.mutate_item(|d| d.#field_name = rendiation_math::WASMAbleType::from_wasm(value))
         }
       }
     })
     .collect();
 
   quote! {
-    #[cfg(feature = "wasm_bindgen")]
+    #[cfg(feature = "nyxt")]
+    use wasm_bindgen::prelude::*;
+
+    #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     pub struct #instance_name {
       inner: NyxtViewerHandledObject<UniformHandleWrap<#struct_name>>,
     }
 
-    #[cfg(feature = "wasm_bindgen")]
+    #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     impl #instance_name {
       #(#fields_wasm_getter_setter)*

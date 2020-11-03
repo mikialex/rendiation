@@ -10,6 +10,7 @@ pub mod swizzle;
 pub mod interpolation;
 
 pub mod wasm;
+pub use wasm::*;
 
 #[macro_use]
 pub mod marcos;
