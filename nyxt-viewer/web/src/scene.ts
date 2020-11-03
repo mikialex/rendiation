@@ -1,4 +1,4 @@
-// import { AttributeBufferF32WASM, AttributeBufferU16WASM, WASMGeometry, WebGLRenderer } from "../../pkg/nyxt_viewer";
+// import { AttributeBufferF32WASM, AttributeBufferU16WASM, IndexedVertexGeometryWASM, WebGLRenderer } from "../../pkg/nyxt_viewer";
 // import * as wasm from "../../pkg/nyxt_viewer_bg.wasm";
 
 
@@ -48,8 +48,8 @@
 // }
 
 // export class Geometry extends ViewerResource {
-//     geometry: WASMGeometry;
-//     constructor(viewer: Viewer, value: WASMGeometry) {
+//     geometry: IndexedVertexGeometryWASM;
+//     constructor(viewer: Viewer, value: IndexedVertexGeometryWASM) {
 //         let id = viewer.scene.add_geometry(value);
 //         super(id, viewer);
 //         this.geometry = value;

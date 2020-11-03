@@ -106,3 +106,15 @@ impl NyxtViewerHandle for DrawcallHandle<GFX> {
     inner.scene.drawcalls.remove(self);
   }
 }
+
+#[wasm_bindgen]
+impl DrawcallWASM {
+  #[wasm_bindgen(constructor)]
+  pub fn new(viewer: &NyxtViewer) -> DrawcallWASM {
+    todo!()
+    // let handle = viewer.mutate_inner(|inner| inner.scene.create_new_node().handle());
+    // Self {
+    //   inner: viewer.make_handle_object(handle),
+    // }
+  }
+}

@@ -1,5 +1,7 @@
+use rendiation_mesh_buffer::vertex::Vertex;
 use rendiation_ral::{
-  AnyGeometryProvider, GeometryResourceInstance, IndexBufferHandle, VertexBufferHandle, RAL,
+  AnyGeometryProvider, GeometryResourceInstance, IndexBufferHandle, InputStepMode,
+  VertexAttributeDescriptor, VertexBufferDescriptor, VertexBufferHandle, VertexFormat, RAL,
 };
 use wasm_bindgen::prelude::*;
 
@@ -108,19 +110,20 @@ impl VertexBufferWASM {
   #[wasm_bindgen(constructor)]
   pub fn new(viewer: &mut NyxtViewer, buffer: &AttributeBufferF32WASM) -> Self {
     let handle = viewer.mutate_inner(|inner| {
-      // let buffer = GFX::create_vertex_buffer(
-      //   &mut inner.renderer,
-      //   bytemuck::cast_slice(buffer.buffer.as_slice()),
-      //   RALVertexBufferDescriptor {
-      //     byte_stride: 4,
-      //     attributes: vec![RALVertexAttributeBufferDescriptor {
-      //       byte_offset: 0,
-      //       format: RALVertexAttributeFormat::Float,
-      //     }],
-      //   },
-      // );
-      todo!();
-      // inner.resource.add_vertex_buffer(buffer).index()
+      let buffer = GFX::create_vertex_buffer(
+        &mut inner.renderer,
+        bytemuck::cast_slice(buffer.buffer.as_slice()),
+        VertexBufferDescriptor {
+          stride: 4,
+          step_mode: InputStepMode::Vertex,
+          attributes: &[VertexAttributeDescriptor {
+            shader_location: 0,
+            offset: 0,
+            format: VertexFormat::Float,
+          }],
+        },
+      );
+      inner.resource.add_vertex_buffer(buffer).index()
     });
     Self {
       inner: viewer.make_handle_object(VertexBufferHandleWrap(handle)),
@@ -135,43 +138,47 @@ impl Drop for VertexBufferWASM {
 }
 
 #[wasm_bindgen]
-pub struct WASMGeometry {
-  // data: GeometryResourceInstance<WebGLRenderer>,
-  pub index: Option<usize>,
-  pub position: usize,
-  pub normal: Option<usize>,
-  pub uv: Option<usize>,
+pub struct IndexedVertexGeometryWASM {
+  #[wasm_bindgen(skip)]
+  pub index: IndexBufferHandleWrap,
+  #[wasm_bindgen(skip)]
+  pub position: VertexBufferHandleWrap,
+  #[wasm_bindgen(skip)]
+  pub normal: VertexBufferHandleWrap,
+  #[wasm_bindgen(skip)]
+  pub uv: VertexBufferHandleWrap,
+  // geometry_instance: GeometryResourceInstance<GFX, Vertex>,
 }
 
-impl WASMGeometry {
-  pub fn to_geometry_resource_instance(
-    &self,
-  ) -> GeometryResourceInstance<GFX, AnyGeometryProvider> {
-    todo!()
-  }
-}
-
-// #[wasm_bindgen]
-// impl WASMGeometry {
-//   #[wasm_bindgen(constructor)]
-//   pub fn new(
-//     index: Option<IndexBufferWASM>,
-//     position: VertexBufferWASM,
-//     normal: Option<VertexBufferWASM>,
-//     uv: Option<VertexBufferWASM>,
-//   ) -> Self {
-//     Self {
-//       index: index.map(|d| d.handle),
-//       position: position.handle,
-//       normal: normal.map(|d| d.handle),
-//       uv: uv.map(|d| d.handle),
-//     }
+// impl IndexedVertexGeometryWASM {
+//   pub fn to_geometry_resource_instance(
+//     &self,
+//   ) -> GeometryResourceInstance<GFX, AnyGeometryProvider> {
+//     todo!()
 //   }
 // }
 
-impl Drop for WASMGeometry {
+#[wasm_bindgen]
+impl IndexedVertexGeometryWASM {
+  #[wasm_bindgen(constructor)]
+  pub fn new(
+    index: &IndexBufferWASM, // wasm not support Option<&T>??
+    position: &VertexBufferWASM,
+    normal: &VertexBufferWASM,
+    uv: &VertexBufferWASM,
+  ) -> Self {
+    let mut instance = GeometryResourceInstance::<GFX, Vertex>::new();
+    Self {
+      index: index.inner.handle,
+      position: position.inner.handle,
+      normal: normal.inner.handle,
+      uv: uv.inner.handle,
+    }
+  }
+}
+
+impl Drop for IndexedVertexGeometryWASM {
   fn drop(&mut self) {
     todo!()
-    // let handle = self.mutate_resource(|r| r.delete_index_buffer(index_buffer));
   }
 }
