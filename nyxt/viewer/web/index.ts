@@ -8,7 +8,7 @@
 // intoThree()
 // intoWasmScene();
 
-import { AttributeBufferF32WASM, AttributeBufferU16WASM, IndexedVertexGeometryWASM, NyxtViewer, IndexBufferWASM, VertexBufferWASM, test_bvh, SceneNodeWASM, DrawcallWASM } from '../pkg/nyxt_viewer';
+import { AttributeBufferF32WASM, AttributeBufferU16WASM, IndexedVertexGeometryWASM, NyxtViewer, IndexBufferWASM, VertexBufferWASM, test_bvh, SceneNodeWASM, DrawcallWASM, FogDataWASM } from '../pkg/nyxt_viewer';
 
 
 const canvas = document.getElementById("wasm") as HTMLCanvasElement
@@ -46,7 +46,8 @@ const uv_buffer = new VertexBufferWASM(viewer, uv);
 const geometry = new IndexedVertexGeometryWASM(index_buffer, position_buffer, normal_buffer, uv_buffer);
 console.log(geometry)
 
-// const fog = new FogDataWASM()
+const fog = new FogDataWASM()
+console.log(fog)
 
 // const scene_geometry = new Geometry(viewer, geometry)
 

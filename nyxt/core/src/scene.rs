@@ -13,22 +13,6 @@ pub struct SceneNodeWASM {
   inner: NyxtViewerHandledObject<SceneNodeHandle<GFX>>,
 }
 
-impl NyxtViewerHandle for SceneNodeHandle<GFX> {
-  type Item = SceneNodeData<GFX>;
-
-  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
-    inner.scene.get_node(self).data()
-  }
-  fn free(self, inner: &mut NyxtViewerInner) {
-    inner.scene.free_node(self)
-  }
-}
-impl NyxtViewerMutableHandle for SceneNodeHandle<GFX> {
-  fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
-    inner.scene.get_node_mut(self).data_mut()
-  }
-}
-
 #[wasm_bindgen]
 impl SceneNodeWASM {
   #[wasm_bindgen(constructor)]
@@ -94,17 +78,6 @@ impl SceneNodeWASM {
 #[wasm_bindgen]
 pub struct DrawcallWASM {
   inner: NyxtViewerHandledObject<DrawcallHandle<GFX>>,
-}
-
-impl NyxtViewerHandle for DrawcallHandle<GFX> {
-  type Item = Drawcall<GFX>;
-
-  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
-    inner.scene.drawcalls.get(self).unwrap()
-  }
-  fn free(self, inner: &mut NyxtViewerInner) {
-    inner.scene.drawcalls.remove(self);
-  }
 }
 
 #[wasm_bindgen]

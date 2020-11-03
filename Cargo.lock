@@ -1589,6 +1589,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "nyxt-core"
+version = "0.1.0"
+dependencies = [
+ "arena",
+ "arena-tree",
+ "bytemuck",
+ "console_error_panic_hook",
+ "js-sys",
+ "rendiation-math",
+ "rendiation-math-entity",
+ "rendiation-mesh-buffer",
+ "rendiation-ral",
+ "rendiation-render-entity",
+ "rendiation-scenegraph",
+ "rendiation-webgl",
+ "space-indexer",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "nyxt-viewer"
 version = "0.1.0"
 dependencies = [
@@ -1597,6 +1617,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "js-sys",
+ "nyxt-core",
  "rendiation-math",
  "rendiation-math-entity",
  "rendiation-mesh-buffer",
@@ -2219,6 +2240,7 @@ dependencies = [
 name = "rendiation-shader-library"
 version = "0.1.0"
 dependencies = [
+ "nyxt-core",
  "once_cell",
  "rendiation-math",
  "rendiation-ral",

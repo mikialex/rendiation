@@ -53,7 +53,8 @@ impl AttributeBufferU16WASM {
 
 #[wasm_bindgen]
 pub struct IndexBufferWASM {
-  inner: NyxtViewerHandledObject<IndexBufferHandleWrap>,
+  #[wasm_bindgen(skip)]
+  pub inner: NyxtViewerHandledObject<IndexBufferHandleWrap>,
 }
 
 #[derive(Copy, Clone)]

@@ -48,7 +48,7 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
     #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     pub struct #instance_name {
-      inner: NyxtViewerHandledObject<UniformHandleWrap<#struct_name>>,
+      inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::UniformHandleWrap<#struct_name>>,
     }
 
     #[cfg(feature = "nyxt")]
