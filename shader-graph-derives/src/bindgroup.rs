@@ -172,7 +172,7 @@ fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let wgpu_create_bindgroup_create: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
+      quote! {.push(<#ty as rendiation_webgpu::WGPUBindgroupItem>::to_binding(#field_name))}
     })
     .collect();
 
@@ -245,7 +245,7 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! { #field_name: < #ty as rendiation_shadergraph::WGPUBindgroupItem>::Type, }
+      quote! { #field_name: < #ty as rendiation_webgpu::WGPUBindgroupItem>::Type, }
     })
     .collect();
 
@@ -254,7 +254,7 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
+      quote! {.push(<#ty as rendiation_webgpu::WGPUBindgroupItem>::to_binding(#field_name))}
     })
     .collect();
 

@@ -20,8 +20,7 @@ pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
 use rendiation_math::*;
-use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage};
-pub use rendiation_webgpu::*;
+use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage, RAL};
 pub use shader_function::*;
 pub use traits_impl::*;
 
@@ -52,6 +51,10 @@ pub enum ShaderGraphUniformInputType {
   UBO((Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)),
 }
 
+pub trait ShaderGraphBackend: RAL {
+  fn convert_build_source(graph: &ShaderGraph) -> Self::ShaderBuildSource;
+}
+
 pub struct ShaderGraph {
   pub attributes: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
   pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
@@ -64,7 +67,7 @@ pub struct ShaderGraph {
 
   pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
 
-  wgpu_shader_interface: PipelineShaderInterfaceInfo,
+  pub shader_interface: PipelineShaderInterfaceInfo,
 }
 
 impl ShaderGraph {
@@ -77,11 +80,12 @@ impl ShaderGraph {
       varyings: Vec::new(),
       frag_outputs: Vec::new(),
       type_id_map: HashMap::new(),
-      wgpu_shader_interface: PipelineShaderInterfaceInfo::new(),
+      shader_interface: PipelineShaderInterfaceInfo::new(),
     }
   }
 
-  pub fn create_pipeline(&self) -> WGPUPipeline {
+  pub fn create_pipeline<T: ShaderGraphBackend>(&self, renderer: &mut T::Renderer) -> T::Shading {
+    // do extra naga check;
     let vertex = self.gen_code_vertex();
     let frag = self.gen_code_frag();
 
@@ -96,11 +100,8 @@ impl ShaderGraph {
       println!("{:}", frag);
     }
 
-    WGPUPipeline::new(&WGPUPipelineBuildSource {
-      vertex_shader: load_glsl(vertex, rendiation_ral::ShaderStage::VERTEX),
-      frag_shader: load_glsl(frag, rendiation_ral::ShaderStage::FRAGMENT),
-      shader_interface_info: self.wgpu_shader_interface.clone(),
-    })
+    let source = T::convert_build_source(self);
+    T::create_shading(renderer, &source)
   }
 
   pub fn insert_node<T: ShaderGraphNodeType>(

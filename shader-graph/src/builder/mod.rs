@@ -84,7 +84,7 @@ impl ShaderGraphBuilder {
     &mut self,
   ) -> T::ShaderGraphBindGroupInstance {
     modify_graph(|graph| {
-      graph.wgpu_shader_interface.binding_group::<T>();
+      graph.shader_interface.binding_group::<T>();
     });
 
     self.bindgroup(|b| T::create_instance(b))
@@ -121,7 +121,7 @@ impl ShaderGraphBuilder {
 
   pub fn geometry_by<T: rendiation_ral::GeometryDescriptorProvider>(&mut self) {
     modify_graph(|graph| {
-      graph.wgpu_shader_interface.geometry::<T>();
+      graph.shader_interface.geometry::<T>();
     });
   }
 }

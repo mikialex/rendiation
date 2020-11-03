@@ -18,3 +18,4 @@ rendiation-math-entity = { path = "../math-entity" }
 rendiation-render-entity = { path = "../render-entity" }
 
 rendiation-ral = { path = "../ral" }
+rendiation-shadergraph = {path = "../shader-graph"}
