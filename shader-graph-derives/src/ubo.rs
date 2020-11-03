@@ -100,10 +100,12 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
     .collect();
 
   quote! {
+    #[cfg(feature = "webgl")]
     pub struct #instance_name {
       #(#instance_fields)*
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
       fn create(
         query_name_prefix: &str,
@@ -124,6 +126,7 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
       }
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
       type UploadValue = rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGL, #struct_name>;
       type UploadInstance = #instance_name;
@@ -216,7 +219,7 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
     impl rendiation_ral::UBOData for #struct_name {}
     impl rendiation_shadergraph::ShaderGraphUBO for #struct_name {}
 
-    // todo move to feature gate webgpu
+    #[cfg(feature = "webgpu")]
     impl rendiation_webgpu::WGPUUBOData for #struct_name {}
   }
 }

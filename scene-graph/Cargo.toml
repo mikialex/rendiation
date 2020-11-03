@@ -9,8 +9,6 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 rendergraph = ["rendiation-rendergraph"]
-# webgl = ["rendiation-webgl"]
-webgpu = ["rendiation-webgpu", "rendiation-mesh-buffer/webgpu"]
 
 [dependencies]
 arena = {path = "../utils/arena"}
@@ -24,6 +22,5 @@ wasm-bindgen = {version = "0.2.68"}
 
 rendiation-rendergraph = {path = "../render-graph", optional = true}
 rendiation-webgl = {path = "../webgl"}
-rendiation-webgpu = {path = "../webgpu", optional = true}
 
 arena-tree = {path = "../utils/arena-tree"}

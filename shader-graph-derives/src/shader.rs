@@ -59,10 +59,12 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   let ral_instance_name = format_ident!("{}RALResourceInstance", struct_name);
 
   quote! {
+    #[cfg(feature = "webgl")]
     pub struct #instance_name {
       #(#instance_fields)*
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
       fn create(
         query_name_prefix: &str,
@@ -83,12 +85,15 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       }
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
       type UploadValue = <#struct_name as rendiation_ral::ShadingProvider<rendiation_webgl::WebGL>>::Instance;
       type UploadInstance = #instance_name;
     }
 
+    #[cfg(feature = "webgl")]
     use rendiation_webgl::UploadInstance;
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::WebGLUniformUploadShaderInstance for #instance_name {
       fn upload_all(
         &mut self,

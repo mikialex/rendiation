@@ -2212,7 +2212,6 @@ dependencies = [
  "rendiation-render-entity",
  "rendiation-rendergraph",
  "rendiation-webgl",
- "rendiation-webgpu",
  "wasm-bindgen",
 ]
 

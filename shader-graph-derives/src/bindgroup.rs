@@ -95,10 +95,13 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   let ral_instance_name = format_ident!("{}RALInstance", struct_name);
 
   quote! {
+
+    #[cfg(feature = "webgl")]
     pub struct #instance_name {
       #(#instance_fields)*
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
       fn create(
         query_name_prefix: &str,
@@ -119,6 +122,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       }
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
       type UploadValue = <#struct_name as rendiation_ral::BindGroupProvider<rendiation_webgl::WebGL>>::Instance;
       type UploadInstance = #instance_name;
@@ -181,6 +185,7 @@ fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
       #(#ral_fields)*
     }
 
+    #[cfg(feature = "webgpu")]
     impl rendiation_ral::BindGroupCreator<rendiation_webgpu::WebGPU> for #struct_name {
       fn create_bindgroup(
         instance: &Self::Instance,
@@ -198,6 +203,7 @@ fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
       }
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_ral::BindGroupCreator<rendiation_webgl::WebGL> for #struct_name {
       fn create_bindgroup(
         instance: &Self::Instance,
@@ -260,6 +266,7 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
 
   quote! {
 
+    #[cfg(feature = "webgpu")]
     impl #struct_name {
       pub fn create_bindgroup(
         renderer: &rendiation_webgpu::WGPURenderer,
