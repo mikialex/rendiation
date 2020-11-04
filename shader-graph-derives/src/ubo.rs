@@ -56,6 +56,7 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
 
+      #[wasm_bindgen(constructor)]
       pub fn new(viewer: &mut nyxt_core::NyxtViewer) -> Self {
         let handle = viewer.mutate_inner(|inner| {
           let default_value = #struct_name::default();

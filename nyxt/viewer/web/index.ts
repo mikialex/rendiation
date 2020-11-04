@@ -46,7 +46,7 @@ const uv_buffer = new VertexBufferWASM(viewer, uv);
 const geometry = new IndexedVertexGeometryWASM(index_buffer, position_buffer, normal_buffer, uv_buffer);
 console.log(geometry)
 
-const fog = new FogDataWASM()
+const fog = new FogDataWASM(viewer)
 console.log(fog)
 
 // const scene_geometry = new Geometry(viewer, geometry)
