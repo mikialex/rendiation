@@ -113,9 +113,9 @@ pub fn gen_glsl_function(
     .unzip();
 
   quote! {
-    pub static #prototype_name: once_cell::sync::Lazy<rendiation_shadergraph::ShaderFunction> =
+    pub static #prototype_name: once_cell::sync::Lazy<rendiation_shadergraph::ShaderFunctionMetaInfo> =
     once_cell::sync::Lazy::new(|| {
-        rendiation_shadergraph::ShaderFunction::new(
+        rendiation_shadergraph::ShaderFunctionMetaInfo::new(
           #quoted_function_name,
           #function_source
         )

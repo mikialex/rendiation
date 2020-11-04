@@ -7,25 +7,23 @@ use std::{
   sync::Mutex,
 };
 
-pub mod builder;
 mod code_gen;
+
+pub mod builder;
+pub mod meta;
 pub mod nodes;
 pub mod operator;
 pub mod provider;
-pub mod shader_function;
 pub mod swizzle;
 pub mod traits_impl;
 pub use builder::*;
+pub use meta::*;
 pub use nodes::*;
 pub use provider::*;
-use rendiation_math::*;
-use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage, RAL};
-pub use shader_function::*;
 pub use traits_impl::*;
 
-lazy_static! {
-  pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
-}
+use rendiation_math::*;
+use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage, RAL};
 
 #[derive(Copy, Clone)]
 pub struct Node<T: ShaderGraphNodeType> {
@@ -65,6 +63,10 @@ pub struct ShaderGraph {
   pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
 
   pub shader_interface: PipelineShaderInterfaceInfo,
+}
+
+pub struct ShaderGraphBindGroup {
+  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }
 
 impl ShaderGraph {
@@ -114,12 +116,12 @@ impl ShaderGraph {
   }
 }
 
+lazy_static! {
+  pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
+}
+
 pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   let graph = guard.as_mut().unwrap();
   modifier(graph)
-}
-
-pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }

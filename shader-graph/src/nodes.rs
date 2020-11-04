@@ -1,5 +1,6 @@
 use crate::{
-  ShaderFunction, ShaderGraphNodeRawHandle, ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped,
+  ShaderFunctionMetaInfo, ShaderGraphNodeRawHandle, ShaderGraphNodeRawHandleUntyped,
+  ShaderGraphNodeUntyped,
 };
 use rendiation_math::Vec2;
 use rendiation_ral::{ShaderSampler, ShaderTexture};
@@ -73,7 +74,7 @@ pub enum ShaderGraphOutput {
 }
 
 pub struct FunctionNode {
-  pub prototype: &'static ShaderFunction,
+  pub prototype: &'static ShaderFunctionMetaInfo,
 }
 
 pub struct TextureSamplingNode {

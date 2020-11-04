@@ -7,7 +7,7 @@ mod header;
 struct CodeGenCtx {
   var_guid: usize,
   code_gen_history: HashMap<ShaderGraphNodeRawHandleUntyped, MiddleVariableCodeGenResult>,
-  depend_functions: HashSet<&'static ShaderFunction>,
+  depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
 }
 
 impl CodeGenCtx {
