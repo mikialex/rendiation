@@ -21,6 +21,5 @@ rendiation-render-entity = {path = "../render-entity"}
 wasm-bindgen = {version = "0.2.68"}
 
 rendiation-rendergraph = {path = "../render-graph", optional = true}
-rendiation-webgl = {path = "../webgl"}
 
 arena-tree = {path = "../utils/arena-tree"}

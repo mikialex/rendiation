@@ -1,7 +1,7 @@
 use rendiation_mesh_buffer::vertex::Vertex;
 use rendiation_ral::{
-  AnyGeometryProvider, GeometryResourceInstance, IndexBufferHandle, InputStepMode,
-  VertexAttributeDescriptor, VertexBufferDescriptor, VertexBufferHandle, VertexFormat, RAL,
+  GeometryResourceInstance, IndexBufferHandle, InputStepMode, VertexAttributeDescriptor,
+  VertexBufferDescriptor, VertexBufferHandle, VertexFormat, RAL,
 };
 use wasm_bindgen::prelude::*;
 
@@ -168,7 +168,7 @@ impl IndexedVertexGeometryWASM {
     normal: &VertexBufferWASM,
     uv: &VertexBufferWASM,
   ) -> Self {
-    let mut instance = GeometryResourceInstance::<GFX, Vertex>::new();
+    let mut _instance = GeometryResourceInstance::<GFX, Vertex>::new();
     Self {
       index: index.inner.handle,
       position: position.inner.handle,

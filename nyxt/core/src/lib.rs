@@ -1,10 +1,8 @@
 use std::{cell::RefCell, rc::Rc, rc::Weak};
 
 use rendiation_ral::*;
-use rendiation_scenegraph::{
-  default_impl::SceneNodeData, DrawcallHandle, HtmlCanvasElement, Scene, SceneNodeHandle,
-};
-use rendiation_webgl::{WebGL, WebGLRenderer};
+use rendiation_scenegraph::{default_impl::SceneNodeData, DrawcallHandle, Scene, SceneNodeHandle};
+use rendiation_webgl::{HtmlCanvasElement, WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
 pub mod geometry;

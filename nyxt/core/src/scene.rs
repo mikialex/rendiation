@@ -1,12 +1,8 @@
 use rendiation_math::wasm::{Mat4F32WASM, WASMAbleType};
-use rendiation_ral::Drawcall;
-use rendiation_scenegraph::{default_impl::SceneNodeData, DrawcallHandle, SceneNodeHandle};
+use rendiation_scenegraph::{DrawcallHandle, SceneNodeHandle};
 use wasm_bindgen::prelude::*;
 
-use crate::{
-  NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner, NyxtViewerMutableHandle,
-  GFX,
-};
+use crate::{NyxtViewer, NyxtViewerHandledObject, GFX};
 
 #[wasm_bindgen]
 pub struct SceneNodeWASM {
@@ -83,7 +79,7 @@ pub struct DrawcallWASM {
 #[wasm_bindgen]
 impl DrawcallWASM {
   #[wasm_bindgen(constructor)]
-  pub fn new(viewer: &NyxtViewer) -> DrawcallWASM {
+  pub fn new(_viewer: &NyxtViewer) -> DrawcallWASM {
     todo!()
     // let handle = viewer.mutate_inner(|inner| inner.scene.create_new_node().handle());
     // Self {

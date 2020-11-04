@@ -1606,6 +1606,7 @@ dependencies = [
  "rendiation-webgl",
  "space-indexer",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -2232,7 +2233,6 @@ dependencies = [
  "rendiation-ral",
  "rendiation-render-entity",
  "rendiation-rendergraph",
- "rendiation-webgl",
  "wasm-bindgen",
 ]
 
