@@ -7,12 +7,6 @@ use wasm_bindgen::prelude::*;
 
 use crate::{NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner, GFX};
 
-pub enum WebGLAttributeBufferFormat {
-  Float,
-  Float2,
-  Float3,
-}
-
 #[wasm_bindgen]
 pub struct AttributeBufferF32WASM {
   #[wasm_bindgen(skip)]

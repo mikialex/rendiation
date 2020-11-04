@@ -15,7 +15,6 @@ pub mod provider;
 pub mod shader_function;
 pub mod swizzle;
 pub mod traits_impl;
-// pub mod webgl;
 pub use builder::*;
 pub use nodes::*;
 pub use provider::*;
@@ -129,10 +128,3 @@ pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
 pub struct ShaderGraphBindGroup {
   pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }
-
-// pub struct PipelineShaderInterfaceInfo {
-//   bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
-//   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
-//   primitive_topology: wgpu::PrimitiveTopology,
-//   pub preferred_target_states: TargetStates,
-// }

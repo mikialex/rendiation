@@ -1,3 +1,0 @@
-struct Player{
-    name: String,
-}
