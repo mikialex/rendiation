@@ -21,12 +21,9 @@ impl Default for CameraTransform {
 impl CameraTransform {
   pub fn apply(
     transform: <Self as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
-    raw_position: ShaderGraphNodeHandle<Vec3<f32>>,
+    raw_position: Node<Vec3<f32>>,
     builder: &ShaderGraphBuilder,
-  ) -> (
-    ShaderGraphNodeHandle<Vec4<f32>>,
-    ShaderGraphNodeHandle<Vec4<f32>>,
-  ) {
+  ) -> (Node<Vec4<f32>>, Node<Vec4<f32>>) {
     let mv_position = to_mv_position(raw_position, transform.model_view);
     let clip_position = apply_projection(mv_position, transform.projection);
     builder.set_vertex_root(clip_position);

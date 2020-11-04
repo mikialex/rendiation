@@ -4,9 +4,9 @@ use rendiation_shadergraph_derives::glsl_function_inner;
 // macro_rules! impl_builtin_shader_fn {
 //   (($($tt:ident)*), $name:ident) => {
 //     pub fn max<T: ShaderGraphNodeType>(
-//       a: ShaderGraphNodeHandle<T>,
-//       b: ShaderGraphNodeHandle<T>,
-//     ) -> ShaderGraphNodeHandle<T> {
+//       a: Node<T>,
+//       b: Node<T>,
+//     ) -> Node<T> {
 //       modify_graph(|graph| {
 //         let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Function(FunctionNode {
 //           prototype: MAX_FUNCTION.clone(),
@@ -22,7 +22,7 @@ use rendiation_shadergraph_derives::glsl_function_inner;
 //   };
 // }
 
-pub fn length<T: ShaderGraphNodeType>(a: ShaderGraphNodeHandle<T>) -> ShaderGraphNodeHandle<f32> {
+pub fn length<T: ShaderGraphNodeType>(a: Node<T>) -> Node<f32> {
   modify_graph(|graph| {
     let node = ShaderGraphNode::<f32>::new(ShaderGraphNodeData::BuiltInFunction("length"));
     let result = graph.insert_node(node).handle;
@@ -33,10 +33,7 @@ pub fn length<T: ShaderGraphNodeType>(a: ShaderGraphNodeHandle<T>) -> ShaderGrap
   })
 }
 
-pub fn max<T: ShaderGraphNodeType>(
-  a: ShaderGraphNodeHandle<T>,
-  b: ShaderGraphNodeHandle<T>,
-) -> ShaderGraphNodeHandle<T> {
+pub fn max<T: ShaderGraphNodeType>(a: Node<T>, b: Node<T>) -> Node<T> {
   modify_graph(|graph| {
     let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::BuiltInFunction("max"));
     let result = graph.insert_node(node).handle;
@@ -48,10 +45,7 @@ pub fn max<T: ShaderGraphNodeType>(
   })
 }
 
-pub fn min<T: ShaderGraphNodeType>(
-  a: ShaderGraphNodeHandle<T>,
-  b: ShaderGraphNodeHandle<T>,
-) -> ShaderGraphNodeHandle<T> {
+pub fn min<T: ShaderGraphNodeType>(a: Node<T>, b: Node<T>) -> Node<T> {
   modify_graph(|graph| {
     let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::BuiltInFunction("min"));
     let result = graph.insert_node(node).handle;

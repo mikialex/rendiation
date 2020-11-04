@@ -28,26 +28,24 @@ lazy_static! {
 }
 
 #[derive(Copy, Clone)]
-pub struct ShaderGraphNodeHandle<T: ShaderGraphNodeType> {
+pub struct Node<T: ShaderGraphNodeType> {
   pub handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
 }
 
-impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>>
-  for ShaderGraphNodeHandle<T>
-{
+impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>> for Node<T> {
   fn from(handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>) -> Self {
-    ShaderGraphNodeHandle { handle }
+    Node { handle }
   }
 }
 
-pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
+pub type NodeUntyped = Node<AnyType>;
 pub type ShaderGraphNodeRawHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeRawHandleUntyped = ArenaGraphNodeHandle<ShaderGraphNode<AnyType>>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub enum ShaderGraphUniformInputType {
-  NoneUBO(ShaderGraphNodeHandleUntyped),
-  UBO((Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)),
+  NoneUBO(NodeUntyped),
+  UBO((Arc<UBOInfo>, Vec<NodeUntyped>)),
 }
 
 pub trait ShaderGraphBackend: RAL {
@@ -55,11 +53,11 @@ pub trait ShaderGraphBackend: RAL {
 }
 
 pub struct ShaderGraph {
-  pub attributes: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
-  pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
+  pub attributes: Vec<(NodeUntyped, usize)>,
+  pub vertex_position: Option<Node<Vec4<f32>>>,
 
-  pub varyings: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
-  pub frag_outputs: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub varyings: Vec<(NodeUntyped, usize)>,
+  pub frag_outputs: Vec<(NodeUntyped, usize)>,
 
   pub bindgroups: Vec<ShaderGraphBindGroup>,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
@@ -103,10 +101,7 @@ impl ShaderGraph {
     T::create_shading(renderer, &source)
   }
 
-  pub fn insert_node<T: ShaderGraphNodeType>(
-    &mut self,
-    node: ShaderGraphNode<T>,
-  ) -> ShaderGraphNodeHandleUntyped {
+  pub fn insert_node<T: ShaderGraphNodeType>(&mut self, node: ShaderGraphNode<T>) -> NodeUntyped {
     self.register_type::<T>();
     self.nodes.create_node(node.to_any()).into()
   }

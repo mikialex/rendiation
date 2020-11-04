@@ -14,7 +14,7 @@ pub fn derive_geometry_impl(
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! { pub #field_name: rendiation_shadergraph::ShaderGraphNodeHandle< #ty >, }
+      quote! { pub #field_name: rendiation_shadergraph::Node< #ty >, }
     })
     .collect();
 

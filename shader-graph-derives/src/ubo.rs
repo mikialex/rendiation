@@ -176,7 +176,7 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
   let instance_fields: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      quote! { pub #field_name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, }
+      quote! { pub #field_name: rendiation_shadergraph::Node<#ty>, }
     })
     .collect();
 

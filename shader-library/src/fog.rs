@@ -21,9 +21,9 @@ impl Default for FogData {
 impl FogData {
   pub fn apply_fog(
     fog: <FogData as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
-    input: ShaderGraphNodeHandle<Vec3<f32>>,
-    distance: ShaderGraphNodeHandle<f32>,
-  ) -> ShaderGraphNodeHandle<Vec3<f32>> {
+    input: Node<Vec3<f32>>,
+    distance: Node<f32>,
+  ) -> Node<Vec3<f32>> {
     linear_fog(input, fog.fog_color, distance, fog.fog_start, fog.fog_end)
   }
 }

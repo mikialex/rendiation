@@ -122,12 +122,7 @@ impl Display for MiddleVariableCodeGenResult {
 }
 
 impl ShaderGraph {
-  fn gen_code_node(
-    &self,
-    handle: ShaderGraphNodeHandleUntyped,
-    ctx: &mut CodeGenCtx,
-    builder: &mut CodeBuilder,
-  ) {
+  fn gen_code_node(&self, handle: NodeUntyped, ctx: &mut CodeGenCtx, builder: &mut CodeBuilder) {
     builder.write_ln("");
 
     let depends = self.nodes.topological_order_list(handle.handle).unwrap();

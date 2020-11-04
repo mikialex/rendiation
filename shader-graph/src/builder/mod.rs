@@ -10,7 +10,7 @@ impl ShaderGraphBuilder {
     Self {}
   }
 
-  pub fn set_vertex_root(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
+  pub fn set_vertex_root(&self, n: Node<Vec4<f32>>) {
     modify_graph(|g| {
       let node =
         ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vert));
@@ -22,7 +22,7 @@ impl ShaderGraphBuilder {
     });
   }
 
-  pub fn set_frag_output(&self, n: ShaderGraphNodeHandle<Vec4<f32>>) {
+  pub fn set_frag_output(&self, n: Node<Vec4<f32>>) {
     modify_graph(|g| {
       let index = g.frag_outputs.len();
 
@@ -37,10 +37,7 @@ impl ShaderGraphBuilder {
     });
   }
 
-  pub fn set_vary<T: ShaderGraphNodeType>(
-    &self,
-    h: ShaderGraphNodeHandle<T>,
-  ) -> ShaderGraphNodeHandle<T> {
+  pub fn set_vary<T: ShaderGraphNodeType>(&self, h: Node<T>) -> Node<T> {
     modify_graph(|graph| {
       let index = graph.varyings.len();
       let node =
@@ -90,7 +87,7 @@ impl ShaderGraphBuilder {
     self.bindgroup(|b| T::create_instance(b))
   }
 
-  pub fn attribute<T: ShaderGraphNodeType>(&self, name: &str) -> ShaderGraphNodeHandle<T> {
+  pub fn attribute<T: ShaderGraphNodeType>(&self, name: &str) -> Node<T> {
     modify_graph(|graph| {
       let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
         node_type: ShaderGraphInputNodeType::Uniform,
@@ -104,10 +101,7 @@ impl ShaderGraphBuilder {
   }
 
   // create const node
-  pub fn c<T: ShaderGraphNodeType + ShaderGraphConstableNodeType>(
-    &self,
-    value: T,
-  ) -> ShaderGraphNodeHandle<T> {
+  pub fn c<T: ShaderGraphNodeType + ShaderGraphConstableNodeType>(&self, value: T) -> Node<T> {
     modify_graph(|graph| {
       let data = ShaderGraphNodeData::Const(Box::new(value));
       let node = ShaderGraphNode::<T>::new(data);
@@ -139,10 +133,7 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
     }
   }
 
-  pub fn create_uniform_node<T: ShaderGraphNodeType>(
-    &mut self,
-    name: &str,
-  ) -> ShaderGraphNodeHandle<T> {
+  pub fn create_uniform_node<T: ShaderGraphNodeType>(&mut self, name: &str) -> Node<T> {
     let data = ShaderGraphNodeData::Input(ShaderGraphInputNode {
       node_type: ShaderGraphInputNodeType::Uniform,
       name: name.to_owned(),
@@ -151,18 +142,14 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
     unsafe { self.graph.insert_node(node).handle.cast_type().into() }
   }
 
-  pub fn add_none_ubo(&mut self, h: ShaderGraphNodeHandleUntyped, stage: ShaderStage) {
+  pub fn add_none_ubo(&mut self, h: NodeUntyped, stage: ShaderStage) {
     self
       .bindgroup
       .inputs
       .push((ShaderGraphUniformInputType::NoneUBO(h), stage));
   }
 
-  pub fn add_ubo(
-    &mut self,
-    info: (Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>),
-    stage: ShaderStage,
-  ) {
+  pub fn add_ubo(&mut self, info: (Arc<UBOInfo>, Vec<NodeUntyped>), stage: ShaderStage) {
     self
       .bindgroup
       .inputs
@@ -177,7 +164,7 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
 pub struct UBOBuilder<'a, 'b> {
   bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a>,
   meta_info: Arc<UBOInfo>,
-  nodes: Vec<ShaderGraphNodeHandleUntyped>,
+  nodes: Vec<NodeUntyped>,
 }
 
 impl<'a, 'b> UBOBuilder<'a, 'b> {
@@ -192,7 +179,7 @@ impl<'a, 'b> UBOBuilder<'a, 'b> {
     }
   }
 
-  pub fn uniform<T: ShaderGraphNodeType>(&mut self, name: &str) -> ShaderGraphNodeHandle<T> {
+  pub fn uniform<T: ShaderGraphNodeType>(&mut self, name: &str) -> Node<T> {
     let handle = self.bindgroup_builder.create_uniform_node::<T>(name);
     self.nodes.push(unsafe { handle.handle.cast_type().into() });
     handle

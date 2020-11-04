@@ -106,7 +106,7 @@ pub fn gen_glsl_function(
     .iter()
     .map(|(ty, name)| {
       (
-        quote! { #name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, },
+        quote! { #name: rendiation_shadergraph::Node<#ty>, },
         quote! { graph.nodes.connect_node(#name.handle.cast_type(), result); },
       )
     })
@@ -129,7 +129,7 @@ pub fn gen_glsl_function(
 
     pub fn #function_name (
       #(#gen_function_inputs)*
-    ) -> rendiation_shadergraph::ShaderGraphNodeHandle<#return_type> {
+    ) -> rendiation_shadergraph::Node<#return_type> {
       use rendiation_shadergraph::*;
 
       modify_graph(|graph| {

@@ -1,7 +1,7 @@
 use crate::{
-  modify_graph, AnyType, ShaderGraphAttributeNodeType, ShaderGraphBindGroupBuilder,
+  modify_graph, AnyType, Node, ShaderGraphAttributeNodeType, ShaderGraphBindGroupBuilder,
   ShaderGraphBindGroupItemProvider, ShaderGraphConstableNodeType, ShaderGraphNode,
-  ShaderGraphNodeData, ShaderGraphNodeHandle, ShaderGraphNodeType, TextureSamplingNode,
+  ShaderGraphNodeData, ShaderGraphNodeType, TextureSamplingNode,
 };
 use rendiation_math::*;
 use rendiation_ral::{ShaderSampler, ShaderStage, ShaderTexture};
@@ -94,7 +94,7 @@ impl ShaderGraphNodeType for ShaderSampler {
 }
 
 impl ShaderGraphBindGroupItemProvider for ShaderSampler {
-  type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderSampler>;
+  type ShaderGraphBindGroupItemInstance = Node<ShaderSampler>;
 
   fn create_instance<'a>(
     name: &'static str,
@@ -113,12 +113,8 @@ impl ShaderGraphNodeType for ShaderTexture {
   }
 }
 
-impl ShaderGraphNodeHandle<ShaderTexture> {
-  pub fn sample(
-    &self,
-    sampler: ShaderGraphNodeHandle<ShaderSampler>,
-    position: ShaderGraphNodeHandle<Vec2<f32>>,
-  ) -> ShaderGraphNodeHandle<Vec4<f32>> {
+impl Node<ShaderTexture> {
+  pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
     modify_graph(|g| {
       let node = ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::TextureSampling(
         TextureSamplingNode {
@@ -139,7 +135,7 @@ impl ShaderGraphNodeHandle<ShaderTexture> {
 }
 
 impl ShaderGraphBindGroupItemProvider for ShaderTexture {
-  type ShaderGraphBindGroupItemInstance = ShaderGraphNodeHandle<ShaderTexture>;
+  type ShaderGraphBindGroupItemInstance = Node<ShaderTexture>;
 
   fn create_instance<'a>(
     name: &'static str,
