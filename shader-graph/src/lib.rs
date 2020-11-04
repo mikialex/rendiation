@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use std::{
   any::TypeId,
   collections::{HashMap, HashSet},
-  sync::{Arc, Mutex},
+  sync::Mutex,
 };
 
 pub mod builder;
@@ -45,7 +45,7 @@ pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub enum ShaderGraphUniformInputType {
   NoneUBO(NodeUntyped),
-  UBO((Arc<UBOInfo>, Vec<NodeUntyped>)),
+  UBO((&'static UBOMetaInfo, Vec<NodeUntyped>)),
 }
 
 pub trait ShaderGraphBackend: RAL {

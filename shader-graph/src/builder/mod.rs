@@ -149,7 +149,7 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
       .push((ShaderGraphUniformInputType::NoneUBO(h), stage));
   }
 
-  pub fn add_ubo(&mut self, info: (Arc<UBOInfo>, Vec<NodeUntyped>), stage: ShaderStage) {
+  pub fn add_ubo(&mut self, info: (&'static UBOMetaInfo, Vec<NodeUntyped>), stage: ShaderStage) {
     self
       .bindgroup
       .inputs
@@ -163,13 +163,13 @@ impl<'a> ShaderGraphBindGroupBuilder<'a> {
 
 pub struct UBOBuilder<'a, 'b> {
   bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a>,
-  meta_info: Arc<UBOInfo>,
+  meta_info: &'static UBOMetaInfo,
   nodes: Vec<NodeUntyped>,
 }
 
 impl<'a, 'b> UBOBuilder<'a, 'b> {
   pub fn new(
-    meta_info: Arc<UBOInfo>,
+    meta_info: &'static UBOMetaInfo,
     bindgroup_builder: &'b mut ShaderGraphBindGroupBuilder<'a>,
   ) -> Self {
     Self {

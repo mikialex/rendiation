@@ -1,7 +1,6 @@
 use std::{
   collections::HashSet,
   hash::{Hash, Hasher},
-  sync::Arc,
 };
 
 pub struct ShaderBuiltInFunction {
@@ -12,11 +11,11 @@ pub struct ShaderBuiltInFunction {
 pub struct ShaderFunction {
   pub function_name: &'static str,
   pub function_source: Option<&'static str>, // None is builtin function, no need to gen code
-  pub depend_functions: HashSet<Arc<ShaderFunction>>,
+  pub depend_functions: HashSet<&'static ShaderFunction>,
 }
 
 impl ShaderFunction {
-  pub fn declare_function_dep(mut self, f: Arc<ShaderFunction>) -> Self {
+  pub fn declare_function_dep(mut self, f: &'static ShaderFunction) -> Self {
     self.depend_functions.insert(f);
     self
   }

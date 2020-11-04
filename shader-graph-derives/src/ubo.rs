@@ -191,18 +191,13 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
   quote! {
 
     #[allow(non_upper_case_globals)]
-    pub static #ubo_info_name: once_cell::sync::Lazy<
-    std::sync::Arc<
-      rendiation_shadergraph::UBOInfo
-    >> =
-    once_cell::sync::Lazy::new(||{
-      std::sync::Arc::new(
-        rendiation_shadergraph::UBOInfo::new(
+    pub static #ubo_info_name: once_cell::sync::Lazy<rendiation_shadergraph::UBOMetaInfo> =
+    once_cell::sync::Lazy::new(|| {
+        rendiation_shadergraph::UBOMetaInfo::new(
           #struct_name_str,
         )
         #(#ubo_info_gen)*
         .gen_code_cache()
-      )
     });
 
     pub struct #shadergraph_instance_name {
@@ -218,7 +213,7 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
        -> Self::ShaderGraphBindGroupItemInstance {
 
         let mut ubo_builder = rendiation_shadergraph::UBOBuilder::new(
-          #ubo_info_name.clone(),
+          &#ubo_info_name,
           bindgroup_builder
         );
 
@@ -232,7 +227,6 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
     }
 
     impl rendiation_ral::UBOData for #struct_name {}
-    impl rendiation_shadergraph::ShaderGraphUBO for #struct_name {}
 
     #[cfg(feature = "webgpu")]
     impl rendiation_webgpu::WGPUUBOData for #struct_name {}

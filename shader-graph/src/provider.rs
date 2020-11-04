@@ -1,5 +1,5 @@
 use crate::{ShaderGraph, ShaderGraphBindGroupBuilder, ShaderGraphBuilder, ShaderGraphNodeType};
-use rendiation_ral::{ShaderStage, UBOData};
+use rendiation_ral::ShaderStage;
 use std::collections::HashMap;
 
 pub trait ShaderGraphProvider {
@@ -35,19 +35,15 @@ pub trait ShaderGraphGeometryProvider {
   fn create_instance(builder: &mut ShaderGraphBuilder) -> Self::ShaderGraphGeometryInstance;
 }
 
-pub trait ShaderGraphUBO: ShaderGraphBindGroupItemProvider + UBOData {
-  // todo maybe return static ubo info
-}
-
 /// use for compile time ubo field reflection by procedure macro;
-pub struct UBOInfo {
+pub struct UBOMetaInfo {
   pub name: &'static str,
   pub fields: HashMap<&'static str, &'static str>, // fields name -> shader type name
   pub fields_record: Vec<&'static str>,
   pub code_cache: String,
 }
 
-impl UBOInfo {
+impl UBOMetaInfo {
   pub fn new(name: &'static str) -> Self {
     Self {
       name,

@@ -50,7 +50,7 @@ fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro
     .filter(|&f| !collector.exclude_functions.contains(f))
     .map(|f| {
       let prototype_name = format_ident!("{}_FUNCTION", f);
-      quote! { .declare_function_dep(#prototype_name.clone()) }
+      quote! { .declare_function_dep(& #prototype_name) }
     })
     .collect()
 }
@@ -113,18 +113,13 @@ pub fn gen_glsl_function(
     .unzip();
 
   quote! {
-    pub static #prototype_name: once_cell::sync::Lazy<
-    std::sync::Arc<
-      rendiation_shadergraph::ShaderFunction
-    >> =
-    once_cell::sync::Lazy::new(||{
-      std::sync::Arc::new(
+    pub static #prototype_name: once_cell::sync::Lazy<rendiation_shadergraph::ShaderFunction> =
+    once_cell::sync::Lazy::new(|| {
         rendiation_shadergraph::ShaderFunction::new(
           #quoted_function_name,
           #function_source
         )
         #(#foreign)*
-      )
     });
 
     pub fn #function_name (
@@ -136,7 +131,7 @@ pub fn gen_glsl_function(
         let node = ShaderGraphNode::<#return_type>::new(
           ShaderGraphNodeData::Function(
             FunctionNode {
-              prototype: #prototype_name.clone()
+              prototype: & #prototype_name
             },
           )
         );

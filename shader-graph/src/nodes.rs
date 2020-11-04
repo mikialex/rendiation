@@ -3,7 +3,7 @@ use crate::{
 };
 use rendiation_math::Vec2;
 use rendiation_ral::{ShaderSampler, ShaderTexture};
-use std::{any::TypeId, marker::PhantomData, sync::Arc};
+use std::{any::TypeId, marker::PhantomData};
 
 pub trait ShaderGraphNodeType: 'static + Copy {
   fn to_glsl_type() -> &'static str;
@@ -73,7 +73,7 @@ pub enum ShaderGraphOutput {
 }
 
 pub struct FunctionNode {
-  pub prototype: Arc<ShaderFunction>,
+  pub prototype: &'static ShaderFunction,
 }
 
 pub struct TextureSamplingNode {
