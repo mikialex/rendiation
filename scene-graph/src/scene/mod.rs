@@ -26,6 +26,8 @@ pub trait SceneBackend<T: RAL>: Sized {
   /// Implementor could put extra effect struct, like background on it
   /// and take care of the rendering and updating.
   type SceneData: Default;
+
+  fn create_node_data(resource: &mut ResourceManager<T>) -> Self::NodeData;
 }
 
 pub fn render_list<T: RAL, S: SceneBackend<T>>(
@@ -39,7 +41,7 @@ pub fn render_list<T: RAL, S: SceneBackend<T>>(
     .for_each(|d| T::render_drawcall(scene.drawcalls.get(d.drawcall).unwrap(), pass, resources))
 }
 
-pub trait SceneNodeDataTrait<T: RAL>: Default {
+pub trait SceneNodeDataTrait<T: RAL> {
   type DrawcallIntoIterType;
   fn update_by_parent(&mut self, parent: Option<&Self>, resource: &mut ResourceManager<T>) -> bool;
   fn provide_drawcall<'a>(&self) -> &Self::DrawcallIntoIterType;
@@ -55,10 +57,10 @@ pub struct Scene<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
 }
 
 impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
-  pub fn new() -> Self {
+  pub fn new(resource: &mut ResourceManager<T>) -> Self {
     Self {
       drawcalls: Arena::new(),
-      nodes: ArenaTree::new(S::NodeData::default()),
+      nodes: ArenaTree::new(S::create_node_data(resource)),
       scene_data: S::SceneData::default(),
       reused_traverse_stack: Vec::new(),
     }

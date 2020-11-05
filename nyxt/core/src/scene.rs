@@ -14,7 +14,8 @@ pub struct SceneNodeWASM {
 impl SceneNodeWASM {
   #[wasm_bindgen(constructor)]
   pub fn new(viewer: &NyxtViewer) -> SceneNodeWASM {
-    let handle = viewer.mutate_inner(|inner| inner.scene.create_new_node().handle());
+    let handle =
+      viewer.mutate_inner(|inner| inner.scene.create_new_node(&mut inner.resource).handle());
     Self {
       inner: viewer.make_handle_object(handle),
     }

@@ -56,11 +56,13 @@ impl NyxtViewer {
   #[wasm_bindgen(constructor)]
   pub fn new(canvas: HtmlCanvasElement) -> Self {
     console_error_panic_hook::set_once();
+    let mut resource = ResourceManager::new();
+    let scene = Scene::new(&mut resource);
     Self {
       inner: Rc::new(RefCell::new(NyxtViewerInner {
         renderer: WebGLRenderer::new(canvas),
-        resource: ResourceManager::new(),
-        scene: Scene::new(),
+        resource,
+        scene,
         cached_drawcall_list: SceneDrawcallList::new(),
       })),
     }

@@ -54,7 +54,7 @@ impl WorldSceneAttachment {
       let scene_geometry = g.create_resource_instance_handle(renderer, resources);
 
       let drawcall = scene.create_drawcall(scene_geometry, self.block_shading);
-      let new_node = scene.create_new_node();
+      let new_node = scene.create_new_node(resources);
       new_node.data_mut().append_drawcall(drawcall);
       let node_index = new_node.handle();
 
@@ -115,7 +115,7 @@ impl World {
       .shadings
       .add_shading(block_shading, block_shading_pipeline);
 
-    let root_node_index = scene.create_new_node().handle();
+    let root_node_index = scene.create_new_node(resources).handle();
     scene.add_to_scene_root(root_node_index);
 
     self.scene_data = Some(WorldSceneAttachment {
