@@ -64,14 +64,17 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
     }
   }
 
-  pub fn update(&mut self, resources: &mut ResourceManager<T>) -> SceneDrawcallList<T, S>
+  pub fn update<'b>(
+    &mut self,
+    resources: &mut ResourceManager<T>,
+    list: &'b mut SceneDrawcallList<T, S>,
+  ) -> &'b mut SceneDrawcallList<T, S>
   where
     for<'a> &'a <S::NodeData as SceneNodeDataTrait<T>>::DrawcallIntoIterType:
       IntoIterator<Item = &'a DrawcallHandle<T>>,
     // maybe we could let SceneNodeDataTrait impl IntoExactSizeIterator for simplicity
   {
     let root = self.get_root().handle();
-    let mut list = SceneDrawcallList::new();
     list.inner.clear();
     self.nodes.traverse(
       root,

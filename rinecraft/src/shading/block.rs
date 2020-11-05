@@ -1,8 +1,6 @@
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 use rendiation_webgpu::*;
 
-use rendiation_derives::BindGroup;
-
 use rendiation_shader_library::builtin::*;
 use rendiation_shader_library::fog::*;
 use rendiation_shader_library::sph::*;

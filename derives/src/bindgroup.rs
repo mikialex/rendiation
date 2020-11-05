@@ -378,7 +378,7 @@ fn derive_ral_bindgroup_layout(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   quote! {
     impl rendiation_ral::BindGroupLayoutDescriptorProvider for #struct_name {
 
-      fn create_descriptor() -> Vec<BindGroupLayoutEntry> {
+      fn create_descriptor() -> Vec<rendiation_ral::BindGroupLayoutEntry> {
         rendiation_ral::BindGroupLayoutBuilder::new()
         #(#wgpu_create_bindgroup_layout_create)*
         .build()

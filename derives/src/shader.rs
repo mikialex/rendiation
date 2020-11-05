@@ -147,7 +147,7 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
       fn create_builder(
       ) -> (rendiation_shadergraph::ShaderGraphBuilder, Self::ShaderGraphShaderInstance) {
         let mut builder = rendiation_shadergraph::ShaderGraphBuilder::new();
-        let instance = BlockShaderShaderGraphShaderInstance {
+        let instance = #shadergraph_instance_name {
           #(#instance_create)*
         };
         (builder, instance)

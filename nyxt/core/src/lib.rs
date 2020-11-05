@@ -1,7 +1,9 @@
 use std::{cell::RefCell, rc::Rc, rc::Weak};
 
 use rendiation_ral::*;
-use rendiation_scenegraph::{default_impl::SceneNodeData, DrawcallHandle, Scene, SceneNodeHandle};
+use rendiation_scenegraph::{
+  default_impl::SceneNodeData, DrawcallHandle, Scene, SceneDrawcallList, SceneNodeHandle,
+};
 use rendiation_webgl::{HtmlCanvasElement, WebGL, WebGLRenderer};
 use wasm_bindgen::prelude::*;
 
@@ -22,6 +24,7 @@ pub struct NyxtViewerInner {
   pub renderer: WebGLRenderer,
   pub resource: ResourceManager<GFX>,
   pub scene: Scene<GFX>,
+  cached_drawcall_list: SceneDrawcallList<GFX>,
 }
 
 pub trait NyxtViewerHandle: Copy {
@@ -58,8 +61,30 @@ impl NyxtViewer {
         renderer: WebGLRenderer::new(canvas),
         resource: ResourceManager::new(),
         scene: Scene::new(),
+        cached_drawcall_list: SceneDrawcallList::new(),
       })),
     }
+  }
+
+  #[wasm_bindgen]
+  pub fn get_root(&self) -> SceneNodeWASM {
+    SceneNodeWASM {
+      inner: self.make_handle_object(self.mutate_inner(|inner| inner.scene.get_root().handle())),
+    }
+  }
+
+  #[wasm_bindgen]
+  pub fn render(&self) {
+    self.mutate_inner(|viewer| {
+      let resource = &mut viewer.resource;
+      let scene = &mut viewer.scene;
+      let renderer = &mut viewer.renderer;
+
+      let list = scene.update(resource, &mut viewer.cached_drawcall_list);
+      resource.maintain_gpu(renderer);
+
+      list.render(renderer, scene, resource);
+    });
   }
 }
 
@@ -67,6 +92,11 @@ impl NyxtViewer {
   pub fn mutate_inner<T>(&self, mutator: impl FnOnce(&mut NyxtViewerInner) -> T) -> T {
     let mut inner = self.inner.borrow_mut();
     mutator(&mut inner)
+  }
+
+  pub fn make_handle_object<T: NyxtViewerHandle>(&self, handle: T) -> NyxtViewerHandledObject<T> {
+    let inner = Rc::downgrade(&self.inner);
+    NyxtViewerHandledObject { handle, inner }
   }
 }
 
@@ -76,13 +106,6 @@ impl<Handle: NyxtViewerMutableHandle> NyxtViewerHandledObject<Handle> {
     let mut inner = inner.borrow_mut();
     let item = self.handle.get_mut(&mut inner);
     mutator(item)
-  }
-}
-
-impl NyxtViewer {
-  pub fn make_handle_object<T: NyxtViewerHandle>(&self, handle: T) -> NyxtViewerHandledObject<T> {
-    let inner = Rc::downgrade(&self.inner);
-    NyxtViewerHandledObject { handle, inner }
   }
 }
 

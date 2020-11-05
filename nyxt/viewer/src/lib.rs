@@ -1,5 +1,7 @@
 pub use nyxt_core::*;
 
+use rendiation_math::Vec4;
+use rendiation_mesh_buffer::vertex::Vertex;
 use space_indexer::{
   bvh::BalanceTree,
   bvh::{test::bvh_build, SAH},
@@ -7,6 +9,31 @@ use space_indexer::{
   utils::TreeBuildOption,
 };
 use wasm_bindgen::prelude::*;
+
+use rendiation_shader_library::transform::*;
+use rendiation_shader_library::*;
+
+#[derive(Shader)]
+pub struct MeshBasicShader {
+  #[geometry]
+  pub geometry: Vertex,
+  pub uniforms: MeshBasicShaderUniforms,
+}
+
+#[derive(BindGroup)]
+pub struct MeshBasicShaderUniforms {
+  #[stage(frag)]
+  pub parameter: MeshBasicShaderParameter,
+
+  #[stage(vert)]
+  pub mvp: CameraTransform,
+}
+
+#[derive(UniformBuffer, Copy, Clone)]
+#[repr(C, align(16))]
+pub struct MeshBasicShaderParameter {
+  pub color: Vec4<f32>,
+}
 
 #[wasm_bindgen]
 pub fn test_bvh() {

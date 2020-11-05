@@ -23,6 +23,7 @@ pub struct EffectConfig {
 pub struct RinecraftRenderer {
   cache: HashMap<EffectConfig, RenderGraph<DefaultRenderGraphBackend>>,
   executor: RenderGraphExecutor<DefaultRenderGraphBackend>,
+  cached_drawcall_list: SceneDrawcallList<WebGPU>, // if use graph remove in future
 }
 
 struct DefaultContentProvider {
@@ -71,6 +72,7 @@ impl RinecraftRenderer {
     Self {
       cache: HashMap::new(),
       executor: RenderGraphExecutor::new(),
+      cached_drawcall_list: SceneDrawcallList::new(),
     }
   }
 
@@ -124,7 +126,7 @@ impl RinecraftRenderer {
     resource: &mut ResourceManager<WebGPU>,
     output: &ScreenRenderTargetInstance,
   ) {
-    let list = scene.update(resource);
+    let list = scene.update(resource, &mut self.cached_drawcall_list);
     resource.maintain_gpu(renderer);
 
     {

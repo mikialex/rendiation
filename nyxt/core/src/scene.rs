@@ -6,7 +6,8 @@ use crate::{NyxtViewer, NyxtViewerHandledObject, GFX};
 
 #[wasm_bindgen]
 pub struct SceneNodeWASM {
-  inner: NyxtViewerHandledObject<SceneNodeHandle<GFX>>,
+  #[wasm_bindgen(skip)]
+  pub inner: NyxtViewerHandledObject<SceneNodeHandle<GFX>>,
 }
 
 #[wasm_bindgen]
