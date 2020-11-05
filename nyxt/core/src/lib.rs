@@ -130,6 +130,12 @@ impl<T: Copy + BindGroupProvider<GFX>> NyxtViewerMutableHandle for BindGroupHand
   }
 }
 
+pub trait NyxtUBOWrapped: Sized {
+  type Wrapper;
+
+  fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: UniformHandle<GFX, Self>) -> Self::Wrapper;
+}
+
 #[derive(Copy, Clone)]
 pub struct UniformHandleWrap<T>(pub UniformHandle<GFX, T>);
 

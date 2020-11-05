@@ -52,6 +52,17 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
     }
 
     #[cfg(feature = "nyxt")]
+    impl nyxt_core::NyxtUBOWrapped for #struct_name {
+      type Wrapper = #instance_name;
+
+      fn to_nyxt_wrapper(viewer: &mut nyxt_core::NyxtViewer, handle: rendiation_ral::UniformHandle<nyxt_core::GFX, Self>) -> Self::Wrapper{
+        #instance_name {
+          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
+        }
+      }
+    }
+
+    #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
@@ -62,9 +73,7 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
           let default_value = #struct_name::default();
           inner.resource.bindable.uniform_buffers.add(default_value)
         });
-        Self {
-          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
-        }
+        #struct_name::to_nyxt_wrapper(viewer, handle)
       }
     }
 
