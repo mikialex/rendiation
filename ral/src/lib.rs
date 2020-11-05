@@ -1,5 +1,3 @@
-#![feature(min_specialization)]
-
 use std::ops::Range;
 
 mod resource;
