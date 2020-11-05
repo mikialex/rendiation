@@ -144,6 +144,18 @@ pub trait BindGroupProvider<T: RAL>: 'static {
   );
 }
 
+pub trait BindGroupDataUpdateAble<R: RAL, T>: BindGroupProvider<R> {
+  fn update(
+    instance: &Self::Instance,
+    resource: &mut ShaderBindableResourceManager<R>,
+    updater: &T,
+  );
+}
+
+impl<T: BindGroupProvider<R>, R: RAL, X> BindGroupDataUpdateAble<R, X> for T {
+  default fn update(_: &T::Instance, _: &mut ShaderBindableResourceManager<R>, _: &X) {}
+}
+
 pub trait ShadingProvider<T: RAL>: 'static + Sized {
   type Instance;
   type Geometry: GeometryProvider<T>;
@@ -153,6 +165,14 @@ pub trait ShadingProvider<T: RAL>: 'static + Sized {
     render_pass: &mut T::RenderPass,
     resources: &ResourceManager<T>,
   );
+}
+
+pub trait ShaderDataUpdateAble<R: RAL, T>: ShadingProvider<R> {
+  fn update(instance: &Self::Instance, resource: &mut ResourceManager<R>, updater: &T);
+}
+
+impl<T: ShadingProvider<R>, R: RAL, X> ShaderDataUpdateAble<R, X> for T {
+  default fn update(_: &T::Instance, _: &mut ResourceManager<R>, _: &X) {}
 }
 
 // just marker type for vertex
