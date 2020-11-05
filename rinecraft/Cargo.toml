@@ -31,4 +31,4 @@ once_cell = "1.4.0"
 rendiation-ral = {path = "../ral"}
 rendiation-shader-library = {path = "../shader-library", features = ["webgpu"]}
 rendiation-shadergraph = {path = "../shader-graph"}
-rendiation-shadergraph-derives = {path = "../shader-graph-derives"}
+rendiation-derives = {path = "../derives"}

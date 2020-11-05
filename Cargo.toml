@@ -9,7 +9,7 @@ members = [
   "render-graph",
   "scene-graph",
   "shader-graph",
-  "shader-graph-derives",
+  "derives",
   "shader-library",
   "nyxt/viewer",
   "nyxt/core",

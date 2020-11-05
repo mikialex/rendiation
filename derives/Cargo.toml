@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
-name = "rendiation-shadergraph-derives"
+name = "rendiation-derives"
 version = "0.1.0"
 
 [lib]

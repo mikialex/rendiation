@@ -2161,6 +2161,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-derives"
+version = "0.1.0"
+dependencies = [
+ "glsl",
+ "proc-macro2 1.0.24",
+ "quote 1.0.2",
+ "syn",
+]
+
+[[package]]
 name = "rendiation-math"
 version = "0.1.0"
 dependencies = [
@@ -2182,11 +2192,11 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "once_cell",
+ "rendiation-derives",
  "rendiation-math",
  "rendiation-math-entity",
  "rendiation-ral",
  "rendiation-shadergraph",
- "rendiation-shadergraph-derives",
  "rendiation-webgpu",
  "soa_derive",
  "space-indexer",
@@ -2242,10 +2252,10 @@ version = "0.1.0"
 dependencies = [
  "nyxt-core",
  "once_cell",
+ "rendiation-derives",
  "rendiation-math",
  "rendiation-ral",
  "rendiation-shadergraph",
- "rendiation-shadergraph-derives",
  "rendiation-webgl",
  "rendiation-webgpu",
  "wasm-bindgen",
@@ -2260,16 +2270,6 @@ dependencies = [
  "naga 0.2.0 (git+https://github.com/gfx-rs/naga.git?rev=2b268c926c6dff5e366226a9502c06725107489d)",
  "rendiation-math",
  "rendiation-ral",
-]
-
-[[package]]
-name = "rendiation-shadergraph-derives"
-version = "0.1.0"
-dependencies = [
- "glsl",
- "proc-macro2 1.0.24",
- "quote 1.0.2",
- "syn",
 ]
 
 [[package]]
@@ -2319,6 +2319,7 @@ dependencies = [
  "image 0.23.0",
  "noise",
  "once_cell",
+ "rendiation-derives",
  "rendiation-math",
  "rendiation-math-entity",
  "rendiation-mesh-buffer",
@@ -2328,7 +2329,6 @@ dependencies = [
  "rendiation-scenegraph",
  "rendiation-shader-library",
  "rendiation-shadergraph",
- "rendiation-shadergraph-derives",
  "rendiation-webgl",
  "rendiation-webgpu",
  "rendium",

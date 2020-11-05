@@ -1,4 +1,4 @@
-use rendiation_shadergraph_derives::glsl_function;
+use rendiation_derives::glsl_function;
 
 glsl_function!(
   "

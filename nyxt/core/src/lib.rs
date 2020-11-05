@@ -87,6 +87,25 @@ impl NyxtViewer {
 }
 
 #[derive(Copy, Clone)]
+pub struct BindGroupHandleWrap<T: BindGroupProvider<GFX>>(pub BindGroupHandle<GFX, T>);
+
+impl<T: Copy + BindGroupProvider<GFX>> NyxtViewerHandle for BindGroupHandleWrap<T> {
+  type Item = <T as rendiation_ral::BindGroupProvider<WebGL>>::Instance;
+
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
+    inner.resource.bindgroups.get_bindgroup_unwrap(self.0)
+  }
+  fn free(self, inner: &mut NyxtViewerInner) {
+    inner.resource.bindgroups.delete(self.0)
+  }
+}
+impl<T: Copy + BindGroupProvider<GFX>> NyxtViewerMutableHandle for BindGroupHandleWrap<T> {
+  fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
+    inner.resource.bindgroups.update(self.0)
+  }
+}
+
+#[derive(Copy, Clone)]
 pub struct UniformHandleWrap<T>(pub UniformHandle<GFX, T>);
 
 impl<T: Copy + 'static> NyxtViewerHandle for UniformHandleWrap<T> {

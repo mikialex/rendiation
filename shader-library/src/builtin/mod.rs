@@ -1,5 +1,5 @@
+use rendiation_derives::glsl_function_inner;
 use rendiation_shadergraph::*;
-use rendiation_shadergraph_derives::glsl_function_inner;
 
 // macro_rules! impl_builtin_shader_fn {
 //   (($($tt:ident)*), $name:ident) => {
