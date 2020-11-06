@@ -73,6 +73,7 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
           let default_value = #struct_name::default();
           inner.resource.bindable.uniform_buffers.add(default_value)
         });
+        use nyxt_core::NyxtUBOWrapped;
         #struct_name::to_nyxt_wrapper(viewer, handle)
       }
     }

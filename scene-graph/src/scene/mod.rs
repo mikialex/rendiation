@@ -10,6 +10,7 @@ pub use background::*;
 // pub use culling::*;
 pub use node::*;
 pub use render_unit::*;
+use rendiation_render_entity::Camera;
 
 pub type DrawcallHandle<T> = Handle<Drawcall<T>>;
 
@@ -43,7 +44,12 @@ pub fn render_list<T: RAL, S: SceneBackend<T>>(
 
 pub trait SceneNodeDataTrait<T: RAL> {
   type DrawcallIntoIterType;
-  fn update_by_parent(&mut self, parent: Option<&Self>, resource: &mut ResourceManager<T>) -> bool;
+  fn update(
+    &mut self,
+    parent: Option<&Self>,
+    camera: &Camera,
+    resource: &mut ResourceManager<T>,
+  ) -> bool;
   fn provide_drawcall<'a>(&self) -> &Self::DrawcallIntoIterType;
 }
 
@@ -69,6 +75,7 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
   pub fn update<'b>(
     &mut self,
     resources: &mut ResourceManager<T>,
+    camera: &Camera,
     list: &'b mut SceneDrawcallList<T, S>,
   ) -> &'b mut SceneDrawcallList<T, S>
   where
@@ -85,19 +92,24 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
         let this_handle = this.handle();
         let node_data = this.data_mut();
 
-        node_data.update_by_parent(parent.map(|p| p.data()), resources);
+        let net_visible = node_data.update(parent.map(|p| p.data()), camera, resources);
 
-        list
-          .inner
-          .extend(
-            node_data
-              .provide_drawcall()
-              .into_iter()
-              .map(|&drawcall| SceneDrawcall {
-                drawcall,
-                node: this_handle,
-              }),
-          );
+        if net_visible {
+          list
+            .inner
+            .extend(
+              node_data
+                .provide_drawcall()
+                .into_iter()
+                .map(|&drawcall| SceneDrawcall {
+                  drawcall,
+                  node: this_handle,
+                }),
+            );
+          NextTraverseVisit::VisitChildren
+        } else {
+          NextTraverseVisit::SkipChildren
+        }
       },
     );
     list

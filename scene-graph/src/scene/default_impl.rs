@@ -1,7 +1,7 @@
 use crate::{DrawcallHandle, SceneBackend, SceneNodeDataTrait};
 use rendiation_math::*;
 use rendiation_ral::{ResourceManager, UniformHandle, RAL};
-use rendiation_render_entity::BoundingInfo;
+use rendiation_render_entity::{BoundingInfo, Camera};
 
 pub struct DefaultSceneBackend;
 
@@ -24,24 +24,31 @@ pub struct SceneNodeData<T: RAL> {
 
 impl<T: RAL> SceneNodeDataTrait<T> for SceneNodeData<T> {
   type DrawcallIntoIterType = Vec<DrawcallHandle<T>>;
-  fn update_by_parent(&mut self, parent: Option<&Self>, resource: &mut ResourceManager<T>) -> bool {
+  fn update(
+    &mut self,
+    parent: Option<&Self>,
+    camera: &Camera,
+    resource: &mut ResourceManager<T>,
+  ) -> bool {
     let mut self_matrix = resource
       .bindable
       .uniform_buffers
       .mutate(self.render_data.matrix_data);
 
     if let Some(parent) = parent {
-      self_matrix.world_matrix = parent.world_matrix * self.local_matrix;
-      self.world_matrix = self_matrix.world_matrix;
       self.net_visible = self.visible && parent.net_visible;
+      if self.net_visible {
+        self_matrix.world_matrix = parent.world_matrix * self.local_matrix;
+        self.world_matrix = self_matrix.world_matrix;
+        self_matrix.model_view_matrix = camera.matrix_inverse * self_matrix.world_matrix;
+        self_matrix.normal_matrix = self_matrix.model_view_matrix.to_normal_matrix();
+      }
     } else {
       self_matrix.world_matrix = self.local_matrix;
       self.net_visible = self.visible
     }
 
-    // todo update camera related matrix
-
-    true
+    self.net_visible
   }
   fn provide_drawcall(&self) -> &Self::DrawcallIntoIterType {
     &self.drawcalls

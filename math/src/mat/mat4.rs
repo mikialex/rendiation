@@ -22,6 +22,28 @@ pub struct Mat4<T> {
   pub d4: T,
 }
 
+#[rustfmt::skip]
+impl<T> Mat4<T> {
+  pub fn to_mat3(self) -> Mat3<T> {
+    Mat3 {
+      a1: self.a1, a2: self.a2, a3: self.a3,
+      b1: self.b1, b2: self.b2, b3: self.b3,
+      c1: self.c1, c2: self.c2, c3: self.c3,
+    }
+  }
+}
+
+#[rustfmt::skip]
+impl<T: Arithmetic + Math> Mat4<T> {
+   pub fn to_normal_matrix(self) -> Mat3<T> {
+    self
+      .to_mat3()
+      .inverse()
+      .unwrap()
+      .transpose()
+  }
+}
+
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat4<T> {}
 

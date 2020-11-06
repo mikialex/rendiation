@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc, rc::Weak};
 
 use rendiation_ral::*;
+use rendiation_render_entity::Camera;
 use rendiation_scenegraph::{
   default_impl::SceneNodeData, DrawcallHandle, Scene, SceneDrawcallList, SceneNodeHandle,
 };
@@ -25,6 +26,7 @@ pub struct NyxtViewerInner {
   pub resource: ResourceManager<GFX>,
   pub scene: Scene<GFX>,
   cached_drawcall_list: SceneDrawcallList<GFX>,
+  pub camera: Camera,
 }
 
 pub trait NyxtViewerHandle: Copy {
@@ -64,6 +66,7 @@ impl NyxtViewer {
         resource,
         scene,
         cached_drawcall_list: SceneDrawcallList::new(),
+        camera: Camera::new(),
       })),
     }
   }
@@ -81,8 +84,9 @@ impl NyxtViewer {
       let resource = &mut viewer.resource;
       let scene = &mut viewer.scene;
       let renderer = &mut viewer.renderer;
+      let camera = &mut viewer.camera;
 
-      let list = scene.update(resource, &mut viewer.cached_drawcall_list);
+      let list = scene.update(resource, camera, &mut viewer.cached_drawcall_list);
       resource.maintain_gpu(renderer);
 
       list.render(renderer, scene, resource);
