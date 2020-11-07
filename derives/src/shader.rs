@@ -7,7 +7,7 @@ pub fn derive_shader_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream 
   generated.append_all(derive_shadergraph_instance(input));
   generated.append_all(derive_ral_resource_instance(input));
   generated.append_all(derive_webgl_upload_instance(input));
-  generated.append_all(derive_shader_nyxt_wasm_instance_impl(input));
+  // generated.append_all(derive_shader_nyxt_wasm_instance_impl(input));
   generated
 }
 
@@ -64,14 +64,15 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
     #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     pub struct #instance_name {
-      inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::ShadingHandleWrap<#struct_name>>,
+      #[wasm_bindgen(skip)]
+      pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::ShadingHandleWrap<#struct_name>>,
     }
     
     #[cfg(feature = "nyxt")]
     impl nyxt_core::NyxtShadingWrapped for #struct_name {
       type Wrapper = #instance_name;
-      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: ShadingHandle<GFX, Self>) -> Self::Wrapper{
-        Self {
+      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: rendiation_ral::ShadingHandle<GFX, Self>) -> Self::Wrapper{
+        #instance_name {
           inner: viewer.make_handle_object(nyxt_core::ShadingHandleWrap(handle)),
         }
       }
@@ -90,7 +91,7 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
           let default_value = #struct_name::create_resource_instance(
             #(#constructor_create_ral_instance)*
           );
-          inner.resource.shadings.add(default_value)
+          inner.resource.shadings.add_shading(default_value)
         });
         use nyxt_core::NyxtShadingWrapped;
         #struct_name::to_nyxt_wrapper(viewer, handle)
@@ -290,8 +291,6 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     .collect();
 
   quote! {
-
-    #[cfg_attr(feature = "nyxt", wasm_bindgen)]
     pub struct #resource_instance_name<T: rendiation_ral::RAL> {
       #(#resource_struct_fields)*
     }

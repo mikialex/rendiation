@@ -13,6 +13,12 @@ crate-type = ["cdylib", "rlib"]
 # [build]
 # rustflags = "--csefg=web_sys_unstable_apis"
 
+[features]
+default = ["nyxt", "webgl"]
+nyxt = []
+webgl = []
+
+
 [dependencies]
 nyxt-core = {path = "../core"}
 
@@ -22,7 +28,7 @@ rendiation-mesh-buffer = {path = "../../mesh-buffer"}
 rendiation-ral = {path = "../../ral"}
 rendiation-render-entity = {path = "../../render-entity"}
 rendiation-scenegraph = {path = "../../scene-graph"}
-rendiation-shader-library = {path = "../../shader-library", features = ["nyxt"]}
+rendiation-shader-library = {path = "../../shader-library", features = ["nyxt", "webgl"]}
 rendiation-shadergraph = {path = "../../shader-graph"}
 space-indexer = {path = "../../space-indexer"}
 

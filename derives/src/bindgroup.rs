@@ -35,13 +35,11 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
       let getter_name = format_ident!("get_{}", field_name);
       let setter_name = format_ident!("set_{}", field_name);
       quote! {
-        #[wasm_bindgen(getter)]
-        pub fn #getter_name(&self) -> <#ty as NyxtUBOWrapped>::Wrapper {
-          self.inner.mutate_item(|d| d.#field_name.clone())
-        }
-        #[wasm_bindgen(setter)]
+        // pub fn #getter_name(&self) -> <#ty as NyxtUBOWrapped>::Wrapper {
+        //   self.inner.mutate_item(|d| nyxt_core::UniformHandleWrap(d.#field_name.clone()))
+        // }
         pub fn #setter_name(&mut self, value: <#ty as NyxtUBOWrapped>::Wrapper) {
-          self.inner.mutate_item(|d| d.#field_name = value.clone())
+          self.inner.mutate_item(|d| d.#field_name = value.inner.handle.0);
         }
       }
     })
@@ -57,7 +55,7 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
   let constructor_create_ral_instance: Vec<_> = fields_info
     .iter()
     .map(|(field_name, _ty)| {
-      quote! { #field_name.handle, }
+      quote! { #field_name.inner.handle.0, }
     })
     .collect();
 
@@ -68,14 +66,15 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
     #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     pub struct #instance_name {
-      inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::BindGroupHandleWrap<#struct_name>>,
+      #[wasm_bindgen(skip)]
+      pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::BindGroupHandleWrap<#struct_name>>,
     }
 
     #[cfg(feature = "nyxt")]
     impl nyxt_core::NyxtBindGroupWrapped for #struct_name {
       type Wrapper = #instance_name;
-      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: BindGroupHandle<GFX, Self>) -> Self::Wrapper{
-        Self {
+      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: rendiation_ral::BindGroupHandle<GFX, Self>) -> Self::Wrapper{
+        #instance_name {
           inner: viewer.make_handle_object(nyxt_core::BindGroupHandleWrap(handle)),
         }
       }
@@ -86,19 +85,19 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
 
-      #[wasm_bindgen(constructor)]
-      pub fn new(viewer: &mut nyxt_core::NyxtViewer,
-        #(#constructor_parameters)*
-      ) -> Self {
-        let handle = viewer.mutate_inner(|inner| {
-          let default_value = #struct_name::create_resource_instance(
-            #(#constructor_create_ral_instance)*
-          );
-          inner.resource.bindable.uniform_buffers.add(default_value)
-        });
-        use nyxt_core::NyxtBindGroupWrapped;
-        #struct_name::to_nyxt_wrapper(viewer, handle)
-      }
+      // #[wasm_bindgen(constructor)]
+      // pub fn new(viewer: &mut nyxt_core::NyxtViewer,
+      //   #(#constructor_parameters)*
+      // ) -> Self {
+      //   let handle = viewer.mutate_inner(|inner| {
+      //     let default_value = #struct_name::create_resource_instance(
+      //       #(#constructor_create_ral_instance)*
+      //     );
+      //     inner.resource.bindable.uniform_buffers.add(default_value)
+      //   });
+      //   use nyxt_core::NyxtBindGroupWrapped;
+      //   #struct_name::to_nyxt_wrapper(viewer, handle)
+      // }
     }
 
   }

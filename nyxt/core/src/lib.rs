@@ -54,6 +54,15 @@ impl<Handle: NyxtViewerHandle> NyxtViewerHandledObject<Handle> {
   }
 }
 
+impl<Handle: NyxtViewerMutableHandle> NyxtViewerHandledObject<Handle> {
+  pub fn mutate_item<T>(&self, mutator: impl FnOnce(&mut Handle::Item) -> T) -> T {
+    let inner = Weak::upgrade(&self.inner).unwrap_throw();
+    let mut inner = inner.borrow_mut();
+    let item = self.handle.get_mut(&mut inner);
+    mutator(item)
+  }
+}
+
 #[wasm_bindgen]
 impl NyxtViewer {
   #[wasm_bindgen(constructor)]
@@ -107,25 +116,22 @@ impl NyxtViewer {
   }
 }
 
-impl<Handle: NyxtViewerMutableHandle> NyxtViewerHandledObject<Handle> {
-  pub fn mutate_item<T>(&self, mutator: impl FnOnce(&mut Handle::Item) -> T) -> T {
-    let inner = Weak::upgrade(&self.inner).unwrap_throw();
-    let mut inner = inner.borrow_mut();
-    let item = self.handle.get_mut(&mut inner);
-    mutator(item)
-  }
-}
-
 pub trait NyxtShadingWrapped: ShadingProvider<GFX> + Sized {
   type Wrapper;
 
   fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: ShadingHandle<GFX, Self>) -> Self::Wrapper;
 }
 
-#[derive(Copy, Clone)]
+// #[derive(Copy, Clone)]
 pub struct ShadingHandleWrap<T: ShadingProvider<GFX>>(pub ShadingHandle<GFX, T>);
+impl<T: ShadingProvider<GFX>> Copy for ShadingHandleWrap<T> {}
+impl<T: ShadingProvider<GFX>> Clone for ShadingHandleWrap<T> {
+  fn clone(&self) -> Self {
+    ShadingHandleWrap(self.0.clone())
+  }
+}
 
-impl<T: Copy + ShadingProvider<GFX>> NyxtViewerHandle for ShadingHandleWrap<T> {
+impl<T: ShadingProvider<GFX>> NyxtViewerHandle for ShadingHandleWrap<T> {
   type Item = <T as rendiation_ral::ShadingProvider<GFX>>::Instance;
 
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
@@ -135,7 +141,7 @@ impl<T: Copy + ShadingProvider<GFX>> NyxtViewerHandle for ShadingHandleWrap<T> {
     inner.resource.shadings.delete_shading(self.0)
   }
 }
-impl<T: Copy + ShadingProvider<GFX>> NyxtViewerMutableHandle for ShadingHandleWrap<T> {
+impl<T: ShadingProvider<GFX>> NyxtViewerMutableHandle for ShadingHandleWrap<T> {
   fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
     inner.resource.shadings.update_shading(self.0)
   }
@@ -147,10 +153,15 @@ pub trait NyxtBindGroupWrapped: BindGroupProvider<GFX> + Sized {
   fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: BindGroupHandle<GFX, Self>) -> Self::Wrapper;
 }
 
-#[derive(Copy, Clone)]
 pub struct BindGroupHandleWrap<T: BindGroupProvider<GFX>>(pub BindGroupHandle<GFX, T>);
+impl<T: BindGroupProvider<GFX>> Copy for BindGroupHandleWrap<T> {}
+impl<T: BindGroupProvider<GFX>> Clone for BindGroupHandleWrap<T> {
+  fn clone(&self) -> Self {
+    BindGroupHandleWrap(self.0.clone())
+  }
+}
 
-impl<T: Copy + BindGroupProvider<GFX>> NyxtViewerHandle for BindGroupHandleWrap<T> {
+impl<T: BindGroupProvider<GFX>> NyxtViewerHandle for BindGroupHandleWrap<T> {
   type Item = <T as rendiation_ral::BindGroupProvider<GFX>>::Instance;
 
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
@@ -160,7 +171,7 @@ impl<T: Copy + BindGroupProvider<GFX>> NyxtViewerHandle for BindGroupHandleWrap<
     inner.resource.bindgroups.delete(self.0)
   }
 }
-impl<T: Copy + BindGroupProvider<GFX>> NyxtViewerMutableHandle for BindGroupHandleWrap<T> {
+impl<T: BindGroupProvider<GFX>> NyxtViewerMutableHandle for BindGroupHandleWrap<T> {
   fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
     inner.resource.bindgroups.update(self.0)
   }

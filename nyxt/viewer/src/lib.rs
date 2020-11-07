@@ -16,7 +16,7 @@ use rendiation_shader_library::*;
 
 #[derive(Shader)]
 pub struct MeshBasicShader {
-  pub uniforms: MeshBasicShaderUniforms,
+  pub uniforms: MeshBasicShaderBindGroup,
 }
 
 impl<T: RAL> ShaderWithGeometry<T> for MeshBasicShader {
@@ -24,18 +24,25 @@ impl<T: RAL> ShaderWithGeometry<T> for MeshBasicShader {
 }
 
 #[derive(BindGroup)]
-pub struct MeshBasicShaderUniforms {
+pub struct MeshBasicShaderBindGroup {
   #[stage(frag)]
   pub parameter: MeshBasicShaderParameter,
-
-  #[stage(vert)]
-  pub mvp: CameraTransform,
+  // #[stage(vert)]
+  // pub mvp: CameraTransform,
 }
 
 #[derive(UniformBuffer, Copy, Clone)]
 #[repr(C, align(16))]
 pub struct MeshBasicShaderParameter {
   pub color: Vec4<f32>,
+}
+
+impl Default for MeshBasicShaderParameter {
+  fn default() -> Self {
+    Self {
+      color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+    }
+  }
 }
 
 #[wasm_bindgen]
