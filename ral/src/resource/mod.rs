@@ -144,11 +144,11 @@ pub trait BindGroupProvider<T: RAL>: 'static {
   );
 }
 
-pub trait ShaderGeometryInjected<T: RAL> {
+pub trait ShaderWithGeometry<T: RAL> {
   type Geometry: GeometryProvider<T>;
 }
 
-pub trait ShadingProvider<T: RAL>: 'static + Sized + ShaderGeometryInjected<T> {
+pub trait ShadingProvider<T: RAL>: 'static + Sized + ShaderWithGeometry<T> {
   type Instance;
   fn apply(
     instance: &Self::Instance,

@@ -116,11 +116,42 @@ impl<Handle: NyxtViewerMutableHandle> NyxtViewerHandledObject<Handle> {
   }
 }
 
+pub trait NyxtShadingWrapped: ShadingProvider<GFX> + Sized {
+  type Wrapper;
+
+  fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: ShadingHandle<GFX, Self>) -> Self::Wrapper;
+}
+
+#[derive(Copy, Clone)]
+pub struct ShadingHandleWrap<T: ShadingProvider<GFX>>(pub ShadingHandle<GFX, T>);
+
+impl<T: Copy + ShadingProvider<GFX>> NyxtViewerHandle for ShadingHandleWrap<T> {
+  type Item = <T as rendiation_ral::ShadingProvider<GFX>>::Instance;
+
+  fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
+    &inner.resource.shadings.get_shading(self.0).data
+  }
+  fn free(self, inner: &mut NyxtViewerInner) {
+    inner.resource.shadings.delete_shading(self.0)
+  }
+}
+impl<T: Copy + ShadingProvider<GFX>> NyxtViewerMutableHandle for ShadingHandleWrap<T> {
+  fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
+    inner.resource.shadings.update_shading(self.0)
+  }
+}
+
+pub trait NyxtBindGroupWrapped: BindGroupProvider<GFX> + Sized {
+  type Wrapper;
+
+  fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: BindGroupHandle<GFX, Self>) -> Self::Wrapper;
+}
+
 #[derive(Copy, Clone)]
 pub struct BindGroupHandleWrap<T: BindGroupProvider<GFX>>(pub BindGroupHandle<GFX, T>);
 
 impl<T: Copy + BindGroupProvider<GFX>> NyxtViewerHandle for BindGroupHandleWrap<T> {
-  type Item = <T as rendiation_ral::BindGroupProvider<WebGL>>::Instance;
+  type Item = <T as rendiation_ral::BindGroupProvider<GFX>>::Instance;
 
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
     inner.resource.bindgroups.get_bindgroup_unwrap(self.0)

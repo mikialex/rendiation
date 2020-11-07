@@ -1,5 +1,5 @@
 use crate::{
-  AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShaderGeometryInjected,
+  AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShaderWithGeometry,
   ShadingHandle, ShadingProvider, RAL,
 };
 use arena::{Arena, Handle};
@@ -128,9 +128,9 @@ impl<R: RAL, T: ShadingProvider<R>> ShadingPair<R, T> {
   }
 }
 
-pub struct AnyPlaceHolderShaderProviderInstance;
+pub struct AnyPlaceHolderShadingProviderInstance;
 impl<T: RAL> ShadingProvider<T> for AnyPlaceHolder {
-  type Instance = AnyPlaceHolderShaderProviderInstance;
+  type Instance = AnyPlaceHolderShadingProviderInstance;
   fn apply(
     _instance: &Self::Instance,
     _gpu_shading: &T::Shading,
@@ -141,7 +141,7 @@ impl<T: RAL> ShadingProvider<T> for AnyPlaceHolder {
   }
 }
 
-impl<T: RAL> ShaderGeometryInjected<T> for AnyPlaceHolder {
+impl<T: RAL> ShaderWithGeometry<T> for AnyPlaceHolder {
   type Geometry = AnyGeometryProvider;
 }
 
