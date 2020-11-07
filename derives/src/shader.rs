@@ -17,7 +17,6 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   let fields = only_named_struct_fields(input).unwrap();
   let fields_info: Vec<_> = fields
     .iter()
-    .filter(|f|f.attrs.iter().find(|a| a.path.is_ident("geometry")).is_none())
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap().clone();
       let ty = f.ty.clone();
@@ -114,7 +113,6 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   let fields = only_named_struct_fields(&input).unwrap();  
   let fields_info: Vec<_> = fields
   .iter()
-  .filter(|f|f.attrs.iter().find(|a| a.path.is_ident("geometry")).is_none())
   .map(|f| {
     let field_name = f.ident.as_ref().unwrap().clone();
     let ty = f.ty.clone();
@@ -162,15 +160,8 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   let resource_instance_name = format_ident!("{}RALResourceInstance", struct_name);
   let fields = only_named_struct_fields(&input).unwrap();
 
-  let mut geometry_type = None;
-
   let fields_info: Vec<_> = fields
     .iter()
-    .filter(|f|{
-      f.attrs.iter().find(|a| a.path.is_ident("geometry")).map(|_|{
-        geometry_type = Some(f.ty.clone())
-      }).is_none()
-    })
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap().clone();
       let ty = f.ty.clone();
@@ -178,7 +169,6 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
     })
     .collect();
   
-    let geometry_type = geometry_type.expect("must have geometry provider!");
 
   let resource_struct_fields: Vec<_> = fields_info
     .iter()
@@ -218,7 +208,6 @@ fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
 
     impl<T: rendiation_ral::RAL> rendiation_ral::ShadingProvider<T> for #struct_name {
       type Instance = #resource_instance_name<T>;
-      type Geometry = #geometry_type;
       fn apply(
         instance: &Self::Instance,
         gpu_shading: &T::Shading,

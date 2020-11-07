@@ -8,14 +8,15 @@ use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 use transform::CameraTransform;
 
-use rendiation_ral::{BindGroupHandle, ShaderSampler, ShaderTexture};
+use rendiation_ral::{BindGroupHandle, ShaderGeometryInjected, ShaderSampler, ShaderTexture, RAL};
 
 #[derive(Shader)]
 pub struct BlockShader {
-  #[geometry]
-  geometry: Vertex,
-
   parameter: BlockShadingParamGroup,
+}
+
+impl<T: RAL> ShaderGeometryInjected<T> for BlockShader {
+  type Geometry = Vertex;
 }
 
 #[derive(BindGroup)]

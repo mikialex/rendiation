@@ -1,6 +1,6 @@
 use crate::{
-  AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShadingHandle,
-  ShadingProvider, RAL,
+  AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShaderGeometryInjected,
+  ShadingHandle, ShadingProvider, RAL,
 };
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
@@ -131,7 +131,6 @@ impl<R: RAL, T: ShadingProvider<R>> ShadingPair<R, T> {
 pub struct AnyPlaceHolderShaderProviderInstance;
 impl<T: RAL> ShadingProvider<T> for AnyPlaceHolder {
   type Instance = AnyPlaceHolderShaderProviderInstance;
-  type Geometry = AnyGeometryProvider;
   fn apply(
     _instance: &Self::Instance,
     _gpu_shading: &T::Shading,
@@ -140,6 +139,10 @@ impl<T: RAL> ShadingProvider<T> for AnyPlaceHolder {
   ) {
     unreachable!()
   }
+}
+
+impl<T: RAL> ShaderGeometryInjected<T> for AnyPlaceHolder {
+  type Geometry = AnyGeometryProvider;
 }
 
 pub struct AnyGeometryProvider;

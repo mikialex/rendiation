@@ -2,6 +2,7 @@ pub use nyxt_core::*;
 
 use rendiation_math::Vec4;
 use rendiation_mesh_buffer::vertex::Vertex;
+use rendiation_ral::{ShaderGeometryInjected, RAL};
 use space_indexer::{
   bvh::BalanceTree,
   bvh::{test::bvh_build, SAH},
@@ -15,9 +16,11 @@ use rendiation_shader_library::*;
 
 #[derive(Shader)]
 pub struct MeshBasicShader {
-  #[geometry]
-  pub vertex: Vertex,
   pub uniforms: MeshBasicShaderUniforms,
+}
+
+impl<T: RAL> ShaderGeometryInjected<T> for MeshBasicShader {
+  type Geometry = Vertex;
 }
 
 #[derive(BindGroup)]
