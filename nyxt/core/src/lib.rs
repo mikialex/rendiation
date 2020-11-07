@@ -40,6 +40,7 @@ pub trait NyxtViewerMutableHandle: NyxtViewerHandle {
   fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item;
 }
 
+#[derive(Clone)]
 pub struct NyxtViewerHandledObject<Handle: NyxtViewerHandle> {
   pub handle: Handle,
   pub inner: Weak<RefCell<NyxtViewerInner>>,
