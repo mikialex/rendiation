@@ -66,6 +66,16 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
     pub struct #instance_name {
       inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::ShadingHandleWrap<#struct_name>>,
     }
+    
+    #[cfg(feature = "nyxt")]
+    impl nyxt_core::NyxtShadingWrapped for #struct_name {
+      type Wrapper = #instance_name;
+      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: ShadingHandle<GFX, Self>) -> Self::Wrapper{
+        Self {
+          inner: viewer.make_handle_object(nyxt_core::ShadingHandleWrap(handle)),
+        }
+      }
+    }
 
     #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
@@ -82,9 +92,8 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
           );
           inner.resource.shadings.add(default_value)
         });
-        Self {
-          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
-        }
+        use nyxt_core::NyxtShadingWrapped;
+        #struct_name::to_nyxt_wrapper(viewer, handle)
       }
     }
 

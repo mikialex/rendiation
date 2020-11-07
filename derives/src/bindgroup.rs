@@ -72,6 +72,16 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
     }
 
     #[cfg(feature = "nyxt")]
+    impl nyxt_core::NyxtBindGroupWrapped for #struct_name {
+      type Wrapper = #instance_name;
+      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: BindGroupHandle<GFX, Self>) -> Self::Wrapper{
+        Self {
+          inner: viewer.make_handle_object(nyxt_core::BindGroupHandleWrap(handle)),
+        }
+      }
+    }
+
+    #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
@@ -86,9 +96,8 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
           );
           inner.resource.bindable.uniform_buffers.add(default_value)
         });
-        Self {
-          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
-        }
+        use nyxt_core::NyxtBindGroupWrapped;
+        #struct_name::to_nyxt_wrapper(viewer, handle)
       }
     }
 
