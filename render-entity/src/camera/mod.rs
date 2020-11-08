@@ -8,15 +8,17 @@ pub use orth::*;
 use rendiation_math_entity::Ray3;
 
 pub struct Camera {
-  projection_matrix: Mat4<f32>,
-  local_matrix: Mat4<f32>,
+  pub projection_matrix: Mat4<f32>,
+  pub matrix: Mat4<f32>,
+  pub matrix_inverse: Mat4<f32>,
 }
 
 impl Camera {
   pub fn new() -> Self {
     Self {
       projection_matrix: Mat4::one(),
-      local_matrix: Mat4::one(),
+      matrix: Mat4::one(),
+      matrix_inverse: Mat4::one(),
     }
   }
 
@@ -29,15 +31,15 @@ impl Camera {
   }
 
   pub fn get_vp_matrix(&self) -> Mat4<f32> {
-    self.projection_matrix * self.local_matrix.inverse().unwrap()
+    self.projection_matrix * self.matrix.inverse().unwrap()
   }
 
   pub fn get_view_matrix(&self) -> Mat4<f32> {
-    self.local_matrix.inverse().unwrap()
+    self.matrix.inverse().unwrap()
   }
 
   pub fn get_vp_matrix_inverse(&self) -> Mat4<f32> {
-    self.local_matrix * self.projection_matrix.inverse().unwrap()
+    self.matrix * self.projection_matrix.inverse().unwrap()
   }
 }
 
@@ -64,11 +66,11 @@ impl Raycaster for Camera {
 
 impl TransformedObject for Camera {
   fn matrix(&self) -> &Mat4<f32> {
-    &self.local_matrix
+    &self.matrix
   }
 
   fn matrix_mut(&mut self) -> &mut Mat4<f32> {
-    &mut self.local_matrix
+    &mut self.matrix
   }
   fn as_any(&self) -> &dyn std::any::Any {
     self

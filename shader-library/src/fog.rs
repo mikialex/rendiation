@@ -1,26 +1,5 @@
 use crate::*;
 
-// struct A {
-//   t: <Vec3<f32> as rendiation_webgl::WebGLUniformUploadable>::UploadInstance,
-// }
-
-// use rendiation_webgl::UploadInstance;
-// impl A {
-//   fn te(
-//     &self,
-//     gl: &rendiation_webgl::WebGl2RenderingContext,
-//     r: &rendiation_ral::ResourceManager<rendiation_webgl::WebGLRenderer>,
-//   ) {
-//     // (self.t as UploadInstance<Vec3<f32>>).upload(&Vec3::new(0.0, 0.0, 0.0), gl, r);
-//     <Vec3<f32> as rendiation_webgl::WebGLUniformUploadable>::upload(
-//       &Vec3::new(0.0, 0.0, 0.0),
-//       &mut self.t,
-//       gl,
-//       r,
-//     );
-//   }
-// }
-
 #[derive(UniformBuffer, Copy, Clone)]
 #[repr(C, align(16))]
 pub struct FogData {
@@ -29,12 +8,22 @@ pub struct FogData {
   pub fog_start: f32,
 }
 
+impl Default for FogData {
+  fn default() -> Self {
+    Self {
+      fog_color: Vec4::new(1., 1., 1., 1.),
+      fog_end: 0.,
+      fog_start: 100.,
+    }
+  }
+}
+
 impl FogData {
   pub fn apply_fog(
     fog: <FogData as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
-    input: ShaderGraphNodeHandle<Vec3<f32>>,
-    distance: ShaderGraphNodeHandle<f32>,
-  ) -> ShaderGraphNodeHandle<Vec3<f32>> {
+    input: Node<Vec3<f32>>,
+    distance: Node<f32>,
+  ) -> Node<Vec3<f32>> {
     linear_fog(input, fog.fog_color, distance, fog.fog_start, fog.fog_end)
   }
 }

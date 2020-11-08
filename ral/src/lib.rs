@@ -1,5 +1,3 @@
-// CAL for Content abstraction layer
-
 use std::ops::Range;
 
 mod resource;

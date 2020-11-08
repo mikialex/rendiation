@@ -1,8 +1,6 @@
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 use rendiation_webgpu::*;
 
-use rendiation_shadergraph_derives::BindGroup;
-
 use rendiation_shader_library::builtin::*;
 use rendiation_shader_library::fog::*;
 use rendiation_shader_library::sph::*;
@@ -10,14 +8,15 @@ use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 use transform::CameraTransform;
 
-use rendiation_ral::{BindGroupHandle, ShaderSampler, ShaderTexture};
+use rendiation_ral::{BindGroupHandle, ShaderSampler, ShaderTexture, ShaderWithGeometry, RAL};
 
 #[derive(Shader)]
 pub struct BlockShader {
-  #[geometry]
-  geometry: Vertex,
-
   parameter: BlockShadingParamGroup,
+}
+
+impl<T: RAL> ShaderWithGeometry<T> for BlockShader {
+  type Geometry = Vertex;
 }
 
 #[derive(BindGroup)]

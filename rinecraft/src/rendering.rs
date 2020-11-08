@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::rinecraft::RinecraftState;
 use rendiation_ral::{GeometryHandle, ResourceManager, ShadingHandle, ShadingProvider, RAL};
+use rendiation_render_entity::Camera;
 use rendiation_rendergraph::{
   ContentProvider, ImmediateRenderableContent, RenderGraph, RenderGraphBackend,
   RenderGraphExecutor, RenderTargetPool,
@@ -23,6 +24,7 @@ pub struct EffectConfig {
 pub struct RinecraftRenderer {
   cache: HashMap<EffectConfig, RenderGraph<DefaultRenderGraphBackend>>,
   executor: RenderGraphExecutor<DefaultRenderGraphBackend>,
+  cached_drawcall_list: SceneDrawcallList<WebGPU>, // if use graph remove in future
 }
 
 struct DefaultContentProvider {
@@ -71,6 +73,7 @@ impl RinecraftRenderer {
     Self {
       cache: HashMap::new(),
       executor: RenderGraphExecutor::new(),
+      cached_drawcall_list: SceneDrawcallList::new(),
     }
   }
 
@@ -124,7 +127,8 @@ impl RinecraftRenderer {
     resource: &mut ResourceManager<WebGPU>,
     output: &ScreenRenderTargetInstance,
   ) {
-    let list = scene.update(resource);
+    let fake_camera = Camera::new();
+    let list = scene.update(resource, &fake_camera, &mut self.cached_drawcall_list);
     resource.maintain_gpu(renderer);
 
     {

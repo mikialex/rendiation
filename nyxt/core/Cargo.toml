@@ -1,0 +1,39 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+name = "nyxt-core"
+version = "0.1.0"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rendiation-math = {path = "../../math"}
+rendiation-math-entity = {path = "../../math-entity"}
+rendiation-mesh-buffer = {path = "../../mesh-buffer"}
+rendiation-ral = {path = "../../ral"}
+rendiation-render-entity = {path = "../../render-entity"}
+rendiation-scenegraph = {path = "../../scene-graph"}
+space-indexer = {path = "../../space-indexer"}
+
+bytemuck = "1.4.1"
+console_error_panic_hook = "0.1.6"
+js-sys = "0.3.45"
+wasm-bindgen = {version = "0.2.68"}
+
+rendiation-webgl = {path = "../../webgl"}
+
+arena = {path = "../../utils/arena"}
+arena-tree = {path = "../../utils/arena-tree"}
+
+[dependencies.web-sys]
+features = [
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'Window',
+]
+version = "0.3.39"

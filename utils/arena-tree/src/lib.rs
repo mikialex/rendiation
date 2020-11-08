@@ -64,7 +64,7 @@ impl<T> ArenaTree<T> {
     tree
   }
 
-  pub fn root(&self) ->  ArenaTreeNodeHandle<T> {
+  pub fn root(&self) -> ArenaTreeNodeHandle<T> {
     Handle::from_raw_parts(0, 0)
   }
 
@@ -122,21 +122,32 @@ impl<T> ArenaTree<T> {
     &mut self,
     start_index: ArenaTreeNodeHandle<T>,
     visit_stack: &mut Vec<ArenaTreeNodeHandle<T>>,
-    mut visitor: impl FnMut(&mut ArenaTreeNode<T>, Option<&mut ArenaTreeNode<T>>),
+    mut visitor: impl FnMut(&mut ArenaTreeNode<T>, Option<&mut ArenaTreeNode<T>>) -> NextTraverseVisit,
   ) {
+    use NextTraverseVisit::*;
     visit_stack.clear();
     visit_stack.push(start_index);
 
     while let Some(index) = visit_stack.pop() {
-      if let Some(parent_index) = self.get_node(index).parent {
+      let (next, this) = if let Some(parent_index) = self.get_node(index).parent {
         let (parent, this) = self.get_parent_child_pair(parent_index, index);
-        visitor(this, Some(parent));
-        visit_stack.extend(this.children.iter().cloned())
+        (visitor(this, Some(parent)), this)
       } else {
         let this = self.get_node_mut(index);
-        visitor(this, None);
-        visit_stack.extend(this.children.iter().cloned())
-      }
+        (visitor(this, None), this)
+      };
+
+      match next {
+        Exit => return,
+        VisitChildren => visit_stack.extend(this.children.iter().cloned()),
+        SkipChildren => continue,
+      };
     }
   }
+}
+
+pub enum NextTraverseVisit {
+  Exit,
+  VisitChildren,
+  SkipChildren,
 }

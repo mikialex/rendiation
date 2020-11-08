@@ -5,7 +5,7 @@ use rendiation_ral::*;
 use std::{hash::Hash, mem};
 
 #[cfg(feature = "shader-graph")]
-use rendiation_shadergraph_derives::Geometry;
+use rendiation_derives::Geometry;
 
 #[repr(C)]
 #[cfg_attr(feature = "shader-graph", derive(Geometry))]

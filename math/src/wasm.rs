@@ -66,3 +66,13 @@ impl_convert_bytemuck!(Vec2<f32>, Vec2F32WASM);
 impl_convert_bytemuck!(Vec3<f32>, Vec3F32WASM);
 impl_convert_bytemuck!(Vec4<f32>, Vec4F32WASM);
 impl_convert_bytemuck!(Mat4<f32>, Mat4F32WASM);
+
+impl WASMAbleType for f32 {
+  type Type = f32;
+  fn to_wasm(self) -> Self::Type {
+    self
+  }
+  fn from_wasm(ty: Self::Type) -> Self {
+    ty
+  }
+}

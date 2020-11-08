@@ -4,67 +4,69 @@ use lazy_static::lazy_static;
 use std::{
   any::TypeId,
   collections::{HashMap, HashSet},
-  sync::{Arc, Mutex},
+  sync::Mutex,
 };
 
-pub mod builder;
 mod code_gen;
+
+pub mod builder;
+pub mod meta;
 pub mod nodes;
 pub mod operator;
 pub mod provider;
-pub mod shader_function;
 pub mod swizzle;
 pub mod traits_impl;
-// pub mod webgl;
 pub use builder::*;
+pub use meta::*;
 pub use nodes::*;
 pub use provider::*;
-use rendiation_math::*;
-use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage};
-pub use rendiation_webgpu::*;
-pub use shader_function::*;
 pub use traits_impl::*;
 
-lazy_static! {
-  pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
-}
+use rendiation_math::*;
+use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage, RAL};
 
 #[derive(Copy, Clone)]
-pub struct ShaderGraphNodeHandle<T: ShaderGraphNodeType> {
+pub struct Node<T: ShaderGraphNodeType> {
   pub handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
 }
 
-impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>>
-  for ShaderGraphNodeHandle<T>
-{
+impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>> for Node<T> {
   fn from(handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>) -> Self {
-    ShaderGraphNodeHandle { handle }
+    Node { handle }
   }
 }
 
-pub type ShaderGraphNodeHandleUntyped = ShaderGraphNodeHandle<AnyType>;
+pub type NodeUntyped = Node<AnyType>;
 pub type ShaderGraphNodeRawHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeRawHandleUntyped = ArenaGraphNodeHandle<ShaderGraphNode<AnyType>>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub enum ShaderGraphUniformInputType {
-  NoneUBO(ShaderGraphNodeHandleUntyped),
-  UBO((Arc<UBOInfo>, Vec<ShaderGraphNodeHandleUntyped>)),
+  NoneUBO(NodeUntyped),
+  UBO((&'static UBOMetaInfo, Vec<NodeUntyped>)),
+}
+
+pub trait ShaderGraphBackend: RAL {
+  fn convert_build_source(graph: &ShaderGraph) -> Self::ShaderBuildSource;
 }
 
 pub struct ShaderGraph {
-  pub attributes: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
-  pub vertex_position: Option<ShaderGraphNodeHandle<Vec4<f32>>>,
+  pub attributes: Vec<(NodeUntyped, usize)>,
+  pub vertex_position: Option<Node<Vec4<f32>>>,
 
-  pub varyings: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
-  pub frag_outputs: Vec<(ShaderGraphNodeHandleUntyped, usize)>,
+  pub varyings: Vec<(NodeUntyped, usize)>,
+  pub frag_outputs: Vec<(NodeUntyped, usize)>,
 
   pub bindgroups: Vec<ShaderGraphBindGroup>,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
 
   pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
 
-  wgpu_shader_interface: PipelineShaderInterfaceInfo,
+  pub shader_interface: PipelineShaderInterfaceInfo,
+}
+
+pub struct ShaderGraphBindGroup {
+  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
 }
 
 impl ShaderGraph {
@@ -77,11 +79,12 @@ impl ShaderGraph {
       varyings: Vec::new(),
       frag_outputs: Vec::new(),
       type_id_map: HashMap::new(),
-      wgpu_shader_interface: PipelineShaderInterfaceInfo::new(),
+      shader_interface: PipelineShaderInterfaceInfo::new(),
     }
   }
 
-  pub fn create_pipeline(&self) -> WGPUPipeline {
+  pub fn create_pipeline<T: ShaderGraphBackend>(&self, renderer: &mut T::Renderer) -> T::Shading {
+    // do extra naga check;
     let vertex = self.gen_code_vertex();
     let frag = self.gen_code_frag();
 
@@ -96,17 +99,11 @@ impl ShaderGraph {
       println!("{:}", frag);
     }
 
-    WGPUPipeline::new(&WGPUPipelineBuildSource {
-      vertex_shader: load_glsl(vertex, rendiation_ral::ShaderStage::VERTEX),
-      frag_shader: load_glsl(frag, rendiation_ral::ShaderStage::FRAGMENT),
-      shader_interface_info: self.wgpu_shader_interface.clone(),
-    })
+    let source = T::convert_build_source(self);
+    T::create_shading(renderer, &source)
   }
 
-  pub fn insert_node<T: ShaderGraphNodeType>(
-    &mut self,
-    node: ShaderGraphNode<T>,
-  ) -> ShaderGraphNodeHandleUntyped {
+  pub fn insert_node<T: ShaderGraphNodeType>(&mut self, node: ShaderGraphNode<T>) -> NodeUntyped {
     self.register_type::<T>();
     self.nodes.create_node(node.to_any()).into()
   }
@@ -119,19 +116,12 @@ impl ShaderGraph {
   }
 }
 
+lazy_static! {
+  pub static ref IN_BUILDING_SHADER_GRAPH: Mutex<Option<ShaderGraph>> = Mutex::new(None);
+}
+
 pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraph) -> T) -> T {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   let graph = guard.as_mut().unwrap();
   modifier(graph)
 }
-
-pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStage)>,
-}
-
-// pub struct PipelineShaderInterfaceInfo {
-//   bindgroup_layouts: Vec<Arc<wgpu::BindGroupLayout>>,
-//   vertex_state: Option<wgpu::VertexStateDescriptor<'static>>,
-//   primitive_topology: wgpu::PrimitiveTopology,
-//   pub preferred_target_states: TargetStates,
-// }

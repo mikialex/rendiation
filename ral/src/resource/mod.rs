@@ -144,9 +144,12 @@ pub trait BindGroupProvider<T: RAL>: 'static {
   );
 }
 
-pub trait ShadingProvider<T: RAL>: 'static + Sized {
-  type Instance;
+pub trait ShaderWithGeometry<T: RAL> {
   type Geometry: GeometryProvider<T>;
+}
+
+pub trait ShadingProvider<T: RAL>: 'static + Sized + ShaderWithGeometry<T> {
+  type Instance;
   fn apply(
     instance: &Self::Instance,
     gpu_shading: &T::Shading,

@@ -30,29 +30,56 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
       let setter_name = format_ident!("set_{}", field_name);
       quote! {
         #[wasm_bindgen(getter)]
-        pub fn #getter_name(&self) -> <#ty as WASMAbleType>::Type {
+        pub fn #getter_name(&self) -> <#ty as rendiation_math::WASMAbleType>::Type {
           self.inner.mutate_item(|d| d.#field_name).to_wasm()
         }
         #[wasm_bindgen(setter)]
-        pub fn #setter_name(&mut self, value: <#ty as WASMAbleType>::Type) {
-          self.inner.mutate_item(|d| d.#field_name = WASMAbleType::from_wasm(value))
+        pub fn #setter_name(&mut self, value: <#ty as rendiation_math::WASMAbleType>::Type) {
+          self.inner.mutate_item(|d| d.#field_name = rendiation_math::WASMAbleType::from_wasm(value))
         }
       }
     })
     .collect();
 
   quote! {
-    #[cfg(feature = "wasm_bindgen")]
+    #[cfg(feature = "nyxt")]
+    use wasm_bindgen::prelude::*;
+
+    #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
+    #[derive(Clone)]
     pub struct #instance_name {
-      inner: NyxtViewerHandledObject<UniformHandleWrap<#struct_name>>,
+      #[wasm_bindgen(skip)]
+      pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::UniformHandleWrap<#struct_name>>,
     }
 
-    #[cfg(feature = "wasm_bindgen")]
+    #[cfg(feature = "nyxt")]
+    impl nyxt_core::NyxtUBOWrapped for #struct_name {
+      type Wrapper = #instance_name;
+
+      fn to_nyxt_wrapper(viewer: &mut nyxt_core::NyxtViewer, handle: rendiation_ral::UniformHandle<nyxt_core::GFX, Self>) -> Self::Wrapper{
+        #instance_name {
+          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
+        }
+      }
+    }
+
+    #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
+
+      #[wasm_bindgen(constructor)]
+      pub fn new(viewer: &mut nyxt_core::NyxtViewer) -> Self {
+        let handle = viewer.mutate_inner(|inner| {
+          let default_value = #struct_name::default();
+          inner.resource.bindable.uniform_buffers.add(default_value)
+        });
+        use nyxt_core::NyxtUBOWrapped;
+        #struct_name::to_nyxt_wrapper(viewer, handle)
+      }
     }
+
   }
 }
 
@@ -100,10 +127,12 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
     .collect();
 
   quote! {
+    #[cfg(feature = "webgl")]
     pub struct #instance_name {
       #(#instance_fields)*
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
       fn create(
         query_name_prefix: &str,
@@ -124,6 +153,7 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
       }
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
       type UploadValue = rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGL, #struct_name>;
       type UploadInstance = #instance_name;
@@ -158,7 +188,7 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
   let instance_fields: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      quote! { pub #field_name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, }
+      quote! { pub #field_name: rendiation_shadergraph::Node<#ty>, }
     })
     .collect();
 
@@ -173,18 +203,13 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
   quote! {
 
     #[allow(non_upper_case_globals)]
-    pub static #ubo_info_name: once_cell::sync::Lazy<
-    std::sync::Arc<
-      rendiation_shadergraph::UBOInfo
-    >> =
-    once_cell::sync::Lazy::new(||{
-      std::sync::Arc::new(
-        rendiation_shadergraph::UBOInfo::new(
+    pub static #ubo_info_name: once_cell::sync::Lazy<rendiation_shadergraph::UBOMetaInfo> =
+    once_cell::sync::Lazy::new(|| {
+        rendiation_shadergraph::UBOMetaInfo::new(
           #struct_name_str,
         )
         #(#ubo_info_gen)*
         .gen_code_cache()
-      )
     });
 
     pub struct #shadergraph_instance_name {
@@ -200,7 +225,7 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
        -> Self::ShaderGraphBindGroupItemInstance {
 
         let mut ubo_builder = rendiation_shadergraph::UBOBuilder::new(
-          #ubo_info_name.clone(),
+          &#ubo_info_name,
           bindgroup_builder
         );
 
@@ -214,9 +239,8 @@ pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2:
     }
 
     impl rendiation_ral::UBOData for #struct_name {}
-    impl rendiation_shadergraph::ShaderGraphUBO for #struct_name {}
 
-    // todo move to feature gate webgpu
+    #[cfg(feature = "webgpu")]
     impl rendiation_webgpu::WGPUUBOData for #struct_name {}
   }
 }

@@ -1,16 +1,16 @@
 use rendiation_math_entity::*;
 
 pub trait Bounding<T> {
-  fn create(item: &T) -> BoundingData;
-  fn update(item: &T, bounding: BoundingData);
+  fn create(item: &T) -> BoundingInfo;
+  fn update(item: &T, bounding: BoundingInfo);
 }
 
-pub struct BoundingData {
+pub struct BoundingInfo {
   pub bounding_box: Box3,
   pub bounding_sphere: Sphere,
 }
 
-impl BoundingData {
+impl BoundingInfo {
   pub fn empty() -> Self {
     todo!()
   }
@@ -23,13 +23,13 @@ impl BoundingData {
   }
 }
 
-impl IntersectAble<Ray3, bool> for BoundingData {
+impl IntersectAble<Ray3, bool> for BoundingInfo {
   fn intersect(&self, ray: &Ray3, _: &()) -> bool {
     ray.intersect(&self.bounding_sphere, &()) && self.bounding_box.intersect(ray, &())
   }
 }
 
-impl IntersectAble<Frustum, bool> for BoundingData {
+impl IntersectAble<Frustum, bool> for BoundingInfo {
   fn intersect(&self, f: &Frustum, _: &()) -> bool {
     f.intersect(&self.bounding_sphere, &()) && f.intersect(&self.bounding_box, &())
   }

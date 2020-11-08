@@ -51,8 +51,8 @@ impl Application for Rinecraft {
       &screen_target,
     );
 
-    let mut scene = Scene::new();
     let mut resource = ResourceManager::new();
+    let mut scene = Scene::new(&mut resource);
     let mut world = World::new();
 
     // let mut camera_orth = GPUPair::new(ViewFrustumOrthographicCamera::new(), renderer);

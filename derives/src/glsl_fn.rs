@@ -50,7 +50,7 @@ fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro
     .filter(|&f| !collector.exclude_functions.contains(f))
     .map(|f| {
       let prototype_name = format_ident!("{}_FUNCTION", f);
-      quote! { .declare_function_dep(#prototype_name.clone()) }
+      quote! { .declare_function_dep(& #prototype_name) }
     })
     .collect()
 }
@@ -106,37 +106,32 @@ pub fn gen_glsl_function(
     .iter()
     .map(|(ty, name)| {
       (
-        quote! { #name: rendiation_shadergraph::ShaderGraphNodeHandle<#ty>, },
+        quote! { #name: rendiation_shadergraph::Node<#ty>, },
         quote! { graph.nodes.connect_node(#name.handle.cast_type(), result); },
       )
     })
     .unzip();
 
   quote! {
-    pub static #prototype_name: once_cell::sync::Lazy<
-    std::sync::Arc<
-      rendiation_shadergraph::ShaderFunction
-    >> =
-    once_cell::sync::Lazy::new(||{
-      std::sync::Arc::new(
-        rendiation_shadergraph::ShaderFunction::new(
+    pub static #prototype_name: once_cell::sync::Lazy<rendiation_shadergraph::ShaderFunctionMetaInfo> =
+    once_cell::sync::Lazy::new(|| {
+        rendiation_shadergraph::ShaderFunctionMetaInfo::new(
           #quoted_function_name,
           #function_source
         )
         #(#foreign)*
-      )
     });
 
     pub fn #function_name (
       #(#gen_function_inputs)*
-    ) -> rendiation_shadergraph::ShaderGraphNodeHandle<#return_type> {
+    ) -> rendiation_shadergraph::Node<#return_type> {
       use rendiation_shadergraph::*;
 
       modify_graph(|graph| {
         let node = ShaderGraphNode::<#return_type>::new(
           ShaderGraphNodeData::Function(
             FunctionNode {
-              prototype: #prototype_name.clone()
+              prototype: & #prototype_name
             },
           )
         );

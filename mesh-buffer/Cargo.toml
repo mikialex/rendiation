@@ -5,7 +5,7 @@ name = "rendiation-mesh-buffer"
 version = "0.1.0"
 
 [features]
-shader-graph = ["rendiation-shadergraph", "rendiation-shadergraph-derives"]
+shader-graph = ["rendiation-shadergraph", "rendiation-derives"]
 webgpu = ["rendiation-webgpu"]
 
 [dependencies]
@@ -21,4 +21,4 @@ space-indexer = {path = "../space-indexer"}
 
 rendiation-ral = {path = "../ral"}
 rendiation-shadergraph = {path = "../shader-graph", optional = true}
-rendiation-shadergraph-derives = {path = "../shader-graph-derives", optional = true}
+rendiation-derives = {path = "../derives", optional = true}

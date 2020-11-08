@@ -7,7 +7,7 @@ mod header;
 struct CodeGenCtx {
   var_guid: usize,
   code_gen_history: HashMap<ShaderGraphNodeRawHandleUntyped, MiddleVariableCodeGenResult>,
-  depend_functions: HashSet<Arc<ShaderFunction>>,
+  depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
 }
 
 impl CodeGenCtx {
@@ -122,12 +122,7 @@ impl Display for MiddleVariableCodeGenResult {
 }
 
 impl ShaderGraph {
-  fn gen_code_node(
-    &self,
-    handle: ShaderGraphNodeHandleUntyped,
-    ctx: &mut CodeGenCtx,
-    builder: &mut CodeBuilder,
-  ) {
+  fn gen_code_node(&self, handle: NodeUntyped, ctx: &mut CodeGenCtx, builder: &mut CodeBuilder) {
     builder.write_ln("");
 
     let depends = self.nodes.topological_order_list(handle.handle).unwrap();

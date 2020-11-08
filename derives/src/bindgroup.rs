@@ -11,43 +11,98 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated.append_all(derive_ral_bindgroup(input));
   generated.append_all(derive_wgpu_bindgroup_direct_create(input));
   generated.append_all(derive_webgl_upload_instance(input));
+  generated.append_all(derive_bindgroup_nyxt_wasm_instance_impl(input));
   generated
 }
 
-// fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-//   let struct_name = &input.ident;
-//   let instance_name = format_ident!("{}WASM", struct_name);
+fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let struct_name = &input.ident;
+  let instance_name = format_ident!("{}WASM", struct_name);
 
-//   let fields = only_named_struct_fields(input).unwrap();
-//   let fields_info: Vec<_> = fields
-//     .iter()
-//     .map(|f| {
-//       let field_name = f.ident.as_ref().unwrap().clone();
-//       let ty = f.ty.clone();
-//       (field_name, ty)
-//     })
-//     .collect();
+  let fields = only_named_struct_fields(input).unwrap();
+  let fields_info: Vec<_> = fields
+    .iter()
+    .map(|f| {
+      let field_name = f.ident.as_ref().unwrap().clone();
+      let ty = f.ty.clone();
+      (field_name, ty)
+    })
+    .collect();
 
-//   // let instance_fields = fields_info
-//   //   .iter()
-//   //   .map(|(field_name, ty)| {
-//   //     quote! {}
-//   //   })
-//   //   .collect();
+  let fields_wasm_getter_setter: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      let getter_name = format_ident!("get_{}", field_name);
+      let setter_name = format_ident!("set_{}", field_name);
+      quote! {
+        pub fn #getter_name(&self) -> <#ty as NyxtUBOWrapped>::Wrapper {
+          let mut viewer = self.inner.clone_viewer();
+          self.inner.mutate_item(|d| #ty::to_nyxt_wrapper(&mut viewer, d.#field_name.clone()))
+        }
+        pub fn #setter_name(&mut self, value: <#ty as NyxtUBOWrapped>::Wrapper) {
+          self.inner.mutate_item(|d| d.#field_name = value.inner.handle.0);
+        }
+      }
+    })
+    .collect();
 
-//   // quote! {
-//   //   #[wasm_bindgen]
-//   //   pub struct #instance_name {
-//   //     #(#instance_fields)*
-//   //   }
+  let constructor_parameters: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, ty)| {
+      quote! {#field_name: &<#ty as NyxtUBOWrapped>::Wrapper,}
+    })
+    .collect();
 
-//   //   #[wasm_bindgen]
-//   //   impl #instance_name {
-//   //     #(#fields_wasm_getter_setter)*
-//   //   }
-//   // }
-//   quote! {}
-// }
+  let constructor_create_ral_instance: Vec<_> = fields_info
+    .iter()
+    .map(|(field_name, _ty)| {
+      quote! { #field_name.inner.handle.0, }
+    })
+    .collect();
+
+  quote! {
+    #[cfg(feature = "nyxt")]
+    use wasm_bindgen::prelude::*;
+
+    #[cfg(feature = "nyxt")]
+    #[wasm_bindgen]
+    pub struct #instance_name {
+      #[wasm_bindgen(skip)]
+      pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::BindGroupHandleWrap<#struct_name>>,
+    }
+
+    #[cfg(feature = "nyxt")]
+    impl nyxt_core::NyxtBindGroupWrapped for #struct_name {
+      type Wrapper = #instance_name;
+      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: rendiation_ral::BindGroupHandle<GFX, Self>) -> Self::Wrapper{
+        #instance_name {
+          inner: viewer.make_handle_object(nyxt_core::BindGroupHandleWrap(handle)),
+        }
+      }
+    }
+
+    #[cfg(feature = "nyxt")]
+    #[wasm_bindgen]
+    impl #instance_name {
+      #(#fields_wasm_getter_setter)*
+
+      #[wasm_bindgen(constructor)]
+      pub fn new(viewer: &mut nyxt_core::NyxtViewer,
+        #(#constructor_parameters)*
+      ) -> Self {
+        let handle = viewer.mutate_inner(|inner| {
+          let default_value = #struct_name::create_resource_instance(
+            #(#constructor_create_ral_instance)*
+          );
+          inner.resource.bindgroups.add(default_value)
+        });
+        use nyxt_core::NyxtBindGroupWrapped;
+        #struct_name::to_nyxt_wrapper(viewer, handle)
+      }
+    }
+
+  }
+}
 
 fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let struct_name = &input.ident;
@@ -95,10 +150,13 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   let ral_instance_name = format_ident!("{}RALInstance", struct_name);
 
   quote! {
+
+    #[cfg(feature = "webgl")]
     pub struct #instance_name {
       #(#instance_fields)*
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
       fn create(
         query_name_prefix: &str,
@@ -119,6 +177,7 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
       }
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
       type UploadValue = <#struct_name as rendiation_ral::BindGroupProvider<rendiation_webgl::WebGL>>::Instance;
       type UploadInstance = #instance_name;
@@ -172,7 +231,7 @@ fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let wgpu_create_bindgroup_create: Vec<_> = fields_info
     .iter()
     .map(|(field_name, ty)| {
-      quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
+      quote! {.push(<#ty as rendiation_webgpu::WGPUBindgroupItem>::to_binding(#field_name))}
     })
     .collect();
 
@@ -181,6 +240,7 @@ fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
       #(#ral_fields)*
     }
 
+    #[cfg(feature = "webgpu")]
     impl rendiation_ral::BindGroupCreator<rendiation_webgpu::WebGPU> for #struct_name {
       fn create_bindgroup(
         instance: &Self::Instance,
@@ -198,6 +258,7 @@ fn derive_ral_bindgroup(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
       }
     }
 
+    #[cfg(feature = "webgl")]
     impl rendiation_ral::BindGroupCreator<rendiation_webgl::WebGL> for #struct_name {
       fn create_bindgroup(
         instance: &Self::Instance,
@@ -245,7 +306,7 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! { #field_name: < #ty as rendiation_shadergraph::WGPUBindgroupItem>::Type, }
+      quote! { #field_name: < #ty as rendiation_webgpu::WGPUBindgroupItem>::Type, }
     })
     .collect();
 
@@ -254,12 +315,13 @@ fn derive_wgpu_bindgroup_direct_create(input: &syn::DeriveInput) -> proc_macro2:
     .map(|f| {
       let field_name = f.ident.as_ref().unwrap();
       let ty = &f.ty;
-      quote! {.push(<#ty as rendiation_shadergraph::WGPUBindgroupItem>::to_binding(#field_name))}
+      quote! {.push(<#ty as rendiation_webgpu::WGPUBindgroupItem>::to_binding(#field_name))}
     })
     .collect();
 
   quote! {
 
+    #[cfg(feature = "webgpu")]
     impl #struct_name {
       pub fn create_bindgroup(
         renderer: &rendiation_webgpu::WGPURenderer,
@@ -354,7 +416,7 @@ fn derive_ral_bindgroup_layout(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   quote! {
     impl rendiation_ral::BindGroupLayoutDescriptorProvider for #struct_name {
 
-      fn create_descriptor() -> Vec<BindGroupLayoutEntry> {
+      fn create_descriptor() -> Vec<rendiation_ral::BindGroupLayoutEntry> {
         rendiation_ral::BindGroupLayoutBuilder::new()
         #(#wgpu_create_bindgroup_layout_create)*
         .build()

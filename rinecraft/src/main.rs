@@ -1,11 +1,10 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
-mod rinecraft;
-// mod gui;
 mod camera_controls;
 mod init;
 mod rendering;
+mod rinecraft;
 mod shading;
 mod util;
 mod vox;

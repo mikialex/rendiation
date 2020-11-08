@@ -15,7 +15,7 @@ pub struct CopierShading {
 }
 
 impl CopierShading {
-  pub fn new() -> Self {
+  pub fn new(renderer: &mut WGPURenderer) -> Self {
     let mut builder = ShaderGraphBuilder::new();
     builder.geometry_by::<IndexedGeometry>();
     let geometry = builder.vertex_by::<Vertex>();
@@ -30,7 +30,7 @@ impl CopierShading {
     let graph = builder.create();
 
     Self {
-      pipeline: graph.create_pipeline(),
+      pipeline: graph.create_pipeline::<WebGPU>(renderer),
     }
   }
 }

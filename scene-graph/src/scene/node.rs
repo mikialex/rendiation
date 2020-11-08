@@ -1,6 +1,7 @@
 use crate::{default_impl::DefaultSceneBackend, Scene, SceneBackend, RAL};
 use arena::Handle;
 use arena_tree::*;
+use rendiation_ral::ResourceManager;
 
 pub type SceneNodeHandle<T, S = DefaultSceneBackend> = Handle<SceneNode<T, S>>;
 pub type SceneNode<T, S = DefaultSceneBackend> = ArenaTreeNode<<S as SceneBackend<T>>::NodeData>;
@@ -48,8 +49,8 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
     self.nodes.get_node_mut(handle)
   }
 
-  pub fn create_new_node(&mut self) -> &mut SceneNode<T, S> {
-    let handle = self.nodes.create_node(S::NodeData::default());
+  pub fn create_new_node(&mut self, resource: &mut ResourceManager<T>) -> &mut SceneNode<T, S> {
+    let handle = self.nodes.create_node(S::create_node_data(resource));
     self.nodes.get_node_mut(handle)
   }
 

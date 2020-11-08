@@ -1,10 +1,10 @@
 use crate::{
-  modify_graph, OperatorNode, ShaderGraphConstableNodeType, ShaderGraphNode, ShaderGraphNodeData,
-  ShaderGraphNodeHandle, ShaderGraphNodeType,
+  modify_graph, Node, OperatorNode, ShaderGraphConstableNodeType, ShaderGraphNode,
+  ShaderGraphNodeData, ShaderGraphNodeType,
 };
 use std::ops::{Add, Mul, Sub};
 
-impl<T> Add for ShaderGraphNodeHandle<T>
+impl<T> Add for Node<T>
 where
   T: ShaderGraphNodeType + ShaderGraphConstableNodeType,
 {
@@ -25,7 +25,7 @@ where
   }
 }
 
-impl<T> Sub for ShaderGraphNodeHandle<T>
+impl<T> Sub for Node<T>
 where
   T: ShaderGraphNodeType + ShaderGraphConstableNodeType,
 {
@@ -46,7 +46,7 @@ where
   }
 }
 
-impl<T> Mul for ShaderGraphNodeHandle<T>
+impl<T> Mul for Node<T>
 where
   T: ShaderGraphNodeType + ShaderGraphConstableNodeType,
 {

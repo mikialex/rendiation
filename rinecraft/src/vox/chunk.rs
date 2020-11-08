@@ -2,7 +2,7 @@ use super::{block_coords::*, world_machine::WorldMachine};
 use crate::vox::block::*;
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
-use rendiation_render_entity::BoundingData;
+use rendiation_render_entity::BoundingInfo;
 use std::{
   future::Future,
   hash::{Hash, Hasher},
@@ -27,7 +27,7 @@ pub type ChunkData = Vec<Vec<Vec<Block>>>;
 pub struct Chunk {
   pub chunk_position: ChunkCoords,
   pub data: ChunkData,
-  pub bounding: BoundingData,
+  pub bounding: BoundingInfo,
 }
 
 impl Hash for Chunk {
@@ -86,7 +86,7 @@ impl Chunk {
       CHUNK_ABS_HEIGHT,
       (chunk_z + 1) as f32 * CHUNK_ABS_WIDTH,
     );
-    let bounding = BoundingData::new_from_box(Box3::new(min, max));
+    let bounding = BoundingInfo::new_from_box(Box3::new(min, max));
 
     Chunk {
       chunk_position,
