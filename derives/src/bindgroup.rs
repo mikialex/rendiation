@@ -35,9 +35,10 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
       let getter_name = format_ident!("get_{}", field_name);
       let setter_name = format_ident!("set_{}", field_name);
       quote! {
-        // pub fn #getter_name(&self) -> <#ty as NyxtUBOWrapped>::Wrapper {
-        //   self.inner.mutate_item(|d| nyxt_core::UniformHandleWrap(d.#field_name.clone()))
-        // }
+        pub fn #getter_name(&self) -> <#ty as NyxtUBOWrapped>::Wrapper {
+          let mut viewer = self.inner.clone_viewer();
+          self.inner.mutate_item(|d| #ty::to_nyxt_wrapper(&mut viewer, d.#field_name.clone()))
+        }
         pub fn #setter_name(&mut self, value: <#ty as NyxtUBOWrapped>::Wrapper) {
           self.inner.mutate_item(|d| d.#field_name = value.inner.handle.0);
         }
@@ -85,19 +86,19 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_ma
     impl #instance_name {
       #(#fields_wasm_getter_setter)*
 
-      // #[wasm_bindgen(constructor)]
-      // pub fn new(viewer: &mut nyxt_core::NyxtViewer,
-      //   #(#constructor_parameters)*
-      // ) -> Self {
-      //   let handle = viewer.mutate_inner(|inner| {
-      //     let default_value = #struct_name::create_resource_instance(
-      //       #(#constructor_create_ral_instance)*
-      //     );
-      //     inner.resource.bindable.uniform_buffers.add(default_value)
-      //   });
-      //   use nyxt_core::NyxtBindGroupWrapped;
-      //   #struct_name::to_nyxt_wrapper(viewer, handle)
-      // }
+      #[wasm_bindgen(constructor)]
+      pub fn new(viewer: &mut nyxt_core::NyxtViewer,
+        #(#constructor_parameters)*
+      ) -> Self {
+        let handle = viewer.mutate_inner(|inner| {
+          let default_value = #struct_name::create_resource_instance(
+            #(#constructor_create_ral_instance)*
+          );
+          inner.resource.bindgroups.add(default_value)
+        });
+        use nyxt_core::NyxtBindGroupWrapped;
+        #struct_name::to_nyxt_wrapper(viewer, handle)
+      }
     }
 
   }

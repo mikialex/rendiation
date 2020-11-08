@@ -52,6 +52,11 @@ impl<Handle: NyxtViewerHandle> NyxtViewerHandledObject<Handle> {
     let mut inner = inner.borrow_mut();
     mutator(&mut inner)
   }
+
+  pub fn clone_viewer(&self) -> NyxtViewer {
+    let inner = Weak::upgrade(&self.inner).unwrap_throw();
+    NyxtViewer { inner }
+  }
 }
 
 impl<Handle: NyxtViewerMutableHandle> NyxtViewerHandledObject<Handle> {
@@ -122,7 +127,6 @@ pub trait NyxtShadingWrapped: ShadingProvider<GFX> + Sized {
   fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: ShadingHandle<GFX, Self>) -> Self::Wrapper;
 }
 
-// #[derive(Copy, Clone)]
 pub struct ShadingHandleWrap<T: ShadingProvider<GFX>>(pub ShadingHandle<GFX, T>);
 impl<T: ShadingProvider<GFX>> Copy for ShadingHandleWrap<T> {}
 impl<T: ShadingProvider<GFX>> Clone for ShadingHandleWrap<T> {

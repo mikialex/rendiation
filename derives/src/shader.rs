@@ -7,7 +7,7 @@ pub fn derive_shader_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream 
   generated.append_all(derive_shadergraph_instance(input));
   generated.append_all(derive_ral_resource_instance(input));
   generated.append_all(derive_webgl_upload_instance(input));
-  // generated.append_all(derive_shader_nyxt_wasm_instance_impl(input));
+  generated.append_all(derive_shader_nyxt_wasm_instance_impl(input));
   generated
 }
 
@@ -31,13 +31,12 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
       let getter_name = format_ident!("get_{}", field_name);
       let setter_name = format_ident!("set_{}", field_name);
       quote! {
-        #[wasm_bindgen(getter)]
         pub fn #getter_name(&self) -> <#ty as NyxtBindGroupWrapped>::Wrapper {
-          self.inner.mutate_item(|d| d.#field_name.clone())
+          let mut viewer = self.inner.clone_viewer();
+          self.inner.mutate_item(|d| #ty::to_nyxt_wrapper(&mut viewer, d.#field_name.clone()))
         }
-        #[wasm_bindgen(setter)]
         pub fn #setter_name(&mut self, value: <#ty as NyxtBindGroupWrapped>::Wrapper) {
-          self.inner.mutate_item(|d| d.#field_name = value.clone())
+          self.inner.mutate_item(|d| d.#field_name = value.inner.handle.0)
         }
       }
     })
@@ -53,7 +52,7 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
   let constructor_create_ral_instance: Vec<_> = fields_info
     .iter()
     .map(|(field_name, _ty)| {
-      quote! { #field_name.handle, }
+      quote! { #field_name.inner.handle.0, }
     })
     .collect();
 
@@ -87,14 +86,15 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
       pub fn new(viewer: &mut nyxt_core::NyxtViewer,
         #(#constructor_parameters)*
       ) -> Self {
-        let handle = viewer.mutate_inner(|inner| {
-          let default_value = #struct_name::create_resource_instance(
-            #(#constructor_create_ral_instance)*
-          );
-          inner.resource.shadings.add_shading(default_value)
-        });
-        use nyxt_core::NyxtShadingWrapped;
-        #struct_name::to_nyxt_wrapper(viewer, handle)
+        todo!()
+        // let handle = viewer.mutate_inner(|inner| {
+        //   let default_value = #struct_name::create_resource_instance(
+        //     #(#constructor_create_ral_instance)*
+        //   );
+        //   inner.resource.shadings.add_shading(default_value)
+        // });
+        // use nyxt_core::NyxtShadingWrapped;
+        // #struct_name::to_nyxt_wrapper(viewer, handle)
       }
     }
 
