@@ -1,4 +1,47 @@
-use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field};
+use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field, Ident, Type};
+
+pub struct StructInfo {
+  pub struct_name: Ident,
+  pub fields_info: Vec<(Ident, Type)>,
+  pub fields_raw: Vec<Field>,
+}
+
+impl StructInfo {
+  pub fn new(input: &syn::DeriveInput) -> Self {
+    let struct_name = input.ident.clone();
+    let fields = only_named_struct_fields(input).unwrap();
+    let fields_info = fields
+      .iter()
+      .map(|f| {
+        let field_name = f.ident.as_ref().unwrap().clone();
+        let ty = f.ty.clone();
+        (field_name, ty)
+      })
+      .collect();
+
+    let fields_raw = fields.iter().map(|f| f.clone()).collect();
+
+    StructInfo {
+      struct_name,
+      fields_info,
+      fields_raw,
+    }
+  }
+
+  pub fn map_fields(
+    &self,
+    f: impl FnMut(&(Ident, Type)) -> proc_macro2::TokenStream,
+  ) -> Vec<proc_macro2::TokenStream> {
+    self.fields_info.iter().map(f).collect()
+  }
+
+  pub fn map_fields_with_index(
+    &self,
+    f: impl FnMut((usize, &(Ident, Type))) -> proc_macro2::TokenStream,
+  ) -> Vec<proc_macro2::TokenStream> {
+    self.fields_info.iter().enumerate().map(f).collect()
+  }
+}
 
 pub fn only_accept_struct(input: &syn::DeriveInput) -> Result<&syn::DeriveInput, syn::Error> {
   match &input.data {

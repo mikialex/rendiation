@@ -1,62 +1,44 @@
-use crate::utils::only_named_struct_fields;
+use crate::utils::StructInfo;
 use quote::TokenStreamExt;
 use quote::{format_ident, quote};
 
 pub fn derive_shader_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let s = StructInfo::new(input);
   let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_shadergraph_instance(input));
-  generated.append_all(derive_ral_resource_instance(input));
-  generated.append_all(derive_webgl_upload_instance(input));
-  generated.append_all(derive_shader_nyxt_wasm_instance_impl(input));
+  generated.append_all(derive_shadergraph_instance(&s));
+  generated.append_all(derive_ral_resource_instance(&s));
+  generated.append_all(derive_webgl_upload_instance(&s));
+  generated.append_all(derive_shader_nyxt_wasm_instance_impl(&s));
   generated
 }
 
-fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
+fn derive_shader_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
   let instance_name = format_ident!("{}WASM", struct_name);
 
-  let fields = only_named_struct_fields(input).unwrap();
-  let fields_info: Vec<_> = fields
-    .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap().clone();
-      let ty = f.ty.clone();
-      (field_name, ty)
-    })
-    .collect();
-
-  let fields_wasm_getter_setter: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      let getter_name = format_ident!("get_{}", field_name);
-      let setter_name = format_ident!("set_{}", field_name);
-      quote! {
-        pub fn #getter_name(&self) -> <#ty as NyxtBindGroupWrapped>::Wrapper {
-          let mut viewer = self.inner.clone_viewer();
-          self.inner.mutate_item(|d| #ty::to_nyxt_wrapper(&mut viewer, d.#field_name.clone()))
-        }
-        pub fn #setter_name(&mut self, value: <#ty as NyxtBindGroupWrapped>::Wrapper) {
-          self.inner.mutate_item(|d| d.#field_name = value.inner.handle.0)
-        }
+  let fields_wasm_getter_setter = s.map_fields(|(field_name, ty)| {
+    let getter_name = format_ident!("get_{}", field_name);
+    let setter_name = format_ident!("set_{}", field_name);
+    quote! {
+      pub fn #getter_name(&self) -> <#ty as NyxtBindGroupWrapped>::Wrapper {
+        let mut viewer = self.inner.clone_viewer();
+        self.inner.mutate_item(|d| #ty::to_nyxt_wrapper(&mut viewer, d.#field_name.clone()))
       }
-    })
-    .collect();
+      pub fn #setter_name(&mut self, value: <#ty as NyxtBindGroupWrapped>::Wrapper) {
+        self.inner.mutate_item(|d| d.#field_name = value.inner.handle.0)
+      }
+    }
+  });
 
-  let constructor_parameters: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! {#field_name: &<#ty as NyxtBindGroupWrapped>::Wrapper,}
-    })
-    .collect();
+  let constructor_parameters = s.map_fields(|(field_name, ty)| {
+    quote! {#field_name: &<#ty as NyxtBindGroupWrapped>::Wrapper,}
+  });
 
-  let constructor_create_ral_instance: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, _ty)| {
-      quote! { #field_name.inner.handle.0, }
-    })
-    .collect();
+  let constructor_create_ral_instance = s.map_fields(|(field_name, _ty)| {
+    quote! { #field_name.inner.handle.0, }
+  });
 
-  quote! { 
+  quote! {
     #[cfg(feature = "nyxt")]
     use wasm_bindgen::prelude::*;
 
@@ -66,7 +48,7 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
       #[wasm_bindgen(skip)]
       pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::ShadingHandleWrap<#struct_name>>,
     }
-    
+
     #[cfg(feature = "nyxt")]
     impl nyxt_core::NyxtShadingWrapped for #struct_name {
       type Wrapper = #instance_name;
@@ -101,52 +83,30 @@ fn derive_shader_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro
   }
 }
 
-fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
+fn derive_webgl_upload_instance(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
   let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);
-
-  let fields = only_named_struct_fields(input).unwrap();
-  let fields_info: Vec<_> = fields
-    .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap().clone();
-      let ty = f.ty.clone();
-      (field_name, ty)
-    })
-    .collect();
-
-  let instance_fields: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
-    })
-    .collect();
-
-  let instance_create: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      let field_str = format!("{}", field_name);
-      quote! { #field_name:
-       < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
-       as rendiation_webgl::UploadInstance<#ty> >::create(
-          format!("{}{}", query_name_prefix, #field_str).as_str(),
-          gl,
-          program
-       ),
-      }
-    })
-    .collect();
-
-  let instance_upload: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! { 
-        self.#field_name.upload(resources.bindgroups.get_bindgroup_unwrap::<#ty>(value.#field_name), renderer, resources);
-       }
-    })
-    .collect();
-
   let ral_instance_name = format_ident!("{}RALResourceInstance", struct_name);
+
+  let instance_fields = s.map_fields(|(field_name, ty)| {
+    quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
+  });
+
+  let instance_create = s.map_fields(|(field_name, ty)| {
+    let field_str = format!("{}", field_name);
+    quote! { #field_name:
+     < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
+     as rendiation_webgl::UploadInstance<#ty> >::create(
+        format!("{}{}", query_name_prefix, #field_str).as_str(),
+        gl,
+        program
+     ),
+    }
+  });
+
+  let instance_upload = s.map_fields(|(field_name, ty)| {
+    quote! { self.#field_name.upload(resources.bindgroups.get_bindgroup_unwrap::<#ty>(value.#field_name), renderer, resources); }
+  });
 
   quote! {
     #[cfg(feature = "webgl")]
@@ -198,32 +158,17 @@ fn derive_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenS
   }
 }
 
-fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
+fn derive_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
   let shadergraph_instance_name = format_ident!("{}ShaderGraphShaderInstance", struct_name);
-  let fields = only_named_struct_fields(&input).unwrap();  
-  let fields_info: Vec<_> = fields
-  .iter()
-  .map(|f| {
-    let field_name = f.ident.as_ref().unwrap().clone();
-    let ty = f.ty.clone();
-    (field_name, ty)
-  })
-  .collect();
 
-  let shadergraph_instance_fields: Vec<_> = fields_info
-  .iter()
-  .map(|(field_name, ty)| {
+  let shadergraph_instance_fields = s.map_fields(|(field_name, ty)| {
     quote! { pub #field_name: <#ty as rendiation_shadergraph::ShaderGraphBindGroupProvider>::ShaderGraphBindGroupInstance, }
-  })
-  .collect();
+  });
 
-  let instance_create: Vec<_> = fields_info
-  .iter()
-  .map(|(field_name, ty)| {
-      quote! { #field_name: builder.bindgroup_by::<#ty>(), }
-    })
-    .collect();
+  let instance_create = s.map_fields(|(field_name, ty)| {
+    quote! { #field_name: builder.bindgroup_by::<#ty>(), }
+  });
 
   quote! {
     pub struct #shadergraph_instance_name {
@@ -246,49 +191,25 @@ fn derive_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenSt
   }
 }
 
-fn derive_ral_resource_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
+fn derive_ral_resource_instance(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
   let resource_instance_name = format_ident!("{}RALResourceInstance", struct_name);
-  let fields = only_named_struct_fields(&input).unwrap();
 
-  let fields_info: Vec<_> = fields
-    .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap().clone();
-      let ty = f.ty.clone();
-      (field_name, ty)
-    })
-    .collect();
-  
+  let resource_struct_fields = s.map_fields(|(field_name, ty)| {
+    quote! { pub #field_name: rendiation_ral::BindGroupHandle<T, #ty>, }
+  });
 
-  let resource_struct_fields: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! { pub #field_name: rendiation_ral::BindGroupHandle<T, #ty>, }
-    })
-    .collect();
+  let bindgroup_active_pass = s.map_fields_with_index(|(i, (field_name, _))| {
+    quote! { resources.bindgroups.get_bindgroup_boxed(instance.#field_name).apply(render_pass, resources, #i, gpu_shading); }
+  });
 
-  let bindgroup_active_pass: Vec<_> = fields_info
-    .iter()
-    .enumerate()
-    .map(|(i, (field_name, _))| {
-      quote! { resources.bindgroups.get_bindgroup_boxed(instance.#field_name).apply(render_pass, resources, #i, gpu_shading); }
-    })
-    .collect();
+  let create_resource_instance_fn_param = s.map_fields(|(field_name, ty)| {
+    quote! {#field_name: rendiation_ral::BindGroupHandle<T, #ty>,}
+  });
 
-  let create_resource_instance_fn_param: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! {#field_name: rendiation_ral::BindGroupHandle<T, #ty>,}
-    })
-    .collect();
-
-  let create_resource_instance_field: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, _ty)| {
-      quote! {#field_name,}
-    })
-    .collect();
+  let create_resource_instance_field = s.map_fields(|(field_name, _ty)| {
+    quote! {#field_name,}
+  });
 
   quote! {
     pub struct #resource_instance_name<T: rendiation_ral::RAL> {

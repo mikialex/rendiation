@@ -29,9 +29,7 @@ pub fn derive_bindgroup(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Geometry)]
 pub fn derive_geometry(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
-  derive_geometry_impl(input)
-    .unwrap_or_else(|err| err.to_compile_error())
-    .into()
+  derive_geometry_impl(input).into()
 }
 
 #[proc_macro_derive(Shader)]

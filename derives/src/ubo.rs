@@ -1,45 +1,34 @@
-use crate::utils::only_named_struct_fields;
+use crate::utils::StructInfo;
 use quote::TokenStreamExt;
 use quote::{format_ident, quote};
 
 pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+  let s = StructInfo::new(input);
   let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_ubo_shadergraph_instance(input));
-  generated.append_all(derive_ubo_webgl_upload_instance(input));
-  generated.append_all(derive_ubo_nyxt_wasm_instance_impl(input));
+  generated.append_all(derive_ubo_shadergraph_instance(&s));
+  generated.append_all(derive_ubo_webgl_upload_instance(&s));
+  generated.append_all(derive_ubo_nyxt_wasm_instance_impl(&s));
   generated
 }
 
-fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
+fn derive_ubo_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
   let instance_name = format_ident!("{}WASM", struct_name);
-  let fields = only_named_struct_fields(input).unwrap();
-  let fields_info: Vec<_> = fields
-    .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap().clone();
-      let ty = f.ty.clone();
-      (field_name, ty)
-    })
-    .collect();
 
-  let fields_wasm_getter_setter: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      let getter_name = format_ident!("get_{}", field_name);
-      let setter_name = format_ident!("set_{}", field_name);
-      quote! {
-        #[wasm_bindgen(getter)]
-        pub fn #getter_name(&self) -> <#ty as rendiation_math::WASMAbleType>::Type {
-          self.inner.mutate_item(|d| d.#field_name).to_wasm()
-        }
-        #[wasm_bindgen(setter)]
-        pub fn #setter_name(&mut self, value: <#ty as rendiation_math::WASMAbleType>::Type) {
-          self.inner.mutate_item(|d| d.#field_name = rendiation_math::WASMAbleType::from_wasm(value))
-        }
+  let fields_wasm_getter_setter = s.map_fields(|(field_name, ty)| {
+    let getter_name = format_ident!("get_{}", field_name);
+    let setter_name = format_ident!("set_{}", field_name);
+    quote! {
+      #[wasm_bindgen(getter)]
+      pub fn #getter_name(&self) -> <#ty as rendiation_math::WASMAbleType>::Type {
+        self.inner.mutate_item(|d| d.#field_name).to_wasm()
       }
-    })
-    .collect();
+      #[wasm_bindgen(setter)]
+      pub fn #setter_name(&mut self, value: <#ty as rendiation_math::WASMAbleType>::Type) {
+        self.inner.mutate_item(|d| d.#field_name = rendiation_math::WASMAbleType::from_wasm(value))
+      }
+    }
+  });
 
   quote! {
     #[cfg(feature = "nyxt")]
@@ -83,48 +72,29 @@ fn derive_ubo_nyxt_wasm_instance_impl(input: &syn::DeriveInput) -> proc_macro2::
   }
 }
 
-pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
+pub fn derive_ubo_webgl_upload_instance(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
   let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);
 
-  let fields = only_named_struct_fields(input).unwrap();
-  let fields_info: Vec<_> = fields
-    .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap().clone();
-      let ty = f.ty.clone();
-      (field_name, ty)
-    })
-    .collect();
+  let instance_fields = s.map_fields(|(field_name, ty)| {
+    quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
+  });
 
-  let instance_fields: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
-    })
-    .collect();
+  let instance_create = s.map_fields(|(field_name, ty)| {
+    let field_str = format!("{}", field_name);
+    quote! { #field_name:
+     < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
+     as rendiation_webgl::UploadInstance<#ty> >::create(
+        format!("{}", #field_str).as_str(),
+        gl,
+        program
+     ),
+    }
+  });
 
-  let instance_create: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      let field_str = format!("{}", field_name);
-      quote! { #field_name:
-       < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
-       as rendiation_webgl::UploadInstance<#ty> >::create(
-          format!("{}", #field_str).as_str(),
-          gl,
-          program
-       ),
-      }
-    })
-    .collect();
-
-  let instance_upload: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! { <#ty as rendiation_webgl::WebGLUniformUploadable>::upload(&value.data.#field_name, &mut self.#field_name, renderer, resources); }
-    })
-    .collect();
+  let instance_upload = s.map_fields(|(field_name, ty)| {
+    quote! { <#ty as rendiation_webgl::WebGLUniformUploadable>::upload(&value.data.#field_name, &mut self.#field_name, renderer, resources); }
+  });
 
   quote! {
     #[cfg(feature = "webgl")]
@@ -161,47 +131,28 @@ pub fn derive_ubo_webgl_upload_instance(input: &syn::DeriveInput) -> proc_macro2
   }
 }
 
-pub fn derive_ubo_shadergraph_instance(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
-  let struct_name = &input.ident;
+pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
   let shadergraph_instance_name = format_ident!("{}ShaderGraphInstance", struct_name);
 
   let struct_name_str = format!("{}", struct_name);
   let ubo_info_name = format_ident!("{}_UBO_INFO", struct_name);
-  let fields = only_named_struct_fields(input).unwrap();
-  let fields_info: Vec<_> = fields
-    .iter()
-    .map(|f| {
-      let field_name = f.ident.as_ref().unwrap().clone();
-      let ty = f.ty.clone();
-      (field_name, ty)
-    })
-    .collect();
 
-  let ubo_info_gen: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      let field_str = format!("{}", field_name);
-      quote! { .add_field::<#ty>(#field_str) }
-    })
-    .collect();
+  let ubo_info_gen = s.map_fields(|(field_name, ty)| {
+    let field_str = format!("{}", field_name);
+    quote! { .add_field::<#ty>(#field_str) }
+  });
 
-  let instance_fields: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      quote! { pub #field_name: rendiation_shadergraph::Node<#ty>, }
-    })
-    .collect();
+  let instance_fields = s.map_fields(|(field_name, ty)| {
+    quote! { pub #field_name: rendiation_shadergraph::Node<#ty>, }
+  });
 
-  let instance_new: Vec<_> = fields_info
-    .iter()
-    .map(|(field_name, ty)| {
-      let field_str = format!("{}", field_name);
-      quote! { #field_name: ubo_builder.uniform::<#ty>(#field_str), }
-    })
-    .collect();
+  let instance_new = s.map_fields(|(field_name, ty)| {
+    let field_str = format!("{}", field_name);
+    quote! { #field_name: ubo_builder.uniform::<#ty>(#field_str), }
+  });
 
   quote! {
-
     #[allow(non_upper_case_globals)]
     pub static #ubo_info_name: once_cell::sync::Lazy<rendiation_shadergraph::UBOMetaInfo> =
     once_cell::sync::Lazy::new(|| {
