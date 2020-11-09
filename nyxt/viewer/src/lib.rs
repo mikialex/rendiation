@@ -37,8 +37,9 @@ impl ShaderGraphProvider for MeshBasicShader {
 pub struct MeshBasicShaderBindGroup {
   #[stage(frag)]
   pub parameter: MeshBasicShaderParameter,
-  // #[stage(vert)]
-  // pub mvp: CameraTransform,
+
+  #[stage(vert)]
+  pub mvp: CameraTransform,
 }
 
 #[derive(UniformBuffer, Copy, Clone)]
