@@ -23,6 +23,12 @@ impl<T: RAL> ShaderWithGeometry<T> for MeshBasicShader {
   type Geometry = Vertex;
 }
 
+impl ShaderGraphProvider for MeshBasicShader {
+  fn build_graph() -> ShaderGraph {
+    todo!()
+  }
+}
+
 #[derive(BindGroup)]
 pub struct MeshBasicShaderBindGroup {
   #[stage(frag)]

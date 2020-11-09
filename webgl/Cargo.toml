@@ -10,6 +10,7 @@ wasm-bindgen = {version = "0.2.68"}
 
 rendiation-math = {path = "../math"}
 rendiation-ral = {path = "../ral"}
+rendiation-shadergraph = {path = "../shader-graph"}
 
 [dependencies.web-sys]
 features = [

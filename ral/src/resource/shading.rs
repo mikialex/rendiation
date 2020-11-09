@@ -1,11 +1,12 @@
 use crate::{
   AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShaderWithGeometry,
-  ShadingHandle, ShadingProvider, RAL,
+  ShadingCreator, ShadingHandle, ShadingProvider, RAL,
 };
 use arena::{Arena, Handle};
-use std::{any::Any, collections::HashSet};
+use std::{any::Any, any::TypeId, collections::HashMap, collections::HashSet, rc::Rc};
 
 pub struct ShadingManager<R: RAL> {
+  gpu: HashMap<TypeId, Rc<R::Shading>>,
   storage: Arena<Box<dyn ShadingStorageTrait<R>>>,
   modified: HashSet<Handle<Box<dyn ShadingStorageTrait<R>>>>,
 }
@@ -13,6 +14,7 @@ pub struct ShadingManager<R: RAL> {
 impl<R: RAL> ShadingManager<R> {
   pub fn new() -> Self {
     Self {
+      gpu: HashMap::new(),
       storage: Arena::new(),
       modified: HashSet::new(),
     }
@@ -20,12 +22,6 @@ impl<R: RAL> ShadingManager<R> {
 
   pub fn maintain_gpu(&mut self, _renderer: &R::Renderer, _resources: &BindGroupManager<R>) {
     self.modified.clear();
-    // let storage = &mut self.storage;
-    // self.modified.drain().for_each(|d| {
-    //   storage.get_mut(d).map(|bp| {
-    //     bp.maintain_gpu(renderer, resources);
-    //   });
-    // })
   }
 
   pub fn get_shading<T: ShadingProvider<R>>(
@@ -50,15 +46,18 @@ impl<R: RAL> ShadingManager<R> {
     self.storage.get(handle).unwrap()
   }
 
-  pub fn add_shading<T: ShadingProvider<R>>(
+  pub fn add_shading<T: ShadingCreator<R>>(
     &mut self,
-    bindgroup: T::Instance,
-    shading_gpu: Handle<R::Shading>,
+    shading: T::Instance,
+    renderer: &mut R::Renderer,
   ) -> ShadingHandle<R, T> {
-    let pair = ShadingPair::<R, T> {
-      data: bindgroup,
-      gpu: shading_gpu,
-    };
+    let type_id = TypeId::of::<T>();
+    let gpu = self
+      .gpu
+      .entry(type_id)
+      .or_insert_with(|| Rc::new(T::create_shader(&shading, renderer)))
+      .clone();
+    let pair = ShadingPair::<R, T> { data: shading, gpu };
     let handle = self.storage.insert(Box::new(pair));
     self.modified.insert(handle);
     unsafe { handle.cast_type() }
@@ -87,8 +86,7 @@ impl<R: RAL> ShadingManager<R> {
 }
 
 pub trait ShadingStorageTrait<R: RAL>: Any {
-  // fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>);
-  fn get_gpu(&self) -> Handle<R::Shading>;
+  fn get_gpu(&self) -> &R::Shading;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
   fn shading_provider_as_any(&self) -> &dyn Any;
@@ -96,11 +94,8 @@ pub trait ShadingStorageTrait<R: RAL>: Any {
 }
 
 impl<R: RAL, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPair<R, T> {
-  // fn maintain_gpu<'a>(&mut self, renderer: &R::Renderer, resources: &BindGroupManager<R>) {
-  //   // self.gpu = Some(self.data.create_shading(renderer, resources));
-  // }
-  fn get_gpu(&self) -> Handle<R::Shading> {
-    self.gpu
+  fn get_gpu(&self) -> &R::Shading {
+    &self.gpu
   }
   fn as_any(&self) -> &dyn Any {
     self
@@ -112,14 +107,13 @@ impl<R: RAL, T: ShadingProvider<R>> ShadingStorageTrait<R> for ShadingPair<R, T>
     &self.data
   }
   fn apply(&self, render_pass: &mut R::RenderPass, resources: &ResourceManager<R>) {
-    let gpu = resources.shading_gpu.get(self.get_gpu()).unwrap();
-    T::apply(&self.data, gpu, render_pass, resources);
+    T::apply(&self.data, self.get_gpu(), render_pass, resources);
   }
 }
 
 pub struct ShadingPair<R: RAL, T: ShadingProvider<R>> {
   pub data: T::Instance,
-  pub gpu: Handle<R::Shading>,
+  pub gpu: Rc<R::Shading>,
 }
 
 impl<R: RAL, T: ShadingProvider<R>> ShadingPair<R, T> {

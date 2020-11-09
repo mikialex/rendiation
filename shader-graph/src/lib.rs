@@ -23,7 +23,7 @@ pub use provider::*;
 pub use traits_impl::*;
 
 use rendiation_math::*;
-use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage, RAL};
+use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage};
 
 #[derive(Copy, Clone)]
 pub struct Node<T: ShaderGraphNodeType> {
@@ -46,8 +46,10 @@ pub enum ShaderGraphUniformInputType {
   UBO((&'static UBOMetaInfo, Vec<NodeUntyped>)),
 }
 
-pub trait ShaderGraphBackend: RAL {
-  fn convert_build_source(graph: &ShaderGraph) -> Self::ShaderBuildSource;
+pub struct ShaderGraphCompileResult {
+  pub vertex_shader: String,
+  pub frag_shader: String,
+  pub shader_interface_info: PipelineShaderInterfaceInfo,
 }
 
 pub struct ShaderGraph {
@@ -83,7 +85,7 @@ impl ShaderGraph {
     }
   }
 
-  pub fn create_pipeline<T: ShaderGraphBackend>(&self, renderer: &mut T::Renderer) -> T::Shading {
+  pub fn compile(&self) -> ShaderGraphCompileResult {
     // do extra naga check;
     let vertex = self.gen_code_vertex();
     let frag = self.gen_code_frag();
@@ -98,9 +100,11 @@ impl ShaderGraph {
       println!("{:?}", naga_frag_ir);
       println!("{:}", frag);
     }
-
-    let source = T::convert_build_source(self);
-    T::create_shading(renderer, &source)
+    ShaderGraphCompileResult {
+      vertex_shader: vertex,
+      frag_shader: frag,
+      shader_interface_info: self.shader_interface.clone(),
+    }
   }
 
   pub fn insert_node<T: ShaderGraphNodeType>(&mut self, node: ShaderGraphNode<T>) -> NodeUntyped {

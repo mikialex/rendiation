@@ -1,6 +1,6 @@
 use crate::*;
 use rendiation_ral::*;
-use rendiation_shadergraph::{ShaderGraph, ShaderGraphBackend};
+use rendiation_shadergraph::ShaderGraph;
 use std::ops::Range;
 
 pub struct WebGPU;
@@ -158,15 +158,12 @@ impl<'a> WGPUBindgroupItem<'a> for ShaderSampler {
   }
 }
 
-impl ShaderGraphBackend for WebGPU {
-  fn convert_build_source(graph: &ShaderGraph) -> Self::ShaderBuildSource {
-    let vertex = graph.gen_code_vertex();
-    let frag = graph.gen_code_frag();
+pub fn convert_build_source(graph: &ShaderGraph) -> WGPUPipelineBuildSource {
+  let compiled = graph.compile();
 
-    WGPUPipelineBuildSource {
-      vertex_shader: load_glsl(vertex, rendiation_ral::ShaderStage::VERTEX),
-      frag_shader: load_glsl(frag, rendiation_ral::ShaderStage::FRAGMENT),
-      shader_interface_info: graph.shader_interface.clone(),
-    }
+  WGPUPipelineBuildSource {
+    vertex_shader: load_glsl(compiled.vertex_shader, rendiation_ral::ShaderStage::VERTEX),
+    frag_shader: load_glsl(compiled.frag_shader, rendiation_ral::ShaderStage::FRAGMENT),
+    shader_interface_info: compiled.shader_interface_info.clone(),
   }
 }

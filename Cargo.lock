@@ -2281,6 +2281,7 @@ dependencies = [
  "js-sys",
  "rendiation-math",
  "rendiation-ral",
+ "rendiation-shadergraph",
  "wasm-bindgen",
  "web-sys",
 ]

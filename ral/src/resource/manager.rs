@@ -1,5 +1,5 @@
 use super::{BindGroupManager, UBOManager};
-use crate::{GeometryResource, RAL, ShadingManager};
+use crate::{GeometryResource, ShadingManager, RAL};
 use arena::{Arena, Handle};
 use std::any::Any;
 
@@ -7,7 +7,6 @@ type ResourceArena<T> = Arena<ResourceWrap<T>>;
 
 pub struct ResourceManager<T: RAL> {
   pub shadings: ShadingManager<T>,
-  pub shading_gpu: Arena<T::Shading>,
   pub bindgroups: BindGroupManager<T>,
   pub bindable: ShaderBindableResourceManager<T>,
 
@@ -46,7 +45,6 @@ impl<T: RAL> ResourceManager<T> {
   pub fn new() -> Self {
     Self {
       geometries: Arena::new(),
-      shading_gpu: Arena::new(),
       shadings: ShadingManager::new(),
       bindgroups: BindGroupManager::new(),
       bindable: ShaderBindableResourceManager::new(),

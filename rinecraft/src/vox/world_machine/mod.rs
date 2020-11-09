@@ -3,6 +3,7 @@ pub mod block_meta;
 use super::block_coords::ChunkCoords;
 use block_meta::*;
 use noise::*;
+use rendiation_ral::ResourceManager;
 use rendiation_webgpu::*;
 use std::collections::BTreeMap;
 
@@ -54,8 +55,12 @@ impl WorldMachine {
     &self.block_registry.lut[block_id]
   }
 
-  pub fn get_block_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
-    self.block_registry.create_atlas(renderer)
+  pub fn get_block_atlas(
+    &self,
+    renderer: &mut WGPURenderer,
+    resource: &mut ResourceManager<WebGPU>,
+  ) -> WGPUTexture {
+    self.block_registry.create_atlas(renderer, resource)
   }
 }
 

@@ -4,7 +4,7 @@ use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
 use rendiation_mesh_buffer::tessellation::*;
 use rendiation_mesh_buffer::wgpu::*;
-use rendiation_ral::Viewport;
+use rendiation_ral::{ResourceManager, Viewport};
 use rendiation_webgpu::*;
 use std::{collections::HashMap, sync::Arc};
 
@@ -146,62 +146,66 @@ impl BlockRegistry {
     self
   }
 
-  pub fn create_atlas(&self, renderer: &mut WGPURenderer) -> WGPUTexture {
-    // todo!()
-    // todo filter same face
-    let mut face_list: Vec<Arc<BlockFaceTextureInfo>> = Vec::new();
-    face_list.push(self.lut[0].top_texture.clone());
-    face_list.push(self.lut[1].top_texture.clone());
-    face_list.push(self.lut[2].top_texture.clone());
-    face_list.push(self.lut[2].x_max_texture.clone());
+  pub fn create_atlas(
+    &self,
+    renderer: &mut WGPURenderer,
+    resource: &mut ResourceManager<WebGPU>,
+  ) -> WGPUTexture {
+    todo!();
+    // // todo filter same face
+    // let mut face_list: Vec<Arc<BlockFaceTextureInfo>> = Vec::new();
+    // face_list.push(self.lut[0].top_texture.clone());
+    // face_list.push(self.lut[1].top_texture.clone());
+    // face_list.push(self.lut[2].top_texture.clone());
+    // face_list.push(self.lut[2].x_max_texture.clone());
 
-    pub fn tex(img_d: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
-      let img = img_d.as_rgba8().unwrap().clone();
-      let size = (img.width(), img.height(), 1);
-      let data = img.into_raw();
-      WGPUTexture::new_from_image_data(renderer, &data, size)
-    }
+    // pub fn tex(img_d: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
+    //   let img = img_d.as_rgba8().unwrap().clone();
+    //   let size = (img.width(), img.height(), 1);
+    //   let data = img.into_raw();
+    //   WGPUTexture::new_from_image_data(renderer, &data, size)
+    // }
 
-    use rendiation_mesh_buffer::geometry::TriangleList;
-    let mut quad = GPUGeometry::<_, TriangleList>::from(Quad.create_mesh(&()));
-    quad.update_gpu(renderer);
-    let sampler = WGPUSampler::default(renderer);
-    let target_texture = WGPUTexture::new_as_target_default(&renderer, (64, 64));
-    let target = RenderTarget::from_one_texture(target_texture);
+    // use rendiation_mesh_buffer::geometry::TriangleList;
+    // let mut quad = GPUGeometry::<_, TriangleList>::from(Quad.create_mesh(&()));
+    // quad.update_gpu(renderer);
+    // let sampler = WGPUSampler::default(renderer);
+    // let target_texture = WGPUTexture::new_as_target_default(&renderer, (64, 64));
+    // let target = RenderTarget::from_one_texture(target_texture);
 
-    {
-      let copy_shading = CopierShading::new(renderer);
-      let dest_size_width = 64.;
+    // {
+    //   let copy_shading = CopierShading::new(renderer);
+    //   let dest_size_width = 64.;
 
-      let gpu: Vec<_> = face_list
-        .iter()
-        .map(|face| {
-          let src_tex = tex(&face.img, renderer);
-          let params = CopyParam::create_bindgroup(renderer, &src_tex, &sampler);
+    //   let gpu: Vec<_> = face_list
+    //     .iter()
+    //     .map(|face| {
+    //       let src_tex = tex(&face.img, renderer);
+    //       let params = CopyParam::create_bindgroup(renderer, &src_tex, &sampler);
 
-          let mut viewport = Viewport::new((32, 32));
-          viewport.x = face.pack_info.x * dest_size_width;
-          viewport.y = face.pack_info.y * dest_size_width;
-          viewport.w = face.pack_info.w * dest_size_width;
-          viewport.h = face.pack_info.h * dest_size_width;
-          (params, viewport)
-        })
-        .collect();
+    //       let mut viewport = Viewport::new((32, 32));
+    //       viewport.x = face.pack_info.x * dest_size_width;
+    //       viewport.y = face.pack_info.y * dest_size_width;
+    //       viewport.w = face.pack_info.w * dest_size_width;
+    //       viewport.h = face.pack_info.h * dest_size_width;
+    //       (params, viewport)
+    //     })
+    //     .collect();
 
-      let mut pass = target
-        .create_render_pass_builder()
-        .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())
-        .create(renderer);
+    //   let mut pass = target
+    //     .create_render_pass_builder()
+    //     .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())
+    //     .create(renderer);
 
-      for (params, viewport) in &gpu {
-        pass.use_viewport(&viewport);
-        pass.set_pipeline(&copy_shading.pipeline);
-        pass.set_bindgroup(0, &params);
-        quad.render(&mut pass);
-      }
-    }
+    //   for (params, viewport) in &gpu {
+    //     pass.use_viewport(&viewport);
+    //     pass.set_pipeline(&copy_shading.pipeline);
+    //     pass.set_bindgroup(0, &params);
+    //     quad.render(&mut pass);
+    //   }
+    // }
 
-    let (mut t, _) = target.dissemble();
-    t.remove(0)
+    // let (mut t, _) = target.dissemble();
+    // t.remove(0)
   }
 }
