@@ -5,7 +5,7 @@ name = "rendiation-mesh-buffer"
 version = "0.1.0"
 
 [features]
-shader-graph = ["rendiation-shadergraph", "rendiation-derives"]
+shadergraph = ["rendiation-shadergraph", "rendiation-derives"]
 webgpu = ["rendiation-webgpu"]
 
 [dependencies]

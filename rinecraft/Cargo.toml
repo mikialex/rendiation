@@ -19,7 +19,7 @@ tokio = {version = "0.2", features = ["full"]}
 
 rendiation-math = {path = "../math"}
 rendiation-math-entity = {path = "../math-entity"}
-rendiation-mesh-buffer = {path = "../mesh-buffer", features = ["webgpu", "shader-graph"]}
+rendiation-mesh-buffer = {path = "../mesh-buffer", features = ["webgpu", "shadergraph"]}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-webgpu = {path = "../webgpu"}
 rendiation-webgl = {path = "../webgl"}

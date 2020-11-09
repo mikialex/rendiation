@@ -4,11 +4,11 @@ use rendiation_math_entity::Positioned3D;
 use rendiation_ral::*;
 use std::{hash::Hash, mem};
 
-#[cfg(feature = "shader-graph")]
+#[cfg(feature = "shadergraph")]
 use rendiation_derives::Geometry;
 
 #[repr(C)]
-#[cfg_attr(feature = "shader-graph", derive(Geometry))]
+#[cfg_attr(feature = "shadergraph", derive(Geometry))]
 #[derive(Clone, Copy, soa_derive::StructOfArray)]
 pub struct Vertex {
   pub position: Vec3<f32>,

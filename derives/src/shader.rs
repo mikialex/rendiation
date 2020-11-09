@@ -68,15 +68,14 @@ fn derive_shader_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::TokenSt
       pub fn new(viewer: &mut nyxt_core::NyxtViewer,
         #(#constructor_parameters)*
       ) -> Self {
-        todo!()
-        // let handle = viewer.mutate_inner(|inner| {
-        //   let default_value = #struct_name::create_resource_instance(
-        //     #(#constructor_create_ral_instance)*
-        //   );
-        //   inner.resource.shadings.add_shading(default_value)
-        // });
-        // use nyxt_core::NyxtShadingWrapped;
-        // #struct_name::to_nyxt_wrapper(viewer, handle)
+        let handle = viewer.mutate_inner(|inner| {
+          let default_value = #struct_name::create_resource_instance(
+            #(#constructor_create_ral_instance)*
+          );
+          inner.resource.shadings.add_shading(default_value, &mut inner.renderer)
+        });
+        use nyxt_core::NyxtShadingWrapped;
+        #struct_name::to_nyxt_wrapper(viewer, handle)
       }
     }
 
