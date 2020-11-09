@@ -8,7 +8,7 @@ pub fn derive_shader_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream 
   generated.append_all(derive_shadergraph_instance(&s));
   generated.append_all(derive_ral_resource_instance(&s));
   generated.append_all(derive_webgl_upload_instance(&s));
-  generated.append_all(derive_shader_nyxt_wasm_instance_impl(&s));
+  // generated.append_all(derive_shader_nyxt_wasm_instance_impl(&s));
   generated
 }
 

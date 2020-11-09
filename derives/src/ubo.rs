@@ -33,22 +33,25 @@ fn derive_ubo_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::TokenStrea
   quote! {
     #[cfg(feature = "nyxt")]
     use wasm_bindgen::prelude::*;
+    #[cfg(feature = "nyxt")]
+    use nyxt_core::*;
+
 
     #[cfg(feature = "nyxt")]
     #[wasm_bindgen]
     #[derive(Clone)]
-    pub struct #instance_name {
+    pub struct #instance_name<V: NyxtViewerInnerTrait> {
       #[wasm_bindgen(skip)]
-      pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::UniformHandleWrap<#struct_name>>,
+      pub inner: NyxtViewerHandledObject<V, UniformHandleWrap<#struct_name>>,
     }
 
     #[cfg(feature = "nyxt")]
-    impl nyxt_core::NyxtUBOWrapped for #struct_name {
-      type Wrapper = #instance_name;
+    impl NyxtUBOWrapped<V: NyxtViewerInnerTrait> for #struct_name {
+      type Wrapper = #instance_name<V>;
 
-      fn to_nyxt_wrapper(viewer: &mut nyxt_core::NyxtViewer, handle: rendiation_ral::UniformHandle<nyxt_core::GFX, Self>) -> Self::Wrapper{
+      fn to_nyxt_wrapper(viewer: &Rc<RefCell<V>>, handle: rendiation_ral::UniformHandle<GFX, Self>) -> Self::Wrapper{
         #instance_name {
-          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
+          inner: NyxtViewerHandledObject::new(viewer, UniformHandleWrap(handle)),
         }
       }
     }
@@ -59,13 +62,12 @@ fn derive_ubo_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::TokenStrea
       #(#fields_wasm_getter_setter)*
 
       #[wasm_bindgen(constructor)]
-      pub fn new(viewer: &mut nyxt_core::NyxtViewer) -> Self {
-        let handle = viewer.mutate_inner(|inner| {
+      pub fn new(viewer: &mut V::ViewerReal) -> Self {
+        let handle = V::mutate_inner(viewer, |inner| {
           let default_value = #struct_name::default();
           inner.resource.bindable.uniform_buffers.add(default_value)
         });
-        use nyxt_core::NyxtUBOWrapped;
-        #struct_name::to_nyxt_wrapper(viewer, handle)
+        #struct_name::to_nyxt_wrapper(V::get_inner(viewer), handle)
       }
     }
 

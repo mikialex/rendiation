@@ -1593,16 +1593,7 @@ name = "nyxt-core"
 version = "0.1.0"
 dependencies = [
  "arena",
- "arena-tree",
- "bytemuck",
- "console_error_panic_hook",
- "js-sys",
- "rendiation-math",
- "rendiation-math-entity",
- "rendiation-mesh-buffer",
  "rendiation-ral",
- "rendiation-render-entity",
- "rendiation-scenegraph",
  "rendiation-webgl",
  "wasm-bindgen",
  "web-sys",

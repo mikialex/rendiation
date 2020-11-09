@@ -5,7 +5,9 @@ use rendiation_ral::{
 };
 use wasm_bindgen::prelude::*;
 
-use crate::{NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner, GFX};
+use crate::{
+  NyxtViewer, NyxtViewerHandle, NyxtViewerHandledObject, NyxtViewerInner, NyxtViewerInnerTrait, GFX,
+};
 
 #[wasm_bindgen]
 pub struct AttributeBufferF32WASM {
@@ -54,7 +56,7 @@ pub struct IndexBufferWASM {
 #[derive(Copy, Clone)]
 pub struct IndexBufferHandleWrap(IndexBufferHandle<GFX>);
 
-impl NyxtViewerHandle for IndexBufferHandleWrap {
+impl<V: NyxtViewerInnerTrait> NyxtViewerHandle<V> for IndexBufferHandleWrap {
   type Item = <GFX as RAL>::IndexBuffer;
 
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item {
@@ -89,7 +91,7 @@ pub struct VertexBufferWASM {
 
 #[derive(Copy, Clone)]
 pub struct VertexBufferHandleWrap(VertexBufferHandle<GFX>);
-impl NyxtViewerHandle for VertexBufferHandleWrap {
+impl<V: NyxtViewerInnerTrait> NyxtViewerHandle<V> for VertexBufferHandleWrap {
   type Item = <GFX as RAL>::VertexBuffer;
 
   fn get(self, inner: &NyxtViewerInner) -> &Self::Item {

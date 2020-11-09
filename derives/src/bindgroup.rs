@@ -11,7 +11,7 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated.append_all(derive_shadergraph_instance(&s));
   generated.append_all(derive_ral_bindgroup(&s));
   generated.append_all(derive_webgl_upload_instance(&s));
-  generated.append_all(derive_bindgroup_nyxt_wasm_instance_impl(&s));
+  // generated.append_all(derive_bindgroup_nyxt_wasm_instance_impl(&s));
   generated
 }
 

@@ -14,74 +14,99 @@ use wasm_bindgen::prelude::*;
 use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 
-#[derive(Shader)]
-pub struct MeshBasicShader {
-  pub uniforms: MeshBasicShaderBindGroup,
-}
+pub mod test;
 
-impl<T: RAL> ShaderWithGeometry<T> for MeshBasicShader {
-  type Geometry = Vertex;
-}
+pub mod scene;
+pub mod viewer_impl;
+pub use scene::*;
+pub use viewer_impl::*;
+pub mod geometry;
+pub use geometry::*;
 
-impl ShaderGraphProvider for MeshBasicShader {
-  fn build_graph() -> ShaderGraph {
-    let (mut builder, input) = Self::create_builder();
-    let vertex = builder.vertex_by::<Vertex>();
-    builder.set_vertex_root(builder.c(Vec4::zero()));
-    builder.set_frag_output(builder.c(Vec4::zero()));
-    builder.create()
-  }
-}
-
-#[derive(BindGroup)]
-pub struct MeshBasicShaderBindGroup {
-  #[stage(frag)]
-  pub parameter: MeshBasicShaderParameter,
-
-  #[stage(vert)]
-  pub mvp: CameraTransform,
-}
-
-#[derive(UniformBuffer, Copy, Clone)]
-#[repr(C, align(16))]
-pub struct MeshBasicShaderParameter {
-  pub color: Vec4<f32>,
-}
-
-impl Default for MeshBasicShaderParameter {
-  fn default() -> Self {
-    Self {
-      color: Vec4::new(1.0, 1.0, 1.0, 1.0),
-    }
-  }
+#[wasm_bindgen]
+pub struct NyxtViewer {
+  inner: Rc<RefCell<NyxtViewerInner>>,
 }
 
 #[wasm_bindgen]
-pub fn test_bvh() {
-  let boxes = generate_boxes_in_space(20000, 10000., 1.);
-
-  for _ in 0..10 {
-    let _ = bvh_build(
-      &boxes,
-      &mut BalanceTree,
-      &TreeBuildOption {
-        max_tree_depth: 15,
-        bin_size: 10,
-      },
-    );
+impl NyxtViewer {
+  #[wasm_bindgen(constructor)]
+  pub fn new(canvas: HtmlCanvasElement) -> Self {
+    console_error_panic_hook::set_once();
+    let mut resource = ResourceManager::new();
+    let scene = Scene::new(&mut resource);
+    Self {
+      inner: Rc::new(RefCell::new(NyxtViewerInner {
+        renderer: WebGLRenderer::new(canvas),
+        resource,
+        scene,
+        cached_drawcall_list: SceneDrawcallList::new(),
+        camera: Camera::new(),
+      })),
+    }
   }
 
-  let mut sah = SAH::new(4);
-  for _ in 0..10 {
-    let _ = bvh_build(
-      &boxes,
-      &mut sah,
-      &TreeBuildOption {
-        max_tree_depth: 15,
-        bin_size: 10,
-      },
-    );
+  #[wasm_bindgen]
+  pub fn get_root(&self) -> SceneNodeWASM {
+    SceneNodeWASM {
+      inner: self.make_handle_object(self.mutate_inner(|inner| inner.scene.get_root().handle())),
+    }
+  }
+
+  #[wasm_bindgen]
+  pub fn render(&self) {
+    self.mutate_inner(|viewer| {
+      let resource = &mut viewer.resource;
+      let scene = &mut viewer.scene;
+      let renderer = &mut viewer.renderer;
+      let camera = &mut viewer.camera;
+
+      let list = scene.update(resource, camera, &mut viewer.cached_drawcall_list);
+      resource.maintain_gpu(renderer);
+
+      list.render(renderer, scene, resource);
+    });
   }
 }
 
-pub use rendiation_shader_library::fog::*;
+impl NyxtViewer {
+  pub fn mutate_inner<T>(&self, mutator: impl FnOnce(&mut NyxtViewerInner) -> T) -> T {
+    let mut inner = self.inner.borrow_mut();
+    mutator(&mut inner)
+  }
+
+  pub fn make_handle_object<V: NyxtViewerInnerTrait, T: NyxtViewerHandle<V>>(
+    &self,
+    handle: T,
+  ) -> NyxtViewerHandledObject<V, T> {
+    let inner = Rc::downgrade(&self.inner);
+    NyxtViewerHandledObject { handle, inner }
+  }
+}
+
+impl<V: NyxtViewerInnerTrait> NyxtViewerHandle<V> for DrawcallHandle<GFX> {
+  type Item = Drawcall<GFX>;
+
+  fn get(self, inner: &V) -> &Self::Item {
+    inner.scene.drawcalls.get(self).unwrap()
+  }
+  fn free(self, inner: &mut V) {
+    inner.scene.drawcalls.remove(self);
+  }
+}
+
+impl<V: NyxtViewerInnerTrait> NyxtViewerHandle<V> for SceneNodeHandle<GFX> {
+  type Item = SceneNodeData<GFX>;
+
+  fn get(self, inner: &V) -> &Self::Item {
+    inner.scene.get_node(self).data()
+  }
+  fn free(self, inner: &mut V) {
+    inner.scene.free_node(self)
+  }
+}
+impl<V: NyxtViewerInnerTrait> NyxtViewerMutableHandle<V> for SceneNodeHandle<GFX> {
+  fn get_mut(self, inner: &mut V) -> &mut Self::Item {
+    inner.scene.get_node_mut(self).data_mut()
+  }
+}
