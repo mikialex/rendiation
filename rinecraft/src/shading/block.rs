@@ -36,7 +36,7 @@ pub struct BlockShadingParamGroup {
 
 impl ShaderGraphProvider for BlockShader {
   fn build_graph() -> ShaderGraph {
-    let (mut builder, input) = BlockShader::create_builder();
+    let (mut builder, input) = Self::create_builder();
     let vertex = builder.vertex_by::<Vertex>();
     let p = input.parameter;
 

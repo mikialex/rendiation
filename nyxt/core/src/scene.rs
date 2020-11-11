@@ -1,6 +1,7 @@
 use rendiation_math::wasm::{Mat4F32WASM, WASMAbleType};
 use rendiation_scenegraph::{
-  default_impl::RenderMatrixData, default_impl::SceneNodeData, DrawcallHandle, SceneNodeHandle,
+  default_impl::SceneNodeData, default_impl::SceneNodeRenderMatrixData, DrawcallHandle,
+  SceneNodeHandle,
 };
 use wasm_bindgen::prelude::*;
 
@@ -25,9 +26,9 @@ impl SceneNodeWASM {
 
   // pub fn get_node_matrix_render_info_uniform(
   //   &self,
-  // ) -> <RenderMatrixData as NyxtUBOWrapped>::Wrapper {
+  // ) -> <SceneNodeRenderMatrixData as NyxtUBOWrapped>::Wrapper {
   //   let handle = self.inner.mutate_item(|d| d.render_data.matrix_data);
-  //   RenderMatrixData::to_nyxt_wrapper()
+  //   SceneNodeRenderMatrixData::to_nyxt_wrapper()
   // }
 
   #[wasm_bindgen(getter)]

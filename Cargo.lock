@@ -1604,7 +1604,6 @@ dependencies = [
  "rendiation-render-entity",
  "rendiation-scenegraph",
  "rendiation-webgl",
- "space-indexer",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -2239,12 +2238,15 @@ dependencies = [
  "arena",
  "arena-tree",
  "js-sys",
+ "once_cell",
+ "rendiation-derives",
  "rendiation-math",
  "rendiation-math-entity",
  "rendiation-mesh-buffer",
  "rendiation-ral",
  "rendiation-render-entity",
  "rendiation-rendergraph",
+ "rendiation-shadergraph",
  "wasm-bindgen",
 ]
 
@@ -2281,6 +2283,7 @@ dependencies = [
  "js-sys",
  "rendiation-math",
  "rendiation-ral",
+ "rendiation-shadergraph",
  "wasm-bindgen",
  "web-sys",
 ]

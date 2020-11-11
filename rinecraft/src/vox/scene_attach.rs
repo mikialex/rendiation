@@ -80,7 +80,7 @@ impl World {
       return;
     }
 
-    let block_atlas = self.world_machine.get_block_atlas(renderer);
+    let block_atlas = self.world_machine.get_block_atlas(renderer, resources);
     let sampler = WGPUSampler::default(renderer);
 
     let fog = FogData {
@@ -97,8 +97,6 @@ impl World {
       .bindable
       .samplers
       .insert(WGPUSampler::default(renderer));
-    let block_shading_pipeline = BlockShader::build_graph().create_pipeline::<WebGPU>(renderer);
-    let block_shading_pipeline = resources.shading_gpu.insert(block_shading_pipeline);
 
     let bindgroup_index =
       resources
@@ -111,9 +109,7 @@ impl World {
         ));
 
     let block_shading = BlockShader::create_resource_instance(bindgroup_index);
-    let block_shading = resources
-      .shadings
-      .add_shading(block_shading, block_shading_pipeline);
+    let block_shading = resources.shadings.add_shading(block_shading, renderer);
 
     let root_node_index = scene.create_new_node(resources).handle();
     scene.add_to_scene_root(root_node_index);

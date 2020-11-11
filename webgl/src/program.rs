@@ -27,9 +27,9 @@ pub struct WebGLProgram {
 }
 
 pub struct WebGLProgramBuildSource {
-  glsl_vertex: String,
-  glsl_fragment: String,
-  uploader_creator: Box<dyn WebGLUniformUploadShaderInstanceBuilder>,
+  pub glsl_vertex: String,
+  pub glsl_fragment: String,
+  pub uploader_creator: Box<dyn WebGLUniformUploadShaderInstanceBuilder>,
 }
 
 impl WebGLProgram {

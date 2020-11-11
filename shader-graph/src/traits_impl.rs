@@ -87,6 +87,12 @@ impl ShaderGraphNodeType for Mat4<f32> {
   }
 }
 
+impl ShaderGraphNodeType for Mat3<f32> {
+  fn to_glsl_type() -> &'static str {
+    "mat3"
+  }
+}
+
 impl ShaderGraphNodeType for ShaderSampler {
   fn to_glsl_type() -> &'static str {
     "sampler"

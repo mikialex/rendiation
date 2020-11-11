@@ -74,7 +74,7 @@ impl<T: RAL> SceneNodeData<T> {
 
 pub struct RenderData<T: RAL> {
   pub world_bounding: Option<BoundingInfo>,
-  pub matrix_data: UniformHandle<T, RenderMatrixData>,
+  pub matrix_data: UniformHandle<T, SceneNodeRenderMatrixData>,
   pub camera_distance: f32,
 }
 
@@ -85,19 +85,22 @@ impl<T: RAL> RenderData<T> {
       matrix_data: resource
         .bindable
         .uniform_buffers
-        .add(RenderMatrixData::default()),
+        .add(SceneNodeRenderMatrixData::default()),
       camera_distance: 0.,
     }
   }
 }
 
-pub struct RenderMatrixData {
+pub use rendiation_derives::UniformBuffer;
+#[derive(UniformBuffer, Copy, Clone)]
+#[repr(C, align(16))]
+pub struct SceneNodeRenderMatrixData {
   pub world_matrix: Mat4<f32>,
   pub model_view_matrix: Mat4<f32>,
   pub normal_matrix: Mat3<f32>,
 }
 
-impl Default for RenderMatrixData {
+impl Default for SceneNodeRenderMatrixData {
   fn default() -> Self {
     Self {
       world_matrix: Mat4::one(),

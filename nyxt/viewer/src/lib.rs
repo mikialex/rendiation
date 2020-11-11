@@ -23,12 +23,23 @@ impl<T: RAL> ShaderWithGeometry<T> for MeshBasicShader {
   type Geometry = Vertex;
 }
 
+impl ShaderGraphProvider for MeshBasicShader {
+  fn build_graph() -> ShaderGraph {
+    let (mut builder, input) = Self::create_builder();
+    let vertex = builder.vertex_by::<Vertex>();
+    builder.set_vertex_root(builder.c(Vec4::zero()));
+    builder.set_frag_output(builder.c(Vec4::zero()));
+    builder.create()
+  }
+}
+
 #[derive(BindGroup)]
 pub struct MeshBasicShaderBindGroup {
   #[stage(frag)]
   pub parameter: MeshBasicShaderParameter,
-  // #[stage(vert)]
-  // pub mvp: CameraTransform,
+
+  #[stage(vert)]
+  pub mvp: CameraTransform,
 }
 
 #[derive(UniformBuffer, Copy, Clone)]

@@ -1,4 +1,4 @@
-import { AttributeBufferF32WASM, NyxtViewer, SceneNodeWASM, VertexBufferWASM } from '../pkg/nyxt_viewer';
+import { AttributeBufferF32WASM, MeshBasicShaderBindGroupWASM, MeshBasicShaderParameterWASM, MeshBasicShaderWASM, NyxtViewer, SceneNodeWASM, VertexBufferWASM } from '../pkg/nyxt_viewer';
 import * as THREE from './node_modules/three/src/Three'
 import { Object3D, Vector3, Matrix4 } from './node_modules/three/src/Three';
 
@@ -57,6 +57,10 @@ export function intoWasmScene() {
     canvas.height = canvas.clientHeight;
     const viewer = new NyxtViewer(canvas);
     console.log(viewer)
+
+    const basicParameter = new MeshBasicShaderParameterWASM(viewer);
+    const bindgroup = new MeshBasicShaderBindGroupWASM(viewer, basicParameter);
+    const basicShader = new MeshBasicShaderWASM(viewer, bindgroup);
 
 
     const geo = new THREE.BoxBufferGeometry();

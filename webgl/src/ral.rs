@@ -7,13 +7,15 @@ use rendiation_ral::*;
 use std::ops::Range;
 use web_sys::*;
 
+// add clone just for fill the trait demand
+#[derive(Clone)]
 pub struct WebGL;
 
 impl RAL for WebGL {
   type RenderTarget = Option<WebGlFramebuffer>;
   type RenderPass = WebGLRenderer;
   type Renderer = WebGLRenderer;
-  type ShaderBuildSource = WebGLProgramBuildSource; // todo
+  type ShaderBuildSource = WebGLProgramBuildSource;
   type Shading = WebGLProgram;
   type BindGroup = ();
   type IndexBuffer = WebGlBuffer;
@@ -121,7 +123,6 @@ impl RAL for WebGL {
     shading_storage.apply(pass, resources);
 
     let program = shading_storage.get_gpu();
-    let program = resources.shading_gpu.get(program).unwrap();
     program.upload(pass, resources, shading_storage.shading_provider_as_any());
 
     // geometry bind

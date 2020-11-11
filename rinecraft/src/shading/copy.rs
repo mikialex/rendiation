@@ -1,7 +1,7 @@
 use render_target::{RenderTarget, TargetInfoProvider};
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 
-use rendiation_ral::{ShaderSampler, ShaderTexture};
+use rendiation_ral::{ShaderSampler, ShaderTexture, ShaderWithGeometry, RAL};
 use rendiation_shader_library::builtin::*;
 use rendiation_shader_library::fog::*;
 use rendiation_shader_library::sph::*;
@@ -10,28 +10,28 @@ use rendiation_shader_library::*;
 
 use rendiation_webgpu::*;
 
-pub struct CopierShading {
-  pub pipeline: WGPUPipeline,
+#[derive(Shader)]
+pub struct CopyShader {
+  parameter: CopyParam,
 }
 
-impl CopierShading {
-  pub fn new(renderer: &mut WGPURenderer) -> Self {
-    let mut builder = ShaderGraphBuilder::new();
+impl<T: RAL> ShaderWithGeometry<T> for CopyShader {
+  type Geometry = Vertex;
+}
+
+impl ShaderGraphProvider for CopyShader {
+  fn build_graph() -> ShaderGraph {
+    let (mut builder, input) = CopyShader::create_builder();
+    let vertex = builder.vertex_by::<Vertex>();
     builder.geometry_by::<IndexedGeometry>();
-    let geometry = builder.vertex_by::<Vertex>();
+    let parameter = input.parameter;
 
-    let parameter = builder.bindgroup_by::<CopyParam>();
-
-    builder.set_vertex_root(vec4_31(geometry.position, builder.c(1.0)));
-    let frag_uv = builder.set_vary(geometry.uv);
+    builder.set_vertex_root(vec4_31(vertex.position, builder.c(1.0)));
+    let frag_uv = builder.set_vary(vertex.uv);
 
     builder.set_frag_output(parameter.my_texture.sample(parameter.my_sampler, frag_uv));
 
-    let graph = builder.create();
-
-    Self {
-      pipeline: graph.create_pipeline::<WebGPU>(renderer),
-    }
+    builder.create()
   }
 }
 

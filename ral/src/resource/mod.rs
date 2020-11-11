@@ -158,6 +158,10 @@ pub trait ShadingProvider<T: RAL>: 'static + Sized + ShaderWithGeometry<T> {
   );
 }
 
+pub trait ShadingCreator<T: RAL>: ShadingProvider<T> {
+  fn create_shader(instance: &Self::Instance, renderer: &mut T::Renderer) -> T::Shading;
+}
+
 // just marker type for vertex
 // not related to real geometry container type;
 pub trait GeometryProvider<T: RAL>: 'static + Sized {}

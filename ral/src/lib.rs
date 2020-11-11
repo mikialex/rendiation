@@ -4,13 +4,13 @@ mod resource;
 mod shader_info;
 mod target_state;
 mod viewport;
-mod wgpu_re;
+mod wgpu_reexport;
 
 pub use resource::*;
 pub use shader_info::*;
 pub use target_state::*;
 pub use viewport::*;
-pub use wgpu_re::*;
+pub use wgpu_reexport::*;
 
 pub trait RAL: 'static + Sized {
   type RenderTarget;

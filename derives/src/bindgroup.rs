@@ -10,7 +10,6 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated.append_all(derive_ral_bindgroup_layout(&s));
   generated.append_all(derive_shadergraph_instance(&s));
   generated.append_all(derive_ral_bindgroup(&s));
-  generated.append_all(derive_wgpu_bindgroup_direct_create(&s));
   generated.append_all(derive_webgl_upload_instance(&s));
   generated.append_all(derive_bindgroup_nyxt_wasm_instance_impl(&s));
   generated
@@ -231,35 +230,6 @@ fn derive_ral_bindgroup(s: &StructInfo) -> proc_macro2::TokenStream {
       }
     }
 
-  }
-}
-
-fn derive_wgpu_bindgroup_direct_create(s: &StructInfo) -> proc_macro2::TokenStream {
-  let struct_name = &s.struct_name;
-
-  let wgpu_create_bindgroup_fn_param = s.map_fields(|(field_name, ty)| {
-    quote! { #field_name: < #ty as rendiation_webgpu::WGPUBindgroupItem>::Type, }
-  });
-
-  let wgpu_create_bindgroup_create = s.map_fields(|(field_name, ty)| {
-    quote! {.push(<#ty as rendiation_webgpu::WGPUBindgroupItem>::to_binding(#field_name))}
-  });
-
-  quote! {
-    #[cfg(feature = "webgpu")]
-    impl #struct_name {
-      pub fn create_bindgroup(
-        renderer: &rendiation_webgpu::WGPURenderer,
-        #(#wgpu_create_bindgroup_fn_param)*
-      ) -> rendiation_webgpu::WGPUBindGroup {
-        rendiation_webgpu::BindGroupBuilder::new()
-          #(#wgpu_create_bindgroup_create)*
-          .build(
-            &renderer.device,
-            &renderer.bindgroup_layout_cache.get_bindgroup_layout_by_type::<#struct_name>(&renderer.device)
-          )
-      }
-    }
   }
 }
 
