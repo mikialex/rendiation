@@ -3,9 +3,11 @@ use crate::{BindGroupCreator, BindGroupHandle, BindGroupProvider, ResourceManage
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
+pub type AnyBindGroupHandle<R> = Handle<Box<dyn BindgroupStorageTrait<R>>>;
+
 pub struct BindGroupManager<R: RAL> {
   storage: Arena<Box<dyn BindgroupStorageTrait<R>>>,
-  modified: HashSet<Handle<Box<dyn BindgroupStorageTrait<R>>>>,
+  modified: HashSet<AnyBindGroupHandle<R>>,
 }
 
 impl<R: RAL> BindGroupManager<R> {

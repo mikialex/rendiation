@@ -72,6 +72,26 @@ pub trait RALBindgroupHandle<T: RAL> {
 impl<T: RAL, U: UBOData> RALBindgroupHandle<T> for U {
   type HandleType = UniformHandle<T, U>;
 }
+
+pub trait RALBindgroupItem<'a, T: RAL>: RALBindgroupHandle<T> {
+  type Resource;
+  fn get_item(
+    handle: Self::HandleType,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) -> Self::Resource;
+
+  fn add_ref(
+    handle: Self::HandleType,
+    bindgroup_handle: AnyBindGroupHandle<T>,
+    resources: &'a ShaderBindableResourceManager<T>,
+  );
+  fn delete_ref(
+    handle: Self::HandleType,
+    bindgroup_handle: AnyBindGroupHandle<T>,
+    resources: &'a ShaderBindableResourceManager<T>,
+  );
+}
+
 impl<'a, T: RAL, U: UBOData> RALBindgroupItem<'a, T> for U {
   type Resource = UniformBufferRef<'a, T, U>;
   fn get_item(
@@ -79,6 +99,20 @@ impl<'a, T: RAL, U: UBOData> RALBindgroupItem<'a, T> for U {
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource {
     resources.uniform_buffers.get_uniform_gpu(handle)
+  }
+  fn add_ref(
+    handle: Self::HandleType,
+    bindgroup_handle: AnyBindGroupHandle<T>,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) {
+    todo!()
+  }
+  fn delete_ref(
+    handle: Self::HandleType,
+    bindgroup_handle: AnyBindGroupHandle<T>,
+    resources: &'a ShaderBindableResourceManager<T>,
+  ) {
+    todo!()
   }
 }
 
@@ -93,6 +127,18 @@ impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderTexture {
   ) -> Self::Resource {
     resources.textures.get(handle).unwrap()
   }
+  fn add_ref(
+    _handle: Self::HandleType,
+    _bindgroup_handle: AnyBindGroupHandle<T>,
+    _resources: &'a ShaderBindableResourceManager<T>,
+  ) {
+  }
+  fn delete_ref(
+    _handle: Self::HandleType,
+    _bindgroup_handle: AnyBindGroupHandle<T>,
+    _resources: &'a ShaderBindableResourceManager<T>,
+  ) {
+  }
 }
 
 impl<T: RAL> RALBindgroupHandle<T> for ShaderSampler {
@@ -106,6 +152,18 @@ impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderSampler {
   ) -> Self::Resource {
     resources.samplers.get(handle).unwrap()
   }
+  fn add_ref(
+    _handle: Self::HandleType,
+    _bindgroup_handle: AnyBindGroupHandle<T>,
+    _resources: &'a ShaderBindableResourceManager<T>,
+  ) {
+  }
+  fn delete_ref(
+    _handle: Self::HandleType,
+    _bindgroup_handle: AnyBindGroupHandle<T>,
+    _resources: &'a ShaderBindableResourceManager<T>,
+  ) {
+  }
 }
 
 pub struct UniformBufferRef<'a, T: RAL, U: 'static + Sized> {
@@ -115,14 +173,6 @@ pub struct UniformBufferRef<'a, T: RAL, U: 'static + Sized> {
 }
 
 pub trait UBOData: 'static + Sized {}
-
-pub trait RALBindgroupItem<'a, T: RAL>: RALBindgroupHandle<T> {
-  type Resource;
-  fn get_item(
-    handle: Self::HandleType,
-    resources: &'a ShaderBindableResourceManager<T>,
-  ) -> Self::Resource;
-}
 
 pub trait BindGroupCreator<T: RAL>: BindGroupProvider<T> {
   fn create_bindgroup(

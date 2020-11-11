@@ -56,7 +56,6 @@ impl<T: RAL> ResourceManager<T> {
   pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
     self.bindable.uniform_buffers.maintain_gpu(renderer);
     self.bindgroups.maintain_gpu(renderer, &self.bindable);
-    // self.shadings.maintain_gpu(renderer);
   }
 }
 

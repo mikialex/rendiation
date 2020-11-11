@@ -1,4 +1,4 @@
-use crate::{UniformBufferRef, UniformHandle, RAL};
+use crate::{AnyBindGroupHandle, UniformBufferRef, UniformHandle, RAL};
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
@@ -142,6 +142,7 @@ pub struct UBOStorage<T: RAL, U> {
   dirty: bool,
   // dirty_mark: Vec<bool>,
   gpu: Option<T::UniformBuffer>,
+  reference: Vec<HashSet<AnyBindGroupHandle<T>>>,
 }
 
 impl<T: RAL, U> UBOStorage<T, U> {
@@ -150,18 +151,21 @@ impl<T: RAL, U> UBOStorage<T, U> {
       storage: Vec::new(),
       dirty: true,
       gpu: None,
+      reference: Vec::new(),
     }
   }
 
   fn insert(&mut self, value: U) -> usize {
     let result = self.storage.len();
     self.storage.push(value);
+    self.reference.push(HashSet::new());
     self.dirty = true;
     result
   }
 
   fn delete(&mut self, handle: usize) {
     self.storage.swap_remove(handle);
+    self.reference.swap_remove(handle);
   }
 
   fn update(&mut self, handle: usize, new_value: U) {
