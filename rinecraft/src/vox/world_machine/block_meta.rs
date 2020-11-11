@@ -2,9 +2,9 @@ use crate::shading::copy::CopyParam;
 use crate::{shading::*, vox::block::BlockFace};
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
-use rendiation_mesh_buffer::tessellation::*;
 use rendiation_mesh_buffer::wgpu::*;
-use rendiation_ral::{ResourceManager, Viewport};
+use rendiation_mesh_buffer::{geometry::IndexedGeometry, tessellation::*};
+use rendiation_ral::{BindGroupCreator, Drawcall, ResourceManager, TextureHandle, Viewport, RAL};
 use rendiation_webgpu::*;
 use std::{collections::HashMap, sync::Arc};
 
@@ -151,61 +151,97 @@ impl BlockRegistry {
     renderer: &mut WGPURenderer,
     resource: &mut ResourceManager<WebGPU>,
   ) -> WGPUTexture {
-    todo!();
-    // // todo filter same face
-    // let mut face_list: Vec<Arc<BlockFaceTextureInfo>> = Vec::new();
-    // face_list.push(self.lut[0].top_texture.clone());
-    // face_list.push(self.lut[1].top_texture.clone());
-    // face_list.push(self.lut[2].top_texture.clone());
-    // face_list.push(self.lut[2].x_max_texture.clone());
+    // todo!();
+    // todo filter same face
+    let mut face_list: Vec<Arc<BlockFaceTextureInfo>> = Vec::new();
+    face_list.push(self.lut[0].top_texture.clone());
+    face_list.push(self.lut[1].top_texture.clone());
+    face_list.push(self.lut[2].top_texture.clone());
+    face_list.push(self.lut[2].x_max_texture.clone());
 
-    // pub fn tex(img_d: &DynamicImage, renderer: &mut WGPURenderer) -> WGPUTexture {
-    //   let img = img_d.as_rgba8().unwrap().clone();
-    //   let size = (img.width(), img.height(), 1);
-    //   let data = img.into_raw();
-    //   WGPUTexture::new_from_image_data(renderer, &data, size)
-    // }
+    pub fn tex(
+      img_d: &DynamicImage,
+      renderer: &mut WGPURenderer,
+      resource: &mut ResourceManager<WebGPU>,
+    ) -> TextureHandle<WebGPU> {
+      let img = img_d.as_rgba8().unwrap().clone();
+      let size = (img.width(), img.height(), 1);
+      let data = img.into_raw();
+      let texture = WGPUTexture::new_from_image_data(renderer, &data, size);
+      resource.bindable.textures.insert(texture)
+    }
 
-    // use rendiation_mesh_buffer::geometry::TriangleList;
-    // let mut quad = GPUGeometry::<_, TriangleList>::from(Quad.create_mesh(&()));
-    // quad.update_gpu(renderer);
-    // let sampler = WGPUSampler::default(renderer);
-    // let target_texture = WGPUTexture::new_as_target_default(&renderer, (64, 64));
-    // let target = RenderTarget::from_one_texture(target_texture);
+    use rendiation_mesh_buffer::geometry::TriangleList;
+    use rendiation_ral::GeometryResourceInstanceCreator;
+    let quad = Quad.create_mesh(&());
+    let quad = IndexedGeometry::<_, TriangleList>::from(quad);
+    let quad = quad.create_resource_instance_handle(renderer, resource);
+    let sampler = WGPUSampler::default(renderer);
+    let sampler = resource.bindable.samplers.insert(sampler);
+    let target_texture = WGPUTexture::new_as_target_default(&renderer, (64, 64));
+    let target = RenderTarget::from_one_texture(target_texture);
 
-    // {
-    //   let copy_shading = CopierShading::new(renderer);
-    //   let dest_size_width = 64.;
+    let mut textures = Vec::new();
+    let mut bindgroups = Vec::new();
+    let mut shadings = Vec::new();
 
-    //   let gpu: Vec<_> = face_list
-    //     .iter()
-    //     .map(|face| {
-    //       let src_tex = tex(&face.img, renderer);
-    //       let params = CopyParam::create_bindgroup(renderer, &src_tex, &sampler);
+    {
+      let dest_size_width = 64.;
 
-    //       let mut viewport = Viewport::new((32, 32));
-    //       viewport.x = face.pack_info.x * dest_size_width;
-    //       viewport.y = face.pack_info.y * dest_size_width;
-    //       viewport.w = face.pack_info.w * dest_size_width;
-    //       viewport.h = face.pack_info.h * dest_size_width;
-    //       (params, viewport)
-    //     })
-    //     .collect();
+      let gpu: Vec<_> = face_list
+        .iter()
+        .map(|face| {
+          let src_tex = tex(&face.img, renderer, resource);
+          textures.push(src_tex);
+          let params = CopyParam::create_resource_instance(src_tex, sampler);
+          let params = resource.bindgroups.add(params);
+          bindgroups.push(params);
+          let copy_shading = CopyShader::create_resource_instance(params);
+          let copy_shading = resource
+            .shadings
+            .add_shading::<CopyShader>(copy_shading, renderer);
+          shadings.push(copy_shading);
 
-    //   let mut pass = target
-    //     .create_render_pass_builder()
-    //     .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())
-    //     .create(renderer);
+          let mut viewport = Viewport::new((32, 32));
+          viewport.x = face.pack_info.x * dest_size_width;
+          viewport.y = face.pack_info.y * dest_size_width;
+          viewport.w = face.pack_info.w * dest_size_width;
+          viewport.h = face.pack_info.h * dest_size_width;
+          (copy_shading, viewport)
+        })
+        .collect();
 
-    //   for (params, viewport) in &gpu {
-    //     pass.use_viewport(&viewport);
-    //     pass.set_pipeline(&copy_shading.pipeline);
-    //     pass.set_bindgroup(0, &params);
-    //     quad.render(&mut pass);
-    //   }
-    // }
+      let mut pass = target
+        .create_render_pass_builder()
+        .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())
+        .create(renderer);
 
-    // let (mut t, _) = target.dissemble();
-    // t.remove(0)
+      for (shading, viewport) in &gpu {
+        pass.use_viewport(&viewport);
+        WebGPU::render_drawcall(
+          &Drawcall {
+            shading: *shading,
+            geometry: quad,
+          },
+          unsafe { std::mem::transmute(&mut pass) },
+          resource,
+        );
+      }
+    }
+
+    resource.bindable.samplers.remove(sampler);
+    resource.delete_geometry_with_buffers(quad);
+    textures.drain(..).for_each(|t| {
+      resource.bindable.textures.remove(t);
+    });
+    bindgroups.drain(..).for_each(|t| {
+      resource.bindgroups.delete(t);
+    });
+    shadings.drain(..).for_each(|t| {
+      resource.shadings.delete_shading(t);
+    });
+
+    let (mut t, _) = target.dissemble();
+    t.remove(0)
   }
 }
