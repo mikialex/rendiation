@@ -1,16 +1,16 @@
 use crate::{
-  modify_graph, Node, OperatorNode, ShaderGraphConstableNodeType, ShaderGraphNode,
-  ShaderGraphNodeData, ShaderGraphNodeType,
+  modify_graph, Node, OperatorNode, ShaderGraphNode, ShaderGraphNodeData, ShaderGraphNodeType,
 };
 use std::ops::{Add, Mul, Sub};
 
-impl<T> Add for Node<T>
+impl<T, U> Add for Node<T>
 where
-  T: ShaderGraphNodeType + ShaderGraphConstableNodeType,
+  U: ShaderGraphNodeType,
+  T: ShaderGraphNodeType + Add<Output = U>,
 {
-  type Output = Self;
+  type Output = Node<U>;
 
-  fn add(self, other: Self) -> Self {
+  fn add(self, other: Self) -> Self::Output {
     modify_graph(|graph| unsafe {
       let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Operator(OperatorNode {
         left: self.handle.cast_type(),
@@ -25,13 +25,14 @@ where
   }
 }
 
-impl<T> Sub for Node<T>
+impl<T, U> Sub for Node<T>
 where
-  T: ShaderGraphNodeType + ShaderGraphConstableNodeType,
+  U: ShaderGraphNodeType,
+  T: ShaderGraphNodeType + Sub<Output = U>,
 {
-  type Output = Self;
+  type Output = Node<U>;
 
-  fn sub(self, other: Self) -> Self {
+  fn sub(self, other: Self) -> Self::Output {
     modify_graph(|graph| unsafe {
       let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Operator(OperatorNode {
         left: self.handle.cast_type(),
@@ -46,13 +47,14 @@ where
   }
 }
 
-impl<T> Mul for Node<T>
+impl<T, U> Mul for Node<T>
 where
-  T: ShaderGraphNodeType + ShaderGraphConstableNodeType,
+  U: ShaderGraphNodeType,
+  T: ShaderGraphNodeType + Mul<Output = U>,
 {
-  type Output = Self;
+  type Output = Node<U>;
 
-  fn mul(self, other: Self) -> Self {
+  fn mul(self, other: Self) -> Self::Output {
     modify_graph(|graph| unsafe {
       let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Operator(OperatorNode {
         left: self.handle.cast_type(),
