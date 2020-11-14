@@ -52,7 +52,7 @@ impl ShaderGraphProvider for BlockShader {
 
     let block_color = block_color.xyz() * spherical_harmonics(frag_normal);
     let final_color = FogData::apply_fog(p.fog, block_color, length(frag_mv_position));
-    builder.set_frag_output(vec4_31(final_color, builder.c(1.0)));
+    builder.set_frag_output(vec4_31(final_color, 1.0));
     builder.create()
   }
 }

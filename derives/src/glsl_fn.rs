@@ -106,8 +106,8 @@ pub fn gen_glsl_function(
     .iter()
     .map(|(ty, name)| {
       (
-        quote! { #name: rendiation_shadergraph::Node<#ty>, },
-        quote! { graph.nodes.connect_node(#name.handle.cast_type(), result); },
+        quote! { #name: impl rendiation_shadergraph::ShaderGraphNodeOrConst<Output = #ty>, },
+        quote! { graph.nodes.connect_node(#name.to_node().handle.cast_type(), result); },
       )
     })
     .unzip();

@@ -10,19 +10,19 @@ impl ShaderGraphBuilder {
     Self {}
   }
 
-  pub fn set_vertex_root(&self, n: Node<Vec4<f32>>) {
+  pub fn set_vertex_root(&self, n: impl ShaderGraphNodeOrConst<Output = Vec4<f32>>) {
     modify_graph(|g| {
       let node =
         ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vert));
       let handle = g.nodes.create_node(node.to_any());
       g.nodes
-        .connect_node(unsafe { n.handle.cast_type() }, handle);
+        .connect_node(unsafe { n.to_node().handle.cast_type() }, handle);
 
       g.vertex_position = Some(unsafe { handle.cast_type().into() })
     });
   }
 
-  pub fn set_frag_output(&self, n: Node<Vec4<f32>>) {
+  pub fn set_frag_output(&self, n: impl ShaderGraphNodeOrConst<Output = Vec4<f32>>) {
     modify_graph(|g| {
       let index = g.frag_outputs.len();
 
@@ -31,7 +31,7 @@ impl ShaderGraphBuilder {
       ));
       let handle = g.nodes.create_node(node.to_any());
       g.nodes
-        .connect_node(unsafe { n.handle.cast_type() }, handle);
+        .connect_node(unsafe { n.to_node().handle.cast_type() }, handle);
       g.frag_outputs
         .push((unsafe { handle.cast_type().into() }, index));
     });
@@ -97,15 +97,6 @@ impl ShaderGraphBuilder {
       let handle = graph.insert_node(node);
       graph.attributes.push((handle, graph.attributes.len()));
       unsafe { handle.handle.cast_type().into() }
-    })
-  }
-
-  // create const node
-  pub fn c<T: ShaderGraphNodeType + ShaderGraphConstableNodeType>(&self, value: T) -> Node<T> {
-    modify_graph(|graph| {
-      let data = ShaderGraphNodeData::Const(Box::new(value));
-      let node = ShaderGraphNode::<T>::new(data);
-      unsafe { graph.insert_node(node).handle.cast_type().into() }
     })
   }
 
