@@ -24,7 +24,7 @@ pub trait GeometryDataContainer<T>:
 
 pub trait RALGeometryDataContainer<T, R>: GeometryDataContainer<T>
 where
-  T: GeometryProvider<R>,
+  T: GeometryProvider,
   R: RAL,
 {
   fn create_gpu(
@@ -40,7 +40,7 @@ impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
 impl<R, T> RALGeometryDataContainer<T, R> for Vec<T>
 where
   R: RAL,
-  T: GeometryProvider<R> + Clone + VertexBufferDescriptorProvider + bytemuck::Pod,
+  T: GeometryProvider + Clone + VertexBufferDescriptorProvider + bytemuck::Pod,
 {
   fn create_gpu(
     &self,

@@ -189,13 +189,17 @@ fn derive_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStream {
     impl rendiation_shadergraph::ShaderGraphBuilderCreator for #struct_name {
       type ShaderGraphShaderInstance = #shadergraph_instance_name;
 
-      fn create_builder(
-      ) -> (rendiation_shadergraph::ShaderGraphBuilder, Self::ShaderGraphShaderInstance) {
+      fn create_builder() -> (
+        rendiation_shadergraph::ShaderGraphBuilder,
+        Self::ShaderGraphShaderInstance,
+        <Self::ShaderGeometry as ShaderGraphGeometryProvider>::ShaderGraphGeometryInstance
+      ) {
         let mut builder = rendiation_shadergraph::ShaderGraphBuilder::new();
         let instance = #shadergraph_instance_name {
           #(#instance_create)*
         };
-        (builder, instance)
+        let geometry_instance = <Self::ShaderGeometry>::create_instance(&mut builder);
+        (builder, instance, geometry_instance)
       }
     }
 

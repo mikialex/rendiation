@@ -2,7 +2,7 @@ pub use nyxt_core::*;
 
 use rendiation_math::Vec4;
 use rendiation_mesh_buffer::vertex::Vertex;
-use rendiation_ral::{ShaderWithGeometry, RAL};
+use rendiation_ral::{ShaderGeometryInfo, RAL};
 use space_indexer::{
   bvh::BalanceTree,
   bvh::{test::bvh_build, SAH},
@@ -19,14 +19,13 @@ pub struct MeshBasicShader {
   pub uniforms: MeshBasicShaderBindGroup,
 }
 
-impl<T: RAL> ShaderWithGeometry<T> for MeshBasicShader {
+impl ShaderGeometryInfo for MeshBasicShader {
   type Geometry = Vertex;
 }
 
 impl ShaderGraphProvider for MeshBasicShader {
   fn build_graph() -> ShaderGraph {
-    let (mut builder, input) = Self::create_builder();
-    let vertex = builder.vertex_by::<Vertex>();
+    let (mut builder, input, vertex) = Self::create_builder();
     builder.set_vertex_root(Vec4::zero());
     builder.set_frag_output(Vec4::zero());
     builder.create()

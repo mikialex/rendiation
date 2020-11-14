@@ -16,7 +16,7 @@ pub struct Vertex {
   pub uv: Vec2<f32>,
 }
 
-impl<T: RAL> GeometryProvider<T> for Vertex {}
+impl GeometryProvider for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 unsafe impl bytemuck::Pod for Vertex {}
 

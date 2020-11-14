@@ -4,7 +4,7 @@ use crate::{
 use rendiation_ral::*;
 
 impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
-  pub fn create_drawcall<SP: ShadingProvider<T>, G: GeometryProvider<T>>(
+  pub fn create_drawcall<SP: ShadingProvider<T>, G: GeometryProvider>(
     &mut self,
     geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,

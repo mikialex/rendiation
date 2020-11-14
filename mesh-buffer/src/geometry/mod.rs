@@ -19,7 +19,7 @@ use rendiation_ral::{
 
 impl<'a, V, T, U, R> GeometryResourceCreator<R> for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D + GeometryProvider<R>,
+  V: Positioned3D + GeometryProvider,
   T: PrimitiveTopology<V>,
   U: RALGeometryDataContainer<V, R> + 'static,
   R: RAL,
@@ -43,7 +43,7 @@ where
 
 impl<V, T, U, R> GeometryResourceInstanceCreator<R, V> for IndexedGeometry<V, T, U>
 where
-  V: Positioned3D + GeometryProvider<R>,
+  V: Positioned3D + GeometryProvider,
   T: PrimitiveTopology<V>,
   U: RALGeometryDataContainer<V, R> + 'static,
   R: RAL,

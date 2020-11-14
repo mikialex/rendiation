@@ -18,7 +18,7 @@ pub use uniform::*;
 pub struct Drawcall<T, G = AnyGeometryProvider, SP = AnyPlaceHolder>
 where
   T: RAL,
-  G: GeometryProvider<T>,
+  G: GeometryProvider,
   SP: ShadingProvider<T, Geometry = G>,
 {
   pub shading: ShadingHandle<T, SP>,
@@ -32,7 +32,7 @@ impl<T: RAL> Drawcall<T> {
   ) -> Self
   where
     SP: ShadingProvider<T>,
-    G: GeometryProvider<T>,
+    G: GeometryProvider,
   {
     Self {
       shading: unsafe { shading.cast_type() },
@@ -144,11 +144,11 @@ pub trait BindGroupProvider<T: RAL>: 'static {
   );
 }
 
-pub trait ShaderWithGeometry<T: RAL> {
-  type Geometry: GeometryProvider<T>;
+pub trait ShaderGeometryInfo {
+  type Geometry: GeometryProvider;
 }
 
-pub trait ShadingProvider<T: RAL>: 'static + Sized + ShaderWithGeometry<T> {
+pub trait ShadingProvider<T: RAL>: 'static + Sized + ShaderGeometryInfo {
   type Instance;
   fn apply(
     instance: &Self::Instance,
@@ -164,4 +164,4 @@ pub trait ShadingCreator<T: RAL>: ShadingProvider<T> {
 
 // just marker type for vertex
 // not related to real geometry container type;
-pub trait GeometryProvider<T: RAL>: 'static + Sized {}
+pub trait GeometryProvider: 'static + Sized {}

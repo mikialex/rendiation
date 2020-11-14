@@ -1,7 +1,7 @@
 use render_target::{RenderTarget, TargetInfoProvider};
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
 
-use rendiation_ral::{ShaderSampler, ShaderTexture, ShaderWithGeometry, RAL};
+use rendiation_ral::{ShaderGeometryInfo, ShaderSampler, ShaderTexture, RAL};
 use rendiation_shader_library::builtin::*;
 use rendiation_shader_library::fog::*;
 use rendiation_shader_library::sph::*;
@@ -15,14 +15,13 @@ pub struct CopyShader {
   parameter: CopyParam,
 }
 
-impl<T: RAL> ShaderWithGeometry<T> for CopyShader {
+impl ShaderGeometryInfo for CopyShader {
   type Geometry = Vertex;
 }
 
 impl ShaderGraphProvider for CopyShader {
   fn build_graph() -> ShaderGraph {
-    let (mut builder, input) = CopyShader::create_builder();
-    let vertex = builder.vertex_by::<Vertex>();
+    let (mut builder, input, vertex) = CopyShader::create_builder();
     builder.geometry_by::<IndexedGeometry>();
     let parameter = input.parameter;
 

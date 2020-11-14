@@ -21,7 +21,7 @@ pub trait GeometryResourceCreator<T: RAL>: Any {
   ) -> Self::Instance;
 }
 
-pub trait GeometryResourceInstanceCreator<T: RAL, G: GeometryProvider<T>>:
+pub trait GeometryResourceInstanceCreator<T: RAL, G: GeometryProvider>:
   GeometryResourceCreator<T, Instance = GeometryResourceInstance<T, G>>
 {
   fn create_resource_instance_handle(
@@ -34,7 +34,7 @@ pub trait GeometryResourceInstanceCreator<T: RAL, G: GeometryProvider<T>>:
   }
 }
 
-impl<T: RAL, G: GeometryProvider<T>> GeometryResource<T> for GeometryResourceInstance<T, G> {
+impl<T: RAL, G: GeometryProvider> GeometryResource<T> for GeometryResourceInstance<T, G> {
   fn apply(&self, render_pass: &mut T::RenderPass, resources: &ResourceManager<T>) {
     self.index_buffer.map(|b| {
       let index = resources.get_index_buffer(b).resource();
@@ -65,7 +65,7 @@ impl<T: RAL, G: GeometryProvider<T>> GeometryResource<T> for GeometryResourceIns
   }
 }
 
-pub struct GeometryResourceInstance<T: RAL, G: GeometryProvider<T>> {
+pub struct GeometryResourceInstance<T: RAL, G: GeometryProvider> {
   pub draw_range: Range<u32>,
   marker: PhantomData<G>,
   pub index_buffer: Option<IndexBufferHandle<T>>,
@@ -73,7 +73,7 @@ pub struct GeometryResourceInstance<T: RAL, G: GeometryProvider<T>> {
   pub topology: PrimitiveTopology,
 }
 
-impl<T: RAL, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
+impl<T: RAL, G: GeometryProvider> GeometryResourceInstance<T, G> {
   pub fn new() -> Self {
     Self {
       draw_range: 0..0,
@@ -86,14 +86,14 @@ impl<T: RAL, G: GeometryProvider<T>> GeometryResourceInstance<T, G> {
 }
 
 impl<T: RAL> ResourceManager<T> {
-  pub fn add_geometry<G: GeometryProvider<T>>(
+  pub fn add_geometry<G: GeometryProvider>(
     &mut self,
     g: GeometryResourceInstance<T, G>,
   ) -> GeometryHandle<T, G> {
     unsafe { self.geometries.insert(Box::new(g)).cast_type() }
   }
 
-  pub fn get_geometry_mut<G: GeometryProvider<T>>(
+  pub fn get_geometry_mut<G: GeometryProvider>(
     &mut self,
     index: GeometryHandle<T, G>,
   ) -> &mut GeometryResourceInstance<T, G> {
@@ -106,14 +106,14 @@ impl<T: RAL> ResourceManager<T> {
       .unwrap()
   }
 
-  pub fn get_geometry_boxed<G: GeometryProvider<T>>(
+  pub fn get_geometry_boxed<G: GeometryProvider>(
     &self,
     index: GeometryHandle<T, G>,
   ) -> &Box<dyn GeometryResource<T>> {
     self.geometries.get(unsafe { index.cast_type() }).unwrap()
   }
 
-  pub fn get_geometry<G: GeometryProvider<T>>(
+  pub fn get_geometry<G: GeometryProvider>(
     &self,
     index: GeometryHandle<T, G>,
   ) -> &GeometryResourceInstance<T, G> {
@@ -126,14 +126,11 @@ impl<T: RAL> ResourceManager<T> {
       .unwrap()
   }
 
-  pub fn delete_geometry<G: GeometryProvider<T>>(&mut self, index: GeometryHandle<T, G>) {
+  pub fn delete_geometry<G: GeometryProvider>(&mut self, index: GeometryHandle<T, G>) {
     self.geometries.remove(unsafe { index.cast_type() });
   }
 
-  pub fn delete_geometry_with_buffers<G: GeometryProvider<T>>(
-    &mut self,
-    index: GeometryHandle<T, G>,
-  ) {
+  pub fn delete_geometry_with_buffers<G: GeometryProvider>(&mut self, index: GeometryHandle<T, G>) {
     let geometry = self
       .geometries
       .get(unsafe { index.cast_type() })

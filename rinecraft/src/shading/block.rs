@@ -8,14 +8,14 @@ use rendiation_shader_library::transform::*;
 use rendiation_shader_library::*;
 use transform::CameraTransform;
 
-use rendiation_ral::{BindGroupHandle, ShaderSampler, ShaderTexture, ShaderWithGeometry, RAL};
+use rendiation_ral::{BindGroupHandle, ShaderGeometryInfo, ShaderSampler, ShaderTexture, RAL};
 
 #[derive(Shader)]
 pub struct BlockShader {
   parameter: BlockShadingParamGroup,
 }
 
-impl<T: RAL> ShaderWithGeometry<T> for BlockShader {
+impl ShaderGeometryInfo for BlockShader {
   type Geometry = Vertex;
 }
 
@@ -36,8 +36,7 @@ pub struct BlockShadingParamGroup {
 
 impl ShaderGraphProvider for BlockShader {
   fn build_graph() -> ShaderGraph {
-    let (mut builder, input) = Self::create_builder();
-    let vertex = builder.vertex_by::<Vertex>();
+    let (mut builder, input, vertex) = Self::create_builder();
     let p = input.parameter;
 
     builder.geometry_by::<IndexedGeometry>();

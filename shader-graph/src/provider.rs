@@ -1,13 +1,29 @@
 use crate::{ShaderGraph, ShaderGraphBindGroupBuilder, ShaderGraphBuilder};
-use rendiation_ral::ShaderStage;
+use rendiation_ral::{ShaderGeometryInfo, ShaderStage, RAL};
 
 pub trait ShaderGraphProvider {
   fn build_graph() -> ShaderGraph;
 }
 
-pub trait ShaderGraphBuilderCreator {
+pub trait ShaderGraphGeometryInfo {
+  type ShaderGeometry: ShaderGraphGeometryProvider;
+}
+
+impl<T: ShaderGeometryInfo> ShaderGraphGeometryInfo for T
+where
+  T: ShaderGeometryInfo,
+  T::Geometry: ShaderGraphGeometryProvider,
+{
+  type ShaderGeometry = T::Geometry;
+}
+
+pub trait ShaderGraphBuilderCreator: ShaderGraphGeometryInfo {
   type ShaderGraphShaderInstance;
-  fn create_builder() -> (ShaderGraphBuilder, Self::ShaderGraphShaderInstance);
+  fn create_builder() -> (
+    ShaderGraphBuilder,
+    Self::ShaderGraphShaderInstance,
+    <Self::ShaderGeometry as ShaderGraphGeometryProvider>::ShaderGraphGeometryInstance,
+  );
 }
 
 pub trait ShaderGraphBindGroupItemProvider {

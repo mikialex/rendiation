@@ -1,5 +1,5 @@
 use crate::{
-  AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShaderWithGeometry,
+  AnyPlaceHolder, BindGroupManager, GeometryProvider, ResourceManager, ShaderGeometryInfo,
   ShadingCreator, ShadingHandle, ShadingProvider, RAL,
 };
 use arena::{Arena, Handle};
@@ -135,9 +135,9 @@ impl<T: RAL> ShadingProvider<T> for AnyPlaceHolder {
   }
 }
 
-impl<T: RAL> ShaderWithGeometry<T> for AnyPlaceHolder {
+impl ShaderGeometryInfo for AnyPlaceHolder {
   type Geometry = AnyGeometryProvider;
 }
 
 pub struct AnyGeometryProvider;
-impl<T: RAL> GeometryProvider<T> for AnyGeometryProvider {}
+impl GeometryProvider for AnyGeometryProvider {}
