@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, rc::Weak};
 
+use log::Level;
 use rendiation_ral::*;
 use rendiation_render_entity::Camera;
 use rendiation_scenegraph::{
@@ -73,6 +74,8 @@ impl NyxtViewer {
   #[wasm_bindgen(constructor)]
   pub fn new(canvas: HtmlCanvasElement) -> Self {
     console_error_panic_hook::set_once();
+    console_log::init_with_level(Level::Debug).unwrap();
+
     let mut resource = ResourceManager::new();
     let scene = Scene::new(&mut resource);
     Self {

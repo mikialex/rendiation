@@ -55,7 +55,7 @@ impl ShaderGraphAttributeNodeType for Vec3<f32> {}
 impl ShaderGraphConstableNodeType for Vec3<f32> {
   fn const_to_glsl(&self) -> String {
     format!(
-      "vec3({}, {}, {}",
+      "vec3({}, {}, {})",
       self.x.const_to_glsl(),
       self.y.const_to_glsl(),
       self.z.const_to_glsl()
@@ -72,7 +72,7 @@ impl ShaderGraphAttributeNodeType for Vec4<f32> {}
 impl ShaderGraphConstableNodeType for Vec4<f32> {
   fn const_to_glsl(&self) -> String {
     format!(
-      "vec4({}, {}, {}, {}",
+      "vec4({}, {}, {}, {})",
       self.x.const_to_glsl(),
       self.y.const_to_glsl(),
       self.z.const_to_glsl(),

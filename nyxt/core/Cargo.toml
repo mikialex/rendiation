@@ -28,6 +28,9 @@ rendiation-webgl = {path = "../../webgl"}
 arena = {path = "../../utils/arena"}
 arena-tree = {path = "../../utils/arena-tree"}
 
+log = "0.4"
+console_log = { version = "0.2", features = ["color"] }
+
 [dependencies.web-sys]
 features = [
   'Document',
