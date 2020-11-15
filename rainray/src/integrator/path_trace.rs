@@ -5,9 +5,9 @@ use rendiation_render_entity::{
   Camera, Raycaster,
 };
 
-use crate::{math::rand, math::Vec3, scene::Scene};
-
 use super::Integrator;
+use crate::{math::rand, math::Vec3, scene::Scene};
+use rendiation_math::Zero;
 
 pub struct PathTraceIntegrator {
   pub exposure_upper_bound: f32,
@@ -84,9 +84,9 @@ impl Integrator for PathTraceIntegrator {
   ) -> Color<LinearRGBColorSpace<f32>> {
     let ray = camera.create_screen_ray(view_position);
 
-    let mut energy_acc = Vec3::new(0., 0., 0.);
+    let mut energy_acc = Vec3::zero();
 
-    for _sample in 0..self.trace_fix_sample_count {
+    for _ in 0..self.trace_fix_sample_count {
       energy_acc += self.path_trace(&ray, scene);
     }
 

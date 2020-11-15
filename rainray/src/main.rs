@@ -24,7 +24,7 @@ use std::env;
 use std::sync::Arc;
 
 fn main() {
-  let mut renderer = Renderer::new(PathTraceIntegrator::new());
+  let mut renderer = Renderer::new(AOIntegrator::new());
   let mut perspective = PerspectiveProjection::default();
   let mut camera = Camera::new();
   *camera.matrix_mut() = Mat4::lookat(

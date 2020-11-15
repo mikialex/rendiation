@@ -5,7 +5,7 @@ use rendiation_render_entity::{
   Camera, Raycaster,
 };
 
-use crate::{math::Vec3, scene::Scene};
+use crate::{math::rand_point_in_unit_sphere, math::Vec3, scene::Scene};
 
 use super::Integrator;
 
@@ -14,8 +14,25 @@ pub struct AOIntegrator {
 }
 
 impl AOIntegrator {
+  pub fn new() -> Self {
+    Self { sample_count: 100 }
+  }
   fn sample_ao(&self, ray: &Ray3, scene: &Scene) -> f32 {
-    todo!()
+    let hit_result = scene.get_min_dist_hit(ray);
+
+    if let Some((intersection, _)) = scene.get_min_dist_hit(ray) {
+      let test_ray = Ray3::from_point_to_point(
+        intersection.hit_position,
+        intersection.hit_position + rand_point_in_unit_sphere(),
+      );
+      if scene.get_min_dist_hit(&test_ray).is_some() {
+        0.0
+      } else {
+        1.0
+      }
+    } else {
+      1.0
+    }
   }
 }
 
