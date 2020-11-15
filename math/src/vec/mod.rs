@@ -1,11 +1,11 @@
+pub mod normalized;
 pub mod vec2;
 pub mod vec3;
 pub mod vec4;
-pub mod normalized;
+pub use normalized::*;
 pub use vec2::*;
 pub use vec3::*;
 pub use vec4::*;
-pub use normalized::*;
 
 use std::fmt::Debug;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Sub};
@@ -22,6 +22,14 @@ pub trait Vector: Copy {
 
 macro_rules! impl_vector {
   ($VectorN:ident { $($field:ident),+ }, $n:expr, $constructor:ident) => {
+    impl<S: Copy> $VectorN<S> {
+      /// Construct a new vector, using the provided single values.
+      #[inline]
+      pub fn splat(value: S) -> $VectorN<S> {
+        $VectorN { $($field: value),+ }
+      }
+    }
+
     impl<S> $VectorN<S> {
       /// Construct a new vector, using the provided values.
       #[inline]

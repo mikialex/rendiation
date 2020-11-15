@@ -41,7 +41,6 @@ impl Renderer {
   }
 
   pub fn render(&mut self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
-    self.integrator.prepare();
     println!("rendering...");
     let now = Instant::now();
     let mut render_frame = Frame::new(

@@ -1,30 +1,18 @@
-use crate::{
-  math::{cosine_sample_hemisphere_in_dir, rand, Vec3},
-  scene::Scene,
-};
 use rendiation_math::Vec2;
 use rendiation_math_entity::Ray3;
-use rendiation_render_entity::*;
 use rendiation_render_entity::{
   color::{Color, LinearRGBColorSpace},
-  Camera,
+  Camera, Raycaster,
 };
 
-pub trait Integrator: Sync {
-  fn prepare(&mut self);
-  fn integrate(
-    &self,
-    camera: &Camera,
-    scene: &Scene,
-    view_position: Vec2<f32>,
-  ) -> Color<LinearRGBColorSpace<f32>>;
-}
+use crate::{math::rand, math::Vec3, scene::Scene};
+
+use super::Integrator;
 
 pub struct PathTraceIntegrator {
   pub exposure_upper_bound: f32,
   pub trace_fix_sample_count: u64,
   pub bounce_time_limit: u64,
-  energy_div: f32,
   pub roulette_threshold: f32,
   pub roulette_factor: f32,
 }
@@ -35,13 +23,12 @@ impl PathTraceIntegrator {
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
       trace_fix_sample_count: 200,
-      energy_div: 0.0,
       roulette_threshold: 0.05,
       roulette_factor: 0.05,
     }
   }
 
-  pub fn path_trace(&self, ray: &Ray3, scene: &Scene, _camera: &Camera) -> Vec3 {
+  pub fn path_trace(&self, ray: &Ray3, scene: &Scene) -> Vec3 {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = *ray;
@@ -89,10 +76,6 @@ impl PathTraceIntegrator {
 }
 
 impl Integrator for PathTraceIntegrator {
-  fn prepare(&mut self) {
-    self.energy_div = self.trace_fix_sample_count as f32 * self.exposure_upper_bound;
-  }
-
   fn integrate(
     &self,
     camera: &Camera,
@@ -104,9 +87,10 @@ impl Integrator for PathTraceIntegrator {
     let mut energy_acc = Vec3::new(0., 0., 0.);
 
     for _sample in 0..self.trace_fix_sample_count {
-      energy_acc += self.path_trace(&ray, scene, camera);
+      energy_acc += self.path_trace(&ray, scene);
     }
 
-    Color::new(energy_acc / self.energy_div)
+    let energy_max = self.trace_fix_sample_count as f32 * self.exposure_upper_bound;
+    Color::new(energy_acc / energy_max)
   }
 }
