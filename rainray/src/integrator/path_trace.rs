@@ -50,7 +50,7 @@ impl PathTraceIntegrator {
           break;
         }
 
-        let next_ray = Ray3::new(intersection.hit_position, scatter.out_dir);
+        let next_ray = scatter.create_next_ray(intersection.hit_position);
 
         energy += material.sample_lighting(&intersection) * throughput;
 

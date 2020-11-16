@@ -11,6 +11,12 @@ pub struct ScatteringEvent {
   pub pdf: f32,
 }
 
+impl ScatteringEvent {
+  pub fn create_next_ray(&self, at_position: Vec3) -> Ray3 {
+    Ray3::new(at_position, self.out_dir)
+  }
+}
+
 pub trait Material: Send + Sync {
   fn scatter(&self, in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>;
   fn sample_lighting(&self, intersection: &Intersection) -> Vec3;
