@@ -3,6 +3,8 @@ use rendiation_math_entity::Triangle;
 use rendiation_math_entity::{Point, Positioned3D};
 use std::hash::Hash;
 
+use super::IndexType;
+
 pub trait HashAbleByConversion {
   type HashAble: Hash + Eq;
   fn to_hashable(&self) -> Self::HashAble;
@@ -108,7 +110,7 @@ pub trait PrimitiveTopology<T: Positioned3D>: 'static {
   type Primitive: PrimitiveData<T>;
   const STEP: usize;
   const STRIDE: usize;
-  const ENUM: PrimitiveTopologyEnum;
+  const ENUM: rendiation_ral::PrimitiveTopology;
 }
 
 pub trait IndexPrimitiveTopology<I, T>: PrimitiveTopology<T>
@@ -123,7 +125,7 @@ impl<T: Positioned3D> PrimitiveTopology<T> for PointList {
   type Primitive = Point<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 1;
-  const ENUM: PrimitiveTopologyEnum = PrimitiveTopologyEnum::PointList;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::PointList;
 }
 impl<I: IndexType, T: Positioned3D> IndexPrimitiveTopology<I, T> for PointList {}
 
@@ -132,7 +134,7 @@ impl<T: Positioned3D> PrimitiveTopology<T> for TriangleList {
   type Primitive = Triangle<T>;
   const STEP: usize = 3;
   const STRIDE: usize = 3;
-  const ENUM: PrimitiveTopologyEnum = PrimitiveTopologyEnum::TriangleList;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::TriangleList;
 }
 impl<I: IndexType, T: Positioned3D> IndexPrimitiveTopology<I, T> for TriangleList {}
 
@@ -141,7 +143,7 @@ impl<T: Positioned3D> PrimitiveTopology<T> for TriangleStrip {
   type Primitive = Triangle<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 3;
-  const ENUM: PrimitiveTopologyEnum = PrimitiveTopologyEnum::TriangleStrip;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::TriangleStrip;
 }
 impl<I: IndexType, T: Positioned3D> IndexPrimitiveTopology<I, T> for TriangleStrip {}
 
@@ -150,7 +152,7 @@ impl<T: Positioned3D> PrimitiveTopology<T> for LineList {
   type Primitive = LineSegment<T>;
   const STEP: usize = 2;
   const STRIDE: usize = 2;
-  const ENUM: PrimitiveTopologyEnum = PrimitiveTopologyEnum::LineList;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::LineList;
 }
 impl<I: IndexType, T: Positioned3D> IndexPrimitiveTopology<I, T> for LineList {}
 
@@ -159,33 +161,6 @@ impl<T: Positioned3D> PrimitiveTopology<T> for LineStrip {
   type Primitive = LineSegment<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 2;
-  const ENUM: PrimitiveTopologyEnum = PrimitiveTopologyEnum::LineStrip;
+  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::LineStrip;
 }
 impl<I: IndexType, T: Positioned3D> IndexPrimitiveTopology<I, T> for LineStrip {}
-
-use wasm_bindgen::prelude::*;
-
-use super::IndexType;
-
-#[wasm_bindgen]
-#[derive(Copy, Clone, Debug)]
-pub enum PrimitiveTopologyEnum {
-  /// Vertex data is a list of points. Each vertex is a new point.
-  PointList = 0,
-  /// Vertex data is a list of lines. Each pair of vertices composes a new line.
-  ///
-  /// Vertices `0 1 2 3` create two lines `0 1` and `2 3`
-  LineList = 1,
-  /// Vertex data is a strip of lines. Each set of two adjacent vertices form a line.
-  ///
-  /// Vertices `0 1 2 3` create three lines `0 1`, `1 2`, and `2 3`.
-  LineStrip = 2,
-  /// Vertex data is a list of triangles. Each set of 3 vertices composes a new triangle.
-  ///
-  /// Vertices `0 1 2 3 4 5` create two triangles `0 1 2` and `3 4 5`
-  TriangleList = 3,
-  /// Vertex data is a triangle strip. Each set of three adjacent vertices form a triangle.
-  ///
-  /// Vertices `0 1 2 3 4 5` creates four triangles `0 1 2`, `2 1 3`, `3 2 4`, and `4 3 5`
-  TriangleStrip = 4,
-}
