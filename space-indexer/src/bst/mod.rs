@@ -6,36 +6,45 @@ pub struct Binary;
 pub struct Quad;
 pub struct Oc;
 
+// fn concat<T, const M: usize, const N: usize>(a: [T; M], b: [T; N]) -> [T; M + N] {
+//   todo!()
+// }
+
 pub trait BinarySpaceTree<const N: usize>: Sized {
   type Bounding: CenterAblePrimitive;
+  // const Dimension: usize;
 
   fn create_outer_bounding(
     build_source: &Vec<BuildPrimitive<Self::Bounding>>,
     index_source: &Vec<usize>,
   ) -> Self::Bounding;
 
-  fn prepare_partition(node: &mut BSTNode<Self, N>);
+  fn prepare_partition(node: &mut BSTNode<Self, { N }>);
 
   fn check_primitive_should_in_which_partition(
     primitive: &BuildPrimitive<Self::Bounding>,
   ) -> Option<usize>;
+
+  // fn test() -> [usize; N + 1] {
+  //   todo!()
+  // }
 
   fn split(
     node: &mut BSTNode<Self, N>,
     build_source: &Vec<BuildPrimitive<Self::Bounding>>,
     index_source: &mut Vec<usize>,
   ) {
-    Self::prepare_partition(node);
-    index_source
-      .get(node.primitive_range.clone())
-      .unwrap()
-      .iter()
-      .map(|&index| &build_source[index].bounding)
-      .for_each(
-        |b| {
-          if let Some(p) = Self::check_primitive_should_in_which_partition(b) {}
-        },
-      );
+    // Self::prepare_partition(node);
+    // index_source
+    //   .get(node.primitive_range.clone())
+    //   .unwrap()
+    //   .iter()
+    //   .map(|&index| &build_source[index].bounding)
+    //   .for_each(
+    //     |b| {
+    //       if let Some(p) = Self::check_primitive_should_in_which_partition(b) {}
+    //     },
+    //   );
     todo!()
   }
 }
@@ -118,15 +127,15 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
     });
 
     // build
-    let mut building_nodes = Vec::with_capacity(source.len() / 4);
-    building_nodes.push(0);
-    while let Some(index) = building_nodes.pop() {
-      let building_node = &mut nodes[index];
-      if !option.should_split(building_node) {
-        continue;
-      }
-      T::split(building_node, &mut primitives, &mut index_list)
-    }
+    // let mut building_nodes = Vec::with_capacity(source.len() / 4);
+    // building_nodes.push(0);
+    // while let Some(index) = building_nodes.pop() {
+    //   let building_node = &mut nodes[index];
+    //   if !option.should_split(building_node) {
+    //     continue;
+    //   }
+    //   T::split(building_node, &mut primitives, &mut index_list)
+    // }
 
     Self {
       nodes,

@@ -28,6 +28,10 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
+pub trait SpaceBounding<Bound> {
+  fn to_bounding(&self) -> Bound;
+}
+
 #[macro_export]
 macro_rules! intersect_reverse {
   ($self_item: ty, $result:ty, $param:ty, $target:ty) => {
