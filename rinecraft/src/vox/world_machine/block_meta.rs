@@ -174,7 +174,7 @@ impl BlockRegistry {
     use rendiation_mesh_buffer::geometry::TriangleList;
     use rendiation_ral::GeometryResourceInstanceCreator;
     let quad = Quad.create_mesh(&());
-    let quad = IndexedGeometry::<_, TriangleList>::from(quad);
+    let quad = IndexedGeometry::<_, _, TriangleList>::from(quad);
     let quad = quad.create_resource_instance_handle(renderer, resource);
     let sampler = WGPUSampler::default(renderer);
     let sampler = resource.bindable.samplers.insert(sampler);

@@ -36,7 +36,7 @@ where
     instance.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
 
     self.data.create_gpu(resources, renderer, &mut instance);
-    instance.draw_range = 0..self.get_full_count();
+    instance.draw_range = 0..self.data.as_ref().len() as u32;
     instance
   }
 }
@@ -64,7 +64,7 @@ where
   }
 }
 
-impl<'a, V, T, U> GeometryDescriptorProvider for IndexedGeometry<V, T, U>
+impl<'a, V, T, U> GeometryDescriptorProvider for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned3D + VertexBufferDescriptorProvider,
   T: PrimitiveTopology<V>,
