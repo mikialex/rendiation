@@ -10,6 +10,7 @@ pub mod md_line;
 pub mod point;
 pub mod ray;
 pub mod triangle;
+pub mod wasm;
 
 pub use aabb::*;
 pub use line_segment::*;
@@ -18,6 +19,7 @@ pub use md_line::*;
 pub use point::*;
 pub use ray::*;
 pub use triangle::*;
+pub use wasm::*;
 
 pub mod transformation;
 pub use transformation::*;

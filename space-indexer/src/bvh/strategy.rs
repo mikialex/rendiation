@@ -40,7 +40,7 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
       split_axis,
     });
 
-    left_count + right_count
+    left_count + right_count + 1
   }
 
   /// different strategy has different split method;

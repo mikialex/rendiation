@@ -6,15 +6,17 @@ use rendiation_webgpu::*;
 use std::ops::Range;
 
 pub struct GPUGeometry<V: Positioned3D = Vertex, T: PrimitiveTopology<V> = TriangleList> {
-  geometry: IndexedGeometry<V, T>,
+  geometry: IndexedGeometry<u16, V, T>,
   data_changed: bool,
   index_changed: bool,
   gpu_data: Option<[WGPUBuffer; 1]>,
   gpu_index: Option<WGPUBuffer>,
 }
 
-impl<V: Positioned3D, T: PrimitiveTopology<V>> From<IndexedGeometry<V, T>> for GPUGeometry<V, T> {
-  fn from(geometry: IndexedGeometry<V, T>) -> Self {
+impl<V: Positioned3D, T: PrimitiveTopology<V>> From<IndexedGeometry<u16, V, T>>
+  for GPUGeometry<V, T>
+{
+  fn from(geometry: IndexedGeometry<u16, V, T>) -> Self {
     GPUGeometry {
       geometry,
       data_changed: true,
@@ -85,7 +87,7 @@ impl<V: Positioned3D + Pod, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
   }
 
   pub fn get_draw_range(&self) -> Range<u32> {
-    0..self.geometry.get_full_count()
+    0..self.geometry.data.len() as u32
   }
 
   pub fn provide_geometry<'a, 'b: 'a>(&'b self, pass: &mut WGPURenderPass<'a>) {
@@ -97,6 +99,6 @@ impl<V: Positioned3D + Pod, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
     self.provide_geometry(pass);
     pass
       .gpu_pass
-      .draw_indexed(0..self.geometry.get_full_count(), 0, 0..1);
+      .draw_indexed(0..self.geometry.data.len() as u32, 0, 0..1);
   }
 }

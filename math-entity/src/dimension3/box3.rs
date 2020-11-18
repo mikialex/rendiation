@@ -80,7 +80,7 @@ impl Box3 {
     self.max = self.max.max(box3.max);
   }
 
-  pub fn apply_matrix(&mut self, m: Mat4<f32>) -> Self {
+  pub fn apply_matrix(&self, m: Mat4<f32>) -> Self {
     let points = [
       Vec3::new(self.min.x, self.min.y, self.min.z) * m, // 000
       Vec3::new(self.min.x, self.min.y, self.max.z) * m, // 001

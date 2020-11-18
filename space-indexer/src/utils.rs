@@ -24,8 +24,8 @@ pub struct TreeBuildOption {
 impl Default for TreeBuildOption {
   fn default() -> Self {
     Self {
-      max_tree_depth: 15,
-      bin_size: 5,
+      max_tree_depth: 10,
+      bin_size: 50,
     }
   }
 }

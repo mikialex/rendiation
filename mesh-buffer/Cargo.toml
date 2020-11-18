@@ -22,3 +22,6 @@ space-indexer = {path = "../space-indexer"}
 rendiation-ral = {path = "../ral"}
 rendiation-shadergraph = {path = "../shader-graph", optional = true}
 rendiation-derives = {path = "../derives", optional = true}
+
+wasm-bindgen = {version = "0.2.68"}
+log = "0.4"

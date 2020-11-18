@@ -1,4 +1,3 @@
-
 #[derive(Debug, Copy, Clone)]
 pub struct MultiDimensionalCircle<T, U> {
   pub center: U,

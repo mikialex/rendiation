@@ -8,6 +8,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
     mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>),
   ) {
     let mut stack = Vec::new(); // todo estimate depth for allocation
+    stack.push(0);
 
     while let Some(node_to_visit_index) = stack.pop() {
       let node = &self.nodes[node_to_visit_index];

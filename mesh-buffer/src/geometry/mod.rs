@@ -17,7 +17,7 @@ use rendiation_ral::{
   VertexStateDescriptor, VertexStateDescriptorProvider, RAL,
 };
 
-impl<'a, V, T, U, R> GeometryResourceCreator<R> for IndexedGeometry<V, T, U>
+impl<'a, V, T, U, R> GeometryResourceCreator<R> for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned3D + GeometryProvider,
   T: PrimitiveTopology<V>,
@@ -36,12 +36,12 @@ where
     instance.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
 
     self.data.create_gpu(resources, renderer, &mut instance);
-    instance.draw_range = 0..self.get_full_count();
+    instance.draw_range = 0..self.data.as_ref().len() as u32;
     instance
   }
 }
 
-impl<V, T, U, R> GeometryResourceInstanceCreator<R, V> for IndexedGeometry<V, T, U>
+impl<V, T, U, R> GeometryResourceInstanceCreator<R, V> for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned3D + GeometryProvider,
   T: PrimitiveTopology<V>,
@@ -50,7 +50,7 @@ where
 {
 }
 
-impl<'a, V, T, U> VertexStateDescriptorProvider for IndexedGeometry<V, T, U>
+impl<'a, V, T, U> VertexStateDescriptorProvider for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned3D + VertexBufferDescriptorProvider,
   T: PrimitiveTopology<V>,
@@ -64,7 +64,7 @@ where
   }
 }
 
-impl<'a, V, T, U> GeometryDescriptorProvider for IndexedGeometry<V, T, U>
+impl<'a, V, T, U> GeometryDescriptorProvider for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned3D + VertexBufferDescriptorProvider,
   T: PrimitiveTopology<V>,
