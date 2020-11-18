@@ -17,3 +17,4 @@ rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 
 rand = {version = "0.7.3", features = ["wasm-bindgen"]}
+log = "0.4"

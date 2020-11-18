@@ -76,3 +76,12 @@ impl WASMAbleType for f32 {
     ty
   }
 }
+
+#[wasm_bindgen]
+impl Mat4F32WASM {
+  #[wasm_bindgen]
+  pub fn from_array(data: &[f32]) -> Self {
+    let mat: &[Self] = bytemuck::cast_slice(data);
+    mat[0]
+  }
+}

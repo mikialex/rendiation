@@ -1,5 +1,5 @@
+use crate::{LineSegment, Positioned3D, Ray};
 use rendiation_math::*;
-use crate::{Ray, Positioned3D, LineSegment};
 
 pub type Ray3 = Ray<Vec3<f32>>;
 
@@ -12,10 +12,16 @@ impl Ray3 {
     self.origin + self.direction * distance
   }
 
-  pub fn distance_sq_to_point(&self, point: Vec3<f32>) -> f32{
+  pub fn distance_sq_to_point(&self, point: Vec3<f32>) -> f32 {
     let oc = point - self.origin;
     let tca = oc.dot(self.direction);
     oc.dot(oc) - tca * tca
+  }
+
+  pub fn apply_matrix(&self, mat: Mat4<f32>) -> Self {
+    let origin = self.origin.apply_mat4(&mat);
+    let direction = self.direction.transform_direction(mat);
+    Self::new(origin, direction)
   }
 
   pub fn distance_sq_to_segment<T: Positioned3D>(

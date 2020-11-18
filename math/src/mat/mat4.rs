@@ -238,6 +238,10 @@ where
   pub fn position(&self) -> Vec3<T> {
     Vec3::new(self.d1, self.d2, self.d3)
   }
+
+  pub fn get_scale(&self) -> Vec3<T> {
+    Vec3::new(self.a1, self.b2, self.c3)
+  }
 }
 
 impl<T> Mat4<T>

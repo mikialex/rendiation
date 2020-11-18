@@ -3,6 +3,8 @@ use crate::sphere::Sphere;
 use crate::{intersect_reverse, Box3, IntersectAble, LineSegment, Point, Positioned3D, Triangle};
 use rendiation_math::Vec3;
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct HitPoint3D {
   pub position: Vec3<f32>,
   pub distance: f32,
@@ -27,6 +29,9 @@ pub struct IntersectionList3D(pub Vec<HitPoint3D>);
 impl IntersectionList3D {
   pub fn new() -> Self {
     Self(Vec::new())
+  }
+  pub fn new_with_capacity(size: usize) -> Self {
+    Self(Vec::with_capacity(size))
   }
   pub fn push_nearest(&mut self, hit: NearestPoint3D) {
     if let NearestPoint3D(Some(hit)) = hit {
@@ -115,11 +120,13 @@ impl<T: Positioned3D> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
 
 intersect_reverse_generics!(LineSegment<T>, NearestPoint3D, f32, Ray3, T, Positioned3D);
 impl<T: Positioned3D> IntersectAble<LineSegment<T>, NearestPoint3D, f32> for Ray3 {
+  #[inline]
   fn intersect(&self, line: &LineSegment<T>, t: &f32) -> NearestPoint3D {
     let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(*line);
     if dist_sq > t * t {
       return NearestPoint3D(None);
     }
+    // log::info!("dist_sq{:?}, t * t{}", dist_sq, t * t);
     let distance = self.origin.distance(inter_ray);
     NearestPoint3D(Some(HitPoint3D::new(inter_ray, distance)))
   }
@@ -127,6 +134,7 @@ impl<T: Positioned3D> IntersectAble<LineSegment<T>, NearestPoint3D, f32> for Ray
 
 intersect_reverse_generics!(Point<T>, NearestPoint3D, f32, Ray3, T, Positioned3D);
 impl<T: Positioned3D> IntersectAble<Point<T>, NearestPoint3D, f32> for Ray3 {
+  #[inline]
   fn intersect(&self, point: &Point<T>, t: &f32) -> NearestPoint3D {
     let point = point.0.position();
     let dist_sq = self.distance_sq_to_point(point);
@@ -213,6 +221,7 @@ impl IntersectAble<Box3, NearestPoint3D> for Ray3 {
 
 intersect_reverse!(Box3, bool, (), Ray3);
 impl IntersectAble<Box3, bool> for Ray3 {
+  #[inline]
   fn intersect(&self, other: &Box3, p: &()) -> bool {
     IntersectAble::<Box3, NearestPoint3D>::intersect(self, other, p)
       .0
@@ -259,6 +268,7 @@ impl IntersectAble<Sphere, NearestPoint3D> for Ray3 {
 
 intersect_reverse!(Sphere, bool, (), Ray3);
 impl IntersectAble<Sphere, bool> for Ray3 {
+  #[inline]
   fn intersect(&self, other: &Sphere, p: &()) -> bool {
     IntersectAble::<Sphere, NearestPoint3D>::intersect(self, other, p)
       .0

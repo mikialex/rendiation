@@ -10,8 +10,9 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  GeometryDataContainer, HashAbleByConversion, IndexedGeometry, LineList, NoneIndexedGeometry,
-  PointList, PrimitiveTopology,
+  AnyGeometry, AnyIndexGeometry, GeometryDataContainer, HashAbleByConversion,
+  IndexPrimitiveTopology, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
+  NoneIndexedGeometry, PointList, PrimitiveTopology,
 };
 use rendiation_math::Vec3;
 use rendiation_math_entity::{LineSegment, Positioned3D, Triangle};
@@ -20,33 +21,40 @@ use std::{
   collections::{HashMap, HashSet},
 };
 
-impl<V, T, U> IndexedGeometry<V, T, U>
+impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
+  I: IndexType,
   V: Positioned3D,
-  T: PrimitiveTopology<V, Primitive = Triangle<V>>,
+  T: IndexPrimitiveTopology<I, V, Primitive = Triangle<V>>,
   U: GeometryDataContainer<V>,
 {
-  pub fn create_wireframe(&self) -> IndexedGeometry<V, LineList, U> {
-    let mut deduplicate_set = HashSet::<LineSegment<u16>>::new();
-    self.primitive_iter().for_each(|(_, f)| {
-      f.for_each_edge(|edge| {
-        deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
-      })
-    });
+  pub fn create_wireframe(&self) -> IndexedGeometry<I, V, LineList, U> {
+    let mut deduplicate_set = HashSet::<LineSegment<I>>::new();
+    self
+      .as_ref_container()
+      .primitive_iter()
+      .zip(self.as_ref_index_container().index_primitive_iter())
+      .for_each(|(_, f)| {
+        f.for_each_edge(|edge| {
+          deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
+        })
+      });
     let new_index = deduplicate_set
       .iter()
       .flat_map(|l| l.iter_point())
       .collect();
-    IndexedGeometry::<V, LineList, U>::new(self.data.clone(), new_index)
+    IndexedGeometry::<I, V, LineList, U>::new(self.data.clone(), new_index)
   }
 
   /// maybe you should merge vertex before create edge
   /// non manifold mesh may affect result
   pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedGeometry<V, LineList, U> {
     // Map: edge id => (edge face idA, edge face idB(optional));
-    let mut edges = HashMap::<LineSegment<u16>, (usize, Option<usize>)>::new();
+    let mut edges = HashMap::<LineSegment<I>, (usize, Option<usize>)>::new();
     self
+      .as_ref_container()
       .primitive_iter()
+      .zip(self.as_ref_index_container().index_primitive_iter())
       .enumerate()
       .for_each(|(face_id, (_, f))| {
         f.for_each_edge(|edge| {
@@ -57,8 +65,9 @@ where
         })
       });
     let normals = self
+      .as_ref_container()
       .primitive_iter()
-      .map(|(f, _)| f.face_normal_by_position())
+      .map(|f| f.face_normal_by_position())
       .collect::<Vec<Vec3<f32>>>();
     let threshold_dot = edge_threshold_angle.cos();
     let data = edges
@@ -66,23 +75,24 @@ where
       .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
       .map(|(e, _)| e)
       .flat_map(|l| l.iter_point())
-      .map(|i| self.data[i as usize])
+      .map(|i| self.data[i.into_usize()])
       .collect();
     NoneIndexedGeometry::new(data)
   }
 }
 
-impl<V, T> IndexedGeometry<V, T>
+impl<V, T> IndexedGeometry<u16, V, T>
 where
   V: Positioned3D,
-  T: PrimitiveTopology<V>,
+  T: IndexPrimitiveTopology<u16, V>,
+  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
   // U: GeometryDataContainer<V>, // todo add more constrain like push?
 {
   pub fn merge_vertex_by_sorting(
     &self,
     sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,
-  ) -> IndexedGeometry<V, T> {
+  ) -> IndexedGeometry<u16, V, T> {
     let mut data = self.data.clone();
     let mut merge_data = Vec::with_capacity(data.len());
     let mut index_remapping = HashMap::new();
@@ -107,7 +117,7 @@ where
   }
 }
 
-impl<V, T, U> IndexedGeometry<V, T, U>
+impl<V, T, U> IndexedGeometry<u16, V, T, U>
 where
   V: Positioned3D,
   T: PrimitiveTopology<V>,
@@ -121,10 +131,11 @@ where
 impl<V, T> NoneIndexedGeometry<V, T>
 where
   V: Positioned3D + HashAbleByConversion,
-  T: PrimitiveTopology<V>,
+  T: IndexPrimitiveTopology<u16, V>,
+  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
   // U: GeometryDataContainer<V>, // ditto
 {
-  pub fn create_index_geometry(&self) -> IndexedGeometry<V, T> {
+  pub fn create_index_geometry(&self) -> IndexedGeometry<u16, V, T> {
     let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
     let index = self
@@ -143,7 +154,7 @@ where
   }
 }
 
-impl<V, T, U> IndexedGeometry<V, T, U>
+impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   V: Positioned3D,
   T: PrimitiveTopology<V>,

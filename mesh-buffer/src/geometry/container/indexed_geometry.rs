@@ -1,86 +1,52 @@
 use super::{
-  super::{IndexedPrimitiveIter, PrimitiveTopology, TriangleList},
-  AbstractGeometry, AbstractPrimitiveIter, GeometryDataContainer, IntoExactSizeIterator,
+  super::{PrimitiveTopology, TriangleList},
+  AnyGeometry, AnyIndexGeometry, GeometryDataContainer,
 };
 use crate::{
-  geometry::{IndexedPrimitiveIterForPrimitiveOnly, PrimitiveData},
+  geometry::{IndexPrimitiveTopology, IndexedPrimitiveData},
   vertex::Vertex,
 };
 use core::marker::PhantomData;
 use rendiation_math_entity::Positioned3D;
+use std::hash::Hash;
 
-impl<V, T, U> AbstractGeometry for IndexedGeometry<V, T, U>
-where
-  V: Positioned3D + 'static,
-  T: PrimitiveTopology<V>,
-  U: GeometryDataContainer<V>,
-{
-  type Vertex = V;
-  type Topology = T;
+pub trait IntoUsize {
+  fn into_usize(&self) -> usize;
+}
+pub trait IndexType: IntoUsize + Copy + Eq + Ord + Hash {}
 
-  fn primitive_at(&self, primitive_index: usize) -> Option<<T as PrimitiveTopology<V>>::Primitive> {
-    let stride = <<T as PrimitiveTopology<V>>::Primitive as PrimitiveData<V>>::DATA_STRIDE;
-    let index = self.index.get(primitive_index * stride)?;
-    Some(<<T as PrimitiveTopology<V>>::Primitive as PrimitiveData<
-      V,
-    >>::from_indexed_data(
-      &self.index,
-      self.data.as_ref(),
-      *index as usize,
-    ))
+impl IndexType for u16 {}
+impl IntoUsize for u16 {
+  #[inline(always)]
+  fn into_usize(&self) -> usize {
+    *self as usize
   }
 }
 
-impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoExactSizeIterator
-  for AbstractPrimitiveIter<'a, IndexedGeometry<V, T>>
-{
-  type Item = T::Primitive;
-  type IntoIter = IndexedPrimitiveIterForPrimitiveOnly<'a, V, Self::Item>;
-  fn into_iter(self) -> Self::IntoIter {
-    self.0.primitive_iter_only_primitive()
-  }
-}
-
-impl<'a, V: Positioned3D + 'static, T: PrimitiveTopology<V>> IntoIterator
-  for AbstractPrimitiveIter<'a, IndexedGeometry<V, T>>
-{
-  type Item = T::Primitive;
-  type IntoIter = IndexedPrimitiveIterForPrimitiveOnly<'a, V, Self::Item>;
-  fn into_iter(self) -> Self::IntoIter {
-    self.0.primitive_iter_only_primitive()
+impl IndexType for u32 {}
+impl IntoUsize for u32 {
+  #[inline(always)]
+  fn into_usize(&self) -> usize {
+    *self as usize
   }
 }
 
 /// A indexed geometry that use vertex as primitive;
-pub struct IndexedGeometry<
-  V: Positioned3D = Vertex,
-  T: PrimitiveTopology<V> = TriangleList,
-  U: GeometryDataContainer<V> = Vec<V>,
-> {
+pub struct IndexedGeometry<I, V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: U,
-  pub index: Vec<u16>,
+  pub index: Vec<I>,
   _v_phantom: PhantomData<V>,
   _phantom: PhantomData<T>,
 }
 
-impl<V, T, U> From<(U, Vec<u16>)> for IndexedGeometry<V, T, U>
-where
-  V: Positioned3D,
-  T: PrimitiveTopology<V>,
-  U: GeometryDataContainer<V>,
-{
-  fn from(item: (U, Vec<u16>)) -> Self {
+impl<I, V, T, U> From<(U, Vec<I>)> for IndexedGeometry<I, V, T, U> {
+  fn from(item: (U, Vec<I>)) -> Self {
     IndexedGeometry::new(item.0, item.1)
   }
 }
 
-impl<V, T, U> IndexedGeometry<V, T, U>
-where
-  V: Positioned3D,
-  T: PrimitiveTopology<V>,
-  U: GeometryDataContainer<V>,
-{
-  pub fn new(v: U, index: Vec<u16>) -> Self {
+impl<V, I, T, U> IndexedGeometry<I, V, T, U> {
+  pub fn new(v: U, index: Vec<I>) -> Self {
     Self {
       data: v,
       index,
@@ -88,22 +54,41 @@ where
       _phantom: PhantomData,
     }
   }
+}
 
-  pub fn primitive_iter<'a>(&'a self) -> IndexedPrimitiveIter<'a, V, T::Primitive> {
-    IndexedPrimitiveIter::new(&self.index, self.data.as_ref())
+impl<I, V, T, U> AnyGeometry for IndexedGeometry<I, V, T, U>
+where
+  V: Positioned3D,
+  T: IndexPrimitiveTopology<I, V>,
+  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V>,
+  U: GeometryDataContainer<V>,
+{
+  type Primitive = T::Primitive;
+
+  #[inline(always)]
+  fn primitive_count(&self) -> usize {
+    (self.index.len() - T::STRIDE) / T::STEP + 1
   }
 
-  pub fn primitive_iter_only_primitive<'a>(
-    &'a self,
-  ) -> IndexedPrimitiveIterForPrimitiveOnly<'a, V, T::Primitive> {
-    IndexedPrimitiveIterForPrimitiveOnly(self.primitive_iter())
+  #[inline(always)]
+  fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
+    let index = primitive_index * T::STEP;
+    T::Primitive::from_indexed_data(&self.index, self.data.as_ref(), index)
   }
+}
 
-  pub fn get_primitive_count(&self) -> u32 {
-    self.index.len() as u32 / T::STRIDE as u32
-  }
+impl<I, V, T, U> AnyIndexGeometry for IndexedGeometry<I, V, T, U>
+where
+  V: Positioned3D,
+  T: IndexPrimitiveTopology<I, V>,
+  T::Primitive: IndexedPrimitiveData<I, V>,
+  U: GeometryDataContainer<V>,
+{
+  type IndexPrimitive = <T::Primitive as IndexedPrimitiveData<I, V>>::IndexIndicator;
 
-  pub fn get_full_count(&self) -> u32 {
-    self.index.len() as u32
+  #[inline(always)]
+  fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive {
+    let index = primitive_index * T::STEP;
+    T::Primitive::create_index_indicator(&self.index, index)
   }
 }

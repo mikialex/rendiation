@@ -2197,7 +2197,10 @@ dependencies = [
 name = "rendiation-math-entity"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "log",
  "rendiation-math",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2205,6 +2208,7 @@ name = "rendiation-mesh-buffer"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "log",
  "once_cell",
  "rendiation-derives",
  "rendiation-math",
@@ -2214,6 +2218,7 @@ dependencies = [
  "rendiation-webgpu",
  "soa_derive",
  "space-indexer",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2563,6 +2568,7 @@ name = "space-indexer"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "log",
  "rand 0.7.3",
  "rendiation-math",
  "rendiation-math-entity",

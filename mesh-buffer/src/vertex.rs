@@ -1,14 +1,9 @@
 use crate::geometry::HashAbleByConversion;
 use rendiation_math::*;
 use rendiation_math_entity::Positioned3D;
-use rendiation_ral::*;
 use std::{hash::Hash, mem};
 
-#[cfg(feature = "shadergraph")]
-use rendiation_derives::Geometry;
-
 #[repr(C)]
-#[cfg_attr(feature = "shadergraph", derive(Geometry))]
 #[derive(Clone, Copy, soa_derive::StructOfArray)]
 pub struct Vertex {
   pub position: Vec3<f32>,
@@ -16,7 +11,6 @@ pub struct Vertex {
   pub uv: Vec2<f32>,
 }
 
-impl GeometryProvider for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 unsafe impl bytemuck::Pod for Vertex {}
 
@@ -56,28 +50,4 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
     normal: Vec3::new(0.0, 1.0, 0.0),
     uv: Vec2::new(tc[0] as f32, tc[1] as f32),
   }
-}
-
-impl VertexBufferDescriptorProvider for Vertex {
-  const DESCRIPTOR: VertexBufferDescriptor<'static> = VertexBufferDescriptor {
-    step_mode: InputStepMode::Vertex,
-    stride: mem::size_of::<Self>() as u64,
-    attributes: &[
-      VertexAttributeDescriptor {
-        offset: 0,
-        shader_location: 0, // todo shader location should append by providers before
-        format: VertexFormat::Float3,
-      },
-      VertexAttributeDescriptor {
-        offset: 4 * 3,
-        shader_location: 1,
-        format: VertexFormat::Float3,
-      },
-      VertexAttributeDescriptor {
-        offset: 4 * 3 + 4 * 3,
-        shader_location: 2,
-        format: VertexFormat::Float2,
-      },
-    ],
-  };
 }
