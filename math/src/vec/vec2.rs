@@ -17,7 +17,6 @@ impl<T> Vec2<T>
 where
   T: Copy,
 {
-
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T) {
     (self.x, self.y)
