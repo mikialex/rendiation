@@ -12,13 +12,11 @@ pub trait BinarySpaceTree<const N: usize>: Sized {
     index_source: &Vec<usize>,
   ) -> Self::Bounding;
 
-  fn prepare_partition(node: &mut BSTNode<Self, { N }>);
-
   fn check_primitive_should_in_which_partition(
     primitive: &BuildPrimitive<Self::Bounding>,
   ) -> Option<usize>;
 
-  fn get_sub_space(index: usize) -> Self::Bounding;
+  fn get_sub_space(index: usize, all_bounding: Self::Bounding) -> Self::Bounding;
 }
 
 pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
@@ -51,14 +49,14 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
       bounding: (0..size).map(|_| T::Bounding::default()).collect(),
     }
   }
-  fn reset(&mut self) {
+  fn reset(&mut self, all_bounding: T::Bounding) {
     self.partitions.iter_mut().for_each(|p| p.clear());
     self.crossed.clear();
     self
       .bounding
       .iter_mut()
       .enumerate()
-      .for_each(|(i, b)| *b = T::get_sub_space(i))
+      .for_each(|(i, b)| *b = T::get_sub_space(i, all_bounding))
   }
   fn set(&mut self, p: Option<usize>, index: usize) {
     if let Some(p) = p {
@@ -67,7 +65,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
       self.crossed.push(index)
     }
   }
-  fn apply_index_source(&self, index_source: &mut [usize]) {
+  fn apply_index_source(&self, index_source: &mut Vec<usize>, range: Range<usize>) {
     todo!()
   }
 }
@@ -126,15 +124,14 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
         return 1;
       }
 
-      builder.reset();
-      T::prepare_partition(node);
+      builder.reset(node.bounding);
       index_source
         .get(node.primitive_range.clone())
         .unwrap()
         .iter()
         .map(|&index| (index, &build_source[index]))
         .for_each(|(index, b)| builder.set(T::check_primitive_should_in_which_partition(b), index));
-      builder.apply_index_source(index_source.get_mut(node.primitive_range.clone()).unwrap());
+      builder.apply_index_source(index_source, node.primitive_range.clone());
       (node_index, node.depth)
     };
 

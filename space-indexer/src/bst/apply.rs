@@ -25,11 +25,7 @@ impl BinarySpaceTree<8> for Oc {
     todo!()
   }
 
-  fn prepare_partition(node: &mut BSTNode<Oc, 8>) {
-    todo!()
-  }
-
-  fn get_sub_space(index: usize) -> Self::Bounding {
+  fn get_sub_space(index: usize, all_bounding: Self::Bounding) -> Self::Bounding {
     todo!()
   }
 }
