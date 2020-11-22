@@ -28,6 +28,10 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
+pub trait ContainAble<Target> {
+  fn contains(&self, items_to_contain: &Target) -> bool;
+}
+
 pub trait SpaceBounding<Bound> {
   fn to_bounding(&self) -> Bound;
 }

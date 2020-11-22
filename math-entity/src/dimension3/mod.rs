@@ -1,5 +1,6 @@
 pub mod bounding_impl;
 pub mod box3;
+pub mod contain_impl;
 pub mod frustum;
 pub mod intersection;
 pub mod line_segment;
@@ -10,6 +11,7 @@ pub mod spherical;
 pub mod triangle;
 
 pub use box3::*;
+pub use contain_impl::*;
 pub use frustum::*;
 pub use intersection::*;
 pub use line_segment::*;

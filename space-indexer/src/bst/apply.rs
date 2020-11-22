@@ -1,6 +1,10 @@
-use super::{BSTNode, BinarySpaceTree};
+use super::{BSTNode, BSTTree, BinarySpaceTree};
 use crate::utils::BuildPrimitive;
 use rendiation_math_entity::Box3;
+
+pub type BinaryTree = BSTTree<Binary, 2>;
+pub type QuadTree = BSTTree<Quad, 4>;
+pub type OcTree = BSTTree<Oc, 8>;
 
 pub struct Binary;
 pub struct Quad;
@@ -19,8 +23,9 @@ impl BinarySpaceTree<8> for Oc {
     todo!()
   }
 
-  fn check_primitive_should_in_which_partition(
-    primitive: &BuildPrimitive<Self::Bounding>,
+  fn classify_primitive(
+    node: &BSTNode<Self, 8>,
+    p: &BuildPrimitive<Self::Bounding>,
   ) -> Option<usize> {
     todo!()
   }
