@@ -19,28 +19,6 @@ pub trait BinarySpaceTree<const N: usize>: Sized {
   fn check_primitive_should_in_which_partition(
     primitive: &BuildPrimitive<Self::Bounding>,
   ) -> Option<usize>;
-
-  // fn split(
-  //   node: &mut BSTNode<Self, N>,
-  //   build_source: &Vec<BuildPrimitive<Self::Bounding>>,
-  //   index_source: &mut Vec<usize>,
-  //   builder: &mut BSTTreeBuilder<N>,
-  // ) {
-  //   Self::prepare_partition(node);
-  //   index_source
-  //     .get(node.primitive_range.clone())
-  //     .unwrap()
-  //     .iter()
-  //     .map(|&index| &build_source[index])
-  //     .for_each(|b| {
-  //       if let Some(i) = Self::check_primitive_should_in_which_partition(b) {
-  //         // node.child[i]
-  //       } else {
-  //         //
-  //       }
-  //     });
-  //   todo!()
-  // }
 }
 
 // impl BinarySpaceTree<4> for Quad {
@@ -81,15 +59,19 @@ pub struct BSTTree<T: BinarySpaceTree<N>, const N: usize> {
   pub sorted_primitive_index: Vec<usize>,
 }
 
-pub struct BSTTreeBuilder<const N: usize> {
-  partitions: [Vec<usize>; N],
-  ranges: [Range<usize>; N],
+pub struct BSTTreeBuilder {
+  partitions: Vec<Vec<usize>>,
+  ranges: Vec<Range<usize>>,
   crossed: Vec<usize>,
 }
 
-impl<const N: usize> BSTTreeBuilder<N> {
-  fn new() -> Self {
-    todo!()
+impl BSTTreeBuilder {
+  fn new(size: usize) -> Self {
+    Self {
+      partitions: (0..size).map(|_| Vec::new()).collect(),
+      ranges: (0..size).map(|_| (0..0)).collect(),
+      crossed: Vec::new(),
+    }
   }
   fn reset(&mut self) {
     self.partitions.iter_mut().for_each(|p| p.clear());
@@ -137,7 +119,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
       &primitives,
       &mut index_list,
       &mut nodes,
-      &mut BSTTreeBuilder::new(),
+      &mut BSTTreeBuilder::new(N),
     );
 
     Self {
@@ -151,7 +133,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
     build_source: &Vec<BuildPrimitive<T::Bounding>>,
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<BSTNode<T, N>>,
-    builder: &mut BSTTreeBuilder<N>,
+    builder: &mut BSTTreeBuilder,
   ) -> usize {
     let node = nodes.last_mut().unwrap();
 
