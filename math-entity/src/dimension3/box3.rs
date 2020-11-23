@@ -14,10 +14,25 @@ impl Default for Box3 {
 impl Box3 {
   #[inline(always)]
   pub fn new_cube(center: Vec3<f32>, radius: f32) -> Self {
+    Self::new_from_center(center, Vec3::splat(radius))
+  }
+
+  #[inline(always)]
+  pub fn new_from_center(center: Vec3<f32>, half_size: Vec3<f32>) -> Self {
     Self {
-      min: center - Vec3::splat(radius),
-      max: center + Vec3::splat(radius),
+      min: center - half_size,
+      max: center + half_size,
     }
+  }
+
+  #[inline(always)]
+  pub fn size(&self) -> Vec3<f32> {
+    Vec3::new(self.width(), self.height(), self.depth())
+  }
+
+  #[inline(always)]
+  pub fn half_size(&self) -> Vec3<f32> {
+    self.size() * 0.5
   }
 
   #[inline(always)]

@@ -1,20 +1,23 @@
-use crate::utils::{BuildPrimitive, CenterAblePrimitive, TreeBuildOption};
-use std::{marker::PhantomData, ops::Range};
+use crate::utils::{
+  bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption,
+};
+use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
 pub mod apply;
 pub use apply::*;
 use rendiation_math_entity::ContainAble;
 
 pub trait BinarySpaceTree<const N: usize>: Sized {
-  type Bounding: CenterAblePrimitive + Default + Copy + ContainAble<Self::Bounding>;
-
-  fn create_outer_bounding(
-    build_source: &Vec<BuildPrimitive<Self::Bounding>>,
-    index_source: &Vec<usize>,
-  ) -> Self::Bounding;
+  type Bounding: CenterAblePrimitive
+    + Default
+    + Copy
+    + ContainAble<Self::Bounding>
+    + ContainAble<Self::Bounding>
+    + FromIterator<Self::Bounding>;
 
   fn classify_primitive(
-    node: &BSTNode<Self, N>,
+    parent_box: &Self::Bounding,
+    children_bounding: &[Self::Bounding],
     p: &BuildPrimitive<Self::Bounding>,
   ) -> Option<usize>;
 
@@ -66,7 +69,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
     p: &BuildPrimitive<T::Bounding>,
     index: usize,
   ) {
-    if let Some(p) = T::classify_primitive(node, p) {
+    if let Some(p) = T::classify_primitive(&node.bounding, &self.bounding, p) {
       self.partitions[p].push(index)
     } else {
       self.crossed.push(index)
@@ -100,7 +103,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
       .unzip();
 
     // prepare root
-    let root_bbox = T::create_outer_bounding(&primitives, &index_list);
+    let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..index_list.len());
 
     let mut nodes = Vec::new();
     nodes.push(BSTNode {
