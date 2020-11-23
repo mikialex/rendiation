@@ -13,6 +13,29 @@ impl Default for Box3 {
 
 impl Box3 {
   #[inline(always)]
+  pub fn new_cube(center: Vec3<f32>, radius: f32) -> Self {
+    Self {
+      min: center - Vec3::splat(radius),
+      max: center + Vec3::splat(radius),
+    }
+  }
+
+  #[inline(always)]
+  pub fn width(&self) -> f32 {
+    self.max.x - self.min.x
+  }
+
+  #[inline(always)]
+  pub fn height(&self) -> f32 {
+    self.max.y - self.min.y
+  }
+
+  #[inline(always)]
+  pub fn depth(&self) -> f32 {
+    self.max.z - self.min.z
+  }
+
+  #[inline(always)]
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;

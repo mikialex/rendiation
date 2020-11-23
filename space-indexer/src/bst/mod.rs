@@ -18,7 +18,7 @@ pub trait BinarySpaceTree<const N: usize>: Sized {
     p: &BuildPrimitive<Self::Bounding>,
   ) -> Option<usize>;
 
-  fn get_sub_space(index: usize, all_bounding: Self::Bounding) -> Self::Bounding;
+  fn compute_sub_space(index: usize, all_bounding: Self::Bounding) -> Self::Bounding;
 }
 
 pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
@@ -58,7 +58,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
       .bounding
       .iter_mut()
       .enumerate()
-      .for_each(|(i, b)| *b = T::get_sub_space(i, all_bounding))
+      .for_each(|(i, b)| *b = T::compute_sub_space(i, all_bounding))
   }
   fn classify_primitive(
     &mut self,

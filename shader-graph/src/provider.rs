@@ -1,5 +1,5 @@
 use crate::{ShaderGraph, ShaderGraphBindGroupBuilder, ShaderGraphBuilder};
-use rendiation_ral::{ShaderGeometryInfo, ShaderStage, RAL};
+use rendiation_ral::{ShaderGeometryInfo, ShaderStage};
 
 pub trait ShaderGraphProvider {
   fn build_graph() -> ShaderGraph;
