@@ -4,6 +4,7 @@ use crate::utils::{
 use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
 pub mod apply;
+pub mod test;
 pub use apply::*;
 use rendiation_math_entity::ContainAble;
 
@@ -138,7 +139,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
       let node_index = nodes.len() - 1;
       let node = nodes.last_mut().unwrap();
 
-      if option.should_continue(node.primitive_range.len(), node.depth) {
+      if !option.should_continue(node.primitive_range.len(), node.depth) {
         return 1;
       }
 
