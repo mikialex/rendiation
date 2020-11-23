@@ -1,8 +1,8 @@
-use crate::{Box3, MultiDimensionalCircle};
+use crate::{Box3, HyperSphere};
 use rendiation_math::math::Math;
 use rendiation_math::*;
 
-pub type Sphere = MultiDimensionalCircle<f32, Vec3<f32>>;
+pub type Sphere = HyperSphere<f32, Vec3<f32>>;
 
 impl Sphere {
   pub fn zero() -> Self {

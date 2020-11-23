@@ -4,18 +4,18 @@ pub mod dimension2;
 pub use dimension2::*;
 
 pub mod aabb;
+pub mod hyperplane;
+pub mod hypersphere;
 pub mod line_segment;
-pub mod md_circle;
-pub mod md_line;
 pub mod point;
 pub mod ray;
 pub mod triangle;
 pub mod wasm;
 
 pub use aabb::*;
+pub use hyperplane::*;
+pub use hypersphere::*;
 pub use line_segment::*;
-pub use md_circle::*;
-pub use md_line::*;
 pub use point::*;
 pub use ray::*;
 pub use triangle::*;

@@ -1,7 +1,7 @@
-use crate::{ContainAble, MultiDimensionalCircle, Rectangle, SpaceBounding};
+use crate::{ContainAble, HyperSphere, Rectangle, SpaceBounding};
 use rendiation_math::Vec2;
 
-pub type Circle = MultiDimensionalCircle<f32, Vec2<f32>>;
+pub type Circle = HyperSphere<f32, Vec2<f32>>;
 
 impl ContainAble<Vec2<f32>> for Circle {
   fn contains(&self, v: &Vec2<f32>) -> bool {
