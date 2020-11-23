@@ -1,3 +1,5 @@
+use std::{iter::FromIterator, ops::Range};
+
 use rand::random;
 use rendiation_math::Vec3;
 use rendiation_math_entity::Box3;
@@ -46,6 +48,22 @@ impl<B: CenterAblePrimitive> BuildPrimitive<B> {
     let center = bounding.get_center();
     Self { bounding, center }
   }
+}
+
+pub fn bounding_from_build_source<B>(
+  index_list: &Vec<usize>,
+  primitives: &Vec<BuildPrimitive<B>>,
+  range: Range<usize>,
+) -> B
+where
+  B: FromIterator<B> + CenterAblePrimitive + Copy,
+{
+  index_list
+    .get(range.clone())
+    .unwrap()
+    .iter()
+    .map(|index| primitives[*index].bounding)
+    .collect()
 }
 
 pub fn generate_boxes_in_space(count: usize, space_size: f32, box_size: f32) -> Vec<Box3> {

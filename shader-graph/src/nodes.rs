@@ -1,5 +1,5 @@
 use crate::{
-  modify_graph, Node, ShaderFunctionMetaInfo, ShaderGraph, ShaderGraphNodeRawHandle,
+  modify_graph, Node, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandle,
   ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped,
 };
 use rendiation_math::Vec2;

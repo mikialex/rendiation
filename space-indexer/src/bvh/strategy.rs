@@ -1,9 +1,6 @@
-use crate::utils::TreeBuildOption;
+use crate::utils::{bounding_from_build_source, TreeBuildOption};
 
-use super::{
-  bounding_from_build_source, node::FlattenBVHNode, BVHBounding, BuildPrimitive,
-  FlattenBVHNodeChildInfo,
-};
+use super::{node::FlattenBVHNode, BVHBounding, BuildPrimitive, FlattenBVHNodeChildInfo};
 use std::{iter::FromIterator, ops::Range};
 
 pub trait BVHBuildStrategy<B: BVHBounding> {

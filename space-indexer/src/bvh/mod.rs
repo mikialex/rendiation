@@ -6,10 +6,12 @@ mod traverse;
 pub mod test;
 
 pub use node::*;
-use std::{iter::FromIterator, ops::Range};
+use std::iter::FromIterator;
 pub use strategy::*;
 
-use crate::utils::{BuildPrimitive, CenterAblePrimitive, TreeBuildOption};
+use crate::utils::{
+  bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption,
+};
 
 pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
   type AxisType: Copy;
@@ -52,17 +54,4 @@ impl<B: BVHBounding> FlattenBVH<B> {
   pub fn sorted_primitive_index(&self) -> &Vec<usize> {
     &self.sorted_primitive_index
   }
-}
-
-fn bounding_from_build_source<B: BVHBounding>(
-  index_list: &Vec<usize>,
-  primitives: &Vec<BuildPrimitive<B>>,
-  range: Range<usize>,
-) -> B {
-  index_list
-    .get(range.clone())
-    .unwrap()
-    .iter()
-    .map(|index| primitives[*index].bounding)
-    .collect()
 }

@@ -1,67 +1,22 @@
-use crate::utils::{BuildPrimitive, CenterAblePrimitive};
-use rendiation_math_entity::Box3;
-use std::{marker::PhantomData, ops::Range};
+use crate::utils::{
+  bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption,
+};
+use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
-pub struct Binary;
-pub struct Quad;
-pub struct Oc;
+pub mod apply;
+pub use apply::*;
+use rendiation_math_entity::ContainAble;
 
-pub trait BinarySpaceTree<const N: usize>: Sized {
-  type Bounding: CenterAblePrimitive;
+pub trait BSTBounding<const N: usize>:
+  CenterAblePrimitive + Default + Copy + ContainAble<Self> + ContainAble<Self> + FromIterator<Self>
+{
+  fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize;
 
-  fn create_outer_bounding(
-    build_source: &Vec<BuildPrimitive<Self::Bounding>>,
-    index_source: &Vec<usize>,
-  ) -> Self::Bounding;
-
-  fn prepare_partition(node: &mut BSTNode<Self, N>);
-
-  fn check_primitive_should_in_which_partition(
-    primitive: &BuildPrimitive<Self::Bounding>,
-  ) -> Option<usize>;
-
-  fn split(
-    node: &mut BSTNode<Self, N>,
-    build_source: &Vec<BuildPrimitive<Self::Bounding>>,
-    index_source: &mut Vec<usize>,
-  ) {
-    Self::prepare_partition(node);
-    index_source
-      .get(node.primitive_range.clone())
-      .unwrap()
-      .iter()
-      .map(|&index| &build_source[index].bounding)
-      .for_each(
-        |b| {
-          if let Some(p) = Self::check_primitive_should_in_which_partition(b) {}
-        },
-      );
-    todo!()
-  }
+  fn compute_sub_space(&self, index: usize) -> Self;
 }
 
-// impl BinarySpaceTree<4> for Quad {
-//   type Bounding = Rectangle;
-// }
-
-impl BinarySpaceTree<8> for Oc {
-  type Bounding = Box3;
-  fn create_outer_bounding(
-    build_source: &Vec<BuildPrimitive<Self::Bounding>>,
-    index_source: &Vec<usize>,
-  ) -> Self::Bounding {
-    todo!()
-  }
-
-  fn check_primitive_should_in_which_partition(
-    primitive: &BuildPrimitive<Self::Bounding>,
-  ) -> Option<usize> {
-    todo!()
-  }
-
-  fn prepare_partition(node: &mut BSTNode<Oc, 8>) {
-    todo!()
-  }
+pub trait BinarySpaceTree<const N: usize>: Sized {
+  type Bounding: BSTBounding<N>;
 }
 
 pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
@@ -78,26 +33,67 @@ pub struct BSTTree<T: BinarySpaceTree<N>, const N: usize> {
   pub sorted_primitive_index: Vec<usize>,
 }
 
-pub type BinaryTree = BSTTree<Binary, 2>;
-pub type QuadTree = BSTTree<Quad, 4>;
-pub type OcTree = BSTTree<Oc, 8>;
-
-pub struct BinarySpaceTreeOption {
-  pub max_tree_depth: usize,
-  pub bin_size: usize,
+pub struct BSTTreeBuilder<T: BinarySpaceTree<N>, const N: usize> {
+  partitions: Vec<Vec<usize>>,
+  ranges: Vec<Range<usize>>,
+  crossed: Vec<usize>,
+  bounding: Vec<T::Bounding>,
 }
 
-impl BinarySpaceTreeOption {
-  fn should_split<T: BinarySpaceTree<N>, const N: usize>(&self, node: &BSTNode<T, N>) -> bool {
-    return node.primitive_range.len() <= self.bin_size && node.depth < self.max_tree_depth;
+impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
+  fn new(size: usize) -> Self {
+    Self {
+      partitions: (0..size).map(|_| Vec::new()).collect(),
+      ranges: (0..size).map(|_| (0..0)).collect(),
+      crossed: Vec::new(),
+      bounding: (0..size).map(|_| T::Bounding::default()).collect(),
+    }
+  }
+  fn reset(&mut self, all_bounding: T::Bounding) {
+    self.partitions.iter_mut().for_each(|p| p.clear());
+    self.crossed.clear();
+    self
+      .bounding
+      .iter_mut()
+      .enumerate()
+      .for_each(|(i, b)| *b = all_bounding.compute_sub_space(i))
+  }
+  fn classify_primitive(
+    &mut self,
+    node: &BSTNode<T, N>,
+    p: &BuildPrimitive<T::Bounding>,
+    index: usize,
+  ) {
+    let preferred_index = node.bounding.pre_classify_primitive(p);
+    let preferred_sub_box = &self.bounding[preferred_index];
+
+    if preferred_sub_box.contains(&p.bounding) {
+      self.partitions[preferred_index].push(index)
+    } else {
+      self.crossed.push(index)
+    }
+  }
+  fn apply_index_source(&mut self, index_source: &mut Vec<usize>, range: Range<usize>) {
+    let mut start = range.start;
+    let ranges = &mut self.ranges;
+    self
+      .partitions
+      .iter()
+      .enumerate()
+      .for_each(|(index, primitives)| {
+        let mut count = 0;
+        primitives.iter().for_each(|&i| {
+          index_source[start + count] = i;
+          count += 1;
+        });
+        ranges[index] = start..start + count;
+        start = start + count;
+      })
   }
 }
 
 impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
-  pub fn new(
-    source: impl ExactSizeIterator<Item = T::Bounding>,
-    option: &BinarySpaceTreeOption,
-  ) -> Self {
+  pub fn new(source: impl ExactSizeIterator<Item = T::Bounding>, option: &TreeBuildOption) -> Self {
     // prepare build source;
     let (mut index_list, primitives) = source
       .enumerate()
@@ -105,7 +101,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
       .unzip();
 
     // prepare root
-    let root_bbox = T::create_outer_bounding(&primitives, &index_list);
+    let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..index_list.len());
 
     let mut nodes = Vec::new();
     nodes.push(BSTNode {
@@ -117,16 +113,13 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
       child: None,
     });
 
-    // build
-    let mut building_nodes = Vec::with_capacity(source.len() / 4);
-    building_nodes.push(0);
-    while let Some(index) = building_nodes.pop() {
-      let building_node = &mut nodes[index];
-      if !option.should_split(building_node) {
-        continue;
-      }
-      T::split(building_node, &mut primitives, &mut index_list)
-    }
+    Self::build(
+      option,
+      &primitives,
+      &mut index_list,
+      &mut nodes,
+      &mut BSTTreeBuilder::new(N),
+    );
 
     Self {
       nodes,
@@ -135,24 +128,47 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
   }
 
   fn build(
-    option: &BinarySpaceTreeOption,
+    option: &TreeBuildOption,
     build_source: &Vec<BuildPrimitive<T::Bounding>>,
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<BSTNode<T, N>>,
-  ) {
-    let building_node = nodes.last().unwrap();
+    builder: &mut BSTTreeBuilder<T, N>,
+  ) -> usize {
+    let (node_index, depth) = {
+      let node_index = nodes.len() - 1;
+      let node = nodes.last_mut().unwrap();
 
-    if building_node.primitive_range.len() <= option.bin_size {
-      return;
+      if option.should_continue(node.primitive_range.len(), node.depth) {
+        return 1;
+      }
+
+      builder.reset(node.bounding);
+      index_source
+        .get(node.primitive_range.clone())
+        .unwrap()
+        .iter()
+        .map(|&index| (index, &build_source[index]))
+        .for_each(|(index, b)| builder.classify_primitive(node, b, index));
+      builder.apply_index_source(index_source, node.primitive_range.clone());
+      (node_index, node.depth)
+    };
+
+    let mut child = [0; N];
+    let mut offset = 1;
+    let ranges = builder.ranges.clone();
+    for (i, range) in ranges.iter().enumerate() {
+      nodes.push(BSTNode {
+        phantom: PhantomData,
+        bounding: builder.bounding[i],
+        primitive_range: range.clone(),
+        depth: depth + 1,
+        self_index: nodes.len(),
+        child: None,
+      });
+      child[i] = offset;
+      offset += Self::build(option, build_source, index_source, nodes, builder);
     }
-    if building_node.depth >= option.max_tree_depth {
-      return;
-    }
-
-    todo!()
-  }
-
-  pub fn sorted_primitive_index(&self) -> &Vec<usize> {
-    &self.sorted_primitive_index
+    nodes[node_index].child = Some(child);
+    offset
   }
 }
