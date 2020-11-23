@@ -7,21 +7,16 @@ pub mod apply;
 pub use apply::*;
 use rendiation_math_entity::ContainAble;
 
+pub trait BSTBounding<const N: usize>:
+  CenterAblePrimitive + Default + Copy + ContainAble<Self> + ContainAble<Self> + FromIterator<Self>
+{
+  fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize;
+
+  fn compute_sub_space(&self, index: usize) -> Self;
+}
+
 pub trait BinarySpaceTree<const N: usize>: Sized {
-  type Bounding: CenterAblePrimitive
-    + Default
-    + Copy
-    + ContainAble<Self::Bounding>
-    + ContainAble<Self::Bounding>
-    + FromIterator<Self::Bounding>;
-
-  fn classify_primitive(
-    parent_box: &Self::Bounding,
-    children_bounding: &[Self::Bounding],
-    p: &BuildPrimitive<Self::Bounding>,
-  ) -> Option<usize>;
-
-  fn compute_sub_space(index: usize, all_bounding: Self::Bounding) -> Self::Bounding;
+  type Bounding: BSTBounding<N>;
 }
 
 pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
@@ -61,7 +56,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
       .bounding
       .iter_mut()
       .enumerate()
-      .for_each(|(i, b)| *b = T::compute_sub_space(i, all_bounding))
+      .for_each(|(i, b)| *b = all_bounding.compute_sub_space(i))
   }
   fn classify_primitive(
     &mut self,
@@ -69,8 +64,11 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
     p: &BuildPrimitive<T::Bounding>,
     index: usize,
   ) {
-    if let Some(p) = T::classify_primitive(&node.bounding, &self.bounding, p) {
-      self.partitions[p].push(index)
+    let preferred_index = node.bounding.pre_classify_primitive(p);
+    let preferred_sub_box = &self.bounding[preferred_index];
+
+    if preferred_sub_box.contains(&p.bounding) {
+      self.partitions[preferred_index].push(index)
     } else {
       self.crossed.push(index)
     }
