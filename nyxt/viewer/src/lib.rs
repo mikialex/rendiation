@@ -25,7 +25,7 @@ impl ShaderGeometryInfo for MeshBasicShader {
 
 impl ShaderGraphProvider for MeshBasicShader {
   fn build_graph() -> ShaderGraph {
-    let (mut builder, input, vertex) = Self::create_builder();
+    let (builder, _input, _vertex) = Self::create_builder();
     builder.set_vertex_root(Vec4::zero());
     builder.set_frag_output(Vec4::zero());
     builder.create()

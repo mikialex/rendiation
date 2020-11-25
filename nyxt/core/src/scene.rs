@@ -1,11 +1,8 @@
 use rendiation_math::wasm::{Mat4F32WASM, WASMAbleType};
-use rendiation_scenegraph::{
-  default_impl::SceneNodeData, default_impl::SceneNodeRenderMatrixData, DrawcallHandle,
-  SceneNodeHandle,
-};
+use rendiation_scenegraph::{DrawcallHandle, SceneNodeHandle};
 use wasm_bindgen::prelude::*;
 
-use crate::{NyxtUBOWrapped, NyxtViewer, NyxtViewerHandledObject, GFX};
+use crate::{NyxtViewer, NyxtViewerHandledObject, GFX};
 
 #[wasm_bindgen]
 pub struct SceneNodeWASM {
