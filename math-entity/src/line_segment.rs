@@ -1,26 +1,31 @@
+use rendiation_math::{DimensionalVec, VectorMark};
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LineSegment<T> {
-  pub start: T,
-  pub end: T,
+pub struct LineSegment<T, const D: usize> {
+  pub start: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  pub end: <VectorMark<T> as DimensionalVec<T, D>>::Type,
 }
 
-impl<T> LineSegment<T> {
-  pub fn new(start: T, end: T) -> Self {
+impl<T, const D: usize> LineSegment<T, D> {
+  pub fn new(
+    start: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+    end: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  ) -> Self {
     Self { start, end }
   }
 
-  pub fn iter_point<'a>(&'a self) -> LineSegmentIter<'a, T> {
+  pub fn iter_point<'a>(&'a self) -> LineSegmentIter<'a, T, D> {
     LineSegmentIter::new(self)
   }
 }
 
-pub struct LineSegmentIter<'a, T> {
-  line_segment: &'a LineSegment<T>,
+pub struct LineSegmentIter<'a, T, const D: usize> {
+  line_segment: &'a LineSegment<T, D>,
   visit_count: i8,
 }
 
-impl<'a, T> LineSegmentIter<'a, T> {
-  pub fn new(line3: &'a LineSegment<T>) -> Self {
+impl<'a, T, const D: usize> LineSegmentIter<'a, T, D> {
+  pub fn new(line3: &'a LineSegment<T, D>) -> Self {
     Self {
       line_segment: line3,
       visit_count: -1,
@@ -28,8 +33,8 @@ impl<'a, T> LineSegmentIter<'a, T> {
   }
 }
 
-impl<'a, T: Copy> Iterator for LineSegmentIter<'a, T> {
-  type Item = T;
+impl<'a, T: Copy, const D: usize> Iterator for LineSegmentIter<'a, T, D> {
+  type Item = <VectorMark<T> as DimensionalVec<T, D>>::Type;
   fn next(&mut self) -> Option<Self::Item> {
     self.visit_count += 1;
     if self.visit_count == 0 {
@@ -42,7 +47,7 @@ impl<'a, T: Copy> Iterator for LineSegmentIter<'a, T> {
   }
 }
 
-impl<T: Copy> LineSegment<T> {
+impl<T: Copy, const D: usize> LineSegment<T, D> {
   pub fn swap(&self) -> Self {
     Self::new(self.end, self.start)
   }

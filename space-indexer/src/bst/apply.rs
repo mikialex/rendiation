@@ -3,15 +3,15 @@ use crate::utils::BuildPrimitive;
 use rendiation_math::Vec3;
 use rendiation_math_entity::Box3;
 
-pub type BinaryTree = BSTTree<Binary, 2>;
-pub type QuadTree = BSTTree<Quad, 4>;
-pub type OcTree = BSTTree<Oc, 8>;
+pub type BinaryTree = BSTTree<Binary, 2, 1>;
+pub type QuadTree = BSTTree<Quad, 4, 2>;
+pub type OcTree = BSTTree<Oc, 8, 3>;
 
 pub struct Binary;
 pub struct Quad;
 pub struct Oc;
 
-impl BSTBounding<8> for Box3 {
+impl BSTBounding<3, 8> for Box3 {
   fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize {
     let dir = self.center() - p.center;
     let mut i: usize = 0;
@@ -33,6 +33,6 @@ impl BSTBounding<8> for Box3 {
   }
 }
 
-impl BinarySpaceTree<8> for Oc {
+impl BinarySpaceTree<3, 8> for Oc {
   type Bounding = Box3;
 }

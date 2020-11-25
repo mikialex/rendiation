@@ -9,13 +9,3 @@ pub enum Axis2 {
   X,
   Y,
 }
-
-pub trait Positioned2D: Copy {
-  fn position(&self) -> Vec2<f32>;
-}
-
-impl Positioned2D for Vec2<f32> {
-  fn position(&self) -> Vec2<f32> {
-    *self
-  }
-}

@@ -1,4 +1,4 @@
-use crate::{LineSegment, Positioned3D, Ray};
+use crate::{LineSegment, Positioned, Ray};
 use rendiation_math::*;
 
 pub type Ray3 = Ray<Vec3<f32>>;
@@ -24,9 +24,9 @@ impl Ray3 {
     Self::new(origin, direction)
   }
 
-  pub fn distance_sq_to_segment<T: Positioned3D>(
+  pub fn distance_sq_to_segment<T: Positioned<f32, 3>>(
     &self,
-    line: LineSegment<T>,
+    line: LineSegment<T, 3>,
   ) -> (f32, Vec3<f32>, Vec3<f32>) {
     // (distance_sq_to_segment, optionalPointOnRay, optionalPointOnSegment)
     let v0 = line.start.position();

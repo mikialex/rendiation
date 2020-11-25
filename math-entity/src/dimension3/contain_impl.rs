@@ -1,6 +1,6 @@
 use crate::{Box3, ContainAble};
 
-impl ContainAble<Box3> for Box3 {
+impl ContainAble<Box3, 3> for Box3 {
   fn contains(&self, box3: &Box3) -> bool {
     self.min.x <= box3.min.x
       && self.min.y <= box3.min.y

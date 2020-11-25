@@ -1,9 +1,9 @@
 use crate::{ContainAble, HyperSphere, Rectangle, SpaceBounding};
 use rendiation_math::Vec2;
 
-pub type Circle = HyperSphere<f32, Vec2<f32>>;
+pub type Circle = HyperSphere<f32, 2>;
 
-impl ContainAble<Vec2<f32>> for Circle {
+impl ContainAble<Vec2<f32>, 2> for Circle {
   fn contains(&self, v: &Vec2<f32>) -> bool {
     (*v - self.center).length2() <= self.radius * self.radius
   }

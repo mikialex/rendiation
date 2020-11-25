@@ -1,7 +1,7 @@
-use crate::{Positioned3D, Triangle};
+use crate::{Positioned, Triangle};
 use rendiation_math::Vec3;
 
-impl<T: Positioned3D> Triangle<T> {
+impl<T: Positioned<f32, 3>> Triangle<T> {
   pub fn face_normal_by_position(&self) -> Vec3<f32> {
     let cb = self.a.position() - self.b.position();
     let ab = self.a.position() - self.b.position();
@@ -10,7 +10,7 @@ impl<T: Positioned3D> Triangle<T> {
   }
 }
 
-impl<T: Positioned3D> Triangle<T> {
+impl<T: Positioned<f32, 3>> Triangle<T> {
   /// return null when point is outside of triangle
   pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>> {
     let v0 = self.b.position() - self.a.position();

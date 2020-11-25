@@ -1,3 +1,8 @@
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
+#![feature(never_type)]
+#![allow(incomplete_features)]
+
 pub mod dimension3;
 pub use dimension3::*;
 pub mod dimension2;
@@ -28,7 +33,7 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
-pub trait ContainAble<Target> {
+pub trait ContainAble<Target, const D: usize> {
   fn contains(&self, items_to_contain: &Target) -> bool;
 }
 

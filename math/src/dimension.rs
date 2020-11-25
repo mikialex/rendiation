@@ -1,23 +1,23 @@
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use crate::*;
 
-pub trait DimensionalVec<T, const N: usize> {
-  type Type;
+pub trait DimensionalVec<T, const D: usize> {
+  type Type: Copy + Debug;
 }
 
-pub struct Vector<T>(PhantomData<T>);
+pub struct VectorMark<T>(PhantomData<T>);
 
-impl<T> DimensionalVec<T, 2> for Vector<T> {
+impl<T: Copy + Debug> DimensionalVec<T, 2> for VectorMark<T> {
   type Type = Vec2<T>;
 }
-impl<T> DimensionalVec<T, 3> for Vector<T> {
+impl<T: Copy + Debug> DimensionalVec<T, 3> for VectorMark<T> {
   type Type = Vec3<T>;
 }
-impl<T> DimensionalVec<T, 4> for Vector<T> {
+impl<T: Copy + Debug> DimensionalVec<T, 4> for VectorMark<T> {
   type Type = Vec4<T>;
 }
 
-impl<T, const N: usize> DimensionalVec<T, N> for Vector<T> {
+impl<T, const N: usize> DimensionalVec<T, N> for VectorMark<T> {
   default type Type = !;
 }

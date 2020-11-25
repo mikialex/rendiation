@@ -59,7 +59,7 @@ impl<'a, T: Copy> Iterator for Face3Iter<'a, T> {
 }
 
 impl<T: Copy> Triangle<T> {
-  pub fn for_each_edge(&self, mut visitor: impl FnMut(LineSegment<T>)) {
+  pub fn for_each_edge(&self, mut visitor: impl FnMut(LineSegment<T, 3>)) {
     let ab = LineSegment::new(self.a, self.b);
     let bc = LineSegment::new(self.b, self.c);
     let ca = LineSegment::new(self.c, self.a);

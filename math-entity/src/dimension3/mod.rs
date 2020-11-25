@@ -17,7 +17,7 @@ pub use intersection::*;
 pub use line_segment::*;
 pub use plane::*;
 pub use ray3::*;
-use rendiation_math::Vec3;
+use rendiation_math::{DimensionalVec, Vec3, VectorMark};
 pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;
@@ -29,11 +29,11 @@ pub enum Axis3 {
   Z,
 }
 
-pub trait Positioned3D: Copy {
-  fn position(&self) -> Vec3<f32>;
+pub trait Positioned<T, const D: usize>: Copy {
+  fn position(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
 }
 
-impl Positioned3D for Vec3<f32> {
+impl Positioned<f32, 3> for Vec3<f32> {
   #[inline(always)]
   fn position(&self) -> Vec3<f32> {
     *self

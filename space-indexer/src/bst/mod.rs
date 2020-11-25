@@ -8,19 +8,19 @@ pub mod test;
 pub use apply::*;
 use rendiation_math_entity::ContainAble;
 
-pub trait BSTBounding<const N: usize>:
-  CenterAblePrimitive + Default + Copy + ContainAble<Self> + ContainAble<Self> + FromIterator<Self>
+pub trait BSTBounding<const D: usize, const N: usize>:
+  CenterAblePrimitive + Default + Copy + ContainAble<Self, D> + FromIterator<Self>
 {
   fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize;
 
   fn compute_sub_space(&self, index: usize) -> Self;
 }
 
-pub trait BinarySpaceTree<const N: usize>: Sized {
-  type Bounding: BSTBounding<N>;
+pub trait BinarySpaceTree<const D: usize, const N: usize>: Sized {
+  type Bounding: BSTBounding<D, N>;
 }
 
-pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
+pub struct BSTNode<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> {
   phantom: PhantomData<T>,
   pub bounding: T::Bounding,
   pub primitive_range: Range<usize>,
@@ -29,19 +29,19 @@ pub struct BSTNode<T: BinarySpaceTree<N>, const N: usize> {
   pub child: Option<[usize; N]>,
 }
 
-pub struct BSTTree<T: BinarySpaceTree<N>, const N: usize> {
-  pub nodes: Vec<BSTNode<T, N>>,
+pub struct BSTTree<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> {
+  pub nodes: Vec<BSTNode<T, N, D>>,
   pub sorted_primitive_index: Vec<usize>,
 }
 
-pub struct BSTTreeBuilder<T: BinarySpaceTree<N>, const N: usize> {
+pub struct BSTTreeBuilder<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> {
   partitions: Vec<Vec<usize>>,
   ranges: Vec<Range<usize>>,
   crossed: Vec<usize>,
   bounding: Vec<T::Bounding>,
 }
 
-impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
+impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T, N, D> {
   fn new(size: usize) -> Self {
     Self {
       partitions: (0..size).map(|_| Vec::new()).collect(),
@@ -61,7 +61,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
   }
   fn classify_primitive(
     &mut self,
-    node: &BSTNode<T, N>,
+    node: &BSTNode<T, N, D>,
     p: &BuildPrimitive<T::Bounding>,
     index: usize,
   ) {
@@ -93,7 +93,7 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTreeBuilder<T, N> {
   }
 }
 
-impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
+impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> {
   pub fn new(source: impl ExactSizeIterator<Item = T::Bounding>, option: &TreeBuildOption) -> Self {
     // prepare build source;
     let (mut index_list, primitives) = source
@@ -132,8 +132,8 @@ impl<T: BinarySpaceTree<N>, const N: usize> BSTTree<T, N> {
     option: &TreeBuildOption,
     build_source: &Vec<BuildPrimitive<T::Bounding>>,
     index_source: &mut Vec<usize>,
-    nodes: &mut Vec<BSTNode<T, N>>,
-    builder: &mut BSTTreeBuilder<T, N>,
+    nodes: &mut Vec<BSTNode<T, N, D>>,
+    builder: &mut BSTTreeBuilder<T, N, D>,
   ) -> usize {
     let (node_index, depth) = {
       let node_index = nodes.len() - 1;
