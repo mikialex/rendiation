@@ -1,3 +1,8 @@
+
+#![feature(specialization)]
+#![feature(const_generics)]
+#![feature(never_type)]
+
 pub mod vec;
 pub mod mat;
 pub mod space;
@@ -8,6 +13,7 @@ pub mod dual;
 pub mod consts;
 pub mod swizzle;
 pub mod interpolation;
+pub mod dimension;
 
 pub mod wasm;
 pub use wasm::*;
@@ -19,6 +25,7 @@ pub use vec::*;
 pub use mat::*;
 pub use math::*;
 pub use interpolation::*;
+pub use dimension::*;
 
 pub use self::quat::*;
 pub use self::dual::*;

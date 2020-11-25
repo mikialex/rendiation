@@ -46,3 +46,10 @@ macro_rules! intersect_reverse {
     }
   };
 }
+
+pub trait CurveSegment<T> {
+  fn start(&self) -> T;
+  fn end(&self) -> T;
+
+  fn sample(&self, t: f32) -> T;
+}
