@@ -16,6 +16,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "aljabar"
+version = "1.0.2"
+dependencies = [
+ "approx",
+ "mint",
+ "paste 0.1.18",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "smallvec 0.6.13",
+]
+
+[[package]]
 name = "andrew"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -832,7 +845,7 @@ dependencies = [
  "parking_lot 0.11.0",
  "range-alloc",
  "raw-window-handle",
- "smallvec",
+ "smallvec 1.4.1",
  "spirv_cross",
  "winapi 0.3.8",
  "wio",
@@ -851,7 +864,7 @@ dependencies = [
  "log",
  "range-alloc",
  "raw-window-handle",
- "smallvec",
+ "smallvec 1.4.1",
  "spirv_cross",
  "winapi 0.3.8",
 ]
@@ -888,7 +901,7 @@ dependencies = [
  "parking_lot 0.11.0",
  "range-alloc",
  "raw-window-handle",
- "smallvec",
+ "smallvec 1.4.1",
  "spirv_cross",
  "storage-map",
 ]
@@ -909,7 +922,7 @@ dependencies = [
  "log",
  "objc",
  "raw-window-handle",
- "smallvec",
+ "smallvec 1.4.1",
  "winapi 0.3.8",
  "x11",
 ]
@@ -1310,6 +1323,12 @@ checksum = "aa679ff6578b1cddee93d7e82e263b94a575e0bfced07284eb0c037c1d2416a5"
 dependencies = [
  "adler32",
 ]
+
+[[package]]
+name = "mint"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "519df8d6856dcd4b40519947737b408f81be051fc032590659cae5d77d664185"
 
 [[package]]
 name = "mio"
@@ -1716,7 +1735,7 @@ dependencies = [
  "cloudabi 0.0.3",
  "libc",
  "redox_syscall",
- "smallvec",
+ "smallvec 1.4.1",
  "winapi 0.3.8",
 ]
 
@@ -1731,8 +1750,18 @@ dependencies = [
  "instant",
  "libc",
  "redox_syscall",
- "smallvec",
+ "smallvec 1.4.1",
  "winapi 0.3.8",
+]
+
+[[package]]
+name = "paste"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45ca20c77d80be666aef2b45486da86238fabe33e38306bd3118fe4af33fa880"
+dependencies = [
+ "paste-impl",
+ "proc-macro-hack",
 ]
 
 [[package]]
@@ -1740,6 +1769,15 @@ name = "paste"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba7ae1a2180ed02ddfdb5ab70c70d596a26dd642e097bb6fe78b1bde8588ed97"
+
+[[package]]
+name = "paste-impl"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d95a7db200b97ef370c8e6de0088252f7e0dfff7d047a28528e47456c0fc98b6"
+dependencies = [
+ "proc-macro-hack",
+]
 
 [[package]]
 name = "percent-encoding"
@@ -2189,7 +2227,7 @@ name = "rendiation-math"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "paste",
+ "paste 1.0.2",
  "wasm-bindgen",
 ]
 
@@ -2508,6 +2546,15 @@ name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
+
+[[package]]
+name = "smallvec"
+version = "0.6.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7b0758c52e15a8b5e3691eae6cc559f08eee9406e548a4477ba4e67770a82b6"
+dependencies = [
+ "maybe-uninit",
+]
 
 [[package]]
 name = "smallvec"
@@ -2991,7 +3038,7 @@ dependencies = [
  "objc",
  "parking_lot 0.11.0",
  "raw-window-handle",
- "smallvec",
+ "smallvec 1.4.1",
  "tracing",
  "typed-arena",
  "wasm-bindgen",
@@ -3022,7 +3069,7 @@ dependencies = [
  "naga 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.11.0",
  "raw-window-handle",
- "smallvec",
+ "smallvec 1.4.1",
  "thiserror",
  "tracing",
  "wgpu-types",

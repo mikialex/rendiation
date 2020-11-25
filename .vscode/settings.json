@@ -27,6 +27,7 @@
         "Slerp",
         "Tessellator",
         "Uint",
+        "Uninit",
         "Unorm",
         "Uploader",
         "Worley",
