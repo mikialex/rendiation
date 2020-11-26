@@ -17,7 +17,7 @@ pub struct Intersection {
 
 impl RayIntersectAble for Sphere {
   fn intersect(&self, ray: &Ray3) -> Option<Intersection> {
-    let voc = self.center - ray.origin; // Vector from the origin to the sphere center
+    let voc = self.center.data - ray.origin; // Vector from the origin to the sphere center
     let voc_len_sqr = voc.length2(); // The length squared of voc
     let vod_len = voc.dot(ray.direction); // The length of the projected vector voc into the ray direction
 
@@ -38,7 +38,7 @@ impl RayIntersectAble for Sphere {
           return None; // too far
         }
         let mut hit_position = ray.at(distance);
-        let hit_normal = (hit_position - self.center).normalize();
+        let hit_normal = (hit_position - self.center.data).normalize();
         hit_position += hit_normal * EPS;
         Some(Intersection {
           distance,

@@ -39,7 +39,7 @@ impl IntersectAble<Sphere, bool> for Frustum {
     let neg_radius = -sphere.radius;
 
     for p in &self.planes {
-      let distance = p.distance_to_point(sphere.center);
+      let distance = p.distance_to_point(sphere.center.data);
       if distance < neg_radius {
         return false;
       }
@@ -53,7 +53,7 @@ intersect_reverse!(Box3, bool, (), Frustum);
 impl IntersectAble<Box3, bool> for Frustum {
   fn intersect(&self, box3: &Box3, _: &()) -> bool {
     for p in &self.planes {
-      if p.distance_to_point(box3.max_corner(p.normal)) < 0. {
+      if p.distance_to_point(box3.max_corner(p.normal.data)) < 0. {
         return false;
       }
     }

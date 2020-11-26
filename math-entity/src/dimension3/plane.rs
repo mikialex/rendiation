@@ -9,7 +9,7 @@ impl Plane {
   }
 
   pub fn project_point(&self, point: Vec3<f32>) -> Vec3<f32> {
-    self.normal * (-self.distance_to_point(point)) + point
+    self.normal.data * (-self.distance_to_point(point)) + point
   }
 
   pub fn set_components(&mut self, x: f32, y: f32, z: f32, w: f32) -> &mut Self {
@@ -20,7 +20,7 @@ impl Plane {
 
   pub fn normalize(&mut self) -> &mut Self {
     let inverse_normal_length = 1.0 / self.normal.length();
-    self.normal *= inverse_normal_length;
+    self.normal.data *= inverse_normal_length;
     self.constant *= inverse_normal_length;
     self
   }
@@ -32,6 +32,6 @@ impl From<Triangle<Vec3<f32>>> for Plane {
     let v2 = face.c - face.a;
     let normal = v1.cross(v2).normalize();
     let constant = normal.dot(face.a);
-    Plane::new(normal, constant)
+    Plane::new(normal.into(), constant)
   }
 }

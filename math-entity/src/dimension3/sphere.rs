@@ -6,13 +6,13 @@ pub type Sphere = HyperSphere<f32, 3>;
 
 impl Sphere {
   pub fn zero() -> Self {
-    Sphere::new(Vec3::new(0.0, 0.0, 0.0), 0.0)
+    Sphere::new(Vec3::new(0.0, 0.0, 0.0).into(), 0.0)
   }
 
   pub fn new_from_box(box3: Box3) -> Self {
     let center = (box3.max + box3.min) / 2.;
     let radius = (box3.max - center).length();
-    Sphere::new(center, radius)
+    Sphere::new(center.into(), radius)
   }
 
   // we cant impl from iter trait because it need iter twice
@@ -27,7 +27,7 @@ impl Sphere {
       let d = (point - center).length2();
       max_distance2 = max_distance2.max(d);
     });
-    Sphere::new(center, max_distance2.sqrt())
+    Sphere::new(center.into(), max_distance2.sqrt())
   }
 
   pub fn from_points_and_center<'a, I>(items: &'a I, center: Vec3<f32>) -> Self
@@ -39,12 +39,12 @@ impl Sphere {
       let d = (point - center).length2();
       max_distance2 = max_distance2.max(d);
     });
-    Sphere::new(center, max_distance2.sqrt())
+    Sphere::new(center.into(), max_distance2.sqrt())
   }
 
   pub fn apply_matrix(&self, mat: Mat4<f32>) -> Self {
     let mut sphere = *self;
-    sphere.center = self.center * mat;
+    sphere.center.data = sphere.center.data * mat;
     sphere.radius *= mat.max_scale_on_axis();
     sphere
   }

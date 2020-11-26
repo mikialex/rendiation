@@ -42,8 +42,10 @@ impl IntersectionList3D {
 
 // #[macro_export]
 // macro_rules! intersect_reverse_generics {
-//   ($self_item: ty, $result:ty, $param:ty, $target:ty, $impl_gen:tt, $impl_gen_bound:ident) => {
-//     impl<$impl_gen: $impl_gen_bound> IntersectAble<$target, $result, $param> for $self_item {
+//   ($self_item: ty, $result:ty, $param:ty, $target:ty, $impl_gen:tt, $impl_gen_bound:ty, $scalar:ty, $dimension:expr) => {
+//     impl<$impl_gen: $impl_gen_bound<$scalar, $dimension>> IntersectAble<$target, $result, $param>
+//       for $self_item
+//     {
 //       fn intersect(&self, other: &$target, p: &$param) -> $result {
 //         IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
 //       }
@@ -51,7 +53,7 @@ impl IntersectionList3D {
 //   };
 // }
 
-// intersect_reverse_generics!(Triangle<T>, NearestPoint3D, (), Ray3, T, Positioned<f32, 3>);
+// intersect_reverse_generics!(Triangle<T>, NearestPoint3D, (), Ray3, T, Positioned, f32, 3);
 impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
   #[allow(non_snake_case)]
   fn intersect(&self, face: &Triangle<T>, _: &()) -> NearestPoint3D {
@@ -62,7 +64,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 
     let blackfaceCulling = false;
     let _edge1 = b - a;
     let _edge2 = c - a;
-    let _normal = _edge1.cross(_edge2);
+    let _normal = _edge1.cross(_edge2.data);
 
     // Solve Q + t*D = b1*E1 + b2*E2 (Q = kDiff, D = ray direction,
     // E1 = kEdge1, E2 = kEdge2, N = Cross(E1,E2)) by
@@ -85,8 +87,8 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 
       return NearestPoint3D(None);
     }
 
-    let _diff = self.origin - a;
-    let DdQxE2 = sign * self.direction.dot(_diff.cross(_edge2));
+    let _diff = self.origin - a.data;
+    let DdQxE2 = sign * self.direction.dot(_diff.cross(_edge2.data));
 
     // b1 < 0, no intersection
     if DdQxE2 < 0. {
@@ -136,7 +138,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<LineSegment<T>, NearestPoint3D, f32> f
 impl<T: Positioned<f32, 3>> IntersectAble<Point<T>, NearestPoint3D, f32> for Ray3 {
   #[inline]
   fn intersect(&self, point: &Point<T>, t: &f32) -> NearestPoint3D {
-    let point = point.0.position();
+    let point = point.0.position().data;
     let dist_sq = self.distance_sq_to_point(point);
     if dist_sq > t * t {
       return NearestPoint3D(None);
@@ -232,7 +234,7 @@ impl IntersectAble<Box3, bool> for Ray3 {
 intersect_reverse!(Sphere, NearestPoint3D, (), Ray3);
 impl IntersectAble<Sphere, NearestPoint3D> for Ray3 {
   fn intersect(&self, sphere: &Sphere, _: &()) -> NearestPoint3D {
-    let oc = sphere.center - self.origin;
+    let oc = sphere.center.data - self.origin;
     let tca = oc.dot(self.direction);
     let d2 = oc.dot(oc) - tca * tca;
     let radius2 = sphere.radius * sphere.radius;

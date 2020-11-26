@@ -29,8 +29,8 @@ impl Ray3 {
     line: LineSegment<T>,
   ) -> (f32, Vec3<f32>, Vec3<f32>) {
     // (distance_sq_to_segment, optionalPointOnRay, optionalPointOnSegment)
-    let v0 = line.start.position();
-    let v1 = line.end.position();
+    let v0 = line.start.position().data;
+    let v1 = line.end.position().data;
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteDistRaySegment.h
     // It returns the min distance between the ray and the segment

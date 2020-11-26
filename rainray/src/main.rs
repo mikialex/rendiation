@@ -38,19 +38,19 @@ fn main() {
   let scene = Scene {
     models: vec![
       Arc::new(model::Model::new(
-        Sphere::new((0., 5., 0.).into(), 4.0), // main ball
+        Sphere::new(Vec3::new(0., 5., 0.).into(), 4.0), // main ball
         Lambertian::new(),
       )),
       Arc::new(model::Model::new(
-        Sphere::new((0., -10000., 0.).into(), 10000.0), // ground
+        Sphere::new(Vec3::new(0., -10000., 0.).into(), 10000.0), // ground
         *Lambertian::new().albedo(0.3, 0.4, 0.8),
       )),
       Arc::new(model::Model::new(
-        Sphere::new((3., 2., 2.).into(), 2.0),
+        Sphere::new(Vec3::new(3., 2., 2.).into(), 2.0),
         *Lambertian::new().albedo(0.4, 0.8, 0.2),
       )),
       Arc::new(model::Model::new(
-        Sphere::new((-3., 2., 4.).into(), 1.0),
+        Sphere::new(Vec3::new(-3., 2., 4.).into(), 1.0),
         *Lambertian::new().albedo(1.0, 0.1, 0.0),
       )),
     ],

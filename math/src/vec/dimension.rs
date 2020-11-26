@@ -125,5 +125,5 @@ fn test() {
   };
   let x = a.length();
   assert_eq!(1., x);
-  let y: Vector<f32, 2> = a + b;
+  let _: Vector<f32, 2> = a + b;
 }

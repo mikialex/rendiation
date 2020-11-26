@@ -15,7 +15,7 @@ use super::{
   NoneIndexedGeometry, PointList, PrimitiveTopology,
 };
 use rendiation_math::Vec3;
-use rendiation_math_entity::{LineSegment, Positioned3D, Triangle};
+use rendiation_math_entity::{LineSegment, Positioned, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
@@ -24,7 +24,7 @@ use std::{
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<I, V, Primitive = Triangle<V>>,
   U: GeometryDataContainer<V>,
 {
@@ -83,7 +83,7 @@ where
 
 impl<V, T> IndexedGeometry<u16, V, T>
 where
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<u16, V>,
   <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
   // U: GeometryDataContainer<V>, // todo add more constrain like push?
@@ -119,7 +119,7 @@ where
 
 impl<V, T, U> IndexedGeometry<u16, V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
@@ -130,7 +130,7 @@ where
 
 impl<V, T> NoneIndexedGeometry<V, T>
 where
-  V: Positioned3D + HashAbleByConversion,
+  V: Positioned<f32, 3> + HashAbleByConversion,
   T: IndexPrimitiveTopology<u16, V>,
   <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
   // U: GeometryDataContainer<V>, // ditto
@@ -156,7 +156,7 @@ where
 
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {

@@ -1,7 +1,9 @@
+use rendiation_math::Vec3;
+
 use crate::LineSegment;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Triangle<T = Vec<f32>> {
+pub struct Triangle<T = Vec3<f32>> {
   pub a: T,
   pub b: T,
   pub c: T,
