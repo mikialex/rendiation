@@ -9,7 +9,7 @@ impl ContainAble<Vector<f32, 2>, 2> for Circle {
   }
 }
 
-impl SpaceBounding<Rectangle> for Circle {
+impl SpaceBounding<Rectangle, 2> for Circle {
   fn to_bounding(&self) -> Rectangle {
     Rectangle {
       min: (self.center.data - Vec2::splat(self.radius)).into(),

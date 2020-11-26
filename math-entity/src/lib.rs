@@ -1,6 +1,7 @@
 #![feature(const_generics)]
 #![feature(const_evaluatable_checked)]
 #![feature(never_type)]
+#![feature(specialization)]
 #![allow(incomplete_features)]
 
 pub mod dimension3;
@@ -38,12 +39,21 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
-pub trait ContainAble<Target, const D: usize> {
+pub trait SpaceEntity<const D: usize> {}
+pub trait SolidEntity<const D: usize>: SpaceEntity<D> {}
+
+pub trait ContainAble<Target: SpaceEntity<D>, const D: usize>: SolidEntity<D> {
   fn contains(&self, items_to_contain: &Target) -> bool;
 }
 
-pub trait SpaceBounding<Bound> {
+pub trait SpaceBounding<Bound: SolidEntity<D>, const D: usize>: SpaceEntity<D> {
   fn to_bounding(&self) -> Bound;
+}
+
+pub trait CurveSegment<T, const D: usize> {
+  fn start(&self) -> Vector<T, D>;
+  fn end(&self) -> Vector<T, D>;
+  fn sample(&self, t: f32) -> Vector<T, D>;
 }
 
 #[macro_export]
@@ -55,11 +65,4 @@ macro_rules! intersect_reverse {
       }
     }
   };
-}
-
-pub trait CurveSegment<T> {
-  fn start(&self) -> T;
-  fn end(&self) -> T;
-
-  fn sample(&self, t: f32) -> T;
 }

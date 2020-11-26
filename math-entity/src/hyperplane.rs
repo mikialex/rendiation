@@ -1,9 +1,13 @@
 use rendiation_math::*;
 
+use crate::SpaceEntity;
+
 pub struct HyperPlane<T, const D: usize> {
   pub normal: Vector<T, D>,
   pub constant: T,
 }
+
+impl<T, const D: usize> SpaceEntity<D> for HyperPlane<T, D> {}
 
 impl<T, const D: usize> Copy for HyperPlane<T, D>
 where

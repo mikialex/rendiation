@@ -1,7 +1,6 @@
 
 #![feature(specialization)]
 #![feature(const_generics)]
-#![feature(never_type)]
 #![allow(incomplete_features)]
 
 pub mod vec;

@@ -1,8 +1,12 @@
+use crate::{Positioned, SpaceEntity};
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct LineSegment<T> {
   pub start: T,
   pub end: T,
 }
+
+impl<T: Positioned<f32, D>, const D: usize> SpaceEntity<D> for LineSegment<T> {}
 
 impl<T> LineSegment<T> {
   pub fn new(start: T, end: T) -> Self {

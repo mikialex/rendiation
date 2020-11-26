@@ -1,9 +1,14 @@
 use rendiation_math::*;
 
+use crate::{SolidEntity, SpaceEntity};
+
 pub struct HyperAABB<T, const D: usize> {
   pub min: Vector<T, D>,
   pub max: Vector<T, D>,
 }
+
+impl<T, const D: usize> SpaceEntity<D> for HyperAABB<T, D> {}
+impl<T, const D: usize> SolidEntity<D> for HyperAABB<T, D> {}
 
 impl<T, const D: usize> Copy for HyperAABB<T, D>
 where

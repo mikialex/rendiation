@@ -1,9 +1,14 @@
 use rendiation_math::*;
 
+use crate::{SolidEntity, SpaceEntity};
+
 pub struct HyperSphere<T, const D: usize> {
   pub center: Vector<T, D>,
   pub radius: T,
 }
+
+impl<T, const D: usize> SpaceEntity<D> for HyperSphere<T, D> {}
+impl<T, const D: usize> SolidEntity<D> for HyperSphere<T, D> {}
 
 impl<T, const D: usize> Copy for HyperSphere<T, D>
 where
