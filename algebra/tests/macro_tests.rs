@@ -1,6 +1,4 @@
-extern crate aljabar;
-
-use aljabar::{matrix, vector};
+use rendiation_algebra::{matrix, vector};
 
 #[test]
 fn can_use_vector_macro_outside_aljabar() {

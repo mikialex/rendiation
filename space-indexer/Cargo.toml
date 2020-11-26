@@ -13,6 +13,7 @@ harness = false
 
 [dependencies]
 
+rendiation-algebra = { path = "../algebra" }
 rendiation-math = { path = "../math" }
 rendiation-math-entity = { path = "../math-entity" }
 

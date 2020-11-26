@@ -1,4 +1,4 @@
-use aljabar::{matrix, vector, Matrix, Vector};
+use rendiation_algebra::{matrix, vector, Matrix, Vector};
 
 #[test]
 fn test_serialize() {

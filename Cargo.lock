@@ -16,19 +16,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aljabar"
-version = "1.0.2"
-dependencies = [
- "approx",
- "mint",
- "paste 0.1.18",
- "rand 0.7.3",
- "serde",
- "serde_json",
- "smallvec 0.6.13",
-]
-
-[[package]]
 name = "andrew"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2213,6 +2200,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-algebra"
+version = "0.0.1"
+dependencies = [
+ "approx",
+ "mint",
+ "paste 0.1.18",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "smallvec 0.6.13",
+]
+
+[[package]]
 name = "rendiation-derives"
 version = "0.1.0"
 dependencies = [
@@ -2617,6 +2617,7 @@ dependencies = [
  "criterion",
  "log",
  "rand 0.7.3",
+ "rendiation-algebra",
  "rendiation-math",
  "rendiation-math-entity",
 ]

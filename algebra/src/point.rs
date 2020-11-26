@@ -281,7 +281,7 @@ where
     D: Deserializer<'de>,
   {
     deserializer
-      .deserialize_tuple(N, ArrayVisitor::<[T; { N }]>::new())
+      .deserialize_tuple(N, ArrayVisitor::<[T; N]>::new())
       .map(Point)
   }
 }

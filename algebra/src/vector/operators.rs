@@ -11,6 +11,18 @@ where
     Vector([self.0[0] + rhs.0[0], self.0[1] + rhs.0[1]])
   }
 }
+impl<A: Copy, B: Copy> Add<Vector<B, 3>> for Vector<A, 3>
+where
+  A: Add<B>,
+{
+  fn add(self, rhs: Vector<B, 3>) -> Self::Output {
+    Vector([
+      self.0[0] + rhs.0[0],
+      self.0[1] + rhs.0[1],
+      self.0[1] + rhs.0[1],
+    ])
+  }
+}
 
 impl<A, B, const N: usize> Add<Vector<B, { N }>> for Vector<A, { N }>
 where

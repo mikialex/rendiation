@@ -1,20 +1,11 @@
 [package]
-name = "aljabar"
-version = "1.0.2"
-authors = ["Matthew Plant <map@maplant.com>", "Øystein Hovind <oystein.hovind@folq.no>"]
+name = "rendiation-algebra"
+version = "0.0.1"
 edition = "2018"
-description = "A super generic, super experimental linear algebra library."
-license = "MIT/Apache-2.0"
 
-documentation = "https://docs.rs/crate/aljabar"
-homepage = "https://github.com/maplant/aljabar"
-repository = "https://github.com/maplant/aljabar"
-readme = "README.md"
 
 keywords = [ "linear", "algebra", "matrix", "vector", "math" ]
 
-[lib]
-name = "aljabar"
 
 [dependencies]
 mint = { version = "0.5", optional = true }
