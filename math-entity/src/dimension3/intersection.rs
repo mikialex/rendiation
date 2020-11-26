@@ -52,9 +52,9 @@ impl IntersectionList3D {
 // }
 
 // intersect_reverse_generics!(Triangle<T>, NearestPoint3D, (), Ray3, T, Positioned<f32, 3>);
-impl IntersectAble<Triangle<f32, 3>, NearestPoint3D> for Ray3 {
+impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Triangle<f32, 3>, _: &()) -> NearestPoint3D {
+  fn intersect(&self, face: &Triangle<T>, _: &()) -> NearestPoint3D {
     // Compute the offset origin, edges, and normal.
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
@@ -119,9 +119,9 @@ impl IntersectAble<Triangle<f32, 3>, NearestPoint3D> for Ray3 {
 }
 
 // intersect_reverse_generics!(LineSegment<T, 3>, NearestPoint3D, f32, Ray3, T, Positioned<f32, 3>);
-impl<T: Positioned<f32, 3>> IntersectAble<LineSegment<T, 3>, NearestPoint3D, f32> for Ray3 {
+impl<T: Positioned<f32, 3>> IntersectAble<LineSegment<T>, NearestPoint3D, f32> for Ray3 {
   #[inline]
-  fn intersect(&self, line: &LineSegment<T, 3>, t: &f32) -> NearestPoint3D {
+  fn intersect(&self, line: &LineSegment<T>, t: &f32) -> NearestPoint3D {
     let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(*line);
     if dist_sq > t * t {
       return NearestPoint3D(None);

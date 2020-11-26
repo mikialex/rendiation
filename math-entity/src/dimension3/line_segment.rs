@@ -2,7 +2,7 @@ use crate::LineSegment;
 use rendiation_math::{Mat4, Vec3};
 use std::ops::Mul;
 
-pub type LineSegment3D = LineSegment<f32, 3>;
+pub type LineSegment3D = LineSegment<Vec3<f32>>;
 
 impl LineSegment3D {
   pub fn length(&self) -> f32 {

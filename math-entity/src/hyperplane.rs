@@ -1,13 +1,13 @@
-use rendiation_math::{DimensionalVec, VectorMark};
+use rendiation_math::Vector;
 
 #[derive(Debug, Copy, Clone)]
 pub struct HyperPlane<T, const D: usize> {
-  pub normal: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  pub normal: Vector<T, D>,
   pub constant: T,
 }
 
 impl<T, const D: usize> HyperPlane<T, D> {
-  pub fn new(normal: <VectorMark<T> as DimensionalVec<T, D>>::Type, constant: T) -> Self {
+  pub fn new(normal: Vector<T, D>, constant: T) -> Self {
     Self { normal, constant }
   }
 }

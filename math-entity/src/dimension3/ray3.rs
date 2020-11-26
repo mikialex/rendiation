@@ -26,7 +26,7 @@ impl Ray3 {
 
   pub fn distance_sq_to_segment<T: Positioned<f32, 3>>(
     &self,
-    line: LineSegment<T, 3>,
+    line: LineSegment<T>,
   ) -> (f32, Vec3<f32>, Vec3<f32>) {
     // (distance_sq_to_segment, optionalPointOnRay, optionalPointOnSegment)
     let v0 = line.start.position();

@@ -1,5 +1,4 @@
 use std::{
-  fmt::Debug,
   marker::PhantomData,
   ops::Deref,
   ops::{Add, DerefMut},
@@ -8,33 +7,48 @@ use std::{
 use crate::*;
 
 pub trait DimensionalVec<T, const D: usize> {
-  type Type: Copy + Debug;
+  type Type;
 }
 
 pub struct VectorMark<T>(PhantomData<T>);
 
-impl<T: Copy + Debug> DimensionalVec<T, 2> for VectorMark<T> {
+impl<T> DimensionalVec<T, 2> for VectorMark<T> {
   type Type = Vec2<T>;
 }
-impl<T: Copy + Debug> DimensionalVec<T, 3> for VectorMark<T> {
+impl<T> DimensionalVec<T, 3> for VectorMark<T> {
   type Type = Vec3<T>;
 }
-impl<T: Copy + Debug> DimensionalVec<T, 4> for VectorMark<T> {
+impl<T> DimensionalVec<T, 4> for VectorMark<T> {
   type Type = Vec4<T>;
 }
 
-impl<T, const N: usize> DimensionalVec<T, N> for VectorMark<T> {
-  default type Type = !;
+impl<T, const D: usize> DimensionalVec<T, D> for VectorMark<T> {
+  default type Type = [T; D];
 }
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug)]
-pub struct Vector<T, const N: usize> {
-  pub data: <VectorMark<T> as DimensionalVec<T, N>>::Type,
+pub struct Vector<T, const D: usize> {
+  pub data: <VectorMark<T> as DimensionalVec<T, D>>::Type,
 }
 
-impl<T, const N: usize> Deref for Vector<T, N> {
-  default type Target = <VectorMark<T> as DimensionalVec<T, N>>::Type;
+impl<T, const D: usize> Copy for Vector<T, D> where
+  <VectorMark<T> as DimensionalVec<T, D>>::Type: Copy
+{
+}
+
+impl<T, const D: usize> Clone for Vector<T, D>
+where
+  <VectorMark<T> as DimensionalVec<T, D>>::Type: Clone,
+{
+  fn clone(&self) -> Self {
+    Self {
+      data: self.data.clone(),
+    }
+  }
+}
+
+impl<T, const D: usize> Deref for Vector<T, D> {
+  default type Target = <VectorMark<T> as DimensionalVec<T, D>>::Type;
 
   default fn deref(&self) -> &Self::Target {
     unreachable!()
@@ -54,12 +68,12 @@ impl<T> DerefMut for Vector<T, 2> {
   }
 }
 
-impl<T, const N: usize> Add for Vector<T, N>
+impl<T, const D: usize> Add for Vector<T, D>
 where
-  <VectorMark<T> as DimensionalVec<T, N>>::Type:
-    Add<Output = <VectorMark<T> as DimensionalVec<T, N>>::Type>,
+  <VectorMark<T> as DimensionalVec<T, D>>::Type:
+    Add<Output = <VectorMark<T> as DimensionalVec<T, D>>::Type>,
 {
-  type Output = Vector<T, N>;
+  type Output = Vector<T, D>;
 
   fn add(self, rhs: Self) -> Self::Output {
     Self {

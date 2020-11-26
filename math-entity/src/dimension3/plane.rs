@@ -27,8 +27,8 @@ impl Plane {
   }
 }
 
-impl From<Triangle<f32, 3>> for Plane {
-  fn from(face: Triangle<f32, 3>) -> Plane {
+impl From<Triangle<Vec3<f32>>> for Plane {
+  fn from(face: Triangle<Vec3<f32>>) -> Plane {
     let v1 = face.b - face.a;
     let v2 = face.c - face.a;
     let normal = v1.cross(v2).normalize();

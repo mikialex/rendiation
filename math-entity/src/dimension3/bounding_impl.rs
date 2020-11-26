@@ -2,7 +2,7 @@ use rendiation_math::Vec3;
 
 use crate::{Box3, LineSegment3D, Point, SpaceBounding, Triangle};
 
-impl SpaceBounding<Box3> for Triangle<f32, 3> {
+impl SpaceBounding<Box3> for Triangle {
   #[inline(always)]
   fn to_bounding(&self) -> Box3 {
     self.iter_point().collect()
