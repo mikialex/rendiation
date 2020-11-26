@@ -16,7 +16,7 @@ use super::consts::*;
 
 use crate::*;
 
-pub trait Vector: Copy {
+pub trait VectorTrait: Copy {
   fn normalize(&self) -> Self;
 }
 

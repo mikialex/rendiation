@@ -52,9 +52,9 @@ impl IntersectionList3D {
 // }
 
 // intersect_reverse_generics!(Triangle<T>, NearestPoint3D, (), Ray3, T, Positioned<f32, 3>);
-impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
+impl IntersectAble<Triangle<f32, 3>, NearestPoint3D> for Ray3 {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Triangle<T>, _: &()) -> NearestPoint3D {
+  fn intersect(&self, face: &Triangle<f32, 3>, _: &()) -> NearestPoint3D {
     // Compute the offset origin, edges, and normal.
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h

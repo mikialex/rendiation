@@ -23,11 +23,16 @@ pub use hypersphere::*;
 pub use line_segment::*;
 pub use point::*;
 pub use ray::*;
+use rendiation_math::Vector;
 pub use triangle::*;
 pub use wasm::*;
 
 pub mod transformation;
 pub use transformation::*;
+
+pub trait Positioned<T, const D: usize>: Copy {
+  fn position(&self) -> Vector<T, D>;
+}
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;

@@ -1,16 +1,13 @@
-use rendiation_math::{DimensionalVec, VectorMark};
+use rendiation_math::Vector;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy)]
 pub struct LineSegment<T, const D: usize> {
-  pub start: <VectorMark<T> as DimensionalVec<T, D>>::Type,
-  pub end: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  pub start: Vector<T, D>,
+  pub end: Vector<T, D>,
 }
 
 impl<T, const D: usize> LineSegment<T, D> {
-  pub fn new(
-    start: <VectorMark<T> as DimensionalVec<T, D>>::Type,
-    end: <VectorMark<T> as DimensionalVec<T, D>>::Type,
-  ) -> Self {
+  pub fn new(start: Vector<T, D>, end: Vector<T, D>) -> Self {
     Self { start, end }
   }
 
@@ -34,7 +31,7 @@ impl<'a, T, const D: usize> LineSegmentIter<'a, T, D> {
 }
 
 impl<'a, T: Copy, const D: usize> Iterator for LineSegmentIter<'a, T, D> {
-  type Item = <VectorMark<T> as DimensionalVec<T, D>>::Type;
+  type Item = Vector<T, D>;
   fn next(&mut self) -> Option<Self::Item> {
     self.visit_count += 1;
     if self.visit_count == 0 {
