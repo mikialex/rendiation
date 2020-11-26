@@ -18,7 +18,6 @@ impl<T> Vec4<T>
 where
   T: Copy,
 {
-
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T, T) {
     (self.x, self.y, self.z, self.w)

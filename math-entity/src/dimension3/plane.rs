@@ -1,7 +1,6 @@
 use crate::{HyperPlane, Triangle};
 use rendiation_math::*;
 
-// we cant use type alias for trait bound in stable: https://github.com/rust-lang/rust/issues/52662
 pub type Plane = HyperPlane<f32, 3>;
 
 impl Plane {

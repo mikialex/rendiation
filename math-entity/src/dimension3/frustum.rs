@@ -17,7 +17,7 @@ impl Default for Frustum {
 impl Frustum {
   pub fn new() -> Self {
     Self {
-      planes: [Plane::new(Vec3::new(1.0, 1., 1.), 1.); 6],
+      planes: [Plane::new(Vec3::new(1.0, 1., 1.).into(), 1.); 6],
     }
   }
 

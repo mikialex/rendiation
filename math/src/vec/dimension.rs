@@ -1,7 +1,7 @@
 use std::{
   marker::PhantomData,
   ops::Deref,
-  ops::{Add, DerefMut},
+  ops::{Add, DerefMut, Sub},
 };
 
 use crate::*;
@@ -55,6 +55,25 @@ impl<T, const D: usize> Deref for Vector<T, D> {
   }
 }
 
+impl<T> From<Vec3<T>> for Vector<T, 3> {
+  fn from(data: Vec3<T>) -> Self {
+    Self { data }
+  }
+}
+
+impl<T> Deref for Vector<T, 3> {
+  type Target = Vec3<T>;
+
+  fn deref(&self) -> &Self::Target {
+    unsafe { std::mem::transmute(&self.data) }
+  }
+}
+impl<T> DerefMut for Vector<T, 3> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    unsafe { std::mem::transmute(&mut self.data) }
+  }
+}
+
 impl<T> Deref for Vector<T, 2> {
   type Target = Vec2<T>;
 
@@ -78,6 +97,20 @@ where
   fn add(self, rhs: Self) -> Self::Output {
     Self {
       data: self.data + rhs.data,
+    }
+  }
+}
+
+impl<T, const D: usize> Sub for Vector<T, D>
+where
+  <VectorMark<T> as DimensionalVec<T, D>>::Type:
+    Sub<Output = <VectorMark<T> as DimensionalVec<T, D>>::Type>,
+{
+  type Output = Vector<T, D>;
+
+  fn sub(self, rhs: Self) -> Self::Output {
+    Self {
+      data: self.data - rhs.data,
     }
   }
 }

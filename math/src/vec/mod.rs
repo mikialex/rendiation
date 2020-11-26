@@ -1,7 +1,9 @@
+pub mod dimension;
 pub mod normalized;
 pub mod vec2;
 pub mod vec3;
 pub mod vec4;
+pub use dimension::*;
 pub use normalized::*;
 pub use vec2::*;
 pub use vec3::*;

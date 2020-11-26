@@ -34,6 +34,6 @@ pub enum Axis3 {
 impl Positioned<f32, 3> for Vec3<f32> {
   #[inline(always)]
   fn position(&self) -> Vector<f32, 3> {
-    *self
+    self
   }
 }

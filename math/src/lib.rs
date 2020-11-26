@@ -14,7 +14,6 @@ pub mod dual;
 pub mod consts;
 pub mod swizzle;
 pub mod interpolation;
-pub mod dimension;
 
 pub mod wasm;
 pub use wasm::*;
@@ -26,7 +25,6 @@ pub use vec::*;
 pub use mat::*;
 pub use math::*;
 pub use interpolation::*;
-pub use dimension::*;
 
 pub use self::quat::*;
 pub use self::dual::*;

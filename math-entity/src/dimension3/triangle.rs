@@ -1,18 +1,18 @@
 use crate::{Positioned, Triangle};
-use rendiation_math::Vec3;
+use rendiation_math::Vector;
 
 impl<T: Positioned<f32, 3>> Triangle<T> {
-  pub fn face_normal_by_position(&self) -> Vec3<f32> {
+  pub fn face_normal_by_position(&self) -> Vector<f32, 3> {
     let cb = self.a.position() - self.b.position();
     let ab = self.a.position() - self.b.position();
-    let n = cb.cross(ab);
-    n.normalize()
+    let n = cb.cross(ab.data);
+    n.normalize().into()
   }
 }
 
 impl<T: Positioned<f32, 3>> Triangle<T> {
   /// return null when point is outside of triangle
-  pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>> {
+  pub fn barycentric(&self, p: Vector<f32, 3>) -> Option<Vector<f32, 3>> {
     let v0 = self.b.position() - self.a.position();
     let v1 = self.c.position() - self.a.position();
     let v2 = p - self.a.position();

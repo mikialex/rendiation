@@ -1,13 +1,12 @@
-use rendiation_math::{DimensionalVec, VectorMark};
+use rendiation_math::Vector;
 
-#[derive(Debug, Copy, Clone)]
 pub struct HyperSphere<T, const D: usize> {
-  pub center: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  pub center: Vector<T, D>,
   pub radius: T,
 }
 
 impl<T, const D: usize> HyperSphere<T, D> {
-  pub fn new(center: <VectorMark<T> as DimensionalVec<T, D>>::Type, radius: T) -> Self {
+  pub fn new(center: Vector<T, D>, radius: T) -> Self {
     Self { center, radius }
   }
 }
