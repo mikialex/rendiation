@@ -1,8 +1,8 @@
-use crate::{Axis3, AABB};
+use crate::{Axis3, HyperAABB};
 use rendiation_math::*;
 use std::iter::FromIterator;
 
-pub type Box3 = AABB<f32, 3>;
+pub type Box3 = HyperAABB<f32, 3>;
 
 impl Default for Box3 {
   fn default() -> Self {

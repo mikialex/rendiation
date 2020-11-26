@@ -1,7 +1,7 @@
-use crate::{ContainAble, AABB};
+use crate::{ContainAble, HyperAABB};
 use rendiation_math::Vec2;
 
-pub type Rectangle = AABB<f32, 2>;
+pub type Rectangle = HyperAABB<f32, 2>;
 
 impl Rectangle {
   pub fn width(&self) -> f32 {

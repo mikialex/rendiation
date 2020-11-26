@@ -8,7 +8,7 @@ pub use dimension3::*;
 pub mod dimension2;
 pub use dimension2::*;
 
-pub mod aabb;
+pub mod hyperaabb;
 pub mod hyperplane;
 pub mod hypersphere;
 pub mod line_segment;
@@ -17,7 +17,7 @@ pub mod ray;
 pub mod triangle;
 pub mod wasm;
 
-pub use aabb::*;
+pub use hyperaabb::*;
 pub use hyperplane::*;
 pub use hypersphere::*;
 pub use line_segment::*;
