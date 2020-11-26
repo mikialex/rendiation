@@ -12,8 +12,8 @@ impl ContainAble<Vector<f32, 2>, 2> for Circle {
 impl SpaceBounding<Rectangle> for Circle {
   fn to_bounding(&self) -> Rectangle {
     Rectangle {
-      min: self.center.data - Vec2::splat(self.radius),
-      max: self.center.data + Vec2::splat(self.radius),
+      min: (self.center.data - Vec2::splat(self.radius)).into(),
+      max: (self.center.data + Vec2::splat(self.radius)).into(),
     }
   }
 }

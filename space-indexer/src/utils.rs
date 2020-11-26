@@ -72,7 +72,7 @@ pub fn generate_boxes_in_space(count: usize, space_size: f32, box_size: f32) -> 
     .map(|_| {
       let center = Vec3::new(random(), random(), random()) * space_size;
       let half_size = Vec3::new(random(), random(), random()) * box_size;
-      Box3::new(center - half_size, center + half_size)
+      Box3::new3(center - half_size, center + half_size)
     })
     .collect()
 }

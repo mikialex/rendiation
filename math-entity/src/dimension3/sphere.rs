@@ -10,8 +10,8 @@ impl Sphere {
   }
 
   pub fn new_from_box(box3: Box3) -> Self {
-    let center = (box3.max + box3.min) / 2.;
-    let radius = (box3.max - center).length();
+    let center = (box3.max + box3.min).data * 0.5;
+    let radius = (box3.max.data - center).length();
     Sphere::new(center.into(), radius)
   }
 
@@ -21,7 +21,7 @@ impl Sphere {
     &'a I: IntoIterator<Item = &'a Vec3<f32>>,
   {
     let box3: Box3 = items.into_iter().collect();
-    let center = (box3.max + box3.min) / 2.;
+    let center = (box3.max + box3.min).data * 0.5;
     let mut max_distance2 = 0.;
     items.into_iter().for_each(|&point| {
       let d = (point - center).length2();

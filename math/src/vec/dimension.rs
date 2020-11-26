@@ -74,6 +74,12 @@ impl<T> DerefMut for Vector<T, 3> {
   }
 }
 
+impl<T> From<Vec2<T>> for Vector<T, 2> {
+  fn from(data: Vec2<T>) -> Self {
+    Self { data }
+  }
+}
+
 impl<T> Deref for Vector<T, 2> {
   type Target = Vec2<T>;
 
