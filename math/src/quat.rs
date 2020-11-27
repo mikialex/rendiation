@@ -251,7 +251,7 @@ where
 
 impl<T> Quat<T>
 where
-  T: Scalar,
+  T: Scalar + Half,
 {
   pub fn rotation_x(theta: T) -> Self {
     let theta_half = theta * T::half();
@@ -380,7 +380,7 @@ where
 
   pub fn normalize(&self) -> Self {
     let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
+    if mag_sq > T::zero() {
       let inv_sqrt = T::one() / mag_sq.sqrt();
       return *self * inv_sqrt;
     }
@@ -389,7 +389,7 @@ where
 
   pub fn axis(&self) -> Vec3<T> {
     let sin_theta_over2_sq = T::one() - self.w * self.w;
-    if sin_theta_over2_sq.le(T::zero()) {
+    if sin_theta_over2_sq <= T::zero() {
       return Vec3::new(T::one(), T::zero(), T::zero());
     }
 
@@ -765,13 +765,13 @@ where
 
 impl<T> Slerp<T> for Quat<T>
 where
-  T: Scalar,
+  T: Scalar + Half,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
 
     let s = T::one() - factor;
-    let t = if dot.gt(T::zero()) { factor } else { -factor };
+    let t = if dot > T::zero() { factor } else { -factor };
     let q = self * s + other * t;
 
     q.normalize()
@@ -823,7 +823,7 @@ where
 
 impl<T> fmt::Binary for Quat<T>
 where
-  T: Scalar,
+  T: Scalar + Half,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

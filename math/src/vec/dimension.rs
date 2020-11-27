@@ -6,7 +6,7 @@ pub trait Vector<T: Scalar>: Sized + Mul<T, Output = Self> + Copy {
   #[inline]
   fn normalize(&self) -> Self {
     let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
+    if mag_sq > T::zero() {
       let inv_sqrt = T::one() / mag_sq.sqrt();
       return *self * inv_sqrt;
     }
@@ -14,10 +14,6 @@ pub trait Vector<T: Scalar>: Sized + Mul<T, Output = Self> + Copy {
   }
   fn length2(&self) -> T;
 }
-
-pub trait Scalar: Copy + Arithmetic + Math {}
-impl Scalar for f32 {}
-impl Scalar for f64 {}
 
 pub trait DimensionalVec<T: Scalar, const D: usize> {
   type Type: Vector<T>;
@@ -36,5 +32,5 @@ impl<T: Scalar> DimensionalVec<T, 3> for VectorMark<T> {
 // }
 
 impl<T: Scalar, const D: usize> DimensionalVec<T, D> for VectorMark<T> {
-  default type Type = Vec2<T>;
+  default type Type = Vec2<T>; // todo impl for [T; D]
 }

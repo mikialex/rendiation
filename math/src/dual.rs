@@ -171,7 +171,7 @@ where
 
 impl<T> Dual<T>
 where
-  T: Scalar,
+  T: Scalar + Half,
 {
   pub fn from_transform(rotation: Quat<T>, t: Vec3<T>) -> Self {
     Self {
@@ -194,7 +194,7 @@ where
 
   pub fn normalize(&self) -> Self {
     let mag_sq = self.real.length2();
-    if mag_sq.gt(T::zero()) {
+    if mag_sq > T::zero() {
       let inv_sqrt = T::one() / mag_sq.sqrt();
       return *self * inv_sqrt;
     }
@@ -243,13 +243,13 @@ where
 // http://dcgi.felk.cvut.cz/home/zara/papers/TCD-CS-2006-46.pdf
 impl<T> Slerp<T> for Dual<T>
 where
-  T: Scalar,
+  T: Scalar + Half,
 {
   fn slerp(self, q2: Self, factor: T) -> Self {
     let dot = self.dot(q2);
 
     let s = T::one() - factor;
-    let t = if dot.gt(T::zero()) { factor } else { -factor };
+    let t = if dot > T::zero() { factor } else { -factor };
     let q = self * s + q2 * t;
 
     q.normalize()

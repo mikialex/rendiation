@@ -57,7 +57,7 @@ where
   #[inline]
   pub fn normalize(&self) -> Self {
     let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
+    if mag_sq > T::zero() {
       let inv_sqrt = T::one() / mag_sq.sqrt();
       return *self * inv_sqrt;
     }
@@ -430,7 +430,7 @@ where
     let dot = self.dot(other);
 
     let s = T::one() - factor;
-    let t = if dot.gt(T::zero()) { factor } else { -factor };
+    let t = if dot > T::zero() { factor } else { -factor };
     let q = self * s + other * t;
 
     q.normalize()
@@ -542,7 +542,7 @@ where
 
 impl<T> fmt::Binary for Vec4<T>
 where
-  T: Arithmetic + Math,
+  T: Arithmetic + Math + Debug,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

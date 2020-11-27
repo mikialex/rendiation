@@ -246,7 +246,7 @@ where
 
 impl<T> Mat4<T>
 where
-  T: Scalar + PiByC180,
+  T: Scalar + PiByC180 + Half,
 {
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sincos();
@@ -419,7 +419,7 @@ where
 
   pub fn inverse(&self) -> Option<Self> {
     let det = self.det();
-    if det.eq(T::zero()) {
+    if det == T::zero() {
       return None;
     }
 
@@ -498,7 +498,7 @@ where
     let m = self;
     let det = (m.a1 * m.b2 - m.a2 * m.b1) * (m.c3) - (m.a1 * m.b3 - m.a3 * m.b1) * (m.c2)
       + (m.a2 * m.b3 - m.a3 * m.b2) * (m.c1);
-    if det.eq(T::zero()) {
+    if det == T::zero() {
       return None;
     }
 
@@ -832,7 +832,7 @@ impl<T: Arithmetic> From<Quat<T>> for Mat4<T> {
   }
 }
 
-impl<T: Scalar> From<Dual<T>> for Mat4<T>
+impl<T: Scalar + Half> From<Dual<T>> for Mat4<T>
 where
   T: Math,
 {

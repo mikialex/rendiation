@@ -406,7 +406,7 @@ where
     let dot = self.dot(other);
 
     let s = T::one() - factor;
-    let t = if dot.gt(T::zero()) { factor } else { -factor };
+    let t = if dot > T::zero() { factor } else { -factor };
     let q = self * s + other * t;
 
     q.normalize()
