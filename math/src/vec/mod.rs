@@ -18,10 +18,6 @@ use super::consts::*;
 
 use crate::*;
 
-pub trait VectorTrait: Copy {
-  fn normalize(&self) -> Self;
-}
-
 macro_rules! impl_vector {
   ($VectorN:ident { $($field:ident),+ }, $n:expr, $constructor:ident) => {
     impl<S: Copy> $VectorN<S> {

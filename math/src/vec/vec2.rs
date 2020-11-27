@@ -23,6 +23,18 @@ where
   }
 }
 
+impl<T: Copy + One + Arithmetic + Math + Zero> Vector for Vec2<T> {
+  #[inline]
+  fn normalize(&self) -> Self {
+    let mag_sq = self.length2();
+    if mag_sq.gt(T::zero()) {
+      let inv_sqrt = T::one() / mag_sq.sqrt();
+      return *self * inv_sqrt;
+    }
+    return *self;
+  }
+}
+
 impl<T> Vec2<T>
 where
   T: Arithmetic + Math,
@@ -66,17 +78,6 @@ where
   #[inline]
   pub fn distance(&self, b: Self) -> T {
     return (*self - b).length();
-  }
-
-  #[inline]
-  pub fn normalize(&self) -> Self {
-    let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
-      let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
-    }
-
-    return *self;
   }
 }
 

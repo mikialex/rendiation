@@ -2,9 +2,9 @@ use crate::*;
 use std::ops::Deref;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Normalized<T: VectorTrait>(T);
+pub struct Normalized<T: Vector>(T);
 
-impl<T: VectorTrait> Normalized<T> {
+impl<T: Vector> Normalized<T> {
   pub fn value(&self) -> T {
     self.0
   }
@@ -22,7 +22,7 @@ impl<T: VectorTrait> Normalized<T> {
   }
 }
 
-impl<T: VectorTrait> Deref for Normalized<T> {
+impl<T: Vector> Deref for Normalized<T> {
   type Target = T;
   fn deref(&self) -> &Self::Target {
     &self.0
