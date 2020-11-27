@@ -23,21 +23,16 @@ where
   }
 }
 
-impl<T: Copy + One + Arithmetic + Math + Zero> Vector for Vec2<T> {
+impl<T: Scalar> Vector<T> for Vec2<T> {
   #[inline]
-  fn normalize(&self) -> Self {
-    let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
-      let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
-    }
-    return *self;
+  fn length2(&self) -> T {
+    self.dot(*self)
   }
 }
 
 impl<T> Vec2<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   #[inline]
   pub fn rotate(&self, anchor: Self, radians: T) -> Self {
@@ -63,11 +58,6 @@ where
       x: self.y * b.x - self.x * b.y,
       y: self.x * b.y - self.y * b.x,
     }
-  }
-
-  #[inline]
-  pub fn length2(&self) -> T {
-    return self.dot(*self);
   }
 
   #[inline]
@@ -266,7 +256,7 @@ where
 
 impl<T> Slerp<T> for Vec2<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -342,7 +332,7 @@ where
 
 impl<T> fmt::Binary for Vec2<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

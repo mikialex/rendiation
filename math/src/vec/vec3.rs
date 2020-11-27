@@ -13,11 +13,17 @@ pub struct Vec3<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec3<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec3<T> {}
 
+impl<T: Scalar> Vector<T> for Vec3<T> {
+  #[inline]
+  fn length2(&self) -> T {
+    self.dot(*self)
+  }
+}
+
 impl<T> Vec3<T>
 where
   T: Copy,
 {
-
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T) {
     (self.x, self.y, self.z)
@@ -26,7 +32,7 @@ where
 
 impl<T> Vec3<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   /// input: Matrix4 affine matrix
   ///
@@ -61,11 +67,6 @@ where
   }
 
   #[inline]
-  pub fn length2(&self) -> T {
-    return self.dot(*self);
-  }
-
-  #[inline]
   pub fn length(&self) -> T {
     return self.length2().sqrt();
   }
@@ -73,17 +74,6 @@ where
   #[inline]
   pub fn distance(&self, b: Self) -> T {
     return (*self - b).length();
-  }
-
-  #[inline]
-  pub fn normalize(&self) -> Self {
-    let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
-      let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
-    }
-
-    return *self;
   }
 
   #[inline]
@@ -401,8 +391,7 @@ where
   }
 }
 
-impl<T: Arithmetic> Lerp<T> for Vec3<T>
-{
+impl<T: Arithmetic> Lerp<T> for Vec3<T> {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
     self * (T::one() - t) + b * t
@@ -411,7 +400,7 @@ impl<T: Arithmetic> Lerp<T> for Vec3<T>
 
 impl<T> Slerp<T> for Vec3<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -505,7 +494,7 @@ where
 
 impl<T> fmt::Binary for Vec3<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

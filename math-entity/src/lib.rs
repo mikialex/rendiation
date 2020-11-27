@@ -28,7 +28,7 @@ use rendiation_math::*;
 pub use triangle::*;
 pub use wasm::*;
 
-pub trait Positioned<T, const D: usize>: Copy {
+pub trait Positioned<T: Scalar, const D: usize>: Copy {
   fn position(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
 }
 
@@ -47,7 +47,7 @@ pub trait SpaceBounding<Bound: SolidEntity<D>, const D: usize>: SpaceEntity<D> {
   fn to_bounding(&self) -> Bound;
 }
 
-pub trait CurveSegment<T, const D: usize> {
+pub trait CurveSegment<T: Scalar, const D: usize> {
   fn start(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
   fn end(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
   fn sample(&self, t: f32) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;

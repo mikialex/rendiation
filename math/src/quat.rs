@@ -251,7 +251,7 @@ where
 
 impl<T> Quat<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   pub fn rotation_x(theta: T) -> Self {
     let theta_half = theta * T::half();
@@ -765,7 +765,7 @@ where
 
 impl<T> Slerp<T> for Quat<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -823,7 +823,7 @@ where
 
 impl<T> fmt::Binary for Quat<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

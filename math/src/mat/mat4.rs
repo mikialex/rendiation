@@ -246,7 +246,7 @@ where
 
 impl<T> Mat4<T>
 where
-  T: Arithmetic + Math + PiByC180,
+  T: Scalar + PiByC180,
 {
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sincos();
@@ -832,7 +832,7 @@ impl<T: Arithmetic> From<Quat<T>> for Mat4<T> {
   }
 }
 
-impl<T: Arithmetic> From<Dual<T>> for Mat4<T>
+impl<T: Scalar> From<Dual<T>> for Mat4<T>
 where
   T: Math,
 {
