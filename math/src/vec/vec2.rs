@@ -1,7 +1,6 @@
 use crate::*;
 use std::fmt;
 use std::fmt::Debug;
-use std::ops::{Add, Mul, Sub};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -23,10 +22,19 @@ where
   }
 }
 
+impl<T: Scalar> VectorImpl for Vec2<T> {}
 impl<T: Scalar> Vector<T> for Vec2<T> {
   #[inline]
   fn dot(&self, b: Self) -> T {
     self.x * b.x + self.y * b.y
+  }
+
+  #[inline]
+  fn cross(&self, b: Self) -> Self {
+    Self {
+      x: self.y * b.x - self.x * b.y,
+      y: self.x * b.y - self.y * b.x,
+    }
   }
 }
 
@@ -45,19 +53,6 @@ where
       x: x * c - y * s,
       y: x * s + y * c,
     }
-  }
-
-  #[inline]
-  pub fn cross(&self, b: Self) -> Self {
-    Self {
-      x: self.y * b.x - self.x * b.y,
-      y: self.x * b.y - self.y * b.x,
-    }
-  }
-
-  #[inline]
-  pub fn length(&self) -> T {
-    return self.length2().sqrt();
   }
 
   #[inline]
@@ -162,9 +157,9 @@ where
   }
 
   #[inline]
-  fn log(self, _rhs: Self) -> Self {
-    let mx = self.x.log(_rhs.x);
-    let my = self.y.log(_rhs.y);
+  fn log(self, rhs: Self) -> Self {
+    let mx = self.x.log(rhs.x);
+    let my = self.y.log(rhs.y);
     Self { x: mx, y: my }
   }
 
@@ -197,16 +192,16 @@ where
   }
 
   #[inline]
-  fn min(self, _rhs: Self) -> Self {
-    let mx = self.x.min(_rhs.x);
-    let my = self.y.min(_rhs.y);
+  fn min(self, rhs: Self) -> Self {
+    let mx = self.x.min(rhs.x);
+    let my = self.y.min(rhs.y);
     Self { x: mx, y: my }
   }
 
   #[inline]
-  fn max(self, _rhs: Self) -> Self {
-    let mx = self.x.max(_rhs.x);
-    let my = self.y.max(_rhs.y);
+  fn max(self, rhs: Self) -> Self {
+    let mx = self.x.max(rhs.x);
+    let my = self.y.max(rhs.y);
     Self { x: mx, y: my }
   }
 
@@ -239,15 +234,15 @@ where
   }
 }
 
-impl<T: Arithmetic> Lerp<T> for Vec2<T>
-where
-  T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
-{
-  #[inline(always)]
-  fn lerp(self, b: Self, t: T) -> Self {
-    self * (T::one() - t) + b * t
-  }
-}
+// impl<T: Arithmetic> Lerp<T> for Vec2<T>
+// where
+//   T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
+// {
+//   #[inline(always)]
+//   fn lerp(self, b: Self, t: T) -> Self {
+//     self * (T::one() - t) + b * t
+//   }
+// }
 
 impl<T> Slerp<T> for Vec2<T>
 where

@@ -607,11 +607,11 @@ where
     }
   }
 
-  fn log(self, _rhs: Self) -> Self {
-    let mx = self.x.log(_rhs.x);
-    let my = self.y.log(_rhs.y);
-    let mz = self.z.log(_rhs.z);
-    let mw = self.w.log(_rhs.w);
+  fn log(self, rhs: Self) -> Self {
+    let mx = self.x.log(rhs.x);
+    let my = self.y.log(rhs.y);
+    let mz = self.z.log(rhs.z);
+    let mw = self.w.log(rhs.w);
     Self {
       x: mx,
       y: my,
@@ -672,11 +672,11 @@ where
     }
   }
 
-  fn min(self, _rhs: Self) -> Self {
-    let mx = self.x.min(_rhs.x);
-    let my = self.y.min(_rhs.y);
-    let mz = self.z.min(_rhs.z);
-    let mw = self.w.min(_rhs.x);
+  fn min(self, rhs: Self) -> Self {
+    let mx = self.x.min(rhs.x);
+    let my = self.y.min(rhs.y);
+    let mz = self.z.min(rhs.z);
+    let mw = self.w.min(rhs.x);
     Self {
       x: mx,
       y: my,
@@ -685,11 +685,11 @@ where
     }
   }
 
-  fn max(self, _rhs: Self) -> Self {
-    let mx = self.x.max(_rhs.x);
-    let my = self.y.max(_rhs.y);
-    let mz = self.z.max(_rhs.z);
-    let mw = self.w.max(_rhs.w);
+  fn max(self, rhs: Self) -> Self {
+    let mx = self.x.max(rhs.x);
+    let my = self.y.max(rhs.y);
+    let mz = self.z.max(rhs.z);
+    let mw = self.w.max(rhs.w);
     Self {
       x: mx,
       y: my,

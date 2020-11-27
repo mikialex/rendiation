@@ -6,7 +6,7 @@ pub type LineSegment3D = LineSegment<Vec3<f32>>;
 
 impl LineSegment3D {
   pub fn length(&self) -> f32 {
-    (self.start - self.end).length()
+    self.start.distance(self.end)
   }
 }
 

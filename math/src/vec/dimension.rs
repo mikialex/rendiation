@@ -1,8 +1,13 @@
-use std::{marker::PhantomData, ops::Mul};
+use std::{marker::PhantomData, ops::*};
 
 use crate::*;
 
-pub trait Vector<T: Scalar>: Sized + Mul<T, Output = Self> + Copy {
+// this trait for avoid conflict impl
+pub trait VectorImpl {}
+
+pub trait Vector<T: Scalar>:
+  Sized + Mul<T, Output = Self> + Sub<Self, Output = Self> + Add<Self, Output = Self> + Copy
+{
   #[inline]
   fn normalize(&self) -> Self {
     let mag_sq = self.length2();
@@ -14,11 +19,33 @@ pub trait Vector<T: Scalar>: Sized + Mul<T, Output = Self> + Copy {
   }
 
   #[inline]
+  fn length(&self) -> T {
+    self.length2().sqrt()
+  }
+
+  #[inline]
+  fn distance(&self, b: Self) -> T {
+    return (*self - b).length();
+  }
+
+  #[inline]
   fn length2(&self) -> T {
     self.dot(*self)
   }
 
   fn dot(&self, b: Self) -> T;
+  fn cross(&self, b: Self) -> Self;
+}
+
+impl<T, V> Lerp<T> for V
+where
+  T: Scalar,
+  V: VectorImpl + Vector<T>,
+{
+  #[inline(always)]
+  fn lerp(self, b: Self, t: T) -> Self {
+    self * (T::one() - t) + b * t
+  }
 }
 
 pub trait DimensionalVec<T: Scalar, const D: usize> {
