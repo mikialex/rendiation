@@ -15,8 +15,8 @@ unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec3<T> {}
 
 impl<T: Scalar> Vector<T> for Vec3<T> {
   #[inline]
-  fn length2(&self) -> T {
-    self.dot(*self)
+  fn dot(&self, b: Self) -> T {
+    return self.x * b.x + self.y * b.y + self.z * b.z;
   }
 }
 
@@ -50,11 +50,6 @@ where
   #[inline]
   pub fn reflect(&self, normal: Self) -> Self {
     *self - normal * self.dot(normal) * T::two()
-  }
-
-  #[inline]
-  pub fn dot(&self, b: Self) -> T {
-    return self.x * b.x + self.y * b.y + self.z * b.z;
   }
 
   #[inline]

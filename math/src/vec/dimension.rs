@@ -12,7 +12,13 @@ pub trait Vector<T: Scalar>: Sized + Mul<T, Output = Self> + Copy {
     }
     *self
   }
-  fn length2(&self) -> T;
+
+  #[inline]
+  fn length2(&self) -> T {
+    self.dot(*self)
+  }
+
+  fn dot(&self, b: Self) -> T;
 }
 
 pub trait DimensionalVec<T: Scalar, const D: usize> {
@@ -27,9 +33,9 @@ impl<T: Scalar> DimensionalVec<T, 2> for VectorMark<T> {
 impl<T: Scalar> DimensionalVec<T, 3> for VectorMark<T> {
   type Type = Vec3<T>;
 }
-// impl<T: Scalar> DimensionalVec<T, 4> for VectorMark<T> {
-//   type Type = Vec4<T>;
-// }
+impl<T: Scalar> DimensionalVec<T, 4> for VectorMark<T> {
+  type Type = Vec4<T>;
+}
 
 impl<T: Scalar, const D: usize> DimensionalVec<T, D> for VectorMark<T> {
   default type Type = Vec2<T>; // todo impl for [T; D]

@@ -1,7 +1,7 @@
 use crate::ray3::Ray3;
 use crate::sphere::Sphere;
 use crate::{intersect_reverse, Box3, IntersectAble, LineSegment, Point, Positioned, Triangle};
-use rendiation_math::Vec3;
+use rendiation_math::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

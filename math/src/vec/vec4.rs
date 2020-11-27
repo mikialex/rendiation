@@ -11,6 +11,13 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
+impl<T: Scalar> Vector<T> for Vec4<T> {
+  #[inline]
+  fn dot(&self, b: Self) -> T {
+    self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
+  }
+}
+
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
 
@@ -26,12 +33,8 @@ where
 
 impl<T> Vec4<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
-  #[inline]
-  pub fn dot(&self, b: Self) -> T {
-    self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
-  }
   #[inline]
   pub fn cross(&self, b: Self) -> Self {
     Vec4 {
@@ -52,17 +55,6 @@ where
   #[inline]
   pub fn distance(&self, b: Self) -> T {
     (*self - b).length()
-  }
-
-  #[inline]
-  pub fn normalize(&self) -> Self {
-    let mag_sq = self.length2();
-    if mag_sq > T::zero() {
-      let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
-    }
-
-    *self
   }
 }
 
@@ -401,11 +393,11 @@ where
   }
 
   #[inline]
-  fn clamp(self, minval: Self, maxval: Self) -> Self {
-    let mx = self.x.clamp(minval.x, maxval.x);
-    let my = self.y.clamp(minval.y, maxval.y);
-    let mz = self.z.clamp(minval.z, maxval.z);
-    let mw = self.w.clamp(minval.w, maxval.w);
+  fn clamp(self, min: Self, max: Self) -> Self {
+    let mx = self.x.clamp(min.x, max.x);
+    let my = self.y.clamp(min.y, max.y);
+    let mz = self.z.clamp(min.z, max.z);
+    let mw = self.w.clamp(min.w, max.w);
     Self {
       x: mx,
       y: my,
@@ -422,7 +414,7 @@ impl<T: Arithmetic> Lerp<T> for Vec4<T> {
   }
 }
 
-impl<T> Slerp<T> for Vec4<T>
+impl<T: Scalar> Slerp<T> for Vec4<T>
 where
   T: Arithmetic + Math,
 {
@@ -542,7 +534,7 @@ where
 
 impl<T> fmt::Binary for Vec4<T>
 where
-  T: Arithmetic + Math + Debug,
+  T: Scalar,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

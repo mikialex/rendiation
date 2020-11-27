@@ -25,8 +25,8 @@ where
 
 impl<T: Scalar> Vector<T> for Vec2<T> {
   #[inline]
-  fn length2(&self) -> T {
-    self.dot(*self)
+  fn dot(&self, b: Self) -> T {
+    self.x * b.x + self.y * b.y
   }
 }
 
@@ -45,11 +45,6 @@ where
       x: x * c - y * s,
       y: x * s + y * c,
     }
-  }
-
-  #[inline]
-  pub fn dot(&self, b: Self) -> T {
-    self.x * b.x + self.y * b.y
   }
 
   #[inline]
