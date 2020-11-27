@@ -48,6 +48,22 @@ where
   }
 }
 
+impl<T: Scalar, V> Slerp<T> for V
+where
+  T: Scalar,
+  V: VectorImpl + Vector<T>,
+{
+  fn slerp(self, other: Self, factor: T) -> Self {
+    let dot = self.dot(other);
+
+    let s = T::one() - factor;
+    let t = if dot > T::zero() { factor } else { -factor };
+    let q = self * s + other * t;
+
+    q.normalize()
+  }
+}
+
 pub trait DimensionalVec<T: Scalar, const D: usize> {
   type Type: Vector<T>;
 }

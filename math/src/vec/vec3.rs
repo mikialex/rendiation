@@ -382,21 +382,6 @@ where
   }
 }
 
-impl<T> Slerp<T> for Vec3<T>
-where
-  T: Scalar,
-{
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot > T::zero() { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
-  }
-}
-
 impl<T> Zero for Vec3<T>
 where
   T: Zero,

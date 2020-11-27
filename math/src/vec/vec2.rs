@@ -234,31 +234,6 @@ where
   }
 }
 
-// impl<T: Arithmetic> Lerp<T> for Vec2<T>
-// where
-//   T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
-// {
-//   #[inline(always)]
-//   fn lerp(self, b: Self, t: T) -> Self {
-//     self * (T::one() - t) + b * t
-//   }
-// }
-
-impl<T> Slerp<T> for Vec2<T>
-where
-  T: Scalar,
-{
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot > (T::zero()) { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
-  }
-}
-
 impl<T> Zero for Vec2<T>
 where
   T: Zero,

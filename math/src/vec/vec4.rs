@@ -401,21 +401,6 @@ where
   }
 }
 
-impl<T: Scalar> Slerp<T> for Vec4<T>
-where
-  T: Arithmetic + Math,
-{
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot > T::zero() { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
-  }
-}
-
 impl<T> Zero for Vec4<T>
 where
   T: Zero,

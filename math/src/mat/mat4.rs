@@ -391,6 +391,13 @@ where
     )
   }
 
+  pub fn max_scale_on_axis(&self) -> T {
+    let scale_x_sq = self.a1 * self.a1 + self.a2 * self.a2 + self.a3 * self.a3;
+    let scale_y_sq = self.b1 * self.b1 + self.b2 * self.b2 + self.b3 * self.b3;
+    let scale_z_sq = self.c1 * self.c1 + self.c2 * self.c2 + self.c3 * self.c3;
+    scale_x_sq.max(scale_y_sq).max(scale_z_sq).sqrt()
+  }
+
   pub fn det(&self) -> T {
     let m = self;
     m.a1 * m.b2 * m.c3 * m.d4 - m.a1 * m.b2 * m.c4 * m.d3 + m.a1 * m.b3 * m.c4 * m.d2
