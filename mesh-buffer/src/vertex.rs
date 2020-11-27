@@ -35,8 +35,8 @@ impl HashAbleByConversion for Vertex {
 }
 
 impl Positioned<f32, 3> for Vertex {
-  fn position(&self) -> Vector<f32, 3> {
-    self.position.into()
+  fn position(&self) -> Vec3<f32> {
+    self.position
   }
 }
 

@@ -17,7 +17,7 @@ pub use intersection::*;
 pub use line_segment::*;
 pub use plane::*;
 pub use ray3::*;
-use rendiation_math::{Vec3, Vector};
+use rendiation_math::Vec3;
 pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;
@@ -33,7 +33,7 @@ pub enum Axis3 {
 
 impl Positioned<f32, 3> for Vec3<f32> {
   #[inline(always)]
-  fn position(&self) -> Vector<f32, 3> {
-    (*self).into()
+  fn position(&self) -> Vec3<f32> {
+    *self
   }
 }

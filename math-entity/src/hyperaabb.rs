@@ -3,8 +3,8 @@ use rendiation_math::*;
 use crate::{SolidEntity, SpaceEntity};
 
 pub struct HyperAABB<T, const D: usize> {
-  pub min: Vector<T, D>,
-  pub max: Vector<T, D>,
+  pub min: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  pub max: <VectorMark<T> as DimensionalVec<T, D>>::Type,
 }
 
 impl<T, const D: usize> SpaceEntity<D> for HyperAABB<T, D> {}
@@ -31,7 +31,10 @@ where
 }
 
 impl<T, const D: usize> HyperAABB<T, D> {
-  pub fn new(min: Vector<T, D>, max: Vector<T, D>) -> Self {
+  pub fn new(
+    min: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+    max: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  ) -> Self {
     Self { min, max }
   }
 }

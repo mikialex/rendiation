@@ -1,4 +1,4 @@
-use rendiation_math::Vector;
+use rendiation_math::*;
 
 use crate::{Positioned, SpaceEntity};
 
@@ -12,4 +12,5 @@ impl<T: Copy> Point<T> {
 }
 
 impl<T: Positioned<f32, D>, const D: usize> SpaceEntity<D> for Point<T> {}
-impl<T, const D: usize> SpaceEntity<D> for Vector<T, D> {}
+impl<T> SpaceEntity<2> for Vec2<T> {}
+impl<T> SpaceEntity<3> for Vec3<T> {}

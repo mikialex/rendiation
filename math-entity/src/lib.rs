@@ -11,28 +11,25 @@ pub use dimension2::*;
 
 pub mod hyperaabb;
 pub mod hyperplane;
+pub mod hyperray;
 pub mod hypersphere;
 pub mod line_segment;
 pub mod point;
-pub mod ray;
 pub mod triangle;
 pub mod wasm;
 
 pub use hyperaabb::*;
 pub use hyperplane::*;
+pub use hyperray::*;
 pub use hypersphere::*;
 pub use line_segment::*;
 pub use point::*;
-pub use ray::*;
-use rendiation_math::Vector;
+use rendiation_math::*;
 pub use triangle::*;
 pub use wasm::*;
 
-pub mod transformation;
-pub use transformation::*;
-
 pub trait Positioned<T, const D: usize>: Copy {
-  fn position(&self) -> Vector<T, D>;
+  fn position(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
 }
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
@@ -51,9 +48,9 @@ pub trait SpaceBounding<Bound: SolidEntity<D>, const D: usize>: SpaceEntity<D> {
 }
 
 pub trait CurveSegment<T, const D: usize> {
-  fn start(&self) -> Vector<T, D>;
-  fn end(&self) -> Vector<T, D>;
-  fn sample(&self, t: f32) -> Vector<T, D>;
+  fn start(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
+  fn end(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
+  fn sample(&self, t: f32) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
 }
 
 #[macro_export]

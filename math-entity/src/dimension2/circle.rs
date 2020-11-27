@@ -1,10 +1,10 @@
 use crate::{ContainAble, HyperSphere, Rectangle, SpaceBounding};
-use rendiation_math::{Vec2, Vector};
+use rendiation_math::*;
 
 pub type Circle = HyperSphere<f32, 2>;
 
-impl ContainAble<Vector<f32, 2>, 2> for Circle {
-  fn contains(&self, v: &Vector<f32, 2>) -> bool {
+impl ContainAble<Vec2<f32>, 2> for Circle {
+  fn contains(&self, v: &Vec2<f32>) -> bool {
     (*v - self.center).length2() <= self.radius * self.radius
   }
 }
@@ -12,8 +12,8 @@ impl ContainAble<Vector<f32, 2>, 2> for Circle {
 impl SpaceBounding<Rectangle, 2> for Circle {
   fn to_bounding(&self) -> Rectangle {
     Rectangle {
-      min: (self.center.data - Vec2::splat(self.radius)).into(),
-      max: (self.center.data + Vec2::splat(self.radius)).into(),
+      min: (self.center - Vec2::splat(self.radius)).into(),
+      max: (self.center + Vec2::splat(self.radius)).into(),
     }
   }
 }

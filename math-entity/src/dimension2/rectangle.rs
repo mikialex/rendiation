@@ -1,5 +1,5 @@
 use crate::{ContainAble, HyperAABB};
-use rendiation_math::Vector;
+use rendiation_math::Vec2;
 
 pub type Rectangle = HyperAABB<f32, 2>;
 
@@ -13,8 +13,8 @@ impl Rectangle {
   }
 }
 
-impl ContainAble<Vector<f32, 2>, 2> for Rectangle {
-  fn contains(&self, v: &Vector<f32, 2>) -> bool {
+impl ContainAble<Vec2<f32>, 2> for Rectangle {
+  fn contains(&self, v: &Vec2<f32>) -> bool {
     v.x >= self.min.x && v.x <= self.max.x && v.y >= self.min.y && v.y <= self.max.y
   }
 }

@@ -10,8 +10,8 @@ impl Sphere {
   }
 
   pub fn new_from_box(box3: Box3) -> Self {
-    let center = (box3.max + box3.min).data * 0.5;
-    let radius = (box3.max.data - center).length();
+    let center = (box3.max + box3.min) * 0.5;
+    let radius = (box3.max - center).length();
     Sphere::new(center.into(), radius)
   }
 
@@ -21,7 +21,7 @@ impl Sphere {
     &'a I: IntoIterator<Item = &'a Vec3<f32>>,
   {
     let box3: Box3 = items.into_iter().collect();
-    let center = (box3.max + box3.min).data * 0.5;
+    let center = (box3.max + box3.min) * 0.5;
     let mut max_distance2 = 0.;
     items.into_iter().for_each(|&point| {
       let d = (point - center).length2();
@@ -44,7 +44,7 @@ impl Sphere {
 
   pub fn apply_matrix(&self, mat: Mat4<f32>) -> Self {
     let mut sphere = *self;
-    sphere.center.data = sphere.center.data * mat;
+    sphere.center = sphere.center * mat;
     sphere.radius *= mat.max_scale_on_axis();
     sphere
   }

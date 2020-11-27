@@ -12,6 +12,7 @@ use std::hash::Hash;
 
 pub trait IntoUsize {
   fn into_usize(&self) -> usize;
+  fn from_usize(v: usize) -> Self;
 }
 pub trait IndexType: IntoUsize + Copy + Eq + Ord + Hash {}
 
@@ -21,6 +22,10 @@ impl IntoUsize for u16 {
   fn into_usize(&self) -> usize {
     *self as usize
   }
+  #[inline(always)]
+  fn from_usize(v: usize) -> Self {
+    v as Self
+  }
 }
 
 impl IndexType for u32 {}
@@ -28,6 +33,10 @@ impl IntoUsize for u32 {
   #[inline(always)]
   fn into_usize(&self) -> usize {
     *self as usize
+  }
+  #[inline(always)]
+  fn from_usize(v: usize) -> Self {
+    v as Self
   }
 }
 

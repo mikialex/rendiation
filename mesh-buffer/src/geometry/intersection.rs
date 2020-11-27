@@ -108,7 +108,7 @@ fn test() {
   let config = MeshBufferIntersectConfig::default();
   let quad = Quad.create_mesh(&());
   let quad = IndexedGeometry::<u16, _, TriangleList>::from(quad);
-  let ray = Ray::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0));
+  let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0));
   let mut result = IntersectionList3D::new();
   quad
     .as_ref_container()

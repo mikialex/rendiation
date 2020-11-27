@@ -3,7 +3,7 @@ use rendiation_math::*;
 use crate::SpaceEntity;
 
 pub struct HyperPlane<T, const D: usize> {
-  pub normal: Vector<T, D>,
+  pub normal: <VectorMark<T> as DimensionalVec<T, D>>::Type,
   pub constant: T,
 }
 
@@ -30,7 +30,7 @@ where
 }
 
 impl<T, const D: usize> HyperPlane<T, D> {
-  pub fn new(normal: Vector<T, D>, constant: T) -> Self {
+  pub fn new(normal: <VectorMark<T> as DimensionalVec<T, D>>::Type, constant: T) -> Self {
     Self { normal, constant }
   }
 }

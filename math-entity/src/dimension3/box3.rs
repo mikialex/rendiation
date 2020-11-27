@@ -68,7 +68,7 @@ impl Box3 {
 
   #[inline(always)]
   pub fn center(&self) -> Vec3<f32> {
-    (self.min + self.max).data * 0.5
+    (self.min + self.max) * 0.5
   }
 
   #[rustfmt::skip]
@@ -123,8 +123,8 @@ impl Box3 {
     if self.is_empty() {
       *self = box3;
     }
-    self.min = self.min.min(box3.min.data).into();
-    self.max = self.max.max(box3.max.data).into();
+    self.min = self.min.min(box3.min).into();
+    self.max = self.max.max(box3.max).into();
   }
 
   pub fn apply_matrix(&self, m: Mat4<f32>) -> Self {
