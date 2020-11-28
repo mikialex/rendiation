@@ -1,6 +1,6 @@
-use rendiation_math::Vec3;
+use rendiation_math::{Vec3, VectorType};
 
-use crate::{LineSegment, Positioned, SpaceEntity};
+use crate::{LineSegment, SpaceEntity};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Triangle<T = Vec3<f32>> {
@@ -9,7 +9,7 @@ pub struct Triangle<T = Vec3<f32>> {
   pub c: T,
 }
 
-impl<T: Positioned<f32, D>, const D: usize> SpaceEntity<D> for Triangle<T> {}
+impl<T: AsRef<VectorType<f32, D>>, const D: usize> SpaceEntity<D> for Triangle<T> {}
 
 impl<T> Triangle<T> {
   pub fn new(a: T, b: T, c: T) -> Self {

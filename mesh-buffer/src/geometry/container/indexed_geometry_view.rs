@@ -1,10 +1,11 @@
 use std::marker::PhantomData;
 
+use rendiation_math::VectorType;
+
 use crate::{
   geometry::IndexPrimitiveTopology, geometry::IndexedPrimitiveData, geometry::PrimitiveTopology,
   geometry::TriangleList, vertex::Vertex,
 };
-use rendiation_math_entity::Positioned;
 
 use super::{AnyGeometry, AnyIndexGeometry, GeometryDataContainer};
 
@@ -28,7 +29,7 @@ impl<'a, I, V, T, U> IndexedGeometryView<'a, I, V, T, U> {
 
 impl<'a, I, V, T, U> AnyGeometry for IndexedGeometryView<'a, I, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: AsRef<VectorType<f32, 3>>,
   T: IndexPrimitiveTopology<I, V>,
   <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V>,
   U: GeometryDataContainer<V>,
@@ -49,7 +50,7 @@ where
 
 impl<'a, I, V, T, U> AnyIndexGeometry for IndexedGeometryView<'a, I, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: AsRef<VectorType<f32, 3>>,
   T: IndexPrimitiveTopology<I, V>,
   T::Primitive: IndexedPrimitiveData<I, V>,
   U: GeometryDataContainer<V>,

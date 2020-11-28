@@ -1,12 +1,11 @@
 use std::marker::PhantomData;
 
-use rendiation_math_entity::Positioned;
-
 use crate::{
   geometry::PrimitiveData, geometry::PrimitiveTopology, geometry::TriangleList, vertex::Vertex,
 };
 
 use super::{AnyGeometry, GeometryDataContainer};
+use rendiation_math::VectorType;
 
 pub struct NoneIndexedGeometryView<'a, V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: &'a U,
@@ -26,7 +25,7 @@ impl<'a, V, T, U> NoneIndexedGeometryView<'a, V, T, U> {
 
 impl<'a, V, T, U> AnyGeometry for NoneIndexedGeometryView<'a, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: AsRef<VectorType<f32, 3>>,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {

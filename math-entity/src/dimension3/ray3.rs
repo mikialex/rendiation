@@ -1,4 +1,4 @@
-use crate::{HyperRay, LineSegment, Positioned};
+use crate::{HyperRay, LineSegment};
 use rendiation_math::*;
 
 pub type Ray3 = HyperRay<f32, 3>;
@@ -24,13 +24,13 @@ impl Ray3 {
     Self::new(origin, direction)
   }
 
-  pub fn distance_sq_to_segment<T: Positioned<f32, 3>>(
+  pub fn distance_sq_to_segment<T: AsRef<VectorType<f32, 3>>>(
     &self,
     line: LineSegment<T>,
   ) -> (f32, Vec3<f32>, Vec3<f32>) {
     // (distance_sq_to_segment, optionalPointOnRay, optionalPointOnSegment)
-    let v0 = line.start.position();
-    let v1 = line.end.position();
+    let v0 = *line.start.as_ref();
+    let v1 = *line.end.as_ref();
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteDistRaySegment.h
     // It returns the min distance between the ray and the segment

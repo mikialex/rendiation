@@ -1,6 +1,7 @@
 use std::cell::Cell;
 
 use super::{AnyGeometry, AnyGeometryRefContainer};
+use rendiation_math::VectorType;
 use rendiation_math_entity::*;
 
 pub trait IntersectableAnyGeometry {
@@ -75,14 +76,18 @@ impl Default for MeshBufferIntersectConfig {
 
 type Config = MeshBufferIntersectConfig;
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Triangle<T> {
+impl<T: AsRef<VectorType<f32, 3>> + Copy> IntersectAble<Ray3, NearestPoint3D, Config>
+  for Triangle<T>
+{
   #[inline]
   fn intersect(&self, ray: &Ray3, _: &Config) -> NearestPoint3D {
     ray.intersect(self, &())
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for LineSegment<T> {
+impl<T: AsRef<VectorType<f32, 3>> + Copy> IntersectAble<Ray3, NearestPoint3D, Config>
+  for LineSegment<T>
+{
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
     let local_tolerance_adjusted =
@@ -91,7 +96,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Line
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Point<T> {
+impl<T: AsRef<VectorType<f32, 3>>> IntersectAble<Ray3, NearestPoint3D, Config> for Point<T> {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
     ray.intersect(self, &conf.point_tolerance.value)

@@ -1,4 +1,6 @@
-use crate::{Positioned, SpaceEntity};
+use rendiation_math::VectorType;
+
+use crate::SpaceEntity;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct LineSegment<T> {
@@ -6,7 +8,7 @@ pub struct LineSegment<T> {
   pub end: T,
 }
 
-impl<T: Positioned<f32, D>, const D: usize> SpaceEntity<D> for LineSegment<T> {}
+impl<T: AsRef<VectorType<f32, D>>, const D: usize> SpaceEntity<D> for LineSegment<T> {}
 
 impl<T> LineSegment<T> {
   pub fn new(start: T, end: T) -> Self {

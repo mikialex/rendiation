@@ -30,9 +30,6 @@ pub use triangle::*;
 pub use wasm::*;
 
 pub trait SpaceAxis<const D: usize>: Copy {}
-pub trait Positioned<T: Scalar, const D: usize>: Copy {
-  fn position(&self) -> VectorType<T, D>;
-}
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
@@ -52,7 +49,7 @@ pub trait SpaceBounding<Bound: SolidEntity<D>, const D: usize>: SpaceEntity<D> {
   fn to_bounding(&self) -> Bound;
 }
 
-pub trait SpaceLineSegment<T: Scalar, const D: usize> {
+pub trait SpaceCurveSegment<T: Scalar, const D: usize> {
   fn start(&self) -> VectorType<T, D>;
   fn end(&self) -> VectorType<T, D>;
   fn sample(&self, t: T) -> VectorType<T, D>;

@@ -14,8 +14,8 @@ use super::{
   IndexPrimitiveTopology, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
   NoneIndexedGeometry, PointList, PrimitiveTopology,
 };
-use rendiation_math::{Vec3, Vector};
-use rendiation_math_entity::{LineSegment, Positioned, Triangle};
+use rendiation_math::*;
+use rendiation_math_entity::{LineSegment, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
@@ -24,7 +24,7 @@ use std::{
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
+  V: AsRef<VectorType<f32, 3>> + Copy,
   T: IndexPrimitiveTopology<I, V, Primitive = Triangle<V>>,
   U: GeometryDataContainer<V>,
 {
@@ -84,7 +84,7 @@ where
 impl<I, V, T> IndexedGeometry<I, V, T>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
+  V: AsRef<VectorType<f32, 3>> + Copy,
   T: IndexPrimitiveTopology<I, V>,
   <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V>,
 {
@@ -120,7 +120,7 @@ where
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
+  V: AsRef<VectorType<f32, 3>> + Copy,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
@@ -137,7 +137,7 @@ where
 
 impl<V, T> NoneIndexedGeometry<V, T>
 where
-  V: Positioned<f32, 3> + HashAbleByConversion,
+  V: AsRef<VectorType<f32, 3>> + HashAbleByConversion + Copy,
   T: IndexPrimitiveTopology<u16, V>,
   <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
   // U: GeometryDataContainer<V>, // ditto
@@ -163,7 +163,7 @@ where
 
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: AsRef<VectorType<f32, 3>>,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {

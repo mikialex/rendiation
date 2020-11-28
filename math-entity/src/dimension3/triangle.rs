@@ -1,21 +1,21 @@
-use crate::{Positioned, Triangle};
+use crate::Triangle;
 use rendiation_math::*;
 
-impl<T: Positioned<f32, 3>> Triangle<T> {
+impl<T: AsRef<VectorType<f32, 3>>> Triangle<T> {
   pub fn face_normal_by_position(&self) -> Vec3<f32> {
-    let cb = self.a.position() - self.b.position();
-    let ab = self.a.position() - self.b.position();
+    let cb = *self.a.as_ref() - *self.b.as_ref();
+    let ab = *self.a.as_ref() - *self.b.as_ref();
     let n = cb.cross(ab);
     n.normalize()
   }
 }
 
-impl<T: Positioned<f32, 3>> Triangle<T> {
+impl<T: AsRef<VectorType<f32, 3>>> Triangle<T> {
   /// return null when point is outside of triangle
   pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>> {
-    let v0 = self.b.position() - self.a.position();
-    let v1 = self.c.position() - self.a.position();
-    let v2 = p - self.a.position();
+    let v0 = *self.b.as_ref() - *self.a.as_ref();
+    let v1 = *self.c.as_ref() - *self.a.as_ref();
+    let v2 = p - *self.a.as_ref();
 
     let d00 = v0.dot(v0);
     let d01 = v0.dot(v1);

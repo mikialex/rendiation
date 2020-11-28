@@ -1,11 +1,14 @@
 use crate::geometry::primitive::PrimitiveTopology;
 use crate::{geometry::*, vertex::Vertex};
 use bytemuck::*;
-use rendiation_math_entity::Positioned;
+use rendiation_math::VectorType;
 use rendiation_webgpu::*;
 use std::ops::Range;
 
-pub struct GPUGeometry<V: Positioned<f32, 3> = Vertex, T: PrimitiveTopology<V> = TriangleList> {
+pub struct GPUGeometry<
+  V: AsRef<VectorType<f32, 3>> = Vertex,
+  T: PrimitiveTopology<V> = TriangleList,
+> {
   geometry: IndexedGeometry<u16, V, T>,
   data_changed: bool,
   index_changed: bool,
@@ -13,7 +16,7 @@ pub struct GPUGeometry<V: Positioned<f32, 3> = Vertex, T: PrimitiveTopology<V> =
   gpu_index: Option<WGPUBuffer>,
 }
 
-impl<V: Positioned<f32, 3>, T: PrimitiveTopology<V>> From<IndexedGeometry<u16, V, T>>
+impl<V: AsRef<VectorType<f32, 3>>, T: PrimitiveTopology<V>> From<IndexedGeometry<u16, V, T>>
   for GPUGeometry<V, T>
 {
   fn from(geometry: IndexedGeometry<u16, V, T>) -> Self {
@@ -27,7 +30,7 @@ impl<V: Positioned<f32, 3>, T: PrimitiveTopology<V>> From<IndexedGeometry<u16, V
   }
 }
 
-impl<V: Positioned<f32, 3>, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
+impl<V: AsRef<VectorType<f32, 3>>, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
   for GPUGeometry<V, T>
 {
   fn from(item: (Vec<V>, Vec<u16>)) -> Self {
@@ -35,7 +38,7 @@ impl<V: Positioned<f32, 3>, T: PrimitiveTopology<V>> From<(Vec<V>, Vec<u16>)>
   }
 }
 
-impl<V: Positioned<f32, 3> + Pod, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
+impl<V: AsRef<VectorType<f32, 3>> + Pod, T: PrimitiveTopology<V>> GPUGeometry<V, T> {
   pub fn mutate_data(&mut self) -> &mut Vec<V> {
     self.data_changed = true;
     &mut self.geometry.data

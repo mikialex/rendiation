@@ -17,12 +17,11 @@ pub use intersection::*;
 pub use line_segment::*;
 pub use plane::*;
 pub use ray3::*;
-use rendiation_math::Vec3;
 pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;
 
-use crate::{Positioned, SpaceAxis};
+use crate::SpaceAxis;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Axis3 {
@@ -32,10 +31,3 @@ pub enum Axis3 {
 }
 
 impl SpaceAxis<3> for Axis3 {}
-
-impl Positioned<f32, 3> for Vec3<f32> {
-  #[inline(always)]
-  fn position(&self) -> Vec3<f32> {
-    *self
-  }
-}
