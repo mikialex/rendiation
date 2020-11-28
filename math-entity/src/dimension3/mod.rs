@@ -22,7 +22,7 @@ pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;
 
-use crate::Positioned;
+use crate::{Positioned, SpaceAxis};
 
 #[derive(Debug, Copy, Clone)]
 pub enum Axis3 {
@@ -30,6 +30,8 @@ pub enum Axis3 {
   Y,
   Z,
 }
+
+impl SpaceAxis<3> for Axis3 {}
 
 impl Positioned<f32, 3> for Vec3<f32> {
   #[inline(always)]
