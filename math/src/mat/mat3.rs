@@ -88,7 +88,7 @@ where
 
   pub fn inverse(&self) -> Option<Self> {
     let det = self.det();
-    if det.eq(T::zero()) {
+    if det == T::zero() {
       return None;
     }
 

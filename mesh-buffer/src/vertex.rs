@@ -1,6 +1,6 @@
 use crate::geometry::HashAbleByConversion;
 use rendiation_math::*;
-use rendiation_math_entity::Positioned3D;
+use rendiation_math_entity::Positioned;
 use rendiation_ral::*;
 use std::{hash::Hash, mem};
 
@@ -34,7 +34,7 @@ impl HashAbleByConversion for Vertex {
   }
 }
 
-impl Positioned3D for Vertex {
+impl Positioned<f32, 3> for Vertex {
   fn position(&self) -> Vec3<f32> {
     self.position
   }

@@ -246,7 +246,7 @@ where
 
 impl<T> Mat4<T>
 where
-  T: Arithmetic + Math + PiByC180,
+  T: Scalar + PiByC180 + Half,
 {
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sincos();
@@ -391,6 +391,13 @@ where
     )
   }
 
+  pub fn max_scale_on_axis(&self) -> T {
+    let scale_x_sq = self.a1 * self.a1 + self.a2 * self.a2 + self.a3 * self.a3;
+    let scale_y_sq = self.b1 * self.b1 + self.b2 * self.b2 + self.b3 * self.b3;
+    let scale_z_sq = self.c1 * self.c1 + self.c2 * self.c2 + self.c3 * self.c3;
+    scale_x_sq.max(scale_y_sq).max(scale_z_sq).sqrt()
+  }
+
   pub fn det(&self) -> T {
     let m = self;
     m.a1 * m.b2 * m.c3 * m.d4 - m.a1 * m.b2 * m.c4 * m.d3 + m.a1 * m.b3 * m.c4 * m.d2
@@ -419,7 +426,7 @@ where
 
   pub fn inverse(&self) -> Option<Self> {
     let det = self.det();
-    if det.eq(T::zero()) {
+    if det == T::zero() {
       return None;
     }
 
@@ -498,7 +505,7 @@ where
     let m = self;
     let det = (m.a1 * m.b2 - m.a2 * m.b1) * (m.c3) - (m.a1 * m.b3 - m.a3 * m.b1) * (m.c2)
       + (m.a2 * m.b3 - m.a3 * m.b2) * (m.c1);
-    if det.eq(T::zero()) {
+    if det == T::zero() {
       return None;
     }
 
@@ -832,7 +839,7 @@ impl<T: Arithmetic> From<Quat<T>> for Mat4<T> {
   }
 }
 
-impl<T: Arithmetic> From<Dual<T>> for Mat4<T>
+impl<T: Scalar + Half> From<Dual<T>> for Mat4<T>
 where
   T: Math,
 {

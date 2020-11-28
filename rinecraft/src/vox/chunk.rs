@@ -86,7 +86,7 @@ impl Chunk {
       CHUNK_ABS_HEIGHT,
       (chunk_z + 1) as f32 * CHUNK_ABS_WIDTH,
     );
-    let bounding = BoundingInfo::new_from_box(Box3::new(min, max));
+    let bounding = BoundingInfo::new_from_box(Box3::new3(min, max));
 
     Chunk {
       chunk_position,

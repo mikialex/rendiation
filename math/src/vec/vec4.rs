@@ -11,6 +11,25 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
+impl<T: Scalar> VectorDimension<4> for Vec4<T> {}
+impl<T: Scalar> VectorImpl for Vec4<T> {}
+impl<T: Scalar> Vector<T> for Vec4<T> {
+  #[inline]
+  fn dot(&self, b: Self) -> T {
+    self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
+  }
+
+  #[inline]
+  fn cross(&self, b: Self) -> Self {
+    Vec4 {
+      x: self.w * b.x + self.x * b.w + self.z * b.y - self.y * b.z,
+      y: self.w * b.y + self.y * b.w + self.x * b.z - self.z * b.x,
+      z: self.w * b.z + self.z * b.w + self.y * b.x - self.x * b.y,
+      w: self.w * b.w - self.x * b.x - self.y * b.y - self.z * b.z,
+    }
+  }
+}
+
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
 
@@ -18,7 +37,6 @@ impl<T> Vec4<T>
 where
   T: Copy,
 {
-
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T, T) {
     (self.x, self.y, self.z, self.w)
@@ -27,43 +45,11 @@ where
 
 impl<T> Vec4<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
-  #[inline]
-  pub fn dot(&self, b: Self) -> T {
-    self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
-  }
-  #[inline]
-  pub fn cross(&self, b: Self) -> Self {
-    Vec4 {
-      x: self.w * b.x + self.x * b.w + self.z * b.y - self.y * b.z,
-      y: self.w * b.y + self.y * b.w + self.x * b.z - self.z * b.x,
-      z: self.w * b.z + self.z * b.w + self.y * b.x - self.x * b.y,
-      w: self.w * b.w - self.x * b.x - self.y * b.y - self.z * b.z,
-    }
-  }
-  #[inline]
-  pub fn length2(&self) -> T {
-    self.dot(*self)
-  }
-  #[inline]
-  pub fn length(&self) -> T {
-    self.length2().sqrt()
-  }
   #[inline]
   pub fn distance(&self, b: Self) -> T {
     (*self - b).length()
-  }
-
-  #[inline]
-  pub fn normalize(&self) -> Self {
-    let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
-      let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
-    }
-
-    *self
   }
 }
 
@@ -262,11 +248,11 @@ where
   }
 
   #[inline]
-  fn log(self, _rhs: Self) -> Self {
-    let mx = self.x.log(_rhs.x);
-    let my = self.y.log(_rhs.y);
-    let mz = self.z.log(_rhs.z);
-    let mw = self.w.log(_rhs.w);
+  fn log(self, rhs: Self) -> Self {
+    let mx = self.x.log(rhs.x);
+    let my = self.y.log(rhs.y);
+    let mz = self.z.log(rhs.z);
+    let mw = self.w.log(rhs.w);
     Self {
       x: mx,
       y: my,
@@ -332,11 +318,11 @@ where
   }
 
   #[inline]
-  fn min(self, _rhs: Self) -> Self {
-    let mx = self.x.min(_rhs.x);
-    let my = self.y.min(_rhs.y);
-    let mz = self.z.min(_rhs.z);
-    let mw = self.w.min(_rhs.x);
+  fn min(self, rhs: Self) -> Self {
+    let mx = self.x.min(rhs.x);
+    let my = self.y.min(rhs.y);
+    let mz = self.z.min(rhs.z);
+    let mw = self.w.min(rhs.x);
     Self {
       x: mx,
       y: my,
@@ -346,11 +332,11 @@ where
   }
 
   #[inline]
-  fn max(self, _rhs: Self) -> Self {
-    let mx = self.x.max(_rhs.x);
-    let my = self.y.max(_rhs.y);
-    let mz = self.z.max(_rhs.z);
-    let mw = self.w.max(_rhs.w);
+  fn max(self, rhs: Self) -> Self {
+    let mx = self.x.max(rhs.x);
+    let my = self.y.max(rhs.y);
+    let mz = self.z.max(rhs.z);
+    let mw = self.w.max(rhs.w);
     Self {
       x: mx,
       y: my,
@@ -402,39 +388,17 @@ where
   }
 
   #[inline]
-  fn clamp(self, minval: Self, maxval: Self) -> Self {
-    let mx = self.x.clamp(minval.x, maxval.x);
-    let my = self.y.clamp(minval.y, maxval.y);
-    let mz = self.z.clamp(minval.z, maxval.z);
-    let mw = self.w.clamp(minval.w, maxval.w);
+  fn clamp(self, min: Self, max: Self) -> Self {
+    let mx = self.x.clamp(min.x, max.x);
+    let my = self.y.clamp(min.y, max.y);
+    let mz = self.z.clamp(min.z, max.z);
+    let mw = self.w.clamp(min.w, max.w);
     Self {
       x: mx,
       y: my,
       z: mz,
       w: mw,
     }
-  }
-}
-
-impl<T: Arithmetic> Lerp<T> for Vec4<T> {
-  #[inline(always)]
-  fn lerp(self, b: Self, t: T) -> Self {
-    return self * (T::one() - t) + b * t;
-  }
-}
-
-impl<T> Slerp<T> for Vec4<T>
-where
-  T: Arithmetic + Math,
-{
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot.gt(T::zero()) { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
   }
 }
 
@@ -543,7 +507,7 @@ where
 
 impl<T> fmt::Binary for Vec4<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

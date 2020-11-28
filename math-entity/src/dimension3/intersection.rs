@@ -1,7 +1,7 @@
 use crate::ray3::Ray3;
 use crate::sphere::Sphere;
-use crate::{intersect_reverse, Box3, IntersectAble, LineSegment, Point, Positioned3D, Triangle};
-use rendiation_math::Vec3;
+use crate::{intersect_reverse, Box3, IntersectAble, LineSegment, Point, Positioned, Triangle};
+use rendiation_math::*;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -40,19 +40,19 @@ impl IntersectionList3D {
   }
 }
 
-#[macro_export]
-macro_rules! intersect_reverse_generics {
-  ($self_item: ty, $result:ty, $param:ty, $target:ty, $impl_gen:tt, $impl_gen_bound:tt) => {
-    impl<$impl_gen: $impl_gen_bound> IntersectAble<$target, $result, $param> for $self_item {
-      fn intersect(&self, other: &$target, p: &$param) -> $result {
-        IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
-      }
-    }
-  };
-}
+// #[macro_export]
+// macro_rules! intersect_reverse_generics {
+//   ($self_item: ty, $result:ty, $param:ty, $target:ty, $impl_gen:tt, $impl_gen_bound:ty) => {
+//     impl<$impl_gen: $impl_gen_bound> IntersectAble<$target, $result, $param> for $self_item {
+//       fn intersect(&self, other: &$target, p: &$param) -> $result {
+//         IntersectAble::<$self_item, $result, $param>::intersect(other, self, p)
+//       }
+//     }
+//   };
+// }
 
-intersect_reverse_generics!(Triangle<T>, NearestPoint3D, (), Ray3, T, Positioned3D);
-impl<T: Positioned3D> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
+// intersect_reverse_generics!(Triangle<T>, NearestPoint3D, (), Ray3, T, Positioned<f32, 3>);
+impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
   #[allow(non_snake_case)]
   fn intersect(&self, face: &Triangle<T>, _: &()) -> NearestPoint3D {
     // Compute the offset origin, edges, and normal.
@@ -118,8 +118,8 @@ impl<T: Positioned3D> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 {
   }
 }
 
-intersect_reverse_generics!(LineSegment<T>, NearestPoint3D, f32, Ray3, T, Positioned3D);
-impl<T: Positioned3D> IntersectAble<LineSegment<T>, NearestPoint3D, f32> for Ray3 {
+// intersect_reverse_generics!(LineSegment<T, 3>, NearestPoint3D, f32, Ray3, T, Positioned<f32, 3>);
+impl<T: Positioned<f32, 3>> IntersectAble<LineSegment<T>, NearestPoint3D, f32> for Ray3 {
   #[inline]
   fn intersect(&self, line: &LineSegment<T>, t: &f32) -> NearestPoint3D {
     let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(*line);
@@ -132,8 +132,8 @@ impl<T: Positioned3D> IntersectAble<LineSegment<T>, NearestPoint3D, f32> for Ray
   }
 }
 
-intersect_reverse_generics!(Point<T>, NearestPoint3D, f32, Ray3, T, Positioned3D);
-impl<T: Positioned3D> IntersectAble<Point<T>, NearestPoint3D, f32> for Ray3 {
+// intersect_reverse_generics!(Point<T>, NearestPoint3D, f32, Ray3, T, Positioned<f32, 3>);
+impl<T: Positioned<f32, 3>> IntersectAble<Point<T>, NearestPoint3D, f32> for Ray3 {
   #[inline]
   fn intersect(&self, point: &Point<T>, t: &f32) -> NearestPoint3D {
     let point = point.0.position();

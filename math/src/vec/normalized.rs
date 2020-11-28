@@ -1,30 +1,30 @@
-use crate::*;
-use std::ops::Deref;
+// use crate::*;
+// use std::ops::Deref;
 
-#[derive(Debug, Copy, Clone)]
-pub struct Normalized<T: Vector>(T);
+// #[derive(Debug, Copy, Clone)]
+// pub struct Normalized<T: Vector<T>>(T);
 
-impl<T: Vector> Normalized<T> {
-  pub fn value(&self) -> T {
-    self.0
-  }
+// impl<T: Vector<T>> Normalized<T> {
+//   pub fn value(&self) -> T {
+//     self.0
+//   }
 
-  pub fn into_normalized(inner: T) -> Self {
-    Self(inner.normalize())
-  }
+//   pub fn into_normalized(inner: T) -> Self {
+//     Self(inner.normalize())
+//   }
 
-  pub fn normalize(&self) -> Self {
-    *self // normalized is normalized
-  }
+//   pub fn normalize(&self) -> Self {
+//     *self // normalized is normalized
+//   }
 
-  pub unsafe fn as_normalized(inner: T) -> Self {
-    Self(inner)
-  }
-}
+//   pub unsafe fn as_normalized(inner: T) -> Self {
+//     Self(inner)
+//   }
+// }
 
-impl<T: Vector> Deref for Normalized<T> {
-  type Target = T;
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
+// impl<T: Vector<T>> Deref for Normalized<T> {
+//   type Target = T;
+//   fn deref(&self) -> &Self::Target {
+//     &self.0
+//   }
+// }

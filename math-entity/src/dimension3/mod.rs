@@ -22,6 +22,8 @@ pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;
 
+use crate::Positioned;
+
 #[derive(Debug, Copy, Clone)]
 pub enum Axis3 {
   X,
@@ -29,11 +31,7 @@ pub enum Axis3 {
   Z,
 }
 
-pub trait Positioned3D: Copy {
-  fn position(&self) -> Vec3<f32>;
-}
-
-impl Positioned3D for Vec3<f32> {
+impl Positioned<f32, 3> for Vec3<f32> {
   #[inline(always)]
   fn position(&self) -> Vec3<f32> {
     *self

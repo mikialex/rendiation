@@ -1,9 +1,8 @@
-use crate::{Axis3, AABB};
-use rendiation_math::math::Math;
+use crate::{Axis3, HyperAABB};
 use rendiation_math::*;
 use std::iter::FromIterator;
 
-pub type Box3 = AABB<Vec3<f32>>;
+pub type Box3 = HyperAABB<f32, 3>;
 
 impl Default for Box3 {
   fn default() -> Self {
@@ -12,6 +11,13 @@ impl Default for Box3 {
 }
 
 impl Box3 {
+  pub fn new3(min: Vec3<f32>, max: Vec3<f32>) -> Self {
+    Self {
+      min: min.into(),
+      max: max.into(),
+    }
+  }
+
   #[inline(always)]
   pub fn new_cube(center: Vec3<f32>, radius: f32) -> Self {
     Self::new_from_center(center, Vec3::splat(radius))
@@ -20,8 +26,8 @@ impl Box3 {
   #[inline(always)]
   pub fn new_from_center(center: Vec3<f32>, half_size: Vec3<f32>) -> Self {
     Self {
-      min: center - half_size,
-      max: center + half_size,
+      min: (center - half_size).into(),
+      max: (center + half_size).into(),
     }
   }
 
@@ -54,7 +60,10 @@ impl Box3 {
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
-    Self::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
+    Self::new(
+      Vec3::new(INF, INF, INF).into(),
+      Vec3::new(N_INF, N_INF, N_INF).into(),
+    )
   }
 
   #[inline(always)]
@@ -95,8 +104,8 @@ impl Box3 {
 
   #[inline(always)]
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
-    self.min = self.min.min(point);
-    self.max = self.max.max(point);
+    self.min = self.min.min(point).into();
+    self.max = self.max.max(point).into();
   }
 
   #[inline(always)]
@@ -114,8 +123,8 @@ impl Box3 {
     if self.is_empty() {
       *self = box3;
     }
-    self.min = self.min.min(box3.min);
-    self.max = self.max.max(box3.max);
+    self.min = self.min.min(box3.min).into();
+    self.max = self.max.max(box3.max).into();
   }
 
   pub fn apply_matrix(&self, m: Mat4<f32>) -> Self {

@@ -1,8 +1,7 @@
 use crate::{HyperPlane, Triangle};
 use rendiation_math::*;
 
-// we cant use type alias for trait bound in stable: https://github.com/rust-lang/rust/issues/52662
-pub type Plane = HyperPlane<f32, Vec3<f32>>;
+pub type Plane = HyperPlane<f32, 3>;
 
 impl Plane {
   pub fn distance_to_point(&self, point: Vec3<f32>) -> f32 {
@@ -27,12 +26,12 @@ impl Plane {
   }
 }
 
-impl From<Triangle> for Plane {
-  fn from(face: Triangle) -> Plane {
+impl From<Triangle<Vec3<f32>>> for Plane {
+  fn from(face: Triangle<Vec3<f32>>) -> Plane {
     let v1 = face.b - face.a;
     let v2 = face.c - face.a;
     let normal = v1.cross(v2).normalize();
     let constant = normal.dot(face.a);
-    Plane::new(normal, constant)
+    Plane::new(normal.into(), constant)
   }
 }

@@ -1,7 +1,6 @@
 use crate::*;
 use std::fmt;
 use std::fmt::Debug;
-use std::ops::{Add, Mul, Sub};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -23,9 +22,26 @@ where
   }
 }
 
+impl<T: Scalar> VectorDimension<2> for Vec2<T> {}
+impl<T: Scalar> VectorImpl for Vec2<T> {}
+impl<T: Scalar> Vector<T> for Vec2<T> {
+  #[inline]
+  fn dot(&self, b: Self) -> T {
+    self.x * b.x + self.y * b.y
+  }
+
+  #[inline]
+  fn cross(&self, b: Self) -> Self {
+    Self {
+      x: self.y * b.x - self.x * b.y,
+      y: self.x * b.y - self.y * b.x,
+    }
+  }
+}
+
 impl<T> Vec2<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   #[inline]
   pub fn rotate(&self, anchor: Self, radians: T) -> Self {
@@ -41,42 +57,8 @@ where
   }
 
   #[inline]
-  pub fn dot(&self, b: Self) -> T {
-    self.x * b.x + self.y * b.y
-  }
-
-  #[inline]
-  pub fn cross(&self, b: Self) -> Self {
-    Self {
-      x: self.y * b.x - self.x * b.y,
-      y: self.x * b.y - self.y * b.x,
-    }
-  }
-
-  #[inline]
-  pub fn length2(&self) -> T {
-    return self.dot(*self);
-  }
-
-  #[inline]
-  pub fn length(&self) -> T {
-    return self.length2().sqrt();
-  }
-
-  #[inline]
   pub fn distance(&self, b: Self) -> T {
     return (*self - b).length();
-  }
-
-  #[inline]
-  pub fn normalize(&self) -> Self {
-    let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
-      let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
-    }
-
-    return *self;
   }
 }
 
@@ -176,9 +158,9 @@ where
   }
 
   #[inline]
-  fn log(self, _rhs: Self) -> Self {
-    let mx = self.x.log(_rhs.x);
-    let my = self.y.log(_rhs.y);
+  fn log(self, rhs: Self) -> Self {
+    let mx = self.x.log(rhs.x);
+    let my = self.y.log(rhs.y);
     Self { x: mx, y: my }
   }
 
@@ -211,16 +193,16 @@ where
   }
 
   #[inline]
-  fn min(self, _rhs: Self) -> Self {
-    let mx = self.x.min(_rhs.x);
-    let my = self.y.min(_rhs.y);
+  fn min(self, rhs: Self) -> Self {
+    let mx = self.x.min(rhs.x);
+    let my = self.y.min(rhs.y);
     Self { x: mx, y: my }
   }
 
   #[inline]
-  fn max(self, _rhs: Self) -> Self {
-    let mx = self.x.max(_rhs.x);
-    let my = self.y.max(_rhs.y);
+  fn max(self, rhs: Self) -> Self {
+    let mx = self.x.max(rhs.x);
+    let my = self.y.max(rhs.y);
     Self { x: mx, y: my }
   }
 
@@ -250,31 +232,6 @@ where
     let mx = self.x.clamp(minval.x, maxval.x);
     let my = self.y.clamp(minval.y, maxval.y);
     Self { x: mx, y: my }
-  }
-}
-
-impl<T: Arithmetic> Lerp<T> for Vec2<T>
-where
-  T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
-{
-  #[inline(always)]
-  fn lerp(self, b: Self, t: T) -> Self {
-    self * (T::one() - t) + b * t
-  }
-}
-
-impl<T> Slerp<T> for Vec2<T>
-where
-  T: Arithmetic + Math,
-{
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot.gt(T::zero()) { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
   }
 }
 
@@ -341,7 +298,7 @@ where
 
 impl<T> fmt::Binary for Vec2<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

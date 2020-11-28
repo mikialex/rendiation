@@ -1,11 +1,30 @@
-#[derive(Debug, Copy, Clone)]
-pub struct HyperPlane<T, U> {
-  pub normal: U,
+use rendiation_math::*;
+
+use crate::SpaceEntity;
+
+pub struct HyperPlane<T: Scalar, const D: usize> {
+  pub normal: VectorType<T, D>,
   pub constant: T,
 }
 
-impl<T, U> HyperPlane<T, U> {
-  pub fn new(normal: U, constant: T) -> Self {
+impl<T: Scalar, const D: usize> SpaceEntity<D> for HyperPlane<T, D> {}
+
+impl<T: Scalar, const D: usize> Copy for HyperPlane<T, D> where VectorType<T, D>: Copy {}
+
+impl<T: Scalar, const D: usize> Clone for HyperPlane<T, D>
+where
+  VectorType<T, D>: Clone,
+{
+  fn clone(&self) -> Self {
+    Self {
+      normal: self.normal.clone(),
+      constant: self.constant.clone(),
+    }
+  }
+}
+
+impl<T: Scalar, const D: usize> HyperPlane<T, D> {
+  pub fn new(normal: VectorType<T, D>, constant: T) -> Self {
     Self { normal, constant }
   }
 }

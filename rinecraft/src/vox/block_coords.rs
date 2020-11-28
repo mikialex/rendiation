@@ -135,6 +135,6 @@ impl BlockWorldCoords {
       (world_position.y + 1) as f32 * BLOCK_WORLD_SIZE,
       (world_position.z + 1) as f32 * BLOCK_WORLD_SIZE,
     );
-    Box3::new(min, max)
+    Box3::new3(min, max)
   }
 }

@@ -13,11 +13,28 @@ pub struct Vec3<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec3<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec3<T> {}
 
+impl<T: Scalar> VectorDimension<3> for Vec3<T> {}
+impl<T: Scalar> VectorImpl for Vec3<T> {}
+impl<T: Scalar> Vector<T> for Vec3<T> {
+  #[inline]
+  fn dot(&self, b: Self) -> T {
+    return self.x * b.x + self.y * b.y + self.z * b.z;
+  }
+
+  #[inline]
+  fn cross(&self, b: Self) -> Self {
+    Self {
+      x: self.y * b.z - self.z * b.y,
+      y: self.z * b.x - self.x * b.z,
+      z: self.x * b.y - self.y * b.x,
+    }
+  }
+}
+
 impl<T> Vec3<T>
 where
   T: Copy,
 {
-
   #[inline(always)]
   pub fn to_tuple(&self) -> (T, T, T) {
     (self.x, self.y, self.z)
@@ -26,7 +43,7 @@ where
 
 impl<T> Vec3<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   /// input: Matrix4 affine matrix
   ///
@@ -47,43 +64,8 @@ where
   }
 
   #[inline]
-  pub fn dot(&self, b: Self) -> T {
-    return self.x * b.x + self.y * b.y + self.z * b.z;
-  }
-
-  #[inline]
-  pub fn cross(&self, b: Self) -> Self {
-    Self {
-      x: self.y * b.z - self.z * b.y,
-      y: self.z * b.x - self.x * b.z,
-      z: self.x * b.y - self.y * b.x,
-    }
-  }
-
-  #[inline]
-  pub fn length2(&self) -> T {
-    return self.dot(*self);
-  }
-
-  #[inline]
-  pub fn length(&self) -> T {
-    return self.length2().sqrt();
-  }
-
-  #[inline]
   pub fn distance(&self, b: Self) -> T {
     return (*self - b).length();
-  }
-
-  #[inline]
-  pub fn normalize(&self) -> Self {
-    let mag_sq = self.length2();
-    if mag_sq.gt(T::zero()) {
-      let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
-    }
-
-    return *self;
   }
 
   #[inline]
@@ -269,10 +251,10 @@ where
   }
 
   #[inline]
-  fn log(self, _rhs: Self) -> Self {
-    let mx = self.x.log(_rhs.x);
-    let my = self.y.log(_rhs.y);
-    let mz = self.z.log(_rhs.z);
+  fn log(self, rhs: Self) -> Self {
+    let mx = self.x.log(rhs.x);
+    let my = self.y.log(rhs.y);
+    let mz = self.z.log(rhs.z);
     Self {
       x: mx,
       y: my,
@@ -329,10 +311,10 @@ where
   }
 
   #[inline]
-  fn min(self, _rhs: Self) -> Self {
-    let mx = self.x.min(_rhs.x);
-    let my = self.y.min(_rhs.y);
-    let mz = self.z.min(_rhs.z);
+  fn min(self, rhs: Self) -> Self {
+    let mx = self.x.min(rhs.x);
+    let my = self.y.min(rhs.y);
+    let mz = self.z.min(rhs.z);
     Self {
       x: mx,
       y: my,
@@ -341,10 +323,10 @@ where
   }
 
   #[inline]
-  fn max(self, _rhs: Self) -> Self {
-    let mx = self.x.max(_rhs.x);
-    let my = self.y.max(_rhs.y);
-    let mz = self.z.max(_rhs.z);
+  fn max(self, rhs: Self) -> Self {
+    let mx = self.x.max(rhs.x);
+    let my = self.y.max(rhs.y);
+    let mz = self.z.max(rhs.z);
     Self {
       x: mx,
       y: my,
@@ -398,29 +380,6 @@ where
       y: my,
       z: mz,
     }
-  }
-}
-
-impl<T: Arithmetic> Lerp<T> for Vec3<T>
-{
-  #[inline(always)]
-  fn lerp(self, b: Self, t: T) -> Self {
-    self * (T::one() - t) + b * t
-  }
-}
-
-impl<T> Slerp<T> for Vec3<T>
-where
-  T: Arithmetic + Math,
-{
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot.gt(T::zero()) { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
   }
 }
 
@@ -505,7 +464,7 @@ where
 
 impl<T> fmt::Binary for Vec3<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let len = self.length();

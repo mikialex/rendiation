@@ -7,11 +7,12 @@ use crate::{
   vertex::Vertex,
 };
 use core::marker::PhantomData;
-use rendiation_math_entity::Positioned3D;
+use rendiation_math_entity::Positioned;
 use std::hash::Hash;
 
 pub trait IntoUsize {
   fn into_usize(&self) -> usize;
+  fn from_usize(v: usize) -> Self;
 }
 pub trait IndexType: IntoUsize + Copy + Eq + Ord + Hash {}
 
@@ -21,6 +22,10 @@ impl IntoUsize for u16 {
   fn into_usize(&self) -> usize {
     *self as usize
   }
+  #[inline(always)]
+  fn from_usize(v: usize) -> Self {
+    v as Self
+  }
 }
 
 impl IndexType for u32 {}
@@ -28,6 +33,10 @@ impl IntoUsize for u32 {
   #[inline(always)]
   fn into_usize(&self) -> usize {
     *self as usize
+  }
+  #[inline(always)]
+  fn from_usize(v: usize) -> Self {
+    v as Self
   }
 }
 
@@ -58,7 +67,7 @@ impl<V, I, T, U> IndexedGeometry<I, V, T, U> {
 
 impl<I, V, T, U> AnyGeometry for IndexedGeometry<I, V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<I, V>,
   <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V>,
   U: GeometryDataContainer<V>,
@@ -79,7 +88,7 @@ where
 
 impl<I, V, T, U> AnyIndexGeometry for IndexedGeometry<I, V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<I, V>,
   T::Primitive: IndexedPrimitiveData<I, V>,
   U: GeometryDataContainer<V>,

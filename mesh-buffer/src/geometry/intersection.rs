@@ -75,26 +75,26 @@ impl Default for MeshBufferIntersectConfig {
 
 type Config = MeshBufferIntersectConfig;
 
-impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Triangle<T> {
+impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Triangle<T> {
   #[inline]
   fn intersect(&self, ray: &Ray3, _: &Config) -> NearestPoint3D {
-    self.intersect(ray, &())
+    ray.intersect(self, &())
   }
 }
 
-impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for LineSegment<T> {
+impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for LineSegment<T> {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
     let local_tolerance_adjusted =
       conf.line_tolerance.value / conf.current_item_scale_estimate.get();
-    self.intersect(ray, &local_tolerance_adjusted)
+    ray.intersect(self, &local_tolerance_adjusted)
   }
 }
 
-impl<T: Positioned3D> IntersectAble<Ray3, NearestPoint3D, Config> for Point<T> {
+impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Point<T> {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
-    self.intersect(ray, &conf.point_tolerance.value)
+    ray.intersect(self, &conf.point_tolerance.value)
   }
 }
 
@@ -108,7 +108,7 @@ fn test() {
   let config = MeshBufferIntersectConfig::default();
   let quad = Quad.create_mesh(&());
   let quad = IndexedGeometry::<u16, _, TriangleList>::from(quad);
-  let ray = Ray::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0));
+  let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0));
   let mut result = IntersectionList3D::new();
   quad
     .as_ref_container()

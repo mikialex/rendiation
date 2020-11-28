@@ -1,7 +1,7 @@
-use crate::{LineSegment, Positioned3D, Ray};
+use crate::{HyperRay, LineSegment, Positioned};
 use rendiation_math::*;
 
-pub type Ray3 = Ray<Vec3<f32>>;
+pub type Ray3 = HyperRay<f32, 3>;
 
 impl Ray3 {
   pub fn from_point_to_point(origin: Vec3<f32>, target: Vec3<f32>) -> Self {
@@ -24,7 +24,7 @@ impl Ray3 {
     Self::new(origin, direction)
   }
 
-  pub fn distance_sq_to_segment<T: Positioned3D>(
+  pub fn distance_sq_to_segment<T: Positioned<f32, 3>>(
     &self,
     line: LineSegment<T>,
   ) -> (f32, Vec3<f32>, Vec3<f32>) {

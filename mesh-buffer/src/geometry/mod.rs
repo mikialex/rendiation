@@ -10,7 +10,7 @@ pub use primitive::*;
 
 pub use bvh::*;
 pub use intersection::*;
-use rendiation_math_entity::Positioned3D;
+use rendiation_math_entity::Positioned;
 use rendiation_ral::{
   GeometryDescriptorProvider, GeometryProvider, GeometryResourceCreator, GeometryResourceInstance,
   GeometryResourceInstanceCreator, IndexFormat, ResourceManager, VertexBufferDescriptorProvider,
@@ -19,7 +19,7 @@ use rendiation_ral::{
 
 impl<'a, V, T, U, R> GeometryResourceCreator<R> for IndexedGeometry<u16, V, T, U>
 where
-  V: Positioned3D + GeometryProvider,
+  V: Positioned<f32, 3> + GeometryProvider,
   T: PrimitiveTopology<V>,
   U: RALGeometryDataContainer<V, R> + 'static,
   R: RAL,
@@ -43,7 +43,7 @@ where
 
 impl<V, T, U, R> GeometryResourceInstanceCreator<R, V> for IndexedGeometry<u16, V, T, U>
 where
-  V: Positioned3D + GeometryProvider,
+  V: Positioned<f32, 3> + GeometryProvider,
   T: PrimitiveTopology<V>,
   U: RALGeometryDataContainer<V, R> + 'static,
   R: RAL,
@@ -52,7 +52,7 @@ where
 
 impl<'a, V, T, U> VertexStateDescriptorProvider for IndexedGeometry<u16, V, T, U>
 where
-  V: Positioned3D + VertexBufferDescriptorProvider,
+  V: Positioned<f32, 3> + VertexBufferDescriptorProvider,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
@@ -66,7 +66,7 @@ where
 
 impl<'a, V, T, U> GeometryDescriptorProvider for IndexedGeometry<u16, V, T, U>
 where
-  V: Positioned3D + VertexBufferDescriptorProvider,
+  V: Positioned<f32, 3> + VertexBufferDescriptorProvider,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {

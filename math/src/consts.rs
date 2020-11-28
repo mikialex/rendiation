@@ -42,3 +42,6 @@ impl Epsilon for f64  { #[inline(always)] fn epsilon() -> Self { 0.000_000_01_f6
 impl One for i32      { #[inline(always)] fn one() -> Self { 1 } }
 impl Zero for i32     { #[inline(always)] fn zero() -> Self { 0 } }
 impl Two for i32      { #[inline(always)] fn two() -> Self { 2 } }
+impl One for i64      { #[inline(always)] fn one() -> Self { 1 } }
+impl Zero for i64     { #[inline(always)] fn zero() -> Self { 0 } }
+impl Two for i64      { #[inline(always)] fn two() -> Self { 2 } }

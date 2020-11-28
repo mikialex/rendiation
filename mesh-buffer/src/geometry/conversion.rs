@@ -14,8 +14,8 @@ use super::{
   IndexPrimitiveTopology, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
   NoneIndexedGeometry, PointList, PrimitiveTopology,
 };
-use rendiation_math::Vec3;
-use rendiation_math_entity::{LineSegment, Positioned3D, Triangle};
+use rendiation_math::{Vec3, Vector};
+use rendiation_math_entity::{LineSegment, Positioned, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
@@ -24,7 +24,7 @@ use std::{
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<I, V, Primitive = Triangle<V>>,
   U: GeometryDataContainer<V>,
 {
@@ -81,18 +81,18 @@ where
   }
 }
 
-impl<V, T> IndexedGeometry<u16, V, T>
+impl<I, V, T> IndexedGeometry<I, V, T>
 where
-  V: Positioned3D,
-  T: IndexPrimitiveTopology<u16, V>,
-  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
-  // U: GeometryDataContainer<V>, // todo add more constrain like push?
+  I: IndexType,
+  V: Positioned<f32, 3>,
+  T: IndexPrimitiveTopology<I, V>,
+  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V>,
 {
   pub fn merge_vertex_by_sorting(
     &self,
     sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,
-  ) -> IndexedGeometry<u16, V, T> {
+  ) -> IndexedGeometry<I, V, T> {
     let mut data = self.data.clone();
     let mut merge_data = Vec::with_capacity(data.len());
     let mut index_remapping = HashMap::new();
@@ -108,8 +108,8 @@ where
       .index
       .iter()
       .map(|i| {
-        let k = *i as usize;
-        *index_remapping.get(&k).unwrap_or(&k) as u16
+        let k = (*i).into_usize();
+        I::from_usize(*index_remapping.get(&k).unwrap_or(&k))
       })
       .collect();
 
@@ -117,20 +117,27 @@ where
   }
 }
 
-impl<V, T, U> IndexedGeometry<u16, V, T, U>
+impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
-  V: Positioned3D,
+  I: IndexType,
+  V: Positioned<f32, 3>,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T, U> {
-    NoneIndexedGeometry::new(self.index.iter().map(|i| self.data[*i as usize]).collect())
+    NoneIndexedGeometry::new(
+      self
+        .index
+        .iter()
+        .map(|i| self.data[(*i).into_usize()])
+        .collect(),
+    )
   }
 }
 
 impl<V, T> NoneIndexedGeometry<V, T>
 where
-  V: Positioned3D + HashAbleByConversion,
+  V: Positioned<f32, 3> + HashAbleByConversion,
   T: IndexPrimitiveTopology<u16, V>,
   <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
   // U: GeometryDataContainer<V>, // ditto
@@ -156,7 +163,7 @@ where
 
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
-  V: Positioned3D,
+  V: Positioned<f32, 3>,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {

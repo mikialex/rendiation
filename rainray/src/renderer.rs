@@ -21,7 +21,7 @@ fn test_intersection_is_visible_to_point(
   intersection: &Intersection,
   point: &Vec3,
 ) -> bool {
-  let distance = (*point - intersection.hit_position).length();
+  let distance = point.distance(intersection.hit_position);
   let test_ray = Ray3::from_point_to_point(intersection.hit_position, *point);
   let hit_result = scene.get_min_dist_hit(&test_ray);
 
