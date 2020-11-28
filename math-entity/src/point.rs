@@ -1,5 +1,3 @@
-use rendiation_math::*;
-
 use crate::{Positioned, SpaceEntity};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -12,5 +10,3 @@ impl<T: Copy> Point<T> {
 }
 
 impl<T: Positioned<f32, D>, const D: usize> SpaceEntity<D> for Point<T> {}
-impl<T> SpaceEntity<2> for Vec2<T> {}
-impl<T> SpaceEntity<3> for Vec3<T> {}

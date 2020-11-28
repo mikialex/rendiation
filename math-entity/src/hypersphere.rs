@@ -1,23 +1,20 @@
 use rendiation_math::*;
 
-use crate::{SolidEntity, SpaceEntity};
+use crate::{ContainAble, SolidEntity, SpaceEntity};
 
 pub struct HyperSphere<T: Scalar, const D: usize> {
-  pub center: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  pub center: VectorType<T, D>,
   pub radius: T,
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<D> for HyperSphere<T, D> {}
 impl<T: Scalar, const D: usize> SolidEntity<D> for HyperSphere<T, D> {}
 
-impl<T: Scalar, const D: usize> Copy for HyperSphere<T, D> where
-  <VectorMark<T> as DimensionalVec<T, D>>::Type: Copy
-{
-}
+impl<T: Scalar, const D: usize> Copy for HyperSphere<T, D> where VectorType<T, D>: Copy {}
 
 impl<T: Scalar, const D: usize> Clone for HyperSphere<T, D>
 where
-  <VectorMark<T> as DimensionalVec<T, D>>::Type: Clone,
+  VectorType<T, D>: Clone,
 {
   fn clone(&self) -> Self {
     Self {
@@ -28,7 +25,26 @@ where
 }
 
 impl<T: Scalar, const D: usize> HyperSphere<T, D> {
-  pub fn new(center: <VectorMark<T> as DimensionalVec<T, D>>::Type, radius: T) -> Self {
+  pub fn new(center: VectorType<T, D>, radius: T) -> Self {
     Self { center, radius }
+  }
+}
+
+impl<T, const D: usize> HyperSphere<T, D>
+where
+  T: Scalar,
+  VectorType<T, D>: Zero,
+{
+  pub fn zero() -> Self {
+    Self {
+      center: <VectorMark<T> as DimensionalVec<T, D>>::Type::zero(),
+      radius: T::zero(),
+    }
+  }
+}
+
+impl<T: Scalar, const D: usize> ContainAble<VectorType<T, D>, D> for HyperSphere<T, D> {
+  default fn contains(&self, v: &VectorType<T, D>) -> bool {
+    (*v - self.center).length2() <= self.radius * self.radius
   }
 }

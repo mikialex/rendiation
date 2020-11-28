@@ -5,10 +5,6 @@ use rendiation_math::*;
 pub type Sphere = HyperSphere<f32, 3>;
 
 impl Sphere {
-  pub fn zero() -> Self {
-    Sphere::new(Vec3::new(0.0, 0.0, 0.0).into(), 0.0)
-  }
-
   pub fn new_from_box(box3: Box3) -> Self {
     let center = (box3.max + box3.min) * 0.5;
     let radius = (box3.max - center).length();

@@ -5,6 +5,10 @@ use crate::*;
 // this trait for avoid conflict impl
 pub trait VectorImpl {}
 
+// this trait for mark the vector's dimension
+pub trait VectorDimension<const D: usize> {}
+
+// this trait abstract for ops on vector
 pub trait Vector<T: Scalar>:
   Sized + Mul<T, Output = Self> + Sub<Self, Output = Self> + Add<Self, Output = Self> + Copy
 {
@@ -65,7 +69,7 @@ where
 }
 
 pub trait DimensionalVec<T: Scalar, const D: usize> {
-  type Type: Vector<T>;
+  type Type: Vector<T> + VectorDimension<D>;
 }
 
 pub struct VectorMark<T>(PhantomData<T>);
@@ -81,5 +85,7 @@ impl<T: Scalar> DimensionalVec<T, 4> for VectorMark<T> {
 }
 
 impl<T: Scalar, const D: usize> DimensionalVec<T, D> for VectorMark<T> {
-  default type Type = Vec2<T>; // todo impl for [T; D]
+  default type Type = FakeHyperVec<T, D>;
 }
+
+pub type VectorType<T, const D: usize> = <VectorMark<T> as DimensionalVec<T, D>>::Type;

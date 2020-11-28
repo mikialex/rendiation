@@ -22,6 +22,7 @@ where
   }
 }
 
+impl<T: Scalar> VectorDimension<2> for Vec2<T> {}
 impl<T: Scalar> VectorImpl for Vec2<T> {}
 impl<T: Scalar> Vector<T> for Vec2<T> {
   #[inline]

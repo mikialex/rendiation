@@ -1,18 +1,15 @@
 use rendiation_math::*;
 
 pub struct HyperRay<T: Scalar, const D: usize> {
-  pub origin: <VectorMark<T> as DimensionalVec<T, D>>::Type,
-  pub direction: <VectorMark<T> as DimensionalVec<T, D>>::Type,
+  pub origin: VectorType<T, D>,
+  pub direction: VectorType<T, D>,
 }
 
-impl<T: Scalar, const D: usize> Copy for HyperRay<T, D> where
-  <VectorMark<T> as DimensionalVec<T, D>>::Type: Copy
-{
-}
+impl<T: Scalar, const D: usize> Copy for HyperRay<T, D> where VectorType<T, D>: Copy {}
 
 impl<T: Scalar, const D: usize> Clone for HyperRay<T, D>
 where
-  <VectorMark<T> as DimensionalVec<T, D>>::Type: Clone,
+  VectorType<T, D>: Clone,
 {
   fn clone(&self) -> Self {
     Self {
@@ -23,10 +20,7 @@ where
 }
 
 impl<T: Scalar, const D: usize> HyperRay<T, D> {
-  pub fn new(
-    origin: <VectorMark<T> as DimensionalVec<T, D>>::Type,
-    direction: <VectorMark<T> as DimensionalVec<T, D>>::Type,
-  ) -> Self {
+  pub fn new(origin: VectorType<T, D>, direction: VectorType<T, D>) -> Self {
     HyperRay { origin, direction }
   }
 }

@@ -29,7 +29,7 @@ pub use triangle::*;
 pub use wasm::*;
 
 pub trait Positioned<T: Scalar, const D: usize>: Copy {
-  fn position(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
+  fn position(&self) -> VectorType<T, D>;
 }
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
@@ -37,6 +37,9 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
 }
 
 pub trait SpaceEntity<const D: usize> {}
+
+impl<const D: usize, V: VectorDimension<D>> SpaceEntity<D> for V {}
+
 pub trait SolidEntity<const D: usize>: SpaceEntity<D> {}
 
 pub trait ContainAble<Target: SpaceEntity<D>, const D: usize>: SolidEntity<D> {
@@ -48,9 +51,9 @@ pub trait SpaceBounding<Bound: SolidEntity<D>, const D: usize>: SpaceEntity<D> {
 }
 
 pub trait CurveSegment<T: Scalar, const D: usize> {
-  fn start(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
-  fn end(&self) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
-  fn sample(&self, t: f32) -> <VectorMark<T> as DimensionalVec<T, D>>::Type;
+  fn start(&self) -> VectorType<T, D>;
+  fn end(&self) -> VectorType<T, D>;
+  fn sample(&self, t: f32) -> VectorType<T, D>;
 }
 
 #[macro_export]

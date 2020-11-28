@@ -11,6 +11,7 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
+impl<T: Scalar> VectorDimension<4> for Vec4<T> {}
 impl<T: Scalar> VectorImpl for Vec4<T> {}
 impl<T: Scalar> Vector<T> for Vec4<T> {
   #[inline]
