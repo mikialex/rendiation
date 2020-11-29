@@ -1,8 +1,23 @@
-use crate::{Box3, HyperSphere};
+use crate::{Box3, HyperSphere, LebesgueMeasurable};
 use rendiation_math::math::Math;
 use rendiation_math::*;
 
 pub type Sphere = HyperSphere<f32, 3>;
+
+impl LebesgueMeasurable<3> for Sphere {
+  #[inline(always)]
+  fn measure(&self) -> f32 {
+    3.0 / 4.0 * std::f32::consts::PI * self.radius * self.radius * self.radius
+  }
+}
+
+impl LebesgueMeasurable<2> for Sphere {
+  type MeasureType = f32;
+  #[inline(always)]
+  fn measure(&self) -> f32 {
+    4.0 * std::f32::consts::PI * self.radius * self.radius
+  }
+}
 
 impl Sphere {
   pub fn new_from_box(box3: Box3) -> Self {

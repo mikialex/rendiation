@@ -40,9 +40,54 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
 
 pub trait SpaceEntity<const D: usize> {}
 
+/// https://en.wikipedia.org/wiki/Lebesgue_measure
+pub trait LebesgueMeasurable<const D: usize> {
+  type MeasureType;
+  fn measure(&self) -> Self::MeasureType;
+}
+pub trait LengthMeasurable: LebesgueMeasurable<1> {
+  #[inline(always)]
+  fn length(&self) -> Self::MeasureType {
+    self.measure()
+  }
+}
+impl<T> LengthMeasurable for T where T: LebesgueMeasurable<1> {}
+
+pub trait AreaMeasurable: LebesgueMeasurable<2> {
+  #[inline(always)]
+  fn area(&self) -> Self::MeasureType {
+    self.measure()
+  }
+}
+impl<T> AreaMeasurable for T where T: LebesgueMeasurable<2> {}
+
+pub trait VolumeMeasurable: LebesgueMeasurable<3> {
+  #[inline(always)]
+  fn volume(&self) -> Self::MeasureType {
+    self.measure()
+  }
+}
+impl<T> VolumeMeasurable for T where T: LebesgueMeasurable<3> {}
+
+pub trait SurfaceAreaMeasure: SpaceEntity<3> + LebesgueMeasurable<2> {
+  #[inline(always)]
+  fn surface_area(&self) -> Self::MeasureType {
+    self.measure()
+  }
+}
+impl<T> SurfaceAreaMeasure for T where T: SpaceEntity<3> + LebesgueMeasurable<2> {}
+
+pub trait PerimeterMeasure: SpaceEntity<2> + LebesgueMeasurable<1> {
+  #[inline(always)]
+  fn perimeter(&self) -> Self::MeasureType {
+    self.measure()
+  }
+}
+impl<T> PerimeterMeasure for T where T: SpaceEntity<2> + LebesgueMeasurable<1> {}
+
 impl<const D: usize, V: VectorDimension<D>> SpaceEntity<D> for V {}
 
-pub trait SolidEntity<const D: usize>: SpaceEntity<D> {}
+pub trait SolidEntity<const D: usize>: SpaceEntity<D> + LebesgueMeasurable<D> {}
 
 pub trait ContainAble<Target: SpaceEntity<D>, const D: usize>: SolidEntity<D> {
   fn contains(&self, items_to_contain: &Target) -> bool;

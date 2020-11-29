@@ -1,6 +1,6 @@
 use rendiation_math::*;
 
-use crate::{ContainAble, SolidEntity, SpaceEntity};
+use crate::{ContainAble, LebesgueMeasurable, SolidEntity, SpaceEntity};
 
 pub struct HyperSphere<T: Scalar, const D: usize> {
   pub center: VectorType<T, D>,
@@ -8,6 +8,15 @@ pub struct HyperSphere<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<D> for HyperSphere<T, D> {}
+
+/// https://en.wikipedia.org/wiki/Volume_of_an_n-ball
+impl<T: Scalar, const D: usize> LebesgueMeasurable<D> for HyperSphere<T, D> {
+  type MeasureType = T;
+  default fn measure(&self) -> T {
+    unimplemented!()
+  }
+}
+
 impl<T: Scalar, const D: usize> SolidEntity<D> for HyperSphere<T, D> {}
 
 impl<T: Scalar, const D: usize> Copy for HyperSphere<T, D> where VectorType<T, D>: Copy {}

@@ -1,6 +1,6 @@
 use rendiation_math::*;
 
-use crate::{SolidEntity, SpaceEntity};
+use crate::{LebesgueMeasurable, SolidEntity, SpaceEntity};
 
 pub struct HyperAABB<T: Scalar, const D: usize> {
   pub min: VectorType<T, D>,
@@ -8,6 +8,12 @@ pub struct HyperAABB<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<D> for HyperAABB<T, D> {}
+impl<T: Scalar, const D: usize> LebesgueMeasurable<D> for HyperAABB<T, D> {
+  type MeasureType = T;
+  default fn measure(&self) -> T {
+    unimplemented!()
+  }
+}
 impl<T: Scalar, const D: usize> SolidEntity<D> for HyperAABB<T, D> {}
 
 impl<T: Scalar, const D: usize> Copy for HyperAABB<T, D> where VectorType<T, D>: Copy {}

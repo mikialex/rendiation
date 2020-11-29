@@ -1,8 +1,23 @@
-use crate::{Axis3, HyperAABB};
+use crate::{Axis3, HyperAABB, LebesgueMeasurable};
 use rendiation_math::*;
 use std::iter::FromIterator;
 
 pub type Box3 = HyperAABB<f32, 3>;
+
+impl LebesgueMeasurable<2> for Box3 {
+  type MeasureType = f32;
+  #[inline(always)]
+  fn measure(&self) -> f32 {
+    self.width() * self.height() + self.width() * self.depth() + self.height() * self.depth()
+  }
+}
+
+impl LebesgueMeasurable<3> for Box3 {
+  #[inline(always)]
+  fn measure(&self) -> f32 {
+    self.width() * self.height() * self.depth()
+  }
+}
 
 impl Default for Box3 {
   fn default() -> Self {
