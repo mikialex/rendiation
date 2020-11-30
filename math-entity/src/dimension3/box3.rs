@@ -18,6 +18,23 @@ impl LebesgueMeasurable<f32, 3> for Box3 {
   }
 }
 
+impl SpaceEntity<f32, 3> for Box3 {
+  fn apply_matrix(&mut self, m: &SquareMatrixType<f32, 3>) -> &mut Self {
+    let points = [
+      *Vec3::new(self.min.x, self.min.y, self.min.z).apply_matrix(m), // 000
+      *Vec3::new(self.min.x, self.min.y, self.max.z).apply_matrix(m), // 001
+      *Vec3::new(self.min.x, self.max.y, self.min.z).apply_matrix(m), // 010
+      *Vec3::new(self.min.x, self.max.y, self.max.z).apply_matrix(m), // 011
+      *Vec3::new(self.max.x, self.min.y, self.min.z).apply_matrix(m), // 100
+      *Vec3::new(self.max.x, self.min.y, self.max.z).apply_matrix(m), // 101
+      *Vec3::new(self.max.x, self.max.y, self.min.z).apply_matrix(m), // 110
+      *Vec3::new(self.max.x, self.max.y, self.max.z).apply_matrix(m), // 111
+    ];
+    *self = points.iter().collect();
+    self
+  }
+}
+
 impl Default for Box3 {
   fn default() -> Self {
     Self::empty()
@@ -139,20 +156,6 @@ impl Box3 {
     }
     self.min = self.min.min(box3.min).into();
     self.max = self.max.max(box3.max).into();
-  }
-
-  pub fn apply_matrix(&self, m: Mat4<f32>) -> Self {
-    let points = [
-      Vec3::new(self.min.x, self.min.y, self.min.z) * m, // 000
-      Vec3::new(self.min.x, self.min.y, self.max.z) * m, // 001
-      Vec3::new(self.min.x, self.max.y, self.min.z) * m, // 010
-      Vec3::new(self.min.x, self.max.y, self.max.z) * m, // 011
-      Vec3::new(self.max.x, self.min.y, self.min.z) * m, // 100
-      Vec3::new(self.max.x, self.min.y, self.max.z) * m, // 101
-      Vec3::new(self.max.x, self.max.y, self.min.z) * m, // 110
-      Vec3::new(self.max.x, self.max.y, self.max.z) * m, // 111
-    ];
-    points.iter().collect()
   }
 }
 

@@ -32,5 +32,5 @@ pub use self::quat::*;
 pub mod marcos;
 
 pub trait SpaceEntity<T: Scalar, const D: usize> {
-  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>);
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) -> &mut Self;
 }

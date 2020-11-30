@@ -68,8 +68,9 @@ where
 
 impl<T: Scalar> SpaceEntity<T, 3> for Vec3<T> {
   #[inline(always)]
-  fn apply_matrix(&mut self, m: &SquareMatrixType<T, 3>) {
-    *self = *self * *m
+  fn apply_matrix(&mut self, m: &SquareMatrixType<T, 3>) -> &mut Self {
+    *self = *self * *m;
+    self
   }
 }
 

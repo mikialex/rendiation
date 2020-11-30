@@ -38,7 +38,7 @@ impl<T: Scalar, const D: usize> Vector<T> for FakeHyperVec<T, D> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for FakeHyperVec<T, D> {
-  fn apply_matrix(&mut self, _m: &SquareMatrixType<T, D>) {
+  fn apply_matrix(&mut self, _m: &SquareMatrixType<T, D>) -> &mut Self {
     unreachable!()
   }
 }

@@ -8,8 +8,8 @@ pub struct HyperPlane<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperPlane<T, D> {
-  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) {
-    todo!()
+  default fn apply_matrix(&mut self, _mat: &SquareMatrixType<T, D>) -> &mut Self {
+    unimplemented!()
   }
 }
 
