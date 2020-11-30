@@ -1,5 +1,6 @@
 #![feature(specialization)]
 #![feature(const_generics)]
+#![feature(negative_impls)]
 #![allow(incomplete_features)]
 
 pub mod arithmetic;

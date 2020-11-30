@@ -7,14 +7,17 @@ pub struct HyperAABB<T: Scalar, const D: usize> {
   pub max: VectorType<T, D>,
 }
 
-impl<T: Scalar, const D: usize> SpaceEntity<D> for HyperAABB<T, D> {}
-impl<T: Scalar, const D: usize> LebesgueMeasurable<D> for HyperAABB<T, D> {
-  type MeasureType = T;
+impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperAABB<T, D> {
+  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {
+    todo!()
+  }
+}
+impl<T: Scalar, const D: usize> LebesgueMeasurable<T, D> for HyperAABB<T, D> {
   default fn measure(&self) -> T {
     unimplemented!()
   }
 }
-impl<T: Scalar, const D: usize> SolidEntity<D> for HyperAABB<T, D> {}
+impl<T: Scalar, const D: usize> SolidEntity<T, D> for HyperAABB<T, D> {}
 
 impl<T: Scalar, const D: usize> Copy for HyperAABB<T, D> where VectorType<T, D>: Copy {}
 

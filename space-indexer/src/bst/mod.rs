@@ -9,7 +9,7 @@ pub use apply::*;
 use rendiation_math_entity::ContainAble;
 
 pub trait BSTBounding<const D: usize, const N: usize>:
-  CenterAblePrimitive + Default + Copy + ContainAble<Self, D> + FromIterator<Self>
+  CenterAblePrimitive + Default + Copy + ContainAble<f32, Self, D> + FromIterator<Self>
 {
   fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize;
 

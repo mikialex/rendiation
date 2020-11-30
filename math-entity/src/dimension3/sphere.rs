@@ -4,15 +4,14 @@ use rendiation_math::*;
 
 pub type Sphere = HyperSphere<f32, 3>;
 
-impl LebesgueMeasurable<3> for Sphere {
+impl LebesgueMeasurable<f32, 3> for Sphere {
   #[inline(always)]
   fn measure(&self) -> f32 {
     3.0 / 4.0 * std::f32::consts::PI * self.radius * self.radius * self.radius
   }
 }
 
-impl LebesgueMeasurable<2> for Sphere {
-  type MeasureType = f32;
+impl LebesgueMeasurable<f32, 2> for Sphere {
   #[inline(always)]
   fn measure(&self) -> f32 {
     4.0 * std::f32::consts::PI * self.radius * self.radius

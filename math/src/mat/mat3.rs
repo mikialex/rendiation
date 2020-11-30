@@ -15,8 +15,31 @@ pub struct Mat3<T> {
   pub c3: T,
 }
 
+impl<T: Scalar> SquareMatrixDimension<2> for Mat3<T> {}
+impl<T: Scalar> SquareMatrix<T> for Mat3<T> {}
+
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat3<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat3<T> {}
+
+impl<T> Mul<Mat3<T>> for Vec2<T>
+where
+  T: Copy + Add<Output = T> + Mul<Output = T> + One,
+{
+  type Output = Self;
+
+  fn mul(self, m: Mat3<T>) -> Self {
+    Self {
+      x: self.x * m.a1 + self.y * m.b1 + m.c1,
+      y: self.x * m.a2 + self.y * m.b2 + m.c2,
+    }
+  }
+}
+impl<T: Scalar> ApplyMatrix<T, 2> for Vec2<T> {
+  #[inline(always)]
+  fn apply_matrix(&self, m: SquareMatrixType<T, 2>) -> Self {
+    *self * m
+  }
+}
 
 impl<T> Mul for Mat3<T>
 where

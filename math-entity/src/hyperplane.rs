@@ -7,7 +7,11 @@ pub struct HyperPlane<T: Scalar, const D: usize> {
   pub constant: T,
 }
 
-impl<T: Scalar, const D: usize> SpaceEntity<D> for HyperPlane<T, D> {}
+impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperPlane<T, D> {
+  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {
+    todo!()
+  }
+}
 
 impl<T: Scalar, const D: usize> Copy for HyperPlane<T, D> where VectorType<T, D>: Copy {}
 
