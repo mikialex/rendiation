@@ -30,3 +30,7 @@ pub use self::quat::*;
 
 #[macro_use]
 pub mod marcos;
+
+pub trait SpaceEntity<T: Scalar, const D: usize> {
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>);
+}

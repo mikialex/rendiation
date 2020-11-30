@@ -9,8 +9,9 @@ pub struct LineSegment<V> {
 }
 
 impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for LineSegment<V> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {
-    todo!()
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) {
+    self.start.position_mut().apply_matrix(mat);
+    self.end.position_mut().apply_matrix(mat);
   }
 }
 

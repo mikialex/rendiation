@@ -68,13 +68,8 @@ where
   }
 }
 
-// use Mul<SquareMatrixType<T, D>, Output = Self> will cause impl conflict, so we use another trait
-pub trait ApplyMatrix<T: Scalar, const D: usize> {
-  fn apply_matrix(&self, m: SquareMatrixType<T, D>) -> Self;
-}
-
 pub trait DimensionalVec<T: Scalar, const D: usize> {
-  type Type: Vector<T> + VectorDimension<D> + ApplyMatrix<T, D>;
+  type Type: Vector<T> + VectorDimension<D> + SpaceEntity<T, D>;
 }
 
 pub struct VectorMark<T>(PhantomData<T>);

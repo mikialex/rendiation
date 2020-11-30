@@ -34,10 +34,10 @@ where
     }
   }
 }
-impl<T: Scalar> ApplyMatrix<T, 2> for Vec2<T> {
+impl<T: Scalar> SpaceEntity<T, 2> for Vec2<T> {
   #[inline(always)]
-  fn apply_matrix(&self, m: SquareMatrixType<T, 2>) -> Self {
-    *self * m
+  fn apply_matrix(&mut self, m: &SquareMatrixType<T, 2>) {
+    *self = *self * *m
   }
 }
 

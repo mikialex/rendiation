@@ -8,8 +8,9 @@ pub struct HyperAABB<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperAABB<T, D> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {
-    todo!()
+  fn apply_matrix(&mut self, m: &SquareMatrixType<T, D>) {
+    // self.min.apply_matrix(m);
+    // self.max.apply_matrix(m);
   }
 }
 impl<T: Scalar, const D: usize> LebesgueMeasurable<T, D> for HyperAABB<T, D> {

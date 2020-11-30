@@ -1,5 +1,5 @@
 use crate::*;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -66,10 +66,10 @@ where
   }
 }
 
-impl<T: Scalar> ApplyMatrix<T, 3> for Vec3<T> {
+impl<T: Scalar> SpaceEntity<T, 3> for Vec3<T> {
   #[inline(always)]
-  fn apply_matrix(&self, m: SquareMatrixType<T, 3>) -> Self {
-    *self * m
+  fn apply_matrix(&mut self, m: &SquareMatrixType<T, 3>) {
+    *self = *self * *m
   }
 }
 

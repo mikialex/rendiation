@@ -8,7 +8,7 @@ pub struct HyperSphere<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperSphere<T, D> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) {
     todo!()
   }
 }

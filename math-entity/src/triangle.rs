@@ -10,8 +10,10 @@ pub struct Triangle<V = Vec3<f32>> {
 }
 
 impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for Triangle<V> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {
-    todo!()
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) {
+    self.a.position_mut().apply_matrix(mat);
+    self.b.position_mut().apply_matrix(mat);
+    self.c.position_mut().apply_matrix(mat);
   }
 }
 

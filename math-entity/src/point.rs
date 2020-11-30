@@ -12,7 +12,7 @@ impl<V: Copy> Point<V> {
 }
 
 impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for Point<V> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {
-    todo!()
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) {
+    self.0.position_mut().apply_matrix(mat);
   }
 }

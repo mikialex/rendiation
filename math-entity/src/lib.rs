@@ -32,22 +32,12 @@ pub use wasm::*;
 pub trait SpaceAxis<const D: usize>: Copy {}
 pub trait Positioned<T: Scalar, const D: usize>: Copy {
   fn position(&self) -> VectorType<T, D>;
+  fn position_mut(&mut self) -> &mut VectorType<T, D>;
 }
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
-
-pub trait SpaceEntity<T: Scalar, const D: usize> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>);
-}
-
-impl<const D: usize, T: Scalar, V: VectorDimension<D>> SpaceEntity<T, D> for V {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {}
-}
-// impl<T: Scalar, const D: usize> SpaceEntity<T, D> for VectorType<T, D> {
-//   fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) {}
-// }
 
 /// https://en.wikipedia.org/wiki/Lebesgue_measure
 pub trait LebesgueMeasurable<T: Scalar, const D: usize> {
