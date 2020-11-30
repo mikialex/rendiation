@@ -3,6 +3,7 @@
         "ATTRIBS",
         "BRDF",
         "BSDF",
+        "Bezier",
         "Blinn",
         "Drawcall",
         "Framebuffer",

@@ -1,6 +1,6 @@
-use rendiation_math::{Scalar, SquareMatrixType};
+use rendiation_math::{Lerp, Scalar, SquareMatrixType, VectorImpl, VectorType};
 
-use crate::{Positioned, SpaceEntity};
+use crate::{Positioned, SpaceEntity, SpaceLineSegment};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct LineSegment<V> {
@@ -13,6 +13,23 @@ impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for LineS
     self.start.position_mut().apply_matrix(mat);
     self.end.position_mut().apply_matrix(mat);
     self
+  }
+}
+
+impl<T, V, const D: usize> SpaceLineSegment<T, D> for LineSegment<V>
+where
+  T: Scalar,
+  V: Positioned<T, D>,
+  VectorType<T, D>: VectorImpl,
+{
+  fn start(&self) -> VectorType<T, D> {
+    self.start.position()
+  }
+  fn end(&self) -> VectorType<T, D> {
+    self.end.position()
+  }
+  fn sample(&self, t: T) -> VectorType<T, D> {
+    self.start().lerp(self.end(), t)
   }
 }
 

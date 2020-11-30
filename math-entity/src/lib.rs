@@ -10,6 +10,7 @@ pub use dimension3::*;
 pub mod dimension2;
 pub use dimension2::*;
 
+pub mod beziersegment;
 pub mod hyperaabb;
 pub mod hyperplane;
 pub mod hyperray;
@@ -19,6 +20,7 @@ pub mod point;
 pub mod triangle;
 pub mod wasm;
 
+pub use beziersegment::*;
 pub use hyperaabb::*;
 pub use hyperplane::*;
 pub use hyperray::*;

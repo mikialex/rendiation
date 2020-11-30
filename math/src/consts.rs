@@ -1,6 +1,7 @@
 pub trait One: Sized { fn one() -> Self; }
 pub trait Zero: Sized { fn zero() -> Self; }
 pub trait Two: Sized { fn two() -> Self; }
+pub trait Three: Sized { fn three() -> Self; }
 pub trait UnitX: Sized { fn unit_x() -> Self; }
 pub trait UnitY: Sized { fn unit_y() -> Self; }
 pub trait UnitZ: Sized { fn unit_z() -> Self; }
@@ -17,6 +18,7 @@ pub trait Epsilon: Sized { fn epsilon() -> Self; }
 impl One for f32      { #[inline(always)] fn one() -> Self { 1.0_f32 } }
 impl Zero for f32     { #[inline(always)] fn zero() -> Self { 0.0_f32 } }
 impl Two for f32      { #[inline(always)] fn two() -> Self { 2.0_f32 } }
+impl Three for f32    { #[inline(always)] fn three() -> Self { 3.0_f32 } }
 impl Half for f32     { #[inline(always)] fn half() -> Self { 0.5_f32 } }
 impl Pi for f32       { #[inline(always)] fn pi() -> Self { std::f32::consts::PI } }
 impl Pi2 for f32      { #[inline(always)] fn pi2() -> Self { Self::pi() * 2.0_f32 } }
@@ -29,6 +31,7 @@ impl Epsilon for f32  { #[inline(always)] fn epsilon() -> Self { 0.00001_f32 } }
 impl One for f64      { #[inline(always)] fn one() -> Self { 1.0_f64 } }
 impl Zero for f64     { #[inline(always)] fn zero() -> Self { 0.0_f64 } }
 impl Two for f64      { #[inline(always)] fn two() -> Self { 2.0_f64 } }
+impl Three for f64    { #[inline(always)] fn three() -> Self { 3.0_f64 } }
 impl Half for f64     { #[inline(always)] fn half() -> Self { 0.5_f64 } }
 impl Pi for f64       { #[inline(always)] fn pi() -> Self { std::f64::consts::PI } }
 impl Pi2 for f64      { #[inline(always)] fn pi2() -> Self { Self::pi() * 2.0_f64 } }
@@ -42,6 +45,8 @@ impl Epsilon for f64  { #[inline(always)] fn epsilon() -> Self { 0.000_000_01_f6
 impl One for i32      { #[inline(always)] fn one() -> Self { 1 } }
 impl Zero for i32     { #[inline(always)] fn zero() -> Self { 0 } }
 impl Two for i32      { #[inline(always)] fn two() -> Self { 2 } }
+impl Three for i32    { #[inline(always)] fn three() -> Self { 3 } }
 impl One for i64      { #[inline(always)] fn one() -> Self { 1 } }
 impl Zero for i64     { #[inline(always)] fn zero() -> Self { 0 } }
 impl Two for i64      { #[inline(always)] fn two() -> Self { 2 } }
+impl Three for i64    { #[inline(always)] fn three() -> Self { 3 } }
