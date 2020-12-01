@@ -9,7 +9,6 @@ pub use indexed_geometry::*;
 pub use indexed_geometry_view::*;
 pub use none_indexed_geometry::*;
 pub use none_indexed_geometry_view::*;
-use rendiation_ral::*;
 
 use std::{iter::FromIterator, ops::Index};
 
@@ -19,36 +18,6 @@ pub trait GeometryDataContainer<T>:
 }
 
 impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
-
-pub trait RALGeometryDataContainer<T, R>: GeometryDataContainer<T>
-where
-  T: GeometryProvider,
-  R: RAL,
-{
-  fn create_gpu(
-    &self,
-    resources: &mut ResourceManager<R>,
-    renderer: &mut R::Renderer,
-    instance: &mut GeometryResourceInstance<R, T>,
-  );
-}
-
-impl<R, T> RALGeometryDataContainer<T, R> for Vec<T>
-where
-  R: RAL,
-  T: GeometryProvider + Clone + VertexBufferDescriptorProvider + bytemuck::Pod,
-{
-  fn create_gpu(
-    &self,
-    resources: &mut ResourceManager<R>,
-    renderer: &mut R::Renderer,
-    instance: &mut GeometryResourceInstance<R, T>,
-  ) {
-    let vertex_buffer =
-      R::create_vertex_buffer(renderer, bytemuck::cast_slice(self.as_ref()), T::DESCRIPTOR);
-    instance.vertex_buffers = vec![resources.add_vertex_buffer(vertex_buffer).index()];
-  }
-}
 
 pub trait AnyGeometry {
   type Primitive;

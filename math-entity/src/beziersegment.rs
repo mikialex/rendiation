@@ -1,4 +1,4 @@
-use rendiation_math::{Scalar, VectorImpl, VectorType};
+use rendiation_math::{Scalar, SpaceEntity, SquareMatrixType, VectorImpl, VectorType};
 
 use crate::SpaceLineSegment;
 
@@ -6,6 +6,15 @@ pub struct QuadraticBezierSegment<T: Scalar, const D: usize> {
   pub from: VectorType<T, D>,
   pub ctrl: VectorType<T, D>,
   pub to: VectorType<T, D>,
+}
+
+impl<T: Scalar, const D: usize> SpaceEntity<T, D> for QuadraticBezierSegment<T, D> {
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) -> &mut Self {
+    self.from.apply_matrix(mat);
+    self.ctrl.apply_matrix(mat);
+    self.to.apply_matrix(mat);
+    self
+  }
 }
 
 impl<T, const D: usize> SpaceLineSegment<T, D> for QuadraticBezierSegment<T, D>
@@ -33,6 +42,16 @@ pub struct CubicBezierSegment<T: Scalar, const D: usize> {
   pub ctrl1: VectorType<T, D>,
   pub ctrl2: VectorType<T, D>,
   pub to: VectorType<T, D>,
+}
+
+impl<T: Scalar, const D: usize> SpaceEntity<T, D> for CubicBezierSegment<T, D> {
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) -> &mut Self {
+    self.from.apply_matrix(mat);
+    self.ctrl1.apply_matrix(mat);
+    self.ctrl2.apply_matrix(mat);
+    self.to.apply_matrix(mat);
+    self
+  }
 }
 
 impl<T, const D: usize> SpaceLineSegment<T, D> for CubicBezierSegment<T, D>
