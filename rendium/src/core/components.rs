@@ -5,6 +5,7 @@ trait Component {
 }
 
 struct ComponentInstance {
+  root_element: ElementHandle,
   tree: ArenaTree<DocumentElement>,
 }
 
@@ -18,7 +19,8 @@ enum DocumentElement {
 }
 
 pub struct Document {
-  tree: ArenaTree<Element>,
+  component_instance: ComponentInstance,
+  element_tree: ArenaTree<Element>,
   active_element: Option<ElementHandle>,
   hovering_element: Option<ElementHandle>,
   event: EventHub,
