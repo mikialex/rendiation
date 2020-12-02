@@ -6,7 +6,6 @@ version = "0.1.0"
 
 [features]
 shadergraph = ["rendiation-shadergraph", "rendiation-derives"]
-webgpu = ["rendiation-webgpu"]
 
 [dependencies]
 bytemuck = "1.4.1"
@@ -19,9 +18,9 @@ rendiation-math-entity = {path = "../math-entity"}
 rendiation-webgpu = {path = "../webgpu", optional = true}
 space-indexer = {path = "../space-indexer"}
 
+rendiation-derives = {path = "../derives", optional = true}
 rendiation-ral = {path = "../ral"}
 rendiation-shadergraph = {path = "../shader-graph", optional = true}
-rendiation-derives = {path = "../derives", optional = true}
 
-wasm-bindgen = {version = "0.2.68"}
 log = "0.4"
+wasm-bindgen = {version = "0.2.68"}

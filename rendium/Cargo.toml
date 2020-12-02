@@ -1,15 +1,15 @@
 [package]
-name = "rendium"
-version = "0.1.0"
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
+name = "rendium"
+version = "0.1.0"
 
 [dependencies]
-winit = "0.22.2"
-log = "0.4"
+arena = {path = "../utils/arena"}
 futures = "0.3"
-rendiation-webgpu = { path = "../webgpu", features = ["glsl-spirv"] }
-rendiation-math = { path = "../math" }
-rendiation-render-entity = { path = "../render-entity" }
-rendiation-mesh-buffer = { path = "../mesh-buffer", features = ["webgpu"] }
-arena = { path = "../utils/arena" }
+log = "0.4"
+rendiation-math = {path = "../math"}
+rendiation-mesh-buffer = {path = "../mesh-buffer"}
+rendiation-render-entity = {path = "../render-entity"}
+rendiation-webgpu = {path = "../webgpu", features = ["glsl-spirv"]}
+winit = "0.22.2"
