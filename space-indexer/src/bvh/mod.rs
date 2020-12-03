@@ -19,28 +19,27 @@ pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
 }
 
 pub struct FlattenBVH<B: BVHBounding> {
-  nodes: Vec<FlattenBVHNode<B>>,
-  sorted_primitive_index: Vec<usize>,
+  pub nodes: Vec<FlattenBVHNode<B>>,
+  pub sorted_primitive_index: Vec<usize>,
 }
 
 impl<B: BVHBounding> FlattenBVH<B> {
   pub fn new<S: BVHBuildStrategy<B>>(
-    source: impl ExactSizeIterator<Item = B>,
+    source: impl Iterator<Item = B>,
     strategy: &mut S,
     option: &TreeBuildOption,
   ) -> Self {
     // prepare build source;
-    let items_count = source.len();
     let (mut index_list, primitives) = source
       .enumerate()
       .map(|(i, b)| (i, BuildPrimitive::new(b)))
       .unzip();
 
     // prepare root
-    let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..items_count);
+    let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..index_list.len());
 
     let mut nodes = Vec::new();
-    nodes.push(FlattenBVHNode::new(root_bbox, 0..items_count, 0));
+    nodes.push(FlattenBVHNode::new(root_bbox, 0..index_list.len(), 0));
 
     // build
     strategy.build(&option, &primitives, &mut index_list, &mut nodes, 0);
