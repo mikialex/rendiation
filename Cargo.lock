@@ -2324,6 +2324,7 @@ name = "rendium"
 version = "0.1.0"
 dependencies = [
  "arena",
+ "arena-tree",
  "futures",
  "log",
  "rendiation-math",

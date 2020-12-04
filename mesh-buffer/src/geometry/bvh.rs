@@ -14,9 +14,13 @@ where
   where
     B: BVHBounding,
     S: BVHBuildStrategy<B>,
-    B: From<G::Primitive>,
+    G::Primitive: SpaceBounding<f32, B, 3>,
   {
-    FlattenBVH::new(self.primitive_iter().map(|p| B::from(p)), strategy, option)
+    FlattenBVH::new(
+      self.primitive_iter().map(|p| p.to_bounding()),
+      strategy,
+      option,
+    )
   }
 
   pub fn intersect_list_bvh<B>(

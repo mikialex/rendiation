@@ -17,11 +17,3 @@ enum DocumentElement {
   PrimitiveElement,
   ComponentElement(Box<ComponentInstance>),
 }
-
-pub struct Document {
-  component_instance: ComponentInstance,
-  element_tree: ArenaTree<Element>,
-  active_element: Option<ElementHandle>,
-  hovering_element: Option<ElementHandle>,
-  event: EventHub,
-}

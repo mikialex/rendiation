@@ -6,6 +6,7 @@ mod traverse;
 pub mod test;
 
 pub use node::*;
+use rendiation_math_entity::SolidEntity;
 use std::iter::FromIterator;
 pub use strategy::*;
 
@@ -13,7 +14,9 @@ use crate::utils::{
   bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption,
 };
 
-pub trait BVHBounding: Sized + Copy + FromIterator<Self> + CenterAblePrimitive {
+pub trait BVHBounding:
+  Sized + Copy + FromIterator<Self> + CenterAblePrimitive + SolidEntity<f32, 3>
+{
   type AxisType: Copy;
   fn get_partition_axis(&self) -> Self::AxisType;
 }

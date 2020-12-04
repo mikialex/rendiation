@@ -35,27 +35,3 @@ impl Quad {
     self
   }
 }
-
-pub struct QuadLayout {
-  pub x: f32,
-  pub y: f32,
-  pub width: f32,
-  pub height: f32,
-}
-
-impl QuadLayout {
-  pub fn is_point_in(&self, point: Vec2<f32>) -> bool {
-    point.x >= self.x
-      && point.y >= self.y
-      && point.x <= self.x + self.width
-      && point.y <= self.y + self.height
-  }
-
-  pub fn compute_matrix(&self, camera: &Camera) -> Mat4<f32> {
-    let scale_mat = Mat4::scale(self.width / 2., self.height / 2., 1.0);
-    let position_mat = Mat4::translate(-self.x, -self.y, 0.0);
-    let model_mat = position_mat * scale_mat * Mat4::translate(-1., -1., 0.0);
-    let mvp = camera.get_vp_matrix() * model_mat;
-    mvp
-  }
-}
