@@ -1,4 +1,4 @@
-use super::IndexedTessellator;
+use super::IndexedGeometryTessellator;
 use crate::{
   geometry::{IndexedGeometry, TriangleList},
   vertex::Vertex,
@@ -32,8 +32,8 @@ impl Default for SphereGeometryParameter {
   }
 }
 
-impl IndexedTessellator for SphereGeometryParameter {
-  fn create_mesh(&self) -> IndexedGeometry<u16, Vertex, TriangleList> {
+impl IndexedGeometryTessellator for SphereGeometryParameter {
+  fn tessellate(&self) -> IndexedGeometry<u16, Vertex, TriangleList> {
     let Self {
       radius,
       width_segments,

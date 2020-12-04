@@ -12,7 +12,7 @@ pub struct FullScreenQuadFactory<T: RAL> {
 
 impl<T: RAL> FullScreenQuadFactory<T> {
   pub fn new(res: &mut ResourceManager<T>, renderer: &mut T::Renderer) -> Self {
-    let geometry = Quad.create_mesh();
+    let geometry = Quad.tessellate();
     let geometry = geometry.create(res, renderer);
     let geometry = res.add_geometry(geometry);
     Self { geometry }
