@@ -2,10 +2,11 @@ use rendiation_math::{Vec2, Vec3};
 
 use crate::{
   geometry::{IndexedGeometry, TriangleList},
+  range::GeometryRangesInfo,
   vertex::Vertex,
 };
 
-use super::IndexedGeometryTessellator;
+use super::{IndexedGeometryTessellator, TesselationResult};
 
 #[derive(Copy, Clone, Debug)]
 pub struct CubeGeometryParameter {
@@ -19,7 +20,7 @@ pub struct CubeGeometryParameter {
 
 #[rustfmt::skip]
 impl IndexedGeometryTessellator for CubeGeometryParameter {
-  fn tessellate(&self) -> IndexedGeometry<u16, Vertex, TriangleList> {
+  fn tessellate(&self) ->  TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -31,13 +32,14 @@ impl IndexedGeometryTessellator for CubeGeometryParameter {
 
     let mut indices = vec![];
     let mut vertices = vec![];
+    let mut ranges = GeometryRangesInfo::new();
 
     // helper variables
     let mut number_of_vertices = 0;
     let mut group_start = 0;
 
     let mut build_plane =
-      |u, v, w, u_dir, v_dir, _width, _height, _depth, grid_x, grid_y, _material_index| {
+      |u, v, w, u_dir, v_dir, _width, _height, _depth, grid_x, grid_y| {
         let segment_width = _width / grid_x as f32;
         let segment_height = _height / grid_y as f32;
         let width_half = _width / 2.;
@@ -102,7 +104,7 @@ impl IndexedGeometryTessellator for CubeGeometryParameter {
         }
 
         // add a group to the geometry. this will ensure multi material support
-        // scope.addGroup(group_start, group_count, materialIndex);
+        ranges.push(group_start, group_count);
         // calculate new start value for groups
         group_start += group_count;
         // update total number of vertices
@@ -110,13 +112,13 @@ impl IndexedGeometryTessellator for CubeGeometryParameter {
       };
 
     // build each side of the box geometrys
-    build_plane(2, 1, 0, - 1, - 1, depth, height, width, depth_segment, height_segment, 0); // px
-    build_plane(2, 1, 0, 1, - 1, depth, height, - width, depth_segment, height_segment, 1); // nx
-    build_plane(0, 2, 1, 1, 1, width, depth, height, width_segment, depth_segment, 2); // py
-    build_plane(0, 2, 1, 1, - 1, width, depth, - height, width_segment, depth_segment, 3); // ny
-    build_plane(0, 1, 2, 1, - 1, width, height, depth, width_segment, height_segment, 4); // pz
-    build_plane(0, 1, 2, - 1, - 1, width, height, - depth, width_segment, height_segment, 5); // nz
+    build_plane(2, 1, 0, - 1, - 1, depth, height, width, depth_segment, height_segment); // px
+    build_plane(2, 1, 0, 1, - 1, depth, height, - width, depth_segment, height_segment); // nx
+    build_plane(0, 2, 1, 1, 1, width, depth, height, width_segment, depth_segment); // py
+    build_plane(0, 2, 1, 1, - 1, width, depth, - height, width_segment, depth_segment); // ny
+    build_plane(0, 1, 2, 1, - 1, width, height, depth, width_segment, height_segment); // pz
+    build_plane(0, 1, 2, - 1, - 1, width, height, - depth, width_segment, height_segment); // nz
 
-    IndexedGeometry::new(vertices, indices)
+    TesselationResult::new(IndexedGeometry::new(vertices, indices), ranges)
   }
 }

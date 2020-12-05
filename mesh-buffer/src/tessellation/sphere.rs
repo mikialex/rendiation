@@ -1,4 +1,4 @@
-use super::IndexedGeometryTessellator;
+use super::{IndexedGeometryTessellator, TesselationResult};
 use crate::{
   geometry::{IndexedGeometry, TriangleList},
   vertex::Vertex,
@@ -33,7 +33,7 @@ impl Default for SphereGeometryParameter {
 }
 
 impl IndexedGeometryTessellator for SphereGeometryParameter {
-  fn tessellate(&self) -> IndexedGeometry<u16, Vertex, TriangleList> {
+  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
     let Self {
       radius,
       width_segments,
@@ -89,6 +89,6 @@ impl IndexedGeometryTessellator for SphereGeometryParameter {
       }
     }
 
-    IndexedGeometry::new(vertices, indices)
+    TesselationResult::full_range(IndexedGeometry::new(vertices, indices))
   }
 }

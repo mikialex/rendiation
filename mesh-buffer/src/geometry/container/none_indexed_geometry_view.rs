@@ -33,6 +33,11 @@ where
   type Primitive = T::Primitive;
 
   #[inline(always)]
+  fn draw_count(&self) -> usize {
+    self.data.as_ref().len()
+  }
+
+  #[inline(always)]
   fn primitive_count(&self) -> usize {
     (self.data.as_ref().len() - T::STRIDE) / T::STEP + 1
   }

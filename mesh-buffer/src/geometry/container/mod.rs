@@ -22,6 +22,7 @@ impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
 pub trait AnyGeometry {
   type Primitive;
 
+  fn draw_count(&self) -> usize;
   fn primitive_count(&self) -> usize;
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
 

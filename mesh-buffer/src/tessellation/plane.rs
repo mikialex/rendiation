@@ -1,4 +1,4 @@
-use super::IndexedGeometryTessellator;
+use super::{IndexedGeometryTessellator, TesselationResult};
 use crate::{
   geometry::{IndexedGeometry, TriangleList},
   vertex::Vertex,
@@ -8,7 +8,7 @@ use rendiation_math::*;
 pub struct Quad;
 
 impl IndexedGeometryTessellator for Quad {
-  fn tessellate(&self) -> IndexedGeometry<u16, Vertex, TriangleList> {
+  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
     PlaneGeometryParameter {
       width: 2.,
       height: 2.,
@@ -39,7 +39,7 @@ impl Default for PlaneGeometryParameter {
 }
 
 impl IndexedGeometryTessellator for PlaneGeometryParameter {
-  fn tessellate(&self) -> IndexedGeometry<u16, Vertex, TriangleList> {
+  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -94,6 +94,6 @@ impl IndexedGeometryTessellator for PlaneGeometryParameter {
       }
     }
 
-    IndexedGeometry::new(vertices, indices)
+    TesselationResult::full_range(IndexedGeometry::new(vertices, indices))
   }
 }

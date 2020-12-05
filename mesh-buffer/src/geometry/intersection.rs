@@ -109,6 +109,7 @@ fn test() {
   let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0));
   let mut result = IntersectionList3D::new();
   quad
+    .geometry
     .as_ref_container()
     .intersect_list(ray, &config, &mut result);
 }
