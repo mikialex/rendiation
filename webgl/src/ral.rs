@@ -111,24 +111,22 @@ impl RAL for WebGL {
     );
   }
 
-  fn render_drawcall<G: GeometryProvider, SP: ShadingProvider<Self, Geometry = G>>(
-    drawcall: &Drawcall<Self, G, SP>,
+  fn render_drawcall(
+    drawcall: &Drawcall<Self>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
     // shading bind
     pass.texture_slot_states.reset_slots();
 
-    let shading_storage = resources.shadings.get_shading_boxed(drawcall.shading);
-    shading_storage.apply(pass, resources);
+    let (shading, geometry) = resources.get_resource(drawcall);
+    shading.apply(pass, resources);
 
-    let program = shading_storage.get_gpu();
-    program.upload(pass, resources, shading_storage.shading_provider_as_any());
+    let program = shading.get_gpu();
+    program.upload(pass, resources, shading.shading_provider_as_any());
 
     // geometry bind
     pass.attribute_states.prepare_new_bindings();
-
-    let geometry = resources.get_geometry(drawcall.geometry);
     geometry.apply(pass, resources);
 
     pass.disable_old_unused_bindings();
