@@ -85,7 +85,7 @@ impl<B: BalanceTreeBounding> BVHBuildStrategy<B> for BalanceTree {
   }
 }
 
-pub trait SAHBounding: BVHBounding + Default {
+pub trait SAHBounding: BalanceTreeBounding + Default {
   fn get_surface_heuristic(&self) -> f32;
   fn get_unit_from_center_by_axis(center: &Self::Center, axis: Self::AxisType) -> f32;
   fn get_unit_range_by_axis(&self, split: Self::AxisType) -> Range<f32>;
@@ -111,6 +111,18 @@ impl<B: SAHBounding> SAH<B> {
         pre_partition_check_count - 1
       ],
     }
+  }
+
+  /// Check if all primitive partitioned in one bucket.
+  /// This case occurred when primitive's bounding all overlapped nearly together.
+  fn is_partition_degenerate(&self) -> bool {
+    let mut empty_bucket_count = 0;
+    self.pre_partition.iter().for_each(|p| {
+      if p.primitive_bucket.len() == 0 {
+        empty_bucket_count += 1;
+      }
+    });
+    empty_bucket_count == self.partition_count() - 1
   }
 
   fn partition_count(&self) -> usize {
@@ -212,6 +224,11 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
         }
         self.pre_partition[which_partition].set_primitive(p, index)
       });
+
+    if self.is_partition_degenerate() {
+      let mut fallback = BalanceTree;
+      return fallback.split(parent_node, build_source, index_source);
+    }
 
     // step 2, find best partition;
     let pre_partition = &self.pre_partition;
