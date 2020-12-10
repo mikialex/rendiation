@@ -3,6 +3,16 @@ use rendiation_math::*;
 
 pub type Ray3 = HyperRay<f32, 3>;
 
+impl SpaceEntity<f32, 3> for Ray3 {
+  #[inline]
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<f32, 3>) -> &mut Self {
+    let origin = self.origin.apply_mat4(&mat);
+    let direction = self.direction.transform_direction(*mat);
+    *self = Self::new(origin, direction);
+    self
+  }
+}
+
 impl Ray3 {
   pub fn from_point_to_point(origin: Vec3<f32>, target: Vec3<f32>) -> Self {
     Ray3::new(origin, (target - origin).normalize())
