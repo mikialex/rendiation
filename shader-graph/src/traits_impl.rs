@@ -102,9 +102,9 @@ impl ShaderGraphNodeType for ShaderSampler {
 impl ShaderGraphBindGroupItemProvider for ShaderSampler {
   type ShaderGraphBindGroupItemInstance = Node<ShaderSampler>;
 
-  fn create_instance<'a>(
+  fn create_instance(
     name: &'static str,
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderSampler>(name);
@@ -143,9 +143,9 @@ impl Node<ShaderTexture> {
 impl ShaderGraphBindGroupItemProvider for ShaderTexture {
   type ShaderGraphBindGroupItemInstance = Node<ShaderTexture>;
 
-  fn create_instance<'a>(
+  fn create_instance(
     name: &'static str,
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderTexture>(name);

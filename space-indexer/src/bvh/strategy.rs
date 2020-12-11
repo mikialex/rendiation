@@ -9,7 +9,7 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
   fn build(
     &mut self,
     option: &TreeBuildOption,
-    build_source: &Vec<BuildPrimitive<B>>,
+    build_source: &[BuildPrimitive<B>],
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<FlattenBVHNode<B>>,
     depth: usize,
@@ -42,11 +42,10 @@ pub trait BVHBuildStrategy<B: BVHBounding> {
 
   /// different strategy has different split method;
   /// given a range, and return the left, right partition and split decision;
-  ///
   fn split(
     &mut self,
     parent_node: &FlattenBVHNode<B>,
-    build_source: &Vec<BuildPrimitive<B>>,
+    build_source: &[BuildPrimitive<B>],
     index_source: &mut Vec<usize>,
   ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>));
 }
@@ -56,7 +55,7 @@ pub struct BalanceTree;
 pub trait BalanceTreeBounding: BVHBounding {
   fn median_partition_at_axis(
     range: Range<usize>,
-    build_source: &Vec<BuildPrimitive<Self>>,
+    build_source: &[BuildPrimitive<Self>],
     index_source: &mut Vec<usize>,
     axis: Self::AxisType,
   );
@@ -66,7 +65,7 @@ impl<B: BalanceTreeBounding> BVHBuildStrategy<B> for BalanceTree {
   fn split(
     &mut self,
     parent_node: &FlattenBVHNode<B>,
-    build_source: &Vec<BuildPrimitive<B>>,
+    build_source: &[BuildPrimitive<B>],
     index_source: &mut Vec<usize>,
   ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>)) {
     let axis = parent_node.bounding.get_partition_axis();
@@ -116,13 +115,12 @@ impl<B: SAHBounding> SAH<B> {
   /// Check if all primitive partitioned in one bucket.
   /// This case occurred when primitive's bounding all overlapped nearly together.
   fn is_partition_degenerate(&self) -> bool {
-    let mut empty_bucket_count = 0;
-    self.pre_partition.iter().for_each(|p| {
-      if p.primitive_bucket.len() == 0 {
-        empty_bucket_count += 1;
-      }
-    });
-    empty_bucket_count == self.partition_count() - 1
+    self
+      .pre_partition
+      .iter()
+      .filter(|p| p.primitive_bucket.is_empty())
+      .count()
+      == self.partition_count() - 1
   }
 
   fn partition_count(&self) -> usize {
@@ -200,7 +198,7 @@ impl<B: SAHBounding> BVHBuildStrategy<B> for SAH<B> {
   fn split(
     &mut self,
     parent_node: &FlattenBVHNode<B>,
-    build_source: &Vec<BuildPrimitive<B>>,
+    build_source: &[BuildPrimitive<B>],
     index_source: &mut Vec<usize>,
   ) -> ((B, Range<usize>), B::AxisType, (B, Range<usize>)) {
     // step 1, update pre_partition_check_cache

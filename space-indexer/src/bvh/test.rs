@@ -5,11 +5,11 @@ use crate::utils::TreeBuildOption;
 use super::{BVHBuildStrategy, FlattenBVH};
 
 pub fn bvh_build<S: BVHBuildStrategy<Box3>>(
-  boxes: &Vec<Box3>,
+  boxes: &[Box3],
   strategy: &mut S,
   option: &TreeBuildOption,
 ) -> FlattenBVH<Box3> {
-  FlattenBVH::new(boxes.iter().map(|&b| b), strategy, option)
+  FlattenBVH::new(boxes.iter().cloned(), strategy, option)
 }
 
 #[test]

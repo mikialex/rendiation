@@ -2,6 +2,7 @@ use crate::*;
 
 pub struct ShaderGraphBuilder;
 
+#[allow(clippy::new_without_default)]
 impl ShaderGraphBuilder {
   pub fn new() -> Self {
     let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();

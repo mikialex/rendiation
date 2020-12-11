@@ -309,9 +309,6 @@ impl ShaderGraphOutput {
     }
   }
   pub fn is_builtin(&self) -> bool {
-    match self {
-      Self::Vert => true,
-      _ => false,
-    }
+    matches!(self, Self::Vert)
   }
 }

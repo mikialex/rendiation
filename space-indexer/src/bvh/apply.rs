@@ -17,7 +17,7 @@ impl BVHBounding for Box3 {
 impl BalanceTreeBounding for Box3 {
   fn median_partition_at_axis(
     range: Range<usize>,
-    build_source: &Vec<BuildPrimitive<Self>>,
+    build_source: &[BuildPrimitive<Self>],
     index_source: &mut Vec<usize>,
     axis: Self::AxisType,
   ) {
@@ -25,7 +25,7 @@ impl BalanceTreeBounding for Box3 {
     if range_middle == 0 {
       return;
     }
-    let ranged_index = index_source.get_mut(range.clone()).unwrap();
+    let ranged_index = index_source.get_mut(range).unwrap();
     use Ordering::*;
     match axis {
       Axis3::X => ranged_index.select_nth_unstable_by(range_middle, |&a, &b| unsafe {

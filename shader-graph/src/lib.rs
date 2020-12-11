@@ -116,7 +116,7 @@ impl ShaderGraph {
     self
       .type_id_map
       .entry(TypeId::of::<T>())
-      .or_insert_with(|| T::to_glsl_type());
+      .or_insert_with(T::to_glsl_type);
   }
 }
 
