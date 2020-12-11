@@ -2,10 +2,10 @@
 #![feature(const_generics)]
 #![feature(negative_impls)]
 #![allow(incomplete_features)]
-#![allow(many_single_char_names)]
-#![allow(transmute_ptr_to_ptr)]
-#![allow(too_many_arguments)]
-#![allow(type_complexity)]
+#![allow(clippy::many_single_char_names)]
+#![allow(clippy::transmute_ptr_to_ptr)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
 
 pub mod arithmetic;
 pub mod consts;

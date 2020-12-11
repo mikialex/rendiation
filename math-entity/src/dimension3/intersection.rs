@@ -180,13 +180,12 @@ impl IntersectAble<Box3, NearestPoint3D> for Ray3 {
     }
 
     // These lines also handle the case where t_min or t_max is NaN
-    // (result of 0 * Infinity). x !== x returns true if x is NaN
 
-    if ty_min > t_min || t_min != t_min {
+    if ty_min > t_min || t_min.is_nan() {
       t_min = ty_min
     };
 
-    if ty_max < t_max || t_max != t_max {
+    if ty_max < t_max || t_max.is_nan() {
       t_max = ty_max
     };
 
@@ -202,11 +201,11 @@ impl IntersectAble<Box3, NearestPoint3D> for Ray3 {
       return NearestPoint3D(None);
     }
 
-    if tz_min > t_min || t_min != t_min {
+    if tz_min > t_min || t_min.is_nan() {
       t_min = tz_min;
     }
 
-    if tz_max < t_max || t_max != t_max {
+    if tz_max < t_max || t_max.is_nan() {
       t_max = tz_max;
     }
 

@@ -88,7 +88,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
           count += 1;
         });
         ranges[index] = start..start + count;
-        start = start + count;
+        start += count;
       })
   }
 }

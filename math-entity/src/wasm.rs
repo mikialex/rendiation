@@ -26,11 +26,17 @@ pub struct Ray3WASM {
   pub direction: Vec3F32WASM,
 }
 
+impl Default for Ray3WASM {
+  fn default() -> Self {
+    Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0)).to_wasm()
+  }
+}
+
 #[wasm_bindgen]
 impl Ray3WASM {
   #[wasm_bindgen]
   pub fn new() -> Self {
-    Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0)).to_wasm()
+    Self::default()
   }
 }
 

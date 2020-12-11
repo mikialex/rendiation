@@ -1,3 +1,4 @@
+#![allow(clippy::many_single_char_names)]
 pub mod bounding;
 pub mod camera;
 pub mod color;
