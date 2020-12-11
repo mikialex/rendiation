@@ -7,7 +7,11 @@ pub struct HyperPlane<T: Scalar, const D: usize> {
   pub constant: T,
 }
 
-impl<T: Scalar, const D: usize> SpaceEntity<D> for HyperPlane<T, D> {}
+impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperPlane<T, D> {
+  default fn apply_matrix(&mut self, _mat: &SquareMatrixType<T, D>) -> &mut Self {
+    unimplemented!()
+  }
+}
 
 impl<T: Scalar, const D: usize> Copy for HyperPlane<T, D> where VectorType<T, D>: Copy {}
 
@@ -17,8 +21,8 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      normal: self.normal.clone(),
-      constant: self.constant.clone(),
+      normal: self.normal,
+      constant: self.constant,
     }
   }
 }

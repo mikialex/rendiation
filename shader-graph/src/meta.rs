@@ -70,7 +70,7 @@ impl UBOMetaInfo {
 
   pub fn gen_code_cache(mut self) -> Self {
     self.code_cache = String::from("uniform ")
-      + &self.name
+      + self.name
       + " {\n"
       + self
         .fields_record

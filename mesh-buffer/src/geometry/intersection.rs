@@ -100,17 +100,16 @@ impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Poin
 
 #[test]
 fn test() {
-  use super::{IndexedGeometry, TriangleList};
   use crate::geometry::container::AnyGeometry;
-  use crate::tessellation::{IndexedBufferTessellator, Quad};
+  use crate::tessellation::{IndexedGeometryTessellator, Quad};
   use rendiation_math::*;
 
   let config = MeshBufferIntersectConfig::default();
-  let quad = Quad.create_mesh(&());
-  let quad = IndexedGeometry::<u16, _, TriangleList>::from(quad);
+  let quad = Quad.tessellate();
   let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0));
   let mut result = IntersectionList3D::new();
   quad
+    .geometry
     .as_ref_container()
     .intersect_list(ray, &config, &mut result);
 }

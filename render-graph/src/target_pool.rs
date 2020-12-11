@@ -52,7 +52,7 @@ impl<T: RenderGraphBackend> RenderTargetTypePooling<T> {
     &mut self,
     renderer: &<T::Graphics as RAL>::Renderer,
   ) -> <T::Graphics as RAL>::RenderTarget {
-    if self.available.len() == 0 {
+    if self.available.is_empty() {
       self.available.push(
         <T::Graphics as RenderGraphGraphicsBackend>::create_render_target(renderer, &self.key),
       )
@@ -82,7 +82,7 @@ impl<T: RenderGraphBackend> RenderTargetPool<T> {
   }
 
   pub fn clear_all(&mut self, renderer: &<T::Graphics as RAL>::Renderer) {
-    if self.active_targets.len() > 0 {
+    if !self.active_targets.is_empty() {
       panic!("some target still in use")
     }
     self.cached.drain().for_each(|(_, p)| {

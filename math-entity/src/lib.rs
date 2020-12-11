@@ -10,6 +10,7 @@ pub use dimension3::*;
 pub mod dimension2;
 pub use dimension2::*;
 
+pub mod beziersegment;
 pub mod hyperaabb;
 pub mod hyperplane;
 pub mod hyperray;
@@ -19,6 +20,7 @@ pub mod point;
 pub mod triangle;
 pub mod wasm;
 
+pub use beziersegment::*;
 pub use hyperaabb::*;
 pub use hyperplane::*;
 pub use hyperray::*;
@@ -32,68 +34,71 @@ pub use wasm::*;
 pub trait SpaceAxis<const D: usize>: Copy {}
 pub trait Positioned<T: Scalar, const D: usize>: Copy {
   fn position(&self) -> VectorType<T, D>;
+  fn position_mut(&mut self) -> &mut VectorType<T, D>;
 }
 
 pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
-pub trait SpaceEntity<const D: usize> {}
-
 /// https://en.wikipedia.org/wiki/Lebesgue_measure
-pub trait LebesgueMeasurable<const D: usize> {
-  type MeasureType;
-  fn measure(&self) -> Self::MeasureType;
+pub trait LebesgueMeasurable<T: Scalar, const D: usize> {
+  fn measure(&self) -> T;
 }
-pub trait LengthMeasurable: LebesgueMeasurable<1> {
+pub trait LengthMeasurable<T: Scalar>: LebesgueMeasurable<T, 1> {
   #[inline(always)]
-  fn length(&self) -> Self::MeasureType {
+  fn length(&self) -> T {
     self.measure()
   }
 }
-impl<T> LengthMeasurable for T where T: LebesgueMeasurable<1> {}
+impl<T: Scalar> LengthMeasurable<T> for T where T: LebesgueMeasurable<T, 1> {}
 
-pub trait AreaMeasurable: LebesgueMeasurable<2> {
+pub trait AreaMeasurable<T: Scalar>: LebesgueMeasurable<T, 2> {
   #[inline(always)]
-  fn area(&self) -> Self::MeasureType {
+  fn area(&self) -> T {
     self.measure()
   }
 }
-impl<T> AreaMeasurable for T where T: LebesgueMeasurable<2> {}
+impl<T: Scalar> AreaMeasurable<T> for T where T: LebesgueMeasurable<T, 2> {}
 
-pub trait VolumeMeasurable: LebesgueMeasurable<3> {
+pub trait VolumeMeasurable<T: Scalar>: LebesgueMeasurable<T, 3> {
   #[inline(always)]
-  fn volume(&self) -> Self::MeasureType {
+  fn volume(&self) -> T {
     self.measure()
   }
 }
-impl<T> VolumeMeasurable for T where T: LebesgueMeasurable<3> {}
+impl<T: Scalar> VolumeMeasurable<T> for T where T: LebesgueMeasurable<T, 3> {}
 
-pub trait SurfaceAreaMeasure: SpaceEntity<3> + LebesgueMeasurable<2> {
+pub trait SurfaceAreaMeasure<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {
   #[inline(always)]
-  fn surface_area(&self) -> Self::MeasureType {
+  fn surface_area(&self) -> T {
     self.measure()
   }
 }
-impl<T> SurfaceAreaMeasure for T where T: SpaceEntity<3> + LebesgueMeasurable<2> {}
+impl<T: Scalar> SurfaceAreaMeasure<T> for T where T: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {}
 
-pub trait PerimeterMeasure: SpaceEntity<2> + LebesgueMeasurable<1> {
+pub trait PerimeterMeasure<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {
   #[inline(always)]
-  fn perimeter(&self) -> Self::MeasureType {
+  fn perimeter(&self) -> T {
     self.measure()
   }
 }
-impl<T> PerimeterMeasure for T where T: SpaceEntity<2> + LebesgueMeasurable<1> {}
+impl<T: Scalar> PerimeterMeasure<T> for T where T: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {}
 
-impl<const D: usize, V: VectorDimension<D>> SpaceEntity<D> for V {}
+pub trait SolidEntity<T: Scalar, const D: usize>:
+  SpaceEntity<T, D> + LebesgueMeasurable<T, D>
+{
+}
 
-pub trait SolidEntity<const D: usize>: SpaceEntity<D> + LebesgueMeasurable<D> {}
-
-pub trait ContainAble<Target: SpaceEntity<D>, const D: usize>: SolidEntity<D> {
+pub trait ContainAble<T: Scalar, Target: SpaceEntity<T, D>, const D: usize>:
+  SolidEntity<T, D>
+{
   fn contains(&self, items_to_contain: &Target) -> bool;
 }
 
-pub trait SpaceBounding<Bound: SolidEntity<D>, const D: usize>: SpaceEntity<D> {
+pub trait SpaceBounding<T: Scalar, Bound: SolidEntity<T, D>, const D: usize>:
+  SpaceEntity<T, D>
+{
   fn to_bounding(&self) -> Bound;
 }
 

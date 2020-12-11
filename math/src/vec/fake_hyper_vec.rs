@@ -1,6 +1,6 @@
 use std::ops::*;
 
-use crate::{Scalar, Vector, VectorDimension, VectorImpl};
+use crate::{Scalar, SpaceEntity, SquareMatrixType, Vector, VectorDimension, VectorImpl};
 
 #[derive(Copy, Clone)]
 pub struct FakeHyperVec<T, const D: usize>([T; D]);
@@ -33,6 +33,12 @@ impl<T: Scalar, const D: usize> Vector<T> for FakeHyperVec<T, D> {
   }
 
   fn cross(&self, _b: Self) -> Self {
+    unreachable!()
+  }
+}
+
+impl<T: Scalar, const D: usize> SpaceEntity<T, D> for FakeHyperVec<T, D> {
+  fn apply_matrix(&mut self, _m: &SquareMatrixType<T, D>) -> &mut Self {
     unreachable!()
   }
 }

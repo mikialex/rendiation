@@ -1,28 +1,35 @@
-use rendiation_math::Vec3;
+use rendiation_math::{Scalar, SquareMatrixType, Vec3};
 
 use crate::{LineSegment, Positioned, SpaceEntity};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Triangle<T = Vec3<f32>> {
-  pub a: T,
-  pub b: T,
-  pub c: T,
+pub struct Triangle<V = Vec3<f32>> {
+  pub a: V,
+  pub b: V,
+  pub c: V,
 }
 
-impl<T: Positioned<f32, D>, const D: usize> SpaceEntity<D> for Triangle<T> {}
+impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for Triangle<V> {
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) -> &mut Self {
+    self.a.position_mut().apply_matrix(mat);
+    self.b.position_mut().apply_matrix(mat);
+    self.c.position_mut().apply_matrix(mat);
+    self
+  }
+}
 
-impl<T> Triangle<T> {
-  pub fn new(a: T, b: T, c: T) -> Self {
+impl<V> Triangle<V> {
+  pub fn new(a: V, b: V, c: V) -> Self {
     Self { a, b, c }
   }
 
-  pub fn iter_point<'a>(&'a self) -> Face3Iter<'a, T> {
+  pub fn iter_point(&self) -> Face3Iter<'_, V> {
     Face3Iter::new(self)
   }
 }
 
-impl<T: Copy> Triangle<T> {
-  pub fn map<U>(&self, f: impl Fn(T) -> U) -> Triangle<U> {
+impl<V: Copy> Triangle<V> {
+  pub fn map<U>(&self, f: impl Fn(V) -> U) -> Triangle<U> {
     Triangle {
       a: f(self.a),
       b: f(self.b),
@@ -31,13 +38,13 @@ impl<T: Copy> Triangle<T> {
   }
 }
 
-pub struct Face3Iter<'a, T> {
-  face3: &'a Triangle<T>,
+pub struct Face3Iter<'a, V> {
+  face3: &'a Triangle<V>,
   visit_count: i8,
 }
 
-impl<'a, T> Face3Iter<'a, T> {
-  pub fn new(face3: &'a Triangle<T>) -> Self {
+impl<'a, V> Face3Iter<'a, V> {
+  pub fn new(face3: &'a Triangle<V>) -> Self {
     Self {
       face3,
       visit_count: -1,
@@ -45,8 +52,8 @@ impl<'a, T> Face3Iter<'a, T> {
   }
 }
 
-impl<'a, T: Copy> Iterator for Face3Iter<'a, T> {
-  type Item = T;
+impl<'a, V: Copy> Iterator for Face3Iter<'a, V> {
+  type Item = V;
   fn next(&mut self) -> Option<Self::Item> {
     self.visit_count += 1;
     if self.visit_count == 0 {
@@ -61,8 +68,8 @@ impl<'a, T: Copy> Iterator for Face3Iter<'a, T> {
   }
 }
 
-impl<T: Copy> Triangle<T> {
-  pub fn for_each_edge(&self, mut visitor: impl FnMut(LineSegment<T>)) {
+impl<V: Copy> Triangle<V> {
+  pub fn for_each_edge(&self, mut visitor: impl FnMut(LineSegment<V>)) {
     let ab = LineSegment::new(self.a, self.b);
     let bc = LineSegment::new(self.b, self.c);
     let ca = LineSegment::new(self.c, self.a);

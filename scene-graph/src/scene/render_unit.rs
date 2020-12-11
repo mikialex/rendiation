@@ -9,7 +9,7 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
     geometry: GeometryHandle<T, G>,
     shading: ShadingHandle<T, SP>,
   ) -> DrawcallHandle<T> {
-    let obj = Drawcall::new_to_untyped(geometry, shading);
+    let obj = Drawcall::new(geometry, shading);
     self.drawcalls.insert(obj)
   }
 
@@ -26,8 +26,8 @@ pub struct SceneDrawcall<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
 impl<T: RAL, S: SceneBackend<T>> Clone for SceneDrawcall<T, S> {
   fn clone(&self) -> Self {
     Self {
-      drawcall: self.drawcall.clone(),
-      node: self.node.clone(),
+      drawcall: self.drawcall,
+      node: self.node,
     }
   }
 }

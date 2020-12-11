@@ -32,6 +32,6 @@ impl From<Triangle<Vec3<f32>>> for Plane {
     let v2 = face.c - face.a;
     let normal = v1.cross(v2).normalize();
     let constant = normal.dot(face.a);
-    Plane::new(normal.into(), constant)
+    Plane::new(normal, constant)
   }
 }

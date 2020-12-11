@@ -51,15 +51,15 @@ impl<B: CenterAblePrimitive> BuildPrimitive<B> {
 }
 
 pub fn bounding_from_build_source<B>(
-  index_list: &Vec<usize>,
-  primitives: &Vec<BuildPrimitive<B>>,
+  index_list: &[usize],
+  primitives: &[BuildPrimitive<B>],
   range: Range<usize>,
 ) -> B
 where
   B: FromIterator<B> + CenterAblePrimitive + Copy,
 {
   index_list
-    .get(range.clone())
+    .get(range)
     .unwrap()
     .iter()
     .map(|index| primitives[*index].bounding)

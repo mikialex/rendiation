@@ -21,7 +21,7 @@ impl CodeBuilder {
     self
   }
   pub fn write_ln(&mut self, content: &str) -> &mut Self {
-    self.str.push_str("\n");
+    self.str.push('\n');
     (0..self.tab_state).for_each(|_| self.str.push_str(&self.tab));
     self.str.push_str(content);
     self

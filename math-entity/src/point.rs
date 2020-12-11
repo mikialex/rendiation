@@ -1,12 +1,19 @@
+use rendiation_math::{Scalar, SquareMatrixType};
+
 use crate::{Positioned, SpaceEntity};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Point<T>(pub T);
+pub struct Point<V>(pub V);
 
-impl<T: Copy> Point<T> {
-  pub fn new(v: T) -> Self {
+impl<V: Copy> Point<V> {
+  pub fn new(v: V) -> Self {
     Self(v)
   }
 }
 
-impl<T: Positioned<f32, D>, const D: usize> SpaceEntity<D> for Point<T> {}
+impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for Point<V> {
+  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) -> &mut Self {
+    self.0.position_mut().apply_matrix(mat);
+    self
+  }
+}

@@ -1,19 +1,21 @@
-use super::IndexedBufferTessellator;
-use crate::vertex::Vertex;
+use super::{IndexedGeometryTessellator, TesselationResult};
+use crate::{
+  geometry::{IndexedGeometry, TriangleList},
+  vertex::Vertex,
+};
 use rendiation_math::*;
 
 pub struct Quad;
 
-impl IndexedBufferTessellator for Quad {
-  type TessellationParameter = ();
-  fn create_mesh(&self, p: &()) -> (Vec<Vertex>, Vec<u16>) {
+impl IndexedGeometryTessellator for Quad {
+  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
     PlaneGeometryParameter {
       width: 2.,
       height: 2.,
       width_segments: 1,
       height_segments: 1,
     }
-    .create_mesh(p)
+    .tessellate()
   }
 }
 
@@ -36,9 +38,8 @@ impl Default for PlaneGeometryParameter {
   }
 }
 
-impl IndexedBufferTessellator for PlaneGeometryParameter {
-  type TessellationParameter = ();
-  fn create_mesh(&self, _p: &()) -> (Vec<Vertex>, Vec<u16>) {
+impl IndexedGeometryTessellator for PlaneGeometryParameter {
+  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -93,6 +94,6 @@ impl IndexedBufferTessellator for PlaneGeometryParameter {
       }
     }
 
-    (vertices, indices)
+    TesselationResult::full_range(IndexedGeometry::new(vertices, indices))
   }
 }

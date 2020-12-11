@@ -13,6 +13,12 @@ pub struct Camera {
   pub matrix_inverse: Mat4<f32>,
 }
 
+impl Default for Camera {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Camera {
   pub fn new() -> Self {
     Self {

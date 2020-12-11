@@ -15,8 +15,32 @@ pub struct Mat3<T> {
   pub c3: T,
 }
 
+impl<T: Scalar> SquareMatrixDimension<2> for Mat3<T> {}
+impl<T: Scalar> SquareMatrix<T> for Mat3<T> {}
+
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat3<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat3<T> {}
+
+impl<T> Mul<Mat3<T>> for Vec2<T>
+where
+  T: Copy + Add<Output = T> + Mul<Output = T> + One,
+{
+  type Output = Self;
+
+  fn mul(self, m: Mat3<T>) -> Self {
+    Self {
+      x: self.x * m.a1 + self.y * m.b1 + m.c1,
+      y: self.x * m.a2 + self.y * m.b2 + m.c2,
+    }
+  }
+}
+impl<T: Scalar> SpaceEntity<T, 2> for Vec2<T> {
+  #[inline(always)]
+  fn apply_matrix(&mut self, m: &SquareMatrixType<T, 2>) -> &mut Self {
+    *self = *self * *m;
+    self
+  }
+}
 
 impl<T> Mul for Mat3<T>
 where
@@ -47,7 +71,6 @@ impl<T> Mat3<T>
 where
   T: Copy,
 {
-  #[clippy::skip]
   pub fn new(m11: T, m12: T, m13: T, m21: T, m22: T, m23: T, m31: T, m32: T, m33: T) -> Self {
     Self {
       a1: m11,

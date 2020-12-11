@@ -22,6 +22,7 @@ impl Frame {
     self.data[0].len()
   }
 
+  #[allow(clippy::needless_range_loop)]
   pub fn clear(&mut self, color: &Color) {
     let data = &mut self.data;
     for i in 0..data.len() {
@@ -34,7 +35,6 @@ impl Frame {
     }
   }
 
-  #[allow(dead_code)]
   pub fn set_pixel(&mut self, color: &Color<LinearRGBColorSpace<f32>>, x: u64, y: u64) {
     let data = &mut self.data;
     data[x as usize][y as usize] = *color;
@@ -60,5 +60,4 @@ impl Frame {
     img_buf.save(path).unwrap();
     println!("{} pixels has write to {}", self.pixel_count(), path);
   }
-
 }

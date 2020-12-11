@@ -21,7 +21,7 @@ impl ShaderGraphAttributeNodeType for f32 {}
 impl ShaderGraphConstableNodeType for f32 {
   fn const_to_glsl(&self) -> String {
     let mut result = format!("{}", self);
-    if result.contains(".") {
+    if result.contains('.') {
       result
     } else {
       result.push_str(".0");
@@ -102,9 +102,9 @@ impl ShaderGraphNodeType for ShaderSampler {
 impl ShaderGraphBindGroupItemProvider for ShaderSampler {
   type ShaderGraphBindGroupItemInstance = Node<ShaderSampler>;
 
-  fn create_instance<'a>(
+  fn create_instance(
     name: &'static str,
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderSampler>(name);
@@ -129,7 +129,7 @@ impl Node<ShaderTexture> {
           position: position.handle,
         },
       ));
-      let handle = g.nodes.create_node(node.to_any());
+      let handle = g.nodes.create_node(node.into_any());
       unsafe {
         g.nodes.connect_node(sampler.handle.cast_type(), handle);
         g.nodes.connect_node(position.handle.cast_type(), handle);
@@ -143,9 +143,9 @@ impl Node<ShaderTexture> {
 impl ShaderGraphBindGroupItemProvider for ShaderTexture {
   type ShaderGraphBindGroupItemInstance = Node<ShaderTexture>;
 
-  fn create_instance<'a>(
+  fn create_instance(
     name: &'static str,
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance {
     let node = bindgroup_builder.create_uniform_node::<ShaderTexture>(name);

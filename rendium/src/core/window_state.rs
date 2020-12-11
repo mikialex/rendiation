@@ -1,4 +1,3 @@
-use crate::WindowEventSession;
 use std::collections::HashSet;
 use winit::event;
 use winit::event::*;
@@ -14,9 +13,9 @@ pub struct WindowState {
 }
 
 impl WindowState {
-  pub fn new(size: (f32, f32)) -> Self {
+  pub fn new() -> Self {
     Self {
-      size,
+      size: (0.0, 0.0),
       mouse_position: (0.0, 0.0),
       mouse_motion: (0.0, 0.0),
       is_left_mouse_down: false,
@@ -40,27 +39,27 @@ impl WindowState {
     self.mouse_motion.1 = motion.1 as f32;
   }
 
-  pub fn attach_event<T, U: FnOnce(&mut T) -> &mut Self + 'static + Copy>(
-    &self,
-    events: &mut WindowEventSession<T>,
-    lens: U,
-  ) {
-    events.active.key_down.on(move |ctx| {
-      lens(&mut ctx.state).pressed_key.insert(*ctx.event_data);
-    });
-    events.active.key_up.on(move |ctx| {
-      lens(&mut ctx.state).pressed_key.remove(ctx.event_data);
-    });
-    events.active.mouse_motion.on(move |ctx| {
-      lens(&mut ctx.state).mouse_motion(*ctx.event_data);
-    });
-    events.active.event_cleared.on(move |ctx| {
-      lens(&mut ctx.state).mouse_wheel_delta = (0.0, 0.0);
-    });
+  // pub fn attach_event<T, U: FnOnce(&mut T) -> &mut Self + 'static + Copy>(
+  //   &self,
+  //   events: &mut WindowEventSession<T>,
+  //   lens: U,
+  // ) {
+  //   events.active.key_down.on(move |ctx| {
+  //     lens(&mut ctx.state).pressed_key.insert(*ctx.event_data);
+  //   });
+  //   events.active.key_up.on(move |ctx| {
+  //     lens(&mut ctx.state).pressed_key.remove(ctx.event_data);
+  //   });
+  //   events.active.mouse_motion.on(move |ctx| {
+  //     lens(&mut ctx.state).mouse_motion(*ctx.event_data);
+  //   });
+  //   events.active.event_cleared.on(move |ctx| {
+  //     lens(&mut ctx.state).mouse_wheel_delta = (0.0, 0.0);
+  //   });
 
-    // need impl piority
-    todo!()
-  }
+  //   // need impl piority
+  //   todo!()
+  // }
 
   pub fn event(&mut self, event: &winit::event::Event<()>) {
     match event {

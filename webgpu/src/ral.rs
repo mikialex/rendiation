@@ -96,21 +96,18 @@ impl RAL for WebGPU {
     pass.draw(range)
   }
 
-  fn render_drawcall<G: GeometryProvider, SP: ShadingProvider<Self, Geometry = G>>(
-    drawcall: &Drawcall<Self, G, SP>,
+  fn render_drawcall(
+    drawcall: &Drawcall<Self>,
     pass: &mut Self::RenderPass,
     resources: &ResourceManager<Self>,
   ) {
     let resources: &'static ResourceManager<Self> = unsafe { std::mem::transmute(resources) };
 
-    let geometry = resources.get_geometry_boxed(drawcall.geometry);
+    let (shading, geometry) = resources.get_resource(drawcall);
     pass.current_topology = ral_topology_to_webgpu_topology(geometry.get_topology()); // todo
 
     // set shading
-    resources
-      .shadings
-      .get_shading_boxed(drawcall.shading)
-      .apply(pass, resources);
+    shading.apply(pass, resources);
 
     // set geometry
     geometry.apply(pass, resources);
@@ -164,6 +161,6 @@ pub fn convert_build_source(graph: &ShaderGraph) -> WGPUPipelineBuildSource {
   WGPUPipelineBuildSource {
     vertex_shader: load_glsl(compiled.vertex_shader, rendiation_ral::ShaderStage::VERTEX),
     frag_shader: load_glsl(compiled.frag_shader, rendiation_ral::ShaderStage::FRAGMENT),
-    shader_interface_info: compiled.shader_interface_info.clone(),
+    shader_interface_info: compiled.shader_interface_info,
   }
 }

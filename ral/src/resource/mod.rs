@@ -15,21 +15,31 @@ pub use manager::*;
 pub use shading::*;
 pub use uniform::*;
 
-pub struct Drawcall<T, G = AnyGeometryProvider, SP = AnyPlaceHolder>
+pub struct Drawcall<T>
 where
   T: RAL,
-  G: GeometryProvider,
-  SP: ShadingProvider<T, Geometry = G>,
 {
-  pub shading: ShadingHandle<T, SP>,
-  pub geometry: GeometryHandle<T, G>,
+  shading: ShadingHandle<T, AnyPlaceHolder>,
+  geometry: GeometryHandle<T, AnyGeometryProvider>,
+}
+
+impl<T: RAL> ResourceManager<T> {
+  pub fn get_resource(
+    &self,
+    drawcall: &Drawcall<T>,
+  ) -> (
+    &Box<dyn ShadingStorageTrait<T>>,
+    &GeometryResourceInstance<T, AnyGeometryProvider>,
+  ) {
+    (
+      self.shadings.get_shading_boxed(drawcall.shading),
+      self.get_geometry(drawcall.geometry),
+    )
+  }
 }
 
 impl<T: RAL> Drawcall<T> {
-  pub fn new_to_untyped<SP, G>(
-    geometry: GeometryHandle<T, G>,
-    shading: ShadingHandle<T, SP>,
-  ) -> Self
+  pub fn new<SP, G>(geometry: GeometryHandle<T, G>, shading: ShadingHandle<T, SP>) -> Self
   where
     SP: ShadingProvider<T>,
     G: GeometryProvider,

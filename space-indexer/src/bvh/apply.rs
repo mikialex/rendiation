@@ -3,7 +3,7 @@ use crate::utils::BuildPrimitive;
 use super::{BVHBounding, BalanceTreeBounding, SAHBounding};
 use rendiation_math::Vec3;
 use rendiation_math_entity::{Axis3, Box3};
-use std::ops::Range;
+use std::{cmp::Ordering, ops::Range};
 
 impl BVHBounding for Box3 {
   type AxisType = Axis3;
@@ -17,7 +17,7 @@ impl BVHBounding for Box3 {
 impl BalanceTreeBounding for Box3 {
   fn median_partition_at_axis(
     range: Range<usize>,
-    build_source: &Vec<BuildPrimitive<Self>>,
+    build_source: &[BuildPrimitive<Self>],
     index_source: &mut Vec<usize>,
     axis: Self::AxisType,
   ) {
@@ -25,22 +25,23 @@ impl BalanceTreeBounding for Box3 {
     if range_middle == 0 {
       return;
     }
-    let ranged_index = index_source.get_mut(range.clone()).unwrap();
+    let ranged_index = index_source.get_mut(range).unwrap();
+    use Ordering::*;
     match axis {
       Axis3::X => ranged_index.select_nth_unstable_by(range_middle, |&a, &b| unsafe {
         let bp_a = build_source.get_unchecked(a);
         let bp_b = build_source.get_unchecked(b);
-        bp_a.center.x.partial_cmp(&bp_b.center.x).unwrap()
+        bp_a.center.x.partial_cmp(&bp_b.center.x).unwrap_or(Less)
       }),
       Axis3::Y => ranged_index.select_nth_unstable_by(range_middle, |&a, &b| unsafe {
         let bp_a = build_source.get_unchecked(a);
         let bp_b = build_source.get_unchecked(b);
-        bp_a.center.y.partial_cmp(&bp_b.center.y).unwrap()
+        bp_a.center.y.partial_cmp(&bp_b.center.y).unwrap_or(Less)
       }),
       Axis3::Z => ranged_index.select_nth_unstable_by(range_middle, |&a, &b| unsafe {
         let bp_a = build_source.get_unchecked(a);
         let bp_b = build_source.get_unchecked(b);
-        bp_a.center.z.partial_cmp(&bp_b.center.z).unwrap()
+        bp_a.center.z.partial_cmp(&bp_b.center.z).unwrap_or(Less)
       }),
     };
   }

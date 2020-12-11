@@ -1,3 +1,4 @@
+#![allow(clippy::ptr_arg)]
 pub mod consts;
 pub mod renderer;
 

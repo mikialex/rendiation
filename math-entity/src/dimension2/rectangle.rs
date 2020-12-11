@@ -13,7 +13,7 @@ impl Rectangle {
   }
 }
 
-impl ContainAble<Vec2<f32>, 2> for Rectangle {
+impl ContainAble<f32, Vec2<f32>, 2> for Rectangle {
   fn contains(&self, v: &Vec2<f32>) -> bool {
     v.x >= self.min.x && v.x <= self.max.x && v.y >= self.min.y && v.y <= self.max.y
   }

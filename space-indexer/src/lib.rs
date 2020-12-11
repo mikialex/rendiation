@@ -2,7 +2,7 @@
 #![feature(const_generics)]
 #![allow(incomplete_features)]
 #![feature(const_evaluatable_checked)]
-// #![feature(const_fn)]
+#![allow(clippy::type_complexity)]
 
 pub mod bst;
 pub mod bvh;

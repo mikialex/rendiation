@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+#![allow(clippy::type_complexity)]
 pub use arena_graph::*;
 pub use rendiation_math::*;
 pub use rendiation_ral::*;
@@ -72,6 +74,7 @@ pub struct RenderGraph<T: RenderGraphBackend> {
   pass_queue: RefCell<Option<Vec<RenderGraphNodeHandle<T>>>>,
 }
 
+#[allow(clippy::new_without_default)]
 impl<T: RenderGraphBackend> RenderGraph<T> {
   pub fn new() -> Self {
     Self {
@@ -88,6 +91,7 @@ impl<T: RenderGraphBackend> RenderGraph<T> {
   }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn build_pass_queue<T: RenderGraphBackend>(
   graph: &RenderGraph<T>,
 ) -> Vec<RenderGraphNodeHandle<T>> {
@@ -117,7 +121,7 @@ fn build_pass_queue<T: RenderGraphBackend>(
       .for_each(|(index, (n, data))| {
         use RenderGraphNode::*;
         if let Target(_) = data {
-          for i in node_data_list.len()..index {
+          for i in index.. {
             if let Pass(pass) = node_data_list[i].1 {
               if pass.input_targets_map.contains(&n) {
                 target_drop_info.push((n, i));
@@ -128,7 +132,7 @@ fn build_pass_queue<T: RenderGraphBackend>(
         };
 
         if data.is_content_node() {
-          for i in node_data_list.len()..index {
+          for i in index.. {
             if node_data_list[i].1.is_content_used_by(n) {
               content_drop_info.push((n, i));
               break;

@@ -120,7 +120,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
     mut self,
     visitor: impl Fn(&mut RenderPassColorAttachmentDescriptorModifier),
   ) -> Self {
-    &mut self.nth_color(0, visitor);
+    self.nth_color(0, visitor);
     self
   }
 

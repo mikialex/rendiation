@@ -9,7 +9,7 @@ pub use apply::*;
 use rendiation_math_entity::ContainAble;
 
 pub trait BSTBounding<const D: usize, const N: usize>:
-  CenterAblePrimitive + Default + Copy + ContainAble<Self, D> + FromIterator<Self>
+  CenterAblePrimitive + Default + Copy + ContainAble<f32, Self, D> + FromIterator<Self>
 {
   fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize;
 
@@ -88,7 +88,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
           count += 1;
         });
         ranges[index] = start..start + count;
-        start = start + count;
+        start += count;
       })
   }
 }
@@ -96,13 +96,14 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
 impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> {
   pub fn new(source: impl ExactSizeIterator<Item = T::Bounding>, option: &TreeBuildOption) -> Self {
     // prepare build source;
-    let (mut index_list, primitives) = source
+    let (mut index_list, primitives): (Vec<usize>, Vec<BuildPrimitive<T::Bounding>>) = source
       .enumerate()
       .map(|(i, b)| (i, BuildPrimitive::new(b)))
       .unzip();
 
     // prepare root
-    let root_bbox = bounding_from_build_source(&index_list, &primitives, 0..index_list.len());
+    let root_bbox =
+      bounding_from_build_source(&index_list, primitives.as_slice(), 0..index_list.len());
 
     let mut nodes = Vec::new();
     nodes.push(BSTNode {
@@ -130,7 +131,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
 
   fn build(
     option: &TreeBuildOption,
-    build_source: &Vec<BuildPrimitive<T::Bounding>>,
+    build_source: &[BuildPrimitive<T::Bounding>],
     index_source: &mut Vec<usize>,
     nodes: &mut Vec<BSTNode<T, N, D>>,
     builder: &mut BSTTreeBuilder<T, N, D>,

@@ -8,7 +8,7 @@ pub trait HSLColor<T> {
   fn l(&self) -> T;
 }
 
-// auto impl <hsl channel fetch> for all color that <marked as hslcolorspace and their value types is vec3<T>>
+// auto impl <hsl channel fetch> for all color that <marked as hsl colorspace and their value types is vec3<T>>
 impl<T: Copy, U: HSLColorSpace<T> + ColorSpace<ContainerValue = Vec3<T>>> HSLColor<T> for Color<U> {
   fn h(&self) -> T {
     self.value.x
@@ -47,7 +47,7 @@ impl<T: HSLColorSpace<f32> + ColorSpace<ContainerValue = Vec3<f32>>> Color<T> {
       if t < 2. / 3. {
         return p + (q - p) * 6. * (2. / 3. - t);
       }
-      return p;
+      p
     }
 
     // h,s,l ranges are in 0.0 - 1.0 // todo standalone clamp impl

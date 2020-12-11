@@ -18,7 +18,7 @@ impl<T: Scalar> VectorImpl for Vec3<T> {}
 impl<T: Scalar> Vector<T> for Vec3<T> {
   #[inline]
   fn dot(&self, b: Self) -> T {
-    return self.x * b.x + self.y * b.y + self.z * b.z;
+    self.x * b.x + self.y * b.y + self.z * b.z
   }
 
   #[inline]
@@ -65,7 +65,7 @@ where
 
   #[inline]
   pub fn distance(&self, b: Self) -> T {
-    return (*self - b).length();
+    (*self - b).length()
   }
 
   #[inline]

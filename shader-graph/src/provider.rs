@@ -29,9 +29,9 @@ pub trait ShaderGraphBuilderCreator: ShaderGraphGeometryInfo {
 pub trait ShaderGraphBindGroupItemProvider {
   type ShaderGraphBindGroupItemInstance;
 
-  fn create_instance<'a>(
+  fn create_instance(
     name: &'static str,
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
     stage: ShaderStage,
   ) -> Self::ShaderGraphBindGroupItemInstance;
 }
@@ -39,8 +39,8 @@ pub trait ShaderGraphBindGroupItemProvider {
 pub trait ShaderGraphBindGroupProvider {
   type ShaderGraphBindGroupInstance;
 
-  fn create_instance<'a>(
-    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'a>,
+  fn create_instance(
+    bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
   ) -> Self::ShaderGraphBindGroupInstance;
 }
 

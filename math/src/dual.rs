@@ -162,10 +162,7 @@ where
 {
   /// Creates a new Dual from two quaternions
   pub fn new(real: Quat<T>, dual: Quat<T>) -> Self {
-    Self {
-      real: real,
-      dual: dual,
-    }
+    Self { real, dual }
   }
 }
 
@@ -181,15 +178,15 @@ where
   }
 
   pub fn dot(&self, b: Self) -> T {
-    return self.real.dot(b.real);
+    self.real.dot(b.real)
   }
 
   pub fn length2(&self) -> T {
-    return self.dot(*self);
+    self.dot(*self)
   }
 
   pub fn length(&self) -> T {
-    return self.length2().sqrt();
+    self.length2().sqrt()
   }
 
   pub fn normalize(&self) -> Self {
@@ -199,7 +196,7 @@ where
       return *self * inv_sqrt;
     }
 
-    return *self;
+    *self
   }
 
   pub fn rotation(&self) -> Quat<T> {
@@ -236,7 +233,7 @@ where
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
-    return self * (T::one() - t) + b * t;
+    self * (T::one() - t) + b * t
   }
 }
 

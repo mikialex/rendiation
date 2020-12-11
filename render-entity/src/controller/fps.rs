@@ -22,6 +22,12 @@ pub struct FPSController {
   pub descend_active: bool,
 }
 
+impl Default for FPSController {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl FPSController {
   pub fn new() -> Self {
     let mut spherical = Spherical::new();

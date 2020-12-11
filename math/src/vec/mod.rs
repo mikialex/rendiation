@@ -31,13 +31,13 @@ macro_rules! impl_vector {
       /// Construct a new vector, using the provided values.
       #[inline]
       pub const fn new($($field: S),+) -> $VectorN<S> {
-        $VectorN { $($field: $field),+ }
+        $VectorN { $($field),+ }
       }
 
       /// return the length of element
       #[inline]
       pub fn len() -> usize {
-      return $n;
+       $n
       }
 
       /// Perform the given operation on each field in the vector, returning a new point

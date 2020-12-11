@@ -29,7 +29,7 @@ pub trait Vector<T: Scalar>:
 
   #[inline]
   fn distance(&self, b: Self) -> T {
-    return (*self - b).length();
+    (*self - b).length()
   }
 
   #[inline]
@@ -69,7 +69,7 @@ where
 }
 
 pub trait DimensionalVec<T: Scalar, const D: usize> {
-  type Type: Vector<T> + VectorDimension<D>;
+  type Type: Vector<T> + VectorDimension<D> + SpaceEntity<T, D>;
 }
 
 pub struct VectorMark<T>(PhantomData<T>);
@@ -79,9 +79,6 @@ impl<T: Scalar> DimensionalVec<T, 2> for VectorMark<T> {
 }
 impl<T: Scalar> DimensionalVec<T, 3> for VectorMark<T> {
   type Type = Vec3<T>;
-}
-impl<T: Scalar> DimensionalVec<T, 4> for VectorMark<T> {
-  type Type = Vec4<T>;
 }
 
 impl<T: Scalar, const D: usize> DimensionalVec<T, D> for VectorMark<T> {

@@ -10,6 +10,7 @@ struct CodeGenCtx {
   depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
 }
 
+#[allow(clippy::clone_double_ref)]
 impl CodeGenCtx {
   fn new() -> Self {
     Self {
@@ -42,7 +43,7 @@ impl CodeGenCtx {
     let mut builder = CodeBuilder::new();
     let mut resolved_fn = HashSet::new();
     self.depend_functions.iter().for_each(|f| {
-      if f.depend_functions.len() == 0 {
+      if f.depend_functions.is_empty() {
         f.function_source.map(|s| builder.write_ln("").write_raw(s));
         resolved_fn.insert(f.clone());
       }
@@ -309,9 +310,6 @@ impl ShaderGraphOutput {
     }
   }
   pub fn is_builtin(&self) -> bool {
-    match self {
-      Self::Vert => true,
-      _ => false,
-    }
+    matches!(self, Self::Vert)
   }
 }

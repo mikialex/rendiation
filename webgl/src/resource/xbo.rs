@@ -27,6 +27,7 @@ impl WebGLRenderer {
 }
 
 // VBO
+#[allow(clippy::transmute_ptr_to_ptr)]
 impl WebGLRenderer {
   pub fn create_vertex_buffer(
     &self,
@@ -58,6 +59,7 @@ impl WebGLRenderer {
 }
 
 // IBO
+#[allow(clippy::transmute_ptr_to_ptr)]
 impl WebGLRenderer {
   pub fn create_index_buffer(&self, data: &[u8]) -> WebGlBuffer {
     let buffer = self

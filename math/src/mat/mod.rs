@@ -1,7 +1,11 @@
 mod mat2;
 mod mat3;
 mod mat4;
+mod dimension;
+mod fake_hyper_matrix;
 
+pub use dimension::*;
+pub use fake_hyper_matrix::*;
 pub use mat2::*;
 pub use mat3::*;
 pub use mat4::*;
@@ -9,26 +13,6 @@ pub use mat4::*;
 use crate::*;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
-
-pub trait Matrix {}
-
-pub trait SquareMatrix: Matrix {}
-
-impl<T> Matrix for Mat2<T>{}
-impl<T> Matrix for Mat3<T>{}
-impl<T> Matrix for Mat4<T>{}
-
-impl<T> SquareMatrix for Mat2<T>{}
-impl<T> SquareMatrix for Mat3<T>{}
-impl<T> SquareMatrix for Mat4<T>{}
-
-pub struct ColumMajor<M: SquareMatrix> {
-  pub mat: M,
-}
-
-pub struct RawMajor<M: SquareMatrix> {
-  pub mat: M,
-}
 
 macro_rules! impl_matrix {
   ($MatrixN:ident { $($field:ident),+ }, $n:expr, $constructor:ident) => {

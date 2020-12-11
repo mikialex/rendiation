@@ -11,7 +11,7 @@ pub trait RGBColor<T> {
   fn mut_b(&mut self) -> &mut T;
 }
 
-// auto impl <rgb channel fetch> for all color that <marked as rgbcolorspace and their value types is vec3<T>>
+// auto impl <rgb channel fetch> for all color that <marked as rgb colorspace and their value types is vec3<T>>
 impl<T: Copy, U: RGBColorSpace<T> + ColorSpace<ContainerValue = Vec3<T>>> RGBColor<T> for Color<U> {
   fn r(&self) -> T {
     self.value.x
@@ -22,13 +22,13 @@ impl<T: Copy, U: RGBColorSpace<T> + ColorSpace<ContainerValue = Vec3<T>>> RGBCol
   fn b(&self) -> T {
     self.value.z
   }
-  fn mut_r(&mut self) -> &mut T{
+  fn mut_r(&mut self) -> &mut T {
     &mut self.value.x
   }
-  fn mut_g(&mut self) -> &mut T{
+  fn mut_g(&mut self) -> &mut T {
     &mut self.value.y
   }
-  fn mut_b(&mut self) -> &mut T{
+  fn mut_b(&mut self) -> &mut T {
     &mut self.value.z
   }
 }
@@ -49,6 +49,7 @@ impl<T: Copy + Clone> ColorSpace for SRGBColorSpace<T> {
   type ContainerValue = Vec3<T>;
 }
 
+#[allow(clippy::excessive_precision)]
 impl Color<SRGBColorSpace<f32>> {
   pub fn to_linear_rgb(&self) -> Color<LinearRGBColorSpace<f32>> {
     Color::new(self.value.map(|c| {

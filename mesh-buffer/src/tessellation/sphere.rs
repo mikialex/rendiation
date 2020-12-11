@@ -1,5 +1,8 @@
-use super::IndexedBufferTessellator;
-use crate::vertex::Vertex;
+use super::{IndexedGeometryTessellator, TesselationResult};
+use crate::{
+  geometry::{IndexedGeometry, TriangleList},
+  vertex::Vertex,
+};
 use rendiation_math::*;
 
 #[derive(Copy, Clone, Debug)]
@@ -29,9 +32,8 @@ impl Default for SphereGeometryParameter {
   }
 }
 
-impl IndexedBufferTessellator for SphereGeometryParameter {
-  type TessellationParameter = ();
-  fn create_mesh(&self, _: &()) -> (Vec<Vertex>, Vec<u16>) {
+impl IndexedGeometryTessellator for SphereGeometryParameter {
+  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
     let Self {
       radius,
       width_segments,
@@ -87,6 +89,6 @@ impl IndexedBufferTessellator for SphereGeometryParameter {
       }
     }
 
-    (vertices, indices)
+    TesselationResult::full_range(IndexedGeometry::new(vertices, indices))
   }
 }

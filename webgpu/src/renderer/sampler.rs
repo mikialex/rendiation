@@ -46,6 +46,12 @@ impl AsMut<Self> for WGPUSamplerBuilder {
   }
 }
 
+impl Default for WGPUSamplerBuilder {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl WGPUSamplerBuilder {
   pub fn new() -> Self {
     Self {
@@ -65,17 +71,17 @@ impl WGPUSamplerBuilder {
     }
   }
 
-  pub fn wrapping_u(self: &mut Self, value: TextureWrapping) -> &mut Self {
+  pub fn wrapping_u(&mut self, value: TextureWrapping) -> &mut Self {
     self.descriptor.address_mode_u = value.to_wgpu();
     self
   }
 
-  pub fn wrapping_v(self: &mut Self, value: TextureWrapping) -> &mut Self {
+  pub fn wrapping_v(&mut self, value: TextureWrapping) -> &mut Self {
     self.descriptor.address_mode_u = value.to_wgpu();
     self
   }
 
-  pub fn wrapping_w(self: &mut Self, value: TextureWrapping) -> &mut Self {
+  pub fn wrapping_w(&mut self, value: TextureWrapping) -> &mut Self {
     self.descriptor.address_mode_u = value.to_wgpu();
     self
   }

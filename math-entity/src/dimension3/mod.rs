@@ -38,4 +38,8 @@ impl Positioned<f32, 3> for Vec3<f32> {
   fn position(&self) -> Vec3<f32> {
     *self
   }
+  #[inline(always)]
+  fn position_mut(&mut self) -> &mut Vec3<f32> {
+    self
+  }
 }

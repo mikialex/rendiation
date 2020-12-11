@@ -1,5 +1,5 @@
 use crate::*;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -21,6 +21,9 @@ pub struct Mat4<T> {
   pub d3: T,
   pub d4: T,
 }
+
+impl<T: Scalar> SquareMatrixDimension<3> for Mat4<T> {}
+impl<T: Scalar> SquareMatrix<T> for Mat4<T> {}
 
 #[rustfmt::skip]
 impl<T> Mat4<T> {
@@ -63,6 +66,14 @@ where
   }
 }
 
+impl<T: Scalar> SpaceEntity<T, 3> for Vec3<T> {
+  #[inline(always)]
+  fn apply_matrix(&mut self, m: &SquareMatrixType<T, 3>) -> &mut Self {
+    *self = *self * *m;
+    self
+  }
+}
+
 impl<T> Mul<Mat4<T>> for Vec4<T>
 where
   T: Copy + Add<Output = T> + Mul<Output = T>,
@@ -75,39 +86,6 @@ where
       y: (self.x * m.a2 + self.y * m.b2 + self.z * m.c2 + self.w * m.d2),
       z: (self.x * m.a3 + self.y * m.b3 + self.z * m.c3 + self.w * m.d3),
       w: (self.x * m.a4 + self.y * m.b4 + self.z * m.c4 + self.w * m.d4),
-    }
-  }
-}
-
-impl<T> Mul<Vec3<T>> for Mat4<T>
-where
-  T: Copy + Add<Output = T> + Sub<Output = T> + Mul<Output = T>,
-{
-  type Output = Self;
-
-  fn mul(self, v: Vec3<T>) -> Self {
-    let a = self;
-
-    Self {
-      a1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1,
-      a2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2,
-      a3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3,
-      a4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4,
-
-      b1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1,
-      b2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2,
-      b3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3,
-      b4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4,
-
-      c1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1,
-      c2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2,
-      c3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3,
-      c4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4,
-
-      d1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1,
-      d2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2,
-      d3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3,
-      d4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4,
     }
   }
 }
@@ -179,7 +157,6 @@ where
 }
 
 impl<T: Sized> Mat4<T> {
-  #[clippy::skip]
   pub const fn new(
     m11: T,
     m12: T,
@@ -712,14 +689,7 @@ where
     m.d2 = eye.y;
     m.d3 = eye.z;
 
-    return m;
-  }
-
-  pub fn to_array_transpose(&self) -> [T; 16] {
-    [
-      self.a1, self.b1, self.c1, self.d1, self.a2, self.b2, self.c2, self.d2, self.a3, self.b3,
-      self.c3, self.d3, self.a4, self.b4, self.c4, self.d4,
-    ]
+    m
   }
 
   pub fn transpose(&self) -> Mat4<T> {
@@ -882,7 +852,6 @@ impl<T> From<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for Mat4<T>
 where
   T: Copy,
 {
-  #[clippy::skip]
   fn from(v: (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)) -> Self {
     Self {
       a1: v.0,

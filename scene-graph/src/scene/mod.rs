@@ -32,7 +32,7 @@ pub trait SceneBackend<T: RAL>: Sized {
 }
 
 pub fn render_list<T: RAL, S: SceneBackend<T>>(
-  raw_list: &Vec<SceneDrawcall<T, S>>,
+  raw_list: &[SceneDrawcall<T, S>],
   pass: &mut T::RenderPass,
   scene: &Scene<T, S>,
   resources: &ResourceManager<T>,
@@ -50,7 +50,7 @@ pub trait SceneNodeDataTrait<T: RAL> {
     camera: &Camera,
     resource: &mut ResourceManager<T>,
   ) -> bool;
-  fn provide_drawcall<'a>(&self) -> &Self::DrawcallIntoIterType;
+  fn provide_drawcall(&self) -> &Self::DrawcallIntoIterType;
 }
 
 pub struct SceneNodeDataDrawcallsProvider<'a, P>(pub &'a P);

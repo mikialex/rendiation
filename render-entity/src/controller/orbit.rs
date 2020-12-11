@@ -27,7 +27,12 @@ pub struct OrbitController {
 
   view_width: f32,
   view_height: f32,
+}
 
+impl Default for OrbitController {
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl OrbitController {
@@ -55,7 +60,6 @@ impl OrbitController {
 
       view_width: 1000.,
       view_height: 1000.,
-
     }
   }
 
@@ -80,7 +84,6 @@ impl OrbitController {
 
 impl<T: TransformedObject> Controller<T> for OrbitController {
   fn update(&mut self, target: &mut T) -> bool {
-
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
       && self.spherical_delta.radius.abs() < 0.0001

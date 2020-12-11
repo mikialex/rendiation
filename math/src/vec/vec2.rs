@@ -58,7 +58,7 @@ where
 
   #[inline]
   pub fn distance(&self, b: Self) -> T {
-    return (*self - b).length();
+    (*self - b).length()
   }
 }
 

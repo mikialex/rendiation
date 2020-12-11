@@ -6,6 +6,7 @@ pub struct WGPUTextureCube {
   texture: WGPUTexture,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl WGPUTextureCube {
   pub fn new(
     renderer: &mut WGPURenderer,

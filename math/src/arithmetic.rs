@@ -18,6 +18,7 @@ pub trait Arithmetic:
   + PartialOrd
   + One
   + Two
+  + Three
   + Zero
 {
 }

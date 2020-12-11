@@ -134,7 +134,7 @@ pub struct ShadingHandleWrap<T: ShadingProvider<GFX>>(pub ShadingHandle<GFX, T>)
 impl<T: ShadingProvider<GFX>> Copy for ShadingHandleWrap<T> {}
 impl<T: ShadingProvider<GFX>> Clone for ShadingHandleWrap<T> {
   fn clone(&self) -> Self {
-    ShadingHandleWrap(self.0.clone())
+    ShadingHandleWrap(self.0)
   }
 }
 
@@ -164,7 +164,7 @@ pub struct BindGroupHandleWrap<T: BindGroupProvider<GFX>>(pub BindGroupHandle<GF
 impl<T: BindGroupProvider<GFX>> Copy for BindGroupHandleWrap<T> {}
 impl<T: BindGroupProvider<GFX>> Clone for BindGroupHandleWrap<T> {
   fn clone(&self) -> Self {
-    BindGroupHandleWrap(self.0.clone())
+    BindGroupHandleWrap(self.0)
   }
 }
 
