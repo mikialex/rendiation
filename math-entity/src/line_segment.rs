@@ -38,7 +38,7 @@ impl<V> LineSegment<V> {
     Self { start, end }
   }
 
-  pub fn iter_point<'a>(&'a self) -> LineSegmentIter<'a, V> {
+  pub fn iter_point(&self) -> LineSegmentIter<'_, V> {
     LineSegmentIter::new(self)
   }
 }

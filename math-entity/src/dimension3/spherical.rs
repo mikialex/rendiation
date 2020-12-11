@@ -7,14 +7,20 @@ pub struct Spherical<T = f32> {
   pub azim: T,
 }
 
-impl Spherical {
-  pub fn new() -> Self {
-    Spherical {
+impl Default for Spherical {
+  fn default() -> Self {
+    Self {
       center: Vec3::new(0.0, 0.0, 0.0),
       radius: 1.,
       polar: 0.,
       azim: 0.,
     }
+  }
+}
+
+impl Spherical {
+  pub fn new() -> Self {
+    Self::default()
   }
 
   pub fn reset_pose(&mut self) {

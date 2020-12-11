@@ -24,6 +24,7 @@ impl Ray3 {
 
 // todo maybe we should store the distance in this
 pub struct NearestPoint3D(pub Option<HitPoint3D>);
+#[derive(Default)]
 pub struct IntersectionList3D(pub Vec<HitPoint3D>);
 
 impl IntersectionList3D {
@@ -114,7 +115,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, NearestPoint3D> for Ray3 
     }
 
     // Ray3 intersects triangle.
-    return NearestPoint3D(Some(self.at_into(QdN / DdN)));
+    NearestPoint3D(Some(self.at_into(QdN / DdN)))
   }
 }
 

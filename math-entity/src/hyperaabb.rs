@@ -27,8 +27,8 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      min: self.min.clone(),
-      max: self.max.clone(),
+      min: self.min,
+      max: self.max,
     }
   }
 }

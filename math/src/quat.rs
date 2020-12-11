@@ -241,7 +241,7 @@ where
   }
 
   pub fn len() -> usize {
-    return 4;
+    4
   }
 
   pub fn to_tuple(&self) -> (T, T, T, T) {
@@ -354,7 +354,7 @@ where
   }
 
   pub fn dot(&self, b: Self) -> T {
-    return self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w;
+    self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
   }
 
   pub fn cross(&self, b: Self) -> Self {
@@ -367,15 +367,15 @@ where
   }
 
   pub fn length2(&self) -> T {
-    return self.dot(*self);
+    self.dot(*self)
   }
 
   pub fn length(&self) -> T {
-    return self.length2().sqrt();
+    self.length2().sqrt()
   }
 
   pub fn distance(&self, b: Self) -> T {
-    return (*self - b).length();
+    (*self - b).length()
   }
 
   pub fn normalize(&self) -> Self {
@@ -396,7 +396,7 @@ where
     let v = Vec3::new(self.x, self.y, self.z);
     let inv_sqrt = T::one() / sin_theta_over2_sq.sqrt();
 
-    return v * Vec3::new(inv_sqrt, inv_sqrt, inv_sqrt);
+    v * Vec3::new(inv_sqrt, inv_sqrt, inv_sqrt)
   }
 
   pub fn angle(&self) -> T {
@@ -759,7 +759,7 @@ where
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
-    return self * (T::one() - t) + b * t;
+    self * (T::one() - t) + b * t
   }
 }
 

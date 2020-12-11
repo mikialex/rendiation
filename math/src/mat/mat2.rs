@@ -92,12 +92,7 @@ where
     let b1 = tx * y - s * z;
     let b2 = ty * y + c;
 
-    Mat2 {
-      a1: a1,
-      a2: a2,
-      b1: b1,
-      b2: b2,
-    }
+    Mat2 { a1, a2, b1, b2 }
   }
 
   pub fn scale(x: T, y: T) -> Self {

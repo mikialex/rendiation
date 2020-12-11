@@ -157,7 +157,6 @@ where
 }
 
 impl<T: Sized> Mat4<T> {
-  #[clippy::skip]
   pub const fn new(
     m11: T,
     m12: T,
@@ -690,14 +689,7 @@ where
     m.d2 = eye.y;
     m.d3 = eye.z;
 
-    return m;
-  }
-
-  pub fn to_array_transpose(&self) -> [T; 16] {
-    [
-      self.a1, self.b1, self.c1, self.d1, self.a2, self.b2, self.c2, self.d2, self.a3, self.b3,
-      self.c3, self.d3, self.a4, self.b4, self.c4, self.d4,
-    ]
+    m
   }
 
   pub fn transpose(&self) -> Mat4<T> {
@@ -860,7 +852,6 @@ impl<T> From<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for Mat4<T>
 where
   T: Copy,
 {
-  #[clippy::skip]
   fn from(v: (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)) -> Self {
     Self {
       a1: v.0,

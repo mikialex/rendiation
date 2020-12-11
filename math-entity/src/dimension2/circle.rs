@@ -6,8 +6,8 @@ pub type Circle = HyperSphere<f32, 2>;
 impl SpaceBounding<f32, Rectangle, 2> for Circle {
   fn to_bounding(&self) -> Rectangle {
     Rectangle {
-      min: (self.center - Vec2::splat(self.radius)).into(),
-      max: (self.center + Vec2::splat(self.radius)).into(),
+      min: self.center - Vec2::splat(self.radius),
+      max: self.center + Vec2::splat(self.radius),
     }
   }
 }

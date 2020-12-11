@@ -93,31 +93,29 @@ impl Ray3 {
           s0 = 0.0_f32.max(-(a01 * s1 + b0));
           sq_dist = -s0 * s0 + s1 * (s1 + 2. * b1) + c;
         }
-      } else {
-        if s1 <= -ext_det {
-          // region 4
-          s0 = 0.0_f32.min(-(-a01 * seg_length + b0));
-          s1 = if s0 > 0. {
-            -seg_length
-          } else {
-            (-seg_length).max(-b1).min(seg_length)
-          };
-          sq_dist = -s0 * s0 + s1 * (s1 + 2. * b1) + c;
-        } else if s1 <= ext_det {
-          // region 3
-          s0 = 0.;
-          s1 = (-seg_length).max(-b1).min(seg_length);
-          sq_dist = s1 * (s1 + 2. * b1) + c;
+      } else if s1 <= -ext_det {
+        // region 4
+        s0 = 0.0_f32.min(-(-a01 * seg_length + b0));
+        s1 = if s0 > 0. {
+          -seg_length
         } else {
-          // region 2
-          s0 = 0.0_f32.max(-(a01 * seg_length + b0));
-          s1 = if s0 > 0. {
-            seg_length
-          } else {
-            (-seg_length).max(-b1).min(seg_length)
-          };
-          sq_dist = -s0 * s0 + s1 * (s1 + 2. * b1) + c;
-        }
+          (-seg_length).max(-b1).min(seg_length)
+        };
+        sq_dist = -s0 * s0 + s1 * (s1 + 2. * b1) + c;
+      } else if s1 <= ext_det {
+        // region 3
+        s0 = 0.;
+        s1 = (-seg_length).max(-b1).min(seg_length);
+        sq_dist = s1 * (s1 + 2. * b1) + c;
+      } else {
+        // region 2
+        s0 = 0.0_f32.max(-(a01 * seg_length + b0));
+        s1 = if s0 > 0. {
+          seg_length
+        } else {
+          (-seg_length).max(-b1).min(seg_length)
+        };
+        sq_dist = -s0 * s0 + s1 * (s1 + 2. * b1) + c;
       }
     } else {
       // Ray3 and segment are parallel.
@@ -126,10 +124,10 @@ impl Ray3 {
       sq_dist = -s0 * s0 + s1 * (s1 + 2. * b1) + c;
     }
 
-    return (
+    (
       sq_dist,
       self.direction * s0 + self.origin,
       seg_dir * s1 + seg_center,
-    );
+    )
   }
 }

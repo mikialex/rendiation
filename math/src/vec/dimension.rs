@@ -29,7 +29,7 @@ pub trait Vector<T: Scalar>:
 
   #[inline]
   fn distance(&self, b: Self) -> T {
-    return (*self - b).length();
+    (*self - b).length()
   }
 
   #[inline]

@@ -43,10 +43,7 @@ impl Default for Box3 {
 
 impl Box3 {
   pub fn new3(min: Vec3<f32>, max: Vec3<f32>) -> Self {
-    Self {
-      min: min.into(),
-      max: max.into(),
-    }
+    Self { min, max }
   }
 
   #[inline(always)]
@@ -57,8 +54,8 @@ impl Box3 {
   #[inline(always)]
   pub fn new_from_center(center: Vec3<f32>, half_size: Vec3<f32>) -> Self {
     Self {
-      min: (center - half_size).into(),
-      max: (center + half_size).into(),
+      min: center - half_size,
+      max: center + half_size,
     }
   }
 
@@ -91,10 +88,7 @@ impl Box3 {
   pub fn empty() -> Self {
     const INF: f32 = std::f32::INFINITY;
     const N_INF: f32 = std::f32::NEG_INFINITY;
-    Self::new(
-      Vec3::new(INF, INF, INF).into(),
-      Vec3::new(N_INF, N_INF, N_INF).into(),
-    )
+    Self::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
   }
 
   #[inline(always)]
@@ -124,19 +118,17 @@ impl Box3 {
       } else {
         (Axis3::Z, z_length)
       }
+    } else if y_length > z_length {
+      (Axis3::Y, y_length)
     } else {
-      if y_length > z_length {
-        (Axis3::Y, y_length)
-      } else {
-        (Axis3::Z, z_length)
-      }
+      (Axis3::Z, z_length)
     }
   }
 
   #[inline(always)]
   pub fn expand_by_point(&mut self, point: Vec3<f32>) {
-    self.min = self.min.min(point).into();
-    self.max = self.max.max(point).into();
+    self.min = self.min.min(point);
+    self.max = self.max.max(point);
   }
 
   #[inline(always)]
@@ -154,8 +146,8 @@ impl Box3 {
     if self.is_empty() {
       *self = box3;
     }
-    self.min = self.min.min(box3.min).into();
-    self.max = self.max.max(box3.max).into();
+    self.min = self.min.min(box3.min);
+    self.max = self.max.max(box3.max);
   }
 }
 

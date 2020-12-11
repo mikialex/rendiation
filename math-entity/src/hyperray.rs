@@ -19,8 +19,8 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      origin: self.origin.clone(),
-      direction: self.direction.clone(),
+      origin: self.origin,
+      direction: self.direction,
     }
   }
 }

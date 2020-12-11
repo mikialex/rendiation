@@ -30,8 +30,8 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      center: self.center.clone(),
-      radius: self.radius.clone(),
+      center: self.center,
+      radius: self.radius,
     }
   }
 }

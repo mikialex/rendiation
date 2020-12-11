@@ -21,8 +21,8 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      normal: self.normal.clone(),
-      constant: self.constant.clone(),
+      normal: self.normal,
+      constant: self.constant,
     }
   }
 }

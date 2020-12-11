@@ -23,7 +23,7 @@ impl<V> Triangle<V> {
     Self { a, b, c }
   }
 
-  pub fn iter_point<'a>(&'a self) -> Face3Iter<'a, V> {
+  pub fn iter_point(&self) -> Face3Iter<'_, V> {
     Face3Iter::new(self)
   }
 }

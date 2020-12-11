@@ -21,7 +21,7 @@ impl ShaderGraphAttributeNodeType for f32 {}
 impl ShaderGraphConstableNodeType for f32 {
   fn const_to_glsl(&self) -> String {
     let mut result = format!("{}", self);
-    if result.contains(".") {
+    if result.contains('.') {
       result
     } else {
       result.push_str(".0");
