@@ -109,7 +109,7 @@ impl ShaderGraph {
 
   pub fn insert_node<T: ShaderGraphNodeType>(&mut self, node: ShaderGraphNode<T>) -> NodeUntyped {
     self.register_type::<T>();
-    self.nodes.create_node(node.to_any()).into()
+    self.nodes.create_node(node.into_any()).into()
   }
 
   pub fn register_type<T: ShaderGraphNodeType>(&mut self) {

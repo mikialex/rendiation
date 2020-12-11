@@ -161,6 +161,6 @@ pub fn convert_build_source(graph: &ShaderGraph) -> WGPUPipelineBuildSource {
   WGPUPipelineBuildSource {
     vertex_shader: load_glsl(compiled.vertex_shader, rendiation_ral::ShaderStage::VERTEX),
     frag_shader: load_glsl(compiled.frag_shader, rendiation_ral::ShaderStage::FRAGMENT),
-    shader_interface_info: compiled.shader_interface_info.clone(),
+    shader_interface_info: compiled.shader_interface_info,
   }
 }

@@ -10,6 +10,12 @@ pub struct GeometryRangesInfo {
   pub ranges: Vec<GeometryRange>,
 }
 
+impl Default for GeometryRangesInfo {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl GeometryRangesInfo {
   pub fn new() -> Self {
     Self { ranges: Vec::new() }

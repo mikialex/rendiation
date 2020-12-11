@@ -105,18 +105,18 @@ impl WGPUPipeline {
 
 fn merge_state(preferred: &TargetStates, input: &RenderTargetFormatsInfo) -> TargetStates {
   let mut result = preferred.clone();
-  input.depth.as_ref().map(|d| {
+  if let Some(format) = input.depth {
     if let Some(result_depth) = &mut result.depth_state {
-      result_depth.format = *d;
+      result_depth.format = format;
     } else {
       result.depth_state = Some(wgpu::DepthStencilStateDescriptor {
-        format: *d,
+        format,
         depth_write_enabled: true,
         depth_compare: wgpu::CompareFunction::LessEqual,
         stencil: wgpu::StencilStateDescriptor::default(),
       });
     }
-  });
+  };
   if input.depth.is_none() {
     result.depth_state = None;
   }

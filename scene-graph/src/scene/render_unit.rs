@@ -26,8 +26,8 @@ pub struct SceneDrawcall<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
 impl<T: RAL, S: SceneBackend<T>> Clone for SceneDrawcall<T, S> {
   fn clone(&self) -> Self {
     Self {
-      drawcall: self.drawcall.clone(),
-      node: self.node.clone(),
+      drawcall: self.drawcall,
+      node: self.node,
     }
   }
 }

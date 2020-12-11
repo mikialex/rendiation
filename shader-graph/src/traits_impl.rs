@@ -129,7 +129,7 @@ impl Node<ShaderTexture> {
           position: position.handle,
         },
       ));
-      let handle = g.nodes.create_node(node.to_any());
+      let handle = g.nodes.create_node(node.into_any());
       unsafe {
         g.nodes.connect_node(sampler.handle.cast_type(), handle);
         g.nodes.connect_node(position.handle.cast_type(), handle);

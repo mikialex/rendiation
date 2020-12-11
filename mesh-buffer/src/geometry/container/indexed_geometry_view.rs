@@ -15,6 +15,7 @@ pub struct IndexedGeometryView<'a, I, V = Vertex, T = TriangleList, U = Vec<V>> 
   _phantom: PhantomData<T>,
 }
 
+#[allow(clippy::ptr_arg)]
 impl<'a, I, V, T, U> IndexedGeometryView<'a, I, V, T, U> {
   pub fn new(v: &'a U, index: &'a Vec<I>) -> Self {
     Self {

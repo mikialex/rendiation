@@ -46,7 +46,7 @@ impl TextureSlotStates {
       slot
     });
     let slot_bound = &mut self.slots[active_slot as usize];
-    slot_bound.as_mut().map(|v| {
+    if let Some(v) = slot_bound {
       if v.bind_type != bind_type || v.texture_id != texture_id {
         gl.bind_texture(bind_type as u32, Some(texture));
         *v = TextureSlotBindInfo {
@@ -54,7 +54,7 @@ impl TextureSlotStates {
           texture_id,
         }
       }
-    });
+    };
 
     slot_bound.get_or_insert_with(|| {
       gl.bind_texture(bind_type as u32, Some(texture));

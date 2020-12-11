@@ -26,7 +26,7 @@ pub trait AnyGeometry {
   fn primitive_count(&self) -> usize;
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
 
-  fn as_ref_container<'a>(&'a self) -> AnyGeometryRefContainer<'a, Self>
+  fn as_ref_container(&self) -> AnyGeometryRefContainer<'_, Self>
   where
     Self: Sized,
   {
@@ -84,7 +84,7 @@ pub trait AnyIndexGeometry: AnyGeometry {
   type IndexPrimitive;
 
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive;
-  fn as_ref_index_container<'a>(&'a self) -> AnyIndexGeometryRefContainer<'a, Self>
+  fn as_ref_index_container(&self) -> AnyIndexGeometryRefContainer<'_, Self>
   where
     Self: Sized,
   {

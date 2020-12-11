@@ -57,10 +57,10 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
       node_type: TypeId::of::<T>(),
     }
   }
-  pub fn to_any(self) -> ShaderGraphNodeUntyped {
+  pub fn into_any(self) -> ShaderGraphNodeUntyped {
     unsafe { std::mem::transmute(self) }
   }
-  pub fn from_any(self) -> ShaderGraphNode<T> {
+  pub fn into_typed(self) -> ShaderGraphNode<T> {
     unsafe { std::mem::transmute(self) }
   }
 

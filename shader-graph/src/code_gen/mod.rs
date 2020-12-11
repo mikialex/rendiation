@@ -10,6 +10,7 @@ struct CodeGenCtx {
   depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
 }
 
+#[allow(clippy::clone_double_ref)]
 impl CodeGenCtx {
   fn new() -> Self {
     Self {

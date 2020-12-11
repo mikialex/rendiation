@@ -108,13 +108,12 @@ impl RenderTargetAble for RenderTarget {
       .attachments
       .iter_mut()
       .for_each(|color| color.resize(renderer, size));
-    self
-      .depth
-      .as_mut()
-      .map(|depth| depth.resize(renderer, size));
+    if let Some(depth) = &mut self.depth {
+      depth.resize(renderer, size)
+    };
   }
 
   fn get_size(&self) -> (usize, usize) {
-    self.attachments.iter().next().unwrap().size().to_tuple()
+    self.attachments.get(0).unwrap().size().to_tuple()
   }
 }

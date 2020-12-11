@@ -15,7 +15,7 @@ impl ShaderGraphBuilder {
     modify_graph(|g| {
       let node =
         ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vert));
-      let handle = g.nodes.create_node(node.to_any());
+      let handle = g.nodes.create_node(node.into_any());
       g.nodes
         .connect_node(unsafe { n.to_node().handle.cast_type() }, handle);
 
@@ -30,7 +30,7 @@ impl ShaderGraphBuilder {
       let node = ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(
         ShaderGraphOutput::Frag(index),
       ));
-      let handle = g.nodes.create_node(node.to_any());
+      let handle = g.nodes.create_node(node.into_any());
       g.nodes
         .connect_node(unsafe { n.to_node().handle.cast_type() }, handle);
       g.frag_outputs
@@ -57,7 +57,7 @@ impl ShaderGraphBuilder {
           node_type: ShaderGraphInputNodeType::Vary,
           name: format!("vary{}", index),
         }));
-      let handle = graph.nodes.create_node(return_node.to_any());
+      let handle = graph.nodes.create_node(return_node.into_any());
 
       unsafe { handle.cast_type().into() }
     })

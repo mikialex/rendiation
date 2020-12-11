@@ -10,7 +10,7 @@ pub struct TargetNodeBuilder<'a, T: RenderGraphBackend> {
 }
 
 impl<'a, T: RenderGraphBackend> TargetNodeBuilder<'a, T> {
-  pub fn from_pass(self, pass: &PassNodeBuilder<'a, T>) -> Self {
+  pub fn draw_by_pass(self, pass: &PassNodeBuilder<'a, T>) -> Self {
     self.builder.connect_from(&pass.builder);
     pass
       .builder
