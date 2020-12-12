@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use rainray::*;
 
 fn main() {
@@ -16,22 +14,22 @@ fn main() {
   let mut frame = Frame::new(500, 500);
   let scene = Scene {
     models: vec![
-      Arc::new(Model::new(
+      Model::new(
         Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
         Lambertian::default(),
-      )),
-      Arc::new(Model::new(
+      ),
+      Model::new(
         Sphere::new(Vec3::new(0., -10000., 0.), 10000.0), // ground
         *Lambertian::default().albedo(0.3, 0.4, 0.8),
-      )),
-      Arc::new(Model::new(
+      ),
+      Model::new(
         Sphere::new(Vec3::new(3., 2., 2.), 2.0),
         *Lambertian::default().albedo(0.4, 0.8, 0.2),
-      )),
-      Arc::new(Model::new(
+      ),
+      Model::new(
         Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
         *Lambertian::default().albedo(1.0, 0.1, 0.0),
-      )),
+      ),
     ],
     point_lights: vec![PointLight {
       position: Vec3 {
