@@ -27,15 +27,21 @@ pub fn saturate(v: f32) -> f32 {
   v.min(1.0).max(0.0)
 }
 
-pub struct BlinnPhong {
-  shininess: f32,
+pub struct PhysicalMaterial<T> {
+  pub albedo: Vec3,
+  pub roughness: f32,
+  pub metallic: f32,
+  pub emissive: f32,
+  pub brdf_model: T,
 }
 
-impl CookTorranceBRDF for BlinnPhong {
+pub struct BlinnPhong;
+
+impl CookTorranceBRDF for PhysicalMaterial<BlinnPhong> {
   fn d(&self, n: Vec3, h: Vec3) -> f32 {
-    let normalize_coefficient = (self.shininess + 2.0) / 2.0 * PI;
+    let normalize_coefficient = (self.roughness + 2.0) / 2.0 * PI;
     let cos = n.dot(h);
-    saturate(cos).powf(self.shininess) * normalize_coefficient
+    saturate(cos).powf(self.roughness) * normalize_coefficient
   }
   fn g(&self, l: Vec3, v: Vec3, n: Vec3) -> f32 {
     4.0 * n.dot(l) * n.dot(v)
@@ -44,7 +50,3 @@ impl CookTorranceBRDF for BlinnPhong {
     1.0
   }
 }
-
-// impl CookTorranceBRDF for CookTorrance {
-
-// }

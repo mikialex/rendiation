@@ -2,12 +2,20 @@ use crate::math::Vec3;
 use rendiation_math::Lerp;
 use rendiation_math_entity::Ray3;
 
-pub trait Environment: Sync {
+pub trait Environment: Sync + 'static {
   fn sample(&self, ray: &Ray3) -> Vec3;
 }
 
 pub struct SolidEnvironment {
   pub intensity: Vec3,
+}
+
+impl SolidEnvironment {
+  pub fn black() -> Self {
+    Self {
+      intensity: Vec3::splat(0.0),
+    }
+  }
 }
 
 impl Environment for SolidEnvironment {

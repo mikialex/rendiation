@@ -3,11 +3,11 @@ use crate::math::*;
 use crate::ray::*;
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
-mod cook_torrance;
+mod physical;
 
 pub struct ScatteringEvent {
   pub out_dir: Vec3,
-  pub brdf: Vec3,
+  pub bsdf: Vec3,
   pub pdf: f32,
 }
 
@@ -31,14 +31,14 @@ impl Material for Lambertian {
   fn scatter(&self, _in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
     let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     let pdf = cos / PI;
-    let brdf = self.albedo.value / Vec3::new(PI, PI, PI);
-    Some(ScatteringEvent { out_dir, brdf, pdf })
+    let bsdf = self.albedo.value / Vec3::new(PI, PI, PI);
+    Some(ScatteringEvent { out_dir, bsdf, pdf })
     // // let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     // let pdf = in_dir.reflect(intersection.hit_normal).dot(intersection.hit_normal).abs();
-    // let brdf = self.albedo.value;
+    // let bsdf = self.albedo.value;
     // Some(ScatteringEvent{
     //   out_dir: in_dir.reflect(intersection.hit_normal),
-    //   brdf,
+    //   bsdf,
     //   pdf
     // })
   }

@@ -1,7 +1,7 @@
-use crate::environment::*;
 use crate::light::*;
 use crate::model::*;
 use crate::ray::*;
+use crate::{environment::*, Vec3};
 use rendiation_math_entity::Ray3;
 use std::sync::Arc;
 
@@ -9,6 +9,16 @@ pub struct Scene {
   pub models: Vec<Model>,
   pub point_lights: Vec<PointLight>,
   pub env: Box<dyn Environment>,
+}
+
+impl Default for Scene {
+  fn default() -> Self {
+    Self {
+      models: Vec::new(),
+      point_lights: Vec::new(),
+      env: Box::new(SolidEnvironment::black()),
+    }
+  }
 }
 
 impl Scene {
@@ -24,5 +34,15 @@ impl Scene {
       }
     }
     result
+  }
+
+  pub fn environment(&mut self, env: impl Environment) -> &mut Self {
+    self.env = Box::new(env);
+    self
+  }
+
+  pub fn model(&mut self, model: Model) -> &mut Self {
+    self.models.push(model);
+    self
   }
 }
