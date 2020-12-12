@@ -54,10 +54,11 @@ impl PathTraceIntegrator {
 
         let next_ray = scatter.create_next_ray(intersection.hit_position);
 
-        energy += material.sample_lighting(&intersection) * throughput;
+        energy += material.sample_emissive(&intersection) * throughput;
 
         let cos = scatter.out_dir.dot(intersection.hit_normal).abs();
-        throughput = throughput * cos * scatter.bsdf / scatter.pdf;
+        let bsdf = material.bsdf(&current_ray.direction, &next_ray.direction, &intersection);
+        throughput = throughput * cos * bsdf / scatter.pdf;
 
         // roulette exist
         if throughput.max_channel() < self.roulette_threshold {

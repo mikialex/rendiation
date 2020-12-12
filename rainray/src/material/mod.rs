@@ -7,7 +7,6 @@ mod physical;
 
 pub struct ScatteringEvent {
   pub out_dir: Vec3,
-  pub bsdf: Vec3,
   pub pdf: f32,
 }
 
@@ -19,7 +18,8 @@ impl ScatteringEvent {
 
 pub trait Material: Send + Sync {
   fn scatter(&self, in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>;
-  fn sample_lighting(&self, intersection: &Intersection) -> Vec3;
+  fn bsdf(&self, in_dir: &Vec3, out_dir: &Vec3, intersection: &Intersection) -> Vec3;
+  fn sample_emissive(&self, intersection: &Intersection) -> Vec3;
 }
 
 #[derive(Clone, Copy)]
@@ -31,19 +31,14 @@ impl Material for Lambertian {
   fn scatter(&self, _in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
     let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     let pdf = cos / PI;
-    let bsdf = self.albedo.value / Vec3::new(PI, PI, PI);
-    Some(ScatteringEvent { out_dir, bsdf, pdf })
-    // // let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
-    // let pdf = in_dir.reflect(intersection.hit_normal).dot(intersection.hit_normal).abs();
-    // let bsdf = self.albedo.value;
-    // Some(ScatteringEvent{
-    //   out_dir: in_dir.reflect(intersection.hit_normal),
-    //   bsdf,
-    //   pdf
-    // })
+    Some(ScatteringEvent { out_dir, pdf })
   }
 
-  fn sample_lighting(&self, _: &Intersection) -> Vec3 {
+  fn bsdf(&self, in_dir: &Vec3, out_dir: &Vec3, intersection: &Intersection) -> Vec3 {
+    self.albedo.value / Vec3::splat(PI)
+  }
+
+  fn sample_emissive(&self, _: &Intersection) -> Vec3 {
     Vec3::new(0., 0., 0.)
   }
 }
