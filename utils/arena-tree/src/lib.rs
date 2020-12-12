@@ -118,6 +118,30 @@ impl<T> ArenaTree<T> {
     (parent.unwrap(), child.unwrap())
   }
 
+  pub fn traverse_iter(&self, start: ArenaTreeNodeHandle<T>) -> TraverseIter<'_, T> {
+    TraverseIter {
+      tree: self,
+      visit_stack: vec![start],
+    }
+  }
+
+  pub fn traverse_parent(
+    &mut self,
+    index: ArenaTreeNodeHandle<T>,
+    visitor: &mut impl FnMut(&mut ArenaTreeNode<T>, Option<&mut ArenaTreeNode<T>>),
+  ) {
+    if let Some(parent) = self.get_node(index).parent {
+      self.traverse_parent(parent, visitor)
+    }
+    if let Some(parent_index) = self.get_node(index).parent {
+      let (parent, this) = self.get_parent_child_pair(parent_index, index);
+      visitor(this, Some(parent));
+    } else {
+      let this = self.get_node_mut(index);
+      visitor(this, None);
+    }
+  }
+
   pub fn traverse(
     &mut self,
     start_index: ArenaTreeNodeHandle<T>,
@@ -150,4 +174,22 @@ pub enum NextTraverseVisit {
   Exit,
   VisitChildren,
   SkipChildren,
+}
+
+pub struct TraverseIter<'a, T> {
+  tree: &'a ArenaTree<T>,
+  visit_stack: Vec<ArenaTreeNodeHandle<T>>,
+}
+
+impl<'a, T> Iterator for TraverseIter<'a, T> {
+  type Item = (ArenaTreeNodeHandle<T>, &'a T);
+
+  fn next(&mut self) -> Option<Self::Item> {
+    self.visit_stack.pop().map(|handle| {
+      let nodes = &self.tree;
+      let node = nodes.get_node(handle);
+      self.visit_stack.extend(node.children.iter().cloned());
+      (handle, node.data())
+    })
+  }
 }
