@@ -13,11 +13,13 @@ pub struct AOIntegrator {
   sample_count: u64,
 }
 
-impl AOIntegrator {
-  pub fn new() -> Self {
+impl Default for AOIntegrator {
+  fn default() -> Self {
     Self { sample_count: 100 }
   }
+}
 
+impl AOIntegrator {
   fn sample_ao(&self, ray: &Ray3, scene: &Scene) -> f32 {
     let hit_result = scene.get_min_dist_hit(ray);
 

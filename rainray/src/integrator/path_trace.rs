@@ -17,8 +17,8 @@ pub struct PathTraceIntegrator {
   pub roulette_factor: f32,
 }
 
-impl PathTraceIntegrator {
-  pub fn new() -> Self {
+impl Default for PathTraceIntegrator {
+  fn default() -> Self {
     Self {
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
@@ -27,7 +27,9 @@ impl PathTraceIntegrator {
       roulette_factor: 0.05,
     }
   }
+}
 
+impl PathTraceIntegrator {
   pub fn path_trace(&self, ray: &Ray3, scene: &Scene) -> Vec3 {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);

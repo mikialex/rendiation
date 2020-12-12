@@ -48,13 +48,15 @@ impl Material for Lambertian {
   }
 }
 
-impl Lambertian {
-  pub fn new() -> Self {
+impl Default for Lambertian {
+  fn default() -> Self {
     Self {
       albedo: Color::from_value((0.95, 0.95, 0.95)),
     }
   }
+}
 
+impl Lambertian {
   pub fn albedo(&mut self, r: f32, g: f32, b: f32) -> &Self {
     *self.albedo.mut_r() = r;
     *self.albedo.mut_g() = g;

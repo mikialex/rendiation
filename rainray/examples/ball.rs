@@ -1,31 +1,10 @@
-#![allow(unused)]
-mod environment;
-mod frame;
-mod integrator;
-mod light;
-mod material;
-mod math;
-mod model;
-mod ray;
-mod renderer;
-mod scene;
-
-use crate::environment::*;
-use crate::frame::*;
-use crate::light::*;
-use crate::material::*;
-use crate::math::*;
-use crate::renderer::*;
-use crate::scene::*;
-use integrator::*;
-use rendiation_math::Mat4;
-use rendiation_render_entity::*;
-use std::env;
 use std::sync::Arc;
 
+use rainray::*;
+
 fn main() {
-  let mut renderer = Renderer::new(PathTraceIntegrator::new());
-  let mut perspective = PerspectiveProjection::default();
+  let mut renderer = Renderer::new(PathTraceIntegrator::default());
+  let perspective = PerspectiveProjection::default();
   let mut camera = Camera::new();
   *camera.matrix_mut() = Mat4::lookat(
     Vec3::new(0., 0., 10.),
@@ -37,21 +16,21 @@ fn main() {
   let mut frame = Frame::new(500, 500);
   let scene = Scene {
     models: vec![
-      Arc::new(model::Model::new(
+      Arc::new(Model::new(
         Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
-        Lambertian::new(),
+        Lambertian::default(),
       )),
-      Arc::new(model::Model::new(
+      Arc::new(Model::new(
         Sphere::new(Vec3::new(0., -10000., 0.), 10000.0), // ground
-        *Lambertian::new().albedo(0.3, 0.4, 0.8),
+        *Lambertian::default().albedo(0.3, 0.4, 0.8),
       )),
-      Arc::new(model::Model::new(
+      Arc::new(Model::new(
         Sphere::new(Vec3::new(3., 2., 2.), 2.0),
-        *Lambertian::new().albedo(0.4, 0.8, 0.2),
+        *Lambertian::default().albedo(0.4, 0.8, 0.2),
       )),
-      Arc::new(model::Model::new(
+      Arc::new(Model::new(
         Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
-        *Lambertian::new().albedo(1.0, 0.1, 0.0),
+        *Lambertian::default().albedo(1.0, 0.1, 0.0),
       )),
     ],
     point_lights: vec![PointLight {
@@ -68,7 +47,7 @@ fn main() {
     }),
   };
 
-  let mut current_path = env::current_dir().unwrap();
+  let mut current_path = std::env::current_dir().unwrap();
   println!("working dir {}", current_path.display());
   renderer.render(&camera, &scene, &mut frame);
   current_path.push("result.png");

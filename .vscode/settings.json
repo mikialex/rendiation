@@ -59,6 +59,7 @@
         "perlin",
         "powf",
         "powi",
+        "rainray",
         "rasterization",
         "renderables",
         "rendergraph",
