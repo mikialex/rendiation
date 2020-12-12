@@ -9,6 +9,12 @@ pub struct PipelineShaderInterfaceInfo {
   pub preferred_target_states: TargetStates,
 }
 
+impl Default for PipelineShaderInterfaceInfo {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl PipelineShaderInterfaceInfo {
   pub fn new() -> Self {
     Self {

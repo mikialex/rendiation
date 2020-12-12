@@ -20,6 +20,7 @@ impl Viewport {
     }
   }
 
+  #[allow(clippy::float_cmp)]
   pub fn is_depth_default(&self) -> bool {
     self.min_depth == 0.0 && self.max_depth == 1.0
   }

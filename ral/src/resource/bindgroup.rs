@@ -32,9 +32,9 @@ impl<R: RAL> BindGroupManager<R> {
   pub fn get_bindgroup_boxed<T: BindGroupProvider<R>>(
     &self,
     handle: BindGroupHandle<R, T>,
-  ) -> &Box<dyn BindgroupStorageTrait<R>> {
+  ) -> &dyn BindgroupStorageTrait<R> {
     let handle = unsafe { handle.cast_type() };
-    self.storage.get(handle).unwrap()
+    self.storage.get(handle).unwrap().as_ref()
   }
 
   pub fn get_bindgroup_unwrap<T: BindGroupProvider<R>>(

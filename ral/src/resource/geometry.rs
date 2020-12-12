@@ -109,8 +109,12 @@ impl<T: RAL> ResourceManager<T> {
   pub fn get_geometry_boxed<G: GeometryProvider>(
     &self,
     index: GeometryHandle<T, G>,
-  ) -> &Box<dyn GeometryResource<T>> {
-    self.geometries.get(unsafe { index.cast_type() }).unwrap()
+  ) -> &dyn GeometryResource<T> {
+    self
+      .geometries
+      .get(unsafe { index.cast_type() })
+      .unwrap()
+      .as_ref()
   }
 
   pub fn get_geometry<G: GeometryProvider>(

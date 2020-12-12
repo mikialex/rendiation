@@ -28,7 +28,7 @@ impl<T: RAL> ResourceManager<T> {
     &self,
     drawcall: &Drawcall<T>,
   ) -> (
-    &Box<dyn ShadingStorageTrait<T>>,
+    &dyn ShadingStorageTrait<T>,
     &GeometryResourceInstance<T, AnyGeometryProvider>,
   ) {
     (

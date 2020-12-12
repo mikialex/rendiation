@@ -112,6 +112,7 @@ trait UBOStorageTrait<T: RAL>: Any {
 }
 
 impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
+  #[allow(clippy::transmute_ptr_to_ptr)]
   fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
     if self.dirty {
       let ptr = self.storage.as_ptr();

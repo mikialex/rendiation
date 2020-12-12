@@ -41,9 +41,9 @@ impl<R: RAL> ShadingManager<R> {
   pub fn get_shading_boxed<T: ShadingProvider<R>>(
     &self,
     handle: ShadingHandle<R, T>,
-  ) -> &Box<dyn ShadingStorageTrait<R>> {
+  ) -> &dyn ShadingStorageTrait<R> {
     let handle = unsafe { handle.cast_type() };
-    self.storage.get(handle).unwrap()
+    self.storage.get(handle).unwrap().as_ref()
   }
 
   pub fn add_shading<T: ShadingCreator<R>>(

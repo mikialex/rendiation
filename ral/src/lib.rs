@@ -1,3 +1,6 @@
+#![allow(clippy::new_without_default)]
+#![allow(clippy::option_map_unit_fn)]
+
 use std::ops::Range;
 
 mod resource;
