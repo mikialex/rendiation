@@ -31,6 +31,7 @@ fn main() {
         *Lambertian::default().albedo(1.0, 0.1, 0.0),
       ),
     ],
+    lights: Vec::new(),
     point_lights: vec![PointLight {
       position: Vec3 {
         x: -200.,

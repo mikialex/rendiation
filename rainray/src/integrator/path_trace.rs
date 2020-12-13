@@ -6,7 +6,7 @@ use rendiation_render_entity::{
 };
 
 use super::Integrator;
-use crate::{math::rand, math::Vec3, scene::Scene};
+use crate::{math::rand, math::Vec3, ray::Intersection, scene::Scene, LightSampleResult, Material};
 use rendiation_math::Zero;
 
 pub struct PathTraceIntegrator {
@@ -55,6 +55,8 @@ impl PathTraceIntegrator {
         let next_ray = scatter.create_next_ray(intersection.hit_position);
 
         energy += material.sample_emissive(&intersection) * throughput;
+        energy += self.sample_lights(scene, material.as_ref(), &intersection, &next_ray.direction)
+          * throughput;
 
         let cos = scatter.out_dir.dot(intersection.hit_normal).abs();
         let bsdf = material.bsdf(&current_ray.direction, &next_ray.direction, &intersection);
@@ -74,6 +76,28 @@ impl PathTraceIntegrator {
       }
     }
 
+    energy
+  }
+
+  // next event estimation
+  fn sample_lights(
+    &self,
+    scene: &Scene,
+    material: &dyn Material,
+    intersection: &Intersection,
+    light_out_dir: &Vec3,
+  ) -> Vec3 {
+    let mut energy = Vec3::new(0.0, 0.0, 0.0);
+    for light in &scene.lights {
+      if let Some(LightSampleResult {
+        emissive,
+        light_in_dir,
+      }) = light.sample(intersection.hit_position, scene)
+      {
+        let bsdf = material.bsdf(&light_in_dir, light_out_dir, intersection);
+        energy += bsdf * emissive * light_in_dir.dot(intersection.hit_normal);
+      }
+    }
     energy
   }
 }

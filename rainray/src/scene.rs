@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub struct Scene {
   pub models: Vec<Model>,
   pub point_lights: Vec<PointLight>,
+  pub lights: Vec<Box<dyn Light>>,
   pub env: Box<dyn Environment>,
 }
 
@@ -16,6 +17,7 @@ impl Default for Scene {
     Self {
       models: Vec::new(),
       point_lights: Vec::new(),
+      lights: Vec::new(),
       env: Box::new(SolidEnvironment::black()),
     }
   }
