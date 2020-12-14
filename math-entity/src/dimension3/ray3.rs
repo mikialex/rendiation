@@ -17,9 +17,6 @@ impl Ray3 {
   pub fn from_point_to_point(origin: Vec3<f32>, target: Vec3<f32>) -> Self {
     Ray3::new(origin, (target - origin).normalize())
   }
-  pub fn from_point_to_point_not_normalize(origin: Vec3<f32>, target: Vec3<f32>) -> Self {
-    Ray3::new(origin, target - origin)
-  }
 
   pub fn at(&self, distance: f32) -> Vec3<f32> {
     self.origin + self.direction * distance

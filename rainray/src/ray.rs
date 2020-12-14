@@ -2,7 +2,7 @@ use crate::math::*;
 use rendiation_math::Vector;
 
 pub static MAX_RAY_HIT_DISTANCE: f32 = 1000000.0;
-pub static EPS: f32 = 0.005;
+pub static EPS: f32 = 0.001;
 
 // pub type RayIntersectAble = dyn IntersectAble<Ray3, Option<Intersection>>;
 

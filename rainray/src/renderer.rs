@@ -11,9 +11,9 @@ use rayon::prelude::*;
 use std::time::Instant;
 
 pub struct Renderer {
-  super_sample_rate: usize,
+  pub super_sample_rate: usize,
 
-  integrator: Box<dyn Integrator>,
+  pub integrator: Box<dyn Integrator>,
 }
 
 fn test_intersection_is_visible_to_point(

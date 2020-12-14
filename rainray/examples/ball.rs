@@ -19,7 +19,7 @@ fn main() {
       Lambertian::default(),
     ))
     .model(Model::new(
-      Sphere::new(Vec3::new(0., -10000., 0.), 10000.0),
+      Sphere::new(Vec3::new(0., -10000., 0.), 10000.0), // ground
       *Lambertian::default().albedo(0.3, 0.4, 0.8),
     ))
     .model(Model::new(
@@ -30,6 +30,10 @@ fn main() {
       Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
       *Lambertian::default().albedo(1.0, 0.1, 0.0),
     ))
+    .light(PointLight {
+      position: Vec3::new(8., 8., 6.),
+      intensity: Vec3::new(80., 80., 80.),
+    })
     .environment(GradientEnvironment {
       top_intensity: Vec3::new(0.4, 0.4, 0.4),
       bottom_intensity: Vec3::new(0.8, 0.8, 0.6),

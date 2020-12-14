@@ -46,8 +46,9 @@ impl Scene {
   }
 
   pub fn test_point_visible_to_point(&self, point_a: Vec3, point_b: Vec3) -> bool {
-    let ray = Ray3::from_point_to_point_not_normalize(point_a, point_b);
-    let distance = ray.direction.length();
+    let ray = Ray3::from_point_to_point(point_a, point_b);
+    let distance = (point_a - point_b).length();
+
     if let Some(hit_result) = self.get_min_dist_hit(&ray) {
       hit_result.0.distance > distance
     } else {

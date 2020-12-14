@@ -95,7 +95,7 @@ impl PathTraceIntegrator {
       }) = light.sample(intersection.hit_position, scene)
       {
         let bsdf = material.bsdf(&light_in_dir, light_out_dir, intersection);
-        energy += bsdf * emissive * light_in_dir.dot(intersection.hit_normal);
+        energy += bsdf * emissive * -light_in_dir.dot(intersection.hit_normal);
       }
     }
     energy
