@@ -2,6 +2,7 @@ use crate::light::*;
 use crate::model::*;
 use crate::ray::*;
 use crate::{environment::*, Vec3};
+use rendiation_math::*;
 use rendiation_math_entity::Ray3;
 use std::sync::Arc;
 
@@ -44,6 +45,16 @@ impl Scene {
     result
   }
 
+  pub fn test_point_visible_to_point(&self, point_a: Vec3, point_b: Vec3) -> bool {
+    let ray = Ray3::from_point_to_point_not_normalize(point_a, point_b);
+    let distance = ray.direction.length();
+    if let Some(hit_result) = self.get_min_dist_hit(&ray) {
+      hit_result.0.distance > distance
+    } else {
+      true
+    }
+  }
+
   pub fn environment(&mut self, env: impl Environment) -> &mut Self {
     self.env = Box::new(env);
     self
@@ -51,6 +62,11 @@ impl Scene {
 
   pub fn model(&mut self, model: Model) -> &mut Self {
     self.models.push(model);
+    self
+  }
+
+  pub fn light(&mut self, light: impl Light) -> &mut Self {
+    self.lights.push(Box::new(light));
     self
   }
 }
