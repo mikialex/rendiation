@@ -12,39 +12,28 @@ fn main() {
   camera.update_by(&perspective);
 
   let mut frame = Frame::new(500, 500);
-  let scene = Scene {
-    models: vec![
-      Model::new(
-        Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
-        Lambertian::default(),
-      ),
-      Model::new(
-        Sphere::new(Vec3::new(0., -10000., 0.), 10000.0), // ground
-        *Lambertian::default().albedo(0.3, 0.4, 0.8),
-      ),
-      Model::new(
-        Sphere::new(Vec3::new(3., 2., 2.), 2.0),
-        *Lambertian::default().albedo(0.4, 0.8, 0.2),
-      ),
-      Model::new(
-        Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
-        *Lambertian::default().albedo(1.0, 0.1, 0.0),
-      ),
-    ],
-    lights: Vec::new(),
-    point_lights: vec![PointLight {
-      position: Vec3 {
-        x: -200.,
-        y: -200.,
-        z: 100.,
-      },
-      color: Vec3::new(1.0, 1.0, 1.0),
-    }],
-    env: Box::new(GradientEnvironment {
+  let mut scene = Scene::default();
+  scene
+    .model(Model::new(
+      Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
+      Lambertian::default(),
+    ))
+    .model(Model::new(
+      Sphere::new(Vec3::new(0., -10000., 0.), 10000.0),
+      *Lambertian::default().albedo(0.3, 0.4, 0.8),
+    ))
+    .model(Model::new(
+      Sphere::new(Vec3::new(3., 2., 2.), 2.0),
+      *Lambertian::default().albedo(0.4, 0.8, 0.2),
+    ))
+    .model(Model::new(
+      Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
+      *Lambertian::default().albedo(1.0, 0.1, 0.0),
+    ))
+    .environment(GradientEnvironment {
       top_intensity: Vec3::new(0.4, 0.4, 0.4),
       bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
-    }),
-  };
+    });
 
   let mut current_path = std::env::current_dir().unwrap();
   println!("working dir {}", current_path.display());

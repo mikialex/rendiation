@@ -12,6 +12,12 @@ pub struct Scene {
   pub env: Box<dyn Environment>,
 }
 
+impl AsMut<Self> for Scene {
+  fn as_mut(&mut self) -> &mut Self {
+    self
+  }
+}
+
 impl Default for Scene {
   fn default() -> Self {
     Self {
