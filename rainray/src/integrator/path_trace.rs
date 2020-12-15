@@ -78,7 +78,6 @@ impl Integrator for PathTraceIntegrator {
 
         let next_ray = scatter.create_next_ray(intersection.hit_position);
 
-        energy += material.sample_emissive(&intersection) * throughput;
         energy += self.sample_lights(scene, material.as_ref(), &intersection, &next_ray.direction)
           * throughput;
 

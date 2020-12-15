@@ -19,7 +19,6 @@ impl ScatteringEvent {
 pub trait Material: Send + Sync {
   fn scatter(&self, in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>;
   fn bsdf(&self, in_dir: &Vec3, out_dir: &Vec3, intersection: &Intersection) -> Vec3;
-  fn sample_emissive(&self, intersection: &Intersection) -> Vec3;
 }
 
 #[derive(Clone, Copy)]
@@ -36,10 +35,6 @@ impl Material for Lambertian {
 
   fn bsdf(&self, in_dir: &Vec3, out_dir: &Vec3, intersection: &Intersection) -> Vec3 {
     self.albedo.value / Vec3::splat(PI)
-  }
-
-  fn sample_emissive(&self, _: &Intersection) -> Vec3 {
-    Vec3::new(0., 0., 0.)
   }
 }
 
