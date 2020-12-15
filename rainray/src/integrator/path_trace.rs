@@ -107,13 +107,18 @@ impl Integrator for PathTraceIntegrator {
     &self,
     camera: &Camera,
     scene: &Scene,
-    view_position: Vec2<f32>,
+    frame_size: Vec2<usize>,
+    current: Vec2<usize>,
   ) -> Color<LinearRGBColorSpace<f32>> {
-    let ray = camera.create_screen_ray(view_position);
+    let mut pixel_left_top = current.map(|v| v as f32) / frame_size.map(|v| v as f32);
+    pixel_left_top.y = 1.0 - pixel_left_top.y;
+
+    let jitter_size = frame_size.map(|v| 1.0 / v as f32);
 
     let mut energy_acc = Vec3::zero();
 
     for _ in 0..self.trace_fix_sample_count {
+      let ray = camera.create_screen_ray(pixel_left_top + jitter_size.map(|v| v * rand()));
       energy_acc += self.path_trace(&ray, scene);
     }
 

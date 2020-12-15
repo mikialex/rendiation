@@ -5,7 +5,7 @@ use rendiation_render_entity::{
   Camera, Raycaster,
 };
 
-use crate::{math::rand_point_in_unit_sphere, math::Vec3, scene::Scene};
+use crate::{math::rand, math::rand_point_in_unit_sphere, math::Vec3, scene::Scene};
 
 use super::Integrator;
 
@@ -51,9 +51,13 @@ impl Integrator for AOIntegrator {
     &self,
     camera: &Camera,
     scene: &Scene,
-    view_position: Vec2<f32>,
+    frame_size: Vec2<usize>,
+    current: Vec2<usize>,
   ) -> Color<LinearRGBColorSpace<f32>> {
-    let ray = camera.create_screen_ray(view_position);
+    let mut pixel_left_top = current.map(|v| v as f32) / frame_size.map(|v| v as f32);
+    pixel_left_top.y = 1.0 - pixel_left_top.y;
+    let ray = camera.create_screen_ray(pixel_left_top);
+
     Color::new(Vec3::splat(self.sample_ao(&ray, scene)))
   }
 }

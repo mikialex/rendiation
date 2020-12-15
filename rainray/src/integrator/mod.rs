@@ -16,6 +16,7 @@ pub trait Integrator: Sync {
     &self,
     camera: &Camera,
     scene: &Scene,
-    view_position: Vec2<f32>,
+    frame_size: Vec2<usize>,
+    current: Vec2<usize>,
   ) -> Color<LinearRGBColorSpace<f32>>;
 }
