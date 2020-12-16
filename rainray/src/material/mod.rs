@@ -3,7 +3,8 @@ use crate::math::*;
 use crate::ray::*;
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
-mod physical;
+pub mod physical;
+pub use physical::*;
 
 pub struct ScatteringEvent {
   pub out_dir: Vec3,
@@ -17,8 +18,12 @@ impl ScatteringEvent {
 }
 
 pub trait Material: Send + Sync {
-  fn scatter(&self, in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent>;
-  fn bsdf(&self, in_dir: &Vec3, out_dir: &Vec3, intersection: &Intersection) -> Vec3;
+  fn scatter(&self, in_dir: Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
+    let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
+    let pdf = cos / PI;
+    Some(ScatteringEvent { out_dir, pdf })
+  }
+  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3;
 }
 
 #[derive(Clone, Copy)]
@@ -27,13 +32,7 @@ pub struct Lambertian {
 }
 
 impl Material for Lambertian {
-  fn scatter(&self, _in_dir: &Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
-    let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
-    let pdf = cos / PI;
-    Some(ScatteringEvent { out_dir, pdf })
-  }
-
-  fn bsdf(&self, in_dir: &Vec3, out_dir: &Vec3, intersection: &Intersection) -> Vec3 {
+  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3 {
     self.albedo.value / Vec3::splat(PI)
   }
 }

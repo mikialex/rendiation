@@ -36,7 +36,7 @@ impl PathTraceIntegrator {
     scene: &Scene,
     material: &dyn Material,
     intersection: &Intersection,
-    light_out_dir: &Vec3,
+    light_out_dir: Vec3,
   ) -> Vec3 {
     let mut energy = Vec3::new(0.0, 0.0, 0.0);
     for light in &scene.lights {
@@ -45,7 +45,7 @@ impl PathTraceIntegrator {
         light_in_dir,
       }) = light.sample(intersection.hit_position, scene)
       {
-        let bsdf = material.bsdf(&light_in_dir, light_out_dir, intersection);
+        let bsdf = material.bsdf(light_in_dir * -1.0, light_out_dir, intersection);
         energy += bsdf * emissive * -light_in_dir.dot(intersection.hit_normal);
       }
     }
@@ -71,18 +71,26 @@ impl Integrator for PathTraceIntegrator {
       let (intersection, model) = hit_result.unwrap();
       let material = &model.material;
 
-      if let Some(scatter) = material.scatter(&current_ray.direction, &intersection) {
+      if let Some(scatter) = material.scatter(current_ray.direction, &intersection) {
         if scatter.pdf == 0.0 {
           break;
         }
 
         let next_ray = scatter.create_next_ray(intersection.hit_position);
 
-        energy += self.sample_lights(scene, material.as_ref(), &intersection, &next_ray.direction)
-          * throughput;
+        energy += self.sample_lights(
+          scene,
+          material.as_ref(),
+          &intersection,
+          current_ray.direction * -1.0,
+        ) * throughput;
 
         let cos = scatter.out_dir.dot(intersection.hit_normal).abs();
-        let bsdf = material.bsdf(&current_ray.direction, &next_ray.direction, &intersection);
+        let bsdf = material.bsdf(
+          next_ray.direction,
+          current_ray.direction * -1.0,
+          &intersection,
+        );
         throughput = throughput * cos * bsdf / scatter.pdf;
 
         // roulette exist

@@ -1,26 +1,37 @@
 use rendiation_math::*;
+use rendiation_render_entity::color::Color;
 
 use crate::{
   math::{Vec3, PI},
-  INV_PI,
+  ray::Intersection,
+  Material, INV_PI,
 };
 
 // http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
 // http://www.codinglabs.net/article_physically_based_rendering_cook_torrance.aspx
 // https://blog.selfshadow.com/publications/s2012-shading-course/burley/s2012_pbs_disney_brdf_notes_v3.pdf
-// https://blog.uwa4d.com/archives/1582.html
-pub trait MicroFacetBRDF:
-  MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel
+impl<T> Material for T
+where
+  T: MicroFacetNormalDistribution
+    + MicroFacetGeometricShadow
+    + MicroFacetFresnel
+    + LambertianBase
+    + Send
+    + Sync,
 {
-  fn evaluate(&self, l: Vec3, v: Vec3, n: Vec3) -> Vec3 {
+  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3 {
+    let l = from_in_dir;
+    let v = out_dir;
+    let n = intersection.hit_normal;
     let h = (l + v).normalize();
-    (self.d(n, h) * self.g(l, v, n) * self.f(v, h)) / (4.0 * n.dot(l) * n.dot(v))
+    let specular = (self.d(n, h) * self.g(l, v, n) * self.f(v, h)) / (4.0 * n.dot(l) * n.dot(v));
+    let diffuse = self.albedo() / Vec3::splat(PI);
+    specular + diffuse
   }
 }
 
-impl<T> MicroFacetBRDF for T where
-  T: MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel
-{
+pub trait LambertianBase {
+  fn albedo(&self) -> Vec3;
 }
 
 // this term need normalized to 1
@@ -48,6 +59,12 @@ pub struct PhysicalMaterial<D, G, F> {
   pub normal_distribution_model: D,
   pub geometric_shadow_model: G,
   pub fresnel_model: F,
+}
+
+impl<D, G, F> LambertianBase for PhysicalMaterial<D, G, F> {
+  fn albedo(&self) -> Vec3 {
+    self.albedo
+  }
 }
 
 impl<D, F, G> PhysicalMaterial<D, G, F> {
@@ -84,6 +101,16 @@ impl<G, F> MicroFacetNormalDistribution for PhysicalMaterial<GGX, G, F> {
 
     let root = self.roughness / (cos_theta_2 * (self.roughness * self.roughness - 1.) + 1.);
     INV_PI * (root * root)
+  }
+}
+
+pub struct CookTorrance;
+impl<D, F> MicroFacetGeometricShadow for PhysicalMaterial<D, CookTorrance, F> {
+  fn g(&self, l: Vec3, v: Vec3, n: Vec3) -> f32 {
+    let h = (l + v).normalize();
+    let g = f32::min(n.dot(l) * n.dot(h), n.dot(v) * n.dot(h));
+    let g = (2.0 * g) / v.dot(h);
+    g.min(1.0)
   }
 }
 
