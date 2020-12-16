@@ -12,7 +12,7 @@ use crate::{
 pub trait MicroFacetBRDF:
   MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel
 {
-  fn evaluate(&self, l: Vec3, v: Vec3, n: Vec3) -> f32 {
+  fn evaluate(&self, l: Vec3, v: Vec3, n: Vec3) -> Vec3 {
     let h = (l + v).normalize();
     (self.d(n, h) * self.g(l, v, n) * self.f(v, h)) / (4.0 * n.dot(l) * n.dot(v))
   }
@@ -33,12 +33,8 @@ pub trait MicroFacetGeometricShadow {
 }
 
 pub trait MicroFacetFresnel {
-  fn f(&self, v: Vec3, h: Vec3) -> f32;
+  fn f(&self, v: Vec3, h: Vec3) -> Vec3;
 }
-
-// pub fn f_schlick(v: Vec3, h: Vec3, f0: f32) -> f32 {
-//   f0 + (1.0 - f0) * (1.0 - v.dot(h)).powi(5)
-// }
 
 pub fn saturate(v: f32) -> f32 {
   v.min(1.0).max(0.0)
@@ -48,9 +44,17 @@ pub struct PhysicalMaterial<D, G, F> {
   pub albedo: Vec3,
   pub roughness: f32,
   pub metallic: f32,
+  pub ior: f32,
   pub normal_distribution_model: D,
   pub geometric_shadow_model: G,
   pub fresnel_model: F,
+}
+
+impl<D, F, G> PhysicalMaterial<D, G, F> {
+  pub fn f0(&self) -> Vec3 {
+    let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
+    Vec3::splat(f0).lerp(self.albedo, self.metallic)
+  }
 }
 
 pub struct BlinnPhong;
@@ -80,5 +84,13 @@ impl<G, F> MicroFacetNormalDistribution for PhysicalMaterial<GGX, G, F> {
 
     let root = self.roughness / (cos_theta_2 * (self.roughness * self.roughness - 1.) + 1.);
     INV_PI * (root * root)
+  }
+}
+
+pub struct Schlick;
+impl<D, G> MicroFacetFresnel for PhysicalMaterial<D, G, Schlick> {
+  fn f(&self, v: Vec3, h: Vec3) -> Vec3 {
+    let f0 = self.f0();
+    f0 + (Vec3::splat(1.0) - f0) * (1.0 - v.dot(h)).powi(5)
   }
 }
