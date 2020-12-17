@@ -64,6 +64,21 @@ where
   }
 }
 
+impl Vec3<f32> {
+  /// self should be normalized
+  pub fn local_to_world(&self) -> Mat3<f32> {
+    let ns = if self.x.is_normal() {
+      Vec3::new(self.y, -self.x, 0.0).normalize()
+    } else {
+      Vec3::new(0.0, -self.z, self.y).normalize()
+    };
+    let nss = self.cross(ns);
+    Mat3::new(
+      ns.x, nss.x, self.x, ns.y, nss.y, self.y, ns.z, nss.z, self.z,
+    )
+  }
+}
+
 impl<T> Vec3<T> {
   pub fn set(&mut self, x: T, y: T, z: T) -> &Self {
     self.x = x;

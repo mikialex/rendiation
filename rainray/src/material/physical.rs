@@ -1,3 +1,4 @@
+use crate::math::{concentric_sample_disk, rand, rand2, PI};
 use rendiation_math::*;
 use rendiation_render_entity::color::Color;
 
@@ -34,9 +35,18 @@ pub trait LambertianBase {
   fn albedo(&self) -> Vec3;
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct MicroSurfaceNormalSample {
+  pub micro_surface_normal: Vec3,
+  pub pdf: f32,
+}
+
 // this term need normalized to 1
 pub trait MicroFacetNormalDistribution {
   fn d(&self, n: Vec3, h: Vec3) -> f32;
+
+  /// sample a micro surface normal in normal's tangent space.
+  fn sample(&self, normal: Vec3) -> MicroSurfaceNormalSample;
 }
 
 pub trait MicroFacetGeometricShadow {
@@ -77,9 +87,13 @@ impl<D, F, G> PhysicalMaterial<D, G, F> {
 pub struct BlinnPhong;
 impl<G, F> MicroFacetNormalDistribution for PhysicalMaterial<BlinnPhong, G, F> {
   fn d(&self, n: Vec3, h: Vec3) -> f32 {
-    let normalize_coefficient = (self.roughness + 2.0) / 2.0 * PI;
-    let cos = n.dot(h);
-    saturate(cos).powf(self.roughness) * normalize_coefficient
+    let roughness_2 = self.roughness * self.roughness;
+    let normalize_coefficient = 1. / (PI * roughness_2);
+    let cos = n.dot(h).max(0.0);
+    cos.powf(2.0 / roughness_2 - 2.0) * normalize_coefficient
+  }
+  fn sample(&self, normal: Vec3) -> MicroSurfaceNormalSample {
+    todo!()
   }
 }
 
@@ -91,6 +105,25 @@ impl<G, F> MicroFacetNormalDistribution for PhysicalMaterial<Beckmann, G, F> {
     let m2 = self.roughness * self.roughness;
     ((nh2 - 1.0) / (m2 * nh2)).exp() / (m2 * PI * nh2 * nh2)
   }
+  fn sample(&self, normal: Vec3) -> MicroSurfaceNormalSample {
+    // PIT for Beckmann distribution microfacet normal
+    // θ = arctan √(-m^2 ln U)
+    let m2 = self.roughness * self.roughness;
+    let theta = (m2 * -rand().ln()).sqrt().atan();
+    let (sin_t, cos_t) = theta.sin_cos();
+
+    // Generate halfway vector by sampling azimuth uniformly
+    let disk_sample = concentric_sample_disk(rand2());
+    let micro_surface_normal = Vec3::new(disk_sample.x * sin_t, disk_sample.y * sin_t, cos_t);
+
+    // p = 1 / (πm^2 cos^3 θ) * e^(-tan^2(θ) / m^2)
+    let pdf = (PI * m2 * cos_t.powi(3)).recip() * (-(sin_t / cos_t).powi(2) / m2).exp();
+
+    MicroSurfaceNormalSample {
+      micro_surface_normal,
+      pdf,
+    }
+  }
 }
 
 pub struct GGX;
@@ -101,6 +134,9 @@ impl<G, F> MicroFacetNormalDistribution for PhysicalMaterial<GGX, G, F> {
 
     let root = self.roughness / (cos_theta_2 * (self.roughness * self.roughness - 1.) + 1.);
     INV_PI * (root * root)
+  }
+  fn sample(&self, normal: Vec3) -> MicroSurfaceNormalSample {
+    todo!()
   }
 }
 
