@@ -23,6 +23,11 @@ pub trait Vector<T: Scalar>:
   }
 
   #[inline]
+  fn reflect(&self, normal: Self) -> Self {
+    *self - normal * self.dot(normal) * T::two()
+  }
+
+  #[inline]
   fn length(&self) -> T {
     self.length2().sqrt()
   }

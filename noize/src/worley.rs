@@ -1,4 +1,4 @@
-use rendiation_math::Vec3;
+use rendiation_math::{Vec3, Vector};
 
 pub struct WorleyNoise {
   repeat: i32,
@@ -87,7 +87,7 @@ impl WorleyNoise {
     d = d.min(self.distance_to_feature(point, Vec3::new(cx, cy + 1, cz + 1)));
     d = d.min(self.distance_to_feature(point, Vec3::new(cx + 1, cy + 1, cz + 1)));
 
-    d  / 3f32.sqrt()
+    d / 3f32.sqrt()
   }
 }
 

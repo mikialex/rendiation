@@ -2,7 +2,7 @@ use crate::frame::*;
 use crate::math::*;
 use crate::ray::*;
 use crate::{integrator::Integrator, scene::*};
-use rendiation_math::{Vec2, Zero};
+use rendiation_math::{Vec2, Vector, Zero};
 use rendiation_render_entity::{color::*, Camera, Raycaster};
 
 use indicatif::ProgressBar;
@@ -33,7 +33,7 @@ fn test_intersection_is_visible_to_point(
 impl Renderer {
   pub fn new(integrator: impl Integrator + 'static) -> Renderer {
     Renderer {
-      sample_per_pixel: 10000,
+      sample_per_pixel: 100,
       integrator: Box::new(integrator),
     }
   }

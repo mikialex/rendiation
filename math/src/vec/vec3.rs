@@ -59,16 +59,6 @@ where
   }
 
   #[inline]
-  pub fn reflect(&self, normal: Self) -> Self {
-    *self - normal * self.dot(normal) * T::two()
-  }
-
-  #[inline]
-  pub fn distance(&self, b: Self) -> T {
-    (*self - b).length()
-  }
-
-  #[inline]
   pub fn max_channel(self) -> T {
     self.x.max(self.y).max(self.z)
   }

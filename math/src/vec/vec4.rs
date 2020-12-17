@@ -43,16 +43,6 @@ where
   }
 }
 
-impl<T> Vec4<T>
-where
-  T: Scalar,
-{
-  #[inline]
-  pub fn distance(&self, b: Self) -> T {
-    (*self - b).length()
-  }
-}
-
 impl<T> Math for Vec4<T>
 where
   T: Copy + Math,

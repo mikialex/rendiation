@@ -55,11 +55,6 @@ where
       y: x * s + y * c,
     }
   }
-
-  #[inline]
-  pub fn distance(&self, b: Self) -> T {
-    (*self - b).length()
-  }
 }
 
 impl<T> Math for Vec2<T>
