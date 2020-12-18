@@ -8,6 +8,7 @@ mod math;
 mod model;
 mod ray;
 mod renderer;
+mod sampler;
 mod scene;
 
 pub use environment::*;
@@ -20,4 +21,5 @@ pub use model::*;
 pub use renderer::*;
 pub use rendiation_math::Mat4;
 pub use rendiation_render_entity::*;
+pub use sampler::*;
 pub use scene::*;

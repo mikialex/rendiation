@@ -16,28 +16,41 @@ fn main() {
   scene
     .model(Model::new(
       Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
-      // Lambertian::default(),
       PhysicalMaterial {
-        albedo: Vec3::new(0.1, 0.3, 0.3),
-        roughness: 0.1,
-        metallic: 0.9,
-        ior: 1.6,
-        normal_distribution_model: BlinnPhong,
-        geometric_shadow_model: CookTorrance,
-        fresnel_model: Schlick,
+        specular: Specular {
+          roughness: 0.1,
+          metallic: 0.9,
+          ior: 1.6,
+          normal_distribution_model: BlinnPhong,
+          geometric_shadow_model: CookTorrance,
+          fresnel_model: Schlick,
+        },
+        diffuse: Diffuse {
+          albedo: Vec3::new(0.1, 0.3, 0.3),
+          diffuse_model: Lambertian,
+        },
       },
     ))
     .model(Model::new(
       Sphere::new(Vec3::new(0., -10000., 0.), 10000.0), // ground
-      *Lambertian::default().albedo(0.3, 0.4, 0.8),
+      Diffuse {
+        albedo: Vec3::new(0.3, 0.4, 0.8),
+        diffuse_model: Lambertian,
+      },
     ))
     .model(Model::new(
       Sphere::new(Vec3::new(3., 2., 2.), 2.0),
-      *Lambertian::default().albedo(0.4, 0.8, 0.2),
+      Diffuse {
+        albedo: Vec3::new(0.4, 0.8, 0.2),
+        diffuse_model: Lambertian,
+      },
     ))
     .model(Model::new(
       Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
-      *Lambertian::default().albedo(1.0, 0.7, 0.0),
+      Diffuse {
+        albedo: Vec3::new(1.0, 0.7, 0.0),
+        diffuse_model: Lambertian,
+      },
     ))
     .light(PointLight {
       position: Vec3::new(8., 8., 6.),

@@ -21,35 +21,7 @@ pub trait Material: Send + Sync {
   fn scatter(&self, in_dir: Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
     let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     let pdf = cos / PI;
-    Some(ScatteringEvent { out_dir, pdf })
+    ScatteringEvent { out_dir, pdf }.into()
   }
   fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3;
-}
-
-#[derive(Clone, Copy)]
-pub struct Lambertian {
-  albedo: Color<LinearRGBColorSpace<f32>>,
-}
-
-impl Material for Lambertian {
-  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3 {
-    self.albedo.value / Vec3::splat(PI)
-  }
-}
-
-impl Default for Lambertian {
-  fn default() -> Self {
-    Self {
-      albedo: Color::from_value((0.95, 0.95, 0.95)),
-    }
-  }
-}
-
-impl Lambertian {
-  pub fn albedo(&mut self, r: f32, g: f32, b: f32) -> &Self {
-    *self.albedo.mut_r() = r;
-    *self.albedo.mut_g() = g;
-    *self.albedo.mut_b() = b;
-    self
-  }
 }
