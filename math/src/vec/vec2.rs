@@ -12,16 +12,6 @@ pub struct Vec2<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec2<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec2<T> {}
 
-impl<T> Vec2<T>
-where
-  T: Copy,
-{
-  #[inline(always)]
-  pub fn to_tuple(&self) -> (T, T) {
-    (self.x, self.y)
-  }
-}
-
 impl<T: Scalar> VectorDimension<2> for Vec2<T> {}
 impl<T: Scalar> VectorImpl for Vec2<T> {}
 impl<T: Scalar> Vector<T> for Vec2<T> {
@@ -251,32 +241,6 @@ where
   fn one() -> Self {
     Self {
       x: T::one(),
-      y: T::one(),
-    }
-  }
-}
-
-impl<T> UnitX for Vec2<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_x() -> Self {
-    Self {
-      x: T::one(),
-      y: T::zero(),
-    }
-  }
-}
-
-impl<T> UnitY for Vec2<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_y() -> Self {
-    Self {
-      x: T::zero(),
       y: T::one(),
     }
   }

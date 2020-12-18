@@ -33,16 +33,6 @@ impl<T: Scalar> Vector<T> for Vec4<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
 
-impl<T> Vec4<T>
-where
-  T: Copy,
-{
-  #[inline(always)]
-  pub fn to_tuple(&self) -> (T, T, T, T) {
-    (self.x, self.y, self.z, self.w)
-  }
-}
-
 impl<T> Math for Vec4<T>
 where
   T: Copy + Math,
@@ -417,66 +407,6 @@ where
       x: T::one(),
       y: T::one(),
       z: T::one(),
-      w: T::one(),
-    }
-  }
-}
-
-impl<T> UnitX for Vec4<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_x() -> Self {
-    Self {
-      x: T::one(),
-      y: T::zero(),
-      z: T::zero(),
-      w: T::one(),
-    }
-  }
-}
-
-impl<T> UnitY for Vec4<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_y() -> Self {
-    Self {
-      x: T::zero(),
-      y: T::one(),
-      z: T::zero(),
-      w: T::one(),
-    }
-  }
-}
-
-impl<T> UnitZ for Vec4<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_z() -> Self {
-    Self {
-      x: T::zero(),
-      y: T::one(),
-      z: T::zero(),
-      w: T::one(),
-    }
-  }
-}
-
-impl<T> UnitW for Vec4<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_w() -> Self {
-    Self {
-      x: T::zero(),
-      y: T::zero(),
-      z: T::zero(),
       w: T::one(),
     }
   }

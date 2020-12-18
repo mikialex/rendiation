@@ -33,16 +33,6 @@ impl<T: Scalar> Vector<T> for Vec3<T> {
 
 impl<T> Vec3<T>
 where
-  T: Copy,
-{
-  #[inline(always)]
-  pub fn to_tuple(&self) -> (T, T, T) {
-    (self.x, self.y, self.z)
-  }
-}
-
-impl<T> Vec3<T>
-where
   T: Scalar,
 {
   /// input: Matrix4 affine matrix
@@ -412,48 +402,6 @@ where
       x: T::one(),
       y: T::one(),
       z: T::one(),
-    }
-  }
-}
-
-impl<T> UnitX for Vec3<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_x() -> Self {
-    Self {
-      x: T::one(),
-      y: T::zero(),
-      z: T::zero(),
-    }
-  }
-}
-
-impl<T> UnitY for Vec3<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_y() -> Self {
-    Self {
-      x: T::zero(),
-      y: T::one(),
-      z: T::zero(),
-    }
-  }
-}
-
-impl<T> UnitZ for Vec3<T>
-where
-  T: One + Zero,
-{
-  #[inline(always)]
-  fn unit_z() -> Self {
-    Self {
-      x: T::zero(),
-      y: T::one(),
-      z: T::zero(),
     }
   }
 }

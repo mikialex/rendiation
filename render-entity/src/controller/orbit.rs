@@ -105,7 +105,7 @@ impl<T: TransformedObject> Controller<T> for OrbitController {
 
     let matrix = target.matrix_mut();
     let eye = self.spherical.to_vec3();
-    *matrix = Mat4::lookat(eye, self.spherical.center, Vec3::unit_y());
+    *matrix = Mat4::lookat(eye, self.spherical.center, Vec3::new(0.0, 1.0, 0.0));
 
     // update damping effect
     if self.enable_damping {

@@ -14,23 +14,6 @@ pub trait VectorImpl {}
 // this trait for mark the vector's dimension
 pub trait VectorDimension<const D: usize> {}
 
-// pub trait NormalizedVector<T: Scalar>: Vector<T> {
-//   #[inline]
-//   fn normalize(&self) -> Self {
-//     *self
-//   }
-
-//   #[inline]
-//   fn length(&self) -> T {
-//     T::one()
-//   }
-
-//   #[inline]
-//   fn length2(&self) -> T {
-//     T::one()
-//   }
-// }
-
 // this trait abstract for ops on vector
 pub trait Vector<T: Scalar>:
   Sized + Mul<T, Output = Self> + Sub<Self, Output = Self> + Add<Self, Output = Self> + Copy

@@ -22,9 +22,19 @@ impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
 }
 
 impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
+  #[inline]
   pub fn normalize(&self) -> Self {
-    println!("skip");
     *self
+  }
+
+  #[inline]
+  pub fn length(&self) -> T {
+    T::one()
+  }
+
+  #[inline]
+  pub fn length2(&self) -> T {
+    T::one()
   }
 }
 

@@ -10,18 +10,7 @@ pub trait Two: Sized {
 pub trait Three: Sized {
   fn three() -> Self;
 }
-pub trait UnitX: Sized {
-  fn unit_x() -> Self;
-}
-pub trait UnitY: Sized {
-  fn unit_y() -> Self;
-}
-pub trait UnitZ: Sized {
-  fn unit_z() -> Self;
-}
-pub trait UnitW: Sized {
-  fn unit_w() -> Self;
-}
+
 pub trait Half: Sized {
   fn half() -> Self;
 }
