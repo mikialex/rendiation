@@ -1,30 +1,52 @@
-// use crate::*;
-// use std::ops::Deref;
+use crate::*;
+use std::{
+  marker::PhantomData,
+  ops::{Deref, DerefMut},
+};
 
-// #[derive(Debug, Copy, Clone)]
-// pub struct Normalized<T: Vector<T>>(T);
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct Normalized<T>(T);
 
-// impl<T: Vector<T>> Normalized<T> {
-//   pub fn value(&self) -> T {
-//     self.0
-//   }
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct Space<T, S> {
+  value: T,
+  space_marker: PhantomData<S>,
+}
 
-//   pub fn into_normalized(inner: T) -> Self {
-//     Self(inner.normalize())
-//   }
+impl<T, S> Deref for Space<T, S> {
+  type Target = T;
+  #[inline(always)]
+  fn deref(&self) -> &Self::Target {
+    &self.value
+  }
+}
+impl<T, S> DerefMut for Space<T, S> {
+  #[inline(always)]
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.value
+  }
+}
 
-//   pub fn normalize(&self) -> Self {
-//     *self // normalized is normalized
-//   }
+impl<T> Deref for Normalized<T> {
+  type Target = T;
+  #[inline(always)]
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+impl<T> DerefMut for Normalized<T> {
+  #[inline(always)]
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.0
+  }
+}
 
-//   pub unsafe fn as_normalized(inner: T) -> Self {
-//     Self(inner)
-//   }
-// }
-
-// impl<T: Vector<T>> Deref for Normalized<T> {
-//   type Target = T;
-//   fn deref(&self) -> &Self::Target {
-//     &self.0
-//   }
-// }
+#[test]
+fn test() {
+  let a = Normalized(Vec3::new(1., 1., 1.));
+  let b = Vec3::new(1., 1., 1.);
+  let _c = *a + b;
+  a.normalize();
+}
