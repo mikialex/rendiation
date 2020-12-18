@@ -821,18 +821,6 @@ where
   }
 }
 
-impl<T> fmt::Binary for Quat<T>
-where
-  T: Scalar + Half,
-{
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let len = self.length();
-    let decimals = f.precision().unwrap_or(3);
-    let string = format!("{:.*?}", decimals, len);
-    f.pad_integral(true, "", &string)
-  }
-}
-
 impl<T> From<Vec4<T>> for Quat<T>
 where
   T: Copy + Div<Output = T>,

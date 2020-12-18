@@ -254,27 +254,3 @@ where
     write!(f, "({:?}, {:?})", self.x, self.y)
   }
 }
-
-impl<T> fmt::Binary for Vec2<T>
-where
-  T: Scalar,
-{
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let len = self.length();
-    let decimals = f.precision().unwrap_or(3);
-    let string = format!("{:.*?}", decimals, len);
-    f.pad_integral(true, "", &string)
-  }
-}
-
-impl<T> AsRef<Vec2<T>> for Vec2<T> {
-  fn as_ref(&self) -> &Vec2<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Vec2<T>> for Vec2<T> {
-  fn as_mut(&mut self) -> &mut Vec2<T> {
-    self
-  }
-}

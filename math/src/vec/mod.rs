@@ -143,6 +143,10 @@ macro_rules! impl_scalar_ops {
   };
 }
 
+impl_as_ref_self!(Vec2);
+impl_as_ref_self!(Vec3);
+impl_as_ref_self!(Vec4);
+
 impl_as_ptr!(Vec2);
 impl_as_ptr!(Vec3);
 impl_as_ptr!(Vec4);

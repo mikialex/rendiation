@@ -415,30 +415,6 @@ where
   }
 }
 
-impl<T> fmt::Binary for Vec3<T>
-where
-  T: Scalar,
-{
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let len = self.length();
-    let decimals = f.precision().unwrap_or(3);
-    let string = format!("{:.*?}", decimals, len);
-    f.pad_integral(true, "", &string)
-  }
-}
-
-impl<T> AsRef<Vec3<T>> for Vec3<T> {
-  fn as_ref(&self) -> &Vec3<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Vec3<T>> for Vec3<T> {
-  fn as_mut(&mut self) -> &mut Vec3<T> {
-    self
-  }
-}
-
 impl Vec3<f32> {
   pub fn apply_mat4(&self, mat: &Mat4<f32>) -> Self {
     let w = 1. / (mat.a4 * self.x + mat.b4 * self.y + mat.c4 * self.z + mat.d4);

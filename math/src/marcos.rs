@@ -1,3 +1,21 @@
+
+#[macro_export]
+macro_rules! impl_as_ref_self {
+  ($ArrayN:ident) => {
+    impl<T> AsRef<Self> for $ArrayN<T> {
+      fn as_ref(&self) -> &Self {
+        self
+      }
+    }
+    
+    impl<T> AsMut<Self> for $ArrayN<T> {
+      fn as_mut(&mut self) -> &mut Self {
+        self
+      }
+    }    
+  }
+}
+
 /// Generate array conversion implementations for a compound array type
 #[macro_export]
 macro_rules! impl_fixed_array_conversions {

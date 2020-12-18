@@ -424,27 +424,3 @@ where
     )
   }
 }
-
-impl<T> fmt::Binary for Vec4<T>
-where
-  T: Scalar,
-{
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    let len = self.length();
-    let decimals = f.precision().unwrap_or(3);
-    let string = format!("{:.*?}", decimals, len);
-    f.pad_integral(true, "", &string)
-  }
-}
-
-impl<T> AsRef<Vec4<T>> for Vec4<T> {
-  fn as_ref(&self) -> &Vec4<T> {
-    self
-  }
-}
-
-impl<T> AsMut<Vec4<T>> for Vec4<T> {
-  fn as_mut(&mut self) -> &mut Vec4<T> {
-    self
-  }
-}
