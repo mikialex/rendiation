@@ -1,4 +1,4 @@
-use rendiation_math::{Vec2, Vector};
+use rendiation_math::{InnerProductSpace, Vec2, Vector};
 use rendiation_math_entity::Ray3;
 use rendiation_render_entity::{
   color::{Color, LinearRGBColorSpace},

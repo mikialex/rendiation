@@ -1,5 +1,4 @@
 use crate::{Box3, HyperSphere, LebesgueMeasurable};
-use rendiation_math::math::Math;
 use rendiation_math::*;
 
 pub type Sphere = HyperSphere<f32, 3>;

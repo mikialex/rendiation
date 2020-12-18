@@ -1,6 +1,6 @@
 use rendiation_math::*;
 
-use crate::{ContainAble, LebesgueMeasurable, SolidEntity, SpaceEntity};
+use crate::{ContainAble, InnerProductSpace, LebesgueMeasurable, SolidEntity, SpaceEntity};
 
 pub struct HyperSphere<T: Scalar, const D: usize> {
   pub center: VectorType<T, D>,
@@ -49,7 +49,7 @@ where
 {
   pub fn zero() -> Self {
     Self {
-      center: <VectorMark<T> as DimensionalVec<T, D>>::Type::zero(),
+      center: Vector::zero(),
       radius: T::zero(),
     }
   }

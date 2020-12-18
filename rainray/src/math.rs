@@ -1,4 +1,4 @@
-use rendiation_math::{Vec2, Vec3 as V3, Vector};
+use rendiation_math::{InnerProductSpace, Vec2, Vec3 as V3, Vector};
 
 pub type Vec3 = V3<f32>;
 pub use rendiation_math_entity::*;

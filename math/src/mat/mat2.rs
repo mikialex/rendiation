@@ -58,25 +58,25 @@ where
 
 impl<T> Mat2<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   pub fn rotate_x(theta: T) -> Self {
-    let (_s, c) = theta.sincos();
+    let (_s, c) = theta.sin_cos();
     Mat2::new(T::one(), T::zero(), T::zero(), c)
   }
 
   pub fn rotate_y(theta: T) -> Self {
-    let (_s, c) = theta.sincos();
+    let (_s, c) = theta.sin_cos();
     Mat2::new(c, T::zero(), T::zero(), T::one())
   }
 
   pub fn rotate_z(theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
     Mat2::new(c, -s, s, c)
   }
 
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let x = axis.x;
     let y = axis.y;
@@ -112,7 +112,10 @@ where
   }
 }
 
-impl<T: Arithmetic> Zero for Mat2<T> {
+impl<T> num_traits::Zero for Mat2<T>
+where
+  T: num_traits::Zero + Copy + PartialEq,
+{
   #[inline(always)]
   fn zero() -> Self {
     Mat2 {
@@ -122,9 +125,16 @@ impl<T: Arithmetic> Zero for Mat2<T> {
       b2: T::zero(),
     }
   }
+  #[inline(always)]
+  fn is_zero(&self) -> bool {
+    self.eq(&Self::zero())
+  }
 }
 
-impl<T: Arithmetic> One for Mat2<T> {
+impl<T> num_traits::One for Mat2<T>
+where
+  T: num_traits::One + num_traits::Zero + Copy,
+{
   #[inline(always)]
   fn one() -> Self {
     Mat2 {

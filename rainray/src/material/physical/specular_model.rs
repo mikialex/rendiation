@@ -1,4 +1,4 @@
-use rendiation_math::Vector;
+use rendiation_math::{InnerProductSpace, Vector};
 
 use crate::{
   math::{concentric_sample_disk, rand, rand2, Vec3, INV_PI, PI},

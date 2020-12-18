@@ -287,7 +287,7 @@ where
   }
 
   pub fn rotation(axis: &Vec3<T>, theta: T) -> Self {
-    let (s, c) = (theta * T::half()).sincos();
+    let (s, c) = (theta * T::half()).sin_cos();
 
     Self {
       w: c,
@@ -302,7 +302,7 @@ where
     let cos_angle = a.dot(*b);
 
     let t0 = T::one() + cos_angle;
-    let t1 = (t0 + t0).rsqrt();
+    let t1 = (t0 + t0).sqrt().recip();
     let t2 = (t0 + t0) * t1 * T::half();
 
     Self {
@@ -314,9 +314,9 @@ where
   }
 
   pub fn euler_xyz(euler: &Vec3<T>) -> Self {
-    let p = (euler.x * T::half()).sincos();
-    let h = (euler.y * T::half()).sincos();
-    let b = (euler.z * T::half()).sincos();
+    let p = (euler.x * T::half()).sin_cos();
+    let h = (euler.y * T::half()).sin_cos();
+    let b = (euler.z * T::half()).sin_cos();
 
     let sp = p.0;
     let sb = b.0;
@@ -334,9 +334,9 @@ where
   }
 
   pub fn euler_zxy(euler: &Vec3<T>) -> Self {
-    let p = (euler.x * T::half()).sincos();
-    let h = (euler.y * T::half()).sincos();
-    let b = (euler.z * T::half()).sincos();
+    let p = (euler.x * T::half()).sin_cos();
+    let h = (euler.y * T::half()).sin_cos();
+    let b = (euler.z * T::half()).sin_cos();
 
     let sp = p.0;
     let sb = b.0;
@@ -426,336 +426,9 @@ where
   }
 }
 
-impl<T> Math for Quat<T>
-where
-  T: Copy + Math,
-{
-  fn abs(self) -> Self {
-    let mx = self.x.abs();
-    let my = self.y.abs();
-    let mz = self.z.abs();
-    let mw = self.w.abs();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn recip(self) -> Self {
-    let mx = self.x.recip();
-    let my = self.y.recip();
-    let mz = self.z.recip();
-    let mw = self.w.recip();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn sqrt(self) -> Self {
-    let mx = self.x.sqrt();
-    let my = self.y.sqrt();
-    let mz = self.z.sqrt();
-    let mw = self.w.sqrt();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn rsqrt(self) -> Self {
-    let mx = self.x.rsqrt();
-    let my = self.y.rsqrt();
-    let mz = self.z.rsqrt();
-    let mw = self.w.rsqrt();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn sin(self) -> Self {
-    let mx = self.x.sin();
-    let my = self.y.sin();
-    let mz = self.z.sin();
-    let mw = self.w.sin();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn cos(self) -> Self {
-    let mx = self.x.cos();
-    let my = self.y.cos();
-    let mz = self.z.cos();
-    let mw = self.w.cos();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn tan(self) -> Self {
-    let mx = self.x.tan();
-    let my = self.y.tan();
-    let mz = self.z.tan();
-    let mw = self.w.tan();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn sincos(self) -> (Quat<T>, Quat<T>) {
-    let mx = self.x.sincos();
-    let my = self.y.sincos();
-    let mz = self.z.sincos();
-    let mw = self.w.sincos();
-    (
-      Self {
-        x: mx.0,
-        y: my.0,
-        z: mz.0,
-        w: mw.0,
-      },
-      Self {
-        x: mx.1,
-        y: my.1,
-        z: mz.1,
-        w: mw.1,
-      },
-    )
-  }
-
-  fn acos(self) -> Self {
-    let mx = self.x.acos();
-    let my = self.y.acos();
-    let mz = self.z.acos();
-    let mw = self.w.acos();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn asin(self) -> Self {
-    let mx = self.x.asin();
-    let my = self.y.asin();
-    let mz = self.z.asin();
-    let mw = self.w.asin();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn atan(self) -> Self {
-    let mx = self.x.atan();
-    let my = self.y.atan();
-    let mz = self.z.atan();
-    let mw = self.w.atan();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn exp(self) -> Self {
-    let mx = self.x.exp();
-    let my = self.y.exp();
-    let mz = self.z.exp();
-    let mw = self.w.exp();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn exp2(self) -> Self {
-    let mx = self.x.exp2();
-    let my = self.y.exp2();
-    let mz = self.z.exp2();
-    let mw = self.w.exp2();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn log(self, rhs: Self) -> Self {
-    let mx = self.x.log(rhs.x);
-    let my = self.y.log(rhs.y);
-    let mz = self.z.log(rhs.z);
-    let mw = self.w.log(rhs.w);
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn log2(self) -> Self {
-    let mx = self.x.log2();
-    let my = self.y.log2();
-    let mz = self.z.log2();
-    let mw = self.w.log2();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn log10(self) -> Self {
-    let mx = self.x.log10();
-    let my = self.y.log10();
-    let mz = self.z.log10();
-    let mw = self.w.log10();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn to_radians(self) -> Self {
-    let mx = self.x.to_radians();
-    let my = self.y.to_radians();
-    let mz = self.z.to_radians();
-    let mw = self.w.to_radians();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn to_degrees(self) -> Self {
-    let mx = self.x.to_degrees();
-    let my = self.y.to_degrees();
-    let mz = self.z.to_degrees();
-    let mw = self.w.to_degrees();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn min(self, rhs: Self) -> Self {
-    let mx = self.x.min(rhs.x);
-    let my = self.y.min(rhs.y);
-    let mz = self.z.min(rhs.z);
-    let mw = self.w.min(rhs.x);
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn max(self, rhs: Self) -> Self {
-    let mx = self.x.max(rhs.x);
-    let my = self.y.max(rhs.y);
-    let mz = self.z.max(rhs.z);
-    let mw = self.w.max(rhs.w);
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn saturate(self) -> Self {
-    let mx = self.x.saturate();
-    let my = self.y.saturate();
-    let mz = self.z.saturate();
-    let mw = self.w.saturate();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  #[inline]
-  fn snorm2unorm(self) -> Self {
-    let mx = self.x.snorm2unorm();
-    let my = self.y.snorm2unorm();
-    let mz = self.z.snorm2unorm();
-    let mw = self.w.snorm2unorm();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  #[inline]
-  fn unorm2snorm(self) -> Self {
-    let mx = self.x.unorm2snorm();
-    let my = self.y.unorm2snorm();
-    let mz = self.z.unorm2snorm();
-    let mw = self.w.unorm2snorm();
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-
-  fn clamp(self, minval: Self, maxval: Self) -> Self {
-    let mx = self.x.clamp(minval.x, maxval.x);
-    let my = self.y.clamp(minval.y, maxval.y);
-    let mz = self.z.clamp(minval.z, maxval.z);
-    let mw = self.w.clamp(minval.w, maxval.w);
-    Self {
-      x: mx,
-      y: my,
-      z: mz,
-      w: mw,
-    }
-  }
-}
-
 impl<T> Lerp<T> for Quat<T>
 where
-  T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
+  T: Copy + num_traits::One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
@@ -778,9 +451,9 @@ where
   }
 }
 
-impl<T> Zero for Quat<T>
+impl<T> num_traits::Zero for Quat<T>
 where
-  T: Zero,
+  T: num_traits::Zero + PartialEq,
 {
   #[inline(always)]
   fn zero() -> Self {
@@ -791,11 +464,15 @@ where
       w: T::zero(),
     }
   }
+  #[inline(always)]
+  fn is_zero(&self) -> bool {
+    self.eq(&Self::zero())
+  }
 }
 
-impl<T> One for Quat<T>
+impl<T> num_traits::One for Quat<T>
 where
-  T: One,
+  T: num_traits::One,
 {
   #[inline(always)]
   fn one() -> Self {

@@ -2,7 +2,7 @@ use crate::frame::*;
 use crate::math::*;
 use crate::ray::*;
 use crate::{integrator::Integrator, scene::*};
-use rendiation_math::{Vec2, Vector, Zero};
+use rendiation_math::{InnerProductSpace, Vec2, Vector, Zero};
 use rendiation_render_entity::{color::*, Camera, Raycaster};
 
 use indicatif::ProgressBar;

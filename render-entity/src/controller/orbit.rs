@@ -64,7 +64,7 @@ impl OrbitController {
   }
 
   pub fn pan(&mut self, offset: Vec2<f32>) {
-    let mut offset = offset.rotate(Vec2::zero(), -self.spherical.azim);
+    let mut offset = offset.rotate(Vector::zero(), -self.spherical.azim);
     offset *= self.spherical.radius * self.pan_factor;
     self.pan_offset.x += offset.x;
     self.pan_offset.z += offset.y;

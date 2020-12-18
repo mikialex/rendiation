@@ -1,6 +1,9 @@
 use std::ops::*;
 
-use crate::{Scalar, SpaceEntity, SquareMatrixType, Vector, VectorDimension, VectorImpl};
+use crate::{
+  InnerProductSpace, RealVector, Scalar, SpaceEntity, SquareMatrixType, Vector, VectorDimension,
+  VectorImpl,
+};
 
 #[derive(Copy, Clone)]
 pub struct FakeHyperVec<T, const D: usize>([T; D]);
@@ -27,12 +30,33 @@ impl<T, const D: usize> Mul<T> for FakeHyperVec<T, D> {
     unreachable!()
   }
 }
-impl<T: Scalar, const D: usize> Vector<T> for FakeHyperVec<T, D> {
+
+impl<T: Scalar, const D: usize> RealVector<T> for FakeHyperVec<T, D> {}
+impl<T: Scalar, const D: usize> InnerProductSpace<T> for FakeHyperVec<T, D> {
   fn dot(&self, _b: Self) -> T {
     unreachable!()
   }
+}
 
-  fn cross(&self, _b: Self) -> Self {
+impl<T: Scalar, const D: usize> Vector<T> for FakeHyperVec<T, D> {
+  fn create<F>(_f: F) -> Self
+  where
+    F: Fn() -> T,
+  {
+    unreachable!()
+  }
+
+  fn map<F>(self, _f: F) -> Self
+  where
+    F: Fn(T) -> T,
+  {
+    unreachable!()
+  }
+
+  fn zip<F>(self, _v2: Self, _f: F) -> Self
+  where
+    F: Fn(T, T) -> T,
+  {
     unreachable!()
   }
 }

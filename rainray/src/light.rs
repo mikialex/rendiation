@@ -1,5 +1,5 @@
 use crate::{math::*, Scene};
-use rendiation_math::Vector;
+use rendiation_math::{InnerProductSpace, Vector};
 
 pub struct LightSampleResult {
   pub emissive: Vec3,

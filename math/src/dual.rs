@@ -229,7 +229,7 @@ where
 
 impl<T> Lerp<T> for Dual<T>
 where
-  T: Copy + One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
+  T: Copy + num_traits::One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
@@ -253,9 +253,9 @@ where
   }
 }
 
-impl<T> Zero for Dual<T>
+impl<T> num_traits::Zero for Dual<T>
 where
-  T: Zero,
+  T: num_traits::Zero,
 {
   #[inline(always)]
   fn zero() -> Self {
@@ -266,9 +266,9 @@ where
   }
 }
 
-impl<T> One for Dual<T>
+impl<T> num_traits::One for Dual<T>
 where
-  T: One,
+  T: num_traits::One,
 {
   #[inline(always)]
   fn one() -> Self {

@@ -1,9 +1,3 @@
-pub trait One: Sized {
-  fn one() -> Self;
-}
-pub trait Zero: Sized {
-  fn zero() -> Self;
-}
 pub trait Two: Sized {
   fn two() -> Self;
 }
@@ -36,18 +30,6 @@ pub trait Epsilon: Sized {
   fn epsilon() -> Self;
 }
 
-impl One for f32 {
-  #[inline(always)]
-  fn one() -> Self {
-    1.0_f32
-  }
-}
-impl Zero for f32 {
-  #[inline(always)]
-  fn zero() -> Self {
-    0.0_f32
-  }
-}
 impl Two for f32 {
   #[inline(always)]
   fn two() -> Self {
@@ -109,18 +91,6 @@ impl Epsilon for f32 {
   }
 }
 
-impl One for f64 {
-  #[inline(always)]
-  fn one() -> Self {
-    1.0_f64
-  }
-}
-impl Zero for f64 {
-  #[inline(always)]
-  fn zero() -> Self {
-    0.0_f64
-  }
-}
 impl Two for f64 {
   #[inline(always)]
   fn two() -> Self {
@@ -182,18 +152,6 @@ impl Epsilon for f64 {
   }
 }
 
-impl One for i32 {
-  #[inline(always)]
-  fn one() -> Self {
-    1
-  }
-}
-impl Zero for i32 {
-  #[inline(always)]
-  fn zero() -> Self {
-    0
-  }
-}
 impl Two for i32 {
   #[inline(always)]
   fn two() -> Self {
@@ -206,18 +164,7 @@ impl Three for i32 {
     3
   }
 }
-impl One for i64 {
-  #[inline(always)]
-  fn one() -> Self {
-    1
-  }
-}
-impl Zero for i64 {
-  #[inline(always)]
-  fn zero() -> Self {
-    0
-  }
-}
+
 impl Two for i64 {
   #[inline(always)]
   fn two() -> Self {
