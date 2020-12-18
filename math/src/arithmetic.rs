@@ -16,10 +16,10 @@ pub trait Arithmetic:
   + Neg<Output = Self>
   + PartialEq
   + PartialOrd
-  + One
+  + num_traits::identities::One
+  + num_traits::identities::Zero
   + Two
   + Three
-  + Zero
 {
 }
 

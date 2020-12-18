@@ -1,3 +1,4 @@
+use rendiation_math::Vec2;
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
 extern crate image;
@@ -13,6 +14,10 @@ impl Frame {
     Frame {
       data: vec![vec![Color::from_value((0.0, 0.0, 0.0)); height as usize]; width as usize],
     }
+  }
+
+  pub fn size(&self) -> Vec2<usize> {
+    (self.width(), self.height()).into()
   }
 
   pub fn width(&self) -> usize {
@@ -50,6 +55,7 @@ impl Frame {
     // Iterate over the coordinates and pixels of the image
     for (x, y, pixel) in img_buf.enumerate_pixels_mut() {
       let pix = self.data[x as usize][y as usize];
+      let pix = pix.to_srgb();
       *pixel = image::Rgb([
         (pix.r().min(1.0).max(0.0) * 255.0) as u8,
         (pix.g().min(1.0).max(0.0) * 255.0) as u8,

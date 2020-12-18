@@ -31,11 +31,11 @@ impl Default for Scene {
 }
 
 impl Scene {
-  pub fn get_min_dist_hit(&self, ray: &Ray3) -> Option<(Intersection, &Model)> {
+  pub fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &Model)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result: Option<(Intersection, &Model)> = None;
     for model in &self.models {
-      if let Some(intersection) = model.geometry.intersect(ray) {
+      if let Some(intersection) = model.geometry.intersect(&ray) {
         if intersection.distance < min_distance {
           min_distance = intersection.distance;
           result = Some((intersection, model))
@@ -49,7 +49,7 @@ impl Scene {
     let ray = Ray3::from_point_to_point(point_a, point_b);
     let distance = (point_a - point_b).length();
 
-    if let Some(hit_result) = self.get_min_dist_hit(&ray) {
+    if let Some(hit_result) = self.get_min_dist_hit(ray) {
       hit_result.0.distance > distance
     } else {
       true

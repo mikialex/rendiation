@@ -37,7 +37,7 @@ impl<T> Mat4<T> {
 }
 
 #[rustfmt::skip]
-impl<T: Arithmetic + Math> Mat4<T> {
+impl<T: Scalar> Mat4<T> {
    pub fn to_normal_matrix(self) -> Mat3<T> {
     self
       .to_mat3()
@@ -52,7 +52,7 @@ unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat4<T> {}
 
 impl<T> Mul<Mat4<T>> for Vec3<T>
 where
-  T: Copy + Add<Output = T> + Div<Output = T> + Mul<Output = T> + One,
+  T: Copy + Add<Output = T> + Div<Output = T> + Mul<Output = T> + num_traits::One,
 {
   type Output = Self;
 
@@ -226,7 +226,7 @@ where
   T: Scalar + PiByC180 + Half,
 {
   pub fn rotate_x(theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let a1 = T::one();
     let a2 = T::zero();
@@ -254,7 +254,7 @@ where
   }
 
   pub fn rotate_y(theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let a1 = c;
     let a2 = T::zero();
@@ -282,7 +282,7 @@ where
   }
 
   pub fn rotate_z(theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let a1 = c;
     let a2 = s;
@@ -310,7 +310,7 @@ where
   }
 
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let x = axis.x;
     let y = axis.y;
@@ -700,9 +700,9 @@ where
   }
 }
 
-impl<T> Zero for Mat4<T>
+impl<T> num_traits::Zero for Mat4<T>
 where
-  T: Zero,
+  T: num_traits::Zero + Copy + PartialEq,
 {
   #[inline(always)]
   fn zero() -> Self {
@@ -725,11 +725,15 @@ where
       d4: T::zero(),
     }
   }
+  #[inline(always)]
+  fn is_zero(&self) -> bool {
+    self.eq(&Self::zero())
+  }
 }
 
-impl<T> One for Mat4<T>
+impl<T> num_traits::One for Mat4<T>
 where
-  T: One + Zero,
+  T: num_traits::One + num_traits::Zero + Copy,
 {
   #[inline(always)]
   fn one() -> Self {
@@ -804,45 +808,6 @@ impl<T: Arithmetic> From<Quat<T>> for Mat4<T> {
       d1: T::zero(),
       d2: T::zero(),
       d3: T::zero(),
-      d4: T::one(),
-    }
-  }
-}
-
-impl<T: Scalar + Half> From<Dual<T>> for Mat4<T>
-where
-  T: Math,
-{
-  fn from(dual: Dual<T>) -> Self {
-    let q = dual.real;
-
-    let (xs, ys, zs) = (q.x * T::two(), q.y * T::two(), q.z * T::two());
-
-    let (xx, xy, xz) = (q.x * xs, q.x * ys, q.x * zs);
-    let (yy, yz, zz) = (q.y * ys, q.y * zs, q.z * zs);
-    let (wx, wy, wz) = (q.w * xs, q.w * ys, q.w * zs);
-
-    let t = dual.translate();
-
-    Self {
-      a1: T::one() - (yy + zz),
-      a2: xy + wz,
-      a3: xz - wy,
-      a4: T::zero(),
-
-      b1: xy - wz,
-      b2: T::one() - (xx + zz),
-      b3: yz + wx,
-      b4: T::zero(),
-
-      c1: xz + wy,
-      c2: yz - wx,
-      c3: T::one() - (xx + yy),
-      c4: T::zero(),
-
-      d1: t.x,
-      d2: t.y,
-      d3: t.z,
       d4: T::one(),
     }
   }

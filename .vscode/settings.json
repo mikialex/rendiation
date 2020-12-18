@@ -13,6 +13,7 @@
         "Lambertian",
         "Lerp",
         "Mesher",
+        "Nayar",
         "Noize",
         "Nyxt",
         "OPENGL",

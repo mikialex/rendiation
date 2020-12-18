@@ -1,6 +1,14 @@
 use std::{marker::PhantomData, ops::*};
 
+use num_traits::real::Real;
+
 use crate::*;
+
+pub enum Normalization {
+  Unknown,
+  Yes,
+  No,
+}
 
 // this trait for avoid conflict impl
 pub trait VectorImpl {}
@@ -9,9 +17,56 @@ pub trait VectorImpl {}
 pub trait VectorDimension<const D: usize> {}
 
 // this trait abstract for ops on vector
-pub trait Vector<T: Scalar>:
+pub trait Vector<T: One + Zero>:
   Sized + Mul<T, Output = Self> + Sub<Self, Output = Self> + Add<Self, Output = Self> + Copy
 {
+  fn create<F>(f: F) -> Self
+  where
+    F: Fn() -> T;
+
+  /// Perform the given operation on each field in the vector, returning a new point
+  /// constructed from the operations.
+  fn map<F>(self, f: F) -> Self
+  where
+    F: Fn(T) -> T;
+
+  /// Construct a new vector where each component is the result of
+  /// applying the given operation to each pair of components of the
+  /// given vectors.
+  fn zip<F>(self, v2: Self, f: F) -> Self
+  where
+    F: Fn(T, T) -> T;
+
+  #[inline]
+  fn one() -> Self {
+    Self::create(|| T::one())
+  }
+  #[inline]
+  fn zero() -> Self {
+    Self::create(|| T::zero())
+  }
+}
+
+pub trait RealVector<T: One + Zero + Real>: Vector<T> {
+  #[inline]
+  fn min(self, rhs: Self) -> Self {
+    self.zip(rhs, |a, b| a.min(b))
+  }
+  #[inline]
+  fn max(self, rhs: Self) -> Self {
+    self.zip(rhs, |a, b| a.max(b))
+  }
+  #[inline]
+  fn clamp(self, min: Self, max: Self) -> Self {
+    self.min(min).max(max)
+  }
+  #[inline]
+  fn saturate(self) -> Self {
+    self.clamp(Self::zero(), Self::one())
+  }
+}
+
+pub trait InnerProductSpace<T: One + Zero + Two + Real>: Vector<T> {
   #[inline]
   fn normalize(&self) -> Self {
     let mag_sq = self.length2();
@@ -23,13 +78,13 @@ pub trait Vector<T: Scalar>:
   }
 
   #[inline]
-  fn length(&self) -> T {
-    self.length2().sqrt()
+  fn reflect(&self, normal: Self) -> Self {
+    *self - normal * self.dot(normal) * T::two()
   }
 
   #[inline]
-  fn distance(&self, b: Self) -> T {
-    (*self - b).length()
+  fn length(&self) -> T {
+    self.length2().sqrt()
   }
 
   #[inline]
@@ -37,8 +92,12 @@ pub trait Vector<T: Scalar>:
     self.dot(*self)
   }
 
+  #[inline]
+  fn distance(&self, b: Self) -> T {
+    (*self - b).length()
+  }
+
   fn dot(&self, b: Self) -> T;
-  fn cross(&self, b: Self) -> Self;
 }
 
 impl<T, V> Lerp<T> for V
@@ -55,7 +114,7 @@ where
 impl<T: Scalar, V> Slerp<T> for V
 where
   T: Scalar,
-  V: VectorImpl + Vector<T>,
+  V: VectorImpl + InnerProductSpace<T>,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);
@@ -69,7 +128,11 @@ where
 }
 
 pub trait DimensionalVec<T: Scalar, const D: usize> {
-  type Type: Vector<T> + VectorDimension<D> + SpaceEntity<T, D>;
+  type Type: Vector<T>
+    + VectorDimension<D>
+    + SpaceEntity<T, D>
+    + RealVector<T>
+    + InnerProductSpace<T>;
 }
 
 pub struct VectorMark<T>(PhantomData<T>);

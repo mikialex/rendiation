@@ -14,7 +14,7 @@ use super::{
   IndexPrimitiveTopology, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
   NoneIndexedGeometry, PointList, PrimitiveTopology,
 };
-use rendiation_math::{Vec3, Vector};
+use rendiation_math::{InnerProductSpace, Vec3};
 use rendiation_math_entity::{LineSegment, Positioned, Triangle};
 use std::{
   cmp::Ordering,

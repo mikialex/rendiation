@@ -41,7 +41,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0e60b75072ecd4168020818c0107f2857bb6c4e64252d8d3983f6263b40a5c3"
 dependencies = [
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -459,7 +459,7 @@ dependencies = [
  "csv",
  "itertools",
  "lazy_static",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
  "oorandom",
  "plotters",
  "rayon",
@@ -1064,7 +1064,7 @@ dependencies = [
  "jpeg-decoder",
  "num-iter",
  "num-rational 0.2.2",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
  "png 0.15.3",
  "scoped_threadpool",
  "tiff",
@@ -1224,7 +1224,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cc7ad3d82c845bdb5dde34ffdcc7a5fb4d2996e1e1ee0f19c33bc80e15196b9"
 dependencies = [
- "num-traits 0.2.12",
+ "num-traits 0.1.43",
 ]
 
 [[package]]
@@ -1408,7 +1408,7 @@ dependencies = [
  "bitflags",
  "fxhash",
  "log",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
  "spirv_headers",
  "thiserror",
 ]
@@ -1421,7 +1421,7 @@ dependencies = [
  "bitflags",
  "fxhash",
  "log",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
  "pomelo",
  "spirv_headers",
  "thiserror",
@@ -1512,23 +1512,23 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.41"
+version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b85e541ef8255f6cf42bbfe4ef361305c6c135d10919ecc26126c4e5ae94bc09"
+checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
 dependencies = [
- "autocfg 0.1.7",
- "num-traits 0.2.12",
+ "autocfg 1.0.0",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
 name = "num-iter"
-version = "0.1.39"
+version = "0.1.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76bd5272412d173d6bf9afdf98db8612bbabc9a7a830b7bfc9c188911716132e"
+checksum = "b2021c8337a54d21aca0d59a92577a029af9431cb59b909b03252b9c164fad59"
 dependencies = [
- "autocfg 0.1.7",
+ "autocfg 1.0.0",
  "num-integer",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1538,7 +1538,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee314c74bd753fc86b4780aa9475da469155f3848473a261d2d18e35245a784e"
 dependencies = [
  "num-integer",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1549,7 +1549,7 @@ checksum = "f2885278d5fe2adc2f75ced642d52d879bffaceb5a2e0b1d4309ffdfb239b454"
 dependencies = [
  "autocfg 0.1.7",
  "num-integer",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1558,14 +1558,14 @@ version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92e5113e9fd4cc14ded8e499429f396a20f98c772a47cc8622a736e1ec843c31"
 dependencies = [
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
 name = "num-traits"
-version = "0.2.12"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac267bcc07f48ee5f8935ab0d24f316fb722d7a1292e2913f0cc196b29ffd611"
+checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg 1.0.0",
 ]
@@ -1691,7 +1691,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18869315e81473c951eb56ad5558bbc56978562d3ecfb87abb7a1e944cea4518"
 dependencies = [
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1801,7 +1801,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d1685fbe7beba33de0330629da9d955ac75bd54f33d7b79f9a895590124f6bb"
 dependencies = [
  "js-sys",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -2099,6 +2099,7 @@ name = "rendiation-math"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "num-traits 0.2.14",
  "paste",
  "wasm-bindgen",
 ]
@@ -2503,7 +2504,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f5b132530b1ac069df335577e3581765995cba5a13995cdbbdbc8fb057c532c"
 dependencies = [
  "bitflags",
- "num-traits 0.2.12",
+ "num-traits 0.2.14",
 ]
 
 [[package]]

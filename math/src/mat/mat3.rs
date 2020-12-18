@@ -23,7 +23,7 @@ unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat3<T> {}
 
 impl<T> Mul<Mat3<T>> for Vec2<T>
 where
-  T: Copy + Add<Output = T> + Mul<Output = T> + One,
+  T: Copy + Add<Output = T> + Mul<Output = T> + num_traits::One,
 {
   type Output = Self;
 
@@ -100,7 +100,7 @@ where
 
 impl<T> Mat3<T>
 where
-  T: Arithmetic + Math,
+  T: Scalar,
 {
   pub fn det(&self) -> T {
     let t11 = self.c3 * self.b2 - self.b3 * self.c2;
@@ -137,7 +137,7 @@ where
   }
 
   pub fn rotate_x(theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let a1 = T::one();
     let a2 = T::zero();
@@ -155,7 +155,7 @@ where
   }
 
   pub fn rotate_y(theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let a1 = c;
     let a2 = T::zero();
@@ -173,7 +173,7 @@ where
   }
 
   pub fn rotate_z(theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let a1 = c;
     let a2 = s;
@@ -191,7 +191,7 @@ where
   }
 
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
-    let (s, c) = theta.sincos();
+    let (s, c) = theta.sin_cos();
 
     let x = axis.x;
     let y = axis.y;
@@ -234,9 +234,9 @@ where
   }
 }
 
-impl<T> Zero for Mat3<T>
+impl<T> num_traits::Zero for Mat3<T>
 where
-  T: Zero,
+  T: num_traits::Zero + Copy + PartialEq,
 {
   #[inline(always)]
   fn zero() -> Self {
@@ -252,11 +252,15 @@ where
       c3: T::zero(),
     }
   }
+  #[inline(always)]
+  fn is_zero(&self) -> bool {
+    self.eq(&Self::zero())
+  }
 }
 
-impl<T> One for Mat3<T>
+impl<T> num_traits::One for Mat3<T>
 where
-  T: One + Zero,
+  T: num_traits::One + num_traits::Zero + Copy,
 {
   #[inline(always)]
   fn one() -> Self {

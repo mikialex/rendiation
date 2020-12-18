@@ -1,4 +1,4 @@
-use rendiation_math::{Vec2, Vec3 as V3, Vector};
+use rendiation_math::{InnerProductSpace, Vec2, Vec3 as V3, Vector};
 
 pub type Vec3 = V3<f32>;
 pub use rendiation_math_entity::*;
@@ -16,6 +16,7 @@ pub fn rand2() -> Vec2<f32> {
 pub const PI_OVER_4: f32 = std::f32::consts::PI / 4.0;
 pub const PI_OVER_2: f32 = std::f32::consts::PI / 2.0;
 pub const PI: f32 = std::f32::consts::PI;
+pub const INV_PI: f32 = 1.0 / std::f32::consts::PI;
 
 /// http://l2program.co.uk/900/concentric-disk-sampling
 /// Uniformly distribute samples over a unit disk.

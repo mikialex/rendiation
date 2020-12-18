@@ -64,7 +64,7 @@ impl OrbitController {
   }
 
   pub fn pan(&mut self, offset: Vec2<f32>) {
-    let mut offset = offset.rotate(Vec2::zero(), -self.spherical.azim);
+    let mut offset = offset.rotate(Vector::zero(), -self.spherical.azim);
     offset *= self.spherical.radius * self.pan_factor;
     self.pan_offset.x += offset.x;
     self.pan_offset.z += offset.y;
@@ -105,7 +105,7 @@ impl<T: TransformedObject> Controller<T> for OrbitController {
 
     let matrix = target.matrix_mut();
     let eye = self.spherical.to_vec3();
-    *matrix = Mat4::lookat(eye, self.spherical.center, Vec3::unit_y());
+    *matrix = Mat4::lookat(eye, self.spherical.center, Vec3::new(0.0, 1.0, 0.0));
 
     // update damping effect
     if self.enable_damping {

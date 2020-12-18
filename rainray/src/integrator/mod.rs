@@ -1,4 +1,5 @@
 use rendiation_math::Vec2;
+use rendiation_math_entity::Ray3;
 use rendiation_render_entity::{
   color::{Color, LinearRGBColorSpace},
   Camera,
@@ -12,10 +13,5 @@ pub use ao::*;
 pub use path_trace::*;
 
 pub trait Integrator: Sync {
-  fn integrate(
-    &self,
-    camera: &Camera,
-    scene: &Scene,
-    view_position: Vec2<f32>,
-  ) -> Color<LinearRGBColorSpace<f32>>;
+  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<LinearRGBColorSpace<f32>>;
 }

@@ -9,10 +9,8 @@
 
 pub mod arithmetic;
 pub mod consts;
-pub mod dual;
 pub mod interpolation;
 pub mod mat;
-pub mod math;
 pub mod quat;
 pub mod scalar;
 pub mod utils;
@@ -24,13 +22,13 @@ pub use wasm::*;
 pub use arithmetic::*;
 pub use interpolation::*;
 pub use mat::*;
-pub use math::*;
 pub use scalar::*;
 pub use vec::*;
 
 pub use self::consts::*;
-pub use self::dual::*;
 pub use self::quat::*;
+
+pub use num_traits::*;
 
 #[macro_use]
 pub mod marcos;
