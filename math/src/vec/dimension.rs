@@ -2,11 +2,34 @@ use std::{marker::PhantomData, ops::*};
 
 use crate::*;
 
+pub enum Normalization {
+  Unknown,
+  Yes,
+  No,
+}
+
 // this trait for avoid conflict impl
 pub trait VectorImpl {}
 
 // this trait for mark the vector's dimension
 pub trait VectorDimension<const D: usize> {}
+
+// pub trait NormalizedVector<T: Scalar>: Vector<T> {
+//   #[inline]
+//   fn normalize(&self) -> Self {
+//     *self
+//   }
+
+//   #[inline]
+//   fn length(&self) -> T {
+//     T::one()
+//   }
+
+//   #[inline]
+//   fn length2(&self) -> T {
+//     T::one()
+//   }
+// }
 
 // this trait abstract for ops on vector
 pub trait Vector<T: Scalar>:
@@ -33,13 +56,13 @@ pub trait Vector<T: Scalar>:
   }
 
   #[inline]
-  fn distance(&self, b: Self) -> T {
-    (*self - b).length()
+  fn length2(&self) -> T {
+    self.dot(*self)
   }
 
   #[inline]
-  fn length2(&self) -> T {
-    self.dot(*self)
+  fn distance(&self, b: Self) -> T {
+    (*self - b).length()
   }
 
   fn dot(&self, b: Self) -> T;

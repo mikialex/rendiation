@@ -1,12 +1,32 @@
-use crate::*;
 use std::{
   marker::PhantomData,
   ops::{Deref, DerefMut},
 };
 
+use crate::*;
+
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
-pub struct Normalized<T>(T);
+pub struct NormalizedVector<T: Scalar, V: Vector<T>> {
+  value: V,
+  phantom: PhantomData<T>,
+}
+
+impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
+  pub fn wrap(v: V) -> Self {
+    Self {
+      value: v,
+      phantom: PhantomData,
+    }
+  }
+}
+
+impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
+  pub fn normalize(&self) -> Self {
+    println!("skip");
+    *self
+  }
+}
 
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
@@ -29,24 +49,24 @@ impl<T, S> DerefMut for Space<T, S> {
   }
 }
 
-impl<T> Deref for Normalized<T> {
-  type Target = T;
+impl<T: Scalar, V: Vector<T>> Deref for NormalizedVector<T, V> {
+  type Target = V;
   #[inline(always)]
   fn deref(&self) -> &Self::Target {
-    &self.0
+    &self.value
   }
 }
-impl<T> DerefMut for Normalized<T> {
+impl<T: Scalar, V: Vector<T>> DerefMut for NormalizedVector<T, V> {
   #[inline(always)]
   fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.0
+    &mut self.value
   }
 }
 
 #[test]
 fn test() {
-  let a = Normalized(Vec3::new(1., 1., 1.));
+  use crate::*;
+  let a = NormalizedVector::wrap(Vec3::new(1., 1., 1.));
   let b = Vec3::new(1., 1., 1.);
   let _c = *a + b;
-  a.normalize();
 }
