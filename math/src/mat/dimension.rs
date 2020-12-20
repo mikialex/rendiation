@@ -8,7 +8,7 @@ pub trait SquareMatrixImpl {}
 pub trait SquareMatrix<T: Scalar> {}
 
 pub trait DimensionalSquareMatrix<T: Scalar, const D: usize> {
-  type Type: SquareMatrix<T> + SquareMatrixDimension<D>;
+  type Type: SquareMatrix<T> + SquareMatrixDimension<D> + Copy;
 }
 
 pub struct SquareMatrixMark<T>(PhantomData<T>);

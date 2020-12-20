@@ -9,7 +9,7 @@ pub struct QuadraticBezierSegment<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for QuadraticBezierSegment<T, D> {
-  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) -> &mut Self {
+  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
     self.from.apply_matrix(mat);
     self.ctrl.apply_matrix(mat);
     self.to.apply_matrix(mat);
@@ -45,7 +45,7 @@ pub struct CubicBezierSegment<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for CubicBezierSegment<T, D> {
-  fn apply_matrix(&mut self, mat: &SquareMatrixType<T, D>) -> &mut Self {
+  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
     self.from.apply_matrix(mat);
     self.ctrl1.apply_matrix(mat);
     self.ctrl2.apply_matrix(mat);

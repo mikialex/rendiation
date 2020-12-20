@@ -19,7 +19,7 @@ impl LebesgueMeasurable<f32, 3> for Box3 {
 }
 
 impl SpaceEntity<f32, 3> for Box3 {
-  fn apply_matrix(&mut self, m: &SquareMatrixType<f32, 3>) -> &mut Self {
+  fn apply_matrix(&mut self, m: SquareMatrixType<f32, 3>) -> &mut Self {
     let points = [
       *Vec3::new(self.min.x, self.min.y, self.min.z).apply_matrix(m), // 000
       *Vec3::new(self.min.x, self.min.y, self.max.z).apply_matrix(m), // 001

@@ -8,7 +8,7 @@ pub struct HyperAABB<T: Scalar, const D: usize> {
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperAABB<T, D> {
-  default fn apply_matrix(&mut self, _m: &SquareMatrixType<T, D>) -> &mut Self {
+  default fn apply_matrix(&mut self, _m: SquareMatrixType<T, D>) -> &mut Self {
     unimplemented!()
   }
 }

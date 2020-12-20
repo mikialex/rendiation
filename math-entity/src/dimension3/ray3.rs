@@ -5,9 +5,9 @@ pub type Ray3 = HyperRay<f32, 3>;
 
 impl SpaceEntity<f32, 3> for Ray3 {
   #[inline]
-  fn apply_matrix(&mut self, mat: &SquareMatrixType<f32, 3>) -> &mut Self {
-    let origin = self.origin.apply_mat4(&mat);
-    let direction = self.direction.transform_direction(*mat);
+  fn apply_matrix(&mut self, mat: SquareMatrixType<f32, 3>) -> &mut Self {
+    let origin = self.origin * mat;
+    let direction = self.direction.transform_direction(mat);
     *self = Self::new(origin, direction);
     self
   }
@@ -26,12 +26,6 @@ impl Ray3 {
     let oc = point - self.origin;
     let tca = oc.dot(self.direction);
     oc.dot(oc) - tca * tca
-  }
-
-  pub fn apply_matrix(&self, mat: Mat4<f32>) -> Self {
-    let origin = self.origin.apply_mat4(&mat);
-    let direction = self.direction.transform_direction(mat);
-    Self::new(origin, direction)
   }
 
   pub fn distance_sq_to_segment<T: Positioned<f32, 3>>(
