@@ -13,7 +13,6 @@ pub use vec3::*;
 pub use vec4::*;
 
 use std::ops::*;
-use std::{f32, f64};
 
 use crate::*;
 

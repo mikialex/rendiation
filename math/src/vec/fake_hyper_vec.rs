@@ -2,7 +2,7 @@ use std::ops::*;
 
 use crate::{
   InnerProductSpace, RealVector, Scalar, SpaceEntity, SquareMatrixType, Vector, VectorDimension,
-  VectorImpl,
+  VectorImpl, VectorSpace,
 };
 
 #[derive(Copy, Clone)]
@@ -32,6 +32,7 @@ impl<T, const D: usize> Mul<T> for FakeHyperVec<T, D> {
 }
 
 impl<T: Scalar, const D: usize> RealVector<T> for FakeHyperVec<T, D> {}
+impl<T: Copy, const D: usize> VectorSpace<T> for FakeHyperVec<T, D> {}
 impl<T: Scalar, const D: usize> InnerProductSpace<T> for FakeHyperVec<T, D> {
   fn dot(&self, _b: Self) -> T {
     unreachable!()

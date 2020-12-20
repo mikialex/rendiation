@@ -4,12 +4,6 @@ use num_traits::real::Real;
 
 use crate::*;
 
-pub enum Normalization {
-  Unknown,
-  Yes,
-  No,
-}
-
 // this trait for avoid conflict impl
 pub trait VectorImpl {}
 
@@ -17,9 +11,7 @@ pub trait VectorImpl {}
 pub trait VectorDimension<const D: usize> {}
 
 // this trait abstract for ops on vector
-pub trait Vector<T: One + Zero>:
-  Sized + Mul<T, Output = Self> + Sub<Self, Output = Self> + Add<Self, Output = Self> + Copy
-{
+pub trait Vector<T: One + Zero>: Copy {
   fn create<F>(f: F) -> Self
   where
     F: Fn() -> T;
@@ -47,6 +39,7 @@ pub trait Vector<T: One + Zero>:
   }
 }
 
+/// the vector that in real number space
 pub trait RealVector<T: One + Zero + Real>: Vector<T> {
   #[inline]
   fn min(self, rhs: Self) -> Self {
@@ -66,7 +59,16 @@ pub trait RealVector<T: One + Zero + Real>: Vector<T> {
   }
 }
 
-pub trait InnerProductSpace<T: One + Zero + Two + Real>: Vector<T> {
+/// https://en.wikipedia.org/wiki/Vector_space
+pub trait VectorSpace<T>:
+  Mul<T, Output = Self> + Sub<Self, Output = Self> + Add<Self, Output = Self> + Sized + Copy
+{
+}
+
+/// https://en.wikipedia.org/wiki/Inner_product
+///
+/// inner space define the length and angle from vector space
+pub trait InnerProductSpace<T: One + Zero + Two + Real + Copy>: VectorSpace<T> {
   #[inline]
   fn normalize(&self) -> Self {
     let mag_sq = self.length2();
@@ -103,7 +105,7 @@ pub trait InnerProductSpace<T: One + Zero + Two + Real>: Vector<T> {
 impl<T, V> Lerp<T> for V
 where
   T: Scalar,
-  V: VectorImpl + Vector<T>,
+  V: VectorImpl + VectorSpace<T>,
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
@@ -114,7 +116,7 @@ where
 impl<T: Scalar, V> Slerp<T> for V
 where
   T: Scalar,
-  V: VectorImpl + InnerProductSpace<T>,
+  V: VectorImpl + InnerProductSpace<T> + VectorSpace<T>,
 {
   fn slerp(self, other: Self, factor: T) -> Self {
     let dot = self.dot(other);

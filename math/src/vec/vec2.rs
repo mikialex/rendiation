@@ -1,6 +1,6 @@
 use crate::*;
 use std::fmt::Debug;
-use std::{fmt, ops::Sub};
+use std::{fmt, ops::*};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -15,6 +15,10 @@ unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec2<T> {}
 impl<T: Scalar> VectorDimension<2> for Vec2<T> {}
 impl<T: Scalar> VectorImpl for Vec2<T> {}
 impl<T: Scalar> RealVector<T> for Vec2<T> {}
+impl<T> VectorSpace<T> for Vec2<T> where
+  T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Copy
+{
+}
 impl<T: Scalar> InnerProductSpace<T> for Vec2<T> {
   #[inline]
   fn dot(&self, b: Self) -> T {

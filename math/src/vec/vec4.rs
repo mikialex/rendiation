@@ -1,6 +1,6 @@
 use crate::*;
-use std::fmt::Debug;
 use std::{fmt, ops::Sub};
+use std::{fmt::Debug, ops::*};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -27,6 +27,10 @@ where
 impl<T: Scalar> VectorDimension<4> for Vec4<T> {}
 impl<T: Scalar> VectorImpl for Vec4<T> {}
 impl<T: Scalar> RealVector<T> for Vec4<T> {}
+impl<T> VectorSpace<T> for Vec4<T> where
+  T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Copy
+{
+}
 impl<T: Scalar> InnerProductSpace<T> for Vec4<T> {
   #[inline]
   fn dot(&self, b: Self) -> T {

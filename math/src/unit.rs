@@ -17,13 +17,13 @@ pub struct UnitAngle<T, U: AngleUnit> {
   phantom: PhantomData<U>,
 }
 
-pub struct RadUnit {}
-impl Unit for RadUnit {}
-impl AngleUnit for RadUnit {}
+pub struct Rad;
+impl Unit for Rad {}
+impl AngleUnit for Rad {}
 
-pub struct DegUnit {}
-impl Unit for DegUnit {}
-impl AngleUnit for DegUnit {}
+pub struct Deg;
+impl Unit for Deg {}
+impl AngleUnit for Deg {}
 
-pub type Rad<T> = UnitAngle<T, RadUnit>;
-pub type Deg<T> = UnitAngle<T, DegUnit>;
+pub type Rad<T> = UnitAngle<T, Rad>;
+pub type Deg<T> = UnitAngle<T, Deg>;

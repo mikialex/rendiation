@@ -16,6 +16,10 @@ unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec3<T> {}
 impl<T: Scalar> VectorDimension<3> for Vec3<T> {}
 impl<T: Scalar> VectorImpl for Vec3<T> {}
 impl<T: Scalar> RealVector<T> for Vec3<T> {}
+impl<T> VectorSpace<T> for Vec3<T> where
+  T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Copy
+{
+}
 impl<T: Scalar> InnerProductSpace<T> for Vec3<T> {
   #[inline]
   fn dot(&self, b: Self) -> T {

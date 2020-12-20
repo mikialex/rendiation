@@ -357,15 +357,6 @@ where
     self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
   }
 
-  pub fn cross(&self, b: Self) -> Self {
-    Self {
-      x: self.w * b.x + self.x * b.w + self.z * b.y - self.y * b.z,
-      y: self.w * b.y + self.y * b.w + self.x * b.z - self.z * b.x,
-      z: self.w * b.z + self.z * b.w + self.y * b.x - self.x * b.y,
-      w: self.w * b.w - self.x * b.x - self.y * b.y - self.z * b.z,
-    }
-  }
-
   pub fn length2(&self) -> T {
     self.dot(*self)
   }
