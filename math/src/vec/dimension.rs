@@ -67,7 +67,7 @@ pub trait VectorSpace<T>:
 
 /// https://en.wikipedia.org/wiki/Inner_product
 ///
-/// inner space define the length and angle from vector space
+/// inner space define the length and angle based on vector space
 pub trait InnerProductSpace<T: One + Zero + Two + Real + Copy>: VectorSpace<T> {
   #[inline]
   fn normalize(&self) -> Self {

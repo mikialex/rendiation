@@ -38,7 +38,7 @@ impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
 
   /// normalized vector reflect should be normalized
   ///
-  /// and input normal should also be normalized
+  /// of course input normal should also be normalized
   #[inline]
   pub fn reflect(&self, normal: Self) -> Self {
     unsafe { NormalizedVector::wrap(self.value.reflect(*normal)) }

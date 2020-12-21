@@ -84,7 +84,7 @@ fn test() {
   let ap: NormalizedSpace<f32, Vec3<f32>, LocalSpace> =
     Space::wrap(Vec3::new(1., 2., 1.)).into_normalized();
 
-  let _ax = a + ap; // two vector in one space can add together;
+  let _ax = a + ap; // only two vector in one space can add together;
 
   // let _ax = _ax + ap; // todo
 
@@ -92,11 +92,3 @@ fn test() {
   let b = Vec3::new(1., 1., 1.);
   let _c = **a + b;
 }
-
-// #[derive(Debug, Copy, Clone)]
-// #[repr(transparent)]
-// pub struct SpaceConversion<From, To, T> {
-//   value: T,
-//   from_marker: PhantomData<From>,
-//   to_marker: PhantomData<To>,
-// }
