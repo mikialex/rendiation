@@ -14,12 +14,14 @@ pub trait IntoNormalizedVector<T, V> {
 }
 
 impl<T: Scalar, V: InnerProductSpace<T>> IntoNormalizedVector<T, V> for V {
+  #[inline(always)]
   fn into_normalized(&self) -> NormalizedVector<T, V> {
     unsafe { NormalizedVector::wrap(self.normalize()) }
   }
 }
 
 impl<T, V> NormalizedVector<T, V> {
+  #[inline(always)]
   pub unsafe fn wrap(v: V) -> Self {
     Self {
       value: v,
@@ -28,7 +30,7 @@ impl<T, V> NormalizedVector<T, V> {
   }
 }
 
-impl<T: Scalar, V: InnerProductSpace<T> + Vector<T>> NormalizedVector<T, V> {
+impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
   #[inline]
   pub fn normalize(&self) -> Self {
     *self
@@ -71,31 +73,34 @@ impl<V> InnerData<V> for V {
 // after add / sub / mul scalar, the vector may not be normalized
 impl<T, V: VectorSpace<T>, Rhs: InnerData<V>> Add<Rhs> for NormalizedVector<T, V> {
   type Output = V;
+  #[inline(always)]
   fn add(self, rhs: Rhs) -> Self::Output {
     self.value + rhs.get_inner()
   }
 }
 impl<T, V: VectorSpace<T>, Rhs: InnerData<V>> Sub<Rhs> for NormalizedVector<T, V> {
   type Output = V;
+  #[inline(always)]
   fn sub(self, rhs: Rhs) -> Self::Output {
     self.value - rhs.get_inner()
   }
 }
 impl<T, V: VectorSpace<T>> Mul<T> for NormalizedVector<T, V> {
   type Output = V;
+  #[inline(always)]
   fn mul(self, rhs: T) -> Self::Output {
     self.value * rhs
   }
 }
 
-impl<T: Scalar, V: Vector<T>> Deref for NormalizedVector<T, V> {
+impl<T, V> Deref for NormalizedVector<T, V> {
   type Target = V;
   #[inline(always)]
   fn deref(&self) -> &Self::Target {
     &self.value
   }
 }
-impl<T: Scalar, V: Vector<T>> DerefMut for NormalizedVector<T, V> {
+impl<T, V> DerefMut for NormalizedVector<T, V> {
   #[inline(always)]
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.value

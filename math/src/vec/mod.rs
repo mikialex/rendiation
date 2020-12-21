@@ -1,6 +1,7 @@
 pub mod dimension;
 pub mod fake_hyper_vec;
 pub mod normalized;
+pub mod space_marker;
 pub mod swizzle;
 pub mod vec2;
 pub mod vec3;
@@ -8,6 +9,7 @@ pub mod vec4;
 pub use dimension::*;
 pub use fake_hyper_vec::*;
 pub use normalized::*;
+pub use space_marker::*;
 pub use vec2::*;
 pub use vec3::*;
 pub use vec4::*;
