@@ -1,18 +1,19 @@
-use std::{
-  marker::PhantomData,
-  ops::{Deref, DerefMut},
-};
+use std::{marker::PhantomData, ops::*};
 
 use crate::*;
 
+pub trait InnerData<T>: Copy {
+  fn get_inner(self) -> T;
+}
+
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
-pub struct NormalizedVector<T: Scalar, V: Vector<T>> {
+pub struct NormalizedVector<T, V> {
   value: V,
   phantom: PhantomData<T>,
 }
 
-impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
+impl<T, V> NormalizedVector<T, V> {
   pub fn wrap(v: V) -> Self {
     Self {
       value: v,
@@ -21,10 +22,18 @@ impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
   }
 }
 
-impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
+impl<T: Scalar, V: InnerProductSpace<T> + Vector<T>> NormalizedVector<T, V> {
   #[inline]
   pub fn normalize(&self) -> Self {
     *self
+  }
+
+  /// normalized vector reflect should be normalized
+  ///
+  /// and input normal should also be normalized
+  #[inline]
+  pub fn reflect(&self, normal: Self) -> Self {
+    NormalizedVector::wrap(self.value.reflect(*normal))
   }
 
   #[inline]
@@ -35,6 +44,20 @@ impl<T: Scalar, V: Vector<T>> NormalizedVector<T, V> {
   #[inline]
   pub fn length2(&self) -> T {
     T::one()
+  }
+}
+
+// after add / sub, the vector may not be normalized
+impl<T, V: VectorSpace<T>> Add for NormalizedVector<T, V> {
+  type Output = V;
+  fn add(self, rhs: Self) -> Self::Output {
+    self.value + rhs.value
+  }
+}
+impl<T, V: VectorSpace<T>> Sub for NormalizedVector<T, V> {
+  type Output = V;
+  fn sub(self, rhs: Self) -> Self::Output {
+    self.value - rhs.value
   }
 }
 
