@@ -2,10 +2,6 @@ use std::{marker::PhantomData, ops::*};
 
 use crate::*;
 
-pub trait InnerData<T>: Copy {
-  fn get_inner(self) -> T;
-}
-
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct NormalizedVector<T, V> {
@@ -13,8 +9,18 @@ pub struct NormalizedVector<T, V> {
   phantom: PhantomData<T>,
 }
 
+pub trait IntoNormalizedVector<T, V> {
+  fn into_normalized(&self) -> NormalizedVector<T, V>;
+}
+
+impl<T: Scalar, V: InnerProductSpace<T>> IntoNormalizedVector<T, V> for V {
+  fn into_normalized(&self) -> NormalizedVector<T, V> {
+    unsafe { NormalizedVector::wrap(self.normalize()) }
+  }
+}
+
 impl<T, V> NormalizedVector<T, V> {
-  pub fn wrap(v: V) -> Self {
+  pub unsafe fn wrap(v: V) -> Self {
     Self {
       value: v,
       phantom: PhantomData,
@@ -33,7 +39,7 @@ impl<T: Scalar, V: InnerProductSpace<T> + Vector<T>> NormalizedVector<T, V> {
   /// and input normal should also be normalized
   #[inline]
   pub fn reflect(&self, normal: Self) -> Self {
-    NormalizedVector::wrap(self.value.reflect(*normal))
+    unsafe { NormalizedVector::wrap(self.value.reflect(*normal)) }
   }
 
   #[inline]
@@ -47,38 +53,38 @@ impl<T: Scalar, V: InnerProductSpace<T> + Vector<T>> NormalizedVector<T, V> {
   }
 }
 
-// after add / sub, the vector may not be normalized
-impl<T, V: VectorSpace<T>> Add for NormalizedVector<T, V> {
-  type Output = V;
-  fn add(self, rhs: Self) -> Self::Output {
-    self.value + rhs.value
+pub trait InnerData<T> {
+  fn get_inner(self) -> T;
+}
+
+impl<T, V> InnerData<V> for NormalizedVector<T, V> {
+  fn get_inner(self) -> V {
+    self.value
   }
 }
-impl<T, V: VectorSpace<T>> Sub for NormalizedVector<T, V> {
-  type Output = V;
-  fn sub(self, rhs: Self) -> Self::Output {
-    self.value - rhs.value
+impl<V> InnerData<V> for V {
+  fn get_inner(self) -> V {
+    self
   }
 }
 
-#[derive(Debug, Copy, Clone)]
-#[repr(transparent)]
-pub struct Space<T, S> {
-  value: T,
-  space_marker: PhantomData<S>,
-}
-
-impl<T, S> Deref for Space<T, S> {
-  type Target = T;
-  #[inline(always)]
-  fn deref(&self) -> &Self::Target {
-    &self.value
+// after add / sub / mul scalar, the vector may not be normalized
+impl<T, V: VectorSpace<T>, Rhs: InnerData<V>> Add<Rhs> for NormalizedVector<T, V> {
+  type Output = V;
+  fn add(self, rhs: Rhs) -> Self::Output {
+    self.value + rhs.get_inner()
   }
 }
-impl<T, S> DerefMut for Space<T, S> {
-  #[inline(always)]
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.value
+impl<T, V: VectorSpace<T>, Rhs: InnerData<V>> Sub<Rhs> for NormalizedVector<T, V> {
+  type Output = V;
+  fn sub(self, rhs: Rhs) -> Self::Output {
+    self.value - rhs.get_inner()
+  }
+}
+impl<T, V: VectorSpace<T>> Mul<T> for NormalizedVector<T, V> {
+  type Output = V;
+  fn mul(self, rhs: T) -> Self::Output {
+    self.value * rhs
   }
 }
 
@@ -99,7 +105,11 @@ impl<T: Scalar, V: Vector<T>> DerefMut for NormalizedVector<T, V> {
 #[test]
 fn test() {
   use crate::*;
-  let a = NormalizedVector::wrap(Vec3::new(1., 1., 1.));
+  let a = Vec3::new(1., 1., 1.).into_normalized();
+  let a = a.normalize(); // should use cheaper method
   let b = Vec3::new(1., 1., 1.);
   let _c = *a + b;
+  let _c = a + a;
+  let _c = a + b;
+  let _nc = _c.normalize(); // ra code jump is misleading, but it actually used correct impl
 }

@@ -116,15 +116,6 @@ impl Vec3<f32> {
   }
 }
 
-impl<T> Vec3<T> {
-  pub fn set(&mut self, x: T, y: T, z: T) -> &Self {
-    self.x = x;
-    self.y = y;
-    self.z = z;
-    self
-  }
-}
-
 impl<T> fmt::Display for Vec3<T>
 where
   T: Debug,
@@ -133,15 +124,3 @@ where
     write!(f, "({:?}, {:?}, {:?})", self.x, self.y, self.z)
   }
 }
-
-// impl Vec3<f32> {
-//   pub fn apply_mat4(&self, mat: &Mat4<f32>) -> Self {
-//     let w = 1. / (mat.a4 * self.x + mat.b4 * self.y + mat.c4 * self.z + mat.d4);
-
-//     Self {
-//       x: (mat.a1 * self.x + mat.b1 * self.y + mat.c1 * self.z + mat.d1) * w,
-//       y: (mat.a2 * self.x + mat.b2 * self.y + mat.c2 * self.z + mat.d2) * w,
-//       z: (mat.a3 * self.x + mat.b3 * self.y + mat.c3 * self.z + mat.d3) * w,
-//     }
-//   }
-// }

@@ -13,7 +13,7 @@ impl Plane {
   }
 
   pub fn set_components(&mut self, x: f32, y: f32, z: f32, w: f32) -> &mut Self {
-    self.normal.set(x, y, z);
+    self.normal = Vec3::new(x, y, z);
     self.constant = w;
     self
   }

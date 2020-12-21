@@ -11,18 +11,8 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
-impl<T> fmt::Display for Vec4<T>
-where
-  T: Debug,
-{
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(
-      f,
-      "({:?}, {:?}, {:?}, {:?})",
-      self.x, self.y, self.z, self.w
-    )
-  }
-}
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
 
 impl<T: Scalar> VectorDimension<4> for Vec4<T> {}
 impl<T: Scalar> VectorImpl for Vec4<T> {}
@@ -78,5 +68,15 @@ impl<T: One + Zero + Copy + Sub<T, Output = T>> Vector<T> for Vec4<T> {
   }
 }
 
-unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
-unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
+impl<T> fmt::Display for Vec4<T>
+where
+  T: Debug,
+{
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(
+      f,
+      "({:?}, {:?}, {:?}, {:?})",
+      self.x, self.y, self.z, self.w
+    )
+  }
+}
