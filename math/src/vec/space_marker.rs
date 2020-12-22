@@ -49,7 +49,7 @@ impl<T: Copy, V: VectorSpace<T>, S: Copy> VectorSpace<T> for Space<T, V, S> {}
 impl<T: One + Zero + Two + Real + Copy, V: InnerProductSpace<T>, S: Copy> InnerProductSpace<T>
   for Space<T, V, S>
 {
-  fn dot(&self, b: Self) -> T {
+  fn dot_impl(&self, b: Self) -> T {
     self.value.dot(b.value)
   }
 }

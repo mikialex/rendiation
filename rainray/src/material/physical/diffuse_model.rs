@@ -1,8 +1,15 @@
-use crate::{ray::Intersection, Diffuse, Material, PhysicalDiffuse, Vec3, INV_PI, PI};
+use crate::{
+  ray::Intersection, Diffuse, Material, NormalizedVec3, PhysicalDiffuse, Vec3, INV_PI, PI,
+};
 
 pub struct Lambertian;
 impl Material for Diffuse<Lambertian> {
-  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3 {
+  fn bsdf(
+    &self,
+    from_in_dir: NormalizedVec3,
+    out_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> Vec3 {
     self.albedo() / Vec3::splat(PI)
   }
 }
@@ -37,7 +44,12 @@ impl OrenNayar {
 }
 
 impl Material for OrenNayar {
-  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3 {
+  fn bsdf(
+    &self,
+    from_in_dir: NormalizedVec3,
+    out_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> Vec3 {
     todo!()
     // let sin_theta_i = sin_theta(wi);
     // let sin_theta_o = sin_theta(wo);

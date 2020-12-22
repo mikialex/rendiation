@@ -3,7 +3,7 @@ use rendiation_math::*;
 use crate::SpaceEntity;
 
 pub struct HyperPlane<T: Scalar, const D: usize> {
-  pub normal: VectorType<T, D>,
+  pub normal: NormalizedVector<T, VectorType<T, D>>,
   pub constant: T,
 }
 
@@ -28,7 +28,7 @@ where
 }
 
 impl<T: Scalar, const D: usize> HyperPlane<T, D> {
-  pub fn new(normal: VectorType<T, D>, constant: T) -> Self {
+  pub fn new(normal: NormalizedVector<T, VectorType<T, D>>, constant: T) -> Self {
     Self { normal, constant }
   }
 }

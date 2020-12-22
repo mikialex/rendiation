@@ -80,7 +80,8 @@ pub trait InnerProductSpace<T: One + Zero + Two + Real + Copy>: VectorSpace<T> {
   }
 
   #[inline]
-  fn reflect(&self, normal: Self) -> Self {
+  fn reflect<Rhs: InnerData<Self>>(&self, normal: Rhs) -> Self {
+    let normal = normal.get_inner();
     *self - normal * self.dot(normal) * T::two()
   }
 
@@ -95,11 +96,20 @@ pub trait InnerProductSpace<T: One + Zero + Two + Real + Copy>: VectorSpace<T> {
   }
 
   #[inline]
-  fn distance(&self, b: Self) -> T {
-    (*self - b).length()
+  fn distance<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
+    (*self - b.get_inner()).length()
   }
 
-  fn dot(&self, b: Self) -> T;
+  #[inline]
+  fn reverse(&self) -> Self {
+    *self * -T::one()
+  }
+
+  #[inline]
+  fn dot<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
+    self.dot_impl(b.get_inner())
+  }
+  fn dot_impl(&self, b: Self) -> T;
 }
 
 impl<T, V> Lerp<T> for V

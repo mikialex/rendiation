@@ -1,6 +1,8 @@
-use rendiation_math::{InnerProductSpace, Vec2, Vec3 as V3, Vector};
+use rendiation_math::IntoNormalizedVector;
+use rendiation_math::{InnerProductSpace, NormalizedVector, Vec2, Vec3 as V3, Vector};
 
 pub type Vec3 = V3<f32>;
+pub type NormalizedVec3 = NormalizedVector<f32, V3<f32>>;
 pub use rendiation_math_entity::*;
 
 extern crate rand as randx;
@@ -46,11 +48,11 @@ pub fn cosine_sample_hemisphere(u: Vec2<f32>) -> Vec3 {
   Vec3::new(d.x, d.y, z)
 }
 
-pub fn cosine_sample_hemisphere_in_dir(dir: Vec3) -> (Vec3, f32) {
+pub fn cosine_sample_hemisphere_in_dir(dir: NormalizedVec3) -> (NormalizedVec3, f32) {
   let offset = cosine_sample_hemisphere(rand2());
 
-  let left = Vec3::new(0.0, 1.0, 0.0).cross(dir).normalize();
-  let up = left.cross(dir);
+  let left = Vec3::new(0.0, 1.0, 0.0).cross(*dir).normalize();
+  let up = left.cross(*dir);
 
   let xy_r = (offset.x * offset.x + offset.y * offset.y).sqrt();
   if xy_r == 0. {
@@ -62,7 +64,7 @@ pub fn cosine_sample_hemisphere_in_dir(dir: Vec3) -> (Vec3, f32) {
   let sin_theta = xy_r;
 
   (
-    (left * sin_theta * cos_phi + up * sin_theta * sin_phi + dir * cos_theta).normalize(),
+    (left * sin_theta * cos_phi + up * sin_theta * sin_phi + dir * cos_theta).into_normalized(),
     cos_theta,
   )
 }

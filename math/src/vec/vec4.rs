@@ -23,7 +23,7 @@ impl<T> VectorSpace<T> for Vec4<T> where
 }
 impl<T: Scalar> InnerProductSpace<T> for Vec4<T> {
   #[inline]
-  fn dot(&self, b: Self) -> T {
+  fn dot_impl(&self, b: Self) -> T {
     self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
   }
 }

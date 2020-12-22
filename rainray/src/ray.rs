@@ -1,5 +1,5 @@
 use crate::math::*;
-use rendiation_math::{InnerProductSpace, Vector};
+use rendiation_math::{InnerProductSpace, IntoNormalizedVector, Vector};
 
 pub static MAX_RAY_HIT_DISTANCE: f32 = 1000000.0;
 pub static EPS: f32 = 0.001;
@@ -13,7 +13,7 @@ pub trait RayIntersectAble: Send + Sync {
 pub struct Intersection {
   pub distance: f32,
   pub hit_position: Vec3,
-  pub hit_normal: Vec3,
+  pub hit_normal: NormalizedVec3,
 }
 
 impl RayIntersectAble for Sphere {
@@ -39,7 +39,7 @@ impl RayIntersectAble for Sphere {
           return None; // too far
         }
         let mut hit_position = ray.at(distance);
-        let hit_normal = (hit_position - self.center).normalize();
+        let hit_normal = (hit_position - self.center).into_normalized();
         hit_position += hit_normal * EPS;
         Some(Intersection {
           distance,

@@ -2,7 +2,7 @@ use rendiation_math::*;
 
 pub struct HyperRay<T: Scalar, const D: usize> {
   pub origin: VectorType<T, D>,
-  pub direction: VectorType<T, D>,
+  pub direction: NormalizedVector<T, VectorType<T, D>>,
 }
 
 impl<T: Scalar, const D: usize> SpaceEntity<T, D> for HyperRay<T, D> {
@@ -26,7 +26,7 @@ where
 }
 
 impl<T: Scalar, const D: usize> HyperRay<T, D> {
-  pub fn new(origin: VectorType<T, D>, direction: VectorType<T, D>) -> Self {
+  pub fn new(origin: VectorType<T, D>, direction: NormalizedVector<T, VectorType<T, D>>) -> Self {
     HyperRay { origin, direction }
   }
 }

@@ -65,7 +65,7 @@ impl Raycaster for Camera {
     let origin = self.matrix().position();
     let target = Vec3::new(view_position.x * 2. - 1., view_position.y * 2. - 1., 0.5)
       * self.get_vp_matrix_inverse();
-    let direction = (target - origin).normalize();
+    let direction = (target - origin).into_normalized();
     Ray3::new(origin, direction)
   }
 }

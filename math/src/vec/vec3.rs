@@ -22,7 +22,7 @@ impl<T> VectorSpace<T> for Vec3<T> where
 }
 impl<T: Scalar> InnerProductSpace<T> for Vec3<T> {
   #[inline]
-  fn dot(&self, b: Self) -> T {
+  fn dot_impl(&self, b: Self) -> T {
     self.x * b.x + self.y * b.y + self.z * b.z
   }
 }
@@ -72,13 +72,13 @@ where
   ///
   /// vector interpreted as a direction
   #[inline]
-  pub fn transform_direction(&self, m: Mat4<T>) -> Self {
+  pub fn transform_direction(&self, m: Mat4<T>) -> NormalizedVector<T, Self> {
     Self {
       x: m.a1 * self.x + m.b1 * self.y + m.c1 * self.z,
       y: m.a2 * self.x + m.b2 * self.y + m.c2 * self.z,
       z: m.a3 * self.x + m.b3 * self.y + m.c3 * self.z,
     }
-    .normalize()
+    .into_normalized()
   }
 
   #[inline]

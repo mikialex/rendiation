@@ -15,7 +15,7 @@ impl SpaceEntity<f32, 3> for Ray3 {
 
 impl Ray3 {
   pub fn from_point_to_point(origin: Vec3<f32>, target: Vec3<f32>) -> Self {
-    Ray3::new(origin, (target - origin).normalize())
+    Ray3::new(origin, (target - origin).into_normalized())
   }
 
   pub fn at(&self, distance: f32) -> Vec3<f32> {

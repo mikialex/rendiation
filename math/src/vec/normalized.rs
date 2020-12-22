@@ -11,12 +11,17 @@ pub struct NormalizedVector<T, V> {
 
 pub trait IntoNormalizedVector<T, V> {
   fn into_normalized(&self) -> NormalizedVector<T, V>;
+  unsafe fn into_normalized_unchecked(&self) -> NormalizedVector<T, V>;
 }
 
 impl<T: Scalar, V: InnerProductSpace<T>> IntoNormalizedVector<T, V> for V {
   #[inline(always)]
   fn into_normalized(&self) -> NormalizedVector<T, V> {
     unsafe { NormalizedVector::wrap(self.normalize()) }
+  }
+  #[inline(always)]
+  unsafe fn into_normalized_unchecked(&self) -> NormalizedVector<T, V> {
+    NormalizedVector::wrap(*self)
   }
 }
 
@@ -41,7 +46,7 @@ impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
   /// of course input normal should also be normalized
   #[inline]
   pub fn reflect(&self, normal: Self) -> Self {
-    unsafe { NormalizedVector::wrap(self.value.reflect(*normal)) }
+    unsafe { self.value.reflect(*normal).into_normalized_unchecked() }
   }
 
   #[inline]
@@ -53,6 +58,11 @@ impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
   pub fn length2(&self) -> T {
     T::one()
   }
+
+  #[inline]
+  pub fn reverse(&self) -> Self {
+    unsafe { self.value.reverse().into_normalized_unchecked() }
+  }
 }
 
 pub trait InnerData<T> {
@@ -60,11 +70,13 @@ pub trait InnerData<T> {
 }
 
 impl<T, V> InnerData<V> for NormalizedVector<T, V> {
+  #[inline(always)]
   fn get_inner(self) -> V {
     self.value
   }
 }
 impl<V> InnerData<V> for V {
+  #[inline(always)]
   fn get_inner(self) -> V {
     self
   }

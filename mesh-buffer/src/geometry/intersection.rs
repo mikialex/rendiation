@@ -106,7 +106,7 @@ fn test() {
 
   let config = MeshBufferIntersectConfig::default();
   let quad = Quad.tessellate();
-  let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0));
+  let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized());
   let mut result = IntersectionList3D::new();
   quad
     .geometry

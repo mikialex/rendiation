@@ -28,7 +28,7 @@ pub struct Ray3WASM {
 
 impl Default for Ray3WASM {
   fn default() -> Self {
-    Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0)).to_wasm()
+    Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized()).to_wasm()
   }
 }
 

@@ -1,9 +1,9 @@
 use crate::{math::*, Scene};
-use rendiation_math::{InnerProductSpace, Vector};
+use rendiation_math::{InnerProductSpace, IntoNormalizedVector, Vector};
 
 pub struct LightSampleResult {
   pub emissive: Vec3,
-  pub light_in_dir: Vec3,
+  pub light_in_dir: NormalizedVec3,
 }
 
 pub trait Light: Sync + 'static {
@@ -25,7 +25,7 @@ impl Light for PointLight {
     let distance = light_in_dir.length();
     Some(LightSampleResult {
       emissive: self.intensity / (distance * distance),
-      light_in_dir: light_in_dir.normalize(),
+      light_in_dir: light_in_dir.into_normalized(),
     })
   }
 }

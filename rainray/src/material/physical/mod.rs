@@ -1,6 +1,6 @@
 use crate::{
   math::{concentric_sample_disk, rand, rand2},
-  ScatteringEvent,
+  NormalizedVec3, ScatteringEvent,
 };
 use rendiation_math::*;
 use rendiation_render_entity::color::Color;
@@ -37,24 +37,24 @@ pub struct Diffuse<T> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct MicroSurfaceNormalSample {
-  pub micro_surface_normal: Vec3,
+  pub micro_surface_normal: NormalizedVec3,
   pub pdf: f32,
 }
 
 // this term need normalized to 1
 pub trait MicroFacetNormalDistribution {
-  fn d(&self, n: Vec3, h: Vec3) -> f32;
+  fn d(&self, n: NormalizedVec3, h: NormalizedVec3) -> f32;
 
   /// sample a micro surface normal in normal's tangent space.
-  fn sample(&self, normal: Vec3) -> MicroSurfaceNormalSample;
+  fn sample(&self, normal: NormalizedVec3) -> MicroSurfaceNormalSample;
 }
 
 pub trait MicroFacetGeometricShadow {
-  fn g(&self, l: Vec3, v: Vec3, n: Vec3) -> f32;
+  fn g(&self, l: NormalizedVec3, v: NormalizedVec3, n: NormalizedVec3) -> f32;
 }
 
 pub trait MicroFacetFresnel {
-  fn f(&self, v: Vec3, h: Vec3, f0: Vec3) -> Vec3;
+  fn f(&self, v: NormalizedVec3, h: NormalizedVec3, f0: Vec3) -> Vec3;
 }
 
 // http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
@@ -65,29 +65,33 @@ pub trait PhysicalSpecular:
 {
   fn bsdf(
     &self,
-    from_in_dir: Vec3,
-    out_dir: Vec3,
+    from_in_dir: NormalizedVec3,
+    out_dir: NormalizedVec3,
     intersection: &Intersection,
     albedo: Vec3,
   ) -> Vec3 {
     let l = from_in_dir;
     let v = out_dir;
     let n = intersection.hit_normal;
-    let h = (l + v).normalize();
+    let h = (l + v).into_normalized();
 
     (self.d(n, h) * self.g(l, v, n) * self.f(v, h, self.f0(albedo))) / (4.0 * n.dot(l) * n.dot(v))
   }
 
   fn f0(&self, albedo: Vec3) -> Vec3;
 
-  fn scatter(&self, in_dir: Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
+  fn scatter(
+    &self,
+    in_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> Option<ScatteringEvent> {
     let MicroSurfaceNormalSample {
       micro_surface_normal,
       pdf,
     } = self.sample(intersection.hit_normal);
 
     let out_dir = in_dir.reflect(micro_surface_normal);
-    let h = (in_dir + out_dir).normalize();
+    let h = (in_dir + out_dir).into_normalized();
     ScatteringEvent {
       out_dir,
       pdf: pdf / (4.0 * h.dot(in_dir)),
@@ -115,7 +119,12 @@ where
   D: PhysicalDiffuse + Send + Sync,
   S: PhysicalSpecular + Send + Sync,
 {
-  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3 {
+  fn bsdf(
+    &self,
+    from_in_dir: NormalizedVec3,
+    out_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> Vec3 {
     let specular = self
       .specular
       .bsdf(from_in_dir, out_dir, intersection, self.diffuse.albedo());

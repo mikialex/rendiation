@@ -7,7 +7,7 @@ pub mod physical;
 pub use physical::*;
 
 pub struct ScatteringEvent {
-  pub out_dir: Vec3,
+  pub out_dir: NormalizedVec3,
   pub pdf: f32,
 }
 
@@ -18,10 +18,19 @@ impl ScatteringEvent {
 }
 
 pub trait Material: Send + Sync {
-  fn scatter(&self, in_dir: Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
+  fn scatter(
+    &self,
+    in_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> Option<ScatteringEvent> {
     let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
     let pdf = cos / PI;
     ScatteringEvent { out_dir, pdf }.into()
   }
-  fn bsdf(&self, from_in_dir: Vec3, out_dir: Vec3, intersection: &Intersection) -> Vec3;
+  fn bsdf(
+    &self,
+    from_in_dir: NormalizedVec3,
+    out_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> Vec3;
 }

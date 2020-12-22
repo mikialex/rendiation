@@ -182,7 +182,7 @@ where
   }
 
   pub fn length2(&self) -> T {
-    self.dot(*self)
+    self.dot(self)
   }
 
   pub fn length(&self) -> T {
