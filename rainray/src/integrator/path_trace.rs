@@ -74,40 +74,33 @@ impl Integrator for PathTraceIntegrator {
       let (intersection, model) = hit_result.unwrap();
       let material = &model.material;
 
-      if let Some(scatter) = material.scatter(current_ray.direction, &intersection) {
-        if scatter.pdf == 0.0 {
-          break;
-        }
-
-        let next_ray = scatter.create_next_ray(intersection.hit_position);
-
-        energy += self.sample_lights(
-          scene,
-          material.as_ref(),
-          &intersection,
-          current_ray.direction.reverse(),
-        ) * throughput;
-
-        let cos = scatter.out_dir.dot(intersection.hit_normal).abs();
-        let bsdf = material.bsdf(
-          next_ray.direction,
-          current_ray.direction.reverse(),
-          &intersection,
-        );
-        throughput = throughput * cos * bsdf / scatter.pdf;
-
-        // roulette exist
-        if throughput.max_channel() < self.roulette_threshold {
-          if (rand() < self.roulette_factor) {
-            break;
-          }
-          throughput /= 1. - self.roulette_factor;
-        }
-
-        current_ray = next_ray;
-      } else {
+      let view_dir = current_ray.direction.reverse();
+      let light_dir = material.sample_light_dir(view_dir, &intersection);
+      let light_dir_pdf = material.pdf(view_dir, light_dir, &intersection);
+      if light_dir_pdf == 0.0 {
         break;
       }
+
+      energy += self.sample_lights(
+        scene,
+        material.as_ref(),
+        &intersection,
+        current_ray.direction.reverse(),
+      ) * throughput;
+
+      let cos = light_dir.dot(intersection.hit_normal).abs();
+      let bsdf = material.bsdf(view_dir, light_dir, &intersection);
+      throughput = throughput * cos * bsdf / light_dir_pdf;
+
+      // roulette exist
+      if throughput.max_channel() < self.roulette_threshold {
+        if (rand() < self.roulette_factor) {
+          break;
+        }
+        throughput /= 1. - self.roulette_factor;
+      }
+
+      current_ray = Ray3::new(intersection.hit_position, light_dir);
     }
 
     Color::new(energy / self.exposure_upper_bound)

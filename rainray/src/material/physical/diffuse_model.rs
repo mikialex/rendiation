@@ -6,11 +6,28 @@ pub struct Lambertian;
 impl Material for Diffuse<Lambertian> {
   fn bsdf(
     &self,
-    from_in_dir: NormalizedVec3,
-    out_dir: NormalizedVec3,
+    view_dir: NormalizedVec3,
+    light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> Vec3 {
     self.albedo() / Vec3::splat(PI)
+  }
+
+  fn sample_light_dir(
+    &self,
+    view_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> NormalizedVec3 {
+    todo!()
+  }
+
+  fn pdf(
+    &self,
+    view_dir: NormalizedVec3,
+    light_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> f32 {
+    todo!()
   }
 }
 
@@ -46,8 +63,8 @@ impl OrenNayar {
 impl Material for OrenNayar {
   fn bsdf(
     &self,
-    from_in_dir: NormalizedVec3,
-    out_dir: NormalizedVec3,
+    view_dir: NormalizedVec3,
+    light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> Vec3 {
     todo!()
@@ -74,5 +91,22 @@ impl Material for OrenNayar {
     //   sin_theta_o / abs_cos_theta(wo)
     // };
     // self.albedo * INV_PI * (self.a + self.b * max_cos * sin_alpha * tan_beta)
+  }
+
+  fn sample_light_dir(
+    &self,
+    view_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> NormalizedVec3 {
+    todo!()
+  }
+
+  fn pdf(
+    &self,
+    view_dir: NormalizedVec3,
+    light_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> f32 {
+    todo!()
   }
 }
