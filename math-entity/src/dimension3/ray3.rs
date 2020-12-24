@@ -89,7 +89,7 @@ impl Ray3 {
         }
       } else if s1 <= -ext_det {
         // region 4
-        s0 = 0.0_f32.min(-(-a01 * seg_length + b0));
+        s0 = 0.0_f32.max(-(-a01 * seg_length + b0));
         s1 = if s0 > 0. {
           -seg_length
         } else {

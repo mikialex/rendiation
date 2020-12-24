@@ -1,59 +1,60 @@
 use rendiation_math_entity::LineSegment;
 use rendiation_math_entity::Triangle;
 use rendiation_math_entity::{Point, Positioned};
-use std::hash::Hash;
-
-use super::IndexType;
+use std::{hash::Hash, ops::Index};
 
 pub trait HashAbleByConversion {
   type HashAble: Hash + Eq;
   fn to_hashable(&self) -> Self::HashAble;
 }
 
-pub trait PrimitiveData<T: Positioned<f32, 3>> {
-  fn from_data(data: &[T], offset: usize) -> Self;
+pub trait PrimitiveData<T: Positioned<f32, 3>, U: Index<usize, Output = T>> {
+  fn from_data(data: &U, offset: usize) -> Self;
 }
 
-pub trait IndexedPrimitiveData<I, T: Positioned<f32, 3>>: PrimitiveData<T> {
+pub trait IndexedPrimitiveData<I, T, U, IU>: PrimitiveData<T, U>
+where
+  T: Positioned<f32, 3>,
+  U: Index<usize, Output = T>,
+  IU: Index<usize, Output = I>,
+{
   type IndexIndicator;
-  fn from_indexed_data(index: &[I], data: &[T], offset: usize) -> Self;
-  fn create_index_indicator(index: &[I], offset: usize) -> Self::IndexIndicator;
+  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self;
+  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator;
 }
 
-impl<T: Positioned<f32, 3>> PrimitiveData<T> for Triangle<T> {
+impl<T, U> PrimitiveData<T, U> for Triangle<T>
+where
+  T: Positioned<f32, 3>,
+  U: Index<usize, Output = T>,
+{
   #[inline(always)]
-  fn from_data(data: &[T], offset: usize) -> Self {
-    unsafe {
-      let a = *data.get_unchecked(offset);
-      let b = *data.get_unchecked(offset + 1);
-      let c = *data.get_unchecked(offset + 2);
-      Triangle { a, b, c }
-    }
-    // let a = data[offset];
-    // let b = data[offset + 1];
-    // let c = data[offset + 2];
-    // Triangle { a, b, c }
+  fn from_data(data: &U, offset: usize) -> Self {
+    let a = data[offset];
+    let b = data[offset + 1];
+    let c = data[offset + 2];
+    Triangle { a, b, c }
   }
 }
 
-impl<I: IndexType, T: Positioned<f32, 3>> IndexedPrimitiveData<I, T> for Triangle<T> {
+impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Triangle<T>
+where
+  I: IndexType,
+  T: Positioned<f32, 3>,
+  U: Index<usize, Output = T>,
+  IU: Index<usize, Output = I>,
+{
   type IndexIndicator = Triangle<I>;
   #[inline(always)]
-  fn from_indexed_data(index: &[I], data: &[T], offset: usize) -> Self {
-    unsafe {
-      let a = *data.get_unchecked(index.get_unchecked(offset).into_usize());
-      let b = *data.get_unchecked(index.get_unchecked(offset + 1).into_usize());
-      let c = *data.get_unchecked(index.get_unchecked(offset + 2).into_usize());
-      Triangle { a, b, c }
-    }
-    // let a = data[index[offset].into_usize()];
-    // let b = data[index[offset + 1].into_usize()];
-    // let c = data[index[offset + 2].into_usize()];
-    // Triangle { a, b, c }
+  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
+    let a = data[index[offset].into_usize()];
+    let b = data[index[offset + 1].into_usize()];
+    let c = data[index[offset + 2].into_usize()];
+    Triangle { a, b, c }
   }
 
   #[inline(always)]
-  fn create_index_indicator(index: &[I], offset: usize) -> Self::IndexIndicator {
+  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
     let a = index[offset];
     let b = index[offset + 1];
     let c = index[offset + 2];
@@ -61,53 +62,73 @@ impl<I: IndexType, T: Positioned<f32, 3>> IndexedPrimitiveData<I, T> for Triangl
   }
 }
 
-impl<T: Positioned<f32, 3>> PrimitiveData<T> for LineSegment<T> {
+impl<T, U> PrimitiveData<T, U> for LineSegment<T>
+where
+  T: Positioned<f32, 3>,
+  U: Index<usize, Output = T>,
+{
   #[inline(always)]
-  fn from_data(data: &[T], offset: usize) -> Self {
+  fn from_data(data: &U, offset: usize) -> Self {
     let start = data[offset];
     let end = data[offset + 1];
     LineSegment { start, end }
   }
 }
 
-impl<I: IndexType, T: Positioned<f32, 3>> IndexedPrimitiveData<I, T> for LineSegment<T> {
+impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for LineSegment<T>
+where
+  I: IndexType,
+  T: Positioned<f32, 3>,
+  U: Index<usize, Output = T>,
+  IU: Index<usize, Output = I>,
+{
   type IndexIndicator = LineSegment<I>;
   #[inline(always)]
-  fn from_indexed_data(index: &[I], data: &[T], offset: usize) -> Self {
+  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     let start = data[index[offset].into_usize()];
     let end = data[index[offset + 1].into_usize()];
     LineSegment { start, end }
   }
   #[inline(always)]
-  fn create_index_indicator(index: &[I], offset: usize) -> Self::IndexIndicator {
+  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
     let start = index[offset];
     let end = index[offset + 1];
     LineSegment { start, end }
   }
 }
 
-impl<T: Positioned<f32, 3>> PrimitiveData<T> for Point<T> {
+impl<T, U> PrimitiveData<T, U> for Point<T>
+where
+  T: Positioned<f32, 3>,
+  U: Index<usize, Output = T>,
+{
   #[inline(always)]
-  fn from_data(data: &[T], offset: usize) -> Self {
+  fn from_data(data: &U, offset: usize) -> Self {
     Point(data[offset])
   }
 }
 
-impl<I: IndexType, T: Positioned<f32, 3>> IndexedPrimitiveData<I, T> for Point<T> {
+impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Point<T>
+where
+  I: IndexType,
+  T: Positioned<f32, 3>,
+  U: Index<usize, Output = T>,
+  IU: Index<usize, Output = I>,
+{
   type IndexIndicator = I;
   #[inline(always)]
-  fn from_indexed_data(index: &[I], data: &[T], offset: usize) -> Self {
+  fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     Point(data[index[offset].into_usize()])
   }
 
   #[inline(always)]
-  fn create_index_indicator(index: &[I], offset: usize) -> Self::IndexIndicator {
+  fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
     index[offset]
   }
 }
 
 pub trait PrimitiveTopology<T: Positioned<f32, 3>>: 'static {
-  type Primitive: PrimitiveData<T>;
+  type Primitive;
   const STEP: usize;
   const STRIDE: usize;
   const ENUM: rendiation_ral::PrimitiveTopology;
@@ -116,7 +137,6 @@ pub trait PrimitiveTopology<T: Positioned<f32, 3>>: 'static {
 pub trait IndexPrimitiveTopology<I, T>: PrimitiveTopology<T>
 where
   T: Positioned<f32, 3>,
-  <Self as PrimitiveTopology<T>>::Primitive: IndexedPrimitiveData<I, T>,
 {
 }
 
@@ -164,3 +184,5 @@ impl<T: Positioned<f32, 3>> PrimitiveTopology<T> for LineStrip {
   const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::LineStrip;
 }
 impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopology<I, T> for LineStrip {}
+
+use super::IndexType;

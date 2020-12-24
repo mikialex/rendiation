@@ -1,58 +1,107 @@
-use rendiation_math::*;
 use wasm_bindgen::prelude::*;
 
-use crate::{Box3, Ray3, Sphere};
+use crate::{Mat3, Mat4, Vec2, Vec3, Vec4};
 
-#[wasm_bindgen]
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct Box3WASM {
-  pub min: Vec3F32WASM,
-  pub max: Vec3F32WASM,
+pub trait WASMAbleType {
+  type Type;
+  fn to_wasm(self) -> Self::Type;
+  fn from_wasm(ty: Self::Type) -> Self;
 }
 
-#[wasm_bindgen]
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct SphereWASM {
-  pub center: Vec3F32WASM,
-  pub radius: f32,
-}
-
-#[wasm_bindgen]
-#[repr(C)]
-pub struct Ray3WASM {
-  pub origin: Vec3F32WASM,
-  pub direction: Vec3F32WASM,
-}
-
-impl Default for Ray3WASM {
-  fn default() -> Self {
-    Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized()).to_wasm()
-  }
-}
-
-#[wasm_bindgen]
-impl Ray3WASM {
-  #[wasm_bindgen]
-  pub fn new() -> Self {
-    Self::default()
-  }
-}
-
-macro_rules! impl_convert_unsafe {
+macro_rules! impl_convert_bytemuck {
   ($Origin: ty, $WASM: ty) => {
+    unsafe impl bytemuck::Zeroable for $WASM {}
+    unsafe impl bytemuck::Pod for $WASM {}
     impl WASMAbleType for $Origin {
       type Type = $WASM;
       fn to_wasm(self) -> Self::Type {
-        unsafe { std::mem::transmute(self) }
+        bytemuck::cast(self)
       }
       fn from_wasm(ty: Self::Type) -> Self {
-        unsafe { std::mem::transmute(ty) }
+        bytemuck::cast(ty)
       }
     }
   };
 }
-impl_convert_unsafe!(Sphere, SphereWASM);
-impl_convert_unsafe!(Box3, Box3WASM);
-impl_convert_unsafe!(Ray3, Ray3WASM);
+
+#[wasm_bindgen]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Vec2F32WASM {
+  pub x: f32,
+  pub y: f32,
+}
+
+#[wasm_bindgen]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Vec3F32WASM {
+  pub x: f32,
+  pub y: f32,
+  pub z: f32,
+}
+
+#[wasm_bindgen]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Vec4F32WASM {
+  pub x: f32,
+  pub y: f32,
+  pub z: f32,
+  pub w: f32,
+}
+
+#[rustfmt::skip]
+#[wasm_bindgen]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Mat4F32WASM {
+	pub a1:f32, pub a2:f32, pub a3:f32, pub a4:f32,
+	pub b1:f32, pub b2:f32, pub b3:f32, pub b4:f32,
+	pub c1:f32, pub c2:f32, pub c3:f32, pub c4:f32,
+	pub d1:f32, pub d2:f32, pub d3:f32, pub d4:f32,
+}
+
+#[rustfmt::skip]
+#[wasm_bindgen]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Mat3F32WASM {
+  pub a1: f32 ,pub a2: f32, pub a3: f32,
+  pub b1: f32, pub b2: f32, pub b3: f32,
+  pub c1: f32, pub c2: f32, pub c3: f32,
+}
+
+impl_convert_bytemuck!(Vec2<f32>, Vec2F32WASM);
+impl_convert_bytemuck!(Vec3<f32>, Vec3F32WASM);
+impl_convert_bytemuck!(Vec4<f32>, Vec4F32WASM);
+impl_convert_bytemuck!(Mat4<f32>, Mat4F32WASM);
+impl_convert_bytemuck!(Mat3<f32>, Mat3F32WASM);
+
+impl WASMAbleType for f32 {
+  type Type = f32;
+  fn to_wasm(self) -> Self::Type {
+    self
+  }
+  fn from_wasm(ty: Self::Type) -> Self {
+    ty
+  }
+}
+
+#[wasm_bindgen]
+impl Mat4F32WASM {
+  #[wasm_bindgen]
+  pub fn from_array(data: &[f32]) -> Self {
+    let mat: &[Self] = bytemuck::cast_slice(data);
+    mat[0]
+  }
+}
+
+#[wasm_bindgen]
+impl Mat3F32WASM {
+  #[wasm_bindgen]
+  pub fn from_array(data: &[f32]) -> Self {
+    let mat: &[Self] = bytemuck::cast_slice(data);
+    mat[0]
+  }
+}

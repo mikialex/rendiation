@@ -86,7 +86,7 @@ where
   I: IndexType,
   V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<I, V>,
-  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V>,
+  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
   pub fn merge_vertex_by_sorting(
     &self,
@@ -139,7 +139,7 @@ impl<V, T> NoneIndexedGeometry<V, T>
 where
   V: Positioned<f32, 3> + HashAbleByConversion,
   T: IndexPrimitiveTopology<u16, V>,
-  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V>,
+  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
   // U: GeometryDataContainer<V>, // ditto
 {
   pub fn create_index_geometry(&self) -> IndexedGeometry<u16, V, T> {

@@ -29,6 +29,7 @@ where
   V: Positioned<f32, 3>,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
+  T::Primitive: PrimitiveData<V, U>,
 {
   type Primitive = T::Primitive;
 
@@ -45,6 +46,6 @@ where
   #[inline(always)]
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
     let index = primitive_index * T::STEP;
-    T::Primitive::from_data(self.data.as_ref(), index)
+    T::Primitive::from_data(&self.data, index)
   }
 }

@@ -1,6 +1,7 @@
 #![feature(specialization)]
 #![feature(const_generics)]
 #![feature(trait_alias)]
+#![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]
 #![allow(clippy::many_single_char_names)]
 #![allow(clippy::transmute_ptr_to_ptr)]
