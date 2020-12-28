@@ -320,25 +320,6 @@ impl<T: Arithmetic> From<Quat<T>> for Mat3<T> {
   }
 }
 
-impl<T> From<(T, T, T, T, T, T, T, T, T)> for Mat3<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T, T, T, T, T, T, T, T)) -> Self {
-    Self {
-      a1: v.0,
-      a2: v.1,
-      a3: v.2,
-      b1: v.3,
-      b2: v.4,
-      b3: v.5,
-      c1: v.6,
-      c2: v.7,
-      c3: v.8,
-    }
-  }
-}
-
 impl<T> AsRef<Mat3<T>> for Mat3<T> {
   fn as_ref(&self) -> &Mat3<T> {
     self

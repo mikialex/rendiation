@@ -3,31 +3,20 @@ use std::ops::{Add, Div, Mul};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
+#[rustfmt::skip]
 pub struct Mat4<T> {
-  pub a1: T,
-  pub a2: T,
-  pub a3: T,
-  pub a4: T,
-  pub b1: T,
-  pub b2: T,
-  pub b3: T,
-  pub b4: T,
-  pub c1: T,
-  pub c2: T,
-  pub c3: T,
-  pub c4: T,
-  pub d1: T,
-  pub d2: T,
-  pub d3: T,
-  pub d4: T,
+  pub a1: T, pub a2: T, pub a3: T, pub a4: T,
+  pub b1: T, pub b2: T, pub b3: T, pub b4: T,
+  pub c1: T, pub c2: T, pub c3: T, pub c4: T,
+  pub d1: T, pub d2: T, pub d3: T, pub d4: T,
 }
 
 impl<T: Scalar> SquareMatrixDimension<3> for Mat4<T> {}
 impl<T: Scalar> SquareMatrix<T> for Mat4<T> {}
 
-#[rustfmt::skip]
 impl<T> Mat4<T> {
   pub fn to_mat3(self) -> Mat3<T> {
+    #[rustfmt::skip]
     Mat3 {
       a1: self.a1, a2: self.a2, a3: self.a3,
       b1: self.b1, b2: self.b2, b3: self.b3,
@@ -36,14 +25,9 @@ impl<T> Mat4<T> {
   }
 }
 
-#[rustfmt::skip]
 impl<T: Scalar> Mat4<T> {
-   pub fn to_normal_matrix(self) -> Mat3<T> {
-    self
-      .to_mat3()
-      .inverse()
-      .unwrap()
-      .transpose()
+  pub fn to_normal_matrix(self) -> Mat3<T> {
+    self.to_mat3().inverse().unwrap().transpose()
   }
 }
 
@@ -156,42 +140,19 @@ where
   }
 }
 
+#[rustfmt::skip]
 impl<T: Sized> Mat4<T> {
   pub const fn new(
-    m11: T,
-    m12: T,
-    m13: T,
-    m14: T,
-    m21: T,
-    m22: T,
-    m23: T,
-    m24: T,
-    m31: T,
-    m32: T,
-    m33: T,
-    m34: T,
-    m41: T,
-    m42: T,
-    m43: T,
-    m44: T,
+    m11: T, m12: T, m13: T, m14: T,
+    m21: T, m22: T, m23: T, m24: T,
+    m31: T, m32: T, m33: T, m34: T,
+    m41: T, m42: T, m43: T, m44: T,
   ) -> Self {
     Self {
-      a1: m11,
-      a2: m12,
-      a3: m13,
-      a4: m14,
-      b1: m21,
-      b2: m22,
-      b3: m23,
-      b4: m24,
-      c1: m31,
-      c2: m32,
-      c3: m33,
-      c4: m34,
-      d1: m41,
-      d2: m42,
-      d3: m43,
-      d4: m44,
+      a1: m11, a2: m12, a3: m13, a4: m14,
+      b1: m21, b2: m22, b3: m23, b4: m24,
+      c1: m31, c2: m32, c3: m33, c4: m34,
+      d1: m41, d2: m42, d3: m43, d4: m44,
     }
   }
 }
@@ -248,8 +209,12 @@ where
     let d3 = T::zero();
     let d4 = T::one();
 
+    #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4,
+      a1, a2, a3, a4, 
+      b1, b2, b3, b4, 
+      c1, c2, c3, c4, 
+      d1, d2, d3, d4,
     )
   }
 
@@ -276,8 +241,12 @@ where
     let d3 = T::zero();
     let d4 = T::one();
 
+    #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4,
+      a1, a2, a3, a4, 
+      b1, b2, b3, b4, 
+      c1, c2, c3, c4, 
+      d1, d2, d3, d4,
     )
   }
 
@@ -304,8 +273,12 @@ where
     let d3 = T::zero();
     let d4 = T::one();
 
+    #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4,
+      a1, a2, a3, a4, 
+      b1, b2, b3, b4, 
+      c1, c2, c3, c4, 
+      d1, d2, d3, d4,
     )
   }
 
@@ -341,8 +314,12 @@ where
     let d3 = T::zero();
     let d4 = T::one();
 
+    #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4,
+      a1, a2, a3, a4, 
+      b1, b2, b3, b4, 
+      c1, c2, c3, c4, 
+      d1, d2, d3, d4,
     )
   }
 
@@ -352,8 +329,12 @@ where
     let (c1, c2, c3, c4) = (T::zero(), T::zero(), z, T::zero());
     let (d1, d2, d3, d4) = (T::zero(), T::zero(), T::zero(), T::one());
 
+    #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4,
+      a1, a2, a3, a4, 
+      b1, b2, b3, b4, 
+      c1, c2, c3, c4, 
+      d1, d2, d3, d4,
     )
   }
 
@@ -363,8 +344,12 @@ where
     let (c1, c2, c3, c4) = (T::zero(), T::zero(), T::one(), T::zero());
     let (d1, d2, d3, d4) = (x, y, z, T::one());
 
+    #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4,
+      a1, a2, a3, a4, 
+      b1, b2, b3, b4, 
+      c1, c2, c3, c4, 
+      d1, d2, d3, d4,
     )
   }
 
@@ -377,7 +362,9 @@ where
 
   pub fn det(&self) -> T {
     let m = self;
-    m.a1 * m.b2 * m.c3 * m.d4 - m.a1 * m.b2 * m.c4 * m.d3 + m.a1 * m.b3 * m.c4 * m.d2
+    m.a1 * m.b2 * m.c3 * m.d4
+      - m.a1 * m.b2 * m.c4 * m.d3 
+      + m.a1 * m.b3 * m.c4 * m.d2
       - m.a1 * m.b3 * m.c2 * m.d4
       + m.a1 * m.b4 * m.c2 * m.d3
       - m.a1 * m.b4 * m.c3 * m.d2
@@ -528,23 +515,12 @@ where
     let cy = T::two() / (top - bottom);
     let cz = T::two() / (zfar - znear);
 
+    #[rustfmt::skip]
     Mat4::new(
-      cx,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      cy,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      cz,
-      T::zero(),
-      tx,
-      ty,
-      tz,
-      T::one(),
+      cx,        T::zero(), T::zero(), T::zero(),
+      T::zero(), cy,        T::zero(), T::zero(),
+      T::zero(), T::zero(), cz,        T::zero(),
+      tx,        ty,        tz,        T::one(),
     )
   }
 
@@ -556,23 +532,12 @@ where
     let cy = T::two() / (top - bottom);
     let cz = -T::two() / (zfar - znear);
 
+    #[rustfmt::skip]
     Mat4::new(
-      cx,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      cy,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      cz,
-      T::zero(),
-      tx,
-      ty,
-      tz,
-      T::one(),
+      cx,        T::zero(), T::zero(), T::zero(),
+      T::zero(), cy,        T::zero(), T::zero(),
+      T::zero(), T::zero(), cz,        T::zero(),
+      tx,        ty,        tz,        T::one(),
     )
   }
 
@@ -737,46 +702,25 @@ where
 {
   #[inline(always)]
   fn one() -> Self {
+    #[rustfmt::skip]
     Self {
-      a1: T::one(),
-      a2: T::zero(),
-      a3: T::zero(),
-      a4: T::zero(),
-      b1: T::zero(),
-      b2: T::one(),
-      b3: T::zero(),
-      b4: T::zero(),
-      c1: T::zero(),
-      c2: T::zero(),
-      c3: T::one(),
-      c4: T::zero(),
-      d1: T::zero(),
-      d2: T::zero(),
-      d3: T::zero(),
-      d4: T::one(),
+      a1: T::one(),  a2: T::zero(), a3: T::zero(), a4: T::zero(),
+      b1: T::zero(), b2: T::one(),  b3: T::zero(), b4: T::zero(),
+      c1: T::zero(), c2: T::zero(), c3: T::one(),  c4: T::zero(),
+      d1: T::zero(), d2: T::zero(), d3: T::zero(), d4: T::one(),
     }
   }
 }
 
 impl<T: Arithmetic> From<Mat3<T>> for Mat4<T> {
   fn from(m: Mat3<T>) -> Self {
+
+    #[rustfmt::skip]
     Self {
-      a1: m.a1,
-      a2: m.a2,
-      a3: m.a3,
-      a4: T::zero(),
-      b1: m.b1,
-      b2: m.b2,
-      b3: m.b3,
-      b4: T::zero(),
-      c1: m.c1,
-      c2: m.c2,
-      c3: m.c3,
-      c4: T::zero(),
-      d1: T::zero(),
-      d2: T::zero(),
-      d3: T::zero(),
-      d4: T::one(),
+      a1: m.a1,      a2: m.a2,      a3: m.a3,      a4: T::zero(),
+      b1: m.b1,      b2: m.b2,      b3: m.b3,      b4: T::zero(),
+      c1: m.c1,      c2: m.c2,      c3: m.c3,      c4: T::zero(),
+      d1: T::zero(), d2: T::zero(), d3: T::zero(), d4: T::one(),
     }
   }
 }
@@ -789,52 +733,12 @@ impl<T: Arithmetic> From<Quat<T>> for Mat4<T> {
     let (yy, yz, zz) = (q.y * ys, q.y * zs, q.z * zs);
     let (wx, wy, wz) = (q.w * xs, q.w * ys, q.w * zs);
 
+    #[rustfmt::skip]
     Self {
-      a1: T::one() - (yy + zz),
-      a2: xy + wz,
-      a3: xz - wy,
-      a4: T::zero(),
-
-      b1: xy - wz,
-      b2: T::one() - (xx + zz),
-      b3: yz + wx,
-      b4: T::zero(),
-
-      c1: xz + wy,
-      c2: yz - wx,
-      c3: T::one() - (xx + yy),
-      c4: T::zero(),
-
-      d1: T::zero(),
-      d2: T::zero(),
-      d3: T::zero(),
-      d4: T::one(),
-    }
-  }
-}
-
-impl<T> From<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for Mat4<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)) -> Self {
-    Self {
-      a1: v.0,
-      a2: v.1,
-      a3: v.2,
-      a4: v.3,
-      b1: v.4,
-      b2: v.5,
-      b3: v.6,
-      b4: v.7,
-      c1: v.8,
-      c2: v.9,
-      c3: v.10,
-      c4: v.11,
-      d1: v.12,
-      d2: v.13,
-      d3: v.14,
-      d4: v.15,
+      a1: T::one() - (yy + zz), a2: xy + wz,              a3: xz - wy,              a4: T::zero(),
+      b1: xy - wz,              b2: T::one() - (xx + zz), b3: yz + wx,              b4: T::zero(),
+      c1: xz + wy,              c2: yz - wx,              c3: T::one() - (xx + yy), c4: T::zero(),
+      d1: T::zero(),            d2: T::zero(),            d3: T::zero(),            d4: T::one(),
     }
   }
 }
