@@ -2,17 +2,12 @@ use crate::*;
 use std::ops::{Add, Mul};
 
 #[repr(C)]
+#[rustfmt::skip]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
 pub struct Mat3<T> {
-  pub a1: T,
-  pub a2: T,
-  pub a3: T,
-  pub b1: T,
-  pub b2: T,
-  pub b3: T,
-  pub c1: T,
-  pub c2: T,
-  pub c3: T,
+  pub a1: T, pub a2: T, pub a3: T,
+  pub b1: T, pub b2: T, pub b3: T,
+  pub c1: T, pub c2: T, pub c3: T,
 }
 
 impl<T: Scalar> SquareMatrixDimension<2> for Mat3<T> {}
@@ -67,21 +62,31 @@ where
   }
 }
 
+impl<T> Mul<Mat3<T>> for Vec3<T>
+where
+  T: Copy + Add<Output = T> + Mul<Output = T> + One,
+{
+  type Output = Self;
+
+  fn mul(self, m: Mat3<T>) -> Self {
+    Self {
+      x: self.x * m.a1 + self.y * m.b1 + self.z * m.c1,
+      y: self.x * m.a2 + self.y * m.b2 + self.z * m.c2,
+      z: self.x * m.a3 + self.y * m.b3 + self.z * m.c3,
+    }
+  }
+}
+
 impl<T> Mat3<T>
 where
   T: Copy,
 {
   pub fn new(m11: T, m12: T, m13: T, m21: T, m22: T, m23: T, m31: T, m32: T, m33: T) -> Self {
+    #[rustfmt::skip]
     Self {
-      a1: m11,
-      a2: m12,
-      a3: m13,
-      b1: m21,
-      b2: m22,
-      b3: m23,
-      c1: m31,
-      c2: m32,
-      c3: m33,
+      a1: m11, a2: m12, a3: m13,
+      b1: m21, b2: m22, b3: m23,
+      c1: m31, c2: m32, c3: m33,
     }
   }
 
@@ -151,7 +156,12 @@ where
     let c2 = -s;
     let c3 = c;
 
-    Mat3::new(a1, a2, a3, b1, b2, b3, c1, c2, c3)
+    #[rustfmt::skip]
+    Mat3::new(
+      a1, a2, a3, 
+      b1, b2, b3, 
+      c1, c2, c3
+    )
   }
 
   pub fn rotate_y(theta: T) -> Self {
@@ -169,7 +179,12 @@ where
     let c2 = T::zero();
     let c3 = c;
 
-    Mat3::new(a1, a2, a3, b1, b2, b3, c1, c2, c3)
+    #[rustfmt::skip]
+    Mat3::new(
+      a1, a2, a3, 
+      b1, b2, b3, 
+      c1, c2, c3
+    )
   }
 
   pub fn rotate_z(theta: T) -> Self {
@@ -187,7 +202,12 @@ where
     let c2 = T::zero();
     let c3 = T::one();
 
-    Mat3::new(a1, a2, a3, b1, b2, b3, c1, c2, c3)
+    #[rustfmt::skip]
+    Mat3::new(
+      a1, a2, a3, 
+      b1, b2, b3, 
+      c1, c2, c3
+    )
   }
 
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
@@ -214,7 +234,12 @@ where
     let c2 = ty * z - s * x;
     let c3 = tz * z + c;
 
-    Mat3::new(a1, a2, a3, b1, b2, b3, c1, c2, c3)
+    #[rustfmt::skip]
+    Mat3::new(
+      a1, a2, a3, 
+      b1, b2, b3, 
+      c1, c2, c3
+    )
   }
 
   pub fn scale(x: T, y: T, z: T) -> Self {
@@ -222,7 +247,12 @@ where
     let (b1, b2, b3) = (T::zero(), y, T::zero());
     let (c1, c2, c3) = (T::zero(), T::zero(), z);
 
-    Mat3::new(a1, a2, a3, b1, b2, b3, c1, c2, c3)
+    #[rustfmt::skip]
+    Mat3::new(
+      a1, a2, a3, 
+      b1, b2, b3, 
+      c1, c2, c3
+    )
   }
 
   pub fn translate(x: T, y: T) -> Self {
@@ -230,7 +260,12 @@ where
     let (b1, b2, b3) = (T::zero(), T::one(), T::one());
     let (c1, c2, c3) = (x, y, T::one());
 
-    Mat3::new(a1, a2, a3, b1, b2, b3, c1, c2, c3)
+    #[rustfmt::skip]
+    Mat3::new(
+      a1, a2, a3, 
+      b1, b2, b3, 
+      c1, c2, c3
+    )
   }
 }
 
@@ -240,16 +275,11 @@ where
 {
   #[inline(always)]
   fn zero() -> Self {
+    #[rustfmt::skip]
     Self {
-      a1: T::zero(),
-      a2: T::zero(),
-      a3: T::zero(),
-      b1: T::zero(),
-      b2: T::zero(),
-      b3: T::zero(),
-      c1: T::zero(),
-      c2: T::zero(),
-      c3: T::zero(),
+      a1: T::zero(), a2: T::zero(), a3: T::zero(),
+      b1: T::zero(), b2: T::zero(), b3: T::zero(),
+      c1: T::zero(), c2: T::zero(), c3: T::zero(),
     }
   }
   #[inline(always)]
@@ -264,21 +294,16 @@ where
 {
   #[inline(always)]
   fn one() -> Self {
+    #[rustfmt::skip]
     Self {
-      a1: T::one(),
-      a2: T::zero(),
-      a3: T::zero(),
-      b1: T::zero(),
-      b2: T::one(),
-      b3: T::zero(),
-      c1: T::zero(),
-      c2: T::zero(),
-      c3: T::one(),
+      a1: T::one(),  a2: T::zero(), a3: T::zero(),
+      b1: T::zero(), b2: T::one(),  b3: T::zero(),
+      c1: T::zero(), c2: T::zero(), c3: T::one(),
     }
   }
 }
 
-impl<T: Arithmetic> From<Quat<T>> for Mat3<T> {
+impl<T: Scalar> From<Quat<T>> for Mat3<T> {
   fn from(q: Quat<T>) -> Self {
     let (xs, ys, zs) = (q.x * T::two(), q.y * T::two(), q.z * T::two());
 
@@ -286,37 +311,11 @@ impl<T: Arithmetic> From<Quat<T>> for Mat3<T> {
     let (yy, yz, zz) = (q.y * ys, q.y * zs, q.z * zs);
     let (wx, wy, wz) = (q.w * xs, q.w * ys, q.w * zs);
 
+    #[rustfmt::skip]
     Self {
-      a1: T::one() - (yy + zz),
-      a2: xy + wz,
-      a3: xz - wy,
-
-      b1: xy - wz,
-      b2: T::one() - (xx + zz),
-      b3: yz + wx,
-
-      c1: xz + wy,
-      c2: yz - wx,
-      c3: T::one() - (xx + yy),
-    }
-  }
-}
-
-impl<T> From<(T, T, T, T, T, T, T, T, T)> for Mat3<T>
-where
-  T: Copy,
-{
-  fn from(v: (T, T, T, T, T, T, T, T, T)) -> Self {
-    Self {
-      a1: v.0,
-      a2: v.1,
-      a3: v.2,
-      b1: v.3,
-      b2: v.4,
-      b3: v.5,
-      c1: v.6,
-      c2: v.7,
-      c3: v.8,
+      a1: T::one() - (yy + zz), a2: xy + wz,              a3: xz - wy,
+      b1: xy - wz,              b2: T::one() - (xx + zz), b3: yz + wx,
+      c1: xz + wy,              c2: yz - wx,              c3: T::one() - (xx + yy),
     }
   }
 }

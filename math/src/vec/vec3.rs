@@ -101,18 +101,16 @@ where
   }
 }
 
-impl Vec3<f32> {
-  /// self should be normalized
-  pub fn local_to_world(&self) -> Mat3<f32> {
-    let ns = if self.x.is_normal() {
-      Vec3::new(self.y, -self.x, 0.0).normalize()
+impl<T: Scalar> NormalizedVector<T, Vec3<T>> {
+  pub fn local_to_world(&self) -> Mat3<T> {
+    let v = self.value;
+    let ns = if v.x.is_normal() {
+      Vec3::new(v.y, -v.x, T::zero()).normalize()
     } else {
-      Vec3::new(0.0, -self.z, self.y).normalize()
+      Vec3::new(T::zero(), -v.z, v.y).normalize()
     };
-    let nss = self.cross(ns);
-    Mat3::new(
-      ns.x, nss.x, self.x, ns.y, nss.y, self.y, ns.z, nss.z, self.z,
-    )
+    let nss = v.cross(ns);
+    Mat3::new(ns.x, nss.x, v.x, ns.y, nss.y, v.y, ns.z, nss.z, v.z)
   }
 }
 

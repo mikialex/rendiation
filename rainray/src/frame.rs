@@ -4,7 +4,7 @@ use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 extern crate image;
 
 pub struct Frame {
-  pub data: Vec<Vec<Color<LinearRGBColorSpace<f32>>>>,
+  pub data: Vec<Vec<Color<f32, LinearRGBColorSpace<f32>>>>,
 }
 
 impl Frame {
@@ -40,7 +40,7 @@ impl Frame {
     }
   }
 
-  pub fn set_pixel(&mut self, color: &Color<LinearRGBColorSpace<f32>>, x: u64, y: u64) {
+  pub fn set_pixel(&mut self, color: &Color<f32, LinearRGBColorSpace<f32>>, x: u64, y: u64) {
     let data = &mut self.data;
     data[x as usize][y as usize] = *color;
   }

@@ -4,13 +4,16 @@ edition = "2018"
 name = "rendiation-webgl"
 version = "0.1.0"
 
+[features]
+shadergraph = ["rendiation-shadergraph"]
+
 [dependencies]
 js-sys = "0.3.45"
 wasm-bindgen = {version = "0.2.68"}
 
-rendiation-math = {path = "../math"}
-rendiation-ral = {path = "../ral"}
-rendiation-shadergraph = {path = "../shader-graph"}
+rendiation-math = {path = "../../../math"}
+rendiation-ral = {path = "../../core"}
+rendiation-shadergraph = {path = "../../../shader-graph", optional = true}
 
 [dependencies.web-sys]
 features = [

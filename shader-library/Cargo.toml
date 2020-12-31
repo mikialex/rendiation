@@ -12,12 +12,12 @@ webgl = ["rendiation-webgl"]
 [dependencies]
 once_cell = "1.4.0"
 rendiation-math = {path = "../math"}
-rendiation-ral = {path = "../ral"}
+rendiation-ral = {path = "../ral/core"}
 rendiation-shadergraph = {path = "../shader-graph"}
 rendiation-derives = {path = "../derives"}
 
 wasm-bindgen = {version = "0.2.68", optional = true}
 nyxt-core = {path = "../nyxt/core", optional = true}
 
-rendiation-webgpu = {path = "../webgpu", optional = true}
-rendiation-webgl = {path = "../webgl", optional = true}
+rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
+rendiation-webgl = {path = "../ral/backend/webgl", optional = true}

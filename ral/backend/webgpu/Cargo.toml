@@ -8,14 +8,15 @@ edition = "2018"
 
 [features]
 glsl-spirv = ["glsl-to-spirv"]
+shadergraph = ["rendiation-shadergraph"]
 
 [dependencies]
 wgpu = "0.6.0"
 glsl-to-spirv = {version = "0.1", optional = true}
 
-rendiation-math = { path = "../math" }
-rendiation-math-entity = { path = "../math-entity" }
-rendiation-render-entity = { path = "../render-entity" }
+rendiation-math = { path = "../../../math" }
+rendiation-math-entity = { path = "../../../math-entity" }
+rendiation-render-entity = { path = "../../../render-entity" }
 
-rendiation-ral = { path = "../ral" }
-rendiation-shadergraph = {path = "../shader-graph"}
+rendiation-ral = { path = "../../core" }
+rendiation-shadergraph = {path = "../../../shader-graph", optional = true}

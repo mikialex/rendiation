@@ -5,7 +5,7 @@ use crate::*;
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct NormalizedVector<T, V> {
-  value: V,
+  pub value: V,
   phantom: PhantomData<T>,
 }
 

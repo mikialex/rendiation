@@ -1,7 +1,7 @@
 use crate::{Box3, HyperSphere, LebesgueMeasurable};
 use rendiation_math::*;
 
-pub type Sphere = HyperSphere<f32, 3>;
+pub type Sphere<T = f32> = HyperSphere<T, 3>;
 
 impl LebesgueMeasurable<f32, 3> for Sphere {
   #[inline(always)]
@@ -49,12 +49,5 @@ impl Sphere {
       max_distance2 = max_distance2.max(d);
     });
     Sphere::new(center, max_distance2.sqrt())
-  }
-
-  pub fn apply_matrix(&self, mat: Mat4<f32>) -> Self {
-    let mut sphere = *self;
-    sphere.center = sphere.center * mat;
-    sphere.radius *= mat.max_scale_on_axis();
-    sphere
   }
 }

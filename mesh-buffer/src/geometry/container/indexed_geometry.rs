@@ -41,7 +41,7 @@ impl IntoUsize for u32 {
 }
 
 /// A indexed geometry that use vertex as primitive;
-pub struct IndexedGeometry<I = u16, V = Vertex, T = TriangleList, U = Vec<V>> {
+pub struct IndexedGeometry<I, V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: U,
   pub index: Vec<I>,
   _v_phantom: PhantomData<V>,
@@ -69,7 +69,7 @@ impl<I, V, T, U> AnyGeometry for IndexedGeometry<I, V, T, U>
 where
   V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<I, V>,
-  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V>,
+  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,
 {
   type Primitive = T::Primitive;
@@ -87,7 +87,7 @@ where
   #[inline(always)]
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
     let index = primitive_index * T::STEP;
-    T::Primitive::from_indexed_data(&self.index, self.data.as_ref(), index)
+    T::Primitive::from_indexed_data(&self.index, &self.data, index)
   }
 }
 
@@ -95,10 +95,10 @@ impl<I, V, T, U> AnyIndexGeometry for IndexedGeometry<I, V, T, U>
 where
   V: Positioned<f32, 3>,
   T: IndexPrimitiveTopology<I, V>,
-  T::Primitive: IndexedPrimitiveData<I, V>,
+  T::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,
 {
-  type IndexPrimitive = <T::Primitive as IndexedPrimitiveData<I, V>>::IndexIndicator;
+  type IndexPrimitive = <T::Primitive as IndexedPrimitiveData<I, V, U, Vec<I>>>::IndexIndicator;
 
   #[inline(always)]
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive {

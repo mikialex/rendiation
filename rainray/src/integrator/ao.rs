@@ -30,7 +30,7 @@ fn sample_ao_surface(surface_point: Vec3, scene: &Scene) -> f32 {
 }
 
 impl Integrator for AOIntegrator {
-  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<LinearRGBColorSpace<f32>> {
+  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<f32, LinearRGBColorSpace<f32>> {
     let hit_result = scene.get_min_dist_hit(ray);
 
     let ao_estimate = if let Some((intersection, _)) = scene.get_min_dist_hit(ray) {

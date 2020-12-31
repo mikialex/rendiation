@@ -6,31 +6,34 @@ use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 pub mod physical;
 pub use physical::*;
 
-pub struct ScatteringEvent {
-  pub out_dir: NormalizedVec3,
-  pub pdf: f32,
-}
-
-impl ScatteringEvent {
-  pub fn create_next_ray(&self, at_position: Vec3) -> Ray3 {
-    Ray3::new(at_position, self.out_dir)
-  }
-}
+// impl ScatteringEvent {
+//   pub fn create_next_ray(&self, at_position: Vec3) -> Ray3 {
+//     Ray3::new(at_position, self.out_dir)
+//   }
+// }
 
 pub trait Material: Send + Sync {
-  fn scatter(
+  /// sample the light input dir with brdf importance
+  fn sample_light_dir(
     &self,
-    in_dir: NormalizedVec3,
+    view_dir: NormalizedVec3,
     intersection: &Intersection,
-  ) -> Option<ScatteringEvent> {
-    let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
-    let pdf = cos / PI;
-    ScatteringEvent { out_dir, pdf }.into()
-  }
+  ) -> NormalizedVec3;
+  //  {
+  //   let (out_dir, cos) = cosine_sample_hemisphere_in_dir(intersection.hit_normal);
+  //   let pdf = cos / PI;
+  //   ScatteringEvent { out_dir, pdf }.into()
+  // }
+  fn pdf(
+    &self,
+    view_dir: NormalizedVec3,
+    light_dir: NormalizedVec3,
+    intersection: &Intersection,
+  ) -> f32;
   fn bsdf(
     &self,
-    from_in_dir: NormalizedVec3,
-    out_dir: NormalizedVec3,
+    view_dir: NormalizedVec3,
+    light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> Vec3;
 }

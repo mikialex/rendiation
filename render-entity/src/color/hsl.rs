@@ -9,7 +9,9 @@ pub trait HSLColor<T> {
 }
 
 // auto impl <hsl channel fetch> for all color that <marked as hsl colorspace and their value types is vec3<T>>
-impl<T: Copy, U: HSLColorSpace<T> + ColorSpace<ContainerValue = Vec3<T>>> HSLColor<T> for Color<U> {
+impl<T: Copy, U: HSLColorSpace<T> + ColorSpace<T, ContainerValue = Vec3<T>>> HSLColor<T>
+  for Color<T, U>
+{
   fn h(&self) -> T {
     self.value.x
   }
@@ -25,12 +27,12 @@ pub struct AnyHSLColorSpace<T: Copy + Clone> {
   phantom: PhantomData<T>,
 }
 impl<T: Copy + Clone> HSLColorSpace<T> for AnyHSLColorSpace<T> {}
-impl<T: Copy + Clone> ColorSpace for AnyHSLColorSpace<T> {
+impl<T: Copy + Clone> ColorSpace<T> for AnyHSLColorSpace<T> {
   type ContainerValue = Vec3<T>;
 }
 
-impl<T: HSLColorSpace<f32> + ColorSpace<ContainerValue = Vec3<f32>>> Color<T> {
-  pub fn to_any_rgb(&self) -> Color<AnyRGBColorSpace<f32>> {
+impl<T: HSLColorSpace<f32> + ColorSpace<f32, ContainerValue = Vec3<f32>>> Color<f32, T> {
+  pub fn to_any_rgb(&self) -> Color<f32, AnyRGBColorSpace<f32>> {
     fn hue2rgb(p: f32, q: f32, mut t: f32) -> f32 {
       if t < 0. {
         t += 1.;

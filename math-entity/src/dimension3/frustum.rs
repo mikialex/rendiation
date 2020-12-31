@@ -4,8 +4,8 @@ use crate::{intersect_reverse, sphere::Sphere, Box3};
 use rendiation_math::*;
 
 #[derive(Clone)]
-pub struct Frustum {
-  planes: [Plane; 6],
+pub struct Frustum<T: Scalar = f32> {
+  planes: [Plane<T>; 6],
 }
 
 impl Default for Frustum {
@@ -14,15 +14,15 @@ impl Default for Frustum {
   }
 }
 
-impl Frustum {
+impl<T: Scalar> Frustum<T> {
   pub fn new() -> Self {
     Self {
-      planes: [Plane::new(Vec3::new(1.0, 1., 1.).into_normalized(), 1.); 6],
+      planes: [Plane::new(Vec3::splat(T::one()).into_normalized(), T::one()); 6],
     }
   }
 
   #[rustfmt::skip]
-  pub fn set_from_matrix(&mut self, m: Mat4<f32>) -> &Self {
+  pub fn set_from_matrix(&mut self, m: Mat4<T>) -> &Self {
     self.planes[0].set_components(m.a4 - m.a1, m.b4 - m.b1, m.c4 - m.c1, m.d4 - m.d1);
     self.planes[1].set_components(m.a4 + m.a1, m.b4 + m.b1, m.c4 + m.c1, m.d4 + m.d1);
     self.planes[2].set_components(m.a4 + m.a2, m.b4 + m.b2, m.c4 + m.c2, m.d4 + m.d2);

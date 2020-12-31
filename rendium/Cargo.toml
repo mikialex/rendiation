@@ -12,5 +12,5 @@ log = "0.4"
 rendiation-math = {path = "../math"}
 rendiation-mesh-buffer = {path = "../mesh-buffer"}
 rendiation-render-entity = {path = "../render-entity"}
-rendiation-webgpu = {path = "../webgpu", features = ["glsl-spirv"]}
+rendiation-webgpu = {path = "../ral/backend/webgpu", features = ["glsl-spirv"]}
 winit = "0.22.2"
