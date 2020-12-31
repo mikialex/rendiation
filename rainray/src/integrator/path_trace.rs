@@ -57,7 +57,7 @@ impl PathTraceIntegrator {
 }
 
 impl Integrator for PathTraceIntegrator {
-  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<LinearRGBColorSpace<f32>> {
+  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<f32, LinearRGBColorSpace<f32>> {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = ray;

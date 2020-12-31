@@ -8,5 +8,5 @@ version = "0.1.0"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-arena = {path = "../utils/arena"}
+arena = {path = "../../utils/arena"}
 wgpu = "0.6.0"

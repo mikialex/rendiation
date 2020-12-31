@@ -1,28 +1,33 @@
-pub mod color_space;
-pub mod rgb;
 pub mod hsl;
+pub mod rgb;
 
-pub use color_space::*;
-pub use rgb::*;
 pub use hsl::*;
+pub use rgb::*;
 
-use std::{ops::Mul};
+use std::ops::Mul;
 
 #[derive(Debug)]
-pub struct Color<T: ColorSpace = SRGBColorSpace<f32>> {
+#[repr(transparent)]
+pub struct Color<S = f32, T: ColorSpace<S> = SRGBColorSpace<f32>> {
   pub value: T::ContainerValue,
 }
 
-// why i cant derive ??
-impl<T: ColorSpace> Clone for Color<T> {
+pub trait ColorSpace<S> {
+  type ContainerValue: Copy + Clone;
+}
+
+pub trait RGBColorSpace<T>: ColorSpace<T> {}
+pub trait HSLColorSpace<T>: ColorSpace<T> {}
+
+impl<S, T: ColorSpace<S>> Clone for Color<S, T> {
   fn clone(&self) -> Self {
-      *self
+    *self
   }
 }
-impl<T: ColorSpace> Copy for Color<T> { }
+impl<S, T: ColorSpace<S>> Copy for Color<S, T> {}
 
 // multiply scalar
-impl<T: ColorSpace, U> Mul<U> for Color<T>
+impl<S, T: ColorSpace<S>, U> Mul<U> for Color<S, T>
 where
   T::ContainerValue: Mul<U, Output = T::ContainerValue> + Copy,
 {
@@ -35,11 +40,13 @@ where
   }
 }
 
-impl<T: ColorSpace> Color<T> {
+impl<S, T: ColorSpace<S>> Color<S, T> {
   pub fn new(value: T::ContainerValue) -> Self {
     Self { value }
   }
   pub fn from_value(value: impl Into<T::ContainerValue>) -> Self {
-    Self { value: value.into() }
+    Self {
+      value: value.into(),
+    }
   }
 }

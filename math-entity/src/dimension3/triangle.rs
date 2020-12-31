@@ -11,7 +11,7 @@ impl<T: Positioned<f32, 3>> Triangle<T> {
 }
 
 impl<T: Positioned<f32, 3>> Triangle<T> {
-  /// return null when point is outside of triangle
+  /// return None when triangle is degenerated to a point
   pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>> {
     let v0 = self.b.position() - self.a.position();
     let v1 = self.c.position() - self.a.position();

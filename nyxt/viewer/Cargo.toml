@@ -25,7 +25,7 @@ nyxt-core = {path = "../core"}
 rendiation-math = {path = "../../math"}
 rendiation-math-entity = {path = "../../math-entity"}
 rendiation-mesh-buffer = {path = "../../mesh-buffer", features = ["shadergraph"]}
-rendiation-ral = {path = "../../ral"}
+rendiation-ral = {path = "../../ral/core"}
 rendiation-render-entity = {path = "../../render-entity"}
 rendiation-scenegraph = {path = "../../scene-graph"}
 rendiation-shader-library = {path = "../../shader-library", features = ["nyxt", "webgl"]}
@@ -37,7 +37,7 @@ console_error_panic_hook = "0.1.6"
 js-sys = "0.3.45"
 wasm-bindgen = {version = "0.2.68"}
 
-rendiation-webgl = {path = "../../webgl"}
+rendiation-webgl = {path = "../../ral/backend/webgl"}
 
 arena = {path = "../../utils/arena"}
 arena-tree = {path = "../../utils/arena-tree"}

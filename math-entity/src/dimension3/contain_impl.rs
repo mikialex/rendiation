@@ -1,7 +1,9 @@
+use rendiation_math::Scalar;
+
 use crate::{Box3, ContainAble};
 
-impl ContainAble<f32, Box3, 3> for Box3 {
-  fn contains(&self, box3: &Box3) -> bool {
+impl<T: Scalar> ContainAble<T, Box3<T>, 3> for Box3<T> {
+  fn contains(&self, box3: &Box3<T>) -> bool {
     self.min.x <= box3.min.x
       && self.min.y <= box3.min.y
       && self.min.z <= box3.min.z

@@ -13,5 +13,5 @@ pub use ao::*;
 pub use path_trace::*;
 
 pub trait Integrator: Sync {
-  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<LinearRGBColorSpace<f32>>;
+  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<f32, LinearRGBColorSpace<f32>>;
 }

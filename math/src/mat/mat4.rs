@@ -550,23 +550,12 @@ where
     let y = (top + bottom) * h;
     let z = (zfar + znear) * p;
 
+    #[rustfmt::skip]
     Mat4::new(
-      T::two() * w,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::two() * h,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      -T::two() * p,
-      T::zero(),
-      -x,
-      -y,
-      -z,
-      T::one(),
+      T::two() * w, T::zero(),    T::zero(),    T::zero(),
+      T::zero(),    T::two() * h, T::zero(),    T::zero(),
+      T::zero(),    T::zero(),   -T::two() * p, T::zero(),
+      -x,           -y,           -z,           T::one(),
     )
   }
 
@@ -575,23 +564,12 @@ where
     let w = h / aspect;
     let q = zfar / (zfar - znear);
 
+    #[rustfmt::skip]
     Mat4::new(
-      w,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      h,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      q,
-      T::one(),
-      T::zero(),
-      T::zero(),
-      -T::two() * znear * q,
-      T::zero(),
+      w,         T::zero(), T::zero(),             T::zero(),
+      T::zero(), h,         T::zero(),             T::zero(),
+      T::zero(), T::zero(), q,                     T::one(),
+      T::zero(), T::zero(), -T::two() * znear * q, T::zero(),
     )
   }
 
@@ -600,23 +578,12 @@ where
     let w = h / aspect;
     let q = -zfar / (zfar - znear);
 
+    #[rustfmt::skip]
     Mat4::new(
-      w,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      h,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      q,
-      -T::one(),
-      T::zero(),
-      T::zero(),
-      T::two() * znear * q,
-      T::zero(),
+      w,         T::zero(), T::zero(),             T::zero(),
+      T::zero(), h,         T::zero(),             T::zero(),
+      T::zero(), T::zero(), q,                    -T::one(),
+      T::zero(), T::zero(), T::two() * znear * q, T::zero(),
     )
   }
 
@@ -630,23 +597,12 @@ where
     let mut y = z.cross(x);
     y = y.normalize();
 
+    #[rustfmt::skip]
     let mut m = Mat4::new(
-      x.x,
-      y.x,
-      z.x,
-      T::zero(),
-      x.y,
-      y.y,
-      z.y,
-      T::zero(),
-      x.z,
-      y.z,
-      z.z,
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::zero(),
-      T::one(),
+      x.x,       y.x,       z.x,       T::zero(),
+      x.y,       y.y,       z.y,       T::zero(),
+      x.z,       y.z,       z.z,       T::zero(),
+      T::zero(), T::zero(), T::zero(), T::one(),
     )
     .transpose();
 
@@ -658,9 +614,12 @@ where
   }
 
   pub fn transpose(&self) -> Mat4<T> {
+    #[rustfmt::skip]
     Mat4::new(
-      self.a1, self.b1, self.c1, self.d1, self.a2, self.b2, self.c2, self.d2, self.a3, self.b3,
-      self.c3, self.d3, self.a4, self.b4, self.c4, self.d4,
+      self.a1, self.b1, self.c1, self.d1, 
+      self.a2, self.b2, self.c2, self.d2, 
+      self.a3, self.b3, self.c3, self.d3, 
+      self.a4, self.b4, self.c4, self.d4,
     )
   }
 }
@@ -671,23 +630,12 @@ where
 {
   #[inline(always)]
   fn zero() -> Self {
+    #[rustfmt::skip]
     Self {
-      a1: T::zero(),
-      a2: T::zero(),
-      a3: T::zero(),
-      a4: T::zero(),
-      b1: T::zero(),
-      b2: T::zero(),
-      b3: T::zero(),
-      b4: T::zero(),
-      c1: T::zero(),
-      c2: T::zero(),
-      c3: T::zero(),
-      c4: T::zero(),
-      d1: T::zero(),
-      d2: T::zero(),
-      d3: T::zero(),
-      d4: T::zero(),
+      a1: T::zero(), a2: T::zero(), a3: T::zero(), a4: T::zero(),
+      b1: T::zero(), b2: T::zero(), b3: T::zero(), b4: T::zero(),
+      c1: T::zero(), c2: T::zero(), c3: T::zero(), c4: T::zero(),
+      d1: T::zero(), d2: T::zero(), d3: T::zero(), d4: T::zero(),
     }
   }
   #[inline(always)]
@@ -712,7 +660,7 @@ where
   }
 }
 
-impl<T: Arithmetic> From<Mat3<T>> for Mat4<T> {
+impl<T: Scalar> From<Mat3<T>> for Mat4<T> {
   fn from(m: Mat3<T>) -> Self {
 
     #[rustfmt::skip]
@@ -725,7 +673,7 @@ impl<T: Arithmetic> From<Mat3<T>> for Mat4<T> {
   }
 }
 
-impl<T: Arithmetic> From<Quat<T>> for Mat4<T> {
+impl<T: Scalar> From<Quat<T>> for Mat4<T> {
   fn from(q: Quat<T>) -> Self {
     let (xs, ys, zs) = (q.x * T::two(), q.y * T::two(), q.z * T::two());
 

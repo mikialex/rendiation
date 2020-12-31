@@ -12,15 +12,16 @@ bytemuck = "1.4.1"
 once_cell = "1.4.0"
 soa_derive = "0.8.1"
 
+rendiation-ral = {path = "../ral/core"}
 rendiation-math = {path = "../math"}
 rendiation-math-entity = {path = "../math-entity"}
 
-rendiation-webgpu = {path = "../webgpu", optional = true}
 space-indexer = {path = "../space-indexer"}
 
 rendiation-derives = {path = "../derives", optional = true}
-rendiation-ral = {path = "../ral"}
+rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
 rendiation-shadergraph = {path = "../shader-graph", optional = true}
+
 
 log = "0.4"
 wasm-bindgen = {version = "0.2.68"}

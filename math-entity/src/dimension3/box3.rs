@@ -2,24 +2,24 @@ use crate::{Axis3, HyperAABB, LebesgueMeasurable};
 use rendiation_math::*;
 use std::iter::FromIterator;
 
-pub type Box3 = HyperAABB<f32, 3>;
+pub type Box3<T = f32> = HyperAABB<T, 3>;
 
-impl LebesgueMeasurable<f32, 2> for Box3 {
+impl<T: Scalar> LebesgueMeasurable<T, 2> for Box3<T> {
   #[inline(always)]
-  fn measure(&self) -> f32 {
+  fn measure(&self) -> T {
     self.width() * self.height() + self.width() * self.depth() + self.height() * self.depth()
   }
 }
 
-impl LebesgueMeasurable<f32, 3> for Box3 {
+impl<T: Scalar> LebesgueMeasurable<T, 3> for Box3<T> {
   #[inline(always)]
-  fn measure(&self) -> f32 {
+  fn measure(&self) -> T {
     self.width() * self.height() * self.depth()
   }
 }
 
-impl SpaceEntity<f32, 3> for Box3 {
-  fn apply_matrix(&mut self, m: SquareMatrixType<f32, 3>) -> &mut Self {
+impl<T: Scalar> SpaceEntity<T, 3> for Box3<T> {
+  fn apply_matrix(&mut self, m: SquareMatrixType<T, 3>) -> &mut Self {
     let points = [
       *Vec3::new(self.min.x, self.min.y, self.min.z).apply_matrix(m), // 000
       *Vec3::new(self.min.x, self.min.y, self.max.z).apply_matrix(m), // 001
@@ -41,18 +41,18 @@ impl Default for Box3 {
   }
 }
 
-impl Box3 {
-  pub fn new3(min: Vec3<f32>, max: Vec3<f32>) -> Self {
+impl<T: Scalar> Box3<T> {
+  pub fn new3(min: Vec3<T>, max: Vec3<T>) -> Self {
     Self { min, max }
   }
 
   #[inline(always)]
-  pub fn new_cube(center: Vec3<f32>, radius: f32) -> Self {
+  pub fn new_cube(center: Vec3<T>, radius: T) -> Self {
     Self::new_from_center(center, Vec3::splat(radius))
   }
 
   #[inline(always)]
-  pub fn new_from_center(center: Vec3<f32>, half_size: Vec3<f32>) -> Self {
+  pub fn new_from_center(center: Vec3<T>, half_size: Vec3<T>) -> Self {
     Self {
       min: center - half_size,
       max: center + half_size,
@@ -60,54 +60,52 @@ impl Box3 {
   }
 
   #[inline(always)]
-  pub fn size(&self) -> Vec3<f32> {
+  pub fn size(&self) -> Vec3<T> {
     Vec3::new(self.width(), self.height(), self.depth())
   }
 
   #[inline(always)]
-  pub fn half_size(&self) -> Vec3<f32> {
-    self.size() * 0.5
+  pub fn half_size(&self) -> Vec3<T> {
+    self.size() * T::half()
   }
 
   #[inline(always)]
-  pub fn width(&self) -> f32 {
+  pub fn width(&self) -> T {
     self.max.x - self.min.x
   }
 
   #[inline(always)]
-  pub fn height(&self) -> f32 {
+  pub fn height(&self) -> T {
     self.max.y - self.min.y
   }
 
   #[inline(always)]
-  pub fn depth(&self) -> f32 {
+  pub fn depth(&self) -> T {
     self.max.z - self.min.z
   }
 
   #[inline(always)]
-  pub fn empty() -> Self {
-    const INF: f32 = std::f32::INFINITY;
-    const N_INF: f32 = std::f32::NEG_INFINITY;
-    Self::new(Vec3::new(INF, INF, INF), Vec3::new(N_INF, N_INF, N_INF))
+  pub fn empty() -> Box3<T> {
+    Self::new(Vec3::splat(T::infinity()), Vec3::splat(T::neg_infinity()))
   }
 
   #[inline(always)]
-  pub fn center(&self) -> Vec3<f32> {
-    (self.min + self.max) * 0.5
+  pub fn center(&self) -> Vec3<T> {
+    (self.min + self.max) * T::half()
   }
 
   #[rustfmt::skip]
   #[inline(always)]
-  pub fn max_corner(&self, direction: Vec3<f32>) -> Vec3<f32> {
+  pub fn max_corner(&self, direction: Vec3<T>) -> Vec3<T> {
     Vec3::new(
-      if direction.x > 0. { self.max.x } else { self.min.x },
-      if direction.y > 0. { self.max.y } else { self.min.y },
-      if direction.z > 0. { self.max.z } else { self.min.z },
+      if direction.x > T::zero() { self.max.x } else { self.min.x },
+      if direction.y > T::zero() { self.max.y } else { self.min.y },
+      if direction.z > T::zero() { self.max.z } else { self.min.z },
     )
   }
 
   #[inline(always)]
-  pub fn longest_axis(&self) -> (Axis3, f32) {
+  pub fn longest_axis(&self) -> (Axis3, T) {
     let x_length = self.max.x - self.min.x;
     let y_length = self.max.y - self.min.y;
     let z_length = self.max.z - self.min.z;
@@ -126,7 +124,7 @@ impl Box3 {
   }
 
   #[inline(always)]
-  pub fn expand_by_point(&mut self, point: Vec3<f32>) {
+  pub fn expand_by_point(&mut self, point: Vec3<T>) {
     self.min = self.min.min(point);
     self.max = self.max.max(point);
   }
@@ -151,32 +149,32 @@ impl Box3 {
   }
 }
 
-impl<'a> FromIterator<&'a Vec3<f32>> for Box3 {
-  fn from_iter<I: IntoIterator<Item = &'a Vec3<f32>>>(items: I) -> Self {
+impl<'a, T: Scalar> FromIterator<&'a Vec3<T>> for Box3<T> {
+  fn from_iter<I: IntoIterator<Item = &'a Vec3<T>>>(items: I) -> Self {
     let mut bbox = Self::empty();
     items.into_iter().for_each(|p| bbox.expand_by_point(*p));
     bbox
   }
 }
 
-impl FromIterator<Vec3<f32>> for Box3 {
-  fn from_iter<I: IntoIterator<Item = Vec3<f32>>>(items: I) -> Self {
+impl<T: Scalar> FromIterator<Vec3<T>> for Box3<T> {
+  fn from_iter<I: IntoIterator<Item = Vec3<T>>>(items: I) -> Self {
     let mut bbox = Self::empty();
     items.into_iter().for_each(|p| bbox.expand_by_point(p));
     bbox
   }
 }
 
-impl<'a> FromIterator<&'a Box3> for Box3 {
-  fn from_iter<I: IntoIterator<Item = &'a Box3>>(items: I) -> Self {
+impl<'a, T: Scalar> FromIterator<&'a Box3<T>> for Box3<T> {
+  fn from_iter<I: IntoIterator<Item = &'a Box3<T>>>(items: I) -> Self {
     let mut bbox = Self::empty();
     items.into_iter().for_each(|p| bbox.expand_by_box(*p));
     bbox
   }
 }
 
-impl FromIterator<Box3> for Box3 {
-  fn from_iter<I: IntoIterator<Item = Box3>>(items: I) -> Self {
+impl<T: Scalar> FromIterator<Box3<T>> for Box3<T> {
+  fn from_iter<I: IntoIterator<Item = Box3<T>>>(items: I) -> Self {
     let mut bbox = Self::empty();
     items.into_iter().for_each(|p| bbox.expand_by_box(p));
     bbox

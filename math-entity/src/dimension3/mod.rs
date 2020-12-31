@@ -17,7 +17,7 @@ pub use intersection::*;
 pub use line_segment::*;
 pub use plane::*;
 pub use ray3::*;
-use rendiation_math::Vec3;
+use rendiation_math::{Scalar, Vec3};
 pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;
@@ -33,13 +33,13 @@ pub enum Axis3 {
 
 impl SpaceAxis<3> for Axis3 {}
 
-impl Positioned<f32, 3> for Vec3<f32> {
+impl<T: Scalar> Positioned<T, 3> for Vec3<T> {
   #[inline(always)]
-  fn position(&self) -> Vec3<f32> {
+  fn position(&self) -> Vec3<T> {
     *self
   }
   #[inline(always)]
-  fn position_mut(&mut self) -> &mut Vec3<f32> {
+  fn position_mut(&mut self) -> &mut Vec3<T> {
     self
   }
 }

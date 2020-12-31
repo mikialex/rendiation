@@ -12,7 +12,9 @@ pub trait RGBColor<T> {
 }
 
 // auto impl <rgb channel fetch> for all color that <marked as rgb colorspace and their value types is vec3<T>>
-impl<T: Copy, U: RGBColorSpace<T> + ColorSpace<ContainerValue = Vec3<T>>> RGBColor<T> for Color<U> {
+impl<T: Copy, U: RGBColorSpace<T> + ColorSpace<T, ContainerValue = Vec3<T>>> RGBColor<T>
+  for Color<T, U>
+{
   fn r(&self) -> T {
     self.value.x
   }
@@ -37,7 +39,7 @@ pub struct AnyRGBColorSpace<T: Copy + Clone> {
   phantom: PhantomData<T>,
 }
 impl<T: Copy + Clone> RGBColorSpace<T> for AnyRGBColorSpace<T> {}
-impl<T: Copy + Clone> ColorSpace for AnyRGBColorSpace<T> {
+impl<T: Copy + Clone> ColorSpace<T> for AnyRGBColorSpace<T> {
   type ContainerValue = Vec3<T>;
 }
 
@@ -45,13 +47,13 @@ pub struct SRGBColorSpace<T: Copy + Clone> {
   phantom: PhantomData<T>,
 }
 impl<T: Copy + Clone> RGBColorSpace<T> for SRGBColorSpace<T> {}
-impl<T: Copy + Clone> ColorSpace for SRGBColorSpace<T> {
+impl<T: Copy + Clone> ColorSpace<T> for SRGBColorSpace<T> {
   type ContainerValue = Vec3<T>;
 }
 
 #[allow(clippy::excessive_precision)]
-impl Color<SRGBColorSpace<f32>> {
-  pub fn to_linear_rgb(&self) -> Color<LinearRGBColorSpace<f32>> {
+impl Color<f32, SRGBColorSpace<f32>> {
+  pub fn to_linear_rgb(&self) -> Color<f32, LinearRGBColorSpace<f32>> {
     Color::new(self.value.map(|c| {
       if c < 0.04045 {
         c * 0.0773993808
@@ -66,12 +68,12 @@ pub struct LinearRGBColorSpace<T: Copy + Clone> {
   phantom: PhantomData<T>,
 }
 impl<T: Copy + Clone> RGBColorSpace<T> for LinearRGBColorSpace<T> {}
-impl<T: Copy + Clone> ColorSpace for LinearRGBColorSpace<T> {
+impl<T: Copy + Clone> ColorSpace<T> for LinearRGBColorSpace<T> {
   type ContainerValue = Vec3<T>;
 }
 
-impl Color<LinearRGBColorSpace<f32>> {
-  pub fn to_srgb(&self) -> Color<SRGBColorSpace<f32>> {
+impl Color<f32, LinearRGBColorSpace<f32>> {
+  pub fn to_srgb(&self) -> Color<f32, SRGBColorSpace<f32>> {
     Color::new(self.value.map(|c| {
       if c < 0.0031308 {
         c * 12.92

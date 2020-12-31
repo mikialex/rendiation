@@ -303,7 +303,7 @@ where
   }
 }
 
-impl<T: Arithmetic> From<Quat<T>> for Mat3<T> {
+impl<T: Scalar> From<Quat<T>> for Mat3<T> {
   fn from(q: Quat<T>) -> Self {
     let (xs, ys, zs) = (q.x * T::two(), q.y * T::two(), q.z * T::two());
 

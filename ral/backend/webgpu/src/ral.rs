@@ -1,6 +1,5 @@
 use crate::*;
 use rendiation_ral::*;
-use rendiation_shadergraph::ShaderGraph;
 use std::ops::Range;
 
 pub struct WebGPU;
@@ -155,6 +154,9 @@ impl<'a> WGPUBindgroupItem<'a> for ShaderSampler {
   }
 }
 
+#[cfg(feature = "shadergraph")]
+use rendiation_shadergraph::ShaderGraph;
+#[cfg(feature = "shadergraph")]
 pub fn convert_build_source(graph: &ShaderGraph) -> WGPUPipelineBuildSource {
   let compiled = graph.compile();
 

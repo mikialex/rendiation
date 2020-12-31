@@ -1,10 +1,10 @@
 use crate::{HyperSphere, LebesgueMeasurable, Rectangle, SpaceBounding};
 use rendiation_math::*;
 
-pub type Circle = HyperSphere<f32, 2>;
+pub type Circle<T = f32> = HyperSphere<T, 2>;
 
-impl SpaceBounding<f32, Rectangle, 2> for Circle {
-  fn to_bounding(&self) -> Rectangle {
+impl<T: Scalar> SpaceBounding<T, Rectangle<T>, 2> for Circle<T> {
+  fn to_bounding(&self) -> Rectangle<T> {
     Rectangle {
       min: self.center - Vec2::splat(self.radius),
       max: self.center + Vec2::splat(self.radius),
@@ -12,16 +12,16 @@ impl SpaceBounding<f32, Rectangle, 2> for Circle {
   }
 }
 
-impl LebesgueMeasurable<f32, 2> for Circle {
+impl<T: Scalar> LebesgueMeasurable<T, 2> for Circle<T> {
   #[inline(always)]
-  fn measure(&self) -> f32 {
-    std::f32::consts::PI * self.radius * self.radius
+  fn measure(&self) -> T {
+    T::PI() * self.radius * self.radius
   }
 }
 
-impl LebesgueMeasurable<f32, 1> for Circle {
+impl<T: Scalar> LebesgueMeasurable<T, 1> for Circle<T> {
   #[inline(always)]
-  fn measure(&self) -> f32 {
-    std::f32::consts::PI * self.radius * 2.
+  fn measure(&self) -> T {
+    T::PI() * self.radius * T::two()
   }
 }

@@ -17,13 +17,12 @@ js-sys = "0.3.45"
 rendiation-math = {path = "../math"}
 rendiation-math-entity = {path = "../math-entity"}
 rendiation-mesh-buffer = {path = "../mesh-buffer"}
-rendiation-ral = {path = "../ral"}
+rendiation-ral = {path = "../ral/core"}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-derives = {path = "../derives"}
 rendiation-shadergraph = {path = "../shader-graph"}
 once_cell = "1.4.0"
 wasm-bindgen = {version = "0.2.68"}
-# nyxt-core = {path = "../nyxt/core", optional = true}
 
 rendiation-rendergraph = {path = "../render-graph", optional = true}
 
