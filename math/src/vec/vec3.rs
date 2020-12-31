@@ -110,7 +110,13 @@ impl<T: Scalar> NormalizedVector<T, Vec3<T>> {
       Vec3::new(T::zero(), -v.z, v.y).normalize()
     };
     let nss = v.cross(ns);
-    Mat3::new(ns.x, nss.x, v.x, ns.y, nss.y, v.y, ns.z, nss.z, v.z)
+
+    #[rustfmt::skip]
+    Mat3::new(
+       ns.x,  ns.y,  ns.z, 
+      nss.x, nss.y, nss.z, 
+        v.x,   v.y,   v.z
+    )
   }
 }
 

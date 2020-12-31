@@ -1,6 +1,10 @@
 use crate::{
-  ray::Intersection, Diffuse, Material, NormalizedVec3, PhysicalDiffuse, Vec3, INV_PI, PI,
+  concentric_sample_disk, rand, ray::Intersection, Diffuse, Material, NormalizedVec3,
+  PhysicalDiffuse, Vec3, INV_PI, PI,
 };
+
+use rendiation_math::IntoNormalizedVector;
+use rendiation_math::{InnerProductSpace, Vec2};
 
 pub struct Lambertian;
 impl Material for Diffuse<Lambertian> {
@@ -18,7 +22,12 @@ impl Material for Diffuse<Lambertian> {
     view_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> NormalizedVec3 {
-    todo!()
+    // Simple cosine-sampling using Malley's method
+    let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
+    let x = sample.x;
+    let y = sample.y;
+    let z = (1.0 - x * x - y * y).sqrt();
+    (Vec3::new(x, y, z) * intersection.hit_normal.local_to_world()).into_normalized()
   }
 
   fn pdf(
@@ -27,7 +36,7 @@ impl Material for Diffuse<Lambertian> {
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
-    todo!()
+    light_dir.dot(intersection.hit_normal).max(0.0) * INV_PI
   }
 }
 

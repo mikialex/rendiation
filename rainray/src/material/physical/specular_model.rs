@@ -1,4 +1,4 @@
-use rendiation_math::{InnerProductSpace, IntoNormalizedVector, Vector};
+use rendiation_math::{InnerProductSpace, IntoNormalizedVector, Vec2, Vector};
 
 use crate::{
   math::{concentric_sample_disk, rand, rand2, Vec3, INV_PI, PI},
@@ -32,17 +32,18 @@ impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
     ((nh2 - 1.0) / (m2 * nh2)).exp() / (m2 * PI * nh2 * nh2)
   }
   fn sample_micro_surface_normal(&self, normal: NormalizedVec3) -> NormalizedVec3 {
-    todo!()
-    // // PIT for Beckmann distribution microfacet normal
-    // // θ = arctan √(-m^2 ln U)
-    // let m2 = self.roughness * self.roughness;
-    // let theta = (m2 * -rng.gen::<f64>().ln()).sqrt().atan();
-    // let (sin_t, cos_t) = theta.sin_cos();
+    // PIT for Beckmann distribution microfacet normal
+    // θ = arctan √(-m^2 ln U)
+    let m2 = self.roughness * self.roughness;
+    let theta = (m2 * -rand().ln()).sqrt().atan();
+    let (sin_t, cos_t) = theta.sin_cos();
 
-    // // Generate halfway vector by sampling azimuth uniformly
-    // let [x, y]: [f64; 2] = rng.sample(UnitCircle);
-    // let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
-    // local_to_world(normal) * h
+    // Generate halfway vector by sampling azimuth uniformly
+    let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
+    let x = sample.x;
+    let y = sample.y;
+    let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
+    (h * normal.local_to_world()).into_normalized()
   }
 
   fn surface_normal_pdf(&self, normal: NormalizedVec3, sampled_normal: NormalizedVec3) -> f32 {

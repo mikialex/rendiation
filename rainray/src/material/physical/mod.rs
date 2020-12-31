@@ -81,7 +81,7 @@ pub trait PhysicalSpecular:
     intersection: &Intersection,
   ) -> NormalizedVec3 {
     let micro_surface_normal = self.sample_micro_surface_normal(intersection.hit_normal);
-    view_dir.reflect(micro_surface_normal)
+    view_dir.reverse().reflect(micro_surface_normal)
   }
   fn pdf(
     &self,
@@ -90,7 +90,7 @@ pub trait PhysicalSpecular:
     intersection: &Intersection,
   ) -> f32 {
     let normal_pdf = self.surface_normal_pdf(view_dir, micro_surface_normal);
-    normal_pdf / (4.0 * micro_surface_normal.dot(view_dir))
+    normal_pdf / (4.0 * micro_surface_normal.dot(view_dir).abs())
   }
 }
 
@@ -131,7 +131,11 @@ where
     view_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> NormalizedVec3 {
-    todo!()
+    // if rand() > 0.5 {
+    self.specular.sample_light_dir(view_dir, intersection)
+    // } else {
+    //   self.diffuse.sample_light_dir(view_dir, intersection)
+    // }
   }
 
   fn pdf(
@@ -140,15 +144,7 @@ where
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
-    todo!()
+    self.specular.pdf(view_dir, light_dir, intersection) * 0.5
+      + self.diffuse.pdf(view_dir, light_dir, intersection) * 0.5
   }
-
-  // fn scatter(&self, in_dir: Vec3, intersection: &Intersection) -> Option<ScatteringEvent> {
-  //   if rand() > 0.5 {
-  //     self.specular.scatter(in_dir, intersection)
-  //   } else {
-  //     // sample diffuse
-  //     todo!()
-  //   }
-  // }
 }

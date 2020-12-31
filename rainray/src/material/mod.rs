@@ -6,12 +6,6 @@ use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 pub mod physical;
 pub use physical::*;
 
-// impl ScatteringEvent {
-//   pub fn create_next_ray(&self, at_position: Vec3) -> Ray3 {
-//     Ray3::new(at_position, self.out_dir)
-//   }
-// }
-
 pub trait Material: Send + Sync {
   /// sample the light input dir with brdf importance
   fn sample_light_dir(

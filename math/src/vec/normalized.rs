@@ -41,7 +41,7 @@ impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
     *self
   }
 
-  /// normalized vector reflect should be normalized
+  /// self should be normalized
   ///
   /// of course input normal should also be normalized
   #[inline]
