@@ -58,22 +58,24 @@ pub trait MicroFacetFresnel {
 pub trait PhysicalSpecular:
   MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel
 {
-  fn bsdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-    albedo: Vec3,
-  ) -> Vec3 {
-    let l = light_dir;
-    let v = view_dir;
-    let n = intersection.hit_normal;
-    let h = (l + v).into_normalized();
+  // fn bsdf(
+  //   &self,
+  //   view_dir: NormalizedVec3,
+  //   light_dir: NormalizedVec3,
+  //   intersection: &Intersection,
+  //   albedo: Vec3,
+  // ) -> Vec3 {
+  //   let l = light_dir;
+  //   let v = view_dir;
+  //   let n = intersection.hit_normal;
+  //   let h = (l + v).into_normalized();
 
-    (self.d(n, h) * self.g(l, v, n) * self.f(v, h, self.f0(albedo))) / (4.0 * n.dot(l) * n.dot(v))
-  }
+  //   (self.d(n, h) * self.g(l, v, n) * self.f(v, h, self.f0(albedo))) / (4.0 * n.dot(l) * n.dot(v))
+  // }
 
   fn f0(&self, albedo: Vec3) -> Vec3;
+
+  fn specular_estimate(&self, albedo: Vec3) -> f32;
 
   fn sample_light_dir(
     &self,
@@ -102,6 +104,17 @@ where
     let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
     Vec3::splat(f0).lerp(albedo, self.metallic)
   }
+
+  fn specular_estimate(&self, albedo: Vec3) -> f32 {
+    // Estimate specular contribution using Fresnel term
+    fn mix_scalar<N: Scalar>(x: N, y: N, a: N) -> N {
+      x * (N::one() - a) + y * a
+    }
+    let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
+    let f = (1.0 - self.metallic) * f0 + self.metallic * albedo.x; // albedo.mean()
+    let f = mix_scalar(f, 1.0, 0.2);
+    f
+  }
 }
 
 pub trait PhysicalDiffuse: Material {
@@ -119,11 +132,28 @@ where
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> Vec3 {
-    let specular = self
+    let l = light_dir;
+    let v = view_dir;
+    let n = intersection.hit_normal;
+    let h = (l + v).into_normalized();
+
+    let f = self
       .specular
-      .bsdf(view_dir, light_dir, intersection, self.diffuse.albedo());
+      .f(v, h, self.specular.f0(self.diffuse.albedo()));
+    let g = self.specular.g(l, v, n);
+    let d = self.specular.d(n, h);
+    let specular = (d * g * f) / (4.0 * n.dot(l) * n.dot(v));
+
+    // let specular = self
+    //   .specular
+    //   .bsdf(view_dir, light_dir, intersection, self.diffuse.albedo());
     let diffuse = self.diffuse.bsdf(view_dir, light_dir, intersection);
-    specular + diffuse
+    let re = specular + (Vec3::splat(1.0) - f) * diffuse;
+
+    // println!("{:?}", d);
+    re
+    // assert!(re.x <= 1.0);
+    // re.min(Vec3::splat(1.0))
   }
 
   fn sample_light_dir(
@@ -131,11 +161,12 @@ where
     view_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> NormalizedVec3 {
-    // if rand() > 0.5 {
-    self.specular.sample_light_dir(view_dir, intersection)
+    // if rand() > self.specular.specular_estimate(self.diffuse.albedo()) {
+    //   self.specular.sample_light_dir(view_dir, intersection)
     // } else {
     //   self.diffuse.sample_light_dir(view_dir, intersection)
     // }
+    self.diffuse.sample_light_dir(view_dir, intersection)
   }
 
   fn pdf(
@@ -144,7 +175,9 @@ where
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
-    self.specular.pdf(view_dir, light_dir, intersection) * 0.5
-      + self.diffuse.pdf(view_dir, light_dir, intersection) * 0.5
+    let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
+    let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
+    let diff = self.diffuse.pdf(view_dir, light_dir, intersection) * (1.0 - specular_estimate);
+    spec + diff
   }
 }
