@@ -157,11 +157,11 @@ where
     view_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> NormalizedVec3 {
-    // if rand() > self.specular.specular_estimate(self.diffuse.albedo()) {
-    self.specular.sample_light_dir(view_dir, intersection)
-    // } else {
-    //   self.diffuse.sample_light_dir(view_dir, intersection)
-    // }
+    if rand() < self.specular.specular_estimate(self.diffuse.albedo()) {
+      self.specular.sample_light_dir(view_dir, intersection)
+    } else {
+      self.diffuse.sample_light_dir(view_dir, intersection)
+    }
   }
 
   fn pdf(
@@ -170,11 +170,9 @@ where
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
-    // let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
-    // let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
-    // let diff = self.diffuse.pdf(view_dir, light_dir, intersection) * (1.0 - specular_estimate);
-    // spec + diff
-    let spec = self.specular.pdf(view_dir, light_dir, intersection);
-    spec
+    let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
+    let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
+    let diff = self.diffuse.pdf(view_dir, light_dir, intersection) * (1.0 - specular_estimate);
+    spec + diff
   }
 }
