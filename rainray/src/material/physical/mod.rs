@@ -88,10 +88,11 @@ pub trait PhysicalSpecular:
   fn pdf(
     &self,
     view_dir: NormalizedVec3,
-    micro_surface_normal: NormalizedVec3,
+    light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
-    let normal_pdf = self.surface_normal_pdf(view_dir, micro_surface_normal);
+    let micro_surface_normal = (view_dir + light_dir).into_normalized();
+    let normal_pdf = self.surface_normal_pdf(intersection.hit_normal, micro_surface_normal);
     normal_pdf / (4.0 * micro_surface_normal.dot(view_dir).abs())
   }
 }
@@ -140,20 +141,15 @@ where
     let f = self
       .specular
       .f(v, h, self.specular.f0(self.diffuse.albedo()));
+
     let g = self.specular.g(l, v, n);
+
     let d = self.specular.d(n, h);
+
     let specular = (d * g * f) / (4.0 * n.dot(l) * n.dot(v));
 
-    // let specular = self
-    //   .specular
-    //   .bsdf(view_dir, light_dir, intersection, self.diffuse.albedo());
     let diffuse = self.diffuse.bsdf(view_dir, light_dir, intersection);
-    let re = specular + (Vec3::splat(1.0) - f) * diffuse;
-
-    // println!("{:?}", d);
-    re
-    // assert!(re.x <= 1.0);
-    // re.min(Vec3::splat(1.0))
+    specular + (Vec3::splat(1.0) - f) * diffuse
   }
 
   fn sample_light_dir(
@@ -162,11 +158,10 @@ where
     intersection: &Intersection,
   ) -> NormalizedVec3 {
     // if rand() > self.specular.specular_estimate(self.diffuse.albedo()) {
-    //   self.specular.sample_light_dir(view_dir, intersection)
+    self.specular.sample_light_dir(view_dir, intersection)
     // } else {
     //   self.diffuse.sample_light_dir(view_dir, intersection)
     // }
-    self.diffuse.sample_light_dir(view_dir, intersection)
   }
 
   fn pdf(
@@ -175,9 +170,11 @@ where
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
-    let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
-    let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
-    let diff = self.diffuse.pdf(view_dir, light_dir, intersection) * (1.0 - specular_estimate);
-    spec + diff
+    // let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
+    // let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
+    // let diff = self.diffuse.pdf(view_dir, light_dir, intersection) * (1.0 - specular_estimate);
+    // spec + diff
+    let spec = self.specular.pdf(view_dir, light_dir, intersection);
+    spec
   }
 }
