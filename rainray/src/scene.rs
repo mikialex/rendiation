@@ -30,13 +30,44 @@ impl Default for Scene {
   }
 }
 
+// copy from RTX gem, but not work
+
+// const ORIGIN: f32 = 1.0 / 32.0;
+// const FLOAT_SCALE: f32 = 1.0 / 65536.0;
+// const INT_SCALE: f32 = 256.0;
+
+// fn float_as_int(f: f32) -> i32 {
+//   unsafe { std::mem::transmute(f) }
+// }
+// fn int_as_float(f: i32) -> f32 {
+//   unsafe { std::mem::transmute(f) }
+// }
+
+// // Normal points outward for rays exiting the surface, else is flipped.
+// #[rustfmt::skip]
+// fn offset_ray(p: Vec3, n: Vec3) -> Vec3 {
+//   let of_i = n.map(|n| float_as_int(n * INT_SCALE));
+//   let p_i = p.zip(of_i, |p, of_i_p| {
+//     int_as_float(float_as_int(p) + (if p < 0. { -of_i_p } else { of_i_p }))
+//   });
+
+//    Vec3::new(
+//      if p.x.abs() < ORIGIN { p.x + FLOAT_SCALE * n.x } else { p_i.x },
+//      if p.y.abs() < ORIGIN { p.y + FLOAT_SCALE * n.y } else { p_i.y },
+//      if p.z.abs() < ORIGIN { p.z + FLOAT_SCALE * n.z } else { p_i.z },
+//    )
+// }
+
 impl Scene {
   pub fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &Model)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result: Option<(Intersection, &Model)> = None;
     for model in &self.models {
-      if let Some(intersection) = model.geometry.intersect(&ray) {
+      if let Some(mut intersection) = model.geometry.intersect(&ray) {
         if intersection.distance < min_distance {
+          intersection.hit_position = intersection.hit_position + intersection.hit_normal * 0.001;
+          // intersection.hit_position =
+          //   offset_ray(intersection.hit_position, intersection.hit_normal.value);
           min_distance = intersection.distance;
           result = Some((intersection, model))
         }

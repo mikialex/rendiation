@@ -1224,7 +1224,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cc7ad3d82c845bdb5dde34ffdcc7a5fb4d2996e1e1ee0f19c33bc80e15196b9"
 dependencies = [
- "num-traits 0.1.43",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1930,7 +1930,10 @@ dependencies = [
  "rayon",
  "rendiation-math",
  "rendiation-math-entity",
+ "rendiation-mesh-buffer",
  "rendiation-render-entity",
+ "space-indexer",
+ "tobj 2.0.3",
 ]
 
 [[package]]
@@ -2277,7 +2280,7 @@ version = "0.1.0"
 dependencies = [
  "rendiation-math",
  "rendiation-math-entity",
- "tobj",
+ "tobj 0.1.12",
 ]
 
 [[package]]
@@ -2632,6 +2635,12 @@ name = "tobj"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe69d3e3b94bf71dfd868eb38b0830917bb177a7b32b58cab7ca72691aba7729"
+
+[[package]]
+name = "tobj"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18ae31f5c23500c4bbbea8420c1761e9bdfdd8eeb95f35f37c97cb67ec9d7aff"
 
 [[package]]
 name = "tokio"

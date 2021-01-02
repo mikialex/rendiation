@@ -1,8 +1,6 @@
 use rendiation_math::Vec2;
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
-extern crate image;
-
 pub struct Frame {
   pub data: Vec<Vec<Color<f32, LinearRGBColorSpace<f32>>>>,
 }
