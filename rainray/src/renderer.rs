@@ -33,7 +33,7 @@ fn test_intersection_is_visible_to_point(
 impl Renderer {
   pub fn new(integrator: impl Integrator + 'static) -> Renderer {
     Renderer {
-      sample_per_pixel: 100,
+      sample_per_pixel: 30,
       integrator: Box::new(integrator),
     }
   }

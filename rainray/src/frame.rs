@@ -1,8 +1,6 @@
 use rendiation_math::Vec2;
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
-extern crate image;
-
 pub struct Frame {
   pub data: Vec<Vec<Color<f32, LinearRGBColorSpace<f32>>>>,
 }
@@ -50,6 +48,7 @@ impl Frame {
   }
 
   pub fn write_to_file(&self, path: &str) {
+    println!("writing file to path: {}", path);
     let mut img_buf = image::ImageBuffer::new(self.width() as u32, self.height() as u32);
 
     // Iterate over the coordinates and pixels of the image
@@ -65,5 +64,13 @@ impl Frame {
 
     img_buf.save(path).unwrap();
     println!("{} pixels has write to {}", self.pixel_count(), path);
+  }
+
+  pub fn write_result(&self, name: &str) {
+    let mut current_path = std::env::current_dir().unwrap();
+    println!("working dir {}", current_path.display());
+    current_path.push(String::from(name) + ".png");
+    let file_target_path = current_path.into_os_string().into_string().unwrap();
+    self.write_to_file(&file_target_path);
   }
 }

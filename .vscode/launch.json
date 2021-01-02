@@ -124,12 +124,12 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rainray",
+                    "--example=ball",
                     "--package=rainray"
                 ],
                 "filter": {
-                    "name": "rainray",
-                    "kind": "bin"
+                    "name": "ball",
+                    "kind": "example"
                 }
             },
             "args": [],

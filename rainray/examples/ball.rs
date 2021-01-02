@@ -63,12 +63,7 @@ fn main() {
       bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
     });
 
-  let mut current_path = std::env::current_dir().unwrap();
-  println!("working dir {}", current_path.display());
   renderer.render(&camera, &scene, &mut frame);
-  current_path.push("result.png");
-  let file_target_path = current_path.into_os_string().into_string().unwrap();
 
-  println!("writing file to path: {}", file_target_path);
-  frame.write_to_file(&file_target_path);
+  frame.write_result("ball");
 }

@@ -40,7 +40,7 @@ impl RayIntersectAble for Sphere {
         }
         let mut hit_position = ray.at(distance);
         let hit_normal = (hit_position - self.center).into_normalized();
-        hit_position += hit_normal * EPS;
+        // hit_position += hit_normal * EPS;
         Some(Intersection {
           distance,
           hit_normal,
