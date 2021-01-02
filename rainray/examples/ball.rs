@@ -1,4 +1,5 @@
 use rainray::*;
+use rendiation_math::IntoNormalizedVector;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());
@@ -18,7 +19,7 @@ fn main() {
       Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
       PhysicalMaterial {
         specular: Specular {
-          roughness: 0.1,
+          roughness: 0.01,
           metallic: 0.9,
           ior: 1.6,
           normal_distribution_model: Beckmann,
@@ -32,7 +33,7 @@ fn main() {
       },
     ))
     .model(Model::new(
-      Sphere::new(Vec3::new(0., -10000., 0.), 10000.0), // ground
+      Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
       Diffuse {
         albedo: Vec3::new(0.3, 0.4, 0.8),
         diffuse_model: Lambertian,

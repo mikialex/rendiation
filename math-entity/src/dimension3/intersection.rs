@@ -1,6 +1,6 @@
-use crate::ray3::Ray3;
 use crate::sphere::Sphere;
 use crate::{intersect_reverse, Box3, IntersectAble, LineSegment, Point, Positioned, Triangle};
+use crate::{ray3::Ray3, Plane};
 use rendiation_math::*;
 
 #[repr(C)]
@@ -275,5 +275,16 @@ impl IntersectAble<Sphere, bool> for Ray3 {
     IntersectAble::<Sphere, NearestPoint3D>::intersect(self, other, p)
       .0
       .is_some()
+  }
+}
+
+impl IntersectAble<Plane, NearestPoint3D> for Ray3 {
+  #[inline]
+  fn intersect(&self, plane: &Plane, _: &()) -> NearestPoint3D {
+    NearestPoint3D(
+      self
+        .distance_to_plane(plane)
+        .map(|distance| self.at_into(distance)),
+    )
   }
 }

@@ -1,4 +1,4 @@
-use crate::{HyperRay, LineSegment, Positioned};
+use crate::{HyperRay, LineSegment, Plane, Positioned};
 use rendiation_math::*;
 
 pub type Ray3<T = f32> = HyperRay<T, 3>;
@@ -26,6 +26,29 @@ impl<T: Scalar> Ray3<T> {
     let oc = point - self.origin;
     let tca = oc.dot(self.direction);
     oc.dot(oc) - tca * tca
+  }
+
+  pub fn distance_to_plane(&self, plane: &Plane<T>) -> Option<T> {
+    let denominator = plane.normal.dot(self.direction);
+
+    if denominator == T::zero() {
+      // line is coplanar, return origin
+      if plane.distance_to_point(self.origin) == T::zero() {
+        return T::zero().into();
+      }
+
+      // Null is preferable to undefined since undefined means.... it is undefined
+      return None;
+    }
+
+    let t = -(self.origin.dot(plane.normal) + plane.constant) / denominator;
+
+    // Return if the ray never intersects the plane
+    if t >= T::zero() {
+      t.into()
+    } else {
+      None
+    }
   }
 
   pub fn distance_sq_to_segment<U: Positioned<T, 3>>(

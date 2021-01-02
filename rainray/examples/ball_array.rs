@@ -1,4 +1,5 @@
 use rainray::*;
+use rendiation_math::IntoNormalizedVector;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());
@@ -10,7 +11,7 @@ fn main() {
 
   scene
     .model(Model::new(
-      Sphere::new(Vec3::new(0., -10000., 0.), 10000.0), // ground
+      Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
       Diffuse {
         albedo: Vec3::new(0.5, 0.4, 0.8),
         diffuse_model: Lambertian,
@@ -80,5 +81,5 @@ fn main() {
   camera.update_by(&perspective);
 
   renderer.render(&camera, &scene, &mut frame);
-  frame.write_result("ball");
+  frame.write_result("ball_array");
 }
