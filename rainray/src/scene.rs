@@ -64,7 +64,7 @@ impl Scene {
     let mut min_distance = std::f32::INFINITY;
     let mut result: Option<(Intersection, &Model)> = None;
     for model in &self.models {
-      if let Some(mut intersection) = model.geometry.intersect(&ray) {
+      if let PossibleIntersection(Some(mut intersection)) = model.geometry.intersect(&ray, &()) {
         if intersection.distance < min_distance {
           // intersection.hit_position = intersection.hit_position + intersection.hit_normal * 0.001;
           intersection.hit_position =

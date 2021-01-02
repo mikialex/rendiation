@@ -149,6 +149,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Point<T>, NearestPoint3D, f32> for Ray
 
 intersect_reverse!(Box3, NearestPoint3D, (), Ray3);
 impl IntersectAble<Box3, NearestPoint3D> for Ray3 {
+  #[inline]
   fn intersect(&self, box3: &Box3, _: &()) -> NearestPoint3D {
     #[allow(unused_assignments)]
     let (mut t_max, mut t_min, mut ty_min, mut ty_max, mut tz_min, mut tz_max) =
@@ -231,6 +232,7 @@ impl IntersectAble<Box3, bool> for Ray3 {
 
 intersect_reverse!(Sphere, NearestPoint3D, (), Ray3);
 impl IntersectAble<Sphere, NearestPoint3D> for Ray3 {
+  #[inline]
   fn intersect(&self, sphere: &Sphere, _: &()) -> NearestPoint3D {
     let oc = sphere.center - self.origin;
     let tca = oc.dot(self.direction);
