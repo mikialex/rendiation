@@ -58,21 +58,6 @@ pub trait MicroFacetFresnel {
 pub trait PhysicalSpecular:
   MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel
 {
-  // fn bsdf(
-  //   &self,
-  //   view_dir: NormalizedVec3,
-  //   light_dir: NormalizedVec3,
-  //   intersection: &Intersection,
-  //   albedo: Vec3,
-  // ) -> Vec3 {
-  //   let l = light_dir;
-  //   let v = view_dir;
-  //   let n = intersection.hit_normal;
-  //   let h = (l + v).into_normalized();
-
-  //   (self.d(n, h) * self.g(l, v, n) * self.f(v, h, self.f0(albedo))) / (4.0 * n.dot(l) * n.dot(v))
-  // }
-
   fn f0(&self, albedo: Vec3) -> Vec3;
 
   fn specular_estimate(&self, albedo: Vec3) -> f32;

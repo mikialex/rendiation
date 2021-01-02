@@ -5,7 +5,7 @@ fn main() {
   let perspective = PerspectiveProjection::default();
   let mut camera = Camera::new();
 
-  let mut frame = Frame::new(2000, 2000);
+  let mut frame = Frame::new(1000, 1000);
   let mut scene = Scene::default();
 
   scene
@@ -78,14 +78,7 @@ fn main() {
     Vec3::new(0., 1., 0.),
   );
   camera.update_by(&perspective);
-  // renderer.sample_per_pixel = 200;
 
-  let mut current_path = std::env::current_dir().unwrap();
-  println!("working dir {}", current_path.display());
   renderer.render(&camera, &scene, &mut frame);
-  current_path.push("result.png");
-  let file_target_path = current_path.into_os_string().into_string().unwrap();
-
-  println!("writing file to path: {}", file_target_path);
-  frame.write_to_file(&file_target_path);
+  frame.write_result("ball");
 }
