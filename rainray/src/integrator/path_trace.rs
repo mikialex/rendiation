@@ -10,6 +10,7 @@ use crate::{
   math::rand, math::Vec3, ray::Intersection, scene::Scene, LightSampleResult, Material,
   NormalizedVec3,
 };
+use rendiation_math::RealVector;
 use rendiation_math::Zero;
 
 pub struct PathTraceIntegrator {
@@ -103,6 +104,7 @@ impl Integrator for PathTraceIntegrator {
       current_ray = Ray3::new(intersection.hit_position, light_dir);
     }
 
-    Color::new(energy / self.exposure_upper_bound)
+    // if not clamp, will get white point maybe caused by intersection precision
+    Color::new((energy / self.exposure_upper_bound).min(Vec3::splat(1.0)))
   }
 }
