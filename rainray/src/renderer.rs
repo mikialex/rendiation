@@ -1,6 +1,5 @@
-use crate::frame::*;
 use crate::math::*;
-use crate::ray::*;
+use crate::{frame::*, Intersection};
 use crate::{integrator::Integrator, scene::*};
 use rendiation_math::{InnerProductSpace, Vec2, Vector, Zero};
 use rendiation_render_entity::{color::*, Camera, Raycaster};

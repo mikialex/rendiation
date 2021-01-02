@@ -1,6 +1,6 @@
 use crate::{
-  concentric_sample_disk, rand, ray::Intersection, Diffuse, Material, NormalizedVec3,
-  PhysicalDiffuse, Vec3, INV_PI, PI,
+  concentric_sample_disk, rand, Diffuse, Intersection, Material, NormalizedVec3, PhysicalDiffuse,
+  Vec3, INV_PI, PI,
 };
 
 use rendiation_math::IntoNormalizedVector;

@@ -1,7 +1,6 @@
-use crate::light::*;
 use crate::model::*;
-use crate::ray::*;
 use crate::{environment::*, Vec3};
+use crate::{light::*, Intersection, PossibleIntersection};
 use rendiation_math::*;
 use rendiation_math_entity::Ray3;
 use std::sync::Arc;

@@ -7,8 +7,7 @@ use rendiation_render_entity::{
 
 use super::Integrator;
 use crate::{
-  math::rand, math::Vec3, ray::Intersection, scene::Scene, LightSampleResult, Material,
-  NormalizedVec3,
+  math::rand, math::Vec3, scene::Scene, Intersection, LightSampleResult, Material, NormalizedVec3,
 };
 use rendiation_math::RealVector;
 use rendiation_math::Zero;

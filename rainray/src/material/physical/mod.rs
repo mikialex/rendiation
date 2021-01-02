@@ -12,8 +12,7 @@ pub use diffuse_model::*;
 
 use crate::{
   math::{Vec3, PI},
-  ray::Intersection,
-  Material, INV_PI,
+  Intersection, Material, INV_PI,
 };
 
 pub struct PhysicalMaterial<D, S> {

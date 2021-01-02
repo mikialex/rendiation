@@ -1,6 +1,5 @@
-use crate::frame::*;
 use crate::math::*;
-use crate::ray::*;
+use crate::{frame::*, Intersection};
 use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
 
 pub mod physical;
