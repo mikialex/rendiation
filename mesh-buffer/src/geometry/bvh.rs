@@ -1,4 +1,7 @@
-use super::{AnyGeometry, LineList, MeshBufferIntersectConfig, NoneIndexedGeometry};
+use super::{
+  AnyGeometry, LineList, MeshBufferHitList, MeshBufferHitPoint, MeshBufferIntersectConfig,
+  NoneIndexedGeometry,
+};
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use space_indexer::{bvh::*, utils::TreeBuildOption};
@@ -15,14 +18,14 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> HitList3D;
+  ) -> MeshBufferHitList;
 
   fn intersect_first_bvh(
     &self,
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Nearest<HitPoint3D>;
+  ) -> Nearest<MeshBufferHitPoint>;
 }
 
 impl<G, B, S> BVHExtendedAnyGeometry<B, S> for G
@@ -46,15 +49,23 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> HitList3D {
-    let mut result = HitList3D::new();
+  ) -> MeshBufferHitList {
+    let mut result = MeshBufferHitList::new();
     bvh.traverse(
       |branch| branch.bounding.intersect(&ray, &()),
       |leaf| {
         leaf
           .iter_primitive(bvh)
-          .map(|&i| self.primitive_at(i))
-          .for_each(|p| result.push_nearest(p.intersect(&ray, conf)))
+          .map(|&i| (self.primitive_at(i), i))
+          .filter_map(|(p, primitive_index)| {
+            p.intersect(&ray, conf)
+              .map(|hit| MeshBufferHitPoint {
+                hit,
+                primitive_index,
+              })
+              .0
+          })
+          .for_each(|h| result.0.push(h))
       },
     );
     result
@@ -65,19 +76,23 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Nearest<HitPoint3D> {
-    todo!()
-    // let mut result = HitList3D::new();
-    // bvh.traverse(
-    //   |branch| branch.bounding.intersect(&ray, &()),
-    //   |leaf| {
-    //     leaf
-    //       .iter_primitive(bvh)
-    //       .map(|&i| self.geometry.primitive_at(i))
-    //       .for_each(|p| result.push_nearest(p.intersect(&ray, conf)))
-    //   },
-    // );
-    // result
+  ) -> Nearest<MeshBufferHitPoint> {
+    let mut nearest = Nearest::none();
+    bvh.traverse(
+      |branch| branch.bounding.intersect(&ray, &()),
+      |leaf| {
+        leaf
+          .iter_primitive(bvh)
+          .map(|&i| (self.primitive_at(i), i))
+          .for_each(|(p, primitive_index)| {
+            nearest.refresh_nearest(p.intersect(&ray, conf).map(|hit| MeshBufferHitPoint {
+              hit,
+              primitive_index,
+            }));
+          })
+      },
+    );
+    nearest
   }
 }
 

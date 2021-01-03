@@ -71,6 +71,11 @@ where
     }
     self
   }
+
+  #[inline(always)]
+  pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Nearest<U> {
+    Nearest(self.0.map(f))
+  }
 }
 
 impl<T> Deref for Nearest<T> {
