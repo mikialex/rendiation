@@ -93,16 +93,18 @@ impl<T> From<Option<T>> for Nearest<T> {
 }
 
 #[derive(Default)]
-pub struct IntersectionList3D(pub Vec<HitPoint3D>);
+pub struct HitList<const D: usize, T: Scalar = f32>(pub Vec<HitPoint<D, T>>);
 
-impl IntersectionList3D {
+pub type HitList3D<T = f32> = HitList<3, T>;
+
+impl<const D: usize, T: Scalar> HitList<D, T> {
   pub fn new() -> Self {
     Self(Vec::new())
   }
   pub fn new_with_capacity(size: usize) -> Self {
     Self(Vec::with_capacity(size))
   }
-  pub fn push_nearest(&mut self, hit: Nearest<HitPoint3D>) {
+  pub fn push_nearest(&mut self, hit: Nearest<HitPoint<D, T>>) {
     if let Nearest(Some(hit)) = hit {
       self.0.push(hit);
     }

@@ -4,7 +4,7 @@ use super::AnyGeometry;
 use rendiation_math_entity::*;
 
 pub trait IntersectAbleAnyGeometry {
-  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut IntersectionList3D);
+  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut HitList3D);
   fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> Nearest<HitPoint3D>;
 }
 
@@ -13,7 +13,7 @@ where
   G: AnyGeometry,
   G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, Config>,
 {
-  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut IntersectionList3D) {
+  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut HitList3D) {
     self
       .primitive_iter()
       .into_iter()
@@ -98,6 +98,6 @@ fn test() {
   let config = MeshBufferIntersectConfig::default();
   let quad = Quad.tessellate();
   let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized());
-  let mut result = IntersectionList3D::new();
+  let mut result = HitList3D::new();
   quad.geometry.intersect_list(ray, &config, &mut result);
 }

@@ -15,7 +15,7 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> IntersectionList3D;
+  ) -> HitList3D;
 
   fn intersect_first_bvh(
     &self,
@@ -46,8 +46,8 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> IntersectionList3D {
-    let mut result = IntersectionList3D::new();
+  ) -> HitList3D {
+    let mut result = HitList3D::new();
     bvh.traverse(
       |branch| branch.bounding.intersect(&ray, &()),
       |leaf| {
@@ -67,7 +67,7 @@ where
     conf: &MeshBufferIntersectConfig,
   ) -> Nearest<HitPoint3D> {
     todo!()
-    // let mut result = IntersectionList3D::new();
+    // let mut result = HitList3D::new();
     // bvh.traverse(
     //   |branch| branch.bounding.intersect(&ray, &()),
     //   |leaf| {
