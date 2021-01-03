@@ -19,7 +19,7 @@ pub struct Mesh {
 impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
     todo!()
-    // self.geometry.as_ref_container().intersect_first_bvh(
+    // self.geometry.iter_from_boxed().intersect_first_bvh(
     //   ray,
     //   &self.bvh,
     //   MeshBufferIntersectConfig::default(),
@@ -36,7 +36,7 @@ impl RainRayGeometry for Mesh {}
 
 impl Mesh {
   pub fn from_path_obj(path: &str) -> Self {
-    let obj = tobj::load_obj("cornell_box.obj", true);
+    let obj = tobj::load_obj(path, true);
     let (models, _) = obj.unwrap();
 
     let mut indices: Vec<u32> = Vec::new();
