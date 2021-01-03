@@ -13,8 +13,30 @@ use space_indexer::{
 
 use crate::{Intersection, PossibleIntersection, RainRayGeometry};
 
-pub trait RainrayMeshBuffer: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync {}
-impl<T: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync> RainrayMeshBuffer for T {}
+pub trait RainrayMeshBuffer: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync {
+  fn get_intersect(&self, ray: &Ray3, bvh: &FlattenBVH<Box3>) -> PossibleIntersection;
+}
+
+impl<T> RainrayMeshBuffer for T
+where
+  T: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync,
+  T: AnyGeometry,
+{
+  fn get_intersect(&self, ray: &Ray3, bvh: &FlattenBVH<Box3>) -> PossibleIntersection {
+    let nearest = self.intersect_first_bvh(*ray, bvh, &MeshBufferIntersectConfig::default());
+
+    PossibleIntersection(nearest.0.map(|hit| {
+      let primitive = self.primitive_at(hit.primitive_index);
+      // /
+      // Intersection {
+      //   distance: hit.hit.distance,
+      //   hit_position: hit.hit.position,
+      //   hit_normal: self.normal,
+      // };
+      todo!()
+    }))
+  }
+}
 
 pub struct Mesh {
   geometry: Box<dyn RainrayMeshBuffer>,
@@ -23,27 +45,7 @@ pub struct Mesh {
 
 impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    todo!()
-    // let nearest =
-    //   self
-    //     .geometry
-    //     .intersect_first_bvh(*ray, &self.bvh, &MeshBufferIntersectConfig::default());
-    // PossibleIntersection(nearest.0.map(|near| Intersection {
-    //   distance: near.distance,
-    //   hit_position: near.position,
-    //   hit_normal: (near.position - self.center).into_normalized(),
-    // }))
-    // self.geometry.iter_from_boxed().intersect_first_bvh(
-    //   ray,
-    //   &self.bvh,
-    //   MeshBufferIntersectConfig::default(),
-    // )
-    // let result: NearestPoint3D = ray.intersect(self, param);
-    // PossibleIntersection(result.0.map(|near| Intersection {
-    //   distance: near.distance,
-    //   hit_position: near.position,
-    //   hit_normal: self.normal,
-    // }))
+    self.geometry.get_intersect(ray, &self.bvh)
   }
 }
 impl RainRayGeometry for Mesh {}
