@@ -53,7 +53,7 @@ pub struct PossibleIntersection(pub Option<Intersection>);
 
 impl IntersectAble<Ray3, PossibleIntersection> for Sphere {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: NearestPoint3D = ray.intersect(self, param);
+    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
     PossibleIntersection(result.0.map(|near| Intersection {
       distance: near.distance,
       hit_position: near.position,
@@ -65,7 +65,7 @@ impl RainRayGeometry for Sphere {}
 
 impl IntersectAble<Ray3, PossibleIntersection> for Plane {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: NearestPoint3D = ray.intersect(self, param);
+    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
     PossibleIntersection(result.0.map(|near| Intersection {
       distance: near.distance,
       hit_position: near.position,

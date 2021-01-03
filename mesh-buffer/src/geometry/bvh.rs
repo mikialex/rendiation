@@ -22,7 +22,7 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> NearestPoint3D;
+  ) -> Nearest<HitPoint3D>;
 }
 
 impl<G, B, S> BVHExtendedAnyGeometry<B, S> for G
@@ -31,7 +31,7 @@ where
   S: BVHBuildStrategy<B>,
   G: AnyGeometry,
   G::Primitive: SpaceBounding<f32, B, 3>,
-  G::Primitive: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectConfig>,
+  G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, MeshBufferIntersectConfig>,
 {
   fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B> {
     FlattenBVH::new(
@@ -65,7 +65,7 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> NearestPoint3D {
+  ) -> Nearest<HitPoint3D> {
     todo!()
     // let mut result = IntersectionList3D::new();
     // bvh.traverse(

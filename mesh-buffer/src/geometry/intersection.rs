@@ -3,15 +3,15 @@ use std::cell::Cell;
 use super::AnyGeometry;
 use rendiation_math_entity::*;
 
-pub trait IntersectableAnyGeometry {
+pub trait IntersectAbleAnyGeometry {
   fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut IntersectionList3D);
-  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> NearestPoint3D;
+  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> Nearest<HitPoint3D>;
 }
 
-impl<G> IntersectableAnyGeometry for G
+impl<G> IntersectAbleAnyGeometry for G
 where
   G: AnyGeometry,
-  G::Primitive: IntersectAble<Ray3, NearestPoint3D, Config>,
+  G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, Config>,
 {
   fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut IntersectionList3D) {
     self
@@ -20,21 +20,12 @@ where
       .filter_map(|p| p.intersect(&ray, conf).0)
       .for_each(|h| result.0.push(h))
   }
-  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> NearestPoint3D {
-    let mut closest: Option<HitPoint3D> = None;
+  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> Nearest<HitPoint3D> {
+    let mut nearest = Nearest::none();
     self.primitive_iter().into_iter().for_each(|p| {
-      let hit = p.intersect(&ray, conf);
-      if let NearestPoint3D(Some(h)) = hit {
-        if let Some(clo) = &closest {
-          if h.distance < clo.distance {
-            closest = Some(h)
-          }
-        } else {
-          closest = Some(h)
-        }
-      }
+      nearest.refresh_nearest(p.intersect(&ray, conf));
     });
-    NearestPoint3D(closest)
+    nearest
   }
 }
 
@@ -75,25 +66,25 @@ impl Default for MeshBufferIntersectConfig {
 
 type Config = MeshBufferIntersectConfig;
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Triangle<T> {
+impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Triangle<T> {
   #[inline]
-  fn intersect(&self, ray: &Ray3, _: &Config) -> NearestPoint3D {
+  fn intersect(&self, ray: &Ray3, _: &Config) -> Nearest<HitPoint3D> {
     ray.intersect(self, &())
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for LineSegment<T> {
+impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for LineSegment<T> {
   #[inline]
-  fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
+  fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
     let local_tolerance_adjusted =
       conf.line_tolerance.value / conf.current_item_scale_estimate.get();
     ray.intersect(self, &local_tolerance_adjusted)
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Point<T> {
+impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Point<T> {
   #[inline]
-  fn intersect(&self, ray: &Ray3, conf: &Config) -> NearestPoint3D {
+  fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
     ray.intersect(self, &conf.point_tolerance.value)
   }
 }

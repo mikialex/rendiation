@@ -23,15 +23,16 @@ pub struct Mesh {
 
 impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let nearest =
-      self
-        .geometry
-        .intersect_first_bvh(*ray, &self.bvh, &MeshBufferIntersectConfig::default());
-    PossibleIntersection(nearest.0.map(|near| Intersection {
-      distance: near.distance,
-      hit_position: near.position,
-      hit_normal: (near.position - self.center).into_normalized(),
-    }))
+    todo!()
+    // let nearest =
+    //   self
+    //     .geometry
+    //     .intersect_first_bvh(*ray, &self.bvh, &MeshBufferIntersectConfig::default());
+    // PossibleIntersection(nearest.0.map(|near| Intersection {
+    //   distance: near.distance,
+    //   hit_position: near.position,
+    //   hit_normal: (near.position - self.center).into_normalized(),
+    // }))
     // self.geometry.iter_from_boxed().intersect_first_bvh(
     //   ray,
     //   &self.bvh,
