@@ -18,10 +18,6 @@ impl<T: Scalar> Ray3<T> {
     Ray3::new(origin, (target - origin).into_normalized())
   }
 
-  pub fn at(&self, distance: T) -> Vec3<T> {
-    self.origin + self.direction * distance
-  }
-
   pub fn distance_sq_to_point(&self, point: Vec3<T>) -> T {
     let oc = point - self.origin;
     let tca = oc.dot(self.direction);

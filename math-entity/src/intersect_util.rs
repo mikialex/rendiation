@@ -1,37 +1,40 @@
 use std::ops::{Deref, DerefMut};
 
-use rendiation_math::Vec3;
+use rendiation_math::{Scalar, VectorType};
 
-use crate::Ray3;
+use crate::HyperRay;
 
 pub trait HitDistanceCompareAble {
   fn is_near_than(&self, other: &Self) -> bool;
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct HitPoint3D {
-  pub position: Vec3<f32>,
-  pub distance: f32,
+#[derive(Copy, Clone)]
+pub struct HitPoint<const D: usize, T: Scalar = f32> {
+  pub position: VectorType<T, D>,
+  pub distance: T,
 }
 
-impl HitDistanceCompareAble for HitPoint3D {
+impl<const D: usize, T: Scalar> HitDistanceCompareAble for HitPoint<D, T> {
   fn is_near_than(&self, other: &Self) -> bool {
     self.distance < other.distance
   }
 }
 
-impl HitPoint3D {
-  pub fn new(position: Vec3<f32>, distance: f32) -> Self {
+impl<const D: usize, T: Scalar> HitPoint<D, T> {
+  pub fn new(position: VectorType<T, D>, distance: T) -> Self {
     Self { position, distance }
   }
 }
 
-impl Ray3 {
-  pub fn at_into(&self, distance: f32) -> HitPoint3D {
-    HitPoint3D::new(self.at(distance), distance)
+impl<const D: usize, T: Scalar> HyperRay<T, D> {
+  pub fn at_into(&self, distance: T) -> HitPoint<D, T> {
+    HitPoint::new(self.at(distance), distance)
   }
 }
+
+pub type HitPoint3D<T = f32> = HitPoint<3, T>;
+
 #[repr(transparent)]
 #[derive(Default, Copy, Clone, Debug)]
 pub struct Nearest<T>(pub Option<T>);
