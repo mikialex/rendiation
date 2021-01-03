@@ -3,12 +3,12 @@ use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use space_indexer::{bvh::*, utils::TreeBuildOption};
 
-pub trait BVHExtendedAnyGeometry<B: BVHBounding + IntersectAble<Ray3, bool, ()>> {
-  fn build_bvh<S: BVHBuildStrategy<B>>(
-    &self,
-    strategy: &mut S,
-    option: &TreeBuildOption,
-  ) -> FlattenBVH<B>;
+pub trait BVHExtendedAnyGeometry<B, S>
+where
+  B: BVHBounding + IntersectAble<Ray3, bool, ()>,
+  S: BVHBuildStrategy<B>,
+{
+  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;
 
   fn intersect_list_bvh(
     &self,
@@ -22,20 +22,18 @@ pub trait BVHExtendedAnyGeometry<B: BVHBounding + IntersectAble<Ray3, bool, ()>>
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> IntersectionList3D;
+  ) -> NearestPoint3D;
 }
 
-impl<G, B> BVHExtendedAnyGeometry<B> for G
+impl<G, B, S> BVHExtendedAnyGeometry<B, S> for G
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
+  S: BVHBuildStrategy<B>,
   G: AnyGeometry,
   G::Primitive: SpaceBounding<f32, B, 3>,
   G::Primitive: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectConfig>,
 {
-  fn build_bvh<S>(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>
-  where
-    S: BVHBuildStrategy<B>,
-  {
+  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B> {
     FlattenBVH::new(
       self.primitive_iter().map(|p| p.to_bounding()),
       strategy,
@@ -48,8 +46,7 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> IntersectionList3D
-where {
+  ) -> IntersectionList3D {
     let mut result = IntersectionList3D::new();
     bvh.traverse(
       |branch| branch.bounding.intersect(&ray, &()),
@@ -68,10 +65,7 @@ where {
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> IntersectionList3D
-  where
-    B: BVHBounding + IntersectAble<Ray3, bool, ()>,
-  {
+  ) -> NearestPoint3D {
     todo!()
     // let mut result = IntersectionList3D::new();
     // bvh.traverse(

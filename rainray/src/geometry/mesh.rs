@@ -1,7 +1,9 @@
 use rendiation_math::{Vec2, Vec3};
 use rendiation_math_entity::{Box3, IntersectAble, Ray3, Triangle};
 use rendiation_mesh_buffer::{
-  geometry::{AnyGeometry, IndexedGeometry, MeshBufferIntersectConfig, TriangleList},
+  geometry::{
+    AnyGeometry, BVHExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig, TriangleList,
+  },
   vertex::Vertex,
 };
 use space_indexer::{
@@ -9,16 +11,27 @@ use space_indexer::{
   utils::TreeBuildOption,
 };
 
-use crate::{PossibleIntersection, RainRayGeometry};
+use crate::{Intersection, PossibleIntersection, RainRayGeometry};
+
+pub trait RainrayMeshBuffer: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync {}
+impl<T: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync> RainrayMeshBuffer for T {}
 
 pub struct Mesh {
-  geometry: Box<dyn AnyGeometry<Primitive = Triangle<Vertex>> + Send + Sync>,
+  geometry: Box<dyn RainrayMeshBuffer>,
   bvh: FlattenBVH<Box3>,
 }
 
 impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    todo!()
+    let nearest =
+      self
+        .geometry
+        .intersect_first_bvh(*ray, &self.bvh, &MeshBufferIntersectConfig::default());
+    PossibleIntersection(nearest.0.map(|near| Intersection {
+      distance: near.distance,
+      hit_position: near.position,
+      hit_normal: (near.position - self.center).into_normalized(),
+    }))
     // self.geometry.iter_from_boxed().intersect_first_bvh(
     //   ray,
     //   &self.bvh,
