@@ -1,20 +1,40 @@
-use super::{
-  AnyGeometry, AnyGeometryRefContainer, LineList, MeshBufferIntersectConfig, NoneIndexedGeometry,
-};
+use super::{AnyGeometry, LineList, MeshBufferIntersectConfig, NoneIndexedGeometry};
 use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use space_indexer::{bvh::*, utils::TreeBuildOption};
 
-impl<'a, G> AnyGeometryRefContainer<'a, G>
+pub trait BVHExtendedAnyGeometry<B: BVHBounding + IntersectAble<Ray3, bool, ()>> {
+  fn build_bvh<S: BVHBuildStrategy<B>>(
+    &self,
+    strategy: &mut S,
+    option: &TreeBuildOption,
+  ) -> FlattenBVH<B>;
+
+  fn intersect_list_bvh(
+    &self,
+    ray: Ray3,
+    bvh: &FlattenBVH<B>,
+    conf: &MeshBufferIntersectConfig,
+  ) -> IntersectionList3D;
+
+  fn intersect_first_bvh(
+    &self,
+    ray: Ray3,
+    bvh: &FlattenBVH<B>,
+    conf: &MeshBufferIntersectConfig,
+  ) -> IntersectionList3D;
+}
+
+impl<G, B> BVHExtendedAnyGeometry<B> for G
 where
+  B: BVHBounding + IntersectAble<Ray3, bool, ()>,
   G: AnyGeometry,
+  G::Primitive: SpaceBounding<f32, B, 3>,
   G::Primitive: IntersectAble<Ray3, NearestPoint3D, MeshBufferIntersectConfig>,
 {
-  pub fn build_bvh<B, S>(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>
+  fn build_bvh<S>(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>
   where
-    B: BVHBounding,
     S: BVHBuildStrategy<B>,
-    G::Primitive: SpaceBounding<f32, B, 3>,
   {
     FlattenBVH::new(
       self.primitive_iter().map(|p| p.to_bounding()),
@@ -23,29 +43,27 @@ where
     )
   }
 
-  pub fn intersect_list_bvh<B>(
+  fn intersect_list_bvh(
     &self,
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
   ) -> IntersectionList3D
-  where
-    B: BVHBounding + IntersectAble<Ray3, bool, ()>,
-  {
+where {
     let mut result = IntersectionList3D::new();
     bvh.traverse(
       |branch| branch.bounding.intersect(&ray, &()),
       |leaf| {
         leaf
           .iter_primitive(bvh)
-          .map(|&i| self.geometry.primitive_at(i))
+          .map(|&i| self.primitive_at(i))
           .for_each(|p| result.push_nearest(p.intersect(&ray, conf)))
       },
     );
     result
   }
 
-  pub fn intersect_first_bvh<B>(
+  fn intersect_first_bvh(
     &self,
     ray: Ray3,
     bvh: &FlattenBVH<B>,

@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use super::{AnyGeometry, AnyGeometryRefContainer};
+use super::AnyGeometry;
 use rendiation_math_entity::*;
 
 pub trait IntersectableAnyGeometry {
@@ -8,7 +8,7 @@ pub trait IntersectableAnyGeometry {
   fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> NearestPoint3D;
 }
 
-impl<'a, G> IntersectableAnyGeometry for AnyGeometryRefContainer<'a, G>
+impl<G> IntersectableAnyGeometry for G
 where
   G: AnyGeometry,
   G::Primitive: IntersectAble<Ray3, NearestPoint3D, Config>,
@@ -100,7 +100,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Ray3, NearestPoint3D, Config> for Poin
 
 #[test]
 fn test() {
-  use crate::geometry::container::AnyGeometry;
+  use crate::geometry::*;
   use crate::tessellation::{IndexedGeometryTessellator, Quad};
   use rendiation_math::*;
 
@@ -108,8 +108,5 @@ fn test() {
   let quad = Quad.tessellate();
   let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized());
   let mut result = IntersectionList3D::new();
-  quad
-    .geometry
-    .as_ref_container()
-    .intersect_list(ray, &config, &mut result);
+  quad.geometry.intersect_list(ray, &config, &mut result);
 }

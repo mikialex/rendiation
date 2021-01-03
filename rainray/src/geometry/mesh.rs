@@ -76,7 +76,8 @@ impl Mesh {
 
     let geometry: IndexedGeometry<_, _, TriangleList> = IndexedGeometry::new(vertices, indices);
     let mut sah = SAH::new(4);
-    let bvh = geometry.as_ref_container().build_bvh(
+    use rendiation_mesh_buffer::geometry::BVHExtendedAnyGeometry;
+    let bvh = geometry.build_bvh(
       &mut sah,
       &TreeBuildOption {
         max_tree_depth: 50,
