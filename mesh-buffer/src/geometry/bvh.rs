@@ -44,6 +44,29 @@ where
     );
     result
   }
+
+  pub fn intersect_first_bvh<B>(
+    &self,
+    ray: Ray3,
+    bvh: &FlattenBVH<B>,
+    conf: &MeshBufferIntersectConfig,
+  ) -> IntersectionList3D
+  where
+    B: BVHBounding + IntersectAble<Ray3, bool, ()>,
+  {
+    todo!()
+    // let mut result = IntersectionList3D::new();
+    // bvh.traverse(
+    //   |branch| branch.bounding.intersect(&ray, &()),
+    //   |leaf| {
+    //     leaf
+    //       .iter_primitive(bvh)
+    //       .map(|&i| self.geometry.primitive_at(i))
+    //       .for_each(|p| result.push_nearest(p.intersect(&ray, conf)))
+    //   },
+    // );
+    // result
+  }
 }
 
 pub trait BVHLineBufferDebugAble {

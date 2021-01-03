@@ -1,7 +1,7 @@
 use rendiation_math::{Vec2, Vec3};
-use rendiation_math_entity::{Box3, Triangle};
+use rendiation_math_entity::{Box3, IntersectAble, Ray3, Triangle};
 use rendiation_mesh_buffer::{
-  geometry::{AnyGeometry, IndexedGeometry, TriangleList},
+  geometry::{AnyGeometry, IndexedGeometry, MeshBufferIntersectConfig, TriangleList},
   vertex::Vertex,
 };
 use space_indexer::{
@@ -9,10 +9,30 @@ use space_indexer::{
   utils::TreeBuildOption,
 };
 
+use crate::{PossibleIntersection, RainRayGeometry};
+
 pub struct Mesh {
-  geometry: Box<dyn AnyGeometry<Primitive = Triangle<Vertex>>>,
+  geometry: Box<dyn AnyGeometry<Primitive = Triangle<Vertex>> + Send + Sync>,
   bvh: FlattenBVH<Box3>,
 }
+
+impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
+  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
+    todo!()
+    // self.geometry.as_ref_container().intersect_first_bvh(
+    //   ray,
+    //   &self.bvh,
+    //   MeshBufferIntersectConfig::default(),
+    // )
+    // let result: NearestPoint3D = ray.intersect(self, param);
+    // PossibleIntersection(result.0.map(|near| Intersection {
+    //   distance: near.distance,
+    //   hit_position: near.position,
+    //   hit_normal: self.normal,
+    // }))
+  }
+}
+impl RainRayGeometry for Mesh {}
 
 impl Mesh {
   pub fn from_path_obj(path: &str) -> Self {
