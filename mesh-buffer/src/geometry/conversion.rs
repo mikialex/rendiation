@@ -31,9 +31,8 @@ where
   pub fn create_wireframe(&self) -> IndexedGeometry<I, V, LineList, U> {
     let mut deduplicate_set = HashSet::<LineSegment<I>>::new();
     self
-      .as_ref_container()
       .primitive_iter()
-      .zip(self.as_ref_index_container().index_primitive_iter())
+      .zip(self.index_primitive_iter())
       .for_each(|(_, f)| {
         f.for_each_edge(|edge| {
           deduplicate_set.insert(edge.swap_if(|l| l.start < l.end));
@@ -52,9 +51,8 @@ where
     // Map: edge id => (edge face idA, edge face idB(optional));
     let mut edges = HashMap::<LineSegment<I>, (usize, Option<usize>)>::new();
     self
-      .as_ref_container()
       .primitive_iter()
-      .zip(self.as_ref_index_container().index_primitive_iter())
+      .zip(self.index_primitive_iter())
       .enumerate()
       .for_each(|(face_id, (_, f))| {
         f.for_each_edge(|edge| {
@@ -65,9 +63,8 @@ where
         })
       });
     let normals = self
-      .as_ref_container()
       .primitive_iter()
-      .map(|f| f.face_normal_by_position())
+      .map(|f| f.face_normal_by_position().value)
       .collect::<Vec<Vec3<f32>>>();
     let threshold_dot = edge_threshold_angle.cos();
     let data = edges

@@ -46,10 +46,10 @@ impl PathTraceIntegrator {
       if let Some(LightSampleResult {
         emissive,
         light_in_dir,
-      }) = light.sample(intersection.hit_position, scene)
+      }) = light.sample(intersection.position, scene)
       {
         let bsdf = material.bsdf(light_in_dir.reverse(), light_out_dir, intersection);
-        energy += bsdf * emissive * -light_in_dir.dot(intersection.hit_normal);
+        energy += bsdf * emissive * -light_in_dir.dot(intersection.geometric_normal);
       }
     }
     energy
@@ -88,7 +88,7 @@ impl Integrator for PathTraceIntegrator {
         current_ray.direction.reverse(),
       ) * throughput;
 
-      let cos = light_dir.dot(intersection.hit_normal).abs();
+      let cos = light_dir.dot(intersection.geometric_normal).abs();
       let bsdf = material.bsdf(view_dir, light_dir, &intersection);
       throughput = throughput * cos * bsdf / light_dir_pdf;
 
@@ -100,7 +100,7 @@ impl Integrator for PathTraceIntegrator {
         throughput /= 1. - self.roulette_factor;
       }
 
-      current_ray = Ray3::new(intersection.hit_position, light_dir);
+      current_ray = Ray3::new(intersection.position, light_dir);
     }
 
     // if not clamp, will get white point maybe caused by intersection precision

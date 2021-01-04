@@ -66,7 +66,7 @@ pub trait PhysicalSpecular:
     view_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> NormalizedVec3 {
-    let micro_surface_normal = self.sample_micro_surface_normal(intersection.hit_normal);
+    let micro_surface_normal = self.sample_micro_surface_normal(intersection.geometric_normal);
     view_dir.reverse().reflect(micro_surface_normal)
   }
   fn pdf(
@@ -76,7 +76,7 @@ pub trait PhysicalSpecular:
     intersection: &Intersection,
   ) -> f32 {
     let micro_surface_normal = (view_dir + light_dir).into_normalized();
-    let normal_pdf = self.surface_normal_pdf(intersection.hit_normal, micro_surface_normal);
+    let normal_pdf = self.surface_normal_pdf(intersection.geometric_normal, micro_surface_normal);
     normal_pdf / (4.0 * micro_surface_normal.dot(view_dir).abs())
   }
 }
@@ -119,7 +119,7 @@ where
   ) -> Vec3 {
     let l = light_dir;
     let v = view_dir;
-    let n = intersection.hit_normal;
+    let n = intersection.geometric_normal;
     let h = (l + v).into_normalized();
 
     let f = self

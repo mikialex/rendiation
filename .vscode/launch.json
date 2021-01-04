@@ -124,11 +124,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--example=ball",
+                    "--example=bunny",
                     "--package=rainray"
                 ],
                 "filter": {
-                    "name": "ball",
+                    "name": "bunny",
                     "kind": "example"
                 }
             },

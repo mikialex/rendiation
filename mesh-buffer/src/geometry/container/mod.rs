@@ -26,24 +26,14 @@ pub trait AnyGeometry {
   fn primitive_count(&self) -> usize;
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
 
-  fn as_ref_container(&self) -> AnyGeometryRefContainer<'_, Self>
+  fn primitive_iter(&self) -> AnyGeometryIter<'_, Self>
   where
     Self: Sized,
   {
-    AnyGeometryRefContainer { geometry: self }
-  }
-}
-
-pub struct AnyGeometryRefContainer<'a, G> {
-  pub geometry: &'a G, // todo deref
-}
-
-impl<'a, G: AnyGeometry> AnyGeometryRefContainer<'a, G> {
-  pub fn primitive_iter(&self) -> AnyGeometryIter<'a, G> {
     AnyGeometryIter {
-      geometry: &self.geometry,
+      geometry: &self,
       current: 0,
-      count: self.geometry.primitive_count(),
+      count: self.primitive_count(),
     }
   }
 }
@@ -84,32 +74,23 @@ pub trait AnyIndexGeometry: AnyGeometry {
   type IndexPrimitive;
 
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive;
-  fn as_ref_index_container(&self) -> AnyIndexGeometryRefContainer<'_, Self>
+
+  fn index_primitive_iter(&self) -> AnyIndexGeometryIter<'_, Self>
   where
     Self: Sized,
   {
-    AnyIndexGeometryRefContainer { geometry: self }
+    AnyIndexGeometryIter {
+      geometry: &self,
+      current: 0,
+      count: self.primitive_count(),
+    }
   }
-}
-
-pub struct AnyIndexGeometryRefContainer<'a, G> {
-  geometry: &'a G,
 }
 
 pub struct AnyIndexGeometryIter<'a, G> {
   geometry: &'a G,
   current: usize,
   count: usize,
-}
-
-impl<'a, G: AnyIndexGeometry> AnyIndexGeometryRefContainer<'a, G> {
-  pub fn index_primitive_iter(&self) -> AnyIndexGeometryIter<'a, G> {
-    AnyIndexGeometryIter {
-      geometry: &self.geometry,
-      current: 0,
-      count: self.geometry.primitive_count(),
-    }
-  }
 }
 
 impl<'a, G: AnyIndexGeometry> Iterator for AnyIndexGeometryIter<'a, G> {

@@ -8,8 +8,8 @@ pub trait RainRayGeometry: Send + Sync + IntersectAble<Ray3, PossibleIntersectio
 
 pub struct Intersection {
   pub distance: f32,
-  pub hit_position: Vec3,
-  pub hit_normal: NormalizedVec3,
+  pub position: Vec3,
+  pub geometric_normal: NormalizedVec3,
 }
 
 const ORIGIN: f32 = 1.0 / 32.0;
@@ -45,7 +45,7 @@ impl Intersection {
   /// use RTX gem's method to solve self intersection issue caused by float precision;
   pub fn adjust_hit_position(&mut self) {
     // self.hit_position = self.hit_position + self.hit_normal * 0.001;
-    self.hit_position = offset_ray(self.hit_position, self.hit_normal.value)
+    self.position = offset_ray(self.position, self.geometric_normal.value)
   }
 }
 
@@ -53,11 +53,11 @@ pub struct PossibleIntersection(pub Option<Intersection>);
 
 impl IntersectAble<Ray3, PossibleIntersection> for Sphere {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: NearestPoint3D = ray.intersect(self, param);
+    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
     PossibleIntersection(result.0.map(|near| Intersection {
       distance: near.distance,
-      hit_position: near.position,
-      hit_normal: (near.position - self.center).into_normalized(),
+      position: near.position,
+      geometric_normal: (near.position - self.center).into_normalized(),
     }))
   }
 }
@@ -65,11 +65,11 @@ impl RainRayGeometry for Sphere {}
 
 impl IntersectAble<Ray3, PossibleIntersection> for Plane {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: NearestPoint3D = ray.intersect(self, param);
+    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
     PossibleIntersection(result.0.map(|near| Intersection {
       distance: near.distance,
-      hit_position: near.position,
-      hit_normal: self.normal,
+      position: near.position,
+      geometric_normal: self.normal,
     }))
   }
 }
