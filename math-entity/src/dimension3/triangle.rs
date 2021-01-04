@@ -1,16 +1,16 @@
 use crate::{Positioned, Triangle};
 use rendiation_math::*;
 
-impl<T: Positioned<f32, 3>> Triangle<T> {
-  pub fn face_normal_by_position(&self) -> Vec3<f32> {
-    let cb = self.a.position() - self.b.position();
+impl<V: Positioned<f32, 3>> Triangle<V> {
+  pub fn face_normal_by_position(&self) -> NormalizedVector<f32, Vec3<f32>> {
+    let cb = self.c.position() - self.b.position();
     let ab = self.a.position() - self.b.position();
     let n = cb.cross(ab);
-    n.normalize()
+    n.into_normalized()
   }
 }
 
-impl<T: Positioned<f32, 3>> Triangle<T> {
+impl<V: Positioned<f32, 3>> Triangle<V> {
   /// return None when triangle is degenerated to a point
   pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>> {
     let v0 = self.b.position() - self.a.position();

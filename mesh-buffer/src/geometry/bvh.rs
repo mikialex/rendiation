@@ -6,13 +6,30 @@ use rendiation_math::Vec3;
 use rendiation_math_entity::*;
 use space_indexer::{bvh::*, utils::TreeBuildOption};
 
-pub trait BVHExtendedAnyGeometry<B, S>
+pub trait BVHExtendedBuildAnyGeometry<B: BVHBounding, S: BVHBuildStrategy<B>> {
+  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;
+}
+
+impl<G, B, S> BVHExtendedBuildAnyGeometry<B, S> for G
+where
+  B: BVHBounding,
+  S: BVHBuildStrategy<B>,
+  G: AnyGeometry,
+  G::Primitive: SpaceBounding<f32, B, 3>,
+{
+  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B> {
+    FlattenBVH::new(
+      self.primitive_iter().map(|p| p.to_bounding()),
+      strategy,
+      option,
+    )
+  }
+}
+
+pub trait BVHIntersectAbleExtendedAnyGeometry<B>
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
-  S: BVHBuildStrategy<B>,
 {
-  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;
-
   fn intersect_list_bvh(
     &self,
     ray: Ray3,
@@ -28,22 +45,13 @@ where
   ) -> Nearest<MeshBufferHitPoint>;
 }
 
-impl<G, B, S> BVHExtendedAnyGeometry<B, S> for G
+impl<G, B> BVHIntersectAbleExtendedAnyGeometry<B> for G
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
-  S: BVHBuildStrategy<B>,
   G: AnyGeometry,
   G::Primitive: SpaceBounding<f32, B, 3>,
   G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, MeshBufferIntersectConfig>,
 {
-  fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B> {
-    FlattenBVH::new(
-      self.primitive_iter().map(|p| p.to_bounding()),
-      strategy,
-      option,
-    )
-  }
-
   fn intersect_list_bvh(
     &self,
     ray: Ray3,

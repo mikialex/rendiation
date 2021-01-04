@@ -2,38 +2,49 @@ use rendiation_math::{Vec2, Vec3};
 use rendiation_math_entity::{Box3, IntersectAble, Ray3, Triangle};
 use rendiation_mesh_buffer::{
   geometry::{
-    AnyGeometry, BVHExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig, TriangleList,
+    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig,
+    NoneIndexedGeometry, TriangleList,
   },
   vertex::Vertex,
 };
 use space_indexer::{
-  bvh::{FlattenBVH, SAH},
+  bvh::{BalanceTree, FlattenBVH, SAH},
   utils::TreeBuildOption,
 };
 
-use crate::{Intersection, PossibleIntersection, RainRayGeometry};
+use crate::{Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry};
 
-pub trait RainrayMeshBuffer: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync {
+pub trait RainrayMeshBuffer: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync {
   fn get_intersect(&self, ray: &Ray3, bvh: &FlattenBVH<Box3>) -> PossibleIntersection;
+}
+
+pub trait HitNormalProvider {
+  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3;
+}
+
+impl HitNormalProvider for Triangle<Vertex> {
+  fn get_normal(&self, _point: Vec3<f32>) -> NormalizedVec3 {
+    self.face_normal_by_position()
+  }
 }
 
 impl<T> RainrayMeshBuffer for T
 where
-  T: BVHExtendedAnyGeometry<Box3, SAH<Box3>> + Send + Sync,
+  T: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync,
   T: AnyGeometry,
+  T::Primitive: HitNormalProvider,
 {
   fn get_intersect(&self, ray: &Ray3, bvh: &FlattenBVH<Box3>) -> PossibleIntersection {
     let nearest = self.intersect_first_bvh(*ray, bvh, &MeshBufferIntersectConfig::default());
 
     PossibleIntersection(nearest.0.map(|hit| {
       let primitive = self.primitive_at(hit.primitive_index);
-      // /
-      // Intersection {
-      //   distance: hit.hit.distance,
-      //   hit_position: hit.hit.position,
-      //   hit_normal: self.normal,
-      // };
-      todo!()
+      let hit_normal = primitive.get_normal(hit.hit.position);
+      Intersection {
+        distance: hit.hit.distance,
+        hit_position: hit.hit.position,
+        hit_normal,
+      }
     }))
   }
 }
@@ -72,29 +83,43 @@ impl Mesh {
           mesh.indices[next_face..end]
             .iter()
             .map(|&i| i as usize)
-            .map(|i| Vertex {
-              position: Vec3::new(
-                mesh.positions[i * 3],
-                mesh.positions[i * 3 + 1],
-                mesh.positions[i * 3 + 2],
-              ),
-              normal: Vec3::new(
-                mesh.normals[i * 3],
-                mesh.normals[i * 3 + 1],
-                mesh.normals[i * 3 + 2],
-              ),
-              uv: Vec2::new(mesh.texcoords[i * 3], mesh.texcoords[i * 3 + 1]),
+            .map(|i| {
+              let normal = if mesh.normals.is_empty() {
+                Vec3::new(1.0, 0.0, 0.0)
+              } else {
+                Vec3::new(
+                  mesh.normals[i * 3],
+                  mesh.normals[i * 3 + 1],
+                  mesh.normals[i * 3 + 2],
+                )
+              };
+
+              let uv = if mesh.texcoords.is_empty() {
+                Vec2::new(0.0, 0.0)
+              } else {
+                Vec2::new(mesh.texcoords[i * 3], mesh.texcoords[i * 3 + 1])
+              };
+
+              Vertex {
+                position: Vec3::new(
+                  mesh.positions[i * 3],
+                  mesh.positions[i * 3 + 1],
+                  mesh.positions[i * 3 + 2],
+                ) * 50.,
+                normal,
+                uv,
+              }
             }),
         );
         next_face = end;
       }
     }
 
-    let geometry: IndexedGeometry<_, _, TriangleList> = IndexedGeometry::new(vertices, indices);
-    let mut sah = SAH::new(4);
-    use rendiation_mesh_buffer::geometry::BVHExtendedAnyGeometry;
+    let geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
+    use rendiation_mesh_buffer::geometry::BVHExtendedBuildAnyGeometry;
     let bvh = geometry.build_bvh(
-      &mut sah,
+      // &mut BalanceTree,
+      &mut SAH::new(4),
       &TreeBuildOption {
         max_tree_depth: 50,
         bin_size: 1,
