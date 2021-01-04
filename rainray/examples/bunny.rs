@@ -17,7 +17,8 @@ fn main() {
   let mut scene = Scene::default();
   scene
     .model(Model::new(
-      Mesh::from_path_obj("/Users/mikialex/Desktop/bunny.obj"),
+      // Mesh::from_path_obj("/Users/mikialex/Desktop/bunny.obj"),
+      Mesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
       Diffuse {
         albedo: Vec3::new(0.3, 0.4, 0.8),
         diffuse_model: Lambertian,

@@ -42,8 +42,8 @@ where
       let hit_normal = primitive.get_normal(hit.hit.position);
       Intersection {
         distance: hit.hit.distance,
-        hit_position: hit.hit.position,
-        hit_normal,
+        position: hit.hit.position,
+        geometric_normal: hit_normal,
       }
     }))
   }

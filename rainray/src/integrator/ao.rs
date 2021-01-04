@@ -36,7 +36,7 @@ impl Integrator for AOIntegrator {
     let ao_estimate = if let Some((intersection, _)) = scene.get_min_dist_hit(ray) {
       let mut ao_acc = 0.;
       for _ in 0..self.sample_count {
-        ao_acc += sample_ao_surface(intersection.hit_position, scene);
+        ao_acc += sample_ao_surface(intersection.position, scene);
       }
 
       ao_acc / self.sample_count as f32
