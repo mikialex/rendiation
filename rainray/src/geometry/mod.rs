@@ -10,6 +10,7 @@ pub struct Intersection {
   pub distance: f32,
   pub position: Vec3,
   pub geometric_normal: NormalizedVec3,
+  pub shading_normal: NormalizedVec3,
 }
 
 const ORIGIN: f32 = 1.0 / 32.0;
@@ -54,10 +55,14 @@ pub struct PossibleIntersection(pub Option<Intersection>);
 impl IntersectAble<Ray3, PossibleIntersection> for Sphere {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, param);
-    PossibleIntersection(result.0.map(|near| Intersection {
-      distance: near.distance,
-      position: near.position,
-      geometric_normal: (near.position - self.center).into_normalized(),
+    PossibleIntersection(result.0.map(|near| {
+      let normal = (near.position - self.center).into_normalized();
+      Intersection {
+        distance: near.distance,
+        position: near.position,
+        geometric_normal: normal,
+        shading_normal: normal,
+      }
     }))
   }
 }
@@ -70,6 +75,7 @@ impl IntersectAble<Ray3, PossibleIntersection> for Plane {
       distance: near.distance,
       position: near.position,
       geometric_normal: self.normal,
+      shading_normal: self.normal,
     }))
   }
 }

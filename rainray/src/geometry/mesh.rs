@@ -18,13 +18,18 @@ pub trait RainrayMeshBuffer: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + 
   fn get_intersect(&self, ray: &Ray3, bvh: &FlattenBVH<Box3>) -> PossibleIntersection;
 }
 
+pub trait TriangleMeshBuffer {
+  fn recompute_vertex_normal(&mut self);
+}
+
 pub trait HitNormalProvider {
-  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3;
+  fn get_normal(&self, point: Vec3<f32>) -> (NormalizedVec3, NormalizedVec3);
 }
 
 impl HitNormalProvider for Triangle<Vertex> {
-  fn get_normal(&self, _point: Vec3<f32>) -> NormalizedVec3 {
-    self.face_normal_by_position()
+  fn get_normal(&self, _point: Vec3<f32>) -> (NormalizedVec3, NormalizedVec3) {
+    let normal = self.face_normal_by_position(); // todo consider cache face normal
+    (normal, normal)
   }
 }
 
@@ -39,11 +44,12 @@ where
 
     PossibleIntersection(nearest.0.map(|hit| {
       let primitive = self.primitive_at(hit.primitive_index);
-      let hit_normal = primitive.get_normal(hit.hit.position);
+      let (geometric_normal, shading_normal) = primitive.get_normal(hit.hit.position);
       Intersection {
         distance: hit.hit.distance,
         position: hit.hit.position,
-        geometric_normal: hit_normal,
+        geometric_normal,
+        shading_normal,
       }
     }))
   }
