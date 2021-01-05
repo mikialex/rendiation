@@ -33,6 +33,6 @@ impl<V: Positioned<f32, 3>> Triangle<V> {
     let w = (d00 * d21 - d01 * d20) / denom;
     let u = 1.0 - v - w;
 
-    Some(Vec3::new(u, v, w))
+    Vec3::new(u, v, w).into()
   }
 }
