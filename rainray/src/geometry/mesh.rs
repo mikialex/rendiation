@@ -113,6 +113,7 @@ impl Mesh {
 
     let mut indices: Vec<u32> = Vec::new();
     let mut vertices = Vec::new();
+    let mut need_compute_vertex_normal = false;
 
     // we simply merge all groups in obj into one mesh
     for (i, m) in models.iter().enumerate() {
@@ -140,9 +141,10 @@ impl Mesh {
               };
 
               let uv = if mesh.texcoords.is_empty() {
+                need_compute_vertex_normal = true;
                 Vec2::new(0.0, 0.0)
               } else {
-                Vec2::new(mesh.texcoords[i * 3], mesh.texcoords[i * 3 + 1])
+                Vec2::new(mesh.texcoords[i * 2], mesh.texcoords[i * 2 + 1])
               };
 
               Vertex {
@@ -160,7 +162,33 @@ impl Mesh {
       }
     }
 
-    let geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
+    let mut geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
+
+    if need_compute_vertex_normal {
+      let face_normals: Vec<NormalizedVec3> = geometry
+        .primitive_iter()
+        .map(|p| p.face_normal_by_position())
+        .collect();
+
+      use rendiation_math::Vector;
+      geometry
+        .data
+        .iter_mut()
+        .for_each(|v| v.normal = Vec3::zero());
+
+      for i in 0..geometry.data.len() / 3 {
+        for j in 0..3 {
+          let v = &mut geometry.data[i * 3 + j];
+          v.normal = v.normal + face_normals[i].value
+        }
+      }
+      use rendiation_math::InnerProductSpace;
+      geometry
+        .data
+        .iter_mut()
+        .for_each(|v| v.normal = v.normal.normalize());
+    }
+
     let mesh = TriangleMesh::new(geometry);
     Mesh {
       geometry: Box::new(mesh),

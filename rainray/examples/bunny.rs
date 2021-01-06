@@ -17,26 +17,26 @@ fn main() {
   let mut scene = Scene::default();
   scene
     .model(Model::new(
-      // Mesh::from_path_obj("/Users/mikialex/Desktop/bunny.obj"),
-      Mesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
-      Diffuse {
-        albedo: Vec3::new(0.3, 0.4, 0.8),
-        diffuse_model: Lambertian,
-      },
-      // PhysicalMaterial {
-      //   specular: Specular {
-      //     roughness: 0.01,
-      //     metallic: 0.9,
-      //     ior: 1.6,
-      //     normal_distribution_model: Beckmann,
-      //     geometric_shadow_model: CookTorrance,
-      //     fresnel_model: Schlick,
-      //   },
-      //   diffuse: Diffuse {
-      //     albedo: Vec3::new(0.1, 0.3, 0.3),
-      //     diffuse_model: Lambertian,
-      //   },
+      Mesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),
+      // Mesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
+      // Diffuse {
+      //   albedo: Vec3::new(0.3, 0.4, 0.8),
+      //   diffuse_model: Lambertian,
       // },
+      PhysicalMaterial {
+        specular: Specular {
+          roughness: 0.01,
+          metallic: 0.9,
+          ior: 1.6,
+          normal_distribution_model: Beckmann,
+          geometric_shadow_model: CookTorrance,
+          fresnel_model: Schlick,
+        },
+        diffuse: Diffuse {
+          albedo: Vec3::new(0.5, 0.5, 0.5),
+          diffuse_model: Lambertian,
+        },
+      },
     ))
     .model(Model::new(
       Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
