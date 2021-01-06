@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use rendiation_math::{Vec2, Vec3};
 use rendiation_math_entity::{Box3, IntersectAble, Ray3, SpaceBounding, Triangle};
 use rendiation_mesh_buffer::{
@@ -189,9 +191,18 @@ impl Mesh {
         .for_each(|v| v.normal = v.normal.normalize());
     }
 
-    let index_geometry = geometry.create_index_geometry();
+    let geometry = geometry.create_index_geometry();
+    let geometry = geometry.merge_vertex_by_sorting(
+      |a, b| {
+        a.position
+          .x
+          .partial_cmp(&b.position.x)
+          .unwrap_or(Ordering::Equal)
+      },
+      |a, b| a.position.x - b.position.y <= 0.0001,
+    );
 
-    let mesh = TriangleMesh::new(index_geometry);
+    let mesh = TriangleMesh::new(geometry);
     Mesh {
       geometry: Box::new(mesh),
     }
