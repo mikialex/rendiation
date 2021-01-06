@@ -189,7 +189,9 @@ impl Mesh {
         .for_each(|v| v.normal = v.normal.normalize());
     }
 
-    let mesh = TriangleMesh::new(geometry);
+    let index_geometry = geometry.create_index_geometry();
+
+    let mesh = TriangleMesh::new(index_geometry);
     Mesh {
       geometry: Box::new(mesh),
     }
