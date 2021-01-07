@@ -2,6 +2,12 @@ use rendiation_math::{Scalar, SquareMatrixType, Vec3};
 
 use crate::{LineSegment, Positioned, SpaceEntity};
 
+pub enum FaceSide {
+  Front,
+  Back,
+  Double,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Triangle<V = Vec3<f32>> {
   pub a: V,
@@ -34,6 +40,13 @@ impl<V: Copy> Triangle<V> {
       a: f(self.a),
       b: f(self.b),
       c: f(self.c),
+    }
+  }
+  pub fn flip(&self) -> Self {
+    Triangle {
+      a: self.c,
+      b: self.b,
+      c: self.a,
     }
   }
 }

@@ -99,7 +99,7 @@ type Config = MeshBufferIntersectConfig;
 impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Triangle<T> {
   #[inline]
   fn intersect(&self, ray: &Ray3, _: &Config) -> Nearest<HitPoint3D> {
-    ray.intersect(self, &())
+    ray.intersect(self, &FaceSide::Double)
   }
 }
 

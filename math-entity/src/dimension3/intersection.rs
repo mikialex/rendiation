@@ -1,14 +1,21 @@
 use crate::*;
 use rendiation_math::*;
 
-impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>> for Ray3 {
+impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>, FaceSide> for Ray3 {
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Triangle<T>, _: &()) -> Nearest<HitPoint3D> {
-    // Compute the offset origin, edges, and normal.
+  #[inline]
+  fn intersect(&self, face: &Triangle<T>, side: &FaceSide) -> Nearest<HitPoint3D> {
+    let Triangle { a, b, c } = match side {
+      FaceSide::Double | FaceSide::Front => face.map(|v| v.position()),
+      FaceSide::Back => face.flip().map(|v| v.position()),
+    };
+
+    let blackface_culling = match side {
+      FaceSide::Double => false,
+      FaceSide::Back | FaceSide::Front => true,
+    };
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
-    let Triangle { a, b, c } = face.map(|v| v.position());
-    let blackfaceCulling = false;
     let _edge1 = b - a;
     let _edge2 = c - a;
     let _normal = _edge1.cross(_edge2);
@@ -23,7 +30,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>> for 
     let mut sign: f32 = 0.;
 
     if DdN > 0. {
-      if blackfaceCulling {
+      if blackface_culling {
         return Nearest::none();
       }
       sign = 1.;
