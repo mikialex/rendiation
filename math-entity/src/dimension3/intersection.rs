@@ -7,7 +7,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>, Face
   fn intersect(&self, face: &Triangle<T>, side: &FaceSide) -> Nearest<HitPoint3D> {
     let Triangle { a, b, c } = match side {
       FaceSide::Double | FaceSide::Front => face.map(|v| v.position()),
-      FaceSide::Back => face.flip().map(|v| v.position()),
+      FaceSide::Back => face.map(|v| v.position()).flip(),
     };
 
     let blackface_culling = match side {
@@ -81,7 +81,6 @@ impl<T: Positioned<f32, 3>> IntersectAble<LineSegment<T>, Nearest<HitPoint3D>, f
     if dist_sq > t * t {
       return Nearest::none();
     }
-    // log::info!("dist_sq{:?}, t * t{}", dist_sq, t * t);
     let distance = self.origin.distance(inter_ray);
     Nearest::some(HitPoint3D::new(inter_ray, distance))
   }

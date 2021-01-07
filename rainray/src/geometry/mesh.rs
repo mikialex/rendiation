@@ -55,10 +55,7 @@ where
         bin_size: 1,
       },
     );
-    let face_normal = geometry
-      .primitive_iter()
-      .map(|p| p.face_normal_by_position())
-      .collect();
+    let face_normal = geometry.primitive_iter().map(|p| p.face_normal()).collect();
     Self {
       geometry,
       face_normal,
@@ -167,10 +164,8 @@ impl Mesh {
     let mut geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
 
     if need_compute_vertex_normal {
-      let face_normals: Vec<NormalizedVec3> = geometry
-        .primitive_iter()
-        .map(|p| p.face_normal_by_position())
-        .collect();
+      let face_normals: Vec<NormalizedVec3> =
+        geometry.primitive_iter().map(|p| p.face_normal()).collect();
 
       use rendiation_math::Vector;
       geometry

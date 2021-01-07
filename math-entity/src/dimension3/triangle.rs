@@ -2,11 +2,18 @@ use crate::{Positioned, Triangle};
 use rendiation_math::*;
 
 impl<V: Positioned<f32, 3>> Triangle<V> {
-  pub fn face_normal_by_position(&self) -> NormalizedVector<f32, Vec3<f32>> {
+  #[inline(always)]
+  fn face_normal_unnormalized(&self) -> Vec3<f32> {
     let cb = self.c.position() - self.b.position();
     let ab = self.a.position() - self.b.position();
-    let n = cb.cross(ab);
-    n.into_normalized()
+    cb.cross(ab)
+  }
+  pub fn face_normal(&self) -> NormalizedVector<f32, Vec3<f32>> {
+    self.face_normal_unnormalized().into_normalized()
+  }
+
+  pub fn is_front_facing(&self, direction: Vec3<f32>) -> bool {
+    self.face_normal_unnormalized().dot(direction) < 0.0
   }
 }
 
