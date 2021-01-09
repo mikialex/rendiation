@@ -64,7 +64,7 @@ where
       });
     let normals = self
       .primitive_iter()
-      .map(|f| f.face_normal().value)
+      .map(|f| f.map_position().face_normal().value)
       .collect::<Vec<Vec3<f32>>>();
     let threshold_dot = edge_threshold_angle.cos();
     let data = edges

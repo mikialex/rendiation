@@ -1,11 +1,11 @@
 use crate::LineSegment;
-use rendiation_math::{InnerProductSpace, Mat4, Vec3};
+use rendiation_math::{InnerProductSpace, Mat4, Scalar, Vec3};
 use std::ops::Mul;
 
 pub type LineSegment3D<T = f32> = LineSegment<Vec3<T>>;
 
-impl LineSegment3D {
-  pub fn length(&self) -> f32 {
+impl<T: Scalar> LineSegment3D<T> {
+  pub fn length(&self) -> T {
     self.start.distance(self.end)
   }
 }

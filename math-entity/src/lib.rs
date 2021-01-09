@@ -43,6 +43,10 @@ pub trait IntersectAble<Target, Result, Parameter = ()> {
   fn intersect(&self, other: &Target, param: &Parameter) -> Result;
 }
 
+pub trait NearestDistanceTo<Target, Parameter = ()> {
+  fn distance_to<T: Scalar>(&self) -> T;
+}
+
 /// https://en.wikipedia.org/wiki/Lebesgue_measure
 pub trait LebesgueMeasurable<T: Scalar, const D: usize> {
   fn measure(&self) -> T;

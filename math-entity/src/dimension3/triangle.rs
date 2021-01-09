@@ -1,28 +1,30 @@
-use crate::{Positioned, Triangle};
+use crate::Triangle;
 use rendiation_math::*;
 
-impl<V: Positioned<f32, 3>> Triangle<V> {
+pub type Triangle3D<T = f32> = Triangle<Vec3<T>>;
+
+impl<T: Scalar> Triangle3D<T> {
   #[inline(always)]
-  fn face_normal_unnormalized(&self) -> Vec3<f32> {
-    let cb = self.c.position() - self.b.position();
-    let ab = self.a.position() - self.b.position();
+  fn face_normal_unnormalized(&self) -> Vec3<T> {
+    let cb = self.c - self.b;
+    let ab = self.a - self.b;
     cb.cross(ab)
   }
-  pub fn face_normal(&self) -> NormalizedVector<f32, Vec3<f32>> {
+  pub fn face_normal(&self) -> NormalizedVector<T, Vec3<T>> {
     self.face_normal_unnormalized().into_normalized()
   }
 
-  pub fn is_front_facing(&self, direction: Vec3<f32>) -> bool {
-    self.face_normal_unnormalized().dot(direction) < 0.0
+  pub fn is_front_facing(&self, direction: Vec3<T>) -> bool {
+    self.face_normal_unnormalized().dot(direction) < T::zero()
   }
 }
 
-impl<V: Positioned<f32, 3>> Triangle<V> {
+impl<T: Scalar> Triangle3D<T> {
   /// return None when triangle is degenerated to a point
-  pub fn barycentric(&self, p: Vec3<f32>) -> Option<Vec3<f32>> {
-    let v0 = self.b.position() - self.a.position();
-    let v1 = self.c.position() - self.a.position();
-    let v2 = p - self.a.position();
+  pub fn barycentric(&self, p: Vec3<T>) -> Option<Vec3<T>> {
+    let v0 = self.b - self.a;
+    let v1 = self.c - self.a;
+    let v2 = p - self.a;
 
     let d00 = v0.dot(v0);
     let d01 = v0.dot(v1);
@@ -32,13 +34,13 @@ impl<V: Positioned<f32, 3>> Triangle<V> {
 
     let denom = d00 * d11 - d01 * d01;
 
-    if denom == 0.0 {
+    if denom == T::zero() {
       return None;
     }
 
     let v = (d11 * d20 - d01 * d21) / denom;
     let w = (d00 * d21 - d01 * d20) / denom;
-    let u = 1.0 - v - w;
+    let u = T::one() - v - w;
 
     Vec3::new(u, v, w).into()
   }

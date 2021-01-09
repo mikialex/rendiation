@@ -16,6 +16,16 @@ impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for LineS
   }
 }
 
+impl<V> LineSegment<V> {
+  pub fn map_position<T, const D: usize>(&self) -> LineSegment<VectorType<T, D>>
+  where
+    T: Scalar,
+    V: Positioned<T, D>,
+  {
+    self.map(|p| p.position())
+  }
+}
+
 impl<T, V, const D: usize> SpaceLineSegment<T, D> for LineSegment<V>
 where
   T: Scalar,
@@ -72,6 +82,13 @@ impl<'a, V: Copy> Iterator for LineSegmentIter<'a, V> {
 }
 
 impl<V: Copy> LineSegment<V> {
+  pub fn map<U>(&self, f: impl Fn(V) -> U) -> LineSegment<U> {
+    LineSegment {
+      start: f(self.start),
+      end: f(self.end),
+    }
+  }
+
   pub fn swap(&self) -> Self {
     Self::new(self.end, self.start)
   }

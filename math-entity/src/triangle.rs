@@ -1,4 +1,4 @@
-use rendiation_math::{Scalar, SquareMatrixType, Vec3};
+use rendiation_math::{Scalar, SquareMatrixType, Vec3, VectorType};
 
 use crate::{LineSegment, Positioned, SpaceEntity};
 
@@ -21,6 +21,16 @@ impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for Trian
     self.b.position_mut().apply_matrix(mat);
     self.c.position_mut().apply_matrix(mat);
     self
+  }
+}
+
+impl<V> Triangle<V> {
+  pub fn map_position<T, const D: usize>(&self) -> Triangle<VectorType<T, D>>
+  where
+    T: Scalar,
+    V: Positioned<T, D>,
+  {
+    self.map(|p| p.position())
   }
 }
 
