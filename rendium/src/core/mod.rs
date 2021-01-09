@@ -1,8 +1,10 @@
 use winit::event::Event;
 
+mod component;
 mod document;
 mod element;
 mod window_state;
+pub use component::*;
 pub use document::*;
 pub use element::*;
 pub use window_state::*;
