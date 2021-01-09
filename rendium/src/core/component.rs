@@ -1,6 +1,7 @@
 use std::{any::Any, cell::RefCell};
 
 use super::{Element, ElementHandle};
+use arena::{Arena, Handle};
 use arena_tree::ArenaTree;
 
 trait Component: Sized {
@@ -10,9 +11,36 @@ trait Component: Sized {
   fn build(state: &Self::State, props: &Self::Props) -> ComponentContent<Self>;
 }
 
+pub struct ComponentBuilder {}
+
 struct ComponentContent<T: Component> {
   root_element: ElementHandle,
   tree: ArenaTree<DocumentElement<T>>,
+  events: EventDispatcher<T::Event>,
+}
+
+// impl<T: Component> ComponentContent<T> {
+//   pub fn on(&mut self) {
+
+//   }
+// }
+
+pub struct EventDispatcher<T> {
+  listeners: Arena<Box<dyn FnMut(&mut T)>>,
+}
+
+pub type EventListenerHandle<T> = Handle<Box<dyn FnMut(&mut T)>>;
+
+impl<T> EventDispatcher<T> {
+  pub fn new() -> Self {
+    Self {
+      listeners: Arena::new(),
+    }
+  }
+
+  pub fn add<L: FnMut(&mut T) + 'static>(&mut self, listener: L) -> EventListenerHandle<T> {
+    self.listeners.insert(Box::new(listener))
+  }
 }
 
 enum DocumentElement<T: Component> {
