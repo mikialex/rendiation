@@ -17,7 +17,11 @@ impl<T: Scalar, const D: usize> LebesgueMeasurable<T, D> for HyperAABB<T, D> {
     unimplemented!()
   }
 }
-impl<T: Scalar, const D: usize> SolidEntity<T, D> for HyperAABB<T, D> {}
+impl<T: Scalar, const D: usize> SolidEntity<T, D> for HyperAABB<T, D> {
+  fn centroid(&self) -> VectorType<T, D> {
+    (self.min + self.max) * T::half()
+  }
+}
 
 impl<T: Scalar, const D: usize> Copy for HyperAABB<T, D> where VectorType<T, D>: Copy {}
 

@@ -49,6 +49,10 @@ pub trait DistanceTo<Target, T: Scalar, Parameter = ()> {
 
 pub trait DistanceSquareTo<Target, T: Scalar, Parameter = ()> {
   fn distance_sq_to(&self, other: &Target) -> T;
+
+  fn distance_to(&self, other: &Target) -> T {
+    self.distance_sq_to(other).sqrt()
+  }
 }
 
 /// https://en.wikipedia.org/wiki/Lebesgue_measure
@@ -98,6 +102,7 @@ impl<T: Scalar> PerimeterMeasure<T> for T where T: SpaceEntity<T, 2> + LebesgueM
 pub trait SolidEntity<T: Scalar, const D: usize>:
   SpaceEntity<T, D> + LebesgueMeasurable<T, D>
 {
+  fn centroid(&self) -> VectorType<T, D>;
 }
 
 pub trait ContainAble<T: Scalar, Target: SpaceEntity<T, D>, const D: usize>:
