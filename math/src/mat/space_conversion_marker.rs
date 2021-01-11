@@ -37,7 +37,7 @@ pub struct ObjectSpace;
 #[test]
 fn test() {
   use crate::*;
-  let world_matrix = space_conversion::<Mat4<f32>, ObjectSpace, WorldSpace>(Mat4::one());
-  let view_matrix = space_conversion::<Mat4<f32>, WorldSpace, CameraSpace>(Mat4::one());
-  let projection_matrix = space_conversion::<Mat4<f32>, CameraSpace, ClipSpace>(Mat4::one());
+  let _world_matrix = space_conversion::<Mat4<f32>, ObjectSpace, WorldSpace>(Mat4::one());
+  let _view_matrix = space_conversion::<Mat4<f32>, WorldSpace, CameraSpace>(Mat4::one());
+  let _projection_matrix = space_conversion::<Mat4<f32>, CameraSpace, ClipSpace>(Mat4::one());
 }
