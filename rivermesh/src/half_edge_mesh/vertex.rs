@@ -1,23 +1,16 @@
 use super::{HalfEdge, HalfEdgeFace};
-use std::cell::UnsafeCell;
 
 pub struct HalfEdgeVertex<V, HE, F> {
-  id: usize,
-  pub vertex_data: UnsafeCell<V>,
+  pub vertex_data: V,
   pub(super) edge: *mut HalfEdge<V, HE, F>, // one of the half-edges emanating from the vertex
 }
 
 impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
-  pub fn new(vertex_data: V, id: usize) -> HalfEdgeVertex<V, HE, F> {
+  pub fn new(vertex_data: V) -> HalfEdgeVertex<V, HE, F> {
     HalfEdgeVertex {
-      id,
-      vertex_data: UnsafeCell::new(vertex_data),
+      vertex_data,
       edge: std::ptr::null_mut(),
     }
-  }
-
-  pub fn id(&self) -> usize {
-    self.id
   }
 
   pub unsafe fn edge(&self) -> &HalfEdge<V, HE, F> {

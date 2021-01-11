@@ -2,29 +2,27 @@ use super::{HalfEdgeFace, HalfEdgeVertex};
 
 // http://www.flipcode.com/archives/The_Half-Edge_Data_Structure.shtml
 pub struct HalfEdge<V, HE, F> {
-  id: usize,
+  data: HE,
 
   /// vertex at the start of the half-edge
-  pub(super) vert: *mut HalfEdgeVertex<V, HE, F>,
+  vert: *mut HalfEdgeVertex<V, HE, F>,
 
   /// oppositely oriented adjacent half-edge
-  pub(super) pair: *mut HalfEdge<V, HE, F>,
+  pair: *mut HalfEdge<V, HE, F>,
 
   /// face the half-edge borders
-  pub(super) face: *mut HalfEdgeFace<V, HE, F>,
+  face: *mut HalfEdgeFace<V, HE, F>,
 
   /// next half-edge around the face
-  pub(super) next: *mut HalfEdge<V, HE, F>,
+  next: *mut HalfEdge<V, HE, F>,
 }
 
 impl<V, HE, F> HalfEdge<V, HE, F> {
   pub(super) fn new(
     from: *mut HalfEdgeVertex<V, HE, F>,
     _to: *mut HalfEdgeVertex<V, HE, F>,
-    id: usize,
   ) -> HalfEdge<V, HE, F> {
     let mut half_edge = HalfEdge {
-      id,
       vert: from,
       pair: std::ptr::null_mut(),
       face: std::ptr::null_mut(),
@@ -39,10 +37,6 @@ impl<V, HE, F> HalfEdge<V, HE, F> {
     }
 
     half_edge
-  }
-
-  pub fn id(&self) -> usize {
-    self.id
   }
 
   pub(super) fn connect_next_edge_for_face(
