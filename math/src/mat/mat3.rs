@@ -11,7 +11,47 @@ pub struct Mat3<T> {
 }
 
 impl<T: Scalar> SquareMatrixDimension<2> for Mat3<T> {}
-impl<T: Scalar> SquareMatrix<T> for Mat3<T> {}
+impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
+  fn identity() -> Self {
+    Self::one()
+  }
+  fn transpose(&self) -> Self {
+    #[rustfmt::skip]
+    Mat3::new(
+      self.a1, self.b1, self.c1,
+      self.a2, self.b2, self.c2, 
+      self.a3, self.b3, self.c3,
+    )
+  }
+
+  fn det(&self) -> T {
+    let t11 = self.c3 * self.b2 - self.b3 * self.c2;
+    let t12 = self.b3 * self.c1 - self.c3 * self.b1;
+    let t13 = self.c2 * self.b1 - self.b2 * self.c1;
+    self.a1 * t11 + self.a2 * t12 + self.a3 * t13
+  }
+  
+  fn inverse(&self) -> Option<Self> {
+    let det = self.det();
+    if det == T::zero() {
+      return None;
+    }
+
+    let invdet = T::one() / det;
+
+    Some(Self {
+      a1: (self.c3 * self.b2 - self.b3 * self.c2) * invdet,
+      a2: (self.a3 * self.c2 - self.c3 * self.a2) * invdet,
+      a3: (self.b3 * self.a2 - self.a3 * self.b2) * invdet,
+      b1: (self.b3 * self.c1 - self.c3 * self.b1) * invdet,
+      b2: (self.c3 * self.a1 - self.a3 * self.c1) * invdet,
+      b3: (self.a3 * self.b1 - self.b3 * self.a1) * invdet,
+      c1: (self.c2 * self.b1 - self.b2 * self.c1) * invdet,
+      c2: (self.a2 * self.c1 - self.c2 * self.a1) * invdet,
+      c3: (self.b2 * self.a1 - self.a2 * self.b1) * invdet,
+    })
+  }
+}
 
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat3<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat3<T> {}
@@ -107,39 +147,6 @@ impl<T> Mat3<T>
 where
   T: Scalar,
 {
-  pub fn det(&self) -> T {
-    let t11 = self.c3 * self.b2 - self.b3 * self.c2;
-    let t12 = self.b3 * self.c1 - self.c3 * self.b1;
-    let t13 = self.c2 * self.b1 - self.b2 * self.c1;
-    self.a1 * t11 + self.a2 * t12 + self.a3 * t13
-  }
-
-  pub fn inverse(&self) -> Option<Self> {
-    let det = self.det();
-    if det == T::zero() {
-      return None;
-    }
-
-    let invdet = T::one() / det;
-
-    Some(Self {
-      a1: (self.c3 * self.b2 - self.b3 * self.c2) * invdet,
-      a2: (self.a3 * self.c2 - self.c3 * self.a2) * invdet,
-      a3: (self.b3 * self.a2 - self.a3 * self.b2) * invdet,
-      b1: (self.b3 * self.c1 - self.c3 * self.b1) * invdet,
-      b2: (self.c3 * self.a1 - self.a3 * self.c1) * invdet,
-      b3: (self.a3 * self.b1 - self.b3 * self.a1) * invdet,
-      c1: (self.c2 * self.b1 - self.b2 * self.c1) * invdet,
-      c2: (self.a2 * self.c1 - self.c2 * self.a1) * invdet,
-      c3: (self.b2 * self.a1 - self.a2 * self.b1) * invdet,
-    })
-  }
-
-  pub fn transpose(&self) -> Mat3<T> {
-    Mat3::new(
-      self.a1, self.b1, self.c1, self.a2, self.b2, self.c2, self.a3, self.b3, self.c3,
-    )
-  }
 
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sin_cos();
