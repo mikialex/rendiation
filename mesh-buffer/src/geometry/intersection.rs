@@ -99,7 +99,7 @@ type Config = MeshBufferIntersectConfig;
 impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Triangle<T> {
   #[inline]
   fn intersect(&self, ray: &Ray3, _: &Config) -> Nearest<HitPoint3D> {
-    ray.intersect(self, &())
+    ray.intersect(&self.map_position(), &FaceSide::Double)
   }
 }
 
@@ -108,14 +108,14 @@ impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for
   fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
     let local_tolerance_adjusted =
       conf.line_tolerance.value / conf.current_item_scale_estimate.get();
-    ray.intersect(self, &local_tolerance_adjusted)
+    ray.intersect(&self.map_position(), &local_tolerance_adjusted)
   }
 }
 
 impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Point<T> {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
-    ray.intersect(self, &conf.point_tolerance.value)
+    ray.intersect(&self.map_position(), &conf.point_tolerance.value)
   }
 }
 

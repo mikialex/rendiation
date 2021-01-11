@@ -1,6 +1,12 @@
-use rendiation_math::{Scalar, SquareMatrixType, Vec3};
+use rendiation_math::{Scalar, SquareMatrixType, Vec3, VectorType};
 
 use crate::{LineSegment, Positioned, SpaceEntity};
+
+pub enum FaceSide {
+  Front,
+  Back,
+  Double,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Triangle<V = Vec3<f32>> {
@@ -15,6 +21,16 @@ impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for Trian
     self.b.position_mut().apply_matrix(mat);
     self.c.position_mut().apply_matrix(mat);
     self
+  }
+}
+
+impl<V> Triangle<V> {
+  pub fn map_position<T, const D: usize>(&self) -> Triangle<VectorType<T, D>>
+  where
+    T: Scalar,
+    V: Positioned<T, D>,
+  {
+    self.map(|p| p.position())
   }
 }
 
@@ -34,6 +50,13 @@ impl<V: Copy> Triangle<V> {
       a: f(self.a),
       b: f(self.b),
       c: f(self.c),
+    }
+  }
+  pub fn flip(&self) -> Self {
+    Triangle {
+      a: self.c,
+      b: self.b,
+      c: self.a,
     }
   }
 }

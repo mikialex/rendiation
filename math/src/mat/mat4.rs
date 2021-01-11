@@ -12,7 +12,125 @@ pub struct Mat4<T> {
 }
 
 impl<T: Scalar> SquareMatrixDimension<3> for Mat4<T> {}
-impl<T: Scalar> SquareMatrix<T> for Mat4<T> {}
+impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
+  fn identity() -> Self {
+    Self::one()
+  }
+  fn transpose(&self) -> Mat4<T> {
+    #[rustfmt::skip]
+    Mat4::new(
+      self.a1, self.b1, self.c1, self.d1, 
+      self.a2, self.b2, self.c2, self.d2, 
+      self.a3, self.b3, self.c3, self.d3, 
+      self.a4, self.b4, self.c4, self.d4,
+    )
+  }
+
+   fn det(&self) -> T {
+    let m = self;
+    m.a1 * m.b2 * m.c3 * m.d4
+      - m.a1 * m.b2 * m.c4 * m.d3 
+      + m.a1 * m.b3 * m.c4 * m.d2
+      - m.a1 * m.b3 * m.c2 * m.d4
+      + m.a1 * m.b4 * m.c2 * m.d3
+      - m.a1 * m.b4 * m.c3 * m.d2
+      - m.a2 * m.b3 * m.c4 * m.d1
+      + m.a2 * m.b3 * m.c1 * m.d4
+      - m.a2 * m.b4 * m.c1 * m.d3
+      + m.a2 * m.b4 * m.c3 * m.d1
+      - m.a2 * m.b1 * m.c3 * m.d4
+      + m.a2 * m.b1 * m.c4 * m.d3
+      + m.a3 * m.b4 * m.c1 * m.d2
+      - m.a3 * m.b4 * m.c2 * m.d1
+      + m.a3 * m.b1 * m.c2 * m.d4
+      - m.a3 * m.b1 * m.c4 * m.d2
+      + m.a3 * m.b2 * m.c4 * m.d1
+      - m.a3 * m.b2 * m.c1 * m.d4
+      - m.a4 * m.b1 * m.c2 * m.d3
+      + m.a4 * m.b1 * m.c3 * m.d2
+      - m.a4 * m.b2 * m.c3 * m.d1
+      + m.a4 * m.b2 * m.c1 * m.d3
+      - m.a4 * m.b3 * m.c1 * m.d2
+      + m.a4 * m.b3 * m.c2 * m.d1
+  }
+
+  fn inverse(&self) -> Option<Self> {
+    let det = self.det();
+    if det == T::zero() {
+      return None;
+    }
+
+    let m = self;
+    let invdet = T::one() / det;
+
+    Some(Self {
+      a1: invdet
+        * (m.b2 * (m.c3 * m.d4 - m.c4 * m.d3)
+          + m.b3 * (m.c4 * m.d2 - m.c2 * m.d4)
+          + m.b4 * (m.c2 * m.d3 - m.c3 * m.d2)),
+      a2: -invdet
+        * (m.a2 * (m.c3 * m.d4 - m.c4 * m.d3)
+          + m.a3 * (m.c4 * m.d2 - m.c2 * m.d4)
+          + m.a4 * (m.c2 * m.d3 - m.c3 * m.d2)),
+      a3: invdet
+        * (m.a2 * (m.b3 * m.d4 - m.b4 * m.d3)
+          + m.a3 * (m.b4 * m.d2 - m.b2 * m.d4)
+          + m.a4 * (m.b2 * m.d3 - m.b3 * m.d2)),
+      a4: -invdet
+        * (m.a2 * (m.b3 * m.c4 - m.b4 * m.c3)
+          + m.a3 * (m.b4 * m.c2 - m.b2 * m.c4)
+          + m.a4 * (m.b2 * m.c3 - m.b3 * m.c2)),
+      b1: -invdet
+        * (m.b1 * (m.c3 * m.d4 - m.c4 * m.d3)
+          + m.b3 * (m.c4 * m.d1 - m.c1 * m.d4)
+          + m.b4 * (m.c1 * m.d3 - m.c3 * m.d1)),
+      b2: invdet
+        * (m.a1 * (m.c3 * m.d4 - m.c4 * m.d3)
+          + m.a3 * (m.c4 * m.d1 - m.c1 * m.d4)
+          + m.a4 * (m.c1 * m.d3 - m.c3 * m.d1)),
+      b3: -invdet
+        * (m.a1 * (m.b3 * m.d4 - m.b4 * m.d3)
+          + m.a3 * (m.b4 * m.d1 - m.b1 * m.d4)
+          + m.a4 * (m.b1 * m.d3 - m.b3 * m.d1)),
+      b4: invdet
+        * (m.a1 * (m.b3 * m.c4 - m.b4 * m.c3)
+          + m.a3 * (m.b4 * m.c1 - m.b1 * m.c4)
+          + m.a4 * (m.b1 * m.c3 - m.b3 * m.c1)),
+      c1: invdet
+        * (m.b1 * (m.c2 * m.d4 - m.c4 * m.d2)
+          + m.b2 * (m.c4 * m.d1 - m.c1 * m.d4)
+          + m.b4 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      c2: -invdet
+        * (m.a1 * (m.c2 * m.d4 - m.c4 * m.d2)
+          + m.a2 * (m.c4 * m.d1 - m.c1 * m.d4)
+          + m.a4 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      c3: invdet
+        * (m.a1 * (m.b2 * m.d4 - m.b4 * m.d2)
+          + m.a2 * (m.b4 * m.d1 - m.b1 * m.d4)
+          + m.a4 * (m.b1 * m.d2 - m.b2 * m.d1)),
+      c4: -invdet
+        * (m.a1 * (m.b2 * m.c4 - m.b4 * m.c2)
+          + m.a2 * (m.b4 * m.c1 - m.b1 * m.c4)
+          + m.a4 * (m.b1 * m.c2 - m.b2 * m.c1)),
+      d1: -invdet
+        * (m.b1 * (m.c2 * m.d3 - m.c3 * m.d2)
+          + m.b2 * (m.c3 * m.d1 - m.c1 * m.d3)
+          + m.b3 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      d2: invdet
+        * (m.a1 * (m.c2 * m.d3 - m.c3 * m.d2)
+          + m.a2 * (m.c3 * m.d1 - m.c1 * m.d3)
+          + m.a3 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      d3: -invdet
+        * (m.a1 * (m.b2 * m.d3 - m.b3 * m.d2)
+          + m.a2 * (m.b3 * m.d1 - m.b1 * m.d3)
+          + m.a3 * (m.b1 * m.d2 - m.b2 * m.d1)),
+      d4: invdet
+        * (m.a1 * (m.b2 * m.c3 - m.b3 * m.c2)
+          + m.a2 * (m.b3 * m.c1 - m.b1 * m.c3)
+          + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
+    })
+  }
+}
 
 impl<T> Mat4<T> {
   pub fn to_mat3(self) -> Mat3<T> {
@@ -360,111 +478,6 @@ where
     scale_x_sq.max(scale_y_sq).max(scale_z_sq).sqrt()
   }
 
-  pub fn det(&self) -> T {
-    let m = self;
-    m.a1 * m.b2 * m.c3 * m.d4
-      - m.a1 * m.b2 * m.c4 * m.d3 
-      + m.a1 * m.b3 * m.c4 * m.d2
-      - m.a1 * m.b3 * m.c2 * m.d4
-      + m.a1 * m.b4 * m.c2 * m.d3
-      - m.a1 * m.b4 * m.c3 * m.d2
-      - m.a2 * m.b3 * m.c4 * m.d1
-      + m.a2 * m.b3 * m.c1 * m.d4
-      - m.a2 * m.b4 * m.c1 * m.d3
-      + m.a2 * m.b4 * m.c3 * m.d1
-      - m.a2 * m.b1 * m.c3 * m.d4
-      + m.a2 * m.b1 * m.c4 * m.d3
-      + m.a3 * m.b4 * m.c1 * m.d2
-      - m.a3 * m.b4 * m.c2 * m.d1
-      + m.a3 * m.b1 * m.c2 * m.d4
-      - m.a3 * m.b1 * m.c4 * m.d2
-      + m.a3 * m.b2 * m.c4 * m.d1
-      - m.a3 * m.b2 * m.c1 * m.d4
-      - m.a4 * m.b1 * m.c2 * m.d3
-      + m.a4 * m.b1 * m.c3 * m.d2
-      - m.a4 * m.b2 * m.c3 * m.d1
-      + m.a4 * m.b2 * m.c1 * m.d3
-      - m.a4 * m.b3 * m.c1 * m.d2
-      + m.a4 * m.b3 * m.c2 * m.d1
-  }
-
-  pub fn inverse(&self) -> Option<Self> {
-    let det = self.det();
-    if det == T::zero() {
-      return None;
-    }
-
-    let m = self;
-    let invdet = T::one() / det;
-
-    Some(Self {
-      a1: invdet
-        * (m.b2 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.b3 * (m.c4 * m.d2 - m.c2 * m.d4)
-          + m.b4 * (m.c2 * m.d3 - m.c3 * m.d2)),
-      a2: -invdet
-        * (m.a2 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.a3 * (m.c4 * m.d2 - m.c2 * m.d4)
-          + m.a4 * (m.c2 * m.d3 - m.c3 * m.d2)),
-      a3: invdet
-        * (m.a2 * (m.b3 * m.d4 - m.b4 * m.d3)
-          + m.a3 * (m.b4 * m.d2 - m.b2 * m.d4)
-          + m.a4 * (m.b2 * m.d3 - m.b3 * m.d2)),
-      a4: -invdet
-        * (m.a2 * (m.b3 * m.c4 - m.b4 * m.c3)
-          + m.a3 * (m.b4 * m.c2 - m.b2 * m.c4)
-          + m.a4 * (m.b2 * m.c3 - m.b3 * m.c2)),
-      b1: -invdet
-        * (m.b1 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.b3 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.b4 * (m.c1 * m.d3 - m.c3 * m.d1)),
-      b2: invdet
-        * (m.a1 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.a3 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.a4 * (m.c1 * m.d3 - m.c3 * m.d1)),
-      b3: -invdet
-        * (m.a1 * (m.b3 * m.d4 - m.b4 * m.d3)
-          + m.a3 * (m.b4 * m.d1 - m.b1 * m.d4)
-          + m.a4 * (m.b1 * m.d3 - m.b3 * m.d1)),
-      b4: invdet
-        * (m.a1 * (m.b3 * m.c4 - m.b4 * m.c3)
-          + m.a3 * (m.b4 * m.c1 - m.b1 * m.c4)
-          + m.a4 * (m.b1 * m.c3 - m.b3 * m.c1)),
-      c1: invdet
-        * (m.b1 * (m.c2 * m.d4 - m.c4 * m.d2)
-          + m.b2 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.b4 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      c2: -invdet
-        * (m.a1 * (m.c2 * m.d4 - m.c4 * m.d2)
-          + m.a2 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.a4 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      c3: invdet
-        * (m.a1 * (m.b2 * m.d4 - m.b4 * m.d2)
-          + m.a2 * (m.b4 * m.d1 - m.b1 * m.d4)
-          + m.a4 * (m.b1 * m.d2 - m.b2 * m.d1)),
-      c4: -invdet
-        * (m.a1 * (m.b2 * m.c4 - m.b4 * m.c2)
-          + m.a2 * (m.b4 * m.c1 - m.b1 * m.c4)
-          + m.a4 * (m.b1 * m.c2 - m.b2 * m.c1)),
-      d1: -invdet
-        * (m.b1 * (m.c2 * m.d3 - m.c3 * m.d2)
-          + m.b2 * (m.c3 * m.d1 - m.c1 * m.d3)
-          + m.b3 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      d2: invdet
-        * (m.a1 * (m.c2 * m.d3 - m.c3 * m.d2)
-          + m.a2 * (m.c3 * m.d1 - m.c1 * m.d3)
-          + m.a3 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      d3: -invdet
-        * (m.a1 * (m.b2 * m.d3 - m.b3 * m.d2)
-          + m.a2 * (m.b3 * m.d1 - m.b1 * m.d3)
-          + m.a3 * (m.b1 * m.d2 - m.b2 * m.d1)),
-      d4: invdet
-        * (m.a1 * (m.b2 * m.c3 - m.b3 * m.c2)
-          + m.a2 * (m.b3 * m.c1 - m.b1 * m.c3)
-          + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
-    })
-  }
-
   pub fn transform_inverse(&self) -> Option<Self> {
     let m = self;
     let det = (m.a1 * m.b2 - m.a2 * m.b1) * (m.c3) - (m.a1 * m.b3 - m.a3 * m.b1) * (m.c2)
@@ -613,15 +626,6 @@ where
     m
   }
 
-  pub fn transpose(&self) -> Mat4<T> {
-    #[rustfmt::skip]
-    Mat4::new(
-      self.a1, self.b1, self.c1, self.d1, 
-      self.a2, self.b2, self.c2, self.d2, 
-      self.a3, self.b3, self.c3, self.d3, 
-      self.a4, self.b4, self.c4, self.d4,
-    )
-  }
 }
 
 impl<T> num_traits::Zero for Mat4<T>

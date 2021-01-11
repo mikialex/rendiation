@@ -1,4 +1,4 @@
-use crate::{HyperRay, LineSegment, Plane, Positioned};
+use crate::{DistanceTo, HyperRay, LineSegment3D, Plane};
 use rendiation_math::*;
 
 pub type Ray3<T = f32> = HyperRay<T, 3>;
@@ -18,18 +18,20 @@ impl<T: Scalar> Ray3<T> {
     Ray3::new(origin, (target - origin).into_normalized())
   }
 
+  // this distance to can not expressed by DistanceSquareTo trait
   pub fn distance_sq_to_point(&self, point: Vec3<T>) -> T {
     let oc = point - self.origin;
     let tca = oc.dot(self.direction);
     oc.dot(oc) - tca * tca
   }
 
+  // this distance to can not expressed by DistanceTo trait
   pub fn distance_to_plane(&self, plane: &Plane<T>) -> Option<T> {
     let denominator = plane.normal.dot(self.direction);
 
     if denominator == T::zero() {
       // line is coplanar, return origin
-      if plane.distance_to_point(self.origin) == T::zero() {
+      if plane.distance_to(&self.origin) == T::zero() {
         return T::zero().into();
       }
 
@@ -47,13 +49,11 @@ impl<T: Scalar> Ray3<T> {
     }
   }
 
-  pub fn distance_sq_to_segment<U: Positioned<T, 3>>(
-    &self,
-    line: LineSegment<U>,
-  ) -> (T, Vec3<T>, Vec3<T>) {
+  // this distance to can not expressed by DistanceSquareTo trait
+  pub fn distance_sq_to_segment(&self, line: LineSegment3D<T>) -> (T, Vec3<T>, Vec3<T>) {
     // (distance_sq_to_segment, optionalPointOnRay, optionalPointOnSegment)
-    let v0 = line.start.position();
-    let v1 = line.end.position();
+    let v0 = line.start;
+    let v1 = line.end;
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteDistRaySegment.h
     // It returns the min distance between the ray and the segment

@@ -5,7 +5,15 @@ use crate::{FakeHyperSquareMatrix, Mat3, Mat4, Scalar};
 pub trait SquareMatrixDimension<const D: usize> {}
 pub trait SquareMatrixImpl {}
 
-pub trait SquareMatrix<T: Scalar> {}
+pub trait SquareMatrix<T: Scalar>: Sized {
+  fn identity() -> Self;
+  fn transpose(&self) -> Self;
+  fn inverse(&self) -> Option<Self>;
+  fn inverse_or_identity(&self) -> Self {
+    self.inverse().unwrap_or(Self::identity())
+  }
+  fn det(&self) -> T;
+}
 
 pub trait DimensionalSquareMatrix<T: Scalar, const D: usize> {
   type Type: SquareMatrix<T> + SquareMatrixDimension<D> + Copy;

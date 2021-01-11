@@ -73,6 +73,7 @@
         "spirv",
         "swapchain",
         "texels",
+        "unnormalized",
         "varyings",
         "vsync",
         "wasm",

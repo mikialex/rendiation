@@ -30,7 +30,7 @@ pub use self::quat::*;
 pub use num_traits::*;
 
 #[macro_use]
-pub mod marcos;
+pub mod macros;
 
 pub trait Scalar = Float
   + FloatConst

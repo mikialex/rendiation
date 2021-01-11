@@ -11,6 +11,10 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
+pub fn vec4<T>(x: T, y: T, z: T, w: T) -> Vec4<T> {
+  Vec4::new(x, y, z, w)
+}
+
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
 

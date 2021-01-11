@@ -11,7 +11,22 @@ pub struct Mat2<T> {
 }
 
 impl<T: Scalar> SquareMatrixDimension<1> for Mat2<T> {}
-impl<T: Scalar> SquareMatrix<T> for Mat2<T> {}
+impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
+  fn identity() -> Self {
+    Self::one()
+  }
+  fn transpose(&self) -> Self {
+    let (a1, a2) = (self.a1, self.b1);
+    let (b1, b2) = (self.a2, self.b2);
+    Mat2 { a1, a2, b1, b2 }
+  }
+  fn det(&self) -> T {
+    todo!()
+  }
+  fn inverse(&self) -> Option<Self> {
+    todo!()
+  }
+}
 
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat2<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat2<T> {}
@@ -102,13 +117,6 @@ where
       b1: T::zero(),
       b2: y,
     }
-  }
-
-  pub fn transpose(&self) -> Self {
-    let (a1, a2) = (self.a1, self.b1);
-    let (b1, b2) = (self.a2, self.b2);
-
-    Mat2 { a1, a2, b1, b2 }
   }
 }
 

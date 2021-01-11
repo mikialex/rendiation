@@ -18,6 +18,19 @@ use std::ops::*;
 
 use crate::*;
 
+#[macro_export]
+macro_rules! vector {
+  ($x:expr,$y:expr) => {
+    Vec2::new($x, $y)
+  };
+  ($x:expr,$y:expr,$z:expr) => {
+    Vec3::new($x, $y, $z)
+  };
+  ($x:expr,$y:expr,$z:expr,$w:expr) => {
+    Vec4::new($x, $y, $z, $w)
+  };
+}
+
 macro_rules! impl_vector {
   ($VectorN:ident { $($field:ident),+ }, $n:expr, $constructor:ident) => {
     impl<S: Copy> $VectorN<S> {

@@ -47,7 +47,6 @@ impl DIV {
 impl Element for DIV {}
 
 pub trait Element: Any {
-  // fn render(&self, renderer: &mut Backend);
   // fn event(&self, event: &mut Message);
   // fn get_element_state(&self) -> &ElementState;
   // fn is_point_in(&self, point: Vec2<f32>) -> bool;

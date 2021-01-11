@@ -1,7 +1,7 @@
 use super::qem::QEM;
 use crate::half_edge_mesh::{EdgePairFinder, HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeVertex};
 use rendiation_math::Vec3;
-use rendiation_math_entity::{Triangle, Plane};
+use rendiation_math_entity::{Plane, Triangle};
 
 pub(super) type Mesh = HalfEdgeMesh<VertexData, (), ()>;
 pub(super) type Vertex = HalfEdgeVertex<VertexData, (), ()>;
@@ -79,7 +79,7 @@ impl Mesh {
         let face_qem = QEM::from(plane);
         vert_qem = vert_qem + face_qem;
       });
-      let mut vertex_data = unsafe {&mut *v.vertex_data.get() };
+      let mut vertex_data = unsafe { &mut *v.vertex_data.get() };
       vertex_data.qem = vert_qem;
     })
   }

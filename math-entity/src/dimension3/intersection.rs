@@ -1,14 +1,23 @@
 use crate::*;
 use rendiation_math::*;
 
-impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>> for Ray3 {
+impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<Triangle<V>, Nearest<HitPoint3D<T>>, FaceSide>
+  for Ray3<T>
+{
   #[allow(non_snake_case)]
-  fn intersect(&self, face: &Triangle<T>, _: &()) -> Nearest<HitPoint3D> {
-    // Compute the offset origin, edges, and normal.
+  #[inline]
+  fn intersect(&self, face: &Triangle<V>, side: &FaceSide) -> Nearest<HitPoint3D<T>> {
+    let Triangle { a, b, c } = match side {
+      FaceSide::Double | FaceSide::Front => face.map_position(),
+      FaceSide::Back => face.map_position().flip(),
+    };
+
+    let blackface_culling = match side {
+      FaceSide::Double => false,
+      FaceSide::Back | FaceSide::Front => true,
+    };
 
     // from http://www.geometrictools.com/GTEngine/Include/Mathematics/GteIntrRay3Triangle3.h
-    let Triangle { a, b, c } = face.map(|v| v.position());
-    let blackfaceCulling = false;
     let _edge1 = b - a;
     let _edge2 = c - a;
     let _normal = _edge1.cross(_edge2);
@@ -20,15 +29,15 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>> for 
     //   |Dot(D,N)|*t = -sign(Dot(D,N))*Dot(Q,N)
     let mut DdN = self.direction.dot(_normal);
     #[allow(unused_assignments)]
-    let mut sign: f32 = 0.;
+    let mut sign = T::zero();
 
-    if DdN > 0. {
-      if blackfaceCulling {
+    if DdN > T::zero() {
+      if blackface_culling {
         return Nearest::none();
       }
-      sign = 1.;
-    } else if DdN < 0.0 {
-      sign = -1.;
+      sign = T::one();
+    } else if DdN < T::zero() {
+      sign = -T::one();
       DdN = -DdN;
     } else {
       return Nearest::none();
@@ -38,14 +47,14 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>> for 
     let DdQxE2 = sign * self.direction.dot(_diff.cross(_edge2));
 
     // b1 < 0, no intersection
-    if DdQxE2 < 0. {
+    if DdQxE2 < T::zero() {
       return Nearest::none();
     }
 
     let DdE1xQ = sign * self.direction.dot(_edge1.cross(_diff));
 
     // b2 < 0, no intersection
-    if DdE1xQ < 0. {
+    if DdE1xQ < T::zero() {
       return Nearest::none();
     }
 
@@ -58,7 +67,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>> for 
     let QdN = -sign * _diff.dot(_normal);
 
     // t < 0, no intersection
-    if QdN < 0. {
+    if QdN < T::zero() {
       return Nearest::none();
     }
 
@@ -67,25 +76,28 @@ impl<T: Positioned<f32, 3>> IntersectAble<Triangle<T>, Nearest<HitPoint3D>> for 
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<LineSegment<T>, Nearest<HitPoint3D>, f32> for Ray3 {
+impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<LineSegment<V>, Nearest<HitPoint3D<T>>, T>
+  for Ray3<T>
+{
   #[inline]
-  fn intersect(&self, line: &LineSegment<T>, t: &f32) -> Nearest<HitPoint3D> {
-    let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(*line);
-    if dist_sq > t * t {
+  fn intersect(&self, line: &LineSegment<V>, t: &T) -> Nearest<HitPoint3D<T>> {
+    let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(line.map_position());
+    if dist_sq > *t * *t {
       return Nearest::none();
     }
-    // log::info!("dist_sq{:?}, t * t{}", dist_sq, t * t);
     let distance = self.origin.distance(inter_ray);
     Nearest::some(HitPoint3D::new(inter_ray, distance))
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<Point<T>, Nearest<HitPoint3D>, f32> for Ray3 {
+impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<Point<V>, Nearest<HitPoint3D<T>>, T>
+  for Ray3<T>
+{
   #[inline]
-  fn intersect(&self, point: &Point<T>, t: &f32) -> Nearest<HitPoint3D> {
-    let point = point.0.position();
+  fn intersect(&self, point: &Point<V>, t: &T) -> Nearest<HitPoint3D<T>> {
+    let point = point.map_position().0;
     let dist_sq = self.distance_sq_to_point(point);
-    if dist_sq > t * t {
+    if dist_sq > *t * *t {
       return Nearest::none();
     }
     let distance = self.origin.distance(point);

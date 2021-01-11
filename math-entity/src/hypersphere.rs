@@ -20,7 +20,11 @@ impl<T: Scalar, const D: usize> LebesgueMeasurable<T, D> for HyperSphere<T, D> {
   }
 }
 
-impl<T: Scalar, const D: usize> SolidEntity<T, D> for HyperSphere<T, D> {}
+impl<T: Scalar, const D: usize> SolidEntity<T, D> for HyperSphere<T, D> {
+  fn centroid(&self) -> VectorType<T, D> {
+    self.center
+  }
+}
 
 impl<T: Scalar, const D: usize> Copy for HyperSphere<T, D> where VectorType<T, D>: Copy {}
 

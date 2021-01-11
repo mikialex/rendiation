@@ -9,6 +9,10 @@ pub struct Vec2<T> {
   pub y: T,
 }
 
+pub fn vec2<T>(x: T, y: T) -> Vec2<T> {
+  Vec2::new(x, y)
+}
+
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec2<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec2<T> {}
 
