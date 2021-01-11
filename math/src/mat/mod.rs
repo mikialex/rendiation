@@ -3,9 +3,11 @@ mod mat3;
 mod mat4;
 mod dimension;
 mod fake_hyper_matrix;
+mod space_conversion_marker;
 
 pub use dimension::*;
 pub use fake_hyper_matrix::*;
+pub use space_conversion_marker::*;
 pub use mat2::*;
 pub use mat3::*;
 pub use mat4::*;
