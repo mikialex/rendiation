@@ -17,13 +17,13 @@ pub trait HalfEdgeMeshData {
   type Vertex;
 }
 
-pub struct HalfEdgeMesh<V = (), HE = (), F = ()> {
-  half_edges: Arena<HalfEdge<V, HE, F>>,
-  faces: Arena<HalfEdgeFace<V, HE, F>>,
-  vertices: Arena<HalfEdgeVertex<V, HE, F>>,
+pub struct HalfEdgeMesh<M: HalfEdgeMeshData> {
+  half_edges: Arena<HalfEdge<M>>,
+  faces: Arena<HalfEdgeFace<M>>,
+  vertices: Arena<HalfEdgeVertex<M>>,
 }
 
-impl<V, HE, F> HalfEdgeMesh<V, HE, F> {
+impl<M: HalfEdgeMeshData> HalfEdgeMesh<M> {
   pub fn new() -> Self {
     Self {
       half_edges: Arena::new(),
@@ -36,14 +36,14 @@ impl<V, HE, F> HalfEdgeMesh<V, HE, F> {
     self.faces.len()
   }
 
-  // pub fn iter_vertex(&mut self) -> impl Iterator<Item = &HalfEdgeVertex<V, HE, F>> {
+  // pub fn iter_vertex(&mut self) -> impl Iterator<Item = &HalfEdgeVertex<M>> {
   //   self.vertices.iter()
   // }
 
-  // pub fn remove_face(&mut self, face: &mut HalfEdgeFace<V, HE, F>) {
+  // pub fn remove_face(&mut self, face: &mut HalfEdgeFace<M>) {
   //   face.visit_around_edge_mut(|edge| unsafe { self.remove_edge(edge) })
   // }
-  // pub unsafe fn remove_edge(&mut self, edge: &mut HalfEdge<V, HE, F>) {
+  // pub unsafe fn remove_edge(&mut self, edge: &mut HalfEdge<M>) {
   //   if let Some(pair) = edge.pair_mut() {
   //     pair.delete_pair();
   //   }
@@ -55,35 +55,35 @@ impl<V, HE, F> HalfEdgeMesh<V, HE, F> {
   // }
 }
 
-// pub struct EdgePairFinder<V, HE, F>(
-//   HashMap<(*mut HalfEdgeVertex<V, HE, F>, *mut HalfEdgeVertex<V, HE, F>), *mut HalfEdge<V, HE, F>>,
+// pub struct EdgePairFinder<M>(
+//   HashMap<(*mut HalfEdgeVertex<M>, *mut HalfEdgeVertex<M>), *mut HalfEdge<M>>,
 // );
 
-// impl<V, HE, F> EdgePairFinder<V, HE, F> {
+// impl<M> EdgePairFinder<M> {
 //   pub fn new() -> Self {
 //     EdgePairFinder(HashMap::new())
 //   }
 //   pub fn insert(
 //     &mut self,
-//     k: (*mut HalfEdgeVertex<V, HE, F>, *mut HalfEdgeVertex<V, HE, F>),
-//     v: *mut HalfEdge<V, HE, F>,
+//     k: (*mut HalfEdgeVertex<M>, *mut HalfEdgeVertex<M>),
+//     v: *mut HalfEdge<M>,
 //   ) {
 //     if let Some(_) = self.0.insert(k, v) {
 //       panic!("not support none manifold geometry")
 //     }
 //   }
 
-//   pub fn find_edge_pairs(&self, edges: &mut Vec<*mut HalfEdge<V, HE, F>>) {
+//   pub fn find_edge_pairs(&self, edges: &mut Vec<*mut HalfEdge<M>>) {
 //     unsafe {
 //       for edge in edges {
 //         let edge = &mut **edge;
 //         if edge.pair_mut().is_none() {
 //           let key = (
-//             edge.next_mut().vert_mut() as *mut HalfEdgeVertex<V, HE, F>,
-//             edge.vert_mut() as *mut HalfEdgeVertex<V, HE, F>,
+//             edge.next_mut().vert_mut() as *mut HalfEdgeVertex<M>,
+//             edge.vert_mut() as *mut HalfEdgeVertex<M>,
 //           );
 //           if let Some(pair) = self.0.get(&key) {
-//             edge.pair = *pair as *mut HalfEdge<V, HE, F>;
+//             edge.pair = *pair as *mut HalfEdge<M>;
 //           }
 //         }
 //       }

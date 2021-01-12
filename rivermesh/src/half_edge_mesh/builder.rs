@@ -1,13 +1,13 @@
 use arena::{Arena, Handle};
 
-use crate::{HalfEdge, HalfEdgeMesh, HalfEdgeVertex};
+use crate::{HalfEdge, HalfEdgeMesh, HalfEdgeMeshData, HalfEdgeVertex};
 
-pub enum BuildingVertex<V, HE, F> {
-  Detached(V),
-  Attached(Handle<HalfEdgeVertex<V, HE, F>>),
+pub enum BuildingVertex<M: HalfEdgeMeshData> {
+  Detached(M::Vertex),
+  Attached(Handle<HalfEdgeVertex<M>>),
 }
 
-impl<V, HE, F> BuildingVertex<V, HE, F> {
+impl<M: HalfEdgeMeshData> BuildingVertex<M> {
   pub fn is_attached(&self) -> bool {
     match self {
       BuildingVertex::Detached(_) => false,
@@ -32,15 +32,15 @@ pub enum HalfEdgeBuildError {
 }
 use HalfEdgeBuildError::*;
 
-pub struct HalfEdgeMeshBuilder<V, HE, F> {
-  mesh: HalfEdgeMesh<V, HE, F>,
+pub struct HalfEdgeMeshBuilder<M: HalfEdgeMeshData> {
+  mesh: HalfEdgeMesh<M>,
   /// for operation recovery
-  not_committed_vertices: Vec<Handle<HalfEdgeVertex<V, HE, F>>>,
-  not_committed_half_edges: Vec<Handle<HalfEdge<V, HE, F>>>,
-  pub building_vertices: Arena<BuildingVertex<V, HE, F>>, // this actually not allow remove, so we should not use arena!
+  not_committed_vertices: Vec<Handle<HalfEdgeVertex<M>>>,
+  not_committed_half_edges: Vec<Handle<HalfEdge<M>>>,
+  pub building_vertices: Arena<BuildingVertex<M>>, // this actually not allow remove, so we should not use arena!
 }
 
-impl<V, HE, F> HalfEdgeMeshBuilder<V, HE, F> {
+impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
   pub fn new() -> Self {
     Self {
       mesh: HalfEdgeMesh::new(),
@@ -60,10 +60,7 @@ impl<V, HE, F> HalfEdgeMeshBuilder<V, HE, F> {
     });
   }
 
-  pub fn push_any_face(
-    &mut self,
-    path: &[BuildingVertex<V, HE, F>],
-  ) -> Result<(), HalfEdgeBuildError> {
+  pub fn push_any_face(&mut self, path: &[BuildingVertex<M>]) -> Result<(), HalfEdgeBuildError> {
     if path.len() < 3 {
       return Err(FaceConstructionInputTooSmall);
     }
@@ -72,9 +69,9 @@ impl<V, HE, F> HalfEdgeMeshBuilder<V, HE, F> {
 
   pub fn push_triangle_face(
     &mut self,
-    a: BuildingVertex<V, HE, F>,
-    b: BuildingVertex<V, HE, F>,
-    c: BuildingVertex<V, HE, F>,
+    a: BuildingVertex<M>,
+    b: BuildingVertex<M>,
+    c: BuildingVertex<M>,
   ) -> Result<(), HalfEdgeBuildError> {
     let result = self.push_triangle_face_impl(a, b, c);
     if result.is_err() {
@@ -85,9 +82,9 @@ impl<V, HE, F> HalfEdgeMeshBuilder<V, HE, F> {
 
   pub fn push_triangle_face_impl(
     &mut self,
-    a: BuildingVertex<V, HE, F>,
-    b: BuildingVertex<V, HE, F>,
-    c: BuildingVertex<V, HE, F>,
+    a: BuildingVertex<M>,
+    b: BuildingVertex<M>,
+    c: BuildingVertex<M>,
   ) -> Result<(), HalfEdgeBuildError> {
     if a.is_same_and_attached(&b) || b.is_same_and_attached(&c) || c.is_same_and_attached(&a) {
       return Err(TriangleInputInvalid);
@@ -96,7 +93,7 @@ impl<V, HE, F> HalfEdgeMeshBuilder<V, HE, F> {
     Ok(())
   }
 
-  pub fn done(self) -> HalfEdgeMesh<V, HE, F> {
+  pub fn done(self) -> HalfEdgeMesh<M> {
     self.mesh
   }
 }

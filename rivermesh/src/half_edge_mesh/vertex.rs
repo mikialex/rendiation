@@ -1,27 +1,29 @@
 use arena::Handle;
 
+use crate::HalfEdgeMeshData;
+
 use super::{HalfEdge, HalfEdgeFace};
 
 #[derive(Clone, Copy)]
-pub struct HalfEdgeVertex<V, HE, F> {
-  pub vertex_data: V,
+pub struct HalfEdgeVertex<M: HalfEdgeMeshData> {
+  pub vertex_data: M::Vertex,
   /// one of the half-edges emanating from the vertex
-  pub(super) edge: Handle<HalfEdge<V, HE, F>>,
+  pub(super) edge: Handle<HalfEdge<M>>,
 }
 
-impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
-  // pub fn new(vertex_data: V) -> HalfEdgeVertex<V, HE, F> {
+impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
+  // pub fn new(vertex_data: V) -> HalfEdgeVertex<M> {
   //   HalfEdgeVertex {
   //     vertex_data,
   //     edge: std::ptr::null_mut(),
   //   }
   // }
 
-  pub fn edge(&self) -> Handle<HalfEdge<V, HE, F>> {
+  pub fn edge(&self) -> Handle<HalfEdge<M>> {
     self.edge
   }
 
-  // pub fn foreach_surrounding_face(&self, mut visitor: impl FnMut(&HalfEdgeFace<V, HE, F>)) {
+  // pub fn foreach_surrounding_face(&self, mut visitor: impl FnMut(&HalfEdgeFace<M>)) {
   //   unsafe {
   //     let mut edge = self.edge();
   //     let face = edge.face_mut();
@@ -32,7 +34,7 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
   //       let face = pair.face_mut();
   //       visitor(face);
   //       let next_edge = pair.next();
-  //       if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
+  //       if next_edge as *const HalfEdge<M> != edge as *const HalfEdge<M> {
   //         edge = next_edge
   //       } else {
   //         has_around = true;
@@ -54,7 +56,7 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
   //   }
   // }
 
-  // pub fn visit_surrounding_half_edge_mut(&self, mut visitor: impl FnMut(&HalfEdge<V, HE, F>)) {
+  // pub fn visit_surrounding_half_edge_mut(&self, mut visitor: impl FnMut(&HalfEdge<M>)) {
   //   unsafe {
   //     let mut edge = self.edge_mut();
   //     visitor(edge);
@@ -63,7 +65,7 @@ impl<V, HE, F> HalfEdgeVertex<V, HE, F> {
   //     while let Some(pair) = edge.pair_mut() {
   //       visitor(pair);
   //       let next_edge = pair.next_mut();
-  //       if next_edge as *const HalfEdge<V, HE, F> != edge as *const HalfEdge<V, HE, F> {
+  //       if next_edge as *const HalfEdge<M> != edge as *const HalfEdge<M> {
   //         visitor(next_edge);
   //         edge = next_edge;
   //       } else {

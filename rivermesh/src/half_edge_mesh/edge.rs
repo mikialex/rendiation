@@ -1,30 +1,32 @@
 use arena::Handle;
 
+use crate::HalfEdgeMeshData;
+
 use super::{HalfEdgeFace, HalfEdgeVertex};
 
 #[derive(Clone, Copy)]
 // http://www.flipcode.com/archives/The_Half-Edge_Data_Structure.shtml
-pub struct HalfEdge<V, HE, F> {
-  pub data: HE,
+pub struct HalfEdge<M: HalfEdgeMeshData> {
+  pub data: M::HalfEdge,
 
   /// vertex at the start of the half-edge
-  pub(super) vert: Handle<HalfEdgeVertex<V, HE, F>>,
+  pub(super) vert: Handle<HalfEdgeVertex<M>>,
 
   /// oppositely oriented adjacent half-edge
-  pub(super) pair: Option<Handle<HalfEdge<V, HE, F>>>,
+  pub(super) pair: Option<Handle<HalfEdge<M>>>,
 
   /// face the half-edge borders
-  pub(super) face: Handle<HalfEdgeFace<V, HE, F>>,
+  pub(super) face: Handle<HalfEdgeFace<M>>,
 
   /// next half-edge around the face
-  pub(super) next: Handle<HalfEdge<V, HE, F>>,
+  pub(super) next: Handle<HalfEdge<M>>,
 }
 
-impl<V, HE, F> HalfEdge<V, HE, F> {
+impl<M: HalfEdgeMeshData> HalfEdge<M> {
   // pub(super) fn new(
-  //   from: *mut HalfEdgeVertex<V, HE, F>,
-  //   _to: *mut HalfEdgeVertex<V, HE, F>,
-  // ) -> HalfEdge<V, HE, F> {
+  //   from: *mut HalfEdgeVertex<M>,
+  //   _to: *mut HalfEdgeVertex<M>,
+  // ) -> HalfEdge<M> {
   //   let mut half_edge = HalfEdge {
   //     vert: from,
   //     pair: std::ptr::null_mut(),
@@ -45,14 +47,14 @@ impl<V, HE, F> HalfEdge<V, HE, F> {
   // pub(super) fn connect_next_edge_for_face(
   //   &mut self,
   //   next: *mut Self,
-  //   face: &mut HalfEdgeFace<V, HE, F>,
+  //   face: &mut HalfEdgeFace<M>,
   // ) -> &mut Self {
   //   self.next = next;
   //   self.face = face;
   //   self
   // }
 
-  pub fn vert(&self) -> Handle<HalfEdgeVertex<V, HE, F>> {
+  pub fn vert(&self) -> Handle<HalfEdgeVertex<M>> {
     self.vert
   }
 
@@ -64,7 +66,7 @@ impl<V, HE, F> HalfEdge<V, HE, F> {
   //   self.next().next()
   // }
 
-  pub unsafe fn face(&self) -> Handle<HalfEdgeFace<V, HE, F>> {
+  pub unsafe fn face(&self) -> Handle<HalfEdgeFace<M>> {
     self.face
   }
 
