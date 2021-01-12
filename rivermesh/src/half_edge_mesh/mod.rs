@@ -11,6 +11,12 @@ pub use vertex::*;
 use arena::*;
 use std::collections::HashMap;
 
+pub trait HalfEdgeMeshData {
+  type Face;
+  type HalfEdge;
+  type Vertex;
+}
+
 pub struct HalfEdgeMesh<V = (), HE = (), F = ()> {
   half_edges: Arena<HalfEdge<V, HE, F>>,
   faces: Arena<HalfEdgeFace<V, HE, F>>,
