@@ -2278,6 +2278,7 @@ dependencies = [
 name = "rivermesh"
 version = "0.1.0"
 dependencies = [
+ "arena",
  "rendiation-math",
  "rendiation-math-entity",
  "tobj 0.1.12",

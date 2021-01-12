@@ -9,4 +9,5 @@ version = "0.1.0"
 [dependencies]
 rendiation-math = {path = "../math", features = ["swizzle"]}
 rendiation-math-entity = {path = "../math-entity"}
+arena ={path="../utils/arena"}
 tobj = "0.1.10"
