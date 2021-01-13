@@ -1,12 +1,12 @@
 use arena::Handle;
 
-use crate::HalfEdgeMeshData;
+use crate::{HalfEdgeMesh, HalfEdgeMeshData};
 
 use super::{HalfEdge, HalfEdgeFace};
 
 #[derive(Clone, Copy)]
 pub struct HalfEdgeVertex<M: HalfEdgeMeshData> {
-  pub vertex_data: M::Vertex,
+  pub data: M::Vertex,
   /// one of the half-edges emanating from the vertex
   pub(super) edge: Handle<HalfEdge<M>>,
 }
@@ -21,6 +21,10 @@ impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
 
   pub fn edge(&self) -> Handle<HalfEdge<M>> {
     self.edge
+  }
+
+  pub fn is_boundary_vertex(&self, mesh: &HalfEdgeMesh<M>) -> bool {
+    todo!()
   }
 
   // pub fn foreach_surrounding_face(&self, mut visitor: impl FnMut(&HalfEdgeFace<M>)) {

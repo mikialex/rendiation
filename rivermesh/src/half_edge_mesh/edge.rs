@@ -1,6 +1,6 @@
 use arena::Handle;
 
-use crate::HalfEdgeMeshData;
+use crate::{HalfEdgeMesh, HalfEdgeMeshData};
 
 use super::{HalfEdgeFace, HalfEdgeVertex};
 
@@ -23,9 +23,17 @@ pub struct HalfEdge<M: HalfEdgeMeshData> {
 }
 
 impl<M: HalfEdgeMeshData> HalfEdge<M> {
+  pub fn check_exist(
+    mesh: &HalfEdgeMesh<M>,
+    from: Handle<HalfEdgeVertex<M>>,
+    to: Handle<HalfEdgeVertex<M>>,
+  ) -> bool {
+    todo!()
+  }
+
   // pub(super) fn new(
-  //   from: *mut HalfEdgeVertex<M>,
-  //   _to: *mut HalfEdgeVertex<M>,
+  //   from: Handle<HalfEdgeVertex<M>>,
+  //   _to: Handle<HalfEdgeVertex<M>>,
   // ) -> HalfEdge<M> {
   //   let mut half_edge = HalfEdge {
   //     vert: from,
