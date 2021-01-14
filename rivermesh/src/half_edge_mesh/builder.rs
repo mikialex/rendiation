@@ -1,6 +1,6 @@
 use arena::{Arena, Handle};
 
-use crate::{HalfEdge, HalfEdgeMesh, HalfEdgeMeshData, HalfEdgeVertex};
+use crate::{HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeMeshData, HalfEdgeVertex};
 
 pub enum BuildingVertex<M: HalfEdgeMeshData> {
   Detached(M::Vertex),
@@ -26,11 +26,17 @@ impl<M: HalfEdgeMeshData> BuildingVertex<M> {
 }
 
 pub enum HalfEdgeBuildError {
-  NonManifoldOperation,
+  NonManifoldOperation(NoneManifoldError),
   FaceConstructionInputTooSmall,
   TriangleInputDegenerated,
 }
+pub enum NoneManifoldError {
+  AdjacentFaceSideInvert,
+  BowtieVertex,
+  DanglingPointOrEdge,
+}
 use HalfEdgeBuildError::*;
+use NoneManifoldError::*;
 
 pub struct HalfEdgeMeshBuilder<M: HalfEdgeMeshData> {
   mesh: HalfEdgeMesh<M>,
@@ -97,7 +103,7 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
       BuildingVertex::Attached(v) => {
         let vertex = self.mesh.vertices.get(v).unwrap();
         if vertex.is_boundary_vertex(&self.mesh) {
-          Err(HalfEdgeBuildError::NonManifoldOperation) // dangling point/edge
+          Err(NonManifoldOperation(DanglingPointOrEdge))
         } else {
           Ok((v, false))
         }
@@ -111,8 +117,8 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
     to: (Handle<HalfEdgeVertex<M>>, bool),
   ) -> Result<Handle<HalfEdge<M>>, HalfEdgeBuildError> {
     if !from.1 && !from.1 {
-      if HalfEdge::check_exist(&self.mesh, from.0, to.0) {
-        return Err(HalfEdgeBuildError::NonManifoldOperation); // face inverted
+      if HalfEdge::get_by_two_points(&self.mesh, from.0, to.0).is_some() {
+        return Err(NonManifoldOperation(AdjacentFaceSideInvert));
       }
     }
 
@@ -128,6 +134,34 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
     Ok(inserted)
   }
 
+  fn check_segment(
+    &self,
+    a: (Handle<HalfEdgeVertex<M>>, bool),
+    b: (Handle<HalfEdgeVertex<M>>, bool),
+    c: (Handle<HalfEdgeVertex<M>>, bool),
+  ) -> Result<(), HalfEdgeBuildError> {
+    if b.1 && !a.1 && !c.1 {
+      return Err(NonManifoldOperation(BowtieVertex));
+    }
+    Ok(())
+  }
+
+  fn link_half_edge(
+    &mut self,
+    edge: Handle<HalfEdge<M>>,
+    next: Handle<HalfEdge<M>>,
+    face: Handle<HalfEdgeFace<M>>,
+  ) {
+    let next_vert = self.mesh.half_edges.get(edge).unwrap().vert;
+    let self_vert = self.mesh.half_edges.get(edge).unwrap().vert;
+    let pair = HalfEdge::get_by_two_points(&self.mesh, next_vert, self_vert);
+
+    let edge = self.mesh.half_edges.get_mut(edge).unwrap();
+    edge.next = next;
+    edge.face = face;
+    edge.pair = pair;
+  }
+
   pub fn push_triangle_face_impl(
     &mut self,
     a: BuildingVertex<M>,
@@ -141,9 +175,21 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
     let a = self.insert_building_vertex(a)?;
     let b = self.insert_building_vertex(b)?;
     let c = self.insert_building_vertex(c)?;
+    self.check_segment(a, b, c)?;
+    self.check_segment(b, c, a)?;
+    self.check_segment(c, a, b)?;
     let ab = self.insert_building_half_edge(a, b)?;
     let bc = self.insert_building_half_edge(b, c)?;
     let ca = self.insert_building_half_edge(c, a)?;
+
+    // topo checked ok, create face
+    let face = self.mesh.faces.insert(HalfEdgeFace {
+      data: M::Face::default(),
+      edge: ab,
+    });
+    self.link_half_edge(ab, bc, face);
+    self.link_half_edge(bc, ca, face);
+    self.link_half_edge(ca, ab, face);
 
     Ok(())
   }

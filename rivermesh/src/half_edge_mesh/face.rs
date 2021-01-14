@@ -6,7 +6,7 @@ use super::{HalfEdge, HalfEdgeVertex};
 
 #[derive(Clone, Copy)]
 pub struct HalfEdgeFace<M: HalfEdgeMeshData> {
-  data: M::Face,
+  pub(super) data: M::Face,
   pub(super) edge: Handle<HalfEdge<M>>, // one of the half-edges bordering the face
 }
 

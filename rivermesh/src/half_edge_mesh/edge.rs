@@ -23,11 +23,11 @@ pub struct HalfEdge<M: HalfEdgeMeshData> {
 }
 
 impl<M: HalfEdgeMeshData> HalfEdge<M> {
-  pub fn check_exist(
+  pub fn get_by_two_points(
     mesh: &HalfEdgeMesh<M>,
     from: Handle<HalfEdgeVertex<M>>,
     to: Handle<HalfEdgeVertex<M>>,
-  ) -> bool {
+  ) -> Option<Handle<HalfEdge<M>>> {
     todo!()
   }
 
