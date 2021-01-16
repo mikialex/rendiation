@@ -1,6 +1,6 @@
 use std::{any::Any, cell::RefCell, marker::PhantomData};
 
-use super::{Element, ElementHandle};
+// use super::{Element, ElementHandle};
 use arena::{Arena, Handle};
 use arena_tree::ArenaTree;
 
@@ -10,6 +10,8 @@ trait Component: Sized {
   type Event;
   fn build(state: &Self::State, props: &Self::Props) -> ComponentContent<Self>;
 }
+
+trait Element {}
 
 pub struct ViewBuilder<T> {
   phantom: PhantomData<T>,
@@ -29,8 +31,8 @@ impl<T> ViewBuilder<T> {
 }
 
 struct ComponentContent<T: Component> {
-  root_element: ElementHandle,
-  tree: ArenaTree<DocumentElement<T>>,
+  // root_element: ElementHandle,
+  tree: ArenaTree<Box<dyn DocumentUnit<Props = T::Props>>>,
   events: EventDispatcher<T::Event>,
 }
 
@@ -54,17 +56,21 @@ impl<T> EventDispatcher<T> {
 
 enum DocumentElement<T: Component> {
   PrimitiveElement(Box<dyn Element>),
-  ComponentElement(Box<dyn ComponentInstance<Props = T::Props>>),
+  ComponentElement(Box<dyn DocumentUnit<Props = T::Props>>),
 }
 
-enum ComponentElementCell<T: Component> {
-  HadBuild(Box<dyn ComponentInstance<Props = T::Props>>),
-  // NotBuild(Box<dyn Fn(T) -> >)
+struct ElementCell<E: Element> {
+  element: E,
+}
+
+enum ComponentElementCell<T: Component, S: Component> {
+  HadBuild(ComponentInstanceContainer<S>),
+  NotBuild(Box<dyn Fn(T) -> S>),
 }
 
 type DisplayList = Vec<usize>;
 
-pub trait ComponentInstance {
+pub trait DocumentUnit {
   type Props;
   /// receive event from outside, emit listener and modify self state
   fn event(&self, props: &Self::Props);
@@ -79,7 +85,7 @@ struct ComponentInstanceContainer<T: Component> {
   content: ComponentContent<T>,
 }
 
-impl<T> ComponentInstance for ComponentInstanceContainer<T>
+impl<T> DocumentUnit for ComponentInstanceContainer<T>
 where
   T: Component,
   T::Props: PartialEq,
