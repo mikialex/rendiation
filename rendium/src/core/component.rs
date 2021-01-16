@@ -30,12 +30,6 @@ impl<T> ViewBuilder<T> {
   }
 }
 
-struct ComponentContent<T: Component> {
-  // root_element: ElementHandle,
-  tree: ArenaTree<Box<dyn DocumentUnit<Props = T::Props>>>,
-  events: EventDispatcher<T::Event>,
-}
-
 pub struct EventDispatcher<T> {
   listeners: Arena<Box<dyn FnMut(&mut T)>>,
 }
@@ -59,13 +53,46 @@ enum DocumentElement<T: Component> {
   ComponentElement(Box<dyn DocumentUnit<Props = T::Props>>),
 }
 
-struct ElementCell<E: Element> {
+struct ElementCell<T: Component, E: Element> {
   element: E,
+  events: EventDispatcher<T::Event>,
+}
+
+impl<T: Component, E: Element> DocumentUnit for ElementCell<T, E> {
+  type Props = T::Props;
+
+  fn event(&self, props: &Self::Props) {
+    todo!()
+  }
+
+  fn update(&self, props: &Self::Props) {
+    todo!()
+  }
+
+  fn render(&self, list: &mut DisplayList) {
+    todo!()
+  }
 }
 
 enum ComponentElementCell<T: Component, S: Component> {
-  HadBuild(ComponentInstanceContainer<S>),
-  NotBuild(Box<dyn Fn(T) -> S>),
+  HasBuilt(ComponentInstanceContainer<S>),
+  ToBuild(Box<dyn Fn(T) -> S>),
+}
+
+impl<T: Component, S: Component> DocumentUnit for ComponentElementCell<T, S> {
+  type Props = T::Props;
+
+  fn event(&self, props: &Self::Props) {
+    todo!()
+  }
+
+  fn update(&self, props: &Self::Props) {
+    todo!()
+  }
+
+  fn render(&self, list: &mut DisplayList) {
+    todo!()
+  }
 }
 
 type DisplayList = Vec<usize>;
@@ -78,7 +105,23 @@ pub trait DocumentUnit {
   fn render(&self, list: &mut DisplayList);
 }
 
+struct DocumentTree<T: Component> {
+  root_element: Handle<Box<dyn DocumentUnit<Props = T::Props>>>,
+  tree: ArenaTree<Box<dyn DocumentUnit<Props = T::Props>>>,
+}
+
+impl<T: Component> DocumentTree<T> {
+  pub fn patch(&mut self, new: Self) {
+    // diff and patch!
+  }
+}
+
+struct ComponentContent<T: Component> {
+  tree: DocumentTree<T>,
+}
+
 struct ComponentInstanceContainer<T: Component> {
+  events: EventDispatcher<T::Event>,
   current_states: T::State,
   last_states: Option<T::State>,
   cached_props: Option<T::Props>,
