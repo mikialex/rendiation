@@ -7,16 +7,17 @@ use rendiation_math::Vec2;
 
 type Event = winit::event::Event<'static, ()>;
 
-trait Component: Sized {
+trait Component: Sized + 'static {
   type State: Default;
   type Props;
   type Event;
-  fn build(state: &Self::State, props: &Self::Props) -> ComponentContent<Self>;
+  fn build(state: &Self::State, props: &Self::Props) -> DocumentTree<Self>;
 }
 
-trait Element {
+trait Element: 'static {
   /// decide if itself respond to a mouse event by mouse point
   fn is_point_in(&self, point: Vec2<f32>) -> bool;
+  fn render(&self, list: &mut DisplayList);
 }
 
 pub struct ViewBuilder<T> {
@@ -69,14 +70,16 @@ impl<T: Component, E: Element> DocumentUnit for ElementCell<T, E> {
 
   fn event(&self, props: &Self::Props, event: &Event) {
     // if self.is_point_in()
-  }
-
-  fn update(&self, props: &Self::Props) {
     todo!()
   }
+
+  fn update(&mut self, props: &Self::Props) {}
 
   fn render(&self, list: &mut DisplayList) {
-    todo!()
+    self.element.render(list)
+  }
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
 
@@ -92,23 +95,28 @@ impl<T: Component, S: Component> DocumentUnit for ComponentElementCell<T, S> {
     todo!()
   }
 
-  fn update(&self, props: &Self::Props) {
+  fn update(&mut self, props: &Self::Props) {
     todo!()
   }
 
   fn render(&self, list: &mut DisplayList) {
     todo!()
   }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
 }
 
 type DisplayList = Vec<usize>;
 
-pub trait DocumentUnit {
+pub trait DocumentUnit: Any {
   type Props;
   /// receive event from outside, emit listener and modify self state
   fn event(&self, props: &Self::Props, event: &Event);
-  fn update(&self, props: &Self::Props);
+  fn update(&mut self, props: &Self::Props);
   fn render(&self, list: &mut DisplayList);
+  // fn patch(&mut self, other: dyn DocumentUnit<Props = Self::Props>);
+  fn as_any(&self) -> &dyn Any;
 }
 
 struct DocumentTree<T: Component> {
@@ -122,16 +130,12 @@ impl<T: Component> DocumentTree<T> {
   }
 }
 
-struct ComponentContent<T: Component> {
-  tree: DocumentTree<T>,
-}
-
 struct ComponentInstanceContainer<T: Component> {
   events: EventDispatcher<T::Event>,
   current_states: T::State,
   last_states: Option<T::State>,
   cached_props: Option<T::Props>,
-  content: ComponentContent<T>,
+  content: DocumentTree<T>,
 }
 
 impl<T> DocumentUnit for ComponentInstanceContainer<T>
@@ -144,15 +148,19 @@ where
   fn event(&self, props: &T::Props, event: &Event) {
     todo!()
   }
-  fn update(&self, props: &T::Props) {
+  fn update(&mut self, props: &T::Props) {
     // if props not changed, we don't update
     // if self.cached_props.eq(props) {
     //   return;
     // }
     let new_view = T::build(&self.current_states, props);
-    // diff and patch
+    self.content.patch(new_view);
   }
   fn render(&self, list: &mut DisplayList) {
     todo!()
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 }
