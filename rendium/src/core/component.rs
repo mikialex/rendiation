@@ -1,4 +1,4 @@
-use std::{any::Any, cell::RefCell};
+use std::{any::Any, cell::RefCell, marker::PhantomData};
 
 use super::{Element, ElementHandle};
 use arena::{Arena, Handle};
@@ -11,19 +11,28 @@ trait Component: Sized {
   fn build(state: &Self::State, props: &Self::Props) -> ComponentContent<Self>;
 }
 
-pub struct ComponentBuilder {}
+pub struct ViewBuilder<T> {
+  phantom: PhantomData<T>,
+  // children: Vec<DocumentElement<T>>
+}
+pub fn h<T>() -> ViewBuilder<T> {
+  todo!()
+}
+impl<T> ViewBuilder<T> {
+  fn on(&mut self) {
+    //
+  }
+
+  fn child<VT>(&mut self, v: ViewBuilder<VT>) {
+    //
+  }
+}
 
 struct ComponentContent<T: Component> {
   root_element: ElementHandle,
   tree: ArenaTree<DocumentElement<T>>,
   events: EventDispatcher<T::Event>,
 }
-
-// impl<T: Component> ComponentContent<T> {
-//   pub fn on(&mut self) {
-
-//   }
-// }
 
 pub struct EventDispatcher<T> {
   listeners: Arena<Box<dyn FnMut(&mut T)>>,
@@ -48,27 +57,45 @@ enum DocumentElement<T: Component> {
   ComponentElement(Box<dyn ComponentInstance<Props = T::Props>>),
 }
 
+enum ComponentElementCell<T: Component> {
+  HadBuild(Box<dyn ComponentInstance<Props = T::Props>>),
+  // NotBuild(Box<dyn Fn(T) -> >)
+}
+
 type DisplayList = Vec<usize>;
 
 pub trait ComponentInstance {
   type Props;
+  /// receive event from outside, emit listener and modify self state
   fn event(&self, props: &Self::Props);
   fn update(&self, props: &Self::Props);
   fn render(&self, list: &mut DisplayList);
 }
 
 struct ComponentInstanceContainer<T: Component> {
-  states: RefCell<T::State>,
+  current_states: T::State,
+  last_states: Option<T::State>,
+  cached_props: Option<T::Props>,
   content: ComponentContent<T>,
 }
 
-impl<T: Component> ComponentInstance for ComponentInstanceContainer<T> {
+impl<T> ComponentInstance for ComponentInstanceContainer<T>
+where
+  T: Component,
+  T::Props: PartialEq,
+  T::State: PartialEq,
+{
   type Props = T::Props;
   fn event(&self, props: &T::Props) {
     todo!()
   }
   fn update(&self, props: &T::Props) {
-    todo!()
+    // if props not changed, we don't update
+    // if self.cached_props.eq(props) {
+    //   return;
+    // }
+    let new_view = T::build(&self.current_states, props);
+    // diff and patch
   }
   fn render(&self, list: &mut DisplayList) {
     todo!()
