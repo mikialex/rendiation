@@ -28,39 +28,12 @@ impl<M: HalfEdgeMeshData> HalfEdge<M> {
     from: Handle<HalfEdgeVertex<M>>,
     to: Handle<HalfEdgeVertex<M>>,
   ) -> Option<Handle<HalfEdge<M>>> {
+    // let from_v = mesh.vertices.get(from).unwrap();
+    // from_v
+    //   .iter_half_edge(mesh)
+    //   .find(|edge| edge.end(mesh) == to)
     todo!()
   }
-
-  // pub(super) fn new(
-  //   from: Handle<HalfEdgeVertex<M>>,
-  //   _to: Handle<HalfEdgeVertex<M>>,
-  // ) -> HalfEdge<M> {
-  //   let mut half_edge = HalfEdge {
-  //     vert: from,
-  //     pair: std::ptr::null_mut(),
-  //     face: std::ptr::null_mut(),
-  //     next: std::ptr::null_mut(),
-  //   };
-
-  //   // make sure vertex has a edge to point
-  //   unsafe {
-  //     if (*from).edge.is_null() {
-  //       (*from).edge = &mut half_edge
-  //     };
-  //   }
-
-  //   half_edge
-  // }
-
-  // pub(super) fn connect_next_edge_for_face(
-  //   &mut self,
-  //   next: *mut Self,
-  //   face: &mut HalfEdgeFace<M>,
-  // ) -> &mut Self {
-  //   self.next = next;
-  //   self.face = face;
-  //   self
-  // }
 
   pub fn vert(&self) -> Handle<HalfEdgeVertex<M>> {
     self.vert
@@ -70,15 +43,23 @@ impl<M: HalfEdgeMeshData> HalfEdge<M> {
     self.next
   }
 
-  // pub  fn prev(&self) ->  Handle<Self> {
-  //   self.next().next()
-  // }
+  pub fn start(&self) -> Handle<HalfEdgeVertex<M>> {
+    self.vert
+  }
+  pub fn end(&self, mesh: &HalfEdgeMesh<M>) -> Handle<HalfEdgeVertex<M>> {
+    mesh.half_edges.get(self.next()).unwrap().vert()
+  }
 
-  pub unsafe fn face(&self) -> Handle<HalfEdgeFace<M>> {
+  pub fn prev(&self) -> Handle<Self> {
+    // self.next().next()
+    todo!()
+  }
+
+  pub fn face(&self) -> Handle<HalfEdgeFace<M>> {
     self.face
   }
 
-  pub unsafe fn pair(&self) -> Option<Handle<Self>> {
+  pub fn pair(&self) -> Option<Handle<Self>> {
     self.pair
   }
 

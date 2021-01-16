@@ -5,6 +5,7 @@
         "BSDF",
         "Bezier",
         "Blinn",
+        "Bowtie",
         "Drawcall",
         "Framebuffer",
         "GLRAL",
