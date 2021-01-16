@@ -1,6 +1,9 @@
 use crate::{
+  application::{AppRenderCtx, Application},
   camera_controls::{CameraController, CameraControllerType},
   vox::world::World,
+  window_event::WindowEventSession,
+  window_states::WindowState,
 };
 use crate::{rendering::RinecraftRenderer, util::*};
 use render_target::{ScreenRenderTarget, TargetInfoProvider};
@@ -9,7 +12,6 @@ use rendiation_render_entity::*;
 use rendiation_scenegraph::*;
 use rendiation_webgpu::renderer::SwapChain;
 use rendiation_webgpu::*;
-use rendium::*;
 
 pub struct Rinecraft {
   pub window_session: WindowEventSession<RinecraftState>,
@@ -31,7 +33,7 @@ pub struct RinecraftState {
   pub camera_controller: CameraController<Self>,
 
   pub viewport: Viewport,
-  pub gui: GUI,
+  // pub gui: GUI,
   pub renderer: RinecraftRenderer,
 }
 
@@ -45,11 +47,11 @@ impl Application for Rinecraft {
     let screen_target =
       ScreenRenderTarget::new(renderer.swap_chain_format, Some(depth), swap_chain.size);
 
-    let gui = GUI::new(
-      renderer,
-      (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
-      &screen_target,
-    );
+    // let gui = GUI::new(
+    //   renderer,
+    //   (swap_chain.size.0 as f32, swap_chain.size.1 as f32),
+    //   &screen_target,
+    // );
 
     let mut resource = ResourceManager::new();
     let mut scene = Scene::new(&mut resource);
@@ -96,7 +98,7 @@ impl Application for Rinecraft {
       state.camera.update_by(&state.perspective_projection);
 
       // state.camera_orth.resize(size);
-      state.gui.renderer.resize(size, renderer);
+      // state.gui.renderer.resize(size, renderer);
     });
 
     window_session.active.event_cleared.on(|event_ctx| {
@@ -118,10 +120,10 @@ impl Application for Rinecraft {
 
       // rendering
       state.renderer.render(renderer, scene, resource, &output);
-      state.gui.render(renderer, &output);
+      // state.gui.render(renderer, &output);
     });
 
-    let window_state = WindowState::new((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
+    let window_state = WindowState::new();
 
     // Done
     let mut rinecraft = Rinecraft {
@@ -137,7 +139,7 @@ impl Application for Rinecraft {
         viewport,
         camera_controller: CameraController::new(),
         screen_target,
-        gui,
+        // gui,
         renderer: RinecraftRenderer::new(),
       },
     };

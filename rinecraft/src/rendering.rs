@@ -14,7 +14,6 @@ use rendiation_webgpu::{
   renderer::SwapChain, RenderTargetAble, ScreenRenderTarget, ScreenRenderTargetInstance,
   WGPURenderPassBuilder, WGPURenderer, WebGPU,
 };
-use rendium::EventCtx;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EffectConfig {
@@ -99,25 +98,26 @@ impl RinecraftRenderer {
   }
 
   fn build(config: &EffectConfig) -> RenderGraph<DefaultRenderGraphBackend> {
-    let graph = RenderGraph::new();
+    // let graph = RenderGraph::new();
 
-    let scene_main_content = graph.source(RinecraftSourceType::Main);
+    // let scene_main_content = graph.source(RinecraftSourceType::Main);
 
-    let scene_pass = graph
-      .pass("scene-pass")
-      .define_pass_ops(|b: WGPURenderPassBuilder| {
-        b.first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
-          .depth(|d| d.load_with_clear(1.0).ok())
-      })
-      .render_by(&scene_main_content);
+    // let scene_pass = graph
+    //   .pass("scene-pass")
+    //   .define_pass_ops(|b: WGPURenderPassBuilder| {
+    //     b.first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
+    //       .depth(|d| d.load_with_clear(1.0).ok())
+    //   })
+    //   .render_by(&scene_main_content);
 
-    let middle_target = graph.target("middle").from_pass(&scene_pass);
+    // let middle_target = graph.target("middle").from_pass(&scene_pass);
 
-    let copy_screen = graph.pass("copy_screen").depend(&middle_target);
-    // .render_immediate(todo!());
+    // let copy_screen = graph.pass("copy_screen").depend(&middle_target);
+    // // .render_immediate(todo!());
 
-    graph.finally().from_pass(&copy_screen);
-    graph
+    // graph.finally().from_pass(&copy_screen);
+    // graph
+    todo!()
   }
 
   pub fn render(

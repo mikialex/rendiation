@@ -1,23 +1,20 @@
-// #![allow(dead_code)]
-// #![allow(unused)]
+#![allow(dead_code)]
+#![allow(unused)]
 
-// mod camera_controls;
-// mod init;
-// mod rendering;
-// mod rinecraft;
-// mod shading;
-// mod util;
-// mod vox;
-// use rendium::application;
-// use rinecraft::*;
+mod application;
+mod camera_controls;
+mod init;
+mod rendering;
+mod rinecraft;
+mod shading;
+mod util;
+mod vox;
+mod window_event;
+mod window_states;
+use rinecraft::*;
 
-// #[tokio::main]
-// async fn main() {
-//   env_logger::init();
-//   application::run::<Rinecraft>("rinecraft");
-// }
-
-pub fn main() {
-  // env_logger::init();
-  // application::run::<Rinecraft>("rinecraft");
+#[tokio::main]
+async fn main() {
+  env_logger::init();
+  application::run::<Rinecraft>("rinecraft");
 }

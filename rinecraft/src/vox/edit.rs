@@ -37,7 +37,7 @@ fn pick_block(
           let world_position = local_position.to_world(chunk.chunk_position);
           let box3 = world_position.get_block_bbox();
           let hit = ray.intersect(&box3, &());
-          if let NearestPoint3D(Some(h)) = hit {
+          if let Nearest(Some(h)) = hit {
             let new = BlockPickResult {
               world_position: h.position,
               block_position: world_position,
