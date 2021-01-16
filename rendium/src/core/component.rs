@@ -3,6 +3,9 @@ use std::{any::Any, cell::RefCell, marker::PhantomData};
 // use super::{Element, ElementHandle};
 use arena::{Arena, Handle};
 use arena_tree::ArenaTree;
+use rendiation_math::Vec2;
+
+type Event = winit::event::Event<'static, ()>;
 
 trait Component: Sized {
   type State: Default;
@@ -11,7 +14,10 @@ trait Component: Sized {
   fn build(state: &Self::State, props: &Self::Props) -> ComponentContent<Self>;
 }
 
-trait Element {}
+trait Element {
+  /// decide if itself respond to a mouse event by mouse point
+  fn is_point_in(&self, point: Vec2<f32>) -> bool;
+}
 
 pub struct ViewBuilder<T> {
   phantom: PhantomData<T>,
@@ -61,8 +67,8 @@ struct ElementCell<T: Component, E: Element> {
 impl<T: Component, E: Element> DocumentUnit for ElementCell<T, E> {
   type Props = T::Props;
 
-  fn event(&self, props: &Self::Props) {
-    todo!()
+  fn event(&self, props: &Self::Props, event: &Event) {
+    // if self.is_point_in()
   }
 
   fn update(&self, props: &Self::Props) {
@@ -82,7 +88,7 @@ enum ComponentElementCell<T: Component, S: Component> {
 impl<T: Component, S: Component> DocumentUnit for ComponentElementCell<T, S> {
   type Props = T::Props;
 
-  fn event(&self, props: &Self::Props) {
+  fn event(&self, props: &Self::Props, event: &Event) {
     todo!()
   }
 
@@ -100,7 +106,7 @@ type DisplayList = Vec<usize>;
 pub trait DocumentUnit {
   type Props;
   /// receive event from outside, emit listener and modify self state
-  fn event(&self, props: &Self::Props);
+  fn event(&self, props: &Self::Props, event: &Event);
   fn update(&self, props: &Self::Props);
   fn render(&self, list: &mut DisplayList);
 }
@@ -135,7 +141,7 @@ where
   T::State: PartialEq,
 {
   type Props = T::Props;
-  fn event(&self, props: &T::Props) {
+  fn event(&self, props: &T::Props, event: &Event) {
     todo!()
   }
   fn update(&self, props: &T::Props) {
