@@ -128,6 +128,7 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
       pair: None,
       face: Handle::from_raw_parts(0, 0),
       next: Handle::from_raw_parts(0, 0),
+      prev: Handle::from_raw_parts(0, 0),
     };
     let inserted = self.mesh.half_edges.insert(edge);
     self.not_committed_half_edges.push(inserted);
@@ -148,6 +149,7 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
 
   fn link_half_edge(
     &mut self,
+    prev: Handle<HalfEdge<M>>,
     edge: Handle<HalfEdge<M>>,
     next: Handle<HalfEdge<M>>,
     face: Handle<HalfEdgeFace<M>>,
@@ -158,6 +160,7 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
 
     let edge = self.mesh.half_edges.get_mut(edge).unwrap();
     edge.next = next;
+    edge.prev = prev;
     edge.face = face;
     edge.pair = pair;
   }
@@ -187,9 +190,9 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
       data: M::Face::default(),
       edge: ab,
     });
-    self.link_half_edge(ab, bc, face);
-    self.link_half_edge(bc, ca, face);
-    self.link_half_edge(ca, ab, face);
+    self.link_half_edge(ca, ab, bc, face);
+    self.link_half_edge(ab, bc, ca, face);
+    self.link_half_edge(bc, ca, ab, face);
 
     Ok(())
   }

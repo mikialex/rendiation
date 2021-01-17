@@ -20,6 +20,9 @@ pub struct HalfEdge<M: HalfEdgeMeshData> {
 
   /// next half-edge around the face
   pub(super) next: Handle<HalfEdge<M>>,
+
+  /// next half-edge around the face
+  pub(super) prev: Handle<HalfEdge<M>>,
 }
 
 impl<M: HalfEdgeMeshData> HalfEdge<M> {
@@ -51,8 +54,7 @@ impl<M: HalfEdgeMeshData> HalfEdge<M> {
   }
 
   pub fn prev(&self) -> Handle<Self> {
-    // self.next().next()
-    todo!()
+    self.prev
   }
 
   pub fn face(&self) -> Handle<HalfEdgeFace<M>> {
