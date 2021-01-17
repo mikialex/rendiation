@@ -41,7 +41,7 @@ impl IntoUsize for u32 {
 }
 
 /// A indexed geometry that use vertex as primitive;
-pub struct IndexedGeometry<I, V = Vertex, T = TriangleList, U = Vec<V>> {
+pub struct IndexedGeometry<I = u16, V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: U,
   pub index: Vec<I>,
   _v_phantom: PhantomData<V>,

@@ -1,113 +1,71 @@
+use arena::Handle;
+
+use crate::{HalfEdgeMesh, HalfEdgeMeshData};
+
 use super::{HalfEdgeFace, HalfEdgeVertex};
 
+#[derive(Clone, Copy)]
 // http://www.flipcode.com/archives/The_Half-Edge_Data_Structure.shtml
-pub struct HalfEdge<V, HE, F> {
-  id: usize,
+pub struct HalfEdge<M: HalfEdgeMeshData> {
+  pub data: M::HalfEdge,
 
   /// vertex at the start of the half-edge
-  pub(super) vert: *mut HalfEdgeVertex<V, HE, F>,
+  pub(super) vert: Handle<HalfEdgeVertex<M>>,
 
   /// oppositely oriented adjacent half-edge
-  pub(super) pair: *mut HalfEdge<V, HE, F>,
+  pub(super) pair: Option<Handle<HalfEdge<M>>>,
 
   /// face the half-edge borders
-  pub(super) face: *mut HalfEdgeFace<V, HE, F>,
+  pub(super) face: Handle<HalfEdgeFace<M>>,
 
   /// next half-edge around the face
-  pub(super) next: *mut HalfEdge<V, HE, F>,
+  pub(super) next: Handle<HalfEdge<M>>,
+
+  /// next half-edge around the face
+  pub(super) prev: Handle<HalfEdge<M>>,
 }
 
-impl<V, HE, F> HalfEdge<V, HE, F> {
-  pub(super) fn new(
-    from: *mut HalfEdgeVertex<V, HE, F>,
-    _to: *mut HalfEdgeVertex<V, HE, F>,
-    id: usize,
-  ) -> HalfEdge<V, HE, F> {
-    let mut half_edge = HalfEdge {
-      id,
-      vert: from,
-      pair: std::ptr::null_mut(),
-      face: std::ptr::null_mut(),
-      next: std::ptr::null_mut(),
-    };
-
-    // make sure vertex has a edge to point
-    unsafe {
-      if (*from).edge.is_null() {
-        (*from).edge = &mut half_edge
-      };
-    }
-
-    half_edge
+impl<M: HalfEdgeMeshData> HalfEdge<M> {
+  pub fn get_by_two_points(
+    mesh: &HalfEdgeMesh<M>,
+    from: Handle<HalfEdgeVertex<M>>,
+    to: Handle<HalfEdgeVertex<M>>,
+  ) -> Option<Handle<HalfEdge<M>>> {
+    let from_v = mesh.vertices.get(from).unwrap();
+    from_v
+      .iter_half_edge(mesh)
+      .find(|(edge, _)| edge.end(mesh) == to)
+      .map(|(_, e)| e)
   }
 
-  pub fn id(&self) -> usize {
-    self.id
+  pub fn vert(&self) -> Handle<HalfEdgeVertex<M>> {
+    self.vert
   }
 
-  pub(super) fn connect_next_edge_for_face(
-    &mut self,
-    next: *mut Self,
-    face: &mut HalfEdgeFace<V, HE, F>,
-  ) -> &mut Self {
-    self.next = next;
-    self.face = face;
-    self
+  pub fn next(&self) -> Handle<Self> {
+    self.next
   }
 
-  pub unsafe fn vert(&self) -> &HalfEdgeVertex<V, HE, F> {
-    &*self.vert
+  pub fn start(&self) -> Handle<HalfEdgeVertex<M>> {
+    self.vert
+  }
+  pub fn end(&self, mesh: &HalfEdgeMesh<M>) -> Handle<HalfEdgeVertex<M>> {
+    mesh.half_edges.get(self.next()).unwrap().vert()
   }
 
-  pub unsafe fn vert_mut(&self) -> &mut HalfEdgeVertex<V, HE, F> {
-    &mut *self.vert
+  pub fn prev(&self) -> Handle<Self> {
+    self.prev
   }
 
-  pub unsafe fn next(&self) -> &Self {
-    &*self.next
+  pub fn face(&self) -> Handle<HalfEdgeFace<M>> {
+    self.face
   }
 
-  pub unsafe fn next_mut(&self) -> &mut Self {
-    &mut *self.next
-  }
-
-  pub unsafe fn prev(&self) -> &Self {
-    self.next().next()
-  }
-
-  pub unsafe fn prev_mut(&self) -> &mut Self {
-    self.next_mut().next_mut()
-  }
-
-  pub unsafe fn face(&self) -> &HalfEdgeFace<V, HE, F> {
-    &*self.face
-  }
-
-  pub unsafe fn face_mut(&self) -> &mut HalfEdgeFace<V, HE, F> {
-    &mut *self.face
-  }
-
-  pub unsafe fn pair_mut(&self) -> Option<&mut Self> {
-    if self.pair.is_null() {
-      None
-    } else {
-      Some(&mut *self.pair)
-    }
-  }
-
-  pub unsafe fn pair(&self) -> Option<&Self> {
-    if self.pair.is_null() {
-      None
-    } else {
-      Some(&*self.pair)
-    }
-  }
-
-  pub unsafe fn delete_pair(&mut self) {
-    self.pair = std::ptr::null_mut()
+  pub fn pair(&self) -> Option<Handle<Self>> {
+    self.pair
   }
 
   pub fn is_border(&self) -> bool {
-    self.pair.is_null()
+    self.pair.is_none()
   }
 }

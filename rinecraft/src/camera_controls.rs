@@ -1,9 +1,8 @@
 use rendiation_math::Vec2;
 use rendiation_render_entity::*;
-use rendium::{
-  EventType, EventUpdateCtx, WindowEventSession, WindowEventSessionData,
-  WindowEventSessionRemoveToken, WindowState,
-};
+use winit::event::*;
+
+use crate::{window_event::*, window_states::*};
 
 #[derive(Copy, Clone)]
 pub enum CameraControllerType {
@@ -162,7 +161,6 @@ fn attach_fps<T, U>(
 ) where
   U: FnOnce(&mut T) -> (&mut CameraController<T>, &WindowState) + 'static + Copy,
 {
-  use rendium::winit::event::*;
   listener_records.push(EventType::MouseMotion.wrap_as_token(events.mouse_motion.on(
     move |event_ctx| {
       let state = &mut event_ctx.state;

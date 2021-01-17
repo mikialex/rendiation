@@ -2252,6 +2252,7 @@ dependencies = [
 name = "rinecraft"
 version = "0.1.0"
 dependencies = [
+ "arena",
  "env_logger",
  "futures",
  "image 0.23.0",
@@ -2269,15 +2270,16 @@ dependencies = [
  "rendiation-shadergraph",
  "rendiation-webgl",
  "rendiation-webgpu",
- "rendium",
  "serde",
  "tokio",
+ "winit",
 ]
 
 [[package]]
 name = "rivermesh"
 version = "0.1.0"
 dependencies = [
+ "arena",
  "rendiation-math",
  "rendiation-math-entity",
  "tobj 0.1.12",
