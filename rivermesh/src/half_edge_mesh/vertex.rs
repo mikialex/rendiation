@@ -15,32 +15,34 @@ pub struct HalfEdgeVertexHalfEdgeIter<'a, M: HalfEdgeMeshData> {
   mesh: &'a HalfEdgeMesh<M>,
   has_meet_one_side_boundary: bool,
   has_visited_start: bool,
-  start: &'a HalfEdge<M>,
+  start: EdgeIterItem<'a, M>,
   start_vert: &'a HalfEdgeVertex<M>,
-  current: &'a HalfEdge<M>,
+  current: EdgeIterItem<'a, M>,
 }
 
 impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
   pub fn next_right(&mut self) -> Option<Handle<HalfEdge<M>>> {
-    let current_vert = self.mesh.vertices.get(self.current.vert).unwrap();
+    let current_vert = self.mesh.vertices.get(self.current.0.vert).unwrap();
     if current_vert as *const _ == self.start_vert as *const _ {
-      self.current.pair()
+      self.current.0.pair()
     } else {
-      Some(self.current.next())
+      Some(self.current.0.next())
     }
   }
   pub fn next_left(&mut self) -> Option<Handle<HalfEdge<M>>> {
-    let current_vert = self.mesh.vertices.get(self.current.vert).unwrap();
+    let current_vert = self.mesh.vertices.get(self.current.0.vert).unwrap();
     if current_vert as *const _ == self.start_vert as *const _ {
-      self.current.pair()
+      self.current.0.pair()
     } else {
-      Some(self.current.prev())
+      Some(self.current.0.prev())
     }
   }
 }
 
+pub type EdgeIterItem<'a, M> = (&'a HalfEdge<M>, Handle<HalfEdge<M>>);
+
 impl<'a, M: HalfEdgeMeshData> Iterator for HalfEdgeVertexHalfEdgeIter<'a, M> {
-  type Item = &'a HalfEdge<M>;
+  type Item = EdgeIterItem<'a, M>;
 
   fn next(&mut self) -> Option<Self::Item> {
     if !self.has_visited_start {
@@ -50,26 +52,28 @@ impl<'a, M: HalfEdgeMeshData> Iterator for HalfEdgeVertexHalfEdgeIter<'a, M> {
 
     if !self.has_meet_one_side_boundary {
       if let Some(next) = self.next_right() {
-        let next = self.mesh.half_edges.get(next).unwrap();
-        if next as *const _ == self.start as *const _ {
+        let next_v = self.mesh.half_edges.get(next).unwrap();
+        if next_v as *const _ == self.start.0 as *const _ {
           None
         } else {
-          Some(next)
+          Some((next_v, next))
         }
       } else {
         self.has_meet_one_side_boundary = true;
         self.current = self.start;
         self
           .next_left()
-          .map(|p| self.mesh.half_edges.get(p).unwrap())
+          .map(|p| (self.mesh.half_edges.get(p).unwrap(), p))
       }
     } else {
       self
         .next_left()
-        .map(|p| self.mesh.half_edges.get(p).unwrap())
+        .map(|p| (self.mesh.half_edges.get(p).unwrap(), p))
     }
   }
 }
+
+pub type FaceIterItem<'a, M> = (&'a HalfEdgeFace<M>, Handle<HalfEdgeFace<M>>);
 
 pub struct HalfEdgeVertexHalfFaceIter<'a, M: HalfEdgeMeshData> {
   inner: HalfEdgeVertexHalfEdgeIter<'a, M>,
@@ -77,20 +81,20 @@ pub struct HalfEdgeVertexHalfFaceIter<'a, M: HalfEdgeMeshData> {
 }
 
 impl<'a, M: HalfEdgeMeshData> Iterator for HalfEdgeVertexHalfFaceIter<'a, M> {
-  type Item = &'a HalfEdgeFace<M>;
+  type Item = FaceIterItem<'a, M>;
 
   fn next(&mut self) -> Option<Self::Item> {
     if !self.has_visited_start {
       self.has_visited_start = true;
-      let face = self.inner.start.face();
-      return Some(self.inner.mesh.faces.get(face).unwrap());
+      let face = self.inner.start.0.face();
+      return Some((self.inner.mesh.faces.get(face).unwrap(), face));
     }
 
     self
       .inner
       .next()
       .and_then(|_| self.inner.next())
-      .map(|edge| self.inner.mesh.faces.get(edge.face).unwrap())
+      .map(|(edge, _)| (self.inner.mesh.faces.get(edge.face).unwrap(), edge.face))
   }
 }
 
@@ -100,7 +104,10 @@ impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
   }
 
   pub fn is_boundary_vertex(&self, mesh: &HalfEdgeMesh<M>) -> bool {
-    self.iter_half_edge(mesh).find(|&e| e.is_border()).is_some()
+    self
+      .iter_half_edge(mesh)
+      .find(|(e, _)| e.is_border())
+      .is_some()
   }
 
   pub fn iter_half_edge<'a>(
@@ -112,9 +119,9 @@ impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
       mesh,
       has_meet_one_side_boundary: false,
       has_visited_start: false,
-      start,
+      start: (start, self.edge),
       start_vert: self,
-      current: start,
+      current: (start, self.edge),
     }
   }
 

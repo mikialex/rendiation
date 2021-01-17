@@ -28,11 +28,11 @@ impl<M: HalfEdgeMeshData> HalfEdge<M> {
     from: Handle<HalfEdgeVertex<M>>,
     to: Handle<HalfEdgeVertex<M>>,
   ) -> Option<Handle<HalfEdge<M>>> {
-    // let from_v = mesh.vertices.get(from).unwrap();
-    // from_v
-    //   .iter_half_edge(mesh)
-    //   .find(|edge| edge.end(mesh) == to)
-    todo!()
+    let from_v = mesh.vertices.get(from).unwrap();
+    from_v
+      .iter_half_edge(mesh)
+      .find(|(edge, _)| edge.end(mesh) == to)
+      .map(|(_, e)| e)
   }
 
   pub fn vert(&self) -> Handle<HalfEdgeVertex<M>> {

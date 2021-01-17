@@ -2,7 +2,7 @@ use arena::Handle;
 
 use crate::HalfEdgeMeshData;
 
-use super::{HalfEdge, HalfEdgeVertex};
+use super::HalfEdge;
 
 #[derive(Clone, Copy)]
 pub struct HalfEdgeFace<M: HalfEdgeMeshData> {
@@ -21,19 +21,6 @@ impl<M: HalfEdgeMeshData> HalfEdgeFace<M> {
   //   loop {
   //     visitor(edge);
   //     let next_edge = edge.next();
-  //     if next_edge as *const HalfEdge<M> != edge as *const HalfEdge<M> {
-  //       break;
-  //     }
-  //     edge = next_edge;
-  //   }
-  // }
-
-  // pub unsafe fn visit_around_edge_mut(&mut self, mut visitor: impl FnMut(&mut HalfEdge<M>)) {
-  //   let mut edge = self.edge_mut();
-
-  //   loop {
-  //     visitor(edge);
-  //     let next_edge = edge.next_mut();
   //     if next_edge as *const HalfEdge<M> != edge as *const HalfEdge<M> {
   //       break;
   //     }
