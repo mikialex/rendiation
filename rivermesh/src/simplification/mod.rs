@@ -1,30 +1,50 @@
-use mesh::{HEdge, Mesh, Vertex};
+use arena::Handle;
+use mesh::{HEdge, Mesh};
 use rendiation_math::Vec3;
-use std::{
-  cmp::Ordering,
-  collections::{BTreeMap, BTreeSet},
-};
+use std::collections::{BTreeMap, BinaryHeap};
+
+use crate::HalfEdge;
+
+use self::mesh::SimplificationMeshData;
 
 pub mod mesh;
 pub mod qem;
 
-struct OptionEdge {
-  vertex_a: *mut Vertex,
-  vertex_b: *mut Vertex,
+pub struct SimplificationCtx {
+  mesh: Mesh,
+  edge_choices: BinaryHeap<EdgeChoice>,
+}
+
+pub enum SimplificationError {
+  NotEnoughEdgeForDecimation,
+}
+use SimplificationError::*;
+
+pub struct EdgeChoice {
+  edge: Handle<HalfEdge<SimplificationMeshData>>,
+  dirty_id: u32,
   error: f32,
   new_merge_vertex_position: Vec3<f32>,
 }
 
-impl OptionEdge {
-  pub fn compute(vertex_a: &Vertex, vertex_b: &Vertex) -> Self {
+impl PartialOrd for EdgeChoice {
+  fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
     todo!()
   }
 }
 
-pub struct SimplificationCtx {
-  mesh: Mesh,
-  qem_edge: BTreeMap<*mut HEdge, OptionEdge>,
-  pub target_face_count: usize,
+impl PartialEq for EdgeChoice {
+  fn eq(&self, other: &Self) -> bool {
+    todo!()
+  }
+}
+
+impl Eq for EdgeChoice {}
+
+impl Ord for EdgeChoice {
+  fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    todo!()
+  }
 }
 
 impl SimplificationCtx {
@@ -33,8 +53,7 @@ impl SimplificationCtx {
     mesh.compute_all_vertices_qem();
     let mut ctx = Self {
       mesh,
-      qem_edge: BTreeMap::new(),
-      target_face_count: 1000,
+      edge_choices: BinaryHeap::new(),
     };
     ctx.compute_option_edges();
     ctx
@@ -42,13 +61,25 @@ impl SimplificationCtx {
 
   fn compute_option_edges(&mut self) {}
 
-  fn decimate_edge(&mut self) {
-    // remove a edge in mesh
+  /// remove a edge in mesh
+  fn decimate_edge(&mut self) -> bool {
+    while let Some(edge_record) = self.edge_choices.pop() {
+      let edge = self.mesh.half_edges.get(edge_record.edge).unwrap();
+      if edge.data.update_id != edge_record.dirty_id {
+        continue;
+      }
+      // todo
+      return true;
+    }
+    false
   }
 
-  fn simplify(&mut self) {
-    while self.mesh.face_count() > self.target_face_count {
-      self.decimate_edge()
+  fn simplify(&mut self, target_face_count: usize) -> Result<(), SimplificationError> {
+    while self.mesh.face_count() > target_face_count {
+      if !self.decimate_edge() {
+        return Err(NotEnoughEdgeForDecimation);
+      }
     }
+    Ok(())
   }
 }
