@@ -101,21 +101,4 @@ impl Mesh {
     //   vertices,
     // }
   }
-
-  pub fn compute_all_vertices_qem(&mut self) {
-    self.vertices.iter().for_each(|v| {
-      // if(v)
-    })
-    // self.foreach_vertex(|v| {
-    //   let mut vert_qem = QEM::zero();
-    //   v.foreach_surrounding_face(|f| {
-    //     let face3 = Triangle::from(f);
-    //     let plane = Plane::from(face3);
-    //     let face_qem = QEM::from(plane);
-    //     vert_qem = vert_qem + face_qem;
-    //   });
-    //   let mut vertex_data = unsafe { &mut *v.vertex_data.get() };
-    //   vertex_data.qem = vert_qem;
-    // })
-  }
 }

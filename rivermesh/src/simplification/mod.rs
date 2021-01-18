@@ -64,30 +64,32 @@ impl SimplificationCtx {
       v.data.qem.set(vert_qem)
     });
 
-    let mut ctx = Self {
+    Self {
       mesh,
       edge_choices: BinaryHeap::new(),
-    };
-    ctx.compute_option_edges();
-    ctx
+    }
   }
-
-  fn compute_option_edges(&mut self) {}
 
   /// remove a edge in mesh
   fn decimate_edge(&mut self) -> bool {
     while let Some(edge_record) = self.edge_choices.pop() {
-      let edge = self.mesh.half_edges.get(edge_record.edge).unwrap();
+      let edge = if let Some(edge) = self.mesh.half_edges.get(edge_record.edge) {
+        edge
+      } else {
+        continue;
+      };
       if edge.data.update_id.get() != edge_record.dirty_id {
         continue;
       }
       // todo
+      // merge edge
+      // update qem and dirty id;
       return true;
     }
     false
   }
 
-  fn simplify(&mut self, target_face_count: usize) -> Result<(), SimplificationError> {
+  pub fn simplify(&mut self, target_face_count: usize) -> Result<(), SimplificationError> {
     while self.mesh.face_count() > target_face_count {
       if !self.decimate_edge() {
         return Err(NotEnoughEdgeForDecimation);
