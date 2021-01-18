@@ -1,11 +1,12 @@
 use arena::Handle;
 use mesh::{HEdge, Mesh};
 use rendiation_math::Vec3;
+use rendiation_math_entity::{Plane, Triangle};
 use std::collections::{BTreeMap, BinaryHeap};
 
 use crate::HalfEdge;
 
-use self::mesh::SimplificationMeshData;
+use self::{mesh::SimplificationMeshData, qem::QEM};
 
 pub mod mesh;
 pub mod qem;
@@ -49,8 +50,20 @@ impl Ord for EdgeChoice {
 
 impl SimplificationCtx {
   pub fn new(positions: &Vec<f32>, indices: &Vec<u32>) -> Self {
-    let mut mesh = Mesh::from_buffer(positions, indices);
-    mesh.compute_all_vertices_qem();
+    let mesh = Mesh::from_buffer(positions, indices);
+
+    // compute_all_vertices_qem
+    mesh.vertices.iter().for_each(|(_, v)| {
+      let mut vert_qem = QEM::zero();
+      v.iter_face(&mesh).for_each(|(f, _)| {
+        let face3 = Triangle::from(f);
+        let plane = Plane::from(face3);
+        let face_qem = QEM::from(plane);
+        vert_qem += face_qem;
+      });
+      v.data.qem.set(vert_qem)
+    });
+
     let mut ctx = Self {
       mesh,
       edge_choices: BinaryHeap::new(),
@@ -65,7 +78,7 @@ impl SimplificationCtx {
   fn decimate_edge(&mut self) -> bool {
     while let Some(edge_record) = self.edge_choices.pop() {
       let edge = self.mesh.half_edges.get(edge_record.edge).unwrap();
-      if edge.data.update_id != edge_record.dirty_id {
+      if edge.data.update_id.get() != edge_record.dirty_id {
         continue;
       }
       // todo

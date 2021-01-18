@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use super::qem::QEM;
 use crate::{
   half_edge_mesh::{HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeVertex},
@@ -36,17 +38,18 @@ impl From<&Face> for Triangle {
 
 pub struct VertexData {
   pub positions: Vec3<f32>,
-  pub normal: Vec3<f32>,
-  pub qem: QEM,
+  pub qem: Cell<QEM>,
 }
 
 pub struct EdgeData {
-  pub update_id: u32,
+  pub update_id: Cell<u32>,
 }
 
 impl Default for EdgeData {
   fn default() -> Self {
-    Self { update_id: 0 }
+    Self {
+      update_id: Cell::new(0),
+    }
   }
 }
 
@@ -100,6 +103,9 @@ impl Mesh {
   }
 
   pub fn compute_all_vertices_qem(&mut self) {
+    self.vertices.iter().for_each(|v| {
+      // if(v)
+    })
     // self.foreach_vertex(|v| {
     //   let mut vert_qem = QEM::zero();
     //   v.foreach_surrounding_face(|f| {

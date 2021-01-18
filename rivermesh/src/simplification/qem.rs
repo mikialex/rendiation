@@ -1,6 +1,6 @@
 use rendiation_math::*;
 use rendiation_math_entity::Plane;
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 // Quadric Error Metrics
 
@@ -52,5 +52,11 @@ impl Add for QEM {
     Self {
       mat: self.mat + b.mat,
     }
+  }
+}
+
+impl AddAssign for QEM {
+  fn add_assign(&mut self, rhs: Self) {
+    *self = *self + rhs
   }
 }
