@@ -102,12 +102,19 @@ pub fn gen_glsl_function(
     })
     .collect();
 
+  let input_node_prepare: Vec<_> = params
+    .iter()
+    .map(|(_, name)| {
+      quote! { let #name = #name.to_node(graph).handle.cast_type(); }
+    })
+    .collect();
+
   let (gen_function_inputs, gen_node_connect): (Vec<_>, Vec<_>) = params
     .iter()
     .map(|(ty, name)| {
       (
         quote! { #name: impl rendiation_shadergraph::ShaderGraphNodeOrConst<Output = #ty>, },
-        quote! { graph.nodes.connect_node(#name.to_node().handle.cast_type(), result); },
+        quote! { graph.nodes.connect_node(#name, result); },
       )
     })
     .unzip();
@@ -137,6 +144,7 @@ pub fn gen_glsl_function(
         );
         let result = graph.insert_node(node).handle;
         unsafe {
+          #(#input_node_prepare)*
           #(#gen_node_connect)*
           result.cast_type().into()
         }

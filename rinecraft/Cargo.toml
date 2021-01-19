@@ -22,7 +22,7 @@ rendiation-math-entity = {path = "../math-entity"}
 rendiation-mesh-buffer = {path = "../mesh-buffer", features = ["shadergraph"]}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-webgl = {path = "../ral/backend/webgl"}
-rendiation-webgpu = {path = "../ral/backend/webgpu", features = ["shadergraph"]}
+rendiation-webgpu = {path = "../ral/backend/webgpu", features = ["shadergraph", "glsl-to-spirv"]}
 
 rendiation-rendergraph = {path = "../render-graph", features = ["webgpu"]}
 rendiation-scenegraph = {path = "../scene-graph", features = ["rendergraph"]}

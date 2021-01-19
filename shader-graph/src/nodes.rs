@@ -1,5 +1,5 @@
 use crate::{
-  modify_graph, Node, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandle,
+  Node, ShaderFunctionMetaInfo, ShaderGraph, ShaderGraphNodeRawHandle,
   ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped,
 };
 use rendiation_math::Vec2;
@@ -16,23 +16,21 @@ pub trait ShaderGraphConstableNodeType: 'static + Send + Sync {
 
 pub trait ShaderGraphNodeOrConst {
   type Output: ShaderGraphNodeType;
-  fn to_node(&self) -> Node<Self::Output>;
+  fn to_node(&self, graph: &mut ShaderGraph) -> Node<Self::Output>;
 }
 
 impl<T: ShaderGraphConstableNodeType + ShaderGraphNodeType> ShaderGraphNodeOrConst for T {
   type Output = T;
-  fn to_node(&self) -> Node<Self::Output> {
-    modify_graph(|graph| {
-      let data = ShaderGraphNodeData::Const(Box::new(*self));
-      let node = ShaderGraphNode::<T>::new(data);
-      unsafe { graph.insert_node(node).handle.cast_type().into() }
-    })
+  fn to_node(&self, graph: &mut ShaderGraph) -> Node<Self::Output> {
+    let data = ShaderGraphNodeData::Const(Box::new(*self));
+    let node = ShaderGraphNode::<T>::new(data);
+    unsafe { graph.insert_node(node).handle.cast_type().into() }
   }
 }
 
 impl<T: ShaderGraphNodeType> ShaderGraphNodeOrConst for Node<T> {
   type Output = T;
-  fn to_node(&self) -> Node<Self::Output> {
+  fn to_node(&self, _graph: &mut ShaderGraph) -> Node<Self::Output> {
     *self
   }
 }

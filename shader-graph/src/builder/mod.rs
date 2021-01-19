@@ -15,11 +15,11 @@ impl ShaderGraphBuilder {
     modify_graph(|g| {
       let node =
         ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(ShaderGraphOutput::Vert));
-      let handle = g.nodes.create_node(node.into_any());
-      g.nodes
-        .connect_node(unsafe { n.to_node().handle.cast_type() }, handle);
+      let to_handle = g.nodes.create_node(node.into_any());
+      let from_handle = unsafe { n.to_node(g).handle.cast_type() };
+      g.nodes.connect_node(from_handle, to_handle);
 
-      g.vertex_position = Some(unsafe { handle.cast_type().into() })
+      g.vertex_position = Some(unsafe { to_handle.cast_type().into() })
     });
   }
 
@@ -30,11 +30,12 @@ impl ShaderGraphBuilder {
       let node = ShaderGraphNode::<Vec4<f32>>::new(ShaderGraphNodeData::Output(
         ShaderGraphOutput::Frag(index),
       ));
-      let handle = g.nodes.create_node(node.into_any());
-      g.nodes
-        .connect_node(unsafe { n.to_node().handle.cast_type() }, handle);
+      let to_handle = g.nodes.create_node(node.into_any());
+      let from_handle = unsafe { n.to_node(g).handle.cast_type() };
+      g.nodes.connect_node(from_handle, to_handle);
+
       g.frag_outputs
-        .push((unsafe { handle.cast_type().into() }, index));
+        .push((unsafe { to_handle.cast_type().into() }, index));
     });
   }
 
