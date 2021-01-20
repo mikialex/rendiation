@@ -210,6 +210,8 @@ impl BlockRegistry {
         })
         .collect();
 
+      resource.maintain_gpu(renderer);
+
       let mut pass = target
         .create_render_pass_builder()
         .first_color(|c| c.load_with_clear((0., 0., 0.).into(), 1.0).ok())

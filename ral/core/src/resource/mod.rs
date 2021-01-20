@@ -27,13 +27,10 @@ impl<T: RAL> ResourceManager<T> {
   pub fn get_resource(
     &self,
     drawcall: &Drawcall<T>,
-  ) -> (
-    &dyn ShadingStorageTrait<T>,
-    &GeometryResourceInstance<T, AnyGeometryProvider>,
-  ) {
+  ) -> (&dyn ShadingStorageTrait<T>, &dyn GeometryResource<T>) {
     (
       self.shadings.get_shading_boxed(drawcall.shading),
-      self.get_geometry(drawcall.geometry),
+      self.get_geometry_boxed(drawcall.geometry),
     )
   }
 }
