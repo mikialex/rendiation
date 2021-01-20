@@ -1,4 +1,6 @@
-use crate::{UniformBufferRef, UniformHandle, RAL};
+use crate::{
+  AnyBindGroupType, BindGroupHandle, BindGroupManager, UniformBufferRef, UniformHandle, RAL,
+};
 use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
@@ -51,11 +53,11 @@ impl<T: RAL> UBOManager<T> {
       .unwrap()
   }
 
-  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+  pub fn maintain_gpu(&mut self, renderer: &mut T::Renderer, bgm: &mut BindGroupManager<T>) {
     let data = &mut self.data;
     self.modified.drain().for_each(|ty| {
       data.get_mut(&ty).map(|storage| {
-        storage.maintain_gpu(renderer);
+        storage.maintain_gpu(renderer, bgm);
       });
     });
   }
@@ -106,14 +108,14 @@ impl<T: RAL> UBOManager<T> {
 }
 
 trait UBOStorageTrait<T: RAL>: Any {
-  fn maintain_gpu(&mut self, _renderer: &mut T::Renderer);
+  fn maintain_gpu(&mut self, _renderer: &mut T::Renderer, _bg: &mut BindGroupManager<T>);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   #[allow(clippy::transmute_ptr_to_ptr)]
-  fn maintain_gpu(&mut self, renderer: &mut T::Renderer) {
+  fn maintain_gpu(&mut self, renderer: &mut T::Renderer, bgm: &mut BindGroupManager<T>) {
     if self.dirty {
       let ptr = self.storage.as_ptr();
       let data = unsafe {
@@ -122,9 +124,9 @@ impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
       };
 
       if let Some(gpu) = &mut self.gpu {
-        T::update_uniform_buffer(renderer, gpu, data, 0..self.storage.len());
+        T::update_uniform_buffer(renderer, &mut gpu.1, data, 0..self.storage.len());
       } else {
-        self.gpu = Some(T::create_uniform_buffer(renderer, data))
+        self.gpu = Some((self.storage.len(), T::create_uniform_buffer(renderer, data)))
       }
     }
     self.dirty = false;
@@ -140,14 +142,17 @@ impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
 
 pub struct UBOStorage<T: RAL, U> {
   storage: Vec<U>,
+  bindgroup_referenced: HashSet<BindGroupHandle<T, AnyBindGroupType>>,
   dirty: bool,
   // dirty_mark: Vec<bool>,
-  gpu: Option<T::UniformBuffer>,
+  // (last_synced_count, gpu),
+  gpu: Option<(usize, T::UniformBuffer)>,
 }
 
 impl<T: RAL, U> UBOStorage<T, U> {
   fn new() -> Self {
     Self {
+      bindgroup_referenced: HashSet::new(),
       storage: Vec::new(),
       dirty: true,
       gpu: None,
@@ -175,10 +180,17 @@ impl<T: RAL, U> UBOStorage<T, U> {
   }
 
   fn get_gpu(&self) -> &T::UniformBuffer {
-    self.gpu.as_ref().unwrap()
+    &self.gpu.as_ref().unwrap().1
   }
 
   fn get_data(&self, handle: usize) -> &U {
     &self.storage[handle]
+  }
+
+  pub fn add_reference(&mut self, bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
+    self.bindgroup_referenced.insert(bindgroup_handle);
+  }
+  pub fn remove_reference(&mut self, bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
+    self.bindgroup_referenced.remove(&bindgroup_handle);
   }
 }
