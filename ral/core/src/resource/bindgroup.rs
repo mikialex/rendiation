@@ -65,6 +65,11 @@ impl<R: RAL> BindGroupManager<R> {
     unsafe { handle.cast_type() }
   }
 
+  pub fn notify_dirty<T: BindGroupProvider<R>>(&mut self, handle: BindGroupHandle<R, T>) {
+    let handle = unsafe { handle.cast_type() };
+    self.modified.insert(handle);
+  }
+
   // put updated handle into modified list, and return the instance for others to modify
   pub fn update<T: BindGroupProvider<R>>(
     &mut self,

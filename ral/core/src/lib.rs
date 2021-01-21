@@ -14,6 +14,7 @@ pub use shader_info::*;
 pub use target_state::*;
 pub use viewport::*;
 pub use wgpu_reexport::*;
+use wgpu_types::{TextureComponentType, TextureViewDimension};
 
 pub trait RAL: 'static + Sized {
   type RenderTarget;
@@ -116,8 +117,8 @@ impl BindGroupLayoutEntryProvider for ShaderTexture {
       visibility,
       ty: BindingType::SampledTexture {
         multisampled: false,
-        component_type: wgpu::TextureComponentType::Float,
-        dimension: wgpu::TextureViewDimension::D2,
+        component_type: TextureComponentType::Float,
+        dimension: TextureViewDimension::D2,
       },
       count: None,
     }

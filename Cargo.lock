@@ -2140,7 +2140,7 @@ name = "rendiation-ral"
 version = "0.1.0"
 dependencies = [
  "arena",
- "wgpu",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -2903,9 +2903,9 @@ dependencies = [
 
 [[package]]
 name = "wgpu"
-version = "0.6.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "549160f188eef412ac978499ddf0ceadad4c9159bb1160f9e6b9d4cc8ee977dc"
+checksum = "991903e4c9f5b7319732b30a3d0339e27a51ea992cea22769b5f6c7f7076af6d"
 dependencies = [
  "arrayvec",
  "futures",

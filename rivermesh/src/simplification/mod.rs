@@ -1,8 +1,8 @@
 use arena::Handle;
-use mesh::{HEdge, Mesh};
+use mesh::Mesh;
 use rendiation_math::Vec3;
 use rendiation_math_entity::{Plane, Triangle};
-use std::collections::{BTreeMap, BinaryHeap};
+use std::collections::BinaryHeap;
 
 use crate::HalfEdge;
 
@@ -25,18 +25,18 @@ pub struct EdgeChoice {
   edge: Handle<HalfEdge<SimplificationMeshData>>,
   dirty_id: u32,
   error: f32,
-  new_merge_vertex_position: Vec3<f32>,
+  _new_merge_vertex_position: Vec3<f32>,
 }
 
 impl PartialOrd for EdgeChoice {
   fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-    todo!()
+    self.error.partial_cmp(&other.error)
   }
 }
 
 impl PartialEq for EdgeChoice {
   fn eq(&self, other: &Self) -> bool {
-    todo!()
+    self.error.eq(&other.error)
   }
 }
 
@@ -44,7 +44,7 @@ impl Eq for EdgeChoice {}
 
 impl Ord for EdgeChoice {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-    todo!()
+    self.partial_cmp(&other).unwrap()
   }
 }
 

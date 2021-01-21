@@ -65,6 +65,33 @@ impl PipelineBuilder {
     let vs_module = device.create_shader_module(vs_module_source);
     let fs_module = device.create_shader_module(fs_module_source);
 
+    // because of VertexBufferDescriptor stuff not included in ral core, we should do an conversion
+    let vertex_buffer_des: Vec<wgpu::VertexBufferDescriptor> = self
+      .shader_interface_info
+      .vertex_state
+      .to_owned()
+      .map(|d| {
+        d.vertex_buffers
+          .iter()
+          .map(|de| wgpu::VertexBufferDescriptor {
+            stride: de.stride,
+            step_mode: de.step_mode,
+            attributes: de.attributes,
+          })
+          .collect()
+      })
+      .unwrap();
+
+    let wgpu_vertex_state = self
+      .shader_interface_info
+      .vertex_state
+      .to_owned()
+      .map(|d| wgpu::VertexStateDescriptor {
+        index_format: d.index_format,
+        vertex_buffers: &vertex_buffer_des,
+      })
+      .unwrap();
+
     let pipeline_des = wgpu::RenderPipelineDescriptor {
       label: None,
       layout: Some(&pipeline_layout),
@@ -82,7 +109,7 @@ impl PipelineBuilder {
       depth_stencil_state: self.target_states.depth_state.to_owned(),
 
       primitive_topology: self.shader_interface_info.primitive_topology,
-      vertex_state: self.shader_interface_info.vertex_state.to_owned().unwrap(),
+      vertex_state: wgpu_vertex_state,
       sample_count: 1,
       sample_mask: !0,
       alpha_to_coverage_enabled: false,

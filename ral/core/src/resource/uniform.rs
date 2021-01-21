@@ -108,7 +108,7 @@ impl<T: RAL> UBOManager<T> {
 }
 
 trait UBOStorageTrait<T: RAL>: Any {
-  fn maintain_gpu(&mut self, _renderer: &mut T::Renderer, _bg: &mut BindGroupManager<T>);
+  fn maintain_gpu(&mut self, renderer: &mut T::Renderer, bgm: &mut BindGroupManager<T>);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -123,8 +123,16 @@ impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
         std::slice::from_raw_parts::<u8>(ptr, self.storage.len() * std::mem::size_of::<U>())
       };
 
-      if let Some(gpu) = &mut self.gpu {
-        T::update_uniform_buffer(renderer, &mut gpu.1, data, 0..self.storage.len());
+      if let Some((last_synced_count, gpu)) = &mut self.gpu {
+        if *last_synced_count != self.storage.len() {
+          self.gpu = Some((self.storage.len(), T::create_uniform_buffer(renderer, data)));
+          self
+            .bindgroup_referenced
+            .iter()
+            .for_each(|&b| bgm.notify_dirty(b))
+        } else {
+          T::update_uniform_buffer(renderer, gpu, data, 0..self.storage.len());
+        }
       } else {
         self.gpu = Some((self.storage.len(), T::create_uniform_buffer(renderer, data)))
       }

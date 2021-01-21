@@ -18,11 +18,11 @@ impl HalfEdgeMeshData for SimplificationMeshData {
 
 pub(super) type Mesh = HalfEdgeMesh<SimplificationMeshData>;
 pub(super) type Vertex = HalfEdgeVertex<SimplificationMeshData>;
-pub(super) type HEdge = HalfEdge<SimplificationMeshData>;
+// pub(super) type HEdge = HalfEdge<SimplificationMeshData>;
 pub(super) type Face = HalfEdgeFace<SimplificationMeshData>;
 
 impl From<&Face> for Triangle {
-  fn from(face: &Face) -> Self {
+  fn from(_face: &Face) -> Self {
     todo!()
     // unsafe {
     //   let edge_a = face.edge();
@@ -50,12 +50,6 @@ impl Default for EdgeData {
     Self {
       update_id: Cell::new(0),
     }
-  }
-}
-
-impl EdgeData {
-  pub fn compute(vertex_a: &Vertex, vertex_b: &Vertex) -> Self {
-    todo!()
   }
 }
 
