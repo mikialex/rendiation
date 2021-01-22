@@ -193,7 +193,7 @@ impl BlockRegistry {
           let src_tex = tex(&face.img, renderer, resource);
           textures.push(src_tex);
           let params = CopyParam::create_resource_instance(src_tex, sampler);
-          let params = resource.bindgroups.add(params);
+          let params = resource.add_bindgroup(params);
           bindgroups.push(params);
           let copy_shading = CopyShader::create_resource_instance(params);
           let copy_shading = resource
@@ -233,7 +233,7 @@ impl BlockRegistry {
       resource.bindable.textures.remove(t);
     });
     bindgroups.drain(..).for_each(|t| {
-      resource.bindgroups.delete(t);
+      resource.delete_bindgroup(t);
     });
     shadings.drain(..).for_each(|t| {
       resource.shadings.delete_shading(t);

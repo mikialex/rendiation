@@ -63,6 +63,18 @@ impl<T: RAL> BindGroupProvider<T> for AnyBindGroupType {
   ) {
     unreachable!()
   }
+  fn add_reference(
+    instance: &Self::Instance,
+    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    resources: &mut ShaderBindableResourceManager<T>,
+  ) {
+  }
+  fn remove_reference(
+    instance: &Self::Instance,
+    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    resources: &mut ShaderBindableResourceManager<T>,
+  ) {
+  }
 }
 
 pub type SamplerHandle<T> = Handle<<T as RAL>::Sampler>;
@@ -209,6 +221,17 @@ pub trait BindGroupProvider<T: RAL>: 'static {
     shading: &T::Shading,
     resources: &ShaderBindableResourceManager<T>,
     render_pass: &mut T::RenderPass,
+  );
+
+  fn add_reference(
+    instance: &Self::Instance,
+    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    resources: &mut ShaderBindableResourceManager<T>,
+  );
+  fn remove_reference(
+    instance: &Self::Instance,
+    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    resources: &mut ShaderBindableResourceManager<T>,
   );
 }
 

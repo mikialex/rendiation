@@ -11,6 +11,12 @@ impl<T: RAL> SceneBackend<T> for DefaultSceneBackend {
   fn create_node_data(resource: &mut ResourceManager<T>) -> Self::NodeData {
     SceneNodeData::new(resource)
   }
+  fn free_node_data(node: &Self::NodeData, resource: &mut ResourceManager<T>) {
+    resource
+      .bindable
+      .uniform_buffers
+      .delete(node.render_data.matrix_data)
+  }
 }
 
 pub struct SceneNodeData<T: RAL> {

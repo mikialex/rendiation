@@ -175,12 +175,13 @@ impl<T: BindGroupProvider<GFX>> NyxtViewerHandle for BindGroupHandleWrap<T> {
     inner.resource.bindgroups.get_bindgroup_unwrap(self.0)
   }
   fn free(self, inner: &mut NyxtViewerInner) {
-    inner.resource.bindgroups.delete(self.0)
+    inner.resource.delete_bindgroup(self.0)
   }
 }
 impl<T: BindGroupProvider<GFX>> NyxtViewerMutableHandle for BindGroupHandleWrap<T> {
-  fn get_mut(self, inner: &mut NyxtViewerInner) -> &mut Self::Item {
-    inner.resource.bindgroups.update(self.0)
+  fn get_mut(self, _inner: &mut NyxtViewerInner) -> &mut Self::Item {
+    todo!()
+    // inner.resource.bindgroups.update(self.0)
   }
 }
 
@@ -227,7 +228,7 @@ impl NyxtViewerHandle for SceneNodeHandle<GFX> {
     inner.scene.get_node(self).data()
   }
   fn free(self, inner: &mut NyxtViewerInner) {
-    inner.scene.free_node(self)
+    inner.scene.free_node(self, &mut inner.resource)
   }
 }
 impl NyxtViewerMutableHandle for SceneNodeHandle<GFX> {

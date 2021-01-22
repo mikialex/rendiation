@@ -119,11 +119,13 @@ impl Application for Rinecraft {
       let output = state.screen_target.create_instance(&output.view);
 
       // rendering
-      state.renderer.render(renderer, scene, resource, &output);
+      state
+        .renderer
+        .render(renderer, scene, &state.camera, resource, &output);
       // state.gui.render(renderer, &output);
     });
 
-    let window_state = WindowState::new();
+    let window_state = WindowState::new((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     // Done
     let mut rinecraft = Rinecraft {

@@ -54,7 +54,9 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
     self.nodes.get_node_mut(handle)
   }
 
-  pub fn free_node(&mut self, handle: SceneNodeHandle<T, S>) {
+  pub fn free_node(&mut self, handle: SceneNodeHandle<T, S>, resource: &mut ResourceManager<T>) {
+    let node = self.nodes.get_node(handle).data();
+    S::free_node_data(node, resource);
     self.nodes.free_node(handle);
   }
 }

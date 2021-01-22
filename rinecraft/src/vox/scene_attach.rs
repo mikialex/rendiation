@@ -11,6 +11,12 @@ use rendiation_shader_library::{fog::FogData, ShaderGraphProvider};
 use rendiation_webgpu::*;
 use std::{collections::BTreeMap, time::Instant};
 
+pub struct ChunkSceneAttachInfo {
+  node: SceneNodeHandle<WebGPU>,
+  dc: DrawcallHandle<WebGPU>,
+  geom: GeometryHandle<WebGPU, Vertex>,
+}
+
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WebGPU>,
   pub block_shading: ShadingHandle<WebGPU, BlockShader>,
@@ -44,7 +50,7 @@ impl WorldSceneAttachment {
       // remove node in scene;
       if let Some((node_index, drawcall_handle, geometry_index)) = self.blocks.get(&chunk) {
         scene.node_remove_child_by_handle(self.root_node_index, *node_index);
-        scene.free_node(*node_index);
+        scene.free_node(*node_index, resources);
         scene.delete_drawcall(*drawcall_handle);
         resources.delete_geometry_with_buffers(*geometry_index);
         self.blocks.remove(&chunk);
@@ -99,14 +105,12 @@ impl World {
       .insert(WGPUSampler::default(renderer));
 
     let bindgroup_index =
-      resources
-        .bindgroups
-        .add(BlockShadingParamGroup::create_resource_instance(
-          camera_gpu.gpu_mvp_matrix,
-          fog,
-          block_atlas,
-          sampler,
-        ));
+      resources.add_bindgroup(BlockShadingParamGroup::create_resource_instance(
+        camera_gpu.gpu_mvp_matrix,
+        fog,
+        block_atlas,
+        sampler,
+      ));
 
     let block_shading = BlockShader::create_resource_instance(bindgroup_index);
     let block_shading = resources.shadings.add_shading(block_shading, renderer);

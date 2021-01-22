@@ -3,6 +3,60 @@ use crate::{BindGroupCreator, BindGroupHandle, BindGroupProvider, ResourceManage
 use arena::{Arena, Handle};
 use std::{any::Any, collections::HashSet};
 
+impl<R: RAL> ResourceManager<R> {
+  pub fn add_bindgroup<T: BindGroupCreator<R>>(
+    &mut self,
+    bindgroup: T::Instance,
+  ) -> BindGroupHandle<R, T> {
+    let pair = BindgroupPair::<R, T> {
+      data: bindgroup,
+      gpu: None,
+    };
+    let bindgroup_manager = &mut self.bindgroups;
+    let handle = bindgroup_manager.storage.insert(Box::new(pair));
+    let inserted = bindgroup_manager.get_bindgroup_unwrap::<T>(unsafe { handle.cast_type() });
+    T::add_reference(inserted, unsafe { handle.cast_type() }, &mut self.bindable);
+    bindgroup_manager.modified.insert(handle);
+    unsafe { handle.cast_type() }
+  }
+
+  // put updated handle into modified list, and return the instance for others to modify
+  // pub fn update_bindgroup<T: BindGroupProvider<R>, F: FnOnce(&mut T::Instance)>(
+  //   &mut self,
+  //   handle: BindGroupHandle<R, T>,
+  //   mutator: F,
+  // ) {
+  //   let bindgroup_manager = &mut self.bindgroups;
+  //   let handle = unsafe { handle.cast_type() };
+  //   bindgroup_manager.modified.insert(handle);
+  //   {
+  //     let inserted = bindgroup_manager.get_bindgroup_unwrap::<T>(unsafe { handle.cast_type() });
+  //     T::remove_reference(inserted, unsafe { handle.cast_type() }, &mut self.bindable);
+  //   }
+  //   let pair = bindgroup_manager.storage.get_mut(handle).unwrap();
+  //   mutator(
+  //     pair
+  //       .as_any_mut()
+  //       .downcast_mut::<BindgroupPair<R, T>>()
+  //       .unwrap()
+  //       .update(),
+  //   );
+  //   let inserted = bindgroup_manager.get_bindgroup_unwrap::<T>(unsafe { handle.cast_type() });
+  //   T::add_reference(inserted, unsafe { handle.cast_type() }, &mut self.bindable);
+  // }
+
+  pub fn delete_bindgroup<T: BindGroupProvider<R>>(&mut self, handle: BindGroupHandle<R, T>) {
+    let bindgroup_manager = &mut self.bindgroups;
+
+    let inserted = bindgroup_manager.get_bindgroup_unwrap::<T>(unsafe { handle.cast_type() });
+    T::add_reference(inserted, unsafe { handle.cast_type() }, &mut self.bindable);
+
+    let handle = unsafe { handle.cast_type() };
+    bindgroup_manager.modified.remove(&handle);
+    bindgroup_manager.storage.remove(handle);
+  }
+}
+
 pub struct BindGroupManager<R: RAL> {
   storage: Arena<Box<dyn BindgroupStorageTrait<R>>>,
   modified: HashSet<Handle<Box<dyn BindgroupStorageTrait<R>>>>,
@@ -55,40 +109,9 @@ impl<R: RAL> BindGroupManager<R> {
     self.storage.get(handle).unwrap().get_gpu()
   }
 
-  pub fn add<T: BindGroupCreator<R>>(&mut self, bindgroup: T::Instance) -> BindGroupHandle<R, T> {
-    let pair = BindgroupPair::<R, T> {
-      data: bindgroup,
-      gpu: None,
-    };
-    let handle = self.storage.insert(Box::new(pair));
-    self.modified.insert(handle);
-    unsafe { handle.cast_type() }
-  }
-
   pub fn notify_dirty<T: BindGroupProvider<R>>(&mut self, handle: BindGroupHandle<R, T>) {
     let handle = unsafe { handle.cast_type() };
     self.modified.insert(handle);
-  }
-
-  // put updated handle into modified list, and return the instance for others to modify
-  pub fn update<T: BindGroupProvider<R>>(
-    &mut self,
-    handle: BindGroupHandle<R, T>,
-  ) -> &mut T::Instance {
-    let handle = unsafe { handle.cast_type() };
-    self.modified.insert(handle);
-    let pair = self.storage.get_mut(handle).unwrap();
-    pair
-      .as_any_mut()
-      .downcast_mut::<BindgroupPair<R, T>>()
-      .unwrap()
-      .update()
-  }
-
-  pub fn delete<T: BindGroupProvider<R>>(&mut self, handle: BindGroupHandle<R, T>) {
-    let handle = unsafe { handle.cast_type() };
-    self.modified.remove(&handle);
-    self.storage.remove(handle);
   }
 }
 

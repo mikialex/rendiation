@@ -52,7 +52,7 @@ where
     instance.index_buffer = Some(resources.add_index_buffer(index_buffer).index());
 
     self.data.create_gpu(resources, renderer, &mut instance);
-    instance.draw_range = 0..self.data.as_ref().len() as u32;
+    instance.draw_range = 0..self.index.len() as u32;
     instance
   }
 }
