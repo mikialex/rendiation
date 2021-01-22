@@ -1,5 +1,6 @@
 use crate::{
   application::{AppRenderCtx, Application},
+  camera::RinecraftCamera,
   camera_controls::{CameraController, CameraControllerType},
   vox::world::World,
   window_event::WindowEventSession,
@@ -28,11 +29,9 @@ pub struct RinecraftState {
   pub screen_target: ScreenRenderTarget,
 
   pub perspective_projection: PerspectiveProjection,
-  pub camera: Camera,
-  pub camera_gpu: CameraGPU,
+  pub camera: RinecraftCamera,
   pub camera_controller: CameraController<Self>,
 
-  pub viewport: Viewport,
   // pub gui: GUI,
   pub renderer: RinecraftRenderer,
 }
@@ -77,8 +76,6 @@ impl Application for Rinecraft {
       &camera_gpu,
       &screen_target.create_target_states(),
     );
-
-    let viewport = Viewport::new(swap_chain.size);
 
     let mut window_session: WindowEventSession<RinecraftState> = WindowEventSession::new();
 
@@ -137,8 +134,6 @@ impl Application for Rinecraft {
         resource,
         perspective_projection,
         camera,
-        camera_gpu,
-        viewport,
         camera_controller: CameraController::new(),
         screen_target,
         // gui,

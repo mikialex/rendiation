@@ -8,53 +8,53 @@ use rendiation_shader_library::transform::CameraTransform;
 use rendiation_webgpu::consts::OPENGL_TO_WGPU_MATRIX;
 use rendiation_webgpu::*;
 
-pub struct CameraGPU {
-  pub gpu_mvp_matrix: UniformHandle<WebGPU, CameraTransform>,
-}
+// pub struct CameraGPU {
+//   pub gpu_mvp_matrix: UniformHandle<WebGPU, CameraTransform>,
+// }
 
-impl CameraGPU {
-  pub fn new(
-    renderer: &WGPURenderer,
-    camera: &Camera,
-    resources: &mut ResourceManager<WebGPU>,
-  ) -> Self {
-    let mvp = CameraTransform {
-      mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
-      projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
-      model_view: camera.get_view_matrix(),
-    };
-    Self {
-      gpu_mvp_matrix: resources.bindable.uniform_buffers.add(mvp),
-    }
-  }
+// impl CameraGPU {
+//   pub fn new(
+//     renderer: &WGPURenderer,
+//     camera: &Camera,
+//     resources: &mut ResourceManager<WebGPU>,
+//   ) -> Self {
+//     let mvp = CameraTransform {
+//       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
+//       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
+//       model_view: camera.get_view_matrix(),
+//     };
+//     Self {
+//       gpu_mvp_matrix: resources.bindable.uniform_buffers.add(mvp),
+//     }
+//   }
 
-  pub fn update_gpu_mvp_matrix(
-    &mut self,
-    renderer: &mut WGPURenderer,
-    camera: &Camera,
-    resources: &mut ResourceManager<WebGPU>,
-  ) {
-    let mvp = CameraTransform {
-      mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
-      projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
-      model_view: camera.get_view_matrix(),
-    };
+//   pub fn update_gpu_mvp_matrix(
+//     &mut self,
+//     renderer: &mut WGPURenderer,
+//     camera: &Camera,
+//     resources: &mut ResourceManager<WebGPU>,
+//   ) {
+//     let mvp = CameraTransform {
+//       mvp: OPENGL_TO_WGPU_MATRIX * camera.get_vp_matrix(),
+//       projection: OPENGL_TO_WGPU_MATRIX * *camera.get_projection_matrix(),
+//       model_view: camera.get_view_matrix(),
+//     };
 
-    resources
-      .bindable
-      .uniform_buffers
-      .update(self.gpu_mvp_matrix, mvp);
-  }
+//     resources
+//       .bindable
+//       .uniform_buffers
+//       .update(self.gpu_mvp_matrix, mvp);
+//   }
 
-  pub fn update_all(
-    &mut self,
-    camera: &Camera,
-    renderer: &mut WGPURenderer,
-    resources: &mut ResourceManager<WebGPU>,
-  ) {
-    self.update_gpu_mvp_matrix(renderer, camera, resources);
-  }
-}
+//   pub fn update_all(
+//     &mut self,
+//     camera: &Camera,
+//     renderer: &mut WGPURenderer,
+//     resources: &mut ResourceManager<WebGPU>,
+//   ) {
+//     self.update_gpu_mvp_matrix(renderer, camera, resources);
+//   }
+// }
 
 pub fn create_texels(size: usize) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
   use std::iter;

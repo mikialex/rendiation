@@ -1,8 +1,8 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
+  camera::RinecraftCamera,
   shading::{BlockShader, BlockShadingParamGroup, CopyParam},
-  util::CameraGPU,
 };
 use rendiation_math::{Vec3, Vec4};
 use rendiation_mesh_buffer::{geometry::IndexedGeometry, vertex::Vertex};
@@ -79,7 +79,7 @@ impl World {
     scene: &mut Scene<WebGPU>,
     resources: &mut ResourceManager<WebGPU>,
     renderer: &mut WGPURenderer,
-    camera_gpu: &CameraGPU,
+    camera: &RinecraftCamera,
     target: &TargetStates,
   ) {
     if self.scene_data.is_some() {

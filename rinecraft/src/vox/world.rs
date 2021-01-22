@@ -1,6 +1,6 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, io::WorldIOManager, scene_attach::WorldSceneAttachment};
-use crate::vox::block::Block;
+use crate::{camera::RinecraftCamera, vox::block::Block};
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::*;
 use crate::vox::world_machine::*;
@@ -102,7 +102,7 @@ impl World {
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPU>,
     resources: &mut ResourceManager<WebGPU>,
-    camera: &Camera,
+    camera: &RinecraftCamera,
   ) {
     let camera_position = camera.matrix().position();
 

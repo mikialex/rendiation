@@ -2,6 +2,7 @@
 #![allow(unused)]
 
 mod application;
+mod camera;
 mod camera_controls;
 mod init;
 mod rendering;
