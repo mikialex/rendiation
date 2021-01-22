@@ -28,7 +28,6 @@ pub struct RinecraftState {
 
   pub screen_target: ScreenRenderTarget,
 
-  pub perspective_projection: PerspectiveProjection,
   pub camera: RinecraftCamera,
   pub camera_controller: CameraController<Self>,
 
@@ -60,20 +59,20 @@ impl Application for Rinecraft {
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let mut perspective_projection = PerspectiveProjection::default();
-    let mut camera = Camera::new();
-    *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
+    let mut camera = RinecraftCamera::new(&mut resource, swap_chain.size);
+    *camera.camera_mut().matrix_mut() = Mat4::translate(0., 40., 0.);
+
+    // let mut camera = Camera::new();
+    // *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
 
     perspective_projection.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
-    camera.update_by(&perspective_projection);
-
-    let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut resource);
-    camera_gpu.update_all(&camera, renderer, &mut resource);
+    camera.camera_mut().update_by(&perspective_projection);
 
     world.attach_scene(
       &mut scene,
       &mut resource,
       renderer,
-      &camera_gpu,
+      &camera,
       &screen_target.create_target_states(),
     );
 
@@ -84,17 +83,9 @@ impl Application for Rinecraft {
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
       let size = (swap_chain.size.0 as f32, swap_chain.size.1 as f32);
-      state
-        .viewport
-        .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.screen_target.resize(renderer, swap_chain.size);
+      state.camera.resize(swap_chain.size);
 
-      state
-        .perspective_projection
-        .resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
-      state.camera.update_by(&state.perspective_projection);
-
-      // state.camera_orth.resize(size);
       // state.gui.renderer.resize(size, renderer);
     });
 
@@ -107,9 +98,7 @@ impl Application for Rinecraft {
 
       // update
       if state.camera_controller.update(&mut state.camera) {}
-      state
-        .camera_gpu
-        .update_all(&state.camera, renderer, resource);
+      state.camera.update(resource);
       state.world.update(renderer, scene, resource, &state.camera);
 
       let output = swap_chain.get_current_frame();
@@ -132,7 +121,6 @@ impl Application for Rinecraft {
         world,
         scene,
         resource,
-        perspective_projection,
         camera,
         camera_controller: CameraController::new(),
         screen_target,

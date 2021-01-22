@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::rinecraft::RinecraftState;
+use crate::{camera::RinecraftCamera, rinecraft::RinecraftState};
 use rendiation_ral::{GeometryHandle, ResourceManager, ShadingHandle, ShadingProvider, RAL};
 use rendiation_render_entity::Camera;
 use rendiation_rendergraph::{
@@ -124,11 +124,11 @@ impl RinecraftRenderer {
     &mut self,
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPU>,
-    camera: &Camera,
+    camera: &RinecraftCamera,
     resource: &mut ResourceManager<WebGPU>,
     output: &ScreenRenderTargetInstance,
   ) {
-    let list = scene.update(resource, camera, &mut self.cached_drawcall_list);
+    let list = scene.update(resource, camera.camera(), &mut self.cached_drawcall_list);
     resource.maintain_gpu(renderer);
 
     {

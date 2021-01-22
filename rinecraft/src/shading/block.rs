@@ -1,4 +1,5 @@
 use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
+use rendiation_scenegraph::default_impl::SceneNodeRenderMatrixData;
 use rendiation_webgpu::*;
 
 use rendiation_shader_library::builtin::*;
@@ -22,7 +23,10 @@ impl ShaderGeometryInfo for BlockShader {
 #[derive(BindGroup)]
 pub struct BlockShadingParamGroup {
   #[stage(vert)]
-  pub mvp: CameraTransform,
+  pub camera: CameraTransform,
+
+  #[stage(vert)]
+  pub object: SceneNodeRenderMatrixData,
 
   #[stage(frag)]
   pub fog: FogData,
@@ -41,7 +45,12 @@ impl ShaderGraphProvider for BlockShader {
 
     builder.geometry_by::<IndexedGeometry>();
 
-    let (clip_position, mv_position) = CameraTransform::apply(p.mvp, vertex.position, &builder);
+    let (clip_position, mv_position) = CameraTransform::apply(
+      p.camera.projection_matrix,
+      p.object.model_view_matrix,
+      vertex.position,
+      &builder,
+    );
 
     let frag_normal = builder.set_vary(vertex.normal);
     let frag_uv = builder.set_vary(vertex.uv);

@@ -3,7 +3,7 @@ use crate::*;
 #[derive(UniformBuffer, Copy, Clone)]
 #[repr(C, align(16))]
 pub struct CameraTransform {
-  pub projection: Mat4<f32>,
+  pub projection_matrix: Mat4<f32>,
 }
 
 #[derive(UniformBuffer, Copy, Clone)]
@@ -25,7 +25,7 @@ impl Default for ObjectTransform {
 impl Default for CameraTransform {
   fn default() -> Self {
     Self {
-      projection: Mat4::one(),
+      projection_matrix: Mat4::one(),
     }
   }
 }

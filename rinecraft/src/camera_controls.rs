@@ -30,6 +30,7 @@ impl<T> CameraController<T> {
   }
 
   pub fn update(&mut self, camera: &mut RinecraftCamera) -> bool {
+    let camera = camera.camera_mut();
     match self.active_type {
       CameraControllerType::FPS => self.fps.update(camera),
       CameraControllerType::ORBIT => self.orbit.update(camera),

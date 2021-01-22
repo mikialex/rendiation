@@ -1,4 +1,4 @@
-use super::block_coords::*;
+use super::{block, block_coords::*};
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
   camera::RinecraftCamera,
@@ -15,19 +15,71 @@ pub struct ChunkSceneAttachInfo {
   node: SceneNodeHandle<WebGPU>,
   dc: DrawcallHandle<WebGPU>,
   geom: GeometryHandle<WebGPU, Vertex>,
+  bindgroup: BindGroupHandle<WebGPU, BlockShadingParamGroup>,
+  shading: ShadingHandle<WebGPU, BlockShader>,
+}
+
+impl ChunkSceneAttachInfo {
+  pub fn new(
+    camera: &RinecraftCamera,
+    geom: IndexedGeometry,
+    res: &mut ResourceManager<WebGPU>,
+    renderer: &mut WGPURenderer,
+    scene: &mut Scene<WebGPU>,
+    att: &WorldSceneAttachment,
+  ) -> Self {
+    let geom = geom.create_resource_instance_handle(renderer, res);
+
+    let new_node = scene.create_new_node(res);
+    let node = new_node.handle();
+
+    let bindgroup = res.add_bindgroup(BlockShadingParamGroup::create_resource_instance(
+      camera.gpu_handle(),
+      new_node.data().render_data.matrix_data,
+      att.fog,
+      att.block_texture,
+      att.block_sampler,
+    ));
+
+    let shading = BlockShader::create_resource_instance(bindgroup);
+    let shading = res.shadings.add_shading(shading, renderer);
+
+    let dc = scene.create_drawcall(geom, shading);
+    let new_node = scene.get_node_mut(node);
+    new_node.data_mut().append_drawcall(dc);
+
+    scene.node_add_child_by_handle(att.root_node_index, node);
+
+    Self {
+      node,
+      dc,
+      geom,
+      bindgroup,
+      shading,
+    }
+  }
+
+  pub fn delete(
+    self,
+    res: &mut ResourceManager<WebGPU>,
+    scene: &mut Scene<WebGPU>,
+    att: &WorldSceneAttachment,
+  ) {
+    scene.node_remove_child_by_handle(att.root_node_index, self.node);
+    scene.free_node(self.node, res);
+    scene.delete_drawcall(self.dc);
+    res.delete_bindgroup(self.bindgroup);
+    res.shadings.delete_shading(self.shading);
+    res.delete_geometry_with_buffers(self.geom);
+  }
 }
 
 pub struct WorldSceneAttachment {
   pub root_node_index: SceneNodeHandle<WebGPU>,
-  pub block_shading: ShadingHandle<WebGPU, BlockShader>,
-  pub blocks: BTreeMap<
-    ChunkCoords,
-    (
-      SceneNodeHandle<WebGPU>,
-      DrawcallHandle<WebGPU>,
-      GeometryHandle<WebGPU, Vertex>,
-    ),
-  >,
+  pub block_texture: TextureHandle<WebGPU>,
+  pub block_sampler: SamplerHandle<WebGPU>,
+  pub fog: UniformHandle<WebGPU, FogData>,
+  pub blocks: BTreeMap<ChunkCoords, ChunkSceneAttachInfo>,
 }
 
 impl WorldSceneAttachment {
@@ -39,36 +91,18 @@ impl WorldSceneAttachment {
     &mut self,
     chunks: &mut WorldChunkData,
     scene: &mut Scene<WebGPU>,
-    resources: &mut ResourceManager<WebGPU>,
+    res: &mut ResourceManager<WebGPU>,
     renderer: &mut WGPURenderer,
+    camera: &RinecraftCamera,
   ) {
     for (chunk, g) in chunks.chunks_to_sync_scene.lock().unwrap().drain() {
-      // if chunks.chunks.get(&chunk).is_none() {
-      //   return;
-      // }
-
-      // remove node in scene;
-      if let Some((node_index, drawcall_handle, geometry_index)) = self.blocks.get(&chunk) {
-        scene.node_remove_child_by_handle(self.root_node_index, *node_index);
-        scene.free_node(*node_index, resources);
-        scene.delete_drawcall(*drawcall_handle);
-        resources.delete_geometry_with_buffers(*geometry_index);
-        self.blocks.remove(&chunk);
+      if let Some(b) = self.blocks.remove(&chunk) {
+        b.delete(res, scene, self)
       }
-
-      // add new node in scene;
-      let scene_geometry = g.create_resource_instance_handle(renderer, resources);
-
-      let drawcall = scene.create_drawcall(scene_geometry, self.block_shading);
-      let new_node = scene.create_new_node(resources);
-      new_node.data_mut().append_drawcall(drawcall);
-      let node_index = new_node.handle();
-
-      scene.node_add_child_by_handle(self.root_node_index, node_index);
-
-      self
-        .blocks
-        .insert(chunk, (node_index, drawcall, scene_geometry));
+      self.blocks.insert(
+        chunk,
+        ChunkSceneAttachInfo::new(camera, g, res, renderer, scene, self),
+      );
     }
   }
 }
@@ -104,23 +138,14 @@ impl World {
       .samplers
       .insert(WGPUSampler::default(renderer));
 
-    let bindgroup_index =
-      resources.add_bindgroup(BlockShadingParamGroup::create_resource_instance(
-        camera_gpu.gpu_mvp_matrix,
-        fog,
-        block_atlas,
-        sampler,
-      ));
-
-    let block_shading = BlockShader::create_resource_instance(bindgroup_index);
-    let block_shading = resources.shadings.add_shading(block_shading, renderer);
-
     let root_node_index = scene.create_new_node(resources).handle();
     scene.add_to_scene_root(root_node_index);
 
     self.scene_data = Some(WorldSceneAttachment {
       root_node_index,
-      block_shading,
+      fog,
+      block_sampler: sampler,
+      block_texture: block_atlas,
       blocks: BTreeMap::new(),
     })
   }
