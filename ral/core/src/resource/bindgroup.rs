@@ -49,7 +49,7 @@ impl<R: RAL> ResourceManager<R> {
     let bindgroup_manager = &mut self.bindgroups;
 
     let inserted = bindgroup_manager.get_bindgroup_unwrap::<T>(unsafe { handle.cast_type() });
-    T::add_reference(inserted, unsafe { handle.cast_type() }, &mut self.bindable);
+    T::remove_reference(inserted, unsafe { handle.cast_type() }, &mut self.bindable);
 
     let handle = unsafe { handle.cast_type() };
     bindgroup_manager.modified.remove(&handle);
@@ -76,6 +76,7 @@ impl<R: RAL> BindGroupManager<R> {
     resources: &ShaderBindableResourceManager<R>,
   ) {
     let storage = &mut self.storage;
+    println!("{}", self.modified.len());
     self.modified.drain().for_each(|d| {
       storage.get_mut(d).map(|bp| {
         bp.maintain_gpu(renderer, resources);

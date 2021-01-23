@@ -110,13 +110,15 @@ trait UBOStorageTrait<T: RAL>: Any {
 
 impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   #[allow(clippy::transmute_ptr_to_ptr)]
-  fn maintain_gpu(&mut self, renderer: &mut T::Renderer, _bgm: &mut BindGroupManager<T>) {
+  fn maintain_gpu(&mut self, renderer: &mut T::Renderer, bgm: &mut BindGroupManager<T>) {
     let storage = &self.storage;
     let gpu = &mut self.gpu;
+    let bgf = &self.bindgroup_referenced;
     self.dirty_set.drain().for_each(|handle| {
       let data = storage.get(handle..handle + 1).unwrap();
       let data = unsafe { std::mem::transmute(data) };
       gpu[handle] = Some(T::create_uniform_buffer(renderer, data));
+      bgf[handle].iter().for_each(|&b| bgm.notify_dirty(b));
     });
   }
 
@@ -131,7 +133,7 @@ impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
 /// The reason we not use array of struct is we want storage stored in continues memory for best locality
 pub struct UBOStorage<T: RAL, U> {
   storage: Vec<U>,
-  // _bindgroup_referenced: Vec<HashSet<BindGroupHandle<T, AnyBindGroupType>>>,
+  bindgroup_referenced: Vec<HashSet<BindGroupHandle<T, AnyBindGroupType>>>,
   gpu: Vec<Option<T::UniformBuffer>>,
   dirty_set: HashSet<usize>,
 }
@@ -139,7 +141,7 @@ pub struct UBOStorage<T: RAL, U> {
 impl<T: RAL, U> UBOStorage<T, U> {
   fn new() -> Self {
     Self {
-      // _bindgroup_referenced: Vec::new(),
+      bindgroup_referenced: Vec::new(),
       storage: Vec::new(),
       gpu: Vec::new(),
       dirty_set: HashSet::new(),
@@ -150,6 +152,7 @@ impl<T: RAL, U> UBOStorage<T, U> {
     let result = self.storage.len();
     self.storage.push(value);
     self.gpu.push(None);
+    self.bindgroup_referenced.push(HashSet::new());
     self.dirty_set.insert(result);
     result
   }
@@ -177,10 +180,18 @@ impl<T: RAL, U> UBOStorage<T, U> {
     &self.storage[handle]
   }
 
-  pub fn add_reference(&mut self, _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
-    // self.bindgroup_referenced.insert(bindgroup_handle);
+  pub fn add_reference(
+    &mut self,
+    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    index: usize,
+  ) {
+    self.bindgroup_referenced[index].insert(bindgroup_handle);
   }
-  pub fn remove_reference(&mut self, _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
-    // self.bindgroup_referenced.remove(&bindgroup_handle);
+  pub fn remove_reference(
+    &mut self,
+    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    index: usize,
+  ) {
+    self.bindgroup_referenced[index].remove(&bindgroup_handle);
   }
 }

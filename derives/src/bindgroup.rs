@@ -167,11 +167,11 @@ fn derive_ral_bindgroup(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! {#field_name,}
   });
 
-  let link = s.map_fields(|(_field_name, ty)| {
-    quote! { #ty::add_reference(bindgroup_handle, resources); }
+  let link = s.map_fields(|(field_name, ty)| {
+    quote! { #ty::add_reference(instance.#field_name, bindgroup_handle, resources); }
   });
-  let unlink = s.map_fields(|(_field_name, ty)| {
-    quote! { #ty::remove_reference(bindgroup_handle, resources); }
+  let unlink = s.map_fields(|(field_name, ty)| {
+    quote! { #ty::remove_reference(instance.#field_name, bindgroup_handle, resources); }
   });
 
 

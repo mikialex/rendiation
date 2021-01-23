@@ -114,22 +114,24 @@ impl<'a, T: RAL, U: UBOData> RALBindgroupItem<'a, T> for U {
     resources.uniform_buffers.get_uniform_gpu(handle)
   }
   fn add_reference(
+    self_handle: Self::HandleType,
     bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     resources: &'a mut ShaderBindableResourceManager<T>,
   ) {
     resources
       .uniform_buffers
       .get_storage_or_create::<U>()
-      .add_reference(bindgroup_handle)
+      .add_reference(bindgroup_handle, self_handle.index)
   }
   fn remove_reference(
+    self_handle: Self::HandleType,
     bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     resources: &'a mut ShaderBindableResourceManager<T>,
   ) {
     resources
       .uniform_buffers
       .get_storage_or_create::<U>()
-      .remove_reference(bindgroup_handle)
+      .remove_reference(bindgroup_handle, self_handle.index)
   }
 }
 
@@ -145,11 +147,13 @@ impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderTexture {
     resources.textures.get(handle).unwrap()
   }
   fn add_reference(
+    _self_handle: Self::HandleType,
     _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     _resources: &'a mut ShaderBindableResourceManager<T>,
   ) {
   }
   fn remove_reference(
+    _self_handle: Self::HandleType,
     _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     _resources: &'a mut ShaderBindableResourceManager<T>,
   ) {
@@ -168,11 +172,13 @@ impl<'a, T: RAL> RALBindgroupItem<'a, T> for ShaderSampler {
     resources.samplers.get(handle).unwrap()
   }
   fn add_reference(
+    _self_handle: Self::HandleType,
     _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     _resources: &'a mut ShaderBindableResourceManager<T>,
   ) {
   }
   fn remove_reference(
+    _self_handle: Self::HandleType,
     _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     _resources: &'a mut ShaderBindableResourceManager<T>,
   ) {
@@ -195,10 +201,12 @@ pub trait RALBindgroupItem<'a, T: RAL>: RALBindgroupHandle<T> {
     resources: &'a ShaderBindableResourceManager<T>,
   ) -> Self::Resource;
   fn add_reference(
+    self_handle: Self::HandleType,
     bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     resources: &'a mut ShaderBindableResourceManager<T>,
   );
   fn remove_reference(
+    self_handle: Self::HandleType,
     bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
     resources: &'a mut ShaderBindableResourceManager<T>,
   );
