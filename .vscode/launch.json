@@ -102,15 +102,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'rinecraft'",
+            "name": "Debug executable 'voxland'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rinecraft",
-                    "--package=rinecraft"
+                    "--bin=voxland",
+                    "--package=voxland"
                 ],
                 "filter": {
-                    "name": "rinecraft",
+                    "name": "voxland",
                     "kind": "bin"
                 }
             },

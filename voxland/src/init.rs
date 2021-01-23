@@ -1,4 +1,4 @@
-use crate::rinecraft::Rinecraft;
+use crate::voxland::Voxland;
 use rendiation_math::*;
 use rendiation_render_entity::{raycaster::Raycaster, PerspectiveProjection};
 
@@ -7,7 +7,7 @@ use rendiation_render_entity::{raycaster::Raycaster, PerspectiveProjection};
 //   fn un_init_window(&mut self, session: &mut WindowEventSession<T>);
 // }
 
-impl Rinecraft {
+impl Voxland {
   pub fn init_world(&mut self) {
     self.window_session.active.mouse_down.on(|event_ctx| {
       let state = &mut event_ctx.state;

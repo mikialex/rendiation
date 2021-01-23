@@ -14,7 +14,7 @@ members = [
   "nyxt/viewer",
   "nyxt/core",
   "rendium",
-  "rinecraft",
+  "voxland",
   "rivermesh",
   "noize",
   "rainray",

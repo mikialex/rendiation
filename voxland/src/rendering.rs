@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{camera::RinecraftCamera, rinecraft::RinecraftState};
+use crate::{camera::RinecraftCamera, voxland::RinecraftState};
 use rendiation_ral::{GeometryHandle, ResourceManager, ShadingHandle, ShadingProvider, RAL};
 use rendiation_render_entity::Camera;
 use rendiation_rendergraph::{

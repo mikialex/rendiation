@@ -6,16 +6,16 @@ mod camera;
 mod camera_controls;
 mod init;
 mod rendering;
-mod rinecraft;
 mod shading;
 mod util;
 mod vox;
+mod voxland;
 mod window_event;
 mod window_states;
-use rinecraft::*;
+use voxland::*;
 
 #[tokio::main]
 async fn main() {
   env_logger::init();
-  application::run::<Rinecraft>("rinecraft");
+  application::run::<Voxland>("voxland");
 }

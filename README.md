@@ -40,5 +40,5 @@ RRF use language features such as const generics and specialization, nightly com
 
 ### Application incubation
 
-* [Rinecraft](./rinecraft/README.md) for testing minecraft like game.
+* [Voxland](./voxland/README.md) for testing minecraft like game.
 * RainRay for yet another ray tracer.

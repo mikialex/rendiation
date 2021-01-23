@@ -14,7 +14,7 @@ use rendiation_scenegraph::*;
 use rendiation_webgpu::renderer::SwapChain;
 use rendiation_webgpu::*;
 
-pub struct Rinecraft {
+pub struct Voxland {
   pub window_session: WindowEventSession<RinecraftState>,
   pub state: RinecraftState,
 }
@@ -35,7 +35,7 @@ pub struct RinecraftState {
   pub renderer: RinecraftRenderer,
 }
 
-impl Application for Rinecraft {
+impl Application for Voxland {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
     let depth = WGPUTexture::new_as_depth(
       &renderer,
@@ -114,7 +114,7 @@ impl Application for Rinecraft {
     let window_state = WindowState::new((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     // Done
-    let mut rinecraft = Rinecraft {
+    let mut voxland = Voxland {
       window_session,
       state: RinecraftState {
         window_state,
@@ -129,21 +129,21 @@ impl Application for Rinecraft {
       },
     };
 
-    // rinecraft.state.window_state.attach_event(
-    //   &mut rinecraft.window_session,
+    // voxland.state.window_state.attach_event(
+    //   &mut voxland.window_session,
     //   |r|&mut r.window_state
     // );
 
-    rinecraft
+    voxland
       .state
       .camera_controller
-      .attach_event(&mut rinecraft.window_session, |r| {
+      .attach_event(&mut voxland.window_session, |r| {
         (&mut r.camera_controller, &r.window_state)
       });
 
-    rinecraft.init_world();
+    voxland.init_world();
 
-    rinecraft
+    voxland
   }
 
   fn update(&mut self, event: &winit::event::Event<()>, renderer: &mut AppRenderCtx) {
