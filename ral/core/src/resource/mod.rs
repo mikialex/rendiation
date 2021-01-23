@@ -64,15 +64,15 @@ impl<T: RAL> BindGroupProvider<T> for AnyBindGroupType {
     unreachable!()
   }
   fn add_reference(
-    instance: &Self::Instance,
-    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
-    resources: &mut ShaderBindableResourceManager<T>,
+    _instance: &Self::Instance,
+    _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    _resources: &mut ShaderBindableResourceManager<T>,
   ) {
   }
   fn remove_reference(
-    instance: &Self::Instance,
-    bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
-    resources: &mut ShaderBindableResourceManager<T>,
+    _instance: &Self::Instance,
+    _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>,
+    _resources: &mut ShaderBindableResourceManager<T>,
   ) {
   }
 }

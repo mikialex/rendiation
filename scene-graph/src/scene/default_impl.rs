@@ -101,16 +101,16 @@ pub use rendiation_derives::UniformBuffer;
 #[derive(UniformBuffer, Copy, Clone)]
 #[repr(C, align(16))]
 pub struct SceneNodeRenderMatrixData {
-  pub world_matrix: Mat4<f32>,
   pub model_view_matrix: Mat4<f32>,
+  pub world_matrix: Mat4<f32>,
   pub normal_matrix: Mat3<f32>,
 }
 
 impl Default for SceneNodeRenderMatrixData {
   fn default() -> Self {
     Self {
-      world_matrix: Mat4::one(),
       model_view_matrix: Mat4::one(),
+      world_matrix: Mat4::one(),
       normal_matrix: Mat3::one(),
     }
   }

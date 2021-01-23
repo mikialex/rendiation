@@ -45,7 +45,7 @@ impl<T> CameraController<T> {
     use_mode(
       &mut self.listener_records,
       &mut self.active_type,
-      CameraControllerType::FPS,
+      CameraControllerType::ORBIT,
       active,
       l,
     );

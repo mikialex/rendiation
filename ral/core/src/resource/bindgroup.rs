@@ -76,7 +76,6 @@ impl<R: RAL> BindGroupManager<R> {
     resources: &ShaderBindableResourceManager<R>,
   ) {
     let storage = &mut self.storage;
-    println!("{}", self.modified.len());
     self.modified.drain().for_each(|d| {
       storage.get_mut(d).map(|bp| {
         bp.maintain_gpu(renderer, resources);
@@ -171,8 +170,8 @@ pub struct BindgroupPair<R: RAL, T: BindGroupProvider<R>> {
   gpu: Option<R::BindGroup>,
 }
 
-impl<R: RAL, T: BindGroupProvider<R>> BindgroupPair<R, T> {
-  fn update(&mut self) -> &mut T::Instance {
-    &mut self.data
-  }
-}
+// impl<R: RAL, T: BindGroupProvider<R>> BindgroupPair<R, T> {
+//   fn update(&mut self) -> &mut T::Instance {
+//     &mut self.data
+//   }
+// }

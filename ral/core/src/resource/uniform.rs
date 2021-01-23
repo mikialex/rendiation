@@ -116,7 +116,13 @@ impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
     let bgf = &self.bindgroup_referenced;
     self.dirty_set.drain().for_each(|handle| {
       let data = storage.get(handle..handle + 1).unwrap();
-      let data = unsafe { std::mem::transmute(data) };
+
+      let ptr = data.as_ptr();
+      let data = unsafe {
+        let ptr = std::mem::transmute(ptr);
+        std::slice::from_raw_parts::<u8>(ptr, std::mem::size_of::<U>())
+      };
+
       gpu[handle] = Some(T::create_uniform_buffer(renderer, data));
       bgf[handle].iter().for_each(|&b| bgm.notify_dirty(b));
     });
