@@ -5,7 +5,6 @@ use std::{
   any::{Any, TypeId},
   collections::{HashMap, HashSet},
   marker::PhantomData,
-  ops::Range,
 };
 
 pub struct UBOManager<T: RAL> {
@@ -62,17 +61,13 @@ impl<T: RAL> UBOManager<T> {
     });
   }
 
-  fn get_gpu_with_range<U: 'static>(&self, handle: usize) -> (&T::UniformBuffer, Range<u64>) {
-    (
-      self.get_storage_should_ok::<U>().get_gpu(),
-      handle as u64..(handle + 1) as u64,
-    )
-  }
-
   pub fn get_uniform_gpu<U: 'static>(&self, handle: UniformHandle<T, U>) -> UniformBufferRef<T, U> {
     UniformBufferRef {
       ty: PhantomData,
-      gpu: self.get_gpu_with_range::<U>(handle.index),
+      gpu: (
+        self.get_storage_should_ok::<U>().get_gpu(handle.index),
+        0..1,
+      ),
       data: self.get_storage_should_ok::<U>().get_data(handle.index),
     }
   }
@@ -115,29 +110,14 @@ trait UBOStorageTrait<T: RAL>: Any {
 
 impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   #[allow(clippy::transmute_ptr_to_ptr)]
-  fn maintain_gpu(&mut self, renderer: &mut T::Renderer, bgm: &mut BindGroupManager<T>) {
-    if self.dirty {
-      let ptr = self.storage.as_ptr();
-      let data = unsafe {
-        let ptr = std::mem::transmute(ptr);
-        std::slice::from_raw_parts::<u8>(ptr, self.storage.len() * std::mem::size_of::<U>())
-      };
-
-      if let Some((last_synced_count, gpu)) = &mut self.gpu {
-        if *last_synced_count != self.storage.len() {
-          self.gpu = Some((self.storage.len(), T::create_uniform_buffer(renderer, data)));
-          self
-            .bindgroup_referenced
-            .iter()
-            .for_each(|&b| bgm.notify_dirty(b))
-        } else {
-          T::update_uniform_buffer(renderer, gpu, data, 0..self.storage.len());
-        }
-      } else {
-        self.gpu = Some((self.storage.len(), T::create_uniform_buffer(renderer, data)))
-      }
-    }
-    self.dirty = false;
+  fn maintain_gpu(&mut self, renderer: &mut T::Renderer, _bgm: &mut BindGroupManager<T>) {
+    let storage = &self.storage;
+    let gpu = &mut self.gpu;
+    self.dirty_set.drain().for_each(|handle| {
+      let data = storage.get(handle..handle + 1).unwrap();
+      let data = unsafe { std::mem::transmute(data) };
+      gpu[handle] = Some(T::create_uniform_buffer(renderer, data));
+    });
   }
 
   fn as_any(&self) -> &dyn Any {
@@ -148,57 +128,59 @@ impl<T: RAL, U: 'static> UBOStorageTrait<T> for UBOStorage<T, U> {
   }
 }
 
+/// The reason we not use array of struct is we want storage stored in continues memory for best locality
 pub struct UBOStorage<T: RAL, U> {
   storage: Vec<U>,
-  bindgroup_referenced: HashSet<BindGroupHandle<T, AnyBindGroupType>>,
-  dirty: bool,
-  // dirty_mark: Vec<bool>,
-  // (last_synced_count, gpu),
-  gpu: Option<(usize, T::UniformBuffer)>,
+  // _bindgroup_referenced: Vec<HashSet<BindGroupHandle<T, AnyBindGroupType>>>,
+  gpu: Vec<Option<T::UniformBuffer>>,
+  dirty_set: HashSet<usize>,
 }
 
 impl<T: RAL, U> UBOStorage<T, U> {
   fn new() -> Self {
     Self {
-      bindgroup_referenced: HashSet::new(),
+      // _bindgroup_referenced: Vec::new(),
       storage: Vec::new(),
-      dirty: true,
-      gpu: None,
+      gpu: Vec::new(),
+      dirty_set: HashSet::new(),
     }
   }
 
   fn insert(&mut self, value: U) -> usize {
     let result = self.storage.len();
     self.storage.push(value);
-    self.dirty = true;
+    self.gpu.push(None);
+    self.dirty_set.insert(result);
     result
   }
 
   fn delete(&mut self, handle: usize) {
     self.storage.swap_remove(handle);
+    self.dirty_set.remove(&handle);
   }
 
   fn update(&mut self, handle: usize, new_value: U) {
-    self.dirty = true;
     self.storage[handle] = new_value;
+    self.dirty_set.insert(handle);
   }
 
   fn mutate(&mut self, handle: usize) -> &mut U {
+    self.dirty_set.insert(handle);
     &mut self.storage[handle]
   }
 
-  fn get_gpu(&self) -> &T::UniformBuffer {
-    &self.gpu.as_ref().unwrap().1
+  fn get_gpu(&self, index: usize) -> &T::UniformBuffer {
+    self.gpu.get(index).unwrap().as_ref().unwrap()
   }
 
   fn get_data(&self, handle: usize) -> &U {
     &self.storage[handle]
   }
 
-  pub fn add_reference(&mut self, bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
-    self.bindgroup_referenced.insert(bindgroup_handle);
+  pub fn add_reference(&mut self, _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
+    // self.bindgroup_referenced.insert(bindgroup_handle);
   }
-  pub fn remove_reference(&mut self, bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
-    self.bindgroup_referenced.remove(&bindgroup_handle);
+  pub fn remove_reference(&mut self, _bindgroup_handle: BindGroupHandle<T, AnyBindGroupType>) {
+    // self.bindgroup_referenced.remove(&bindgroup_handle);
   }
 }
