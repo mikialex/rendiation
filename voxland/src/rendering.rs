@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::rinecraft::RinecraftState;
+use crate::{camera::RinecraftCamera, voxland::RinecraftState};
 use rendiation_ral::{GeometryHandle, ResourceManager, ShadingHandle, ShadingProvider, RAL};
 use rendiation_render_entity::Camera;
 use rendiation_rendergraph::{
@@ -98,37 +98,37 @@ impl RinecraftRenderer {
   }
 
   fn build(config: &EffectConfig) -> RenderGraph<DefaultRenderGraphBackend> {
-    // let graph = RenderGraph::new();
+    let graph = RenderGraph::new();
 
-    // let scene_main_content = graph.source(RinecraftSourceType::Main);
+    let scene_main_content = graph.source(RinecraftSourceType::Main);
 
-    // let scene_pass = graph
-    //   .pass("scene-pass")
-    //   .define_pass_ops(|b: WGPURenderPassBuilder| {
-    //     b.first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
-    //       .depth(|d| d.load_with_clear(1.0).ok())
-    //   })
-    //   .render_by(&scene_main_content);
+    let scene_pass = graph
+      .pass("scene-pass")
+      .define_pass_ops(|b: WGPURenderPassBuilder| {
+        b.first_color(|c| c.load_with_clear((0.1, 0.2, 0.3).into(), 1.0).ok())
+          .depth(|d| d.load_with_clear(1.0).ok())
+      })
+      .render_by(&scene_main_content);
 
-    // let middle_target = graph.target("middle").from_pass(&scene_pass);
+    let middle_target = graph.target("middle").draw_by_pass(&scene_pass);
 
-    // let copy_screen = graph.pass("copy_screen").depend(&middle_target);
-    // // .render_immediate(todo!());
+    let copy_screen = graph.pass("copy_screen").depend(&middle_target);
+    // .render_immediate(todo!());
 
-    // graph.finally().from_pass(&copy_screen);
-    // graph
-    todo!()
+    graph.finally().draw_by_pass(&copy_screen);
+    graph
+    // todo!()
   }
 
   pub fn render(
     &mut self,
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPU>,
+    camera: &RinecraftCamera,
     resource: &mut ResourceManager<WebGPU>,
     output: &ScreenRenderTargetInstance,
   ) {
-    let fake_camera = Camera::new();
-    let list = scene.update(resource, &fake_camera, &mut self.cached_drawcall_list);
+    let list = scene.update(resource, camera.camera(), &mut self.cached_drawcall_list);
     resource.maintain_gpu(renderer);
 
     {

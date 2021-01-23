@@ -2140,7 +2140,7 @@ name = "rendiation-ral"
 version = "0.1.0"
 dependencies = [
  "arena",
- "wgpu",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -2179,6 +2179,7 @@ dependencies = [
  "rendiation-render-entity",
  "rendiation-rendergraph",
  "rendiation-shadergraph",
+ "rendiation-webgpu",
  "wasm-bindgen",
 ]
 
@@ -2245,33 +2246,6 @@ dependencies = [
  "rendiation-mesh-buffer",
  "rendiation-render-entity",
  "rendiation-webgpu",
- "winit",
-]
-
-[[package]]
-name = "rinecraft"
-version = "0.1.0"
-dependencies = [
- "arena",
- "env_logger",
- "futures",
- "image 0.23.0",
- "noise",
- "once_cell",
- "rendiation-derives",
- "rendiation-math",
- "rendiation-math-entity",
- "rendiation-mesh-buffer",
- "rendiation-ral",
- "rendiation-render-entity",
- "rendiation-rendergraph",
- "rendiation-scenegraph",
- "rendiation-shader-library",
- "rendiation-shadergraph",
- "rendiation-webgl",
- "rendiation-webgpu",
- "serde",
- "tokio",
  "winit",
 ]
 
@@ -2749,6 +2723,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
+name = "voxland"
+version = "0.1.0"
+dependencies = [
+ "arena",
+ "env_logger",
+ "futures",
+ "image 0.23.0",
+ "noise",
+ "once_cell",
+ "rendiation-derives",
+ "rendiation-math",
+ "rendiation-math-entity",
+ "rendiation-mesh-buffer",
+ "rendiation-ral",
+ "rendiation-render-entity",
+ "rendiation-rendergraph",
+ "rendiation-scenegraph",
+ "rendiation-shader-library",
+ "rendiation-shadergraph",
+ "rendiation-webgl",
+ "rendiation-webgpu",
+ "serde",
+ "tokio",
+ "winit",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2903,9 +2904,9 @@ dependencies = [
 
 [[package]]
 name = "wgpu"
-version = "0.6.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "549160f188eef412ac978499ddf0ceadad4c9159bb1160f9e6b9d4cc8ee977dc"
+checksum = "991903e4c9f5b7319732b30a3d0339e27a51ea992cea22769b5f6c7f7076af6d"
 dependencies = [
  "arrayvec",
  "futures",

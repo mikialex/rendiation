@@ -1,9 +1,9 @@
 use super::block_coords::*;
 use super::{chunks::WorldChunkData, io::WorldIOManager, scene_attach::WorldSceneAttachment};
-use crate::vox::block::Block;
 use crate::vox::block::BlockFace;
 use crate::vox::chunk::*;
 use crate::vox::world_machine::*;
+use crate::{camera::RinecraftCamera, vox::block::Block};
 use rendiation_mesh_buffer::geometry::IndexedGeometry;
 use rendiation_render_entity::{Camera, TransformedObject};
 use rendiation_scenegraph::*;
@@ -102,9 +102,9 @@ impl World {
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPU>,
     resources: &mut ResourceManager<WebGPU>,
-    camera: &Camera,
+    camera: &RinecraftCamera,
   ) {
-    let camera_position = camera.matrix().position();
+    let camera_position = camera.camera().matrix().position();
 
     let ChunkCoords(stand_point_chunk) = ChunkCoords::from_world_position(camera_position);
     let x_low = stand_point_chunk.0 - self.chunk_visible_distance;
@@ -121,7 +121,7 @@ impl World {
 
     // sync change to scene
     if let Some(scene_data) = &mut self.scene_data {
-      scene_data.sync_chunks_in_scene(&mut self.chunks, scene, resources, renderer)
+      scene_data.sync_chunks_in_scene(&mut self.chunks, scene, resources, renderer, camera)
     }
   }
 }

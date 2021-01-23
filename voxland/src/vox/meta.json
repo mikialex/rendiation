@@ -1,0 +1,13 @@
+{
+    "assetBase": "voxland/src/vox/assets",
+    "blockImages": {
+        "stone": {
+            "url": "voxland/src/vox/assets/stone.png"
+        }
+    },
+    "blocks": [
+        {
+            "name": "stone"
+        }
+    ]
+}

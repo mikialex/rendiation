@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 rendergraph = ["rendiation-rendergraph"]
+webgpu = ["rendiation-webgpu"]
 # nyxt = ["nyxt-core"]
 
 [dependencies]
@@ -25,5 +26,6 @@ once_cell = "1.4.0"
 wasm-bindgen = {version = "0.2.68"}
 
 rendiation-rendergraph = {path = "../render-graph", optional = true}
+rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
 
 arena-tree = {path = "../utils/arena-tree"}

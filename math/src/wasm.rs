@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{Mat4, Vec2, Vec3, Vec4};
+use crate::{Mat3, Mat4, Vec2, Vec3, Vec4};
 
 pub trait WASMAbleType {
   type Type;
@@ -62,10 +62,21 @@ pub struct Mat4F32WASM {
 	pub d1:f32, pub d2:f32, pub d3:f32, pub d4:f32,
 }
 
+#[rustfmt::skip]
+#[wasm_bindgen]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Mat3F32WASM {
+  pub a1: f32 ,pub a2: f32, pub a3: f32,
+  pub b1: f32, pub b2: f32, pub b3: f32,
+  pub c1: f32, pub c2: f32, pub c3: f32,
+}
+
 impl_convert_bytemuck!(Vec2<f32>, Vec2F32WASM);
 impl_convert_bytemuck!(Vec3<f32>, Vec3F32WASM);
 impl_convert_bytemuck!(Vec4<f32>, Vec4F32WASM);
 impl_convert_bytemuck!(Mat4<f32>, Mat4F32WASM);
+impl_convert_bytemuck!(Mat3<f32>, Mat3F32WASM);
 
 impl WASMAbleType for f32 {
   type Type = f32;
@@ -79,6 +90,15 @@ impl WASMAbleType for f32 {
 
 #[wasm_bindgen]
 impl Mat4F32WASM {
+  #[wasm_bindgen]
+  pub fn from_array(data: &[f32]) -> Self {
+    let mat: &[Self] = bytemuck::cast_slice(data);
+    mat[0]
+  }
+}
+
+#[wasm_bindgen]
+impl Mat3F32WASM {
   #[wasm_bindgen]
   pub fn from_array(data: &[f32]) -> Self {
     let mat: &[Self] = bytemuck::cast_slice(data);

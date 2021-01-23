@@ -13,9 +13,9 @@ pub struct WindowState {
 }
 
 impl WindowState {
-  pub fn new() -> Self {
+  pub fn new(size: (f32, f32)) -> Self {
     Self {
-      size: (0.0, 0.0),
+      size,
       mouse_position: (0.0, 0.0),
       mouse_motion: (0.0, 0.0),
       is_left_mouse_down: false,

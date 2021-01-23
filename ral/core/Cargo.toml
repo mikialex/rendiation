@@ -9,4 +9,4 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 arena = {path = "../../utils/arena"}
-wgpu = "0.6.0"
+wgpu-types = "0.6.1"

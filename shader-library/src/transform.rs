@@ -3,29 +3,42 @@ use crate::*;
 #[derive(UniformBuffer, Copy, Clone)]
 #[repr(C, align(16))]
 pub struct CameraTransform {
-  pub mvp: Mat4<f32>,
-  pub projection: Mat4<f32>,
-  pub model_view: Mat4<f32>,
+  pub projection_matrix: Mat4<f32>,
+}
+
+#[derive(UniformBuffer, Copy, Clone)]
+#[repr(C, align(16))]
+pub struct ObjectTransform {
+  model_view_matrix: Mat4<f32>,
+  normal_matrix: Mat3<f32>,
+}
+
+impl Default for ObjectTransform {
+  fn default() -> Self {
+    Self {
+      model_view_matrix: Mat4::one(),
+      normal_matrix: Mat3::one(),
+    }
+  }
 }
 
 impl Default for CameraTransform {
   fn default() -> Self {
     Self {
-      mvp: Mat4::one(),
-      projection: Mat4::one(),
-      model_view: Mat4::one(),
+      projection_matrix: Mat4::one(),
     }
   }
 }
 
 impl CameraTransform {
   pub fn apply(
-    transform: <Self as ShaderGraphBindGroupItemProvider>::ShaderGraphBindGroupItemInstance,
+    projection: Node<Mat4<f32>>,
+    model_view: Node<Mat4<f32>>,
     raw_position: Node<Vec3<f32>>,
     builder: &ShaderGraphBuilder,
   ) -> (Node<Vec4<f32>>, Node<Vec4<f32>>) {
-    let mv_position = to_mv_position(raw_position, transform.model_view);
-    let clip_position = apply_projection(mv_position, transform.projection);
+    let mv_position = to_mv_position(raw_position, model_view);
+    let clip_position = apply_projection(mv_position, projection);
     builder.set_vertex_root(clip_position);
     (clip_position, mv_position)
   }

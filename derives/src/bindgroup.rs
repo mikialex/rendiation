@@ -75,7 +75,7 @@ fn derive_bindgroup_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::Toke
           let default_value = #struct_name::create_resource_instance(
             #(#constructor_create_ral_instance)*
           );
-          inner.resource.bindgroups.add(default_value)
+          inner.resource.add_bindgroup(default_value)
         });
         use nyxt_core::NyxtBindGroupWrapped;
         #struct_name::to_nyxt_wrapper(viewer, handle)
@@ -167,6 +167,14 @@ fn derive_ral_bindgroup(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! {#field_name,}
   });
 
+  let link = s.map_fields(|(field_name, ty)| {
+    quote! { #ty::add_reference(instance.#field_name, bindgroup_handle, resources); }
+  });
+  let unlink = s.map_fields(|(field_name, ty)| {
+    quote! { #ty::remove_reference(instance.#field_name, bindgroup_handle, resources); }
+  });
+
+
   let wgpu_create_bindgroup_create = s.map_fields(|(field_name, ty)| {
     quote! {.push(<#ty as rendiation_webgpu::WGPUBindgroupItem>::to_binding(#field_name))}
   });
@@ -217,6 +225,23 @@ fn derive_ral_bindgroup(s: &StructInfo) -> proc_macro2::TokenStream {
         render_pass: &mut T::RenderPass,
       ){
         T::apply_bindgroup(render_pass, index, gpu_bindgroup);
+      }
+
+      fn add_reference(
+        instance: &Self::Instance,
+        bindgroup_handle: rendiation_ral::BindGroupHandle<T, rendiation_ral::AnyBindGroupType>,
+        resources: &mut rendiation_ral::ShaderBindableResourceManager<T>,
+      ){
+        use rendiation_ral::RALBindgroupItem;
+        #(#link)*
+      }
+      fn remove_reference(
+        instance: &Self::Instance,
+        bindgroup_handle: rendiation_ral::BindGroupHandle<T, rendiation_ral::AnyBindGroupType>,
+        resources: &mut rendiation_ral::ShaderBindableResourceManager<T>,
+      ){
+        use rendiation_ral::RALBindgroupItem;
+        #(#unlink)*
       }
     }
 

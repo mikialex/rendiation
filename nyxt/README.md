@@ -5,5 +5,6 @@
 ## Build
 
 ```
-RUSTFLAGS=--cfg=web_sys_unstable_apis wasm-pack build
+cd ./viewer
+wasm-pack build
 ```

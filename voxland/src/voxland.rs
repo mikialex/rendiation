@@ -1,5 +1,6 @@
 use crate::{
   application::{AppRenderCtx, Application},
+  camera::RinecraftCamera,
   camera_controls::{CameraController, CameraControllerType},
   vox::world::World,
   window_event::WindowEventSession,
@@ -13,7 +14,7 @@ use rendiation_scenegraph::*;
 use rendiation_webgpu::renderer::SwapChain;
 use rendiation_webgpu::*;
 
-pub struct Rinecraft {
+pub struct Voxland {
   pub window_session: WindowEventSession<RinecraftState>,
   pub state: RinecraftState,
 }
@@ -27,17 +28,14 @@ pub struct RinecraftState {
 
   pub screen_target: ScreenRenderTarget,
 
-  pub perspective_projection: PerspectiveProjection,
-  pub camera: Camera,
-  pub camera_gpu: CameraGPU,
+  pub camera: RinecraftCamera,
   pub camera_controller: CameraController<Self>,
 
-  pub viewport: Viewport,
   // pub gui: GUI,
   pub renderer: RinecraftRenderer,
 }
 
-impl Application for Rinecraft {
+impl Application for Voxland {
   fn init(renderer: &mut WGPURenderer, swap_chain: &SwapChain) -> Self {
     let depth = WGPUTexture::new_as_depth(
       &renderer,
@@ -61,24 +59,22 @@ impl Application for Rinecraft {
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let mut perspective_projection = PerspectiveProjection::default();
-    let mut camera = Camera::new();
-    *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
+    let mut camera = RinecraftCamera::new(&mut resource, swap_chain.size);
+    *camera.camera_mut().matrix_mut() = Mat4::translate(0., 40., 0.);
+
+    // let mut camera = Camera::new();
+    // *camera.matrix_mut() = Mat4::translate(0., 40., 0.);
 
     perspective_projection.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
-    camera.update_by(&perspective_projection);
-
-    let mut camera_gpu = CameraGPU::new(renderer, &camera, &mut resource);
-    camera_gpu.update_all(&camera, renderer, &mut resource);
+    camera.camera_mut().update_by(&perspective_projection);
 
     world.attach_scene(
       &mut scene,
       &mut resource,
       renderer,
-      &camera_gpu,
+      &camera,
       &screen_target.create_target_states(),
     );
-
-    let viewport = Viewport::new(swap_chain.size);
 
     let mut window_session: WindowEventSession<RinecraftState> = WindowEventSession::new();
 
@@ -87,17 +83,9 @@ impl Application for Rinecraft {
       let renderer = &mut event_ctx.render_ctx.renderer;
       let state = &mut event_ctx.state;
       let size = (swap_chain.size.0 as f32, swap_chain.size.1 as f32);
-      state
-        .viewport
-        .set_size(swap_chain.size.0 as f32, swap_chain.size.1 as f32);
       state.screen_target.resize(renderer, swap_chain.size);
+      state.camera.resize(swap_chain.size);
 
-      state
-        .perspective_projection
-        .resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
-      state.camera.update_by(&state.perspective_projection);
-
-      // state.camera_orth.resize(size);
       // state.gui.renderer.resize(size, renderer);
     });
 
@@ -110,33 +98,30 @@ impl Application for Rinecraft {
 
       // update
       if state.camera_controller.update(&mut state.camera) {}
-      state
-        .camera_gpu
-        .update_all(&state.camera, renderer, resource);
+      state.camera.update(resource);
       state.world.update(renderer, scene, resource, &state.camera);
 
       let output = swap_chain.get_current_frame();
       let output = state.screen_target.create_instance(&output.view);
 
       // rendering
-      state.renderer.render(renderer, scene, resource, &output);
+      state
+        .renderer
+        .render(renderer, scene, &state.camera, resource, &output);
       // state.gui.render(renderer, &output);
     });
 
-    let window_state = WindowState::new();
+    let window_state = WindowState::new((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     // Done
-    let mut rinecraft = Rinecraft {
+    let mut voxland = Voxland {
       window_session,
       state: RinecraftState {
         window_state,
         world,
         scene,
         resource,
-        perspective_projection,
         camera,
-        camera_gpu,
-        viewport,
         camera_controller: CameraController::new(),
         screen_target,
         // gui,
@@ -144,21 +129,21 @@ impl Application for Rinecraft {
       },
     };
 
-    // rinecraft.state.window_state.attach_event(
-    //   &mut rinecraft.window_session,
+    // voxland.state.window_state.attach_event(
+    //   &mut voxland.window_session,
     //   |r|&mut r.window_state
     // );
 
-    rinecraft
+    voxland
       .state
       .camera_controller
-      .attach_event(&mut rinecraft.window_session, |r| {
+      .attach_event(&mut voxland.window_session, |r| {
         (&mut r.camera_controller, &r.window_state)
       });
 
-    rinecraft.init_world();
+    voxland.init_world();
 
-    rinecraft
+    voxland
   }
 
   fn update(&mut self, event: &winit::event::Event<()>, renderer: &mut AppRenderCtx) {

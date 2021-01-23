@@ -17,9 +17,9 @@ pub trait HalfEdgeMeshData {
 }
 
 pub struct HalfEdgeMesh<M: HalfEdgeMeshData> {
-  half_edges: Arena<HalfEdge<M>>,
-  faces: Arena<HalfEdgeFace<M>>,
-  vertices: Arena<HalfEdgeVertex<M>>,
+  pub half_edges: Arena<HalfEdge<M>>, // todo not pub
+  pub faces: Arena<HalfEdgeFace<M>>,
+  pub vertices: Arena<HalfEdgeVertex<M>>,
 }
 
 impl<M: HalfEdgeMeshData> HalfEdgeMesh<M> {

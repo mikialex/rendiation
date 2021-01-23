@@ -86,7 +86,7 @@ impl BlockRegistry {
     fn load_img(p: &str, uv: (f32, f32, f32, f32)) -> Arc<BlockFaceTextureInfo> {
       Arc::new(BlockFaceTextureInfo::new(p, uv))
     }
-    let img = load_img("rinecraft/src/vox/assets/stone.png", (0.0, 0.0, 0.5, 0.5));
+    let img = load_img("voxland/src/vox/assets/stone.png", (0.0, 0.0, 0.5, 0.5));
 
     let stone = BlockMetaInfo {
       name: String::from("stone"),
@@ -100,7 +100,7 @@ impl BlockRegistry {
     };
     re.register_block(stone);
 
-    let dirt = load_img("rinecraft/src/vox/assets/dirt.png", (0.5, 0.0, 0.5, 0.5));
+    let dirt = load_img("voxland/src/vox/assets/dirt.png", (0.5, 0.0, 0.5, 0.5));
     let dirt_block = BlockMetaInfo {
       name: String::from("stone"),
       id: 0,
@@ -113,12 +113,9 @@ impl BlockRegistry {
     };
     re.register_block(dirt_block);
 
-    let grass_top = load_img(
-      "rinecraft/src/vox/assets/grass_top.png",
-      (0.0, 0.5, 0.5, 0.5),
-    );
+    let grass_top = load_img("voxland/src/vox/assets/grass_top.png", (0.0, 0.5, 0.5, 0.5));
     let grass_side = load_img(
-      "rinecraft/src/vox/assets/grass_side.png",
+      "voxland/src/vox/assets/grass_side.png",
       (0.5, 0.5, 0.5, 0.5),
     );
 
@@ -193,7 +190,7 @@ impl BlockRegistry {
           let src_tex = tex(&face.img, renderer, resource);
           textures.push(src_tex);
           let params = CopyParam::create_resource_instance(src_tex, sampler);
-          let params = resource.bindgroups.add(params);
+          let params = resource.add_bindgroup(params);
           bindgroups.push(params);
           let copy_shading = CopyShader::create_resource_instance(params);
           let copy_shading = resource
@@ -209,6 +206,8 @@ impl BlockRegistry {
           (copy_shading, viewport)
         })
         .collect();
+
+      resource.maintain_gpu(renderer);
 
       let mut pass = target
         .create_render_pass_builder()
@@ -231,7 +230,7 @@ impl BlockRegistry {
       resource.bindable.textures.remove(t);
     });
     bindgroups.drain(..).for_each(|t| {
-      resource.bindgroups.delete(t);
+      resource.delete_bindgroup(t);
     });
     shadings.drain(..).for_each(|t| {
       resource.shadings.delete_shading(t);

@@ -1,4 +1,4 @@
-use crate::rinecraft::Rinecraft;
+use crate::voxland::Voxland;
 use rendiation_math::*;
 use rendiation_render_entity::{raycaster::Raycaster, PerspectiveProjection};
 
@@ -7,7 +7,7 @@ use rendiation_render_entity::{raycaster::Raycaster, PerspectiveProjection};
 //   fn un_init_window(&mut self, session: &mut WindowEventSession<T>);
 // }
 
-impl Rinecraft {
+impl Voxland {
   pub fn init_world(&mut self) {
     self.window_session.active.mouse_down.on(|event_ctx| {
       let state = &mut event_ctx.state;
@@ -15,7 +15,10 @@ impl Rinecraft {
       let y_ratio = 1. - state.window_state.mouse_position.1 / state.window_state.size.1;
       assert!(x_ratio <= 1.);
       assert!(y_ratio <= 1.);
-      let ray = state.camera.create_screen_ray(Vec2::new(x_ratio, y_ratio));
+      let ray = state
+        .camera
+        .camera()
+        .create_screen_ray(Vec2::new(x_ratio, y_ratio));
       state.world.delete_block_by_ray(&ray);
     });
   }

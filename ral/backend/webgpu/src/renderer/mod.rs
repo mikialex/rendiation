@@ -20,9 +20,7 @@ pub use buffer::*;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use render_target::*;
-use rendiation_ral::{
-  BindGroupLayoutDescriptor, BindGroupLayoutDescriptorProvider, BindGroupLayoutEntry,
-};
+use rendiation_ral::{BindGroupLayoutDescriptorProvider, BindGroupLayoutEntry};
 pub use sampler::*;
 pub use shader_util::*;
 pub use swap_chain::*;
@@ -121,10 +119,12 @@ impl BindGroupLayoutCache {
     cache
       .entry(hash)
       .or_insert_with(|| {
-        Arc::new(device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-          label: None,
-          entries: desc,
-        }))
+        Arc::new(
+          device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: desc,
+          }),
+        )
       })
       .clone()
   }

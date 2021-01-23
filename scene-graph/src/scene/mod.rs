@@ -29,6 +29,8 @@ pub trait SceneBackend<T: RAL>: Sized {
   type SceneData: Default;
 
   fn create_node_data(resource: &mut ResourceManager<T>) -> Self::NodeData;
+
+  fn free_node_data(node: &Self::NodeData, resource: &mut ResourceManager<T>);
 }
 
 pub fn render_list<T: RAL, S: SceneBackend<T>>(
@@ -57,7 +59,7 @@ pub struct SceneNodeDataDrawcallsProvider<'a, P>(pub &'a P);
 
 pub struct Scene<T: RAL, S: SceneBackend<T> = DefaultSceneBackend> {
   pub drawcalls: Arena<Drawcall<T>>,
-  pub nodes: ArenaTree<S::NodeData>,
+  nodes: ArenaTree<S::NodeData>,
   pub scene_data: S::SceneData,
   reused_traverse_stack: Vec<SceneNodeHandle<T, S>>,
 }
