@@ -1,3 +1,4 @@
+use rendiation_math::SquareMatrix;
 use rendiation_ral::{ResourceManager, UniformHandle, Viewport};
 use rendiation_render_entity::{Camera, PerspectiveProjection, Projection, ResizableProjection};
 use rendiation_shader_library::transform::CameraTransform;
@@ -49,6 +50,7 @@ impl RinecraftCamera {
     self
       .projection
       .update_projection(&mut self.camera.projection_matrix);
+    self.camera.matrix_inverse = self.camera.matrix.inverse_or_identity();
     res.bindable.uniform_buffers.update(
       self.gpu,
       CameraTransform {
