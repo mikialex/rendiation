@@ -45,16 +45,16 @@ impl ShaderGraphProvider for BlockShader {
 
     builder.geometry_by::<IndexedGeometry>();
 
-    let (clip_position, mv_position) = CameraTransform::apply(
+    let (clip_position, mv_position) = mv_p(
       p.camera.projection_matrix,
       p.object.model_view_matrix,
       vertex.position,
       &builder,
     );
 
-    let frag_normal = builder.set_vary(vertex.normal);
-    let frag_uv = builder.set_vary(vertex.uv);
-    let frag_mv_position = builder.set_vary(mv_position.xyz());
+    let frag_normal = builder.vary(vertex.normal);
+    let frag_uv = builder.vary(vertex.uv);
+    let frag_mv_position = builder.vary(mv_position.xyz());
 
     let block_color = p.my_texture_view.sample(p.my_sampler, frag_uv);
 

@@ -26,7 +26,7 @@ impl ShaderGraphProvider for CopyShader {
     let parameter = input.parameter;
 
     builder.set_vertex_root(vec4_31(vertex.position, 1.0));
-    let frag_uv = builder.set_vary(vertex.uv);
+    let frag_uv = builder.vary(vertex.uv);
 
     builder.set_frag_output(parameter.my_texture.sample(parameter.my_sampler, frag_uv));
 

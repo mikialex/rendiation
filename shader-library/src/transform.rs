@@ -30,18 +30,16 @@ impl Default for CameraTransform {
   }
 }
 
-impl CameraTransform {
-  pub fn apply(
-    projection: Node<Mat4<f32>>,
-    model_view: Node<Mat4<f32>>,
-    raw_position: Node<Vec3<f32>>,
-    builder: &ShaderGraphBuilder,
-  ) -> (Node<Vec4<f32>>, Node<Vec4<f32>>) {
-    let mv_position = to_mv_position(raw_position, model_view);
-    let clip_position = apply_projection(mv_position, projection);
-    builder.set_vertex_root(clip_position);
-    (clip_position, mv_position)
-  }
+pub fn mv_p(
+  projection: Node<Mat4<f32>>,
+  model_view: Node<Mat4<f32>>,
+  raw_position: Node<Vec3<f32>>,
+  builder: &ShaderGraphBuilder,
+) -> (Node<Vec4<f32>>, Node<Vec4<f32>>) {
+  let mv_position = to_mv_position(raw_position, model_view);
+  let clip_position = apply_projection(mv_position, projection);
+  builder.set_vertex_root(clip_position);
+  (clip_position, mv_position)
 }
 
 glsl_function!(

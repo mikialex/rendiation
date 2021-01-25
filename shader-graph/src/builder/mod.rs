@@ -39,7 +39,7 @@ impl ShaderGraphBuilder {
     });
   }
 
-  pub fn set_vary<T: ShaderGraphNodeType>(&self, h: Node<T>) -> Node<T> {
+  pub fn vary<T: ShaderGraphNodeType>(&self, h: Node<T>) -> Node<T> {
     modify_graph(|graph| {
       let index = graph.varyings.len();
       let node =
