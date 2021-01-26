@@ -1,5 +1,5 @@
 pub use wgpu_types::{
-  BindGroupLayoutEntry, BindingType, BlendDescriptor, BlendFactor, BlendOperation,
+  AddressMode, BindGroupLayoutEntry, BindingType, BlendDescriptor, BlendFactor, BlendOperation,
   ColorStateDescriptor, ColorWrite, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
   InputStepMode, PrimitiveTopology, RasterizationStateDescriptor, ShaderLocation, ShaderStage,
   StencilStateDescriptor, TextureFormat, VertexAttributeDescriptor, VertexFormat,

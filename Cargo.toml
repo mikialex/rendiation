@@ -20,6 +20,8 @@ members = [
   "rainray",
   "space-indexer",
   "mesh-buffer",
+  "texture",
+  "texture-packer",
   "utils/arena",
   "utils/arena-graph",
   "utils/arena-tree",

@@ -2210,6 +2210,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-texture"
+version = "0.1.0"
+dependencies = [
+ "rendiation-math",
+ "rendiation-math-entity",
+ "rendiation-ral",
+]
+
+[[package]]
+name = "rendiation-texture-packer"
+version = "0.1.0"
+dependencies = [
+ "rendiation-math",
+ "rendiation-math-entity",
+]
+
+[[package]]
 name = "rendiation-webgl"
 version = "0.1.0"
 dependencies = [
