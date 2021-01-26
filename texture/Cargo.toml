@@ -1,0 +1,9 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2018"
+name = "rendiation-texture"
+version = "0.1.0"
+
+[dependencies]
+rendiation-math = {path = "../math"}
+rendiation-math-entity = {path = "../math-entity"}
