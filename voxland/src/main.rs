@@ -14,8 +14,7 @@ mod window_event;
 mod window_states;
 use voxland::*;
 
-#[tokio::main]
-async fn main() {
+fn main() {
   env_logger::init();
   application::run::<Voxland>("voxland");
 }

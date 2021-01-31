@@ -30,59 +30,60 @@ impl World {
     }
   }
 
-  pub fn assure_chunk_has_generated(
+  pub async fn assure_chunk_has_generated(
     &self,
     chunk_key: ChunkCoords,
     machine: Arc<WorldMachine>,
-    should_update_geometry: bool,
   ) {
-    // let mut data = self.chunks.lock().unwrap();
-    let chunks_clone = self.chunks.chunks.clone();
-    let chunks = self.chunks.chunks.lock().unwrap();
-    let chunks_in_generating_clone = self.chunks.chunks_in_generating.clone();
-    let mut chunks_in_generating = self.chunks.chunks_in_generating.lock().unwrap();
-    let chunks_to_sync_scene = self.chunks.chunks_to_sync_scene.clone();
-
-    if !chunks.contains_key(&chunk_key) && !chunks_in_generating.contains(&chunk_key) {
-      chunks_in_generating.insert(chunk_key);
-
-      tokio::task::spawn_blocking(move || {
-        let chunk = Chunk::new(chunk_key, machine.as_ref());
-        let chunks_clone2 = chunks_clone.clone();
-
-        {
-          let mut chunks = chunks_clone2.lock().unwrap();
-          // println!("{:?}", chunk_key);
-          chunks_in_generating_clone
-            .lock()
-            .unwrap()
-            .remove(&chunk_key);
-          chunks.insert(chunk_key, chunk);
-        }
-
-        if should_update_geometry {
-          World::create_chunk_geometry_worker(
-            chunks_to_sync_scene,
-            chunks_clone2,
-            chunk_key,
-            machine,
-          )
-        }
-      });
+    if !self.chunks.chunks.lock().unwrap().contains_key(&chunk_key) {
+      let chunk = tokio::task::spawn_blocking(move || Chunk::new(chunk_key, machine.as_ref()))
+        .await
+        .unwrap();
+      self.chunks.chunks.lock().unwrap().insert(chunk_key, chunk);
     }
   }
 
-  // pub fn assure_chunk_surround_has_generated(
-  //   &mut self,
-  //   chunk_key: ChunkCoords,
-  //   machine: Arc<WorldMachine>,
-  // ) {
-  //   self.assure_chunk_has_generated(chunk_key, machine, true);
-  //   self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMin), machine, false);
-  //   self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMax), machine, false);
-  //   self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMin), machine, false);
-  //   self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMax), machine, false);
-  // }
+  pub async fn assure_chunk_geometry_has_generated(
+    &mut self,
+    chunk_key: ChunkCoords,
+    machine: Arc<WorldMachine>,
+  ) {
+    {
+      let chunks = self.chunks.chunks.lock().unwrap();
+      if let Some(c) = chunks.get(&chunk_key) {
+        if c.geometry_generated {
+          return;
+        }
+      }
+    }
+
+    use futures::future::join_all;
+
+    let chunk_data = vec![
+      self.assure_chunk_has_generated(chunk_key, machine.clone()),
+      self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMin), machine.clone()),
+      self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::XYMax), machine.clone()),
+      self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMin), machine.clone()),
+      self.assure_chunk_has_generated(chunk_key.get_side_chunk(ChunkSide::ZYMax), machine.clone()),
+    ];
+    join_all(chunk_data).await;
+    let chunks = self.chunks.chunks.clone();
+    let geometry = tokio::task::spawn_blocking(move || {
+      WorldChunkData::create_mesh_buffer(chunks, chunk_key, machine.as_ref())
+    })
+    .await
+    .unwrap();
+    self.chunks.chunks_to_sync_scene.insert(chunk_key, geometry);
+    println!("insert");
+    self
+      .chunks
+      .chunks
+      .lock()
+      .unwrap()
+      .get_mut(&chunk_key)
+      .unwrap()
+      .geometry_generated = true;
+  }
 
   fn create_chunk_geometry_worker(
     chunks_to_sync_scene: Arc<Mutex<HashMap<ChunkCoords, IndexedGeometry>>>,
@@ -97,7 +98,7 @@ impl World {
   }
 
   // create new chunk, remove old chunk
-  pub fn update(
+  pub async fn update(
     &mut self,
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPU>,
@@ -115,7 +116,9 @@ impl World {
     for x in x_low..x_high {
       for z in z_low..z_high {
         let chunk_key = (x, z).into();
-        self.assure_chunk_has_generated(chunk_key, self.world_machine.clone(), true);
+        self
+          .assure_chunk_geometry_has_generated(chunk_key, self.world_machine.clone())
+          .await;
       }
     }
 

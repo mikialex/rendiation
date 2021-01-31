@@ -95,7 +95,7 @@ impl WorldSceneAttachment {
     renderer: &mut WGPURenderer,
     camera: &VoxlandCamera,
   ) {
-    for (chunk, g) in chunks.chunks_to_sync_scene.lock().unwrap().drain() {
+    for (chunk, g) in chunks.chunks_to_sync_scene.drain() {
       if let Some(b) = self.blocks.remove(&chunk) {
         b.delete(res, scene, self)
       }

@@ -1,8 +1,6 @@
 /target
 **/*.rs.bk
 
-*.png
-
 space-indexer/target
 
 **/*.DS_Store

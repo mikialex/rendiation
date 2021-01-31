@@ -33,6 +33,7 @@ pub struct VoxlandState {
 
   // pub gui: GUI,
   pub renderer: VoxlandRenderer,
+  pub rt: tokio::runtime::Runtime,
 }
 
 impl Application for Voxland {
@@ -99,7 +100,9 @@ impl Application for Voxland {
       // update
       if state.camera_controller.update(&mut state.camera) {}
       state.camera.update(resource);
-      state.world.update(renderer, scene, resource, &state.camera);
+      state
+        .rt
+        .block_on(state.world.update(renderer, scene, resource, &state.camera));
 
       let output = swap_chain.get_current_frame();
       let output = state.screen_target.create_instance(&output.view);
@@ -126,6 +129,7 @@ impl Application for Voxland {
         screen_target,
         // gui,
         renderer: VoxlandRenderer::new(),
+        rt: tokio::runtime::Runtime::new().unwrap(),
       },
     };
 
