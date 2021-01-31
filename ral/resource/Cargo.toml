@@ -1,0 +1,8 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+name = "rendiation-ral-resource"
+version = "0.1.0"
+
+[dependencies]
+arena = {path = "../../utils/arena"}

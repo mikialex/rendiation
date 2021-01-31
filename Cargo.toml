@@ -4,6 +4,7 @@ members = [
   "math-entity",
   "render-entity",
   "ral/core",
+  "ral/resource",
   "ral/backend/webgpu",
   "ral/backend/webgl",
   "render-graph",

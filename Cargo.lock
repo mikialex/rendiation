@@ -2144,6 +2144,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-ral-resource"
+version = "0.1.0"
+dependencies = [
+ "arena",
+]
+
+[[package]]
 name = "rendiation-render-entity"
 version = "0.1.0"
 dependencies = [
