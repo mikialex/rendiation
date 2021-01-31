@@ -1,0 +1,30 @@
+{
+    "assetBase": "voxland/src/vox/assets",
+    "images": {
+        "stone": {
+            "path": "stone.png"
+        },
+        "dirt": {
+            "path": "dirt.png"
+        },
+        "grass_side": {
+            "path": "grass_side.png"
+        },
+        "grass_top": {
+            "path": "grass_top.png"
+        }
+    },
+    "blocks": [
+        {
+            "name": "stone",
+            "textures": {
+                "top": "stone",
+                "bottom": "stone",
+                "x_max": "stone",
+                "x_min": "stone",
+                "z_max": "stone",
+                "z_min": "stone"
+            }
+        }
+    ]
+}
