@@ -1,0 +1,19 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+name = "voxland"
+version = "0.1.0"
+
+[features]
+default = ["webgpu"]
+webgpu = []
+
+[dependencies]
+env_logger = "0.7"
+image = "*"
+noise = "0.6"
+serde = {version = "1.0.105", features = ["derive"]}
+
+rendiation-math = {path = "../../math"}
+rendiation-mesh-buffer = {path = "../../mesh-buffer", features = ["shadergraph"]}
+rendiation-render-entity = {path = "../../render-entity"}

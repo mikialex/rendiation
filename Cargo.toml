@@ -16,6 +16,7 @@ members = [
   "nyxt/core",
   "rendium",
   "voxland/app",
+  "voxland/vox-engine",
   "rivermesh",
   "noize",
   "rainray",
