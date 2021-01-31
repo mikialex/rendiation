@@ -27,8 +27,8 @@ impl TextureAddressMode for ClampToEdge {
 
 #[test]
 fn clamp() {
-  assert_eq!(ClampToEdge::correct(1.25), 1.0);
   assert_eq!(ClampToEdge::correct(-0.25), 0.0);
+  assert_eq!(ClampToEdge::correct(1.25), 1.0);
 }
 
 /// Repeat the texture in a tiling fashion
@@ -47,8 +47,8 @@ impl TextureAddressMode for Repeat {
 
 #[test]
 fn repeat() {
-  assert_eq!(Repeat::correct(1.25), 0.25);
   assert_eq!(Repeat::correct(-0.25), 0.75);
+  assert_eq!(Repeat::correct(1.25), 0.25);
 }
 
 /// Repeat the texture, mirroring it every repeat
@@ -60,13 +60,13 @@ impl RALAddressMode for MirrorRepeat {
   const ENUM: AddressMode = AddressMode::MirrorRepeat;
 }
 impl TextureAddressMode for MirrorRepeat {
-  fn correct<T: Scalar>(uv: T) -> T {
+  fn correct<T: Scalar>(_uv: T) -> T {
     todo!()
   }
 }
 
 #[test]
 fn mirror_repeat() {
-  assert_eq!(MirrorRepeat::correct(1.25), 0.75);
   assert_eq!(MirrorRepeat::correct(-0.25), 0.25);
+  assert_eq!(MirrorRepeat::correct(1.25), 0.75);
 }

@@ -4,14 +4,14 @@ use rendiation_render_entity::{Camera, PerspectiveProjection, Projection, Resiza
 use rendiation_shader_library::transform::CameraTransform;
 use rendiation_webgpu::{WebGPU, OPENGL_TO_WGPU_MATRIX};
 
-pub struct RinecraftCamera {
+pub struct VoxlandCamera {
   viewport: Viewport,
   camera: Camera,
   projection: PerspectiveProjection,
   gpu: UniformHandle<WebGPU, CameraTransform>,
 }
 
-impl RinecraftCamera {
+impl VoxlandCamera {
   pub fn new(resource: &mut ResourceManager<WebGPU>, view_size: (usize, usize)) -> Self {
     Self {
       viewport: Viewport::new(view_size),

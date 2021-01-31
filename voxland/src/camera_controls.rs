@@ -2,7 +2,7 @@ use rendiation_math::Vec2;
 use rendiation_render_entity::*;
 use winit::event::*;
 
-use crate::{camera::RinecraftCamera, window_event::*, window_states::*};
+use crate::{camera::VoxlandCamera, window_event::*, window_states::*};
 
 #[derive(Copy, Clone)]
 pub enum CameraControllerType {
@@ -29,7 +29,7 @@ impl<T> CameraController<T> {
     }
   }
 
-  pub fn update(&mut self, camera: &mut RinecraftCamera) -> bool {
+  pub fn update(&mut self, camera: &mut VoxlandCamera) -> bool {
     let camera = camera.camera_mut();
     match self.active_type {
       CameraControllerType::FPS => self.fps.update(camera),

@@ -1,7 +1,7 @@
 use super::{block, block_coords::*};
 use super::{chunks::WorldChunkData, world::World, world_machine::WorldMachine};
 use crate::{
-  camera::RinecraftCamera,
+  camera::VoxlandCamera,
   shading::{BlockShader, BlockShadingParamGroup, CopyParam},
 };
 use rendiation_math::{Vec3, Vec4};
@@ -21,7 +21,7 @@ pub struct ChunkSceneAttachInfo {
 
 impl ChunkSceneAttachInfo {
   pub fn new(
-    camera: &RinecraftCamera,
+    camera: &VoxlandCamera,
     geom: IndexedGeometry,
     res: &mut ResourceManager<WebGPU>,
     renderer: &mut WGPURenderer,
@@ -93,7 +93,7 @@ impl WorldSceneAttachment {
     scene: &mut Scene<WebGPU>,
     res: &mut ResourceManager<WebGPU>,
     renderer: &mut WGPURenderer,
-    camera: &RinecraftCamera,
+    camera: &VoxlandCamera,
   ) {
     for (chunk, g) in chunks.chunks_to_sync_scene.lock().unwrap().drain() {
       if let Some(b) = self.blocks.remove(&chunk) {
@@ -113,7 +113,7 @@ impl World {
     scene: &mut Scene<WebGPU>,
     resources: &mut ResourceManager<WebGPU>,
     renderer: &mut WGPURenderer,
-    camera: &RinecraftCamera,
+    camera: &VoxlandCamera,
     target: &TargetStates,
   ) {
     if self.scene_data.is_some() {

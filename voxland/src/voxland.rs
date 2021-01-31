@@ -1,12 +1,12 @@
 use crate::{
   application::{AppRenderCtx, Application},
-  camera::RinecraftCamera,
+  camera::VoxlandCamera,
   camera_controls::{CameraController, CameraControllerType},
   vox::world::World,
   window_event::WindowEventSession,
   window_states::WindowState,
 };
-use crate::{rendering::RinecraftRenderer, util::*};
+use crate::{rendering::VoxlandRenderer, util::*};
 use render_target::{ScreenRenderTarget, TargetInfoProvider};
 use rendiation_math::Mat4;
 use rendiation_render_entity::*;
@@ -15,11 +15,11 @@ use rendiation_webgpu::renderer::SwapChain;
 use rendiation_webgpu::*;
 
 pub struct Voxland {
-  pub window_session: WindowEventSession<RinecraftState>,
-  pub state: RinecraftState,
+  pub window_session: WindowEventSession<VoxlandState>,
+  pub state: VoxlandState,
 }
 
-pub struct RinecraftState {
+pub struct VoxlandState {
   pub window_state: WindowState,
 
   pub world: World,
@@ -28,11 +28,11 @@ pub struct RinecraftState {
 
   pub screen_target: ScreenRenderTarget,
 
-  pub camera: RinecraftCamera,
+  pub camera: VoxlandCamera,
   pub camera_controller: CameraController<Self>,
 
   // pub gui: GUI,
-  pub renderer: RinecraftRenderer,
+  pub renderer: VoxlandRenderer,
 }
 
 impl Application for Voxland {
@@ -59,7 +59,7 @@ impl Application for Voxland {
     // camera_orth.resize((swap_chain.size.0 as f32, swap_chain.size.1 as f32));
 
     let mut perspective_projection = PerspectiveProjection::default();
-    let mut camera = RinecraftCamera::new(&mut resource, swap_chain.size);
+    let mut camera = VoxlandCamera::new(&mut resource, swap_chain.size);
     *camera.camera_mut().matrix_mut() = Mat4::translate(0., 40., 0.);
 
     // let mut camera = Camera::new();
@@ -76,7 +76,7 @@ impl Application for Voxland {
       &screen_target.create_target_states(),
     );
 
-    let mut window_session: WindowEventSession<RinecraftState> = WindowEventSession::new();
+    let mut window_session: WindowEventSession<VoxlandState> = WindowEventSession::new();
 
     window_session.active.resize.on(|event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
@@ -92,7 +92,7 @@ impl Application for Voxland {
     window_session.active.event_cleared.on(|event_ctx| {
       let swap_chain = &mut event_ctx.render_ctx.swap_chain;
       let renderer = &mut event_ctx.render_ctx.renderer;
-      let state: &mut RinecraftState = &mut event_ctx.state;
+      let state: &mut VoxlandState = &mut event_ctx.state;
       let scene = &mut state.scene;
       let resource = &mut state.resource;
 
@@ -116,7 +116,7 @@ impl Application for Voxland {
     // Done
     let mut voxland = Voxland {
       window_session,
-      state: RinecraftState {
+      state: VoxlandState {
         window_state,
         world,
         scene,
@@ -125,7 +125,7 @@ impl Application for Voxland {
         camera_controller: CameraController::new(),
         screen_target,
         // gui,
-        renderer: RinecraftRenderer::new(),
+        renderer: VoxlandRenderer::new(),
       },
     };
 

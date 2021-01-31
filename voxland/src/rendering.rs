@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{camera::RinecraftCamera, voxland::RinecraftState};
+use crate::{camera::VoxlandCamera, voxland::VoxlandState};
 use rendiation_ral::{GeometryHandle, ResourceManager, ShadingHandle, ShadingProvider, RAL};
 use rendiation_render_entity::Camera;
 use rendiation_rendergraph::{
@@ -20,7 +20,7 @@ pub struct EffectConfig {
   enable_grain: bool,
 }
 
-pub struct RinecraftRenderer {
+pub struct VoxlandRenderer {
   cache: HashMap<EffectConfig, RenderGraph<DefaultRenderGraphBackend>>,
   executor: RenderGraphExecutor<DefaultRenderGraphBackend>,
   cached_drawcall_list: SceneDrawcallList<WebGPU>, // if use graph remove in future
@@ -43,7 +43,7 @@ impl SceneRenderSource<WebGPU, DefaultSceneBackend> for DefaultContentProvider {
 impl ContentProvider<DefaultRenderGraphBackend> for DefaultContentProvider {
   fn get_source(
     &mut self,
-    key: RinecraftSourceType,
+    key: VoxlandSourceType,
     _: &RenderTargetPool<DefaultRenderGraphBackend>,
     _: &mut SceneDrawcallList<WebGPU>,
   ) {
@@ -56,18 +56,18 @@ struct DefaultRenderGraphBackend;
 impl RenderGraphBackend for DefaultRenderGraphBackend {
   type Graphics = WebGPU;
   type ContentProviderImpl = DefaultContentProvider;
-  type ContentSourceKey = RinecraftSourceType;
+  type ContentSourceKey = VoxlandSourceType;
   type ContentMiddleKey = ();
   type ContentUnitImpl = SceneDrawcallList<WebGPU>;
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum RinecraftSourceType {
+pub enum VoxlandSourceType {
   Main,
   Copier,
 }
 
-impl RinecraftRenderer {
+impl VoxlandRenderer {
   pub fn new() -> Self {
     Self {
       cache: HashMap::new(),
@@ -100,7 +100,7 @@ impl RinecraftRenderer {
   fn build(config: &EffectConfig) -> RenderGraph<DefaultRenderGraphBackend> {
     let graph = RenderGraph::new();
 
-    let scene_main_content = graph.source(RinecraftSourceType::Main);
+    let scene_main_content = graph.source(VoxlandSourceType::Main);
 
     let scene_pass = graph
       .pass("scene-pass")
@@ -124,7 +124,7 @@ impl RinecraftRenderer {
     &mut self,
     renderer: &mut WGPURenderer,
     scene: &mut Scene<WebGPU>,
-    camera: &RinecraftCamera,
+    camera: &VoxlandCamera,
     resource: &mut ResourceManager<WebGPU>,
     output: &ScreenRenderTargetInstance,
   ) {
