@@ -8,3 +8,5 @@ version = "0.1.0"
 rendiation-math = {path = "../math"}
 rendiation-math-entity = {path = "../math-entity"}
 rendiation-ral = {path = "../ral/core"}
+
+image = "*"

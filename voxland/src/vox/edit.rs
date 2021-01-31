@@ -131,13 +131,12 @@ impl World {
       chunk_key,
       self.world_machine.as_ref(),
     );
-    self
-      .chunks
-      .chunks_to_sync_scene
-      .lock()
-      .unwrap()
-      .insert(chunk_key, g);
-    // World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
+    self.chunks.chunks_to_sync_scene.insert(chunk_key, g);
+    // World::notify_side_chunk_dirty(
+    //   &mut self.chunks.chunks_to_sync_scene,
+    //   chunk_key,
+    //   local_position,
+    // );
   }
 
   pub fn delete_block(&mut self, block_position: BlockWorldCoords) {
@@ -153,12 +152,7 @@ impl World {
       chunk_key,
       self.world_machine.as_ref(),
     );
-    self
-      .chunks
-      .chunks_to_sync_scene
-      .lock()
-      .unwrap()
-      .insert(chunk_key, g);
+    self.chunks.chunks_to_sync_scene.insert(chunk_key, g);
 
     // World::notify_side_chunk_dirty(&mut data.chunks_to_sync_scene, chunk_key, local_position);
   }

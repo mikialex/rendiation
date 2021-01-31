@@ -12,18 +12,14 @@ use std::{
 
 pub struct WorldChunkData {
   pub chunks: Arc<Mutex<HashMap<ChunkCoords, Chunk>>>,
-  pub chunks_in_generating: Arc<Mutex<HashSet<ChunkCoords>>>,
-  pub chunks_in_updating_geometry: Arc<Mutex<HashSet<ChunkCoords>>>,
-  pub chunks_to_sync_scene: Arc<Mutex<HashMap<ChunkCoords, IndexedGeometry>>>,
+  pub chunks_to_sync_scene: HashMap<ChunkCoords, IndexedGeometry>,
 }
 
 impl WorldChunkData {
   pub fn new() -> Self {
     Self {
       chunks: Arc::new(Mutex::new(HashMap::new())),
-      chunks_in_generating: Arc::new(Mutex::new(HashSet::new())),
-      chunks_in_updating_geometry: Arc::new(Mutex::new(HashSet::new())),
-      chunks_to_sync_scene: Arc::new(Mutex::new(HashMap::new())),
+      chunks_to_sync_scene: HashMap::new(),
     }
   }
 

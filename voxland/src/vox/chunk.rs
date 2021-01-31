@@ -25,6 +25,8 @@ pub enum ChunkSide {
 pub type ChunkData = Vec<Vec<Vec<Block>>>;
 
 pub struct Chunk {
+  pub geometry_generated: bool,
+
   pub chunk_position: ChunkCoords,
   pub data: ChunkData,
   pub bounding: BoundingInfo,
@@ -46,16 +48,6 @@ impl PartialEq for Chunk {
 }
 
 impl Eq for Chunk {}
-
-use futures::*;
-
-pub fn gen_chunk(
-  chunk_position: ChunkCoords,
-  world_machine: Arc<WorldMachine>,
-) -> impl Future<Output = Chunk> {
-  tokio::task::spawn_blocking(move || Chunk::new(chunk_position, world_machine.as_ref()))
-    .map(|r| r.unwrap())
-}
 
 impl Chunk {
   pub fn new(chunk_position: ChunkCoords, world_machine: &WorldMachine) -> Self {
@@ -89,6 +81,7 @@ impl Chunk {
     let bounding = BoundingInfo::new_from_box(Box3::new3(min, max));
 
     Chunk {
+      geometry_generated: false,
       chunk_position,
       data: x_row,
       bounding,

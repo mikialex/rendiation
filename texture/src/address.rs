@@ -1,10 +1,10 @@
-use rendiation_math::{Scalar, Vec2};
+use rendiation_math::Scalar;
 use rendiation_ral::AddressMode;
 
 /// How edges should be handled in texture addressing.
 pub trait TextureAddressMode {
   /// correct uv to [1, 1]
-  fn correct<T: Scalar>(uv: Vec2<T>) -> Vec2<T>;
+  fn correct<T: Scalar>(uv: T) -> T;
 }
 
 pub trait RALAddressMode {
@@ -20,9 +20,15 @@ impl RALAddressMode for ClampToEdge {
   const ENUM: AddressMode = AddressMode::ClampToEdge;
 }
 impl TextureAddressMode for ClampToEdge {
-  fn correct<T: Scalar>(uv: Vec2<T>) -> Vec2<T> {
-    uv.map(|c| c.max(T::zero()).min(T::one()))
+  fn correct<T: Scalar>(uv: T) -> T {
+    uv.max(T::zero()).min(T::one())
   }
+}
+
+#[test]
+fn clamp() {
+  assert_eq!(ClampToEdge::correct(-0.25), 0.0);
+  assert_eq!(ClampToEdge::correct(1.25), 1.0);
 }
 
 /// Repeat the texture in a tiling fashion
@@ -34,10 +40,15 @@ impl RALAddressMode for Repeat {
   const ENUM: AddressMode = AddressMode::Repeat;
 }
 impl TextureAddressMode for Repeat {
-  fn correct<T: Scalar>(uv: Vec2<T>) -> Vec2<T> {
-    todo!()
-    // uv.map(|c| c % T::one())
+  fn correct<T: Scalar>(uv: T) -> T {
+    uv % T::one()
   }
+}
+
+#[test]
+fn repeat() {
+  assert_eq!(Repeat::correct(-0.25), 0.75);
+  assert_eq!(Repeat::correct(1.25), 0.25);
 }
 
 /// Repeat the texture, mirroring it every repeat
@@ -49,7 +60,13 @@ impl RALAddressMode for MirrorRepeat {
   const ENUM: AddressMode = AddressMode::MirrorRepeat;
 }
 impl TextureAddressMode for MirrorRepeat {
-  fn correct<T: Scalar>(uv: Vec2<T>) -> Vec2<T> {
+  fn correct<T: Scalar>(_uv: T) -> T {
     todo!()
   }
+}
+
+#[test]
+fn mirror_repeat() {
+  assert_eq!(MirrorRepeat::correct(-0.25), 0.25);
+  assert_eq!(MirrorRepeat::correct(1.25), 0.75);
 }

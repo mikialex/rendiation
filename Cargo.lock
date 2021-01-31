@@ -2220,6 +2220,7 @@ dependencies = [
 name = "rendiation-texture"
 version = "0.1.0"
 dependencies = [
+ "image 0.18.0",
  "rendiation-math",
  "rendiation-math-entity",
  "rendiation-ral",
