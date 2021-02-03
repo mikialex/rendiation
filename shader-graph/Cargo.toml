@@ -7,6 +7,6 @@ version = "0.1.0"
 [dependencies]
 arena-graph = {path = "../utils/arena-graph"}
 lazy_static = "1.4.0"
-naga = {git = "https://github.com/gfx-rs/naga.git", rev = "2b268c926c6dff5e366226a9502c06725107489d", features = ["glsl-in", "glsl-out", "spv-out"]}
+naga = {version = "0.3.1", features = ["glsl-in", "glsl-out", "spv-out"]}
 rendiation-math = {path = "../math"}
 rendiation-ral = {path = "../ral/core"}

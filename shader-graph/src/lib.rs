@@ -90,8 +90,18 @@ impl ShaderGraph {
     let vertex = self.gen_code_vertex();
     let frag = self.gen_code_frag();
 
-    let naga_vertex_ir = naga::front::glsl::parse_str(&vertex, "main", naga::ShaderStage::Vertex);
-    let naga_frag_ir = naga::front::glsl::parse_str(&frag, "main", naga::ShaderStage::Fragment);
+    let naga_vertex_ir = naga::front::glsl::parse_str(
+      &vertex,
+      "main",
+      naga::ShaderStage::Vertex,
+      HashMap::default(),
+    );
+    let naga_frag_ir = naga::front::glsl::parse_str(
+      &frag,
+      "main",
+      naga::ShaderStage::Fragment,
+      HashMap::default(),
+    );
     if naga_vertex_ir.is_err() {
       println!("{:?}", naga_vertex_ir);
       println!("{:}", vertex);
