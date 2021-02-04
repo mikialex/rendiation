@@ -36,7 +36,7 @@ where
   }
 
   fn size(&self) -> Vec2<usize> {
-    let d = self.dimensions().into();
+    let d = self.dimensions();
     (d.0 as usize, d.1 as usize).into()
   }
 }
