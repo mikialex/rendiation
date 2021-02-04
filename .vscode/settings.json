@@ -27,6 +27,7 @@
         "SRGB",
         "SceneDrawcall",
         "Slerp",
+        "Subpixel",
         "Tessellator",
         "Texel",
         "Uint",
