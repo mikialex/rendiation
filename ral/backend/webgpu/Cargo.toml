@@ -1,20 +1,20 @@
 [package]
-name = "rendiation-webgpu"
-version = "0.1.0"
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
+name = "rendiation-webgpu"
+version = "0.1.0"
 
 [features]
 glsl-spirv = ["glsl-to-spirv"]
 shadergraph = ["rendiation-shadergraph"]
 
 [dependencies]
-wgpu = "0.6.2"
 glsl-to-spirv = {version = "0.1", optional = true}
+wgpu = "0.7.0"
 
-rendiation-math = { path = "../../../math" }
-rendiation-math-entity = { path = "../../../math-entity" }
-rendiation-render-entity = { path = "../../../render-entity" }
+rendiation-math = {path = "../../../math"}
+rendiation-math-entity = {path = "../../../math-entity"}
+rendiation-render-entity = {path = "../../../render-entity"}
 
-rendiation-ral = { path = "../../core" }
+rendiation-ral = {path = "../../core"}
 rendiation-shadergraph = {path = "../../../shader-graph", optional = true}
