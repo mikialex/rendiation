@@ -47,7 +47,7 @@
 //     .geometry::<IndexedGeometry>()
 //     .binding_group::<CopyShadingParam>()
 //     .target_states(target.create_target_states().as_mut().first_color(|s| {
-//       s.color_blend(wgpu::BlendDescriptor {
+//       s.color_blend(wgpu::BlendState {
 //         src_factor: BlendFactor::SrcAlpha,
 //         dst_factor: BlendFactor::OneMinusSrcAlpha,
 //         operation: BlendOperation::Add,

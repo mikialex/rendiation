@@ -21,22 +21,19 @@ impl ScreenRenderTarget {
 
 impl TargetInfoProvider for ScreenRenderTarget {
   fn create_target_states(&self) -> TargetStates {
-    let color_states = vec![wgpu::ColorStateDescriptor {
+    let color_states = vec![wgpu::ColorTargetState {
       format: self.swap_chain_format,
-      color_blend: wgpu::BlendDescriptor::REPLACE,
-      alpha_blend: wgpu::BlendDescriptor::REPLACE,
+      color_blend: wgpu::BlendState::REPLACE,
+      alpha_blend: wgpu::BlendState::REPLACE,
       write_mask: wgpu::ColorWrite::ALL,
     }];
 
-    let depth_state = self
-      .depth
-      .as_ref()
-      .map(|d| wgpu::DepthStencilStateDescriptor {
-        format: *d.format(),
-        depth_write_enabled: true,
-        depth_compare: wgpu::CompareFunction::LessEqual,
-        stencil: wgpu::StencilStateDescriptor::default(),
-      });
+    let depth_state = self.depth.as_ref().map(|d| wgpu::DepthStencilState {
+      format: *d.format(),
+      depth_write_enabled: true,
+      depth_compare: wgpu::CompareFunction::LessEqual,
+      stencil: wgpu::StencilStateDescriptor::default(),
+    });
 
     TargetStates {
       color_states,

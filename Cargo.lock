@@ -2243,7 +2243,7 @@ name = "rendiation-ral"
 version = "0.1.0"
 dependencies = [
  "arena",
- "wgpu-types 0.6.1",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -3065,7 +3065,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "wgpu-core",
- "wgpu-types 0.7.0",
+ "wgpu-types",
 ]
 
 [[package]]
@@ -3094,16 +3094,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tracing",
- "wgpu-types 0.7.0",
-]
-
-[[package]]
-name = "wgpu-types"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e3529528e608b54838ee618c3923b0f46e6db0334cfc6c42a16cf4ceb3bdb57"
-dependencies = [
- "bitflags",
+ "wgpu-types",
 ]
 
 [[package]]

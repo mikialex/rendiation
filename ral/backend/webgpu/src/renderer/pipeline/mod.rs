@@ -109,7 +109,7 @@ fn merge_state(preferred: &TargetStates, input: &RenderTargetFormatsInfo) -> Tar
     if let Some(result_depth) = &mut result.depth_state {
       result_depth.format = format;
     } else {
-      result.depth_state = Some(wgpu::DepthStencilStateDescriptor {
+      result.depth_state = Some(wgpu::DepthStencilState {
         format,
         depth_write_enabled: true,
         depth_compare: wgpu::CompareFunction::LessEqual,

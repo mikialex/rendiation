@@ -6,32 +6,36 @@ pub struct RenderTargetFormatsInfo {
   pub depth: Option<TextureFormat>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq)]
 pub struct TargetStates {
-  pub color_states: Vec<ColorStateDescriptor>,
-  pub depth_state: Option<DepthStencilStateDescriptor>,
+  pub color_states: Vec<ColorTargetState>,
+  pub depth_state: Option<DepthStencilState>,
 }
 
-pub struct ColorStateModifier<'a> {
-  state: &'a mut ColorStateDescriptor,
+pub struct ColorTargetStateModifier<'a> {
+  state: &'a mut ColorTargetState,
 }
 
-impl<'a> ColorStateModifier<'a> {
-  pub fn color_blend(&mut self, blend: BlendDescriptor) {
+impl<'a> ColorTargetStateModifier<'a> {
+  pub fn color_blend(&mut self, blend: BlendState) {
     self.state.color_blend = blend;
   }
 }
 
 impl TargetStates {
-  pub fn nth_color(&mut self, i: usize, visitor: impl Fn(&mut ColorStateModifier)) -> &mut Self {
-    let mut modifier = ColorStateModifier {
+  pub fn nth_color(
+    &mut self,
+    i: usize,
+    visitor: impl Fn(&mut ColorTargetStateModifier),
+  ) -> &mut Self {
+    let mut modifier = ColorTargetStateModifier {
       state: &mut self.color_states[i],
     };
     visitor(&mut modifier);
     self
   }
 
-  pub fn first_color(&mut self, visitor: impl Fn(&mut ColorStateModifier)) -> &mut Self {
+  pub fn first_color(&mut self, visitor: impl Fn(&mut ColorTargetStateModifier)) -> &mut Self {
     self.nth_color(0, visitor)
   }
 }
@@ -39,10 +43,10 @@ impl TargetStates {
 impl Default for TargetStates {
   fn default() -> Self {
     Self {
-      color_states: vec![ColorStateDescriptor {
+      color_states: vec![ColorTargetState {
         format: TextureFormat::Rgba8UnormSrgb,
-        color_blend: BlendDescriptor::REPLACE,
-        alpha_blend: BlendDescriptor::REPLACE,
+        color_blend: BlendState::REPLACE,
+        alpha_blend: BlendState::REPLACE,
         write_mask: ColorWrite::ALL,
       }],
       depth_state: None,
