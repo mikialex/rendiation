@@ -14,7 +14,6 @@ pub use shader_info::*;
 pub use target_state::*;
 pub use viewport::*;
 pub use wgpu_reexport::*;
-use wgpu_types::{TextureComponentType, TextureViewDimension};
 
 pub trait RAL: 'static + Sized {
   type RenderTarget;
@@ -131,7 +130,10 @@ impl BindGroupLayoutEntryProvider for ShaderSampler {
     BindGroupLayoutEntry {
       binding,
       visibility,
-      ty: BindingType::Sampler { comparison: false },
+      ty: BindingType::Sampler {
+        comparison: false,
+        filtering: true,
+      },
       count: None,
     }
   }
