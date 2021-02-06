@@ -76,12 +76,12 @@ pub struct ShaderTexture;
 
 /// should impl for vertex that geometry used
 pub trait VertexBufferDescriptorProvider {
-  const DESCRIPTOR: VertexBufferDescriptor<'static>;
+  const DESCRIPTOR: VertexBufferLayout<'static>;
 }
 
 /// should impl for geometry
 pub trait VertexStateDescriptorProvider {
-  fn create_descriptor() -> VertexStateDescriptor<'static>;
+  fn create_descriptor() -> Vec<VertexBufferLayout<'static>>;
 }
 
 pub trait GeometryDescriptorProvider: VertexStateDescriptorProvider {
@@ -101,9 +101,10 @@ impl<T: UBOData> BindGroupLayoutEntryProvider for T {
     BindGroupLayoutEntry {
       binding,
       visibility,
-      ty: BindingType::UniformBuffer {
-        dynamic: false,
+      ty: BindingType::Buffer {
         min_binding_size: None, // todo investigate
+        ty: BufferBindingType::Uniform,
+        has_dynamic_offset: false,
       },
       count: None,
     }
@@ -115,10 +116,10 @@ impl BindGroupLayoutEntryProvider for ShaderTexture {
     BindGroupLayoutEntry {
       binding,
       visibility,
-      ty: BindingType::SampledTexture {
+      ty: BindingType::Texture {
         multisampled: false,
-        component_type: TextureComponentType::Float,
-        dimension: TextureViewDimension::D2,
+        sample_type: TextureSampleType::Float { filterable: true },
+        view_dimension: TextureViewDimension::D2,
       },
       count: None,
     }

@@ -96,24 +96,29 @@ impl PipelineBuilder {
       label: None,
       layout: Some(&pipeline_layout),
 
-      vertex_stage: wgpu::ProgrammableStageDescriptor {
-        module: &vs_module,
-        entry_point: "main",
-      },
-      fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-        module: &fs_module,
-        entry_point: "main",
-      }),
+      // vertex_stage: wgpu::ProgrammableStageDescriptor {
+      //   module: &vs_module,
+      //   entry_point: "main",
+      // },
+      // fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+      //   module: &fs_module,
+      //   entry_point: "main",
+      // }),
 
-      color_states: &self.target_states.color_states,
-      depth_stencil_state: self.target_states.depth_state.to_owned(),
+      // color_states: &self.target_states.color_states,
+      // depth_stencil_state: self.target_states.depth_state.to_owned(),
 
-      primitive_topology: self.shader_interface_info.primitive_topology,
-      vertex_state: wgpu_vertex_state,
-      sample_count: 1,
-      sample_mask: !0,
-      alpha_to_coverage_enabled: false,
-      rasterization_state: Some(self.rasterization.clone()),
+      // primitive_topology: self.shader_interface_info.primitive_topology,
+      // vertex_state: wgpu_vertex_state,
+      // sample_count: 1,
+      // sample_mask: !0,
+      // alpha_to_coverage_enabled: false,
+      // rasterization_state: Some(self.rasterization.clone()),
+      vertex: (),
+      primitive: (),
+      depth_stencil: (),
+      multisample: (),
+      fragment: Some(FragmentState {}),
     };
 
     device.create_render_pipeline(&pipeline_des)

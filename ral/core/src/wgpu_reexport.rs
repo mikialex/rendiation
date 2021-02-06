@@ -1,8 +1,8 @@
 pub use wgpu_types::{
   AddressMode, BindGroupLayoutEntry, BindingType, BlendFactor, BlendOperation, BlendState,
-  ColorTargetState, ColorWrite, CullMode, DepthStencilState, FrontFace, IndexFormat, InputStepMode,
-  PrimitiveState, PrimitiveTopology, ShaderLocation, ShaderStage, StencilState, TextureFormat,
-  VertexAttribute, VertexFormat,
+  BufferBindingType, ColorTargetState, ColorWrite, CullMode, DepthStencilState, FrontFace,
+  IndexFormat, InputStepMode, PrimitiveState, PrimitiveTopology, ShaderLocation, ShaderStage,
+  StencilState, TextureFormat, TextureSampleType, VertexAttribute, VertexFormat,
 };
 
 /// Describes how the vertex buffer is interpreted.
