@@ -4,7 +4,7 @@ use crate::*;
 #[derive(Clone)]
 pub struct PipelineShaderInterfaceInfo {
   pub bindgroup_layouts: Vec<Vec<BindGroupLayoutEntry>>,
-  pub vertex_state: Option<VertexStateDescriptor<'static>>,
+  pub vertex_state: Option<Vec<VertexBufferLayout<'static>>>,
   pub primitive_topology: PrimitiveTopology,
   pub preferred_target_states: TargetStates,
 }

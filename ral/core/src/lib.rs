@@ -51,7 +51,7 @@ pub trait RAL: 'static + Sized {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    layout: VertexBufferDescriptor<'static>,
+    layout: VertexBufferLayout<'static>,
   ) -> Self::VertexBuffer;
   fn dispose_vertex_buffer(renderer: &mut Self::Renderer, buffer: Self::VertexBuffer);
 

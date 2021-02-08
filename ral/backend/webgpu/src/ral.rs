@@ -67,7 +67,7 @@ impl RAL for WebGPU {
   fn create_vertex_buffer(
     renderer: &mut Self::Renderer,
     data: &[u8],
-    _layout: rendiation_ral::VertexBufferDescriptor<'static>, // so can we use this to add additional runtime check?
+    _layout: rendiation_ral::VertexBufferLayout<'static>, // so can we use this to add additional runtime check?
   ) -> Self::VertexBuffer {
     WGPUBuffer::new(renderer, data, wgpu::BufferUsage::VERTEX)
   }

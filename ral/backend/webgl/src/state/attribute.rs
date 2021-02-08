@@ -4,7 +4,7 @@ use web_sys::*;
 
 pub struct WebGLVertexBuffer {
   pub buffer: WebGlBuffer,
-  pub layout: VertexBufferDescriptor<'static>,
+  pub layout: VertexBufferLayout<'static>,
   // todo use small vec opt
   // todo optional VAO
 }
@@ -106,7 +106,7 @@ impl WebGLRenderer {
         format_to_webgl_data_size(b.format),
         format_to_webgl_data_type(b.format),
         false,
-        vertex_buffer.layout.stride as i32,
+        vertex_buffer.layout.array_stride as i32,
         b.offset as i32,
       );
     });

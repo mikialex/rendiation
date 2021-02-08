@@ -33,6 +33,8 @@ impl TargetInfoProvider for ScreenRenderTarget {
       depth_write_enabled: true,
       depth_compare: wgpu::CompareFunction::LessEqual,
       stencil: wgpu::StencilStateDescriptor::default(),
+      bias: wgpu::DepthBiasState::default,
+      clamp_depth: false,
     });
 
     TargetStates {

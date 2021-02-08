@@ -1,5 +1,5 @@
 use crate::{WebGLRenderer, WebGLVertexBuffer};
-use rendiation_ral::VertexBufferDescriptor;
+use rendiation_ral::VertexBufferLayout;
 use web_sys::*;
 
 // UBO
@@ -32,7 +32,7 @@ impl WebGLRenderer {
   pub fn create_vertex_buffer(
     &self,
     data: &[u8],
-    layout: VertexBufferDescriptor<'static>,
+    layout: VertexBufferLayout<'static>,
   ) -> WebGLVertexBuffer {
     let buffer = self
       .gl
