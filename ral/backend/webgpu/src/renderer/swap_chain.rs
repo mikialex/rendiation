@@ -10,7 +10,7 @@ pub struct SwapChain {
 impl SwapChain {
   pub fn new(surface: wgpu::Surface, size: (usize, usize), renderer: &WGPURenderer) -> Self {
     let swap_chain_descriptor = wgpu::SwapChainDescriptor {
-      usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+      usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
       format: renderer.swap_chain_format,
       width: size.0 as u32,
       height: size.1 as u32,

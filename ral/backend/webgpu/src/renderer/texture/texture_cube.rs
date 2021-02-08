@@ -26,7 +26,7 @@ impl WGPUTextureCube {
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
       format: wgpu::TextureFormat::Rgba8UnormSrgb,
-      usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+      usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
     };
     let gpu_texture = renderer.device.create_texture(&descriptor);
     let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());

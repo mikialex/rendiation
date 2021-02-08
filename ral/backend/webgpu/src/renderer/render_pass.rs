@@ -143,6 +143,7 @@ impl<'a> WGPURenderPassBuilder<'a> {
       .begin_render_pass(&wgpu::RenderPassDescriptor {
         color_attachments: &self.attachments,
         depth_stencil_attachment: self.depth,
+        label: None,
       });
 
     WGPURenderPass {

@@ -28,7 +28,7 @@ impl WGPUTexture {
       sample_count: 1,
       dimension: TextureSize2D::WGPU_CONST,
       format,
-      usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+      usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
     };
     let depth_texture = renderer.device.create_texture(&descriptor);
     let view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -60,7 +60,7 @@ impl WGPUTexture {
       format: format.get_wgpu_format(),
       usage: wgpu::TextureUsage::SAMPLED
         | wgpu::TextureUsage::COPY_DST
-        | wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        | wgpu::TextureUsage::RENDER_ATTACHMENT,
     };
     let gpu_texture = renderer.device.create_texture(&descriptor);
     let view = gpu_texture.create_view(&wgpu::TextureViewDescriptor::default());

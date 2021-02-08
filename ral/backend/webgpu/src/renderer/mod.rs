@@ -54,7 +54,7 @@ impl WGPURenderer {
   pub async fn new(instance: wgpu::Instance, surface: &wgpu::Surface) -> Self {
     let adapter = instance
       .request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::Default,
+        power_preference: wgpu::PowerPreference::default(),
         compatible_surface: Some(surface),
       })
       .await
