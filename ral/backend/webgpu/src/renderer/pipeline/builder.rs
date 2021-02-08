@@ -8,7 +8,7 @@ pub struct PipelineBuilder {
   frag_shader: Vec<u32>,
   pub shader_interface_info: PipelineShaderInterfaceInfo,
   pub target_states: TargetStates,
-  pub rasterization: wgpu::RasterizationStateDescriptor,
+  pub rasterization: wgpu::PrimitiveState,
 }
 
 impl AsMut<Self> for PipelineBuilder {
@@ -27,13 +27,12 @@ impl PipelineBuilder {
       vertex_shader: vertex_shader.clone(),
       frag_shader: frag_shader.clone(),
       shader_interface_info,
-      rasterization: wgpu::RasterizationStateDescriptor {
+      rasterization: wgpu::PrimitiveState {
         front_face: wgpu::FrontFace::Ccw,
         cull_mode: wgpu::CullMode::None,
-        depth_bias: 0,
-        depth_bias_slope_scale: 0.0,
-        depth_bias_clamp: 0.0,
-        clamp_depth: false,
+        topology: (),
+        strip_index_format: (),
+        polygon_mode: wgpu::PolygonMode::Fill,
       },
       target_states: TargetStates::default(),
     }
@@ -60,10 +59,20 @@ impl PipelineBuilder {
     });
 
     // Create the render pipeline
-    let vs_module_source = wgpu::ShaderModuleSource::SpirV(Cow::Borrowed(&self.vertex_shader));
-    let fs_module_source = wgpu::ShaderModuleSource::SpirV(Cow::Borrowed(&self.frag_shader));
-    let vs_module = device.create_shader_module(vs_module_source);
-    let fs_module = device.create_shader_module(fs_module_source);
+    let vs_module_source = wgpu::ShaderSource::SpirV(Cow::Borrowed(&self.vertex_shader));
+    let fs_module_source = wgpu::ShaderSource::SpirV(Cow::Borrowed(&self.frag_shader));
+    let vs = wgpu::ShaderModuleDescriptor {
+      label: None,
+      source: vs_module_source,
+      flags: wgpu::ShaderFlags::empty(),
+    };
+    let fs = wgpu::ShaderModuleDescriptor {
+      label: None,
+      source: fs_module_source,
+      flags: wgpu::ShaderFlags::empty(),
+    };
+    let vs_module = device.create_shader_module(&vs);
+    let fs_module = device.create_shader_module(&fs);
 
     // because of VertexBufferDescriptor stuff not included in ral core, we should do an conversion
     let vertex_buffer_des: Vec<wgpu::VertexBufferDescriptor> = self
