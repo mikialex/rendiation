@@ -68,62 +68,64 @@ impl PipelineBuilder {
     let vs_module = device.create_shader_module(&vs);
     let fs_module = device.create_shader_module(&fs);
 
-    // because of VertexBufferDescriptor stuff not included in ral core, we should do an conversion
-    let vertex_buffer_des: Vec<wgpu::VertexBufferDescriptor> = self
-      .shader_interface_info
-      .vertex_state
-      .to_owned()
-      .map(|d| {
-        d.vertex_buffers
-          .iter()
-          .map(|de| wgpu::VertexBufferDescriptor {
-            stride: de.stride,
-            step_mode: de.step_mode,
-            attributes: de.attributes,
-          })
-          .collect()
-      })
-      .unwrap();
+    todo!()
 
-    let wgpu_vertex_state = self
-      .shader_interface_info
-      .vertex_state
-      .to_owned()
-      .map(|d| wgpu::VertexStateDescriptor {
-        index_format: d.index_format,
-        vertex_buffers: &vertex_buffer_des,
-      })
-      .unwrap();
+    // // because of VertexBufferDescriptor stuff not included in ral core, we should do an conversion
+    // let vertex_buffer_des: Vec<wgpu::VertexBufferDescriptor> = self
+    //   .shader_interface_info
+    //   .vertex_state
+    //   .to_owned()
+    //   .map(|d| {
+    //     d.vertex_buffers
+    //       .iter()
+    //       .map(|de| wgpu::VertexBufferDescriptor {
+    //         stride: de.stride,
+    //         step_mode: de.step_mode,
+    //         attributes: de.attributes,
+    //       })
+    //       .collect()
+    //   })
+    //   .unwrap();
 
-    let pipeline_des = wgpu::RenderPipelineDescriptor {
-      label: None,
-      layout: Some(&pipeline_layout),
+    // let wgpu_vertex_state = self
+    //   .shader_interface_info
+    //   .vertex_state
+    //   .to_owned()
+    //   .map(|d| wgpu::VertexStateDescriptor {
+    //     index_format: d.index_format,
+    //     vertex_buffers: &vertex_buffer_des,
+    //   })
+    //   .unwrap();
 
-      // vertex_stage: wgpu::ProgrammableStageDescriptor {
-      //   module: &vs_module,
-      //   entry_point: "main",
-      // },
-      // fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-      //   module: &fs_module,
-      //   entry_point: "main",
-      // }),
+    // let pipeline_des = wgpu::RenderPipelineDescriptor {
+    //   label: None,
+    //   layout: Some(&pipeline_layout),
 
-      // color_states: &self.target_states.color_states,
-      // depth_stencil_state: self.target_states.depth_state.to_owned(),
+    //   // vertex_stage: wgpu::ProgrammableStageDescriptor {
+    //   //   module: &vs_module,
+    //   //   entry_point: "main",
+    //   // },
+    //   // fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+    //   //   module: &fs_module,
+    //   //   entry_point: "main",
+    //   // }),
 
-      // primitive_topology: self.shader_interface_info.primitive_topology,
-      // vertex_state: wgpu_vertex_state,
-      // sample_count: 1,
-      // sample_mask: !0,
-      // alpha_to_coverage_enabled: false,
-      // rasterization_state: Some(self.rasterization.clone()),
-      vertex: (),
-      primitive: (),
-      depth_stencil: (),
-      multisample: (),
-      fragment: Some(FragmentState {}),
-    };
+    //   // color_states: &self.target_states.color_states,
+    //   // depth_stencil_state: self.target_states.depth_state.to_owned(),
 
-    device.create_render_pipeline(&pipeline_des)
+    //   // primitive_topology: self.shader_interface_info.primitive_topology,
+    //   // vertex_state: wgpu_vertex_state,
+    //   // sample_count: 1,
+    //   // sample_mask: !0,
+    //   // alpha_to_coverage_enabled: false,
+    //   // rasterization_state: Some(self.rasterization.clone()),
+    //   vertex: (),
+    //   primitive: (),
+    //   depth_stencil: (),
+    //   multisample: (),
+    //   fragment: Some(FragmentState {}),
+    // };
+
+    // device.create_render_pipeline(&pipeline_des)
   }
 }

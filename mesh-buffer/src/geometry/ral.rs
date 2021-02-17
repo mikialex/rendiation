@@ -72,11 +72,12 @@ where
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
-  fn create_descriptor() -> VertexStateDescriptor<'static> {
-    VertexStateDescriptor {
-      index_format: IndexFormat::Uint16,
-      vertex_buffers: &[V::DESCRIPTOR],
-    }
+  fn create_descriptor() -> Vec<VertexBufferLayout<'static>> {
+    todo!()
+    // VertexStateDescriptor {
+    //   index_format: IndexFormat::Uint16,
+    //   vertex_buffers: &[V::DESCRIPTOR],
+    // }
   }
 }
 

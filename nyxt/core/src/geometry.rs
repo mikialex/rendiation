@@ -1,7 +1,6 @@
 use rendiation_mesh_buffer::vertex::Vertex;
 use rendiation_ral::{
-  GeometryResourceInstance, IndexBufferHandle, InputStepMode, VertexAttributeDescriptor,
-  VertexBufferDescriptor, VertexBufferHandle, VertexFormat, RAL,
+  GeometryResourceInstance, IndexBufferHandle, InputStepMode, VertexBufferHandle, VertexFormat, RAL,
 };
 use wasm_bindgen::prelude::*;
 
@@ -105,20 +104,21 @@ impl VertexBufferWASM {
   #[wasm_bindgen(constructor)]
   pub fn new(viewer: &mut NyxtViewer, buffer: &AttributeBufferF32WASM) -> Self {
     let handle = viewer.mutate_inner(|inner| {
-      let buffer = GFX::create_vertex_buffer(
-        &mut inner.renderer,
-        bytemuck::cast_slice(buffer.buffer.as_slice()),
-        VertexBufferDescriptor {
-          stride: 4,
-          step_mode: InputStepMode::Vertex,
-          attributes: &[VertexAttributeDescriptor {
-            shader_location: 0,
-            offset: 0,
-            format: VertexFormat::Float,
-          }],
-        },
-      );
-      inner.resource.add_vertex_buffer(buffer).index()
+      todo!();
+      // let buffer = GFX::create_vertex_buffer(
+      //   &mut inner.renderer,
+      //   bytemuck::cast_slice(buffer.buffer.as_slice()),
+      //   VertexBufferDescriptor {
+      //     stride: 4,
+      //     step_mode: InputStepMode::Vertex,
+      //     attributes: &[VertexAttributeDescriptor {
+      //       shader_location: 0,
+      //       offset: 0,
+      //       format: VertexFormat::Float,
+      //     }],
+      //   },
+      // );
+      // inner.resource.add_vertex_buffer(buffer).index()
     });
     Self {
       inner: viewer.make_handle_object(VertexBufferHandleWrap(handle)),
