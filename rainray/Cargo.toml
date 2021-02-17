@@ -14,6 +14,5 @@ tobj = "2.0.3"
 arena-tree = {path = "../utils/arena-tree"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-geometry = {path = "../math/geometry"}
-rendiation-mesh-buffer = {path = "../mesh-buffer"}
-rendiation-render-entity = {path = "../render-entity"}
-space-indexer = {path = "../space-indexer"}
+rendiation-renderable-mesh = {path = "../mesh/renderable"}
+space-algorithm = {path = "../space-algorithm"}

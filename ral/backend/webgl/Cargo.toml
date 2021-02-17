@@ -11,7 +11,7 @@ shadergraph = ["rendiation-shadergraph"]
 js-sys = "0.3.45"
 wasm-bindgen = {version = "0.2.68"}
 
-rendiation-math = {path = "../../../math"}
+rendiation-algebra = {path = "../../../math/algebra"}
 rendiation-ral = {path = "../../core"}
 rendiation-shadergraph = {path = "../../../shader-graph", optional = true}
 

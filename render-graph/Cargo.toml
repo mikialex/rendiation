@@ -1,15 +1,15 @@
 [package]
+edition = "2018"
 name = "rendiation-rendergraph"
 version = "0.0.1"
-edition = "2018"
 
 [dependencies]
-arena-graph = { path = "../utils/arena-graph" }
-rendiation-math = { path = "../math" }
-rendiation-render-entity = { path = "../render-entity" }
-rendiation-mesh-buffer = { path = "../mesh-buffer" }
-rendiation-webgpu = { path = "../ral/backend/webgpu", optional = true}
+arena-graph = {path = "../utils/arena-graph"}
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-geometry = {path = "../math/geometry"}
 rendiation-ral = {path = "../ral/core"}
+rendiation-renderable-mesh = {path = "../mesh/renderable"}
+rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
 
 [features]
 webgpu = ["rendiation-webgpu"]

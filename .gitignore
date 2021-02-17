@@ -1,6 +1,6 @@
 /target
 **/*.rs.bk
 
-space-indexer/target
+space-algorithm/target
 
 **/*.DS_Store

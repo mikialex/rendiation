@@ -12,9 +12,8 @@ shadergraph = ["rendiation-shadergraph"]
 glsl-to-spirv = {version = "0.1", optional = true}
 wgpu = "0.7.0"
 
-rendiation-math = {path = "../../../math"}
-rendiation-math-entity = {path = "../../../math-entity"}
-rendiation-render-entity = {path = "../../../render-entity"}
+rendiation-algebra = {path = "../../../math/algebra"}
+rendiation-geometry = {path = "../../../math/geometry"}
 
 rendiation-ral = {path = "../../core"}
 rendiation-shadergraph = {path = "../../../shader-graph", optional = true}

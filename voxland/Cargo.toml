@@ -19,13 +19,12 @@ winit = "0.22.2"
 
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-geometry = {path = "../math/geometry"}
-rendiation-mesh-buffer = {path = "../mesh-buffer", features = ["shadergraph"]}
-rendiation-render-entity = {path = "../render-entity"}
+rendiation-renderable-mesh = {path = "../mesh/renderable", features = ["shadergraph"]}
 rendiation-webgl = {path = "../ral/backend/webgl"}
 rendiation-webgpu = {path = "../ral/backend/webgpu", features = ["shadergraph", "glsl-to-spirv"]}
 
 rendiation-rendergraph = {path = "../render-graph", features = ["webgpu"]}
-rendiation-scenegraph = {path = "../scene-graph", features = ["rendergraph", "webgpu"]}
+rendiation-scenegraph = {path = "../scene", features = ["rendergraph", "webgpu"]}
 
 arena = {path = "../utils/arena"}
 once_cell = "1.4.0"

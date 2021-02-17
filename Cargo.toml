@@ -16,8 +16,6 @@ members = [
   "shader-library",
   "scene",
   "derives",
-  "nyxt/viewer",
-  "nyxt/core",
   "rendium",
   "voxland",
   "rainray",

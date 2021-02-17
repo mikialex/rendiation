@@ -1,20 +1,20 @@
 [package]
-name = "space-indexer"
-version = "0.1.0"
 authors = ["MikiAlex <18516340862@163.com>"]
 edition = "2018"
+name = "space-algorithm"
+version = "0.1.0"
 
 [dev-dependencies]
 criterion = "0.3"
 
 [[bench]]
-name = "bvh"
 harness = false
+name = "bvh"
 
 [dependencies]
 
-rendiation-math = { path = "../math" }
-rendiation-math-entity = { path = "../math-entity" }
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-geometry = {path = "../math/geometry"}
 
-rand = {version = "0.7.3", features = ["wasm-bindgen"]}
 log = "0.4"
+rand = {version = "0.7.3", features = ["wasm-bindgen"]}

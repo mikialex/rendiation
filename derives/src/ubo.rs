@@ -7,69 +7,7 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_ubo_shadergraph_instance(&s));
   generated.append_all(derive_ubo_webgl_upload_instance(&s));
-  generated.append_all(derive_ubo_nyxt_wasm_instance_impl(&s));
   generated
-}
-
-fn derive_ubo_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::TokenStream {
-  let struct_name = &s.struct_name;
-  let instance_name = format_ident!("{}WASM", struct_name);
-
-  let fields_wasm_getter_setter = s.map_fields(|(field_name, ty)| {
-    let getter_name = format_ident!("get_{}", field_name);
-    let setter_name = format_ident!("set_{}", field_name);
-    quote! {
-      #[wasm_bindgen(getter)]
-      pub fn #getter_name(&self) -> <#ty as rendiation_math::WASMAbleType>::Type {
-        self.inner.mutate_item(|d| d.#field_name).to_wasm()
-      }
-      #[wasm_bindgen(setter)]
-      pub fn #setter_name(&mut self, value: <#ty as rendiation_math::WASMAbleType>::Type) {
-        self.inner.mutate_item(|d| d.#field_name = rendiation_math::WASMAbleType::from_wasm(value))
-      }
-    }
-  });
-
-  quote! {
-    #[cfg(feature = "nyxt")]
-    use wasm_bindgen::prelude::*;
-
-    #[cfg(feature = "nyxt")]
-    #[wasm_bindgen]
-    #[derive(Clone)]
-    pub struct #instance_name {
-      #[wasm_bindgen(skip)]
-      pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::UniformHandleWrap<#struct_name>>,
-    }
-
-    #[cfg(feature = "nyxt")]
-    impl nyxt_core::NyxtUBOWrapped for #struct_name {
-      type Wrapper = #instance_name;
-
-      fn to_nyxt_wrapper(viewer: &mut nyxt_core::NyxtViewer, handle: rendiation_ral::UniformHandle<nyxt_core::GFX, Self>) -> Self::Wrapper{
-        #instance_name {
-          inner: viewer.make_handle_object(nyxt_core::UniformHandleWrap(handle)),
-        }
-      }
-    }
-
-    #[cfg(feature = "nyxt")]
-    #[wasm_bindgen]
-    impl #instance_name {
-      #(#fields_wasm_getter_setter)*
-
-      #[wasm_bindgen(constructor)]
-      pub fn new(viewer: &mut nyxt_core::NyxtViewer) -> Self {
-        let handle = viewer.mutate_inner(|inner| {
-          let default_value = #struct_name::default();
-          inner.resource.bindable.uniform_buffers.add(default_value)
-        });
-        use nyxt_core::NyxtUBOWrapped;
-        #struct_name::to_nyxt_wrapper(viewer, handle)
-      }
-    }
-
-  }
 }
 
 pub fn derive_ubo_webgl_upload_instance(s: &StructInfo) -> proc_macro2::TokenStream {

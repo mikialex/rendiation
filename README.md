@@ -26,8 +26,8 @@ RRF use language features such as const generics and specialization, nightly com
 
 ### Framework
 
-* [SceneGraph](./scene-graph/README.md) for graphics API agnostic 3D scene description and rendering;
-* [ShaderGraph](./shader-graph/README.md) for Shading Abstraction Layer;
+* SceneGraph for graphics API agnostic 3D scene description and rendering;
+* ShaderGraph for Shading Abstraction Layer;
 * RenderGraph for graphics API agnostic multi-pass dependency resolve and composition;
 * Rendium for UI system.
 
@@ -40,5 +40,5 @@ RRF use language features such as const generics and specialization, nightly com
 
 ### Application incubation
 
-* [Voxland](./voxland/README.md) for testing minecraft like game.
+* Voxland for testing minecraft like game.
 * RainRay for yet another ray tracer.

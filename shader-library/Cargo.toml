@@ -5,7 +5,6 @@ name = "rendiation-shader-library"
 version = "0.1.0"
 
 [features]
-nyxt = ["wasm-bindgen", "nyxt-core"]
 webgl = ["rendiation-webgl"]
 webgpu = ["rendiation-webgpu"]
 
@@ -16,7 +15,6 @@ rendiation-derives = {path = "../derives"}
 rendiation-ral = {path = "../ral/core"}
 rendiation-shadergraph = {path = "../shader-graph"}
 
-nyxt-core = {path = "../nyxt/core", optional = true}
 wasm-bindgen = {version = "0.2.68", optional = true}
 
 rendiation-webgl = {path = "../ral/backend/webgl", optional = true}

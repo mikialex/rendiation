@@ -11,78 +11,7 @@ pub fn derive_bindgroup_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStre
   generated.append_all(derive_shadergraph_instance(&s));
   generated.append_all(derive_ral_bindgroup(&s));
   generated.append_all(derive_webgl_upload_instance(&s));
-  generated.append_all(derive_bindgroup_nyxt_wasm_instance_impl(&s));
   generated
-}
-
-fn derive_bindgroup_nyxt_wasm_instance_impl(s: &StructInfo) -> proc_macro2::TokenStream {
-  let struct_name = &s.struct_name;
-  let instance_name = format_ident!("{}WASM", struct_name);
-
-  let fields_wasm_getter_setter: Vec<_> = s.map_fields(|(field_name, ty)| {
-    let getter_name = format_ident!("get_{}", field_name);
-    let setter_name = format_ident!("set_{}", field_name);
-    quote! {
-      pub fn #getter_name(&self) -> <#ty as NyxtUBOWrapped>::Wrapper {
-        let mut viewer = self.inner.clone_viewer();
-        self.inner.mutate_item(|d| #ty::to_nyxt_wrapper(&mut viewer, d.#field_name.clone()))
-      }
-      pub fn #setter_name(&mut self, value: <#ty as NyxtUBOWrapped>::Wrapper) {
-        self.inner.mutate_item(|d| d.#field_name = value.inner.handle.0);
-      }
-    }
-  });
-
-  let constructor_parameters = s.map_fields(|(field_name, ty)| {
-    quote! {#field_name: &<#ty as NyxtUBOWrapped>::Wrapper,}
-  });
-
-  let constructor_create_ral_instance = s.map_fields(|(field_name, _ty)| {
-    quote! { #field_name.inner.handle.0, }
-  });
-
-  quote! {
-    #[cfg(feature = "nyxt")]
-    use wasm_bindgen::prelude::*;
-
-    #[cfg(feature = "nyxt")]
-    #[wasm_bindgen]
-    pub struct #instance_name {
-      #[wasm_bindgen(skip)]
-      pub inner: nyxt_core::NyxtViewerHandledObject<nyxt_core::BindGroupHandleWrap<#struct_name>>,
-    }
-
-    #[cfg(feature = "nyxt")]
-    impl nyxt_core::NyxtBindGroupWrapped for #struct_name {
-      type Wrapper = #instance_name;
-      fn to_nyxt_wrapper(viewer: &mut NyxtViewer, handle: rendiation_ral::BindGroupHandle<GFX, Self>) -> Self::Wrapper{
-        #instance_name {
-          inner: viewer.make_handle_object(nyxt_core::BindGroupHandleWrap(handle)),
-        }
-      }
-    }
-
-    #[cfg(feature = "nyxt")]
-    #[wasm_bindgen]
-    impl #instance_name {
-      #(#fields_wasm_getter_setter)*
-
-      #[wasm_bindgen(constructor)]
-      pub fn new(viewer: &mut nyxt_core::NyxtViewer,
-        #(#constructor_parameters)*
-      ) -> Self {
-        let handle = viewer.mutate_inner(|inner| {
-          let default_value = #struct_name::create_resource_instance(
-            #(#constructor_create_ral_instance)*
-          );
-          inner.resource.add_bindgroup(default_value)
-        });
-        use nyxt_core::NyxtBindGroupWrapped;
-        #struct_name::to_nyxt_wrapper(viewer, handle)
-      }
-    }
-
-  }
 }
 
 fn derive_webgl_upload_instance(s: &StructInfo) -> proc_macro2::TokenStream {
