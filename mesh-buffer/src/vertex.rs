@@ -62,22 +62,22 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
   }
 }
 
-impl VertexBufferDescriptorProvider for Vertex {
-  const DESCRIPTOR: VertexBufferDescriptor<'static> = VertexBufferDescriptor {
+impl VertexBufferLayoutProvider for Vertex {
+  const DESCRIPTOR: VertexBufferLayout<'static> = VertexBufferLayout {
     step_mode: InputStepMode::Vertex,
-    stride: mem::size_of::<Self>() as u64,
+    array_stride: mem::size_of::<Self>() as u64,
     attributes: &[
-      VertexAttributeDescriptor {
+      VertexAttribute {
         offset: 0,
         shader_location: 0, // todo shader location should append by providers before
         format: VertexFormat::Float3,
       },
-      VertexAttributeDescriptor {
+      VertexAttribute {
         offset: 4 * 3,
         shader_location: 1,
         format: VertexFormat::Float3,
       },
-      VertexAttributeDescriptor {
+      VertexAttribute {
         offset: 4 * 3 + 4 * 3,
         shader_location: 2,
         format: VertexFormat::Float2,

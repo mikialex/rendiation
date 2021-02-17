@@ -1,4 +1,4 @@
-use rendiation_ral::{PipelineShaderInterfaceInfo, TargetStates};
+use rendiation_ral::{PipelineShaderInterfaceInfo, PrimitiveState, TargetStates};
 use std::borrow::Cow;
 
 use crate::BindGroupLayoutCache;
@@ -8,7 +8,7 @@ pub struct PipelineBuilder {
   frag_shader: Vec<u32>,
   pub shader_interface_info: PipelineShaderInterfaceInfo,
   pub target_states: TargetStates,
-  pub rasterization: wgpu::PrimitiveState,
+  pub primitive_states: wgpu::PrimitiveState,
 }
 
 impl AsMut<Self> for PipelineBuilder {
@@ -27,13 +27,7 @@ impl PipelineBuilder {
       vertex_shader: vertex_shader.clone(),
       frag_shader: frag_shader.clone(),
       shader_interface_info,
-      rasterization: wgpu::PrimitiveState {
-        front_face: wgpu::FrontFace::Ccw,
-        cull_mode: wgpu::CullMode::None,
-        topology: (),
-        strip_index_format: (),
-        polygon_mode: wgpu::PolygonMode::Fill,
-      },
+      primitive_states: PrimitiveState::default(),
       target_states: TargetStates::default(),
     }
   }

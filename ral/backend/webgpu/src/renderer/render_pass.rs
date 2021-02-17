@@ -30,7 +30,8 @@ impl<'a> WGPURenderPass<'a> {
   pub fn set_index_buffer(&mut self, buffer: &'a WGPUBuffer) -> &mut Self {
     self
       .gpu_pass
-      .set_index_buffer(buffer.get_gpu_buffer().slice(..)); // todo add range support
+      .set_index_buffer(buffer.get_gpu_buffer().slice(..), wgpu::IndexFormat::Uint16); // todo add range support
+                                                                                       // todo index type
     self
   }
 

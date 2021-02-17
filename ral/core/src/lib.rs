@@ -74,16 +74,16 @@ pub struct ShaderSampler;
 pub struct ShaderTexture;
 
 /// should impl for vertex that geometry used
-pub trait VertexBufferDescriptorProvider {
+pub trait VertexBufferLayoutProvider {
   const DESCRIPTOR: VertexBufferLayout<'static>;
 }
 
 /// should impl for geometry
-pub trait VertexStateDescriptorProvider {
+pub trait VertexBufferLayoutGroupProvider {
   fn create_descriptor() -> Vec<VertexBufferLayout<'static>>;
 }
 
-pub trait GeometryDescriptorProvider: VertexStateDescriptorProvider {
+pub trait GeometryDescriptorProvider: VertexBufferLayoutGroupProvider {
   fn get_primitive_topology() -> PrimitiveTopology;
 }
 

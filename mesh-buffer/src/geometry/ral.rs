@@ -19,7 +19,7 @@ where
 impl<R, T> RALGeometryDataContainer<T, R> for Vec<T>
 where
   R: RAL,
-  T: GeometryProvider + Clone + VertexBufferDescriptorProvider + bytemuck::Pod,
+  T: GeometryProvider + Clone + VertexBufferLayoutProvider + bytemuck::Pod,
 {
   fn create_gpu(
     &self,
@@ -66,9 +66,9 @@ where
 {
 }
 
-impl<'a, V, T, U> VertexStateDescriptorProvider for IndexedGeometry<u16, V, T, U>
+impl<'a, V, T, U> VertexBufferLayoutGroupProvider for IndexedGeometry<u16, V, T, U>
 where
-  V: Positioned<f32, 3> + VertexBufferDescriptorProvider,
+  V: Positioned<f32, 3> + VertexBufferLayoutProvider,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {
@@ -82,7 +82,7 @@ where
 
 impl<'a, V, T, U> GeometryDescriptorProvider for IndexedGeometry<u16, V, T, U>
 where
-  V: Positioned<f32, 3> + VertexBufferDescriptorProvider,
+  V: Positioned<f32, 3> + VertexBufferLayoutProvider,
   T: PrimitiveTopology<V>,
   U: GeometryDataContainer<V>,
 {

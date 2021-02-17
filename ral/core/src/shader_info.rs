@@ -5,8 +5,8 @@ use crate::*;
 pub struct PipelineShaderInterfaceInfo {
   pub bindgroup_layouts: Vec<Vec<BindGroupLayoutEntry>>,
   pub vertex_state: Option<Vec<VertexBufferLayout<'static>>>,
-  pub primitive_topology: PrimitiveTopology,
   pub preferred_target_states: TargetStates,
+  pub primitive_states: PrimitiveState,
 }
 
 impl Default for PipelineShaderInterfaceInfo {
@@ -20,8 +20,8 @@ impl PipelineShaderInterfaceInfo {
     Self {
       bindgroup_layouts: Vec::new(),
       vertex_state: None,
-      primitive_topology: PrimitiveTopology::TriangleList,
       preferred_target_states: TargetStates::default(),
+      primitive_states: PrimitiveState::default(),
     }
   }
 
@@ -32,7 +32,7 @@ impl PipelineShaderInterfaceInfo {
 
   pub fn geometry<T: GeometryDescriptorProvider>(&mut self) -> &mut Self {
     self.vertex_state = Some(T::create_descriptor());
-    self.primitive_topology = T::get_primitive_topology();
+    self.primitive_states.topology = T::get_primitive_topology();
     self
   }
 }
