@@ -19,7 +19,7 @@ winit = "0.22.2"
 
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-geometry = {path = "../math/geometry"}
-rendiation-renderable-mesh = {path = "../mesh/renderable", features = ["shadergraph"]}
+rendiation-renderable-mesh = {path = "../mesh/renderable"}
 rendiation-webgl = {path = "../ral/backend/webgl"}
 rendiation-webgpu = {path = "../ral/backend/webgpu", features = ["shadergraph", "glsl-to-spirv"]}
 

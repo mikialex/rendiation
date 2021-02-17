@@ -1,4 +1,4 @@
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 use crate::{ContainAble, InnerProductSpace, LebesgueMeasurable, SolidEntity, SpaceEntity};
 

@@ -1,5 +1,5 @@
 use crate::{DistanceTo, HyperPlane, Triangle};
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 pub type Plane<T = f32> = HyperPlane<T, 3>;
 

@@ -1,7 +1,7 @@
 // use render_target::{RenderTarget, TargetStatesProvider};
 // use rendiation_webgpu::*;
 // use rendiation_webgpu_derives::BindGroup;
-// use rendiation_mesh_buffer::geometry::IndexedGeometry;
+// use rendiation_renderable_mesh::geometry::IndexedGeometry;
 
 // pub struct QuadShading {
 //   pub pipeline: WGPUPipeline,

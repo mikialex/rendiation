@@ -161,10 +161,10 @@ fn convert_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStrea
   let texture_type = glsl::syntax::TypeName("texture2D".to_owned());
   match glsl {
     Float => quote! { f32 },
-    Vec2 => quote! { rendiation_math::Vec2<f32> },
-    Vec3 => quote! { rendiation_math::Vec3<f32> },
-    Vec4 => quote! { rendiation_math::Vec4<f32> },
-    Mat4 => quote! { rendiation_math::Mat4<f32> },
+    Vec2 => quote! { rendiation_algebra::Vec2<f32> },
+    Vec3 => quote! { rendiation_algebra::Vec3<f32> },
+    Vec4 => quote! { rendiation_algebra::Vec4<f32> },
+    Mat4 => quote! { rendiation_algebra::Mat4<f32> },
     TypeName(ty) => {
       if ty == &sampler_type {
         quote! { rendiation_shadergraph::ShaderSampler }

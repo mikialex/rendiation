@@ -1,4 +1,4 @@
-use rendiation_math::{Scalar, Vec3};
+use rendiation_algebra::{Scalar, Vec3};
 
 use crate::Texture2D;
 

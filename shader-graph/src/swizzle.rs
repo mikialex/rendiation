@@ -1,5 +1,5 @@
 use crate::{modify_graph, Node, ShaderGraphNode, ShaderGraphNodeData};
-use rendiation_math::{Vec3, Vec4};
+use rendiation_algebra::{Vec3, Vec4};
 
 impl Node<Vec4<f32>> {
   pub fn xyz(&self) -> Node<Vec3<f32>> {

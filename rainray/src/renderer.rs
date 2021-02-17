@@ -1,7 +1,7 @@
 use crate::math::*;
 use crate::{frame::*, Intersection};
 use crate::{integrator::Integrator, scene::*};
-use rendiation_math::{InnerProductSpace, Vec2, Vector, Zero};
+use rendiation_algebra::{InnerProductSpace, Vec2, Vector, Zero};
 use rendiation_render_entity::{color::*, Camera, Raycaster};
 
 use indicatif::ProgressBar;

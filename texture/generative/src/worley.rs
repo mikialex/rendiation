@@ -1,4 +1,4 @@
-use rendiation_math::{InnerProductSpace, Vec3, Vector};
+use rendiation_algebra::{InnerProductSpace, Vec3, Vector};
 
 pub struct WorleyNoise {
   repeat: i32,

@@ -5,7 +5,7 @@ use crate::event::Event;
 use crate::{renderer::GUIRenderer, Quad, RenderCtx};
 use arena::*;
 use core::any::Any;
-use rendiation_math::Vec2;
+use rendiation_algebra::Vec2;
 use rendiation_webgpu::WGPURenderer;
 
 pub struct EventHub {

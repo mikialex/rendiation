@@ -1,5 +1,5 @@
 use super::world_machine::WorldMachine;
-use rendiation_mesh_buffer::vertex::*;
+use rendiation_renderable_mesh::vertex::*;
 
 #[derive(Clone, Copy)]
 pub struct Block {

@@ -1,5 +1,5 @@
 use rand::{rngs::StdRng, Rng};
-use rendiation_math::Vec2;
+use rendiation_algebra::Vec2;
 
 pub struct Sampler {
   pub rand: StdRng,

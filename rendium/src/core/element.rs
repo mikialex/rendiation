@@ -1,4 +1,4 @@
-use rendiation_math::{Mat4, Vec2};
+use rendiation_algebra::{Mat4, Vec2};
 use std::any::Any;
 
 pub struct QuadLayout {

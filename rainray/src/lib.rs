@@ -20,7 +20,7 @@ pub use material::*;
 pub use math::*;
 pub use model::*;
 pub use renderer::*;
-pub use rendiation_math::Mat4;
+pub use rendiation_algebra::Mat4;
 pub use rendiation_render_entity::*;
 pub use sampler::*;
 pub use scene::*;

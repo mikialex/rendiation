@@ -1,4 +1,4 @@
-use rendiation_math::*;
+use rendiation_algebra::*;
 use rendiation_ral::ResourceManager;
 use web_sys::*;
 

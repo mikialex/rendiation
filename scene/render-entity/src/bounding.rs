@@ -1,4 +1,4 @@
-use rendiation_math_entity::*;
+use rendiation_geometry::*;
 
 pub trait Bounding<T> {
   fn create(item: &T) -> BoundingInfo;

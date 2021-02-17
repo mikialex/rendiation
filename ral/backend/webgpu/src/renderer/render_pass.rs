@@ -1,5 +1,5 @@
 use crate::{BindGroupLayoutCache, WGPUBindGroup, WGPUBuffer, WGPUPipeline, WGPURenderer};
-use rendiation_math::Vec3;
+use rendiation_algebra::Vec3;
 use rendiation_ral::{RenderTargetFormatsInfo, Viewport};
 use std::ops::Range;
 use wgpu::PrimitiveTopology;

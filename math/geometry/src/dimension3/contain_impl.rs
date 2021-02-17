@@ -1,4 +1,4 @@
-use rendiation_math::Scalar;
+use rendiation_algebra::Scalar;
 
 use crate::{Box3, ContainAble};
 

@@ -1,5 +1,5 @@
 use crate::{DistanceTo, HyperRay, LineSegment3D, Plane};
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 pub type Ray3<T = f32> = HyperRay<T, 3>;
 

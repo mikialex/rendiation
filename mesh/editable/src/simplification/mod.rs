@@ -1,7 +1,7 @@
 use arena::Handle;
 use mesh::Mesh;
-use rendiation_math::Vec3;
-use rendiation_math_entity::{Plane, Triangle};
+use rendiation_algebra::Vec3;
+use rendiation_geometry::{Plane, Triangle};
 use std::collections::BinaryHeap;
 
 use crate::HalfEdge;

@@ -2,7 +2,7 @@ use crate::plane::Plane;
 use crate::DistanceTo;
 use crate::IntersectAble;
 use crate::{intersect_reverse, sphere::Sphere, Box3};
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 #[derive(Clone)]
 pub struct Frustum<T: Scalar = f32> {

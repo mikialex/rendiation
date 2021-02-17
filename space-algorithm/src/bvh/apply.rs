@@ -1,8 +1,8 @@
 use crate::utils::BuildPrimitive;
 
 use super::{BVHBounding, BalanceTreeBounding, SAHBounding};
-use rendiation_math::Vec3;
-use rendiation_math_entity::{Axis3, Box3};
+use rendiation_algebra::Vec3;
+use rendiation_geometry::{Axis3, Box3};
 use std::{cmp::Ordering, ops::Range};
 
 impl BVHBounding for Box3 {

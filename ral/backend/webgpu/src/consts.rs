@@ -1,4 +1,4 @@
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 #[rustfmt::skip]
 #[allow(unused)]

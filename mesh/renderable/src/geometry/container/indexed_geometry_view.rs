@@ -4,7 +4,7 @@ use crate::{
   geometry::IndexPrimitiveTopology, geometry::IndexedPrimitiveData, geometry::PrimitiveTopology,
   geometry::TriangleList, vertex::Vertex,
 };
-use rendiation_math_entity::Positioned;
+use rendiation_geometry::Positioned;
 
 use super::{AnyGeometry, AnyIndexGeometry, GeometryDataContainer};
 

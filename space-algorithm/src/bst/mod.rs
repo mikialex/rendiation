@@ -6,7 +6,7 @@ use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 pub mod apply;
 pub mod test;
 pub use apply::*;
-use rendiation_math_entity::ContainAble;
+use rendiation_geometry::ContainAble;
 
 pub trait BSTBounding<const D: usize, const N: usize>:
   CenterAblePrimitive + Default + Copy + ContainAble<f32, Self, D> + FromIterator<Self>

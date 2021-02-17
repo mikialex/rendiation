@@ -1,7 +1,7 @@
 use super::{block_coords::*, world_machine::WorldMachine};
 use crate::vox::block::*;
-use rendiation_math::Vec3;
-use rendiation_math_entity::*;
+use rendiation_algebra::Vec3;
+use rendiation_geometry::*;
 use rendiation_render_entity::BoundingInfo;
 use std::{
   future::Future,

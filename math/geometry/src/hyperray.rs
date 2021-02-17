@@ -1,4 +1,4 @@
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 pub struct HyperRay<T: Scalar, const D: usize> {
   pub origin: VectorType<T, D>,

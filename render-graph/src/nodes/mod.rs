@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{RenderGraph, RenderGraphBackend, RenderGraphExecutor, RenderGraphNodeHandle};
-pub use rendiation_math::*;
+pub use rendiation_algebra::*;
 use rendiation_ral::RAL;
 pub use rendiation_render_entity::*;
 

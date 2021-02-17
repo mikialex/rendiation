@@ -1,5 +1,5 @@
 use render_target::{RenderTarget, TargetInfoProvider};
-use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
+use rendiation_renderable_mesh::{geometry::*, vertex::Vertex};
 
 use rendiation_ral::{ShaderGeometryInfo, ShaderSampler, ShaderTexture, RAL};
 use rendiation_shader_library::builtin::*;

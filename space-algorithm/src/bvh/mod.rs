@@ -6,7 +6,7 @@ mod traverse;
 pub mod test;
 
 pub use node::*;
-use rendiation_math_entity::SolidEntity;
+use rendiation_geometry::SolidEntity;
 use std::iter::FromIterator;
 pub use strategy::*;
 

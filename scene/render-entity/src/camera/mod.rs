@@ -1,11 +1,11 @@
 use crate::{transformed_object::TransformedObject, Raycaster};
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 pub mod perspective;
 pub use perspective::*;
 pub mod orth;
 pub use orth::*;
-use rendiation_math_entity::Ray3;
+use rendiation_geometry::Ray3;
 
 pub struct Camera {
   pub projection_matrix: Mat4<f32>,

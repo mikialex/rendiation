@@ -1,7 +1,7 @@
 use crate::controller::Controller;
 use crate::transformed_object::TransformedObject;
-use rendiation_math::*;
-use rendiation_math_entity::Spherical;
+use rendiation_algebra::*;
+use rendiation_geometry::Spherical;
 
 pub struct FPSController {
   spherical: Spherical,

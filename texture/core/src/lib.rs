@@ -8,7 +8,7 @@ pub mod cube;
 pub use cube::*;
 
 use image::ImageBuffer;
-use rendiation_math::Vec2;
+use rendiation_algebra::Vec2;
 
 pub use image::*;
 

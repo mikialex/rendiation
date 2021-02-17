@@ -1,4 +1,4 @@
-use rendiation_math_entity::Box3;
+use rendiation_geometry::Box3;
 
 use crate::utils::TreeBuildOption;
 

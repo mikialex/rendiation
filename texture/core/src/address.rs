@@ -1,4 +1,4 @@
-use rendiation_math::Scalar;
+use rendiation_algebra::Scalar;
 use rendiation_ral::AddressMode;
 
 /// How edges should be handled in texture addressing.

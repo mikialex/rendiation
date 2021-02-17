@@ -1,6 +1,6 @@
 use super::scene::Scene;
 use crate::{SceneNodeHandle, RAL};
-use rendiation_math_entity::{Frustum, IntersectAble};
+use rendiation_geometry::{Frustum, IntersectAble};
 use rendiation_render_entity::Camera;
 
 pub struct Culler {

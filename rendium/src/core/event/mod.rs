@@ -1,4 +1,4 @@
-use rendiation_math::Vec3;
+use rendiation_algebra::Vec3;
 
 pub mod window_event;
 pub use window_event::*;

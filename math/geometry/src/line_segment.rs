@@ -1,4 +1,4 @@
-use rendiation_math::{Lerp, Scalar, SquareMatrixType, VectorImpl, VectorType};
+use rendiation_algebra::{Lerp, Scalar, SquareMatrixType, VectorImpl, VectorType};
 
 use crate::{Positioned, SpaceEntity, SpaceLineSegment};
 

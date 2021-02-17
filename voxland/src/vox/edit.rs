@@ -3,9 +3,9 @@ use crate::vox::block::*;
 use crate::vox::chunk::*;
 use crate::vox::world::*;
 use crate::vox::world_machine::STONE;
-use rendiation_math::Vec3;
-use rendiation_math_entity::Ray3;
-use rendiation_math_entity::*;
+use rendiation_algebra::Vec3;
+use rendiation_geometry::Ray3;
+use rendiation_geometry::*;
 use std::collections::HashSet;
 
 #[derive(Debug)]

@@ -1,4 +1,4 @@
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 /// https://flafla2.github.io/2014/08/09/perlinnoise.html
 pub struct PerlinNoise {

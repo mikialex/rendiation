@@ -1,5 +1,5 @@
 use crate::RAL;
-use rendiation_math::Vec3;
+use rendiation_algebra::Vec3;
 
 pub trait Background<T: RAL> {
   fn render(&self, renderer: &mut T::Renderer, builder: T::RenderTarget);

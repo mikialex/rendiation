@@ -1,4 +1,4 @@
-use rendiation_math::{Scalar, SpaceEntity, SquareMatrixType, VectorImpl, VectorType};
+use rendiation_algebra::{Scalar, SpaceEntity, SquareMatrixType, VectorImpl, VectorType};
 
 use crate::SpaceLineSegment;
 

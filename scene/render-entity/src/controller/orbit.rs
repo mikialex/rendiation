@@ -1,8 +1,8 @@
 use crate::controller::Controller;
 use crate::transformed_object::TransformedObject;
-use rendiation_math::Vec2;
-use rendiation_math::*;
-use rendiation_math_entity::Spherical;
+use rendiation_algebra::Vec2;
+use rendiation_algebra::*;
+use rendiation_geometry::Spherical;
 
 pub struct OrbitController {
   pub spherical: Spherical,

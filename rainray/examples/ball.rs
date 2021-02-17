@@ -1,5 +1,5 @@
 use rainray::*;
-use rendiation_math::IntoNormalizedVector;
+use rendiation_algebra::IntoNormalizedVector;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());

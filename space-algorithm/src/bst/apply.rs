@@ -1,7 +1,7 @@
 use super::{BSTBounding, BSTTree, BinarySpaceTree};
 use crate::utils::BuildPrimitive;
-use rendiation_math::Vec3;
-use rendiation_math_entity::Box3;
+use rendiation_algebra::Vec3;
+use rendiation_geometry::Box3;
 
 pub type BinaryTree = BSTTree<Binary, 2, 1>;
 pub type QuadTree = BSTTree<Quad, 4, 2>;

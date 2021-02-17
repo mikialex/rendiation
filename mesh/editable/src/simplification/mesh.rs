@@ -5,8 +5,8 @@ use crate::{
   half_edge_mesh::{HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeVertex},
   HalfEdgeMeshData,
 };
-use rendiation_math::*;
-use rendiation_math_entity::{Plane, Triangle};
+use rendiation_algebra::*;
+use rendiation_geometry::{Plane, Triangle};
 
 pub struct SimplificationMeshData;
 

@@ -1,4 +1,4 @@
-use rendiation_mesh_buffer::{geometry::*, vertex::Vertex};
+use rendiation_renderable_mesh::{geometry::*, vertex::Vertex};
 use rendiation_scenegraph::default_impl::SceneNodeRenderMatrixData;
 use rendiation_webgpu::*;
 

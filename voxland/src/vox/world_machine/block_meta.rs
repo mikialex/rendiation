@@ -2,8 +2,8 @@ use crate::shading::copy::CopyParam;
 use crate::{shading::*, vox::block::BlockFace};
 use image::*;
 use render_target::{RenderTarget, RenderTargetAble};
-use rendiation_mesh_buffer::{geometry::IndexedGeometry, tessellation::*};
 use rendiation_ral::{BindGroupCreator, Drawcall, ResourceManager, TextureHandle, Viewport, RAL};
+use rendiation_renderable_mesh::{geometry::IndexedGeometry, tessellation::*};
 use rendiation_webgpu::*;
 use std::{collections::HashMap, sync::Arc};
 
@@ -167,8 +167,8 @@ impl BlockRegistry {
       resource.bindable.textures.insert(texture)
     }
 
-    use rendiation_mesh_buffer::geometry::TriangleList;
     use rendiation_ral::GeometryResourceInstanceCreator;
+    use rendiation_renderable_mesh::geometry::TriangleList;
     let quad = Quad.tessellate().geometry;
     let quad = IndexedGeometry::<_, _, TriangleList>::from(quad);
     let quad = quad.create_resource_instance_handle(renderer, resource);

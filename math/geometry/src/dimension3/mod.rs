@@ -17,7 +17,7 @@ pub use intersection::*;
 pub use line_segment::*;
 pub use plane::*;
 pub use ray3::*;
-use rendiation_math::{Scalar, Vec3};
+use rendiation_algebra::{Scalar, Vec3};
 pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;

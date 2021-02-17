@@ -1,5 +1,5 @@
 use crate::{DrawcallHandle, SceneBackend, SceneNodeDataTrait};
-use rendiation_math::*;
+use rendiation_algebra::*;
 use rendiation_ral::{ResourceManager, UniformHandle, RAL};
 use rendiation_render_entity::{BoundingInfo, Camera};
 

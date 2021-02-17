@@ -29,7 +29,7 @@ pub use hypersphere::*;
 pub use intersect_util::*;
 pub use line_segment::*;
 pub use point::*;
-use rendiation_math::*;
+use rendiation_algebra::*;
 pub use triangle::*;
 pub use wasm::*;
 

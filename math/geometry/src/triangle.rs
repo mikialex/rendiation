@@ -1,4 +1,4 @@
-use rendiation_math::{Scalar, SquareMatrixType, Vec3, VectorType};
+use rendiation_algebra::{Scalar, SquareMatrixType, Vec3, VectorType};
 
 use crate::{LineSegment, Positioned, SpaceEntity};
 

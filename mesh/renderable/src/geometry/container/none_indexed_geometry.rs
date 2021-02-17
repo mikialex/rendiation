@@ -1,7 +1,7 @@
 use super::super::*;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
-use rendiation_math_entity::Positioned;
+use rendiation_geometry::Positioned;
 
 pub struct NoneIndexedGeometry<V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: U,

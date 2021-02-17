@@ -1,4 +1,4 @@
-use rendiation_math_entity::Positioned;
+use rendiation_geometry::Positioned;
 use rendiation_ral::*;
 
 use super::{GeometryDataContainer, IndexedGeometry, PrimitiveTopology};

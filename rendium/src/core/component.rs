@@ -3,7 +3,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData};
 // use super::{Element, ElementHandle};
 use arena::{Arena, Handle};
 use arena_tree::ArenaTree;
-use rendiation_math::Vec2;
+use rendiation_algebra::Vec2;
 
 type Event = winit::event::Event<'static, ()>;
 

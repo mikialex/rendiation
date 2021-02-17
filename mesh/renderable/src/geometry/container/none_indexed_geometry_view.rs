@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use rendiation_math_entity::Positioned;
+use rendiation_geometry::Positioned;
 
 use crate::{
   geometry::PrimitiveData, geometry::PrimitiveTopology, geometry::TriangleList, vertex::Vertex,

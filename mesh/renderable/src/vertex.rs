@@ -1,6 +1,6 @@
 use crate::geometry::HashAbleByConversion;
-use rendiation_math::*;
-use rendiation_math_entity::Positioned;
+use rendiation_algebra::*;
+use rendiation_geometry::Positioned;
 use rendiation_ral::*;
 use std::{hash::Hash, mem};
 

@@ -2,7 +2,7 @@ use crate::{
   Node, ShaderFunctionMetaInfo, ShaderGraph, ShaderGraphNodeRawHandle,
   ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped,
 };
-use rendiation_math::Vec2;
+use rendiation_algebra::Vec2;
 use rendiation_ral::{ShaderSampler, ShaderTexture};
 use std::{any::TypeId, marker::PhantomData};
 

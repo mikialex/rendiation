@@ -8,7 +8,7 @@ use crate::{
 };
 use crate::{rendering::VoxlandRenderer, util::*};
 use render_target::{ScreenRenderTarget, TargetInfoProvider};
-use rendiation_math::Mat4;
+use rendiation_algebra::Mat4;
 use rendiation_render_entity::*;
 use rendiation_scenegraph::*;
 use rendiation_webgpu::renderer::SwapChain;

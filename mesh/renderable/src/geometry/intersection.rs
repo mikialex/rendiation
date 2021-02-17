@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
 use super::AnyGeometry;
-use rendiation_math_entity::*;
+use rendiation_geometry::*;
 
 pub trait IntersectAbleAnyGeometry {
   fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList);
@@ -123,7 +123,7 @@ impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for
 fn test() {
   use crate::geometry::*;
   use crate::tessellation::{IndexedGeometryTessellator, Quad};
-  use rendiation_math::*;
+  use rendiation_algebra::*;
 
   let config = MeshBufferIntersectConfig::default();
   let quad = Quad.tessellate();

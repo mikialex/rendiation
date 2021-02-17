@@ -1,5 +1,5 @@
-use rendiation_math::Vec2;
-use rendiation_math_entity::Ray3;
+use rendiation_algebra::Vec2;
+use rendiation_geometry::Ray3;
 
 pub trait Raycaster {
   fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3;

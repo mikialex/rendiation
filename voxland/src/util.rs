@@ -1,6 +1,6 @@
 use image::ImageBuffer;
 use image::Rgba;
-use rendiation_math::{Mat4, Vec2, Vec3};
+use rendiation_algebra::{Mat4, Vec2, Vec3};
 use rendiation_ral::ResourceManager;
 use rendiation_render_entity::*;
 use rendiation_scenegraph::{Scene, UniformHandle};

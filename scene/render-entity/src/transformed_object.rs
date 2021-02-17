@@ -1,5 +1,5 @@
 use std::any::Any;
-use rendiation_math::Mat4;
+use rendiation_algebra::Mat4;
 
 pub trait TransformedObject: Any {
   fn matrix(&self) -> &Mat4<f32>;

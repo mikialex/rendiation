@@ -1,4 +1,4 @@
-use rendiation_math::SquareMatrix;
+use rendiation_algebra::SquareMatrix;
 use rendiation_ral::{ResourceManager, UniformHandle, Viewport};
 use rendiation_render_entity::{Camera, PerspectiveProjection, Projection, ResizableProjection};
 use rendiation_shader_library::transform::CameraTransform;

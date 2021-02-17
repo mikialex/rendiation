@@ -1,5 +1,5 @@
 use crate::{Axis3, HyperAABB, LebesgueMeasurable};
-use rendiation_math::*;
+use rendiation_algebra::*;
 use std::iter::FromIterator;
 
 pub type Box3<T = f32> = HyperAABB<T, 3>;

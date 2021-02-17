@@ -1,5 +1,5 @@
 use crate::{ContainAble, HyperAABB};
-use rendiation_math::{Scalar, Vec2};
+use rendiation_algebra::{Scalar, Vec2};
 
 pub type Rectangle<T = f32> = HyperAABB<T, 2>;
 

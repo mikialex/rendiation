@@ -1,4 +1,4 @@
-use rendiation_math::{Lerp, Scalar};
+use rendiation_algebra::{Lerp, Scalar};
 
 /// Texel mixing mode when sampling between texels.
 pub trait TextureFilterMode<T: Scalar, P> {

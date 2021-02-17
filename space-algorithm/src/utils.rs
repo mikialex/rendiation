@@ -1,8 +1,8 @@
 use std::{iter::FromIterator, ops::Range};
 
 use rand::random;
-use rendiation_math::Vec3;
-use rendiation_math_entity::Box3;
+use rendiation_algebra::Vec3;
+use rendiation_geometry::Box3;
 
 pub trait CenterAblePrimitive {
   type Center;

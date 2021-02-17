@@ -1,4 +1,4 @@
-use rendiation_math::Vec2;
+use rendiation_algebra::Vec2;
 use rendiation_render_entity::*;
 use winit::event::*;
 

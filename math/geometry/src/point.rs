@@ -1,4 +1,4 @@
-use rendiation_math::{Scalar, SquareMatrixType, VectorType};
+use rendiation_algebra::{Scalar, SquareMatrixType, VectorType};
 
 use crate::{Positioned, SpaceEntity};
 

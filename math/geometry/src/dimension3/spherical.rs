@@ -1,4 +1,4 @@
-use rendiation_math::Vec3;
+use rendiation_algebra::Vec3;
 
 pub struct Spherical<T = f32> {
   pub center: Vec3<T>,

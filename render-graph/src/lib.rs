@@ -1,7 +1,7 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::type_complexity)]
 pub use arena_graph::*;
-pub use rendiation_math::*;
+pub use rendiation_algebra::*;
 pub use rendiation_ral::*;
 use std::{
   cell::{Cell, RefCell},

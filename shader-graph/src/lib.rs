@@ -22,7 +22,7 @@ pub use nodes::*;
 pub use provider::*;
 pub use traits_impl::*;
 
-use rendiation_math::*;
+use rendiation_algebra::*;
 use rendiation_ral::{PipelineShaderInterfaceInfo, ShaderStage};
 
 #[derive(Copy, Clone)]

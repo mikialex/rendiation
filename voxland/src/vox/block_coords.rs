@@ -2,8 +2,8 @@ use super::{
   block::{BlockFace, BLOCK_WORLD_SIZE},
   chunk::{ChunkSide, CHUNK_ABS_WIDTH, CHUNK_HEIGHT, CHUNK_WIDTH},
 };
-use rendiation_math::Vec3;
-use rendiation_math_entity::Box3;
+use rendiation_algebra::Vec3;
+use rendiation_geometry::Box3;
 
 #[derive(Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct ChunkCoords(pub (i32, i32));

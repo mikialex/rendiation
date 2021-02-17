@@ -2,9 +2,9 @@ use super::{
   AnyGeometry, LineList, MeshBufferHitList, MeshBufferHitPoint, MeshBufferIntersectConfig,
   NoneIndexedGeometry,
 };
-use rendiation_math::Vec3;
-use rendiation_math_entity::*;
-use space_indexer::{bvh::*, utils::TreeBuildOption};
+use rendiation_algebra::Vec3;
+use rendiation_geometry::*;
+use space_algorithm::{bvh::*, utils::TreeBuildOption};
 
 pub trait BVHExtendedBuildAnyGeometry<B: BVHBounding, S: BVHBuildStrategy<B>> {
   fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;

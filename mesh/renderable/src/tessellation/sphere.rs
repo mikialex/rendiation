@@ -3,7 +3,7 @@ use crate::{
   geometry::{IndexedGeometry, TriangleList},
   vertex::Vertex,
 };
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 #[derive(Copy, Clone, Debug)]
 pub struct SphereGeometryParameter {

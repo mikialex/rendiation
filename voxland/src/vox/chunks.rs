@@ -4,7 +4,7 @@ use super::{
   chunk::*,
   world_machine::WorldMachine,
 };
-use rendiation_mesh_buffer::geometry::IndexedGeometry;
+use rendiation_renderable_mesh::geometry::IndexedGeometry;
 use std::{
   collections::{HashMap, HashSet},
   sync::{Arc, Mutex},

@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use rendiation_math::{Scalar, VectorType};
+use rendiation_algebra::{Scalar, VectorType};
 
 use crate::HyperRay;
 

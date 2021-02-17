@@ -4,8 +4,8 @@ use crate::{
   camera::VoxlandCamera,
   shading::{BlockShader, BlockShadingParamGroup, CopyParam},
 };
-use rendiation_math::{Vec3, Vec4};
-use rendiation_mesh_buffer::{geometry::IndexedGeometry, vertex::Vertex};
+use rendiation_algebra::{Vec3, Vec4};
+use rendiation_renderable_mesh::{geometry::IndexedGeometry, vertex::Vertex};
 use rendiation_scenegraph::*;
 use rendiation_shader_library::{fog::FogData, ShaderGraphProvider};
 use rendiation_webgpu::*;

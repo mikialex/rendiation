@@ -1,9 +1,9 @@
 #![allow(unused)]
-use rendiation_math::Vec3;
+use rendiation_algebra::Vec3;
 
-pub mod worley;
 pub mod perlin;
+pub mod worley;
 
-pub trait NoiseFn3D{
+pub trait NoiseFn3D {
   fn get(input: Vec3<f32>) -> f32;
 }

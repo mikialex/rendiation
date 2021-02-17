@@ -1,5 +1,5 @@
 use crate::voxland::Voxland;
-use rendiation_math::*;
+use rendiation_algebra::*;
 use rendiation_render_entity::{raycaster::Raycaster, PerspectiveProjection};
 
 // pub trait WindowEventWatcher<T>{

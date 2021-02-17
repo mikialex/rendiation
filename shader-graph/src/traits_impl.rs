@@ -3,7 +3,7 @@ use crate::{
   ShaderGraphBindGroupItemProvider, ShaderGraphConstableNodeType, ShaderGraphNode,
   ShaderGraphNodeData, ShaderGraphNodeType, TextureSamplingNode,
 };
-use rendiation_math::*;
+use rendiation_algebra::*;
 use rendiation_ral::{ShaderSampler, ShaderStage, ShaderTexture};
 
 impl ShaderGraphNodeType for AnyType {

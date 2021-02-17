@@ -1,5 +1,5 @@
 use super::{AnyRGBColorSpace, Color, ColorSpace, HSLColorSpace};
-use rendiation_math::Vec3;
+use rendiation_algebra::Vec3;
 use std::marker::PhantomData;
 
 pub trait HSLColor<T> {

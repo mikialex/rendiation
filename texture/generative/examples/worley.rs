@@ -1,5 +1,5 @@
 use noize::worley::*;
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 fn main() {
   let width = 800;

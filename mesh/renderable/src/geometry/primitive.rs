@@ -1,6 +1,6 @@
-use rendiation_math_entity::LineSegment;
-use rendiation_math_entity::Triangle;
-use rendiation_math_entity::{Point, Positioned};
+use rendiation_geometry::LineSegment;
+use rendiation_geometry::Triangle;
+use rendiation_geometry::{Point, Positioned};
 use std::{hash::Hash, ops::Index};
 
 pub trait HashAbleByConversion {

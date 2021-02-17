@@ -1,4 +1,4 @@
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 use crate::{Box3, LineSegment, Point, Positioned, SpaceBounding, Triangle};
 

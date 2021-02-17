@@ -1,6 +1,6 @@
 use crate::ImmediateRenderableContent;
-use rendiation_mesh_buffer::{tessellation::*, vertex::*};
 use rendiation_ral::*;
+use rendiation_renderable_mesh::{tessellation::*, vertex::*};
 
 pub struct FullScreenQuad<T: RAL> {
   obj: Drawcall<T>,

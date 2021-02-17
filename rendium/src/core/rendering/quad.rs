@@ -2,7 +2,7 @@ use super::{Element, Message};
 use crate::element::ElementState;
 use crate::element::RenderCtx;
 use crate::{event::Event, renderer::GUIRenderer};
-use rendiation_math::*;
+use rendiation_algebra::*;
 use rendiation_render_entity::Camera;
 
 pub struct Quad {

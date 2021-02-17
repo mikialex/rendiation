@@ -1,5 +1,5 @@
 use crate::{Projection, ResizableProjection};
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 pub struct OrthographicProjection {
   pub left: f32,

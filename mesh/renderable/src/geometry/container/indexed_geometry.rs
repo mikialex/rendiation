@@ -7,7 +7,7 @@ use crate::{
   vertex::Vertex,
 };
 use core::marker::PhantomData;
-use rendiation_math_entity::Positioned;
+use rendiation_geometry::Positioned;
 use std::hash::Hash;
 
 pub trait IntoUsize {

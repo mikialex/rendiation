@@ -1,8 +1,8 @@
 use crate::model::*;
 use crate::{environment::*, Vec3};
 use crate::{light::*, Intersection, PossibleIntersection};
-use rendiation_math::*;
-use rendiation_math_entity::Ray3;
+use rendiation_algebra::*;
+use rendiation_geometry::Ray3;
 use std::sync::Arc;
 
 pub struct Scene {

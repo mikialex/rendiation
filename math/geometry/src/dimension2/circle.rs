@@ -1,5 +1,5 @@
 use crate::{HyperSphere, LebesgueMeasurable, Rectangle, SpaceBounding};
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 pub type Circle<T = f32> = HyperSphere<T, 2>;
 

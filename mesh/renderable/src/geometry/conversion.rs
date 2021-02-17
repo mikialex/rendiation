@@ -14,8 +14,8 @@ use super::{
   IndexPrimitiveTopology, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
   NoneIndexedGeometry, PointList, PrimitiveTopology,
 };
-use rendiation_math::{InnerProductSpace, Vec3};
-use rendiation_math_entity::{LineSegment, Positioned, Triangle};
+use rendiation_algebra::{InnerProductSpace, Vec3};
+use rendiation_geometry::{LineSegment, Positioned, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},

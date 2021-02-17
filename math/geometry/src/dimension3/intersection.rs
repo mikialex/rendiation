@@ -1,5 +1,5 @@
 use crate::*;
-use rendiation_math::*;
+use rendiation_algebra::*;
 
 impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<Triangle<V>, Nearest<HitPoint3D<T>>, FaceSide>
   for Ray3<T>
