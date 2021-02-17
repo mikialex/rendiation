@@ -9,7 +9,7 @@ arena = {path = "../utils/arena"}
 arena-tree = {path = "../utils/arena-tree"}
 futures = "0.3"
 log = "0.4"
-rendiation-math = {path = "../math"}
+rendiation-algebra = {path = "../math/algebra"}
 rendiation-mesh-buffer = {path = "../mesh-buffer"}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-webgpu = {path = "../ral/backend/webgpu", features = ["glsl-spirv"]}

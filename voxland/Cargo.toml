@@ -17,8 +17,8 @@ serde = {version = "1.0.105", features = ["derive"]}
 tokio = {version = "0.2", features = ["full"]}
 winit = "0.22.2"
 
-rendiation-math = {path = "../math"}
-rendiation-math-entity = {path = "../math-entity"}
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-geometry = {path = "../math/geometry"}
 rendiation-mesh-buffer = {path = "../mesh-buffer", features = ["shadergraph"]}
 rendiation-render-entity = {path = "../render-entity"}
 rendiation-webgl = {path = "../ral/backend/webgl"}

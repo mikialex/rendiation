@@ -5,8 +5,8 @@ name = "rendiation-texture"
 version = "0.1.0"
 
 [dependencies]
-rendiation-math = {path = "../math"}
-rendiation-math-entity = {path = "../math-entity"}
-rendiation-ral = {path = "../ral/core"}
+rendiation-algebra = {path = "../../math/algebra"}
+rendiation-geometry = {path = "../../math/geometry"}
+rendiation-ral = {path = "../../ral/core"}
 
 image = "*"

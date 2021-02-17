@@ -7,7 +7,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rendiation-math = {path = "../math", features = ["swizzle"]}
-rendiation-math-entity = {path = "../math-entity"}
-arena ={path="../utils/arena"}
+arena = {path = "../../utils/arena"}
+rendiation-algebra = {path = "../../math/algebra", features = ["swizzle"]}
+rendiation-geometry = {path = "../../math/geometry"}
 tobj = "0.1.10"

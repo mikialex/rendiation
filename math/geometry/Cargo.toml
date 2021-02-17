@@ -1,10 +1,10 @@
 [package]
-name = "rendiation-math-entity"
-version = "0.1.0"
 edition = "2018"
+name = "rendiation-geometry"
+version = "0.1.0"
 
 [dependencies]
-rendiation-math = { path = "../math" }
-wasm-bindgen = {version = "0.2.68"}
 bytemuck = "1.4.1"
 log = "0.4"
+rendiation-algebra = {path = "../algebra"}
+wasm-bindgen = {version = "0.2.68"}

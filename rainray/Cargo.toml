@@ -12,8 +12,8 @@ rayon = "1.5.0"
 tobj = "2.0.3"
 
 arena-tree = {path = "../utils/arena-tree"}
-rendiation-math = {path = "../math"}
-rendiation-math-entity = {path = "../math-entity"}
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-geometry = {path = "../math/geometry"}
 rendiation-mesh-buffer = {path = "../mesh-buffer"}
 rendiation-render-entity = {path = "../render-entity"}
 space-indexer = {path = "../space-indexer"}

@@ -1,26 +1,26 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
-name = "rendiation-mesh-buffer"
+name = "rendiation-renderable-mesh"
 version = "0.1.0"
 
-[features]
-shadergraph = ["rendiation-shadergraph", "rendiation-derives"]
+# [features]
+# shadergraph = ["rendiation-shadergraph", "rendiation-derives"]
 
 [dependencies]
 bytemuck = "1.4.1"
 once_cell = "1.4.0"
 soa_derive = "0.8.1"
 
-rendiation-math = {path = "../math"}
-rendiation-math-entity = {path = "../math-entity"}
-rendiation-ral = {path = "../ral/core"}
+rendiation-algebra = {path = "../../math/algebra"}
+rendiation-math-entity = {path = "../../math/geometry"}
+rendiation-ral = {path = "../../ral/core"}
 
-space-indexer = {path = "../space-indexer"}
+space-indexer = {path = "../../space-algorithm"}
 
-rendiation-derives = {path = "../derives", optional = true}
-rendiation-shadergraph = {path = "../shader-graph", optional = true}
-rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
+# rendiation-derives = {path = "../derives", optional = true}
+# rendiation-shadergraph = {path = "../shader-graph", optional = true}
+# rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
 
 log = "0.4"
 wasm-bindgen = {version = "0.2.68"}
