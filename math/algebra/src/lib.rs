@@ -11,6 +11,7 @@
 pub mod consts;
 pub mod interpolation;
 pub mod mat;
+pub mod projection;
 pub mod quat;
 pub mod utils;
 pub mod vec;
@@ -22,6 +23,7 @@ pub use wasm::*;
 
 pub use interpolation::*;
 pub use mat::*;
+pub use projection::*;
 pub use vec::*;
 
 pub use self::consts::*;

@@ -133,3 +133,7 @@ macro_rules! intersect_reverse {
     }
   };
 }
+
+pub trait Raycaster {
+  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3;
+}

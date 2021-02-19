@@ -8,12 +8,15 @@ use std::ops::Mul;
 
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Color<S = f32, T: ColorSpace<S> = SRGBColorSpace<f32>> {
-  pub value: T::ContainerValue,
+pub struct Color<S = f32, T = SRGBColorSpace<f32>>
+where
+  T: ColorSpace<S>,
+{
+  pub value: T::Value,
 }
 
 pub trait ColorSpace<S> {
-  type ContainerValue: Copy + Clone;
+  type Value: Copy + Clone;
 }
 
 pub trait RGBColorSpace<T>: ColorSpace<T> {}
@@ -29,7 +32,7 @@ impl<S, T: ColorSpace<S>> Copy for Color<S, T> {}
 // multiply scalar
 impl<S, T: ColorSpace<S>, U> Mul<U> for Color<S, T>
 where
-  T::ContainerValue: Mul<U, Output = T::ContainerValue> + Copy,
+  T::Value: Mul<U, Output = T::Value> + Copy,
 {
   type Output = Self;
 
@@ -41,10 +44,10 @@ where
 }
 
 impl<S, T: ColorSpace<S>> Color<S, T> {
-  pub fn new(value: T::ContainerValue) -> Self {
+  pub fn new(value: T::Value) -> Self {
     Self { value }
   }
-  pub fn from_value(value: impl Into<T::ContainerValue>) -> Self {
+  pub fn from_value(value: impl Into<T::Value>) -> Self {
     Self {
       value: value.into(),
     }

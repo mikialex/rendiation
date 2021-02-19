@@ -1,6 +1,4 @@
-use crate::Projection;
-use crate::ResizableProjection;
-use rendiation_algebra::*;
+use crate::{Mat4, Projection, ResizableProjection};
 
 pub struct PerspectiveProjection {
   pub near: f32,
