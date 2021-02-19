@@ -10,8 +10,7 @@ members = [
   "ral/core",
   "ral/resource",
   "ral/backend/webgpu",
-  "ral/backend/webgl", # "render-graph",  # "shader-graph",  # "shader-library",  # "scene",
-  # "derives",
+  "ral/backend/webgl", # "render-graph",  # "shader-graph",  # "shader-library",  # "scene",  # "derives",
   # "rendium",
   # "voxland",
   "rainray",
@@ -20,4 +19,5 @@ members = [
   "utils/arena-graph",
   "utils/arena-tree",
   "components/color",
+  "components/controller",
 ]

@@ -1,8 +1,8 @@
-use crate::controller::Controller;
-use crate::transformed_object::TransformedObject;
 use rendiation_algebra::Vec2;
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
+
+use crate::{Controller, Transformed3DControllee};
 
 pub struct OrbitController {
   pub spherical: Spherical,
@@ -82,7 +82,7 @@ impl OrbitController {
   }
 }
 
-impl<T: TransformedObject> Controller<T> for OrbitController {
+impl<T: Transformed3DControllee> Controller<T> for OrbitController {
   fn update(&mut self, target: &mut T) -> bool {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001

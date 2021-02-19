@@ -3,7 +3,7 @@ use rendiation_algebra::IntoNormalizedVector;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());
-  let perspective = PerspectiveProjection::default();
+  // let perspective = PerspectiveProjection::default();
   let mut camera = Camera::new();
 
   let mut frame = Frame::new(1000, 1000);

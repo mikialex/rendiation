@@ -1,4 +1,5 @@
 #![allow(unused)]
+mod camera;
 mod environment;
 mod frame;
 mod geometry;
@@ -11,6 +12,7 @@ mod renderer;
 mod sampler;
 mod scene;
 
+pub use camera::*;
 pub use environment::*;
 pub use frame::*;
 pub use geometry::*;

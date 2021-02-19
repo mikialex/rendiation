@@ -1,10 +1,11 @@
-use crate::math::*;
 use crate::{frame::*, Intersection};
 use crate::{integrator::Integrator, scene::*};
+use crate::{math::*, Camera};
 use rendiation_algebra::{InnerProductSpace, Vec2, Vector, Zero};
 
 use indicatif::ProgressBar;
 use rayon::prelude::*;
+use rendiation_color::Color;
 use std::time::Instant;
 
 pub struct Renderer {

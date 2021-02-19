@@ -1,7 +1,7 @@
-use crate::controller::Controller;
-use crate::transformed_object::TransformedObject;
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
+
+use crate::{Controller, Transformed3DControllee};
 
 pub struct FPSController {
   spherical: Spherical,
@@ -63,7 +63,7 @@ impl FPSController {
   }
 }
 
-impl<T: TransformedObject> Controller<T> for FPSController {
+impl<T: Transformed3DControllee> Controller<T> for FPSController {
   fn update(&mut self, target: &mut T) -> bool {
     let mat = target.matrix_mut();
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);

@@ -1397,6 +1397,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-controller"
+version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+]
+
+[[package]]
 name = "rendiation-geometry"
 version = "0.1.0"
 dependencies = [

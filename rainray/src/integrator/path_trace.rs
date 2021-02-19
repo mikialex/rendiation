@@ -1,9 +1,6 @@
 use rendiation_algebra::{InnerProductSpace, Vec2, Vector};
+use rendiation_color::{Color, LinearRGBColorSpace};
 use rendiation_geometry::Ray3;
-use rendiation_render_entity::{
-  color::{Color, LinearRGBColorSpace},
-  Camera, Raycaster,
-};
 
 use super::Integrator;
 use crate::{

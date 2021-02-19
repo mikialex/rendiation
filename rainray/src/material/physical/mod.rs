@@ -3,7 +3,6 @@ use crate::{
   NormalizedVec3,
 };
 use rendiation_algebra::*;
-use rendiation_render_entity::color::Color;
 
 pub mod specular_model;
 pub use specular_model::*;
