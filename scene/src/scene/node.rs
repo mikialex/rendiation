@@ -1,28 +1,65 @@
-use crate::{default_impl::DefaultSceneBackend, Scene, SceneBackend, RAL};
-use arena::Handle;
-use arena_tree::*;
-use rendiation_ral::ResourceManager;
+use crate::{Camera, Scene};
+use arena_tree::ArenaTreeNode;
+use rendiation_algebra::Mat4;
 
-pub type SceneNodeHandle<T, S = DefaultSceneBackend> = Handle<SceneNode<T, S>>;
-pub type SceneNode<T, S = DefaultSceneBackend> = ArenaTreeNode<<S as SceneBackend<T>>::NodeData>;
+pub type SceneNodeHandle = ArenaTreeNode<SceneNode>;
 
-impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
-  pub fn get_root(&self) -> &SceneNode<T, S> {
+pub struct SceneNode {
+  pub visible: bool,
+  net_visible: bool,
+  pub render_data: RenderData<T>,
+  pub local_matrix: Mat4<f32>,
+  world_matrix: Mat4<f32>,
+  payload: Vec<SceneNodePayload>,
+}
+
+impl SceneNode {
+  fn update(&mut self, parent: Option<&Self>, camera: &Camera) -> bool {
+    let mut self_matrix = resource
+      .bindable
+      .uniform_buffers
+      .mutate(self.render_data.matrix_data);
+
+    if let Some(parent) = parent {
+      self.net_visible = self.visible && parent.net_visible;
+      if self.net_visible {
+        self_matrix.world_matrix = parent.world_matrix * self.local_matrix;
+        self.world_matrix = self_matrix.world_matrix;
+        self_matrix.model_view_matrix = camera.matrix_inverse * self_matrix.world_matrix;
+        self_matrix.normal_matrix = self_matrix.model_view_matrix.to_normal_matrix();
+      }
+    } else {
+      self_matrix.world_matrix = self.local_matrix;
+      self.net_visible = self.visible
+    }
+
+    self.net_visible
+  }
+}
+
+pub enum SceneNodePayload {
+  Drawable(Drawable),
+}
+
+pub struct Drawable {}
+
+impl Scene {
+  pub fn get_root(&self) -> &SceneNode {
     self.nodes.get_node(self.nodes.root())
   }
 
-  pub fn get_root_node_mut(&mut self) -> &mut SceneNode<T, S> {
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
     self.get_node_mut(self.nodes.root())
   }
 
-  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T, S>) {
+  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
     self.node_add_child_by_handle(self.nodes.root(), child_handle);
   }
 
   pub fn node_add_child_by_handle(
     &mut self,
-    parent_handle: SceneNodeHandle<T, S>,
-    child_handle: SceneNodeHandle<T, S>,
+    parent_handle: SceneNodeHandle,
+    child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
       .nodes
@@ -32,8 +69,8 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
 
   pub fn node_remove_child_by_handle(
     &mut self,
-    parent_handle: SceneNodeHandle<T, S>,
-    child_handle: SceneNodeHandle<T, S>,
+    parent_handle: SceneNodeHandle,
+    child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
       .nodes
@@ -41,22 +78,21 @@ impl<T: RAL, S: SceneBackend<T>> Scene<T, S> {
     parent.remove(child);
   }
 
-  pub fn get_node(&self, handle: SceneNodeHandle<T, S>) -> &SceneNode<T, S> {
+  pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
     self.nodes.get_node(handle)
   }
 
-  pub fn get_node_mut(&mut self, handle: SceneNodeHandle<T, S>) -> &mut SceneNode<T, S> {
+  pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
     self.nodes.get_node_mut(handle)
   }
 
-  pub fn create_new_node(&mut self, resource: &mut ResourceManager<T>) -> &mut SceneNode<T, S> {
-    let handle = self.nodes.create_node(S::create_node_data(resource));
+  pub fn create_new_node(&mut self) -> &mut SceneNode {
+    let node = SceneNode::new();
+    let handle = self.nodes.create_node(node);
     self.nodes.get_node_mut(handle)
   }
 
-  pub fn free_node(&mut self, handle: SceneNodeHandle<T, S>, resource: &mut ResourceManager<T>) {
-    let node = self.nodes.get_node(handle).data();
-    S::free_node_data(node, resource);
+  pub fn free_node(&mut self, handle: SceneNodeHandle) {
     self.nodes.free_node(handle);
   }
 }

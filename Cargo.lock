@@ -1445,6 +1445,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene"
+version = "0.1.0"
+dependencies = [
+ "arena",
+ "arena-tree",
+ "once_cell",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-renderable-mesh",
+]
+
+[[package]]
 name = "rendiation-shadergraph"
 version = "0.1.0"
 dependencies = [

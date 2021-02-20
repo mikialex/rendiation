@@ -1,8 +1,0 @@
-[package]
-edition = "2018"
-name = "rendiation-geometry"
-version = "0.1.0"
-
-[dependencies]
-rendiation-algebra = {path = "../math/algebra"}
-rendiation-geometry = {path = "../math/geometry"}

@@ -1,9 +1,4 @@
-use crate::RAL;
 use rendiation_algebra::Vec3;
-
-pub trait Background<T: RAL> {
-  fn render(&self, renderer: &mut T::Renderer, builder: T::RenderTarget);
-}
 
 pub struct SolidBackground {
   pub color: Vec3<f32>,
