@@ -11,8 +11,8 @@
 
 use super::{
   AnyGeometry, AnyIndexGeometry, GeometryDataContainer, HashAbleByConversion,
-  IndexPrimitiveTopology, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
-  NoneIndexedGeometry, PointList, PrimitiveTopology,
+  IndexPrimitiveTopologyMeta, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
+  NoneIndexedGeometry, PointList, PrimitiveTopologyMeta,
 };
 use rendiation_algebra::{InnerProductSpace, Vec3};
 use rendiation_geometry::{LineSegment, Positioned, Triangle};
@@ -25,7 +25,7 @@ impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
   V: Positioned<f32, 3>,
-  T: IndexPrimitiveTopology<I, V, Primitive = Triangle<V>>,
+  T: IndexPrimitiveTopologyMeta<I, V, Primitive = Triangle<V>>,
   U: GeometryDataContainer<V>,
 {
   pub fn create_wireframe(&self) -> IndexedGeometry<I, V, LineList, U> {
@@ -82,8 +82,8 @@ impl<I, V, T> IndexedGeometry<I, V, T>
 where
   I: IndexType,
   V: Positioned<f32, 3>,
-  T: IndexPrimitiveTopology<I, V>,
-  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
+  T: IndexPrimitiveTopologyMeta<I, V>,
+  <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
   pub fn merge_vertex_by_sorting(
     &self,
@@ -118,7 +118,7 @@ impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
   V: Positioned<f32, 3>,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
 {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T, U> {
@@ -135,8 +135,8 @@ where
 impl<V, T> NoneIndexedGeometry<V, T>
 where
   V: Positioned<f32, 3> + HashAbleByConversion,
-  T: IndexPrimitiveTopology<u16, V>,
-  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
+  T: IndexPrimitiveTopologyMeta<u16, V>,
+  <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
   // U: GeometryDataContainer<V>, // ditto
 {
   pub fn create_index_geometry(&self) -> IndexedGeometry<u16, V, T> {
@@ -161,7 +161,7 @@ where
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   V: Positioned<f32, 3>,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
 {
   pub fn create_point_cloud(&self) -> NoneIndexedGeometry<V, PointList, U> {

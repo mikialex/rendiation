@@ -22,7 +22,7 @@ impl<V, T, U> NoneIndexedGeometry<V, T, U> {
 impl<V, T, U> AnyGeometry for NoneIndexedGeometry<V, T, U>
 where
   V: Positioned<f32, 3>,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
   T::Primitive: PrimitiveData<V, U>,
 {

@@ -127,62 +127,86 @@ where
   }
 }
 
-pub trait PrimitiveTopology<T: Positioned<f32, 3>>: 'static {
+pub trait PrimitiveTopologyMeta<T: Positioned<f32, 3>>: 'static {
   type Primitive;
   const STEP: usize;
   const STRIDE: usize;
-  const ENUM: rendiation_ral::PrimitiveTopology;
+  const ENUM: PrimitiveTopology;
 }
 
-pub trait IndexPrimitiveTopology<I, T>: PrimitiveTopology<T>
+pub trait IndexPrimitiveTopologyMeta<I, T>: PrimitiveTopologyMeta<T>
 where
   T: Positioned<f32, 3>,
 {
 }
 
+/// Primitive type the input mesh is composed of.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum PrimitiveTopology {
+  /// Vertex data is a list of points. Each vertex is a new point.
+  PointList = 0,
+  /// Vertex data is a list of lines. Each pair of vertices composes a new line.
+  ///
+  /// Vertices `0 1 2 3` create two lines `0 1` and `2 3`
+  LineList = 1,
+  /// Vertex data is a strip of lines. Each set of two adjacent vertices form a line.
+  ///
+  /// Vertices `0 1 2 3` create three lines `0 1`, `1 2`, and `2 3`.
+  LineStrip = 2,
+  /// Vertex data is a list of triangles. Each set of 3 vertices composes a new triangle.
+  ///
+  /// Vertices `0 1 2 3 4 5` create two triangles `0 1 2` and `3 4 5`
+  TriangleList = 3,
+  /// Vertex data is a triangle strip. Each set of three adjacent vertices form a triangle.
+  ///
+  /// Vertices `0 1 2 3 4 5` creates four triangles `0 1 2`, `2 1 3`, `3 2 4`, and `4 3 5`
+  TriangleStrip = 4,
+}
+
 pub struct PointList;
-impl<T: Positioned<f32, 3>> PrimitiveTopology<T> for PointList {
+impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for PointList {
   type Primitive = Point<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 1;
-  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::PointList;
+  const ENUM: PrimitiveTopology = PrimitiveTopology::PointList;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopology<I, T> for PointList {}
+impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for PointList {}
 
 pub struct TriangleList;
-impl<T: Positioned<f32, 3>> PrimitiveTopology<T> for TriangleList {
+impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for TriangleList {
   type Primitive = Triangle<T>;
   const STEP: usize = 3;
   const STRIDE: usize = 3;
-  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::TriangleList;
+  const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleList;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopology<I, T> for TriangleList {}
+impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for TriangleList {}
 
 pub struct TriangleStrip;
-impl<T: Positioned<f32, 3>> PrimitiveTopology<T> for TriangleStrip {
+impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for TriangleStrip {
   type Primitive = Triangle<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 3;
-  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::TriangleStrip;
+  const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleStrip;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopology<I, T> for TriangleStrip {}
+impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for TriangleStrip {}
 
 pub struct LineList;
-impl<T: Positioned<f32, 3>> PrimitiveTopology<T> for LineList {
+impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for LineList {
   type Primitive = LineSegment<T>;
   const STEP: usize = 2;
   const STRIDE: usize = 2;
-  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::LineList;
+  const ENUM: PrimitiveTopology = PrimitiveTopology::LineList;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopology<I, T> for LineList {}
+impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for LineList {}
 
 pub struct LineStrip;
-impl<T: Positioned<f32, 3>> PrimitiveTopology<T> for LineStrip {
+impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for LineStrip {
   type Primitive = LineSegment<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 2;
-  const ENUM: rendiation_ral::PrimitiveTopology = rendiation_ral::PrimitiveTopology::LineStrip;
+  const ENUM: PrimitiveTopology = PrimitiveTopology::LineStrip;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopology<I, T> for LineStrip {}
+impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for LineStrip {}
 
 use super::IndexType;

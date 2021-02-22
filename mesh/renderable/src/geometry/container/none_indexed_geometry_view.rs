@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use rendiation_geometry::Positioned;
 
 use crate::{
-  geometry::PrimitiveData, geometry::PrimitiveTopology, geometry::TriangleList, vertex::Vertex,
+  geometry::PrimitiveData, geometry::PrimitiveTopologyMeta, geometry::TriangleList, vertex::Vertex,
 };
 
 use super::{AnyGeometry, GeometryDataContainer};
@@ -27,7 +27,7 @@ impl<'a, V, T, U> NoneIndexedGeometryView<'a, V, T, U> {
 impl<'a, V, T, U> AnyGeometry for NoneIndexedGeometryView<'a, V, T, U>
 where
   V: Positioned<f32, 3>,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
   T::Primitive: PrimitiveData<V, U>,
 {

@@ -1,7 +1,7 @@
 use rendiation_geometry::Positioned;
 use rendiation_ral::*;
 
-use super::{GeometryDataContainer, IndexedGeometry, PrimitiveTopology};
+use super::{GeometryDataContainer, IndexedGeometry, PrimitiveTopologyMeta};
 
 pub trait RALGeometryDataContainer<T, R>: GeometryDataContainer<T>
 where
@@ -36,7 +36,7 @@ where
 impl<'a, V, T, U, R> GeometryResourceCreator<R> for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned<f32, 3> + GeometryProvider,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: RALGeometryDataContainer<V, R> + 'static,
   R: RAL,
 {
@@ -60,7 +60,7 @@ where
 impl<V, T, U, R> GeometryResourceInstanceCreator<R, V> for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned<f32, 3> + GeometryProvider,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: RALGeometryDataContainer<V, R> + 'static,
   R: RAL,
 {
@@ -69,7 +69,7 @@ where
 impl<'a, V, T, U> VertexBufferLayoutGroupProvider for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned<f32, 3> + VertexBufferLayoutProvider,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
 {
   fn create_descriptor() -> Vec<VertexBufferLayout<'static>> {
@@ -84,10 +84,10 @@ where
 impl<'a, V, T, U> GeometryDescriptorProvider for IndexedGeometry<u16, V, T, U>
 where
   V: Positioned<f32, 3> + VertexBufferLayoutProvider,
-  T: PrimitiveTopology<V>,
+  T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
 {
-  fn get_primitive_topology() -> rendiation_ral::PrimitiveTopology {
+  fn get_primitive_topology() -> rendiation_ral::PrimitiveTopologyMeta {
     T::ENUM
   }
 }

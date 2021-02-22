@@ -1,5 +1,31 @@
 use rendiation_algebra::Scalar;
-use rendiation_ral::AddressMode;
+
+/// How edges should be handled in texture addressing.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum AddressMode {
+  /// Clamp the value to the edge of the texture
+  ///
+  /// -0.25 -> 0.0
+  /// 1.25  -> 1.0
+  ClampToEdge = 0,
+  /// Repeat the texture in a tiling fashion
+  ///
+  /// -0.25 -> 0.75
+  /// 1.25 -> 0.25
+  Repeat = 1,
+  /// Repeat the texture, mirroring it every repeat
+  ///
+  /// -0.25 -> 0.25
+  /// 1.25 -> 0.75
+  MirrorRepeat = 2,
+  /// Clamp the value to the border of the texture
+  /// Requires feature [`Features::ADDRESS_MODE_CLAMP_TO_BORDER`]
+  ///
+  /// -0.25 -> border
+  /// 1.25 -> border
+  ClampToBorder = 3,
+}
 
 /// How edges should be handled in texture addressing.
 pub trait TextureAddressMode {

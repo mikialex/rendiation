@@ -14,7 +14,6 @@ soa_derive = "0.8.1"
 
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-geometry = {path = "../../math/geometry"}
-rendiation-ral = {path = "../../ral/core"}
 
 space-algorithm = {path = "../../space-algorithm"}
 

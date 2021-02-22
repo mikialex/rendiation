@@ -1,9 +1,9 @@
 use super::{
-  super::{PrimitiveTopology, TriangleList},
+  super::{PrimitiveTopologyMeta, TriangleList},
   AnyGeometry, AnyIndexGeometry, GeometryDataContainer,
 };
 use crate::{
-  geometry::{IndexPrimitiveTopology, IndexedPrimitiveData},
+  geometry::{IndexPrimitiveTopologyMeta, IndexedPrimitiveData},
   vertex::Vertex,
 };
 use core::marker::PhantomData;
@@ -68,8 +68,8 @@ impl<V, I, T, U> IndexedGeometry<I, V, T, U> {
 impl<I, V, T, U> AnyGeometry for IndexedGeometry<I, V, T, U>
 where
   V: Positioned<f32, 3>,
-  T: IndexPrimitiveTopology<I, V>,
-  <T as PrimitiveTopology<V>>::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
+  T: IndexPrimitiveTopologyMeta<I, V>,
+  <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,
 {
   type Primitive = T::Primitive;
@@ -94,7 +94,7 @@ where
 impl<I, V, T, U> AnyIndexGeometry for IndexedGeometry<I, V, T, U>
 where
   V: Positioned<f32, 3>,
-  T: IndexPrimitiveTopology<I, V>,
+  T: IndexPrimitiveTopologyMeta<I, V>,
   T::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,
 {

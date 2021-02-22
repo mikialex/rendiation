@@ -1,11 +1,7 @@
 use crate::geometry::HashAbleByConversion;
 use rendiation_algebra::*;
 use rendiation_geometry::Positioned;
-use rendiation_ral::*;
 use std::{hash::Hash, mem};
-
-#[cfg(feature = "shadergraph")]
-use rendiation_derives::Geometry;
 
 #[repr(C)]
 #[cfg_attr(feature = "shadergraph", derive(Geometry))]
@@ -16,7 +12,6 @@ pub struct Vertex {
   pub uv: Vec2<f32>,
 }
 
-impl GeometryProvider for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 unsafe impl bytemuck::Pod for Vertex {}
 
@@ -62,26 +57,26 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
   }
 }
 
-impl VertexBufferLayoutProvider for Vertex {
-  const DESCRIPTOR: VertexBufferLayout<'static> = VertexBufferLayout {
-    step_mode: InputStepMode::Vertex,
-    array_stride: mem::size_of::<Self>() as u64,
-    attributes: &[
-      VertexAttribute {
-        offset: 0,
-        shader_location: 0, // todo shader location should append by providers before
-        format: VertexFormat::Float3,
-      },
-      VertexAttribute {
-        offset: 4 * 3,
-        shader_location: 1,
-        format: VertexFormat::Float3,
-      },
-      VertexAttribute {
-        offset: 4 * 3 + 4 * 3,
-        shader_location: 2,
-        format: VertexFormat::Float2,
-      },
-    ],
-  };
-}
+// impl VertexBufferLayoutProvider for Vertex {
+//   const DESCRIPTOR: VertexBufferLayout<'static> = VertexBufferLayout {
+//     step_mode: InputStepMode::Vertex,
+//     array_stride: mem::size_of::<Self>() as u64,
+//     attributes: &[
+//       VertexAttribute {
+//         offset: 0,
+//         shader_location: 0, // todo shader location should append by providers before
+//         format: VertexFormat::Float3,
+//       },
+//       VertexAttribute {
+//         offset: 4 * 3,
+//         shader_location: 1,
+//         format: VertexFormat::Float3,
+//       },
+//       VertexAttribute {
+//         offset: 4 * 3 + 4 * 3,
+//         shader_location: 2,
+//         format: VertexFormat::Float2,
+//       },
+//     ],
+//   };
+// }
