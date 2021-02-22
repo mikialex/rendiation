@@ -5,9 +5,9 @@ name = "rendiation-scene"
 version = "0.1.0"
 
 [dependencies]
-arena = {path = "../../utils/arena"}
+arena = {path = "../utils/arena"}
 once_cell = "1.4.0"
-rendiation-algebra = {path = "../../math/algebra"}
-rendiation-geometry = {path = "../../math/geometry"}
-rendiation-renderable-mesh = {path = "../../mesh/renderable"}
-arena-tree = {path = "../../utils/arena-tree"}
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-geometry = {path = "../math/geometry"}
+rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
+arena-tree = {path = "../utils/arena-tree"}

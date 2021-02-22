@@ -5,7 +5,7 @@ name = "rendiation-shadergraph"
 version = "0.1.0"
 
 [dependencies]
-arena-graph = {path = "../utils/arena-graph"}
+arena-graph = {path = "../../utils/arena-graph"}
 lazy_static = "1.4.0"
 naga = {version = "0.3.1", features = ["glsl-in", "glsl-out", "spv-out"]}
 rendiation-algebra = {path = "../math/algebra"}
