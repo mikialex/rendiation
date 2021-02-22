@@ -1,4 +1,4 @@
-use rendiation_algebra::{Mat4, Projection};
+use rendiation_algebra::*;
 
 pub struct Camera {
   pub projection_matrix: Mat4<f32>,

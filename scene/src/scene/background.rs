@@ -1,5 +1,7 @@
 use rendiation_algebra::Vec3;
 
+pub trait Background {}
+
 pub struct SolidBackground {
   pub color: Vec3<f32>,
 }

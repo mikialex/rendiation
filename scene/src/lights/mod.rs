@@ -1,5 +1,5 @@
-pub trait Light {}
+pub trait SceneLight {}
 
-pub trait DirectLight {}
+pub trait DirectSceneLight {}
 
-pub trait IndirectLight {}
+pub trait IndirectSceneLight {}

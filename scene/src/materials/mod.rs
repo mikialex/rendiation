@@ -1,1 +1,1 @@
-pub trait Material {}
+pub trait SceneMaterial {}
