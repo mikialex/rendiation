@@ -62,7 +62,3 @@ impl Scene {
   //   list
   // }
 }
-
-pub trait SceneRenderer {
-  fn render(&mut self, scene: &mut Scene);
-}
