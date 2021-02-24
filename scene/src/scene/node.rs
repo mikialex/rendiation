@@ -1,6 +1,6 @@
 use crate::{Camera, Scene};
 use arena_tree::ArenaTreeNode;
-use rendiation_algebra::Mat4;
+use rendiation_algebra::{Mat3, Mat4};
 
 pub type SceneNodeHandle = ArenaTreeNode<SceneNode>;
 
@@ -12,15 +12,25 @@ pub struct SceneNode {
   pub payload: Vec<SceneNodePayload>,
 }
 
+pub struct SceneNodeCameraRenderInfo {
+  pub model_view_matrix: Mat4<f32>,
+  pub normal_matrix: Mat3<f32>,
+}
+
 impl SceneNode {
-  fn update(&mut self, parent: Option<&Self>, camera: &Camera) -> bool {
+  fn update(
+    &mut self,
+    parent: Option<&Self>,
+    camera: &Camera,
+    info: &mut SceneNodeCameraRenderInfo,
+  ) -> bool {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
         self.world_matrix = parent.world_matrix * self.local_matrix;
         self.world_matrix = self.world_matrix;
-        // self.model_view_matrix = camera.matrix_inverse * self.world_matrix;
-        // self.normal_matrix = self.model_view_matrix.to_normal_matrix();
+        info.model_view_matrix = camera.matrix_inverse * self.world_matrix;
+        info.normal_matrix = info.model_view_matrix.to_normal_matrix();
       }
     } else {
       self.world_matrix = self.local_matrix;

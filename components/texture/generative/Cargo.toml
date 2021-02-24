@@ -4,7 +4,7 @@ name = "noize"
 version = "0.0.1"
 
 [dependencies]
-rendiation-algebra = {path = "../../math/algebra"}
+rendiation-algebra = {path = "../../../math/algebra"}
 
 [dev-dependencies]
 image = "*"

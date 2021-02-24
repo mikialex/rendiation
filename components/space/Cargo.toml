@@ -13,8 +13,8 @@ name = "bvh"
 
 [dependencies]
 
-rendiation-algebra = {path = "../math/algebra"}
-rendiation-geometry = {path = "../math/geometry"}
+rendiation-algebra = {path = "../../math/algebra"}
+rendiation-geometry = {path = "../../math/geometry"}
 
 log = "0.4"
 rand = {version = "0.7.3", features = ["wasm-bindgen"]}

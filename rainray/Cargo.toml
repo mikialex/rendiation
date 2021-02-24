@@ -15,5 +15,5 @@ arena-tree = {path = "../utils/arena-tree"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-color = {path = "../components/color"}
 rendiation-geometry = {path = "../math/geometry"}
-rendiation-renderable-mesh = {path = "../mesh/renderable"}
-space-algorithm = {path = "../space-algorithm"}
+rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
+space-algorithm = {path = "../components/space"}
