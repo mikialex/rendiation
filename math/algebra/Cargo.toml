@@ -10,5 +10,3 @@ swizzle = ["paste"]
 bytemuck = "1.4.1"
 num-traits = "0.2"
 paste = {version = "1.0.2", optional = true}
-
-wasm-bindgen = {version = "0.2.68"}

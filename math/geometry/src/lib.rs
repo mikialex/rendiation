@@ -19,7 +19,6 @@ pub mod intersect_util;
 pub mod line_segment;
 pub mod point;
 pub mod triangle;
-pub mod wasm;
 
 pub use beziersegment::*;
 pub use hyperaabb::*;
@@ -31,7 +30,6 @@ pub use line_segment::*;
 pub use point::*;
 use rendiation_algebra::*;
 pub use triangle::*;
-pub use wasm::*;
 
 pub trait SpaceAxis<const D: usize>: Copy {}
 pub trait Positioned<T: Scalar, const D: usize>: Copy {

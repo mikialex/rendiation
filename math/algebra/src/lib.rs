@@ -16,10 +16,7 @@ pub mod quat;
 pub mod utils;
 pub mod vec;
 
-pub mod wasm;
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
-
-pub use wasm::*;
 
 pub use interpolation::*;
 pub use mat::*;

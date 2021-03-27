@@ -698,7 +698,6 @@ dependencies = [
  "bytemuck",
  "num-traits",
  "paste",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -721,9 +720,7 @@ name = "rendiation-geometry"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "log",
  "rendiation-algebra",
- "wasm-bindgen",
 ]
 
 [[package]]

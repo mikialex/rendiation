@@ -5,6 +5,4 @@ version = "0.1.0"
 
 [dependencies]
 bytemuck = "1.4.1"
-log = "0.4"
 rendiation-algebra = {path = "../algebra"}
-wasm-bindgen = {version = "0.2.68"}
