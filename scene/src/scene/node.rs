@@ -1,15 +1,12 @@
-use crate::{Camera, Scene};
-use arena_tree::ArenaTreeNode;
+use crate::{Camera, MaterialHandle, Scene};
 use rendiation_algebra::{Mat3, Mat4};
-
-pub type SceneNodeHandle = ArenaTreeNode<SceneNode>;
 
 pub struct SceneNode {
   pub visible: bool,
-  pub(crate) net_visible: bool,
   pub local_matrix: Mat4<f32>,
-  pub(crate) world_matrix: Mat4<f32>,
   pub payload: Vec<SceneNodePayload>,
+  pub(crate) net_visible: bool,
+  pub(crate) world_matrix: Mat4<f32>,
 }
 
 pub struct SceneNodeCameraRenderInfo {
@@ -45,7 +42,10 @@ pub enum SceneNodePayload {
   Drawable(Drawable),
 }
 
-pub struct Drawable {}
+pub struct Drawable {
+  // geometry:
+  pub material: MaterialHandle,
+}
 
 impl Scene {
   // pub fn get_root(&self) -> &SceneNode {

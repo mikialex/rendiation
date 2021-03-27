@@ -1,10 +1,14 @@
-use crate::{Background, SceneMaterial, SceneNode};
-use arena::Arena;
-use arena_tree::ArenaTree;
+use crate::{Background, Material, SceneNode, ShaderComponent};
+use arena::{Arena, Handle};
+use arena_tree::{ArenaTree, ArenaTreeNode};
 
 pub struct SceneEffects {}
 
 pub trait SceneMesh {}
+
+pub type MaterialHandle = Handle<Material>;
+pub type ComponentHandle = Handle<Box<dyn ShaderComponent>>;
+pub type SceneNodeHandle = ArenaTreeNode<SceneNode>;
 
 pub struct Scene {
   nodes: ArenaTree<SceneNode>,
@@ -13,7 +17,8 @@ pub struct Scene {
   global_effects: SceneEffects,
 
   meshes: Arena<Box<dyn SceneMesh>>,
-  materials: Arena<Box<dyn SceneMaterial>>,
+  materials: Arena<Material>,
+  components: Arena<Box<dyn ShaderComponent>>,
   // samplers: Arena<Sampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
