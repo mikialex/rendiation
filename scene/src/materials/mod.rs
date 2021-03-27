@@ -1,9 +1,10 @@
 use crate::ComponentHandle;
 
-pub trait ShaderComponent {}
-
-pub trait ShadingComponent {}
+pub trait ShaderComponent {
+  fn build(&self) {}
+  fn shader_key(&self) {}
+}
 
 pub struct Material {
-  components: Vec<ComponentHandle>,
+  pub components: Vec<ComponentHandle>,
 }

@@ -7,6 +7,7 @@ pub struct SceneEffects {}
 pub trait SceneMesh {}
 
 pub type MaterialHandle = Handle<Material>;
+pub type MeshHandle = Handle<Box<dyn SceneMesh>>;
 pub type ComponentHandle = Handle<Box<dyn ShaderComponent>>;
 pub type SceneNodeHandle = ArenaTreeNode<SceneNode>;
 

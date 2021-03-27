@@ -1,4 +1,4 @@
-use crate::{Camera, MaterialHandle, Scene};
+use crate::{Camera, MaterialHandle, MeshHandle, Scene};
 use rendiation_algebra::{Mat3, Mat4};
 
 pub struct SceneNode {
@@ -43,7 +43,7 @@ pub enum SceneNodePayload {
 }
 
 pub struct Drawable {
-  // geometry:
+  pub geometry: MeshHandle,
   pub material: MaterialHandle,
 }
 
