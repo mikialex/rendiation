@@ -2,14 +2,11 @@
 members = [
   "math/algebra",
   "math/geometry",
-  
-  "scene", 
+  "sceno",
   "rainray",
-
   "utils/arena",
   "utils/arena-graph",
   "utils/arena-tree",
-
   "components/color",
   "components/controller",
   "components/mesh/renderable",

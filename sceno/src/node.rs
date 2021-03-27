@@ -1,4 +1,4 @@
-use crate::{Camera, MaterialHandle, MeshHandle, Scene};
+use crate::{Camera, MaterialHandle, MeshHandle, RendererBackend, Scene};
 use rendiation_algebra::{Mat3, Mat4};
 
 pub struct SceneNode {
@@ -47,7 +47,7 @@ pub struct Drawable {
   pub material: MaterialHandle,
 }
 
-impl Scene {
+impl<R: RendererBackend> Scene<R> {
   // pub fn get_root(&self) -> &SceneNode {
   //   self.nodes.get_node(self.nodes.root())
   // }
