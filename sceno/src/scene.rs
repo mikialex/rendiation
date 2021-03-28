@@ -1,6 +1,6 @@
-use crate::{Background, Material, SceneNode, ShaderComponent};
+use crate::{Background, Material, SceneNode, ShaderComponent, SolidBackground};
 use arena::{Arena, Handle};
-use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
+use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 
 pub trait SceneMesh {}
 
@@ -23,44 +23,21 @@ pub struct Scene {
 
 impl Scene {
   pub fn new() -> Self {
-    todo!()
+    Self {
+      nodes: ArenaTree::new(SceneNode::default()),
+      background: Box::new(SolidBackground::default()),
+      meshes: Arena::new(),
+      materials: Arena::new(),
+      components: Arena::new(),
+    }
   }
 
-  // pub fn update<'b>(
-  //   &mut self,
-  //   camera: &Camera,
-  //   list: &'b mut SceneDrawcallList<T, S>,
-  // ) -> &'b mut SceneDrawcallList<T, S>
-  // {
-  //   let root = self.get_root().handle();
-  //   list.inner.clear();
-  //   self.nodes.traverse(
-  //     root,
-  //     &mut self.reused_traverse_stack,
-  //     |this: &mut SceneNode<T, S>, parent: Option<&mut SceneNode<T, S>>| {
-  //       let this_handle = this.handle();
-  //       let node_data = this.data_mut();
-
-  //       let net_visible = node_data.update(parent.map(|p| p.data()), camera, resources);
-
-  //       if net_visible {
-  //         list
-  //           .inner
-  //           .extend(
-  //             node_data
-  //               .provide_drawcall()
-  //               .into_iter()
-  //               .map(|&drawcall| SceneDrawcall {
-  //                 drawcall,
-  //                 node: this_handle,
-  //               }),
-  //           );
-  //         NextTraverseVisit::VisitChildren
-  //       } else {
-  //         NextTraverseVisit::SkipChildren
-  //       }
-  //     },
-  //   );
-  //   list
-  // }
+  pub fn update(&mut self) {
+    let root = self.get_root_handle();
+    self.nodes.traverse(root, &mut Vec::new(), |this, parent| {
+      let node_data = this.data_mut();
+      node_data.update(parent.map(|p| p.data()));
+      NextTraverseVisit::VisitChildren
+    });
+  }
 }

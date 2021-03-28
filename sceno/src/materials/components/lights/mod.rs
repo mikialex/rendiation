@@ -1,7 +1,5 @@
 use rendiation_algebra::Vec3;
 
-pub trait SceneLight {}
-
 pub trait DirectSceneLight {}
 
 pub trait IndirectSceneLight {}

@@ -8,3 +8,5 @@ pub trait ShaderComponent {
 pub struct Material {
   pub components: Vec<ComponentHandle>,
 }
+
+pub trait Light {}

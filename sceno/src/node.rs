@@ -1,4 +1,4 @@
-use crate::{Camera, MaterialHandle, MeshHandle, Scene, SceneNodeHandle};
+use crate::{Light, MaterialHandle, MeshHandle, Scene, SceneNodeHandle};
 use rendiation_algebra::*;
 
 pub struct SceneNode {
@@ -21,39 +21,37 @@ impl Default for SceneNode {
   }
 }
 
-pub struct SceneNodeCameraRenderInfo {
-  pub model_view_matrix: Mat4<f32>,
-  pub normal_matrix: Mat3<f32>,
-}
+// pub struct SceneNodeCameraRenderInfo {
+//   pub model_view_matrix: Mat4<f32>,
+//   pub normal_matrix: Mat3<f32>,
+// }
 
 impl SceneNode {
-  fn update(
+  pub fn update(
     &mut self,
     parent: Option<&Self>,
-    camera: &Camera,
-    info: &mut SceneNodeCameraRenderInfo,
-  ) -> bool {
+    // camera: &Camera,
+    // info: &mut SceneNodeCameraRenderInfo,
+  ) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
         self.world_matrix = parent.world_matrix * self.local_matrix;
         self.world_matrix = self.world_matrix;
-        info.model_view_matrix = camera.matrix_inverse * self.world_matrix;
-        info.normal_matrix = info.model_view_matrix.to_normal_matrix();
+        // info.model_view_matrix = camera.matrix_inverse * self.world_matrix;
+        // info.normal_matrix = info.model_view_matrix.to_normal_matrix();
       }
     } else {
       self.world_matrix = self.local_matrix;
       self.net_visible = self.visible
     }
-
-    self.net_visible
   }
 }
 
 pub enum SceneNodePayload {
   Drawable(Drawable),
-  // Light(Light)
-  // Camera()
+  Light(Box<dyn Light>),
+  Camera(Box<dyn Projection>),
 }
 
 pub struct Drawable {
@@ -62,6 +60,9 @@ pub struct Drawable {
 }
 
 impl Scene {
+  pub fn get_root_handle(&self) -> SceneNodeHandle {
+    self.nodes.get_node(self.nodes.root()).handle()
+  }
   pub fn get_root(&self) -> &SceneNode {
     self.nodes.get_node(self.nodes.root()).data()
   }
