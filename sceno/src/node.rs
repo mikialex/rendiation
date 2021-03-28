@@ -40,6 +40,8 @@ impl SceneNode {
 
 pub enum SceneNodePayload {
   Drawable(Drawable),
+  // Light(Light)
+  // Camera()
 }
 
 pub struct Drawable {
