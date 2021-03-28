@@ -1,13 +1,12 @@
-use crate::{Background, Material, SceneNode, ShaderComponent, SolidBackground};
+use crate::{Background, Material, SceneNode, SolidBackground};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::Sampler;
 
 pub trait SceneMesh {}
 
-pub type MaterialHandle = Handle<Material>;
+pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type MeshHandle = Handle<Box<dyn SceneMesh>>;
-pub type ComponentHandle = Handle<Box<dyn ShaderComponent>>;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 
 pub struct Scene {
@@ -15,8 +14,7 @@ pub struct Scene {
   pub background: Box<dyn Background>,
 
   pub meshes: Arena<Box<dyn SceneMesh>>,
-  pub materials: Arena<Material>,
-  pub components: Arena<Box<dyn ShaderComponent>>,
+  pub materials: Arena<Box<dyn Material>>,
   pub samplers: Arena<Sampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
@@ -29,7 +27,6 @@ impl Scene {
       background: Box::new(SolidBackground::default()),
       meshes: Arena::new(),
       materials: Arena::new(),
-      components: Arena::new(),
       samplers: Arena::new(),
     }
   }
