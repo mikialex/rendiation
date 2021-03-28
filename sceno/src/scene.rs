@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{Background, Material, SceneNode, ShaderComponent};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNode};
@@ -13,10 +11,7 @@ pub type MeshHandle = Handle<Box<dyn SceneMesh>>;
 pub type ComponentHandle = Handle<Box<dyn ShaderComponent>>;
 pub type SceneNodeHandle = ArenaTreeNode<SceneNode>;
 
-pub trait RendererBackend {}
-
-pub struct Scene<R: RendererBackend> {
-  phantom: PhantomData<R>,
+pub struct Scene {
   nodes: ArenaTree<SceneNode>,
   background: Box<dyn Background>,
 
@@ -30,7 +25,7 @@ pub struct Scene<R: RendererBackend> {
   // buffers: Arena<Buffer>,
 }
 
-impl<R: RendererBackend> Scene<R> {
+impl Scene {
   pub fn new() -> Self {
     todo!()
   }
