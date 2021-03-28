@@ -1,16 +1,13 @@
-use rendiation_math::{InnerProductSpace, Vec2, Vector};
-use rendiation_math_entity::Ray3;
-use rendiation_render_entity::{
-  color::{Color, LinearRGBColorSpace},
-  Camera, Raycaster,
-};
+use rendiation_algebra::{InnerProductSpace, Vec2, Vector};
+use rendiation_color::{Color, LinearRGBColorSpace};
+use rendiation_geometry::Ray3;
 
 use super::Integrator;
 use crate::{
   math::rand, math::Vec3, scene::Scene, Intersection, LightSampleResult, Material, NormalizedVec3,
 };
-use rendiation_math::RealVector;
-use rendiation_math::Zero;
+use rendiation_algebra::RealVector;
+use rendiation_algebra::Zero;
 
 pub struct PathTraceIntegrator {
   pub exposure_upper_bound: f32,

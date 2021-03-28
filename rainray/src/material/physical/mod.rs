@@ -2,8 +2,7 @@ use crate::{
   math::{concentric_sample_disk, rand, rand2},
   NormalizedVec3,
 };
-use rendiation_math::*;
-use rendiation_render_entity::color::Color;
+use rendiation_algebra::*;
 
 pub mod specular_model;
 pub use specular_model::*;

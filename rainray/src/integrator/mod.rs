@@ -1,9 +1,6 @@
-use rendiation_math::Vec2;
-use rendiation_math_entity::Ray3;
-use rendiation_render_entity::{
-  color::{Color, LinearRGBColorSpace},
-  Camera,
-};
+use rendiation_algebra::Vec2;
+use rendiation_color::{Color, LinearRGBColorSpace};
+use rendiation_geometry::Ray3;
 
 use crate::scene::Scene;
 

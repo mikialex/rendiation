@@ -1,5 +1,5 @@
-use rendiation_math::Vec2;
-use rendiation_render_entity::color::{Color, LinearRGBColorSpace, RGBColor};
+use rendiation_algebra::Vec2;
+use rendiation_color::{Color, LinearRGBColorSpace, RGBColor};
 
 pub struct Frame {
   pub data: Vec<Vec<Color<f32, LinearRGBColorSpace<f32>>>>,

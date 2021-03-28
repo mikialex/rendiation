@@ -7,16 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'rendiation-math'",
+            "name": "Debug unit tests in library 'rendiation-algebra'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=rendiation-math"
+                    "--package=rendiation-algebra"
                 ],
                 "filter": {
-                    "name": "rendiation-math",
+                    "name": "rendiation-algebra",
                     "kind": "lib"
                 }
             },
@@ -26,16 +26,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'rendiation-math-entity'",
+            "name": "Debug unit tests in library 'rendiation-geometry'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=rendiation-math-entity"
+                    "--package=rendiation-geometry"
                 ],
                 "filter": {
-                    "name": "rendiation-math-entity",
+                    "name": "rendiation-geometry",
                     "kind": "lib"
                 }
             },
@@ -45,16 +45,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'rendiation-render-entity'",
+            "name": "Debug unit tests in library 'rendiation-geometry'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=rendiation-render-entity"
+                    "--package=rendiation-geometry"
                 ],
                 "filter": {
-                    "name": "rendiation-render-entity",
+                    "name": "rendiation-geometry",
                     "kind": "lib"
                 }
             },

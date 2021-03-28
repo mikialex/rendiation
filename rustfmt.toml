@@ -1,5 +1,1 @@
 tab_spaces = 2
-
-ignore = [
-    "src/math",
-]

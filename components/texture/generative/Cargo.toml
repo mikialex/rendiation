@@ -1,0 +1,10 @@
+[package]
+edition = "2018"
+name = "noize"
+version = "0.0.1"
+
+[dependencies]
+rendiation-algebra = {path = "../../../math/algebra"}
+
+[dev-dependencies]
+image = "*"

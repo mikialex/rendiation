@@ -1,9 +1,9 @@
-use rendiation_math::IntoNormalizedVector;
-use rendiation_math::{InnerProductSpace, NormalizedVector, Vec2, Vec3 as V3, Vector};
+use rendiation_algebra::IntoNormalizedVector;
+use rendiation_algebra::{InnerProductSpace, NormalizedVector, Vec2, Vec3 as V3, Vector};
 
 pub type Vec3 = V3<f32>;
 pub type NormalizedVec3 = NormalizedVector<f32, V3<f32>>;
-pub use rendiation_math_entity::*;
+pub use rendiation_geometry::*;
 
 extern crate rand as randx;
 

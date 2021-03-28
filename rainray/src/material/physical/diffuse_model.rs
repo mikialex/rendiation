@@ -3,8 +3,8 @@ use crate::{
   Vec3, INV_PI, PI,
 };
 
-use rendiation_math::IntoNormalizedVector;
-use rendiation_math::{InnerProductSpace, Vec2};
+use rendiation_algebra::IntoNormalizedVector;
+use rendiation_algebra::{InnerProductSpace, Vec2};
 
 pub struct Lambertian;
 impl Material for Diffuse<Lambertian> {

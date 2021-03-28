@@ -1,6 +1,6 @@
 use crate::math::Vec3;
-use rendiation_math::Lerp;
-use rendiation_math_entity::Ray3;
+use rendiation_algebra::Lerp;
+use rendiation_geometry::Ray3;
 
 pub trait Environment: Sync + 'static {
   fn sample(&self, ray: &Ray3) -> Vec3;

@@ -1,0 +1,8 @@
+[package]
+edition = "2018"
+name = "rendiation-geometry"
+version = "0.1.0"
+
+[dependencies]
+bytemuck = "1.4.1"
+rendiation-algebra = {path = "../algebra"}

@@ -1,15 +1,15 @@
 use std::cmp::Ordering;
 
-use rendiation_math::{Vec2, Vec3};
-use rendiation_math_entity::{Box3, IntersectAble, Ray3, SpaceBounding, Triangle};
-use rendiation_mesh_buffer::{
+use rendiation_algebra::{Vec2, Vec3};
+use rendiation_geometry::{Box3, IntersectAble, Ray3, SpaceBounding, Triangle};
+use rendiation_renderable_mesh::{
   geometry::{
     AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig,
     NoneIndexedGeometry, TriangleList,
   },
   vertex::Vertex,
 };
-use space_indexer::{
+use space_algorithm::{
   bvh::{BalanceTree, FlattenBVH, SAH},
   utils::TreeBuildOption,
 };
@@ -32,7 +32,7 @@ impl ShadingNormalProvider for Triangle<Vertex> {
       .unwrap_or(Vec3::new(1., 0., 0.));
     let normal =
       barycentric.x * self.a.normal + barycentric.y * self.b.normal + barycentric.z * self.c.normal;
-    use rendiation_math::IntoNormalizedVector;
+    use rendiation_algebra::IntoNormalizedVector;
     unsafe { normal.into_normalized_unchecked() }
   }
 }
@@ -49,7 +49,7 @@ where
   G: BVHIntersectAbleExtendedAnyGeometry<Box3>,
 {
   pub fn new(geometry: G) -> Self {
-    use rendiation_mesh_buffer::geometry::BVHExtendedBuildAnyGeometry;
+    use rendiation_renderable_mesh::geometry::BVHExtendedBuildAnyGeometry;
     let bvh = geometry.build_bvh(
       // &mut BalanceTree,
       &mut SAH::new(4),
@@ -170,13 +170,13 @@ impl Mesh {
     let mut geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
 
     if need_compute_vertex_normal {
-      use rendiation_math_entity::Positioned;
+      use rendiation_geometry::Positioned;
       let face_normals: Vec<NormalizedVec3> = geometry
         .primitive_iter()
         .map(|p| p.map_position().face_normal())
         .collect();
 
-      use rendiation_math::Vector;
+      use rendiation_algebra::Vector;
       geometry
         .data
         .iter_mut()
@@ -188,7 +188,7 @@ impl Mesh {
           v.normal = v.normal + face_normals[i].value
         }
       }
-      use rendiation_math::InnerProductSpace;
+      use rendiation_algebra::InnerProductSpace;
       geometry
         .data
         .iter_mut()

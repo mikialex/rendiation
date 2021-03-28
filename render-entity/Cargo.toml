@@ -1,8 +1,0 @@
-[package]
-name = "rendiation-render-entity"
-version = "0.1.0"
-edition = "2018"
-
-[dependencies]
-rendiation-math = { path = "../math" }
-rendiation-math-entity = { path = "../math-entity" }

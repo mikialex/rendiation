@@ -1,0 +1,20 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2018"
+name = "space-algorithm"
+version = "0.1.0"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+harness = false
+name = "bvh"
+
+[dependencies]
+
+rendiation-algebra = {path = "../../math/algebra"}
+rendiation-geometry = {path = "../../math/geometry"}
+
+log = "0.4"
+rand = {version = "0.7.3", features = ["wasm-bindgen"]}

@@ -1,5 +1,5 @@
 use rainray::*;
-use rendiation_math::IntoNormalizedVector;
+use rendiation_algebra::{IntoNormalizedVector, PerspectiveProjection, Projection};
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());
@@ -73,12 +73,12 @@ fn main() {
       ));
     }
   }
-  *camera.matrix_mut() = Mat4::lookat(
+  camera.matrix = Mat4::lookat(
     Vec3::new(0., width_all / 2., 10.),
     Vec3::new(0., width_all / 2., 0.),
     Vec3::new(0., 1., 0.),
   );
-  camera.update_by(&perspective);
+  perspective.update_projection(&mut camera.projection_matrix);
 
   renderer.render(&camera, &scene, &mut frame);
   frame.write_result("ball_array");

@@ -1,0 +1,25 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+name = "rendiation-renderable-mesh"
+version = "0.1.0"
+
+# [features]
+# shadergraph = ["rendiation-shadergraph", "rendiation-derives"]
+
+[dependencies]
+bytemuck = "1.4.1"
+once_cell = "1.4.0"
+soa_derive = "0.8.1"
+
+rendiation-algebra = {path = "../../../math/algebra"}
+rendiation-geometry = {path = "../../../math/geometry"}
+
+space-algorithm = {path = "../../space"}
+
+# rendiation-derives = {path = "../derives", optional = true}
+# rendiation-shadergraph = {path = "../shader-graph", optional = true}
+# rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
+
+log = "0.4"
+wasm-bindgen = {version = "0.2.68"}
