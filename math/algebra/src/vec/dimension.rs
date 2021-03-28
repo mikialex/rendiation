@@ -65,7 +65,12 @@ pub trait RealVector<T: One + Zero + Real>: Vector<T> {
 
 /// https://en.wikipedia.org/wiki/Vector_space
 pub trait VectorSpace<T>:
-  Mul<T, Output = Self> + Sub<Self, Output = Self> + Add<Self, Output = Self> + Sized + Copy
+  Add<Self, Output = Self>
+  + Sub<Self, Output = Self>
+  + Mul<T, Output = Self>
+  + Div<T, Output = Self>
+  + Sized
+  + Copy
 {
 }
 

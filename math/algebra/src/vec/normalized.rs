@@ -104,6 +104,13 @@ impl<T, V: VectorSpace<T>> Mul<T> for NormalizedVector<T, V> {
     self.value * rhs
   }
 }
+impl<T, V: VectorSpace<T>> Div<T> for NormalizedVector<T, V> {
+  type Output = V;
+  #[inline(always)]
+  fn div(self, rhs: T) -> Self::Output {
+    self.value / rhs
+  }
+}
 
 impl<T, V> Deref for NormalizedVector<T, V> {
   type Target = V;

@@ -1,21 +1,23 @@
-use rendiation_algebra::{Scalar, Vec3};
+use rendiation_algebra::{NormalizedVector, Scalar, Vec2, Vec3};
 
 use crate::Texture2D;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(u8)]
 pub enum CubeTextureFace {
-  PositiveX = 0,
-  NegativeX = 1,
-  PositiveY = 2,
-  NegativeY = 3,
-  PositiveZ = 4,
-  NegativeZ = 5,
+  PositiveX,
+  NegativeX,
+  PositiveY,
+  NegativeY,
+  PositiveZ,
+  NegativeZ,
 }
 
 // https://github.com/Hyper3D/hyper3d-envmapgen/blob/master/rust/src/cubemap.rs
 
-pub struct CubeTexture<T> {
+pub struct CubeTexture<P, T>
+where
+  T: Texture2D<Pixel = P>,
+{
   pub positive_x: T,
   pub negative_x: T,
 
@@ -36,8 +38,29 @@ pub struct CubeTexture<T> {
 // }
 
 // http://www.cim.mcgill.ca/~langer/557/18-slides.pdf
-impl<P, T: Texture2D<Pixel = P>> CubeTexture<T> {
-  pub fn sample<S: Scalar>(&self, _direction: Vec3<S>) -> P {
+impl<P, T> CubeTexture<P, T>
+where
+  T: Texture2D<Pixel = P>,
+{
+  pub fn sample<S: Scalar>(&self, direction: NormalizedVector<S, Vec3<S>>) -> P {
+    let abs = direction.map(|c| c.abs());
+    let max_axis_project = abs.x.max(abs.y).max(abs.z);
+    let dir = direction / max_axis_project;
+    if dir.x == S::one() {
+      let at = Vec2::new(dir.y, dir.z).map(|v| (v + S::one()) * S::half());
+    // self.positive_x.sample(at)
+    //
+    } else if dir.x == -S::one() {
+      //
+    } else if dir.y == S::one() {
+      //
+    } else if dir.y == -S::one() {
+      //
+    } else if dir.z == S::one() {
+      //
+    } else {
+      //
+    }
     todo!()
   }
 }

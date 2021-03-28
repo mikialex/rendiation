@@ -30,6 +30,13 @@ impl<T, const D: usize> Mul<T> for FakeHyperVec<T, D> {
     unreachable!()
   }
 }
+impl<T, const D: usize> Div<T> for FakeHyperVec<T, D> {
+  type Output = Self;
+
+  fn div(self, _rhs: T) -> Self::Output {
+    unreachable!()
+  }
+}
 
 impl<T: Scalar, const D: usize> RealVector<T> for FakeHyperVec<T, D> {}
 impl<T: Copy, const D: usize> VectorSpace<T> for FakeHyperVec<T, D> {}

@@ -45,6 +45,13 @@ impl<T, V: VectorSpace<T>, S> Mul<T> for Space<T, V, S> {
     Space::wrap(self.value * rhs)
   }
 }
+impl<T, V: VectorSpace<T>, S> Div<T> for Space<T, V, S> {
+  type Output = Space<T, V, S>;
+  #[inline(always)]
+  fn div(self, rhs: T) -> Self::Output {
+    Space::wrap(self.value / rhs)
+  }
+}
 impl<T: Copy, V: VectorSpace<T>, S: Copy> VectorSpace<T> for Space<T, V, S> {}
 impl<T: One + Zero + Two + Real + Copy, V: InnerProductSpace<T>, S: Copy> InnerProductSpace<T>
   for Space<T, V, S>

@@ -20,7 +20,7 @@ impl<T: Scalar> VectorDimension<2> for Vec2<T> {}
 impl<T: Scalar> VectorImpl for Vec2<T> {}
 impl<T: Scalar> RealVector<T> for Vec2<T> {}
 impl<T> VectorSpace<T> for Vec2<T> where
-  T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Copy
+  T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Div<T, Output = T> + Copy
 {
 }
 impl<T: Scalar> InnerProductSpace<T> for Vec2<T> {

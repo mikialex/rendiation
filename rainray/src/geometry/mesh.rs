@@ -51,7 +51,6 @@ where
   pub fn new(geometry: G) -> Self {
     use rendiation_renderable_mesh::geometry::BVHExtendedBuildAnyGeometry;
     let bvh = geometry.build_bvh(
-      // &mut BalanceTree,
       &mut SAH::new(4),
       &TreeBuildOption {
         max_tree_depth: 50,
@@ -195,15 +194,15 @@ impl Mesh {
     }
 
     let geometry = geometry.create_index_geometry();
-    let geometry = geometry.merge_vertex_by_sorting(
-      |a, b| {
-        a.position
-          .x
-          .partial_cmp(&b.position.x)
-          .unwrap_or(Ordering::Equal)
-      },
-      |a, b| a.position.x - b.position.y <= 0.0001,
-    );
+    // let geometry = geometry.merge_vertex_by_sorting(
+    //   |a, b| {
+    //     a.position
+    //       .x
+    //       .partial_cmp(&b.position.x)
+    //       .unwrap_or(Ordering::Equal)
+    //   },
+    //   |a, b| a.position.x - b.position.y <= 0.0001,
+    // );
 
     let mesh = TriangleMesh::new(geometry);
     Mesh {
