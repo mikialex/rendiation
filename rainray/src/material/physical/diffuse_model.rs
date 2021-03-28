@@ -10,16 +10,16 @@ pub struct Lambertian;
 impl Material for Diffuse<Lambertian> {
   fn bsdf(
     &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
+    _view_dir: NormalizedVec3,
+    _light_dir: NormalizedVec3,
+    _intersection: &Intersection,
   ) -> Vec3 {
     self.albedo() / Vec3::splat(PI)
   }
 
   fn sample_light_dir(
     &self,
-    view_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> NormalizedVec3 {
     // Simple cosine-sampling using Malley's method
@@ -32,7 +32,7 @@ impl Material for Diffuse<Lambertian> {
 
   fn pdf(
     &self,
-    view_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
@@ -49,14 +49,14 @@ impl PhysicalDiffuse for Diffuse<Lambertian> {
 pub struct OrenNayar {
   /// the standard deviation of the microfacet orientation angle
   /// in radians
-  sigma: f32,
-  albedo: Vec3,
-  a: f32,
-  b: f32,
+  pub sigma: f32,
+  pub albedo: Vec3,
+  pub a: f32,
+  pub b: f32,
 }
 
 impl OrenNayar {
-  fn new(albedo: Vec3, sigma: f32) -> Self {
+  pub fn new(albedo: Vec3, sigma: f32) -> Self {
     let sigma2 = sigma * sigma;
     let a = 1. - (sigma2 / (2. * (sigma2 + 0.33)));
     let b = 0.45 * sigma2 / (sigma2 + 0.09);
@@ -72,9 +72,9 @@ impl OrenNayar {
 impl Material for OrenNayar {
   fn bsdf(
     &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
+    _view_dir: NormalizedVec3,
+    _light_dir: NormalizedVec3,
+    _intersection: &Intersection,
   ) -> Vec3 {
     todo!()
     // let sin_theta_i = sin_theta(wi);
@@ -104,17 +104,17 @@ impl Material for OrenNayar {
 
   fn sample_light_dir(
     &self,
-    view_dir: NormalizedVec3,
-    intersection: &Intersection,
+    _view_dir: NormalizedVec3,
+    _intersection: &Intersection,
   ) -> NormalizedVec3 {
     todo!()
   }
 
   fn pdf(
     &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
+    _view_dir: NormalizedVec3,
+    _light_dir: NormalizedVec3,
+    _intersection: &Intersection,
   ) -> f32 {
     todo!()
   }

@@ -29,12 +29,9 @@ pub enum AddressMode {
 
 /// How edges should be handled in texture addressing.
 pub trait TextureAddressMode {
+  const ENUM: AddressMode;
   /// correct uv to [1, 1]
   fn correct<T: Scalar>(uv: T) -> T;
-}
-
-pub trait RALAddressMode {
-  const ENUM: AddressMode;
 }
 
 /// Clamp the value to the edge of the texture
@@ -42,10 +39,8 @@ pub trait RALAddressMode {
 /// -0.25 -> 0.0
 /// 1.25  -> 1.0
 pub struct ClampToEdge;
-impl RALAddressMode for ClampToEdge {
-  const ENUM: AddressMode = AddressMode::ClampToEdge;
-}
 impl TextureAddressMode for ClampToEdge {
+  const ENUM: AddressMode = AddressMode::ClampToEdge;
   fn correct<T: Scalar>(uv: T) -> T {
     uv.max(T::zero()).min(T::one())
   }
@@ -62,10 +57,8 @@ fn clamp() {
 /// -0.25 -> 0.75
 /// 1.25 -> 0.25
 pub struct Repeat;
-impl RALAddressMode for Repeat {
-  const ENUM: AddressMode = AddressMode::Repeat;
-}
 impl TextureAddressMode for Repeat {
+  const ENUM: AddressMode = AddressMode::Repeat;
   fn correct<T: Scalar>(uv: T) -> T {
     uv % T::one()
   }
@@ -82,10 +75,8 @@ fn repeat() {
 /// -0.25 -> 0.25
 /// 1.25 -> 0.75
 pub struct MirrorRepeat;
-impl RALAddressMode for MirrorRepeat {
-  const ENUM: AddressMode = AddressMode::MirrorRepeat;
-}
 impl TextureAddressMode for MirrorRepeat {
+  const ENUM: AddressMode = AddressMode::MirrorRepeat;
   fn correct<T: Scalar>(_uv: T) -> T {
     todo!()
   }

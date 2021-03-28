@@ -3,7 +3,6 @@ use crate::{environment::*, Vec3};
 use crate::{light::*, Intersection, PossibleIntersection};
 use rendiation_algebra::*;
 use rendiation_geometry::Ray3;
-use std::sync::Arc;
 
 pub struct Scene {
   pub models: Vec<Model>,

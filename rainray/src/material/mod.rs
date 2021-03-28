@@ -1,5 +1,5 @@
 use crate::math::*;
-use crate::{frame::*, Intersection};
+use crate::Intersection;
 
 pub mod physical;
 pub use physical::*;

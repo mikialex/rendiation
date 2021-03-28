@@ -1,7 +1,7 @@
-use crate::{frame::*, Intersection};
+use crate::frame::*;
 use crate::{integrator::Integrator, scene::*};
 use crate::{math::*, Camera};
-use rendiation_algebra::{InnerProductSpace, Vec2, Vector, Zero};
+use rendiation_algebra::{Vec2, Vector};
 
 use indicatif::ProgressBar;
 use rayon::prelude::*;
@@ -11,22 +11,6 @@ use std::time::Instant;
 pub struct Renderer {
   pub sample_per_pixel: usize,
   pub integrator: Box<dyn Integrator>,
-}
-
-fn test_intersection_is_visible_to_point(
-  scene: &Scene,
-  intersection: &Intersection,
-  point: &Vec3,
-) -> bool {
-  let distance = point.distance(intersection.position);
-  let test_ray = Ray3::from_point_to_point(intersection.position, *point);
-  let hit_result = scene.get_min_dist_hit(test_ray);
-
-  if let Some(hit_result) = hit_result {
-    hit_result.0.distance > distance
-  } else {
-    true
-  }
 }
 
 impl Renderer {
@@ -40,9 +24,6 @@ impl Renderer {
   pub fn render(&mut self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
     println!("rendering...");
     let now = Instant::now();
-
-    let x_ratio_unit = 1.0 / frame.width() as f32;
-    let y_ratio_unit = 1.0 / frame.width() as f32;
 
     let progress_bar = ProgressBar::new(100);
     let bar_inv = (frame.pixel_count() as f32 / 100.).ceil() as usize;
@@ -61,8 +42,6 @@ impl Renderer {
       .for_each(|((i, j), pixel)| {
         let x = i as f32 / frame_size.x;
         let y = (frame_size.y - j as f32) / frame_size.y;
-
-        let jitter_size = frame_size.map(|v| 1.0 / v as f32);
 
         let mut energy_acc = Vec3::zero();
 

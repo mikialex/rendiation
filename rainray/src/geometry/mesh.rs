@@ -1,16 +1,16 @@
 use std::cmp::Ordering;
 
 use rendiation_algebra::{Vec2, Vec3};
-use rendiation_geometry::{Box3, IntersectAble, Ray3, SpaceBounding, Triangle};
+use rendiation_geometry::{Box3, IntersectAble, Ray3, Triangle};
 use rendiation_renderable_mesh::{
   geometry::{
-    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig,
+    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, MeshBufferIntersectConfig,
     NoneIndexedGeometry, TriangleList,
   },
   vertex::Vertex,
 };
 use space_algorithm::{
-  bvh::{BalanceTree, FlattenBVH, SAH},
+  bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
 };
 
@@ -38,9 +38,9 @@ impl ShadingNormalProvider for Triangle<Vertex> {
 }
 
 pub struct TriangleMesh<G> {
-  geometry: G,
-  face_normal: Vec<NormalizedVec3>,
-  bvh: FlattenBVH<Box3>,
+  pub geometry: G,
+  pub face_normal: Vec<NormalizedVec3>,
+  pub bvh: FlattenBVH<Box3>,
 }
 
 impl<G> TriangleMesh<G>
@@ -105,7 +105,7 @@ pub struct Mesh {
 }
 
 impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
-  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
+  fn intersect(&self, ray: &Ray3, _param: &()) -> PossibleIntersection {
     self.geometry.get_intersect(ray)
   }
 }
@@ -121,7 +121,7 @@ impl Mesh {
     let mut need_compute_vertex_normal = false;
 
     // we simply merge all groups in obj into one mesh
-    for (i, m) in models.iter().enumerate() {
+    for (_i, m) in models.iter().enumerate() {
       let mesh = &m.mesh;
 
       let mut next_face = 0;
@@ -170,7 +170,6 @@ impl Mesh {
     let mut geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
 
     if need_compute_vertex_normal {
-      use rendiation_geometry::Positioned;
       let face_normals: Vec<NormalizedVec3> = geometry
         .primitive_iter()
         .map(|p| p.map_position().face_normal())

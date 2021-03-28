@@ -1,6 +1,7 @@
 use crate::{Background, Material, SceneNode, ShaderComponent, SolidBackground};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
+use rendiation_texture::Sampler;
 
 pub trait SceneMesh {}
 
@@ -16,7 +17,7 @@ pub struct Scene {
   pub meshes: Arena<Box<dyn SceneMesh>>,
   pub materials: Arena<Material>,
   pub components: Arena<Box<dyn ShaderComponent>>,
-  // samplers: Arena<Sampler>,
+  pub samplers: Arena<Sampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
 }
@@ -29,6 +30,7 @@ impl Scene {
       meshes: Arena::new(),
       materials: Arena::new(),
       components: Arena::new(),
+      samplers: Arena::new(),
     }
   }
 

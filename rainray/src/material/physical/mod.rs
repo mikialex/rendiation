@@ -1,7 +1,4 @@
-use crate::{
-  math::{concentric_sample_disk, rand, rand2},
-  NormalizedVec3,
-};
+use crate::{math::rand, NormalizedVec3};
 use rendiation_algebra::*;
 
 pub mod specular_model;
@@ -9,10 +6,7 @@ pub use specular_model::*;
 pub mod diffuse_model;
 pub use diffuse_model::*;
 
-use crate::{
-  math::{Vec3, PI},
-  Intersection, Material, INV_PI,
-};
+use crate::{math::Vec3, Intersection, Material};
 
 pub struct PhysicalMaterial<D, S> {
   pub diffuse: D,

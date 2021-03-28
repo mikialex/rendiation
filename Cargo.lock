@@ -798,6 +798,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
+ "rendiation-texture",
 ]
 
 [[package]]

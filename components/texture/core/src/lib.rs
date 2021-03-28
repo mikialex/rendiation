@@ -6,6 +6,8 @@ pub mod filter;
 pub use filter::*;
 pub mod cube;
 pub use cube::*;
+pub mod sampler;
+pub use sampler::*;
 
 use image::ImageBuffer;
 use rendiation_algebra::Vec2;

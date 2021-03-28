@@ -1,5 +1,5 @@
 use rainray::*;
-use rendiation_algebra::{IntoNormalizedVector, PerspectiveProjection, Projection};
+use rendiation_algebra::{IntoNormalizedVector, Mat4, PerspectiveProjection, Projection};
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());

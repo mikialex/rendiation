@@ -1,5 +1,5 @@
 use crate::math::*;
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vector};
+use rendiation_algebra::IntoNormalizedVector;
 
 pub mod mesh;
 pub use mesh::*;

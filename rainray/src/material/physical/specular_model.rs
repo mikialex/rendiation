@@ -1,7 +1,7 @@
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vector};
+use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2};
 
 use crate::{
-  math::{concentric_sample_disk, rand, rand2, Vec3, INV_PI, PI},
+  math::{concentric_sample_disk, rand, Vec3, INV_PI, PI},
   MicroFacetFresnel, MicroFacetGeometricShadow, MicroFacetNormalDistribution, NormalizedVec3,
   Specular,
 };
@@ -14,11 +14,11 @@ impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
     let cos = n.dot(h).max(0.0);
     cos.powf(2.0 / roughness_2 - 2.0) * normalize_coefficient
   }
-  fn sample_micro_surface_normal(&self, normal: NormalizedVec3) -> NormalizedVec3 {
+  fn sample_micro_surface_normal(&self, _normal: NormalizedVec3) -> NormalizedVec3 {
     todo!()
   }
 
-  fn surface_normal_pdf(&self, normal: NormalizedVec3, sampled_normal: NormalizedVec3) -> f32 {
+  fn surface_normal_pdf(&self, _normal: NormalizedVec3, _sampled_normal: NormalizedVec3) -> f32 {
     todo!()
   }
 }
@@ -65,11 +65,11 @@ impl<G, F> MicroFacetNormalDistribution for Specular<GGX, G, F> {
     INV_PI * (root * root)
   }
 
-  fn sample_micro_surface_normal(&self, normal: NormalizedVec3) -> NormalizedVec3 {
+  fn sample_micro_surface_normal(&self, _normal: NormalizedVec3) -> NormalizedVec3 {
     todo!()
   }
 
-  fn surface_normal_pdf(&self, normal: NormalizedVec3, sampled_normal: NormalizedVec3) -> f32 {
+  fn surface_normal_pdf(&self, _normal: NormalizedVec3, _sampled_normal: NormalizedVec3) -> f32 {
     todo!()
   }
 }

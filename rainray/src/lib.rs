@@ -1,4 +1,3 @@
-#![allow(unused)]
 mod camera;
 mod environment;
 mod frame;
@@ -22,6 +21,5 @@ pub use material::*;
 pub use math::*;
 pub use model::*;
 pub use renderer::*;
-pub use rendiation_algebra::Mat4;
 pub use sampler::*;
 pub use scene::*;

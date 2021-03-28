@@ -1,4 +1,4 @@
-use rendiation_algebra::{InnerProductSpace, Vec2, Vector};
+use rendiation_algebra::InnerProductSpace;
 use rendiation_color::{Color, LinearRGBColorSpace};
 use rendiation_geometry::Ray3;
 
@@ -7,7 +7,6 @@ use crate::{
   math::rand, math::Vec3, scene::Scene, Intersection, LightSampleResult, Material, NormalizedVec3,
 };
 use rendiation_algebra::RealVector;
-use rendiation_algebra::Zero;
 
 pub struct PathTraceIntegrator {
   pub exposure_upper_bound: f32,
@@ -91,7 +90,7 @@ impl Integrator for PathTraceIntegrator {
 
       // roulette exist
       if throughput.max_channel() < self.roulette_threshold {
-        if (rand() < self.roulette_factor) {
+        if rand() < self.roulette_factor {
           break;
         }
         throughput /= 1. - self.roulette_factor;

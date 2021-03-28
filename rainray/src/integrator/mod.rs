@@ -1,4 +1,3 @@
-use rendiation_algebra::Vec2;
 use rendiation_color::{Color, LinearRGBColorSpace};
 use rendiation_geometry::Ray3;
 
