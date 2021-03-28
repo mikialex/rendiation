@@ -33,14 +33,6 @@ macro_rules! vector {
 
 macro_rules! impl_vector {
   ($VectorN:ident { $($field:ident),+ }, $n:expr, $constructor:ident) => {
-    impl<S: Copy> $VectorN<S> {
-      /// Construct a new vector, using the provided single values.
-      #[inline]
-      pub fn splat(value: S) -> $VectorN<S> {
-        $VectorN { $($field: value),+ }
-      }
-    }
-
     impl<S> $VectorN<S> {
       /// Construct a new vector, using the provided values.
       #[inline]

@@ -1,4 +1,4 @@
-use rendiation_geometry::{IntersectAble, Ray3};
+use rendiation_geometry::{Box3, IntersectAble, Ray3};
 
 use crate::{
   material::Material, Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry, Vec3,
@@ -27,7 +27,11 @@ impl<M, G: IntersectAble<Ray3, PossibleIntersection>> IntersectAble<Ray3, Possib
   }
 }
 
-impl<M, G: RainRayGeometry> RainRayGeometry for Model<M, G> {}
+impl<M, G: RainRayGeometry> RainRayGeometry for Model<M, G> {
+  fn get_bbox(&self) -> Option<Box3> {
+    self.geometry.get_bbox()
+  }
+}
 
 impl<M, G> RainrayModel for Model<M, G>
 where

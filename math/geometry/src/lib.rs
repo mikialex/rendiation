@@ -103,14 +103,18 @@ pub trait SolidEntity<T: Scalar, const D: usize>:
   fn centroid(&self) -> VectorType<T, D>;
 }
 
-pub trait ContainAble<T: Scalar, Target: SpaceEntity<T, D>, const D: usize>:
-  SolidEntity<T, D>
+pub trait ContainAble<T, Target, const D: usize>: SolidEntity<T, D>
+where
+  T: Scalar,
+  Target: SpaceEntity<T, D>,
 {
   fn contains(&self, items_to_contain: &Target) -> bool;
 }
 
-pub trait SpaceBounding<T: Scalar, Bound: SolidEntity<T, D>, const D: usize>:
-  SpaceEntity<T, D>
+pub trait SpaceBounding<T, Bound, const D: usize>: SpaceEntity<T, D>
+where
+  T: Scalar,
+  Bound: SolidEntity<T, D>,
 {
   fn to_bounding(&self) -> Bound;
 }

@@ -1,5 +1,5 @@
 use crate::math::Vec3;
-use rendiation_algebra::Lerp;
+use rendiation_algebra::{Lerp, Vector};
 use rendiation_geometry::Ray3;
 
 pub trait Environment: Sync + 'static {

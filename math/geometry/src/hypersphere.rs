@@ -1,6 +1,9 @@
 use rendiation_algebra::*;
 
-use crate::{ContainAble, InnerProductSpace, LebesgueMeasurable, SolidEntity, SpaceEntity};
+use crate::{
+  ContainAble, HyperAABB, InnerProductSpace, LebesgueMeasurable, SolidEntity, SpaceBounding,
+  SpaceEntity,
+};
 
 pub struct HyperSphere<T: Scalar, const D: usize> {
   pub center: VectorType<T, D>,
@@ -62,5 +65,14 @@ where
 impl<T: Scalar, const D: usize> ContainAble<T, VectorType<T, D>, D> for HyperSphere<T, D> {
   default fn contains(&self, v: &VectorType<T, D>) -> bool {
     (*v - self.center).length2() <= self.radius * self.radius
+  }
+}
+
+impl<T: Scalar, const D: usize> SpaceBounding<T, HyperAABB<T, D>, D> for HyperSphere<T, D> {
+  fn to_bounding(&self) -> HyperAABB<T, D> {
+    HyperAABB {
+      min: self.center - Vector::splat(self.radius),
+      max: self.center + Vector::splat(self.radius),
+    }
   }
 }

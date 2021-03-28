@@ -1,4 +1,4 @@
-use rendiation_algebra::InnerProductSpace;
+use rendiation_algebra::{InnerProductSpace, Vector};
 use rendiation_color::{Color, LinearRGBColorSpace};
 use rendiation_geometry::Ray3;
 

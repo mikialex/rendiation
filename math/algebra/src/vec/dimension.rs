@@ -11,7 +11,7 @@ pub trait VectorImpl {}
 pub trait VectorDimension<const D: usize> {}
 
 // this trait abstract for ops on vector
-pub trait Vector<T: One + Zero>: Copy {
+pub trait Vector<T: One + Zero + Copy>: Copy {
   fn create<F>(f: F) -> Self
   where
     F: Fn() -> T;
@@ -36,6 +36,10 @@ pub trait Vector<T: One + Zero>: Copy {
   #[inline]
   fn zero() -> Self {
     Self::create(|| T::zero())
+  }
+  #[inline]
+  fn splat(v: T) -> Self {
+    Self::create(|| v)
   }
 }
 

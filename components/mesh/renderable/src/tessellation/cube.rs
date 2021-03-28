@@ -1,4 +1,4 @@
-use rendiation_algebra::{Vec2, Vec3};
+use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use crate::{
   geometry::{IndexedGeometry, TriangleList},

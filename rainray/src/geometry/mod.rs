@@ -4,7 +4,11 @@ use rendiation_algebra::IntoNormalizedVector;
 pub mod mesh;
 pub use mesh::*;
 
-pub trait RainRayGeometry: IntersectAble<Ray3, PossibleIntersection> {}
+pub trait RainRayGeometry: IntersectAble<Ray3, PossibleIntersection> {
+  fn get_bbox(&self) -> Option<Box3> {
+    None
+  }
+}
 
 pub struct Intersection {
   pub distance: f32,
