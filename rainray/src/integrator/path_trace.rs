@@ -4,7 +4,8 @@ use rendiation_geometry::Ray3;
 
 use super::Integrator;
 use crate::{
-  math::rand, math::Vec3, scene::Scene, Intersection, LightSampleResult, Material, NormalizedVec3,
+  math::rand, math::Vec3, scene::Scene, Intersection, LightSampleResult, NormalizedVec3,
+  RainrayModel,
 };
 use rendiation_algebra::RealVector;
 
@@ -33,7 +34,7 @@ impl PathTraceIntegrator {
   fn sample_lights(
     &self,
     scene: &Scene,
-    material: &dyn Material,
+    model: &dyn RainrayModel,
     intersection: &Intersection,
     light_out_dir: NormalizedVec3,
   ) -> Vec3 {
@@ -44,7 +45,7 @@ impl PathTraceIntegrator {
         light_in_dir,
       }) = light.sample(intersection.position, scene)
       {
-        let bsdf = material.bsdf(light_in_dir.reverse(), light_out_dir, intersection);
+        let bsdf = model.bsdf(light_in_dir.reverse(), light_out_dir, intersection);
         energy += bsdf * emissive * -light_in_dir.dot(intersection.geometric_normal);
       }
     }
@@ -68,24 +69,19 @@ impl Integrator for PathTraceIntegrator {
       }
 
       let (intersection, model) = hit_result.unwrap();
-      let material = &model.material;
 
       let view_dir = current_ray.direction.reverse();
-      let light_dir = material.sample_light_dir(view_dir, &intersection);
-      let light_dir_pdf = material.pdf(view_dir, light_dir, &intersection);
+      let light_dir = model.sample_light_dir(view_dir, &intersection);
+      let light_dir_pdf = model.pdf(view_dir, light_dir, &intersection);
       if light_dir_pdf == 0.0 {
         break;
       }
 
-      energy += self.sample_lights(
-        scene,
-        material.as_ref(),
-        &intersection,
-        current_ray.direction.reverse(),
-      ) * throughput;
+      energy += self.sample_lights(scene, model, &intersection, current_ray.direction.reverse())
+        * throughput;
 
       let cos = light_dir.dot(intersection.geometric_normal).abs();
-      let bsdf = material.bsdf(view_dir, light_dir, &intersection);
+      let bsdf = model.bsdf(view_dir, light_dir, &intersection);
       throughput = throughput * cos * bsdf / light_dir_pdf;
 
       // roulette exist

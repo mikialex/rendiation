@@ -4,7 +4,7 @@ use crate::Intersection;
 pub mod physical;
 pub use physical::*;
 
-pub trait Material: Send + Sync {
+pub trait Material<G>: Send + Sync {
   /// sample the light input dir with brdf importance
   fn sample_light_dir(
     &self,

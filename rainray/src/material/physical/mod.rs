@@ -95,13 +95,13 @@ where
   }
 }
 
-pub trait PhysicalDiffuse: Material {
+pub trait PhysicalDiffuse<G>: Material<G> {
   fn albedo(&self) -> Vec3;
 }
 
-impl<D, S> Material for PhysicalMaterial<D, S>
+impl<G, D, S> Material<G> for PhysicalMaterial<D, S>
 where
-  D: PhysicalDiffuse + Send + Sync,
+  D: PhysicalDiffuse<G> + Send + Sync,
   S: PhysicalSpecular + Send + Sync,
 {
   fn bsdf(

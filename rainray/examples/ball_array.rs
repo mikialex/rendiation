@@ -33,7 +33,7 @@ fn main() {
       bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
     });
 
-  fn ball(position: Vec3, size: f32, roughness: f32, metallic: f32) -> Model {
+  fn ball(position: Vec3, size: f32, roughness: f32, metallic: f32) -> impl RainrayModel {
     let roughness = if roughness == 0.0 { 0.04 } else { roughness };
     Model::new(
       Sphere::new(position, size),

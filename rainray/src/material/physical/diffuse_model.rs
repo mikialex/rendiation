@@ -7,14 +7,14 @@ use rendiation_algebra::IntoNormalizedVector;
 use rendiation_algebra::{InnerProductSpace, Vec2};
 
 pub struct Lambertian;
-impl Material for Diffuse<Lambertian> {
+impl<G> Material<G> for Diffuse<Lambertian> {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3,
     _light_dir: NormalizedVec3,
     _intersection: &Intersection,
   ) -> Vec3 {
-    self.albedo() / Vec3::splat(PI)
+    PhysicalDiffuse::<G>::albedo(self) / Vec3::splat(PI)
   }
 
   fn sample_light_dir(
@@ -40,7 +40,7 @@ impl Material for Diffuse<Lambertian> {
   }
 }
 
-impl PhysicalDiffuse for Diffuse<Lambertian> {
+impl<G> PhysicalDiffuse<G> for Diffuse<Lambertian> {
   fn albedo(&self) -> Vec3 {
     self.albedo
   }
@@ -69,7 +69,7 @@ impl OrenNayar {
   }
 }
 
-impl Material for OrenNayar {
+impl<G> Material<G> for OrenNayar {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3,

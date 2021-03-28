@@ -4,7 +4,7 @@ use rendiation_algebra::IntoNormalizedVector;
 pub mod mesh;
 pub use mesh::*;
 
-pub trait RainRayGeometry: Send + Sync + IntersectAble<Ray3, PossibleIntersection> {}
+pub trait RainRayGeometry: IntersectAble<Ray3, PossibleIntersection> {}
 
 pub struct Intersection {
   pub distance: f32,

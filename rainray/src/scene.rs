@@ -5,7 +5,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::Ray3;
 
 pub struct Scene {
-  pub models: Vec<Model>,
+  pub models: Vec<Box<dyn RainrayModel>>,
   pub point_lights: Vec<PointLight>,
   pub lights: Vec<Box<dyn Light>>,
   pub env: Box<dyn Environment>,
@@ -23,15 +23,15 @@ impl Default for Scene {
 }
 
 impl Scene {
-  pub fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &Model)> {
+  pub fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)> {
     let mut min_distance = std::f32::INFINITY;
-    let mut result: Option<(Intersection, &Model)> = None;
+    let mut result: Option<(Intersection, &dyn RainrayModel)> = None;
     for model in &self.models {
-      if let PossibleIntersection(Some(mut intersection)) = model.geometry.intersect(&ray, &()) {
+      if let PossibleIntersection(Some(mut intersection)) = model.intersect(&ray, &()) {
         if intersection.distance < min_distance {
           intersection.adjust_hit_position();
           min_distance = intersection.distance;
-          result = Some((intersection, model))
+          result = Some((intersection, model.as_ref()))
         }
       }
     }
@@ -54,8 +54,8 @@ impl Scene {
     self
   }
 
-  pub fn model(&mut self, model: Model) -> &mut Self {
-    self.models.push(model);
+  pub fn model(&mut self, model: impl RainrayModel) -> &mut Self {
+    self.models.push(Box::new(model));
     self
   }
 
