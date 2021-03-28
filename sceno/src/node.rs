@@ -1,5 +1,5 @@
-use crate::{Camera, MaterialHandle, MeshHandle, Scene};
-use rendiation_algebra::{Mat3, Mat4};
+use crate::{Camera, MaterialHandle, MeshHandle, Scene, SceneNodeHandle};
+use rendiation_algebra::*;
 
 pub struct SceneNode {
   pub visible: bool,
@@ -7,6 +7,18 @@ pub struct SceneNode {
   pub payload: Vec<SceneNodePayload>,
   pub(crate) net_visible: bool,
   pub(crate) world_matrix: Mat4<f32>,
+}
+
+impl Default for SceneNode {
+  fn default() -> Self {
+    Self {
+      visible: true,
+      local_matrix: Mat4::one(),
+      payload: Vec::new(),
+      net_visible: true,
+      world_matrix: Mat4::one(),
+    }
+  }
 }
 
 pub struct SceneNodeCameraRenderInfo {
@@ -50,55 +62,55 @@ pub struct Drawable {
 }
 
 impl Scene {
-  // pub fn get_root(&self) -> &SceneNode {
-  //   self.nodes.get_node(self.nodes.root())
-  // }
+  pub fn get_root(&self) -> &SceneNode {
+    self.nodes.get_node(self.nodes.root()).data()
+  }
 
-  // pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
-  //   self.get_node_mut(self.nodes.root())
-  // }
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
+    self.get_node_mut(self.nodes.root())
+  }
 
-  // pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
-  //   self.node_add_child_by_handle(self.nodes.root(), child_handle);
-  // }
+  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
+    self.node_add_child_by_handle(self.nodes.root(), child_handle);
+  }
 
-  // pub fn node_add_child_by_handle(
-  //   &mut self,
-  //   parent_handle: SceneNodeHandle,
-  //   child_handle: SceneNodeHandle,
-  // ) {
-  //   let (parent, child) = self
-  //     .nodes
-  //     .get_parent_child_pair(parent_handle, child_handle);
-  //   parent.add(child);
-  // }
+  pub fn node_add_child_by_handle(
+    &mut self,
+    parent_handle: SceneNodeHandle,
+    child_handle: SceneNodeHandle,
+  ) {
+    let (parent, child) = self
+      .nodes
+      .get_parent_child_pair(parent_handle, child_handle);
+    parent.add(child);
+  }
 
-  // pub fn node_remove_child_by_handle(
-  //   &mut self,
-  //   parent_handle: SceneNodeHandle,
-  //   child_handle: SceneNodeHandle,
-  // ) {
-  //   let (parent, child) = self
-  //     .nodes
-  //     .get_parent_child_pair(parent_handle, child_handle);
-  //   parent.remove(child);
-  // }
+  pub fn node_remove_child_by_handle(
+    &mut self,
+    parent_handle: SceneNodeHandle,
+    child_handle: SceneNodeHandle,
+  ) {
+    let (parent, child) = self
+      .nodes
+      .get_parent_child_pair(parent_handle, child_handle);
+    parent.remove(child);
+  }
 
-  // pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
-  //   self.nodes.get_node(handle)
-  // }
+  pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
+    self.nodes.get_node(handle).data()
+  }
 
-  // pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
-  //   self.nodes.get_node_mut(handle)
-  // }
+  pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
+    self.nodes.get_node_mut(handle).data_mut()
+  }
 
-  // pub fn create_new_node(&mut self) -> &mut SceneNode {
-  //   let node = SceneNode::new();
-  //   let handle = self.nodes.create_node(node);
-  //   self.nodes.get_node_mut(handle)
-  // }
+  pub fn create_new_node(&mut self) -> &mut SceneNode {
+    let node = SceneNode::default();
+    let handle = self.nodes.create_node(node);
+    self.nodes.get_node_mut(handle).data_mut()
+  }
 
-  // pub fn free_node(&mut self, handle: SceneNodeHandle) {
-  //   self.nodes.free_node(handle);
-  // }
+  pub fn free_node(&mut self, handle: SceneNodeHandle) {
+    self.nodes.free_node(handle);
+  }
 }
