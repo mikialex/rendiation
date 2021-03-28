@@ -109,6 +109,7 @@ where
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
+    geom: &G,
   ) -> Vec3 {
     let l = light_dir;
     let v = view_dir;
@@ -125,7 +126,7 @@ where
 
     let specular = (d * g * f) / (4.0 * n.dot(l) * n.dot(v));
 
-    let diffuse = self.diffuse.bsdf(view_dir, light_dir, intersection);
+    let diffuse = self.diffuse.bsdf(view_dir, light_dir, intersection, geom);
     specular + (Vec3::splat(1.0) - f) * diffuse
   }
 
@@ -133,11 +134,12 @@ where
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
+    geom: &G,
   ) -> NormalizedVec3 {
     if rand() < self.specular.specular_estimate(self.diffuse.albedo()) {
       self.specular.sample_light_dir(view_dir, intersection)
     } else {
-      self.diffuse.sample_light_dir(view_dir, intersection)
+      self.diffuse.sample_light_dir(view_dir, intersection, geom)
     }
   }
 
@@ -146,10 +148,12 @@ where
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
+    geom: &G,
   ) -> f32 {
     let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
     let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
-    let diff = self.diffuse.pdf(view_dir, light_dir, intersection) * (1.0 - specular_estimate);
+    let diff =
+      self.diffuse.pdf(view_dir, light_dir, intersection, geom) * (1.0 - specular_estimate);
     spec + diff
   }
 }

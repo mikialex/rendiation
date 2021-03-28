@@ -39,7 +39,9 @@ where
     view_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> NormalizedVec3 {
-    self.material.sample_light_dir(view_dir, intersection)
+    self
+      .material
+      .sample_light_dir(view_dir, intersection, &self.geometry)
   }
 
   fn pdf(
@@ -48,7 +50,9 @@ where
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> f32 {
-    self.material.pdf(view_dir, light_dir, intersection)
+    self
+      .material
+      .pdf(view_dir, light_dir, intersection, &self.geometry)
   }
 
   fn bsdf(
@@ -57,7 +61,9 @@ where
     light_dir: NormalizedVec3,
     intersection: &Intersection,
   ) -> Vec3 {
-    self.material.bsdf(view_dir, light_dir, intersection)
+    self
+      .material
+      .bsdf(view_dir, light_dir, intersection, &self.geometry)
   }
 }
 

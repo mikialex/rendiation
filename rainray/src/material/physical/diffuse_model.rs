@@ -13,6 +13,7 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     _view_dir: NormalizedVec3,
     _light_dir: NormalizedVec3,
     _intersection: &Intersection,
+    _geom: &G,
   ) -> Vec3 {
     PhysicalDiffuse::<G>::albedo(self) / Vec3::splat(PI)
   }
@@ -21,6 +22,7 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     &self,
     _view_dir: NormalizedVec3,
     intersection: &Intersection,
+    _geom: &G,
   ) -> NormalizedVec3 {
     // Simple cosine-sampling using Malley's method
     let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
@@ -35,6 +37,7 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     _view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
+    _geom: &G,
   ) -> f32 {
     light_dir.dot(intersection.geometric_normal).max(0.0) * INV_PI
   }
@@ -75,6 +78,7 @@ impl<G> Material<G> for OrenNayar {
     _view_dir: NormalizedVec3,
     _light_dir: NormalizedVec3,
     _intersection: &Intersection,
+    _geom: &G,
   ) -> Vec3 {
     todo!()
     // let sin_theta_i = sin_theta(wi);
@@ -106,6 +110,7 @@ impl<G> Material<G> for OrenNayar {
     &self,
     _view_dir: NormalizedVec3,
     _intersection: &Intersection,
+    _geom: &G,
   ) -> NormalizedVec3 {
     todo!()
   }
@@ -115,6 +120,7 @@ impl<G> Material<G> for OrenNayar {
     _view_dir: NormalizedVec3,
     _light_dir: NormalizedVec3,
     _intersection: &Intersection,
+    _geom: &G,
   ) -> f32 {
     todo!()
   }
