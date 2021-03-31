@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+// use std::cmp::Ordering;
 
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, IntersectAble, Ray3, Triangle};

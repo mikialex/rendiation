@@ -8,3 +8,6 @@ pub use scene::*;
 
 pub mod materials;
 pub use materials::*;
+
+pub mod mesh;
+pub use mesh::*;

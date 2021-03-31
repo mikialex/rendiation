@@ -47,7 +47,7 @@ where
     let max_axis_project = abs.x.max(abs.y).max(abs.z);
     let dir = direction / max_axis_project;
     if dir.x == S::one() {
-      let at = Vec2::new(dir.y, dir.z).map(|v| (v + S::one()) * S::half());
+      let _at = Vec2::new(dir.y, dir.z).map(|v| (v + S::one()) * S::half());
     // self.positive_x.sample(at)
     //
     } else if dir.x == -S::one() {

@@ -1,9 +1,7 @@
-use crate::{Background, Material, SceneNode, SolidBackground};
+use crate::{Background, Material, SceneMesh, SceneNode, SolidBackground};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::Sampler;
-
-pub trait SceneMesh {}
 
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type MeshHandle = Handle<Box<dyn SceneMesh>>;

@@ -1,3 +1,5 @@
 pub trait Light {}
 
-pub trait Material {}
+pub trait Material {
+  // pub fn
+}
