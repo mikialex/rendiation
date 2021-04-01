@@ -793,6 +793,7 @@ name = "sceno"
 version = "0.1.0"
 dependencies = [
  "arena",
+ "arena-graph",
  "arena-tree",
  "once_cell",
  "rendiation-algebra",
