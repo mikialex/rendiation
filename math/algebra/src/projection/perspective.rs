@@ -1,4 +1,4 @@
-use crate::{Mat4, Projection, ResizableProjection};
+use crate::{Mat4, PiByC180, Projection, ResizableProjection, Scalar};
 
 pub struct PerspectiveProjection {
   pub near: f32,
@@ -29,5 +29,35 @@ impl Projection for PerspectiveProjection {
 impl ResizableProjection for PerspectiveProjection {
   fn resize(&mut self, size: (f32, f32)) {
     self.aspect = size.0 / size.1;
+  }
+}
+
+impl<T: Scalar + PiByC180> Mat4<T> {
+  pub fn perspective_fov_lh(fov: T, aspect: T, znear: T, zfar: T) -> Self {
+    let h = T::one() / (fov * T::half() * T::pi_by_c180()).tan();
+    let w = h / aspect;
+    let q = zfar / (zfar - znear);
+
+    #[rustfmt::skip]
+    Mat4::new(
+      w,         T::zero(), T::zero(),             T::zero(),
+      T::zero(), h,         T::zero(),             T::zero(),
+      T::zero(), T::zero(), q,                     T::one(),
+      T::zero(), T::zero(), -T::two() * znear * q, T::zero(),
+    )
+  }
+
+  pub fn perspective_fov_rh(fov: T, aspect: T, znear: T, zfar: T) -> Self {
+    let h = T::one() / (fov * T::half() * T::pi_by_c180()).tan();
+    let w = h / aspect;
+    let q = -zfar / (zfar - znear);
+
+    #[rustfmt::skip]
+    Mat4::new(
+      w,         T::zero(), T::zero(),             T::zero(),
+      T::zero(), h,         T::zero(),             T::zero(),
+      T::zero(), T::zero(), q,                    -T::one(),
+      T::zero(), T::zero(), T::two() * znear * q, T::zero(),
+    )
   }
 }
