@@ -1,4 +1,4 @@
-use crate::{ModelHandle, Scene, SceneBackend, SceneNodeHandle};
+use crate::{LightHandle, ModelHandle, Scene, SceneBackend, SceneNodeHandle};
 use rendiation_algebra::*;
 
 pub struct SceneNode<T: SceneBackend> {
@@ -50,7 +50,7 @@ impl<T: SceneBackend> SceneNode<T> {
 
 pub enum SceneNodePayload<T: SceneBackend> {
   Model(ModelHandle<T>),
-  // Light(Box<dyn Light>),
+  Light(LightHandle<T>),
   // Camera(Box<dyn Projection>),
 }
 

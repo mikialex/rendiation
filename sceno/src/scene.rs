@@ -4,9 +4,10 @@ use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::Sampler;
 
 pub type SceneNodeHandle<T> = ArenaTreeNodeHandle<SceneNode<T>>;
-pub type ModelHandle<T: SceneBackend> = Handle<T::Model>;
-pub type MeshHandle<T: SceneBackend> = Handle<T::Mesh>;
-pub type MaterialHandle<T: SceneBackend> = Handle<T::Material>;
+pub type ModelHandle<T> = Handle<<T as SceneBackend>::Model>;
+pub type MeshHandle<T> = Handle<<T as SceneBackend>::Mesh>;
+pub type MaterialHandle<T> = Handle<<T as SceneBackend>::Material>;
+pub type LightHandle<T> = Handle<<T as SceneBackend>::Light>;
 
 pub trait SceneBackend {
   type Model;
@@ -18,7 +19,7 @@ pub trait SceneBackend {
 
 pub struct Scene<T: SceneBackend> {
   pub nodes: ArenaTree<SceneNode<T>>,
-  pub background: Option<Box<T::Background>>,
+  pub background: Option<T::Background>,
   pub models: Arena<T::Model>,
   pub meshes: Arena<T::Mesh>,
   pub materials: Arena<T::Material>,
@@ -54,6 +55,10 @@ impl<T: SceneBackend> Scene<T> {
     creator.create_model(self)
   }
 
+  pub fn create_light(&mut self, creator: impl SceneLightCreator<T>) -> LightHandle<T> {
+    creator.create_light(self)
+  }
+
   pub fn create_node(
     &mut self,
     builder: impl Fn(&mut SceneNode<T>, &mut Self),
@@ -70,6 +75,13 @@ impl<T: SceneBackend> Scene<T> {
   }
 
   pub fn light_node(&mut self, light: impl SceneLightCreator<T>) -> &mut Self {
+    let light = self.create_light(light);
+    self.create_node(|node, _| node.payload.push(SceneNodePayload::Light(light)));
+    self
+  }
+
+  pub fn background(&mut self, background: T::Background) -> &mut Self {
+    self.background = background.into();
     self
   }
 }
@@ -88,5 +100,14 @@ where
 }
 
 pub trait SceneLightCreator<T: SceneBackend> {
-  fn create_model(self, scene: &mut Scene<T>) -> T::Model;
+  fn create_light(self, scene: &mut Scene<T>) -> LightHandle<T>;
+}
+
+impl<T> SceneLightCreator<T> for <T as SceneBackend>::Light
+where
+  T: SceneBackend,
+{
+  fn create_light(self, scene: &mut Scene<T>) -> LightHandle<T> {
+    scene.lights.insert(self)
+  }
 }

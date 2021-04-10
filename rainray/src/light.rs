@@ -10,12 +10,19 @@ pub trait Light: Sync + 'static {
   fn sample(&self, world_position: Vec3, scene: &Scene) -> Option<LightSampleResult>;
 }
 
+pub trait LightToBoxed: Light + Sized {
+  fn to_boxed(self) -> Box<dyn Light> {
+    Box::new(self) as Box<dyn Light>
+  }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct PointLight {
   pub position: Vec3,
   pub intensity: Vec3,
 }
 
+impl LightToBoxed for PointLight {}
 impl Light for PointLight {
   fn sample(&self, world_position: Vec3, scene: &Scene) -> Option<LightSampleResult> {
     if !scene.test_point_visible_to_point(self.position, world_position) {

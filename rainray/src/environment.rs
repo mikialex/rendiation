@@ -5,6 +5,11 @@ use rendiation_geometry::Ray3;
 pub trait Environment: Sync + 'static {
   fn sample(&self, ray: &Ray3) -> Vec3;
 }
+pub trait EnvironmentToBoxed: Environment + Sized {
+  fn to_boxed(self) -> Box<dyn Environment> {
+    Box::new(self) as Box<dyn Environment>
+  }
+}
 
 pub struct SolidEnvironment {
   pub intensity: Vec3,
@@ -29,6 +34,7 @@ pub struct GradientEnvironment {
   pub bottom_intensity: Vec3,
 }
 
+impl EnvironmentToBoxed for GradientEnvironment {}
 impl Environment for GradientEnvironment {
   fn sample(&self, ray: &Ray3) -> Vec3 {
     let t = ray.direction.y / 2.0 + 1.;

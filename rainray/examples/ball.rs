@@ -53,16 +53,22 @@ fn main() {
         diffuse_model: Lambertian,
       },
     ))
-    .light(PointLight {
-      position: Vec3::new(8., 8., 6.),
-      intensity: Vec3::new(80., 80., 80.),
-    })
-    .environment(GradientEnvironment {
-      // top_intensity: Vec3::splat(0.01),
-      // bottom_intensity: Vec3::new(0., 0., 0.),
-      top_intensity: Vec3::new(0.4, 0.4, 0.4),
-      bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
-    });
+    .light_node(
+      PointLight {
+        position: Vec3::new(8., 8., 6.),
+        intensity: Vec3::new(80., 80., 80.),
+      }
+      .to_boxed(),
+    )
+    .background(
+      GradientEnvironment {
+        // top_intensity: Vec3::splat(0.01),
+        // bottom_intensity: Vec3::new(0., 0., 0.),
+        top_intensity: Vec3::new(0.4, 0.4, 0.4),
+        bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
+      }
+      .to_boxed(),
+    );
 
   renderer.render(&camera, &scene, &mut frame);
 
