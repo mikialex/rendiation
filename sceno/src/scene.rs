@@ -1,14 +1,15 @@
-use crate::{Material, SceneMesh, SceneNode};
+use crate::SceneNode;
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::Sampler;
 
-pub type MaterialHandle = Handle<Box<dyn Material>>;
-pub type MeshHandle = Handle<Box<dyn SceneMesh>>;
-pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
+pub type SceneNodeHandle<T> = ArenaTreeNodeHandle<SceneNode<T>>;
+pub type ModelHandle<T: SceneBackend> = Handle<T::Model>;
+pub type MeshHandle<T: SceneBackend> = Handle<T::Mesh>;
+pub type MaterialHandle<T: SceneBackend> = Handle<T::Material>;
 
 pub trait SceneBackend {
-  type Drawable;
+  type Model;
   type Material;
   type Mesh;
   type Light;
@@ -16,14 +17,12 @@ pub trait SceneBackend {
 }
 
 pub struct Scene<T: SceneBackend> {
-  pub nodes: ArenaTree<SceneNode>,
+  pub nodes: ArenaTree<SceneNode<T>>,
   pub background: Option<Box<T::Background>>,
-
-  pub drawables: Arena<T::Drawable>,
+  pub models: Arena<T::Model>,
   pub meshes: Arena<T::Mesh>,
   pub materials: Arena<T::Material>,
   pub lights: Arena<T::Light>,
-
   pub samplers: Arena<Sampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
@@ -34,7 +33,7 @@ impl<T: SceneBackend> Scene<T> {
     Self {
       nodes: ArenaTree::new(SceneNode::default()),
       background: None,
-      drawables: Arena::new(),
+      models: Arena::new(),
       meshes: Arena::new(),
       lights: Arena::new(),
       materials: Arena::new(),

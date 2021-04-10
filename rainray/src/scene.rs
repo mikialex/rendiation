@@ -9,7 +9,7 @@ pub struct RainrayScene;
 use sceno::SceneBackend;
 
 impl SceneBackend for RainrayScene {
-  type Drawable = Box<dyn RainrayModel>;
+  type Model = Box<dyn RainrayModel>;
 
   type Material = Box<dyn RainrayMaterial>;
 
@@ -21,8 +21,8 @@ impl SceneBackend for RainrayScene {
 }
 
 pub type Scene = sceno::Scene<RainrayScene>;
-pub type MeshHandle = sceno::Handle<Box<dyn RainRayGeometry>>;
-pub type MaterialHandle = sceno::Handle<Box<dyn RainrayMaterial>>;
+pub type MeshHandle = sceno::MeshHandle<RainrayScene>;
+pub type MaterialHandle = sceno::MaterialHandle<RainrayScene>;
 
 pub trait RainraySceneExt {
   fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)>;
@@ -43,12 +43,12 @@ impl RainraySceneExt for Scene {
   fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result: Option<(Intersection, &dyn RainrayModel)> = None;
-    for model in &self.drawables {
-      if let PossibleIntersection(Some(mut intersection)) = model.1.intersect(&ray, self) {
+    for (_, model) in &self.models {
+      if let PossibleIntersection(Some(mut intersection)) = model.intersect(&ray, self) {
         if intersection.distance < min_distance {
           intersection.adjust_hit_position();
           min_distance = intersection.distance;
-          result = Some((intersection, model.1.as_ref()))
+          result = Some((intersection, model.as_ref()))
         }
       }
     }
