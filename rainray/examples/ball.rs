@@ -15,7 +15,7 @@ fn main() {
   let mut frame = Frame::new(500, 500);
   let mut scene = Scene::new();
   scene
-    .model(Model::new(
+    .model(Model::boxed(
       Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
       PhysicalMaterial {
         specular: Specular {

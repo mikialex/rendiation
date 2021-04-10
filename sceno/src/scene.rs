@@ -49,4 +49,22 @@ impl<T: SceneBackend> Scene<T> {
       NextTraverseVisit::VisitChildren
     });
   }
+
+  pub fn create_model(&mut self, creator: impl SceneModelCreator<T>) -> ModelHandle<T> {
+    let model = creator.create_model(self);
+    self.models.insert(model)
+  }
+
+  pub fn create_node(
+    &mut self,
+    builder: impl Fn(&mut SceneNode<T>, &mut Self),
+  ) -> SceneNodeHandle<T> {
+    let mut node = SceneNode::default();
+    builder(&mut node, self);
+    self.nodes.create_node(node)
+  }
+}
+
+pub trait SceneModelCreator<T: SceneBackend> {
+  fn create_model(self, scene: &mut Scene<T>) -> T::Model;
 }

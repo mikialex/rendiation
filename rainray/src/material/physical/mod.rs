@@ -1,4 +1,4 @@
-use crate::{math::rand, NormalizedVec3};
+use crate::{math::rand, NormalizedVec3, RainrayMaterial};
 use rendiation_algebra::*;
 
 pub mod specular_model;
@@ -11,6 +11,14 @@ use crate::{math::Vec3, Intersection, Material};
 pub struct PhysicalMaterial<D, S> {
   pub diffuse: D,
   pub specular: S,
+}
+
+impl<D: Send + Sync + 'static, S: Send + Sync + 'static> RainrayMaterial
+  for PhysicalMaterial<D, S>
+{
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
 }
 
 pub struct Specular<D, G, F> {

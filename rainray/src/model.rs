@@ -30,6 +30,10 @@ where
     }
   }
 
+  pub fn boxed(scene: &mut Scene, geometry: G, material: M) -> Box<Self> {
+    Box::new(Self::new(scene, geometry, material))
+  }
+
   pub fn downcast<'a>(&self, scene: &'a Scene) -> (&'a M, &'a G) {
     let material = scene
       .materials
