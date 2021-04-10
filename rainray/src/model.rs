@@ -49,17 +49,21 @@ where
   }
 }
 
-impl<M, G: IntersectAble<Ray3, PossibleIntersection>> IntersectAble<Ray3, PossibleIntersection>
-  for Model<M, G>
+impl<M, G> IntersectAble<Ray3, PossibleIntersection, Scene> for Model<M, G>
+where
+  M: Material<G> + RainrayMaterial,
+  G: IntersectAble<Ray3, PossibleIntersection, Scene> + RainRayGeometry,
 {
-  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    self.geometry.intersect(ray, param)
+  fn intersect(&self, ray: &Ray3, scene: &Scene) -> PossibleIntersection {
+    let (_, geometry) = self.downcast(scene);
+    geometry.intersect(ray, scene)
   }
 }
 
-impl<M: RainrayMaterial, G: RainRayGeometry> RainRayGeometry for Model<M, G> {
-  fn get_bbox(&self) -> Option<Box3> {
-    self.geometry.get_bbox()
+impl<M: RainrayMaterial + Material<G>, G: RainRayGeometry> RainRayGeometry for Model<M, G> {
+  fn get_bbox(&self, scene: &Scene) -> Option<Box3> {
+    let (_, geometry) = self.downcast(scene);
+    geometry.get_bbox(scene)
   }
 
   fn as_any(&self) -> &dyn Any {

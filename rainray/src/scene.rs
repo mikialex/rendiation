@@ -42,11 +42,11 @@ impl RainraySceneExt for Scene {
     let mut min_distance = std::f32::INFINITY;
     let mut result: Option<(Intersection, &dyn RainrayModel)> = None;
     for model in &self.drawables {
-      if let PossibleIntersection(Some(mut intersection)) = model.intersect(&ray, &()) {
+      if let PossibleIntersection(Some(mut intersection)) = model.1.intersect(&ray, self) {
         if intersection.distance < min_distance {
           intersection.adjust_hit_position();
           min_distance = intersection.distance;
-          result = Some((intersection, model.as_ref()))
+          result = Some((intersection, model.1.as_ref()))
         }
       }
     }

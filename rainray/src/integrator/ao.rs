@@ -2,7 +2,7 @@ use rendiation_algebra::Vector;
 use rendiation_color::{Color, LinearRGBColorSpace};
 use rendiation_geometry::Ray3;
 
-use crate::{math::rand_point_in_unit_sphere, math::Vec3, scene::Scene};
+use crate::{math::rand_point_in_unit_sphere, math::Vec3, scene::Scene, RainraySceneExt};
 
 use super::Integrator;
 

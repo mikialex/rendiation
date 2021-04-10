@@ -1,17 +1,17 @@
 use std::any::Any;
 
-use crate::math::*;
+use crate::{math::*, Scene};
 use rendiation_algebra::IntoNormalizedVector;
 
 pub mod mesh;
 pub use mesh::*;
 
 pub trait RainRayGeometry:
-  IntersectAble<Ray3, PossibleIntersection> + Sync + Send + 'static
+  IntersectAble<Ray3, PossibleIntersection, Scene> + Sync + Send + 'static
 {
   fn as_any(&self) -> &dyn Any;
 
-  fn get_bbox(&self) -> Option<Box3> {
+  fn get_bbox(&self, scene: &Scene) -> Option<Box3> {
     None
   }
 }
@@ -62,9 +62,9 @@ impl Intersection {
 
 pub struct PossibleIntersection(pub Option<Intersection>);
 
-impl IntersectAble<Ray3, PossibleIntersection> for Sphere {
-  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
+impl IntersectAble<Ray3, PossibleIntersection, Scene> for Sphere {
+  fn intersect(&self, ray: &Ray3, param: &Scene) -> PossibleIntersection {
+    let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
       Intersection {
@@ -82,9 +82,9 @@ impl RainRayGeometry for Sphere {
   }
 }
 
-impl IntersectAble<Ray3, PossibleIntersection> for Plane {
-  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
+impl IntersectAble<Ray3, PossibleIntersection, Scene> for Plane {
+  fn intersect(&self, ray: &Ray3, param: &Scene) -> PossibleIntersection {
+    let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
       distance: near.distance,
       position: near.position,

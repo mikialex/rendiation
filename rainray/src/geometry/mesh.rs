@@ -14,7 +14,7 @@ use space_algorithm::{
   utils::TreeBuildOption,
 };
 
-use crate::{Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry};
+use crate::{Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry, Scene};
 
 pub trait RainrayMeshBuffer: Send + Sync {
   fn get_intersect(&self, ray: &Ray3) -> PossibleIntersection;
@@ -103,8 +103,8 @@ pub struct Mesh {
   geometry: Box<dyn RainrayMeshBuffer>,
 }
 
-impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
-  fn intersect(&self, ray: &Ray3, _param: &()) -> PossibleIntersection {
+impl IntersectAble<Ray3, PossibleIntersection, Scene> for Mesh {
+  fn intersect(&self, ray: &Ray3, _param: &Scene) -> PossibleIntersection {
     self.geometry.get_intersect(ray)
   }
 }
