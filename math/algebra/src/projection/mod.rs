@@ -5,7 +5,7 @@ pub use perspective::*;
 pub mod orth;
 pub use orth::*;
 
-pub trait Projection {
+pub trait Projection: Send + Sync {
   fn update_projection(&self, projection: &mut Mat4<f32>);
 }
 

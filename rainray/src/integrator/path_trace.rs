@@ -5,7 +5,7 @@ use rendiation_geometry::Ray3;
 use super::Integrator;
 use crate::{
   math::rand, math::Vec3, scene::Scene, Intersection, LightSampleResult, NormalizedVec3,
-  RainrayModel,
+  RainrayModel, RainraySceneExt,
 };
 use rendiation_algebra::RealVector;
 
@@ -45,7 +45,7 @@ impl PathTraceIntegrator {
         light_in_dir,
       }) = light.sample(intersection.position, scene)
       {
-        let bsdf = model.bsdf(light_in_dir.reverse(), light_out_dir, intersection);
+        let bsdf = model.bsdf(light_in_dir.reverse(), light_out_dir, intersection, scene);
         energy += bsdf * emissive * -light_in_dir.dot(intersection.geometric_normal);
       }
     }
@@ -64,15 +64,17 @@ impl Integrator for PathTraceIntegrator {
 
       // hit outside scene, sample background;
       if hit_result.is_none() {
-        energy += scene.env.sample(&current_ray) * throughput;
-        break;
+        if let Some(background) = scene.background {
+          energy += background.sample(&current_ray) * throughput;
+          break;
+        }
       }
 
       let (intersection, model) = hit_result.unwrap();
 
       let view_dir = current_ray.direction.reverse();
-      let light_dir = model.sample_light_dir(view_dir, &intersection);
-      let light_dir_pdf = model.pdf(view_dir, light_dir, &intersection);
+      let light_dir = model.sample_light_dir(view_dir, &intersection, scene);
+      let light_dir_pdf = model.pdf(view_dir, light_dir, &intersection, scene);
       if light_dir_pdf == 0.0 {
         break;
       }
@@ -81,7 +83,7 @@ impl Integrator for PathTraceIntegrator {
         * throughput;
 
       let cos = light_dir.dot(intersection.geometric_normal).abs();
-      let bsdf = model.bsdf(view_dir, light_dir, &intersection);
+      let bsdf = model.bsdf(view_dir, light_dir, &intersection, scene);
       throughput = throughput * cos * bsdf / light_dir_pdf;
 
       // roulette exist

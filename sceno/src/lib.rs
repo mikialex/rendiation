@@ -11,3 +11,6 @@ pub use materials::*;
 
 pub mod mesh;
 pub use mesh::*;
+
+pub use arena::*;
+pub use arena_tree::*;

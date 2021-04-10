@@ -597,6 +597,7 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
+ "sceno",
  "space-algorithm",
  "tobj 2.0.3",
 ]

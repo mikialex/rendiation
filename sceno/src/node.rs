@@ -1,4 +1,4 @@
-use crate::{Light, MaterialHandle, MeshHandle, Scene, SceneNodeHandle};
+use crate::{Light, MaterialHandle, MeshHandle, Scene, SceneBackend, SceneNodeHandle};
 use rendiation_algebra::*;
 
 pub struct SceneNode {
@@ -49,17 +49,12 @@ impl SceneNode {
 }
 
 pub enum SceneNodePayload {
-  Drawable(Drawable),
+  // Drawable(Handle<>),
   Light(Box<dyn Light>),
   Camera(Box<dyn Projection>),
 }
 
-pub struct Drawable {
-  pub geometry: MeshHandle,
-  pub material: MaterialHandle,
-}
-
-impl Scene {
+impl<T: SceneBackend> Scene<T> {
   pub fn get_root_handle(&self) -> SceneNodeHandle {
     self.nodes.get_node(self.nodes.root()).handle()
   }

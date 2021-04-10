@@ -11,6 +11,7 @@ rand = "0.7.3"
 rayon = "1.5.0"
 tobj = "2.0.3"
 
+sceno = {path = "../sceno"}
 arena-tree = {path = "../utils/arena-tree"}
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-color = {path = "../components/color"}

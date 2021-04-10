@@ -1,10 +1,16 @@
+use std::any::Any;
+
 use crate::math::*;
 use rendiation_algebra::IntoNormalizedVector;
 
 pub mod mesh;
 pub use mesh::*;
 
-pub trait RainRayGeometry: IntersectAble<Ray3, PossibleIntersection> {
+pub trait RainRayGeometry:
+  IntersectAble<Ray3, PossibleIntersection> + Sync + Send + 'static
+{
+  fn as_any(&self) -> &dyn Any;
+
   fn get_bbox(&self) -> Option<Box3> {
     None
   }
@@ -70,7 +76,11 @@ impl IntersectAble<Ray3, PossibleIntersection> for Sphere {
     }))
   }
 }
-impl RainRayGeometry for Sphere {}
+impl RainRayGeometry for Sphere {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+}
 
 impl IntersectAble<Ray3, PossibleIntersection> for Plane {
   fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
@@ -83,4 +93,8 @@ impl IntersectAble<Ray3, PossibleIntersection> for Plane {
     }))
   }
 }
-impl RainRayGeometry for Plane {}
+impl RainRayGeometry for Plane {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+}

@@ -1,4 +1,4 @@
-use crate::{math::*, Scene};
+use crate::{math::*, RainraySceneExt, Scene};
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector};
 
 pub struct LightSampleResult {

@@ -1,4 +1,4 @@
-use crate::{Background, Material, SceneMesh, SceneNode, SolidBackground};
+use crate::{Material, SceneMesh, SceneNode, SolidBackground};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::Sampler;
@@ -7,22 +7,32 @@ pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type MeshHandle = Handle<Box<dyn SceneMesh>>;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 
-pub struct Scene {
-  pub nodes: ArenaTree<SceneNode>,
-  pub background: Box<dyn Background>,
+pub trait SceneBackend {
+  type Drawable;
+  type Material;
+  type Mesh;
+  type Background;
+}
 
-  pub meshes: Arena<Box<dyn SceneMesh>>,
-  pub materials: Arena<Box<dyn Material>>,
+pub struct Scene<T: SceneBackend> {
+  pub nodes: ArenaTree<SceneNode>,
+  pub background: Option<Box<T::Background>>,
+
+  pub drawables: Arena<T::Drawable>,
+  pub meshes: Arena<T::Mesh>,
+  pub materials: Arena<T::Material>,
+
   pub samplers: Arena<Sampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
 }
 
-impl Scene {
+impl<T: SceneBackend> Scene<T> {
   pub fn new() -> Self {
     Self {
       nodes: ArenaTree::new(SceneNode::default()),
-      background: Box::new(SolidBackground::default()),
+      background: None,
+      drawables: Arena::new(),
       meshes: Arena::new(),
       materials: Arena::new(),
       samplers: Arena::new(),

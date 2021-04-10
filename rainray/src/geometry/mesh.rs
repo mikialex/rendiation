@@ -108,7 +108,11 @@ impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
     self.geometry.get_intersect(ray)
   }
 }
-impl RainRayGeometry for Mesh {}
+impl RainRayGeometry for Mesh {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+}
 
 impl Mesh {
   pub fn from_path_obj(path: &str) -> Self {
