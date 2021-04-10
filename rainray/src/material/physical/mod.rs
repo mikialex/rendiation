@@ -35,6 +35,12 @@ pub struct Diffuse<T> {
   pub diffuse_model: T,
 }
 
+impl<T: Send + Sync + 'static> RainrayMaterial for Diffuse<T> {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+}
+
 // this term need normalized to 1
 pub trait MicroFacetNormalDistribution {
   fn d(&self, n: NormalizedVec3, h: NormalizedVec3) -> f32;

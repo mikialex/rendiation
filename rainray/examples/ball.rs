@@ -15,7 +15,7 @@ fn main() {
   let mut frame = Frame::new(500, 500);
   let mut scene = Scene::new();
   scene
-    .model(Model::boxed(
+    .model_node((
       Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
       PhysicalMaterial {
         specular: Specular {
@@ -32,21 +32,21 @@ fn main() {
         },
       },
     ))
-    .model(Model::new(
+    .model_node((
       Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
       Diffuse {
         albedo: Vec3::new(0.3, 0.4, 0.8),
         diffuse_model: Lambertian,
       },
     ))
-    .model(Model::new(
+    .model_node((
       Sphere::new(Vec3::new(3., 2., 2.), 2.0),
       Diffuse {
         albedo: Vec3::new(0.4, 0.8, 0.2),
         diffuse_model: Lambertian,
       },
     ))
-    .model(Model::new(
+    .model_node((
       Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
       Diffuse {
         albedo: Vec3::new(1.0, 0.7, 0.0),

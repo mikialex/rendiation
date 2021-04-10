@@ -1,10 +1,11 @@
 use std::{any::Any, marker::PhantomData};
 
 use rendiation_geometry::{Box3, IntersectAble, Ray3};
+use sceno::{ModelHandle, SceneBackend, SceneModelCreator};
 
 use crate::{
   material::Material, Intersection, MaterialHandle, MeshHandle, NormalizedVec3,
-  PossibleIntersection, RainRayGeometry, Scene, Vec3,
+  PossibleIntersection, RainRayGeometry, RainrayScene, Scene, Vec3,
 };
 
 pub struct Model<M, G> {
@@ -12,6 +13,17 @@ pub struct Model<M, G> {
   mat_phantom: PhantomData<M>,
   pub geometry: MeshHandle,
   pub material: MaterialHandle,
+}
+
+impl<M, G> SceneModelCreator<RainrayScene> for (G, M)
+where
+  M: Material<G> + RainrayMaterial,
+  G: RainRayGeometry,
+{
+  fn create_model(self, scene: &mut sceno::Scene<RainrayScene>) -> ModelHandle<RainrayScene> {
+    let model = Model::boxed(scene, self.0, self.1) as Box<dyn RainrayModel>;
+    scene.create_model(model)
+  }
 }
 
 impl<M, G> Model<M, G>

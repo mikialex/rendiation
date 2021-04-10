@@ -1,4 +1,4 @@
-use crate::SceneNode;
+use crate::{SceneNode, SceneNodePayload};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::Sampler;
@@ -51,8 +51,7 @@ impl<T: SceneBackend> Scene<T> {
   }
 
   pub fn create_model(&mut self, creator: impl SceneModelCreator<T>) -> ModelHandle<T> {
-    let model = creator.create_model(self);
-    self.models.insert(model)
+    creator.create_model(self)
   }
 
   pub fn create_node(
@@ -63,8 +62,31 @@ impl<T: SceneBackend> Scene<T> {
     builder(&mut node, self);
     self.nodes.create_node(node)
   }
+
+  pub fn model_node(&mut self, model: impl SceneModelCreator<T>) -> &mut Self {
+    let model = self.create_model(model);
+    self.create_node(|node, _| node.payload.push(SceneNodePayload::Model(model)));
+    self
+  }
+
+  pub fn light_node(&mut self, light: impl SceneLightCreator<T>) -> &mut Self {
+    self
+  }
 }
 
 pub trait SceneModelCreator<T: SceneBackend> {
+  fn create_model(self, scene: &mut Scene<T>) -> ModelHandle<T>;
+}
+
+impl<T> SceneModelCreator<T> for <T as SceneBackend>::Model
+where
+  T: SceneBackend,
+{
+  fn create_model(self, scene: &mut Scene<T>) -> ModelHandle<T> {
+    scene.models.insert(self)
+  }
+}
+
+pub trait SceneLightCreator<T: SceneBackend> {
   fn create_model(self, scene: &mut Scene<T>) -> T::Model;
 }
