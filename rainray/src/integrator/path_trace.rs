@@ -39,7 +39,7 @@ impl PathTraceIntegrator {
     light_out_dir: NormalizedVec3,
   ) -> Vec3 {
     let mut energy = Vec3::new(0.0, 0.0, 0.0);
-    for light in &scene.lights {
+    for (_, light) in &scene.lights {
       if let Some(LightSampleResult {
         emissive,
         light_in_dir,
@@ -64,7 +64,7 @@ impl Integrator for PathTraceIntegrator {
 
       // hit outside scene, sample background;
       if hit_result.is_none() {
-        if let Some(background) = scene.background {
+        if let Some(background) = &scene.background {
           energy += background.sample(&current_ray) * throughput;
           break;
         }

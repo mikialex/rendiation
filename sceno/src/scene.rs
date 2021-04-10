@@ -1,4 +1,4 @@
-use crate::{Material, SceneMesh, SceneNode, SolidBackground};
+use crate::{Material, SceneMesh, SceneNode};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::Sampler;
@@ -11,6 +11,7 @@ pub trait SceneBackend {
   type Drawable;
   type Material;
   type Mesh;
+  type Light;
   type Background;
 }
 
@@ -21,6 +22,7 @@ pub struct Scene<T: SceneBackend> {
   pub drawables: Arena<T::Drawable>,
   pub meshes: Arena<T::Mesh>,
   pub materials: Arena<T::Material>,
+  pub lights: Arena<T::Light>,
 
   pub samplers: Arena<Sampler>,
   // textures: Arena<Texture>,
@@ -34,6 +36,7 @@ impl<T: SceneBackend> Scene<T> {
       background: None,
       drawables: Arena::new(),
       meshes: Arena::new(),
+      lights: Arena::new(),
       materials: Arena::new(),
       samplers: Arena::new(),
     }

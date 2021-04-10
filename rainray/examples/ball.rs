@@ -13,7 +13,7 @@ fn main() {
   perspective.update_projection(&mut camera.projection_matrix);
 
   let mut frame = Frame::new(500, 500);
-  let mut scene = Scene::default();
+  let mut scene = Scene::new();
   scene
     .model(Model::new(
       Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball

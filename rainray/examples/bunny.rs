@@ -14,7 +14,7 @@ fn main() {
   perspective.update_projection(&mut camera.projection_matrix);
 
   let mut frame = Frame::new(1200, 1200);
-  let mut scene = Scene::default();
+  let mut scene = Scene::new();
   scene
     .model(Model::new(
       // Mesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),

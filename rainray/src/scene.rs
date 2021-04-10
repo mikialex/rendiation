@@ -16,6 +16,8 @@ impl SceneBackend for RainrayScene {
   type Mesh = Box<dyn RainRayGeometry>;
 
   type Background = Box<dyn Environment>;
+
+  type Light = Box<dyn Light>;
 }
 
 pub type Scene = sceno::Scene<RainrayScene>;
