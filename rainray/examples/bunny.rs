@@ -16,7 +16,7 @@ fn main() {
   let mut frame = Frame::new(1200, 1200);
   let mut scene = Scene::new();
   scene
-    .model(Model::new(
+    .model_node((
       // Mesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),
       Mesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
       // Diffuse {
@@ -38,23 +38,29 @@ fn main() {
         },
       },
     ))
-    .model(Model::new(
+    .model_node((
       Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
       Diffuse {
         albedo: Vec3::new(0.3, 0.4, 0.8),
         diffuse_model: Lambertian,
       },
     ))
-    .light(PointLight {
-      position: Vec3::new(8., 8., 6.),
-      intensity: Vec3::new(80., 80., 80.),
-    })
-    .environment(GradientEnvironment {
-      // top_intensity: Vec3::splat(0.01),
-      // bottom_intensity: Vec3::new(0., 0., 0.),
-      top_intensity: Vec3::new(0.4, 0.4, 0.4),
-      bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
-    });
+    .light_node(
+      PointLight {
+        position: Vec3::new(8., 8., 6.),
+        intensity: Vec3::new(80., 80., 80.),
+      }
+      .to_boxed(),
+    )
+    .background(
+      GradientEnvironment {
+        // top_intensity: Vec3::splat(0.01),
+        // bottom_intensity: Vec3::new(0., 0., 0.),
+        top_intensity: Vec3::new(0.4, 0.4, 0.4),
+        bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
+      }
+      .to_boxed(),
+    );
 
   renderer.render(&camera, &scene, &mut frame);
 

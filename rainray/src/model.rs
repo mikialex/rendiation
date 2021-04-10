@@ -71,7 +71,7 @@ where
   G: IntersectAble<Ray3, PossibleIntersection, Scene> + RainRayGeometry,
 {
   fn intersect(&self, ray: &Ray3, scene: &Scene) -> PossibleIntersection {
-    let (_, geometry) = self.downcast(scene);
+    let geometry = scene.meshes.get(self.geometry).unwrap();
     geometry.intersect(ray, scene)
   }
 }
