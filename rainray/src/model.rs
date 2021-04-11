@@ -1,7 +1,7 @@
 use std::{any::Any, marker::PhantomData};
 
 use rendiation_geometry::{Box3, IntersectAble, Ray3};
-use sceno::{ModelHandle, SceneBackend, SceneModelCreator};
+use sceno::{ModelHandle, SceneModelCreator};
 
 use crate::{
   material::Material, Intersection, MaterialHandle, MeshHandle, NormalizedVec3,

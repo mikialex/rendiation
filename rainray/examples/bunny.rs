@@ -53,7 +53,7 @@ fn main() {
       .to_boxed(),
     )
     .background(
-      GradientEnvironment {
+      GradientBackground {
         // top_intensity: Vec3::splat(0.01),
         // bottom_intensity: Vec3::new(0., 0., 0.),
         top_intensity: Vec3::new(0.4, 0.4, 0.4),

@@ -11,7 +11,7 @@ pub trait RainRayGeometry:
 {
   fn as_any(&self) -> &dyn Any;
 
-  fn get_bbox(&self, scene: &Scene) -> Option<Box3> {
+  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
     None
   }
 }
@@ -63,7 +63,7 @@ impl Intersection {
 pub struct PossibleIntersection(pub Option<Intersection>);
 
 impl IntersectAble<Ray3, PossibleIntersection, Scene> for Sphere {
-  fn intersect(&self, ray: &Ray3, param: &Scene) -> PossibleIntersection {
+  fn intersect(&self, ray: &Ray3, _: &Scene) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
@@ -83,7 +83,7 @@ impl RainRayGeometry for Sphere {
 }
 
 impl IntersectAble<Ray3, PossibleIntersection, Scene> for Plane {
-  fn intersect(&self, ray: &Ray3, param: &Scene) -> PossibleIntersection {
+  fn intersect(&self, ray: &Ray3, _: &Scene) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
       distance: near.distance,
