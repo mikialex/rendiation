@@ -1,5 +1,6 @@
-use crate::{math::*, RainraySceneExt, Scene};
+use crate::{math::*, RainraySceneExt, Scene, SceneNode};
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector};
+use sceno::PointLight;
 
 pub struct LightSampleResult {
   pub emissive: Vec3,
@@ -7,7 +8,12 @@ pub struct LightSampleResult {
 }
 
 pub trait Light: Sync + 'static {
-  fn sample(&self, world_position: Vec3, scene: &Scene) -> Option<LightSampleResult>;
+  fn sample(
+    &self,
+    world_position: Vec3,
+    scene: &Scene,
+    node: &SceneNode,
+  ) -> Option<LightSampleResult>;
 }
 
 pub trait LightToBoxed: Light + Sized {
@@ -16,19 +22,20 @@ pub trait LightToBoxed: Light + Sized {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct PointLight {
-  pub position: Vec3,
-  pub intensity: Vec3,
-}
-
 impl LightToBoxed for PointLight {}
 impl Light for PointLight {
-  fn sample(&self, world_position: Vec3, scene: &Scene) -> Option<LightSampleResult> {
-    if !scene.test_point_visible_to_point(self.position, world_position) {
+  fn sample(
+    &self,
+    world_position: Vec3,
+    scene: &Scene,
+    node: &SceneNode,
+  ) -> Option<LightSampleResult> {
+    let light_position = node.world_matrix.position();
+
+    if !scene.test_point_visible_to_point(light_position, world_position) {
       return None;
     }
-    let light_in_dir = world_position - self.position;
+    let light_in_dir = world_position - light_position;
     let distance = light_in_dir.length();
     Some(LightSampleResult {
       emissive: self.intensity / (distance * distance),

@@ -20,10 +20,10 @@ pub trait SceneBackend {
 pub struct Scene<T: SceneBackend> {
   pub nodes: ArenaTree<SceneNode<T>>,
   pub background: Option<T::Background>,
+  pub lights: Arena<T::Light>,
   pub models: Arena<T::Model>,
   pub meshes: Arena<T::Mesh>,
   pub materials: Arena<T::Material>,
-  pub lights: Arena<T::Light>,
   pub samplers: Arena<Sampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,

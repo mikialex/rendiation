@@ -22,6 +22,8 @@ impl Renderer {
   }
 
   pub fn render(&mut self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
+    let scene_cache = scene.update();
+
     println!("rendering...");
     let now = Instant::now();
 
@@ -48,7 +50,7 @@ impl Renderer {
         for _ in 0..self.sample_per_pixel {
           let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
           let ray = camera.create_screen_ray(sample_point);
-          energy_acc += self.integrator.integrate(scene, ray).value;
+          energy_acc += self.integrator.integrate(scene, &scene_cache, ray).value;
         }
 
         energy_acc /= self.sample_per_pixel as f32;

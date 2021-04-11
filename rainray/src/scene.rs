@@ -16,10 +16,17 @@ impl SceneBackend for RainrayScene {
 }
 
 pub type Scene = sceno::Scene<RainrayScene>;
+pub type SceneNode = sceno::SceneNode<RainrayScene>;
+pub type NodeHandle = sceno::SceneNodeHandle<RainrayScene>;
 pub type MeshHandle = sceno::MeshHandle<RainrayScene>;
 pub type MaterialHandle = sceno::MaterialHandle<RainrayScene>;
 
+pub struct SceneCache<'a> {
+  pub lights: Vec<(&'a SceneNode, &'a dyn Light)>,
+}
+
 pub trait RainraySceneExt {
+  fn update(&self) -> SceneCache;
   fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)>;
 
   fn test_point_visible_to_point(&self, point_a: Vec3, point_b: Vec3) -> bool {
@@ -35,6 +42,9 @@ pub trait RainraySceneExt {
 }
 
 impl RainraySceneExt for Scene {
+  fn update(&self) -> SceneCache {
+    todo!()
+  }
   fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result: Option<(Intersection, &dyn RainrayModel)> = None;

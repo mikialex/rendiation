@@ -1,8 +1,10 @@
 pub mod background;
+pub mod lights;
 pub mod node;
 pub mod scene;
 
 pub use background::*;
+pub use lights::*;
 pub use node::*;
 pub use scene::*;
 

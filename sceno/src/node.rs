@@ -5,8 +5,8 @@ pub struct SceneNode<T: SceneBackend> {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
   pub payload: Vec<SceneNodePayload<T>>,
-  pub(crate) net_visible: bool,
-  pub(crate) world_matrix: Mat4<f32>,
+  pub net_visible: bool,
+  pub world_matrix: Mat4<f32>,
 }
 
 impl<T: SceneBackend> Default for SceneNode<T> {
