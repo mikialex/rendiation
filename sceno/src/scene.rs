@@ -59,24 +59,18 @@ impl<T: SceneBackend> Scene<T> {
     creator.create_light(self)
   }
 
-  pub fn create_node(
-    &mut self,
-    builder: impl Fn(&mut SceneNode<T>, &mut Self),
-  ) -> SceneNodeHandle<T> {
+  pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode<T>, &mut Self)) -> &mut Self {
     let mut node = SceneNode::default();
     builder(&mut node, self);
-    self.nodes.create_node(node)
+    let new = self.nodes.create_node(node);
+    let root = self.get_root_handle();
+    self.nodes.node_add_child_by_id(root, new);
+    self
   }
 
   pub fn model_node(&mut self, model: impl SceneModelCreator<T>) -> &mut Self {
     let model = self.create_model(model);
     self.create_node(|node, _| node.payload.push(SceneNodePayload::Model(model)));
-    self
-  }
-
-  pub fn light_node(&mut self, light: impl SceneLightCreator<T>) -> &mut Self {
-    let light = self.create_light(light);
-    self.create_node(|node, _| node.payload.push(SceneNodePayload::Light(light)));
     self
   }
 

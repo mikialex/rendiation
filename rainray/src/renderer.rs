@@ -21,8 +21,9 @@ impl Renderer {
     }
   }
 
-  pub fn render(&mut self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
-    let scene_cache = scene.update();
+  pub fn render(&mut self, camera: &Camera, scene: &mut Scene, frame: &mut Frame) {
+    scene.update();
+    let scene_cache = scene.create_cache();
 
     println!("rendering...");
     let now = Instant::now();

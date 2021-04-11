@@ -17,18 +17,16 @@ fn main() {
         diffuse_model: Lambertian,
       },
     ))
-    .light_node(
-      PointLight {
-        // front light
-        position: Vec3::new(8., 8., 5.),
-        intensity: Vec3::splat(40.),
-      }
-      .to_boxed(),
-    )
-    // .light(PointLight { // back light
-    //   position: Vec3::new(-8., 8., -5.),
-    //   intensity: Vec3::splat(40.),
-    // })
+    .create_node(|node, scene| {
+      node.set_position((8., 8., 5.)).with_light(
+        scene.create_light(
+          sceno::PointLight {
+            intensity: Vec3::splat(40.),
+          }
+          .to_boxed(),
+        ),
+      );
+    })
     .background(
       GradientBackground {
         // top_intensity: Vec3::splat(0.01),
@@ -87,6 +85,6 @@ fn main() {
   );
   perspective.update_projection(&mut camera.projection_matrix);
 
-  renderer.render(&camera, &scene, &mut frame);
+  renderer.render(&camera, &mut scene, &mut frame);
   frame.write_result("ball_array");
 }

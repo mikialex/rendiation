@@ -46,6 +46,16 @@ impl<T: SceneBackend> SceneNode<T> {
       self.net_visible = self.visible
     }
   }
+
+  pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
+    self.local_matrix = Mat4::translate(position.0, position.1, position.2); // todo
+    self
+  }
+
+  pub fn with_light(&mut self, light: LightHandle<T>) -> &mut Self {
+    self.payload.push(SceneNodePayload::Light(light));
+    self
+  }
 }
 
 pub enum SceneNodePayload<T: SceneBackend> {
