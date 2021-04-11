@@ -1,4 +1,4 @@
-use crate::{background::*, Vec3};
+use crate::{background::*, RainrayMaterial, Vec3};
 use crate::{light::*, Intersection, PossibleIntersection};
 use crate::{model::*, RainRayGeometry};
 use rendiation_algebra::*;

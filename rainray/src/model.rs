@@ -5,7 +5,7 @@ use sceno::{ModelHandle, SceneModelCreator};
 
 use crate::{
   material::Material, Intersection, MaterialHandle, MeshHandle, NormalizedVec3,
-  PossibleIntersection, RainRayGeometry, RainrayScene, Scene, Vec3,
+  PossibleIntersection, RainRayGeometry, RainrayMaterial, RainrayScene, Scene, Vec3,
 };
 
 pub struct Model<M, G> {
@@ -147,8 +147,4 @@ pub trait RainrayModel: Sync + Send + 'static + RainRayGeometry {
     intersection: &Intersection,
     scene: &Scene,
   ) -> Vec3;
-}
-
-pub trait RainrayMaterial: Any + Sync + Send {
-  fn as_any(&self) -> &dyn Any;
 }

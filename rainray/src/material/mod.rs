@@ -1,8 +1,14 @@
+use std::any::Any;
+
 use crate::math::*;
 use crate::Intersection;
 
 pub mod physical;
 pub use physical::*;
+
+pub trait RainrayMaterial: Any + Sync + Send {
+  fn as_any(&self) -> &dyn Any;
+}
 
 pub trait Material<G>: Send + Sync {
   /// sample the light input dir with brdf importance
