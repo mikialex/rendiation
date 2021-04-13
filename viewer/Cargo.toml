@@ -1,0 +1,9 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2018"
+name = "viewer"
+version = "0.1.0"
+
+[dependencies]
+sceno = {path = "../sceno"}
+winit = { version = "0.24.0" }

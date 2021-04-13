@@ -1,0 +1,12 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2018"
+name = "webgpu"
+version = "0.1.0"
+
+[dependencies]
+wgpu = "0.7.1"
+sceno = {path = "../sceno"}
+rendiation-algebra = {path = "../math/algebra"}
+rendiation-geometry = {path = "../math/geometry"}
+rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
