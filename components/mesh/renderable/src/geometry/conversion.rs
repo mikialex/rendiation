@@ -90,16 +90,22 @@ where
     mut sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,
   ) -> IndexedGeometry<I, V, T> {
-    let mut data: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
-    let mut merge_data = Vec::with_capacity(data.len());
+    let mut resorted: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
+    let mut merge_data = Vec::with_capacity(resorted.len());
     let mut index_remapping = HashMap::new();
-    data.sort_unstable_by(|a, b| sorter(a.1, b.1));
+    resorted.sort_unstable_by(|a, b| sorter(a.1, b.1));
+
+    let mut resort_map: Vec<_> = self.data.iter().enumerate().map(|(i, _)| i).collect();
+    resorted
+      .iter()
+      .enumerate()
+      .for_each(|(i, v)| resort_map[v.0] = i);
 
     if self.data.len() >= 2 {
-      merge_data.push(*data[0].1);
+      merge_data.push(*resorted[0].1);
       index_remapping.insert(0, 0);
 
-      data.windows(2).enumerate().for_each(|(i, v)| {
+      resorted.windows(2).enumerate().for_each(|(i, v)| {
         if !merger(&v[0].1, &v[1].1) {
           merge_data.push(*v[1].1);
         }
@@ -112,7 +118,7 @@ where
       .iter()
       .map(|i| {
         let k = (*i).into_usize();
-        let after_sort = data[k].0;
+        let after_sort = resort_map[k];
         I::from_usize(*index_remapping.get(&after_sort).unwrap())
       })
       .collect();
