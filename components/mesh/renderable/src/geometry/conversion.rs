@@ -92,10 +92,10 @@ where
   ) -> IndexedGeometry<I, V, T> {
     let mut resorted: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
     let mut merge_data = Vec::with_capacity(resorted.len());
-    let mut index_remapping = HashMap::new();
+    let mut deduplicate_map = Vec::with_capacity(self.index.len());
     resorted.sort_unstable_by(|a, b| sorter(a.1, b.1));
 
-    let mut resort_map: Vec<_> = self.data.iter().enumerate().map(|(i, _)| i).collect();
+    let mut resort_map: Vec<_> = (0..self.data.len()).collect();
     resorted
       .iter()
       .enumerate()
@@ -103,13 +103,13 @@ where
 
     if self.data.len() >= 2 {
       merge_data.push(*resorted[0].1);
-      index_remapping.insert(0, 0);
+      deduplicate_map.push(0);
 
-      resorted.windows(2).enumerate().for_each(|(i, v)| {
+      resorted.windows(2).for_each(|v| {
         if !merger(&v[0].1, &v[1].1) {
           merge_data.push(*v[1].1);
         }
-        index_remapping.insert(i + 1, merge_data.len() - 1);
+        deduplicate_map.push(merge_data.len() - 1);
       });
     }
 
@@ -119,7 +119,7 @@ where
       .map(|i| {
         let k = (*i).into_usize();
         let after_sort = resort_map[k];
-        I::from_usize(*index_remapping.get(&after_sort).unwrap())
+        I::from_usize(deduplicate_map[after_sort])
       })
       .collect();
 
