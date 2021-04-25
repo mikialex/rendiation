@@ -32,7 +32,7 @@ impl Integrator for AOIntegrator {
   fn integrate<'a>(
     &self,
     scene: &'a Scene,
-    scene_cache: &SceneCache<'a>,
+    _scene_cache: &SceneCache<'a>,
     ray: Ray3,
   ) -> Color<f32, LinearRGBColorSpace<f32>> {
     let ao_estimate = if let Some((intersection, _)) = scene.get_min_dist_hit(ray) {

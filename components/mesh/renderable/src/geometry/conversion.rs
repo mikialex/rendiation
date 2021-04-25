@@ -81,7 +81,7 @@ where
 impl<I, V, T> IndexedGeometry<I, V, T>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
+  V: Positioned<f32, 3> + std::fmt::Debug,
   T: IndexPrimitiveTopologyMeta<I, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
@@ -94,13 +94,19 @@ where
     let mut merge_data = Vec::with_capacity(data.len());
     let mut index_remapping = HashMap::new();
     data.sort_unstable_by(sorter);
-    data.windows(2).enumerate().for_each(|(i, v)| {
-      if merger(&v[0], &v[1]) {
-        index_remapping.insert(i + 1, merge_data.len() - 1);
-      } else {
-        merge_data.push(v[1]);
-      }
-    });
+
+    if self.data.len() >= 2 {
+      merge_data.push(data[0]);
+      data.windows(2).enumerate().for_each(|(i, v)| {
+        // println!("{:?}\n", v);
+        if merger(&v[0], &v[1]) {
+          index_remapping.insert(i + 1, merge_data.len() - 1);
+        } else {
+          merge_data.push(v[1]);
+        }
+      });
+    }
+
     let new_index = self
       .index
       .iter()

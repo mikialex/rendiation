@@ -289,7 +289,7 @@ impl Model for SceneModel {
 }
 
 struct BasicMaterial {
-  color: Vec3<f32>,
+  pub color: Vec3<f32>,
 }
 
 impl Material for BasicMaterial {

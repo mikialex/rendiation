@@ -5,7 +5,7 @@ use std::{hash::Hash, mem};
 
 #[repr(C)]
 #[cfg_attr(feature = "shadergraph", derive(Geometry))]
-#[derive(Clone, Copy, soa_derive::StructOfArray)]
+#[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
 pub struct Vertex {
   pub position: Vec3<f32>,
   pub normal: Vec3<f32>,

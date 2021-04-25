@@ -1,5 +1,3 @@
-// use std::cmp::Ordering;
-
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, IntersectAble, Ray3, Triangle};
 use rendiation_renderable_mesh::{
@@ -198,15 +196,16 @@ impl Mesh {
     }
 
     let geometry = geometry.create_index_geometry();
-    // let geometry = geometry.merge_vertex_by_sorting(
-    //   |a, b| {
-    //     a.position
-    //       .x
-    //       .partial_cmp(&b.position.x)
-    //       .unwrap_or(Ordering::Equal)
-    //   },
-    //   |a, b| a.position.x - b.position.y <= 0.0001,
-    // );
+    use std::cmp::Ordering;
+    let geometry = geometry.merge_vertex_by_sorting(
+      |a, b| {
+        a.position
+          .x
+          .partial_cmp(&b.position.x)
+          .unwrap_or(Ordering::Equal)
+      },
+      |a, b| (a.position.x - b.position.x).abs() <= 0.000001,
+    );
 
     let mesh = TriangleMesh::new(geometry);
     Mesh {
