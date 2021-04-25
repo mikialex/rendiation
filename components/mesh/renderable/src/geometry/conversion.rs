@@ -81,29 +81,29 @@ where
 impl<I, V, T> IndexedGeometry<I, V, T>
 where
   I: IndexType,
-  V: Positioned<f32, 3> + std::fmt::Debug,
+  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopologyMeta<I, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
   pub fn merge_vertex_by_sorting(
     &self,
-    sorter: impl FnMut(&V, &V) -> Ordering,
+    mut sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,
   ) -> IndexedGeometry<I, V, T> {
-    let mut data = self.data.clone();
+    let mut data: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
     let mut merge_data = Vec::with_capacity(data.len());
     let mut index_remapping = HashMap::new();
-    data.sort_unstable_by(sorter);
+    data.sort_unstable_by(|a, b| sorter(a.1, b.1));
 
     if self.data.len() >= 2 {
-      merge_data.push(data[0]);
+      merge_data.push(*data[0].1);
+      index_remapping.insert(0, 0);
+
       data.windows(2).enumerate().for_each(|(i, v)| {
-        // println!("{:?}\n", v);
-        if merger(&v[0], &v[1]) {
-          index_remapping.insert(i + 1, merge_data.len() - 1);
-        } else {
-          merge_data.push(v[1]);
+        if !merger(&v[0].1, &v[1].1) {
+          merge_data.push(*v[1].1);
         }
+        index_remapping.insert(i + 1, merge_data.len() - 1);
       });
     }
 
@@ -112,7 +112,8 @@ where
       .iter()
       .map(|i| {
         let k = (*i).into_usize();
-        I::from_usize(*index_remapping.get(&k).unwrap_or(&k))
+        let after_sort = data[k].0;
+        I::from_usize(*index_remapping.get(&after_sort).unwrap())
       })
       .collect();
 

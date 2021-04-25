@@ -196,16 +196,16 @@ impl Mesh {
     }
 
     let geometry = geometry.create_index_geometry();
-    use std::cmp::Ordering;
-    let geometry = geometry.merge_vertex_by_sorting(
-      |a, b| {
-        a.position
-          .x
-          .partial_cmp(&b.position.x)
-          .unwrap_or(Ordering::Equal)
-      },
-      |a, b| (a.position.x - b.position.x).abs() <= 0.000001,
-    );
+    // use std::cmp::Ordering;
+    // let geometry = geometry.merge_vertex_by_sorting(
+    //   |a, b| {
+    //     a.position
+    //       .x
+    //       .partial_cmp(&b.position.x)
+    //       .unwrap_or(Ordering::Equal)
+    //   },
+    //   |a, b| a.position.x == b.position.x,
+    // );
 
     let mesh = TriangleMesh::new(geometry);
     Mesh {
