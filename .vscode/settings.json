@@ -50,6 +50,7 @@
         "consts",
         "drawables",
         "drawcalls",
+        "frametime",
         "glsl",
         "glutin",
         "hashable",

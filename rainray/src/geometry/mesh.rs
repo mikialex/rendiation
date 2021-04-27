@@ -85,12 +85,12 @@ where
 
     PossibleIntersection(nearest.0.map(|hit| {
       let primitive = self.geometry.primitive_at(hit.primitive_index);
-      // let geometric_normal = self.face_normal[hit.primitive_index];
+      let geometric_normal = self.face_normal[hit.primitive_index];
       let shading_normal = primitive.get_normal(hit.hit.position);
       Intersection {
         distance: hit.hit.distance,
         position: hit.hit.position,
-        geometric_normal: shading_normal,
+        geometric_normal,
         shading_normal,
       }
     }))

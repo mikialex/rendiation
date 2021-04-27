@@ -40,14 +40,16 @@ impl PathTraceIntegrator {
     light_out_dir: NormalizedVec3,
   ) -> Vec3 {
     let mut energy = Vec3::new(0.0, 0.0, 0.0);
-    for (node, light) in &scene_cache.lights {
+    for light in &scene_cache.lights {
+      let node = light.node;
+      let light = light.light;
       if let Some(LightSampleResult {
         emissive,
         light_in_dir,
       }) = light.sample(intersection.position, scene, node)
       {
         let bsdf = model.bsdf(light_in_dir.reverse(), light_out_dir, intersection, scene);
-        energy += bsdf * emissive * -light_in_dir.dot(intersection.geometric_normal);
+        energy += bsdf * emissive * -light_in_dir.dot(intersection.shading_normal);
       }
     }
     energy
@@ -93,7 +95,7 @@ impl Integrator for PathTraceIntegrator {
         current_ray.direction.reverse(),
       ) * throughput;
 
-      let cos = light_dir.dot(intersection.geometric_normal).abs();
+      let cos = light_dir.dot(intersection.shading_normal).abs();
       let bsdf = model.bsdf(view_dir, light_dir, &intersection, scene);
       throughput = throughput * cos * bsdf / light_dir_pdf;
 

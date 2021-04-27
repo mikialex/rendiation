@@ -55,7 +55,6 @@ fn offset_ray(p: Vec3, n: Vec3) -> Vec3 {
 impl Intersection {
   /// use RTX gem's method to solve self intersection issue caused by float precision;
   pub fn adjust_hit_position(&mut self) {
-    // self.hit_position = self.hit_position + self.hit_normal * 0.001;
     self.position = offset_ray(self.position, self.geometric_normal.value)
   }
 }

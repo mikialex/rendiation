@@ -6,4 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 sceno = {path = "../sceno"}
+webgpu = {path = "../webgpu"}
 winit = { version = "0.24.0" }
+futures = "0.3.14"

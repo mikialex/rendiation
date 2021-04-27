@@ -28,7 +28,7 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
-    (Vec3::new(x, y, z) * intersection.geometric_normal.local_to_world()).into_normalized()
+    (Vec3::new(x, y, z) * intersection.shading_normal.local_to_world()).into_normalized()
   }
 
   fn pdf(
@@ -38,7 +38,7 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     intersection: &Intersection,
     _geom: &G,
   ) -> f32 {
-    light_dir.dot(intersection.geometric_normal).max(0.0) * INV_PI
+    light_dir.dot(intersection.shading_normal).max(0.0) * INV_PI
   }
 }
 

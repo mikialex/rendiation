@@ -2,9 +2,12 @@ use std::any::Any;
 
 use rendiation_algebra::Vec3;
 use sceno::{Arena, Handle, NextTraverseVisit, SceneBackend};
+use swap_chain::SwapChain;
 use wgpu::util::DeviceExt;
 
 pub struct WebGPUScene;
+
+mod swap_chain;
 
 impl SceneBackend for WebGPUScene {
   type Model = Box<dyn Model>;
@@ -35,6 +38,7 @@ pub trait Material {
   ) {
     let pipeline = self.get_pipeline(des, renderer);
     pass.set_pipeline(pipeline);
+    self.setup_bindgroups(renderer, pass, ctx);
   }
 
   fn get_pipeline<'a>(
@@ -69,29 +73,44 @@ pub struct Renderer {
   adaptor: wgpu::Adapter,
   device: wgpu::Device,
   queue: wgpu::Queue,
+  swap_chain: SwapChain,
 
   pipeline_cache: Vec<wgpu::RenderPipeline>,
+  // bindgroup_cache: Vec<wgpu::BindGroup>,
   buffers: Arena<wgpu::Buffer>,
 }
 
-pub trait AdaptorProvider {
-  fn create_adaptor(
-    &self,
-    instance: &wgpu::Instance,
-    power_preference: wgpu::PowerPreference,
-  ) -> wgpu::Adapter;
-}
-
 impl Renderer {
-  pub async fn new(adp: &impl AdaptorProvider) -> Self {
+  pub async fn new(window: &winit::window::Window) -> Self {
     let backend = wgpu::BackendBit::PRIMARY;
     let instance = wgpu::Instance::new(backend);
     let power_preference = wgpu::PowerPreference::default();
-    let adaptor = adp.create_adaptor(&instance, power_preference);
+
+    let (size, surface) = unsafe {
+      let size = window.inner_size();
+      let surface = instance.create_surface(window);
+      (size, surface)
+    };
+    let adaptor = instance
+      .request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference,
+        compatible_surface: Some(&surface),
+      })
+      .await
+      .expect("No suitable GPU adapters found on the system!");
+
     let (device, queue) = adaptor
       .request_device(&wgpu::DeviceDescriptor::default(), None)
       .await
-      .expect("Unable to find a suitable GPU adapter!");
+      .expect("Unable to find a suitable GPU device!");
+
+    let swap_chain = SwapChain::new(
+      &adaptor,
+      &device,
+      surface,
+      (size.width as usize, size.height as usize),
+    );
+
     Self {
       pipeline_cache: Vec::new(),
       buffers: Arena::new(),
@@ -99,6 +118,7 @@ impl Renderer {
       adaptor,
       device,
       queue,
+      swap_chain,
     }
   }
   pub fn render(&mut self, pass_des: &wgpu::RenderPassDescriptor, renderable: &mut dyn Renderable) {
@@ -111,6 +131,9 @@ impl Renderer {
     }
 
     self.queue.submit(Some(encoder.finish()));
+  }
+  pub fn resize(&mut self, size: (usize, usize)) {
+    self.swap_chain.resize(size, &self.device);
   }
 }
 
@@ -292,7 +315,21 @@ struct BasicMaterial {
   pub color: Vec3<f32>,
 }
 
-impl Material for BasicMaterial {
+struct BasicMaterialGPU {
+  self_bindgroup: wgpu::BindGroup,
+  // pipeline
+}
+
+pub trait GPUMaterial {
+  type GPU;
+}
+
+struct GPUMaterialWrap<T: GPUMaterial> {
+  material: T,
+  gpu: T::GPU,
+}
+
+impl<T: GPUMaterial> Material for GPUMaterialWrap<T> {
   fn get_pipeline<'a>(
     &mut self,
     des: &wgpu::RenderPassDescriptor,

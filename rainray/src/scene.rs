@@ -19,11 +19,23 @@ impl SceneBackend for RainrayScene {
 pub type Scene = sceno::Scene<RainrayScene>;
 pub type SceneNode = sceno::SceneNode<RainrayScene>;
 pub type NodeHandle = sceno::SceneNodeHandle<RainrayScene>;
+pub type ModelHandle = sceno::ModelHandle<RainrayScene>;
 pub type MeshHandle = sceno::MeshHandle<RainrayScene>;
 pub type MaterialHandle = sceno::MaterialHandle<RainrayScene>;
 
+pub struct ModelInstance<'a> {
+  pub node: &'a SceneNode,
+  pub model: &'a dyn RainrayModel,
+}
+
+pub struct LightInstance<'a> {
+  pub node: &'a SceneNode,
+  pub light: &'a dyn Light,
+}
+
 pub struct SceneCache<'a> {
-  pub lights: Vec<(&'a SceneNode, &'a dyn Light)>,
+  pub lights: Vec<LightInstance<'a>>,
+  pub models: Vec<ModelInstance<'a>>,
 }
 
 pub trait RainraySceneExt {
@@ -45,8 +57,10 @@ pub trait RainraySceneExt {
 impl RainraySceneExt for Scene {
   fn create_cache(&self) -> SceneCache {
     let scene_light = &self.lights;
+    let scene_model = &self.models;
 
     let mut lights = Vec::new();
+    let mut models = Vec::new();
 
     let root = self.get_root_handle();
     self
@@ -54,16 +68,25 @@ impl RainraySceneExt for Scene {
       .traverse_immutable(root, &mut Vec::new(), |this, _| {
         let node_data = this.data();
         node_data.payload.iter().for_each(|payload| match payload {
-          sceno::SceneNodePayload::Model(_) => {}
+          sceno::SceneNodePayload::Model(model) => {
+            let model = scene_model.get(*model).unwrap().as_ref();
+            models.push(ModelInstance {
+              node: node_data,
+              model,
+            });
+          }
           sceno::SceneNodePayload::Light(light) => {
             let light = scene_light.get(*light).unwrap().as_ref();
-            lights.push((node_data, light));
+            lights.push(LightInstance {
+              node: node_data,
+              light,
+            });
           }
         });
         NextTraverseVisit::VisitChildren
       });
 
-    SceneCache { lights }
+    SceneCache { lights, models }
   }
   fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)> {
     let mut min_distance = std::f32::INFINITY;

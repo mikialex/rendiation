@@ -74,6 +74,19 @@ impl<T: SceneBackend> Scene<T> {
     self
   }
 
+  pub fn model_node_with_modify(
+    &mut self,
+    model: impl SceneModelCreator<T>,
+    m: impl Fn(&mut SceneNode<T>),
+  ) -> &mut Self {
+    let model = self.create_model(model);
+    self.create_node(|node, _| {
+      node.payload.push(SceneNodePayload::Model(model));
+      m(node)
+    });
+    self
+  }
+
   pub fn background(&mut self, background: T::Background) -> &mut Self {
     self.background = background.into();
     self
