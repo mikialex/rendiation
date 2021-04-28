@@ -18,8 +18,8 @@ fn main() {
   scene
     .model_node_with_modify(
       (
-        Mesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),
-        // Mesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
+        // Mesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),
+        Mesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
         // Diffuse {
         //   albedo: Vec3::new(0.3, 0.4, 0.8),
         //   diffuse_model: Lambertian,

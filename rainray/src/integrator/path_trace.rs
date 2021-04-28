@@ -4,8 +4,8 @@ use rendiation_geometry::Ray3;
 
 use super::Integrator;
 use crate::{
-  math::rand, math::Vec3, scene::Scene, Intersection, LightSampleResult, NormalizedVec3,
-  RainrayModel, RainraySceneExt, SceneCache,
+  math::rand, math::Vec3, Intersection, LightSampleResult, NormalizedVec3, RainrayModel,
+  RayTraceScene,
 };
 use rendiation_algebra::RealVector;
 
@@ -33,14 +33,13 @@ impl PathTraceIntegrator {
   // next event estimation
   fn sample_lights<'a>(
     &self,
-    scene: &'a Scene,
-    scene_cache: &SceneCache<'a>,
+    scene: &RayTraceScene<'a>,
     model: &dyn RainrayModel,
     intersection: &Intersection,
     light_out_dir: NormalizedVec3,
   ) -> Vec3 {
     let mut energy = Vec3::new(0.0, 0.0, 0.0);
-    for light in &scene_cache.lights {
+    for light in &scene.lights {
       let node = light.node;
       let light = light.light;
       if let Some(LightSampleResult {
@@ -59,8 +58,7 @@ impl PathTraceIntegrator {
 impl Integrator for PathTraceIntegrator {
   fn integrate<'a>(
     &self,
-    scene: &'a Scene,
-    scene_cache: &SceneCache<'a>,
+    scene: &RayTraceScene<'a>,
     ray: Ray3,
   ) -> Color<f32, LinearRGBColorSpace<f32>> {
     let mut energy = Vec3::new(0., 0., 0.);
@@ -72,7 +70,7 @@ impl Integrator for PathTraceIntegrator {
 
       // hit outside scene, sample background;
       if hit_result.is_none() {
-        if let Some(background) = &scene.background {
+        if let Some(background) = &scene.scene.background {
           energy += background.sample(&current_ray) * throughput;
           break;
         }
@@ -87,13 +85,8 @@ impl Integrator for PathTraceIntegrator {
         break;
       }
 
-      energy += self.sample_lights(
-        scene,
-        scene_cache,
-        model,
-        &intersection,
-        current_ray.direction.reverse(),
-      ) * throughput;
+      energy += self.sample_lights(scene, model, &intersection, current_ray.direction.reverse())
+        * throughput;
 
       let cos = light_dir.dot(intersection.shading_normal).abs();
       let bsdf = model.bsdf(view_dir, light_dir, &intersection, scene);

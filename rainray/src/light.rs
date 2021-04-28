@@ -1,4 +1,4 @@
-use crate::{math::*, RainraySceneExt, Scene, SceneNode};
+use crate::{math::*, RayTraceScene, SceneNode};
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector};
 use sceno::PointLight;
 
@@ -8,10 +8,10 @@ pub struct LightSampleResult {
 }
 
 pub trait Light: Sync + 'static {
-  fn sample(
+  fn sample<'a>(
     &self,
     world_position: Vec3,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
     node: &SceneNode,
   ) -> Option<LightSampleResult>;
 }
@@ -24,10 +24,10 @@ pub trait LightToBoxed: Light + Sized {
 
 impl LightToBoxed for PointLight {}
 impl Light for PointLight {
-  fn sample(
+  fn sample<'a>(
     &self,
     world_position: Vec3,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
     node: &SceneNode,
   ) -> Option<LightSampleResult> {
     let light_position = node.world_matrix.position();

@@ -33,16 +33,29 @@ pub struct LightInstance<'a> {
   pub light: &'a dyn Light,
 }
 
-pub struct SceneCache<'a> {
+pub struct RayTraceScene<'a> {
+  pub scene: &'a Scene,
   pub lights: Vec<LightInstance<'a>>,
   pub models: Vec<ModelInstance<'a>>,
 }
 
-pub trait RainraySceneExt {
-  fn create_cache(&self) -> SceneCache;
-  fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)>;
-
-  fn test_point_visible_to_point(&self, point_a: Vec3, point_b: Vec3) -> bool {
+impl<'a> RayTraceScene<'a> {
+  pub fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)> {
+    let mut min_distance = std::f32::INFINITY;
+    let mut result: Option<(Intersection, &dyn RainrayModel)> = None;
+    for model in &self.models {
+      let ModelInstance { model, .. } = model;
+      if let PossibleIntersection(Some(mut intersection)) = model.intersect(ray, self) {
+        if intersection.distance < min_distance {
+          intersection.adjust_hit_position();
+          min_distance = intersection.distance;
+          result = Some((intersection, *model))
+        }
+      }
+    }
+    result
+  }
+  pub fn test_point_visible_to_point(&self, point_a: Vec3, point_b: Vec3) -> bool {
     let ray = Ray3::from_point_to_point(point_a, point_b);
     let distance = (point_a - point_b).length();
 
@@ -54,8 +67,12 @@ pub trait RainraySceneExt {
   }
 }
 
+pub trait RainraySceneExt {
+  fn convert(&self) -> RayTraceScene;
+}
+
 impl RainraySceneExt for Scene {
-  fn create_cache(&self) -> SceneCache {
+  fn convert(&self) -> RayTraceScene {
     let scene_light = &self.lights;
     let scene_model = &self.models;
 
@@ -86,20 +103,10 @@ impl RainraySceneExt for Scene {
         NextTraverseVisit::VisitChildren
       });
 
-    SceneCache { lights, models }
-  }
-  fn get_min_dist_hit(&self, ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)> {
-    let mut min_distance = std::f32::INFINITY;
-    let mut result: Option<(Intersection, &dyn RainrayModel)> = None;
-    for (_, model) in &self.models {
-      if let PossibleIntersection(Some(mut intersection)) = model.intersect(&ray, self) {
-        if intersection.distance < min_distance {
-          intersection.adjust_hit_position();
-          min_distance = intersection.distance;
-          result = Some((intersection, model.as_ref()))
-        }
-      }
+    RayTraceScene {
+      scene: self,
+      lights,
+      models,
     }
-    result
   }
 }

@@ -1,5 +1,5 @@
 use rendiation_algebra::{Vec2, Vec3};
-use rendiation_geometry::{Box3, IntersectAble, Ray3, Triangle};
+use rendiation_geometry::{Box3, Ray3, Triangle};
 use rendiation_renderable_mesh::{
   geometry::{
     AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, MeshBufferIntersectConfig,
@@ -12,7 +12,7 @@ use space_algorithm::{
   utils::TreeBuildOption,
 };
 
-use crate::{Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry, Scene};
+use crate::{Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry, RayTraceScene};
 
 pub trait RainrayMeshBuffer: Send + Sync {
   fn get_intersect(&self, ray: &Ray3) -> PossibleIntersection;
@@ -101,14 +101,13 @@ pub struct Mesh {
   geometry: Box<dyn RainrayMeshBuffer>,
 }
 
-impl IntersectAble<Ray3, PossibleIntersection, Scene> for Mesh {
-  fn intersect(&self, ray: &Ray3, _param: &Scene) -> PossibleIntersection {
-    self.geometry.get_intersect(ray)
-  }
-}
 impl RainRayGeometry for Mesh {
   fn as_any(&self) -> &dyn std::any::Any {
     self
+  }
+
+  fn intersect<'a>(&self, ray: Ray3, _: &RayTraceScene<'a>) -> PossibleIntersection {
+    self.geometry.get_intersect(&ray)
   }
 }
 
