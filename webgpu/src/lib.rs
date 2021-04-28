@@ -5,6 +5,9 @@ use sceno::{Arena, Handle, NextTraverseVisit, SceneBackend};
 use swap_chain::SwapChain;
 use wgpu::util::DeviceExt;
 
+pub mod materials;
+pub use materials::*;
+
 pub struct WebGPUScene;
 
 mod swap_chain;
@@ -29,28 +32,12 @@ pub trait Mesh {
   fn setup_pass<'a>(&mut self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>);
 }
 pub trait Material {
+  fn update(&mut self, renderer: &mut Renderer, des: &wgpu::RenderPassDescriptor);
   fn setup_pass<'a>(
     &mut self,
     renderer: &'a Renderer,
     pass: &mut wgpu::RenderPass<'a>,
     des: &wgpu::RenderPassDescriptor,
-    ctx: &mut SceneMaterialRenderCtx,
-  ) {
-    let pipeline = self.get_pipeline(des, renderer);
-    pass.set_pipeline(pipeline);
-    self.setup_bindgroups(renderer, pass, ctx);
-  }
-
-  fn get_pipeline<'a>(
-    &mut self,
-    des: &wgpu::RenderPassDescriptor,
-    renderer: &'a Renderer,
-  ) -> &'a wgpu::RenderPipeline;
-
-  fn setup_bindgroups<'a>(
-    &mut self,
-    renderer: &'a Renderer,
-    pass: &mut wgpu::RenderPass<'a>,
     ctx: &mut SceneMaterialRenderCtx,
   );
 }
@@ -151,8 +138,6 @@ pub struct SceneRenderCtx<'a> {
   meshes: &'a mut Arena<Box<dyn Mesh>>,
   material_ctx: SceneMaterialRenderCtx,
 }
-
-pub struct SceneMaterialRenderCtx {}
 
 impl Renderable for Scene {
   fn render<'a>(
@@ -309,109 +294,4 @@ impl Model for SceneModel {
     let mesh = ctx.meshes.get_mut(self.mesh).unwrap();
     mesh.setup_pass(renderer, pass);
   }
-}
-
-struct BasicMaterial {
-  pub color: Vec3<f32>,
-}
-
-struct BasicMaterialGPU {
-  self_bindgroup: wgpu::BindGroup,
-  // pipeline
-}
-
-pub trait GPUMaterial {
-  type GPU;
-}
-
-struct GPUMaterialWrap<T: GPUMaterial> {
-  material: T,
-  gpu: T::GPU,
-}
-
-impl<T: GPUMaterial> Material for GPUMaterialWrap<T> {
-  fn get_pipeline<'a>(
-    &mut self,
-    des: &wgpu::RenderPassDescriptor,
-    renderer: &'a Renderer,
-  ) -> &'a wgpu::RenderPipeline {
-    let bind_group_layout =
-      renderer
-        .device
-        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-          label: None,
-          entries: &[
-            wgpu::BindGroupLayoutEntry {
-              binding: 0,
-              visibility: wgpu::ShaderStage::VERTEX,
-              ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: wgpu::BufferSize::new(64),
-              },
-              count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-              binding: 1,
-              visibility: wgpu::ShaderStage::FRAGMENT,
-              ty: wgpu::BindingType::Texture {
-                multisampled: false,
-                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
-              },
-              count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-              binding: 2,
-              visibility: wgpu::ShaderStage::FRAGMENT,
-              ty: wgpu::BindingType::Sampler {
-                comparison: false,
-                filtering: true,
-              },
-              count: None,
-            },
-          ],
-        });
-
-    let pipeline_layout = renderer
-      .device
-      .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
-      });
-
-    // let pipeline_des = wgpu::RenderPipelineDescriptor {
-    //   label: None,
-    //   layout: Some(&pipeline_layout),
-    //   vertex: wgpu::VertexState {
-    //     module: &shader,
-    //     entry_point: "vs_main",
-    //     buffers: &vertex_buffers,
-    //   },
-    //   fragment: Some(wgpu::FragmentState {
-    //     module: &shader,
-    //     entry_point: "fs_main",
-    //     targets: &[sc_desc.format.into()],
-    //   }),
-    //   primitive: wgpu::PrimitiveState {
-    //     cull_mode: wgpu::CullMode::Back,
-    //     ..Default::default()
-    //   },
-    //   depth_stencil: None,
-    //   multisample: wgpu::MultisampleState::default(),
-    // };
-    //
-    todo!()
-  }
-
-  fn setup_bindgroups<'a>(
-    &mut self,
-    renderer: &'a Renderer,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &mut SceneMaterialRenderCtx,
-  ) {
-    todo!()
-  }
-  //
 }
