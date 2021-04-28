@@ -39,7 +39,7 @@ fn main() {
           },
         },
       ),
-      |node| node.local_matrix = Mat4::translate(0., 0., 0.),
+      |node| node.local_matrix = Mat4::translate(0., 3., 0.),
     )
     .model_node((
       Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
