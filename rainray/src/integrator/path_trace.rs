@@ -76,7 +76,7 @@ impl Integrator for PathTraceIntegrator {
         }
       }
 
-      let (intersection, model) = hit_result.unwrap();
+      let (intersection, _, model) = hit_result.unwrap();
 
       let view_dir = current_ray.direction.reverse();
       let light_dir = model.sample_light_dir(view_dir, &intersection, scene);

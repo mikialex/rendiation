@@ -1,10 +1,10 @@
 use std::any::Any;
 
 use crate::{math::*, RayTraceScene};
-use rendiation_algebra::IntoNormalizedVector;
 
 pub mod mesh;
 pub use mesh::*;
+use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity};
 
 pub trait RainRayGeometry: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
@@ -17,7 +17,6 @@ pub trait RainRayGeometry: Sync + Send + 'static {
 }
 
 pub struct Intersection {
-  pub distance: f32,
   pub position: Vec3,
   pub geometric_normal: NormalizedVec3,
   pub shading_normal: NormalizedVec3,
@@ -57,6 +56,12 @@ impl Intersection {
   pub fn adjust_hit_position(&mut self) {
     self.position = offset_ray(self.position, self.geometric_normal.value)
   }
+
+  pub fn apply_matrix(&mut self, matrix: Mat4<f32>, normal_matrix: Mat4<f32>) {
+    self.position.apply_matrix(matrix);
+    self.geometric_normal.transform_direction(normal_matrix);
+    self.shading_normal.transform_direction(normal_matrix);
+  }
 }
 
 pub struct PossibleIntersection(pub Option<Intersection>);
@@ -71,7 +76,6 @@ impl RainRayGeometry for Sphere {
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
       Intersection {
-        distance: near.distance,
         position: near.position,
         geometric_normal: normal,
         shading_normal: normal,
@@ -88,7 +92,6 @@ impl RainRayGeometry for Plane {
   fn intersect<'a>(&self, ray: Ray3, _: &RayTraceScene<'a>) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
-      distance: near.distance,
       position: near.position,
       geometric_normal: self.normal,
       shading_normal: self.normal,

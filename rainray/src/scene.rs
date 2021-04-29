@@ -26,6 +26,7 @@ pub type MaterialHandle = sceno::MaterialHandle<RainrayScene>;
 pub struct ModelInstance<'a> {
   pub node: &'a SceneNode,
   pub matrix_world_inverse: Mat4<f32>,
+  pub normal_matrix_inverse: Mat4<f32>,
   pub model: &'a dyn RainrayModel,
 }
 
@@ -41,23 +42,28 @@ pub struct RayTraceScene<'a> {
 }
 
 impl<'a> RayTraceScene<'a> {
-  pub fn get_min_dist_hit(&self, mut ray: Ray3) -> Option<(Intersection, &dyn RainrayModel)> {
+  pub fn get_min_dist_hit(&self, mut ray: Ray3) -> Option<(Intersection, f32, &dyn RainrayModel)> {
     let mut min_distance = std::f32::INFINITY;
-    let mut result: Option<(Intersection, &dyn RainrayModel)> = None;
+    let mut result = None;
     for model in &self.models {
       let ModelInstance {
         model,
         matrix_world_inverse,
+        normal_matrix_inverse,
         ..
       } = model;
 
+      let ray_world = ray;
       ray.apply_matrix(*matrix_world_inverse);
 
       if let PossibleIntersection(Some(mut intersection)) = model.intersect(ray, self) {
-        if intersection.distance < min_distance {
+        intersection.apply_matrix(*matrix_world_inverse, *normal_matrix_inverse);
+        let distance = intersection.position.distance(ray_world.origin);
+
+        if distance < min_distance {
           intersection.adjust_hit_position();
-          min_distance = intersection.distance;
-          result = Some((intersection, *model))
+          min_distance = distance;
+          result = Some((intersection, distance, *model))
         }
       }
     }
@@ -68,7 +74,7 @@ impl<'a> RayTraceScene<'a> {
     let distance = (point_a - point_b).length();
 
     if let Some(hit_result) = self.get_min_dist_hit(ray) {
-      hit_result.0.distance > distance
+      hit_result.1 > distance
     } else {
       true
     }
@@ -95,9 +101,11 @@ impl RainraySceneExt for Scene {
         node_data.payload.iter().for_each(|payload| match payload {
           sceno::SceneNodePayload::Model(model) => {
             let model = scene_model.get(*model).unwrap().as_ref();
+            let matrix_world_inverse = node_data.world_matrix.inverse_or_identity();
             models.push(ModelInstance {
               node: node_data,
-              matrix_world_inverse: node_data.world_matrix.inverse_or_identity(),
+              matrix_world_inverse,
+              normal_matrix_inverse: matrix_world_inverse.transpose(),
               model,
             });
           }

@@ -32,7 +32,7 @@ impl Integrator for AOIntegrator {
     scene: &RayTraceScene<'a>,
     ray: Ray3,
   ) -> Color<f32, LinearRGBColorSpace<f32>> {
-    let ao_estimate = if let Some((intersection, _)) = scene.get_min_dist_hit(ray) {
+    let ao_estimate = if let Some((intersection, _, _)) = scene.get_min_dist_hit(ray) {
       let mut ao_acc = 0.;
       for _ in 0..self.sample_count {
         ao_acc += sample_ao_surface(intersection.position, scene);
