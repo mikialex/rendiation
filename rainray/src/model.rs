@@ -1,11 +1,11 @@
 use std::{any::Any, marker::PhantomData};
 
-use rendiation_geometry::{Box3, IntersectAble, Ray3};
+use rendiation_geometry::{Box3, Ray3};
 use sceno::{ModelHandle, SceneModelCreator};
 
 use crate::{
   material::Material, Intersection, MaterialHandle, MeshHandle, NormalizedVec3,
-  PossibleIntersection, RainRayGeometry, RainrayMaterial, RainrayScene, Scene, Vec3,
+  PossibleIntersection, RainRayGeometry, RainrayMaterial, RainrayScene, RayTraceScene, Scene, Vec3,
 };
 
 pub struct Model<M, G> {
@@ -46,8 +46,9 @@ where
     Box::new(Self::new(scene, geometry, material))
   }
 
-  pub fn downcast<'a>(&self, scene: &'a Scene) -> (&'a M, &'a G) {
+  pub fn downcast<'a, 'b>(&self, scene: &'a RayTraceScene<'b>) -> (&'a M, &'a G) {
     let material = scene
+      .scene
       .materials
       .get(self.material)
       .unwrap()
@@ -55,6 +56,7 @@ where
       .downcast_ref::<M>()
       .unwrap();
     let geometry = scene
+      .scene
       .meshes
       .get(self.geometry)
       .unwrap()
@@ -65,25 +67,19 @@ where
   }
 }
 
-impl<M, G> IntersectAble<Ray3, PossibleIntersection, Scene> for Model<M, G>
-where
-  M: Material<G> + RainrayMaterial,
-  G: IntersectAble<Ray3, PossibleIntersection, Scene> + RainRayGeometry,
-{
-  fn intersect(&self, ray: &Ray3, scene: &Scene) -> PossibleIntersection {
-    let geometry = scene.meshes.get(self.geometry).unwrap();
-    geometry.intersect(ray, scene)
-  }
-}
-
 impl<M: RainrayMaterial + Material<G>, G: RainRayGeometry> RainRayGeometry for Model<M, G> {
-  fn get_bbox(&self, scene: &Scene) -> Option<Box3> {
+  fn get_bbox<'a>(&self, scene: &RayTraceScene) -> Option<Box3> {
     let (_, geometry) = self.downcast(scene);
     geometry.get_bbox(scene)
   }
 
   fn as_any(&self) -> &dyn Any {
     self
+  }
+
+  fn intersect<'a>(&self, ray: Ray3, scene: &RayTraceScene<'a>) -> PossibleIntersection {
+    let geometry = scene.scene.meshes.get(self.geometry).unwrap();
+    geometry.intersect(ray, scene)
   }
 }
 
@@ -92,33 +88,33 @@ where
   M: 'static + Sync + Send + Material<G> + RainrayMaterial,
   G: RainRayGeometry + 'static + Sync + Send,
 {
-  fn sample_light_dir(
+  fn sample_light_dir<'a>(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
   ) -> NormalizedVec3 {
     let (material, geometry) = self.downcast(scene);
     material.sample_light_dir(view_dir, intersection, geometry)
   }
 
-  fn pdf(
+  fn pdf<'a>(
     &self,
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
   ) -> f32 {
     let (material, geometry) = self.downcast(scene);
     material.pdf(view_dir, light_dir, intersection, geometry)
   }
 
-  fn bsdf(
+  fn bsdf<'a>(
     &self,
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
   ) -> Vec3 {
     let (material, geometry) = self.downcast(scene);
     material.bsdf(view_dir, light_dir, intersection, geometry)
@@ -127,24 +123,24 @@ where
 
 pub trait RainrayModel: Sync + Send + 'static + RainRayGeometry {
   /// sample the light input dir with brdf importance
-  fn sample_light_dir(
+  fn sample_light_dir<'a>(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
   ) -> NormalizedVec3;
-  fn pdf(
+  fn pdf<'a>(
     &self,
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
   ) -> f32;
-  fn bsdf(
+  fn bsdf<'a>(
     &self,
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &RayTraceScene<'a>,
   ) -> Vec3;
 }

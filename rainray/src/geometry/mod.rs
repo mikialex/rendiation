@@ -1,17 +1,17 @@
 use std::any::Any;
 
-use crate::{math::*, Scene};
+use crate::{math::*, RayTraceScene};
 use rendiation_algebra::IntoNormalizedVector;
 
 pub mod mesh;
 pub use mesh::*;
 
-pub trait RainRayGeometry:
-  IntersectAble<Ray3, PossibleIntersection, Scene> + Sync + Send + 'static
-{
+pub trait RainRayGeometry: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
 
-  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
+  fn intersect<'a>(&self, ray: Ray3, scene: &RayTraceScene<'a>) -> PossibleIntersection;
+
+  fn get_bbox<'a>(&self, _scene: &RayTraceScene<'a>) -> Option<Box3> {
     None
   }
 }
@@ -61,8 +61,12 @@ impl Intersection {
 
 pub struct PossibleIntersection(pub Option<Intersection>);
 
-impl IntersectAble<Ray3, PossibleIntersection, Scene> for Sphere {
-  fn intersect(&self, ray: &Ray3, _: &Scene) -> PossibleIntersection {
+impl RainRayGeometry for Sphere {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
+  fn intersect<'a>(&self, ray: Ray3, _: &RayTraceScene<'a>) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
@@ -75,14 +79,13 @@ impl IntersectAble<Ray3, PossibleIntersection, Scene> for Sphere {
     }))
   }
 }
-impl RainRayGeometry for Sphere {
+
+impl RainRayGeometry for Plane {
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }
-}
 
-impl IntersectAble<Ray3, PossibleIntersection, Scene> for Plane {
-  fn intersect(&self, ray: &Ray3, _: &Scene) -> PossibleIntersection {
+  fn intersect<'a>(&self, ray: Ray3, _: &RayTraceScene<'a>) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
       distance: near.distance,
@@ -90,10 +93,5 @@ impl IntersectAble<Ray3, PossibleIntersection, Scene> for Plane {
       geometric_normal: self.normal,
       shading_normal: self.normal,
     }))
-  }
-}
-impl RainRayGeometry for Plane {
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
   }
 }
