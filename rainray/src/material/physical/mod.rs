@@ -68,7 +68,7 @@ pub trait PhysicalSpecular:
 
   fn specular_estimate(&self, albedo: Vec3) -> f32;
 
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
@@ -144,16 +144,20 @@ where
     specular + (Vec3::splat(1.0) - f) * diffuse
   }
 
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
     geom: &G,
   ) -> NormalizedVec3 {
     if rand() < self.specular.specular_estimate(self.diffuse.albedo()) {
-      self.specular.sample_light_dir(view_dir, intersection)
+      self
+        .specular
+        .sample_light_dir_use_bsdf_importance(view_dir, intersection)
     } else {
-      self.diffuse.sample_light_dir(view_dir, intersection, geom)
+      self
+        .diffuse
+        .sample_light_dir_use_bsdf_importance(view_dir, intersection, geom)
     }
   }
 

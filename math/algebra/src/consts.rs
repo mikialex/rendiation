@@ -1,18 +1,23 @@
 pub trait Two: Sized {
+  #[must_use]
   fn two() -> Self;
 }
 pub trait Three: Sized {
+  #[must_use]
   fn three() -> Self;
 }
 
 pub trait Half: Sized {
+  #[must_use]
   fn half() -> Self;
 }
 
 pub trait PiByC180: Sized {
+  #[must_use]
   fn pi_by_c180() -> Self;
 }
 pub trait C180ByPi: Sized {
+  #[must_use]
   fn c180_by_pi() -> Self;
 }
 

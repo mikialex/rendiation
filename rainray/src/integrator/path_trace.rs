@@ -4,8 +4,8 @@ use rendiation_geometry::Ray3;
 
 use super::Integrator;
 use crate::{
-  math::rand, math::Vec3, Intersection, LightSampleResult, NormalizedVec3, RainrayModel,
-  RayTraceScene,
+  math::rand, math::Vec3, BSDFSampleResult, Intersection, LightSampleResult, NormalizedVec3,
+  RainrayModel, RayTraceScene,
 };
 use rendiation_algebra::RealVector;
 
@@ -66,44 +66,45 @@ impl Integrator for PathTraceIntegrator {
     let mut current_ray = ray;
 
     for _depth in 0..self.bounce_time_limit {
-      let hit_result = scene.get_min_dist_hit(current_ray);
+      if let Some((intersection, _, model)) = scene.get_min_dist_hit(current_ray) {
+        let view_dir = current_ray.direction.reverse();
 
-      // hit outside scene, sample background;
-      if hit_result.is_none() {
+        let BSDFSampleResult {
+          light_dir,
+          bsdf,
+          pdf,
+        } = model.sample(view_dir, &intersection, scene);
+
+        if pdf == 0.0 {
+          break;
+        }
+
+        let cos = light_dir.dot(intersection.shading_normal).abs();
+        throughput = throughput * cos * bsdf / pdf;
+
+        energy += self.sample_lights(scene, model, &intersection, current_ray.direction.reverse())
+          * throughput;
+
+        // roulette exist
+        if throughput.max_channel() < self.roulette_threshold {
+          if rand() < self.roulette_factor {
+            break;
+          }
+          throughput /= 1. - self.roulette_factor;
+        }
+
+        current_ray = Ray3::new(intersection.position, light_dir);
+      } else {
+        // hit outside scene, sample background;
         if let Some(background) = &scene.scene.background {
           energy += background.sample(&current_ray) * throughput;
           break;
         }
       }
-
-      let (intersection, _, model) = hit_result.unwrap();
-
-      let view_dir = current_ray.direction.reverse();
-      let light_dir = model.sample_light_dir(view_dir, &intersection, scene);
-      let light_dir_pdf = model.pdf(view_dir, light_dir, &intersection, scene);
-      if light_dir_pdf == 0.0 {
-        break;
-      }
-
-      energy += self.sample_lights(scene, model, &intersection, current_ray.direction.reverse())
-        * throughput;
-
-      let cos = light_dir.dot(intersection.shading_normal).abs();
-      let bsdf = model.bsdf(view_dir, light_dir, &intersection, scene);
-      throughput = throughput * cos * bsdf / light_dir_pdf;
-
-      // roulette exist
-      if throughput.max_channel() < self.roulette_threshold {
-        if rand() < self.roulette_factor {
-          break;
-        }
-        throughput /= 1. - self.roulette_factor;
-      }
-
-      current_ray = Ray3::new(intersection.position, light_dir);
     }
 
-    // if not clamp, will get white point maybe caused by intersection precision
+    // if not clamp, will get white point caused by high variance in brdf sampling
+    // https://computergraphics.stackexchange.com/questions/8693/where-do-fireflies-come-from
     Color::new((energy / self.exposure_upper_bound).min(Vec3::splat(1.0)))
   }
 }

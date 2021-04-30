@@ -12,7 +12,7 @@ pub trait RainrayMaterial: Any + Sync + Send {
 
 pub trait Material<G>: Send + Sync {
   /// sample the light input dir with brdf importance
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,

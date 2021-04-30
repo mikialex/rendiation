@@ -59,8 +59,8 @@ impl Intersection {
 
   pub fn apply_matrix(&mut self, matrix: Mat4<f32>, normal_matrix: Mat4<f32>) {
     self.position.apply_matrix(matrix);
-    self.geometric_normal.transform_direction(normal_matrix);
-    self.shading_normal.transform_direction(normal_matrix);
+    self.geometric_normal = self.geometric_normal.transform_direction(normal_matrix);
+    self.shading_normal = self.shading_normal.transform_direction(normal_matrix);
   }
 }
 

@@ -17,7 +17,7 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     PhysicalDiffuse::<G>::albedo(self) / Vec3::splat(PI)
   }
 
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance(
     &self,
     _view_dir: NormalizedVec3,
     intersection: &Intersection,
@@ -105,7 +105,7 @@ impl<G> Material<G> for OrenNayar {
     // self.albedo * INV_PI * (self.a + self.b * max_cos * sin_alpha * tan_beta)
   }
 
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance(
     &self,
     _view_dir: NormalizedVec3,
     _intersection: &Intersection,

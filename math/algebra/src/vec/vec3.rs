@@ -76,6 +76,7 @@ where
   ///
   /// vector interpreted as a direction
   #[inline]
+  #[must_use]
   pub fn transform_direction(&self, m: Mat4<T>) -> NormalizedVector<T, Self> {
     Self {
       x: m.a1 * self.x + m.b1 * self.y + m.c1 * self.z,

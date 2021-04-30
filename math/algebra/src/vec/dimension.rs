@@ -18,6 +18,7 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
 
   /// Perform the given operation on each field in the vector, returning a new point
   /// constructed from the operations.
+  #[must_use]
   fn map<F>(self, f: F) -> Self
   where
     F: Fn(T) -> T;
@@ -25,19 +26,23 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
   /// Construct a new vector where each component is the result of
   /// applying the given operation to each pair of components of the
   /// given vectors.
+  #[must_use]
   fn zip<F>(self, v2: Self, f: F) -> Self
   where
     F: Fn(T, T) -> T;
 
   #[inline]
+  #[must_use]
   fn one() -> Self {
     Self::create(|| T::one())
   }
   #[inline]
+  #[must_use]
   fn zero() -> Self {
     Self::create(|| T::zero())
   }
   #[inline]
+  #[must_use]
   fn splat(v: T) -> Self {
     Self::create(|| v)
   }

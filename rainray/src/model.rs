@@ -88,25 +88,19 @@ where
   M: 'static + Sync + Send + Material<G> + RainrayMaterial,
   G: RainRayGeometry + 'static + Sync + Send,
 {
-  fn sample_light_dir<'a>(
+  fn sample<'a>(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
     scene: &RayTraceScene<'a>,
-  ) -> NormalizedVec3 {
+  ) -> BSDFSampleResult {
     let (material, geometry) = self.downcast(scene);
-    material.sample_light_dir(view_dir, intersection, geometry)
-  }
-
-  fn pdf<'a>(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-    scene: &RayTraceScene<'a>,
-  ) -> f32 {
-    let (material, geometry) = self.downcast(scene);
-    material.pdf(view_dir, light_dir, intersection, geometry)
+    let light_dir = material.sample_light_dir_use_bsdf_importance(view_dir, intersection, geometry);
+    BSDFSampleResult {
+      light_dir,
+      bsdf: material.bsdf(view_dir, light_dir, &intersection, geometry),
+      pdf: material.pdf(view_dir, light_dir, &intersection, geometry),
+    }
   }
 
   fn bsdf<'a>(
@@ -117,25 +111,25 @@ where
     scene: &RayTraceScene<'a>,
   ) -> Vec3 {
     let (material, geometry) = self.downcast(scene);
-    material.bsdf(view_dir, light_dir, intersection, geometry)
+    material.bsdf(view_dir, light_dir, &intersection, geometry)
   }
+}
+
+pub struct BSDFSampleResult {
+  pub light_dir: NormalizedVec3,
+  pub bsdf: Vec3,
+  pub pdf: f32,
 }
 
 pub trait RainrayModel: Sync + Send + 'static + RainRayGeometry {
   /// sample the light input dir with brdf importance
-  fn sample_light_dir<'a>(
+  fn sample<'a>(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
     scene: &RayTraceScene<'a>,
-  ) -> NormalizedVec3;
-  fn pdf<'a>(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-    scene: &RayTraceScene<'a>,
-  ) -> f32;
+  ) -> BSDFSampleResult;
+
   fn bsdf<'a>(
     &self,
     view_dir: NormalizedVec3,

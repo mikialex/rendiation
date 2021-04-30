@@ -10,7 +10,10 @@ pub struct NormalizedVector<T, V> {
 }
 
 pub trait IntoNormalizedVector<T, V> {
+  #[must_use]
   fn into_normalized(&self) -> NormalizedVector<T, V>;
+
+  #[must_use]
   unsafe fn into_normalized_unchecked(&self) -> NormalizedVector<T, V>;
 }
 
@@ -37,6 +40,7 @@ impl<T, V> NormalizedVector<T, V> {
 
 impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
   #[inline]
+  #[must_use]
   pub fn normalize(&self) -> Self {
     *self
   }
@@ -45,6 +49,7 @@ impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
   ///
   /// of course input normal should also be normalized
   #[inline]
+  #[must_use]
   pub fn reflect(&self, normal: Self) -> Self {
     unsafe { self.value.reflect(*normal).into_normalized_unchecked() }
   }
@@ -60,6 +65,7 @@ impl<T: Scalar, V: InnerProductSpace<T>> NormalizedVector<T, V> {
   }
 
   #[inline]
+  #[must_use]
   pub fn reverse(&self) -> Self {
     unsafe { self.value.reverse().into_normalized_unchecked() }
   }

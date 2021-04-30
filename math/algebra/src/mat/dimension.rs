@@ -6,12 +6,21 @@ pub trait SquareMatrixDimension<const D: usize> {}
 pub trait SquareMatrixImpl {}
 
 pub trait SquareMatrix<T: Scalar>: Sized {
+  #[must_use]
   fn identity() -> Self;
+
+  #[must_use]
   fn transpose(&self) -> Self;
+
+  #[must_use]
   fn inverse(&self) -> Option<Self>;
+
+  #[must_use]
   fn inverse_or_identity(&self) -> Self {
     self.inverse().unwrap_or(Self::identity())
   }
+
+  #[must_use]
   fn det(&self) -> T;
 }
 
