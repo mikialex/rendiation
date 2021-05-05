@@ -4,8 +4,9 @@ use rendiation_geometry::{Box3, Ray3};
 use sceno::{ModelHandle, SceneModelCreator};
 
 use crate::{
-  material::Material, Intersection, MaterialHandle, MeshHandle, NormalizedVec3,
-  PossibleIntersection, RainRayGeometry, RainrayMaterial, RainrayScene, RayTraceScene, Scene, Vec3,
+  material::Material, ImportanceSampledDirection, Intersection, MaterialHandle, MeshHandle,
+  NormalizedVec3, PossibleIntersection, RainRayGeometry, RainrayMaterial, RainrayScene,
+  RayTraceScene, Scene, Vec3,
 };
 
 pub struct Model<M, G> {
@@ -98,8 +99,7 @@ where
     let light_dir = material.sample_light_dir_use_bsdf_importance(view_dir, intersection, geometry);
     BSDFSampleResult {
       light_dir,
-      bsdf: material.bsdf(view_dir, light_dir, &intersection, geometry),
-      pdf: material.pdf(view_dir, light_dir, &intersection, geometry),
+      bsdf: material.bsdf(view_dir, light_dir.sample, &intersection, geometry),
     }
   }
 
@@ -116,9 +116,8 @@ where
 }
 
 pub struct BSDFSampleResult {
-  pub light_dir: NormalizedVec3,
+  pub light_dir: ImportanceSampledDirection,
   pub bsdf: Vec3,
-  pub pdf: f32,
 }
 
 pub trait RainrayModel: Sync + Send + 'static + RainRayGeometry {

@@ -1,4 +1,4 @@
-use crate::{math::rand, NormalizedVec3, RainrayMaterial};
+use crate::{math::rand, ImportanceSampledDirection, NormalizedVec3, RainrayMaterial};
 use rendiation_algebra::*;
 
 pub mod specular_model;
@@ -46,8 +46,10 @@ pub trait MicroFacetNormalDistribution {
   fn d(&self, n: NormalizedVec3, h: NormalizedVec3) -> f32;
 
   /// sample a micro surface normal in normal's tangent space.
-  fn sample_micro_surface_normal(&self, normal: NormalizedVec3) -> NormalizedVec3;
-  fn surface_normal_pdf(&self, normal: NormalizedVec3, sampled_normal: NormalizedVec3) -> f32;
+  fn sample_micro_surface_normal_use_normal_distribution_importance(
+    &self,
+    normal: NormalizedVec3,
+  ) -> ImportanceSampledDirection;
 }
 
 pub trait MicroFacetGeometricShadow {
@@ -72,19 +74,14 @@ pub trait PhysicalSpecular:
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
-  ) -> NormalizedVec3 {
-    let micro_surface_normal = self.sample_micro_surface_normal(intersection.shading_normal);
-    view_dir.reverse().reflect(micro_surface_normal)
-  }
-  fn pdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-  ) -> f32 {
-    let micro_surface_normal = (view_dir + light_dir).into_normalized();
-    let normal_pdf = self.surface_normal_pdf(intersection.shading_normal, micro_surface_normal);
-    normal_pdf / (4.0 * micro_surface_normal.dot(view_dir).abs())
+  ) -> ImportanceSampledDirection {
+    let normal = self
+      .sample_micro_surface_normal_use_normal_distribution_importance(intersection.shading_normal);
+
+    let sample = view_dir.reverse().reflect(normal.sample);
+    let pdf = normal.pdf / (4.0 * normal.sample.dot(view_dir).abs());
+
+    ImportanceSampledDirection { sample, pdf }
   }
 }
 
@@ -149,29 +146,26 @@ where
     view_dir: NormalizedVec3,
     intersection: &Intersection,
     geom: &G,
-  ) -> NormalizedVec3 {
-    if rand() < self.specular.specular_estimate(self.diffuse.albedo()) {
-      self
-        .specular
-        .sample_light_dir_use_bsdf_importance(view_dir, intersection)
-    } else {
-      self
-        .diffuse
-        .sample_light_dir_use_bsdf_importance(view_dir, intersection, geom)
-    }
-  }
+  ) -> ImportanceSampledDirection {
+    let specular = self
+      .specular
+      .sample_light_dir_use_bsdf_importance(view_dir, intersection);
 
-  fn pdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-    geom: &G,
-  ) -> f32 {
+    let diffuse = self
+      .diffuse
+      .sample_light_dir_use_bsdf_importance(view_dir, intersection, geom);
+
     let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
-    let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
-    let diff =
-      self.diffuse.pdf(view_dir, light_dir, intersection, geom) * (1.0 - specular_estimate);
-    spec + diff
+    let sample = if rand() < specular_estimate {
+      specular.sample
+    } else {
+      diffuse.sample
+    };
+    let pdf = specular.pdf * specular_estimate + diffuse.pdf * (1.0 - specular_estimate);
+    ImportanceSampledDirection { sample, pdf }
+
+    // self
+    //   .specular
+    //   .sample_light_dir_use_bsdf_importance(view_dir, intersection)
   }
 }

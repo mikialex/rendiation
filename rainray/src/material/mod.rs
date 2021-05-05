@@ -10,6 +10,13 @@ pub trait RainrayMaterial: Any + Sync + Send {
   fn as_any(&self) -> &dyn Any;
 }
 
+#[derive(Clone, Copy)]
+pub struct ImportanceSampled<T> {
+  pub sample: T,
+  pub pdf: f32,
+}
+pub type ImportanceSampledDirection = ImportanceSampled<NormalizedVec3>;
+
 pub trait Material<G>: Send + Sync {
   /// sample the light input dir with brdf importance
   fn sample_light_dir_use_bsdf_importance(
@@ -17,14 +24,8 @@ pub trait Material<G>: Send + Sync {
     view_dir: NormalizedVec3,
     intersection: &Intersection,
     geom: &G,
-  ) -> NormalizedVec3;
-  fn pdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-    geom: &G,
-  ) -> f32;
+  ) -> ImportanceSampledDirection;
+
   fn bsdf(
     &self,
     view_dir: NormalizedVec3,

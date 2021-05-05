@@ -2,8 +2,8 @@ use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vector};
 
 use crate::{
   math::{concentric_sample_disk, rand, Vec3, INV_PI, PI},
-  MicroFacetFresnel, MicroFacetGeometricShadow, MicroFacetNormalDistribution, NormalizedVec3,
-  Specular,
+  ImportanceSampledDirection, MicroFacetFresnel, MicroFacetGeometricShadow,
+  MicroFacetNormalDistribution, NormalizedVec3, Specular,
 };
 
 pub struct BlinnPhong;
@@ -14,11 +14,10 @@ impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
     let cos = n.dot(h).max(0.0);
     cos.powf(2.0 / roughness_2 - 2.0) * normalize_coefficient
   }
-  fn sample_micro_surface_normal(&self, _normal: NormalizedVec3) -> NormalizedVec3 {
-    todo!()
-  }
-
-  fn surface_normal_pdf(&self, _normal: NormalizedVec3, _sampled_normal: NormalizedVec3) -> f32 {
+  fn sample_micro_surface_normal_use_normal_distribution_importance(
+    &self,
+    _normal: NormalizedVec3,
+  ) -> ImportanceSampledDirection {
     todo!()
   }
 }
@@ -31,27 +30,33 @@ impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
     let m2 = self.roughness * self.roughness;
     ((nh2 - 1.0) / (m2 * nh2)).exp() / (m2 * PI * nh2 * nh2)
   }
-  fn sample_micro_surface_normal(&self, normal: NormalizedVec3) -> NormalizedVec3 {
+
+  fn sample_micro_surface_normal_use_normal_distribution_importance(
+    &self,
+    normal: NormalizedVec3,
+  ) -> ImportanceSampledDirection {
+    let m2 = self.roughness * self.roughness;
     // PIT for Beckmann distribution microfacet normal
     // θ = arctan √(-m^2 ln U)
-    let m2 = self.roughness * self.roughness;
-    let theta = (m2 * -rand().ln()).sqrt().atan();
-    let (sin_t, cos_t) = theta.sin_cos();
+    let sample = {
+      let theta = (m2 * -rand().ln()).sqrt().atan();
+      let (sin_t, cos_t) = theta.sin_cos();
 
-    // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
-    let x = sample.x;
-    let y = sample.y;
-    let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
-    (h * normal.local_to_world()).into_normalized()
-  }
+      // Generate halfway vector by sampling azimuth uniformly
+      let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
+      let x = sample.x;
+      let y = sample.y;
+      let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
+      (h * normal.local_to_world()).into_normalized()
+    };
 
-  fn surface_normal_pdf(&self, normal: NormalizedVec3, sampled_normal: NormalizedVec3) -> f32 {
     // p = 1 / (πm^2 cos^3 θ) * e^(-tan^2(θ) / m^2)
-    let m2 = self.roughness * self.roughness;
-    let cos_t = sampled_normal.dot(normal).abs();
-    let sin_t = (1.0 - cos_t * cos_t).sqrt();
-    (PI * m2 * cos_t.powi(3)).recip() * (-(sin_t / cos_t).powi(2) / m2).exp()
+    let pdf = {
+      let cos_t = sample.dot(normal).abs();
+      let sin_t = (1.0 - cos_t * cos_t).sqrt();
+      (PI * m2 * cos_t.powi(3)).recip() * (-(sin_t / cos_t).powi(2) / m2).exp()
+    };
+    ImportanceSampledDirection { sample, pdf }
   }
 }
 
@@ -65,11 +70,10 @@ impl<G, F> MicroFacetNormalDistribution for Specular<GGX, G, F> {
     INV_PI * (root * root)
   }
 
-  fn sample_micro_surface_normal(&self, _normal: NormalizedVec3) -> NormalizedVec3 {
-    todo!()
-  }
-
-  fn surface_normal_pdf(&self, _normal: NormalizedVec3, _sampled_normal: NormalizedVec3) -> f32 {
+  fn sample_micro_surface_normal_use_normal_distribution_importance(
+    &self,
+    _normal: NormalizedVec3,
+  ) -> ImportanceSampledDirection {
     todo!()
   }
 }

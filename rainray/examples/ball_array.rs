@@ -6,7 +6,7 @@ fn main() {
   let perspective = PerspectiveProjection::default();
   let mut camera = Camera::new();
 
-  let mut frame = Frame::new(1000, 1000);
+  let mut frame = Frame::new(400, 400);
   let mut scene = Scene::new();
 
   scene

@@ -1,6 +1,6 @@
 use crate::{
-  concentric_sample_disk, rand, Diffuse, Intersection, Material, NormalizedVec3, PhysicalDiffuse,
-  Vec3, INV_PI, PI,
+  concentric_sample_disk, rand, Diffuse, ImportanceSampledDirection, Intersection, Material,
+  NormalizedVec3, PhysicalDiffuse, Vec3, INV_PI, PI,
 };
 
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vector};
@@ -22,23 +22,19 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     _view_dir: NormalizedVec3,
     intersection: &Intersection,
     _geom: &G,
-  ) -> NormalizedVec3 {
+  ) -> ImportanceSampledDirection {
     // Simple cosine-sampling using Malley's method
     let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
-    (Vec3::new(x, y, z) * intersection.shading_normal.local_to_world()).into_normalized()
-  }
+    let light_dir =
+      (Vec3::new(x, y, z) * intersection.shading_normal.local_to_world()).into_normalized();
 
-  fn pdf(
-    &self,
-    _view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-    _geom: &G,
-  ) -> f32 {
-    light_dir.dot(intersection.shading_normal).max(0.0) * INV_PI
+    ImportanceSampledDirection {
+      sample: light_dir,
+      pdf: light_dir.dot(intersection.shading_normal).max(0.0) * INV_PI,
+    }
   }
 }
 
@@ -110,17 +106,7 @@ impl<G> Material<G> for OrenNayar {
     _view_dir: NormalizedVec3,
     _intersection: &Intersection,
     _geom: &G,
-  ) -> NormalizedVec3 {
-    todo!()
-  }
-
-  fn pdf(
-    &self,
-    _view_dir: NormalizedVec3,
-    _light_dir: NormalizedVec3,
-    _intersection: &Intersection,
-    _geom: &G,
-  ) -> f32 {
+  ) -> ImportanceSampledDirection {
     todo!()
   }
 }

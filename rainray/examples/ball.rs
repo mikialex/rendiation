@@ -20,7 +20,7 @@ fn main() {
       PhysicalMaterial {
         specular: Specular {
           roughness: 0.01,
-          metallic: 0.9,
+          metallic: 0.1,
           ior: 1.6,
           normal_distribution_model: Beckmann,
           geometric_shadow_model: CookTorrance,
