@@ -54,7 +54,7 @@ fn main() {
         },
       ),
       |node| {
-        // node.local_matrix = Mat4::translate(1., 1., 0.)
+        node.local_matrix = Mat4::translate(0., 1.0, 0.)
         // node.local_matrix = Mat4::translate(0., 2., 0.) * Mat4::rotate_y(3.)
       },
     )

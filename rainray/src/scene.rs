@@ -26,7 +26,7 @@ pub type MaterialHandle = sceno::MaterialHandle<RainrayScene>;
 pub struct ModelInstance<'a> {
   pub node: &'a SceneNode,
   pub matrix_world_inverse: Mat4<f32>,
-  pub normal_matrix_inverse: Mat4<f32>,
+  pub normal_matrix: Mat4<f32>, // object space direction to world_space
   pub model: &'a dyn RainrayModel,
 }
 
@@ -70,14 +70,14 @@ impl<'a> RayTraceScene<'a> {
       let ModelInstance {
         model,
         matrix_world_inverse,
-        normal_matrix_inverse,
-        ..
+        normal_matrix,
+        node,
       } = model_instance;
 
       let local_ray = world_ray.apply_matrix_into(*matrix_world_inverse);
 
       if let PossibleIntersection(Some(mut intersection)) = model.intersect(local_ray, self) {
-        intersection.apply_matrix(*matrix_world_inverse, *normal_matrix_inverse);
+        intersection.apply_matrix(node.world_matrix, *normal_matrix);
         let distance = intersection.position.distance(world_ray.origin);
 
         if distance < min_distance {
@@ -125,7 +125,7 @@ impl RainraySceneExt for Scene {
             models.push(ModelInstance {
               node: node_data,
               matrix_world_inverse,
-              normal_matrix_inverse: matrix_world_inverse.transpose(),
+              normal_matrix: matrix_world_inverse.transpose(),
               model,
             });
           }
