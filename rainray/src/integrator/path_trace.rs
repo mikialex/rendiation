@@ -4,8 +4,8 @@ use rendiation_geometry::Ray3;
 
 use super::Integrator;
 use crate::{
-  math::rand, math::Vec3, BSDFSampleResult, Intersection, LightSampleResult, NormalizedVec3,
-  RainrayModel, RayTraceScene,
+  math::rand, math::Vec3, BSDFSampleResult, Intersection, LightSampleResult, ModelInstance,
+  NormalizedVec3, RayTraceScene,
 };
 use rendiation_algebra::RealVector;
 
@@ -34,7 +34,7 @@ impl PathTraceIntegrator {
   fn sample_lights<'a>(
     &self,
     scene: &RayTraceScene<'a>,
-    model: &dyn RainrayModel,
+    model: &ModelInstance<'a>,
     intersection: &Intersection,
     light_out_dir: NormalizedVec3,
   ) -> Vec3 {

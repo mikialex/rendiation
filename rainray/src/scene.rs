@@ -1,4 +1,4 @@
-use crate::{background::*, RainrayMaterial, Vec3};
+use crate::{background::*, NormalizedVec3, RainrayMaterial, Vec3};
 use crate::{light::*, Intersection, PossibleIntersection};
 use crate::{model::*, RainRayGeometry};
 use arena_tree::NextTraverseVisit;
@@ -30,6 +30,28 @@ pub struct ModelInstance<'a> {
   pub model: &'a dyn RainrayModel,
 }
 
+impl<'a> ModelInstance<'a> {
+  pub fn sample(
+    &self,
+    view_dir: NormalizedVec3,
+    intersection: &Intersection,
+    scene: &RayTraceScene<'a>,
+  ) -> BSDFSampleResult {
+    // todo do space conversion
+    self.model.sample(view_dir, intersection, scene)
+  }
+
+  pub fn bsdf(
+    &self,
+    view_dir: NormalizedVec3,
+    light_dir: NormalizedVec3,
+    intersection: &Intersection,
+    scene: &RayTraceScene<'a>,
+  ) -> Vec3 {
+    self.model.bsdf(view_dir, light_dir, intersection, scene)
+  }
+}
+
 pub struct LightInstance<'a> {
   pub node: &'a SceneNode,
   pub light: &'a dyn Light,
@@ -42,16 +64,16 @@ pub struct RayTraceScene<'a> {
 }
 
 impl<'a> RayTraceScene<'a> {
-  pub fn get_min_dist_hit(&self, mut ray: Ray3) -> Option<(Intersection, f32, &dyn RainrayModel)> {
+  pub fn get_min_dist_hit(&self, mut ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result = None;
-    for model in &self.models {
+    for model_instance in &self.models {
       let ModelInstance {
         model,
         matrix_world_inverse,
         normal_matrix_inverse,
         ..
-      } = model;
+      } = model_instance;
 
       let ray_world = ray;
       ray.apply_matrix(*matrix_world_inverse);
@@ -63,7 +85,7 @@ impl<'a> RayTraceScene<'a> {
         if distance < min_distance {
           intersection.adjust_hit_position();
           min_distance = distance;
-          result = Some((intersection, distance, *model))
+          result = Some((intersection, distance, model_instance))
         }
       }
     }

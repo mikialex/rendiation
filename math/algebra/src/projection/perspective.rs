@@ -5,7 +5,6 @@ pub struct PerspectiveProjection {
   pub far: f32,
   pub fov: f32,
   pub aspect: f32,
-  pub zoom: f32,
 }
 
 impl Default for PerspectiveProjection {
@@ -15,7 +14,6 @@ impl Default for PerspectiveProjection {
       far: 100_000.,
       fov: 90.,
       aspect: 1.,
-      zoom: 1.,
     }
   }
 }
