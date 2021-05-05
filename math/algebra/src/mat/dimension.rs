@@ -1,11 +1,13 @@
 use std::marker::PhantomData;
 
+use num_traits::One;
+
 use crate::{FakeHyperSquareMatrix, Mat3, Mat4, Scalar};
 
 pub trait SquareMatrixDimension<const D: usize> {}
 pub trait SquareMatrixImpl {}
 
-pub trait SquareMatrix<T: Scalar>: Sized {
+pub trait SquareMatrix<T: Scalar>: Sized + One {
   #[must_use]
   fn identity() -> Self;
 

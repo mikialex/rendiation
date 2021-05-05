@@ -10,7 +10,7 @@ pub struct SpaceConversionMatrix<M, From, To> {
   to_space: PhantomData<To>,
 }
 
-pub fn space_conversion<M, From, To>(value: M) -> SpaceConversionMatrix<M, From, To> {
+fn space_conversion<M, From, To>(value: M) -> SpaceConversionMatrix<M, From, To> {
   SpaceConversionMatrix {
     value,
     from_space: PhantomData,
@@ -25,6 +25,14 @@ impl<M, From, To> SpaceConversionMatrix<M, From, To> {
     M: SquareMatrix<T>,
   {
     self.value.inverse().map(|m| space_conversion(m))
+  }
+
+  pub fn inverse_or_identity<T>(&self) -> SpaceConversionMatrix<M, To, From>
+  where
+    T: Scalar,
+    M: SquareMatrix<T>,
+  {
+    space_conversion(self.value.inverse().unwrap_or(M::one()))
   }
 }
 

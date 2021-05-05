@@ -37,7 +37,6 @@ impl<'a> ModelInstance<'a> {
     intersection: &Intersection,
     scene: &RayTraceScene<'a>,
   ) -> BSDFSampleResult {
-    // todo do space conversion
     self.model.sample(view_dir, intersection, scene)
   }
 
@@ -64,7 +63,7 @@ pub struct RayTraceScene<'a> {
 }
 
 impl<'a> RayTraceScene<'a> {
-  pub fn get_min_dist_hit(&self, mut ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {
+  pub fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result = None;
     for model_instance in &self.models {
@@ -75,12 +74,11 @@ impl<'a> RayTraceScene<'a> {
         ..
       } = model_instance;
 
-      let ray_world = ray;
-      ray.apply_matrix(*matrix_world_inverse);
+      let local_ray = world_ray.apply_matrix_into(*matrix_world_inverse);
 
-      if let PossibleIntersection(Some(mut intersection)) = model.intersect(ray, self) {
+      if let PossibleIntersection(Some(mut intersection)) = model.intersect(local_ray, self) {
         intersection.apply_matrix(*matrix_world_inverse, *normal_matrix_inverse);
-        let distance = intersection.position.distance(ray_world.origin);
+        let distance = intersection.position.distance(world_ray.origin);
 
         if distance < min_distance {
           intersection.adjust_hit_position();

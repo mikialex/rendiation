@@ -36,7 +36,7 @@ impl PathTraceIntegrator {
     scene: &RayTraceScene<'a>,
     model: &ModelInstance<'a>,
     intersection: &Intersection,
-    light_out_dir: NormalizedVec3,
+    view_dir: NormalizedVec3,
   ) -> Vec3 {
     let mut energy = Vec3::new(0.0, 0.0, 0.0);
     for light in &scene.lights {
@@ -47,7 +47,7 @@ impl PathTraceIntegrator {
         light_in_dir,
       }) = light.sample(intersection.position, scene, node)
       {
-        let bsdf = model.bsdf(light_in_dir.reverse(), light_out_dir, intersection, scene);
+        let bsdf = model.bsdf(view_dir, light_in_dir.reverse(), intersection, scene);
         energy += bsdf * emissive * -light_in_dir.dot(intersection.shading_normal);
       }
     }
@@ -82,8 +82,7 @@ impl Integrator for PathTraceIntegrator {
         let cos = light_dir.dot(intersection.shading_normal).abs();
         throughput = throughput * cos * bsdf / pdf;
 
-        energy += self.sample_lights(scene, model, &intersection, current_ray.direction.reverse())
-          * throughput;
+        energy += self.sample_lights(scene, model, &intersection, view_dir) * throughput;
 
         // roulette exist
         if throughput.max_channel() < self.roulette_threshold {

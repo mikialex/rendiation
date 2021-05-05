@@ -45,13 +45,19 @@ fn main() {
         // node.local_matrix = Mat4::translate(0., 2., 0.) * Mat4::rotate_y(3.)
       },
     )
-    .model_node((
-      Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
-      Diffuse {
-        albedo: Vec3::new(0.3, 0.4, 0.8),
-        diffuse_model: Lambertian,
+    .model_node_with_modify(
+      (
+        Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
+        Diffuse {
+          albedo: Vec3::new(0.3, 0.4, 0.8),
+          diffuse_model: Lambertian,
+        },
+      ),
+      |node| {
+        // node.local_matrix = Mat4::translate(1., 1., 0.)
+        // node.local_matrix = Mat4::translate(0., 2., 0.) * Mat4::rotate_y(3.)
       },
-    ))
+    )
     .create_node(|node, scene| {
       node.set_position((8., 8., 6.)).with_light(
         scene.create_light(

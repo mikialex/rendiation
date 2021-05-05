@@ -44,3 +44,11 @@ pub trait Scalar = Float
 pub trait SpaceEntity<T: Scalar, const D: usize> {
   fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self;
 }
+
+pub trait SpaceEntityCopyable<T: Scalar, const D: usize>: Copy + SpaceEntity<T, D> {
+  fn apply_matrix_into(&self, mat: SquareMatrixType<T, D>) -> Self {
+    *self.clone().apply_matrix(mat)
+  }
+}
+
+impl<T: Scalar, const D: usize, X: Copy + SpaceEntity<T, D>> SpaceEntityCopyable<T, D> for X {}
