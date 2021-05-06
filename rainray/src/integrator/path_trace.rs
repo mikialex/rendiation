@@ -69,18 +69,15 @@ impl Integrator for PathTraceIntegrator {
       if let Some((intersection, _, model)) = scene.get_min_dist_hit(current_ray) {
         let view_dir = current_ray.direction.reverse();
 
-        let BSDFSampleResult {
-          light_dir,
-          bsdf,
-          pdf,
-        } = model.sample(view_dir, &intersection, scene);
+        let BSDFSampleResult { light_dir, bsdf } =
+          model.sample_light_dir_use_bsdf_importance(view_dir, &intersection, scene);
 
-        if pdf == 0.0 {
+        if light_dir.pdf == 0.0 {
           break;
         }
 
-        let cos = light_dir.dot(intersection.shading_normal).abs();
-        throughput = throughput * cos * bsdf / pdf;
+        let cos = light_dir.sample.dot(intersection.shading_normal).abs();
+        throughput = throughput * cos * bsdf / light_dir.pdf;
 
         energy += self.sample_lights(scene, model, &intersection, view_dir) * throughput;
 
@@ -92,7 +89,7 @@ impl Integrator for PathTraceIntegrator {
           throughput /= 1. - self.roulette_factor;
         }
 
-        current_ray = Ray3::new(intersection.position, light_dir);
+        current_ray = Ray3::new(intersection.position, light_dir.sample);
       } else {
         // hit outside scene, sample background;
         if let Some(background) = &scene.scene.background {

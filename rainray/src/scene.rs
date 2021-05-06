@@ -3,8 +3,12 @@ use crate::{light::*, Intersection, PossibleIntersection};
 use crate::{model::*, RainRayGeometry};
 use arena_tree::NextTraverseVisit;
 use rendiation_algebra::*;
-use rendiation_geometry::Ray3;
+use rendiation_geometry::{Box3, Ray3};
 use sceno::SceneBackend;
+use space_algorithm::{
+  bvh::{FlattenBVH, SAH},
+  utils::TreeBuildOption,
+};
 
 pub struct RainrayScene;
 
@@ -31,13 +35,15 @@ pub struct ModelInstance<'a> {
 }
 
 impl<'a> ModelInstance<'a> {
-  pub fn sample(
+  pub fn sample_light_dir_use_bsdf_importance(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
     scene: &RayTraceScene<'a>,
   ) -> BSDFSampleResult {
-    self.model.sample(view_dir, intersection, scene)
+    self
+      .model
+      .sample_light_dir_use_bsdf_importance(view_dir, intersection, scene)
   }
 
   pub fn bsdf(
@@ -49,6 +55,34 @@ impl<'a> ModelInstance<'a> {
   ) -> Vec3 {
     self.model.bsdf(view_dir, light_dir, intersection, scene)
   }
+
+  pub fn update_nearest_hit<'b>(
+    &'b self,
+    world_ray: Ray3,
+    scene: &RayTraceScene<'a>,
+    result: &mut Option<(Intersection, &'b ModelInstance<'a>)>,
+    min_distance: &mut f32,
+  ) {
+    let ModelInstance {
+      model,
+      matrix_world_inverse,
+      normal_matrix,
+      node,
+    } = self;
+
+    let local_ray = world_ray.apply_matrix_into(*matrix_world_inverse);
+
+    if let PossibleIntersection(Some(mut intersection)) = model.intersect(local_ray, scene) {
+      intersection.apply_matrix(node.world_matrix, *normal_matrix);
+      let distance = intersection.position.distance(world_ray.origin);
+
+      if distance < *min_distance {
+        intersection.adjust_hit_position();
+        *min_distance = distance;
+        *result = Some((intersection, self))
+      }
+    }
+  }
 }
 
 pub struct LightInstance<'a> {
@@ -59,35 +93,32 @@ pub struct LightInstance<'a> {
 pub struct RayTraceScene<'a> {
   pub scene: &'a Scene,
   pub lights: Vec<LightInstance<'a>>,
-  pub models: Vec<ModelInstance<'a>>,
+  pub models_in_bvh: Vec<ModelInstance<'a>>,
+  pub models_unbound: Vec<ModelInstance<'a>>,
+  pub models_bvh: FlattenBVH<Box3>,
 }
 
 impl<'a> RayTraceScene<'a> {
   pub fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result = None;
-    for model_instance in &self.models {
-      let ModelInstance {
-        model,
-        matrix_world_inverse,
-        normal_matrix,
-        node,
-      } = model_instance;
 
-      let local_ray = world_ray.apply_matrix_into(*matrix_world_inverse);
+    use rendiation_geometry::IntersectAble;
+    self.models_bvh.traverse(
+      |branch| branch.bounding.intersect(&world_ray, &()),
+      |leaf| {
+        leaf.iter_primitive(&self.models_bvh).for_each(|&i| {
+          let model = &self.models_in_bvh[i];
+          model.update_nearest_hit(world_ray, self, &mut result, &mut min_distance);
+        })
+      },
+    );
 
-      if let PossibleIntersection(Some(mut intersection)) = model.intersect(local_ray, self) {
-        intersection.apply_matrix(node.world_matrix, *normal_matrix);
-        let distance = intersection.position.distance(world_ray.origin);
-
-        if distance < min_distance {
-          intersection.adjust_hit_position();
-          min_distance = distance;
-          result = Some((intersection, distance, model_instance))
-        }
-      }
+    for model in &self.models_unbound {
+      model.update_nearest_hit(world_ray, self, &mut result, &mut min_distance);
     }
-    result
+
+    result.map(|(intersection, model)| (intersection, min_distance, model))
   }
   pub fn test_point_visible_to_point(&self, point_a: Vec3, point_b: Vec3) -> bool {
     let ray = Ray3::from_point_to_point(point_a, point_b);
@@ -111,39 +142,53 @@ impl RainraySceneExt for Scene {
     let scene_model = &self.models;
 
     let mut lights = Vec::new();
-    let mut models = Vec::new();
+    let mut models_unbound = Vec::new();
+    let mut models_in_bvh = Vec::new();
+    let mut models_in_bvh_source = Vec::new();
 
     let root = self.get_root_handle();
-    self
-      .nodes
-      .traverse_immutable(root, &mut Vec::new(), |this, _| {
-        let node_data = this.data();
-        node_data.payload.iter().for_each(|payload| match payload {
-          sceno::SceneNodePayload::Model(model) => {
-            let model = scene_model.get(*model).unwrap().as_ref();
-            let matrix_world_inverse = node_data.world_matrix.inverse_or_identity();
-            models.push(ModelInstance {
-              node: node_data,
-              matrix_world_inverse,
-              normal_matrix: matrix_world_inverse.transpose(),
-              model,
-            });
+    self.nodes.traverse(root, &mut Vec::new(), |this, _| {
+      let node_data = this.data();
+      node_data.payload.iter().for_each(|payload| match payload {
+        sceno::SceneNodePayload::Model(model) => {
+          let model = scene_model.get(*model).unwrap().as_ref();
+          let matrix_world_inverse = node_data.world_matrix.inverse_or_identity();
+          let instance = ModelInstance {
+            node: node_data,
+            matrix_world_inverse,
+            normal_matrix: matrix_world_inverse.transpose(),
+            model,
+          };
+          if let Some(mut bbox) = model.get_bbox(self) {
+            models_in_bvh.push(instance);
+            models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
+          } else {
+            models_unbound.push(instance);
           }
-          sceno::SceneNodePayload::Light(light) => {
-            let light = scene_light.get(*light).unwrap().as_ref();
-            lights.push(LightInstance {
-              node: node_data,
-              light,
-            });
-          }
-        });
-        NextTraverseVisit::VisitChildren
+        }
+        sceno::SceneNodePayload::Light(light) => {
+          let light = scene_light.get(*light).unwrap().as_ref();
+          lights.push(LightInstance {
+            node: node_data,
+            light,
+          });
+        }
       });
+      NextTraverseVisit::VisitChildren
+    });
+
+    let models_bvh = FlattenBVH::new(
+      models_in_bvh_source.into_iter(),
+      &mut SAH::new(6),
+      &TreeBuildOption::default(),
+    );
 
     RayTraceScene {
       scene: self,
       lights,
-      models,
+      models_unbound,
+      models_in_bvh,
+      models_bvh,
     }
   }
 }

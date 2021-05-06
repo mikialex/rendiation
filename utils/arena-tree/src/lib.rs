@@ -142,7 +142,7 @@ impl<T> ArenaTree<T> {
     }
   }
 
-  pub fn traverse(
+  pub fn traverse_mut(
     &mut self,
     start_index: ArenaTreeNodeHandle<T>,
     visit_stack: &mut Vec<ArenaTreeNodeHandle<T>>,
@@ -171,7 +171,7 @@ impl<T> ArenaTree<T> {
 }
 
 impl<T> ArenaTree<T> {
-  pub fn traverse_immutable<'a>(
+  pub fn traverse<'a>(
     &'a self,
     start_index: ArenaTreeNodeHandle<T>,
     visit_stack: &mut Vec<ArenaTreeNodeHandle<T>>,

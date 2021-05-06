@@ -19,10 +19,10 @@ fn main() {
       Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
       PhysicalMaterial {
         specular: Specular {
-          roughness: 0.01,
+          roughness: 0.3,
           metallic: 0.9,
           ior: 1.6,
-          normal_distribution_model: Beckmann,
+          normal_distribution_model: BlinnPhong,
           geometric_shadow_model: CookTorrance,
           fresnel_model: Schlick,
         },

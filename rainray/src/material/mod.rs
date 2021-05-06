@@ -1,7 +1,7 @@
 use std::any::Any;
 
-use crate::math::*;
 use crate::Intersection;
+use crate::{math::*, ImportanceSampled};
 
 pub mod physical;
 pub use physical::*;
@@ -13,6 +13,19 @@ pub trait RainrayMaterial: Any + Sync + Send {
 pub trait Material<G>: Send + Sync {
   /// sample the light input dir with brdf importance
   fn sample_light_dir_use_bsdf_importance(
+    &self,
+    view_dir: NormalizedVec3,
+    intersection: &Intersection,
+    geom: &G,
+  ) -> ImportanceSampled<NormalizedVec3> {
+    let light_dir = self.sample_light_dir_use_bsdf_importance_impl(view_dir, intersection, geom);
+    ImportanceSampled {
+      sample: light_dir,
+      pdf: self.pdf(view_dir, light_dir, intersection, geom),
+    }
+  }
+
+  fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,

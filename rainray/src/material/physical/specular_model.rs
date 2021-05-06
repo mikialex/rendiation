@@ -14,12 +14,27 @@ impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
     let cos = n.dot(h).max(0.0);
     cos.powf(2.0 / roughness_2 - 2.0) * normalize_coefficient
   }
-  fn sample_micro_surface_normal(&self, _normal: NormalizedVec3) -> NormalizedVec3 {
-    todo!()
+  // https://segmentfault.com/a/1190000000432254
+  // https://www.cs.princeton.edu/courses/archive/fall16/cos526/papers/importance.pdf
+  fn sample_micro_surface_normal(&self, normal: NormalizedVec3) -> NormalizedVec3 {
+    let roughness_2 = self.roughness * self.roughness;
+    let power = 2.0 / roughness_2 - 2.;
+    let theta = rand().powf(1.0 / (power + 1.0)).acos();
+
+    let (sin_t, cos_t) = theta.sin_cos();
+    // Generate halfway vector by sampling azimuth uniformly
+    let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
+    let x = sample.x;
+    let y = sample.y;
+    let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
+    (h * normal.local_to_world()).into_normalized()
   }
 
-  fn surface_normal_pdf(&self, _normal: NormalizedVec3, _sampled_normal: NormalizedVec3) -> f32 {
-    todo!()
+  fn surface_normal_pdf(&self, normal: NormalizedVec3, sampled_normal: NormalizedVec3) -> f32 {
+    let roughness_2 = self.roughness * self.roughness;
+    let power = 2.0 / roughness_2 - 2.;
+    let cos_t = sampled_normal.dot(normal).abs();
+    (power + 1.0) / (2.0 * PI) * cos_t.powf(power)
   }
 }
 
@@ -36,8 +51,8 @@ impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
     // θ = arctan √(-m^2 ln U)
     let m2 = self.roughness * self.roughness;
     let theta = (m2 * -rand().ln()).sqrt().atan();
-    let (sin_t, cos_t) = theta.sin_cos();
 
+    let (sin_t, cos_t) = theta.sin_cos();
     // Generate halfway vector by sampling azimuth uniformly
     let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
     let x = sample.x;
@@ -65,6 +80,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<GGX, G, F> {
     INV_PI * (root * root)
   }
 
+  // https://schuttejoe.github.io/post/ggximportancesamplingpart1/
   fn sample_micro_surface_normal(&self, _normal: NormalizedVec3) -> NormalizedVec3 {
     todo!()
   }

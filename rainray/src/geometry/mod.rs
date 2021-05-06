@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use crate::{math::*, RayTraceScene};
+use crate::{math::*, RayTraceScene, Scene};
 
 pub mod mesh;
 pub use mesh::*;
@@ -11,7 +11,7 @@ pub trait RainRayGeometry: Sync + Send + 'static {
 
   fn intersect<'a>(&self, ray: Ray3, scene: &RayTraceScene<'a>) -> PossibleIntersection;
 
-  fn get_bbox<'a>(&self, _scene: &RayTraceScene<'a>) -> Option<Box3> {
+  fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
     None
   }
 }
@@ -81,6 +81,10 @@ impl RainRayGeometry for Sphere {
         shading_normal: normal,
       }
     }))
+  }
+
+  fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
+    self.to_bounding().into()
   }
 }
 

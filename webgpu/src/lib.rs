@@ -157,7 +157,7 @@ impl Renderable for Scene {
       material_ctx: SceneMaterialRenderCtx {},
     };
     let mut model_list = Vec::new();
-    nodes.traverse(root, &mut Vec::new(), |node, _| {
+    nodes.traverse_mut(root, &mut Vec::new(), |node, _| {
       let node = node.data();
       node.payload.iter().for_each(|payload| match payload {
         sceno::SceneNodePayload::Model(model) => {

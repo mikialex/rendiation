@@ -41,8 +41,8 @@ impl<T: Send + Sync + 'static> RainrayMaterial for Diffuse<T> {
   }
 }
 
-// this term need normalized to 1
 pub trait MicroFacetNormalDistribution {
+  /// Normal distribution term, which integral needs normalized to 1.
   fn d(&self, n: NormalizedVec3, h: NormalizedVec3) -> f32;
 
   /// sample a micro surface normal in normal's tangent space.
@@ -144,7 +144,7 @@ where
     specular + (Vec3::splat(1.0) - f) * diffuse
   }
 
-  fn sample_light_dir_use_bsdf_importance(
+  fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
@@ -157,7 +157,7 @@ where
     } else {
       self
         .diffuse
-        .sample_light_dir_use_bsdf_importance(view_dir, intersection, geom)
+        .sample_light_dir_use_bsdf_importance_impl(view_dir, intersection, geom)
     }
   }
 
@@ -169,9 +169,8 @@ where
     geom: &G,
   ) -> f32 {
     let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
-    let spec = self.specular.pdf(view_dir, light_dir, intersection) * specular_estimate;
-    let diff =
-      self.diffuse.pdf(view_dir, light_dir, intersection, geom) * (1.0 - specular_estimate);
-    spec + diff
+    let spec = self.specular.pdf(view_dir, light_dir, intersection);
+    let diff = self.diffuse.pdf(view_dir, light_dir, intersection, geom);
+    diff.lerp(spec, specular_estimate)
   }
 }

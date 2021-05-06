@@ -44,11 +44,13 @@ impl<T: SceneBackend> Scene<T> {
 
   pub fn update(&mut self) {
     let root = self.get_root_handle();
-    self.nodes.traverse(root, &mut Vec::new(), |this, parent| {
-      let node_data = this.data_mut();
-      node_data.update(parent.map(|p| p.data()));
-      NextTraverseVisit::VisitChildren
-    });
+    self
+      .nodes
+      .traverse_mut(root, &mut Vec::new(), |this, parent| {
+        let node_data = this.data_mut();
+        node_data.update(parent.map(|p| p.data()));
+        NextTraverseVisit::VisitChildren
+      });
   }
 
   pub fn create_model(&mut self, creator: impl SceneModelCreator<T>) -> ModelHandle<T> {
