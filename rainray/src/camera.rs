@@ -21,15 +21,15 @@ impl Camera {
   }
 
   pub fn get_vp_matrix(&self) -> Mat4<f32> {
-    self.projection_matrix * self.matrix.inverse().unwrap()
+    self.projection_matrix * self.matrix.inverse_or_identity()
   }
 
   pub fn get_view_matrix(&self) -> Mat4<f32> {
-    self.matrix.inverse().unwrap()
+    self.matrix.inverse_or_identity()
   }
 
   pub fn get_vp_matrix_inverse(&self) -> Mat4<f32> {
-    self.matrix * self.projection_matrix.inverse().unwrap()
+    self.matrix * self.projection_matrix.inverse_or_identity()
   }
 
   pub fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3 {

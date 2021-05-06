@@ -43,7 +43,7 @@ impl SwapChain {
     self.size = size;
   }
 
-  pub fn get_current_frame(&mut self) -> wgpu::SwapChainTexture {
-    self.swap_chain.get_current_frame().unwrap().output
+  pub fn get_current_frame(&mut self) -> Result<wgpu::SwapChainFrame, wgpu::SwapChainError> {
+    self.swap_chain.get_current_frame()
   }
 }
