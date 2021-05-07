@@ -91,6 +91,7 @@ where
         position: hit.hit.position,
         geometric_normal,
         shading_normal,
+        uv: None,
       }
     }))
   }

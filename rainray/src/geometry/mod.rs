@@ -4,7 +4,7 @@ use crate::{math::*, RayTraceScene, Scene};
 
 pub mod mesh;
 pub use mesh::*;
-use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity};
+use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2};
 
 pub trait RainRayGeometry: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
@@ -20,6 +20,7 @@ pub struct Intersection {
   pub position: Vec3,
   pub geometric_normal: NormalizedVec3,
   pub shading_normal: NormalizedVec3,
+  pub uv: Option<Vec2<f32>>,
 }
 
 const ORIGIN: f32 = 1.0 / 32.0;
@@ -79,6 +80,7 @@ impl RainRayGeometry for Sphere {
         position: near.position,
         geometric_normal: normal,
         shading_normal: normal,
+        uv: None,
       }
     }))
   }
@@ -99,6 +101,7 @@ impl RainRayGeometry for Plane {
       position: near.position,
       geometric_normal: self.normal,
       shading_normal: self.normal,
+      uv: None,
     }))
   }
 }

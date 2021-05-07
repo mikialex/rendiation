@@ -30,22 +30,13 @@ pub trait Background {}
 pub trait Mesh {
   fn setup_pass<'a>(&mut self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>);
 }
-pub trait Material {
-  fn update(&mut self, renderer: &mut Renderer, des: &wgpu::RenderPassDescriptor);
-  fn setup_pass<'a>(
-    &mut self,
-    renderer: &'a Renderer,
-    pass: &mut wgpu::RenderPass<'a>,
-    des: &wgpu::RenderPassDescriptor,
-    ctx: &mut SceneMaterialRenderCtx,
-  );
-}
+
 pub trait Model {
+  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer);
   fn render<'a>(
     &self,
     renderer: &'a Renderer,
     pass: &mut wgpu::RenderPass<'a>,
-    des: &wgpu::RenderPassDescriptor,
     ctx: &mut SceneRenderCtx,
   );
 }
@@ -66,7 +57,7 @@ pub trait Renderable {
 pub struct SceneRenderCtx<'a> {
   materials: &'a mut Arena<Box<dyn Material>>,
   meshes: &'a mut Arena<Box<dyn Mesh>>,
-  material_ctx: SceneMaterialRenderCtx,
+  material_ctx: SceneMaterialRenderPrepareCtx,
 }
 
 impl Renderable for Scene {
@@ -84,7 +75,7 @@ impl Renderable for Scene {
     let mut ctx = SceneRenderCtx {
       materials: &mut self.materials,
       meshes: &mut self.meshes,
-      material_ctx: SceneMaterialRenderCtx {},
+      material_ctx: SceneMaterialRenderPrepareCtx { camera: todo!() },
     };
     let mut model_list = Vec::new();
     nodes.traverse_mut(root, &mut Vec::new(), |node, _| {
@@ -99,7 +90,7 @@ impl Renderable for Scene {
     });
     model_list.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
-      model.render(renderer, pass, des, &mut ctx)
+      model.render(renderer, pass, &mut ctx)
     })
   }
 }
@@ -129,15 +120,19 @@ pub struct SceneModel {
 }
 
 impl Model for SceneModel {
+  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer) {
+    let material = ctx.materials.get_mut(self.material).unwrap();
+    material.update(renderer, &mut ctx.material_ctx)
+  }
+
   fn render<'a>(
     &self,
     renderer: &'a Renderer,
     pass: &mut wgpu::RenderPass<'a>,
-    des: &wgpu::RenderPassDescriptor,
     ctx: &mut SceneRenderCtx,
   ) {
     let material = ctx.materials.get_mut(self.material).unwrap();
-    material.setup_pass(renderer, pass, des, &mut ctx.material_ctx);
+    material.setup_pass(renderer, pass);
     let mesh = ctx.meshes.get_mut(self.mesh).unwrap();
     mesh.setup_pass(renderer, pass);
   }

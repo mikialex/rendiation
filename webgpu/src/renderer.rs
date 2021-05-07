@@ -69,4 +69,18 @@ impl Renderer {
   pub fn resize(&mut self, size: (usize, usize)) {
     self.swap_chain.resize(size, &self.device);
   }
+
+  pub(crate) fn create_shader_flags(&self) -> wgpu::ShaderFlags {
+    let mut flags = wgpu::ShaderFlags::VALIDATION;
+    match self.adaptor.get_info().backend {
+      wgpu::Backend::Metal | wgpu::Backend::Vulkan => {
+        flags |= wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION
+      }
+      _ => (), //TODO
+    }
+    flags
+  }
+  pub(crate) fn get_prefer_target_format(&self) -> wgpu::TextureFormat {
+    self.swap_chain.swap_chain_descriptor.format
+  }
 }
