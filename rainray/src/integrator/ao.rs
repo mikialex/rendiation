@@ -12,14 +12,14 @@ pub struct AOIntegrator {
 
 impl Default for AOIntegrator {
   fn default() -> Self {
-    Self { sample_count: 100 }
+    Self { sample_count: 10 }
   }
 }
 
 fn sample_ao_surface<'a>(surface_point: Vec3<f32>, scene: &RayTraceScene<'a>) -> f32 {
   let test_ray =
     Ray3::from_point_to_point(surface_point, surface_point + rand_point_in_unit_sphere());
-  if scene.get_min_dist_hit(test_ray).is_some() {
+  if scene.get_any_hit(test_ray) {
     0.0
   } else {
     1.0

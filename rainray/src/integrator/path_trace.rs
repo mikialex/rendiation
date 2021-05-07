@@ -7,7 +7,6 @@ use rendiation_algebra::RealVector;
 
 pub struct PathTraceIntegrator {
   pub exposure_upper_bound: f32,
-  pub trace_fix_sample_count: u64,
   pub bounce_time_limit: u64,
   pub roulette_threshold: f32,
   pub roulette_factor: f32,
@@ -18,7 +17,6 @@ impl Default for PathTraceIntegrator {
     Self {
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
-      trace_fix_sample_count: 200,
       roulette_threshold: 0.05,
       roulette_factor: 0.05,
     }

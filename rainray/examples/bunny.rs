@@ -2,7 +2,7 @@ use rainray::*;
 use rendiation_algebra::*;
 
 fn main() {
-  let mut renderer = Renderer::new(PathTraceIntegrator::default());
+  let mut renderer = Renderer::new(AOIntegrator::default());
   // renderer.sample_per_pixel = 1;
   let mut perspective = PerspectiveProjection::default();
   let mut camera = Camera::new();

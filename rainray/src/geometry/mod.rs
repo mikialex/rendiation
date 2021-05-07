@@ -11,6 +11,10 @@ pub trait RainRayGeometry: Sync + Send + 'static {
 
   fn intersect<'a>(&self, ray: Ray3, scene: &RayTraceScene<'a>) -> PossibleIntersection;
 
+  fn has_any_intersect<'a>(&self, ray: Ray3, scene: &RayTraceScene<'a>) -> bool {
+    self.intersect(ray, scene).0.is_some()
+  }
+
   fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
     None
   }

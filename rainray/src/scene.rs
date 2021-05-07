@@ -86,6 +86,11 @@ impl<'a> ModelInstance<'a> {
       }
     }
   }
+
+  pub fn has_any_hit(&self, world_ray: Ray3, scene: &RayTraceScene<'a>) -> bool {
+    let local_ray = world_ray.apply_matrix_into(self.matrix_world_inverse);
+    self.geometry.has_any_intersect(local_ray, scene)
+  }
 }
 
 pub struct LightInstance<'a> {
@@ -102,6 +107,31 @@ pub struct RayTraceScene<'a> {
 }
 
 impl<'a> RayTraceScene<'a> {
+  // need a distance version
+  pub fn get_any_hit(&self, world_ray: Ray3) -> bool {
+    let mut find = false;
+    self.models_bvh.traverse(
+      |branch| branch.bounding.intersect(&world_ray, &()),
+      |leaf| {
+        find = leaf.iter_primitive(&self.models_bvh).any(|&i| {
+          let model = &self.models_in_bvh[i];
+          model.has_any_hit(world_ray, self)
+        });
+        !find
+      },
+    );
+    if find {
+      return true;
+    }
+
+    for model in &self.models_unbound {
+      if model.has_any_hit(world_ray, self) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   pub fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result = None;
@@ -112,7 +142,8 @@ impl<'a> RayTraceScene<'a> {
         leaf.iter_primitive(&self.models_bvh).for_each(|&i| {
           let model = &self.models_in_bvh[i];
           model.update_nearest_hit(world_ray, self, &mut result, &mut min_distance);
-        })
+        });
+        true
       },
     );
 
@@ -122,6 +153,7 @@ impl<'a> RayTraceScene<'a> {
 
     result.map(|(intersection, model)| (intersection, min_distance, model))
   }
+
   pub fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool {
     let ray = Ray3::from_point_to_point(point_a, point_b);
     let distance = (point_a - point_b).length();

@@ -73,7 +73,8 @@ where
               })
               .0
           })
-          .for_each(|h| result.0.push(h))
+          .for_each(|h| result.0.push(h));
+        true
       },
     );
     result
@@ -97,7 +98,8 @@ where
               hit,
               primitive_index,
             }));
-          })
+          });
+        true
       },
     );
     nearest
