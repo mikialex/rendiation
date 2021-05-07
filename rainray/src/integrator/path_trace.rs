@@ -47,7 +47,7 @@ impl PathTraceIntegrator {
         light_in_dir,
       }) = light.sample(intersection.position, scene, node)
       {
-        let bsdf = model.bsdf(view_dir, light_in_dir.reverse(), intersection, scene);
+        let bsdf = model.bsdf(view_dir, light_in_dir.reverse(), intersection);
         energy += bsdf * emissive * -light_in_dir.dot(intersection.shading_normal);
       }
     }

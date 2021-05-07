@@ -1,27 +1,25 @@
 use crate::{
-  concentric_sample_disk, rand, Diffuse, Intersection, Material, NormalizedVec3, PhysicalDiffuse,
-  Vec3, INV_PI, PI,
+  concentric_sample_disk, rand, Diffuse, Intersection, NormalizedVec3, PhysicalDiffuse,
+  RainrayMaterial, Vec3, INV_PI, PI,
 };
 
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vector};
 
 pub struct Lambertian;
-impl<G> Material<G> for Diffuse<Lambertian> {
+impl RainrayMaterial for Diffuse<Lambertian> {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3,
     _light_dir: NormalizedVec3,
     _intersection: &Intersection,
-    _geom: &G,
   ) -> Vec3 {
-    PhysicalDiffuse::<G>::albedo(self) / Vec3::splat(PI)
+    PhysicalDiffuse::albedo(self) / Vec3::splat(PI)
   }
 
   fn sample_light_dir_use_bsdf_importance_impl(
     &self,
     _view_dir: NormalizedVec3,
     intersection: &Intersection,
-    _geom: &G,
   ) -> NormalizedVec3 {
     // Simple cosine-sampling using Malley's method
     let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
@@ -36,13 +34,12 @@ impl<G> Material<G> for Diffuse<Lambertian> {
     _view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    _geom: &G,
   ) -> f32 {
     light_dir.dot(intersection.shading_normal).max(0.0) * INV_PI
   }
 }
 
-impl<G> PhysicalDiffuse<G> for Diffuse<Lambertian> {
+impl PhysicalDiffuse for Diffuse<Lambertian> {
   fn albedo(&self) -> Vec3 {
     self.albedo
   }
@@ -71,13 +68,12 @@ impl OrenNayar {
   }
 }
 
-impl<G> Material<G> for OrenNayar {
+impl RainrayMaterial for OrenNayar {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3,
     _light_dir: NormalizedVec3,
     _intersection: &Intersection,
-    _geom: &G,
   ) -> Vec3 {
     todo!()
     // let sin_theta_i = sin_theta(wi);
@@ -109,7 +105,6 @@ impl<G> Material<G> for OrenNayar {
     &self,
     _view_dir: NormalizedVec3,
     _intersection: &Intersection,
-    _geom: &G,
   ) -> NormalizedVec3 {
     todo!()
   }
@@ -119,7 +114,6 @@ impl<G> Material<G> for OrenNayar {
     _view_dir: NormalizedVec3,
     _light_dir: NormalizedVec3,
     _intersection: &Intersection,
-    _geom: &G,
   ) -> f32 {
     todo!()
   }

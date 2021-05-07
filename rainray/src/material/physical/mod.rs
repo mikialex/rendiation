@@ -6,19 +6,11 @@ pub use specular_model::*;
 pub mod diffuse_model;
 pub use diffuse_model::*;
 
-use crate::{math::Vec3, Intersection, Material};
+use crate::{math::Vec3, Intersection};
 
 pub struct PhysicalMaterial<D, S> {
   pub diffuse: D,
   pub specular: S,
-}
-
-impl<D: Send + Sync + 'static, S: Send + Sync + 'static> RainrayMaterial
-  for PhysicalMaterial<D, S>
-{
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
-  }
 }
 
 pub struct Specular<D, G, F> {
@@ -33,12 +25,6 @@ pub struct Specular<D, G, F> {
 pub struct Diffuse<T> {
   pub albedo: Vec3,
   pub diffuse_model: T,
-}
-
-impl<T: Send + Sync + 'static> RainrayMaterial for Diffuse<T> {
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
-  }
 }
 
 pub trait MicroFacetNormalDistribution {
@@ -109,21 +95,20 @@ where
   }
 }
 
-pub trait PhysicalDiffuse<G>: Material<G> {
+pub trait PhysicalDiffuse: RainrayMaterial {
   fn albedo(&self) -> Vec3;
 }
 
-impl<G, D, S> Material<G> for PhysicalMaterial<D, S>
+impl<D, S> RainrayMaterial for PhysicalMaterial<D, S>
 where
-  D: PhysicalDiffuse<G> + Send + Sync,
-  S: PhysicalSpecular + Send + Sync,
+  D: PhysicalDiffuse + Send + Sync + 'static,
+  S: PhysicalSpecular + Send + Sync + 'static,
 {
   fn bsdf(
     &self,
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    geom: &G,
   ) -> Vec3 {
     let l = light_dir;
     let v = view_dir;
@@ -140,7 +125,7 @@ where
 
     let specular = (d * g * f) / (4.0 * n.dot(l) * n.dot(v));
 
-    let diffuse = self.diffuse.bsdf(view_dir, light_dir, intersection, geom);
+    let diffuse = self.diffuse.bsdf(view_dir, light_dir, intersection);
     specular + (Vec3::splat(1.0) - f) * diffuse
   }
 
@@ -148,7 +133,6 @@ where
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
-    geom: &G,
   ) -> NormalizedVec3 {
     if rand() < self.specular.specular_estimate(self.diffuse.albedo()) {
       self
@@ -157,7 +141,7 @@ where
     } else {
       self
         .diffuse
-        .sample_light_dir_use_bsdf_importance_impl(view_dir, intersection, geom)
+        .sample_light_dir_use_bsdf_importance_impl(view_dir, intersection)
     }
   }
 
@@ -166,11 +150,10 @@ where
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    geom: &G,
   ) -> f32 {
     let specular_estimate = self.specular.specular_estimate(self.diffuse.albedo());
     let spec = self.specular.pdf(view_dir, light_dir, intersection);
-    let diff = self.diffuse.pdf(view_dir, light_dir, intersection, geom);
+    let diff = self.diffuse.pdf(view_dir, light_dir, intersection);
     diff.lerp(spec, specular_estimate)
   }
 }

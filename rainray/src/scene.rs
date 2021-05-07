@@ -13,7 +13,7 @@ use space_algorithm::{
 pub struct RainrayScene;
 
 impl SceneBackend for RainrayScene {
-  type Model = Box<dyn RainrayModel>;
+  type Model = Model;
   type Material = Box<dyn RainrayMaterial>;
   type Mesh = Box<dyn RainRayGeometry>;
   type Background = Box<dyn Background>;
@@ -31,7 +31,8 @@ pub struct ModelInstance<'a> {
   pub node: &'a SceneNode,
   pub matrix_world_inverse: Mat4<f32>,
   pub normal_matrix: Mat4<f32>, // object space direction to world_space
-  pub model: &'a dyn RainrayModel,
+  pub material: &'a dyn RainrayMaterial,
+  pub geometry: &'a dyn RainRayGeometry,
 }
 
 impl<'a> ModelInstance<'a> {
@@ -39,11 +40,15 @@ impl<'a> ModelInstance<'a> {
     &self,
     view_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &RayTraceScene<'a>,
+    _scene: &RayTraceScene<'a>,
   ) -> BSDFSampleResult {
-    self
-      .model
-      .sample_light_dir_use_bsdf_importance(view_dir, intersection, scene)
+    let light_dir = self
+      .material
+      .sample_light_dir_use_bsdf_importance(view_dir, intersection);
+    let bsdf = self
+      .material
+      .bsdf(view_dir, light_dir.sample, &intersection);
+    BSDFSampleResult { light_dir, bsdf }
   }
 
   pub fn bsdf(
@@ -51,9 +56,8 @@ impl<'a> ModelInstance<'a> {
     view_dir: NormalizedVec3,
     light_dir: NormalizedVec3,
     intersection: &Intersection,
-    scene: &RayTraceScene<'a>,
   ) -> Vec3 {
-    self.model.bsdf(view_dir, light_dir, intersection, scene)
+    self.material.bsdf(view_dir, light_dir, intersection)
   }
 
   pub fn update_nearest_hit<'b>(
@@ -64,15 +68,16 @@ impl<'a> ModelInstance<'a> {
     min_distance: &mut f32,
   ) {
     let ModelInstance {
-      model,
       matrix_world_inverse,
       normal_matrix,
       node,
+      geometry,
+      ..
     } = self;
 
     let local_ray = world_ray.apply_matrix_into(*matrix_world_inverse);
 
-    if let PossibleIntersection(Some(mut intersection)) = model.intersect(local_ray, scene) {
+    if let PossibleIntersection(Some(mut intersection)) = geometry.intersect(local_ray, scene) {
       intersection.apply_matrix(node.world_matrix, *normal_matrix);
       let distance = intersection.position.distance(world_ray.origin);
 
@@ -140,6 +145,8 @@ impl RainraySceneExt for Scene {
   fn convert(&self) -> RayTraceScene {
     let scene_light = &self.lights;
     let scene_model = &self.models;
+    let scene_materials = &self.materials;
+    let scene_geometries = &self.meshes;
 
     let mut lights = Vec::new();
     let mut models_unbound = Vec::new();
@@ -151,15 +158,16 @@ impl RainraySceneExt for Scene {
       let node_data = this.data();
       node_data.payload.iter().for_each(|payload| match payload {
         sceno::SceneNodePayload::Model(model) => {
-          let model = scene_model.get(*model).unwrap().as_ref();
+          let model = scene_model.get(*model).unwrap();
           let matrix_world_inverse = node_data.world_matrix.inverse_or_identity();
           let instance = ModelInstance {
             node: node_data,
             matrix_world_inverse,
             normal_matrix: matrix_world_inverse.transpose(),
-            model,
+            material: scene_materials.get(model.material).unwrap().as_ref(),
+            geometry: scene_geometries.get(model.geometry).unwrap().as_ref(),
           };
-          if let Some(mut bbox) = model.get_bbox(self) {
+          if let Some(mut bbox) = instance.geometry.get_bbox(self) {
             models_in_bvh.push(instance);
             models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
           } else {
