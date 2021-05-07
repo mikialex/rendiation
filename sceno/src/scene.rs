@@ -72,7 +72,7 @@ impl<T: SceneBackend> Scene<T> {
 
   pub fn model_node(&mut self, model: impl SceneModelCreator<T>) -> &mut Self {
     let model = self.create_model(model);
-    self.create_node(|node, _| node.payload.push(SceneNodePayload::Model(model)));
+    self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
     self
   }
 
@@ -83,7 +83,7 @@ impl<T: SceneBackend> Scene<T> {
   ) -> &mut Self {
     let model = self.create_model(model);
     self.create_node(|node, _| {
-      node.payload.push(SceneNodePayload::Model(model));
+      node.payloads.push(SceneNodePayload::Model(model));
       m(node)
     });
     self

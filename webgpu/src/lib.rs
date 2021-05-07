@@ -80,7 +80,7 @@ impl Renderable for Scene {
     let mut model_list = Vec::new();
     nodes.traverse_mut(root, &mut Vec::new(), |node, _| {
       let node = node.data();
-      node.payload.iter().for_each(|payload| match payload {
+      node.payloads.iter().for_each(|payload| match payload {
         sceno::SceneNodePayload::Model(model) => {
           model_list.push(*model);
         }

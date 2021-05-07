@@ -4,7 +4,7 @@ use rendiation_algebra::*;
 pub struct SceneNode<T: SceneBackend> {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
-  pub payload: Vec<SceneNodePayload<T>>,
+  pub payloads: Vec<SceneNodePayload<T>>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
 }
@@ -14,32 +14,20 @@ impl<T: SceneBackend> Default for SceneNode<T> {
     Self {
       visible: true,
       local_matrix: Mat4::one(),
-      payload: Vec::new(),
+      payloads: Vec::new(),
       net_visible: true,
       world_matrix: Mat4::one(),
     }
   }
 }
 
-// pub struct SceneNodeCameraRenderInfo {
-//   pub model_view_matrix: Mat4<f32>,
-//   pub normal_matrix: Mat3<f32>,
-// }
-
 impl<T: SceneBackend> SceneNode<T> {
-  pub fn update(
-    &mut self,
-    parent: Option<&Self>,
-    // camera: &Camera,
-    // info: &mut SceneNodeCameraRenderInfo,
-  ) {
+  pub fn update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
         self.world_matrix = parent.world_matrix * self.local_matrix;
         self.world_matrix = self.world_matrix;
-        // info.model_view_matrix = camera.matrix_inverse * self.world_matrix;
-        // info.normal_matrix = info.model_view_matrix.to_normal_matrix();
       }
     } else {
       self.world_matrix = self.local_matrix;
@@ -53,7 +41,7 @@ impl<T: SceneBackend> SceneNode<T> {
   }
 
   pub fn with_light(&mut self, light: LightHandle<T>) -> &mut Self {
-    self.payload.push(SceneNodePayload::Light(light));
+    self.payloads.push(SceneNodePayload::Light(light));
     self
   }
 }

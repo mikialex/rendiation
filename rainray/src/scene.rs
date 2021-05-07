@@ -153,7 +153,7 @@ impl RainraySceneExt for Scene {
     let root = self.get_root_handle();
     self.nodes.traverse(root, &mut Vec::new(), |this, _| {
       let node_data = this.data();
-      node_data.payload.iter().for_each(|payload| match payload {
+      node_data.payloads.iter().for_each(|payload| match payload {
         sceno::SceneNodePayload::Model(model) => {
           let model = scene_model.get(*model).unwrap();
           let matrix_world_inverse = node_data.world_matrix.inverse_or_identity();
