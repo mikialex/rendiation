@@ -1,9 +1,7 @@
+use rendiation_algebra::Vec3;
 use sceno::{ModelHandle, SceneModelCreator};
 
-use crate::{
-  MaterialHandle, MeshHandle, NormalizedVec3, RainRayGeometry, RainrayMaterial, RainrayScene,
-  Scene, Vec3,
-};
+use crate::*;
 
 pub struct Model {
   pub geometry: MeshHandle,
@@ -34,8 +32,8 @@ where
 }
 
 pub struct BSDFSampleResult {
-  pub light_dir: ImportanceSampled<NormalizedVec3>,
-  pub bsdf: Vec3,
+  pub light_dir: ImportanceSampled<NormalizedVec3<f32>>,
+  pub bsdf: Vec3<f32>,
 }
 
 pub struct ImportanceSampled<T> {

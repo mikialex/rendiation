@@ -1,6 +1,4 @@
-use crate::{background::*, NormalizedVec3, RainrayMaterial, Vec3};
-use crate::{light::*, Intersection, PossibleIntersection};
-use crate::{model::*, RainRayGeometry};
+use crate::*;
 use arena_tree::NextTraverseVisit;
 use rendiation_algebra::*;
 use rendiation_geometry::{Box3, Ray3};
@@ -38,7 +36,7 @@ pub struct ModelInstance<'a> {
 impl<'a> ModelInstance<'a> {
   pub fn sample_light_dir_use_bsdf_importance(
     &self,
-    view_dir: NormalizedVec3,
+    view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
     _scene: &RayTraceScene<'a>,
   ) -> BSDFSampleResult {
@@ -53,10 +51,10 @@ impl<'a> ModelInstance<'a> {
 
   pub fn bsdf(
     &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
+    view_dir: NormalizedVec3<f32>,
+    light_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-  ) -> Vec3 {
+  ) -> Vec3<f32> {
     self.material.bsdf(view_dir, light_dir, intersection)
   }
 
@@ -108,7 +106,6 @@ impl<'a> RayTraceScene<'a> {
     let mut min_distance = std::f32::INFINITY;
     let mut result = None;
 
-    use rendiation_geometry::IntersectAble;
     self.models_bvh.traverse(
       |branch| branch.bounding.intersect(&world_ray, &()),
       |leaf| {
@@ -125,7 +122,7 @@ impl<'a> RayTraceScene<'a> {
 
     result.map(|(intersection, model)| (intersection, min_distance, model))
   }
-  pub fn test_point_visible_to_point(&self, point_a: Vec3, point_b: Vec3) -> bool {
+  pub fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool {
     let ray = Ray3::from_point_to_point(point_a, point_b);
     let distance = (point_a - point_b).length();
 

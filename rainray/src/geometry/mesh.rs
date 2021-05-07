@@ -12,18 +12,18 @@ use space_algorithm::{
   utils::TreeBuildOption,
 };
 
-use crate::{Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry, RayTraceScene};
+use crate::*;
 
 pub trait RainrayMeshBuffer: Send + Sync {
   fn get_intersect(&self, ray: &Ray3) -> PossibleIntersection;
 }
 
 pub trait ShadingNormalProvider {
-  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3;
+  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3<f32>;
 }
 
 impl ShadingNormalProvider for Triangle<Vertex> {
-  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3 {
+  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3<f32> {
     let barycentric = self
       .map_position()
       .barycentric(point)
@@ -37,7 +37,7 @@ impl ShadingNormalProvider for Triangle<Vertex> {
 
 pub struct TriangleMesh<G> {
   pub geometry: G,
-  pub face_normal: Vec<NormalizedVec3>,
+  pub face_normal: Vec<NormalizedVec3<f32>>,
   pub bvh: FlattenBVH<Box3>,
 }
 
@@ -170,7 +170,7 @@ impl Mesh {
     let mut geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
 
     if need_compute_vertex_normal {
-      let face_normals: Vec<NormalizedVec3> = geometry
+      let face_normals: Vec<NormalizedVec3<f32>> = geometry
         .primitive_iter()
         .map(|p| p.map_position().face_normal())
         .collect();

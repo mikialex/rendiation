@@ -1,8 +1,7 @@
 use rendiation_algebra::IntoNormalizedVector;
-use rendiation_algebra::{InnerProductSpace, NormalizedVector, Vec2, Vec3 as V3};
+use rendiation_algebra::{InnerProductSpace, NormalizedVector, Vec2, Vec3};
 
-pub type Vec3 = V3<f32>;
-pub type NormalizedVec3 = NormalizedVector<f32, V3<f32>>;
+pub type NormalizedVec3<T> = NormalizedVector<T, Vec3<T>>;
 pub use rendiation_geometry::*;
 
 extern crate rand as randx;
@@ -42,13 +41,13 @@ pub fn concentric_sample_disk(u: Vec2<f32>) -> Vec2<f32> {
   Vec2::new(theta.cos(), theta.sin()) * r
 }
 
-pub fn cosine_sample_hemisphere(u: Vec2<f32>) -> Vec3 {
+pub fn cosine_sample_hemisphere(u: Vec2<f32>) -> Vec3<f32> {
   let d = concentric_sample_disk(u);
   let z = 0.0_f32.max(1.0 - d.x * d.x - d.y * d.y).sqrt();
   Vec3::new(d.x, d.y, z)
 }
 
-pub fn cosine_sample_hemisphere_in_dir(dir: NormalizedVec3) -> (NormalizedVec3, f32) {
+pub fn cosine_sample_hemisphere_in_dir(dir: NormalizedVec3<f32>) -> (NormalizedVec3<f32>, f32) {
   let offset = cosine_sample_hemisphere(rand2());
 
   let left = Vec3::new(0.0, 1.0, 0.0).cross(*dir).normalize();
@@ -69,7 +68,7 @@ pub fn cosine_sample_hemisphere_in_dir(dir: NormalizedVec3) -> (NormalizedVec3, 
   )
 }
 
-pub fn rand_point_in_unit_sphere() -> Vec3 {
+pub fn rand_point_in_unit_sphere() -> Vec3<f32> {
   loop {
     let test_point = Vec3::new(rand() * 2.0 - 1.0, rand() * 2.0 - 1.0, rand() * 2.0 - 1.0);
     if test_point.length() <= 1. {

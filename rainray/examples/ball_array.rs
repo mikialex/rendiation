@@ -1,5 +1,5 @@
 use rainray::*;
-use rendiation_algebra::{IntoNormalizedVector, Mat4, PerspectiveProjection, Projection, Vector};
+use rendiation_algebra::*;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());
@@ -37,7 +37,7 @@ fn main() {
       .to_boxed(),
     );
 
-  fn ball(scene: &mut Scene, position: Vec3, size: f32, roughness: f32, metallic: f32) {
+  fn ball(scene: &mut Scene, position: Vec3<f32>, size: f32, roughness: f32, metallic: f32) {
     let roughness = if roughness == 0.0 { 0.04 } else { roughness };
     scene.model_node((
       Sphere::new(position, size),

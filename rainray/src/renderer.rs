@@ -1,7 +1,7 @@
 use crate::frame::*;
 use crate::{integrator::Integrator, scene::*};
 use crate::{math::*, Camera};
-use rendiation_algebra::{Vec2, Vector};
+use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use indicatif::ProgressBar;
 use rayon::prelude::*;

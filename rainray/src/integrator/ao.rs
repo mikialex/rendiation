@@ -1,8 +1,8 @@
-use rendiation_algebra::Vector;
+use rendiation_algebra::{Vec3, Vector};
 use rendiation_color::{Color, LinearRGBColorSpace};
 use rendiation_geometry::Ray3;
 
-use crate::{math::rand_point_in_unit_sphere, math::Vec3, RayTraceScene};
+use crate::{math::rand_point_in_unit_sphere, RayTraceScene};
 
 use super::Integrator;
 
@@ -16,7 +16,7 @@ impl Default for AOIntegrator {
   }
 }
 
-fn sample_ao_surface<'a>(surface_point: Vec3, scene: &RayTraceScene<'a>) -> f32 {
+fn sample_ao_surface<'a>(surface_point: Vec3<f32>, scene: &RayTraceScene<'a>) -> f32 {
   let test_ray =
     Ray3::from_point_to_point(surface_point, surface_point + rand_point_in_unit_sphere());
   if scene.get_min_dist_hit(test_ray).is_some() {

@@ -1,12 +1,8 @@
-use rendiation_algebra::{InnerProductSpace, Vector};
+use rendiation_algebra::{InnerProductSpace, Vec3, Vector};
 use rendiation_color::{Color, LinearRGBColorSpace};
 use rendiation_geometry::Ray3;
 
-use super::Integrator;
-use crate::{
-  math::rand, math::Vec3, BSDFSampleResult, Intersection, LightSampleResult, ModelInstance,
-  NormalizedVec3, RayTraceScene,
-};
+use crate::*;
 use rendiation_algebra::RealVector;
 
 pub struct PathTraceIntegrator {
@@ -36,8 +32,8 @@ impl PathTraceIntegrator {
     scene: &RayTraceScene<'a>,
     model: &ModelInstance<'a>,
     intersection: &Intersection,
-    view_dir: NormalizedVec3,
-  ) -> Vec3 {
+    view_dir: NormalizedVec3<f32>,
+  ) -> Vec3<f32> {
     let mut energy = Vec3::new(0.0, 0.0, 0.0);
     for light in &scene.lights {
       let node = light.node;

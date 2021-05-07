@@ -4,7 +4,7 @@ use crate::{math::*, RayTraceScene, Scene};
 
 pub mod mesh;
 pub use mesh::*;
-use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2};
+use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
 
 pub trait RainRayGeometry: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
@@ -17,9 +17,9 @@ pub trait RainRayGeometry: Sync + Send + 'static {
 }
 
 pub struct Intersection {
-  pub position: Vec3,
-  pub geometric_normal: NormalizedVec3,
-  pub shading_normal: NormalizedVec3,
+  pub position: Vec3<f32>,
+  pub geometric_normal: NormalizedVec3<f32>,
+  pub shading_normal: NormalizedVec3<f32>,
   pub uv: Option<Vec2<f32>>,
 }
 
@@ -39,7 +39,7 @@ fn int_as_float(f: i32) -> f32 {
 // Normal points outward for rays exiting the surface, else is flipped.
 #[rustfmt::skip]
 #[inline(always)]
-fn offset_ray(p: Vec3, n: Vec3) -> Vec3 {
+fn offset_ray(p: Vec3<f32>, n: Vec3<f32>) -> Vec3<f32> {
   let of_i = n.map(|n| (n * INT_SCALE) as i32);
   let p_i = p.zip(of_i, |p, of_i_p| {
     int_as_float(float_as_int(p) + (if p < 0. { -of_i_p } else { of_i_p }))

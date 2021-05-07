@@ -1,16 +1,16 @@
 use crate::{math::*, RayTraceScene, SceneNode};
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector};
+use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec3};
 use sceno::PointLight;
 
 pub struct LightSampleResult {
-  pub emissive: Vec3,
-  pub light_in_dir: NormalizedVec3,
+  pub emissive: Vec3<f32>,
+  pub light_in_dir: NormalizedVec3<f32>,
 }
 
 pub trait Light: Sync + 'static {
   fn sample<'a>(
     &self,
-    world_position: Vec3,
+    world_position: Vec3<f32>,
     scene: &RayTraceScene<'a>,
     node: &SceneNode,
   ) -> Option<LightSampleResult>;
@@ -26,7 +26,7 @@ impl LightToBoxed for PointLight {}
 impl Light for PointLight {
   fn sample<'a>(
     &self,
-    world_position: Vec3,
+    world_position: Vec3<f32>,
     scene: &RayTraceScene<'a>,
     node: &SceneNode,
   ) -> Option<LightSampleResult> {
