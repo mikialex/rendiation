@@ -14,4 +14,8 @@ pub trait Integrator: Sync {
     scene: &RayTraceScene<'a>,
     ray: Ray3,
   ) -> Color<f32, LinearRGBColorSpace<f32>>;
+
+  fn default_sample_per_pixel(&self) -> usize {
+    8
+  }
 }

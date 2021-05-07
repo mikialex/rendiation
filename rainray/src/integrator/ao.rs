@@ -12,7 +12,7 @@ pub struct AOIntegrator {
 
 impl Default for AOIntegrator {
   fn default() -> Self {
-    Self { sample_count: 10 }
+    Self { sample_count: 64 }
   }
 }
 

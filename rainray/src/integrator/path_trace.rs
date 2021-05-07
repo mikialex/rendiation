@@ -50,6 +50,9 @@ impl PathTraceIntegrator {
 }
 
 impl Integrator for PathTraceIntegrator {
+  fn default_sample_per_pixel(&self) -> usize {
+    32
+  }
   fn integrate<'a>(
     &self,
     scene: &RayTraceScene<'a>,

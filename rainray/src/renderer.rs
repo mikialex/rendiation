@@ -16,7 +16,7 @@ pub struct Renderer {
 impl Renderer {
   pub fn new(integrator: impl Integrator + 'static) -> Renderer {
     Renderer {
-      sample_per_pixel: 30,
+      sample_per_pixel: integrator.default_sample_per_pixel(),
       integrator: Box::new(integrator),
     }
   }
