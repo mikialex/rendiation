@@ -4,8 +4,10 @@ use rendiation_geometry::Ray3;
 use crate::RayTraceScene;
 
 pub mod ao;
+pub mod intersection_stat;
 pub mod path_trace;
 pub use ao::*;
+pub use intersection_stat::*;
 pub use path_trace::*;
 
 pub trait Integrator: Sync {

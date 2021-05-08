@@ -91,6 +91,15 @@ impl<'a> ModelInstance<'a> {
     let local_ray = world_ray.apply_matrix_into(self.matrix_world_inverse);
     self.geometry.has_any_intersect(local_ray, scene)
   }
+
+  pub fn get_intersection_stat(
+    &self,
+    world_ray: Ray3,
+    scene: &RayTraceScene<'a>,
+  ) -> IntersectionStatistic {
+    let local_ray = world_ray.apply_matrix_into(self.matrix_world_inverse);
+    self.geometry.acceleration_traverse_count(local_ray, scene)
+  }
 }
 
 pub struct LightInstance<'a> {
@@ -130,6 +139,29 @@ impl<'a> RayTraceScene<'a> {
       }
     }
     return false;
+  }
+
+  pub fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic {
+    let mut box_c = 0;
+    let mut stat = IntersectionStatistic::default();
+    self.models_bvh.traverse(
+      |branch| {
+        box_c += 1;
+        branch.bounding.intersect(&world_ray, &())
+      },
+      |leaf| {
+        leaf.iter_primitive(&self.models_bvh).for_each(|&i| {
+          let model = &self.models_in_bvh[i];
+          stat += model.get_intersection_stat(world_ray, self);
+        });
+        true
+      },
+    );
+
+    for model in &self.models_unbound {
+      stat += model.get_intersection_stat(world_ray, self);
+    }
+    stat
   }
 
   pub fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {

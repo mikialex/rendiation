@@ -2,7 +2,7 @@ use rainray::*;
 use rendiation_algebra::*;
 
 fn main() {
-  let mut renderer = Renderer::new(AOIntegrator::default());
+  let mut renderer = Renderer::new(PathTraceIntegrator::default());
   // renderer.sample_per_pixel = 1;
   let mut perspective = PerspectiveProjection::default();
   let mut camera = Camera::new();
@@ -19,8 +19,8 @@ fn main() {
   scene
     .model_node_with_modify(
       (
-        // Mesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),
-        Mesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
+        TriangleMesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),
+        // TriangleMesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
         // Diffuse {
         //   albedo: Vec3::new(0.3, 0.4, 0.8),
         //   diffuse_model: Lambertian,

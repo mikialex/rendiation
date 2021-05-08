@@ -2,7 +2,7 @@ use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, Ray3, Triangle};
 use rendiation_renderable_mesh::{
   geometry::{
-    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, MeshBufferIntersectConfig,
+    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig,
     NoneIndexedGeometry, TriangleList,
   },
   vertex::Vertex,
@@ -13,10 +13,6 @@ use space_algorithm::{
 };
 
 use crate::*;
-
-pub trait RainrayMeshBuffer: Send + Sync {
-  fn get_intersect(&self, ray: &Ray3) -> PossibleIntersection;
-}
 
 pub trait ShadingNormalProvider {
   fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3<f32>;
@@ -65,23 +61,22 @@ where
       bvh,
     }
   }
-  pub fn recompute_vertex_normal(&mut self) {
-    // need impl mut_primitive_iter
-    // self.geometry.primitive_iter()
-  }
 }
 
-impl<G> RainrayMeshBuffer for TriangleMesh<G>
+impl<G> RainRayGeometry for TriangleMesh<G>
 where
-  G: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync,
-  G: AnyGeometry,
-  G::Primitive: ShadingNormalProvider,
+  G: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync + 'static,
+  G: AnyGeometry<Primitive = Triangle<Vertex>>,
 {
-  fn get_intersect(&self, ray: &Ray3) -> PossibleIntersection {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
+  fn intersect<'a>(&self, ray: Ray3, _scene: &RayTraceScene<'a>) -> PossibleIntersection {
     let nearest =
       self
         .geometry
-        .intersect_first_bvh(*ray, &self.bvh, &MeshBufferIntersectConfig::default());
+        .intersect_nearest_bvh(ray, &self.bvh, &MeshBufferIntersectConfig::default());
 
     PossibleIntersection(nearest.0.map(|hit| {
       let primitive = self.geometry.primitive_at(hit.primitive_index);
@@ -95,23 +90,28 @@ where
       }
     }))
   }
-}
 
-pub struct Mesh {
-  geometry: Box<dyn RainrayMeshBuffer>,
-}
-
-impl RainRayGeometry for Mesh {
-  fn as_any(&self) -> &dyn std::any::Any {
-    self
+  fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
+    None
   }
 
-  fn intersect<'a>(&self, ray: Ray3, _: &RayTraceScene<'a>) -> PossibleIntersection {
-    self.geometry.get_intersect(&ray)
+  fn acceleration_traverse_count<'a>(
+    &self,
+    ray: Ray3,
+    _scene: &RayTraceScene<'a>,
+  ) -> IntersectionStatistic {
+    let stat = self
+      .geometry
+      .intersect_nearest_bvh_statistic(ray, &self.bvh);
+    IntersectionStatistic {
+      box3: stat.bound,
+      sphere: 0,
+      triangle: stat.primitive,
+    }
   }
 }
 
-impl Mesh {
+impl TriangleMesh<IndexedGeometry> {
   pub fn from_path_obj(path: &str) -> Self {
     let obj = tobj::load_obj(path, true);
     let (models, _) = obj.unwrap();
@@ -206,9 +206,6 @@ impl Mesh {
       |a, b| a.position.x == b.position.x,
     );
 
-    let mesh = TriangleMesh::new(geometry);
-    Mesh {
-      geometry: Box::new(mesh),
-    }
+    TriangleMesh::new(geometry)
   }
 }

@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, ops::AddAssign};
 
 use crate::{math::*, RayTraceScene, Scene};
 
@@ -17,6 +17,36 @@ pub trait RainRayGeometry: Sync + Send + 'static {
 
   fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
     None
+  }
+
+  fn acceleration_traverse_count<'a>(
+    &self,
+    _ray: Ray3,
+    _scene: &RayTraceScene<'a>,
+  ) -> IntersectionStatistic {
+    Default::default()
+  }
+}
+
+pub struct IntersectionStatistic {
+  pub box3: usize,
+  pub sphere: usize,
+  pub triangle: usize,
+}
+impl Default for IntersectionStatistic {
+  fn default() -> Self {
+    Self {
+      box3: 0,
+      sphere: 0,
+      triangle: 0,
+    }
+  }
+}
+impl AddAssign for IntersectionStatistic {
+  fn add_assign(&mut self, rhs: Self) {
+    self.box3 += rhs.box3;
+    self.sphere += rhs.sphere;
+    self.triangle += rhs.triangle;
   }
 }
 
