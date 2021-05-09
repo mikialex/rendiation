@@ -25,27 +25,28 @@ impl Default for PathTraceIntegrator {
 
 impl PathTraceIntegrator {
   // next event estimation
-  fn sample_lights<'a>(
+  fn sample_lights(
     &self,
-    scene: &RayTraceScene<'a>,
-    model: &ModelInstance<'a>,
+    scene: &Scene,
+    model: &ModelInstance,
     intersection: &Intersection,
     view_dir: NormalizedVec3<f32>,
   ) -> Vec3<f32> {
-    let mut energy = Vec3::new(0.0, 0.0, 0.0);
-    for light in &scene.lights {
-      let node = light.node;
-      let light = light.light;
-      if let Some(LightSampleResult {
-        emissive,
-        light_in_dir,
-      }) = light.sample(intersection.position, scene, node)
-      {
-        let bsdf = model.bsdf(view_dir, light_in_dir.reverse(), intersection);
-        energy += bsdf * emissive * -light_in_dir.dot(intersection.shading_normal);
-      }
-    }
-    energy
+    // let mut energy = Vec3::new(0.0, 0.0, 0.0);
+    // for light in &scene.lights {
+    //   let node = light.node;
+    //   let light = light.light;
+    //   if let Some(LightSampleResult {
+    //     emissive,
+    //     light_in_dir,
+    //   }) = light.sample(intersection.position, scene, node)
+    //   {
+    //     let bsdf = model.bsdf(view_dir, light_in_dir.reverse(), intersection);
+    //     energy += bsdf * emissive * -light_in_dir.dot(intersection.shading_normal);
+    //   }
+    // }
+    // energy
+    Vec3::new(0., 0., 0.)
   }
 }
 
@@ -53,11 +54,7 @@ impl Integrator for PathTraceIntegrator {
   fn default_sample_per_pixel(&self) -> usize {
     32
   }
-  fn integrate<'a>(
-    &self,
-    scene: &RayTraceScene<'a>,
-    ray: Ray3,
-  ) -> Color<f32, LinearRGBColorSpace<f32>> {
+  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<f32, LinearRGBColorSpace<f32>> {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = ray;
@@ -89,7 +86,7 @@ impl Integrator for PathTraceIntegrator {
         current_ray = Ray3::new(intersection.position, light_dir.sample);
       } else {
         // hit outside scene, sample background;
-        if let Some(background) = &scene.scene.background {
+        if let Some(background) = &scene.background {
           energy += background.sample(&current_ray) * throughput;
           break;
         }

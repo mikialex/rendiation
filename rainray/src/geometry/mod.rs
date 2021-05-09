@@ -1,6 +1,6 @@
 use std::{any::Any, ops::AddAssign};
 
-use crate::{math::*, RayTraceScene, Scene};
+use crate::{math::*, Scene};
 
 pub mod mesh;
 pub use mesh::*;
@@ -9,21 +9,17 @@ use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
 pub trait RainRayGeometry: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
 
-  fn intersect<'a>(&self, ray: Ray3, scene: &RayTraceScene<'a>) -> PossibleIntersection;
+  fn intersect(&self, ray: Ray3, scene: &Scene) -> PossibleIntersection;
 
-  fn has_any_intersect<'a>(&self, ray: Ray3, scene: &RayTraceScene<'a>) -> bool {
+  fn has_any_intersect(&self, ray: Ray3, scene: &Scene) -> bool {
     self.intersect(ray, scene).0.is_some()
   }
 
-  fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
+  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
     None
   }
 
-  fn acceleration_traverse_count<'a>(
-    &self,
-    _ray: Ray3,
-    _scene: &RayTraceScene<'a>,
-  ) -> IntersectionStatistic {
+  fn acceleration_traverse_count(&self, _ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
     Default::default()
   }
 }
@@ -106,7 +102,7 @@ impl RainRayGeometry for Sphere {
     self
   }
 
-  fn intersect<'a>(&self, ray: Ray3, _: &RayTraceScene<'a>) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3, _: &Scene) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
@@ -119,7 +115,7 @@ impl RainRayGeometry for Sphere {
     }))
   }
 
-  fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
+  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
     self.to_bounding().into()
   }
 }
@@ -129,7 +125,7 @@ impl RainRayGeometry for Plane {
     self
   }
 
-  fn intersect<'a>(&self, ray: Ray3, _: &RayTraceScene<'a>) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3, _: &Scene) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
       position: near.position,

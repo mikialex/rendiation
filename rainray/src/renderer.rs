@@ -1,6 +1,4 @@
-use crate::frame::*;
-use crate::{integrator::Integrator, scene::*};
-use crate::{math::*, Camera};
+use crate::*;
 use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use indicatif::ProgressBar;
@@ -23,7 +21,6 @@ impl Renderer {
 
   pub fn render(&mut self, camera: &Camera, scene: &mut Scene, frame: &mut Frame) {
     scene.update();
-    let scene = scene.convert();
 
     println!("rendering...");
     let now = Instant::now();

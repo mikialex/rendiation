@@ -72,7 +72,7 @@ where
     self
   }
 
-  fn intersect<'a>(&self, ray: Ray3, _scene: &RayTraceScene<'a>) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3, _scene: &Scene) -> PossibleIntersection {
     let nearest =
       self
         .geometry
@@ -91,15 +91,11 @@ where
     }))
   }
 
-  fn get_bbox<'a>(&self, _scene: &'a Scene) -> Option<Box3> {
+  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
     None
   }
 
-  fn acceleration_traverse_count<'a>(
-    &self,
-    ray: Ray3,
-    _scene: &RayTraceScene<'a>,
-  ) -> IntersectionStatistic {
+  fn acceleration_traverse_count(&self, ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
     let stat = self
       .geometry
       .intersect_nearest_bvh_statistic(ray, &self.bvh);

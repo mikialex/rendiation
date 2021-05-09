@@ -1665,6 +1665,7 @@ dependencies = [
 name = "rainray"
 version = "0.1.0"
 dependencies = [
+ "arena",
  "arena-tree",
  "image",
  "indicatif",
@@ -1674,7 +1675,6 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
- "sceno",
  "space-algorithm",
  "tobj 2.0.3",
 ]

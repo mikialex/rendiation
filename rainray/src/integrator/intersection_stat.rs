@@ -23,9 +23,9 @@ impl Default for IntersectionVisualize {
 }
 
 impl Integrator for IntersectionVisualize {
-  fn integrate<'a>(
+  fn integrate(
     &self,
-    scene: &crate::RayTraceScene<'a>,
+    scene: &crate::Scene,
     ray: rendiation_geometry::Ray3,
   ) -> rendiation_color::Color<f32, rendiation_color::LinearRGBColorSpace<f32>> {
     let stat = scene.get_min_dist_hit_stat(ray);

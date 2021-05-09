@@ -21,5 +21,3 @@ pub use math::*;
 pub use model::*;
 pub use renderer::*;
 pub use scene::*;
-
-pub use sceno::background::*;
