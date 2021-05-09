@@ -42,13 +42,24 @@ impl Scene {
     self
   }
 
-  pub fn model_node(&mut self, model: Model) -> &mut Self {
+  pub fn model_node(
+    &mut self,
+    geometry: impl RainRayGeometry,
+    material: impl RainrayMaterial,
+  ) -> &mut Self {
+    let model = Model::new(geometry, material);
     let model = self.models.insert(model);
     self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
     self
   }
 
-  pub fn model_node_with_modify(&mut self, model: Model, m: impl Fn(&mut SceneNode)) -> &mut Self {
+  pub fn model_node_with_modify(
+    &mut self,
+    geometry: impl RainRayGeometry,
+    material: impl RainrayMaterial,
+    m: impl Fn(&mut SceneNode),
+  ) -> &mut Self {
+    let model = Model::new(geometry, material);
     let model = self.models.insert(model);
     self.create_node(|node, _| {
       node.payloads.push(SceneNodePayload::Model(model));
