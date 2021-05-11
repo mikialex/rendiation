@@ -75,7 +75,7 @@ impl Scene {
   }
 
   pub fn update(&mut self) {
-    let scene_light = &self.lights;
+    let _scene_light = &self.lights;
     let scene_model = &self.models;
 
     let mut models_unbound = Vec::new();
@@ -102,7 +102,7 @@ impl Scene {
             models_unbound.push(instance);
           }
         }
-        SceneNodePayload::Light(light) => {
+        SceneNodePayload::Light(_light) => {
           // let light = scene_light.get(*light).unwrap().as_ref();
           // lights.push(LightInstance {
           //   node: node_data,

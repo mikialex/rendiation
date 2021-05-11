@@ -1,4 +1,4 @@
-use sceno::Arena;
+use arena::Arena;
 
 use crate::{swap_chain::SwapChain, Renderable};
 

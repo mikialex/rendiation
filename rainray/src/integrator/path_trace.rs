@@ -27,10 +27,10 @@ impl PathTraceIntegrator {
   // next event estimation
   fn sample_lights(
     &self,
-    scene: &Scene,
-    model: &ModelInstance,
-    intersection: &Intersection,
-    view_dir: NormalizedVec3<f32>,
+    _scene: &Scene,
+    _model: &ModelInstance,
+    _intersection: &Intersection,
+    _view_dir: NormalizedVec3<f32>,
   ) -> Vec3<f32> {
     // let mut energy = Vec3::new(0.0, 0.0, 0.0);
     // for light in &scene.lights {

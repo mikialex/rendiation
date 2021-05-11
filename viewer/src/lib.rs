@@ -1,5 +1,6 @@
-use sceno::{Arena, NextTraverseVisit, SceneBackend};
 pub mod materials;
+use arena::Arena;
+use arena_tree::NextTraverseVisit;
 pub use materials::*;
 
 pub mod buffer;
@@ -10,20 +11,6 @@ pub use renderer::*;
 pub struct WebGPUScene;
 
 mod swap_chain;
-
-impl SceneBackend for WebGPUScene {
-  type Model = Box<dyn Model>;
-  type Material = Box<dyn Material>;
-  type Mesh = Box<dyn Mesh>;
-  type Background = Box<dyn Background>;
-  type Light = Box<dyn Light>;
-}
-
-pub type Scene = sceno::Scene<WebGPUScene>;
-pub type SceneNode = sceno::SceneNode<WebGPUScene>;
-pub type NodeHandle = sceno::SceneNodeHandle<WebGPUScene>;
-pub type MeshHandle = sceno::MeshHandle<WebGPUScene>;
-pub type MaterialHandle = sceno::MaterialHandle<WebGPUScene>;
 
 pub trait Light {}
 pub trait Background {}
@@ -81,7 +68,7 @@ impl Renderable for Scene {
     nodes.traverse_mut(root, &mut Vec::new(), |node, _| {
       let node = node.data();
       node.payloads.iter().for_each(|payload| match payload {
-        sceno::SceneNodePayload::Model(model) => {
+        SceneNodePayload::Model(model) => {
           model_list.push(*model);
         }
         _ => {}

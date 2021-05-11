@@ -2,7 +2,6 @@
 members = [
   "math/algebra",
   "math/geometry",
-  "sceno",
   "rainray",
   "utils/arena",
   "utils/arena-graph",
@@ -14,7 +13,5 @@ members = [
   "components/texture/core",
   "components/texture/packer",
   "components/texture/generative",
-  "components/space",
-  "webgpu",
-  "viewer"
+  "components/space", # "viewer",
 ]

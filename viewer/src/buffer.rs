@@ -1,4 +1,4 @@
-use sceno::Handle;
+use arena::Handle;
 use wgpu::util::DeviceExt;
 
 use crate::Renderer;
