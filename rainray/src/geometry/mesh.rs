@@ -21,7 +21,7 @@ pub trait ShadingNormalProvider {
 impl ShadingNormalProvider for Triangle<Vertex> {
   fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3<f32> {
     let barycentric = self
-      .map_position()
+      .map(|v| *v)
       .barycentric(point)
       .unwrap_or(Vec3::new(1., 0., 0.));
     let normal =
@@ -53,7 +53,7 @@ where
     );
     let face_normal = geometry
       .primitive_iter()
-      .map(|p| p.map_position().face_normal())
+      .map(|p| p.map(|v| *v).face_normal())
       .collect();
     Self {
       geometry,
@@ -168,7 +168,7 @@ impl TriangleMesh<IndexedGeometry> {
     if need_compute_vertex_normal {
       let face_normals: Vec<NormalizedVec3<f32>> = geometry
         .primitive_iter()
-        .map(|p| p.map_position().face_normal())
+        .map(|p| p.map(|v| *v).face_normal())
         .collect();
 
       use rendiation_algebra::Vector;

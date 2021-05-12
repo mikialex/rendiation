@@ -1,24 +1,36 @@
+use crate::{Box3, LineSegment, Point, SpaceBounding, Triangle};
 use rendiation_algebra::*;
+use std::ops::{Deref, DerefMut};
 
-use crate::{Box3, LineSegment, Point, Positioned, SpaceBounding, Triangle};
-
-impl<T: Scalar, V: Positioned<T, 3>> SpaceBounding<T, Box3<T>, 3> for Triangle<V> {
+impl<T, U> SpaceBounding<T, Box3<T>, 3> for Triangle<U>
+where
+  T: Scalar,
+  U: Deref<Target = Vec3<T>> + DerefMut + Copy,
+{
   #[inline(always)]
   fn to_bounding(&self) -> Box3<T> {
-    self.map_position().iter_point().collect()
+    self.map(|v| *v).iter_point().collect()
   }
 }
 
-impl<T: Scalar, V: Positioned<T, 3>> SpaceBounding<T, Box3<T>, 3> for LineSegment<V> {
+impl<T, U> SpaceBounding<T, Box3<T>, 3> for LineSegment<U>
+where
+  T: Scalar,
+  U: Deref<Target = Vec3<T>> + DerefMut + Copy,
+{
   #[inline(always)]
   fn to_bounding(&self) -> Box3<T> {
-    self.map_position().iter_point().collect()
+    self.map(|v| *v).iter_point().collect()
   }
 }
 
-impl<T: Scalar, V: Positioned<T, 3>> SpaceBounding<T, Box3<T>, 3> for Point<V> {
+impl<T, U> SpaceBounding<T, Box3<T>, 3> for Point<U>
+where
+  T: Scalar,
+  U: Deref<Target = Vec3<T>> + DerefMut + Copy,
+{
   #[inline(always)]
   fn to_bounding(&self) -> Box3<T> {
-    [self.map_position().0].iter().collect()
+    [self.map(|v| *v).0].iter().collect()
   }
 }

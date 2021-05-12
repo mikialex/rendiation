@@ -4,7 +4,6 @@ use crate::{
   geometry::IndexPrimitiveTopologyMeta, geometry::IndexedPrimitiveData,
   geometry::PrimitiveTopologyMeta, geometry::TriangleList, vertex::Vertex,
 };
-use rendiation_geometry::Positioned;
 
 use super::{AnyGeometry, AnyIndexGeometry, GeometryDataContainer};
 
@@ -29,7 +28,7 @@ impl<'a, I, V, T, U> IndexedGeometryView<'a, I, V, T, U> {
 
 impl<'a, I, V, T, U> AnyGeometry for IndexedGeometryView<'a, I, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,
@@ -55,7 +54,7 @@ where
 
 impl<'a, I, V, T, U> AnyIndexGeometry for IndexedGeometryView<'a, I, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,
   T::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,

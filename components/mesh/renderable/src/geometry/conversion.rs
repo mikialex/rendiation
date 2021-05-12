@@ -15,18 +15,19 @@ use super::{
   NoneIndexedGeometry, PointList, PrimitiveTopologyMeta,
 };
 use rendiation_algebra::{InnerProductSpace, Vec3};
-use rendiation_geometry::{LineSegment, Positioned, Triangle};
+use rendiation_geometry::{LineSegment, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
+  ops::Deref,
 };
 
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopologyMeta<I, V, Primitive = Triangle<V>>,
   U: GeometryDataContainer<V>,
+  V: Deref<Target = Vec3<f32>> + Copy,
 {
   pub fn create_wireframe(&self) -> IndexedGeometry<I, V, LineList, U> {
     let mut deduplicate_set = HashSet::<LineSegment<I>>::new();
@@ -64,7 +65,7 @@ where
       });
     let normals = self
       .primitive_iter()
-      .map(|f| f.map_position().face_normal().value)
+      .map(|f| f.map(|v| *v).face_normal().value)
       .collect::<Vec<Vec3<f32>>>();
     let threshold_dot = edge_threshold_angle.cos();
     let data = edges
@@ -81,8 +82,8 @@ where
 impl<I, V, T> IndexedGeometry<I, V, T>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopologyMeta<I, V>,
+  V: Copy,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
   pub fn merge_vertex_by_sorting(
@@ -130,9 +131,9 @@ where
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
   T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
+  V: Copy,
 {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T, U> {
     NoneIndexedGeometry::new(
@@ -147,7 +148,7 @@ where
 
 impl<V, T> NoneIndexedGeometry<V, T>
 where
-  V: Positioned<f32, 3> + HashAbleByConversion,
+  V: HashAbleByConversion + Copy,
   T: IndexPrimitiveTopologyMeta<u16, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
   // U: GeometryDataContainer<V>, // ditto
@@ -173,7 +174,6 @@ where
 
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
-  V: Positioned<f32, 3>,
   T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
 {

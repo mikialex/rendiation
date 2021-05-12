@@ -1,6 +1,6 @@
 use rendiation_geometry::LineSegment;
+use rendiation_geometry::Point;
 use rendiation_geometry::Triangle;
-use rendiation_geometry::{Point, Positioned};
 use std::{hash::Hash, ops::Index};
 
 pub trait HashAbleByConversion {
@@ -8,13 +8,13 @@ pub trait HashAbleByConversion {
   fn to_hashable(&self) -> Self::HashAble;
 }
 
-pub trait PrimitiveData<T: Positioned<f32, 3>, U: Index<usize, Output = T>> {
+pub trait PrimitiveData<T, U: Index<usize, Output = T>> {
   fn from_data(data: &U, offset: usize) -> Self;
 }
 
 pub trait IndexedPrimitiveData<I, T, U, IU>: PrimitiveData<T, U>
 where
-  T: Positioned<f32, 3>,
+  T: Copy,
   U: Index<usize, Output = T>,
   IU: Index<usize, Output = I>,
 {
@@ -25,7 +25,7 @@ where
 
 impl<T, U> PrimitiveData<T, U> for Triangle<T>
 where
-  T: Positioned<f32, 3>,
+  T: Copy,
   U: Index<usize, Output = T>,
 {
   #[inline(always)]
@@ -40,7 +40,7 @@ where
 impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Triangle<T>
 where
   I: IndexType,
-  T: Positioned<f32, 3>,
+  T: Copy,
   U: Index<usize, Output = T>,
   IU: Index<usize, Output = I>,
 {
@@ -64,7 +64,7 @@ where
 
 impl<T, U> PrimitiveData<T, U> for LineSegment<T>
 where
-  T: Positioned<f32, 3>,
+  T: Copy,
   U: Index<usize, Output = T>,
 {
   #[inline(always)]
@@ -78,7 +78,7 @@ where
 impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for LineSegment<T>
 where
   I: IndexType,
-  T: Positioned<f32, 3>,
+  T: Copy,
   U: Index<usize, Output = T>,
   IU: Index<usize, Output = I>,
 {
@@ -99,7 +99,7 @@ where
 
 impl<T, U> PrimitiveData<T, U> for Point<T>
 where
-  T: Positioned<f32, 3>,
+  T: Copy,
   U: Index<usize, Output = T>,
 {
   #[inline(always)]
@@ -111,7 +111,7 @@ where
 impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Point<T>
 where
   I: IndexType,
-  T: Positioned<f32, 3>,
+  T: Copy,
   U: Index<usize, Output = T>,
   IU: Index<usize, Output = I>,
 {
@@ -127,18 +127,14 @@ where
   }
 }
 
-pub trait PrimitiveTopologyMeta<T: Positioned<f32, 3>>: 'static {
+pub trait PrimitiveTopologyMeta<T>: 'static {
   type Primitive;
   const STEP: usize;
   const STRIDE: usize;
   const ENUM: PrimitiveTopology;
 }
 
-pub trait IndexPrimitiveTopologyMeta<I, T>: PrimitiveTopologyMeta<T>
-where
-  T: Positioned<f32, 3>,
-{
-}
+pub trait IndexPrimitiveTopologyMeta<I, T>: PrimitiveTopologyMeta<T> {}
 
 /// Primitive type the input mesh is composed of.
 #[repr(C)]
@@ -165,48 +161,48 @@ pub enum PrimitiveTopology {
 }
 
 pub struct PointList;
-impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for PointList {
+impl<T> PrimitiveTopologyMeta<T> for PointList {
   type Primitive = Point<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 1;
   const ENUM: PrimitiveTopology = PrimitiveTopology::PointList;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for PointList {}
+impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for PointList {}
 
 pub struct TriangleList;
-impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for TriangleList {
+impl<T> PrimitiveTopologyMeta<T> for TriangleList {
   type Primitive = Triangle<T>;
   const STEP: usize = 3;
   const STRIDE: usize = 3;
   const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleList;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for TriangleList {}
+impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for TriangleList {}
 
 pub struct TriangleStrip;
-impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for TriangleStrip {
+impl<T> PrimitiveTopologyMeta<T> for TriangleStrip {
   type Primitive = Triangle<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 3;
   const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleStrip;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for TriangleStrip {}
+impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for TriangleStrip {}
 
 pub struct LineList;
-impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for LineList {
+impl<T> PrimitiveTopologyMeta<T> for LineList {
   type Primitive = LineSegment<T>;
   const STEP: usize = 2;
   const STRIDE: usize = 2;
   const ENUM: PrimitiveTopology = PrimitiveTopology::LineList;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for LineList {}
+impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for LineList {}
 
 pub struct LineStrip;
-impl<T: Positioned<f32, 3>> PrimitiveTopologyMeta<T> for LineStrip {
+impl<T> PrimitiveTopologyMeta<T> for LineStrip {
   type Primitive = LineSegment<T>;
   const STEP: usize = 1;
   const STRIDE: usize = 2;
   const ENUM: PrimitiveTopology = PrimitiveTopology::LineStrip;
 }
-impl<I: IndexType, T: Positioned<f32, 3>> IndexPrimitiveTopologyMeta<I, T> for LineStrip {}
+impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for LineStrip {}
 
 use super::IndexType;
