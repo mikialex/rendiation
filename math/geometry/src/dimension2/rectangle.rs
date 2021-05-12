@@ -1,4 +1,4 @@
-use crate::{ContainAble, HyperAABB, LebesgueMeasurable, SolidEntity};
+use crate::{ContainAble, HyperAABB, LebesgueMeasurable};
 use rendiation_algebra::{Scalar, SpaceEntity, SquareMatrixType, Vec2};
 
 pub type Rectangle<T = f32> = HyperAABB<Vec2<T>>;
@@ -24,13 +24,6 @@ impl<T: Scalar> SpaceEntity<T, 2> for Rectangle<T> {
   #[inline(always)]
   fn apply_matrix(&mut self, mat: SquareMatrixType<T, 2>) -> &mut Self {
     todo!()
-  }
-}
-
-impl<T: Scalar> SolidEntity<T, 2> for Rectangle<T> {
-  type Center = Vec2<T>;
-  fn centroid(&self) -> Vec2<T> {
-    (self.min + self.max) * T::half()
   }
 }
 

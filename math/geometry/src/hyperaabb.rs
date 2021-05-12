@@ -1,3 +1,7 @@
+use rendiation_algebra::{Scalar, SpaceEntity, VectorSpace};
+
+use crate::{LebesgueMeasurable, SolidEntity};
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HyperAABB<V> {
   pub min: V,
@@ -10,9 +14,15 @@ impl<V> HyperAABB<V> {
   }
 }
 
-// impl<T: Scalar> SolidEntity<T, 3> for Box3<T> {
-//   type Center = Vec3<T>;
-//   fn centroid(&self) -> Vec3<T> {
-//     (self.min + self.max) * T::half()
-//   }
-// }
+impl<T, const D: usize, V> SolidEntity<T, D> for HyperAABB<V>
+where
+  T: Scalar,
+  Self: LebesgueMeasurable<T, D>,
+  Self: SpaceEntity<T, D>,
+  V: VectorSpace<T>,
+{
+  type Center = V;
+  fn centroid(&self) -> V {
+    (self.min + self.max) * T::half()
+  }
+}
