@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::*};
+use std::ops::*;
 
 use num_traits::real::Real;
 
@@ -152,26 +152,3 @@ where
     q.normalize()
   }
 }
-
-pub trait DimensionalVec<T: Scalar, const D: usize> {
-  type Type: Vector<T>
-    + VectorDimension<D>
-    + SpaceEntity<T, D>
-    + RealVector<T>
-    + InnerProductSpace<T>;
-}
-
-pub struct VectorMark<T>(PhantomData<T>);
-
-impl<T: Scalar> DimensionalVec<T, 2> for VectorMark<T> {
-  type Type = Vec2<T>;
-}
-impl<T: Scalar> DimensionalVec<T, 3> for VectorMark<T> {
-  type Type = Vec3<T>;
-}
-
-impl<T: Scalar, const D: usize> DimensionalVec<T, D> for VectorMark<T> {
-  default type Type = FakeHyperVec<T, D>;
-}
-
-pub type VectorType<T, const D: usize> = <VectorMark<T> as DimensionalVec<T, D>>::Type;
