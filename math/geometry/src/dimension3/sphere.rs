@@ -1,7 +1,14 @@
-use crate::{Box3, HyperSphere, LebesgueMeasurable};
+use crate::{Box3, HyperSphere, LebesgueMeasurable, SolidEntity};
 use rendiation_algebra::*;
 
-pub type Sphere<T = f32> = HyperSphere<T, 3>;
+pub type Sphere<T = f32> = HyperSphere<T, Vec3<T>>;
+
+impl SolidEntity<f32, 3> for Sphere {
+  type Center = Vec3<f32>;
+  fn centroid(&self) -> Self::Center {
+    self.center
+  }
+}
 
 impl LebesgueMeasurable<f32, 3> for Sphere {
   #[inline(always)]

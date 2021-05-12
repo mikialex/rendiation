@@ -1,13 +1,21 @@
-use crate::{Axis3, HyperAABB, LebesgueMeasurable};
+use crate::{Axis3, HyperAABB, LebesgueMeasurable, SolidEntity};
 use rendiation_algebra::*;
 use std::iter::FromIterator;
 
-pub type Box3<T = f32> = HyperAABB<T, 3>;
+pub type Box3<T = f32> = HyperAABB<Vec3<T>>;
 
 impl<T: Scalar> LebesgueMeasurable<T, 2> for Box3<T> {
   #[inline(always)]
   fn measure(&self) -> T {
-    self.width() * self.height() + self.width() * self.depth() + self.height() * self.depth()
+    T::two()
+      * (self.width() * self.height() + self.width() * self.depth() + self.height() * self.depth())
+  }
+}
+
+impl<T: Scalar> SolidEntity<T, 3> for Box3<T> {
+  type Center = Vec3<T>;
+  fn centroid(&self) -> Vec3<T> {
+    (self.min + self.max) * T::half()
   }
 }
 

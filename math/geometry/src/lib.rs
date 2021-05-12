@@ -65,13 +65,13 @@ pub trait LengthMeasurable<T: Scalar>: LebesgueMeasurable<T, 1> {
 }
 impl<T: Scalar> LengthMeasurable<T> for T where T: LebesgueMeasurable<T, 1> {}
 
-pub trait AreaMeasurable<T: Scalar>: LebesgueMeasurable<T, 2> {
+pub trait AreaMeasurable<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 2> {
   #[inline(always)]
   fn area(&self) -> T {
     self.measure()
   }
 }
-impl<T: Scalar> AreaMeasurable<T> for T where T: LebesgueMeasurable<T, 2> {}
+impl<T: Scalar> AreaMeasurable<T> for T where T: SpaceEntity<T, 2> + LebesgueMeasurable<T, 2> {}
 
 pub trait VolumeMeasurable<T: Scalar>: LebesgueMeasurable<T, 3> {
   #[inline(always)]
@@ -100,7 +100,8 @@ impl<T: Scalar> PerimeterMeasure<T> for T where T: SpaceEntity<T, 2> + LebesgueM
 pub trait SolidEntity<T: Scalar, const D: usize>:
   SpaceEntity<T, D> + LebesgueMeasurable<T, D>
 {
-  fn centroid(&self) -> VectorType<T, D>;
+  type Center;
+  fn centroid(&self) -> Self::Center;
 }
 
 pub trait ContainAble<T, Target, const D: usize>: SolidEntity<T, D>
