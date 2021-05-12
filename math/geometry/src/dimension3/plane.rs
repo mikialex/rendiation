@@ -1,7 +1,7 @@
 use crate::{DistanceTo, HyperPlane, Triangle};
 use rendiation_algebra::*;
 
-pub type Plane<T = f32> = HyperPlane<T, 3>;
+pub type Plane<T = f32> = HyperPlane<T, Vec3<T>>;
 
 impl<T: Scalar> DistanceTo<Vec3<T>, T> for Plane<T> {
   fn distance_to(&self, point: &Vec3<T>) -> T {

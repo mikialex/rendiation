@@ -2,7 +2,7 @@ use std::{marker::PhantomData, ops::*};
 
 use crate::*;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct NormalizedVector<T, V> {
   pub value: V,
