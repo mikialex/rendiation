@@ -1,7 +1,7 @@
 use crate::{DistanceTo, HyperRay, LineSegment3D, Plane};
 use rendiation_algebra::*;
 
-pub type Ray3<T = f32> = HyperRay<T, 3>;
+pub type Ray3<T = f32> = HyperRay<T, Vec3<T>>;
 
 impl<T: Scalar> SpaceEntity<T, 3> for Ray3<T> {
   #[inline]

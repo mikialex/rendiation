@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use rendiation_algebra::{Scalar, VectorType};
+use rendiation_algebra::{Scalar, Vec3, VectorSpace};
 
 use crate::HyperRay;
 
@@ -10,30 +10,30 @@ pub trait HitDistanceCompareAble {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct HitPoint<const D: usize, T: Scalar = f32> {
-  pub position: VectorType<T, D>,
+pub struct HitPoint<T: Scalar, V> {
+  pub position: V,
   pub distance: T,
 }
 
-impl<const D: usize, T: Scalar> HitDistanceCompareAble for HitPoint<D, T> {
+impl<T: Scalar, V> HitDistanceCompareAble for HitPoint<T, V> {
   fn is_near_than(&self, other: &Self) -> bool {
     self.distance < other.distance
   }
 }
 
-impl<const D: usize, T: Scalar> HitPoint<D, T> {
-  pub fn new(position: VectorType<T, D>, distance: T) -> Self {
+impl<T: Scalar, V> HitPoint<T, V> {
+  pub fn new(position: V, distance: T) -> Self {
     Self { position, distance }
   }
 }
 
-impl<const D: usize, T: Scalar> HyperRay<T, D> {
-  pub fn at_into(&self, distance: T) -> HitPoint<D, T> {
+impl<T: Scalar, V: VectorSpace<T>> HyperRay<T, V> {
+  pub fn at_into(&self, distance: T) -> HitPoint<T, V> {
     HitPoint::new(self.at(distance), distance)
   }
 }
 
-pub type HitPoint3D<T = f32> = HitPoint<3, T>;
+pub type HitPoint3D<T = f32> = HitPoint<T, Vec3<T>>;
 
 #[repr(transparent)]
 #[derive(Default, Copy, Clone, Debug)]
@@ -98,18 +98,18 @@ impl<T> From<Option<T>> for Nearest<T> {
 }
 
 #[derive(Default)]
-pub struct HitList<const D: usize, T: Scalar = f32>(pub Vec<HitPoint<D, T>>);
+pub struct HitList<T: Scalar, V>(pub Vec<HitPoint<T, V>>);
 
-pub type HitList3D<T = f32> = HitList<3, T>;
+pub type HitList3D<T = f32> = HitList<T, Vec3<T>>;
 
-impl<const D: usize, T: Scalar> HitList<D, T> {
+impl<T: Scalar, V> HitList<T, V> {
   pub fn new() -> Self {
     Self(Vec::new())
   }
   pub fn new_with_capacity(size: usize) -> Self {
     Self(Vec::with_capacity(size))
   }
-  pub fn push_nearest(&mut self, hit: Nearest<HitPoint<D, T>>) {
+  pub fn push_nearest(&mut self, hit: Nearest<HitPoint<T, V>>) {
     if let Nearest(Some(hit)) = hit {
       self.0.push(hit);
     }

@@ -22,7 +22,7 @@ impl<T: Scalar> LebesgueMeasurable<T, 2> for Rectangle<T> {
 
 impl<T: Scalar> SpaceEntity<T, 2> for Rectangle<T> {
   #[inline(always)]
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, 2>) -> &mut Self {
+  fn apply_matrix(&mut self, _mat: SquareMatrixType<T, 2>) -> &mut Self {
     todo!()
   }
 }
