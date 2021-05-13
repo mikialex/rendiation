@@ -1,5 +1,5 @@
 use crate::{LineSegment, SpaceEntity};
-use rendiation_algebra::{Scalar, SquareMatrixType, Vec3};
+use rendiation_algebra::{Scalar, SquareMatrixDimension, Vec3};
 use std::ops::DerefMut;
 
 pub enum FaceSide {
@@ -15,13 +15,15 @@ pub struct Triangle<V = Vec3<f32>> {
   pub c: V,
 }
 
-impl<T, V, const D: usize, U> SpaceEntity<T, D> for Triangle<U>
+impl<T, V, M, U, const D: usize> SpaceEntity<T, D> for Triangle<U>
 where
   T: Scalar,
-  V: SpaceEntity<T, D>,
+  M: SquareMatrixDimension<D>,
+  V: SpaceEntity<T, D, Matrix = M>,
   U: DerefMut<Target = V>,
 {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
     self.a.deref_mut().apply_matrix(mat);
     self.b.deref_mut().apply_matrix(mat);
     self.c.deref_mut().apply_matrix(mat);

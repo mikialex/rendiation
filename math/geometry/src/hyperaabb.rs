@@ -1,4 +1,4 @@
-use rendiation_algebra::{Scalar, SpaceEntity, VectorSpace};
+use rendiation_algebra::{RealVector, Scalar, SpaceEntity, Vector, VectorSpace};
 
 use crate::{LebesgueMeasurable, SolidEntity};
 
@@ -14,7 +14,31 @@ impl<V> HyperAABB<V> {
   }
 }
 
-impl<T, const D: usize, V> SolidEntity<T, D> for HyperAABB<V>
+impl<V> HyperAABB<V> {
+  #[inline(always)]
+  pub fn empty<T>() -> Self
+  where
+    T: Scalar,
+    V: Vector<T>,
+  {
+    Self::new(
+      Vector::splat(T::infinity()),
+      Vector::splat(T::neg_infinity()),
+    )
+  }
+
+  #[inline(always)]
+  pub fn expand_by_point<T>(&mut self, point: V)
+  where
+    T: Scalar,
+    V: RealVector<T>,
+  {
+    self.min = self.min.min(point);
+    self.max = self.max.max(point);
+  }
+}
+
+impl<T, V, const D: usize> SolidEntity<T, D> for HyperAABB<V>
 where
   T: Scalar,
   Self: LebesgueMeasurable<T, D>,

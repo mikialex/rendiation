@@ -1,5 +1,5 @@
 use crate::SpaceEntity;
-use rendiation_algebra::{Scalar, SquareMatrixType};
+use rendiation_algebra::{Scalar, SquareMatrixDimension};
 use std::ops::DerefMut;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -11,13 +11,15 @@ impl<U> Point<U> {
   }
 }
 
-impl<T, U, const D: usize, V> SpaceEntity<T, D> for Point<U>
+impl<T, U, V, M, const D: usize> SpaceEntity<T, D> for Point<U>
 where
   T: Scalar,
-  V: SpaceEntity<T, D>,
+  M: SquareMatrixDimension<D>,
+  V: SpaceEntity<T, D, Matrix = M>,
   U: DerefMut<Target = V>,
 {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
     self.0.deref_mut().apply_matrix(mat);
     self
   }

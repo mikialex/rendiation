@@ -1,3 +1,19 @@
+pub trait Number<T> {
+  fn number<const N: f32>() -> T;
+}
+
+impl<T: From<f32>> Number<T> for T {
+  fn number<const N: f32>() -> T {
+    N.into()
+  }
+}
+
+#[test]
+fn const_eval() {
+  assert_eq!(f32::number::<1.5>(), 1.5);
+  assert_eq!(f64::number::<1.5>(), 1.5);
+}
+
 pub trait Two: Sized {
   #[must_use]
   fn two() -> Self;

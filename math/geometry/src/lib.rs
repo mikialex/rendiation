@@ -1,10 +1,3 @@
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
-#![feature(never_type)]
-#![feature(specialization)]
-#![allow(incomplete_features)]
-
-// specialization impl
 pub mod dimension3;
 pub use dimension3::*;
 pub mod dimension2;

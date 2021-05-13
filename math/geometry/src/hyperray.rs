@@ -12,12 +12,6 @@ impl<T: Scalar, V: VectorSpace<T>> HyperRay<T, V> {
   }
 }
 
-impl<T: Scalar, const D: usize, V> SpaceEntity<T, D> for HyperRay<T, V> {
-  default fn apply_matrix(&mut self, _mat: SquareMatrixType<T, D>) -> &mut Self {
-    unimplemented!()
-  }
-}
-
 impl<T: Scalar, V> HyperRay<T, V> {
   pub fn new(origin: V, direction: NormalizedVector<T, V>) -> Self {
     HyperRay { origin, direction }

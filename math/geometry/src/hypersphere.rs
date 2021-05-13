@@ -1,20 +1,11 @@
 use rendiation_algebra::*;
 
-use crate::{
-  ContainAble, HyperAABB, InnerProductSpace, SolidEntity, SpaceBounding,
-  SpaceEntity,
-};
+use crate::{ContainAble, HyperAABB, InnerProductSpace, SolidEntity, SpaceBounding, SpaceEntity};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HyperSphere<T, V> {
   pub center: V,
   pub radius: T,
-}
-
-impl<T: Scalar, const D: usize, V> SpaceEntity<T, D> for HyperSphere<T, V> {
-  default fn apply_matrix(&mut self, _mat: SquareMatrixType<T, D>) -> &mut Self {
-    unimplemented!()
-  }
 }
 
 impl<T, V> HyperSphere<T, V> {
@@ -36,18 +27,32 @@ where
   }
 }
 
-impl<T, const D: usize, V> ContainAble<T, V, D> for HyperSphere<T, V>
+impl<T, V, M, const D: usize> SpaceEntity<T, D> for HyperSphere<T, V>
+where
+  T: Scalar,
+  M: SquareMatrixDimension<D> + SquareMatrix<T>,
+  V: SpaceEntity<T, D, Matrix = M>,
+{
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    self.center.apply_matrix(mat);
+    self.radius *= mat.max_scale();
+    self
+  }
+}
+
+impl<T, V, const D: usize> ContainAble<T, V, D> for HyperSphere<T, V>
 where
   Self: SolidEntity<T, D, Center = V>,
   T: Scalar,
   V: SpaceEntity<T, D> + VectorSpace<T> + InnerProductSpace<T>,
 {
-  default fn contains(&self, v: &V) -> bool {
+  fn contains(&self, v: &V) -> bool {
     (*v - self.center).length2() <= self.radius * self.radius
   }
 }
 
-impl<T, const D: usize, V> SpaceBounding<T, HyperAABB<V>, D> for HyperSphere<T, V>
+impl<T, V, const D: usize> SpaceBounding<T, HyperAABB<V>, D> for HyperSphere<T, V>
 where
   Self: SolidEntity<T, D, Center = V>,
   HyperAABB<V>: SolidEntity<T, D, Center = V>,

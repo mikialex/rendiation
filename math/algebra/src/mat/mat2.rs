@@ -29,6 +29,11 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
   fn inverse(&self) -> Option<Self> {
     todo!()
   }
+
+  fn max_scale(&self) -> T {
+    self.a1.sqrt()
+  }
+  
 }
 
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat2<T> {}

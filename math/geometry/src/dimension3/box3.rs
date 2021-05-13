@@ -20,7 +20,11 @@ impl<T: Scalar> LebesgueMeasurable<T, 3> for Box3<T> {
 }
 
 impl<T: Scalar> SpaceEntity<T, 3> for Box3<T> {
-  fn apply_matrix(&mut self, m: SquareMatrixType<T, 3>) -> &mut Self {
+  type Matrix = Mat4<T>;
+  fn apply_matrix(&mut self, m: Self::Matrix) -> &mut Self {
+    if self.is_empty() {
+      return self;
+    }
     let points = [
       *Vec3::new(self.min.x, self.min.y, self.min.z).apply_matrix(m), // 000
       *Vec3::new(self.min.x, self.min.y, self.max.z).apply_matrix(m), // 001
@@ -86,11 +90,6 @@ impl<T: Scalar> Box3<T> {
   }
 
   #[inline(always)]
-  pub fn empty() -> Box3<T> {
-    Self::new(Vec3::splat(T::infinity()), Vec3::splat(T::neg_infinity()))
-  }
-
-  #[inline(always)]
   pub fn center(&self) -> Vec3<T> {
     (self.min + self.max) * T::half()
   }
@@ -122,12 +121,6 @@ impl<T: Scalar> Box3<T> {
     } else {
       (Axis3::Z, z_length)
     }
-  }
-
-  #[inline(always)]
-  pub fn expand_by_point(&mut self, point: Vec3<T>) {
-    self.min = self.min.min(point);
-    self.max = self.max.max(point);
   }
 
   #[inline(always)]

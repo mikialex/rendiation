@@ -1,4 +1,3 @@
-#![feature(specialization)]
 #![feature(const_generics)]
 #![feature(trait_alias)]
 #![feature(stmt_expr_attributes)]
@@ -42,11 +41,12 @@ pub trait Scalar = Float
   + MulAssign<Self>;
 
 pub trait SpaceEntity<T: Scalar, const D: usize> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self;
+  type Matrix: SquareMatrixDimension<D>;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self;
 }
 
 pub trait SpaceEntityCopyable<T: Scalar, const D: usize>: Copy + SpaceEntity<T, D> {
-  fn apply_matrix_into(&self, mat: SquareMatrixType<T, D>) -> Self {
+  fn apply_matrix_into(&self, mat: Self::Matrix) -> Self {
     *self.clone().apply_matrix(mat)
   }
 }
