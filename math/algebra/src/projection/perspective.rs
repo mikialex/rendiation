@@ -1,4 +1,4 @@
-use crate::{Mat4, PiByC180, Projection, ResizableProjection, Scalar};
+use crate::{Mat4, Projection, ResizableProjection, Scalar};
 
 pub struct PerspectiveProjection {
   pub near: f32,
@@ -30,7 +30,7 @@ impl ResizableProjection for PerspectiveProjection {
   }
 }
 
-impl<T: Scalar + PiByC180> Mat4<T> {
+impl<T: Scalar> Mat4<T> {
   pub fn perspective_fov_lh(fov: T, aspect: T, znear: T, zfar: T) -> Self {
     let h = T::one() / (fov * T::half() * T::pi_by_c180()).tan();
     let w = h / aspect;

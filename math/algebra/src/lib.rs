@@ -7,7 +7,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-pub mod consts;
 pub mod interpolation;
 pub mod mat;
 pub mod projection;
@@ -22,7 +21,6 @@ pub use mat::*;
 pub use projection::*;
 pub use vec::*;
 
-pub use self::consts::*;
 pub use self::quat::*;
 
 pub use num_traits::*;
@@ -32,13 +30,45 @@ pub mod macros;
 
 pub trait Scalar = Float
   + FloatConst
-  + Half
-  + Three
-  + Two
+  + ScalarConstEval
+  + Copy
   + AddAssign<Self>
   + SubAssign<Self>
   + DivAssign<Self>
   + MulAssign<Self>;
+
+const PI: f32 = std::f32::consts::PI;
+
+pub trait ScalarConstEval: Sized {
+  fn eval<const N: f32>() -> Self;
+  fn half() -> Self {
+    Self::eval::<0.5>()
+  }
+  fn two() -> Self {
+    Self::eval::<2.0>()
+  }
+  fn three() -> Self {
+    Self::eval::<3.0>()
+  }
+  fn pi_by_c180() -> Self {
+    Self::eval::<{ PI / 180.0 }>()
+  }
+  fn c180_by_pi() -> Self {
+    Self::eval::<{ 180.0 / PI }>()
+  }
+}
+
+impl<T: From<f32>> ScalarConstEval for T {
+  fn eval<const N: f32>() -> Self {
+    N.into()
+  }
+}
+
+#[test]
+fn const_eval() {
+  assert_eq!(f32::eval::<1.5>(), 1.5);
+  assert_eq!(f64::eval::<1.5>(), 1.5);
+}
 
 pub trait SpaceEntity<T: Scalar, const D: usize> {
   type Matrix: SquareMatrixDimension<D>;

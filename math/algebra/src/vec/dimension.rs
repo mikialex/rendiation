@@ -82,7 +82,7 @@ pub trait VectorSpace<T>:
 /// https://en.wikipedia.org/wiki/Inner_product
 ///
 /// inner space define the length and angle based on vector space
-pub trait InnerProductSpace<T: One + Zero + Two + Real + Copy>: VectorSpace<T> {
+pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   #[inline]
   fn normalize(&self) -> Self {
     let mag_sq = self.length2();

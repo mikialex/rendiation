@@ -310,7 +310,7 @@ where
 
 impl<T> Mat4<T>
 where
-  T: Scalar + PiByC180 + Half,
+  T: Scalar,
 {
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sin_cos();

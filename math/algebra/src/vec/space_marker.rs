@@ -1,9 +1,6 @@
 use std::{marker::PhantomData, ops::*};
 
-use num_traits::real::Real;
-use num_traits::*;
-
-use crate::{InnerProductSpace, NormalizedVector, Two, VectorSpace};
+use crate::{InnerProductSpace, NormalizedVector, Scalar, VectorSpace};
 
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
@@ -53,9 +50,7 @@ impl<T, V: VectorSpace<T>, S> Div<T> for Space<T, V, S> {
   }
 }
 impl<T: Copy, V: VectorSpace<T>, S: Copy> VectorSpace<T> for Space<T, V, S> {}
-impl<T: One + Zero + Two + Real + Copy, V: InnerProductSpace<T>, S: Copy> InnerProductSpace<T>
-  for Space<T, V, S>
-{
+impl<T: Scalar, V: InnerProductSpace<T>, S: Copy> InnerProductSpace<T> for Space<T, V, S> {
   fn dot_impl(&self, b: Self) -> T {
     self.value.dot(b.value)
   }
