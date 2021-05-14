@@ -1,4 +1,4 @@
-use rendiation_algebra::Vec3;
+use rendiation_algebra::*;
 
 pub struct Spherical<T = f32> {
   pub center: Vec3<T>,
@@ -7,29 +7,31 @@ pub struct Spherical<T = f32> {
   pub azim: T,
 }
 
-impl Default for Spherical {
+impl<T: Scalar> Default for Spherical<T> {
   fn default() -> Self {
-    Self {
-      center: Vec3::new(0.0, 0.0, 0.0),
-      radius: 1.,
-      polar: 0.,
-      azim: 0.,
-    }
+    let mut r = Self {
+      center: Vec3::splat(T::zero()),
+      radius: T::one(),
+      polar: T::zero(),
+      azim: T::zero(),
+    };
+    r.reset_pose();
+    r
   }
 }
 
-impl Spherical {
+impl<T: Scalar> Spherical<T> {
   pub fn new() -> Self {
     Self::default()
   }
 
   pub fn reset_pose(&mut self) {
-    self.radius = 1.;
-    self.polar = 0.;
-    self.azim = 0.;
+    self.radius = T::one();
+    self.polar = T::zero();
+    self.azim = T::zero();
   }
 
-  pub fn to_vec3(&self) -> Vec3<f32> {
+  pub fn to_vec3(&self) -> Vec3<T> {
     let sin_radius = self.polar.sin() * self.radius;
     Vec3::new(
       sin_radius * self.azim.sin(),

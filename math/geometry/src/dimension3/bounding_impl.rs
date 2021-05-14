@@ -1,4 +1,4 @@
-use crate::{Box3, LineSegment, Point, SpaceBounding, Triangle};
+use crate::{Box3, LineSegment, Point, SpaceBounding, Sphere, Triangle};
 use rendiation_algebra::*;
 use std::ops::{Deref, DerefMut};
 
@@ -32,5 +32,17 @@ where
   #[inline(always)]
   fn to_bounding(&self) -> Box3<T> {
     [self.map(|v| *v).0].iter().collect()
+  }
+}
+
+impl<T> SpaceBounding<T, Sphere<T>, 3> for Box3<T>
+where
+  T: Scalar,
+{
+  #[inline(always)]
+  fn to_bounding(&self) -> Sphere<T> {
+    let center = (self.max + self.min) * T::half();
+    let radius = (self.max - center).length();
+    Sphere::new(center, radius)
   }
 }

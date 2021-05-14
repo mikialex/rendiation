@@ -3,7 +3,7 @@ pub use dimension3::*;
 pub mod dimension2;
 pub use dimension2::*;
 
-// pub mod beziersegment;
+pub mod beziersegment;
 pub mod hyperaabb;
 pub mod hyperplane;
 pub mod hyperray;
@@ -13,7 +13,7 @@ pub mod line_segment;
 pub mod point;
 pub mod triangle;
 
-// pub use beziersegment::*;
+pub use beziersegment::*;
 pub use hyperaabb::*;
 pub use hyperplane::*;
 pub use hyperray::*;
@@ -124,8 +124,4 @@ macro_rules! intersect_reverse {
       }
     }
   };
-}
-
-pub trait Raycaster {
-  fn create_screen_ray(&self, view_position: Vec2<f32>) -> Ray3;
 }

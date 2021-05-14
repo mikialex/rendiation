@@ -1,6 +1,9 @@
 use rendiation_algebra::*;
 
-use crate::{ContainAble, HyperAABB, InnerProductSpace, SolidEntity, SpaceBounding, SpaceEntity};
+use crate::{
+  ContainAble, HyperAABB, InnerProductSpace, LebesgueMeasurable, SolidEntity, SpaceBounding,
+  SpaceEntity,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HyperSphere<T, V> {
@@ -38,6 +41,19 @@ where
     self.center.apply_matrix(mat);
     self.radius *= mat.max_scale();
     self
+  }
+}
+
+impl<T, V, M, const D: usize> SolidEntity<T, D> for HyperSphere<T, V>
+where
+  Self: LebesgueMeasurable<T, D>,
+  T: Scalar,
+  M: SquareMatrixDimension<D> + SquareMatrix<T>,
+  V: SpaceEntity<T, D, Matrix = M> + Copy,
+{
+  type Center = V;
+  fn centroid(&self) -> Self::Center {
+    self.center
   }
 }
 
