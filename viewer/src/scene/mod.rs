@@ -1,51 +1,18 @@
+pub mod background;
+pub mod lights;
+pub mod node;
+pub mod scene;
+
+pub use background::*;
+pub use lights::*;
+pub use node::*;
+pub use scene::*;
+
 pub mod materials;
-use arena::Arena;
-use arena_tree::NextTraverseVisit;
 pub use materials::*;
 
-pub mod buffer;
-pub use buffer::*;
-pub mod renderer;
-pub use renderer::*;
-
-pub struct WebGPUScene;
-
-mod swap_chain;
-
-pub trait Light {}
-pub trait Background {}
-pub trait Mesh {
-  fn setup_pass<'a>(&mut self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>);
-}
-
-pub trait Model {
-  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer);
-  fn render<'a>(
-    &self,
-    renderer: &'a Renderer,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &mut SceneRenderCtx,
-  );
-}
-
-pub trait GPUSceneExt {
-  //
-}
-
-pub trait Renderable {
-  fn render<'a>(
-    &mut self,
-    renderer: &'a Renderer,
-    pass: &mut wgpu::RenderPass<'a>,
-    des: &wgpu::RenderPassDescriptor,
-  );
-}
-
-pub struct SceneRenderCtx<'a> {
-  materials: &'a mut Arena<Box<dyn Material>>,
-  meshes: &'a mut Arena<Box<dyn Mesh>>,
-  material_ctx: SceneMaterialRenderPrepareCtx,
-}
+pub use arena::*;
+pub use arena_tree::*;
 
 impl Renderable for Scene {
   fn render<'a>(
@@ -101,6 +68,12 @@ impl Mesh for SceneMesh {
   }
 }
 
+pub struct SceneRenderCtx<'a> {
+  materials: &'a mut Arena<Box<dyn Material>>,
+  meshes: &'a mut Arena<Box<dyn Mesh>>,
+  material_ctx: SceneMaterialRenderPrepareCtx,
+}
+
 pub struct SceneModel {
   material: MaterialHandle,
   mesh: MeshHandle,
@@ -123,4 +96,18 @@ impl Model for SceneModel {
     let mesh = ctx.meshes.get_mut(self.mesh).unwrap();
     mesh.setup_pass(renderer, pass);
   }
+}
+
+pub trait Mesh {
+  fn setup_pass<'a>(&mut self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>);
+}
+
+pub trait Model {
+  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer);
+  fn render<'a>(
+    &self,
+    renderer: &'a Renderer,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &mut SceneRenderCtx,
+  );
 }

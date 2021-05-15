@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use webgpu::Renderer;
 use winit::{
   event::{self, WindowEvent},
   event_loop::{ControlFlow, EventLoop},

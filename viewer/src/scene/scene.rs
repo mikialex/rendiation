@@ -9,15 +9,7 @@ pub type MeshHandle<T> = Handle<<T as SceneBackend>::Mesh>;
 pub type MaterialHandle<T> = Handle<<T as SceneBackend>::Material>;
 pub type LightHandle<T> = Handle<<T as SceneBackend>::Light>;
 
-pub trait SceneBackend {
-  type Model;
-  type Material;
-  type Mesh;
-  type Light;
-  type Background;
-}
-
-pub struct Scene<T: SceneBackend> {
+pub struct Scene {
   pub nodes: ArenaTree<SceneNode<T>>,
   pub background: Option<T::Background>,
   pub lights: Arena<T::Light>,

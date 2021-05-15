@@ -2,6 +2,16 @@ use arena::Arena;
 
 use crate::{swap_chain::SwapChain, Renderable};
 
+pub trait Renderable {
+    fn render<'a>(
+      &mut self,
+      renderer: &'a Renderer,
+      pass: &mut wgpu::RenderPass<'a>,
+      des: &wgpu::RenderPassDescriptor,
+    );
+  }
+  
+
 pub struct Renderer {
   instance: wgpu::Instance,
   adaptor: wgpu::Adapter,

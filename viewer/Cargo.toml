@@ -15,3 +15,4 @@ rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
 wgpu = "0.7.1"
 winit = {version = "0.24.0"}
+futures = "0.3.15"
