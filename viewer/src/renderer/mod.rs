@@ -1,16 +1,16 @@
 use arena::Arena;
 
-use crate::{swap_chain::SwapChain, Renderable};
+use self::swap_chain::SwapChain;
+mod swap_chain;
 
 pub trait Renderable {
-    fn render<'a>(
-      &mut self,
-      renderer: &'a Renderer,
-      pass: &mut wgpu::RenderPass<'a>,
-      des: &wgpu::RenderPassDescriptor,
-    );
-  }
-  
+  fn render<'a>(
+    &mut self,
+    renderer: &'a Renderer,
+    pass: &mut wgpu::RenderPass<'a>,
+    des: &wgpu::RenderPassDescriptor,
+  );
+}
 
 pub struct Renderer {
   instance: wgpu::Instance,

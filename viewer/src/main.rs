@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
+mod renderer;
 
+use renderer::Renderer;
 use winit::{
   event::{self, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
