@@ -1,10 +1,8 @@
-// use std::cmp::Ordering;
-
 use rendiation_algebra::{Vec2, Vec3};
-use rendiation_geometry::{Box3, IntersectAble, Ray3, Triangle};
+use rendiation_geometry::{Box3, Ray3, Triangle};
 use rendiation_renderable_mesh::{
   geometry::{
-    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, MeshBufferIntersectConfig,
+    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig,
     NoneIndexedGeometry, TriangleList,
   },
   vertex::Vertex,
@@ -14,20 +12,16 @@ use space_algorithm::{
   utils::TreeBuildOption,
 };
 
-use crate::{Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry};
-
-pub trait RainrayMeshBuffer: Send + Sync {
-  fn get_intersect(&self, ray: &Ray3) -> PossibleIntersection;
-}
+use crate::*;
 
 pub trait ShadingNormalProvider {
-  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3;
+  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3<f32>;
 }
 
 impl ShadingNormalProvider for Triangle<Vertex> {
-  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3 {
+  fn get_normal(&self, point: Vec3<f32>) -> NormalizedVec3<f32> {
     let barycentric = self
-      .map_position()
+      .map(|v| *v)
       .barycentric(point)
       .unwrap_or(Vec3::new(1., 0., 0.));
     let normal =
@@ -39,7 +33,7 @@ impl ShadingNormalProvider for Triangle<Vertex> {
 
 pub struct TriangleMesh<G> {
   pub geometry: G,
-  pub face_normal: Vec<NormalizedVec3>,
+  pub face_normal: Vec<NormalizedVec3<f32>>,
   pub bvh: FlattenBVH<Box3>,
 }
 
@@ -59,7 +53,7 @@ where
     );
     let face_normal = geometry
       .primitive_iter()
-      .map(|p| p.map_position().face_normal())
+      .map(|p| p.map(|v| *v).face_normal())
       .collect();
     Self {
       geometry,
@@ -67,50 +61,53 @@ where
       bvh,
     }
   }
-  pub fn recompute_vertex_normal(&mut self) {
-    // need impl mut_primitive_iter
-    // self.geometry.primitive_iter()
-  }
 }
 
-impl<G> RainrayMeshBuffer for TriangleMesh<G>
+impl<G> RainRayGeometry for TriangleMesh<G>
 where
-  G: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync,
-  G: AnyGeometry,
-  G::Primitive: ShadingNormalProvider,
+  G: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync + 'static,
+  G: AnyGeometry<Primitive = Triangle<Vertex>>,
 {
-  fn get_intersect(&self, ray: &Ray3) -> PossibleIntersection {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
+  fn intersect(&self, ray: Ray3, _scene: &Scene) -> PossibleIntersection {
     let nearest =
       self
         .geometry
-        .intersect_first_bvh(*ray, &self.bvh, &MeshBufferIntersectConfig::default());
+        .intersect_nearest_bvh(ray, &self.bvh, &MeshBufferIntersectConfig::default());
 
     PossibleIntersection(nearest.0.map(|hit| {
       let primitive = self.geometry.primitive_at(hit.primitive_index);
-      // let geometric_normal = self.face_normal[hit.primitive_index];
+      let geometric_normal = self.face_normal[hit.primitive_index];
       let shading_normal = primitive.get_normal(hit.hit.position);
       Intersection {
-        distance: hit.hit.distance,
         position: hit.hit.position,
-        geometric_normal: shading_normal,
+        geometric_normal,
         shading_normal,
+        uv: None,
       }
     }))
   }
-}
 
-pub struct Mesh {
-  geometry: Box<dyn RainrayMeshBuffer>,
-}
+  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
+    None
+  }
 
-impl IntersectAble<Ray3, PossibleIntersection> for Mesh {
-  fn intersect(&self, ray: &Ray3, _param: &()) -> PossibleIntersection {
-    self.geometry.get_intersect(ray)
+  fn acceleration_traverse_count(&self, ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
+    let stat = self
+      .geometry
+      .intersect_nearest_bvh_statistic(ray, &self.bvh);
+    IntersectionStatistic {
+      box3: stat.bound,
+      sphere: 0,
+      triangle: stat.primitive,
+    }
   }
 }
-impl RainRayGeometry for Mesh {}
 
-impl Mesh {
+impl TriangleMesh<IndexedGeometry> {
   pub fn from_path_obj(path: &str) -> Self {
     let obj = tobj::load_obj(path, true);
     let (models, _) = obj.unwrap();
@@ -169,9 +166,9 @@ impl Mesh {
     let mut geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
 
     if need_compute_vertex_normal {
-      let face_normals: Vec<NormalizedVec3> = geometry
+      let face_normals: Vec<NormalizedVec3<f32>> = geometry
         .primitive_iter()
-        .map(|p| p.map_position().face_normal())
+        .map(|p| p.map(|v| *v).face_normal())
         .collect();
 
       use rendiation_algebra::Vector;
@@ -194,19 +191,17 @@ impl Mesh {
     }
 
     let geometry = geometry.create_index_geometry();
-    // let geometry = geometry.merge_vertex_by_sorting(
-    //   |a, b| {
-    //     a.position
-    //       .x
-    //       .partial_cmp(&b.position.x)
-    //       .unwrap_or(Ordering::Equal)
-    //   },
-    //   |a, b| a.position.x - b.position.y <= 0.0001,
-    // );
+    use std::cmp::Ordering;
+    let geometry = geometry.merge_vertex_by_sorting(
+      |a, b| {
+        a.position
+          .x
+          .partial_cmp(&b.position.x)
+          .unwrap_or(Ordering::Equal)
+      },
+      |a, b| a.position.x == b.position.x,
+    );
 
-    let mesh = TriangleMesh::new(geometry);
-    Mesh {
-      geometry: Box::new(mesh),
-    }
+    TriangleMesh::new(geometry)
   }
 }

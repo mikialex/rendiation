@@ -2,12 +2,11 @@ use crate::*;
 use std::ops::{Add, Mul};
 
 #[repr(C)]
+#[rustfmt::skip]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
 pub struct Mat2<T> {
-  pub a1: T,
-  pub a2: T,
-  pub b1: T,
-  pub b2: T,
+  pub a1: T, pub a2: T,
+  pub b1: T, pub b2: T,
 }
 
 impl<T: Scalar> SquareMatrixDimension<1> for Mat2<T> {}
@@ -18,7 +17,11 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
   fn transpose(&self) -> Self {
     let (a1, a2) = (self.a1, self.b1);
     let (b1, b2) = (self.a2, self.b2);
-    Mat2 { a1, a2, b1, b2 }
+    #[rustfmt::skip]
+    Mat2 { 
+      a1, a2,
+      b1, b2 
+    }
   }
   fn det(&self) -> T {
     todo!()
@@ -26,6 +29,11 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
   fn inverse(&self) -> Option<Self> {
     todo!()
   }
+
+  fn max_scale(&self) -> T {
+    self.a1.sqrt()
+  }
+  
 }
 
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat2<T> {}
@@ -107,15 +115,18 @@ where
     let b1 = tx * y - s * z;
     let b2 = ty * y + c;
 
-    Mat2 { a1, a2, b1, b2 }
+    #[rustfmt::skip]
+    Mat2 { 
+      a1, a2, 
+      b1, b2 
+    }
   }
 
   pub fn scale(x: T, y: T) -> Self {
+    #[rustfmt::skip]
     Mat2 {
-      a1: x,
-      a2: T::zero(),
-      b1: T::zero(),
-      b2: y,
+      a1: x,         a2: T::zero(),
+      b1: T::zero(), b2: y,
     }
   }
 }
@@ -126,11 +137,10 @@ where
 {
   #[inline(always)]
   fn zero() -> Self {
+    #[rustfmt::skip]
     Mat2 {
-      a1: T::zero(),
-      a2: T::zero(),
-      b1: T::zero(),
-      b2: T::zero(),
+      a1: T::zero(), a2: T::zero(),
+      b1: T::zero(), b2: T::zero(),
     }
   }
   #[inline(always)]
@@ -145,11 +155,10 @@ where
 {
   #[inline(always)]
   fn one() -> Self {
+    #[rustfmt::skip]
     Mat2 {
-      a1: T::one(),
-      a2: T::zero(),
-      b1: T::zero(),
-      b2: T::one(),
+      a1: T::one(),  a2: T::zero(),
+      b1: T::zero(), b2: T::one(),
     }
   }
 }
@@ -159,11 +168,10 @@ where
   T: Copy,
 {
   fn from(v: (T, T, T, T)) -> Self {
+    #[rustfmt::skip]
     Self {
-      a1: v.0,
-      a2: v.1,
-      b1: v.2,
-      b2: v.3,
+      a1: v.0, a2: v.1,
+      b1: v.2, b2: v.3,
     }
   }
 }

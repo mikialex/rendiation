@@ -1,7 +1,7 @@
 use crate::{HyperSphere, LebesgueMeasurable};
 use rendiation_algebra::*;
 
-pub type Circle<T = f32> = HyperSphere<T, 2>;
+pub type Circle<T = f32> = HyperSphere<T, Vec2<T>>;
 
 impl<T: Scalar> LebesgueMeasurable<T, 2> for Circle<T> {
   #[inline(always)]

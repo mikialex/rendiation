@@ -1,49 +1,43 @@
-use crate::{
-  concentric_sample_disk, rand, Diffuse, Intersection, Material, NormalizedVec3, PhysicalDiffuse,
-  Vec3, INV_PI, PI,
-};
+use crate::*;
 
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vector};
+use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vec3, Vector};
 
 pub struct Lambertian;
-impl<G> Material<G> for Diffuse<Lambertian> {
+impl RainrayMaterial for Diffuse<Lambertian> {
   fn bsdf(
     &self,
-    _view_dir: NormalizedVec3,
-    _light_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3<f32>,
+    _light_dir: NormalizedVec3<f32>,
     _intersection: &Intersection,
-    _geom: &G,
-  ) -> Vec3 {
-    PhysicalDiffuse::<G>::albedo(self) / Vec3::splat(PI)
+  ) -> Vec3<f32> {
+    PhysicalDiffuse::albedo(self) / Vec3::splat(PI)
   }
 
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance_impl(
     &self,
-    _view_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-    _geom: &G,
-  ) -> NormalizedVec3 {
+  ) -> NormalizedVec3<f32> {
     // Simple cosine-sampling using Malley's method
     let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
-    (Vec3::new(x, y, z) * intersection.geometric_normal.local_to_world()).into_normalized()
+    (Vec3::new(x, y, z) * intersection.shading_normal.local_to_world()).into_normalized()
   }
 
   fn pdf(
     &self,
-    _view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3<f32>,
+    light_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-    _geom: &G,
   ) -> f32 {
-    light_dir.dot(intersection.geometric_normal).max(0.0) * INV_PI
+    light_dir.dot(intersection.shading_normal).max(0.0) * INV_PI
   }
 }
 
-impl<G> PhysicalDiffuse<G> for Diffuse<Lambertian> {
-  fn albedo(&self) -> Vec3 {
+impl PhysicalDiffuse for Diffuse<Lambertian> {
+  fn albedo(&self) -> Vec3<f32> {
     self.albedo
   }
 }
@@ -52,13 +46,13 @@ pub struct OrenNayar {
   /// the standard deviation of the microfacet orientation angle
   /// in radians
   pub sigma: f32,
-  pub albedo: Vec3,
+  pub albedo: Vec3<f32>,
   pub a: f32,
   pub b: f32,
 }
 
 impl OrenNayar {
-  pub fn new(albedo: Vec3, sigma: f32) -> Self {
+  pub fn new(albedo: Vec3<f32>, sigma: f32) -> Self {
     let sigma2 = sigma * sigma;
     let a = 1. - (sigma2 / (2. * (sigma2 + 0.33)));
     let b = 0.45 * sigma2 / (sigma2 + 0.09);
@@ -71,14 +65,13 @@ impl OrenNayar {
   }
 }
 
-impl<G> Material<G> for OrenNayar {
+impl RainrayMaterial for OrenNayar {
   fn bsdf(
     &self,
-    _view_dir: NormalizedVec3,
-    _light_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3<f32>,
+    _light_dir: NormalizedVec3<f32>,
     _intersection: &Intersection,
-    _geom: &G,
-  ) -> Vec3 {
+  ) -> Vec3<f32> {
     todo!()
     // let sin_theta_i = sin_theta(wi);
     // let sin_theta_o = sin_theta(wo);
@@ -105,21 +98,19 @@ impl<G> Material<G> for OrenNayar {
     // self.albedo * INV_PI * (self.a + self.b * max_cos * sin_alpha * tan_beta)
   }
 
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance_impl(
     &self,
-    _view_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3<f32>,
     _intersection: &Intersection,
-    _geom: &G,
-  ) -> NormalizedVec3 {
+  ) -> NormalizedVec3<f32> {
     todo!()
   }
 
   fn pdf(
     &self,
-    _view_dir: NormalizedVec3,
-    _light_dir: NormalizedVec3,
+    _view_dir: NormalizedVec3<f32>,
+    _light_dir: NormalizedVec3<f32>,
     _intersection: &Intersection,
-    _geom: &G,
   ) -> f32 {
     todo!()
   }

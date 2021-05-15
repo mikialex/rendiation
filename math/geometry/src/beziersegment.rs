@@ -1,15 +1,21 @@
-use rendiation_algebra::{Scalar, SpaceEntity, SquareMatrixType, VectorImpl, VectorType};
+use rendiation_algebra::{Scalar, SpaceEntity, SquareMatrix, SquareMatrixDimension, VectorSpace};
 
 use crate::SpaceLineSegment;
 
-pub struct QuadraticBezierSegment<T: Scalar, const D: usize> {
-  pub from: VectorType<T, D>,
-  pub ctrl: VectorType<T, D>,
-  pub to: VectorType<T, D>,
+pub struct QuadraticBezierSegment<V> {
+  pub from: V,
+  pub ctrl: V,
+  pub to: V,
 }
 
-impl<T: Scalar, const D: usize> SpaceEntity<T, D> for QuadraticBezierSegment<T, D> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
+impl<T, M, V, const D: usize> SpaceEntity<T, D> for QuadraticBezierSegment<V>
+where
+  M: SquareMatrixDimension<D> + SquareMatrix<T>,
+  V: SpaceEntity<T, D, Matrix = M> + Copy,
+  T: Scalar,
+{
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
     self.from.apply_matrix(mat);
     self.ctrl.apply_matrix(mat);
     self.to.apply_matrix(mat);
@@ -17,18 +23,18 @@ impl<T: Scalar, const D: usize> SpaceEntity<T, D> for QuadraticBezierSegment<T, 
   }
 }
 
-impl<T, const D: usize> SpaceLineSegment<T, D> for QuadraticBezierSegment<T, D>
+impl<T, V> SpaceLineSegment<T, V> for QuadraticBezierSegment<V>
 where
   T: Scalar,
-  VectorType<T, D>: VectorImpl,
+  V: VectorSpace<T>,
 {
-  fn start(&self) -> VectorType<T, D> {
+  fn start(&self) -> V {
     self.from
   }
-  fn end(&self) -> VectorType<T, D> {
+  fn end(&self) -> V {
     self.to
   }
-  fn sample(&self, t: T) -> VectorType<T, D> {
+  fn sample(&self, t: T) -> V {
     let t2 = t * t;
     let one_t = T::one() - t;
     let one_t2 = one_t * one_t;
@@ -37,15 +43,21 @@ where
   }
 }
 
-pub struct CubicBezierSegment<T: Scalar, const D: usize> {
-  pub from: VectorType<T, D>,
-  pub ctrl1: VectorType<T, D>,
-  pub ctrl2: VectorType<T, D>,
-  pub to: VectorType<T, D>,
+pub struct CubicBezierSegment<V> {
+  pub from: V,
+  pub ctrl1: V,
+  pub ctrl2: V,
+  pub to: V,
 }
 
-impl<T: Scalar, const D: usize> SpaceEntity<T, D> for CubicBezierSegment<T, D> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
+impl<T, M, V, const D: usize> SpaceEntity<T, D> for CubicBezierSegment<V>
+where
+  M: SquareMatrixDimension<D> + SquareMatrix<T>,
+  V: SpaceEntity<T, D, Matrix = M> + Copy,
+  T: Scalar,
+{
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
     self.from.apply_matrix(mat);
     self.ctrl1.apply_matrix(mat);
     self.ctrl2.apply_matrix(mat);
@@ -54,18 +66,18 @@ impl<T: Scalar, const D: usize> SpaceEntity<T, D> for CubicBezierSegment<T, D> {
   }
 }
 
-impl<T, const D: usize> SpaceLineSegment<T, D> for CubicBezierSegment<T, D>
+impl<T, V> SpaceLineSegment<T, V> for CubicBezierSegment<V>
 where
   T: Scalar,
-  VectorType<T, D>: VectorImpl,
+  V: VectorSpace<T>,
 {
-  fn start(&self) -> VectorType<T, D> {
+  fn start(&self) -> V {
     self.from
   }
-  fn end(&self) -> VectorType<T, D> {
+  fn end(&self) -> V {
     self.to
   }
-  fn sample(&self, t: T) -> VectorType<T, D> {
+  fn sample(&self, t: T) -> V {
     let t2 = t * t;
     let t3 = t2 * t;
     let one_t = T::one() - t;

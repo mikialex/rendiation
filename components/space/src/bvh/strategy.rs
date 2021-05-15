@@ -1,4 +1,4 @@
-use crate::utils::{bounding_from_build_source, TreeBuildOption};
+use crate::utils::{bounding_from_build_source, CenterAblePrimitive, TreeBuildOption};
 
 use super::{node::FlattenBVHNode, BVHBounding, BuildPrimitive, FlattenBVHNodeChildInfo};
 use std::{iter::FromIterator, ops::Range};
@@ -86,7 +86,10 @@ impl<B: BalanceTreeBounding> BVHBuildStrategy<B> for BalanceTree {
 
 pub trait SAHBounding: BalanceTreeBounding + Default {
   fn get_surface_heuristic(&self) -> f32;
-  fn get_unit_from_center_by_axis(center: &Self::Center, axis: Self::AxisType) -> f32;
+  fn get_unit_from_center_by_axis(
+    center: &<Self as CenterAblePrimitive>::Center,
+    axis: Self::AxisType,
+  ) -> f32;
   fn get_unit_range_by_axis(&self, split: Self::AxisType) -> Range<f32>;
   fn empty() -> Self;
   fn union(&mut self, other: Self);

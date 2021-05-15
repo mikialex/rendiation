@@ -1,15 +1,18 @@
 use crate::*;
 use rendiation_algebra::*;
+use std::ops::{Deref, DerefMut};
 
-impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<Triangle<V>, Nearest<HitPoint3D<T>>, FaceSide>
-  for Ray3<T>
+impl<T, U> IntersectAble<Triangle<U>, Nearest<HitPoint3D<T>>, FaceSide> for Ray3<T>
+where
+  T: Scalar,
+  U: Deref<Target = Vec3<T>> + Copy,
 {
   #[allow(non_snake_case)]
   #[inline]
-  fn intersect(&self, face: &Triangle<V>, side: &FaceSide) -> Nearest<HitPoint3D<T>> {
+  fn intersect(&self, face: &Triangle<U>, side: &FaceSide) -> Nearest<HitPoint3D<T>> {
     let Triangle { a, b, c } = match side {
-      FaceSide::Double | FaceSide::Front => face.map_position(),
-      FaceSide::Back => face.map_position().flip(),
+      FaceSide::Double | FaceSide::Front => face.map(|v| *v),
+      FaceSide::Back => face.map(|v| *v).flip(),
     };
 
     let blackface_culling = match side {
@@ -76,12 +79,14 @@ impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<Triangle<V>, Nearest<HitPoint
   }
 }
 
-impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<LineSegment<V>, Nearest<HitPoint3D<T>>, T>
-  for Ray3<T>
+impl<T, U> IntersectAble<LineSegment<U>, Nearest<HitPoint3D<T>>, T> for Ray3<T>
+where
+  T: Scalar,
+  U: Deref<Target = Vec3<T>> + Copy,
 {
   #[inline]
-  fn intersect(&self, line: &LineSegment<V>, t: &T) -> Nearest<HitPoint3D<T>> {
-    let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(line.map_position());
+  fn intersect(&self, line: &LineSegment<U>, t: &T) -> Nearest<HitPoint3D<T>> {
+    let (dist_sq, inter_ray, _) = self.distance_sq_to_segment(line.map(|v| *v));
     if dist_sq > *t * *t {
       return Nearest::none();
     }
@@ -90,12 +95,14 @@ impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<LineSegment<V>, Nearest<HitPo
   }
 }
 
-impl<T: Scalar, V: Positioned<T, 3>> IntersectAble<Point<V>, Nearest<HitPoint3D<T>>, T>
-  for Ray3<T>
+impl<T, U> IntersectAble<Point<U>, Nearest<HitPoint3D<T>>, T> for Ray3<T>
+where
+  T: Scalar,
+  U: Deref<Target = Vec3<T>> + DerefMut + Copy,
 {
   #[inline]
-  fn intersect(&self, point: &Point<V>, t: &T) -> Nearest<HitPoint3D<T>> {
-    let point = point.map_position().0;
+  fn intersect(&self, point: &Point<U>, t: &T) -> Nearest<HitPoint3D<T>> {
+    let point = point.map(|v| *v).0;
     let dist_sq = self.distance_sq_to_point(point);
     if dist_sq > *t * *t {
       return Nearest::none();

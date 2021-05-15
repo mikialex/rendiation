@@ -1,11 +1,14 @@
 use crate::geometry::HashAbleByConversion;
 use rendiation_algebra::*;
-use rendiation_geometry::Positioned;
-use std::{hash::Hash, mem};
+use std::{
+  hash::Hash,
+  mem,
+  ops::{Deref, DerefMut},
+};
 
 #[repr(C)]
 #[cfg_attr(feature = "shadergraph", derive(Geometry))]
-#[derive(Clone, Copy, soa_derive::StructOfArray)]
+#[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
 pub struct Vertex {
   pub position: Vec3<f32>,
   pub normal: Vec3<f32>,
@@ -29,12 +32,15 @@ impl HashAbleByConversion for Vertex {
   }
 }
 
-impl Positioned<f32, 3> for Vertex {
-  fn position(&self) -> Vec3<f32> {
-    self.position
+impl Deref for Vertex {
+  type Target = Vec3<f32>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.position
   }
-  #[inline(always)]
-  fn position_mut(&mut self) -> &mut Vec3<f32> {
+}
+impl DerefMut for Vertex {
+  fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.position
   }
 }

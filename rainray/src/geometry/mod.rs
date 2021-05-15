@@ -1,20 +1,56 @@
-use crate::math::*;
-use rendiation_algebra::IntoNormalizedVector;
+use std::{any::Any, ops::AddAssign};
+
+use crate::{math::*, Scene};
 
 pub mod mesh;
 pub use mesh::*;
+use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
 
-pub trait RainRayGeometry: IntersectAble<Ray3, PossibleIntersection> {
-  fn get_bbox(&self) -> Option<Box3> {
+pub trait RainRayGeometry: Sync + Send + 'static {
+  fn as_any(&self) -> &dyn Any;
+
+  fn intersect(&self, ray: Ray3, scene: &Scene) -> PossibleIntersection;
+
+  fn has_any_intersect(&self, ray: Ray3, scene: &Scene) -> bool {
+    self.intersect(ray, scene).0.is_some()
+  }
+
+  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
     None
+  }
+
+  fn acceleration_traverse_count(&self, _ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
+    Default::default()
+  }
+}
+
+pub struct IntersectionStatistic {
+  pub box3: usize,
+  pub sphere: usize,
+  pub triangle: usize,
+}
+impl Default for IntersectionStatistic {
+  fn default() -> Self {
+    Self {
+      box3: 0,
+      sphere: 0,
+      triangle: 0,
+    }
+  }
+}
+impl AddAssign for IntersectionStatistic {
+  fn add_assign(&mut self, rhs: Self) {
+    self.box3 += rhs.box3;
+    self.sphere += rhs.sphere;
+    self.triangle += rhs.triangle;
   }
 }
 
 pub struct Intersection {
-  pub distance: f32,
-  pub position: Vec3,
-  pub geometric_normal: NormalizedVec3,
-  pub shading_normal: NormalizedVec3,
+  pub position: Vec3<f32>,
+  pub geometric_normal: NormalizedVec3<f32>,
+  pub shading_normal: NormalizedVec3<f32>,
+  pub uv: Option<Vec2<f32>>,
 }
 
 const ORIGIN: f32 = 1.0 / 32.0;
@@ -33,7 +69,7 @@ fn int_as_float(f: i32) -> f32 {
 // Normal points outward for rays exiting the surface, else is flipped.
 #[rustfmt::skip]
 #[inline(always)]
-fn offset_ray(p: Vec3, n: Vec3) -> Vec3 {
+fn offset_ray(p: Vec3<f32>, n: Vec3<f32>) -> Vec3<f32> {
   let of_i = n.map(|n| (n * INT_SCALE) as i32);
   let p_i = p.zip(of_i, |p, of_i_p| {
     int_as_float(float_as_int(p) + (if p < 0. { -of_i_p } else { of_i_p }))
@@ -49,38 +85,53 @@ fn offset_ray(p: Vec3, n: Vec3) -> Vec3 {
 impl Intersection {
   /// use RTX gem's method to solve self intersection issue caused by float precision;
   pub fn adjust_hit_position(&mut self) {
-    // self.hit_position = self.hit_position + self.hit_normal * 0.001;
     self.position = offset_ray(self.position, self.geometric_normal.value)
+  }
+
+  pub fn apply_matrix(&mut self, matrix: Mat4<f32>, normal_matrix: Mat4<f32>) {
+    self.position.apply_matrix(matrix);
+    self.geometric_normal = self.geometric_normal.transform_direction(normal_matrix);
+    self.shading_normal = self.shading_normal.transform_direction(normal_matrix);
   }
 }
 
 pub struct PossibleIntersection(pub Option<Intersection>);
 
-impl IntersectAble<Ray3, PossibleIntersection> for Sphere {
-  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
+impl RainRayGeometry for Sphere {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
+  fn intersect(&self, ray: Ray3, _: &Scene) -> PossibleIntersection {
+    let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
       Intersection {
-        distance: near.distance,
         position: near.position,
         geometric_normal: normal,
         shading_normal: normal,
+        uv: None,
       }
     }))
   }
-}
-impl RainRayGeometry for Sphere {}
 
-impl IntersectAble<Ray3, PossibleIntersection> for Plane {
-  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    let result: Nearest<HitPoint3D> = ray.intersect(self, param);
+  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
+    self.to_bounding().into()
+  }
+}
+
+impl RainRayGeometry for Plane {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+
+  fn intersect(&self, ray: Ray3, _: &Scene) -> PossibleIntersection {
+    let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
-      distance: near.distance,
       position: near.position,
       geometric_normal: self.normal,
       shading_normal: self.normal,
+      uv: None,
     }))
   }
 }
-impl RainRayGeometry for Plane {}

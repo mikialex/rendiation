@@ -26,6 +26,11 @@ where
   }
 }
 
+pub struct PrimitiveIntersectionStatistic {
+  pub bound: usize,
+  pub primitive: usize,
+}
+
 pub trait BVHIntersectAbleExtendedAnyGeometry<B>
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
@@ -37,12 +42,18 @@ where
     conf: &MeshBufferIntersectConfig,
   ) -> MeshBufferHitList;
 
-  fn intersect_first_bvh(
+  fn intersect_nearest_bvh(
     &self,
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
   ) -> Nearest<MeshBufferHitPoint>;
+
+  fn intersect_nearest_bvh_statistic(
+    &self,
+    ray: Ray3,
+    bvh: &FlattenBVH<B>,
+  ) -> PrimitiveIntersectionStatistic;
 }
 
 impl<G, B> BVHIntersectAbleExtendedAnyGeometry<B> for G
@@ -73,13 +84,14 @@ where
               })
               .0
           })
-          .for_each(|h| result.0.push(h))
+          .for_each(|h| result.0.push(h));
+        true
       },
     );
     result
   }
 
-  fn intersect_first_bvh(
+  fn intersect_nearest_bvh(
     &self,
     ray: Ray3,
     bvh: &FlattenBVH<B>,
@@ -97,10 +109,31 @@ where
               hit,
               primitive_index,
             }));
-          })
+          });
+        true
       },
     );
     nearest
+  }
+
+  fn intersect_nearest_bvh_statistic(
+    &self,
+    ray: Ray3,
+    bvh: &FlattenBVH<B>,
+  ) -> PrimitiveIntersectionStatistic {
+    let mut bound = 0;
+    let mut primitive = 0;
+    bvh.traverse(
+      |branch| {
+        bound += 1;
+        branch.bounding.intersect(&ray, &())
+      },
+      |leaf| {
+        primitive += leaf.iter_primitive(bvh).count();
+        true
+      },
+    );
+    PrimitiveIntersectionStatistic { bound, primitive }
   }
 }
 

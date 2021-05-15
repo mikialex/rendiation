@@ -1,7 +1,5 @@
-use crate::frame::*;
-use crate::{integrator::Integrator, scene::*};
-use crate::{math::*, Camera};
-use rendiation_algebra::{Vec2, Vector};
+use crate::*;
+use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use indicatif::ProgressBar;
 use rayon::prelude::*;
@@ -16,12 +14,14 @@ pub struct Renderer {
 impl Renderer {
   pub fn new(integrator: impl Integrator + 'static) -> Renderer {
     Renderer {
-      sample_per_pixel: 30,
+      sample_per_pixel: integrator.default_sample_per_pixel(),
       integrator: Box::new(integrator),
     }
   }
 
-  pub fn render(&mut self, camera: &Camera, scene: &Scene, frame: &mut Frame) {
+  pub fn render(&mut self, camera: &Camera, scene: &mut Scene, frame: &mut Frame) {
+    scene.update();
+
     println!("rendering...");
     let now = Instant::now();
 
@@ -48,7 +48,7 @@ impl Renderer {
         for _ in 0..self.sample_per_pixel {
           let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
           let ray = camera.create_screen_ray(sample_point);
-          energy_acc += self.integrator.integrate(scene, ray).value;
+          energy_acc += self.integrator.integrate(&scene, ray).value;
         }
 
         energy_acc /= self.sample_per_pixel as f32;

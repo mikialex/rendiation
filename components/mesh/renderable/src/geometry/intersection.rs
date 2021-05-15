@@ -1,6 +1,10 @@
-use std::cell::Cell;
+use std::{
+  cell::Cell,
+  ops::{Deref, DerefMut},
+};
 
 use super::AnyGeometry;
+use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
 
 pub trait IntersectAbleAnyGeometry {
@@ -96,26 +100,35 @@ impl Default for MeshBufferIntersectConfig {
 
 type Config = MeshBufferIntersectConfig;
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Triangle<T> {
+impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Triangle<T>
+where
+  T: Deref<Target = Vec3<f32>> + Copy,
+{
   #[inline]
   fn intersect(&self, ray: &Ray3, _: &Config) -> Nearest<HitPoint3D> {
-    ray.intersect(&self.map_position(), &FaceSide::Double)
+    ray.intersect(self, &FaceSide::Double)
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for LineSegment<T> {
+impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for LineSegment<T>
+where
+  T: Deref<Target = Vec3<f32>> + Copy,
+{
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
     let local_tolerance_adjusted =
       conf.line_tolerance.value / conf.current_item_scale_estimate.get();
-    ray.intersect(&self.map_position(), &local_tolerance_adjusted)
+    ray.intersect(self, &local_tolerance_adjusted)
   }
 }
 
-impl<T: Positioned<f32, 3>> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Point<T> {
+impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Point<T>
+where
+  T: Deref<Target = Vec3<f32>> + Copy + DerefMut,
+{
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
-    ray.intersect(&self.map_position(), &conf.point_tolerance.value)
+    ray.intersect(self, &conf.point_tolerance.value)
   }
 }
 

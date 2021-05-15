@@ -1,6 +1,6 @@
-use rendiation_algebra::{Scalar, SquareMatrixType, Vec3, VectorType};
-
-use crate::{LineSegment, Positioned, SpaceEntity};
+use crate::{LineSegment, SpaceEntity};
+use rendiation_algebra::{Scalar, SquareMatrixDimension, Vec3};
+use std::ops::DerefMut;
 
 pub enum FaceSide {
   Front,
@@ -15,22 +15,19 @@ pub struct Triangle<V = Vec3<f32>> {
   pub c: V,
 }
 
-impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for Triangle<V> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
-    self.a.position_mut().apply_matrix(mat);
-    self.b.position_mut().apply_matrix(mat);
-    self.c.position_mut().apply_matrix(mat);
+impl<T, V, M, U, const D: usize> SpaceEntity<T, D> for Triangle<U>
+where
+  T: Scalar,
+  M: SquareMatrixDimension<D>,
+  V: SpaceEntity<T, D, Matrix = M>,
+  U: DerefMut<Target = V>,
+{
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    self.a.deref_mut().apply_matrix(mat);
+    self.b.deref_mut().apply_matrix(mat);
+    self.c.deref_mut().apply_matrix(mat);
     self
-  }
-}
-
-impl<V> Triangle<V> {
-  pub fn map_position<T, const D: usize>(&self) -> Triangle<VectorType<T, D>>
-  where
-    T: Scalar,
-    V: Positioned<T, D>,
-  {
-    self.map(|p| p.position())
   }
 }
 

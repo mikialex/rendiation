@@ -130,6 +130,13 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
           + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
     })
   }
+
+  fn max_scale(&self) -> T{
+    let x = self.a1 * self.a1 + self.a2 * self.a2 + self.a3 * self.a3;
+    let y = self.b1 * self.b1 + self.b2 * self.b2 + self.b3 * self.b3;
+    let z = self.c1 * self.c1 + self.c2 * self.c2 + self.c3 * self.c3;
+    x.max(y).max(z).sqrt()
+  }
 }
 
 impl<T> Mat4<T> {
@@ -169,8 +176,9 @@ where
 }
 
 impl<T: Scalar> SpaceEntity<T, 3> for Vec3<T> {
+  type Matrix = Mat4<T>;
   #[inline(always)]
-  fn apply_matrix(&mut self, m: SquareMatrixType<T, 3>) -> &mut Self {
+  fn apply_matrix(&mut self, m: Self::Matrix) -> &mut Self {
     *self = *self * m;
     self
   }
@@ -302,7 +310,7 @@ where
 
 impl<T> Mat4<T>
 where
-  T: Scalar + PiByC180 + Half,
+  T: Scalar,
 {
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sin_cos();

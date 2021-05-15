@@ -1,44 +1,41 @@
-use rendiation_algebra::{Lerp, Scalar, SquareMatrixType, VectorImpl, VectorType};
-
-use crate::{Positioned, SpaceEntity, SpaceLineSegment};
+use crate::{SpaceEntity, SpaceLineSegment};
+use rendiation_algebra::{Lerp, Scalar, SquareMatrixDimension};
+use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct LineSegment<V> {
-  pub start: V,
-  pub end: V,
+pub struct LineSegment<U> {
+  pub start: U,
+  pub end: U,
 }
 
-impl<T: Scalar, V: Positioned<T, D>, const D: usize> SpaceEntity<T, D> for LineSegment<V> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self {
-    self.start.position_mut().apply_matrix(mat);
-    self.end.position_mut().apply_matrix(mat);
+impl<T, U, V, M, const D: usize> SpaceEntity<T, D> for LineSegment<U>
+where
+  T: Scalar,
+  M: SquareMatrixDimension<D>,
+  V: SpaceEntity<T, D, Matrix = M>,
+  U: DerefMut<Target = V>,
+{
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    self.start.deref_mut().apply_matrix(mat);
+    self.end.deref_mut().apply_matrix(mat);
     self
   }
 }
 
-impl<V> LineSegment<V> {
-  pub fn map_position<T, const D: usize>(&self) -> LineSegment<VectorType<T, D>>
-  where
-    T: Scalar,
-    V: Positioned<T, D>,
-  {
-    self.map(|p| p.position())
-  }
-}
-
-impl<T, V, const D: usize> SpaceLineSegment<T, D> for LineSegment<V>
+impl<T, U, V> SpaceLineSegment<T, V> for LineSegment<U>
 where
   T: Scalar,
-  V: Positioned<T, D>,
-  VectorType<T, D>: VectorImpl,
+  U: Deref<Target = V> + Copy,
+  V: Lerp<T> + Copy,
 {
-  fn start(&self) -> VectorType<T, D> {
-    self.start.position()
+  fn start(&self) -> V {
+    *self.start
   }
-  fn end(&self) -> VectorType<T, D> {
-    self.end.position()
+  fn end(&self) -> V {
+    *self.end
   }
-  fn sample(&self, t: T) -> VectorType<T, D> {
+  fn sample(&self, t: T) -> V {
     self.start().lerp(self.end(), t)
   }
 }

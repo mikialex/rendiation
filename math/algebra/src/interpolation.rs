@@ -1,4 +1,5 @@
 pub trait Lerp<T> {
+  #[must_use]
   fn lerp(self, rhs: Self, t: T) -> Self;
 }
 

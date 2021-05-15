@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::*};
+use std::ops::*;
 
 use num_traits::real::Real;
 
@@ -18,6 +18,7 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
 
   /// Perform the given operation on each field in the vector, returning a new point
   /// constructed from the operations.
+  #[must_use]
   fn map<F>(self, f: F) -> Self
   where
     F: Fn(T) -> T;
@@ -25,19 +26,23 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
   /// Construct a new vector where each component is the result of
   /// applying the given operation to each pair of components of the
   /// given vectors.
+  #[must_use]
   fn zip<F>(self, v2: Self, f: F) -> Self
   where
     F: Fn(T, T) -> T;
 
   #[inline]
+  #[must_use]
   fn one() -> Self {
     Self::create(|| T::one())
   }
   #[inline]
+  #[must_use]
   fn zero() -> Self {
     Self::create(|| T::zero())
   }
   #[inline]
+  #[must_use]
   fn splat(v: T) -> Self {
     Self::create(|| v)
   }
@@ -77,7 +82,7 @@ pub trait VectorSpace<T>:
 /// https://en.wikipedia.org/wiki/Inner_product
 ///
 /// inner space define the length and angle based on vector space
-pub trait InnerProductSpace<T: One + Zero + Two + Real + Copy>: VectorSpace<T> {
+pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   #[inline]
   fn normalize(&self) -> Self {
     let mag_sq = self.length2();
@@ -147,26 +152,3 @@ where
     q.normalize()
   }
 }
-
-pub trait DimensionalVec<T: Scalar, const D: usize> {
-  type Type: Vector<T>
-    + VectorDimension<D>
-    + SpaceEntity<T, D>
-    + RealVector<T>
-    + InnerProductSpace<T>;
-}
-
-pub struct VectorMark<T>(PhantomData<T>);
-
-impl<T: Scalar> DimensionalVec<T, 2> for VectorMark<T> {
-  type Type = Vec2<T>;
-}
-impl<T: Scalar> DimensionalVec<T, 3> for VectorMark<T> {
-  type Type = Vec3<T>;
-}
-
-impl<T: Scalar, const D: usize> DimensionalVec<T, D> for VectorMark<T> {
-  default type Type = FakeHyperVec<T, D>;
-}
-
-pub type VectorType<T, const D: usize> = <VectorMark<T> as DimensionalVec<T, D>>::Type;

@@ -5,7 +5,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
   pub fn traverse(
     &self,
     mut branch_enter_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
-    mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>),
+    mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
   ) {
     let mut stack = Vec::new(); // todo estimate depth for allocation
     stack.push(0);
@@ -14,7 +14,9 @@ impl<B: BVHBounding> FlattenBVH<B> {
       let node = &self.nodes[node_to_visit_index];
       if branch_enter_visitor(node) {
         if node.is_leaf() {
-          leaf_visitor(node);
+          if !leaf_visitor(node) {
+            return;
+          }
         } else {
           stack.push(node.right_child_offset().unwrap());
           stack.push(node.left_child_offset().unwrap());

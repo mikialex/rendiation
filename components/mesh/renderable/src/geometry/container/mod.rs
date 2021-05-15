@@ -1,14 +1,14 @@
 //! The actually geometry data container, define how we store the vertex
 
-pub mod indexed_geometry;
-pub mod indexed_geometry_view;
-pub mod none_indexed_geometry;
-pub mod none_indexed_geometry_view;
+pub mod indexed;
+pub mod indexed_view;
+pub mod none_indexed;
+pub mod none_indexed_view;
 
-pub use indexed_geometry::*;
-pub use indexed_geometry_view::*;
-pub use none_indexed_geometry::*;
-pub use none_indexed_geometry_view::*;
+pub use indexed::*;
+pub use indexed_view::*;
+pub use none_indexed::*;
+pub use none_indexed_view::*;
 
 use std::{iter::FromIterator, ops::Index};
 

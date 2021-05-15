@@ -51,6 +51,11 @@ impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
       c3: (self.b2 * self.a1 - self.a2 * self.b1) * invdet,
     })
   }
+  fn max_scale(&self) -> T {
+    let x = self.a1 * self.a1 + self.a2 * self.a2;
+    let y = self.b1 * self.b1 + self.b2 * self.b2;
+    x.max(y).sqrt()
+  }
 }
 
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat3<T> {}
@@ -70,8 +75,9 @@ where
   }
 }
 impl<T: Scalar> SpaceEntity<T, 2> for Vec2<T> {
+  type Matrix = Mat3<T>;
   #[inline(always)]
-  fn apply_matrix(&mut self, m: SquareMatrixType<T, 2>) -> &mut Self {
+  fn apply_matrix(&mut self, m: Self::Matrix) -> &mut Self {
     *self = *self * m;
     self
   }

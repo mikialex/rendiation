@@ -1,31 +1,41 @@
-use crate::math::*;
 use crate::Intersection;
+use crate::{math::*, ImportanceSampled};
 
 pub mod physical;
 pub use physical::*;
+use rendiation_algebra::Vec3;
 
-pub trait Material<G>: Send + Sync {
+pub trait RainrayMaterial: Send + Sync + 'static {
   /// sample the light input dir with brdf importance
-  fn sample_light_dir(
+  fn sample_light_dir_use_bsdf_importance(
     &self,
-    view_dir: NormalizedVec3,
+    view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-    geom: &G,
-  ) -> NormalizedVec3;
+  ) -> ImportanceSampled<NormalizedVec3<f32>> {
+    let light_dir = self.sample_light_dir_use_bsdf_importance_impl(view_dir, intersection);
+    ImportanceSampled {
+      sample: light_dir,
+      pdf: self.pdf(view_dir, light_dir, intersection),
+    }
+  }
+
+  fn sample_light_dir_use_bsdf_importance_impl(
+    &self,
+    view_dir: NormalizedVec3<f32>,
+    intersection: &Intersection,
+  ) -> NormalizedVec3<f32>;
   fn pdf(
     &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
+    view_dir: NormalizedVec3<f32>,
+    light_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-    geom: &G,
   ) -> f32;
   fn bsdf(
     &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
+    view_dir: NormalizedVec3<f32>,
+    light_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-    geom: &G,
-  ) -> Vec3;
+  ) -> Vec3<f32>;
 }
 
 pub trait Evaluation<C, I, O> {

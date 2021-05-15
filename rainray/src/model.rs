@@ -1,93 +1,41 @@
-use rendiation_geometry::{Box3, IntersectAble, Ray3};
+use rendiation_algebra::Vec3;
 
-use crate::{
-  material::Material, Intersection, NormalizedVec3, PossibleIntersection, RainRayGeometry, Vec3,
-};
+use crate::*;
 
-pub struct Model<M, G> {
-  pub geometry: G,
-  pub material: M,
+pub struct Model {
+  pub geometry: Box<dyn RainRayGeometry>,
+  pub material: Box<dyn RainrayMaterial>,
 }
 
-impl<M, G> Model<M, G>
-where
-  M: Material<G>,
-  G: RainRayGeometry,
-{
-  pub fn new(geometry: G, material: M) -> Self {
+impl Model {
+  pub fn new<M, G>(geometry: G, material: M) -> Self
+  where
+    M: RainrayMaterial,
+    G: RainRayGeometry,
+  {
+    let geometry = Box::new(geometry);
+    let material = Box::new(material);
     Model { geometry, material }
   }
 }
 
-impl<M, G: IntersectAble<Ray3, PossibleIntersection>> IntersectAble<Ray3, PossibleIntersection>
-  for Model<M, G>
-{
-  fn intersect(&self, ray: &Ray3, param: &()) -> PossibleIntersection {
-    self.geometry.intersect(ray, param)
-  }
+// impl<M, G> SceneModelCreator<RainrayScene> for (G, M)
+// where
+//   M: RainrayMaterial + RainrayMaterial,
+//   G: RainRayGeometry,
+// {
+//   fn create_model(self, scene: &mut sceno::Scene<RainrayScene>) -> ModelHandle<RainrayScene> {
+//     let model = Model::new(scene, self.0, self.1);
+//     scene.create_model(model)
+//   }
+// }
+
+pub struct BSDFSampleResult {
+  pub light_dir: ImportanceSampled<NormalizedVec3<f32>>,
+  pub bsdf: Vec3<f32>,
 }
 
-impl<M, G: RainRayGeometry> RainRayGeometry for Model<M, G> {
-  fn get_bbox(&self) -> Option<Box3> {
-    self.geometry.get_bbox()
-  }
-}
-
-impl<M, G> RainrayModel for Model<M, G>
-where
-  M: 'static + Sync + Send + Material<G>,
-  G: RainRayGeometry + 'static + Sync + Send,
-{
-  fn sample_light_dir(
-    &self,
-    view_dir: NormalizedVec3,
-    intersection: &Intersection,
-  ) -> NormalizedVec3 {
-    self
-      .material
-      .sample_light_dir(view_dir, intersection, &self.geometry)
-  }
-
-  fn pdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-  ) -> f32 {
-    self
-      .material
-      .pdf(view_dir, light_dir, intersection, &self.geometry)
-  }
-
-  fn bsdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-  ) -> Vec3 {
-    self
-      .material
-      .bsdf(view_dir, light_dir, intersection, &self.geometry)
-  }
-}
-
-pub trait RainrayModel: Sync + Send + 'static + RainRayGeometry {
-  /// sample the light input dir with brdf importance
-  fn sample_light_dir(
-    &self,
-    view_dir: NormalizedVec3,
-    intersection: &Intersection,
-  ) -> NormalizedVec3;
-  fn pdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-  ) -> f32;
-  fn bsdf(
-    &self,
-    view_dir: NormalizedVec3,
-    light_dir: NormalizedVec3,
-    intersection: &Intersection,
-  ) -> Vec3;
+pub struct ImportanceSampled<T> {
+  pub sample: T,
+  pub pdf: f32,
 }

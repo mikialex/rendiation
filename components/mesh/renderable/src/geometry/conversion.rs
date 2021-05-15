@@ -15,18 +15,19 @@ use super::{
   NoneIndexedGeometry, PointList, PrimitiveTopologyMeta,
 };
 use rendiation_algebra::{InnerProductSpace, Vec3};
-use rendiation_geometry::{LineSegment, Positioned, Triangle};
+use rendiation_geometry::{LineSegment, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
+  ops::Deref,
 };
 
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopologyMeta<I, V, Primitive = Triangle<V>>,
   U: GeometryDataContainer<V>,
+  V: Deref<Target = Vec3<f32>> + Copy,
 {
   pub fn create_wireframe(&self) -> IndexedGeometry<I, V, LineList, U> {
     let mut deduplicate_set = HashSet::<LineSegment<I>>::new();
@@ -64,7 +65,7 @@ where
       });
     let normals = self
       .primitive_iter()
-      .map(|f| f.map_position().face_normal().value)
+      .map(|f| f.map(|v| *v).face_normal().value)
       .collect::<Vec<Vec3<f32>>>();
     let threshold_dot = edge_threshold_angle.cos();
     let data = edges
@@ -81,32 +82,45 @@ where
 impl<I, V, T> IndexedGeometry<I, V, T>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
   T: IndexPrimitiveTopologyMeta<I, V>,
+  V: Copy,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
   pub fn merge_vertex_by_sorting(
     &self,
-    sorter: impl FnMut(&V, &V) -> Ordering,
+    mut sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,
   ) -> IndexedGeometry<I, V, T> {
-    let mut data = self.data.clone();
-    let mut merge_data = Vec::with_capacity(data.len());
-    let mut index_remapping = HashMap::new();
-    data.sort_unstable_by(sorter);
-    data.windows(2).enumerate().for_each(|(i, v)| {
-      if merger(&v[0], &v[1]) {
-        index_remapping.insert(i + 1, merge_data.len() - 1);
-      } else {
-        merge_data.push(v[1]);
-      }
-    });
+    let mut resorted: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
+    let mut merge_data = Vec::with_capacity(resorted.len());
+    let mut deduplicate_map = Vec::with_capacity(self.index.len());
+    resorted.sort_unstable_by(|a, b| sorter(a.1, b.1));
+
+    let mut resort_map: Vec<_> = (0..self.data.len()).collect();
+    resorted
+      .iter()
+      .enumerate()
+      .for_each(|(i, v)| resort_map[v.0] = i);
+
+    if self.data.len() >= 2 {
+      merge_data.push(*resorted[0].1);
+      deduplicate_map.push(0);
+
+      resorted.windows(2).for_each(|v| {
+        if !merger(&v[0].1, &v[1].1) {
+          merge_data.push(*v[1].1);
+        }
+        deduplicate_map.push(merge_data.len() - 1);
+      });
+    }
+
     let new_index = self
       .index
       .iter()
       .map(|i| {
         let k = (*i).into_usize();
-        I::from_usize(*index_remapping.get(&k).unwrap_or(&k))
+        let after_sort = resort_map[k];
+        I::from_usize(deduplicate_map[after_sort])
       })
       .collect();
 
@@ -117,9 +131,9 @@ where
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
   I: IndexType,
-  V: Positioned<f32, 3>,
   T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
+  V: Copy,
 {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T, U> {
     NoneIndexedGeometry::new(
@@ -134,7 +148,7 @@ where
 
 impl<V, T> NoneIndexedGeometry<V, T>
 where
-  V: Positioned<f32, 3> + HashAbleByConversion,
+  V: HashAbleByConversion + Copy,
   T: IndexPrimitiveTopologyMeta<u16, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
   // U: GeometryDataContainer<V>, // ditto
@@ -160,7 +174,6 @@ where
 
 impl<I, V, T, U> IndexedGeometry<I, V, T, U>
 where
-  V: Positioned<f32, 3>,
   T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
 {

@@ -2,11 +2,9 @@ mod mat2;
 mod mat3;
 mod mat4;
 mod dimension;
-mod fake_hyper_matrix;
 mod space_conversion_marker;
 
 pub use dimension::*;
-pub use fake_hyper_matrix::*;
 pub use space_conversion_marker::*;
 pub use mat2::*;
 pub use mat3::*;
@@ -88,34 +86,6 @@ macro_rules! impl_matrix {
       fn sub_assign(&mut self, other: $MatrixN<S>) { $(self.$field -= other.$field);+ }
     }
 
-    // impl<S: BaseFloat> iter::Sum<$MatrixN<S>> for $MatrixN<S> {
-    //     #[inline]
-    //     fn sum<I: Iterator<Item=$MatrixN<S>>>(iter: I) -> $MatrixN<S> {
-    //         iter.fold($MatrixN::zero(), Add::add)
-    //     }
-    // }
-
-    // impl<'a, S: 'a + BaseFloat> iter::Sum<&'a $MatrixN<S>> for $MatrixN<S> {
-    //     #[inline]
-    //     fn sum<I: Iterator<Item=&'a $MatrixN<S>>>(iter: I) -> $MatrixN<S> {
-    //         iter.fold($MatrixN::zero(), Add::add)
-    //     }
-    // }
-
-    // impl<S: BaseFloat> iter::Product for $MatrixN<S> {
-    //     #[inline]
-    //     fn product<I: Iterator<Item=$MatrixN<S>>>(iter: I) -> $MatrixN<S> {
-    //         iter.fold($MatrixN::identity(), Mul::mul)
-    //     }
-    // }
-
-    // impl<'a, S: 'a + BaseFloat> iter::Product<&'a $MatrixN<S>> for $MatrixN<S> {
-    //     #[inline]
-    //     fn product<I: Iterator<Item=&'a $MatrixN<S>>>(iter: I) -> $MatrixN<S> {
-    //         iter.fold($MatrixN::identity(), Mul::mul)
-    //     }
-    // }
-
     impl_scalar_ops!($MatrixN<usize> { $($field),+ });
     impl_scalar_ops!($MatrixN<u8>    { $($field),+ });
     impl_scalar_ops!($MatrixN<u16>   { $($field),+ });
@@ -129,20 +99,6 @@ macro_rules! impl_matrix {
     impl_scalar_ops!($MatrixN<f32>   { $($field),+ });
     impl_scalar_ops!($MatrixN<f64>   { $($field),+ });
 
-
-    // impl<S: NumCast + Copy> $MatrixN<S> {
-    //     /// Component-wise casting to another type
-    //     #[inline]
-    //     pub fn cast<T: NumCast>(&self) -> Option<$MatrixN<T>> {
-    //         $(
-    //             let $field = match self.$field.cast() {
-    //                 Some(field) => field,
-    //                 None => return None
-    //             };
-    //         )+
-    //         Some($MatrixN { $($field),+ })
-    //     }
-    // }
   }
 }
 

@@ -1,7 +1,6 @@
 use super::super::*;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
-use rendiation_geometry::Positioned;
 
 pub struct NoneIndexedGeometry<V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: U,
@@ -21,7 +20,6 @@ impl<V, T, U> NoneIndexedGeometry<V, T, U> {
 
 impl<V, T, U> AnyGeometry for NoneIndexedGeometry<V, T, U>
 where
-  V: Positioned<f32, 3>,
   T: PrimitiveTopologyMeta<V>,
   U: GeometryDataContainer<V>,
   T::Primitive: PrimitiveData<V, U>,

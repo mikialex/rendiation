@@ -1,31 +1,51 @@
-use crate::{math::*, Scene};
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector};
+use crate::NormalizedVec3;
+use rendiation_algebra::*;
+
+pub trait LightShape {}
+
+pub struct Light {
+  pub emissive: Vec3<f32>,
+  // pub shape: Box<dyn LightShape>,
+}
 
 pub struct LightSampleResult {
-  pub emissive: Vec3,
-  pub light_in_dir: NormalizedVec3,
+  pub emissive: Vec3<f32>,
+  pub light_in_dir: NormalizedVec3<f32>,
 }
 
-pub trait Light: Sync + 'static {
-  fn sample(&self, world_position: Vec3, scene: &Scene) -> Option<LightSampleResult>;
-}
+// pub trait Light: Sync + 'static {
+//   fn sample<'a>(
+//     &self,
+//     world_position: Vec3<f32>,
+//     scene: &RayTraceScene<'a>,
+//     node: &SceneNode,
+//   ) -> Option<LightSampleResult>;
+// }
 
-#[derive(Debug, Clone, Copy)]
-pub struct PointLight {
-  pub position: Vec3,
-  pub intensity: Vec3,
-}
+// pub trait LightToBoxed: Light + Sized {
+//   fn to_boxed(self) -> Box<dyn Light> {
+//     Box::new(self) as Box<dyn Light>
+//   }
+// }
 
-impl Light for PointLight {
-  fn sample(&self, world_position: Vec3, scene: &Scene) -> Option<LightSampleResult> {
-    if !scene.test_point_visible_to_point(self.position, world_position) {
-      return None;
-    }
-    let light_in_dir = world_position - self.position;
-    let distance = light_in_dir.length();
-    Some(LightSampleResult {
-      emissive: self.intensity / (distance * distance),
-      light_in_dir: light_in_dir.into_normalized(),
-    })
-  }
-}
+// impl LightToBoxed for PointLight {}
+// impl Light for PointLight {
+//   fn sample<'a>(
+//     &self,
+//     world_position: Vec3<f32>,
+//     scene: &RayTraceScene<'a>,
+//     node: &SceneNode,
+//   ) -> Option<LightSampleResult> {
+//     let light_position = node.world_matrix.position();
+
+//     if !scene.test_point_visible_to_point(light_position, world_position) {
+//       return None;
+//     }
+//     let light_in_dir = world_position - light_position;
+//     let distance = light_in_dir.length();
+//     Some(LightSampleResult {
+//       emissive: self.intensity / (distance * distance),
+//       light_in_dir: light_in_dir.into_normalized(),
+//     })
+//   }
+// }

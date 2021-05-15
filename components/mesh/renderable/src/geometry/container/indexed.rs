@@ -7,7 +7,6 @@ use crate::{
   vertex::Vertex,
 };
 use core::marker::PhantomData;
-use rendiation_geometry::Positioned;
 use std::hash::Hash;
 
 pub trait IntoUsize {
@@ -67,7 +66,7 @@ impl<V, I, T, U> IndexedGeometry<I, V, T, U> {
 
 impl<I, V, T, U> AnyGeometry for IndexedGeometry<I, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,
@@ -93,7 +92,7 @@ where
 
 impl<I, V, T, U> AnyIndexGeometry for IndexedGeometry<I, V, T, U>
 where
-  V: Positioned<f32, 3>,
+  V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,
   T::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
   U: GeometryDataContainer<V>,

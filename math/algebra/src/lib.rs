@@ -1,4 +1,3 @@
-#![feature(specialization)]
 #![feature(const_generics)]
 #![feature(trait_alias)]
 #![feature(stmt_expr_attributes)]
@@ -8,7 +7,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-pub mod consts;
 pub mod interpolation;
 pub mod mat;
 pub mod projection;
@@ -23,7 +21,6 @@ pub use mat::*;
 pub use projection::*;
 pub use vec::*;
 
-pub use self::consts::*;
 pub use self::quat::*;
 
 pub use num_traits::*;
@@ -33,14 +30,55 @@ pub mod macros;
 
 pub trait Scalar = Float
   + FloatConst
-  + Half
-  + Three
-  + Two
+  + ScalarConstEval
+  + Copy
   + AddAssign<Self>
   + SubAssign<Self>
   + DivAssign<Self>
   + MulAssign<Self>;
 
-pub trait SpaceEntity<T: Scalar, const D: usize> {
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, D>) -> &mut Self;
+const PI: f32 = std::f32::consts::PI;
+
+pub trait ScalarConstEval: Sized {
+  fn eval<const N: f32>() -> Self;
+  fn half() -> Self {
+    Self::eval::<0.5>()
+  }
+  fn two() -> Self {
+    Self::eval::<2.0>()
+  }
+  fn three() -> Self {
+    Self::eval::<3.0>()
+  }
+  fn pi_by_c180() -> Self {
+    Self::eval::<{ PI / 180.0 }>()
+  }
+  fn c180_by_pi() -> Self {
+    Self::eval::<{ 180.0 / PI }>()
+  }
 }
+
+impl<T: From<f32>> ScalarConstEval for T {
+  fn eval<const N: f32>() -> Self {
+    N.into()
+  }
+}
+
+#[test]
+fn const_eval() {
+  assert_eq!(f32::eval::<1.5>(), 1.5);
+  assert_eq!(f64::eval::<1.5>(), 1.5);
+}
+
+pub trait SpaceEntity<T: Scalar, const D: usize> {
+  type Matrix: SquareMatrixDimension<D>;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self;
+}
+
+pub trait SpaceEntityCopyable<T: Scalar, const D: usize>: Copy + SpaceEntity<T, D> {
+  fn apply_matrix_into(&self, mat: Self::Matrix) -> Self {
+    *self.clone().apply_matrix(mat)
+  }
+}
+
+impl<T: Scalar, const D: usize, X: Copy + SpaceEntity<T, D>> SpaceEntityCopyable<T, D> for X {}

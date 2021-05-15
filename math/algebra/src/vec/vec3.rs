@@ -76,6 +76,7 @@ where
   ///
   /// vector interpreted as a direction
   #[inline]
+  #[must_use]
   pub fn transform_direction(&self, m: Mat4<T>) -> NormalizedVector<T, Self> {
     Self {
       x: m.a1 * self.x + m.b1 * self.y + m.c1 * self.z,
@@ -114,11 +115,12 @@ impl<T: Scalar> NormalizedVector<T, Vec3<T>> {
       Vec3::new(T::zero(), -v.z, v.y).normalize()
     };
     let nss = v.cross(ns);
+    let ns = v.cross(nss);
 
     #[rustfmt::skip]
     Mat3::new(
-       ns.x,  ns.y,  ns.z, 
       nss.x, nss.y, nss.z, 
+       ns.x,  ns.y,  ns.z, 
         v.x,   v.y,   v.z
     )
   }

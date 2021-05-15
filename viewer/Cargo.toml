@@ -1,7 +1,7 @@
 [package]
-authors = ["mikialex <18516340862@163.com>"]
+authors = ["MikiAlex <18516340862@163.com>"]
 edition = "2018"
-name = "sceno"
+name = "viewer"
 version = "0.1.0"
 
 [dependencies]
@@ -13,3 +13,5 @@ rendiation-algebra = {path = "../math/algebra"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
+wgpu = "0.7.1"
+winit = {version = "0.24.0"}

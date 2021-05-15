@@ -588,6 +588,7 @@ dependencies = [
 name = "rainray"
 version = "0.1.0"
 dependencies = [
+ "arena",
  "arena-tree",
  "image",
  "indicatif",
@@ -789,20 +790,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sceno"
-version = "0.1.0"
-dependencies = [
- "arena",
- "arena-graph",
- "arena-tree",
- "once_cell",
- "rendiation-algebra",
- "rendiation-geometry",
- "rendiation-renderable-mesh",
- "rendiation-texture",
-]
-
-[[package]]
 name = "scoped_threadpool"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -900,9 +887,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.60"
+version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c700597eca8a5a762beb35753ef6b94df201c81cca676604f547495a0d7f0081"
+checksum = "f3a1d708c221c5a612956ef9f75b37e454e88d1f7b899fbd3a18d4252012d663"
 dependencies = [
  "proc-macro2",
  "quote",

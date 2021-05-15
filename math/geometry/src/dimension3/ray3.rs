@@ -1,11 +1,12 @@
 use crate::{DistanceTo, HyperRay, LineSegment3D, Plane};
 use rendiation_algebra::*;
 
-pub type Ray3<T = f32> = HyperRay<T, 3>;
+pub type Ray3<T = f32> = HyperRay<T, Vec3<T>>;
 
 impl<T: Scalar> SpaceEntity<T, 3> for Ray3<T> {
+  type Matrix = Mat4<T>;
   #[inline]
-  fn apply_matrix(&mut self, mat: SquareMatrixType<T, 3>) -> &mut Self {
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
     let origin = self.origin * mat;
     let direction = self.direction.transform_direction(mat);
     *self = Self::new(origin, direction);
