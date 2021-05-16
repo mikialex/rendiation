@@ -1,6 +1,6 @@
 use crate::{AddressMode, FilterMode};
 
-pub struct Sampler {
+pub struct TextureSampler {
   pub address_mode_u: AddressMode,
   pub address_mode_v: AddressMode,
   pub mag_filter: FilterMode,

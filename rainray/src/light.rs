@@ -1,17 +1,27 @@
 use crate::NormalizedVec3;
 use rendiation_algebra::*;
 
-pub trait LightShape {}
+pub struct LightShapeSampleResult {
+  pub local_position: Vec3<f32>,
+  pub normal: NormalizedVec3<f32>,
+  pub pdf: f32,
+}
+
+pub trait LightShape: Send + Sync {
+  fn sample(&self) -> LightSampleResult;
+}
 
 pub struct Light {
   pub emissive: Vec3<f32>,
-  // pub shape: Box<dyn LightShape>,
+  pub shape: Box<dyn LightShape>,
 }
 
 pub struct LightSampleResult {
   pub emissive: Vec3<f32>,
   pub light_in_dir: NormalizedVec3<f32>,
 }
+
+impl Light {}
 
 // pub trait Light: Sync + 'static {
 //   fn sample<'a>(

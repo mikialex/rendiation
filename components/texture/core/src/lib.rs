@@ -17,19 +17,27 @@ use rendiation_algebra::Vec2;
 
 pub use image::*;
 
+pub struct Size<T> {
+  width: T,
+  height: T,
+}
+
 pub trait Texture2D {
-  type Pixel;
+  type Pixel: Copy;
   fn get(&self, position: Vec2<usize>) -> &Self::Pixel;
   fn get_mut(&mut self, position: Vec2<usize>) -> &mut Self::Pixel;
 
+  fn read(&self, position: Vec2<usize>) -> Self::Pixel {
+    *self.get(position)
+  }
   fn write(&mut self, position: Vec2<usize>, v: Self::Pixel) {
     *self.get_mut(position) = v;
   }
 
-  fn size(&self) -> (usize, usize);
+  fn size(&self) -> Size<usize>;
 
   fn pixel_count(&self) -> usize {
-    let (width, height) = self.size();
+    let Size { width, height } = self.size();
     width * height
   }
 
@@ -53,10 +61,14 @@ where
     self.get_pixel_mut(position.x as u32, position.y as u32)
   }
 
-  fn size(&self) -> (usize, usize) {
+  fn size(&self) -> Size<usize> {
     let d = self.dimensions();
-    (d.0 as usize, d.1 as usize)
+    Size {
+      width: d.0 as usize,
+      height: d.1 as usize,
+    }
   }
+
   fn save_to_file<Pa: AsRef<Path>>(&self, path: Pa) {
     self.save(path).unwrap();
   }

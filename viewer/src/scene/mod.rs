@@ -116,7 +116,7 @@ pub trait Model {
 
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
-use rendiation_texture::Sampler;
+use rendiation_texture::TextureSampler;
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Box<dyn Model>>;
@@ -131,7 +131,7 @@ pub struct Scene {
   pub models: Arena<Box<dyn Model>>,
   pub meshes: Arena<SceneMesh>,
   pub materials: Arena<Box<dyn Material>>,
-  pub samplers: Arena<Sampler>,
+  pub samplers: Arena<TextureSampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
 }
