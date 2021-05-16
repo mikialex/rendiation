@@ -6,7 +6,9 @@ use space_algorithm::{
   utils::TreeBuildOption,
 };
 
+pub mod node;
 use crate::*;
+pub use node::*;
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
@@ -83,6 +85,13 @@ impl Scene {
     let mut models_in_bvh_source = Vec::new();
 
     let root = self.nodes.root();
+    self
+      .nodes
+      .traverse_mut(root, &mut Vec::new(), |this, parent| {
+        let node_data = this.data_mut();
+        node_data.update(parent.map(|p| p.data()));
+        NextTraverseVisit::VisitChildren
+      });
     self.nodes.traverse(root, &mut Vec::new(), |this, _| {
       let node_data = this.data();
       node_data.payloads.iter().for_each(|payload| match payload {
@@ -212,28 +221,6 @@ impl Scene {
 pub type NodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Model>;
 pub type LightHandle = Handle<Light>;
-
-pub struct SceneNode {
-  pub payloads: Vec<SceneNodePayload>,
-
-  pub visible: bool,
-  pub local_matrix: Mat4<f32>,
-
-  pub net_visible: bool,
-  pub world_matrix: Mat4<f32>,
-}
-
-impl Default for SceneNode {
-  fn default() -> Self {
-    Self {
-      visible: true,
-      local_matrix: Mat4::one(),
-      payloads: Vec::new(),
-      net_visible: true,
-      world_matrix: Mat4::one(),
-    }
-  }
-}
 
 pub enum SceneNodePayload {
   Model(ModelHandle),
