@@ -1,6 +1,8 @@
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 
+pub trait BackGround {}
+
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
 }

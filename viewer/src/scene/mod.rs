@@ -1,18 +1,18 @@
 pub mod background;
 pub mod lights;
 pub mod node;
-pub mod scene;
 
 pub use background::*;
 pub use lights::*;
 pub use node::*;
-pub use scene::*;
 
 pub mod materials;
 pub use materials::*;
 
 pub use arena::*;
 pub use arena_tree::*;
+
+use crate::renderer::*;
 
 impl Renderable for Scene {
   fn render<'a>(
@@ -111,3 +111,117 @@ pub trait Model {
     ctx: &mut SceneRenderCtx,
   );
 }
+
+use arena::{Arena, Handle};
+use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
+use rendiation_texture::Sampler;
+
+pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
+pub type ModelHandle = Handle<Box<dyn Model>>;
+pub type MeshHandle = Handle<SceneMesh>;
+pub type MaterialHandle = Handle<Box<dyn Material>>;
+pub type LightHandle = Handle<Box<dyn Light>>;
+
+pub struct Scene {
+  pub nodes: ArenaTree<SceneNode>,
+  pub background: Option<Box<dyn BackGround>>,
+  pub lights: Arena<Box<dyn Light>>,
+  pub models: Arena<Box<dyn Model>>,
+  pub meshes: Arena<SceneMesh>,
+  pub materials: Arena<Box<dyn Material>>,
+  pub samplers: Arena<Sampler>,
+  // textures: Arena<Texture>,
+  // buffers: Arena<Buffer>,
+}
+
+impl Scene {
+  pub fn new() -> Self {
+    Self {
+      nodes: ArenaTree::new(SceneNode::default()),
+      background: None,
+      models: Arena::new(),
+      meshes: Arena::new(),
+      lights: Arena::new(),
+      materials: Arena::new(),
+      samplers: Arena::new(),
+    }
+  }
+
+  pub fn update(&mut self) {
+    let root = self.get_root_handle();
+    self
+      .nodes
+      .traverse_mut(root, &mut Vec::new(), |this, parent| {
+        let node_data = this.data_mut();
+        node_data.update(parent.map(|p| p.data()));
+        NextTraverseVisit::VisitChildren
+      });
+  }
+
+  // pub fn create_model(&mut self, creator: impl SceneModelCreator) -> ModelHandle {
+  //   creator.create_model(self)
+  // }
+
+  // pub fn create_light(&mut self, creator: impl SceneLightCreator) -> LightHandle {
+  //   creator.create_light(self)
+  // }
+
+  pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> &mut Self {
+    let mut node = SceneNode::default();
+    builder(&mut node, self);
+    let new = self.nodes.create_node(node);
+    let root = self.get_root_handle();
+    self.nodes.node_add_child_by_id(root, new);
+    self
+  }
+
+  // pub fn model_node(&mut self, model: impl SceneModelCreator) -> &mut Self {
+  //   let model = self.create_model(model);
+  //   self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
+  //   self
+  // }
+
+  // pub fn model_node_with_modify(
+  //   &mut self,
+  //   model: impl SceneModelCreator,
+  //   m: impl Fn(&mut SceneNode),
+  // ) -> &mut Self {
+  //   let model = self.create_model(model);
+  //   self.create_node(|node, _| {
+  //     node.payloads.push(SceneNodePayload::Model(model));
+  //     m(node)
+  //   });
+  //   self
+  // }
+
+  pub fn background(&mut self, background: T::Background) -> &mut Self {
+    self.background = background.into();
+    self
+  }
+}
+
+// pub trait SceneModelCreator<T: SceneBackend> {
+//   fn create_model(self, scene: &mut Scene) -> ModelHandle;
+// }
+
+// impl SceneModelCreator for <T as SceneBackend>::Model
+// where
+//   T: SceneBackend,
+// {
+//   fn create_model(self, scene: &mut Scene) -> ModelHandle {
+//     scene.models.insert(self)
+//   }
+// }
+
+// pub trait SceneLightCreator<T: SceneBackend> {
+//   fn create_light(self, scene: &mut Scene) -> LightHandle;
+// }
+
+// impl SceneLightCreator for <T as SceneBackend>::Light
+// where
+//   T: SceneBackend,
+// {
+//   fn create_light(self, scene: &mut Scene) -> LightHandle {
+//     scene.lights.insert(self)
+//   }
+// }
