@@ -19,13 +19,13 @@ use crate::*;
 #[macro_export]
 macro_rules! vector {
   ($x:expr,$y:expr) => {
-    Vec2::new($x, $y)
+    rendiation_algebra::Vec2::new($x, $y)
   };
   ($x:expr,$y:expr,$z:expr) => {
-    Vec3::new($x, $y, $z)
+    rendiation_algebra::Vec3::new($x, $y, $z)
   };
   ($x:expr,$y:expr,$z:expr,$w:expr) => {
-    Vec4::new($x, $y, $z, $w)
+    rendiation_algebra::Vec4::new($x, $y, $z, $w)
   };
 }
 

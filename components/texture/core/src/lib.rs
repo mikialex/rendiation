@@ -11,6 +11,8 @@ pub mod cube;
 pub use cube::*;
 pub mod sampler;
 pub use sampler::*;
+pub mod iter;
+pub use iter::*;
 
 use image::ImageBuffer;
 use rendiation_algebra::Vec2;
@@ -22,7 +24,7 @@ pub struct Size<T> {
   height: T,
 }
 
-pub trait Texture2D {
+pub trait Texture2D: Sized {
   type Pixel: Copy;
   fn get(&self, position: Vec2<usize>) -> &Self::Pixel;
   fn get_mut(&mut self, position: Vec2<usize>) -> &mut Self::Pixel;
@@ -39,6 +41,14 @@ pub trait Texture2D {
   fn pixel_count(&self) -> usize {
     let Size { width, height } = self.size();
     width * height
+  }
+
+  fn iter<'a>(&'a self) -> TexturePixels<'a, Self> {
+    TexturePixels {
+      texture: self,
+      current: 0,
+      all: self.pixel_count(),
+    }
   }
 
   fn save_to_file<P: AsRef<Path>>(&self, path: P);

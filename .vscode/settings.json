@@ -8,6 +8,7 @@
         "Bowtie",
         "Controllee",
         "Drawcall",
+        "Encodable",
         "Framebuffer",
         "GLRAL",
         "GPURAL",

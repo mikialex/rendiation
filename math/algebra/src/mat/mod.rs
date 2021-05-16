@@ -19,7 +19,7 @@ use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
   ($m11:expr, $m12:expr, 
    $m21:expr, $m22:expr) =>
 	{
-		Mat2::new(
+		rendiation_algebra::Mat2::new(
 			$m11, $m12,
 			$m21, $m22,
 		)
@@ -28,7 +28,7 @@ use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 	 $m21:expr, $m22:expr, $m23:expr, 
 	 $m31:expr, $m32:expr, $m33:expr) =>
 	{
-		Mat3::new(
+		rendiation_algebra::Mat3::new(
 			$m11, $m12, $m13,
 			$m21, $m22, $m23,
 			$m31, $m32, $m33
@@ -39,7 +39,7 @@ use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 	 $m31:expr, $m32:expr, $m33:expr, $m34:expr,
 	 $m41:expr, $m42:expr, $m43:expr, $m44:expr) =>
 	{
-		Mat4::new(
+		rendiation_algebra::Mat4::new(
 			$m11, $m12, $m13, $m14,
 			$m21, $m22, $m23, $m24,
 			$m31, $m32, $m33, $m34,
