@@ -44,11 +44,7 @@ impl Scene {
     self
   }
 
-  pub fn model_node(
-    &mut self,
-    geometry: impl RainRayGeometry,
-    material: impl RainrayMaterial,
-  ) -> &mut Self {
+  pub fn model_node(&mut self, geometry: impl Geometry, material: impl Material) -> &mut Self {
     let model = Model::new(geometry, material);
     let model = self.models.insert(model);
     self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
@@ -57,8 +53,8 @@ impl Scene {
 
   pub fn model_node_with_modify(
     &mut self,
-    geometry: impl RainRayGeometry,
-    material: impl RainrayMaterial,
+    geometry: impl Geometry,
+    material: impl Material,
     m: impl Fn(&mut SceneNode),
   ) -> &mut Self {
     let model = Model::new(geometry, material);
@@ -301,6 +297,6 @@ impl ModelInstance {
   pub fn get_intersection_stat(&self, world_ray: Ray3, scene: &Scene) -> IntersectionStatistic {
     let local_ray = world_ray.apply_matrix_into(self.world_matrix_inverse);
     let model = scene.models.get(self.model).unwrap();
-    model.geometry.acceleration_traverse_count(local_ray, scene)
+    model.geometry.intersect_statistic(local_ray, scene)
   }
 }

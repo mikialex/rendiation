@@ -3,7 +3,7 @@ use crate::*;
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vec3, Vector};
 
 pub struct Lambertian;
-impl RainrayMaterial for Diffuse<Lambertian> {
+impl Material for Diffuse<Lambertian> {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,
@@ -65,7 +65,7 @@ impl OrenNayar {
   }
 }
 
-impl RainrayMaterial for OrenNayar {
+impl Material for OrenNayar {
   fn bsdf(
     &self,
     _view_dir: NormalizedVec3<f32>,

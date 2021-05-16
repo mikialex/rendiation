@@ -5,7 +5,7 @@ pub mod physical;
 pub use physical::*;
 use rendiation_algebra::Vec3;
 
-pub trait RainrayMaterial: Send + Sync + 'static {
+pub trait Material: Send + Sync + 'static {
   /// sample the light input dir with brdf importance
   fn sample_light_dir_use_bsdf_importance(
     &self,

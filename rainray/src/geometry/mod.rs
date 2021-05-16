@@ -6,7 +6,7 @@ pub mod mesh;
 pub use mesh::*;
 use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
 
-pub trait RainRayGeometry: Sync + Send + 'static {
+pub trait Geometry: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
 
   fn intersect(&self, ray: Ray3, scene: &Scene) -> PossibleIntersection;
@@ -19,7 +19,7 @@ pub trait RainRayGeometry: Sync + Send + 'static {
     None
   }
 
-  fn acceleration_traverse_count(&self, _ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
+  fn intersect_statistic(&self, _ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
     Default::default()
   }
 }
@@ -97,7 +97,7 @@ impl Intersection {
 
 pub struct PossibleIntersection(pub Option<Intersection>);
 
-impl RainRayGeometry for Sphere {
+impl Geometry for Sphere {
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }
@@ -120,7 +120,7 @@ impl RainRayGeometry for Sphere {
   }
 }
 
-impl RainRayGeometry for Plane {
+impl Geometry for Plane {
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }

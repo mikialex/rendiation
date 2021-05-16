@@ -63,7 +63,7 @@ where
   }
 }
 
-impl<G> RainRayGeometry for TriangleMesh<G>
+impl<G> Geometry for TriangleMesh<G>
 where
   G: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync + 'static,
   G: AnyGeometry<Primitive = Triangle<Vertex>>,
@@ -95,7 +95,7 @@ where
     None
   }
 
-  fn acceleration_traverse_count(&self, ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
+  fn intersect_statistic(&self, ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
     let stat = self
       .geometry
       .intersect_nearest_bvh_statistic(ray, &self.bvh);

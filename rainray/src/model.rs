@@ -3,15 +3,15 @@ use rendiation_algebra::Vec3;
 use crate::*;
 
 pub struct Model {
-  pub geometry: Box<dyn RainRayGeometry>,
-  pub material: Box<dyn RainrayMaterial>,
+  pub geometry: Box<dyn Geometry>,
+  pub material: Box<dyn Material>,
 }
 
 impl Model {
   pub fn new<M, G>(geometry: G, material: M) -> Self
   where
-    M: RainrayMaterial,
-    G: RainRayGeometry,
+    M: Material,
+    G: Geometry,
   {
     let geometry = Box::new(geometry);
     let material = Box::new(material);
