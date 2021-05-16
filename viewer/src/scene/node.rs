@@ -1,6 +1,6 @@
 use rendiation_algebra::*;
 
-use super::{LightHandle, ModelHandle, SceneNodeHandle};
+use super::{LightHandle, ModelHandle, Scene, SceneNodeHandle};
 
 pub struct SceneNode {
   pub visible: bool,

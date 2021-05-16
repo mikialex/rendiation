@@ -5,6 +5,8 @@ use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::*;
 
+use super::{MaterialCPUResource, MaterialGPUResource, SceneMaterialRenderPrepareCtx};
+
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
 }

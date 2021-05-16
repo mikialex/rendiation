@@ -1,8 +1,10 @@
 pub mod background;
+pub mod buffer;
 pub mod lights;
 pub mod node;
 
 pub use background::*;
+pub use buffer::*;
 pub use lights::*;
 pub use node::*;
 
@@ -70,7 +72,7 @@ impl Mesh for SceneMesh {
 
 pub struct SceneRenderCtx<'a> {
   materials: &'a mut Arena<Box<dyn Material>>,
-  meshes: &'a mut Arena<Box<dyn Mesh>>,
+  meshes: &'a mut Arena<SceneMesh>,
   material_ctx: SceneMaterialRenderPrepareCtx,
 }
 
@@ -124,7 +126,7 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
-  pub background: Option<Box<dyn BackGround>>,
+  pub background: Option<Box<dyn Background>>,
   pub lights: Arena<Box<dyn Light>>,
   pub models: Arena<Box<dyn Model>>,
   pub meshes: Arena<SceneMesh>,
@@ -194,8 +196,8 @@ impl Scene {
   //   self
   // }
 
-  pub fn background(&mut self, background: T::Background) -> &mut Self {
-    self.background = background.into();
+  pub fn background(&mut self, background: impl Background) -> &mut Self {
+    self.background = Some(Box::new(background));
     self
   }
 }

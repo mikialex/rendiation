@@ -1,6 +1,10 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unreachable_code)]
+
 use std::time::{Duration, Instant};
 mod renderer;
-// mod scene;
+mod scene;
 
 use renderer::Renderer;
 use winit::{
