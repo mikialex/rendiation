@@ -12,15 +12,23 @@ impl<T: SurfaceAreaMeasure<f32, Matrix = Mat4<f32>>> SurfaceAreaMeasureAble for 
   }
 }
 
-pub trait LightShape: Send + Sync + SurfaceAreaMeasureAble {
+pub struct LightSourceGeometrySample {
+  pub position: Vec3<f32>,
+  pub normal: NormalizedVec3<f32>,
+}
+
+/// https://www.pbr-book.org/3ed-2018/Light_Transport_I_Surface_Reflection/Sampling_Light_Sources#fragment-ShapeInterface-5
+pub trait LightGeometry: Send + Sync + SurfaceAreaMeasureAble {
   fn pdf(&self) -> f32 {
     1.0 / self.surface_area()
   }
+
+  fn sample_on_light_source(&self) -> LightSourceGeometrySample;
 }
 
 pub struct Light {
   pub emissive: Vec3<f32>,
-  pub shape: Box<dyn LightShape>,
+  pub shape: Box<dyn LightGeometry>,
 }
 
 pub struct LightSampleResult {
