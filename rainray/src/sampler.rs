@@ -1,5 +1,7 @@
 use rendiation_algebra::Vec2;
 
+/// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
+
 /// Because sample values must be strictly less than 1,
 /// OneMinusEpsilon, that represents the largest representable floating-point constant that is less than 1.
 /// Later, we will clamp sample vector values to be no larger than this value.
@@ -8,6 +10,7 @@ use rendiation_algebra::Vec2;
 /// The task of a Sampler is to generate a sequence of -dimensional samples in
 /// [0, 1) ^ d
 pub trait Sampler {
+  fn reset(&self);
   fn sample(&self) -> f32;
 
   /// While a 2D sample value could be constructed by using values returned by a pair of calls to sample(),
@@ -15,7 +18,7 @@ pub trait Sampler {
   fn sample_2d(&self) -> Vec2<f32>;
 
   /// For convenience, the Sampler base class provides a method that initializes a CameraSample for a given pixel.
-  fn sampleCamera(&self, pixel: Vec2<usize>) -> CameraSample {
+  fn sample_camera(&self, pixel: Vec2<usize>) -> CameraSample {
     CameraSample {
       film_position: pixel.map(|v| v as f32) + self.sample_2d(),
       time: self.sample(),
@@ -34,6 +37,18 @@ pub struct CameraSample {
   pub film_position: Vec2<f32>,
   pub time: f32,
   pub lens: Vec2<f32>,
+}
+
+pub struct SampleStorage {
+  samples_1d_array: Vec<f32>,
+  samples_2d_array: Vec<Vec2<f32>>,
+}
+
+pub struct PixelSamplerDispatcher<T> {
+  sampler: T,
+  pixel_in_sampling: Vec2<usize>,
+  current_sample_count: usize,
+  sample_per_pixel: usize,
 }
 
 struct RngSampler {}
