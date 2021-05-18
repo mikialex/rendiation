@@ -1,6 +1,6 @@
 use crate::NormalizedVec3;
 use rendiation_algebra::*;
-use rendiation_geometry::SurfaceAreaMeasure;
+use rendiation_geometry::{Sphere, SurfaceAreaMeasure};
 
 pub trait SurfaceAreaMeasureAble {
   fn surface_area(&self) -> f32;
@@ -25,6 +25,12 @@ pub trait LightGeometry: Send + Sync + SurfaceAreaMeasureAble {
 
   fn sample_on_light_source(&self) -> LightSourceGeometrySample;
 }
+
+// impl LightGeometry for Sphere {
+//   fn sample_on_light_source(&self) -> LightSourceGeometrySample {
+//     todo!()
+//   }
+// }
 
 pub struct Light {
   pub emissive: Vec3<f32>,

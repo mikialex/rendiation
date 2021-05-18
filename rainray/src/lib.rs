@@ -8,6 +8,7 @@ mod material;
 mod math;
 mod model;
 mod renderer;
+mod sampler;
 mod scene;
 
 pub use background::*;
@@ -20,4 +21,5 @@ pub use material::*;
 pub use math::*;
 pub use model::*;
 pub use renderer::*;
+pub use sampler::*;
 pub use scene::*;
