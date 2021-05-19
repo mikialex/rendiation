@@ -51,7 +51,7 @@ impl<T: Copy + Clone> ColorSpace<T> for SRGBColorSpace<T> {
 
 #[allow(clippy::excessive_precision)]
 impl Color<f32, SRGBColorSpace<f32>> {
-  pub fn to_linear_rgb(&self) -> Color<f32, LinearRGBColorSpace<f32>> {
+  pub fn to_linear_rgb(self) -> Color<f32, LinearRGBColorSpace<f32>> {
     Color::new(self.value.map(|c| {
       if c < 0.04045 {
         c * 0.0773993808
@@ -71,7 +71,7 @@ impl<T: Copy + Clone> ColorSpace<T> for LinearRGBColorSpace<T> {
 }
 
 impl Color<f32, LinearRGBColorSpace<f32>> {
-  pub fn to_srgb(&self) -> Color<f32, SRGBColorSpace<f32>> {
+  pub fn to_srgb(self) -> Color<f32, SRGBColorSpace<f32>> {
     Color::new(self.value.map(|c| {
       if c < 0.0031308 {
         c * 12.92

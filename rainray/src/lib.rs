@@ -1,3 +1,6 @@
+#![allow(clippy::or_fun_call)]
+#![allow(clippy::many_single_char_names)]
+
 mod background;
 mod camera;
 mod frame;

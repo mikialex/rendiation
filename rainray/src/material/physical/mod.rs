@@ -94,8 +94,7 @@ where
     }
     let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
     let f = (1.0 - self.metallic) * f0 + self.metallic * albedo.x; // albedo.mean()
-    let f = mix_scalar(f, 1.0, 0.2);
-    f
+    mix_scalar(f, 1.0, 0.2)
   }
 }
 

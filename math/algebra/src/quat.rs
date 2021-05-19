@@ -244,7 +244,7 @@ where
     4
   }
 
-  pub fn to_tuple(&self) -> (T, T, T, T) {
+  pub fn to_tuple(self) -> (T, T, T, T) {
     (self.x, self.y, self.z, self.w)
   }
 }

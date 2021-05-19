@@ -24,7 +24,7 @@ impl<M, From, To> SpaceConversionMatrix<M, From, To> {
     T: Scalar,
     M: SquareMatrix<T>,
   {
-    self.value.inverse().map(|m| space_conversion(m))
+    self.value.inverse().map(space_conversion)
   }
 
   pub fn inverse_or_identity<T>(&self) -> SpaceConversionMatrix<M, To, From>

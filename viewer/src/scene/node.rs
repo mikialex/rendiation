@@ -28,7 +28,6 @@ impl SceneNode {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
         self.world_matrix = parent.world_matrix * self.local_matrix;
-        self.world_matrix = self.world_matrix;
       }
     } else {
       self.world_matrix = self.local_matrix;

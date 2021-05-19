@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)]
+
 pub mod address;
 use std::{
   ops::{Deref, DerefMut},

@@ -22,6 +22,12 @@ pub struct Scene {
   models_bvh: Option<FlattenBVH<Box3>>,
 }
 
+impl Default for Scene {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Scene {
   pub fn new() -> Self {
     Self {
@@ -151,7 +157,7 @@ impl Scene {
         return true;
       }
     }
-    return false;
+    false
   }
 
   pub fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic {

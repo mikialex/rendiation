@@ -1,6 +1,6 @@
 use crate::NormalizedVec3;
 use rendiation_algebra::*;
-use rendiation_geometry::{Sphere, SurfaceAreaMeasure};
+use rendiation_geometry::SurfaceAreaMeasure;
 
 pub trait SurfaceAreaMeasureAble {
   fn surface_area(&self) -> f32;

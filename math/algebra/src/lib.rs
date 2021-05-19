@@ -6,6 +6,11 @@
 #![allow(clippy::transmute_ptr_to_ptr)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::or_fun_call)]
+#![allow(clippy::suspicious_operation_groupings)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::from_over_into)]
 
 pub mod interpolation;
 pub mod mat;

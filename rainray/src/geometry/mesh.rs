@@ -177,10 +177,11 @@ impl TriangleMesh<IndexedGeometry> {
         .iter_mut()
         .for_each(|v| v.normal = Vec3::zero());
 
+      #[allow(clippy::needless_range_loop)]
       for i in 0..geometry.data.len() / 3 {
         for j in 0..3 {
           let v = &mut geometry.data[i * 3 + j];
-          v.normal = v.normal + face_normals[i].value
+          v.normal += face_normals[i].value
         }
       }
       use rendiation_algebra::InnerProductSpace;
@@ -192,6 +193,7 @@ impl TriangleMesh<IndexedGeometry> {
 
     let geometry = geometry.create_index_geometry();
     use std::cmp::Ordering;
+    #[allow(clippy::float_cmp)]
     let geometry = geometry.merge_vertex_by_sorting(
       |a, b| {
         a.position

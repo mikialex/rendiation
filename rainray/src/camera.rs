@@ -6,6 +6,12 @@ pub struct Camera {
   pub matrix: Mat4<f32>,
 }
 
+impl Default for Camera {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Camera {
   pub fn new() -> Self {
     Self {

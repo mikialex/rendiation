@@ -32,7 +32,7 @@ impl<T: Copy + Clone> ColorSpace<T> for AnyHSLColorSpace<T> {
 }
 
 impl<T: HSLColorSpace<f32> + ColorSpace<f32, Value = Vec3<f32>>> Color<f32, T> {
-  pub fn to_any_rgb(&self) -> Color<f32, AnyRGBColorSpace<f32>> {
+  pub fn to_any_rgb(self) -> Color<f32, AnyRGBColorSpace<f32>> {
     fn hue2rgb(p: f32, q: f32, mut t: f32) -> f32 {
       if t < 0. {
         t += 1.;

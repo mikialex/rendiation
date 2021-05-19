@@ -11,20 +11,20 @@ pub struct NormalizedVector<T, V> {
 
 pub trait IntoNormalizedVector<T, V> {
   #[must_use]
-  fn into_normalized(&self) -> NormalizedVector<T, V>;
+  fn into_normalized(self) -> NormalizedVector<T, V>;
 
   #[must_use]
-  unsafe fn into_normalized_unchecked(&self) -> NormalizedVector<T, V>;
+  unsafe fn into_normalized_unchecked(self) -> NormalizedVector<T, V>;
 }
 
 impl<T: Scalar, V: InnerProductSpace<T>> IntoNormalizedVector<T, V> for V {
   #[inline(always)]
-  fn into_normalized(&self) -> NormalizedVector<T, V> {
+  fn into_normalized(self) -> NormalizedVector<T, V> {
     unsafe { NormalizedVector::wrap(self.normalize()) }
   }
   #[inline(always)]
-  unsafe fn into_normalized_unchecked(&self) -> NormalizedVector<T, V> {
-    NormalizedVector::wrap(*self)
+  unsafe fn into_normalized_unchecked(self) -> NormalizedVector<T, V> {
+    NormalizedVector::wrap(self)
   }
 }
 

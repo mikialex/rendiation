@@ -44,27 +44,28 @@ where
 {
   pub fn sample<S: Scalar>(
     &self,
-    direction: NormalizedVector<S, Vec3<S>>,
+    _direction: NormalizedVector<S, Vec3<S>>,
     // filter: TextureFilterMode,
   ) -> P {
-    let abs = direction.map(|c| c.abs());
-    let max_axis_project = abs.x.max(abs.y).max(abs.z);
-    let dir = direction / max_axis_project;
-    let re_range = |v: S| (v + S::one()) * S::half();
-    if dir.x == S::one() {
-      let at = Vec2::new(dir.y, dir.z).map(re_range);
-      self.positive_x.sample(at)
-    //
-    } else if dir.x == -S::one() {
-      //
-    } else if dir.y == S::one() {
-      //
-    } else if dir.y == -S::one() {
-      //
-    } else if dir.z == S::one() {
-      //
-    } else {
-      //
-    }
+    todo!()
+    // let abs = direction.map(|c| c.abs());
+    // let max_axis_project = abs.x.max(abs.y).max(abs.z);
+    // let dir = direction / max_axis_project;
+    // let re_range = |v: S| (v + S::one()) * S::half();
+    // if dir.x == S::one() {
+    //   let at = Vec2::new(dir.y, dir.z).map(re_range);
+    //   self.positive_x.sample(at)
+    // //
+    // } else if dir.x == -S::one() {
+    //   //
+    // } else if dir.y == S::one() {
+    //   //
+    // } else if dir.y == -S::one() {
+    //   //
+    // } else if dir.z == S::one() {
+    //   //
+    // } else {
+    //   //
+    // }
   }
 }

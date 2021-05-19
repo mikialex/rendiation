@@ -116,10 +116,8 @@ impl<M: HalfEdgeMeshData> HalfEdgeMeshBuilder<M> {
     from: (Handle<HalfEdgeVertex<M>>, bool),
     to: (Handle<HalfEdgeVertex<M>>, bool),
   ) -> Result<Handle<HalfEdge<M>>, HalfEdgeBuildError> {
-    if !from.1 && !from.1 {
-      if HalfEdge::get_by_two_points(&self.mesh, from.0, to.0).is_some() {
-        return Err(NonManifoldOperation(AdjacentFaceSideInvert));
-      }
+    if !from.1 && !to.1 && HalfEdge::get_by_two_points(&self.mesh, from.0, to.0).is_some() {
+      return Err(NonManifoldOperation(AdjacentFaceSideInvert));
     }
 
     let edge = HalfEdge {

@@ -59,11 +59,17 @@ const INT_SCALE: f32 = 256.0;
 
 #[inline(always)]
 fn float_as_int(f: f32) -> i32 {
-  unsafe { std::mem::transmute(f) }
+  #[allow(clippy::transmute_float_to_int)]
+  unsafe {
+    std::mem::transmute(f)
+  }
 }
 #[inline(always)]
 fn int_as_float(f: i32) -> f32 {
-  unsafe { std::mem::transmute(f) }
+  #[allow(clippy::transmute_int_to_float)]
+  unsafe {
+    std::mem::transmute(f)
+  }
 }
 
 // Normal points outward for rays exiting the surface, else is flipped.
