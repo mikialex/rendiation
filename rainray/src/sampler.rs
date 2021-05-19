@@ -10,15 +10,15 @@ use rendiation_algebra::Vec2;
 /// The task of a Sampler is to generate a sequence of -dimensional samples in
 /// [0, 1) ^ d
 pub trait Sampler {
-  fn reset(&self);
-  fn sample(&self) -> f32;
+  fn reset(&mut self) {}
+  fn sample(&mut self) -> f32;
 
   /// While a 2D sample value could be constructed by using values returned by a pair of calls to sample(),
   /// some samplers can generate better point distributions if they know that two dimensions will be used together.
-  fn sample_2d(&self) -> Vec2<f32>;
+  fn sample_2d(&mut self) -> Vec2<f32>;
 
   /// For convenience, the Sampler base class provides a method that initializes a CameraSample for a given pixel.
-  fn sample_camera(&self, pixel: Vec2<usize>) -> CameraSample {
+  fn sample_camera(&mut self, pixel: Vec2<usize>) -> CameraSample {
     CameraSample {
       film_position: pixel.map(|v| v as f32) + self.sample_2d(),
       time: self.sample(),
@@ -39,6 +39,7 @@ pub struct CameraSample {
   pub lens: Vec2<f32>,
 }
 
+/// Each storage contains samples need by one time pixel sampling
 pub struct SampleStorage {
   samples_1d_array: Vec<f32>,
   samples_2d_array: Vec<Vec2<f32>>,
@@ -49,6 +50,27 @@ pub struct PixelSamplerDispatcher<T> {
   pixel_in_sampling: Vec2<usize>,
   current_sample_count: usize,
   sample_per_pixel: usize,
+  pre_computed_samples: Vec<SampleStorage>,
 }
 
-struct RngSampler {}
+impl<T> PixelSamplerDispatcher<T> {
+  pub fn prepare_samples_before_render_pixel(&mut self, sample_per_pixel: usize) {
+    self.current_sample_count = 0;
+    self.sample_per_pixel = 0;
+  }
+}
+
+use rand::{rngs::StdRng, Rng};
+pub struct RngSampler {
+  rng: StdRng,
+}
+
+impl Sampler for RngSampler {
+  fn sample(&mut self) -> f32 {
+    self.rng.gen()
+  }
+
+  fn sample_2d(&mut self) -> Vec2<f32> {
+    Vec2::new(self.rng.gen(), self.rng.gen())
+  }
+}
