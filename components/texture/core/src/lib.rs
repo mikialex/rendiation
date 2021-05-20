@@ -15,6 +15,8 @@ pub mod sampler;
 pub use sampler::*;
 pub mod iter;
 pub use iter::*;
+pub mod util;
+pub use util::*;
 
 use image::ImageBuffer;
 use rendiation_algebra::Vec2;
