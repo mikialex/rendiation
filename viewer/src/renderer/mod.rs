@@ -93,4 +93,8 @@ impl Renderer {
   pub(crate) fn get_prefer_target_format(&self) -> wgpu::TextureFormat {
     self.swap_chain.swap_chain_descriptor.format
   }
+
+  pub fn get_current_frame(&mut self) -> Result<wgpu::SwapChainFrame, wgpu::SwapChainError> {
+    self.swap_chain.get_current_frame()
+  }
 }
