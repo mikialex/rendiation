@@ -45,7 +45,7 @@ pub trait Texture2D: Sized {
     width * height
   }
 
-  fn iter<'a>(&'a self) -> TexturePixels<'a, Self> {
+  fn iter(&self) -> TexturePixels<'_, Self> {
     TexturePixels {
       texture: self,
       current: 0,
