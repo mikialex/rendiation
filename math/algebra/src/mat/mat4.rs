@@ -450,40 +450,29 @@ where
   }
 
   pub fn scale(x: T, y: T, z: T) -> Self {
-    let (a1, a2, a3, a4) = (x, T::zero(), T::zero(), T::zero());
-    let (b1, b2, b3, b4) = (T::zero(), y, T::zero(), T::zero());
-    let (c1, c2, c3, c4) = (T::zero(), T::zero(), z, T::zero());
-    let (d1, d2, d3, d4) = (T::zero(), T::zero(), T::zero(), T::one());
+    let zero = T::zero();
+    let one = T::one();
 
     #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, 
-      b1, b2, b3, b4, 
-      c1, c2, c3, c4, 
-      d1, d2, d3, d4,
+      x,    zero, zero, zero, 
+      zero, y,    zero, zero, 
+      zero, zero, z,    zero, 
+      zero, zero, zero, one,
     )
   }
 
   pub fn translate(x: T, y: T, z: T) -> Self {
-    let (a1, a2, a3, a4) = (T::one(), T::zero(), T::zero(), T::zero());
-    let (b1, b2, b3, b4) = (T::zero(), T::one(), T::zero(), T::zero());
-    let (c1, c2, c3, c4) = (T::zero(), T::zero(), T::one(), T::zero());
-    let (d1, d2, d3, d4) = (x, y, z, T::one());
+    let zero = T::zero();
+    let one = T::one();
 
     #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, 
-      b1, b2, b3, b4, 
-      c1, c2, c3, c4, 
-      d1, d2, d3, d4,
+      one,  zero, zero, zero, 
+      zero, one,  zero, zero, 
+      zero, zero, one,  zero, 
+      x,    y,    z,    one,
     )
-  }
-
-  pub fn max_scale_on_axis(&self) -> T {
-    let scale_x_sq = self.a1 * self.a1 + self.a2 * self.a2 + self.a3 * self.a3;
-    let scale_y_sq = self.b1 * self.b1 + self.b2 * self.b2 + self.b3 * self.b3;
-    let scale_z_sq = self.c1 * self.c1 + self.c2 * self.c2 + self.c3 * self.c3;
-    scale_x_sq.max(scale_y_sq).max(scale_z_sq).sqrt()
   }
 
   pub fn transform_inverse(&self) -> Option<Self> {
@@ -539,19 +528,12 @@ where
     y = y.normalize();
 
     #[rustfmt::skip]
-    let mut m = Mat4::new(
-      x.x,       y.x,       z.x,       T::zero(),
-      x.y,       y.y,       z.y,       T::zero(),
-      x.z,       y.z,       z.z,       T::zero(),
-      T::zero(), T::zero(), T::zero(), T::one(),
+    Mat4::new(
+        x.x,   x.y,   x.z, T::zero(),
+        y.x,   y.y,   y.z, T::zero(),
+        z.x,   z.y,   z.z, T::zero(),
+      eye.x, eye.y, eye.z, T::one(),
     )
-    .transpose();
-
-    m.d1 = eye.x;
-    m.d2 = eye.y;
-    m.d3 = eye.z;
-
-    m
   }
 
 }
