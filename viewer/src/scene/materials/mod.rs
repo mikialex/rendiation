@@ -1,4 +1,7 @@
 pub mod basic;
+use std::any::Any;
+
+use arena::Handle;
 pub use basic::*;
 
 use crate::Renderer;
@@ -12,7 +15,7 @@ pub trait MaterialCPUResource {
   ) -> Self::GPU;
 }
 
-pub trait MaterialGPUResource {
+pub trait MaterialGPUResource: Any + Sized {
   type Source;
   fn update(
     &mut self,
@@ -20,11 +23,15 @@ pub trait MaterialGPUResource {
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   );
+
+  fn into_any(self) -> Box<dyn Any> {
+    Box::new(self)
+  }
 }
 
 pub struct MaterialCell<T: MaterialCPUResource> {
   material: T,
-  gpu: T::GPU,
+  gpu: Handle<Box<dyn Any>>,
 }
 
 pub struct SceneMaterialRenderPrepareCtx {

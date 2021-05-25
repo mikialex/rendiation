@@ -2,11 +2,13 @@ pub mod background;
 pub mod buffer;
 pub mod lights;
 pub mod node;
+pub mod resource;
 
 pub use background::*;
 pub use buffer::*;
 pub use lights::*;
 pub use node::*;
+pub use resource::*;
 
 pub mod materials;
 pub use materials::*;
@@ -19,9 +21,9 @@ use crate::renderer::*;
 impl Renderable for Scene {
   fn render<'a>(
     &mut self,
-    renderer: &'a Renderer,
     pass: &mut wgpu::RenderPass<'a>,
     des: &wgpu::RenderPassDescriptor,
+    res: &'a Self::Resource,
   ) {
     self.update();
 
@@ -46,8 +48,14 @@ impl Renderable for Scene {
     });
     model_list.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
-      model.render(renderer, pass, &mut ctx)
+      model.render(pass, &mut ctx, res)
     })
+  }
+
+  type Resource = SceneResource;
+
+  fn update(&mut self, renderer: &Renderer, res: &mut Self::Resource) {
+    todo!()
   }
 }
 
@@ -56,17 +64,14 @@ pub struct SceneMesh {
   index: Option<IndexBuffer>,
 }
 
-impl Mesh for SceneMesh {
-  fn setup_pass<'a>(&mut self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>) {
-    self
-      .index
-      .as_mut()
-      .map(|index| index.setup_pass(renderer, pass));
+impl SceneMesh {
+  fn setup_pass<'a>(&mut self, pass: &mut wgpu::RenderPass<'a>, res: &'a SceneResource) {
+    self.index.as_mut().map(|index| index.setup_pass(pass, res));
     self
       .vertex
       .iter_mut()
       .enumerate()
-      .for_each(|(i, vertex)| vertex.setup_pass(renderer, pass, i as u32))
+      .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32, res))
   }
 }
 
@@ -76,12 +81,12 @@ pub struct SceneRenderCtx<'a> {
   material_ctx: SceneMaterialRenderPrepareCtx,
 }
 
-pub struct SceneModel {
+pub struct Model {
   material: MaterialHandle,
   mesh: MeshHandle,
 }
 
-impl Model for SceneModel {
+impl Model {
   fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer) {
     let material = ctx.materials.get_mut(self.material).unwrap();
     material.update(renderer, &mut ctx.material_ctx)
@@ -89,29 +94,15 @@ impl Model for SceneModel {
 
   fn render<'a>(
     &self,
-    renderer: &'a Renderer,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &mut SceneRenderCtx,
+    res: &'a SceneResource,
   ) {
     let material = ctx.materials.get_mut(self.material).unwrap();
-    material.setup_pass(renderer, pass);
+    // material.setup_pass(renderer, pass);
     let mesh = ctx.meshes.get_mut(self.mesh).unwrap();
-    mesh.setup_pass(renderer, pass);
+    mesh.setup_pass(pass, res);
   }
-}
-
-pub trait Mesh {
-  fn setup_pass<'a>(&mut self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>);
-}
-
-pub trait Model {
-  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer);
-  fn render<'a>(
-    &self,
-    renderer: &'a Renderer,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &mut SceneRenderCtx,
-  );
 }
 
 use arena::{Arena, Handle};
@@ -119,7 +110,7 @@ use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
 use rendiation_texture::TextureSampler;
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
-pub type ModelHandle = Handle<Box<dyn Model>>;
+pub type ModelHandle = Handle<Model>;
 pub type MeshHandle = Handle<SceneMesh>;
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
@@ -128,7 +119,7 @@ pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
   pub background: Option<Box<dyn Background>>,
   pub lights: Arena<Box<dyn Light>>,
-  pub models: Arena<Box<dyn Model>>,
+  pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
   pub materials: Arena<Box<dyn Material>>,
   pub samplers: Arena<TextureSampler>,

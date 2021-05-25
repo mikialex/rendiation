@@ -4,6 +4,8 @@ use wgpu::util::DeviceExt;
 use crate::Renderer;
 use std::any::Any;
 
+use super::SceneResource;
+
 // trait MeshBufferBackend: SceneBackend {
 //   type VertexBuffer;
 //   type VertexBufferGPU;
@@ -30,7 +32,7 @@ impl VertexBuffer {
     Self { data, gpu: None }
   }
 
-  pub fn update(&mut self, renderer: &mut Renderer) {
+  pub fn update(&mut self, renderer: &mut Renderer, res: &mut SceneResource) {
     let data = &self.data;
     self.gpu.get_or_insert_with(|| {
       let device = &renderer.device;
@@ -39,13 +41,13 @@ impl VertexBuffer {
         contents: data.as_bytes(),
         usage: wgpu::BufferUsage::VERTEX,
       });
-      renderer.buffers.insert(gpu)
+      res.buffers.insert(gpu)
     });
   }
 
-  pub fn setup_pass<'a>(&self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>, slot: u32) {
+  pub fn setup_pass<'a>(&self, pass: &mut wgpu::RenderPass<'a>, slot: u32, res: &'a SceneResource) {
     let gpu = self.gpu.unwrap();
-    let gpu = renderer.buffers.get(gpu).unwrap();
+    let gpu = res.buffers.get(gpu).unwrap();
     pass.set_vertex_buffer(slot, gpu.slice(..));
   }
 }
@@ -67,7 +69,7 @@ impl IndexBuffer {
     Self { data, gpu: None }
   }
 
-  pub fn update(&mut self, renderer: &mut Renderer) {
+  pub fn update(&mut self, renderer: &mut Renderer, res: &mut SceneResource) {
     let data = &self.data;
     self.gpu.get_or_insert_with(|| {
       let device = &renderer.device;
@@ -76,13 +78,13 @@ impl IndexBuffer {
         contents: data.as_bytes(),
         usage: wgpu::BufferUsage::INDEX,
       });
-      renderer.buffers.insert(gpu)
+      res.buffers.insert(gpu)
     });
   }
 
-  pub fn setup_pass<'a>(&self, renderer: &'a Renderer, pass: &mut wgpu::RenderPass<'a>) {
+  pub fn setup_pass<'a>(&self, pass: &mut wgpu::RenderPass<'a>, res: &'a SceneResource) {
     let gpu = self.gpu.unwrap();
-    let gpu = renderer.buffers.get(gpu).unwrap();
+    let gpu = res.buffers.get(gpu).unwrap();
     pass.set_index_buffer(gpu.slice(..), self.data.index_format());
   }
 }
