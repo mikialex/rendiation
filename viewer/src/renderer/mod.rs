@@ -1,4 +1,5 @@
 use self::swap_chain::SwapChain;
+mod buffer;
 mod swap_chain;
 
 pub trait Renderable {

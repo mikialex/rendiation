@@ -1,3 +1,7 @@
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
+#![feature(const_fn_transmute)]
+#![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
