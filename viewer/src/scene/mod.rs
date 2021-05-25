@@ -30,17 +30,22 @@ impl RenderPassCreator<wgpu::SwapChainFrame> for Scene {
         attachment: &target.output.view,
         resolve_target: None,
         ops: wgpu::Operations {
-          load: wgpu::LoadOp::Clear(wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-          }),
+          load: self.get_main_pass_load_op(),
           store: true,
         },
       }],
       depth_stencil_attachment: None,
     })
+  }
+}
+
+impl Scene {
+  fn get_main_pass_load_op(&self) -> wgpu::LoadOp<wgpu::Color> {
+    if let Some(clear_color) = self.background.require_pass_clear() {
+      return wgpu::LoadOp::Clear(clear_color);
+    }
+
+    return wgpu::LoadOp::Load;
   }
 }
 
@@ -86,7 +91,7 @@ impl Renderable for Scene {
     res: &mut Self::Resource,
     encoder: &mut wgpu::CommandEncoder,
   ) {
-    todo!()
+    // todo!()
   }
 }
 
@@ -148,7 +153,7 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
-  pub background: Option<Box<dyn Background>>,
+  pub background: Box<dyn Background>,
   pub lights: Arena<Box<dyn Light>>,
   pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
@@ -162,7 +167,7 @@ impl Scene {
   pub fn new() -> Self {
     Self {
       nodes: ArenaTree::new(SceneNode::default()),
-      background: None,
+      background: Box::new(SolidBackground::default()),
       models: Arena::new(),
       meshes: Arena::new(),
       lights: Arena::new(),
@@ -219,7 +224,7 @@ impl Scene {
   // }
 
   pub fn background(&mut self, background: impl Background) -> &mut Self {
-    self.background = Some(Box::new(background));
+    self.background = Box::new(background);
     self
   }
 }
