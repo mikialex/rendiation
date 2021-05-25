@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Mul};
 
 use crate::{Scalar, SquareMatrix};
 
@@ -15,6 +15,18 @@ fn space_conversion<M, From, To>(value: M) -> SpaceConversionMatrix<M, From, To>
     value,
     from_space: PhantomData,
     to_space: PhantomData,
+  }
+}
+
+impl<M, From, To, Next> Mul<SpaceConversionMatrix<M, To, Next>>
+  for SpaceConversionMatrix<M, From, To>
+where
+  M: Mul<M, Output = M>,
+{
+  type Output = SpaceConversionMatrix<M, From, Next>;
+
+  fn mul(self, m: SpaceConversionMatrix<M, To, Next>) -> Self::Output {
+    space_conversion(self.value * m.value)
   }
 }
 
@@ -45,7 +57,9 @@ pub struct ObjectSpace;
 #[test]
 fn test() {
   use crate::*;
-  let _world_matrix = space_conversion::<Mat4<f32>, ObjectSpace, WorldSpace>(Mat4::one());
-  let _view_matrix = space_conversion::<Mat4<f32>, WorldSpace, CameraSpace>(Mat4::one());
-  let _projection_matrix = space_conversion::<Mat4<f32>, CameraSpace, ClipSpace>(Mat4::one());
+  let world_matrix = space_conversion::<Mat4<f32>, ObjectSpace, WorldSpace>(Mat4::one());
+  let view_matrix = space_conversion::<Mat4<f32>, WorldSpace, CameraSpace>(Mat4::one());
+  let projection_matrix = space_conversion::<Mat4<f32>, CameraSpace, ClipSpace>(Mat4::one());
+  let _mvp: SpaceConversionMatrix<Mat4<f32>, ObjectSpace, ClipSpace> =
+    world_matrix * view_matrix * projection_matrix;
 }

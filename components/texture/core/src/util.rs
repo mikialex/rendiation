@@ -1,6 +1,7 @@
 use rendiation_algebra::Scalar;
 
 /// https://en.wikipedia.org/wiki/Sinc_function
+/// /ˈsɪŋk/ 
 pub fn sinc<T: Scalar>(x: T) -> T {
   let a = x * T::PI();
 
