@@ -18,11 +18,37 @@ pub use arena_tree::*;
 
 use crate::renderer::*;
 
+impl RenderPassCreator<wgpu::SwapChainFrame> for Scene {
+  fn create<'a>(
+    &self,
+    target: &'a wgpu::SwapChainFrame,
+    encoder: &'a mut wgpu::CommandEncoder,
+  ) -> wgpu::RenderPass<'a> {
+    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+      label: "scene pass".into(),
+      color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+        attachment: &target.output.view,
+        resolve_target: None,
+        ops: wgpu::Operations {
+          load: wgpu::LoadOp::Clear(wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+          }),
+          store: true,
+        },
+      }],
+      depth_stencil_attachment: None,
+    })
+  }
+}
+
 impl Renderable for Scene {
   fn render<'a>(
     &mut self,
     pass: &mut wgpu::RenderPass<'a>,
-    des: &wgpu::RenderPassDescriptor,
+    // des: &wgpu::RenderPassDescriptor,
     res: &'a Self::Resource,
   ) {
     self.update();
@@ -54,7 +80,12 @@ impl Renderable for Scene {
 
   type Resource = SceneResource;
 
-  fn update(&mut self, renderer: &Renderer, res: &mut Self::Resource) {
+  fn update(
+    &mut self,
+    renderer: &Renderer,
+    res: &mut Self::Resource,
+    encoder: &mut wgpu::CommandEncoder,
+  ) {
     todo!()
   }
 }

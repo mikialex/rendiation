@@ -20,27 +20,7 @@ impl Application {
   }
 
   pub fn render(&mut self, frame: &wgpu::SwapChainFrame, renderer: &mut Renderer) {
-    renderer.render(
-      &wgpu::RenderPassDescriptor {
-        label: "scene pass".into(),
-        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-          attachment: &frame.output.view,
-          resolve_target: None,
-          ops: wgpu::Operations {
-            load: wgpu::LoadOp::Clear(wgpu::Color {
-              r: 0.1,
-              g: 0.2,
-              b: 0.3,
-              a: 1.0,
-            }),
-            store: true,
-          },
-        }],
-        depth_stencil_attachment: None,
-      },
-      &mut self.scene,
-      &mut self.resource,
-    )
+    renderer.render(&mut self.scene, frame, &mut self.resource)
   }
 
   pub fn update(&mut self, event: WindowEvent) {

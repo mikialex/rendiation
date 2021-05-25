@@ -3,13 +3,26 @@ mod swap_chain;
 
 pub trait Renderable {
   type Resource;
-  fn update(&mut self, renderer: &Renderer, res: &mut Self::Resource);
+  fn update(
+    &mut self,
+    renderer: &Renderer,
+    res: &mut Self::Resource,
+    encoder: &mut wgpu::CommandEncoder,
+  );
   fn render<'a>(
     &mut self,
     pass: &mut wgpu::RenderPass<'a>,
-    des: &wgpu::RenderPassDescriptor,
+    // des: &wgpu::RenderPassDescriptor,
     res: &'a Self::Resource,
   );
+}
+
+pub trait RenderPassCreator<T> {
+  fn create<'a>(
+    &self,
+    target: &'a T,
+    encoder: &'a mut wgpu::CommandEncoder,
+  ) -> wgpu::RenderPass<'a>;
 }
 
 pub struct Renderer {
@@ -59,19 +72,18 @@ impl Renderer {
       swap_chain,
     }
   }
-  pub fn render<R: Renderable>(
-    &mut self,
-    pass_des: &wgpu::RenderPassDescriptor,
-    renderable: &mut R,
-    res: &mut R::Resource,
-  ) {
-    renderable.update(self, res);
+  pub fn render<R, T>(&mut self, renderable: &mut R, target: &T, res: &mut R::Resource)
+  where
+    R: Renderable,
+    R: RenderPassCreator<T>,
+  {
     let mut encoder = self
       .device
       .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
-      let mut pass = encoder.begin_render_pass(pass_des);
-      renderable.render(&mut pass, pass_des, res);
+      renderable.update(self, res, &mut encoder);
+      let mut pass = renderable.create(target, &mut encoder);
+      renderable.render(&mut pass, res);
     }
 
     self.queue.submit(Some(encoder.finish()));
