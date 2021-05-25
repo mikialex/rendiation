@@ -87,9 +87,9 @@ pub struct Model {
 }
 
 impl Model {
-  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer) {
+  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer, res: &mut SceneResource) {
     let material = ctx.materials.get_mut(self.material).unwrap();
-    material.update(renderer, &mut ctx.material_ctx)
+    material.update(renderer, &mut ctx.material_ctx, res)
   }
 
   fn render<'a>(

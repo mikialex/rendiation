@@ -7,6 +7,7 @@ pub struct SceneResource {
   // bindgroup_cache: Vec<wgpu::BindGroup>,
   pub buffers: Arena<wgpu::Buffer>,
   pub material_gpu: Arena<Box<dyn Any>>,
+  pub material_bindable: MaterialBindableResource,
 }
 
 impl SceneResource {
@@ -15,6 +16,9 @@ impl SceneResource {
       // pipeline_cache: Vec::new(),
       buffers: Arena::new(),
       material_gpu: Arena::new(),
+      material_bindable: MaterialBindableResource {},
     }
   }
 }
+
+pub struct MaterialBindableResource {}

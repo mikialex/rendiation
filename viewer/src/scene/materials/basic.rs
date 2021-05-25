@@ -3,7 +3,10 @@ use std::borrow::Cow;
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
-use crate::*;
+use crate::{
+  renderer::Renderer,
+  scene::{MaterialBindableResource},
+};
 
 use super::{MaterialCPUResource, MaterialGPUResource, SceneMaterialRenderPrepareCtx};
 
@@ -26,6 +29,7 @@ impl MaterialGPUResource for BasicMaterialGPU {
     source: &Self::Source,
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx,
+    res: &mut MaterialBindableResource,
   ) {
     //
   }
