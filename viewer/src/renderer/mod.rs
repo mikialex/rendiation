@@ -29,8 +29,8 @@ pub trait RenderPassCreator<T> {
 pub struct Renderer {
   instance: wgpu::Instance,
   adaptor: wgpu::Adapter,
-  pub(crate) device: wgpu::Device,
-  queue: wgpu::Queue,
+  pub device: wgpu::Device,
+  pub queue: wgpu::Queue,
   swap_chain: SwapChain,
 }
 

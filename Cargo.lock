@@ -2232,6 +2232,7 @@ dependencies = [
  "arena",
  "arena-graph",
  "arena-tree",
+ "bytemuck",
  "futures",
  "once_cell",
  "rendiation-algebra",

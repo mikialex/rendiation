@@ -12,7 +12,6 @@ pub struct BasicMaterial {
 }
 
 pub struct BasicMaterialGPU {
-  model_uniform: wgpu::Buffer,
   uniform: wgpu::Buffer,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
@@ -82,7 +81,15 @@ impl MaterialCPUResource for BasicMaterial {
           ],
         });
 
+    use wgpu::util::DeviceExt;
     let uniform_buf: wgpu::Buffer = todo!();
+    // renderer
+    //   .device
+    //   .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    //     label: Some("Uniform Buffer"),
+    //     contents: bytemuck::cast_slice(todo!()),
+    //     usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    //   });
     let texture_view = todo!();
 
     // Create other resources
