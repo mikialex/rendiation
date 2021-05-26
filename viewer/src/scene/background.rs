@@ -3,9 +3,7 @@ use rendiation_algebra::Vector;
 
 use crate::renderer::Renderable;
 
-use super::SceneResource;
-
-pub trait Background: 'static + Renderable<Resource = SceneResource> {
+pub trait Background: 'static + Renderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
 }
 
@@ -14,17 +12,9 @@ pub struct SolidBackground {
 }
 
 impl Renderable for SolidBackground {
-  type Resource = SceneResource;
+  fn update(&mut self, renderer: &crate::renderer::Renderer, encoder: &mut wgpu::CommandEncoder) {}
 
-  fn update(
-    &mut self,
-    renderer: &crate::renderer::Renderer,
-    res: &mut Self::Resource,
-    encoder: &mut wgpu::CommandEncoder,
-  ) {
-  }
-
-  fn render<'a>(&mut self, pass: &mut wgpu::RenderPass<'a>, res: &'a Self::Resource) {}
+  fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {}
 }
 
 impl Background for SolidBackground {

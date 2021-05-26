@@ -1,14 +1,18 @@
 pub mod background;
 pub mod buffer;
+pub mod camera;
 pub mod lights;
+pub mod model;
 pub mod node;
-pub mod resource;
+pub mod rendering;
 
 pub use background::*;
 pub use buffer::*;
+pub use camera::*;
 pub use lights::*;
+pub use model::*;
 pub use node::*;
-pub use resource::*;
+pub use rendering::*;
 
 pub mod materials;
 pub use materials::*;
@@ -18,131 +22,24 @@ pub use arena_tree::*;
 
 use crate::renderer::*;
 
-impl RenderPassCreator<wgpu::SwapChainFrame> for Scene {
-  fn create<'a>(
-    &self,
-    target: &'a wgpu::SwapChainFrame,
-    encoder: &'a mut wgpu::CommandEncoder,
-  ) -> wgpu::RenderPass<'a> {
-    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-      label: "scene pass".into(),
-      color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-        attachment: &target.output.view,
-        resolve_target: None,
-        ops: wgpu::Operations {
-          load: self.get_main_pass_load_op(),
-          store: true,
-        },
-      }],
-      depth_stencil_attachment: None,
-    })
-  }
-}
-
-impl Scene {
-  fn get_main_pass_load_op(&self) -> wgpu::LoadOp<wgpu::Color> {
-    if let Some(clear_color) = self.background.require_pass_clear() {
-      return wgpu::LoadOp::Clear(clear_color);
-    }
-
-    return wgpu::LoadOp::Load;
-  }
-}
-
-impl Renderable for Scene {
-  fn render<'a>(
-    &mut self,
-    pass: &mut wgpu::RenderPass<'a>,
-    // des: &wgpu::RenderPassDescriptor,
-    res: &'a Self::Resource,
-  ) {
-    self.update();
-
-    let root = self.get_root_handle();
-    let nodes = &mut self.nodes;
-    let models = &self.models;
-    let mut ctx = SceneRenderCtx {
-      materials: &mut self.materials,
-      meshes: &mut self.meshes,
-      material_ctx: SceneMaterialRenderPrepareCtx { camera: todo!() },
-    };
-    let mut model_list = Vec::new();
-    nodes.traverse_mut(root, &mut Vec::new(), |node, _| {
-      let node = node.data();
-      node.payloads.iter().for_each(|payload| match payload {
-        SceneNodePayload::Model(model) => {
-          model_list.push(*model);
-        }
-        _ => {}
-      });
-      NextTraverseVisit::VisitChildren
-    });
-    model_list.iter().for_each(|model| {
-      let model = models.get(*model).unwrap();
-      model.render(pass, &mut ctx, res)
-    })
-  }
-
-  type Resource = SceneResource;
-
-  fn update(
-    &mut self,
-    renderer: &Renderer,
-    res: &mut Self::Resource,
-    encoder: &mut wgpu::CommandEncoder,
-  ) {
-    // todo!()
-  }
-}
-
 pub struct SceneMesh {
   vertex: Vec<VertexBuffer>,
   index: Option<IndexBuffer>,
 }
 
 impl SceneMesh {
-  fn setup_pass<'a>(&mut self, pass: &mut wgpu::RenderPass<'a>, res: &'a SceneResource) {
-    self.index.as_mut().map(|index| index.setup_pass(pass, res));
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+    self.index.as_ref().map(|index| index.setup_pass(pass));
     self
       .vertex
-      .iter_mut()
+      .iter()
       .enumerate()
-      .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32, res))
-  }
-}
-
-pub struct SceneRenderCtx<'a> {
-  materials: &'a mut Arena<Box<dyn Material>>,
-  meshes: &'a mut Arena<SceneMesh>,
-  material_ctx: SceneMaterialRenderPrepareCtx,
-}
-
-pub struct Model {
-  material: MaterialHandle,
-  mesh: MeshHandle,
-}
-
-impl Model {
-  fn update(&mut self, ctx: &mut SceneRenderCtx, renderer: &mut Renderer, res: &mut SceneResource) {
-    let material = ctx.materials.get_mut(self.material).unwrap();
-    material.update(renderer, &mut ctx.material_ctx, res)
-  }
-
-  fn render<'a>(
-    &self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &mut SceneRenderCtx,
-    res: &'a SceneResource,
-  ) {
-    let material = ctx.materials.get_mut(self.material).unwrap();
-    // material.setup_pass(renderer, pass);
-    let mesh = ctx.meshes.get_mut(self.mesh).unwrap();
-    mesh.setup_pass(pass, res);
+      .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32))
   }
 }
 
 use arena::{Arena, Handle};
-use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
+use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_texture::TextureSampler;
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
@@ -174,17 +71,6 @@ impl Scene {
       materials: Arena::new(),
       samplers: Arena::new(),
     }
-  }
-
-  pub fn update(&mut self) {
-    let root = self.get_root_handle();
-    self
-      .nodes
-      .traverse_mut(root, &mut Vec::new(), |this, parent| {
-        let node_data = this.data_mut();
-        node_data.update(parent.map(|p| p.data()));
-        NextTraverseVisit::VisitChildren
-      });
   }
 
   // pub fn create_model(&mut self, creator: impl SceneModelCreator) -> ModelHandle {

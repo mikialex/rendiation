@@ -8,6 +8,7 @@ pub struct SceneNode {
   pub payloads: Vec<SceneNodePayload>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
+  pub world_matrix_gpu: Option<wgpu::Buffer>,
 }
 
 impl Default for SceneNode {
@@ -18,12 +19,13 @@ impl Default for SceneNode {
       payloads: Vec::new(),
       net_visible: true,
       world_matrix: Mat4::one(),
+      world_matrix_gpu: None,
     }
   }
 }
 
 impl SceneNode {
-  pub fn update(&mut self, parent: Option<&Self>) {
+  pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {

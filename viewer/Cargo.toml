@@ -13,6 +13,6 @@ rendiation-algebra = {path = "../math/algebra"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
-wgpu = "0.7.1"
+wgpu = "0.8.1"
 winit = {version = "0.24.0"}
 futures = "0.3.15"

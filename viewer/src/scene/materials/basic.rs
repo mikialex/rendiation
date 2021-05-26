@@ -3,10 +3,7 @@ use std::borrow::Cow;
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
-use crate::{
-  renderer::Renderer,
-  scene::{MaterialBindableResource},
-};
+use crate::renderer::Renderer;
 
 use super::{MaterialCPUResource, MaterialGPUResource, SceneMaterialRenderPrepareCtx};
 
@@ -29,9 +26,13 @@ impl MaterialGPUResource for BasicMaterialGPU {
     source: &Self::Source,
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx,
-    res: &mut MaterialBindableResource,
   ) {
     //
+  }
+
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+    pass.set_bind_group(0, &self.bindgroup, &[]);
+    pass.set_pipeline(&self.pipeline)
   }
 }
 
@@ -122,12 +123,12 @@ impl MaterialCPUResource for BasicMaterial {
       step_mode: wgpu::InputStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float4,
+          format: wgpu::VertexFormat::Float32x4,
           offset: 0,
           shader_location: 0,
         },
         wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float2,
+          format: wgpu::VertexFormat::Float32x2,
           offset: 4 * 4,
           shader_location: 1,
         },
@@ -215,7 +216,7 @@ impl MaterialCPUResource for BasicMaterial {
           targets: &[renderer.get_prefer_target_format().into()],
         }),
         primitive: wgpu::PrimitiveState {
-          cull_mode: wgpu::CullMode::Back,
+          cull_mode: wgpu::Face::Back.into(),
           ..Default::default()
         },
         depth_stencil: None,
