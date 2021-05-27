@@ -42,8 +42,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
     let root_bbox =
       bounding_from_build_source(&index_list, primitives.as_slice(), 0..index_list.len());
 
-    let mut nodes = Vec::new();
-    nodes.push(FlattenBVHNode::new(root_bbox, 0..index_list.len(), 0));
+    let mut nodes = vec![FlattenBVHNode::new(root_bbox, 0..index_list.len(), 0)];
 
     // build
     strategy.build(&option, &primitives, &mut index_list, &mut nodes, 0);

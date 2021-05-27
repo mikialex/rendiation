@@ -13,5 +13,6 @@ members = [
   "components/texture/core",
   "components/texture/packer",
   "components/texture/generative",
-  "components/space", # "viewer",
+  "components/space", 
+  "viewer",
 ]

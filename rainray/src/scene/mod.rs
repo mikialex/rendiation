@@ -6,7 +6,9 @@ use space_algorithm::{
   utils::TreeBuildOption,
 };
 
+pub mod node;
 use crate::*;
+pub use node::*;
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
@@ -18,6 +20,12 @@ pub struct Scene {
   models_in_bvh: Vec<ModelInstance>,
   models_unbound: Vec<ModelInstance>,
   models_bvh: Option<FlattenBVH<Box3>>,
+}
+
+impl Default for Scene {
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Scene {
@@ -42,11 +50,7 @@ impl Scene {
     self
   }
 
-  pub fn model_node(
-    &mut self,
-    geometry: impl RainRayGeometry,
-    material: impl RainrayMaterial,
-  ) -> &mut Self {
+  pub fn model_node(&mut self, geometry: impl Geometry, material: impl Material) -> &mut Self {
     let model = Model::new(geometry, material);
     let model = self.models.insert(model);
     self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
@@ -55,8 +59,8 @@ impl Scene {
 
   pub fn model_node_with_modify(
     &mut self,
-    geometry: impl RainRayGeometry,
-    material: impl RainrayMaterial,
+    geometry: impl Geometry,
+    material: impl Material,
     m: impl Fn(&mut SceneNode),
   ) -> &mut Self {
     let model = Model::new(geometry, material);
@@ -83,6 +87,13 @@ impl Scene {
     let mut models_in_bvh_source = Vec::new();
 
     let root = self.nodes.root();
+    self
+      .nodes
+      .traverse_mut(root, &mut Vec::new(), |this, parent| {
+        let node_data = this.data_mut();
+        node_data.update(parent.map(|p| p.data()));
+        NextTraverseVisit::VisitChildren
+      });
     self.nodes.traverse(root, &mut Vec::new(), |this, _| {
       let node_data = this.data();
       node_data.payloads.iter().for_each(|payload| match payload {
@@ -146,7 +157,7 @@ impl Scene {
         return true;
       }
     }
-    return false;
+    false
   }
 
   pub fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic {
@@ -212,28 +223,6 @@ impl Scene {
 pub type NodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Model>;
 pub type LightHandle = Handle<Light>;
-
-pub struct SceneNode {
-  pub payloads: Vec<SceneNodePayload>,
-
-  pub visible: bool,
-  pub local_matrix: Mat4<f32>,
-
-  pub net_visible: bool,
-  pub world_matrix: Mat4<f32>,
-}
-
-impl Default for SceneNode {
-  fn default() -> Self {
-    Self {
-      visible: true,
-      local_matrix: Mat4::one(),
-      payloads: Vec::new(),
-      net_visible: true,
-      world_matrix: Mat4::one(),
-    }
-  }
-}
 
 pub enum SceneNodePayload {
   Model(ModelHandle),
@@ -314,6 +303,6 @@ impl ModelInstance {
   pub fn get_intersection_stat(&self, world_ray: Ray3, scene: &Scene) -> IntersectionStatistic {
     let local_ray = world_ray.apply_matrix_into(self.world_matrix_inverse);
     let model = scene.models.get(self.model).unwrap();
-    model.geometry.acceleration_traverse_count(local_ray, scene)
+    model.geometry.intersect_statistic(local_ray, scene)
   }
 }

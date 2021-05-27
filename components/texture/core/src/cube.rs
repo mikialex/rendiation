@@ -1,6 +1,6 @@
 use rendiation_algebra::{NormalizedVector, Scalar, Vec2, Vec3};
 
-use crate::Texture2D;
+use crate::{Texture2D, TextureFilterMode, TextureSampler};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum CubeTextureFace {
@@ -42,25 +42,30 @@ impl<P, T> CubeTexture<P, T>
 where
   T: Texture2D<Pixel = P>,
 {
-  pub fn sample<S: Scalar>(&self, direction: NormalizedVector<S, Vec3<S>>) -> P {
-    let abs = direction.map(|c| c.abs());
-    let max_axis_project = abs.x.max(abs.y).max(abs.z);
-    let dir = direction / max_axis_project;
-    if dir.x == S::one() {
-      let _at = Vec2::new(dir.y, dir.z).map(|v| (v + S::one()) * S::half());
-    // self.positive_x.sample(at)
-    //
-    } else if dir.x == -S::one() {
-      //
-    } else if dir.y == S::one() {
-      //
-    } else if dir.y == -S::one() {
-      //
-    } else if dir.z == S::one() {
-      //
-    } else {
-      //
-    }
+  pub fn sample<S: Scalar>(
+    &self,
+    _direction: NormalizedVector<S, Vec3<S>>,
+    // filter: TextureFilterMode,
+  ) -> P {
     todo!()
+    // let abs = direction.map(|c| c.abs());
+    // let max_axis_project = abs.x.max(abs.y).max(abs.z);
+    // let dir = direction / max_axis_project;
+    // let re_range = |v: S| (v + S::one()) * S::half();
+    // if dir.x == S::one() {
+    //   let at = Vec2::new(dir.y, dir.z).map(re_range);
+    //   self.positive_x.sample(at)
+    // //
+    // } else if dir.x == -S::one() {
+    //   //
+    // } else if dir.y == S::one() {
+    //   //
+    // } else if dir.y == -S::one() {
+    //   //
+    // } else if dir.z == S::one() {
+    //   //
+    // } else {
+    //   //
+    // }
   }
 }

@@ -1,15 +1,17 @@
-use crate::{LightHandle, ModelHandle, Scene, SceneBackend, SceneNodeHandle};
 use rendiation_algebra::*;
 
-pub struct SceneNode<T: SceneBackend> {
+use super::{LightHandle, ModelHandle, Scene, SceneNodeHandle};
+
+pub struct SceneNode {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
-  pub payloads: Vec<SceneNodePayload<T>>,
+  pub payloads: Vec<SceneNodePayload>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
+  pub world_matrix_gpu: Option<wgpu::Buffer>,
 }
 
-impl<T: SceneBackend> Default for SceneNode<T> {
+impl Default for SceneNode {
   fn default() -> Self {
     Self {
       visible: true,
@@ -17,17 +19,17 @@ impl<T: SceneBackend> Default for SceneNode<T> {
       payloads: Vec::new(),
       net_visible: true,
       world_matrix: Mat4::one(),
+      world_matrix_gpu: None,
     }
   }
 }
 
-impl<T: SceneBackend> SceneNode<T> {
-  pub fn update(&mut self, parent: Option<&Self>) {
+impl SceneNode {
+  pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
         self.world_matrix = parent.world_matrix * self.local_matrix;
-        self.world_matrix = self.world_matrix;
       }
     } else {
       self.world_matrix = self.local_matrix;
@@ -40,38 +42,38 @@ impl<T: SceneBackend> SceneNode<T> {
     self
   }
 
-  pub fn with_light(&mut self, light: LightHandle<T>) -> &mut Self {
+  pub fn with_light(&mut self, light: LightHandle) -> &mut Self {
     self.payloads.push(SceneNodePayload::Light(light));
     self
   }
 }
 
-pub enum SceneNodePayload<T: SceneBackend> {
-  Model(ModelHandle<T>),
-  Light(LightHandle<T>),
+pub enum SceneNodePayload {
+  Model(ModelHandle),
+  Light(LightHandle),
   // Camera(Box<dyn Projection>),
 }
 
-impl<T: SceneBackend> Scene<T> {
-  pub fn get_root_handle(&self) -> SceneNodeHandle<T> {
+impl Scene {
+  pub fn get_root_handle(&self) -> SceneNodeHandle {
     self.nodes.get_node(self.nodes.root()).handle()
   }
-  pub fn get_root(&self) -> &SceneNode<T> {
+  pub fn get_root(&self) -> &SceneNode {
     self.nodes.get_node(self.nodes.root()).data()
   }
 
-  pub fn get_root_node_mut(&mut self) -> &mut SceneNode<T> {
+  pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
     self.get_node_mut(self.nodes.root())
   }
 
-  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle<T>) {
+  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
     self.node_add_child_by_handle(self.nodes.root(), child_handle);
   }
 
   pub fn node_add_child_by_handle(
     &mut self,
-    parent_handle: SceneNodeHandle<T>,
-    child_handle: SceneNodeHandle<T>,
+    parent_handle: SceneNodeHandle,
+    child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
       .nodes
@@ -81,8 +83,8 @@ impl<T: SceneBackend> Scene<T> {
 
   pub fn node_remove_child_by_handle(
     &mut self,
-    parent_handle: SceneNodeHandle<T>,
-    child_handle: SceneNodeHandle<T>,
+    parent_handle: SceneNodeHandle,
+    child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
       .nodes
@@ -90,21 +92,21 @@ impl<T: SceneBackend> Scene<T> {
     parent.remove(child);
   }
 
-  pub fn get_node(&self, handle: SceneNodeHandle<T>) -> &SceneNode<T> {
+  pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
     self.nodes.get_node(handle).data()
   }
 
-  pub fn get_node_mut(&mut self, handle: SceneNodeHandle<T>) -> &mut SceneNode<T> {
+  pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
     self.nodes.get_node_mut(handle).data_mut()
   }
 
-  pub fn create_new_node(&mut self) -> &mut SceneNode<T> {
+  pub fn create_new_node(&mut self) -> &mut SceneNode {
     let node = SceneNode::default();
     let handle = self.nodes.create_node(node);
     self.nodes.get_node_mut(handle).data_mut()
   }
 
-  pub fn free_node(&mut self, handle: SceneNodeHandle<T>) {
+  pub fn free_node(&mut self, handle: SceneNodeHandle) {
     self.nodes.free_node(handle);
   }
 }

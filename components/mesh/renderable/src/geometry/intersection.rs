@@ -29,6 +29,12 @@ impl MeshBufferHitList {
   }
 }
 
+impl Default for MeshBufferHitList {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<G> IntersectAbleAnyGeometry for G
 where
   G: AnyGeometry,

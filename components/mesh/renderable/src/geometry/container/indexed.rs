@@ -10,7 +10,7 @@ use core::marker::PhantomData;
 use std::hash::Hash;
 
 pub trait IntoUsize {
-  fn into_usize(&self) -> usize;
+  fn into_usize(self) -> usize;
   fn from_usize(v: usize) -> Self;
 }
 pub trait IndexType: IntoUsize + Copy + Eq + Ord + Hash {}
@@ -18,8 +18,8 @@ pub trait IndexType: IntoUsize + Copy + Eq + Ord + Hash {}
 impl IndexType for u16 {}
 impl IntoUsize for u16 {
   #[inline(always)]
-  fn into_usize(&self) -> usize {
-    *self as usize
+  fn into_usize(self) -> usize {
+    self as usize
   }
   #[inline(always)]
   fn from_usize(v: usize) -> Self {
@@ -30,8 +30,8 @@ impl IntoUsize for u16 {
 impl IndexType for u32 {}
 impl IntoUsize for u32 {
   #[inline(always)]
-  fn into_usize(&self) -> usize {
-    *self as usize
+  fn into_usize(self) -> usize {
+    self as usize
   }
   #[inline(always)]
   fn from_usize(v: usize) -> Self {

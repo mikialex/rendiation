@@ -1,6 +1,18 @@
-use std::time::{Duration, Instant};
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
+#![feature(const_fn_transmute)]
+#![allow(incomplete_features)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unreachable_code)]
 
-use webgpu::Renderer;
+use std::time::{Duration, Instant};
+mod app;
+mod renderer;
+mod scene;
+
+use app::Application;
+use renderer::Renderer;
 use winit::{
   event::{self, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
@@ -18,8 +30,9 @@ fn main() {
 
 pub struct Viewer {
   window: winit::window::Window,
-  renderer: Renderer,
   last_update_inst: Instant,
+  renderer: Renderer,
+  app: Application,
 }
 
 impl Viewer {
@@ -30,6 +43,7 @@ impl Viewer {
       window,
       renderer,
       last_update_inst: Instant::now(),
+      app: Application::new(),
     }
   }
 
@@ -65,21 +79,16 @@ impl Viewer {
             *control_flow = ControlFlow::Exit;
           }
           _ => {
-            // example.update(event);
+            self.app.update(event);
           }
         },
         event::Event::RedrawRequested(_) => {
-          // let frame = match swap_chain.get_current_frame() {
-          //   Ok(frame) => frame,
-          //   Err(_) => {
-          //     swap_chain = device.create_swap_chain(&surface, &sc_desc);
-          //     swap_chain
-          //       .get_current_frame()
-          //       .expect("Failed to acquire next swap chain texture!")
-          //   }
-          // };
+          let frame = self
+            .renderer
+            .get_current_frame()
+            .expect("Failed to acquire next swap chain texture!");
 
-          // example.render(&frame.output, &device, &queue, &spawner);
+          self.app.render(&frame, &mut self.renderer);
         }
         _ => {}
       }

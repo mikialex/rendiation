@@ -34,12 +34,12 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
   #[inline]
   #[must_use]
   fn one() -> Self {
-    Self::create(|| T::one())
+    Self::create(T::one)
   }
   #[inline]
   #[must_use]
   fn zero() -> Self {
-    Self::create(|| T::zero())
+    Self::create(T::zero)
   }
   #[inline]
   #[must_use]

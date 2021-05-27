@@ -3,18 +3,20 @@ use std::borrow::Cow;
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
-use crate::*;
+use crate::renderer::Renderer;
+
+use super::{
+  MaterialCPUResource, MaterialGPUResource, PipelineResourceManager, SceneMaterialRenderPrepareCtx,
+};
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
 }
 
 pub struct BasicMaterialGPU {
-  model_uniform: wgpu::Buffer,
   uniform: wgpu::Buffer,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
-  pipeline: wgpu::RenderPipeline,
 }
 
 impl MaterialGPUResource for BasicMaterialGPU {
@@ -22,10 +24,21 @@ impl MaterialGPUResource for BasicMaterialGPU {
   fn update(
     &mut self,
     source: &Self::Source,
-    renderer: &mut Renderer,
+    renderer: &Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) {
     //
+  }
+
+  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+    pass.set_bind_group(0, &self.bindgroup, &[]);
+  }
+
+  fn setup_pipeline<'a>(
+    &self,
+    pass: &mut wgpu::RenderPass<'a>,
+    pipeline_manager: &'a PipelineResourceManager,
+  ) {
   }
 }
 
@@ -75,7 +88,15 @@ impl MaterialCPUResource for BasicMaterial {
           ],
         });
 
+    use wgpu::util::DeviceExt;
     let uniform_buf: wgpu::Buffer = todo!();
+    // renderer
+    //   .device
+    //   .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    //     label: Some("Uniform Buffer"),
+    //     contents: bytemuck::cast_slice(todo!()),
+    //     usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    //   });
     let texture_view = todo!();
 
     // Create other resources
@@ -116,12 +137,12 @@ impl MaterialCPUResource for BasicMaterial {
       step_mode: wgpu::InputStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float4,
+          format: wgpu::VertexFormat::Float32x4,
           offset: 0,
           shader_location: 0,
         },
         wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float2,
+          format: wgpu::VertexFormat::Float32x2,
           offset: 4 * 4,
           shader_location: 1,
         },
@@ -209,7 +230,7 @@ impl MaterialCPUResource for BasicMaterial {
           targets: &[renderer.get_prefer_target_format().into()],
         }),
         primitive: wgpu::PrimitiveState {
-          cull_mode: wgpu::CullMode::Back,
+          cull_mode: wgpu::Face::Back.into(),
           ..Default::default()
         },
         depth_stencil: None,

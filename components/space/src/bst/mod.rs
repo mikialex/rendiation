@@ -105,15 +105,14 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
     let root_bbox =
       bounding_from_build_source(&index_list, primitives.as_slice(), 0..index_list.len());
 
-    let mut nodes = Vec::new();
-    nodes.push(BSTNode {
+    let mut nodes = vec![BSTNode {
       phantom: PhantomData,
       bounding: root_bbox,
       primitive_range: 0..index_list.len(),
       depth: 0,
       self_index: 0,
       child: None,
-    });
+    }];
 
     Self::build(
       option,

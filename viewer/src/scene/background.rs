@@ -1,8 +1,32 @@
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 
+use crate::renderer::Renderable;
+
+pub trait Background: 'static + Renderable {
+  fn require_pass_clear(&self) -> Option<wgpu::Color>;
+}
+
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
+}
+
+impl Renderable for SolidBackground {
+  fn update(&mut self, renderer: &crate::renderer::Renderer, encoder: &mut wgpu::CommandEncoder) {}
+
+  fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {}
+}
+
+impl Background for SolidBackground {
+  fn require_pass_clear(&self) -> Option<wgpu::Color> {
+    wgpu::Color {
+      r: self.intensity.r() as f64,
+      g: self.intensity.g() as f64,
+      b: self.intensity.b() as f64,
+      a: 1.,
+    }
+    .into()
+  }
 }
 
 impl Default for SolidBackground {

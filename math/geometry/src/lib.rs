@@ -1,3 +1,5 @@
+#![allow(clippy::suspicious_operation_groupings)]
+
 pub mod dimension3;
 pub use dimension3::*;
 pub mod dimension2;

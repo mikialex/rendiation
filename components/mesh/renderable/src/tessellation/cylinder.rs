@@ -192,6 +192,7 @@ impl CylinderGeometryBuilder {
       let c = center_index_start + x;
       let i = center_index_end + x;
 
+      #[allow(clippy::branches_sharing_code)]
       if top {
         self.indices.push(i as u16);
         self.indices.push((i + 1) as u16);

@@ -14,7 +14,7 @@ impl SwapChain {
   ) -> Self {
     let swap_chain_descriptor = wgpu::SwapChainDescriptor {
       usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-      format: adapter.get_swap_chain_preferred_format(&surface),
+      format: adapter.get_swap_chain_preferred_format(&surface).unwrap(),
       width: size.0 as u32,
       height: size.1 as u32,
       present_mode: wgpu::PresentMode::Fifo,

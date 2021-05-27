@@ -1,17 +1,37 @@
-use arena::Arena;
+use self::swap_chain::SwapChain;
+mod buffer;
+mod encoder;
+mod queue;
+mod swap_chain;
 
-use crate::{swap_chain::SwapChain, Renderable};
+pub use encoder::*;
+pub use queue::*;
+
+pub struct If<const B: bool>;
+pub trait True {}
+impl True for If<true> {}
+pub trait True2 {}
+impl True2 for If<true> {}
+
+pub trait Renderable {
+  fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder);
+  fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>);
+}
+
+pub trait RenderPassCreator<T> {
+  fn create<'a>(
+    &self,
+    target: &'a T,
+    encoder: &'a mut wgpu::CommandEncoder,
+  ) -> wgpu::RenderPass<'a>;
+}
 
 pub struct Renderer {
   instance: wgpu::Instance,
   adaptor: wgpu::Adapter,
-  pub(crate) device: wgpu::Device,
-  queue: wgpu::Queue,
+  pub device: wgpu::Device,
+  pub queue: wgpu::Queue,
   swap_chain: SwapChain,
-
-  // pipeline_cache: Vec<wgpu::RenderPipeline>,
-  // bindgroup_cache: Vec<wgpu::BindGroup>,
-  pub(crate) buffers: Arena<wgpu::Buffer>,
 }
 
 impl Renderer {
@@ -46,8 +66,6 @@ impl Renderer {
     );
 
     Self {
-      // pipeline_cache: Vec::new(),
-      buffers: Arena::new(),
       instance,
       adaptor,
       device,
@@ -55,13 +73,18 @@ impl Renderer {
       swap_chain,
     }
   }
-  pub fn render(&mut self, pass_des: &wgpu::RenderPassDescriptor, renderable: &mut dyn Renderable) {
+  pub fn render<R, T>(&mut self, renderable: &mut R, target: &T)
+  where
+    R: Renderable,
+    R: RenderPassCreator<T>,
+  {
     let mut encoder = self
       .device
       .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
-      let mut pass = encoder.begin_render_pass(pass_des);
-      renderable.render(self, &mut pass, pass_des);
+      renderable.update(self, &mut encoder);
+      let mut pass = renderable.create(target, &mut encoder);
+      renderable.setup_pass(&mut pass);
     }
 
     self.queue.submit(Some(encoder.finish()));
@@ -82,5 +105,9 @@ impl Renderer {
   }
   pub(crate) fn get_prefer_target_format(&self) -> wgpu::TextureFormat {
     self.swap_chain.swap_chain_descriptor.format
+  }
+
+  pub fn get_current_frame(&mut self) -> Result<wgpu::SwapChainFrame, wgpu::SwapChainError> {
+    self.swap_chain.get_current_frame()
   }
 }

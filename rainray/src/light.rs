@@ -1,17 +1,48 @@
 use crate::NormalizedVec3;
 use rendiation_algebra::*;
+use rendiation_geometry::SurfaceAreaMeasure;
 
-pub trait LightShape {}
+pub trait SurfaceAreaMeasureAble {
+  fn surface_area(&self) -> f32;
+}
+
+impl<T: SurfaceAreaMeasure<f32, Matrix = Mat4<f32>>> SurfaceAreaMeasureAble for T {
+  fn surface_area(&self) -> f32 {
+    self.surface_area()
+  }
+}
+
+pub struct LightSourceGeometrySample {
+  pub position: Vec3<f32>,
+  pub normal: NormalizedVec3<f32>,
+}
+
+/// https://www.pbr-book.org/3ed-2018/Light_Transport_I_Surface_Reflection/Sampling_Light_Sources#fragment-ShapeInterface-5
+pub trait LightGeometry: Send + Sync + SurfaceAreaMeasureAble {
+  fn pdf(&self) -> f32 {
+    1.0 / self.surface_area()
+  }
+
+  fn sample_on_light_source(&self) -> LightSourceGeometrySample;
+}
+
+// impl LightGeometry for Sphere {
+//   fn sample_on_light_source(&self) -> LightSourceGeometrySample {
+//     todo!()
+//   }
+// }
 
 pub struct Light {
   pub emissive: Vec3<f32>,
-  // pub shape: Box<dyn LightShape>,
+  pub shape: Box<dyn LightGeometry>,
 }
 
 pub struct LightSampleResult {
   pub emissive: Vec3<f32>,
   pub light_in_dir: NormalizedVec3<f32>,
 }
+
+impl Light {}
 
 // pub trait Light: Sync + 'static {
 //   fn sample<'a>(

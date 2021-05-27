@@ -60,13 +60,14 @@ pub struct Repeat;
 impl TextureAddressMode for Repeat {
   const ENUM: AddressMode = AddressMode::Repeat;
   fn correct<T: Scalar>(uv: T) -> T {
-    uv % T::one()
+    uv - uv.floor()
   }
 }
 
 #[test]
 fn repeat() {
   assert_eq!(Repeat::correct(-0.25), 0.75);
+  assert_eq!(Repeat::correct(-1.25), 0.75);
   assert_eq!(Repeat::correct(1.25), 0.25);
 }
 
