@@ -33,6 +33,10 @@ impl Scene {
   }
 }
 
+pub struct RenderList {
+  models: Vec<ModelHandle>,
+}
+
 impl Renderable for Scene {
   fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {
     let models = &self.models;

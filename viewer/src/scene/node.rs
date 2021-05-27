@@ -1,6 +1,6 @@
 use rendiation_algebra::*;
 
-use super::{LightHandle, ModelHandle, Scene, SceneNodeHandle};
+use super::{Camera, LightHandle, ModelHandle, Scene, SceneNodeHandle};
 
 pub struct SceneNode {
   pub visible: bool,
@@ -51,7 +51,7 @@ impl SceneNode {
 pub enum SceneNodePayload {
   Model(ModelHandle),
   Light(LightHandle),
-  // Camera(Box<dyn Projection>),
+  Camera(Camera),
 }
 
 impl Scene {
