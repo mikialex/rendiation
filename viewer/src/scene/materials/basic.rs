@@ -5,7 +5,9 @@ use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::renderer::Renderer;
 
-use super::{MaterialCPUResource, MaterialGPUResource, SceneMaterialRenderPrepareCtx};
+use super::{
+  MaterialCPUResource, MaterialGPUResource, PipelineResourceManager, SceneMaterialRenderPrepareCtx,
+};
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
@@ -15,7 +17,6 @@ pub struct BasicMaterialGPU {
   uniform: wgpu::Buffer,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
-  pipeline: wgpu::RenderPipeline,
 }
 
 impl MaterialGPUResource for BasicMaterialGPU {
@@ -23,15 +24,21 @@ impl MaterialGPUResource for BasicMaterialGPU {
   fn update(
     &mut self,
     source: &Self::Source,
-    renderer: &mut Renderer,
+    renderer: &Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) {
     //
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
     pass.set_bind_group(0, &self.bindgroup, &[]);
-    pass.set_pipeline(&self.pipeline)
+  }
+
+  fn setup_pipeline<'a>(
+    &self,
+    pass: &mut wgpu::RenderPass<'a>,
+    pipeline_manager: &'a PipelineResourceManager,
+  ) {
   }
 }
 

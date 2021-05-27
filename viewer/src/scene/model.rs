@@ -10,14 +10,14 @@ pub struct Model {
 }
 
 impl Model {
-  pub fn update<'a>(&mut self, ctx: &mut ModelPassPrepareContext<'a>, renderer: &mut Renderer) {
+  pub fn update<'a>(&mut self, ctx: &mut ModelPassPrepareContext<'a>, renderer: &Renderer) {
     let material = ctx.materials.get_mut(self.material).unwrap();
     material.update(renderer, &mut ctx.material_ctx)
   }
 
   pub fn setup_pass<'a>(&self, pass: &mut wgpu::RenderPass<'a>, ctx: &ModelPassSetupContext<'a>) {
     let material = ctx.materials.get(self.material).unwrap();
-    material.setup_pass(pass);
+    material.setup_bindgroup(pass);
     let mesh = ctx.meshes.get(self.mesh).unwrap();
     mesh.setup_pass(pass);
   }

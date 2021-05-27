@@ -6,6 +6,10 @@ use crate::Renderer;
 
 use super::Camera;
 
+// pub trait MaterialRenderable<PassSchema, Vertex>{
+
+// }
+
 pub trait MaterialCPUResource {
   type GPU: MaterialGPUResource<Source = Self>;
   fn create(
@@ -20,11 +24,16 @@ pub trait MaterialGPUResource: Sized {
   fn update(
     &mut self,
     source: &Self::Source,
-    renderer: &mut Renderer,
+    renderer: &Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   );
 
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
+  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
+  fn setup_pipeline<'a>(
+    &self,
+    pass: &mut wgpu::RenderPass<'a>,
+    pipeline_manager: &'a PipelineResourceManager,
+  );
 }
 
 pub struct MaterialCell<T: MaterialCPUResource> {
@@ -37,6 +46,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a> {
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
   pub model_matrix_gpu: &'a wgpu::Buffer,
+  pub pipelines: &'a mut PipelineResourceManager,
 }
 
 pub struct CameraBindgroup {
@@ -105,18 +115,28 @@ impl CameraBindgroup {
 }
 
 pub trait Material {
-  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
+  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
+  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
 }
 
 impl<T> Material for MaterialCell<T>
 where
   T: MaterialCPUResource,
 {
-  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
+  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
     self.gpu.update(&self.material, renderer, ctx);
   }
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    self.gpu.setup_pass(pass)
+  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+    self.gpu.setup_bindgroup(pass)
+  }
+}
+
+pub struct PipelineResourceManager {
+  basic: Option<wgpu::RenderPipeline>,
+}
+
+impl PipelineResourceManager {
+  pub fn new() -> Self {
+    Self { basic: None }
   }
 }

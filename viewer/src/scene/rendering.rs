@@ -61,12 +61,37 @@ impl Renderable for Scene {
   }
 
   fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
+    let root = self.get_root_handle();
+    let models = &mut self.models;
+    let materials = &mut self.materials;
+    let meshes = &mut self.meshes;
+    let pipelines = &mut self.pipeline_resource;
     self
       .nodes
-      .traverse_mut(self.get_root_handle(), &mut Vec::new(), |this, parent| {
+      .traverse_mut(root, &mut Vec::new(), |this, parent| {
         let node_data = this.data_mut();
         node_data.hierarchy_update(parent.map(|p| p.data()));
-        // todo
+
+        let mut ctx = ModelPassPrepareContext {
+          materials,
+          meshes,
+          material_ctx: SceneMaterialRenderPrepareCtx {
+            camera: todo!(),
+            camera_gpu: todo!(),
+            model_matrix: todo!(),
+            model_matrix_gpu: todo!(),
+            pipelines,
+          },
+        };
+
+        node_data.payloads.iter().for_each(|payload| match payload {
+          SceneNodePayload::Model(model) => {
+            let model = models.get_mut(*model).unwrap();
+            model.update(&mut ctx, renderer)
+          }
+          _ => {}
+        });
+
         if node_data.net_visible {
           NextTraverseVisit::SkipChildren
         } else {
