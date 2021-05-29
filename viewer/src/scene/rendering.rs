@@ -2,6 +2,11 @@ use crate::renderer::RenderPassCreator;
 
 use super::*;
 
+pub trait RenderStyle {}
+
+pub struct OriginForward;
+impl RenderStyle for OriginForward {}
+
 impl RenderPassCreator<wgpu::SwapChainFrame> for Scene {
   fn create<'a>(
     &self,

@@ -45,8 +45,10 @@ use rendiation_texture::TextureSampler;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Model>;
 pub type MeshHandle = Handle<SceneMesh>;
-pub type MaterialHandle = Handle<Box<dyn Material>>;
+pub type MaterialHandle = Handle<Box<dyn SceneMaterial>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
+
+pub trait SceneMaterial: Material<OriginForward> {}
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
@@ -54,7 +56,7 @@ pub struct Scene {
   pub lights: Arena<Box<dyn Light>>,
   pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
-  pub materials: Arena<Box<dyn Material>>,
+  pub materials: Arena<Box<dyn SceneMaterial>>,
   pub samplers: Arena<TextureSampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,

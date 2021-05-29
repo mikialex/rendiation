@@ -3,7 +3,10 @@ use std::borrow::Cow;
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
-use crate::renderer::Renderer;
+use crate::{
+  renderer::Renderer,
+  scene::{OriginForward, RenderStyle},
+};
 
 use super::{
   MaterialCPUResource, MaterialGPUResource, PipelineResourceManager, SceneMaterialRenderPrepareCtx,
@@ -19,7 +22,7 @@ pub struct BasicMaterialGPU {
   bindgroup: wgpu::BindGroup,
 }
 
-impl MaterialGPUResource for BasicMaterialGPU {
+impl MaterialGPUResource<OriginForward> for BasicMaterialGPU {
   type Source = BasicMaterial;
   fn update(
     &mut self,
@@ -30,14 +33,11 @@ impl MaterialGPUResource for BasicMaterialGPU {
     //
   }
 
-  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    pass.set_bind_group(0, &self.bindgroup, &[]);
-  }
-
-  fn setup_pipeline<'a>(
+  fn setup_pass<'a>(
     &self,
     pass: &mut wgpu::RenderPass<'a>,
     pipeline_manager: &'a PipelineResourceManager,
+    style: &OriginForward,
   ) {
   }
 }
