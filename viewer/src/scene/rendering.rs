@@ -8,6 +8,11 @@ pub trait RenderStyle: Sized {
     renderer: &Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
   );
+  fn setup_pass<'a>(
+    m: &'a dyn Material,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
+  );
 }
 
 pub struct OriginForward;
@@ -19,6 +24,14 @@ impl RenderStyle for OriginForward {
   ) {
     m.update(renderer, ctx)
   }
+
+  fn setup_pass<'a>(
+    m: &'a dyn Material,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
+  ) {
+    m.setup_pass(pass, ctx)
+  }
 }
 
 pub struct NormalPass;
@@ -29,6 +42,13 @@ impl RenderStyle for NormalPass {
     ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
   ) {
     m.update(renderer, ctx)
+  }
+  fn setup_pass<'a>(
+    m: &'a dyn Material,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
+  ) {
+    m.setup_pass(pass, ctx)
   }
 }
 
@@ -85,7 +105,10 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
     let ctx = ModelPassSetupContext {
       materials: &scene.materials,
       meshes: &scene.meshes,
-      style: self.style,
+      material_ctx: SceneMaterialPassSetupCtx {
+        style: self.style,
+        pipelines: &scene.pipeline_resource,
+      },
     };
     scene.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();

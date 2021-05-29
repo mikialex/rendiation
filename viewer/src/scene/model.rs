@@ -19,13 +19,13 @@ impl Model {
     S::update(material, renderer, &mut ctx.material_ctx);
   }
 
-  pub fn setup_pass<'a, S>(
+  pub fn setup_pass<'a, S: RenderStyle>(
     &self,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &ModelPassSetupContext<'a, S>,
   ) {
-    let material = ctx.materials.get(self.material).unwrap();
-    material.setup_pass(pass, todo!(), &OriginForward);
+    let material = ctx.materials.get(self.material).unwrap().as_ref();
+    S::setup_pass(material, pass, &ctx.material_ctx);
     let mesh = ctx.meshes.get(self.mesh).unwrap();
     mesh.setup_pass(pass);
   }
@@ -34,7 +34,7 @@ impl Model {
 pub struct ModelPassSetupContext<'a, S> {
   pub materials: &'a Arena<Box<dyn Material>>,
   pub meshes: &'a Arena<SceneMesh>,
-  pub style: &'a S,
+  pub material_ctx: SceneMaterialPassSetupCtx<'a, S>,
 }
 
 pub struct ModelPassPrepareContext<'a, S> {

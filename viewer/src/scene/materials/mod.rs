@@ -29,8 +29,7 @@ pub trait MaterialGPUResource<S>: Sized {
   fn setup_pass<'a>(
     &self,
     pass: &mut wgpu::RenderPass<'a>,
-    pipeline_manager: &'a PipelineResourceManager,
-    style: &S,
+    ctx: &SceneMaterialPassSetupCtx<'a, S>,
   ) {
     // default do nothing
   }
@@ -52,13 +51,17 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub style: &'a S,
 }
 
+pub struct SceneMaterialPassSetupCtx<'a, S> {
+  pub pipelines: &'a PipelineResourceManager,
+  pub style: &'a S,
+}
+
 pub trait MaterialStyleAbility<S: RenderStyle> {
   fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>);
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    pipeline_manager: &'a PipelineResourceManager,
-    style: &'a S,
+    ctx: &SceneMaterialPassSetupCtx<'a, S>,
   );
 }
 
@@ -74,10 +77,9 @@ where
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    pipeline_manager: &'a PipelineResourceManager,
-    style: &'a S,
+    ctx: &SceneMaterialPassSetupCtx<'a, S>,
   ) {
-    self.gpu.setup_pass(pass, pipeline_manager, style)
+    self.gpu.setup_pass(pass, ctx)
   }
 }
 

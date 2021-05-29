@@ -5,9 +5,7 @@ use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::{renderer::Renderer, scene::OriginForward};
 
-use super::{
-  MaterialCPUResource, MaterialGPUResource, PipelineResourceManager, SceneMaterialRenderPrepareCtx,
-};
+use super::{MaterialCPUResource, MaterialGPUResource, PipelineResourceManager, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx};
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
@@ -33,8 +31,7 @@ impl MaterialGPUResource<OriginForward> for BasicMaterialGPU {
   fn setup_pass<'a>(
     &self,
     pass: &mut wgpu::RenderPass<'a>,
-    pipeline_manager: &'a PipelineResourceManager,
-    style: &OriginForward,
+    ctx: &SceneMaterialPassSetupCtx<'a, OriginForward>,
   ) {
   }
 }
