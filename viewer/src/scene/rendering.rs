@@ -92,20 +92,17 @@ impl Renderable for Scene {
             SceneNodePayload::Model(model) => {
               list.models.push(*model);
 
-              let mut ctx = ModelPassPrepareContext {
-                materials,
-                meshes,
-                material_ctx: SceneMaterialRenderPrepareCtx {
-                  active_camera,
-                  camera_gpu,
-                  model_matrix: &node_data.world_matrix,
-                  pipelines,
-                  style,
-                },
-              };
+              let mut content = ModelPassPrepareContext { materials, meshes };
 
+              let mut ctx = SceneMaterialRenderPrepareCtx {
+                active_camera,
+                camera_gpu,
+                model_matrix: &node_data.world_matrix,
+                pipelines,
+                style: &OriginForward,
+              };
               let model = models.get_mut(*model).unwrap();
-              model.update(&mut ctx, renderer)
+              model.update(&mut content, &mut |m| m.update(renderer, &mut ctx))
             }
             _ => {}
           });

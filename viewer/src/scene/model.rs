@@ -1,8 +1,5 @@
-use arena::Arena;
-
-use crate::renderer::Renderer;
-
 use super::*;
+use arena::Arena;
 
 pub struct Model {
   material: MaterialHandle,
@@ -10,13 +7,13 @@ pub struct Model {
 }
 
 impl Model {
-  pub fn update<'a>(
+  pub fn update<'a, F: FnMut(&mut dyn Material)>(
     &mut self,
-    ctx: &mut ModelPassPrepareContext<'a, OriginForward>,
-    renderer: &Renderer,
+    ctx: &mut ModelPassPrepareContext,
+    f: &mut F,
   ) {
-    let material = ctx.materials.get_mut(self.material).unwrap();
-    material.update(renderer, &mut ctx.material_ctx)
+    let material = ctx.materials.get_mut(self.material).unwrap().as_mut();
+    f(material);
   }
 
   pub fn setup_pass<'a, S>(
@@ -37,8 +34,7 @@ pub struct ModelPassSetupContext<'a, S> {
   pub style: &'a S,
 }
 
-pub struct ModelPassPrepareContext<'a, S> {
+pub struct ModelPassPrepareContext<'a> {
   pub materials: &'a mut Arena<Box<dyn Material>>,
   pub meshes: &'a mut Arena<SceneMesh>,
-  pub material_ctx: SceneMaterialRenderPrepareCtx<'a, S>,
 }
