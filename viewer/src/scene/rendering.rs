@@ -2,7 +2,7 @@ use crate::renderer::RenderPassCreator;
 
 use super::*;
 
-pub trait RenderStyle {}
+pub trait RenderStyle: Sized {}
 
 pub struct OriginForward;
 impl RenderStyle for OriginForward {}
@@ -10,7 +10,7 @@ impl RenderStyle for OriginForward {}
 pub struct NormalPass;
 impl RenderStyle for NormalPass {}
 
-impl RenderPassCreator<wgpu::SwapChainFrame> for Scene {
+impl<'b, S> RenderPassCreator<wgpu::SwapChainFrame> for RenderPassDispatcher<'b, S> {
   fn create<'a>(
     &self,
     target: &'a wgpu::SwapChainFrame,
@@ -22,7 +22,7 @@ impl RenderPassCreator<wgpu::SwapChainFrame> for Scene {
         view: &target.output.view,
         resolve_target: None,
         ops: wgpu::Operations {
-          load: self.get_main_pass_load_op(),
+          load: self.scene.get_main_pass_load_op(),
           store: true,
         },
       }],
@@ -51,38 +51,44 @@ impl RenderList {
   }
 }
 
-impl Renderable for Scene {
-  fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {
-    let style = &self.active_style;
-    let models = &self.models;
+pub struct RenderPassDispatcher<'a, S> {
+  pub scene: &'a mut Scene,
+  pub style: &'a mut S,
+}
+
+impl<'a, S: MaterialDispatchAbleRenderStyle> Renderable for RenderPassDispatcher<'a, S> {
+  fn setup_pass<'p>(&'p mut self, pass: &mut wgpu::RenderPass<'p>) {
+    let scene = &self.scene;
+    let models = &scene.models;
     let ctx = ModelPassSetupContext {
-      materials: &self.materials,
-      meshes: &self.meshes,
-      style,
+      materials: &scene.materials,
+      meshes: &scene.meshes,
+      style: self.style,
     };
-    self.render_list.models.iter().for_each(|model| {
+    scene.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
       model.setup_pass(pass, &ctx)
     })
   }
 
   fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
-    self.render_list.models.clear();
+    let scene = &mut self.scene;
+    scene.render_list.models.clear();
 
-    let root = self.get_root_handle();
-    let models = &mut self.models;
-    let materials = &mut self.materials;
-    let meshes = &mut self.meshes;
-    let pipelines = &mut self.pipeline_resource;
-    let list = &mut self.render_list;
-    let style = &self.active_style;
+    let root = scene.get_root_handle();
+    let models = &mut scene.models;
+    let materials = &mut scene.materials;
+    let meshes = &mut scene.meshes;
+    let pipelines = &mut scene.pipeline_resource;
+    let list = &mut scene.render_list;
+    let style = &(*self.style);
 
-    if let Some(active_camera) = &self.active_camera {
-      let camera_gpu = self
+    if let Some(active_camera) = &scene.active_camera {
+      let camera_gpu = scene
         .active_camera_gpu
         .get_or_insert_with(|| CameraBindgroup::new(renderer, active_camera));
 
-      self
+      scene
         .nodes
         .traverse_mut(root, &mut Vec::new(), |this, parent| {
           let node_data = this.data_mut();
@@ -92,17 +98,20 @@ impl Renderable for Scene {
             SceneNodePayload::Model(model) => {
               list.models.push(*model);
 
-              let mut content = ModelPassPrepareContext { materials, meshes };
-
-              let mut ctx = SceneMaterialRenderPrepareCtx {
-                active_camera,
-                camera_gpu,
-                model_matrix: &node_data.world_matrix,
-                pipelines,
-                style: &OriginForward,
+              let mut ctx = ModelPassPrepareContext {
+                materials,
+                meshes,
+                material_ctx: SceneMaterialRenderPrepareCtx {
+                  active_camera,
+                  camera_gpu,
+                  model_matrix: &node_data.world_matrix,
+                  pipelines,
+                  style,
+                },
               };
+
               let model = models.get_mut(*model).unwrap();
-              model.update(&mut content, &mut |m| m.update(renderer, &mut ctx))
+              model.update(&mut ctx, renderer)
             }
             _ => {}
           });

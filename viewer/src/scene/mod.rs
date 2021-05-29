@@ -54,6 +54,24 @@ impl<T> Material for T where
 {
 }
 
+pub trait MaterialDispatchAbleRenderStyle: RenderStyle {
+  fn update<'a>(
+    m: &mut dyn Material,
+    renderer: &Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
+  );
+}
+
+impl MaterialDispatchAbleRenderStyle for OriginForward {
+  fn update<'a>(
+    m: &mut dyn Material,
+    renderer: &Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
+  ) {
+    m.update(renderer, ctx)
+  }
+}
+
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
   pub background: Box<dyn Background>,
@@ -68,7 +86,6 @@ pub struct Scene {
   pub active_camera: Option<Camera>,
   pub active_camera_gpu: Option<CameraBindgroup>,
   pub render_list: RenderList,
-  pub active_style: Box<dyn RenderStyle>,
 }
 
 impl Scene {
@@ -85,7 +102,6 @@ impl Scene {
       active_camera: None,
       active_camera_gpu: None,
       render_list: RenderList::new(),
-      active_style: Box::new(OriginForward),
     }
   }
 
