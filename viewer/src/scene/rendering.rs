@@ -2,13 +2,35 @@ use crate::renderer::RenderPassCreator;
 
 use super::*;
 
-pub trait RenderStyle: Sized {}
+pub trait RenderStyle: Sized {
+  fn update<'a>(
+    m: &mut dyn Material,
+    renderer: &Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
+  );
+}
 
 pub struct OriginForward;
-impl RenderStyle for OriginForward {}
+impl RenderStyle for OriginForward {
+  fn update<'a>(
+    m: &mut dyn Material,
+    renderer: &Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
+  ) {
+    m.update(renderer, ctx)
+  }
+}
 
 pub struct NormalPass;
-impl RenderStyle for NormalPass {}
+impl RenderStyle for NormalPass {
+  fn update<'a>(
+    m: &mut dyn Material,
+    renderer: &Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
+  ) {
+    m.update(renderer, ctx)
+  }
+}
 
 impl<'b, S> RenderPassCreator<wgpu::SwapChainFrame> for RenderPassDispatcher<'b, S> {
   fn create<'a>(
@@ -56,7 +78,7 @@ pub struct RenderPassDispatcher<'a, S> {
   pub style: &'a mut S,
 }
 
-impl<'a, S: MaterialDispatchAbleRenderStyle> Renderable for RenderPassDispatcher<'a, S> {
+impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
   fn setup_pass<'p>(&'p mut self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;

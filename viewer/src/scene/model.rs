@@ -10,7 +10,7 @@ pub struct Model {
 }
 
 impl Model {
-  pub fn update<'a, S: MaterialDispatchAbleRenderStyle>(
+  pub fn update<'a, S: RenderStyle>(
     &mut self,
     ctx: &mut ModelPassPrepareContext<'a, S>,
     renderer: &Renderer,

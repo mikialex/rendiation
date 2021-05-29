@@ -54,24 +54,6 @@ impl<T> Material for T where
 {
 }
 
-pub trait MaterialDispatchAbleRenderStyle: RenderStyle {
-  fn update<'a>(
-    m: &mut dyn Material,
-    renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
-  );
-}
-
-impl MaterialDispatchAbleRenderStyle for OriginForward {
-  fn update<'a>(
-    m: &mut dyn Material,
-    renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
-  ) {
-    m.update(renderer, ctx)
-  }
-}
-
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
   pub background: Box<dyn Background>,
