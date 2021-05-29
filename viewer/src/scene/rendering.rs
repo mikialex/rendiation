@@ -7,6 +7,9 @@ pub trait RenderStyle {}
 pub struct OriginForward;
 impl RenderStyle for OriginForward {}
 
+pub struct NormalPass;
+impl RenderStyle for NormalPass {}
+
 impl RenderPassCreator<wgpu::SwapChainFrame> for Scene {
   fn create<'a>(
     &self,
@@ -50,10 +53,12 @@ impl RenderList {
 
 impl Renderable for Scene {
   fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {
+    let style = &self.active_style;
     let models = &self.models;
     let ctx = ModelPassSetupContext {
       materials: &self.materials,
       meshes: &self.meshes,
+      style,
     };
     self.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
@@ -70,6 +75,7 @@ impl Renderable for Scene {
     let meshes = &mut self.meshes;
     let pipelines = &mut self.pipeline_resource;
     let list = &mut self.render_list;
+    let style = &self.active_style;
 
     if let Some(active_camera) = &self.active_camera {
       let camera_gpu = self
@@ -82,20 +88,22 @@ impl Renderable for Scene {
           let node_data = this.data_mut();
           node_data.hierarchy_update(parent.map(|p| p.data()));
 
-          let mut ctx = ModelPassPrepareContext {
-            materials,
-            meshes,
-            material_ctx: SceneMaterialRenderPrepareCtx {
-              active_camera,
-              camera_gpu,
-              model_matrix: &node_data.world_matrix,
-              pipelines,
-            },
-          };
-
           node_data.payloads.iter().for_each(|payload| match payload {
             SceneNodePayload::Model(model) => {
               list.models.push(*model);
+
+              let mut ctx = ModelPassPrepareContext {
+                materials,
+                meshes,
+                material_ctx: SceneMaterialRenderPrepareCtx {
+                  active_camera,
+                  camera_gpu,
+                  model_matrix: &node_data.world_matrix,
+                  pipelines,
+                  style,
+                },
+              };
+
               let model = models.get_mut(*model).unwrap();
               model.update(&mut ctx, renderer)
             }

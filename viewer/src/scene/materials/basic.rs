@@ -3,10 +3,7 @@ use std::borrow::Cow;
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
-use crate::{
-  renderer::Renderer,
-  scene::{OriginForward, RenderStyle},
-};
+use crate::{renderer::Renderer, scene::OriginForward};
 
 use super::{
   MaterialCPUResource, MaterialGPUResource, PipelineResourceManager, SceneMaterialRenderPrepareCtx,
@@ -28,7 +25,7 @@ impl MaterialGPUResource<OriginForward> for BasicMaterialGPU {
     &mut self,
     source: &Self::Source,
     renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    ctx: &mut SceneMaterialRenderPrepareCtx<OriginForward>,
   ) {
     //
   }
@@ -45,10 +42,10 @@ impl MaterialGPUResource<OriginForward> for BasicMaterialGPU {
 impl MaterialCPUResource for BasicMaterial {
   type GPU = BasicMaterialGPU;
 
-  fn create(
+  fn create<S>(
     &mut self,
     renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> Self::GPU {
     let bind_group_layout =
       renderer

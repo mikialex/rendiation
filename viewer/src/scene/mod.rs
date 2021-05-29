@@ -45,10 +45,14 @@ use rendiation_texture::TextureSampler;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Model>;
 pub type MeshHandle = Handle<SceneMesh>;
-pub type MaterialHandle = Handle<Box<dyn SceneMaterial>>;
+pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 
-pub trait SceneMaterial: Material<OriginForward> {}
+pub trait Material: MaterialStyleAbility<OriginForward> + MaterialStyleAbility<NormalPass> {}
+impl<T> Material for T where
+  T: MaterialStyleAbility<OriginForward> + MaterialStyleAbility<NormalPass>
+{
+}
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
@@ -56,7 +60,7 @@ pub struct Scene {
   pub lights: Arena<Box<dyn Light>>,
   pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
-  pub materials: Arena<Box<dyn SceneMaterial>>,
+  pub materials: Arena<Box<dyn Material>>,
   pub samplers: Arena<TextureSampler>,
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
@@ -64,6 +68,7 @@ pub struct Scene {
   pub active_camera: Option<Camera>,
   pub active_camera_gpu: Option<CameraBindgroup>,
   pub render_list: RenderList,
+  pub active_style: Box<dyn RenderStyle>,
 }
 
 impl Scene {
@@ -80,6 +85,7 @@ impl Scene {
       active_camera: None,
       active_camera_gpu: None,
       render_list: RenderList::new(),
+      active_style: Box::new(OriginForward),
     }
   }
 
