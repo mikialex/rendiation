@@ -8,7 +8,6 @@ pub struct SceneNode {
   pub payloads: Vec<SceneNodePayload>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
-  pub world_matrix_gpu: Option<wgpu::Buffer>,
 }
 
 impl Default for SceneNode {
@@ -19,7 +18,6 @@ impl Default for SceneNode {
       payloads: Vec::new(),
       net_visible: true,
       world_matrix: Mat4::one(),
-      world_matrix_gpu: None,
     }
   }
 }

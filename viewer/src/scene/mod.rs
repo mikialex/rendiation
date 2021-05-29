@@ -61,6 +61,7 @@ pub struct Scene {
   pub(crate) pipeline_resource: PipelineResourceManager,
   pub active_camera: Option<Camera>,
   pub active_camera_gpu: Option<CameraBindgroup>,
+  pub render_list: RenderList,
 }
 
 impl Scene {
@@ -76,6 +77,7 @@ impl Scene {
       pipeline_resource: PipelineResourceManager::new(),
       active_camera: None,
       active_camera_gpu: None,
+      render_list: RenderList::new(),
     }
   }
 

@@ -37,9 +37,10 @@ pub struct RenderList {
   models: Vec<ModelHandle>,
 }
 
-pub struct SceneRenderTask<'a> {
-  scene: &'a Scene,
-  list: RenderList,
+impl RenderList {
+  pub fn new() -> Self {
+    Self { models: Vec::new() }
+  }
 }
 
 impl Renderable for Scene {
@@ -49,32 +50,22 @@ impl Renderable for Scene {
       materials: &self.materials,
       meshes: &self.meshes,
     };
-    self
-      .nodes
-      .traverse_mut(self.get_root_handle(), &mut Vec::new(), |this, parent| {
-        let node_data = this.data_mut();
-        node_data.hierarchy_update(parent.map(|p| p.data()));
-        node_data.payloads.iter().for_each(|payload| match payload {
-          SceneNodePayload::Model(model) => {
-            let model = models.get(*model).unwrap();
-            model.setup_pass(pass, &ctx)
-          }
-          _ => {}
-        });
-        if node_data.net_visible {
-          NextTraverseVisit::SkipChildren
-        } else {
-          NextTraverseVisit::VisitChildren
-        }
-      });
+    self.render_list.models.iter().for_each(|model| {
+      let model = models.get(*model).unwrap();
+      model.setup_pass(pass, &ctx)
+    })
   }
 
   fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
+    self.render_list.models.clear();
+
     let root = self.get_root_handle();
     let models = &mut self.models;
     let materials = &mut self.materials;
     let meshes = &mut self.meshes;
     let pipelines = &mut self.pipeline_resource;
+    let list = &mut self.render_list;
+
     if let Some(active_camera) = &self.active_camera {
       let camera_gpu = self
         .active_camera_gpu
@@ -92,14 +83,14 @@ impl Renderable for Scene {
             material_ctx: SceneMaterialRenderPrepareCtx {
               active_camera,
               camera_gpu,
-              model_matrix: todo!(),
-              model_matrix_gpu: todo!(),
+              model_matrix: &node_data.world_matrix,
               pipelines,
             },
           };
 
           node_data.payloads.iter().for_each(|payload| match payload {
             SceneNodePayload::Model(model) => {
+              list.models.push(*model);
               let model = models.get_mut(*model).unwrap();
               model.update(&mut ctx, renderer)
             }

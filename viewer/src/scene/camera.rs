@@ -5,6 +5,7 @@ use crate::renderer::Renderer;
 pub struct Camera {
   pub projection: Box<dyn Projection>,
   pub projection_matrix: Mat4<f32>,
+  pub matrix: Mat4<f32>, // to support scene graph we can associate a scene node with it
 }
 
 pub struct CameraBindgroup {
