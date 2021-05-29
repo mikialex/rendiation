@@ -59,7 +59,8 @@ pub struct Scene {
   // textures: Arena<Texture>,
   // buffers: Arena<Buffer>,
   pub(crate) pipeline_resource: PipelineResourceManager,
-  pub active_camera: Option<SceneNodeHandle>,
+  pub active_camera: Option<Camera>,
+  pub active_camera_gpu: Option<CameraBindgroup>,
 }
 
 impl Scene {
@@ -74,6 +75,7 @@ impl Scene {
       samplers: Arena::new(),
       pipeline_resource: PipelineResourceManager::new(),
       active_camera: None,
+      active_camera_gpu: None,
     }
   }
 

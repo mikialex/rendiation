@@ -31,7 +31,7 @@ impl CameraBindgroup {
       bytemuck::cast_slice(camera.projection_matrix.as_ref()),
     );
   }
-  pub fn new(&mut self, renderer: &Renderer, camera: &Camera) -> Self {
+  pub fn new(renderer: &Renderer, camera: &Camera) -> Self {
     let device = &renderer.device;
     use wgpu::util::DeviceExt;
 

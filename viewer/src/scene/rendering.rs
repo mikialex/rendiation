@@ -37,6 +37,11 @@ pub struct RenderList {
   models: Vec<ModelHandle>,
 }
 
+pub struct SceneRenderTask<'a> {
+  scene: &'a Scene,
+  list: RenderList,
+}
+
 impl Renderable for Scene {
   fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {
     let models = &self.models;
@@ -70,37 +75,43 @@ impl Renderable for Scene {
     let materials = &mut self.materials;
     let meshes = &mut self.meshes;
     let pipelines = &mut self.pipeline_resource;
-    self
-      .nodes
-      .traverse_mut(root, &mut Vec::new(), |this, parent| {
-        let node_data = this.data_mut();
-        node_data.hierarchy_update(parent.map(|p| p.data()));
+    if let Some(active_camera) = &self.active_camera {
+      let camera_gpu = self
+        .active_camera_gpu
+        .get_or_insert_with(|| CameraBindgroup::new(renderer, active_camera));
 
-        let mut ctx = ModelPassPrepareContext {
-          materials,
-          meshes,
-          material_ctx: SceneMaterialRenderPrepareCtx {
-            camera: todo!(),
-            camera_gpu: todo!(),
-            model_matrix: todo!(),
-            model_matrix_gpu: todo!(),
-            pipelines,
-          },
-        };
+      self
+        .nodes
+        .traverse_mut(root, &mut Vec::new(), |this, parent| {
+          let node_data = this.data_mut();
+          node_data.hierarchy_update(parent.map(|p| p.data()));
 
-        node_data.payloads.iter().for_each(|payload| match payload {
-          SceneNodePayload::Model(model) => {
-            let model = models.get_mut(*model).unwrap();
-            model.update(&mut ctx, renderer)
+          let mut ctx = ModelPassPrepareContext {
+            materials,
+            meshes,
+            material_ctx: SceneMaterialRenderPrepareCtx {
+              active_camera,
+              camera_gpu,
+              model_matrix: todo!(),
+              model_matrix_gpu: todo!(),
+              pipelines,
+            },
+          };
+
+          node_data.payloads.iter().for_each(|payload| match payload {
+            SceneNodePayload::Model(model) => {
+              let model = models.get_mut(*model).unwrap();
+              model.update(&mut ctx, renderer)
+            }
+            _ => {}
+          });
+
+          if node_data.net_visible {
+            NextTraverseVisit::SkipChildren
+          } else {
+            NextTraverseVisit::VisitChildren
           }
-          _ => {}
         });
-
-        if node_data.net_visible {
-          NextTraverseVisit::SkipChildren
-        } else {
-          NextTraverseVisit::VisitChildren
-        }
-      });
+    }
   }
 }

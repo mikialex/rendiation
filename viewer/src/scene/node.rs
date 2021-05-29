@@ -51,7 +51,6 @@ impl SceneNode {
 pub enum SceneNodePayload {
   Model(ModelHandle),
   Light(LightHandle),
-  Camera(Camera),
 }
 
 impl Scene {

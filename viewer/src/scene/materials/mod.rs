@@ -42,7 +42,7 @@ pub struct MaterialCell<T: MaterialCPUResource> {
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a> {
-  pub camera: &'a Camera,
+  pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
   pub model_matrix_gpu: &'a wgpu::Buffer,
