@@ -32,10 +32,14 @@ impl MaterialGPUResource<OriginForward> for BasicMaterialGPU {
   }
 
   fn setup_pass<'a>(
-    &self,
+    &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a, OriginForward>,
   ) {
+    let pipeline = ctx.pipelines.basic.as_ref().unwrap();
+    pass.set_pipeline(pipeline);
+    pass.set_bind_group(0, &ctx.camera_gpu.bindgroup, &[]);
+    pass.set_bind_group(1, &self.bindgroup, &[]);
   }
 }
 
@@ -188,9 +192,6 @@ impl MaterialCPUResource for BasicMaterial {
       fn fs_main() {
           var tex: vec4<f32> = textureSample(r_color, r_sampler, in_tex_coord_fs);
           out_color = tex;
-          //TODO: support `length` and `mix` functions
-          //var mag: f32 = length(in_tex_coord_fs-vec2<f32>(0.5, 0.5));
-          //out_color = vec4<f32>(mix(tex.xyz, vec3<f32>(0.0, 0.0, 0.0), mag*mag), 1.0);
       }
       
       [[stage(fragment)]]
@@ -242,4 +243,10 @@ impl MaterialCPUResource for BasicMaterial {
     // }
   }
   //
+}
+
+struct RenderPipelineBuilder {
+  primitive: wgpu::PrimitiveState,
+  depth_stencil: Option<wgpu::DepthStencilState>,
+  multisample: wgpu::MultisampleState,
 }

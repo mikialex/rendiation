@@ -34,24 +34,6 @@ impl RenderStyle for OriginForward {
   }
 }
 
-pub struct NormalPass;
-impl RenderStyle for NormalPass {
-  fn update<'a>(
-    m: &mut dyn Material,
-    renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
-  ) {
-    m.update(renderer, ctx)
-  }
-  fn setup_pass<'a>(
-    m: &'a dyn Material,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
-  ) {
-    m.setup_pass(pass, ctx)
-  }
-}
-
 impl<'b, S> RenderPassCreator<wgpu::SwapChainFrame> for RenderPassDispatcher<'b, S> {
   fn create<'a>(
     &self,
@@ -107,6 +89,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
       meshes: &scene.meshes,
       material_ctx: SceneMaterialPassSetupCtx {
         style: self.style,
+        camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
         pipelines: &scene.pipeline_resource,
       },
     };

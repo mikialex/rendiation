@@ -33,11 +33,8 @@ pub type MeshHandle = Handle<SceneMesh>;
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 
-pub trait Material: MaterialStyleAbility<OriginForward> + MaterialStyleAbility<NormalPass> {}
-impl<T> Material for T where
-  T: MaterialStyleAbility<OriginForward> + MaterialStyleAbility<NormalPass>
-{
-}
+pub trait Material: MaterialStyleAbility<OriginForward> {}
+impl<T> Material for T where T: MaterialStyleAbility<OriginForward> {}
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,

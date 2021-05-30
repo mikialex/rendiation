@@ -27,7 +27,7 @@ pub trait MaterialGPUResource<S>: Sized {
   }
 
   fn setup_pass<'a>(
-    &self,
+    &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a, S>,
   ) {
@@ -54,6 +54,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
 
 pub struct SceneMaterialPassSetupCtx<'a, S> {
   pub pipelines: &'a PipelineResourceManager,
+  pub camera_gpu: &'a CameraBindgroup,
   pub style: &'a S,
 }
 
@@ -85,7 +86,7 @@ where
 }
 
 pub struct PipelineResourceManager {
-  basic: Option<wgpu::RenderPipeline>,
+  pub basic: Option<wgpu::RenderPipeline>,
 }
 
 impl PipelineResourceManager {
