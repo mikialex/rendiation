@@ -6,6 +6,16 @@ use crate::Renderer;
 
 use super::{Camera, CameraBindgroup, RenderStyle, SceneMesh};
 
+pub trait BindableResource {
+  fn as_bindable(&self) -> wgpu::BindingResource;
+}
+
+impl BindableResource for wgpu::Buffer {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    self.as_entire_binding()
+  }
+}
+
 pub trait MaterialCPUResource {
   type GPU;
   fn create<S>(

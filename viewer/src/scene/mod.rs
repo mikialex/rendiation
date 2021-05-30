@@ -6,6 +6,8 @@ pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod rendering;
+pub mod sampler;
+pub mod texture;
 pub mod util;
 
 pub use background::*;
@@ -16,6 +18,8 @@ pub use mesh::*;
 pub use model::*;
 pub use node::*;
 pub use rendering::*;
+pub use sampler::*;
+pub use texture::*;
 pub use util::*;
 
 pub use arena::*;
@@ -25,7 +29,6 @@ use crate::renderer::*;
 
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
-use rendiation_texture::TextureSampler;
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Model>;
@@ -43,8 +46,8 @@ pub struct Scene {
   pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
   pub materials: Arena<Box<dyn Material>>,
-  pub samplers: Arena<TextureSampler>,
-  // textures: Arena<Texture>,
+  pub samplers: Arena<SceneSampler>,
+  pub texture_2ds: Arena<SceneTexture2D>,
   // buffers: Arena<Buffer>,
   pub(crate) pipeline_resource: PipelineResourceManager,
   pub active_camera: Option<Camera>,
@@ -62,6 +65,7 @@ impl Scene {
       lights: Arena::new(),
       materials: Arena::new(),
       samplers: Arena::new(),
+      texture_2ds: Arena::new(),
       pipeline_resource: PipelineResourceManager::new(),
       active_camera: None,
       active_camera_gpu: None,
