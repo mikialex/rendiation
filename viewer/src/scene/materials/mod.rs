@@ -4,7 +4,7 @@ use rendiation_algebra::Mat4;
 
 use crate::Renderer;
 
-use super::{Camera, CameraBindgroup, RenderStyle};
+use super::{Camera, CameraBindgroup, RenderStyle, SceneMesh};
 
 pub trait MaterialCPUResource {
   type GPU;
@@ -49,6 +49,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub model_matrix: &'a Mat4<f32>,
   pub pipelines: &'a mut PipelineResourceManager,
   pub style: &'a S,
+  pub active_mesh: &'a SceneMesh,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a, S> {

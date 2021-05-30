@@ -143,20 +143,19 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
             SceneNodePayload::Model(model) => {
               list.models.push(*model);
 
-              let mut ctx = ModelPassPrepareContext {
-                materials,
-                meshes,
-                material_ctx: SceneMaterialRenderPrepareCtx {
-                  active_camera,
-                  camera_gpu,
-                  model_matrix: &node_data.world_matrix,
-                  pipelines,
-                  style,
-                },
-              };
-
               let model = models.get_mut(*model).unwrap();
-              model.update(&mut ctx, renderer)
+              let material = materials.get_mut(model.material).unwrap().as_mut();
+              let mesh = meshes.get_mut(model.mesh).unwrap();
+
+              let mut ctx = SceneMaterialRenderPrepareCtx {
+                active_camera,
+                camera_gpu,
+                model_matrix: &node_data.world_matrix,
+                pipelines,
+                style,
+                active_mesh: mesh,
+              };
+              S::update(material, renderer, &mut ctx);
             }
             _ => {}
           });

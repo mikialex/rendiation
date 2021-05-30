@@ -6,6 +6,7 @@ pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod rendering;
+pub mod util;
 
 pub use background::*;
 pub use camera::*;
@@ -15,6 +16,7 @@ pub use mesh::*;
 pub use model::*;
 pub use node::*;
 pub use rendering::*;
+pub use util::*;
 
 pub use arena::*;
 pub use arena_tree::*;

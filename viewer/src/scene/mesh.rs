@@ -1,4 +1,21 @@
+use bytemuck::Pod;
+use rendiation_renderable_mesh::vertex::Vertex;
+use wgpu::util::DeviceExt;
+
+use crate::Renderer;
+use std::any::Any;
+
+use super::ValueID;
+
+/// the comprehensive data that provided by mesh and will affect graphic pipeline
+pub struct MeshLayout {
+  vertex: MeshVertexLayout,
+  index: wgpu::IndexFormat,
+  topology: wgpu::PrimitiveTopology,
+}
+
 pub struct SceneMesh {
+  layout: ValueID<MeshLayout>,
   vertex: Vec<VertexBuffer>,
   index: Option<IndexBuffer>,
 }
@@ -14,15 +31,9 @@ impl SceneMesh {
   }
 }
 
-use bytemuck::Pod;
-use rendiation_renderable_mesh::vertex::Vertex;
-use wgpu::util::DeviceExt;
-
-use crate::Renderer;
-use std::any::Any;
-
 pub trait VertexBufferSourceType: Pod {
   fn get_layout() -> wgpu::VertexBufferLayout<'static>;
+  fn get_shader_header() -> &'static str;
 }
 
 impl VertexBufferSourceType for Vertex {
@@ -44,12 +55,24 @@ impl VertexBufferSourceType for Vertex {
       ],
     }
   }
+
+  fn get_shader_header() -> &'static str {
+    r#"
+      [[location(0)]]
+      var<in> in_position: vec4<f32>;
+      [[location(1)]]
+      var<in> in_tex_coord_vs: vec2<f32>;
+      "#
+  }
 }
+
+pub type MeshVertexLayout = Vec<wgpu::VertexBufferLayout<'static>>;
 
 pub trait VertexBufferSource: 'static {
   fn as_any(&self) -> &dyn Any;
   fn as_bytes(&self) -> &[u8];
-  fn get_layout(&self) -> Vec<wgpu::VertexBufferLayout<'static>>;
+  fn get_layout(&self) -> MeshVertexLayout;
+  fn get_shader_header(&self) -> &'static str;
 }
 
 impl<T: VertexBufferSourceType> VertexBufferSource for Vec<T> {
@@ -59,8 +82,11 @@ impl<T: VertexBufferSourceType> VertexBufferSource for Vec<T> {
   fn as_bytes(&self) -> &[u8] {
     bytemuck::cast_slice(self.as_slice())
   }
-  fn get_layout(&self) -> Vec<wgpu::VertexBufferLayout<'static>> {
+  fn get_layout(&self) -> MeshVertexLayout {
     vec![T::get_layout()]
+  }
+  fn get_shader_header(&self) -> &'static str {
+    T::get_shader_header()
   }
 }
 

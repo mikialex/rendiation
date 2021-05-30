@@ -24,6 +24,9 @@ pub trait RenderPassCreator<T> {
     target: &'a T,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a>;
+
+  // fn get_color_formats(&self) -> Vec<wgpu::TextureFormat>;
+  // fn get_depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
 }
 
 pub struct Renderer {
