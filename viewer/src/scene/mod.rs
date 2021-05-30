@@ -1,42 +1,25 @@
 pub mod background;
-pub mod buffer;
 pub mod camera;
 pub mod lights;
+pub mod materials;
+pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod rendering;
 
 pub use background::*;
-pub use buffer::*;
 pub use camera::*;
 pub use lights::*;
+pub use materials::*;
+pub use mesh::*;
 pub use model::*;
 pub use node::*;
 pub use rendering::*;
-
-pub mod materials;
-pub use materials::*;
 
 pub use arena::*;
 pub use arena_tree::*;
 
 use crate::renderer::*;
-
-pub struct SceneMesh {
-  vertex: Vec<VertexBuffer>,
-  index: Option<IndexBuffer>,
-}
-
-impl SceneMesh {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    self.index.as_ref().map(|index| index.setup_pass(pass));
-    self
-      .vertex
-      .iter()
-      .enumerate()
-      .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32))
-  }
-}
 
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
