@@ -8,4 +8,11 @@ pub struct PointLight {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct SpotLight {}
+pub struct SpotLight {
+  pub intensity: Vec3<f32>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DirectionalLight {
+  pub intensity: Vec3<f32>,
+}

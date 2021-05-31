@@ -7,6 +7,8 @@ use std::any::Any;
 
 use super::ValueID;
 
+pub type MeshVertexLayout = Vec<wgpu::VertexBufferLayout<'static>>;
+
 /// the comprehensive data that provided by mesh and will affect graphic pipeline
 pub struct MeshLayout {
   vertex: MeshVertexLayout,
@@ -66,12 +68,10 @@ impl VertexBufferSourceType for Vertex {
   }
 }
 
-pub type MeshVertexLayout = Vec<wgpu::VertexBufferLayout<'static>>;
-
 pub trait VertexBufferSource: 'static {
   fn as_any(&self) -> &dyn Any;
   fn as_bytes(&self) -> &[u8];
-  fn get_layout(&self) -> MeshVertexLayout;
+  fn get_layout(&self) -> wgpu::VertexBufferLayout<'static>;
   fn get_shader_header(&self) -> &'static str;
 }
 
@@ -82,8 +82,8 @@ impl<T: VertexBufferSourceType> VertexBufferSource for Vec<T> {
   fn as_bytes(&self) -> &[u8] {
     bytemuck::cast_slice(self.as_slice())
   }
-  fn get_layout(&self) -> MeshVertexLayout {
-    vec![T::get_layout()]
+  fn get_layout(&self) -> wgpu::VertexBufferLayout<'static> {
+    T::get_layout()
   }
   fn get_shader_header(&self) -> &'static str {
     T::get_shader_header()
