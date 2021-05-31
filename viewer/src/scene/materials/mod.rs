@@ -1,10 +1,11 @@
 pub mod basic;
+use arena::Arena;
 pub use basic::*;
 use rendiation_algebra::Mat4;
 
 use crate::Renderer;
 
-use super::{Camera, CameraBindgroup, RenderStyle, SceneMesh};
+use super::{Camera, CameraBindgroup, RenderStyle, SceneMesh, SceneSampler, SceneTexture2D};
 
 pub trait BindableResource {
   fn as_bindable(&self) -> wgpu::BindingResource;
@@ -60,6 +61,8 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub pipelines: &'a mut PipelineResourceManager,
   pub style: &'a S,
   pub active_mesh: &'a SceneMesh,
+  pub textures: &'a mut Arena<SceneTexture2D>,
+  pub samplers: &'a mut Arena<SceneSampler>,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a, S> {

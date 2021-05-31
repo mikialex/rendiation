@@ -102,14 +102,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
   fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
     let scene = &mut self.scene;
     scene.render_list.models.clear();
-
     let root = scene.get_root_handle();
-    let models = &mut scene.models;
-    let materials = &mut scene.materials;
-    let meshes = &mut scene.meshes;
-    let pipelines = &mut scene.pipeline_resource;
-    let list = &mut scene.render_list;
-    let style = &(*self.style);
 
     if let Some(active_camera) = &scene.active_camera {
       let camera_gpu = scene
@@ -124,19 +117,21 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
 
           node_data.payloads.iter().for_each(|payload| match payload {
             SceneNodePayload::Model(model) => {
-              list.models.push(*model);
+              scene.render_list.models.push(*model);
 
-              let model = models.get_mut(*model).unwrap();
-              let material = materials.get_mut(model.material).unwrap().as_mut();
-              let mesh = meshes.get_mut(model.mesh).unwrap();
+              let model = scene.models.get_mut(*model).unwrap();
+              let material = scene.materials.get_mut(model.material).unwrap().as_mut();
+              let mesh = scene.meshes.get_mut(model.mesh).unwrap();
 
               let mut ctx = SceneMaterialRenderPrepareCtx {
                 active_camera,
                 camera_gpu,
                 model_matrix: &node_data.world_matrix,
-                pipelines,
-                style,
+                pipelines: &mut scene.pipeline_resource,
+                style: self.style,
                 active_mesh: mesh,
+                textures: &mut scene.texture_2ds,
+                samplers: &mut scene.samplers,
               };
               S::update(material, renderer, &mut ctx);
             }

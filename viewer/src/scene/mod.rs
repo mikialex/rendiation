@@ -36,6 +36,7 @@ pub type MeshHandle = Handle<SceneMesh>;
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 pub type SamplerHandle = Handle<SceneSampler>;
+pub type Texture2DHandle = Handle<SceneTexture2D>;
 
 pub trait Material: MaterialStyleAbility<OriginForward> {}
 impl<T> Material for T where T: MaterialStyleAbility<OriginForward> {}

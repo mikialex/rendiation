@@ -3,7 +3,10 @@ use std::borrow::Cow;
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
-use crate::{renderer::Renderer, scene::OriginForward};
+use crate::{
+  renderer::Renderer,
+  scene::{OriginForward, SamplerHandle, Texture2DHandle, VertexBufferSourceType},
+};
 
 use super::{
   MaterialCPUResource, MaterialGPUResource, SceneMaterialPassSetupCtx,
@@ -12,6 +15,91 @@ use super::{
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
+  pub sampler: SamplerHandle,
+  pub texture: Texture2DHandle,
+}
+
+impl BasicMaterial {
+  pub fn create_bindgroup(
+    &self,
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+  ) -> wgpu::BindGroup {
+    todo!()
+    // device.create_bind_group(&wgpu::BindGroupDescriptor {
+    //   layout,
+    //   entries: &[
+    //     wgpu::BindGroupEntry {
+    //       binding: 0,
+    //       resource: uniform_buf.as_entire_binding(),
+    //     },
+    //     wgpu::BindGroupEntry {
+    //       binding: 1,
+    //       resource: wgpu::BindingResource::TextureView(&texture_view),
+    //     },
+    //     wgpu::BindGroupEntry {
+    //       binding: 2,
+    //       resource: wgpu::BindingResource::Sampler(&sampler),
+    //     },
+    //   ],
+    //   label: None,
+    // })
+  }
+
+  pub fn get_shader_header() -> &'static str {
+    "
+    [[block]]
+    struct BasicMaterial {
+      color: vec3<f32>;
+    };
+
+    [[group(0), binding(0)]]
+    var r_locals: BasicMaterial;
+    
+    [[group(0), binding(1)]]
+    var r_color: texture_2d<f32>;
+
+    [[group(0), binding(2)]]
+    var r_sampler: sampler;
+    "
+  }
+
+  pub fn create_bindgroup_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: None,
+      entries: &[
+        wgpu::BindGroupLayoutEntry {
+          binding: 0,
+          visibility: wgpu::ShaderStage::VERTEX,
+          ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
+            has_dynamic_offset: false,
+            min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<Vec3<f32>>() as u64),
+          },
+          count: None,
+        },
+        wgpu::BindGroupLayoutEntry {
+          binding: 1,
+          visibility: wgpu::ShaderStage::FRAGMENT,
+          ty: wgpu::BindingType::Texture {
+            multisampled: false,
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+          },
+          count: None,
+        },
+        wgpu::BindGroupLayoutEntry {
+          binding: 2,
+          visibility: wgpu::ShaderStage::FRAGMENT,
+          ty: wgpu::BindingType::Sampler {
+            comparison: false,
+            filtering: true,
+          },
+          count: None,
+        },
+      ],
+    })
+  }
 }
 
 pub struct BasicMaterialGPU {
@@ -51,104 +139,55 @@ impl MaterialCPUResource for BasicMaterial {
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> Self::GPU {
-    let bind_group_layout =
+    use wgpu::util::DeviceExt;
+    let uniform: wgpu::Buffer =
       renderer
         .device
-        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-          label: None,
-          entries: &[
-            wgpu::BindGroupLayoutEntry {
-              binding: 0,
-              visibility: wgpu::ShaderStage::VERTEX,
-              ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: wgpu::BufferSize::new(64),
-              },
-              count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-              binding: 1,
-              visibility: wgpu::ShaderStage::FRAGMENT,
-              ty: wgpu::BindingType::Texture {
-                multisampled: false,
-                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
-              },
-              count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-              binding: 2,
-              visibility: wgpu::ShaderStage::FRAGMENT,
-              ty: wgpu::BindingType::Sampler {
-                comparison: false,
-                filtering: true,
-              },
-              count: None,
-            },
-          ],
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+          label: Some("Uniform Buffer"),
+          contents: bytemuck::cast_slice(&[self.color]),
+          usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
-    use wgpu::util::DeviceExt;
-    let uniform_buf: wgpu::Buffer = todo!();
-    // renderer
-    //   .device
-    //   .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-    //     label: Some("Uniform Buffer"),
-    //     contents: bytemuck::cast_slice(todo!()),
-    //     usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    //   });
-    let texture_view = todo!();
+    // let texture_view = todo!();
 
-    // Create other resources
-    let sampler = renderer.device.create_sampler(&wgpu::SamplerDescriptor {
-      address_mode_u: wgpu::AddressMode::ClampToEdge,
-      address_mode_v: wgpu::AddressMode::ClampToEdge,
-      address_mode_w: wgpu::AddressMode::ClampToEdge,
-      mag_filter: wgpu::FilterMode::Nearest,
-      min_filter: wgpu::FilterMode::Linear,
-      mipmap_filter: wgpu::FilterMode::Nearest,
-      ..Default::default()
-    });
+    // // Create other resources
+    // let sampler = renderer.device.create_sampler(&wgpu::SamplerDescriptor {
+    //   address_mode_u: wgpu::AddressMode::ClampToEdge,
+    //   address_mode_v: wgpu::AddressMode::ClampToEdge,
+    //   address_mode_w: wgpu::AddressMode::ClampToEdge,
+    //   mag_filter: wgpu::FilterMode::Nearest,
+    //   min_filter: wgpu::FilterMode::Linear,
+    //   mipmap_filter: wgpu::FilterMode::Nearest,
+    //   ..Default::default()
+    // });
 
-    let bind_group = renderer
-      .device
-      .create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &bind_group_layout,
-        entries: &[
-          wgpu::BindGroupEntry {
-            binding: 0,
-            resource: uniform_buf.as_entire_binding(),
-          },
-          wgpu::BindGroupEntry {
-            binding: 1,
-            resource: wgpu::BindingResource::TextureView(&texture_view),
-          },
-          wgpu::BindGroupEntry {
-            binding: 2,
-            resource: wgpu::BindingResource::Sampler(&sampler),
-          },
-        ],
-        label: None,
-      });
+    let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
+    let bindgroup = self.create_bindgroup(&renderer.device, &bindgroup_layout);
 
     let vertex_size = std::mem::size_of::<Vertex>();
-    let vertex_buffers = [wgpu::VertexBufferLayout {
-      array_stride: vertex_size as wgpu::BufferAddress,
-      step_mode: wgpu::InputStepMode::Vertex,
-      attributes: &[
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x4,
-          offset: 0,
-          shader_location: 0,
-        },
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x2,
-          offset: 4 * 4,
-          shader_location: 1,
-        },
-      ],
-    }];
+    let vertex_buffers = [Vertex::get_layout()];
+
+    let shader_source = format!(
+      "
+      {vertex_header}
+      {material_parameters_header}
+      
+      [[location(0)]]
+      var<out> out_tex_coord: vec2<f32>;
+
+      [[builtin(position)]]
+      var<out> out_position: vec4<f32>;
+
+      [[stage(vertex)]]
+      fn vs_main() {{
+        out_tex_coord = in_tex_coord_vs;
+        out_position = r_locals.transform * in_position;
+      }}
+      ",
+      vertex_header = Vertex::get_shader_header(),
+      material_parameters_header = Self::get_shader_header()
+    );
 
     let shader = renderer
       .device
@@ -183,10 +222,6 @@ impl MaterialCPUResource for BasicMaterial {
       var<in> in_tex_coord_fs: vec2<f32>;
       [[location(0)]]
       var<out> out_color: vec4<f32>;
-      [[group(0), binding(1)]]
-      var r_color: texture_2d<f32>;
-      [[group(0), binding(2)]]
-      var r_sampler: sampler;
       
       [[stage(fragment)]]
       fn fs_main() {
@@ -208,7 +243,7 @@ impl MaterialCPUResource for BasicMaterial {
       .device
       .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[&bindgroup_layout],
         push_constant_ranges: &[],
       });
 
@@ -235,12 +270,11 @@ impl MaterialCPUResource for BasicMaterial {
         multisample: wgpu::MultisampleState::default(),
       });
 
-    // BasicMaterialGPU {
-    //   uniform,
-    //   bindgroup_layout,
-    //   bindgroup,
-    //   pipeline,
-    // }
+    BasicMaterialGPU {
+      uniform,
+      bindgroup_layout,
+      bindgroup,
+    }
   }
   //
 }
