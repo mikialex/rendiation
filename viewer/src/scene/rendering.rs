@@ -84,18 +84,17 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
   fn setup_pass<'p>(&'p mut self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;
-    let ctx = ModelPassSetupContext {
-      materials: &scene.materials,
-      meshes: &scene.meshes,
-      material_ctx: SceneMaterialPassSetupCtx {
-        style: self.style,
-        camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
-        pipelines: &scene.pipeline_resource,
-      },
+    let ctx = SceneMaterialPassSetupCtx {
+      style: self.style,
+      camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
+      pipelines: &scene.pipeline_resource,
     };
     scene.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
-      model.setup_pass(pass, &ctx)
+      let material = scene.materials.get(model.material).unwrap().as_ref();
+      S::setup_pass(material, pass, &ctx);
+      let mesh = scene.meshes.get(model.mesh).unwrap();
+      mesh.setup_pass(pass);
     })
   }
 
