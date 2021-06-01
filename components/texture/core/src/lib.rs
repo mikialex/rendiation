@@ -65,6 +65,12 @@ pub trait Texture2D: Sized {
   fn save_to_file<P: AsRef<Path>>(&self, path: P);
 }
 
+/// Not all texture storage container has continues memory,
+/// use this trait to get under laying buffer for GPU resource uploading
+pub trait BufferLikeTexture2D: Texture2D {
+  fn as_byte(&self) -> &[u8];
+}
+
 pub trait Texture2dSampleAble: Texture2D {
   #[inline]
   fn sample_impl<T, Address, Filter>(
