@@ -151,17 +151,6 @@ impl MaterialCPUResource for BasicMaterial {
 
     // let texture_view = todo!();
 
-    // // Create other resources
-    // let sampler = renderer.device.create_sampler(&wgpu::SamplerDescriptor {
-    //   address_mode_u: wgpu::AddressMode::ClampToEdge,
-    //   address_mode_v: wgpu::AddressMode::ClampToEdge,
-    //   address_mode_w: wgpu::AddressMode::ClampToEdge,
-    //   mag_filter: wgpu::FilterMode::Nearest,
-    //   min_filter: wgpu::FilterMode::Linear,
-    //   mipmap_filter: wgpu::FilterMode::Nearest,
-    //   ..Default::default()
-    // });
-
     let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
     let bindgroup = self.create_bindgroup(&renderer.device, &bindgroup_layout);
 

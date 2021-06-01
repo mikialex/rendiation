@@ -12,6 +12,19 @@ pub enum FilterMode {
   Linear,
 }
 
+impl FilterMode {
+  pub fn interpolate<T, P>(&self, t: T, one: P, other: P) -> P
+  where
+    T: Scalar,
+    P: Lerp<T>,
+  {
+    match self {
+      Self::Nearest => Nearest::interpolate(t, one, other),
+      Self::Linear => Linear::interpolate(t, one, other),
+    }
+  }
+}
+
 pub struct Nearest;
 impl<T: Scalar, P> TextureFilterMode<T, P> for Nearest {
   const ENUM: FilterMode = FilterMode::Nearest;

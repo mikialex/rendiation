@@ -1,6 +1,6 @@
 use rendiation_algebra::{NormalizedVector, Scalar, Vec2, Vec3};
 
-use crate::{Texture2D, TextureFilterMode, TextureSampler};
+use crate::{Texture2D, Texture2dSampleAble, TextureFilterMode, TextureSampler};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum CubeTextureFace {
@@ -40,7 +40,7 @@ where
 // http://www.cim.mcgill.ca/~langer/557/18-slides.pdf
 impl<P, T> CubeTexture<P, T>
 where
-  T: Texture2D<Pixel = P>,
+  T: Texture2dSampleAble<Pixel = P>,
 {
   pub fn sample<S: Scalar>(
     &self,
