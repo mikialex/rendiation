@@ -1,11 +1,24 @@
-use rendiation_algebra::{Mat4, Projection};
+use rendiation_algebra::{Mat4, One, Projection};
 
 use crate::renderer::Renderer;
+
+use super::SceneNodeHandle;
+
+pub enum Transformation {
+  Node(SceneNodeHandle),
+  Matrix(Mat4<f32>),
+}
+
+impl Default for Transformation {
+  fn default() -> Self {
+    Self::Matrix(Mat4::one())
+  }
+}
 
 pub struct Camera {
   pub projection: Box<dyn Projection>,
   pub projection_matrix: Mat4<f32>,
-  pub matrix: Mat4<f32>, // to support scene graph we can associate a scene node with it
+  pub matrix: Transformation,
 }
 
 pub struct CameraBindgroup {

@@ -5,6 +5,7 @@ use super::*;
 pub struct Model {
   pub(crate) material: MaterialHandle,
   pub(crate) mesh: MeshHandle,
+  pub transform: Transformation,
 }
 
 pub struct ModelPassSetupContext<'a, S> {

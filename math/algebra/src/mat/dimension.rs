@@ -3,7 +3,6 @@ use num_traits::One;
 use crate::Scalar;
 
 pub trait SquareMatrixDimension<const D: usize>: Copy {}
-pub trait SquareMatrixImpl {}
 
 pub trait SquareMatrix<T: Scalar>: Sized + One {
   #[must_use]
