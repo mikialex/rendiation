@@ -1,8 +1,11 @@
-use super::BindableResource;
+use std::collections::HashSet;
+
+use super::{BindableResource, MaterialHandle};
 
 pub struct SceneTexture2D {
   data: Box<dyn SceneTexture2dSource>,
   gpu: Option<SceneTexture2dGpu>,
+  referenced_material: HashSet<MaterialHandle>,
 }
 
 pub trait SceneTexture2dSource {

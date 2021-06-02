@@ -2,12 +2,12 @@ use winit::event::WindowEvent;
 
 use crate::{
   renderer::Renderer,
-  scene::{OriginForward, RenderPassDispatcher, Scene},
+  scene::{RenderPassDispatcher, Scene, StandardForward},
 };
 
 pub struct Application {
   scene: Scene,
-  origin: OriginForward,
+  origin: StandardForward,
 }
 
 impl Application {
@@ -15,7 +15,7 @@ impl Application {
     let scene = Scene::new();
     Self {
       scene,
-      origin: OriginForward,
+      origin: StandardForward,
     }
   }
 

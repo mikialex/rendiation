@@ -15,8 +15,8 @@ pub trait RenderStyle: Sized {
   );
 }
 
-pub struct OriginForward;
-impl RenderStyle for OriginForward {
+pub struct StandardForward;
+impl RenderStyle for StandardForward {
   fn update<'a>(
     m: &mut dyn Material,
     renderer: &Renderer,

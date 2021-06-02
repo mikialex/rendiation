@@ -1,10 +1,13 @@
+use std::collections::HashSet;
+
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
 
-use super::{BindableResource, SamplerHandle, Scene};
+use super::{BindableResource, MaterialHandle, SamplerHandle, Scene};
 
 pub struct SceneSampler {
   sampler: TextureSampler,
   gpu: Option<wgpu::Sampler>,
+  referenced_material: HashSet<MaterialHandle>,
 }
 
 pub fn convert_wrap(mode: AddressMode) -> wgpu::AddressMode {
@@ -51,6 +54,10 @@ impl BindableResource for wgpu::Sampler {
 
 impl Scene {
   pub fn add_sampler(&mut self, sampler: TextureSampler) -> SamplerHandle {
-    self.samplers.insert(SceneSampler { sampler, gpu: None })
+    self.samplers.insert(SceneSampler {
+      sampler,
+      gpu: None,
+      referenced_material: HashSet::new(),
+    })
   }
 }

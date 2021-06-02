@@ -5,7 +5,7 @@ use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::{
   renderer::Renderer,
-  scene::{OriginForward, SamplerHandle, Texture2DHandle, VertexBufferSourceType},
+  scene::{SamplerHandle, StandardForward, Texture2DHandle, VertexBufferSourceType},
 };
 
 use super::{
@@ -108,13 +108,13 @@ pub struct BasicMaterialGPU {
   bindgroup: wgpu::BindGroup,
 }
 
-impl MaterialGPUResource<OriginForward> for BasicMaterialGPU {
+impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
   type Source = BasicMaterial;
   fn update(
     &mut self,
     source: &Self::Source,
     renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<OriginForward>,
+    ctx: &mut SceneMaterialRenderPrepareCtx<StandardForward>,
   ) {
     //
   }
@@ -122,7 +122,7 @@ impl MaterialGPUResource<OriginForward> for BasicMaterialGPU {
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, OriginForward>,
+    ctx: &SceneMaterialPassSetupCtx<'a, StandardForward>,
   ) {
     let pipeline = ctx.pipelines.basic.as_ref().unwrap();
     pass.set_pipeline(pipeline);
