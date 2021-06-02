@@ -5,7 +5,9 @@ use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::{
   renderer::Renderer,
-  scene::{SamplerHandle, StandardForward, Texture2DHandle, VertexBufferSourceType},
+  scene::{
+    CameraBindgroup, SamplerHandle, StandardForward, Texture2DHandle, VertexBufferSourceType,
+  },
 };
 
 use super::{
@@ -24,6 +26,7 @@ impl BasicMaterial {
     &self,
     ubo: &wgpu::Buffer,
     device: &wgpu::Device,
+    queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> wgpu::BindGroup {
@@ -41,7 +44,7 @@ impl BasicMaterial {
               .textures
               .get_mut(self.texture)
               .unwrap()
-              .get_gpu_view(device),
+              .get_gpu_view(device, queue),
           ),
         },
         wgpu::BindGroupEntry {
@@ -159,7 +162,13 @@ impl MaterialCPUResource for BasicMaterial {
         });
 
     let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
-    let bindgroup = self.create_bindgroup(&uniform, &renderer.device, &bindgroup_layout, ctx);
+    let bindgroup = self.create_bindgroup(
+      &uniform,
+      &renderer.device,
+      &renderer.queue,
+      &bindgroup_layout,
+      ctx,
+    );
 
     let vertex_size = std::mem::size_of::<Vertex>();
     let vertex_buffers = [Vertex::get_layout()];
@@ -167,7 +176,10 @@ impl MaterialCPUResource for BasicMaterial {
     let shader_source = format!(
       "
       {vertex_header}
+
+      {object_header}
       {material_parameters_header}
+      {camera_header}
       
       [[location(0)]]
       var<out> out_tex_coord: vec2<f32>;
@@ -178,6 +190,7 @@ impl MaterialCPUResource for BasicMaterial {
       [[stage(vertex)]]
       fn vs_main() {{
         out_tex_coord = in_tex_coord_vs;
+        todo
         out_position = r_locals.transform * in_position;
       }}
 
@@ -194,7 +207,9 @@ impl MaterialCPUResource for BasicMaterial {
       
       ",
       vertex_header = Vertex::get_shader_header(),
-      material_parameters_header = Self::get_shader_header()
+      material_parameters_header = Self::get_shader_header(),
+      camera_header = CameraBindgroup::bindgroup_shader_header(),
+      object_header = todo!()
     );
 
     let shader = renderer
@@ -244,7 +259,6 @@ impl MaterialCPUResource for BasicMaterial {
       bindgroup,
     }
   }
-  //
 }
 
 struct RenderPipelineBuilder {

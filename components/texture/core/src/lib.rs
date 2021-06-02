@@ -24,8 +24,8 @@ use rendiation_algebra::{Lerp, Scalar, Vec2};
 pub use image::*;
 
 pub struct Size<T> {
-  width: T,
-  height: T,
+  pub width: T,
+  pub height: T,
 }
 
 pub trait Texture2D: Sized {
