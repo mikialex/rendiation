@@ -1,11 +1,14 @@
-use std::collections::HashSet;
-
-use super::{BindableResource, MaterialHandle};
+use super::BindableResource;
 
 pub struct SceneTexture2D {
   data: Box<dyn SceneTexture2dSource>,
   gpu: Option<SceneTexture2dGpu>,
-  referenced_material: HashSet<MaterialHandle>,
+}
+
+impl SceneTexture2D {
+  pub fn get_gpu_view(&mut self, device: &wgpu::Device) -> &wgpu::TextureView {
+    todo!()
+  }
 }
 
 pub trait SceneTexture2dSource {

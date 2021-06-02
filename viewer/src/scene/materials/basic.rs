@@ -20,30 +20,39 @@ pub struct BasicMaterial {
 }
 
 impl BasicMaterial {
-  pub fn create_bindgroup(
+  pub fn create_bindgroup<S>(
     &self,
+    ubo: &wgpu::Buffer,
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
+    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> wgpu::BindGroup {
-    todo!()
-    // device.create_bind_group(&wgpu::BindGroupDescriptor {
-    //   layout,
-    //   entries: &[
-    //     wgpu::BindGroupEntry {
-    //       binding: 0,
-    //       resource: uniform_buf.as_entire_binding(),
-    //     },
-    //     wgpu::BindGroupEntry {
-    //       binding: 1,
-    //       resource: wgpu::BindingResource::TextureView(&texture_view),
-    //     },
-    //     wgpu::BindGroupEntry {
-    //       binding: 2,
-    //       resource: wgpu::BindingResource::Sampler(&sampler),
-    //     },
-    //   ],
-    //   label: None,
-    // })
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+      layout,
+      entries: &[
+        wgpu::BindGroupEntry {
+          binding: 0,
+          resource: ubo.as_entire_binding(),
+        },
+        wgpu::BindGroupEntry {
+          binding: 1,
+          resource: wgpu::BindingResource::TextureView(
+            ctx
+              .textures
+              .get_mut(self.texture)
+              .unwrap()
+              .get_gpu_view(device),
+          ),
+        },
+        wgpu::BindGroupEntry {
+          binding: 2,
+          resource: wgpu::BindingResource::Sampler(
+            ctx.samplers.get_mut(self.sampler).unwrap().get_gpu(device),
+          ),
+        },
+      ],
+      label: None,
+    })
   }
 
   pub fn get_shader_header() -> &'static str {
@@ -149,10 +158,8 @@ impl MaterialCPUResource for BasicMaterial {
           usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
-    // let texture_view = todo!();
-
     let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
-    let bindgroup = self.create_bindgroup(&renderer.device, &bindgroup_layout);
+    let bindgroup = self.create_bindgroup(&uniform, &renderer.device, &bindgroup_layout, ctx);
 
     let vertex_size = std::mem::size_of::<Vertex>();
     let vertex_buffers = [Vertex::get_layout()];
@@ -173,6 +180,18 @@ impl MaterialCPUResource for BasicMaterial {
         out_tex_coord = in_tex_coord_vs;
         out_position = r_locals.transform * in_position;
       }}
+
+      [[location(0)]]
+      var<in> in_tex_coord_fs: vec2<f32>;
+      [[location(0)]]
+      var<out> out_color: vec4<f32>;
+      
+      [[stage(fragment)]]
+      fn fs_main() {{
+          var tex: vec4<f32> = textureSample(r_color, r_sampler, in_tex_coord_fs);
+          out_color = tex;
+      }}
+      
       ",
       vertex_header = Vertex::get_shader_header(),
       material_parameters_header = Self::get_shader_header()
@@ -182,49 +201,7 @@ impl MaterialCPUResource for BasicMaterial {
       .device
       .create_shader_module(&wgpu::ShaderModuleDescriptor {
         label: None,
-        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(
-          r#"
-      [[location(0)]]
-      var<in> in_position: vec4<f32>;
-      [[location(1)]]
-      var<in> in_tex_coord_vs: vec2<f32>;
-      [[location(0)]]
-      var<out> out_tex_coord: vec2<f32>;
-
-      [[builtin(position)]]
-      var<out> out_position: vec4<f32>;
-      
-      [[block]]
-      struct Locals {
-          transform: mat4x4<f32>;
-      };
-      [[group(0), binding(0)]]
-      var r_locals: Locals;
-      
-      [[stage(vertex)]]
-      fn vs_main() {
-          out_tex_coord = in_tex_coord_vs;
-          out_position = r_locals.transform * in_position;
-      }
-      
-      [[location(0)]]
-      var<in> in_tex_coord_fs: vec2<f32>;
-      [[location(0)]]
-      var<out> out_color: vec4<f32>;
-      
-      [[stage(fragment)]]
-      fn fs_main() {
-          var tex: vec4<f32> = textureSample(r_color, r_sampler, in_tex_coord_fs);
-          out_color = tex;
-      }
-      
-      [[stage(fragment)]]
-      fn fs_wire() {
-          out_color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
-      }
-      
-      "#,
-        )),
+        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
         flags: renderer.create_shader_flags(),
       });
 
@@ -258,6 +235,8 @@ impl MaterialCPUResource for BasicMaterial {
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
       });
+
+    ctx.pipelines.basic = pipeline.into();
 
     BasicMaterialGPU {
       uniform,
