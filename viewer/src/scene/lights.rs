@@ -1,4 +1,10 @@
+use super::Transformation;
 use rendiation_algebra::Vec3;
+
+pub struct SceneLight {
+  pub light: Box<dyn Light>,
+  pub transform: Transformation,
+}
 
 pub trait Light {}
 

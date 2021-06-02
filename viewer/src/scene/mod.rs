@@ -44,7 +44,8 @@ impl<T> Material for T where T: MaterialStyleAbility<OriginForward> {}
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
   pub background: Box<dyn Background>,
-  pub lights: Arena<Box<dyn Light>>,
+  pub cameras: Arena<Camera>,
+  pub lights: Arena<SceneLight>,
   pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
   pub materials: Arena<Box<dyn Material>>,
@@ -62,6 +63,7 @@ impl Scene {
     Self {
       nodes: ArenaTree::new(SceneNode::default()),
       background: Box::new(SolidBackground::default()),
+      cameras: Arena::new(),
       models: Arena::new(),
       meshes: Arena::new(),
       lights: Arena::new(),
