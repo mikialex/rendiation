@@ -1,12 +1,12 @@
 use rendiation_algebra::{Mat4, Projection};
 
-use super::Transformation;
+use super::SceneNodeHandle;
 use crate::renderer::Renderer;
 
 pub struct Camera {
   pub projection: Box<dyn Projection>,
   pub projection_matrix: Mat4<f32>,
-  pub matrix: Transformation,
+  pub node: SceneNodeHandle,
 }
 
 impl Camera {

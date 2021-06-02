@@ -113,36 +113,32 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
         .traverse_mut(root, &mut Vec::new(), |this, parent| {
           let node_data = this.data_mut();
           node_data.hierarchy_update(parent.map(|p| p.data()));
-
-          node_data.payloads.iter().for_each(|payload| match payload {
-            SceneNodePayload::Model(model) => {
-              scene.render_list.models.push(*model);
-
-              let model = scene.models.get_mut(*model).unwrap();
-              let material = scene.materials.get_mut(model.material).unwrap().as_mut();
-              let mesh = scene.meshes.get_mut(model.mesh).unwrap();
-
-              let mut ctx = SceneMaterialRenderPrepareCtx {
-                active_camera,
-                camera_gpu,
-                model_matrix: &node_data.world_matrix,
-                pipelines: &mut scene.pipeline_resource,
-                style: self.style,
-                active_mesh: mesh,
-                textures: &mut scene.texture_2ds,
-                samplers: &mut scene.samplers,
-              };
-              S::update(material, renderer, &mut ctx);
-            }
-            _ => {}
-          });
-
           if node_data.net_visible {
             NextTraverseVisit::SkipChildren
           } else {
             NextTraverseVisit::VisitChildren
           }
         });
+
+      scene.models.iter_mut().for_each(|(handle, model)| {
+        scene.render_list.models.push(handle);
+
+        let material = scene.materials.get_mut(model.material).unwrap().as_mut();
+        let mesh = scene.meshes.get_mut(model.mesh).unwrap();
+        let node = scene.nodes.get_node(model.node).data();
+
+        let mut ctx = SceneMaterialRenderPrepareCtx {
+          active_camera,
+          camera_gpu,
+          model_matrix: &node.world_matrix,
+          pipelines: &mut scene.pipeline_resource,
+          style: self.style,
+          active_mesh: mesh,
+          textures: &mut scene.texture_2ds,
+          samplers: &mut scene.samplers,
+        };
+        S::update(material, renderer, &mut ctx);
+      })
     }
   }
 }

@@ -1,11 +1,10 @@
 use rendiation_algebra::*;
 
-use super::{LightHandle, ModelHandle, ModelTransformGPU, Scene, SceneNodeHandle};
+use super::{LightHandle, ModelTransformGPU, Scene, SceneNodeHandle};
 
 pub struct SceneNode {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
-  pub payloads: Vec<SceneNodePayload>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
   pub gpu: Option<ModelTransformGPU>,
@@ -16,7 +15,6 @@ impl Default for SceneNode {
     Self {
       visible: true,
       local_matrix: Mat4::one(),
-      payloads: Vec::new(),
       net_visible: true,
       world_matrix: Mat4::one(),
       gpu: None,
@@ -41,16 +39,6 @@ impl SceneNode {
     self.local_matrix = Mat4::translate(position.0, position.1, position.2); // todo
     self
   }
-
-  pub fn with_light(&mut self, light: LightHandle) -> &mut Self {
-    self.payloads.push(SceneNodePayload::Light(light));
-    self
-  }
-}
-
-pub enum SceneNodePayload {
-  Model(ModelHandle),
-  Light(LightHandle),
 }
 
 impl Scene {
