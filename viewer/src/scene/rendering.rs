@@ -84,14 +84,18 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
   fn setup_pass<'p>(&'p mut self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;
-    let ctx = SceneMaterialPassSetupCtx {
-      style: self.style,
-      camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
-      pipelines: &scene.pipeline_resource,
-    };
     scene.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
       let material = scene.materials.get(model.material).unwrap().as_ref();
+      let node = scene.nodes.get_node(model.node).data();
+
+      let ctx = SceneMaterialPassSetupCtx {
+        style: self.style,
+        camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
+        model_gpu: node.gpu.as_ref().unwrap(),
+        pipelines: &scene.pipeline_resource,
+      };
+
       S::setup_pass(material, pass, &ctx);
       let mesh = scene.meshes.get(model.mesh).unwrap();
       mesh.setup_pass(pass);
@@ -125,12 +129,14 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
 
         let material = scene.materials.get_mut(model.material).unwrap().as_mut();
         let mesh = scene.meshes.get_mut(model.mesh).unwrap();
-        let node = scene.nodes.get_node(model.node).data();
+        let node = scene.nodes.get_node_mut(model.node).data_mut();
+        let (model_matrix, model_gpu) = node.get_model_gpu(renderer);
 
         let mut ctx = SceneMaterialRenderPrepareCtx {
           active_camera,
           camera_gpu,
-          model_matrix: &node.world_matrix,
+          model_matrix,
+          model_gpu,
           pipelines: &mut scene.pipeline_resource,
           style: self.style,
           active_mesh: mesh,

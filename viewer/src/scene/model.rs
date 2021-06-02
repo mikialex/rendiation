@@ -38,13 +38,13 @@ impl ModelTransformGPU {
       .queue
       .write_buffer(&self.ubo, 0, bytemuck::cast_slice(matrix.as_ref()));
   }
-  pub fn new(renderer: &Renderer, camera: &Camera) -> Self {
+  pub fn new(renderer: &Renderer, matrix: &Mat4<f32>) -> Self {
     let device = &renderer.device;
     use wgpu::util::DeviceExt;
 
     let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: "ModelTransformBindgroup Buffer".into(),
-      contents: bytemuck::cast_slice(camera.projection_matrix.as_ref()),
+      contents: bytemuck::cast_slice(matrix.as_ref()),
       usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
 

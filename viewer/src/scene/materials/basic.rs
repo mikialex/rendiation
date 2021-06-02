@@ -138,8 +138,9 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
   ) {
     let pipeline = ctx.pipelines.basic.as_ref().unwrap();
     pass.set_pipeline(pipeline);
-    pass.set_bind_group(0, &ctx.camera_gpu.bindgroup, &[]);
+    pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup, &[]);
+    pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 }
 
@@ -223,7 +224,11 @@ impl MaterialCPUResource for BasicMaterial {
       .device
       .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bindgroup_layout, &ctx.camera_gpu.layout],
+        bind_group_layouts: &[
+          &ctx.model_gpu.layout,
+          &bindgroup_layout,
+          &ctx.camera_gpu.layout,
+        ],
         push_constant_ranges: &[],
       });
 

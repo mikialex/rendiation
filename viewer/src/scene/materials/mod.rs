@@ -5,7 +5,9 @@ use rendiation_algebra::Mat4;
 
 use crate::Renderer;
 
-use super::{Camera, CameraBindgroup, RenderStyle, SceneMesh, SceneSampler, SceneTexture2D};
+use super::{
+  Camera, CameraBindgroup, ModelTransformGPU, RenderStyle, SceneMesh, SceneSampler, SceneTexture2D,
+};
 
 pub trait BindableResource {
   fn as_bindable(&self) -> wgpu::BindingResource;
@@ -58,6 +60,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
+  pub model_gpu: &'a ModelTransformGPU,
   pub pipelines: &'a mut PipelineResourceManager,
   pub style: &'a S,
   pub active_mesh: &'a SceneMesh,
@@ -68,6 +71,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
 pub struct SceneMaterialPassSetupCtx<'a, S> {
   pub pipelines: &'a PipelineResourceManager,
   pub camera_gpu: &'a CameraBindgroup,
+  pub model_gpu: &'a ModelTransformGPU,
   pub style: &'a S,
 }
 

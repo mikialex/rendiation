@@ -1,6 +1,8 @@
 use rendiation_algebra::*;
 
-use super::{LightHandle, ModelTransformGPU, Scene, SceneNodeHandle};
+use crate::renderer::Renderer;
+
+use super::{ModelTransformGPU, Scene, SceneNodeHandle};
 
 pub struct SceneNode {
   pub visible: bool,
@@ -33,6 +35,15 @@ impl SceneNode {
       self.world_matrix = self.local_matrix;
       self.net_visible = self.visible
     }
+  }
+
+  pub fn get_model_gpu(&mut self, renderer: &Renderer) -> (&Mat4<f32>, &ModelTransformGPU) {
+    (
+      &self.world_matrix,
+      self
+        .gpu
+        .get_or_insert_with(|| ModelTransformGPU::new(renderer, &self.world_matrix)),
+    )
   }
 
   pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
