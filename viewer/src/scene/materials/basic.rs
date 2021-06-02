@@ -65,13 +65,13 @@ impl BasicMaterial {
       color: vec3<f32>;
     };
 
-    [[group(0), binding(0)]]
-    var r_locals: BasicMaterial;
+    [[group(1), binding(0)]]
+    var basic_material: BasicMaterial;
     
-    [[group(0), binding(1)]]
+    [[group(1), binding(1)]]
     var r_color: texture_2d<f32>;
 
-    [[group(0), binding(2)]]
+    [[group(1), binding(2)]]
     var r_sampler: sampler;
     "
   }
@@ -156,7 +156,7 @@ impl MaterialCPUResource for BasicMaterial {
       renderer
         .device
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-          label: Some("Uniform Buffer"),
+          label: Some("Basic Material Uniform Buffer"),
           contents: bytemuck::cast_slice(&[self.color]),
           usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
@@ -178,7 +178,7 @@ impl MaterialCPUResource for BasicMaterial {
       {vertex_header}
 
       {object_header}
-      {material_parameters_header}
+      {material_header}
       {camera_header}
       
       [[location(0)]]
@@ -190,8 +190,7 @@ impl MaterialCPUResource for BasicMaterial {
       [[stage(vertex)]]
       fn vs_main() {{
         out_tex_coord = in_tex_coord_vs;
-        todo
-        out_position = r_locals.transform * in_position;
+        out_position = camera.projection * camera.view * model.transform * in_position;
       }}
 
       [[location(0)]]
@@ -207,7 +206,7 @@ impl MaterialCPUResource for BasicMaterial {
       
       ",
       vertex_header = Vertex::get_shader_header(),
-      material_parameters_header = Self::get_shader_header(),
+      material_header = Self::get_shader_header(),
       camera_header = CameraBindgroup::bindgroup_shader_header(),
       object_header = todo!()
     );
@@ -224,7 +223,7 @@ impl MaterialCPUResource for BasicMaterial {
       .device
       .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bindgroup_layout],
+        bind_group_layouts: &[&bindgroup_layout, &ctx.camera_gpu.layout],
         push_constant_ranges: &[],
       });
 

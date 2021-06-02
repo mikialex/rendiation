@@ -1,6 +1,6 @@
 use rendiation_algebra::*;
 
-use super::{LightHandle, ModelHandle, Scene, SceneNodeHandle};
+use super::{LightHandle, ModelHandle, ModelTransformGPU, Scene, SceneNodeHandle};
 
 pub struct SceneNode {
   pub visible: bool,
@@ -8,6 +8,7 @@ pub struct SceneNode {
   pub payloads: Vec<SceneNodePayload>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
+  pub gpu: Option<ModelTransformGPU>,
 }
 
 impl Default for SceneNode {
@@ -18,6 +19,7 @@ impl Default for SceneNode {
       payloads: Vec::new(),
       net_visible: true,
       world_matrix: Mat4::one(),
+      gpu: None,
     }
   }
 }

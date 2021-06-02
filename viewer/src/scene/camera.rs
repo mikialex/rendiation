@@ -1,19 +1,7 @@
-use rendiation_algebra::{Mat4, One, Projection};
+use rendiation_algebra::{Mat4, Projection};
 
+use super::Transformation;
 use crate::renderer::Renderer;
-
-use super::SceneNodeHandle;
-
-pub enum Transformation {
-  Node(SceneNodeHandle),
-  Matrix(Mat4<f32>),
-}
-
-impl Default for Transformation {
-  fn default() -> Self {
-    Self::Matrix(Mat4::one())
-  }
-}
 
 pub struct Camera {
   pub projection: Box<dyn Projection>,
@@ -21,8 +9,14 @@ pub struct Camera {
   pub matrix: Transformation,
 }
 
+impl Camera {
+  pub fn get_view_matrix(&self) -> Mat4<f32> {
+    todo!()
+  }
+}
+
 pub struct CameraBindgroup {
-  pub uniform_buf: wgpu::Buffer,
+  pub ubo: wgpu::Buffer,
   pub bindgroup: wgpu::BindGroup,
   pub layout: wgpu::BindGroupLayout,
 }
@@ -33,23 +27,29 @@ impl CameraBindgroup {
       [[block]]
       struct CameraTransform {
           projection: mat4x4<f32>;
+          view:       mat4x4<f32>;
       };
-      [[group(0), binding(0)]]
+      [[group(2), binding(0)]]
       var camera: CameraTransform;
     "#
   }
   pub fn update(&mut self, renderer: &Renderer, camera: &Camera) {
     renderer.queue.write_buffer(
-      &self.uniform_buf,
+      &self.ubo,
       0,
       bytemuck::cast_slice(camera.projection_matrix.as_ref()),
+    );
+    renderer.queue.write_buffer(
+      &self.ubo,
+      64,
+      bytemuck::cast_slice(camera.get_view_matrix().as_ref()),
     );
   }
   pub fn new(renderer: &Renderer, camera: &Camera) -> Self {
     let device = &renderer.device;
     use wgpu::util::DeviceExt;
 
-    let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: "CameraBindgroup Buffer".into(),
       contents: bytemuck::cast_slice(camera.projection_matrix.as_ref()),
       usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
@@ -63,7 +63,7 @@ impl CameraBindgroup {
         ty: wgpu::BindingType::Buffer {
           ty: wgpu::BufferBindingType::Uniform,
           has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64),
+          min_binding_size: wgpu::BufferSize::new(64 * 2),
         },
         count: None,
       }],
@@ -73,13 +73,13 @@ impl CameraBindgroup {
       layout: &layout,
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
-        resource: uniform_buf.as_entire_binding(),
+        resource: ubo.as_entire_binding(),
       }],
       label: None,
     });
 
     Self {
-      uniform_buf,
+      ubo,
       bindgroup,
       layout,
     }
