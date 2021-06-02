@@ -19,17 +19,18 @@ pub mod util;
 pub use util::*;
 
 use image::ImageBuffer;
-use rendiation_algebra::Vec2;
+use rendiation_algebra::{Lerp, Scalar, Vec2};
 
 pub use image::*;
 
 pub struct Size<T> {
-  width: T,
-  height: T,
+  pub width: T,
+  pub height: T,
 }
 
 pub trait Texture2D: Sized {
   type Pixel: Copy;
+
   fn get(&self, position: Vec2<usize>) -> &Self::Pixel;
   fn get_mut(&mut self, position: Vec2<usize>) -> &mut Self::Pixel;
 
@@ -41,6 +42,12 @@ pub trait Texture2D: Sized {
   }
 
   fn size(&self) -> Size<usize>;
+  fn width(&self) -> usize {
+    self.size().width
+  }
+  fn height(&self) -> usize {
+    self.size().width
+  }
 
   fn pixel_count(&self) -> usize {
     let Size { width, height } = self.size();
@@ -56,6 +63,74 @@ pub trait Texture2D: Sized {
   }
 
   fn save_to_file<P: AsRef<Path>>(&self, path: P);
+}
+
+/// Not all texture storage container has continues memory,
+/// use this trait to get under laying buffer for GPU resource uploading
+pub trait BufferLikeTexture2D: Texture2D {
+  fn as_byte(&self) -> &[u8];
+}
+
+pub trait Texture2dSampleAble: Texture2D {
+  #[inline]
+  fn sample_impl<T, Address, Filter>(
+    &self,
+    position: Vec2<T>,
+    address: Address,
+    filter: Filter,
+  ) -> Self::Pixel
+  where
+    T: Scalar + From<usize> + Into<usize>,
+    Address: Fn(T) -> T,
+    Filter: Fn(T, Self::Pixel, Self::Pixel) -> Self::Pixel,
+  {
+    let corrected = position.map(|v| address(v));
+    let size = Vec2::new(self.width().into(), self.height().into());
+    let sample_position = corrected.zip(size, |c, size| c * size);
+    let min_x_min_y = sample_position.map(|v| v.floor().into());
+    let max_x_max_y = sample_position.map(|v| v.ceil().into());
+    let min_x_max_y = Vec2::new(min_x_min_y.x, max_x_max_y.y);
+    let max_x_min_y = Vec2::new(max_x_max_y.x, min_x_min_y.y);
+    let interpolate = sample_position.map(|v| v - v.floor());
+
+    let min_y = filter(
+      interpolate.x,
+      self.read(min_x_min_y),
+      self.read(max_x_min_y),
+    );
+    let max_y = filter(
+      interpolate.x,
+      self.read(min_x_max_y),
+      self.read(max_x_max_y),
+    );
+    filter(interpolate.y, min_y, max_y)
+  }
+
+  fn sample<T, U, V>(&self, position: Vec2<T>) -> Self::Pixel
+  where
+    T: Scalar + From<usize> + Into<usize>,
+    U: TextureAddressMode,
+    V: TextureFilterMode<T, Self::Pixel>,
+  {
+    self.sample_impl(position, U::correct, V::interpolate)
+  }
+
+  fn sample_dyn<T>(
+    &self,
+    position: Vec2<T>,
+    address: AddressMode,
+    filter: FilterMode,
+  ) -> Self::Pixel
+  where
+    T: Scalar + From<usize> + Into<usize>,
+    Self::Pixel: Lerp<T>,
+  {
+    self.sample_impl(
+      position,
+      |v| address.correct(v),
+      |v, a, b| filter.interpolate(v, a, b),
+    )
+  }
 }
 
 impl<P, C> Texture2D for ImageBuffer<P, C>

@@ -1,65 +1,61 @@
 pub mod background;
-pub mod buffer;
 pub mod camera;
 pub mod lights;
+pub mod materials;
+pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod rendering;
+pub mod sampler;
+pub mod texture;
+pub mod util;
 
 pub use background::*;
-pub use buffer::*;
 pub use camera::*;
 pub use lights::*;
+pub use materials::*;
+pub use mesh::*;
 pub use model::*;
 pub use node::*;
 pub use rendering::*;
-
-pub mod materials;
-pub use materials::*;
+pub use sampler::*;
+pub use texture::*;
+pub use util::*;
 
 pub use arena::*;
 pub use arena_tree::*;
 
 use crate::renderer::*;
 
-pub struct SceneMesh {
-  vertex: Vec<VertexBuffer>,
-  index: Option<IndexBuffer>,
-}
-
-impl SceneMesh {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    self.index.as_ref().map(|index| index.setup_pass(pass));
-    self
-      .vertex
-      .iter()
-      .enumerate()
-      .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32))
-  }
-}
-
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
-use rendiation_texture::TextureSampler;
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Model>;
 pub type MeshHandle = Handle<SceneMesh>;
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
+pub type SamplerHandle = Handle<SceneSampler>;
+pub type Texture2DHandle = Handle<SceneTexture2D>;
+
+pub trait Material: MaterialStyleAbility<StandardForward> {}
+impl<T> Material for T where T: MaterialStyleAbility<StandardForward> {}
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
   pub background: Box<dyn Background>,
-  pub lights: Arena<Box<dyn Light>>,
+  pub cameras: Arena<Camera>,
+  pub lights: Arena<SceneLight>,
   pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
   pub materials: Arena<Box<dyn Material>>,
-  pub samplers: Arena<TextureSampler>,
-  // textures: Arena<Texture>,
+  pub samplers: Arena<SceneSampler>,
+  pub texture_2ds: Arena<SceneTexture2D>,
   // buffers: Arena<Buffer>,
   pub(crate) pipeline_resource: PipelineResourceManager,
-  pub active_camera: Option<SceneNodeHandle>,
+  pub active_camera: Option<Camera>,
+  pub active_camera_gpu: Option<CameraBindgroup>,
+  pub render_list: RenderList,
 }
 
 impl Scene {
@@ -67,13 +63,17 @@ impl Scene {
     Self {
       nodes: ArenaTree::new(SceneNode::default()),
       background: Box::new(SolidBackground::default()),
+      cameras: Arena::new(),
       models: Arena::new(),
       meshes: Arena::new(),
       lights: Arena::new(),
       materials: Arena::new(),
       samplers: Arena::new(),
+      texture_2ds: Arena::new(),
       pipeline_resource: PipelineResourceManager::new(),
       active_camera: None,
+      active_camera_gpu: None,
+      render_list: RenderList::new(),
     }
   }
 

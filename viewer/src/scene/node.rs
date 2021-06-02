@@ -1,14 +1,15 @@
 use rendiation_algebra::*;
 
-use super::{LightHandle, ModelHandle, Scene, SceneNodeHandle};
+use crate::renderer::Renderer;
+
+use super::{ModelTransformGPU, Scene, SceneNodeHandle};
 
 pub struct SceneNode {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
-  pub payloads: Vec<SceneNodePayload>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
-  pub world_matrix_gpu: Option<wgpu::Buffer>,
+  pub gpu: Option<ModelTransformGPU>,
 }
 
 impl Default for SceneNode {
@@ -16,10 +17,9 @@ impl Default for SceneNode {
     Self {
       visible: true,
       local_matrix: Mat4::one(),
-      payloads: Vec::new(),
       net_visible: true,
       world_matrix: Mat4::one(),
-      world_matrix_gpu: None,
+      gpu: None,
     }
   }
 }
@@ -37,21 +37,19 @@ impl SceneNode {
     }
   }
 
+  pub fn get_model_gpu(&mut self, renderer: &Renderer) -> (&Mat4<f32>, &ModelTransformGPU) {
+    (
+      &self.world_matrix,
+      self
+        .gpu
+        .get_or_insert_with(|| ModelTransformGPU::new(renderer, &self.world_matrix)),
+    )
+  }
+
   pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
     self.local_matrix = Mat4::translate(position.0, position.1, position.2); // todo
     self
   }
-
-  pub fn with_light(&mut self, light: LightHandle) -> &mut Self {
-    self.payloads.push(SceneNodePayload::Light(light));
-    self
-  }
-}
-
-pub enum SceneNodePayload {
-  Model(ModelHandle),
-  Light(LightHandle),
-  // Camera(Box<dyn Projection>),
 }
 
 impl Scene {

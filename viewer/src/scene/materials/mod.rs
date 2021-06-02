@@ -1,138 +1,109 @@
 pub mod basic;
+use arena::Arena;
 pub use basic::*;
 use rendiation_algebra::Mat4;
 
 use crate::Renderer;
 
-use super::Camera;
+use super::{
+  Camera, CameraBindgroup, ModelTransformGPU, RenderStyle, SceneMesh, SceneSampler, SceneTexture2D,
+};
 
-// pub trait MaterialRenderable<PassSchema, Vertex>{
+pub trait BindableResource {
+  fn as_bindable(&self) -> wgpu::BindingResource;
+}
 
-// }
+impl BindableResource for wgpu::Buffer {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    self.as_entire_binding()
+  }
+}
 
 pub trait MaterialCPUResource {
-  type GPU: MaterialGPUResource<Source = Self>;
-  fn create(
+  type GPU;
+  fn create<S>(
     &mut self,
     renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> Self::GPU;
 }
 
-pub trait MaterialGPUResource: Sized {
+pub trait MaterialGPUResource<S>: Sized {
   type Source: MaterialCPUResource<GPU = Self>;
   fn update(
     &mut self,
     source: &Self::Source,
     renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  );
+    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+  ) {
+    // default do nothing
+  }
 
-  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
-  fn setup_pipeline<'a>(
-    &self,
+  fn setup_pass<'a>(
+    &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    pipeline_manager: &'a PipelineResourceManager,
-  );
+    ctx: &SceneMaterialPassSetupCtx<'a, S>,
+  ) {
+    // default do nothing
+  }
 }
 
-pub struct MaterialCell<T: MaterialCPUResource> {
+pub struct MaterialCell<T>
+where
+  T: MaterialCPUResource,
+{
   material: T,
   gpu: T::GPU,
 }
 
-pub struct SceneMaterialRenderPrepareCtx<'a> {
-  pub camera: &'a Camera,
+pub struct SceneMaterialRenderPrepareCtx<'a, S> {
+  pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
-  pub model_matrix_gpu: &'a wgpu::Buffer,
+  pub model_gpu: &'a ModelTransformGPU,
   pub pipelines: &'a mut PipelineResourceManager,
+  pub style: &'a S,
+  pub active_mesh: &'a SceneMesh,
+  pub textures: &'a mut Arena<SceneTexture2D>,
+  pub samplers: &'a mut Arena<SceneSampler>,
 }
 
-pub struct CameraBindgroup {
-  pub uniform_buf: wgpu::Buffer,
-  pub bindgroup: wgpu::BindGroup,
-  pub layout: wgpu::BindGroupLayout,
+pub struct SceneMaterialPassSetupCtx<'a, S> {
+  pub pipelines: &'a PipelineResourceManager,
+  pub camera_gpu: &'a CameraBindgroup,
+  pub model_gpu: &'a ModelTransformGPU,
+  pub style: &'a S,
 }
 
-impl CameraBindgroup {
-  pub fn bindgroup_shader_header() -> &'static str {
-    r#"
-      [[block]]
-      struct CameraTransform {
-          projection: mat4x4<f32>;
-      };
-      [[group(0), binding(0)]]
-      var camera: CameraTransform;
-    "#
-  }
-  pub fn update(&mut self, renderer: &Renderer, camera: &Camera) {
-    renderer.queue.write_buffer(
-      &self.uniform_buf,
-      0,
-      bytemuck::cast_slice(camera.projection_matrix.as_ref()),
-    );
-  }
-  pub fn new(&mut self, renderer: &Renderer, camera: &Camera) -> Self {
-    let device = &renderer.device;
-    use wgpu::util::DeviceExt;
-
-    let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: "CameraBindgroup Buffer".into(),
-      contents: bytemuck::cast_slice(camera.projection_matrix.as_ref()),
-      usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    });
-
-    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "CameraBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStage::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64),
-        },
-        count: None,
-      }],
-    });
-
-    let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &layout,
-      entries: &[wgpu::BindGroupEntry {
-        binding: 0,
-        resource: uniform_buf.as_entire_binding(),
-      }],
-      label: None,
-    });
-
-    Self {
-      uniform_buf,
-      bindgroup,
-      layout,
-    }
-  }
+pub trait MaterialStyleAbility<S: RenderStyle> {
+  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>);
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a, S>,
+  );
 }
 
-pub trait Material {
-  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
-  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
-}
-
-impl<T> Material for MaterialCell<T>
+impl<T, S> MaterialStyleAbility<S> for MaterialCell<T>
 where
   T: MaterialCPUResource,
+  T::GPU: MaterialGPUResource<S, Source = T>,
+  S: RenderStyle,
 {
-  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
+  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>) {
     self.gpu.update(&self.material, renderer, ctx);
   }
-  fn setup_bindgroup<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    self.gpu.setup_bindgroup(pass)
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a, S>,
+  ) {
+    self.gpu.setup_pass(pass, ctx)
   }
 }
 
 pub struct PipelineResourceManager {
-  basic: Option<wgpu::RenderPipeline>,
+  pub basic: Option<wgpu::RenderPipeline>,
 }
 
 impl PipelineResourceManager {

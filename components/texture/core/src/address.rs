@@ -27,6 +27,17 @@ pub enum AddressMode {
   ClampToBorder = 3,
 }
 
+impl AddressMode {
+  pub fn correct<T: Scalar>(&self, uv: T) -> T {
+    match self {
+      AddressMode::ClampToEdge => ClampToEdge::correct(uv),
+      AddressMode::Repeat => ClampToEdge::correct(uv),
+      AddressMode::MirrorRepeat => ClampToEdge::correct(uv),
+      AddressMode::ClampToBorder => ClampToEdge::correct(uv),
+    }
+  }
+}
+
 /// How edges should be handled in texture addressing.
 pub trait TextureAddressMode {
   const ENUM: AddressMode;
