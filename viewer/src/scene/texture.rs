@@ -1,6 +1,6 @@
 use rendiation_texture::Size;
 
-use super::BindableResource;
+use super::{BindableResource, Scene, Texture2DHandle};
 
 pub struct SceneTexture2D {
   data: Box<dyn SceneTexture2dSource>,
@@ -47,7 +47,7 @@ impl SceneTexture2D {
   }
 }
 
-pub trait SceneTexture2dSource {
+pub trait SceneTexture2dSource: 'static {
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size<usize>;
   fn bytes_per_row(&self) -> std::num::NonZeroU32 {
@@ -71,5 +71,14 @@ pub struct SceneTexture2dGpu {
 impl BindableResource for SceneTexture2dGpu {
   fn as_bindable(&self) -> wgpu::BindingResource {
     wgpu::BindingResource::TextureView(&self.texture_view)
+  }
+}
+
+impl Scene {
+  pub fn add_texture2d(&mut self, texture: impl SceneTexture2dSource) -> Texture2DHandle {
+    self.texture_2ds.insert(SceneTexture2D {
+      data: Box::new(texture),
+      gpu: None,
+    })
   }
 }

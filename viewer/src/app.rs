@@ -1,3 +1,4 @@
+use rendiation_texture::TextureSampler;
 use winit::event::WindowEvent;
 
 use crate::{
@@ -12,7 +13,11 @@ pub struct Application {
 
 impl Application {
   pub fn new() -> Self {
-    let scene = Scene::new();
+    let mut scene = Scene::new();
+
+    let sampler = scene.add_sampler(TextureSampler::default());
+    // let texture = scene.add_texture2d(todo!());
+
     Self {
       scene,
       origin: StandardForward,

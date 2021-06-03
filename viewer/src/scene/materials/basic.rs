@@ -6,7 +6,8 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::Renderer,
   scene::{
-    CameraBindgroup, SamplerHandle, StandardForward, Texture2DHandle, VertexBufferSourceType,
+    CameraBindgroup, ModelTransformGPU, SamplerHandle, StandardForward, Texture2DHandle,
+    VertexBufferSourceType,
   },
 };
 
@@ -208,8 +209,8 @@ impl MaterialCPUResource for BasicMaterial {
       ",
       vertex_header = Vertex::get_shader_header(),
       material_header = Self::get_shader_header(),
-      camera_header = CameraBindgroup::bindgroup_shader_header(),
-      object_header = todo!()
+      camera_header = CameraBindgroup::get_shader_header(),
+      object_header = ModelTransformGPU::get_shader_header(),
     );
 
     let shader = renderer

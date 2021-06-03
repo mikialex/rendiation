@@ -1,6 +1,8 @@
+use arena_tree::ArenaTree;
+use rendiation_algebra::SquareMatrix;
 use rendiation_algebra::{Mat4, Projection};
 
-use super::SceneNodeHandle;
+use super::{SceneNode, SceneNodeHandle};
 use crate::renderer::Renderer;
 
 pub struct Camera {
@@ -10,8 +12,12 @@ pub struct Camera {
 }
 
 impl Camera {
-  pub fn get_view_matrix(&self) -> Mat4<f32> {
-    todo!()
+  pub fn get_view_matrix(&self, nodes: &ArenaTree<SceneNode>) -> Mat4<f32> {
+    nodes
+      .get_node(self.node)
+      .data()
+      .world_matrix
+      .inverse_or_identity()
   }
 }
 
@@ -22,7 +28,7 @@ pub struct CameraBindgroup {
 }
 
 impl CameraBindgroup {
-  pub fn bindgroup_shader_header() -> &'static str {
+  pub fn get_shader_header() -> &'static str {
     r#"
       [[block]]
       struct CameraTransform {
@@ -33,7 +39,7 @@ impl CameraBindgroup {
       var camera: CameraTransform;
     "#
   }
-  pub fn update(&mut self, renderer: &Renderer, camera: &Camera) {
+  pub fn update(&mut self, renderer: &Renderer, camera: &Camera, nodes: &ArenaTree<SceneNode>) {
     renderer.queue.write_buffer(
       &self.ubo,
       0,
@@ -42,7 +48,7 @@ impl CameraBindgroup {
     renderer.queue.write_buffer(
       &self.ubo,
       64,
-      bytemuck::cast_slice(camera.get_view_matrix().as_ref()),
+      bytemuck::cast_slice(camera.get_view_matrix(nodes).as_ref()),
     );
   }
   pub fn new(renderer: &Renderer, camera: &Camera) -> Self {
