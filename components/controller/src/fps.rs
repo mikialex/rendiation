@@ -63,8 +63,8 @@ impl FPSController {
   }
 }
 
-impl<T: Transformed3DControllee> Controller<T> for FPSController {
-  fn update(&mut self, target: &mut T) -> bool {
+impl Controller for FPSController {
+  fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
     let mat = target.matrix_mut();
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);
 

@@ -2,7 +2,7 @@ use rendiation_algebra::Vec2;
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
 
-use crate::{Controller, Transformed3DControllee};
+use crate::{Controller, ControllerWinitEventSupport, Transformed3DControllee};
 
 pub struct OrbitController {
   pub spherical: Spherical,
@@ -82,8 +82,8 @@ impl OrbitController {
   }
 }
 
-impl<T: Transformed3DControllee> Controller<T> for OrbitController {
-  fn update(&mut self, target: &mut T) -> bool {
+impl Controller for OrbitController {
+  fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
       && self.spherical_delta.radius.abs() < 0.0001
@@ -119,5 +119,15 @@ impl<T: Transformed3DControllee> Controller<T> for OrbitController {
       self.pan_offset = Vec3::zero();
     }
     true
+  }
+}
+
+use winit::event::WindowEvent;
+impl ControllerWinitEventSupport for OrbitController {
+  fn event(&mut self, event: winit::event::WindowEvent) {
+    match event {
+      MouseInput => {}
+      _ => {}
+    }
   }
 }
