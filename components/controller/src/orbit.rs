@@ -7,26 +7,26 @@ use crate::{Controller, ControllerWinitEventSupport, Transformed3DControllee};
 pub struct OrbitController {
   pub spherical: Spherical,
 
-  rotate_angle_factor: f32,
-  pan_factor: f32,
-  zoom_factor: f32,
+  pub rotate_angle_factor: f32,
+  pub pan_factor: f32,
+  pub zoom_factor: f32,
 
   // restriction
-  max_polar_angle: f32,
-  min_polar_angle: f32,
+  pub max_polar_angle: f32,
+  pub min_polar_angle: f32,
 
   // damping
-  spherical_delta: Spherical,
-  zooming: f32,
-  pan_offset: Vec3<f32>,
+  pub spherical_delta: Spherical,
+  pub zooming: f32,
+  pub pan_offset: Vec3<f32>,
 
-  enable_damping: bool,
-  zooming_damping_factor: f32,
-  rotate_damping_factor: f32,
-  pan_damping_factor: f32,
+  pub enable_damping: bool,
+  pub zooming_damping_factor: f32,
+  pub rotate_damping_factor: f32,
+  pub pan_damping_factor: f32,
 
-  view_width: f32,
-  view_height: f32,
+  pub view_width: f32,
+  pub view_height: f32,
 }
 
 impl Default for OrbitController {

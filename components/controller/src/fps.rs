@@ -1,18 +1,18 @@
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
 
-use crate::{Controller, Transformed3DControllee};
+use crate::{Controller, ControllerWinitEventSupport, Transformed3DControllee};
 
 pub struct FPSController {
-  spherical: Spherical,
+  pub spherical: Spherical,
 
   // restriction
-  max_polar_angle: f32,
-  min_polar_angle: f32,
+  pub max_polar_angle: f32,
+  pub min_polar_angle: f32,
 
-  view_width: f32,
-  view_height: f32,
-  rotate_angle_factor: f32,
+  pub view_width: f32,
+  pub view_height: f32,
+  pub rotate_angle_factor: f32,
 
   pub leftward_active: bool,
   pub rightward_active: bool,
@@ -106,5 +106,41 @@ impl Controller for FPSController {
     }
 
     true
+  }
+}
+
+use winit::event::*;
+impl ControllerWinitEventSupport for FPSController {
+  type State = ();
+  fn event<T>(&mut self, _: &mut Self::State, event: &winit::event::Event<T>) {
+    match event {
+      Event::WindowEvent { event, .. } => match event {
+        WindowEvent::KeyboardInput { input, .. } => {
+          if let KeyboardInput {
+            virtual_keycode: Some(virtual_keycode),
+            state,
+            ..
+          } = input
+          {
+            let pressed = *state == ElementState::Pressed;
+            match virtual_keycode {
+              VirtualKeyCode::W => self.forward_active = pressed,
+              VirtualKeyCode::A => self.leftward_active = pressed,
+              VirtualKeyCode::S => self.backward_active = pressed,
+              VirtualKeyCode::D => self.rightward_active = pressed,
+              _ => {}
+            }
+          }
+        }
+        _ => {}
+      },
+      Event::DeviceEvent { event, .. } => match event {
+        DeviceEvent::MouseMotion { delta } => {
+          self.rotate(Vec2::new(-delta.0 as f32, delta.1 as f32))
+        }
+        _ => {}
+      },
+      _ => {}
+    }
   }
 }
