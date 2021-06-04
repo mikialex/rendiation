@@ -21,7 +21,7 @@ impl SceneTexture2D {
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::R8Uint,
+        format: self.data.format(),
         usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
       });
       let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -48,6 +48,7 @@ impl SceneTexture2D {
 }
 
 pub trait SceneTexture2dSource: 'static {
+  fn format(&self) -> wgpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size<usize>;
   fn bytes_per_row(&self) -> std::num::NonZeroU32 {

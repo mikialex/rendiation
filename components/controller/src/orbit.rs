@@ -122,11 +122,51 @@ impl Controller for OrbitController {
   }
 }
 
-use winit::event::WindowEvent;
+pub struct OrbitWinitWindowState {
+  is_left_mouse_down: bool,
+  is_right_mouse_down: bool,
+}
+
+impl Default for OrbitWinitWindowState {
+  fn default() -> Self {
+    Self {
+      is_left_mouse_down: false,
+      is_right_mouse_down: false,
+    }
+  }
+}
+
+use winit::event::*;
 impl ControllerWinitEventSupport for OrbitController {
-  fn event(&mut self, event: winit::event::WindowEvent) {
+  type State = OrbitWinitWindowState;
+  fn event<T>(&mut self, s: &mut Self::State, event: &winit::event::Event<T>) {
     match event {
-      MouseInput => {}
+      Event::WindowEvent { event, .. } => match event {
+        WindowEvent::MouseInput { button, state, .. } => match button {
+          MouseButton::Left => match state {
+            ElementState::Pressed => s.is_left_mouse_down = true,
+            ElementState::Released => s.is_left_mouse_down = false,
+          },
+          MouseButton::Right => match state {
+            ElementState::Pressed => s.is_right_mouse_down = true,
+            ElementState::Released => s.is_right_mouse_down = false,
+          },
+          _ => {}
+        },
+        _ => {}
+      },
+      Event::DeviceEvent { event, .. } => match event {
+        DeviceEvent::MouseMotion { delta } => {
+          if s.is_left_mouse_down {
+            self.rotate(Vec2::new(-delta.0 as f32, -delta.1 as f32))
+          }
+
+          if s.is_right_mouse_down {
+            self.pan(Vec2::new(-delta.0 as f32, -delta.1 as f32))
+          }
+        }
+        _ => {}
+      },
       _ => {}
     }
   }
