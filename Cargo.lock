@@ -2237,6 +2237,7 @@ dependencies = [
  "futures",
  "once_cell",
  "rendiation-algebra",
+ "rendiation-controller",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",

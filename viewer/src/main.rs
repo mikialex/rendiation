@@ -51,7 +51,7 @@ impl Viewer {
   pub fn run(mut self, event_loop: EventLoop<()>) {
     event_loop.run(move |event, _, control_flow| {
       *control_flow = ControlFlow::Poll;
-      match event {
+      match &event {
         event::Event::MainEventsCleared => {
           // Clamp to some max framerate to avoid busy-looping too much
           // (we might be in wgpu::PresentMode::Mailbox, thus discarding superfluous frames)
@@ -79,9 +79,7 @@ impl Viewer {
           WindowEvent::CloseRequested => {
             *control_flow = ControlFlow::Exit;
           }
-          _ => {
-            self.app.update(event);
-          }
+          _ => {}
         },
         event::Event::RedrawRequested(_) => {
           let frame = self
@@ -93,6 +91,8 @@ impl Viewer {
         }
         _ => {}
       }
+
+      self.app.update(&event);
     });
   }
 }

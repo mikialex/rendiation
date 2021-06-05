@@ -1,5 +1,6 @@
+use rendiation_controller::{ControllerWinitAdapter, OrbitController};
 use rendiation_texture::TextureSampler;
-use winit::event::WindowEvent;
+use winit::event::*;
 
 use crate::{
   renderer::Renderer,
@@ -9,6 +10,7 @@ use crate::{
 pub struct Application {
   scene: Scene,
   origin: StandardForward,
+  controller: ControllerWinitAdapter<OrbitController>,
 }
 
 impl Application {
@@ -18,9 +20,13 @@ impl Application {
     let sampler = scene.add_sampler(TextureSampler::default());
     // let texture = scene.add_texture2d(todo!());
 
+    let controller = OrbitController::default();
+    let controller = ControllerWinitAdapter::new(controller);
+
     Self {
       scene,
       origin: StandardForward,
+      controller,
     }
   }
 
@@ -34,7 +40,8 @@ impl Application {
     )
   }
 
-  pub fn update(&mut self, event: WindowEvent) {
+  pub fn update(&mut self, event: &Event<()>) {
+    self.controller.event(event)
     //
   }
 }
