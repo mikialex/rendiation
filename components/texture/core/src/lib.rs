@@ -3,7 +3,6 @@
 pub mod address;
 use std::{
   ops::{Deref, DerefMut},
-  path::Path,
 };
 
 pub use address::*;
@@ -17,6 +16,8 @@ pub mod iter;
 pub use iter::*;
 pub mod util;
 pub use util::*;
+pub mod io;
+pub use io::*;
 
 use image::ImageBuffer;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
@@ -61,8 +62,6 @@ pub trait Texture2D: Sized {
       all: self.pixel_count(),
     }
   }
-
-  fn save_to_file<P: AsRef<Path>>(&self, path: P);
 }
 
 /// Not all texture storage container has continues memory,
@@ -156,9 +155,5 @@ where
       width: d.0 as usize,
       height: d.1 as usize,
     }
-  }
-
-  fn save_to_file<Pa: AsRef<Path>>(&self, path: Pa) {
-    self.save(path).unwrap();
   }
 }
