@@ -1,9 +1,7 @@
 #![allow(clippy::float_cmp)]
 
 pub mod address;
-use std::{
-  ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 pub use address::*;
 pub mod filter;
@@ -24,9 +22,15 @@ use rendiation_algebra::{Lerp, Scalar, Vec2};
 
 pub use image::*;
 
-pub struct Size<T> {
-  pub width: T,
-  pub height: T,
+pub struct Size {
+  pub width: usize,
+  pub height: usize,
+}
+
+impl Size {
+  pub fn is_pot(&self) -> bool {
+    self.width.is_power_of_two() && self.height.is_power_of_two()
+  }
 }
 
 pub trait Texture2D: Sized {
@@ -42,7 +46,7 @@ pub trait Texture2D: Sized {
     *self.get_mut(position) = v;
   }
 
-  fn size(&self) -> Size<usize>;
+  fn size(&self) -> Size;
   fn width(&self) -> usize {
     self.size().width
   }
@@ -149,7 +153,7 @@ where
     self.get_pixel_mut(position.x as u32, position.y as u32)
   }
 
-  fn size(&self) -> Size<usize> {
+  fn size(&self) -> Size {
     let d = self.dimensions();
     Size {
       width: d.0 as usize,

@@ -50,7 +50,7 @@ impl SceneTexture2D {
 pub trait SceneTexture2dSource: 'static {
   fn format(&self) -> wgpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
-  fn size(&self) -> Size<usize>;
+  fn size(&self) -> Size;
   fn bytes_per_row(&self) -> std::num::NonZeroU32 {
     std::num::NonZeroU32::new(self.size().width as u32).unwrap()
   }
