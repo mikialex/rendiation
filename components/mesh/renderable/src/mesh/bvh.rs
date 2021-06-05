@@ -1,20 +1,20 @@
 use super::{
-  AnyGeometry, LineList, MeshBufferHitList, MeshBufferHitPoint, MeshBufferIntersectConfig,
-  NoneIndexedGeometry,
+  AnyMesh, LineList, MeshBufferHitList, MeshBufferHitPoint, MeshBufferIntersectConfig,
+  NoneIndexedMesh,
 };
 use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
 use space_algorithm::{bvh::*, utils::TreeBuildOption};
 
-pub trait BVHExtendedBuildAnyGeometry<B: BVHBounding, S: BVHBuildStrategy<B>> {
+pub trait BVHExtendedBuildAnyMesh<B: BVHBounding, S: BVHBuildStrategy<B>> {
   fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;
 }
 
-impl<G, B, S> BVHExtendedBuildAnyGeometry<B, S> for G
+impl<G, B, S> BVHExtendedBuildAnyMesh<B, S> for G
 where
   B: BVHBounding,
   S: BVHBuildStrategy<B>,
-  G: AnyGeometry,
+  G: AnyMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
 {
   fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B> {
@@ -31,7 +31,7 @@ pub struct PrimitiveIntersectionStatistic {
   pub primitive: usize,
 }
 
-pub trait BVHIntersectAbleExtendedAnyGeometry<B>
+pub trait BVHIntersectAbleExtendedAnyMesh<B>
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
 {
@@ -56,10 +56,10 @@ where
   ) -> PrimitiveIntersectionStatistic;
 }
 
-impl<G, B> BVHIntersectAbleExtendedAnyGeometry<B> for G
+impl<G, B> BVHIntersectAbleExtendedAnyMesh<B> for G
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
-  G: AnyGeometry,
+  G: AnyMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
   G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, MeshBufferIntersectConfig>,
 {
@@ -138,7 +138,7 @@ where
 }
 
 pub trait BVHLineBufferDebugAble {
-  fn generate_debug_line_buffer(&self) -> NoneIndexedGeometry<Vec3<f32>, LineList>;
+  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<Vec3<f32>, LineList>;
 }
 
 pub trait EntityLineDebugAble {
@@ -173,7 +173,7 @@ impl EntityLineDebugAble for Box3 {
 }
 
 impl<B: BVHBounding + EntityLineDebugAble> BVHLineBufferDebugAble for FlattenBVH<B> {
-  fn generate_debug_line_buffer(&self) -> NoneIndexedGeometry<Vec3<f32>, LineList> {
+  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<Vec3<f32>, LineList> {
     let mut position = Vec::new();
     self.nodes.iter().for_each(|b| {
       b.bounding.for_each_line(&mut |line| {
@@ -181,6 +181,6 @@ impl<B: BVHBounding + EntityLineDebugAble> BVHLineBufferDebugAble for FlattenBVH
         position.push(line.end);
       })
     });
-    NoneIndexedGeometry::new(position)
+    NoneIndexedMesh::new(position)
   }
 }

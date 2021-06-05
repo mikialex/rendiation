@@ -1,15 +1,15 @@
 use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use crate::{
-  geometry::{IndexedGeometry, TriangleList},
-  range::GeometryRangesInfo,
+  mesh::{IndexedMesh, TriangleList},
+  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
-use super::{IndexedGeometryTessellator, TesselationResult};
+use super::{IndexedMeshTessellator, TesselationResult};
 
 #[derive(Copy, Clone, Debug)]
-pub struct CubeGeometryParameter {
+pub struct CubeMeshParameter {
   pub width: f32,
   pub height: f32,
   pub depth: f32,
@@ -19,8 +19,8 @@ pub struct CubeGeometryParameter {
 }
 
 #[rustfmt::skip]
-impl IndexedGeometryTessellator for CubeGeometryParameter {
-  fn tessellate(&self) ->  TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
+impl IndexedMeshTessellator for CubeMeshParameter {
+  fn tessellate(&self) ->  TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -32,7 +32,7 @@ impl IndexedGeometryTessellator for CubeGeometryParameter {
 
     let mut indices = vec![];
     let mut vertices = vec![];
-    let mut ranges = GeometryRangesInfo::new();
+    let mut ranges = MeshRangesInfo::new();
 
     // helper variables
     let mut number_of_vertices = 0;
@@ -103,7 +103,7 @@ impl IndexedGeometryTessellator for CubeGeometryParameter {
           }
         }
 
-        // add a group to the geometry. this will ensure multi material support
+        // add a group to the mesh. this will ensure multi material support
         ranges.push(group_start, group_count);
         // calculate new start value for groups
         group_start += group_count;
@@ -119,6 +119,6 @@ impl IndexedGeometryTessellator for CubeGeometryParameter {
     build_plane(0, 1, 2, 1, - 1, width, height, depth, width_segment, height_segment); // pz
     build_plane(0, 1, 2, - 1, - 1, width, height, - depth, width_segment, height_segment); // nz
 
-    TesselationResult::new(IndexedGeometry::new(vertices, indices), ranges)
+    TesselationResult::new(IndexedMesh::new(vertices, indices), ranges)
   }
 }

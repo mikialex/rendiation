@@ -50,8 +50,8 @@ impl Scene {
     self
   }
 
-  pub fn model_node(&mut self, geometry: impl Geometry, material: impl Material) -> &mut Self {
-    let model = Model::new(geometry, material);
+  pub fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
+    let model = Model::new(shape, material);
     let model = self.models.insert(model);
     self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
     self
@@ -59,11 +59,11 @@ impl Scene {
 
   pub fn model_node_with_modify(
     &mut self,
-    geometry: impl Geometry,
+    shape: impl Shape,
     material: impl Material,
     m: impl Fn(&mut SceneNode),
   ) -> &mut Self {
-    let model = Model::new(geometry, material);
+    let model = Model::new(shape, material);
     let model = self.models.insert(model);
     self.create_node(|node, _| {
       node.payloads.push(SceneNodePayload::Model(model));
@@ -106,7 +106,7 @@ impl Scene {
             normal_matrix: world_matrix_inverse.transpose(),
             model: *model_handle,
           };
-          if let Some(mut bbox) = model.geometry.get_bbox(self) {
+          if let Some(mut bbox) = model.shape.get_bbox(self) {
             models_in_bvh.push(instance);
             models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
           } else {
@@ -281,8 +281,7 @@ impl ModelInstance {
     let local_ray = world_ray.apply_matrix_into(*world_matrix_inverse);
     let model = scene.models.get(self.model).unwrap();
 
-    if let PossibleIntersection(Some(mut intersection)) = model.geometry.intersect(local_ray, scene)
-    {
+    if let PossibleIntersection(Some(mut intersection)) = model.shape.intersect(local_ray, scene) {
       intersection.apply_matrix(*world_matrix, *normal_matrix);
       let distance = intersection.position.distance(world_ray.origin);
 
@@ -297,12 +296,12 @@ impl ModelInstance {
   pub fn has_any_hit(&self, world_ray: Ray3, scene: &Scene) -> bool {
     let local_ray = world_ray.apply_matrix_into(self.world_matrix_inverse);
     let model = scene.models.get(self.model).unwrap();
-    model.geometry.has_any_intersect(local_ray, scene)
+    model.shape.has_any_intersect(local_ray, scene)
   }
 
   pub fn get_intersection_stat(&self, world_ray: Ray3, scene: &Scene) -> IntersectionStatistic {
     let local_ray = world_ray.apply_matrix_into(self.world_matrix_inverse);
     let model = scene.models.get(self.model).unwrap();
-    model.geometry.intersect_statistic(local_ray, scene)
+    model.shape.intersect_statistic(local_ray, scene)
   }
 }

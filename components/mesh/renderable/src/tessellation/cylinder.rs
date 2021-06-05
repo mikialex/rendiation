@@ -1,15 +1,15 @@
 use rendiation_algebra::*;
 
 use crate::{
-  geometry::{IndexedGeometry, TriangleList},
-  range::GeometryRangesInfo,
+  mesh::{IndexedMesh, TriangleList},
+  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
-use super::{IndexedGeometryTessellator, TesselationResult};
+use super::{IndexedMeshTessellator, TesselationResult};
 
 #[derive(Copy, Clone, Debug)]
-pub struct CylinderGeometryParameter {
+pub struct CylinderMeshParameter {
   pub radius_top: f32,
   pub radius_bottom: f32,
   pub height: f32,
@@ -20,23 +20,23 @@ pub struct CylinderGeometryParameter {
   pub theta_length: f32,
 }
 
-struct CylinderGeometryBuilder {
-  parameter: CylinderGeometryParameter,
+struct CylinderMeshBuilder {
+  parameter: CylinderMeshParameter,
   index: usize,
   index_array: Vec<Vec<usize>>,
   group_start: usize,
   indices: Vec<u16>,
   vertices: Vec<Vertex>,
-  ranges: GeometryRangesInfo,
+  ranges: MeshRangesInfo,
 }
 
-impl CylinderGeometryBuilder {
-  fn new(parameter: CylinderGeometryParameter) -> Self {
+impl CylinderMeshBuilder {
+  fn new(parameter: CylinderMeshParameter) -> Self {
     Self {
       parameter,
       indices: vec![],
       vertices: vec![],
-      ranges: GeometryRangesInfo::new(),
+      ranges: MeshRangesInfo::new(),
 
       // helper letiables
       index: 0,
@@ -46,7 +46,7 @@ impl CylinderGeometryBuilder {
   }
 
   fn generate_torso(&mut self) {
-    let CylinderGeometryParameter {
+    let CylinderMeshParameter {
       radius_top,
       radius_bottom,
       height,
@@ -123,7 +123,7 @@ impl CylinderGeometryBuilder {
       }
     }
 
-    // add a group to the geometry. this will ensure multi material support
+    // add a group to the mesh. this will ensure multi material support
     self.ranges.push(self.group_start, group_count);
 
     // calculate new start value for groups
@@ -132,7 +132,7 @@ impl CylinderGeometryBuilder {
   }
 
   fn generate_cap(&mut self, top: bool) {
-    let CylinderGeometryParameter {
+    let CylinderMeshParameter {
       radius_top,
       radius_bottom,
       height,
@@ -151,7 +151,7 @@ impl CylinderGeometryBuilder {
     let center_index_start = self.index;
 
     // first we generate the center vertex data of the cap.
-    // because the geometry needs one set of uvs per face,
+    // because the mesh needs one set of uvs per face,
     // we must generate a center vertex per face/segment
     for _ in 1..=radial_segments {
       self.vertices.push(Vertex {
@@ -206,7 +206,7 @@ impl CylinderGeometryBuilder {
       group_count += 3;
     }
 
-    // add a group to the geometry. this will ensure multi material support
+    // add a group to the mesh. this will ensure multi material support
     self.ranges.push(self.group_start, group_count);
 
     // calculate new start value for groups
@@ -215,11 +215,11 @@ impl CylinderGeometryBuilder {
   }
 }
 
-impl IndexedGeometryTessellator for CylinderGeometryParameter {
-  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
-    let mut builder = CylinderGeometryBuilder::new(*self);
+impl IndexedMeshTessellator for CylinderMeshParameter {
+  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+    let mut builder = CylinderMeshBuilder::new(*self);
 
-    // generate geometry
+    // generate mesh
     builder.generate_torso();
 
     if !self.open_ended {
@@ -232,7 +232,7 @@ impl IndexedGeometryTessellator for CylinderGeometryParameter {
     }
 
     TesselationResult::new(
-      IndexedGeometry::new(builder.vertices, builder.indices),
+      IndexedMesh::new(builder.vertices, builder.indices),
       builder.ranges,
     )
   }

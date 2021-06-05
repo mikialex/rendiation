@@ -1,4 +1,4 @@
-use crate::geometry::HashAbleByConversion;
+use crate::mesh::HashAbleByConversion;
 use rendiation_algebra::*;
 use std::{
   hash::Hash,
@@ -7,7 +7,6 @@ use std::{
 };
 
 #[repr(C)]
-#[cfg_attr(feature = "shadergraph", derive(Geometry))]
 #[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
 pub struct Vertex {
   pub position: Vec3<f32>,

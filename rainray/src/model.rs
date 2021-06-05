@@ -3,19 +3,19 @@ use rendiation_algebra::Vec3;
 use crate::*;
 
 pub struct Model {
-  pub geometry: Box<dyn Geometry>,
+  pub shape: Box<dyn Shape>,
   pub material: Box<dyn Material>,
 }
 
 impl Model {
-  pub fn new<M, G>(geometry: G, material: M) -> Self
+  pub fn new<M, G>(shape: G, material: M) -> Self
   where
     M: Material,
-    G: Geometry,
+    G: Shape,
   {
-    let geometry = Box::new(geometry);
+    let shape = Box::new(shape);
     let material = Box::new(material);
-    Model { geometry, material }
+    Model { shape, material }
   }
 }
 
