@@ -213,6 +213,8 @@ impl MaterialCPUResource for BasicMaterial {
       object_header = ModelTransformGPU::get_shader_header(),
     );
 
+    println!("{}", shader_source);
+
     let shader = renderer
       .device
       .create_shader_module(&wgpu::ShaderModuleDescriptor {

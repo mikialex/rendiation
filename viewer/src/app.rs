@@ -7,8 +7,8 @@ use winit::event::*;
 use crate::{
   renderer::Renderer,
   scene::{
-    BasicMaterial, IndexBuffer, MaterialCell, Model, RenderPassDispatcher, Scene, SceneMesh,
-    StandardForward, VertexBuffer,
+    BasicMaterial, Camera, IndexBuffer, MaterialCell, Model, RenderPassDispatcher, Scene,
+    SceneMesh, StandardForward, VertexBuffer,
   },
 };
 
@@ -25,7 +25,10 @@ impl Application {
     let sampler = scene.add_sampler(TextureSampler::default());
 
     use image::io::Reader as ImageReader;
-    let img = ImageReader::open("myimage.png").unwrap().decode().unwrap();
+    let img = ImageReader::open("C:/Users/mk/Desktop/test.png")
+      .unwrap()
+      .decode()
+      .unwrap();
     let img = match img {
       image::DynamicImage::ImageRgba8(img) => img,
       _ => unreachable!(),
@@ -52,6 +55,15 @@ impl Application {
       mesh,
       node: scene.get_root_handle(),
     };
+
+    scene.add_model(model);
+
+    let camera = PerspectiveProjection::default();
+    let camera_node = scene.create_node(|node, _| {
+      node.local_matrix = Mat4::lookat(Vec3::splat(10.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+    });
+    let camera = Camera::new(camera, camera_node);
+    scene.active_camera = camera.into();
 
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);

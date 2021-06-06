@@ -1,6 +1,5 @@
 use arena_tree::ArenaTree;
-use rendiation_algebra::SquareMatrix;
-use rendiation_algebra::{Mat4, Projection};
+use rendiation_algebra::*;
 
 use super::{SceneNode, SceneNodeHandle};
 use crate::renderer::Renderer;
@@ -12,6 +11,14 @@ pub struct Camera {
 }
 
 impl Camera {
+  pub fn new(p: impl Projection + 'static, node: SceneNodeHandle) -> Self {
+    Self {
+      projection: Box::new(p),
+      projection_matrix: Mat4::one(),
+      node,
+    }
+  }
+
   pub fn get_view_matrix(&self, nodes: &ArenaTree<SceneNode>) -> Mat4<f32> {
     nodes
       .get_node(self.node)
@@ -55,9 +62,11 @@ impl CameraBindgroup {
     let device = &renderer.device;
     use wgpu::util::DeviceExt;
 
+    let mat = [0_u8; 128];
+
     let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: "CameraBindgroup Buffer".into(),
-      contents: bytemuck::cast_slice(camera.projection_matrix.as_ref()),
+      contents: &mat,
       usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
 

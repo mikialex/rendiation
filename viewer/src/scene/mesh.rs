@@ -61,9 +61,14 @@ impl VertexBufferSourceType for Vertex {
           shader_location: 0,
         },
         wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x2,
-          offset: 4 * 4,
+          format: wgpu::VertexFormat::Float32x3,
+          offset: 4 * 3,
           shader_location: 1,
+        },
+        wgpu::VertexAttribute {
+          format: wgpu::VertexFormat::Float32x2,
+          offset: 4 * 4 + 4 * 3,
+          shader_location: 2,
         },
       ],
     }
@@ -74,6 +79,8 @@ impl VertexBufferSourceType for Vertex {
       [[location(0)]]
       var<in> in_position: vec4<f32>;
       [[location(1)]]
+      var<in> in_normal: vec3<f32>;
+      [[location(2)]]
       var<in> in_tex_coord_vs: vec2<f32>;
       "#
   }

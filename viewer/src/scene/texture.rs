@@ -51,8 +51,9 @@ pub trait SceneTexture2dSource: 'static {
   fn format(&self) -> wgpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;
+  fn byte_per_pixel(&self) -> usize;
   fn bytes_per_row(&self) -> std::num::NonZeroU32 {
-    std::num::NonZeroU32::new(self.size().width as u32).unwrap()
+    std::num::NonZeroU32::new(self.size().width as u32 * self.byte_per_pixel() as u32).unwrap()
   }
   fn gpu_size(&self) -> wgpu::Extent3d {
     let size = self.size();
@@ -67,6 +68,10 @@ pub trait SceneTexture2dSource: 'static {
 impl SceneTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
   fn format(&self) -> wgpu::TextureFormat {
     wgpu::TextureFormat::Rgba8Unorm
+  }
+
+  fn byte_per_pixel(&self) -> usize {
+    return 4;
   }
 
   fn as_bytes(&self) -> &[u8] {

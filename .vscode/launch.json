@@ -64,62 +64,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'wasm-scene'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=wasm-scene"
-                ],
-                "filter": {
-                    "name": "wasm-scene",
-                    "kind": "lib"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'web'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=web",
-                    "--package=wasm-scene"
-                ],
-                "filter": {
-                    "name": "web",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug executable 'voxland'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=voxland",
-                    "--package=voxland"
-                ],
-                "filter": {
-                    "name": "voxland",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug executable 'rainray'",
             "cargo": {
                 "args": [
@@ -138,20 +82,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'rivermesh'",
+            "name": "Debug executable 'viewer'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=rivermesh",
-                    "--package=rivermesh"
+                    "--package=viewer"
                 ],
-                "filter": {
-                    "name": "rivermesh",
-                    "kind": "bin"
-                }
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
     ]
 }
