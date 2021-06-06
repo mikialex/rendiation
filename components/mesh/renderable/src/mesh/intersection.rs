@@ -3,11 +3,11 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
-use super::AnyGeometry;
+use super::AnyMesh;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
 
-pub trait IntersectAbleAnyGeometry {
+pub trait IntersectAbleAnyMesh {
   fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList);
   fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> Nearest<MeshBufferHitPoint>;
 }
@@ -35,9 +35,9 @@ impl Default for MeshBufferHitList {
   }
 }
 
-impl<G> IntersectAbleAnyGeometry for G
+impl<G> IntersectAbleAnyMesh for G
 where
-  G: AnyGeometry,
+  G: AnyMesh,
   G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, Config>,
 {
   fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList) {
@@ -140,13 +140,13 @@ where
 
 #[test]
 fn test() {
-  use crate::geometry::*;
-  use crate::tessellation::{IndexedGeometryTessellator, Quad};
+  use crate::mesh::*;
+  use crate::tessellation::{IndexedMeshTessellator, Quad};
   use rendiation_algebra::*;
 
   let config = MeshBufferIntersectConfig::default();
   let quad = Quad.tessellate();
   let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized());
   let mut result = MeshBufferHitList::new();
-  quad.geometry.intersect_list(ray, &config, &mut result);
+  quad.mesh.intersect_list(ray, &config, &mut result);
 }

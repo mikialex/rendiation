@@ -1,4 +1,4 @@
-//! The actually geometry data container, define how we store the vertex
+//! The actually mesh data container, define how we store the vertex
 
 pub mod indexed;
 pub mod indexed_view;
@@ -12,39 +12,39 @@ pub use none_indexed_view::*;
 
 use std::{iter::FromIterator, ops::Index};
 
-pub trait GeometryDataContainer<T>:
+pub trait MeshDataContainer<T>:
   AsRef<[T]> + Clone + Index<usize, Output = T> + FromIterator<T>
 {
 }
 
-impl<T: Clone> GeometryDataContainer<T> for Vec<T> {}
+impl<T: Clone> MeshDataContainer<T> for Vec<T> {}
 
-pub trait AnyGeometry {
+pub trait AnyMesh {
   type Primitive;
 
   fn draw_count(&self) -> usize;
   fn primitive_count(&self) -> usize;
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
 
-  fn primitive_iter(&self) -> AnyGeometryIter<'_, Self>
+  fn primitive_iter(&self) -> AnyMeshIter<'_, Self>
   where
     Self: Sized,
   {
-    AnyGeometryIter {
-      geometry: &self,
+    AnyMeshIter {
+      mesh: &self,
       current: 0,
       count: self.primitive_count(),
     }
   }
 }
 
-pub struct AnyGeometryIter<'a, G> {
-  geometry: &'a G,
+pub struct AnyMeshIter<'a, G> {
+  mesh: &'a G,
   current: usize,
   count: usize,
 }
 
-impl<'a, G: AnyGeometry> Iterator for AnyGeometryIter<'a, G> {
+impl<'a, G: AnyMesh> Iterator for AnyMeshIter<'a, G> {
   type Item = G::Primitive;
 
   #[inline(always)]
@@ -52,48 +52,48 @@ impl<'a, G: AnyGeometry> Iterator for AnyGeometryIter<'a, G> {
     if self.current == self.count {
       return None;
     }
-    let p = self.geometry.primitive_at(self.current);
+    let p = self.mesh.primitive_at(self.current);
     self.current += 1;
     Some(p)
   }
 
   fn size_hint(&self) -> (usize, Option<usize>) {
-    let len = self.geometry.primitive_count() - self.current;
+    let len = self.mesh.primitive_count() - self.current;
     (len, Some(len))
   }
 }
 
-impl<'a, G: AnyGeometry> ExactSizeIterator for AnyGeometryIter<'a, G> {
+impl<'a, G: AnyMesh> ExactSizeIterator for AnyMeshIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
-    self.geometry.primitive_count() - self.current
+    self.mesh.primitive_count() - self.current
   }
 }
 
-pub trait AnyIndexGeometry: AnyGeometry {
+pub trait AnyIndexMesh: AnyMesh {
   type IndexPrimitive;
 
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive;
 
-  fn index_primitive_iter(&self) -> AnyIndexGeometryIter<'_, Self>
+  fn index_primitive_iter(&self) -> AnyIndexMeshIter<'_, Self>
   where
     Self: Sized,
   {
-    AnyIndexGeometryIter {
-      geometry: &self,
+    AnyIndexMeshIter {
+      mesh: &self,
       current: 0,
       count: self.primitive_count(),
     }
   }
 }
 
-pub struct AnyIndexGeometryIter<'a, G> {
-  geometry: &'a G,
+pub struct AnyIndexMeshIter<'a, G> {
+  mesh: &'a G,
   current: usize,
   count: usize,
 }
 
-impl<'a, G: AnyIndexGeometry> Iterator for AnyIndexGeometryIter<'a, G> {
+impl<'a, G: AnyIndexMesh> Iterator for AnyIndexMeshIter<'a, G> {
   type Item = G::IndexPrimitive;
 
   #[inline(always)]
@@ -101,20 +101,20 @@ impl<'a, G: AnyIndexGeometry> Iterator for AnyIndexGeometryIter<'a, G> {
     if self.current == self.count {
       return None;
     }
-    let p = self.geometry.index_primitive_at(self.current);
+    let p = self.mesh.index_primitive_at(self.current);
     self.current += 1;
     Some(p)
   }
 
   fn size_hint(&self) -> (usize, Option<usize>) {
-    let len = self.geometry.primitive_count() - self.current;
+    let len = self.mesh.primitive_count() - self.current;
     (len, Some(len))
   }
 }
 
-impl<'a, G: AnyIndexGeometry> ExactSizeIterator for AnyIndexGeometryIter<'a, G> {
+impl<'a, G: AnyIndexMesh> ExactSizeIterator for AnyIndexMeshIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
-    self.geometry.primitive_count() - self.current
+    self.mesh.primitive_count() - self.current
   }
 }

@@ -6,7 +6,7 @@ pub mod mesh;
 pub use mesh::*;
 use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
 
-pub trait Geometry: Sync + Send + 'static {
+pub trait Shape: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
 
   fn intersect(&self, ray: Ray3, scene: &Scene) -> PossibleIntersection;
@@ -103,7 +103,7 @@ impl Intersection {
 
 pub struct PossibleIntersection(pub Option<Intersection>);
 
-impl Geometry for Sphere {
+impl Shape for Sphere {
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }
@@ -126,7 +126,7 @@ impl Geometry for Sphere {
   }
 }
 
-impl Geometry for Plane {
+impl Shape for Plane {
   fn as_any(&self) -> &dyn std::any::Any {
     self
   }

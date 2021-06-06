@@ -6,8 +6,15 @@ use rendiation_algebra::Mat4;
 use crate::Renderer;
 
 use super::{
-  Camera, CameraBindgroup, ModelTransformGPU, RenderStyle, SceneMesh, SceneSampler, SceneTexture2D,
+  Camera, CameraBindgroup, Material, MaterialHandle, ModelTransformGPU, RenderStyle, Scene,
+  SceneMesh, SceneSampler, SceneTexture2D,
 };
+
+impl Scene {
+  pub fn add_material(&mut self, material: impl Material) -> MaterialHandle {
+    self.materials.insert(Box::new(material))
+  }
+}
 
 pub trait BindableResource {
   fn as_bindable(&self) -> wgpu::BindingResource;
@@ -53,7 +60,16 @@ where
   T: MaterialCPUResource,
 {
   material: T,
-  gpu: T::GPU,
+  gpu: Option<T::GPU>,
+}
+
+impl<T: MaterialCPUResource> MaterialCell<T> {
+  pub fn new(material: T) -> Self {
+    Self {
+      material,
+      gpu: None,
+    }
+  }
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a, S> {
@@ -76,7 +92,7 @@ pub struct SceneMaterialPassSetupCtx<'a, S> {
 }
 
 pub trait MaterialStyleAbility<S: RenderStyle> {
-  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>);
+  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>);
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
@@ -90,15 +106,22 @@ where
   T::GPU: MaterialGPUResource<S, Source = T>,
   S: RenderStyle,
 {
-  fn update<'a>(&mut self, renderer: &Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>) {
-    self.gpu.update(&self.material, renderer, ctx);
+  fn update<'a>(
+    &mut self,
+    renderer: &mut Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>,
+  ) {
+    self
+      .gpu
+      .get_or_insert_with(|| T::create(&mut self.material, renderer, ctx))
+      .update(&self.material, renderer, ctx);
   }
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a, S>,
   ) {
-    self.gpu.setup_pass(pass, ctx)
+    self.gpu.as_ref().unwrap().setup_pass(pass, ctx)
   }
 }
 

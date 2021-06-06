@@ -1,33 +1,33 @@
-use crate::geometry::AnyGeometry;
+use crate::mesh::AnyMesh;
 
 #[derive(Copy, Clone, Debug)]
-pub struct GeometryRange {
+pub struct MeshRange {
   pub start: usize,
   pub count: usize,
 }
 
-pub struct GeometryRangesInfo {
-  pub ranges: Vec<GeometryRange>,
+pub struct MeshRangesInfo {
+  pub ranges: Vec<MeshRange>,
 }
 
-impl Default for GeometryRangesInfo {
+impl Default for MeshRangesInfo {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl GeometryRangesInfo {
+impl MeshRangesInfo {
   pub fn new() -> Self {
     Self { ranges: Vec::new() }
   }
 
   pub fn push(&mut self, start: usize, count: usize) {
-    self.ranges.push(GeometryRange { start, count });
+    self.ranges.push(MeshRange { start, count });
   }
 
-  pub fn full_range<T: AnyGeometry>(geometry: &T) -> Self {
-    let mut ranges = GeometryRangesInfo::new();
-    ranges.push(0, geometry.draw_count());
+  pub fn full_range<T: AnyMesh>(mesh: &T) -> Self {
+    let mut ranges = MeshRangesInfo::new();
+    ranges.push(0, mesh.draw_count());
     ranges
   }
 }

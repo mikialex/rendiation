@@ -1,13 +1,13 @@
 use std::marker::PhantomData;
 
 use crate::{
-  geometry::IndexPrimitiveTopologyMeta, geometry::IndexedPrimitiveData,
-  geometry::PrimitiveTopologyMeta, geometry::TriangleList, vertex::Vertex,
+  mesh::IndexPrimitiveTopologyMeta, mesh::IndexedPrimitiveData, mesh::PrimitiveTopologyMeta,
+  mesh::TriangleList, vertex::Vertex,
 };
 
-use super::{AnyGeometry, AnyIndexGeometry, GeometryDataContainer};
+use super::{AnyIndexMesh, AnyMesh, MeshDataContainer};
 
-pub struct IndexedGeometryView<'a, I, V = Vertex, T = TriangleList, U = Vec<V>> {
+pub struct IndexedMeshView<'a, I, V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: &'a U,
   pub index: &'a Vec<I>,
   _v_phantom: PhantomData<V>,
@@ -15,7 +15,7 @@ pub struct IndexedGeometryView<'a, I, V = Vertex, T = TriangleList, U = Vec<V>> 
 }
 
 #[allow(clippy::ptr_arg)]
-impl<'a, I, V, T, U> IndexedGeometryView<'a, I, V, T, U> {
+impl<'a, I, V, T, U> IndexedMeshView<'a, I, V, T, U> {
   pub fn new(v: &'a U, index: &'a Vec<I>) -> Self {
     Self {
       data: v,
@@ -26,12 +26,12 @@ impl<'a, I, V, T, U> IndexedGeometryView<'a, I, V, T, U> {
   }
 }
 
-impl<'a, I, V, T, U> AnyGeometry for IndexedGeometryView<'a, I, V, T, U>
+impl<'a, I, V, T, U> AnyMesh for IndexedMeshView<'a, I, V, T, U>
 where
   V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
-  U: GeometryDataContainer<V>,
+  U: MeshDataContainer<V>,
 {
   type Primitive = T::Primitive;
 
@@ -52,12 +52,12 @@ where
   }
 }
 
-impl<'a, I, V, T, U> AnyIndexGeometry for IndexedGeometryView<'a, I, V, T, U>
+impl<'a, I, V, T, U> AnyIndexMesh for IndexedMeshView<'a, I, V, T, U>
 where
   V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,
   T::Primitive: IndexedPrimitiveData<I, V, U, Vec<I>>,
-  U: GeometryDataContainer<V>,
+  U: MeshDataContainer<V>,
 {
   type IndexPrimitive = <T::Primitive as IndexedPrimitiveData<I, V, U, Vec<I>>>::IndexIndicator;
 

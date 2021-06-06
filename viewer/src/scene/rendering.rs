@@ -5,7 +5,7 @@ use super::*;
 pub trait RenderStyle: Sized {
   fn update<'a>(
     m: &mut dyn Material,
-    renderer: &Renderer,
+    renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
   );
   fn setup_pass<'a>(
@@ -19,7 +19,7 @@ pub struct StandardForward;
 impl RenderStyle for StandardForward {
   fn update<'a>(
     m: &mut dyn Material,
-    renderer: &Renderer,
+    renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
   ) {
     m.update(renderer, ctx)
@@ -102,16 +102,12 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
     })
   }
 
-  fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder) {
     let scene = &mut self.scene;
     scene.render_list.models.clear();
     let root = scene.get_root_handle();
 
-    if let Some(active_camera) = &scene.active_camera {
-      let camera_gpu = scene
-        .active_camera_gpu
-        .get_or_insert_with(|| CameraBindgroup::new(renderer, active_camera));
-
+    if let Some(active_camera) = &mut scene.active_camera {
       scene
         .nodes
         .traverse_mut(root, &mut Vec::new(), |this, parent| {
@@ -123,6 +119,12 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
             NextTraverseVisit::VisitChildren
           }
         });
+
+      active_camera.update();
+      let camera_gpu = scene
+        .active_camera_gpu
+        .get_or_insert_with(|| CameraBindgroup::new(renderer, active_camera))
+        .update(renderer, active_camera, &scene.nodes);
 
       scene.models.iter_mut().for_each(|(handle, model)| {
         scene.render_list.models.push(handle);
@@ -144,6 +146,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           samplers: &mut scene.samplers,
         };
         S::update(material, renderer, &mut ctx);
+        mesh.update(renderer);
       })
     }
   }

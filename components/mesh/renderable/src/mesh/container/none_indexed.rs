@@ -1,19 +1,15 @@
-use std::marker::PhantomData;
+use super::super::*;
+use crate::vertex::Vertex;
+use core::marker::PhantomData;
 
-use crate::{
-  geometry::PrimitiveData, geometry::PrimitiveTopologyMeta, geometry::TriangleList, vertex::Vertex,
-};
-
-use super::{AnyGeometry, GeometryDataContainer};
-
-pub struct NoneIndexedGeometryView<'a, V = Vertex, T = TriangleList, U = Vec<V>> {
-  pub data: &'a U,
+pub struct NoneIndexedMesh<V = Vertex, T = TriangleList, U = Vec<V>> {
+  pub data: U,
   _v_phantom: PhantomData<V>,
   _phantom: PhantomData<T>,
 }
 
-impl<'a, V, T, U> NoneIndexedGeometryView<'a, V, T, U> {
-  pub fn new(v: &'a U) -> Self {
+impl<V, T, U> NoneIndexedMesh<V, T, U> {
+  pub fn new(v: U) -> Self {
     Self {
       data: v,
       _v_phantom: PhantomData,
@@ -22,10 +18,10 @@ impl<'a, V, T, U> NoneIndexedGeometryView<'a, V, T, U> {
   }
 }
 
-impl<'a, V, T, U> AnyGeometry for NoneIndexedGeometryView<'a, V, T, U>
+impl<V, T, U> AnyMesh for NoneIndexedMesh<V, T, U>
 where
   T: PrimitiveTopologyMeta<V>,
-  U: GeometryDataContainer<V>,
+  U: MeshDataContainer<V>,
   T::Primitive: PrimitiveData<V, U>,
 {
   type Primitive = T::Primitive;

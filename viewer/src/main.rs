@@ -39,19 +39,22 @@ pub struct Viewer {
 impl Viewer {
   pub async fn new(window: winit::window::Window) -> Self {
     let renderer = Renderer::new(&window).await;
+    let mut app =  Application::new();
+    let initial_size = window.inner_size();
+    app.resize_view((initial_size.width as f32, initial_size.height as f32));
 
     Self {
       window,
       renderer,
       last_update_inst: Instant::now(),
-      app: Application::new(),
+      app,
     }
   }
 
   pub fn run(mut self, event_loop: EventLoop<()>) {
     event_loop.run(move |event, _, control_flow| {
       *control_flow = ControlFlow::Poll;
-      match event {
+      match &event {
         event::Event::MainEventsCleared => {
           // Clamp to some max framerate to avoid busy-looping too much
           // (we might be in wgpu::PresentMode::Mailbox, thus discarding superfluous frames)
@@ -79,9 +82,7 @@ impl Viewer {
           WindowEvent::CloseRequested => {
             *control_flow = ControlFlow::Exit;
           }
-          _ => {
-            self.app.update(event);
-          }
+          _ => {}
         },
         event::Event::RedrawRequested(_) => {
           let frame = self
@@ -89,10 +90,13 @@ impl Viewer {
             .get_current_frame()
             .expect("Failed to acquire next swap chain texture!");
 
+          self.app.update_state();
           self.app.render(&frame, &mut self.renderer);
         }
         _ => {}
       }
+
+      self.app.event(&event);
     });
   }
 }

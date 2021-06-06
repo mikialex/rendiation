@@ -1,15 +1,15 @@
-use super::{IndexedGeometryTessellator, TesselationResult};
+use super::{IndexedMeshTessellator, TesselationResult};
 use crate::{
-  geometry::{IndexedGeometry, TriangleList},
+  mesh::{IndexedMesh, TriangleList},
   vertex::Vertex,
 };
 use rendiation_algebra::*;
 
 pub struct Quad;
 
-impl IndexedGeometryTessellator for Quad {
-  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
-    PlaneGeometryParameter {
+impl IndexedMeshTessellator for Quad {
+  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+    PlaneMeshParameter {
       width: 2.,
       height: 2.,
       width_segments: 1,
@@ -20,14 +20,14 @@ impl IndexedGeometryTessellator for Quad {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct PlaneGeometryParameter {
+pub struct PlaneMeshParameter {
   pub width: f32,
   pub height: f32,
   pub width_segments: usize,
   pub height_segments: usize,
 }
 
-impl Default for PlaneGeometryParameter {
+impl Default for PlaneMeshParameter {
   fn default() -> Self {
     Self {
       width: 1.0,
@@ -38,8 +38,8 @@ impl Default for PlaneGeometryParameter {
   }
 }
 
-impl IndexedGeometryTessellator for PlaneGeometryParameter {
-  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
+impl IndexedMeshTessellator for PlaneMeshParameter {
+  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -94,6 +94,6 @@ impl IndexedGeometryTessellator for PlaneGeometryParameter {
       }
     }
 
-    TesselationResult::full_range(IndexedGeometry::new(vertices, indices))
+    TesselationResult::full_range(IndexedMesh::new(vertices, indices))
   }
 }

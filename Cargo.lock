@@ -1834,6 +1834,7 @@ version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
+ "winit",
 ]
 
 [[package]]
@@ -2234,8 +2235,10 @@ dependencies = [
  "arena-tree",
  "bytemuck",
  "futures",
+ "image",
  "once_cell",
  "rendiation-algebra",
+ "rendiation-controller",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",

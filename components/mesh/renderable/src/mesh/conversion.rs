@@ -1,6 +1,6 @@
-//! The conversion method between different geometry types
+//! The conversion method between different mesh types
 
-// todo for convert between different geometry type
+// todo for convert between different mesh type
 
 // downgrade:
 // mesh -> line , wireframe? edge?
@@ -10,9 +10,9 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  AnyGeometry, AnyIndexGeometry, GeometryDataContainer, HashAbleByConversion,
-  IndexPrimitiveTopologyMeta, IndexType, IndexedGeometry, IndexedPrimitiveData, LineList,
-  NoneIndexedGeometry, PointList, PrimitiveTopologyMeta,
+  AnyIndexMesh, AnyMesh, HashAbleByConversion, IndexPrimitiveTopologyMeta, IndexType, IndexedMesh,
+  IndexedPrimitiveData, LineList, MeshDataContainer, NoneIndexedMesh, PointList,
+  PrimitiveTopologyMeta,
 };
 use rendiation_algebra::{InnerProductSpace, Vec3};
 use rendiation_geometry::{LineSegment, Triangle};
@@ -22,14 +22,14 @@ use std::{
   ops::Deref,
 };
 
-impl<I, V, T, U> IndexedGeometry<I, V, T, U>
+impl<I, V, T, U> IndexedMesh<I, V, T, U>
 where
   I: IndexType,
   T: IndexPrimitiveTopologyMeta<I, V, Primitive = Triangle<V>>,
-  U: GeometryDataContainer<V>,
+  U: MeshDataContainer<V>,
   V: Deref<Target = Vec3<f32>> + Copy,
 {
-  pub fn create_wireframe(&self) -> IndexedGeometry<I, V, LineList, U> {
+  pub fn create_wireframe(&self) -> IndexedMesh<I, V, LineList, U> {
     let mut deduplicate_set = HashSet::<LineSegment<I>>::new();
     self
       .primitive_iter()
@@ -43,12 +43,12 @@ where
       .iter()
       .flat_map(|l| l.iter_point())
       .collect();
-    IndexedGeometry::<I, V, LineList, U>::new(self.data.clone(), new_index)
+    IndexedMesh::<I, V, LineList, U>::new(self.data.clone(), new_index)
   }
 
   /// maybe you should merge vertex before create edge
   /// non manifold mesh may affect result
-  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedGeometry<V, LineList, U> {
+  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedMesh<V, LineList, U> {
     // Map: edge id => (edge face idA, edge face idB(optional));
     let mut edges = HashMap::<LineSegment<I>, (usize, Option<usize>)>::new();
     self
@@ -75,11 +75,11 @@ where
       .flat_map(|l| l.iter_point())
       .map(|i| self.data[i.into_usize()])
       .collect();
-    NoneIndexedGeometry::new(data)
+    NoneIndexedMesh::new(data)
   }
 }
 
-impl<I, V, T> IndexedGeometry<I, V, T>
+impl<I, V, T> IndexedMesh<I, V, T>
 where
   I: IndexType,
   T: IndexPrimitiveTopologyMeta<I, V>,
@@ -90,7 +90,7 @@ where
     &self,
     mut sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,
-  ) -> IndexedGeometry<I, V, T> {
+  ) -> IndexedMesh<I, V, T> {
     let mut resorted: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
     let mut merge_data = Vec::with_capacity(resorted.len());
     let mut deduplicate_map = Vec::with_capacity(self.index.len());
@@ -124,19 +124,19 @@ where
       })
       .collect();
 
-    IndexedGeometry::new(merge_data, new_index)
+    IndexedMesh::new(merge_data, new_index)
   }
 }
 
-impl<I, V, T, U> IndexedGeometry<I, V, T, U>
+impl<I, V, T, U> IndexedMesh<I, V, T, U>
 where
   I: IndexType,
   T: PrimitiveTopologyMeta<V>,
-  U: GeometryDataContainer<V>,
+  U: MeshDataContainer<V>,
   V: Copy,
 {
-  pub fn expand_to_none_index_geometry(&self) -> NoneIndexedGeometry<V, T, U> {
-    NoneIndexedGeometry::new(
+  pub fn expand_to_none_index_geometry(&self) -> NoneIndexedMesh<V, T, U> {
+    NoneIndexedMesh::new(
       self
         .index
         .iter()
@@ -146,14 +146,14 @@ where
   }
 }
 
-impl<V, T> NoneIndexedGeometry<V, T>
+impl<V, T> NoneIndexedMesh<V, T>
 where
   V: HashAbleByConversion + Copy,
   T: IndexPrimitiveTopologyMeta<u16, V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
-  // U: GeometryDataContainer<V>, // ditto
+  // U: MeshDataContainer<V>, // ditto
 {
-  pub fn create_index_geometry(&self) -> IndexedGeometry<u16, V, T> {
+  pub fn create_index_geometry(&self) -> IndexedMesh<u16, V, T> {
     let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
     let index = self
@@ -168,16 +168,16 @@ where
       })
       .collect();
     deduplicate_buffer.shrink_to_fit();
-    IndexedGeometry::new(deduplicate_buffer, index)
+    IndexedMesh::new(deduplicate_buffer, index)
   }
 }
 
-impl<I, V, T, U> IndexedGeometry<I, V, T, U>
+impl<I, V, T, U> IndexedMesh<I, V, T, U>
 where
   T: PrimitiveTopologyMeta<V>,
-  U: GeometryDataContainer<V>,
+  U: MeshDataContainer<V>,
 {
-  pub fn create_point_cloud(&self) -> NoneIndexedGeometry<V, PointList, U> {
-    NoneIndexedGeometry::new(self.data.clone())
+  pub fn create_point_cloud(&self) -> NoneIndexedMesh<V, PointList, U> {
+    NoneIndexedMesh::new(self.data.clone())
   }
 }

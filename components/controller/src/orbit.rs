@@ -2,31 +2,31 @@ use rendiation_algebra::Vec2;
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
 
-use crate::{Controller, Transformed3DControllee};
+use crate::{Controller, ControllerWinitEventSupport, Transformed3DControllee};
 
 pub struct OrbitController {
   pub spherical: Spherical,
 
-  rotate_angle_factor: f32,
-  pan_factor: f32,
-  zoom_factor: f32,
+  pub rotate_angle_factor: f32,
+  pub pan_factor: f32,
+  pub zoom_factor: f32,
 
   // restriction
-  max_polar_angle: f32,
-  min_polar_angle: f32,
+  pub max_polar_angle: f32,
+  pub min_polar_angle: f32,
 
   // damping
-  spherical_delta: Spherical,
-  zooming: f32,
-  pan_offset: Vec3<f32>,
+  pub spherical_delta: Spherical,
+  pub zooming: f32,
+  pub pan_offset: Vec3<f32>,
 
-  enable_damping: bool,
-  zooming_damping_factor: f32,
-  rotate_damping_factor: f32,
-  pan_damping_factor: f32,
+  pub enable_damping: bool,
+  pub zooming_damping_factor: f32,
+  pub rotate_damping_factor: f32,
+  pub pan_damping_factor: f32,
 
-  view_width: f32,
-  view_height: f32,
+  pub view_width: f32,
+  pub view_height: f32,
 }
 
 impl Default for OrbitController {
@@ -82,8 +82,8 @@ impl OrbitController {
   }
 }
 
-impl<T: Transformed3DControllee> Controller<T> for OrbitController {
-  fn update(&mut self, target: &mut T) -> bool {
+impl Controller for OrbitController {
+  fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
       && self.spherical_delta.radius.abs() < 0.0001
@@ -119,5 +119,55 @@ impl<T: Transformed3DControllee> Controller<T> for OrbitController {
       self.pan_offset = Vec3::zero();
     }
     true
+  }
+}
+
+pub struct OrbitWinitWindowState {
+  is_left_mouse_down: bool,
+  is_right_mouse_down: bool,
+}
+
+impl Default for OrbitWinitWindowState {
+  fn default() -> Self {
+    Self {
+      is_left_mouse_down: false,
+      is_right_mouse_down: false,
+    }
+  }
+}
+
+use winit::event::*;
+impl ControllerWinitEventSupport for OrbitController {
+  type State = OrbitWinitWindowState;
+  fn event<T>(&mut self, s: &mut Self::State, event: &winit::event::Event<T>) {
+    match event {
+      Event::WindowEvent { event, .. } => match event {
+        WindowEvent::MouseInput { button, state, .. } => match button {
+          MouseButton::Left => match state {
+            ElementState::Pressed => s.is_left_mouse_down = true,
+            ElementState::Released => s.is_left_mouse_down = false,
+          },
+          MouseButton::Right => match state {
+            ElementState::Pressed => s.is_right_mouse_down = true,
+            ElementState::Released => s.is_right_mouse_down = false,
+          },
+          _ => {}
+        },
+        _ => {}
+      },
+      Event::DeviceEvent { event, .. } => match event {
+        DeviceEvent::MouseMotion { delta } => {
+          if s.is_left_mouse_down {
+            self.rotate(Vec2::new(-delta.0 as f32, -delta.1 as f32))
+          }
+
+          if s.is_right_mouse_down {
+            self.pan(Vec2::new(-delta.0 as f32, -delta.1 as f32))
+          }
+        }
+        _ => {}
+      },
+      _ => {}
+    }
   }
 }

@@ -1,9 +1,9 @@
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, Ray3, Triangle};
 use rendiation_renderable_mesh::{
-  geometry::{
-    AnyGeometry, BVHIntersectAbleExtendedAnyGeometry, IndexedGeometry, MeshBufferIntersectConfig,
-    NoneIndexedGeometry, TriangleList,
+  mesh::{
+    AnyMesh, BVHIntersectAbleExtendedAnyMesh, IndexedMesh, MeshBufferIntersectConfig,
+    NoneIndexedMesh, TriangleList,
   },
   vertex::Vertex,
 };
@@ -32,41 +32,41 @@ impl ShadingNormalProvider for Triangle<Vertex> {
 }
 
 pub struct TriangleMesh<G> {
-  pub geometry: G,
+  pub mesh: G,
   pub face_normal: Vec<NormalizedVec3<f32>>,
   pub bvh: FlattenBVH<Box3>,
 }
 
 impl<G> TriangleMesh<G>
 where
-  G: AnyGeometry<Primitive = Triangle<Vertex>>,
-  G: BVHIntersectAbleExtendedAnyGeometry<Box3>,
+  G: AnyMesh<Primitive = Triangle<Vertex>>,
+  G: BVHIntersectAbleExtendedAnyMesh<Box3>,
 {
-  pub fn new(geometry: G) -> Self {
-    use rendiation_renderable_mesh::geometry::BVHExtendedBuildAnyGeometry;
-    let bvh = geometry.build_bvh(
+  pub fn new(mesh: G) -> Self {
+    use rendiation_renderable_mesh::mesh::BVHExtendedBuildAnyMesh;
+    let bvh = mesh.build_bvh(
       &mut SAH::new(4),
       &TreeBuildOption {
         max_tree_depth: 50,
         bin_size: 1,
       },
     );
-    let face_normal = geometry
+    let face_normal = mesh
       .primitive_iter()
       .map(|p| p.map(|v| *v).face_normal())
       .collect();
     Self {
-      geometry,
+      mesh,
       face_normal,
       bvh,
     }
   }
 }
 
-impl<G> Geometry for TriangleMesh<G>
+impl<G> Shape for TriangleMesh<G>
 where
-  G: BVHIntersectAbleExtendedAnyGeometry<Box3> + Send + Sync + 'static,
-  G: AnyGeometry<Primitive = Triangle<Vertex>>,
+  G: BVHIntersectAbleExtendedAnyMesh<Box3> + Send + Sync + 'static,
+  G: AnyMesh<Primitive = Triangle<Vertex>>,
 {
   fn as_any(&self) -> &dyn std::any::Any {
     self
@@ -75,11 +75,11 @@ where
   fn intersect(&self, ray: Ray3, _scene: &Scene) -> PossibleIntersection {
     let nearest =
       self
-        .geometry
+        .mesh
         .intersect_nearest_bvh(ray, &self.bvh, &MeshBufferIntersectConfig::default());
 
     PossibleIntersection(nearest.0.map(|hit| {
-      let primitive = self.geometry.primitive_at(hit.primitive_index);
+      let primitive = self.mesh.primitive_at(hit.primitive_index);
       let geometric_normal = self.face_normal[hit.primitive_index];
       let shading_normal = primitive.get_normal(hit.hit.position);
       Intersection {
@@ -96,9 +96,7 @@ where
   }
 
   fn intersect_statistic(&self, ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
-    let stat = self
-      .geometry
-      .intersect_nearest_bvh_statistic(ray, &self.bvh);
+    let stat = self.mesh.intersect_nearest_bvh_statistic(ray, &self.bvh);
     IntersectionStatistic {
       box3: stat.bound,
       sphere: 0,
@@ -107,7 +105,7 @@ where
   }
 }
 
-impl TriangleMesh<IndexedGeometry> {
+impl TriangleMesh<IndexedMesh> {
   pub fn from_path_obj(path: &str) -> Self {
     let obj = tobj::load_obj(path, true);
     let (models, _) = obj.unwrap();
@@ -163,38 +161,35 @@ impl TriangleMesh<IndexedGeometry> {
       }
     }
 
-    let mut geometry: NoneIndexedGeometry<_, TriangleList> = NoneIndexedGeometry::new(vertices);
+    let mut mesh: NoneIndexedMesh<_, TriangleList> = NoneIndexedMesh::new(vertices);
 
     if need_compute_vertex_normal {
-      let face_normals: Vec<NormalizedVec3<f32>> = geometry
+      let face_normals: Vec<NormalizedVec3<f32>> = mesh
         .primitive_iter()
         .map(|p| p.map(|v| *v).face_normal())
         .collect();
 
       use rendiation_algebra::Vector;
-      geometry
-        .data
-        .iter_mut()
-        .for_each(|v| v.normal = Vec3::zero());
+      mesh.data.iter_mut().for_each(|v| v.normal = Vec3::zero());
 
       #[allow(clippy::needless_range_loop)]
-      for i in 0..geometry.data.len() / 3 {
+      for i in 0..mesh.data.len() / 3 {
         for j in 0..3 {
-          let v = &mut geometry.data[i * 3 + j];
+          let v = &mut mesh.data[i * 3 + j];
           v.normal += face_normals[i].value
         }
       }
       use rendiation_algebra::InnerProductSpace;
-      geometry
+      mesh
         .data
         .iter_mut()
         .for_each(|v| v.normal = v.normal.normalize());
     }
 
-    let geometry = geometry.create_index_geometry();
+    let mesh = mesh.create_index_geometry();
     use std::cmp::Ordering;
     #[allow(clippy::float_cmp)]
-    let geometry = geometry.merge_vertex_by_sorting(
+    let mesh = mesh.merge_vertex_by_sorting(
       |a, b| {
         a.position
           .x
@@ -204,6 +199,6 @@ impl TriangleMesh<IndexedGeometry> {
       |a, b| a.position.x == b.position.x,
     );
 
-    TriangleMesh::new(geometry)
+    TriangleMesh::new(mesh)
   }
 }

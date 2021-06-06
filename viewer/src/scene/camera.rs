@@ -1,17 +1,45 @@
-use rendiation_algebra::{Mat4, Projection};
+use arena_tree::ArenaTree;
+use rendiation_algebra::*;
 
-use super::SceneNodeHandle;
+use super::{SceneNode, SceneNodeHandle};
 use crate::renderer::Renderer;
 
+#[rustfmt::skip]
+pub const OPENGL_TO_WGPU_MATRIX: Mat4<f32> = Mat4::new(
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 0.5, 0.0,
+    0.0, 0.0, 0.5, 1.0,
+);
+
 pub struct Camera {
-  pub projection: Box<dyn Projection>,
+  pub projection: Box<dyn ResizableProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNodeHandle,
 }
 
 impl Camera {
-  pub fn get_view_matrix(&self) -> Mat4<f32> {
-    todo!()
+  pub fn new(p: impl ResizableProjection + 'static, node: SceneNodeHandle) -> Self {
+    Self {
+      projection: Box::new(p),
+      projection_matrix: Mat4::one(),
+      node,
+    }
+  }
+
+  pub fn update(&mut self) {
+    self
+      .projection
+      .update_projection(&mut self.projection_matrix);
+    self.projection_matrix = OPENGL_TO_WGPU_MATRIX * self.projection_matrix;
+  }
+
+  pub fn get_view_matrix(&self, nodes: &ArenaTree<SceneNode>) -> Mat4<f32> {
+    nodes
+      .get_node(self.node)
+      .data()
+      .world_matrix
+      .inverse_or_identity()
   }
 }
 
@@ -22,7 +50,7 @@ pub struct CameraBindgroup {
 }
 
 impl CameraBindgroup {
-  pub fn bindgroup_shader_header() -> &'static str {
+  pub fn get_shader_header() -> &'static str {
     r#"
       [[block]]
       struct CameraTransform {
@@ -33,7 +61,12 @@ impl CameraBindgroup {
       var camera: CameraTransform;
     "#
   }
-  pub fn update(&mut self, renderer: &Renderer, camera: &Camera) {
+  pub fn update(
+    &mut self,
+    renderer: &Renderer,
+    camera: &Camera,
+    nodes: &ArenaTree<SceneNode>,
+  ) -> &mut Self {
     renderer.queue.write_buffer(
       &self.ubo,
       0,
@@ -42,16 +75,19 @@ impl CameraBindgroup {
     renderer.queue.write_buffer(
       &self.ubo,
       64,
-      bytemuck::cast_slice(camera.get_view_matrix().as_ref()),
+      bytemuck::cast_slice(camera.get_view_matrix(nodes).as_ref()),
     );
+    self
   }
   pub fn new(renderer: &Renderer, camera: &Camera) -> Self {
     let device = &renderer.device;
     use wgpu::util::DeviceExt;
 
+    let mat = [0_u8; 128];
+
     let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: "CameraBindgroup Buffer".into(),
-      contents: bytemuck::cast_slice(camera.projection_matrix.as_ref()),
+      contents: &mat,
       usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     });
 

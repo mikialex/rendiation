@@ -1,6 +1,6 @@
 use crate::{
-  geometry::{AnyGeometry, IndexType, IndexedGeometry, NoneIndexedGeometry, TriangleList},
-  range::GeometryRangesInfo,
+  mesh::{AnyMesh, IndexType, IndexedMesh, NoneIndexedMesh, TriangleList},
+  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
@@ -14,25 +14,25 @@ pub use plane::*;
 pub use sphere::*;
 
 // todo add support for index overflow check
-pub trait IndexedGeometryTessellator<T = Vertex, I: IndexType = u16, P = TriangleList> {
-  fn tessellate(&self) -> TesselationResult<IndexedGeometry<I, T, P>>;
+pub trait IndexedMeshTessellator<T = Vertex, I: IndexType = u16, P = TriangleList> {
+  fn tessellate(&self) -> TesselationResult<IndexedMesh<I, T, P>>;
 }
 
-pub trait NoneIndexedGeometryTessellator<T = Vertex, P = TriangleList> {
-  fn tessellate(&self) -> TesselationResult<NoneIndexedGeometry<T, P>>;
+pub trait NoneIndexedMeshTessellator<T = Vertex, P = TriangleList> {
+  fn tessellate(&self) -> TesselationResult<NoneIndexedMesh<T, P>>;
 }
 
 pub struct TesselationResult<T> {
-  pub geometry: T,
-  pub range: GeometryRangesInfo,
+  pub mesh: T,
+  pub range: MeshRangesInfo,
 }
 
-impl<T: AnyGeometry> TesselationResult<T> {
-  pub fn new(geometry: T, range: GeometryRangesInfo) -> Self {
-    Self { geometry, range }
+impl<T: AnyMesh> TesselationResult<T> {
+  pub fn new(mesh: T, range: MeshRangesInfo) -> Self {
+    Self { mesh, range }
   }
-  pub fn full_range(geometry: T) -> Self {
-    let range = GeometryRangesInfo::full_range(&geometry);
-    Self { geometry, range }
+  pub fn full_range(mesh: T) -> Self {
+    let range = MeshRangesInfo::full_range(&mesh);
+    Self { mesh, range }
   }
 }

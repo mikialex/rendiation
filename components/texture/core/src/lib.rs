@@ -1,10 +1,7 @@
 #![allow(clippy::float_cmp)]
 
 pub mod address;
-use std::{
-  ops::{Deref, DerefMut},
-  path::Path,
-};
+use std::ops::{Deref, DerefMut};
 
 pub use address::*;
 pub mod filter;
@@ -17,15 +14,23 @@ pub mod iter;
 pub use iter::*;
 pub mod util;
 pub use util::*;
+pub mod io;
+pub use io::*;
 
 use image::ImageBuffer;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
 
 pub use image::*;
 
-pub struct Size<T> {
-  pub width: T,
-  pub height: T,
+pub struct Size {
+  pub width: usize,
+  pub height: usize,
+}
+
+impl Size {
+  pub fn is_pot(&self) -> bool {
+    self.width.is_power_of_two() && self.height.is_power_of_two()
+  }
 }
 
 pub trait Texture2D: Sized {
@@ -41,7 +46,7 @@ pub trait Texture2D: Sized {
     *self.get_mut(position) = v;
   }
 
-  fn size(&self) -> Size<usize>;
+  fn size(&self) -> Size;
   fn width(&self) -> usize {
     self.size().width
   }
@@ -61,8 +66,6 @@ pub trait Texture2D: Sized {
       all: self.pixel_count(),
     }
   }
-
-  fn save_to_file<P: AsRef<Path>>(&self, path: P);
 }
 
 /// Not all texture storage container has continues memory,
@@ -150,15 +153,11 @@ where
     self.get_pixel_mut(position.x as u32, position.y as u32)
   }
 
-  fn size(&self) -> Size<usize> {
+  fn size(&self) -> Size {
     let d = self.dimensions();
     Size {
       width: d.0 as usize,
       height: d.1 as usize,
     }
-  }
-
-  fn save_to_file<Pa: AsRef<Path>>(&self, path: Pa) {
-    self.save(path).unwrap();
   }
 }

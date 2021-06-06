@@ -1,6 +1,6 @@
 use rendiation_texture::Size;
 
-use super::BindableResource;
+use super::{BindableResource, Scene, Texture2DHandle};
 
 pub struct SceneTexture2D {
   data: Box<dyn SceneTexture2dSource>,
@@ -21,7 +21,7 @@ impl SceneTexture2D {
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::R8Uint,
+        format: self.data.format(),
         usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
       });
       let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -47,11 +47,13 @@ impl SceneTexture2D {
   }
 }
 
-pub trait SceneTexture2dSource {
+pub trait SceneTexture2dSource: 'static {
+  fn format(&self) -> wgpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
-  fn size(&self) -> Size<usize>;
+  fn size(&self) -> Size;
+  fn byte_per_pixel(&self) -> usize;
   fn bytes_per_row(&self) -> std::num::NonZeroU32 {
-    std::num::NonZeroU32::new(self.size().width as u32).unwrap()
+    std::num::NonZeroU32::new(self.size().width as u32 * self.byte_per_pixel() as u32).unwrap()
   }
   fn gpu_size(&self) -> wgpu::Extent3d {
     let size = self.size();
@@ -59,6 +61,27 @@ pub trait SceneTexture2dSource {
       width: size.width as u32,
       height: size.height as u32,
       depth_or_array_layers: 1,
+    }
+  }
+}
+
+impl SceneTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
+  fn format(&self) -> wgpu::TextureFormat {
+    wgpu::TextureFormat::Rgba8Unorm
+  }
+
+  fn byte_per_pixel(&self) -> usize {
+    return 4;
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    self.as_raw()
+  }
+
+  fn size(&self) -> Size {
+    Size {
+      width: self.width() as usize,
+      height: self.height() as usize,
     }
   }
 }
@@ -71,5 +94,14 @@ pub struct SceneTexture2dGpu {
 impl BindableResource for SceneTexture2dGpu {
   fn as_bindable(&self) -> wgpu::BindingResource {
     wgpu::BindingResource::TextureView(&self.texture_view)
+  }
+}
+
+impl Scene {
+  pub fn add_texture2d(&mut self, texture: impl SceneTexture2dSource) -> Texture2DHandle {
+    self.texture_2ds.insert(SceneTexture2D {
+      data: Box::new(texture),
+      gpu: None,
+    })
   }
 }

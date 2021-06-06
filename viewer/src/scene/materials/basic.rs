@@ -6,7 +6,8 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::Renderer,
   scene::{
-    CameraBindgroup, SamplerHandle, StandardForward, Texture2DHandle, VertexBufferSourceType,
+    CameraBindgroup, ModelTransformGPU, SamplerHandle, StandardForward, Texture2DHandle,
+    VertexBufferSourceType,
   },
 };
 
@@ -176,40 +177,35 @@ impl MaterialCPUResource for BasicMaterial {
 
     let shader_source = format!(
       "
-      {vertex_header}
-
       {object_header}
       {material_header}
       {camera_header}
-      
-      [[location(0)]]
-      var<out> out_tex_coord: vec2<f32>;
 
-      [[builtin(position)]]
-      var<out> out_position: vec4<f32>;
+      struct VertexOutput {{
+        [[builtin(position)]] position: vec4<f32>;
+        [[location(0)]] tex_coord: vec2<f32>;
+      }};
 
       [[stage(vertex)]]
-      fn vs_main() {{
-        out_tex_coord = in_tex_coord_vs;
-        out_position = camera.projection * camera.view * model.transform * in_position;
+      fn vs_main(
+        {vertex_header}
+      ) -> VertexOutput {{
+        var out: VertexOutput;
+        out.tex_coord = tex_coord;
+        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);;
+        return out;
       }}
-
-      [[location(0)]]
-      var<in> in_tex_coord_fs: vec2<f32>;
-      [[location(0)]]
-      var<out> out_color: vec4<f32>;
       
       [[stage(fragment)]]
-      fn fs_main() {{
-          var tex: vec4<f32> = textureSample(r_color, r_sampler, in_tex_coord_fs);
-          out_color = tex;
+      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+          return textureSample(r_color, r_sampler, in.tex_coord);
       }}
       
       ",
       vertex_header = Vertex::get_shader_header(),
       material_header = Self::get_shader_header(),
-      camera_header = CameraBindgroup::bindgroup_shader_header(),
-      object_header = todo!()
+      camera_header = CameraBindgroup::get_shader_header(),
+      object_header = ModelTransformGPU::get_shader_header(),
     );
 
     let shader = renderer
@@ -247,8 +243,12 @@ impl MaterialCPUResource for BasicMaterial {
           entry_point: "fs_main",
           targets: &[renderer.get_prefer_target_format().into()],
         }),
+        // primitive: wgpu::PrimitiveState {
+        //   cull_mode: wgpu::Face::Back.into(),
+        //   ..Default::default()
+        // },
         primitive: wgpu::PrimitiveState {
-          cull_mode: wgpu::Face::Back.into(),
+          cull_mode: None,
           ..Default::default()
         },
         depth_stencil: None,

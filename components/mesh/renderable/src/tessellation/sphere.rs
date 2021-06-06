@@ -1,12 +1,12 @@
-use super::{IndexedGeometryTessellator, TesselationResult};
+use super::{IndexedMeshTessellator, TesselationResult};
 use crate::{
-  geometry::{IndexedGeometry, TriangleList},
+  mesh::{IndexedMesh, TriangleList},
   vertex::Vertex,
 };
 use rendiation_algebra::*;
 
 #[derive(Copy, Clone, Debug)]
-pub struct SphereGeometryParameter {
+pub struct SphereMeshParameter {
   pub radius: f32,
   pub width_segments: usize,
   pub height_segments: usize,
@@ -17,7 +17,7 @@ pub struct SphereGeometryParameter {
   pub theta_end: f32,
 }
 
-impl Default for SphereGeometryParameter {
+impl Default for SphereMeshParameter {
   fn default() -> Self {
     Self {
       radius: 1.0,
@@ -32,8 +32,8 @@ impl Default for SphereGeometryParameter {
   }
 }
 
-impl IndexedGeometryTessellator for SphereGeometryParameter {
-  fn tessellate(&self) -> TesselationResult<IndexedGeometry<u16, Vertex, TriangleList>> {
+impl IndexedMeshTessellator for SphereMeshParameter {
+  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
     let Self {
       radius,
       width_segments,
@@ -89,6 +89,6 @@ impl IndexedGeometryTessellator for SphereGeometryParameter {
       }
     }
 
-    TesselationResult::full_range(IndexedGeometry::new(vertices, indices))
+    TesselationResult::full_range(IndexedMesh::new(vertices, indices))
   }
 }

@@ -4,8 +4,8 @@ use rendiation_algebra::*;
 use super::*;
 
 pub struct Model {
-  pub(crate) material: MaterialHandle,
-  pub(crate) mesh: MeshHandle,
+  pub material: MaterialHandle,
+  pub mesh: MeshHandle,
   pub node: SceneNodeHandle,
 }
 
@@ -76,5 +76,11 @@ impl ModelTransformGPU {
       bindgroup,
       layout,
     }
+  }
+}
+
+impl Scene {
+  pub fn add_model(&mut self, model: Model) -> ModelHandle {
+    self.models.insert(model)
   }
 }
