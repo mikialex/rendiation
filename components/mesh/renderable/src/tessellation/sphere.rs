@@ -49,10 +49,10 @@ impl IndexedMeshTessellator for SphereMeshParameter {
     let mut grid = vec![];
 
     let mut vertices = vec![];
-    for iy in 0..height_segments {
+    for iy in 0..=height_segments {
       let mut vertices_row = vec![];
       let v = iy as f32 / height_segments as f32;
-      for ix in 0..width_segments {
+      for ix in 0..=width_segments {
         let u = ix as f32 / width_segments as f32;
         let position = Vec3::new(
           -radius * (phi_start + u * phi_length).cos() * (theta_start + v * theta_length).sin(),

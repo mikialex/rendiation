@@ -77,14 +77,6 @@ impl Scene {
     }
   }
 
-  // pub fn create_model(&mut self, creator: impl SceneModelCreator) -> ModelHandle {
-  //   creator.create_model(self)
-  // }
-
-  // pub fn create_light(&mut self, creator: impl SceneLightCreator) -> LightHandle {
-  //   creator.create_light(self)
-  // }
-
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
     let mut node = SceneNode::default();
     builder(&mut node, self);
@@ -94,53 +86,8 @@ impl Scene {
     new
   }
 
-  // pub fn model_node(&mut self, model: impl SceneModelCreator) -> &mut Self {
-  //   let model = self.create_model(model);
-  //   self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
-  //   self
-  // }
-
-  // pub fn model_node_with_modify(
-  //   &mut self,
-  //   model: impl SceneModelCreator,
-  //   m: impl Fn(&mut SceneNode),
-  // ) -> &mut Self {
-  //   let model = self.create_model(model);
-  //   self.create_node(|node, _| {
-  //     node.payloads.push(SceneNodePayload::Model(model));
-  //     m(node)
-  //   });
-  //   self
-  // }
-
   pub fn background(&mut self, background: impl Background) -> &mut Self {
     self.background = Box::new(background);
     self
   }
 }
-
-// pub trait SceneModelCreator<T: SceneBackend> {
-//   fn create_model(self, scene: &mut Scene) -> ModelHandle;
-// }
-
-// impl SceneModelCreator for <T as SceneBackend>::Model
-// where
-//   T: SceneBackend,
-// {
-//   fn create_model(self, scene: &mut Scene) -> ModelHandle {
-//     scene.models.insert(self)
-//   }
-// }
-
-// pub trait SceneLightCreator<T: SceneBackend> {
-//   fn create_light(self, scene: &mut Scene) -> LightHandle;
-// }
-
-// impl SceneLightCreator for <T as SceneBackend>::Light
-// where
-//   T: SceneBackend,
-// {
-//   fn create_light(self, scene: &mut Scene) -> LightHandle {
-//     scene.lights.insert(self)
-//   }
-// }
