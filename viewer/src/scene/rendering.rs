@@ -144,6 +144,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           samplers: &mut scene.samplers,
         };
         S::update(material, renderer, &mut ctx);
+        mesh.update(renderer);
       })
     }
   }

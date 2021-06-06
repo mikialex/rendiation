@@ -42,6 +42,11 @@ impl SceneMesh {
       .enumerate()
       .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32))
   }
+
+  pub fn update(&mut self, renderer: &mut Renderer) {
+    self.vertex.iter_mut().for_each(|v| v.update(renderer));
+    self.index.as_mut().map(|i| i.update(renderer));
+  }
 }
 
 pub trait VertexBufferSourceType: Pod {
@@ -52,7 +57,7 @@ pub trait VertexBufferSourceType: Pod {
 impl VertexBufferSourceType for Vertex {
   fn get_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
-      array_stride: std::mem::size_of::<Self> as wgpu::BufferAddress,
+      array_stride: std::mem::size_of::<Self>() as u64,
       step_mode: wgpu::InputStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {
@@ -76,13 +81,10 @@ impl VertexBufferSourceType for Vertex {
 
   fn get_shader_header() -> &'static str {
     r#"
-      [[location(0)]]
-      var<in> in_position: vec4<f32>;
-      [[location(1)]]
-      var<in> in_normal: vec3<f32>;
-      [[location(2)]]
-      var<in> in_tex_coord_vs: vec2<f32>;
-      "#
+      [[location(0)]] position: vec4<f32>,
+      [[location(1)]] normal: vec3<f32>,
+      [[location(2)]] tex_coord: vec2<f32>,
+    "#
   }
 }
 

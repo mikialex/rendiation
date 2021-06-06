@@ -177,33 +177,28 @@ impl MaterialCPUResource for BasicMaterial {
 
     let shader_source = format!(
       "
-      {vertex_header}
-
       {object_header}
       {material_header}
       {camera_header}
-      
-      [[location(0)]]
-      var<out> out_tex_coord: vec2<f32>;
 
-      [[builtin(position)]]
-      var<out> out_position: vec4<f32>;
+      struct VertexOutput {{
+        [[builtin(position)]] position: vec4<f32>;
+        [[location(0)]] tex_coord: vec2<f32>;
+      }};
 
       [[stage(vertex)]]
-      fn vs_main() {{
-        out_tex_coord = in_tex_coord_vs;
-        out_position = camera.projection * camera.view * model.transform * in_position;
+      fn vs_main(
+        {vertex_header}
+      ) -> VertexOutput {{
+        var out: VertexOutput;
+        out.tex_coord = tex_coord;
+        out.position = camera.projection * camera.view * model.matrix * position;
+        return out;
       }}
-
-      [[location(0)]]
-      var<in> in_tex_coord_fs: vec2<f32>;
-      [[location(0)]]
-      var<out> out_color: vec4<f32>;
       
       [[stage(fragment)]]
-      fn fs_main() {{
-          var tex: vec4<f32> = textureSample(r_color, r_sampler, in_tex_coord_fs);
-          out_color = tex;
+      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+          return textureSample(r_color, r_sampler, in.tex_coord);
       }}
       
       ",
