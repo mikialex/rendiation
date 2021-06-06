@@ -43,10 +43,13 @@ impl Application {
     let material = MaterialCell::new(material);
     let material = scene.add_material(material);
 
-    let mesh = SphereMeshParameter::default().tessellate().mesh;
+    let mesh = SphereMeshParameter::default().tessellate();
+    let range = mesh.range.ranges[0];
+    let mesh = mesh.mesh;
     let mesh = SceneMesh::new(
       vec![VertexBuffer::new(mesh.data)],
       IndexBuffer::new(mesh.index).into(),
+      range.start as u32..range.count as u32,
     );
     let mesh = scene.add_mesh(mesh);
 
@@ -86,7 +89,10 @@ impl Application {
   }
 
   pub fn update(&mut self, event: &Event<()>) {
-    self.controller.event(event)
-    //
+    self.controller.event(event);
+    if let Some(camera) = &self.scene.active_camera {
+      let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
+      self.controller.update(node);
+    }
   }
 }

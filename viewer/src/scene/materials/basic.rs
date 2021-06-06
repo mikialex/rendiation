@@ -192,7 +192,7 @@ impl MaterialCPUResource for BasicMaterial {
       ) -> VertexOutput {{
         var out: VertexOutput;
         out.tex_coord = tex_coord;
-        out.position = camera.projection * camera.view * model.matrix * position;
+        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);;
         return out;
       }}
       
@@ -207,8 +207,6 @@ impl MaterialCPUResource for BasicMaterial {
       camera_header = CameraBindgroup::get_shader_header(),
       object_header = ModelTransformGPU::get_shader_header(),
     );
-
-    println!("{}", shader_source);
 
     let shader = renderer
       .device
@@ -245,8 +243,12 @@ impl MaterialCPUResource for BasicMaterial {
           entry_point: "fs_main",
           targets: &[renderer.get_prefer_target_format().into()],
         }),
+        // primitive: wgpu::PrimitiveState {
+        //   cull_mode: wgpu::Face::Back.into(),
+        //   ..Default::default()
+        // },
         primitive: wgpu::PrimitiveState {
-          cull_mode: wgpu::Face::Back.into(),
+          cull_mode: None,
           ..Default::default()
         },
         depth_stencil: None,

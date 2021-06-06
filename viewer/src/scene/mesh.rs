@@ -3,7 +3,7 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use wgpu::util::DeviceExt;
 
 use crate::Renderer;
-use std::any::Any;
+use std::{any::Any, ops::Range};
 
 use super::{MeshHandle, Scene};
 
@@ -22,6 +22,7 @@ pub struct SceneMesh {
   // layout: ValueID<MeshLayout>,
   vertex: Vec<VertexBuffer>,
   index: Option<IndexBuffer>,
+  draw_range: Range<u32>,
 }
 
 impl Scene {
@@ -31,16 +32,29 @@ impl Scene {
 }
 
 impl SceneMesh {
-  pub fn new(vertex: Vec<VertexBuffer>, index: Option<IndexBuffer>) -> Self {
-    Self { vertex, index }
+  pub fn new(
+    vertex: Vec<VertexBuffer>,
+    index: Option<IndexBuffer>,
+    draw_range: Range<u32>,
+  ) -> Self {
+    Self {
+      vertex,
+      index,
+      draw_range,
+    }
   }
   pub fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    self.index.as_ref().map(|index| index.setup_pass(pass));
     self
       .vertex
       .iter()
       .enumerate()
-      .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32))
+      .for_each(|(i, vertex)| vertex.setup_pass(pass, i as u32));
+    if let Some(index) = &self.index {
+      index.setup_pass(pass);
+      pass.draw_indexed(self.draw_range.clone(), 0, 0..1);
+    } else {
+      pass.draw(self.draw_range.clone(), 0..1);
+    }
   }
 
   pub fn update(&mut self, renderer: &mut Renderer) {
@@ -61,7 +75,7 @@ impl VertexBufferSourceType for Vertex {
       step_mode: wgpu::InputStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x4,
+          format: wgpu::VertexFormat::Float32x3,
           offset: 0,
           shader_location: 0,
         },
@@ -72,7 +86,7 @@ impl VertexBufferSourceType for Vertex {
         },
         wgpu::VertexAttribute {
           format: wgpu::VertexFormat::Float32x2,
-          offset: 4 * 4 + 4 * 3,
+          offset: 4 * 3 + 4 * 3,
           shader_location: 2,
         },
       ],
@@ -81,7 +95,7 @@ impl VertexBufferSourceType for Vertex {
 
   fn get_shader_header() -> &'static str {
     r#"
-      [[location(0)]] position: vec4<f32>,
+      [[location(0)]] position: vec3<f32>,
       [[location(1)]] normal: vec3<f32>,
       [[location(2)]] tex_coord: vec2<f32>,
     "#

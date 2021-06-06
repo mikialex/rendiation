@@ -1,4 +1,5 @@
 use rendiation_algebra::*;
+use rendiation_controller::Transformed3DControllee;
 
 use crate::renderer::Renderer;
 
@@ -21,6 +22,16 @@ impl Default for SceneNode {
       world_matrix: Mat4::one(),
       gpu: None,
     }
+  }
+}
+
+impl Transformed3DControllee for SceneNode {
+  fn matrix(&self) -> &Mat4<f32> {
+    &self.world_matrix
+  }
+
+  fn matrix_mut(&mut self) -> &mut Mat4<f32> {
+    &mut self.world_matrix
   }
 }
 
