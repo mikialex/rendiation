@@ -13,13 +13,13 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4<f32> = Mat4::new(
 );
 
 pub struct Camera {
-  pub projection: Box<dyn Projection>,
+  pub projection: Box<dyn ResizableProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNodeHandle,
 }
 
 impl Camera {
-  pub fn new(p: impl Projection + 'static, node: SceneNodeHandle) -> Self {
+  pub fn new(p: impl ResizableProjection + 'static, node: SceneNodeHandle) -> Self {
     Self {
       projection: Box::new(p),
       projection_matrix: Mat4::one(),

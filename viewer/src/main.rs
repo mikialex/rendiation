@@ -39,12 +39,15 @@ pub struct Viewer {
 impl Viewer {
   pub async fn new(window: winit::window::Window) -> Self {
     let renderer = Renderer::new(&window).await;
+    let mut app =  Application::new();
+    let initial_size = window.inner_size();
+    app.resize_view((initial_size.width as f32, initial_size.height as f32));
 
     Self {
       window,
       renderer,
       last_update_inst: Instant::now(),
-      app: Application::new(),
+      app,
     }
   }
 
@@ -87,12 +90,13 @@ impl Viewer {
             .get_current_frame()
             .expect("Failed to acquire next swap chain texture!");
 
+          self.app.update_state();
           self.app.render(&frame, &mut self.renderer);
         }
         _ => {}
       }
 
-      self.app.update(&event);
+      self.app.event(&event);
     });
   }
 }

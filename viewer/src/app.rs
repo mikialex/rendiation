@@ -88,9 +88,24 @@ impl Application {
     )
   }
 
-  pub fn update(&mut self, event: &Event<()>) {
+  pub fn resize_view(&mut self, size: (f32, f32)) {
+    if let Some(camera) = &mut self.scene.active_camera {
+      let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
+      camera.projection.resize(size)
+    }
+  }
+
+  pub fn event(&mut self, event: &Event<()>) {
     self.controller.event(event);
-    if let Some(camera) = &self.scene.active_camera {
+    if let Event::WindowEvent { event, .. } = event {
+      if let WindowEvent::Resized(size) = event {
+        self.resize_view((size.width as f32, size.height as f32));
+      }
+    }
+  }
+
+  pub fn update_state(&mut self) {
+    if let Some(camera) = &mut self.scene.active_camera {
       let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
       self.controller.update(node);
     }
