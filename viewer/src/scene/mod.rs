@@ -38,8 +38,8 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 pub type SamplerHandle = Handle<SceneSampler>;
 pub type Texture2DHandle = Handle<SceneTexture2D>;
 
-pub trait Material: MaterialStyleAbility<StandardForward> {}
-impl<T> Material for T where T: MaterialStyleAbility<StandardForward> {}
+pub trait Material: MaterialStyleAbility<StandardForward> + 'static {}
+impl<T> Material for T where T: MaterialStyleAbility<StandardForward> + 'static {}
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,

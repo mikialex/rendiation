@@ -5,7 +5,7 @@ use super::*;
 pub trait RenderStyle: Sized {
   fn update<'a>(
     m: &mut dyn Material,
-    renderer: &Renderer,
+    renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
   );
   fn setup_pass<'a>(
@@ -19,7 +19,7 @@ pub struct StandardForward;
 impl RenderStyle for StandardForward {
   fn update<'a>(
     m: &mut dyn Material,
-    renderer: &Renderer,
+    renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
   ) {
     m.update(renderer, ctx)
@@ -102,7 +102,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
     })
   }
 
-  fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder) {
     let scene = &mut self.scene;
     scene.render_list.models.clear();
     let root = scene.get_root_handle();

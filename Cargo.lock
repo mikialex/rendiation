@@ -2235,6 +2235,7 @@ dependencies = [
  "arena-tree",
  "bytemuck",
  "futures",
+ "image",
  "once_cell",
  "rendiation-algebra",
  "rendiation-controller",

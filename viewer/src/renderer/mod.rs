@@ -14,7 +14,7 @@ pub trait True2 {}
 impl True2 for If<true> {}
 
 pub trait Renderable {
-  fn update(&mut self, renderer: &Renderer, encoder: &mut wgpu::CommandEncoder);
+  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder);
   fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>);
 }
 

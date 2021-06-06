@@ -64,6 +64,23 @@ pub trait SceneTexture2dSource: 'static {
   }
 }
 
+impl SceneTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
+  fn format(&self) -> wgpu::TextureFormat {
+    wgpu::TextureFormat::Rgba8Unorm
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    self.as_raw()
+  }
+
+  fn size(&self) -> Size {
+    Size {
+      width: self.width() as usize,
+      height: self.height() as usize,
+    }
+  }
+}
+
 pub struct SceneTexture2dGpu {
   texture: wgpu::Texture,
   texture_view: wgpu::TextureView,

@@ -5,7 +5,9 @@ use wgpu::util::DeviceExt;
 use crate::Renderer;
 use std::any::Any;
 
-use super::ValueID;
+use super::{MeshHandle, Scene};
+
+// use super::ValueID;
 
 pub type MeshVertexLayout = Vec<wgpu::VertexBufferLayout<'static>>;
 
@@ -17,12 +19,21 @@ pub struct MeshLayout {
 }
 
 pub struct SceneMesh {
-  layout: ValueID<MeshLayout>,
+  // layout: ValueID<MeshLayout>,
   vertex: Vec<VertexBuffer>,
   index: Option<IndexBuffer>,
 }
 
+impl Scene {
+  pub fn add_mesh(&mut self, mesh: SceneMesh) -> MeshHandle {
+    self.meshes.insert(mesh)
+  }
+}
+
 impl SceneMesh {
+  pub fn new(vertex: Vec<VertexBuffer>, index: Option<IndexBuffer>) -> Self {
+    Self { vertex, index }
+  }
   pub fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
     self.index.as_ref().map(|index| index.setup_pass(pass));
     self
