@@ -14,12 +14,12 @@ use crate::{
 
 pub struct Application {
   scene: Scene,
-  origin: StandardForward,
+  forward: StandardForward,
   controller: ControllerWinitAdapter<OrbitController>,
 }
 
 impl Application {
-  pub fn new() -> Self {
+  pub fn new(renderer: &mut Renderer, size: (f32, f32)) -> Self {
     let mut scene = Scene::new();
 
     let sampler = scene.add_sampler(TextureSampler::default());
@@ -71,35 +71,40 @@ impl Application {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    Self {
+    let forward = StandardForward::new(&renderer.device, size);
+
+    let mut app = Self {
       scene,
-      origin: StandardForward,
+      forward,
       controller,
-    }
+    };
+    app.resize_view(&renderer.device, size);
+    app
   }
 
   pub fn render(&mut self, frame: &wgpu::SwapChainFrame, renderer: &mut Renderer) {
     renderer.render(
       &mut RenderPassDispatcher {
         scene: &mut self.scene,
-        style: &mut self.origin,
+        style: &mut self.forward,
       },
       frame,
     )
   }
 
-  pub fn resize_view(&mut self, size: (f32, f32)) {
+  pub fn resize_view(&mut self, device: &wgpu::Device, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
       let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
       camera.projection.resize(size)
     }
+    self.forward.resize(device, size)
   }
 
-  pub fn event(&mut self, event: &Event<()>) {
+  pub fn event(&mut self, renderer: &mut Renderer, event: &Event<()>) {
     self.controller.event(event);
     if let Event::WindowEvent { event, .. } = event {
       if let WindowEvent::Resized(size) = event {
-        self.resize_view((size.width as f32, size.height as f32));
+        self.resize_view(&renderer.device, (size.width as f32, size.height as f32));
       }
     }
   }

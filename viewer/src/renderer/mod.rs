@@ -15,12 +15,12 @@ impl True2 for If<true> {}
 
 pub trait Renderable {
   fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder);
-  fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>);
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
 }
 
 pub trait RenderPassCreator<T> {
   fn create<'a>(
-    &self,
+    &'a self,
     target: &'a T,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a>;

@@ -1,67 +1,45 @@
 use crate::renderer::RenderPassCreator;
 
 use super::*;
+pub mod forward;
+pub use forward::*;
+pub mod rg;
+pub use rg::*;
 
-pub trait RenderStyle: Sized {
-  fn update<'a>(
+pub trait RenderStyle: RenderStylePassCreator + Sized {
+  fn material_update<'a>(
     m: &mut dyn Material,
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
   );
-  fn setup_pass<'a>(
+  fn material_setup_pass<'a>(
     m: &'a dyn Material,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a, Self>,
   );
 }
 
-pub struct StandardForward;
-impl RenderStyle for StandardForward {
-  fn update<'a>(
-    m: &mut dyn Material,
-    renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
-  ) {
-    m.update(renderer, ctx)
-  }
+pub trait RenderStylePassCreator {
+  type Target;
 
-  fn setup_pass<'a>(
-    m: &'a dyn Material,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
-  ) {
-    m.setup_pass(pass, ctx)
-  }
+  fn create_pass<'a>(
+    &'a self,
+    scene: &Scene,
+    target: &'a Self::Target,
+    encoder: &'a mut wgpu::CommandEncoder,
+  ) -> wgpu::RenderPass<'a>;
 }
 
-impl<'b, S> RenderPassCreator<wgpu::SwapChainFrame> for RenderPassDispatcher<'b, S> {
+impl<'b, S> RenderPassCreator<S::Target> for RenderPassDispatcher<'b, S>
+where
+  S: RenderStyle,
+{
   fn create<'a>(
-    &self,
-    target: &'a wgpu::SwapChainFrame,
+    &'a self,
+    target: &'a S::Target,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a> {
-    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-      label: "scene pass".into(),
-      color_attachments: &[wgpu::RenderPassColorAttachment {
-        view: &target.output.view,
-        resolve_target: None,
-        ops: wgpu::Operations {
-          load: self.scene.get_main_pass_load_op(),
-          store: true,
-        },
-      }],
-      depth_stencil_attachment: None,
-    })
-  }
-}
-
-impl Scene {
-  fn get_main_pass_load_op(&self) -> wgpu::LoadOp<wgpu::Color> {
-    if let Some(clear_color) = self.background.require_pass_clear() {
-      return wgpu::LoadOp::Clear(clear_color);
-    }
-
-    return wgpu::LoadOp::Load;
+    self.style.create_pass(&self.scene, target, encoder)
   }
 }
 
@@ -81,7 +59,7 @@ pub struct RenderPassDispatcher<'a, S> {
 }
 
 impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
-  fn setup_pass<'p>(&'p mut self, pass: &mut wgpu::RenderPass<'p>) {
+  fn setup_pass<'p>(&'p self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;
     scene.render_list.models.iter().for_each(|model| {
@@ -96,7 +74,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
         pipelines: &scene.pipeline_resource,
       };
 
-      S::setup_pass(material, pass, &ctx);
+      S::material_setup_pass(material, pass, &ctx);
       let mesh = scene.meshes.get(model.mesh).unwrap();
       mesh.setup_pass(pass);
     })
@@ -145,7 +123,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           textures: &mut scene.texture_2ds,
           samplers: &mut scene.samplers,
         };
-        S::update(material, renderer, &mut ctx);
+        S::material_update(material, renderer, &mut ctx);
         mesh.update(renderer);
       })
     }

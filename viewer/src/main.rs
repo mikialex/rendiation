@@ -38,10 +38,11 @@ pub struct Viewer {
 
 impl Viewer {
   pub async fn new(window: winit::window::Window) -> Self {
-    let renderer = Renderer::new(&window).await;
-    let mut app =  Application::new();
     let initial_size = window.inner_size();
-    app.resize_view((initial_size.width as f32, initial_size.height as f32));
+    let initial_size = (initial_size.width as f32, initial_size.height as f32);
+
+    let mut renderer = Renderer::new(&window).await;
+    let app = Application::new(&mut renderer, initial_size);
 
     Self {
       window,
@@ -96,7 +97,7 @@ impl Viewer {
         _ => {}
       }
 
-      self.app.event(&event);
+      self.app.event(&mut self.renderer, &event);
     });
   }
 }
