@@ -26,7 +26,7 @@ impl Default for SphereMeshParameter {
       phi_start: 0.,
       phi_length: std::f32::consts::PI * 2.,
       theta_start: 0.,
-      theta_length: std::f32::consts::PI * 2.,
+      theta_length: std::f32::consts::PI,
       theta_end: std::f32::consts::PI * 2.,
     }
   }
@@ -63,15 +63,15 @@ impl IndexedMeshTessellator for SphereMeshParameter {
         let uv = Vec2::new(u, 1. - v);
         let vertex = Vertex::new(position, normal, uv);
         vertices.push(vertex);
-        index += 1;
         vertices_row.push(index);
+        index += 1;
       }
       grid.push(vertices_row);
     }
 
     let mut indices = vec![];
-    for iy in 0..height_segments - 1 {
-      for ix in 0..width_segments - 1 {
+    for iy in 0..height_segments {
+      for ix in 0..width_segments {
         let a = grid[iy][ix + 1];
         let b = grid[iy][ix];
         let c = grid[iy + 1][ix];

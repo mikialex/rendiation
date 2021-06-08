@@ -249,9 +249,17 @@ impl MaterialCPUResource for BasicMaterial {
         // },
         primitive: wgpu::PrimitiveState {
           cull_mode: None,
+           topology: wgpu::PrimitiveTopology::TriangleList,
           ..Default::default()
         },
-        depth_stencil: None,
+        depth_stencil: wgpu::DepthStencilState {
+          format: StandardForward::depth_format(),
+          depth_write_enabled: true,
+          depth_compare: wgpu::CompareFunction::Less,
+          stencil: Default::default(),
+          bias: Default::default(),
+        }
+        .into(),
         multisample: wgpu::MultisampleState::default(),
       });
 

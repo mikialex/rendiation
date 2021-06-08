@@ -5,6 +5,12 @@ pub struct StandardForward {
   depth_view: wgpu::TextureView,
 }
 
+impl StandardForward {
+  pub fn depth_format() -> wgpu::TextureFormat {
+    wgpu::TextureFormat::Depth32Float
+  }
+}
+
 impl Scene {
   fn get_main_pass_load_op(&self) -> wgpu::LoadOp<wgpu::Color> {
     if let Some(clear_color) = self.background.require_pass_clear() {
@@ -26,7 +32,7 @@ impl StandardForward {
       mip_level_count: 1,
       sample_count: 1,
       dimension: wgpu::TextureDimension::D2,
-      format: wgpu::TextureFormat::Depth32Float,
+      format: Self::depth_format(),
       usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
       label: None,
     });
