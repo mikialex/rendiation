@@ -8,6 +8,7 @@ pub mod node;
 pub mod rendering;
 pub mod sampler;
 pub mod texture;
+pub mod texture_cube;
 pub mod util;
 
 pub use background::*;
@@ -20,6 +21,7 @@ pub use node::*;
 pub use rendering::*;
 pub use sampler::*;
 pub use texture::*;
+pub use texture_cube::*;
 pub use util::*;
 
 pub use arena::*;

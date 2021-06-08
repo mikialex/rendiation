@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-  MaterialCPUResource, MaterialGPUResource, SceneMaterialPassSetupCtx,
+  BindableResource, MaterialCPUResource, MaterialGPUResource, SceneMaterialPassSetupCtx,
   SceneMaterialRenderPrepareCtx,
 };
 
@@ -40,19 +40,21 @@ impl BasicMaterial {
         },
         wgpu::BindGroupEntry {
           binding: 1,
-          resource: wgpu::BindingResource::TextureView(
-            ctx
-              .textures
-              .get_mut(self.texture)
-              .unwrap()
-              .get_gpu_view(device, queue),
-          ),
+          resource: ctx
+            .textures
+            .get_mut(self.texture)
+            .unwrap()
+            .get_gpu(device, queue)
+            .as_bindable(),
         },
         wgpu::BindGroupEntry {
           binding: 2,
-          resource: wgpu::BindingResource::Sampler(
-            ctx.samplers.get_mut(self.sampler).unwrap().get_gpu(device),
-          ),
+          resource: ctx
+            .samplers
+            .get_mut(self.sampler)
+            .unwrap()
+            .get_gpu(device)
+            .as_bindable(),
         },
       ],
       label: None,
@@ -180,7 +182,7 @@ impl MaterialCPUResource for BasicMaterial {
 
       struct VertexOutput {{
         [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] tex_coord: vec2<f32>;
+        [[location(0)]] uv: vec2<f32>;
       }};
 
       [[stage(vertex)]]
@@ -188,14 +190,14 @@ impl MaterialCPUResource for BasicMaterial {
         {vertex_header}
       ) -> VertexOutput {{
         var out: VertexOutput;
-        out.tex_coord = tex_coord;
+        out.uv = uv;
         out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);;
         return out;
       }}
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return textureSample(r_color, r_sampler, in.tex_coord);
+          return textureSample(r_color, r_sampler, in.uv);
       }}
       
       ",

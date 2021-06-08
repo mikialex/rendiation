@@ -18,6 +18,7 @@ impl Scene {
 
 pub trait BindableResource {
   fn as_bindable(&self) -> wgpu::BindingResource;
+  // fn bind_layout(&self) -> wgpu::BindingType; // todo
 }
 
 impl BindableResource for wgpu::Buffer {

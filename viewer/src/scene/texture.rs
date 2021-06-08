@@ -8,10 +8,6 @@ pub struct SceneTexture2D {
 }
 
 impl SceneTexture2D {
-  pub fn get_gpu_view(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> &wgpu::TextureView {
-    &self.get_gpu(device, queue).texture_view
-  }
-
   pub fn get_gpu(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> &SceneTexture2dGpu {
     self.gpu.get_or_insert_with(|| {
       let texture_extent = self.data.gpu_size();
