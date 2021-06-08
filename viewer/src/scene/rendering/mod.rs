@@ -20,23 +20,23 @@ pub trait RenderStyle: RenderStylePassCreator + Sized {
 }
 
 pub trait RenderStylePassCreator {
-  type Target;
+  type TargetResource;
 
   fn create_pass<'a>(
     &'a self,
     scene: &Scene,
-    target: &'a Self::Target,
+    target_res: &'a Self::TargetResource,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a>;
 }
 
-impl<'b, S> RenderPassCreator<S::Target> for RenderPassDispatcher<'b, S>
+impl<'b, S> RenderPassCreator<S::TargetResource> for RenderPassDispatcher<'b, S>
 where
   S: RenderStyle,
 {
   fn create<'a>(
     &'a self,
-    target: &'a S::Target,
+    target: &'a S::TargetResource,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a> {
     self.style.create_pass(&self.scene, target, encoder)

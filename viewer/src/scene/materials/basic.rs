@@ -172,9 +172,6 @@ impl MaterialCPUResource for BasicMaterial {
       ctx,
     );
 
-    let vertex_size = std::mem::size_of::<Vertex>();
-    let vertex_buffers = [Vertex::get_layout()];
-
     let shader_source = format!(
       "
       {object_header}
@@ -228,6 +225,7 @@ impl MaterialCPUResource for BasicMaterial {
         push_constant_ranges: &[],
       });
 
+    let vertex_buffers = [Vertex::get_layout()];
     let pipeline = renderer
       .device
       .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -249,7 +247,7 @@ impl MaterialCPUResource for BasicMaterial {
         // },
         primitive: wgpu::PrimitiveState {
           cull_mode: None,
-           topology: wgpu::PrimitiveTopology::TriangleList,
+          topology: wgpu::PrimitiveTopology::TriangleList,
           ..Default::default()
         },
         depth_stencil: wgpu::DepthStencilState {

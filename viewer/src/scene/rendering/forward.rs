@@ -66,12 +66,12 @@ impl RenderStyle for StandardForward {
 }
 
 impl RenderStylePassCreator for StandardForward {
-  type Target = wgpu::SwapChainFrame;
+  type TargetResource = wgpu::SwapChainFrame;
 
   fn create_pass<'a>(
     &'a self,
     scene: &Scene,
-    target: &'a Self::Target,
+    target: &'a Self::TargetResource,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a> {
     encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
