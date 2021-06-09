@@ -4,15 +4,15 @@ use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::{
-  renderer::Renderer,
+  renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    CameraBindgroup, ModelTransformGPU, SamplerHandle, StandardForward, Texture2DHandle,
-    VertexBufferSourceType,
+    CameraBindgroup, ModelTransformGPU, SamplerHandle, SceneTexture2dGpu, StandardForward,
+    Texture2DHandle, VertexBufferSourceType,
   },
 };
 
 use super::{
-  BindableResource, MaterialCPUResource, MaterialGPUResource, SceneMaterialPassSetupCtx,
+  MaterialCPUResource, MaterialGPUResource, SceneMaterialPassSetupCtx,
   SceneMaterialRenderPrepareCtx,
 };
 
@@ -86,30 +86,19 @@ impl BasicMaterial {
         wgpu::BindGroupLayoutEntry {
           binding: 0,
           visibility: wgpu::ShaderStage::VERTEX,
-          ty: wgpu::BindingType::Buffer {
-            ty: wgpu::BufferBindingType::Uniform,
-            has_dynamic_offset: false,
-            min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<Vec3<f32>>() as u64),
-          },
+          ty: UniformBuffer::<Vec3<f32>>::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
           binding: 1,
           visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::Texture {
-            multisampled: false,
-            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-            view_dimension: wgpu::TextureViewDimension::D2,
-          },
+          ty: SceneTexture2dGpu::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
           binding: 2,
           visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::Sampler {
-            comparison: false,
-            filtering: true,
-          },
+          ty: wgpu::Sampler::bind_layout(),
           count: None,
         },
       ],
@@ -118,7 +107,7 @@ impl BasicMaterial {
 }
 
 pub struct BasicMaterialGPU {
-  uniform: wgpu::Buffer,
+  uniform: UniformBuffer<Vec3<f32>>,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
 }
@@ -155,19 +144,11 @@ impl MaterialCPUResource for BasicMaterial {
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> Self::GPU {
-    use wgpu::util::DeviceExt;
-    let uniform: wgpu::Buffer =
-      renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-          label: Some("Basic Material Uniform Buffer"),
-          contents: bytemuck::cast_slice(&[self.color]),
-          usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
+    let uniform = UniformBuffer::create(&renderer.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
     let bindgroup = self.create_bindgroup(
-      &uniform,
+      uniform.gpu(),
       &renderer.device,
       &renderer.queue,
       &bindgroup_layout,

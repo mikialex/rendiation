@@ -1,6 +1,9 @@
 pub mod basic;
+use std::marker::PhantomData;
+
 use arena::Arena;
 pub use basic::*;
+use bytemuck::Pod;
 use rendiation_algebra::Mat4;
 
 use crate::Renderer;
@@ -13,17 +16,6 @@ use super::{
 impl Scene {
   pub fn add_material(&mut self, material: impl Material) -> MaterialHandle {
     self.materials.insert(Box::new(material))
-  }
-}
-
-pub trait BindableResource {
-  fn as_bindable(&self) -> wgpu::BindingResource;
-  // fn bind_layout(&self) -> wgpu::BindingType; // todo
-}
-
-impl BindableResource for wgpu::Buffer {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    self.as_entire_binding()
   }
 }
 

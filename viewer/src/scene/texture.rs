@@ -82,17 +82,6 @@ impl SceneTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
   }
 }
 
-pub struct SceneTexture2dGpu {
-  texture: wgpu::Texture,
-  texture_view: wgpu::TextureView,
-}
-
-impl BindableResource for SceneTexture2dGpu {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(&self.texture_view)
-  }
-}
-
 impl Scene {
   pub fn add_texture2d(&mut self, texture: impl SceneTexture2dSource) -> Texture2DHandle {
     self.texture_2ds.insert(SceneTexture2D {
