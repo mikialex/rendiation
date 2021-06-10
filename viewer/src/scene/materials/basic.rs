@@ -42,18 +42,18 @@ impl BasicMaterial {
           binding: 1,
           resource: ctx
             .textures
-            .get_mut(self.texture)
+            .get(self.texture)
             .unwrap()
-            .get_gpu(device, queue)
+            .get_gpu()
             .as_bindable(),
         },
         wgpu::BindGroupEntry {
           binding: 2,
           resource: ctx
             .samplers
-            .get_mut(self.sampler)
+            .get(self.sampler)
             .unwrap()
-            .get_gpu(device)
+            .get_gpu()
             .as_bindable(),
         },
       ],

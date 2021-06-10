@@ -36,10 +36,14 @@ pub fn convert(sampler: TextureSampler) -> wgpu::SamplerDescriptor<'static> {
 }
 
 impl SceneSampler {
-  pub fn get_gpu(&mut self, device: &wgpu::Device) -> &wgpu::Sampler {
+  pub fn update(&mut self, device: &wgpu::Device) {
     self
       .gpu
-      .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)))
+      .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)));
+  }
+
+  pub fn get_gpu(&self) -> &wgpu::Sampler {
+    self.gpu.as_ref().unwrap()
   }
 }
 

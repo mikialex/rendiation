@@ -1,17 +1,12 @@
 pub mod basic;
-use std::marker::PhantomData;
 
 use arena::Arena;
 pub use basic::*;
-use bytemuck::Pod;
 use rendiation_algebra::Mat4;
 
 use crate::Renderer;
 
-use super::{
-  Camera, CameraBindgroup, Material, MaterialHandle, ModelTransformGPU, RenderStyle, Scene,
-  SceneMesh, SceneSampler, SceneTexture2D,
-};
+use super::{Camera, CameraBindgroup, Material, MaterialHandle, ModelTransformGPU, RenderStyle, Scene, SceneMesh, SceneSampler, SceneTexture2D, WatchedArena};
 
 impl Scene {
   pub fn add_material(&mut self, material: impl Material) -> MaterialHandle {
@@ -74,7 +69,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub style: &'a S,
   pub active_mesh: &'a SceneMesh,
   pub textures: &'a mut Arena<SceneTexture2D>,
-  pub samplers: &'a mut Arena<SceneSampler>,
+  pub samplers: &'a mut WatchedArena<SceneSampler>,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a, S> {
