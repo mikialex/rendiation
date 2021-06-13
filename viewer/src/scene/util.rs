@@ -3,6 +3,13 @@ use std::{collections::HashSet, hash::Hash};
 
 use arena::{Arena, Handle};
 
+pub trait ResourcePair {
+  type Data;
+  type Resource;
+  fn data(&self) -> &Self::Data;
+  fn resource(&self) -> &Self::Resource;
+}
+
 pub struct WatchedArena<T> {
   arena: Arena<T>,
   modified: HashSet<Handle<T>>,
