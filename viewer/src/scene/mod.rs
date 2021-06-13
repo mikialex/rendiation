@@ -11,6 +11,8 @@ pub mod texture;
 pub mod texture_cube;
 pub mod util;
 
+use std::collections::HashSet;
+
 pub use background::*;
 pub use camera::*;
 pub use lights::*;
@@ -40,8 +42,9 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 pub type SamplerHandle = Handle<SceneSampler>;
 pub type Texture2DHandle = Handle<SceneTexture2D>;
 
-pub trait Material: MaterialStyleAbility<StandardForward> + 'static {}
-impl<T> Material for T where T: MaterialStyleAbility<StandardForward> + 'static {}
+pub trait Material: MaterialStyleAbility<StandardForward> + 'static {
+  fn on_ref_resource_changed(&mut self);
+}
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
@@ -80,14 +83,18 @@ impl Scene {
   }
 
   pub fn maintain(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue) {
-    self
-      .samplers
-      .drain_modified()
-      .for_each(|(sampler, _)| sampler.update(device));
-    self
-      .texture_2ds
-      .drain_modified()
-      .for_each(|(tex, _)| tex.update(device, queue));
+    let mut material_change = HashSet::new();
+    self.samplers.drain_modified().for_each(|(sampler, _)| {
+      sampler.update(device);
+      material_change.extend(sampler.iter_material_refed());
+    });
+    self.texture_2ds.drain_modified().for_each(|(tex, _)| {
+      tex.update(device, queue);
+      material_change.extend(tex.iter_material_refed());
+    });
+    material_change
+      .drain()
+      .for_each(|h| self.materials.get_mut(h).unwrap().on_ref_resource_changed())
   }
 
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {

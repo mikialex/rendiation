@@ -131,6 +131,16 @@ where
   }
 }
 
+impl<T> Material for MaterialCell<T>
+where
+  T: MaterialCPUResource + 'static,
+  MaterialCell<T>: MaterialStyleAbility<StandardForward>,
+{
+  fn on_ref_resource_changed(&mut self) {
+    self.gpu = None;
+  }
+}
+
 pub struct PipelineResourceManager {
   pub basic: Option<wgpu::RenderPipeline>,
 }

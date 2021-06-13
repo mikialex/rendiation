@@ -29,6 +29,7 @@ impl ResourcePair for SceneSampler {
     &self.res
   }
   fn data_mut(&mut self) -> &mut Self::Data {
+    self.res.gpu = None;
     &mut self.sampler
   }
   fn resource_mut(&mut self) -> &mut Self::Resource {
@@ -42,6 +43,9 @@ impl SceneSampler {
       .res
       .gpu
       .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)));
+  }
+  pub fn iter_material_refed(&self) -> impl Iterator<Item = MaterialHandle> + '_ {
+    self.res.used_by.iter().map(|m| *m)
   }
 }
 

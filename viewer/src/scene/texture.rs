@@ -29,6 +29,7 @@ impl ResourcePair for SceneTexture2D {
     &self.res
   }
   fn data_mut(&mut self) -> &mut Self::Data {
+    self.res.gpu = None;
     &mut self.data
   }
   fn resource_mut(&mut self) -> &mut Self::Resource {
@@ -42,6 +43,9 @@ impl SceneTexture2D {
       .res
       .gpu
       .get_or_insert_with(|| SceneTexture2dGpu::create(&device, queue, self.data.as_ref()));
+  }
+  pub fn iter_material_refed(&self) -> impl Iterator<Item = MaterialHandle> + '_ {
+    self.res.used_by.iter().map(|m| *m)
   }
 }
 
