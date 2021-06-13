@@ -8,6 +8,8 @@ pub trait ResourcePair {
   type Resource;
   fn data(&self) -> &Self::Data;
   fn resource(&self) -> &Self::Resource;
+  fn data_mut(&mut self) -> &mut Self::Data;
+  fn resource_mut(&mut self) -> &mut Self::Resource;
 }
 
 pub struct WatchedArena<T> {
@@ -20,7 +22,7 @@ pub enum SceneError {
   HandleCorrupted,
 }
 
-impl<T> WatchedArena<T> {
+impl<T: ResourcePair> WatchedArena<T> {
   pub fn new() -> Self {
     Self {
       arena: Arena::new(),
@@ -28,17 +30,47 @@ impl<T> WatchedArena<T> {
     }
   }
 
-  pub fn get(&self, h: Handle<T>) -> Result<&T, SceneError> {
-    self.arena.get(h).ok_or(SceneError::HandleCorrupted)
+  pub fn drain_modified(&mut self) -> impl Iterator<Item = (&mut T, Handle<T>)> {
+    // safety: modified is a set
+    self.modified.drain().map(|h| {
+      (
+        unsafe { std::mem::transmute(self.arena.get_mut(h).unwrap()) },
+        h,
+      )
+    })
   }
 
-  pub fn get_mut_not_record_change(&mut self, h: Handle<T>) -> Result<&mut T, SceneError> {
-    self.arena.get_mut(h).ok_or(SceneError::HandleCorrupted)
+  pub fn get_data(&self, h: Handle<T>) -> Result<&T::Data, SceneError> {
+    self
+      .arena
+      .get(h)
+      .map(|v| v.data())
+      .ok_or(SceneError::HandleCorrupted)
   }
 
-  pub fn mutate(&mut self, h: Handle<T>) -> Result<&mut T, SceneError> {
+  pub fn get_data_mut(&mut self, h: Handle<T>) -> Result<&mut T::Data, SceneError> {
     self.modified.insert(h);
-    self.arena.get_mut(h).ok_or(SceneError::HandleCorrupted)
+    self
+      .arena
+      .get_mut(h)
+      .map(|v| v.data_mut())
+      .ok_or(SceneError::HandleCorrupted)
+  }
+
+  pub fn get_resource(&self, h: Handle<T>) -> Result<&T::Resource, SceneError> {
+    self
+      .arena
+      .get(h)
+      .map(|v| v.resource())
+      .ok_or(SceneError::HandleCorrupted)
+  }
+
+  pub fn get_resource_mut(&mut self, h: Handle<T>) -> Result<&mut T::Resource, SceneError> {
+    self
+      .arena
+      .get_mut(h)
+      .map(|v| v.resource_mut())
+      .ok_or(SceneError::HandleCorrupted)
   }
 
   pub fn insert(&mut self, v: T) -> Handle<T> {

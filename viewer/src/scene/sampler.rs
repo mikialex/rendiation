@@ -4,36 +4,44 @@ use super::{BindableResource, MaterialHandle, ResourcePair, SamplerHandle, Scene
 
 pub struct SceneSampler {
   sampler: TextureSampler,
+  res: SamplerResource,
+}
+
+pub struct SamplerResource {
   gpu: Option<wgpu::Sampler>,
   used_by: Vec<MaterialHandle>,
 }
 
+impl SamplerResource {
+  pub fn as_material_bind(&mut self, material: MaterialHandle) -> wgpu::BindingResource {
+    self.used_by.push(material);
+    self.gpu.as_ref().unwrap().as_bindable()
+  }
+}
+
 impl ResourcePair for SceneSampler {
   type Data = TextureSampler;
-  type Resource = Option<wgpu::Sampler>;
+  type Resource = SamplerResource;
   fn data(&self) -> &Self::Data {
     &self.sampler
   }
-
   fn resource(&self) -> &Self::Resource {
-    &self.gpu
+    &self.res
+  }
+  fn data_mut(&mut self) -> &mut Self::Data {
+    &mut self.sampler
+  }
+  fn resource_mut(&mut self) -> &mut Self::Resource {
+    &mut self.res
   }
 }
 
 impl SceneSampler {
   pub fn update(&mut self, device: &wgpu::Device) {
     self
+      .res
       .gpu
       .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)));
-  }
-
-  fn get_gpu(&self) -> &wgpu::Sampler {
-    self.gpu.as_ref().unwrap()
-  }
-
-  pub fn as_material_bind(&mut self, material: MaterialHandle) -> wgpu::BindingResource {
-    self.used_by.push(material);
-    self.get_gpu().as_bindable()
   }
 }
 
@@ -53,8 +61,10 @@ impl Scene {
   pub fn add_sampler(&mut self, sampler: TextureSampler) -> SamplerHandle {
     self.samplers.insert(SceneSampler {
       sampler,
-      gpu: None,
-      used_by: Vec::new(),
+      res: SamplerResource {
+        gpu: None,
+        used_by: Vec::new(),
+      },
     })
   }
 }

@@ -79,6 +79,17 @@ impl Scene {
     }
   }
 
+  pub fn maintain(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue) {
+    self
+      .samplers
+      .drain_modified()
+      .for_each(|(sampler, _)| sampler.update(device));
+    self
+      .texture_2ds
+      .drain_modified()
+      .for_each(|(tex, _)| tex.update(device, queue));
+  }
+
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
     let mut node = SceneNode::default();
     builder(&mut node, self);

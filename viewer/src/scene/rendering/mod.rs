@@ -85,6 +85,8 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
     scene.render_list.models.clear();
     let root = scene.get_root_handle();
 
+    scene.maintain(&renderer.device, &mut renderer.queue);
+
     if let Some(active_camera) = &mut scene.active_camera {
       scene
         .nodes

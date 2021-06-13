@@ -63,7 +63,7 @@ impl BasicMaterial {
           binding: 1,
           resource: ctx
             .textures
-            .get_mut_not_record_change(self.texture)
+            .get_resource_mut(self.texture)
             .unwrap()
             .as_material_bind(handle),
         },
@@ -71,7 +71,7 @@ impl BasicMaterial {
           binding: 2,
           resource: ctx
             .samplers
-            .get_mut_not_record_change(self.sampler)
+            .get_resource_mut(self.sampler)
             .unwrap()
             .as_material_bind(handle),
         },
