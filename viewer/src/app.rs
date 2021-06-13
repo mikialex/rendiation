@@ -40,7 +40,6 @@ impl Application {
       sampler,
       texture,
     };
-    let material = MaterialCell::new(material);
     let material = scene.add_material(material);
 
     let mesh = SphereMeshParameter::default().tessellate();

@@ -6,11 +6,27 @@ use rendiation_algebra::Mat4;
 
 use crate::Renderer;
 
-use super::{Camera, CameraBindgroup, Material, MaterialHandle, ModelTransformGPU, RenderStyle, Scene, SceneMesh, SceneSampler, SceneTexture2D, WatchedArena};
+use super::{
+  Camera, CameraBindgroup, Material, MaterialHandle, ModelTransformGPU, RenderStyle, Scene,
+  SceneMesh, SceneSampler, SceneTexture2D, StandardForward, WatchedArena,
+};
 
 impl Scene {
-  pub fn add_material(&mut self, material: impl Material) -> MaterialHandle {
-    self.materials.insert(Box::new(material))
+  fn add_material_inner<M: Material, F: FnOnce(MaterialHandle) -> M>(
+    &mut self,
+    creator: F,
+  ) -> MaterialHandle {
+    self
+      .materials
+      .insert_with(|handle| Box::new(creator(handle)))
+  }
+
+  pub fn add_material<M>(&mut self, material: M) -> MaterialHandle
+  where
+    M: MaterialCPUResource + 'static,
+    M::GPU: MaterialGPUResource<StandardForward, Source = M>,
+  {
+    self.add_material_inner(|handle| MaterialCell::new(material, handle))
   }
 }
 
@@ -18,6 +34,7 @@ pub trait MaterialCPUResource {
   type GPU;
   fn create<S>(
     &mut self,
+    handle: MaterialHandle,
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> Self::GPU;
@@ -49,13 +66,15 @@ where
 {
   material: T,
   gpu: Option<T::GPU>,
+  handle: MaterialHandle,
 }
 
 impl<T: MaterialCPUResource> MaterialCell<T> {
-  pub fn new(material: T) -> Self {
+  pub fn new(material: T, handle: MaterialHandle) -> Self {
     Self {
       material,
       gpu: None,
+      handle,
     }
   }
 }
@@ -101,7 +120,7 @@ where
   ) {
     self
       .gpu
-      .get_or_insert_with(|| T::create(&mut self.material, renderer, ctx))
+      .get_or_insert_with(|| T::create(&mut self.material, self.handle, renderer, ctx))
       .update(&self.material, renderer, ctx);
   }
   fn setup_pass<'a>(

@@ -1,4 +1,4 @@
-use crate::renderer::{SceneTexture2dGpu, SceneTexture2dSource};
+use crate::renderer::{BindableResource, SceneTexture2dGpu, SceneTexture2dSource};
 
 use super::{MaterialHandle, Scene, Texture2DHandle};
 
@@ -20,8 +20,13 @@ impl SceneTexture2D {
       .get_or_insert_with(|| SceneTexture2dGpu::create(&device, queue, self.data.as_ref()));
   }
 
-  pub fn get_gpu(&self) -> &SceneTexture2dGpu {
+  fn get_gpu(&self) -> &SceneTexture2dGpu {
     self.gpu.as_ref().unwrap()
+  }
+
+  pub fn as_material_bind(&mut self, material: MaterialHandle) -> wgpu::BindingResource {
+    self.used_by.push(material);
+    self.get_gpu().as_bindable()
   }
 }
 

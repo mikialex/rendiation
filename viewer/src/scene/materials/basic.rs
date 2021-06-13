@@ -6,8 +6,8 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    CameraBindgroup, ModelTransformGPU, SamplerHandle, SceneTexture2dGpu, StandardForward,
-    Texture2DHandle, VertexBufferSourceType,
+    CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle, SceneTexture2dGpu,
+    StandardForward, Texture2DHandle, VertexBufferSourceType,
   },
 };
 
@@ -22,9 +22,30 @@ pub struct BasicMaterial {
   pub texture: Texture2DHandle,
 }
 
+/// This trait for avoid heap allocation when build bindgroup
+// pub trait BindGroupMapper<T> {
+//   fn map(self) -> T;
+// }
+
+// impl<'a, const N: usize> BindGroupMapper<[wgpu::BindGroupEntry<'a>; N]>
+//   for [wgpu::BindingResource<'a>; N]
+// {
+//   fn map(self) -> [wgpu::BindGroupEntry<'a>; N] {
+//     self
+//       .into_iter()
+//       .enumerate()
+//       .map(|(i, resource)| wgpu::BindGroupEntry {
+//         binding: i as u32,
+//         resource: *resource,
+//       })
+//       .collect()
+//   }
+// }
+
 impl BasicMaterial {
   pub fn create_bindgroup<S>(
     &self,
+    handle: MaterialHandle,
     ubo: &wgpu::Buffer,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -42,19 +63,17 @@ impl BasicMaterial {
           binding: 1,
           resource: ctx
             .textures
-            .get(self.texture)
+            .get_mut_not_record_change(self.texture)
             .unwrap()
-            .get_gpu()
-            .as_bindable(),
+            .as_material_bind(handle),
         },
         wgpu::BindGroupEntry {
           binding: 2,
           resource: ctx
             .samplers
-            .get(self.sampler)
+            .get_mut_not_record_change(self.sampler)
             .unwrap()
-            .get_gpu()
-            .as_bindable(),
+            .as_material_bind(handle),
         },
       ],
       label: None,
@@ -141,6 +160,7 @@ impl MaterialCPUResource for BasicMaterial {
 
   fn create<S>(
     &mut self,
+    handle: MaterialHandle,
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> Self::GPU {
@@ -148,6 +168,7 @@ impl MaterialCPUResource for BasicMaterial {
 
     let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
     let bindgroup = self.create_bindgroup(
+      handle,
       uniform.gpu(),
       &renderer.device,
       &renderer.queue,

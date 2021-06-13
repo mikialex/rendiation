@@ -1,10 +1,11 @@
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
 
-use super::{BindableResource, SamplerHandle, Scene};
+use super::{BindableResource, MaterialHandle, SamplerHandle, Scene};
 
 pub struct SceneSampler {
   sampler: TextureSampler,
   gpu: Option<wgpu::Sampler>,
+  used_by: Vec<MaterialHandle>,
 }
 
 pub fn convert_wrap(mode: AddressMode) -> wgpu::AddressMode {
@@ -42,8 +43,13 @@ impl SceneSampler {
       .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)));
   }
 
-  pub fn get_gpu(&self) -> &wgpu::Sampler {
+  fn get_gpu(&self) -> &wgpu::Sampler {
     self.gpu.as_ref().unwrap()
+  }
+
+  pub fn as_material_bind(&mut self, material: MaterialHandle) -> wgpu::BindingResource {
+    self.used_by.push(material);
+    self.get_gpu().as_bindable()
   }
 }
 
@@ -61,6 +67,10 @@ impl BindableResource for wgpu::Sampler {
 
 impl Scene {
   pub fn add_sampler(&mut self, sampler: TextureSampler) -> SamplerHandle {
-    self.samplers.insert(SceneSampler { sampler, gpu: None })
+    self.samplers.insert(SceneSampler {
+      sampler,
+      gpu: None,
+      used_by: Vec::new(),
+    })
   }
 }
