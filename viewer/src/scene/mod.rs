@@ -8,7 +8,10 @@ pub mod node;
 pub mod rendering;
 pub mod sampler;
 pub mod texture;
+pub mod texture_cube;
 pub mod util;
+
+use std::collections::HashSet;
 
 pub use background::*;
 pub use camera::*;
@@ -20,6 +23,7 @@ pub use node::*;
 pub use rendering::*;
 pub use sampler::*;
 pub use texture::*;
+pub use texture_cube::*;
 pub use util::*;
 
 pub use arena::*;
@@ -38,8 +42,9 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 pub type SamplerHandle = Handle<SceneSampler>;
 pub type Texture2DHandle = Handle<SceneTexture2D>;
 
-pub trait Material: MaterialStyleAbility<StandardForward> + 'static {}
-impl<T> Material for T where T: MaterialStyleAbility<StandardForward> + 'static {}
+pub trait Material: MaterialStyleAbility<StandardForward> + 'static {
+  fn on_ref_resource_changed(&mut self);
+}
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
@@ -49,8 +54,8 @@ pub struct Scene {
   pub models: Arena<Model>,
   pub meshes: Arena<SceneMesh>,
   pub materials: Arena<Box<dyn Material>>,
-  pub samplers: Arena<SceneSampler>,
-  pub texture_2ds: Arena<SceneTexture2D>,
+  pub samplers: WatchedArena<SceneSampler>,
+  pub texture_2ds: WatchedArena<SceneTexture2D>,
   // buffers: Arena<Buffer>,
   pub(crate) pipeline_resource: PipelineResourceManager,
   pub active_camera: Option<Camera>,
@@ -68,8 +73,8 @@ impl Scene {
       meshes: Arena::new(),
       lights: Arena::new(),
       materials: Arena::new(),
-      samplers: Arena::new(),
-      texture_2ds: Arena::new(),
+      samplers: WatchedArena::new(),
+      texture_2ds: WatchedArena::new(),
       pipeline_resource: PipelineResourceManager::new(),
       active_camera: None,
       active_camera_gpu: None,
@@ -77,13 +82,20 @@ impl Scene {
     }
   }
 
-  // pub fn create_model(&mut self, creator: impl SceneModelCreator) -> ModelHandle {
-  //   creator.create_model(self)
-  // }
-
-  // pub fn create_light(&mut self, creator: impl SceneLightCreator) -> LightHandle {
-  //   creator.create_light(self)
-  // }
+  pub fn maintain(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue) {
+    let mut material_change = HashSet::new();
+    self.samplers.drain_modified().for_each(|(sampler, _)| {
+      sampler.update(device);
+      material_change.extend(sampler.iter_material_refed());
+    });
+    self.texture_2ds.drain_modified().for_each(|(tex, _)| {
+      tex.update(device, queue);
+      material_change.extend(tex.iter_material_refed());
+    });
+    material_change
+      .drain()
+      .for_each(|h| self.materials.get_mut(h).unwrap().on_ref_resource_changed())
+  }
 
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
     let mut node = SceneNode::default();
@@ -94,53 +106,8 @@ impl Scene {
     new
   }
 
-  // pub fn model_node(&mut self, model: impl SceneModelCreator) -> &mut Self {
-  //   let model = self.create_model(model);
-  //   self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
-  //   self
-  // }
-
-  // pub fn model_node_with_modify(
-  //   &mut self,
-  //   model: impl SceneModelCreator,
-  //   m: impl Fn(&mut SceneNode),
-  // ) -> &mut Self {
-  //   let model = self.create_model(model);
-  //   self.create_node(|node, _| {
-  //     node.payloads.push(SceneNodePayload::Model(model));
-  //     m(node)
-  //   });
-  //   self
-  // }
-
   pub fn background(&mut self, background: impl Background) -> &mut Self {
     self.background = Box::new(background);
     self
   }
 }
-
-// pub trait SceneModelCreator<T: SceneBackend> {
-//   fn create_model(self, scene: &mut Scene) -> ModelHandle;
-// }
-
-// impl SceneModelCreator for <T as SceneBackend>::Model
-// where
-//   T: SceneBackend,
-// {
-//   fn create_model(self, scene: &mut Scene) -> ModelHandle {
-//     scene.models.insert(self)
-//   }
-// }
-
-// pub trait SceneLightCreator<T: SceneBackend> {
-//   fn create_light(self, scene: &mut Scene) -> LightHandle;
-// }
-
-// impl SceneLightCreator for <T as SceneBackend>::Light
-// where
-//   T: SceneBackend,
-// {
-//   fn create_light(self, scene: &mut Scene) -> LightHandle {
-//     scene.lights.insert(self)
-//   }
-// }

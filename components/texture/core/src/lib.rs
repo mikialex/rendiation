@@ -22,6 +22,7 @@ use rendiation_algebra::{Lerp, Scalar, Vec2};
 
 pub use image::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Size {
   pub width: usize,
   pub height: usize,

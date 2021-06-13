@@ -1,10 +1,76 @@
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
 
-use super::{BindableResource, SamplerHandle, Scene};
+use super::{BindableResource, MaterialHandle, ResourcePair, SamplerHandle, Scene};
 
 pub struct SceneSampler {
   sampler: TextureSampler,
+  res: SamplerResource,
+}
+
+pub struct SamplerResource {
   gpu: Option<wgpu::Sampler>,
+  used_by: Vec<MaterialHandle>,
+}
+
+impl SamplerResource {
+  pub fn as_material_bind(&mut self, material: MaterialHandle) -> wgpu::BindingResource {
+    self.used_by.push(material);
+    self.gpu.as_ref().unwrap().as_bindable()
+  }
+}
+
+impl ResourcePair for SceneSampler {
+  type Data = TextureSampler;
+  type Resource = SamplerResource;
+  fn data(&self) -> &Self::Data {
+    &self.sampler
+  }
+  fn resource(&self) -> &Self::Resource {
+    &self.res
+  }
+  fn data_mut(&mut self) -> &mut Self::Data {
+    self.res.gpu = None;
+    &mut self.sampler
+  }
+  fn resource_mut(&mut self) -> &mut Self::Resource {
+    &mut self.res
+  }
+}
+
+impl SceneSampler {
+  pub fn update(&mut self, device: &wgpu::Device) {
+    self
+      .res
+      .gpu
+      .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)));
+  }
+  pub fn iter_material_refed(&self) -> impl Iterator<Item = MaterialHandle> + '_ {
+    self.res.used_by.iter().map(|m| *m)
+  }
+}
+
+impl BindableResource for wgpu::Sampler {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::Sampler(self)
+  }
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Sampler {
+      comparison: false,
+      filtering: true,
+    }
+  }
+}
+
+impl Scene {
+  pub fn add_sampler(&mut self, sampler: TextureSampler) -> SamplerHandle {
+    self.samplers.insert(SceneSampler {
+      sampler,
+      res: SamplerResource {
+        gpu: None,
+        used_by: Vec::new(),
+      },
+    })
+  }
 }
 
 pub fn convert_wrap(mode: AddressMode) -> wgpu::AddressMode {
@@ -32,25 +98,5 @@ pub fn convert(sampler: TextureSampler) -> wgpu::SamplerDescriptor<'static> {
     min_filter: convert_filter(sampler.min_filter),
     mipmap_filter: convert_filter(sampler.mipmap_filter),
     ..Default::default()
-  }
-}
-
-impl SceneSampler {
-  pub fn get_gpu(&mut self, device: &wgpu::Device) -> &wgpu::Sampler {
-    self
-      .gpu
-      .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)))
-  }
-}
-
-impl BindableResource for wgpu::Sampler {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::Sampler(self)
-  }
-}
-
-impl Scene {
-  pub fn add_sampler(&mut self, sampler: TextureSampler) -> SamplerHandle {
-    self.samplers.insert(SceneSampler { sampler, gpu: None })
   }
 }

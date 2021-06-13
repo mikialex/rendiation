@@ -19,7 +19,7 @@ impl Renderable for SolidBackground {
   ) {
   }
 
-  fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>) {}
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {}
 }
 
 impl Background for SolidBackground {

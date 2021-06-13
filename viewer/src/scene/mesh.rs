@@ -97,7 +97,7 @@ impl VertexBufferSourceType for Vertex {
     r#"
       [[location(0)]] position: vec3<f32>,
       [[location(1)]] normal: vec3<f32>,
-      [[location(2)]] tex_coord: vec2<f32>,
+      [[location(2)]] uv: vec2<f32>,
     "#
   }
 }

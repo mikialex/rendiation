@@ -4,10 +4,10 @@ use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::{
-  renderer::Renderer,
+  renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    CameraBindgroup, ModelTransformGPU, SamplerHandle, StandardForward, Texture2DHandle,
-    VertexBufferSourceType,
+    CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle, SceneTexture2dGpu,
+    StandardForward, Texture2DHandle, VertexBufferSourceType,
   },
 };
 
@@ -22,9 +22,30 @@ pub struct BasicMaterial {
   pub texture: Texture2DHandle,
 }
 
+/// This trait for avoid heap allocation when build bindgroup
+// pub trait BindGroupMapper<T> {
+//   fn map(self) -> T;
+// }
+
+// impl<'a, const N: usize> BindGroupMapper<[wgpu::BindGroupEntry<'a>; N]>
+//   for [wgpu::BindingResource<'a>; N]
+// {
+//   fn map(self) -> [wgpu::BindGroupEntry<'a>; N] {
+//     self
+//       .into_iter()
+//       .enumerate()
+//       .map(|(i, resource)| wgpu::BindGroupEntry {
+//         binding: i as u32,
+//         resource: *resource,
+//       })
+//       .collect()
+//   }
+// }
+
 impl BasicMaterial {
   pub fn create_bindgroup<S>(
     &self,
+    handle: MaterialHandle,
     ubo: &wgpu::Buffer,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -40,19 +61,19 @@ impl BasicMaterial {
         },
         wgpu::BindGroupEntry {
           binding: 1,
-          resource: wgpu::BindingResource::TextureView(
-            ctx
-              .textures
-              .get_mut(self.texture)
-              .unwrap()
-              .get_gpu_view(device, queue),
-          ),
+          resource: ctx
+            .textures
+            .get_resource_mut(self.texture)
+            .unwrap()
+            .as_material_bind(handle),
         },
         wgpu::BindGroupEntry {
           binding: 2,
-          resource: wgpu::BindingResource::Sampler(
-            ctx.samplers.get_mut(self.sampler).unwrap().get_gpu(device),
-          ),
+          resource: ctx
+            .samplers
+            .get_resource_mut(self.sampler)
+            .unwrap()
+            .as_material_bind(handle),
         },
       ],
       label: None,
@@ -84,30 +105,19 @@ impl BasicMaterial {
         wgpu::BindGroupLayoutEntry {
           binding: 0,
           visibility: wgpu::ShaderStage::VERTEX,
-          ty: wgpu::BindingType::Buffer {
-            ty: wgpu::BufferBindingType::Uniform,
-            has_dynamic_offset: false,
-            min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<Vec3<f32>>() as u64),
-          },
+          ty: UniformBuffer::<Vec3<f32>>::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
           binding: 1,
           visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::Texture {
-            multisampled: false,
-            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-            view_dimension: wgpu::TextureViewDimension::D2,
-          },
+          ty: SceneTexture2dGpu::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
           binding: 2,
           visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: wgpu::BindingType::Sampler {
-            comparison: false,
-            filtering: true,
-          },
+          ty: wgpu::Sampler::bind_layout(),
           count: None,
         },
       ],
@@ -116,7 +126,7 @@ impl BasicMaterial {
 }
 
 pub struct BasicMaterialGPU {
-  uniform: wgpu::Buffer,
+  uniform: UniformBuffer<Vec3<f32>>,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
 }
@@ -150,30 +160,21 @@ impl MaterialCPUResource for BasicMaterial {
 
   fn create<S>(
     &mut self,
+    handle: MaterialHandle,
     renderer: &mut Renderer,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
   ) -> Self::GPU {
-    use wgpu::util::DeviceExt;
-    let uniform: wgpu::Buffer =
-      renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-          label: Some("Basic Material Uniform Buffer"),
-          contents: bytemuck::cast_slice(&[self.color]),
-          usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
+    let uniform = UniformBuffer::create(&renderer.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
     let bindgroup = self.create_bindgroup(
-      &uniform,
+      handle,
+      uniform.gpu(),
       &renderer.device,
       &renderer.queue,
       &bindgroup_layout,
       ctx,
     );
-
-    let vertex_size = std::mem::size_of::<Vertex>();
-    let vertex_buffers = [Vertex::get_layout()];
 
     let shader_source = format!(
       "
@@ -183,7 +184,7 @@ impl MaterialCPUResource for BasicMaterial {
 
       struct VertexOutput {{
         [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] tex_coord: vec2<f32>;
+        [[location(0)]] uv: vec2<f32>;
       }};
 
       [[stage(vertex)]]
@@ -191,14 +192,14 @@ impl MaterialCPUResource for BasicMaterial {
         {vertex_header}
       ) -> VertexOutput {{
         var out: VertexOutput;
-        out.tex_coord = tex_coord;
+        out.uv = uv;
         out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);;
         return out;
       }}
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return textureSample(r_color, r_sampler, in.tex_coord);
+          return textureSample(r_color, r_sampler, in.uv);
       }}
       
       ",
@@ -228,6 +229,7 @@ impl MaterialCPUResource for BasicMaterial {
         push_constant_ranges: &[],
       });
 
+    let vertex_buffers = [Vertex::get_layout()];
     let pipeline = renderer
       .device
       .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -249,9 +251,17 @@ impl MaterialCPUResource for BasicMaterial {
         // },
         primitive: wgpu::PrimitiveState {
           cull_mode: None,
+          topology: wgpu::PrimitiveTopology::TriangleList,
           ..Default::default()
         },
-        depth_stencil: None,
+        depth_stencil: wgpu::DepthStencilState {
+          format: StandardForward::depth_format(),
+          depth_write_enabled: true,
+          depth_compare: wgpu::CompareFunction::Less,
+          stencil: Default::default(),
+          bias: Default::default(),
+        }
+        .into(),
         multisample: wgpu::MultisampleState::default(),
       });
 

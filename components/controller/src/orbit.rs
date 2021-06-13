@@ -153,6 +153,11 @@ impl ControllerWinitEventSupport for OrbitController {
           },
           _ => {}
         },
+        WindowEvent::MouseWheel { delta, .. } => {
+          if let MouseScrollDelta::LineDelta(_, y) = delta {
+            self.zoom(1.0 - y * 0.1);
+          }
+        }
         _ => {}
       },
       Event::DeviceEvent { event, .. } => match event {

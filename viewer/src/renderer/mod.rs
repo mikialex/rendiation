@@ -2,10 +2,16 @@ use self::swap_chain::SwapChain;
 mod buffer;
 mod encoder;
 mod queue;
+mod sampler;
 mod swap_chain;
+mod texture;
+mod uniform;
 
 pub use encoder::*;
 pub use queue::*;
+pub use sampler::*;
+pub use texture::*;
+pub use uniform::*;
 
 pub struct If<const B: bool>;
 pub trait True {}
@@ -13,14 +19,19 @@ impl True for If<true> {}
 pub trait True2 {}
 impl True2 for If<true> {}
 
+pub trait BindableResource {
+  fn as_bindable(&self) -> wgpu::BindingResource;
+  fn bind_layout() -> wgpu::BindingType;
+}
+
 pub trait Renderable {
   fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder);
-  fn setup_pass<'a>(&'a mut self, pass: &mut wgpu::RenderPass<'a>);
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
 }
 
 pub trait RenderPassCreator<T> {
   fn create<'a>(
-    &self,
+    &'a self,
     target: &'a T,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a>;
