@@ -42,11 +42,14 @@ impl<T> WatchedArena<T> {
   }
 
   pub fn insert(&mut self, v: T) -> Handle<T> {
-    self.arena.insert(v)
+    let h = self.arena.insert(v);
+    self.modified.insert(h);
+    h
   }
 
-  pub fn remove(&mut self, handle: Handle<T>) {
-    self.arena.remove(handle);
+  pub fn remove(&mut self, h: Handle<T>) {
+    self.modified.remove(&h);
+    self.arena.remove(h);
   }
 }
 

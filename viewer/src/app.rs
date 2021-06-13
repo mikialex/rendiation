@@ -7,8 +7,8 @@ use winit::event::*;
 use crate::{
   renderer::Renderer,
   scene::{
-    BasicMaterial, Camera, IndexBuffer, MaterialCell, Model, RenderPassDispatcher, Scene,
-    SceneMesh, StandardForward, VertexBuffer,
+    BasicMaterial, Camera, IndexBuffer, Model, RenderPassDispatcher, Scene, SceneMesh,
+    StandardForward, VertexBuffer,
   },
 };
 

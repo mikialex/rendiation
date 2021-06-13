@@ -1,7 +1,6 @@
 pub mod basic;
-
-use arena::Arena;
 pub use basic::*;
+
 use rendiation_algebra::Mat4;
 
 use crate::Renderer;
@@ -87,7 +86,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub pipelines: &'a mut PipelineResourceManager,
   pub style: &'a S,
   pub active_mesh: &'a SceneMesh,
-  pub textures: &'a mut Arena<SceneTexture2D>,
+  pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub samplers: &'a mut WatchedArena<SceneSampler>,
 }
 
