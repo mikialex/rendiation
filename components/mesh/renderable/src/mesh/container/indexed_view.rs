@@ -5,7 +5,7 @@ use crate::{
   mesh::TriangleList, vertex::Vertex,
 };
 
-use super::{AbstractMesh, AnyIndexMesh, MeshDataContainer};
+use super::{AbstractIndexMesh, AbstractMesh, MeshDataContainer};
 
 pub struct IndexedMeshView<'a, I, V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: &'a U,
@@ -52,7 +52,7 @@ where
   }
 }
 
-impl<'a, I, V, T, U> AnyIndexMesh for IndexedMeshView<'a, I, V, T, U>
+impl<'a, I, V, T, U> AbstractIndexMesh for IndexedMeshView<'a, I, V, T, U>
 where
   V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,

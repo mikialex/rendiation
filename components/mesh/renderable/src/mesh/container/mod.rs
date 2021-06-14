@@ -70,16 +70,16 @@ impl<'a, G: AbstractMesh> ExactSizeIterator for AbstractMeshIter<'a, G> {
   }
 }
 
-pub trait AnyIndexMesh: AbstractMesh {
+pub trait AbstractIndexMesh: AbstractMesh {
   type IndexPrimitive;
 
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive;
 
-  fn index_primitive_iter(&self) -> AnyIndexMeshIter<'_, Self>
+  fn index_primitive_iter(&self) -> AbstractIndexMeshIter<'_, Self>
   where
     Self: Sized,
   {
-    AnyIndexMeshIter {
+    AbstractIndexMeshIter {
       mesh: &self,
       current: 0,
       count: self.primitive_count(),
@@ -87,13 +87,13 @@ pub trait AnyIndexMesh: AbstractMesh {
   }
 }
 
-pub struct AnyIndexMeshIter<'a, G> {
+pub struct AbstractIndexMeshIter<'a, G> {
   mesh: &'a G,
   current: usize,
   count: usize,
 }
 
-impl<'a, G: AnyIndexMesh> Iterator for AnyIndexMeshIter<'a, G> {
+impl<'a, G: AbstractIndexMesh> Iterator for AbstractIndexMeshIter<'a, G> {
   type Item = G::IndexPrimitive;
 
   #[inline(always)]
@@ -112,7 +112,7 @@ impl<'a, G: AnyIndexMesh> Iterator for AnyIndexMeshIter<'a, G> {
   }
 }
 
-impl<'a, G: AnyIndexMesh> ExactSizeIterator for AnyIndexMeshIter<'a, G> {
+impl<'a, G: AbstractIndexMesh> ExactSizeIterator for AbstractIndexMeshIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current

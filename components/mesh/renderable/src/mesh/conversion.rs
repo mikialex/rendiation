@@ -10,7 +10,7 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  AbstractMesh, AnyIndexMesh, HashAbleByConversion, IndexPrimitiveTopologyMeta, IndexType,
+  AbstractIndexMesh, AbstractMesh, HashAbleByConversion, IndexPrimitiveTopologyMeta, IndexType,
   IndexedMesh, IndexedPrimitiveData, LineList, MeshDataContainer, NoneIndexedMesh, PointList,
   PrimitiveTopologyMeta,
 };
