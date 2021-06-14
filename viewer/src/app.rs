@@ -7,8 +7,8 @@ use winit::event::*;
 use crate::{
   renderer::Renderer,
   scene::{
-    BasicMaterial, Camera, IndexBuffer, Model, RenderPassDispatcher, Scene, SceneMesh,
-    StandardForward, VertexBuffer,
+    BasicMaterial, Camera, IndexBuffer, MeshDrawRange, Model, RenderPassDispatcher, Scene,
+    SceneMesh, StandardForward, VertexBuffer,
   },
 };
 
@@ -55,6 +55,7 @@ impl Application {
     let model = Model {
       material,
       mesh,
+      range: MeshDrawRange::Full,
       node: scene.get_root_handle(),
     };
 

@@ -6,7 +6,13 @@ use super::*;
 pub struct Model {
   pub material: MaterialHandle,
   pub mesh: MeshHandle,
+  pub range: MeshDrawRange,
   pub node: SceneNodeHandle,
+}
+
+pub enum MeshDrawRange {
+  Full,
+  SubMesh(usize),
 }
 
 pub struct ModelPassSetupContext<'a, S> {
