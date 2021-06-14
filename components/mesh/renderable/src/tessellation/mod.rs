@@ -1,5 +1,5 @@
 use crate::{
-  mesh::{AnyMesh, IndexType, IndexedMesh, NoneIndexedMesh, TriangleList},
+  mesh::{AbstractMesh, IndexType, IndexedMesh, NoneIndexedMesh, TriangleList},
   range::MeshRangesInfo,
   vertex::Vertex,
 };
@@ -27,7 +27,7 @@ pub struct TesselationResult<T> {
   pub range: MeshRangesInfo,
 }
 
-impl<T: AnyMesh> TesselationResult<T> {
+impl<T: AbstractMesh> TesselationResult<T> {
   pub fn new(mesh: T, range: MeshRangesInfo) -> Self {
     Self { mesh, range }
   }

@@ -10,8 +10,8 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  AnyIndexMesh, AnyMesh, HashAbleByConversion, IndexPrimitiveTopologyMeta, IndexType, IndexedMesh,
-  IndexedPrimitiveData, LineList, MeshDataContainer, NoneIndexedMesh, PointList,
+  AbstractMesh, AnyIndexMesh, HashAbleByConversion, IndexPrimitiveTopologyMeta, IndexType,
+  IndexedMesh, IndexedPrimitiveData, LineList, MeshDataContainer, NoneIndexedMesh, PointList,
   PrimitiveTopologyMeta,
 };
 use rendiation_algebra::{InnerProductSpace, Vec3};

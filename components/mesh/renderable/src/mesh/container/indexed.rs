@@ -1,6 +1,6 @@
 use super::{
   super::{PrimitiveTopologyMeta, TriangleList},
-  AnyIndexMesh, AnyMesh, MeshDataContainer,
+  AbstractMesh, AnyIndexMesh, MeshDataContainer,
 };
 use crate::{
   mesh::{IndexPrimitiveTopologyMeta, IndexedPrimitiveData},
@@ -64,7 +64,7 @@ impl<V, I, T, U> IndexedMesh<I, V, T, U> {
   }
 }
 
-impl<I, V, T, U> AnyMesh for IndexedMesh<I, V, T, U>
+impl<I, V, T, U> AbstractMesh for IndexedMesh<I, V, T, U>
 where
   V: Copy,
   T: IndexPrimitiveTopologyMeta<I, V>,

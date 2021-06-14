@@ -19,18 +19,18 @@ pub trait MeshDataContainer<T>:
 
 impl<T: Clone> MeshDataContainer<T> for Vec<T> {}
 
-pub trait AnyMesh {
+pub trait AbstractMesh {
   type Primitive;
 
   fn draw_count(&self) -> usize;
   fn primitive_count(&self) -> usize;
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
 
-  fn primitive_iter(&self) -> AnyMeshIter<'_, Self>
+  fn primitive_iter(&self) -> AbstractMeshIter<'_, Self>
   where
     Self: Sized,
   {
-    AnyMeshIter {
+    AbstractMeshIter {
       mesh: &self,
       current: 0,
       count: self.primitive_count(),
@@ -38,13 +38,13 @@ pub trait AnyMesh {
   }
 }
 
-pub struct AnyMeshIter<'a, G> {
+pub struct AbstractMeshIter<'a, G> {
   mesh: &'a G,
   current: usize,
   count: usize,
 }
 
-impl<'a, G: AnyMesh> Iterator for AnyMeshIter<'a, G> {
+impl<'a, G: AbstractMesh> Iterator for AbstractMeshIter<'a, G> {
   type Item = G::Primitive;
 
   #[inline(always)]
@@ -63,14 +63,14 @@ impl<'a, G: AnyMesh> Iterator for AnyMeshIter<'a, G> {
   }
 }
 
-impl<'a, G: AnyMesh> ExactSizeIterator for AnyMeshIter<'a, G> {
+impl<'a, G: AbstractMesh> ExactSizeIterator for AbstractMeshIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current
   }
 }
 
-pub trait AnyIndexMesh: AnyMesh {
+pub trait AnyIndexMesh: AbstractMesh {
   type IndexPrimitive;
 
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive;

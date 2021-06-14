@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{mesh::PrimitiveData, mesh::PrimitiveTopologyMeta, mesh::TriangleList, vertex::Vertex};
 
-use super::{AnyMesh, MeshDataContainer};
+use super::{AbstractMesh, MeshDataContainer};
 
 pub struct NoneIndexedMeshView<'a, V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: &'a U,
@@ -20,7 +20,7 @@ impl<'a, V, T, U> NoneIndexedMeshView<'a, V, T, U> {
   }
 }
 
-impl<'a, V, T, U> AnyMesh for NoneIndexedMeshView<'a, V, T, U>
+impl<'a, V, T, U> AbstractMesh for NoneIndexedMeshView<'a, V, T, U>
 where
   T: PrimitiveTopologyMeta<V>,
   U: MeshDataContainer<V>,

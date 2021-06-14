@@ -1,4 +1,4 @@
-use crate::mesh::AnyMesh;
+use crate::mesh::AbstractMesh;
 
 #[derive(Copy, Clone, Debug)]
 pub struct MeshRange {
@@ -25,7 +25,7 @@ impl MeshRangesInfo {
     self.ranges.push(MeshRange { start, count });
   }
 
-  pub fn full_range<T: AnyMesh>(mesh: &T) -> Self {
+  pub fn full_range<T: AbstractMesh>(mesh: &T) -> Self {
     let mut ranges = MeshRangesInfo::new();
     ranges.push(0, mesh.draw_count());
     ranges

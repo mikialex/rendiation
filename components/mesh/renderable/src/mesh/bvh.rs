@@ -1,20 +1,20 @@
 use super::{
-  AnyMesh, LineList, MeshBufferHitList, MeshBufferHitPoint, MeshBufferIntersectConfig,
+  AbstractMesh, LineList, MeshBufferHitList, MeshBufferHitPoint, MeshBufferIntersectConfig,
   NoneIndexedMesh,
 };
 use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
 use space_algorithm::{bvh::*, utils::TreeBuildOption};
 
-pub trait BVHExtendedBuildAnyMesh<B: BVHBounding, S: BVHBuildStrategy<B>> {
+pub trait BVHExtendedBuildAbstractMesh<B: BVHBounding, S: BVHBuildStrategy<B>> {
   fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B>;
 }
 
-impl<G, B, S> BVHExtendedBuildAnyMesh<B, S> for G
+impl<G, B, S> BVHExtendedBuildAbstractMesh<B, S> for G
 where
   B: BVHBounding,
   S: BVHBuildStrategy<B>,
-  G: AnyMesh,
+  G: AbstractMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
 {
   fn build_bvh(&self, strategy: &mut S, option: &TreeBuildOption) -> FlattenBVH<B> {
@@ -31,7 +31,7 @@ pub struct PrimitiveIntersectionStatistic {
   pub primitive: usize,
 }
 
-pub trait BVHIntersectAbleExtendedAnyMesh<B>
+pub trait BVHIntersectAbleExtendedAbstractMesh<B>
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
 {
@@ -56,10 +56,10 @@ where
   ) -> PrimitiveIntersectionStatistic;
 }
 
-impl<G, B> BVHIntersectAbleExtendedAnyMesh<B> for G
+impl<G, B> BVHIntersectAbleExtendedAbstractMesh<B> for G
 where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
-  G: AnyMesh,
+  G: AbstractMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
   G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, MeshBufferIntersectConfig>,
 {
