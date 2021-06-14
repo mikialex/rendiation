@@ -7,6 +7,29 @@ use std::{any::Any, ops::Range};
 
 use super::{MeshHandle, Scene};
 
+pub mod impls;
+pub use impls::*;
+
+pub trait Mesh {
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
+  fn update(&mut self, renderer: &mut Renderer);
+}
+
+pub trait GPUMeshData {
+  fn update(&self, gpu: &mut Option<MeshCellGPU>, device: wgpu::Device);
+}
+
+pub struct MeshCell<T> {
+  data: T,
+  ranges: Vec<Range<u32>>,
+  gpu: Option<MeshCellGPU>,
+}
+
+pub struct MeshCellGPU {
+  vertex: Vec<VertexBuffer>,
+  index: Option<IndexBuffer>,
+}
+
 // use super::ValueID;
 
 pub type MeshVertexLayout = Vec<wgpu::VertexBufferLayout<'static>>;

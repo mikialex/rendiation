@@ -58,6 +58,7 @@
         "glutin",
         "hashable",
         "hidpi",
+        "impls",
         "lanczos",
         "lookat",
         "mikialex",
