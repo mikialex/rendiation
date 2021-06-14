@@ -1,5 +1,8 @@
 use bytemuck::Pod;
-use rendiation_renderable_mesh::vertex::Vertex;
+use rendiation_renderable_mesh::{
+  group::{MeshGroup, MeshGroupsInfo},
+  vertex::Vertex,
+};
 use wgpu::util::DeviceExt;
 
 use crate::Renderer;
@@ -21,13 +24,37 @@ pub trait GPUMeshData {
 
 pub struct MeshCell<T> {
   data: T,
-  ranges: Vec<Range<u32>>,
+  ranges: MeshGroupsInfo,
   gpu: Option<MeshCellGPU>,
 }
 
+impl<T> Mesh for MeshCell<T> {
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+    self.gpu.as_ref().unwrap().setup_pass(pass, todo!())
+  }
+
+  fn update(&mut self, renderer: &mut Renderer) {
+    todo!()
+  }
+}
+
 pub struct MeshCellGPU {
-  vertex: Vec<VertexBuffer>,
-  index: Option<IndexBuffer>,
+  vertex: Vec<wgpu::Buffer>,
+  index: Option<(wgpu::Buffer, wgpu::IndexFormat)>,
+}
+
+impl MeshCellGPU {
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, range: MeshGroup) {
+    self.vertex.iter().enumerate().for_each(|(i, gpu)| {
+      pass.set_vertex_buffer(i as u32, gpu.slice(..));
+    });
+    if let Some((index, format)) = &self.index {
+      pass.set_index_buffer(index.slice(..), *format);
+      pass.draw_indexed(range.into(), 0, 0..1);
+    } else {
+      pass.draw(range.into(), 0..1);
+    }
+  }
 }
 
 // use super::ValueID;

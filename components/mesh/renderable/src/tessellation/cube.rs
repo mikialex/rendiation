@@ -1,8 +1,8 @@
 use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use crate::{
+  group::MeshGroupsInfo,
   mesh::{IndexedMesh, TriangleList},
-  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
@@ -32,7 +32,7 @@ impl IndexedMeshTessellator for CubeMeshParameter {
 
     let mut indices = vec![];
     let mut vertices = vec![];
-    let mut ranges = MeshRangesInfo::new();
+    let mut ranges = MeshGroupsInfo::new();
 
     // helper variables
     let mut number_of_vertices = 0;
@@ -111,7 +111,7 @@ impl IndexedMeshTessellator for CubeMeshParameter {
         number_of_vertices += vertex_counter;
       };
 
-    // build each side of the box geometrys
+    // build each side of the box geometries
     build_plane(2, 1, 0, - 1, - 1, depth, height, width, depth_segment, height_segment); // px
     build_plane(2, 1, 0, 1, - 1, depth, height, - width, depth_segment, height_segment); // nx
     build_plane(0, 2, 1, 1, 1, width, depth, height, width_segment, depth_segment); // py

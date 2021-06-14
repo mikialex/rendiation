@@ -1,8 +1,8 @@
 use rendiation_algebra::*;
 
 use crate::{
+  group::MeshGroupsInfo,
   mesh::{IndexedMesh, TriangleList},
-  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
@@ -27,7 +27,7 @@ struct CylinderMeshBuilder {
   group_start: usize,
   indices: Vec<u16>,
   vertices: Vec<Vertex>,
-  ranges: MeshRangesInfo,
+  ranges: MeshGroupsInfo,
 }
 
 impl CylinderMeshBuilder {
@@ -36,7 +36,7 @@ impl CylinderMeshBuilder {
       parameter,
       indices: vec![],
       vertices: vec![],
-      ranges: MeshRangesInfo::new(),
+      ranges: MeshGroupsInfo::new(),
 
       // helper letiables
       index: 0,

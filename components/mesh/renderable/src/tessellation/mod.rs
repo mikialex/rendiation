@@ -1,6 +1,6 @@
 use crate::{
+  group::MeshGroupsInfo,
   mesh::{AbstractMesh, IndexType, IndexedMesh, NoneIndexedMesh, TriangleList},
-  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
@@ -24,15 +24,15 @@ pub trait NoneIndexedMeshTessellator<T = Vertex, P = TriangleList> {
 
 pub struct TesselationResult<T> {
   pub mesh: T,
-  pub range: MeshRangesInfo,
+  pub range: MeshGroupsInfo,
 }
 
 impl<T: AbstractMesh> TesselationResult<T> {
-  pub fn new(mesh: T, range: MeshRangesInfo) -> Self {
+  pub fn new(mesh: T, range: MeshGroupsInfo) -> Self {
     Self { mesh, range }
   }
   pub fn full_range(mesh: T) -> Self {
-    let range = MeshRangesInfo::full_range(&mesh);
+    let range = MeshGroupsInfo::full_range(&mesh);
     Self { mesh, range }
   }
 }
