@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
 
 use super::{BindableResource, MaterialHandle, ResourcePair, SamplerHandle, Scene};
@@ -9,12 +11,12 @@ pub struct SceneSampler {
 
 pub struct SamplerResource {
   gpu: Option<wgpu::Sampler>,
-  used_by: Vec<MaterialHandle>,
+  used_by: RefCell<Vec<MaterialHandle>>,
 }
 
 impl SamplerResource {
-  pub fn as_material_bind(&mut self, material: MaterialHandle) -> wgpu::BindingResource {
-    self.used_by.push(material);
+  pub fn as_material_bind(&self, material: MaterialHandle) -> wgpu::BindingResource {
+    self.used_by.borrow_mut().push(material);
     self.gpu.as_ref().unwrap().as_bindable()
   }
 }
@@ -44,8 +46,8 @@ impl SceneSampler {
       .gpu
       .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)));
   }
-  pub fn iter_material_refed(&self) -> impl Iterator<Item = MaterialHandle> + '_ {
-    self.res.used_by.iter().map(|m| *m)
+  pub fn foreach_material_refed(&self, f: impl FnMut(MaterialHandle)) {
+    self.res.used_by.borrow().iter().map(|&h| h).for_each(f)
   }
 }
 
@@ -67,7 +69,7 @@ impl Scene {
       sampler,
       res: SamplerResource {
         gpu: None,
-        used_by: Vec::new(),
+        used_by: RefCell::new(Vec::new()),
       },
     })
   }

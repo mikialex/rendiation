@@ -1,4 +1,5 @@
 pub mod background;
+pub mod bindgroup;
 pub mod camera;
 pub mod lights;
 pub mod materials;
@@ -14,6 +15,7 @@ pub mod util;
 use std::collections::HashSet;
 
 pub use background::*;
+pub use bindgroup::*;
 pub use camera::*;
 pub use lights::*;
 pub use materials::*;
@@ -61,6 +63,7 @@ pub struct Scene {
   pub active_camera: Option<Camera>,
   pub active_camera_gpu: Option<CameraBindgroup>,
   pub render_list: RenderList,
+  pub reference_finalization: ReferenceFinalization,
 }
 
 impl Scene {
@@ -79,6 +82,7 @@ impl Scene {
       active_camera: None,
       active_camera_gpu: None,
       render_list: RenderList::new(),
+      reference_finalization: Default::default(),
     }
   }
 
@@ -86,11 +90,15 @@ impl Scene {
     let mut material_change = HashSet::new();
     self.samplers.drain_modified().for_each(|(sampler, _)| {
       sampler.update(device);
-      material_change.extend(sampler.iter_material_refed());
+      sampler.foreach_material_refed(|handle| {
+        material_change.insert(handle);
+      });
     });
     self.texture_2ds.drain_modified().for_each(|(tex, _)| {
       tex.update(device, queue);
-      material_change.extend(tex.iter_material_refed());
+      tex.foreach_material_refed(|handle| {
+        material_change.insert(handle);
+      });
     });
     material_change
       .drain()

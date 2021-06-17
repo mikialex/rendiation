@@ -6,8 +6,8 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle, SceneTexture2dGpu,
-    StandardForward, Texture2DHandle, VertexBufferSourceType,
+    BindGroup, CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle,
+    SceneTexture2dGpu, StandardForward, Texture2DHandle, VertexBufferSourceType, ViewerDeviceExt,
   },
 };
 
@@ -22,26 +22,6 @@ pub struct BasicMaterial {
   pub texture: Texture2DHandle,
 }
 
-/// This trait for avoid heap allocation when build bindgroup
-// pub trait BindGroupMapper<T> {
-//   fn map(self) -> T;
-// }
-
-// impl<'a, const N: usize> BindGroupMapper<[wgpu::BindGroupEntry<'a>; N]>
-//   for [wgpu::BindingResource<'a>; N]
-// {
-//   fn map(self) -> [wgpu::BindGroupEntry<'a>; N] {
-//     self
-//       .into_iter()
-//       .enumerate()
-//       .map(|(i, resource)| wgpu::BindGroupEntry {
-//         binding: i as u32,
-//         resource: *resource,
-//       })
-//       .collect()
-//   }
-// }
-
 impl BasicMaterial {
   pub fn create_bindgroup<S>(
     &self,
@@ -51,33 +31,13 @@ impl BasicMaterial {
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
-  ) -> wgpu::BindGroup {
-    device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout,
-      entries: &[
-        wgpu::BindGroupEntry {
-          binding: 0,
-          resource: ubo.as_entire_binding(),
-        },
-        wgpu::BindGroupEntry {
-          binding: 1,
-          resource: ctx
-            .textures
-            .get_resource_mut(self.texture)
-            .unwrap()
-            .as_material_bind(handle),
-        },
-        wgpu::BindGroupEntry {
-          binding: 2,
-          resource: ctx
-            .samplers
-            .get_resource_mut(self.sampler)
-            .unwrap()
-            .as_material_bind(handle),
-        },
-      ],
-      label: None,
-    })
+  ) -> BindGroup {
+    device
+      .material_bindgroup_builder(handle)
+      .push(ubo.as_entire_binding())
+      .push_texture2d(ctx, self.texture)
+      .push_sampler(ctx, self.sampler)
+      .build(layout)
   }
 
   pub fn get_shader_header() -> &'static str {
@@ -128,7 +88,7 @@ impl BasicMaterial {
 pub struct BasicMaterialGPU {
   uniform: UniformBuffer<Vec3<f32>>,
   bindgroup_layout: wgpu::BindGroupLayout,
-  bindgroup: wgpu::BindGroup,
+  bindgroup: BindGroup,
 }
 
 impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
@@ -150,7 +110,7 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
     let pipeline = ctx.pipelines.basic.as_ref().unwrap();
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
-    pass.set_bind_group(1, &self.bindgroup, &[]);
+    pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 }

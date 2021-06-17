@@ -124,6 +124,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           active_mesh: mesh,
           textures: &mut scene.texture_2ds,
           samplers: &mut scene.samplers,
+          reference_finalization: &scene.reference_finalization,
         };
         S::material_update(material, renderer, &mut ctx);
         mesh.update(renderer);

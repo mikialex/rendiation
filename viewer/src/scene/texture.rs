@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::renderer::{BindableResource, SceneTexture2dGpu, SceneTexture2dSource};
 
 use super::{MaterialHandle, ResourcePair, Scene, Texture2DHandle};
@@ -9,12 +11,12 @@ pub struct SceneTexture2D {
 
 pub struct SceneTexture2DResource {
   gpu: Option<SceneTexture2dGpu>,
-  used_by: Vec<MaterialHandle>,
+  used_by: RefCell<Vec<MaterialHandle>>,
 }
 
 impl SceneTexture2DResource {
-  pub fn as_material_bind(&mut self, material: MaterialHandle) -> wgpu::BindingResource {
-    self.used_by.push(material);
+  pub fn as_material_bind(&self, material: MaterialHandle) -> wgpu::BindingResource {
+    self.used_by.borrow_mut().push(material);
     self.gpu.as_ref().unwrap().as_bindable()
   }
 }
@@ -44,8 +46,8 @@ impl SceneTexture2D {
       .gpu
       .get_or_insert_with(|| SceneTexture2dGpu::create(&device, queue, self.data.as_ref()));
   }
-  pub fn iter_material_refed(&self) -> impl Iterator<Item = MaterialHandle> + '_ {
-    self.res.used_by.iter().map(|m| *m)
+  pub fn foreach_material_refed(&self, f: impl FnMut(MaterialHandle)) {
+    self.res.used_by.borrow().iter().map(|&h| h).for_each(f)
   }
 }
 
@@ -55,7 +57,7 @@ impl Scene {
       data: Box::new(texture),
       res: SceneTexture2DResource {
         gpu: None,
-        used_by: Vec::new(),
+        used_by: RefCell::new(Vec::new()),
       },
     })
   }
