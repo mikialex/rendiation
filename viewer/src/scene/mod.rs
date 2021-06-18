@@ -102,7 +102,14 @@ impl Scene {
     });
     material_change
       .drain()
-      .for_each(|h| self.materials.get_mut(h).unwrap().on_ref_resource_changed())
+      .for_each(|h| self.materials.get_mut(h).unwrap().on_ref_resource_changed());
+
+    self
+      .reference_finalization
+      .maintain(ReferenceFinalizationMaintainCtx {
+        samplers: &self.samplers,
+        texture_2ds: &self.texture_2ds,
+      });
   }
 
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {

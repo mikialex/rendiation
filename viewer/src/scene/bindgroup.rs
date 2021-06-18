@@ -3,7 +3,10 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use super::{MaterialHandle, SamplerHandle, SceneMaterialRenderPrepareCtx, Texture2DHandle};
+use super::{
+  MaterialHandle, SamplerHandle, SceneMaterialRenderPrepareCtx, SceneSampler, SceneTexture2D,
+  Texture2DHandle, WatchedArena,
+};
 
 pub struct BindGroup {
   pub gpu: wgpu::BindGroup,
@@ -12,10 +15,24 @@ pub struct BindGroup {
 
 #[derive(Default)]
 pub struct ReferenceFinalization {
-  deleting: Rc<RefCell<Vec<MaterialTextureReference>>>,
+  deleting: Rc<RefCell<Vec<MaterialResourceReference>>>,
+}
+
+pub struct ReferenceFinalizationMaintainCtx<'a> {
+  pub samplers: &'a WatchedArena<SceneSampler>,
+  pub texture_2ds: &'a WatchedArena<SceneTexture2D>,
 }
 
 impl ReferenceFinalization {
+  pub fn maintain(&mut self, ctx: ReferenceFinalizationMaintainCtx) {
+    self.deleting.borrow_mut().drain(..).for_each(|r|{
+      match r {
+        MaterialResourceReference::Texture2d(_) => todo!(),
+        MaterialResourceReference::Sampler(_) => todo!(),
+    }
+    })
+  }
+
   pub fn create_sender(&self) -> ReferenceSender {
     ReferenceSender {
       deleting: Rc::downgrade(&self.deleting),
@@ -24,17 +41,23 @@ impl ReferenceFinalization {
 }
 
 pub struct ReferenceSender {
-  deleting: Weak<RefCell<Vec<MaterialTextureReference>>>,
+  deleting: Weak<RefCell<Vec<MaterialResourceReference>>>,
 }
 
 #[derive(Clone, Copy)]
-pub struct MaterialTextureReference {
+pub struct ReferenceRecord<T> {
   material: MaterialHandle,
-  texture: Texture2DHandle,
+  resource: T,
+}
+
+#[derive(Clone, Copy)]
+pub enum MaterialResourceReference {
+  Texture2d(ReferenceRecord<Texture2DHandle>),
+  Sampler(ReferenceRecord<SamplerHandle>),
 }
 
 pub struct MaterialTextureReferenceFinalizer {
-  reference: MaterialTextureReference,
+  reference: MaterialResourceReference,
   sender: ReferenceSender,
 }
 
@@ -95,10 +118,10 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     );
 
     self.references.push(MaterialTextureReferenceFinalizer {
-      reference: MaterialTextureReference {
+      reference: MaterialResourceReference::Texture2d(ReferenceRecord {
         material: self.handle,
-        texture: handle,
-      },
+        resource: handle,
+      }),
       sender: ctx.reference_finalization.create_sender(),
     });
     self
@@ -116,6 +139,14 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
         .unwrap()
         .as_material_bind(self.handle),
     );
+
+    self.references.push(MaterialTextureReferenceFinalizer {
+      reference: MaterialResourceReference::Sampler(ReferenceRecord {
+        material: self.handle,
+        resource: handle,
+      }),
+      sender: ctx.reference_finalization.create_sender(),
+    });
     self
   }
 
