@@ -19,6 +19,9 @@ impl SamplerResource {
     self.used_by.borrow_mut().push(material);
     self.gpu.as_ref().unwrap().as_bindable()
   }
+  pub fn remove_material_bind(&self, material: MaterialHandle) {
+    //
+  }
 }
 
 impl ResourcePair for SceneSampler {
