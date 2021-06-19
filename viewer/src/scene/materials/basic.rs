@@ -189,7 +189,7 @@ impl MaterialCPUResource for BasicMaterial {
         push_constant_ranges: &[],
       });
 
-    let vertex_buffers = [Vertex::get_layout()];
+    let vertex_buffers = [Vertex::vertex_layout()];
     let pipeline = renderer
       .device
       .create_render_pipeline(&wgpu::RenderPipelineDescriptor {

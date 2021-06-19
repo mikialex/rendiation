@@ -6,18 +6,19 @@ use super::*;
 pub struct Model {
   pub material: MaterialHandle,
   pub mesh: MeshHandle,
-  pub range: MeshDrawRange,
+  pub group: MeshDrawGroup,
   pub node: SceneNodeHandle,
 }
 
-pub enum MeshDrawRange {
+#[derive(Debug, Clone, Copy)]
+pub enum MeshDrawGroup {
   Full,
   SubMesh(usize),
 }
 
 pub struct ModelPassSetupContext<'a, S> {
   pub materials: &'a Arena<Box<dyn Material>>,
-  pub meshes: &'a Arena<SceneMesh>,
+  pub meshes: &'a Arena<Box<dyn Mesh>>,
   pub material_ctx: SceneMaterialPassSetupCtx<'a, S>,
 }
 

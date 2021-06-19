@@ -1,9 +1,47 @@
-use rendiation_renderable_mesh::mesh::IndexedMesh;
+use rendiation_renderable_mesh::{group::MeshGroup, mesh::IndexedMesh};
+use wgpu::util::DeviceExt;
 
-use super::{GPUMeshData, MeshCellGPU};
+use crate::scene::MeshDrawGroup;
 
-impl<I, V, T, U> GPUMeshData for IndexedMesh<I, V, T, U> {
-  fn update(&self, gpu: &mut Option<MeshCellGPU>, device: wgpu::Device) {
-    todo!()
+use super::{GPUMeshData, IndexBufferSourceType, MeshGPU, VertexBufferSourceType};
+
+impl<I, V, T> GPUMeshData for IndexedMesh<I, V, T, Vec<V>>
+where
+  V: VertexBufferSourceType,
+  I: IndexBufferSourceType,
+{
+  fn update(&self, gpu: &mut Option<MeshGPU>, device: &wgpu::Device) {
+    gpu.get_or_insert_with(|| {
+      let vertex = bytemuck::cast_slice(self.data.as_slice());
+      let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: vertex,
+        usage: wgpu::BufferUsage::VERTEX,
+      });
+      let vertex = vec![vertex];
+
+      let index = bytemuck::cast_slice(self.index.as_slice());
+      let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: index,
+        usage: wgpu::BufferUsage::INDEX,
+      });
+      let index = (index, I::FORMAT).into();
+
+      MeshGPU { vertex, index }
+    });
+  }
+  fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
+    vec![V::vertex_layout()]
+  }
+
+  fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
+    match group {
+      MeshDrawGroup::Full => MeshGroup {
+        start: 0,
+        count: self.index.len(), // todo use renderable mesh trait
+      },
+      MeshDrawGroup::SubMesh(_) => todo!(),
+    }
   }
 }

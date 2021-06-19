@@ -7,8 +7,7 @@ use winit::event::*;
 use crate::{
   renderer::Renderer,
   scene::{
-    BasicMaterial, Camera, IndexBuffer, MeshDrawRange, Model, RenderPassDispatcher, Scene,
-    SceneMesh, StandardForward, VertexBuffer,
+    BasicMaterial, Camera, MeshDrawGroup, Model, RenderPassDispatcher, Scene, StandardForward,
   },
 };
 
@@ -45,17 +44,12 @@ impl Application {
     let mesh = SphereMeshParameter::default().tessellate();
     let range = mesh.range.ranges[0];
     let mesh = mesh.mesh;
-    let mesh = SceneMesh::new(
-      vec![VertexBuffer::new(mesh.data)],
-      IndexBuffer::new(mesh.index).into(),
-      range.start as u32..range.count as u32,
-    );
     let mesh = scene.add_mesh(mesh);
 
     let model = Model {
       material,
       mesh,
-      range: MeshDrawRange::Full,
+      group: MeshDrawGroup::Full,
       node: scene.get_root_handle(),
     };
 

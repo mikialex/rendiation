@@ -6,8 +6,9 @@ use rendiation_algebra::Mat4;
 use crate::Renderer;
 
 use super::{
-  Camera, CameraBindgroup, Material, MaterialHandle, ModelTransformGPU, ReferenceFinalization,
-  RenderStyle, Scene, SceneMesh, SceneSampler, SceneTexture2D, StandardForward, WatchedArena,
+  Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ModelTransformGPU,
+  ReferenceFinalization, RenderStyle, Scene, SceneSampler, SceneTexture2D, StandardForward,
+  WatchedArena,
 };
 
 impl Scene {
@@ -85,7 +86,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub model_gpu: &'a ModelTransformGPU,
   pub pipelines: &'a mut PipelineResourceManager,
   pub style: &'a S,
-  pub active_mesh: &'a SceneMesh,
+  pub active_mesh: &'a Box<dyn Mesh>,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub samplers: &'a mut WatchedArena<SceneSampler>,
   pub reference_finalization: &'a ReferenceFinalization,

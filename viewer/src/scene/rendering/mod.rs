@@ -76,7 +76,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
 
       S::material_setup_pass(material, pass, &ctx);
       let mesh = scene.meshes.get(model.mesh).unwrap();
-      mesh.setup_pass(pass);
+      mesh.setup_pass(pass, model.group);
     })
   }
 
