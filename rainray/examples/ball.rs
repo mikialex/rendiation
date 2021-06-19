@@ -10,7 +10,7 @@ fn main() {
     Vec3::new(0., 5., 0.),
     Vec3::new(0., 1., 0.),
   );
-  perspective.update_projection(&mut camera.projection_matrix);
+  perspective.update_projection::<OpenGL>(&mut camera.projection_matrix);
 
   let mut frame = Frame::new(500, 500);
   let mut scene = Scene::new();

@@ -87,3 +87,33 @@ pub trait SpaceEntityCopyable<T: Scalar, const D: usize>: Copy + SpaceEntity<T, 
 }
 
 impl<T: Scalar, const D: usize, X: Copy + SpaceEntity<T, D>> SpaceEntityCopyable<T, D> for X {}
+
+// pub trait Chirality { }
+// pub struct Left;
+// pub struct Right;
+
+pub trait NDCSpaceMapper {
+  fn from_opengl_standard<T: Scalar>() -> Mat4<T>;
+}
+
+pub struct OpenGL;
+
+impl NDCSpaceMapper for OpenGL {
+  fn from_opengl_standard<T: Scalar>() -> Mat4<T> {
+    Mat4::identity()
+  }
+}
+
+pub struct WebGPU;
+
+impl NDCSpaceMapper for WebGPU {
+  fn from_opengl_standard<T: Scalar>() -> Mat4<T> {
+    #[rustfmt::skip]
+    Mat4::new(
+      T::one(),  T::zero(), T::zero(), T::zero(),
+      T::zero(), T::one(),  T::zero(), T::zero(),
+      T::zero(), T::zero(), T::half(), T::zero(),
+      T::zero(), T::zero(), T::half(), T::one(),
+    )
+  }
+}

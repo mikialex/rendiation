@@ -1,4 +1,4 @@
-use crate::{Mat4, Projection, ResizableProjection, Scalar};
+use crate::{Mat4, NDCSpaceMapper, Projection, ResizableProjection, Scalar};
 
 pub struct OrthographicProjection {
   pub left: f32,
@@ -23,8 +23,8 @@ impl Default for OrthographicProjection {
 }
 
 impl Projection for OrthographicProjection {
-  fn update_projection(&self, projection: &mut Mat4<f32>) {
-    *projection = Mat4::ortho(
+  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<f32>) {
+    *projection = Mat4::ortho::<S>(
       self.left,
       self.right,
       self.bottom,
@@ -71,8 +71,8 @@ impl Default for ViewFrustumOrthographicProjection {
 }
 
 impl Projection for ViewFrustumOrthographicProjection {
-  fn update_projection(&self, projection: &mut Mat4<f32>) {
-    self.orth.update_projection(projection);
+  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<f32>) {
+    self.orth.update_projection::<S>(projection);
   }
 }
 
@@ -83,55 +83,23 @@ impl ResizableProjection for ViewFrustumOrthographicProjection {
 }
 
 impl<T: Scalar> Mat4<T> {
-  pub fn ortho_lh(left: T, right: T, bottom: T, top: T, znear: T, zfar: T) -> Self {
-    let tx = -(right + left) / (right - left);
-    let ty = -(top + bottom) / (top - bottom);
-    let tz = -znear / (zfar - znear);
-    let cx = T::two() / (right - left);
-    let cy = T::two() / (top - bottom);
-    let cz = T::two() / (zfar - znear);
-
-    #[rustfmt::skip]
-    Mat4::new(
-      cx,        T::zero(), T::zero(), T::zero(),
-      T::zero(), cy,        T::zero(), T::zero(),
-      T::zero(), T::zero(), cz,        T::zero(),
-      tx,        ty,        tz,        T::one(),
-    )
-  }
-
-  pub fn ortho_rh(left: T, right: T, bottom: T, top: T, znear: T, zfar: T) -> Self {
-    let tx = -(right + left) / (right - left);
-    let ty = -(top + bottom) / (top - bottom);
-    let tz = -(zfar + znear) / (zfar - znear);
-    let cx = T::two() / (right - left);
-    let cy = T::two() / (top - bottom);
-    let cz = -T::two() / (zfar - znear);
-
-    #[rustfmt::skip]
-    Mat4::new(
-      cx,        T::zero(), T::zero(), T::zero(),
-      T::zero(), cy,        T::zero(), T::zero(),
-      T::zero(), T::zero(), cz,        T::zero(),
-      tx,        ty,        tz,        T::one(),
-    )
-  }
-
-  pub fn ortho(left: T, right: T, bottom: T, top: T, znear: T, zfar: T) -> Self {
+  pub fn ortho<S: NDCSpaceMapper>(left: T, right: T, bottom: T, top: T, near: T, far: T) -> Self {
     let w = T::one() / (right - left);
     let h = T::one() / (top - bottom);
-    let p = T::one() / (zfar - znear);
+    let p = T::one() / (far - near);
 
     let x = (right + left) * w;
     let y = (top + bottom) * h;
-    let z = (zfar + znear) * p;
+    let z = (far + near) * p;
 
     #[rustfmt::skip]
-    Mat4::new(
+    let mat = Mat4::new(
       T::two() * w, T::zero(),    T::zero(),    T::zero(),
       T::zero(),    T::two() * h, T::zero(),    T::zero(),
       T::zero(),    T::zero(),   -T::two() * p, T::zero(),
       -x,           -y,           -z,           T::one(),
-    )
+    );
+
+    S::from_opengl_standard::<T>() * mat
   }
 }

@@ -80,7 +80,7 @@ fn main() {
     Vec3::new(0., width_all / 2., 0.),
     Vec3::new(0., 1., 0.),
   );
-  perspective.update_projection(&mut camera.projection_matrix);
+  perspective.update_projection::<OpenGL>(&mut camera.projection_matrix);
 
   renderer.render(&camera, &mut scene, &mut frame);
   frame.write_result("ball_array");
