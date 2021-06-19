@@ -1,6 +1,6 @@
 use crate::{
-  group::{GroupedMesh, MeshGroupsInfo},
-  mesh::{AbstractMesh, IndexType, IndexedMesh, NoneIndexedMesh, TriangleList},
+  group::GroupedMesh,
+  mesh::{IndexType, IndexedMesh, NoneIndexedMesh, TriangleList},
   vertex::Vertex,
 };
 

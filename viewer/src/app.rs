@@ -1,6 +1,8 @@
 use rendiation_algebra::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
-use rendiation_renderable_mesh::tessellation::{IndexedMeshTessellator, SphereMeshParameter};
+use rendiation_renderable_mesh::tessellation::{
+  CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
+};
 use rendiation_texture::TextureSampler;
 use winit::event::*;
 
@@ -41,17 +43,33 @@ impl Application {
     };
     let material = scene.add_material(material);
 
-    let mesh = SphereMeshParameter::default().tessellate();
-    let mesh = scene.add_mesh(mesh);
+    {
+      let mesh = SphereMeshParameter::default().tessellate();
+      let mesh = scene.add_mesh(mesh);
 
-    let model = Model {
-      material,
-      mesh,
-      group: MeshDrawGroup::Full,
-      node: scene.get_root_handle(),
-    };
+      let model = Model {
+        material,
+        mesh,
+        group: MeshDrawGroup::Full,
+        node: scene.get_root_handle(),
+      };
 
-    scene.add_model(model);
+      scene.add_model(model);
+    }
+
+    {
+      let mesh = CubeMeshParameter::default().tessellate();
+      let mesh = scene.add_mesh(mesh);
+
+      let model = Model {
+        material,
+        mesh,
+        group: MeshDrawGroup::SubMesh(1),
+        node: scene.get_root_handle(),
+      };
+
+      scene.add_model(model);
+    }
 
     let camera = PerspectiveProjection::default();
     let camera_node = scene.create_node(|node, _| {

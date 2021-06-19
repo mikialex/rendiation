@@ -18,6 +18,19 @@ pub struct CubeMeshParameter {
   pub depth_segment: usize,
 }
 
+impl Default for CubeMeshParameter {
+  fn default() -> Self {
+    Self {
+      width: 1.,
+      height: 1.,
+      depth: 1.,
+      width_segment: 1,
+      height_segment: 1,
+      depth_segment: 1,
+    }
+  }
+}
+
 #[rustfmt::skip]
 impl IndexedMeshTessellator for CubeMeshParameter {
   fn tessellate(&self) ->  GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
