@@ -15,7 +15,7 @@ impl From<MeshGroup> for Range<u32> {
 }
 
 pub struct MeshGroupsInfo {
-  pub ranges: Vec<MeshGroup>,
+  pub groups: Vec<MeshGroup>,
 }
 
 impl Default for MeshGroupsInfo {
@@ -26,16 +26,31 @@ impl Default for MeshGroupsInfo {
 
 impl MeshGroupsInfo {
   pub fn new() -> Self {
-    Self { ranges: Vec::new() }
+    Self { groups: Vec::new() }
   }
 
   pub fn push(&mut self, start: usize, count: usize) {
-    self.ranges.push(MeshGroup { start, count });
+    self.groups.push(MeshGroup { start, count });
   }
 
-  pub fn full_range<T: AbstractMesh>(mesh: &T) -> Self {
+  pub fn full<T: AbstractMesh>(mesh: &T) -> Self {
     let mut ranges = MeshGroupsInfo::new();
     ranges.push(0, mesh.draw_count());
     ranges
+  }
+}
+
+pub struct GroupedMesh<T> {
+  pub mesh: T,
+  pub groups: MeshGroupsInfo,
+}
+
+impl<T: AbstractMesh> GroupedMesh<T> {
+  pub fn new(mesh: T, groups: MeshGroupsInfo) -> Self {
+    Self { mesh, groups }
+  }
+  pub fn full(mesh: T) -> Self {
+    let groups = MeshGroupsInfo::full(&mesh);
+    Self { mesh, groups }
   }
 }

@@ -42,8 +42,6 @@ impl Application {
     let material = scene.add_material(material);
 
     let mesh = SphereMeshParameter::default().tessellate();
-    let range = mesh.range.ranges[0];
-    let mesh = mesh.mesh;
     let mesh = scene.add_mesh(mesh);
 
     let model = Model {

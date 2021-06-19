@@ -6,7 +6,7 @@ use crate::{
   vertex::Vertex,
 };
 
-use super::{IndexedMeshTessellator, TesselationResult};
+use super::{GroupedMesh, IndexedMeshTessellator};
 
 #[derive(Copy, Clone, Debug)]
 pub struct CubeMeshParameter {
@@ -20,7 +20,7 @@ pub struct CubeMeshParameter {
 
 #[rustfmt::skip]
 impl IndexedMeshTessellator for CubeMeshParameter {
-  fn tessellate(&self) ->  TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+  fn tessellate(&self) ->  GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -119,6 +119,6 @@ impl IndexedMeshTessellator for CubeMeshParameter {
     build_plane(0, 1, 2, 1, - 1, width, height, depth, width_segment, height_segment); // pz
     build_plane(0, 1, 2, - 1, - 1, width, height, - depth, width_segment, height_segment); // nz
 
-    TesselationResult::new(IndexedMesh::new(vertices, indices), ranges)
+    GroupedMesh::new(IndexedMesh::new(vertices, indices), ranges)
   }
 }

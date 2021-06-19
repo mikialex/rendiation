@@ -6,7 +6,7 @@ use crate::{
   vertex::Vertex,
 };
 
-use super::{IndexedMeshTessellator, TesselationResult};
+use super::{GroupedMesh, IndexedMeshTessellator};
 
 #[derive(Copy, Clone, Debug)]
 pub struct CylinderMeshParameter {
@@ -216,7 +216,7 @@ impl CylinderMeshBuilder {
 }
 
 impl IndexedMeshTessellator for CylinderMeshParameter {
-  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
     let mut builder = CylinderMeshBuilder::new(*self);
 
     // generate mesh
@@ -231,7 +231,7 @@ impl IndexedMeshTessellator for CylinderMeshParameter {
       };
     }
 
-    TesselationResult::new(
+    GroupedMesh::new(
       IndexedMesh::new(builder.vertices, builder.indices),
       builder.ranges,
     )

@@ -1,18 +1,21 @@
-use rendiation_renderable_mesh::{group::MeshGroup, mesh::IndexedMesh};
+use rendiation_renderable_mesh::{
+  group::{GroupedMesh, MeshGroup},
+  mesh::IndexedMesh,
+};
 use wgpu::util::DeviceExt;
 
 use crate::scene::MeshDrawGroup;
 
 use super::{GPUMeshData, IndexBufferSourceType, MeshGPU, VertexBufferSourceType};
 
-impl<I, V, T> GPUMeshData for IndexedMesh<I, V, T, Vec<V>>
+impl<I, V, T> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 where
   V: VertexBufferSourceType,
   I: IndexBufferSourceType,
 {
   fn update(&self, gpu: &mut Option<MeshGPU>, device: &wgpu::Device) {
     gpu.get_or_insert_with(|| {
-      let vertex = bytemuck::cast_slice(self.data.as_slice());
+      let vertex = bytemuck::cast_slice(self.mesh.data.as_slice());
       let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: vertex,
@@ -20,7 +23,7 @@ where
       });
       let vertex = vec![vertex];
 
-      let index = bytemuck::cast_slice(self.index.as_slice());
+      let index = bytemuck::cast_slice(self.mesh.index.as_slice());
       let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: index,
@@ -39,9 +42,9 @@ where
     match group {
       MeshDrawGroup::Full => MeshGroup {
         start: 0,
-        count: self.index.len(), // todo use renderable mesh trait
+        count: self.mesh.index.len(), // todo use renderable mesh trait
       },
-      MeshDrawGroup::SubMesh(_) => todo!(),
+      MeshDrawGroup::SubMesh(i) => *self.groups.groups.get(i).unwrap(),
     }
   }
 }
