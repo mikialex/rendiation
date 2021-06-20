@@ -1,56 +1,13 @@
-use std::cell::RefCell;
-
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
 
-use super::{BindableResource, MaterialHandle, ResourcePair, SamplerHandle, Scene};
+use crate::renderer::BindableResource;
 
-pub struct SceneSampler {
-  sampler: TextureSampler,
-  res: SamplerResource,
-}
+use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, SamplerHandle, Scene};
 
-pub struct SamplerResource {
-  gpu: Option<wgpu::Sampler>,
-  used_by: RefCell<Vec<MaterialHandle>>,
-}
-
-impl SamplerResource {
-  pub fn as_material_bind(&self, material: MaterialHandle) -> wgpu::BindingResource {
-    self.used_by.borrow_mut().push(material);
-    self.gpu.as_ref().unwrap().as_bindable()
-  }
-  pub fn remove_material_bind(&self, material: MaterialHandle) {
-    //
-  }
-}
-
-impl ResourcePair for SceneSampler {
-  type Data = TextureSampler;
-  type Resource = SamplerResource;
-  fn data(&self) -> &Self::Data {
-    &self.sampler
-  }
-  fn resource(&self) -> &Self::Resource {
-    &self.res
-  }
-  fn data_mut(&mut self) -> &mut Self::Data {
-    self.res.gpu = None;
-    &mut self.sampler
-  }
-  fn resource_mut(&mut self) -> &mut Self::Resource {
-    &mut self.res
-  }
-}
-
-impl SceneSampler {
-  pub fn update(&mut self, device: &wgpu::Device) {
-    self
-      .res
-      .gpu
-      .get_or_insert_with(|| device.create_sampler(&convert(self.sampler)));
-  }
-  pub fn foreach_material_refed(&self, f: impl FnMut(MaterialHandle)) {
-    self.res.used_by.borrow().iter().map(|&h| h).for_each(f)
+impl MaterialBindableResourceUpdate for TextureSampler {
+  type GPU = wgpu::Sampler;
+  fn update(&self, gpu: &mut Option<Self::GPU>, device: &wgpu::Device, queue: &wgpu::Queue) {
+    gpu.get_or_insert_with(|| device.create_sampler(&convert(*self)));
   }
 }
 
@@ -66,15 +23,11 @@ impl BindableResource for wgpu::Sampler {
   }
 }
 
+pub type SceneSampler = MaterialBindableItemPair<TextureSampler, wgpu::Sampler>;
+
 impl Scene {
   pub fn add_sampler(&mut self, sampler: TextureSampler) -> SamplerHandle {
-    self.samplers.insert(SceneSampler {
-      sampler,
-      res: SamplerResource {
-        gpu: None,
-        used_by: RefCell::new(Vec::new()),
-      },
-    })
+    self.samplers.insert(MaterialBindableItemPair::new(sampler))
   }
 }
 

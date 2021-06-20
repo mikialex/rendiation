@@ -1,3 +1,6 @@
+pub mod bindable;
+pub use bindable::*;
+
 pub mod basic;
 pub use basic::*;
 

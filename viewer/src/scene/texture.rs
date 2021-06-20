@@ -1,68 +1,21 @@
-use std::cell::RefCell;
+use crate::renderer::{SceneTexture2dGpu, SceneTexture2dSource};
 
-use crate::renderer::{BindableResource, SceneTexture2dGpu, SceneTexture2dSource};
+use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, Scene, Texture2DHandle};
 
-use super::{MaterialHandle, ResourcePair, Scene, Texture2DHandle};
-
-pub struct SceneTexture2D {
-  data: Box<dyn SceneTexture2dSource>,
-  res: SceneTexture2DResource,
-}
-
-pub struct SceneTexture2DResource {
-  gpu: Option<SceneTexture2dGpu>,
-  used_by: RefCell<Vec<MaterialHandle>>,
-}
-
-impl SceneTexture2DResource {
-  pub fn as_material_bind(&self, material: MaterialHandle) -> wgpu::BindingResource {
-    self.used_by.borrow_mut().push(material);
-    self.gpu.as_ref().unwrap().as_bindable()
-  }
-
-  pub fn remove_material_bind(&self, material: MaterialHandle) {
-    //
+impl MaterialBindableResourceUpdate for Box<dyn SceneTexture2dSource> {
+  type GPU = SceneTexture2dGpu;
+  fn update(&self, gpu: &mut Option<Self::GPU>, device: &wgpu::Device, queue: &wgpu::Queue) {
+    gpu.get_or_insert_with(|| SceneTexture2dGpu::create(&device, queue, self.as_ref()));
   }
 }
 
-impl ResourcePair for SceneTexture2D {
-  type Data = Box<dyn SceneTexture2dSource>;
-  type Resource = SceneTexture2DResource;
-  fn data(&self) -> &Self::Data {
-    &self.data
-  }
-  fn resource(&self) -> &Self::Resource {
-    &self.res
-  }
-  fn data_mut(&mut self) -> &mut Self::Data {
-    self.res.gpu = None;
-    &mut self.data
-  }
-  fn resource_mut(&mut self) -> &mut Self::Resource {
-    &mut self.res
-  }
-}
-
-impl SceneTexture2D {
-  pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-    self
-      .res
-      .gpu
-      .get_or_insert_with(|| SceneTexture2dGpu::create(&device, queue, self.data.as_ref()));
-  }
-  pub fn foreach_material_refed(&self, f: impl FnMut(MaterialHandle)) {
-    self.res.used_by.borrow().iter().map(|&h| h).for_each(f)
-  }
-}
+pub type SceneTexture2D =
+  MaterialBindableItemPair<Box<dyn SceneTexture2dSource>, SceneTexture2dGpu>;
 
 impl Scene {
   pub fn add_texture2d(&mut self, texture: impl SceneTexture2dSource) -> Texture2DHandle {
-    self.texture_2ds.insert(SceneTexture2D {
-      data: Box::new(texture),
-      res: SceneTexture2DResource {
-        gpu: None,
-        used_by: RefCell::new(Vec::new()),
-      },
-    })
+    self
+      .texture_2ds
+      .insert(MaterialBindableItemPair::new(Box::new(texture)))
   }
 }
