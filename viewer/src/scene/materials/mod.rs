@@ -1,4 +1,9 @@
 pub mod bindable;
+use std::{
+  any::{Any, TypeId},
+  collections::HashMap,
+};
+
 pub use bindable::*;
 
 pub mod basic;
@@ -147,11 +152,15 @@ where
 }
 
 pub struct PipelineResourceManager {
+  pub materials: HashMap<TypeId, Box<dyn Any>>,
   pub basic: Option<wgpu::RenderPipeline>,
 }
 
 impl PipelineResourceManager {
   pub fn new() -> Self {
-    Self { basic: None }
+    Self {
+      materials: HashMap::new(),
+      basic: None,
+    }
   }
 }

@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Mutex};
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
@@ -6,13 +6,14 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    BindGroup, CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle,
-    SceneTexture2dGpu, StandardForward, Texture2DHandle, VertexBufferSourceType, ViewerDeviceExt,
+    BindGroup, CameraBindgroup, MaterialHandle, Mesh, ModelTransformGPU, SamplerHandle,
+    SceneTexture2dGpu, StandardForward, Texture2DHandle, ValueID, ValueIDGenerator,
+    VertexBufferSourceType, ViewerDeviceExt,
   },
 };
 
 use super::{
-  MaterialCPUResource, MaterialGPUResource, SceneMaterialPassSetupCtx,
+  MaterialCPUResource, MaterialGPUResource, PipelineResourceManager, SceneMaterialPassSetupCtx,
   SceneMaterialRenderPrepareCtx,
 };
 
@@ -20,6 +21,7 @@ pub struct BasicMaterial {
   pub color: Vec3<f32>,
   pub sampler: SamplerHandle,
   pub texture: Texture2DHandle,
+  pub states: PreferredMaterialStates,
 }
 
 impl BasicMaterial {
@@ -86,6 +88,7 @@ impl BasicMaterial {
 }
 
 pub struct BasicMaterialGPU {
+  state_id: ValueID<PreferredMaterialStates>,
   uniform: UniformBuffer<Vec3<f32>>,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: BindGroup,
@@ -227,7 +230,10 @@ impl MaterialCPUResource for BasicMaterial {
 
     ctx.pipelines.basic = pipeline.into();
 
+    let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
+
     BasicMaterialGPU {
+      state_id,
       uniform,
       bindgroup_layout,
       bindgroup,
@@ -235,8 +241,38 @@ impl MaterialCPUResource for BasicMaterial {
   }
 }
 
-struct RenderPipelineBuilder {
-  primitive: wgpu::PrimitiveState,
-  depth_stencil: Option<wgpu::DepthStencilState>,
-  multisample: wgpu::MultisampleState,
+static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<PreferredMaterialStates>>> =
+  once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub struct PreferredMaterialStates {
+  pub depth_write_enabled: bool,
+  pub depth_compare: wgpu::CompareFunction,
+  // pub stencil: wgpu::StencilState,
+  // pub bias: Default::default(),
+  pub blend: Option<wgpu::BlendState>,
+  pub write_mask: wgpu::ColorWrite,
+}
+
+impl Default for PreferredMaterialStates {
+  fn default() -> Self {
+    todo!()
+  }
+}
+
+pub struct PipelineTopologyVariant {}
+
+pub trait MaterialPipelineStorage<M> {
+  fn request(&mut self, material: &M, mesh: &dyn Mesh);
+  fn retrieve(&self) -> &wgpu::RenderPipeline;
+}
+
+impl MaterialPipelineStorage<BasicMaterial> for PipelineResourceManager {
+  fn request(&mut self, material: &BasicMaterial, mesh: &dyn Mesh) {
+    todo!()
+  }
+
+  fn retrieve(&self) -> &wgpu::RenderPipeline {
+    todo!()
+  }
 }

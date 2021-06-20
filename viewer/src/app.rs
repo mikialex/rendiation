@@ -40,6 +40,7 @@ impl Application {
       color: Vec3::splat(1.),
       sampler,
       texture,
+      states: Default::default(),
     };
     let material = scene.add_material(material);
 
