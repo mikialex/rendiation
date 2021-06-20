@@ -206,25 +206,18 @@ impl MaterialCPUResource for BasicMaterial {
         fragment: Some(wgpu::FragmentState {
           module: &shader,
           entry_point: "fs_main",
-          targets: &[renderer.get_prefer_target_format().into()],
+          targets: &[self
+            .states
+            .map_color_states(renderer.get_prefer_target_format())],
         }),
-        // primitive: wgpu::PrimitiveState {
-        //   cull_mode: wgpu::Face::Back.into(),
-        //   ..Default::default()
-        // },
         primitive: wgpu::PrimitiveState {
           cull_mode: None,
           topology: wgpu::PrimitiveTopology::TriangleList,
           ..Default::default()
         },
-        depth_stencil: wgpu::DepthStencilState {
-          format: StandardForward::depth_format(),
-          depth_write_enabled: true,
-          depth_compare: wgpu::CompareFunction::Less,
-          stencil: Default::default(),
-          bias: Default::default(),
-        }
-        .into(),
+        depth_stencil: self
+          .states
+          .map_depth_stencil_state(StandardForward::depth_format().into()),
         multisample: wgpu::MultisampleState::default(),
       });
 
@@ -254,9 +247,36 @@ pub struct PreferredMaterialStates {
   pub write_mask: wgpu::ColorWrite,
 }
 
+impl PreferredMaterialStates {
+  fn map_color_states(&self, format: wgpu::TextureFormat) -> wgpu::ColorTargetState {
+    wgpu::ColorTargetState {
+      format,
+      blend: self.blend,
+      write_mask: self.write_mask,
+    }
+  }
+  fn map_depth_stencil_state(
+    &self,
+    format: Option<wgpu::TextureFormat>,
+  ) -> Option<wgpu::DepthStencilState> {
+    format.map(|format| wgpu::DepthStencilState {
+      format,
+      depth_write_enabled: self.depth_write_enabled,
+      depth_compare: self.depth_compare,
+      stencil: Default::default(),
+      bias: Default::default(),
+    })
+  }
+}
+
 impl Default for PreferredMaterialStates {
   fn default() -> Self {
-    todo!()
+    Self {
+      depth_write_enabled: true,
+      depth_compare: wgpu::CompareFunction::Less,
+      blend: None,
+      write_mask: wgpu::ColorWrite::all(),
+    }
   }
 }
 
