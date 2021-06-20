@@ -28,7 +28,13 @@ impl<T: BindableResource> MaterialBindableResource<T> {
 
 impl<T> MaterialBindableResource<T> {
   pub fn remove_material_bind(&self, material: MaterialHandle) {
-    //
+    let index = self
+      .used_by
+      .borrow_mut()
+      .iter()
+      .position(|&h| h == material)
+      .unwrap();
+    self.used_by.borrow_mut().swap_remove(index);
   }
 
   pub fn update_gpu(&mut self) -> &mut Option<T> {
