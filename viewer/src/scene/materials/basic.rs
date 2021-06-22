@@ -6,15 +6,15 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    BindGroup, CameraBindgroup, MaterialHandle, Mesh, ModelTransformGPU, SamplerHandle,
-    SceneTexture2dGpu, StandardForward, Texture2DHandle, ValueID, ValueIDGenerator,
-    VertexBufferSourceType, ViewerDeviceExt,
+    BindGroup, CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle,
+    SceneTexture2dGpu, StandardForward, Texture2DHandle, ValueID, VertexBufferSourceType,
+    ViewerDeviceExt,
   },
 };
 
 use super::{
-  MaterialCPUResource, MaterialGPUResource, PipelineCreateCtx, PipelineResourceManager,
-  PreferredMaterialStates, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx, STATE_ID,
+  MaterialCPUResource, MaterialGPUResource, PipelineCreateCtx, PreferredMaterialStates,
+  SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx, STATE_ID,
 };
 
 pub struct BasicMaterial {
