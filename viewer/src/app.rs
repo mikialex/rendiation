@@ -36,17 +36,16 @@ impl Application {
     };
     let texture = scene.add_texture2d(img);
 
-    let material = BasicMaterial {
-      color: Vec3::splat(1.),
-      sampler,
-      texture,
-      states: Default::default(),
-    };
-    let material = scene.add_material(material);
-
     {
       let mesh = SphereMeshParameter::default().tessellate();
       let mesh = scene.add_mesh(mesh);
+      let material = BasicMaterial {
+        color: Vec3::splat(1.),
+        sampler,
+        texture,
+        states: Default::default(),
+      };
+      let material = scene.add_material(material);
 
       let model = Model {
         material,
@@ -61,11 +60,19 @@ impl Application {
     {
       let mesh = CubeMeshParameter::default().tessellate();
       let mesh = scene.add_mesh(mesh);
+      let mut material = BasicMaterial {
+        color: Vec3::splat(1.),
+        sampler,
+        texture,
+        states: Default::default(),
+      };
+      material.states.depth_compare = wgpu::CompareFunction::Always;
+      let material = scene.add_material(material);
 
       let model = Model {
         material,
         mesh,
-        group: MeshDrawGroup::SubMesh(1),
+        group: MeshDrawGroup::Full,
         node: scene.get_root_handle(),
       };
 

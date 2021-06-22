@@ -1,10 +1,11 @@
-pub mod bindable;
 use std::{
   any::{Any, TypeId},
   collections::HashMap,
 };
-
+pub mod bindable;
 pub use bindable::*;
+pub mod states;
+pub use states::*;
 
 pub mod basic;
 pub use basic::*;
@@ -100,6 +101,26 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub reference_finalization: &'a ReferenceFinalization,
 }
 
+pub struct PipelineCreateCtx<'a> {
+  pub camera_gpu: &'a CameraBindgroup,
+  pub model_gpu: &'a ModelTransformGPU,
+  pub active_mesh: &'a Box<dyn Mesh>,
+}
+
+// impl<'a, 'b, S> SceneMaterialRenderPrepareCtx<'a, S> {
+//   pub fn split_for_pipeline_creation(
+//     &'b mut self,
+//   ) -> (PipelineCreateCtx<'a>, &'a mut PipelineResourceManager) {
+//     (
+//       PipelineCreateCtx {
+//         camera_gpu: self.camera_gpu,
+//         model_gpu: self.model_gpu,
+//       },
+//       self.pipelines,
+//     )
+//   }
+// }
+
 pub struct SceneMaterialPassSetupCtx<'a, S> {
   pub pipelines: &'a PipelineResourceManager,
   pub camera_gpu: &'a CameraBindgroup,
@@ -153,14 +174,14 @@ where
 
 pub struct PipelineResourceManager {
   pub materials: HashMap<TypeId, Box<dyn Any>>,
-  pub basic: Option<wgpu::RenderPipeline>,
+  pub basic: StatePipelineVariant,
 }
 
 impl PipelineResourceManager {
   pub fn new() -> Self {
     Self {
       materials: HashMap::new(),
-      basic: None,
+      basic: Default::default(),
     }
   }
 }
