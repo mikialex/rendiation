@@ -9,7 +9,8 @@ use winit::event::*;
 use crate::{
   renderer::Renderer,
   scene::{
-    BasicMaterial, Camera, MeshDrawGroup, Model, RenderPassDispatcher, Scene, StandardForward,
+    BasicMaterial, Camera, MeshDrawGroup, MeshModel, Model, RenderPassDispatcher, Scene,
+    StandardForward,
   },
 };
 
@@ -47,7 +48,7 @@ impl Application {
       };
       let material = scene.add_material(material).into();
 
-      let model = Model {
+      let model = MeshModel {
         material,
         mesh,
         group: MeshDrawGroup::Full,
@@ -69,7 +70,7 @@ impl Application {
       material.states.depth_compare = wgpu::CompareFunction::Always;
       let material = scene.add_material(material).into();
 
-      let model = Model {
+      let model = MeshModel {
         material,
         mesh,
         group: MeshDrawGroup::Full,

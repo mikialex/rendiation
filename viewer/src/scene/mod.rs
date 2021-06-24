@@ -37,7 +37,7 @@ use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
-pub type ModelHandle = Handle<Model>;
+pub type ModelHandle = Handle<Box<dyn Model>>;
 pub type MeshHandle = Handle<Box<dyn Mesh>>;
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
@@ -53,7 +53,7 @@ pub struct Scene {
   pub background: Box<dyn Background>,
   pub cameras: Arena<Camera>,
   pub lights: Arena<SceneLight>,
-  pub models: Arena<Model>,
+  pub models: Arena<Box<dyn Model>>,
   pub meshes: Arena<Box<dyn Mesh>>,
   pub materials: Arena<Box<dyn Material>>,
   pub samplers: WatchedArena<SceneSampler>,

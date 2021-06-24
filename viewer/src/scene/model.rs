@@ -2,12 +2,41 @@ use arena::Arena;
 
 use super::*;
 
-pub struct Model {
+pub trait Model: 'static {
+  fn material(&self) -> MaterialHandle;
+  fn mesh(&self) -> MeshHandle;
+  fn group(&self) -> MeshDrawGroup;
+  fn node(&self) -> SceneNodeHandle;
+}
+
+pub struct MeshModel {
   pub material: MaterialHandle,
   pub mesh: MeshHandle,
   pub group: MeshDrawGroup,
   pub node: SceneNodeHandle,
 }
+
+impl Model for MeshModel {
+  fn material(&self) -> MaterialHandle {
+    self.material
+  }
+
+  fn mesh(&self) -> MeshHandle {
+    self.mesh
+  }
+
+  fn group(&self) -> MeshDrawGroup {
+    self.group
+  }
+
+  fn node(&self) -> SceneNodeHandle {
+    self.node
+  }
+}
+
+// impl MeshModel {
+//   pub fn new() -> Self {}
+// }
 
 #[derive(Debug, Clone, Copy)]
 pub enum MeshDrawGroup {
@@ -22,7 +51,7 @@ pub struct ModelPassSetupContext<'a, S> {
 }
 
 impl Scene {
-  pub fn add_model(&mut self, model: Model) -> ModelHandle {
-    self.models.insert(model)
+  pub fn add_model(&mut self, model: impl Model) -> ModelHandle {
+    self.models.insert(Box::new(model))
   }
 }
