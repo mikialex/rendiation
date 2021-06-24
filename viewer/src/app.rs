@@ -9,8 +9,7 @@ use winit::event::*;
 use crate::{
   renderer::Renderer,
   scene::{
-    BasicMaterial, Camera, MeshDrawGroup, MeshModel, Model, RenderPassDispatcher, Scene,
-    StandardForward,
+    BasicMaterial, Camera, MeshDrawGroup, MeshModel, RenderPassDispatcher, Scene, StandardForward,
   },
 };
 
