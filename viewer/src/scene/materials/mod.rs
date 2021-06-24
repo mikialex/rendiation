@@ -1,6 +1,7 @@
 use std::{
   any::{Any, TypeId},
   collections::HashMap,
+  marker::PhantomData,
 };
 pub mod bindable;
 pub use bindable::*;
@@ -15,10 +16,20 @@ use rendiation_algebra::Mat4;
 use crate::Renderer;
 
 use super::{
-  Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ModelTransformGPU,
-  ReferenceFinalization, RenderStyle, Scene, SceneSampler, SceneTexture2D, StandardForward,
-  WatchedArena,
+  Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, RenderStyle,
+  Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, WatchedArena,
 };
+
+pub struct TypedMaterialHandle<T> {
+  handle: MaterialHandle,
+  ty: PhantomData<T>,
+}
+
+impl<T> Into<MaterialHandle> for TypedMaterialHandle<T> {
+  fn into(self) -> MaterialHandle {
+    self.handle
+  }
+}
 
 impl Scene {
   fn add_material_inner<M: Material, F: FnOnce(MaterialHandle) -> M>(
@@ -30,12 +41,16 @@ impl Scene {
       .insert_with(|handle| Box::new(creator(handle)))
   }
 
-  pub fn add_material<M>(&mut self, material: M) -> MaterialHandle
+  pub fn add_material<M>(&mut self, material: M) -> TypedMaterialHandle<M>
   where
     M: MaterialCPUResource + 'static,
     M::GPU: MaterialGPUResource<StandardForward, Source = M>,
   {
-    self.add_material_inner(|handle| MaterialCell::new(material, handle))
+    let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
+    TypedMaterialHandle {
+      handle,
+      ty: PhantomData,
+    }
   }
 }
 
@@ -92,7 +107,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
-  pub model_gpu: &'a ModelTransformGPU,
+  pub model_gpu: &'a TransformGPU,
   pub pipelines: &'a mut PipelineResourceManager,
   pub style: &'a S,
   pub active_mesh: &'a Box<dyn Mesh>,
@@ -103,28 +118,14 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
 
 pub struct PipelineCreateCtx<'a> {
   pub camera_gpu: &'a CameraBindgroup,
-  pub model_gpu: &'a ModelTransformGPU,
+  pub model_gpu: &'a TransformGPU,
   pub active_mesh: &'a Box<dyn Mesh>,
 }
-
-// impl<'a, 'b, S> SceneMaterialRenderPrepareCtx<'a, S> {
-//   pub fn split_for_pipeline_creation(
-//     &'b mut self,
-//   ) -> (PipelineCreateCtx<'a>, &'a mut PipelineResourceManager) {
-//     (
-//       PipelineCreateCtx {
-//         camera_gpu: self.camera_gpu,
-//         model_gpu: self.model_gpu,
-//       },
-//       self.pipelines,
-//     )
-//   }
-// }
 
 pub struct SceneMaterialPassSetupCtx<'a, S> {
   pub pipelines: &'a PipelineResourceManager,
   pub camera_gpu: &'a CameraBindgroup,
-  pub model_gpu: &'a ModelTransformGPU,
+  pub model_gpu: &'a TransformGPU,
   pub style: &'a S,
 }
 

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use bytemuck::Pod;
 use rendiation_renderable_mesh::{group::MeshGroup, vertex::Vertex};
 
@@ -7,6 +9,17 @@ use super::{MeshDrawGroup, MeshHandle, Scene};
 
 pub mod impls;
 pub use impls::*;
+
+pub struct TypedMeshHandle<T> {
+  handle: MeshHandle,
+  ty: PhantomData<T>,
+}
+
+impl<T> Into<MeshHandle> for TypedMeshHandle<T> {
+  fn into(self) -> MeshHandle {
+    self.handle
+  }
+}
 
 pub trait Mesh {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
@@ -63,14 +76,18 @@ impl MeshGPU {
 }
 
 impl Scene {
-  pub fn add_mesh<M>(&mut self, mesh: M) -> MeshHandle
+  pub fn add_mesh<M>(&mut self, mesh: M) -> TypedMeshHandle<M>
   where
     M: GPUMeshData + 'static,
   {
-    self.meshes.insert(Box::new(MeshCell {
+    let handle = self.meshes.insert(Box::new(MeshCell {
       data: mesh,
       gpu: None,
-    }))
+    }));
+    TypedMeshHandle {
+      handle,
+      ty: PhantomData,
+    }
   }
 }
 

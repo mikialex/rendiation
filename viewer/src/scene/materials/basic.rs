@@ -6,9 +6,8 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    BindGroup, CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle,
-    SceneTexture2dGpu, StandardForward, Texture2DHandle, ValueID, VertexBufferSourceType,
-    ViewerDeviceExt,
+    BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, StandardForward,
+    Texture2DHandle, TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
   },
 };
 
@@ -123,7 +122,7 @@ impl BasicMaterial {
       vertex_header = Vertex::get_shader_header(),
       material_header = Self::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
-      object_header = ModelTransformGPU::get_shader_header(),
+      object_header = TransformGPU::get_shader_header(),
     );
 
     let shader = renderer
