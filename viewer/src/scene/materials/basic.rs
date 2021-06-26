@@ -119,7 +119,7 @@ impl BasicMaterial {
       }}
       
       ",
-      vertex_header = Vertex::get_shader_header(),
+      vertex_header = Vec::<Vertex>::get_shader_header(),
       material_header = Self::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
       object_header = TransformGPU::get_shader_header(),

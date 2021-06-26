@@ -91,12 +91,12 @@ pub struct MeshLayout {
   topology: wgpu::PrimitiveTopology,
 }
 
-pub trait VertexBufferSourceType: Pod {
+pub trait VertexBufferSourceType {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static>;
   fn get_shader_header() -> &'static str;
 }
 
-impl VertexBufferSourceType for Vertex {
+impl VertexBufferSourceType for Vec<Vertex> {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<Self>() as u64,

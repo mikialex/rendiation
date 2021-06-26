@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use arena::Arena;
+use rendiation_renderable_mesh::vertex::Vertex;
 
 use super::*;
 
@@ -30,7 +31,6 @@ impl<T, H: Copy> Copy for TypedHandle<T, H> {}
 pub type TypedMaterialHandle<T> = TypedHandle<T, MaterialHandle>;
 pub type TypedMeshHandle<T> = TypedHandle<T, MeshHandle>;
 
-
 pub struct MeshModel<Ma, Me> {
   pub material: TypedMaterialHandle<Ma>,
   pub mesh: TypedMeshHandle<Me>,
@@ -38,7 +38,10 @@ pub struct MeshModel<Ma, Me> {
   pub node: SceneNodeHandle,
 }
 
-impl<Ma, Me> Model for MeshModel<Ma, Me> {
+impl<Ma, Me> Model for MeshModel<Ma, Me>
+where
+  Me: GPUMeshLayout<VertexInput = Vec<Vertex>>, // constrain the model's mesh gpu layout must be vec<vertex>
+{
   fn material(&self) -> MaterialHandle {
     self.material.handle
   }

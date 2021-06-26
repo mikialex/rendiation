@@ -1,6 +1,7 @@
+use bytemuck::Pod;
 use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshGroup},
-  mesh::IndexedMesh,
+  mesh::{AbstractMesh, IndexedMesh},
 };
 use wgpu::util::DeviceExt;
 
@@ -10,8 +11,10 @@ use super::{GPUMeshData, IndexBufferSourceType, MeshGPU, VertexBufferSourceType}
 
 impl<I, V, T> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 where
-  V: VertexBufferSourceType,
+  V: Pod,
+  Vec<V>: VertexBufferSourceType,
   I: IndexBufferSourceType,
+  IndexedMesh<I, V, T, Vec<V>>: AbstractMesh,
 {
   fn update(&self, gpu: &mut Option<MeshGPU>, device: &wgpu::Device) {
     gpu.get_or_insert_with(|| {
@@ -35,16 +38,27 @@ where
     });
   }
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
-    vec![V::vertex_layout()]
+    vec![Vec::<V>::vertex_layout()]
   }
 
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
     match group {
       MeshDrawGroup::Full => MeshGroup {
         start: 0,
-        count: self.mesh.index.len(), // todo use renderable mesh trait
+        count: self.mesh.draw_count(),
       },
       MeshDrawGroup::SubMesh(i) => *self.groups.groups.get(i).unwrap(),
     }
   }
+}
+
+pub trait GPUMeshLayout {
+  type VertexInput: VertexBufferSourceType;
+}
+
+impl<I, V, T> GPUMeshLayout for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
+where
+  Vec<V>: VertexBufferSourceType,
+{
+  type VertexInput = Vec<V>;
 }
