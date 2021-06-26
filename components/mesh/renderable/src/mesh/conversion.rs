@@ -73,7 +73,7 @@ where
       .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
       .map(|(e, _)| e)
       .flat_map(|l| l.iter_point())
-      .map(|i| self.data[i.into_usize()])
+      .map(|i| self.data.as_ref()[i.into_usize()])
       .collect();
     NoneIndexedMesh::new(data)
   }
@@ -140,7 +140,7 @@ where
       self
         .index
         .iter()
-        .map(|i| self.data[(*i).into_usize()])
+        .map(|i| self.data.as_ref()[(*i).into_usize()])
         .collect(),
     )
   }

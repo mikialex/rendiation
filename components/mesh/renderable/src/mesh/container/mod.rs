@@ -10,12 +10,9 @@ pub use indexed_view::*;
 pub use none_indexed::*;
 pub use none_indexed_view::*;
 
-use std::{iter::FromIterator, ops::Index};
+use std::iter::FromIterator;
 
-pub trait MeshDataContainer<T>:
-  AsRef<[T]> + Clone + Index<usize, Output = T> + FromIterator<T>
-{
-}
+pub trait MeshDataContainer<T>: AsRef<[T]> + Clone + FromIterator<T> {}
 
 impl<T: Clone> MeshDataContainer<T> for Vec<T> {}
 

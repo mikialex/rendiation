@@ -1,22 +1,22 @@
 use rendiation_geometry::LineSegment;
 use rendiation_geometry::Point;
 use rendiation_geometry::Triangle;
-use std::{hash::Hash, ops::Index};
+use std::hash::Hash;
 
 pub trait HashAbleByConversion {
   type HashAble: Hash + Eq;
   fn to_hashable(&self) -> Self::HashAble;
 }
 
-pub trait PrimitiveData<T, U: Index<usize, Output = T>> {
+pub trait PrimitiveData<T, U: AsRef<[T]>> {
   fn from_data(data: &U, offset: usize) -> Self;
 }
 
 pub trait IndexedPrimitiveData<I, T, U, IU>: PrimitiveData<T, U>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: AsRef<[T]>,
+  IU: AsRef<[I]>,
 {
   type IndexIndicator;
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self;
@@ -26,10 +26,11 @@ where
 impl<T, U> PrimitiveData<T, U> for Triangle<T>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
+  U: AsRef<[T]>,
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
+    let data = data.as_ref();
     let a = data[offset];
     let b = data[offset + 1];
     let c = data[offset + 2];
@@ -41,12 +42,14 @@ impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Triangle<T>
 where
   I: IndexType,
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: AsRef<[T]>,
+  IU: AsRef<[I]>,
 {
   type IndexIndicator = Triangle<I>;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
+    let data = data.as_ref();
+    let index = index.as_ref();
     let a = data[index[offset].into_usize()];
     let b = data[index[offset + 1].into_usize()];
     let c = data[index[offset + 2].into_usize()];
@@ -55,6 +58,7 @@ where
 
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
+    let index = index.as_ref();
     let a = index[offset];
     let b = index[offset + 1];
     let c = index[offset + 2];
@@ -65,10 +69,11 @@ where
 impl<T, U> PrimitiveData<T, U> for LineSegment<T>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
+  U: AsRef<[T]>,
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
+    let data = data.as_ref();
     let start = data[offset];
     let end = data[offset + 1];
     LineSegment { start, end }
@@ -79,18 +84,21 @@ impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for LineSegment<T>
 where
   I: IndexType,
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: AsRef<[T]>,
+  IU: AsRef<[I]>,
 {
   type IndexIndicator = LineSegment<I>;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
+    let index = index.as_ref();
+    let data = data.as_ref();
     let start = data[index[offset].into_usize()];
     let end = data[index[offset + 1].into_usize()];
     LineSegment { start, end }
   }
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
+    let index = index.as_ref();
     let start = index[offset];
     let end = index[offset + 1];
     LineSegment { start, end }
@@ -100,10 +108,11 @@ where
 impl<T, U> PrimitiveData<T, U> for Point<T>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
+  U: AsRef<[T]>,
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
+    let data = data.as_ref();
     Point(data[offset])
   }
 }
@@ -112,17 +121,20 @@ impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Point<T>
 where
   I: IndexType,
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: AsRef<[T]>,
+  IU: AsRef<[I]>,
 {
   type IndexIndicator = I;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
+    let index = index.as_ref();
+    let data = data.as_ref();
     Point(data[index[offset].into_usize()])
   }
 
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
+    let index = index.as_ref();
     index[offset]
   }
 }
