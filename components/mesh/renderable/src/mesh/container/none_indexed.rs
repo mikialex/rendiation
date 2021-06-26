@@ -21,7 +21,7 @@ impl<V, T, U> NoneIndexedMesh<V, T, U> {
 impl<V, T, U> AbstractMesh for NoneIndexedMesh<V, T, U>
 where
   T: PrimitiveTopologyMeta<V>,
-  U: MeshDataContainer<V>,
+  U: AsRef<[V]>,
   T::Primitive: PrimitiveData<V, U>,
 {
   type Primitive = T::Primitive;

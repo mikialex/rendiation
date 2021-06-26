@@ -50,9 +50,9 @@ where
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     let data = data.as_ref();
     let index = index.as_ref();
-    let a = data[index[offset].into()];
-    let b = data[index[offset + 1].into()];
-    let c = data[index[offset + 2].into()];
+    let a = data[index[offset].try_into().unwrap()];
+    let b = data[index[offset + 1].try_into().unwrap()];
+    let c = data[index[offset + 2].try_into().unwrap()];
     Triangle { a, b, c }
   }
 
@@ -92,8 +92,8 @@ where
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     let index = index.as_ref();
     let data = data.as_ref();
-    let start = data[index[offset].into()];
-    let end = data[index[offset + 1].into()];
+    let start = data[index[offset].try_into().unwrap()];
+    let end = data[index[offset + 1].try_into().unwrap()];
     LineSegment { start, end }
   }
   #[inline(always)]
@@ -129,7 +129,7 @@ where
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     let index = index.as_ref();
     let data = data.as_ref();
-    Point(data[index[offset].into()])
+    Point(data[index[offset].try_into().unwrap()])
   }
 
   #[inline(always)]
@@ -145,8 +145,6 @@ pub trait PrimitiveTopologyMeta<T>: 'static {
   const STRIDE: usize;
   const ENUM: PrimitiveTopology;
 }
-
-pub trait IndexPrimitiveTopologyMeta<I, T>: PrimitiveTopologyMeta<T> {}
 
 /// Primitive type the input mesh is composed of.
 #[repr(C)]
@@ -179,7 +177,6 @@ impl<T> PrimitiveTopologyMeta<T> for PointList {
   const STRIDE: usize = 1;
   const ENUM: PrimitiveTopology = PrimitiveTopology::PointList;
 }
-impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for PointList {}
 
 pub struct TriangleList;
 impl<T> PrimitiveTopologyMeta<T> for TriangleList {
@@ -188,7 +185,6 @@ impl<T> PrimitiveTopologyMeta<T> for TriangleList {
   const STRIDE: usize = 3;
   const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleList;
 }
-impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for TriangleList {}
 
 pub struct TriangleStrip;
 impl<T> PrimitiveTopologyMeta<T> for TriangleStrip {
@@ -197,7 +193,6 @@ impl<T> PrimitiveTopologyMeta<T> for TriangleStrip {
   const STRIDE: usize = 3;
   const ENUM: PrimitiveTopology = PrimitiveTopology::TriangleStrip;
 }
-impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for TriangleStrip {}
 
 pub struct LineList;
 impl<T> PrimitiveTopologyMeta<T> for LineList {
@@ -206,7 +201,6 @@ impl<T> PrimitiveTopologyMeta<T> for LineList {
   const STRIDE: usize = 2;
   const ENUM: PrimitiveTopology = PrimitiveTopology::LineList;
 }
-impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for LineList {}
 
 pub struct LineStrip;
 impl<T> PrimitiveTopologyMeta<T> for LineStrip {
@@ -215,6 +209,5 @@ impl<T> PrimitiveTopologyMeta<T> for LineStrip {
   const STRIDE: usize = 2;
   const ENUM: PrimitiveTopology = PrimitiveTopology::LineStrip;
 }
-impl<I: IndexType, T> IndexPrimitiveTopologyMeta<I, T> for LineStrip {}
 
 use super::IndexType;
