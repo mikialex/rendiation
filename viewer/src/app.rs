@@ -38,14 +38,14 @@ impl Application {
 
     {
       let mesh = SphereMeshParameter::default().tessellate();
-      let mesh = scene.add_mesh(mesh).into();
+      let mesh = scene.add_mesh(mesh);
       let material = BasicMaterial {
         color: Vec3::splat(1.),
         sampler,
         texture,
         states: Default::default(),
       };
-      let material = scene.add_material(material).into();
+      let material = scene.add_material(material);
 
       let model = MeshModel {
         material,
@@ -59,7 +59,7 @@ impl Application {
 
     {
       let mesh = CubeMeshParameter::default().tessellate();
-      let mesh = scene.add_mesh(mesh).into();
+      let mesh = scene.add_mesh(mesh);
       let mut material = BasicMaterial {
         color: Vec3::splat(1.),
         sampler,
@@ -67,7 +67,7 @@ impl Application {
         states: Default::default(),
       };
       material.states.depth_compare = wgpu::CompareFunction::Always;
-      let material = scene.add_material(material).into();
+      let material = scene.add_material(material);
 
       let model = MeshModel {
         material,

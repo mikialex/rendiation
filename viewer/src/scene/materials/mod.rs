@@ -17,19 +17,9 @@ use crate::Renderer;
 
 use super::{
   Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, RenderStyle,
-  Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, WatchedArena,
+  Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, TypedMaterialHandle,
+  WatchedArena,
 };
-
-pub struct TypedMaterialHandle<T> {
-  handle: MaterialHandle,
-  ty: PhantomData<T>,
-}
-
-impl<T> Into<MaterialHandle> for TypedMaterialHandle<T> {
-  fn into(self) -> MaterialHandle {
-    self.handle
-  }
-}
 
 impl Scene {
   fn add_material_inner<M: Material, F: FnOnce(MaterialHandle) -> M>(

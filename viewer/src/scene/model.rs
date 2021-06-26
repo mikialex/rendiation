@@ -1,28 +1,50 @@
+use std::marker::PhantomData;
+
 use arena::Arena;
 
 use super::*;
 
-pub trait Model: 'static {
+pub trait Model {
   fn material(&self) -> MaterialHandle;
   fn mesh(&self) -> MeshHandle;
   fn group(&self) -> MeshDrawGroup;
   fn node(&self) -> SceneNodeHandle;
 }
 
-pub struct MeshModel {
-  pub material: MaterialHandle,
-  pub mesh: MeshHandle,
+pub struct TypedHandle<T, H> {
+  pub(crate) handle: H,
+  pub(crate) ty: PhantomData<T>,
+}
+
+impl<T, H: Clone> Clone for TypedHandle<T, H> {
+  fn clone(&self) -> Self {
+    Self {
+      handle: self.handle.clone(),
+      ty: PhantomData,
+    }
+  }
+}
+
+impl<T, H: Copy> Copy for TypedHandle<T, H> {}
+
+pub type TypedMaterialHandle<T> = TypedHandle<T, MaterialHandle>;
+pub type TypedMeshHandle<T> = TypedHandle<T, MeshHandle>;
+
+
+pub struct MeshModel<Ma, Me> {
+  pub material: TypedMaterialHandle<Ma>,
+  pub mesh: TypedMeshHandle<Me>,
   pub group: MeshDrawGroup,
   pub node: SceneNodeHandle,
 }
 
-impl Model for MeshModel {
+impl<Ma, Me> Model for MeshModel<Ma, Me> {
   fn material(&self) -> MaterialHandle {
-    self.material
+    self.material.handle
   }
 
   fn mesh(&self) -> MeshHandle {
-    self.mesh
+    self.mesh.handle
   }
 
   fn group(&self) -> MeshDrawGroup {
@@ -33,10 +55,6 @@ impl Model for MeshModel {
     self.node
   }
 }
-
-// impl MeshModel {
-//   pub fn new() -> Self {}
-// }
 
 #[derive(Debug, Clone, Copy)]
 pub enum MeshDrawGroup {
@@ -51,7 +69,7 @@ pub struct ModelPassSetupContext<'a, S> {
 }
 
 impl Scene {
-  pub fn add_model(&mut self, model: impl Model) -> ModelHandle {
+  pub fn add_model(&mut self, model: impl Model + 'static) -> ModelHandle {
     self.models.insert(Box::new(model))
   }
 }

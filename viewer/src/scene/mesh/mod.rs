@@ -5,21 +5,10 @@ use rendiation_renderable_mesh::{group::MeshGroup, vertex::Vertex};
 
 use crate::Renderer;
 
-use super::{MeshDrawGroup, MeshHandle, Scene};
+use super::{MeshDrawGroup, Scene, TypedMeshHandle};
 
 pub mod impls;
 pub use impls::*;
-
-pub struct TypedMeshHandle<T> {
-  handle: MeshHandle,
-  ty: PhantomData<T>,
-}
-
-impl<T> Into<MeshHandle> for TypedMeshHandle<T> {
-  fn into(self) -> MeshHandle {
-    self.handle
-  }
-}
 
 pub trait Mesh {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
