@@ -13,7 +13,8 @@ use crate::{
 
 use super::{
   MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire, PipelineCreateCtx,
-  PreferredMaterialStates, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx, STATE_ID,
+  PipelineVariantContainer, PreferredMaterialStates, SceneMaterialPassSetupCtx,
+  SceneMaterialRenderPrepareCtx, STATE_ID,
 };
 
 pub struct BasicMaterial {
@@ -203,7 +204,7 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
       active_mesh: ctx.active_mesh,
     };
     let pipelines = &mut ctx.pipelines;
-    pipelines.basic.request(self.state_id, || {
+    pipelines.basic.request(&self.state_id, || {
       source.create_pipeline(renderer, &pipeline_ctx)
     });
   }
@@ -213,7 +214,7 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a, StandardForward>,
   ) {
-    let pipeline = ctx.pipelines.basic.retrieve(self.state_id);
+    let pipeline = ctx.pipelines.basic.retrieve(&self.state_id);
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);

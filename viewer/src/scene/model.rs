@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use arena::Arena;
-use rendiation_renderable_mesh::vertex::Vertex;
 
 use super::*;
 
@@ -40,9 +39,9 @@ pub struct MeshModel<Ma, Me> {
 
 impl<Ma, Me> Model for MeshModel<Ma, Me>
 where
-  // constrain the model's mesh gpu layout must be vec<vertex>
-  Me: GPUMeshLayoutSupport<VertexInput = Vec<Vertex>>,
-  Ma: MaterialMeshLayoutRequire<VertexInput = Vec<Vertex>>,
+  // constrain the model's mesh gpu layout and material requirement must be same
+  Me: GPUMeshLayoutSupport,
+  Ma: MaterialMeshLayoutRequire<VertexInput = Me::VertexInput>,
 {
   fn material(&self) -> MaterialHandle {
     self.material.handle

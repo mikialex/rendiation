@@ -169,7 +169,7 @@ where
 
 pub struct PipelineResourceManager {
   pub materials: HashMap<TypeId, Box<dyn Any>>,
-  pub basic: StatePipelineVariant,
+  pub basic: StatePipelineVariant<PipelineUnit>,
 }
 
 impl PipelineResourceManager {

@@ -48,11 +48,11 @@ impl Default for PreferredMaterialStates {
   }
 }
 
-pub struct StatePipelineVariant {
-  pipelines: HashMap<ValueID<PreferredMaterialStates>, wgpu::RenderPipeline>,
+pub struct StatePipelineVariant<T> {
+  pipelines: HashMap<ValueID<PreferredMaterialStates>, T>,
 }
 
-impl Default for StatePipelineVariant {
+impl<T> Default for StatePipelineVariant<T> {
   fn default() -> Self {
     Self {
       pipelines: Default::default(),
@@ -60,16 +60,86 @@ impl Default for StatePipelineVariant {
   }
 }
 
-impl StatePipelineVariant {
-  pub fn request(
-    &mut self,
-    uuid: ValueID<PreferredMaterialStates>,
-    creator: impl FnOnce() -> wgpu::RenderPipeline,
-  ) {
-    self.pipelines.entry(uuid).or_insert_with(creator);
+impl AsRef<ValueID<PreferredMaterialStates>> for ValueID<PreferredMaterialStates> {
+  fn as_ref(&self) -> &ValueID<PreferredMaterialStates> {
+    self
+  }
+}
+
+pub trait PipelineVariantContainer<V>: Default {
+  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline);
+
+  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline;
+}
+
+pub enum PipelineUnit {
+  Created(wgpu::RenderPipeline),
+  Empty,
+}
+impl Default for PipelineUnit {
+  fn default() -> Self {
+    PipelineUnit::Empty
+  }
+}
+
+impl<V> PipelineVariantContainer<V> for PipelineUnit {
+  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+    *self = PipelineUnit::Created(creator());
+  }
+  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
+    match self {
+      PipelineUnit::Created(p) => p,
+      PipelineUnit::Empty => unreachable!(),
+    }
+  }
+}
+
+impl<T, V> PipelineVariantContainer<V> for StatePipelineVariant<T>
+where
+  T: PipelineVariantContainer<V>,
+  V: AsRef<ValueID<PreferredMaterialStates>>,
+{
+  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+    self
+      .pipelines
+      .entry(*variant.as_ref())
+      .or_insert_with(Default::default)
+      .request(variant, creator);
   }
 
-  pub fn retrieve(&self, uuid: ValueID<PreferredMaterialStates>) -> &wgpu::RenderPipeline {
-    self.pipelines.get(&uuid).unwrap()
+  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
+    self
+      .pipelines
+      .get(variant.as_ref())
+      .unwrap()
+      .retrieve(variant)
+  }
+}
+
+pub struct TopologyPipelineVariant<T> {
+  pipelines: [Option<T>; 5],
+}
+
+impl<T> Default for TopologyPipelineVariant<T> {
+  fn default() -> Self {
+    todo!()
+  }
+}
+
+impl<T, V> PipelineVariantContainer<V> for TopologyPipelineVariant<T>
+where
+  T: PipelineVariantContainer<V>,
+  V: AsRef<wgpu::PrimitiveTopology>,
+{
+  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+    let index = *variant.as_ref() as usize;
+    self.pipelines[index]
+      .get_or_insert_with(Default::default)
+      .request(variant, creator);
+  }
+
+  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
+    let index = *variant.as_ref() as usize;
+    self.pipelines[index].as_ref().unwrap().retrieve(variant)
   }
 }
