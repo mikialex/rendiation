@@ -8,7 +8,11 @@ pub trait HashAbleByConversion {
   fn to_hashable(&self) -> Self::HashAble;
 }
 
-pub trait PrimitiveData<T, U: AsRef<[T]>> {
+pub trait PrimitiveData<T, U>
+where
+  T: Copy,
+  U: AsRef<[T]>,
+{
   fn from_data(data: &U, offset: usize) -> Self;
 }
 
@@ -140,7 +144,7 @@ where
 }
 
 pub trait PrimitiveTopologyMeta<T>: 'static {
-  type Primitive;
+  type Primitive; // we will try GAT later
   const STEP: usize;
   const STRIDE: usize;
   const ENUM: PrimitiveTopology;

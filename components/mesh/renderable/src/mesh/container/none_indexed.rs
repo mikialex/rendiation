@@ -20,6 +20,7 @@ impl<V, T, U> NoneIndexedMesh<V, T, U> {
 
 impl<V, T, U> AbstractMesh for NoneIndexedMesh<V, T, U>
 where
+  V: Copy,
   T: PrimitiveTopologyMeta<V>,
   U: AsRef<[V]>,
   T::Primitive: PrimitiveData<V, U>,
