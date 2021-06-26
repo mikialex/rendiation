@@ -7,37 +7,10 @@ use crate::{
   vertex::Vertex,
 };
 use core::marker::PhantomData;
-use std::hash::Hash;
+use std::fmt::Debug;
+use std::{convert::TryFrom, hash::Hash};
 
-pub trait IntoUsize {
-  fn into_usize(self) -> usize;
-  fn from_usize(v: usize) -> Self;
-}
-pub trait IndexType: IntoUsize + Copy + Eq + Ord + Hash {}
-
-impl IndexType for u16 {}
-impl IntoUsize for u16 {
-  #[inline(always)]
-  fn into_usize(self) -> usize {
-    self as usize
-  }
-  #[inline(always)]
-  fn from_usize(v: usize) -> Self {
-    v as Self
-  }
-}
-
-impl IndexType for u32 {}
-impl IntoUsize for u32 {
-  #[inline(always)]
-  fn into_usize(self) -> usize {
-    self as usize
-  }
-  #[inline(always)]
-  fn from_usize(v: usize) -> Self {
-    v as Self
-  }
-}
+pub trait IndexType = TryFrom<usize, Error: Debug> + Into<usize> + Copy + Eq + Ord + Hash;
 
 /// A indexed mesh that use vertex as primitive;
 pub struct IndexedMesh<I = u16, V = Vertex, T = TriangleList, U = Vec<V>> {

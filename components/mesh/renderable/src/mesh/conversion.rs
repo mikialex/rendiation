@@ -73,7 +73,7 @@ where
       .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
       .map(|(e, _)| e)
       .flat_map(|l| l.iter_point())
-      .map(|i| self.data.as_ref()[i.into_usize()])
+      .map(|i| self.data.as_ref()[i.into()])
       .collect();
     NoneIndexedMesh::new(data)
   }
@@ -118,9 +118,9 @@ where
       .index
       .iter()
       .map(|i| {
-        let k = (*i).into_usize();
+        let k = (*i).into();
         let after_sort = resort_map[k];
-        I::from_usize(deduplicate_map[after_sort])
+        I::try_from(deduplicate_map[after_sort]).unwrap()
       })
       .collect();
 
@@ -140,7 +140,7 @@ where
       self
         .index
         .iter()
-        .map(|i| self.data.as_ref()[(*i).into_usize()])
+        .map(|i| self.data.as_ref()[(*i).into()])
         .collect(),
     )
   }
