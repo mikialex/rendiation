@@ -10,23 +10,24 @@
 // noneIndexed -> indexed indexed?
 
 use super::{
-  AbstractIndexMesh, AbstractMesh, HashAbleByConversion, IndexPrimitiveTopologyMeta, IndexType,
-  IndexedMesh, IndexedPrimitiveData, LineList, MeshDataContainer, NoneIndexedMesh, PointList,
-  PrimitiveTopologyMeta,
+  AbstractIndexMesh, AbstractMesh, HashAbleByConversion, IndexType, IndexedMesh,
+  IndexedPrimitiveData, LineList, NoneIndexedMesh, PointList, PrimitiveTopologyMeta,
 };
 use rendiation_algebra::{InnerProductSpace, Vec3};
 use rendiation_geometry::{LineSegment, Triangle};
 use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
+  iter::FromIterator,
   ops::Deref,
 };
 
-impl<I, V, T, U> IndexedMesh<I, V, T, U>
+impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
 where
   I: IndexType,
-  T: IndexPrimitiveTopologyMeta<I, V, Primitive = Triangle<V>>,
-  U: MeshDataContainer<V>,
+  IU: AsRef<[I]>,
+  U: AsRef<[V]> + FromIterator<V> + Clone,
+  T: PrimitiveTopologyMeta<V, Primitive = Triangle<V>>,
   V: Deref<Target = Vec3<f32>> + Copy,
 {
   pub fn create_wireframe(&self) -> IndexedMesh<I, V, LineList, U> {
@@ -73,7 +74,7 @@ where
       .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
       .map(|(e, _)| e)
       .flat_map(|l| l.iter_point())
-      .map(|i| self.data[i.into_usize()])
+      .map(|i| self.data.as_ref()[i.try_into().unwrap()])
       .collect();
     NoneIndexedMesh::new(data)
   }
@@ -82,7 +83,7 @@ where
 impl<I, V, T> IndexedMesh<I, V, T>
 where
   I: IndexType,
-  T: IndexPrimitiveTopologyMeta<I, V>,
+  T: PrimitiveTopologyMeta<V>,
   V: Copy,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
@@ -118,9 +119,9 @@ where
       .index
       .iter()
       .map(|i| {
-        let k = (*i).into_usize();
+        let k = (*i).try_into().unwrap();
         let after_sort = resort_map[k];
-        I::from_usize(deduplicate_map[after_sort])
+        I::try_from(deduplicate_map[after_sort]).unwrap()
       })
       .collect();
 
@@ -128,19 +129,21 @@ where
   }
 }
 
-impl<I, V, T, U> IndexedMesh<I, V, T, U>
+impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
 where
-  I: IndexType,
-  T: PrimitiveTopologyMeta<V>,
-  U: MeshDataContainer<V>,
   V: Copy,
+  I: IndexType,
+  IU: AsRef<[I]>,
+  U: AsRef<[V]> + FromIterator<V>,
+  T: PrimitiveTopologyMeta<V>,
 {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedMesh<V, T, U> {
     NoneIndexedMesh::new(
       self
         .index
+        .as_ref()
         .iter()
-        .map(|i| self.data[(*i).into_usize()])
+        .map(|i| self.data.as_ref()[(*i).try_into().unwrap()])
         .collect(),
     )
   }
@@ -149,9 +152,8 @@ where
 impl<V, T> NoneIndexedMesh<V, T>
 where
   V: HashAbleByConversion + Copy,
-  T: IndexPrimitiveTopologyMeta<u16, V>,
+  T: PrimitiveTopologyMeta<V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
-  // U: MeshDataContainer<V>, // ditto
 {
   pub fn create_index_geometry(&self) -> IndexedMesh<u16, V, T> {
     let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
@@ -172,10 +174,11 @@ where
   }
 }
 
-impl<I, V, T, U> IndexedMesh<I, V, T, U>
+impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
 where
+  U: AsRef<[V]> + Clone,
+  IU: AsRef<[I]>,
   T: PrimitiveTopologyMeta<V>,
-  U: MeshDataContainer<V>,
 {
   pub fn create_point_cloud(&self) -> NoneIndexedMesh<V, PointList, U> {
     NoneIndexedMesh::new(self.data.clone())

@@ -1,23 +1,10 @@
 //! The actually mesh data container, define how we store the vertex
 
 pub mod indexed;
-pub mod indexed_view;
 pub mod none_indexed;
-pub mod none_indexed_view;
 
 pub use indexed::*;
-pub use indexed_view::*;
 pub use none_indexed::*;
-pub use none_indexed_view::*;
-
-use std::{iter::FromIterator, ops::Index};
-
-pub trait MeshDataContainer<T>:
-  AsRef<[T]> + Clone + Index<usize, Output = T> + FromIterator<T>
-{
-}
-
-impl<T: Clone> MeshDataContainer<T> for Vec<T> {}
 
 pub trait AbstractMesh {
   type Primitive;
