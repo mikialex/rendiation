@@ -12,8 +12,8 @@ use crate::{
 };
 
 use super::{
-  MaterialCPUResource, MaterialGPUResource, PipelineCreateCtx, PreferredMaterialStates,
-  SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx, STATE_ID,
+  MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire, PipelineCreateCtx,
+  PreferredMaterialStates, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx, STATE_ID,
 };
 
 pub struct BasicMaterial {
@@ -21,6 +21,10 @@ pub struct BasicMaterial {
   pub sampler: SamplerHandle,
   pub texture: Texture2DHandle,
   pub states: PreferredMaterialStates,
+}
+
+impl MaterialMeshLayoutRequire for BasicMaterial {
+  type VertexInput = Vec<Vertex>;
 }
 
 impl BasicMaterial {

@@ -52,11 +52,11 @@ where
   }
 }
 
-pub trait GPUMeshLayout {
+pub trait GPUMeshLayoutSupport {
   type VertexInput: VertexBufferSourceType;
 }
 
-impl<I, V, T> GPUMeshLayout for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
+impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 where
   Vec<V>: VertexBufferSourceType,
 {

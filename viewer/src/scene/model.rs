@@ -40,7 +40,9 @@ pub struct MeshModel<Ma, Me> {
 
 impl<Ma, Me> Model for MeshModel<Ma, Me>
 where
-  Me: GPUMeshLayout<VertexInput = Vec<Vertex>>, // constrain the model's mesh gpu layout must be vec<vertex>
+  // constrain the model's mesh gpu layout must be vec<vertex>
+  Me: GPUMeshLayoutSupport<VertexInput = Vec<Vertex>>,
+  Ma: MaterialMeshLayoutRequire<VertexInput = Vec<Vertex>>,
 {
   fn material(&self) -> MaterialHandle {
     self.material.handle

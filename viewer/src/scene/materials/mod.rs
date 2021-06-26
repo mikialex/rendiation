@@ -18,7 +18,7 @@ use crate::Renderer;
 use super::{
   Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, RenderStyle,
   Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, TypedMaterialHandle,
-  WatchedArena,
+  VertexBufferSourceType, WatchedArena,
 };
 
 impl Scene {
@@ -42,6 +42,10 @@ impl Scene {
       ty: PhantomData,
     }
   }
+}
+
+pub trait MaterialMeshLayoutRequire {
+  type VertexInput: VertexBufferSourceType;
 }
 
 pub trait MaterialCPUResource {
