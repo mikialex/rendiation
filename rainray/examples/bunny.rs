@@ -12,7 +12,7 @@ fn main() {
     Vec3::new(0., 1., 0.),
   );
   perspective.fov = 65.;
-  perspective.update_projection(&mut camera.projection_matrix);
+  perspective.update_projection::<OpenGL>(&mut camera.projection_matrix);
 
   let mut frame = Frame::new(600, 600);
   let mut scene = Scene::new();

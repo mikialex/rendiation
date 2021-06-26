@@ -64,8 +64,8 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
     let models = &scene.models;
     scene.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
-      let material = scene.materials.get(model.material).unwrap().as_ref();
-      let node = scene.nodes.get_node(model.node).data();
+      let material = scene.materials.get(model.material()).unwrap().as_ref();
+      let node = scene.nodes.get_node(model.node()).data();
 
       let ctx = SceneMaterialPassSetupCtx {
         style: self.style,
@@ -75,8 +75,8 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
       };
 
       S::material_setup_pass(material, pass, &ctx);
-      let mesh = scene.meshes.get(model.mesh).unwrap();
-      mesh.setup_pass(pass);
+      let mesh = scene.meshes.get(model.mesh()).unwrap();
+      mesh.setup_pass(pass, model.group());
     })
   }
 
@@ -109,9 +109,9 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
       scene.models.iter_mut().for_each(|(handle, model)| {
         scene.render_list.models.push(handle);
 
-        let material = scene.materials.get_mut(model.material).unwrap().as_mut();
-        let mesh = scene.meshes.get_mut(model.mesh).unwrap();
-        let node = scene.nodes.get_node_mut(model.node).data_mut();
+        let material = scene.materials.get_mut(model.material()).unwrap().as_mut();
+        let mesh = scene.meshes.get_mut(model.mesh()).unwrap();
+        let node = scene.nodes.get_node_mut(model.node()).data_mut();
         let (model_matrix, model_gpu) = node.get_model_gpu(renderer);
 
         let mut ctx = SceneMaterialRenderPrepareCtx {
@@ -124,6 +124,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           active_mesh: mesh,
           textures: &mut scene.texture_2ds,
           samplers: &mut scene.samplers,
+          reference_finalization: &scene.reference_finalization,
         };
         S::material_update(material, renderer, &mut ctx);
         mesh.update(renderer);

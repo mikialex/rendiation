@@ -1,4 +1,4 @@
-use super::{IndexedMeshTessellator, TesselationResult};
+use super::{GroupedMesh, IndexedMeshTessellator};
 use crate::{
   mesh::{IndexedMesh, TriangleList},
   vertex::Vertex,
@@ -8,7 +8,7 @@ use rendiation_algebra::*;
 pub struct Quad;
 
 impl IndexedMeshTessellator for Quad {
-  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
     PlaneMeshParameter {
       width: 2.,
       height: 2.,
@@ -39,7 +39,7 @@ impl Default for PlaneMeshParameter {
 }
 
 impl IndexedMeshTessellator for PlaneMeshParameter {
-  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -94,6 +94,6 @@ impl IndexedMeshTessellator for PlaneMeshParameter {
       }
     }
 
-    TesselationResult::full_range(IndexedMesh::new(vertices, indices))
+    GroupedMesh::full(IndexedMesh::new(vertices, indices))
   }
 }

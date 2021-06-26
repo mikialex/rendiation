@@ -3,11 +3,11 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
-use super::AnyMesh;
+use super::AbstractMesh;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
 
-pub trait IntersectAbleAnyMesh {
+pub trait IntersectAbleAbstractMesh {
   fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList);
   fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> Nearest<MeshBufferHitPoint>;
 }
@@ -35,9 +35,9 @@ impl Default for MeshBufferHitList {
   }
 }
 
-impl<G> IntersectAbleAnyMesh for G
+impl<G> IntersectAbleAbstractMesh for G
 where
-  G: AnyMesh,
+  G: AbstractMesh,
   G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, Config>,
 {
   fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList) {

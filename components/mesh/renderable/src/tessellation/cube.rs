@@ -1,12 +1,12 @@
 use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use crate::{
+  group::MeshGroupsInfo,
   mesh::{IndexedMesh, TriangleList},
-  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
-use super::{IndexedMeshTessellator, TesselationResult};
+use super::{GroupedMesh, IndexedMeshTessellator};
 
 #[derive(Copy, Clone, Debug)]
 pub struct CubeMeshParameter {
@@ -18,9 +18,22 @@ pub struct CubeMeshParameter {
   pub depth_segment: usize,
 }
 
+impl Default for CubeMeshParameter {
+  fn default() -> Self {
+    Self {
+      width: 1.,
+      height: 1.,
+      depth: 1.,
+      width_segment: 1,
+      height_segment: 1,
+      depth_segment: 1,
+    }
+  }
+}
+
 #[rustfmt::skip]
 impl IndexedMeshTessellator for CubeMeshParameter {
-  fn tessellate(&self) ->  TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+  fn tessellate(&self) ->  GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
     let Self {
       width,
       height,
@@ -32,7 +45,7 @@ impl IndexedMeshTessellator for CubeMeshParameter {
 
     let mut indices = vec![];
     let mut vertices = vec![];
-    let mut ranges = MeshRangesInfo::new();
+    let mut ranges = MeshGroupsInfo::new();
 
     // helper variables
     let mut number_of_vertices = 0;
@@ -111,7 +124,7 @@ impl IndexedMeshTessellator for CubeMeshParameter {
         number_of_vertices += vertex_counter;
       };
 
-    // build each side of the box geometrys
+    // build each side of the box geometries
     build_plane(2, 1, 0, - 1, - 1, depth, height, width, depth_segment, height_segment); // px
     build_plane(2, 1, 0, 1, - 1, depth, height, - width, depth_segment, height_segment); // nx
     build_plane(0, 2, 1, 1, 1, width, depth, height, width_segment, depth_segment); // py
@@ -119,6 +132,6 @@ impl IndexedMeshTessellator for CubeMeshParameter {
     build_plane(0, 1, 2, 1, - 1, width, height, depth, width_segment, height_segment); // pz
     build_plane(0, 1, 2, - 1, - 1, width, height, - depth, width_segment, height_segment); // nz
 
-    TesselationResult::new(IndexedMesh::new(vertices, indices), ranges)
+    GroupedMesh::new(IndexedMesh::new(vertices, indices), ranges)
   }
 }

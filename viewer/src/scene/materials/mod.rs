@@ -1,3 +1,13 @@
+use std::{
+  any::{Any, TypeId},
+  collections::HashMap,
+  marker::PhantomData,
+};
+pub mod bindable;
+pub use bindable::*;
+pub mod states;
+pub use states::*;
+
 pub mod basic;
 pub use basic::*;
 
@@ -6,8 +16,9 @@ use rendiation_algebra::Mat4;
 use crate::Renderer;
 
 use super::{
-  Camera, CameraBindgroup, Material, MaterialHandle, ModelTransformGPU, RenderStyle, Scene,
-  SceneMesh, SceneSampler, SceneTexture2D, StandardForward, WatchedArena,
+  Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, RenderStyle,
+  Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, TypedMaterialHandle,
+  WatchedArena,
 };
 
 impl Scene {
@@ -20,12 +31,16 @@ impl Scene {
       .insert_with(|handle| Box::new(creator(handle)))
   }
 
-  pub fn add_material<M>(&mut self, material: M) -> MaterialHandle
+  pub fn add_material<M>(&mut self, material: M) -> TypedMaterialHandle<M>
   where
     M: MaterialCPUResource + 'static,
     M::GPU: MaterialGPUResource<StandardForward, Source = M>,
   {
-    self.add_material_inner(|handle| MaterialCell::new(material, handle))
+    let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
+    TypedMaterialHandle {
+      handle,
+      ty: PhantomData,
+    }
   }
 }
 
@@ -82,18 +97,25 @@ pub struct SceneMaterialRenderPrepareCtx<'a, S> {
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
-  pub model_gpu: &'a ModelTransformGPU,
+  pub model_gpu: &'a TransformGPU,
   pub pipelines: &'a mut PipelineResourceManager,
   pub style: &'a S,
-  pub active_mesh: &'a SceneMesh,
+  pub active_mesh: &'a Box<dyn Mesh>,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub samplers: &'a mut WatchedArena<SceneSampler>,
+  pub reference_finalization: &'a ReferenceFinalization,
+}
+
+pub struct PipelineCreateCtx<'a> {
+  pub camera_gpu: &'a CameraBindgroup,
+  pub model_gpu: &'a TransformGPU,
+  pub active_mesh: &'a Box<dyn Mesh>,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a, S> {
   pub pipelines: &'a PipelineResourceManager,
   pub camera_gpu: &'a CameraBindgroup,
-  pub model_gpu: &'a ModelTransformGPU,
+  pub model_gpu: &'a TransformGPU,
   pub style: &'a S,
 }
 
@@ -142,11 +164,15 @@ where
 }
 
 pub struct PipelineResourceManager {
-  pub basic: Option<wgpu::RenderPipeline>,
+  pub materials: HashMap<TypeId, Box<dyn Any>>,
+  pub basic: StatePipelineVariant,
 }
 
 impl PipelineResourceManager {
   pub fn new() -> Self {
-    Self { basic: None }
+    Self {
+      materials: HashMap::new(),
+      basic: Default::default(),
+    }
   }
 }

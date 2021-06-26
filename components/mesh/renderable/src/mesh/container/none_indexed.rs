@@ -18,7 +18,7 @@ impl<V, T, U> NoneIndexedMesh<V, T, U> {
   }
 }
 
-impl<V, T, U> AnyMesh for NoneIndexedMesh<V, T, U>
+impl<V, T, U> AbstractMesh for NoneIndexedMesh<V, T, U>
 where
   T: PrimitiveTopologyMeta<V>,
   U: MeshDataContainer<V>,

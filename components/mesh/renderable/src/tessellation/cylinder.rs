@@ -1,12 +1,12 @@
 use rendiation_algebra::*;
 
 use crate::{
+  group::MeshGroupsInfo,
   mesh::{IndexedMesh, TriangleList},
-  range::MeshRangesInfo,
   vertex::Vertex,
 };
 
-use super::{IndexedMeshTessellator, TesselationResult};
+use super::{GroupedMesh, IndexedMeshTessellator};
 
 #[derive(Copy, Clone, Debug)]
 pub struct CylinderMeshParameter {
@@ -27,7 +27,7 @@ struct CylinderMeshBuilder {
   group_start: usize,
   indices: Vec<u16>,
   vertices: Vec<Vertex>,
-  ranges: MeshRangesInfo,
+  ranges: MeshGroupsInfo,
 }
 
 impl CylinderMeshBuilder {
@@ -36,7 +36,7 @@ impl CylinderMeshBuilder {
       parameter,
       indices: vec![],
       vertices: vec![],
-      ranges: MeshRangesInfo::new(),
+      ranges: MeshGroupsInfo::new(),
 
       // helper letiables
       index: 0,
@@ -216,7 +216,7 @@ impl CylinderMeshBuilder {
 }
 
 impl IndexedMeshTessellator for CylinderMeshParameter {
-  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
     let mut builder = CylinderMeshBuilder::new(*self);
 
     // generate mesh
@@ -231,7 +231,7 @@ impl IndexedMeshTessellator for CylinderMeshParameter {
       };
     }
 
-    TesselationResult::new(
+    GroupedMesh::new(
       IndexedMesh::new(builder.vertices, builder.indices),
       builder.ranges,
     )

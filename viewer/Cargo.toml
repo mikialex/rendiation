@@ -17,5 +17,5 @@ rendiation-controller = {path = "../components/controller"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
-wgpu = "0.8.1"
+wgpu = "0.9"
 winit = {version = "0.24.0"}

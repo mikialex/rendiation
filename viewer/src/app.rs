@@ -1,14 +1,15 @@
 use rendiation_algebra::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
-use rendiation_renderable_mesh::tessellation::{IndexedMeshTessellator, SphereMeshParameter};
+use rendiation_renderable_mesh::tessellation::{
+  CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
+};
 use rendiation_texture::TextureSampler;
 use winit::event::*;
 
 use crate::{
   renderer::Renderer,
   scene::{
-    BasicMaterial, Camera, IndexBuffer, Model, RenderPassDispatcher, Scene, SceneMesh,
-    StandardForward, VertexBuffer,
+    BasicMaterial, Camera, MeshDrawGroup, MeshModel, RenderPassDispatcher, Scene, StandardForward,
   },
 };
 
@@ -35,30 +36,48 @@ impl Application {
     };
     let texture = scene.add_texture2d(img);
 
-    let material = BasicMaterial {
-      color: Vec3::splat(1.),
-      sampler,
-      texture,
-    };
-    let material = scene.add_material(material);
+    {
+      let mesh = SphereMeshParameter::default().tessellate();
+      let mesh = scene.add_mesh(mesh);
+      let material = BasicMaterial {
+        color: Vec3::splat(1.),
+        sampler,
+        texture,
+        states: Default::default(),
+      };
+      let material = scene.add_material(material);
 
-    let mesh = SphereMeshParameter::default().tessellate();
-    let range = mesh.range.ranges[0];
-    let mesh = mesh.mesh;
-    let mesh = SceneMesh::new(
-      vec![VertexBuffer::new(mesh.data)],
-      IndexBuffer::new(mesh.index).into(),
-      range.start as u32..range.count as u32,
-    );
-    let mesh = scene.add_mesh(mesh);
+      let model = MeshModel {
+        material,
+        mesh,
+        group: MeshDrawGroup::Full,
+        node: scene.get_root_handle(),
+      };
 
-    let model = Model {
-      material,
-      mesh,
-      node: scene.get_root_handle(),
-    };
+      scene.add_model(model);
+    }
 
-    scene.add_model(model);
+    {
+      let mesh = CubeMeshParameter::default().tessellate();
+      let mesh = scene.add_mesh(mesh);
+      let mut material = BasicMaterial {
+        color: Vec3::splat(1.),
+        sampler,
+        texture,
+        states: Default::default(),
+      };
+      material.states.depth_compare = wgpu::CompareFunction::Always;
+      let material = scene.add_material(material);
+
+      let model = MeshModel {
+        material,
+        mesh,
+        group: MeshDrawGroup::Full,
+        node: scene.get_root_handle(),
+      };
+
+      scene.add_model(model);
+    }
 
     let camera = PerspectiveProjection::default();
     let camera_node = scene.create_node(|node, _| {

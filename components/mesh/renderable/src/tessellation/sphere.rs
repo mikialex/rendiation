@@ -1,4 +1,4 @@
-use super::{IndexedMeshTessellator, TesselationResult};
+use super::{GroupedMesh, IndexedMeshTessellator};
 use crate::{
   mesh::{IndexedMesh, TriangleList},
   vertex::Vertex,
@@ -33,7 +33,7 @@ impl Default for SphereMeshParameter {
 }
 
 impl IndexedMeshTessellator for SphereMeshParameter {
-  fn tessellate(&self) -> TesselationResult<IndexedMesh<u16, Vertex, TriangleList>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList>> {
     let Self {
       radius,
       width_segments,
@@ -89,6 +89,6 @@ impl IndexedMeshTessellator for SphereMeshParameter {
       }
     }
 
-    TesselationResult::full_range(IndexedMesh::new(vertices, indices))
+    GroupedMesh::full(IndexedMesh::new(vertices, indices))
   }
 }

@@ -6,41 +6,22 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    CameraBindgroup, MaterialHandle, ModelTransformGPU, SamplerHandle, SceneTexture2dGpu,
-    StandardForward, Texture2DHandle, VertexBufferSourceType,
+    BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, StandardForward,
+    Texture2DHandle, TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
   },
 };
 
 use super::{
-  MaterialCPUResource, MaterialGPUResource, SceneMaterialPassSetupCtx,
-  SceneMaterialRenderPrepareCtx,
+  MaterialCPUResource, MaterialGPUResource, PipelineCreateCtx, PreferredMaterialStates,
+  SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx, STATE_ID,
 };
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
   pub sampler: SamplerHandle,
   pub texture: Texture2DHandle,
+  pub states: PreferredMaterialStates,
 }
-
-/// This trait for avoid heap allocation when build bindgroup
-// pub trait BindGroupMapper<T> {
-//   fn map(self) -> T;
-// }
-
-// impl<'a, const N: usize> BindGroupMapper<[wgpu::BindGroupEntry<'a>; N]>
-//   for [wgpu::BindingResource<'a>; N]
-// {
-//   fn map(self) -> [wgpu::BindGroupEntry<'a>; N] {
-//     self
-//       .into_iter()
-//       .enumerate()
-//       .map(|(i, resource)| wgpu::BindGroupEntry {
-//         binding: i as u32,
-//         resource: *resource,
-//       })
-//       .collect()
-//   }
-// }
 
 impl BasicMaterial {
   pub fn create_bindgroup<S>(
@@ -51,33 +32,13 @@ impl BasicMaterial {
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx<S>,
-  ) -> wgpu::BindGroup {
-    device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout,
-      entries: &[
-        wgpu::BindGroupEntry {
-          binding: 0,
-          resource: ubo.as_entire_binding(),
-        },
-        wgpu::BindGroupEntry {
-          binding: 1,
-          resource: ctx
-            .textures
-            .get_resource_mut(self.texture)
-            .unwrap()
-            .as_material_bind(handle),
-        },
-        wgpu::BindGroupEntry {
-          binding: 2,
-          resource: ctx
-            .samplers
-            .get_resource_mut(self.sampler)
-            .unwrap()
-            .as_material_bind(handle),
-        },
-      ],
-      label: None,
-    })
+  ) -> BindGroup {
+    device
+      .material_bindgroup_builder(handle)
+      .push(ubo.as_entire_binding())
+      .push_texture2d(ctx, self.texture)
+      .push_sampler(ctx, self.sampler)
+      .build(layout)
   }
 
   pub fn get_shader_header() -> &'static str {
@@ -123,58 +84,13 @@ impl BasicMaterial {
       ],
     })
   }
-}
 
-pub struct BasicMaterialGPU {
-  uniform: UniformBuffer<Vec3<f32>>,
-  bindgroup_layout: wgpu::BindGroupLayout,
-  bindgroup: wgpu::BindGroup,
-}
-
-impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
-  type Source = BasicMaterial;
-  fn update(
-    &mut self,
-    source: &Self::Source,
+  pub fn create_pipeline(
+    &self,
     renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<StandardForward>,
-  ) {
-    //
-  }
-
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, StandardForward>,
-  ) {
-    let pipeline = ctx.pipelines.basic.as_ref().unwrap();
-    pass.set_pipeline(pipeline);
-    pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
-    pass.set_bind_group(1, &self.bindgroup, &[]);
-    pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
-  }
-}
-
-impl MaterialCPUResource for BasicMaterial {
-  type GPU = BasicMaterialGPU;
-
-  fn create<S>(
-    &mut self,
-    handle: MaterialHandle,
-    renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
-  ) -> Self::GPU {
-    let uniform = UniformBuffer::create(&renderer.device, self.color);
-
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline {
     let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
-    let bindgroup = self.create_bindgroup(
-      handle,
-      uniform.gpu(),
-      &renderer.device,
-      &renderer.queue,
-      &bindgroup_layout,
-      ctx,
-    );
 
     let shader_source = format!(
       "
@@ -206,7 +122,7 @@ impl MaterialCPUResource for BasicMaterial {
       vertex_header = Vertex::get_shader_header(),
       material_header = Self::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
-      object_header = ModelTransformGPU::get_shader_header(),
+      object_header = TransformGPU::get_shader_header(),
     );
 
     let shader = renderer
@@ -229,8 +145,8 @@ impl MaterialCPUResource for BasicMaterial {
         push_constant_ranges: &[],
       });
 
-    let vertex_buffers = [Vertex::get_layout()];
-    let pipeline = renderer
+    let vertex_buffers = ctx.active_mesh.vertex_layout();
+    renderer
       .device
       .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
@@ -243,40 +159,92 @@ impl MaterialCPUResource for BasicMaterial {
         fragment: Some(wgpu::FragmentState {
           module: &shader,
           entry_point: "fs_main",
-          targets: &[renderer.get_prefer_target_format().into()],
+          targets: &[self
+            .states
+            .map_color_states(renderer.get_prefer_target_format())],
         }),
-        // primitive: wgpu::PrimitiveState {
-        //   cull_mode: wgpu::Face::Back.into(),
-        //   ..Default::default()
-        // },
         primitive: wgpu::PrimitiveState {
           cull_mode: None,
           topology: wgpu::PrimitiveTopology::TriangleList,
           ..Default::default()
         },
-        depth_stencil: wgpu::DepthStencilState {
-          format: StandardForward::depth_format(),
-          depth_write_enabled: true,
-          depth_compare: wgpu::CompareFunction::Less,
-          stencil: Default::default(),
-          bias: Default::default(),
-        }
-        .into(),
+        depth_stencil: self
+          .states
+          .map_depth_stencil_state(StandardForward::depth_format().into()),
         multisample: wgpu::MultisampleState::default(),
-      });
+      })
+  }
+}
 
-    ctx.pipelines.basic = pipeline.into();
+pub struct BasicMaterialGPU {
+  state_id: ValueID<PreferredMaterialStates>,
+  uniform: UniformBuffer<Vec3<f32>>,
+  bindgroup_layout: wgpu::BindGroupLayout,
+  bindgroup: BindGroup,
+}
+
+impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
+  type Source = BasicMaterial;
+  fn update(
+    &mut self,
+    source: &Self::Source,
+    renderer: &Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<StandardForward>,
+  ) {
+    self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
+
+    let pipeline_ctx = PipelineCreateCtx {
+      camera_gpu: ctx.camera_gpu,
+      model_gpu: ctx.model_gpu,
+      active_mesh: ctx.active_mesh,
+    };
+    let pipelines = &mut ctx.pipelines;
+    pipelines.basic.request(self.state_id, || {
+      source.create_pipeline(renderer, &pipeline_ctx)
+    });
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a, StandardForward>,
+  ) {
+    let pipeline = ctx.pipelines.basic.retrieve(self.state_id);
+    pass.set_pipeline(pipeline);
+    pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
+    pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
+    pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
+  }
+}
+
+impl MaterialCPUResource for BasicMaterial {
+  type GPU = BasicMaterialGPU;
+
+  fn create<S>(
+    &mut self,
+    handle: MaterialHandle,
+    renderer: &mut Renderer,
+    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+  ) -> Self::GPU {
+    let uniform = UniformBuffer::create(&renderer.device, self.color);
+
+    let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
+    let bindgroup = self.create_bindgroup(
+      handle,
+      uniform.gpu(),
+      &renderer.device,
+      &renderer.queue,
+      &bindgroup_layout,
+      ctx,
+    );
+
+    let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 
     BasicMaterialGPU {
+      state_id,
       uniform,
       bindgroup_layout,
       bindgroup,
     }
   }
-}
-
-struct RenderPipelineBuilder {
-  primitive: wgpu::PrimitiveState,
-  depth_stencil: Option<wgpu::DepthStencilState>,
-  multisample: wgpu::MultisampleState,
 }

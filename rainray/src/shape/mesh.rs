@@ -2,7 +2,7 @@ use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, Ray3, Triangle};
 use rendiation_renderable_mesh::{
   mesh::{
-    AnyMesh, BVHIntersectAbleExtendedAnyMesh, IndexedMesh, MeshBufferIntersectConfig,
+    AbstractMesh, BVHIntersectAbleExtendedAbstractMesh, IndexedMesh, MeshBufferIntersectConfig,
     NoneIndexedMesh, TriangleList,
   },
   vertex::Vertex,
@@ -39,11 +39,11 @@ pub struct TriangleMesh<G> {
 
 impl<G> TriangleMesh<G>
 where
-  G: AnyMesh<Primitive = Triangle<Vertex>>,
-  G: BVHIntersectAbleExtendedAnyMesh<Box3>,
+  G: AbstractMesh<Primitive = Triangle<Vertex>>,
+  G: BVHIntersectAbleExtendedAbstractMesh<Box3>,
 {
   pub fn new(mesh: G) -> Self {
-    use rendiation_renderable_mesh::mesh::BVHExtendedBuildAnyMesh;
+    use rendiation_renderable_mesh::mesh::BVHExtendedBuildAbstractMesh;
     let bvh = mesh.build_bvh(
       &mut SAH::new(4),
       &TreeBuildOption {
@@ -65,8 +65,8 @@ where
 
 impl<G> Shape for TriangleMesh<G>
 where
-  G: BVHIntersectAbleExtendedAnyMesh<Box3> + Send + Sync + 'static,
-  G: AnyMesh<Primitive = Triangle<Vertex>>,
+  G: BVHIntersectAbleExtendedAbstractMesh<Box3> + Send + Sync + 'static,
+  G: AbstractMesh<Primitive = Triangle<Vertex>>,
 {
   fn as_any(&self) -> &dyn std::any::Any {
     self

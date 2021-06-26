@@ -4,16 +4,22 @@ use rendiation_algebra::*;
 use super::{SceneNode, SceneNodeHandle};
 use crate::renderer::Renderer;
 
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: Mat4<f32> = Mat4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
+pub trait CameraProjection {
+  fn update_projection(&self, projection: &mut Mat4<f32>);
+  fn resize(&mut self, size: (f32, f32));
+}
+
+impl<T: ResizableProjection> CameraProjection for T {
+  fn update_projection(&self, projection: &mut Mat4<f32>) {
+    self.update_projection::<WebGPU>(projection);
+  }
+  fn resize(&mut self, size: (f32, f32)) {
+    self.resize(size);
+  }
+}
 
 pub struct Camera {
-  pub projection: Box<dyn ResizableProjection>,
+  pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNodeHandle,
 }
@@ -31,7 +37,6 @@ impl Camera {
     self
       .projection
       .update_projection(&mut self.projection_matrix);
-    self.projection_matrix = OPENGL_TO_WGPU_MATRIX * self.projection_matrix;
   }
 
   pub fn get_view_matrix(&self, nodes: &ArenaTree<SceneNode>) -> Mat4<f32> {
