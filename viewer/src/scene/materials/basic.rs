@@ -6,8 +6,8 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, StandardForward,
-    Texture2DHandle, TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
+    BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, Texture2DHandle,
+    TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
   },
 };
 
@@ -151,6 +151,14 @@ impl BasicMaterial {
       });
 
     let vertex_buffers = ctx.active_mesh.vertex_layout();
+
+    let targets: Vec<_> = ctx
+      .pass
+      .color_format()
+      .iter()
+      .map(|&f| self.states.map_color_states(f))
+      .collect();
+
     renderer
       .device
       .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -164,9 +172,7 @@ impl BasicMaterial {
         fragment: Some(wgpu::FragmentState {
           module: &shader,
           entry_point: "fs_main",
-          targets: &[self
-            .states
-            .map_color_states(renderer.get_prefer_target_format())],
+          targets: targets.as_slice(),
         }),
         primitive: wgpu::PrimitiveState {
           cull_mode: None,
@@ -175,7 +181,7 @@ impl BasicMaterial {
         },
         depth_stencil: self
           .states
-          .map_depth_stencil_state(StandardForward::depth_format().into()),
+          .map_depth_stencil_state(ctx.pass.depth_stencil_format()),
         multisample: wgpu::MultisampleState::default(),
       })
   }
@@ -204,6 +210,7 @@ impl MaterialGPUResource for BasicMaterialGPU {
       camera_gpu: ctx.camera_gpu,
       model_gpu: ctx.model_gpu,
       active_mesh: ctx.active_mesh,
+      pass: ctx.pass,
     };
     let pipelines = &mut ctx.pipelines;
     pipelines

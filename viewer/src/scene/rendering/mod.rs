@@ -6,7 +6,12 @@ pub use forward::*;
 pub mod rg;
 pub use rg::*;
 
-pub trait RenderStylePassCreator {
+pub trait ViewerRenderPass {
+  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
+  fn color_format(&self) -> &[wgpu::TextureFormat];
+}
+
+pub trait ViewerRenderPassCreator {
   type TargetResource;
 
   fn create_pass<'a>(
@@ -19,14 +24,14 @@ pub trait RenderStylePassCreator {
 
 impl<'b, S> RenderPassCreator<S::TargetResource> for RenderPassDispatcher<'b, S>
 where
-  S: RenderStylePassCreator,
+  S: ViewerRenderPassCreator,
 {
   fn create<'a>(
     &'a self,
     target: &'a S::TargetResource,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a> {
-    self.style.create_pass(&self.scene, target, encoder)
+    self.pass.create_pass(&self.scene, target, encoder)
   }
 }
 
@@ -42,10 +47,10 @@ impl RenderList {
 
 pub struct RenderPassDispatcher<'a, S> {
   pub scene: &'a mut Scene,
-  pub style: &'a mut S,
+  pub pass: &'a mut S,
 }
 
-impl<'a, S: RenderStylePassCreator> Renderable for RenderPassDispatcher<'a, S> {
+impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPassDispatcher<'a, S> {
   fn setup_pass<'p>(&'p self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;
@@ -56,7 +61,7 @@ impl<'a, S: RenderStylePassCreator> Renderable for RenderPassDispatcher<'a, S> {
       let mesh = scene.meshes.get(model.mesh()).unwrap();
 
       let ctx = SceneMaterialPassSetupCtx {
-        // style: self.style,
+        pass: self.pass,
         camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
         model_gpu: node.gpu.as_ref().unwrap(),
         pipelines: &scene.pipeline_resource,
@@ -109,7 +114,7 @@ impl<'a, S: RenderStylePassCreator> Renderable for RenderPassDispatcher<'a, S> {
           model_matrix,
           model_gpu,
           pipelines: &mut scene.pipeline_resource,
-          // style: self.style,
+          pass: self.pass,
           active_mesh: mesh,
           textures: &mut scene.texture_2ds,
           samplers: &mut scene.samplers,

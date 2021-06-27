@@ -17,7 +17,8 @@ use crate::Renderer;
 
 use super::{
   Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,
-  SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, VertexBufferSourceType, WatchedArena,
+  SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, VertexBufferSourceType,
+  ViewerRenderPass, WatchedArena,
 };
 
 impl Scene {
@@ -102,7 +103,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a> {
   pub model_matrix: &'a Mat4<f32>,
   pub model_gpu: &'a TransformGPU,
   pub pipelines: &'a mut PipelineResourceManager,
-  // pub style: &'a S,
+  pub pass: &'a dyn ViewerRenderPass,
   pub active_mesh: &'a Box<dyn Mesh>,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub samplers: &'a mut WatchedArena<SceneSampler>,
@@ -113,6 +114,7 @@ pub struct PipelineCreateCtx<'a> {
   pub camera_gpu: &'a CameraBindgroup,
   pub model_gpu: &'a TransformGPU,
   pub active_mesh: &'a Box<dyn Mesh>,
+  pub pass: &'a dyn ViewerRenderPass,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {
@@ -120,7 +122,7 @@ pub struct SceneMaterialPassSetupCtx<'a> {
   pub camera_gpu: &'a CameraBindgroup,
   pub model_gpu: &'a TransformGPU,
   pub active_mesh: &'a Box<dyn Mesh>,
-  // pub style: &'a S,
+  pub pass: &'a dyn ViewerRenderPass,
 }
 
 pub trait Material {
