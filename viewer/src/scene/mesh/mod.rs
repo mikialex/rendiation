@@ -14,12 +14,14 @@ pub trait Mesh {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
   fn update(&mut self, renderer: &mut Renderer);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
+  fn topology(&self) -> wgpu::PrimitiveTopology;
 }
 
 pub trait GPUMeshData {
   fn update(&self, gpu: &mut Option<MeshGPU>, device: &wgpu::Device);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
+  fn topology(&self) -> wgpu::PrimitiveTopology;
 }
 
 pub struct MeshCell<T> {
@@ -42,6 +44,10 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
 
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
     self.data.vertex_layout()
+  }
+
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    self.data.topology()
   }
 }
 
@@ -99,7 +105,7 @@ pub trait VertexBufferSourceType {
 impl VertexBufferSourceType for Vec<Vertex> {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
-      array_stride: std::mem::size_of::<Self>() as u64,
+      array_stride: std::mem::size_of::<Vertex>() as u64,
       step_mode: wgpu::InputStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {

@@ -66,15 +66,17 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
       let model = models.get(*model).unwrap();
       let material = scene.materials.get(model.material()).unwrap().as_ref();
       let node = scene.nodes.get_node(model.node()).data();
-
+      let mesh = scene.meshes.get(model.mesh()).unwrap();
+      
       let ctx = SceneMaterialPassSetupCtx {
         style: self.style,
         camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
         model_gpu: node.gpu.as_ref().unwrap(),
         pipelines: &scene.pipeline_resource,
+        active_mesh: mesh,
       };
-
       S::material_setup_pass(material, pass, &ctx);
+
       let mesh = scene.meshes.get(model.mesh()).unwrap();
       mesh.setup_pass(pass, model.group());
     })

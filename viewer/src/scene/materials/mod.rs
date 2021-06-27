@@ -17,7 +17,7 @@ use crate::Renderer;
 
 use super::{
   Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, RenderStyle,
-  Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, TypedMaterialHandle,
+  Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, TypedMaterialHandle, ValueID,
   VertexBufferSourceType, WatchedArena,
 };
 
@@ -120,6 +120,7 @@ pub struct SceneMaterialPassSetupCtx<'a, S> {
   pub pipelines: &'a PipelineResourceManager,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_gpu: &'a TransformGPU,
+  pub active_mesh: &'a Box<dyn Mesh>,
   pub style: &'a S,
 }
 
@@ -167,9 +168,26 @@ where
   }
 }
 
+pub type CommonMaterialPipelineVariantContainer =
+  TopologyPipelineVariant<StatePipelineVariant<PipelineUnit>>;
+
+pub struct CommonPipelineVariantKey(ValueID<PreferredMaterialStates>, wgpu::PrimitiveTopology);
+
+impl AsRef<ValueID<PreferredMaterialStates>> for CommonPipelineVariantKey {
+  fn as_ref(&self) -> &ValueID<PreferredMaterialStates> {
+    &self.0
+  }
+}
+
+impl AsRef<wgpu::PrimitiveTopology> for CommonPipelineVariantKey {
+  fn as_ref(&self) -> &wgpu::PrimitiveTopology {
+    &self.1
+  }
+}
+
 pub struct PipelineResourceManager {
   pub materials: HashMap<TypeId, Box<dyn Any>>,
-  pub basic: StatePipelineVariant<PipelineUnit>,
+  pub basic: CommonMaterialPipelineVariantContainer,
 }
 
 impl PipelineResourceManager {

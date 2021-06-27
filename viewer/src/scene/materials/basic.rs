@@ -11,11 +11,7 @@ use crate::{
   },
 };
 
-use super::{
-  MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire, PipelineCreateCtx,
-  PipelineVariantContainer, PreferredMaterialStates, SceneMaterialPassSetupCtx,
-  SceneMaterialRenderPrepareCtx, STATE_ID,
-};
+use super::{CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire, PipelineCreateCtx, PipelineVariantContainer, PreferredMaterialStates, STATE_ID, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx};
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
@@ -198,13 +194,15 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
   ) {
     self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
 
+    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
+
     let pipeline_ctx = PipelineCreateCtx {
       camera_gpu: ctx.camera_gpu,
       model_gpu: ctx.model_gpu,
       active_mesh: ctx.active_mesh,
     };
     let pipelines = &mut ctx.pipelines;
-    pipelines.basic.request(&self.state_id, || {
+    pipelines.basic.request(&key, || {
       source.create_pipeline(renderer, &pipeline_ctx)
     });
   }
@@ -214,7 +212,8 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a, StandardForward>,
   ) {
-    let pipeline = ctx.pipelines.basic.retrieve(&self.state_id);
+    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
+    let pipeline = ctx.pipelines.basic.retrieve(&key);
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);

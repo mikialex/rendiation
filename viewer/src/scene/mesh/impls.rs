@@ -1,7 +1,7 @@
 use bytemuck::Pod;
 use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshGroup},
-  mesh::{AbstractMesh, IndexedMesh},
+  mesh::{AbstractMesh, IndexedMesh, PrimitiveTopology, PrimitiveTopologyMeta},
 };
 use wgpu::util::DeviceExt;
 
@@ -12,6 +12,7 @@ use super::{GPUMeshData, IndexBufferSourceType, MeshGPU, VertexBufferSourceType}
 impl<I, V, T> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 where
   V: Pod,
+  T: PrimitiveTopologyMeta<V>,
   Vec<V>: VertexBufferSourceType,
   I: IndexBufferSourceType,
   IndexedMesh<I, V, T, Vec<V>>: AbstractMesh,
@@ -48,6 +49,16 @@ where
         count: self.mesh.draw_count(),
       },
       MeshDrawGroup::SubMesh(i) => *self.groups.groups.get(i).unwrap(),
+    }
+  }
+
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    match T::ENUM {
+      PrimitiveTopology::PointList => wgpu::PrimitiveTopology::PointList,
+      PrimitiveTopology::LineList => wgpu::PrimitiveTopology::LineList,
+      PrimitiveTopology::LineStrip => wgpu::PrimitiveTopology::LineStrip,
+      PrimitiveTopology::TriangleList => wgpu::PrimitiveTopology::TriangleList,
+      PrimitiveTopology::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
     }
   }
 }

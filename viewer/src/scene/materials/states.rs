@@ -60,12 +60,6 @@ impl<T> Default for StatePipelineVariant<T> {
   }
 }
 
-impl AsRef<ValueID<PreferredMaterialStates>> for ValueID<PreferredMaterialStates> {
-  fn as_ref(&self) -> &ValueID<PreferredMaterialStates> {
-    self
-  }
-}
-
 pub trait PipelineVariantContainer<V>: Default {
   fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline);
 
@@ -122,7 +116,9 @@ pub struct TopologyPipelineVariant<T> {
 
 impl<T> Default for TopologyPipelineVariant<T> {
   fn default() -> Self {
-    todo!()
+    Self {
+      pipelines: [None, None, None, None, None],
+    }
   }
 }
 
