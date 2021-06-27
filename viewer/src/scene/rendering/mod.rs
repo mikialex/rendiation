@@ -6,19 +6,6 @@ pub use forward::*;
 pub mod rg;
 pub use rg::*;
 
-pub trait RenderStyle: RenderStylePassCreator {
-  fn material_update<'a>(
-    m: &mut dyn Material,
-    renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a>,
-  );
-  fn material_setup_pass<'a>(
-    m: &'a dyn Material,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
-  );
-}
-
 pub trait RenderStylePassCreator {
   type TargetResource;
 
@@ -32,7 +19,7 @@ pub trait RenderStylePassCreator {
 
 impl<'b, S> RenderPassCreator<S::TargetResource> for RenderPassDispatcher<'b, S>
 where
-  S: RenderStyle,
+  S: RenderStylePassCreator,
 {
   fn create<'a>(
     &'a self,
@@ -58,7 +45,7 @@ pub struct RenderPassDispatcher<'a, S> {
   pub style: &'a mut S,
 }
 
-impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
+impl<'a, S: RenderStylePassCreator> Renderable for RenderPassDispatcher<'a, S> {
   fn setup_pass<'p>(&'p self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;
@@ -75,7 +62,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
         pipelines: &scene.pipeline_resource,
         active_mesh: mesh,
       };
-      S::material_setup_pass(material, pass, &ctx);
+      material.setup_pass(pass, &ctx);
 
       let mesh = scene.meshes.get(model.mesh()).unwrap();
       mesh.setup_pass(pass, model.group());
@@ -128,7 +115,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           samplers: &mut scene.samplers,
           reference_finalization: &scene.reference_finalization,
         };
-        S::material_update(material, renderer, &mut ctx);
+        material.update(renderer, &mut ctx);
         mesh.update(renderer);
       })
     }

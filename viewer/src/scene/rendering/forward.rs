@@ -47,24 +47,6 @@ impl StandardForward {
   }
 }
 
-impl RenderStyle for StandardForward {
-  fn material_update<'a>(
-    m: &mut dyn Material,
-    renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a>,
-  ) {
-    m.update(renderer, ctx)
-  }
-
-  fn material_setup_pass<'a>(
-    m: &'a dyn Material,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
-  ) {
-    m.setup_pass(pass, ctx)
-  }
-}
-
 impl RenderStylePassCreator for StandardForward {
   type TargetResource = wgpu::SwapChainFrame;
 

@@ -16,9 +16,9 @@ use rendiation_algebra::Mat4;
 use crate::Renderer;
 
 use super::{
-  Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, RenderStyle,
-  Scene, SceneSampler, SceneTexture2D, StandardForward, TransformGPU, TypedMaterialHandle, ValueID,
-  VertexBufferSourceType, WatchedArena,
+  Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, Scene,
+  SceneSampler, SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, VertexBufferSourceType,
+  WatchedArena,
 };
 
 impl Scene {
