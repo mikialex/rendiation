@@ -3,6 +3,17 @@ use super::*;
 pub struct StandardForward {
   depth: wgpu::Texture,
   depth_view: wgpu::TextureView,
+  color_format: [wgpu::TextureFormat; 1],
+}
+
+impl ViewerRenderPass for StandardForward {
+  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat> {
+    wgpu::TextureFormat::Depth32Float.into()
+  }
+
+  fn color_format(&self) -> &[wgpu::TextureFormat] {
+    self.color_format.as_slice()
+  }
 }
 
 impl StandardForward {
@@ -22,8 +33,8 @@ impl Scene {
 }
 
 impl StandardForward {
-  pub fn new(device: &wgpu::Device, size: (f32, f32)) -> Self {
-    let depth = device.create_texture(&wgpu::TextureDescriptor {
+  pub fn new(renderer: &Renderer, size: (f32, f32)) -> Self {
+    let depth = renderer.device.create_texture(&wgpu::TextureDescriptor {
       size: wgpu::Extent3d {
         width: size.0 as u32,
         height: size.1 as u32,
@@ -39,33 +50,19 @@ impl StandardForward {
 
     let depth_view = depth.create_view(&wgpu::TextureViewDescriptor::default());
 
-    Self { depth, depth_view }
+    Self {
+      depth,
+      depth_view,
+      color_format: [renderer.get_prefer_target_format()],
+    }
   }
 
-  pub fn resize(&mut self, device: &wgpu::Device, size: (f32, f32)) {
-    *self = Self::new(device, size);
-  }
-}
-
-impl RenderStyle for StandardForward {
-  fn material_update<'a>(
-    m: &mut dyn Material,
-    renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
-  ) {
-    m.update(renderer, ctx)
-  }
-
-  fn material_setup_pass<'a>(
-    m: &'a dyn Material,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
-  ) {
-    m.setup_pass(pass, ctx)
+  pub fn resize(&mut self, renderer: &Renderer, size: (f32, f32)) {
+    *self = Self::new(renderer, size);
   }
 }
 
-impl RenderStylePassCreator for StandardForward {
+impl ViewerRenderPassCreator for StandardForward {
   type TargetResource = wgpu::SwapChainFrame;
 
   fn create_pass<'a>(

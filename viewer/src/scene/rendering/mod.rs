@@ -6,20 +6,12 @@ pub use forward::*;
 pub mod rg;
 pub use rg::*;
 
-pub trait RenderStyle: RenderStylePassCreator + Sized {
-  fn material_update<'a>(
-    m: &mut dyn Material,
-    renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
-  );
-  fn material_setup_pass<'a>(
-    m: &'a dyn Material,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
-  );
+pub trait ViewerRenderPass {
+  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
+  fn color_format(&self) -> &[wgpu::TextureFormat];
 }
 
-pub trait RenderStylePassCreator {
+pub trait ViewerRenderPassCreator {
   type TargetResource;
 
   fn create_pass<'a>(
@@ -32,14 +24,14 @@ pub trait RenderStylePassCreator {
 
 impl<'b, S> RenderPassCreator<S::TargetResource> for RenderPassDispatcher<'b, S>
 where
-  S: RenderStyle,
+  S: ViewerRenderPassCreator,
 {
   fn create<'a>(
     &'a self,
     target: &'a S::TargetResource,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a> {
-    self.style.create_pass(&self.scene, target, encoder)
+    self.pass.create_pass(&self.scene, target, encoder)
   }
 }
 
@@ -55,10 +47,10 @@ impl RenderList {
 
 pub struct RenderPassDispatcher<'a, S> {
   pub scene: &'a mut Scene,
-  pub style: &'a mut S,
+  pub pass: &'a mut S,
 }
 
-impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
+impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPassDispatcher<'a, S> {
   fn setup_pass<'p>(&'p self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;
@@ -67,15 +59,15 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
       let material = scene.materials.get(model.material()).unwrap().as_ref();
       let node = scene.nodes.get_node(model.node()).data();
       let mesh = scene.meshes.get(model.mesh()).unwrap();
-      
+
       let ctx = SceneMaterialPassSetupCtx {
-        style: self.style,
+        pass: self.pass,
         camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
         model_gpu: node.gpu.as_ref().unwrap(),
         pipelines: &scene.pipeline_resource,
         active_mesh: mesh,
       };
-      S::material_setup_pass(material, pass, &ctx);
+      material.setup_pass(pass, &ctx);
 
       let mesh = scene.meshes.get(model.mesh()).unwrap();
       mesh.setup_pass(pass, model.group());
@@ -122,13 +114,13 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           model_matrix,
           model_gpu,
           pipelines: &mut scene.pipeline_resource,
-          style: self.style,
+          pass: self.pass,
           active_mesh: mesh,
           textures: &mut scene.texture_2ds,
           samplers: &mut scene.samplers,
           reference_finalization: &scene.reference_finalization,
         };
-        S::material_update(material, renderer, &mut ctx);
+        material.update(renderer, &mut ctx);
         mesh.update(renderer);
       })
     }

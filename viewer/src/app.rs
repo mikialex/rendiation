@@ -89,14 +89,14 @@ impl Application {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let forward = StandardForward::new(&renderer.device, size);
+    let forward = StandardForward::new(renderer, size);
 
     let mut app = Self {
       scene,
       forward,
       controller,
     };
-    app.resize_view(&renderer.device, size);
+    app.resize_view(renderer, size);
     app
   }
 
@@ -104,25 +104,25 @@ impl Application {
     renderer.render(
       &mut RenderPassDispatcher {
         scene: &mut self.scene,
-        style: &mut self.forward,
+        pass: &mut self.forward,
       },
       frame,
     )
   }
 
-  pub fn resize_view(&mut self, device: &wgpu::Device, size: (f32, f32)) {
+  pub fn resize_view(&mut self, renderer: &Renderer, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
       let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
       camera.projection.resize(size)
     }
-    self.forward.resize(device, size)
+    self.forward.resize(renderer, size)
   }
 
   pub fn event(&mut self, renderer: &mut Renderer, event: &Event<()>) {
     self.controller.event(event);
     if let Event::WindowEvent { event, .. } = event {
       if let WindowEvent::Resized(size) = event {
-        self.resize_view(&renderer.device, (size.width as f32, size.height as f32));
+        self.resize_view(renderer, (size.width as f32, size.height as f32));
       }
     }
   }

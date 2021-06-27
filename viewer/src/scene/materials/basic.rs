@@ -6,12 +6,16 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use crate::{
   renderer::{BindableResource, Renderer, UniformBuffer},
   scene::{
-    BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, StandardForward,
-    Texture2DHandle, TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
+    BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, Texture2DHandle,
+    TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
   },
 };
 
-use super::{CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire, PipelineCreateCtx, PipelineVariantContainer, PreferredMaterialStates, STATE_ID, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx};
+use super::{
+  CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire,
+  PipelineCreateCtx, PipelineVariantContainer, PreferredMaterialStates, SceneMaterialPassSetupCtx,
+  SceneMaterialRenderPrepareCtx, STATE_ID,
+};
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
@@ -25,14 +29,14 @@ impl MaterialMeshLayoutRequire for BasicMaterial {
 }
 
 impl BasicMaterial {
-  pub fn create_bindgroup<S>(
+  pub fn create_bindgroup(
     &self,
     handle: MaterialHandle,
     ubo: &wgpu::Buffer,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
-    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> BindGroup {
     device
       .material_bindgroup_builder(handle)
@@ -147,6 +151,14 @@ impl BasicMaterial {
       });
 
     let vertex_buffers = ctx.active_mesh.vertex_layout();
+
+    let targets: Vec<_> = ctx
+      .pass
+      .color_format()
+      .iter()
+      .map(|&f| self.states.map_color_states(f))
+      .collect();
+
     renderer
       .device
       .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -160,9 +172,7 @@ impl BasicMaterial {
         fragment: Some(wgpu::FragmentState {
           module: &shader,
           entry_point: "fs_main",
-          targets: &[self
-            .states
-            .map_color_states(renderer.get_prefer_target_format())],
+          targets: targets.as_slice(),
         }),
         primitive: wgpu::PrimitiveState {
           cull_mode: None,
@@ -171,7 +181,7 @@ impl BasicMaterial {
         },
         depth_stencil: self
           .states
-          .map_depth_stencil_state(StandardForward::depth_format().into()),
+          .map_depth_stencil_state(ctx.pass.depth_stencil_format()),
         multisample: wgpu::MultisampleState::default(),
       })
   }
@@ -184,13 +194,13 @@ pub struct BasicMaterialGPU {
   bindgroup: BindGroup,
 }
 
-impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
+impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
   fn update(
     &mut self,
     source: &Self::Source,
     renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<StandardForward>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) {
     self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
 
@@ -200,17 +210,18 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
       camera_gpu: ctx.camera_gpu,
       model_gpu: ctx.model_gpu,
       active_mesh: ctx.active_mesh,
+      pass: ctx.pass,
     };
     let pipelines = &mut ctx.pipelines;
-    pipelines.basic.request(&key, || {
-      source.create_pipeline(renderer, &pipeline_ctx)
-    });
+    pipelines
+      .basic
+      .request(&key, || source.create_pipeline(renderer, &pipeline_ctx));
   }
 
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, StandardForward>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
     let pipeline = ctx.pipelines.basic.retrieve(&key);
@@ -224,11 +235,11 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
 impl MaterialCPUResource for BasicMaterial {
   type GPU = BasicMaterialGPU;
 
-  fn create<S>(
+  fn create(
     &mut self,
     handle: MaterialHandle,
     renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
     let uniform = UniformBuffer::create(&renderer.device, self.color);
 

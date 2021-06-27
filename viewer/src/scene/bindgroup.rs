@@ -110,9 +110,9 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self
   }
 
-  pub fn push_texture2d<'c: 'b, 'd: 'b, S>(
+  pub fn push_texture2d<'c: 'b, 'd: 'b>(
     mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d, S>,
+    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
     handle: Texture2DHandle,
   ) -> Self {
     self.bindings.push(
@@ -133,9 +133,9 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self
   }
 
-  pub fn push_sampler<'c: 'b, 'd: 'b, S>(
+  pub fn push_sampler<'c: 'b, 'd: 'b>(
     mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d, S>,
+    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
     handle: SamplerHandle,
   ) -> Self {
     self.bindings.push(
