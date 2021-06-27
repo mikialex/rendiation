@@ -51,7 +51,7 @@ impl RenderStyle for StandardForward {
   fn material_update<'a>(
     m: &mut dyn Material,
     renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a>,
   ) {
     m.update(renderer, ctx)
   }
@@ -59,7 +59,7 @@ impl RenderStyle for StandardForward {
   fn material_setup_pass<'a>(
     m: &'a dyn Material,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     m.setup_pass(pass, ctx)
   }

@@ -34,7 +34,7 @@ impl Scene {
   pub fn add_material<M>(&mut self, material: M) -> TypedMaterialHandle<M>
   where
     M: MaterialCPUResource + 'static,
-    M::GPU: MaterialGPUResource<StandardForward, Source = M>,
+    M::GPU: MaterialGPUResource<Source = M>,
   {
     let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
     TypedMaterialHandle {
@@ -50,21 +50,21 @@ pub trait MaterialMeshLayoutRequire {
 
 pub trait MaterialCPUResource {
   type GPU;
-  fn create<S>(
+  fn create(
     &mut self,
     handle: MaterialHandle,
     renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU;
 }
 
-pub trait MaterialGPUResource<S>: Sized {
+pub trait MaterialGPUResource: Sized {
   type Source: MaterialCPUResource<GPU = Self>;
   fn update(
     &mut self,
     source: &Self::Source,
     renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) {
     // default do nothing
   }
@@ -72,7 +72,7 @@ pub trait MaterialGPUResource<S>: Sized {
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, S>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     // default do nothing
   }
@@ -97,13 +97,13 @@ impl<T: MaterialCPUResource> MaterialCell<T> {
   }
 }
 
-pub struct SceneMaterialRenderPrepareCtx<'a, S> {
+pub struct SceneMaterialRenderPrepareCtx<'a> {
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
   pub model_gpu: &'a TransformGPU,
   pub pipelines: &'a mut PipelineResourceManager,
-  pub style: &'a S,
+  // pub style: &'a S,
   pub active_mesh: &'a Box<dyn Mesh>,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub samplers: &'a mut WatchedArena<SceneSampler>,
@@ -116,34 +116,25 @@ pub struct PipelineCreateCtx<'a> {
   pub active_mesh: &'a Box<dyn Mesh>,
 }
 
-pub struct SceneMaterialPassSetupCtx<'a, S> {
+pub struct SceneMaterialPassSetupCtx<'a> {
   pub pipelines: &'a PipelineResourceManager,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_gpu: &'a TransformGPU,
   pub active_mesh: &'a Box<dyn Mesh>,
-  pub style: &'a S,
+  // pub style: &'a S,
 }
 
-pub trait MaterialStyleAbility<S: RenderStyle> {
-  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>);
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, S>,
-  );
+pub trait MaterialStyleAbility {
+  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
+  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
 }
 
-impl<T, S> MaterialStyleAbility<S> for MaterialCell<T>
+impl<T> MaterialStyleAbility for MaterialCell<T>
 where
   T: MaterialCPUResource,
-  T::GPU: MaterialGPUResource<S, Source = T>,
-  S: RenderStyle,
+  T::GPU: MaterialGPUResource<Source = T>,
 {
-  fn update<'a>(
-    &mut self,
-    renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, S>,
-  ) {
+  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
     self
       .gpu
       .get_or_insert_with(|| T::create(&mut self.material, self.handle, renderer, ctx))
@@ -152,7 +143,7 @@ where
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, S>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     self.gpu.as_ref().unwrap().setup_pass(pass, ctx)
   }
@@ -161,7 +152,7 @@ where
 impl<T> Material for MaterialCell<T>
 where
   T: MaterialCPUResource + 'static,
-  MaterialCell<T>: MaterialStyleAbility<StandardForward>,
+  MaterialCell<T>: MaterialStyleAbility,
 {
   fn on_ref_resource_changed(&mut self) {
     self.gpu = None;

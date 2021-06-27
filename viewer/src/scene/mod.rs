@@ -44,7 +44,7 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 pub type SamplerHandle = Handle<SceneSampler>;
 pub type Texture2DHandle = Handle<SceneTexture2D>;
 
-pub trait Material: MaterialStyleAbility<StandardForward> + 'static {
+pub trait Material: MaterialStyleAbility + 'static {
   fn on_ref_resource_changed(&mut self);
 }
 

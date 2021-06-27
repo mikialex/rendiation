@@ -66,10 +66,10 @@ pub enum MeshDrawGroup {
   SubMesh(usize),
 }
 
-pub struct ModelPassSetupContext<'a, S> {
+pub struct ModelPassSetupContext<'a> {
   pub materials: &'a Arena<Box<dyn Material>>,
   pub meshes: &'a Arena<Box<dyn Mesh>>,
-  pub material_ctx: SceneMaterialPassSetupCtx<'a, S>,
+  pub material_ctx: SceneMaterialPassSetupCtx<'a>,
 }
 
 impl Scene {

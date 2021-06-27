@@ -6,16 +6,16 @@ pub use forward::*;
 pub mod rg;
 pub use rg::*;
 
-pub trait RenderStyle: RenderStylePassCreator + Sized {
+pub trait RenderStyle: RenderStylePassCreator {
   fn material_update<'a>(
     m: &mut dyn Material,
     renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<'a, Self>,
+    ctx: &mut SceneMaterialRenderPrepareCtx<'a>,
   );
   fn material_setup_pass<'a>(
     m: &'a dyn Material,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, Self>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
   );
 }
 
@@ -67,9 +67,9 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
       let material = scene.materials.get(model.material()).unwrap().as_ref();
       let node = scene.nodes.get_node(model.node()).data();
       let mesh = scene.meshes.get(model.mesh()).unwrap();
-      
+
       let ctx = SceneMaterialPassSetupCtx {
-        style: self.style,
+        // style: self.style,
         camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
         model_gpu: node.gpu.as_ref().unwrap(),
         pipelines: &scene.pipeline_resource,
@@ -122,7 +122,7 @@ impl<'a, S: RenderStyle> Renderable for RenderPassDispatcher<'a, S> {
           model_matrix,
           model_gpu,
           pipelines: &mut scene.pipeline_resource,
-          style: self.style,
+          // style: self.style,
           active_mesh: mesh,
           textures: &mut scene.texture_2ds,
           samplers: &mut scene.samplers,

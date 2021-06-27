@@ -11,7 +11,11 @@ use crate::{
   },
 };
 
-use super::{CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire, PipelineCreateCtx, PipelineVariantContainer, PreferredMaterialStates, STATE_ID, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx};
+use super::{
+  CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire,
+  PipelineCreateCtx, PipelineVariantContainer, PreferredMaterialStates, SceneMaterialPassSetupCtx,
+  SceneMaterialRenderPrepareCtx, STATE_ID,
+};
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
@@ -25,14 +29,14 @@ impl MaterialMeshLayoutRequire for BasicMaterial {
 }
 
 impl BasicMaterial {
-  pub fn create_bindgroup<S>(
+  pub fn create_bindgroup(
     &self,
     handle: MaterialHandle,
     ubo: &wgpu::Buffer,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
-    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> BindGroup {
     device
       .material_bindgroup_builder(handle)
@@ -184,13 +188,13 @@ pub struct BasicMaterialGPU {
   bindgroup: BindGroup,
 }
 
-impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
+impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
   fn update(
     &mut self,
     source: &Self::Source,
     renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<StandardForward>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) {
     self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
 
@@ -202,15 +206,15 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
       active_mesh: ctx.active_mesh,
     };
     let pipelines = &mut ctx.pipelines;
-    pipelines.basic.request(&key, || {
-      source.create_pipeline(renderer, &pipeline_ctx)
-    });
+    pipelines
+      .basic
+      .request(&key, || source.create_pipeline(renderer, &pipeline_ctx));
   }
 
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a, StandardForward>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
     let pipeline = ctx.pipelines.basic.retrieve(&key);
@@ -224,11 +228,11 @@ impl MaterialGPUResource<StandardForward> for BasicMaterialGPU {
 impl MaterialCPUResource for BasicMaterial {
   type GPU = BasicMaterialGPU;
 
-  fn create<S>(
+  fn create(
     &mut self,
     handle: MaterialHandle,
     renderer: &mut Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx<S>,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
     let uniform = UniformBuffer::create(&renderer.device, self.color);
 
