@@ -16,13 +16,12 @@ use rendiation_algebra::Mat4;
 use crate::Renderer;
 
 use super::{
-  Camera, CameraBindgroup, Material, MaterialHandle, Mesh, ReferenceFinalization, Scene,
-  SceneSampler, SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, VertexBufferSourceType,
-  WatchedArena,
+  Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,
+  SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, VertexBufferSourceType, WatchedArena,
 };
 
 impl Scene {
-  fn add_material_inner<M: Material, F: FnOnce(MaterialHandle) -> M>(
+  fn add_material_inner<M: Material + 'static, F: FnOnce(MaterialHandle) -> M>(
     &mut self,
     creator: F,
   ) -> MaterialHandle {
@@ -124,12 +123,13 @@ pub struct SceneMaterialPassSetupCtx<'a> {
   // pub style: &'a S,
 }
 
-pub trait MaterialStyleAbility {
+pub trait Material {
+  fn on_ref_resource_changed(&mut self);
   fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
 }
 
-impl<T> MaterialStyleAbility for MaterialCell<T>
+impl<T> Material for MaterialCell<T>
 where
   T: MaterialCPUResource,
   T::GPU: MaterialGPUResource<Source = T>,
@@ -147,13 +147,6 @@ where
   ) {
     self.gpu.as_ref().unwrap().setup_pass(pass, ctx)
   }
-}
-
-impl<T> Material for MaterialCell<T>
-where
-  T: MaterialCPUResource + 'static,
-  MaterialCell<T>: MaterialStyleAbility,
-{
   fn on_ref_resource_changed(&mut self) {
     self.gpu = None;
   }
