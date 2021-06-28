@@ -1,5 +1,7 @@
 use std::{any::Any, marker::PhantomData};
 
+use rendiation_algebra::Vec2;
+
 pub trait Component: Clone + PartialEq + 'static {
   type State: PartialEq + Default;
   fn render(&self, state: &Self::State, composer: &mut Composer<Self>);
@@ -90,6 +92,7 @@ impl<T> ComponentInitAble for T {}
 pub struct Composer<'a, P> {
   phantom: PhantomData<P>,
   primitives: &'a mut Vec<Primitive>,
+  self_primitives: &'a mut Vec<Primitive>,
   new_props: Vec<Box<dyn Any>>,
   components: &'a mut Vec<Box<dyn ComponentInstance>>,
 }
@@ -112,11 +115,14 @@ impl<'a, P: Component> Composer<'a, P> {
       self.components.last_mut().unwrap()
     };
 
+    let (components, self_primitives) = component.compose_source();
+
     let mut composer = Composer {
       phantom: PhantomData,
       new_props: Vec::new(),
       primitives: self.primitives,
-      components: component.mut_children(),
+      components,
+      self_primitives,
     };
 
     children(&mut composer);
@@ -149,7 +155,9 @@ struct ComponentCell<T: Component, P: Component> {
   last_props: Option<T>,
   event_handlers: Vec<Box<dyn Fn(&mut P::State)>>,
   children: Vec<Box<dyn ComponentInstance>>,
+  self_primitives: Vec<Primitive>,
   layout_box: usize,
+  is_active: bool,
 }
 
 impl<T: Component, P: Component> ComponentCell<T, P> {
@@ -159,15 +167,18 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
       state_changed: true,
       last_props: None,
       event_handlers: Vec::new(),
+      self_primitives: Vec::new(),
       children: Vec::new(),
       layout_box: 0,
+      is_active: false,
     }
   }
 }
 
 trait ComponentInstance {
   fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool;
-  fn mut_children(&mut self) -> &mut Vec<Box<dyn ComponentInstance>>;
+  fn compose_source(&mut self) -> (&mut Vec<Box<dyn ComponentInstance>>, &mut Vec<Primitive>);
+  fn event(&mut self, event: &winit::event::Event<()>, parent: &mut dyn Any);
 }
 
 impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
@@ -183,6 +194,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
             new_props: Vec::new(),
             primitives: primitive_builder,
             components: &mut self.children,
+            self_primitives: &mut self.self_primitives,
           };
 
           props.render(&self.state, &mut composer);
@@ -199,8 +211,20 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
     }
   }
 
-  fn mut_children(&mut self) -> &mut Vec<Box<dyn ComponentInstance>> {
-    &mut self.children
+  fn compose_source(&mut self) -> (&mut Vec<Box<dyn ComponentInstance>>, &mut Vec<Primitive>) {
+    (&mut self.children, &mut self.self_primitives)
+  }
+
+  fn event(&mut self, event: &winit::event::Event<()>, parent: &mut dyn Any) {
+    // match event
+    self.self_primitives.iter().for_each(|p| {
+      if true {
+        self
+          .event_handlers
+          .iter()
+          .for_each(|f| f(parent.downcast_mut().unwrap()))
+      }
+    })
   }
 }
 
@@ -208,6 +232,12 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
 pub enum Primitive {
   Quad,
   Text,
+}
+
+impl Primitive {
+  pub fn test_pointer_in(pointer: Vec2<f32>) -> bool {
+    false
+  }
 }
 
 #[derive(Debug, PartialEq, Clone)]
