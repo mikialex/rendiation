@@ -35,20 +35,30 @@ impl Component for FlexLayout {
 }
 
 #[derive(Default, PartialEq, Clone)]
-pub struct Counter {
+pub struct Counter;
+
+#[derive(Default, PartialEq, Clone)]
+pub struct CounterState {
   count: usize,
 }
 
 impl Component for Counter {
-  type State = ();
+  type State = CounterState;
   fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    composer.children(FlexLayout { direction: false }, |c| {
-      c.child(Button {
-        label: format!("add count{}", self.count),
-      })
-      .child(Button {
-        label: format!("de count {}", self.count),
-      });
+    composer.children(FlexLayout { direction: false }.init(), |c| {
+      c.child(
+        Button {
+          label: format!("add count{}", state.count),
+        }
+        .init::<Self>()
+        .on(|s| s.count += 1),
+      )
+      .child(
+        Button {
+          label: format!("de count {}", state.count),
+        }
+        .init(),
+      );
     });
   }
 }
@@ -56,45 +66,63 @@ impl Component for Counter {
 pub struct Composer<'a, P> {
   phantom: PhantomData<P>,
   //   primitives: Vec<usize>,
-  components: Vec<Box<dyn Any>>,
-  old_components: &'a mut Vec<Box<dyn ComponentInstance>>,
+  new_props: Vec<Box<dyn Any>>,
+  components: &'a mut Vec<Box<dyn ComponentInstance>>,
 }
+
+pub struct ComponentInit<T, P: Component> {
+  init: T,
+  events: Vec<Box<dyn Fn(&mut P::State)>>,
+}
+
+impl<T, P: Component> ComponentInit<T, P> {
+  pub fn on(mut self, f: impl Fn(&mut P::State) + 'static) -> Self {
+    self.events.push(Box::new(f));
+    self
+  }
+}
+
+pub trait ComponentInitAble: Sized {
+  fn init<P: Component>(self) -> ComponentInit<Self, P> {
+    ComponentInit {
+      init: self,
+      events: Vec::new(),
+    }
+  }
+}
+impl<T> ComponentInitAble for T {}
 
 impl<'a, P: Component> Composer<'a, P> {
   pub fn children<T: Component, F: Fn(&mut Composer<P>)>(
     &mut self,
-    props: T,
+    props: ComponentInit<T, P>,
     children: F,
   ) -> &mut Self {
-    let index = self.components.len();
-    let component = if let Some(old_component) = self.old_components.get_mut(index) {
-      old_component.patch(&props);
+    let index = self.new_props.len();
+    let component = if let Some(old_component) = self.components.get_mut(index) {
+      old_component.patch(&props.init);
       old_component
     } else {
-      self
-        .old_components
-        .push(Box::new(ComponentCell::<T, P>::new()));
-      self.old_components.last_mut().unwrap()
+      self.components.push(Box::new(ComponentCell::<T, P>::new()));
+      self.components.last_mut().unwrap()
     };
 
     let mut composer = Composer {
       phantom: PhantomData,
-      components: Vec::new(),
-      old_components: component.mut_children(),
+      new_props: Vec::new(),
+      components: component.mut_children(),
     };
 
     children(&mut composer);
     self
   }
 
-  pub fn child<T: Component>(&mut self, props: T) -> &mut Self {
-    let index = self.components.len();
-    if let Some(old_component) = self.old_components.get_mut(index) {
-      old_component.patch(&props);
+  pub fn child<T: Component>(&mut self, props: ComponentInit<T, P>) -> &mut Self {
+    let index = self.new_props.len();
+    if let Some(old_component) = self.components.get_mut(index) {
+      old_component.patch(&props.init);
     } else {
-      self
-        .old_components
-        .push(Box::new(ComponentCell::<T, P>::new()));
+      self.components.push(Box::new(ComponentCell::<T, P>::new()));
     };
 
     self
@@ -142,8 +170,8 @@ impl<T: Component, P> ComponentInstance for ComponentCell<T, P> {
 
           let mut composer = Composer {
             phantom: PhantomData,
-            components: Vec::new(),
-            old_components: &mut self.children,
+            new_props: Vec::new(),
+            components: &mut self.children,
           };
 
           props.render(&self.state, &mut composer);
