@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 mod app;
 mod renderer;
 mod scene;
+mod ui;
 
 use app::Application;
 use renderer::Renderer;
