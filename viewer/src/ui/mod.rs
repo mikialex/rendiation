@@ -32,7 +32,7 @@ pub struct FlexLayoutProps {
 impl Component for FlexLayout {
   type Props = FlexLayoutProps;
   fn render(&self, props: &Self::Props, composer: &mut Composer<Self>) {
-    //
+    // do nothing
   }
 }
 
@@ -44,13 +44,14 @@ pub struct Counter {
 impl Component for Counter {
   type Props = ();
   fn render(&self, props: &Self::Props, composer: &mut Composer<Self>) {
-    composer
-      .push::<Button>(ButtonProps {
+    composer.children::<FlexLayout, _>(FlexLayoutProps { direction: false }, |c| {
+      c.child::<Button>(ButtonProps {
         label: format!("add count{}", self.count),
       })
-      .push::<Button>(ButtonProps {
+      .child::<Button>(ButtonProps {
         label: format!("de count {}", self.count),
       });
+    });
   }
 }
 
@@ -62,15 +63,42 @@ pub struct Composer<'a, P> {
 }
 
 impl<'a, P: Component> Composer<'a, P> {
-  pub fn push<T: Component>(&mut self, props: T::Props) -> &mut Self {
+  pub fn children<T: Component, F: Fn(&mut Composer<P>)>(
+    &mut self,
+    props: T::Props,
+    children: F,
+  ) -> &mut Self {
+    let index = self.components.len();
+    let component = if let Some(old_component) = self.old_components.get_mut(index) {
+      old_component.patch(&props);
+      old_component
+    } else {
+      self
+        .old_components
+        .push(Box::new(ComponentCell::<T, P>::new()));
+      self.old_components.last_mut().unwrap()
+    };
+
+    let mut composer = Composer {
+      phantom: PhantomData,
+      components: Vec::new(),
+      old_components: component.mut_children(),
+    };
+
+    children(&mut composer);
+    self
+  }
+
+  pub fn child<T: Component>(&mut self, props: T::Props) -> &mut Self {
     let index = self.components.len();
     if let Some(old_component) = self.old_components.get_mut(index) {
       old_component.patch(&props);
     } else {
       self
         .old_components
-        .push(Box::new(ComponentCell::<T, P>::new()))
-    }
+        .push(Box::new(ComponentCell::<T, P>::new()));
+    };
+
     self
   }
 
@@ -103,6 +131,7 @@ impl<T: Component, P> ComponentCell<T, P> {
 
 trait ComponentInstance {
   fn patch(&mut self, props: &dyn Any);
+  fn mut_children(&mut self) -> &mut Vec<Box<dyn ComponentInstance>>;
 }
 
 impl<T: Component, P> ComponentInstance for ComponentCell<T, P> {
@@ -128,6 +157,10 @@ impl<T: Component, P> ComponentInstance for ComponentCell<T, P> {
         }
       }
     }
+  }
+
+  fn mut_children(&mut self) -> &mut Vec<Box<dyn ComponentInstance>> {
+    &mut self.children
   }
 }
 
