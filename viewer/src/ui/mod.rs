@@ -102,7 +102,10 @@ impl<'a, P: Component> Composer<'a, P> {
   ) -> &mut Self {
     let index = self.new_props.len();
     let component = if let Some(old_component) = self.components.get_mut(index) {
-      old_component.patch(&props.init, self.primitives);
+      if !old_component.patch(&props.init, self.primitives) {
+        *old_component = Box::new(ComponentCell::<T, P>::new());
+        old_component.patch(&props.init, self.primitives);
+      };
       old_component
     } else {
       self.components.push(Box::new(ComponentCell::<T, P>::new()));
@@ -123,7 +126,10 @@ impl<'a, P: Component> Composer<'a, P> {
   pub fn child<T: Component>(&mut self, props: ComponentInit<T, P>) -> &mut Self {
     let index = self.new_props.len();
     if let Some(old_component) = self.components.get_mut(index) {
-      old_component.patch(&props.init, self.primitives);
+      if !old_component.patch(&props.init, self.primitives) {
+        *old_component = Box::new(ComponentCell::<T, P>::new());
+        old_component.patch(&props.init, self.primitives);
+      };
     } else {
       self.components.push(Box::new(ComponentCell::<T, P>::new()));
     };
@@ -132,20 +138,21 @@ impl<'a, P: Component> Composer<'a, P> {
   }
 
   pub fn push_primitive(&mut self, p: Primitive) -> &mut Self {
+    self.primitives.push(p);
     self
   }
 }
 
-struct ComponentCell<T: Component, P> {
+struct ComponentCell<T: Component, P: Component> {
   state: T::State,
   state_changed: bool,
   last_props: Option<T>,
-  event_handlers: Vec<Box<dyn Fn(P)>>,
+  event_handlers: Vec<Box<dyn Fn(&mut P::State)>>,
   children: Vec<Box<dyn ComponentInstance>>,
   layout_box: usize,
 }
 
-impl<T: Component, P> ComponentCell<T, P> {
+impl<T: Component, P: Component> ComponentCell<T, P> {
   pub fn new() -> Self {
     Self {
       state: Default::default(),
@@ -159,12 +166,12 @@ impl<T: Component, P> ComponentCell<T, P> {
 }
 
 trait ComponentInstance {
-  fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>);
+  fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool;
   fn mut_children(&mut self) -> &mut Vec<Box<dyn ComponentInstance>>;
 }
 
-impl<T: Component, P> ComponentInstance for ComponentCell<T, P> {
-  fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) {
+impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
+  fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool {
     if let Some(props) = props.downcast_ref::<T>() {
       if let Some(last_props) = &self.last_props {
         let props_changed = last_props != props;
@@ -186,6 +193,9 @@ impl<T: Component, P> ComponentInstance for ComponentCell<T, P> {
           self.state_changed = false;
         }
       }
+      return true;
+    } else {
+      return false;
     }
   }
 
@@ -200,8 +210,19 @@ pub enum Primitive {
   Text,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct UIRoot;
+
+impl Component for UIRoot {
+  type State = ();
+
+  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
+    todo!()
+  }
+}
+
 struct UI<T: Component> {
-  component: ComponentCell<T, ()>,
+  component: ComponentCell<T, UIRoot>,
   primitive_cache: Vec<Primitive>,
 }
 
