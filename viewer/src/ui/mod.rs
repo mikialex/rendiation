@@ -1,54 +1,52 @@
 use std::{any::Any, marker::PhantomData};
 
-pub trait Component: Default + PartialEq + 'static {
-  type Props: PartialEq + Clone;
-  fn render(&self, props: &Self::Props, composer: &mut Composer<Self>);
+pub trait Component: Clone + PartialEq + 'static {
+  type State: PartialEq + Default;
+  fn render(&self, state: &Self::State, composer: &mut Composer<Self>);
 }
 
 #[derive(PartialEq, Clone)]
-pub struct ButtonProps {
+pub struct Button {
   label: String,
 }
 
 #[derive(Default, PartialEq)]
-pub struct Button {
+pub struct ButtonState {
   is_hovered: bool,
 }
 
 impl Component for Button {
-  type Props = ButtonProps;
-  fn render(&self, props: &Self::Props, composer: &mut Composer<Self>) {
+  type State = ButtonState;
+  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
     composer.push_primitive();
   }
 }
 
-#[derive(Default, PartialEq)]
-pub struct FlexLayout;
-#[derive(PartialEq, Clone)]
-pub struct FlexLayoutProps {
+#[derive(Default, PartialEq, Clone)]
+pub struct FlexLayout {
   direction: bool,
 }
 
 impl Component for FlexLayout {
-  type Props = FlexLayoutProps;
-  fn render(&self, props: &Self::Props, composer: &mut Composer<Self>) {
+  type State = ();
+  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
     // do nothing
   }
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq, Clone)]
 pub struct Counter {
   count: usize,
 }
 
 impl Component for Counter {
-  type Props = ();
-  fn render(&self, props: &Self::Props, composer: &mut Composer<Self>) {
-    composer.children::<FlexLayout, _>(FlexLayoutProps { direction: false }, |c| {
-      c.child::<Button>(ButtonProps {
+  type State = ();
+  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
+    composer.children(FlexLayout { direction: false }, |c| {
+      c.child(Button {
         label: format!("add count{}", self.count),
       })
-      .child::<Button>(ButtonProps {
+      .child(Button {
         label: format!("de count {}", self.count),
       });
     });
@@ -65,7 +63,7 @@ pub struct Composer<'a, P> {
 impl<'a, P: Component> Composer<'a, P> {
   pub fn children<T: Component, F: Fn(&mut Composer<P>)>(
     &mut self,
-    props: T::Props,
+    props: T,
     children: F,
   ) -> &mut Self {
     let index = self.components.len();
@@ -89,7 +87,7 @@ impl<'a, P: Component> Composer<'a, P> {
     self
   }
 
-  pub fn child<T: Component>(&mut self, props: T::Props) -> &mut Self {
+  pub fn child<T: Component>(&mut self, props: T) -> &mut Self {
     let index = self.components.len();
     if let Some(old_component) = self.old_components.get_mut(index) {
       old_component.patch(&props);
@@ -108,9 +106,9 @@ impl<'a, P: Component> Composer<'a, P> {
 }
 
 struct ComponentCell<T: Component, P> {
-  state: T,
+  state: T::State,
   state_changed: bool,
-  last_props: Option<T::Props>,
+  last_props: Option<T>,
   event_handlers: Vec<Box<dyn Fn(P)>>,
   children: Vec<Box<dyn ComponentInstance>>,
   layout_box: usize,
@@ -136,7 +134,7 @@ trait ComponentInstance {
 
 impl<T: Component, P> ComponentInstance for ComponentCell<T, P> {
   fn patch(&mut self, props: &dyn Any) {
-    if let Some(props) = props.downcast_ref::<T::Props>() {
+    if let Some(props) = props.downcast_ref::<T>() {
       if let Some(last_props) = &self.last_props {
         let props_changed = last_props != props;
         if props_changed || self.state_changed {
@@ -148,7 +146,7 @@ impl<T: Component, P> ComponentInstance for ComponentCell<T, P> {
             old_components: &mut self.children,
           };
 
-          self.state.render(props, &mut composer);
+          props.render(&self.state, &mut composer);
 
           if props_changed {
             self.last_props = Some(props.clone())
