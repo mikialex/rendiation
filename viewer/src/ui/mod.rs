@@ -265,21 +265,27 @@ impl<T: Component> UI<T> {
     }
   }
 
-  pub fn update(&mut self) -> &Vec<Primitive> {
+  pub fn render(&mut self) -> &Vec<Primitive> {
     self.primitive_cache.clear();
     self.component.patch(&(), &mut self.primitive_cache);
     &self.primitive_cache
   }
 
-  pub fn event(&mut self) {
-    self.primitive_cache.iter().for_each(|p| {
-      //
-    })
+  pub fn event(&mut self, event: &winit::event::Event<()>) {
+    self.component.event(event, &mut ())
   }
+}
+
+pub trait UIRenderer {
+  fn render(&mut self, primitives: &Vec<Primitive>);
+}
+
+pub struct WebGPUxUIRenderer {
+  //
 }
 
 #[test]
 fn ui() {
   let mut ui = UI::<Counter>::new();
-  ui.update();
+  ui.render();
 }
