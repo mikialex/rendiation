@@ -240,6 +240,12 @@ impl<T: Component> UI<T> {
     self.component.patch(&(), &mut self.primitive_cache);
     &self.primitive_cache
   }
+
+  pub fn event(&mut self) {
+    self.primitive_cache.iter().for_each(|p| {
+      //
+    })
+  }
 }
 
 #[test]
