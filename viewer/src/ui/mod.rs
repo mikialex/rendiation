@@ -43,6 +43,7 @@ pub struct Counter;
 
 #[derive(Default, PartialEq, Clone)]
 pub struct CounterState {
+  some_large_item: Vec<Button>,
   count: usize,
 }
 
@@ -57,22 +58,17 @@ impl Component for Counter {
         .init::<Self>()
         .on(|s| s.count += 1),
       )
-      .child(
-        Button {
-          label: format!("de count {}", state.count),
-        }
-        .init(),
-      );
+      .child((&state.some_large_item[0]).init());
     });
   }
 }
 
-pub struct ComponentInit<T, P: Component> {
-  init: T,
+pub struct ComponentInit<'a, T, P: Component> {
+  init: &'a T,
   events: Vec<Box<dyn Fn(&mut P::State)>>,
 }
 
-impl<T, P: Component> ComponentInit<T, P> {
+impl<'a, T, P: Component> ComponentInit<'a, T, P> {
   pub fn on(mut self, f: impl Fn(&mut P::State) + 'static) -> Self {
     self.events.push(Box::new(f));
     self
@@ -80,7 +76,7 @@ impl<T, P: Component> ComponentInit<T, P> {
 }
 
 pub trait ComponentInitAble: Sized {
-  fn init<P: Component>(self) -> ComponentInit<Self, P> {
+  fn init<P: Component>(&self) -> ComponentInit<Self, P> {
     ComponentInit {
       init: self,
       events: Vec::new(),
@@ -105,9 +101,9 @@ impl<'a, P: Component> Composer<'a, P> {
   ) -> &mut Self {
     let index = self.new_props.len();
     let component = if let Some(old_component) = self.components.get_mut(index) {
-      if !old_component.patch(&props.init, self.primitives) {
+      if !old_component.patch(props.init, self.primitives) {
         *old_component = Box::new(ComponentCell::<T, P>::new());
-        old_component.patch(&props.init, self.primitives);
+        old_component.patch(props.init, self.primitives);
       };
       old_component
     } else {
@@ -132,9 +128,9 @@ impl<'a, P: Component> Composer<'a, P> {
   pub fn child<T: Component>(&mut self, props: ComponentInit<T, P>) -> &mut Self {
     let index = self.new_props.len();
     if let Some(old_component) = self.components.get_mut(index) {
-      if !old_component.patch(&props.init, self.primitives) {
+      if !old_component.patch(props.init, self.primitives) {
         *old_component = Box::new(ComponentCell::<T, P>::new());
-        old_component.patch(&props.init, self.primitives);
+        old_component.patch(props.init, self.primitives);
       };
     } else {
       self.components.push(Box::new(ComponentCell::<T, P>::new()));
