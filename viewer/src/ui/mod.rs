@@ -6,28 +6,12 @@ use std::{
 
 use rendiation_algebra::Vec2;
 
+pub mod components;
+pub mod examples;
+
 pub trait Component: Clone + PartialEq + 'static {
   type State: PartialEq + Default;
   fn render(&self, state: &Self::State, composer: &mut Composer<Self>);
-}
-
-#[derive(PartialEq, Clone)]
-pub struct Button {
-  label: String,
-}
-
-#[derive(Default, PartialEq)]
-pub struct ButtonState {
-  is_hovered: bool,
-}
-
-impl Component for Button {
-  type State = ButtonState;
-  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    composer
-      .push_primitive(Primitive::Quad)
-      .push_primitive(Primitive::Text);
-  }
 }
 
 #[derive(Default, PartialEq, Clone)]
@@ -39,31 +23,6 @@ impl Component for FlexLayout {
   type State = ();
   fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
     // do nothing
-  }
-}
-
-#[derive(Default, PartialEq, Clone)]
-pub struct Counter;
-
-#[derive(Default, PartialEq, Clone)]
-pub struct CounterState {
-  some_large_item: Vec<Button>,
-  count: usize,
-}
-
-impl Component for Counter {
-  type State = CounterState;
-  fn render(&self, state: &Self::State, c: &mut Composer<Self>) {
-    c.children(FlexLayout { direction: false }.init(), |c| {
-      c.child(
-        Button {
-          label: format!("add count{}", state.count),
-        }
-        .init::<Self>()
-        .on(|s| s.count += 1),
-      )
-      .child(state.some_large_item[0].init());
-    });
   }
 }
 
@@ -308,10 +267,4 @@ pub trait UIRenderer {
 
 pub struct WebGPUxUIRenderer {
   //
-}
-
-#[test]
-fn ui() {
-  let mut ui = UI::<Counter>::new();
-  ui.render();
 }
