@@ -12,6 +12,33 @@ pub mod examples;
 pub trait Component: Clone + PartialEq + 'static {
   type State: PartialEq + Default;
   fn render(&self, state: &Self::State, composer: &mut Composer<Self>);
+
+  // https://flutter.dev/docs/development/ui/layout/constraints
+  fn layout_self(&self, constraint: &LayoutConstraint) -> LayoutSize {
+    todo!()
+  }
+  fn layout_children(&self, self_layout: &Layout, children: &mut Vec<Box<dyn ComponentInstance>>) {
+    todo!()
+  }
+}
+
+pub struct LayoutConstraint {
+  pub width_min: f32,
+  pub width_max: f32,
+  pub height_min: f32,
+  pub height_max: f32,
+}
+
+pub struct LayoutSize {
+  pub width: f32,
+  pub height: f32,
+}
+
+pub struct Layout {
+  pub x: f32,
+  pub y: f32,
+  pub width: f32,
+  pub height: f32,
 }
 
 #[derive(Default, PartialEq, Clone)]
@@ -102,7 +129,7 @@ impl<'a, P: Component> Composer<'a, P> {
     self
   }
 
-  pub fn push_primitive(&mut self, p: Primitive) -> &mut Self {
+  pub fn draw_primitive(&mut self, p: Primitive) -> &mut Self {
     self.primitives.push(p);
     self
   }

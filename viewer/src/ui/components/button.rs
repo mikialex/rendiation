@@ -14,7 +14,7 @@ impl Component for Button {
   type State = ButtonState;
   fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
     composer
-      .push_primitive(Primitive::Quad)
-      .push_primitive(Primitive::Text);
+      .draw_primitive(Primitive::Quad)
+      .draw_primitive(Primitive::Text);
   }
 }
