@@ -1,4 +1,8 @@
-use std::{any::Any, marker::PhantomData};
+use std::{
+  any::Any,
+  marker::PhantomData,
+  ops::{Deref, DerefMut},
+};
 
 use rendiation_algebra::Vec2;
 
@@ -49,8 +53,8 @@ pub struct CounterState {
 
 impl Component for Counter {
   type State = CounterState;
-  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    composer.children(FlexLayout { direction: false }.init(), |c| {
+  fn render(&self, state: &Self::State, c: &mut Composer<Self>) {
+    c.children(FlexLayout { direction: false }.init(), |c| {
       c.child(
         Button {
           label: format!("add count{}", state.count),
@@ -58,18 +62,18 @@ impl Component for Counter {
         .init::<Self>()
         .on(|s| s.count += 1),
       )
-      .child((&state.some_large_item[0]).init());
+      .child(state.some_large_item[0].init());
     });
   }
 }
 
 pub struct ComponentInit<'a, T, P: Component> {
   init: &'a T,
-  events: Vec<Box<dyn Fn(&mut P::State)>>,
+  events: Vec<Box<dyn Fn(&mut StateCell<P::State>)>>,
 }
 
 impl<'a, T, P: Component> ComponentInit<'a, T, P> {
-  pub fn on(mut self, f: impl Fn(&mut P::State) + 'static) -> Self {
+  pub fn on(mut self, f: impl Fn(&mut StateCell<P::State>) + 'static) -> Self {
     self.events.push(Box::new(f));
     self
   }
@@ -145,9 +149,36 @@ impl<'a, P: Component> Composer<'a, P> {
   }
 }
 
+pub struct StateCell<T> {
+  state: T,
+  changed: bool,
+}
+
+impl<T: Default> Default for StateCell<T> {
+  fn default() -> Self {
+    Self {
+      state: Default::default(),
+      changed: true,
+    }
+  }
+}
+
+impl<T> Deref for StateCell<T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    &self.state
+  }
+}
+
+impl<T> DerefMut for StateCell<T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.state
+  }
+}
+
 struct ComponentCell<T: Component, P: Component> {
-  state: T::State,
-  state_changed: bool,
+  state: StateCell<T::State>,
   last_props: Option<T>,
   event_handlers: Vec<Box<dyn Fn(&mut P::State)>>,
   children: Vec<Box<dyn ComponentInstance>>,
@@ -160,7 +191,6 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
   pub fn new() -> Self {
     Self {
       state: Default::default(),
-      state_changed: true,
       last_props: None,
       event_handlers: Vec::new(),
       self_primitives: Vec::new(),
@@ -182,7 +212,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
     if let Some(props) = props.downcast_ref::<T>() {
       if let Some(last_props) = &self.last_props {
         let props_changed = last_props != props;
-        if props_changed || self.state_changed {
+        if props_changed || self.state.changed {
           // re render
 
           let mut composer = Composer {
@@ -198,7 +228,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
           if props_changed {
             self.last_props = Some(props.clone())
           }
-          self.state_changed = false;
+          self.state.changed = false;
         }
       }
       return true;
