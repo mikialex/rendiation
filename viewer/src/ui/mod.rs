@@ -4,10 +4,10 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
-use rendiation_algebra::Vec2;
-
 pub mod components;
 pub mod examples;
+pub mod renderer;
+pub use renderer::*;
 
 pub trait Component: Clone + PartialEq + 'static {
   type State: PartialEq + Default;
@@ -240,18 +240,6 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   }
 }
 
-#[derive(Debug)]
-pub enum Primitive {
-  Quad,
-  Text,
-}
-
-impl Primitive {
-  pub fn test_pointer_in(pointer: Vec2<f32>) -> bool {
-    false
-  }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct UIRoot;
 
@@ -286,12 +274,4 @@ impl<T: Component> UI<T> {
   pub fn event(&mut self, event: &winit::event::Event<()>) {
     self.component.event(event, &mut ())
   }
-}
-
-pub trait UIRenderer {
-  fn render(&mut self, primitives: &Vec<Primitive>);
-}
-
-pub struct WebGPUxUIRenderer {
-  //
 }

@@ -13,8 +13,6 @@ pub struct ButtonState {
 impl Component for Button {
   type State = ButtonState;
   fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    composer
-      .draw_primitive(Primitive::Quad)
-      .draw_primitive(Primitive::Text);
+    composer.draw_primitive(todo!()).draw_primitive(todo!());
   }
 }
