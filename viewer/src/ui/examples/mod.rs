@@ -21,14 +21,14 @@ impl Component for Counter {
           label: format!("add count{}", state.count),
         }
         .init::<Self>()
-        .on(|s| s.count += 1),
+        .on(|s| s.state.count += 1),
       )
       .child(state.some_large_item[0].init());
     })
     .child(
       state.some_large_item[1]
         .init::<Self>()
-        .on(|s| println!("{:?}", self)),
+        .on(|s| println!("{:?}", s.props)),
     );
 
     if state.a {

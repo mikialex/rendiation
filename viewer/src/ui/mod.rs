@@ -76,11 +76,11 @@ impl Default for Layout {
 
 pub struct ComponentInit<'a, T, P: Component> {
   init: &'a T,
-  events: Vec<Box<dyn Fn(&mut StateCell<P::State>)>>,
+  events: Vec<Box<dyn Fn(&mut StateAndProps<P>)>>,
 }
 
 impl<'a, T, P: Component> ComponentInit<'a, T, P> {
-  pub fn on(mut self, f: impl Fn(&mut StateCell<P::State>) + 'static) -> Self {
+  pub fn on(mut self, f: impl Fn(&mut StateAndProps<P>) + 'static) -> Self {
     self.events.push(Box::new(f));
     self
   }
@@ -160,6 +160,11 @@ impl<'a, P: Component> Composer<'a, P> {
   }
 }
 
+pub struct StateAndProps<'a, C: Component> {
+  props: &'a C,
+  state: &'a mut StateCell<C::State>,
+}
+
 pub struct StateCell<T> {
   state: T,
   changed: bool,
@@ -191,7 +196,7 @@ impl<T> DerefMut for StateCell<T> {
 struct ComponentCell<T: Component, P: Component> {
   state: StateCell<T::State>,
   props: T,
-  event_handlers: Vec<Box<dyn Fn(&mut P::State)>>,
+  event_handlers: Vec<Box<dyn Fn(&mut StateAndProps<P>)>>,
   children: Vec<Box<dyn ComponentInstance>>,
   self_primitives: Vec<Primitive>,
   layout: Layout,
@@ -217,7 +222,7 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
 trait ComponentInstance {
   fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool;
   fn compose_source(&mut self) -> (&mut Vec<Box<dyn ComponentInstance>>, &mut Vec<Primitive>);
-  fn event(&mut self, event: &winit::event::Event<()>, parent: &mut dyn Any);
+  fn event(&mut self, event: &winit::event::Event<()>, parent: &dyn Any);
 }
 
 impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
@@ -252,14 +257,18 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
     (&mut self.children, &mut self.self_primitives)
   }
 
-  fn event(&mut self, event: &winit::event::Event<()>, parent: &mut dyn Any) {
+  fn event(&mut self, event: &winit::event::Event<()>, parent: &dyn Any) {
+    let state_and_props = StateAndProps {
+      props: parent.downcast_ref::<P>().unwrap(),
+      state: &mut self.state,
+    };
     // match event
     self.self_primitives.iter().for_each(|p| {
       if true {
         self
           .event_handlers
           .iter()
-          .for_each(|f| f(parent.downcast_mut().unwrap()))
+          .for_each(|f| f(&mut state_and_props))
       }
     })
   }
