@@ -13,8 +13,8 @@ pub struct CounterState {
 
 impl Component for Counter {
   type State = CounterState;
-  fn render(&self, state: &Self::State, c: &mut Composer<Self>) {
-    c.children(FlexLayout { direction: false }.init(), |c| {
+  fn build(&self, state: &Self::State, c: &mut Composer<Self>) {
+    c.children(Row.init(), |c| {
       c.child(
         Button {
           label: format!("add count{}", state.count),
@@ -23,7 +23,8 @@ impl Component for Counter {
         .on(|s| s.count += 1),
       )
       .child(state.some_large_item[0].init());
-    });
+    })
+    .child(state.some_large_item[1].init());
   }
 }
 

@@ -11,15 +11,19 @@ pub use renderer::*;
 
 pub trait Component: Clone + PartialEq + 'static {
   type State: PartialEq + Default;
-  fn render(&self, state: &Self::State, composer: &mut Composer<Self>);
+  fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {}
 
   // https://flutter.dev/docs/development/ui/layout/constraints
-  fn layout_self(&self, constraint: &LayoutConstraint) -> LayoutSize {
+  fn request_layout_size(&self, state: &Self::State, constraint: &LayoutConstraint) -> LayoutSize {
+    constraint.max()
+  }
+  fn layout_children(&self, state: &Self::State, self_layout: &Layout, children: &mut LayoutCtx) {
     todo!()
   }
-  fn layout_children(&self, self_layout: &Layout, children: &mut LayoutCtx) {
-    todo!()
-  }
+
+  fn update(&self, state: &Self::State) {}
+
+  fn render(&self, state: &Self::State) {}
 }
 
 pub trait LayoutAble {
@@ -36,6 +40,15 @@ pub struct LayoutConstraint {
   pub width_max: f32,
   pub height_min: f32,
   pub height_max: f32,
+}
+
+impl LayoutConstraint {
+  pub fn max(&self) -> LayoutSize {
+    LayoutSize {
+      width: self.width_max,
+      height: self.height_max,
+    }
+  }
 }
 
 pub struct LayoutSize {
@@ -92,11 +105,11 @@ pub struct Composer<'a, P> {
 }
 
 impl<'a, P: Component> Composer<'a, P> {
-  pub fn children<T: Component, F: Fn(&mut Composer<P>)>(
-    &mut self,
-    props: ComponentInit<T, P>,
-    children: F,
-  ) -> &mut Self {
+  pub fn children<T, F>(&mut self, props: ComponentInit<T, P>, children: F) -> &mut Self
+  where
+    T: Component,
+    F: Fn(&mut Composer<P>),
+  {
     let index = self.new_props.len();
     let component = if let Some(old_component) = self.components.get_mut(index) {
       if !old_component.patch(props.init, self.primitives) {
@@ -219,7 +232,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
             self_primitives: &mut self.self_primitives,
           };
 
-          props.render(&self.state, &mut composer);
+          props.build(&self.state, &mut composer);
 
           if props_changed {
             self.last_props = Some(props.clone())
@@ -256,7 +269,7 @@ pub struct UIRoot;
 impl Component for UIRoot {
   type State = ();
 
-  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
+  fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {
     todo!()
   }
 }
