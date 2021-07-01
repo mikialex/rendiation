@@ -5,6 +5,14 @@ pub struct Button {
   pub label: String,
 }
 
+impl Default for Button {
+  fn default() -> Self {
+    Self {
+      label: String::new(),
+    }
+  }
+}
+
 #[derive(Default, PartialEq)]
 pub struct ButtonState {
   is_hovered: bool,

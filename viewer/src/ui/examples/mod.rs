@@ -2,13 +2,14 @@ use crate::ui::components::*;
 
 use super::*;
 
-#[derive(Default, PartialEq, Clone)]
+#[derive(Default, PartialEq, Clone, Debug)]
 pub struct Counter;
 
 #[derive(Default, PartialEq, Clone)]
 pub struct CounterState {
   some_large_item: Vec<Button>,
   count: usize,
+  a: bool,
 }
 
 impl Component for Counter {
@@ -24,7 +25,17 @@ impl Component for Counter {
       )
       .child(state.some_large_item[0].init());
     })
-    .child(state.some_large_item[1].init());
+    .child(
+      state.some_large_item[1]
+        .init::<Self>()
+        .on(|s| println!("{:?}", self)),
+    );
+
+    if state.a {
+      c.children(Container::default().init(), |c| {
+        //
+      });
+    }
   }
 }
 

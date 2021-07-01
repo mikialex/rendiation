@@ -9,7 +9,7 @@ pub mod examples;
 pub mod renderer;
 pub use renderer::*;
 
-pub trait Component: Clone + PartialEq + 'static {
+pub trait Component: Clone + PartialEq + Default + 'static {
   type State: PartialEq + Default;
   fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {}
 
@@ -113,12 +113,14 @@ impl<'a, P: Component> Composer<'a, P> {
     let index = self.new_props.len();
     let component = if let Some(old_component) = self.components.get_mut(index) {
       if !old_component.patch(props.init, self.primitives) {
-        *old_component = Box::new(ComponentCell::<T, P>::new());
+        *old_component = Box::new(ComponentCell::<T, P>::new(props.init.clone()));
         old_component.patch(props.init, self.primitives);
       };
       old_component
     } else {
-      self.components.push(Box::new(ComponentCell::<T, P>::new()));
+      self
+        .components
+        .push(Box::new(ComponentCell::<T, P>::new(props.init.clone())));
       self.components.last_mut().unwrap()
     };
 
@@ -140,11 +142,13 @@ impl<'a, P: Component> Composer<'a, P> {
     let index = self.new_props.len();
     if let Some(old_component) = self.components.get_mut(index) {
       if !old_component.patch(props.init, self.primitives) {
-        *old_component = Box::new(ComponentCell::<T, P>::new());
+        *old_component = Box::new(ComponentCell::<T, P>::new(props.init.clone()));
         old_component.patch(props.init, self.primitives);
       };
     } else {
-      self.components.push(Box::new(ComponentCell::<T, P>::new()));
+      self
+        .components
+        .push(Box::new(ComponentCell::<T, P>::new(props.init.clone())));
     };
 
     self
@@ -186,7 +190,7 @@ impl<T> DerefMut for StateCell<T> {
 
 struct ComponentCell<T: Component, P: Component> {
   state: StateCell<T::State>,
-  last_props: Option<T>,
+  props: T,
   event_handlers: Vec<Box<dyn Fn(&mut P::State)>>,
   children: Vec<Box<dyn ComponentInstance>>,
   self_primitives: Vec<Primitive>,
@@ -197,10 +201,10 @@ struct ComponentCell<T: Component, P: Component> {
 struct ComponentData {}
 
 impl<T: Component, P: Component> ComponentCell<T, P> {
-  pub fn new() -> Self {
+  pub fn new(props: T) -> Self {
     Self {
       state: Default::default(),
-      last_props: None,
+      props,
       event_handlers: Vec::new(),
       self_primitives: Vec::new(),
       children: Vec::new(),
@@ -219,26 +223,24 @@ trait ComponentInstance {
 impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool {
     if let Some(props) = props.downcast_ref::<T>() {
-      if let Some(last_props) = &self.last_props {
-        let props_changed = last_props != props;
-        if props_changed || self.state.changed {
-          // re render
+      let props_changed = &self.props != props;
+      if props_changed || self.state.changed {
+        // re render
 
-          let mut composer = Composer {
-            phantom: PhantomData,
-            new_props: Vec::new(),
-            primitives: primitive_builder,
-            components: &mut self.children,
-            self_primitives: &mut self.self_primitives,
-          };
+        let mut composer = Composer {
+          phantom: PhantomData,
+          new_props: Vec::new(),
+          primitives: primitive_builder,
+          components: &mut self.children,
+          self_primitives: &mut self.self_primitives,
+        };
 
-          props.build(&self.state, &mut composer);
+        props.build(&self.state, &mut composer);
 
-          if props_changed {
-            self.last_props = Some(props.clone())
-          }
-          self.state.changed = false;
+        if props_changed {
+          self.props = props.clone()
         }
+        self.state.changed = false;
       }
       return true;
     } else {
@@ -263,15 +265,11 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct UIRoot;
 
 impl Component for UIRoot {
   type State = ();
-
-  fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    todo!()
-  }
 }
 
 struct UI<T: Component> {
@@ -281,7 +279,7 @@ struct UI<T: Component> {
 
 impl<T: Component> UI<T> {
   pub fn new() -> Self {
-    let component = ComponentCell::new();
+    let component = ComponentCell::new(T::default());
     Self {
       component,
       primitive_cache: Vec::new(),

@@ -1,12 +1,14 @@
 use rendiation_algebra::*;
 
-use crate::ui::{Component, Composer};
+use crate::ui::*;
 
 #[derive(PartialEq, Clone)]
 pub struct Container {
   margin: Vec4<f32>,
   border: Vec4<f32>,
   padding: Vec4<f32>,
+  width: Option<f32>,
+  height: Option<f32>,
 }
 
 impl Default for Container {
@@ -15,14 +17,19 @@ impl Default for Container {
       margin: Vec4::zero(),
       border: Vec4::zero(),
       padding: Vec4::zero(),
+      width: None,
+      height: None,
     }
   }
 }
 
 impl Component for Container {
   type State = ();
-  fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    // do nothing
+  fn request_layout_size(&self, state: &Self::State, constraint: &LayoutConstraint) -> LayoutSize {
+    constraint.max()
+  }
+  fn layout_children(&self, state: &Self::State, self_layout: &Layout, children: &mut LayoutCtx) {
+    todo!()
   }
 }
 
