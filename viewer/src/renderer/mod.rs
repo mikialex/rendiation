@@ -25,7 +25,9 @@ pub trait BindableResource {
 }
 
 pub trait Renderable {
-  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder);
+  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder) {
+    // assume all gpu stuff prepared, and do nothing
+  }
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
 }
 
