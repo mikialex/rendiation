@@ -17,9 +17,18 @@ pub trait Component: Clone + PartialEq + 'static {
   fn layout_self(&self, constraint: &LayoutConstraint) -> LayoutSize {
     todo!()
   }
-  fn layout_children(&self, self_layout: &Layout, children: &mut Vec<Box<dyn ComponentInstance>>) {
+  fn layout_children(&self, self_layout: &Layout, children: &mut LayoutCtx) {
     todo!()
   }
+}
+
+pub trait LayoutAble {
+  fn request_size(&self, constraint: &LayoutConstraint) -> LayoutSize;
+  fn update(&mut self) -> &mut Layout;
+}
+
+pub struct LayoutCtx<'a> {
+  children: [&'a mut dyn LayoutAble],
 }
 
 pub struct LayoutConstraint {
@@ -41,15 +50,14 @@ pub struct Layout {
   pub height: f32,
 }
 
-#[derive(Default, PartialEq, Clone)]
-pub struct FlexLayout {
-  direction: bool,
-}
-
-impl Component for FlexLayout {
-  type State = ();
-  fn render(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    // do nothing
+impl Default for Layout {
+  fn default() -> Self {
+    Self {
+      x: 0.,
+      y: 0.,
+      width: 0.,
+      height: 0.,
+    }
   }
 }
 
@@ -169,9 +177,11 @@ struct ComponentCell<T: Component, P: Component> {
   event_handlers: Vec<Box<dyn Fn(&mut P::State)>>,
   children: Vec<Box<dyn ComponentInstance>>,
   self_primitives: Vec<Primitive>,
-  layout_box: usize,
+  layout: Layout,
   is_active: bool,
 }
+
+struct ComponentData {}
 
 impl<T: Component, P: Component> ComponentCell<T, P> {
   pub fn new() -> Self {
@@ -181,7 +191,7 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
       event_handlers: Vec::new(),
       self_primitives: Vec::new(),
       children: Vec::new(),
-      layout_box: 0,
+      layout: Default::default(),
       is_active: false,
     }
   }

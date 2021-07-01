@@ -1,4 +1,4 @@
-use crate::ui::components::button::Button;
+use crate::ui::components::*;
 
 use super::*;
 
