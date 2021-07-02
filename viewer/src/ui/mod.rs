@@ -124,14 +124,14 @@ impl<'a, P: Component> Composer<'a, P> {
       self.components.last_mut().unwrap()
     };
 
-    let (components, self_primitives) = component.compose_source();
+    let meta = component.meta_mut();
 
-    let mut composer = Composer {
+    let mut composer: Composer<P> = Composer {
       phantom: PhantomData,
       new_props: Vec::new(),
       primitives: self.primitives,
-      components,
-      self_primitives,
+      components: &mut meta.out_children,
+      self_primitives: &mut meta.self_primitives,
     };
 
     children(&mut composer);
@@ -160,9 +160,9 @@ impl<'a, P: Component> Composer<'a, P> {
   }
 }
 
-pub struct StateAndProps<'a, C: Component> {
-  props: &'a C,
-  state: &'a mut StateCell<C::State>,
+pub struct StateAndProps<C: Component> {
+  props: C,
+  state: StateCell<C::State>,
 }
 
 pub struct StateCell<T> {
@@ -194,58 +194,90 @@ impl<T> DerefMut for StateCell<T> {
 }
 
 struct ComponentCell<T: Component, P: Component> {
-  state: StateCell<T::State>,
-  props: T,
+  data: StateAndProps<T>,
   event_handlers: Vec<Box<dyn Fn(&mut StateAndProps<P>)>>,
+  meta: ComponentMetaData,
+}
+
+struct ComponentMetaData {
   children: Vec<Box<dyn ComponentInstance>>,
+  out_children: Vec<Box<dyn ComponentInstance>>,
   self_primitives: Vec<Primitive>,
   layout: Layout,
   is_active: bool,
 }
 
-struct ComponentData {}
-
 impl<T: Component, P: Component> ComponentCell<T, P> {
   pub fn new(props: T) -> Self {
     Self {
-      state: Default::default(),
-      props,
+      data: StateAndProps {
+        state: Default::default(),
+        props,
+      },
       event_handlers: Vec::new(),
-      self_primitives: Vec::new(),
-      children: Vec::new(),
-      layout: Default::default(),
-      is_active: false,
+      meta: ComponentMetaData {
+        self_primitives: Vec::new(),
+        children: Vec::new(),
+        out_children: Vec::new(),
+        layout: Default::default(),
+        is_active: false,
+      },
     }
+  }
+
+  fn traverse_owned_child(
+    &mut self,
+    f: &impl Fn(&mut dyn ComponentInstance, &mut StateAndProps<T>),
+  ) {
+    fn traverse_outer<T: Component>(
+      com: &mut dyn ComponentInstance,
+      root: &mut StateAndProps<T>,
+      f: &impl Fn(&mut dyn ComponentInstance, &mut StateAndProps<T>),
+    ) {
+      f(com, root);
+      com
+        .meta_mut()
+        .out_children
+        .iter_mut()
+        .for_each(|c| traverse_outer(c.as_mut(), root, f))
+    }
+
+    self
+      .meta
+      .children
+      .iter_mut()
+      .for_each(|c| traverse_outer(c.as_mut(), &mut self.data, f))
   }
 }
 
 trait ComponentInstance {
   fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool;
-  fn compose_source(&mut self) -> (&mut Vec<Box<dyn ComponentInstance>>, &mut Vec<Primitive>);
-  fn event(&mut self, event: &winit::event::Event<()>, parent: &dyn Any);
+  fn meta_mut(&mut self) -> &mut ComponentMetaData;
+  fn meta(&self) -> &ComponentMetaData;
+  fn event(&mut self, event: &winit::event::Event<()>, parent_data: &mut dyn Any);
 }
 
 impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool {
     if let Some(props) = props.downcast_ref::<T>() {
-      let props_changed = &self.props != props;
-      if props_changed || self.state.changed {
+      let props_changed = &self.data.props != props;
+      if props_changed || self.data.state.changed {
         // re render
 
-        let mut composer = Composer {
+        let mut composer: Composer<T> = Composer {
           phantom: PhantomData,
           new_props: Vec::new(),
           primitives: primitive_builder,
-          components: &mut self.children,
-          self_primitives: &mut self.self_primitives,
+          components: &mut self.meta.children,
+          self_primitives: &mut self.meta.self_primitives,
         };
 
-        props.build(&self.state, &mut composer);
+        props.build(&self.data.state, &mut composer);
 
         if props_changed {
-          self.props = props.clone()
+          self.data.props = props.clone()
         }
-        self.state.changed = false;
+        self.data.state.changed = false;
       }
       return true;
     } else {
@@ -253,24 +285,25 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
     }
   }
 
-  fn compose_source(&mut self) -> (&mut Vec<Box<dyn ComponentInstance>>, &mut Vec<Primitive>) {
-    (&mut self.children, &mut self.self_primitives)
+  fn meta_mut(&mut self) -> &mut ComponentMetaData {
+    &mut self.meta
   }
 
-  fn event(&mut self, event: &winit::event::Event<()>, parent: &dyn Any) {
-    let state_and_props = StateAndProps {
-      props: parent.downcast_ref::<P>().unwrap(),
-      state: &mut self.state,
-    };
-    // match event
-    self.self_primitives.iter().for_each(|p| {
+  fn meta(&self) -> &ComponentMetaData {
+    &self.meta
+  }
+
+  fn event(&mut self, event: &winit::event::Event<()>, parent_data: &mut dyn Any) {
+    let mut parent_data = parent_data.downcast_mut::<StateAndProps<P>>().unwrap();
+
+    // todo match event
+    self.meta.self_primitives.iter().for_each(|p| {
       if true {
-        self
-          .event_handlers
-          .iter()
-          .for_each(|f| f(&mut state_and_props))
+        self.event_handlers.iter().for_each(|f| f(&mut parent_data))
       }
-    })
+    });
+
+    self.traverse_owned_child(&|c, p| c.event(event, p))
   }
 }
 
@@ -302,6 +335,12 @@ impl<T: Component> UI<T> {
   }
 
   pub fn event(&mut self, event: &winit::event::Event<()>) {
-    self.component.event(event, &mut ())
+    self.component.event(
+      event,
+      &mut StateAndProps {
+        props: UIRoot,
+        state: Default::default(),
+      },
+    )
   }
 }
