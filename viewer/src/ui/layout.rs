@@ -57,6 +57,7 @@ pub struct LayoutSize {
   pub height: f32,
 }
 
+/// Layout coordinate use x => right. y => down (same as web API canvas2D);
 pub struct Layout {
   pub x: f32,
   pub y: f32,

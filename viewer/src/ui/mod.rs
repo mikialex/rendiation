@@ -64,7 +64,7 @@ impl<T> ComponentInitAble for T {}
 pub struct Composer<'a, P> {
   phantom: PhantomData<P>,
   new_props: Vec<Box<dyn Any>>,
-  self_primitives: &'a mut Vec<Primitive>,
+  primitives: &'a mut Vec<Primitive>,
   target_children: &'a mut Vec<Box<dyn ComponentInstance>>,
 }
 
@@ -94,7 +94,7 @@ impl<'a, P: Component> Composer<'a, P> {
       phantom: PhantomData,
       new_props: Vec::new(),
       target_children: &mut meta.out_children,
-      self_primitives: &mut meta.self_primitives,
+      primitives: &mut meta.primitives,
     };
 
     children(&mut composer);
@@ -106,7 +106,7 @@ impl<'a, P: Component> Composer<'a, P> {
   }
 
   pub fn draw_primitive(&mut self, p: Primitive) -> &mut Self {
-    self.self_primitives.push(p);
+    self.primitives.push(p);
     self
   }
 }
@@ -151,9 +151,22 @@ pub struct ComponentCell<T: Component, P: Component> {
 }
 
 pub struct ComponentMetaData {
+  /// The direct components that belong to component internal.
+  /// The real child component
   children: Vec<Box<dyn ComponentInstance>>,
+  /// The direct components that append as the child of this component
+  /// in outer view of component tree
+  ///
+  /// Maybe in future we can add multi "slot" support
+  /// which need multi out_children groups
   out_children: Vec<Box<dyn ComponentInstance>>,
-  self_primitives: Vec<Primitive>,
+  /// The rendering primitive cache of this component
+  ///
+  /// Notice: this only contains the component it self's primitive,
+  /// Neither the children nor the outer children
+  ///
+  /// component could not provide any primitive but still has layout
+  primitives: Vec<Primitive>,
   layout: Layout,
   is_active: bool,
 }
@@ -167,7 +180,7 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
       },
       event_handlers: Vec::new(),
       meta: ComponentMetaData {
-        self_primitives: Vec::new(),
+        primitives: Vec::new(),
         children: Vec::new(),
         out_children: Vec::new(),
         layout: Default::default(),
@@ -211,14 +224,18 @@ trait ComponentInstance {
 
 impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   fn patch(&mut self, props: &dyn Any) -> bool {
+    // check this component should rebuild caused by component type changed
     if let Some(props) = props.downcast_ref::<T>() {
+      // if component type not changed, we diff the cached props and see if it state
+      // changed. if any of it changed, we should rebuild it, diff it new component tree
       let props_changed = &self.data.props != props;
       if props_changed || self.data.state.changed {
         let mut composer: Composer<T> = Composer {
           phantom: PhantomData,
           new_props: Vec::new(),
+          // we're rebuild the current component instance's own children
           target_children: &mut self.meta.children,
-          self_primitives: &mut self.meta.self_primitives,
+          primitives: &mut self.meta.primitives,
         };
 
         props.build(&self.data.state, &mut composer);
@@ -246,7 +263,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
     let mut parent_data = parent_data.downcast_mut::<StateAndProps<P>>().unwrap();
 
     // todo match event
-    self.meta.self_primitives.iter().for_each(|p| {
+    self.meta.primitives.iter().for_each(|p| {
       if true {
         self.event_handlers.iter().for_each(|f| f(&mut parent_data))
       }
@@ -256,13 +273,9 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   }
 
   fn render(&mut self, result: &mut Vec<Primitive>) {
-    result.extend(self.meta.self_primitives.clone().into_iter());
+    result.extend(self.meta.primitives.clone().into_iter());
     self.traverse_owned_child(&mut |c, _| c.render(result))
   }
-
-  // fn layout(&mut self) {
-  //   todo!()
-  // }
 }
 
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -314,6 +327,7 @@ impl<T: Component> UI<T> {
 
   pub fn render(&mut self) -> &Vec<Primitive> {
     self.primitive_cache.clear();
+    self.component.render(&mut self.primitive_cache);
     &self.primitive_cache
   }
 
