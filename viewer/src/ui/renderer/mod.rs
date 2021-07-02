@@ -2,13 +2,13 @@ use rendiation_algebra::Vec2;
 
 use crate::renderer::{RenderPassCreator, Renderable, Renderer};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Primitive {
   Quad(Quad),
   Text(TextInfo),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Quad {
   x: f32,
   y: f32,
@@ -16,7 +16,7 @@ pub struct Quad {
   height: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TextInfo {
   content: String,
   max_width: Option<f32>,

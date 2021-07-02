@@ -98,7 +98,6 @@ impl<T> ComponentInitAble for T {}
 
 pub struct Composer<'a, P> {
   phantom: PhantomData<P>,
-  primitives: &'a mut Vec<Primitive>,
   self_primitives: &'a mut Vec<Primitive>,
   new_props: Vec<Box<dyn Any>>,
   components: &'a mut Vec<Box<dyn ComponentInstance>>,
@@ -112,9 +111,9 @@ impl<'a, P: Component> Composer<'a, P> {
   {
     let index = self.new_props.len();
     let component = if let Some(old_component) = self.components.get_mut(index) {
-      if !old_component.patch(props.init, self.primitives) {
+      if !old_component.patch(props.init) {
         *old_component = Box::new(ComponentCell::<T, P>::new(props.init.clone()));
-        old_component.patch(props.init, self.primitives);
+        old_component.patch(props.init);
       };
       old_component
     } else {
@@ -129,7 +128,6 @@ impl<'a, P: Component> Composer<'a, P> {
     let mut composer: Composer<P> = Composer {
       phantom: PhantomData,
       new_props: Vec::new(),
-      primitives: self.primitives,
       components: &mut meta.out_children,
       self_primitives: &mut meta.self_primitives,
     };
@@ -141,9 +139,9 @@ impl<'a, P: Component> Composer<'a, P> {
   pub fn child<T: Component>(&mut self, props: ComponentInit<T, P>) -> &mut Self {
     let index = self.new_props.len();
     if let Some(old_component) = self.components.get_mut(index) {
-      if !old_component.patch(props.init, self.primitives) {
+      if !old_component.patch(props.init) {
         *old_component = Box::new(ComponentCell::<T, P>::new(props.init.clone()));
-        old_component.patch(props.init, self.primitives);
+        old_component.patch(props.init);
       };
     } else {
       self
@@ -155,7 +153,7 @@ impl<'a, P: Component> Composer<'a, P> {
   }
 
   pub fn draw_primitive(&mut self, p: Primitive) -> &mut Self {
-    self.primitives.push(p);
+    self.self_primitives.push(p);
     self
   }
 }
@@ -227,12 +225,12 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
 
   fn traverse_owned_child(
     &mut self,
-    f: &impl Fn(&mut dyn ComponentInstance, &mut StateAndProps<T>),
+    f: &mut impl FnMut(&mut dyn ComponentInstance, &mut StateAndProps<T>),
   ) {
     fn traverse_outer<T: Component>(
       com: &mut dyn ComponentInstance,
       root: &mut StateAndProps<T>,
-      f: &impl Fn(&mut dyn ComponentInstance, &mut StateAndProps<T>),
+      f: &mut impl FnMut(&mut dyn ComponentInstance, &mut StateAndProps<T>),
     ) {
       f(com, root);
       com
@@ -251,23 +249,21 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
 }
 
 trait ComponentInstance {
-  fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool;
+  fn patch(&mut self, props: &dyn Any) -> bool;
   fn meta_mut(&mut self) -> &mut ComponentMetaData;
   fn meta(&self) -> &ComponentMetaData;
   fn event(&mut self, event: &winit::event::Event<()>, parent_data: &mut dyn Any);
+  fn render(&mut self, result: &mut Vec<Primitive>);
 }
 
 impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
-  fn patch(&mut self, props: &dyn Any, primitive_builder: &mut Vec<Primitive>) -> bool {
+  fn patch(&mut self, props: &dyn Any) -> bool {
     if let Some(props) = props.downcast_ref::<T>() {
       let props_changed = &self.data.props != props;
       if props_changed || self.data.state.changed {
-        // re render
-
         let mut composer: Composer<T> = Composer {
           phantom: PhantomData,
           new_props: Vec::new(),
-          primitives: primitive_builder,
           components: &mut self.meta.children,
           self_primitives: &mut self.meta.self_primitives,
         };
@@ -303,7 +299,12 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
       }
     });
 
-    self.traverse_owned_child(&|c, p| c.event(event, p))
+    self.traverse_owned_child(&mut |c, p| c.event(event, p))
+  }
+
+  fn render(&mut self, result: &mut Vec<Primitive>) {
+    result.extend(self.meta.self_primitives.clone().into_iter());
+    self.traverse_owned_child(&mut |c, _| c.render(result))
   }
 }
 
@@ -328,9 +329,12 @@ impl<T: Component> UI<T> {
     }
   }
 
+  pub fn update(&mut self) {
+    self.component.patch(&());
+  }
+
   pub fn render(&mut self) -> &Vec<Primitive> {
     self.primitive_cache.clear();
-    self.component.patch(&(), &mut self.primitive_cache);
     &self.primitive_cache
   }
 
