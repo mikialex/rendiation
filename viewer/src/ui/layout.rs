@@ -23,6 +23,7 @@ impl LayoutConstraint {
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutSize {
   pub width: f32,
   pub height: f32,

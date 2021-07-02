@@ -260,10 +260,27 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
 pub struct UIRoot;
 
 impl Component for UIRoot {
-  type State = ();
+  type State = UIRootState;
+}
+
+#[derive(PartialEq, Clone)]
+pub struct UIRootState {
+  size: LayoutSize,
+}
+
+impl Default for UIRootState {
+  fn default() -> Self {
+    Self {
+      size: LayoutSize {
+        width: 500.,
+        height: 300.,
+      },
+    }
+  }
 }
 
 struct UI<T: Component> {
+  root: StateAndProps<UIRoot>,
   component: ComponentCell<T, UIRoot>,
   primitive_cache: Vec<Primitive>,
 }
@@ -271,7 +288,12 @@ struct UI<T: Component> {
 impl<T: Component> UI<T> {
   pub fn new() -> Self {
     let component = ComponentCell::new(T::default());
+    let root = StateAndProps {
+      props: UIRoot,
+      state: Default::default(),
+    };
     Self {
+      root,
       component,
       primitive_cache: Vec::new(),
     }
@@ -286,13 +308,16 @@ impl<T: Component> UI<T> {
     &self.primitive_cache
   }
 
+  fn size(&self) -> LayoutSize {
+    self.root.state.size
+  }
+
+  fn set_size(&mut self, size: LayoutSize) -> &mut Self {
+    self.root.state.size = size;
+    self
+  }
+
   pub fn event(&mut self, event: &winit::event::Event<()>) {
-    self.component.event(
-      event,
-      &mut StateAndProps {
-        props: UIRoot,
-        state: Default::default(),
-      },
-    )
+    self.component.event(event, &mut self.root)
   }
 }
