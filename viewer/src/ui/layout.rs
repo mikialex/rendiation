@@ -1,10 +1,30 @@
+use super::{Component, ComponentCell};
+
 pub trait LayoutAble {
   fn request_size(&self, constraint: &LayoutConstraint) -> LayoutSize;
-  fn update(&mut self) -> &mut Layout;
+  fn set_layout(&mut self, layout: Layout);
+}
+
+impl<T, P> LayoutAble for ComponentCell<T, P>
+where
+  T: Component,
+  P: Component,
+{
+  fn request_size(&self, constraint: &LayoutConstraint) -> LayoutSize {
+    self
+      .data
+      .props
+      .request_layout_size(&self.data.state, constraint)
+  }
+
+  fn set_layout(&mut self, layout: Layout) {
+    self.meta.layout = layout;
+  }
 }
 
 pub struct LayoutCtx<'a> {
-  children: [&'a mut dyn LayoutAble],
+  pub self_layout: &'a Layout,
+  pub children: [&'a mut dyn LayoutAble],
 }
 
 pub struct LayoutConstraint {
@@ -15,6 +35,14 @@ pub struct LayoutConstraint {
 }
 
 impl LayoutConstraint {
+  pub fn unlimited() -> Self {
+    Self {
+      width_min: 0.,
+      width_max: 0.,
+      height_min: f32::INFINITY,
+      height_max: f32::INFINITY,
+    }
+  }
   pub fn max(&self) -> LayoutSize {
     LayoutSize {
       width: self.width_max,

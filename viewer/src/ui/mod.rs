@@ -21,8 +21,17 @@ pub trait Component: Clone + PartialEq + Default + 'static {
   fn request_layout_size(&self, state: &Self::State, constraint: &LayoutConstraint) -> LayoutSize {
     constraint.max()
   }
-  fn layout_children(&self, state: &Self::State, self_layout: &Layout, children: &mut LayoutCtx) {
-    todo!()
+  fn layout_children(&self, state: &Self::State, ctx: &mut LayoutCtx) {
+    let mut current_y = ctx.self_layout.y;
+    ctx.children.iter_mut().for_each(|c| {
+      let size = c.request_size(&LayoutConstraint::unlimited());
+      c.set_layout(Layout {
+        x: ctx.self_layout.x,
+        y: current_y,
+        size,
+      });
+      current_y += size.height;
+    })
   }
 
   fn update(&self, state: &Self::State) {}
@@ -135,13 +144,13 @@ impl<T> DerefMut for StateCell<T> {
   }
 }
 
-struct ComponentCell<T: Component, P: Component> {
+pub struct ComponentCell<T: Component, P: Component> {
   data: StateAndProps<T>,
   event_handlers: Vec<Box<dyn Fn(&mut StateAndProps<P>)>>,
   meta: ComponentMetaData,
 }
 
-struct ComponentMetaData {
+pub struct ComponentMetaData {
   children: Vec<Box<dyn ComponentInstance>>,
   out_children: Vec<Box<dyn ComponentInstance>>,
   self_primitives: Vec<Primitive>,

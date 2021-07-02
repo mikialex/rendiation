@@ -28,7 +28,7 @@ impl Component for Container {
   fn request_layout_size(&self, state: &Self::State, constraint: &LayoutConstraint) -> LayoutSize {
     constraint.max()
   }
-  fn layout_children(&self, state: &Self::State, self_layout: &Layout, children: &mut LayoutCtx) {
+  fn layout_children(&self, state: &Self::State, ctx: &mut LayoutCtx) {
     todo!()
   }
 }
