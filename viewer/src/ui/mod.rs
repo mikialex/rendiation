@@ -7,7 +7,11 @@ use std::{
 pub mod components;
 pub mod examples;
 pub mod renderer;
-pub use renderer::*;
+
+pub mod layout;
+pub use layout::*;
+pub mod rendering;
+pub use rendering::*;
 
 pub trait Component: Clone + PartialEq + Default + 'static {
   type State: PartialEq + Default;
@@ -24,54 +28,6 @@ pub trait Component: Clone + PartialEq + Default + 'static {
   fn update(&self, state: &Self::State) {}
 
   fn render(&self, state: &Self::State) {}
-}
-
-pub trait LayoutAble {
-  fn request_size(&self, constraint: &LayoutConstraint) -> LayoutSize;
-  fn update(&mut self) -> &mut Layout;
-}
-
-pub struct LayoutCtx<'a> {
-  children: [&'a mut dyn LayoutAble],
-}
-
-pub struct LayoutConstraint {
-  pub width_min: f32,
-  pub width_max: f32,
-  pub height_min: f32,
-  pub height_max: f32,
-}
-
-impl LayoutConstraint {
-  pub fn max(&self) -> LayoutSize {
-    LayoutSize {
-      width: self.width_max,
-      height: self.height_max,
-    }
-  }
-}
-
-pub struct LayoutSize {
-  pub width: f32,
-  pub height: f32,
-}
-
-pub struct Layout {
-  pub x: f32,
-  pub y: f32,
-  pub width: f32,
-  pub height: f32,
-}
-
-impl Default for Layout {
-  fn default() -> Self {
-    Self {
-      x: 0.,
-      y: 0.,
-      width: 0.,
-      height: 0.,
-    }
-  }
 }
 
 pub struct ComponentInit<'a, T, P: Component> {
@@ -98,9 +54,9 @@ impl<T> ComponentInitAble for T {}
 
 pub struct Composer<'a, P> {
   phantom: PhantomData<P>,
-  self_primitives: &'a mut Vec<Primitive>,
   new_props: Vec<Box<dyn Any>>,
-  components: &'a mut Vec<Box<dyn ComponentInstance>>,
+  self_primitives: &'a mut Vec<Primitive>,
+  target_children: &'a mut Vec<Box<dyn ComponentInstance>>,
 }
 
 impl<'a, P: Component> Composer<'a, P> {
@@ -110,7 +66,7 @@ impl<'a, P: Component> Composer<'a, P> {
     F: Fn(&mut Composer<P>),
   {
     let index = self.new_props.len();
-    let component = if let Some(old_component) = self.components.get_mut(index) {
+    let component = if let Some(old_component) = self.target_children.get_mut(index) {
       if !old_component.patch(props.init) {
         *old_component = Box::new(ComponentCell::<T, P>::new(props.init.clone()));
         old_component.patch(props.init);
@@ -118,9 +74,9 @@ impl<'a, P: Component> Composer<'a, P> {
       old_component
     } else {
       self
-        .components
+        .target_children
         .push(Box::new(ComponentCell::<T, P>::new(props.init.clone())));
-      self.components.last_mut().unwrap()
+      self.target_children.last_mut().unwrap()
     };
 
     let meta = component.meta_mut();
@@ -128,7 +84,7 @@ impl<'a, P: Component> Composer<'a, P> {
     let mut composer: Composer<P> = Composer {
       phantom: PhantomData,
       new_props: Vec::new(),
-      components: &mut meta.out_children,
+      target_children: &mut meta.out_children,
       self_primitives: &mut meta.self_primitives,
     };
 
@@ -137,19 +93,7 @@ impl<'a, P: Component> Composer<'a, P> {
   }
 
   pub fn child<T: Component>(&mut self, props: ComponentInit<T, P>) -> &mut Self {
-    let index = self.new_props.len();
-    if let Some(old_component) = self.components.get_mut(index) {
-      if !old_component.patch(props.init) {
-        *old_component = Box::new(ComponentCell::<T, P>::new(props.init.clone()));
-        old_component.patch(props.init);
-      };
-    } else {
-      self
-        .components
-        .push(Box::new(ComponentCell::<T, P>::new(props.init.clone())));
-    };
-
-    self
+    self.children(props, |_| {})
   }
 
   pub fn draw_primitive(&mut self, p: Primitive) -> &mut Self {
@@ -264,7 +208,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
         let mut composer: Composer<T> = Composer {
           phantom: PhantomData,
           new_props: Vec::new(),
-          components: &mut self.meta.children,
+          target_children: &mut self.meta.children,
           self_primitives: &mut self.meta.self_primitives,
         };
 
@@ -306,6 +250,10 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
     result.extend(self.meta.self_primitives.clone().into_iter());
     self.traverse_owned_child(&mut |c, _| c.render(result))
   }
+
+  // fn layout(&mut self) {
+  //   todo!()
+  // }
 }
 
 #[derive(Debug, PartialEq, Clone, Default)]
