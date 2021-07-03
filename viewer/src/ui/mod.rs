@@ -18,7 +18,7 @@ pub trait Component: Clone + PartialEq + Default + 'static {
     let mut current_y = ctx.self_position.y;
     let mut max_width: f32 = 0.;
     ctx.children.iter_mut().for_each(|c| {
-      let size = c.layout(&LayoutConstraint::unlimited());
+      let size = c.layout(ctx.parent_constraint);
       c.set_position(UIPosition {
         x: ctx.self_position.x,
         y: current_y,

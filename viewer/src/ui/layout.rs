@@ -19,6 +19,7 @@ where
     let mut children: Vec<_> = children.iter_mut().map(|c| c.as_layout()).collect();
 
     let mut ctx = LayoutCtx {
+      parent_constraint: constraint,
       self_position: &self.meta.layout.position,
       children: children.as_mut(),
     };
@@ -33,6 +34,7 @@ where
 }
 
 pub struct LayoutCtx<'a> {
+  pub parent_constraint: &'a LayoutConstraint,
   pub self_position: &'a UIPosition,
   pub children: &'a mut [&'a mut dyn LayoutAble],
 }

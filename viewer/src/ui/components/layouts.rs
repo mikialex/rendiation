@@ -25,6 +25,9 @@ impl Default for Container {
 
 impl Component for Container {
   type State = ();
+  fn layout(&self, state: &Self::State, ctx: &mut LayoutCtx) -> LayoutSize {
+    todo!()
+  }
 }
 
 #[derive(Default, PartialEq, Clone)]
@@ -32,7 +35,5 @@ pub struct Row;
 
 impl Component for Row {
   type State = ();
-  fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {
-    // do nothing
-  }
+  // fn layout(&self, state: &Self::State, ctx: &mut LayoutCtx) -> LayoutSize {}
 }
