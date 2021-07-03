@@ -26,11 +26,11 @@ impl Component for Counter {
         .init::<Self>()
         .on(|s| s.state.count += 1),
       )
-      .child(model.view_ref(|s| &s.state.some_large_item[0]).init());
+      .child(model.view(|s| s.state.some_large_item[0].clone()).init());
     })
     .child(
       model
-        .view_ref(|s| &s.state.some_large_item[2])
+        .view(|s| s.state.some_large_item[2].clone())
         .init::<Self>()
         .on(|s| println!("{:?}", s.props)),
     );

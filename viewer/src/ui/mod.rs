@@ -1,9 +1,4 @@
-use std::{
-  any::Any,
-  collections::HashMap,
-  marker::PhantomData,
-  ops::{Deref, DerefMut},
-};
+use std::{any::Any, collections::HashMap, marker::PhantomData};
 
 pub mod components;
 pub mod examples;
@@ -19,20 +14,22 @@ pub trait Component: Clone + PartialEq + Default + 'static {
   fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {}
 
   // https://flutter.dev/docs/development/ui/layout/constraints
-  fn request_layout_size(&self, state: &Self::State, constraint: &LayoutConstraint) -> LayoutSize {
-    constraint.max()
-  }
-  fn layout_children(&self, state: &Self::State, ctx: &mut LayoutCtx) {
-    let mut current_y = ctx.self_layout.y;
+  fn layout(&self, state: &Self::State, ctx: &mut LayoutCtx) -> LayoutSize {
+    let mut current_y = ctx.self_position.y;
+    let mut max_width: f32 = 0.;
     ctx.children.iter_mut().for_each(|c| {
-      let size = c.request_size(&LayoutConstraint::unlimited());
-      c.set_layout(Layout {
-        x: ctx.self_layout.x,
+      let size = c.layout(&LayoutConstraint::unlimited());
+      c.set_position(UIPosition {
+        x: ctx.self_position.x,
         y: current_y,
-        size,
       });
       current_y += size.height;
-    })
+      max_width = max_width.max(size.width);
+    });
+    LayoutSize {
+      width: max_width,
+      height: current_y - ctx.self_position.y,
+    }
   }
 
   fn update(&self, state: &Self::State) {}
@@ -80,9 +77,6 @@ impl<'a, C: Component> Model<'a, C> {
       .get_value(&self.state_and_props)
       .downcast_ref::<T>()
       .unwrap()
-  }
-  pub fn view_ref<F: Fn(&StateAndProps<C>) -> &T, T>(&self, f: F) -> &T {
-    f(&self.state_and_props)
   }
 }
 
@@ -160,35 +154,7 @@ impl<'a, P: Component> Composer<'a, P> {
 
 pub struct StateAndProps<C: Component> {
   props: C,
-  state: StateCell<C::State>,
-}
-
-pub struct StateCell<T> {
-  state: T,
-  changed: bool,
-}
-
-impl<T: Default> Default for StateCell<T> {
-  fn default() -> Self {
-    Self {
-      state: Default::default(),
-      changed: true,
-    }
-  }
-}
-
-impl<T> Deref for StateCell<T> {
-  type Target = T;
-
-  fn deref(&self) -> &Self::Target {
-    &self.state
-  }
-}
-
-impl<T> DerefMut for StateCell<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.state
-  }
+  state: C::State,
 }
 
 pub struct ComponentCell<T: Component, P: Component> {
@@ -272,22 +238,23 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
   }
 }
 
-trait ComponentInstance {
+trait ComponentInstance: LayoutAble {
   fn patch(&mut self, props: &dyn Any) -> bool;
   fn meta_mut(&mut self) -> &mut ComponentMetaData;
   fn meta(&self) -> &ComponentMetaData;
   fn event(&mut self, event: &winit::event::Event<()>, parent_data: &mut dyn Any);
   fn render(&mut self, result: &mut Vec<Primitive>);
+  fn as_layout(&mut self) -> &mut dyn LayoutAble;
 }
 
 impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   fn patch(&mut self, props: &dyn Any) -> bool {
     // check this component should rebuild caused by component type changed
     if let Some(props) = props.downcast_ref::<T>() {
-      // if component type not changed, we diff the cached props and see if it state
+      self.data.props = props.clone();
+      // if component type not changed, we diff the view data and see if it
       // changed. if any of it changed, we should rebuild it, diff it new component tree
-      let props_changed = &self.data.props != props;
-      if props_changed || self.data.state.changed || self.check_model_view_changed() {
+      if self.check_model_view_changed() {
         let mut composer: Composer<T> = Composer {
           phantom: PhantomData,
           new_props: Vec::new(),
@@ -302,11 +269,6 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
         };
 
         T::build(&mut model, &mut composer);
-
-        if props_changed {
-          self.data.props = props.clone()
-        }
-        self.data.state.changed = false;
       }
       return true;
     } else {
@@ -338,6 +300,9 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
   fn render(&mut self, result: &mut Vec<Primitive>) {
     result.extend(self.meta.primitives.clone().into_iter());
     self.traverse_owned_child(&mut |c, _| c.render(result))
+  }
+  fn as_layout(&mut self) -> &mut dyn LayoutAble {
+    self
   }
 }
 
@@ -386,6 +351,7 @@ impl<T: Component> UI<T> {
 
   pub fn update(&mut self) {
     self.component.patch(&());
+    self.component.layout(&LayoutConstraint::unlimited());
   }
 
   pub fn render(&mut self) -> &Vec<Primitive> {

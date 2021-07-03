@@ -1,8 +1,8 @@
 use super::{Component, ComponentCell};
 
 pub trait LayoutAble {
-  fn request_size(&self, constraint: &LayoutConstraint) -> LayoutSize;
-  fn set_layout(&mut self, layout: Layout);
+  fn layout(&mut self, constraint: &LayoutConstraint) -> LayoutSize;
+  fn set_position(&mut self, position: UIPosition);
 }
 
 impl<T, P> LayoutAble for ComponentCell<T, P>
@@ -10,21 +10,31 @@ where
   T: Component,
   P: Component,
 {
-  fn request_size(&self, constraint: &LayoutConstraint) -> LayoutSize {
-    self
-      .data
-      .props
-      .request_layout_size(&self.data.state, constraint)
+  fn layout(&mut self, constraint: &LayoutConstraint) -> LayoutSize {
+    let mut children: Vec<_> = self
+      .meta
+      .children
+      .iter_mut()
+      .map(|c| c.as_layout())
+      .collect();
+
+    let mut ctx = LayoutCtx {
+      self_position: &self.meta.layout.position,
+      children: children.as_mut(),
+    };
+    let size = self.data.props.layout(&self.data.state, &mut ctx);
+    self.meta.layout.size = size;
+    size
   }
 
-  fn set_layout(&mut self, layout: Layout) {
-    self.meta.layout = layout;
+  fn set_position(&mut self, position: UIPosition) {
+    self.meta.layout.position = position;
   }
 }
 
 pub struct LayoutCtx<'a> {
-  pub self_layout: &'a Layout,
-  pub children: [&'a mut dyn LayoutAble],
+  pub self_position: &'a UIPosition,
+  pub children: &'a mut [&'a mut dyn LayoutAble],
 }
 
 pub struct LayoutConstraint {
@@ -57,18 +67,22 @@ pub struct LayoutSize {
   pub height: f32,
 }
 
-/// Layout coordinate use x => right. y => down (same as web API canvas2D);
-pub struct Layout {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct UIPosition {
   pub x: f32,
   pub y: f32,
+}
+
+/// Layout coordinate use x => right. y => down (same as web API canvas2D);
+pub struct Layout {
+  pub position: UIPosition,
   pub size: LayoutSize,
 }
 
 impl Default for Layout {
   fn default() -> Self {
     Self {
-      x: 0.,
-      y: 0.,
+      position: UIPosition { x: 0., y: 0. },
       size: LayoutSize {
         width: 0.,
         height: 0.,
