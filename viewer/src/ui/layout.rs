@@ -11,12 +11,12 @@ where
   P: Component,
 {
   fn layout(&mut self, constraint: &LayoutConstraint) -> LayoutSize {
-    let mut children: Vec<_> = self
-      .meta
-      .children
-      .iter_mut()
-      .map(|c| c.as_layout())
-      .collect();
+    let children = if self.meta.children.is_empty() {
+      &mut self.meta.out_children
+    } else {
+      &mut self.meta.children
+    };
+    let mut children: Vec<_> = children.iter_mut().map(|c| c.as_layout()).collect();
 
     let mut ctx = LayoutCtx {
       self_position: &self.meta.layout.position,

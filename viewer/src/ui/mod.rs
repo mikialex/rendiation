@@ -263,6 +263,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
           primitives: &mut self.meta.primitives,
         };
 
+        self.view_model_cache.clear();
         let mut model = Model {
           state_and_props: &self.data,
           view_model: &mut self.view_model_cache,
