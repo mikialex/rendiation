@@ -1,5 +1,6 @@
 use std::{
   any::Any,
+  collections::HashMap,
   marker::PhantomData,
   ops::{Deref, DerefMut},
 };
@@ -15,7 +16,7 @@ pub use rendering::*;
 
 pub trait Component: Clone + PartialEq + Default + 'static {
   type State: PartialEq + Default;
-  fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {}
+  fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {}
 
   // https://flutter.dev/docs/development/ui/layout/constraints
   fn request_layout_size(&self, state: &Self::State, constraint: &LayoutConstraint) -> LayoutSize {
@@ -37,6 +38,52 @@ pub trait Component: Clone + PartialEq + Default + 'static {
   fn update(&self, state: &Self::State) {}
 
   fn render(&self, state: &Self::State) {}
+}
+
+pub struct Model<'a, C: Component> {
+  state_and_props: &'a StateAndProps<C>,
+  view_model: &'a mut HashMap<*const (), Box<dyn MemorizedViewModel<C>>>,
+}
+
+pub trait MemorizedViewModel<C: Component> {
+  fn get_value(&mut self, data: &StateAndProps<C>) -> &dyn Any;
+  fn has_changed(&self, data: &StateAndProps<C>) -> bool;
+}
+
+pub struct Memo<C: Component, T> {
+  f: fn(&StateAndProps<C>) -> T,
+  cache: Option<T>,
+}
+
+impl<C: Component, T: 'static + PartialEq> MemorizedViewModel<C> for Memo<C, T> {
+  fn get_value(&mut self, data: &StateAndProps<C>) -> &dyn Any {
+    self.cache.get_or_insert_with(|| (self.f)(data))
+  }
+  fn has_changed(&self, data: &StateAndProps<C>) -> bool {
+    self.cache.as_ref().map_or(false, |c| c == &(self.f)(data))
+  }
+}
+
+impl<C: Component, T> Memo<C, T> {
+  pub fn new(f: fn(&StateAndProps<C>) -> T) -> Self {
+    Self { f, cache: None }
+  }
+}
+
+impl<'a, C: Component> Model<'a, C> {
+  pub fn view<T: 'static + PartialEq>(&mut self, f: fn(&StateAndProps<C>) -> T) -> &T {
+    let f_p = f as *const ();
+    self
+      .view_model
+      .entry(f_p)
+      .or_insert_with(|| Box::new(Memo::new(f)))
+      .get_value(&self.state_and_props)
+      .downcast_ref::<T>()
+      .unwrap()
+  }
+  pub fn view_ref<F: Fn(&StateAndProps<C>) -> &T, T>(&self, f: F) -> &T {
+    f(&self.state_and_props)
+  }
 }
 
 pub struct ComponentInit<'a, T, P: Component> {
@@ -69,10 +116,10 @@ pub struct Composer<'a, P> {
 }
 
 impl<'a, P: Component> Composer<'a, P> {
-  pub fn children<T, F>(&mut self, props: ComponentInit<T, P>, children: F) -> &mut Self
+  pub fn children<T, F>(&mut self, props: ComponentInit<T, P>, mut children: F) -> &mut Self
   where
     T: Component,
-    F: Fn(&mut Composer<P>),
+    F: FnMut(&mut Composer<P>),
   {
     let index = self.new_props.len();
     let component = if let Some(old_component) = self.target_children.get_mut(index) {
@@ -147,6 +194,7 @@ impl<T> DerefMut for StateCell<T> {
 pub struct ComponentCell<T: Component, P: Component> {
   data: StateAndProps<T>,
   event_handlers: Vec<Box<dyn Fn(&mut StateAndProps<P>)>>,
+  view_model_cache: HashMap<*const (), Box<dyn MemorizedViewModel<T>>>,
   meta: ComponentMetaData,
 }
 
@@ -179,6 +227,7 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
         props,
       },
       event_handlers: Vec::new(),
+      view_model_cache: HashMap::new(),
       meta: ComponentMetaData {
         primitives: Vec::new(),
         children: Vec::new(),
@@ -187,6 +236,15 @@ impl<T: Component, P: Component> ComponentCell<T, P> {
         is_active: false,
       },
     }
+  }
+
+  fn check_model_view_changed(&mut self) -> bool {
+    for (_, mv) in &mut self.view_model_cache {
+      if mv.has_changed(&self.data) {
+        return true;
+      }
+    }
+    false
   }
 
   fn traverse_owned_child(
@@ -229,7 +287,7 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
       // if component type not changed, we diff the cached props and see if it state
       // changed. if any of it changed, we should rebuild it, diff it new component tree
       let props_changed = &self.data.props != props;
-      if props_changed || self.data.state.changed {
+      if props_changed || self.data.state.changed || self.check_model_view_changed() {
         let mut composer: Composer<T> = Composer {
           phantom: PhantomData,
           new_props: Vec::new(),
@@ -238,7 +296,12 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
           primitives: &mut self.meta.primitives,
         };
 
-        props.build(&self.data.state, &mut composer);
+        let mut model = Model {
+          state_and_props: &self.data,
+          view_model: &mut self.view_model_cache,
+        };
+
+        T::build(&mut model, &mut composer);
 
         if props_changed {
           self.data.props = props.clone()

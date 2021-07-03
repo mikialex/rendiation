@@ -38,7 +38,7 @@ pub struct Row;
 
 impl Component for Row {
   type State = ();
-  fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {
+  fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {
     // do nothing
   }
 }

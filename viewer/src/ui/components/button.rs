@@ -1,4 +1,4 @@
-use crate::ui::{Component, Composer, Primitive};
+use crate::ui::{Component, Composer, Model, Primitive};
 
 #[derive(PartialEq, Clone)]
 pub struct Button {
@@ -20,7 +20,7 @@ pub struct ButtonState {
 
 impl Component for Button {
   type State = ButtonState;
-  fn build(&self, state: &Self::State, composer: &mut Composer<Self>) {
-    composer.draw_primitive(todo!()).draw_primitive(todo!());
+  fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {
+    c.draw_primitive(todo!()).draw_primitive(todo!());
   }
 }

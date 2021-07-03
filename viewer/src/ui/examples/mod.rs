@@ -3,7 +3,9 @@ use crate::ui::components::*;
 use super::*;
 
 #[derive(Default, PartialEq, Clone, Debug)]
-pub struct Counter;
+pub struct Counter {
+  n: usize,
+}
 
 #[derive(Default, PartialEq, Clone)]
 pub struct CounterState {
@@ -14,24 +16,27 @@ pub struct CounterState {
 
 impl Component for Counter {
   type State = CounterState;
-  fn build(&self, state: &Self::State, c: &mut Composer<Self>) {
+  fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {
     c.children(Row.init(), |c| {
+      let count = model.view(|s| s.state.count);
       c.child(
         Button {
-          label: format!("add count{}", state.count),
+          label: format!("add count{}", count),
         }
         .init::<Self>()
         .on(|s| s.state.count += 1),
       )
-      .child(state.some_large_item[0].init());
+      .child(model.view_ref(|s| &s.state.some_large_item[0]).init());
     })
     .child(
-      state.some_large_item[1]
+      model
+        .view_ref(|s| &s.state.some_large_item[2])
         .init::<Self>()
         .on(|s| println!("{:?}", s.props)),
     );
 
-    if state.a {
+    let should = model.view(|s| s.state.a && s.props.n > 0);
+    if *should {
       c.children(Container::default().init(), |c| {
         //
       });
