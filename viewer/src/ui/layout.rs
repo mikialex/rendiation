@@ -1,7 +1,7 @@
 use super::{Component, ComponentCell};
 
 pub trait LayoutAble {
-  fn layout(&mut self, constraint: &LayoutConstraint) -> LayoutSize;
+  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize;
   fn set_position(&mut self, position: UIPosition);
 }
 
@@ -10,7 +10,7 @@ where
   T: Component,
   P: Component,
 {
-  fn layout(&mut self, constraint: &LayoutConstraint) -> LayoutSize {
+  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
     let children = if self.meta.children.is_empty() {
       &mut self.meta.out_children
     } else {
@@ -20,7 +20,7 @@ where
 
     let mut ctx = LayoutCtx {
       parent_constraint: constraint,
-      self_position: &self.meta.layout.position,
+      self_position: self.meta.layout.position,
       children: children.as_mut(),
     };
     let size = self.data.props.layout(&self.data.state, &mut ctx);
@@ -34,8 +34,8 @@ where
 }
 
 pub struct LayoutCtx<'a> {
-  pub parent_constraint: &'a LayoutConstraint,
-  pub self_position: &'a UIPosition,
+  pub parent_constraint: LayoutConstraint,
+  pub self_position: UIPosition,
   pub children: &'a mut [&'a mut dyn LayoutAble],
 }
 
@@ -61,6 +61,24 @@ impl LayoutConstraint {
       width: self.width_max,
       height: self.height_max,
     }
+  }
+
+  pub fn consume_width(&self, width: f32) -> Self {
+    Self {
+      width_min: self.width_min - width,
+      width_max: self.width_max - width,
+      ..*self
+    }
+    .min_zero()
+  }
+
+  pub fn consume_height(&self, height: f32) -> Self {
+    Self {
+      height_min: self.height_min - height,
+      height_max: self.height_max - height,
+      ..*self
+    }
+    .min_zero()
   }
 
   pub fn min_zero(&self) -> Self {

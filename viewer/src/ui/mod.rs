@@ -9,27 +9,15 @@ pub use layout::*;
 pub mod rendering;
 pub use rendering::*;
 
+use self::components::layout_children_one_by_one_vertically;
+
 pub trait Component: Clone + PartialEq + Default + 'static {
   type State: PartialEq + Default;
   fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {}
 
   // https://flutter.dev/docs/development/ui/layout/constraints
   fn layout(&self, state: &Self::State, ctx: &mut LayoutCtx) -> LayoutSize {
-    let mut current_y = ctx.self_position.y;
-    let mut max_width: f32 = 0.;
-    ctx.children.iter_mut().for_each(|c| {
-      let size = c.layout(ctx.parent_constraint);
-      c.set_position(UIPosition {
-        x: ctx.self_position.x,
-        y: current_y,
-      });
-      current_y += size.height;
-      max_width = max_width.max(size.width);
-    });
-    LayoutSize {
-      width: max_width,
-      height: current_y - ctx.self_position.y,
-    }
+    layout_children_one_by_one_vertically(ctx)
   }
 
   fn update(&self, state: &Self::State) {}
@@ -352,7 +340,7 @@ impl<T: Component> UI<T> {
 
   pub fn update(&mut self) {
     self.component.patch(&());
-    self.component.layout(&LayoutConstraint::unlimited());
+    self.component.layout(LayoutConstraint::unlimited());
   }
 
   pub fn render(&mut self) -> &Vec<Primitive> {
