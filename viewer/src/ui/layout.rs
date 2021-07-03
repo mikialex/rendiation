@@ -56,11 +56,29 @@ impl LayoutConstraint {
       height_max: f32::INFINITY,
     }
   }
+  pub fn from_max(size: LayoutSize) -> Self {
+    Self {
+      width_min: 0.,
+      width_max: 0.,
+      height_min: size.width,
+      height_max: size.height,
+    }
+  }
   pub fn max(&self) -> LayoutSize {
     LayoutSize {
       width: self.width_max,
       height: self.height_max,
     }
+  }
+
+  pub fn set_max_width(&mut self, width: f32) {
+    self.width_max = width;
+    self.width_max = self.width_max.max(self.width_min);
+  }
+
+  pub fn set_max_height(&mut self, height: f32) {
+    self.height_max = height;
+    self.height_max = self.height_max.max(self.height_min);
   }
 
   pub fn consume_width(&self, width: f32) -> Self {

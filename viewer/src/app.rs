@@ -11,12 +11,26 @@ use crate::{
   scene::{
     BasicMaterial, Camera, MeshDrawGroup, MeshModel, RenderPassDispatcher, Scene, StandardForward,
   },
+  ui::{renderer::WebGPUxUIRenderer, Component, UI},
 };
 
 pub struct Application {
   scene: Scene,
   forward: StandardForward,
   controller: ControllerWinitAdapter<OrbitController>,
+  ui: UI<ViewerUI>,
+  ui_renderer: WebGPUxUIRenderer,
+}
+
+#[derive(PartialEq, Clone, Default)]
+
+pub struct ViewerUI;
+
+#[derive(PartialEq, Clone, Default)]
+pub struct ViewerUIState {}
+
+impl Component for ViewerUI {
+  type State = ViewerUIState;
 }
 
 impl Application {
@@ -90,11 +104,15 @@ impl Application {
     let controller = ControllerWinitAdapter::new(controller);
 
     let forward = StandardForward::new(renderer, size);
+    let ui = UI::new();
+    let ui_renderer = WebGPUxUIRenderer::new(&renderer.device);
 
     let mut app = Self {
       scene,
       forward,
       controller,
+      ui,
+      ui_renderer,
     };
     app.resize_view(renderer, size);
     app

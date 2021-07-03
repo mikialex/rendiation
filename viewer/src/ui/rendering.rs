@@ -30,3 +30,7 @@ impl Primitive {
     }
   }
 }
+
+pub struct UIPresentation {
+  primitives: Vec<Primitive>,
+}

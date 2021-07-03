@@ -101,11 +101,18 @@ pub fn layout_children_one_by_one_vertically(ctx: &mut LayoutCtx) -> LayoutSize 
 impl Component for Container {
   type State = ();
   fn layout(&self, state: &Self::State, ctx: &mut LayoutCtx) -> LayoutSize {
-    let children_constraint = ctx
+    let mut children_constraint = ctx
       .parent_constraint
       .consume_by_edge(self.margin)
       .consume_by_edge(self.border)
       .consume_by_edge(self.padding);
+
+    if let Some(width) = self.width {
+      children_constraint.set_max_width(width);
+    }
+    if let Some(height) = self.height {
+      children_constraint.set_max_height(height);
+    }
 
     let children_start = ctx
       .self_position
@@ -121,7 +128,10 @@ impl Component for Container {
 
 impl UIPosition {
   pub fn move_into_top_left_corner(&self, edge: EdgeInsets) -> Self {
-    todo!()
+    Self{
+        x: self.x + edge.left,
+        y: self.y + edge.top,
+    }
   }
 }
 

@@ -20,8 +20,6 @@ pub trait Component: Clone + PartialEq + Default + 'static {
     layout_children_one_by_one_vertically(ctx)
   }
 
-  fn update(&self, state: &Self::State) {}
-
   fn render(&self, state: &Self::State) {}
 }
 
@@ -318,7 +316,7 @@ impl Default for UIRootState {
   }
 }
 
-struct UI<T: Component> {
+pub struct UI<T: Component> {
   root: StateAndProps<UIRoot>,
   component: ComponentCell<T, UIRoot>,
   primitive_cache: Vec<Primitive>,
@@ -340,7 +338,9 @@ impl<T: Component> UI<T> {
 
   pub fn update(&mut self) {
     self.component.patch(&());
-    self.component.layout(LayoutConstraint::unlimited());
+    self
+      .component
+      .layout(LayoutConstraint::from_max(self.root.state.size));
   }
 
   pub fn render(&mut self) -> &Vec<Primitive> {

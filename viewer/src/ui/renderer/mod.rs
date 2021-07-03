@@ -5,8 +5,8 @@ pub struct WebGPUxUIRenderPass<'a> {
 }
 
 pub struct UITextureCache {
-  cached_frame: wgpu::TextureView,
-  cached: wgpu::Texture,
+  cached_target_frame: wgpu::TextureView,
+  cached_target: wgpu::Texture,
 }
 
 impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
@@ -36,6 +36,27 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
   }
 
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+    todo!()
+  }
+}
+
+pub struct GPUxUISolidQuad {
+  uniform: wgpu::Buffer,
+  bindgroup: wgpu::BindGroup,
+}
+
+pub enum GPUxUIPrimitive {
+  Quad(GPUxUISolidQuad),
+}
+
+pub struct WebGPUxUIRenderer {
+  texture_cache: UITextureCache,
+  gpu_primitive_cache: Vec<GPUxUIPrimitive>,
+  solid_quad_pipeline: wgpu::RenderPipeline,
+}
+
+impl WebGPUxUIRenderer {
+  pub fn new(device: &wgpu::Device) -> Self {
     todo!()
   }
 }
