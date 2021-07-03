@@ -39,6 +39,7 @@ pub struct LayoutCtx<'a> {
   pub children: &'a mut [&'a mut dyn LayoutAble],
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct LayoutConstraint {
   pub width_min: f32,
   pub width_max: f32,
@@ -59,6 +60,15 @@ impl LayoutConstraint {
     LayoutSize {
       width: self.width_max,
       height: self.height_max,
+    }
+  }
+
+  pub fn min_zero(&self) -> Self {
+    Self {
+      width_min: self.width_min.min(0.),
+      width_max: self.width_max.min(0.),
+      height_min: self.height_min.min(0.),
+      height_max: self.height_max.min(0.),
     }
   }
 }

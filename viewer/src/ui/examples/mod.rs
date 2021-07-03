@@ -17,7 +17,7 @@ pub struct CounterState {
 impl Component for Counter {
   type State = CounterState;
   fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {
-    c.children(Row.init(), |c| {
+    c.children(Container::default().init(), |c| {
       let count = model.view(|s| s.state.count);
       c.child(
         Button {
