@@ -1,7 +1,12 @@
+use rendiation_renderable_mesh::{
+  mesh::IndexedMesh,
+  tessellation::{IndexedMeshTessellator, PlaneMeshParameter},
+};
+
 use crate::renderer::{RenderPassCreator, Renderable, Renderer};
 
 pub struct WebGPUxUIRenderPass<'a> {
-  texture_cache: &'a mut UITextureCache,
+  renderer: &'a mut WebGPUxUIRenderer,
 }
 
 pub struct UITextureCache {
@@ -36,7 +41,13 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
   }
 
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    todo!()
+    let renderer = &self.renderer;
+    renderer.gpu_primitive_cache.iter().for_each(|p| match p {
+      GPUxUIPrimitive::Quad(quad) => {
+        pass.set_pipeline(&renderer.solid_quad_pipeline);
+        pass.set_bind_group(0, &quad.bindgroup, &[])
+      }
+    })
   }
 }
 
@@ -53,10 +64,16 @@ pub struct WebGPUxUIRenderer {
   texture_cache: UITextureCache,
   gpu_primitive_cache: Vec<GPUxUIPrimitive>,
   solid_quad_pipeline: wgpu::RenderPipeline,
+  quad_mesh_instance: IndexedMesh,
 }
 
 impl WebGPUxUIRenderer {
   pub fn new(device: &wgpu::Device) -> Self {
+    let quad_mesh_instance = PlaneMeshParameter::default().tessellate().mesh;
     todo!()
   }
+}
+
+fn create_solid_quad_pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
+  todo!()
 }
