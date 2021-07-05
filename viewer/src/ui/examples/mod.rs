@@ -19,6 +19,9 @@ impl Component for Counter {
   fn build(model: &mut Model<Self>, c: &mut Composer<Self>) {
     c.children(Container::default().init(), |c| {
       let count = model.view(|s| s.state.count);
+      // let count2 = model.view(|s| s.state.count);
+      // let count3 = model.compute(|m| m.get(count2) + 324);
+
       c.child(
         Button {
           label: format!("add count{}", count),
@@ -27,6 +30,9 @@ impl Component for Counter {
         .on(|s| s.state.count += 1),
       )
       .child(model.view(|s| s.state.some_large_item[0].clone()).init());
+    })
+    .children(Container::default().init(), |c| {
+      //
     })
     .child(
       model
