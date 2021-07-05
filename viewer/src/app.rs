@@ -105,7 +105,7 @@ impl Application {
 
     let forward = StandardForward::new(renderer, size);
     let ui = UI::new();
-    let ui_renderer = WebGPUxUIRenderer::new(&renderer.device);
+    let ui_renderer = WebGPUxUIRenderer::new(&renderer.device, renderer.get_prefer_target_format());
 
     let mut app = Self {
       scene,

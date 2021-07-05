@@ -9,13 +9,15 @@ use crate::{
   scene::VertexBufferSourceType,
 };
 
+use super::UIPresentation;
+
 pub struct WebGPUxUIRenderPass<'a> {
   renderer: &'a mut WebGPUxUIRenderer,
 }
 
 pub struct UITextureCache {
-  cached_target_frame: wgpu::TextureView,
-  cached_target: wgpu::Texture,
+  // cached_target_frame: wgpu::TextureView,
+// cached_target: wgpu::Texture,
 }
 
 impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
@@ -74,12 +76,25 @@ pub struct WebGPUxUIRenderer {
   texture_cache: UITextureCache,
   gpu_primitive_cache: Vec<GPUxUIPrimitive>,
   solid_color_pipeline: wgpu::RenderPipeline,
-  quad_mesh_instance: IndexedMesh,
 }
 
 impl WebGPUxUIRenderer {
-  pub fn new(device: &wgpu::Device) -> Self {
-    let quad_mesh_instance = PlaneMeshParameter::default().tessellate().mesh;
+  pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+    let solid_color_pipeline = create_solid_pipeline(device, target_format);
+    let texture_cache = UITextureCache {};
+    Self {
+      texture_cache,
+      gpu_primitive_cache: Vec::new(),
+      solid_color_pipeline,
+    }
+  }
+
+  pub fn update(
+    &mut self,
+    presentation: &UIPresentation,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+  ) {
     todo!()
   }
 }
@@ -211,20 +226,9 @@ fn create_solid_pipeline(
     label: Some("ui_solid_pipeline"),
     layout: Some(&pipeline_layout),
     vertex: wgpu::VertexState {
-      entry_point: if cfg!(feature = "web") {
-        "vs_web_main"
-      } else {
-        "vs_main"
-      },
+      entry_point: "vs_main",
       module: &shader,
-      buffers: &[wgpu::VertexBufferLayout {
-        array_stride: 5 * 4,
-        step_mode: wgpu::InputStepMode::Vertex,
-        // 0: vec2 position
-        // 1: vec2 texture coordinates
-        // 2: uint color
-        attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Uint32],
-      }],
+      buffers: &[Vec::<UIVertex>::vertex_layout()],
     },
     primitive: wgpu::PrimitiveState {
       topology: wgpu::PrimitiveTopology::TriangleList,
