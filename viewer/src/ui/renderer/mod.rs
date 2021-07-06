@@ -1,15 +1,11 @@
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::{
-  mesh::IndexedMesh,
-  tessellation::{IndexedMeshTessellator, PlaneMeshParameter},
-};
 
 use crate::{
   renderer::{RenderPassCreator, Renderable, Renderer},
   scene::VertexBufferSourceType,
 };
 
-use super::UIPresentation;
+use super::{Primitive, UIPresentation};
 
 pub struct WebGPUxUIRenderPass<'a> {
   renderer: &'a mut WebGPUxUIRenderer,
@@ -72,6 +68,35 @@ pub enum GPUxUIPrimitive {
   SolidColor(GPUxUISolidColorPrimitive),
 }
 
+impl Primitive {
+  #[rustfmt::skip]
+  pub fn create_gpu(&self, device: wgpu::Device) -> GPUxUIPrimitive {
+    match self {
+      Primitive::Quad(quad) => {
+        let mut vertices = Vec::new();
+        vertices.push(vertex((quad.x, quad.y), (0., 0.), (1., 1., 1., 0.)));
+        vertices.push(vertex((quad.x, quad.y + quad.height), (0., 0.), (1., 1., 1., 0.)));
+        vertices.push(vertex((quad.x + quad.width, quad.y), (0., 0.), (1., 1., 1., 0.)));
+        vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (0., 0.), (1., 1., 1., 0.)));
+        let mut index = Vec::<u32>::new();
+        index.push(0);
+        index.push(1);
+        index.push(2);
+        index.push(2);
+        index.push(1);
+        index.push(3);
+
+        GPUxUIPrimitive::SolidColor(GPUxUISolidColorPrimitive {
+          vertex_buffer: todo!(),
+          index_buffer: todo!(),
+          length: 6,
+        })
+      }
+      Primitive::Text(_) => todo!(),
+    }
+  }
+}
+
 pub struct WebGPUxUIRenderer {
   texture_cache: UITextureCache,
   gpu_primitive_cache: Vec<GPUxUIPrimitive>,
@@ -118,6 +143,14 @@ pub struct UIVertex {
   position: Vec2<f32>,
   uv: Vec2<f32>,
   color: Vec4<f32>,
+}
+
+fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32)) -> UIVertex {
+  UIVertex {
+    position: position.into(),
+    uv: uv.into(),
+    color: color.into(),
+  }
 }
 
 impl VertexBufferSourceType for Vec<UIVertex> {
