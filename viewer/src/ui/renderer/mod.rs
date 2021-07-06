@@ -1,4 +1,6 @@
 use rendiation_algebra::*;
+use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
+use wgpu::util::DeviceExt;
 
 use crate::{
   renderer::{RenderPassCreator, Renderable, Renderer},
@@ -29,7 +31,7 @@ impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
         view,
         resolve_target: None,
         ops: wgpu::Operations {
-          load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+          load: wgpu::LoadOp::Load,
           store: true,
         },
       }],
@@ -65,6 +67,8 @@ pub enum GPUxUIPrimitive {
   SolidColor(GPUxUISolidColorPrimitive),
 }
 
+type UIMesh = IndexedMesh<u32, UIVertex, TriangleList>;
+
 impl Primitive {
   #[rustfmt::skip]
   pub fn create_gpu(&self, device: wgpu::Device) -> GPUxUIPrimitive {
@@ -83,9 +87,25 @@ impl Primitive {
         index.push(1);
         index.push(3);
 
+        let vertex = bytemuck::cast_slice(vertices.as_slice());
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+          label: None,
+          contents: vertex,
+          usage: wgpu::BufferUsage::VERTEX,
+        });
+
+        let index = bytemuck::cast_slice(index.as_slice());
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+          label: None,
+          contents: index,
+          usage: wgpu::BufferUsage::INDEX,
+        });
+
+        // let index_mesh: UIMesh = IndexedMesh::new(vertices, index);
+
         GPUxUIPrimitive::SolidColor(GPUxUISolidColorPrimitive {
-          vertex_buffer: todo!(),
-          index_buffer: todo!(),
+          vertex_buffer,
+          index_buffer,
           length: 6,
         })
       }
@@ -136,11 +156,14 @@ impl UIGlobalParameter {
   }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct UIVertex {
   position: Vec2<f32>,
   uv: Vec2<f32>,
   color: Vec4<f32>,
 }
+unsafe impl bytemuck::Zeroable for UIVertex {}
+unsafe impl bytemuck::Pod for UIVertex {}
 
 fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32)) -> UIVertex {
   UIVertex {
@@ -177,9 +200,9 @@ impl VertexBufferSourceType for Vec<UIVertex> {
 
   fn get_shader_header() -> &'static str {
     r#"
-      [[location(0)]] position: vec3<f32>,
-      [[location(1)]] uv: vec3<f32>,
-      [[location(2)]] color: vec2<f32>,
+      [[location(0)]] position: vec2<f32>,
+      [[location(1)]] uv: vec2<f32>,
+      [[location(2)]] color: vec4<f32>,
     "#
   }
 }
@@ -192,7 +215,7 @@ fn create_solid_pipeline(
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 1,
+        binding: 0,
         visibility: wgpu::ShaderStage::VERTEX,
         ty: wgpu::BindingType::Buffer {
           has_dynamic_offset: false,
@@ -245,6 +268,8 @@ fn create_solid_pipeline(
     vertex_header = Vec::<UIVertex>::get_shader_header(),
     global_header = UIGlobalParameter::get_shader_header(),
   );
+
+  println!("{}", shader_source);
 
   let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
     label: None,
