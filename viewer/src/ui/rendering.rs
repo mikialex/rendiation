@@ -32,6 +32,7 @@ impl Primitive {
 }
 
 pub struct UIPresentation {
+  pub view_size: Vec2<f32>,
   pub primitives: Vec<Primitive>,
 }
 
@@ -39,6 +40,7 @@ impl UIPresentation {
   pub fn new() -> Self {
     Self {
       primitives: Vec::new(),
+      view_size: Vec2::new(1000., 1000.),
     }
   }
 

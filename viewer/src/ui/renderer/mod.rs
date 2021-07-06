@@ -3,7 +3,7 @@ use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 use wgpu::util::DeviceExt;
 
 use crate::{
-  renderer::{RenderPassCreator, Renderable, Renderer},
+  renderer::{BindableResource, RenderPassCreator, Renderable, UniformBuffer},
   scene::VertexBufferSourceType,
 };
 
@@ -118,16 +118,54 @@ pub struct WebGPUxUIRenderer {
   texture_cache: UITextureCache,
   gpu_primitive_cache: Vec<GPUxUIPrimitive>,
   solid_color_pipeline: wgpu::RenderPipeline,
+  global_ui_state: UIGlobalParameter,
+  global_ui_state_gpu: UniformBuffer<UIGlobalParameter>,
+  global_uniform_bind_group_layout: wgpu::BindGroupLayout,
+  global_bindgroup: wgpu::BindGroup,
 }
 
 impl WebGPUxUIRenderer {
   pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
-    let solid_color_pipeline = create_solid_pipeline(device, target_format);
     let texture_cache = UITextureCache {};
+    let global_ui_state = UIGlobalParameter {
+      screen_size: Vec2::new(1000., 1000.),
+    };
+
+    let global_ui_state_gpu = UniformBuffer::create(device, global_ui_state.clone());
+    let global_uniform_bind_group_layout =
+      device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[wgpu::BindGroupLayoutEntry {
+          binding: 0,
+          visibility: wgpu::ShaderStage::VERTEX,
+          ty: wgpu::BindingType::Buffer {
+            has_dynamic_offset: false,
+            min_binding_size: None,
+            ty: wgpu::BufferBindingType::Uniform,
+          },
+          count: None,
+        }],
+      });
+    let global_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+      layout: &global_uniform_bind_group_layout,
+      entries: &[wgpu::BindGroupEntry {
+        binding: 0,
+        resource: global_ui_state_gpu.as_bindable(),
+      }],
+      label: None,
+    });
+
+    let solid_color_pipeline =
+      create_solid_pipeline(device, target_format, &global_uniform_bind_group_layout);
+
     Self {
       texture_cache,
       gpu_primitive_cache: Vec::new(),
       solid_color_pipeline,
+      global_ui_state,
+      global_ui_state_gpu,
+      global_uniform_bind_group_layout,
+      global_bindgroup,
     }
   }
 
@@ -141,9 +179,13 @@ impl WebGPUxUIRenderer {
   }
 }
 
+#[derive(Debug, Copy, Clone)]
 struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }
+
+unsafe impl bytemuck::Zeroable for UIGlobalParameter {}
+unsafe impl bytemuck::Pod for UIGlobalParameter {}
 
 impl UIGlobalParameter {
   fn get_shader_header() -> &'static str {
@@ -210,22 +252,8 @@ impl VertexBufferSourceType for Vec<UIVertex> {
 fn create_solid_pipeline(
   device: &wgpu::Device,
   target_format: wgpu::TextureFormat,
+  global_uniform_bind_group_layout: &wgpu::BindGroupLayout,
 ) -> wgpu::RenderPipeline {
-  let global_uniform_bind_group_layout =
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: None,
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStage::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          has_dynamic_offset: false,
-          min_binding_size: None,
-          ty: wgpu::BufferBindingType::Uniform,
-        },
-        count: None,
-      }],
-    });
-
   let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: Some("ui_solid_pipeline_layout"),
     bind_group_layouts: &[&global_uniform_bind_group_layout],
@@ -268,8 +296,6 @@ fn create_solid_pipeline(
     vertex_header = Vec::<UIVertex>::get_shader_header(),
     global_header = UIGlobalParameter::get_shader_header(),
   );
-
-  println!("{}", shader_source);
 
   let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
     label: None,

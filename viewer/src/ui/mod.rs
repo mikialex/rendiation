@@ -347,6 +347,9 @@ impl<T: Component> UI<T> {
 
   pub fn render(&mut self) -> &UIPresentation {
     self.gfx_cache.reset();
+    let size = self.root.state.size;
+    self.gfx_cache.view_size.x = size.width;
+    self.gfx_cache.view_size.y = size.height;
     self.component.render(&mut self.gfx_cache);
     &self.gfx_cache
   }
