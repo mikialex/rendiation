@@ -8,7 +8,8 @@ use crate::{
 use super::{Primitive, UIPresentation};
 
 pub struct WebGPUxUIRenderPass<'a> {
-  renderer: &'a mut WebGPUxUIRenderer,
+  pub renderer: &'a mut WebGPUxUIRenderer,
+  pub presentation: &'a UIPresentation,
 }
 
 pub struct UITextureCache {
@@ -38,10 +39,6 @@ impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
 }
 
 impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
-  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder) {
-    todo!()
-  }
-
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
     let renderer = &self.renderer;
     renderer.gpu_primitive_cache.iter().for_each(|p| match p {

@@ -32,5 +32,17 @@ impl Primitive {
 }
 
 pub struct UIPresentation {
-  primitives: Vec<Primitive>,
+  pub primitives: Vec<Primitive>,
+}
+
+impl UIPresentation {
+  pub fn new() -> Self {
+    Self {
+      primitives: Vec::new(),
+    }
+  }
+
+  pub fn reset(&mut self) {
+    self.primitives.clear()
+  }
 }

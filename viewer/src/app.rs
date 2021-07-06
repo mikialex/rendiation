@@ -11,7 +11,10 @@ use crate::{
   scene::{
     BasicMaterial, Camera, MeshDrawGroup, MeshModel, RenderPassDispatcher, Scene, StandardForward,
   },
-  ui::{renderer::WebGPUxUIRenderer, Component, UI},
+  ui::{
+    renderer::{WebGPUxUIRenderPass, WebGPUxUIRenderer},
+    Component, UI,
+  },
 };
 
 pub struct Application {
@@ -125,6 +128,14 @@ impl Application {
         pass: &mut self.forward,
       },
       frame,
+    );
+    let rep = self.ui.render();
+    renderer.render(
+      &mut WebGPUxUIRenderPass {
+        renderer: &mut self.ui_renderer,
+        presentation: rep,
+      },
+      &frame.output.view,
     )
   }
 
@@ -137,7 +148,9 @@ impl Application {
   }
 
   pub fn event(&mut self, renderer: &mut Renderer, event: &Event<()>) {
+    self.ui.event(event);
     self.controller.event(event);
+
     if let Event::WindowEvent { event, .. } = event {
       if let WindowEvent::Resized(size) = event {
         self.resize_view(renderer, (size.width as f32, size.height as f32));

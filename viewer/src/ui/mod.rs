@@ -229,7 +229,7 @@ trait ComponentInstance: LayoutAble {
   fn meta_mut(&mut self) -> &mut ComponentMetaData;
   fn meta(&self) -> &ComponentMetaData;
   fn event(&mut self, event: &winit::event::Event<()>, parent_data: &mut dyn Any);
-  fn render(&mut self, result: &mut Vec<Primitive>);
+  fn render(&mut self, result: &mut UIPresentation);
   fn as_layout(&mut self) -> &mut dyn LayoutAble;
 }
 
@@ -284,8 +284,10 @@ impl<T: Component, P: Component> ComponentInstance for ComponentCell<T, P> {
     self.traverse_owned_child(&mut |c, p| c.event(event, p))
   }
 
-  fn render(&mut self, result: &mut Vec<Primitive>) {
-    result.extend(self.meta.primitives.clone().into_iter());
+  fn render(&mut self, result: &mut UIPresentation) {
+    result
+      .primitives
+      .extend(self.meta.primitives.clone().into_iter());
     self.traverse_owned_child(&mut |c, _| c.render(result))
   }
   fn as_layout(&mut self) -> &mut dyn LayoutAble {
@@ -319,7 +321,7 @@ impl Default for UIRootState {
 pub struct UI<T: Component> {
   root: StateAndProps<UIRoot>,
   component: ComponentCell<T, UIRoot>,
-  primitive_cache: Vec<Primitive>,
+  gfx_cache: UIPresentation,
 }
 
 impl<T: Component> UI<T> {
@@ -332,7 +334,7 @@ impl<T: Component> UI<T> {
     Self {
       root,
       component,
-      primitive_cache: Vec::new(),
+      gfx_cache: UIPresentation::new(),
     }
   }
 
@@ -343,10 +345,10 @@ impl<T: Component> UI<T> {
       .layout(LayoutConstraint::from_max(self.root.state.size));
   }
 
-  pub fn render(&mut self) -> &Vec<Primitive> {
-    self.primitive_cache.clear();
-    self.component.render(&mut self.primitive_cache);
-    &self.primitive_cache
+  pub fn render(&mut self) -> &UIPresentation {
+    self.gfx_cache.reset();
+    self.component.render(&mut self.gfx_cache);
+    &self.gfx_cache
   }
 
   fn size(&self) -> LayoutSize {
