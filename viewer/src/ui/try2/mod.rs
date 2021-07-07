@@ -1,13 +1,11 @@
 use std::marker::PhantomData;
 
+mod example;
+
 pub trait Component<T> {
   fn event(&mut self, state: &mut T) {}
 
   fn update(&mut self, model: &T) {}
-}
-
-struct ComponentCell<C> {
-  com: C,
 }
 
 pub enum ValueCell<T, U> {
@@ -47,26 +45,6 @@ pub struct Container<T, C> {
   phantom: PhantomData<T>,
 }
 
-struct Todo {
-  items: TodoItems,
+fn button<T>() -> impl Component<T> {
+  todo!()
 }
-
-struct TodoItems {
-  name: String,
-}
-
-fn build_todo() -> impl Component<Todo> {
-  Flex::<Todo> {
-    children: Vec::new(),
-  }
-}
-
-struct Flex<T> {
-  children: Vec<Box<dyn Component<T>>>,
-}
-
-impl<T> Component<T> for Flex<T> {}
-
-struct Button;
-
-impl<T> Component<T> for Button {}
