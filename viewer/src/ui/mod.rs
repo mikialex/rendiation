@@ -9,6 +9,8 @@ pub use layout::*;
 pub mod rendering;
 pub use rendering::*;
 
+pub mod try2;
+
 use self::components::layout_children_one_by_one_vertically;
 
 pub trait Component: Clone + PartialEq + Default + 'static {
