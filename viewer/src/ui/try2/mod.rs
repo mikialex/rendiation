@@ -13,7 +13,7 @@ pub enum ValueCell<T, U> {
   Dynamic(DynamicValue<T, U>),
 }
 impl<T, U> ValueCell<T, U> {
-  pub fn update(&mut self, ctx: &U) {
+  pub fn update(&mut self, ctx: &U) -> &T {
     todo!()
   }
 }
@@ -61,6 +61,12 @@ trait ComponentExt<T>: Component<T> + Sized {
       phantom: PhantomData,
     }
   }
+  fn on(self, func: impl Fn(&mut T) + 'static) -> EventHandler<T, Self> {
+    EventHandler {
+      handler: Box::new(func),
+      inner: self,
+    }
+  }
 }
 
 pub struct Container<T, C> {
@@ -72,9 +78,50 @@ pub struct Container<T, C> {
 
 impl<T, C: Component<T>> Component<T> for Container<T, C> {}
 
+struct EventHandler<T, C> {
+  handler: Box<dyn Fn(&mut T)>,
+  inner: C,
+}
+
+impl<T, C: Component<T>> Component<T> for EventHandler<T, C> {}
+
 fn button<T>(label: &str) -> impl Component<T> {
-  Text::new(label).sized(300., 100.)
+  Text::new(label).sized(300., 100.).on(|c| {})
   // .border(1)
   //   .on_click(|e|)
   //   .lens()
+}
+
+struct If<T> {
+  should_render: ValueCell<bool, T>,
+  func: Box<dyn Fn() -> Box<dyn Component<T>>>,
+  inner: Option<Box<dyn Component<T>>>,
+}
+
+impl<T> If<T> {
+  pub fn condition<C, F>(should_render: impl Into<ValueCell<bool, T>>, func: F) -> If<T>
+  where
+    C: Component<T> + 'static,
+    F: Fn() -> C + 'static,
+  {
+    Self {
+      should_render: should_render.into(),
+      func: Box::new(move || Box::new(func())),
+      inner: None,
+    }
+  }
+}
+
+impl<T> Component<T> for If<T> {
+  fn update(&mut self, model: &T) {
+    if *self.should_render.update(model) {
+      if let Some(inner) = &mut self.inner {
+        inner.update(model);
+      } else {
+        self.inner = Some((self.func)());
+      }
+    } else {
+      self.inner = None;
+    }
+  }
 }
