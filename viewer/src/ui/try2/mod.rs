@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 mod example;
 
 pub trait Component<T> {
-  fn event(&mut self, state: &mut T) {}
+  fn event(&mut self, state: &mut T, event: &winit::event::Event<()>) {}
 
   fn update(&mut self, model: &T) {}
 }
@@ -20,11 +20,23 @@ impl<T, U> ValueCell<T, U> {
 
 pub struct DynamicValue<T, U> {
   fun: Box<dyn Fn(&U) -> T>,
-  value: T,
+  value: Option<T>,
 }
 
 pub struct Text<T> {
   content: ValueCell<String, T>,
+}
+
+impl<T> Into<ValueCell<String, T>> for &str {
+  fn into(self) -> ValueCell<String, T> {
+    todo!()
+  }
+}
+
+impl<T> Text<T> {
+  pub fn new(content: impl Into<ValueCell<String, T>>) -> Self {
+    todo!()
+  }
 }
 
 impl<T> Component<T> for Text<T> {
@@ -38,6 +50,19 @@ pub struct ClickArea<T, C> {
   phantom: PhantomData<T>,
 }
 
+impl<T, C: Component<T>> ComponentExt<T> for C {}
+
+trait ComponentExt<T>: Component<T> + Sized {
+  fn sized(self, width: f32, height: f32) -> Container<T, Self> {
+    Container {
+      width,
+      height,
+      inner: self,
+      phantom: PhantomData,
+    }
+  }
+}
+
 pub struct Container<T, C> {
   width: f32,
   height: f32,
@@ -45,6 +70,11 @@ pub struct Container<T, C> {
   phantom: PhantomData<T>,
 }
 
-fn button<T>() -> impl Component<T> {
-  todo!()
+impl<T, C: Component<T>> Component<T> for Container<T, C> {}
+
+fn button<T>(label: &str) -> impl Component<T> {
+  Text::new(label).sized(300., 100.)
+  // .border(1)
+  //   .on_click(|e|)
+  //   .lens()
 }

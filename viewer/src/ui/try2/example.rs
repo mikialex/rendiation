@@ -8,8 +8,8 @@ struct TodoItems {
   name: String,
 }
 
-fn build_todo() -> impl Component<Todo> {
-  Flex::<Todo> {
-    children: Vec::new(),
-  }
-}
+// fn build_todo() -> impl Component<Todo> {
+//   Flex::<Todo> {
+//     children: Vec::new(),
+//   }
+// }
