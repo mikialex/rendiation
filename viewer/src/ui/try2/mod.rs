@@ -94,7 +94,7 @@ fn button<T>(label: &str) -> impl Component<T> {
 
 struct If<T> {
   should_render: ValueCell<bool, T>,
-  func: Box<dyn Fn() -> Box<dyn Component<T>>>,
+  func: Box<dyn Fn(&T) -> Box<dyn Component<T>>>,
   inner: Option<Box<dyn Component<T>>>,
 }
 
@@ -102,11 +102,11 @@ impl<T> If<T> {
   pub fn condition<C, F>(should_render: impl Into<ValueCell<bool, T>>, func: F) -> If<T>
   where
     C: Component<T> + 'static,
-    F: Fn() -> C + 'static,
+    F: Fn(&T) -> C + 'static,
   {
     Self {
       should_render: should_render.into(),
-      func: Box::new(move || Box::new(func())),
+      func: Box::new(move |data| Box::new(func(data))),
       inner: None,
     }
   }
@@ -118,10 +118,21 @@ impl<T> Component<T> for If<T> {
       if let Some(inner) = &mut self.inner {
         inner.update(model);
       } else {
-        self.inner = Some((self.func)());
+        self.inner = Some((self.func)(model));
       }
     } else {
       self.inner = None;
     }
+  }
+}
+
+struct ForEach<T> {
+  children: Vec<Box<dyn Component<T>>>,
+  mapper: Box<dyn Fn(&T, usize) -> Box<dyn Component<T>>>,
+}
+
+impl<T> Component<T> for ForEach<T> {
+  fn update(&mut self, model: &T) {
+    todo!()
   }
 }

@@ -9,7 +9,8 @@ struct TodoItems {
 }
 
 // fn build_todo() -> impl Component<Todo> {
-//   Flex::<Todo> {
-//     children: Vec::new(),
-//   }
+//   // Flex::<Todo> {
+//   //   children: Vec::new(),
+//   // }
+//   // If::condition(true, |_| Text::new("ddd"))
 // }
