@@ -2,6 +2,9 @@ use std::marker::PhantomData;
 
 mod example;
 
+mod structure;
+pub use structure::*;
+
 pub trait Component<T> {
   fn event(&mut self, state: &mut T, event: &winit::event::Event<()>) {}
 
@@ -92,63 +95,26 @@ fn button<T>(label: &str) -> impl Component<T> {
   //   .lens()
 }
 
-struct If<T> {
-  should_render: ValueCell<bool, T>,
-  func: Box<dyn Fn() -> Box<dyn Component<T>>>,
-  inner: Option<Box<dyn Component<T>>>,
+struct Flex<T, C> {
+  // children: For<T, FlexChild<T>>,
+  // children: Vec<FlexChild<T>>,
+  inner: C,
+  phantom: PhantomData<T>,
 }
 
-impl<T> If<T> {
-  pub fn condition<C, F>(should_render: impl Into<ValueCell<bool, T>>, func: F) -> If<T>
-  where
-    C: Component<T> + 'static,
-    F: Fn() -> C + 'static,
-  {
-    Self {
-      should_render: should_render.into(),
-      func: Box::new(move || Box::new(func())),
-      inner: None,
-    }
-  }
+pub trait ComponentContainer<T> {
+  fn for_each(&self, f: impl Fn(&dyn Component<T>));
 }
 
-impl<T> Component<T> for If<T> {
-  fn update(&mut self, model: &T) {
-    if *self.should_render.update(model) {
-      if let Some(inner) = &mut self.inner {
-        inner.update(model);
-      } else {
-        self.inner = Some((self.func)());
-      }
-    } else {
-      self.inner = None;
-    }
-  }
-}
-
-struct ForEach<T> {
-  children: Vec<Box<dyn Component<T>>>,
-  mapper: Box<dyn Fn(&T, usize) -> Box<dyn Component<T>>>,
-}
-
-impl<T> ForEach<T> {
-  pub fn by<C, F>(func: F) -> Self
-  where
-    C: Component<T> + 'static,
-    F: Fn(&T, usize) -> C + 'static,
-  {
-    Self {
-      children: Vec::new(),
-      mapper: Box::new(move |data, index| Box::new(func(data, index))),
-    }
-  }
-}
-
-impl<IT, T> Component<IT> for ForEach<T>
+impl<'a, IT, C, T> Component<IT> for Flex<T, C>
 where
-  IT: Iterator<Item = T>,
+  T: 'static,
+  IT: Iterator<Item = &'a T>,
+  C: ComponentContainer<T>,
 {
-  fn update(&mut self, model: &IT) {
-    todo!()
-  }
+  fn update(&mut self, model: &IT) {}
+}
+
+struct FlexChild<T> {
+  inner: Box<dyn Component<T>>,
 }
