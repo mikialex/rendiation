@@ -1,7 +1,7 @@
-use super::{Component, ValueCell};
+use super::Component;
 
 pub struct If<T, C> {
-  should_render: ValueCell<bool, T>,
+  should_render: Box<dyn Fn(&T) -> bool>,
   func: Box<dyn Fn() -> C>,
   inner: Option<C>,
 }
@@ -10,12 +10,13 @@ impl<T, C> If<T, C>
 where
   C: Component<T>,
 {
-  pub fn condition<F>(should_render: impl Into<ValueCell<bool, T>>, func: F) -> Self
+  pub fn condition<F, SF>(should_render: SF, func: F) -> Self
   where
+    SF: Fn(&T) -> bool + 'static,
     F: Fn() -> C + 'static,
   {
     Self {
-      should_render: should_render.into(),
+      should_render: Box::new(should_render),
       func: Box::new(func),
       inner: None,
     }
@@ -27,7 +28,7 @@ where
   C: Component<T>,
 {
   fn update(&mut self, model: &T) {
-    if *self.should_render.update(model) {
+    if (self.should_render)(model) {
       if let Some(inner) = &mut self.inner {
         inner.update(model);
       } else {

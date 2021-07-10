@@ -52,6 +52,7 @@
         "bytemuck",
         "clippy",
         "colorspace",
+        "combinators",
         "consts",
         "drawables",
         "drawcalls",

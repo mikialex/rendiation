@@ -2,20 +2,26 @@ use std::marker::PhantomData;
 
 mod example;
 
+mod lens;
+pub use lens::*;
+
 mod structure;
 pub use structure::*;
 
+mod layout;
+pub use layout::*;
+
 pub trait Component<T> {
-  fn event(&mut self, state: &mut T, event: &winit::event::Event<()>) {}
+  fn event(&mut self, model: &mut T, event: &winit::event::Event<()>) {}
 
   fn update(&mut self, model: &T) {}
 }
 
-pub enum ValueCell<T, U> {
+pub enum Value<T, U> {
   Static(T),
   Dynamic(DynamicValue<T, U>),
 }
-impl<T, U> ValueCell<T, U> {
+impl<T, U> Value<T, U> {
   pub fn update(&mut self, ctx: &U) -> &T {
     todo!()
   }
@@ -27,17 +33,17 @@ pub struct DynamicValue<T, U> {
 }
 
 pub struct Text<T> {
-  content: ValueCell<String, T>,
+  content: Value<String, T>,
 }
 
-impl<T> Into<ValueCell<String, T>> for &str {
-  fn into(self) -> ValueCell<String, T> {
+impl<T> Into<Value<String, T>> for &str {
+  fn into(self) -> Value<String, T> {
     todo!()
   }
 }
 
 impl<T> Text<T> {
-  pub fn new(content: impl Into<ValueCell<String, T>>) -> Self {
+  pub fn new(content: impl Into<Value<String, T>>) -> Self {
     todo!()
   }
 }
@@ -96,8 +102,6 @@ fn button<T>(label: &str) -> impl Component<T> {
 }
 
 struct Flex<T, C> {
-  // children: For<T, FlexChild<T>>,
-  // children: Vec<FlexChild<T>>,
   inner: C,
   phantom: PhantomData<T>,
 }
