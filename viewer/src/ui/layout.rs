@@ -1,12 +1,13 @@
-use super::Passthrough;
 
-pub trait LayoutAble<T>: Passthrough<T> {
+
+pub trait LayoutAble<T> {
   fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
-    todo!()
+    LayoutSize{
+      width: 0.,
+      height: 0.
+    }
   }
-  fn set_position(&mut self, position: UIPosition) {
-    todo!()
-  }
+  fn set_position(&mut self, position: UIPosition) {}
 }
 
 #[derive(Debug, Clone, Copy)]

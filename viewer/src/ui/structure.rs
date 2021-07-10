@@ -1,4 +1,4 @@
-use super::{Component, Passthrough};
+use super::Component;
 
 pub struct If<T, C> {
   should_render: Box<dyn Fn(&T) -> bool>,
@@ -71,18 +71,18 @@ where
   }
 }
 
-impl<T, C> Passthrough<T> for For<T, C>
-where
-  C: Component<T>,
-{
-  fn visit(&self, mut f: impl FnMut(&dyn Component<T>)) {
-    self.children.iter().for_each(|c| f(c as &dyn Component<T>))
-  }
+// impl<T, C> Passthrough<T> for For<T, C>
+// where
+//   C: Component<T>,
+// {
+//   fn visit(&self, mut f: impl FnMut(&dyn Component<T>)) {
+//     self.children.iter().for_each(|c| f(c as &dyn Component<T>))
+//   }
 
-  fn mutate(&mut self, mut f: impl FnMut(&mut dyn Component<T>)) {
-    self
-      .children
-      .iter_mut()
-      .for_each(|c| f(c as &mut dyn Component<T>))
-  }
-}
+//   fn mutate(&mut self, mut f: impl FnMut(&mut dyn Component<T>)) {
+//     self
+//       .children
+//       .iter_mut()
+//       .for_each(|c| f(c as &mut dyn Component<T>))
+//   }
+// }
