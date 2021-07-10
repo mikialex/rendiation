@@ -1,6 +1,12 @@
-pub trait LayoutAble {
-  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize;
-  fn set_position(&mut self, position: UIPosition);
+use super::Passthrough;
+
+pub trait LayoutAble<T>: Passthrough<T> {
+  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
+    todo!()
+  }
+  fn set_position(&mut self, position: UIPosition) {
+    todo!()
+  }
 }
 
 #[derive(Debug, Clone, Copy)]

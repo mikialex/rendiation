@@ -2,7 +2,6 @@
 #![feature(const_evaluatable_checked)]
 #![feature(const_fn_transmute)]
 #![feature(capture_disjoint_fields)]
-#![feature(generic_associated_types)]
 #![feature(array_methods)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]

@@ -17,10 +17,18 @@ pub use rendering::*;
 mod renderer;
 pub use renderer::*;
 
+mod components;
+pub use components::*;
+
 pub trait Component<T> {
   fn event(&mut self, model: &mut T, event: &winit::event::Event<()>) {}
 
   fn update(&mut self, model: &T) {}
+}
+
+pub trait Passthrough<T> {
+  fn visit(&self, f: impl FnMut(&dyn Component<T>));
+  fn mutate(&mut self, f: impl FnMut(&mut dyn Component<T>));
 }
 
 pub enum Value<T, U> {
@@ -105,26 +113,4 @@ fn button<T>(label: &str) -> impl Component<T> {
   // .border(1)
   //   .on_click(|e|)
   //   .lens()
-}
-
-struct Flex<T, C> {
-  inner: C,
-  phantom: PhantomData<T>,
-}
-
-pub trait ComponentContainer<T> {
-  fn for_each(&self, f: impl Fn(&dyn Component<T>));
-}
-
-impl<'a, IT, C, T> Component<IT> for Flex<T, C>
-where
-  T: 'static,
-  IT: Iterator<Item = &'a T>,
-  C: ComponentContainer<T>,
-{
-  fn update(&mut self, model: &IT) {}
-}
-
-struct FlexChild<T> {
-  inner: Box<dyn Component<T>>,
 }
