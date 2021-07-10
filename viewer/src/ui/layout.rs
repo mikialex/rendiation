@@ -1,42 +1,6 @@
-use super::{Component, ComponentCell};
-
 pub trait LayoutAble {
   fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize;
   fn set_position(&mut self, position: UIPosition);
-}
-
-impl<T, P> LayoutAble for ComponentCell<T, P>
-where
-  T: Component,
-  P: Component,
-{
-  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
-    let children = if self.meta.children.is_empty() {
-      &mut self.meta.out_children
-    } else {
-      &mut self.meta.children
-    };
-    let mut children: Vec<_> = children.iter_mut().map(|c| c.as_layout()).collect();
-
-    let mut ctx = LayoutCtx {
-      parent_constraint: constraint,
-      self_position: self.meta.layout.position,
-      children: children.as_mut(),
-    };
-    let size = self.data.props.layout(&self.data.state, &mut ctx);
-    self.meta.layout.size = size;
-    size
-  }
-
-  fn set_position(&mut self, position: UIPosition) {
-    self.meta.layout.position = position;
-  }
-}
-
-pub struct LayoutCtx<'a> {
-  pub parent_constraint: LayoutConstraint,
-  pub self_position: UIPosition,
-  pub children: &'a mut [&'a mut dyn LayoutAble],
 }
 
 #[derive(Debug, Clone, Copy)]
