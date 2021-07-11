@@ -1,3 +1,7 @@
+use std::marker::PhantomData;
+
+use super::Component;
+
 /// A lens is a datatype that gives access to a part of a larger
 /// data structure.
 ///
@@ -30,4 +34,90 @@ pub trait Lens<T: ?Sized, U: ?Sized> {
   /// cloning the list, giving the closure mutable access to the clone,
   /// then updating the reference after the closure returns.
   fn with_mut<V, F: FnOnce(&mut U) -> V>(&self, data: &mut T, f: F) -> V;
+}
+
+/// Lens accessing a member of some type using accessor functions
+///
+/// See also the `lens` macro.
+///
+/// ```
+/// let lens = druid::lens::Field::new(|x: &Vec<u32>| &x[42], |x| &mut x[42]);
+/// ```
+pub struct Field<Get, GetMut> {
+  get: Get,
+  get_mut: GetMut,
+}
+
+impl<Get, GetMut> Field<Get, GetMut> {
+  /// Construct a lens from a pair of getter functions
+  pub fn new<T: ?Sized, U: ?Sized>(get: Get, get_mut: GetMut) -> Self
+  where
+    Get: Fn(&T) -> &U,
+    GetMut: Fn(&mut T) -> &mut U,
+  {
+    Self { get, get_mut }
+  }
+}
+
+impl<T, U, Get, GetMut> Lens<T, U> for Field<Get, GetMut>
+where
+  T: ?Sized,
+  U: ?Sized,
+  Get: Fn(&T) -> &U,
+  GetMut: Fn(&mut T) -> &mut U,
+{
+  fn with<V, F: FnOnce(&U) -> V>(&self, data: &T, f: F) -> V {
+    f((self.get)(data))
+  }
+
+  fn with_mut<V, F: FnOnce(&mut U) -> V>(&self, data: &mut T, f: F) -> V {
+    f((self.get_mut)(data))
+  }
+}
+
+/// Construct a lens accessing a type's field
+///
+/// This is a convenience macro for constructing `Field` lenses for fields or indexable elements.
+///
+/// ```
+/// struct Foo { x: Bar }
+/// struct Bar { y: [i32; 10] }
+/// let lens = druid::lens!(Foo, x);
+/// let lens = druid::lens!((u32, bool), 1);
+/// let lens = druid::lens!([u8], [4]);
+/// let lens = druid::lens!(Foo, x.y[5]);
+/// ```
+#[macro_export]
+macro_rules! lens {
+    ($ty:ty, [$index:expr]) => {
+        $crate::lens::Field::new::<$ty, _>(move |x| &x[$index], move |x| &mut x[$index])
+    };
+    ($ty:ty, $($field:tt)*) => {
+        $crate::lens::Field::new::<$ty, _>(move |x| &x.$($field)*, move |x| &mut x.$($field)*)
+    };
+}
+
+pub struct LensWrap<T, U, L, W> {
+  inner: W,
+  lens: L,
+  // the 'in' data type of the lens
+  phantom_u: PhantomData<U>,
+  // the 'out' data type of the lens
+  phantom_t: PhantomData<T>,
+}
+
+impl<T, U, L, W> Component<T> for LensWrap<T, U, L, W>
+where
+  L: Lens<T, U>,
+  W: Component<U>,
+{
+  fn event(&mut self, model: &mut T, event: &winit::event::Event<()>) {
+    self
+      .lens
+      .with_mut(model, |model| self.inner.event(model, event))
+  }
+
+  fn update(&mut self, model: &T) {
+    self.lens.with(model, |model| self.inner.update(model))
+  }
 }
