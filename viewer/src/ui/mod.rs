@@ -11,6 +11,9 @@ pub use ability::*;
 mod structure;
 pub use structure::*;
 
+mod events;
+pub use events::*;
+
 mod layout;
 pub use layout::*;
 
@@ -29,47 +32,16 @@ pub trait Component<T> {
   fn update(&mut self, model: &T) {}
 }
 
-// pub trait Passthrough<T> {
-//   fn visit(&self, f: impl FnMut(&dyn Component<T>)) {}
-//   fn mutate(&mut self, f: impl FnMut(&mut dyn Component<T>)) {}
-// }
-
-pub struct ClickArea<T, C> {
-  inner: C,
-  phantom: PhantomData<T>,
-}
-
-impl<T, C: Component<T>> ComponentExt<T> for C {}
-
 trait ComponentExt<T>: Component<T> + Sized {
-  fn sized(self, width: f32, height: f32) -> Container<T, Self> {
-    Container {
-      width,
-      height,
-      inner: self,
-      phantom: PhantomData,
-    }
-  }
-  fn on(self, func: impl Fn(&mut T) + 'static) -> Ability<T, Self, EventHandler<T>> {
-    todo!()
-  }
-}
-
-pub struct Container<T, C> {
-  width: f32,
-  height: f32,
-  inner: C,
-  phantom: PhantomData<T>,
-}
-
-impl<T, C: Component<T>> Component<T> for Container<T, C> {}
-
-struct EventHandler<T> {
-  handler: Box<dyn Fn(&mut T)>,
-}
-
-pub trait Test {}
-
-impl<T, C: Component<T>> ComponentAbility<T, C> for EventHandler<T> {
-  fn event(&mut self, model: &mut T, event: &winit::event::Event<()>, inner: &mut C) {}
+  // fn sized(self, width: f32, height: f32) -> Container<T, Self> {
+  //   Container {
+  //     width,
+  //     height,
+  //     inner: self,
+  //     phantom: PhantomData,
+  //   }
+  // }
+  // fn on(self, func: impl Fn(&mut T) + 'static) -> Ability<T, Self, EventHandler<T>> {
+  //   todo!()
+  // }
 }
