@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::{Component, ComponentAbility, UIPosition};
+use super::{Component, ComponentAbility, Lens, UIPosition};
 use winit::event::*;
 
 struct EventHandler<T> {
@@ -46,6 +46,31 @@ fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
     _ => None,
   })
 }
+
+// struct WithWindowState<'a, 'b, T> {
+//   state: &'a WindowState,
+//   data: &'b T,
+// }
+
+// struct WindowStateProvider {
+//   state: WindowState,
+// }
+
+// impl<'a, 'b, T> Lens<T, WithWindowState<'a, 'b, T>> for WindowStateProvider {
+//   fn with<V, F: FnOnce(&WithWindowState<'a, 'b, T>) -> V>(&self, data: &T, f: F) -> V {
+//     f(&WithWindowState {
+//       state: &self.state,
+//       data,
+//     })
+//   }
+
+//   fn with_mut<V, F: FnOnce(&mut WithWindowState<'a, 'b, T>) -> V>(&self, data: &mut T, f: F) -> V {
+//     f(&mut WithWindowState {
+//       state: &self.state,
+//       data,
+//     })
+//   }
+// }
 
 pub struct WindowState {
   pub size: (f32, f32),

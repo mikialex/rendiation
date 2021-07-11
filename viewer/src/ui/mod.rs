@@ -32,6 +32,13 @@ pub trait Component<T> {
   fn update(&mut self, model: &T) {}
 }
 
+pub trait EventHandler<T, E> {
+  type Event;
+  fn event(&mut self, model: &mut T, event: &E) -> Option<Self::Event> {
+    None
+  }
+}
+
 trait ComponentExt<T>: Component<T> + Sized {
   // fn sized(self, width: f32, height: f32) -> Container<T, Self> {
   //   Container {
