@@ -1,16 +1,15 @@
 use super::*;
 
 struct Todo {
-  items: TodoItems,
+  items: Vec<TodoItems>,
 }
 
 struct TodoItems {
   name: String,
 }
 
-// fn build_todo() -> impl Component<Todo> {
-//   // Flex::<Todo> {
-//   //   children: Vec::new(),
-//   // }
-//   // If::condition(true, |_| Text::new("ddd"))
-// }
+fn build_todo() -> impl Component<Todo> {
+  For::by(|item, _| Text::new("test"))
+    .lens(crate::lens!(Todo, items))
+    .extend(Flex { direction: false })
+}

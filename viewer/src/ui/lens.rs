@@ -90,10 +90,10 @@ where
 #[macro_export]
 macro_rules! lens {
     ($ty:ty, [$index:expr]) => {
-        $crate::lens::Field::new::<$ty, _>(move |x| &x[$index], move |x| &mut x[$index])
+        $crate::Field::new::<$ty, _>(move |x| &x[$index], move |x| &mut x[$index])
     };
     ($ty:ty, $($field:tt)*) => {
-        $crate::lens::Field::new::<$ty, _>(move |x| &x.$($field)*, move |x| &mut x.$($field)*)
+        $crate::Field::new::<$ty, _>(move |x| &x.$($field)*, move |x| &mut x.$($field)*)
     };
 }
 
@@ -119,5 +119,30 @@ where
 
   fn update(&mut self, model: &T) {
     self.lens.with(model, |model| self.inner.update(model))
+  }
+}
+
+impl<T, U, L, W> LensWrap<T, U, L, W> {
+  /// Wrap a widget with a lens.
+  ///
+  /// When the lens has type `Lens<T, U>`, the inner widget has data
+  /// of type `U`, and the wrapped widget has data of type `T`.
+  pub fn new(inner: W, lens: L) -> LensWrap<T, U, L, W> {
+    LensWrap {
+      inner,
+      lens,
+      phantom_u: Default::default(),
+      phantom_t: Default::default(),
+    }
+  }
+
+  /// Get a reference to the lens.
+  pub fn lens(&self) -> &L {
+    &self.lens
+  }
+
+  /// Get a mutable reference to the lens.
+  pub fn lens_mut(&mut self) -> &mut L {
+    &mut self.lens
   }
 }

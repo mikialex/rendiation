@@ -1,31 +1,14 @@
 use std::marker::PhantomData;
 
-use crate::ui::{Component, LayoutAble, LayoutConstraint, LayoutSize, UIPosition};
+use crate::ui::{
+  Component, ComponentAbility, LayoutAble, LayoutConstraint, LayoutSize, UIPosition,
+};
 
-struct Flex<T, C> {
-  inner: C,
-  phantom: PhantomData<T>,
+pub struct Flex {
+  pub direction: bool,
 }
 
-// impl<C, T> Component<Vec<T>> for Flex<T, C>
-// where
-//   C: Passthrough<T>,
-// {
-//   fn update(&mut self, model: &Vec<T>) {}
-// }
-
-// impl<T, C> Passthrough<Vec<T>> for Flex<T, C>
-// where
-//   C: Passthrough<Vec<T>>,
-// {
-//   fn visit(&self, f: impl FnMut(&dyn Component<Vec<T>>)) {
-//     self.inner.visit(f)
-//   }
-
-//   fn mutate(&mut self, f: impl FnMut(&mut dyn Component<Vec<T>>)) {
-//     self.inner.mutate(f)
-//   }
-// }
+impl<T, C: Component<T>> ComponentAbility<T, C> for Flex {}
 
 // impl<T, C> LayoutAble<Vec<T>> for Flex<T, C>
 // where
@@ -40,6 +23,6 @@ struct Flex<T, C> {
 //   }
 // }
 
-struct FlexChild<T> {
+pub struct FlexChild<T> {
   inner: Box<dyn Component<T>>,
 }

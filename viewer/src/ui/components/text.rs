@@ -1,3 +1,5 @@
+use crate::ui::{Component, Value};
+
 pub struct Text<T> {
   content: Value<String, T>,
 }

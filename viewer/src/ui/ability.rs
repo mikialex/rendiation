@@ -2,14 +2,20 @@ use std::marker::PhantomData;
 
 use super::Component;
 
-pub struct Ability<T, C, A>
-where
-  C: Component<T>,
-  A: ComponentAbility<T, C>,
-{
+pub struct Ability<T, C, A> {
   inner: C,
   ability: A,
   phantom: PhantomData<T>,
+}
+
+impl<T, C, A> Ability<T, C, A> {
+  pub fn new(inner: C, ability: A) -> Self {
+    Self {
+      inner,
+      ability,
+      phantom: PhantomData,
+    }
+  }
 }
 
 pub trait ComponentAbility<T, C: Component<T>> {

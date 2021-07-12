@@ -12,7 +12,9 @@ use std::time::{Duration, Instant};
 mod app;
 mod renderer;
 mod scene;
+#[macro_use]
 pub mod ui;
+pub use ui::*;
 
 use app::Application;
 use renderer::Renderer;

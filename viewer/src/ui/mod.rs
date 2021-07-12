@@ -1,5 +1,6 @@
 mod examples;
 
+#[macro_use]
 mod lens;
 pub use lens::*;
 
@@ -24,6 +25,9 @@ pub use renderer::*;
 mod components;
 pub use components::*;
 
+mod util;
+pub use util::*;
+
 pub trait Component<T> {
   fn event(&mut self, model: &mut T, event: &winit::event::Event<()>) {}
 
@@ -38,6 +42,12 @@ pub trait EventHandler<T> {
 }
 
 trait ComponentExt<T>: Component<T> + Sized {
+  fn extend<A: ComponentAbility<T, Self>>(self, ability: A) -> Ability<T, Self, A> {
+    Ability::new(self, ability)
+  }
+  fn lens<S, L: Lens<S, T>>(self, lens: L) -> LensWrap<S, T, L, Self> {
+    LensWrap::new(self, lens)
+  }
   // fn sized(self, width: f32, height: f32) -> Container<T, Self> {
   //   Container {
   //     width,
@@ -50,6 +60,8 @@ trait ComponentExt<T>: Component<T> + Sized {
   //   todo!()
   // }
 }
+
+impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
 
 pub struct UI<T> {
   root: Box<dyn Component<T>>,
