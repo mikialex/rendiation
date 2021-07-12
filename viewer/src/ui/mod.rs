@@ -16,6 +16,9 @@ pub use events::*;
 mod layout;
 pub use layout::*;
 
+mod animation;
+pub use animation::*;
+
 mod rendering;
 pub use rendering::*;
 
@@ -31,15 +34,12 @@ pub use util::*;
 pub trait Component<T> {
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {}
 
-  fn update(&mut self, model: &T) {}
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {}
 }
 
-// pub trait EventHandler<T> {
-//   type Event;
-//   fn event(&mut self, model: &mut T, event: &winit::event::Event<()>) -> Option<Self::Event> {
-//     None
-//   }
-// }
+pub struct UpdateCtx {
+  time_stamp: u64,
+}
 
 trait ComponentExt<T>: Component<T> + Sized {
   fn extend<A: ComponentAbility<T, Self>>(self, ability: A) -> Ability<T, Self, A> {
@@ -54,4 +54,12 @@ impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
 
 pub struct UI<T> {
   root: Box<dyn Component<T>>,
+}
+
+impl<T> UI<T> {
+  pub fn create(root: impl Component<T> + 'static) -> Self {
+    Self {
+      root: Box::new(root),
+    }
+  }
 }

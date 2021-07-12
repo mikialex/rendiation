@@ -1,3 +1,5 @@
+use crate::UpdateCtx;
+
 use super::Component;
 
 pub struct If<T, C> {
@@ -27,10 +29,10 @@ impl<T, C> Component<T> for If<T, C>
 where
   C: Component<T>,
 {
-  fn update(&mut self, model: &T) {
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
     if (self.should_render)(model) {
       if let Some(inner) = &mut self.inner {
-        inner.update(model);
+        inner.update(model, ctx);
       } else {
         self.inner = Some((self.func)());
       }
@@ -65,7 +67,7 @@ where
   T: 'static,
   C: Component<T>,
 {
-  fn update(&mut self, model: &Vec<T>) {
+  fn update(&mut self, model: &Vec<T>, ctx: &mut UpdateCtx) {
     todo!()
   }
 }

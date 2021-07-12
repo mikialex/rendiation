@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::EventCtx;
+use crate::{EventCtx, UpdateCtx};
 
 use super::Component;
 
@@ -119,8 +119,8 @@ where
       .with_mut(model, |model| self.inner.event(model, event))
   }
 
-  fn update(&mut self, model: &T) {
-    self.lens.with(model, |model| self.inner.update(model))
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+    self.lens.with(model, |model| self.inner.update(model, ctx))
   }
 }
 

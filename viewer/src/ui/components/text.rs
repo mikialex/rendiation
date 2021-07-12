@@ -1,4 +1,4 @@
-use crate::ui::{Component, Value};
+use crate::{UpdateCtx, ui::{Component, Value}};
 
 pub struct Text<T> {
   content: Value<String, T>,
@@ -17,7 +17,7 @@ impl<T> Text<T> {
 }
 
 impl<T> Component<T> for Text<T> {
-  fn update(&mut self, model: &T) {
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
     self.content.update(model);
   }
 }

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::EventCtx;
+use crate::{EventCtx, UpdateCtx};
 
 use super::Component;
 
@@ -21,8 +21,8 @@ impl<T, C, A> Ability<T, C, A> {
 }
 
 pub trait ComponentAbility<T, C: Component<T>> {
-  fn update(&mut self, model: &T, inner: &mut C) {
-    inner.update(model);
+  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
+    inner.update(model, ctx);
   }
   fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
     inner.event(model, event);
@@ -34,8 +34,8 @@ where
   C: Component<T>,
   A: ComponentAbility<T, C>,
 {
-  fn update(&mut self, model: &T) {
-    self.ability.update(model, &mut self.inner);
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+    self.ability.update(model, &mut self.inner, ctx);
   }
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {
     self.ability.event(model, event, &mut self.inner);
