@@ -9,7 +9,8 @@ struct TodoItems {
 }
 
 fn build_todo() -> impl Component<Todo> {
-  For::by(|item, _| Text::new("test"))
+  let r = For::by(|item, _| Text::new("test"))
     .lens(crate::lens!(Todo, items))
-    .extend(Flex { direction: false })
+    .extend(Flex { direction: false });
+  r
 }

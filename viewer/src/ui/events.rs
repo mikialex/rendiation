@@ -3,12 +3,21 @@ use std::collections::HashSet;
 use super::{Component, ComponentAbility, Lens, UIPosition};
 use winit::event::*;
 
+pub trait EventAble<T> {
+  fn event(&mut self, model: &mut T, event: &mut EventCtx) {}
+}
+
+pub struct EventCtx<'a> {
+  pub event: &'a winit::event::Event<'a, ()>,
+  pub states: &'a WindowState,
+}
+
 struct EventHandler<T> {
   handler: Box<dyn Fn(&mut T)>,
 }
 
 impl<T, C: Component<T>> ComponentAbility<T, C> for EventHandler<T> {
-  fn event(&mut self, model: &mut T, event: &Event<()>, inner: &mut C) {}
+  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {}
 }
 
 struct ClickHandler<T> {
@@ -24,9 +33,9 @@ impl<T, C> ComponentAbility<T, C> for ClickHandler<T>
 where
   C: Component<T> + HotAreaProvider,
 {
-  fn event(&mut self, model: &mut T, event: &Event<()>, inner: &mut C) {
+  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
     // if is_left_mouse_down(event) && inner.is_point_in(point)
-    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
+    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
       // return true;
     }
     inner.event(model, event);

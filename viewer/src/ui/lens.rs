@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use crate::EventCtx;
+
 use super::Component;
 
 /// A lens is a datatype that gives access to a part of a larger
@@ -111,7 +113,7 @@ where
   L: Lens<T, U>,
   W: Component<U>,
 {
-  fn event(&mut self, model: &mut T, event: &winit::event::Event<()>) {
+  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
     self
       .lens
       .with_mut(model, |model| self.inner.event(model, event))
