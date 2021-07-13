@@ -4,6 +4,7 @@
         "BRDF",
         "BSDF",
         "Bezier",
+        "Bgra",
         "Blinn",
         "Bowtie",
         "Chirality",

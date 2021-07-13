@@ -1,6 +1,10 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 use wgpu::util::DeviceExt;
+use wgpu_glyph::{
+  ab_glyph::{self, FontArc},
+  GlyphBrush, GlyphBrushBuilder,
+};
 
 use crate::{
   renderer::{BindableResource, RenderPassCreator, Renderable, UniformBuffer},
@@ -119,7 +123,10 @@ impl Primitive {
           length: 6,
         })
       }
-      Primitive::Text(_) => todo!(),
+      Primitive::Text(text) => {
+        //
+        todo!()
+      },
     }
   }
 }
@@ -132,6 +139,7 @@ pub struct WebGPUxUIRenderer {
   global_ui_state_gpu: UniformBuffer<UIGlobalParameter>,
   global_uniform_bind_group_layout: wgpu::BindGroupLayout,
   global_bindgroup: wgpu::BindGroup,
+  glyph_brush: GlyphBrush<(), FontArc>,
 }
 
 impl WebGPUxUIRenderer {
@@ -168,6 +176,15 @@ impl WebGPUxUIRenderer {
     let solid_color_pipeline =
       create_solid_pipeline(device, target_format, &global_uniform_bind_group_layout);
 
+    // Prepare glyph_brush
+    let inconsolata = ab_glyph::FontArc::try_from_slice(include_bytes!(
+      "C:/Users/mk/Desktop/Inconsolata-Regular.ttf"
+    ))
+    .unwrap();
+
+    let glyph_brush = GlyphBrushBuilder::using_font(inconsolata)
+      .build(&device, wgpu::TextureFormat::Bgra8UnormSrgb);
+
     Self {
       texture_cache,
       gpu_primitive_cache: Vec::new(),
@@ -176,6 +193,7 @@ impl WebGPUxUIRenderer {
       global_ui_state_gpu,
       global_uniform_bind_group_layout,
       global_bindgroup,
+      glyph_brush,
     }
   }
 
