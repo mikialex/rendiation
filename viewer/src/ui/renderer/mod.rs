@@ -1,10 +1,9 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 use wgpu::util::DeviceExt;
-use wgpu_glyph::{
-  ab_glyph::{self, FontArc},
-  GlyphBrush, GlyphBrushBuilder,
-};
+
+mod text;
+use text::*;
 
 use crate::{
   renderer::{BindableResource, RenderPassCreator, Renderable, UniformBuffer},
