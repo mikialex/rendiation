@@ -53,6 +53,16 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
       }
     })
   }
+
+  fn update(
+    &mut self,
+    renderer: &mut crate::renderer::Renderer,
+    encoder: &mut wgpu::CommandEncoder,
+  ) {
+    self
+      .renderer
+      .update(&self.presentation, &renderer.device, &renderer.queue)
+  }
 }
 
 pub struct GPUxUISolidColorPrimitive {
@@ -169,12 +179,7 @@ impl WebGPUxUIRenderer {
     }
   }
 
-  pub fn update(
-    &mut self,
-    presentation: &UIPresentation,
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-  ) {
+  fn update(&mut self, presentation: &UIPresentation, device: &wgpu::Device, queue: &wgpu::Queue) {
     self.gpu_primitive_cache.clear();
     self
       .gpu_primitive_cache

@@ -52,19 +52,26 @@ trait ComponentExt<T>: Component<T> + Sized {
 
 impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
 
+pub trait UIComponent<T>: Component<T> + Presentable {}
+impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable {}
+
 pub struct UI<T> {
-  root: Box<dyn Component<T>>,
+  root: Box<dyn UIComponent<T>>,
 }
 
 impl<T> UI<T> {
-  pub fn create(root: impl Component<T> + 'static) -> Self {
+  pub fn create(root: impl UIComponent<T> + 'static) -> Self {
     Self {
       root: Box::new(root),
     }
   }
 
   pub fn render(&mut self) -> UIPresentation {
-    todo!()
+    let mut builder = PresentationBuilder {
+      present: UIPresentation::new(),
+    };
+    self.root.render(&mut builder);
+    builder.present
   }
 
   pub fn event(&mut self, event: &winit::event::Event<()>) {

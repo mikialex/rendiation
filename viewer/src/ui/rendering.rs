@@ -1,5 +1,13 @@
 use rendiation_algebra::*;
 
+pub trait Presentable {
+  fn render(&self, builder: &mut PresentationBuilder);
+}
+
+pub struct PresentationBuilder {
+  pub present: UIPresentation,
+}
+
 #[derive(Debug, Clone)]
 pub enum Primitive {
   Quad(Quad),
