@@ -46,7 +46,7 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
     renderer.gpu_primitive_cache.iter().for_each(|p| match p {
       GPUxUIPrimitive::SolidColor(p) => {
         pass.set_pipeline(&renderer.solid_color_pipeline);
-        // pass.set_bind_group(0, &quad.bindgroup, &[])
+        pass.set_bind_group(0, &self.renderer.global_bindgroup, &[]);
         pass.set_index_buffer(p.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         pass.set_vertex_buffer(0, p.vertex_buffer.slice(..));
         pass.draw_indexed(0..p.length, 0, 0..1);
@@ -85,10 +85,10 @@ impl Primitive {
     match self {
       Primitive::Quad(quad) => {
         let mut vertices = Vec::new();
-        vertices.push(vertex((quad.x, quad.y), (0., 0.), (1., 1., 1., 0.)));
-        vertices.push(vertex((quad.x, quad.y + quad.height), (0., 0.), (1., 1., 1., 0.)));
-        vertices.push(vertex((quad.x + quad.width, quad.y), (0., 0.), (1., 1., 1., 0.)));
-        vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (0., 0.), (1., 1., 1., 0.)));
+        vertices.push(vertex((quad.x, quad.y), (0., 0.), (1., 1., 1., 1.)));
+        vertices.push(vertex((quad.x, quad.y + quad.height), (0., 0.), (1., 1., 1., 1.)));
+        vertices.push(vertex((quad.x + quad.width, quad.y), (0., 0.), (1., 1., 1., 1.)));
+        vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (0., 0.), (1., 1., 1., 1.)));
         let mut index = Vec::<u32>::new();
         index.push(0);
         index.push(1);
