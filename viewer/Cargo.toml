@@ -20,4 +20,5 @@ rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
 wgpu = "0.9"
+wgpu_glyph = "0.13.0"
 winit = {version = "0.24.0"}

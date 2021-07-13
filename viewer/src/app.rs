@@ -18,20 +18,13 @@ pub struct Application {
   scene: Scene,
   forward: StandardForward,
   controller: ControllerWinitAdapter<OrbitController>,
-  // ui: UI<ViewerUI>,
+  ui: UI<ViewerUI>,
   ui_renderer: WebGPUxUIRenderer,
 }
 
-// #[derive(PartialEq, Clone, Default)]
+#[derive(PartialEq, Clone, Default)]
 
-// pub struct ViewerUI;
-
-// #[derive(PartialEq, Clone, Default)]
-// pub struct ViewerUIState {}
-
-// impl Component for ViewerUI {
-//   type State = ViewerUIState;
-// }
+pub struct ViewerUI;
 
 impl Application {
   pub fn new(renderer: &mut Renderer, size: (f32, f32)) -> Self {
@@ -104,14 +97,14 @@ impl Application {
     let controller = ControllerWinitAdapter::new(controller);
 
     let forward = StandardForward::new(renderer, size);
-    // let ui = UI::new();
+    let ui = UI::create(Text::new("dd"));
     let ui_renderer = WebGPUxUIRenderer::new(&renderer.device, renderer.get_prefer_target_format());
 
     let mut app = Self {
       scene,
       forward,
       controller,
-      // ui,
+      ui,
       ui_renderer,
     };
     app.resize_view(renderer, size);
@@ -126,14 +119,14 @@ impl Application {
       },
       frame,
     );
-    // let rep = self.ui.render();
-    // renderer.render(
-    //   &mut WebGPUxUIRenderPass {
-    //     renderer: &mut self.ui_renderer,
-    //     presentation: rep,
-    //   },
-    //   &frame.output.view,
-    // )
+    let rep = self.ui.render();
+    renderer.render(
+      &mut WebGPUxUIRenderPass {
+        renderer: &mut self.ui_renderer,
+        presentation: &rep,
+      },
+      &frame.output.view,
+    )
   }
 
   pub fn resize_view(&mut self, renderer: &Renderer, size: (f32, f32)) {
@@ -145,7 +138,7 @@ impl Application {
   }
 
   pub fn event(&mut self, renderer: &mut Renderer, event: &Event<()>) {
-    // self.ui.event(event);
+    self.ui.event(event);
     self.controller.event(event);
 
     if let Event::WindowEvent { event, .. } = event {

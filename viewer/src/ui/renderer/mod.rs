@@ -71,7 +71,7 @@ type UIMesh = IndexedMesh<u32, UIVertex, TriangleList>;
 
 impl Primitive {
   #[rustfmt::skip]
-  pub fn create_gpu(&self, device: wgpu::Device) -> GPUxUIPrimitive {
+  pub fn create_gpu(&self, device: &wgpu::Device) -> GPUxUIPrimitive {
     match self {
       Primitive::Quad(quad) => {
         let mut vertices = Vec::new();
@@ -175,7 +175,10 @@ impl WebGPUxUIRenderer {
     device: &wgpu::Device,
     queue: &wgpu::Queue,
   ) {
-    todo!()
+    self.gpu_primitive_cache.clear();
+    self
+      .gpu_primitive_cache
+      .extend(presentation.primitives.iter().map(|p| p.create_gpu(device)))
   }
 }
 

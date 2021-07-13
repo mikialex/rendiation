@@ -62,4 +62,12 @@ impl<T> UI<T> {
       root: Box::new(root),
     }
   }
+
+  pub fn render(&mut self) -> UIPresentation {
+    todo!()
+  }
+
+  pub fn event(&mut self, event: &winit::event::Event<()>) {
+    //
+  }
 }
