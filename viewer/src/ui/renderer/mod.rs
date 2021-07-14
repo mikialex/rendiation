@@ -3,12 +3,13 @@ use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 use wgpu::util::DeviceExt;
 
 mod text;
-use text::*;
 
 use crate::{
   renderer::{BindableResource, RenderPassCreator, Renderable, UniformBuffer},
   scene::VertexBufferSourceType,
 };
+
+use self::text::TextRenderer;
 
 use super::{Primitive, UIPresentation};
 
@@ -138,7 +139,7 @@ pub struct WebGPUxUIRenderer {
   global_ui_state_gpu: UniformBuffer<UIGlobalParameter>,
   global_uniform_bind_group_layout: wgpu::BindGroupLayout,
   global_bindgroup: wgpu::BindGroup,
-  glyph_brush: GlyphBrush<(), FontArc>,
+  text_renderer: TextRenderer,
 }
 
 impl WebGPUxUIRenderer {
@@ -175,14 +176,11 @@ impl WebGPUxUIRenderer {
     let solid_color_pipeline =
       create_solid_pipeline(device, target_format, &global_uniform_bind_group_layout);
 
-    // Prepare glyph_brush
-    let inconsolata = ab_glyph::FontArc::try_from_slice(include_bytes!(
-      "C:/Users/mk/Desktop/Inconsolata-Regular.ttf"
-    ))
-    .unwrap();
-
-    let glyph_brush = GlyphBrushBuilder::using_font(inconsolata)
-      .build(&device, wgpu::TextureFormat::Bgra8UnormSrgb);
+    let text_renderer = TextRenderer::new(
+      device,
+      wgpu::FilterMode::Linear,
+      wgpu::TextureFormat::Bgra8UnormSrgb,
+    );
 
     Self {
       texture_cache,
@@ -192,7 +190,7 @@ impl WebGPUxUIRenderer {
       global_ui_state_gpu,
       global_uniform_bind_group_layout,
       global_bindgroup,
-      glyph_brush,
+      text_renderer,
     }
   }
 

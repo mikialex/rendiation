@@ -8,7 +8,7 @@ version = "0.1.0"
 arena = {path = "../utils/arena"}
 arena-graph = {path = "../utils/arena-graph"}
 arena-tree = {path = "../utils/arena-tree"}
-bytemuck = "1.4.1"
+bytemuck = {version = "1.4.1", features = ["derive"]}
 env_logger = "0.8.4"
 futures = "0.3.15"
 glyph_brush = "0.7"

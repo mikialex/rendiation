@@ -1,12 +1,19 @@
-use crate::Region;
-use cache::Cache;
-
 use bytemuck::{Pod, Zeroable};
 use core::num::NonZeroU64;
 use glyph_brush::ab_glyph::{point, Rect};
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::mem;
+
+use super::cache::Cache;
+
+/// A region of the screen.
+pub struct Region {
+  pub x: u32,
+  pub y: u32,
+  pub width: u32,
+  pub height: u32,
+}
 
 pub struct Pipeline<Depth> {
   transform: wgpu::Buffer,
@@ -56,48 +63,6 @@ impl Pipeline<()> {
       encoder,
       target,
       None,
-      transform,
-      region,
-    );
-  }
-}
-
-impl Pipeline<wgpu::DepthStencilState> {
-  pub fn new(
-    device: &wgpu::Device,
-    filter_mode: wgpu::FilterMode,
-    render_format: wgpu::TextureFormat,
-    depth_stencil_state: wgpu::DepthStencilState,
-    cache_width: u32,
-    cache_height: u32,
-  ) -> Pipeline<wgpu::DepthStencilState> {
-    build(
-      device,
-      filter_mode,
-      render_format,
-      Some(depth_stencil_state),
-      cache_width,
-      cache_height,
-    )
-  }
-
-  pub fn draw(
-    &mut self,
-    device: &wgpu::Device,
-    staging_belt: &mut wgpu::util::StagingBelt,
-    encoder: &mut wgpu::CommandEncoder,
-    target: &wgpu::TextureView,
-    depth_stencil_attachment: wgpu::RenderPassDepthStencilAttachment,
-    transform: [f32; 16],
-    region: Option<Region>,
-  ) {
-    draw(
-      self,
-      device,
-      staging_belt,
-      encoder,
-      target,
-      Some(depth_stencil_attachment),
       transform,
       region,
     );
