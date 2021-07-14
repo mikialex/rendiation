@@ -1,42 +1,29 @@
-use bytemuck::{Pod, Zeroable};
 use core::num::NonZeroU64;
-use glyph_brush::ab_glyph::{point, Rect};
 use std::borrow::Cow;
-use std::marker::PhantomData;
 use std::mem;
+
+use crate::ui::renderer::text::text_quad_instance::Instance;
 
 use super::cache::Cache;
 
-/// A region of the screen.
-pub struct Region {
-  pub x: u32,
-  pub y: u32,
-  pub width: u32,
-  pub height: u32,
-}
-
-pub struct Pipeline<Depth> {
+pub struct Pipeline {
   transform: wgpu::Buffer,
+  current_transform: [f32; 16],
   sampler: wgpu::Sampler,
   cache: Cache,
   uniform_layout: wgpu::BindGroupLayout,
   uniforms: wgpu::BindGroup,
   raw: wgpu::RenderPipeline,
-  instances: wgpu::Buffer,
-  current_instances: usize,
-  supported_instances: usize,
-  current_transform: [f32; 16],
-  depth: PhantomData<Depth>,
 }
 
-impl Pipeline<()> {
+impl Pipeline {
   pub fn new(
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
     cache_width: u32,
     cache_height: u32,
-  ) -> Pipeline<()> {
+  ) -> Pipeline {
     build(
       device,
       filter_mode,
@@ -47,29 +34,16 @@ impl Pipeline<()> {
     )
   }
 
-  pub fn draw(
-    &mut self,
-    device: &wgpu::Device,
-    staging_belt: &mut wgpu::util::StagingBelt,
-    encoder: &mut wgpu::CommandEncoder,
-    target: &wgpu::TextureView,
-    transform: [f32; 16],
-    region: Option<Region>,
-  ) {
-    draw(
-      self,
-      device,
-      staging_belt,
-      encoder,
-      target,
-      None,
-      transform,
-      region,
-    );
+  pub fn draw(&self, render_pass: &mut wgpu::RenderPass) {
+    render_pass.set_pipeline(&self.raw);
+    render_pass.set_bind_group(0, &self.uniforms, &[]);
+    render_pass.set_vertex_buffer(0, self.instances.slice(..));
+
+    render_pass.draw(0..4, 0..self.current_instances as u32);
   }
 }
 
-impl<Depth> Pipeline<Depth> {
+impl Pipeline {
   pub fn update_cache(
     &mut self,
     device: &wgpu::Device,
@@ -140,14 +114,14 @@ const IDENTITY_MATRIX: [f32; 16] = [
     0.0, 0.0, 0.0, 1.0,
 ];
 
-fn build<D>(
+fn build(
   device: &wgpu::Device,
   filter_mode: wgpu::FilterMode,
   render_format: wgpu::TextureFormat,
   depth_stencil: Option<wgpu::DepthStencilState>,
   cache_width: u32,
   cache_height: u32,
-) -> Pipeline<D> {
+) -> Pipeline {
   use wgpu::util::DeviceExt;
 
   let transform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -278,60 +252,8 @@ fn build<D>(
     uniform_layout,
     uniforms,
     raw,
-    instances,
-    current_instances: 0,
-    supported_instances: Instance::INITIAL_AMOUNT,
     current_transform: [0.0; 16],
-    depth: PhantomData,
   }
-}
-
-fn draw<D>(
-  pipeline: &mut Pipeline<D>,
-  device: &wgpu::Device,
-  staging_belt: &mut wgpu::util::StagingBelt,
-  encoder: &mut wgpu::CommandEncoder,
-  target: &wgpu::TextureView,
-  depth_stencil_attachment: Option<wgpu::RenderPassDepthStencilAttachment>,
-  transform: [f32; 16],
-  region: Option<Region>,
-) {
-  if transform != pipeline.current_transform {
-    let mut transform_view = staging_belt.write_buffer(
-      encoder,
-      &pipeline.transform,
-      0,
-      unsafe { NonZeroU64::new_unchecked(16 * 4) },
-      device,
-    );
-
-    transform_view.copy_from_slice(bytemuck::cast_slice(&transform));
-
-    pipeline.current_transform = transform;
-  }
-
-  let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-    label: Some("wgpu_glyph::pipeline render pass"),
-    color_attachments: &[wgpu::RenderPassColorAttachment {
-      view: target,
-      resolve_target: None,
-      ops: wgpu::Operations {
-        load: wgpu::LoadOp::Load,
-        store: true,
-      },
-    }],
-    depth_stencil_attachment,
-  });
-
-  render_pass.set_pipeline(&pipeline.raw);
-  render_pass.set_bind_group(0, &pipeline.uniforms, &[]);
-  render_pass.set_vertex_buffer(0, pipeline.instances.slice(..));
-
-  if let Some(region) = region {
-    render_pass.set_scissor_rect(region.x, region.y, region.width, region.height);
-  }
-
-  render_pass.draw(0..4, 0..pipeline.current_instances as u32);
 }
 
 fn create_uniforms(
@@ -363,67 +285,4 @@ fn create_uniforms(
       },
     ],
   })
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
-pub struct Instance {
-  left_top: [f32; 3],
-  right_bottom: [f32; 2],
-  tex_left_top: [f32; 2],
-  tex_right_bottom: [f32; 2],
-  color: [f32; 4],
-}
-
-impl Instance {
-  const INITIAL_AMOUNT: usize = 50_000;
-
-  pub fn from_vertex(
-    glyph_brush::GlyphVertex {
-      mut tex_coords,
-      pixel_coords,
-      bounds,
-      extra,
-    }: glyph_brush::GlyphVertex,
-  ) -> Instance {
-    let gl_bounds = bounds;
-
-    let mut gl_rect = Rect {
-      min: point(pixel_coords.min.x as f32, pixel_coords.min.y as f32),
-      max: point(pixel_coords.max.x as f32, pixel_coords.max.y as f32),
-    };
-
-    // handle overlapping bounds, modify uv_rect to preserve texture aspect
-    if gl_rect.max.x > gl_bounds.max.x {
-      let old_width = gl_rect.width();
-      gl_rect.max.x = gl_bounds.max.x;
-      tex_coords.max.x = tex_coords.min.x + tex_coords.width() * gl_rect.width() / old_width;
-    }
-
-    if gl_rect.min.x < gl_bounds.min.x {
-      let old_width = gl_rect.width();
-      gl_rect.min.x = gl_bounds.min.x;
-      tex_coords.min.x = tex_coords.max.x - tex_coords.width() * gl_rect.width() / old_width;
-    }
-
-    if gl_rect.max.y > gl_bounds.max.y {
-      let old_height = gl_rect.height();
-      gl_rect.max.y = gl_bounds.max.y;
-      tex_coords.max.y = tex_coords.min.y + tex_coords.height() * gl_rect.height() / old_height;
-    }
-
-    if gl_rect.min.y < gl_bounds.min.y {
-      let old_height = gl_rect.height();
-      gl_rect.min.y = gl_bounds.min.y;
-      tex_coords.min.y = tex_coords.max.y - tex_coords.height() * gl_rect.height() / old_height;
-    }
-
-    Instance {
-      left_top: [gl_rect.min.x, gl_rect.max.y, extra.z],
-      right_bottom: [gl_rect.max.x, gl_rect.min.y],
-      tex_left_top: [tex_coords.min.x, tex_coords.max.y],
-      tex_right_bottom: [tex_coords.max.x, tex_coords.min.y],
-      color: extra.color,
-    }
-  }
 }

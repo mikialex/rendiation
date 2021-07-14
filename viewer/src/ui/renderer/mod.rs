@@ -1,3 +1,4 @@
+use glyph_brush::{Section, Text};
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 use wgpu::util::DeviceExt;
@@ -9,7 +10,7 @@ use crate::{
   scene::VertexBufferSourceType,
 };
 
-use self::text::TextRenderer;
+use self::text::{GPUxUITextPrimitive, TextRenderer};
 
 use super::{Primitive, UIPresentation};
 
@@ -55,7 +56,10 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
         pass.set_vertex_buffer(0, p.vertex_buffer.slice(..));
         pass.draw_indexed(0..p.length, 0, 0..1);
       }
-    })
+      GPUxUIPrimitive::Text(text) => {
+        self.renderer.text_renderer.draw_gpu_tex(pass, text);
+      }
+    });
   }
 
   fn update(
@@ -63,9 +67,12 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
     renderer: &mut crate::renderer::Renderer,
     encoder: &mut wgpu::CommandEncoder,
   ) {
-    self
-      .renderer
-      .update(&self.presentation, &renderer.device, &renderer.queue)
+    self.renderer.update(
+      &self.presentation,
+      &renderer.device,
+      &renderer.queue,
+      encoder,
+    )
   }
 }
 
@@ -79,14 +86,20 @@ pub struct GPUxUISolidColorPrimitive {
 
 pub enum GPUxUIPrimitive {
   SolidColor(GPUxUISolidColorPrimitive),
+  Text(GPUxUITextPrimitive),
 }
 
 type UIMesh = IndexedMesh<u32, UIVertex, TriangleList>;
 
 impl Primitive {
-  #[rustfmt::skip]
-  pub fn create_gpu(&self, device: &wgpu::Device) -> GPUxUIPrimitive {
+  pub fn create_gpu(
+    &self,
+    device: &wgpu::Device,
+    encoder: &mut wgpu::CommandEncoder,
+    renderer: &mut TextRenderer,
+  ) -> GPUxUIPrimitive {
     match self {
+      #[rustfmt::skip]
       Primitive::Quad(quad) => {
         let mut vertices = Vec::new();
         vertices.push(vertex((quad.x, quad.y), (0., 0.), (1., 1., 1., 1.)));
@@ -124,9 +137,20 @@ impl Primitive {
         })
       }
       Primitive::Text(text) => {
-        //
-        todo!()
-      },
+        let text = renderer.create_gpu_text(
+          device,
+          encoder,
+          Section {
+            screen_position: (30.0, 90.0),
+            bounds: (1000., 1000.),
+            text: vec![Text::new("Hello wgpu_glyph!")
+              .with_color([1.0, 1.0, 1.0, 1.0])
+              .with_scale(40.0)],
+            ..Section::default()
+          },
+        );
+        GPUxUIPrimitive::Text(text)
+      }
     }
   }
 }
@@ -194,11 +218,20 @@ impl WebGPUxUIRenderer {
     }
   }
 
-  fn update(&mut self, presentation: &UIPresentation, device: &wgpu::Device, queue: &wgpu::Queue) {
+  fn update(
+    &mut self,
+    presentation: &UIPresentation,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    encoder: &mut wgpu::CommandEncoder,
+  ) {
     self.gpu_primitive_cache.clear();
-    self
-      .gpu_primitive_cache
-      .extend(presentation.primitives.iter().map(|p| p.create_gpu(device)))
+    self.gpu_primitive_cache.extend(
+      presentation
+        .primitives
+        .iter()
+        .map(|p| p.create_gpu(device, encoder, &mut self.text_renderer)),
+    )
   }
 }
 
