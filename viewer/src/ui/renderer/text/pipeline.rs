@@ -2,9 +2,12 @@ use core::num::NonZeroU64;
 use std::borrow::Cow;
 use std::mem;
 
+use wgpu::util::DeviceExt;
+
 use crate::ui::renderer::text::text_quad_instance::Instance;
 
 use super::cache::Cache;
+use super::GPUxUITextPrimitive;
 
 pub struct Pipeline {
   transform: wgpu::Buffer,
@@ -34,12 +37,12 @@ impl Pipeline {
     )
   }
 
-  pub fn draw(&self, render_pass: &mut wgpu::RenderPass) {
+  pub fn draw<'r>(&'r self, render_pass: &mut wgpu::RenderPass<'r>, text: &'r GPUxUITextPrimitive) {
     render_pass.set_pipeline(&self.raw);
     render_pass.set_bind_group(0, &self.uniforms, &[]);
-    render_pass.set_vertex_buffer(0, self.instances.slice(..));
+    render_pass.set_vertex_buffer(0, text.vertex_buffer.slice(..));
 
-    render_pass.draw(0..4, 0..self.current_instances as u32);
+    render_pass.draw(0..4, 0..text.length);
   }
 }
 
@@ -47,15 +50,12 @@ impl Pipeline {
   pub fn update_cache(
     &mut self,
     device: &wgpu::Device,
-    staging_belt: &mut wgpu::util::StagingBelt,
     encoder: &mut wgpu::CommandEncoder,
     offset: [u16; 2],
     size: [u16; 2],
     data: &[u8],
   ) {
-    self
-      .cache
-      .update(device, staging_belt, encoder, offset, size, data);
+    self.cache.update(device, encoder, offset, size, data);
   }
 
   pub fn increase_cache_size(&mut self, device: &wgpu::Device, width: u32, height: u32) {
@@ -70,38 +70,27 @@ impl Pipeline {
     );
   }
 
-  pub fn upload(
+  pub fn create_gpu_text(
     &mut self,
     device: &wgpu::Device,
-    staging_belt: &mut wgpu::util::StagingBelt,
-    encoder: &mut wgpu::CommandEncoder,
     instances: &[Instance],
-  ) {
+  ) -> Option<GPUxUITextPrimitive> {
     if instances.is_empty() {
-      self.current_instances = 0;
-      return;
+      return None;
     }
-
-    if instances.len() > self.supported_instances {
-      self.instances = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("wgpu_glyph::Pipeline instances"),
-        size: mem::size_of::<Instance>() as u64 * instances.len() as u64,
-        usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-        mapped_at_creation: false,
-      });
-
-      self.supported_instances = instances.len();
-    }
-
     let instances_bytes = bytemuck::cast_slice(instances);
 
-    if let Some(size) = NonZeroU64::new(instances_bytes.len() as u64) {
-      let mut instances_view = staging_belt.write_buffer(encoder, &self.instances, 0, size, device);
+    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+      label: None,
+      contents: instances_bytes,
+      usage: wgpu::BufferUsage::VERTEX,
+    });
 
-      instances_view.copy_from_slice(instances_bytes);
+    GPUxUITextPrimitive {
+      vertex_buffer,
+      length: instances.len() as u32,
     }
-
-    self.current_instances = instances.len();
+    .into()
   }
 }
 
@@ -178,13 +167,6 @@ fn build(
   });
 
   let uniforms = create_uniforms(device, &uniform_layout, &transform, &sampler, &cache.view);
-
-  let instances = device.create_buffer(&wgpu::BufferDescriptor {
-    label: Some("wgpu_glyph::Pipeline instances"),
-    size: mem::size_of::<Instance>() as u64 * Instance::INITIAL_AMOUNT as u64,
-    usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-    mapped_at_creation: false,
-  });
 
   let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: None,

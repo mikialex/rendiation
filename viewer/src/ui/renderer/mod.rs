@@ -97,8 +97,8 @@ impl Primitive {
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     renderer: &mut TextRenderer,
-  ) -> GPUxUIPrimitive {
-    match self {
+  ) -> Option<GPUxUIPrimitive> {
+    let p = match self {
       #[rustfmt::skip]
       Primitive::Quad(quad) => {
         let mut vertices = Vec::new();
@@ -149,9 +149,14 @@ impl Primitive {
             ..Section::default()
           },
         );
-        GPUxUIPrimitive::Text(text)
+        if let Some(text) = text {
+          GPUxUIPrimitive::Text(text)
+        } else {
+          return None;
+        }
       }
-    }
+    };
+    p.into()
   }
 }
 
@@ -230,7 +235,7 @@ impl WebGPUxUIRenderer {
       presentation
         .primitives
         .iter()
-        .map(|p| p.create_gpu(device, encoder, &mut self.text_renderer)),
+        .filter_map(|p| p.create_gpu(device, encoder, &mut self.text_renderer)),
     )
   }
 }

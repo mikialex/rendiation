@@ -11,6 +11,7 @@ use glyph_brush::{
   BrushAction, BrushError, DefaultSectionHasher, Extra, FontId, GlyphBrushBuilder, GlyphCruncher,
   GlyphPositioner, Section, SectionGlyph,
 };
+use std::future::Future;
 
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
@@ -18,7 +19,6 @@ pub struct GPUxUITextPrimitive {
 }
 
 pub struct TextRenderer {
-  staging_belt: wgpu::util::StagingBelt,
   pipeline: Pipeline,
   glyph_brush: glyph_brush::GlyphBrush<Instance, Extra, ab_glyph::FontArc, DefaultSectionHasher>,
 }
@@ -39,8 +39,6 @@ impl TextRenderer {
 
     let glyph_brush = GlyphBrushBuilder::using_font(inconsolata).build();
 
-    let staging_belt = wgpu::util::StagingBelt::new(1024);
-
     let (cache_width, cache_height) = glyph_brush.texture_dimensions();
     Self {
       pipeline: Pipeline::new(
@@ -50,7 +48,6 @@ impl TextRenderer {
         cache_width,
         cache_height,
       ),
-      staging_belt,
       glyph_brush,
     }
   }
@@ -62,7 +59,7 @@ impl TextRenderer {
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     section: Section<'a, Extra>,
-  ) -> GPUxUITextPrimitive {
+  ) -> Option<GPUxUITextPrimitive> {
     self.glyph_brush.queue(section);
     self.process_queued(device, encoder)
   }
@@ -71,9 +68,7 @@ impl TextRenderer {
     &mut self,
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
-  ) -> GPUxUITextPrimitive {
-    let pipeline = &mut self.pipeline;
-
+  ) -> Option<GPUxUITextPrimitive> {
     let mut brush_action;
 
     loop {
@@ -82,14 +77,9 @@ impl TextRenderer {
           let offset = [rect.min[0] as u16, rect.min[1] as u16];
           let size = [rect.width() as u16, rect.height() as u16];
 
-          pipeline.update_cache(
-            device,
-            &mut self.staging_belt,
-            encoder,
-            offset,
-            size,
-            tex_data,
-          );
+          self
+            .pipeline
+            .update_cache(device, encoder, offset, size, tex_data);
         },
         Instance::from_vertex,
       );
@@ -97,9 +87,7 @@ impl TextRenderer {
       match brush_action {
         Ok(brush_action) => match brush_action {
           BrushAction::Draw(verts) => {
-            self
-              .pipeline
-              .upload(device, &mut self.staging_belt, encoder, &verts);
+            self.pipeline.create_gpu_text(device, &verts);
           }
           BrushAction::ReDraw => {}
         },
@@ -126,7 +114,9 @@ impl TextRenderer {
             new = (new_width, new_height),
           );
 
-          pipeline.increase_cache_size(device, new_width, new_height);
+          self
+            .pipeline
+            .increase_cache_size(device, new_width, new_height);
           self.glyph_brush.resize_texture(new_width, new_height);
         }
       }
