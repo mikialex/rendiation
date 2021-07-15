@@ -1,5 +1,4 @@
 mod cache;
-use std::borrow::Cow;
 
 mod pipeline;
 use pipeline::*;
@@ -7,11 +6,9 @@ mod text_quad_instance;
 use text_quad_instance::*;
 
 use glyph_brush::{
-  ab_glyph::{self, Rect},
-  BrushAction, BrushError, DefaultSectionHasher, Extra, FontId, GlyphBrushBuilder, GlyphCruncher,
-  GlyphPositioner, Section, SectionGlyph,
+  ab_glyph::{self},
+  BrushAction, BrushError, DefaultSectionHasher, Extra, GlyphBrushBuilder, Section,
 };
-use std::future::Future;
 
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
@@ -19,7 +16,7 @@ pub struct GPUxUITextPrimitive {
 }
 
 pub struct TextRenderer {
-  pipeline: Pipeline,
+  pipeline: TextRendererPipeline,
   glyph_brush: glyph_brush::GlyphBrush<Instance, Extra, ab_glyph::FontArc, DefaultSectionHasher>,
 }
 
@@ -41,7 +38,7 @@ impl TextRenderer {
 
     let (cache_width, cache_height) = glyph_brush.texture_dimensions();
     Self {
-      pipeline: Pipeline::new(
+      pipeline: TextRendererPipeline::new(
         device,
         filter_mode,
         render_format,
@@ -52,7 +49,9 @@ impl TextRenderer {
     }
   }
 
-  pub fn draw_gpu_tex(&self, pass: &mut wgpu::RenderPass, text: &GPUxUITextPrimitive) {}
+  pub fn draw_gpu_text<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, text: &'a GPUxUITextPrimitive) {
+    self.pipeline.draw(pass, text)
+  }
 
   pub fn create_gpu_text<'a>(
     &mut self,
@@ -69,58 +68,55 @@ impl TextRenderer {
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
   ) -> Option<GPUxUITextPrimitive> {
-    let mut brush_action;
+    let brush_action = self.glyph_brush.process_queued(
+      |rect, tex_data| {
+        let offset = [rect.min[0] as u16, rect.min[1] as u16];
+        let size = [rect.width() as u16, rect.height() as u16];
 
-    loop {
-      brush_action = self.glyph_brush.process_queued(
-        |rect, tex_data| {
-          let offset = [rect.min[0] as u16, rect.min[1] as u16];
-          let size = [rect.width() as u16, rect.height() as u16];
+        self
+          .pipeline
+          .update_cache(device, encoder, offset, size, tex_data);
+      },
+      Instance::from_vertex,
+    );
 
-          self
-            .pipeline
-            .update_cache(device, encoder, offset, size, tex_data);
-        },
-        Instance::from_vertex,
-      );
+    match brush_action {
+      Ok(brush_action) => match brush_action {
+        BrushAction::Draw(verts) => {
+          return self.pipeline.create_gpu_text(device, &verts);
+        }
+        BrushAction::ReDraw => {}
+      },
+      Err(BrushError::TextureTooSmall { suggested }) => {
+        // TODO: Obtain max texture dimensions using `wgpu`
+        // This is currently not possible I think. Ask!
+        let max_image_dimension = 2048;
 
-      match brush_action {
-        Ok(brush_action) => match brush_action {
-          BrushAction::Draw(verts) => {
-            self.pipeline.create_gpu_text(device, &verts);
-          }
-          BrushAction::ReDraw => {}
-        },
-        Err(BrushError::TextureTooSmall { suggested }) => {
-          // TODO: Obtain max texture dimensions using `wgpu`
-          // This is currently not possible I think. Ask!
-          let max_image_dimension = 2048;
+        let (new_width, new_height) = if (suggested.0 > max_image_dimension
+          || suggested.1 > max_image_dimension)
+          && (self.glyph_brush.texture_dimensions().0 < max_image_dimension
+            || self.glyph_brush.texture_dimensions().1 < max_image_dimension)
+        {
+          (max_image_dimension, max_image_dimension)
+        } else {
+          suggested
+        };
 
-          let (new_width, new_height) = if (suggested.0 > max_image_dimension
-            || suggested.1 > max_image_dimension)
-            && (self.glyph_brush.texture_dimensions().0 < max_image_dimension
-              || self.glyph_brush.texture_dimensions().1 < max_image_dimension)
-          {
-            (max_image_dimension, max_image_dimension)
-          } else {
-            suggested
-          };
-
-          log::warn!(
-            "Increasing glyph texture size {old:?} -> {new:?}. \
+        log::warn!(
+          "Increasing glyph texture size {old:?} -> {new:?}. \
                              Consider building with `.initial_cache_size({new:?})` to avoid \
                              resizing",
-            old = self.glyph_brush.texture_dimensions(),
-            new = (new_width, new_height),
-          );
+          old = self.glyph_brush.texture_dimensions(),
+          new = (new_width, new_height),
+        );
 
-          self
-            .pipeline
-            .increase_cache_size(device, new_width, new_height);
-          self.glyph_brush.resize_texture(new_width, new_height);
-        }
+        self
+          .pipeline
+          .increase_cache_size(device, new_width, new_height);
+        self.glyph_brush.resize_texture(new_width, new_height);
       }
     }
+    None
   }
 }
 

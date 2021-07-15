@@ -57,7 +57,7 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
         pass.draw_indexed(0..p.length, 0, 0..1);
       }
       GPUxUIPrimitive::Text(text) => {
-        self.renderer.text_renderer.draw_gpu_tex(pass, text);
+        self.renderer.text_renderer.draw_gpu_text(pass, text);
       }
     });
   }

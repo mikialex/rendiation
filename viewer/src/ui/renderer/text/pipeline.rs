@@ -1,4 +1,3 @@
-use core::num::NonZeroU64;
 use std::borrow::Cow;
 use std::mem;
 
@@ -9,24 +8,24 @@ use crate::ui::renderer::text::text_quad_instance::Instance;
 use super::cache::Cache;
 use super::GPUxUITextPrimitive;
 
-pub struct Pipeline {
+pub struct TextRendererPipeline {
   transform: wgpu::Buffer,
   current_transform: [f32; 16],
   sampler: wgpu::Sampler,
   cache: Cache,
-  uniform_layout: wgpu::BindGroupLayout,
-  uniforms: wgpu::BindGroup,
+  bindgroup_layout: wgpu::BindGroupLayout,
+  bindgroup: wgpu::BindGroup,
   raw: wgpu::RenderPipeline,
 }
 
-impl Pipeline {
+impl TextRendererPipeline {
   pub fn new(
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
     cache_width: u32,
     cache_height: u32,
-  ) -> Pipeline {
+  ) -> Self {
     build(
       device,
       filter_mode,
@@ -39,14 +38,14 @@ impl Pipeline {
 
   pub fn draw<'r>(&'r self, render_pass: &mut wgpu::RenderPass<'r>, text: &'r GPUxUITextPrimitive) {
     render_pass.set_pipeline(&self.raw);
-    render_pass.set_bind_group(0, &self.uniforms, &[]);
+    render_pass.set_bind_group(0, &self.bindgroup, &[]);
     render_pass.set_vertex_buffer(0, text.vertex_buffer.slice(..));
 
     render_pass.draw(0..4, 0..text.length);
   }
 }
 
-impl Pipeline {
+impl TextRendererPipeline {
   pub fn update_cache(
     &mut self,
     device: &wgpu::Device,
@@ -61,9 +60,9 @@ impl Pipeline {
   pub fn increase_cache_size(&mut self, device: &wgpu::Device, width: u32, height: u32) {
     self.cache = Cache::new(device, width, height);
 
-    self.uniforms = create_uniforms(
+    self.bindgroup = create_uniforms(
       device,
-      &self.uniform_layout,
+      &self.bindgroup_layout,
       &self.transform,
       &self.sampler,
       &self.cache.view,
@@ -110,9 +109,7 @@ fn build(
   depth_stencil: Option<wgpu::DepthStencilState>,
   cache_width: u32,
   cache_height: u32,
-) -> Pipeline {
-  use wgpu::util::DeviceExt;
-
+) -> TextRendererPipeline {
   let transform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: None,
     contents: bytemuck::cast_slice(&IDENTITY_MATRIX),
@@ -132,7 +129,7 @@ fn build(
   let cache = Cache::new(device, cache_width, cache_height);
 
   let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-    label: Some("wgpu_glyph::Pipeline uniforms"),
+    label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
     entries: &[
       wgpu::BindGroupLayoutEntry {
         binding: 0,
@@ -227,12 +224,12 @@ fn build(
     }),
   });
 
-  Pipeline {
+  TextRendererPipeline {
     transform,
     sampler,
     cache,
-    uniform_layout,
-    uniforms,
+    bindgroup_layout: uniform_layout,
+    bindgroup: uniforms,
     raw,
     current_transform: [0.0; 16],
   }
@@ -246,7 +243,7 @@ fn create_uniforms(
   cache: &wgpu::TextureView,
 ) -> wgpu::BindGroup {
   device.create_bind_group(&wgpu::BindGroupDescriptor {
-    label: Some("wgpu_glyph::Pipeline uniforms"),
+    label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
     layout: layout,
     entries: &[
       wgpu::BindGroupEntry {

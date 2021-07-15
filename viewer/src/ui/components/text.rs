@@ -1,6 +1,6 @@
 use crate::{
   ui::{Component, Value},
-  Presentable, PresentationBuilder, Primitive, Quad, UpdateCtx,
+  Presentable, PresentationBuilder, Primitive, Quad, TextInfo, UpdateCtx,
 };
 
 pub struct Text<T> {
@@ -34,6 +34,12 @@ impl<T> Presentable for Text<T> {
       y: 0.,
       width: 10.,
       height: 10.,
+    }));
+    builder.present.primitives.push(Primitive::Text(TextInfo {
+      content: "test".to_owned(),
+      max_width: Some(100.),
+      x: 100.,
+      y: 100.,
     }));
   }
 }
