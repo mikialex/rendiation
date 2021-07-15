@@ -34,7 +34,9 @@ impl TextRenderer {
     ))
     .unwrap();
 
-    let glyph_brush = GlyphBrushBuilder::using_font(inconsolata).build();
+    let glyph_brush = GlyphBrushBuilder::using_font(inconsolata)
+      .cache_redraws(false)
+      .build();
 
     let (cache_width, cache_height) = glyph_brush.texture_dimensions();
     Self {
@@ -49,7 +51,11 @@ impl TextRenderer {
     }
   }
 
-  pub fn draw_gpu_text<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, text: &'a GPUxUITextPrimitive) {
+  pub fn draw_gpu_text<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    text: &'a GPUxUITextPrimitive,
+  ) {
     self.pipeline.draw(pass, text)
   }
 
