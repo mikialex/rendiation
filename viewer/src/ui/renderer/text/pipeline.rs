@@ -60,7 +60,7 @@ impl TextRendererPipeline {
   pub fn increase_cache_size(&mut self, device: &wgpu::Device, width: u32, height: u32) {
     self.cache = Cache::new(device, width, height);
 
-    self.bindgroup = create_uniforms(
+    self.bindgroup = create_bindgroup(
       device,
       &self.bindgroup_layout,
       &self.transform,
@@ -102,6 +102,17 @@ const IDENTITY_MATRIX: [f32; 16] = [
     0.0, 0.0, 0.0, 1.0,
 ];
 
+/// Helper function to generate a generate a transform matrix.
+pub fn orthographic_projection(width: u32, height: u32) -> [f32; 16] {
+  #[cfg_attr(rustfmt, rustfmt_skip)]
+    [
+        2.0 / width as f32, 0.0, 0.0, 0.0,
+        0.0, -2.0 / height as f32, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        -1.0, 1.0, 0.0, 1.0,
+    ]
+}
+
 fn build(
   device: &wgpu::Device,
   filter_mode: wgpu::FilterMode,
@@ -110,9 +121,10 @@ fn build(
   cache_width: u32,
   cache_height: u32,
 ) -> TextRendererPipeline {
+  let buffer = orthographic_projection(1000, 1000);
   let transform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: None,
-    contents: bytemuck::cast_slice(&IDENTITY_MATRIX),
+    contents: bytemuck::cast_slice(&buffer),
     usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
   });
 
@@ -163,7 +175,7 @@ fn build(
     ],
   });
 
-  let uniforms = create_uniforms(device, &uniform_layout, &transform, &sampler, &cache.view);
+  let bindgroup = create_bindgroup(device, &uniform_layout, &transform, &sampler, &cache.view);
 
   let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: None,
@@ -229,13 +241,13 @@ fn build(
     sampler,
     cache,
     bindgroup_layout: uniform_layout,
-    bindgroup: uniforms,
+    bindgroup,
     raw,
     current_transform: [0.0; 16],
   }
 }
 
-fn create_uniforms(
+fn create_bindgroup(
   device: &wgpu::Device,
   layout: &wgpu::BindGroupLayout,
   transform: &wgpu::Buffer,
