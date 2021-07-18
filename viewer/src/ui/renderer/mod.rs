@@ -231,6 +231,11 @@ impl WebGPUxUIRenderer {
     encoder: &mut wgpu::CommandEncoder,
   ) {
     self.gpu_primitive_cache.clear();
+
+    self.global_ui_state.screen_size =
+      Vec2::new(presentation.view_size.x, presentation.view_size.y);
+    self.global_ui_state_gpu.update(queue, self.global_ui_state);
+
     self.gpu_primitive_cache.extend(
       presentation
         .primitives

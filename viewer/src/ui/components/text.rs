@@ -34,8 +34,8 @@ impl<T> Presentable for Text<T> {
     builder.present.primitives.push(Primitive::Quad(Quad {
       x: 0.,
       y: 0.,
-      width: 10.,
-      height: 10.,
+      width: 100.,
+      height: 100.,
     }));
     builder.present.primitives.push(Primitive::Text(TextInfo {
       content: "test".to_owned(),

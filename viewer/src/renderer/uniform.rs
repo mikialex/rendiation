@@ -22,6 +22,10 @@ impl<T: Pod> UniformBuffer<T> {
     }
   }
 
+  pub fn update(&self, queue: &wgpu::Queue, data: T) {
+    queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[data]))
+  }
+
   pub fn gpu(&self) -> &wgpu::Buffer {
     &self.gpu
   }
