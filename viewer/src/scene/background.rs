@@ -12,12 +12,7 @@ pub struct SolidBackground {
 }
 
 impl Renderable for SolidBackground {
-  fn update(
-    &mut self,
-    renderer: &mut crate::renderer::Renderer,
-    encoder: &mut wgpu::CommandEncoder,
-  ) {
-  }
+  fn update(&mut self, renderer: &mut crate::renderer::GPU, encoder: &mut wgpu::CommandEncoder) {}
 
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {}
 }

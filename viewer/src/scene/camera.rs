@@ -2,7 +2,7 @@ use arena_tree::ArenaTree;
 use rendiation_algebra::*;
 
 use super::{SceneNode, SceneNodeHandle};
-use crate::renderer::Renderer;
+use crate::renderer::GPU;
 
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
@@ -66,26 +66,21 @@ impl CameraBindgroup {
       var camera: CameraTransform;
     "#
   }
-  pub fn update(
-    &mut self,
-    renderer: &Renderer,
-    camera: &Camera,
-    nodes: &ArenaTree<SceneNode>,
-  ) -> &mut Self {
-    renderer.queue.write_buffer(
+  pub fn update(&mut self, gpu: &GPU, camera: &Camera, nodes: &ArenaTree<SceneNode>) -> &mut Self {
+    gpu.queue.write_buffer(
       &self.ubo,
       0,
       bytemuck::cast_slice(camera.projection_matrix.as_ref()),
     );
-    renderer.queue.write_buffer(
+    gpu.queue.write_buffer(
       &self.ubo,
       64,
       bytemuck::cast_slice(camera.get_view_matrix(nodes).as_ref()),
     );
     self
   }
-  pub fn new(renderer: &Renderer, camera: &Camera) -> Self {
-    let device = &renderer.device;
+  pub fn new(gpu: &GPU, camera: &Camera) -> Self {
+    let device = &gpu.device;
     use wgpu::util::DeviceExt;
 
     let mat = [0_u8; 128];

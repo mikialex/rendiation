@@ -17,7 +17,7 @@ pub mod ui;
 pub use ui::*;
 
 use app::Application;
-use renderer::Renderer;
+use renderer::GPU;
 use winit::{
   event::{self, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
@@ -37,7 +37,7 @@ fn main() {
 pub struct Viewer {
   window: winit::window::Window,
   last_update_inst: Instant,
-  renderer: Renderer,
+  renderer: GPU,
   app: Application,
 }
 
@@ -46,7 +46,7 @@ impl Viewer {
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
 
-    let mut renderer = Renderer::new(&window).await;
+    let mut renderer = GPU::new(&window).await;
     let app = Application::new(&mut renderer, initial_size);
 
     Self {

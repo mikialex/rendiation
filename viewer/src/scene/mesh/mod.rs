@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use bytemuck::Pod;
 use rendiation_renderable_mesh::{group::MeshGroup, vertex::Vertex};
 
-use crate::Renderer;
+use crate::GPU;
 
 use super::{MeshDrawGroup, Scene, TypedMeshHandle};
 
@@ -12,7 +12,7 @@ pub use impls::*;
 
 pub trait Mesh {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
-  fn update(&mut self, renderer: &mut Renderer);
+  fn update(&mut self, gpu: &mut GPU);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
@@ -38,8 +38,8 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
       .setup_pass(pass, self.data.get_group(group))
   }
 
-  fn update(&mut self, renderer: &mut Renderer) {
-    self.data.update(&mut self.gpu, &renderer.device);
+  fn update(&mut self, gpu: &mut GPU) {
+    self.data.update(&mut self.gpu, &gpu.device);
   }
 
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {

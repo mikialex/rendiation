@@ -4,7 +4,7 @@ use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 
 use crate::{
-  renderer::{BindableResource, Renderer, UniformBuffer},
+  renderer::{BindableResource, UniformBuffer, GPU},
   scene::{
     BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, Texture2DHandle,
     TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
@@ -90,12 +90,8 @@ impl BasicMaterial {
     })
   }
 
-  pub fn create_pipeline(
-    &self,
-    renderer: &Renderer,
-    ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
-    let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
+  pub fn create_pipeline(&self, gpu: &GPU, ctx: &PipelineCreateCtx) -> wgpu::RenderPipeline {
+    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
 
     let shader_source = format!(
       "
@@ -130,15 +126,15 @@ impl BasicMaterial {
       object_header = TransformGPU::get_shader_header(),
     );
 
-    let shader = renderer
+    let shader = gpu
       .device
       .create_shader_module(&wgpu::ShaderModuleDescriptor {
         label: None,
         source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-        flags: renderer.create_shader_flags(),
+        flags: gpu.create_shader_flags(),
       });
 
-    let pipeline_layout = renderer
+    let pipeline_layout = gpu
       .device
       .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
@@ -159,7 +155,7 @@ impl BasicMaterial {
       .map(|&f| self.states.map_color_states(f))
       .collect();
 
-    renderer
+    gpu
       .device
       .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
@@ -196,12 +192,7 @@ pub struct BasicMaterialGPU {
 
 impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
-  fn update(
-    &mut self,
-    source: &Self::Source,
-    renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) {
+  fn update(&mut self, source: &Self::Source, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) {
     self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
 
     let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
@@ -215,7 +206,7 @@ impl MaterialGPUResource for BasicMaterialGPU {
     let pipelines = &mut ctx.pipelines;
     pipelines
       .basic
-      .request(&key, || source.create_pipeline(renderer, &pipeline_ctx));
+      .request(&key, || source.create_pipeline(gpu, &pipeline_ctx));
   }
 
   fn setup_pass<'a>(
@@ -238,17 +229,17 @@ impl MaterialCPUResource for BasicMaterial {
   fn create(
     &mut self,
     handle: MaterialHandle,
-    renderer: &mut Renderer,
+    gpu: &mut GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
-    let uniform = UniformBuffer::create(&renderer.device, self.color);
+    let uniform = UniformBuffer::create(&gpu.device, self.color);
 
-    let bindgroup_layout = Self::create_bindgroup_layout(&renderer.device);
+    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
     let bindgroup = self.create_bindgroup(
       handle,
       uniform.gpu(),
-      &renderer.device,
-      &renderer.queue,
+      &gpu.device,
+      &gpu.queue,
       &bindgroup_layout,
       ctx,
     );

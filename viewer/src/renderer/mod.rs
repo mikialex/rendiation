@@ -25,7 +25,7 @@ pub trait BindableResource {
 }
 
 pub trait Renderable {
-  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, gpu: &mut GPU, encoder: &mut wgpu::CommandEncoder) {
     // assume all gpu stuff prepared, and do nothing
   }
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
@@ -42,7 +42,7 @@ pub trait RenderPassCreator<T> {
   // fn get_depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
 }
 
-pub struct Renderer {
+pub struct GPU {
   instance: wgpu::Instance,
   adaptor: wgpu::Adapter,
   pub device: wgpu::Device,
@@ -50,7 +50,7 @@ pub struct Renderer {
   swap_chain: SwapChain,
 }
 
-impl Renderer {
+impl GPU {
   pub async fn new(window: &winit::window::Window) -> Self {
     let backend = wgpu::BackendBit::PRIMARY;
     let instance = wgpu::Instance::new(backend);
