@@ -141,11 +141,11 @@ impl Primitive {
           device,
           encoder,
           Section {
-            screen_position: (30.0, 90.0),
-            bounds: (1000., 1000.),
-            text: vec![Text::new("Hello wgpu_glyph!")
-              .with_color([1.0, 1.0, 1.0, 1.0])
-              .with_scale(40.0)],
+            screen_position: (text.x, text.y),
+            bounds: (text.max_width.unwrap_or(10000.), 10000.),
+            text: vec![Text::new(text.content.as_str())
+              .with_color([text.color.x, text.color.y, text.color.z, text.color.w])
+              .with_scale(text.font_size)],
             ..Section::default()
           },
         );

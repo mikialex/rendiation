@@ -26,6 +26,8 @@ pub struct Quad {
 pub struct TextInfo {
   pub content: String,
   pub max_width: Option<f32>,
+  pub color: Vec4<f32>,
+  pub font_size: f32,
   pub x: f32,
   pub y: f32,
 }
