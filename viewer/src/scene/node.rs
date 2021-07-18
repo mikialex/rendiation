@@ -1,7 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
-
-use crate::renderer::GPU;
+use rendiation_webgpu::*;
 
 use super::{Scene, SceneNodeHandle};
 

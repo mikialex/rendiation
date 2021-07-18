@@ -4,10 +4,10 @@ use rendiation_renderable_mesh::tessellation::{
   CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
 };
 use rendiation_texture::TextureSampler;
+use rendiation_webgpu::*;
 use winit::event::*;
 
 use crate::{
-  renderer::GPU,
   scene::{
     BasicMaterial, Camera, MeshDrawGroup, MeshModel, RenderPassDispatcher, Scene, StandardForward,
   },

@@ -1,9 +1,8 @@
 use std::cell::RefCell;
 
-use crate::{
-  renderer::BindableResource,
-  scene::{MaterialHandle, ResourcePair},
-};
+use rendiation_webgpu::*;
+
+use crate::scene::{MaterialHandle, ResourcePair};
 
 pub struct MaterialBindableResource<T> {
   gpu: Option<T>,

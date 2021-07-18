@@ -1,3 +1,11 @@
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
+#![feature(const_fn_transmute)]
+#![allow(incomplete_features)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unreachable_code)]
+
 use self::swap_chain::SwapChain;
 mod buffer;
 mod encoder;
@@ -13,6 +21,8 @@ pub use sampler::*;
 pub use texture::*;
 pub use uniform::*;
 
+pub use wgpu::*;
+
 pub struct If<const B: bool>;
 pub trait True {}
 impl True for If<true> {}
@@ -22,6 +32,18 @@ impl True2 for If<true> {}
 pub trait BindableResource {
   fn as_bindable(&self) -> wgpu::BindingResource;
   fn bind_layout() -> wgpu::BindingType;
+}
+
+impl BindableResource for wgpu::Sampler {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::Sampler(self)
+  }
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Sampler {
+      comparison: false,
+      filtering: true,
+    }
+  }
 }
 
 pub trait Renderable {
@@ -109,7 +131,7 @@ impl GPU {
     self.swap_chain.resize(size, &self.device);
   }
 
-  pub(crate) fn create_shader_flags(&self) -> wgpu::ShaderFlags {
+  pub fn create_shader_flags(&self) -> wgpu::ShaderFlags {
     let mut flags = wgpu::ShaderFlags::VALIDATION;
     match self.adaptor.get_info().backend {
       wgpu::Backend::Metal | wgpu::Backend::Vulkan => {
@@ -119,7 +141,7 @@ impl GPU {
     }
     flags
   }
-  pub(crate) fn get_prefer_target_format(&self) -> wgpu::TextureFormat {
+  pub fn get_prefer_target_format(&self) -> wgpu::TextureFormat {
     self.swap_chain.swap_chain_descriptor.format
   }
 

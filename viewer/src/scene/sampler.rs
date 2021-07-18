@@ -1,6 +1,5 @@
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
-
-use crate::renderer::BindableResource;
+use rendiation_webgpu::*;
 
 use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, SamplerHandle, Scene};
 
@@ -8,18 +7,6 @@ impl MaterialBindableResourceUpdate for TextureSampler {
   type GPU = wgpu::Sampler;
   fn update(&self, gpu: &mut Option<Self::GPU>, device: &wgpu::Device, queue: &wgpu::Queue) {
     gpu.get_or_insert_with(|| device.create_sampler(&convert(*self)));
-  }
-}
-
-impl BindableResource for wgpu::Sampler {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::Sampler(self)
-  }
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Sampler {
-      comparison: false,
-      filtering: true,
-    }
   }
 }
 

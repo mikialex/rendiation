@@ -58,6 +58,7 @@
         "drawables",
         "drawcalls",
         "eval",
+        "evaluatable",
         "frametime",
         "glsl",
         "glutin",

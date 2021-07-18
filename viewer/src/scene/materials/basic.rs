@@ -2,13 +2,11 @@ use std::borrow::Cow;
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
+use rendiation_webgpu::*;
 
-use crate::{
-  renderer::{BindableResource, UniformBuffer, GPU},
-  scene::{
-    BindGroup, CameraBindgroup, MaterialHandle, SamplerHandle, SceneTexture2dGpu, Texture2DHandle,
-    TransformGPU, ValueID, VertexBufferSourceType, ViewerDeviceExt,
-  },
+use crate::scene::{
+  CameraBindgroup, MaterialBindGroup, MaterialHandle, SamplerHandle, Texture2DHandle, TransformGPU,
+  ValueID, VertexBufferSourceType, ViewerDeviceExt,
 };
 
 use super::{
@@ -37,7 +35,7 @@ impl BasicMaterial {
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) -> BindGroup {
+  ) -> MaterialBindGroup {
     device
       .material_bindgroup_builder(handle)
       .push(ubo.as_entire_binding())
@@ -187,7 +185,7 @@ pub struct BasicMaterialGPU {
   state_id: ValueID<PreferredMaterialStates>,
   uniform: UniformBuffer<Vec3<f32>>,
   bindgroup_layout: wgpu::BindGroupLayout,
-  bindgroup: BindGroup,
+  bindgroup: MaterialBindGroup,
 }
 
 impl MaterialGPUResource for BasicMaterialGPU {

@@ -1,6 +1,4 @@
-use crate::renderer::SceneTextureCubeGPU;
-
-use super::SceneTexture2dSource;
+use rendiation_webgpu::*;
 
 pub struct SceneTextureCube {
   data: [Box<dyn SceneTexture2dSource>; 6],

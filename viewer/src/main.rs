@@ -1,6 +1,3 @@
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
-#![feature(const_fn_transmute)]
 #![feature(capture_disjoint_fields)]
 #![feature(array_methods)]
 #![allow(incomplete_features)]
@@ -10,14 +7,13 @@
 
 use std::time::{Duration, Instant};
 mod app;
-mod renderer;
 mod scene;
 #[macro_use]
 pub mod ui;
+use rendiation_webgpu::*;
 pub use ui::*;
 
 use app::Application;
-use renderer::GPU;
 use winit::{
   event::{self, WindowEvent},
   event_loop::{ControlFlow, EventLoop},

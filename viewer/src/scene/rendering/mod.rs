@@ -1,4 +1,4 @@
-use crate::renderer::RenderPassCreator;
+use rendiation_webgpu::*;
 
 use super::*;
 pub mod forward;

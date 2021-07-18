@@ -1,14 +1,12 @@
 use glyph_brush::{Section, Text};
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
+use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
 mod text;
 
-use crate::{
-  renderer::{BindableResource, RenderPassCreator, Renderable, UniformBuffer},
-  scene::VertexBufferSourceType,
-};
+use crate::scene::VertexBufferSourceType;
 
 use self::text::{GPUxUITextPrimitive, TextRenderer};
 
@@ -62,7 +60,7 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
     });
   }
 
-  fn update(&mut self, renderer: &mut crate::renderer::GPU, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, renderer: &mut GPU, encoder: &mut wgpu::CommandEncoder) {
     self.renderer.update(
       &self.presentation,
       &renderer.device,

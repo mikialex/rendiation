@@ -1,4 +1,4 @@
-use crate::renderer::{SceneTexture2dGpu, SceneTexture2dSource};
+use rendiation_webgpu::*;
 
 use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, Scene, Texture2DHandle};
 

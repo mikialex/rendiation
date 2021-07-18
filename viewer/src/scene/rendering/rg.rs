@@ -1,4 +1,4 @@
-use crate::renderer::GPU;
+use rendiation_webgpu::*;
 
 pub trait RenderGraphPass {
   type Resource;
