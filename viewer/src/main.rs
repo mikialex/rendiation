@@ -10,6 +10,7 @@ mod app;
 mod scene;
 #[macro_use]
 pub mod ui;
+use rendiation_texture::Size;
 use rendiation_webgpu::*;
 pub use ui::*;
 
@@ -79,7 +80,7 @@ impl Viewer {
           ..
         } => self
           .renderer
-          .resize((size.width as usize, size.height as usize)),
+          .resize(Size::from_u32_pair_min_one((size.width, size.height))),
         event::Event::WindowEvent { event, .. } => match event {
           WindowEvent::CloseRequested => {
             *control_flow = ControlFlow::Exit;

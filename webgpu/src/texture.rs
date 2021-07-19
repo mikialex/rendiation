@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use rendiation_texture::Size;
 
 use super::BindableResource;
@@ -8,21 +10,24 @@ pub trait SceneTexture2dSource: 'static {
   fn size(&self) -> Size;
   fn byte_per_pixel(&self) -> usize;
   fn bytes_per_row(&self) -> std::num::NonZeroU32 {
-    std::num::NonZeroU32::new(self.size().width as u32 * self.byte_per_pixel() as u32).unwrap()
+    std::num::NonZeroU32::new(
+      Into::<usize>::into(self.size().width) as u32 * self.byte_per_pixel() as u32,
+    )
+    .unwrap()
   }
   fn gpu_size(&self) -> wgpu::Extent3d {
     let size = self.size();
     wgpu::Extent3d {
-      width: size.width as u32,
-      height: size.height as u32,
+      width: Into::<usize>::into(size.width) as u32,
+      height: Into::<usize>::into(size.height) as u32,
       depth_or_array_layers: 1,
     }
   }
   fn gpu_cube_size(&self) -> wgpu::Extent3d {
     let size = self.size();
     wgpu::Extent3d {
-      width: size.width as u32,
-      height: size.height as u32,
+      width: Into::<usize>::into(size.width) as u32,
+      height: Into::<usize>::into(size.height) as u32,
       depth_or_array_layers: 6,
     }
   }
@@ -43,8 +48,8 @@ impl SceneTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
 
   fn size(&self) -> Size {
     Size {
-      width: self.width() as usize,
-      height: self.height() as usize,
+      width: NonZeroUsize::new(self.width() as usize).unwrap(),
+      height: NonZeroUsize::new(self.height() as usize).unwrap(),
     }
   }
 }

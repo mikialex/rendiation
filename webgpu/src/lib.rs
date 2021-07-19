@@ -6,6 +6,8 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 
+use std::num::NonZeroUsize;
+
 use self::swap_chain::SwapChain;
 mod buffer;
 mod encoder;
@@ -17,6 +19,7 @@ mod uniform;
 
 pub use encoder::*;
 pub use queue::*;
+use rendiation_texture::Size;
 pub use sampler::*;
 pub use texture::*;
 pub use uniform::*;
@@ -100,7 +103,7 @@ impl GPU {
       &adaptor,
       &device,
       surface,
-      (size.width as usize, size.height as usize),
+      Size::from_u32_pair_min_one((size.width, size.height)),
     );
 
     Self {
@@ -127,7 +130,7 @@ impl GPU {
 
     self.queue.submit(Some(encoder.finish()));
   }
-  pub fn resize(&mut self, size: (usize, usize)) {
+  pub fn resize(&mut self, size: Size) {
     self.swap_chain.resize(size, &self.device);
   }
 

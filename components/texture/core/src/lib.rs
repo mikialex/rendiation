@@ -1,7 +1,11 @@
 #![allow(clippy::float_cmp)]
+#![feature(nonzero_is_power_of_two)]
 
 pub mod address;
-use std::ops::{Deref, DerefMut};
+use std::{
+  num::NonZeroUsize,
+  ops::{Deref, DerefMut},
+};
 
 pub use address::*;
 pub mod filter;
@@ -24,13 +28,19 @@ pub use image::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Size {
-  pub width: usize,
-  pub height: usize,
+  pub width: NonZeroUsize,
+  pub height: NonZeroUsize,
 }
 
 impl Size {
   pub fn is_pot(&self) -> bool {
     self.width.is_power_of_two() && self.height.is_power_of_two()
+  }
+
+  pub fn from_u32_pair_min_one(size: (u32, u32)) -> Self {
+    let width = NonZeroUsize::new(size.0 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
+    let height = NonZeroUsize::new(size.1 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
+    Size { width, height }
   }
 }
 
@@ -49,15 +59,14 @@ pub trait Texture2D: Sized {
 
   fn size(&self) -> Size;
   fn width(&self) -> usize {
-    self.size().width
+    self.size().width.into()
   }
   fn height(&self) -> usize {
-    self.size().width
+    self.size().width.into()
   }
 
   fn pixel_count(&self) -> usize {
-    let Size { width, height } = self.size();
-    width * height
+    self.width() * self.height()
   }
 
   fn iter(&self) -> TexturePixels<'_, Self> {
@@ -157,8 +166,8 @@ where
   fn size(&self) -> Size {
     let d = self.dimensions();
     Size {
-      width: d.0 as usize,
-      height: d.1 as usize,
+      width: NonZeroUsize::new(d.0 as usize).unwrap(),
+      height: NonZeroUsize::new(d.1 as usize).unwrap(),
     }
   }
 }
