@@ -158,8 +158,7 @@ pub struct WebGPUxUIRenderer {
   texture_cache: UITextureCache,
   gpu_primitive_cache: Vec<GPUxUIPrimitive>,
   solid_color_pipeline: wgpu::RenderPipeline,
-  global_ui_state: UIGlobalParameter,
-  global_ui_state_gpu: UniformBuffer<UIGlobalParameter>,
+  global_ui_state: UniformBufferData<UIGlobalParameter>,
   global_uniform_bind_group_layout: wgpu::BindGroupLayout,
   global_bindgroup: wgpu::BindGroup,
   text_renderer: TextRenderer,
@@ -172,7 +171,7 @@ impl WebGPUxUIRenderer {
       screen_size: Vec2::new(1000., 1000.),
     };
 
-    let global_ui_state_gpu = UniformBuffer::create(device, global_ui_state.clone());
+    let global_ui_state = UniformBufferData::create(device, global_ui_state.clone());
     let global_uniform_bind_group_layout =
       device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
@@ -191,7 +190,7 @@ impl WebGPUxUIRenderer {
       layout: &global_uniform_bind_group_layout,
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
-        resource: global_ui_state_gpu.as_bindable(),
+        resource: global_ui_state.as_bindable(),
       }],
       label: None,
     });
@@ -210,7 +209,6 @@ impl WebGPUxUIRenderer {
       gpu_primitive_cache: Vec::new(),
       solid_color_pipeline,
       global_ui_state,
-      global_ui_state_gpu,
       global_uniform_bind_group_layout,
       global_bindgroup,
       text_renderer,
@@ -228,7 +226,8 @@ impl WebGPUxUIRenderer {
 
     self.global_ui_state.screen_size =
       Vec2::new(presentation.view_size.x, presentation.view_size.y);
-    self.global_ui_state_gpu.update(queue, self.global_ui_state);
+    self.global_ui_state.update(queue);
+
     self
       .text_renderer
       .resize_view(self.global_ui_state.screen_size, queue);

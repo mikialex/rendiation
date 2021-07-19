@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::mem;
 
 use rendiation_algebra::Vec2;
+use rendiation_webgpu::{BindableResource, UniformBufferData};
 use wgpu::util::DeviceExt;
 
 use crate::ui::renderer::text::text_quad_instance::Instance;
@@ -10,8 +11,7 @@ use super::cache::Cache;
 use super::GPUxUITextPrimitive;
 
 pub struct TextRendererPipeline {
-  transform: wgpu::Buffer,
-  current_transform: [f32; 16],
+  transform: UniformBufferData<[f32; 16]>,
   size: Vec2<f32>,
   sampler: wgpu::Sampler,
   cache: Cache,
@@ -41,8 +41,8 @@ impl TextRendererPipeline {
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
-    let buffer = orthographic_projection(size.x, size.y);
-    queue.write_buffer(&self.transform, 0, bytemuck::cast_slice(&buffer))
+    *self.transform = orthographic_projection(size.x, size.y);
+    self.transform.update(queue);
   }
 
   pub fn draw<'r>(&'r self, render_pass: &mut wgpu::RenderPass<'r>, text: &'r GPUxUITextPrimitive) {
@@ -131,12 +131,7 @@ fn build(
   cache_height: u32,
   size: Vec2<f32>,
 ) -> TextRendererPipeline {
-  let buffer = orthographic_projection(size.x, size.y);
-  let transform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-    label: None,
-    contents: bytemuck::cast_slice(&buffer),
-    usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-  });
+  let transform = UniformBufferData::create(device, orthographic_projection(size.x, size.y));
 
   let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
     address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -254,14 +249,13 @@ fn build(
     bindgroup_layout: uniform_layout,
     bindgroup,
     raw,
-    current_transform: [0.0; 16],
   }
 }
 
 fn create_bindgroup(
   device: &wgpu::Device,
   layout: &wgpu::BindGroupLayout,
-  transform: &wgpu::Buffer,
+  transform: &UniformBufferData<[f32; 16]>,
   sampler: &wgpu::Sampler,
   cache: &wgpu::TextureView,
 ) -> wgpu::BindGroup {
@@ -271,11 +265,7 @@ fn create_bindgroup(
     entries: &[
       wgpu::BindGroupEntry {
         binding: 0,
-        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-          buffer: transform,
-          offset: 0,
-          size: None,
-        }),
+        resource: transform.as_bindable(),
       },
       wgpu::BindGroupEntry {
         binding: 1,

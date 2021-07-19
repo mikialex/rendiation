@@ -1,7 +1,7 @@
 use rendiation_texture::Size;
 
 pub struct SwapChain {
-  surface: wgpu::Surface,
+  pub surface: wgpu::Surface,
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
   pub size: Size,
@@ -30,7 +30,7 @@ impl SwapChain {
     }
   }
 
-  pub fn resize(&mut self, mut size: Size, device: &wgpu::Device) {
+  pub fn resize(&mut self, size: Size, device: &wgpu::Device) {
     self.swap_chain_descriptor.width = Into::<usize>::into(size.width) as u32;
     self.swap_chain_descriptor.height = Into::<usize>::into(size.height) as u32;
     self.swap_chain = device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
