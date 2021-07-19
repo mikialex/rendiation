@@ -43,7 +43,7 @@ impl<T> Presentable for Text<T> {
       x: 100.,
       y: 100.,
       color: Vec4::new(0., 0., 0., 1.),
-      font_size: 15.,
+      font_size: 30.,
     }));
   }
 }

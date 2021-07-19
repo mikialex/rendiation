@@ -3,6 +3,7 @@ mod cache;
 mod pipeline;
 use pipeline::*;
 mod text_quad_instance;
+use rendiation_algebra::Vec2;
 use text_quad_instance::*;
 
 use glyph_brush::{
@@ -46,9 +47,14 @@ impl TextRenderer {
         render_format,
         cache_width,
         cache_height,
+        Vec2::new(1000., 1000.),
       ),
       glyph_brush,
     }
+  }
+
+  pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
+    self.pipeline.resize_view(size, queue)
   }
 
   pub fn draw_gpu_text<'a>(

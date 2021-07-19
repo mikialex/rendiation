@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::mem;
 
+use rendiation_algebra::Vec2;
 use wgpu::util::DeviceExt;
 
 use crate::ui::renderer::text::text_quad_instance::Instance;
@@ -11,6 +12,7 @@ use super::GPUxUITextPrimitive;
 pub struct TextRendererPipeline {
   transform: wgpu::Buffer,
   current_transform: [f32; 16],
+  size: Vec2<f32>,
   sampler: wgpu::Sampler,
   cache: Cache,
   bindgroup_layout: wgpu::BindGroupLayout,
@@ -25,6 +27,7 @@ impl TextRendererPipeline {
     render_format: wgpu::TextureFormat,
     cache_width: u32,
     cache_height: u32,
+    size: Vec2<f32>,
   ) -> Self {
     build(
       device,
@@ -33,7 +36,13 @@ impl TextRendererPipeline {
       None,
       cache_width,
       cache_height,
+      size,
     )
+  }
+
+  pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
+    let buffer = orthographic_projection(size.x, size.y);
+    queue.write_buffer(&self.transform, 0, bytemuck::cast_slice(&buffer))
   }
 
   pub fn draw<'r>(&'r self, render_pass: &mut wgpu::RenderPass<'r>, text: &'r GPUxUITextPrimitive) {
@@ -103,11 +112,11 @@ const IDENTITY_MATRIX: [f32; 16] = [
 ];
 
 /// Helper function to generate a generate a transform matrix.
-pub fn orthographic_projection(width: u32, height: u32) -> [f32; 16] {
+pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
   #[cfg_attr(rustfmt, rustfmt_skip)]
     [
-        2.0 / width as f32, 0.0, 0.0, 0.0,
-        0.0, -2.0 / height as f32, 0.0, 0.0,
+        2.0 / width , 0.0, 0.0, 0.0,
+        0.0, -2.0 / height , 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
         -1.0, 1.0, 0.0, 1.0,
     ]
@@ -120,8 +129,9 @@ fn build(
   depth_stencil: Option<wgpu::DepthStencilState>,
   cache_width: u32,
   cache_height: u32,
+  size: Vec2<f32>,
 ) -> TextRendererPipeline {
-  let buffer = orthographic_projection(1000, 1000);
+  let buffer = orthographic_projection(size.x, size.y);
   let transform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: None,
     contents: bytemuck::cast_slice(&buffer),
@@ -238,6 +248,7 @@ fn build(
 
   TextRendererPipeline {
     transform,
+    size,
     sampler,
     cache,
     bindgroup_layout: uniform_layout,

@@ -19,6 +19,7 @@ pub struct Application {
   forward: StandardForward,
   controller: ControllerWinitAdapter<OrbitController>,
   ui: UI<ViewerUI>,
+  ui_state: ViewerUI,
   ui_renderer: WebGPUxUIRenderer,
 }
 
@@ -105,6 +106,7 @@ impl Application {
       forward,
       controller,
       ui,
+      ui_state: ViewerUI,
       ui_renderer,
     };
     app.resize_view(gpu, size);
@@ -138,7 +140,7 @@ impl Application {
   }
 
   pub fn event(&mut self, gpu: &mut GPU, event: &Event<()>) {
-    self.ui.event(event);
+    self.ui.event(event, &mut self.ui_state);
     self.controller.event(event);
 
     if let Event::WindowEvent { event, .. } = event {

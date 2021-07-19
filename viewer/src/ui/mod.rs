@@ -57,12 +57,14 @@ impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable {}
 
 pub struct UI<T> {
   root: Box<dyn UIComponent<T>>,
+  window_states: WindowState,
 }
 
 impl<T> UI<T> {
   pub fn create(root: impl UIComponent<T> + 'static) -> Self {
     Self {
       root: Box::new(root),
+      window_states: WindowState::new(),
     }
   }
 
@@ -71,10 +73,17 @@ impl<T> UI<T> {
       present: UIPresentation::new(),
     };
     self.root.render(&mut builder);
+    builder.present.view_size.x = self.window_states.size.0;
+    builder.present.view_size.y = self.window_states.size.1;
     builder.present
   }
 
-  pub fn event(&mut self, event: &winit::event::Event<()>) {
-    //
+  pub fn event(&mut self, event: &winit::event::Event<()>, model: &mut T) {
+    self.window_states.event(event);
+    let mut event = EventCtx {
+      event,
+      states: &self.window_states,
+    };
+    self.root.event(model, &mut event)
   }
 }

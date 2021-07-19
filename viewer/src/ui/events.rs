@@ -74,17 +74,17 @@ impl WindowState {
       pressed_key: HashSet::new(),
     }
   }
-  pub fn update_size(&mut self, size: &winit::dpi::PhysicalSize<u32>) {
+   fn update_size(&mut self, size: &winit::dpi::PhysicalSize<u32>) {
     self.size.0 = size.width as f32;
     self.size.1 = size.height as f32;
   }
 
-  pub fn mouse_move_to(&mut self, position: &winit::dpi::PhysicalPosition<f64>) {
+   fn mouse_move_to(&mut self, position: &winit::dpi::PhysicalPosition<f64>) {
     self.mouse_position.0 = position.x as f32;
     self.mouse_position.1 = position.y as f32;
   }
 
-  pub fn mouse_motion(&mut self, motion: (f64, f64)) {
+   fn mouse_motion(&mut self, motion: (f64, f64)) {
     self.mouse_motion.0 = motion.0 as f32;
     self.mouse_motion.1 = motion.1 as f32;
   }
