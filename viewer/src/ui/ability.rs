@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{EventCtx, UpdateCtx};
+use crate::{EventCtx, HotAreaProvider, UpdateCtx};
 
 use super::Component;
 
@@ -39,5 +39,20 @@ where
   }
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {
     self.ability.event(model, event, &mut self.inner);
+  }
+}
+
+pub trait HotAreaPassBehavior<C> {
+  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+    false
+  }
+}
+
+impl<T, C, A> HotAreaProvider for Ability<T, C, A>
+where
+  A: HotAreaPassBehavior<C>,
+{
+  fn is_point_in(&self, point: crate::UIPosition) -> bool {
+    self.ability.is_point_in(point, &self.inner)
   }
 }

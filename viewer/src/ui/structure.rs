@@ -40,6 +40,12 @@ where
       self.inner = None;
     }
   }
+
+  fn event(&mut self, model: &mut T, event: &mut crate::EventCtx) {
+    if let Some(inner) = &mut self.inner {
+      inner.event(model, event)
+    }
+  }
 }
 
 pub struct For<T, C> {

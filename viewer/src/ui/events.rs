@@ -30,9 +30,10 @@ where
   C: Component<T> + HotAreaProvider,
 {
   fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    // if is_left_mouse_down(event) && inner.is_point_in(point)
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
-      // return true;
+      if inner.is_point_in(event.states.mouse_position) {
+        (self.handler)(model)
+      }
     }
     inner.event(model, event);
   }
@@ -54,7 +55,7 @@ fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
 
 pub struct WindowState {
   pub size: (f32, f32),
-  pub mouse_position: (f32, f32),
+  pub mouse_position: UIPosition,
   pub mouse_motion: (f32, f32),
   pub is_left_mouse_down: bool,
   pub is_right_mouse_down: bool,
@@ -66,7 +67,7 @@ impl WindowState {
   pub fn new() -> Self {
     Self {
       size: (0.0, 0.0),
-      mouse_position: (0.0, 0.0),
+      mouse_position: Default::default(),
       mouse_motion: (0.0, 0.0),
       is_left_mouse_down: false,
       is_right_mouse_down: false,
@@ -74,42 +75,20 @@ impl WindowState {
       pressed_key: HashSet::new(),
     }
   }
-   fn update_size(&mut self, size: &winit::dpi::PhysicalSize<u32>) {
+  fn update_size(&mut self, size: &winit::dpi::PhysicalSize<u32>) {
     self.size.0 = size.width as f32;
     self.size.1 = size.height as f32;
   }
 
-   fn mouse_move_to(&mut self, position: &winit::dpi::PhysicalPosition<f64>) {
-    self.mouse_position.0 = position.x as f32;
-    self.mouse_position.1 = position.y as f32;
+  fn mouse_move_to(&mut self, position: &winit::dpi::PhysicalPosition<f64>) {
+    self.mouse_position.x = position.x as f32;
+    self.mouse_position.y = position.y as f32;
   }
 
-   fn mouse_motion(&mut self, motion: (f64, f64)) {
+  fn mouse_motion(&mut self, motion: (f64, f64)) {
     self.mouse_motion.0 = motion.0 as f32;
     self.mouse_motion.1 = motion.1 as f32;
   }
-
-  // pub fn attach_event<T, U: FnOnce(&mut T) -> &mut Self + 'static + Copy>(
-  //   &self,
-  //   events: &mut WindowEventSession<T>,
-  //   lens: U,
-  // ) {
-  //   events.active.key_down.on(move |ctx| {
-  //     lens(&mut ctx.state).pressed_key.insert(*ctx.event_data);
-  //   });
-  //   events.active.key_up.on(move |ctx| {
-  //     lens(&mut ctx.state).pressed_key.remove(ctx.event_data);
-  //   });
-  //   events.active.mouse_motion.on(move |ctx| {
-  //     lens(&mut ctx.state).mouse_motion(*ctx.event_data);
-  //   });
-  //   events.active.event_cleared.on(move |ctx| {
-  //     lens(&mut ctx.state).mouse_wheel_delta = (0.0, 0.0);
-  //   });
-
-  //   // need impl piority
-  //   todo!()
-  // }
 
   pub fn event(&mut self, event: &winit::event::Event<()>) {
     match event {

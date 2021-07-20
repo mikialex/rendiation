@@ -52,3 +52,10 @@ impl<T> LayoutAble<T> for Container<T> {
     self.position_computed = position;
   }
 }
+
+impl<T, C> HotAreaPassBehavior<C> for Container<T> {
+  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+    // inner.is_point_in(point)
+    todo!()
+  }
+}
