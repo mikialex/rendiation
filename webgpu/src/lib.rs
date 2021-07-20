@@ -6,8 +6,6 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 
-use std::num::NonZeroUsize;
-
 use self::swap_chain::SwapChain;
 mod buffer;
 mod encoder;

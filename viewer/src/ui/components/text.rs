@@ -2,7 +2,7 @@ use rendiation_algebra::Vec4;
 
 use crate::{
   ui::{Component, Value},
-  Presentable, PresentationBuilder, Primitive, Quad, TextInfo, UpdateCtx,
+  Presentable, PresentationBuilder, Primitive, TextInfo, UpdateCtx,
 };
 
 pub struct Text<T> {
@@ -31,12 +31,6 @@ impl<T> Component<T> for Text<T> {
 
 impl<T> Presentable for Text<T> {
   fn render(&self, builder: &mut PresentationBuilder) {
-    builder.present.primitives.push(Primitive::Quad(Quad {
-      x: 0.,
-      y: 0.,
-      width: 100.,
-      height: 100.,
-    }));
     builder.present.primitives.push(Primitive::Text(TextInfo {
       content: "test".to_owned(),
       max_width: Some(100.),

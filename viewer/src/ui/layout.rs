@@ -1,11 +1,6 @@
-
-
 pub trait LayoutAble<T> {
   fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
-    LayoutSize{
-      width: 0.,
-      height: 0.
-    }
+    constraint.min()
   }
   fn set_position(&mut self, position: UIPosition) {}
 }
@@ -39,6 +34,18 @@ impl LayoutConstraint {
     LayoutSize {
       width: self.width_max,
       height: self.height_max,
+    }
+  }
+  pub fn min(&self) -> LayoutSize {
+    LayoutSize {
+      width: self.width_min,
+      height: self.height_min,
+    }
+  }
+  pub fn clamp(&self, size: LayoutSize) -> LayoutSize {
+    LayoutSize {
+      width: size.width.clamp(self.width_min, self.width_max),
+      height: size.height.clamp(self.height_min, self.height_max),
     }
   }
 
@@ -86,7 +93,7 @@ pub struct LayoutSize {
   pub height: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct UIPosition {
   pub x: f32,
   pub y: f32,

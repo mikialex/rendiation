@@ -6,6 +6,10 @@ impl<T, U> Value<T, U> {
   pub fn update(&mut self, ctx: &U) -> &T {
     todo!()
   }
+
+  pub fn get(&self) -> &T {
+    todo!()
+  }
 }
 
 pub struct DynamicValue<T, U> {
