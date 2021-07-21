@@ -41,7 +41,7 @@ pub struct UpdateCtx {
   time_stamp: u64,
 }
 
-trait ComponentExt<T>: Component<T> + Sized {
+pub trait ComponentExt<T>: Component<T> + Sized {
   fn extend<A: ComponentAbility<T, Self>>(self, ability: A) -> Ability<T, Self, A> {
     Ability::new(self, ability)
   }

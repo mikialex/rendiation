@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{EventCtx, HotAreaProvider, UpdateCtx};
+use crate::{EventCtx, HotAreaProvider, Presentable, PresentationBuilder, UpdateCtx};
 
 use super::Component;
 
@@ -39,6 +39,16 @@ where
   }
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {
     self.ability.event(model, event, &mut self.inner);
+  }
+}
+
+pub trait PresentableAbility<C> {
+  fn render(&self, builder: &mut PresentationBuilder, inner: &C);
+}
+
+impl<T, C, A: PresentableAbility<C>> Presentable for Ability<T, C, A> {
+  fn render(&self, builder: &mut crate::PresentationBuilder) {
+    self.ability.render(builder, &self.inner)
   }
 }
 

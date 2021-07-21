@@ -98,7 +98,11 @@ impl Application {
     let controller = ControllerWinitAdapter::new(controller);
 
     let forward = StandardForward::new(gpu, size);
-    let ui = UI::create(Text::new("dd"));
+    let com = Text::new("dd").extend(Container::size(LayoutSize {
+      width: 100.,
+      height: 100.,
+    }));
+    let ui = UI::create(com);
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, gpu.get_prefer_target_format());
 
     let mut app = Self {

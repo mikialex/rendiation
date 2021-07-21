@@ -10,7 +10,7 @@ pub struct Container<T> {
 }
 
 impl<T> Container<T> {
-  fn size(size: LayoutSize) -> Self {
+  pub fn size(size: LayoutSize) -> Self {
     Self {
       size: Value::Static(size),
       color: Vec4::new(1., 1., 1., 0.),
@@ -31,14 +31,15 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
   }
 }
 
-impl<T> Presentable for Container<T> {
-  fn render(&self, builder: &mut PresentationBuilder) {
+impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
+  fn render(&self, builder: &mut PresentationBuilder, inner: &C) {
     builder.present.primitives.push(Primitive::Quad(Quad {
       x: self.position_computed.x,
       y: self.position_computed.y,
       width: self.size_computed.width,
       height: self.size_computed.height,
     }));
+    inner.render(builder);
   }
 }
 
