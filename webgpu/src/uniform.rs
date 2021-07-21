@@ -64,6 +64,7 @@ impl<T> Deref for UniformBufferData<T> {
 
 impl<T> DerefMut for UniformBufferData<T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
+    self.changed = true;
     &mut self.data
   }
 }

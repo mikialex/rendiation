@@ -75,6 +75,7 @@ impl<T> UI<T> {
       width: self.window_states.size.0,
       height: self.window_states.size.1,
     }));
+    self.root.set_position(UIPosition { x: 0., y: 0. })
   }
 
   pub fn render(&mut self) -> UIPresentation {

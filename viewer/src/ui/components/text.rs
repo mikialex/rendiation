@@ -35,8 +35,8 @@ impl<T> Presentable for Text<T> {
     builder.present.primitives.push(Primitive::Text(TextInfo {
       content: "test".to_owned(),
       max_width: Some(100.),
-      x: 100.,
-      y: 100.,
+      x: self.position_computed.x,
+      y: self.position_computed.y,
       color: Vec4::new(0., 0., 0., 1.),
       font_size: 30.,
     }));
