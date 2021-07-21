@@ -1,8 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{EventCtx, HotAreaProvider, Presentable, PresentationBuilder, UpdateCtx};
-
-use super::Component;
+use crate::*;
 
 pub struct Ability<T, C, A> {
   inner: C,
@@ -49,6 +47,23 @@ pub trait PresentableAbility<C> {
 impl<T, C, A: PresentableAbility<C>> Presentable for Ability<T, C, A> {
   fn render(&self, builder: &mut crate::PresentationBuilder) {
     self.ability.render(builder, &self.inner)
+  }
+}
+
+pub trait LayoutAbility<C> {
+  fn layout(&mut self, constraint: LayoutConstraint, inner: &mut C) -> LayoutSize {
+    constraint.min()
+  }
+  fn set_position(&mut self, position: UIPosition, inner: &mut C) {}
+}
+
+impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
+  fn layout(&mut self, constraint: crate::LayoutConstraint) -> crate::LayoutSize {
+    self.ability.layout(constraint, &mut self.inner)
+  }
+
+  fn set_position(&mut self, position: crate::UIPosition) {
+    self.ability.set_position(position, &mut self.inner)
   }
 }
 

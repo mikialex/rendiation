@@ -52,8 +52,8 @@ pub trait ComponentExt<T>: Component<T> + Sized {
 
 impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
 
-pub trait UIComponent<T>: Component<T> + Presentable {}
-impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable {}
+pub trait UIComponent<T>: Component<T> + Presentable + LayoutAble {}
+impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable + LayoutAble {}
 
 pub struct UI<T> {
   root: Box<dyn UIComponent<T>>,
@@ -66,6 +66,15 @@ impl<T> UI<T> {
       root: Box::new(root),
       window_states: WindowState::new(),
     }
+  }
+
+  pub fn update(&mut self, model: &T) {
+    let mut ctx = UpdateCtx { time_stamp: 0 };
+    self.root.update(model, &mut ctx);
+    self.root.layout(LayoutConstraint::from_max(LayoutSize {
+      width: self.window_states.size.0,
+      height: self.window_states.size.1,
+    }));
   }
 
   pub fn render(&mut self) -> UIPresentation {

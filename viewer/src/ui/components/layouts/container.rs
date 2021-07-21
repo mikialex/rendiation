@@ -5,7 +5,8 @@ use crate::*;
 pub struct Container<T> {
   pub size: Value<LayoutSize, T>,
   pub color: Vec4<f32>,
-  position_computed: UIPosition,
+  self_position_computed: UIPosition,
+  child_position_relative: UIPosition,
   size_computed: LayoutSize,
 }
 
@@ -14,7 +15,8 @@ impl<T> Container<T> {
     Self {
       size: Value::Static(size),
       color: Vec4::new(1., 1., 1., 0.),
-      position_computed: Default::default(),
+      self_position_computed: Default::default(),
+      child_position_relative: Default::default(),
       size_computed: Default::default(),
     }
   }
@@ -34,8 +36,8 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
 impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
   fn render(&self, builder: &mut PresentationBuilder, inner: &C) {
     builder.present.primitives.push(Primitive::Quad(Quad {
-      x: self.position_computed.x,
-      y: self.position_computed.y,
+      x: self.self_position_computed.x,
+      y: self.self_position_computed.y,
       width: self.size_computed.width,
       height: self.size_computed.height,
     }));
@@ -43,14 +45,20 @@ impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
   }
 }
 
-impl<T> LayoutAble<T> for Container<T> {
-  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
+impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
+  fn layout(&mut self, constraint: LayoutConstraint, inner: &mut C) -> LayoutSize {
+    let child_size = inner.layout(constraint);
     self.size_computed = constraint.clamp(*self.size.get());
+    self.child_position_relative = UIPosition { x: 0., y: 0. };
     self.size_computed
   }
 
-  fn set_position(&mut self, position: UIPosition) {
-    self.position_computed = position;
+  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
+    self.self_position_computed = position;
+    inner.set_position(UIPosition {
+      x: position.x + self.child_position_relative.x,
+      y: position.y + self.child_position_relative.y,
+    })
   }
 }
 

@@ -125,6 +125,7 @@ impl Application {
       },
       frame,
     );
+    self.ui.update(&self.ui_state);
     let rep = self.ui.render();
     gpu.render(
       &mut WebGPUxUIRenderPass {

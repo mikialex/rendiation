@@ -1,4 +1,4 @@
-pub trait LayoutAble<T> {
+pub trait LayoutAble {
   fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
     constraint.min()
   }
@@ -25,8 +25,8 @@ impl LayoutConstraint {
   pub fn from_max(size: LayoutSize) -> Self {
     Self {
       width_min: 0.,
-      width_max: 0.,
-      height_min: size.width,
+      width_max: size.width,
+      height_min: 0.,
       height_max: size.height,
     }
   }

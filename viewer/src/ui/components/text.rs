@@ -1,12 +1,11 @@
 use rendiation_algebra::Vec4;
 
-use crate::{
-  ui::{Component, Value},
-  Presentable, PresentationBuilder, Primitive, TextInfo, UpdateCtx,
-};
+use crate::*;
 
 pub struct Text<T> {
   content: Value<String, T>,
+  position_computed: UIPosition,
+  size_computed: LayoutSize,
 }
 
 impl<T> Into<Value<String, T>> for &str {
@@ -19,6 +18,8 @@ impl<T> Text<T> {
   pub fn new(content: impl Into<Value<String, T>>) -> Self {
     Self {
       content: content.into(),
+      position_computed: Default::default(),
+      size_computed: Default::default(),
     }
   }
 }
@@ -39,5 +40,19 @@ impl<T> Presentable for Text<T> {
       color: Vec4::new(0., 0., 0., 1.),
       font_size: 30.,
     }));
+  }
+}
+
+impl<T> LayoutAble for Text<T> {
+  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
+    self.size_computed = constraint.clamp(LayoutSize {
+      width: (self.content.get().len() * 20) as f32,
+      height: 30.,
+    });
+    self.size_computed
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    self.position_computed = position;
   }
 }
