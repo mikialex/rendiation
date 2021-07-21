@@ -225,7 +225,7 @@ impl WebGPUxUIRenderer {
     self.gpu_primitive_cache.clear();
 
     self.global_ui_state.screen_size =
-      Vec2::new(presentation.view_size.x, presentation.view_size.y);
+      Vec2::new(presentation.view_size.width, presentation.view_size.height);
     self.global_ui_state.update(queue);
 
     self

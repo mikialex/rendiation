@@ -102,7 +102,7 @@ impl Application {
       width: 100.,
       height: 100.,
     }));
-    let ui = UI::create(com);
+    let ui = UI::create(com, LayoutSize::new(size.0, size.1));
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, gpu.get_prefer_target_format());
 
     let mut app = Self {

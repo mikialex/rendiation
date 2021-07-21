@@ -28,8 +28,8 @@ pub use renderer::*;
 mod components;
 pub use components::*;
 
-mod util;
-pub use util::*;
+mod utils;
+pub use utils::*;
 
 pub trait Component<T> {
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {}
@@ -61,20 +61,19 @@ pub struct UI<T> {
 }
 
 impl<T> UI<T> {
-  pub fn create(root: impl UIComponent<T> + 'static) -> Self {
+  pub fn create(root: impl UIComponent<T> + 'static, initial_size: LayoutSize) -> Self {
     Self {
       root: Box::new(root),
-      window_states: WindowState::new(),
+      window_states: WindowState::new(initial_size),
     }
   }
 
   pub fn update(&mut self, model: &T) {
     let mut ctx = UpdateCtx { time_stamp: 0 };
     self.root.update(model, &mut ctx);
-    self.root.layout(LayoutConstraint::from_max(LayoutSize {
-      width: self.window_states.size.0,
-      height: self.window_states.size.1,
-    }));
+    self
+      .root
+      .layout(LayoutConstraint::from_max(self.window_states.size));
     self.root.set_position(UIPosition { x: 0., y: 0. })
   }
 
@@ -83,8 +82,7 @@ impl<T> UI<T> {
       present: UIPresentation::new(),
     };
     self.root.render(&mut builder);
-    builder.present.view_size.x = self.window_states.size.0;
-    builder.present.view_size.y = self.window_states.size.1;
+    builder.present.view_size = self.window_states.size;
     builder.present
   }
 

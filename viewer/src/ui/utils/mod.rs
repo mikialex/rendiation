@@ -1,3 +1,6 @@
+pub mod window_state;
+pub use window_state::*;
+
 pub enum Value<T, U> {
   Static(T),
   Dynamic(DynamicValue<T, U>),

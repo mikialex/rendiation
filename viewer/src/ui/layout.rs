@@ -93,6 +93,15 @@ pub struct LayoutSize {
   pub height: f32,
 }
 
+impl LayoutSize{
+  pub fn new(width: f32, height: f32, ) -> Self {
+    Self{
+      width, 
+      height
+    }
+  }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct UIPosition {
   pub x: f32,
