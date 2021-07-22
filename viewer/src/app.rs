@@ -8,10 +8,12 @@ use rendiation_webgpu::*;
 use winit::event::*;
 
 use crate::{
+  create_ui,
   scene::{
     BasicMaterial, Camera, MeshDrawGroup, MeshModel, RenderPassDispatcher, Scene, StandardForward,
   },
   ui::*,
+  ViewerUI,
 };
 
 pub struct Application {
@@ -21,12 +23,6 @@ pub struct Application {
   ui: UI<ViewerUI>,
   ui_state: ViewerUI,
   ui_renderer: WebGPUxUIRenderer,
-}
-
-#[derive(PartialEq, Clone, Default)]
-
-pub struct ViewerUI {
-  test: usize,
 }
 
 impl Application {
@@ -101,16 +97,7 @@ impl Application {
 
     let forward = StandardForward::new(gpu, size);
 
-    let com = Text::new(Value::by(|s: &ViewerUI| s.test.to_string()))
-      .extend(Container::size(LayoutSize {
-        width: 100.,
-        height: 100.,
-      }))
-      .extend(ClickHandler::by(|s: &mut ViewerUI| {
-        s.test += 1;
-      }));
-
-    let ui = UI::create(com, LayoutSize::new(size.0, size.1));
+    let (ui_state, ui) = create_ui(LayoutSize::new(size.0, size.1));
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, gpu.get_prefer_target_format());
 
     let mut app = Self {
@@ -118,7 +105,7 @@ impl Application {
       forward,
       controller,
       ui,
-      ui_state: ViewerUI { test: 0 },
+      ui_state,
       ui_renderer,
     };
     app.resize_view(gpu, size);
