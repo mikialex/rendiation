@@ -101,14 +101,13 @@ impl Application {
 
     let forward = StandardForward::new(gpu, size);
 
-    let com = Text::new("dd")
+    let com = Text::new(Value::by(|s: &ViewerUI| s.test.to_string()))
       .extend(Container::size(LayoutSize {
         width: 100.,
         height: 100.,
       }))
       .extend(ClickHandler::by(|s: &mut ViewerUI| {
         s.test += 1;
-        log::info!("{}", s.test);
       }));
 
     let ui = UI::create(com, LayoutSize::new(size.0, size.1));

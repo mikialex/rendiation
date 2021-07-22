@@ -22,7 +22,7 @@ use winit::{
 };
 
 fn main() {
-  env_logger::init();
+  env_logger::builder().init();
   let event_loop = EventLoop::new();
   let mut builder = winit::window::WindowBuilder::new();
   builder = builder.with_title("viewer");

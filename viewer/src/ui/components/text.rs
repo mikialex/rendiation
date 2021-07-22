@@ -8,12 +8,6 @@ pub struct Text<T> {
   size_computed: LayoutSize,
 }
 
-impl<T> Into<Value<String, T>> for &str {
-  fn into(self) -> Value<String, T> {
-    Value::Static(self.to_owned())
-  }
-}
-
 impl<T> Text<T> {
   pub fn new(content: impl Into<Value<String, T>>) -> Self {
     Self {
@@ -33,7 +27,7 @@ impl<T> Component<T> for Text<T> {
 impl<T> Presentable for Text<T> {
   fn render(&self, builder: &mut PresentationBuilder) {
     builder.present.primitives.push(Primitive::Text(TextInfo {
-      content: "test".to_owned(),
+      content: self.content.get().clone(),
       max_width: Some(100.),
       x: self.position_computed.x,
       y: self.position_computed.y,
