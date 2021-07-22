@@ -1,3 +1,11 @@
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
+#![feature(const_fn_transmute)]
+#![allow(incomplete_features)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unreachable_code)]
+
 use self::swap_chain::SwapChain;
 mod buffer;
 mod encoder;
@@ -9,9 +17,12 @@ mod uniform;
 
 pub use encoder::*;
 pub use queue::*;
+use rendiation_texture::Size;
 pub use sampler::*;
 pub use texture::*;
 pub use uniform::*;
+
+pub use wgpu::*;
 
 pub struct If<const B: bool>;
 pub trait True {}
@@ -24,8 +35,22 @@ pub trait BindableResource {
   fn bind_layout() -> wgpu::BindingType;
 }
 
+impl BindableResource for wgpu::Sampler {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::Sampler(self)
+  }
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Sampler {
+      comparison: false,
+      filtering: true,
+    }
+  }
+}
+
 pub trait Renderable {
-  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder);
+  fn update(&mut self, gpu: &mut GPU, encoder: &mut wgpu::CommandEncoder) {
+    // assume all gpu stuff prepared, and do nothing
+  }
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
 }
 
@@ -40,7 +65,7 @@ pub trait RenderPassCreator<T> {
   // fn get_depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
 }
 
-pub struct Renderer {
+pub struct GPU {
   instance: wgpu::Instance,
   adaptor: wgpu::Adapter,
   pub device: wgpu::Device,
@@ -48,7 +73,7 @@ pub struct Renderer {
   swap_chain: SwapChain,
 }
 
-impl Renderer {
+impl GPU {
   pub async fn new(window: &winit::window::Window) -> Self {
     let backend = wgpu::BackendBit::PRIMARY;
     let instance = wgpu::Instance::new(backend);
@@ -76,7 +101,7 @@ impl Renderer {
       &adaptor,
       &device,
       surface,
-      (size.width as usize, size.height as usize),
+      Size::from_u32_pair_min_one((size.width, size.height)),
     );
 
     Self {
@@ -103,11 +128,11 @@ impl Renderer {
 
     self.queue.submit(Some(encoder.finish()));
   }
-  pub fn resize(&mut self, size: (usize, usize)) {
+  pub fn resize(&mut self, size: Size) {
     self.swap_chain.resize(size, &self.device);
   }
 
-  pub(crate) fn create_shader_flags(&self) -> wgpu::ShaderFlags {
+  pub fn create_shader_flags(&self) -> wgpu::ShaderFlags {
     let mut flags = wgpu::ShaderFlags::VALIDATION;
     match self.adaptor.get_info().backend {
       wgpu::Backend::Metal | wgpu::Backend::Vulkan => {
@@ -117,7 +142,7 @@ impl Renderer {
     }
     flags
   }
-  pub(crate) fn get_prefer_target_format(&self) -> wgpu::TextureFormat {
+  pub fn get_prefer_target_format(&self) -> wgpu::TextureFormat {
     self.swap_chain.swap_chain_descriptor.format
   }
 

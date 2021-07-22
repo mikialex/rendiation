@@ -1,4 +1,4 @@
-use crate::renderer::RenderPassCreator;
+use rendiation_webgpu::*;
 
 use super::*;
 pub mod forward;
@@ -74,12 +74,12 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
     })
   }
 
-  fn update(&mut self, renderer: &mut Renderer, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, gpu: &mut GPU, encoder: &mut wgpu::CommandEncoder) {
     let scene = &mut self.scene;
     scene.render_list.models.clear();
     let root = scene.get_root_handle();
 
-    scene.maintain(&renderer.device, &mut renderer.queue);
+    scene.maintain(&gpu.device, &mut gpu.queue);
 
     if let Some(active_camera) = &mut scene.active_camera {
       scene
@@ -97,8 +97,8 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
       active_camera.update();
       let camera_gpu = scene
         .active_camera_gpu
-        .get_or_insert_with(|| CameraBindgroup::new(renderer, active_camera))
-        .update(renderer, active_camera, &scene.nodes);
+        .get_or_insert_with(|| CameraBindgroup::new(gpu, active_camera))
+        .update(gpu, active_camera, &scene.nodes);
 
       scene.models.iter_mut().for_each(|(handle, model)| {
         scene.render_list.models.push(handle);
@@ -106,7 +106,7 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
         let material = scene.materials.get_mut(model.material()).unwrap().as_mut();
         let mesh = scene.meshes.get_mut(model.mesh()).unwrap();
         let node = scene.nodes.get_node_mut(model.node()).data_mut();
-        let (model_matrix, model_gpu) = node.get_model_gpu(renderer);
+        let (model_matrix, model_gpu) = node.get_model_gpu(gpu);
 
         let mut ctx = SceneMaterialRenderPrepareCtx {
           active_camera,
@@ -120,8 +120,8 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
           samplers: &mut scene.samplers,
           reference_finalization: &scene.reference_finalization,
         };
-        material.update(renderer, &mut ctx);
-        mesh.update(renderer);
+        material.update(gpu, &mut ctx);
+        mesh.update(gpu);
       })
     }
   }

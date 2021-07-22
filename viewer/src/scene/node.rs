@@ -1,7 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
-
-use crate::renderer::Renderer;
+use rendiation_webgpu::*;
 
 use super::{Scene, SceneNodeHandle};
 
@@ -48,12 +47,12 @@ impl SceneNode {
     }
   }
 
-  pub fn get_model_gpu(&mut self, renderer: &Renderer) -> (&Mat4<f32>, &TransformGPU) {
+  pub fn get_model_gpu(&mut self, gpu: &GPU) -> (&Mat4<f32>, &TransformGPU) {
     (
       &self.world_matrix,
       self
         .gpu
-        .get_or_insert_with(|| TransformGPU::new(renderer, &self.world_matrix)),
+        .get_or_insert_with(|| TransformGPU::new(gpu, &self.world_matrix)),
     )
   }
 
@@ -138,13 +137,13 @@ impl TransformGPU {
     "#
   }
 
-  pub fn update(&mut self, renderer: &Renderer, matrix: &Mat4<f32>) {
-    renderer
+  pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) {
+    gpu
       .queue
       .write_buffer(&self.ubo, 0, bytemuck::cast_slice(matrix.as_ref()));
   }
-  pub fn new(renderer: &Renderer, matrix: &Mat4<f32>) -> Self {
-    let device = &renderer.device;
+  pub fn new(gpu: &GPU, matrix: &Mat4<f32>) -> Self {
+    let device = &gpu.device;
     use wgpu::util::DeviceExt;
 
     let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

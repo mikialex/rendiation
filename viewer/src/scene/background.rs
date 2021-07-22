@@ -1,7 +1,6 @@
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
-
-use crate::renderer::Renderable;
+use rendiation_webgpu::*;
 
 pub trait Background: 'static + Renderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
@@ -12,12 +11,7 @@ pub struct SolidBackground {
 }
 
 impl Renderable for SolidBackground {
-  fn update(
-    &mut self,
-    renderer: &mut crate::renderer::Renderer,
-    encoder: &mut wgpu::CommandEncoder,
-  ) {
-  }
+  fn update(&mut self, renderer: &mut GPU, encoder: &mut wgpu::CommandEncoder) {}
 
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {}
 }

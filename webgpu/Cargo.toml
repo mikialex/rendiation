@@ -1,0 +1,12 @@
+[package]
+authors = ["MikiAlex <18516340862@163.com>"]
+edition = "2018"
+name = "rendiation-webgpu"
+version = "0.1.0"
+
+[dependencies]
+bytemuck = {version = "1.4.1", features = ["derive"]}
+image = "*"
+rendiation-texture = {path = "../components/texture/core"}
+wgpu = "0.9"
+winit = {version = "0.24.0"}

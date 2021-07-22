@@ -13,7 +13,7 @@ pub use basic::*;
 
 use rendiation_algebra::Mat4;
 
-use crate::Renderer;
+use crate::GPU;
 
 use super::{
   Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,
@@ -53,19 +53,14 @@ pub trait MaterialCPUResource {
   fn create(
     &mut self,
     handle: MaterialHandle,
-    renderer: &mut Renderer,
+    gpu: &mut GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU;
 }
 
 pub trait MaterialGPUResource: Sized {
   type Source: MaterialCPUResource<GPU = Self>;
-  fn update(
-    &mut self,
-    source: &Self::Source,
-    renderer: &Renderer,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) {
+  fn update(&mut self, source: &Self::Source, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) {
     // default do nothing
   }
 
@@ -127,7 +122,7 @@ pub struct SceneMaterialPassSetupCtx<'a> {
 
 pub trait Material {
   fn on_ref_resource_changed(&mut self);
-  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
+  fn update<'a>(&mut self, gpu: &mut GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
 }
 
@@ -136,11 +131,11 @@ where
   T: MaterialCPUResource,
   T::GPU: MaterialGPUResource<Source = T>,
 {
-  fn update<'a>(&mut self, renderer: &mut Renderer, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
+  fn update<'a>(&mut self, gpu: &mut GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
     self
       .gpu
-      .get_or_insert_with(|| T::create(&mut self.material, self.handle, renderer, ctx))
-      .update(&self.material, renderer, ctx);
+      .get_or_insert_with(|| T::create(&mut self.material, self.handle, gpu, ctx))
+      .update(&self.material, gpu, ctx);
   }
   fn setup_pass<'a>(
     &'a self,

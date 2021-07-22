@@ -8,7 +8,7 @@ use super::{
   Texture2DHandle, WatchedArena,
 };
 
-pub struct BindGroup {
+pub struct MaterialBindGroup {
   pub gpu: wgpu::BindGroup,
   references: Vec<MaterialTextureReferenceFinalizer>,
 }
@@ -156,7 +156,7 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self
   }
 
-  pub fn build(self, layout: &wgpu::BindGroupLayout) -> BindGroup {
+  pub fn build(self, layout: &wgpu::BindGroupLayout) -> MaterialBindGroup {
     let entries: Vec<_> = self
       .bindings
       .into_iter()
@@ -173,7 +173,7 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
       label: None,
     });
 
-    BindGroup {
+    MaterialBindGroup {
       gpu,
       references: self.references,
     }

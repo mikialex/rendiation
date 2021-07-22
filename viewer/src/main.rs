@@ -1,8 +1,6 @@
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
-#![feature(const_fn_transmute)]
 #![feature(capture_disjoint_fields)]
 #![feature(array_methods)]
+#![feature(min_specialization)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
@@ -10,17 +8,21 @@
 
 use std::time::{Duration, Instant};
 mod app;
-mod renderer;
 mod scene;
+#[macro_use]
+pub mod ui;
+use rendiation_texture::Size;
+use rendiation_webgpu::*;
+pub use ui::*;
 
 use app::Application;
-use renderer::Renderer;
 use winit::{
   event::{self, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
 };
 
 fn main() {
+  env_logger::builder().init();
   let event_loop = EventLoop::new();
   let mut builder = winit::window::WindowBuilder::new();
   builder = builder.with_title("viewer");
@@ -33,7 +35,7 @@ fn main() {
 pub struct Viewer {
   window: winit::window::Window,
   last_update_inst: Instant,
-  renderer: Renderer,
+  renderer: GPU,
   app: Application,
 }
 
@@ -42,7 +44,7 @@ impl Viewer {
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
 
-    let mut renderer = Renderer::new(&window).await;
+    let mut renderer = GPU::new(&window).await;
     let app = Application::new(&mut renderer, initial_size);
 
     Self {
@@ -79,7 +81,7 @@ impl Viewer {
           ..
         } => self
           .renderer
-          .resize((size.width as usize, size.height as usize)),
+          .resize(Size::from_u32_pair_min_one((size.width, size.height))),
         event::Event::WindowEvent { event, .. } => match event {
           WindowEvent::CloseRequested => {
             *control_flow = ControlFlow::Exit;

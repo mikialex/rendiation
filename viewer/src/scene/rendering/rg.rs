@@ -1,8 +1,8 @@
-use crate::renderer::Renderer;
+use rendiation_webgpu::*;
 
 pub trait RenderGraphPass {
   type Resource;
-  fn execute(&self, res: &mut Self::Resource, renderer: &mut Renderer);
+  fn execute(&self, res: &mut Self::Resource, gpu: &mut GPU);
 }
 
 pub struct QuadPass<T> {
@@ -17,7 +17,7 @@ pub struct PostEffect {
 impl<T> RenderGraphPass for QuadPass<T> {
   type Resource = AttachmentsPool;
 
-  fn execute(&self, res: &mut Self::Resource, renderer: &mut Renderer) {
+  fn execute(&self, res: &mut Self::Resource, gpu: &mut GPU) {
     todo!()
   }
 }

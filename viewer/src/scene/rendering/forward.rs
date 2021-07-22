@@ -33,8 +33,8 @@ impl Scene {
 }
 
 impl StandardForward {
-  pub fn new(renderer: &Renderer, size: (f32, f32)) -> Self {
-    let depth = renderer.device.create_texture(&wgpu::TextureDescriptor {
+  pub fn new(gpu: &GPU, size: (f32, f32)) -> Self {
+    let depth = gpu.device.create_texture(&wgpu::TextureDescriptor {
       size: wgpu::Extent3d {
         width: size.0 as u32,
         height: size.1 as u32,
@@ -53,12 +53,12 @@ impl StandardForward {
     Self {
       depth,
       depth_view,
-      color_format: [renderer.get_prefer_target_format()],
+      color_format: [gpu.get_prefer_target_format()],
     }
   }
 
-  pub fn resize(&mut self, renderer: &Renderer, size: (f32, f32)) {
-    *self = Self::new(renderer, size);
+  pub fn resize(&mut self, gpu: &GPU, size: (f32, f32)) {
+    *self = Self::new(gpu, size);
   }
 }
 

@@ -31,8 +31,6 @@ pub use util::*;
 pub use arena::*;
 pub use arena_tree::*;
 
-use crate::renderer::*;
-
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 
@@ -43,7 +41,6 @@ pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 pub type SamplerHandle = Handle<SceneSampler>;
 pub type Texture2DHandle = Handle<SceneTexture2D>;
-
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,

@@ -4,23 +4,33 @@ use rendiation_renderable_mesh::tessellation::{
   CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
 };
 use rendiation_texture::TextureSampler;
+use rendiation_webgpu::*;
 use winit::event::*;
 
 use crate::{
-  renderer::Renderer,
   scene::{
     BasicMaterial, Camera, MeshDrawGroup, MeshModel, RenderPassDispatcher, Scene, StandardForward,
   },
+  ui::*,
 };
 
 pub struct Application {
   scene: Scene,
   forward: StandardForward,
   controller: ControllerWinitAdapter<OrbitController>,
+  ui: UI<ViewerUI>,
+  ui_state: ViewerUI,
+  ui_renderer: WebGPUxUIRenderer,
+}
+
+#[derive(PartialEq, Clone, Default)]
+
+pub struct ViewerUI {
+  test: usize,
 }
 
 impl Application {
-  pub fn new(renderer: &mut Renderer, size: (f32, f32)) -> Self {
+  pub fn new(gpu: &mut GPU, size: (f32, f32)) -> Self {
     let mut scene = Scene::new();
 
     let sampler = scene.add_sampler(TextureSampler::default());
@@ -89,40 +99,66 @@ impl Application {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let forward = StandardForward::new(renderer, size);
+    let forward = StandardForward::new(gpu, size);
+
+    let com = Text::new(Value::by(|s: &ViewerUI| s.test.to_string()))
+      .extend(Container::size(LayoutSize {
+        width: 100.,
+        height: 100.,
+      }))
+      .extend(ClickHandler::by(|s: &mut ViewerUI| {
+        s.test += 1;
+      }));
+
+    let ui = UI::create(com, LayoutSize::new(size.0, size.1));
+    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, gpu.get_prefer_target_format());
 
     let mut app = Self {
       scene,
       forward,
       controller,
+      ui,
+      ui_state: ViewerUI { test: 0 },
+      ui_renderer,
     };
-    app.resize_view(renderer, size);
+    app.resize_view(gpu, size);
     app
   }
 
-  pub fn render(&mut self, frame: &wgpu::SwapChainFrame, renderer: &mut Renderer) {
-    renderer.render(
+  pub fn render(&mut self, frame: &wgpu::SwapChainFrame, gpu: &mut GPU) {
+    gpu.render(
       &mut RenderPassDispatcher {
         scene: &mut self.scene,
         pass: &mut self.forward,
       },
       frame,
+    );
+    self.ui.update(&self.ui_state);
+    let rep = self.ui.render();
+    gpu.render(
+      &mut WebGPUxUIRenderPass {
+        renderer: &mut self.ui_renderer,
+        presentation: &rep,
+      },
+      &frame.output.view,
     )
   }
 
-  pub fn resize_view(&mut self, renderer: &Renderer, size: (f32, f32)) {
+  pub fn resize_view(&mut self, gpu: &GPU, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
       let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
       camera.projection.resize(size)
     }
-    self.forward.resize(renderer, size)
+    self.forward.resize(gpu, size)
   }
 
-  pub fn event(&mut self, renderer: &mut Renderer, event: &Event<()>) {
+  pub fn event(&mut self, gpu: &mut GPU, event: &Event<()>) {
+    self.ui.event(event, &mut self.ui_state);
     self.controller.event(event);
+
     if let Event::WindowEvent { event, .. } = event {
       if let WindowEvent::Resized(size) = event {
-        self.resize_view(renderer, (size.width as f32, size.height as f32));
+        self.resize_view(gpu, (size.width as f32, size.height as f32));
       }
     }
   }
