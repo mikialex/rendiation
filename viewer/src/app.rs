@@ -25,7 +25,9 @@ pub struct Application {
 
 #[derive(PartialEq, Clone, Default)]
 
-pub struct ViewerUI;
+pub struct ViewerUI {
+  test: usize,
+}
 
 impl Application {
   pub fn new(gpu: &mut GPU, size: (f32, f32)) -> Self {
@@ -98,10 +100,17 @@ impl Application {
     let controller = ControllerWinitAdapter::new(controller);
 
     let forward = StandardForward::new(gpu, size);
-    let com = Text::new("dd").extend(Container::size(LayoutSize {
-      width: 100.,
-      height: 100.,
-    }));
+
+    let com = Text::new("dd")
+      .extend(Container::size(LayoutSize {
+        width: 100.,
+        height: 100.,
+      }))
+      .extend(ClickHandler::by(|s: &mut ViewerUI| {
+        s.test += 1;
+        log::info!("{}", s.test);
+      }));
+
     let ui = UI::create(com, LayoutSize::new(size.0, size.1));
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, gpu.get_prefer_target_format());
 
@@ -110,7 +119,7 @@ impl Application {
       forward,
       controller,
       ui,
-      ui_state: ViewerUI,
+      ui_state: ViewerUI { test: 0 },
       ui_renderer,
     };
     app.resize_view(gpu, size);
