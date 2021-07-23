@@ -33,16 +33,22 @@ pub struct ButtonState {
   color: Vec4<f32>,
 }
 
+impl Default for ButtonState {
+  fn default() -> Self {
+    Self {
+      pressed: false,
+      pressed2: false,
+      color: Vec4::new(1.0, 0.0, 0.0, 1.0),
+    }
+  }
+}
+
 pub fn button<T>(
   label: Value<String, T>,
   on_click: impl Fn(&mut T) + 'static,
 ) -> impl UIComponent<T> {
-  let state = StateCell::new(ButtonState {
-    pressed: false,
-    pressed2: false,
-    color: Vec4::new(1.0, 0.0, 0.0, 1.0),
-  });
-  let state2 = state.clone();
+  let state = StateCell::new(ButtonState::default());
+  let set_color = state.mutator(|s| s.color.y += 0.1);
 
   Text::new(label)
     .extend(
@@ -52,14 +58,8 @@ pub fn button<T>(
       })
       .color(Value::by(move |s: &T| state.visit(|s| s.color))),
     )
-    .extend(ClickHandler::by(move |s: &mut T| {
-      on_click(s)
-      // (s.on_click)(s.data)
-    }))
-    .extend(ClickHandler::by(move |s: &mut T| {
-      state2.mutate(|s| s.color.y += 0.1);
-      // (s.on_click)(s.data)
-    }))
+    .extend(ClickHandler::by(on_click))
+    .extend(ClickHandler::by(move |s: &mut T| set_color()))
 }
 
 pub fn create_ui_prototype_2() -> impl UIComponent<ViewerUI> {
