@@ -99,6 +99,43 @@ macro_rules! lens {
     };
 }
 
+/// `Lens` built from a getter and a setter
+#[derive(Debug, Copy, Clone)]
+pub struct Map<Get, Put> {
+    get: Get,
+    put: Put,
+}
+
+impl<Get, Put> Map<Get, Put> {
+    /// Construct a mapping
+    ///
+    /// See also `LensExt::map`
+    pub fn new<A: ?Sized, B>(get: Get, put: Put) -> Self
+    where
+        Get: Fn(&A) -> B,
+        Put: Fn(&mut A, B),
+    {
+        Self { get, put }
+    }
+}
+
+impl<A: ?Sized, B, Get, Put> Lens<A, B> for Map<Get, Put>
+where
+    Get: Fn(&A) -> B,
+    Put: Fn(&mut A, B),
+{
+    fn with<V, F: FnOnce(&B) -> V>(&self, data: &A, f: F) -> V {
+        f(&(self.get)(data))
+    }
+
+    fn with_mut<V, F: FnOnce(&mut B) -> V>(&self, data: &mut A, f: F) -> V {
+        let mut temp = (self.get)(data);
+        let x = f(&mut temp);
+        (self.put)(data, temp);
+        x
+    }
+}
+
 pub struct LensWrap<T, U, L, W> {
   inner: W,
   lens: L,

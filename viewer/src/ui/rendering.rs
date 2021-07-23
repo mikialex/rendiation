@@ -12,7 +12,7 @@ pub struct PresentationBuilder {
 
 #[derive(Debug, Clone)]
 pub enum Primitive {
-  Quad(Quad),
+  Quad((Quad, Vec4<f32>)),
   Text(TextInfo),
 }
 

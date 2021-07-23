@@ -94,12 +94,13 @@ impl Primitive {
   ) -> Option<GPUxUIPrimitive> {
     let p = match self {
       #[rustfmt::skip]
-      Primitive::Quad(quad) => {
+      Primitive::Quad((quad, color)) => {
+        let color = *color;
         let mut vertices = Vec::new();
-        vertices.push(vertex((quad.x, quad.y), (0., 0.), (1., 1., 1., 1.)));
-        vertices.push(vertex((quad.x, quad.y + quad.height), (0., 0.), (1., 1., 1., 1.)));
-        vertices.push(vertex((quad.x + quad.width, quad.y), (0., 0.), (1., 1., 1., 1.)));
-        vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (0., 0.), (1., 1., 1., 1.)));
+        vertices.push(vertex((quad.x, quad.y), (0., 0.), color.into()));
+        vertices.push(vertex((quad.x, quad.y + quad.height), (0., 0.), color.into()));
+        vertices.push(vertex((quad.x + quad.width, quad.y), (0., 0.), color.into()));
+        vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (0., 0.), color.into()));
         let mut index = Vec::<u32>::new();
         index.push(0);
         index.push(1);

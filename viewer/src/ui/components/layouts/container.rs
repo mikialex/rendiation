@@ -4,7 +4,7 @@ use crate::*;
 
 pub struct Container<T> {
   pub size: Value<LayoutSize, T>,
-  pub color: Vec4<f32>,
+  pub color: Value<Vec4<f32>, T>,
   self_position_computed: UIPosition,
   child_position_relative: UIPosition,
   size_computed: LayoutSize,
@@ -15,18 +15,23 @@ impl<T> Container<T> {
   pub fn size(size: LayoutSize) -> Self {
     Self {
       size: Value::Static(size),
-      color: Vec4::new(1., 1., 1., 0.),
+      color: Value::Static(Vec4::new(1., 1., 1., 0.)),
       self_position_computed: Default::default(),
       child_position_relative: Default::default(),
       size_computed: Default::default(),
       quad_cache: Default::default(),
     }
   }
+  pub fn color(mut self, color: impl Into<Value<Vec4<f32>, T>>) -> Self {
+    self.color = color.into();
+    self
+  }
 }
 
 impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
     self.size.update(model);
+    self.color.update(model);
     inner.update(model, ctx);
   }
 
@@ -40,7 +45,7 @@ impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
     builder
       .present
       .primitives
-      .push(Primitive::Quad(self.quad_cache));
+      .push(Primitive::Quad((self.quad_cache, *self.color.get())));
     inner.render(builder);
   }
 }
