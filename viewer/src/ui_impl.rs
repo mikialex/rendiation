@@ -8,7 +8,7 @@ pub struct ViewerUI {
   test: usize,
 }
 
-pub fn create_ui(init_size: LayoutSize) -> (ViewerUI, UI<ViewerUI>) {
+pub fn create_ui(init_size: LayoutSize, gpu: Rc<GPU>) -> (ViewerUI, UI<ViewerUI>) {
   let state = ViewerUI { test: 0 };
 
   // let com = Text::new(Value::by(|s: &ViewerUI| s.test.to_string()))
@@ -20,7 +20,7 @@ pub fn create_ui(init_size: LayoutSize) -> (ViewerUI, UI<ViewerUI>) {
   //     s.test += 1;
   //   }));
 
-  let ui = UI::create(create_ui_prototype_2(), init_size);
+  let ui = UI::create(create_ui_prototype_2(), init_size, gpu);
 
   (state, ui)
 }

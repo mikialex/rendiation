@@ -2,12 +2,15 @@ mod examples;
 
 #[macro_use]
 mod lens;
+use std::rc::Rc;
+
 pub use lens::*;
 
 mod ability;
 pub use ability::*;
 
 mod structure;
+use rendiation_webgpu::GPU;
 pub use structure::*;
 
 mod events;
@@ -39,6 +42,7 @@ pub trait Component<T> {
 
 pub struct UpdateCtx {
   time_stamp: u64,
+  gpu: Rc<GPU>,
 }
 
 pub trait ComponentExt<T>: Component<T> + Sized {
@@ -58,18 +62,27 @@ impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable + LayoutAble
 pub struct UI<T> {
   root: Box<dyn UIComponent<T>>,
   window_states: WindowState,
+  gpu: Rc<GPU>,
 }
 
 impl<T> UI<T> {
-  pub fn create(root: impl UIComponent<T> + 'static, initial_size: LayoutSize) -> Self {
+  pub fn create(
+    root: impl UIComponent<T> + 'static,
+    initial_size: LayoutSize,
+    gpu: Rc<GPU>,
+  ) -> Self {
     Self {
       root: Box::new(root),
       window_states: WindowState::new(initial_size),
+      gpu,
     }
   }
 
   pub fn update(&mut self, model: &T) {
-    let mut ctx = UpdateCtx { time_stamp: 0 };
+    let mut ctx = UpdateCtx {
+      time_stamp: 0,
+      gpu: self.gpu.clone(),
+    };
     self.root.update(model, &mut ctx);
     self
       .root

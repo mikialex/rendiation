@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use rendiation_algebra::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
 use rendiation_renderable_mesh::tessellation::{
@@ -26,7 +28,7 @@ pub struct Application {
 }
 
 impl Application {
-  pub fn new(gpu: &mut GPU, prefer_target_fmt: wgpu::TextureFormat, size: (f32, f32)) -> Self {
+  pub fn new(gpu: Rc<GPU>, prefer_target_fmt: wgpu::TextureFormat, size: (f32, f32)) -> Self {
     let mut scene = Scene::new();
 
     let sampler = scene.add_sampler(TextureSampler::default());
@@ -95,9 +97,9 @@ impl Application {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let forward = StandardForward::new(gpu, prefer_target_fmt, size);
+    let forward = StandardForward::new(gpu.as_ref(), prefer_target_fmt, size);
 
-    let (ui_state, ui) = create_ui(LayoutSize::new(size.0, size.1));
+    let (ui_state, ui) = create_ui(LayoutSize::new(size.0, size.1), gpu.clone());
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt);
 
     let mut app = Self {
@@ -108,7 +110,7 @@ impl Application {
       ui_state,
       ui_renderer,
     };
-    app.resize_view(gpu, size);
+    app.resize_view(gpu.as_ref(), size);
     app
   }
 

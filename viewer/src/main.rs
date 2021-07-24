@@ -52,16 +52,17 @@ impl Viewer {
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
 
-    let (mut gpu, swap_chain) = GPU::new_with_swap_chain(&window).await;
+    let (gpu, swap_chain) = GPU::new_with_swap_chain(&window).await;
+    let gpu = Rc::new(gpu);
     let app = Application::new(
-      &mut gpu,
+      gpu.clone(),
       swap_chain.swap_chain_descriptor.format,
       initial_size,
     );
 
     Self {
       window,
-      gpu: Rc::new(gpu),
+      gpu,
       swap_chain,
       last_update_inst: Instant::now(),
       app,
