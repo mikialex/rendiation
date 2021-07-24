@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use rendiation_algebra::*;
 
 use crate::*;
@@ -43,12 +41,13 @@ impl Default for ButtonState {
   }
 }
 
-pub fn button<T>(
-  label: Value<String, T>,
+pub fn button<T: 'static>(
+  label: impl Into<Value<String, T>>,
   on_click: impl Fn(&mut T) + 'static,
 ) -> impl UIComponent<T> {
-  let state = StateCell::new(ButtonState::default());
+  let state = ButtonState::use_state();
   let set_color = state.mutator(|s| s.color.y += 0.1);
+  let set_pressed = state.mutation(|s| s.pressed2 = false);
 
   Text::new(label)
     .extend(
@@ -59,6 +58,7 @@ pub fn button<T>(
       .color(Value::by(move |s: &T| state.visit(|s| s.color))),
     )
     .extend(ClickHandler::by(on_click))
+    .extend(ClickHandler::by(set_pressed))
     .extend(ClickHandler::by(move |s: &mut T| set_color()))
 }
 

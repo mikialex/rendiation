@@ -8,6 +8,13 @@ pub struct StateCell<T> {
   state: Rc<RefCell<T>>,
 }
 
+pub trait StateCreator: Default {
+  fn use_state() -> StateCell<Self> {
+    StateCell::new(Default::default())
+  }
+}
+impl<T: Default> StateCreator for T {}
+
 impl<T> StateCell<T> {
   pub fn new(state: T) -> Self {
     Self {
@@ -25,6 +32,10 @@ impl<T> StateCell<T> {
     move || {
       self_clone.mutate(f);
     }
+  }
+  pub fn mutation<X>(&self, f: impl Fn(&mut T) + Copy) -> impl Fn(&mut X) {
+    let mutator = self.mutator(f);
+    move |x: &mut X| mutator()
   }
 }
 
