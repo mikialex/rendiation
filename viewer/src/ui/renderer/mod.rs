@@ -60,7 +60,7 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
     });
   }
 
-  fn update(&mut self, renderer: &mut GPU, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, renderer: &GPU, encoder: &mut wgpu::CommandEncoder) {
     self.renderer.update(
       &self.presentation,
       &renderer.device,

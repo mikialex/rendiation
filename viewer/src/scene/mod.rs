@@ -79,7 +79,7 @@ impl Scene {
     }
   }
 
-  pub fn maintain(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue) {
+  pub fn maintain(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
     let mut material_change = HashSet::new();
     self.samplers.drain_modified().for_each(|(sampler, _)| {
       sampler.update(device, queue);

@@ -74,12 +74,12 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
     })
   }
 
-  fn update(&mut self, gpu: &mut GPU, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, gpu: &GPU, encoder: &mut wgpu::CommandEncoder) {
     let scene = &mut self.scene;
     scene.render_list.models.clear();
     let root = scene.get_root_handle();
 
-    scene.maintain(&gpu.device, &mut gpu.queue);
+    scene.maintain(&gpu.device, &gpu.queue);
 
     if let Some(active_camera) = &mut scene.active_camera {
       scene

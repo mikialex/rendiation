@@ -12,7 +12,7 @@ pub use impls::*;
 
 pub trait Mesh {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
-  fn update(&mut self, gpu: &mut GPU);
+  fn update(&mut self, gpu: &GPU);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
@@ -38,7 +38,7 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
       .setup_pass(pass, self.data.get_group(group))
   }
 
-  fn update(&mut self, gpu: &mut GPU) {
+  fn update(&mut self, gpu: &GPU) {
     self.data.update(&mut self.gpu, &gpu.device);
   }
 

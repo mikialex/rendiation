@@ -48,7 +48,7 @@ impl BindableResource for wgpu::Sampler {
 }
 
 pub trait Renderable {
-  fn update(&mut self, gpu: &mut GPU, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, gpu: &GPU, encoder: &mut wgpu::CommandEncoder) {
     // assume all gpu stuff prepared, and do nothing
   }
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
@@ -89,7 +89,32 @@ impl SurfaceProvider for winit::window::Window {
 }
 
 impl GPU {
-  pub async fn new(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSwapChain) {
+  pub async fn new() -> Self {
+    let backend = wgpu::BackendBit::PRIMARY;
+    let instance = wgpu::Instance::new(backend);
+    let power_preference = wgpu::PowerPreference::default();
+
+    let adaptor = instance
+      .request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference,
+        compatible_surface: None,
+      })
+      .await
+      .expect("No suitable GPU adapters found on the system!");
+
+    let (device, queue) = adaptor
+      .request_device(&wgpu::DeviceDescriptor::default(), None)
+      .await
+      .expect("Unable to find a suitable GPU device!");
+
+    Self {
+      instance,
+      adaptor,
+      device,
+      queue,
+    }
+  }
+  pub async fn new_with_swap_chain(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSwapChain) {
     let backend = wgpu::BackendBit::PRIMARY;
     let instance = wgpu::Instance::new(backend);
     let power_preference = wgpu::PowerPreference::default();
@@ -122,7 +147,7 @@ impl GPU {
       swap_chain,
     )
   }
-  pub fn render<R, T>(&mut self, renderable: &mut R, target: &T)
+  pub fn render<R, T>(&self, renderable: &mut R, target: &T)
   where
     R: Renderable,
     R: RenderPassCreator<T>,

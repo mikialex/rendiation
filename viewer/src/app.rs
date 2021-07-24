@@ -112,7 +112,7 @@ impl Application {
     app
   }
 
-  pub fn render(&mut self, frame: &wgpu::SwapChainFrame, gpu: &mut GPU) {
+  pub fn render(&mut self, frame: &wgpu::SwapChainFrame, gpu: &GPU) {
     gpu.render(
       &mut RenderPassDispatcher {
         scene: &mut self.scene,
@@ -139,7 +139,7 @@ impl Application {
     self.forward.resize(gpu, size)
   }
 
-  pub fn event(&mut self, gpu: &mut GPU, event: &Event<()>) {
+  pub fn event(&mut self, gpu: &GPU, event: &Event<()>) {
     self.ui.event(event, &mut self.ui_state);
     self.controller.event(event);
 
