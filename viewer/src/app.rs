@@ -26,7 +26,7 @@ pub struct Application {
 }
 
 impl Application {
-  pub fn new(gpu: &mut GPU, size: (f32, f32)) -> Self {
+  pub fn new(gpu: &mut GPU, prefer_target_fmt: wgpu::TextureFormat, size: (f32, f32)) -> Self {
     let mut scene = Scene::new();
 
     let sampler = scene.add_sampler(TextureSampler::default());
@@ -95,10 +95,10 @@ impl Application {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let forward = StandardForward::new(gpu, size);
+    let forward = StandardForward::new(gpu, prefer_target_fmt, size);
 
     let (ui_state, ui) = create_ui(LayoutSize::new(size.0, size.1));
-    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, gpu.get_prefer_target_format());
+    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt);
 
     let mut app = Self {
       scene,

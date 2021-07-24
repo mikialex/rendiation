@@ -16,7 +16,6 @@ pub use ui::*;
 pub mod ui_impl;
 pub use ui_impl::*;
 
-
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
@@ -40,7 +39,8 @@ fn main() {
 pub struct Viewer {
   window: winit::window::Window,
   last_update_inst: Instant,
-  renderer: GPU,
+  gpu: GPU,
+  swap_chain: GPUSwapChain,
   app: Application,
 }
 
@@ -49,12 +49,17 @@ impl Viewer {
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
 
-    let mut renderer = GPU::new(&window).await;
-    let app = Application::new(&mut renderer, initial_size);
+    let (mut renderer, swap_chain) = GPU::new(&window).await;
+    let app = Application::new(
+      &mut renderer,
+      swap_chain.swap_chain_descriptor.format,
+      initial_size,
+    );
 
     Self {
       window,
-      renderer,
+      gpu: renderer,
+      swap_chain,
       last_update_inst: Instant::now(),
       app,
     }
@@ -84,9 +89,10 @@ impl Viewer {
         event::Event::WindowEvent {
           event: WindowEvent::Resized(size),
           ..
-        } => self
-          .renderer
-          .resize(Size::from_u32_pair_min_one((size.width, size.height))),
+        } => self.swap_chain.resize(
+          Size::from_u32_pair_min_one((size.width, size.height)),
+          &self.gpu.device,
+        ),
         event::Event::WindowEvent { event, .. } => match event {
           WindowEvent::CloseRequested => {
             *control_flow = ControlFlow::Exit;
@@ -95,17 +101,17 @@ impl Viewer {
         },
         event::Event::RedrawRequested(_) => {
           let frame = self
-            .renderer
+            .swap_chain
             .get_current_frame()
             .expect("Failed to acquire next swap chain texture!");
 
           self.app.update_state();
-          self.app.render(&frame, &mut self.renderer);
+          self.app.render(&frame, &mut self.gpu);
         }
         _ => {}
       }
 
-      self.app.event(&mut self.renderer, &event);
+      self.app.event(&mut self.gpu, &event);
     });
   }
 }
