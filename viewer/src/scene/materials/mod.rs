@@ -6,14 +6,13 @@ use std::{
 pub mod bindable;
 pub use bindable::*;
 pub mod states;
+use rendiation_webgpu::GPU;
 pub use states::*;
 
 pub mod basic;
 pub use basic::*;
 
 use rendiation_algebra::Mat4;
-
-use crate::GPU;
 
 use super::{
   Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,

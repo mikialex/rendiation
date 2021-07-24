@@ -69,7 +69,7 @@ impl StandardForward {
 }
 
 impl ViewerRenderPassCreator for StandardForward {
-  type TargetResource = wgpu::SwapChainFrame;
+  type TargetResource = wgpu::TextureView;
 
   fn create_pass<'a>(
     &'a self,
@@ -80,7 +80,7 @@ impl ViewerRenderPassCreator for StandardForward {
     encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
       label: "scene pass".into(),
       color_attachments: &[wgpu::RenderPassColorAttachment {
-        view: &target.output.view,
+        view: target,
         resolve_target: None,
         ops: wgpu::Operations {
           load: scene.get_main_pass_load_op(),

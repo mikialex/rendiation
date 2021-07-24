@@ -4,25 +4,8 @@ use crate::*;
 
 #[derive(PartialEq, Clone, Default)]
 
-pub struct ViewerUI {
-  test: usize,
-}
-
-pub fn create_ui(init_size: LayoutSize, gpu: Rc<GPU>) -> (ViewerUI, UI<ViewerUI>) {
-  let state = ViewerUI { test: 0 };
-
-  // let com = Text::new(Value::by(|s: &ViewerUI| s.test.to_string()))
-  //   .extend(Container::size(LayoutSize {
-  //     width: 100.,
-  //     height: 100.,
-  //   }))
-  //   .extend(ClickHandler::by(|s: &mut ViewerUI| {
-  //     s.test += 1;
-  //   }));
-
-  let ui = UI::create(create_ui_prototype_2(), init_size, gpu);
-
-  (state, ui)
+pub struct Counter {
+  pub count: usize,
 }
 
 pub struct ButtonState {
@@ -60,11 +43,4 @@ pub fn button<T: 'static>(
     .extend(ClickHandler::by(on_click))
     .extend(ClickHandler::by(set_pressed))
     .extend(ClickHandler::by(move |s: &mut T| set_color()))
-}
-
-pub fn create_ui_prototype_2() -> impl UIComponent<ViewerUI> {
-  button(
-    Value::by(|viewer: &ViewerUI| viewer.test.to_string()),
-    |viewer: &mut ViewerUI| viewer.test += 1,
-  )
 }

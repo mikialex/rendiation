@@ -34,6 +34,9 @@ pub use components::*;
 mod utils;
 pub use utils::*;
 
+mod app;
+pub use app::*;
+
 pub trait Component<T> {
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {}
 
@@ -42,7 +45,6 @@ pub trait Component<T> {
 
 pub struct UpdateCtx {
   time_stamp: u64,
-  gpu: Rc<GPU>,
 }
 
 pub trait ComponentExt<T>: Component<T> + Sized {
@@ -56,55 +58,5 @@ pub trait ComponentExt<T>: Component<T> + Sized {
 
 impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
 
-pub trait UIComponent<T>: Component<T> + Presentable + LayoutAble {}
-impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable + LayoutAble {}
-
-pub struct UI<T> {
-  root: Box<dyn UIComponent<T>>,
-  window_states: WindowState,
-  gpu: Rc<GPU>,
-}
-
-impl<T> UI<T> {
-  pub fn create(
-    root: impl UIComponent<T> + 'static,
-    initial_size: LayoutSize,
-    gpu: Rc<GPU>,
-  ) -> Self {
-    Self {
-      root: Box::new(root),
-      window_states: WindowState::new(initial_size),
-      gpu,
-    }
-  }
-
-  pub fn update(&mut self, model: &T) {
-    let mut ctx = UpdateCtx {
-      time_stamp: 0,
-      gpu: self.gpu.clone(),
-    };
-    self.root.update(model, &mut ctx);
-    self
-      .root
-      .layout(LayoutConstraint::from_max(self.window_states.size));
-    self.root.set_position(UIPosition { x: 0., y: 0. })
-  }
-
-  pub fn render(&mut self) -> UIPresentation {
-    let mut builder = PresentationBuilder {
-      present: UIPresentation::new(),
-    };
-    self.root.render(&mut builder);
-    builder.present.view_size = self.window_states.size;
-    builder.present
-  }
-
-  pub fn event(&mut self, event: &winit::event::Event<()>, model: &mut T) {
-    self.window_states.event(event);
-    let mut event = EventCtx {
-      event,
-      states: &self.window_states,
-    };
-    self.root.event(model, &mut event)
-  }
-}
+pub trait UIComponent<T>: Component<T> + Presentable + LayoutAble + 'static {}
+impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable + LayoutAble + 'static {}
