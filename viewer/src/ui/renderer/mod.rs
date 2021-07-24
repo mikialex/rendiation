@@ -4,7 +4,9 @@ use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
+mod pipeline;
 mod text;
+use pipeline::*;
 
 use crate::scene::VertexBufferSourceType;
 
@@ -15,11 +17,6 @@ use super::{Primitive, UIPresentation};
 pub struct WebGPUxUIRenderPass<'a> {
   pub renderer: &'a mut WebGPUxUIRenderer,
   pub presentation: &'a UIPresentation,
-}
-
-pub struct UITextureCache {
-  // cached_target_frame: wgpu::TextureView,
-// cached_target: wgpu::Texture,
 }
 
 impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
@@ -48,11 +45,19 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
     let renderer = &self.renderer;
     renderer.gpu_primitive_cache.iter().for_each(|p| match p {
       GPUxUIPrimitive::SolidColor(p) => {
-        pass.set_pipeline(&renderer.solid_color_pipeline);
-        pass.set_bind_group(0, &self.renderer.global_bindgroup, &[]);
+        pass.set_pipeline(&renderer.resource.solid_color_pipeline);
+        pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
         pass.set_index_buffer(p.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         pass.set_vertex_buffer(0, p.vertex_buffer.slice(..));
         pass.draw_indexed(0..p.length, 0, 0..1);
+      }
+      GPUxUIPrimitive::Texture(tex) => {
+        pass.set_pipeline(&renderer.resource.texture_pipeline);
+        pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
+        pass.set_bind_group(1, &tex.bindgroup.bindgroup, &[]);
+        pass.set_index_buffer(tex.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        pass.set_vertex_buffer(0, tex.vertex_buffer.slice(..));
+        pass.draw_indexed(0..tex.length, 0, 0..1);
       }
       GPUxUIPrimitive::Text(text) => {
         self.renderer.text_renderer.draw_gpu_text(pass, text);
@@ -78,12 +83,59 @@ pub struct GPUxUISolidColorPrimitive {
   length: u32,
 }
 
+pub struct GPUxUITexturedPrimitive {
+  bindgroup: TextureBindGroup,
+  vertex_buffer: wgpu::Buffer,
+  index_buffer: wgpu::Buffer,
+  length: u32,
+}
+
 pub enum GPUxUIPrimitive {
   SolidColor(GPUxUISolidColorPrimitive),
+  Texture(GPUxUITexturedPrimitive),
   Text(GPUxUITextPrimitive),
 }
 
 type UIMesh = IndexedMesh<u32, UIVertex, TriangleList>;
+
+fn build_quad(
+  device: &wgpu::Device,
+  quad: &crate::Quad,
+  color: Vec4<f32>,
+) -> (wgpu::Buffer, wgpu::Buffer) {
+  let mut vertices = Vec::new();
+
+  #[rustfmt::skip]
+  {
+  vertices.push(vertex((quad.x, quad.y), (0., 0.), color.into()));
+  vertices.push(vertex((quad.x, quad.y + quad.height), (0., 1.), color.into()));
+  vertices.push(vertex((quad.x + quad.width, quad.y), (1., 0.), color.into()));
+  vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (1., 1.), color.into()));
+  }
+  let mut index = Vec::<u32>::new();
+  index.push(0);
+  index.push(1);
+  index.push(2);
+  index.push(2);
+  index.push(1);
+  index.push(3);
+
+  let vertex = bytemuck::cast_slice(vertices.as_slice());
+  let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    label: None,
+    contents: vertex,
+    usage: wgpu::BufferUsage::VERTEX,
+  });
+
+  let index = bytemuck::cast_slice(index.as_slice());
+  let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    label: None,
+    contents: index,
+    usage: wgpu::BufferUsage::INDEX,
+  });
+
+  (index_buffer, vertex_buffer)
+}
 
 impl Primitive {
   pub fn create_gpu(
@@ -91,45 +143,39 @@ impl Primitive {
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     renderer: &mut TextRenderer,
+    res: &UIxGPUxResource,
   ) -> Option<GPUxUIPrimitive> {
     let p = match self {
-      #[rustfmt::skip]
-      Primitive::Quad((quad, color)) => {
-        let color = *color;
-        let mut vertices = Vec::new();
-        vertices.push(vertex((quad.x, quad.y), (0., 0.), color.into()));
-        vertices.push(vertex((quad.x, quad.y + quad.height), (0., 0.), color.into()));
-        vertices.push(vertex((quad.x + quad.width, quad.y), (0., 0.), color.into()));
-        vertices.push(vertex((quad.x + quad.width, quad.y + quad.height), (0., 0.), color.into()));
-        let mut index = Vec::<u32>::new();
-        index.push(0);
-        index.push(1);
-        index.push(2);
-        index.push(2);
-        index.push(1);
-        index.push(3);
+      Primitive::Quad((quad, style)) => {
+        match style {
+          crate::Style::SolidColor(color) => {
+            let color = *color;
 
-        let vertex = bytemuck::cast_slice(vertices.as_slice());
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-          label: None,
-          contents: vertex,
-          usage: wgpu::BufferUsage::VERTEX,
-        });
+            // let index_mesh: UIMesh = IndexedMesh::new(vertices, index);
+            let (index_buffer, vertex_buffer) = build_quad(device, quad, color);
 
-        let index = bytemuck::cast_slice(index.as_slice());
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-          label: None,
-          contents: index,
-          usage: wgpu::BufferUsage::INDEX,
-        });
+            GPUxUIPrimitive::SolidColor(GPUxUISolidColorPrimitive {
+              vertex_buffer,
+              index_buffer,
+              length: 6,
+            })
+          }
+          crate::Style::Texture(view) => {
+            let (index_buffer, vertex_buffer) = build_quad(device, quad, Vec4::one());
 
-        // let index_mesh: UIMesh = IndexedMesh::new(vertices, index);
-
-        GPUxUIPrimitive::SolidColor(GPUxUISolidColorPrimitive {
-          vertex_buffer,
-          index_buffer,
-          length: 6,
-        })
+            GPUxUIPrimitive::Texture(GPUxUITexturedPrimitive {
+              vertex_buffer,
+              index_buffer,
+              length: 6,
+              bindgroup: TextureBindGroup::new(
+                device,
+                &res.texture_bg_layout,
+                &res.sampler,
+                view.as_ref(),
+              ),
+            })
+          }
+        }
       }
       Primitive::Text(text) => {
         let text = renderer.create_gpu_text(
@@ -156,37 +202,30 @@ impl Primitive {
 }
 
 pub struct WebGPUxUIRenderer {
-  texture_cache: UITextureCache,
   gpu_primitive_cache: Vec<GPUxUIPrimitive>,
+  resource: UIxGPUxResource,
+  text_renderer: TextRenderer,
+}
+
+pub struct UIxGPUxResource {
   solid_color_pipeline: wgpu::RenderPipeline,
+  texture_pipeline: wgpu::RenderPipeline,
   global_ui_state: UniformBufferData<UIGlobalParameter>,
   global_uniform_bind_group_layout: wgpu::BindGroupLayout,
+  texture_bg_layout: wgpu::BindGroupLayout,
+  sampler: wgpu::Sampler,
   global_bindgroup: wgpu::BindGroup,
-  text_renderer: TextRenderer,
 }
 
 impl WebGPUxUIRenderer {
   pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
-    let texture_cache = UITextureCache {};
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
     };
 
     let global_ui_state = UniformBufferData::create(device, global_ui_state.clone());
-    let global_uniform_bind_group_layout =
-      device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[wgpu::BindGroupLayoutEntry {
-          binding: 0,
-          visibility: wgpu::ShaderStage::VERTEX,
-          ty: wgpu::BindingType::Buffer {
-            has_dynamic_offset: false,
-            min_binding_size: None,
-            ty: wgpu::BufferBindingType::Uniform,
-          },
-          count: None,
-        }],
-      });
+    let global_uniform_bind_group_layout = UIGlobalParameter::create_bind_group_layout(device);
+
     let global_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
       layout: &global_uniform_bind_group_layout,
       entries: &[wgpu::BindGroupEntry {
@@ -196,8 +235,17 @@ impl WebGPUxUIRenderer {
       label: None,
     });
 
+    let texture_bg_layout = TextureBindGroup::create_bind_group_layout(device);
+
     let solid_color_pipeline =
       create_solid_pipeline(device, target_format, &global_uniform_bind_group_layout);
+
+    let texture_pipeline = create_texture_pipeline(
+      device,
+      target_format,
+      &global_uniform_bind_group_layout,
+      &texture_bg_layout,
+    );
 
     let text_renderer = TextRenderer::new(
       device,
@@ -205,13 +253,29 @@ impl WebGPUxUIRenderer {
       wgpu::TextureFormat::Bgra8UnormSrgb,
     );
 
-    Self {
-      texture_cache,
-      gpu_primitive_cache: Vec::new(),
+    let sampler = device.create_sampler(&SamplerDescriptor {
+      address_mode_u: wgpu::AddressMode::ClampToEdge,
+      address_mode_v: wgpu::AddressMode::ClampToEdge,
+      address_mode_w: wgpu::AddressMode::ClampToEdge,
+      mag_filter: wgpu::FilterMode::Nearest,
+      min_filter: wgpu::FilterMode::Nearest,
+      mipmap_filter: wgpu::FilterMode::Nearest,
+      ..Default::default()
+    });
+
+    let resource = UIxGPUxResource {
       solid_color_pipeline,
+      texture_pipeline,
       global_ui_state,
       global_uniform_bind_group_layout,
+      texture_bg_layout,
+      sampler,
       global_bindgroup,
+    };
+
+    Self {
+      gpu_primitive_cache: Vec::new(),
+      resource,
       text_renderer,
     }
   }
@@ -225,19 +289,19 @@ impl WebGPUxUIRenderer {
   ) {
     self.gpu_primitive_cache.clear();
 
-    self.global_ui_state.screen_size =
+    self.resource.global_ui_state.screen_size =
       Vec2::new(presentation.view_size.width, presentation.view_size.height);
-    self.global_ui_state.update(queue);
+    self.resource.global_ui_state.update(queue);
 
     self
       .text_renderer
-      .resize_view(self.global_ui_state.screen_size, queue);
+      .resize_view(self.resource.global_ui_state.screen_size, queue);
 
     self.gpu_primitive_cache.extend(
       presentation
         .primitives
         .iter()
-        .filter_map(|p| p.create_gpu(device, encoder, &mut self.text_renderer)),
+        .filter_map(|p| p.create_gpu(device, encoder, &mut self.text_renderer, &self.resource)),
     )
   }
 }
@@ -258,6 +322,22 @@ impl UIGlobalParameter {
     };
     [[group(0), binding(0)]] var ui_global_parameter: UIGlobalParameter;
     "
+  }
+
+  fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: None,
+      entries: &[wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStage::VERTEX,
+        ty: wgpu::BindingType::Buffer {
+          has_dynamic_offset: false,
+          min_binding_size: None,
+          ty: wgpu::BufferBindingType::Uniform,
+        },
+        count: None,
+      }],
+    })
   }
 }
 
@@ -310,96 +390,4 @@ impl VertexBufferSourceType for Vec<UIVertex> {
       [[location(2)]] color: vec4<f32>,
     "#
   }
-}
-
-fn create_solid_pipeline(
-  device: &wgpu::Device,
-  target_format: wgpu::TextureFormat,
-  global_uniform_bind_group_layout: &wgpu::BindGroupLayout,
-) -> wgpu::RenderPipeline {
-  let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-    label: Some("ui_solid_pipeline_layout"),
-    bind_group_layouts: &[&global_uniform_bind_group_layout],
-    push_constant_ranges: &[],
-  });
-
-  let shader_source = format!(
-    "
-      {global_header}
-
-      struct VertexOutput {{
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] color: vec4<f32>;
-      }};
-
-      [[stage(vertex)]]
-      fn vs_main(
-        {vertex_header}
-      ) -> VertexOutput {{
-        var out: VertexOutput;
-
-        out.color = color;
-
-        out.position = vec4<f32>(
-            2.0 * position.x / ui_global_parameter.screen_size.x - 1.0,
-            1.0 - 2.0 * position.y / ui_global_parameter.screen_size.y,
-            0.0,
-            1.0,
-        );
-
-        return out;
-      }}
-      
-      [[stage(fragment)]]
-      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return in.color;
-      }}
-      
-      ",
-    vertex_header = Vec::<UIVertex>::get_shader_header(),
-    global_header = UIGlobalParameter::get_shader_header(),
-  );
-
-  let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-    label: None,
-    source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
-    flags: wgpu::ShaderFlags::all(),
-  });
-
-  let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-    label: Some("ui_solid_pipeline"),
-    layout: Some(&pipeline_layout),
-    vertex: wgpu::VertexState {
-      entry_point: "vs_main",
-      module: &shader,
-      buffers: &[Vec::<UIVertex>::vertex_layout()],
-    },
-    primitive: wgpu::PrimitiveState {
-      topology: wgpu::PrimitiveTopology::TriangleList,
-      clamp_depth: false,
-      conservative: false,
-      cull_mode: None,
-      front_face: wgpu::FrontFace::default(),
-      polygon_mode: wgpu::PolygonMode::default(),
-      strip_index_format: None,
-    },
-    depth_stencil: None,
-    multisample: wgpu::MultisampleState {
-      alpha_to_coverage_enabled: false,
-      count: 1,
-      mask: !0,
-    },
-
-    fragment: Some(wgpu::FragmentState {
-      module: &shader,
-      entry_point: "fs_main",
-      targets: &[wgpu::ColorTargetState {
-        format: target_format,
-        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-        write_mask: wgpu::ColorWrite::ALL,
-      }],
-    }),
-  });
-
-  render_pipeline
 }

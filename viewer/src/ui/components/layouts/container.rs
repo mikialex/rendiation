@@ -45,7 +45,7 @@ impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
     builder
       .present
       .primitives
-      .push(Primitive::Quad((self.quad_cache, *self.color.get())));
+      .push(Primitive::Quad((self.quad_cache, Style::SolidColor(*self.color.get()))));
     inner.render(builder);
   }
 }

@@ -1,6 +1,7 @@
 #![feature(capture_disjoint_fields)]
 #![feature(array_methods)]
 #![feature(min_specialization)]
+#![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
