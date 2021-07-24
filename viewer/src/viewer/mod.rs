@@ -32,15 +32,54 @@ impl Viewer {
 }
 
 pub fn create_ui() -> impl UIComponent<Viewer> {
-  button(
-    Value::by(|viewer: &Counter| viewer.count.to_string()),
-    |viewer: &mut Counter| viewer.count += 1,
-  )
-  .lens(lens!(Viewer, counter))
+  // button(
+  //   Value::by(|viewer: &Counter| viewer.count.to_string()),
+  //   |viewer: &mut Counter| viewer.count += 1,
+  // )
+  // .lens(lens!(Viewer, counter))
+  ViewerCanvas {
+    size: Default::default(),
+    content: None,
+    quad_cache: Quad::default(),
+  }
+  .lens(lens!(Viewer, viewer))
 }
 
 pub struct ViewerCanvas {
+  size: LayoutSize,
   content: Option<Rc<wgpu::TextureView>>,
+  quad_cache: Quad,
+}
+
+impl Presentable for ViewerCanvas {
+  fn render(&self, builder: &mut PresentationBuilder) {
+    if let Some(content) = &self.content {
+      builder.present.primitives.push(Primitive::Quad((
+        self.quad_cache,
+        Style::Texture(content.clone()),
+      )));
+    }
+  }
+}
+
+impl LayoutAble for ViewerCanvas {
+  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
+    let size_computed = constraint.clamp(self.size);
+    self.quad_cache.width = size_computed.width;
+    self.quad_cache.height = size_computed.height;
+    size_computed
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    self.quad_cache.x = position.x;
+    self.quad_cache.y = position.y;
+  }
+}
+
+impl HotAreaProvider for ViewerCanvas {
+  fn is_point_in(&self, point: crate::UIPosition) -> bool {
+    self.quad_cache.is_point_in(point)
+  }
 }
 
 impl Component<ViewerInner> for ViewerCanvas {
@@ -58,8 +97,22 @@ impl Component<ViewerInner> for ViewerCanvas {
             self
               .content
               .get_or_insert_with(|| {
-                // Rc::new()
-                todo!()
+                let device = &event.gpu.device;
+                let tex = device.create_texture(&wgpu::TextureDescriptor {
+                  size: wgpu::Extent3d {
+                    width: model.size.0 as u32,
+                    height: model.size.1 as u32,
+                    depth_or_array_layers: 1,
+                  },
+                  mip_level_count: 1,
+                  sample_count: 1,
+                  dimension: wgpu::TextureDimension::D2,
+                  format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                  usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+                  label: None,
+                });
+                let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
+                Rc::new(view)
               })
               .as_ref(),
             &event.gpu,
@@ -67,6 +120,13 @@ impl Component<ViewerInner> for ViewerCanvas {
           )
       }
       _ => {}
+    }
+  }
+
+  fn update(&mut self, model: &ViewerInner, ctx: &mut UpdateCtx) {
+    self.size = LayoutSize {
+      width: model.size.0,
+      height: model.size.1,
     }
   }
 }

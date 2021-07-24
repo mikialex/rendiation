@@ -111,7 +111,7 @@ impl TextureBindGroup {
           resource: wgpu::BindingResource::TextureView(view),
         },
         wgpu::BindGroupEntry {
-          binding: 0,
+          binding: 1,
           resource: wgpu::BindingResource::Sampler(sampler),
         },
       ],
