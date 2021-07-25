@@ -3,11 +3,12 @@ use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshGroup},
   mesh::{AbstractMesh, IndexedMesh, PrimitiveTopology, PrimitiveTopologyMeta},
 };
+use rendiation_webgpu::IndexBufferSourceType;
 use wgpu::util::DeviceExt;
 
 use crate::scene::MeshDrawGroup;
 
-use super::{GPUMeshData, IndexBufferSourceType, MeshGPU, VertexBufferSourceType};
+use super::{GPUMeshData, MeshGPU, VertexBufferSourceType};
 
 impl<I, V, T> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 where

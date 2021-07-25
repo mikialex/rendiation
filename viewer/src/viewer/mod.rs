@@ -1,6 +1,7 @@
 pub mod ui_impl;
 use std::rc::Rc;
 
+use interphaser::*;
 use rendiation_algebra::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
 use rendiation_renderable_mesh::tessellation::{
@@ -77,7 +78,7 @@ impl LayoutAble for ViewerCanvas {
 }
 
 impl HotAreaProvider for ViewerCanvas {
-  fn is_point_in(&self, point: crate::UIPosition) -> bool {
+  fn is_point_in(&self, point: UIPosition) -> bool {
     self.quad_cache.is_point_in(point)
   }
 }

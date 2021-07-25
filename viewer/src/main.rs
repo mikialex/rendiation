@@ -8,11 +8,8 @@
 #![allow(unreachable_code)]
 
 mod scene;
+use interphaser::Application;
 pub use scene::*;
-
-#[macro_use]
-pub mod ui;
-pub use ui::*;
 
 pub mod viewer;
 pub use viewer::*;

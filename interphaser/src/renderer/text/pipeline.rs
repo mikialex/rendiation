@@ -5,9 +5,8 @@ use rendiation_algebra::Vec2;
 use rendiation_webgpu::{BindableResource, UniformBufferData};
 use wgpu::util::DeviceExt;
 
-use crate::ui::renderer::text::text_quad_instance::Instance;
-
 use super::cache::Cache;
+use super::text_quad_instance::Instance;
 use super::GPUxUITextPrimitive;
 
 pub struct TextRendererPipeline {

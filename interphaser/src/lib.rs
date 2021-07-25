@@ -1,16 +1,18 @@
+#![feature(stmt_expr_attributes)]
+#![feature(capture_disjoint_fields)]
+#![allow(incomplete_features)]
+
 mod examples;
 
 #[macro_use]
 mod lens;
-use std::rc::Rc;
-
+#[macro_use]
 pub use lens::*;
 
 mod ability;
 pub use ability::*;
 
 mod structure;
-use rendiation_webgpu::GPU;
 pub use structure::*;
 
 mod events;

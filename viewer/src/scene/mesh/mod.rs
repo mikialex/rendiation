@@ -134,15 +134,3 @@ impl VertexBufferSourceType for Vec<Vertex> {
     "#
   }
 }
-
-pub trait IndexBufferSourceType: Pod {
-  const FORMAT: wgpu::IndexFormat;
-}
-
-impl IndexBufferSourceType for u32 {
-  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint32;
-}
-
-impl IndexBufferSourceType for u16 {
-  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint16;
-}

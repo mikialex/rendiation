@@ -1,4 +1,4 @@
-use crate::{ui::renderer::UIGlobalParameter, UIVertex, VertexBufferSourceType};
+use crate::{UIVertex, VertexBufferSourceType, renderer::UIGlobalParameter};
 
 pub fn create_solid_pipeline(
   device: &wgpu::Device,

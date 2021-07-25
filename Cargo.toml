@@ -14,6 +14,7 @@ members = [
   "components/texture/packer",
   "components/texture/generative",
   "components/space",
+  "interphaser",
   "viewer",
   "webgpu",
 ]

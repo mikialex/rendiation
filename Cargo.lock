@@ -1028,9 +1028,9 @@ dependencies = [
 
 [[package]]
 name = "glyph_brush_layout"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15cf18cf985bd942f05e14552b63c9d08f7d0ed1ec79a977eb9747c9e065f497"
+checksum = "cc32c2334f00ca5ac3695c5009ae35da21da8c62d255b5b96d56e2597a637a38"
 dependencies = [
  "ab_glyph",
  "approx",
@@ -1166,6 +1166,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61124eeebbd69b8190558df225adf7e4caafce0d743919e5d6b19652314ec5ec"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "interphaser"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "glyph_brush",
+ "image",
+ "log",
+ "rendiation-algebra",
+ "rendiation-renderable-mesh",
+ "rendiation-texture",
+ "rendiation-webgpu",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
@@ -2466,8 +2482,8 @@ dependencies = [
  "bytemuck",
  "env_logger",
  "futures",
- "glyph_brush",
  "image",
+ "interphaser",
  "log",
  "once_cell",
  "rendiation-algebra",

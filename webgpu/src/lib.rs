@@ -14,6 +14,7 @@ mod swap_chain;
 mod texture;
 mod uniform;
 
+use bytemuck::Pod;
 pub use encoder::*;
 pub use queue::*;
 use rendiation_texture::Size;
@@ -174,4 +175,16 @@ impl GPU {
     }
     flags
   }
+}
+
+pub trait IndexBufferSourceType: Pod {
+  const FORMAT: wgpu::IndexFormat;
+}
+
+impl IndexBufferSourceType for u32 {
+  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint32;
+}
+
+impl IndexBufferSourceType for u16 {
+  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint16;
 }

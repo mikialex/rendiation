@@ -8,7 +8,6 @@ mod pipeline;
 mod text;
 use pipeline::*;
 
-use crate::scene::VertexBufferSourceType;
 
 use self::text::{GPUxUITextPrimitive, TextRenderer};
 
@@ -356,6 +355,11 @@ fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32)) -> 
     uv: uv.into(),
     color: color.into(),
   }
+}
+
+pub trait VertexBufferSourceType {
+  fn vertex_layout() -> wgpu::VertexBufferLayout<'static>;
+  fn get_shader_header() -> &'static str;
 }
 
 impl VertexBufferSourceType for Vec<UIVertex> {
