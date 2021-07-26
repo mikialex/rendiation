@@ -5,10 +5,8 @@ use crate::*;
 pub struct Container<T> {
   pub size: Value<LayoutSize, T>,
   pub color: Value<Vec4<f32>, T>,
-  self_position_computed: UIPosition,
   child_position_relative: UIPosition,
-  size_computed: LayoutSize,
-  quad_cache: Quad,
+  layout: LayoutUnit,
 }
 
 impl<T> Container<T> {
@@ -16,10 +14,8 @@ impl<T> Container<T> {
     Self {
       size: Value::Static(size),
       color: Value::Static(Vec4::new(1., 1., 1., 0.)),
-      self_position_computed: Default::default(),
       child_position_relative: Default::default(),
-      size_computed: Default::default(),
-      quad_cache: Default::default(),
+      layout: Default::default(),
     }
   }
   pub fn color(mut self, color: impl Into<Value<Vec4<f32>, T>>) -> Self {
@@ -42,10 +38,10 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
 
 impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
   fn render(&self, builder: &mut PresentationBuilder, inner: &C) {
-    builder
-      .present
-      .primitives
-      .push(Primitive::Quad((self.quad_cache, Style::SolidColor(*self.color.get()))));
+    builder.present.primitives.push(Primitive::Quad((
+      self.layout.into_quad(),
+      Style::SolidColor(*self.color.get()),
+    )));
     inner.render(builder);
   }
 }
@@ -53,17 +49,13 @@ impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
 impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
   fn layout(&mut self, constraint: LayoutConstraint, inner: &mut C) -> LayoutSize {
     let child_size = inner.layout(constraint);
-    self.size_computed = constraint.clamp(*self.size.get());
+    self.layout.size = constraint.clamp(*self.size.get());
     self.child_position_relative = UIPosition { x: 0., y: 0. };
-    self.quad_cache.width = self.size_computed.width;
-    self.quad_cache.height = self.size_computed.height;
-    self.size_computed
+    self.layout.size
   }
 
   fn set_position(&mut self, position: UIPosition, inner: &mut C) {
-    self.self_position_computed = position;
-    self.quad_cache.x = position.x;
-    self.quad_cache.y = position.y;
+    self.layout.position = position;
 
     inner.set_position(UIPosition {
       x: position.x + self.child_position_relative.x,
@@ -74,6 +66,6 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
 
 impl<T, C> HotAreaPassBehavior<C> for Container<T> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
-    self.quad_cache.is_point_in(point)
+    self.layout.into_quad().is_point_in(point)
   }
 }

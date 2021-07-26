@@ -3,25 +3,17 @@ use rendiation_webgpu::GPU;
 use std::rc::Rc;
 use winit::event::Event;
 
+#[derive(Default)]
 pub struct GPUCanvas {
   content: Option<Rc<wgpu::TextureView>>,
-  quad_cache: Quad,
-}
-
-impl Default for GPUCanvas {
-  fn default() -> Self {
-    Self {
-      content: None,
-      quad_cache: Default::default(),
-    }
-  }
+  layout: LayoutUnit,
 }
 
 impl Presentable for GPUCanvas {
   fn render(&self, builder: &mut PresentationBuilder) {
     if let Some(content) = &self.content {
       builder.present.primitives.push(Primitive::Quad((
-        self.quad_cache,
+        self.layout.into_quad(),
         Style::Texture(content.clone()),
       )));
     }
@@ -30,15 +22,12 @@ impl Presentable for GPUCanvas {
 
 impl LayoutAble for GPUCanvas {
   fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
-    let size_computed = constraint.max();
-    self.quad_cache.width = size_computed.width;
-    self.quad_cache.height = size_computed.height;
-    size_computed
+    self.layout.size = constraint.max();
+    self.layout.size
   }
 
   fn set_position(&mut self, position: UIPosition) {
-    self.quad_cache.x = position.x;
-    self.quad_cache.y = position.y;
+    self.layout.position = position;
   }
 }
 
