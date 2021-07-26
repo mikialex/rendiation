@@ -9,7 +9,6 @@ mod examples;
 
 #[macro_use]
 mod lens;
-#[macro_use]
 pub use lens::*;
 
 mod ability;

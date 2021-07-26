@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{EventCtx, HotAreaPassBehavior, HotAreaProvider, LayoutAble, Presentable, UpdateCtx};
+use crate::{EventCtx, HotAreaProvider, LayoutAble, Presentable, UpdateCtx};
 
 use super::Component;
 

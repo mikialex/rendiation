@@ -1,8 +1,6 @@
-use std::marker::PhantomData;
-
-use bytemuck::Pod;
 use rendiation_renderable_mesh::{group::MeshGroup, vertex::Vertex};
 use rendiation_webgpu::GPU;
+use std::marker::PhantomData;
 
 use super::{MeshDrawGroup, Scene, TypedMeshHandle};
 
