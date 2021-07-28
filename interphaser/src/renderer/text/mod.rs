@@ -26,16 +26,17 @@ impl TextRenderer {
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
-    // font_path: &str,
-    // raw_builder: glyph_brush::GlyphBrushBuilder<F, H>,
   ) -> Self {
-    // Prepare glyph_brush
-    let inconsolata = ab_glyph::FontArc::try_from_slice(include_bytes!(
-      "C:/Users/mk/Desktop/Inconsolata-Regular.ttf"
-    ))
-    .unwrap();
+    let property = font_loader::system_fonts::FontPropertyBuilder::new()
+      .family("Arial")
+      .build();
 
-    let glyph_brush = GlyphBrushBuilder::using_font(inconsolata)
+    let (font, _) = font_loader::system_fonts::get(&property).unwrap();
+
+    // Prepare glyph_brush
+    let default_font = ab_glyph::FontArc::try_from_vec(font).unwrap();
+
+    let glyph_brush = GlyphBrushBuilder::using_font(default_font)
       .cache_redraws(false)
       .build();
 

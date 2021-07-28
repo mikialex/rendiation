@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 bytemuck = {version = "1.4.1", features = ["derive"]}
+font-loader = "0.11.0"
 glyph_brush = "0.7"
 image = "*"
 log = "0.4"
