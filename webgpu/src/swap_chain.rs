@@ -1,13 +1,13 @@
 use rendiation_texture::Size;
 
-pub struct SwapChain {
+pub struct GPUSwapChain {
   pub surface: wgpu::Surface,
   pub swap_chain: wgpu::SwapChain,
   pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
   pub size: Size,
 }
 
-impl SwapChain {
+impl GPUSwapChain {
   pub fn new(
     adapter: &wgpu::Adapter,
     device: &wgpu::Device,

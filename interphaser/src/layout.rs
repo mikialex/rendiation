@@ -1,8 +1,10 @@
+use crate::Quad;
+
 pub trait LayoutAble {
   fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
     constraint.min()
   }
-  fn set_position(&mut self, position: UIPosition) {}
+  fn set_position(&mut self, _position: UIPosition) {}
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -93,12 +95,9 @@ pub struct LayoutSize {
   pub height: f32,
 }
 
-impl LayoutSize{
-  pub fn new(width: f32, height: f32, ) -> Self {
-    Self{
-      width, 
-      height
-    }
+impl LayoutSize {
+  pub fn new(width: f32, height: f32) -> Self {
+    Self { width, height }
   }
 }
 
@@ -122,6 +121,23 @@ impl Default for Layout {
         width: 0.,
         height: 0.,
       },
+    }
+  }
+}
+
+#[derive(Default)]
+pub struct LayoutUnit {
+  pub size: LayoutSize,
+  pub position: UIPosition,
+}
+
+impl LayoutUnit {
+  pub fn into_quad(&self) -> Quad {
+    Quad {
+      x: self.position.x,
+      y: self.position.y,
+      width: self.size.width,
+      height: self.size.height,
     }
   }
 }

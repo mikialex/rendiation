@@ -1,9 +1,13 @@
+use std::rc::Rc;
+
 use crate::*;
+use rendiation_webgpu::GPU;
 use winit::event::*;
 
 pub struct EventCtx<'a> {
   pub event: &'a winit::event::Event<'a, ()>,
   pub states: &'a WindowState,
+  pub gpu: Rc<GPU>,
 }
 
 pub struct EventHandler<T> {
@@ -16,11 +20,11 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for EventHandler<T> {
 
 pub struct ClickHandler<T> {
   mouse_down: bool,
-  handler: Box<dyn Fn(&mut T)>,
+  handler: Box<dyn FnMut(&mut T)>,
 }
 
 impl<T> ClickHandler<T> {
-  pub fn by(handler: impl Fn(&mut T) + 'static) -> Self {
+  pub fn by(handler: impl FnMut(&mut T) + 'static) -> Self {
     Self {
       mouse_down: false,
       handler: Box::new(handler),

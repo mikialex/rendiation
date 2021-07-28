@@ -227,7 +227,7 @@ impl MaterialCPUResource for BasicMaterial {
   fn create(
     &mut self,
     handle: MaterialHandle,
-    gpu: &mut GPU,
+    gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
     let uniform = UniformBuffer::create(&gpu.device, self.color);

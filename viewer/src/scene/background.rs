@@ -11,7 +11,7 @@ pub struct SolidBackground {
 }
 
 impl Renderable for SolidBackground {
-  fn update(&mut self, renderer: &mut GPU, encoder: &mut wgpu::CommandEncoder) {}
+  fn update(&mut self, renderer: &GPU, encoder: &mut wgpu::CommandEncoder) {}
 
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {}
 }

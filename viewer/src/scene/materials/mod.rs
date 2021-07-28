@@ -6,14 +6,13 @@ use std::{
 pub mod bindable;
 pub use bindable::*;
 pub mod states;
+use rendiation_webgpu::GPU;
 pub use states::*;
 
 pub mod basic;
 pub use basic::*;
 
 use rendiation_algebra::Mat4;
-
-use crate::GPU;
 
 use super::{
   Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,
@@ -53,7 +52,7 @@ pub trait MaterialCPUResource {
   fn create(
     &mut self,
     handle: MaterialHandle,
-    gpu: &mut GPU,
+    gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU;
 }
@@ -122,7 +121,7 @@ pub struct SceneMaterialPassSetupCtx<'a> {
 
 pub trait Material {
   fn on_ref_resource_changed(&mut self);
-  fn update<'a>(&mut self, gpu: &mut GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
+  fn update<'a>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
 }
 
@@ -131,7 +130,7 @@ where
   T: MaterialCPUResource,
   T::GPU: MaterialGPUResource<Source = T>,
 {
-  fn update<'a>(&mut self, gpu: &mut GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
+  fn update<'a>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
     self
       .gpu
       .get_or_insert_with(|| T::create(&mut self.material, self.handle, gpu, ctx))

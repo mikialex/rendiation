@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use rendiation_algebra::*;
 
 use crate::{LayoutSize, UIPosition};
@@ -11,8 +13,14 @@ pub struct PresentationBuilder {
 }
 
 #[derive(Debug, Clone)]
+pub enum Style {
+  SolidColor(Vec4<f32>),
+  Texture(Rc<wgpu::TextureView>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Primitive {
-  Quad(Quad),
+  Quad((Quad, Style)),
   Text(TextInfo),
 }
 

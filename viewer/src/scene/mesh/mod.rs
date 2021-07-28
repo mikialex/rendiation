@@ -1,9 +1,6 @@
-use std::marker::PhantomData;
-
-use bytemuck::Pod;
 use rendiation_renderable_mesh::{group::MeshGroup, vertex::Vertex};
-
-use crate::GPU;
+use rendiation_webgpu::GPU;
+use std::marker::PhantomData;
 
 use super::{MeshDrawGroup, Scene, TypedMeshHandle};
 
@@ -12,7 +9,7 @@ pub use impls::*;
 
 pub trait Mesh {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
-  fn update(&mut self, gpu: &mut GPU);
+  fn update(&mut self, gpu: &GPU);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
@@ -38,7 +35,7 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
       .setup_pass(pass, self.data.get_group(group))
   }
 
-  fn update(&mut self, gpu: &mut GPU) {
+  fn update(&mut self, gpu: &GPU) {
     self.data.update(&mut self.gpu, &gpu.device);
   }
 
@@ -134,16 +131,4 @@ impl VertexBufferSourceType for Vec<Vertex> {
       [[location(2)]] uv: vec2<f32>,
     "#
   }
-}
-
-pub trait IndexBufferSourceType: Pod {
-  const FORMAT: wgpu::IndexFormat;
-}
-
-impl IndexBufferSourceType for u32 {
-  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint32;
-}
-
-impl IndexBufferSourceType for u16 {
-  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint16;
 }

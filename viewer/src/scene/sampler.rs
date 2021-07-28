@@ -1,5 +1,4 @@
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
-use rendiation_webgpu::*;
 
 use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, SamplerHandle, Scene};
 
