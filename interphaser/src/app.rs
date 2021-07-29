@@ -3,6 +3,7 @@ use std::{
   time::{Duration, Instant},
 };
 
+use glyph_brush::ab_glyph;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
@@ -23,6 +24,7 @@ pub struct ApplicationInner<T> {
   root: Box<dyn UIComponent<T>>,
   window_states: WindowState,
   ui_renderer: WebGPUxUIRenderer,
+  fonts: FontManager,
 
   window: winit::window::Window,
   last_update_inst: Instant,
@@ -43,13 +45,25 @@ impl<T: 'static> Application<T> {
     let (gpu, swap_chain) = GPU::new_with_swap_chain(&window).await;
     let gpu = Rc::new(gpu);
 
+    let mut fonts = FontManager::new();
+    let property = font_loader::system_fonts::FontPropertyBuilder::new()
+      .family("Arial")
+      .build();
+
+    let (font, _) = font_loader::system_fonts::get(&property).unwrap();
+
+    // Prepare glyph_brush
+    let default_font = ab_glyph::FontArc::try_from_vec(font).unwrap();
+    fonts.add_font(default_font);
+
     let prefer_target_fmt = swap_chain.swap_chain_descriptor.format;
-    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt);
+    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, &fonts);
 
     Self {
       event_loop,
       app: ApplicationInner {
         state,
+        fonts,
         root: Box::new(ui),
         window_states: WindowState::new(LayoutSize {
           width: initial_size.0,
@@ -120,9 +134,13 @@ impl<T> ApplicationInner<T> {
   fn update(&mut self) {
     let mut ctx = UpdateCtx { time_stamp: 0 };
     self.root.update(&self.state, &mut ctx);
-    self
-      .root
-      .layout(LayoutConstraint::from_max(self.window_states.size));
+
+    let mut ctx = LayoutCtx { fonts: &self.fonts };
+
+    self.root.layout(
+      LayoutConstraint::from_max(self.window_states.size),
+      &mut ctx,
+    );
     self.root.set_position(UIPosition { x: 0., y: 0. })
   }
 
@@ -138,6 +156,7 @@ impl<T> ApplicationInner<T> {
 
     self.gpu.render(
       &mut WebGPUxUIRenderPass {
+        fonts: &self.fonts,
         renderer: &mut self.ui_renderer,
         presentation: &builder.present,
       },

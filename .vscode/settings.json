@@ -17,6 +17,7 @@
         "GPURAL",
         "Hasher",
         "Lambertian",
+        "Layouter",
         "Lerp",
         "Mesher",
         "Nayar",

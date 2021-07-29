@@ -1,4 +1,8 @@
 pub mod ui_impl;
+pub use ui_impl::*;
+
+pub mod view;
+pub use view::*;
 
 use interphaser::*;
 use rendiation_algebra::*;
@@ -8,7 +12,6 @@ use rendiation_renderable_mesh::tessellation::{
 };
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::GPU;
-pub use ui_impl::*;
 use winit::event::{Event, WindowEvent};
 
 use crate::*;
@@ -32,12 +35,12 @@ impl Viewer {
 }
 
 pub fn create_ui() -> impl UIComponent<Viewer> {
-  // button(
-  //   Value::by(|viewer: &Counter| viewer.count.to_string()),
-  //   |viewer: &mut Counter| viewer.count += 1,
-  // )
-  // .lens(lens!(Viewer, counter))
-  GPUCanvas::default().lens(lens!(Viewer, viewer))
+  button(
+    Value::by(|viewer: &Counter| viewer.count.to_string()),
+    |viewer: &mut Counter| viewer.count += 1,
+  )
+  .lens(lens!(Viewer, counter))
+  // GPUCanvas::default().lens(lens!(Viewer, viewer))
 }
 
 impl CanvasPrinter for ViewerInner {

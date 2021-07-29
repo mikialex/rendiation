@@ -71,8 +71,13 @@ impl<T, C: Presentable> PresentableAbility<C> for ClickHandler<T> {
 }
 
 impl<T, C: LayoutAble> LayoutAbility<C> for ClickHandler<T> {
-  fn layout(&mut self, constraint: LayoutConstraint, inner: &mut C) -> LayoutSize {
-    inner.layout(constraint)
+  fn layout(
+    &mut self,
+    constraint: LayoutConstraint,
+    ctx: &mut LayoutCtx,
+    inner: &mut C,
+  ) -> LayoutSize {
+    inner.layout(constraint, ctx)
   }
 
   fn set_position(&mut self, position: UIPosition, inner: &mut C) {

@@ -47,8 +47,13 @@ impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
 }
 
 impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
-  fn layout(&mut self, constraint: LayoutConstraint, inner: &mut C) -> LayoutSize {
-    let child_size = inner.layout(constraint);
+  fn layout(
+    &mut self,
+    constraint: LayoutConstraint,
+    ctx: &mut LayoutCtx,
+    inner: &mut C,
+  ) -> LayoutSize {
+    let child_size = inner.layout(constraint, ctx);
     self.layout.size = constraint.clamp(*self.size.get());
     self.child_position_relative = UIPosition { x: 0., y: 0. };
     self.layout.size

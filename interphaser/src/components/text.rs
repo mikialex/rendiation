@@ -5,7 +5,7 @@ use crate::*;
 pub struct Text<T> {
   content: Value<String, T>,
   position_computed: UIPosition,
-  size_computed: LayoutSize,
+  size_computed: Option<LayoutSize>,
 }
 
 impl<T> Text<T> {
@@ -20,7 +20,9 @@ impl<T> Text<T> {
 
 impl<T> Component<T> for Text<T> {
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    self.content.update(model);
+    if self.content.update_and_check_changed(model).1 {
+      self.size_computed = None;
+    }
   }
 }
 
@@ -38,12 +40,29 @@ impl<T> Presentable for Text<T> {
 }
 
 impl<T> LayoutAble for Text<T> {
-  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
-    self.size_computed = constraint.clamp(LayoutSize {
-      width: (self.content.get().len() * 20) as f32,
-      height: 30.,
-    });
-    self.size_computed
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
+    use glyph_brush::{ab_glyph::*, *};
+    *self.size_computed.get_or_insert_with(|| {
+      let glyphs = Layout::default().calculate_glyphs(
+        ctx.fonts.fonts.as_slice(),
+        &SectionGeometry::default(),
+        &[SectionText {
+          text: self.content.get().as_str(),
+          scale: PxScale::from(30.0),
+          font_id: FontId(0),
+        }],
+      );
+      let mut max_width = 0.0_f32;
+      let mut max_height = 0.0_f32;
+      glyphs.iter().for_each(|glyph| {
+        max_width = max_width.max(glyph.glyph.position.x + glyph.glyph.scale.x);
+        max_height = max_height.max(glyph.glyph.position.y + glyph.glyph.scale.y);
+      });
+      LayoutSize {
+        width: max_width,
+        height: max_height,
+      }
+    })
   }
 
   fn set_position(&mut self, position: UIPosition) {

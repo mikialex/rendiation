@@ -1,7 +1,27 @@
+use glyph_brush::ab_glyph;
+
 use crate::Quad;
 
+pub struct FontManager {
+  pub fonts: Vec<ab_glyph::FontArc>,
+}
+
+impl FontManager {
+  pub fn new() -> Self {
+    Self { fonts: Vec::new() }
+  }
+
+  pub fn add_font(&mut self, font: ab_glyph::FontArc) {
+    self.fonts.push(font)
+  }
+}
+
+pub struct LayoutCtx<'a> {
+  pub fonts: &'a FontManager,
+}
+
 pub trait LayoutAble {
-  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
     constraint.min()
   }
   fn set_position(&mut self, _position: UIPosition) {}

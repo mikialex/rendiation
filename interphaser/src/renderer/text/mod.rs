@@ -11,6 +11,8 @@ use glyph_brush::{
   BrushAction, BrushError, DefaultSectionHasher, Extra, GlyphBrushBuilder, Section,
 };
 
+use crate::FontManager;
+
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
   length: u32,
@@ -26,17 +28,9 @@ impl TextRenderer {
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
+    fonts: &FontManager,
   ) -> Self {
-    let property = font_loader::system_fonts::FontPropertyBuilder::new()
-      .family("Arial")
-      .build();
-
-    let (font, _) = font_loader::system_fonts::get(&property).unwrap();
-
-    // Prepare glyph_brush
-    let default_font = ab_glyph::FontArc::try_from_vec(font).unwrap();
-
-    let glyph_brush = GlyphBrushBuilder::using_font(default_font)
+    let glyph_brush = GlyphBrushBuilder::using_fonts(fonts.fonts.clone())
       .cache_redraws(false)
       .build();
 
@@ -52,6 +46,12 @@ impl TextRenderer {
       ),
       glyph_brush,
     }
+  }
+
+  pub fn update_fonts(&mut self,  fonts: &FontManager){
+    self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.fonts.clone())
+      .cache_redraws(false)
+      .build();
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {

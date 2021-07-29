@@ -51,15 +51,24 @@ impl<T, C, A: PresentableAbility<C>> Presentable for Ability<T, C, A> {
 }
 
 pub trait LayoutAbility<C> {
-  fn layout(&mut self, constraint: LayoutConstraint, inner: &mut C) -> LayoutSize {
+  fn layout(
+    &mut self,
+    constraint: LayoutConstraint,
+    ctx: &mut LayoutCtx,
+    inner: &mut C,
+  ) -> LayoutSize {
     constraint.min()
   }
   fn set_position(&mut self, position: UIPosition, inner: &mut C) {}
 }
 
 impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
-  fn layout(&mut self, constraint: crate::LayoutConstraint) -> crate::LayoutSize {
-    self.ability.layout(constraint, &mut self.inner)
+  fn layout(
+    &mut self,
+    constraint: crate::LayoutConstraint,
+    ctx: &mut LayoutCtx,
+  ) -> crate::LayoutSize {
+    self.ability.layout(constraint, ctx, &mut self.inner)
   }
 
   fn set_position(&mut self, position: crate::UIPosition) {

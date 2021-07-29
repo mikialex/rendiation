@@ -27,12 +27,28 @@ impl<T: Default, U> Value<T, U> {
       value: Default::default(),
     })
   }
+
   pub fn update(&mut self, ctx: &U) -> &T {
     match self {
       Value::Static(v) => v,
       Value::Dynamic(d) => {
         d.value = (d.fun)(ctx);
         &d.value
+      }
+    }
+  }
+
+  pub fn update_and_check_changed(&mut self, ctx: &U) -> (&T, bool)
+  where
+    T: PartialEq,
+  {
+    match self {
+      Value::Static(v) => (v, false),
+      Value::Dynamic(d) => {
+        let new_value = (d.fun)(ctx);
+        let changed = d.value != new_value;
+        d.value = new_value;
+        (&d.value, changed)
       }
     }
   }
