@@ -55,7 +55,16 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
   ) -> LayoutSize {
     let child_size = inner.layout(constraint, ctx);
     self.layout.size = constraint.clamp(*self.size.get());
-    self.child_position_relative = UIPosition { x: 0., y: 0. };
+
+    let child_offset_x = self.layout.size.width - child_size.width;
+    let child_offset_x = child_offset_x.max(0.) * 0.5;
+    let child_offset_y = self.layout.size.height - child_size.height;
+    let child_offset_y = child_offset_y.max(0.) * 0.5;
+
+    self.child_position_relative = UIPosition {
+      x: child_offset_x,
+      y: child_offset_y,
+    };
     self.layout.size
   }
 

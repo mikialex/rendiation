@@ -37,7 +37,7 @@ impl Viewer {
 pub fn create_ui() -> impl UIComponent<Viewer> {
   button(
     Value::by(|viewer: &Counter| viewer.count.to_string()),
-    |viewer: &mut Counter| viewer.count += 1,
+    |viewer: &mut Counter| viewer.count += 10,
   )
   .lens(lens!(Viewer, counter))
   // GPUCanvas::default().lens(lens!(Viewer, viewer))
