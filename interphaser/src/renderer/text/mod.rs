@@ -30,7 +30,7 @@ impl TextRenderer {
     render_format: wgpu::TextureFormat,
     fonts: &FontManager,
   ) -> Self {
-    let glyph_brush = GlyphBrushBuilder::using_fonts(fonts.fonts.clone())
+    let glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
       .cache_redraws(false)
       .build();
 
@@ -48,8 +48,8 @@ impl TextRenderer {
     }
   }
 
-  pub fn update_fonts(&mut self,  fonts: &FontManager){
-    self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.fonts.clone())
+  pub fn update_fonts(&mut self, fonts: &FontManager) {
+    self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
       .cache_redraws(false)
       .build();
   }

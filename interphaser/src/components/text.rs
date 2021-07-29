@@ -44,7 +44,7 @@ impl<T> LayoutAble for Text<T> {
     use glyph_brush::{ab_glyph::*, *};
     *self.size_computed.get_or_insert_with(|| {
       let glyphs = Layout::default().calculate_glyphs(
-        ctx.fonts.fonts.as_slice(),
+        ctx.fonts.get_fonts().as_slice(),
         &SectionGeometry::default(),
         &[SectionText {
           text: self.content.get().as_str(),

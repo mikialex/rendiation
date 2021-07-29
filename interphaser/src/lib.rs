@@ -23,6 +23,9 @@ pub use events::*;
 mod layout;
 pub use layout::*;
 
+mod fonts;
+pub use fonts::*;
+
 mod animation;
 pub use animation::*;
 

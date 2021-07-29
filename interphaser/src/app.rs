@@ -3,7 +3,6 @@ use std::{
   time::{Duration, Instant},
 };
 
-use glyph_brush::ab_glyph;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
@@ -45,16 +44,7 @@ impl<T: 'static> Application<T> {
     let (gpu, swap_chain) = GPU::new_with_swap_chain(&window).await;
     let gpu = Rc::new(gpu);
 
-    let mut fonts = FontManager::new();
-    let property = font_loader::system_fonts::FontPropertyBuilder::new()
-      .family("Arial")
-      .build();
-
-    let (font, _) = font_loader::system_fonts::get(&property).unwrap();
-
-    // Prepare glyph_brush
-    let default_font = ab_glyph::FontArc::try_from_vec(font).unwrap();
-    fonts.add_font(default_font);
+    let fonts = FontManager::new_with_fallback_system_font("Arial");
 
     let prefer_target_fmt = swap_chain.swap_chain_descriptor.format;
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, &fonts);
