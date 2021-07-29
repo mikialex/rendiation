@@ -48,26 +48,52 @@ impl<T> LayoutAble for Text<T> {
   fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
     use glyph_brush::{ab_glyph::*, *};
     if self.layout_size_dirty {
-      let glyphs = Layout::SingleLine {
+      let layout = Layout::SingleLine {
         line_breaker: BuiltInLineBreaker::default(),
         h_align: HorizontalAlign::Center,
         v_align: VerticalAlign::Center,
-      }
+      };
+      let geometry = SectionGeometry::default();
+
+      let size = layout
       .calculate_glyphs(
         ctx.fonts.get_fonts().as_slice(),
-        &SectionGeometry::default(),
+        &geometry,
         &[SectionText {
           text: self.content.get().as_str(),
           scale: PxScale::from(30.0),
           font_id: FontId(0),
         }],
-      );
-      let mut max_width = 0.0_f32;
-      let mut max_height = 0.0_f32;
-      glyphs.iter().for_each(|glyph| {
-        max_width = max_width.max(glyph.glyph.position.x + glyph.glyph.scale.x);
-        max_height = max_height.max(glyph.glyph.position.y + glyph.glyph.scale.y);
-      });
+      )
+      .iter()
+      .fold(None, |b: Option<Rect>, sg| {
+        let bounds = ctx.fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
+        b.map(|b| {
+          let min_x = b.min.x.min(bounds.min.x);
+          let max_x = b.max.x.max(bounds.max.x);
+          let min_y = b.min.y.min(bounds.min.y);
+          let max_y = b.max.y.max(bounds.max.y);
+          Rect {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+          }
+        })
+        .or(Some(bounds))
+      })
+      .map(|mut b| {
+        // cap the glyph bounds to the layout specified max bounds
+        let Rect { min, max } = layout.bounds_rect(&geometry);
+        b.min.x = b.min.x.max(min.x);
+        b.min.y = b.min.y.max(min.y);
+        b.max.x = b.max.x.min(max.x);
+        b.max.y = b.max.y.min(max.y);
+        b
+      }).unwrap();
+
+      let max_width = size.max.x - size.min.x;
+      let max_height = size.max.y - size.min.y;
+
+
       println!("{}, {}", max_width, max_height);
 
       self.layout.size = LayoutSize {

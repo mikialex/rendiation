@@ -37,7 +37,11 @@ impl FontManager {
       .1
   }
 
-  pub fn get_font_id(&self, name: &str) -> FontId {
+  pub fn get_font(&self, id: FontId) -> &ab_glyph::FontArc {
+    self.fonts.get(id.0).unwrap()
+  }
+
+  pub fn get_font_id_or_fallback(&self, name: &str) -> FontId {
     if let Some(font) = self.fonts_by_name.get(name) {
       font.1
     } else {
