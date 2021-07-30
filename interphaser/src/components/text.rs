@@ -56,45 +56,43 @@ impl<T> LayoutAble for Text<T> {
       let geometry = SectionGeometry::default();
 
       let size = layout
-      .calculate_glyphs(
-        ctx.fonts.get_fonts().as_slice(),
-        &geometry,
-        &[SectionText {
-          text: self.content.get().as_str(),
-          scale: PxScale::from(30.0),
-          font_id: FontId(0),
-        }],
-      )
-      .iter()
-      .fold(None, |b: Option<Rect>, sg| {
-        let bounds = ctx.fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
-        b.map(|b| {
-          let min_x = b.min.x.min(bounds.min.x);
-          let max_x = b.max.x.max(bounds.max.x);
-          let min_y = b.min.y.min(bounds.min.y);
-          let max_y = b.max.y.max(bounds.max.y);
-          Rect {
-            min: point(min_x, min_y),
-            max: point(max_x, max_y),
-          }
+        .calculate_glyphs(
+          ctx.fonts.get_fonts().as_slice(),
+          &geometry,
+          &[SectionText {
+            text: self.content.get().as_str(),
+            scale: PxScale::from(30.0),
+            font_id: FontId(0),
+          }],
+        )
+        .iter()
+        .fold(None, |b: Option<Rect>, sg| {
+          let bounds = ctx.fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
+          b.map(|b| {
+            let min_x = b.min.x.min(bounds.min.x);
+            let max_x = b.max.x.max(bounds.max.x);
+            let min_y = b.min.y.min(bounds.min.y);
+            let max_y = b.max.y.max(bounds.max.y);
+            Rect {
+              min: point(min_x, min_y),
+              max: point(max_x, max_y),
+            }
+          })
+          .or(Some(bounds))
         })
-        .or(Some(bounds))
-      })
-      .map(|mut b| {
-        // cap the glyph bounds to the layout specified max bounds
-        let Rect { min, max } = layout.bounds_rect(&geometry);
-        b.min.x = b.min.x.max(min.x);
-        b.min.y = b.min.y.max(min.y);
-        b.max.x = b.max.x.min(max.x);
-        b.max.y = b.max.y.min(max.y);
-        b
-      }).unwrap();
+        .map(|mut b| {
+          // cap the glyph bounds to the layout specified max bounds
+          let Rect { min, max } = layout.bounds_rect(&geometry);
+          b.min.x = b.min.x.max(min.x);
+          b.min.y = b.min.y.max(min.y);
+          b.max.x = b.max.x.min(max.x);
+          b.max.y = b.max.y.min(max.y);
+          b
+        })
+        .unwrap_or(Rect::default());
 
       let max_width = size.max.x - size.min.x;
       let max_height = size.max.y - size.min.y;
-
-
-      println!("{}, {}", max_width, max_height);
 
       self.layout.size = LayoutSize {
         width: max_width,

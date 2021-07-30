@@ -122,7 +122,10 @@ impl<T: 'static> Application<T> {
 
 impl<T> ApplicationInner<T> {
   fn update(&mut self) {
-    let mut ctx = UpdateCtx { time_stamp: 0 };
+    let mut ctx = UpdateCtx {
+      time_stamp: 0,
+      layout_changed: false,
+    };
     self.root.update(&self.state, &mut ctx);
 
     let mut ctx = LayoutCtx { fonts: &self.fonts };
