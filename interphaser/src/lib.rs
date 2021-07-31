@@ -71,6 +71,12 @@ pub struct UpdateCtx {
   layout_changed: bool,
 }
 
+impl UpdateCtx {
+  pub fn request_layout(&mut self) {
+    self.layout_changed = true;
+  }
+}
+
 pub trait ComponentExt<T>: Component<T> + Sized {
   fn extend<A: ComponentAbility<T, Self>>(self, ability: A) -> Ability<T, Self, A> {
     Ability::new(self, ability)

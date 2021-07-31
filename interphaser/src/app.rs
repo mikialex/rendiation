@@ -22,6 +22,7 @@ pub struct ApplicationInner<T> {
   state: T,
   root: Box<dyn UIComponent<T>>,
   window_states: WindowState,
+  root_size_changed: bool,
   ui_renderer: WebGPUxUIRenderer,
   fonts: FontManager,
 
@@ -55,6 +56,7 @@ impl<T: 'static> Application<T> {
         state,
         fonts,
         root: Box::new(ui),
+        root_size_changed: true,
         window_states: WindowState::new(LayoutSize {
           width: initial_size.0,
           height: initial_size.1,
@@ -128,6 +130,12 @@ impl<T> ApplicationInner<T> {
     };
     self.root.update(&self.state, &mut ctx);
 
+    let need_layout = ctx.layout_changed || self.root_size_changed;
+    self.root_size_changed = false;
+    if !need_layout {
+      return;
+    }
+
     let mut ctx = LayoutCtx { fonts: &self.fonts };
 
     self.root.layout(
@@ -158,7 +166,9 @@ impl<T> ApplicationInner<T> {
   }
 
   fn event(&mut self, event: &winit::event::Event<()>) {
+    let window_size = self.window_states.size;
     self.window_states.event(event);
+    self.root_size_changed = window_size != self.window_states.size;
     let mut event = EventCtx {
       event,
       states: &self.window_states,

@@ -26,9 +26,17 @@ impl<T> Container<T> {
 
 impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    self.size.update(model);
+    if !self.layout.attached {
+      ctx.request_layout();
+      self.layout.attached = true;
+    }
+
+    if self.size.update_and_check_changed(model).1 {
+      ctx.request_layout()
+    }
     self.color.update(model);
     inner.update(model, ctx);
+    self.layout.sub_item_layout_change = ctx.layout_changed;
   }
 
   fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
@@ -53,6 +61,10 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
     ctx: &mut LayoutCtx,
     inner: &mut C,
   ) -> LayoutSize {
+    if !self.layout.sub_item_layout_change {
+      return self.layout.size;
+    }
+    self.layout.sub_item_layout_change = false;
     let child_size = inner.layout(constraint, ctx);
     self.layout.size = constraint.clamp(*self.size.get());
 

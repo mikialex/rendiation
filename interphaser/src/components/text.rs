@@ -5,7 +5,6 @@ use crate::*;
 pub struct Text<T> {
   content: Value<String, T>,
   layout: LayoutUnit,
-  layout_size_dirty: bool,
 }
 
 impl<T> Text<T> {
@@ -13,7 +12,6 @@ impl<T> Text<T> {
     Self {
       content: content.into(),
       layout: Default::default(),
-      layout_size_dirty: true,
     }
   }
 }
@@ -21,7 +19,8 @@ impl<T> Text<T> {
 impl<T> Component<T> for Text<T> {
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
     if self.content.update_and_check_changed(model).1 {
-      self.layout_size_dirty = true;
+      ctx.request_layout();
+      self.layout.sub_item_layout_change = true;
     }
   }
 }
@@ -46,60 +45,62 @@ impl<T> Presentable for Text<T> {
 
 impl<T> LayoutAble for Text<T> {
   fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
-    use glyph_brush::{ab_glyph::*, *};
-    if self.layout_size_dirty {
-      let layout = Layout::SingleLine {
-        line_breaker: BuiltInLineBreaker::default(),
-        h_align: HorizontalAlign::Center,
-        v_align: VerticalAlign::Center,
-      };
-      let geometry = SectionGeometry::default();
-
-      let size = layout
-        .calculate_glyphs(
-          ctx.fonts.get_fonts().as_slice(),
-          &geometry,
-          &[SectionText {
-            text: self.content.get().as_str(),
-            scale: PxScale::from(30.0),
-            font_id: FontId(0),
-          }],
-        )
-        .iter()
-        .fold(None, |b: Option<Rect>, sg| {
-          let bounds = ctx.fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
-          b.map(|b| {
-            let min_x = b.min.x.min(bounds.min.x);
-            let max_x = b.max.x.max(bounds.max.x);
-            let min_y = b.min.y.min(bounds.min.y);
-            let max_y = b.max.y.max(bounds.max.y);
-            Rect {
-              min: point(min_x, min_y),
-              max: point(max_x, max_y),
-            }
-          })
-          .or(Some(bounds))
-        })
-        .map(|mut b| {
-          // cap the glyph bounds to the layout specified max bounds
-          let Rect { min, max } = layout.bounds_rect(&geometry);
-          b.min.x = b.min.x.max(min.x);
-          b.min.y = b.min.y.max(min.y);
-          b.max.x = b.max.x.min(max.x);
-          b.max.y = b.max.y.min(max.y);
-          b
-        })
-        .unwrap_or(Rect::default());
-
-      let max_width = size.max.x - size.min.x;
-      let max_height = size.max.y - size.min.y;
-
-      self.layout.size = LayoutSize {
-        width: max_width,
-        height: max_height,
-      };
-      self.layout_size_dirty = false;
+    if !self.layout.sub_item_layout_change {
+      return self.layout.size;
     }
+    self.layout.sub_item_layout_change = false;
+
+    use glyph_brush::{ab_glyph::*, *};
+    let layout = Layout::SingleLine {
+      line_breaker: BuiltInLineBreaker::default(),
+      h_align: HorizontalAlign::Center,
+      v_align: VerticalAlign::Center,
+    };
+    let geometry = SectionGeometry::default();
+
+    let size = layout
+      .calculate_glyphs(
+        ctx.fonts.get_fonts().as_slice(),
+        &geometry,
+        &[SectionText {
+          text: self.content.get().as_str(),
+          scale: PxScale::from(30.0),
+          font_id: FontId(0),
+        }],
+      )
+      .iter()
+      .fold(None, |b: Option<Rect>, sg| {
+        let bounds = ctx.fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
+        b.map(|b| {
+          let min_x = b.min.x.min(bounds.min.x);
+          let max_x = b.max.x.max(bounds.max.x);
+          let min_y = b.min.y.min(bounds.min.y);
+          let max_y = b.max.y.max(bounds.max.y);
+          Rect {
+            min: point(min_x, min_y),
+            max: point(max_x, max_y),
+          }
+        })
+        .or(Some(bounds))
+      })
+      .map(|mut b| {
+        // cap the glyph bounds to the layout specified max bounds
+        let Rect { min, max } = layout.bounds_rect(&geometry);
+        b.min.x = b.min.x.max(min.x);
+        b.min.y = b.min.y.max(min.y);
+        b.max.x = b.max.x.min(max.x);
+        b.max.y = b.max.y.min(max.y);
+        b
+      })
+      .unwrap_or(Rect::default());
+
+    let max_width = size.max.x - size.min.x;
+    let max_height = size.max.y - size.min.y;
+
+    self.layout.size = LayoutSize {
+      width: max_width,
+      height: max_height,
+    };
 
     self.layout.size
   }

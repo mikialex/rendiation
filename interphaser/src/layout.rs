@@ -129,10 +129,22 @@ impl Default for Layout {
   }
 }
 
-#[derive(Default)]
 pub struct LayoutUnit {
   pub size: LayoutSize,
   pub position: UIPosition,
+  pub attached: bool,
+  pub sub_item_layout_change: bool,
+}
+
+impl Default for LayoutUnit {
+  fn default() -> Self {
+    Self {
+      size: Default::default(),
+      position: Default::default(),
+      attached: false,
+      sub_item_layout_change: true,
+    }
+  }
 }
 
 impl LayoutUnit {
