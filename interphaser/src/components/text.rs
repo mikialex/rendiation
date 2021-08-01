@@ -18,7 +18,7 @@ impl<T> Text<T> {
 
 impl<T> Component<T> for Text<T> {
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    if self.content.diff_update(model).1 {
+    if self.content.diff_update(model).changed {
       ctx.request_layout();
       self.layout.need_update = true;
     }

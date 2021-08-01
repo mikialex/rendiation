@@ -28,7 +28,7 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
     self.layout.check_attach(ctx);
 
-    if self.size.diff_update(model).1 {
+    if self.size.diff_update(model).changed {
       ctx.request_layout()
     }
     self.color.update(model);
