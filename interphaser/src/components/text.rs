@@ -18,9 +18,9 @@ impl<T> Text<T> {
 
 impl<T> Component<T> for Text<T> {
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    if self.content.update_and_check_changed(model).1 {
+    if self.content.diff_update(model).1 {
       ctx.request_layout();
-      self.layout.sub_item_layout_change = true;
+      self.layout.need_update = true;
     }
   }
 }
@@ -45,10 +45,10 @@ impl<T> Presentable for Text<T> {
 
 impl<T> LayoutAble for Text<T> {
   fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
-    if !self.layout.sub_item_layout_change {
+    if !self.layout.need_update {
       return self.layout.size;
     }
-    self.layout.sub_item_layout_change = false;
+    self.layout.need_update = false;
 
     use glyph_brush::{ab_glyph::*, *};
     let layout = Layout::SingleLine {

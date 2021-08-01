@@ -1,4 +1,4 @@
-use crate::{FontManager, Quad};
+use crate::{FontManager, Quad, UpdateCtx};
 
 pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
@@ -133,7 +133,7 @@ pub struct LayoutUnit {
   pub size: LayoutSize,
   pub position: UIPosition,
   pub attached: bool,
-  pub sub_item_layout_change: bool,
+  pub need_update: bool,
 }
 
 impl Default for LayoutUnit {
@@ -142,12 +142,19 @@ impl Default for LayoutUnit {
       size: Default::default(),
       position: Default::default(),
       attached: false,
-      sub_item_layout_change: true,
+      need_update: true,
     }
   }
 }
 
 impl LayoutUnit {
+  pub fn check_attach(&mut self, ctx: &mut UpdateCtx) {
+    if !self.attached {
+      ctx.request_layout();
+      self.attached = true;
+    }
+  }
+
   pub fn into_quad(&self) -> Quad {
     Quad {
       x: self.position.x,

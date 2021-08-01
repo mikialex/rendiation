@@ -38,7 +38,7 @@ impl<T: Default, U> Value<T, U> {
     }
   }
 
-  pub fn update_and_check_changed(&mut self, ctx: &U) -> (&T, bool)
+  pub fn diff_update(&mut self, ctx: &U) -> (&T, bool)
   where
     T: PartialEq,
   {
