@@ -58,7 +58,7 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
     ctx: &mut LayoutCtx,
     inner: &mut C,
   ) -> LayoutSize {
-    if !self.layout.need_update {
+    if self.layout.skipable(constraint) {
       return self.layout.size;
     }
     self.layout.need_update = false;

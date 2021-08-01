@@ -92,6 +92,7 @@
         "schlick",
         "shadergraph",
         "sinc",
+        "skipable",
         "spirv",
         "swapchain",
         "texels",

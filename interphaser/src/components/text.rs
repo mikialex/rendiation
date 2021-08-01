@@ -45,7 +45,7 @@ impl<T> Presentable for Text<T> {
 
 impl<T> LayoutAble for Text<T> {
   fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
-    if !self.layout.need_update {
+    if self.layout.skipable(constraint) {
       return self.layout.size;
     }
     self.layout.need_update = false;

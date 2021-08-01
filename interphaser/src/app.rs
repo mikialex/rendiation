@@ -168,7 +168,7 @@ impl<T> ApplicationInner<T> {
   fn event(&mut self, event: &winit::event::Event<()>) {
     let window_size = self.window_states.size;
     self.window_states.event(event);
-    self.root_size_changed = window_size != self.window_states.size;
+    self.root_size_changed |= window_size != self.window_states.size;
     let mut event = EventCtx {
       event,
       states: &self.window_states,
