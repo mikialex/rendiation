@@ -29,11 +29,11 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
     self.layout.check_attach(ctx);
 
     if self.size.diff_update(model).changed {
-      ctx.request_layout()
+      self.layout.request_layout(ctx)
     }
     self.color.update(model);
     inner.update(model, ctx);
-    self.layout.need_update = ctx.layout_changed;
+    self.layout.or_layout_change(ctx);
   }
 
   fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
@@ -61,7 +61,6 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
     if self.layout.skipable(constraint) {
       return self.layout.size;
     }
-    self.layout.need_update = false;
     let child_size = inner.layout(constraint, ctx);
     self.layout.size = constraint.clamp(*self.size.get());
 

@@ -19,8 +19,7 @@ impl<T> Text<T> {
 impl<T> Component<T> for Text<T> {
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
     if self.content.diff_update(model).changed {
-      ctx.request_layout();
-      self.layout.need_update = true;
+      self.layout.request_layout(ctx);
     }
   }
 }
@@ -48,7 +47,6 @@ impl<T> LayoutAble for Text<T> {
     if self.layout.skipable(constraint) {
       return self.layout.size;
     }
-    self.layout.need_update = false;
 
     use glyph_brush::{ab_glyph::*, *};
     let layout = Layout::SingleLine {

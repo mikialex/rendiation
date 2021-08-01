@@ -163,13 +163,24 @@ impl LayoutUnit {
     }
   }
 
+  pub fn or_layout_change(&mut self, ctx: &mut UpdateCtx) {
+    self.need_update |= ctx.layout_changed;
+  }
+
+  pub fn request_layout(&mut self, ctx: &mut UpdateCtx) {
+    self.need_update = true;
+    ctx.request_layout();
+  }
+
   pub fn skipable(&mut self, new_constraint: LayoutConstraint) -> bool {
     let constraint_changed = new_constraint != self.previous_constrains;
     if constraint_changed {
       self.previous_constrains = new_constraint;
     }
     self.need_update |= constraint_changed;
-    !self.need_update
+    let result = !self.need_update;
+    self.need_update = false;
+    result
   }
 
   pub fn into_quad(&self) -> Quad {
