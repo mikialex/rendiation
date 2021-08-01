@@ -1,14 +1,19 @@
 use crate::*;
 
+#[derive(Default)]
 pub struct Memo<T> {
   cached: Option<T>,
 }
 
-impl<T: PartialEq, C: Component<T>> ComponentAbility<T, C> for Memo<T> {
+impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for Memo<T> {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    if true {
-      inner.update(model, ctx);
+    if let Some(cached) = self.cached.as_ref() {
+      if cached == model {
+        return;
+      }
     }
+    inner.update(model, ctx);
+    self.cached = model.clone().into();
   }
 }
 
