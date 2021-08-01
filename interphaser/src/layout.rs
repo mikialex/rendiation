@@ -1,18 +1,28 @@
-use crate::Quad;
+use crate::{FontManager, Quad, UpdateCtx};
+
+pub struct LayoutCtx<'a> {
+  pub fonts: &'a FontManager,
+}
 
 pub trait LayoutAble {
-  fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
     constraint.min()
   }
   fn set_position(&mut self, _position: UIPosition) {}
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutConstraint {
   pub width_min: f32,
   pub width_max: f32,
   pub height_min: f32,
   pub height_max: f32,
+}
+
+impl Default for LayoutConstraint {
+  fn default() -> Self {
+    Self::unlimited()
+  }
 }
 
 impl LayoutConstraint {
@@ -125,13 +135,54 @@ impl Default for Layout {
   }
 }
 
-#[derive(Default)]
 pub struct LayoutUnit {
+  previous_constrains: LayoutConstraint,
   pub size: LayoutSize,
   pub position: UIPosition,
+  pub attached: bool,
+  pub need_update: bool,
+}
+
+impl Default for LayoutUnit {
+  fn default() -> Self {
+    Self {
+      previous_constrains: Default::default(),
+      size: Default::default(),
+      position: Default::default(),
+      attached: false,
+      need_update: true,
+    }
+  }
 }
 
 impl LayoutUnit {
+  pub fn check_attach(&mut self, ctx: &mut UpdateCtx) {
+    if !self.attached {
+      ctx.request_layout();
+      self.attached = true;
+    }
+  }
+
+  pub fn or_layout_change(&mut self, ctx: &mut UpdateCtx) {
+    self.need_update |= ctx.layout_changed;
+  }
+
+  pub fn request_layout(&mut self, ctx: &mut UpdateCtx) {
+    self.need_update = true;
+    ctx.request_layout();
+  }
+
+  pub fn skipable(&mut self, new_constraint: LayoutConstraint) -> bool {
+    let constraint_changed = new_constraint != self.previous_constrains;
+    if constraint_changed {
+      self.previous_constrains = new_constraint;
+    }
+    self.need_update |= constraint_changed;
+    let result = !self.need_update;
+    self.need_update = false;
+    result
+  }
+
   pub fn into_quad(&self) -> Quad {
     Quad {
       x: self.position.x,

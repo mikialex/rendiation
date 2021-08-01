@@ -35,7 +35,7 @@ pub fn button<T: 'static>(
     .extend(
       Container::size(LayoutSize {
         width: 200.,
-        height: 60.,
+        height: 80.,
       })
       .color(Value::by(move |s: &T| state.visit(|s| s.color))),
     )

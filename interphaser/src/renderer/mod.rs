@@ -8,6 +8,7 @@ mod pipeline;
 mod text;
 use pipeline::*;
 
+use crate::FontManager;
 
 use self::text::{GPUxUITextPrimitive, TextRenderer};
 
@@ -15,6 +16,7 @@ use super::{Primitive, UIPresentation};
 
 pub struct WebGPUxUIRenderPass<'a> {
   pub renderer: &'a mut WebGPUxUIRenderer,
+  pub fonts: &'a FontManager,
   pub presentation: &'a UIPresentation,
 }
 
@@ -65,6 +67,7 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
   }
 
   fn update(&mut self, renderer: &GPU, encoder: &mut wgpu::CommandEncoder) {
+    self.renderer.text_renderer.update_fonts(&self.fonts);
     self.renderer.update(
       &self.presentation,
       &renderer.device,
@@ -217,7 +220,11 @@ pub struct UIxGPUxResource {
 }
 
 impl WebGPUxUIRenderer {
-  pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+  pub fn new(
+    device: &wgpu::Device,
+    target_format: wgpu::TextureFormat,
+    fonts: &FontManager,
+  ) -> Self {
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
     };
@@ -250,6 +257,7 @@ impl WebGPUxUIRenderer {
       device,
       wgpu::FilterMode::Linear,
       wgpu::TextureFormat::Bgra8UnormSrgb,
+      fonts,
     );
 
     let sampler = device.create_sampler(&SamplerDescriptor {

@@ -22,7 +22,9 @@ pub struct ApplicationInner<T> {
   state: T,
   root: Box<dyn UIComponent<T>>,
   window_states: WindowState,
+  root_size_changed: bool,
   ui_renderer: WebGPUxUIRenderer,
+  fonts: FontManager,
 
   window: winit::window::Window,
   last_update_inst: Instant,
@@ -43,14 +45,18 @@ impl<T: 'static> Application<T> {
     let (gpu, swap_chain) = GPU::new_with_swap_chain(&window).await;
     let gpu = Rc::new(gpu);
 
+    let fonts = FontManager::new_with_fallback_system_font("Arial");
+
     let prefer_target_fmt = swap_chain.swap_chain_descriptor.format;
-    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt);
+    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, &fonts);
 
     Self {
       event_loop,
       app: ApplicationInner {
         state,
+        fonts,
         root: Box::new(ui),
+        root_size_changed: true,
         window_states: WindowState::new(LayoutSize {
           width: initial_size.0,
           height: initial_size.1,
@@ -118,11 +124,24 @@ impl<T: 'static> Application<T> {
 
 impl<T> ApplicationInner<T> {
   fn update(&mut self) {
-    let mut ctx = UpdateCtx { time_stamp: 0 };
+    let mut ctx = UpdateCtx {
+      time_stamp: 0,
+      layout_changed: false,
+    };
     self.root.update(&self.state, &mut ctx);
-    self
-      .root
-      .layout(LayoutConstraint::from_max(self.window_states.size));
+
+    let need_layout = ctx.layout_changed || self.root_size_changed;
+    self.root_size_changed = false;
+    if !need_layout {
+      return;
+    }
+
+    let mut ctx = LayoutCtx { fonts: &self.fonts };
+
+    self.root.layout(
+      LayoutConstraint::from_max(self.window_states.size),
+      &mut ctx,
+    );
     self.root.set_position(UIPosition { x: 0., y: 0. })
   }
 
@@ -138,6 +157,7 @@ impl<T> ApplicationInner<T> {
 
     self.gpu.render(
       &mut WebGPUxUIRenderPass {
+        fonts: &self.fonts,
         renderer: &mut self.ui_renderer,
         presentation: &builder.present,
       },
@@ -146,7 +166,9 @@ impl<T> ApplicationInner<T> {
   }
 
   fn event(&mut self, event: &winit::event::Event<()>) {
+    let window_size = self.window_states.size;
     self.window_states.event(event);
+    self.root_size_changed |= window_size != self.window_states.size;
     let mut event = EventCtx {
       event,
       states: &self.window_states,

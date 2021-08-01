@@ -1,5 +1,6 @@
 #![feature(stmt_expr_attributes)]
 #![feature(capture_disjoint_fields)]
+#![feature(generic_associated_types)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
@@ -23,6 +24,9 @@ pub use events::*;
 mod layout;
 pub use layout::*;
 
+mod fonts;
+pub use fonts::*;
+
 mod animation;
 pub use animation::*;
 
@@ -35,20 +39,42 @@ pub use renderer::*;
 mod components;
 pub use components::*;
 
+mod memo;
+pub use memo::*;
+
 mod utils;
 pub use utils::*;
 
 mod app;
 pub use app::*;
 
-pub trait Component<T> {
-  fn event(&mut self, model: &mut T, event: &mut EventCtx) {}
+pub trait Component<T, S: System = DefaultSystem> {
+  fn event(&mut self, model: &mut T, event: &mut S::EventCtx<'_>) {}
 
-  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {}
+  fn update(&mut self, model: &T, ctx: &mut S::UpdateCtx<'_>) {}
+}
+
+pub trait System {
+  type EventCtx<'a>;
+  type UpdateCtx<'a>;
+}
+
+pub struct DefaultSystem {}
+
+impl System for DefaultSystem {
+  type EventCtx<'a> = EventCtx<'a>;
+  type UpdateCtx<'a> = UpdateCtx;
 }
 
 pub struct UpdateCtx {
   time_stamp: u64,
+  layout_changed: bool,
+}
+
+impl UpdateCtx {
+  pub fn request_layout(&mut self) {
+    self.layout_changed = true;
+  }
 }
 
 pub trait ComponentExt<T>: Component<T> + Sized {

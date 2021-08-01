@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{EventCtx, HotAreaProvider, LayoutAble, Presentable, UpdateCtx};
+use crate::{EventCtx, HotAreaProvider, LayoutAble, LayoutCtx, Presentable, UpdateCtx};
 
 use super::Component;
 
@@ -168,8 +168,12 @@ impl<T, U, L, W: HotAreaProvider> HotAreaProvider for LensWrap<T, U, L, W> {
 }
 
 impl<T, U, L, W: LayoutAble> LayoutAble for LensWrap<T, U, L, W> {
-  fn layout(&mut self, constraint: crate::LayoutConstraint) -> crate::LayoutSize {
-    self.inner.layout(constraint)
+  fn layout(
+    &mut self,
+    constraint: crate::LayoutConstraint,
+    ctx: &mut LayoutCtx,
+  ) -> crate::LayoutSize {
+    self.inner.layout(constraint, ctx)
   }
 
   fn set_position(&mut self, position: crate::UIPosition) {

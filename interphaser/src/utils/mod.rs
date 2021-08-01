@@ -20,6 +20,11 @@ impl<T, U> From<T> for Value<T, U> {
   }
 }
 
+pub struct ValueDiffResult<'a, T> {
+  pub value: &'a T,
+  pub changed: bool,
+}
+
 impl<T: Default, U> Value<T, U> {
   pub fn by(fun: impl Fn(&U) -> T + 'static) -> Self {
     Self::Dynamic(DynamicValue {
@@ -27,12 +32,34 @@ impl<T: Default, U> Value<T, U> {
       value: Default::default(),
     })
   }
+
   pub fn update(&mut self, ctx: &U) -> &T {
     match self {
       Value::Static(v) => v,
       Value::Dynamic(d) => {
         d.value = (d.fun)(ctx);
         &d.value
+      }
+    }
+  }
+
+  pub fn diff_update(&mut self, ctx: &U) -> ValueDiffResult<T>
+  where
+    T: PartialEq,
+  {
+    match self {
+      Value::Static(value) => ValueDiffResult {
+        value,
+        changed: false,
+      },
+      Value::Dynamic(d) => {
+        let new_value = (d.fun)(ctx);
+        let changed = d.value != new_value;
+        d.value = new_value;
+        ValueDiffResult {
+          value: &d.value,
+          changed,
+        }
       }
     }
   }
