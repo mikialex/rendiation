@@ -1,29 +1,43 @@
 // use std::marker::PhantomData;
 
-// use crate::*;
+use crate::*;
 
-// pub struct Flex {
-//   pub direction: bool,
-// }
+pub struct Flex<T> {
+  direction: Axis,
+  cross_alignment: CrossAxisAlignment,
+  main_alignment: MainAxisAlignment,
+  fill_major_axis: bool,
+  children: Vec<Child<T>>,
+}
 
-// impl<T, C: Component<T>> ComponentAbility<T, C> for Flex {}
+enum Child<T> {
+  Fixed {
+    widget: Box<dyn Component<T>>,
+    layout: LayoutUnit,
+    alignment: Option<CrossAxisAlignment>,
+  },
+  Flex {
+    widget: Box<dyn Component<T>>,
+    layout: LayoutUnit,
+    alignment: Option<CrossAxisAlignment>,
+    flex: f64,
+  },
+  FixedSpacer(f64, f64),
+  FlexedSpacer(f64, f64),
+}
 
-// // impl<T, C> LayoutAble<Vec<T>> for Flex<T, C>
-// // where
-// //   C: Passthrough<Vec<T>>,
-// // {
-// //   fn layout(&mut self, constraint: LayoutConstraint) -> LayoutSize {
-// //     todo!()
-// //   }
-
-// //   fn set_position(&mut self, position: UIPosition) {
-// //     todo!()
-// //   }
-// // }
-
-// pub struct FlexChild<T> {
-//   inner: Box<dyn Component<T>>,
-// }
+/// An axis in visual space.
+///
+/// Most often used by widgets to describe
+/// the direction in which they grow as their number of children increases.
+/// Has some methods for manipulating geometry with respect to the axis.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Axis {
+  /// The x axis
+  Horizontal,
+  /// The y axis
+  Vertical,
+}
 
 /// The alignment of the widgets on the container's cross (or minor) axis.
 ///
