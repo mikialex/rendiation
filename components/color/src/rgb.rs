@@ -11,6 +11,12 @@ pub trait RGBColor<T> {
   fn mut_b(&mut self) -> &mut T;
 }
 
+pub struct LinearSpaceRGBColor<T> {
+  pub r: T,
+  pub g: T,
+  pub b: T,
+}
+
 // auto impl <rgb channel fetch> for all color that <marked as rgb colorspace and their value types is vec3<T>>
 impl<T: Copy, U: RGBColorSpace<T> + ColorSpace<T, Value = Vec3<T>>> RGBColor<T> for Color<T, U> {
   fn r(&self) -> T {

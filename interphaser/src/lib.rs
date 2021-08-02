@@ -6,8 +6,6 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 
-mod examples;
-
 #[macro_use]
 mod lens;
 pub use lens::*;
