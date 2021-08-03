@@ -264,7 +264,7 @@ impl<T> LayoutAble for Flex<T> {
                 .pack(self.direction.major(child_size), minor_dim)
                 .into();
               let child_bc = LayoutConstraint::tight(fill_size);
-              widget.layout(ctx, &child_bc, data, env);
+              widget.layout(child_bc, ctx);
               0.0
             }
             _ => {
