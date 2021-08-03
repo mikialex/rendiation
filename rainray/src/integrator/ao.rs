@@ -1,5 +1,5 @@
 use rendiation_algebra::{Vec3, Vector};
-use rendiation_color::{Color, LinearRGBColorSpace};
+use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
 
 use crate::{math::rand_point_in_unit_sphere, Scene};
@@ -27,7 +27,7 @@ fn sample_ao_surface(surface_point: Vec3<f32>, scene: &Scene) -> f32 {
 }
 
 impl Integrator for AOIntegrator {
-  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<f32, LinearRGBColorSpace<f32>> {
+  fn integrate(&self, scene: &Scene, ray: Ray3) -> LinearRGBColor<f32> {
     let ao_estimate = if let Some((intersection, _, _)) = scene.get_min_dist_hit(ray) {
       let mut ao_acc = 0.;
       for _ in 0..self.sample_count {
@@ -39,6 +39,6 @@ impl Integrator for AOIntegrator {
       1.0
     };
 
-    Color::new(Vec3::splat(ao_estimate))
+    Vec3::splat(ao_estimate).into()
   }
 }

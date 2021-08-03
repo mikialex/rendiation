@@ -3,7 +3,6 @@ use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use indicatif::ProgressBar;
 use rayon::prelude::*;
-use rendiation_color::Color;
 use std::time::Instant;
 
 pub struct Renderer {
@@ -48,11 +47,11 @@ impl Renderer {
         for _ in 0..self.sample_per_pixel {
           let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
           let ray = camera.create_screen_ray(sample_point);
-          energy_acc += self.integrator.integrate(&scene, ray).value;
+          energy_acc += self.integrator.integrate(&scene, ray).into();
         }
 
         energy_acc /= self.sample_per_pixel as f32;
-        *pixel = Color::new(energy_acc);
+        *pixel = energy_acc.into();
 
         if (i * width + j) % bar_inv == 0 {
           progress_bar.inc(1);
