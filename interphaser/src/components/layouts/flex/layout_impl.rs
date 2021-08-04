@@ -190,7 +190,7 @@ where
         .last() // todo optimize?
         .map(|last| {
           let child = last.widget();
-          if let Some((widget, result, position)) = child {
+          if let Some((_, result, position)) = child {
             let child_bl = result.baseline_offset;
             let child_max_y = position.y + result.size.height;
             let extra_bottom_padding = my_size.height - child_max_y;
@@ -210,7 +210,7 @@ where
     }
   }
 
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
+  fn set_position(&mut self, position: UIPosition, _inner: &mut C) {
     self.layout.set_relative_position(position);
   }
 }

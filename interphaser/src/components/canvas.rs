@@ -11,6 +11,7 @@ pub struct GPUCanvas {
 
 impl Presentable for GPUCanvas {
   fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.layout.update_world(builder.current_origin_offset);
     if let Some(content) = &self.content {
       builder.present.primitives.push(Primitive::Quad((
         self.layout.into_quad(),
@@ -21,7 +22,7 @@ impl Presentable for GPUCanvas {
 }
 
 impl LayoutAble for GPUCanvas {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
     self.layout.size = constraint.max();
     self.layout.size.with_default_baseline()
   }

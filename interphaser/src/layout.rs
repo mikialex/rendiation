@@ -1,4 +1,4 @@
-use crate::{FontManager, PresentationBuilder, Quad, UpdateCtx};
+use crate::{FontManager, Quad, UpdateCtx};
 
 pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
@@ -10,7 +10,7 @@ pub struct LayoutResult {
 }
 
 pub trait LayoutAble {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
     LayoutResult {
       size: constraint.min(),
       baseline_offset: 0.,

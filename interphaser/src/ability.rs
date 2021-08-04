@@ -54,15 +54,15 @@ pub trait LayoutAbility<C> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
-    ctx: &mut LayoutCtx,
-    inner: &mut C,
+    _ctx: &mut LayoutCtx,
+    _inner: &mut C,
   ) -> LayoutResult {
     LayoutResult {
       size: constraint.min(),
       baseline_offset: 0.,
     }
   }
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {}
+  fn set_position(&mut self, _position: UIPosition, _inner: &mut C) {}
 }
 
 impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
@@ -80,7 +80,7 @@ impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
 }
 
 pub trait HotAreaPassBehavior<C> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+  fn is_point_in(&self, _point: crate::UIPosition, _inner: &C) -> bool {
     false
   }
 }

@@ -78,13 +78,13 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
     self.layout.size.with_default_baseline()
   }
 
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
+  fn set_position(&mut self, position: UIPosition, _inner: &mut C) {
     self.layout.set_relative_position(position);
   }
 }
 
 impl<T, C> HotAreaPassBehavior<C> for Container<T> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+  fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)
   }
 }
