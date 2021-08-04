@@ -98,3 +98,13 @@ where
       .for_each(|((_, item), model)| item.event(model, event))
   }
 }
+
+type IterType<'a, C: 'static, T: 'static> = impl Iterator<Item = &'a mut C> + 'a;
+impl<'a, T: 'static, C: 'static> IntoIterator for &'a mut For<T, C> {
+  type Item = &'a mut C;
+  type IntoIter = IterType<'a, C, T>;
+
+  fn into_iter(self) -> IterType<'a, C, T> {
+    self.children.iter_mut().map(|(_, c)| c)
+  }
+}

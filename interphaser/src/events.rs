@@ -45,7 +45,7 @@ impl<T, X, C: LayoutAble> LayoutAbility<C> for EventHandler<T, X> {
     constraint: LayoutConstraint,
     ctx: &mut LayoutCtx,
     inner: &mut C,
-  ) -> LayoutSize {
+  ) -> LayoutResult {
     inner.layout(constraint, ctx)
   }
 

@@ -56,8 +56,11 @@ pub trait LayoutAbility<C> {
     constraint: LayoutConstraint,
     ctx: &mut LayoutCtx,
     inner: &mut C,
-  ) -> LayoutSize {
-    constraint.min()
+  ) -> LayoutResult {
+    LayoutResult {
+      size: constraint.min(),
+      baseline_offset: 0.,
+    }
   }
   fn set_position(&mut self, position: UIPosition, inner: &mut C) {}
 }
@@ -67,7 +70,7 @@ impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
     &mut self,
     constraint: crate::LayoutConstraint,
     ctx: &mut LayoutCtx,
-  ) -> crate::LayoutSize {
+  ) -> crate::LayoutResult {
     self.ability.layout(constraint, ctx, &mut self.inner)
   }
 

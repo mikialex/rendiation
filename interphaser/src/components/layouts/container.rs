@@ -57,11 +57,11 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
     constraint: LayoutConstraint,
     ctx: &mut LayoutCtx,
     inner: &mut C,
-  ) -> LayoutSize {
+  ) -> LayoutResult {
     if self.layout.skipable(constraint) {
-      return self.layout.size;
+      return self.layout.size.with_default_baseline();
     }
-    let child_size = inner.layout(constraint, ctx);
+    let child_size = inner.layout(constraint, ctx).size;
     self.layout.size = constraint.clamp(*self.size.get());
 
     let child_offset_x = self.layout.size.width - child_size.width;
@@ -73,7 +73,7 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
       x: child_offset_x,
       y: child_offset_y,
     };
-    self.layout.size
+    self.layout.size.with_default_baseline()
   }
 
   fn set_position(&mut self, position: UIPosition, inner: &mut C) {

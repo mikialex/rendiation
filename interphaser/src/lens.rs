@@ -172,7 +172,7 @@ impl<T, U, L, W: LayoutAble> LayoutAble for LensWrap<T, U, L, W> {
     &mut self,
     constraint: crate::LayoutConstraint,
     ctx: &mut LayoutCtx,
-  ) -> crate::LayoutSize {
+  ) -> crate::LayoutResult {
     self.inner.layout(constraint, ctx)
   }
 

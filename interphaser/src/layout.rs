@@ -4,9 +4,17 @@ pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
 }
 
+pub struct LayoutResult {
+  pub size: LayoutSize,
+  pub baseline_offset: f32,
+}
+
 pub trait LayoutAble {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
-    constraint.min()
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+    LayoutResult {
+      size: constraint.min(),
+      baseline_offset: 0.,
+    }
   }
   fn set_position(&mut self, _position: UIPosition) {}
 }
@@ -136,8 +144,15 @@ impl LayoutSize {
     width: 0.,
     height: 0.,
   };
-  pub fn new(width: f32, height: f32) -> Self {
+  pub const fn new(width: f32, height: f32) -> Self {
     Self { width, height }
+  }
+
+  pub fn with_default_baseline(self) -> LayoutResult {
+    LayoutResult {
+      size: self,
+      baseline_offset: 0.,
+    }
   }
 
   pub fn clamp(self, min: Self, max: Self) -> Self {
@@ -162,6 +177,12 @@ pub struct UIPosition {
   pub y: f32,
 }
 
+impl From<(f32, f32)> for UIPosition {
+  fn from(v: (f32, f32)) -> Self {
+    Self { x: v.0, y: v.1 }
+  }
+}
+
 /// Layout coordinate use x => right. y => down (same as web API canvas2D);
 pub struct Layout {
   pub position: UIPosition,
@@ -184,6 +205,7 @@ pub struct LayoutUnit {
   previous_constrains: LayoutConstraint,
   pub size: LayoutSize,
   pub position: UIPosition,
+  pub baseline_offset: f32,
   pub attached: bool,
   pub need_update: bool,
 }
@@ -194,6 +216,7 @@ impl Default for LayoutUnit {
       previous_constrains: Default::default(),
       size: Default::default(),
       position: Default::default(),
+      baseline_offset: 0.,
       attached: false,
       need_update: true,
     }

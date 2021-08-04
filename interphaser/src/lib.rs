@@ -1,6 +1,8 @@
 #![feature(stmt_expr_attributes)]
 #![feature(capture_disjoint_fields)]
 #![feature(generic_associated_types)]
+#![feature(associated_type_bounds)]
+#![feature(min_type_alias_impl_trait)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(unused_variables)]

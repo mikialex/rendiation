@@ -29,7 +29,7 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Memo<T> {
     constraint: LayoutConstraint,
     ctx: &mut LayoutCtx,
     inner: &mut C,
-  ) -> LayoutSize {
+  ) -> LayoutResult {
     inner.layout(constraint, ctx)
   }
 

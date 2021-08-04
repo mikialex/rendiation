@@ -21,9 +21,9 @@ impl Presentable for GPUCanvas {
 }
 
 impl LayoutAble for GPUCanvas {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
     self.layout.size = constraint.max();
-    self.layout.size
+    self.layout.size.with_default_baseline()
   }
 
   fn set_position(&mut self, position: UIPosition) {
