@@ -30,6 +30,6 @@ pub fn button<T: 'static>(
       Container::size((200., 80.).into()).color(Value::by(move |s: &T| state.visit(|s| s.color))),
     )
     .extend(ClickHandler::by(on_click))
-    .extend(ClickHandler::by(set_pressed))
-    .extend(ClickHandler::by(move |s: &mut T| set_color()))
+    .extend(MouseDownHandler::by(set_pressed))
+    .extend(MouseDownHandler::by(move |s: &mut T| set_color()))
 }
