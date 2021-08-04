@@ -10,7 +10,7 @@ pub struct GPUCanvas {
 }
 
 impl Presentable for GPUCanvas {
-  fn render(&self, builder: &mut PresentationBuilder) {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
     if let Some(content) = &self.content {
       builder.present.primitives.push(Primitive::Quad((
         self.layout.into_quad(),
@@ -27,7 +27,7 @@ impl LayoutAble for GPUCanvas {
   }
 
   fn set_position(&mut self, position: UIPosition) {
-    self.layout.position = position;
+    self.layout.set_relative_position(position)
   }
 }
 

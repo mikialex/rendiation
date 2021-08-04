@@ -41,12 +41,12 @@ where
 }
 
 pub trait PresentableAbility<C> {
-  fn render(&self, builder: &mut PresentationBuilder, inner: &C);
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C);
 }
 
 impl<T, C, A: PresentableAbility<C>> Presentable for Ability<T, C, A> {
-  fn render(&self, builder: &mut crate::PresentationBuilder) {
-    self.ability.render(builder, &self.inner)
+  fn render(&mut self, builder: &mut crate::PresentationBuilder) {
+    self.ability.render(builder, &mut self.inner)
   }
 }
 

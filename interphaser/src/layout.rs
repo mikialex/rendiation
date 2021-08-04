@@ -1,4 +1,4 @@
-use crate::{FontManager, Quad, UpdateCtx};
+use crate::{FontManager, PresentationBuilder, Quad, UpdateCtx};
 
 pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
@@ -203,6 +203,7 @@ impl Default for Layout {
 
 pub struct LayoutUnit {
   previous_constrains: LayoutConstraint,
+  pub relative_position: UIPosition,
   pub size: LayoutSize,
   pub position: UIPosition,
   pub baseline_offset: f32,
@@ -214,6 +215,7 @@ impl Default for LayoutUnit {
   fn default() -> Self {
     Self {
       previous_constrains: Default::default(),
+      relative_position: Default::default(),
       size: Default::default(),
       position: Default::default(),
       baseline_offset: 0.,
@@ -249,6 +251,15 @@ impl LayoutUnit {
     let result = !self.need_update;
     self.need_update = false;
     result
+  }
+
+  pub fn set_relative_position(&mut self, position: UIPosition) {
+    self.relative_position = position;
+  }
+
+  pub fn update_world(&mut self, world_offset: UIPosition) {
+    self.position.x = self.relative_position.x + world_offset.x;
+    self.position.y = self.relative_position.y + world_offset.y;
   }
 
   pub fn into_quad(&self) -> Quad {

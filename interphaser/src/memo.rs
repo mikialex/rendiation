@@ -18,7 +18,7 @@ impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for Memo<T> {
 }
 
 impl<T, C: Presentable> PresentableAbility<C> for Memo<T> {
-  fn render(&self, builder: &mut PresentationBuilder, inner: &C) {
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }

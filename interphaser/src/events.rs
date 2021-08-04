@@ -34,7 +34,7 @@ impl<T, X: EventHandlerImpl<C>, C: Component<T>> ComponentAbility<T, C> for Even
 }
 
 impl<T, X, C: Presentable> PresentableAbility<C> for EventHandler<T, X> {
-  fn render(&self, builder: &mut PresentationBuilder, inner: &C) {
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }

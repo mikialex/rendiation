@@ -182,7 +182,7 @@ impl<T, U, L, W: LayoutAble> LayoutAble for LensWrap<T, U, L, W> {
 }
 
 impl<T, U, L, W: Presentable> Presentable for LensWrap<T, U, L, W> {
-  fn render(&self, builder: &mut crate::PresentationBuilder) {
+  fn render(&mut self, builder: &mut crate::PresentationBuilder) {
     self.inner.render(builder)
   }
 }

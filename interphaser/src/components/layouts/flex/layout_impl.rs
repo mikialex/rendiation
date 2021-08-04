@@ -211,8 +211,7 @@ where
   }
 
   fn set_position(&mut self, position: UIPosition, inner: &mut C) {
-    self.layout.position = position;
-    // todo set children position
+    self.layout.set_relative_position(position);
   }
 }
 

@@ -25,7 +25,9 @@ impl<T> Component<T> for Text<T> {
 }
 
 impl<T> Presentable for Text<T> {
-  fn render(&self, builder: &mut PresentationBuilder) {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.layout.update_world(builder.current_origin_offset);
+
     builder.present.primitives.push(Primitive::Text(TextInfo {
       content: self.content.get().clone(),
       max_width: Some(100.),
@@ -104,6 +106,6 @@ impl<T> LayoutAble for Text<T> {
   }
 
   fn set_position(&mut self, position: UIPosition) {
-    self.layout.position = position;
+    self.layout.set_relative_position(position)
   }
 }
