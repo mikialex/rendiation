@@ -3,7 +3,7 @@ use rendiation_algebra::Vec4;
 
 pub struct ButtonState {
   pressed: bool,
-  pressed2: bool,
+  hovering: bool,
   color: Vec4<f32>,
 }
 
@@ -11,7 +11,7 @@ impl Default for ButtonState {
   fn default() -> Self {
     Self {
       pressed: false,
-      pressed2: false,
+      hovering: false,
       color: Vec4::new(1.0, 0.0, 0.0, 1.0),
     }
   }
@@ -23,7 +23,7 @@ pub fn button<T: 'static>(
 ) -> impl UIComponent<T> {
   let state = ButtonState::use_state();
   let set_color = state.mutator(|s| s.color.y += 0.1);
-  let set_pressed = state.mutation(|s| s.pressed2 = false);
+  let set_pressed = state.mutation(|s| s.pressed = false);
 
   Text::new(label)
     .extend(
