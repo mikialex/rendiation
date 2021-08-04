@@ -41,12 +41,12 @@ where
 }
 
 pub trait PresentableAbility<C> {
-  fn render(&self, builder: &mut PresentationBuilder, inner: &C);
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C);
 }
 
 impl<T, C, A: PresentableAbility<C>> Presentable for Ability<T, C, A> {
-  fn render(&self, builder: &mut crate::PresentationBuilder) {
-    self.ability.render(builder, &self.inner)
+  fn render(&mut self, builder: &mut crate::PresentationBuilder) {
+    self.ability.render(builder, &mut self.inner)
   }
 }
 
@@ -54,12 +54,15 @@ pub trait LayoutAbility<C> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
-    ctx: &mut LayoutCtx,
-    inner: &mut C,
-  ) -> LayoutSize {
-    constraint.min()
+    _ctx: &mut LayoutCtx,
+    _inner: &mut C,
+  ) -> LayoutResult {
+    LayoutResult {
+      size: constraint.min(),
+      baseline_offset: 0.,
+    }
   }
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {}
+  fn set_position(&mut self, _position: UIPosition, _inner: &mut C) {}
 }
 
 impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
@@ -67,7 +70,7 @@ impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
     &mut self,
     constraint: crate::LayoutConstraint,
     ctx: &mut LayoutCtx,
-  ) -> crate::LayoutSize {
+  ) -> crate::LayoutResult {
     self.ability.layout(constraint, ctx, &mut self.inner)
   }
 
@@ -77,7 +80,7 @@ impl<T, C, A: LayoutAbility<C>> LayoutAble for Ability<T, C, A> {
 }
 
 pub trait HotAreaPassBehavior<C> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+  fn is_point_in(&self, _point: crate::UIPosition, _inner: &C) -> bool {
     false
   }
 }

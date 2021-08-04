@@ -1,8 +1,8 @@
-use rendiation_algebra::Vec2;
-use rendiation_color::{Color, LinearRGBColorSpace, RGBColor};
+use rendiation_algebra::*;
+use rendiation_color::{LinearRGBColor, SRGBColor};
 
 pub struct Frame {
-  pub data: Vec<Vec<Color<f32, LinearRGBColorSpace<f32>>>>,
+  pub data: Vec<Vec<LinearRGBColor<f32>>>,
 }
 
 impl Frame {
@@ -10,7 +10,7 @@ impl Frame {
     assert!(width >= 1);
     assert!(height >= 1);
     Frame {
-      data: vec![vec![Color::from_value((0.0, 0.0, 0.0)); height as usize]; width as usize],
+      data: vec![vec![Vec3::splat(0.0).into(); height as usize]; width as usize],
     }
   }
 
@@ -26,19 +26,17 @@ impl Frame {
   }
 
   #[allow(clippy::needless_range_loop)]
-  pub fn clear(&mut self, color: &Color) {
+  pub fn clear(&mut self, color: &LinearRGBColor<f32>) {
     let data = &mut self.data;
     for i in 0..data.len() {
       let row = &mut data[i];
       for j in 0..row.len() {
-        *data[i][j].mut_r() = color.r();
-        *data[i][j].mut_g() = color.g();
-        *data[i][j].mut_b() = color.b();
+        data[i][j] = *color;
       }
     }
   }
 
-  pub fn set_pixel(&mut self, color: &Color<f32, LinearRGBColorSpace<f32>>, x: u64, y: u64) {
+  pub fn set_pixel(&mut self, color: &LinearRGBColor<f32>, x: u64, y: u64) {
     let data = &mut self.data;
     data[x as usize][y as usize] = *color;
   }
@@ -54,11 +52,11 @@ impl Frame {
     // Iterate over the coordinates and pixels of the image
     for (x, y, pixel) in img_buf.enumerate_pixels_mut() {
       let pix = self.data[x as usize][y as usize];
-      let pix = pix.to_srgb();
+      let pix: SRGBColor<f32> = pix.into();
       *pixel = image::Rgb([
-        (pix.r().min(1.0).max(0.0) * 255.0) as u8,
-        (pix.g().min(1.0).max(0.0) * 255.0) as u8,
-        (pix.b().min(1.0).max(0.0) * 255.0) as u8,
+        (pix.r.min(1.0).max(0.0) * 255.0) as u8,
+        (pix.g.min(1.0).max(0.0) * 255.0) as u8,
+        (pix.b.min(1.0).max(0.0) * 255.0) as u8,
       ])
     }
 

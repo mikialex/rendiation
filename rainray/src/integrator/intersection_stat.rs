@@ -1,7 +1,5 @@
-use rendiation_algebra::*;
-use rendiation_color::Color;
-
 use crate::Integrator;
+use rendiation_color::LinearRGBColor;
 
 pub struct IntersectionVisualize {
   pub box_weight: f32,
@@ -23,16 +21,12 @@ impl Default for IntersectionVisualize {
 }
 
 impl Integrator for IntersectionVisualize {
-  fn integrate(
-    &self,
-    scene: &crate::Scene,
-    ray: rendiation_geometry::Ray3,
-  ) -> rendiation_color::Color<f32, rendiation_color::LinearRGBColorSpace<f32>> {
+  fn integrate(&self, scene: &crate::Scene, ray: rendiation_geometry::Ray3) -> LinearRGBColor<f32> {
     let stat = scene.get_min_dist_hit_stat(ray);
     let cost_estimate = self.box_weight * stat.box3 as f32
       + self.sphere_weight * stat.sphere as f32
       + self.triangle_weight * stat.triangle as f32;
 
-    Color::new(Vec3::splat(cost_estimate / self.weight_bound))
+    LinearRGBColor::splat(cost_estimate / self.weight_bound)
   }
 }

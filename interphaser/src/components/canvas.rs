@@ -10,7 +10,8 @@ pub struct GPUCanvas {
 }
 
 impl Presentable for GPUCanvas {
-  fn render(&self, builder: &mut PresentationBuilder) {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.layout.update_world(builder.current_origin_offset);
     if let Some(content) = &self.content {
       builder.present.primitives.push(Primitive::Quad((
         self.layout.into_quad(),
@@ -21,13 +22,13 @@ impl Presentable for GPUCanvas {
 }
 
 impl LayoutAble for GPUCanvas {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
+  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
     self.layout.size = constraint.max();
-    self.layout.size
+    self.layout.size.with_default_baseline()
   }
 
   fn set_position(&mut self, position: UIPosition) {
-    self.layout.position = position;
+    self.layout.set_relative_position(position)
   }
 }
 

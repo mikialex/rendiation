@@ -5,7 +5,6 @@ use crate::*;
 pub struct Container<T> {
   pub size: Value<LayoutSize, T>,
   pub color: Value<Vec4<f32>, T>,
-  child_position_relative: UIPosition,
   layout: LayoutUnit,
 }
 
@@ -14,7 +13,6 @@ impl<T> Container<T> {
     Self {
       size: Value::Static(size),
       color: Value::Static(Vec4::new(1., 1., 1., 0.)),
-      child_position_relative: Default::default(),
       layout: Default::default(),
     }
   }
@@ -42,12 +40,15 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
 }
 
 impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
-  fn render(&self, builder: &mut PresentationBuilder, inner: &C) {
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
+    self.layout.update_world(builder.current_origin_offset);
     builder.present.primitives.push(Primitive::Quad((
       self.layout.into_quad(),
       Style::SolidColor(*self.color.get()),
     )));
+    builder.push_offset(self.layout.relative_position);
     inner.render(builder);
+    builder.pop_offset()
   }
 }
 
@@ -57,11 +58,11 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
     constraint: LayoutConstraint,
     ctx: &mut LayoutCtx,
     inner: &mut C,
-  ) -> LayoutSize {
+  ) -> LayoutResult {
     if self.layout.skipable(constraint) {
-      return self.layout.size;
+      return self.layout.size.with_default_baseline();
     }
-    let child_size = inner.layout(constraint, ctx);
+    let child_size = inner.layout(constraint, ctx).size;
     self.layout.size = constraint.clamp(*self.size.get());
 
     let child_offset_x = self.layout.size.width - child_size.width;
@@ -69,25 +70,21 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
     let child_offset_y = self.layout.size.height - child_size.height;
     let child_offset_y = child_offset_y.max(0.) * 0.5;
 
-    self.child_position_relative = UIPosition {
+    inner.set_position(UIPosition {
       x: child_offset_x,
       y: child_offset_y,
-    };
-    self.layout.size
+    });
+
+    self.layout.size.with_default_baseline()
   }
 
-  fn set_position(&mut self, position: UIPosition, inner: &mut C) {
-    self.layout.position = position;
-
-    inner.set_position(UIPosition {
-      x: position.x + self.child_position_relative.x,
-      y: position.y + self.child_position_relative.y,
-    })
+  fn set_position(&mut self, position: UIPosition, _inner: &mut C) {
+    self.layout.set_relative_position(position);
   }
 }
 
 impl<T, C> HotAreaPassBehavior<C> for Container<T> {
-  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+  fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)
   }
 }

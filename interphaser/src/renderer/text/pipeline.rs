@@ -11,7 +11,6 @@ use super::GPUxUITextPrimitive;
 
 pub struct TextRendererPipeline {
   transform: UniformBufferData<[f32; 16]>,
-  size: Vec2<f32>,
   sampler: wgpu::Sampler,
   cache: Cache,
   bindgroup_layout: wgpu::BindGroupLayout,
@@ -100,15 +99,6 @@ impl TextRendererPipeline {
     .into()
   }
 }
-
-// Helpers
-#[cfg_attr(rustfmt, rustfmt_skip)]
-const IDENTITY_MATRIX: [f32; 16] = [
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0,
-];
 
 /// Helper function to generate a generate a transform matrix.
 pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
@@ -242,7 +232,6 @@ fn build(
 
   TextRendererPipeline {
     transform,
-    size,
     sampler,
     cache,
     bindgroup_layout: uniform_layout,

@@ -35,7 +35,7 @@ impl<T> StateCell<T> {
   }
   pub fn mutation<X>(&self, f: impl Fn(&mut T) + Copy) -> impl Fn(&mut X) {
     let mutator = self.mutator(f);
-    move |x: &mut X| mutator()
+    move |_x: &mut X| mutator()
   }
 }
 

@@ -148,9 +148,7 @@ impl<T> ApplicationInner<T> {
   fn render(&mut self, frame: SwapChainFrame) {
     self.update();
 
-    let mut builder = PresentationBuilder {
-      present: UIPresentation::new(),
-    };
+    let mut builder = PresentationBuilder::new();
     self.root.render(&mut builder);
     builder.present.view_size = self.window_states.size;
     self.root.render(&mut builder);

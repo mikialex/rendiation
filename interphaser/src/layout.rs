@@ -4,98 +4,132 @@ pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
 }
 
+pub struct LayoutResult {
+  pub size: LayoutSize,
+  pub baseline_offset: f32,
+}
+
 pub trait LayoutAble {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutSize {
-    constraint.min()
+  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
+    LayoutResult {
+      size: constraint.min(),
+      baseline_offset: 0.,
+    }
   }
   fn set_position(&mut self, _position: UIPosition) {}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutConstraint {
-  pub width_min: f32,
-  pub width_max: f32,
-  pub height_min: f32,
-  pub height_max: f32,
+  pub min: LayoutSize,
+  pub max: LayoutSize,
 }
 
 impl Default for LayoutConstraint {
   fn default() -> Self {
-    Self::unlimited()
+    Self::UNBOUNDED
   }
 }
 
 impl LayoutConstraint {
-  pub fn unlimited() -> Self {
+  /// An unbounded box constraints object.
+  ///
+  /// Can be satisfied by any nonnegative size.
+  pub const UNBOUNDED: Self = Self {
+    min: LayoutSize::ZERO,
+    max: LayoutSize::new(f32::INFINITY, f32::INFINITY),
+  };
+
+  /// Create a new box constraints object.
+  ///
+  /// Create constraints based on minimum and maximum size.
+  ///
+  /// The given sizes are also [rounded away from zero],
+  /// so that the layout is aligned to integers.
+  ///
+  /// [rounded away from zero]: struct.Size.html#method.expand
+  pub fn new(min: LayoutSize, max: LayoutSize) -> Self {
+    Self { min, max }
+  }
+  /// Create a "tight" box constraints object.
+  ///
+  /// A "tight" constraint can only be satisfied by a single size.
+  ///
+  /// The given size is also [rounded away from zero],
+  /// so that the layout is aligned to integers.
+  ///
+  /// [rounded away from zero]: struct.Size.html#method.expand
+  pub fn tight(size: LayoutSize) -> Self {
     Self {
-      width_min: 0.,
-      width_max: 0.,
-      height_min: f32::INFINITY,
-      height_max: f32::INFINITY,
+      min: size,
+      max: size,
     }
   }
+
+  /// Create a "loose" version of the constraints.
+  ///
+  /// Make a version with zero minimum size, but the same maximum size.
+  pub fn loosen(&self) -> Self {
+    Self {
+      min: LayoutSize::ZERO,
+      max: self.max,
+    }
+  }
+
+  /// Clamp a given size so that it fits within the constraints.
+  ///
+  /// The given size is also [rounded away from zero],
+  /// so that the layout is aligned to integers.
+  ///
+  /// [rounded away from zero]: struct.Size.html#method.expand
+  pub fn constrain(&self, size: impl Into<LayoutSize>) -> LayoutSize {
+    size.into().clamp(self.min, self.max)
+  }
+
   pub fn from_max(size: LayoutSize) -> Self {
     Self {
-      width_min: 0.,
-      width_max: size.width,
-      height_min: 0.,
-      height_max: size.height,
+      min: LayoutSize::ZERO,
+      max: size,
     }
   }
   pub fn max(&self) -> LayoutSize {
-    LayoutSize {
-      width: self.width_max,
-      height: self.height_max,
-    }
+    self.max
   }
   pub fn min(&self) -> LayoutSize {
-    LayoutSize {
-      width: self.width_min,
-      height: self.height_min,
-    }
+    self.min
   }
   pub fn clamp(&self, size: LayoutSize) -> LayoutSize {
     LayoutSize {
-      width: size.width.clamp(self.width_min, self.width_max),
-      height: size.height.clamp(self.height_min, self.height_max),
+      width: size.width.clamp(self.min.width, self.max.width),
+      height: size.height.clamp(self.min.height, self.max.height),
     }
   }
 
-  pub fn set_max_width(&mut self, width: f32) {
-    self.width_max = width;
-    self.width_max = self.width_max.max(self.width_min);
+  /// Shrink min and max constraints by size
+  ///
+  /// The given size is also [rounded away from zero],
+  /// so that the layout is aligned to integers.
+  ///
+  /// [rounded away from zero]: struct.Size.html#method.expand
+  pub fn shrink(&self, diff: impl Into<LayoutSize>) -> Self {
+    let diff = diff.into();
+    let min = LayoutSize::new(
+      (self.min().width - diff.width).max(0.),
+      (self.min().height - diff.height).max(0.),
+    );
+    let max = LayoutSize::new(
+      (self.max().width - diff.width).max(0.),
+      (self.max().height - diff.height).max(0.),
+    );
+
+    Self::new(min, max)
   }
 
-  pub fn set_max_height(&mut self, height: f32) {
-    self.height_max = height;
-    self.height_max = self.height_max.max(self.height_min);
-  }
-
-  pub fn consume_width(&self, width: f32) -> Self {
-    Self {
-      width_min: self.width_min - width,
-      width_max: self.width_max - width,
-      ..*self
-    }
-    .min_zero()
-  }
-
-  pub fn consume_height(&self, height: f32) -> Self {
-    Self {
-      height_min: self.height_min - height,
-      height_max: self.height_max - height,
-      ..*self
-    }
-    .min_zero()
-  }
-
-  pub fn min_zero(&self) -> Self {
-    Self {
-      width_min: self.width_min.min(0.),
-      width_max: self.width_max.min(0.),
-      height_min: self.height_min.min(0.),
-      height_max: self.height_max.min(0.),
-    }
+  /// Test whether these constraints contain the given `Size`.
+  pub fn contains(&self, size: impl Into<LayoutSize>) -> bool {
+    let size = size.into();
+    (self.min.width <= size.width && size.width <= self.max.width)
+      && (self.min.height <= size.height && size.height <= self.max.height)
   }
 }
 
@@ -106,8 +140,34 @@ pub struct LayoutSize {
 }
 
 impl LayoutSize {
-  pub fn new(width: f32, height: f32) -> Self {
+  pub const ZERO: Self = Self {
+    width: 0.,
+    height: 0.,
+  };
+  pub const fn new(width: f32, height: f32) -> Self {
     Self { width, height }
+  }
+
+  pub fn with_default_baseline(self) -> LayoutResult {
+    LayoutResult {
+      size: self,
+      baseline_offset: 0.,
+    }
+  }
+
+  pub fn clamp(self, min: Self, max: Self) -> Self {
+    let width = self.width.max(min.width).min(max.width);
+    let height = self.height.max(min.height).min(max.height);
+    Self { width, height }
+  }
+}
+
+impl<T: Into<f32>> From<(T, T)> for LayoutSize {
+  fn from(value: (T, T)) -> Self {
+    Self {
+      width: value.0.into(),
+      height: value.1.into(),
+    }
   }
 }
 
@@ -115,6 +175,12 @@ impl LayoutSize {
 pub struct UIPosition {
   pub x: f32,
   pub y: f32,
+}
+
+impl From<(f32, f32)> for UIPosition {
+  fn from(v: (f32, f32)) -> Self {
+    Self { x: v.0, y: v.1 }
+  }
 }
 
 /// Layout coordinate use x => right. y => down (same as web API canvas2D);
@@ -137,8 +203,10 @@ impl Default for Layout {
 
 pub struct LayoutUnit {
   previous_constrains: LayoutConstraint,
+  pub relative_position: UIPosition,
   pub size: LayoutSize,
   pub position: UIPosition,
+  pub baseline_offset: f32,
   pub attached: bool,
   pub need_update: bool,
 }
@@ -147,8 +215,10 @@ impl Default for LayoutUnit {
   fn default() -> Self {
     Self {
       previous_constrains: Default::default(),
+      relative_position: Default::default(),
       size: Default::default(),
       position: Default::default(),
+      baseline_offset: 0.,
       attached: false,
       need_update: true,
     }
@@ -181,6 +251,15 @@ impl LayoutUnit {
     let result = !self.need_update;
     self.need_update = false;
     result
+  }
+
+  pub fn set_relative_position(&mut self, position: UIPosition) {
+    self.relative_position = position;
+  }
+
+  pub fn update_world(&mut self, world_offset: UIPosition) {
+    self.position.x = self.relative_position.x + world_offset.x;
+    self.position.y = self.relative_position.y + world_offset.y;
   }
 
   pub fn into_quad(&self) -> Quad {

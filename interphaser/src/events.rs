@@ -34,7 +34,7 @@ impl<T, X: EventHandlerImpl<C>, C: Component<T>> ComponentAbility<T, C> for Even
 }
 
 impl<T, X, C: Presentable> PresentableAbility<C> for EventHandler<T, X> {
-  fn render(&self, builder: &mut PresentationBuilder, inner: &C) {
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
@@ -45,7 +45,7 @@ impl<T, X, C: LayoutAble> LayoutAbility<C> for EventHandler<T, X> {
     constraint: LayoutConstraint,
     ctx: &mut LayoutCtx,
     inner: &mut C,
-  ) -> LayoutSize {
+  ) -> LayoutResult {
     inner.layout(constraint, ctx)
   }
 
@@ -61,7 +61,21 @@ impl<T, X, C: HotAreaProvider> HotAreaPassBehavior<C> for EventHandler<T, X> {
 }
 
 pub trait EventHandlerImpl<C> {
-  fn downcast_event(&self, event: &mut EventCtx, inner: &C) -> bool;
+  fn downcast_event(&mut self, event: &mut EventCtx, inner: &C) -> bool;
+}
+
+#[derive(Default)]
+pub struct MouseDown;
+pub type MouseDownHandler<T> = EventHandler<T, MouseDown>;
+impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseDown {
+  fn downcast_event(&mut self, event: &mut EventCtx, inner: &C) -> bool {
+    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
+      if inner.is_point_in(event.states.mouse_position) {
+        return true;
+      }
+    }
+    false
+  }
 }
 
 pub struct Click {
@@ -76,11 +90,16 @@ impl Default for Click {
 pub type ClickHandler<T> = EventHandler<T, Click>;
 
 impl<C: HotAreaProvider> EventHandlerImpl<C> for Click {
-  fn downcast_event(&self, event: &mut EventCtx, inner: &C) -> bool {
+  fn downcast_event(&mut self, event: &mut EventCtx, inner: &C) -> bool {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.event) {
       if inner.is_point_in(event.states.mouse_position) {
+        self.mouse_down = true;
+      }
+    } else if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.event) {
+      if self.mouse_down && inner.is_point_in(event.states.mouse_position) {
         return true;
       }
+      self.mouse_down = false;
     }
     false
   }

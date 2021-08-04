@@ -1,6 +1,5 @@
 use glyph_brush::{Section, Text};
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
@@ -97,8 +96,6 @@ pub enum GPUxUIPrimitive {
   Texture(GPUxUITexturedPrimitive),
   Text(GPUxUITextPrimitive),
 }
-
-type UIMesh = IndexedMesh<u32, UIVertex, TriangleList>;
 
 fn build_quad(
   device: &wgpu::Device,
@@ -213,7 +210,6 @@ pub struct UIxGPUxResource {
   solid_color_pipeline: wgpu::RenderPipeline,
   texture_pipeline: wgpu::RenderPipeline,
   global_ui_state: UniformBufferData<UIGlobalParameter>,
-  global_uniform_bind_group_layout: wgpu::BindGroupLayout,
   texture_bg_layout: wgpu::BindGroupLayout,
   sampler: wgpu::Sampler,
   global_bindgroup: wgpu::BindGroup,
@@ -274,7 +270,6 @@ impl WebGPUxUIRenderer {
       solid_color_pipeline,
       texture_pipeline,
       global_ui_state,
-      global_uniform_bind_group_layout,
       texture_bg_layout,
       sampler,
       global_bindgroup,

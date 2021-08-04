@@ -1,12 +1,9 @@
 #![feature(stmt_expr_attributes)]
 #![feature(capture_disjoint_fields)]
 #![feature(generic_associated_types)]
+#![feature(associated_type_bounds)]
+#![feature(min_type_alias_impl_trait)]
 #![allow(incomplete_features)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
-#![allow(unreachable_code)]
-
-mod examples;
 
 #[macro_use]
 mod lens;
@@ -49,9 +46,9 @@ mod app;
 pub use app::*;
 
 pub trait Component<T, S: System = DefaultSystem> {
-  fn event(&mut self, model: &mut T, event: &mut S::EventCtx<'_>) {}
+  fn event(&mut self, _model: &mut T, _vent: &mut S::EventCtx<'_>) {}
 
-  fn update(&mut self, model: &T, ctx: &mut S::UpdateCtx<'_>) {}
+  fn update(&mut self, _model: &T, _ctx: &mut S::UpdateCtx<'_>) {}
 }
 
 pub trait System {
@@ -67,7 +64,7 @@ impl System for DefaultSystem {
 }
 
 pub struct UpdateCtx {
-  time_stamp: u64,
+  pub time_stamp: u64,
   layout_changed: bool,
 }
 

@@ -1,5 +1,5 @@
 use rendiation_algebra::{InnerProductSpace, Vec3, Vector};
-use rendiation_color::{Color, LinearRGBColorSpace};
+use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
 
 use crate::*;
@@ -54,7 +54,7 @@ impl Integrator for PathTraceIntegrator {
   fn default_sample_per_pixel(&self) -> usize {
     32
   }
-  fn integrate(&self, scene: &Scene, ray: Ray3) -> Color<f32, LinearRGBColorSpace<f32>> {
+  fn integrate(&self, scene: &Scene, ray: Ray3) -> LinearRGBColor<f32> {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = ray;
@@ -95,6 +95,8 @@ impl Integrator for PathTraceIntegrator {
 
     // if not clamp, will get white point caused by high variance in brdf sampling
     // https://computergraphics.stackexchange.com/questions/8693/where-do-fireflies-come-from
-    Color::new((energy / self.exposure_upper_bound).min(Vec3::splat(1.0)))
+    (energy / self.exposure_upper_bound)
+      .min(Vec3::splat(1.0))
+      .into()
   }
 }

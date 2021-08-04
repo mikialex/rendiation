@@ -5,11 +5,36 @@ use rendiation_algebra::*;
 use crate::{LayoutSize, UIPosition};
 
 pub trait Presentable {
-  fn render(&self, builder: &mut PresentationBuilder);
+  fn render(&mut self, builder: &mut PresentationBuilder);
 }
 
 pub struct PresentationBuilder {
   pub present: UIPresentation,
+  pub parent_offset_chain: Vec<UIPosition>,
+  pub current_origin_offset: UIPosition,
+}
+
+impl PresentationBuilder {
+  pub fn new() -> Self {
+    Self {
+      present: UIPresentation::new(),
+      parent_offset_chain: Vec::new(),
+      current_origin_offset: Default::default(),
+    }
+  }
+
+  pub fn push_offset(&mut self, offset: UIPosition) {
+    self.parent_offset_chain.push(offset);
+    self.current_origin_offset.x += offset.x;
+    self.current_origin_offset.y += offset.y;
+  }
+
+  pub fn pop_offset(&mut self) {
+    if let Some(offset) = self.parent_offset_chain.last() {
+      self.current_origin_offset.x -= offset.x;
+      self.current_origin_offset.y -= offset.y;
+    }
+  }
 }
 
 #[derive(Debug, Clone)]
