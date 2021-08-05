@@ -2,36 +2,6 @@ use rendiation_algebra::Vec4;
 
 use crate::*;
 
-#[derive(Default)]
-pub struct LayoutSource<T> {
-  value: T,
-  changed: bool,
-}
-
-impl<T> LayoutSource<T> {
-  pub fn new(value: T) -> Self {
-    Self {
-      value,
-      changed: true,
-    }
-  }
-  pub fn set(&mut self, value: impl Into<T>) {
-    self.value = value.into();
-    self.changed = true;
-  }
-
-  pub fn get(&mut self) -> &T {
-    &self.value
-  }
-
-  pub fn refresh(&mut self, layout: &mut LayoutUnit, ctx: &mut UpdateCtx) {
-    if self.changed {
-      layout.request_layout(ctx)
-    }
-    self.changed = false;
-  }
-}
-
 pub struct Container {
   pub size: LayoutSource<LayoutSize>,
   pub color: Vec4<f32>,

@@ -2,6 +2,17 @@ use std::marker::PhantomData;
 
 use crate::*;
 
+pub trait ComponentExt<T>: Component<T> + Sized {
+  fn extend<A: ComponentAbility<T, Self>>(self, ability: A) -> Ability<T, Self, A> {
+    Ability::new(self, ability)
+  }
+  fn lens<S, L: Lens<S, T>>(self, lens: L) -> LensWrap<S, T, L, Self> {
+    LensWrap::new(self, lens)
+  }
+}
+
+impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
+
 pub struct Ability<T, C, A> {
   inner: C,
   ability: A,

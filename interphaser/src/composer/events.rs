@@ -1,17 +1,8 @@
-use std::rc::Rc;
-
 use crate::*;
-use rendiation_webgpu::GPU;
 use winit::event::*;
 
 pub trait HotAreaProvider {
   fn is_point_in(&self, point: UIPosition) -> bool;
-}
-
-pub struct EventCtx<'a> {
-  pub event: &'a winit::event::Event<'a, ()>,
-  pub states: &'a WindowState,
-  pub gpu: Rc<GPU>,
 }
 
 pub struct EventHandler<T, X> {

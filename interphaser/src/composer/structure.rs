@@ -1,6 +1,5 @@
+use crate::Component;
 use crate::UpdateCtx;
-
-use super::Component;
 
 pub struct If<T, C> {
   should_render: Box<dyn Fn(&T) -> bool>,
