@@ -15,8 +15,8 @@ impl<T> LayoutSource<T> {
       changed: true,
     }
   }
-  pub fn set(&mut self, value: T) {
-    self.value = value;
+  pub fn set(&mut self, value: impl Into<T>) {
+    self.value = value.into();
     self.changed = true;
   }
 
@@ -32,31 +32,30 @@ impl<T> LayoutSource<T> {
   }
 }
 
-pub struct Container2 {
+pub struct Container {
   pub size: LayoutSource<LayoutSize>,
   pub color: Vec4<f32>,
   layout: LayoutUnit,
 }
 
-impl Container2 {
-  pub fn size(size: LayoutSize) -> Self {
+impl Container {
+  pub fn size(size: impl Into<LayoutSize>) -> Self {
     Self {
-      size: LayoutSource::new(size),
+      size: LayoutSource::new(size.into()),
       color: Vec4::new(1., 1., 1., 0.),
       layout: Default::default(),
     }
   }
 }
 
-impl<T> Component<T> for Container2 {
+impl<T> Component<T> for Container {
   fn update(&mut self, _model: &T, ctx: &mut UpdateCtx) {
     self.layout.check_attach(ctx); // this is useless todo
     self.size.refresh(&mut self.layout, ctx);
-    self.layout.or_layout_change(ctx);
   }
 }
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for Container2 {
+impl<T, C: Component<T>> ComponentAbility<T, C> for Container {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
     self.layout.check_attach(ctx); // this is useless todo
     self.size.refresh(&mut self.layout, ctx);
@@ -69,7 +68,7 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container2 {
   }
 }
 
-impl<C: Presentable> PresentableAbility<C> for Container2 {
+impl<C: Presentable> PresentableAbility<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     self.layout.update_world(builder.current_origin_offset);
     builder.present.primitives.push(Primitive::Quad((
@@ -82,7 +81,7 @@ impl<C: Presentable> PresentableAbility<C> for Container2 {
   }
 }
 
-impl<C: LayoutAble> LayoutAbility<C> for Container2 {
+impl<C: LayoutAble> LayoutAbility<C> for Container {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -113,7 +112,7 @@ impl<C: LayoutAble> LayoutAbility<C> for Container2 {
   }
 }
 
-impl<C> HotAreaPassBehavior<C> for Container2 {
+impl<C> HotAreaPassBehavior<C> for Container {
   fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)
   }

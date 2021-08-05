@@ -1,6 +1,6 @@
 use crate::*;
 
-pub type ComponentUpdater<C, T> = Box<dyn Fn(&mut C, &T)>;
+pub type ComponentUpdater<C, T> = Box<dyn FnMut(&mut C, &T)>;
 
 pub struct ComponentCell<C, T> {
   component: C,
@@ -8,7 +8,7 @@ pub struct ComponentCell<C, T> {
 }
 
 pub trait ComponentCellMaker<T>: Sized {
-  fn update_by(self, updater: impl Fn(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
+  fn update_by(self, updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
     ComponentCell {
       component: self,
       updater: Box::new(updater),
@@ -59,10 +59,27 @@ impl<T, C: HotAreaPassBehavior<IC>, IC> HotAreaPassBehavior<IC> for ComponentCel
   }
 }
 
-impl<C, T> Component<T> for ComponentCell<C, T> {
+impl<C: Component<T>, T> Component<T> for ComponentCell<C, T> {
   fn event(&mut self, _model: &mut T, _event: &mut EventCtx<'_>) {}
 
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    (self.updater)(&mut self.component, model)
+    (self.updater)(&mut self.component, model);
+    self.component.update(model, ctx);
+  }
+}
+
+impl<C: Presentable, T> Presentable for ComponentCell<C, T> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.component.render(builder)
+  }
+}
+
+impl<C: LayoutAble, T> LayoutAble for ComponentCell<C, T> {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+    self.component.layout(constraint, ctx)
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    self.component.set_position(position)
   }
 }

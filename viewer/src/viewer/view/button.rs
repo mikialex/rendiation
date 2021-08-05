@@ -19,6 +19,7 @@ pub fn button<T: 'static>(
   label: impl Into<Value<String, T>>,
   on_click: impl Fn(&mut T) + 'static,
 ) -> impl UIComponent<T> {
+  let mut label = label.into();
   let state = ButtonState::use_state();
 
   let enable_pressed = state.mutation(|s| s.pressed = true);
@@ -29,8 +30,9 @@ pub fn button<T: 'static>(
     s.pressed = false;
   });
 
-  Text::new(label)
-    .extend(Container2::size((200., 80.).into()).update_by(move |s, _| {
+  Text::default()
+    .update_by(move |s, t| s.content.set(label.update(t)))
+    .extend(Container::size((200., 80.)).update_by(move |s, _| {
       s.color = state.visit(|s| {
         if s.pressed {
           Vec4::new(0.7, 0.7, 0.7, 1.0)
