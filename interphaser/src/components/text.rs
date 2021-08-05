@@ -2,29 +2,29 @@ use rendiation_algebra::Vec4;
 
 use crate::*;
 
-pub struct Text<T> {
-  content: Value<String, T>,
+#[derive(Default)]
+pub struct Text {
+  pub content: LayoutSource<String>,
   layout: LayoutUnit,
 }
 
-impl<T> Text<T> {
-  pub fn new(content: impl Into<Value<String, T>>) -> Self {
+impl Text {
+  pub fn new(content: impl Into<String>) -> Self {
     Self {
-      content: content.into(),
+      content: LayoutSource::new(content.into()),
       layout: Default::default(),
     }
   }
 }
 
-impl<T> Component<T> for Text<T> {
-  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    if self.content.diff_update(model).changed {
-      self.layout.request_layout(ctx);
-    }
+impl<T> Component<T> for Text {
+  fn update(&mut self, _: &T, ctx: &mut UpdateCtx) {
+    self.layout.check_attach(ctx);
+    self.content.refresh(&mut self.layout, ctx);
   }
 }
 
-impl<T> Presentable for Text<T> {
+impl Presentable for Text {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.layout.update_world(builder.current_origin_offset);
 
@@ -44,7 +44,7 @@ impl<T> Presentable for Text<T> {
   }
 }
 
-impl<T> LayoutAble for Text<T> {
+impl LayoutAble for Text {
   fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
     if self.layout.skipable(constraint) {
       return self.layout.size.with_default_baseline();

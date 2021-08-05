@@ -5,3 +5,8 @@ pub mod rgb;
 
 pub use hsl::*;
 pub use rgb::*;
+
+pub struct WithAlpha<C, T> {
+  pub color: C,
+  pub a: T,
+}

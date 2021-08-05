@@ -2,6 +2,10 @@ use crate::*;
 
 mod layout_impl;
 
+pub struct FlexArray<T> {
+  pub items: Vec<Child<T>>,
+}
+
 pub struct Flex {
   direction: Axis,
   layout: LayoutUnit,

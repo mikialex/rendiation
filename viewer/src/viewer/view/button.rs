@@ -1,18 +1,23 @@
 use interphaser::*;
 use rendiation_algebra::Vec4;
 
-pub struct ButtonState {
-  pressed: bool,
-  pressed2: bool,
-  color: Vec4<f32>,
+pub enum ButtonState {
+  Normal,
+  Pressed,
+  Hovering,
 }
-
 impl Default for ButtonState {
   fn default() -> Self {
-    Self {
-      pressed: false,
-      pressed2: false,
-      color: Vec4::new(1.0, 0.0, 0.0, 1.0),
+    Self::Normal
+  }
+}
+
+impl ButtonState {
+  pub fn color(&self) -> Vec4<f32> {
+    match self {
+      ButtonState::Normal => Vec4::new(0.8, 0.8, 0.8, 1.0),
+      ButtonState::Pressed => Vec4::new(0.7, 0.7, 0.7, 1.0),
+      ButtonState::Hovering => Vec4::new(0.9, 0.9, 0.9, 1.0),
     }
   }
 }
@@ -21,15 +26,20 @@ pub fn button<T: 'static>(
   label: impl Into<Value<String, T>>,
   on_click: impl Fn(&mut T) + 'static,
 ) -> impl UIComponent<T> {
+  let mut label = label.into();
   let state = ButtonState::use_state();
-  let set_color = state.mutator(|s| s.color.y += 0.1);
-  let set_pressed = state.mutation(|s| s.pressed2 = false);
 
-  Text::new(label)
-    .extend(
-      Container::size((200., 80.).into()).color(Value::by(move |s: &T| state.visit(|s| s.color))),
-    )
+  let on_mouse_down = state.mutation(|s| *s = ButtonState::Pressed);
+  let on_mouse_up = state.mutation(|s| *s = ButtonState::Hovering);
+  let on_mouse_in = state.mutation(|s| *s = ButtonState::Hovering);
+  let on_mouse_out = state.mutation(|s| *s = ButtonState::Normal);
+
+  Text::default()
+    .updater(move |s, t| s.content.set(label.update(t)))
+    .extend(Container::size((200., 80.)).updater(move |s, _| s.color = state.visit(|s| s.color())))
     .extend(ClickHandler::by(on_click))
-    .extend(MouseDownHandler::by(set_pressed))
-    .extend(MouseDownHandler::by(move |s: &mut T| set_color()))
+    .extend(MouseInHandler::by(on_mouse_in))
+    .extend(MouseOutHandler::by(on_mouse_out))
+    .extend(MouseDownHandler::by(on_mouse_down))
+    .extend(MouseUpHandler::by(on_mouse_up))
 }

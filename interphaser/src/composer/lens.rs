@@ -1,8 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{EventCtx, HotAreaProvider, LayoutAble, LayoutCtx, Presentable, UpdateCtx};
-
-use super::Component;
+use crate::{Component, EventCtx, HotAreaProvider, LayoutAble, LayoutCtx, Presentable, UpdateCtx};
 
 /// A lens is a datatype that gives access to a part of a larger
 /// data structure.
