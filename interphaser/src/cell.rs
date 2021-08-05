@@ -8,7 +8,7 @@ pub struct ComponentCell<C, T> {
 }
 
 pub trait ComponentCellMaker<T>: Sized {
-  fn update_by(self, updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
+  fn updater(self, updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
     ComponentCell {
       component: self,
       updater: Box::new(updater),

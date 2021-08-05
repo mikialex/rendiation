@@ -1,16 +1,23 @@
 use interphaser::*;
 use rendiation_algebra::Vec4;
 
-pub struct ButtonState {
-  pressed: bool,
-  hovering: bool,
+pub enum ButtonState {
+  Normal,
+  Pressed,
+  Hovering,
 }
-
 impl Default for ButtonState {
   fn default() -> Self {
-    Self {
-      pressed: false,
-      hovering: false,
+    Self::Normal
+  }
+}
+
+impl ButtonState {
+  pub fn color(&self) -> Vec4<f32> {
+    match self {
+      ButtonState::Normal => Vec4::new(0.8, 0.8, 0.8, 1.0),
+      ButtonState::Pressed => Vec4::new(0.7, 0.7, 0.7, 1.0),
+      ButtonState::Hovering => Vec4::new(0.9, 0.9, 0.9, 1.0),
     }
   }
 }
@@ -22,30 +29,17 @@ pub fn button<T: 'static>(
   let mut label = label.into();
   let state = ButtonState::use_state();
 
-  let enable_pressed = state.mutation(|s| s.pressed = true);
-  let disable_pressed = state.mutation(|s| s.pressed = false);
-  let enable_hovering = state.mutation(|s| s.hovering = true);
-  let disable_hovering = state.mutation(|s| {
-    s.hovering = false;
-    s.pressed = false;
-  });
+  let on_mouse_down = state.mutation(|s| *s = ButtonState::Pressed);
+  let on_mouse_up = state.mutation(|s| *s = ButtonState::Hovering);
+  let on_mouse_in = state.mutation(|s| *s = ButtonState::Hovering);
+  let on_mouse_out = state.mutation(|s| *s = ButtonState::Normal);
 
   Text::default()
-    .update_by(move |s, t| s.content.set(label.update(t)))
-    .extend(Container::size((200., 80.)).update_by(move |s, _| {
-      s.color = state.visit(|s| {
-        if s.pressed {
-          Vec4::new(0.7, 0.7, 0.7, 1.0)
-        } else if s.hovering {
-          Vec4::new(0.9, 0.9, 0.9, 1.0)
-        } else {
-          Vec4::new(0.8, 0.8, 0.8, 1.0)
-        }
-      })
-    }))
+    .updater(move |s, t| s.content.set(label.update(t)))
+    .extend(Container::size((200., 80.)).updater(move |s, _| s.color = state.visit(|s| s.color())))
     .extend(ClickHandler::by(on_click))
-    .extend(MouseInHandler::by(enable_hovering))
-    .extend(MouseOutHandler::by(disable_hovering))
-    .extend(MouseDownHandler::by(enable_pressed))
-    .extend(MouseUpHandler::by(disable_pressed))
+    .extend(MouseInHandler::by(on_mouse_in))
+    .extend(MouseOutHandler::by(on_mouse_out))
+    .extend(MouseDownHandler::by(on_mouse_down))
+    .extend(MouseUpHandler::by(on_mouse_up))
 }

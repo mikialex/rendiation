@@ -151,6 +151,7 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseIn {
     if let Some(position) = mouse_move(event.event) {
       if inner.is_point_in((position.x as f32, position.y as f32).into()) {
         if !self.is_mouse_in {
+          self.is_mouse_in = true;
           return true;
         }
         self.is_mouse_in = true;
@@ -176,6 +177,7 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseOut {
     if let Some(position) = mouse_move(event.event) {
       if !inner.is_point_in((position.x as f32, position.y as f32).into()) {
         if self.is_mouse_in {
+          self.is_mouse_in = false;
           return true;
         }
         self.is_mouse_in = false;
