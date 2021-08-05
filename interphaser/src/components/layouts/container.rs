@@ -2,34 +2,64 @@ use rendiation_algebra::Vec4;
 
 use crate::*;
 
-pub struct Container<T> {
-  pub size: Value<LayoutSize, T>,
-  pub color: Value<Vec4<f32>, T>,
+#[derive(Default)]
+pub struct LayoutSource<T> {
+  value: T,
+  changed: bool,
+}
+
+impl<T> LayoutSource<T> {
+  pub fn new(value: T) -> Self {
+    Self {
+      value,
+      changed: true,
+    }
+  }
+  pub fn set(&mut self, value: T) {
+    self.value = value;
+    self.changed = true;
+  }
+
+  pub fn get(&mut self) -> &T {
+    &self.value
+  }
+
+  pub fn refresh(&mut self, layout: &mut LayoutUnit, ctx: &mut UpdateCtx) {
+    if self.changed {
+      layout.request_layout(ctx)
+    }
+    self.changed = false;
+  }
+}
+
+pub struct Container2 {
+  pub size: LayoutSource<LayoutSize>,
+  pub color: Vec4<f32>,
   layout: LayoutUnit,
 }
 
-impl<T> Container<T> {
+impl Container2 {
   pub fn size(size: LayoutSize) -> Self {
     Self {
-      size: Value::Static(size),
-      color: Value::Static(Vec4::new(1., 1., 1., 0.)),
+      size: LayoutSource::new(size),
+      color: Vec4::new(1., 1., 1., 0.),
       layout: Default::default(),
     }
   }
-  pub fn color(mut self, color: impl Into<Value<Vec4<f32>, T>>) -> Self {
-    self.color = color.into();
-    self
+}
+
+impl<T> Component<T> for Container2 {
+  fn update(&mut self, _model: &T, ctx: &mut UpdateCtx) {
+    self.layout.check_attach(ctx); // this is useless todo
+    self.size.refresh(&mut self.layout, ctx);
+    self.layout.or_layout_change(ctx);
   }
 }
 
-impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
+impl<T, C: Component<T>> ComponentAbility<T, C> for Container2 {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    self.layout.check_attach(ctx);
-
-    if self.size.diff_update(model).changed {
-      self.layout.request_layout(ctx)
-    }
-    self.color.update(model);
+    self.layout.check_attach(ctx); // this is useless todo
+    self.size.refresh(&mut self.layout, ctx);
     inner.update(model, ctx);
     self.layout.or_layout_change(ctx);
   }
@@ -39,12 +69,12 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container<T> {
   }
 }
 
-impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
+impl<C: Presentable> PresentableAbility<C> for Container2 {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     self.layout.update_world(builder.current_origin_offset);
     builder.present.primitives.push(Primitive::Quad((
       self.layout.into_quad(),
-      Style::SolidColor(*self.color.get()),
+      Style::SolidColor(self.color),
     )));
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);
@@ -52,7 +82,7 @@ impl<T, C: Presentable> PresentableAbility<C> for Container<T> {
   }
 }
 
-impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
+impl<C: LayoutAble> LayoutAbility<C> for Container2 {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -83,7 +113,7 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Container<T> {
   }
 }
 
-impl<T, C> HotAreaPassBehavior<C> for Container<T> {
+impl<C> HotAreaPassBehavior<C> for Container2 {
   fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)
   }

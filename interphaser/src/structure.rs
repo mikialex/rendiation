@@ -89,9 +89,7 @@ where
       .collect();
     // and not exist will be drop
 
-    self.children.iter_mut().for_each(|(m, c)| {
-      c.update(m, ctx)
-    })
+    self.children.iter_mut().for_each(|(m, c)| c.update(m, ctx))
   }
 
   fn event(&mut self, model: &mut Vec<T>, event: &mut crate::EventCtx<'_>) {

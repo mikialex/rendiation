@@ -4,7 +4,6 @@ use rendiation_algebra::Vec4;
 pub struct ButtonState {
   pressed: bool,
   hovering: bool,
-  color: Vec4<f32>,
 }
 
 impl Default for ButtonState {
@@ -12,7 +11,6 @@ impl Default for ButtonState {
     Self {
       pressed: false,
       hovering: false,
-      color: Vec4::new(1.0, 0.0, 0.0, 1.0),
     }
   }
 }
@@ -22,14 +20,30 @@ pub fn button<T: 'static>(
   on_click: impl Fn(&mut T) + 'static,
 ) -> impl UIComponent<T> {
   let state = ButtonState::use_state();
-  let set_color = state.mutator(|s| s.color.y += 0.1);
-  let set_pressed = state.mutation(|s| s.pressed = false);
+
+  let enable_pressed = state.mutation(|s| s.pressed = true);
+  let disable_pressed = state.mutation(|s| s.pressed = false);
+  let enable_hovering = state.mutation(|s| s.hovering = true);
+  let disable_hovering = state.mutation(|s| {
+    s.hovering = false;
+    s.pressed = false;
+  });
 
   Text::new(label)
-    .extend(
-      Container::size((200., 80.).into()).color(Value::by(move |s: &T| state.visit(|s| s.color))),
-    )
+    .extend(Container2::size((200., 80.).into()).update_by(move |s, _| {
+      s.color = state.visit(|s| {
+        if s.pressed {
+          Vec4::new(0.7, 0.7, 0.7, 1.0)
+        } else if s.hovering {
+          Vec4::new(0.9, 0.9, 0.9, 1.0)
+        } else {
+          Vec4::new(0.8, 0.8, 0.8, 1.0)
+        }
+      })
+    }))
     .extend(ClickHandler::by(on_click))
-    .extend(MouseDownHandler::by(set_pressed))
-    .extend(MouseDownHandler::by(move |s: &mut T| set_color()))
+    .extend(MouseInHandler::by(enable_hovering))
+    .extend(MouseOutHandler::by(disable_hovering))
+    .extend(MouseDownHandler::by(enable_pressed))
+    .extend(MouseUpHandler::by(disable_pressed))
 }

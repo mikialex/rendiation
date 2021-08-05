@@ -9,6 +9,9 @@
 mod lens;
 pub use lens::*;
 
+mod cell;
+pub use cell::*;
+
 mod ability;
 pub use ability::*;
 
@@ -46,7 +49,7 @@ mod app;
 pub use app::*;
 
 pub trait Component<T, S: System = DefaultSystem> {
-  fn event(&mut self, _model: &mut T, _vent: &mut S::EventCtx<'_>) {}
+  fn event(&mut self, _model: &mut T, _event: &mut S::EventCtx<'_>) {}
 
   fn update(&mut self, _model: &T, _ctx: &mut S::UpdateCtx<'_>) {}
 }

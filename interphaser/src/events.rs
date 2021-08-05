@@ -4,6 +4,10 @@ use crate::*;
 use rendiation_webgpu::GPU;
 use winit::event::*;
 
+pub trait HotAreaProvider {
+  fn is_point_in(&self, point: UIPosition) -> bool;
+}
+
 pub struct EventCtx<'a> {
   pub event: &'a winit::event::Event<'a, ()>,
   pub states: &'a WindowState,
@@ -78,6 +82,20 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseDown {
   }
 }
 
+#[derive(Default)]
+pub struct MouseUp;
+pub type MouseUpHandler<T> = EventHandler<T, MouseUp>;
+impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseUp {
+  fn downcast_event(&mut self, event: &mut EventCtx, inner: &C) -> bool {
+    if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.event) {
+      if inner.is_point_in(event.states.mouse_position) {
+        return true;
+      }
+    }
+    false
+  }
+}
+
 pub struct Click {
   mouse_down: bool,
 }
@@ -105,8 +123,68 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for Click {
   }
 }
 
-pub trait HotAreaProvider {
-  fn is_point_in(&self, point: UIPosition) -> bool;
+#[derive(Default)]
+pub struct MouseMove;
+pub type MouseMoveHandler<T> = EventHandler<T, MouseMove>;
+impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseMove {
+  fn downcast_event(&mut self, event: &mut EventCtx, inner: &C) -> bool {
+    if let Some(position) = mouse_move(event.event) {
+      if inner.is_point_in((position.x as f32, position.y as f32).into()) {
+        return true;
+      }
+    }
+    false
+  }
+}
+
+pub struct MouseIn {
+  is_mouse_in: bool,
+}
+impl Default for MouseIn {
+  fn default() -> Self {
+    Self { is_mouse_in: false }
+  }
+}
+pub type MouseInHandler<T> = EventHandler<T, MouseIn>;
+impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseIn {
+  fn downcast_event(&mut self, event: &mut EventCtx, inner: &C) -> bool {
+    if let Some(position) = mouse_move(event.event) {
+      if inner.is_point_in((position.x as f32, position.y as f32).into()) {
+        if !self.is_mouse_in {
+          return true;
+        }
+        self.is_mouse_in = true;
+      } else {
+        self.is_mouse_in = false;
+      }
+    }
+    false
+  }
+}
+
+pub struct MouseOut {
+  is_mouse_in: bool,
+}
+impl Default for MouseOut {
+  fn default() -> Self {
+    Self { is_mouse_in: false }
+  }
+}
+pub type MouseOutHandler<T> = EventHandler<T, MouseOut>;
+impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseOut {
+  fn downcast_event(&mut self, event: &mut EventCtx, inner: &C) -> bool {
+    if let Some(position) = mouse_move(event.event) {
+      if !inner.is_point_in((position.x as f32, position.y as f32).into()) {
+        if self.is_mouse_in {
+          return true;
+        }
+        self.is_mouse_in = false;
+      } else {
+        self.is_mouse_in = true;
+      }
+    }
+    false
+  }
 }
 
 fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
@@ -119,6 +197,13 @@ fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
 fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
   window_event(event).and_then(|e| match e {
     WindowEvent::MouseInput { state, button, .. } => Some((*button, *state)),
+    _ => None,
+  })
+}
+
+fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>> {
+  window_event(event).and_then(|e| match e {
+    WindowEvent::CursorMoved { position, .. } => Some(*position),
     _ => None,
   })
 }
