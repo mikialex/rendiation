@@ -26,6 +26,9 @@ impl<T, X: EventHandlerImpl<C>, C: Component<T>> ComponentAbility<T, C> for Even
     }
     inner.event(model, event);
   }
+  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
+    inner.update(model, ctx);
+  }
 }
 
 impl<T, X, C: Presentable> PresentableAbility<C> for EventHandler<T, X> {

@@ -1,8 +1,35 @@
 use crate::*;
 
+impl<T, C: Component<T>> ComponentAbility<T, C> for Flex {
+  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
+    inner.update(model, ctx);
+  }
+  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
+    inner.event(model, event);
+  }
+}
+
+impl<C: Presentable> PresentableAbility<C> for Flex {
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
+    inner.render(builder);
+  }
+}
+
+impl<C: HotAreaProvider> HotAreaPassBehavior<C> for Flex {
+  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+    inner.is_point_in(point)
+  }
+}
+
+// https://github.com/rust-lang/rust/issues/56556
+// https://github.com/rust-lang/rust/pull/85499
+// workaround:
+pub trait ExactSizeIterator2<'a>: ExactSizeIterator {}
+impl<'a, T: ExactSizeIterator> ExactSizeIterator2<'a> for T {}
+
 impl<T, C> LayoutAbility<C> for Flex
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child<T>, IntoIter: ExactSizeIterator>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child<T>, IntoIter: ExactSizeIterator2<'a>>,
 {
   fn layout(&mut self, bc: LayoutConstraint, ctx: &mut LayoutCtx, inner: &mut C) -> LayoutResult {
     // we loosen our constraints when passing to children.

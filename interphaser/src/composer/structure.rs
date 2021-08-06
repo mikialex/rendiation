@@ -1,5 +1,4 @@
-use crate::Component;
-use crate::UpdateCtx;
+use crate::*;
 
 pub struct If<T, C> {
   should_render: Box<dyn Fn(&T) -> bool>,
@@ -100,7 +99,9 @@ where
   }
 }
 
-type IterType<'a, C: 'static, T: 'static> = impl Iterator<Item = &'a mut C> + 'a;
+type IterType<'a, C: 'static, T: 'static> =
+  impl Iterator<Item = &'a mut C> + 'a + ExactSizeIterator;
+
 impl<'a, T: 'static, C: 'static> IntoIterator for &'a mut For<T, C> {
   type Item = &'a mut C;
   type IntoIter = IterType<'a, C, T>;
@@ -109,3 +110,24 @@ impl<'a, T: 'static, C: 'static> IntoIterator for &'a mut For<T, C> {
     self.children.iter_mut().map(|(_, c)| c)
   }
 }
+
+impl<T, C: Presentable> Presentable for For<T, C> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self
+      .children
+      .iter_mut()
+      .for_each(|(_, c)| c.render(builder))
+  }
+}
+
+// pub struct ArrayComponent;
+
+// impl<T, C> ComponentAbility<T, C> for ArrayComponent {
+//   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
+//     inner.update(model, ctx);
+//   }
+
+//   fn event(&mut self, model: &mut T, event: &mut crate::EventCtx, inner: &mut C) {
+//     inner.event(model, event);
+//   }
+// }

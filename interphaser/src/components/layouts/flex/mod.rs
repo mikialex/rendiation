@@ -3,7 +3,32 @@ use crate::*;
 mod layout_impl;
 
 pub struct FlexArray<T> {
-  pub items: Vec<Child<T>>,
+  pub children: Vec<Child<T>>,
+}
+
+impl<T> Default for FlexArray<T> {
+  fn default() -> Self {
+    Self {
+      children: Vec::new(),
+    }
+  }
+}
+
+impl<T> FlexArray<T> {
+  /// Add a non-flex child widget.
+  ///
+  /// See also [`with_child`].
+  ///
+  /// [`with_child`]: Flex::with_child
+  pub fn add_child(&mut self, child: impl UIComponent<T> + 'static) {
+    let child = Child::Fixed {
+      result: Default::default(),
+      position: Default::default(),
+      widget: Box::new(child),
+      alignment: None,
+    };
+    self.children.push(child);
+  }
 }
 
 pub struct Flex {
@@ -12,6 +37,69 @@ pub struct Flex {
   cross_alignment: CrossAxisAlignment,
   main_alignment: MainAxisAlignment,
   fill_major_axis: bool,
+}
+
+impl Flex {
+  /// Create a new Flex oriented along the provided axis.
+  pub fn for_axis(axis: Axis) -> Self {
+    Self {
+      layout: Default::default(),
+      direction: axis,
+      cross_alignment: CrossAxisAlignment::Center,
+      main_alignment: MainAxisAlignment::Start,
+      fill_major_axis: false,
+    }
+  }
+
+  /// Create a new horizontal stack.
+  ///
+  /// The child widgets are laid out horizontally, from left to right.
+  ///
+  pub fn row() -> Self {
+    Self::for_axis(Axis::Horizontal)
+  }
+
+  /// Create a new vertical stack.
+  ///
+  /// The child widgets are laid out vertically, from top to bottom.
+  pub fn column() -> Self {
+    Self::for_axis(Axis::Vertical)
+  }
+
+  /// Builder-style method for specifying the childrens' [`CrossAxisAlignment`].
+  ///
+  /// [`CrossAxisAlignment`]: enum.CrossAxisAlignment.html
+  pub fn cross_axis_alignment(mut self, alignment: CrossAxisAlignment) -> Self {
+    self.cross_alignment = alignment;
+    self
+  }
+
+  /// Builder-style method for specifying the childrens' [`MainAxisAlignment`].
+  ///
+  /// [`MainAxisAlignment`]: enum.MainAxisAlignment.html
+  pub fn main_axis_alignment(mut self, alignment: MainAxisAlignment) -> Self {
+    self.main_alignment = alignment;
+    self
+  }
+
+  /// Builder-style method for setting whether the container must expand
+  /// to fill the available space on its main axis.
+  ///
+  /// If any children have flex then this container will expand to fill all
+  /// available space on its main axis; But if no children are flex,
+  /// this flag determines whether or not the container should shrink to fit,
+  /// or must expand to fill.
+  ///
+  /// If it expands, and there is extra space left over, that space is
+  /// distributed in accordance with the [`MainAxisAlignment`].
+  ///
+  /// The default value is `false`.
+  ///
+  /// [`MainAxisAlignment`]: enum.MainAxisAlignment.html
+  pub fn must_fill_main_axis(mut self, fill: bool) -> Self {
+    self.fill_major_axis = fill;
+    self
+  }
 }
 
 pub enum Child<T> {
@@ -30,6 +118,34 @@ pub enum Child<T> {
   },
   FixedSpacer(f32, f32),
   FlexedSpacer(f32, f32),
+}
+
+impl<T> Component<T> for Child<T> {
+  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
+    match self {
+      Child::Fixed { widget, .. } => widget.event(model, event),
+      Child::Flex { widget, .. } => widget.event(model, event),
+      _ => {}
+    }
+  }
+
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+    match self {
+      Child::Fixed { widget, .. } => widget.update(model, ctx),
+      Child::Flex { widget, .. } => widget.update(model, ctx),
+      _ => {}
+    }
+  }
+}
+
+impl<T> Presentable for Child<T> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    match self {
+      Child::Fixed { widget, .. } => widget.render(builder),
+      Child::Flex { widget, .. } => widget.render(builder),
+      _ => {}
+    }
+  }
 }
 
 impl<T> Child<T> {

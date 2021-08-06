@@ -31,7 +31,12 @@ impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
         view,
         resolve_target: None,
         ops: wgpu::Operations {
-          load: wgpu::LoadOp::Load,
+          load: wgpu::LoadOp::Clear(wgpu::Color {
+            r: 1.,
+            g: 1.,
+            b: 1.,
+            a: 1.,
+          }),
           store: true,
         },
       }],

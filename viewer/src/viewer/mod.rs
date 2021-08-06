@@ -1,5 +1,5 @@
-pub mod ui_impl;
-pub use ui_impl::*;
+pub mod examples;
+pub use examples::*;
 
 pub mod view;
 pub use view::*;
@@ -18,13 +18,28 @@ use crate::*;
 
 pub struct Viewer {
   counter: Counter,
+  todo: Todo,
   viewer: ViewerInner,
 }
 
 impl Viewer {
   pub fn new() -> Self {
+    let todo = Todo {
+      items: vec![
+        TodoItem {
+          name: String::from("t         1"),
+        },
+        TodoItem {
+          name: String::from("test 2"),
+        },
+        TodoItem {
+          name: String::from("test 3"),
+        },
+      ],
+    };
     Viewer {
       counter: Counter { count: 0 },
+      todo,
       viewer: ViewerInner {
         content: Viewer3dContent::new(),
         size: (100., 100.),
@@ -35,11 +50,14 @@ impl Viewer {
 }
 
 pub fn create_ui() -> impl UIComponent<Viewer> {
-  button(
-    Value::by(|viewer: &Counter| viewer.count.to_string()),
-    |viewer: &mut Counter| viewer.count += 10,
-  )
-  .lens(lens!(Viewer, counter))
+  build_todo().lens(lens!(Viewer, todo))
+
+  // button(
+  //   Value::by(|viewer: &Counter| viewer.count.to_string()),
+  //   |viewer: &mut Counter| viewer.count += 10,
+  // )
+  // .lens(lens!(Viewer, counter))
+
   // GPUCanvas::default().lens(lens!(Viewer, viewer))
 }
 
@@ -105,8 +123,8 @@ impl Viewer3dContent {
     let sampler = scene.add_sampler(TextureSampler::default());
 
     use image::io::Reader as ImageReader;
-    // let img = ImageReader::open("/Users/mikialex/Desktop/test.png")
-    let img = ImageReader::open("C:/Users/mk/Desktop/test.png")
+    let img = ImageReader::open("/Users/mikialex/Desktop/test.png")
+      // let img = ImageReader::open("C:/Users/mk/Desktop/test.png")
       .unwrap()
       .decode()
       .unwrap();
