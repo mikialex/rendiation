@@ -123,8 +123,8 @@ impl Viewer3dContent {
     let sampler = scene.add_sampler(TextureSampler::default());
 
     use image::io::Reader as ImageReader;
-    let img = ImageReader::open("/Users/mikialex/Desktop/test.png")
-      // let img = ImageReader::open("C:/Users/mk/Desktop/test.png")
+    // let img = ImageReader::open("/Users/mikialex/Desktop/test.png")
+    let img = ImageReader::open("C:/Users/mk/Desktop/test.png")
       .unwrap()
       .decode()
       .unwrap();

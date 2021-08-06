@@ -41,10 +41,12 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container {
 impl<C: Presentable> PresentableAbility<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     self.layout.update_world(builder.current_origin_offset);
-    builder.present.primitives.push(Primitive::Quad((
-      self.layout.into_quad(),
-      Style::SolidColor(self.color),
-    )));
+    if self.color.a() != 0. {
+      builder.present.primitives.push(Primitive::Quad((
+        self.layout.into_quad(),
+        Style::SolidColor(self.color),
+      )));
+    }
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);
     builder.pop_offset()

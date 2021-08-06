@@ -149,7 +149,6 @@ impl<T> ApplicationInner<T> {
     self.update();
 
     let mut builder = PresentationBuilder::new();
-    self.root.render(&mut builder);
     builder.present.view_size = self.window_states.size;
     self.root.render(&mut builder);
 
