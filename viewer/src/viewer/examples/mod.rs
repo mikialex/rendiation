@@ -1,5 +1,7 @@
 use interphaser::*;
 
+use crate::button;
+
 pub struct Todo {
   pub items: Vec<TodoItem>,
 }
@@ -11,19 +13,29 @@ pub struct TodoItem {
 
 pub fn build_todo() -> impl UIComponent<Todo> {
   For::by(|item: &TodoItem, i| Child::Flex {
-    widget: Box::new(
-      Text::default()
-        .updater(move |s, t: &TodoItem| s.content.set(t.name.clone()))
-        .extend(Container::size((500., 100.))),
-    ),
+    widget: Box::new(build_todo_item()),
     result: Default::default(),
     position: Default::default(),
     alignment: None,
     flex: 1.,
   })
   .extend(Flex::column())
-  .extend(Container::size((500., 700.)))
+  .extend(Container::size((800., 1000.)))
   .lens(lens!(Todo, items))
+}
+
+pub fn build_todo_item() -> impl UIComponent<TodoItem> {
+  let label = Text::default()
+    .bind(move |s, t: &TodoItem| s.content.set(t.name.clone()))
+    .extend(Container::size((200., 100.)));
+
+  let button = button("delete", |s: &mut TodoItem| println!("delete {}", s.name));
+
+  ComponentArray::flex_group()
+    .add_flex_child(label, 1.0, None)
+    .add_flex_child(button, 1.0, None)
+    .extend(Flex::row())
+    .extend(Container::size((500., 120.)))
 }
 
 #[derive(PartialEq, Clone, Default)]

@@ -120,14 +120,37 @@ impl<T, C: Presentable> Presentable for For<T, C> {
   }
 }
 
-// pub struct ArrayComponent;
+#[derive(Default)]
+pub struct ComponentArray<C> {
+  pub children: Vec<C>,
+}
 
-// impl<T, C> ComponentAbility<T, C> for ArrayComponent {
-//   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-//     inner.update(model, ctx);
-//   }
+type IterType2<'a, C: 'static> = impl Iterator<Item = &'a mut C> + 'a + ExactSizeIterator;
 
-//   fn event(&mut self, model: &mut T, event: &mut crate::EventCtx, inner: &mut C) {
-//     inner.event(model, event);
-//   }
-// }
+impl<'a, C: 'static> IntoIterator for &'a mut ComponentArray<C> {
+  type Item = &'a mut C;
+  type IntoIter = IterType2<'a, C>;
+
+  fn into_iter(self) -> IterType2<'a, C> {
+    self.children.iter_mut()
+  }
+}
+
+impl<C: Presentable> Presentable for ComponentArray<C> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.children.iter_mut().for_each(|c| c.render(builder))
+  }
+}
+
+impl<'a, T, C> Component<T> for ComponentArray<C>
+where
+  C: Component<T>,
+{
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+    self.children.iter_mut().for_each(|c| c.update(model, ctx))
+  }
+
+  fn event(&mut self, model: &mut T, event: &mut crate::EventCtx<'_>) {
+    self.children.iter_mut().for_each(|c| c.event(model, event))
+  }
+}

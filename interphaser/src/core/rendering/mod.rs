@@ -31,7 +31,7 @@ impl PresentationBuilder {
   }
 
   pub fn pop_offset(&mut self) {
-    if let Some(offset) = self.parent_offset_chain.last() {
+    if let Some(offset) = self.parent_offset_chain.pop() {
       self.current_origin_offset.x -= offset.x;
       self.current_origin_offset.y -= offset.y;
     }

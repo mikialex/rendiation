@@ -11,7 +11,9 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Flex {
 
 impl<C: Presentable> PresentableAbility<C> for Flex {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
+    builder.push_offset(self.layout.relative_position);
     inner.render(builder);
+    builder.pop_offset()
   }
 }
 

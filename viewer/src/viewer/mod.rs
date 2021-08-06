@@ -27,7 +27,7 @@ impl Viewer {
     let todo = Todo {
       items: vec![
         TodoItem {
-          name: String::from("t         1"),
+          name: String::from("t1"),
         },
         TodoItem {
           name: String::from("test 2"),

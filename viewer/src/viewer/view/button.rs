@@ -35,8 +35,8 @@ pub fn button<T: 'static>(
   let on_mouse_out = state.mutation(|s| *s = ButtonState::Normal);
 
   Text::default()
-    .updater(move |s, t| s.content.set(label.update(t)))
-    .extend(Container::size((200., 80.)).updater(move |s, _| s.color = state.visit(|s| s.color())))
+    .bind(move |s, t| s.content.set(label.eval(t)))
+    .extend(Container::size((200., 80.)).bind(move |s, _| s.color = state.visit(|s| s.color())))
     .extend(ClickHandler::by(on_click))
     .extend(MouseInHandler::by(on_mouse_in))
     .extend(MouseOutHandler::by(on_mouse_out))

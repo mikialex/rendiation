@@ -28,7 +28,7 @@ impl<T: Default, U> Value<T, U> {
     })
   }
 
-  pub fn update(&mut self, ctx: &U) -> &T {
+  pub fn eval(&mut self, ctx: &U) -> &T {
     match self {
       Value::Static(v) => v,
       Value::Dynamic(d) => {
@@ -38,7 +38,7 @@ impl<T: Default, U> Value<T, U> {
     }
   }
 
-  pub fn diff_update(&mut self, ctx: &U) -> ValueDiffResult<T>
+  pub fn diff_eval(&mut self, ctx: &U) -> ValueDiffResult<T>
   where
     T: PartialEq,
   {

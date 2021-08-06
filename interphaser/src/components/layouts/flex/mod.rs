@@ -1,35 +1,8 @@
 use crate::*;
 
+mod builder;
 mod layout_impl;
-
-pub struct FlexArray<T> {
-  pub children: Vec<Child<T>>,
-}
-
-impl<T> Default for FlexArray<T> {
-  fn default() -> Self {
-    Self {
-      children: Vec::new(),
-    }
-  }
-}
-
-impl<T> FlexArray<T> {
-  /// Add a non-flex child widget.
-  ///
-  /// See also [`with_child`].
-  ///
-  /// [`with_child`]: Flex::with_child
-  pub fn add_child(&mut self, child: impl UIComponent<T> + 'static) {
-    let child = Child::Fixed {
-      result: Default::default(),
-      position: Default::default(),
-      widget: Box::new(child),
-      alignment: None,
-    };
-    self.children.push(child);
-  }
-}
+pub use builder::*;
 
 pub struct Flex {
   direction: Axis,

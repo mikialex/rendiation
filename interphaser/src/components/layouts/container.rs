@@ -16,6 +16,11 @@ impl Container {
       layout: Default::default(),
     }
   }
+
+  pub fn color(mut self, color: Vec4<f32>) -> Self {
+    self.color = color;
+    self
+  }
 }
 
 impl<T> Component<T> for Container {
