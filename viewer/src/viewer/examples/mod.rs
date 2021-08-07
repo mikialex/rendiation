@@ -12,19 +12,13 @@ pub struct TodoItem {
 }
 
 pub fn build_todo() -> impl UIComponent<Todo> {
-  For::by(|item: &TodoItem, i| Child::Flex {
-    widget: Box::new(build_todo_item()),
-    result: Default::default(),
-    position: Default::default(),
-    alignment: None,
-    flex: 1.,
-  })
-  .extend(Flex::column())
-  .extend(TodoItemDeleteHandler::by(|s: &mut Vec<TodoItem>, _, e| {
-    s.remove(s.iter().position(|item| item.name == e.name).unwrap());
-  }))
-  .extend(Container::size((800., 1000.)))
-  .lens(lens!(Todo, items))
+  For::by(|item: &TodoItem, i| Child::flex(build_todo_item(), 1.))
+    .extend(Flex::column())
+    .extend(TodoItemDeleteHandler::by(|s: &mut Vec<TodoItem>, _, e| {
+      s.remove(s.iter().position(|item| item.name == e.name).unwrap());
+    }))
+    .extend(Container::size((800., 1000.)))
+    .lens(lens!(Todo, items))
 }
 
 pub struct TodoItemDeleteEvent {
@@ -58,9 +52,9 @@ pub fn build_todo_item() -> impl UIComponent<TodoItem> {
     })
   });
 
-  ComponentArray::flex_group()
-    .add_flex_child(label, 1.0, None)
-    .add_flex_child(button, 1.0, None)
+  flex_group()
+    .push(Child::flex(label, 1.))
+    .push(Child::flex(button, 1.))
     .extend(Flex::row())
     .extend(Container::size((500., 120.)))
 }

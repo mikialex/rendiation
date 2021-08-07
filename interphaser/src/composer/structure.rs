@@ -125,6 +125,13 @@ pub struct ComponentArray<C> {
   pub children: Vec<C>,
 }
 
+impl<X> ComponentArray<X> {
+  pub fn push(mut self, x: X) -> Self {
+    self.children.push(x);
+    self
+  }
+}
+
 type IterType2<'a, C: 'static> = impl Iterator<Item = &'a mut C> + 'a + ExactSizeIterator;
 
 impl<'a, C: 'static> IntoIterator for &'a mut ComponentArray<C> {

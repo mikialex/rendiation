@@ -1,8 +1,12 @@
 use crate::*;
 
-mod builder;
 mod layout_impl;
-pub use builder::*;
+
+pub fn flex_group<T>() -> ComponentArray<Child<T>> {
+  ComponentArray {
+    children: Vec::new(),
+  }
+}
 
 pub struct Flex {
   direction: Axis,
@@ -91,6 +95,36 @@ pub enum Child<T> {
   },
   FixedSpacer(f32, f32),
   FlexedSpacer(f32, f32),
+}
+
+impl<T> Child<T> {
+  pub fn fixed(widget: impl UIComponent<T> + 'static) -> Self {
+    Self::Fixed {
+      widget: Box::new(widget),
+      result: Default::default(),
+      position: Default::default(),
+      alignment: None,
+    }
+  }
+
+  pub fn flex(widget: impl UIComponent<T> + 'static, flex: f32) -> Self {
+    Self::Flex {
+      widget: Box::new(widget),
+      result: Default::default(),
+      position: Default::default(),
+      alignment: None,
+      flex,
+    }
+  }
+
+  pub fn self_alignment(mut self, a: CrossAxisAlignment) -> Self {
+    match &mut self {
+      Child::Fixed { alignment, .. } => *alignment = a.into(),
+      Child::Flex { alignment, .. } => *alignment = a.into(),
+      _ => {}
+    }
+    self
+  }
 }
 
 impl<T> Component<T> for Child<T> {
