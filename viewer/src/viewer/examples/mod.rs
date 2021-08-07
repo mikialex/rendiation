@@ -33,9 +33,11 @@ pub struct TodoItemDeleteEvent {
 
 #[derive(Default)]
 pub struct TodoItemDelete;
-pub type TodoItemDeleteHandler<T> = EventHandler<T, TodoItemDelete, TodoItemDeleteEvent>;
-impl<C> EventHandlerImpl<C> for TodoItemDelete {
+pub type TodoItemDeleteHandler<T> = EventHandler<T, TodoItemDelete>;
+impl EventHandlerType for TodoItemDelete {
   type Event = TodoItemDeleteEvent;
+}
+impl<C> EventHandlerImpl<C> for TodoItemDelete {
   fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
     event.custom_event.downcast_ref::<TodoItemDeleteEvent>()
   }
