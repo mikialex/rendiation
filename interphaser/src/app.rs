@@ -168,6 +168,7 @@ impl<T> ApplicationInner<T> {
     self.root_size_changed |= window_size != self.window_states.size;
     let mut event = EventCtx {
       event,
+      custom_event: Box::new(1),
       states: &self.window_states,
       gpu: self.gpu.clone(),
     };

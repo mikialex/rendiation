@@ -6,7 +6,7 @@ pub use rendering::*;
 
 use crate::*;
 use rendiation_webgpu::GPU;
-use std::rc::Rc;
+use std::{any::Any, rc::Rc};
 
 pub trait Component<T, S: System = DefaultSystem> {
   fn event(&mut self, _model: &mut T, _event: &mut S::EventCtx<'_>) {}
@@ -39,6 +39,7 @@ impl UpdateCtx {
 
 pub struct EventCtx<'a> {
   pub event: &'a winit::event::Event<'a, ()>,
+  pub custom_event: Box<dyn Any>,
   pub states: &'a WindowState,
   pub gpu: Rc<GPU>,
 }

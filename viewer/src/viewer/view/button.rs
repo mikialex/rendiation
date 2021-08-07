@@ -24,15 +24,15 @@ impl ButtonState {
 
 pub fn button<T: 'static>(
   label: impl Into<Value<String, T>>,
-  on_click: impl Fn(&mut T) + 'static,
+  on_click: impl Fn(&mut T, &mut EventHandleCtx, &()) + 'static,
 ) -> impl UIComponent<T> {
   let mut label = label.into();
   let state = ButtonState::use_state();
 
-  let on_mouse_down = state.mutation(|s| *s = ButtonState::Pressed);
-  let on_mouse_up = state.mutation(|s| *s = ButtonState::Hovering);
-  let on_mouse_in = state.mutation(|s| *s = ButtonState::Hovering);
-  let on_mouse_out = state.mutation(|s| *s = ButtonState::Normal);
+  let on_mouse_down = state.mutation(|s, _, _| *s = ButtonState::Pressed);
+  let on_mouse_up = state.mutation(|s, _, _| *s = ButtonState::Hovering);
+  let on_mouse_in = state.mutation(|s, _, _| *s = ButtonState::Hovering);
+  let on_mouse_out = state.mutation(|s, _, _| *s = ButtonState::Normal);
 
   Text::default()
     .bind(move |s, t| s.content.set(label.eval(t)))
