@@ -11,6 +11,15 @@ pub struct TodoItem {
   pub name: String,
 }
 
+// todo change to id
+impl IdentityKeyed for TodoItem {
+  type Key = String;
+
+  fn key(&self) -> Self::Key {
+    self.name.clone()
+  }
+}
+
 pub fn build_todo() -> impl UIComponent<Todo> {
   For::by(|item: &TodoItem, i| Child::flex(build_todo_item(), 1.))
     .extend(Flex::column())
