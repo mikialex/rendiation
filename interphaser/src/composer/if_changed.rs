@@ -1,11 +1,11 @@
 use crate::*;
 
 #[derive(Default)]
-pub struct Memo<T> {
+pub struct IfChanged<T> {
   cached: Option<T>,
 }
 
-impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for Memo<T> {
+impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for IfChanged<T> {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
     if let Some(cached) = self.cached.as_ref() {
       if cached == model {
@@ -20,13 +20,13 @@ impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for Memo<T> {
   }
 }
 
-impl<T, C: Presentable> PresentableAbility<C> for Memo<T> {
+impl<T, C: Presentable> PresentableAbility<C> for IfChanged<T> {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     inner.render(builder);
   }
 }
 
-impl<T, C: LayoutAble> LayoutAbility<C> for Memo<T> {
+impl<T, C: LayoutAble> LayoutAbility<C> for IfChanged<T> {
   fn layout(
     &mut self,
     constraint: LayoutConstraint,
@@ -41,7 +41,7 @@ impl<T, C: LayoutAble> LayoutAbility<C> for Memo<T> {
   }
 }
 
-impl<T, C: HotAreaProvider> HotAreaPassBehavior<C> for Memo<T> {
+impl<T, C: HotAreaProvider> HotAreaPassBehavior<C> for IfChanged<T> {
   fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
     inner.is_point_in(point)
   }
