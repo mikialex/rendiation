@@ -33,7 +33,9 @@ impl EventHandlerType for TodoItemDelete {
 }
 impl<C> EventHandlerImpl<C> for TodoItemDelete {
   fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
-    event.custom_event.downcast_ref::<TodoItemDeleteEvent>()
+    event
+      .custom_event
+      .consume_if_type_is::<TodoItemDeleteEvent>()
   }
   fn should_handle_in_bubble(&self) -> bool {
     true
@@ -47,7 +49,7 @@ pub fn build_todo_item() -> impl UIComponent<TodoItem> {
 
   let button = button("delete", |s: &mut TodoItem, c, _| {
     println!("delete {}", s.name);
-    c.custom_event_emitter = Box::new(TodoItemDeleteEvent {
+    c.emit(TodoItemDeleteEvent {
       name: s.name.clone(),
     })
   });
