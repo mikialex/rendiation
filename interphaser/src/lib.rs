@@ -23,3 +23,6 @@ pub use utils::*;
 
 mod app;
 pub use app::*;
+
+use rendiation_color::*;
+pub type Color = ColorWithAlpha<SRGBColor<f32>, f32>;

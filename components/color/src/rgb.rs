@@ -35,6 +35,22 @@ impl<T> From<LinearRGBColor<T>> for Vec3<T> {
   }
 }
 
+impl<T> From<(T, T, T)> for LinearRGBColor<T> {
+  fn from(value: (T, T, T)) -> Self {
+    Self {
+      r: value.0,
+      g: value.1,
+      b: value.2,
+    }
+  }
+}
+
+impl<T> From<LinearRGBColor<T>> for (T, T, T) {
+  fn from(value: LinearRGBColor<T>) -> Self {
+    (value.r, value.g, value.b)
+  }
+}
+
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct SRGBColor<T> {
   pub r: T,
@@ -74,5 +90,37 @@ impl From<LinearRGBColor<f32>> for SRGBColor<f32> {
       g: convert(color.g),
       b: convert(color.b),
     }
+  }
+}
+
+impl<T> From<Vec3<T>> for SRGBColor<T> {
+  fn from(value: Vec3<T>) -> Self {
+    Self {
+      r: value.x,
+      g: value.y,
+      b: value.z,
+    }
+  }
+}
+
+impl<T> From<SRGBColor<T>> for Vec3<T> {
+  fn from(value: SRGBColor<T>) -> Self {
+    Vec3::new(value.r, value.g, value.b)
+  }
+}
+
+impl<T> From<(T, T, T)> for SRGBColor<T> {
+  fn from(value: (T, T, T)) -> Self {
+    Self {
+      r: value.0,
+      g: value.1,
+      b: value.2,
+    }
+  }
+}
+
+impl<T> From<SRGBColor<T>> for (T, T, T) {
+  fn from(value: SRGBColor<T>) -> Self {
+    (value.r, value.g, value.b)
   }
 }

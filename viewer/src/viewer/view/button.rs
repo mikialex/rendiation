@@ -1,5 +1,4 @@
 use interphaser::*;
-use rendiation_algebra::Vec4;
 
 pub enum ButtonState {
   Normal,
@@ -13,12 +12,13 @@ impl Default for ButtonState {
 }
 
 impl ButtonState {
-  pub fn color(&self) -> Vec4<f32> {
+  pub fn color(&self) -> Color {
     match self {
-      ButtonState::Normal => Vec4::new(0.8, 0.8, 0.8, 1.0),
-      ButtonState::Pressed => Vec4::new(0.7, 0.7, 0.7, 1.0),
-      ButtonState::Hovering => Vec4::new(0.9, 0.9, 0.9, 1.0),
+      ButtonState::Normal => (0.8, 0.8, 0.8, 1.0),
+      ButtonState::Pressed => (0.7, 0.7, 0.7, 1.0),
+      ButtonState::Hovering => (0.9, 0.9, 0.9, 1.0),
     }
+    .into()
   }
 }
 

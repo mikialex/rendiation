@@ -1,6 +1,5 @@
-use crate::{LayoutSize, UIPosition};
+use crate::{Color, LayoutSize, UIPosition};
 use glyph_brush::{HorizontalAlign, VerticalAlign};
-use rendiation_algebra::*;
 use std::rc::Rc;
 
 mod fonts;
@@ -41,7 +40,7 @@ impl PresentationBuilder {
 
 #[derive(Debug, Clone)]
 pub enum Style {
-  SolidColor(Vec4<f32>),
+  SolidColor(Color),
   Texture(Rc<wgpu::TextureView>),
 }
 
@@ -84,7 +83,7 @@ pub struct TextInfo {
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlign,
   pub vertical_align: VerticalAlign,
-  pub color: Vec4<f32>,
+  pub color: Color,
   pub font_size: f32,
   pub x: f32,
   pub y: f32,

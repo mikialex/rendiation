@@ -1,10 +1,8 @@
-use rendiation_algebra::Vec4;
-
 use crate::*;
 
 pub struct Container {
   pub size: LayoutSource<LayoutSize>,
-  pub color: Vec4<f32>,
+  pub color: Color,
   layout: LayoutUnit,
 }
 
@@ -12,12 +10,12 @@ impl Container {
   pub fn size(size: impl Into<LayoutSize>) -> Self {
     Self {
       size: LayoutSource::new(size.into()),
-      color: Vec4::new(1., 1., 1., 0.),
+      color: (1., 1., 1., 0.).into(),
       layout: Default::default(),
     }
   }
 
-  pub fn color(mut self, color: Vec4<f32>) -> Self {
+  pub fn color(mut self, color: Color) -> Self {
     self.color = color;
     self
   }
@@ -46,7 +44,7 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container {
 impl<C: Presentable> PresentableAbility<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
     self.layout.update_world(builder.current_origin_offset);
-    if self.color.a() != 0. {
+    if self.color.a != 0. {
       builder.present.primitives.push(Primitive::Quad((
         self.layout.into_quad(),
         Style::SolidColor(self.color),

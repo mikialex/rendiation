@@ -1,5 +1,4 @@
 use glyph_brush::{HorizontalAlign, VerticalAlign};
-use rendiation_algebra::Vec4;
 
 use crate::*;
 
@@ -42,19 +41,19 @@ impl Presentable for Text {
       vertical_align: self.vertical_align,
       x: self.layout.position.x,
       y: self.layout.position.y,
-      color: Vec4::new(0., 0., 0., 1.),
+      color: (0., 0., 0., 1.).into(),
       font_size: 30.,
     }));
 
     builder.present.primitives.push(Primitive::Quad((
       self.layout.into_quad(),
-      Style::SolidColor(Vec4::new(0., 0., 0., 0.2)),
+      Style::SolidColor((0., 0., 0., 0.2).into()),
     )));
   }
 }
 
 impl LayoutAble for Text {
-  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
     if self.layout.skipable(constraint) {
       return self.layout.size.with_default_baseline();
     }

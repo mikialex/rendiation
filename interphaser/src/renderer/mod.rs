@@ -105,7 +105,7 @@ pub enum GPUxUIPrimitive {
 fn build_quad(
   device: &wgpu::Device,
   quad: &crate::Quad,
-  color: Vec4<f32>,
+  color: crate::Color,
 ) -> (wgpu::Buffer, wgpu::Buffer) {
   let mut vertices = Vec::new();
 
@@ -165,7 +165,7 @@ impl Primitive {
             })
           }
           crate::Style::Texture(view) => {
-            let (index_buffer, vertex_buffer) = build_quad(device, quad, Vec4::one());
+            let (index_buffer, vertex_buffer) = build_quad(device, quad, (1., 1., 1., 1.).into());
 
             GPUxUIPrimitive::Texture(GPUxUITexturedPrimitive {
               vertex_buffer,
@@ -192,7 +192,7 @@ impl Primitive {
             ),
             bounds: text.bounds.into(),
             text: vec![Text::new(text.content.as_str())
-              .with_color([text.color.x, text.color.y, text.color.z, text.color.w])
+              .with_color([text.color.r, text.color.g, text.color.b, text.color.a])
               .with_scale(text.font_size)],
             layout: match text.line_wrap {
               crate::LineWrap::Single => glyph_brush::Layout::SingleLine {
