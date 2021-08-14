@@ -68,7 +68,9 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
     if self.layout.skipable(constraint) {
       return self.layout.size.with_default_baseline();
     }
-    let child_size = inner.layout(constraint, ctx).size;
+    let child_size = inner
+      .layout(LayoutConstraint::from_max(*self.size.get()), ctx)
+      .size;
     self.layout.size = constraint.clamp(*self.size.get());
 
     let child_offset_x = self.layout.size.width - child_size.width;

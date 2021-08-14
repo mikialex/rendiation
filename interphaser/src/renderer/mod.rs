@@ -1,4 +1,4 @@
-use glyph_brush::{Section, Text};
+use glyph_brush::{BuiltInLineBreaker, Section, Text};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
@@ -186,12 +186,26 @@ impl Primitive {
           device,
           encoder,
           Section {
-            screen_position: (text.x, text.y),
-            bounds: (text.max_width.unwrap_or(10000.), 10000.),
+            screen_position: (
+              text.x + text.bounds.width / 2.,
+              text.y + text.bounds.height / 2.,
+            ),
+            bounds: text.bounds.into(),
             text: vec![Text::new(text.content.as_str())
               .with_color([text.color.x, text.color.y, text.color.z, text.color.w])
               .with_scale(text.font_size)],
-            ..Section::default()
+            layout: match text.line_wrap {
+              crate::LineWrap::Single => glyph_brush::Layout::SingleLine {
+                line_breaker: BuiltInLineBreaker::default(),
+                h_align: text.horizon_align,
+                v_align: text.vertical_align,
+              },
+              crate::LineWrap::Multiple => glyph_brush::Layout::Wrap {
+                line_breaker: BuiltInLineBreaker::default(),
+                h_align: text.horizon_align,
+                v_align: text.vertical_align,
+              },
+            },
           },
         );
         if let Some(text) = text {

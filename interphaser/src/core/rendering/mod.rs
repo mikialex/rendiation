@@ -1,4 +1,5 @@
 use crate::{LayoutSize, UIPosition};
+use glyph_brush::{HorizontalAlign, VerticalAlign};
 use rendiation_algebra::*;
 use std::rc::Rc;
 
@@ -64,10 +65,25 @@ impl Quad {
   }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum LineWrap {
+  Single,
+  Multiple,
+}
+
+impl Default for LineWrap {
+  fn default() -> Self {
+    Self::Single
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct TextInfo {
   pub content: String,
-  pub max_width: Option<f32>,
+  pub bounds: LayoutSize,
+  pub line_wrap: LineWrap,
+  pub horizon_align: HorizontalAlign,
+  pub vertical_align: VerticalAlign,
   pub color: Vec4<f32>,
   pub font_size: f32,
   pub x: f32,

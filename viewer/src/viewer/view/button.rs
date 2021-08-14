@@ -34,7 +34,7 @@ pub fn button<T: 'static>(
   let on_mouse_in = state.mutation(|s, _, _| *s = ButtonState::Hovering);
   let on_mouse_out = state.mutation(|s, _, _| *s = ButtonState::Normal);
 
-  Text::default()
+  Text::new("")
     .bind(move |s, t| s.content.set(label.eval(t)))
     .extend(Container::size((200., 80.)).bind(move |s, _| s.color = state.visit(|s| s.color())))
     .extend(ClickHandler::by(on_click))
