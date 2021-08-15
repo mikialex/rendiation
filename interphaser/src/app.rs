@@ -127,6 +127,7 @@ impl<T> ApplicationInner<T> {
     let mut ctx = UpdateCtx {
       time_stamp: 0,
       layout_changed: false,
+      fonts: &self.fonts,
     };
     self.root.update(&self.state, &mut ctx);
 

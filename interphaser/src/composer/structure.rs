@@ -108,7 +108,7 @@ where
       .for_each(|((_, c), m)| c.update(m, ctx))
   }
 
-  fn event(&mut self, model: &mut Vec<T>, event: &mut crate::EventCtx<'_>) {
+  fn event(&mut self, model: &mut Vec<T>, event: &mut crate::EventCtx) {
     self
       .children
       .iter_mut()
@@ -175,7 +175,7 @@ where
     self.children.iter_mut().for_each(|c| c.update(model, ctx))
   }
 
-  fn event(&mut self, model: &mut T, event: &mut crate::EventCtx<'_>) {
+  fn event(&mut self, model: &mut T, event: &mut crate::EventCtx) {
     self.children.iter_mut().for_each(|c| c.event(model, event))
   }
 }

@@ -23,15 +23,16 @@ pub struct DefaultSystem {}
 
 impl System for DefaultSystem {
   type EventCtx<'a> = EventCtx<'a>;
-  type UpdateCtx<'a> = UpdateCtx;
+  type UpdateCtx<'a> = UpdateCtx<'a>;
 }
 
-pub struct UpdateCtx {
+pub struct UpdateCtx<'a> {
   pub time_stamp: u64,
   pub layout_changed: bool, // todo private
+  pub fonts: &'a FontManager,
 }
 
-impl UpdateCtx {
+impl<'a> UpdateCtx<'a> {
   pub fn request_layout(&mut self) {
     self.layout_changed = true;
   }
@@ -50,6 +51,12 @@ impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable + LayoutAble
 pub struct CustomEventCtx {
   events: Vec<Box<dyn Any>>,
   drain_index: Vec<usize>,
+}
+
+impl CustomEventCtx {
+  pub fn push_event(&mut self, e: impl Any) {
+    self.events.push(Box::new(e))
+  }
 }
 
 impl Default for CustomEventCtx {
