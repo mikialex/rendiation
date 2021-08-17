@@ -42,7 +42,7 @@ impl Viewer {
       todo,
       viewer: ViewerInner {
         content: Viewer3dContent::new(),
-        size: (1000., 1000.),
+        size: (0, 0),
         ctx: None,
       },
     }
@@ -75,14 +75,21 @@ impl CanvasPrinter for ViewerInner {
     self.content.event(event)
   }
 
-  fn render_size(&self) -> (f32, f32) {
-    self.size
+  fn update_render_size(&mut self, layout_size: (f32, f32), gpu: &GPU) -> (u32, u32) {
+    let new_size = (layout_size.0 as u32, layout_size.1 as u32);
+    if let Some(ctx) = &mut self.ctx {
+      if self.size != new_size {
+        ctx.resize_view(gpu, new_size)
+      }
+    }
+    self.size = new_size;
+    new_size
   }
 }
 
 pub struct ViewerInner {
   content: Viewer3dContent,
-  size: (f32, f32),
+  size: (u32, u32),
   ctx: Option<Viewer3dRenderingCtx>,
 }
 
@@ -96,11 +103,11 @@ pub struct Viewer3dRenderingCtx {
 }
 
 impl Viewer3dRenderingCtx {
-  pub fn new(gpu: &GPU, prefer_target_fmt: wgpu::TextureFormat, size: (f32, f32)) -> Self {
+  pub fn new(gpu: &GPU, prefer_target_fmt: wgpu::TextureFormat, size: (u32, u32)) -> Self {
     let forward = StandardForward::new(gpu, prefer_target_fmt, size);
     Self { forward }
   }
-  pub fn resize_view(&mut self, gpu: &GPU, size: (f32, f32)) {
+  pub fn resize_view(&mut self, gpu: &GPU, size: (u32, u32)) {
     self.forward.resize(gpu, size)
   }
 
