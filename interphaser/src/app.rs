@@ -127,6 +127,7 @@ impl<T> ApplicationInner<T> {
     let mut ctx = UpdateCtx {
       time_stamp: 0,
       layout_changed: false,
+      fonts: &self.fonts,
     };
     self.root.update(&self.state, &mut ctx);
 
@@ -149,7 +150,6 @@ impl<T> ApplicationInner<T> {
     self.update();
 
     let mut builder = PresentationBuilder::new();
-    self.root.render(&mut builder);
     builder.present.view_size = self.window_states.size;
     self.root.render(&mut builder);
 
@@ -169,6 +169,7 @@ impl<T> ApplicationInner<T> {
     self.root_size_changed |= window_size != self.window_states.size;
     let mut event = EventCtx {
       event,
+      custom_event: Default::default(),
       states: &self.window_states,
       gpu: self.gpu.clone(),
     };

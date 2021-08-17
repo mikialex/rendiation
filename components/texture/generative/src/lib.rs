@@ -1,4 +1,5 @@
 #![allow(unused)]
+#![allow(unstable_name_collisions)]
 use rendiation_algebra::Vec3;
 
 pub mod perlin;

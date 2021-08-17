@@ -10,7 +10,7 @@ pub struct FontManager {
 impl FontManager {
   pub fn new_with_fallback_system_font(fall_back_font_name: &str) -> Self {
     let property = font_loader::system_fonts::FontPropertyBuilder::new()
-      .family("Arial")
+      .family(fall_back_font_name)
       .build();
 
     let (font, _) = font_loader::system_fonts::get(&property).unwrap();

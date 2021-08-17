@@ -1,4 +1,4 @@
-use glyph_brush::{Section, Text};
+use glyph_brush::{BuiltInLineBreaker, Section, Text};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
@@ -31,7 +31,12 @@ impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
         view,
         resolve_target: None,
         ops: wgpu::Operations {
-          load: wgpu::LoadOp::Load,
+          load: wgpu::LoadOp::Clear(wgpu::Color {
+            r: 1.,
+            g: 1.,
+            b: 1.,
+            a: 1.,
+          }),
           store: true,
         },
       }],
@@ -100,7 +105,7 @@ pub enum GPUxUIPrimitive {
 fn build_quad(
   device: &wgpu::Device,
   quad: &crate::Quad,
-  color: Vec4<f32>,
+  color: crate::Color,
 ) -> (wgpu::Buffer, wgpu::Buffer) {
   let mut vertices = Vec::new();
 
@@ -160,7 +165,7 @@ impl Primitive {
             })
           }
           crate::Style::Texture(view) => {
-            let (index_buffer, vertex_buffer) = build_quad(device, quad, Vec4::one());
+            let (index_buffer, vertex_buffer) = build_quad(device, quad, (1., 1., 1., 1.).into());
 
             GPUxUIPrimitive::Texture(GPUxUITexturedPrimitive {
               vertex_buffer,
@@ -181,12 +186,26 @@ impl Primitive {
           device,
           encoder,
           Section {
-            screen_position: (text.x, text.y),
-            bounds: (text.max_width.unwrap_or(10000.), 10000.),
+            screen_position: (
+              text.x + text.bounds.width / 2.,
+              text.y + text.bounds.height / 2.,
+            ),
+            bounds: text.bounds.into(),
             text: vec![Text::new(text.content.as_str())
-              .with_color([text.color.x, text.color.y, text.color.z, text.color.w])
+              .with_color([text.color.r, text.color.g, text.color.b, text.color.a])
               .with_scale(text.font_size)],
-            ..Section::default()
+            layout: match text.line_wrap {
+              crate::LineWrap::Single => glyph_brush::Layout::SingleLine {
+                line_breaker: BuiltInLineBreaker::default(),
+                h_align: text.horizon_align,
+                v_align: text.vertical_align,
+              },
+              crate::LineWrap::Multiple => glyph_brush::Layout::Wrap {
+                line_breaker: BuiltInLineBreaker::default(),
+                h_align: text.horizon_align,
+                v_align: text.vertical_align,
+              },
+            },
           },
         );
         if let Some(text) = text {

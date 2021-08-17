@@ -1,5 +1,5 @@
-pub mod ui_impl;
-pub use ui_impl::*;
+pub mod examples;
+pub use examples::*;
 
 pub mod view;
 pub use view::*;
@@ -18,16 +18,31 @@ use crate::*;
 
 pub struct Viewer {
   counter: Counter,
+  todo: Todo,
   viewer: ViewerInner,
 }
 
 impl Viewer {
   pub fn new() -> Self {
+    let todo = Todo {
+      items: vec![
+        TodoItem {
+          name: String::from("t1中文测试"),
+        },
+        TodoItem {
+          name: String::from("test 2"),
+        },
+        TodoItem {
+          name: String::from("test 3"),
+        },
+      ],
+    };
     Viewer {
       counter: Counter { count: 0 },
+      todo,
       viewer: ViewerInner {
         content: Viewer3dContent::new(),
-        size: (100., 100.),
+        size: (0, 0),
         ctx: None,
       },
     }
@@ -35,12 +50,14 @@ impl Viewer {
 }
 
 pub fn create_ui() -> impl UIComponent<Viewer> {
-  button(
-    Value::by(|viewer: &Counter| viewer.count.to_string()),
-    |viewer: &mut Counter| viewer.count += 10,
-  )
-  .lens(lens!(Viewer, counter))
-  // GPUCanvas::default().lens(lens!(Viewer, viewer))
+  absolute_group()
+    .push(AbsolutePositionChild::new(
+      GPUCanvas::default().lens(lens!(Viewer, viewer)),
+    ))
+    .push(AbsolutePositionChild::new(
+      build_todo().lens(lens!(Viewer, todo)),
+    ))
+    .extend(AbsoluteAnchor::default())
 }
 
 impl CanvasPrinter for ViewerInner {
@@ -58,14 +75,21 @@ impl CanvasPrinter for ViewerInner {
     self.content.event(event)
   }
 
-  fn render_size(&self) -> (f32, f32) {
-    self.size
+  fn update_render_size(&mut self, layout_size: (f32, f32), gpu: &GPU) -> (u32, u32) {
+    let new_size = (layout_size.0 as u32, layout_size.1 as u32);
+    if let Some(ctx) = &mut self.ctx {
+      if self.size != new_size {
+        ctx.resize_view(gpu, new_size)
+      }
+    }
+    self.size = new_size;
+    new_size
   }
 }
 
 pub struct ViewerInner {
   content: Viewer3dContent,
-  size: (f32, f32),
+  size: (u32, u32),
   ctx: Option<Viewer3dRenderingCtx>,
 }
 
@@ -79,11 +103,11 @@ pub struct Viewer3dRenderingCtx {
 }
 
 impl Viewer3dRenderingCtx {
-  pub fn new(gpu: &GPU, prefer_target_fmt: wgpu::TextureFormat, size: (f32, f32)) -> Self {
+  pub fn new(gpu: &GPU, prefer_target_fmt: wgpu::TextureFormat, size: (u32, u32)) -> Self {
     let forward = StandardForward::new(gpu, prefer_target_fmt, size);
     Self { forward }
   }
-  pub fn resize_view(&mut self, gpu: &GPU, size: (f32, f32)) {
+  pub fn resize_view(&mut self, gpu: &GPU, size: (u32, u32)) {
     self.forward.resize(gpu, size)
   }
 

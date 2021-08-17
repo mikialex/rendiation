@@ -9,6 +9,7 @@ pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
 }
 
+#[derive(Default)]
 pub struct LayoutResult {
   pub size: LayoutSize,
   pub baseline_offset: f32,
@@ -23,8 +24,6 @@ pub trait LayoutAble {
   }
   fn set_position(&mut self, _position: UIPosition) {}
 }
-
-
 
 #[derive(Default)]
 pub struct LayoutSource<T> {

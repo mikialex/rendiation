@@ -1,5 +1,6 @@
 #![allow(clippy::or_fun_call)]
 #![allow(clippy::many_single_char_names)]
+#![allow(unstable_name_collisions)]
 
 mod background;
 mod camera;

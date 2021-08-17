@@ -8,7 +8,7 @@ pub struct ComponentCell<C, T> {
 }
 
 pub trait ComponentCellMaker<T>: Sized {
-  fn updater(self, updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
+  fn bind(self, updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
     ComponentCell {
       component: self,
       updater: Box::new(updater),
@@ -60,7 +60,7 @@ impl<T, C: HotAreaPassBehavior<IC>, IC> HotAreaPassBehavior<IC> for ComponentCel
 }
 
 impl<C: Component<T>, T> Component<T> for ComponentCell<C, T> {
-  fn event(&mut self, _model: &mut T, _event: &mut EventCtx<'_>) {}
+  fn event(&mut self, _model: &mut T, _event: &mut EventCtx) {}
 
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
     (self.updater)(&mut self.component, model);

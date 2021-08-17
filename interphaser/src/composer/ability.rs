@@ -29,13 +29,9 @@ impl<T, C, A> Ability<T, C, A> {
   }
 }
 
-pub trait ComponentAbility<T, C: Component<T>> {
-  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    inner.update(model, ctx);
-  }
-  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
-    inner.event(model, event);
-  }
+pub trait ComponentAbility<T, C> {
+  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx);
+  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C);
 }
 
 impl<T, C, A> Component<T> for Ability<T, C, A>

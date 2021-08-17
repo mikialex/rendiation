@@ -152,6 +152,12 @@ impl<T: Into<f32>> From<(T, T)> for LayoutSize {
   }
 }
 
+impl<T: From<f32>> From<LayoutSize> for (T, T) {
+  fn from(value: LayoutSize) -> Self {
+    (value.width.into(), value.height.into())
+  }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct UIPosition {
   pub x: f32,

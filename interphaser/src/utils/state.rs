@@ -4,6 +4,8 @@ use std::{
   rc::Rc,
 };
 
+use crate::EventHandleCtx;
+
 pub struct StateCell<T> {
   state: Rc<RefCell<T>>,
 }
@@ -24,18 +26,32 @@ impl<T> StateCell<T> {
   pub fn visit<R, F: Fn(&T) -> R>(&self, f: F) -> R {
     f(self.state.borrow().deref())
   }
-  pub fn mutate(&self, f: impl Fn(&mut T)) {
-    f(self.state.borrow_mut().deref_mut())
+
+  pub fn mutate<E>(
+    &self,
+    f: impl Fn(&mut T, &mut EventHandleCtx, &E),
+    ctx: &mut EventHandleCtx,
+    event: &E,
+  ) {
+    f(self.state.borrow_mut().deref_mut(), ctx, event)
   }
-  pub fn mutator(&self, f: impl Fn(&mut T) + Copy) -> impl Fn() {
+
+  pub fn mutator<E>(
+    &self,
+    f: impl Fn(&mut T, &mut EventHandleCtx, &E) + Copy,
+  ) -> impl Fn(&mut EventHandleCtx, &E) {
     let self_clone = self.clone();
-    move || {
-      self_clone.mutate(f);
+    move |ctx: &mut EventHandleCtx, event: &E| {
+      self_clone.mutate(f, ctx, event);
     }
   }
-  pub fn mutation<X>(&self, f: impl Fn(&mut T) + Copy) -> impl Fn(&mut X) {
+
+  pub fn mutation<X, E>(
+    &self,
+    f: impl Fn(&mut T, &mut EventHandleCtx, &E) + Copy,
+  ) -> impl Fn(&mut X, &mut EventHandleCtx, &E) {
     let mutator = self.mutator(f);
-    move |_x: &mut X| mutator()
+    move |_x: &mut X, ctx: &mut EventHandleCtx, event: &E| mutator(ctx, event)
   }
 }
 
