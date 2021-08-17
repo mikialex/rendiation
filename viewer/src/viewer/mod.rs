@@ -42,7 +42,7 @@ impl Viewer {
       todo,
       viewer: ViewerInner {
         content: Viewer3dContent::new(),
-        size: (100., 100.),
+        size: (1000., 1000.),
         ctx: None,
       },
     }
@@ -50,15 +50,14 @@ impl Viewer {
 }
 
 pub fn create_ui() -> impl UIComponent<Viewer> {
-  build_todo().lens(lens!(Viewer, todo))
-
-  // button(
-  //   Value::by(|viewer: &Counter| viewer.count.to_string()),
-  //   |viewer: &mut Counter| viewer.count += 10,
-  // )
-  // .lens(lens!(Viewer, counter))
-
-  // GPUCanvas::default().lens(lens!(Viewer, viewer))
+  absolute_group()
+    .push(AbsolutePositionChild::new(
+      GPUCanvas::default().lens(lens!(Viewer, viewer)),
+    ))
+    .push(AbsolutePositionChild::new(
+      build_todo().lens(lens!(Viewer, todo)),
+    ))
+    .extend(AbsoluteAnchor::default())
 }
 
 impl CanvasPrinter for ViewerInner {

@@ -1,12 +1,67 @@
 use crate::*;
 
+#[derive(Default)]
 pub struct AbsoluteAnchor {
   position: UIPosition,
+}
+
+impl<T, C: Component<T>> ComponentAbility<T, C> for AbsoluteAnchor {
+  fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
+    inner.update(model, ctx);
+  }
+  fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
+    inner.event(model, event);
+  }
+}
+
+impl<C: Presentable> PresentableAbility<C> for AbsoluteAnchor {
+  fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
+    builder.push_offset(self.position);
+    inner.render(builder);
+    builder.pop_offset()
+  }
+}
+
+impl<C: HotAreaProvider> HotAreaPassBehavior<C> for AbsoluteAnchor {
+  fn is_point_in(&self, point: crate::UIPosition, inner: &C) -> bool {
+    inner.is_point_in(point)
+  }
+}
+
+pub fn absolute_group<T>() -> ComponentArray<AbsolutePositionChild<T>> {
+  ComponentArray {
+    children: Vec::new(),
+  }
 }
 
 pub struct AbsolutePositionChild<T> {
   pub position: UIPosition,
   pub inner: Box<dyn UIComponent<T>>,
+}
+
+impl<T> AbsolutePositionChild<T> {
+  pub fn new(inner: impl UIComponent<T> + 'static) -> Self {
+    Self {
+      inner: Box::new(inner),
+      position: Default::default(),
+    }
+  }
+}
+
+impl<T> Component<T> for AbsolutePositionChild<T> {
+  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
+    self.inner.event(model, event)
+  }
+
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+    self.inner.update(model, ctx)
+  }
+}
+
+impl<T> Presentable for AbsolutePositionChild<T> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.inner.render(builder)
+  }
 }
 
 impl<T, C> LayoutAbility<C> for AbsoluteAnchor
