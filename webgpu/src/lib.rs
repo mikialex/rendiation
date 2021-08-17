@@ -12,6 +12,7 @@ mod sampler;
 mod swap_chain;
 mod texture;
 mod uniform;
+mod render_target;
 
 use bytemuck::Pod;
 pub use encoder::*;
@@ -21,6 +22,7 @@ pub use sampler::*;
 pub use swap_chain::*;
 pub use texture::*;
 pub use uniform::*;
+pub use render_target::*;
 
 pub use wgpu::*;
 
