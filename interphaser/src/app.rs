@@ -27,6 +27,10 @@ pub struct ApplicationInner<T> {
   fonts: FontManager,
 
   window: winit::window::Window,
+  perf_info_last_frame: PerformanceInfo,
+  current_frame_id: usize,
+  current_perf: PerformanceInfo,
+
   last_update_inst: Instant,
   swap_chain: GPUSwapChain,
   gpu: Rc<GPU>,
@@ -64,6 +68,10 @@ impl<T: 'static> Application<T> {
         ui_renderer,
         window,
         last_update_inst: Instant::now(),
+
+        perf_info_last_frame: PerformanceInfo::new(0),
+        current_frame_id: 1,
+        current_perf: PerformanceInfo::new(1),
         gpu,
         swap_chain,
       },
@@ -114,7 +122,8 @@ impl<T: 'static> Application<T> {
             .get_current_frame()
             .expect("Failed to acquire next swap chain texture!");
 
-          app.render(frame);
+          app.execute(frame);
+          app.frame_end();
         }
         _ => {}
       }
@@ -123,44 +132,59 @@ impl<T: 'static> Application<T> {
 }
 
 impl<T> ApplicationInner<T> {
+  fn frame_end(&mut self) {
+    self.current_frame_id += 1;
+    self.perf_info_last_frame = self.current_perf;
+    self.current_perf = PerformanceInfo::new(self.current_frame_id);
+  }
+
   fn update(&mut self) {
     let mut ctx = UpdateCtx {
       time_stamp: 0,
       layout_changed: false,
       fonts: &self.fonts,
+      last_frame_perf_info: &self.perf_info_last_frame,
     };
-    self.root.update(&self.state, &mut ctx);
+    self.current_perf.update_time = time_measure(|| self.root.update(&self.state, &mut ctx));
 
-    let need_layout = ctx.layout_changed || self.root_size_changed;
-    self.root_size_changed = false;
-    if !need_layout {
-      return;
-    }
+    self.current_perf.layout_time = time_measure(|| {
+      let need_layout = ctx.layout_changed || self.root_size_changed;
+      self.root_size_changed = false;
+      if !need_layout {
+        return;
+      }
 
-    let mut ctx = LayoutCtx { fonts: &self.fonts };
+      let mut ctx = LayoutCtx { fonts: &self.fonts };
 
-    self.root.layout(
-      LayoutConstraint::from_max(self.window_states.size),
-      &mut ctx,
-    );
-    self.root.set_position(UIPosition { x: 0., y: 0. })
+      self.root.layout(
+        LayoutConstraint::from_max(self.window_states.size),
+        &mut ctx,
+      );
+      self.root.set_position(UIPosition { x: 0., y: 0. })
+    });
   }
 
   fn render(&mut self, frame: SwapChainFrame) {
-    self.update();
-
     let mut builder = PresentationBuilder::new();
     builder.present.view_size = self.window_states.size;
-    self.root.render(&mut builder);
 
-    self.gpu.render(
-      &mut WebGPUxUIRenderPass {
-        fonts: &self.fonts,
-        renderer: &mut self.ui_renderer,
-        presentation: &builder.present,
-      },
-      &frame.output.view,
-    )
+    self.current_perf.rendering_prepare_time = time_measure(|| self.root.render(&mut builder));
+
+    self.current_perf.rendering_dispatch_time = time_measure(|| {
+      self.gpu.render(
+        &mut WebGPUxUIRenderPass {
+          fonts: &self.fonts,
+          renderer: &mut self.ui_renderer,
+          presentation: &builder.present,
+        },
+        &frame.output.view,
+      )
+    });
+  }
+
+  fn execute(&mut self, frame: SwapChainFrame) {
+    self.update();
+    self.render(frame);
   }
 
   fn event(&mut self, event: &winit::event::Event<()>) {

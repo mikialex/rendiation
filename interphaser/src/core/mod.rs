@@ -30,6 +30,7 @@ pub struct UpdateCtx<'a> {
   pub time_stamp: u64,
   pub layout_changed: bool, // todo private
   pub fonts: &'a FontManager,
+  pub last_frame_perf_info: &'a PerformanceInfo,
 }
 
 impl<'a> UpdateCtx<'a> {
