@@ -49,6 +49,25 @@ impl Viewer {
   }
 }
 
+pub fn perf_panel() -> impl UIComponent<Viewer> {
+  let mut text = Text::new("");
+  text.line_wrap = LineWrap::Multiple;
+  text.horizon_align = HorizontalAlign::Left;
+  text
+    .bind_with_ctx(move |s, t: &Viewer, ctx| {
+      let content = format!(
+        "frame_id: {}\n update_time: {}\n layout_time: {}\n rendering_prepare_time: {}\n rendering_dispatch_time: {}",
+        ctx.last_frame_perf_info.frame_id,
+        ctx.last_frame_perf_info.update_time.as_micros() as f32 / 1000.,
+        ctx.last_frame_perf_info.layout_time.as_micros() as f32 / 1000.,
+        ctx.last_frame_perf_info.rendering_prepare_time.as_micros() as f32 / 1000.,
+        ctx.last_frame_perf_info.rendering_dispatch_time.as_micros() as f32 / 1000.,
+      );
+      s.content.set(content);
+    })
+    .extend(Container::size((400., 800.)))
+}
+
 pub fn create_ui() -> impl UIComponent<Viewer> {
   absolute_group()
     .push(AbsolutePositionChild::new(
@@ -57,6 +76,7 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
     .push(AbsolutePositionChild::new(
       build_todo().lens(lens!(Viewer, todo)),
     ))
+    .push(AbsolutePositionChild::new(perf_panel()))
     .extend(AbsoluteAnchor::default())
 }
 

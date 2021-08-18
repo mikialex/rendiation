@@ -3,6 +3,9 @@ use glyph_brush::*;
 
 use crate::*;
 
+pub use glyph_brush::HorizontalAlign;
+pub use glyph_brush::VerticalAlign;
+
 pub struct Text {
   pub content: LayoutSource<String>,
   pub line_wrap: LineWrap,
