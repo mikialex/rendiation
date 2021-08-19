@@ -48,10 +48,11 @@ impl TextRenderer {
     }
   }
 
-  pub fn update_fonts(&mut self, fonts: &FontManager) {
-    self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
-      .cache_redraws(false)
-      .build();
+  pub fn update_fonts(&mut self, _fonts: &FontManager) {
+    // todo
+    // self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
+    //   .cache_redraws(false)
+    //   .build();
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
