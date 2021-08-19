@@ -50,6 +50,8 @@ impl<T> ArenaTreeNode<T> {
       .position(|&x| x == child_to_remove.handle)
       .expect("tried to remove nonexistent child");
 
+    child_to_remove.parent = None;
+    
     self.children.swap_remove(child_index);
     self
   }
