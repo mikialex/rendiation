@@ -53,10 +53,11 @@ pub fn perf_panel() -> impl UIComponent<Viewer> {
   let mut text = Text::new("");
   text.line_wrap = LineWrap::Multiple;
   text.horizon_align = HorizontalAlign::Left;
+  text.vertical_align = VerticalAlign::Top;
   text
     .bind_with_ctx(move |s, t: &Viewer, ctx| {
       let content = format!(
-        "frame_id: {}\n update_time: {}\n layout_time: {}\n rendering_prepare_time: {}\n rendering_dispatch_time: {}",
+        "frame_id: {}\nupdate_time: {}\nlayout_time: {}\nrendering_prepare_time: {}\nrendering_dispatch_time: {}",
         ctx.last_frame_perf_info.frame_id,
         ctx.last_frame_perf_info.update_time.as_micros() as f32 / 1000.,
         ctx.last_frame_perf_info.layout_time.as_micros() as f32 / 1000.,
@@ -65,7 +66,7 @@ pub fn perf_panel() -> impl UIComponent<Viewer> {
       );
       s.content.set(content);
     })
-    .extend(Container::size((400., 800.)))
+    .extend(Container::size((500., 200.)))
 }
 
 pub fn create_ui() -> impl UIComponent<Viewer> {

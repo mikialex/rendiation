@@ -182,14 +182,23 @@ impl Primitive {
         }
       }
       Primitive::Text(text) => {
+        let x_correct = match text.horizon_align {
+          glyph_brush::HorizontalAlign::Left => 0.,
+          glyph_brush::HorizontalAlign::Center => text.bounds.width / 2.,
+          glyph_brush::HorizontalAlign::Right => text.bounds.width,
+        };
+
+        let y_correct = match text.vertical_align {
+          glyph_brush::VerticalAlign::Top => 0.,
+          glyph_brush::VerticalAlign::Center => text.bounds.height / 2.,
+          glyph_brush::VerticalAlign::Bottom => text.bounds.height / 2.,
+        };
+
         let text = renderer.create_gpu_text(
           device,
           encoder,
           Section {
-            screen_position: (
-              text.x + text.bounds.width / 2.,
-              text.y + text.bounds.height / 2.,
-            ),
+            screen_position: (text.x + x_correct, text.y + y_correct),
             bounds: text.bounds.into(),
             text: vec![Text::new(text.content.as_str())
               .with_color([text.color.r, text.color.g, text.color.b, text.color.a])
