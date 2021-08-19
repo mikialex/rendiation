@@ -2,7 +2,7 @@
 #![feature(capture_disjoint_fields)]
 #![feature(generic_associated_types)]
 #![feature(associated_type_bounds)]
-#![feature(min_type_alias_impl_trait)]
+#![feature(type_alias_impl_trait)]
 #![allow(incomplete_features)]
 
 mod core;
@@ -23,3 +23,9 @@ pub use utils::*;
 
 mod app;
 pub use app::*;
+
+mod perf;
+pub use perf::*;
+
+use rendiation_color::*;
+pub type Color = ColorWithAlpha<SRGBColor<f32>, f32>;

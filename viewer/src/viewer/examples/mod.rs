@@ -11,6 +11,15 @@ pub struct TodoItem {
   pub name: String,
 }
 
+// todo change to id
+impl IdentityKeyed for TodoItem {
+  type Key = String;
+
+  fn key(&self) -> Self::Key {
+    self.name.clone()
+  }
+}
+
 pub fn build_todo() -> impl UIComponent<Todo> {
   For::by(|item: &TodoItem, i| Child::flex(build_todo_item(), 1.))
     .extend(Flex::column())
@@ -33,7 +42,9 @@ impl EventHandlerType for TodoItemDelete {
 }
 impl<C> EventHandlerImpl<C> for TodoItemDelete {
   fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
-    event.custom_event.downcast_ref::<TodoItemDeleteEvent>()
+    event
+      .custom_event
+      .consume_if_type_is::<TodoItemDeleteEvent>()
   }
   fn should_handle_in_bubble(&self) -> bool {
     true
@@ -41,13 +52,13 @@ impl<C> EventHandlerImpl<C> for TodoItemDelete {
 }
 
 pub fn build_todo_item() -> impl UIComponent<TodoItem> {
-  let label = Text::default()
+  let label = Text::new("")
     .bind(move |s, t: &TodoItem| s.content.set(t.name.clone()))
     .extend(Container::size((200., 100.)));
 
   let button = button("delete", |s: &mut TodoItem, c, _| {
     println!("delete {}", s.name);
-    c.custom_event_emitter = Box::new(TodoItemDeleteEvent {
+    c.emit(TodoItemDeleteEvent {
       name: s.name.clone(),
     })
   });

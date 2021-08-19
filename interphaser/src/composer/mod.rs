@@ -17,5 +17,5 @@ pub use events::*;
 mod animation;
 pub use animation::*;
 
-mod memo;
-pub use memo::*;
+mod if_changed;
+pub use if_changed::*;

@@ -23,15 +23,17 @@ pub struct DefaultSystem {}
 
 impl System for DefaultSystem {
   type EventCtx<'a> = EventCtx<'a>;
-  type UpdateCtx<'a> = UpdateCtx;
+  type UpdateCtx<'a> = UpdateCtx<'a>;
 }
 
-pub struct UpdateCtx {
+pub struct UpdateCtx<'a> {
   pub time_stamp: u64,
   pub layout_changed: bool, // todo private
+  pub fonts: &'a FontManager,
+  pub last_frame_perf_info: &'a PerformanceInfo,
 }
 
-impl UpdateCtx {
+impl<'a> UpdateCtx<'a> {
   pub fn request_layout(&mut self) {
     self.layout_changed = true;
   }
@@ -39,10 +41,79 @@ impl UpdateCtx {
 
 pub struct EventCtx<'a> {
   pub event: &'a winit::event::Event<'a, ()>,
-  pub custom_event: Box<dyn Any>,
+  pub custom_event: CustomEventCtx,
   pub states: &'a WindowState,
   pub gpu: Rc<GPU>,
 }
 
 pub trait UIComponent<T>: Component<T> + Presentable + LayoutAble + 'static {}
 impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable + LayoutAble + 'static {}
+
+pub struct CustomEventCtx {
+  events: Vec<Box<dyn Any>>,
+  drain_index: Vec<usize>,
+}
+
+impl CustomEventCtx {
+  pub fn push_event(&mut self, e: impl Any) {
+    self.events.push(Box::new(e))
+  }
+}
+
+impl Default for CustomEventCtx {
+  fn default() -> Self {
+    Self {
+      events: Vec::with_capacity(0),
+      drain_index: Vec::with_capacity(0),
+    }
+  }
+}
+
+pub struct CustomEventEmitter {
+  events: Vec<Box<dyn Any>>,
+}
+
+impl CustomEventEmitter {
+  pub fn emit(&mut self, e: impl Any) {
+    self.events.push(Box::new(e))
+  }
+}
+
+impl Default for CustomEventEmitter {
+  fn default() -> Self {
+    Self {
+      events: Vec::with_capacity(0),
+    }
+  }
+}
+
+impl CustomEventCtx {
+  pub fn consume_if_type_is<E: 'static>(&mut self) -> Option<&E> {
+    self.consume_if(|_| true)
+  }
+  pub fn consume_if<E: 'static>(&mut self, predicate: impl Fn(&E) -> bool) -> Option<&E> {
+    if let Some(index) = self.events.iter().position(|e| {
+      if let Some(e) = e.downcast_ref::<E>() {
+        if predicate(e) {
+          return true;
+        }
+      }
+      false
+    }) {
+      self.drain_index.push(index);
+      self.events.get(index).unwrap().downcast_ref::<E>()
+    } else {
+      None
+    }
+  }
+
+  pub(crate) fn update(&mut self) {
+    self.drain_index.drain(..).for_each(|i| {
+      self.events.swap_remove(i);
+    })
+  }
+
+  pub(crate) fn merge(&mut self, emitter: CustomEventEmitter) {
+    self.events.extend(emitter.events);
+  }
+}

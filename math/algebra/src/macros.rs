@@ -151,7 +151,6 @@ macro_rules! impl_operator {
   }) => {
     impl<$S: $Op<Output = $S> + Copy> $Op for $Lhs {
       type Output = $Output;
-      #[inline]
       default_fn!($op(self) -> $Output {
         let $x = self; $body
       });
@@ -163,7 +162,6 @@ macro_rules! impl_operator {
   }) => {
     impl<$S: $Op<Output = $S> + Copy> $Op<$Rhs> for $Lhs {
       type Output = $Output;
-      #[inline]
       default_fn!($op(self, other: $Rhs) -> $Output {
         let ($lhs, $rhs) = (self, other); $body
       });
@@ -175,7 +173,6 @@ macro_rules! impl_operator {
   }) => {
     impl<$S: $Op<Output = $S> + Copy> $Op<$Rhs> for $Lhs {
       type Output = $Output;
-      #[inline]
       default_fn!( $op(self, other: $Rhs) -> $Output {
         let ($lhs, $rhs) = (self, other); $body
       });
@@ -187,7 +184,6 @@ macro_rules! impl_operator {
   }) => {
     impl $Op<$Rhs<$S>> for $Lhs {
       type Output = $Output;
-      #[inline]
       default_fn!( $op(self, other: $Rhs<$S>) -> $Output {
         let ($lhs, $rhs) = (self, other); $body
       });
@@ -201,7 +197,6 @@ macro_rules! impl_assignment_operator {
       fn $op:ident(&mut $lhs:ident, $rhs:ident) $body:block
   }) => {
       impl<$S: $Op<$S> + Copy> $Op<$Rhs> for $Lhs {
-          #[inline]
           default_fn!( $op(&mut $lhs, $rhs: $Rhs) $body );
       }
   };

@@ -4,7 +4,13 @@ use crate::*;
 use winit::event::*;
 
 pub struct EventHandleCtx {
-  pub custom_event_emitter: Box<dyn Any>,
+  custom_event_emitter: CustomEventEmitter,
+}
+
+impl EventHandleCtx {
+  pub fn emit(&mut self, e: impl Any) {
+    self.custom_event_emitter.emit(e)
+  }
 }
 
 pub trait HotAreaProvider {
@@ -28,12 +34,13 @@ impl<T, X: EventHandlerType> EventHandler<T, X> {
   where
     X: EventHandlerImpl<C>,
   {
+    event.custom_event.update();
     if let Some(e) = self.state.downcast_event(event, inner) {
       let mut ctx = EventHandleCtx {
-        custom_event_emitter: Box::new(1),
+        custom_event_emitter: Default::default(),
       };
       (self.handler)(model, &mut ctx, e);
-      event.custom_event = ctx.custom_event_emitter;
+      event.custom_event.merge(ctx.custom_event_emitter);
     }
   }
 }

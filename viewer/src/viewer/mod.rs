@@ -27,7 +27,7 @@ impl Viewer {
     let todo = Todo {
       items: vec![
         TodoItem {
-          name: String::from("t1"),
+          name: String::from("t1中文测试"),
         },
         TodoItem {
           name: String::from("test 2"),
@@ -42,23 +42,42 @@ impl Viewer {
       todo,
       viewer: ViewerInner {
         content: Viewer3dContent::new(),
-        size: (100., 100.),
+        size: (0, 0),
         ctx: None,
       },
     }
   }
 }
 
+pub fn perf_panel() -> impl UIComponent<Viewer> {
+  let mut text = Text::new("");
+  text.line_wrap = LineWrap::Multiple;
+  text.horizon_align = HorizontalAlign::Left;
+  text
+    .bind_with_ctx(move |s, t: &Viewer, ctx| {
+      let content = format!(
+        "frame_id: {}\n update_time: {}\n layout_time: {}\n rendering_prepare_time: {}\n rendering_dispatch_time: {}",
+        ctx.last_frame_perf_info.frame_id,
+        ctx.last_frame_perf_info.update_time.as_micros() as f32 / 1000.,
+        ctx.last_frame_perf_info.layout_time.as_micros() as f32 / 1000.,
+        ctx.last_frame_perf_info.rendering_prepare_time.as_micros() as f32 / 1000.,
+        ctx.last_frame_perf_info.rendering_dispatch_time.as_micros() as f32 / 1000.,
+      );
+      s.content.set(content);
+    })
+    .extend(Container::size((400., 800.)))
+}
+
 pub fn create_ui() -> impl UIComponent<Viewer> {
-  build_todo().lens(lens!(Viewer, todo))
-
-  // button(
-  //   Value::by(|viewer: &Counter| viewer.count.to_string()),
-  //   |viewer: &mut Counter| viewer.count += 10,
-  // )
-  // .lens(lens!(Viewer, counter))
-
-  // GPUCanvas::default().lens(lens!(Viewer, viewer))
+  absolute_group()
+    .push(AbsolutePositionChild::new(
+      GPUCanvas::default().lens(lens!(Viewer, viewer)),
+    ))
+    .push(AbsolutePositionChild::new(
+      build_todo().lens(lens!(Viewer, todo)),
+    ))
+    .push(AbsolutePositionChild::new(perf_panel()))
+    .extend(AbsoluteAnchor::default())
 }
 
 impl CanvasPrinter for ViewerInner {
@@ -76,14 +95,21 @@ impl CanvasPrinter for ViewerInner {
     self.content.event(event)
   }
 
-  fn render_size(&self) -> (f32, f32) {
-    self.size
+  fn update_render_size(&mut self, layout_size: (f32, f32), gpu: &GPU) -> (u32, u32) {
+    let new_size = (layout_size.0 as u32, layout_size.1 as u32);
+    if let Some(ctx) = &mut self.ctx {
+      if self.size != new_size {
+        ctx.resize_view(gpu, new_size)
+      }
+    }
+    self.size = new_size;
+    new_size
   }
 }
 
 pub struct ViewerInner {
   content: Viewer3dContent,
-  size: (f32, f32),
+  size: (u32, u32),
   ctx: Option<Viewer3dRenderingCtx>,
 }
 
@@ -97,11 +123,11 @@ pub struct Viewer3dRenderingCtx {
 }
 
 impl Viewer3dRenderingCtx {
-  pub fn new(gpu: &GPU, prefer_target_fmt: wgpu::TextureFormat, size: (f32, f32)) -> Self {
+  pub fn new(gpu: &GPU, prefer_target_fmt: wgpu::TextureFormat, size: (u32, u32)) -> Self {
     let forward = StandardForward::new(gpu, prefer_target_fmt, size);
     Self { forward }
   }
-  pub fn resize_view(&mut self, gpu: &GPU, size: (f32, f32)) {
+  pub fn resize_view(&mut self, gpu: &GPU, size: (u32, u32)) {
     self.forward.resize(gpu, size)
   }
 

@@ -5,6 +5,7 @@ use winit::event::Event;
 
 #[derive(Default)]
 pub struct GPUCanvas {
+  current_render_buffer_size: (u32, u32),
   content: Option<Rc<wgpu::TextureView>>,
   layout: LayoutUnit,
 }
@@ -34,7 +35,7 @@ impl LayoutAble for GPUCanvas {
 
 pub trait CanvasPrinter {
   fn event(&mut self, event: &winit::event::Event<()>);
-  fn render_size(&self) -> (f32, f32);
+  fn update_render_size(&mut self, layout_size: (f32, f32), gpu: &GPU) -> (u32, u32);
   fn draw_canvas(&mut self, gpu: &GPU, canvas: &wgpu::TextureView);
 }
 
@@ -43,13 +44,21 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
     model.event(event.event);
     match event.event {
       Event::MainEventsCleared => {
+        let new_size = model.update_render_size(self.layout.size.into(), &event.gpu);
+        if new_size != self.current_render_buffer_size {
+          self.content = None;
+        }
+
+        if new_size.0 == 0 || new_size.1 == 0 {
+          return;
+        }
+
         let target = self.content.get_or_insert_with(|| {
-          // todo diff render size change
           let device = &event.gpu.device;
           let tex = device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
-              width: model.render_size().0 as u32,
-              height: model.render_size().1 as u32,
+              width: new_size.0,
+              height: new_size.1,
               depth_or_array_layers: 1,
             },
             mip_level_count: 1,

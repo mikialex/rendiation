@@ -2,6 +2,8 @@ use crate::*;
 
 mod layout_impl;
 
+pub use layout_impl::*;
+
 pub fn flex_group<T>() -> ComponentArray<Child<T>> {
   ComponentArray {
     children: Vec::new(),
