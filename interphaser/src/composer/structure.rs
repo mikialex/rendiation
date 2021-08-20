@@ -144,7 +144,7 @@ pub struct ComponentArray<C> {
 }
 
 impl<X> ComponentArray<X> {
-  pub fn push(mut self, x: X) -> Self {
+  pub fn child(mut self, x: X) -> Self {
     self.children.push(x);
     self
   }

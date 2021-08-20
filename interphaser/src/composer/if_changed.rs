@@ -3,13 +3,37 @@ use crate::*;
 #[derive(Default)]
 pub struct IfChanged<T> {
   cached: Option<T>,
+  extra_states: Vec<(Box<dyn VersionedValue>, u32)>,
+}
+
+impl<T> IfChanged<T> {
+  pub fn with_state<S: 'static>(mut self, s: &StateCell<VersionedCell<S>>) -> Self {
+    let s = s.boxed();
+    let version = s.get_version();
+    self.extra_states.push((s, version));
+    self
+  }
+
+  fn is_state_changed(&mut self) -> bool {
+    let mut has_change = false;
+    for (state, old_version) in &mut self.extra_states {
+      let new_version = state.get_version();
+      if new_version != *old_version {
+        has_change = true;
+        *old_version = new_version;
+      }
+    }
+    has_change
+  }
 }
 
 impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for IfChanged<T> {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    if let Some(cached) = self.cached.as_ref() {
-      if cached == model {
-        return;
+    if !self.is_state_changed() {
+      if let Some(cached) = self.cached.as_ref() {
+        if cached == model {
+          return;
+        }
       }
     }
     inner.update(model, ctx);

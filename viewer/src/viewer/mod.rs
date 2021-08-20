@@ -71,13 +71,11 @@ pub fn perf_panel() -> impl UIComponent<Viewer> {
 
 pub fn create_ui() -> impl UIComponent<Viewer> {
   absolute_group()
-    .push(AbsolutePositionChild::new(
+    .child(AbsChild::new(
       GPUCanvas::default().lens(lens!(Viewer, viewer)),
     ))
-    .push(AbsolutePositionChild::new(
-      build_todo().lens(lens!(Viewer, todo)),
-    ))
-    .push(AbsolutePositionChild::new(perf_panel()))
+    .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
+    .child(AbsChild::new(perf_panel()))
     .extend(AbsoluteAnchor::default())
 }
 
