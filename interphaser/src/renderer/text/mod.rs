@@ -8,7 +8,7 @@ use text_quad_instance::*;
 
 use glyph_brush::{
   ab_glyph::{self},
-  BrushAction, BrushError, DefaultSectionHasher, Extra, GlyphBrushBuilder, Section,
+  BrushAction, BrushError, DefaultSectionHasher, Extra, GlyphBrushBuilder, GlyphCruncher, Section,
 };
 
 use crate::FontManager;
@@ -48,11 +48,12 @@ impl TextRenderer {
     }
   }
 
-  pub fn update_fonts(&mut self, _fonts: &FontManager) {
-    // todo
-    // self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
-    //   .cache_redraws(false)
-    //   .build();
+  pub fn update_fonts(&mut self, fonts: &FontManager) {
+    if fonts.active_font_count() != self.glyph_brush.fonts().len() {
+      self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
+        .cache_redraws(false)
+        .build()
+    }
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
