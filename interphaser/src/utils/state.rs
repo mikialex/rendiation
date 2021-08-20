@@ -64,31 +64,25 @@ impl<T> StateCell<T> {
     f(self.state.borrow().deref())
   }
 
-  pub fn mutate<E>(
-    &self,
-    f: impl Fn(&mut T, &mut EventHandleCtx, &E),
-    ctx: &mut EventHandleCtx,
-    event: &E,
-  ) {
-    f(self.state.borrow_mut().deref_mut(), ctx, event)
+  pub fn mutate(&self, f: impl Fn(&mut T)) {
+    f(self.state.borrow_mut().deref_mut())
   }
 
-  pub fn mutator<E>(
-    &self,
-    f: impl Fn(&mut T, &mut EventHandleCtx, &E) + Copy,
-  ) -> impl Fn(&mut EventHandleCtx, &E) {
+  pub fn mutator(&self, f: impl Fn(&mut T) + Copy) -> impl Fn() {
     let self_clone = self.clone();
-    move |ctx: &mut EventHandleCtx, event: &E| {
-      self_clone.mutate(f, ctx, event);
+    move || {
+      self_clone.mutate(f);
     }
   }
 
-  pub fn mutation<X, E>(
+  pub fn on_event<X, E>(
     &self,
     f: impl Fn(&mut T, &mut EventHandleCtx, &E) + Copy,
   ) -> impl Fn(&mut X, &mut EventHandleCtx, &E) {
-    let mutator = self.mutator(f);
-    move |_x: &mut X, ctx: &mut EventHandleCtx, event: &E| mutator(ctx, event)
+    let self_clone = self.clone();
+    move |_x: &mut X, ctx: &mut EventHandleCtx, event: &E| {
+      f(self_clone.state.borrow_mut().deref_mut(), ctx, event)
+    }
   }
 }
 

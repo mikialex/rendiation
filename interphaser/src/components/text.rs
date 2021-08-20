@@ -15,16 +15,40 @@ pub struct Text {
   layout: LayoutUnit,
 }
 
-impl Text {
-  pub fn new(content: impl Into<String>) -> Self {
+impl Default for Text {
+  fn default() -> Self {
     Self {
-      content: LayoutSource::new(content.into()),
+      content: LayoutSource::new("".into()),
       layout: Default::default(),
       horizon_align: HorizontalAlign::Center,
       vertical_align: VerticalAlign::Center,
       line_wrap: Default::default(),
       text_layout: None,
     }
+  }
+}
+
+impl Text {
+  pub fn new(content: impl Into<String>) -> Self {
+    Self {
+      content: LayoutSource::new(content.into()),
+      ..Default::default()
+    }
+  }
+
+  pub fn with_line_wrap(mut self, line_wrap: LineWrap) -> Self {
+    self.line_wrap = line_wrap;
+    self
+  }
+
+  pub fn with_horizon_align(mut self, horizon_align: HorizontalAlign) -> Self {
+    self.horizon_align = horizon_align;
+    self
+  }
+
+  pub fn with_vertical_align(mut self, vertical_align: VerticalAlign) -> Self {
+    self.vertical_align = vertical_align;
+    self
   }
 
   pub fn get_text_layout(&mut self, fonts: &FontManager) -> &Vec<SectionGlyph> {

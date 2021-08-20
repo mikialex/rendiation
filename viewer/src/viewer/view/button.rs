@@ -29,12 +29,12 @@ pub fn button<T: 'static>(
   let mut label = label.into();
   let state = ButtonState::use_state();
 
-  let on_mouse_down = state.mutation(|s, _, _| *s = ButtonState::Pressed);
-  let on_mouse_up = state.mutation(|s, _, _| *s = ButtonState::Hovering);
-  let on_mouse_in = state.mutation(|s, _, _| *s = ButtonState::Hovering);
-  let on_mouse_out = state.mutation(|s, _, _| *s = ButtonState::Normal);
+  let on_mouse_down = state.on_event(|s, _, _| *s = ButtonState::Pressed);
+  let on_mouse_up = state.on_event(|s, _, _| *s = ButtonState::Hovering);
+  let on_mouse_in = state.on_event(|s, _, _| *s = ButtonState::Hovering);
+  let on_mouse_out = state.on_event(|s, _, _| *s = ButtonState::Normal);
 
-  Text::new("")
+  Text::default()
     .bind(move |s, t| s.content.set(label.eval(t)))
     .extend(Container::size((200., 80.)).bind(move |s, _| s.color = state.visit(|s| s.color())))
     .extend(ClickHandler::by(on_click))
