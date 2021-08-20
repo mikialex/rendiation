@@ -7,6 +7,7 @@ pub use dimension2::*;
 
 pub mod beziersegment;
 pub mod hyperaabb;
+pub mod hyperellipse;
 pub mod hyperplane;
 pub mod hyperray;
 pub mod hypersphere;
@@ -17,6 +18,7 @@ pub mod triangle;
 
 pub use beziersegment::*;
 pub use hyperaabb::*;
+pub use hyperellipse::*;
 pub use hyperplane::*;
 pub use hyperray::*;
 pub use hypersphere::*;

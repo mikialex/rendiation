@@ -148,11 +148,12 @@ impl Viewer3dContent {
     let sampler = scene.add_sampler(TextureSampler::default());
 
     use image::io::Reader as ImageReader;
-    // let img = ImageReader::open("/Users/mikialex/Desktop/test.png")
-    let img = ImageReader::open("C:/Users/mk/Desktop/test.png")
-      .unwrap()
-      .decode()
-      .unwrap();
+    let path = if cfg!(windows) {
+      "C:/Users/mk/Desktop/test.png"
+    } else {
+      "/Users/mikialex/Desktop/test.png"
+    };
+    let img = ImageReader::open(path).unwrap().decode().unwrap();
     let img = match img {
       image::DynamicImage::ImageRgba8(img) => img,
       _ => unreachable!(),
