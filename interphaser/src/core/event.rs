@@ -4,6 +4,7 @@ use std::{any::Any, rc::Rc};
 use crate::WindowState;
 
 pub struct EventCtx<'a> {
+  pub view_may_changed: bool,
   pub event: &'a winit::event::Event<'a, ()>,
   pub custom_event: CustomEventCtx,
   pub states: &'a WindowState,

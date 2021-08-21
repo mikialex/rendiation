@@ -31,6 +31,7 @@ pub struct ApplicationInner<T> {
   current_frame_id: usize,
   current_perf: PerformanceInfo,
 
+  view_may_changed: bool,
   last_update_inst: Instant,
   swap_chain: GPUSwapChain,
   gpu: Rc<GPU>,
@@ -68,6 +69,7 @@ impl<T: 'static> Application<T> {
         ui_renderer,
         window,
         last_update_inst: Instant::now(),
+        view_may_changed: false,
 
         perf_info_last_frame: PerformanceInfo::new(0),
         current_frame_id: 1,
@@ -146,6 +148,7 @@ impl<T> ApplicationInner<T> {
       last_frame_perf_info: &self.perf_info_last_frame,
     };
     self.current_perf.update_time = time_measure(|| self.root.update(&self.state, &mut ctx));
+    self.view_may_changed = false;
 
     self.current_perf.layout_time = time_measure(|| {
       let need_layout = ctx.layout_changed || self.root_size_changed;
@@ -196,7 +199,9 @@ impl<T> ApplicationInner<T> {
       custom_event: Default::default(),
       states: &self.window_states,
       gpu: self.gpu.clone(),
+      view_may_changed: false,
     };
-    self.root.event(&mut self.state, &mut event)
+    self.root.event(&mut self.state, &mut event);
+    self.view_may_changed |= event.view_may_changed;
   }
 }
