@@ -54,7 +54,7 @@ pub fn perf_panel() -> impl UIComponent<Viewer> {
     .with_line_wrap(LineWrap::Multiple)
     .with_horizon_align(HorizontalAlign::Left)
     .with_vertical_align(VerticalAlign::Top)
-    .bind_with_ctx(move |s, t: &Viewer, ctx| {
+    .bind_with_ctx(|s, t, ctx| {
       let content = format!(
         "frame_id: {}\nupdate_time: {}\nlayout_time: {}\nrendering_prepare_time: {}\nrendering_dispatch_time: {}",
         ctx.last_frame_perf_info.frame_id,

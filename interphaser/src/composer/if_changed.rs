@@ -33,11 +33,12 @@ impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for IfChanged
       if let Some(cached) = self.cached.as_ref() {
         if cached == model {
           return;
+        } else {
+          self.cached = model.clone().into();
         }
       }
     }
     inner.update(model, ctx);
-    self.cached = model.clone().into();
   }
   fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
     inner.event(model, event);
