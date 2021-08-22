@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use glyph_brush::ab_glyph::Font;
 
 use crate::*;
@@ -5,6 +7,20 @@ use crate::*;
 pub struct EditableText {
   text: Text,
   cursor: Option<Cursor>,
+}
+
+impl Deref for EditableText {
+  type Target = Text;
+
+  fn deref(&self) -> &Self::Target {
+    &self.text
+  }
+}
+
+impl DerefMut for EditableText {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.text
+  }
 }
 
 impl EditableText {
@@ -24,9 +40,9 @@ impl EditableText {
     if let Some((index, rect)) = rect {
       let height = rect.max.y - rect.min.y;
       let (text_index, position) = if position.x >= (rect.max.x + rect.min.x) / 2. {
-        (index + 1, (rect.max.x, rect.max.y))
+        (index + 1, (rect.max.x, rect.min.y))
       } else {
-        (index, (rect.min.x, rect.max.y))
+        (index, (rect.min.x, rect.min.y))
       };
 
       self.cursor = Cursor {
@@ -55,6 +71,17 @@ pub struct Cursor {
   text_index: usize,
 }
 
+impl Cursor {
+  pub fn create_quad(&self) -> Quad {
+    Quad {
+      x: self.position.x,
+      y: self.position.y,
+      width: 2.,
+      height: self.height,
+    }
+  }
+}
+
 impl<T> Component<T> for EditableText {
   fn event(&mut self, model: &mut T, ctx: &mut EventCtx) {
     self.text.event(model, ctx);
@@ -81,5 +108,27 @@ impl<T> Component<T> for EditableText {
 
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
     self.text.update(model, ctx)
+  }
+}
+
+impl Presentable for EditableText {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.text.render(builder);
+    if let Some(cursor) = &self.cursor {
+      builder.present.primitives.push(Primitive::Quad((
+        cursor.create_quad(),
+        Style::SolidColor((0., 0., 0., 1.).into()),
+      )));
+    }
+  }
+}
+
+impl LayoutAble for EditableText {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+    self.text.layout(constraint, ctx)
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    self.text.set_position(position)
   }
 }

@@ -33,7 +33,7 @@ impl Viewer {
           name: String::from("test 2"),
         },
         TodoItem {
-          name: String::from("test 3"),
+          name: String::from("test gh3"),
         },
       ],
     };
