@@ -11,8 +11,8 @@ pub struct Text {
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlign,
   pub vertical_align: VerticalAlign,
-  text_layout: Option<Vec<SectionGlyph>>,
-  layout: LayoutUnit,
+  pub text_layout: Option<Vec<SectionGlyph>>,
+  pub layout: LayoutUnit,
 }
 
 impl Default for Text {
@@ -51,7 +51,7 @@ impl Text {
     self
   }
 
-  pub fn get_text_layout(&mut self, fonts: &FontManager) -> &Vec<SectionGlyph> {
+  pub(crate) fn get_text_layout(&mut self, fonts: &FontManager) -> &Vec<SectionGlyph> {
     self.text_layout.get_or_insert_with(|| {
       let layout = Layout::SingleLine {
         line_breaker: BuiltInLineBreaker::default(),

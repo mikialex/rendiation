@@ -198,6 +198,7 @@ impl<T> ApplicationInner<T> {
       event,
       custom_event: Default::default(),
       states: &self.window_states,
+      fonts: &self.fonts,
       gpu: self.gpu.clone(),
       view_may_changed: false,
     };
