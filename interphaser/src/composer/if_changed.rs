@@ -3,20 +3,26 @@ use crate::*;
 #[derive(Default)]
 pub struct IfChanged<T> {
   cached: Option<T>,
+  sub_tree_has_update: bool,
 }
 
 impl<T: PartialEq + Clone, C: Component<T>> ComponentAbility<T, C> for IfChanged<T> {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    if let Some(cached) = self.cached.as_ref() {
-      if cached == model {
-        return;
+    if !self.sub_tree_has_update {
+      if let Some(cached) = self.cached.as_ref() {
+        if cached == model {
+          return;
+        } else {
+          self.cached = model.clone().into();
+        }
       }
     }
+
     inner.update(model, ctx);
-    self.cached = model.clone().into();
   }
   fn event(&mut self, model: &mut T, event: &mut EventCtx, inner: &mut C) {
     inner.event(model, event);
+    self.sub_tree_has_update |= event.view_may_changed
   }
 }
 

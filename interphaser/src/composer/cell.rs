@@ -1,6 +1,6 @@
 use crate::*;
 
-pub type ComponentUpdater<C, T> = Box<dyn FnMut(&mut C, &T)>;
+pub type ComponentUpdater<C, T> = Box<dyn FnMut(&mut C, &T, &mut UpdateCtx)>;
 
 pub struct ComponentCell<C, T> {
   component: C,
@@ -8,7 +8,17 @@ pub struct ComponentCell<C, T> {
 }
 
 pub trait ComponentCellMaker<T>: Sized {
-  fn bind(self, updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
+  fn bind(self, mut updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
+    ComponentCell {
+      component: self,
+      updater: Box::new(move |c, t, _ctx| updater(c, t)),
+    }
+  }
+
+  fn bind_with_ctx(
+    self,
+    updater: impl FnMut(&mut Self, &T, &mut UpdateCtx) + 'static,
+  ) -> ComponentCell<Self, T> {
     ComponentCell {
       component: self,
       updater: Box::new(updater),
@@ -23,7 +33,7 @@ where
   C: ComponentAbility<T, IC>,
 {
   fn update(&mut self, model: &T, inner: &mut IC, ctx: &mut UpdateCtx) {
-    (self.updater)(&mut self.component, model);
+    (self.updater)(&mut self.component, model, ctx);
     self.component.update(model, inner, ctx);
   }
 
@@ -60,10 +70,12 @@ impl<T, C: HotAreaPassBehavior<IC>, IC> HotAreaPassBehavior<IC> for ComponentCel
 }
 
 impl<C: Component<T>, T> Component<T> for ComponentCell<C, T> {
-  fn event(&mut self, _model: &mut T, _event: &mut EventCtx) {}
+  fn event(&mut self, model: &mut T, event: &mut EventCtx) {
+    self.component.event(model, event);
+  }
 
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    (self.updater)(&mut self.component, model);
+    (self.updater)(&mut self.component, model, ctx);
     self.component.update(model, ctx);
   }
 }

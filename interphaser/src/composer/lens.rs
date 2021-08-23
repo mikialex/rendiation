@@ -143,6 +143,23 @@ pub struct LensWrap<T, U, L, W> {
   phantom_t: PhantomData<T>,
 }
 
+
+use std::ops::{Deref, DerefMut};
+impl<T, U, L, W> Deref for LensWrap<T, U, L, W> {
+  type Target = W;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
+impl<T, U, L, W> DerefMut for LensWrap<T, U, L, W> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.inner
+  }
+}
+
+
 impl<T, U, L, W> Component<T> for LensWrap<T, U, L, W>
 where
   L: Lens<T, U>,

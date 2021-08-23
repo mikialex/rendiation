@@ -52,8 +52,9 @@ impl<C> EventHandlerImpl<C> for TodoItemDelete {
 }
 
 pub fn build_todo_item() -> impl UIComponent<TodoItem> {
-  let label = Text::new("")
-    .bind(move |s, t: &TodoItem| s.content.set(t.name.clone()))
+  let label = Text::default()
+    .editable()
+    .lens(lens!(TodoItem, name))
     .extend(Container::size((200., 100.)));
 
   let button = button("delete", |s: &mut TodoItem, c, _| {
@@ -64,8 +65,8 @@ pub fn build_todo_item() -> impl UIComponent<TodoItem> {
   });
 
   flex_group()
-    .push(Child::flex(label, 1.))
-    .push(Child::flex(button, 1.))
+    .child(Child::flex(label, 1.))
+    .child(Child::flex(button, 1.))
     .extend(Flex::row())
     .extend(Container::size((500., 120.)))
 }

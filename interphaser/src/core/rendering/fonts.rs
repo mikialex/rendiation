@@ -25,6 +25,10 @@ impl FontManager {
     fonts
   }
 
+  pub fn active_font_count(&self) -> usize {
+    self.fonts.len()
+  }
+
   pub fn add_font(&mut self, name: &str, font: ab_glyph::FontArc) -> FontId {
     self
       .fonts_by_name

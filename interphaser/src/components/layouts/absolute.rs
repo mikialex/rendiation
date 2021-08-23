@@ -28,27 +28,32 @@ impl<C: HotAreaProvider> HotAreaPassBehavior<C> for AbsoluteAnchor {
   }
 }
 
-pub fn absolute_group<T>() -> ComponentArray<AbsolutePositionChild<T>> {
+pub fn absolute_group<T>() -> ComponentArray<AbsChild<T>> {
   ComponentArray {
     children: Vec::new(),
   }
 }
 
-pub struct AbsolutePositionChild<T> {
+pub struct AbsChild<T> {
   pub position: UIPosition,
   pub inner: Box<dyn UIComponent<T>>,
 }
 
-impl<T> AbsolutePositionChild<T> {
+impl<T> AbsChild<T> {
   pub fn new(inner: impl UIComponent<T> + 'static) -> Self {
     Self {
       inner: Box::new(inner),
       position: Default::default(),
     }
   }
+
+  pub fn with_size(mut self, position: UIPosition) -> Self {
+    self.position = position;
+    self
+  }
 }
 
-impl<T> Component<T> for AbsolutePositionChild<T> {
+impl<T> Component<T> for AbsChild<T> {
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {
     self.inner.event(model, event)
   }
@@ -58,7 +63,7 @@ impl<T> Component<T> for AbsolutePositionChild<T> {
   }
 }
 
-impl<T> Presentable for AbsolutePositionChild<T> {
+impl<T> Presentable for AbsChild<T> {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.inner.render(builder)
   }
@@ -66,8 +71,7 @@ impl<T> Presentable for AbsolutePositionChild<T> {
 
 impl<T, C> LayoutAbility<C> for AbsoluteAnchor
 where
-  for<'a> &'a mut C:
-    IntoIterator<Item = &'a mut AbsolutePositionChild<T>, IntoIter: ExactSizeIterator2<'a>>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut AbsChild<T>, IntoIter: ExactSizeIterator2<'a>>,
 {
   fn layout(
     &mut self,

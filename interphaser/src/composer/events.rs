@@ -40,6 +40,7 @@ impl<T, X: EventHandlerType> EventHandler<T, X> {
         custom_event_emitter: Default::default(),
       };
       (self.handler)(model, &mut ctx, e);
+      event.view_may_changed = true;
       event.custom_event.merge(ctx.custom_event_emitter);
     }
   }

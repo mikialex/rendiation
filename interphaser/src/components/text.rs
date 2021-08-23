@@ -3,19 +3,22 @@ use glyph_brush::*;
 
 use crate::*;
 
+pub use glyph_brush::HorizontalAlign;
+pub use glyph_brush::VerticalAlign;
+
 pub struct Text {
   pub content: LayoutSource<String>,
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlign,
   pub vertical_align: VerticalAlign,
-  text_layout: Option<Vec<SectionGlyph>>,
-  layout: LayoutUnit,
+  pub text_layout: Option<Vec<SectionGlyph>>,
+  pub layout: LayoutUnit,
 }
 
-impl Text {
-  pub fn new(content: impl Into<String>) -> Self {
+impl Default for Text {
+  fn default() -> Self {
     Self {
-      content: LayoutSource::new(content.into()),
+      content: LayoutSource::new("".into()),
       layout: Default::default(),
       horizon_align: HorizontalAlign::Center,
       vertical_align: VerticalAlign::Center,
@@ -23,15 +26,57 @@ impl Text {
       text_layout: None,
     }
   }
+}
 
-  pub fn get_text_layout(&mut self, fonts: &FontManager) -> &Vec<SectionGlyph> {
+impl Text {
+  pub fn new(content: impl Into<String>) -> Self {
+    Self {
+      content: LayoutSource::new(content.into()),
+      ..Default::default()
+    }
+  }
+
+  pub fn with_line_wrap(mut self, line_wrap: LineWrap) -> Self {
+    self.line_wrap = line_wrap;
+    self
+  }
+
+  pub fn with_horizon_align(mut self, horizon_align: HorizontalAlign) -> Self {
+    self.horizon_align = horizon_align;
+    self
+  }
+
+  pub fn with_vertical_align(mut self, vertical_align: VerticalAlign) -> Self {
+    self.vertical_align = vertical_align;
+    self
+  }
+
+  pub(crate) fn get_text_layout(&mut self, fonts: &FontManager) -> &Vec<SectionGlyph> {
+    let x_correct = match self.horizon_align {
+      glyph_brush::HorizontalAlign::Left => 0.,
+      glyph_brush::HorizontalAlign::Center => self.layout.size.width / 2.,
+      glyph_brush::HorizontalAlign::Right => self.layout.size.width,
+    };
+
+    let y_correct = match self.vertical_align {
+      glyph_brush::VerticalAlign::Top => 0.,
+      glyph_brush::VerticalAlign::Center => self.layout.size.height / 2.,
+      glyph_brush::VerticalAlign::Bottom => self.layout.size.height / 2.,
+    };
+
     self.text_layout.get_or_insert_with(|| {
       let layout = Layout::SingleLine {
         line_breaker: BuiltInLineBreaker::default(),
         h_align: HorizontalAlign::Center,
         v_align: VerticalAlign::Center,
       };
-      let geometry = SectionGeometry::default();
+      let geometry = SectionGeometry {
+        screen_position: (
+          self.layout.position.x + x_correct,
+          self.layout.position.y + y_correct,
+        ),
+        bounds: self.layout.size.into(),
+      };
 
       layout.calculate_glyphs(
         fonts.get_fonts().as_slice(),

@@ -50,3 +50,15 @@ where
     (self.min + self.max) * T::half()
   }
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HyperAABBBySize<V> {
+  pub position: V,
+  pub size: V,
+}
+
+impl<V> HyperAABBBySize<V> {
+  pub fn new(position: V, size: V) -> Self {
+    Self { position, size }
+  }
+}
