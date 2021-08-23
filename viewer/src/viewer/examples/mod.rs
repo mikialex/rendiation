@@ -8,15 +8,16 @@ pub struct Todo {
 
 #[derive(Clone, PartialEq)]
 pub struct TodoItem {
+  pub id: usize,
   pub name: String,
 }
 
 // todo change to id
 impl IdentityKeyed for TodoItem {
-  type Key = String;
+  type Key = usize;
 
   fn key(&self) -> Self::Key {
-    self.name.clone()
+    self.id
   }
 }
 

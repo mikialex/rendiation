@@ -28,12 +28,15 @@ impl Viewer {
       items: vec![
         TodoItem {
           name: String::from("t1中文测试"),
+          id: 0,
         },
         TodoItem {
           name: String::from("test 2"),
+          id: 1,
         },
         TodoItem {
           name: String::from("test gh3"),
+          id: 2,
         },
       ],
     };

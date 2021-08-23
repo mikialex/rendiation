@@ -53,14 +53,55 @@ impl EditableText {
     }
   }
 
-  fn insert_at_cursor(&mut self, c: char, model: &mut String) {
-    if let Some(cursor) = &self.cursor {
-      let index = cursor.text_index;
-      model.insert(index, c);
+  fn update_cursor_position(&mut self, fonts: &FontManager) {
+    if let Some(cursor) = &mut self.cursor {
+      let layout = self.text.get_text_layout(fonts);
+      let index = if cursor.text_index ==0 {
+        0
+      } else {
+        cursor.text_index - 1
+      };
+      let sg = &layout[index];
+      let rect = fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
+
+      let height = rect.max.y - rect.min.y;
+      let position = if cursor.text_index == 0 {
+        (rect.min.x, rect.min.y)
+      } else {
+        (rect.max.x, rect.min.y)
+      };
+      cursor.position = position.into();
+      cursor.height = height;
     }
   }
 
-  fn input(&mut self, key: winit::event::VirtualKeyCode, model: &mut String) {
+  fn insert_at_cursor(&mut self, c: char, model: &mut String, fonts: &FontManager) {
+    if let Some(cursor) = &mut self.cursor {
+      let index = cursor.text_index;
+      model.insert(index, c);
+
+      self.text.content.set(model.clone());
+      self.text.reset_text_layout();
+      cursor.text_index += 1;
+    }
+    self.update_cursor_position(fonts)
+  }
+
+  fn delete_at_cursor(&mut self, model: &mut String, fonts: &FontManager) {
+    if let Some(cursor) = &mut self.cursor {
+      if cursor.text_index == 0 {
+        return;
+      }
+      model.remove(cursor.text_index - 1);
+
+      self.text.content.set(model.clone());
+      self.text.reset_text_layout();
+      cursor.text_index -= 1;
+    }
+    self.update_cursor_position(fonts)
+  }
+
+  fn input(&mut self, key: winit::event::VirtualKeyCode, model: &mut String, fonts: &FontManager) {
     use winit::event::VirtualKeyCode::*;
     let input = match key {
       Key1 => '1'.into(),
@@ -99,21 +140,26 @@ impl EditableText {
       X => 'x'.into(),
       Y => 'y'.into(),
       Z => 'z'.into(),
+      _ => None,
+    };
+
+    if let Some(c) = input {
+      self.insert_at_cursor(c, model, fonts);
+    }
+
+    match key {
       // Escape => todo!(),
       // Left => todo!(),
       // Up => todo!(),
       // Right => todo!(),
       // Down => todo!(),
-      // Back => todo!(),
+      Back => {
+        self.delete_at_cursor(model, fonts);
+      }
       // Return => todo!(),
       // Space => todo!(),
-      _ => None,
-    };
-
-    if let Some(c) = input {
-      self.insert_at_cursor(c, model);
+      _ => {}
     }
-    //
   }
 }
 
@@ -138,7 +184,7 @@ impl Cursor {
     Quad {
       x: self.position.x,
       y: self.position.y,
-      width: 2.,
+      width: 1.,
       height: self.height,
     }
   }
@@ -154,11 +200,9 @@ impl Component<String> for EditableText {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::KeyboardInput { input, .. } => {
           if let Some(virtual_keycode) = input.virtual_keycode {
-            self.input(virtual_keycode, model);
-
-            // todo handle keyborad input
-            // modify text, emit change
-            ctx.custom_event.push_event(1);
+            if input.state == ElementState::Pressed {
+              self.input(virtual_keycode, model, ctx.fonts);
+            }
           }
         }
         WindowEvent::MouseInput { state, button, .. } => {
