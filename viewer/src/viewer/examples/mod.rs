@@ -54,7 +54,7 @@ impl<C> EventHandlerImpl<C> for TodoItemDelete {
 pub fn build_todo_item() -> impl UIComponent<TodoItem> {
   let label = Text::default()
     .editable()
-    .bind(move |s, t: &TodoItem| s.content.set(t.name.clone()))
+    .lens(lens!(TodoItem, name))
     .extend(Container::size((200., 100.)));
 
   let button = button("delete", |s: &mut TodoItem, c, _| {

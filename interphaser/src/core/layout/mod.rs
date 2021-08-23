@@ -43,6 +43,11 @@ impl<T> LayoutSource<T> {
     self.changed = true;
   }
 
+  pub fn mutate(&mut self) -> &mut T {
+    self.changed = true;
+    &mut self.value
+  }
+
   pub fn get(&mut self) -> &T {
     &self.value
   }

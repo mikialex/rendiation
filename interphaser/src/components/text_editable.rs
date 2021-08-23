@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use glyph_brush::ab_glyph::Font;
 
 use crate::*;
@@ -9,6 +7,7 @@ pub struct EditableText {
   cursor: Option<Cursor>,
 }
 
+use std::ops::{Deref, DerefMut};
 impl Deref for EditableText {
   type Target = Text;
 
@@ -53,6 +52,69 @@ impl EditableText {
       .into()
     }
   }
+
+  fn insert_at_cursor(&mut self, c: char, model: &mut String) {
+    if let Some(cursor) = &self.cursor {
+      let index = cursor.text_index;
+      model.insert(index, c);
+    }
+  }
+
+  fn input(&mut self, key: winit::event::VirtualKeyCode, model: &mut String) {
+    use winit::event::VirtualKeyCode::*;
+    let input = match key {
+      Key1 => '1'.into(),
+      Key2 => '2'.into(),
+      Key3 => '3'.into(),
+      Key4 => '4'.into(),
+      Key5 => '5'.into(),
+      Key6 => '6'.into(),
+      Key7 => '7'.into(),
+      Key8 => '8'.into(),
+      Key9 => '9'.into(),
+      Key0 => '0'.into(),
+      A => 'a'.into(),
+      B => 'b'.into(),
+      C => 'c'.into(),
+      D => 'd'.into(),
+      E => 'e'.into(),
+      F => 'f'.into(),
+      G => 'g'.into(),
+      H => 'h'.into(),
+      I => 'i'.into(),
+      J => 'j'.into(),
+      K => 'k'.into(),
+      L => 'l'.into(),
+      M => 'm'.into(),
+      N => 'n'.into(),
+      O => 'o'.into(),
+      P => 'p'.into(),
+      Q => 'q'.into(),
+      R => 'r'.into(),
+      S => 's'.into(),
+      T => 't'.into(),
+      U => 'u'.into(),
+      V => 'v'.into(),
+      W => 'w'.into(),
+      X => 'x'.into(),
+      Y => 'y'.into(),
+      Z => 'z'.into(),
+      // Escape => todo!(),
+      // Left => todo!(),
+      // Up => todo!(),
+      // Right => todo!(),
+      // Down => todo!(),
+      // Back => todo!(),
+      // Return => todo!(),
+      // Space => todo!(),
+      _ => None,
+    };
+
+    if let Some(c) = input {
+      self.insert_at_cursor(c, model);
+    }
+    //
+  }
 }
 
 impl Text {
@@ -82,8 +144,8 @@ impl Cursor {
   }
 }
 
-impl<T> Component<T> for EditableText {
-  fn event(&mut self, model: &mut T, ctx: &mut EventCtx) {
+impl Component<String> for EditableText {
+  fn event(&mut self, model: &mut String, ctx: &mut EventCtx) {
     self.text.event(model, ctx);
 
     use winit::event::*;
@@ -91,9 +153,13 @@ impl<T> Component<T> for EditableText {
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::KeyboardInput { input, .. } => {
-          // todo handle keyborad input
-          // modify text, emit change
-          ctx.custom_event.push_event(1);
+          if let Some(virtual_keycode) = input.virtual_keycode {
+            self.input(virtual_keycode, model);
+
+            // todo handle keyborad input
+            // modify text, emit change
+            ctx.custom_event.push_event(1);
+          }
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
@@ -106,7 +172,8 @@ impl<T> Component<T> for EditableText {
     }
   }
 
-  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+  fn update(&mut self, model: &String, ctx: &mut UpdateCtx) {
+    self.text.content.set(model);
     self.text.update(model, ctx)
   }
 }
