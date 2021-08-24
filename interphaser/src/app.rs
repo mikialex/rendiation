@@ -168,7 +168,7 @@ impl<T> ApplicationInner<T> {
   }
 
   fn render(&mut self, frame: SwapChainFrame) {
-    let mut builder = PresentationBuilder::new();
+    let mut builder = PresentationBuilder::new(&self.fonts);
     builder.present.view_size = self.window_states.size;
 
     self.current_perf.rendering_prepare_time = time_measure(|| self.root.render(&mut builder));

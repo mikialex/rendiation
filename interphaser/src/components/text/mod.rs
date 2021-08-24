@@ -6,12 +6,20 @@ use crate::*;
 pub use glyph_brush::HorizontalAlign;
 pub use glyph_brush::VerticalAlign;
 
+mod cursor;
+pub use cursor::*;
+
+mod text_editable;
+pub use text_editable::*;
+
+pub(crate) type TextLayout = Vec<SectionGlyph>;
+
 pub struct Text {
   pub content: LayoutSource<String>,
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlign,
   pub vertical_align: VerticalAlign,
-  pub text_layout: Option<Vec<SectionGlyph>>,
+  pub text_layout: Option<TextLayout>,
   pub layout: LayoutUnit,
 }
 

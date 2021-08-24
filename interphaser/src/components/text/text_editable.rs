@@ -23,6 +23,15 @@ impl DerefMut for EditableText {
 }
 
 impl EditableText {
+  // when model updated by user side
+  // cursor position maybe overflow the text length
+  // so we simply clamp it
+  fn clamp_cursor_position(&mut self) {
+    if let Some(cursor) = &mut self.cursor {
+      cursor.set_index(cursor.get_index().clamp(0, self.text.content.get().len()));
+    }
+  }
+
   fn update_cursor_by_click(&mut self, position: UIPosition, fonts: &FontManager) {
     let layout = self.text.get_text_layout(fonts);
     let rect = layout
@@ -37,119 +46,73 @@ impl EditableText {
       });
 
     if let Some((index, rect)) = rect {
-      let height = rect.max.y - rect.min.y;
-      let (text_index, position) = if position.x >= (rect.max.x + rect.min.x) / 2. {
-        (index + 1, (rect.max.x, rect.min.y))
+      let text_index = if position.x >= (rect.max.x + rect.min.x) / 2. {
+        index + 1
       } else {
-        (index, (rect.min.x, rect.min.y))
+        index
       };
 
-      self.cursor = Cursor {
-        position: position.into(),
-        height,
-        text_index,
-      }
-      .into()
+      self.cursor = Cursor::new(text_index).into()
     }
   }
 
-  fn update_cursor_position(&mut self, fonts: &FontManager) {
-    if let Some(cursor) = &mut self.cursor {
-      let layout = self.text.get_text_layout(fonts);
-      let index = if cursor.text_index == 0 {
-        0
-      } else {
-        cursor.text_index - 1
-      };
-      if layout.is_empty() {
-        // in this case, no content in editor,
-        // we should place cursor at appropriate place
-        // todo
-        return;
-      }
-
-      let sg = &layout[index];
-      let rect = fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
-
-      let height = rect.max.y - rect.min.y;
-      let position = if cursor.text_index == 0 {
-        (rect.min.x, rect.min.y)
-      } else {
-        (rect.max.x, rect.min.y)
-      };
-      cursor.position = position.into();
-      cursor.height = height;
-    }
-  }
-
-  fn insert_at_cursor(&mut self, c: char, model: &mut String, fonts: &FontManager) {
+  fn insert_at_cursor(&mut self, c: char, model: &mut String) {
     if c.is_control() {
       return;
     }
     if let Some(cursor) = &mut self.cursor {
-      let index = cursor.text_index;
+      let index = cursor.get_index();
       model.insert(index, c);
 
       self.text.content.set(model.clone());
       self.text.reset_text_layout();
-      cursor.text_index += 1;
+      cursor.notify_text_layout_changed();
+      cursor.move_right();
     }
-    self.update_cursor_position(fonts)
   }
 
-  fn delete_at_cursor(&mut self, model: &mut String, fonts: &FontManager) {
+  fn delete_at_cursor(&mut self, model: &mut String) {
     if let Some(cursor) = &mut self.cursor {
-      if cursor.text_index == 0 {
+      if cursor.get_index() == 0 {
         // if cursor at first, cant delete
         return;
       }
-      model.remove(cursor.text_index - 1);
+      model.remove(cursor.get_index() - 1);
 
       self.text.content.set(model.clone());
       self.text.reset_text_layout();
-      cursor.text_index -= 1;
+      cursor.notify_text_layout_changed();
+      cursor.move_left();
     }
-    self.update_cursor_position(fonts)
   }
 
-  fn move_cursor(&mut self, dir: CursorMove, fonts: &FontManager) {
+  fn move_cursor(&mut self, dir: CursorMove) {
     if let Some(cursor) = &mut self.cursor {
-      let old = cursor.text_index;
-
       match dir {
         CursorMove::Left => {
-          if cursor.text_index != 0 {
-            cursor.text_index -= 1;
+          if cursor.get_index() != 0 {
+            cursor.move_left();
           }
         }
         CursorMove::Right => {
-          if cursor.text_index != self.text.content.get().len() {
-            cursor.text_index += 1;
+          if cursor.get_index() != self.text.content.get().len() {
+            cursor.move_right();
           }
         }
         CursorMove::Up => {} // todo
         CursorMove::Down => {}
       }
-      if old != cursor.text_index {
-        self.update_cursor_position(fonts)
-      }
     }
   }
 
-  fn handle_input(
-    &mut self,
-    key: winit::event::VirtualKeyCode,
-    model: &mut String,
-    fonts: &FontManager,
-  ) {
+  fn handle_input(&mut self, key: winit::event::VirtualKeyCode, model: &mut String) {
     use winit::event::VirtualKeyCode::*;
     match key {
-      Left => self.move_cursor(CursorMove::Left, fonts),
-      Up => self.move_cursor(CursorMove::Up, fonts),
-      Right => self.move_cursor(CursorMove::Right, fonts),
-      Down => self.move_cursor(CursorMove::Down, fonts),
-      Back => self.delete_at_cursor(model, fonts),
-      // Return => todo!(),
+      Left => self.move_cursor(CursorMove::Left),
+      Up => self.move_cursor(CursorMove::Up),
+      Right => self.move_cursor(CursorMove::Right),
+      Down => self.move_cursor(CursorMove::Down),
+      Back => self.delete_at_cursor(model),
       _ => {}
     }
   }
@@ -160,31 +123,6 @@ impl Text {
     EditableText {
       text: self,
       cursor: None,
-    }
-  }
-}
-
-pub struct Cursor {
-  // top_start
-  position: UIPosition,
-  height: f32,
-  text_index: usize,
-}
-
-enum CursorMove {
-  Left,
-  Right,
-  Up,
-  Down,
-}
-
-impl Cursor {
-  pub fn create_quad(&self) -> Quad {
-    Quad {
-      x: self.position.x,
-      y: self.position.y,
-      width: 1.,
-      height: self.height,
     }
   }
 }
@@ -200,7 +138,7 @@ impl Component<String> for EditableText {
         WindowEvent::KeyboardInput { input, .. } => {
           if let Some(virtual_keycode) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
-              self.handle_input(virtual_keycode, model, ctx.fonts);
+              self.handle_input(virtual_keycode, model);
             }
           }
         }
@@ -210,7 +148,7 @@ impl Component<String> for EditableText {
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
-          self.insert_at_cursor(*char, model, ctx.fonts);
+          self.insert_at_cursor(*char, model);
         }
         _ => {}
       },
@@ -220,6 +158,7 @@ impl Component<String> for EditableText {
 
   fn update(&mut self, model: &String, ctx: &mut UpdateCtx) {
     self.text.content.set(model);
+    self.clamp_cursor_position();
     self.text.update(model, ctx)
   }
 }
@@ -227,9 +166,10 @@ impl Component<String> for EditableText {
 impl Presentable for EditableText {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.text.render(builder);
-    if let Some(cursor) = &self.cursor {
+    if let Some(cursor) = &mut self.cursor {
+      let layout = self.text.get_text_layout(builder.fonts);
       builder.present.primitives.push(Primitive::Quad((
-        cursor.create_quad(),
+        cursor.create_quad(layout, builder.fonts),
         Style::SolidColor((0., 0., 0., 1.).into()),
       )));
     }
