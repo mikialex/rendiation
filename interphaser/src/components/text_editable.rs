@@ -56,11 +56,18 @@ impl EditableText {
   fn update_cursor_position(&mut self, fonts: &FontManager) {
     if let Some(cursor) = &mut self.cursor {
       let layout = self.text.get_text_layout(fonts);
-      let index = if cursor.text_index ==0 {
+      let index = if cursor.text_index == 0 {
         0
       } else {
         cursor.text_index - 1
       };
+      if layout.is_empty() {
+        // in this case, no content in editor,
+        // we should place cursor at appropriate place
+        // todo
+        return;
+      }
+
       let sg = &layout[index];
       let rect = fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
 
@@ -90,6 +97,7 @@ impl EditableText {
   fn delete_at_cursor(&mut self, model: &mut String, fonts: &FontManager) {
     if let Some(cursor) = &mut self.cursor {
       if cursor.text_index == 0 {
+        // if cursor at first, cant delete
         return;
       }
       model.remove(cursor.text_index - 1);
@@ -202,6 +210,7 @@ impl Component<String> for EditableText {
           if let Some(virtual_keycode) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
               self.input(virtual_keycode, model, ctx.fonts);
+              // todo emit custom event
             }
           }
         }
