@@ -83,6 +83,9 @@ impl EditableText {
   }
 
   fn insert_at_cursor(&mut self, c: char, model: &mut String, fonts: &FontManager) {
+    if c.is_control() {
+      return;
+    }
     if let Some(cursor) = &mut self.cursor {
       let index = cursor.text_index;
       model.insert(index, c);
@@ -109,52 +112,13 @@ impl EditableText {
     self.update_cursor_position(fonts)
   }
 
-  fn input(&mut self, key: winit::event::VirtualKeyCode, model: &mut String, fonts: &FontManager) {
+  fn handle_input(
+    &mut self,
+    key: winit::event::VirtualKeyCode,
+    model: &mut String,
+    fonts: &FontManager,
+  ) {
     use winit::event::VirtualKeyCode::*;
-    let input = match key {
-      Key1 => '1'.into(),
-      Key2 => '2'.into(),
-      Key3 => '3'.into(),
-      Key4 => '4'.into(),
-      Key5 => '5'.into(),
-      Key6 => '6'.into(),
-      Key7 => '7'.into(),
-      Key8 => '8'.into(),
-      Key9 => '9'.into(),
-      Key0 => '0'.into(),
-      A => 'a'.into(),
-      B => 'b'.into(),
-      C => 'c'.into(),
-      D => 'd'.into(),
-      E => 'e'.into(),
-      F => 'f'.into(),
-      G => 'g'.into(),
-      H => 'h'.into(),
-      I => 'i'.into(),
-      J => 'j'.into(),
-      K => 'k'.into(),
-      L => 'l'.into(),
-      M => 'm'.into(),
-      N => 'n'.into(),
-      O => 'o'.into(),
-      P => 'p'.into(),
-      Q => 'q'.into(),
-      R => 'r'.into(),
-      S => 's'.into(),
-      T => 't'.into(),
-      U => 'u'.into(),
-      V => 'v'.into(),
-      W => 'w'.into(),
-      X => 'x'.into(),
-      Y => 'y'.into(),
-      Z => 'z'.into(),
-      _ => None,
-    };
-
-    if let Some(c) = input {
-      self.insert_at_cursor(c, model, fonts);
-    }
-
     match key {
       // Escape => todo!(),
       // Left => todo!(),
@@ -165,7 +129,6 @@ impl EditableText {
         self.delete_at_cursor(model, fonts);
       }
       // Return => todo!(),
-      // Space => todo!(),
       _ => {}
     }
   }
@@ -209,8 +172,7 @@ impl Component<String> for EditableText {
         WindowEvent::KeyboardInput { input, .. } => {
           if let Some(virtual_keycode) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
-              self.input(virtual_keycode, model, ctx.fonts);
-              // todo emit custom event
+              self.handle_input(virtual_keycode, model, ctx.fonts);
             }
           }
         }
@@ -218,6 +180,9 @@ impl Component<String> for EditableText {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
             self.update_cursor_by_click(ctx.states.mouse_position, &ctx.fonts)
           }
+        }
+        WindowEvent::ReceivedCharacter(char) => {
+          self.insert_at_cursor(*char, model, ctx.fonts);
         }
         _ => {}
       },
