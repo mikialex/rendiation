@@ -112,6 +112,30 @@ impl EditableText {
     self.update_cursor_position(fonts)
   }
 
+  fn move_cursor(&mut self, dir: CursorMove, fonts: &FontManager) {
+    if let Some(cursor) = &mut self.cursor {
+      let old = cursor.text_index;
+
+      match dir {
+        CursorMove::Left => {
+          if cursor.text_index != 0 {
+            cursor.text_index -= 1;
+          }
+        }
+        CursorMove::Right => {
+          if cursor.text_index != self.text.content.get().len() {
+            cursor.text_index += 1;
+          }
+        }
+        CursorMove::Up => {} // todo
+        CursorMove::Down => {}
+      }
+      if old != cursor.text_index {
+        self.update_cursor_position(fonts)
+      }
+    }
+  }
+
   fn handle_input(
     &mut self,
     key: winit::event::VirtualKeyCode,
@@ -120,14 +144,11 @@ impl EditableText {
   ) {
     use winit::event::VirtualKeyCode::*;
     match key {
-      // Escape => todo!(),
-      // Left => todo!(),
-      // Up => todo!(),
-      // Right => todo!(),
-      // Down => todo!(),
-      Back => {
-        self.delete_at_cursor(model, fonts);
-      }
+      Left => self.move_cursor(CursorMove::Left, fonts),
+      Up => self.move_cursor(CursorMove::Up, fonts),
+      Right => self.move_cursor(CursorMove::Right, fonts),
+      Down => self.move_cursor(CursorMove::Down, fonts),
+      Back => self.delete_at_cursor(model, fonts),
       // Return => todo!(),
       _ => {}
     }
@@ -148,6 +169,13 @@ pub struct Cursor {
   position: UIPosition,
   height: f32,
   text_index: usize,
+}
+
+enum CursorMove {
+  Left,
+  Right,
+  Up,
+  Down,
 }
 
 impl Cursor {
