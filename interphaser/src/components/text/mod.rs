@@ -9,8 +9,8 @@ pub use glyph_brush::VerticalAlign;
 mod cursor;
 pub use cursor::*;
 
-mod text_editable;
-pub use text_editable::*;
+mod editable;
+pub use editable::*;
 
 pub(crate) type TextLayout = Vec<SectionGlyph>;
 

@@ -2114,8 +2114,7 @@ dependencies = [
 name = "rendiation-texture-packer"
 version = "0.1.0"
 dependencies = [
- "rendiation-algebra",
- "rendiation-geometry",
+ "rendiation-texture",
 ]
 
 [[package]]
