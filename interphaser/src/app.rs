@@ -32,6 +32,7 @@ pub struct ApplicationInner<T> {
   current_perf: PerformanceInfo,
 
   view_may_changed: bool,
+  init_inst: Instant,
   last_update_inst: Instant,
   swap_chain: GPUSwapChain,
   gpu: Rc<GPU>,
@@ -69,6 +70,7 @@ impl<T: 'static> Application<T> {
         ui_renderer,
         window,
         last_update_inst: Instant::now(),
+        init_inst: Instant::now(),
         view_may_changed: false,
 
         perf_info_last_frame: PerformanceInfo::new(0),
@@ -142,7 +144,7 @@ impl<T> ApplicationInner<T> {
 
   fn update(&mut self) {
     let mut ctx = UpdateCtx {
-      time_stamp: 0,
+      time_stamp: self.init_inst.elapsed(),
       layout_changed: false,
       fonts: &self.fonts,
       last_frame_perf_info: &self.perf_info_last_frame,

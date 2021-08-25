@@ -7,7 +7,10 @@ pub struct EditableText {
   cursor: Option<Cursor>,
 }
 
-use std::ops::{Deref, DerefMut};
+use std::{
+  ops::{Deref, DerefMut},
+  time::Duration,
+};
 impl Deref for EditableText {
   type Target = Text;
 
@@ -163,10 +166,19 @@ impl Component<String> for EditableText {
   }
 }
 
+fn blink_show(dur: Duration) -> bool {
+  let time = dur.as_millis();
+  time % 1000 > 500
+}
+
 impl Presentable for EditableText {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.text.render(builder);
     if let Some(cursor) = &mut self.cursor {
+      if blink_show(cursor.get_last_update_timestamp().elapsed()) {
+        return;
+      }
+
       let layout = self.text.get_text_layout(builder.fonts);
       builder.present.primitives.push(Primitive::Quad((
         cursor.create_quad(layout, builder.fonts),

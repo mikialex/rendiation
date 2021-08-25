@@ -6,7 +6,7 @@ pub trait TexturePackStrategyBase {
 }
 
 pub enum PackError {
-  NotEmptySpace,
+  SpaceNotEnough,
 }
 
 pub trait TexturePackStrategy: TexturePackStrategyBase {

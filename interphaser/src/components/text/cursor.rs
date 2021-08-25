@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use glyph_brush::ab_glyph::Font;
 
 use crate::*;
@@ -5,6 +7,7 @@ use crate::*;
 pub struct Cursor {
   position: Option<CursorPositionInfo>,
   index: usize,
+  update_timestamp: Instant,
 }
 
 struct CursorPositionInfo {
@@ -25,6 +28,7 @@ impl Cursor {
     Self {
       position: None,
       index,
+      update_timestamp: Instant::now(),
     }
   }
 
@@ -35,18 +39,25 @@ impl Cursor {
   pub fn move_right(&mut self) {
     self.index += 1;
     self.position = None;
+    self.update_timestamp = Instant::now();
   }
 
   pub fn move_left(&mut self) {
     self.index -= 1;
     self.position = None;
+    self.update_timestamp = Instant::now();
   }
 
   pub fn set_index(&mut self, index: usize) {
     if index != self.index {
       self.position = None;
+      self.update_timestamp = Instant::now();
     }
     self.index = index;
+  }
+
+  pub fn get_last_update_timestamp(&self) -> Instant {
+    self.update_timestamp
   }
 
   pub fn notify_text_layout_changed(&mut self) {
