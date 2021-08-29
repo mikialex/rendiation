@@ -85,7 +85,7 @@ impl WebGPUTextureCube {
         bytes_per_row: Some(source.bytes_per_row()),
         rows_per_image: None,
       },
-      source.size().into(),
+      source.gpu_size(),
     );
     self
   }
