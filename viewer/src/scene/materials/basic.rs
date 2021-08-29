@@ -75,7 +75,7 @@ impl BasicMaterial {
         wgpu::BindGroupLayoutEntry {
           binding: 1,
           visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: SceneTexture2dGpu::bind_layout(),
+          ty: WebGPUTexture2d::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
