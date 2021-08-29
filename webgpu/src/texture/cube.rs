@@ -1,7 +1,7 @@
-use crate::{BindableResource, WebGPUTexture2dSource};
+use crate::{BindableResource, WebGPUTexture, WebGPUTexture2dSource};
 
 pub struct WebGPUTextureCube {
-  texture: wgpu::Texture,
+  texture: WebGPUTexture,
   texture_view: wgpu::TextureView,
 }
 

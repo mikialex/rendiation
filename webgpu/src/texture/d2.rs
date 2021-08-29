@@ -1,7 +1,7 @@
 use rendiation_texture::Size;
 use std::num::NonZeroUsize;
 
-use crate::BindableResource;
+use crate::{BindableResource, WebGPUTexture};
 
 pub trait WebGPUTexture2dSource: 'static {
   fn format(&self) -> wgpu::TextureFormat;
@@ -54,7 +54,7 @@ impl WebGPUTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
 }
 
 pub struct WebGPUTexture2d {
-  texture: wgpu::Texture,
+  texture: WebGPUTexture,
   texture_view: wgpu::TextureView,
 }
 
@@ -76,22 +76,37 @@ impl WebGPUTexture2d {
   pub fn create(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    source: &dyn WebGPUTexture2dSource,
+    base_source: &dyn WebGPUTexture2dSource,
   ) -> Self {
-    let texture_extent = source.gpu_size();
-    let texture = device.create_texture(&wgpu::TextureDescriptor {
+    let texture_extent = base_source.gpu_size();
+    let desc = wgpu::TextureDescriptor {
       label: None,
       size: texture_extent,
       mip_level_count: 1,
       sample_count: 1,
       dimension: wgpu::TextureDimension::D2,
-      format: source.format(),
+      format: base_source.format(),
       usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-    });
+    };
+    let texture = device.create_texture(&desc);
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let texture = WebGPUTexture { texture, desc };
+
+    let tex = WebGPUTexture2d {
+      texture,
+      texture_view,
+    };
+
+    tex.upload_base(queue, base_source);
+
+    tex
+  }
+
+  pub fn upload_base(&self, queue: &wgpu::Queue, source: &dyn WebGPUTexture2dSource) -> &Self {
     queue.write_texture(
       wgpu::ImageCopyTexture {
-        texture: &texture,
+        texture: &self.texture,
         mip_level: 0,
         origin: wgpu::Origin3d::ZERO,
       },
@@ -101,11 +116,8 @@ impl WebGPUTexture2d {
         bytes_per_row: Some(source.bytes_per_row()),
         rows_per_image: None,
       },
-      texture_extent,
+      self.texture.desc.size,
     );
-    WebGPUTexture2d {
-      texture,
-      texture_view,
-    }
+    self
   }
 }
