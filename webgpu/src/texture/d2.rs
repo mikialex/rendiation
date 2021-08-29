@@ -137,7 +137,7 @@ impl WebGPUTexture2d {
 
     let texture = WebGPUTexture { texture, desc };
 
-    let tex = WebGPUTexture2d {
+    let tex = Self {
       texture,
       texture_view,
     };
@@ -151,7 +151,7 @@ impl WebGPUTexture2d {
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
   ) -> Self {
-    self.upload_with_origin(queue, source, mip_level, wgpu::Origin3d::ZERO)
+    self.upload_with_origin(queue, source, mip_level, (0, 0))
   }
 
   pub fn upload_with_origin(
@@ -159,13 +159,17 @@ impl WebGPUTexture2d {
     queue: &wgpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
-    origin: wgpu::Origin3d,
+    origin: (usize, usize),
   ) -> Self {
     queue.write_texture(
       wgpu::ImageCopyTexture {
         texture: &self.texture,
         mip_level: mip_level as u32,
-        origin,
+        origin: wgpu::Origin3d {
+          x: origin.0 as u32,
+          y: origin.1 as u32,
+          z: 0,
+        },
       },
       source.as_bytes(),
       wgpu::ImageDataLayout {
@@ -173,7 +177,8 @@ impl WebGPUTexture2d {
         bytes_per_row: Some(source.bytes_per_row()),
         rows_per_image: None,
       },
-      self.texture.desc.size,
+      // self.texture.desc.size,
+      source.size().into(),
     );
     self
   }
