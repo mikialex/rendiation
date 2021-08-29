@@ -1,5 +1,6 @@
 #![allow(clippy::float_cmp)]
 #![feature(nonzero_is_power_of_two)]
+#![feature(int_log)]
 
 pub mod address;
 use std::{
@@ -33,6 +34,16 @@ pub struct Size {
 }
 
 impl Size {
+  pub fn max_side_length(&self) -> NonZeroUsize {
+    self.width.max(self.height)
+  }
+
+  /// return value is all mipmap levels plus base level(1)
+  pub fn mip_level_count(&self) -> usize {
+    let len: usize = self.max_side_length().into();
+    len.next_power_of_two().log2() + 1
+  }
+
   pub fn is_pot(&self) -> bool {
     self.width.is_power_of_two() && self.height.is_power_of_two()
   }
