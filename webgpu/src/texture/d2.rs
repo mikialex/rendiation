@@ -1,7 +1,7 @@
 use rendiation_texture::Size;
 use std::num::NonZeroUsize;
 
-use crate::{BindableResource, WebGPUTexture};
+use crate::{BindableResource, WebGPUTexture, WebGPUTextureCubeDescriptor};
 
 pub trait WebGPUTexture2dSource {
   fn format(&self) -> wgpu::TextureFormat;
@@ -34,29 +34,59 @@ pub trait WebGPUTexture2dSource {
     }
   }
 
-  fn create_tex_desc(&self, level_count: MipLevelCount) -> wgpu::TextureDescriptor<'static> {
-    let mip_level_count = match level_count {
-      MipLevelCount::BySize => self.size().mip_level_count(),
-      MipLevelCount::EmptyMipMap => 1,
-      // todo should we do validation?
-      MipLevelCount::Fixed(size) => size,
-    } as u32;
-    wgpu::TextureDescriptor {
-      label: None,
-      size: self.gpu_size(),
-      mip_level_count,
-      sample_count: 1,
-      dimension: wgpu::TextureDimension::D2,
-      format: self.format(),
-      usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+  fn create_tex2d_desc(&self, level_count: MipLevelCount) -> WebGPUTexture2dDescriptor {
+    // todo validation;
+    WebGPUTexture2dDescriptor {
+      desc: wgpu::TextureDescriptor {
+        label: None,
+        size: self.gpu_size(),
+        mip_level_count: level_count.get_level_count_wgpu(self.size()),
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: self.format(),
+        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+      },
     }
   }
+
+  fn create_cube_desc(&self, level_count: MipLevelCount) -> WebGPUTextureCubeDescriptor {
+    // todo validation;
+    WebGPUTextureCubeDescriptor {
+      desc: wgpu::TextureDescriptor {
+        label: None,
+        size: self.gpu_size(),
+        mip_level_count: level_count.get_level_count_wgpu(self.size()),
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: self.format(),
+        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+      },
+    }
+  }
+}
+
+/// The wrapper type that make sure the inner desc
+/// is suitable for 2d texture
+pub struct WebGPUTexture2dDescriptor {
+  desc: wgpu::TextureDescriptor<'static>,
 }
 
 pub enum MipLevelCount {
   BySize,
   EmptyMipMap,
   Fixed(usize),
+}
+
+impl MipLevelCount {
+  pub fn get_level_count_wgpu(&self, size: Size) -> u32 {
+    let r = match *self {
+      MipLevelCount::BySize => size.mip_level_count(),
+      MipLevelCount::EmptyMipMap => 1,
+      // todo should we do validation?
+      MipLevelCount::Fixed(s) => s,
+    } as u32;
+    r
+  }
 }
 
 impl WebGPUTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
@@ -100,7 +130,8 @@ impl BindableResource for WebGPUTexture2d {
 }
 
 impl WebGPUTexture2d {
-  pub fn create(device: &wgpu::Device, desc: wgpu::TextureDescriptor<'static>) -> Self {
+  pub fn create(device: &wgpu::Device, desc: WebGPUTexture2dDescriptor) -> Self {
+    let desc = desc.desc;
     let texture = device.create_texture(&desc);
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 

@@ -1,4 +1,12 @@
+use rendiation_texture::CubeTextureFace;
+
 use crate::{BindableResource, WebGPUTexture, WebGPUTexture2dSource};
+
+/// The wrapper type that make sure the inner desc
+/// is suitable for cube texture
+pub struct WebGPUTextureCubeDescriptor {
+  pub(crate) desc: wgpu::TextureDescriptor<'static>,
+}
 
 pub struct WebGPUTextureCube {
   texture: WebGPUTexture,
@@ -76,5 +84,15 @@ impl WebGPUTextureCube {
     //   texture,
     //   texture_view,
     // }
+  }
+
+  pub fn upload_with_origin(
+    self,
+    queue: &wgpu::Queue,
+    face: CubeTextureFace,
+    mip_level: usize,
+    origin: wgpu::Origin3d,
+  ) -> Self {
+    self
   }
 }
