@@ -1,5 +1,7 @@
 #![allow(clippy::suspicious_operation_groupings)]
 
+use rendiation_algebra::*;
+
 pub mod dimension3;
 pub use dimension3::*;
 pub mod dimension2;
@@ -14,6 +16,7 @@ pub mod hypersphere;
 pub mod intersect_util;
 pub mod line_segment;
 pub mod point;
+pub mod segment;
 pub mod triangle;
 
 pub use beziersegment::*;
@@ -25,7 +28,7 @@ pub use hypersphere::*;
 pub use intersect_util::*;
 pub use line_segment::*;
 pub use point::*;
-use rendiation_algebra::*;
+pub use segment::*;
 pub use triangle::*;
 
 pub trait SpaceAxis<const D: usize>: Copy {}
