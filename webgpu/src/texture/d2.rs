@@ -1,5 +1,6 @@
 use rendiation_texture::Size;
 use std::num::NonZeroUsize;
+use wgpu::util::DeviceExt;
 
 use crate::{BindableResource, WebGPUTexture, WebGPUTextureCubeDescriptor};
 
@@ -7,11 +8,16 @@ pub trait WebGPUTexture2dSource {
   fn format(&self) -> wgpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;
-  fn byte_per_pixel(&self) -> usize;
+  fn bytes_per_pixel(&self) -> usize;
+
+  fn bytes_per_row_usize(&self) -> usize {
+    let width: usize = self.size().width.into();
+    width * self.bytes_per_pixel()
+  }
 
   fn bytes_per_row(&self) -> std::num::NonZeroU32 {
     std::num::NonZeroU32::new(
-      Into::<usize>::into(self.size().width) as u32 * self.byte_per_pixel() as u32,
+      Into::<usize>::into(self.size().width) as u32 * self.bytes_per_pixel() as u32,
     )
     .unwrap()
   }
@@ -32,6 +38,35 @@ pub trait WebGPUTexture2dSource {
       height: Into::<usize>::into(size.height) as u32,
       depth_or_array_layers: 6,
     }
+  }
+
+  /// It is a webgpu requirement that:
+  /// BufferCopyView.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
+  /// So we calculate padded_width by rounding width
+  /// up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
+  fn create_upload_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
+    let width: usize = self.size().width.into();
+
+    let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+    let padded_width_padding = (align - width % align) % align;
+
+    // will this be optimized well or we should use copy_from_slice?
+    let padded_data: Vec<_> = self
+      .as_bytes()
+      .chunks_exact(self.bytes_per_row_usize())
+      .flat_map(|row| {
+        row
+          .iter()
+          .map(|&b| b)
+          .chain((0..padded_width_padding).map(|_| 0))
+      })
+      .collect();
+
+    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+      label: None,
+      contents: padded_data.as_slice(),
+      usage: wgpu::BufferUsage::COPY_SRC,
+    })
   }
 
   fn create_tex2d_desc(&self, level_count: MipLevelCount) -> WebGPUTexture2dDescriptor {
@@ -94,7 +129,7 @@ impl WebGPUTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
     wgpu::TextureFormat::Rgba8Unorm
   }
 
-  fn byte_per_pixel(&self) -> usize {
+  fn bytes_per_pixel(&self) -> usize {
     return 4;
   }
 
