@@ -11,6 +11,7 @@ members = [
   "components/mesh/renderable",
   "components/mesh/editable",
   "components/texture/core",
+  "components/texture/types",
   "components/texture/packer",
   "components/texture/generative",
   "components/space",

@@ -8,23 +8,24 @@
 mod buffer;
 mod encoder;
 mod queue;
+mod render_target;
 mod sampler;
 mod swap_chain;
 mod texture;
 mod uniform;
-mod render_target;
 
-use bytemuck::Pod;
 pub use encoder::*;
 pub use queue::*;
-use rendiation_texture::Size;
+pub use render_target::*;
 pub use sampler::*;
 pub use swap_chain::*;
 pub use texture::*;
 pub use uniform::*;
-pub use render_target::*;
 
 pub use wgpu::*;
+
+use bytemuck::Pod;
+use rendiation_texture_types::Size;
 
 pub struct If<const B: bool>;
 pub trait True {}

@@ -1,4 +1,4 @@
-use rendiation_texture::Size;
+use rendiation_texture_types::Size;
 use std::num::NonZeroUsize;
 use wgpu::util::DeviceExt;
 
@@ -50,7 +50,7 @@ pub trait WebGPUTexture2dSource {
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
     let padded_width_padding = (align - width % align) % align;
 
-    // will this be optimized well or we should use copy_from_slice?
+    // will this be optimized well or we should just use copy_from_slice?
     let padded_data: Vec<_> = self
       .as_bytes()
       .chunks_exact(self.bytes_per_row_usize())

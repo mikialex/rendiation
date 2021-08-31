@@ -2108,6 +2108,8 @@ dependencies = [
  "image",
  "rendiation-algebra",
  "rendiation-geometry",
+ "rendiation-texture-types",
+ "rendiation-webgpu",
 ]
 
 [[package]]
@@ -2118,12 +2120,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-texture-types"
+version = "0.1.0"
+
+[[package]]
 name = "rendiation-webgpu"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
  "image",
- "rendiation-texture",
+ "rendiation-texture-types",
  "wgpu",
  "winit",
 ]

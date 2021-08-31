@@ -1,4 +1,4 @@
-use rendiation_texture::Size;
+use rendiation_texture_types::Size;
 
 use crate::GPU;
 

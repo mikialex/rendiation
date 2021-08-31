@@ -1,6 +1,4 @@
 #![allow(clippy::float_cmp)]
-#![feature(nonzero_is_power_of_two)]
-#![feature(int_log)]
 
 pub mod address;
 use std::{
@@ -21,39 +19,15 @@ pub mod util;
 pub use util::*;
 pub mod io;
 pub use io::*;
+pub mod webgpu;
+pub use webgpu::*;
+
+pub use rendiation_texture_types::*;
 
 use image::ImageBuffer;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
 
 pub use image::*;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Size {
-  pub width: NonZeroUsize,
-  pub height: NonZeroUsize,
-}
-
-impl Size {
-  pub fn max_side_length(&self) -> NonZeroUsize {
-    self.width.max(self.height)
-  }
-
-  /// return value is all mipmap levels plus base level(1)
-  pub fn mip_level_count(&self) -> usize {
-    let len: usize = self.max_side_length().into();
-    len.next_power_of_two().log2() + 1
-  }
-
-  pub fn is_pot(&self) -> bool {
-    self.width.is_power_of_two() && self.height.is_power_of_two()
-  }
-
-  pub fn from_u32_pair_min_one(size: (u32, u32)) -> Self {
-    let width = NonZeroUsize::new(size.0 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
-    let height = NonZeroUsize::new(size.1 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
-    Size { width, height }
-  }
-}
 
 pub trait Texture2D: Sized {
   type Pixel: Copy;

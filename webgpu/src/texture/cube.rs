@@ -1,4 +1,4 @@
-use rendiation_texture::CubeTextureFace;
+use rendiation_texture_types::CubeTextureFace;
 
 use crate::{BindableResource, WebGPUTexture, WebGPUTexture2dSource};
 

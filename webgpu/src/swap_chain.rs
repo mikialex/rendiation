@@ -1,4 +1,4 @@
-use rendiation_texture::Size;
+use rendiation_texture_types::Size;
 
 pub struct GPUSwapChain {
   pub surface: wgpu::Surface,
