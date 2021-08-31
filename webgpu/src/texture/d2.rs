@@ -124,27 +124,6 @@ impl MipLevelCount {
   }
 }
 
-impl WebGPUTexture2dSource for image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
-  fn format(&self) -> wgpu::TextureFormat {
-    wgpu::TextureFormat::Rgba8Unorm
-  }
-
-  fn bytes_per_pixel(&self) -> usize {
-    return 4;
-  }
-
-  fn as_bytes(&self) -> &[u8] {
-    self.as_raw()
-  }
-
-  fn size(&self) -> Size {
-    Size {
-      width: NonZeroUsize::new(self.width() as usize).unwrap(),
-      height: NonZeroUsize::new(self.height() as usize).unwrap(),
-    }
-  }
-}
-
 pub struct WebGPUTexture2d {
   texture: WebGPUTexture,
   texture_view: wgpu::TextureView,

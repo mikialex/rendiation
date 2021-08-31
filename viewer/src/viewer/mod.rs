@@ -10,7 +10,7 @@ use rendiation_controller::{ControllerWinitAdapter, OrbitController};
 use rendiation_renderable_mesh::tessellation::{
   CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
 };
-use rendiation_texture::TextureSampler;
+use rendiation_texture::{TextureSampler, WrapAsTexture2DSource};
 use rendiation_webgpu::GPU;
 use winit::event::{Event, WindowEvent};
 
@@ -159,7 +159,8 @@ impl Viewer3dContent {
     let img = match img {
       image::DynamicImage::ImageRgba8(img) => img,
       _ => unreachable!(),
-    };
+    }
+    .into_source();
     let texture = scene.add_texture2d(img);
 
     {

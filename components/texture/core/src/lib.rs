@@ -156,3 +156,29 @@ where
     }
   }
 }
+
+/// This mainly used for wrapper for foreign type trait impl
+pub struct Texture2DSource<T> {
+  pub inner: T,
+}
+
+impl<T> Deref for Texture2DSource<T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+impl<T> DerefMut for Texture2DSource<T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.inner
+  }
+}
+
+pub trait WrapAsTexture2DSource: Sized {
+  fn into_source(self) -> Texture2DSource<Self> {
+    Texture2DSource { inner: self }
+  }
+}
+
+impl<T: Texture2D> WrapAsTexture2DSource for T {}
