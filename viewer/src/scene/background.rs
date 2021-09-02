@@ -2,6 +2,8 @@ use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 use rendiation_webgpu::*;
 
+use crate::TextureCubeHandle;
+
 pub trait Background: 'static + Renderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
 }
@@ -47,4 +49,8 @@ impl SolidBackground {
 pub struct GradientBackground {
   pub top_intensity: Vec3<f32>,
   pub bottom_intensity: Vec3<f32>,
+}
+
+pub struct SkyBackGround {
+  texture: TextureCubeHandle,
 }

@@ -1,5 +1,4 @@
 use rendiation_texture_types::Size;
-use std::num::NonZeroUsize;
 use wgpu::util::DeviceExt;
 
 use crate::{BindableResource, WebGPUTexture, WebGPUTextureCubeDescriptor};

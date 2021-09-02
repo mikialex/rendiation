@@ -27,11 +27,7 @@ impl BindableResource for WebGPUTextureCube {
 }
 
 impl WebGPUTextureCube {
-  pub fn create(
-    device: &wgpu::Device,
-    desc: WebGPUTextureCubeDescriptor,
-    source: [&dyn WebGPUTexture2dSource; 6],
-  ) -> Self {
+  pub fn create(device: &wgpu::Device, desc: WebGPUTextureCubeDescriptor) -> Self {
     let desc = desc.desc;
 
     let texture = device.create_texture(&desc);
