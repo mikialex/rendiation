@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use arena::Arena;
+use rendiation_renderable_mesh::group::MeshDrawGroup;
 
 use super::*;
 
@@ -58,12 +59,6 @@ where
   fn node(&self) -> SceneNodeHandle {
     self.node
   }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum MeshDrawGroup {
-  Full,
-  SubMesh(usize),
 }
 
 pub struct ModelPassSetupContext<'a> {

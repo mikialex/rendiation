@@ -1,8 +1,11 @@
-use rendiation_renderable_mesh::{group::MeshGroup, vertex::Vertex};
+use rendiation_renderable_mesh::{
+  group::{MeshDrawGroup, MeshGroup},
+  vertex::Vertex,
+};
 use rendiation_webgpu::GPU;
 use std::marker::PhantomData;
 
-use super::{MeshDrawGroup, Scene, TypedMeshHandle};
+use super::{Scene, TypedMeshHandle};
 
 pub mod impls;
 pub use impls::*;

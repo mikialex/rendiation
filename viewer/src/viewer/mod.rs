@@ -7,8 +7,9 @@ pub use view::*;
 use interphaser::*;
 use rendiation_algebra::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
-use rendiation_renderable_mesh::tessellation::{
-  CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
+use rendiation_renderable_mesh::{
+  group::MeshDrawGroup,
+  tessellation::{CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter},
 };
 use rendiation_texture::{TextureSampler, WrapAsTexture2DSource};
 use rendiation_webgpu::GPU;

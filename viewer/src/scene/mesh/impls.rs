@@ -1,12 +1,10 @@
 use bytemuck::Pod;
 use rendiation_renderable_mesh::{
-  group::{GroupedMesh, MeshGroup},
+  group::{GroupedMesh, MeshDrawGroup, MeshGroup},
   mesh::{AbstractMesh, IndexedMesh, PrimitiveTopology, PrimitiveTopologyMeta},
 };
 use rendiation_webgpu::IndexBufferSourceType;
 use wgpu::util::DeviceExt;
-
-use crate::scene::MeshDrawGroup;
 
 use super::{GPUMeshData, MeshGPU, VertexBufferSourceType};
 
