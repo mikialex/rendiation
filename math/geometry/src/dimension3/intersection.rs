@@ -1,5 +1,4 @@
 use crate::*;
-use rendiation_algebra::*;
 use std::ops::{Deref, DerefMut};
 
 impl<T, U> IntersectAble<Triangle<U>, Nearest<HitPoint3D<T>>, FaceSide> for Ray3<T>
