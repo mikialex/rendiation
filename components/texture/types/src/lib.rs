@@ -29,6 +29,12 @@ impl Size {
     let height = NonZeroUsize::new(size.1 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
     Size { width, height }
   }
+
+  pub fn from_usize_pair_min_one(size: (usize, usize)) -> Self {
+    let width = NonZeroUsize::new(size.0).unwrap_or(NonZeroUsize::new(1).unwrap());
+    let height = NonZeroUsize::new(size.1).unwrap_or(NonZeroUsize::new(1).unwrap());
+    Size { width, height }
+  }
 }
 
 #[repr(u32)]

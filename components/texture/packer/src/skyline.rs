@@ -1,25 +1,81 @@
 // https://github.com/PistonDevelopers/texture_packer/blob/master/src/packer/skyline_packer.rs
 
+use rendiation_texture::Size;
+
+use crate::*;
+
 struct Skyline {
-  pub x: u32,
-  pub y: u32,
-  pub w: u32,
+  pub x: usize,
+  pub y: usize,
+  pub w: usize,
+}
+
+/// Defines a rectangle in pixels with the origin at the top-left of the texture atlas.
+#[derive(Copy, Clone, Debug)]
+pub struct Rect {
+  /// Horizontal position the rectangle begins at.
+  pub x: usize,
+  /// Vertical position the rectangle begins at.
+  pub y: usize,
+  /// Width of the rectangle.
+  pub w: usize,
+  /// Height of the rectangle.
+  pub h: usize,
+}
+
+impl Rect {
+  /// Create a new [Rect] based on a position and its width and height.
+  pub fn new(x: usize, y: usize, w: usize, h: usize) -> Rect {
+    Rect { x, y, w, h }
+  }
+
+  /// Get the top coordinate of the rectangle.
+  #[inline(always)]
+  pub fn top(&self) -> usize {
+    self.y
+  }
+
+  /// Get the bottom coordinate of the rectangle.
+  #[inline(always)]
+  pub fn bottom(&self) -> usize {
+    self.y + self.h - 1
+  }
+
+  /// Get the left coordinate of the rectangle.
+  #[inline(always)]
+  pub fn left(&self) -> usize {
+    self.x
+  }
+
+  /// Get the right coordinate of the rectangle.
+  #[inline(always)]
+  pub fn right(&self) -> usize {
+    self.x + self.w - 1
+  }
+
+  /// Check if this rectangle contains another.
+  pub fn contains(&self, other: &Rect) -> bool {
+    self.left() <= other.left()
+      && self.right() >= other.right()
+      && self.top() <= other.top()
+      && self.bottom() >= other.bottom()
+  }
 }
 
 impl Skyline {
   #[inline(always)]
-  pub fn left(&self) -> u32 {
+  pub fn left(&self) -> usize {
     self.x
   }
 
   #[inline(always)]
-  pub fn right(&self) -> u32 {
+  pub fn right(&self) -> usize {
     self.x + self.w - 1
   }
 }
 
 pub struct SkylinePacker {
-  config: TexturePackerConfig,
+  config: PackerConfig,
   border: Rect,
 
   // the skylines are sorted by their `x` position
@@ -27,26 +83,31 @@ pub struct SkylinePacker {
 }
 
 impl SkylinePacker {
-  pub fn new(config: TexturePackerConfig) -> Self {
+  pub fn new(config: PackerConfig) -> Self {
     let skylines = vec![Skyline {
       x: 0,
       y: 0,
-      w: config.max_width,
+      w: config.init_size.width.into(),
     }];
 
     SkylinePacker {
       config,
-      border: Rect::new(0, 0, config.max_width, config.max_height),
+      border: Rect::new(
+        0,
+        0,
+        config.init_size.width.into(),
+        config.init_size.height.into(),
+      ),
       skylines,
     }
   }
 
   // return `rect` if rectangle (w, h) can fit the skyline started at `i`
-  fn can_put(&self, mut i: usize, w: u32, h: u32) -> Option<Rect> {
+  fn can_put(&self, mut i: usize, w: usize, h: usize) -> Option<Rect> {
     let mut rect = Rect::new(self.skylines[i].x, 0, w, h);
     let mut width_left = rect.w;
     loop {
-      rect.y = max(rect.y, self.skylines[i].y);
+      rect.y = std::cmp::max(rect.y, self.skylines[i].y);
       // the source rect is too large
       if !self.border.contains(&rect) {
         return None;
@@ -60,9 +121,12 @@ impl SkylinePacker {
     }
   }
 
-  fn find_skyline(&self, w: u32, h: u32) -> Option<(usize, Rect)> {
-    let mut bottom = std::u32::MAX;
-    let mut width = std::u32::MAX;
+  fn find_skyline(&self, size: Size) -> Option<(usize, Rect)> {
+    let w: usize = size.width.into();
+    let h: usize = size.height.into();
+
+    let mut bottom = std::usize::MAX;
+    let mut width = std::usize::MAX;
     let mut index = None;
     let mut rect = Rect::new(0, 0, 0, 0);
 
@@ -77,7 +141,7 @@ impl SkylinePacker {
         }
       }
 
-      if self.config.allow_rotation {
+      if self.config.allow_90_rotation {
         if let Some(r) = self.can_put(i, h, w) {
           if r.bottom() < bottom || (r.bottom() == bottom && self.skylines[i].w < width) {
             bottom = r.bottom();
@@ -136,45 +200,40 @@ impl SkylinePacker {
   }
 }
 
-impl<K> Packer<K> for SkylinePacker {
-  fn pack(&mut self, key: K, texture_rect: &Rect) -> Option<Frame<K>> {
-    let mut width = texture_rect.w;
-    let mut height = texture_rect.h;
-
-    width += self.config.texture_padding + self.config.texture_extrusion * 2;
-    height += self.config.texture_padding + self.config.texture_extrusion * 2;
-
-    if let Some((i, mut rect)) = self.find_skyline(width, height) {
+impl TexturePackStrategy for SkylinePacker {
+  fn pack(&mut self, input: Size) -> Result<PackResult, PackError> {
+    if let Some((i, rect)) = self.find_skyline(input) {
       self.split(i, &rect);
       self.merge();
 
+      let width: usize = input.width.into();
       let rotated = width != rect.w;
 
-      rect.w -= self.config.texture_padding + self.config.texture_extrusion * 2;
-      rect.h -= self.config.texture_padding + self.config.texture_extrusion * 2;
-
-      Some(Frame {
-        key,
-        frame: rect,
+      Ok(PackResult {
+        offset: (rect.x, rect.y),
+        size: Size::from_usize_pair_min_one((rect.w, rect.h)),
         rotated,
-        trimmed: false,
-        source: Rect {
-          x: 0,
-          y: 0,
-          w: texture_rect.w,
-          h: texture_rect.h,
-        },
       })
     } else {
-      None
+      Err(PackError::SpaceNotEnough)
     }
   }
+}
 
-  fn can_pack(&self, texture_rect: &Rect) -> bool {
-    if let Some((_, rect)) = self.find_skyline(
-      texture_rect.w + self.config.texture_padding + self.config.texture_extrusion * 2,
-      texture_rect.h + self.config.texture_padding + self.config.texture_extrusion * 2,
-    ) {
+impl TexturePackStrategyBase for SkylinePacker {
+  fn config(&mut self, config: PackerConfig) {
+    self.config = config;
+    self.reset();
+  }
+
+  fn reset(&mut self) {
+    *self = Self::new(self.config)
+  }
+}
+
+impl PackableChecker for SkylinePacker {
+  fn can_pack(&self, input: Size) -> bool {
+    if let Some((_, rect)) = self.find_skyline(input) {
       let skyline = Skyline {
         x: rect.left(),
         y: rect.bottom() + 1,
