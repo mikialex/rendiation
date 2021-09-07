@@ -4,12 +4,6 @@ use rendiation_texture::Size;
 
 use crate::*;
 
-struct Skyline {
-  pub x: usize,
-  pub y: usize,
-  pub w: usize,
-}
-
 /// Defines a rectangle in pixels with the origin at the top-left of the texture atlas.
 #[derive(Copy, Clone, Debug)]
 pub struct Rect {
@@ -60,6 +54,12 @@ impl Rect {
       && self.top() <= other.top()
       && self.bottom() >= other.bottom()
   }
+}
+
+struct Skyline {
+  pub x: usize,
+  pub y: usize,
+  pub w: usize,
 }
 
 impl Skyline {
