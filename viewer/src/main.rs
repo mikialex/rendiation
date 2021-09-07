@@ -17,16 +17,6 @@ pub use viewer::*;
 fn main() {
   env_logger::builder().init();
 
-  // let result = nfd::open_file_dialog(None, None).unwrap_or_else(|e| {
-  //   panic!(e);
-  // });
-
-  // match result {
-  //   nfd::Response::Okay(file_path) => println!("File path = {:?}", file_path),
-  //   nfd::Response::OkayMultiple(files) => println!("Files {:?}", files),
-  //   nfd::Response::Cancel => println!("User canceled"),
-  // }
-
   let viewer = Viewer::new();
   let ui = create_ui();
 
