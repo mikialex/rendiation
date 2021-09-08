@@ -1241,6 +1241,7 @@ dependencies = [
  "nfd",
  "rendiation-algebra",
  "rendiation-color",
+ "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
  "rendiation-webgpu",

@@ -5,6 +5,9 @@ use std::rc::Rc;
 mod fonts;
 pub use fonts::*;
 
+mod path;
+pub use path::*;
+
 pub trait Presentable {
   fn render(&mut self, builder: &mut PresentationBuilder);
 }

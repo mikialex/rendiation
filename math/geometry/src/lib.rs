@@ -122,6 +122,16 @@ pub trait SpaceLineSegment<T: Scalar, V> {
   fn sample(&self, t: T) -> V;
 }
 
+pub fn iter_points_by_equally_sampled<T: Scalar, V>(
+  curve: &impl SpaceLineSegment<T, V>,
+  divisions: usize,
+) -> impl Iterator<Item = V> + '_ {
+  assert!(divisions >= 2);
+  (0..divisions)
+    .into_iter()
+    .map(move |s| curve.sample(T::by_usize_div(s, divisions - 1)))
+}
+
 #[macro_export]
 macro_rules! intersect_reverse {
   ($self_item: ty, $result:ty, $param:ty, $target:ty) => {
