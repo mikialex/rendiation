@@ -25,6 +25,8 @@ impl GPUSurface {
       present_mode: wgpu::PresentMode::Mailbox,
     };
 
+    surface.configure(device, &config);
+
     Self {
       surface,
       config,
