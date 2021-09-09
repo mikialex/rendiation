@@ -129,7 +129,6 @@ impl BasicMaterial {
       .create_shader_module(&wgpu::ShaderModuleDescriptor {
         label: None,
         source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-        flags: gpu.create_shader_flags(),
       });
 
     let pipeline_layout = gpu

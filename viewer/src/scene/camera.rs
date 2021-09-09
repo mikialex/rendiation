@@ -88,7 +88,7 @@ impl CameraBindgroup {
     let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: "CameraBindgroup Buffer".into(),
       contents: &mat,
-      usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
     let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

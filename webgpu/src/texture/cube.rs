@@ -74,6 +74,7 @@ impl WebGPUTextureCube {
           y: origin.1 as u32,
           z: face as u32,
         },
+        aspect: wgpu::TextureAspect::All,
       },
       source.as_bytes(),
       wgpu::ImageDataLayout {

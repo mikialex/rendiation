@@ -22,7 +22,7 @@ where
       let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: vertex,
-        usage: wgpu::BufferUsage::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX,
       });
       let vertex = vec![vertex];
 
@@ -30,7 +30,7 @@ where
       let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: index,
-        usage: wgpu::BufferUsage::INDEX,
+        usage: wgpu::BufferUsages::INDEX,
       });
       let index = (index, I::FORMAT).into();
 

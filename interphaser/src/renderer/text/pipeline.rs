@@ -89,7 +89,7 @@ impl TextRendererPipeline {
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: instances_bytes,
-      usage: wgpu::BufferUsage::VERTEX,
+      usage: wgpu::BufferUsages::VERTEX,
     });
 
     GPUxUITextPrimitive {
@@ -180,7 +180,6 @@ fn build(
   let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
     label: Some("Glyph Shader"),
     source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("./glyph.wgsl"))),
-    flags: wgpu::ShaderFlags::all(),
   });
 
   let raw = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {

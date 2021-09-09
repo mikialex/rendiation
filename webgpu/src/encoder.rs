@@ -8,8 +8,8 @@ pub struct CommandEncoder {
 
 impl CommandEncoder {
   pub fn copy_buffer_to_buffer<
-    const DST_USAGE: wgpu::BufferUsage,
-    const SRC_USAGE: wgpu::BufferUsage,
+    const DST_USAGE: wgpu::BufferUsages,
+    const SRC_USAGE: wgpu::BufferUsages,
   >(
     &mut self,
     source: &Buffer<SRC_USAGE>,

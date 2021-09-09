@@ -53,7 +53,7 @@ impl StandardForward {
       sample_count: 1,
       dimension: wgpu::TextureDimension::D2,
       format: Self::depth_format(),
-      usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+      usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
       label: None,
     });
 

@@ -64,7 +64,7 @@ pub trait WebGPUTexture2dSource {
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: padded_data.as_slice(),
-      usage: wgpu::BufferUsage::COPY_SRC,
+      usage: wgpu::BufferUsages::COPY_SRC,
     })
   }
 
@@ -78,7 +78,7 @@ pub trait WebGPUTexture2dSource {
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: self.format(),
-        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
       },
     }
   }
@@ -93,7 +93,7 @@ pub trait WebGPUTexture2dSource {
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: self.format(),
-        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
       },
     }
   }
@@ -183,6 +183,7 @@ impl WebGPUTexture2d {
           y: origin.1 as u32,
           z: 0,
         },
+        aspect: wgpu::TextureAspect::All,
       },
       source.as_bytes(),
       wgpu::ImageDataLayout {

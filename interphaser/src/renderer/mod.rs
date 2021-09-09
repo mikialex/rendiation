@@ -128,14 +128,14 @@ fn build_quad(
   let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: None,
     contents: vertex,
-    usage: wgpu::BufferUsage::VERTEX,
+    usage: wgpu::BufferUsages::VERTEX,
   });
 
   let index = bytemuck::cast_slice(index.as_slice());
   let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: None,
     contents: index,
-    usage: wgpu::BufferUsage::INDEX,
+    usage: wgpu::BufferUsages::INDEX,
   });
 
   (index_buffer, vertex_buffer)
