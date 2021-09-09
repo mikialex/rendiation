@@ -106,7 +106,7 @@ impl VertexBufferSourceType for Vec<Vertex> {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<Vertex>() as u64,
-      step_mode: wgpu::InputStepMode::Vertex,
+      step_mode: wgpu::VertexStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {
           format: wgpu::VertexFormat::Float32x3,

@@ -64,7 +64,7 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
 
 // impl VertexBufferLayoutProvider for Vertex {
 //   const DESCRIPTOR: VertexBufferLayout<'static> = VertexBufferLayout {
-//     step_mode: InputStepMode::Vertex,
+//     step_mode: VertexStepMode::Vertex,
 //     array_stride: mem::size_of::<Self>() as u64,
 //     attributes: &[
 //       VertexAttribute {

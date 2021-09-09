@@ -139,7 +139,7 @@ fn build(
     entries: &[
       wgpu::BindGroupLayoutEntry {
         binding: 0,
-        visibility: wgpu::ShaderStage::VERTEX,
+        visibility: wgpu::ShaderStages::VERTEX,
         ty: wgpu::BindingType::Buffer {
           ty: wgpu::BufferBindingType::Uniform,
           has_dynamic_offset: false,
@@ -149,7 +149,7 @@ fn build(
       },
       wgpu::BindGroupLayoutEntry {
         binding: 1,
-        visibility: wgpu::ShaderStage::FRAGMENT,
+        visibility: wgpu::ShaderStages::FRAGMENT,
         ty: wgpu::BindingType::Sampler {
           filtering: true,
           comparison: false,
@@ -158,7 +158,7 @@ fn build(
       },
       wgpu::BindGroupLayoutEntry {
         binding: 2,
-        visibility: wgpu::ShaderStage::FRAGMENT,
+        visibility: wgpu::ShaderStages::FRAGMENT,
         ty: wgpu::BindingType::Texture {
           sample_type: wgpu::TextureSampleType::Float { filterable: false },
           view_dimension: wgpu::TextureViewDimension::D2,
@@ -190,7 +190,7 @@ fn build(
       entry_point: "vs_main",
       buffers: &[wgpu::VertexBufferLayout {
         array_stride: mem::size_of::<Instance>() as u64,
-        step_mode: wgpu::InputStepMode::Instance,
+        step_mode: wgpu::VertexStepMode::Instance,
         attributes: &wgpu::vertex_attr_array![
             0 => Float32x3,
             1 => Float32x2,
@@ -213,7 +213,7 @@ fn build(
       targets: &[wgpu::ColorTargetState {
         format: render_format,
         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-        write_mask: wgpu::ColorWrite::ALL,
+        write_mask: wgpu::ColorWrites::ALL,
       }],
     }),
   });
