@@ -50,29 +50,30 @@ pub trait WebGPUTexture2dSource {
     let width: usize = self.size().width.into();
 
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
-    let padded_width_padding = (align - width % align) % align;
+    let padding_size = (align - width % align) % align;
 
-    // todo, optimize case that not need padding
-
-    // will this be optimized well or we should just use copy_from_slice?
-    let padded_data: Vec<_> = self
-      .as_bytes()
-      .chunks_exact(self.bytes_per_row_usize())
-      .flat_map(|row| {
-        row
-          .iter()
-          .map(|&b| b)
-          .chain((0..padded_width_padding).map(|_| 0))
+    let buffer = if padding_size == 0 {
+      device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: self.as_bytes(),
+        usage: wgpu::BufferUsages::COPY_SRC,
       })
-      .collect();
+    } else {
+      // will this be optimized well or we should just use copy_from_slice?
+      let padded_data: Vec<_> = self
+        .as_bytes()
+        .chunks_exact(self.bytes_per_row_usize())
+        .flat_map(|row| row.iter().map(|&b| b).chain((0..padding_size).map(|_| 0)))
+        .collect();
 
-    let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: None,
-      contents: padded_data.as_slice(),
-      usage: wgpu::BufferUsages::COPY_SRC,
-    });
+      device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: padded_data.as_slice(),
+        usage: wgpu::BufferUsages::COPY_SRC,
+      })
+    };
 
-    let size = Size::from_usize_pair_min_one((width + padded_width_padding, self.size().height.into()));
+    let size = Size::from_usize_pair_min_one((width + padding_size, self.size().height.into()));
 
     (buffer, size)
   }
