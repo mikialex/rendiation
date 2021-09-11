@@ -102,7 +102,7 @@ impl Scene {
 
     self
       .reference_finalization
-      .maintain(&self.samplers, &self.texture_2ds);
+      .maintain(&self.samplers, &self.texture_2ds, &self.texture_cubes);
   }
 
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {

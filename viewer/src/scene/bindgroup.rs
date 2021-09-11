@@ -3,6 +3,8 @@ use std::{
   rc::{Rc, Weak},
 };
 
+use crate::{SceneTextureCube, TextureCubeHandle};
+
 use super::{
   MaterialHandle, SamplerHandle, SceneMaterialRenderPrepareCtx, SceneSampler, SceneTexture2D,
   Texture2DHandle, WatchedArena,
@@ -23,11 +25,16 @@ impl ReferenceFinalization {
     &mut self,
     samplers: &WatchedArena<SceneSampler>,
     texture_2ds: &WatchedArena<SceneTexture2D>,
+    texture_cubes: &WatchedArena<SceneTextureCube>,
   ) {
     self.deleting.borrow_mut().drain(..).for_each(|r| {
       let material = r.material;
       match r.resource {
         ResourceReference::Texture2d(tex) => texture_2ds
+          .get_resource(tex)
+          .unwrap()
+          .remove_material_bind(material),
+        ResourceReference::TextureCube(tex) => texture_cubes
           .get_resource(tex)
           .unwrap()
           .remove_material_bind(material),
@@ -59,6 +66,7 @@ pub struct ReferenceRecord {
 #[derive(Clone, Copy)]
 pub enum ResourceReference {
   Texture2d(Texture2DHandle),
+  TextureCube(TextureCubeHandle),
   Sampler(SamplerHandle),
 }
 

@@ -1,5 +1,7 @@
 use rendiation_webgpu::*;
 
+use crate::{TextureCubeHandle, TextureCubeSource};
+
 use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, Scene, Texture2DHandle};
 
 impl MaterialBindableResourceUpdate for Box<dyn WebGPUTexture2dSource> {
@@ -24,5 +26,11 @@ impl Scene {
     self
       .texture_2ds
       .insert(MaterialBindableItemPair::new(Box::new(texture)))
+  }
+
+  pub fn add_texture_cube(&mut self, texture: TextureCubeSource) -> TextureCubeHandle {
+    self
+      .texture_cubes
+      .insert(MaterialBindableItemPair::new(texture))
   }
 }
