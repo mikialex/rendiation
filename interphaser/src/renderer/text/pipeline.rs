@@ -2,20 +2,43 @@ use std::borrow::Cow;
 use std::mem;
 
 use rendiation_algebra::Vec2;
-use rendiation_webgpu::{BindableResource, UniformBufferData};
+use rendiation_texture::Size;
+use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
-use super::cache::Cache;
 use super::text_quad_instance::Instance;
 use super::GPUxUITextPrimitive;
 
 pub struct TextRendererPipeline {
   transform: UniformBufferData<[f32; 16]>,
   sampler: wgpu::Sampler,
-  cache: Cache,
+  cache: WebGPUTexture2d,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
   raw: wgpu::RenderPipeline,
+}
+
+pub struct TextureWriteData<'a> {
+  pub data: &'a [u8],
+  pub size: Size,
+}
+
+impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
+  fn format(&self) -> wgpu::TextureFormat {
+    wgpu::TextureFormat::R8Unorm
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    &self.data
+  }
+
+  fn size(&self) -> Size {
+    self.size
+  }
+
+  fn bytes_per_pixel(&self) -> usize {
+    1
+  }
 }
 
 impl TextRendererPipeline {
@@ -23,19 +46,122 @@ impl TextRendererPipeline {
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
-    cache_width: u32,
-    cache_height: u32,
-    size: Vec2<f32>,
+    cache_init_size: Size,
+    view_size: Vec2<f32>,
   ) -> Self {
-    build(
+    let transform =
+      UniformBufferData::create(device, orthographic_projection(view_size.x, view_size.y));
+
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+      address_mode_u: wgpu::AddressMode::ClampToEdge,
+      address_mode_v: wgpu::AddressMode::ClampToEdge,
+      address_mode_w: wgpu::AddressMode::ClampToEdge,
+      mag_filter: filter_mode,
+      min_filter: filter_mode,
+      mipmap_filter: filter_mode,
+      ..Default::default()
+    });
+
+    let cache = create_cache(device, cache_init_size);
+
+    let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
+      entries: &[
+        wgpu::BindGroupLayoutEntry {
+          binding: 0,
+          visibility: wgpu::ShaderStages::VERTEX,
+          ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
+            has_dynamic_offset: false,
+            min_binding_size: wgpu::BufferSize::new(mem::size_of::<[f32; 16]>() as u64),
+          },
+          count: None,
+        },
+        wgpu::BindGroupLayoutEntry {
+          binding: 1,
+          visibility: wgpu::ShaderStages::FRAGMENT,
+          ty: wgpu::BindingType::Sampler {
+            filtering: true,
+            comparison: false,
+          },
+          count: None,
+        },
+        wgpu::BindGroupLayoutEntry {
+          binding: 2,
+          visibility: wgpu::ShaderStages::FRAGMENT,
+          ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+          },
+          count: None,
+        },
+      ],
+    });
+
+    let bindgroup = create_bindgroup(
       device,
-      filter_mode,
-      render_format,
-      None,
-      cache_width,
-      cache_height,
-      size,
-    )
+      &uniform_layout,
+      &transform,
+      &sampler,
+      &cache.get_default_view(),
+    );
+
+    let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+      label: None,
+      push_constant_ranges: &[],
+      bind_group_layouts: &[&uniform_layout],
+    });
+
+    let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+      label: Some("Glyph Shader"),
+      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("./glyph.wgsl"))),
+    });
+
+    let raw = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+      label: None,
+      layout: Some(&layout),
+      vertex: wgpu::VertexState {
+        module: &shader,
+        entry_point: "vs_main",
+        buffers: &[wgpu::VertexBufferLayout {
+          array_stride: mem::size_of::<Instance>() as u64,
+          step_mode: wgpu::VertexStepMode::Instance,
+          attributes: &wgpu::vertex_attr_array![
+              0 => Float32x3,
+              1 => Float32x2,
+              2 => Float32x2,
+              3 => Float32x2,
+              4 => Float32x4,
+          ],
+        }],
+      },
+      primitive: wgpu::PrimitiveState {
+        topology: wgpu::PrimitiveTopology::TriangleStrip,
+        front_face: wgpu::FrontFace::Cw,
+        ..Default::default()
+      },
+      depth_stencil: None,
+      multisample: wgpu::MultisampleState::default(),
+      fragment: Some(wgpu::FragmentState {
+        module: &shader,
+        entry_point: "fs_main",
+        targets: &[wgpu::ColorTargetState {
+          format: render_format,
+          blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+          write_mask: wgpu::ColorWrites::ALL,
+        }],
+      }),
+    });
+
+    Self {
+      transform,
+      sampler,
+      cache,
+      bindgroup_layout: uniform_layout,
+      bindgroup,
+      raw,
+    }
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
@@ -57,22 +183,21 @@ impl TextRendererPipeline {
     &mut self,
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
-    offset: [u16; 2],
-    size: [u16; 2],
-    data: &[u8],
+    offset: (u32, u32),
+    data: TextureWriteData,
   ) {
-    self.cache.update(device, encoder, offset, size, data);
+    encoder.copy_source_to_texture_2d(device, data, &self.cache, offset);
   }
 
-  pub fn increase_cache_size(&mut self, device: &wgpu::Device, width: u32, height: u32) {
-    self.cache = Cache::new(device, width, height);
+  pub fn increase_cache_size(&mut self, device: &wgpu::Device, size: Size) {
+    self.cache = create_cache(device, size);
 
     self.bindgroup = create_bindgroup(
       device,
       &self.bindgroup_layout,
       &self.transform,
       &self.sampler,
-      &self.cache.view,
+      &self.cache.get_default_view(),
     );
   }
 
@@ -111,121 +236,9 @@ pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
     ]
 }
 
-fn build(
-  device: &wgpu::Device,
-  filter_mode: wgpu::FilterMode,
-  render_format: wgpu::TextureFormat,
-  depth_stencil: Option<wgpu::DepthStencilState>,
-  cache_width: u32,
-  cache_height: u32,
-  size: Vec2<f32>,
-) -> TextRendererPipeline {
-  let transform = UniformBufferData::create(device, orthographic_projection(size.x, size.y));
-
-  let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-    address_mode_u: wgpu::AddressMode::ClampToEdge,
-    address_mode_v: wgpu::AddressMode::ClampToEdge,
-    address_mode_w: wgpu::AddressMode::ClampToEdge,
-    mag_filter: filter_mode,
-    min_filter: filter_mode,
-    mipmap_filter: filter_mode,
-    ..Default::default()
-  });
-
-  let cache = Cache::new(device, cache_width, cache_height);
-
-  let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-    label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
-    entries: &[
-      wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(mem::size_of::<[f32; 16]>() as u64),
-        },
-        count: None,
-      },
-      wgpu::BindGroupLayoutEntry {
-        binding: 1,
-        visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: wgpu::BindingType::Sampler {
-          filtering: true,
-          comparison: false,
-        },
-        count: None,
-      },
-      wgpu::BindGroupLayoutEntry {
-        binding: 2,
-        visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: wgpu::BindingType::Texture {
-          sample_type: wgpu::TextureSampleType::Float { filterable: false },
-          view_dimension: wgpu::TextureViewDimension::D2,
-          multisampled: false,
-        },
-        count: None,
-      },
-    ],
-  });
-
-  let bindgroup = create_bindgroup(device, &uniform_layout, &transform, &sampler, &cache.view);
-
-  let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-    label: None,
-    push_constant_ranges: &[],
-    bind_group_layouts: &[&uniform_layout],
-  });
-
-  let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-    label: Some("Glyph Shader"),
-    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("./glyph.wgsl"))),
-  });
-
-  let raw = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-    label: None,
-    layout: Some(&layout),
-    vertex: wgpu::VertexState {
-      module: &shader,
-      entry_point: "vs_main",
-      buffers: &[wgpu::VertexBufferLayout {
-        array_stride: mem::size_of::<Instance>() as u64,
-        step_mode: wgpu::VertexStepMode::Instance,
-        attributes: &wgpu::vertex_attr_array![
-            0 => Float32x3,
-            1 => Float32x2,
-            2 => Float32x2,
-            3 => Float32x2,
-            4 => Float32x4,
-        ],
-      }],
-    },
-    primitive: wgpu::PrimitiveState {
-      topology: wgpu::PrimitiveTopology::TriangleStrip,
-      front_face: wgpu::FrontFace::Cw,
-      ..Default::default()
-    },
-    depth_stencil,
-    multisample: wgpu::MultisampleState::default(),
-    fragment: Some(wgpu::FragmentState {
-      module: &shader,
-      entry_point: "fs_main",
-      targets: &[wgpu::ColorTargetState {
-        format: render_format,
-        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-        write_mask: wgpu::ColorWrites::ALL,
-      }],
-    }),
-  });
-
-  TextRendererPipeline {
-    transform,
-    sampler,
-    cache,
-    bindgroup_layout: uniform_layout,
-    bindgroup,
-    raw,
-  }
+fn create_cache(device: &wgpu::Device, size: Size) -> WebGPUTexture2d {
+  let desc = WebGPUTexture2dDescriptor::from_size(size).with_format(wgpu::TextureFormat::R8Unorm);
+  WebGPUTexture2d::create(device, desc)
 }
 
 fn create_bindgroup(

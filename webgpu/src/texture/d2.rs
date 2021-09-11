@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use rendiation_texture_types::Size;
 use wgpu::util::DeviceExt;
 
@@ -43,11 +45,14 @@ pub trait WebGPUTexture2dSource {
   /// BufferCopyView.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
   /// So we calculate padded_width by rounding width
   /// up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
-  fn create_upload_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
+  /// Return width with padding
+  fn create_upload_buffer(&self, device: &wgpu::Device) -> (wgpu::Buffer, Size) {
     let width: usize = self.size().width.into();
 
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
     let padded_width_padding = (align - width % align) % align;
+
+    // todo, optimize case that not need padding
 
     // will this be optimized well or we should just use copy_from_slice?
     let padded_data: Vec<_> = self
@@ -61,11 +66,15 @@ pub trait WebGPUTexture2dSource {
       })
       .collect();
 
-    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: padded_data.as_slice(),
       usage: wgpu::BufferUsages::COPY_SRC,
-    })
+    });
+
+    let size = Size::from_usize_pair_min_one((width + padded_width_padding, self.size().height.into()));
+
+    (buffer, size)
   }
 
   fn create_tex2d_desc(&self, level_count: MipLevelCount) -> WebGPUTexture2dDescriptor {
@@ -99,10 +108,88 @@ pub trait WebGPUTexture2dSource {
   }
 }
 
+pub trait WebGPUEncoderExt {
+  fn copy_source_to_texture_2d(
+    &mut self,
+    device: &wgpu::Device,
+    source: impl WebGPUTexture2dSource,
+    target: &WebGPUTexture2d,
+    origin: (u32, u32),
+  ) -> &mut Self;
+}
+
+impl WebGPUEncoderExt for wgpu::CommandEncoder {
+  fn copy_source_to_texture_2d(
+    &mut self,
+    device: &wgpu::Device,
+    source: impl WebGPUTexture2dSource,
+    target: &WebGPUTexture2d,
+    origin: (u32, u32),
+  ) -> &mut Self {
+    let (upload_buffer, size) = source.create_upload_buffer(device);
+
+    self.copy_buffer_to_texture(
+      wgpu::ImageCopyBuffer {
+        buffer: &upload_buffer,
+        layout: wgpu::ImageDataLayout {
+          offset: 0,
+          bytes_per_row: NonZeroU32::new(Into::<usize>::into(size.width) as u32),
+          rows_per_image: NonZeroU32::new(Into::<usize>::into(size.height) as u32),
+        },
+      },
+      wgpu::ImageCopyTexture {
+        texture: &target.texture,
+        mip_level: 0,
+        origin: wgpu::Origin3d {
+          x: origin.0,
+          y: origin.1,
+          z: 0,
+        },
+        aspect: wgpu::TextureAspect::All,
+      },
+      source.gpu_size(),
+    );
+    self
+  }
+}
+
 /// The wrapper type that make sure the inner desc
 /// is suitable for 2d texture
 pub struct WebGPUTexture2dDescriptor {
   desc: wgpu::TextureDescriptor<'static>,
+}
+
+impl WebGPUTexture2dDescriptor {
+  pub fn from_size(size: Size) -> Self {
+    Self {
+      desc: wgpu::TextureDescriptor {
+        label: None,
+        size: wgpu::Extent3d {
+          width: Into::<usize>::into(size.width) as u32,
+          height: Into::<usize>::into(size.height) as u32,
+          depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+      },
+    }
+  }
+
+  pub fn with_format(mut self, format: wgpu::TextureFormat) -> Self {
+    self.desc.format = format;
+    self
+  }
+
+  pub fn with_level_count(mut self, level_count: MipLevelCount) -> Self {
+    self.desc.mip_level_count = level_count.get_level_count_wgpu(Size::from_u32_pair_min_one((
+      self.desc.size.width,
+      self.desc.size.height,
+    )));
+    self
+  }
 }
 
 pub enum MipLevelCount {
@@ -156,6 +243,10 @@ impl WebGPUTexture2d {
     };
 
     tex
+  }
+
+  pub fn get_default_view(&self) -> &wgpu::TextureView {
+    &self.texture_view
   }
 
   pub fn upload(
