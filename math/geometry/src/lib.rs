@@ -18,6 +18,7 @@ pub mod line_segment;
 pub mod point;
 pub mod segment;
 pub mod triangle;
+pub mod space_line;
 
 pub use beziersegment::*;
 pub use hyperaabb::*;
@@ -30,6 +31,7 @@ pub use line_segment::*;
 pub use point::*;
 pub use segment::*;
 pub use triangle::*;
+pub use space_line::*;
 
 pub trait Positioned {
   type Position;
@@ -122,21 +124,6 @@ where
   fn to_bounding(&self) -> Bound;
 }
 
-pub trait SpaceLineSegment<T: Scalar, V> {
-  fn start(&self) -> V;
-  fn end(&self) -> V;
-  fn sample(&self, t: T) -> V;
-}
-
-pub fn iter_points_by_equally_sampled<T: Scalar, V>(
-  curve: &impl SpaceLineSegment<T, V>,
-  divisions: usize,
-) -> impl Iterator<Item = V> + '_ {
-  assert!(divisions >= 2);
-  (0..divisions)
-    .into_iter()
-    .map(move |s| curve.sample(T::by_usize_div(s, divisions - 1)))
-}
 
 #[macro_export]
 macro_rules! intersect_reverse {
