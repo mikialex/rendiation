@@ -6,7 +6,7 @@ use rendiation_webgpu::*;
 
 use crate::scene::{
   CameraBindgroup, MaterialBindGroup, MaterialHandle, SamplerHandle, Texture2DHandle, TransformGPU,
-  ValueID, VertexBufferSourceType, ViewerDeviceExt,
+  ValueID, ViewerDeviceExt,
 };
 
 use super::{
@@ -118,7 +118,7 @@ impl BasicMaterial {
       }}
       
       ",
-      vertex_header = Vec::<Vertex>::get_shader_header(),
+      vertex_header = Vertex::get_shader_header(),
       material_header = Self::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
       object_header = TransformGPU::get_shader_header(),

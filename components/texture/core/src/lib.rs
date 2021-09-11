@@ -19,7 +19,9 @@ pub mod util;
 pub use util::*;
 pub mod io;
 pub use io::*;
+#[cfg(feature = "webgpu")]
 pub mod webgpu;
+#[cfg(feature = "webgpu")]
 pub use webgpu::*;
 
 pub use rendiation_texture_types::*;

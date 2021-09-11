@@ -1,6 +1,6 @@
 [package]
 edition = "2018"
-name = "noize"
+name = "rendiation-generative-texture"
 version = "0.0.1"
 
 [dependencies]

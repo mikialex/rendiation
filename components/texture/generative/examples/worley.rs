@@ -1,5 +1,5 @@
-use noize::worley::*;
 use rendiation_algebra::*;
+use rendiation_generative_texture::worley::*;
 
 fn main() {
   let width = 800;

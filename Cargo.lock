@@ -1426,14 +1426,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "noize"
-version = "0.0.1"
-dependencies = [
- "image",
- "rendiation-algebra",
-]
-
-[[package]]
 name = "nom"
 version = "6.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1903,6 +1895,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-generative-texture"
+version = "0.0.1"
+dependencies = [
+ "image",
+ "rendiation-algebra",
+]
+
+[[package]]
 name = "rendiation-geometry"
 version = "0.1.0"
 dependencies = [
@@ -1919,6 +1919,7 @@ dependencies = [
  "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
+ "rendiation-webgpu",
  "soa_derive",
  "space-algorithm",
  "wasm-bindgen",

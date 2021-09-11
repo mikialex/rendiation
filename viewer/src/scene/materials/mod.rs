@@ -16,8 +16,7 @@ use rendiation_algebra::Mat4;
 
 use super::{
   Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,
-  SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, VertexBufferSourceType,
-  ViewerRenderPass, WatchedArena,
+  SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, ViewerRenderPass, WatchedArena,
 };
 
 impl Scene {
@@ -44,7 +43,7 @@ impl Scene {
 }
 
 pub trait MaterialMeshLayoutRequire {
-  type VertexInput: VertexBufferSourceType;
+  type VertexInput;
 }
 
 pub trait MaterialCPUResource {

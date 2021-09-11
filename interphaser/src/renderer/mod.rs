@@ -388,12 +388,7 @@ fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32)) -> 
   }
 }
 
-pub trait VertexBufferSourceType {
-  fn vertex_layout() -> wgpu::VertexBufferLayout<'static>;
-  fn get_shader_header() -> &'static str;
-}
-
-impl VertexBufferSourceType for Vec<UIVertex> {
+impl VertexBufferSourceType for UIVertex {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<UIVertex>() as u64,
