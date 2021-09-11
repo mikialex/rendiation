@@ -1,6 +1,5 @@
-use crate::{LineSegment, SpaceEntity};
+use crate::{LineSegment, Positioned, SpaceEntity};
 use rendiation_algebra::{Scalar, SquareMatrixDimension, Vec3};
-use std::ops::DerefMut;
 
 pub enum FaceSide {
   Front,
@@ -20,13 +19,13 @@ where
   T: Scalar,
   M: SquareMatrixDimension<D>,
   V: SpaceEntity<T, D, Matrix = M>,
-  U: DerefMut<Target = V>,
+  U: Positioned<Position = V>,
 {
   type Matrix = M;
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
-    self.a.deref_mut().apply_matrix(mat);
-    self.b.deref_mut().apply_matrix(mat);
-    self.c.deref_mut().apply_matrix(mat);
+    self.a.mut_position().apply_matrix(mat);
+    self.b.mut_position().apply_matrix(mat);
+    self.c.mut_position().apply_matrix(mat);
     self
   }
 }

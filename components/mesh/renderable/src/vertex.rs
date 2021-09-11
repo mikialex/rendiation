@@ -1,10 +1,7 @@
 use crate::mesh::HashAbleByConversion;
 use rendiation_algebra::*;
-use std::{
-  hash::Hash,
-  mem,
-  ops::{Deref, DerefMut},
-};
+use rendiation_geometry::Positioned;
+use std::{hash::Hash, mem};
 
 #[repr(C)]
 #[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
@@ -31,15 +28,13 @@ impl HashAbleByConversion for Vertex {
   }
 }
 
-impl Deref for Vertex {
-  type Target = Vec3<f32>;
+impl Positioned for Vertex {
+  type Position = Vec3<f32>;
 
-  fn deref(&self) -> &Self::Target {
+  fn position(&self) -> &Self::Position {
     &self.position
   }
-}
-impl DerefMut for Vertex {
-  fn deref_mut(&mut self) -> &mut Self::Target {
+  fn mut_position(&mut self) -> &mut Self::Position {
     &mut self.position
   }
 }

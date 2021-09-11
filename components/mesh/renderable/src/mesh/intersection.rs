@@ -108,7 +108,7 @@ type Config = MeshBufferIntersectConfig;
 
 impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Triangle<T>
 where
-  T: Deref<Target = Vec3<f32>> + Copy,
+  T: Positioned<Position = Vec3<f32>> + Copy,
 {
   #[inline]
   fn intersect(&self, ray: &Ray3, _: &Config) -> Nearest<HitPoint3D> {
@@ -118,7 +118,7 @@ where
 
 impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for LineSegment<T>
 where
-  T: Deref<Target = Vec3<f32>> + Copy,
+  T: Positioned<Position = Vec3<f32>> + Copy,
 {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
@@ -130,7 +130,7 @@ where
 
 impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Point<T>
 where
-  T: Deref<Target = Vec3<f32>> + Copy + DerefMut,
+  T: Positioned<Position = Vec3<f32>> + Copy,
 {
   #[inline]
   fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
