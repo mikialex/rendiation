@@ -2,16 +2,6 @@ use rendiation_algebra::{Lerp, NormalizedVector, Scalar, Vec2, Vec3};
 
 use crate::{AddressMode, FilterMode, Texture2D, Texture2dSampleAble};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum CubeTextureFace {
-  PositiveX,
-  NegativeX,
-  PositiveY,
-  NegativeY,
-  PositiveZ,
-  NegativeZ,
-}
-
 // https://github.com/Hyper3D/hyper3d-envmapgen/blob/master/rust/src/cubemap.rs
 
 pub struct CubeTexture<P, T>

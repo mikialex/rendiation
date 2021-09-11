@@ -61,11 +61,15 @@ pub trait ScalarConstEval: Sized {
   fn c180_by_pi() -> Self {
     Self::eval::<{ 180.0 / PI }>()
   }
+  fn by_usize_div(a: usize, b: usize) -> Self;
 }
 
 impl<T: From<f32>> ScalarConstEval for T {
   fn eval<const N: f32>() -> Self {
     N.into()
+  }
+  fn by_usize_div(a: usize, b: usize) -> Self {
+    ((a as f32) / (b as f32)).into()
   }
 }
 

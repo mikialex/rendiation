@@ -1,4 +1,4 @@
-use rendiation_texture::Size;
+use rendiation_texture_types::Size;
 
 use crate::GPU;
 
@@ -48,7 +48,7 @@ fn build_attachment(size: Size, format: wgpu::TextureFormat, gpu: &GPU) -> wgpu:
     sample_count: 1,
     dimension: wgpu::TextureDimension::D2,
     format,
-    usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+    usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
     label: None,
   })
 }

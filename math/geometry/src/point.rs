@@ -1,6 +1,5 @@
-use crate::SpaceEntity;
+use crate::{Positioned, SpaceEntity};
 use rendiation_algebra::{Scalar, SquareMatrixDimension};
-use std::ops::DerefMut;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Point<U>(pub U);
@@ -16,11 +15,11 @@ where
   T: Scalar,
   M: SquareMatrixDimension<D>,
   V: SpaceEntity<T, D, Matrix = M>,
-  U: DerefMut<Target = V>,
+  U: Positioned<Position = V>,
 {
   type Matrix = M;
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
-    self.0.deref_mut().apply_matrix(mat);
+    self.0.mut_position().apply_matrix(mat);
     self
   }
 }

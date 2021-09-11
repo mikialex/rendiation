@@ -1,10 +1,25 @@
-use rendiation_algebra::Vec3;
+use rendiation_algebra::{Scalar, Vec3};
+
+use crate::RGBColor;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct LinearRGBColor<T> {
   pub r: T,
   pub g: T,
   pub b: T,
+}
+
+impl<T: Scalar> RGBColor<T> for LinearRGBColor<T> {}
+impl<T: Scalar> std::ops::Mul<T> for LinearRGBColor<T> {
+  type Output = Self;
+
+  fn mul(self, rhs: T) -> Self::Output {
+    Self {
+      r: self.r * rhs,
+      g: self.g * rhs,
+      b: self.b * rhs,
+    }
+  }
 }
 
 impl<T> LinearRGBColor<T> {
@@ -56,6 +71,19 @@ pub struct SRGBColor<T> {
   pub r: T,
   pub g: T,
   pub b: T,
+}
+
+impl<T: Scalar> RGBColor<T> for SRGBColor<T> {}
+impl<T: Scalar> std::ops::Mul<T> for SRGBColor<T> {
+  type Output = Self;
+
+  fn mul(self, rhs: T) -> Self::Output {
+    Self {
+      r: self.r * rhs,
+      g: self.g * rhs,
+      b: self.b * rhs,
+    }
+  }
 }
 
 #[allow(clippy::excessive_precision)]

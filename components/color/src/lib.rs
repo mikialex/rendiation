@@ -2,11 +2,13 @@
 
 pub mod hsl;
 pub mod rgb;
+pub mod ycocg;
 
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Mul};
 
 pub use hsl::*;
 pub use rgb::*;
+pub use ycocg::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ColorWithAlpha<C, T> {
@@ -17,6 +19,15 @@ pub struct ColorWithAlpha<C, T> {
 impl<C, T> ColorWithAlpha<C, T> {
   pub fn new(color: C, a: T) -> Self {
     Self { color, a }
+  }
+}
+
+/// Only RGB Color has meaningful premultiplied alpha
+pub trait RGBColor<T>: Mul<T, Output = Self> + Copy {}
+
+impl<C: RGBColor<T>, T: Copy> ColorWithAlpha<C, T> {
+  pub fn get_premultiplied(&self) -> C {
+    self.color * self.a
   }
 }
 

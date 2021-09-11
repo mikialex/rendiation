@@ -1,4 +1,6 @@
 mod layout;
+use std::time::Duration;
+
 pub use layout::*;
 
 mod rendering;
@@ -31,7 +33,7 @@ impl System for DefaultSystem {
 }
 
 pub struct UpdateCtx<'a> {
-  pub time_stamp: u64,
+  pub time_stamp: Duration,
   pub layout_changed: bool, // todo private
   pub fonts: &'a FontManager,
   pub last_frame_perf_info: &'a PerformanceInfo,

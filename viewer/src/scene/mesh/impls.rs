@@ -1,12 +1,10 @@
 use bytemuck::Pod;
 use rendiation_renderable_mesh::{
-  group::{GroupedMesh, MeshGroup},
+  group::{GroupedMesh, MeshDrawGroup, MeshGroup},
   mesh::{AbstractMesh, IndexedMesh, PrimitiveTopology, PrimitiveTopologyMeta},
 };
 use rendiation_webgpu::IndexBufferSourceType;
 use wgpu::util::DeviceExt;
-
-use crate::scene::MeshDrawGroup;
 
 use super::{GPUMeshData, MeshGPU, VertexBufferSourceType};
 
@@ -24,7 +22,7 @@ where
       let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: vertex,
-        usage: wgpu::BufferUsage::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX,
       });
       let vertex = vec![vertex];
 
@@ -32,7 +30,7 @@ where
       let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: None,
         contents: index,
-        usage: wgpu::BufferUsage::INDEX,
+        usage: wgpu::BufferUsages::INDEX,
       });
       let index = (index, I::FORMAT).into();
 

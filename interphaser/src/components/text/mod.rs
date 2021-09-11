@@ -6,12 +6,20 @@ use crate::*;
 pub use glyph_brush::HorizontalAlign;
 pub use glyph_brush::VerticalAlign;
 
+mod cursor;
+pub use cursor::*;
+
+mod editable;
+pub use editable::*;
+
+pub(crate) type TextLayout = Vec<SectionGlyph>;
+
 pub struct Text {
   pub content: LayoutSource<String>,
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlign,
   pub vertical_align: VerticalAlign,
-  pub text_layout: Option<Vec<SectionGlyph>>,
+  pub text_layout: Option<TextLayout>,
   pub layout: LayoutUnit,
 }
 
@@ -36,6 +44,11 @@ impl Text {
     }
   }
 
+  // todo, put it in setters
+  pub fn reset_text_layout(&mut self) {
+    self.text_layout = None;
+  }
+
   pub fn with_line_wrap(mut self, line_wrap: LineWrap) -> Self {
     self.line_wrap = line_wrap;
     self
@@ -52,19 +65,19 @@ impl Text {
   }
 
   pub(crate) fn get_text_layout(&mut self, fonts: &FontManager) -> &Vec<SectionGlyph> {
-    let x_correct = match self.horizon_align {
-      glyph_brush::HorizontalAlign::Left => 0.,
-      glyph_brush::HorizontalAlign::Center => self.layout.size.width / 2.,
-      glyph_brush::HorizontalAlign::Right => self.layout.size.width,
-    };
-
-    let y_correct = match self.vertical_align {
-      glyph_brush::VerticalAlign::Top => 0.,
-      glyph_brush::VerticalAlign::Center => self.layout.size.height / 2.,
-      glyph_brush::VerticalAlign::Bottom => self.layout.size.height / 2.,
-    };
-
     self.text_layout.get_or_insert_with(|| {
+      let x_correct = match self.horizon_align {
+        glyph_brush::HorizontalAlign::Left => 0.,
+        glyph_brush::HorizontalAlign::Center => self.layout.size.width / 2.,
+        glyph_brush::HorizontalAlign::Right => self.layout.size.width,
+      };
+
+      let y_correct = match self.vertical_align {
+        glyph_brush::VerticalAlign::Top => 0.,
+        glyph_brush::VerticalAlign::Center => self.layout.size.height / 2.,
+        glyph_brush::VerticalAlign::Bottom => self.layout.size.height / 2.,
+      };
+
       let layout = Layout::SingleLine {
         line_breaker: BuiltInLineBreaker::default(),
         h_align: HorizontalAlign::Center,

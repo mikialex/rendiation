@@ -1,8 +1,11 @@
-use rendiation_renderable_mesh::{group::MeshGroup, vertex::Vertex};
+use rendiation_renderable_mesh::{
+  group::{MeshDrawGroup, MeshGroup},
+  vertex::Vertex,
+};
 use rendiation_webgpu::GPU;
 use std::marker::PhantomData;
 
-use super::{MeshDrawGroup, Scene, TypedMeshHandle};
+use super::{Scene, TypedMeshHandle};
 
 pub mod impls;
 pub use impls::*;
@@ -103,7 +106,7 @@ impl VertexBufferSourceType for Vec<Vertex> {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<Vertex>() as u64,
-      step_mode: wgpu::InputStepMode::Vertex,
+      step_mode: wgpu::VertexStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {
           format: wgpu::VertexFormat::Float32x3,

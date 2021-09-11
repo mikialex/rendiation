@@ -1,5 +1,4 @@
 #![allow(clippy::float_cmp)]
-#![feature(nonzero_is_power_of_two)]
 
 pub mod address;
 use std::{
@@ -20,29 +19,15 @@ pub mod util;
 pub use util::*;
 pub mod io;
 pub use io::*;
+pub mod webgpu;
+pub use webgpu::*;
+
+pub use rendiation_texture_types::*;
 
 use image::ImageBuffer;
 use rendiation_algebra::{Lerp, Scalar, Vec2};
 
 pub use image::*;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Size {
-  pub width: NonZeroUsize,
-  pub height: NonZeroUsize,
-}
-
-impl Size {
-  pub fn is_pot(&self) -> bool {
-    self.width.is_power_of_two() && self.height.is_power_of_two()
-  }
-
-  pub fn from_u32_pair_min_one(size: (u32, u32)) -> Self {
-    let width = NonZeroUsize::new(size.0 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
-    let height = NonZeroUsize::new(size.1 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
-    Size { width, height }
-  }
-}
 
 pub trait Texture2D: Sized {
   type Pixel: Copy;
@@ -171,3 +156,29 @@ where
     }
   }
 }
+
+/// This mainly used for wrapper for foreign type trait impl
+pub struct Texture2DSource<T> {
+  pub inner: T,
+}
+
+impl<T> Deref for Texture2DSource<T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+impl<T> DerefMut for Texture2DSource<T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.inner
+  }
+}
+
+pub trait WrapAsTexture2DSource: Sized {
+  fn into_source(self) -> Texture2DSource<Self> {
+    Texture2DSource { inner: self }
+  }
+}
+
+impl<T: Texture2D> WrapAsTexture2DSource for T {}

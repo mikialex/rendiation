@@ -1,6 +1,8 @@
-use rendiation_algebra::{Scalar, SpaceEntity, SquareMatrix, SquareMatrixDimension, VectorSpace};
+use rendiation_algebra::*;
 
 use crate::SpaceLineSegment;
+
+pub type QuadraticBezierSegment2D<T> = QuadraticBezierSegment<Vec2<T>>;
 
 pub struct QuadraticBezierSegment<V> {
   pub from: V,
@@ -42,6 +44,8 @@ where
     self.from * one_t2 + self.ctrl * T::two() * one_t * t + self.to * t2
   }
 }
+
+pub type CubicBezierSegment2D<T> = CubicBezierSegment<Vec2<T>>;
 
 pub struct CubicBezierSegment<V> {
   pub from: V,

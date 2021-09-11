@@ -12,7 +12,7 @@ pub struct PreferredMaterialStates {
   // pub stencil: wgpu::StencilState,
   // pub bias: Default::default(),
   pub blend: Option<wgpu::BlendState>,
-  pub write_mask: wgpu::ColorWrite,
+  pub write_mask: wgpu::ColorWrites,
 }
 
 impl PreferredMaterialStates {
@@ -43,7 +43,7 @@ impl Default for PreferredMaterialStates {
       depth_write_enabled: true,
       depth_compare: wgpu::CompareFunction::Less,
       blend: None,
-      write_mask: wgpu::ColorWrite::all(),
+      write_mask: wgpu::ColorWrites::all(),
     }
   }
 }
@@ -78,7 +78,12 @@ impl Default for PipelineUnit {
 
 impl<V> PipelineVariantContainer<V> for PipelineUnit {
   fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
-    *self = PipelineUnit::Created(creator());
+    match self {
+      PipelineUnit::Empty => {
+        *self = PipelineUnit::Created(creator());
+      }
+      _ => {}
+    }
   }
   fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
     match self {

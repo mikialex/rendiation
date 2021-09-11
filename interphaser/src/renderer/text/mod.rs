@@ -1,9 +1,8 @@
-mod cache;
-
 mod pipeline;
 use pipeline::*;
 mod text_quad_instance;
 use rendiation_algebra::Vec2;
+use rendiation_texture::Size;
 use text_quad_instance::*;
 
 use glyph_brush::{
@@ -34,14 +33,13 @@ impl TextRenderer {
       .cache_redraws(false)
       .build();
 
-    let (cache_width, cache_height) = glyph_brush.texture_dimensions();
+    let size = Size::from_u32_pair_min_one(glyph_brush.texture_dimensions());
     Self {
       pipeline: TextRendererPipeline::new(
         device,
         filter_mode,
         render_format,
-        cache_width,
-        cache_height,
+        size,
         Vec2::new(1000., 1000.),
       ),
       glyph_brush,
@@ -85,12 +83,16 @@ impl TextRenderer {
   ) -> Option<GPUxUITextPrimitive> {
     let brush_action = self.glyph_brush.process_queued(
       |rect, tex_data| {
-        let offset = [rect.min[0] as u16, rect.min[1] as u16];
-        let size = [rect.width() as u16, rect.height() as u16];
+        let offset = (rect.min[0], rect.min[1]);
+
+        let tex_data = TextureWriteData {
+          data: tex_data,
+          size: Size::from_u32_pair_min_one((rect.width(), rect.height())),
+        };
 
         self
           .pipeline
-          .update_cache(device, encoder, offset, size, tex_data);
+          .update_cache(device, encoder, offset, tex_data);
       },
       Instance::from_vertex,
     );
@@ -125,9 +127,8 @@ impl TextRenderer {
           new = (new_width, new_height),
         );
 
-        self
-          .pipeline
-          .increase_cache_size(device, new_width, new_height);
+        let size = Size::from_u32_pair_min_one((new_width, new_height));
+        self.pipeline.increase_cache_size(device, size);
         self.glyph_brush.resize_texture(new_width, new_height);
       }
     }

@@ -5,5 +5,4 @@ name = "rendiation-texture-packer"
 version = "0.1.0"
 
 [dependencies]
-rendiation-algebra = {path = "../../../math/algebra"}
-rendiation-geometry = {path = "../../../math/geometry"}
+rendiation-texture = {path = "../core"}

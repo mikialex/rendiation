@@ -5,19 +5,24 @@ use std::rc::Rc;
 mod fonts;
 pub use fonts::*;
 
+mod path;
+pub use path::*;
+
 pub trait Presentable {
   fn render(&mut self, builder: &mut PresentationBuilder);
 }
 
-pub struct PresentationBuilder {
+pub struct PresentationBuilder<'a> {
+  pub fonts: &'a FontManager,
   pub present: UIPresentation,
   pub parent_offset_chain: Vec<UIPosition>,
   pub current_origin_offset: UIPosition,
 }
 
-impl PresentationBuilder {
-  pub fn new() -> Self {
+impl<'a> PresentationBuilder<'a> {
+  pub fn new(fonts: &'a FontManager) -> Self {
     Self {
+      fonts,
       present: UIPresentation::new(),
       parent_offset_chain: Vec::new(),
       current_origin_offset: Default::default(),

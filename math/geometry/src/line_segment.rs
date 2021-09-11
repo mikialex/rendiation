@@ -1,6 +1,5 @@
-use crate::{SpaceEntity, SpaceLineSegment};
+use crate::{Positioned, SpaceEntity, SpaceLineSegment};
 use rendiation_algebra::{Lerp, Scalar, SquareMatrixDimension};
-use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct LineSegment<U> {
@@ -13,12 +12,12 @@ where
   T: Scalar,
   M: SquareMatrixDimension<D>,
   V: SpaceEntity<T, D, Matrix = M>,
-  U: DerefMut<Target = V>,
+  U: Positioned<Position = V>,
 {
   type Matrix = M;
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
-    self.start.deref_mut().apply_matrix(mat);
-    self.end.deref_mut().apply_matrix(mat);
+    self.start.mut_position().apply_matrix(mat);
+    self.end.mut_position().apply_matrix(mat);
     self
   }
 }
@@ -26,14 +25,14 @@ where
 impl<T, U, V> SpaceLineSegment<T, V> for LineSegment<U>
 where
   T: Scalar,
-  U: Deref<Target = V> + Copy,
+  U: Positioned<Position = V>,
   V: Lerp<T> + Copy,
 {
   fn start(&self) -> V {
-    *self.start
+    *self.start.position()
   }
   fn end(&self) -> V {
-    *self.end
+    *self.end.position()
   }
   fn sample(&self, t: T) -> V {
     self.start().lerp(self.end(), t)

@@ -21,7 +21,7 @@ pub use sphere::*;
 pub use spherical::*;
 pub use triangle::*;
 
-use crate::SpaceAxis;
+use crate::{Positioned, SpaceAxis};
 
 #[derive(Debug, Copy, Clone)]
 pub enum Axis3 {
@@ -31,3 +31,16 @@ pub enum Axis3 {
 }
 
 impl SpaceAxis<3> for Axis3 {}
+
+use rendiation_algebra::Vec3;
+impl<T> Positioned for Vec3<T> {
+  type Position = Self;
+
+  fn position(&self) -> &Self::Position {
+    self
+  }
+
+  fn mut_position(&mut self) -> &mut Self::Position {
+    self
+  }
+}

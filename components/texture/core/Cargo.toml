@@ -5,7 +5,11 @@ name = "rendiation-texture"
 version = "0.1.0"
 
 [dependencies]
+image = "*"
 rendiation-algebra = {path = "../../../math/algebra"}
 rendiation-geometry = {path = "../../../math/geometry"}
+rendiation-texture-types = {path = "../types"}
+rendiation-webgpu = {path = "../../../webgpu", optional = true}
 
-image = "*"
+[features]
+webgpu = ["rendiation-webgpu"]

@@ -10,7 +10,7 @@ pub struct Queue {
 }
 
 impl Queue {
-  pub fn write_buffer<const SRC_USAGE: wgpu::BufferUsage>(
+  pub fn write_buffer<const SRC_USAGE: wgpu::BufferUsages>(
     &self,
     buffer: Buffer<SRC_USAGE>,
     offset: BufferAddress,

@@ -8,23 +8,24 @@
 mod buffer;
 mod encoder;
 mod queue;
+mod render_target;
 mod sampler;
-mod swap_chain;
+mod surface;
 mod texture;
 mod uniform;
-mod render_target;
 
-use bytemuck::Pod;
 pub use encoder::*;
 pub use queue::*;
-use rendiation_texture::Size;
+pub use render_target::*;
 pub use sampler::*;
-pub use swap_chain::*;
+pub use surface::*;
 pub use texture::*;
 pub use uniform::*;
-pub use render_target::*;
 
 pub use wgpu::*;
+
+use bytemuck::Pod;
+use rendiation_texture_types::Size;
 
 pub struct If<const B: bool>;
 pub trait True {}
@@ -92,7 +93,7 @@ impl SurfaceProvider for winit::window::Window {
 
 impl GPU {
   pub async fn new() -> Self {
-    let backend = wgpu::BackendBit::PRIMARY;
+    let backend = wgpu::Backends::PRIMARY;
     let instance = wgpu::Instance::new(backend);
     let power_preference = wgpu::PowerPreference::default();
 
@@ -116,8 +117,8 @@ impl GPU {
       queue,
     }
   }
-  pub async fn new_with_swap_chain(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSwapChain) {
-    let backend = wgpu::BackendBit::PRIMARY;
+  pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
+    let backend = wgpu::Backends::PRIMARY;
     let instance = wgpu::Instance::new(backend);
     let power_preference = wgpu::PowerPreference::default();
 
@@ -137,7 +138,7 @@ impl GPU {
       .await
       .expect("Unable to find a suitable GPU device!");
 
-    let swap_chain = GPUSwapChain::new(&adaptor, &device, surface, size);
+    let surface = GPUSurface::new(&adaptor, &device, surface, size);
 
     (
       Self {
@@ -146,7 +147,7 @@ impl GPU {
         device,
         queue,
       },
-      swap_chain,
+      surface,
     )
   }
   pub fn render<R, T>(&self, renderable: &mut R, target: &T)
@@ -164,17 +165,6 @@ impl GPU {
     }
 
     self.queue.submit(Some(encoder.finish()));
-  }
-
-  pub fn create_shader_flags(&self) -> wgpu::ShaderFlags {
-    let mut flags = wgpu::ShaderFlags::VALIDATION;
-    match self.adaptor.get_info().backend {
-      wgpu::Backend::Metal | wgpu::Backend::Vulkan => {
-        flags |= wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION
-      }
-      _ => (), //TODO
-    }
-    flags
   }
 }
 

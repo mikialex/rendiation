@@ -41,6 +41,7 @@ pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 pub type SamplerHandle = Handle<SceneSampler>;
 pub type Texture2DHandle = Handle<SceneTexture2D>;
+pub type TextureCubeHandle = Handle<SceneTextureCube>;
 
 pub struct Scene {
   pub nodes: ArenaTree<SceneNode>,
@@ -52,6 +53,7 @@ pub struct Scene {
   pub materials: Arena<Box<dyn Material>>,
   pub samplers: WatchedArena<SceneSampler>,
   pub texture_2ds: WatchedArena<SceneTexture2D>,
+  pub texture_cubes: WatchedArena<SceneTextureCube>,
   pub(crate) pipeline_resource: PipelineResourceManager,
   pub active_camera: Option<Camera>,
   pub active_camera_gpu: Option<CameraBindgroup>,
@@ -71,6 +73,7 @@ impl Scene {
       materials: Arena::new(),
       samplers: WatchedArena::new(),
       texture_2ds: WatchedArena::new(),
+      texture_cubes: WatchedArena::new(),
       pipeline_resource: PipelineResourceManager::new(),
       active_camera: None,
       active_camera_gpu: None,

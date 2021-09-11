@@ -1,5 +1,7 @@
 #![allow(clippy::suspicious_operation_groupings)]
 
+use rendiation_algebra::*;
+
 pub mod dimension3;
 pub use dimension3::*;
 pub mod dimension2;
@@ -14,6 +16,7 @@ pub mod hypersphere;
 pub mod intersect_util;
 pub mod line_segment;
 pub mod point;
+pub mod segment;
 pub mod triangle;
 
 pub use beziersegment::*;
@@ -25,8 +28,14 @@ pub use hypersphere::*;
 pub use intersect_util::*;
 pub use line_segment::*;
 pub use point::*;
-use rendiation_algebra::*;
+pub use segment::*;
 pub use triangle::*;
+
+pub trait Positioned {
+  type Position;
+  fn position(&self) -> &Self::Position;
+  fn mut_position(&mut self) -> &mut Self::Position;
+}
 
 pub trait SpaceAxis<const D: usize>: Copy {}
 
@@ -117,6 +126,16 @@ pub trait SpaceLineSegment<T: Scalar, V> {
   fn start(&self) -> V;
   fn end(&self) -> V;
   fn sample(&self, t: T) -> V;
+}
+
+pub fn iter_points_by_equally_sampled<T: Scalar, V>(
+  curve: &impl SpaceLineSegment<T, V>,
+  divisions: usize,
+) -> impl Iterator<Item = V> + '_ {
+  assert!(divisions >= 2);
+  (0..divisions)
+    .into_iter()
+    .map(move |s| curve.sample(T::by_usize_div(s, divisions - 1)))
 }
 
 #[macro_export]

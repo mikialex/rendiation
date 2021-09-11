@@ -17,7 +17,7 @@ impl<T: Pod> UniformBuffer<T> {
     let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: bytemuck::cast_slice(&[data]),
-      usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
     Self {
       gpu,
@@ -75,7 +75,7 @@ impl<T: Pod> UniformBufferData<T> {
     let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: bytemuck::cast_slice(&[data]),
-      usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
     Self {
       gpu,

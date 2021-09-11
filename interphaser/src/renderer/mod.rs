@@ -128,14 +128,14 @@ fn build_quad(
   let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: None,
     contents: vertex,
-    usage: wgpu::BufferUsage::VERTEX,
+    usage: wgpu::BufferUsages::VERTEX,
   });
 
   let index = bytemuck::cast_slice(index.as_slice());
   let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: None,
     contents: index,
-    usage: wgpu::BufferUsage::INDEX,
+    usage: wgpu::BufferUsages::INDEX,
   });
 
   (index_buffer, vertex_buffer)
@@ -359,7 +359,7 @@ impl UIGlobalParameter {
       label: None,
       entries: &[wgpu::BindGroupLayoutEntry {
         binding: 0,
-        visibility: wgpu::ShaderStage::VERTEX,
+        visibility: wgpu::ShaderStages::VERTEX,
         ty: wgpu::BindingType::Buffer {
           has_dynamic_offset: false,
           min_binding_size: None,
@@ -397,7 +397,7 @@ impl VertexBufferSourceType for Vec<UIVertex> {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
     wgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<UIVertex>() as u64,
-      step_mode: wgpu::InputStepMode::Vertex,
+      step_mode: wgpu::VertexStepMode::Vertex,
       attributes: &[
         wgpu::VertexAttribute {
           format: wgpu::VertexFormat::Float32x2,

@@ -68,19 +68,19 @@ impl BasicMaterial {
       entries: &[
         wgpu::BindGroupLayoutEntry {
           binding: 0,
-          visibility: wgpu::ShaderStage::VERTEX,
+          visibility: wgpu::ShaderStages::VERTEX,
           ty: UniformBuffer::<Vec3<f32>>::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
           binding: 1,
-          visibility: wgpu::ShaderStage::FRAGMENT,
-          ty: SceneTexture2dGpu::bind_layout(),
+          visibility: wgpu::ShaderStages::FRAGMENT,
+          ty: WebGPUTexture2d::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
           binding: 2,
-          visibility: wgpu::ShaderStage::FRAGMENT,
+          visibility: wgpu::ShaderStages::FRAGMENT,
           ty: wgpu::Sampler::bind_layout(),
           count: None,
         },
@@ -129,7 +129,6 @@ impl BasicMaterial {
       .create_shader_module(&wgpu::ShaderModuleDescriptor {
         label: None,
         source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-        flags: gpu.create_shader_flags(),
       });
 
     let pipeline_layout = gpu

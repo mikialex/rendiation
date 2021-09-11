@@ -65,7 +65,7 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             label: None,
           });
           let view = tex.create_view(&wgpu::TextureViewDescriptor::default());

@@ -11,6 +11,7 @@ members = [
   "components/mesh/renderable",
   "components/mesh/editable",
   "components/texture/core",
+  "components/texture/types",
   "components/texture/packer",
   "components/texture/generative",
   "components/space",
@@ -18,3 +19,6 @@ members = [
   "viewer",
   "webgpu",
 ]
+
+# https://doc.rust-lang.org/nightly/cargo/reference/features.html#feature-resolver-version-2
+resolver = "2"

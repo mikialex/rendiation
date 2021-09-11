@@ -45,6 +45,12 @@ pub struct GroupedMesh<T> {
   pub groups: MeshGroupsInfo,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MeshDrawGroup {
+  Full,
+  SubMesh(usize),
+}
+
 impl<T: AbstractMesh> GroupedMesh<T> {
   pub fn new(mesh: T, groups: MeshGroupsInfo) -> Self {
     Self { mesh, groups }

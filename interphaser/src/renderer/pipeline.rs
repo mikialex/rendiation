@@ -1,4 +1,4 @@
-use crate::{UIVertex, VertexBufferSourceType, renderer::UIGlobalParameter};
+use crate::{renderer::UIGlobalParameter, UIVertex, VertexBufferSourceType};
 
 pub fn create_solid_pipeline(
   device: &wgpu::Device,
@@ -51,7 +51,6 @@ pub fn create_solid_pipeline(
   let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
     label: None,
     source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
-    flags: wgpu::ShaderFlags::all(),
   });
 
   let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -84,7 +83,7 @@ pub fn create_solid_pipeline(
       targets: &[wgpu::ColorTargetState {
         format: target_format,
         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-        write_mask: wgpu::ColorWrite::ALL,
+        write_mask: wgpu::ColorWrites::ALL,
       }],
     }),
   });
@@ -138,7 +137,7 @@ impl TextureBindGroup {
       entries: &[
         wgpu::BindGroupLayoutEntry {
           binding: 0,
-          visibility: wgpu::ShaderStage::FRAGMENT,
+          visibility: wgpu::ShaderStages::FRAGMENT,
           ty: wgpu::BindingType::Texture {
             multisampled: false,
             sample_type: wgpu::TextureSampleType::Float { filterable: true },
@@ -148,7 +147,7 @@ impl TextureBindGroup {
         },
         wgpu::BindGroupLayoutEntry {
           binding: 1,
-          visibility: wgpu::ShaderStage::FRAGMENT,
+          visibility: wgpu::ShaderStages::FRAGMENT,
           ty: wgpu::BindingType::Sampler {
             comparison: false,
             filtering: true,
@@ -216,7 +215,6 @@ pub fn create_texture_pipeline(
   let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
     label: None,
     source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
-    flags: wgpu::ShaderFlags::all(),
   });
 
   let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -249,7 +247,7 @@ pub fn create_texture_pipeline(
       targets: &[wgpu::ColorTargetState {
         format: target_format,
         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-        write_mask: wgpu::ColorWrite::ALL,
+        write_mask: wgpu::ColorWrites::ALL,
       }],
     }),
   });

@@ -1,6 +1,6 @@
 pub struct FillStyle {
   color: Color,
-  opacity: f32,
+  alpha: f32,
 }
 
 pub struct StrokeStyle {

@@ -32,8 +32,9 @@ pub struct ApplicationInner<T> {
   current_perf: PerformanceInfo,
 
   view_may_changed: bool,
+  init_inst: Instant,
   last_update_inst: Instant,
-  swap_chain: GPUSwapChain,
+  surface: GPUSurface,
   gpu: Rc<GPU>,
 }
 
@@ -47,12 +48,12 @@ impl<T: 'static> Application<T> {
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
 
-    let (gpu, swap_chain) = GPU::new_with_swap_chain(&window).await;
+    let (gpu, surface) = GPU::new_with_surface(&window).await;
     let gpu = Rc::new(gpu);
 
     let fonts = FontManager::new_with_fallback_system_font("Arial");
 
-    let prefer_target_fmt = swap_chain.swap_chain_descriptor.format;
+    let prefer_target_fmt = surface.config.format;
     let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, &fonts);
 
     Self {
@@ -69,13 +70,14 @@ impl<T: 'static> Application<T> {
         ui_renderer,
         window,
         last_update_inst: Instant::now(),
+        init_inst: Instant::now(),
         view_may_changed: false,
 
         perf_info_last_frame: PerformanceInfo::new(0),
         current_frame_id: 1,
         current_perf: PerformanceInfo::new(1),
         gpu,
-        swap_chain,
+        surface,
       },
     }
   }
@@ -108,7 +110,7 @@ impl<T: 'static> Application<T> {
         Event::WindowEvent {
           event: WindowEvent::Resized(size),
           ..
-        } => app.swap_chain.resize(
+        } => app.surface.resize(
           Size::from_u32_pair_min_one((size.width, size.height)),
           &app.gpu.device,
         ),
@@ -119,13 +121,10 @@ impl<T: 'static> Application<T> {
           _ => {}
         },
         Event::RedrawRequested(_) => {
-          let frame = app
-            .swap_chain
-            .get_current_frame()
-            .expect("Failed to acquire next swap chain texture!");
-
-          app.execute(frame);
-          app.frame_end();
+          if let Ok(frame) = app.surface.get_current_frame() {
+            app.execute(frame);
+            app.frame_end();
+          }
         }
         _ => {}
       }
@@ -142,7 +141,7 @@ impl<T> ApplicationInner<T> {
 
   fn update(&mut self) {
     let mut ctx = UpdateCtx {
-      time_stamp: 0,
+      time_stamp: self.init_inst.elapsed(),
       layout_changed: false,
       fonts: &self.fonts,
       last_frame_perf_info: &self.perf_info_last_frame,
@@ -167,11 +166,16 @@ impl<T> ApplicationInner<T> {
     });
   }
 
-  fn render(&mut self, frame: SwapChainFrame) {
-    let mut builder = PresentationBuilder::new();
+  fn render(&mut self, frame: SurfaceFrame) {
+    let mut builder = PresentationBuilder::new(&self.fonts);
     builder.present.view_size = self.window_states.size;
 
     self.current_perf.rendering_prepare_time = time_measure(|| self.root.render(&mut builder));
+
+    let view = frame
+      .output
+      .texture
+      .create_view(&wgpu::TextureViewDescriptor::default());
 
     self.current_perf.rendering_dispatch_time = time_measure(|| {
       self.gpu.render(
@@ -180,12 +184,12 @@ impl<T> ApplicationInner<T> {
           renderer: &mut self.ui_renderer,
           presentation: &builder.present,
         },
-        &frame.output.view,
+        &view,
       )
     });
   }
 
-  fn execute(&mut self, frame: SwapChainFrame) {
+  fn execute(&mut self, frame: SurfaceFrame) {
     self.update();
     self.render(frame);
   }
