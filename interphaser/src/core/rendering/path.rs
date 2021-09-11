@@ -2,7 +2,7 @@ use rendiation_algebra::*;
 use rendiation_geometry::*;
 
 pub struct Path2D<T> {
-  segments: Vec<T>,
+  pub segments: Vec<T>,
 }
 
 pub enum Path2dSegment<T> {
@@ -29,12 +29,11 @@ impl<T: Scalar> SpaceLineSegment<T, Vec2<T>> for Path2dSegment<T> {
   }
 
   fn sample(&self, t: T) -> Vec2<T> {
-    // match self {
-    //   Path2dSegment::Line(l) => l.sample(t),
-    //   Path2dSegment::QuadBezier => todo!(),
-    //   Path2dSegment::CubicBezier => todo!(),
-    // }
-    todo!()
+    match self {
+      Path2dSegment::Line(l) => l.sample(t),
+      Path2dSegment::QuadBezier => todo!(),
+      Path2dSegment::CubicBezier => todo!(),
+    }
   }
 }
 

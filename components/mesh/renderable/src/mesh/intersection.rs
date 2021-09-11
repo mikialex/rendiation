@@ -1,7 +1,4 @@
-use std::{
-  cell::Cell,
-  ops::{Deref, DerefMut},
-};
+use std::cell::Cell;
 
 use super::AbstractMesh;
 use rendiation_algebra::Vec3;
