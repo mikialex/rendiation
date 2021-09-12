@@ -12,7 +12,12 @@ pub use states::*;
 pub mod basic;
 pub use basic::*;
 
+pub mod env_background;
+pub use env_background::*;
+
 use rendiation_algebra::Mat4;
+
+use crate::SceneTextureCube;
 
 use super::{
   Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,
@@ -47,7 +52,7 @@ pub trait MaterialMeshLayoutRequire {
 }
 
 pub trait MaterialCPUResource {
-  type GPU;
+  type GPU: MaterialGPUResource<Source = Self>;
   fn create(
     &mut self,
     handle: MaterialHandle,
@@ -106,6 +111,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a> {
   pub pass: &'a dyn ViewerRenderPass,
   pub active_mesh: &'a Box<dyn Mesh>,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
+  pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
   pub samplers: &'a mut WatchedArena<SceneSampler>,
   pub reference_finalization: &'a ReferenceFinalization,
 }
@@ -150,19 +156,17 @@ where
     self.gpu.as_ref().unwrap().setup_pass(pass, ctx)
   }
   fn on_ref_resource_changed(&mut self) {
-
     // todo optimize use last material
     self.gpu = None;
   }
 }
 
-pub type CommonMaterialPipelineVariantContainer =
-  TopologyPipelineVariant<StatePipelineVariant<PipelineUnit>>;
+pub type CommonPipelineCache = TopologyPipelineVariant<StatePipelineVariant<PipelineUnit>>;
 
-pub struct CommonPipelineVariantKey(ValueID<PreferredMaterialStates>, wgpu::PrimitiveTopology);
+pub struct CommonPipelineVariantKey(ValueID<MaterialStates>, wgpu::PrimitiveTopology);
 
-impl AsRef<ValueID<PreferredMaterialStates>> for CommonPipelineVariantKey {
-  fn as_ref(&self) -> &ValueID<PreferredMaterialStates> {
+impl AsRef<ValueID<MaterialStates>> for CommonPipelineVariantKey {
+  fn as_ref(&self) -> &ValueID<MaterialStates> {
     &self.0
   }
 }
@@ -174,15 +178,31 @@ impl AsRef<wgpu::PrimitiveTopology> for CommonPipelineVariantKey {
 }
 
 pub struct PipelineResourceManager {
-  pub materials: HashMap<TypeId, Box<dyn Any>>,
-  pub basic: CommonMaterialPipelineVariantContainer,
+  pub cache: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl PipelineResourceManager {
   pub fn new() -> Self {
     Self {
-      materials: HashMap::new(),
-      basic: Default::default(),
+      cache: HashMap::new(),
     }
+  }
+
+  pub fn get_cache_mut<M: Any, C: Any>(&mut self) -> &mut C {
+    self
+      .cache
+      .get_mut(&TypeId::of::<M>())
+      .unwrap()
+      .downcast_mut::<C>()
+      .unwrap()
+  }
+
+  pub fn get_cache<M: Any, C: Any>(&self) -> &C {
+    self
+      .cache
+      .get(&TypeId::of::<M>())
+      .unwrap()
+      .downcast_ref::<C>()
+      .unwrap()
   }
 }

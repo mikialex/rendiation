@@ -141,6 +141,29 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self
   }
 
+  pub fn push_texture_cube<'c: 'b, 'd: 'b>(
+    mut self,
+    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
+    handle: TextureCubeHandle,
+  ) -> Self {
+    self.bindings.push(
+      ctx
+        .texture_cubes
+        .get_resource(handle)
+        .unwrap()
+        .as_material_bind(self.handle),
+    );
+
+    self.references.push(MaterialTextureReferenceFinalizer {
+      reference: ReferenceRecord {
+        material: self.handle,
+        resource: ResourceReference::TextureCube(handle),
+      },
+      sender: ctx.reference_finalization.create_sender(),
+    });
+    self
+  }
+
   pub fn push_sampler<'c: 'b, 'd: 'b>(
     mut self,
     ctx: &'c SceneMaterialRenderPrepareCtx<'d>,

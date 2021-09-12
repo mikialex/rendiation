@@ -9,10 +9,10 @@ use rendiation_renderable_mesh::MeshGPU;
 use rendiation_webgpu::*;
 
 use crate::CameraBindgroup;
+use crate::MaterialStates;
 use crate::PipelineCreateCtx;
-use crate::PreferredMaterialStates;
-use crate::TextureCubeHandle;
 use crate::TransformGPU;
+use crate::TypedMaterialHandle;
 
 pub trait Background: 'static + Renderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
@@ -58,7 +58,7 @@ impl SolidBackground {
 
 pub struct DrawableBackground<S> {
   mesh: MeshGPU,
-  pub shading: S,
+  pub shading: TypedMaterialHandle<S>,
 }
 
 impl<S> Renderable for DrawableBackground<S> {
@@ -69,17 +69,13 @@ impl<S> Renderable for DrawableBackground<S> {
   }
 }
 
-impl<S> DrawableBackground<S> {
-  pub fn new(device: &wgpu::Device, camera: &CameraBindgroup, shading: S) -> Self {
+impl<S: BackGroundShading> DrawableBackground<S> {
+  pub fn new(device: &wgpu::Device, shading: TypedMaterialHandle<S>) -> Self {
     let mesh = SphereMeshParameter::default().tessellate();
     let mesh = mesh.mesh.create_gpu(device);
 
     Self { mesh, shading }
   }
-}
-
-pub struct EnvMapGround {
-  pub texture: TextureCubeHandle,
 }
 
 pub trait BackGroundShading {
@@ -136,7 +132,7 @@ pub trait BackGroundShading {
     let bindgroup_layout = self.create_bindgroup_layout(device);
     let shader_source = self.shader();
 
-    let states = PreferredMaterialStates {
+    let states = MaterialStates {
       depth_write_enabled: false,
       ..Default::default()
     };
@@ -185,46 +181,6 @@ pub trait BackGroundShading {
       },
       depth_stencil: states.map_depth_stencil_state(ctx.pass.depth_stencil_format()),
       multisample: wgpu::MultisampleState::default(),
-    })
-  }
-}
-
-impl BackGroundShading for EnvMapGround {
-  fn shading(&self) -> &'static str {
-    "
-    fn background_shading(direction: vec3<f32>) -> vec3<f32> {
-      textureSample(r_color, r_sampler, direction);
-    }
-    "
-  }
-
-  fn shader_header(&self) -> &'static str {
-    "
-    [[group(1), binding(0)]]
-    var r_color: texture_cube<f32>;
-
-    [[group(1), binding(1)]]
-    var r_sampler: sampler;
-    "
-  }
-
-  fn create_bindgroup_layout(&self, device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: None,
-      entries: &[
-        wgpu::BindGroupLayoutEntry {
-          binding: 0,
-          visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: WebGPUTextureCube::bind_layout(),
-          count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-          binding: 1,
-          visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: wgpu::Sampler::bind_layout(),
-          count: None,
-        },
-      ],
     })
   }
 }

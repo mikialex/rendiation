@@ -2,11 +2,11 @@ use std::{collections::HashMap, sync::Mutex};
 
 use crate::scene::{ValueID, ValueIDGenerator};
 
-pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<PreferredMaterialStates>>> =
+pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct PreferredMaterialStates {
+pub struct MaterialStates {
   pub depth_write_enabled: bool,
   pub depth_compare: wgpu::CompareFunction,
   // pub stencil: wgpu::StencilState,
@@ -15,7 +15,7 @@ pub struct PreferredMaterialStates {
   pub write_mask: wgpu::ColorWrites,
 }
 
-impl PreferredMaterialStates {
+impl MaterialStates {
   pub fn map_color_states(&self, format: wgpu::TextureFormat) -> wgpu::ColorTargetState {
     wgpu::ColorTargetState {
       format,
@@ -37,7 +37,7 @@ impl PreferredMaterialStates {
   }
 }
 
-impl Default for PreferredMaterialStates {
+impl Default for MaterialStates {
   fn default() -> Self {
     Self {
       depth_write_enabled: true,
@@ -49,7 +49,7 @@ impl Default for PreferredMaterialStates {
 }
 
 pub struct StatePipelineVariant<T> {
-  pipelines: HashMap<ValueID<PreferredMaterialStates>, T>,
+  pipelines: HashMap<ValueID<MaterialStates>, T>,
 }
 
 impl<T> Default for StatePipelineVariant<T> {
@@ -96,7 +96,7 @@ impl<V> PipelineVariantContainer<V> for PipelineUnit {
 impl<T, V> PipelineVariantContainer<V> for StatePipelineVariant<T>
 where
   T: PipelineVariantContainer<V>,
-  V: AsRef<ValueID<PreferredMaterialStates>>,
+  V: AsRef<ValueID<MaterialStates>>,
 {
   fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
     self

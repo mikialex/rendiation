@@ -4,14 +4,17 @@ use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
 
-use crate::scene::{
-  CameraBindgroup, MaterialBindGroup, MaterialHandle, SamplerHandle, Texture2DHandle, TransformGPU,
-  ValueID, ViewerDeviceExt,
+use crate::{
+  scene::{
+    CameraBindgroup, MaterialBindGroup, MaterialHandle, SamplerHandle, Texture2DHandle,
+    TransformGPU, ValueID, ViewerDeviceExt,
+  },
+  CommonPipelineCache,
 };
 
 use super::{
   CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire,
-  PipelineCreateCtx, PipelineVariantContainer, PreferredMaterialStates, SceneMaterialPassSetupCtx,
+  MaterialStates, PipelineCreateCtx, PipelineVariantContainer, SceneMaterialPassSetupCtx,
   SceneMaterialRenderPrepareCtx, STATE_ID,
 };
 
@@ -19,7 +22,7 @@ pub struct BasicMaterial {
   pub color: Vec3<f32>,
   pub sampler: SamplerHandle,
   pub texture: Texture2DHandle,
-  pub states: PreferredMaterialStates,
+  pub states: MaterialStates,
 }
 
 impl MaterialMeshLayoutRequire for BasicMaterial {
@@ -180,7 +183,7 @@ impl BasicMaterial {
 }
 
 pub struct BasicMaterialGPU {
-  state_id: ValueID<PreferredMaterialStates>,
+  state_id: ValueID<MaterialStates>,
   uniform: UniformBuffer<Vec3<f32>>,
   bindgroup: MaterialBindGroup,
 }
@@ -198,9 +201,10 @@ impl MaterialGPUResource for BasicMaterialGPU {
       active_mesh: ctx.active_mesh,
       pass: ctx.pass,
     };
-    let pipelines = &mut ctx.pipelines;
-    pipelines
-      .basic
+
+    ctx
+      .pipelines
+      .get_cache_mut::<Self, CommonPipelineCache>()
       .request(&key, || source.create_pipeline(gpu, &pipeline_ctx));
   }
 
@@ -210,7 +214,12 @@ impl MaterialGPUResource for BasicMaterialGPU {
     ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
-    let pipeline = ctx.pipelines.basic.retrieve(&key);
+
+    let pipeline = ctx
+      .pipelines
+      .get_cache::<Self, CommonPipelineCache>()
+      .retrieve(&key);
+
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);

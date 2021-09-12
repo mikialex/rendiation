@@ -117,6 +117,7 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
           pass: self.pass,
           active_mesh: mesh,
           textures: &mut scene.texture_2ds,
+          texture_cubes: &mut scene.texture_cubes,
           samplers: &mut scene.samplers,
           reference_finalization: &scene.reference_finalization,
         };
