@@ -3,9 +3,6 @@
 #![feature(min_specialization)]
 #![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
-#![allow(unreachable_code)]
 
 mod scene;
 use interphaser::Application;

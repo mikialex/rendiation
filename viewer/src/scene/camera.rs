@@ -79,7 +79,7 @@ impl CameraBindgroup {
     );
     self
   }
-  pub fn new(gpu: &GPU, camera: &Camera) -> Self {
+  pub fn new(gpu: &GPU) -> Self {
     let device = &gpu.device;
     use wgpu::util::DeviceExt;
 

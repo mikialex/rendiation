@@ -32,7 +32,6 @@ impl BasicMaterial {
     handle: MaterialHandle,
     ubo: &wgpu::Buffer,
     device: &wgpu::Device,
-    queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> MaterialBindGroup {
@@ -232,14 +231,8 @@ impl MaterialCPUResource for BasicMaterial {
     let uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
-    let bindgroup = self.create_bindgroup(
-      handle,
-      uniform.gpu(),
-      &gpu.device,
-      &gpu.queue,
-      &bindgroup_layout,
-      ctx,
-    );
+    let bindgroup =
+      self.create_bindgroup(handle, uniform.gpu(), &gpu.device, &bindgroup_layout, ctx);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 

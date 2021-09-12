@@ -30,13 +30,19 @@ pub struct MeshCell<T> {
   gpu: Option<MeshGPU>,
 }
 
+impl<T> From<T> for MeshCell<T> {
+  fn from(data: T) -> Self {
+    Self { data, gpu: None }
+  }
+}
+
 impl<T: GPUMeshData> Mesh for MeshCell<T> {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
     self
       .gpu
       .as_ref()
       .unwrap()
-      .setup_pass(pass, self.data.get_group(group))
+      .setup_pass(pass, self.data.get_group(group).into())
   }
 
   fn update(&mut self, gpu: &GPU) {
@@ -57,10 +63,7 @@ impl Scene {
   where
     M: GPUMeshData + 'static,
   {
-    let handle = self.meshes.insert(Box::new(MeshCell {
-      data: mesh,
-      gpu: None,
-    }));
+    let handle = self.meshes.insert(Box::new(MeshCell::from(mesh)));
     TypedMeshHandle {
       handle,
       ty: PhantomData,
@@ -68,9 +71,9 @@ impl Scene {
   }
 }
 
-/// the comprehensive data that provided by mesh and will affect graphic pipeline
-pub struct MeshLayout {
-  vertex: Vec<wgpu::VertexBufferLayout<'static>>,
-  index: wgpu::IndexFormat,
-  topology: wgpu::PrimitiveTopology,
-}
+// /// the comprehensive data that provided by mesh and will affect graphic pipeline
+// pub struct MeshLayout {
+//   vertex: Vec<wgpu::VertexBufferLayout<'static>>,
+//   index: wgpu::IndexFormat,
+//   topology: wgpu::PrimitiveTopology,
+// }

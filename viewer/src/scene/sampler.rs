@@ -4,7 +4,7 @@ use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, SamplerHan
 
 impl MaterialBindableResourceUpdate for TextureSampler {
   type GPU = wgpu::Sampler;
-  fn update(&self, gpu: &mut Option<Self::GPU>, device: &wgpu::Device, queue: &wgpu::Queue) {
+  fn update(&self, gpu: &mut Option<Self::GPU>, device: &wgpu::Device, _queue: &wgpu::Queue) {
     gpu.get_or_insert_with(|| device.create_sampler(&convert(*self)));
   }
 }
