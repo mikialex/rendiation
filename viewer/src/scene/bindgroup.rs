@@ -12,7 +12,7 @@ use super::{
 
 pub struct MaterialBindGroup {
   pub gpu: wgpu::BindGroup,
-  references: Vec<MaterialTextureReferenceFinalizer>,
+  _references: Vec<MaterialTextureReferenceFinalizer>,
 }
 
 #[derive(Default)]
@@ -183,7 +183,7 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
 
     MaterialBindGroup {
       gpu,
-      references: self.references,
+      _references: self.references,
     }
   }
 }

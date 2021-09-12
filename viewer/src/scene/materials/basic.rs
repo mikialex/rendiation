@@ -182,7 +182,6 @@ impl BasicMaterial {
 pub struct BasicMaterialGPU {
   state_id: ValueID<PreferredMaterialStates>,
   uniform: UniformBuffer<Vec3<f32>>,
-  bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: MaterialBindGroup,
 }
 
@@ -239,7 +238,6 @@ impl MaterialCPUResource for BasicMaterial {
     BasicMaterialGPU {
       state_id,
       uniform,
-      bindgroup_layout,
       bindgroup,
     }
   }

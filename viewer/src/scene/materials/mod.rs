@@ -58,14 +58,19 @@ pub trait MaterialCPUResource {
 
 pub trait MaterialGPUResource: Sized {
   type Source: MaterialCPUResource<GPU = Self>;
-  fn update(&mut self, source: &Self::Source, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) {
+  fn update(
+    &mut self,
+    _source: &Self::Source,
+    _gpu: &GPU,
+    _ctx: &mut SceneMaterialRenderPrepareCtx,
+  ) {
     // default do nothing
   }
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
+    _pass: &mut wgpu::RenderPass<'a>,
+    _ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     // default do nothing
   }
@@ -76,6 +81,7 @@ where
   T: MaterialCPUResource,
 {
   material: T,
+  last_material: Option<T>,
   gpu: Option<T::GPU>,
   handle: MaterialHandle,
 }
@@ -84,6 +90,7 @@ impl<T: MaterialCPUResource> MaterialCell<T> {
   pub fn new(material: T, handle: MaterialHandle) -> Self {
     Self {
       material,
+      last_material: None,
       gpu: None,
       handle,
     }
@@ -143,6 +150,8 @@ where
     self.gpu.as_ref().unwrap().setup_pass(pass, ctx)
   }
   fn on_ref_resource_changed(&mut self) {
+
+    // todo optimize use last material
     self.gpu = None;
   }
 }

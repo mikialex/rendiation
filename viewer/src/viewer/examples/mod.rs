@@ -22,7 +22,7 @@ impl IdentityKeyed for TodoItem {
 }
 
 pub fn build_todo() -> impl UIComponent<Todo> {
-  For::by(|item: &TodoItem, i| Child::flex(build_todo_item(), 1.))
+  For::by(|_| Child::flex(build_todo_item(), 1.))
     .extend(Flex::column())
     .extend(TodoItemDeleteHandler::by(|s: &mut Vec<TodoItem>, _, e| {
       s.remove(s.iter().position(|item| item.name == e.name).unwrap());
@@ -42,7 +42,7 @@ impl EventHandlerType for TodoItemDelete {
   type Event = TodoItemDeleteEvent;
 }
 impl<C> EventHandlerImpl<C> for TodoItemDelete {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, inner: &C) -> Option<&'a Self::Event> {
+  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, _inner: &C) -> Option<&'a Self::Event> {
     event
       .custom_event
       .consume_if_type_is::<TodoItemDeleteEvent>()

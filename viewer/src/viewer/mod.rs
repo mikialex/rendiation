@@ -15,7 +15,7 @@ use winit::event::{Event, WindowEvent};
 use crate::*;
 
 pub struct Viewer {
-  counter: Counter,
+  _counter: Counter,
   todo: Todo,
   viewer: ViewerInner,
 }
@@ -39,7 +39,7 @@ impl Viewer {
       ],
     };
     Viewer {
-      counter: Counter { count: 0 },
+      _counter: Counter { count: 0 },
       todo,
       viewer: ViewerInner {
         content: Viewer3dContent::new(),
@@ -55,7 +55,7 @@ pub fn perf_panel() -> impl UIComponent<Viewer> {
     .with_line_wrap(LineWrap::Multiple)
     .with_horizon_align(HorizontalAlign::Left)
     .with_vertical_align(VerticalAlign::Top)
-    .bind_with_ctx(|s, t, ctx| {
+    .bind_with_ctx(|s, _t, ctx| {
       let content = format!(
         "frame_id: {}\nupdate_time: {}\nlayout_time: {}\nrendering_prepare_time: {}\nrendering_dispatch_time: {}",
         ctx.last_frame_perf_info.frame_id,
@@ -147,7 +147,6 @@ impl Viewer3dContent {
 
     load_default_scene(&mut scene);
 
-
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
@@ -157,7 +156,6 @@ impl Viewer3dContent {
 
   pub fn resize_view(&mut self, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
-      let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
       camera.projection.resize(size)
     }
   }

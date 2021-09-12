@@ -3,8 +3,8 @@ use rendiation_webgpu::*;
 use super::*;
 pub mod forward;
 pub use forward::*;
-pub mod rg;
-pub use rg::*;
+// pub mod rg;
+// pub use rg::*;
 
 pub trait ViewerRenderPass {
   fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
@@ -74,7 +74,7 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
     })
   }
 
-  fn update(&mut self, gpu: &GPU, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, gpu: &GPU, _encoder: &mut wgpu::CommandEncoder) {
     let scene = &mut self.scene;
     scene.render_list.models.clear();
     let root = scene.get_root_handle();
