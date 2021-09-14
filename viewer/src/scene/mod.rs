@@ -7,12 +7,14 @@ pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod rendering;
-pub mod sampler;
 pub mod texture;
 pub mod texture_cube;
 pub mod util;
 
-use std::collections::HashSet;
+use std::{
+  collections::{HashMap, HashSet},
+  rc::Rc,
+};
 
 pub use background::*;
 pub use bindgroup::*;
@@ -23,7 +25,7 @@ pub use mesh::*;
 pub use model::*;
 pub use node::*;
 pub use rendering::*;
-pub use sampler::*;
+use rendiation_texture::TextureSampler;
 pub use texture::*;
 pub use texture_cube::*;
 pub use util::*;
@@ -39,7 +41,6 @@ pub type ModelHandle = Handle<Box<dyn Model>>;
 pub type MeshHandle = Handle<Box<dyn Mesh>>;
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
-pub type SamplerHandle = Handle<SceneSampler>;
 pub type Texture2DHandle = Handle<SceneTexture2D>;
 pub type TextureCubeHandle = Handle<SceneTextureCube>;
 
@@ -51,7 +52,7 @@ pub struct Scene {
   pub models: Arena<Box<dyn Model>>,
   pub meshes: Arena<Box<dyn Mesh>>,
   pub materials: Arena<Box<dyn Material>>,
-  pub samplers: WatchedArena<SceneSampler>,
+  pub samplers: HashMap<TextureSampler, Rc<wgpu::Sampler>>,
   pub texture_2ds: WatchedArena<SceneTexture2D>,
   pub texture_cubes: WatchedArena<SceneTextureCube>,
   pub(crate) pipeline_resource: PipelineResourceManager,
@@ -71,7 +72,7 @@ impl Scene {
       meshes: Arena::new(),
       lights: Arena::new(),
       materials: Arena::new(),
-      samplers: WatchedArena::new(),
+      samplers: HashMap::new(),
       texture_2ds: WatchedArena::new(),
       texture_cubes: WatchedArena::new(),
       pipeline_resource: PipelineResourceManager::new(),
@@ -84,12 +85,6 @@ impl Scene {
 
   pub fn maintain(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
     let mut material_change = HashSet::new();
-    self.samplers.drain_modified().for_each(|(sampler, _)| {
-      sampler.update(device, queue);
-      sampler.foreach_material_refed(|handle| {
-        material_change.insert(handle);
-      });
-    });
     self.texture_2ds.drain_modified().for_each(|(tex, _)| {
       tex.update(device, queue);
       tex.foreach_material_refed(|handle| {
@@ -102,7 +97,7 @@ impl Scene {
 
     self
       .reference_finalization
-      .maintain(&self.samplers, &self.texture_2ds, &self.texture_cubes);
+      .maintain(&self.texture_2ds, &self.texture_cubes);
   }
 
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {

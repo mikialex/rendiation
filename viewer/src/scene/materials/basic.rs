@@ -2,12 +2,13 @@ use std::borrow::Cow;
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
+use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 
 use crate::{
   scene::{
-    CameraBindgroup, MaterialBindGroup, MaterialHandle, SamplerHandle, Texture2DHandle,
-    TransformGPU, ValueID, ViewerDeviceExt,
+    CameraBindgroup, MaterialBindGroup, MaterialHandle, Texture2DHandle, TransformGPU, ValueID,
+    ViewerDeviceExt,
   },
   CommonPipelineCache,
 };
@@ -20,7 +21,7 @@ use super::{
 
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
-  pub sampler: SamplerHandle,
+  pub sampler: TextureSampler,
   pub texture: Texture2DHandle,
   pub states: MaterialStates,
 }
@@ -38,11 +39,12 @@ impl BasicMaterial {
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> MaterialBindGroup {
+    let sampler = ctx.map_sampler(self.sampler);
     device
       .material_bindgroup_builder(handle)
       .push(ubo.as_entire_binding())
       .push_texture2d(ctx, self.texture)
-      .push_sampler(ctx, self.sampler)
+      .push(sampler.as_bindable())
       .build(layout)
   }
 

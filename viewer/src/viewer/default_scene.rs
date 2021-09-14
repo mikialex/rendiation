@@ -8,8 +8,6 @@ use rendiation_texture::{TextureSampler, WrapAsTexture2DSource};
 use crate::*;
 
 pub fn load_default_scene(scene: &mut Scene) {
-  let sampler = scene.add_sampler(TextureSampler::default());
-
   use image::io::Reader as ImageReader;
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/test.png"
@@ -29,7 +27,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let mesh = scene.add_mesh(mesh);
     let material = BasicMaterial {
       color: Vec3::splat(1.),
-      sampler,
+      sampler: TextureSampler::default(),
       texture,
       states: Default::default(),
     };
@@ -50,7 +48,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let mesh = scene.add_mesh(mesh);
     let mut material = BasicMaterial {
       color: Vec3::splat(1.),
-      sampler,
+      sampler: TextureSampler::default(),
       texture,
       states: Default::default(),
     };

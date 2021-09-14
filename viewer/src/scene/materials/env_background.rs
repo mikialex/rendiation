@@ -1,3 +1,4 @@
+use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindableResource, WebGPUTextureCube, GPU};
 
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
 
 pub struct EnvMapBackGroundMaterial {
   pub texture: TextureCubeHandle,
+  pub sampler: TextureSampler,
 }
 
 impl BackGroundShading for EnvMapBackGroundMaterial {
@@ -97,11 +99,12 @@ impl MaterialCPUResource for EnvMapBackGroundMaterial {
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
     let bindgroup_layout = self.create_bindgroup_layout(&gpu.device);
+    let sampler = ctx.map_sampler(self.sampler);
     let bindgroup = gpu
       .device
       .material_bindgroup_builder(handle)
       .push_texture_cube(ctx, self.texture)
-      .push_sampler(ctx, self.sampler)
+      .push(sampler.as_bindable())
       .build(&bindgroup_layout);
 
     EnvMapBackGroundMaterialGPU { bindgroup }

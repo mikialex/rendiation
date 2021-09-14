@@ -2,10 +2,12 @@ use std::{
   any::{Any, TypeId},
   collections::HashMap,
   marker::PhantomData,
+  rc::Rc,
 };
 pub mod bindable;
 pub use bindable::*;
 pub mod states;
+use rendiation_texture::TextureSampler;
 use rendiation_webgpu::GPU;
 pub use states::*;
 
@@ -20,8 +22,8 @@ use rendiation_algebra::Mat4;
 use crate::SceneTextureCube;
 
 use super::{
-  Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneSampler,
-  SceneTexture2D, TransformGPU, TypedMaterialHandle, ValueID, ViewerRenderPass, WatchedArena,
+  Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneTexture2D,
+  TransformGPU, TypedMaterialHandle, ValueID, ViewerRenderPass, WatchedArena,
 };
 
 impl Scene {
@@ -103,6 +105,7 @@ impl<T: MaterialCPUResource> MaterialCell<T> {
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a> {
+  pub gpu: &'a GPU,
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
@@ -112,7 +115,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a> {
   pub active_mesh: &'a Box<dyn Mesh>,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
-  pub samplers: &'a mut WatchedArena<SceneSampler>,
+  pub samplers: &'a mut HashMap<TextureSampler, Rc<wgpu::Sampler>>,
   pub reference_finalization: &'a ReferenceFinalization,
 }
 

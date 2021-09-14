@@ -3,11 +3,12 @@ use std::{
   rc::{Rc, Weak},
 };
 
+use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
+
 use crate::{SceneTextureCube, TextureCubeHandle};
 
 use super::{
-  MaterialHandle, SamplerHandle, SceneMaterialRenderPrepareCtx, SceneSampler, SceneTexture2D,
-  Texture2DHandle, WatchedArena,
+  MaterialHandle, SceneMaterialRenderPrepareCtx, SceneTexture2D, Texture2DHandle, WatchedArena,
 };
 
 pub struct MaterialBindGroup {
@@ -23,7 +24,6 @@ pub struct ReferenceFinalization {
 impl ReferenceFinalization {
   pub fn maintain(
     &mut self,
-    samplers: &WatchedArena<SceneSampler>,
     texture_2ds: &WatchedArena<SceneTexture2D>,
     texture_cubes: &WatchedArena<SceneTextureCube>,
   ) {
@@ -36,10 +36,6 @@ impl ReferenceFinalization {
           .remove_material_bind(material),
         ResourceReference::TextureCube(tex) => texture_cubes
           .get_resource(tex)
-          .unwrap()
-          .remove_material_bind(material),
-        ResourceReference::Sampler(s) => samplers
-          .get_resource(s)
           .unwrap()
           .remove_material_bind(material),
       }
@@ -67,7 +63,6 @@ pub struct ReferenceRecord {
 pub enum ResourceReference {
   Texture2d(Texture2DHandle),
   TextureCube(TextureCubeHandle),
-  Sampler(SamplerHandle),
 }
 
 pub struct MaterialTextureReferenceFinalizer {
@@ -109,6 +104,44 @@ impl ViewerDeviceExt for wgpu::Device {
       bindings: Vec::with_capacity(4),
       references: Vec::with_capacity(4),
     }
+  }
+}
+
+impl<'a> SceneMaterialRenderPrepareCtx<'a> {
+  pub fn map_sampler(&mut self, sampler: TextureSampler) -> Rc<wgpu::Sampler> {
+    fn convert_wrap(mode: AddressMode) -> wgpu::AddressMode {
+      match mode {
+        AddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+        AddressMode::Repeat => wgpu::AddressMode::Repeat,
+        AddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+        AddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
+      }
+    }
+    fn convert_filter(mode: FilterMode) -> wgpu::FilterMode {
+      match mode {
+        FilterMode::Nearest => wgpu::FilterMode::Nearest,
+        FilterMode::Linear => wgpu::FilterMode::Linear,
+      }
+    }
+
+    fn convert(sampler: TextureSampler) -> wgpu::SamplerDescriptor<'static> {
+      wgpu::SamplerDescriptor {
+        label: None,
+        address_mode_u: convert_wrap(sampler.address_mode_u),
+        address_mode_v: convert_wrap(sampler.address_mode_v),
+        address_mode_w: convert_wrap(sampler.address_mode_w),
+        mag_filter: convert_filter(sampler.mag_filter),
+        min_filter: convert_filter(sampler.min_filter),
+        mipmap_filter: convert_filter(sampler.mipmap_filter),
+        ..Default::default()
+      }
+    }
+
+    self
+      .samplers
+      .entry(sampler)
+      .or_insert_with(|| Rc::new(self.gpu.device.create_sampler(&convert(sampler))))
+      .clone()
   }
 }
 
@@ -158,29 +191,6 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
       reference: ReferenceRecord {
         material: self.handle,
         resource: ResourceReference::TextureCube(handle),
-      },
-      sender: ctx.reference_finalization.create_sender(),
-    });
-    self
-  }
-
-  pub fn push_sampler<'c: 'b, 'd: 'b>(
-    mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
-    handle: SamplerHandle,
-  ) -> Self {
-    self.bindings.push(
-      ctx
-        .samplers
-        .get_resource(handle)
-        .unwrap()
-        .as_material_bind(self.handle),
-    );
-
-    self.references.push(MaterialTextureReferenceFinalizer {
-      reference: ReferenceRecord {
-        material: self.handle,
-        resource: ResourceReference::Sampler(handle),
       },
       sender: ctx.reference_finalization.create_sender(),
     });
