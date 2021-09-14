@@ -84,14 +84,14 @@ impl Scene {
   }
 
   pub fn maintain(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-    let mut material_change = HashSet::new();
+    let mut material_bindgroup_dirtied = HashSet::new();
     self.texture_2ds.drain_modified().for_each(|(tex, _)| {
       tex.update(device, queue);
       tex.foreach_material_refed(|handle| {
-        material_change.insert(handle);
+        material_bindgroup_dirtied.insert(handle);
       });
     });
-    material_change
+    material_bindgroup_dirtied
       .drain()
       .for_each(|h| self.materials.get_mut(h).unwrap().on_ref_resource_changed());
 

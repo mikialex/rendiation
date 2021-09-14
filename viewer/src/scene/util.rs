@@ -22,7 +22,8 @@ pub enum SceneError {
   HandleCorrupted,
 }
 
-impl<T: ResourcePair> WatchedArena<T> {
+/// T should not contain interior mutability, it's logic error
+impl<T> WatchedArena<T> {
   pub fn new() -> Self {
     Self {
       arena: Arena::new(),
@@ -40,23 +41,28 @@ impl<T: ResourcePair> WatchedArena<T> {
     })
   }
 
-  pub fn get_data(&self, h: Handle<T>) -> Result<&T::Data, SceneError> {
-    self
-      .arena
-      .get(h)
-      .map(|v| v.data())
-      .ok_or(SceneError::HandleCorrupted)
+  pub fn get(&self, h: Handle<T>) -> Result<&T, SceneError> {
+    self.arena.get(h).ok_or(SceneError::HandleCorrupted)
   }
 
-  pub fn get_data_mut(&mut self, h: Handle<T>) -> Result<&mut T::Data, SceneError> {
+  pub fn get_mut(&mut self, h: Handle<T>) -> Result<&mut T, SceneError> {
     self.modified.insert(h);
-    self
-      .arena
-      .get_mut(h)
-      .map(|v| v.data_mut())
-      .ok_or(SceneError::HandleCorrupted)
+    self.arena.get_mut(h).ok_or(SceneError::HandleCorrupted)
   }
 
+  pub fn insert(&mut self, v: T) -> Handle<T> {
+    let h = self.arena.insert(v);
+    self.modified.insert(h);
+    h
+  }
+
+  pub fn remove(&mut self, h: Handle<T>) {
+    self.modified.remove(&h);
+    self.arena.remove(h);
+  }
+}
+
+impl<T: ResourcePair> WatchedArena<T> {
   pub fn get_resource(&self, h: Handle<T>) -> Result<&T::Resource, SceneError> {
     self
       .arena
@@ -73,15 +79,12 @@ impl<T: ResourcePair> WatchedArena<T> {
       .ok_or(SceneError::HandleCorrupted)
   }
 
-  pub fn insert(&mut self, v: T) -> Handle<T> {
-    let h = self.arena.insert(v);
-    self.modified.insert(h);
-    h
+  pub fn get_data(&self, h: Handle<T>) -> Result<&T::Data, SceneError> {
+    self.get(h).map(|v| v.data())
   }
 
-  pub fn remove(&mut self, h: Handle<T>) {
-    self.modified.remove(&h);
-    self.arena.remove(h);
+  pub fn get_data_mut(&mut self, h: Handle<T>) -> Result<&mut T::Data, SceneError> {
+    self.get_mut(h).map(|v| v.data_mut())
   }
 }
 
