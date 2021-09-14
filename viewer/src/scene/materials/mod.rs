@@ -191,11 +191,11 @@ impl PipelineResourceManager {
     }
   }
 
-  pub fn get_cache_mut<M: Any, C: Any>(&mut self) -> &mut C {
+  pub fn get_cache_mut<M: Any, C: Any + Default>(&mut self) -> &mut C {
     self
       .cache
-      .get_mut(&TypeId::of::<M>())
-      .unwrap()
+      .entry(TypeId::of::<M>())
+      .or_insert_with(|| Box::new(C::default()))
       .downcast_mut::<C>()
       .unwrap()
   }
