@@ -187,7 +187,7 @@ impl BasicMaterial {
 
 pub struct BasicMaterialGPU {
   state_id: ValueID<MaterialStates>,
-  uniform: UniformBuffer<Vec3<f32>>,
+  _uniform: UniformBuffer<Vec3<f32>>,
   bindgroup: MaterialBindGroup,
 }
 
@@ -239,17 +239,17 @@ impl MaterialCPUResource for BasicMaterial {
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
-    let uniform = UniformBuffer::create(&gpu.device, self.color);
+    let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
     let bindgroup =
-      self.create_bindgroup(handle, uniform.gpu(), &gpu.device, &bindgroup_layout, ctx);
+      self.create_bindgroup(handle, _uniform.gpu(), &gpu.device, &bindgroup_layout, ctx);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 
     BasicMaterialGPU {
       state_id,
-      uniform,
+      _uniform,
       bindgroup,
     }
   }
