@@ -3,24 +3,23 @@ use rendiation_renderable_mesh::{
   group::MeshDrawGroup,
   tessellation::{CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter},
 };
-use rendiation_texture::{TextureSampler, WrapAsTexture2DSource};
+use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
 
 use crate::*;
 
 pub fn load_default_scene(scene: &mut Scene) {
   use image::io::Reader as ImageReader;
   let path = if cfg!(windows) {
-    "C:/Users/mk/Desktop/test.png"
+    "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
-    "/Users/mikialex/Desktop/test.png"
+    todo!()
   };
   let img = ImageReader::open(path).unwrap().decode().unwrap();
-  let img = match img {
-    image::DynamicImage::ImageRgba8(img) => img,
-    _ => unreachable!(),
-  }
-  .into_source();
-  let texture = scene.add_texture2d(img);
+  let texture = match img {
+    image::DynamicImage::ImageRgba8(img) => scene.add_texture2d(img.into_source()),
+    image::DynamicImage::ImageRgb8(img) => scene.add_texture2d(rgb_to_rgba(img).into_source()),
+    _ => panic!("unsupport texture type"),
+  };
 
   {
     let mesh = SphereMeshParameter::default().tessellate();

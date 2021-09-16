@@ -3,7 +3,7 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
-use image::EncodableLayout;
+use image::*;
 use rendiation_texture_types::Size;
 use rendiation_webgpu::{TextureFormat, WebGPUTexture2dSource};
 
@@ -13,7 +13,20 @@ pub trait TextureFormatDecider {
   const FORMAT: TextureFormat;
 }
 impl TextureFormatDecider for image::Rgba<u8> {
-  const FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
+  const FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
+}
+
+// https://github.com/gpuweb/gpuweb/issues/66
+pub fn rgb_to_rgba(input: ImageBuffer<Rgb<u8>, Vec<u8>>) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+  let mut target = ImageBuffer::new(input.width(), input.height());
+  // todo: could be optimized
+  target
+    .pixels_mut()
+    .zip(input.pixels())
+    .for_each(|(target, source)| {
+      *target = Rgba([source.0[0], source.0[1], source.0[2], 255]);
+    });
+  target
 }
 
 impl<P, C> WebGPUTexture2dSource for Texture2DSource<image::ImageBuffer<P, C>>
