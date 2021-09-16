@@ -19,6 +19,7 @@ use super::{
   SceneMaterialRenderPrepareCtx, STATE_ID,
 };
 
+#[derive(Clone)]
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
   pub sampler: TextureSampler,
@@ -192,20 +193,20 @@ pub struct BasicMaterialGPU {
 
 impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
-  fn update(&mut self, source: &Self::Source, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) {
+
+  fn request_pipeline(
+    &mut self,
+    source: &Self::Source,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+  ) {
     self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
 
     let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
 
-    let pipeline_ctx = PipelineCreateCtx {
-      camera_gpu: ctx.camera_gpu,
-      model_gpu: ctx.model_gpu,
-      active_mesh: ctx.active_mesh,
-      pass: ctx.pass,
-    };
+    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
 
-    ctx
-      .pipelines
+    pipelines
       .get_cache_mut::<Self, CommonPipelineCache>()
       .request(&key, || source.create_pipeline(gpu, &pipeline_ctx));
   }
