@@ -2,14 +2,17 @@ use std::borrow::Cow;
 
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
+use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::tessellation::IndexedMeshTessellator;
 use rendiation_renderable_mesh::tessellation::SphereMeshParameter;
 use rendiation_renderable_mesh::vertex::Vertex;
+use rendiation_renderable_mesh::GPUMeshData;
 use rendiation_renderable_mesh::MeshGPU;
 use rendiation_webgpu::*;
 
 use crate::CameraBindgroup;
 use crate::MaterialStates;
+use crate::MeshCell;
 use crate::PipelineCreateCtx;
 use crate::TransformGPU;
 use crate::TypedMaterialHandle;
@@ -56,23 +59,29 @@ impl SolidBackground {
   }
 }
 
+pub type BackgroundMesh = impl GPUMeshData;
+fn build_mesh() -> BackgroundMesh {
+  SphereMeshParameter::default().tessellate()
+}
+use crate::scene::mesh::Mesh;
 pub struct DrawableBackground<S> {
-  mesh: MeshGPU,
+  mesh: MeshCell<BackgroundMesh>,
   pub shading: TypedMaterialHandle<S>,
 }
 
 impl<S> Renderable for DrawableBackground<S> {
-  fn update(&mut self, _: &GPU, _: &mut wgpu::CommandEncoder) {}
+  fn update(&mut self, gpu: &GPU, _: &mut wgpu::CommandEncoder) {
+    self.mesh.update(gpu);
+  }
 
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-    self.mesh.setup_pass(pass, None);
+    self.mesh.setup_pass(pass, MeshDrawGroup::Full);
   }
 }
 
 impl<S: BackGroundShading> DrawableBackground<S> {
-  pub fn new(device: &wgpu::Device, shading: TypedMaterialHandle<S>) -> Self {
-    let mesh = SphereMeshParameter::default().tessellate();
-    let mesh = mesh.mesh.create_gpu(device);
+  pub fn new(shading: TypedMaterialHandle<S>) -> Self {
+    let mesh = MeshCell::from(build_mesh());
 
     Self { mesh, shading }
   }

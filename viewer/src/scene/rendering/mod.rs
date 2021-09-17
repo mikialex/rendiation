@@ -54,6 +54,7 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
   fn setup_pass<'p>(&'p self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;
+
     scene.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
       let material = scene.materials.get(model.material()).unwrap().as_ref();

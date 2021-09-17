@@ -2,6 +2,8 @@
 #![feature(array_methods)]
 #![feature(min_specialization)]
 #![feature(stmt_expr_attributes)]
+#![feature(type_alias_impl_trait)]
+#![feature(option_result_unwrap_unchecked)]
 #![allow(incomplete_features)]
 
 mod scene;
