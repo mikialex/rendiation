@@ -200,7 +200,7 @@ impl SkylinePacker {
   }
 }
 
-impl TexturePackStrategy for SkylinePacker {
+impl TexturePacker for SkylinePacker {
   fn pack(&mut self, input: Size) -> Result<PackResult, PackError> {
     if let Some((i, rect)) = self.find_skyline(input) {
       self.split(i, &rect);
@@ -220,7 +220,7 @@ impl TexturePackStrategy for SkylinePacker {
   }
 }
 
-impl TexturePackStrategyBase for SkylinePacker {
+impl BaseTexturePacker for SkylinePacker {
   fn config(&mut self, config: PackerConfig) {
     self.config = config;
     self.reset();

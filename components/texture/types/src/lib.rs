@@ -3,6 +3,7 @@
 
 use std::num::NonZeroUsize;
 
+/// Represent a none zero size(width/height)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Size {
   pub width: NonZeroUsize,
@@ -10,6 +11,10 @@ pub struct Size {
 }
 
 impl Size {
+  pub fn area(&self) -> usize {
+    usize::from(self.width) * usize::from(self.height)
+  }
+
   pub fn max_side_length(&self) -> NonZeroUsize {
     self.width.max(self.height)
   }
@@ -46,4 +51,16 @@ pub enum CubeTextureFace {
   NegativeY = 3,
   PositiveZ = 4,
   NegativeZ = 5,
+}
+
+/// Represent a position in texture2d
+pub struct TextureOrigin {
+  pub x: usize,
+  pub y: usize,
+}
+
+/// Represent a none zero size(width/height) area
+pub struct TextureRange {
+  pub origin: TextureOrigin,
+  pub size: Size,
 }
