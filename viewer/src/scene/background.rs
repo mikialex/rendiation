@@ -17,18 +17,12 @@ use crate::PipelineCreateCtx;
 use crate::TransformGPU;
 use crate::TypedMaterialHandle;
 
-pub trait Background: 'static + Renderable {
+pub trait Background: 'static {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
 }
 
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
-}
-
-impl Renderable for SolidBackground {
-  fn update(&mut self, _: &GPU, _: &mut wgpu::CommandEncoder) {}
-
-  fn setup_pass<'a>(&'a self, _: &mut wgpu::RenderPass<'a>) {}
 }
 
 impl Background for SolidBackground {

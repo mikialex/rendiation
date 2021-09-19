@@ -98,7 +98,7 @@ impl MaterialCPUResource for EnvMapBackGroundMaterial {
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
     let bindgroup_layout = self.create_bindgroup_layout(&gpu.device);
-    let sampler = ctx.map_sampler(self.sampler);
+    let sampler = ctx.map_sampler(self.sampler, &gpu.device);
     let bindgroup = gpu
       .device
       .material_bindgroup_builder(handle)

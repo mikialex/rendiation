@@ -110,7 +110,6 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
         let (model_matrix, model_gpu) = node.get_model_gpu(gpu);
 
         let mut ctx = SceneMaterialRenderPrepareCtx {
-          gpu,
           active_camera,
           camera_gpu,
           model_matrix,

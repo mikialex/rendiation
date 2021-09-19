@@ -108,7 +108,11 @@ impl ViewerDeviceExt for wgpu::Device {
 }
 
 impl<'a> SceneMaterialRenderPrepareCtx<'a> {
-  pub fn map_sampler(&mut self, sampler: TextureSampler) -> Rc<wgpu::Sampler> {
+  pub fn map_sampler(
+    &mut self,
+    sampler: TextureSampler,
+    device: &wgpu::Device,
+  ) -> Rc<wgpu::Sampler> {
     fn convert_wrap(mode: AddressMode) -> wgpu::AddressMode {
       match mode {
         AddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
@@ -140,7 +144,7 @@ impl<'a> SceneMaterialRenderPrepareCtx<'a> {
     self
       .samplers
       .entry(sampler)
-      .or_insert_with(|| Rc::new(self.gpu.device.create_sampler(&convert(sampler))))
+      .or_insert_with(|| Rc::new(device.create_sampler(&convert(sampler))))
       .clone()
   }
 }

@@ -40,7 +40,7 @@ impl BasicMaterial {
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> MaterialBindGroup {
-    let sampler = ctx.map_sampler(self.sampler);
+    let sampler = ctx.map_sampler(self.sampler, device);
     device
       .material_bindgroup_builder(handle)
       .push(ubo.as_entire_binding())

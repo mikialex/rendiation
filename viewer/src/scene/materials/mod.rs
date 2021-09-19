@@ -160,7 +160,6 @@ impl<T: MaterialCPUResource> MaterialCell<T> {
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a> {
-  pub gpu: &'a GPU,
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub model_matrix: &'a Mat4<f32>,
