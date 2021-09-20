@@ -107,21 +107,24 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
         let material = scene.materials.get_mut(model.material()).unwrap().as_mut();
         let mesh = scene.meshes.get_mut(model.mesh()).unwrap();
         let node = scene.nodes.get_node_mut(model.node()).data_mut();
-        let (model_matrix, model_gpu) = node.get_model_gpu(gpu);
 
         let mut ctx = SceneMaterialRenderPrepareCtx {
           active_camera,
           camera_gpu,
-          model_matrix,
-          model_gpu,
-          pipelines: &mut scene.pipeline_resource,
+          model_info: None,
+          active_mesh: None,
           pass: self.pass,
-          active_mesh: mesh,
+          pipelines: &mut scene.pipeline_resource,
+          layouts: &mut scene.layouts,
           textures: &mut scene.texture_2ds,
           texture_cubes: &mut scene.texture_cubes,
           samplers: &mut scene.samplers,
           reference_finalization: &scene.reference_finalization,
         };
+
+        ctx.model_info = node.get_model_gpu(gpu).into();
+        ctx.active_mesh = mesh.as_ref().into();
+
         material.update(gpu, &mut ctx);
         mesh.update(gpu);
       })

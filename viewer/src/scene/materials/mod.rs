@@ -162,11 +162,23 @@ impl<T: MaterialCPUResource> MaterialCell<T> {
 pub struct SceneMaterialRenderPrepareCtx<'a> {
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
-  pub model_matrix: &'a Mat4<f32>,
-  pub model_gpu: &'a TransformGPU,
+  pub model_info: Option<(&'a Mat4<f32>, &'a TransformGPU)>,
+  pub active_mesh: Option<&'a dyn Mesh>,
   pub pipelines: &'a mut PipelineResourceManager,
+  pub layouts: &'a mut BindGroupLayoutManager,
   pub pass: &'a dyn ViewerRenderPass,
-  pub active_mesh: &'a Box<dyn Mesh>,
+  pub textures: &'a mut WatchedArena<SceneTexture2D>,
+  pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
+  pub samplers: &'a mut HashMap<TextureSampler, Rc<wgpu::Sampler>>,
+  pub reference_finalization: &'a ReferenceFinalization,
+}
+
+pub struct SceneMaterialRenderPrepareCtxBase<'a> {
+  pub active_camera: &'a Camera,
+  pub camera_gpu: &'a CameraBindgroup,
+  pub pipelines: &'a mut PipelineResourceManager,
+  pub layouts: &'a mut BindGroupLayoutManager,
+  pub pass: &'a dyn ViewerRenderPass,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
   pub samplers: &'a mut HashMap<TextureSampler, Rc<wgpu::Sampler>>,
@@ -174,13 +186,12 @@ pub struct SceneMaterialRenderPrepareCtx<'a> {
 }
 
 impl<'a> SceneMaterialRenderPrepareCtx<'a> {
-  pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceManager, PipelineCreateCtx<'a>) {
+  pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceManager, PipelineCreateCtx) {
     (
       self.pipelines,
       PipelineCreateCtx {
-        camera_gpu: self.camera_gpu,
-        model_gpu: self.model_gpu,
-        active_mesh: self.active_mesh,
+        layouts: self.layouts,
+        active_mesh: self.active_mesh.unwrap(),
         pass: self.pass,
       },
     )
@@ -188,9 +199,8 @@ impl<'a> SceneMaterialRenderPrepareCtx<'a> {
 }
 
 pub struct PipelineCreateCtx<'a> {
-  pub camera_gpu: &'a CameraBindgroup,
-  pub model_gpu: &'a TransformGPU,
-  pub active_mesh: &'a Box<dyn Mesh>,
+  pub layouts: &'a BindGroupLayoutManager,
+  pub active_mesh: &'a dyn Mesh,
   pub pass: &'a dyn ViewerRenderPass,
 }
 
@@ -271,6 +281,26 @@ impl AsRef<ValueID<MaterialStates>> for CommonPipelineVariantKey {
 impl AsRef<wgpu::PrimitiveTopology> for CommonPipelineVariantKey {
   fn as_ref(&self) -> &wgpu::PrimitiveTopology {
     &self.1
+  }
+}
+
+pub struct BindGroupLayoutManager {
+  pub cache: HashMap<TypeId, wgpu::BindGroupLayout>,
+}
+
+impl BindGroupLayoutManager {
+  pub fn new() -> Self {
+    Self {
+      cache: HashMap::new(),
+    }
+  }
+
+  pub fn register<T: Any>(&mut self, layout: wgpu::BindGroupLayout) {
+    self.cache.insert(TypeId::of::<T>(), layout);
+  }
+
+  pub fn retrieve<T: Any>(&self) -> &wgpu::BindGroupLayout {
+    self.cache.get(&TypeId::of::<T>()).unwrap()
   }
 }
 

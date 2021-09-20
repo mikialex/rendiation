@@ -7,7 +7,6 @@ use rendiation_renderable_mesh::tessellation::IndexedMeshTessellator;
 use rendiation_renderable_mesh::tessellation::SphereMeshParameter;
 use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_renderable_mesh::GPUMeshData;
-use rendiation_renderable_mesh::MeshGPU;
 use rendiation_webgpu::*;
 
 use crate::CameraBindgroup;
@@ -148,9 +147,9 @@ pub trait BackGroundShading {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       label: None,
       bind_group_layouts: &[
-        &ctx.model_gpu.layout,
+        ctx.layouts.retrieve::<TransformGPU>(),
         &bindgroup_layout,
-        &ctx.camera_gpu.layout,
+        ctx.layouts.retrieve::<CameraBindgroup>(),
       ],
       push_constant_ranges: &[],
     });

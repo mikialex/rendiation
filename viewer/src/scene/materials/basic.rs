@@ -141,9 +141,9 @@ impl BasicMaterial {
       .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &[
-          &ctx.model_gpu.layout,
+          ctx.layouts.retrieve::<TransformGPU>(),
           &bindgroup_layout,
-          &ctx.camera_gpu.layout,
+          ctx.layouts.retrieve::<CameraBindgroup>(),
         ],
         push_constant_ranges: &[],
       });
@@ -202,7 +202,7 @@ impl MaterialGPUResource for BasicMaterialGPU {
   ) {
     self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
 
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
+    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
 
     let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
 
