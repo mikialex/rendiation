@@ -101,6 +101,18 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
         .get_or_insert_with(|| CameraBindgroup::new(gpu))
         .update(gpu, active_camera, &scene.nodes);
 
+      let mut base = SceneMaterialRenderPrepareCtxBase {
+        active_camera,
+        camera_gpu,
+        pass: self.pass,
+        pipelines: &mut scene.pipeline_resource,
+        layouts: &mut scene.layouts,
+        textures: &mut scene.texture_2ds,
+        texture_cubes: &mut scene.texture_cubes,
+        samplers: &mut scene.samplers,
+        reference_finalization: &scene.reference_finalization,
+      };
+
       scene.models.iter_mut().for_each(|(handle, model)| {
         scene.render_list.models.push(handle);
 
@@ -109,23 +121,13 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
         let node = scene.nodes.get_node_mut(model.node()).data_mut();
 
         let mut ctx = SceneMaterialRenderPrepareCtx {
-          active_camera,
-          camera_gpu,
-          model_info: None,
-          active_mesh: None,
-          pass: self.pass,
-          pipelines: &mut scene.pipeline_resource,
-          layouts: &mut scene.layouts,
-          textures: &mut scene.texture_2ds,
-          texture_cubes: &mut scene.texture_cubes,
-          samplers: &mut scene.samplers,
-          reference_finalization: &scene.reference_finalization,
+          base: &mut base,
+          model_info: node.get_model_gpu(gpu).into(),
+          active_mesh: mesh.as_ref().into(),
         };
 
-        ctx.model_info = node.get_model_gpu(gpu).into();
-        ctx.active_mesh = mesh.as_ref().into();
-
         material.update(gpu, &mut ctx);
+
         mesh.update(gpu);
       })
     }

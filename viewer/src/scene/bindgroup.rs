@@ -107,7 +107,7 @@ impl ViewerDeviceExt for wgpu::Device {
   }
 }
 
-impl<'a> SceneMaterialRenderPrepareCtx<'a> {
+impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub fn map_sampler(
     &mut self,
     sampler: TextureSampler,
@@ -155,9 +155,9 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self
   }
 
-  pub fn push_texture2d<'c: 'b, 'd: 'b>(
+  pub fn push_texture2d<'c: 'b, 'd: 'b, 'e>(
     mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
+    ctx: &'c SceneMaterialRenderPrepareCtx<'d, 'e>,
     handle: Texture2DHandle,
   ) -> Self {
     self.bindings.push(
@@ -178,9 +178,9 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self
   }
 
-  pub fn push_texture_cube<'c: 'b, 'd: 'b>(
+  pub fn push_texture_cube<'c: 'b, 'd: 'b, 'e>(
     mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
+    ctx: &'c SceneMaterialRenderPrepareCtx<'d, 'e>,
     handle: TextureCubeHandle,
   ) -> Self {
     self.bindings.push(

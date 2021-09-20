@@ -2,6 +2,7 @@ use std::{
   any::{Any, TypeId},
   collections::HashMap,
   marker::PhantomData,
+  ops::{Deref, DerefMut},
   rc::Rc,
 };
 pub mod bindable;
@@ -159,18 +160,24 @@ impl<T: MaterialCPUResource> MaterialCell<T> {
   }
 }
 
-pub struct SceneMaterialRenderPrepareCtx<'a> {
-  pub active_camera: &'a Camera,
-  pub camera_gpu: &'a CameraBindgroup,
-  pub model_info: Option<(&'a Mat4<f32>, &'a TransformGPU)>,
-  pub active_mesh: Option<&'a dyn Mesh>,
-  pub pipelines: &'a mut PipelineResourceManager,
-  pub layouts: &'a mut BindGroupLayoutManager,
-  pub pass: &'a dyn ViewerRenderPass,
-  pub textures: &'a mut WatchedArena<SceneTexture2D>,
-  pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
-  pub samplers: &'a mut HashMap<TextureSampler, Rc<wgpu::Sampler>>,
-  pub reference_finalization: &'a ReferenceFinalization,
+pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
+  pub model_info: Option<(&'b Mat4<f32>, &'b TransformGPU)>,
+  pub active_mesh: Option<&'b dyn Mesh>,
+  pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
+}
+
+impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
+  type Target = SceneMaterialRenderPrepareCtxBase<'a>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.base
+  }
+}
+
+impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.base
+  }
 }
 
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
@@ -185,14 +192,14 @@ pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub reference_finalization: &'a ReferenceFinalization,
 }
 
-impl<'a> SceneMaterialRenderPrepareCtx<'a> {
+impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceManager, PipelineCreateCtx) {
     (
-      self.pipelines,
+      self.base.pipelines,
       PipelineCreateCtx {
-        layouts: self.layouts,
+        layouts: self.base.layouts,
         active_mesh: self.active_mesh.unwrap(),
-        pass: self.pass,
+        pass: self.base.pass,
       },
     )
   }
@@ -216,7 +223,7 @@ pub trait Material {
   /// When material's referenced bindable resources(outer ubo, texture) reference has changed
   /// This will be called, and the implementation should dirty it's inner bindgroups
   fn on_ref_resource_changed(&mut self);
-  fn update<'a>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>);
+  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -228,7 +235,7 @@ where
   T: MaterialCPUResource,
   T::GPU: MaterialGPUResource<Source = T>,
 {
-  fn update<'a>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a>) {
+  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
     if let Some(self_gpu) = &mut self.gpu {
       if self.property_changed || self.bindgroups_dirty {
         if self_gpu.update(&self.material, gpu, ctx, self.bindgroups_dirty) {
