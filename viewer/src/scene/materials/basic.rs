@@ -216,7 +216,7 @@ impl MaterialGPUResource for BasicMaterialGPU {
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
+    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
 
     let pipeline = ctx
       .pipelines
@@ -224,7 +224,7 @@ impl MaterialGPUResource for BasicMaterialGPU {
       .retrieve(&key);
 
     pass.set_pipeline(pipeline);
-    pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
+    pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }

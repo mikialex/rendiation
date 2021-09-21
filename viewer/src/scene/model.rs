@@ -38,6 +38,26 @@ pub struct MeshModel<Ma, Me> {
   pub node: SceneNodeHandle,
 }
 
+impl<Ma, Me> SceneRenderable for MeshModel<Ma, Me> {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    materials: &mut Arena<Box<dyn Material>>,
+    meshes: &mut Arena<Box<dyn Mesh>>,
+  ) {
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
+    materials: &'a Arena<Box<dyn Material>>,
+    meshes: &'a Arena<Box<dyn Mesh>>,
+  ) {
+  }
+}
+
 impl<Ma, Me> Model for MeshModel<Ma, Me>
 where
   // constrain the model's mesh gpu layout and material requirement must be same

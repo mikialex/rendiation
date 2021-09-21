@@ -51,7 +51,6 @@ impl Camera {
 pub struct CameraBindgroup {
   pub ubo: wgpu::Buffer,
   pub bindgroup: wgpu::BindGroup,
-  pub layout: wgpu::BindGroupLayout,
 }
 
 impl CameraBindgroup {
@@ -79,6 +78,23 @@ impl CameraBindgroup {
     );
     self
   }
+
+  pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: "CameraBindgroup".into(),
+      entries: &[wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::VERTEX,
+        ty: wgpu::BindingType::Buffer {
+          ty: wgpu::BufferBindingType::Uniform,
+          has_dynamic_offset: false,
+          min_binding_size: wgpu::BufferSize::new(64 * 2),
+        },
+        count: None,
+      }],
+    })
+  }
+
   pub fn new(gpu: &GPU) -> Self {
     let device = &gpu.device;
     use wgpu::util::DeviceExt;
@@ -91,22 +107,8 @@ impl CameraBindgroup {
       usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
-    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "CameraBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64 * 2),
-        },
-        count: None,
-      }],
-    });
-
     let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &layout,
+      layout: &Self::layout(device),
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
         resource: ubo.as_entire_binding(),
@@ -114,10 +116,6 @@ impl CameraBindgroup {
       label: None,
     });
 
-    Self {
-      ubo,
-      bindgroup,
-      layout,
-    }
+    Self { ubo, bindgroup }
   }
 }

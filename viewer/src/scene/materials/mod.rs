@@ -166,6 +166,16 @@ pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
 }
 
+impl<'a> SceneMaterialRenderPrepareCtxBase<'a> {
+  pub fn material_ctx_empty<'b>(&'a mut self) -> SceneMaterialRenderPrepareCtx<'a, 'b> {
+    SceneMaterialRenderPrepareCtx {
+      model_info: None,
+      active_mesh: None,
+      base: self,
+    }
+  }
+}
+
 impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
   type Target = SceneMaterialRenderPrepareCtxBase<'a>;
 
@@ -213,9 +223,9 @@ pub struct PipelineCreateCtx<'a> {
 
 pub struct SceneMaterialPassSetupCtx<'a> {
   pub pipelines: &'a PipelineResourceManager,
+  pub model_gpu: Option<&'a TransformGPU>,
+  pub active_mesh: Option<&'a Box<dyn Mesh>>,
   pub camera_gpu: &'a CameraBindgroup,
-  pub model_gpu: &'a TransformGPU,
-  pub active_mesh: &'a Box<dyn Mesh>,
   pub pass: &'a dyn ViewerRenderPass,
 }
 

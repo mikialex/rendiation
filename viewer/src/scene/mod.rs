@@ -26,6 +26,7 @@ pub use model::*;
 pub use node::*;
 pub use rendering::*;
 use rendiation_texture::TextureSampler;
+use rendiation_webgpu::GPU;
 pub use texture::*;
 pub use texture_cube::*;
 pub use util::*;
@@ -61,6 +62,8 @@ pub struct Scene {
   pub active_camera_gpu: Option<CameraBindgroup>,
   pub render_list: RenderList,
   pub reference_finalization: ReferenceFinalization,
+
+  has_registered: bool, // todo improve
 }
 
 impl Scene {
@@ -82,10 +85,26 @@ impl Scene {
       active_camera_gpu: None,
       render_list: RenderList::new(),
       reference_finalization: Default::default(),
+      has_registered: false,
     }
   }
 
+  pub fn register_layout(&mut self, device: &wgpu::Device) {
+    if self.has_registered {
+      return;
+    }
+    self
+      .layouts
+      .register::<TransformGPU>(TransformGPU::layout(device));
+    self
+      .layouts
+      .register::<CameraBindgroup>(CameraBindgroup::layout(device));
+    self.has_registered = true;
+  }
+
   pub fn maintain(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    self.register_layout(device);
+
     let mut material_bindgroup_dirtied = HashSet::new();
     self.texture_2ds.drain_modified().for_each(|(tex, _)| {
       tex.update(device, queue);
@@ -115,4 +134,22 @@ impl Scene {
     self.background = Box::new(background);
     self
   }
+}
+
+pub trait SceneRenderable {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    materials: &mut Arena<Box<dyn Material>>,
+    meshes: &mut Arena<Box<dyn Mesh>>,
+  );
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
+    materials: &'a Arena<Box<dyn Material>>,
+    meshes: &'a Arena<Box<dyn Mesh>>,
+  );
 }

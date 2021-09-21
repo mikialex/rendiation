@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use arena::Arena;
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
@@ -10,13 +11,17 @@ use rendiation_renderable_mesh::GPUMeshData;
 use rendiation_webgpu::*;
 
 use crate::CameraBindgroup;
+use crate::Material;
 use crate::MaterialStates;
 use crate::MeshCell;
 use crate::PipelineCreateCtx;
+use crate::SceneMaterialPassSetupCtx;
+use crate::SceneMaterialRenderPrepareCtx;
+use crate::SceneRenderable;
 use crate::TransformGPU;
 use crate::TypedMaterialHandle;
 
-pub trait Background: 'static {
+pub trait Background: 'static + SceneRenderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
 }
 
@@ -52,6 +57,26 @@ impl SolidBackground {
   }
 }
 
+impl SceneRenderable for SolidBackground {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    materials: &mut Arena<Box<dyn Material>>,
+    meshes: &mut Arena<Box<dyn Mesh>>,
+  ) {
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx,
+    materials: &Arena<Box<dyn Material>>,
+    meshes: &Arena<Box<dyn Mesh>>,
+  ) {
+  }
+}
+
 pub type BackgroundMesh = impl GPUMeshData;
 fn build_mesh() -> BackgroundMesh {
   SphereMeshParameter::default().tessellate()
@@ -62,13 +87,29 @@ pub struct DrawableBackground<S> {
   pub shading: TypedMaterialHandle<S>,
 }
 
-impl<S> Renderable for DrawableBackground<S> {
-  fn update(&mut self, gpu: &GPU, _: &mut wgpu::CommandEncoder) {
+impl<S> SceneRenderable for DrawableBackground<S> {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    materials: &mut Arena<Box<dyn Material>>,
+    _meshes: &mut Arena<Box<dyn Mesh>>,
+  ) {
     self.mesh.update(gpu);
+    let m = materials.get_mut(self.shading.handle).unwrap();
+    m.update(gpu, ctx);
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx<'a>,
+    materials: &'a Arena<Box<dyn Material>>,
+    _meshes: &'a Arena<Box<dyn Mesh>>,
+  ) {
     self.mesh.setup_pass(pass, MeshDrawGroup::Full);
+    let m = materials.get(self.shading.handle).unwrap();
+    m.setup_pass(pass, ctx);
   }
 }
 

@@ -122,7 +122,7 @@ impl Scene {
 pub struct TransformGPU {
   pub ubo: wgpu::Buffer,
   pub bindgroup: wgpu::BindGroup,
-  pub layout: wgpu::BindGroupLayout,
+  // pub layout: wgpu::BindGroupLayout,
 }
 
 impl TransformGPU {
@@ -135,6 +135,22 @@ impl TransformGPU {
       [[group(0), binding(0)]]
       var model: ModelTransform;
     "#
+  }
+
+  pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: "ModelTransformBindgroup".into(),
+      entries: &[wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::VERTEX,
+        ty: wgpu::BindingType::Buffer {
+          ty: wgpu::BufferBindingType::Uniform,
+          has_dynamic_offset: false,
+          min_binding_size: wgpu::BufferSize::new(64),
+        },
+        count: None,
+      }],
+    })
   }
 
   pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) {
@@ -152,22 +168,8 @@ impl TransformGPU {
       usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
-    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "ModelTransformBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64),
-        },
-        count: None,
-      }],
-    });
-
     let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &layout,
+      layout: &Self::layout(device),
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
         resource: ubo.as_entire_binding(),
@@ -175,10 +177,6 @@ impl TransformGPU {
       label: None,
     });
 
-    Self {
-      ubo,
-      bindgroup,
-      layout,
-    }
+    Self { ubo, bindgroup }
   }
 }
