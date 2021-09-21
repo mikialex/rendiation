@@ -208,7 +208,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
       self.base.pipelines,
       PipelineCreateCtx {
         layouts: self.base.layouts,
-        active_mesh: self.active_mesh.unwrap(),
+        active_mesh: self.active_mesh,
         pass: self.base.pass,
       },
     )
@@ -217,7 +217,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
 
 pub struct PipelineCreateCtx<'a> {
   pub layouts: &'a BindGroupLayoutManager,
-  pub active_mesh: &'a dyn Mesh,
+  pub active_mesh: Option<&'a dyn Mesh>,
   pub pass: &'a dyn ViewerRenderPass,
 }
 

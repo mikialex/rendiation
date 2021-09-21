@@ -205,7 +205,7 @@ pub fn create_texture_pipeline(
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return  textureSample(r_color, r_sampler, in.uv) * in.color;
+          return textureSample(r_color, r_sampler, in.uv) * in.color;
       }}
       
       ",

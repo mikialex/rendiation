@@ -17,7 +17,8 @@ impl BackGroundShading for EnvMapBackGroundMaterial {
   fn shading(&self) -> &'static str {
     "
     fn background_shading(direction: vec3<f32>) -> vec3<f32> {
-      textureSample(r_color, r_sampler, direction);
+      // textureSample(r_color, r_sampler, direction);
+      return direction;
     }
     "
   }
@@ -70,7 +71,6 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
       .retrieve(&());
 
     pass.set_pipeline(pipeline);
-    pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }

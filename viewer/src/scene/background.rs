@@ -87,6 +87,12 @@ pub struct DrawableBackground<S> {
   pub shading: TypedMaterialHandle<S>,
 }
 
+impl<S: 'static> Background for DrawableBackground<S> {
+  fn require_pass_clear(&self) -> Option<wgpu::Color> {
+    None
+  }
+}
+
 impl<S> SceneRenderable for DrawableBackground<S> {
   fn update(
     &mut self,
@@ -154,7 +160,8 @@ pub trait BackGroundShading {
     [[stage(fragment)]]
     fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
       let direction = normalize(in.position);
-      return background_shading(direction);
+      // return vec4<f32>(background_shading(direction), 1.0);
+      return vec4<f32>( 1.0);
     }}
     ",
       vertex_header = Vertex::get_shader_header(),

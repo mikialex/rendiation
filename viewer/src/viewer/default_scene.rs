@@ -57,6 +57,8 @@ pub fn load_default_scene(scene: &mut Scene) {
   let background_mat = scene.add_material(background_mat);
   let bg = DrawableBackground::new(background_mat);
 
+  scene.background = Box::new(bg);
+
   {
     let mesh = SphereMeshParameter::default().tessellate();
     let mesh = scene.add_mesh(mesh);

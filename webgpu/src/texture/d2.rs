@@ -98,7 +98,7 @@ pub trait WebGPUTexture2dSource {
     WebGPUTextureCubeDescriptor {
       desc: wgpu::TextureDescriptor {
         label: None,
-        size: self.gpu_size(),
+        size: self.gpu_cube_size(),
         mip_level_count: level_count.get_level_count_wgpu(self.size()),
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,

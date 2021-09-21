@@ -148,7 +148,7 @@ impl BasicMaterial {
         push_constant_ranges: &[],
       });
 
-    let vertex_buffers = ctx.active_mesh.vertex_layout();
+    let vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
 
     let targets: Vec<_> = ctx
       .pass
