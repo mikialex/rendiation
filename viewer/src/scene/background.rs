@@ -113,9 +113,9 @@ impl<S> SceneRenderable for DrawableBackground<S> {
     materials: &'a Arena<Box<dyn Material>>,
     _meshes: &'a Arena<Box<dyn Mesh>>,
   ) {
-    self.mesh.setup_pass(pass, MeshDrawGroup::Full);
     let m = materials.get(self.shading.handle).unwrap();
     m.setup_pass(pass, ctx);
+    self.mesh.setup_pass(pass, MeshDrawGroup::Full);
   }
 }
 
