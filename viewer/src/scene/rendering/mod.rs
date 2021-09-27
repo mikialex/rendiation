@@ -31,7 +31,7 @@ where
     target: &'a S::TargetResource,
     encoder: &'a mut wgpu::CommandEncoder,
   ) -> wgpu::RenderPass<'a> {
-    self.pass.create_pass(&self.scene, target, encoder)
+    self.pass.create_pass(self.scene, target, encoder)
   }
 }
 
