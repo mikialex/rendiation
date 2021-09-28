@@ -79,7 +79,11 @@ impl SceneRenderable for SolidBackground {
 
 pub type BackgroundMesh = impl GPUMeshData;
 fn build_mesh() -> BackgroundMesh {
-  SphereMeshParameter::default().tessellate()
+  let sphere = SphereMeshParameter {
+    radius: 100.,
+    ..Default::default()
+  };
+  sphere.tessellate()
 }
 use crate::scene::mesh::Mesh;
 pub struct DrawableBackground<S> {

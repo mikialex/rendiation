@@ -71,6 +71,7 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
       .retrieve(&());
 
     pass.set_pipeline(pipeline);
+    pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }

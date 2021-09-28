@@ -59,7 +59,7 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
       let ctx = SceneMaterialPassSetupCtx {
         pass: self.pass,
         camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
-        model_gpu: None,
+        model_gpu: scene.get_root().gpu.as_ref().unwrap().into(),
         pipelines: &scene.pipeline_resource,
         active_mesh: None,
       };
@@ -94,6 +94,10 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
     let root = scene.get_root_handle();
 
     scene.maintain(&gpu.device, &gpu.queue);
+
+    {
+      scene.get_root_node_mut().get_model_gpu(gpu);
+    }
 
     if let Some(active_camera) = &mut scene.active_camera {
       scene
