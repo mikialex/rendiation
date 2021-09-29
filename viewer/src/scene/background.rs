@@ -60,19 +60,19 @@ impl SolidBackground {
 impl SceneRenderable for SolidBackground {
   fn update(
     &mut self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-    materials: &mut Arena<Box<dyn Material>>,
-    meshes: &mut Arena<Box<dyn Mesh>>,
+    _gpu: &GPU,
+    _ctx: &mut SceneMaterialRenderPrepareCtx,
+    _materials: &mut Arena<Box<dyn Material>>,
+    _meshes: &mut Arena<Box<dyn Mesh>>,
   ) {
   }
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx,
-    materials: &Arena<Box<dyn Material>>,
-    meshes: &Arena<Box<dyn Mesh>>,
+    _pass: &mut wgpu::RenderPass<'a>,
+    _ctx: &SceneMaterialPassSetupCtx,
+    _materials: &Arena<Box<dyn Material>>,
+    _meshes: &Arena<Box<dyn Mesh>>,
   ) {
   }
 }

@@ -25,7 +25,7 @@ pub trait PackableChecker: TexturePacker {
 
 pub struct PackId(usize);
 pub trait RePackablePacker: BaseTexturePacker {
-  fn pack_with_id(&mut self, input: Size) -> PackId;
+  fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError>;
   fn un_pack(&mut self, id: PackId);
 }
 
@@ -86,4 +86,9 @@ pub struct PackResult {
 pub struct AllPackResult {
   pub results: Vec<PackResult>,
   pub size_all: Size,
+}
+
+pub struct PackResultWithId {
+  pub result: PackResult,
+  pub id: PackId,
 }

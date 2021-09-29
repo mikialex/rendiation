@@ -41,10 +41,15 @@ impl BaseTexturePacker for ShelfPacker {
   }
 }
 
+/// https://github.com/alexheretic/glyph-brush/blob/master/draw-cache/src/lib.rs
 impl RePackablePacker for ShelfPacker {
-  fn pack_with_id(&mut self, input: rendiation_texture::Size) -> crate::PackId {
+  fn pack_with_id(
+    &mut self,
+    input: rendiation_texture::Size,
+  ) -> Result<PackResultWithId, PackError> {
     // todo check input can contained in all;
 
+    // find row to put the glyph in, most used rows first
     let row = self.rows.iter().find(|(_, row)| {
       row.width >= usize::from(input.width) && row.height >= usize::from(input.height)
     });
@@ -52,7 +57,7 @@ impl RePackablePacker for ShelfPacker {
     todo!()
   }
 
-  fn un_pack(&mut self, id: crate::PackId) {
+  fn un_pack(&mut self, id: PackId) {
     todo!()
   }
 }
