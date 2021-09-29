@@ -11,7 +11,7 @@ impl MaterialBindableResourceUpdate for Box<dyn WebGPUTexture2dSource> {
       let source = self.as_ref();
       let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
-      WebGPUTexture2d::create(&device, desc).upload(queue, source, 0)
+      WebGPUTexture2d::create(&device, desc).upload_into(queue, source, 0)
     });
   }
 }

@@ -1941,6 +1941,7 @@ dependencies = [
 name = "rendiation-texture-packer"
 version = "0.1.0"
 dependencies = [
+ "linked-hash-map",
  "rendiation-texture",
 ]
 

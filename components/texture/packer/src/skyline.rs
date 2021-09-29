@@ -210,8 +210,10 @@ impl TexturePacker for SkylinePacker {
       let rotated = width != rect.w;
 
       Ok(PackResult {
-        offset: (rect.x, rect.y),
-        size: Size::from_usize_pair_min_one((rect.w, rect.h)),
+        range: TextureRange {
+          origin: (rect.x, rect.y).into(),
+          size: Size::from_usize_pair_min_one((rect.w, rect.h)),
+        },
         rotated,
       })
     } else {

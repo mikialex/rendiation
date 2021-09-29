@@ -1,5 +1,6 @@
-use rendiation_texture::Size;
+use rendiation_texture::{Size, TextureRange};
 
+pub mod shelf;
 pub mod skyline;
 
 pub trait BaseTexturePacker {
@@ -20,6 +21,12 @@ pub trait TexturePacker: BaseTexturePacker {
 pub trait PackableChecker: TexturePacker {
   /// this should have lower cost than pack, and not request mutable self
   fn can_pack(&self, input: Size) -> bool;
+}
+
+pub struct PackId(usize);
+pub trait RePackablePacker: BaseTexturePacker {
+  fn pack_with_id(&mut self, input: Size) -> PackId;
+  fn un_pack(&mut self, id: PackId);
 }
 
 /// Some packer strategy maybe yield better result when input is batched
@@ -72,8 +79,7 @@ pub struct PackerConfig {
 }
 
 pub struct PackResult {
-  pub offset: (usize, usize),
-  pub size: Size,
+  pub range: TextureRange,
   pub rotated: bool, // should clockwise matters?
 }
 

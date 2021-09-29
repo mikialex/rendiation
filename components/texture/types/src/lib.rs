@@ -1,13 +1,23 @@
 #![feature(nonzero_is_power_of_two)]
 #![feature(int_log)]
 
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, ops::Mul};
 
 /// Represent a none zero size(width/height)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Size {
   pub width: NonZeroUsize,
   pub height: NonZeroUsize,
+}
+
+impl Mul<usize> for Size {
+  type Output = Self;
+
+  fn mul(self, rhs: usize) -> Self::Output {
+    let new_width = usize::from(self.width) * rhs;
+    let new_height = usize::from(self.height) * rhs;
+    Self::from_usize_pair_min_one((new_width, new_height))
+  }
 }
 
 impl Size {
@@ -57,6 +67,18 @@ pub enum CubeTextureFace {
 pub struct TextureOrigin {
   pub x: usize,
   pub y: usize,
+}
+
+impl TextureOrigin {
+  pub fn zero() -> Self {
+    Self { x: 0, y: 0 }
+  }
+}
+
+impl From<(usize, usize)> for TextureOrigin {
+  fn from(v: (usize, usize)) -> Self {
+    Self { x: v.0, y: v.1 }
+  }
 }
 
 /// Represent a none zero size(width/height) area
