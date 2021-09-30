@@ -38,23 +38,55 @@ pub struct MeshModel<Ma, Me> {
   pub node: SceneNodeHandle,
 }
 
-impl<Ma, Me> SceneRenderable for MeshModel<Ma, Me> {
+impl SceneRenderable for dyn Model {
   fn update(
     &mut self,
     gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    base: &mut SceneMaterialRenderPrepareCtxBase,
     materials: &mut Arena<Box<dyn Material>>,
     meshes: &mut Arena<Box<dyn Mesh>>,
+    nodes: &mut ArenaTree<SceneNode>,
   ) {
+    let material = materials.get_mut(self.material()).unwrap().as_mut();
+    let mesh = meshes.get_mut(self.mesh()).unwrap();
+    let node = nodes.get_node_mut(self.node()).data_mut();
+
+    let mut ctx = SceneMaterialRenderPrepareCtx {
+      base,
+      model_info: node.get_model_gpu(gpu).into(),
+      active_mesh: mesh.as_ref().into(),
+    };
+
+    material.update(gpu, &mut ctx);
+
+    mesh.update(gpu);
   }
 
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
     materials: &'a Arena<Box<dyn Material>>,
     meshes: &'a Arena<Box<dyn Mesh>>,
+    nodes: &'a ArenaTree<SceneNode>,
+    camera_gpu: &'a CameraBindgroup,
+    pipeline_resource: &'a PipelineResourceManager,
+    pass_info: &'a dyn ViewerRenderPass,
   ) {
+    let material = materials.get(self.material()).unwrap().as_ref();
+    let node = nodes.get_node(self.node()).data();
+    let mesh = meshes.get(self.mesh()).unwrap();
+
+    let ctx = SceneMaterialPassSetupCtx {
+      pass: pass_info,
+      camera_gpu,
+      model_gpu: node.gpu.as_ref().unwrap().into(),
+      pipelines: pipeline_resource,
+      active_mesh: mesh.into(),
+    };
+    material.setup_pass(pass, &ctx);
+
+    let mesh = meshes.get(self.mesh()).unwrap();
+    mesh.setup_pass(pass, self.group());
   }
 }
 
@@ -79,12 +111,6 @@ where
   fn node(&self) -> SceneNodeHandle {
     self.node
   }
-}
-
-pub struct ModelPassSetupContext<'a> {
-  pub materials: &'a Arena<Box<dyn Material>>,
-  pub meshes: &'a Arena<Box<dyn Mesh>>,
-  pub material_ctx: SceneMaterialPassSetupCtx<'a>,
 }
 
 impl Scene {
