@@ -60,8 +60,3 @@ pub enum GlyphCacheResult<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GlyphID(usize);
-
-pub struct GlyphRasterTolerance {
-  pub scale: f32,
-  pub position: f32,
-}

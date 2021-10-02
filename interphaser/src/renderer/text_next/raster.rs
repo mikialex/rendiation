@@ -14,6 +14,50 @@ pub struct GlyphRasterInfo {
   scale: Vec2<f32>,
 }
 
+impl GlyphRasterInfo {
+  pub fn normalize(&self, tolerance: &GlyphRasterTolerance) -> NormalizedGlyphRasterInfo {
+    let scale = self.scale;
+    let offset = normalised_offset_from_position(self.position);
+
+    fn normalised_offset_from_position(position: Vec2<f32>) -> Vec2<f32> {
+      let mut offset = Vec2::new(position.x.fract(), position.y.fract());
+      if offset.x > 0.5 {
+        offset.x -= 1.0;
+      } else if offset.x < -0.5 {
+        offset.x += 1.0;
+      }
+      if offset.y > 0.5 {
+        offset.y -= 1.0;
+      } else if offset.y < -0.5 {
+        offset.y += 1.0;
+      }
+      offset
+    }
+
+    NormalizedGlyphRasterInfo {
+      scale_over_tolerance: (
+        (scale.x / tolerance.scale + 0.5) as u32,
+        (scale.y / tolerance.scale + 0.5) as u32,
+      ),
+      // convert [-0.5, 0.5] -> [0, 1] then divide
+      offset_over_tolerance: (
+        ((offset.x + 0.5) / tolerance.position + 0.5) as u16,
+        ((offset.y + 0.5) / tolerance.position + 0.5) as u16,
+      ),
+    }
+  }
+}
+
+pub struct GlyphRasterTolerance {
+  pub scale: f32,
+  pub position: f32,
+}
+
+pub struct NormalizedGlyphRasterInfo {
+  scale_over_tolerance: (u32, u32),
+  offset_over_tolerance: (u16, u16),
+}
+
 impl core::hash::Hash for GlyphRasterInfo {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     unsafe {

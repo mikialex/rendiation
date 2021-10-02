@@ -5,7 +5,9 @@ use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dSource, GPU};
 
 use crate::FontManager;
 
-use super::{GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo};
+use super::{
+  GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo, NormalizedGlyphRasterInfo,
+};
 
 pub struct GPUGlyphCache {
   gpu: WebGPUGlyphCacheInstance,
@@ -13,7 +15,7 @@ pub struct GPUGlyphCache {
   raster: Box<dyn GlyphRaster>,
   fonts: FontManager,
   queue: HashSet<(GlyphID, GlyphRasterInfo)>,
-  active_glyphs: HashSet<(GlyphID, GlyphRasterInfo), TextureRange>,
+  active_glyphs: HashSet<(GlyphID, NormalizedGlyphRasterInfo), TextureRange>,
   current_size: Size,
 }
 
