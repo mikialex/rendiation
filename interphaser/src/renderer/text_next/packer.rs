@@ -3,7 +3,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
 use rendiation_texture_packer::{skyline::SkylinePacker, PackError, PackerConfig, TexturePacker};
 
-use super::{GlyphRaster, GlyphRasterInfo};
+use super::{GlyphRaster, GlyphRasterInfo, NormalizedGlyphRasterInfo};
 
 pub struct GlyphPacker {
   packer: Box<dyn TexturePacker>,
@@ -24,7 +24,7 @@ impl GlyphPacker {
   pub fn pack(
     &mut self,
     glyph_id: GlyphID,
-    info: GlyphRasterInfo,
+    info: NormalizedGlyphRasterInfo,
     raster: &mut dyn GlyphRaster,
   ) -> GlyphCacheResult {
     match self.pack_info.entry(glyph_id) {

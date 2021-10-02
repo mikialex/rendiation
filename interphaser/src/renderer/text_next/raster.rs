@@ -3,7 +3,7 @@ use rendiation_algebra::Vec2;
 use rendiation_texture::Texture2DBuffer;
 
 pub trait GlyphRaster {
-  fn raster(&mut self, glyph_id: GlyphID, info: GlyphRasterInfo) -> Texture2DBuffer<u8>;
+  fn raster(&mut self, glyph_id: GlyphID, info: NormalizedGlyphRasterInfo) -> Texture2DBuffer<u8>;
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -17,9 +17,9 @@ pub struct GlyphRasterInfo {
 impl GlyphRasterInfo {
   pub fn normalize(&self, tolerance: &GlyphRasterTolerance) -> NormalizedGlyphRasterInfo {
     let scale = self.scale;
-    let offset = normalised_offset_from_position(self.position);
+    let offset = normalized_offset_from_position(self.position);
 
-    fn normalised_offset_from_position(position: Vec2<f32>) -> Vec2<f32> {
+    fn normalized_offset_from_position(position: Vec2<f32>) -> Vec2<f32> {
       let mut offset = Vec2::new(position.x.fract(), position.y.fract());
       if offset.x > 0.5 {
         offset.x -= 1.0;
@@ -53,6 +53,7 @@ pub struct GlyphRasterTolerance {
   pub position: f32,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NormalizedGlyphRasterInfo {
   scale_over_tolerance: (u32, u32),
   offset_over_tolerance: (u16, u16),
@@ -75,7 +76,7 @@ impl Eq for GlyphRasterInfo {}
 pub struct AbGlyphRaster {}
 
 impl GlyphRaster for AbGlyphRaster {
-  fn raster(&mut self, glyph_id: GlyphID, info: GlyphRasterInfo) -> Texture2DBuffer<u8> {
+  fn raster(&mut self, glyph_id: GlyphID, info: NormalizedGlyphRasterInfo) -> Texture2DBuffer<u8> {
     todo!()
   }
 }

@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 
-use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
+use rendiation_texture::{Size, TextureRange};
 use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dSource, GPU};
 
 use crate::FontManager;
 
 use super::{
-  GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo, NormalizedGlyphRasterInfo,
+  GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo, GlyphRasterTolerance,
+  NormalizedGlyphRasterInfo,
 };
 
 pub struct GPUGlyphCache {
@@ -14,9 +15,10 @@ pub struct GPUGlyphCache {
   packer: GlyphPacker,
   raster: Box<dyn GlyphRaster>,
   fonts: FontManager,
-  queue: HashSet<(GlyphID, GlyphRasterInfo)>,
+  queue: HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
   active_glyphs: HashSet<(GlyphID, NormalizedGlyphRasterInfo), TextureRange>,
   current_size: Size,
+  tolerance: GlyphRasterTolerance,
 }
 
 struct WebGPUGlyphCacheInstance {
@@ -104,6 +106,8 @@ impl GPUGlyphCache {
     })
   }
   pub fn queue_glyph(&mut self, glyph_id: GlyphID, info: GlyphRasterInfo) {
-    self.queue.insert((glyph_id, info));
+    self
+      .queue
+      .insert((glyph_id, info.normalize(&self.tolerance)));
   }
 }
