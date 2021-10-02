@@ -68,19 +68,19 @@ impl SceneRenderable for SolidBackground {
     _ctx: &mut SceneMaterialRenderPrepareCtxBase,
     _materials: &mut Arena<Box<dyn Material>>,
     _meshes: &mut Arena<Box<dyn Mesh>>,
-    nodes: &mut ArenaTree<SceneNode>,
+    _nodes: &mut ArenaTree<SceneNode>,
   ) {
   }
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    materials: &'a Arena<Box<dyn Material>>,
-    meshes: &'a Arena<Box<dyn Mesh>>,
-    nodes: &'a ArenaTree<SceneNode>,
-    camera_gpu: &'a CameraBindgroup,
-    pipeline_resource: &'a PipelineResourceManager,
-    pass_info: &'a dyn ViewerRenderPass,
+    _pass: &mut wgpu::RenderPass<'a>,
+    _materials: &'a Arena<Box<dyn Material>>,
+    _meshes: &'a Arena<Box<dyn Mesh>>,
+    _nodes: &'a ArenaTree<SceneNode>,
+    _camera_gpu: &'a CameraBindgroup,
+    _pipeline_resource: &'a PipelineResourceManager,
+    _pass_info: &'a dyn ViewerRenderPass,
   ) {
   }
 }
