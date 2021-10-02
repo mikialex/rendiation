@@ -4,7 +4,7 @@
 use std::{num::NonZeroUsize, ops::Mul};
 
 /// Represent a none zero size(width/height)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Size {
   pub width: NonZeroUsize,
   pub height: NonZeroUsize,
@@ -64,6 +64,7 @@ pub enum CubeTextureFace {
 }
 
 /// Represent a position in texture2d
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct TextureOrigin {
   pub x: usize,
   pub y: usize,
@@ -82,6 +83,7 @@ impl From<(usize, usize)> for TextureOrigin {
 }
 
 /// Represent a none zero size(width/height) area
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct TextureRange {
   pub origin: TextureOrigin,
   pub size: Size,

@@ -21,7 +21,7 @@ impl GlyphPacker {
     }
   }
 
-  pub fn queue(
+  pub fn pack(
     &mut self,
     glyph_id: GlyphID,
     info: GlyphRasterInfo,
