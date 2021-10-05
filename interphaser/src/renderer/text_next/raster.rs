@@ -14,6 +14,7 @@ pub struct GlyphRasterInfo {
   scale: Vec2<f32>,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl core::hash::Hash for GlyphRasterInfo {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     unsafe {
