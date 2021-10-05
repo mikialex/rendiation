@@ -56,35 +56,28 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
     let models = &scene.models;
 
     {
-      let ctx = SceneMaterialPassSetupCtx {
-        pass: self.pass,
-        camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
-        model_gpu: scene.get_root().gpu.as_ref().unwrap().into(),
-        pipelines: &scene.pipeline_resource,
-        active_mesh: None,
-      };
-      scene
-        .background
-        .setup_pass(pass, &ctx, &scene.materials, &scene.meshes);
+      scene.background.setup_pass(
+        pass,
+        &scene.materials,
+        &scene.meshes,
+        &scene.nodes,
+        scene.active_camera_gpu.as_ref().unwrap(),
+        &scene.pipeline_resource,
+        self.pass,
+      );
     }
 
     scene.render_list.models.iter().for_each(|model| {
       let model = models.get(*model).unwrap();
-      let material = scene.materials.get(model.material()).unwrap().as_ref();
-      let node = scene.nodes.get_node(model.node()).data();
-      let mesh = scene.meshes.get(model.mesh()).unwrap();
-
-      let ctx = SceneMaterialPassSetupCtx {
-        pass: self.pass,
-        camera_gpu: scene.active_camera_gpu.as_ref().unwrap(),
-        model_gpu: node.gpu.as_ref().unwrap().into(),
-        pipelines: &scene.pipeline_resource,
-        active_mesh: mesh.into(),
-      };
-      material.setup_pass(pass, &ctx);
-
-      let mesh = scene.meshes.get(model.mesh()).unwrap();
-      mesh.setup_pass(pass, model.group());
+      model.setup_pass(
+        pass,
+        &scene.materials,
+        &scene.meshes,
+        &scene.nodes,
+        scene.active_camera_gpu.as_ref().unwrap(),
+        &scene.pipeline_resource,
+        self.pass,
+      )
     })
   }
 
@@ -130,19 +123,13 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
         reference_finalization: &scene.reference_finalization,
       };
 
-      {
-        // let ctx = base.material_ctx_empty();
-        let mut ctx = SceneMaterialRenderPrepareCtx {
-          base: &mut base,
-          model_info: None,
-          active_mesh: None,
-        };
-
-        scene
-          .background
-          .update(gpu, &mut ctx, &mut scene.materials, &mut scene.meshes)
-        //
-      }
+      scene.background.update(
+        gpu,
+        &mut base,
+        &mut scene.materials,
+        &mut scene.meshes,
+        &mut scene.nodes,
+      );
 
       scene.models.iter_mut().for_each(|(handle, model)| {
         scene.render_list.models.push(handle);

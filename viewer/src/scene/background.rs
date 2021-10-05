@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use arena::Arena;
+use arena_tree::ArenaTree;
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
@@ -15,8 +16,11 @@ use crate::Material;
 use crate::MaterialStates;
 use crate::MeshCell;
 use crate::PipelineCreateCtx;
+use crate::PipelineResourceManager;
 use crate::SceneMaterialPassSetupCtx;
 use crate::SceneMaterialRenderPrepareCtx;
+use crate::SceneMaterialRenderPrepareCtxBase;
+use crate::SceneNode;
 use crate::SceneRenderable;
 use crate::TransformGPU;
 use crate::TypedMaterialHandle;
@@ -61,18 +65,22 @@ impl SceneRenderable for SolidBackground {
   fn update(
     &mut self,
     _gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtx,
+    _ctx: &mut SceneMaterialRenderPrepareCtxBase,
     _materials: &mut Arena<Box<dyn Material>>,
     _meshes: &mut Arena<Box<dyn Mesh>>,
+    _nodes: &mut ArenaTree<SceneNode>,
   ) {
   }
 
   fn setup_pass<'a>(
     &'a self,
     _pass: &mut wgpu::RenderPass<'a>,
-    _ctx: &SceneMaterialPassSetupCtx,
-    _materials: &Arena<Box<dyn Material>>,
-    _meshes: &Arena<Box<dyn Mesh>>,
+    _materials: &'a Arena<Box<dyn Material>>,
+    _meshes: &'a Arena<Box<dyn Mesh>>,
+    _nodes: &'a ArenaTree<SceneNode>,
+    _camera_gpu: &'a CameraBindgroup,
+    _pipeline_resource: &'a PipelineResourceManager,
+    _pass_info: &'a dyn ViewerRenderPass,
   ) {
   }
 }
@@ -86,6 +94,7 @@ fn build_mesh() -> BackgroundMesh {
   sphere.tessellate()
 }
 use crate::scene::mesh::Mesh;
+use crate::ViewerRenderPass;
 pub struct DrawableBackground<S> {
   mesh: MeshCell<BackgroundMesh>,
   pub shading: TypedMaterialHandle<S>,
@@ -101,24 +110,47 @@ impl<S> SceneRenderable for DrawableBackground<S> {
   fn update(
     &mut self,
     gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    base: &mut SceneMaterialRenderPrepareCtxBase,
     materials: &mut Arena<Box<dyn Material>>,
     _meshes: &mut Arena<Box<dyn Mesh>>,
+    _nodes: &mut ArenaTree<SceneNode>,
   ) {
     self.mesh.update(gpu);
     let m = materials.get_mut(self.shading.handle).unwrap();
-    m.update(gpu, ctx);
+
+    let mut ctx = SceneMaterialRenderPrepareCtx {
+      base,
+      model_info: None,
+      active_mesh: None,
+    };
+    m.update(gpu, &mut ctx);
   }
 
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
     materials: &'a Arena<Box<dyn Material>>,
-    _meshes: &'a Arena<Box<dyn Mesh>>,
+    meshes: &'a Arena<Box<dyn Mesh>>,
+    nodes: &'a ArenaTree<SceneNode>,
+    camera_gpu: &'a CameraBindgroup,
+    pipeline_resource: &'a PipelineResourceManager,
+    pass_info: &'a dyn ViewerRenderPass,
   ) {
     let m = materials.get(self.shading.handle).unwrap();
-    m.setup_pass(pass, ctx);
+    let ctx = SceneMaterialPassSetupCtx {
+      pass: pass_info,
+      camera_gpu,
+      model_gpu: nodes
+        .get_node(nodes.root())
+        .data()
+        .gpu
+        .as_ref()
+        .unwrap()
+        .into(),
+      pipelines: pipeline_resource,
+      active_mesh: None,
+    };
+    m.setup_pass(pass, &ctx);
     self.mesh.setup_pass(pass, MeshDrawGroup::Full);
   }
 }

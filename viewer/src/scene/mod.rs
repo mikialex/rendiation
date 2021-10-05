@@ -148,16 +148,20 @@ pub trait SceneRenderable {
   fn update(
     &mut self,
     gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    ctx: &mut SceneMaterialRenderPrepareCtxBase,
     materials: &mut Arena<Box<dyn Material>>,
     meshes: &mut Arena<Box<dyn Mesh>>,
+    nodes: &mut ArenaTree<SceneNode>,
   );
 
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
     materials: &'a Arena<Box<dyn Material>>,
     meshes: &'a Arena<Box<dyn Mesh>>,
+    nodes: &'a ArenaTree<SceneNode>,
+    camera_gpu: &'a CameraBindgroup,
+    pipeline_resource: &'a PipelineResourceManager,
+    pass_info: &'a dyn ViewerRenderPass,
   );
 }

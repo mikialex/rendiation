@@ -7,13 +7,17 @@ use image::*;
 use rendiation_texture_types::Size;
 use rendiation_webgpu::{TextureFormat, WebGPUTexture2dSource};
 
-use crate::Texture2DSource;
+use crate::{Texture2DBuffer, Texture2DSource};
 
 pub trait TextureFormatDecider {
   const FORMAT: TextureFormat;
 }
 impl TextureFormatDecider for image::Rgba<u8> {
   const FORMAT: TextureFormat = TextureFormat::Rgba8UnormSrgb;
+}
+// todo how do we support int texture?? by adding new type?
+impl TextureFormatDecider for u8 {
+  const FORMAT: TextureFormat = TextureFormat::R8Unorm;
 }
 
 // https://github.com/gpuweb/gpuweb/issues/66
@@ -42,7 +46,7 @@ where
   }
 
   fn bytes_per_pixel(&self) -> usize {
-    return 4;
+    std::mem::size_of::<P>()
   }
 
   fn as_bytes(&self) -> &[u8] {
@@ -54,5 +58,26 @@ where
       width: NonZeroUsize::new(self.width() as usize).unwrap(),
       height: NonZeroUsize::new(self.height() as usize).unwrap(),
     }
+  }
+}
+
+impl<P> WebGPUTexture2dSource for Texture2DBuffer<P>
+where
+  P: TextureFormatDecider + Clone,
+{
+  fn format(&self) -> TextureFormat {
+    P::FORMAT
+  }
+
+  fn bytes_per_pixel(&self) -> usize {
+    std::mem::size_of::<P>()
+  }
+
+  fn as_bytes(&self) -> &[u8] {
+    self.as_byte_buffer()
+  }
+
+  fn size(&self) -> Size {
+    self.size()
   }
 }
