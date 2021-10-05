@@ -28,6 +28,7 @@
         "Encodable",
         "eval",
         "evaluatable",
+        "fatline",
         "Finalizer",
         "Framebuffer",
         "frametime",

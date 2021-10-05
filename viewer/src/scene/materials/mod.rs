@@ -8,24 +8,20 @@ use std::{
 pub mod bindable;
 pub use bindable::*;
 pub mod states;
-use rendiation_texture::TextureSampler;
-use rendiation_webgpu::GPU;
 pub use states::*;
 
 pub mod basic;
 pub use basic::*;
-
+pub mod fatline;
+pub use fatline::*;
 pub mod env_background;
 pub use env_background::*;
 
 use rendiation_algebra::Mat4;
+use rendiation_texture::TextureSampler;
+use rendiation_webgpu::GPU;
 
-use crate::SceneTextureCube;
-
-use super::{
-  Camera, CameraBindgroup, MaterialHandle, Mesh, ReferenceFinalization, Scene, SceneTexture2D,
-  TransformGPU, TypedMaterialHandle, ValueID, ViewerRenderPass, WatchedArena,
-};
+use crate::*;
 
 impl Scene {
   fn add_material_inner<M: Material + 'static, F: FnOnce(MaterialHandle) -> M>(
@@ -287,7 +283,7 @@ where
 
 pub type CommonPipelineCache = TopologyPipelineVariant<StatePipelineVariant<PipelineUnit>>;
 
-pub struct CommonPipelineVariantKey(ValueID<MaterialStates>, wgpu::PrimitiveTopology);
+pub struct CommonPipelineVariantKey(pub ValueID<MaterialStates>, pub wgpu::PrimitiveTopology);
 
 impl AsRef<ValueID<MaterialStates>> for CommonPipelineVariantKey {
   fn as_ref(&self) -> &ValueID<MaterialStates> {
@@ -318,6 +314,12 @@ impl BindGroupLayoutManager {
 
   pub fn retrieve<T: Any>(&self) -> &wgpu::BindGroupLayout {
     self.cache.get(&TypeId::of::<T>()).unwrap()
+  }
+}
+
+impl Default for BindGroupLayoutManager {
+  fn default() -> Self {
+    Self::new()
   }
 }
 

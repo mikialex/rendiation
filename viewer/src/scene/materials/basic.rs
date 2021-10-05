@@ -5,19 +5,7 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 
-use crate::{
-  scene::{
-    CameraBindgroup, MaterialBindGroup, MaterialHandle, Texture2DHandle, TransformGPU, ValueID,
-    ViewerDeviceExt,
-  },
-  CommonPipelineCache,
-};
-
-use super::{
-  CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire,
-  MaterialStates, PipelineCreateCtx, PipelineVariantContainer, SceneMaterialPassSetupCtx,
-  SceneMaterialRenderPrepareCtx, STATE_ID,
-};
+use crate::*;
 
 #[derive(Clone)]
 pub struct BasicMaterial {

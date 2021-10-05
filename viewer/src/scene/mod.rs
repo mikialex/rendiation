@@ -144,6 +144,12 @@ impl Scene {
   }
 }
 
+impl Default for Scene {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 pub trait SceneRenderable {
   fn update(
     &mut self,

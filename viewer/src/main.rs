@@ -6,12 +6,13 @@
 #![feature(option_result_unwrap_unchecked)]
 #![allow(incomplete_features)]
 
-mod scene;
-use interphaser::Application;
+pub mod scene;
 pub use scene::*;
 
 pub mod viewer;
 pub use viewer::*;
+
+use interphaser::Application;
 
 fn main() {
   env_logger::builder().init();
