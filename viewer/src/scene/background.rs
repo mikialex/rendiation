@@ -189,15 +189,14 @@ pub trait BackGroundShading {
       var out: VertexOutput;
       out.uv = uv;
       out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
-      out.position.w = 1.0;
+      out.position.z = out.position.w;
       return out;
     }}
     
     [[stage(fragment)]]
     fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-      let direction = normalize(in.position);
-      // return vec4<f32>(background_shading(direction), 1.0);
-      return vec4<f32>( 1.0);
+      let direction = normalize(in.position.xyz);
+      return vec4<f32>(background_shading(direction), 1.0);
     }}
     ",
       vertex_header = Vertex::get_shader_header(),
@@ -220,6 +219,7 @@ pub trait BackGroundShading {
 
     let states = MaterialStates {
       depth_write_enabled: false,
+      depth_compare: wgpu::CompareFunction::Always,
       ..Default::default()
     };
 
