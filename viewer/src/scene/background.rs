@@ -189,7 +189,7 @@ pub trait BackGroundShading {
     ) -> VertexOutput {{
       var out: VertexOutput;
       out.uv = uv;
-      out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
+      out.position = camera.projection * inverse(camera.rotation) * model.matrix * vec4<f32>(position, 1.0);
       out.position.z = out.position.w;
       out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
       return out;

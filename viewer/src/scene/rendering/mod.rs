@@ -105,7 +105,6 @@ impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPas
           }
         });
 
-      active_camera.update();
       let camera_gpu = scene
         .active_camera_gpu
         .get_or_insert_with(|| CameraBindgroup::new(gpu))

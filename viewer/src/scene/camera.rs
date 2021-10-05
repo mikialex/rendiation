@@ -33,12 +33,6 @@ impl Camera {
     }
   }
 
-  pub fn update(&mut self) {
-    self
-      .projection
-      .update_projection(&mut self.projection_matrix);
-  }
-
   pub fn get_view_matrix(&self, nodes: &ArenaTree<SceneNode>) -> Mat4<f32> {
     nodes
       .get_node(self.node)
@@ -59,13 +53,27 @@ impl CameraBindgroup {
       [[block]]
       struct CameraTransform {
           projection: mat4x4<f32>;
+          rotation:   mat4x4<f32>;
           view:       mat4x4<f32>;
       };
       [[group(2), binding(0)]]
       var camera: CameraTransform;
     "#
   }
-  pub fn update(&mut self, gpu: &GPU, camera: &Camera, nodes: &ArenaTree<SceneNode>) -> &mut Self {
+  pub fn update(
+    &mut self,
+    gpu: &GPU,
+    camera: &mut Camera,
+    nodes: &ArenaTree<SceneNode>,
+  ) -> &mut Self {
+    camera
+      .projection
+      .update_projection(&mut camera.projection_matrix);
+
+    let world_matrix = nodes.get_node(camera.node).data().world_matrix;
+    let view_matrix = world_matrix.inverse_or_identity();
+    let rotation_matrix = world_matrix.extract_rotation_mat();
+
     gpu.queue.write_buffer(
       &self.ubo,
       0,
@@ -74,7 +82,12 @@ impl CameraBindgroup {
     gpu.queue.write_buffer(
       &self.ubo,
       64,
-      bytemuck::cast_slice(camera.get_view_matrix(nodes).as_ref()),
+      bytemuck::cast_slice(rotation_matrix.as_ref()),
+    );
+    gpu.queue.write_buffer(
+      &self.ubo,
+      64 + 64,
+      bytemuck::cast_slice(view_matrix.as_ref()),
     );
     self
   }
@@ -88,7 +101,7 @@ impl CameraBindgroup {
         ty: wgpu::BindingType::Buffer {
           ty: wgpu::BufferBindingType::Uniform,
           has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64 * 2),
+          min_binding_size: wgpu::BufferSize::new(64 * 3),
         },
         count: None,
       }],
@@ -99,7 +112,7 @@ impl CameraBindgroup {
     let device = &gpu.device;
     use wgpu::util::DeviceExt;
 
-    let mat = [0_u8; 128];
+    let mat = [0_u8; 64 * 3];
 
     let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: "CameraBindgroup Buffer".into(),
