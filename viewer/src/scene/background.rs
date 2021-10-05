@@ -180,6 +180,7 @@ pub trait BackGroundShading {
     struct VertexOutput {{
       [[builtin(position)]] position: vec4<f32>;
       [[location(0)]] uv: vec2<f32>;
+      [[location(1)]] world_position: vec3<f32>;
     }};
 
     [[stage(vertex)]]
@@ -190,12 +191,13 @@ pub trait BackGroundShading {
       out.uv = uv;
       out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
       out.position.z = out.position.w;
+      out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
       return out;
     }}
     
     [[stage(fragment)]]
     fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-      let direction = normalize(in.position.xyz);
+      let direction = normalize(in.world_position);
       return vec4<f32>(background_shading(direction), 1.0);
     }}
     ",
