@@ -17,8 +17,7 @@ impl BackGroundShading for EnvMapBackGroundMaterial {
   fn shading(&self) -> &'static str {
     "
     fn background_shading(direction: vec3<f32>) -> vec3<f32> {
-      // textureSample(r_color, r_sampler, direction);
-      return direction;
+      return textureSample(r_color, r_sampler, direction).rgb;
     }
     "
   }

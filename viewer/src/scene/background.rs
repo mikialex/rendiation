@@ -225,6 +225,8 @@ pub trait BackGroundShading {
       ..Default::default()
     };
 
+    println!("{}", shader_source);
+
     let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
       label: None,
       source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
