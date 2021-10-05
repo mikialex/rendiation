@@ -21,7 +21,6 @@ impl MaterialMeshLayoutRequire for FatLineMaterial {
 }
 
 pub struct FatLineVertex {
-  position: Vec3<f32>,
   start: Vec3<f32>,
   end: Vec3<f32>,
   color: Vec3<f32>,
@@ -48,21 +47,15 @@ impl VertexBufferSourceType for FatLineVertex {
           offset: 4 * 3 + 4 * 3,
           shader_location: 2,
         },
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: 4 * 3 + 4 * 3 + 4 * 3,
-          shader_location: 3,
-        },
       ],
     }
   }
 
   fn get_shader_header() -> &'static str {
     r#"
-      [[location(0)]] position: vec3<f32>,
-      [[location(1)]] start: vec3<f32>,
-      [[location(2)]] end: vec3<f32>,
-      [[location(3)]] color: vec3<f32>,
+      [[location(1)]] fatline_start: vec3<f32>,
+      [[location(2)]] fatline_end: vec3<f32>,
+      [[location(3)]] fatline_color: vec3<f32>,
     "#
   }
 }

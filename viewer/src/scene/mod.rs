@@ -1,6 +1,7 @@
 pub mod background;
 pub mod bindgroup;
 pub mod camera;
+pub mod fatline;
 pub mod lights;
 pub mod materials;
 pub mod mesh;
@@ -19,6 +20,7 @@ use std::{
 pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
+pub use fatline::*;
 pub use lights::*;
 pub use materials::*;
 pub use mesh::*;

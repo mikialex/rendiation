@@ -7,6 +7,9 @@ use super::{Scene, TypedMeshHandle};
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
 use rendiation_webgpu::VertexBufferSourceType;
 
+pub mod fatline;
+pub use fatline::*;
+
 pub trait GPUMeshLayoutSupport {
   type VertexInput;
 }
