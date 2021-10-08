@@ -111,3 +111,9 @@ impl UIPresentation {
     self.primitives.clear()
   }
 }
+
+impl Default for UIPresentation {
+  fn default() -> Self {
+    Self::new()
+  }
+}

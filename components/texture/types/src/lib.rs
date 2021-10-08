@@ -39,12 +39,14 @@ impl Size {
     self.width.is_power_of_two() && self.height.is_power_of_two()
   }
 
+  #[allow(clippy::or_fun_call)]
   pub fn from_u32_pair_min_one(size: (u32, u32)) -> Self {
     let width = NonZeroUsize::new(size.0 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
     let height = NonZeroUsize::new(size.1 as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
     Size { width, height }
   }
 
+  #[allow(clippy::or_fun_call)]
   pub fn from_usize_pair_min_one(size: (usize, usize)) -> Self {
     let width = NonZeroUsize::new(size.0).unwrap_or(NonZeroUsize::new(1).unwrap());
     let height = NonZeroUsize::new(size.1).unwrap_or(NonZeroUsize::new(1).unwrap());

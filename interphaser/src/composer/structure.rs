@@ -86,11 +86,7 @@ where
       .map(|(index, item)| {
         let new_key = item.key();
 
-        if let Some(previous) = self
-          .children
-          .iter()
-          .position(|cached| &cached.0 == &new_key)
-        {
+        if let Some(previous) = self.children.iter().position(|cached| cached.0 == new_key) {
           // move
           self.children.swap_remove(previous)
         } else {

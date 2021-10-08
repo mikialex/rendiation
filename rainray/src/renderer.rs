@@ -47,7 +47,7 @@ impl Renderer {
         for _ in 0..self.sample_per_pixel {
           let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
           let ray = camera.create_screen_ray(sample_point);
-          energy_acc += self.integrator.integrate(&scene, ray).into();
+          energy_acc += self.integrator.integrate(scene, ray).into();
         }
 
         energy_acc /= self.sample_per_pixel as f32;

@@ -63,7 +63,7 @@ pub trait WebGPUTexture2dSource {
       let padded_data: Vec<_> = self
         .as_bytes()
         .chunks_exact(self.bytes_per_row_usize())
-        .flat_map(|row| row.iter().map(|&b| b).chain((0..padding_size).map(|_| 0)))
+        .flat_map(|row| row.iter().copied().chain((0..padding_size).map(|_| 0)))
         .collect();
 
       device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -200,6 +200,7 @@ pub enum MipLevelCount {
 }
 
 impl MipLevelCount {
+  #[allow(clippy::let_and_return)]
   pub fn get_level_count_wgpu(&self, size: Size) -> u32 {
     let r = match *self {
       MipLevelCount::BySize => size.mip_level_count(),
@@ -238,12 +239,10 @@ impl WebGPUTexture2d {
 
     let texture = WebGPUTexture { texture, desc };
 
-    let tex = Self {
+    Self {
       texture,
       texture_view,
-    };
-
-    tex
+    }
   }
 
   pub fn get_default_view(&self) -> &wgpu::TextureView {

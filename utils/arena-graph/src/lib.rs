@@ -46,6 +46,12 @@ impl<T> ArenaGraphNode<T> {
   }
 }
 
+impl<T> Default for ArenaGraph<T> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<T> ArenaGraph<T> {
   pub fn new() -> Self {
     Self {

@@ -14,7 +14,7 @@ impl GPUSurface {
     size: Size,
   ) -> Self {
     let swapchain_format = surface
-      .get_preferred_format(&adapter)
+      .get_preferred_format(adapter)
       .unwrap_or(wgpu::TextureFormat::Rgba8UnormSrgb);
 
     let config = wgpu::SurfaceConfiguration {

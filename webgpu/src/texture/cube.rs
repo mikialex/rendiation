@@ -38,12 +38,10 @@ impl WebGPUTextureCube {
 
     let texture = WebGPUTexture { texture, desc };
 
-    let tex = Self {
+    Self {
       texture,
       texture_view,
-    };
-
-    tex
+    }
   }
 
   pub fn upload(

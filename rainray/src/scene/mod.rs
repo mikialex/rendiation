@@ -249,7 +249,7 @@ impl ModelInstance {
       .sample_light_dir_use_bsdf_importance(view_dir, intersection);
     let bsdf = model
       .material
-      .bsdf(view_dir, light_dir.sample, &intersection);
+      .bsdf(view_dir, light_dir.sample, intersection);
     BSDFSampleResult { light_dir, bsdf }
   }
 

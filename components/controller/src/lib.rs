@@ -1,3 +1,7 @@
+
+#![allow(clippy::collapsible_match)]
+#![allow(clippy::single_match)]
+
 pub mod orbit;
 pub use orbit::*;
 pub mod fps;

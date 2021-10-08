@@ -45,7 +45,7 @@ impl WindowState {
     match event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
-          self.update_size(&size);
+          self.update_size(size);
         }
         WindowEvent::MouseInput { button, state, .. } => match button {
           MouseButton::Left => match state {
@@ -64,7 +64,7 @@ impl WindowState {
           }
         }
         WindowEvent::CursorMoved { position, .. } => {
-          self.mouse_move_to(&position);
+          self.mouse_move_to(position);
         }
         WindowEvent::KeyboardInput {
           input:

@@ -108,7 +108,7 @@ where
       deduplicate_map.push(0);
 
       resorted.windows(2).for_each(|v| {
-        if !merger(&v[0].1, &v[1].1) {
+        if !merger(v[0].1, v[1].1) {
           merge_data.push(*v[1].1);
         }
         deduplicate_map.push(merge_data.len() - 1);

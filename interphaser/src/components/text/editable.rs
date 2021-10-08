@@ -147,7 +147,7 @@ impl Component<String> for EditableText {
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
-            self.update_cursor_by_click(ctx.states.mouse_position, &ctx.fonts)
+            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts)
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
