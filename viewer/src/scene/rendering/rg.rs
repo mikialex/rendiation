@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use futures::stream::Forward;
+use rendiation_algebra::Vec3;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::Scene;
+use crate::{RenderPassDispatcher, Scene, StandardForward, ViewerRenderPass, ViewerRenderPassCreator};
 
 pub struct ResourcePool {
   pub textures: HashMap<String, Texture>,
@@ -26,7 +28,9 @@ pub struct RenderEngine {
 }
 
 impl RenderEngine {
-  //
+  pub fn screen(&self) ->  Attachment {
+    todo!()
+  }
 }
 
 pub fn attachment() -> AttachmentDescriptor {
@@ -85,45 +89,107 @@ impl AttachmentDescriptor {
   }
 }
 
-#[rustfmt::skip]
-fn pipeline(engine: &RenderEngine, scene: &Scene) {
-
-  let scene_main_content = todo!();  
-  let high_light_object = todo!();
-
-  let scene_color = attachment()
-  .format(wgpu::TextureFormat::Rgba8Unorm)
-  .request(engine);
-
-  let scene_depth = depth_attachment()
-  .format(wgpu::TextureFormat::Depth32Float)
-  .request(engine);
-
-  pass("scene_pass")
-    .with_color(&mut scene_color, clear(color(0.1, 0.2, 0.3)))
-    .with_depth(&mut scene_depth, clear(1.))
-    .render_by(&scene_main_content);
-
-  let high_light_object_mask = attachment()
-  .format(wgpu::TextureFormat::Rgba8Unorm)
-  .request(engine);
-
-  pass("high_light_pass")
-    .with_color(&mut high_light_object_mask, clear(color_same(1.)))
-    .render_by(&high_light_object);
-
-
-  pass("final_compose")
-    // .with_color(&mut scene_color, clear(color(0.1, 0.2, 0.3)))
-    .with_color(engine.screen(), clear(color_same(1.)))
-    .render_by(copy(&mut scene_color))
-    .render_by(high_light_blend(&mut high_light_object_mask))
-    .run(engine);
-
+pub trait Pipeline {
+  fn render(&mut self, engine: &RenderEngine, scene: &mut Scene);
 }
 
-pub struct HiLighter {
-  //
+pub struct HighLight{
+  color: Vec3<f32>
+}
+
+impl ViewerRenderPass for HighLight {
+  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat> {
+    wgpu::TextureFormat::Depth32Float.into()
+  }
+
+  fn color_format(&self) -> &[wgpu::TextureFormat] {
+    // self.color_format.as_slice()
+    todo!()
+  }
+}
+
+
+impl ViewerRenderPassCreator for HighLight {
+  type TargetResource = wgpu::TextureView;
+
+  fn create_pass<'a>(
+    &'a self,
+    scene: &Scene,
+    target: &'a Self::TargetResource,
+    encoder: &'a mut wgpu::CommandEncoder,
+  ) -> wgpu::RenderPass<'a> {
+    todo!()
+  }
+}
+
+
+pub struct SimplePipeline {
+  forward: StandardForward, 
+  highlight: HighLight,
+}
+
+impl Scene {
+  pub fn create_pass<P>(&mut self, pass: &mut P) -> RenderPassDispatcher<P> {
+    // RenderPassDispatcher {
+    //     scene: self,
+    //     pass,
+    //   }
+    todo!()
+  }
+}
+
+impl Pipeline for SimplePipeline {
+  #[rustfmt::skip]
+  fn render(&mut self, engine: &RenderEngine, scene: &mut Scene) {
+    let scene_main_content = scene.create_pass(&mut self.forward);  
+
+    let mut scene_color = attachment()
+    .format(wgpu::TextureFormat::Rgba8Unorm)
+    .request(engine);
+
+    let mut scene_depth = depth_attachment()
+    .format(wgpu::TextureFormat::Depth32Float)
+    .request(engine);
+
+    pass("scene_pass")
+      .with_color(&mut scene_color, clear(color(0.1, 0.2, 0.3)))
+      .with_depth(&mut scene_depth, clear(1.))
+      .render_by(scene_main_content);
+
+    let mut high_light_object_mask = attachment()
+    .format(wgpu::TextureFormat::Rgba8Unorm)
+    .request(engine);
+
+     
+    let high_light_object = scene.create_pass(&mut self.highlight); 
+
+    pass("high_light_pass")
+      .with_color(&mut high_light_object_mask, clear(color_same(1.)))
+      .render_by(high_light_object);
+
+
+    pass("final_compose")
+      // .with_color(&mut scene_color, clear(color(0.1, 0.2, 0.3)))
+      .with_color(&mut engine.screen(), clear(color_same(1.)))
+      .render_by(copy(&mut scene_color))
+      .render_by(high_light_blend(&mut high_light_object_mask))
+      .run(engine);
+  }
+}
+
+
+pub struct HiLighter<'a> {
+  source: &'a mut Attachment,
+}
+
+impl<'a> Renderable for HiLighter<'a> {
+  fn setup_pass<'r>(&'r self, pass: &mut wgpu::RenderPass<'r>) {
+    todo!()
+  }
+}
+
+pub fn high_light_blend<'a>(source: &'a mut Attachment) -> HiLighter<'a> {
+  todo!()
 }
 
 pub struct Copier<'a> {
