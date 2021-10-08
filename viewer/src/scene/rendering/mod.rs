@@ -3,8 +3,8 @@ use rendiation_webgpu::*;
 use super::*;
 pub mod forward;
 pub use forward::*;
-// pub mod rg;
-// pub use rg::*;
+pub mod rg;
+pub use rg::*;
 
 pub trait ViewerRenderPass {
   fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
