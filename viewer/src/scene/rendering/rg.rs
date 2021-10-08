@@ -56,15 +56,24 @@ pub fn depth_attachment() -> DepthAttachmentDescriptor {
 pub struct DepthAttachment {
   pool: ResourcePool,
   des: DepthAttachmentDescriptor,
-  id: usize,
+  size: Size,
+  texture: Option<wgpu::Texture>,
+}
+
+impl Drop for DepthAttachment {
+  fn drop(&mut self) {
+    let mut pool = self.pool.inner.borrow_mut();
+    let cached = pool.attachments.entry((self.size, self.des.format)).or_insert_with(Default::default);
+    cached.push(self.texture.take().unwrap())
+  }
 }
 
 pub struct DepthAttachmentDescriptor {
   format: wgpu::TextureFormat,
-  sizer: Box<dyn FnOnce(Size) -> Size>,
+  sizer: Box<dyn Fn(Size) -> Size>,
 }
 
-fn default_sizer() -> Box<dyn FnOnce(Size) -> Size> {
+fn default_sizer() -> Box<dyn Fn(Size) -> Size> {
   Box::new(|size|size)
 }
 
@@ -76,9 +85,28 @@ impl DepthAttachmentDescriptor {
 }
 
 impl DepthAttachmentDescriptor {
+  // #[track_caller]
   pub fn request(self, engine: &RenderEngine) -> DepthAttachment {
     let size = (self.sizer)(engine.output_size);
-    todo!()
+    let mut resource = engine.resource.inner.borrow_mut();
+    let cached = resource.attachments.entry((size, self.format)).or_insert_with(Default::default);
+    let texture = cached.pop().unwrap_or_else(|| {
+      engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
+        label: None,
+        size: size.into_gpu_size(),
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: self.format,
+        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      })
+    });
+    DepthAttachment{
+      pool: engine.resource.clone(),
+      des: self,
+      size,
+      texture: texture.into(),
+    }
     
   }
 }
@@ -91,7 +119,7 @@ pub struct Attachment {
 
 pub struct AttachmentDescriptor {
   format: wgpu::TextureFormat,
-  sizer: Box<dyn FnOnce(Size) -> Size>,
+  sizer: Box<dyn Fn(Size) -> Size>,
 }
 
 impl AttachmentDescriptor {
