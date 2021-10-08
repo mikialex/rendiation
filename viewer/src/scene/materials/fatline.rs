@@ -16,50 +16,6 @@ pub struct FatLineMaterialGPU {
   bindgroup: MaterialBindGroup,
 }
 
-impl MaterialMeshLayoutRequire for FatLineMaterial {
-  type VertexInput = Vec<FatLineVertex>;
-}
-
-pub struct FatLineVertex {
-  start: Vec3<f32>,
-  end: Vec3<f32>,
-  color: Vec3<f32>,
-}
-
-impl VertexBufferSourceType for FatLineVertex {
-  fn vertex_layout() -> VertexBufferLayout<'static> {
-    VertexBufferLayout {
-      array_stride: std::mem::size_of::<Self>() as u64,
-      step_mode: VertexStepMode::Instance,
-      attributes: &[
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: 0,
-          shader_location: 0,
-        },
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: 4 * 3,
-          shader_location: 1,
-        },
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: 4 * 3 + 4 * 3,
-          shader_location: 2,
-        },
-      ],
-    }
-  }
-
-  fn get_shader_header() -> &'static str {
-    r#"
-      [[location(1)]] fatline_start: vec3<f32>,
-      [[location(2)]] fatline_end: vec3<f32>,
-      [[location(3)]] fatline_color: vec3<f32>,
-    "#
-  }
-}
-
 pub struct FatlineMaterialGPU {
   state_id: ValueID<MaterialStates>,
   _uniform: UniformBuffer<f32>,
