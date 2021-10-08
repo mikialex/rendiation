@@ -1,15 +1,19 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use futures::stream::Forward;
 use rendiation_algebra::Vec3;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
 use crate::{RenderPassDispatcher, Scene, StandardForward, ViewerRenderPass, ViewerRenderPassCreator};
 
+pub struct ResourcePoolInner{
+  pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
+}
+
+
+#[derive(Clone)]
 pub struct ResourcePool {
-  pub textures: HashMap<String, Texture>,
-  pub buffers: HashMap<String, Buffer>,
+  pub inner: Rc<RefCell<ResourcePoolInner>>
 }
 
 impl Default for ResourcePool {
@@ -25,6 +29,8 @@ pub struct PassNode {
 pub struct RenderEngine {
   resource: ResourcePool,
   gpu: GPU,
+  output_size: Size,
+  output: wgpu::TextureView
 }
 
 impl RenderEngine {
@@ -34,13 +40,17 @@ impl RenderEngine {
 }
 
 pub fn attachment() -> AttachmentDescriptor {
-  //
-  todo!()
+  AttachmentDescriptor {
+    format: wgpu::TextureFormat::Rgba8Unorm,
+    sizer: default_sizer(),
+  }
 }
 
 pub fn depth_attachment() -> DepthAttachmentDescriptor {
-  //
-  todo!()
+  DepthAttachmentDescriptor {
+    format: wgpu::TextureFormat::Depth24PlusStencil8,
+    sizer: default_sizer(),
+  }
 }
 
 pub struct DepthAttachment {
@@ -54,15 +64,22 @@ pub struct DepthAttachmentDescriptor {
   sizer: Box<dyn FnOnce(Size) -> Size>,
 }
 
+fn default_sizer() -> Box<dyn FnOnce(Size) -> Size> {
+  Box::new(|size|size)
+}
+
 impl DepthAttachmentDescriptor {
-  pub fn format(self, format: wgpu::TextureFormat) -> Self {
+  pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
+    self.format = format;
     self
   }
 }
 
 impl DepthAttachmentDescriptor {
   pub fn request(self, engine: &RenderEngine) -> DepthAttachment {
+    let size = (self.sizer)(engine.output_size);
     todo!()
+    
   }
 }
 
@@ -78,13 +95,15 @@ pub struct AttachmentDescriptor {
 }
 
 impl AttachmentDescriptor {
-  pub fn format(self, format: wgpu::TextureFormat) -> Self {
+  pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
+    self.format = format;
     self
   }
 }
 
 impl AttachmentDescriptor {
   pub fn request(self, engine: &RenderEngine) -> Attachment {
+    let size = (self.sizer)(engine.output_size);
     todo!()
   }
 }
@@ -154,7 +173,8 @@ impl Pipeline for SimplePipeline {
     pass("scene_pass")
       .with_color(&mut scene_color, clear(color(0.1, 0.2, 0.3)))
       .with_depth(&mut scene_depth, clear(1.))
-      .render_by(scene_main_content);
+      .render_by(scene_main_content)
+      .run(engine);
 
     let mut high_light_object_mask = attachment()
     .format(wgpu::TextureFormat::Rgba8Unorm)
@@ -165,7 +185,8 @@ impl Pipeline for SimplePipeline {
 
     pass("high_light_pass")
       .with_color(&mut high_light_object_mask, clear(color_same(1.)))
-      .render_by(high_light_object);
+      .render_by(high_light_object)
+      .run(engine);
 
 
     pass("final_compose")
@@ -218,7 +239,33 @@ pub struct PassDescriptor {
   channels: Vec<(wgpu::Operations<f32>, usize)>,
 }
 
+impl ViewerRenderPass for PassDescriptor {
+  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat> {
+   todo!()
+  }
+
+  fn color_format(&self) -> &[wgpu::TextureFormat] {
+    // self.color_format.as_slice()
+    todo!()
+  }
+}
+
+
+impl ViewerRenderPassCreator for PassDescriptor {
+  type TargetResource = wgpu::TextureView;
+
+  fn create_pass<'a>(
+    &'a self,
+    scene: &Scene,
+    target: &'a Self::TargetResource,
+    encoder: &'a mut wgpu::CommandEncoder,
+  ) -> wgpu::RenderPass<'a> {
+    todo!()
+  }
+}
+
 impl PassDescriptor {
+  #[must_use]
   pub fn with_color(
     self,
     attachment: &mut Attachment,
@@ -227,6 +274,7 @@ impl PassDescriptor {
     self
   }
 
+  #[must_use]
   pub fn with_depth(
     self,
     attachment: &mut DepthAttachment,
@@ -235,12 +283,16 @@ impl PassDescriptor {
     self
   }
 
+  #[must_use]
   pub fn render_by(self, renderable: impl Renderable) -> Self {
     self
   }
 
   pub fn run(self, engine: &RenderEngine) {
-    //
+    // engine.gpu.render(RenderPassDispatcher{
+    //     scene: todo!(),
+    //     pass: todo!(),
+    // })
   }
 }
 
