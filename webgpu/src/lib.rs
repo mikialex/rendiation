@@ -14,6 +14,8 @@ mod surface;
 mod texture;
 mod uniform;
 
+use std::{borrow::BorrowMut, cell::RefCell};
+
 pub use encoder::*;
 pub use queue::*;
 pub use render_target::*;
@@ -73,6 +75,7 @@ pub struct GPU {
   adaptor: wgpu::Adapter,
   pub device: wgpu::Device,
   pub queue: wgpu::Queue,
+  pub encoder: RefCell<wgpu::CommandEncoder>,
 }
 
 pub trait SurfaceProvider {
@@ -110,11 +113,18 @@ impl GPU {
       .await
       .expect("Unable to find a suitable GPU device!");
 
+    let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+      label: "Main GPU encoder".into(),
+    });
+
+    let encoder = RefCell::new(encoder);
+
     Self {
       instance,
       adaptor,
       device,
       queue,
+      encoder,
     }
   }
   pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
@@ -140,31 +150,50 @@ impl GPU {
 
     let surface = GPUSurface::new(&adaptor, &device, surface, size);
 
+    let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+      label: "Main GPU encoder".into(),
+    });
+
+    let encoder = RefCell::new(encoder);
+
     (
       Self {
         instance,
         adaptor,
         device,
         queue,
+        encoder,
       },
       surface,
     )
   }
-  pub fn render<R, T>(&self, renderable: &mut R, target: &T)
+
+  pub fn submit(&self) {
+    let mut encoder = self
+      .device
+      .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: "Main GPU encoder".into(),
+      });
+
+    let mut current_encoder = self.encoder.borrow_mut();
+    let current_encoder: &mut wgpu::CommandEncoder = &mut current_encoder;
+
+    std::mem::swap(current_encoder, &mut encoder);
+
+    self.queue.submit(Some(encoder.finish()));
+  }
+
+  pub fn render_pass<R, T>(&self, renderable: &mut R, target: &T)
   where
     R: Renderable,
     R: RenderPassCreator<T>,
   {
-    let mut encoder = self
-      .device
-      .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    let mut encoder = self.encoder.borrow_mut();
     {
       renderable.update(self, &mut encoder);
       let mut pass = renderable.create(target, &mut encoder);
       renderable.setup_pass(&mut pass);
     }
-
-    self.queue.submit(Some(encoder.finish()));
   }
 }
 
@@ -172,7 +201,6 @@ pub trait VertexBufferSourceType {
   fn vertex_layout() -> wgpu::VertexBufferLayout<'static>;
   fn get_shader_header() -> &'static str;
 }
-
 
 pub trait IndexBufferSourceType: Pod {
   const FORMAT: wgpu::IndexFormat;

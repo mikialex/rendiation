@@ -178,7 +178,7 @@ impl<T> ApplicationInner<T> {
       .create_view(&wgpu::TextureViewDescriptor::default());
 
     self.current_perf.rendering_dispatch_time = time_measure(|| {
-      self.gpu.render(
+      self.gpu.render_pass(
         &mut WebGPUxUIRenderPass {
           fonts: &self.fonts,
           renderer: &mut self.ui_renderer,
@@ -187,6 +187,8 @@ impl<T> ApplicationInner<T> {
         &view,
       )
     });
+
+    self.gpu.submit();
   }
 
   fn execute(&mut self, frame: SurfaceFrame) {

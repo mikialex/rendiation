@@ -131,7 +131,7 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn render(&mut self, target: &wgpu::TextureView, gpu: &GPU, scene: &mut Viewer3dContent) {
-    gpu.render(
+    gpu.render_pass(
       &mut RenderPassDispatcher {
         scene: &mut scene.scene,
         pass: &mut self.forward,
