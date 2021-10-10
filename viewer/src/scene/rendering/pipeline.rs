@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
 use rendiation_algebra::Vec3;
 use rendiation_texture::Size;
@@ -25,11 +25,11 @@ pub struct RenderEngine {
   resource: ResourcePool,
   gpu: GPU,
   output_size: Size,
-  output: wgpu::TextureView,
+  output: Rc<wgpu::TextureView>,
 }
 
 impl RenderEngine {
-  pub fn screen(&self) -> Attachment<wgpu::TextureFormat> {
+  pub fn screen(&self) -> AttachmentWriteView<wgpu::TextureFormat> {
     todo!()
   }
 }
@@ -80,8 +80,8 @@ impl<F: AttachmentFormat> Drop for Attachment<F> {
 }
 
 pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
-  attachment: &'a mut Attachment<F>,
-  view: wgpu::TextureView,
+  phantom: PhantomData<&'a Attachment<F>>,
+  view: Rc<wgpu::TextureView>, // todo opt enum
 }
 
 pub struct AttachmentReadView<'a, F: AttachmentFormat> {
@@ -215,7 +215,7 @@ impl SimplePipeline {
       .request(engine);
 
     pass("scene_pass")
-      .with_color(engine.screen().write(), clear(color(0.1, 0.2, 0.3)))
+      .with_color(engine.screen(), clear(color(0.1, 0.2, 0.3)))
       .with_depth(scene_depth.write(), clear(1.))
       .render_by(BackGroundRendering)
       .render_by(scene_main_content)
@@ -252,8 +252,8 @@ impl SimplePipeline {
       .run(engine, scene);
 
     pass("final_compose")
-      .with_color(engine.screen().write(), clear(color_same(1.)))
-      .render_by(copy(scene_color))
+      .with_color(scene_color.write(), clear(color_same(1.)))
+      .with_color(engine.screen(), clear(color_same(1.)))
       .render_by(high_light_blend(high_light_object_mask))
       .run(engine, scene);
   }
@@ -262,6 +262,7 @@ impl SimplePipeline {
 pub fn pass(name: &'static str) -> PassDescriptor {
   PassDescriptor {
     name,
+    phantom: PhantomData,
     channels: Vec::new(),
     tasks: Vec::new(),
     depth_stencil_target: None,
@@ -270,17 +271,10 @@ pub fn pass(name: &'static str) -> PassDescriptor {
 
 pub struct PassDescriptor<'a> {
   name: &'static str,
-  channels: Vec<(
-    wgpu::Operations<wgpu::Color>,
-    &'a mut Attachment<wgpu::TextureFormat>,
-    wgpu::TextureView,
-  )>,
+  phantom: PhantomData<&'a Attachment<wgpu::TextureFormat>>,
+  channels: Vec<(wgpu::Operations<wgpu::Color>, Rc<wgpu::TextureView>)>,
   tasks: Vec<Box<dyn PassContent>>,
-  depth_stencil_target: Option<(
-    wgpu::Operations<f32>,
-    Attachment<wgpu::TextureFormat>,
-    wgpu::TextureView,
-  )>,
+  depth_stencil_target: Option<(wgpu::Operations<f32>, Rc<wgpu::TextureView>)>,
 }
 
 impl<'a> ViewerRenderPass for PassDescriptor<'a> {
@@ -301,9 +295,7 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView<'a, wgpu::TextureFormat>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    self
-      .channels
-      .push((op.into(), attachment.attachment, attachment.view));
+    self.channels.push((op.into(), attachment.view));
     self
   }
 
@@ -315,7 +307,7 @@ impl<'a> PassDescriptor<'a> {
   ) -> Self {
     self
       .depth_stencil_target
-      .replace((op.into(), attachment.attachment.clone(), attachment.view));
+      .replace((op.into(), attachment.view));
     self
   }
 
@@ -333,14 +325,14 @@ impl<'a> PassDescriptor<'a> {
     let color_attachments: Vec<_> = self
       .channels
       .iter()
-      .map(|(ops, _, view)| wgpu::RenderPassColorAttachment {
+      .map(|(ops, view)| wgpu::RenderPassColorAttachment {
         view,
         resolve_target: None,
         ops: *ops,
       })
       .collect();
 
-    let depth_stencil_attachment = self.depth_stencil_target.as_ref().map(|(ops, _, view)| {
+    let depth_stencil_attachment = self.depth_stencil_target.as_ref().map(|(ops, view)| {
       wgpu::RenderPassDepthStencilAttachment {
         view,
         depth_ops: (*ops).into(),

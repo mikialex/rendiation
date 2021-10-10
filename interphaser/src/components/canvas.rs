@@ -36,7 +36,7 @@ impl LayoutAble for GPUCanvas {
 pub trait CanvasPrinter {
   fn event(&mut self, event: &winit::event::Event<()>);
   fn update_render_size(&mut self, layout_size: (f32, f32), gpu: &GPU) -> (u32, u32);
-  fn draw_canvas(&mut self, gpu: &GPU, canvas: &wgpu::TextureView);
+  fn draw_canvas(&mut self, gpu: &GPU, canvas: Rc<wgpu::TextureView>);
 }
 
 impl<T: CanvasPrinter> Component<T> for GPUCanvas {
@@ -71,7 +71,7 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
           let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
           Rc::new(view)
         });
-        model.draw_canvas(&event.gpu, target);
+        model.draw_canvas(&event.gpu, target.clone());
       }
       _ => {}
     }

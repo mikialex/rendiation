@@ -1,4 +1,6 @@
 pub mod examples;
+use std::rc::Rc;
+
 pub use examples::*;
 
 pub mod view;
@@ -80,7 +82,7 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
 }
 
 impl CanvasPrinter for ViewerInner {
-  fn draw_canvas(&mut self, gpu: &GPU, canvas: &wgpu::TextureView) {
+  fn draw_canvas(&mut self, gpu: &GPU, canvas: Rc<wgpu::TextureView>) {
     self.content.update_state();
     self
       .ctx
@@ -130,7 +132,7 @@ impl Viewer3dRenderingCtx {
     self.forward.resize(gpu, size)
   }
 
-  pub fn render(&mut self, target: &wgpu::TextureView, gpu: &GPU, scene: &mut Viewer3dContent) {
+  pub fn render(&mut self, target: Rc<wgpu::TextureView>, gpu: &GPU, scene: &mut Viewer3dContent) {
     scene.scene.maintain(&gpu.device, &gpu.queue);
 
     gpu.render_pass(
@@ -138,7 +140,7 @@ impl Viewer3dRenderingCtx {
         scene: &mut scene.scene,
         pass: &mut self.forward,
       },
-      target,
+      target.as_ref(),
     );
   }
 }
