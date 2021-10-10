@@ -50,7 +50,7 @@ pub struct RenderPassDispatcher<'a, S> {
   pub pass: &'a mut S,
 }
 
-impl<'a, S: ViewerRenderPassCreator + ViewerRenderPass> Renderable for RenderPassDispatcher<'a, S> {
+impl<'a, S: ViewerRenderPass> Renderable for RenderPassDispatcher<'a, S> {
   fn setup_pass<'p>(&'p self, pass: &mut wgpu::RenderPass<'p>) {
     let scene = &self.scene;
     let models = &scene.models;

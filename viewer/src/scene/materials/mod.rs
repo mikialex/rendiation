@@ -352,3 +352,9 @@ impl PipelineResourceManager {
       .unwrap()
   }
 }
+
+impl Default for PipelineResourceManager {
+  fn default() -> Self {
+    Self::new()
+  }
+}

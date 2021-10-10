@@ -4,9 +4,7 @@ use rendiation_algebra::Vec3;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::{
-  RenderPassDispatcher, Scene, StandardForward, ViewerRenderPass, ViewerRenderPassCreator,
-};
+use crate::{Scene, StandardForward, ViewerRenderPass};
 
 pub struct ResourcePoolInner {
   pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
@@ -61,6 +59,12 @@ pub struct Attachment<F: AttachmentFormat> {
   texture: Option<Rc<wgpu::Texture>>,
 }
 
+impl<F: AttachmentFormat> Attachment<F> {
+  pub fn write(&mut self) -> AttachmentWriteView<F> {
+    todo!()
+  }
+}
+
 impl<F: AttachmentFormat> Drop for Attachment<F> {
   fn drop(&mut self) {
     if let Ok(texture) = Rc::try_unwrap(self.texture.take().unwrap()) {
@@ -73,6 +77,16 @@ impl<F: AttachmentFormat> Drop for Attachment<F> {
       cached.push(texture)
     }
   }
+}
+
+pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
+  attachment: &'a mut Attachment<F>,
+  view: wgpu::TextureView,
+}
+
+pub struct AttachmentReadView<'a, F: AttachmentFormat> {
+  attachment: &'a Attachment<F>,
+  view: wgpu::TextureView,
 }
 
 pub struct AttachmentDescriptor<F> {
@@ -98,7 +112,6 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
 }
 
 impl<F: AttachmentFormat> AttachmentDescriptor<F> {
-  // #[track_caller]
   pub fn request(self, engine: &RenderEngine) -> Attachment<F> {
     let size = (self.sizer)(engine.output_size);
     let mut resource = engine.resource.inner.borrow_mut();
@@ -145,32 +158,9 @@ impl ViewerRenderPass for HighLight {
   }
 }
 
-impl ViewerRenderPassCreator for HighLight {
-  type TargetResource = wgpu::TextureView;
-
-  fn create_pass<'a>(
-    &'a self,
-    scene: &Scene,
-    target: &'a Self::TargetResource,
-    encoder: &'a mut wgpu::CommandEncoder,
-  ) -> wgpu::RenderPass<'a> {
-    todo!()
-  }
-}
-
 pub struct SimplePipeline {
   forward: StandardForward,
   highlight: HighLight,
-}
-
-impl Scene {
-  pub fn create_pass<P>(&mut self, pass: &mut P) -> RenderPassDispatcher<P> {
-    // RenderPassDispatcher {
-    //     scene: self,
-    //     pass,
-    //   }
-    todo!()
-  }
 }
 
 pub struct SceneDispatcher {
@@ -224,8 +214,8 @@ impl Pipeline for SimplePipeline {
       .request(engine);
 
     pass("scene_pass")
-      .with_color(&mut scene_color, clear(color(0.1, 0.2, 0.3)))
-      .with_depth(&mut scene_depth, clear(1.))
+      .with_color(scene_color.write(), clear(color(0.1, 0.2, 0.3)))
+      .with_depth(scene_depth.write(), clear(1.))
       .render_by(scene_main_content)
       .run(engine, scene);
 
@@ -236,25 +226,35 @@ impl Pipeline for SimplePipeline {
     let high_light_object = scene.create_content(&mut self.highlight);
 
     pass("high_light_pass")
-      .with_color(&mut high_light_object_mask, clear(color_same(1.)))
+      .with_color( high_light_object_mask.write(), clear(color_same(1.)))
       .render_by(high_light_object)
       .run(engine, scene);
 
     pass("final_compose")
-      // .with_color(&mut scene_color, clear(color(0.1, 0.2, 0.3)))
-      .with_color(&mut engine.screen(), clear(color_same(1.)))
+      // .with_color(scene_color.write(), clear(color(0.1, 0.2, 0.3))) // read write same texture is compile error
+      .with_color(engine.screen().write(), clear(color_same(1.)))
       .render_by(copy(scene_color))
       .render_by(high_light_blend(high_light_object_mask))
       .run(engine, scene);
   }
 }
 
-pub struct HiLighter<'a> {
-  source: &'a mut Attachment<wgpu::TextureFormat>,
+pub struct HiLighter {
+  source: Attachment<wgpu::TextureFormat>,
 }
 
-impl<'a> Renderable for HiLighter<'a> {
-  fn setup_pass<'r>(&'r self, pass: &mut wgpu::RenderPass<'r>) {
+impl PassContent for HiLighter {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner) {
+    // get resource pool texture and view , update bindgroup
+    todo!()
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    scene: &'a Scene,
+    resource: &'a ResourcePoolInner,
+  ) {
     todo!()
   }
 }
@@ -286,17 +286,22 @@ pub fn pass(name: &'static str) -> PassDescriptor {
   }
 }
 
-pub struct PassDescriptor {
+pub struct PassDescriptor<'a> {
   name: &'static str,
   channels: Vec<(
     wgpu::Operations<wgpu::Color>,
-    Attachment<wgpu::TextureFormat>,
+    &'a mut Attachment<wgpu::TextureFormat>,
+    wgpu::TextureView,
   )>,
   tasks: Vec<Box<dyn PassContent>>,
-  depth_stencil_target: Option<(wgpu::Operations<f32>, Attachment<wgpu::TextureFormat>)>,
+  depth_stencil_target: Option<(
+    wgpu::Operations<f32>,
+    Attachment<wgpu::TextureFormat>,
+    wgpu::TextureView,
+  )>,
 }
 
-impl ViewerRenderPass for PassDescriptor {
+impl<'a> ViewerRenderPass for PassDescriptor<'a> {
   fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat> {
     todo!()
   }
@@ -307,39 +312,28 @@ impl ViewerRenderPass for PassDescriptor {
   }
 }
 
-impl ViewerRenderPassCreator for PassDescriptor {
-  type TargetResource = wgpu::TextureView;
-
-  fn create_pass<'a>(
-    &'a self,
-    scene: &Scene,
-    target: &'a Self::TargetResource,
-    encoder: &'a mut wgpu::CommandEncoder,
-  ) -> wgpu::RenderPass<'a> {
-    todo!()
-  }
-}
-
-impl PassDescriptor {
+impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_color(
     mut self,
-    attachment: &mut Attachment<wgpu::TextureFormat>,
+    attachment: AttachmentWriteView<'a, wgpu::TextureFormat>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    self.channels.push((op.into(), attachment.clone()));
+    self
+      .channels
+      .push((op.into(), attachment.attachment, attachment.view));
     self
   }
 
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: &mut Attachment<wgpu::TextureFormat>,
+    attachment: AttachmentWriteView<wgpu::TextureFormat>,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
     self
       .depth_stencil_target
-      .replace((op.into(), attachment.clone()));
+      .replace((op.into(), attachment.attachment.clone(), attachment.view));
     self
   }
 
@@ -349,7 +343,7 @@ impl PassDescriptor {
     self
   }
 
-  pub fn run(self, engine: &RenderEngine, scene: &SceneDispatcher) {
+  pub fn run(mut self, engine: &RenderEngine, scene: &SceneDispatcher) {
     let mut resource = engine.resource.inner.borrow_mut();
 
     let mut encoder = engine.gpu.encoder.borrow_mut();
@@ -357,23 +351,27 @@ impl PassDescriptor {
     let color_attachments: Vec<_> = self
       .channels
       .iter()
-      .map(|(ops, attachment)| wgpu::RenderPassColorAttachment {
-        view: &attachment.texture.as_ref().unwrap().create_view(todo!()),
+      .map(|(ops, _, view)| wgpu::RenderPassColorAttachment {
+        view,
         resolve_target: None,
         ops: *ops,
       })
       .collect();
 
-    let depth_stencil_attachment =
-      self
-        .depth_stencil_target
-        .map(|(ops, attachment)| wgpu::RenderPassDepthStencilAttachment {
-          view: &attachment.texture.as_ref().unwrap().create_view(todo!()),
-          depth_ops: ops.into(),
-          stencil_ops: None,
-        });
+    let depth_stencil_attachment = self.depth_stencil_target.as_ref().map(|(ops, _, view)| {
+      wgpu::RenderPassDepthStencilAttachment {
+        view,
+        depth_ops: (*ops).into(),
+        stencil_ops: None,
+      }
+    });
 
-    let scene = scene.scene.borrow();
+    let mut scene = scene.scene.borrow_mut();
+
+    for task in &mut self.tasks {
+      task.update(&engine.gpu, &mut scene, &mut resource)
+    }
+
     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
       label: self.name.into(),
       color_attachments: color_attachments.as_slice(),
@@ -386,13 +384,17 @@ impl PassDescriptor {
   }
 }
 
-pub fn color(r: f32, g: f32, b: f32) -> wgpu::Color {
-  todo!()
+pub fn color(r: f64, g: f64, b: f64) -> wgpu::Color {
+  wgpu::Color { r, g, b, a: 1. }
 }
 
-pub fn color_same(r: f32) -> wgpu::Color {
-  // or use marco?
-  todo!()
+pub fn color_same(r: f64) -> wgpu::Color {
+  wgpu::Color {
+    r,
+    g: r,
+    b: r,
+    a: 1.,
+  }
 }
 
 pub fn clear<V>(v: V) -> Operations<V> {
