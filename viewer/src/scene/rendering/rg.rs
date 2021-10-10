@@ -179,14 +179,26 @@ pub struct SceneDispatcher {
 
 impl SceneDispatcher {
   pub fn create_content<T>(&self, test: &mut T) -> impl PassContent {
-    todo!();
+    ForwardPass
   }
 }
 
-// pub struct RenderTask {
-//   scene: Rc<RefCell<Scene>>,
-//   content: Box<dyn PassContent>,
-// }
+pub struct ForwardPass;
+
+impl PassContent for ForwardPass {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner) {
+    todo!()
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    scene: &'a Scene,
+    resource: &'a ResourcePoolInner,
+  ) {
+    todo!()
+  }
+}
 
 pub trait PassContent: 'static {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner);
@@ -248,7 +260,7 @@ impl<'a> Renderable for HiLighter<'a> {
 }
 
 pub fn high_light_blend(source: Attachment<wgpu::TextureFormat>) -> impl PassContent {
-  todo!()
+  ForwardPass
 }
 
 pub struct Copier<'a> {
@@ -262,7 +274,7 @@ impl<'a> Renderable for Copier<'a> {
 }
 
 pub fn copy(source: Attachment<wgpu::TextureFormat>) -> impl PassContent {
-  todo!()
+  ForwardPass
 }
 
 pub fn pass(name: &'static str) -> PassDescriptor {
@@ -361,6 +373,7 @@ impl PassDescriptor {
           stencil_ops: None,
         });
 
+    let scene = scene.scene.borrow();
     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
       label: self.name.into(),
       color_attachments: color_attachments.as_slice(),
@@ -368,9 +381,7 @@ impl PassDescriptor {
     });
 
     for task in &self.tasks {
-      let mut scene = scene.scene.borrow_mut();
-
-      task.content.setup_pass(&mut pass, &scene, &resource)
+      task.setup_pass(&mut pass, &scene, &resource)
     }
   }
 }
