@@ -4,10 +4,7 @@ use rendiation_algebra::Vec3;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::{
-  high_light_blend, CameraBindgroup, RenderList, Scene, SceneMaterialRenderPrepareCtxBase,
-  StandardForward, ViewerRenderPass,
-};
+use crate::*;
 
 pub struct ResourcePoolInner {
   pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
@@ -142,10 +139,6 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
   }
 }
 
-pub trait Pipeline {
-  fn render(&mut self, engine: &RenderEngine, scene: &SceneDispatcher);
-}
-
 pub struct HighLight {
   color: Vec3<f32>,
 }
@@ -159,11 +152,6 @@ impl ViewerRenderPass for HighLight {
     // self.color_format.as_slice()
     todo!()
   }
-}
-
-pub struct SimplePipeline {
-  forward: StandardForward,
-  highlight: HighLight,
 }
 
 pub struct SceneDispatcher {
@@ -212,9 +200,30 @@ pub trait PassContent: 'static {
   );
 }
 
-impl Pipeline for SimplePipeline {
+pub struct SimplePipeline {
+  forward: StandardForward,
+  highlight: HighLight,
+}
+
+impl SimplePipeline {
   #[rustfmt::skip]
-  fn render(&mut self, engine: &RenderEngine, scene: &SceneDispatcher, ) {
+  pub fn render_simple(&mut self, engine: &RenderEngine, scene: &SceneDispatcher, ) {
+    let scene_main_content = scene.create_content(&mut self.forward);
+
+    let mut scene_depth = depth_attachment()
+      .format(wgpu::TextureFormat::Depth32Float)
+      .request(engine);
+
+    pass("scene_pass")
+      .with_color(engine.screen().write(), clear(color(0.1, 0.2, 0.3)))
+      .with_depth(scene_depth.write(), clear(1.))
+      .render_by(BackGroundRendering)
+      .render_by(scene_main_content)
+      .run(engine, scene);
+  }
+
+  #[rustfmt::skip]
+  pub fn render(&mut self, engine: &RenderEngine, scene: &SceneDispatcher, ) {
     let scene_main_content = scene.create_content(&mut self.forward);
 
     let mut scene_color = attachment()
@@ -248,20 +257,6 @@ impl Pipeline for SimplePipeline {
       .render_by(high_light_blend(high_light_object_mask))
       .run(engine, scene);
   }
-}
-
-pub struct Copier<'a> {
-  source: &'a mut Attachment<wgpu::TextureFormat>,
-}
-
-impl<'a> Renderable for Copier<'a> {
-  fn setup_pass<'r>(&'r self, pass: &mut wgpu::RenderPass<'r>) {
-    todo!()
-  }
-}
-
-pub fn copy(source: Attachment<wgpu::TextureFormat>) -> impl PassContent {
-  ForwardScene::default()
 }
 
 pub fn pass(name: &'static str) -> PassDescriptor {

@@ -1,3 +1,7 @@
+use rendiation_webgpu::GPU;
+
+use crate::*;
+
 pub struct BackGroundRendering;
 
 impl PassContent for BackGroundRendering {

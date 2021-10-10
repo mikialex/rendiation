@@ -3,15 +3,18 @@ use rendiation_webgpu::*;
 use super::*;
 pub mod forward;
 pub use forward::*;
-pub mod rg;
-pub use rg::*;
+pub mod pipeline;
+pub use pipeline::*;
 
 pub mod list;
 pub use list::*;
 
-
 pub mod highlight;
 pub use highlight::*;
+pub mod background;
+pub use background::*;
+pub mod utils;
+pub use utils::*;
 
 pub trait ViewerRenderPass {
   fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
