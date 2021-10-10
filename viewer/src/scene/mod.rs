@@ -85,7 +85,7 @@ impl Scene {
       layouts: BindGroupLayoutManager::new(),
       active_camera: None,
       active_camera_gpu: None,
-      render_list: RenderList::new(),
+      render_list: Default::default(),
       reference_finalization: Default::default(),
       has_registered: false,
     }
@@ -106,6 +106,19 @@ impl Scene {
 
   pub fn maintain(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
     self.register_layout(device);
+
+    let root = self.get_root_handle();
+    self
+      .nodes
+      .traverse_mut(root, &mut Vec::new(), |this, parent| {
+        let node_data = this.data_mut();
+        node_data.hierarchy_update(parent.map(|p| p.data()));
+        if node_data.net_visible {
+          NextTraverseVisit::SkipChildren
+        } else {
+          NextTraverseVisit::VisitChildren
+        }
+      });
 
     let mut material_bindgroup_dirtied = HashSet::new();
     self.texture_2ds.drain_modified().for_each(|(tex, _)| {

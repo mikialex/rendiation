@@ -4,7 +4,10 @@ use rendiation_algebra::Vec3;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::{Scene, StandardForward, ViewerRenderPass};
+use crate::{
+  CameraBindgroup, RenderList, Scene, SceneMaterialRenderPrepareCtxBase, StandardForward,
+  ViewerRenderPass,
+};
 
 pub struct ResourcePoolInner {
   pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
@@ -169,15 +172,40 @@ pub struct SceneDispatcher {
 
 impl SceneDispatcher {
   pub fn create_content<T>(&self, test: &mut T) -> impl PassContent {
-    ForwardPass
+    ForwardScene::default()
   }
 }
 
-pub struct ForwardPass;
+pub struct BackGroundRendering;
 
-impl PassContent for ForwardPass {
+impl PassContent for BackGroundRendering {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner) {
-    todo!()
+    if let Some(active_camera) = &mut scene.active_camera {
+      let camera_gpu = scene
+        .active_camera_gpu
+        .get_or_insert_with(|| CameraBindgroup::new(gpu))
+        .update(gpu, active_camera, &scene.nodes);
+
+      let mut base = SceneMaterialRenderPrepareCtxBase {
+        active_camera,
+        camera_gpu,
+        pass: todo!(),
+        pipelines: &mut scene.pipeline_resource,
+        layouts: &mut scene.layouts,
+        textures: &mut scene.texture_2ds,
+        texture_cubes: &mut scene.texture_cubes,
+        samplers: &mut scene.samplers,
+        reference_finalization: &scene.reference_finalization,
+      };
+
+      scene.background.update(
+        gpu,
+        &mut base,
+        &mut scene.materials,
+        &mut scene.meshes,
+        &mut scene.nodes,
+      );
+    }
   }
 
   fn setup_pass<'a>(
@@ -186,7 +214,42 @@ impl PassContent for ForwardPass {
     scene: &'a Scene,
     resource: &'a ResourcePoolInner,
   ) {
-    todo!()
+    scene.background.setup_pass(
+      pass,
+      &scene.materials,
+      &scene.meshes,
+      &scene.nodes,
+      scene.active_camera_gpu.as_ref().unwrap(),
+      &scene.pipeline_resource,
+      todo!(),
+    );
+  }
+  //
+}
+
+#[derive(Default)]
+pub struct ForwardScene {
+  render_list: RenderList,
+}
+
+impl PassContent for ForwardScene {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner) {
+    self.render_list.models.clear();
+
+    scene.models.iter_mut().for_each(|(handle, model)| {
+      scene.render_list.models.push(handle);
+    });
+
+    self.render_list.update(scene, gpu, todo!());
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    scene: &'a Scene,
+    resource: &'a ResourcePoolInner,
+  ) {
+    self.render_list.setup_pass(pass, scene, todo!());
   }
 }
 
@@ -202,7 +265,7 @@ pub trait PassContent: 'static {
 
 impl Pipeline for SimplePipeline {
   #[rustfmt::skip]
-  fn render(&mut self, engine: &RenderEngine, scene: &SceneDispatcher) {
+  fn render(&mut self, engine: &RenderEngine, scene: &SceneDispatcher, ) {
     let scene_main_content = scene.create_content(&mut self.forward);
 
     let mut scene_color = attachment()
@@ -231,7 +294,6 @@ impl Pipeline for SimplePipeline {
       .run(engine, scene);
 
     pass("final_compose")
-      // .with_color(scene_color.write(), clear(color(0.1, 0.2, 0.3))) // read write same texture is compile error
       .with_color(engine.screen().write(), clear(color_same(1.)))
       .render_by(copy(scene_color))
       .render_by(high_light_blend(high_light_object_mask))
@@ -260,7 +322,7 @@ impl PassContent for HiLighter {
 }
 
 pub fn high_light_blend(source: Attachment<wgpu::TextureFormat>) -> impl PassContent {
-  ForwardPass
+  ForwardScene::default()
 }
 
 pub struct Copier<'a> {
@@ -274,7 +336,7 @@ impl<'a> Renderable for Copier<'a> {
 }
 
 pub fn copy(source: Attachment<wgpu::TextureFormat>) -> impl PassContent {
-  ForwardPass
+  ForwardScene::default()
 }
 
 pub fn pass(name: &'static str) -> PassDescriptor {
