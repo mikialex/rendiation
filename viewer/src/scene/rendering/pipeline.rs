@@ -154,39 +154,6 @@ impl SceneDispatcher {
   }
 }
 
-#[derive(Default)]
-pub struct ForwardScene {
-  render_list: RenderList,
-}
-
-impl PassContent for ForwardScene {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    resource: &mut ResourcePoolInner,
-    pass: &PassTargetFormatInfo,
-  ) {
-    self.render_list.models.clear();
-
-    scene.models.iter_mut().for_each(|(handle, model)| {
-      scene.render_list.models.push(handle);
-    });
-
-    self.render_list.update(scene, gpu, pass);
-  }
-
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    scene: &'a Scene,
-    resource: &'a ResourcePoolInner,
-    pass_info: &'a PassTargetFormatInfo,
-  ) {
-    self.render_list.setup_pass(pass, scene, pass_info);
-  }
-}
-
 pub trait PassContent: 'static {
   fn update(
     &mut self,
@@ -204,9 +171,10 @@ pub trait PassContent: 'static {
   );
 }
 
+#[derive(Default)]
 pub struct SimplePipeline {
   forward: StandardForward,
-  highlight: HighLight,
+  // highlight: HighLight,
 }
 
 impl SimplePipeline {
@@ -219,48 +187,48 @@ impl SimplePipeline {
       .request(engine);
 
     pass("scene_pass")
-      .with_color(engine.screen(), clear(color(0.1, 0.2, 0.3)))
+      .with_color(engine.screen(), scene.scene.borrow().get_main_pass_load_op())
       .with_depth(scene_depth.write(), clear(1.))
       .render_by(BackGroundRendering)
       .render_by(scene_main_content)
       .run(engine, scene);
   }
 
-  #[rustfmt::skip]
-  pub fn render(&mut self, engine: &RenderEngine, scene: &SceneDispatcher, ) {
-    let scene_main_content = scene.create_content(&mut self.forward);
+  // #[rustfmt::skip]
+  // pub fn render(&mut self, engine: &RenderEngine, scene: &SceneDispatcher, ) {
+  //   let scene_main_content = scene.create_content(&mut self.forward);
 
-    let mut scene_color = attachment()
-      .format(wgpu::TextureFormat::Rgba8Unorm)
-      .request(engine);
+  //   let mut scene_color = attachment()
+  //     .format(wgpu::TextureFormat::Rgba8Unorm)
+  //     .request(engine);
 
-    let mut scene_depth = depth_attachment()
-      .format(wgpu::TextureFormat::Depth32Float)
-      .request(engine);
+  //   let mut scene_depth = depth_attachment()
+  //     .format(wgpu::TextureFormat::Depth32Float)
+  //     .request(engine);
 
-    pass("scene_pass")
-      .with_color(scene_color.write(), clear(color(0.1, 0.2, 0.3)))
-      .with_depth(scene_depth.write(), clear(1.))
-      .render_by(scene_main_content)
-      .run(engine, scene);
+  //   pass("scene_pass")
+  //     .with_color(scene_color.write(), scene.scene.borrow().get_main_pass_load_op())
+  //     .with_depth(scene_depth.write(), clear(1.))
+  //     .render_by(scene_main_content)
+  //     .run(engine, scene);
 
-    let mut high_light_object_mask = attachment()
-      .format(wgpu::TextureFormat::Rgba8Unorm)
-      .request(engine);
+  //   let mut high_light_object_mask = attachment()
+  //     .format(wgpu::TextureFormat::Rgba8Unorm)
+  //     .request(engine);
 
-    let high_light_object = scene.create_content(&mut self.highlight);
+  //   let high_light_object = scene.create_content(&mut self.highlight);
 
-    pass("high_light_pass")
-      .with_color( high_light_object_mask.write(), clear(color_same(1.)))
-      .render_by(high_light_object)
-      .run(engine, scene);
+  //   pass("high_light_pass")
+  //     .with_color( high_light_object_mask.write(), clear(color_same(1.)))
+  //     .render_by(high_light_object)
+  //     .run(engine, scene);
 
-    pass("final_compose")
-      .with_color(scene_color.write(), clear(color_same(1.)))
-      .with_color(engine.screen(), clear(color_same(1.)))
-      .render_by(high_light_blend(high_light_object_mask))
-      .run(engine, scene);
-  }
+  //   pass("final_compose")
+  //     .with_color(scene_color.write(), clear(color_same(1.)))
+  //     .with_color(engine.screen(), clear(color_same(1.)))
+  //     .render_by(high_light_blend(high_light_object_mask))
+  //     .run(engine, scene);
+  // }
 }
 
 pub fn pass(name: &'static str) -> PassDescriptor {

@@ -9,7 +9,7 @@ impl PassContent for BackGroundRendering {
     &mut self,
     gpu: &GPU,
     scene: &mut Scene,
-    resource: &mut ResourcePoolInner,
+    _resource: &mut ResourcePoolInner,
     pass_info: &PassTargetFormatInfo,
   ) {
     if let Some(active_camera) = &mut scene.active_camera {
@@ -21,7 +21,7 @@ impl PassContent for BackGroundRendering {
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,
         camera_gpu,
-        pass: todo!(),
+        pass: pass_info,
         pipelines: &mut scene.pipeline_resource,
         layouts: &mut scene.layouts,
         textures: &mut scene.texture_2ds,
@@ -44,7 +44,7 @@ impl PassContent for BackGroundRendering {
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
-    resource: &'a ResourcePoolInner,
+    _resource: &'a ResourcePoolInner,
     pass_info: &'a PassTargetFormatInfo,
   ) {
     scene.background.setup_pass(
@@ -54,7 +54,7 @@ impl PassContent for BackGroundRendering {
       &scene.nodes,
       scene.active_camera_gpu.as_ref().unwrap(),
       &scene.pipeline_resource,
-      todo!(),
+      pass_info,
     );
   }
   //

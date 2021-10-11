@@ -86,9 +86,7 @@ impl CanvasPrinter for ViewerInner {
     self.content.update_state();
     self
       .ctx
-      .get_or_insert_with(|| {
-        Viewer3dRenderingCtx::new(gpu, wgpu::TextureFormat::Rgba8UnormSrgb, self.size)
-      })
+      .get_or_insert_with(|| Default::default())
       .render(canvas, gpu, &mut self.content)
   }
 
@@ -119,17 +117,15 @@ pub struct Viewer3dContent {
   controller: ControllerWinitAdapter<OrbitController>,
 }
 
+#[derive(Default)]
 pub struct Viewer3dRenderingCtx {
-  forward: StandardForward,
+  pipeline: SimplePipeline,
 }
 
 impl Viewer3dRenderingCtx {
-  pub fn new(gpu: &GPU, prefer_target_fmt: wgpu::TextureFormat, size: (u32, u32)) -> Self {
-    let forward = StandardForward::new(gpu, prefer_target_fmt, size);
-    Self { forward }
-  }
   pub fn resize_view(&mut self, gpu: &GPU, size: (u32, u32)) {
-    self.forward.resize(gpu, size)
+    // self.forward.resize(gpu, size)
+    todo!()
   }
 
   pub fn render(&mut self, target: Rc<wgpu::TextureView>, gpu: &GPU, scene: &mut Viewer3dContent) {
