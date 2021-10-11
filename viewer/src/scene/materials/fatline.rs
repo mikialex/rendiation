@@ -119,7 +119,7 @@ impl FatLineMaterial {
 
     let targets: Vec<_> = ctx
       .pass
-      .color_format()
+      .color_formats
       .iter()
       .map(|&f| self.states.map_color_states(f))
       .collect();
@@ -146,7 +146,7 @@ impl FatLineMaterial {
         },
         depth_stencil: self
           .states
-          .map_depth_stencil_state(ctx.pass.depth_stencil_format()),
+          .map_depth_stencil_state(ctx.pass.depth_stencil_format),
         multisample: wgpu::MultisampleState::default(),
       })
   }

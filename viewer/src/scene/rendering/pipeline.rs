@@ -1,6 +1,5 @@
 use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
-use rendiation_algebra::Vec3;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
@@ -20,6 +19,7 @@ pub struct RenderEngine {
   resource: ResourcePool,
   gpu: GPU,
   output_size: Size,
+  output_format: wgpu::TextureFormat,
   output: Rc<wgpu::TextureView>,
 }
 
@@ -28,6 +28,7 @@ impl RenderEngine {
     AttachmentWriteView {
       phantom: PhantomData,
       view: self.output.clone(),
+      format: self.output_format,
     }
   }
 }
@@ -61,9 +62,14 @@ impl<F: AttachmentFormat> Attachment<F> {
   pub fn write(&mut self) -> AttachmentWriteView<F> {
     AttachmentWriteView {
       phantom: PhantomData,
-      view: self
-        .texture
-        .create_view(&wgpu::TextureViewDescriptor::default()),
+      view: Rc::new(
+        self
+          .texture
+          .as_ref()
+          .unwrap()
+          .create_view(&wgpu::TextureViewDescriptor::default()),
+      ),
+      format: self.des.format,
     }
   }
 }
@@ -85,6 +91,7 @@ impl<F: AttachmentFormat> Drop for Attachment<F> {
 pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
   phantom: PhantomData<&'a Attachment<F>>,
   view: Rc<wgpu::TextureView>, // todo opt enum
+  format: F,
 }
 
 pub struct AttachmentReadView<'a, F: AttachmentFormat> {
@@ -153,14 +160,20 @@ pub struct ForwardScene {
 }
 
 impl PassContent for ForwardScene {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner) {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    scene: &mut Scene,
+    resource: &mut ResourcePoolInner,
+    pass: &PassTargetFormatInfo,
+  ) {
     self.render_list.models.clear();
 
     scene.models.iter_mut().for_each(|(handle, model)| {
       scene.render_list.models.push(handle);
     });
 
-    self.render_list.update(scene, gpu, todo!());
+    self.render_list.update(scene, gpu, pass);
   }
 
   fn setup_pass<'a>(
@@ -168,18 +181,26 @@ impl PassContent for ForwardScene {
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
     resource: &'a ResourcePoolInner,
+    pass_info: &'a PassTargetFormatInfo,
   ) {
-    self.render_list.setup_pass(pass, scene, todo!());
+    self.render_list.setup_pass(pass, scene, pass_info);
   }
 }
 
 pub trait PassContent: 'static {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner);
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    scene: &mut Scene,
+    resource: &mut ResourcePoolInner,
+    pass_info: &PassTargetFormatInfo,
+  );
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
     resource: &'a ResourcePoolInner,
+    pass_info: &'a PassTargetFormatInfo,
   );
 }
 
@@ -249,7 +270,7 @@ pub fn pass(name: &'static str) -> PassDescriptor {
     channels: Vec::new(),
     tasks: Vec::new(),
     depth_stencil_target: None,
-    info: todo!(),
+    info: Default::default(),
   }
 }
 
@@ -262,10 +283,10 @@ pub struct PassDescriptor<'a> {
   info: PassTargetFormatInfo,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PassTargetFormatInfo {
-  depth_stencil_format: Option<wgpu::TextureFormat>,
-  color_formats: Vec<wgpu::TextureFormat>,
+  pub depth_stencil_format: Option<wgpu::TextureFormat>,
+  pub color_formats: Vec<wgpu::TextureFormat>,
 }
 
 impl<'a> PassDescriptor<'a> {
@@ -276,6 +297,7 @@ impl<'a> PassDescriptor<'a> {
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
     self.channels.push((op.into(), attachment.view));
+    self.info.color_formats.push(attachment.format);
     self
   }
 
@@ -288,6 +310,8 @@ impl<'a> PassDescriptor<'a> {
     self
       .depth_stencil_target
       .replace((op.into(), attachment.view));
+
+    self.info.depth_stencil_format.replace(attachment.format);
     self
   }
 
@@ -323,7 +347,7 @@ impl<'a> PassDescriptor<'a> {
     let mut scene = scene.scene.borrow_mut();
 
     for task in &mut self.tasks {
-      task.update(&engine.gpu, &mut scene, &mut resource)
+      task.update(&engine.gpu, &mut scene, &mut resource, &self.info)
     }
 
     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -333,7 +357,7 @@ impl<'a> PassDescriptor<'a> {
     });
 
     for task in &self.tasks {
-      task.setup_pass(&mut pass, &scene, &resource)
+      task.setup_pass(&mut pass, &scene, &resource, &self.info)
     }
   }
 }

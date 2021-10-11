@@ -5,7 +5,13 @@ use crate::*;
 pub struct BackGroundRendering;
 
 impl PassContent for BackGroundRendering {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner) {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    scene: &mut Scene,
+    resource: &mut ResourcePoolInner,
+    pass_info: &PassTargetFormatInfo,
+  ) {
     if let Some(active_camera) = &mut scene.active_camera {
       let camera_gpu = scene
         .active_camera_gpu
@@ -39,6 +45,7 @@ impl PassContent for BackGroundRendering {
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
     resource: &'a ResourcePoolInner,
+    pass_info: &'a PassTargetFormatInfo,
   ) {
     scene.background.setup_pass(
       pass,

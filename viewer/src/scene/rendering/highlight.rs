@@ -12,7 +12,13 @@ pub struct HighLighter {
 }
 
 impl PassContent for HighLighter {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, resource: &mut ResourcePoolInner) {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    scene: &mut Scene,
+    resource: &mut ResourcePoolInner,
+    pass_info: &PassTargetFormatInfo,
+  ) {
     // get resource pool texture and view , update bindgroup
     todo!()
   }
@@ -22,6 +28,7 @@ impl PassContent for HighLighter {
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
     resource: &'a ResourcePoolInner,
+    pass_info: &'a PassTargetFormatInfo,
   ) {
     todo!()
   }

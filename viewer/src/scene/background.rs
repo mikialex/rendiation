@@ -234,7 +234,7 @@ pub trait BackGroundShading {
 
     let targets: Vec<_> = ctx
       .pass
-      .color_format()
+      .color_formats
       .iter()
       .map(|&f| states.map_color_states(f))
       .collect();
@@ -257,7 +257,7 @@ pub trait BackGroundShading {
         topology: wgpu::PrimitiveTopology::TriangleList,
         ..Default::default()
       },
-      depth_stencil: states.map_depth_stencil_state(ctx.pass.depth_stencil_format()),
+      depth_stencil: states.map_depth_stencil_state(ctx.pass.depth_stencil_format),
       multisample: wgpu::MultisampleState::default(),
     })
   }
