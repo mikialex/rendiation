@@ -70,7 +70,7 @@ impl SceneRenderable for dyn Model {
     nodes: &'a ArenaTree<SceneNode>,
     camera_gpu: &'a CameraBindgroup,
     pipeline_resource: &'a PipelineResourceManager,
-    pass_info: &'a dyn ViewerRenderPass,
+    pass_info: &'a PassTargetFormatInfo,
   ) {
     let material = materials.get(self.material()).unwrap().as_ref();
     let node = nodes.get_node(self.node()).data();

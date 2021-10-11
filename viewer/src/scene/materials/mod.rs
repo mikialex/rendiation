@@ -191,7 +191,7 @@ pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub camera_gpu: &'a CameraBindgroup,
   pub pipelines: &'a mut PipelineResourceManager,
   pub layouts: &'a mut BindGroupLayoutManager,
-  pub pass: &'a dyn ViewerRenderPass,
+  pub pass: &'a PassTargetFormatInfo,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
   pub samplers: &'a mut HashMap<TextureSampler, Rc<wgpu::Sampler>>,
@@ -214,7 +214,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
 pub struct PipelineCreateCtx<'a> {
   pub layouts: &'a BindGroupLayoutManager,
   pub active_mesh: Option<&'a dyn Mesh>,
-  pub pass: &'a dyn ViewerRenderPass,
+  pub pass: &'a PassTargetFormatInfo,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {
@@ -222,7 +222,7 @@ pub struct SceneMaterialPassSetupCtx<'a> {
   pub model_gpu: Option<&'a TransformGPU>,
   pub active_mesh: Option<&'a Box<dyn Mesh>>,
   pub camera_gpu: &'a CameraBindgroup,
-  pub pass: &'a dyn ViewerRenderPass,
+  pub pass: &'a PassTargetFormatInfo,
 }
 
 pub trait Material {

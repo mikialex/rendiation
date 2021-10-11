@@ -11,19 +11,7 @@ use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_renderable_mesh::GPUMeshData;
 use rendiation_webgpu::*;
 
-use crate::CameraBindgroup;
-use crate::Material;
-use crate::MaterialStates;
-use crate::MeshCell;
-use crate::PipelineCreateCtx;
-use crate::PipelineResourceManager;
-use crate::SceneMaterialPassSetupCtx;
-use crate::SceneMaterialRenderPrepareCtx;
-use crate::SceneMaterialRenderPrepareCtxBase;
-use crate::SceneNode;
-use crate::SceneRenderable;
-use crate::TransformGPU;
-use crate::TypedMaterialHandle;
+use crate::*;
 
 pub trait Background: 'static + SceneRenderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
@@ -80,7 +68,7 @@ impl SceneRenderable for SolidBackground {
     _nodes: &'a ArenaTree<SceneNode>,
     _camera_gpu: &'a CameraBindgroup,
     _pipeline_resource: &'a PipelineResourceManager,
-    _pass_info: &'a dyn ViewerRenderPass,
+    _pass_info: &'a PassTargetFormatInfo,
   ) {
   }
 }
@@ -94,7 +82,7 @@ fn build_mesh() -> BackgroundMesh {
   sphere.tessellate()
 }
 use crate::scene::mesh::Mesh;
-use crate::ViewerRenderPass;
+
 pub struct DrawableBackground<S> {
   mesh: MeshCell<BackgroundMesh>,
   pub shading: TypedMaterialHandle<S>,
@@ -134,7 +122,7 @@ impl<S> SceneRenderable for DrawableBackground<S> {
     nodes: &'a ArenaTree<SceneNode>,
     camera_gpu: &'a CameraBindgroup,
     pipeline_resource: &'a PipelineResourceManager,
-    pass_info: &'a dyn ViewerRenderPass,
+    pass_info: &'a PassTargetFormatInfo,
   ) {
     let m = materials.get(self.shading.handle).unwrap();
     let ctx = SceneMaterialPassSetupCtx {

@@ -6,16 +6,6 @@ pub struct StandardForward {
   color_format: [wgpu::TextureFormat; 1],
 }
 
-impl ViewerRenderPass for StandardForward {
-  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat> {
-    wgpu::TextureFormat::Depth32Float.into()
-  }
-
-  fn color_format(&self) -> &[wgpu::TextureFormat] {
-    self.color_format.as_slice()
-  }
-}
-
 impl StandardForward {
   pub fn depth_format() -> wgpu::TextureFormat {
     wgpu::TextureFormat::Depth32Float
@@ -65,38 +55,5 @@ impl StandardForward {
     let (depth, depth_view) = Self::create_gpu(gpu, size);
     self.depth = depth;
     self.depth_view = depth_view;
-  }
-}
-
-impl ViewerRenderPassCreator for StandardForward {
-  type TargetResource = wgpu::TextureView;
-
-  fn create_pass<'a>(
-    &'a self,
-    scene: &Scene,
-    target: &'a Self::TargetResource,
-    encoder: &'a mut wgpu::CommandEncoder,
-  ) -> wgpu::RenderPass<'a> {
-    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-      label: "scene pass".into(),
-      color_attachments: &[wgpu::RenderPassColorAttachment {
-        view: target,
-        resolve_target: None,
-        ops: wgpu::Operations {
-          load: scene.get_main_pass_load_op(),
-          store: true,
-        },
-      }],
-      depth_stencil_attachment: wgpu::RenderPassDepthStencilAttachment {
-        view: &self.depth_view,
-        depth_ops: wgpu::Operations {
-          load: wgpu::LoadOp::Clear(1.),
-          store: true,
-        }
-        .into(),
-        stencil_ops: None,
-      }
-      .into(),
-    })
   }
 }

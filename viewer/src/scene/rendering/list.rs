@@ -8,7 +8,7 @@ pub struct RenderList {
 }
 
 impl RenderList {
-  pub fn update(&mut self, scene: &mut Scene, gpu: &GPU, pass: &dyn ViewerRenderPass) {
+  pub fn update(&mut self, scene: &mut Scene, gpu: &GPU, pass: &PassTargetFormatInfo) {
     if let Some(active_camera) = &mut scene.active_camera {
       let camera_gpu = scene
         .active_camera_gpu
@@ -51,7 +51,7 @@ impl RenderList {
     &self,
     gpu_pass: &mut wgpu::RenderPass<'p>,
     scene: &'p Scene,
-    pass: &'p dyn ViewerRenderPass,
+    pass: &'p PassTargetFormatInfo,
   ) {
     let models = &scene.models;
 

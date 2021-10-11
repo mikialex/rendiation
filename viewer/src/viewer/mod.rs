@@ -135,13 +135,14 @@ impl Viewer3dRenderingCtx {
   pub fn render(&mut self, target: Rc<wgpu::TextureView>, gpu: &GPU, scene: &mut Viewer3dContent) {
     scene.scene.maintain(&gpu.device, &gpu.queue);
 
-    gpu.render_pass(
-      &mut RenderPassDispatcher {
-        scene: &mut scene.scene,
-        pass: &mut self.forward,
-      },
-      target.as_ref(),
-    );
+    todo!()
+    // gpu.render_pass(
+    //   &mut RenderPassDispatcher {
+    //     scene: &mut scene.scene,
+    //     pass: &mut self.forward,
+    //   },
+    //   target.as_ref(),
+    // );
   }
 }
 

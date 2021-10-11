@@ -6,19 +6,14 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
+#[derive(Default)]
 pub struct ResourcePoolInner {
   pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ResourcePool {
   pub inner: Rc<RefCell<ResourcePoolInner>>,
-}
-
-impl Default for ResourcePool {
-  fn default() -> Self {
-    todo!()
-  }
 }
 
 pub struct RenderEngine {
@@ -30,7 +25,10 @@ pub struct RenderEngine {
 
 impl RenderEngine {
   pub fn screen(&self) -> AttachmentWriteView<wgpu::TextureFormat> {
-    todo!()
+    AttachmentWriteView {
+      phantom: PhantomData,
+      view: self.output.clone(),
+    }
   }
 }
 
@@ -61,7 +59,12 @@ pub struct Attachment<F: AttachmentFormat> {
 
 impl<F: AttachmentFormat> Attachment<F> {
   pub fn write(&mut self) -> AttachmentWriteView<F> {
-    todo!()
+    AttachmentWriteView {
+      phantom: PhantomData,
+      view: self
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default()),
+    }
   }
 }
 
@@ -89,19 +92,14 @@ pub struct AttachmentReadView<'a, F: AttachmentFormat> {
   view: wgpu::TextureView,
 }
 
+#[derive(Clone)]
 pub struct AttachmentDescriptor<F> {
   format: F,
-  sizer: Box<dyn Fn(Size) -> Size>,
+  sizer: Rc<dyn Fn(Size) -> Size>,
 }
 
-impl<F> Clone for AttachmentDescriptor<F> {
-  fn clone(&self) -> Self {
-    todo!()
-  }
-}
-
-fn default_sizer() -> Box<dyn Fn(Size) -> Size> {
-  Box::new(|size| size)
+fn default_sizer() -> Rc<dyn Fn(Size) -> Size> {
+  Rc::new(|size| size)
 }
 
 impl<F: AttachmentFormat> AttachmentDescriptor<F> {
@@ -136,21 +134,6 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
       size,
       texture: Rc::new(texture).into(),
     }
-  }
-}
-
-pub struct HighLight {
-  color: Vec3<f32>,
-}
-
-impl ViewerRenderPass for HighLight {
-  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat> {
-    wgpu::TextureFormat::Depth32Float.into()
-  }
-
-  fn color_format(&self) -> &[wgpu::TextureFormat] {
-    // self.color_format.as_slice()
-    todo!()
   }
 }
 
@@ -266,6 +249,7 @@ pub fn pass(name: &'static str) -> PassDescriptor {
     channels: Vec::new(),
     tasks: Vec::new(),
     depth_stencil_target: None,
+    info: todo!(),
   }
 }
 
@@ -275,17 +259,13 @@ pub struct PassDescriptor<'a> {
   channels: Vec<(wgpu::Operations<wgpu::Color>, Rc<wgpu::TextureView>)>,
   tasks: Vec<Box<dyn PassContent>>,
   depth_stencil_target: Option<(wgpu::Operations<f32>, Rc<wgpu::TextureView>)>,
+  info: PassTargetFormatInfo,
 }
 
-impl<'a> ViewerRenderPass for PassDescriptor<'a> {
-  fn depth_stencil_format(&self) -> Option<wgpu::TextureFormat> {
-    todo!()
-  }
-
-  fn color_format(&self) -> &[wgpu::TextureFormat] {
-    // self.color_format.as_slice()
-    todo!()
-  }
+#[derive(Clone)]
+pub struct PassTargetFormatInfo {
+  depth_stencil_format: Option<wgpu::TextureFormat>,
+  color_formats: Vec<wgpu::TextureFormat>,
 }
 
 impl<'a> PassDescriptor<'a> {

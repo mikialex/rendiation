@@ -183,6 +183,6 @@ pub trait SceneRenderable {
     nodes: &'a ArenaTree<SceneNode>,
     camera_gpu: &'a CameraBindgroup,
     pipeline_resource: &'a PipelineResourceManager,
-    pass_info: &'a dyn ViewerRenderPass,
+    pass_info: &'a PassTargetFormatInfo,
   );
 }

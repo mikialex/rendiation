@@ -1,6 +1,11 @@
+use rendiation_algebra::Vec3;
 use rendiation_webgpu::GPU;
 
 use crate::*;
+
+pub struct HighLight {
+  color: Vec3<f32>,
+}
 
 pub struct HighLighter {
   source: Attachment<wgpu::TextureFormat>,
