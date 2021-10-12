@@ -22,12 +22,12 @@ impl PassContent for ForwardScene {
     &mut self,
     gpu: &GPU,
     scene: &mut Scene,
-    resource: &mut ResourcePoolInner,
+    _resource: &mut ResourcePoolInner,
     pass: &PassTargetFormatInfo,
   ) {
     self.render_list.models.clear();
 
-    scene.models.iter_mut().for_each(|(handle, model)| {
+    scene.models.iter_mut().for_each(|(handle, _)| {
       self.render_list.models.push(handle);
     });
 
@@ -38,7 +38,6 @@ impl PassContent for ForwardScene {
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
-    resource: &'a ResourcePoolInner,
     pass_info: &'a PassTargetFormatInfo,
   ) {
     self.render_list.setup_pass(pass, scene, pass_info);

@@ -44,7 +44,6 @@ impl PassContent for BackGroundRendering {
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
-    _resource: &'a ResourcePoolInner,
     pass_info: &'a PassTargetFormatInfo,
   ) {
     scene.background.setup_pass(

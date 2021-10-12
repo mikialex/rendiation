@@ -156,10 +156,6 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
   }
 }
 
-pub struct SceneDispatcher {
-  scene: Rc<RefCell<Scene>>,
-}
-
 pub trait PassContent: 'static {
   fn update(
     &mut self,
@@ -172,7 +168,6 @@ pub trait PassContent: 'static {
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     scene: &'a Scene,
-    resource: &'a ResourcePoolInner,
     pass_info: &'a PassTargetFormatInfo,
   );
 }
@@ -329,7 +324,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     });
 
     for task in &self.tasks {
-      task.setup_pass(&mut pass, &scene, &resource, &self.info)
+      task.setup_pass(&mut pass, scene, &self.info)
     }
   }
 }

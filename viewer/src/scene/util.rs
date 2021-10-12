@@ -62,6 +62,12 @@ impl<T> WatchedArena<T> {
   }
 }
 
+impl<T> Default for WatchedArena<T> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<T: ResourcePair> WatchedArena<T> {
   pub fn get_resource(&self, h: Handle<T>) -> Result<&T::Resource, SceneError> {
     self

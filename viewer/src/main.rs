@@ -18,7 +18,7 @@ use interphaser::Application;
 fn main() {
   env_logger::builder().init();
 
-  let viewer = Viewer::new();
+  let viewer = Viewer::default();
   let ui = create_ui();
 
   let viewer = futures::executor::block_on(Application::new(viewer, ui));

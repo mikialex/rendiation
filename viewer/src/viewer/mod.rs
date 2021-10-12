@@ -23,8 +23,8 @@ pub struct Viewer {
   viewer: ViewerInner,
 }
 
-impl Viewer {
-  pub fn new() -> Self {
+impl Default for Viewer {
+  fn default() -> Self {
     let todo = Todo {
       items: vec![
         TodoItem {

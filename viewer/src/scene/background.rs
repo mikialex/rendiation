@@ -123,7 +123,7 @@ impl<S> SceneRenderable for DrawableBackground<S> {
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     materials: &'a Arena<Box<dyn Material>>,
-    meshes: &'a Arena<Box<dyn Mesh>>,
+    _meshes: &'a Arena<Box<dyn Mesh>>,
     nodes: &'a ArenaTree<SceneNode>,
     camera_gpu: &'a CameraBindgroup,
     pipeline_resource: &'a PipelineResourceManager,
