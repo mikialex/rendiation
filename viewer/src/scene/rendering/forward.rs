@@ -1,8 +1,5 @@
 use super::*;
 
-#[derive(Default)]
-pub struct StandardForward;
-
 impl Scene {
   pub fn get_main_pass_load_op(&self) -> wgpu::Operations<wgpu::Color> {
     let load = if let Some(clear_color) = self.background.require_pass_clear() {

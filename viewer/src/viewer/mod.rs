@@ -82,11 +82,11 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
 }
 
 impl CanvasPrinter for ViewerInner {
-  fn draw_canvas(&mut self, gpu: &GPU, canvas: Rc<wgpu::TextureView>) {
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: Rc<wgpu::TextureView>) {
     self.content.update_state();
     self
       .ctx
-      .get_or_insert_with(|| Default::default())
+      .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
       .render(canvas, gpu, &mut self.content)
   }
 
@@ -117,28 +117,29 @@ pub struct Viewer3dContent {
   controller: ControllerWinitAdapter<OrbitController>,
 }
 
-#[derive(Default)]
 pub struct Viewer3dRenderingCtx {
   pipeline: SimplePipeline,
+  engine: RenderEngine,
 }
 
 impl Viewer3dRenderingCtx {
+  pub fn new(gpu: Rc<GPU>) -> Self {
+    Self {
+      pipeline: Default::default(),
+      engine: RenderEngine::new(gpu),
+    }
+  }
+
   pub fn resize_view(&mut self, gpu: &GPU, size: (u32, u32)) {
-    // self.forward.resize(gpu, size)
-    todo!()
+    self.engine.notify_output_resized();
   }
 
   pub fn render(&mut self, target: Rc<wgpu::TextureView>, gpu: &GPU, scene: &mut Viewer3dContent) {
     scene.scene.maintain(&gpu.device, &gpu.queue);
 
-    todo!()
-    // gpu.render_pass(
-    //   &mut RenderPassDispatcher {
-    //     scene: &mut scene.scene,
-    //     pass: &mut self.forward,
-    //   },
-    //   target.as_ref(),
-    // );
+    todo!();
+
+    self.pipeline.render_simple(&self.engine, &mut scene.scene)
   }
 }
 
