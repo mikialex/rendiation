@@ -14,7 +14,7 @@ mod surface;
 mod texture;
 mod uniform;
 
-use std::{borrow::BorrowMut, cell::RefCell};
+use std::cell::RefCell;
 
 pub use encoder::*;
 pub use queue::*;

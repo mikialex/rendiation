@@ -5,6 +5,7 @@
 #![feature(type_alias_impl_trait)]
 #![feature(option_result_unwrap_unchecked)]
 #![allow(incomplete_features)]
+#![allow(clippy::collapsible_match)]
 
 pub mod scene;
 pub use scene::*;

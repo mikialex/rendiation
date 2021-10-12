@@ -154,8 +154,7 @@ impl Viewer3dContent {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let app = Self { scene, controller };
-    app
+    Self { scene, controller }
   }
 
   pub fn resize_view(&mut self, size: (f32, f32)) {
@@ -179,5 +178,11 @@ impl Viewer3dContent {
       let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
       self.controller.update(node);
     }
+  }
+}
+
+impl Default for Viewer3dContent {
+  fn default() -> Self {
+    Self::new()
   }
 }

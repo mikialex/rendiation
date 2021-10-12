@@ -62,7 +62,6 @@ pub struct Scene {
   pub(crate) layouts: BindGroupLayoutManager,
   pub active_camera: Option<Camera>,
   pub active_camera_gpu: Option<CameraBindgroup>,
-  pub render_list: RenderList,
   pub reference_finalization: ReferenceFinalization,
 
   has_registered: bool, // todo improve
@@ -85,7 +84,6 @@ impl Scene {
       layouts: BindGroupLayoutManager::new(),
       active_camera: None,
       active_camera_gpu: None,
-      render_list: Default::default(),
       reference_finalization: Default::default(),
       has_registered: false,
     }

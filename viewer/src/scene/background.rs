@@ -101,8 +101,13 @@ impl<S> SceneRenderable for DrawableBackground<S> {
     base: &mut SceneMaterialRenderPrepareCtxBase,
     materials: &mut Arena<Box<dyn Material>>,
     _meshes: &mut Arena<Box<dyn Mesh>>,
-    _nodes: &mut ArenaTree<SceneNode>,
+    nodes: &mut ArenaTree<SceneNode>,
   ) {
+    nodes
+      .get_node_mut(nodes.root())
+      .data_mut()
+      .get_model_gpu(gpu);
+
     self.mesh.update(gpu);
     let m = materials.get_mut(self.shading.handle).unwrap();
 
@@ -177,7 +182,7 @@ pub trait BackGroundShading {
     ) -> VertexOutput {{
       var out: VertexOutput;
       out.uv = uv;
-      out.position = camera.projection * inverse(camera.rotation) * model.matrix * vec4<f32>(position, 1.0);
+      out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
       out.position.z = out.position.w;
       out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
       return out;
