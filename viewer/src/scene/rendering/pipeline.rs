@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
+use interphaser::FrameTarget;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
@@ -18,13 +19,7 @@ pub struct ResourcePool {
 pub struct RenderEngine {
   resource: ResourcePool,
   gpu: Rc<GPU>,
-  output: Option<FrameTarget>,
-}
-
-pub struct FrameTarget {
-  size: Size,
-  format: wgpu::TextureFormat,
-  view: Rc<wgpu::TextureView>,
+  pub output: Option<FrameTarget>,
 }
 
 impl RenderEngine {

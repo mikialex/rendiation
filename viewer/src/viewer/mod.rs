@@ -4,6 +4,7 @@ use std::rc::Rc;
 pub use examples::*;
 
 pub mod view;
+use rendiation_texture::Size;
 pub use view::*;
 
 pub mod default_scene;
@@ -45,7 +46,7 @@ impl Viewer {
       todo,
       viewer: ViewerInner {
         content: Viewer3dContent::new(),
-        size: (0, 0),
+        size: Size::from_u32_pair_min_one((100, 100)),
         ctx: None,
       },
     }
@@ -82,7 +83,7 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
 }
 
 impl CanvasPrinter for ViewerInner {
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: Rc<wgpu::TextureView>) {
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
     self.content.update_state();
     self
       .ctx
@@ -94,11 +95,12 @@ impl CanvasPrinter for ViewerInner {
     self.content.event(event)
   }
 
-  fn update_render_size(&mut self, layout_size: (f32, f32), gpu: &GPU) -> (u32, u32) {
+  fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {
     let new_size = (layout_size.0 as u32, layout_size.1 as u32);
+    let new_size = Size::from_u32_pair_min_one(new_size);
     if let Some(ctx) = &mut self.ctx {
       if self.size != new_size {
-        ctx.resize_view(gpu, new_size)
+        ctx.resize_view()
       }
     }
     self.size = new_size;
@@ -108,7 +110,7 @@ impl CanvasPrinter for ViewerInner {
 
 pub struct ViewerInner {
   content: Viewer3dContent,
-  size: (u32, u32),
+  size: Size,
   ctx: Option<Viewer3dRenderingCtx>,
 }
 
@@ -130,14 +132,14 @@ impl Viewer3dRenderingCtx {
     }
   }
 
-  pub fn resize_view(&mut self, gpu: &GPU, size: (u32, u32)) {
+  pub fn resize_view(&mut self) {
     self.engine.notify_output_resized();
   }
 
-  pub fn render(&mut self, target: Rc<wgpu::TextureView>, gpu: &GPU, scene: &mut Viewer3dContent) {
+  pub fn render(&mut self, target: FrameTarget, gpu: &GPU, scene: &mut Viewer3dContent) {
     scene.scene.maintain(&gpu.device, &gpu.queue);
 
-    todo!();
+    self.engine.output = target.into();
 
     self.pipeline.render_simple(&self.engine, &mut scene.scene)
   }
