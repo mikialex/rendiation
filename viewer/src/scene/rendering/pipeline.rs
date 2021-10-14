@@ -192,6 +192,7 @@ impl SimplePipeline {
       .render_by(&mut BackGroundRendering)
       .render_by(&mut self.forward)
       .run(engine, scene);
+
   }
 
   // #[rustfmt::skip]

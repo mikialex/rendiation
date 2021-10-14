@@ -13,10 +13,7 @@ impl PassContent for BackGroundRendering {
     pass_info: &PassTargetFormatInfo,
   ) {
     if let Some(active_camera) = &mut scene.active_camera {
-      let camera_gpu = scene
-        .active_camera_gpu
-        .get_or_insert_with(|| CameraBindgroup::new(gpu))
-        .update(gpu, active_camera, &scene.nodes);
+      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu, &scene.nodes);
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,
@@ -51,7 +48,7 @@ impl PassContent for BackGroundRendering {
       &scene.materials,
       &scene.meshes,
       &scene.nodes,
-      scene.active_camera_gpu.as_ref().unwrap(),
+      scene.active_camera.as_ref().unwrap().expect_gpu(),
       &scene.pipeline_resource,
       pass_info,
     );

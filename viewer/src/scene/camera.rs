@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use arena_tree::ArenaTree;
 use rendiation_algebra::*;
 
@@ -18,27 +20,66 @@ impl<T: ResizableProjection> CameraProjection for T {
   }
 }
 
-pub struct Camera {
+pub struct CameraData {
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNodeHandle,
 }
 
-impl Camera {
-  pub fn new(p: impl ResizableProjection + 'static, node: SceneNodeHandle) -> Self {
-    Self {
-      projection: Box::new(p),
-      projection_matrix: Mat4::one(),
-      node,
-    }
-  }
-
+impl CameraData {
   pub fn get_view_matrix(&self, nodes: &ArenaTree<SceneNode>) -> Mat4<f32> {
     nodes
       .get_node(self.node)
       .data()
       .world_matrix
       .inverse_or_identity()
+  }
+}
+
+pub struct Camera {
+  cpu: CameraData,
+  gpu: Option<CameraBindgroup>,
+}
+
+impl Deref for Camera {
+  type Target = CameraData;
+
+  fn deref(&self) -> &Self::Target {
+    &self.cpu
+  }
+}
+
+impl std::ops::DerefMut for Camera {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.cpu
+  }
+}
+
+impl Camera {
+  pub fn new(p: impl ResizableProjection + 'static, node: SceneNodeHandle) -> Self {
+    Self {
+      cpu: CameraData {
+        projection: Box::new(p),
+        projection_matrix: Mat4::one(),
+        node,
+      },
+      gpu: None,
+    }
+  }
+
+  pub fn get_updated_gpu(
+    &mut self,
+    gpu: &GPU,
+    nodes: &ArenaTree<SceneNode>,
+  ) -> (&CameraData, &mut CameraBindgroup) {
+    self
+      .gpu
+      .get_or_insert_with(|| CameraBindgroup::new(gpu))
+      .update(gpu, &mut self.cpu, nodes)
+  }
+
+  pub fn expect_gpu(&self) -> &CameraBindgroup {
+    self.gpu.as_ref().unwrap()
   }
 }
 
@@ -60,12 +101,12 @@ impl CameraBindgroup {
       var camera: CameraTransform;
     "#
   }
-  pub fn update(
+  pub fn update<'a>(
     &mut self,
     gpu: &GPU,
-    camera: &mut Camera,
+    camera: &'a mut CameraData,
     nodes: &ArenaTree<SceneNode>,
-  ) -> &mut Self {
+  ) -> (&'a CameraData, &mut Self) {
     camera
       .projection
       .update_projection(&mut camera.projection_matrix);
@@ -89,7 +130,7 @@ impl CameraBindgroup {
       64 + 64,
       bytemuck::cast_slice(view_matrix.as_ref()),
     );
-    self
+    (camera, self)
   }
 
   pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {

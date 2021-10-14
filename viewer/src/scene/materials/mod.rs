@@ -187,7 +187,7 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
 }
 
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
-  pub active_camera: &'a Camera,
+  pub active_camera: &'a CameraData,
   pub camera_gpu: &'a CameraBindgroup,
   pub pipelines: &'a mut PipelineResourceManager,
   pub layouts: &'a mut BindGroupLayoutManager,

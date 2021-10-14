@@ -10,6 +10,7 @@ pub mod node;
 pub mod rendering;
 pub mod texture;
 pub mod texture_cube;
+
 pub mod util;
 
 use std::{
@@ -61,7 +62,6 @@ pub struct Scene {
   pub(crate) pipeline_resource: PipelineResourceManager,
   pub(crate) layouts: BindGroupLayoutManager,
   pub active_camera: Option<Camera>,
-  pub active_camera_gpu: Option<CameraBindgroup>,
   pub reference_finalization: ReferenceFinalization,
 
   has_registered: bool, // todo improve
@@ -83,7 +83,6 @@ impl Scene {
       pipeline_resource: PipelineResourceManager::new(),
       layouts: BindGroupLayoutManager::new(),
       active_camera: None,
-      active_camera_gpu: None,
       reference_finalization: Default::default(),
       has_registered: false,
     }
