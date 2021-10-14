@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use arena::Arena;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_webgpu::PipelineResourceManager;
 
 use super::*;
 

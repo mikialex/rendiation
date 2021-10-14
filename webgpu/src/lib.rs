@@ -6,6 +6,7 @@
 #![allow(unreachable_code)]
 
 mod buffer;
+mod cache;
 mod encoder;
 mod queue;
 mod render_target;
@@ -16,6 +17,7 @@ mod uniform;
 
 use std::cell::RefCell;
 
+pub use cache::*;
 pub use encoder::*;
 pub use queue::*;
 pub use render_target::*;

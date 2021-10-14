@@ -29,7 +29,7 @@ pub use model::*;
 pub use node::*;
 pub use rendering::*;
 use rendiation_texture::TextureSampler;
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::{BindGroupLayoutManager, PipelineResourceManager, GPU};
 pub use texture::*;
 pub use texture_cube::*;
 pub use util::*;
