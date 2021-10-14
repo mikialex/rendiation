@@ -59,4 +59,14 @@ impl<T: AbstractMesh> GroupedMesh<T> {
     let groups = MeshGroupsInfo::full(&mesh);
     Self { mesh, groups }
   }
+
+  pub fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
+    match group {
+      MeshDrawGroup::Full => MeshGroup {
+        start: 0,
+        count: self.mesh.draw_count(),
+      },
+      MeshDrawGroup::SubMesh(i) => *self.groups.groups.get(i).unwrap(),
+    }
+  }
 }

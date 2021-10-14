@@ -1,37 +1,74 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc};
 
 use crate::*;
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
 use rendiation_renderable_mesh::{
-  group::MeshDrawGroup, mesh::NoneIndexedMesh, vertex::Vertex, GPUMeshData, MeshGPU,
+  group::{GroupedMesh, MeshDrawGroup, MeshGroup},
+  mesh::{AbstractMesh, NoneIndexedMesh},
+  vertex::Vertex,
+  GPUMeshData, MeshGPU,
 };
 
 pub type FatlineData = NoneIndexedMesh;
 
 pub struct FatlineMeshCell {
-  data: FatlineData,
-  gpu: Option<MeshGPU>,
+  data: GroupedMesh<FatlineData>,
+  gpu: Option<FatlineMeshGPU>,
+}
+
+pub struct FatlineMeshGPU {
+  range_full: MeshGroup,
+  vertex: wgpu::Buffer,
+  /// All fatline gpu instance shall share one instance buffer
+  instance: Rc<MeshGPU>,
+}
+
+impl FatlineMeshGPU {
+  pub fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, range: Option<MeshGroup>) {
+    let range = range.unwrap_or(self.range_full);
+
+    // self.instance.setup_pass(pass, range);
+
+    pass.set_vertex_buffer(1, self.vertex.slice(..));
+
+    pass.draw(0..18, range.into());
+  }
 }
 
 impl From<FatlineData> for FatlineMeshCell {
   fn from(data: FatlineData) -> Self {
-    Self { data, gpu: None }
+    Self {
+      data: GroupedMesh::full(data),
+      gpu: None,
+    }
   }
 }
 
 impl Mesh for FatlineMeshCell {
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
-    // self
-    //   .gpu
-    //   .as_ref()
-    //   .unwrap()
-    //   .setup_pass(pass, self.data.get_group(group).into())
+    self
+      .gpu
+      .as_ref()
+      .unwrap()
+      .setup_pass(pass, self.data.get_group(group).into())
   }
 
   fn update(&mut self, gpu: &GPU) {
-    // self.data.update(&mut self.gpu, &gpu.device);
+    let cpu = &self.data.mesh;
+    self.gpu.get_or_insert_with(|| {
+      let range_full = MeshGroup {
+        start: 0,
+        count: cpu.draw_count(),
+      };
+      //
+      FatlineMeshGPU {
+        range_full,
+        vertex: todo!(),
+        instance: todo!(),
+      }
+    });
   }
 
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
@@ -59,9 +96,9 @@ impl Scene {
 }
 
 pub struct FatLineVertex {
-  start: Vec3<f32>,
-  end: Vec3<f32>,
-  color: Vec3<f32>,
+  pub start: Vec3<f32>,
+  pub end: Vec3<f32>,
+  pub color: Vec3<f32>,
 }
 
 impl VertexBufferSourceType for FatLineVertex {

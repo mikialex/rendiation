@@ -141,15 +141,6 @@ impl Scene {
       .maintain(&self.texture_2ds, &self.texture_cubes);
   }
 
-  pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
-    let mut node = SceneNode::default();
-    builder(&mut node, self);
-    let new = self.nodes.create_node(node);
-    let root = self.get_root_handle();
-    self.nodes.node_add_child_by_id(root, new);
-    new
-  }
-
   pub fn background(&mut self, background: impl Background) -> &mut Self {
     self.background = Box::new(background);
     self

@@ -51,13 +51,7 @@ where
   }
 
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
-    match group {
-      MeshDrawGroup::Full => MeshGroup {
-        start: 0,
-        count: self.mesh.draw_count(),
-      },
-      MeshDrawGroup::SubMesh(i) => *self.groups.groups.get(i).unwrap(),
-    }
+    self.get_group(group)
   }
 
   fn topology(&self) -> gpu::PrimitiveTopology {

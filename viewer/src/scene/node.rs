@@ -63,6 +63,15 @@ impl SceneNode {
 }
 
 impl Scene {
+  pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
+    let mut node = SceneNode::default();
+    builder(&mut node, self);
+    let new = self.nodes.create_node(node);
+    let root = self.get_root_handle();
+    self.nodes.node_add_child_by_id(root, new);
+    new
+  }
+
   pub fn get_root_handle(&self) -> SceneNodeHandle {
     self.nodes.get_node(self.nodes.root()).handle()
   }
