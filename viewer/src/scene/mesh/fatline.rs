@@ -8,12 +8,12 @@ use rendiation_webgpu::util::DeviceExt;
 
 use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshDrawGroup, MeshGroup},
-  mesh::{AbstractMesh, NoneIndexedMesh},
+  mesh::{AbstractMesh, IndexedMesh, NoneIndexedMesh, TriangleList},
   vertex::Vertex,
   GPUMeshData, MeshGPU,
 };
 
-pub type FatlineData = NoneIndexedMesh;
+pub type FatlineData = NoneIndexedMesh<FatLineVertex>;
 
 pub struct FatlineMeshCell {
   data: GroupedMesh<FatlineData>,
@@ -111,6 +111,10 @@ impl Scene {
   }
 }
 
+use bytemuck::{Pod, Zeroable};
+
+#[repr(C)]
+#[derive(Copy, Clone, Zeroable, Pod)]
 pub struct FatLineVertex {
   pub start: Vec3<f32>,
   pub end: Vec3<f32>,
@@ -149,4 +153,26 @@ impl VertexBufferSourceType for FatLineVertex {
       [[location(3)]] fatline_color: vec3<f32>,
     "#
   }
+}
+
+fn create_fatline_quad(device: &wgpu::Device) -> IndexedMesh<u16, Vertex, TriangleList> {
+  #[rustfmt::skip]
+  let positions: Vec<isize> = vec![- 1, 2, 0, 1, 2, 0, - 1, 1, 0, 1, 1, 0, - 1, 0, 0, 1, 0, 0, - 1, - 1, 0, 1, - 1, 0];
+  let positions: &[Vec3<isize>] = bytemuck::cast_slice(positions.as_slice());
+  let uvs: Vec<isize> = vec![-1, 2, 1, 2, -1, 1, 1, 1, -1, -1, 1, -1, -1, -2, 1, -2];
+  let uvs: &[Vec2<isize>] = bytemuck::cast_slice(uvs.as_slice());
+
+  let data: Vec<_> = positions
+    .iter()
+    .zip(uvs)
+    .map(|(position, uv)| Vertex {
+      position: position.map(|v| v as f32),
+      normal: Vec3::new(0., 0., 1.),
+      uv: uv.map(|v| v as f32),
+    })
+    .collect();
+
+  let index = vec![0, 2, 1, 2, 3, 1, 2, 4, 3, 4, 5, 3, 4, 6, 5, 6, 7, 5];
+
+  IndexedMesh::new(data, index)
 }

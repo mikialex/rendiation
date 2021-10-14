@@ -1,27 +1,28 @@
-use rendiation_algebra::*;
-use rendiation_renderable_mesh::{
-  mesh::{IndexedMesh, TriangleList},
-  vertex::Vertex,
-};
+use rendiation_renderable_mesh::group::MeshDrawGroup;
 
-fn create_fatline_quad(device: &wgpu::Device) -> IndexedMesh<u16, Vertex, TriangleList> {
-  #[rustfmt::skip]
-  let positions: Vec<isize> = vec![- 1, 2, 0, 1, 2, 0, - 1, 1, 0, 1, 1, 0, - 1, 0, 0, 1, 0, 0, - 1, - 1, 0, 1, - 1, 0];
-  let positions: &[Vec3<isize>] = bytemuck::cast_slice(positions.as_slice());
-  let uvs: Vec<isize> = vec![-1, 2, 1, 2, -1, 1, 1, 1, -1, -1, 1, -1, -1, -2, 1, -2];
-  let uvs: &[Vec2<isize>] = bytemuck::cast_slice(uvs.as_slice());
+use crate::*;
 
-  let data: Vec<_> = positions
-    .iter()
-    .zip(uvs)
-    .map(|(position, uv)| Vertex {
-      position: position.map(|v| v as f32),
-      normal: Vec3::new(0., 0., 1.),
-      uv: uv.map(|v| v as f32),
-    })
-    .collect();
+pub struct Fatline {
+  pub mesh: FatlineMeshHandle,
+  pub material: TypedMaterialHandle<FatLineMaterial>,
+  pub group: MeshDrawGroup,
+  pub node: SceneNodeHandle,
+}
 
-  let index = vec![0, 2, 1, 2, 3, 1, 2, 4, 3, 4, 5, 3, 4, 6, 5, 6, 7, 5];
+impl Model for Fatline {
+  fn material(&self) -> MaterialHandle {
+    self.material.handle
+  }
 
-  IndexedMesh::new(data, index)
+  fn mesh(&self) -> MeshHandle {
+    self.mesh.handle
+  }
+
+  fn group(&self) -> MeshDrawGroup {
+    self.group
+  }
+
+  fn node(&self) -> SceneNodeHandle {
+    self.node
+  }
 }

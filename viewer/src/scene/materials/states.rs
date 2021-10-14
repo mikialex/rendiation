@@ -78,11 +78,8 @@ impl Default for PipelineUnit {
 
 impl<V> PipelineVariantContainer<V> for PipelineUnit {
   fn request(&mut self, _variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
-    match self {
-      PipelineUnit::Empty => {
-        *self = PipelineUnit::Created(creator());
-      }
-      _ => {}
+    if let PipelineUnit::Empty = self {
+      *self = PipelineUnit::Created(creator());
     }
   }
   fn retrieve(&self, _variant: &V) -> &wgpu::RenderPipeline {

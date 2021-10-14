@@ -75,7 +75,7 @@ impl SceneRenderable for dyn Model {
   ) {
     let material = materials.get(self.material()).unwrap().as_ref();
     let node = nodes.get_node(self.node()).data();
-    let mesh = meshes.get(self.mesh()).unwrap();
+    let mesh = meshes.get(self.mesh()).unwrap().as_ref();
 
     let ctx = SceneMaterialPassSetupCtx {
       pass: pass_info,

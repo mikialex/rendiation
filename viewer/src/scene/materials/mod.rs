@@ -1,5 +1,5 @@
 use std::{
-  any::{Any, TypeId},
+  any::Any,
   collections::HashMap,
   marker::PhantomData,
   ops::{Deref, DerefMut},
@@ -176,7 +176,7 @@ impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
   type Target = SceneMaterialRenderPrepareCtxBase<'a>;
 
   fn deref(&self) -> &Self::Target {
-    &self.base
+    self.base
   }
 }
 
@@ -220,7 +220,7 @@ pub struct PipelineCreateCtx<'a> {
 pub struct SceneMaterialPassSetupCtx<'a> {
   pub pipelines: &'a PipelineResourceManager,
   pub model_gpu: Option<&'a TransformGPU>,
-  pub active_mesh: Option<&'a Box<dyn Mesh>>,
+  pub active_mesh: Option<&'a dyn Mesh>,
   pub camera_gpu: &'a CameraBindgroup,
   pub pass: &'a PassTargetFormatInfo,
 }
