@@ -12,14 +12,22 @@ pub struct MeshGPU {
 }
 
 impl MeshGPU {
-  pub fn setup_pass<'a>(&'a self, pass: &mut gpu::RenderPass<'a>, range: Option<MeshGroup>) {
-    let range = range.unwrap_or(self.range_full);
+  pub fn get_range_full(&self) -> MeshGroup {
+    self.range_full
+  }
 
+  pub fn setup_pass<'a>(&'a self, pass: &mut gpu::RenderPass<'a>) {
     self.vertex.iter().enumerate().for_each(|(i, gpu)| {
       pass.set_vertex_buffer(i as u32, gpu.slice(..));
     });
     if let Some((index, format)) = &self.index {
       pass.set_index_buffer(index.slice(..), *format);
+    }
+  }
+
+  pub fn draw<'a>(&self, pass: &mut gpu::RenderPass<'a>, range: Option<MeshGroup>) {
+    let range = range.unwrap_or(self.range_full);
+    if self.index.is_some() {
       pass.draw_indexed(range.into(), 0, 0..1);
     } else {
       pass.draw(range.into(), 0..1);

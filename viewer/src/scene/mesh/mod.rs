@@ -22,7 +22,7 @@ where
 }
 
 pub trait Mesh {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
+  fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
   fn update(&mut self, gpu: &GPU);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
@@ -40,12 +40,10 @@ impl<T> From<T> for MeshCell<T> {
 }
 
 impl<T: GPUMeshData> Mesh for MeshCell<T> {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
-    self
-      .gpu
-      .as_ref()
-      .unwrap()
-      .setup_pass(pass, self.data.get_group(group).into())
+  fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
+    let gpu = self.gpu.as_ref().unwrap();
+    gpu.setup_pass(pass);
+    gpu.draw(pass, self.data.get_group(group).into())
   }
 
   fn update(&mut self, gpu: &GPU) {

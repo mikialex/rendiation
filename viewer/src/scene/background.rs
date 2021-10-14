@@ -144,7 +144,7 @@ impl<S> SceneRenderable for DrawableBackground<S> {
       active_mesh: None,
     };
     m.setup_pass(pass, &ctx);
-    self.mesh.setup_pass(pass, MeshDrawGroup::Full);
+    self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);
   }
 }
 

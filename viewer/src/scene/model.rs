@@ -86,7 +86,7 @@ impl SceneRenderable for dyn Model {
     material.setup_pass(pass, &ctx);
 
     let mesh = meshes.get(self.mesh()).unwrap();
-    mesh.setup_pass(pass, self.group());
+    mesh.setup_pass_and_draw(pass, self.group());
   }
 }
 

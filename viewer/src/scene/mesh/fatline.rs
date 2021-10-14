@@ -4,6 +4,8 @@ use crate::*;
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
+use rendiation_webgpu::util::DeviceExt;
+
 use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshDrawGroup, MeshGroup},
   mesh::{AbstractMesh, NoneIndexedMesh},
@@ -26,14 +28,18 @@ pub struct FatlineMeshGPU {
 }
 
 impl FatlineMeshGPU {
-  pub fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, range: Option<MeshGroup>) {
+  pub fn setup_pass_and_draw<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    range: Option<MeshGroup>,
+  ) {
     let range = range.unwrap_or(self.range_full);
 
-    // self.instance.setup_pass(pass, range);
+    self.instance.setup_pass(pass);
 
     pass.set_vertex_buffer(1, self.vertex.slice(..));
 
-    pass.draw(0..18, range.into());
+    pass.draw(self.instance.get_range_full().into(), range.into());
   }
 }
 
@@ -47,25 +53,35 @@ impl From<FatlineData> for FatlineMeshCell {
 }
 
 impl Mesh for FatlineMeshCell {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
+  fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
     self
       .gpu
       .as_ref()
       .unwrap()
-      .setup_pass(pass, self.data.get_group(group).into())
+      .setup_pass_and_draw(pass, self.data.get_group(group).into())
   }
 
   fn update(&mut self, gpu: &GPU) {
     let cpu = &self.data.mesh;
+
     self.gpu.get_or_insert_with(|| {
       let range_full = MeshGroup {
         start: 0,
         count: cpu.draw_count(),
       };
-      //
+
+      let vertex = bytemuck::cast_slice(cpu.data.as_slice());
+      let vertex = gpu
+        .device
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+          label: None,
+          contents: vertex,
+          usage: wgpu::BufferUsages::VERTEX,
+        });
+
       FatlineMeshGPU {
         range_full,
-        vertex: todo!(),
+        vertex,
         instance: todo!(),
       }
     });
