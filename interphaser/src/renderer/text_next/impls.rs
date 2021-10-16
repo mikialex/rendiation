@@ -86,9 +86,11 @@ impl GPUGlyphCache {
     let mut failed_process_all = true;
     let mut previous_cache_invalid = false;
 
+    let mut packer = self.packer.process_queued(&self.queue);
+
     while failed_process_all {
       for &(glyph_id, info) in self.queue.iter() {
-        match self.packer.pack(glyph_id, info, self.raster.as_mut()) {
+        match packer.pack(glyph_id, info, self.raster.as_mut()) {
           GlyphCacheResult::NewCached { result, data } => {
             // self.active_glyphs.insert((glyph_id, info), result);
             self.gpu.update_texture(&data, result.1, &gpu.queue);
@@ -98,7 +100,7 @@ impl GPUGlyphCache {
             let new_size = self.current_size * 2;
 
             self.gpu = WebGPUGlyphCacheInstance::init(new_size, &gpu.device);
-            self.packer = GlyphPacker::init(new_size);
+            packer.rebuild_all(new_size);
 
             failed_process_all = true;
             previous_cache_invalid = true;

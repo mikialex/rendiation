@@ -1059,6 +1059,7 @@ dependencies = [
  "font-loader",
  "glyph_brush",
  "image",
+ "linked-hash-map",
  "log",
  "nfd",
  "rendiation-algebra",

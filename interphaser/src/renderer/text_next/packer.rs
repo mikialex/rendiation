@@ -1,4 +1,5 @@
-use std::collections::{hash_map::Entry, HashMap};
+use linked_hash_map::{Entry, LinkedHashMap};
+use std::collections::HashSet;
 
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
 use rendiation_texture_packer::{
@@ -9,7 +10,7 @@ use super::{GlyphRaster, NormalizedGlyphRasterInfo};
 
 pub struct GlyphPacker {
   packer: Box<dyn RePackablePacker>,
-  pack_info: HashMap<(GlyphID, NormalizedGlyphRasterInfo), (PackId, TextureRange)>,
+  pack_info: LinkedHashMap<(GlyphID, NormalizedGlyphRasterInfo), (PackId, TextureRange)>,
 }
 
 impl GlyphPacker {
@@ -23,18 +24,42 @@ impl GlyphPacker {
     }
   }
 
+  pub fn process_queued<'a>(
+    &'a mut self,
+    queue: &'a HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
+  ) -> GlyphPackFrameTask<'a> {
+    GlyphPackFrameTask {
+      packer: self,
+      queue,
+    }
+  }
+}
+
+pub struct GlyphPackFrameTask<'a> {
+  packer: &'a mut GlyphPacker,
+  queue: &'a HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
+}
+
+impl<'a> GlyphPackFrameTask<'a> {
+  pub fn rebuild_all(&mut self, new_size: Size) {
+    *self.packer = GlyphPacker::init(new_size);
+  }
+
   pub fn pack(
     &mut self,
     glyph_id: GlyphID,
     info: NormalizedGlyphRasterInfo,
     raster: &mut dyn GlyphRaster,
   ) -> GlyphCacheResult {
-    match self.pack_info.entry((glyph_id, info)) {
+    // since the entry method below doesn't provide lru refresh, we should do it alone.
+    self.packer.pack_info.get_refresh(&(glyph_id, info));
+
+    match self.packer.pack_info.entry((glyph_id, info)) {
       Entry::Occupied(entry) => GlyphCacheResult::AlreadyCached(entry.into_mut()),
       Entry::Vacant(entry) => {
         let data = raster.raster(glyph_id, info);
 
-        match self.packer.pack_with_id(data.size()) {
+        match self.packer.packer.pack_with_id(data.size()) {
           Ok(result) => {
             let range = result.result.range;
 
