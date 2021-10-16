@@ -23,6 +23,7 @@ pub trait PackableChecker: TexturePacker {
   fn can_pack(&self, input: Size) -> bool;
 }
 
+#[derive(Clone, Copy)]
 pub struct PackId(usize);
 pub trait RePackablePacker: BaseTexturePacker {
   fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError>;

@@ -51,24 +51,37 @@ impl<'a> GlyphPackFrameTask<'a> {
     info: NormalizedGlyphRasterInfo,
     raster: &mut dyn GlyphRaster,
   ) -> GlyphCacheResult {
-    // since the entry method below doesn't provide lru refresh, we should do it alone.
-    self.packer.pack_info.get_refresh(&(glyph_id, info));
+    if let Some(result) = self.packer.pack_info.get_refresh(&(glyph_id, info)) {
+      GlyphCacheResult::AlreadyCached(*result)
+    } else {
+      let data = raster.raster(glyph_id, info);
 
-    match self.packer.pack_info.entry((glyph_id, info)) {
-      Entry::Occupied(entry) => GlyphCacheResult::AlreadyCached(entry.into_mut()),
-      Entry::Vacant(entry) => {
-        let data = raster.raster(glyph_id, info);
-
+      loop {
         match self.packer.packer.pack_with_id(data.size()) {
           Ok(result) => {
             let range = result.result.range;
 
-            let result = entry.insert((result.id, range));
+            let result = *self
+              .packer
+              .pack_info
+              .entry((glyph_id, info))
+              .or_insert((result.id, range));
 
-            GlyphCacheResult::NewCached { result, data }
+            break GlyphCacheResult::NewCached { result, data };
           }
           Err(err) => match err {
-            PackError::SpaceNotEnough => GlyphCacheResult::NotEnoughSpace,
+            PackError::SpaceNotEnough => {
+              if let Some((k, _)) = self.packer.pack_info.back() {
+                if self.queue.contains(k) {
+                  break GlyphCacheResult::NotEnoughSpace;
+                } else {
+                  let (_, v) = self.packer.pack_info.pop_back().unwrap();
+                  self.packer.packer.un_pack(v.0);
+                }
+              } else {
+                break GlyphCacheResult::NotEnoughSpace;
+              }
+            }
           },
         }
       }
@@ -76,12 +89,12 @@ impl<'a> GlyphPackFrameTask<'a> {
   }
 }
 
-pub enum GlyphCacheResult<'a> {
+pub enum GlyphCacheResult {
   NewCached {
-    result: &'a (PackId, TextureRange),
+    result: (PackId, TextureRange),
     data: Texture2DBuffer<u8>,
   },
-  AlreadyCached(&'a (PackId, TextureRange)),
+  AlreadyCached((PackId, TextureRange)),
   NotEnoughSpace,
 }
 
