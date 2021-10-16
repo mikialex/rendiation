@@ -285,7 +285,7 @@ impl<T: Sized> Mat4<T> {
 
 impl<T> Mat4<T>
 where
-  T: Copy,
+  T: Scalar,
 {
   pub fn right(&self) -> Vec3<T> {
     Vec3::new(self.a1, self.a2, self.a3)
@@ -304,7 +304,10 @@ where
   }
 
   pub fn get_scale(&self) -> Vec3<T> {
-    Vec3::new(self.a1, self.b2, self.c3)
+    let sx = Vec3::new(self.a1, self.a2, self.a3).length();
+    let sy = Vec3::new(self.b1, self.b2, self.b3).length();
+    let sz = Vec3::new(self.c1, self.c2, self.c3).length();
+    Vec3::new(sx, sy, sz)
   }
 }
 
@@ -534,6 +537,23 @@ where
         z.x,   z.y,   z.z, T::zero(),
       eye.x, eye.y, eye.z, T::one(),
     )
+  }
+
+  pub fn extract_rotation_mat(&self) -> Self {
+    let scale_inv = self.get_scale().map(|v|T::one() / v);
+    let mut mat = self.to_mat3();
+    mat.a1 *= scale_inv.x;
+    mat.a2 *= scale_inv.x;
+    mat.a3 *= scale_inv.x;
+    
+    mat.b1 *= scale_inv.y;
+    mat.b2 *= scale_inv.y;
+    mat.b3 *= scale_inv.y;
+    
+    mat.c1 *= scale_inv.z;
+    mat.c2 *= scale_inv.z;
+    mat.c3 *= scale_inv.z;
+    mat.into()
   }
 
 }

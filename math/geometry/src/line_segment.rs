@@ -1,5 +1,5 @@
 use crate::{Positioned, SpaceEntity, SpaceLineSegment};
-use rendiation_algebra::{Lerp, Scalar, SquareMatrixDimension};
+use rendiation_algebra::*;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct LineSegment<U> {
@@ -36,6 +36,12 @@ where
   }
   fn sample(&self, t: T) -> V {
     self.start().lerp(self.end(), t)
+  }
+  fn tangent_at(&self, _t: T) -> NormalizedVector<T, V>
+  where
+    V: VectorSpace<T> + IntoNormalizedVector<T, V>,
+  {
+    (*self.end.position() - *self.start.position()).into_normalized()
   }
 }
 

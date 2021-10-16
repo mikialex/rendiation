@@ -200,7 +200,7 @@ impl SkylinePacker {
   }
 }
 
-impl TexturePackStrategy for SkylinePacker {
+impl TexturePacker for SkylinePacker {
   fn pack(&mut self, input: Size) -> Result<PackResult, PackError> {
     if let Some((i, rect)) = self.find_skyline(input) {
       self.split(i, &rect);
@@ -210,8 +210,10 @@ impl TexturePackStrategy for SkylinePacker {
       let rotated = width != rect.w;
 
       Ok(PackResult {
-        offset: (rect.x, rect.y),
-        size: Size::from_usize_pair_min_one((rect.w, rect.h)),
+        range: TextureRange {
+          origin: (rect.x, rect.y).into(),
+          size: Size::from_usize_pair_min_one((rect.w, rect.h)),
+        },
         rotated,
       })
     } else {
@@ -220,7 +222,7 @@ impl TexturePackStrategy for SkylinePacker {
   }
 }
 
-impl TexturePackStrategyBase for SkylinePacker {
+impl BaseTexturePacker for SkylinePacker {
   fn config(&mut self, config: PackerConfig) {
     self.config = config;
     self.reset();

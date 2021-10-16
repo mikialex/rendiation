@@ -9,6 +9,7 @@ bytemuck = {version = "1.4.1", features = ["derive"]}
 font-loader = "0.11.0"
 glyph_brush = "0.7"
 image = "*"
+linked-hash-map = "0.5.4"
 log = "0.4"
 nfd = "0.0.4"
 rendiation-algebra = {path = "../math/algebra"}
@@ -16,6 +17,7 @@ rendiation-color = {path = "../components/color"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
+rendiation-texture-packer = {path = "../components/texture/packer"}
 rendiation-webgpu = {path = "../webgpu"}
 wgpu = "0.10"
 winit = {version = "0.24.0"}

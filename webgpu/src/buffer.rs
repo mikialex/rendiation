@@ -57,6 +57,7 @@ pub const fn or(a: wgpu::BufferUsages, b: wgpu::BufferUsages) -> wgpu::BufferUsa
 }
 
 #[test]
+#[allow(clippy::diverging_sub_expression)]
 fn test() {
   let buffer_x: Buffer<{ COPY_DST }> = todo!();
   let buffer_a: Buffer<{ or(COPY_DST, INDEX) }> = todo!();

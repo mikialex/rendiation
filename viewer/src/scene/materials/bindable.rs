@@ -41,7 +41,7 @@ impl<T> MaterialBindableResource<T> {
   }
 
   pub fn foreach_material_refed(&self, f: impl FnMut(MaterialHandle)) {
-    self.used_by.borrow().iter().map(|&h| h).for_each(f)
+    self.used_by.borrow().iter().copied().for_each(f)
   }
 }
 

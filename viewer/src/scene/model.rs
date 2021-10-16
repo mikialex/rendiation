@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use arena::Arena;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_webgpu::PipelineResourceManager;
 
 use super::*;
 
@@ -38,6 +38,58 @@ pub struct MeshModel<Ma, Me> {
   pub node: SceneNodeHandle,
 }
 
+impl SceneRenderable for dyn Model {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    base: &mut SceneMaterialRenderPrepareCtxBase,
+    components: &mut SceneComponents,
+  ) {
+    let material = components
+      .materials
+      .get_mut(self.material())
+      .unwrap()
+      .as_mut();
+    let mesh = components.meshes.get_mut(self.mesh()).unwrap();
+    let node = components.nodes.get_node_mut(self.node()).data_mut();
+
+    let mut ctx = SceneMaterialRenderPrepareCtx {
+      base,
+      model_info: node.get_model_gpu(gpu).into(),
+      active_mesh: mesh.as_ref().into(),
+    };
+
+    material.update(gpu, &mut ctx);
+
+    mesh.update(gpu, &mut base.resources.custom_storage);
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut wgpu::RenderPass<'a>,
+    components: &'a SceneComponents,
+    camera_gpu: &'a CameraBindgroup,
+    pipeline_resource: &'a PipelineResourceManager,
+    pass_info: &'a PassTargetFormatInfo,
+  ) {
+    let material = components.materials.get(self.material()).unwrap().as_ref();
+    let node = components.nodes.get_node(self.node()).data();
+    let mesh = components.meshes.get(self.mesh()).unwrap().as_ref();
+
+    let ctx = SceneMaterialPassSetupCtx {
+      pass: pass_info,
+      camera_gpu,
+      model_gpu: node.gpu.as_ref().unwrap().into(),
+      pipelines: pipeline_resource,
+      active_mesh: mesh.into(),
+    };
+    material.setup_pass(pass, &ctx);
+
+    let mesh = components.meshes.get(self.mesh()).unwrap();
+    mesh.setup_pass_and_draw(pass, self.group());
+  }
+}
+
 impl<Ma, Me> Model for MeshModel<Ma, Me>
 where
   // constrain the model's mesh gpu layout and material requirement must be same
@@ -59,12 +111,6 @@ where
   fn node(&self) -> SceneNodeHandle {
     self.node
   }
-}
-
-pub struct ModelPassSetupContext<'a> {
-  pub materials: &'a Arena<Box<dyn Material>>,
-  pub meshes: &'a Arena<Box<dyn Mesh>>,
-  pub material_ctx: SceneMaterialPassSetupCtx<'a>,
 }
 
 impl Scene {

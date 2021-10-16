@@ -44,6 +44,12 @@ impl UserSelectFile {
   }
 }
 
+impl Default for UserSelectFile {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Future for UserSelectFile {
   type Output = Option<String>;
 

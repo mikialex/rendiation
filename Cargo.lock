@@ -59,6 +59,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anymap"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33954243bd79057c2de7338850b85983a44588021f8a5fee574a8888c6de4344"
+
+[[package]]
 name = "approx"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1053,6 +1059,7 @@ dependencies = [
  "font-loader",
  "glyph_brush",
  "image",
+ "linked-hash-map",
  "log",
  "nfd",
  "rendiation-algebra",
@@ -1060,6 +1067,7 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
+ "rendiation-texture-packer",
  "rendiation-webgpu",
  "wgpu",
  "winit",
@@ -1423,14 +1431,6 @@ dependencies = [
  "cc",
  "cfg-if 1.0.0",
  "libc",
-]
-
-[[package]]
-name = "noize"
-version = "0.0.1"
-dependencies = [
- "image",
- "rendiation-algebra",
 ]
 
 [[package]]
@@ -1903,6 +1903,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-generative-texture"
+version = "0.0.1"
+dependencies = [
+ "image",
+ "rendiation-algebra",
+]
+
+[[package]]
 name = "rendiation-geometry"
 version = "0.1.0"
 dependencies = [
@@ -1919,6 +1927,7 @@ dependencies = [
  "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",
+ "rendiation-webgpu",
  "soa_derive",
  "space-algorithm",
  "wasm-bindgen",
@@ -1939,6 +1948,7 @@ dependencies = [
 name = "rendiation-texture-packer"
 version = "0.1.0"
 dependencies = [
+ "linked-hash-map",
  "rendiation-texture",
 ]
 
@@ -2347,6 +2357,7 @@ checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 name = "viewer"
 version = "0.1.0"
 dependencies = [
+ "anymap",
  "arena",
  "arena-graph",
  "arena-tree",

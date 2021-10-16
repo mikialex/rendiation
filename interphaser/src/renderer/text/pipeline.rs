@@ -29,7 +29,7 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
   }
 
   fn as_bytes(&self) -> &[u8] {
-    &self.data
+    self.data
   }
 
   fn size(&self) -> Size {
@@ -104,7 +104,7 @@ impl TextRendererPipeline {
       &uniform_layout,
       &transform,
       &sampler,
-      &cache.get_default_view(),
+      cache.get_default_view(),
     );
 
     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -197,7 +197,7 @@ impl TextRendererPipeline {
       &self.bindgroup_layout,
       &self.transform,
       &self.sampler,
-      &self.cache.get_default_view(),
+      self.cache.get_default_view(),
     );
   }
 
@@ -227,7 +227,7 @@ impl TextRendererPipeline {
 
 /// Helper function to generate a generate a transform matrix.
 pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
-  #[cfg_attr(rustfmt, rustfmt_skip)]
+  #[rustfmt::skip]
     [
         2.0 / width , 0.0, 0.0, 0.0,
         0.0, -2.0 / height , 0.0, 0.0,
@@ -250,7 +250,7 @@ fn create_bindgroup(
 ) -> wgpu::BindGroup {
   device.create_bind_group(&wgpu::BindGroupDescriptor {
     label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
-    layout: layout,
+    layout,
     entries: &[
       wgpu::BindGroupEntry {
         binding: 0,

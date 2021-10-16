@@ -22,4 +22,8 @@ space-algorithm = {path = "../../space"}
 # rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
 
 log = "0.4"
+rendiation-webgpu = {path = "../../../webgpu", optional = true}
 wasm-bindgen = {version = "0.2.68"}
+
+[features]
+webgpu = ["rendiation-webgpu"]

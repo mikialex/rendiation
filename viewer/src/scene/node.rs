@@ -63,19 +63,28 @@ impl SceneNode {
 }
 
 impl Scene {
+  pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
+    let mut node = SceneNode::default();
+    builder(&mut node, self);
+    let new = self.components.nodes.create_node(node);
+    let root = self.get_root_handle();
+    self.components.nodes.node_add_child_by_id(root, new);
+    new
+  }
+
   pub fn get_root_handle(&self) -> SceneNodeHandle {
-    self.nodes.get_node(self.nodes.root()).handle()
+    self.components.nodes.get_root_node().handle()
   }
   pub fn get_root(&self) -> &SceneNode {
-    self.nodes.get_node(self.nodes.root()).data()
+    self.components.nodes.get_root_node().data()
   }
 
   pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
-    self.get_node_mut(self.nodes.root())
+    self.components.nodes.get_root_node_mut().data_mut()
   }
 
   pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
-    self.node_add_child_by_handle(self.nodes.root(), child_handle);
+    self.node_add_child_by_handle(self.components.nodes.root(), child_handle);
   }
 
   pub fn node_add_child_by_handle(
@@ -84,6 +93,7 @@ impl Scene {
     child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
+      .components
       .nodes
       .get_parent_child_pair(parent_handle, child_handle);
     parent.add(child);
@@ -95,34 +105,53 @@ impl Scene {
     child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
+      .components
       .nodes
       .get_parent_child_pair(parent_handle, child_handle);
     parent.remove(child);
   }
 
   pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
-    self.nodes.get_node(handle).data()
+    self.components.nodes.get_node(handle).data()
   }
 
   pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
-    self.nodes.get_node_mut(handle).data_mut()
+    self.components.nodes.get_node_mut(handle).data_mut()
   }
 
   pub fn create_new_node(&mut self) -> &mut SceneNode {
     let node = SceneNode::default();
-    let handle = self.nodes.create_node(node);
-    self.nodes.get_node_mut(handle).data_mut()
+    let handle = self.components.nodes.create_node(node);
+    self.components.nodes.get_node_mut(handle).data_mut()
   }
 
   pub fn free_node(&mut self, handle: SceneNodeHandle) {
-    self.nodes.free_node(handle);
+    self.components.nodes.free_node(handle);
   }
 }
 
 pub struct TransformGPU {
   pub ubo: wgpu::Buffer,
   pub bindgroup: wgpu::BindGroup,
-  pub layout: wgpu::BindGroupLayout,
+  // pub layout: wgpu::BindGroupLayout,
+}
+
+impl BindGroupLayoutProvider for TransformGPU {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: "ModelTransformBindgroup".into(),
+      entries: &[wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::VERTEX,
+        ty: wgpu::BindingType::Buffer {
+          ty: wgpu::BufferBindingType::Uniform,
+          has_dynamic_offset: false,
+          min_binding_size: wgpu::BufferSize::new(64),
+        },
+        count: None,
+      }],
+    })
+  }
 }
 
 impl TransformGPU {
@@ -152,22 +181,8 @@ impl TransformGPU {
       usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
-    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "ModelTransformBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64),
-        },
-        count: None,
-      }],
-    });
-
     let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &layout,
+      layout: &Self::layout(device),
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
         resource: ubo.as_entire_binding(),
@@ -175,10 +190,6 @@ impl TransformGPU {
       label: None,
     });
 
-    Self {
-      ubo,
-      bindgroup,
-      layout,
-    }
+    Self { ubo, bindgroup }
   }
 }

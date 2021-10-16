@@ -2,24 +2,17 @@ use std::borrow::Cow;
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
+use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 
-use crate::scene::{
-  CameraBindgroup, MaterialBindGroup, MaterialHandle, SamplerHandle, Texture2DHandle, TransformGPU,
-  ValueID, VertexBufferSourceType, ViewerDeviceExt,
-};
+use crate::*;
 
-use super::{
-  CommonPipelineVariantKey, MaterialCPUResource, MaterialGPUResource, MaterialMeshLayoutRequire,
-  PipelineCreateCtx, PipelineVariantContainer, PreferredMaterialStates, SceneMaterialPassSetupCtx,
-  SceneMaterialRenderPrepareCtx, STATE_ID,
-};
-
+#[derive(Clone)]
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
-  pub sampler: SamplerHandle,
+  pub sampler: TextureSampler,
   pub texture: Texture2DHandle,
-  pub states: PreferredMaterialStates,
+  pub states: MaterialStates,
 }
 
 impl MaterialMeshLayoutRequire for BasicMaterial {
@@ -32,15 +25,15 @@ impl BasicMaterial {
     handle: MaterialHandle,
     ubo: &wgpu::Buffer,
     device: &wgpu::Device,
-    queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> MaterialBindGroup {
+    let sampler = ctx.map_sampler(self.sampler, device);
     device
       .material_bindgroup_builder(handle)
       .push(ubo.as_entire_binding())
       .push_texture2d(ctx, self.texture)
-      .push_sampler(ctx, self.sampler)
+      .push(sampler.as_bindable())
       .build(layout)
   }
 
@@ -88,8 +81,12 @@ impl BasicMaterial {
     })
   }
 
-  pub fn create_pipeline(&self, gpu: &GPU, ctx: &PipelineCreateCtx) -> wgpu::RenderPipeline {
-    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
+  pub fn create_pipeline(
+    &self,
+    device: &wgpu::Device,
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline {
+    let bindgroup_layout = Self::create_bindgroup_layout(device);
 
     let shader_source = format!(
       "
@@ -118,92 +115,86 @@ impl BasicMaterial {
       }}
       
       ",
-      vertex_header = Vec::<Vertex>::get_shader_header(),
+      vertex_header = Vertex::get_shader_header(),
       material_header = Self::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
       object_header = TransformGPU::get_shader_header(),
     );
 
-    let shader = gpu
-      .device
-      .create_shader_module(&wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-      });
+    let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+      label: None,
+      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
+    });
 
-    let pipeline_layout = gpu
-      .device
-      .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[
-          &ctx.model_gpu.layout,
-          &bindgroup_layout,
-          &ctx.camera_gpu.layout,
-        ],
-        push_constant_ranges: &[],
-      });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+      label: None,
+      bind_group_layouts: &[
+        ctx.layouts.retrieve::<TransformGPU>(device),
+        &bindgroup_layout,
+        ctx.layouts.retrieve::<CameraBindgroup>(device),
+      ],
+      push_constant_ranges: &[],
+    });
 
-    let vertex_buffers = ctx.active_mesh.vertex_layout();
+    let vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
 
     let targets: Vec<_> = ctx
       .pass
-      .color_format()
+      .color_formats
       .iter()
       .map(|&f| self.states.map_color_states(f))
       .collect();
 
-    gpu
-      .device
-      .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-          module: &shader,
-          entry_point: "vs_main",
-          buffers: &vertex_buffers,
-        },
-        fragment: Some(wgpu::FragmentState {
-          module: &shader,
-          entry_point: "fs_main",
-          targets: targets.as_slice(),
-        }),
-        primitive: wgpu::PrimitiveState {
-          cull_mode: None,
-          topology: wgpu::PrimitiveTopology::TriangleList,
-          ..Default::default()
-        },
-        depth_stencil: self
-          .states
-          .map_depth_stencil_state(ctx.pass.depth_stencil_format()),
-        multisample: wgpu::MultisampleState::default(),
-      })
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+      label: None,
+      layout: Some(&pipeline_layout),
+      vertex: wgpu::VertexState {
+        module: &shader,
+        entry_point: "vs_main",
+        buffers: &vertex_buffers,
+      },
+      fragment: Some(wgpu::FragmentState {
+        module: &shader,
+        entry_point: "fs_main",
+        targets: targets.as_slice(),
+      }),
+      primitive: wgpu::PrimitiveState {
+        cull_mode: None,
+        topology: wgpu::PrimitiveTopology::TriangleList,
+        ..Default::default()
+      },
+      depth_stencil: self
+        .states
+        .map_depth_stencil_state(ctx.pass.depth_stencil_format),
+      multisample: wgpu::MultisampleState::default(),
+    })
   }
 }
 
 pub struct BasicMaterialGPU {
-  state_id: ValueID<PreferredMaterialStates>,
-  uniform: UniformBuffer<Vec3<f32>>,
-  bindgroup_layout: wgpu::BindGroupLayout,
+  state_id: ValueID<MaterialStates>,
+  _uniform: UniformBuffer<Vec3<f32>>,
   bindgroup: MaterialBindGroup,
 }
 
 impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
-  fn update(&mut self, source: &Self::Source, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) {
+
+  fn request_pipeline(
+    &mut self,
+    source: &Self::Source,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+  ) {
     self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
 
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
+    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
 
-    let pipeline_ctx = PipelineCreateCtx {
-      camera_gpu: ctx.camera_gpu,
-      model_gpu: ctx.model_gpu,
-      active_mesh: ctx.active_mesh,
-      pass: ctx.pass,
-    };
-    let pipelines = &mut ctx.pipelines;
+    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
+
     pipelines
-      .basic
-      .request(&key, || source.create_pipeline(gpu, &pipeline_ctx));
+      .get_cache_mut::<Self, CommonPipelineCache>()
+      .request(&key, || source.create_pipeline(&gpu.device, &pipeline_ctx));
   }
 
   fn setup_pass<'a>(
@@ -211,10 +202,15 @@ impl MaterialGPUResource for BasicMaterialGPU {
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.topology());
-    let pipeline = ctx.pipelines.basic.retrieve(&key);
+    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
+
+    let pipeline = ctx
+      .pipelines
+      .get_cache::<Self, CommonPipelineCache>()
+      .retrieve(&key);
+
     pass.set_pipeline(pipeline);
-    pass.set_bind_group(0, &ctx.model_gpu.bindgroup, &[]);
+    pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }
@@ -229,24 +225,17 @@ impl MaterialCPUResource for BasicMaterial {
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
-    let uniform = UniformBuffer::create(&gpu.device, self.color);
+    let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
-    let bindgroup = self.create_bindgroup(
-      handle,
-      uniform.gpu(),
-      &gpu.device,
-      &gpu.queue,
-      &bindgroup_layout,
-      ctx,
-    );
+    let bindgroup =
+      self.create_bindgroup(handle, _uniform.gpu(), &gpu.device, &bindgroup_layout, ctx);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 
     BasicMaterialGPU {
       state_id,
-      uniform,
-      bindgroup_layout,
+      _uniform,
       bindgroup,
     }
   }

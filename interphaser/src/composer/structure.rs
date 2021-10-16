@@ -54,7 +54,7 @@ pub trait IdentityKeyed {
 
 pub struct For<T: IdentityKeyed, C> {
   children: Vec<(T::Key, C)>,
-  mapper: Box<dyn Fn(&T, usize) -> C>,
+  mapper: Box<dyn Fn(usize) -> C>,
 }
 
 impl<T, C> For<T, C>
@@ -64,7 +64,7 @@ where
 {
   pub fn by<F>(mapper: F) -> Self
   where
-    F: Fn(&T, usize) -> C + 'static,
+    F: Fn(usize) -> C + 'static,
   {
     Self {
       children: Vec::new(),
@@ -86,16 +86,12 @@ where
       .map(|(index, item)| {
         let new_key = item.key();
 
-        if let Some(previous) = self
-          .children
-          .iter()
-          .position(|cached| &cached.0 == &new_key)
-        {
+        if let Some(previous) = self.children.iter().position(|cached| cached.0 == new_key) {
           // move
           self.children.swap_remove(previous)
         } else {
           // new
-          (new_key, (self.mapper)(item, index))
+          (new_key, (self.mapper)(index))
         }
       })
       .collect();

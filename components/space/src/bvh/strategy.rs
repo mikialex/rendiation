@@ -77,8 +77,8 @@ impl<B: BalanceTreeBounding> BVHBuildStrategy<B> for BalanceTree {
 
     B::median_partition_at_axis(range, build_source, index_source, axis);
 
-    let left_bbox = bounding_from_build_source(&index_source, &build_source, left_range.clone());
-    let right_bbox = bounding_from_build_source(&index_source, &build_source, right_range.clone());
+    let left_bbox = bounding_from_build_source(index_source, build_source, left_range.clone());
+    let right_bbox = bounding_from_build_source(index_source, build_source, right_range.clone());
 
     ((left_bbox, left_range), axis, (right_bbox, right_range))
   }

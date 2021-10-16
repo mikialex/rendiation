@@ -1,13 +1,23 @@
 use crate::*;
-use rendiation_webgpu::GPU;
+use rendiation_texture::Size;
+use rendiation_webgpu::{GPUTextureSize, GPU};
 use std::rc::Rc;
 use winit::event::Event;
 
-#[derive(Default)]
 pub struct GPUCanvas {
-  current_render_buffer_size: (u32, u32),
+  current_render_buffer_size: Size,
   content: Option<Rc<wgpu::TextureView>>,
   layout: LayoutUnit,
+}
+
+impl Default for GPUCanvas {
+  fn default() -> Self {
+    Self {
+      current_render_buffer_size: Size::from_u32_pair_min_one((100, 100)),
+      content: None,
+      layout: Default::default(),
+    }
+  }
 }
 
 impl Presentable for GPUCanvas {
@@ -33,10 +43,16 @@ impl LayoutAble for GPUCanvas {
   }
 }
 
+pub struct FrameTarget {
+  pub size: Size,
+  pub format: wgpu::TextureFormat,
+  pub view: Rc<wgpu::TextureView>,
+}
+
 pub trait CanvasPrinter {
   fn event(&mut self, event: &winit::event::Event<()>);
-  fn update_render_size(&mut self, layout_size: (f32, f32), gpu: &GPU) -> (u32, u32);
-  fn draw_canvas(&mut self, gpu: &GPU, canvas: &wgpu::TextureView);
+  fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size;
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget);
 }
 
 impl<T: CanvasPrinter> Component<T> for GPUCanvas {
@@ -44,33 +60,34 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
     model.event(event.event);
     match event.event {
       Event::MainEventsCleared => {
-        let new_size = model.update_render_size(self.layout.size.into(), &event.gpu);
+        let new_size = model.update_render_size(self.layout.size.into());
         if new_size != self.current_render_buffer_size {
           self.content = None;
         }
 
-        if new_size.0 == 0 || new_size.1 == 0 {
-          return;
-        }
+        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
 
         let target = self.content.get_or_insert_with(|| {
           let device = &event.gpu.device;
           let tex = device.create_texture(&wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-              width: new_size.0,
-              height: new_size.1,
-              depth_or_array_layers: 1,
-            },
+            size: new_size.into_gpu_size(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             label: None,
           });
           let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
           Rc::new(view)
         });
+
+        let target = FrameTarget {
+          size: new_size,
+          format,
+          view: target.clone(),
+        };
+
         model.draw_canvas(&event.gpu, target);
       }
       _ => {}

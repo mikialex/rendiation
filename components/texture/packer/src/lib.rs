@@ -1,8 +1,9 @@
-use rendiation_texture::Size;
+use rendiation_texture::{Size, TextureRange};
 
+pub mod shelf;
 pub mod skyline;
 
-pub trait TexturePackStrategyBase {
+pub trait BaseTexturePacker {
   fn reset(&mut self);
   /// config should also call reset
   fn config(&mut self, config: PackerConfig);
@@ -13,19 +14,26 @@ pub enum PackError {
 }
 
 /// padding should handle in user side
-pub trait TexturePackStrategy: TexturePackStrategyBase {
+pub trait TexturePacker: BaseTexturePacker {
   fn pack(&mut self, input: Size) -> Result<PackResult, PackError>;
 }
 
-pub trait PackableChecker: TexturePackStrategy {
+pub trait PackableChecker: TexturePacker {
   /// this should have lower cost than pack, and not request mutable self
   fn can_pack(&self, input: Size) -> bool;
+}
+
+#[derive(Clone, Copy)]
+pub struct PackId(usize);
+pub trait RePackablePacker: BaseTexturePacker {
+  fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError>;
+  fn un_pack(&mut self, id: PackId);
 }
 
 /// Some packer strategy maybe yield better result when input is batched
 /// Impl this to specialize implementation. Or use the AutoBatchTexturePacker
 /// to provide a default implementation;
-pub trait BatchTexturePackStrategy: TexturePackStrategyBase {
+pub trait BatchTexturePacker: BaseTexturePacker {
   fn batch_pack(
     &mut self,
     input: &[Size],
@@ -37,7 +45,7 @@ pub struct AutoBatchTexturePacker<P> {
   pub packer: P,
 }
 
-impl<P: TexturePackStrategyBase> TexturePackStrategyBase for AutoBatchTexturePacker<P> {
+impl<P: BaseTexturePacker> BaseTexturePacker for AutoBatchTexturePacker<P> {
   fn config(&mut self, config: PackerConfig) {
     self.packer.config(config)
   }
@@ -47,7 +55,7 @@ impl<P: TexturePackStrategyBase> TexturePackStrategyBase for AutoBatchTexturePac
   }
 }
 
-impl<P: TexturePackStrategy> BatchTexturePackStrategy for AutoBatchTexturePacker<P> {
+impl<P: TexturePacker> BatchTexturePacker for AutoBatchTexturePacker<P> {
   fn batch_pack(
     &mut self,
     inputs: &[Size],
@@ -72,12 +80,16 @@ pub struct PackerConfig {
 }
 
 pub struct PackResult {
-  pub offset: (usize, usize),
-  pub size: Size,
+  pub range: TextureRange,
   pub rotated: bool, // should clockwise matters?
 }
 
 pub struct AllPackResult {
   pub results: Vec<PackResult>,
   pub size_all: Size,
+}
+
+pub struct PackResultWithId {
+  pub result: PackResult,
+  pub id: PackId,
 }

@@ -1,4 +1,6 @@
-use crate::{renderer::UIGlobalParameter, UIVertex, VertexBufferSourceType};
+use rendiation_webgpu::VertexBufferSourceType;
+
+use crate::{renderer::UIGlobalParameter, UIVertex};
 
 pub fn create_solid_pipeline(
   device: &wgpu::Device,
@@ -7,7 +9,7 @@ pub fn create_solid_pipeline(
 ) -> wgpu::RenderPipeline {
   let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: Some("ui_solid_pipeline_layout"),
-    bind_group_layouts: &[&global_uniform_bind_group_layout],
+    bind_group_layouts: &[global_uniform_bind_group_layout],
     push_constant_ranges: &[],
   });
 
@@ -44,7 +46,7 @@ pub fn create_solid_pipeline(
       }}
       
       ",
-    vertex_header = Vec::<UIVertex>::get_shader_header(),
+    vertex_header = UIVertex::get_shader_header(),
     global_header = UIGlobalParameter::get_shader_header(),
   );
 
@@ -59,7 +61,7 @@ pub fn create_solid_pipeline(
     vertex: wgpu::VertexState {
       entry_point: "vs_main",
       module: &shader,
-      buffers: &[Vec::<UIVertex>::vertex_layout()],
+      buffers: &[UIVertex::vertex_layout()],
     },
     primitive: wgpu::PrimitiveState {
       topology: wgpu::PrimitiveTopology::TriangleList,
@@ -167,7 +169,7 @@ pub fn create_texture_pipeline(
 ) -> wgpu::RenderPipeline {
   let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: Some("ui_tex_pipeline_layout"),
-    bind_group_layouts: &[&global_uniform_bind_group_layout, texture_bg_layout],
+    bind_group_layouts: &[global_uniform_bind_group_layout, texture_bg_layout],
     push_constant_ranges: &[],
   });
 
@@ -203,11 +205,11 @@ pub fn create_texture_pipeline(
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return  textureSample(r_color, r_sampler, in.uv) * in.color;
+          return textureSample(r_color, r_sampler, in.uv) * in.color;
       }}
       
       ",
-    vertex_header = Vec::<UIVertex>::get_shader_header(),
+    vertex_header = UIVertex::get_shader_header(),
     global_header = UIGlobalParameter::get_shader_header(),
     texture_group = TextureBindGroup::get_shader_header()
   );
@@ -223,7 +225,7 @@ pub fn create_texture_pipeline(
     vertex: wgpu::VertexState {
       entry_point: "vs_main",
       module: &shader,
-      buffers: &[Vec::<UIVertex>::vertex_layout()],
+      buffers: &[UIVertex::vertex_layout()],
     },
     primitive: wgpu::PrimitiveState {
       topology: wgpu::PrimitiveTopology::TriangleList,

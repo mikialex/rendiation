@@ -6,3 +6,4 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-texture = {path = "../core"}
+linked-hash-map = "0.5.4"

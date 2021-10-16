@@ -3,11 +3,11 @@ use rendiation_texture_types::Size;
 use crate::GPU;
 
 pub trait GPUTextureSize {
-  fn into_gpu_size(&self) -> wgpu::Extent3d;
+  fn into_gpu_size(self) -> wgpu::Extent3d;
 }
 
 impl GPUTextureSize for Size {
-  fn into_gpu_size(&self) -> wgpu::Extent3d {
+  fn into_gpu_size(self) -> wgpu::Extent3d {
     wgpu::Extent3d {
       width: usize::from(self.width) as u32,
       height: usize::from(self.height) as u32,
@@ -23,6 +23,7 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
+  #[allow(clippy::option_map_unit_fn)]
   pub fn resize(&mut self, gpu: &GPU, size: Size) {
     self.size = size;
     self

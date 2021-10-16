@@ -1,5 +1,7 @@
 use rendiation_webgpu::*;
 
+use crate::{TextureCubeHandle, TextureCubeSource};
+
 use super::{MaterialBindableItemPair, MaterialBindableResourceUpdate, Scene, Texture2DHandle};
 
 impl MaterialBindableResourceUpdate for Box<dyn WebGPUTexture2dSource> {
@@ -9,7 +11,7 @@ impl MaterialBindableResourceUpdate for Box<dyn WebGPUTexture2dSource> {
       let source = self.as_ref();
       let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
-      WebGPUTexture2d::create(&device, desc).upload(queue, source, 0)
+      WebGPUTexture2d::create(device, desc).upload_into(queue, source, 0)
     });
   }
 }
@@ -24,5 +26,11 @@ impl Scene {
     self
       .texture_2ds
       .insert(MaterialBindableItemPair::new(Box::new(texture)))
+  }
+
+  pub fn add_texture_cube(&mut self, texture: TextureCubeSource) -> TextureCubeHandle {
+    self
+      .texture_cubes
+      .insert(MaterialBindableItemPair::new(texture))
   }
 }

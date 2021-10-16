@@ -3,9 +3,9 @@ pub enum Value<T, U> {
   Dynamic(DynamicValue<T, U>),
 }
 
-impl<T> Into<Value<String, T>> for &str {
-  fn into(self) -> Value<String, T> {
-    Value::Static(self.to_owned())
+impl<T> From<&str> for Value<String, T> {
+  fn from(val: &str) -> Self {
+    Value::Static(val.to_owned())
   }
 }
 

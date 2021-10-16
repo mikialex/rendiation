@@ -12,6 +12,12 @@ pub struct ArenaTreeNode<T> {
   children: Vec<ArenaTreeNodeHandle<T>>,
 }
 
+impl<T: Default> Default for ArenaTree<T> {
+  fn default() -> Self {
+    Self::new(Default::default())
+  }
+}
+
 impl<T> ArenaTreeNode<T> {
   pub fn data(&self) -> &T {
     &self.data
@@ -51,7 +57,7 @@ impl<T> ArenaTreeNode<T> {
       .expect("tried to remove nonexistent child");
 
     child_to_remove.parent = None;
-    
+
     self.children.swap_remove(child_index);
     self
   }
@@ -83,6 +89,14 @@ impl<T> ArenaTree<T> {
 
   pub fn free_node(&mut self, handle: ArenaTreeNodeHandle<T>) {
     self.nodes.remove(handle);
+  }
+
+  pub fn get_root_node(&self) -> &ArenaTreeNode<T> {
+    self.nodes.get(self.root()).unwrap()
+  }
+
+  pub fn get_root_node_mut(&mut self) -> &mut ArenaTreeNode<T> {
+    self.nodes.get_mut(self.root()).unwrap()
   }
 
   pub fn get_node(&self, handle: ArenaTreeNodeHandle<T>) -> &ArenaTreeNode<T> {

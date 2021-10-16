@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use rendiation_texture_types::Size;
+use rendiation_texture_types::{Size, TextureOrigin};
 use wgpu::util::DeviceExt;
 
 use crate::{BindableResource, WebGPUTexture, WebGPUTextureCubeDescriptor};
@@ -63,7 +63,7 @@ pub trait WebGPUTexture2dSource {
       let padded_data: Vec<_> = self
         .as_bytes()
         .chunks_exact(self.bytes_per_row_usize())
-        .flat_map(|row| row.iter().map(|&b| b).chain((0..padding_size).map(|_| 0)))
+        .flat_map(|row| row.iter().copied().chain((0..padding_size).map(|_| 0)))
         .collect();
 
       device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -98,7 +98,7 @@ pub trait WebGPUTexture2dSource {
     WebGPUTextureCubeDescriptor {
       desc: wgpu::TextureDescriptor {
         label: None,
-        size: self.gpu_size(),
+        size: self.gpu_cube_size(),
         mip_level_count: level_count.get_level_count_wgpu(self.size()),
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -200,6 +200,7 @@ pub enum MipLevelCount {
 }
 
 impl MipLevelCount {
+  #[allow(clippy::let_and_return)]
   pub fn get_level_count_wgpu(&self, size: Size) -> u32 {
     let r = match *self {
       MipLevelCount::BySize => size.mip_level_count(),
@@ -238,12 +239,10 @@ impl WebGPUTexture2d {
 
     let texture = WebGPUTexture { texture, desc };
 
-    let tex = Self {
+    Self {
       texture,
       texture_view,
-    };
-
-    tex
+    }
   }
 
   pub fn get_default_view(&self) -> &wgpu::TextureView {
@@ -251,28 +250,38 @@ impl WebGPUTexture2d {
   }
 
   pub fn upload(
+    &self,
+    queue: &wgpu::Queue,
+    source: &dyn WebGPUTexture2dSource,
+    mip_level: usize,
+  ) -> &Self {
+    self.upload_with_origin(queue, source, mip_level, TextureOrigin::zero())
+  }
+
+  pub fn upload_into(
     self,
     queue: &wgpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
   ) -> Self {
-    self.upload_with_origin(queue, source, mip_level, (0, 0))
+    self.upload_with_origin(queue, source, mip_level, TextureOrigin::zero());
+    self
   }
 
   pub fn upload_with_origin(
-    self,
+    &self,
     queue: &wgpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
-    origin: (usize, usize),
-  ) -> Self {
+    origin: TextureOrigin,
+  ) -> &Self {
     queue.write_texture(
       wgpu::ImageCopyTexture {
         texture: &self.texture,
         mip_level: mip_level as u32,
         origin: wgpu::Origin3d {
-          x: origin.0 as u32,
-          y: origin.1 as u32,
+          x: origin.x as u32,
+          y: origin.y as u32,
           z: 0,
         },
         aspect: wgpu::TextureAspect::All,
@@ -285,6 +294,17 @@ impl WebGPUTexture2d {
       },
       source.gpu_size(),
     );
+    self
+  }
+
+  pub fn upload_with_origin_into(
+    self,
+    queue: &wgpu::Queue,
+    source: &dyn WebGPUTexture2dSource,
+    mip_level: usize,
+    origin: TextureOrigin,
+  ) -> Self {
+    self.upload_with_origin(queue, source, mip_level, origin);
     self
   }
 }

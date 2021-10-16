@@ -22,6 +22,9 @@ pub struct Handle<T> {
 }
 
 impl<T> Handle<T> {
+  /// ## Safety
+  ///
+  /// force type conversion
   pub unsafe fn cast_type<U>(&self) -> Handle<U> {
     let t: &Handle<U> = std::mem::transmute(self);
     *t

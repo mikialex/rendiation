@@ -18,7 +18,7 @@ pub trait AbstractMesh {
     Self: Sized,
   {
     AbstractMeshIter {
-      mesh: &self,
+      mesh: self,
       current: 0,
       count: self.primitive_count(),
     }
@@ -67,7 +67,7 @@ pub trait AbstractIndexMesh: AbstractMesh {
     Self: Sized,
   {
     AbstractIndexMeshIter {
-      mesh: &self,
+      mesh: self,
       current: 0,
       count: self.primitive_count(),
     }

@@ -3,14 +3,17 @@ use std::{
   rc::{Rc, Weak},
 };
 
+use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
+
+use crate::{SceneTextureCube, TextureCubeHandle};
+
 use super::{
-  MaterialHandle, SamplerHandle, SceneMaterialRenderPrepareCtx, SceneSampler, SceneTexture2D,
-  Texture2DHandle, WatchedArena,
+  MaterialHandle, SceneMaterialRenderPrepareCtx, SceneTexture2D, Texture2DHandle, WatchedArena,
 };
 
 pub struct MaterialBindGroup {
   pub gpu: wgpu::BindGroup,
-  references: Vec<MaterialTextureReferenceFinalizer>,
+  _references: Vec<MaterialTextureReferenceFinalizer>,
 }
 
 #[derive(Default)]
@@ -21,8 +24,8 @@ pub struct ReferenceFinalization {
 impl ReferenceFinalization {
   pub fn maintain(
     &mut self,
-    samplers: &WatchedArena<SceneSampler>,
     texture_2ds: &WatchedArena<SceneTexture2D>,
+    texture_cubes: &WatchedArena<SceneTextureCube>,
   ) {
     self.deleting.borrow_mut().drain(..).for_each(|r| {
       let material = r.material;
@@ -31,8 +34,8 @@ impl ReferenceFinalization {
           .get_resource(tex)
           .unwrap()
           .remove_material_bind(material),
-        ResourceReference::Sampler(s) => samplers
-          .get_resource(s)
+        ResourceReference::TextureCube(tex) => texture_cubes
+          .get_resource(tex)
           .unwrap()
           .remove_material_bind(material),
       }
@@ -59,7 +62,7 @@ pub struct ReferenceRecord {
 #[derive(Clone, Copy)]
 pub enum ResourceReference {
   Texture2d(Texture2DHandle),
-  Sampler(SamplerHandle),
+  TextureCube(TextureCubeHandle),
 }
 
 pub struct MaterialTextureReferenceFinalizer {
@@ -104,15 +107,58 @@ impl ViewerDeviceExt for wgpu::Device {
   }
 }
 
+impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
+  pub fn map_sampler(
+    &mut self,
+    sampler: TextureSampler,
+    device: &wgpu::Device,
+  ) -> Rc<wgpu::Sampler> {
+    fn convert_wrap(mode: AddressMode) -> wgpu::AddressMode {
+      match mode {
+        AddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+        AddressMode::Repeat => wgpu::AddressMode::Repeat,
+        AddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+        AddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
+      }
+    }
+    fn convert_filter(mode: FilterMode) -> wgpu::FilterMode {
+      match mode {
+        FilterMode::Nearest => wgpu::FilterMode::Nearest,
+        FilterMode::Linear => wgpu::FilterMode::Linear,
+      }
+    }
+
+    fn convert(sampler: TextureSampler) -> wgpu::SamplerDescriptor<'static> {
+      wgpu::SamplerDescriptor {
+        label: None,
+        address_mode_u: convert_wrap(sampler.address_mode_u),
+        address_mode_v: convert_wrap(sampler.address_mode_v),
+        address_mode_w: convert_wrap(sampler.address_mode_w),
+        mag_filter: convert_filter(sampler.mag_filter),
+        min_filter: convert_filter(sampler.min_filter),
+        mipmap_filter: convert_filter(sampler.mipmap_filter),
+        ..Default::default()
+      }
+    }
+
+    self
+      .resources
+      .samplers
+      .entry(sampler)
+      .or_insert_with(|| Rc::new(device.create_sampler(&convert(sampler))))
+      .clone()
+  }
+}
+
 impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
   pub fn push(mut self, binding: wgpu::BindingResource<'b>) -> Self {
     self.bindings.push(binding);
     self
   }
 
-  pub fn push_texture2d<'c: 'b, 'd: 'b>(
+  pub fn push_texture2d<'c: 'b, 'd: 'b, 'e>(
     mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
+    ctx: &'c SceneMaterialRenderPrepareCtx<'d, 'e>,
     handle: Texture2DHandle,
   ) -> Self {
     self.bindings.push(
@@ -133,14 +179,14 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self
   }
 
-  pub fn push_sampler<'c: 'b, 'd: 'b>(
+  pub fn push_texture_cube<'c: 'b, 'd: 'b, 'e>(
     mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d>,
-    handle: SamplerHandle,
+    ctx: &'c SceneMaterialRenderPrepareCtx<'d, 'e>,
+    handle: TextureCubeHandle,
   ) -> Self {
     self.bindings.push(
       ctx
-        .samplers
+        .texture_cubes
         .get_resource(handle)
         .unwrap()
         .as_material_bind(self.handle),
@@ -149,7 +195,7 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     self.references.push(MaterialTextureReferenceFinalizer {
       reference: ReferenceRecord {
         material: self.handle,
-        resource: ResourceReference::Sampler(handle),
+        resource: ResourceReference::TextureCube(handle),
       },
       sender: ctx.reference_finalization.create_sender(),
     });
@@ -175,7 +221,7 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
 
     MaterialBindGroup {
       gpu,
-      references: self.references,
+      _references: self.references,
     }
   }
 }

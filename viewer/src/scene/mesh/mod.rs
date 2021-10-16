@@ -1,26 +1,31 @@
-use rendiation_renderable_mesh::{
-  group::{MeshDrawGroup, MeshGroup},
-  vertex::Vertex,
-};
+use anymap::AnyMap;
+use rendiation_renderable_mesh::{group::MeshDrawGroup, GPUMeshData, MeshGPU};
 use rendiation_webgpu::GPU;
 use std::marker::PhantomData;
 
 use super::{Scene, TypedMeshHandle};
 
-pub mod impls;
-pub use impls::*;
+use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
+use rendiation_webgpu::VertexBufferSourceType;
 
-pub trait Mesh {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
-  fn update(&mut self, gpu: &GPU);
-  fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
-  fn topology(&self) -> wgpu::PrimitiveTopology;
+pub mod fatline;
+pub use fatline::*;
+
+pub trait GPUMeshLayoutSupport {
+  type VertexInput;
 }
 
-pub trait GPUMeshData {
-  fn update(&self, gpu: &mut Option<MeshGPU>, device: &wgpu::Device);
+impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
+where
+  V: VertexBufferSourceType,
+{
+  type VertexInput = Vec<V>;
+}
+
+pub trait Mesh {
+  fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
+  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
-  fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
 
@@ -29,16 +34,20 @@ pub struct MeshCell<T> {
   gpu: Option<MeshGPU>,
 }
 
+impl<T> From<T> for MeshCell<T> {
+  fn from(data: T) -> Self {
+    Self { data, gpu: None }
+  }
+}
+
 impl<T: GPUMeshData> Mesh for MeshCell<T> {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
-    self
-      .gpu
-      .as_ref()
-      .unwrap()
-      .setup_pass(pass, self.data.get_group(group))
+  fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
+    let gpu = self.gpu.as_ref().unwrap();
+    gpu.setup_pass(pass);
+    gpu.draw(pass, self.data.get_group(group).into())
   }
 
-  fn update(&mut self, gpu: &GPU) {
+  fn update(&mut self, gpu: &GPU, _storage: &mut AnyMap) {
     self.data.update(&mut self.gpu, &gpu.device);
   }
 
@@ -51,34 +60,15 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
   }
 }
 
-pub struct MeshGPU {
-  vertex: Vec<wgpu::Buffer>,
-  index: Option<(wgpu::Buffer, wgpu::IndexFormat)>,
-}
-
-impl MeshGPU {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, range: MeshGroup) {
-    self.vertex.iter().enumerate().for_each(|(i, gpu)| {
-      pass.set_vertex_buffer(i as u32, gpu.slice(..));
-    });
-    if let Some((index, format)) = &self.index {
-      pass.set_index_buffer(index.slice(..), *format);
-      pass.draw_indexed(range.into(), 0, 0..1);
-    } else {
-      pass.draw(range.into(), 0..1);
-    }
-  }
-}
-
 impl Scene {
   pub fn add_mesh<M>(&mut self, mesh: M) -> TypedMeshHandle<M>
   where
     M: GPUMeshData + 'static,
   {
-    let handle = self.meshes.insert(Box::new(MeshCell {
-      data: mesh,
-      gpu: None,
-    }));
+    let handle = self
+      .components
+      .meshes
+      .insert(Box::new(MeshCell::from(mesh)));
     TypedMeshHandle {
       handle,
       ty: PhantomData,
@@ -86,52 +76,9 @@ impl Scene {
   }
 }
 
-// use super::ValueID;
-
-pub type MeshVertexLayout = Vec<wgpu::VertexBufferLayout<'static>>;
-
-/// the comprehensive data that provided by mesh and will affect graphic pipeline
-pub struct MeshLayout {
-  vertex: MeshVertexLayout,
-  index: wgpu::IndexFormat,
-  topology: wgpu::PrimitiveTopology,
-}
-
-pub trait VertexBufferSourceType {
-  fn vertex_layout() -> wgpu::VertexBufferLayout<'static>;
-  fn get_shader_header() -> &'static str;
-}
-
-impl VertexBufferSourceType for Vec<Vertex> {
-  fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
-    wgpu::VertexBufferLayout {
-      array_stride: std::mem::size_of::<Vertex>() as u64,
-      step_mode: wgpu::VertexStepMode::Vertex,
-      attributes: &[
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x3,
-          offset: 0,
-          shader_location: 0,
-        },
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x3,
-          offset: 4 * 3,
-          shader_location: 1,
-        },
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x2,
-          offset: 4 * 3 + 4 * 3,
-          shader_location: 2,
-        },
-      ],
-    }
-  }
-
-  fn get_shader_header() -> &'static str {
-    r#"
-      [[location(0)]] position: vec3<f32>,
-      [[location(1)]] normal: vec3<f32>,
-      [[location(2)]] uv: vec2<f32>,
-    "#
-  }
-}
+// /// the comprehensive data that provided by mesh and will affect graphic pipeline
+// pub struct MeshLayout {
+//   vertex: Vec<wgpu::VertexBufferLayout<'static>>,
+//   index: wgpu::IndexFormat,
+//   topology: wgpu::PrimitiveTopology,
+// }
