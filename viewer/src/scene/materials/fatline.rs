@@ -1,7 +1,5 @@
-use std::borrow::Cow;
-
-use rendiation_algebra::*;
 use rendiation_webgpu::*;
+use std::borrow::Cow;
 
 use crate::*;
 
@@ -9,11 +7,6 @@ use crate::*;
 pub struct FatLineMaterial {
   pub width: f32,
   pub states: MaterialStates,
-}
-
-pub struct FatLineMaterialGPU {
-  uniform: UniformBuffer<f32>,
-  bindgroup: MaterialBindGroup,
 }
 
 pub struct FatlineMaterialGPU {
@@ -60,8 +53,12 @@ impl FatLineMaterial {
     "
   }
 
-  pub fn create_pipeline(&self, gpu: &GPU, ctx: &PipelineCreateCtx) -> wgpu::RenderPipeline {
-    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
+  pub fn create_pipeline(
+    &self,
+    device: &wgpu::Device,
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline {
+    let bindgroup_layout = Self::create_bindgroup_layout(device);
 
     let shader_source = format!(
       "
@@ -96,24 +93,20 @@ impl FatLineMaterial {
       object_header = TransformGPU::get_shader_header(),
     );
 
-    let shader = gpu
-      .device
-      .create_shader_module(&wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-      });
+    let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+      label: None,
+      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
+    });
 
-    let pipeline_layout = gpu
-      .device
-      .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[
-          ctx.layouts.retrieve::<TransformGPU>(),
-          &bindgroup_layout,
-          ctx.layouts.retrieve::<CameraBindgroup>(),
-        ],
-        push_constant_ranges: &[],
-      });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+      label: None,
+      bind_group_layouts: &[
+        ctx.layouts.retrieve::<TransformGPU>(device),
+        &bindgroup_layout,
+        ctx.layouts.retrieve::<CameraBindgroup>(device),
+      ],
+      push_constant_ranges: &[],
+    });
 
     let vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
 
@@ -124,31 +117,29 @@ impl FatLineMaterial {
       .map(|&f| self.states.map_color_states(f))
       .collect();
 
-    gpu
-      .device
-      .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-          module: &shader,
-          entry_point: "vs_main",
-          buffers: &vertex_buffers,
-        },
-        fragment: Some(wgpu::FragmentState {
-          module: &shader,
-          entry_point: "fs_main",
-          targets: targets.as_slice(),
-        }),
-        primitive: wgpu::PrimitiveState {
-          cull_mode: None,
-          topology: wgpu::PrimitiveTopology::TriangleList,
-          ..Default::default()
-        },
-        depth_stencil: self
-          .states
-          .map_depth_stencil_state(ctx.pass.depth_stencil_format),
-        multisample: wgpu::MultisampleState::default(),
-      })
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+      label: None,
+      layout: Some(&pipeline_layout),
+      vertex: wgpu::VertexState {
+        module: &shader,
+        entry_point: "vs_main",
+        buffers: &vertex_buffers,
+      },
+      fragment: Some(wgpu::FragmentState {
+        module: &shader,
+        entry_point: "fs_main",
+        targets: targets.as_slice(),
+      }),
+      primitive: wgpu::PrimitiveState {
+        cull_mode: None,
+        topology: wgpu::PrimitiveTopology::TriangleList,
+        ..Default::default()
+      },
+      depth_stencil: self
+        .states
+        .map_depth_stencil_state(ctx.pass.depth_stencil_format),
+      multisample: wgpu::MultisampleState::default(),
+    })
   }
 }
 
@@ -169,7 +160,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
 
     pipelines
       .get_cache_mut::<Self, CommonPipelineCache>()
-      .request(&key, || source.create_pipeline(gpu, &pipeline_ctx));
+      .request(&key, || source.create_pipeline(&gpu.device, &pipeline_ctx));
   }
 
   fn setup_pass<'a>(
@@ -208,12 +199,13 @@ impl MaterialCPUResource for FatLineMaterial {
     &mut self,
     handle: MaterialHandle,
     gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    _ctx: &mut SceneMaterialRenderPrepareCtx,
   ) -> Self::GPU {
-    let _uniform = UniformBuffer::create(&gpu.device, self.width);
+    let device = &gpu.device;
+    let _uniform = UniformBuffer::create(device, self.width);
 
-    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
-    let bindgroup = self.create_bindgroup(handle, _uniform.gpu(), &gpu.device, &bindgroup_layout);
+    let bindgroup_layout = Self::create_bindgroup_layout(device);
+    let bindgroup = self.create_bindgroup(handle, _uniform.gpu(), device, &bindgroup_layout);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 

@@ -1,6 +1,7 @@
 use std::{marker::PhantomData, rc::Rc};
 
 use crate::*;
+use anymap::AnyMap;
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
@@ -61,7 +62,7 @@ impl Mesh for FatlineMeshCell {
       .setup_pass_and_draw(pass, self.data.get_group(group).into())
   }
 
-  fn update(&mut self, gpu: &GPU) {
+  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap) {
     let cpu = &self.data.mesh;
 
     self.gpu.get_or_insert_with(|| {
@@ -79,10 +80,16 @@ impl Mesh for FatlineMeshCell {
           usage: wgpu::BufferUsages::VERTEX,
         });
 
+      let instance = storage
+        .entry()
+        .or_insert_with(|| create_fatline_quad(&gpu.device))
+        .data
+        .clone();
+
       FatlineMeshGPU {
         range_full,
         vertex,
-        instance: todo!(),
+        instance,
       }
     });
   }
@@ -103,7 +110,10 @@ impl Scene {
   where
     M: GPUMeshData + 'static,
   {
-    let handle = self.meshes.insert(Box::new(FatlineMeshCell::from(mesh)));
+    let handle = self
+      .components
+      .meshes
+      .insert(Box::new(FatlineMeshCell::from(mesh)));
     TypedMeshHandle {
       handle,
       ty: PhantomData,
@@ -155,7 +165,11 @@ impl VertexBufferSourceType for FatLineVertex {
   }
 }
 
-fn create_fatline_quad(device: &wgpu::Device) -> IndexedMesh<u16, Vertex, TriangleList> {
+pub struct FatlineQuadInstance {
+  data: Rc<MeshGPU>,
+}
+
+fn create_fatline_quad(device: &wgpu::Device) -> FatlineQuadInstance {
   #[rustfmt::skip]
   let positions: Vec<isize> = vec![- 1, 2, 0, 1, 2, 0, - 1, 1, 0, 1, 1, 0, - 1, 0, 0, 1, 0, 0, - 1, - 1, 0, 1, - 1, 0];
   let positions: &[Vec3<isize>] = bytemuck::cast_slice(positions.as_slice());
@@ -174,5 +188,8 @@ fn create_fatline_quad(device: &wgpu::Device) -> IndexedMesh<u16, Vertex, Triang
 
   let index = vec![0, 2, 1, 2, 3, 1, 2, 4, 3, 4, 5, 3, 4, 6, 5, 6, 7, 5];
 
-  IndexedMesh::new(data, index)
+  let mesh: IndexedMesh<u16, Vertex, TriangleList> = IndexedMesh::new(data, index);
+  FatlineQuadInstance {
+    data: Rc::new(mesh.create_gpu(device)),
+  }
 }

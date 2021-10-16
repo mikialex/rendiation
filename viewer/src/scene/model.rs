@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use arena::Arena;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_webgpu::PipelineResourceManager;
 
@@ -44,13 +43,15 @@ impl SceneRenderable for dyn Model {
     &mut self,
     gpu: &GPU,
     base: &mut SceneMaterialRenderPrepareCtxBase,
-    materials: &mut Arena<Box<dyn Material>>,
-    meshes: &mut Arena<Box<dyn Mesh>>,
-    nodes: &mut ArenaTree<SceneNode>,
+    components: &mut SceneComponents,
   ) {
-    let material = materials.get_mut(self.material()).unwrap().as_mut();
-    let mesh = meshes.get_mut(self.mesh()).unwrap();
-    let node = nodes.get_node_mut(self.node()).data_mut();
+    let material = components
+      .materials
+      .get_mut(self.material())
+      .unwrap()
+      .as_mut();
+    let mesh = components.meshes.get_mut(self.mesh()).unwrap();
+    let node = components.nodes.get_node_mut(self.node()).data_mut();
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
@@ -60,22 +61,20 @@ impl SceneRenderable for dyn Model {
 
     material.update(gpu, &mut ctx);
 
-    mesh.update(gpu);
+    mesh.update(gpu, &mut base.resources.custom_storage);
   }
 
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    materials: &'a Arena<Box<dyn Material>>,
-    meshes: &'a Arena<Box<dyn Mesh>>,
-    nodes: &'a ArenaTree<SceneNode>,
+    components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
     pipeline_resource: &'a PipelineResourceManager,
     pass_info: &'a PassTargetFormatInfo,
   ) {
-    let material = materials.get(self.material()).unwrap().as_ref();
-    let node = nodes.get_node(self.node()).data();
-    let mesh = meshes.get(self.mesh()).unwrap().as_ref();
+    let material = components.materials.get(self.material()).unwrap().as_ref();
+    let node = components.nodes.get_node(self.node()).data();
+    let mesh = components.meshes.get(self.mesh()).unwrap().as_ref();
 
     let ctx = SceneMaterialPassSetupCtx {
       pass: pass_info,
@@ -86,7 +85,7 @@ impl SceneRenderable for dyn Model {
     };
     material.setup_pass(pass, &ctx);
 
-    let mesh = meshes.get(self.mesh()).unwrap();
+    let mesh = components.meshes.get(self.mesh()).unwrap();
     mesh.setup_pass_and_draw(pass, self.group());
   }
 }

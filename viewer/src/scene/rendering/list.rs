@@ -10,26 +10,29 @@ pub struct RenderList {
 impl RenderList {
   pub fn update(&mut self, scene: &mut Scene, gpu: &GPU, pass: &PassTargetFormatInfo) {
     if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu, &scene.nodes);
+      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu, &scene.components.nodes);
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,
         camera_gpu,
         pass,
-        pipelines: &mut scene.pipeline_resource,
-        layouts: &mut scene.layouts,
+        resources: &mut scene.resources,
         textures: &mut scene.texture_2ds,
         texture_cubes: &mut scene.texture_cubes,
-        samplers: &mut scene.samplers,
         reference_finalization: &scene.reference_finalization,
       };
 
       let models = &scene.models;
       self.models.iter().for_each(|handle| {
         let model = models.get(*handle).unwrap();
-        let material = scene.materials.get_mut(model.material()).unwrap().as_mut();
-        let mesh = scene.meshes.get_mut(model.mesh()).unwrap();
-        let node = scene.nodes.get_node_mut(model.node()).data_mut();
+        let components = &mut scene.components;
+        let material = components
+          .materials
+          .get_mut(model.material())
+          .unwrap()
+          .as_mut();
+        let mesh = components.meshes.get_mut(model.mesh()).unwrap();
+        let node = components.nodes.get_node_mut(model.node()).data_mut();
 
         let mut ctx = SceneMaterialRenderPrepareCtx {
           base: &mut base,
@@ -39,7 +42,7 @@ impl RenderList {
 
         material.update(gpu, &mut ctx);
 
-        mesh.update(gpu);
+        mesh.update(gpu, &mut base.resources.custom_storage);
       });
     }
   }
@@ -56,11 +59,9 @@ impl RenderList {
       let model = models.get(*model).unwrap();
       model.setup_pass(
         gpu_pass,
-        &scene.materials,
-        &scene.meshes,
-        &scene.nodes,
+        &scene.components,
         scene.active_camera.as_ref().unwrap().expect_gpu(),
-        &scene.pipeline_resource,
+        &scene.resources.pipeline_resource,
         pass,
       )
     })

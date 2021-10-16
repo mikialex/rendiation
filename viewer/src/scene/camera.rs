@@ -88,6 +88,24 @@ pub struct CameraBindgroup {
   pub bindgroup: wgpu::BindGroup,
 }
 
+impl BindGroupLayoutProvider for CameraBindgroup {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: "CameraBindgroup".into(),
+      entries: &[wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::VERTEX,
+        ty: wgpu::BindingType::Buffer {
+          ty: wgpu::BufferBindingType::Uniform,
+          has_dynamic_offset: false,
+          min_binding_size: wgpu::BufferSize::new(64 * 3),
+        },
+        count: None,
+      }],
+    })
+  }
+}
+
 impl CameraBindgroup {
   pub fn get_shader_header() -> &'static str {
     r#"
@@ -131,22 +149,6 @@ impl CameraBindgroup {
       bytemuck::cast_slice(view_matrix.as_ref()),
     );
     (camera, self)
-  }
-
-  pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "CameraBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64 * 3),
-        },
-        count: None,
-      }],
-    })
   }
 
   pub fn new(gpu: &GPU) -> Self {

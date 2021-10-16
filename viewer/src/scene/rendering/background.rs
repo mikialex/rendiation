@@ -13,27 +13,21 @@ impl PassContent for BackGroundRendering {
     pass_info: &PassTargetFormatInfo,
   ) {
     if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu, &scene.nodes);
+      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu, &scene.components.nodes);
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,
         camera_gpu,
         pass: pass_info,
-        pipelines: &mut scene.pipeline_resource,
-        layouts: &mut scene.layouts,
         textures: &mut scene.texture_2ds,
         texture_cubes: &mut scene.texture_cubes,
-        samplers: &mut scene.samplers,
         reference_finalization: &scene.reference_finalization,
+        resources: &mut scene.resources,
       };
 
-      scene.background.update(
-        gpu,
-        &mut base,
-        &mut scene.materials,
-        &mut scene.meshes,
-        &mut scene.nodes,
-      );
+      scene
+        .background
+        .update(gpu, &mut base, &mut scene.components);
     }
   }
 
@@ -45,11 +39,9 @@ impl PassContent for BackGroundRendering {
   ) {
     scene.background.setup_pass(
       pass,
-      &scene.materials,
-      &scene.meshes,
-      &scene.nodes,
+      &scene.components,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
-      &scene.pipeline_resource,
+      &scene.resources.pipeline_resource,
       pass_info,
     );
   }

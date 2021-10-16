@@ -1,7 +1,5 @@
 use std::borrow::Cow;
 
-use arena::Arena;
-use arena_tree::ArenaTree;
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
@@ -54,18 +52,14 @@ impl SceneRenderable for SolidBackground {
     &mut self,
     _gpu: &GPU,
     _ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    _materials: &mut Arena<Box<dyn Material>>,
-    _meshes: &mut Arena<Box<dyn Mesh>>,
-    _nodes: &mut ArenaTree<SceneNode>,
+    _components: &mut SceneComponents,
   ) {
   }
 
   fn setup_pass<'a>(
     &'a self,
     _pass: &mut wgpu::RenderPass<'a>,
-    _materials: &'a Arena<Box<dyn Material>>,
-    _meshes: &'a Arena<Box<dyn Mesh>>,
-    _nodes: &'a ArenaTree<SceneNode>,
+    _components: &'a SceneComponents,
     _camera_gpu: &'a CameraBindgroup,
     _pipeline_resource: &'a PipelineResourceManager,
     _pass_info: &'a PassTargetFormatInfo,
@@ -99,17 +93,16 @@ impl<S> SceneRenderable for DrawableBackground<S> {
     &mut self,
     gpu: &GPU,
     base: &mut SceneMaterialRenderPrepareCtxBase,
-    materials: &mut Arena<Box<dyn Material>>,
-    _meshes: &mut Arena<Box<dyn Mesh>>,
-    nodes: &mut ArenaTree<SceneNode>,
+    components: &mut SceneComponents,
   ) {
-    nodes
-      .get_node_mut(nodes.root())
+    components
+      .nodes
+      .get_root_node_mut()
       .data_mut()
       .get_model_gpu(gpu);
 
-    self.mesh.update(gpu);
-    let m = materials.get_mut(self.shading.handle).unwrap();
+    self.mesh.update(gpu, &mut base.resources.custom_storage);
+    let m = components.materials.get_mut(self.shading.handle).unwrap();
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
@@ -122,19 +115,18 @@ impl<S> SceneRenderable for DrawableBackground<S> {
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    materials: &'a Arena<Box<dyn Material>>,
-    _meshes: &'a Arena<Box<dyn Mesh>>,
-    nodes: &'a ArenaTree<SceneNode>,
+    components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
     pipeline_resource: &'a PipelineResourceManager,
     pass_info: &'a PassTargetFormatInfo,
   ) {
-    let m = materials.get(self.shading.handle).unwrap();
+    let m = components.materials.get(self.shading.handle).unwrap();
     let ctx = SceneMaterialPassSetupCtx {
       pass: pass_info,
       camera_gpu,
-      model_gpu: nodes
-        .get_node(nodes.root())
+      model_gpu: components
+        .nodes
+        .get_root_node()
         .data()
         .gpu
         .as_ref()
@@ -228,9 +220,9 @@ pub trait BackGroundShading {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       label: None,
       bind_group_layouts: &[
-        ctx.layouts.retrieve::<TransformGPU>(),
+        ctx.layouts.retrieve::<TransformGPU>(device),
         &bindgroup_layout,
-        ctx.layouts.retrieve::<CameraBindgroup>(),
+        ctx.layouts.retrieve::<CameraBindgroup>(device),
       ],
       push_constant_ranges: &[],
     });

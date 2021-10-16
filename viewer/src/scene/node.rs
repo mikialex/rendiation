@@ -66,25 +66,25 @@ impl Scene {
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
     let mut node = SceneNode::default();
     builder(&mut node, self);
-    let new = self.nodes.create_node(node);
+    let new = self.components.nodes.create_node(node);
     let root = self.get_root_handle();
-    self.nodes.node_add_child_by_id(root, new);
+    self.components.nodes.node_add_child_by_id(root, new);
     new
   }
 
   pub fn get_root_handle(&self) -> SceneNodeHandle {
-    self.nodes.get_node(self.nodes.root()).handle()
+    self.components.nodes.get_root_node().handle()
   }
   pub fn get_root(&self) -> &SceneNode {
-    self.nodes.get_node(self.nodes.root()).data()
+    self.components.nodes.get_root_node().data()
   }
 
   pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
-    self.get_node_mut(self.nodes.root())
+    self.components.nodes.get_root_node_mut().data_mut()
   }
 
   pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
-    self.node_add_child_by_handle(self.nodes.root(), child_handle);
+    self.node_add_child_by_handle(self.components.nodes.root(), child_handle);
   }
 
   pub fn node_add_child_by_handle(
@@ -93,6 +93,7 @@ impl Scene {
     child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
+      .components
       .nodes
       .get_parent_child_pair(parent_handle, child_handle);
     parent.add(child);
@@ -104,27 +105,28 @@ impl Scene {
     child_handle: SceneNodeHandle,
   ) {
     let (parent, child) = self
+      .components
       .nodes
       .get_parent_child_pair(parent_handle, child_handle);
     parent.remove(child);
   }
 
   pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
-    self.nodes.get_node(handle).data()
+    self.components.nodes.get_node(handle).data()
   }
 
   pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
-    self.nodes.get_node_mut(handle).data_mut()
+    self.components.nodes.get_node_mut(handle).data_mut()
   }
 
   pub fn create_new_node(&mut self) -> &mut SceneNode {
     let node = SceneNode::default();
-    let handle = self.nodes.create_node(node);
-    self.nodes.get_node_mut(handle).data_mut()
+    let handle = self.components.nodes.create_node(node);
+    self.components.nodes.get_node_mut(handle).data_mut()
   }
 
   pub fn free_node(&mut self, handle: SceneNodeHandle) {
-    self.nodes.free_node(handle);
+    self.components.nodes.free_node(handle);
   }
 }
 
@@ -134,19 +136,8 @@ pub struct TransformGPU {
   // pub layout: wgpu::BindGroupLayout,
 }
 
-impl TransformGPU {
-  pub fn get_shader_header() -> &'static str {
-    r#"
-      [[block]]
-      struct ModelTransform {
-          matrix: mat4x4<f32>;
-      };
-      [[group(0), binding(0)]]
-      var model: ModelTransform;
-    "#
-  }
-
-  pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+impl BindGroupLayoutProvider for TransformGPU {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: "ModelTransformBindgroup".into(),
       entries: &[wgpu::BindGroupLayoutEntry {
@@ -160,6 +151,19 @@ impl TransformGPU {
         count: None,
       }],
     })
+  }
+}
+
+impl TransformGPU {
+  pub fn get_shader_header() -> &'static str {
+    r#"
+      [[block]]
+      struct ModelTransform {
+          matrix: mat4x4<f32>;
+      };
+      [[group(0), binding(0)]]
+      var model: ModelTransform;
+    "#
   }
 
   pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) {

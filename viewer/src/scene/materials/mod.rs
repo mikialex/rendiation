@@ -1,9 +1,7 @@
 use std::{
   any::Any,
-  collections::HashMap,
   marker::PhantomData,
   ops::{Deref, DerefMut},
-  rc::Rc,
 };
 pub mod bindable;
 pub use bindable::*;
@@ -18,7 +16,6 @@ pub mod env_background;
 pub use env_background::*;
 
 use rendiation_algebra::Mat4;
-use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindGroupLayoutManager, PipelineResourceManager, GPU};
 
 use crate::*;
@@ -29,6 +26,7 @@ impl Scene {
     creator: F,
   ) -> MaterialHandle {
     self
+      .components
       .materials
       .insert_with(|handle| Box::new(creator(handle)))
   }
@@ -51,6 +49,7 @@ impl Scene {
     M::GPU: MaterialGPUResource<Source = M>,
   {
     &mut self
+      .components
       .materials
       .get_mut(handle.handle)
       .unwrap()
@@ -66,6 +65,7 @@ impl Scene {
     M::GPU: MaterialGPUResource<Source = M>,
   {
     &self
+      .components
       .materials
       .get(handle.handle)
       .unwrap()
@@ -189,21 +189,19 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub active_camera: &'a CameraData,
   pub camera_gpu: &'a CameraBindgroup,
-  pub pipelines: &'a mut PipelineResourceManager,
-  pub layouts: &'a mut BindGroupLayoutManager,
   pub pass: &'a PassTargetFormatInfo,
   pub textures: &'a mut WatchedArena<SceneTexture2D>,
   pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
-  pub samplers: &'a mut HashMap<TextureSampler, Rc<wgpu::Sampler>>,
   pub reference_finalization: &'a ReferenceFinalization,
+  pub resources: &'a mut GPUResourceCache,
 }
 
 impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceManager, PipelineCreateCtx) {
     (
-      self.base.pipelines,
+      &mut self.base.resources.pipeline_resource,
       PipelineCreateCtx {
-        layouts: self.base.layouts,
+        layouts: &self.base.resources.layouts,
         active_mesh: self.active_mesh,
         pass: self.base.pass,
       },

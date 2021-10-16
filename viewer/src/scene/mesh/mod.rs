@@ -1,3 +1,4 @@
+use anymap::AnyMap;
 use rendiation_renderable_mesh::{group::MeshDrawGroup, GPUMeshData, MeshGPU};
 use rendiation_webgpu::GPU;
 use std::marker::PhantomData;
@@ -23,7 +24,7 @@ where
 
 pub trait Mesh {
   fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup);
-  fn update(&mut self, gpu: &GPU);
+  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap);
   fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
@@ -46,7 +47,7 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
     gpu.draw(pass, self.data.get_group(group).into())
   }
 
-  fn update(&mut self, gpu: &GPU) {
+  fn update(&mut self, gpu: &GPU, _storage: &mut AnyMap) {
     self.data.update(&mut self.gpu, &gpu.device);
   }
 
@@ -64,7 +65,10 @@ impl Scene {
   where
     M: GPUMeshData + 'static,
   {
-    let handle = self.meshes.insert(Box::new(MeshCell::from(mesh)));
+    let handle = self
+      .components
+      .meshes
+      .insert(Box::new(MeshCell::from(mesh)));
     TypedMeshHandle {
       handle,
       ty: PhantomData,

@@ -142,6 +142,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
     }
 
     self
+      .resources
       .samplers
       .entry(sampler)
       .or_insert_with(|| Rc::new(device.create_sampler(&convert(sampler))))

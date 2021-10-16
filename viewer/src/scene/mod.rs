@@ -18,6 +18,7 @@ use std::{
   rc::Rc,
 };
 
+pub use anymap::AnyMap;
 pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
@@ -49,63 +50,43 @@ pub type Texture2DHandle = Handle<SceneTexture2D>;
 pub type TextureCubeHandle = Handle<SceneTextureCube>;
 
 pub struct Scene {
-  pub nodes: ArenaTree<SceneNode>,
   pub background: Box<dyn Background>,
+
   pub cameras: Arena<Camera>,
   pub lights: Arena<SceneLight>,
   pub models: Arena<Box<dyn Model>>,
-  pub meshes: Arena<Box<dyn Mesh>>,
-  pub materials: Arena<Box<dyn Material>>,
-  pub samplers: HashMap<TextureSampler, Rc<wgpu::Sampler>>,
+
+  pub components: SceneComponents,
+
   pub texture_2ds: WatchedArena<SceneTexture2D>,
   pub texture_cubes: WatchedArena<SceneTextureCube>,
-  pub(crate) pipeline_resource: PipelineResourceManager,
-  pub(crate) layouts: BindGroupLayoutManager,
+
   pub active_camera: Option<Camera>,
   pub reference_finalization: ReferenceFinalization,
 
-  has_registered: bool, // todo improve
+  pub resources: GPUResourceCache,
 }
 
 impl Scene {
   pub fn new() -> Self {
     Self {
-      nodes: ArenaTree::new(SceneNode::default()),
+      components: Default::default(),
       background: Box::new(SolidBackground::default()),
       cameras: Arena::new(),
       models: Arena::new(),
-      meshes: Arena::new(),
       lights: Arena::new(),
-      materials: Arena::new(),
-      samplers: HashMap::new(),
       texture_2ds: WatchedArena::new(),
       texture_cubes: WatchedArena::new(),
-      pipeline_resource: PipelineResourceManager::new(),
-      layouts: BindGroupLayoutManager::new(),
       active_camera: None,
       reference_finalization: Default::default(),
-      has_registered: false,
+      resources: Default::default(),
     }
-  }
-
-  pub fn register_layout(&mut self, device: &wgpu::Device) {
-    if self.has_registered {
-      return;
-    }
-    self
-      .layouts
-      .register::<TransformGPU>(TransformGPU::layout(device));
-    self
-      .layouts
-      .register::<CameraBindgroup>(CameraBindgroup::layout(device));
-    self.has_registered = true;
   }
 
   pub fn maintain(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-    self.register_layout(device);
-
     let root = self.get_root_handle();
     self
+      .components
       .nodes
       .traverse_mut(root, &mut Vec::new(), |this, parent| {
         let node_data = this.data_mut();
@@ -132,9 +113,14 @@ impl Scene {
       });
     });
 
-    material_bindgroup_dirtied
-      .drain()
-      .for_each(|h| self.materials.get_mut(h).unwrap().on_ref_resource_changed());
+    material_bindgroup_dirtied.drain().for_each(|h| {
+      self
+        .components
+        .materials
+        .get_mut(h)
+        .unwrap()
+        .on_ref_resource_changed()
+    });
 
     self
       .reference_finalization
@@ -153,24 +139,48 @@ impl Default for Scene {
   }
 }
 
+#[derive(Default)]
+pub struct SceneComponents {
+  pub materials: Arena<Box<dyn Material>>,
+  pub meshes: Arena<Box<dyn Mesh>>,
+  pub nodes: ArenaTree<SceneNode>,
+}
+
 pub trait SceneRenderable {
   fn update(
     &mut self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    materials: &mut Arena<Box<dyn Material>>,
-    meshes: &mut Arena<Box<dyn Mesh>>,
-    nodes: &mut ArenaTree<SceneNode>,
+    components: &mut SceneComponents,
   );
 
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
-    materials: &'a Arena<Box<dyn Material>>,
-    meshes: &'a Arena<Box<dyn Mesh>>,
-    nodes: &'a ArenaTree<SceneNode>,
+    components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
     pipeline_resource: &'a PipelineResourceManager,
     pass_info: &'a PassTargetFormatInfo,
   );
+}
+
+/// GPU cache container for given scene
+///
+/// Resources once allocate never release until the cache drop
+pub struct GPUResourceCache {
+  pub(crate) samplers: HashMap<TextureSampler, Rc<wgpu::Sampler>>,
+  pub(crate) pipeline_resource: PipelineResourceManager,
+  pub(crate) layouts: BindGroupLayoutManager,
+  pub(crate) custom_storage: AnyMap,
+}
+
+impl Default for GPUResourceCache {
+  fn default() -> Self {
+    Self {
+      samplers: Default::default(),
+      pipeline_resource: Default::default(),
+      layouts: Default::default(),
+      custom_storage: AnyMap::new(),
+    }
+  }
 }

@@ -175,7 +175,12 @@ impl Viewer3dContent {
 
   pub fn update_state(&mut self) {
     if let Some(camera) = &mut self.scene.active_camera {
-      let node = self.scene.nodes.get_node_mut(camera.node).data_mut();
+      let node = self
+        .scene
+        .components
+        .nodes
+        .get_node_mut(camera.node)
+        .data_mut();
       self.controller.update(node);
     }
   }

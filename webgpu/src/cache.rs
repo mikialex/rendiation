@@ -1,25 +1,33 @@
 use std::{
   any::{Any, TypeId},
+  cell::UnsafeCell,
   collections::HashMap,
 };
 
 pub struct BindGroupLayoutManager {
-  pub cache: HashMap<TypeId, wgpu::BindGroupLayout>,
+  cache: UnsafeCell<HashMap<TypeId, wgpu::BindGroupLayout>>,
+}
+
+pub trait BindGroupLayoutProvider {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
 }
 
 impl BindGroupLayoutManager {
   pub fn new() -> Self {
     Self {
-      cache: HashMap::new(),
+      cache: UnsafeCell::new(HashMap::new()),
     }
   }
 
-  pub fn register<T: Any>(&mut self, layout: wgpu::BindGroupLayout) {
-    self.cache.insert(TypeId::of::<T>(), layout);
-  }
-
-  pub fn retrieve<T: Any>(&self) -> &wgpu::BindGroupLayout {
-    self.cache.get(&TypeId::of::<T>()).unwrap()
+  pub fn retrieve<T: BindGroupLayoutProvider + Any>(
+    &self,
+    device: &wgpu::Device,
+  ) -> &wgpu::BindGroupLayout {
+    let map = self.cache.get();
+    let map = unsafe { &mut *map };
+    map
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| T::layout(device))
   }
 }
 
