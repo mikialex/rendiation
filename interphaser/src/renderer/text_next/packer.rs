@@ -1,19 +1,21 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
-use rendiation_texture_packer::{skyline::SkylinePacker, PackError, PackerConfig, TexturePacker};
+use rendiation_texture_packer::{
+  shelf::ShelfPacker, PackError, PackId, PackerConfig, RePackablePacker,
+};
 
-use super::{GlyphRaster, GlyphRasterInfo, NormalizedGlyphRasterInfo};
+use super::{GlyphRaster, NormalizedGlyphRasterInfo};
 
 pub struct GlyphPacker {
-  packer: Box<dyn TexturePacker>,
-  pack_info: HashMap<GlyphID, TextureRange>,
+  packer: Box<dyn RePackablePacker>,
+  pack_info: HashMap<(GlyphID, NormalizedGlyphRasterInfo), (PackId, TextureRange)>,
 }
 
 impl GlyphPacker {
   pub fn init(init_size: Size) -> Self {
     Self {
-      packer: Box::new(SkylinePacker::new(PackerConfig {
+      packer: Box::new(ShelfPacker::new(PackerConfig {
         allow_90_rotation: false,
         init_size,
       })),
@@ -27,16 +29,16 @@ impl GlyphPacker {
     info: NormalizedGlyphRasterInfo,
     raster: &mut dyn GlyphRaster,
   ) -> GlyphCacheResult {
-    match self.pack_info.entry(glyph_id) {
+    match self.pack_info.entry((glyph_id, info)) {
       Entry::Occupied(entry) => GlyphCacheResult::AlreadyCached(entry.into_mut()),
       Entry::Vacant(entry) => {
         let data = raster.raster(glyph_id, info);
 
-        match self.packer.pack(data.size()) {
+        match self.packer.pack_with_id(data.size()) {
           Ok(result) => {
-            let result = result.range;
+            let range = result.result.range;
 
-            let result = entry.insert(result);
+            let result = entry.insert((result.id, range));
 
             GlyphCacheResult::NewCached { result, data }
           }
@@ -51,10 +53,10 @@ impl GlyphPacker {
 
 pub enum GlyphCacheResult<'a> {
   NewCached {
-    result: &'a TextureRange,
+    result: &'a (PackId, TextureRange),
     data: Texture2DBuffer<u8>,
   },
-  AlreadyCached(&'a TextureRange),
+  AlreadyCached(&'a (PackId, TextureRange)),
   NotEnoughSpace,
 }
 

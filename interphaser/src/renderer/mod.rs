@@ -72,9 +72,9 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
   }
 
   fn update(&mut self, renderer: &GPU, encoder: &mut wgpu::CommandEncoder) {
-    self.renderer.text_renderer.update_fonts(&self.fonts);
+    self.renderer.text_renderer.update_fonts(self.fonts);
     self.renderer.update(
-      &self.presentation,
+      self.presentation,
       &renderer.device,
       &renderer.queue,
       encoder,
@@ -103,6 +103,7 @@ pub enum GPUxUIPrimitive {
   Text(GPUxUITextPrimitive),
 }
 
+#[allow(clippy::vec_init_then_push)]
 fn build_quad(
   device: &wgpu::Device,
   quad: &crate::Quad,
@@ -254,7 +255,7 @@ impl WebGPUxUIRenderer {
       screen_size: Vec2::new(1000., 1000.),
     };
 
-    let global_ui_state = UniformBufferData::create(device, global_ui_state.clone());
+    let global_ui_state = UniformBufferData::create(device, global_ui_state);
     let global_uniform_bind_group_layout = UIGlobalParameter::create_bind_group_layout(device);
 
     let global_bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {

@@ -53,6 +53,15 @@ pub struct GlyphRasterTolerance {
   pub position: f32,
 }
 
+impl Default for GlyphRasterTolerance {
+  fn default() -> Self {
+    Self {
+      scale: 0.1,
+      position: 0.1,
+    }
+  }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NormalizedGlyphRasterInfo {
   scale_over_tolerance: (u32, u32),

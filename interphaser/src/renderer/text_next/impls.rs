@@ -6,8 +6,8 @@ use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dSource, GPU};
 use crate::FontManager;
 
 use super::{
-  GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo, GlyphRasterTolerance,
-  NormalizedGlyphRasterInfo,
+  AbGlyphRaster, GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo,
+  GlyphRasterTolerance, NormalizedGlyphRasterInfo,
 };
 
 pub struct GPUGlyphCache {
@@ -16,7 +16,6 @@ pub struct GPUGlyphCache {
   raster: Box<dyn GlyphRaster>,
   fonts: FontManager,
   queue: HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
-  active_glyphs: HashSet<(GlyphID, NormalizedGlyphRasterInfo), TextureRange>,
   current_size: Size,
   tolerance: GlyphRasterTolerance,
 }
@@ -70,6 +69,19 @@ pub enum CacheWriteErr {
 }
 
 impl GPUGlyphCache {
+  pub fn new(device: &wgpu::Device) -> Self {
+    let init_size = Size::from_usize_pair_min_one((512, 512));
+    Self {
+      gpu: WebGPUGlyphCacheInstance::init(init_size, device),
+      packer: GlyphPacker::init(init_size),
+      raster: Box::new(AbGlyphRaster {}),
+      fonts: FontManager::new_with_fallback_system_font("Arial"),
+      queue: Default::default(),
+      current_size: init_size,
+      tolerance: Default::default(),
+    }
+  }
+
   pub fn process_queued(&mut self, gpu: &GPU) -> Result<CacheQueuedResult, CacheWriteErr> {
     let mut failed_process_all = true;
     let mut previous_cache_invalid = false;
@@ -79,7 +91,7 @@ impl GPUGlyphCache {
         match self.packer.pack(glyph_id, info, self.raster.as_mut()) {
           GlyphCacheResult::NewCached { result, data } => {
             // self.active_glyphs.insert((glyph_id, info), result);
-            self.gpu.update_texture(&data, *result, &gpu.queue);
+            self.gpu.update_texture(&data, result.1, &gpu.queue);
           }
           GlyphCacheResult::AlreadyCached(result) => {}
           GlyphCacheResult::NotEnoughSpace => {
@@ -90,7 +102,6 @@ impl GPUGlyphCache {
 
             failed_process_all = true;
             previous_cache_invalid = true;
-            self.active_glyphs.clear();
             break;
           }
         }

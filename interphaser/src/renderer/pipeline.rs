@@ -9,7 +9,7 @@ pub fn create_solid_pipeline(
 ) -> wgpu::RenderPipeline {
   let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: Some("ui_solid_pipeline_layout"),
-    bind_group_layouts: &[&global_uniform_bind_group_layout],
+    bind_group_layouts: &[global_uniform_bind_group_layout],
     push_constant_ranges: &[],
   });
 
@@ -169,7 +169,7 @@ pub fn create_texture_pipeline(
 ) -> wgpu::RenderPipeline {
   let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: Some("ui_tex_pipeline_layout"),
-    bind_group_layouts: &[&global_uniform_bind_group_layout, texture_bg_layout],
+    bind_group_layouts: &[global_uniform_bind_group_layout, texture_bg_layout],
     push_constant_ranges: &[],
   });
 

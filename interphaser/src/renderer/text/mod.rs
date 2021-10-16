@@ -12,6 +12,8 @@ use glyph_brush::{
 
 use crate::FontManager;
 
+use super::text_next::GPUGlyphCache;
+
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
   length: u32,
@@ -20,6 +22,7 @@ pub struct GPUxUITextPrimitive {
 pub struct TextRenderer {
   pipeline: TextRendererPipeline,
   glyph_brush: glyph_brush::GlyphBrush<Instance, Extra, ab_glyph::FontArc, DefaultSectionHasher>,
+  _exp: GPUGlyphCache,
 }
 
 impl TextRenderer {
@@ -42,6 +45,7 @@ impl TextRenderer {
         size,
         Vec2::new(1000., 1000.),
       ),
+      _exp: GPUGlyphCache::new(device),
       glyph_brush,
     }
   }
