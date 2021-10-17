@@ -58,8 +58,6 @@ impl RePackablePacker for ShelfPacker {
     let width = usize::from(input.width);
     let height = usize::from(input.height);
 
-    // todo check input can contained in all;
-
     // find row to put the glyph in, most used rows first
     let mut row_top = self
       .rows

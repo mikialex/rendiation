@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use rendiation_texture::{Size, TextureRange};
-use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dSource, GPU};
+use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource, GPU};
 
 use crate::FontManager;
 
@@ -27,9 +27,18 @@ struct WebGPUGlyphCacheInstance {
 
 impl WebGPUGlyphCacheInstance {
   pub fn init(size: Size, device: &wgpu::Device) -> Self {
+    let desc = WebGPUTexture2dDescriptor::from_size(size).with_format(wgpu::TextureFormat::R8Unorm);
     Self {
-      sampler: device.create_sampler(todo!()),
-      texture: WebGPUTexture2d::create(device, todo!()),
+      sampler: device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+      }),
+      texture: WebGPUTexture2d::create(device, desc),
     }
   }
   pub fn update_texture(
@@ -88,14 +97,13 @@ impl GPUGlyphCache {
 
     let mut packer = self.packer.process_queued(&self.queue);
 
-    while failed_process_all {
+    'all_process: while failed_process_all {
       for &(glyph_id, info) in self.queue.iter() {
         match packer.pack(glyph_id, info, self.raster.as_mut()) {
           GlyphCacheResult::NewCached { result, data } => {
-            // self.active_glyphs.insert((glyph_id, info), result);
             self.gpu.update_texture(&data, result.1, &gpu.queue);
           }
-          GlyphCacheResult::AlreadyCached(result) => {}
+          GlyphCacheResult::AlreadyCached(_) => {}
           GlyphCacheResult::NotEnoughSpace => {
             let new_size = self.current_size * 2;
 
@@ -104,7 +112,7 @@ impl GPUGlyphCache {
 
             failed_process_all = true;
             previous_cache_invalid = true;
-            break;
+            continue 'all_process;
           }
         }
       }
@@ -118,6 +126,7 @@ impl GPUGlyphCache {
       false => CacheQueuedResult::Adding,
     })
   }
+
   pub fn queue_glyph(&mut self, glyph_id: GlyphID, info: GlyphRasterInfo) {
     self
       .queue
