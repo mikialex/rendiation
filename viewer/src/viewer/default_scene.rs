@@ -48,16 +48,16 @@ pub fn load_default_scene(scene: &mut Scene) {
   };
   let texture = scene.add_texture2d(load_img(path).into_source());
 
-  let texture_cube = scene.add_texture_cube(load_img_cube());
+  // let texture_cube = scene.add_texture_cube(load_img_cube());
 
-  let background_mat = EnvMapBackGroundMaterial {
-    sampler: TextureSampler::default(),
-    texture: texture_cube,
-  };
-  let background_mat = scene.add_material(background_mat);
-  let bg = DrawableBackground::new(background_mat);
+  // let background_mat = EnvMapBackGroundMaterial {
+  //   sampler: TextureSampler::default(),
+  //   texture: texture_cube,
+  // };
+  // let background_mat = scene.add_material(background_mat);
+  // let bg = DrawableBackground::new(background_mat);
 
-  scene.background = Box::new(bg);
+  // scene.background = Box::new(bg);
 
   {
     let mesh = SphereMeshParameter::default().tessellate();

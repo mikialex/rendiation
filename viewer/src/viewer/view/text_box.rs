@@ -1,10 +1,16 @@
-pub fn text_box<T>(
-  place_holder: impl Into<Value<String, T>>,
-  value: impl Into<Value<String, T>>,
-  on_change: impl Fn(&mut T) + 'static,
-) -> impl UIComponent<T> {
+use interphaser::*;
+
+pub fn text_box(
+  place_holder: impl Into<String> + 'static,
+  value: impl Into<String>,
+  on_change: impl Fn(&mut String) + 'static,
+) -> impl UIComponent<String> {
   If::condition(
-    |t| value.eval(t) == "",
-    |t| Text::default().updater(move |s, t| s.content.set(place_holder.eval(t))),
+    |t: &String| t.is_empty(),
+    |t| {
+      Text::default()
+        // .bind(move |s, t| s.content.set(place_holder))
+        .extend(Container::size((200., 80.)))
+    },
   )
 }
