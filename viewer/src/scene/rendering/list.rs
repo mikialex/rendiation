@@ -61,7 +61,7 @@ impl RenderList {
         gpu_pass,
         &scene.components,
         scene.active_camera.as_ref().unwrap().expect_gpu(),
-        &scene.resources.pipeline_resource,
+        &scene.resources,
         pass,
       )
     })

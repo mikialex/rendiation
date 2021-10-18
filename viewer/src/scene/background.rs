@@ -61,7 +61,7 @@ impl SceneRenderable for SolidBackground {
     _pass: &mut wgpu::RenderPass<'a>,
     _components: &'a SceneComponents,
     _camera_gpu: &'a CameraBindgroup,
-    _pipeline_resource: &'a PipelineResourceManager,
+    _pipeline_resource: &'a GPUResourceCache,
     _pass_info: &'a PassTargetFormatInfo,
   ) {
   }
@@ -117,7 +117,7 @@ impl<S> SceneRenderable for DrawableBackground<S> {
     pass: &mut wgpu::RenderPass<'a>,
     components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
-    pipeline_resource: &'a PipelineResourceManager,
+    resources: &'a GPUResourceCache,
     pass_info: &'a PassTargetFormatInfo,
   ) {
     let m = components.materials.get(self.shading.handle).unwrap();
@@ -132,7 +132,7 @@ impl<S> SceneRenderable for DrawableBackground<S> {
         .as_ref()
         .unwrap()
         .into(),
-      pipelines: pipeline_resource,
+      resources,
       active_mesh: None,
     };
     m.setup_pass(pass, &ctx);

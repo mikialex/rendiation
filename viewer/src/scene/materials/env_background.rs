@@ -1,11 +1,10 @@
 use rendiation_texture::TextureSampler;
-use rendiation_webgpu::{BindableResource, WebGPUTextureCube, GPU};
-
-use crate::{
-  BackGroundShading, MaterialBindGroup, MaterialCPUResource, MaterialGPUResource, MaterialHandle,
-  PipelineUnit, PipelineVariantContainer, SceneMaterialPassSetupCtx, SceneMaterialRenderPrepareCtx,
-  TextureCubeHandle, ViewerDeviceExt,
+use rendiation_webgpu::{
+  BindableResource, PipelineRequester, PipelineUnit, PipelineVariantContainer, WebGPUTextureCube,
+  GPU,
 };
+
+use crate::*;
 
 #[derive(Clone)]
 pub struct EnvMapBackGroundMaterial {
@@ -57,34 +56,33 @@ pub struct EnvMapBackGroundMaterialGPU {
   bindgroup: MaterialBindGroup,
 }
 
+impl PipelineRequester for EnvMapBackGroundMaterialGPU {
+  type Container = PipelineUnit;
+  type Key = ();
+}
+
 impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
   type Source = EnvMapBackGroundMaterial;
-  fn setup_pass<'a>(
+  fn setup_pass_bindgroup<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
-    let pipeline = ctx
-      .pipelines
-      .get_cache::<Self, PipelineUnit>()
-      .retrieve(&());
-
-    pass.set_pipeline(pipeline);
     pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 
-  fn request_pipeline(
-    &mut self,
+  fn pipeline_key(&self, _source: &Self::Source, _ctx: &PipelineCreateCtx) -> Self::Key {
+    ()
+  }
+  fn create_pipeline(
+    &self,
     source: &Self::Source,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) {
-    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-    pipelines
-      .get_cache_mut::<Self, PipelineUnit>()
-      .request(&(), || source.create_pipeline(&gpu.device, &pipeline_ctx));
+    device: &wgpu::Device,
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline {
+    source.create_pipeline(device, ctx)
   }
 }
 

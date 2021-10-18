@@ -156,7 +156,7 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
   }
 }
 
-pub trait PassContent: 'static {
+pub trait PassContent {
   fn update(
     &mut self,
     gpu: &GPU,
@@ -233,7 +233,7 @@ impl SimplePipeline {
   // }
 }
 
-pub fn pass(name: &'static str) -> PassDescriptor {
+pub fn pass<'t>(name: &'static str) -> PassDescriptor<'static, 't> {
   PassDescriptor {
     name,
     phantom: PhantomData,

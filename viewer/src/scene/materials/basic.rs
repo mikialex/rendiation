@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, cell::Cell};
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
@@ -172,44 +172,39 @@ impl BasicMaterial {
 }
 
 pub struct BasicMaterialGPU {
-  state_id: ValueID<MaterialStates>,
+  state_id: Cell<ValueID<MaterialStates>>,
   _uniform: UniformBuffer<Vec3<f32>>,
   bindgroup: MaterialBindGroup,
+}
+
+impl PipelineRequester for BasicMaterialGPU {
+  type Container = CommonPipelineCache;
+  type Key = CommonPipelineVariantKey;
 }
 
 impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
 
-  fn request_pipeline(
-    &mut self,
+  fn pipeline_key(&self, source: &Self::Source, ctx: &PipelineCreateCtx) -> Self::Key {
+    self
+      .state_id
+      .set(STATE_ID.lock().unwrap().get_uuid(source.states));
+    CommonPipelineVariantKey(self.state_id.get(), ctx.active_mesh.unwrap().topology())
+  }
+  fn create_pipeline(
+    &self,
     source: &Self::Source,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) {
-    self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
-
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
-
-    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-
-    pipelines
-      .get_cache_mut::<Self, CommonPipelineCache>()
-      .request(&key, || source.create_pipeline(&gpu.device, &pipeline_ctx));
+    device: &wgpu::Device,
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline {
+    source.create_pipeline(device, ctx)
   }
 
-  fn setup_pass<'a>(
+  fn setup_pass_bindgroup<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
-
-    let pipeline = ctx
-      .pipelines
-      .get_cache::<Self, CommonPipelineCache>()
-      .retrieve(&key);
-
-    pass.set_pipeline(pipeline);
     pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
@@ -234,7 +229,7 @@ impl MaterialCPUResource for BasicMaterial {
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 
     BasicMaterialGPU {
-      state_id,
+      state_id: Cell::new(state_id),
       _uniform,
       bindgroup,
     }

@@ -31,13 +31,6 @@ impl<T, H: Copy> Copy for TypedHandle<T, H> {}
 pub type TypedMaterialHandle<T> = TypedHandle<T, MaterialHandle>;
 pub type TypedMeshHandle<T> = TypedHandle<T, MeshHandle>;
 
-pub struct MeshModel<Ma, Me> {
-  pub material: TypedMaterialHandle<Ma>,
-  pub mesh: TypedMeshHandle<Me>,
-  pub group: MeshDrawGroup,
-  pub node: SceneNodeHandle,
-}
-
 impl SceneRenderable for dyn Model {
   fn update(
     &mut self,
@@ -69,7 +62,7 @@ impl SceneRenderable for dyn Model {
     pass: &mut wgpu::RenderPass<'a>,
     components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
-    pipeline_resource: &'a PipelineResourceManager,
+    resources: &'a GPUResourceCache,
     pass_info: &'a PassTargetFormatInfo,
   ) {
     let material = components.materials.get(self.material()).unwrap().as_ref();
@@ -80,7 +73,7 @@ impl SceneRenderable for dyn Model {
       pass: pass_info,
       camera_gpu,
       model_gpu: node.gpu.as_ref().unwrap().into(),
-      pipelines: pipeline_resource,
+      resources,
       active_mesh: mesh.into(),
     };
     material.setup_pass(pass, &ctx);
@@ -88,6 +81,19 @@ impl SceneRenderable for dyn Model {
     let mesh = components.meshes.get(self.mesh()).unwrap();
     mesh.setup_pass_and_draw(pass, self.group());
   }
+}
+
+impl Scene {
+  pub fn add_model(&mut self, model: impl Model + 'static) -> ModelHandle {
+    self.models.insert(Box::new(model))
+  }
+}
+
+pub struct MeshModel<Ma, Me> {
+  pub material: TypedMaterialHandle<Ma>,
+  pub mesh: TypedMeshHandle<Me>,
+  pub group: MeshDrawGroup,
+  pub node: SceneNodeHandle,
 }
 
 impl<Ma, Me> Model for MeshModel<Ma, Me>
@@ -110,11 +116,5 @@ where
 
   fn node(&self) -> SceneNodeHandle {
     self.node
-  }
-}
-
-impl Scene {
-  pub fn add_model(&mut self, model: impl Model + 'static) -> ModelHandle {
-    self.models.insert(Box::new(model))
   }
 }

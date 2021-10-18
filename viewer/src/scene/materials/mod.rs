@@ -8,6 +8,9 @@ pub use bindable::*;
 pub mod states;
 pub use states::*;
 
+pub mod state_material;
+pub use state_material::*;
+
 pub mod basic;
 pub use basic::*;
 pub mod fatline;
@@ -16,7 +19,10 @@ pub mod env_background;
 pub use env_background::*;
 
 use rendiation_algebra::Mat4;
-use rendiation_webgpu::{BindGroupLayoutManager, PipelineResourceManager, GPU};
+use rendiation_webgpu::{
+  BindGroupLayoutManager, PipelineRequester, PipelineResourceManager, PipelineUnit,
+  PipelineVariantContainer, TopologyPipelineVariant, GPU,
+};
 
 use crate::*;
 
@@ -35,6 +41,9 @@ impl Scene {
   where
     M: MaterialCPUResource + 'static,
     M::GPU: MaterialGPUResource<Source = M>,
+    M::GPU: PipelineRequester,
+    <M::GPU as PipelineRequester>::Container:
+      PipelineVariantContainer<<M::GPU as PipelineRequester>::Key>,
   {
     let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
     TypedMaterialHandle {
@@ -90,8 +99,9 @@ pub trait MaterialCPUResource: Clone {
   ) -> Self::GPU;
 }
 
-pub trait MaterialGPUResource: Sized {
+pub trait MaterialGPUResource: Sized + PipelineRequester {
   type Source: MaterialCPUResource<GPU = Self>;
+
   /// This Hook will be called before this material rendering(set_pass) happens if any change recorded.
   ///
   /// If return true, means the following procedure will use simple full refresh update logic:
@@ -107,16 +117,15 @@ pub trait MaterialGPUResource: Sized {
     true
   }
 
-  /// This Hook will be called before this material rendering(set_pass) happens.
-  /// Users must request to prepare the real pipeline before render
-  fn request_pipeline(
-    &mut self,
+  fn pipeline_key(&self, source: &Self::Source, ctx: &PipelineCreateCtx) -> Self::Key;
+  fn create_pipeline(
+    &self,
     source: &Self::Source,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  );
+    device: &wgpu::Device,
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline;
 
-  fn setup_pass<'a>(
+  fn setup_pass_bindgroup<'a>(
     &'a self,
     _pass: &mut wgpu::RenderPass<'a>,
     _ctx: &SceneMaterialPassSetupCtx<'a>,
@@ -216,11 +225,21 @@ pub struct PipelineCreateCtx<'a> {
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {
-  pub pipelines: &'a PipelineResourceManager,
+  pub resources: &'a GPUResourceCache,
   pub model_gpu: Option<&'a TransformGPU>,
   pub active_mesh: Option<&'a dyn Mesh>,
   pub camera_gpu: &'a CameraBindgroup,
   pub pass: &'a PassTargetFormatInfo,
+}
+
+impl<'a> SceneMaterialPassSetupCtx<'a> {
+  pub fn pipeline_ctx(&self) -> PipelineCreateCtx {
+    PipelineCreateCtx {
+      layouts: &self.resources.layouts,
+      active_mesh: self.active_mesh,
+      pass: self.pass,
+    }
+  }
 }
 
 pub trait Material {
@@ -237,6 +256,9 @@ impl<T> Material for MaterialCell<T>
 where
   T: 'static,
   T: MaterialCPUResource,
+  T::GPU: PipelineRequester,
+  <T::GPU as PipelineRequester>::Container:
+    PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -252,19 +274,33 @@ where
       self.refresh_cache();
     }
 
-    self
-      .gpu
-      .as_mut()
-      .unwrap()
-      .request_pipeline(&self.material, gpu, ctx);
+    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
+    let container = pipelines.get_cache_mut::<T::GPU>();
+
+    let m_gpu = self.gpu.as_mut().unwrap();
+    let key = m_gpu.pipeline_key(&self.material, &pipeline_ctx);
+
+    container.request(&key, || {
+      m_gpu.create_pipeline(&self.material, &gpu.device, &pipeline_ctx)
+    });
   }
+
   fn setup_pass<'a>(
     &'a self,
     pass: &mut wgpu::RenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
-    self.gpu.as_ref().unwrap().setup_pass(pass, ctx)
+    let gpu = self.gpu.as_ref().unwrap();
+
+    let container = ctx.resources.pipeline_resource.get_cache::<T::GPU>();
+    let pipeline_ctx = ctx.pipeline_ctx();
+    let key = gpu.pipeline_key(&self.material, &pipeline_ctx);
+    let pipeline = container.retrieve(&key);
+    pass.set_pipeline(pipeline);
+
+    gpu.setup_pass_bindgroup(pass, ctx)
   }
+
   fn on_ref_resource_changed(&mut self) {
     self.bindgroups_dirty = true;
   }

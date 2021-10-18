@@ -159,7 +159,7 @@ pub trait SceneRenderable {
     pass: &mut wgpu::RenderPass<'a>,
     components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
-    pipeline_resource: &'a PipelineResourceManager,
+    resources: &'a GPUResourceCache,
     pass_info: &'a PassTargetFormatInfo,
   );
 }
