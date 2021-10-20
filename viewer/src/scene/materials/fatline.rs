@@ -16,19 +16,6 @@ pub struct FatlineMaterialGPU {
 }
 
 impl FatLineMaterial {
-  pub fn create_bindgroup(
-    &self,
-    handle: MaterialHandle,
-    ubo: &wgpu::Buffer,
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-  ) -> MaterialBindGroup {
-    device
-      .material_bindgroup_builder(handle)
-      .push(ubo.as_entire_binding())
-      .build(layout)
-  }
-
   pub fn create_bindgroup_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
@@ -181,7 +168,6 @@ impl MaterialGPUResource for FatlineMaterialGPU {
     _source: &Self::Source,
     _gpu: &GPU,
     _ctx: &mut SceneMaterialRenderPrepareCtx,
-    _bindgroup_changed: bool,
   ) -> bool {
     true
   }
@@ -190,17 +176,14 @@ impl MaterialGPUResource for FatlineMaterialGPU {
 impl MaterialCPUResource for FatLineMaterial {
   type GPU = FatlineMaterialGPU;
 
-  fn create(
-    &mut self,
-    handle: MaterialHandle,
-    gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) -> Self::GPU {
+  fn create(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
     let device = &gpu.device;
     let _uniform = UniformBuffer::create(device, self.width);
 
     let bindgroup_layout = Self::create_bindgroup_layout(device);
-    let bindgroup = self.create_bindgroup(handle, _uniform.gpu(), device, &bindgroup_layout);
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.bindgroup_watcher.clone())
+      .push(_uniform.gpu().as_entire_binding())
+      .build(&bindgroup_layout);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 

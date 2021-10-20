@@ -17,9 +17,6 @@ impl RenderList {
         camera_gpu,
         pass,
         resources: &mut scene.resources,
-        textures: &mut scene.texture_2ds,
-        texture_cubes: &mut scene.texture_cubes,
-        reference_finalization: &scene.reference_finalization,
       };
 
       let models = &scene.models;
@@ -38,6 +35,7 @@ impl RenderList {
           base: &mut base,
           model_info: node.get_model_gpu(gpu).into(),
           active_mesh: mesh.as_ref().into(),
+          bindgroup_watcher: material.get_bindgroup_watcher(),
         };
 
         material.update(gpu, &mut ctx);

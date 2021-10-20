@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use rendiation_renderable_mesh::group::MeshDrawGroup;
-use rendiation_webgpu::PipelineResourceManager;
 
 use super::*;
 
@@ -50,6 +49,7 @@ impl SceneRenderable for dyn Model {
       base,
       model_info: node.get_model_gpu(gpu).into(),
       active_mesh: mesh.as_ref().into(),
+      bindgroup_watcher: material.get_bindgroup_watcher(),
     };
 
     material.update(gpu, &mut ctx);

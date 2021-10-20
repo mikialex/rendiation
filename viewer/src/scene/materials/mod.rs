@@ -1,10 +1,10 @@
 use std::{
   any::Any,
+  cell::Cell,
   marker::PhantomData,
   ops::{Deref, DerefMut},
+  rc::Rc,
 };
-pub mod bindable;
-pub use bindable::*;
 pub mod states;
 pub use states::*;
 
@@ -91,18 +91,13 @@ pub trait MaterialMeshLayoutRequire {
 
 pub trait MaterialCPUResource: Clone {
   type GPU: MaterialGPUResource<Source = Self>;
-  fn create(
-    &mut self,
-    handle: MaterialHandle,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) -> Self::GPU;
+  fn create(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU;
 }
 
 pub trait MaterialGPUResource: Sized + PipelineRequester {
   type Source: MaterialCPUResource<GPU = Self>;
 
-  /// This Hook will be called before this material rendering(set_pass) happens if any change recorded.
+  /// This Hook will be called before this material rendering(set_pass)
   ///
   /// If return true, means the following procedure will use simple full refresh update logic:
   /// just rebuild the entire gpu resource. This is just for convenient case.
@@ -112,7 +107,6 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
     _source: &Self::Source,
     _gpu: &GPU,
     _ctx: &mut SceneMaterialRenderPrepareCtx,
-    _bindgroup_changed: bool,
   ) -> bool {
     true
   }
@@ -134,33 +128,50 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
   }
 }
 
+pub struct BindGroupDirtyWatcher {
+  dirty: Cell<bool>,
+}
+impl Default for BindGroupDirtyWatcher {
+  fn default() -> Self {
+    Self {
+      dirty: Cell::new(false),
+    }
+  }
+}
+
+impl BindGroupDirtyNotifier for BindGroupDirtyWatcher {
+  fn notify_dirty(&self) {
+    self.dirty.set(true);
+  }
+}
+
 pub struct MaterialCell<T>
 where
   T: MaterialCPUResource,
 {
   property_changed: bool,
-  bindgroups_dirty: bool,
   material: T,
-  last_material: Option<T>,
+  bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
+  last_material: Option<T>, // todo
   gpu: Option<T::GPU>,
-  handle: MaterialHandle,
+  _handle: MaterialHandle,
 }
 
 impl<T: MaterialCPUResource> MaterialCell<T> {
-  pub fn new(material: T, handle: MaterialHandle) -> Self {
+  pub fn new(material: T, _handle: MaterialHandle) -> Self {
     Self {
       property_changed: true,
-      bindgroups_dirty: true,
+      bindgroup_watcher: Default::default(),
       material,
       last_material: None,
+      _handle,
       gpu: None,
-      handle,
     }
   }
 
   fn refresh_cache(&mut self) {
     self.property_changed = false;
-    self.bindgroups_dirty = false;
+    self.bindgroup_watcher.dirty.set(false);
     self.last_material = self.material.clone().into();
   }
 }
@@ -169,16 +180,7 @@ pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub model_info: Option<(&'b Mat4<f32>, &'b TransformGPU)>,
   pub active_mesh: Option<&'b dyn Mesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
-}
-
-impl<'a> SceneMaterialRenderPrepareCtxBase<'a> {
-  pub fn material_ctx_empty<'b>(&'a mut self) -> SceneMaterialRenderPrepareCtx<'a, 'b> {
-    SceneMaterialRenderPrepareCtx {
-      model_info: None,
-      active_mesh: None,
-      base: self,
-    }
-  }
+  pub bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
 }
 
 impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
@@ -199,9 +201,6 @@ pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub active_camera: &'a CameraData,
   pub camera_gpu: &'a CameraBindgroup,
   pub pass: &'a PassTargetFormatInfo,
-  pub textures: &'a mut WatchedArena<SceneTexture2D>,
-  pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
-  pub reference_finalization: &'a ReferenceFinalization,
   pub resources: &'a mut GPUResourceCache,
 }
 
@@ -243,11 +242,9 @@ impl<'a> SceneMaterialPassSetupCtx<'a> {
 }
 
 pub trait Material {
-  /// When material's referenced bindable resources(outer ubo, texture) reference has changed
-  /// This will be called, and the implementation should dirty it's inner bindgroups
-  fn on_ref_resource_changed(&mut self);
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
+  fn get_bindgroup_watcher(&self) -> Rc<BindGroupDirtyWatcher>;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -263,14 +260,14 @@ where
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
     if let Some(self_gpu) = &mut self.gpu {
-      if self.property_changed || self.bindgroups_dirty {
-        if self_gpu.update(&self.material, gpu, ctx, self.bindgroups_dirty) {
-          self.gpu = T::create(&mut self.material, self.handle, gpu, ctx).into();
+      if self.property_changed || self.bindgroup_watcher.dirty.get() {
+        if self_gpu.update(&self.material, gpu, ctx) {
+          self.gpu = T::create(&mut self.material, gpu, ctx).into();
         }
         self.refresh_cache();
       }
     } else {
-      self.gpu = T::create(&mut self.material, self.handle, gpu, ctx).into();
+      self.gpu = T::create(&mut self.material, gpu, ctx).into();
       self.refresh_cache();
     }
 
@@ -301,10 +298,6 @@ where
     gpu.setup_pass_bindgroup(pass, ctx)
   }
 
-  fn on_ref_resource_changed(&mut self) {
-    self.bindgroups_dirty = true;
-  }
-
   fn as_any(&self) -> &dyn Any {
     self
   }
@@ -312,6 +305,10 @@ where
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self.property_changed = true;
     self
+  }
+
+  fn get_bindgroup_watcher(&self) -> Rc<BindGroupDirtyWatcher> {
+    self.bindgroup_watcher.clone()
   }
 }
 

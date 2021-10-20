@@ -19,9 +19,6 @@ impl PassContent for BackGroundRendering {
         active_camera,
         camera_gpu,
         pass: pass_info,
-        textures: &mut scene.texture_2ds,
-        texture_cubes: &mut scene.texture_cubes,
-        reference_finalization: &scene.reference_finalization,
         resources: &mut scene.resources,
       };
 

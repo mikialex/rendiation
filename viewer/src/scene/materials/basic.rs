@@ -11,7 +11,7 @@ use crate::*;
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
   pub sampler: TextureSampler,
-  pub texture: Texture2DHandle,
+  pub texture: SceneTexture2D,
   pub states: MaterialStates,
 }
 
@@ -20,23 +20,6 @@ impl MaterialMeshLayoutRequire for BasicMaterial {
 }
 
 impl BasicMaterial {
-  pub fn create_bindgroup(
-    &self,
-    handle: MaterialHandle,
-    ubo: &wgpu::Buffer,
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) -> MaterialBindGroup {
-    let sampler = ctx.map_sampler(self.sampler, device);
-    device
-      .material_bindgroup_builder(handle)
-      .push(ubo.as_entire_binding())
-      .push_texture2d(ctx, self.texture)
-      .push(sampler.as_bindable())
-      .build(layout)
-  }
-
   pub fn get_shader_header() -> &'static str {
     "
     [[block]]
@@ -214,17 +197,17 @@ impl MaterialGPUResource for BasicMaterialGPU {
 impl MaterialCPUResource for BasicMaterial {
   type GPU = BasicMaterialGPU;
 
-  fn create(
-    &mut self,
-    handle: MaterialHandle,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) -> Self::GPU {
+  fn create(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
-    let bindgroup =
-      self.create_bindgroup(handle, _uniform.gpu(), &gpu.device, &bindgroup_layout, ctx);
+
+    let sampler = ctx.map_sampler(self.sampler, &gpu.device);
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.bindgroup_watcher.clone())
+      .push(_uniform.gpu().as_entire_binding())
+      .push_texture(&self.texture)
+      .push(sampler.as_bindable())
+      .build(&bindgroup_layout);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 

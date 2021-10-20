@@ -44,9 +44,10 @@ pub fn load_default_scene(scene: &mut Scene) {
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
-    todo!()
+    "/Users/mikialex/Desktop/test.png"
   };
-  let texture = scene.add_texture2d(load_img(path).into_source());
+
+  let texture = SceneTexture2D::new(Box::new(load_img(path).into_source()));
 
   // let texture_cube = scene.add_texture_cube(load_img_cube());
 
@@ -65,7 +66,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let material = BasicMaterial {
       color: Vec3::splat(1.),
       sampler: TextureSampler::default(),
-      texture,
+      texture: texture.clone(),
       states: Default::default(),
     };
     let material = scene.add_material(material);
