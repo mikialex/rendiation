@@ -35,7 +35,6 @@ impl RenderList {
           base: &mut base,
           model_info: node.get_model_gpu(gpu).into(),
           active_mesh: mesh.as_ref().into(),
-          bindgroup_watcher: material.get_bindgroup_watcher(),
         };
 
         material.update(gpu, &mut ctx);

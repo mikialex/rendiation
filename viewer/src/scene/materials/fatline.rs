@@ -1,5 +1,5 @@
 use rendiation_webgpu::*;
-use std::{borrow::Cow, cell::Cell};
+use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 use crate::*;
 
@@ -162,26 +162,22 @@ impl MaterialGPUResource for FatlineMaterialGPU {
     pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }
-
-  fn update(
-    &mut self,
-    _source: &Self::Source,
-    _gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) -> bool {
-    true
-  }
 }
 
 impl MaterialCPUResource for FatLineMaterial {
   type GPU = FatlineMaterialGPU;
 
-  fn create(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
+  fn create(
+    &mut self,
+    gpu: &GPU,
+    _ctx: &mut SceneMaterialRenderPrepareCtx,
+    bgw: &Rc<BindGroupDirtyWatcher>,
+  ) -> Self::GPU {
     let device = &gpu.device;
     let _uniform = UniformBuffer::create(device, self.width);
 
     let bindgroup_layout = Self::create_bindgroup_layout(device);
-    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.bindgroup_watcher.clone())
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
       .push(_uniform.gpu().as_entire_binding())
       .build(&bindgroup_layout);
 

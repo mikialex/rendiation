@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::Cell};
+use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
@@ -197,13 +197,18 @@ impl MaterialGPUResource for BasicMaterialGPU {
 impl MaterialCPUResource for BasicMaterial {
   type GPU = BasicMaterialGPU;
 
-  fn create(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
+  fn create(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    bgw: &Rc<BindGroupDirtyWatcher>,
+  ) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
 
     let sampler = ctx.map_sampler(self.sampler, &gpu.device);
-    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.bindgroup_watcher.clone())
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
       .push(_uniform.gpu().as_entire_binding())
       .push_texture(&self.texture)
       .push(sampler.as_bindable())

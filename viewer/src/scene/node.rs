@@ -133,7 +133,6 @@ impl Scene {
 pub struct TransformGPU {
   pub ubo: wgpu::Buffer,
   pub bindgroup: wgpu::BindGroup,
-  // pub layout: wgpu::BindGroupLayout,
 }
 
 impl BindGroupLayoutProvider for TransformGPU {

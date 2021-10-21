@@ -91,7 +91,12 @@ pub trait MaterialMeshLayoutRequire {
 
 pub trait MaterialCPUResource: Clone {
   type GPU: MaterialGPUResource<Source = Self>;
-  fn create(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU;
+  fn create(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    bgw: &Rc<BindGroupDirtyWatcher>,
+  ) -> Self::GPU;
 }
 
 pub trait MaterialGPUResource: Sized + PipelineRequester {
@@ -107,6 +112,7 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
     _source: &Self::Source,
     _gpu: &GPU,
     _ctx: &mut SceneMaterialRenderPrepareCtx,
+    _bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> bool {
     true
   }
@@ -180,7 +186,6 @@ pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub model_info: Option<(&'b Mat4<f32>, &'b TransformGPU)>,
   pub active_mesh: Option<&'b dyn Mesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
-  pub bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
 }
 
 impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
@@ -244,7 +249,6 @@ impl<'a> SceneMaterialPassSetupCtx<'a> {
 pub trait Material {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
   fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
-  fn get_bindgroup_watcher(&self) -> Rc<BindGroupDirtyWatcher>;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -261,13 +265,13 @@ where
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
     if let Some(self_gpu) = &mut self.gpu {
       if self.property_changed || self.bindgroup_watcher.dirty.get() {
-        if self_gpu.update(&self.material, gpu, ctx) {
-          self.gpu = T::create(&mut self.material, gpu, ctx).into();
+        if self_gpu.update(&self.material, gpu, ctx, &self.bindgroup_watcher) {
+          self.gpu = T::create(&mut self.material, gpu, ctx, &self.bindgroup_watcher).into();
         }
         self.refresh_cache();
       }
     } else {
-      self.gpu = T::create(&mut self.material, gpu, ctx).into();
+      self.gpu = T::create(&mut self.material, gpu, ctx, &self.bindgroup_watcher).into();
       self.refresh_cache();
     }
 
@@ -305,10 +309,6 @@ where
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self.property_changed = true;
     self
-  }
-
-  fn get_bindgroup_watcher(&self) -> Rc<BindGroupDirtyWatcher> {
-    self.bindgroup_watcher.clone()
   }
 }
 

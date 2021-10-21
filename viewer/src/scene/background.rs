@@ -108,7 +108,6 @@ impl<S> SceneRenderable for DrawableBackground<S> {
       base,
       model_info: None,
       active_mesh: None,
-      bindgroup_watcher: m.get_bindgroup_watcher(),
     };
     m.update(gpu, &mut ctx);
   }

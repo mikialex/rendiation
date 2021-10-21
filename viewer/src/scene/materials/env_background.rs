@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
   BindableResource, PipelineRequester, PipelineUnit, WebGPUTextureCube, GPU,
@@ -88,10 +90,15 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
 impl MaterialCPUResource for EnvMapBackGroundMaterial {
   type GPU = EnvMapBackGroundMaterialGPU;
 
-  fn create(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
+  fn create(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    bgw: &Rc<BindGroupDirtyWatcher>,
+  ) -> Self::GPU {
     let bindgroup_layout = self.create_bindgroup_layout(&gpu.device);
     let sampler = ctx.map_sampler(self.sampler, &gpu.device);
-    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.bindgroup_watcher.clone())
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
       .push_texture(&self.texture)
       .push(sampler.as_bindable())
       .build(&bindgroup_layout);
