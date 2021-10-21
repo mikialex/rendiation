@@ -74,9 +74,7 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
     pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 
-  fn pipeline_key(&self, _source: &Self::Source, _ctx: &PipelineCreateCtx) -> Self::Key {
-    ()
-  }
+  fn pipeline_key(&self, _source: &Self::Source, _ctx: &PipelineCreateCtx) -> Self::Key {}
   fn create_pipeline(
     &self,
     source: &Self::Source,

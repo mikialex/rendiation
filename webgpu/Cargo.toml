@@ -8,5 +8,5 @@ version = "0.1.0"
 bytemuck = {version = "1.4.1", features = ["derive"]}
 image = "*"
 rendiation-texture-types = {path = "../components/texture/types"}
-wgpu = "0.10"
+wgpu = "0.11"
 winit = {version = "0.24.0"}

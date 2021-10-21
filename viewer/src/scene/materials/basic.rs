@@ -28,7 +28,7 @@ impl BasicMaterial {
     };
 
     [[group(1), binding(0)]]
-    var basic_material: BasicMaterial;
+    var<uniform> basic_material: BasicMaterial;
     
     [[group(1), binding(1)]]
     var r_color: texture_2d<f32>;

@@ -116,7 +116,7 @@ impl CameraBindgroup {
           view:       mat4x4<f32>;
       };
       [[group(2), binding(0)]]
-      var camera: CameraTransform;
+      var<uniform> camera: CameraTransform;
     "#
   }
   pub fn update<'a>(

@@ -41,7 +41,7 @@ impl GPUSurface {
     self.size = size;
   }
 
-  pub fn get_current_frame(&mut self) -> Result<wgpu::SurfaceFrame, wgpu::SurfaceError> {
-    self.surface.get_current_frame()
+  pub fn get_current_frame(&mut self) -> Result<wgpu::SurfaceTexture, wgpu::SurfaceError> {
+    self.surface.get_current_texture()
   }
 }

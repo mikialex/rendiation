@@ -352,7 +352,8 @@ impl UIGlobalParameter {
     [[block]] struct UIGlobalParameter {
       screen_size: vec2<f32>;
     };
-    [[group(0), binding(0)]] var ui_global_parameter: UIGlobalParameter;
+    [[group(0), binding(0)]] 
+    var<uniform> ui_global_parameter: UIGlobalParameter;
     "
   }
 

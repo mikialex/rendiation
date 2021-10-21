@@ -122,8 +122,9 @@ impl<T: 'static> Application<T> {
         },
         Event::RedrawRequested(_) => {
           if let Ok(frame) = app.surface.get_current_frame() {
-            app.execute(frame);
+            app.execute(&frame);
             app.frame_end();
+            frame.present();
           }
         }
         _ => {}
@@ -166,14 +167,13 @@ impl<T> ApplicationInner<T> {
     });
   }
 
-  fn render(&mut self, frame: SurfaceFrame) {
+  fn render(&mut self, frame: &SurfaceTexture) {
     let mut builder = PresentationBuilder::new(&self.fonts);
     builder.present.view_size = self.window_states.size;
 
     self.current_perf.rendering_prepare_time = time_measure(|| self.root.render(&mut builder));
 
     let view = frame
-      .output
       .texture
       .create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -191,7 +191,7 @@ impl<T> ApplicationInner<T> {
     self.gpu.submit();
   }
 
-  fn execute(&mut self, frame: SurfaceFrame) {
+  fn execute(&mut self, frame: &SurfaceTexture) {
     self.update();
     self.render(frame);
   }

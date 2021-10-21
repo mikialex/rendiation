@@ -36,7 +36,7 @@ impl FatLineMaterial {
     };
 
     [[group(1), binding(0)]]
-    var fatline_material: FatlineMaterial;
+    var<uniform> fatline_material: FatlineMaterial;
     "
   }
 
