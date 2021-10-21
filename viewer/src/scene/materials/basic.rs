@@ -185,7 +185,7 @@ impl MaterialGPUResource for BasicMaterialGPU {
 
   fn setup_pass_bindgroup<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);

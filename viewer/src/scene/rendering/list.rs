@@ -1,4 +1,4 @@
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::{GPURenderPass, GPU};
 
 use crate::*;
 
@@ -46,7 +46,7 @@ impl RenderList {
 
   pub fn setup_pass<'p>(
     &self,
-    gpu_pass: &mut wgpu::RenderPass<'p>,
+    gpu_pass: &mut GPURenderPass<'p>,
     scene: &'p Scene,
     pass: &'p PassTargetFormatInfo,
   ) {

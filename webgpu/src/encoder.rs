@@ -1,32 +1,82 @@
-use wgpu::BufferAddress;
+use std::{
+  num::NonZeroU32,
+  ops::{Deref, DerefMut},
+};
 
-use super::{buffer::*, If, True, True2};
+use crate::{GPURenderPass, GPURenderPassDataHolder, WebGPUTexture2d, WebGPUTexture2dSource};
 
-pub struct CommandEncoder {
+pub struct GPUCommandEncoder {
   encoder: wgpu::CommandEncoder,
+  holder: GPURenderPassDataHolder,
 }
 
-impl CommandEncoder {
-  pub fn copy_buffer_to_buffer<
-    const DST_USAGE: wgpu::BufferUsages,
-    const SRC_USAGE: wgpu::BufferUsages,
-  >(
+impl Deref for GPUCommandEncoder {
+  type Target = wgpu::CommandEncoder;
+
+  fn deref(&self) -> &Self::Target {
+    &self.encoder
+  }
+}
+
+impl DerefMut for GPUCommandEncoder {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.encoder
+  }
+}
+
+impl GPUCommandEncoder {
+  pub fn new(encoder: wgpu::CommandEncoder) -> Self {
+    Self {
+      encoder,
+      holder: Default::default(),
+    }
+  }
+
+  pub fn finish(self) -> wgpu::CommandBuffer {
+    self.encoder.finish()
+  }
+
+  pub fn begin_render_pass<'a>(
+    &'a mut self,
+    desc: &wgpu::RenderPassDescriptor<'a, '_>,
+  ) -> GPURenderPass<'a> {
+    let pass = self.encoder.begin_render_pass(desc);
+    GPURenderPass {
+      pass,
+      holder: &mut self.holder,
+    }
+  }
+
+  pub fn copy_source_to_texture_2d(
     &mut self,
-    source: &Buffer<SRC_USAGE>,
-    source_offset: BufferAddress,
-    destination: &Buffer<DST_USAGE>,
-    destination_offset: BufferAddress,
-    copy_size: BufferAddress,
-  ) where
-    If<{ has_copy_src(SRC_USAGE) }>: True,
-    If<{ has_copy_dst(DST_USAGE) }>: True2,
-  {
-    self.encoder.copy_buffer_to_buffer(
-      &source.buffer,
-      source_offset,
-      &destination.buffer,
-      destination_offset,
-      copy_size,
+    device: &wgpu::Device,
+    source: impl WebGPUTexture2dSource,
+    target: &WebGPUTexture2d,
+    origin: (u32, u32),
+  ) -> &mut Self {
+    let (upload_buffer, size) = source.create_upload_buffer(device);
+
+    self.encoder.copy_buffer_to_texture(
+      wgpu::ImageCopyBuffer {
+        buffer: &upload_buffer,
+        layout: wgpu::ImageDataLayout {
+          offset: 0,
+          bytes_per_row: NonZeroU32::new(Into::<usize>::into(size.width) as u32),
+          rows_per_image: NonZeroU32::new(Into::<usize>::into(size.height) as u32),
+        },
+      },
+      wgpu::ImageCopyTexture {
+        texture: &target.texture,
+        mip_level: 0,
+        origin: wgpu::Origin3d {
+          x: origin.0,
+          y: origin.1,
+          z: 0,
+        },
+        aspect: wgpu::TextureAspect::All,
+      },
+      source.gpu_size(),
     );
+    self
   }
 }

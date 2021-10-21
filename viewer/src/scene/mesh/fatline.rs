@@ -29,11 +29,7 @@ pub struct FatlineMeshGPU {
 }
 
 impl FatlineMeshGPU {
-  pub fn setup_pass_and_draw<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    range: Option<MeshGroup>,
-  ) {
+  pub fn setup_pass_and_draw<'a>(&'a self, pass: &mut GPURenderPass<'a>, range: Option<MeshGroup>) {
     let range = range.unwrap_or(self.range_full);
 
     self.instance.setup_pass(pass);
@@ -54,7 +50,7 @@ impl From<FatlineData> for FatlineMeshCell {
 }
 
 impl Mesh for FatlineMeshCell {
-  fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
+  fn setup_pass_and_draw<'a>(&'a self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     self
       .gpu
       .as_ref()

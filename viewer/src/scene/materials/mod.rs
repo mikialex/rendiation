@@ -20,7 +20,7 @@ pub use env_background::*;
 
 use rendiation_algebra::Mat4;
 use rendiation_webgpu::{
-  BindGroupLayoutManager, PipelineRequester, PipelineResourceManager, PipelineUnit,
+  BindGroupLayoutManager, GPURenderPass, PipelineRequester, PipelineResourceManager, PipelineUnit,
   PipelineVariantContainer, TopologyPipelineVariant, GPU,
 };
 
@@ -127,7 +127,7 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
 
   fn setup_pass_bindgroup<'a>(
     &'a self,
-    _pass: &mut wgpu::RenderPass<'a>,
+    _pass: &mut GPURenderPass<'a>,
     _ctx: &SceneMaterialPassSetupCtx<'a>,
   ) {
     // default do nothing
@@ -248,7 +248,7 @@ impl<'a> SceneMaterialPassSetupCtx<'a> {
 
 pub trait Material {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -286,11 +286,7 @@ where
     });
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
-  ) {
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>) {
     let gpu = self.gpu.as_ref().unwrap();
 
     let container = ctx.resources.pipeline_resource.get_cache::<T::GPU>();

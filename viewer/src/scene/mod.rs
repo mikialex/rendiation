@@ -34,7 +34,7 @@ use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 
 use rendiation_texture::TextureSampler;
-use rendiation_webgpu::{BindGroupLayoutManager, PipelineResourceManager, GPU};
+use rendiation_webgpu::{BindGroupLayoutManager, GPURenderPass, PipelineResourceManager, GPU};
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
 pub type ModelHandle = Handle<Box<dyn Model>>;
@@ -114,7 +114,7 @@ pub trait SceneRenderable {
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
     resources: &'a GPUResourceCache,

@@ -1,7 +1,7 @@
 use interphaser::*;
 
 pub fn text_box(
-  place_holder: impl Into<String> + 'static,
+  placeholder: impl Into<String> + 'static,
   value: impl Into<String>,
   on_change: impl Fn(&mut String) + 'static,
 ) -> impl UIComponent<String> {

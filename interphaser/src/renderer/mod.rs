@@ -24,8 +24,8 @@ impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
   fn create<'a>(
     &'a self,
     view: &'a wgpu::TextureView,
-    encoder: &'a mut wgpu::CommandEncoder,
-  ) -> wgpu::RenderPass<'a> {
+    encoder: &'a mut GPUCommandEncoder,
+  ) -> GPURenderPass<'a> {
     encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
       label: "ui pass".into(),
       color_attachments: &[wgpu::RenderPassColorAttachment {
@@ -47,7 +47,7 @@ impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
 }
 
 impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>) {
     let renderer = &self.renderer;
     renderer.gpu_primitive_cache.iter().for_each(|p| match p {
       GPUxUIPrimitive::SolidColor(p) => {
@@ -71,7 +71,7 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
     });
   }
 
-  fn update(&mut self, renderer: &GPU, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, renderer: &GPU, encoder: &mut GPUCommandEncoder) {
     self.renderer.text_renderer.update_fonts(self.fonts);
     self.renderer.update(
       self.presentation,
@@ -147,7 +147,7 @@ impl Primitive {
   pub fn create_gpu(
     &self,
     device: &wgpu::Device,
-    encoder: &mut wgpu::CommandEncoder,
+    encoder: &mut GPUCommandEncoder,
     renderer: &mut TextRenderer,
     res: &UIxGPUxResource,
   ) -> Option<GPUxUIPrimitive> {
@@ -317,7 +317,7 @@ impl WebGPUxUIRenderer {
     presentation: &UIPresentation,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    encoder: &mut wgpu::CommandEncoder,
+    encoder: &mut GPUCommandEncoder,
   ) {
     self.gpu_primitive_cache.clear();
 

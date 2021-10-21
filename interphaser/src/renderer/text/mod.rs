@@ -3,6 +3,7 @@ use pipeline::*;
 mod text_quad_instance;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
+use rendiation_webgpu::{GPUCommandEncoder, GPURenderPass};
 use text_quad_instance::*;
 
 use glyph_brush::{
@@ -62,18 +63,14 @@ impl TextRenderer {
     self.pipeline.resize_view(size, queue)
   }
 
-  pub fn draw_gpu_text<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    text: &'a GPUxUITextPrimitive,
-  ) {
+  pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: &'a GPUxUITextPrimitive) {
     self.pipeline.draw(pass, text)
   }
 
   pub fn create_gpu_text<'a>(
     &mut self,
     device: &wgpu::Device,
-    encoder: &mut wgpu::CommandEncoder,
+    encoder: &mut GPUCommandEncoder,
     section: Section<'a, Extra>,
   ) -> Option<GPUxUITextPrimitive> {
     self.glyph_brush.queue(section);
@@ -83,7 +80,7 @@ impl TextRenderer {
   fn process_queued(
     &mut self,
     device: &wgpu::Device,
-    encoder: &mut wgpu::CommandEncoder,
+    encoder: &mut GPUCommandEncoder,
   ) -> Option<GPUxUITextPrimitive> {
     let brush_action = self.glyph_brush.process_queued(
       |rect, tex_data| {

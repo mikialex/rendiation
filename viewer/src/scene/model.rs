@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_webgpu::GPURenderPass;
 
 use super::*;
 
@@ -58,7 +59,7 @@ impl SceneRenderable for dyn Model {
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
     resources: &'a GPUResourceCache,

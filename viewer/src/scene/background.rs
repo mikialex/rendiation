@@ -58,7 +58,7 @@ impl SceneRenderable for SolidBackground {
 
   fn setup_pass<'a>(
     &'a self,
-    _pass: &mut wgpu::RenderPass<'a>,
+    _pass: &mut GPURenderPass<'a>,
     _components: &'a SceneComponents,
     _camera_gpu: &'a CameraBindgroup,
     _pipeline_resource: &'a GPUResourceCache,
@@ -114,7 +114,7 @@ impl<S> SceneRenderable for DrawableBackground<S> {
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     components: &'a SceneComponents,
     camera_gpu: &'a CameraBindgroup,
     resources: &'a GPUResourceCache,

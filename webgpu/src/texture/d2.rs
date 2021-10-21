@@ -1,5 +1,3 @@
-use std::num::NonZeroU32;
-
 use rendiation_texture_types::{Size, TextureOrigin};
 use wgpu::util::DeviceExt;
 
@@ -109,51 +107,6 @@ pub trait WebGPUTexture2dSource {
   }
 }
 
-pub trait WebGPUEncoderExt {
-  fn copy_source_to_texture_2d(
-    &mut self,
-    device: &wgpu::Device,
-    source: impl WebGPUTexture2dSource,
-    target: &WebGPUTexture2d,
-    origin: (u32, u32),
-  ) -> &mut Self;
-}
-
-impl WebGPUEncoderExt for wgpu::CommandEncoder {
-  fn copy_source_to_texture_2d(
-    &mut self,
-    device: &wgpu::Device,
-    source: impl WebGPUTexture2dSource,
-    target: &WebGPUTexture2d,
-    origin: (u32, u32),
-  ) -> &mut Self {
-    let (upload_buffer, size) = source.create_upload_buffer(device);
-
-    self.copy_buffer_to_texture(
-      wgpu::ImageCopyBuffer {
-        buffer: &upload_buffer,
-        layout: wgpu::ImageDataLayout {
-          offset: 0,
-          bytes_per_row: NonZeroU32::new(Into::<usize>::into(size.width) as u32),
-          rows_per_image: NonZeroU32::new(Into::<usize>::into(size.height) as u32),
-        },
-      },
-      wgpu::ImageCopyTexture {
-        texture: &target.texture,
-        mip_level: 0,
-        origin: wgpu::Origin3d {
-          x: origin.0,
-          y: origin.1,
-          z: 0,
-        },
-        aspect: wgpu::TextureAspect::All,
-      },
-      source.gpu_size(),
-    );
-    self
-  }
-}
-
 /// The wrapper type that make sure the inner desc
 /// is suitable for 2d texture
 pub struct WebGPUTexture2dDescriptor {
@@ -213,7 +166,7 @@ impl MipLevelCount {
 }
 
 pub struct WebGPUTexture2d {
-  texture: WebGPUTexture,
+  pub(crate) texture: WebGPUTexture,
   texture_view: wgpu::TextureView,
 }
 

@@ -166,7 +166,7 @@ pub trait PassContent {
   );
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     scene: &'a Scene,
     pass_info: &'a PassTargetFormatInfo,
   );
