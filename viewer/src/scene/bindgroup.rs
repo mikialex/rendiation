@@ -10,7 +10,7 @@ pub trait BindGroupDirtyNotifier: 'static {
 }
 
 pub struct MaterialBindGroup<T = BindGroupDirtyWatcher> {
-  pub gpu: wgpu::BindGroup,
+  pub gpu: Rc<wgpu::BindGroup>,
   pub dirty_notifier: Rc<T>,
 }
 
@@ -128,6 +128,8 @@ impl<'a, 'b, W: BindGroupDirtyNotifier> MaterialBindGroupBuilder<'a, 'b, W> {
       entries: &entries,
       label: None,
     });
+
+    let gpu = Rc::new(gpu);
 
     MaterialBindGroup {
       gpu,

@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, rc::Rc};
 
 use arena_tree::ArenaTree;
 use rendiation_algebra::*;
@@ -85,7 +85,7 @@ impl Camera {
 
 pub struct CameraBindgroup {
   pub ubo: wgpu::Buffer,
-  pub bindgroup: wgpu::BindGroup,
+  pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
 impl BindGroupLayoutProvider for CameraBindgroup {
@@ -171,6 +171,7 @@ impl CameraBindgroup {
       }],
       label: None,
     });
+    let bindgroup = Rc::new(bindgroup);
 
     Self { ubo, bindgroup }
   }

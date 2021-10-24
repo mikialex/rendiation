@@ -1,10 +1,12 @@
+use std::{cell::RefCell, rc::Rc};
+
 use rendiation_webgpu::{GPURenderPass, GPU};
 
 use crate::*;
 
 #[derive(Default)]
 pub struct RenderList {
-  pub(crate) models: Vec<ModelHandle>,
+  pub(crate) models: Vec<Rc<RefCell<MeshModel>>>,
 }
 
 impl RenderList {
@@ -19,27 +21,11 @@ impl RenderList {
         resources: &mut scene.resources,
       };
 
-      let models = &scene.models;
-      self.models.iter().for_each(|handle| {
-        let model = models.get(*handle).unwrap();
+      self.models.iter().for_each(|model| {
         let components = &mut scene.components;
-        let material = components
-          .materials
-          .get_mut(model.material())
-          .unwrap()
-          .as_mut();
-        let mesh = components.meshes.get_mut(model.mesh()).unwrap();
-        let node = components.nodes.get_node_mut(model.node()).data_mut();
+        let mut model = model.borrow_mut();
 
-        let mut ctx = SceneMaterialRenderPrepareCtx {
-          base: &mut base,
-          model_info: node.get_model_gpu(gpu).into(),
-          active_mesh: mesh.as_ref().into(),
-        };
-
-        material.update(gpu, &mut ctx);
-
-        mesh.update(gpu, &mut base.resources.custom_storage);
+        model.update(gpu, &mut base, components);
       });
     }
   }
@@ -50,10 +36,8 @@ impl RenderList {
     scene: &'p Scene,
     pass: &'p PassTargetFormatInfo,
   ) {
-    let models = &scene.models;
-
     self.models.iter().for_each(|model| {
-      let model = models.get(*model).unwrap();
+      let model = model.borrow();
       model.setup_pass(
         gpu_pass,
         &scene.components,

@@ -184,13 +184,13 @@ impl MaterialGPUResource for BasicMaterialGPU {
   }
 
   fn setup_pass_bindgroup<'a>(
-    &'a self,
+    &self,
     pass: &mut GPURenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
+    ctx: &SceneMaterialPassSetupCtx,
   ) {
-    pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
-    pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
-    pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
+    pass.set_bind_group_owned(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
+    pass.set_bind_group_owned(1, &self.bindgroup.gpu, &[]);
+    pass.set_bind_group_owned(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 }
 

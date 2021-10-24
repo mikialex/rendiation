@@ -37,7 +37,6 @@ use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindGroupLayoutManager, GPURenderPass, PipelineResourceManager, GPU};
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
-pub type ModelHandle = Handle<Box<dyn Model>>;
 pub type MeshHandle = Handle<Box<dyn Mesh>>;
 pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
@@ -48,7 +47,6 @@ pub struct Scene {
   pub active_camera: Option<Camera>,
   pub cameras: Arena<Camera>,
   pub lights: Arena<SceneLight>,
-  pub models: Arena<Box<dyn Model>>,
 
   pub components: SceneComponents,
 
@@ -61,7 +59,6 @@ impl Scene {
       components: Default::default(),
       background: Box::new(SolidBackground::default()),
       cameras: Arena::new(),
-      models: Arena::new(),
       lights: Arena::new(),
 
       active_camera: None,
@@ -85,10 +82,10 @@ impl Scene {
       });
   }
 
-  pub fn background(&mut self, background: impl Background) -> &mut Self {
-    self.background = Box::new(background);
-    self
-  }
+  // pub fn background(&mut self, background: impl Background) -> &mut Self {
+  //   self.background = Box::new(background);
+  //   self
+  // }
 }
 
 impl Default for Scene {
@@ -113,12 +110,12 @@ pub trait SceneRenderable {
   );
 
   fn setup_pass<'a>(
-    &'a self,
+    &self,
     pass: &mut GPURenderPass<'a>,
-    components: &'a SceneComponents,
-    camera_gpu: &'a CameraBindgroup,
-    resources: &'a GPUResourceCache,
-    pass_info: &'a PassTargetFormatInfo,
+    components: &SceneComponents,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+    pass_info: &PassTargetFormatInfo,
   );
 }
 

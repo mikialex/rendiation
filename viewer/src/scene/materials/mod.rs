@@ -26,64 +26,64 @@ use rendiation_webgpu::{
 
 use crate::*;
 
-impl Scene {
-  fn add_material_inner<M: Material + 'static, F: FnOnce(MaterialHandle) -> M>(
-    &mut self,
-    creator: F,
-  ) -> MaterialHandle {
-    self
-      .components
-      .materials
-      .insert_with(|handle| Box::new(creator(handle)))
-  }
+// impl Scene {
+//   fn add_material_inner<M: Material + 'static, F: FnOnce(MaterialHandle) -> M>(
+//     &mut self,
+//     creator: F,
+//   ) -> MaterialHandle {
+//     self
+//       .components
+//       .materials
+//       .insert_with(|handle| Box::new(creator(handle)))
+//   }
 
-  pub fn add_material<M>(&mut self, material: M) -> TypedMaterialHandle<M>
-  where
-    M: MaterialCPUResource + 'static,
-    M::GPU: MaterialGPUResource<Source = M>,
-    M::GPU: PipelineRequester,
-    <M::GPU as PipelineRequester>::Container:
-      PipelineVariantContainer<<M::GPU as PipelineRequester>::Key>,
-  {
-    let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
-    TypedMaterialHandle {
-      handle,
-      ty: PhantomData,
-    }
-  }
+//   pub fn add_material<M>(&mut self, material: M) -> TypedMaterialHandle<M>
+//   where
+//     M: MaterialCPUResource + 'static,
+//     M::GPU: MaterialGPUResource<Source = M>,
+//     M::GPU: PipelineRequester,
+//     <M::GPU as PipelineRequester>::Container:
+//       PipelineVariantContainer<<M::GPU as PipelineRequester>::Key>,
+//   {
+//     let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
+//     TypedMaterialHandle {
+//       handle,
+//       ty: PhantomData,
+//     }
+//   }
 
-  pub fn get_mut_material<M>(&mut self, handle: TypedMaterialHandle<M>) -> &mut M
-  where
-    M: MaterialCPUResource + 'static,
-    M::GPU: MaterialGPUResource<Source = M>,
-  {
-    &mut self
-      .components
-      .materials
-      .get_mut(handle.handle)
-      .unwrap()
-      .as_any_mut()
-      .downcast_mut::<MaterialCell<M>>()
-      .unwrap()
-      .material
-  }
+//   pub fn get_mut_material<M>(&mut self, handle: TypedMaterialHandle<M>) -> &mut M
+//   where
+//     M: MaterialCPUResource + 'static,
+//     M::GPU: MaterialGPUResource<Source = M>,
+//   {
+//     &mut self
+//       .components
+//       .materials
+//       .get_mut(handle.handle)
+//       .unwrap()
+//       .as_any_mut()
+//       .downcast_mut::<MaterialCell<M>>()
+//       .unwrap()
+//       .material
+//   }
 
-  pub fn get_material<M>(&self, handle: TypedMaterialHandle<M>) -> &M
-  where
-    M: MaterialCPUResource + 'static,
-    M::GPU: MaterialGPUResource<Source = M>,
-  {
-    &self
-      .components
-      .materials
-      .get(handle.handle)
-      .unwrap()
-      .as_any()
-      .downcast_ref::<MaterialCell<M>>()
-      .unwrap()
-      .material
-  }
-}
+//   pub fn get_material<M>(&self, handle: TypedMaterialHandle<M>) -> &M
+//   where
+//     M: MaterialCPUResource + 'static,
+//     M::GPU: MaterialGPUResource<Source = M>,
+//   {
+//     &self
+//       .components
+//       .materials
+//       .get(handle.handle)
+//       .unwrap()
+//       .as_any()
+//       .downcast_ref::<MaterialCell<M>>()
+//       .unwrap()
+//       .material
+//   }
+// }
 
 pub trait MaterialMeshLayoutRequire {
   type VertexInput;
@@ -126,9 +126,9 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
   ) -> wgpu::RenderPipeline;
 
   fn setup_pass_bindgroup<'a>(
-    &'a self,
+    &self,
     _pass: &mut GPURenderPass<'a>,
-    _ctx: &SceneMaterialPassSetupCtx<'a>,
+    _ctx: &SceneMaterialPassSetupCtx,
   ) {
     // default do nothing
   }
@@ -248,7 +248,7 @@ impl<'a> SceneMaterialPassSetupCtx<'a> {
 
 pub trait Material {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
+  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -286,14 +286,14 @@ where
     });
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>) {
+  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
     let gpu = self.gpu.as_ref().unwrap();
 
     let container = ctx.resources.pipeline_resource.get_cache::<T::GPU>();
     let pipeline_ctx = ctx.pipeline_ctx();
     let key = gpu.pipeline_key(&self.material, &pipeline_ctx);
     let pipeline = container.retrieve(&key);
-    pass.set_pipeline(pipeline);
+    pass.set_pipeline_owned(pipeline);
 
     gpu.setup_pass_bindgroup(pass, ctx)
   }

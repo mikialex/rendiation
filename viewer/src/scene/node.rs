@@ -1,6 +1,10 @@
+use std::rc::Rc;
+
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
 use rendiation_webgpu::*;
+
+use crate::bindgroup;
 
 use super::{Scene, SceneNodeHandle};
 
@@ -132,7 +136,7 @@ impl Scene {
 
 pub struct TransformGPU {
   pub ubo: wgpu::Buffer,
-  pub bindgroup: wgpu::BindGroup,
+  pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
 impl BindGroupLayoutProvider for TransformGPU {
@@ -188,6 +192,8 @@ impl TransformGPU {
       }],
       label: None,
     });
+
+    let bindgroup = Rc::new(bindgroup);
 
     Self { ubo, bindgroup }
   }

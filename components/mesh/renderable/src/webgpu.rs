@@ -1,5 +1,8 @@
+use std::rc::Rc;
+
 use bytemuck::Pod;
 use gpu::util::DeviceExt;
+use gpu::GPURenderPass;
 use rendiation_webgpu as gpu;
 
 use crate::group::*;
@@ -7,8 +10,8 @@ use crate::mesh::*;
 
 pub struct MeshGPU {
   range_full: MeshGroup,
-  vertex: Vec<gpu::Buffer>,
-  index: Option<(gpu::Buffer, gpu::IndexFormat)>,
+  vertex: Vec<Rc<gpu::Buffer>>,
+  index: Option<(Rc<gpu::Buffer>, gpu::IndexFormat)>,
 }
 
 impl MeshGPU {
@@ -16,12 +19,12 @@ impl MeshGPU {
     self.range_full
   }
 
-  pub fn setup_pass<'a>(&'a self, pass: &mut gpu::RenderPass<'a>) {
+  pub fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>) {
     self.vertex.iter().enumerate().for_each(|(i, gpu)| {
-      pass.set_vertex_buffer(i as u32, gpu.slice(..));
+      pass.set_vertex_buffer_owned(i as u32, gpu);
     });
     if let Some((index, format)) = &self.index {
-      pass.set_index_buffer(index.slice(..), *format);
+      pass.set_index_buffer_owned(index, *format);
     }
   }
 
@@ -88,7 +91,7 @@ where
       contents: vertex,
       usage: gpu::BufferUsages::VERTEX,
     });
-    let vertex = vec![vertex];
+    let vertex = vec![Rc::new(vertex)];
 
     let index = bytemuck::cast_slice(self.index.as_slice());
     let index = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
@@ -96,7 +99,7 @@ where
       contents: index,
       usage: gpu::BufferUsages::INDEX,
     });
-    let index = (index, I::FORMAT).into();
+    let index = (Rc::new(index), I::FORMAT).into();
 
     let range_full = MeshGroup {
       start: 0,

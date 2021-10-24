@@ -1,50 +1,27 @@
-use std::marker::PhantomData;
+use std::cell::RefCell;
 
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_webgpu::GPURenderPass;
 
 use super::*;
 
-pub trait Model {
-  fn material(&self) -> MaterialHandle;
-  fn mesh(&self) -> MeshHandle;
-  fn group(&self) -> MeshDrawGroup;
-  fn node(&self) -> SceneNodeHandle;
+pub struct MeshModel {
+  pub material: Rc<RefCell<Box<dyn Material>>>,
+  pub mesh: Rc<RefCell<Box<dyn Mesh>>>,
+  pub group: MeshDrawGroup,
+  pub node: SceneNodeHandle,
 }
 
-pub struct TypedHandle<T, H> {
-  pub(crate) handle: H,
-  pub(crate) ty: PhantomData<T>,
-}
-
-impl<T, H: Clone> Clone for TypedHandle<T, H> {
-  fn clone(&self) -> Self {
-    Self {
-      handle: self.handle.clone(),
-      ty: PhantomData,
-    }
-  }
-}
-
-impl<T, H: Copy> Copy for TypedHandle<T, H> {}
-
-pub type TypedMaterialHandle<T> = TypedHandle<T, MaterialHandle>;
-pub type TypedMeshHandle<T> = TypedHandle<T, MeshHandle>;
-
-impl SceneRenderable for dyn Model {
+impl SceneRenderable for MeshModel {
   fn update(
     &mut self,
     gpu: &GPU,
     base: &mut SceneMaterialRenderPrepareCtxBase,
     components: &mut SceneComponents,
   ) {
-    let material = components
-      .materials
-      .get_mut(self.material())
-      .unwrap()
-      .as_mut();
-    let mesh = components.meshes.get_mut(self.mesh()).unwrap();
-    let node = components.nodes.get_node_mut(self.node()).data_mut();
+    let mut material = self.material.borrow_mut();
+    let mut mesh = self.mesh.borrow_mut();
+    let node = components.nodes.get_node_mut(self.node).data_mut();
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
@@ -58,63 +35,27 @@ impl SceneRenderable for dyn Model {
   }
 
   fn setup_pass<'a>(
-    &'a self,
+    &self,
     pass: &mut GPURenderPass<'a>,
-    components: &'a SceneComponents,
-    camera_gpu: &'a CameraBindgroup,
-    resources: &'a GPUResourceCache,
-    pass_info: &'a PassTargetFormatInfo,
+    components: &SceneComponents,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+    pass_info: &PassTargetFormatInfo,
   ) {
-    let material = components.materials.get(self.material()).unwrap().as_ref();
-    let node = components.nodes.get_node(self.node()).data();
-    let mesh = components.meshes.get(self.mesh()).unwrap().as_ref();
+    let material = self.material.borrow();
+    let mesh = self.mesh.borrow();
+    let m: &Box<dyn Mesh> = &mesh;
+    let node = components.nodes.get_node(self.node).data();
 
     let ctx = SceneMaterialPassSetupCtx {
       pass: pass_info,
       camera_gpu,
       model_gpu: node.gpu.as_ref().unwrap().into(),
       resources,
-      active_mesh: mesh.into(),
+      active_mesh: Some(m.as_ref()),
     };
     material.setup_pass(pass, &ctx);
 
-    let mesh = components.meshes.get(self.mesh()).unwrap();
-    mesh.setup_pass_and_draw(pass, self.group());
-  }
-}
-
-impl Scene {
-  pub fn add_model(&mut self, model: impl Model + 'static) -> ModelHandle {
-    self.models.insert(Box::new(model))
-  }
-}
-
-pub struct MeshModel<Ma, Me> {
-  pub material: TypedMaterialHandle<Ma>,
-  pub mesh: TypedMeshHandle<Me>,
-  pub group: MeshDrawGroup,
-  pub node: SceneNodeHandle,
-}
-
-impl<Ma, Me> Model for MeshModel<Ma, Me>
-where
-  // constrain the model's mesh gpu layout and material requirement must be same
-  Me: GPUMeshLayoutSupport,
-  Ma: MaterialMeshLayoutRequire<VertexInput = Me::VertexInput>,
-{
-  fn material(&self) -> MaterialHandle {
-    self.material.handle
-  }
-
-  fn mesh(&self) -> MeshHandle {
-    self.mesh.handle
-  }
-
-  fn group(&self) -> MeshDrawGroup {
-    self.group
-  }
-
-  fn node(&self) -> SceneNodeHandle {
-    self.node
+    mesh.setup_pass_and_draw(pass, self.group);
   }
 }
