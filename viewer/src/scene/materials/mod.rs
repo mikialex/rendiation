@@ -1,7 +1,6 @@
 use std::{
   any::Any,
-  cell::Cell,
-  marker::PhantomData,
+  cell::{Cell, RefCell},
   ops::{Deref, DerefMut},
   rc::Rc,
 };
@@ -45,7 +44,7 @@ use crate::*;
 //     <M::GPU as PipelineRequester>::Container:
 //       PipelineVariantContainer<<M::GPU as PipelineRequester>::Key>,
 //   {
-//     let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
+//     let handle = self.add_material_inner(|handle| MaterialCellInner::new(material, handle));
 //     TypedMaterialHandle {
 //       handle,
 //       ty: PhantomData,
@@ -63,7 +62,7 @@ use crate::*;
 //       .get_mut(handle.handle)
 //       .unwrap()
 //       .as_any_mut()
-//       .downcast_mut::<MaterialCell<M>>()
+//       .downcast_mut::<MaterialCellInner<M>>()
 //       .unwrap()
 //       .material
 //   }
@@ -79,7 +78,7 @@ use crate::*;
 //       .get(handle.handle)
 //       .unwrap()
 //       .as_any()
-//       .downcast_ref::<MaterialCell<M>>()
+//       .downcast_ref::<MaterialCellInner<M>>()
 //       .unwrap()
 //       .material
 //   }
@@ -151,7 +150,28 @@ impl BindGroupDirtyNotifier for BindGroupDirtyWatcher {
   }
 }
 
-pub struct MaterialCell<T>
+pub struct MaterialCell<T: MaterialCPUResource> {
+  inner: Rc<RefCell<MaterialCellInner<T>>>,
+}
+
+impl<T: MaterialCPUResource> MaterialCell<T> {
+  pub fn new(material: T) -> Self {
+    let material = MaterialCellInner::new(material);
+    Self {
+      inner: Rc::new(RefCell::new(material)),
+    }
+  }
+}
+
+impl<T: MaterialCPUResource> Clone for MaterialCell<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+pub struct MaterialCellInner<T>
 where
   T: MaterialCPUResource,
 {
@@ -160,17 +180,15 @@ where
   bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
   last_material: Option<T>, // todo
   gpu: Option<T::GPU>,
-  _handle: MaterialHandle,
 }
 
-impl<T: MaterialCPUResource> MaterialCell<T> {
-  pub fn new(material: T, _handle: MaterialHandle) -> Self {
+impl<T: MaterialCPUResource> MaterialCellInner<T> {
+  pub fn new(material: T) -> Self {
     Self {
       property_changed: true,
       bindgroup_watcher: Default::default(),
       material,
       last_material: None,
-      _handle,
       gpu: None,
     }
   }
@@ -253,7 +271,7 @@ pub trait Material {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T> Material for MaterialCell<T>
+impl<T> Material for MaterialCellInner<T>
 where
   T: 'static,
   T: MaterialCPUResource,
@@ -304,6 +322,38 @@ where
 
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self.property_changed = true;
+    self
+  }
+}
+
+impl<T> Material for MaterialCell<T>
+where
+  T: 'static,
+  T: MaterialCPUResource,
+  T::GPU: PipelineRequester,
+  <T::GPU as PipelineRequester>::Container:
+    PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
+  T::GPU: MaterialGPUResource<Source = T>,
+{
+  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
+    let mut inner = self.inner.borrow_mut();
+    inner.update(gpu, ctx)
+  }
+
+  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
+    let inner = self.inner.borrow();
+    inner.setup_pass(pass, ctx)
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    {
+      let mut inner = self.inner.borrow_mut();
+      inner.as_any_mut();
+    }
     self
   }
 }

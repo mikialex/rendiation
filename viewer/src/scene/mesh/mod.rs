@@ -1,9 +1,7 @@
 use anymap::AnyMap;
 use rendiation_renderable_mesh::{group::MeshDrawGroup, GPUMeshData, MeshGPU};
 use rendiation_webgpu::{GPURenderPass, GPU};
-use std::marker::PhantomData;
-
-use super::Scene;
+use std::{cell::RefCell, rc::Rc};
 
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
 use rendiation_webgpu::VertexBufferSourceType;
@@ -29,18 +27,36 @@ pub trait Mesh {
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
 
-pub struct MeshCell<T> {
+pub struct MeshCellInner<T> {
   data: T,
   gpu: Option<MeshGPU>,
 }
 
-impl<T> From<T> for MeshCell<T> {
-  fn from(data: T) -> Self {
-    Self { data, gpu: None }
+pub struct MeshCell<T> {
+  inner: Rc<RefCell<MeshCellInner<T>>>,
+}
+
+impl<T> MeshCell<T> {
+  pub fn new(mesh: T) -> Self {
+    let mesh = MeshCellInner {
+      data: mesh,
+      gpu: None,
+    };
+    Self {
+      inner: Rc::new(RefCell::new(mesh)),
+    }
   }
 }
 
-impl<T: GPUMeshData> Mesh for MeshCell<T> {
+impl<T> Clone for MeshCell<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+impl<T: GPUMeshData> Mesh for MeshCellInner<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let gpu = self.gpu.as_ref().unwrap();
     gpu.setup_pass(pass);
@@ -60,6 +76,28 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
   }
 }
 
+impl<T: GPUMeshData> Mesh for MeshCell<T> {
+  fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    let inner = self.inner.borrow();
+    inner.setup_pass_and_draw(pass, group);
+  }
+
+  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap) {
+    let mut inner = self.inner.borrow_mut();
+    inner.update(gpu, storage)
+  }
+
+  fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
+    let inner = self.inner.borrow();
+    let layout = inner.vertex_layout().clone();
+    unsafe { std::mem::transmute(layout) } // todo
+  }
+
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    self.inner.borrow().topology()
+  }
+}
+
 // impl Scene {
 //   pub fn add_mesh<M>(&mut self, mesh: M) -> TypedMeshHandle<M>
 //   where
@@ -68,7 +106,7 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
 //     let handle = self
 //       .components
 //       .meshes
-//       .insert(Box::new(MeshCell::from(mesh)));
+//       .insert(Box::new(MeshCellInner::from(mesh)));
 //     TypedMeshHandle {
 //       handle,
 //       ty: PhantomData,

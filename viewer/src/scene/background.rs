@@ -78,7 +78,7 @@ impl SceneRenderable for SolidBackground {
 // use crate::scene::mesh::Mesh;
 
 // pub struct DrawableBackground<S> {
-//   mesh: MeshCell<BackgroundMesh>,
+//   mesh: MeshCellInner<BackgroundMesh>,
 //   pub shading: TypedMaterialHandle<S>,
 // }
 
@@ -142,7 +142,7 @@ impl SceneRenderable for SolidBackground {
 
 // impl<S: BackGroundShading> DrawableBackground<S> {
 //   pub fn new(shading: TypedMaterialHandle<S>) -> Self {
-//     let mesh = MeshCell::from(build_mesh());
+//     let mesh = MeshCellInner::from(build_mesh());
 
 //     Self { mesh, shading }
 //   }

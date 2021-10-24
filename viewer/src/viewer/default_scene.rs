@@ -60,26 +60,26 @@ pub fn load_default_scene(scene: &mut Scene) {
 
   // scene.background = Box::new(bg);
 
-  // {
-  //   let mesh = SphereMeshParameter::default().tessellate();
-  //   let mesh = scene.add_mesh(mesh);
-  //   let material = BasicMaterial {
-  //     color: Vec3::splat(1.),
-  //     sampler: TextureSampler::default(),
-  //     texture: texture.clone(),
-  //     states: Default::default(),
-  //   };
-  //   let material = scene.add_material(material);
+  {
+    let mesh = SphereMeshParameter::default().tessellate();
+    let mesh = MeshCell::new(mesh);
+    let material = BasicMaterial {
+      color: Vec3::splat(1.),
+      sampler: TextureSampler::default(),
+      texture: texture.clone(),
+      states: Default::default(),
+    };
+    let material = MaterialCell::new(material);
 
-  //   let model = MeshModel {
-  //     material,
-  //     mesh,
-  //     group: MeshDrawGroup::Full,
-  //     node: scene.get_root_handle(),
-  //   };
+    let model = MeshModel {
+      material: Box::new(material),
+      mesh: Box::new(mesh),
+      group: MeshDrawGroup::Full,
+      node: scene.get_root_handle(),
+    };
 
-  //   scene.add_model(model);
-  // }
+    // scene.render_list.push(Rc::new(RefCell::new))
+  }
 
   // {
   //   let mesh = CubeMeshParameter::default().tessellate();
@@ -94,8 +94,8 @@ pub fn load_default_scene(scene: &mut Scene) {
   //   let material = scene.add_material(material);
 
   //   let model = MeshModel {
-  //     material,
-  //     mesh,
+      // material: Box::new(material),
+      // mesh: Box::new(mesh),
   //     group: MeshDrawGroup::Full,
   //     node: scene.get_root_handle(),
   //   };

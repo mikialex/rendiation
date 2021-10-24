@@ -1,13 +1,11 @@
-use std::cell::RefCell;
-
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_webgpu::GPURenderPass;
 
 use super::*;
 
 pub struct MeshModel {
-  pub material: Rc<RefCell<Box<dyn Material>>>,
-  pub mesh: Rc<RefCell<Box<dyn Mesh>>>,
+  pub material: Box<dyn Material>,
+  pub mesh: Box<dyn Mesh>,
   pub group: MeshDrawGroup,
   pub node: SceneNodeHandle,
 }
@@ -19,8 +17,8 @@ impl SceneRenderable for MeshModel {
     base: &mut SceneMaterialRenderPrepareCtxBase,
     components: &mut SceneComponents,
   ) {
-    let mut material = self.material.borrow_mut();
-    let mut mesh = self.mesh.borrow_mut();
+    let material = &mut self.material;
+    let mesh = &mut self.mesh;
     let node = components.nodes.get_node_mut(self.node).data_mut();
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
@@ -42,9 +40,8 @@ impl SceneRenderable for MeshModel {
     resources: &GPUResourceCache,
     pass_info: &PassTargetFormatInfo,
   ) {
-    let material = self.material.borrow();
-    let mesh = self.mesh.borrow();
-    let m: &Box<dyn Mesh> = &mesh;
+    let material = &self.material;
+    let mesh = &self.mesh;
     let node = components.nodes.get_node(self.node).data();
 
     let ctx = SceneMaterialPassSetupCtx {
@@ -52,7 +49,7 @@ impl SceneRenderable for MeshModel {
       camera_gpu,
       model_gpu: node.gpu.as_ref().unwrap().into(),
       resources,
-      active_mesh: Some(m.as_ref()),
+      active_mesh: mesh.as_ref().into(),
     };
     material.setup_pass(pass, &ctx);
 
