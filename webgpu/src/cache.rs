@@ -2,6 +2,7 @@ use std::{
   any::{Any, TypeId},
   cell::UnsafeCell,
   collections::HashMap,
+  rc::Rc,
 };
 
 pub struct BindGroupLayoutManager {
@@ -51,11 +52,11 @@ impl Default for BindGroupLayoutManager {
 pub trait PipelineVariantContainer<V>: Default {
   fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline);
 
-  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline;
+  fn retrieve(&self, variant: &V) -> &Rc<wgpu::RenderPipeline>;
 }
 
 pub enum PipelineUnit {
-  Created(wgpu::RenderPipeline),
+  Created(Rc<wgpu::RenderPipeline>),
   Empty,
 }
 impl Default for PipelineUnit {
@@ -67,10 +68,10 @@ impl Default for PipelineUnit {
 impl<V> PipelineVariantContainer<V> for PipelineUnit {
   fn request(&mut self, _variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
     if let PipelineUnit::Empty = self {
-      *self = PipelineUnit::Created(creator());
+      *self = PipelineUnit::Created(Rc::new(creator()));
     }
   }
-  fn retrieve(&self, _variant: &V) -> &wgpu::RenderPipeline {
+  fn retrieve(&self, _variant: &V) -> &Rc<wgpu::RenderPipeline> {
     match self {
       PipelineUnit::Created(p) => p,
       PipelineUnit::Empty => unreachable!(),
@@ -102,7 +103,7 @@ where
       .request(variant, creator);
   }
 
-  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
+  fn retrieve(&self, variant: &V) -> &Rc<wgpu::RenderPipeline> {
     let index = *variant.as_ref() as usize;
     self.pipelines[index].as_ref().unwrap().retrieve(variant)
   }

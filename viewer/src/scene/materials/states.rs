@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, rc::Rc, sync::Mutex};
 
 use rendiation_webgpu::PipelineVariantContainer;
 
@@ -64,7 +64,7 @@ impl<T> Default for StatePipelineVariant<T> {
 
 impl<T, V> PipelineVariantContainer<V> for StatePipelineVariant<T>
 where
-  T: rendiation_webgpu::PipelineVariantContainer<V>,
+  T: PipelineVariantContainer<V>,
   V: AsRef<ValueID<MaterialStates>>,
 {
   fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
@@ -75,7 +75,7 @@ where
       .request(variant, creator);
   }
 
-  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
+  fn retrieve(&self, variant: &V) -> &Rc<wgpu::RenderPipeline> {
     self
       .pipelines
       .get(variant.as_ref())
