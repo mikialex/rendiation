@@ -8,19 +8,19 @@
 mod cache;
 mod encoder;
 mod pass;
-mod render_target;
 mod sampler;
 mod surface;
 mod texture;
+mod types;
 mod uniform;
 
 pub use cache::*;
 pub use encoder::*;
 pub use pass::*;
-pub use render_target::*;
 pub use sampler::*;
 pub use surface::*;
 pub use texture::*;
+pub use types::*;
 pub use uniform::*;
 
 use std::cell::RefCell;
