@@ -47,6 +47,7 @@ pub struct Scene {
   pub active_camera: Option<Camera>,
   pub cameras: Arena<Camera>,
   pub lights: Arena<SceneLight>,
+  pub models: Vec<MeshModel>,
 
   pub components: SceneComponents,
 
@@ -60,6 +61,7 @@ impl Scene {
       background: Box::new(SolidBackground::default()),
       cameras: Arena::new(),
       lights: Arena::new(),
+      models: Vec::new(),
 
       active_camera: None,
       resources: Default::default(),

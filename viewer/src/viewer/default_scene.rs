@@ -71,37 +71,23 @@ pub fn load_default_scene(scene: &mut Scene) {
     };
     let material = MaterialCell::new(material);
 
-    let model = MeshModel {
-      material: Box::new(material),
-      mesh: Box::new(mesh),
-      group: MeshDrawGroup::Full,
-      node: scene.get_root_handle(),
-    };
-
-    // scene.render_list.push(Rc::new(RefCell::new))
+    let model = MeshModel::new(material, mesh, scene.get_root_handle());
   }
 
-  // {
-  //   let mesh = CubeMeshParameter::default().tessellate();
-  //   let mesh = scene.add_mesh(mesh);
-  //   let mut material = BasicMaterial {
-  //     color: Vec3::splat(1.),
-  //     sampler: TextureSampler::default(),
-  //     texture,
-  //     states: Default::default(),
-  //   };
-  //   material.states.depth_compare = wgpu::CompareFunction::Always;
-  //   let material = scene.add_material(material);
+  {
+    let mesh = CubeMeshParameter::default().tessellate();
+    let mesh = MeshCell::new(mesh);
+    let mut material = BasicMaterial {
+      color: Vec3::splat(1.),
+      sampler: TextureSampler::default(),
+      texture,
+      states: Default::default(),
+    };
+    material.states.depth_compare = wgpu::CompareFunction::Always;
+    let material = MaterialCell::new(material);
 
-  //   let model = MeshModel {
-      // material: Box::new(material),
-      // mesh: Box::new(mesh),
-  //     group: MeshDrawGroup::Full,
-  //     node: scene.get_root_handle(),
-  //   };
-
-  //   scene.add_model(model);
-  // }
+    let model = MeshModel::new(material, mesh, scene.get_root_handle());
+  }
 
   let camera = PerspectiveProjection::default();
   let camera_node = scene.create_node(|node, _| {

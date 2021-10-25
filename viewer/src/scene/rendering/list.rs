@@ -1,12 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
-
 use rendiation_webgpu::{GPURenderPass, GPU};
 
 use crate::*;
 
 #[derive(Default)]
 pub struct RenderList {
-  pub(crate) models: Vec<Rc<RefCell<MeshModel>>>,
+  pub(crate) models: Vec<MeshModel>,
 }
 
 impl RenderList {
@@ -21,10 +19,8 @@ impl RenderList {
         resources: &mut scene.resources,
       };
 
-      self.models.iter().for_each(|model| {
+      self.models.iter_mut().for_each(|model| {
         let components = &mut scene.components;
-        let mut model = model.borrow_mut();
-
         model.update(gpu, &mut base, components);
       });
     }
@@ -37,7 +33,6 @@ impl RenderList {
     pass: &'p PassTargetFormatInfo,
   ) {
     self.models.iter().for_each(|model| {
-      let model = model.borrow();
       model.setup_pass(
         gpu_pass,
         &scene.components,
