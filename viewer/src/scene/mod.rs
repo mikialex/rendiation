@@ -11,7 +11,7 @@ pub mod rendering;
 pub mod texture;
 pub mod util;
 
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use anymap::AnyMap;
 pub use background::*;
@@ -37,8 +37,6 @@ use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindGroupLayoutManager, GPURenderPass, PipelineResourceManager, GPU};
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
-pub type MeshHandle = Handle<Box<dyn Mesh>>;
-pub type MaterialHandle = Handle<Box<dyn Material>>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 
 pub struct Scene {
@@ -73,6 +71,7 @@ impl Scene {
     self
       .components
       .nodes
+      .borrow_mut()
       .traverse_mut(root, &mut Vec::new(), |this, parent| {
         let node_data = this.data_mut();
         node_data.hierarchy_update(parent.map(|p| p.data()));
@@ -83,11 +82,6 @@ impl Scene {
         }
       });
   }
-
-  // pub fn background(&mut self, background: impl Background) -> &mut Self {
-  //   self.background = Box::new(background);
-  //   self
-  // }
 }
 
 impl Default for Scene {
@@ -98,9 +92,7 @@ impl Default for Scene {
 
 #[derive(Default)]
 pub struct SceneComponents {
-  pub materials: Arena<Box<dyn Material>>,
-  pub meshes: Arena<Box<dyn Mesh>>,
-  pub nodes: ArenaTree<SceneNode>,
+  pub nodes: Rc<RefCell<ArenaTree<SceneNode>>>,
 }
 
 pub trait SceneRenderable {

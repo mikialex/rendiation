@@ -27,8 +27,8 @@ impl PassContent for ForwardScene {
   ) {
     self.render_list.models.clear();
 
-    scene.models.iter_mut().for_each(|(model)| {
-      self.render_list.models.push(model);
+    scene.models.iter_mut().for_each(|model| {
+      self.render_list.models.push(model.clone());
     });
 
     self.render_list.update(scene, gpu, pass);

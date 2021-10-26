@@ -13,7 +13,8 @@ impl PassContent for BackGroundRendering {
     pass_info: &PassTargetFormatInfo,
   ) {
     if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu, &scene.components.nodes);
+      let (active_camera, camera_gpu) =
+        active_camera.get_updated_gpu(gpu, &scene.components.nodes.borrow());
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,

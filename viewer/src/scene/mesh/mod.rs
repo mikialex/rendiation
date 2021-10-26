@@ -32,16 +32,19 @@ pub struct MeshCellInner<T> {
   gpu: Option<MeshGPU>,
 }
 
+impl<T> MeshCellInner<T> {
+  pub fn new(data: T) -> Self {
+    Self { data, gpu: None }
+  }
+}
+
 pub struct MeshCell<T> {
   inner: Rc<RefCell<MeshCellInner<T>>>,
 }
 
 impl<T> MeshCell<T> {
   pub fn new(mesh: T) -> Self {
-    let mesh = MeshCellInner {
-      data: mesh,
-      gpu: None,
-    };
+    let mesh = MeshCellInner::new(mesh);
     Self {
       inner: Rc::new(RefCell::new(mesh)),
     }

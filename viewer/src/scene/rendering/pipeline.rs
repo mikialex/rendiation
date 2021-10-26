@@ -180,7 +180,8 @@ pub struct SimplePipeline {
 
 impl SimplePipeline {
   #[rustfmt::skip]
-  pub fn render_simple(&mut self, engine: &RenderEngine, scene: &mut Scene) {
+  pub fn render_simple(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
+    let scene = &mut content.scene;
 
     let mut scene_depth = depth_attachment()
       .format(wgpu::TextureFormat::Depth32Float)
@@ -191,6 +192,7 @@ impl SimplePipeline {
       .with_depth(scene_depth.write(), clear(1.))
       .render_by(&mut BackGroundRendering)
       .render_by(&mut self.forward)
+      .render_by(&mut content.axis)
       .run(engine, scene);
 
   }

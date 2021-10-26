@@ -69,7 +69,8 @@ impl SceneRenderable for MeshModelInner {
   ) {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
-    let node = components.nodes.get_node_mut(self.node).data_mut();
+    let mut nodes = components.nodes.borrow_mut();
+    let node = nodes.get_node_mut(self.node).data_mut();
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
@@ -92,7 +93,8 @@ impl SceneRenderable for MeshModelInner {
   ) {
     let material = &self.material;
     let mesh = &self.mesh;
-    let node = components.nodes.get_node(self.node).data();
+    let nodes = components.nodes.borrow();
+    let node = nodes.get_node(self.node).data();
 
     let ctx = SceneMaterialPassSetupCtx {
       pass: pass_info,

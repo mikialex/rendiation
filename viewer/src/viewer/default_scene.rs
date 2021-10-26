@@ -1,8 +1,7 @@
 use image::*;
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::{
-  group::MeshDrawGroup,
-  tessellation::{CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter},
+use rendiation_renderable_mesh::tessellation::{
+  CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
 };
 use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
 use rendiation_webgpu::WebGPUTexture2dSource;
@@ -72,6 +71,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let material = MaterialCell::new(material);
 
     let model = MeshModel::new(material, mesh, scene.get_root_handle());
+    scene.models.push(model)
   }
 
   {
@@ -87,6 +87,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let material = MaterialCell::new(material);
 
     let model = MeshModel::new(material, mesh, scene.get_root_handle());
+    scene.models.push(model)
   }
 
   let camera = PerspectiveProjection::default();

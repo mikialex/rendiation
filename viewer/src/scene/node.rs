@@ -1,10 +1,9 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
+use arena_tree::ArenaTree;
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
 use rendiation_webgpu::*;
-
-use crate::bindgroup;
 
 use super::{Scene, SceneNodeHandle};
 
@@ -66,72 +65,100 @@ impl SceneNode {
   }
 }
 
+#[derive(Clone)]
+pub struct SceneNodeRef {
+  nodes: Rc<RefCell<ArenaTree<SceneNode>>>,
+  handle: SceneNodeHandle,
+  // parent: Option<Box<SceneNodeRef>>,
+  // children: Vec<SceneNodeRef>,
+}
+
+impl Drop for SceneNodeRef {
+  fn drop(&mut self) {
+    let mut nodes = self.nodes.borrow_mut();
+    // todo remove node
+  }
+}
+
 impl Scene {
   pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
     let mut node = SceneNode::default();
     builder(&mut node, self);
-    let new = self.components.nodes.create_node(node);
-    let root = self.get_root_handle();
-    self.components.nodes.node_add_child_by_id(root, new);
+    let mut nodes = self.components.nodes.borrow_mut();
+    let new = nodes.create_node(node);
+    let root = nodes.root();
+    nodes.node_add_child_by_id(root, new);
     new
   }
 
+  pub fn create_node2(&mut self) -> SceneNodeRef {
+    let handle = self
+      .components
+      .nodes
+      .borrow_mut()
+      .create_node(SceneNode::default());
+    SceneNodeRef {
+      nodes: self.components.nodes.clone(),
+      handle,
+    }
+  }
+
   pub fn get_root_handle(&self) -> SceneNodeHandle {
-    self.components.nodes.get_root_node().handle()
+    self.components.nodes.borrow().get_root_node().handle()
   }
-  pub fn get_root(&self) -> &SceneNode {
-    self.components.nodes.get_root_node().data()
-  }
+  // pub fn get_root(&self) -> &SceneNode {
+  //   self.components.nodes.get_root_node().data()
+  // }
 
-  pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
-    self.components.nodes.get_root_node_mut().data_mut()
-  }
+  // pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
+  //   self.components.nodes.get_root_node_mut().data_mut()
+  // }
 
-  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
-    self.node_add_child_by_handle(self.components.nodes.root(), child_handle);
-  }
+  // pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
+  //   self.node_add_child_by_handle(self.components.nodes.root(), child_handle);
+  // }
 
-  pub fn node_add_child_by_handle(
-    &mut self,
-    parent_handle: SceneNodeHandle,
-    child_handle: SceneNodeHandle,
-  ) {
-    let (parent, child) = self
-      .components
-      .nodes
-      .get_parent_child_pair(parent_handle, child_handle);
-    parent.add(child);
-  }
+  // pub fn node_add_child_by_handle(
+  //   &mut self,
+  //   parent_handle: SceneNodeHandle,
+  //   child_handle: SceneNodeHandle,
+  // ) {
+  //   let (parent, child) = self
+  //     .components
+  //     .nodes
+  //     .get_parent_child_pair(parent_handle, child_handle);
+  //   parent.add(child);
+  // }
 
-  pub fn node_remove_child_by_handle(
-    &mut self,
-    parent_handle: SceneNodeHandle,
-    child_handle: SceneNodeHandle,
-  ) {
-    let (parent, child) = self
-      .components
-      .nodes
-      .get_parent_child_pair(parent_handle, child_handle);
-    parent.remove(child);
-  }
+  // pub fn node_remove_child_by_handle(
+  //   &mut self,
+  //   parent_handle: SceneNodeHandle,
+  //   child_handle: SceneNodeHandle,
+  // ) {
+  //   let (parent, child) = self
+  //     .components
+  //     .nodes
+  //     .get_parent_child_pair(parent_handle, child_handle);
+  //   parent.remove(child);
+  // }
 
-  pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
-    self.components.nodes.get_node(handle).data()
-  }
+  // pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
+  //   self.components.nodes.get_node(handle).data()
+  // }
 
-  pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
-    self.components.nodes.get_node_mut(handle).data_mut()
-  }
+  // pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
+  //   self.components.nodes.get_node_mut(handle).data_mut()
+  // }
 
-  pub fn create_new_node(&mut self) -> &mut SceneNode {
-    let node = SceneNode::default();
-    let handle = self.components.nodes.create_node(node);
-    self.components.nodes.get_node_mut(handle).data_mut()
-  }
+  // pub fn create_new_node(&mut self) -> &mut SceneNode {
+  //   let node = SceneNode::default();
+  //   let handle = self.components.nodes.create_node(node);
+  //   self.components.nodes.get_node_mut(handle).data_mut()
+  // }
 
-  pub fn free_node(&mut self, handle: SceneNodeHandle) {
-    self.components.nodes.free_node(handle);
-  }
+  // pub fn free_node(&mut self, handle: SceneNodeHandle) {
+  //   self.components.nodes.free_node(handle);
+  // }
 }
 
 pub struct TransformGPU {
