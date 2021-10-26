@@ -178,7 +178,7 @@ impl MaterialCPUResource for FlatMaterial {
   fn create(
     &mut self,
     gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    _ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);

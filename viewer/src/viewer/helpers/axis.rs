@@ -1,5 +1,5 @@
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::tessellation::{IndexedMeshTessellator, SphereMeshParameter};
+use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
 
 use crate::*;
 
@@ -69,7 +69,7 @@ impl PassContent for AxisHelper {
 
 impl AxisHelper {
   pub fn new(scene: &mut Scene) -> Self {
-    let cylinder = SphereMeshParameter::default().tessellate();
+    let cylinder = CylinderMeshParameter::default().tessellate();
     let cylinder = MeshCell::new(cylinder);
 
     // let tip = SphereMeshParameter::default().tessellate();

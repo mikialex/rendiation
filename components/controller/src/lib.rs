@@ -1,4 +1,3 @@
-
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
 
@@ -10,6 +9,14 @@ pub use fps::*;
 use rendiation_algebra::Mat4;
 
 pub trait Controller {
+  /// Sync the controller state to target state
+  ///
+  /// After sync, if update triggered, should not change the target's state
+  ///
+  /// This is useful when controller init or switch between different controllers
+  fn sync(&mut self, target: &dyn Transformed3DControllee);
+
+  /// update target states and return if state has actually changed
   fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool;
 }
 

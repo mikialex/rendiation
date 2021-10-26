@@ -20,6 +20,21 @@ pub struct CylinderMeshParameter {
   pub theta_length: f32,
 }
 
+impl Default for CylinderMeshParameter {
+  fn default() -> Self {
+    Self {
+      radius_top: 1.,
+      radius_bottom: 1.,
+      height: 1.,
+      radial_segments: 10,
+      height_segments: 10,
+      open_ended: false,
+      theta_start: 0.,
+      theta_length: 2. * f32::PI(),
+    }
+  }
+}
+
 struct CylinderMeshBuilder {
   parameter: CylinderMeshParameter,
   index: usize,

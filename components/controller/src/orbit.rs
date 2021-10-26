@@ -83,6 +83,10 @@ impl OrbitController {
 }
 
 impl Controller for OrbitController {
+  fn sync(&mut self, target: &dyn Transformed3DControllee) {
+    todo!()
+  }
+
   fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
