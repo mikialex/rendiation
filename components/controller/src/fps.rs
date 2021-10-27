@@ -35,7 +35,7 @@ impl FPSController {
     spherical.azim = 1.;
     FPSController {
       spherical,
-      max_polar_angle: 179. / 180. * std::f32::consts::PI,
+      max_polar_angle: std::f32::consts::PI,
       min_polar_angle: 0.01,
 
       view_width: 1000.,

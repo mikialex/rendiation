@@ -45,8 +45,8 @@ impl OrbitController {
       zoom_factor: 0.3,
 
       // restriction
-      max_polar_angle: 179. / 180. * std::f32::consts::PI,
-      min_polar_angle: 0.1,
+      max_polar_angle: std::f32::consts::PI,
+      min_polar_angle: 0.01,
 
       // damping
       spherical_delta: Spherical::new(),
@@ -80,17 +80,27 @@ impl OrbitController {
     self.spherical_delta.azim +=
       offset.x / self.view_width * std::f32::consts::PI * self.rotate_angle_factor;
   }
+
+  fn reset_damping(&mut self) {
+    self.spherical_delta.reset_pose();
+    self.zooming = 1.0;
+    self.pan_offset = Vec3::new(0.0, 0.0, 0.0);
+  }
 }
 
 impl Controller for OrbitController {
   fn sync(&mut self, target: &dyn Transformed3DControllee) {
-    todo!()
+    let mat = target.matrix();
+    let position_new = Vec3::new(0., 0., -1.) * *mat;
+    let origin = mat.position();
+    let position_dir = position_new - origin;
+    self.spherical = Spherical::from_vec3_and_center(position_dir, origin);
+    self.reset_damping()
   }
 
   fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
     if self.spherical_delta.azim.abs() < 0.0001
       && self.spherical_delta.polar.abs() < 0.0001
-      && self.spherical_delta.radius.abs() < 0.0001
       && (self.zooming - 1.).abs() < 0.0001
       && self.pan_offset.length2() < 0.000_000_1
     {
@@ -118,9 +128,7 @@ impl Controller for OrbitController {
       self.zooming += (1. - self.zooming) * self.zooming_damping_factor;
       self.pan_offset *= 1. - self.pan_damping_factor;
     } else {
-      self.spherical_delta.reset_pose();
-      self.zooming = 1.;
-      self.pan_offset = Vec3::zero();
+      self.reset_damping();
     }
     true
   }

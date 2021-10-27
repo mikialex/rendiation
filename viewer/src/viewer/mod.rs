@@ -167,7 +167,7 @@ impl Viewer3dContent {
     }
   }
 
-  pub fn resize_view(&mut self, size: (f32, f32)) {
+  fn resize_view(&mut self, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
       camera.projection.resize(size)
     }

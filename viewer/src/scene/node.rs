@@ -29,11 +29,11 @@ impl Default for SceneNode {
 
 impl Transformed3DControllee for SceneNode {
   fn matrix(&self) -> &Mat4<f32> {
-    &self.world_matrix
+    &self.local_matrix
   }
 
   fn matrix_mut(&mut self) -> &mut Mat4<f32> {
-    &mut self.world_matrix
+    &mut self.local_matrix
   }
 }
 

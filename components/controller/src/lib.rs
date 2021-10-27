@@ -33,6 +33,7 @@ pub trait ControllerWinitEventSupport: Controller {
 pub struct ControllerWinitAdapter<T: ControllerWinitEventSupport> {
   controller: T,
   state: T::State,
+  last_sync: Option<Mat4<f32>>,
 }
 
 impl<T: ControllerWinitEventSupport> ControllerWinitAdapter<T> {
@@ -40,11 +41,25 @@ impl<T: ControllerWinitEventSupport> ControllerWinitAdapter<T> {
     Self {
       controller,
       state: T::State::default(),
+      last_sync: Default::default(),
     }
   }
 
   pub fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
-    self.controller.update(target)
+    // check if the synced mat is not the last time we modified
+    if let Some(last_sync) = self.last_sync {
+      if last_sync != *target.matrix() {
+        self.controller.sync(target)
+      }
+    } else {
+      self.controller.sync(target)
+    }
+
+    let changed = self.controller.update(target);
+
+    self.last_sync = (*target.matrix()).into();
+
+    changed
   }
 
   pub fn event<E>(&mut self, event: &winit::event::Event<E>) {

@@ -129,7 +129,7 @@ impl CameraBindgroup {
       .projection
       .update_projection(&mut camera.projection_matrix);
 
-    let world_matrix = nodes.get_node(camera.node).data().world_matrix;
+    let world_matrix = nodes.get_node(camera.node).data().local_matrix;
     let view_matrix = world_matrix.inverse_or_identity();
     let rotation_matrix = world_matrix.extract_rotation_mat();
 

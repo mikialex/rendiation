@@ -39,4 +39,19 @@ impl<T: Scalar> Spherical<T> {
       sin_radius * self.azim.cos(),
     ) + self.center
   }
+
+  pub fn from_vec3_and_center(forward: Vec3<T>, eye: Vec3<T>) -> Self {
+    let dir = forward.reverse();
+
+    let radius = dir.length();
+    let polar = (dir.y / radius).acos();
+    let azim = (dir.x / polar.sin() * radius).asin();
+
+    Self {
+      radius,
+      polar,
+      azim,
+      center: eye + forward,
+    }
+  }
 }
