@@ -69,16 +69,24 @@ impl PassContent for AxisHelper {
 
 impl AxisHelper {
   pub fn new(scene: &mut Scene) -> Self {
-    let cylinder = CylinderMeshParameter::default().tessellate();
+    let cylinder = CylinderMeshParameter {
+      radius_top: 0.01,
+      radius_bottom: 0.01,
+      height: 4.,
+      ..Default::default()
+    }
+    .tessellate();
     let cylinder = MeshCell::new(cylinder);
 
     // let tip = SphereMeshParameter::default().tessellate();
     // let tip = MeshCell::new(mesh);
 
-    let material = FlatMaterial {
-      color: Vector::splat(1.),
+    let mut material = FlatMaterial {
+      color: Vec3::new(1., 0., 0.),
       states: Default::default(),
     };
+    material.states.depth_write_enabled = false;
+    material.states.depth_compare = wgpu::CompareFunction::Always;
     let material = MaterialCell::new(material);
 
     let x_node = scene.create_node(|node, _| {
