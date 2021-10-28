@@ -10,6 +10,9 @@ pub use states::*;
 pub mod state_material;
 pub use state_material::*;
 
+pub mod wrapper;
+pub use wrapper::*;
+
 pub mod flat;
 pub use flat::*;
 pub mod basic;
@@ -26,65 +29,6 @@ use rendiation_webgpu::{
 };
 
 use crate::*;
-
-// impl Scene {
-//   fn add_material_inner<M: Material + 'static, F: FnOnce(MaterialHandle) -> M>(
-//     &mut self,
-//     creator: F,
-//   ) -> MaterialHandle {
-//     self
-//       .components
-//       .materials
-//       .insert_with(|handle| Box::new(creator(handle)))
-//   }
-
-//   pub fn add_material<M>(&mut self, material: M) -> TypedMaterialHandle<M>
-//   where
-//     M: MaterialCPUResource + 'static,
-//     M::GPU: MaterialGPUResource<Source = M>,
-//     M::GPU: PipelineRequester,
-//     <M::GPU as PipelineRequester>::Container:
-//       PipelineVariantContainer<<M::GPU as PipelineRequester>::Key>,
-//   {
-//     let handle = self.add_material_inner(|handle| MaterialCellInner::new(material, handle));
-//     TypedMaterialHandle {
-//       handle,
-//       ty: PhantomData,
-//     }
-//   }
-
-//   pub fn get_mut_material<M>(&mut self, handle: TypedMaterialHandle<M>) -> &mut M
-//   where
-//     M: MaterialCPUResource + 'static,
-//     M::GPU: MaterialGPUResource<Source = M>,
-//   {
-//     &mut self
-//       .components
-//       .materials
-//       .get_mut(handle.handle)
-//       .unwrap()
-//       .as_any_mut()
-//       .downcast_mut::<MaterialCellInner<M>>()
-//       .unwrap()
-//       .material
-//   }
-
-//   pub fn get_material<M>(&self, handle: TypedMaterialHandle<M>) -> &M
-//   where
-//     M: MaterialCPUResource + 'static,
-//     M::GPU: MaterialGPUResource<Source = M>,
-//   {
-//     &self
-//       .components
-//       .materials
-//       .get(handle.handle)
-//       .unwrap()
-//       .as_any()
-//       .downcast_ref::<MaterialCellInner<M>>()
-//       .unwrap()
-//       .material
-//   }
-// }
 
 pub trait MaterialMeshLayoutRequire {
   type VertexInput;
@@ -118,7 +62,11 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
     true
   }
 
-  fn pipeline_key(&self, source: &Self::Source, ctx: &PipelineCreateCtx) -> Self::Key;
+  fn pipeline_key(
+    &self,
+    source: &Self::Source,
+    ctx: &PipelineCreateCtx,
+  ) -> <Self::Container as PipelineVariantContainer>::Key;
   fn create_pipeline(
     &self,
     source: &Self::Source,
@@ -278,8 +226,8 @@ where
   T: 'static,
   T: MaterialCPUResource,
   T::GPU: PipelineRequester,
-  <T::GPU as PipelineRequester>::Container:
-    PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
+  // <T::GPU as PipelineRequester>::Container:
+  //   PipelineVariantContainer<Key = <T::GPU as PipelineRequester>::Container::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -333,8 +281,8 @@ where
   T: 'static,
   T: MaterialCPUResource,
   T::GPU: PipelineRequester,
-  <T::GPU as PipelineRequester>::Container:
-    PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
+  // <T::GPU as PipelineRequester>::Container:
+  //   PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -360,18 +308,4 @@ where
   }
 }
 
-pub type CommonPipelineCache = TopologyPipelineVariant<StatePipelineVariant<PipelineUnit>>;
-
-pub struct CommonPipelineVariantKey(pub ValueID<MaterialStates>, pub wgpu::PrimitiveTopology);
-
-impl AsRef<ValueID<MaterialStates>> for CommonPipelineVariantKey {
-  fn as_ref(&self) -> &ValueID<MaterialStates> {
-    &self.0
-  }
-}
-
-impl AsRef<wgpu::PrimitiveTopology> for CommonPipelineVariantKey {
-  fn as_ref(&self) -> &wgpu::PrimitiveTopology {
-    &self.1
-  }
-}
+pub type CommonPipelineCache<T = PipelineUnit> = TopologyPipelineVariant<StatePipelineVariant<T>>;

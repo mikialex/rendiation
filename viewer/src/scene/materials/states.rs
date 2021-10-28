@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc, sync::Mutex};
 
-use rendiation_webgpu::PipelineVariantContainer;
+use rendiation_webgpu::{PipelineVariantContainer, PipelineVariantKey};
 
 use crate::scene::{ValueID, ValueIDGenerator};
 
@@ -62,24 +62,21 @@ impl<T> Default for StatePipelineVariant<T> {
   }
 }
 
-impl<T, V> PipelineVariantContainer<V> for StatePipelineVariant<T>
-where
-  T: PipelineVariantContainer<V>,
-  V: AsRef<ValueID<MaterialStates>>,
-{
-  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+impl<T: PipelineVariantContainer> PipelineVariantContainer for StatePipelineVariant<T> {
+  type Key = PipelineVariantKey<T::Key, ValueID<MaterialStates>>;
+  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
     self
       .pipelines
-      .entry(*variant.as_ref())
+      .entry(variant.current)
       .or_insert_with(Default::default)
-      .request(variant, creator);
+      .request(&variant.inner, creator);
   }
 
-  fn retrieve(&self, variant: &V) -> &Rc<wgpu::RenderPipeline> {
+  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
     self
       .pipelines
-      .get(variant.as_ref())
+      .get(&variant.current)
       .unwrap()
-      .retrieve(variant)
+      .retrieve(&variant.inner)
   }
 }

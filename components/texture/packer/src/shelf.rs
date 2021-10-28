@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BinaryHeap, HashMap};
 
 use linked_hash_map::LinkedHashMap;
 use rendiation_texture::TextureRange;
@@ -25,6 +25,42 @@ impl ShelfPacker {
       space_end_for_start: Default::default(),
       packed: Default::default(),
     }
+  }
+}
+
+struct RowAllocator<T> {
+  sections: Vec<T>,
+}
+
+trait ExtentGetter {
+  fn extend(&self) -> usize;
+}
+
+impl<T> RowAllocator<T> {
+  pub fn find_suitable(&mut self, extent: usize) -> &mut T {
+    todo!()
+  }
+}
+
+pub struct ShelfSection {
+  start: usize,
+  width: usize,
+}
+
+impl ExtentGetter for ShelfSection {
+  fn extend(&self) -> usize {
+    self.width
+  }
+}
+
+pub struct Shelf {
+  start: usize,
+  height: usize,
+}
+
+impl ExtentGetter for Shelf {
+  fn extend(&self) -> usize {
+    self.height
   }
 }
 

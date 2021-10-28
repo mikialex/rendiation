@@ -2,7 +2,8 @@ use std::rc::Rc;
 
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
-  BindableResource, GPURenderPass, PipelineRequester, PipelineUnit, WebGPUTextureCube, GPU,
+  BindableResource, GPURenderPass, PipelineRequester, PipelineUnit, PipelineVariantContainer,
+  WebGPUTextureCube, GPU,
 };
 
 use crate::*;
@@ -59,7 +60,6 @@ pub struct EnvMapBackGroundMaterialGPU {
 
 impl PipelineRequester for EnvMapBackGroundMaterialGPU {
   type Container = PipelineUnit;
-  type Key = ();
 }
 
 impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
@@ -70,7 +70,12 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
     pass.set_bind_group_owned(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 
-  fn pipeline_key(&self, _source: &Self::Source, _ctx: &PipelineCreateCtx) -> Self::Key {}
+  fn pipeline_key(
+    &self,
+    _source: &Self::Source,
+    _ctx: &PipelineCreateCtx,
+  ) -> <Self::Container as PipelineVariantContainer>::Key {
+  }
   fn create_pipeline(
     &self,
     source: &Self::Source,

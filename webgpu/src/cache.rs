@@ -49,10 +49,11 @@ impl Default for BindGroupLayoutManager {
 /// This trait abstract the variant key to cached pipeline get and create logic
 /// and user can compose their key and container to compose the cache container behavior
 /// precisely
-pub trait PipelineVariantContainer<V>: Default {
-  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline);
+pub trait PipelineVariantContainer: Default {
+  type Key;
+  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline);
 
-  fn retrieve(&self, variant: &V) -> &Rc<wgpu::RenderPipeline>;
+  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline>;
 }
 
 pub enum PipelineUnit {
@@ -65,13 +66,14 @@ impl Default for PipelineUnit {
   }
 }
 
-impl<V> PipelineVariantContainer<V> for PipelineUnit {
-  fn request(&mut self, _variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+impl PipelineVariantContainer for PipelineUnit {
+  type Key = ();
+  fn request(&mut self, _variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
     if let PipelineUnit::Empty = self {
       *self = PipelineUnit::Created(Rc::new(creator()));
     }
   }
-  fn retrieve(&self, _variant: &V) -> &Rc<wgpu::RenderPipeline> {
+  fn retrieve(&self, _variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
     match self {
       PipelineUnit::Created(p) => p,
       PipelineUnit::Empty => unreachable!(),
@@ -91,21 +93,34 @@ impl<T> Default for TopologyPipelineVariant<T> {
   }
 }
 
-impl<T, V> PipelineVariantContainer<V> for TopologyPipelineVariant<T>
-where
-  T: PipelineVariantContainer<V>,
-  V: AsRef<wgpu::PrimitiveTopology>,
-{
-  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
-    let index = *variant.as_ref() as usize;
-    self.pipelines[index]
+pub struct PipelineVariantKey<T, K> {
+  pub current: K,
+  pub inner: T,
+}
+
+pub trait PipelineVariantKeyBuilder: Sized {
+  fn key_with<K>(self, current: K) -> PipelineVariantKey<Self, K> {
+    PipelineVariantKey {
+      current,
+      inner: self,
+    }
+  }
+}
+impl<T> PipelineVariantKeyBuilder for T {}
+
+impl<T: PipelineVariantContainer> PipelineVariantContainer for TopologyPipelineVariant<T> {
+  type Key = PipelineVariantKey<T::Key, wgpu::PrimitiveTopology>;
+  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+    self.pipelines[variant.current as usize]
       .get_or_insert_with(Default::default)
-      .request(variant, creator);
+      .request(&variant.inner, creator);
   }
 
-  fn retrieve(&self, variant: &V) -> &Rc<wgpu::RenderPipeline> {
-    let index = *variant.as_ref() as usize;
-    self.pipelines[index].as_ref().unwrap().retrieve(variant)
+  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
+    self.pipelines[variant.current as usize]
+      .as_ref()
+      .unwrap()
+      .retrieve(&variant.inner)
   }
 }
 
@@ -114,8 +129,7 @@ pub struct PipelineResourceManager {
 }
 
 pub trait PipelineRequester: Any {
-  type Container: Any + Default;
-  type Key;
+  type Container: PipelineVariantContainer;
 }
 
 impl PipelineResourceManager {

@@ -1,9 +1,17 @@
+use crate::FontManager;
+
 use super::GlyphID;
+use glyph_brush::ab_glyph::{point, Font};
 use rendiation_algebra::Vec2;
 use rendiation_texture::Texture2DBuffer;
 
 pub trait GlyphRaster {
-  fn raster(&mut self, glyph_id: GlyphID, info: NormalizedGlyphRasterInfo) -> Texture2DBuffer<u8>;
+  fn raster(
+    &mut self,
+    glyph_id: GlyphID,
+    info: NormalizedGlyphRasterInfo,
+    fonts: &FontManager,
+  ) -> Texture2DBuffer<u8>;
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -86,7 +94,24 @@ impl Eq for GlyphRasterInfo {}
 pub struct AbGlyphRaster {}
 
 impl GlyphRaster for AbGlyphRaster {
-  fn raster(&mut self, glyph_id: GlyphID, info: NormalizedGlyphRasterInfo) -> Texture2DBuffer<u8> {
+  fn raster(
+    &mut self,
+    glyph_id: GlyphID,
+    info: NormalizedGlyphRasterInfo,
+    fonts: &FontManager,
+  ) -> Texture2DBuffer<u8> {
+    let GlyphID(char, font_id) = glyph_id;
+    let font = fonts.get_font(font_id);
+
+    let q_glyph = font
+      .glyph_id(char)
+      .with_scale_and_position(24.0, point(100.0, 0.0));
+
+    // Draw it.
+    if let Some(q) = font.outline_glyph(q_glyph) {
+      q.draw(|x, y, c| { /* draw pixel `(x, y)` with coverage: `c` */ });
+    }
+
     todo!()
   }
 }

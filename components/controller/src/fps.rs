@@ -64,8 +64,8 @@ impl FPSController {
 }
 
 impl Controller for FPSController {
-  fn sync(&mut self, target: &dyn Transformed3DControllee) {
-    todo!()
+  fn sync(&mut self, _target: &dyn Transformed3DControllee) {
+    self.spherical.reset_pose();
   }
 
   fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {

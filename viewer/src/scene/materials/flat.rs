@@ -140,17 +140,21 @@ pub struct FlatMaterialGPU {
 
 impl PipelineRequester for FlatMaterialGPU {
   type Container = CommonPipelineCache;
-  type Key = CommonPipelineVariantKey;
 }
 
 impl MaterialGPUResource for FlatMaterialGPU {
   type Source = FlatMaterial;
 
-  fn pipeline_key(&self, source: &Self::Source, ctx: &PipelineCreateCtx) -> Self::Key {
+  fn pipeline_key(
+    &self,
+    source: &Self::Source,
+    ctx: &PipelineCreateCtx,
+  ) -> <Self::Container as PipelineVariantContainer>::Key {
     self
       .state_id
       .set(STATE_ID.lock().unwrap().get_uuid(source.states));
-    CommonPipelineVariantKey(self.state_id.get(), ctx.active_mesh.unwrap().topology())
+    ().key_with(self.state_id.get())
+      .key_with(ctx.active_mesh.unwrap().topology())
   }
   fn create_pipeline(
     &self,

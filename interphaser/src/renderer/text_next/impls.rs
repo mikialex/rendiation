@@ -99,7 +99,7 @@ impl GPUGlyphCache {
 
     'all_process: while failed_process_all {
       for &(glyph_id, info) in self.queue.iter() {
-        match packer.pack(glyph_id, info, self.raster.as_mut()) {
+        match packer.pack(glyph_id, info, self.raster.as_mut(), &self.fonts) {
           GlyphCacheResult::NewCached { result, data } => {
             self.gpu.update_texture(&data, result.1, &gpu.queue);
           }
