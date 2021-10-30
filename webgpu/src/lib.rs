@@ -8,6 +8,7 @@
 mod cache;
 mod encoder;
 mod pass;
+mod pipeline;
 mod sampler;
 mod surface;
 mod texture;
@@ -17,6 +18,7 @@ mod uniform;
 pub use cache::*;
 pub use encoder::*;
 pub use pass::*;
+pub use pipeline::*;
 pub use sampler::*;
 pub use surface::*;
 pub use texture::*;
