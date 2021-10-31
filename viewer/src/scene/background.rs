@@ -48,18 +48,11 @@ impl SolidBackground {
 }
 
 impl SceneRenderable for SolidBackground {
-  fn update(
-    &mut self,
-    _gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    _components: &mut SceneComponents,
-  ) {
-  }
+  fn update(&mut self, _gpu: &GPU, _ctx: &mut SceneMaterialRenderPrepareCtxBase) {}
 
   fn setup_pass<'a>(
     &self,
     _pass: &mut GPURenderPass<'a>,
-    _components: &SceneComponents,
     _camera_gpu: &CameraBindgroup,
     _pipeline_resource: &GPUResourceCache,
     _pass_info: &PassTargetFormatInfo,
@@ -80,6 +73,7 @@ use crate::scene::mesh::Mesh;
 pub struct DrawableBackground<S: MaterialCPUResource> {
   mesh: MeshCellInner<BackgroundMesh>,
   pub shading: MaterialCell<S>,
+  root: SceneNode,
 }
 
 impl<S> Background for DrawableBackground<S>
@@ -97,18 +91,10 @@ where
   S: MaterialCPUResource,
   MaterialCell<S>: materials::Material,
 {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    components: &mut SceneComponents,
-  ) {
-    components
-      .nodes
-      .borrow_mut()
-      .get_root_node_mut()
-      .data_mut()
-      .get_model_gpu(gpu);
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+    self.root.mutate(|node| {
+      node.get_model_gpu(gpu);
+    });
 
     self.mesh.update(gpu, &mut base.resources.custom_storage);
 
@@ -123,30 +109,35 @@ where
   fn setup_pass<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
-    components: &SceneComponents,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
     pass_info: &PassTargetFormatInfo,
   ) {
-    let nodes = components.nodes.borrow();
-    let ctx = SceneMaterialPassSetupCtx {
-      pass: pass_info,
-      camera_gpu,
-      model_gpu: nodes.get_root_node().data().gpu.as_ref().unwrap().into(),
-      resources,
-      active_mesh: None,
-    };
-    self.shading.setup_pass(pass, &ctx);
-    self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);
+    self.root.visit(|node| {
+      let model_gpu = node.gpu.as_ref().unwrap().into();
+      let ctx = SceneMaterialPassSetupCtx {
+        pass: pass_info,
+        camera_gpu,
+        model_gpu,
+        resources,
+        active_mesh: None,
+      };
+      self.shading.setup_pass(pass, &ctx);
+      self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);
+    });
   }
 }
 
 impl<S: BackGroundShading> DrawableBackground<S> {
-  pub fn new(shading: MaterialCell<S>) -> Self {
+  pub fn new(shading: MaterialCell<S>, root: SceneNode) -> Self {
     let mesh = build_mesh();
     let mesh = MeshCellInner::new(mesh);
 
-    Self { mesh, shading }
+    Self {
+      mesh,
+      shading,
+      root,
+    }
   }
 }
 

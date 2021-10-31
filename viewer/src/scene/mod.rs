@@ -36,7 +36,7 @@ use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindGroupLayoutManager, GPURenderPass, PipelineResourceManager, GPU};
 
-pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNode>;
+pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 
 pub struct Scene {
@@ -47,15 +47,20 @@ pub struct Scene {
   pub lights: Arena<SceneLight>,
   pub models: Vec<MeshModel>,
 
-  pub components: SceneComponents,
-
+  nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
+  pub root: SceneNode,
   pub resources: GPUResourceCache,
 }
 
 impl Scene {
   pub fn new() -> Self {
+    let nodes: Rc<RefCell<ArenaTree<SceneNodeData>>> = Default::default();
+
+    let root = SceneNode::from_root(nodes.clone());
+
     Self {
-      components: Default::default(),
+      nodes,
+      root,
       background: Box::new(SolidBackground::default()),
       cameras: Arena::new(),
       lights: Arena::new(),
@@ -66,21 +71,18 @@ impl Scene {
     }
   }
 
-  pub fn maintain(&mut self, _device: &wgpu::Device, _queue: &wgpu::Queue) {
-    let root = self.get_root_handle();
-    self
-      .components
-      .nodes
-      .borrow_mut()
-      .traverse_mut(root, &mut Vec::new(), |this, parent| {
-        let node_data = this.data_mut();
-        node_data.hierarchy_update(parent.map(|p| p.data()));
-        if node_data.net_visible {
-          NextTraverseVisit::SkipChildren
-        } else {
-          NextTraverseVisit::VisitChildren
-        }
-      });
+  pub fn maintain(&mut self, _gpu: &GPU) {
+    let mut nodes = self.nodes.borrow_mut();
+    let root = nodes.root();
+    nodes.traverse_mut(root, &mut Vec::new(), |this, parent| {
+      let node_data = this.data_mut();
+      node_data.hierarchy_update(parent.map(|p| p.data()));
+      if node_data.net_visible {
+        NextTraverseVisit::SkipChildren
+      } else {
+        NextTraverseVisit::VisitChildren
+      }
+    });
   }
 }
 
@@ -92,21 +94,15 @@ impl Default for Scene {
 
 #[derive(Default)]
 pub struct SceneComponents {
-  pub nodes: Rc<RefCell<ArenaTree<SceneNode>>>,
+  pub nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
 }
 
 pub trait SceneRenderable {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    components: &mut SceneComponents,
-  );
+  fn update(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtxBase);
 
   fn setup_pass<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
-    components: &SceneComponents,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
     pass_info: &PassTargetFormatInfo,

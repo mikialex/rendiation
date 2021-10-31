@@ -141,7 +141,7 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn render(&mut self, target: FrameTarget, gpu: &GPU, scene: &mut Viewer3dContent) {
-    scene.scene.maintain(&gpu.device, &gpu.queue);
+    scene.scene.maintain(gpu);
 
     self.engine.output = target.into();
 
@@ -185,9 +185,9 @@ impl Viewer3dContent {
 
   pub fn update_state(&mut self) {
     if let Some(camera) = &mut self.scene.active_camera {
-      let mut nodes = self.scene.components.nodes.borrow_mut();
-      let node = nodes.get_node_mut(camera.node).data_mut();
-      self.controller.update(node);
+      camera.node.mutate(|node| {
+        self.controller.update(node);
+      });
     }
   }
 }

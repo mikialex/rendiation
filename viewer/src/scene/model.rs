@@ -15,7 +15,7 @@ impl MeshModel {
   pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
     material: Ma,
     mesh: Me,
-    node: SceneNodeHandle,
+    node: SceneNode,
   ) -> Self {
     let inner = MeshModelInner {
       material: Box::new(material),
@@ -30,26 +30,20 @@ impl MeshModel {
 }
 
 impl SceneRenderable for MeshModel {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    components: &mut SceneComponents,
-  ) {
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let mut inner = self.inner.borrow_mut();
-    inner.update(gpu, base, components)
+    inner.update(gpu, base)
   }
 
   fn setup_pass<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
-    components: &SceneComponents,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
     pass_info: &PassTargetFormatInfo,
   ) {
     let inner = self.inner.borrow();
-    inner.setup_pass(pass, components, camera_gpu, resources, pass_info)
+    inner.setup_pass(pass, camera_gpu, resources, pass_info)
   }
 }
 
@@ -57,54 +51,48 @@ pub struct MeshModelInner {
   pub material: Box<dyn Material>,
   pub mesh: Box<dyn Mesh>,
   pub group: MeshDrawGroup,
-  pub node: SceneNodeHandle,
+  pub node: SceneNode,
 }
 
 impl SceneRenderable for MeshModelInner {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    components: &mut SceneComponents,
-  ) {
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
-    let mut nodes = components.nodes.borrow_mut();
-    let node = nodes.get_node_mut(self.node).data_mut();
 
-    let mut ctx = SceneMaterialRenderPrepareCtx {
-      base,
-      model_info: node.get_model_gpu(gpu).into(),
-      active_mesh: mesh.as_ref().into(),
-    };
+    self.node.mutate(|node| {
+      let mut ctx = SceneMaterialRenderPrepareCtx {
+        base,
+        model_info: node.get_model_gpu(gpu).into(),
+        active_mesh: mesh.as_ref().into(),
+      };
 
-    material.update(gpu, &mut ctx);
+      material.update(gpu, &mut ctx);
 
-    mesh.update(gpu, &mut base.resources.custom_storage);
+      mesh.update(gpu, &mut base.resources.custom_storage);
+    });
   }
 
   fn setup_pass<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
-    components: &SceneComponents,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
     pass_info: &PassTargetFormatInfo,
   ) {
     let material = &self.material;
     let mesh = &self.mesh;
-    let nodes = components.nodes.borrow();
-    let node = nodes.get_node(self.node).data();
 
-    let ctx = SceneMaterialPassSetupCtx {
-      pass: pass_info,
-      camera_gpu,
-      model_gpu: node.gpu.as_ref().unwrap().into(),
-      resources,
-      active_mesh: mesh.as_ref().into(),
-    };
-    material.setup_pass(pass, &ctx);
+    self.node.visit(|node| {
+      let ctx = SceneMaterialPassSetupCtx {
+        pass: pass_info,
+        camera_gpu,
+        model_gpu: node.gpu.as_ref().unwrap().into(),
+        resources,
+        active_mesh: mesh.as_ref().into(),
+      };
+      material.setup_pass(pass, &ctx);
 
-    mesh.setup_pass_and_draw(pass, self.group);
+      mesh.setup_pass_and_draw(pass, self.group);
+    });
   }
 }

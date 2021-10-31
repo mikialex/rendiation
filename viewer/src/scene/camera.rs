@@ -3,7 +3,9 @@ use std::{ops::Deref, rc::Rc};
 use arena_tree::ArenaTree;
 use rendiation_algebra::*;
 
-use super::{SceneNode, SceneNodeHandle};
+use crate::SceneNode;
+
+use super::SceneNodeData;
 use rendiation_webgpu::*;
 
 pub trait CameraProjection {
@@ -23,17 +25,7 @@ impl<T: ResizableProjection> CameraProjection for T {
 pub struct CameraData {
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
-  pub node: SceneNodeHandle,
-}
-
-impl CameraData {
-  pub fn get_view_matrix(&self, nodes: &ArenaTree<SceneNode>) -> Mat4<f32> {
-    nodes
-      .get_node(self.node)
-      .data()
-      .world_matrix
-      .inverse_or_identity()
-  }
+  pub node: SceneNode,
 }
 
 pub struct Camera {
@@ -56,7 +48,7 @@ impl std::ops::DerefMut for Camera {
 }
 
 impl Camera {
-  pub fn new(p: impl ResizableProjection + 'static, node: SceneNodeHandle) -> Self {
+  pub fn new(p: impl ResizableProjection + 'static, node: SceneNode) -> Self {
     Self {
       cpu: CameraData {
         projection: Box::new(p),
@@ -67,15 +59,11 @@ impl Camera {
     }
   }
 
-  pub fn get_updated_gpu(
-    &mut self,
-    gpu: &GPU,
-    nodes: &ArenaTree<SceneNode>,
-  ) -> (&CameraData, &mut CameraBindgroup) {
+  pub fn get_updated_gpu(&mut self, gpu: &GPU) -> (&CameraData, &mut CameraBindgroup) {
     self
       .gpu
       .get_or_insert_with(|| CameraBindgroup::new(gpu))
-      .update(gpu, &mut self.cpu, nodes)
+      .update(gpu, &mut self.cpu)
   }
 
   pub fn expect_gpu(&self) -> &CameraBindgroup {
@@ -123,13 +111,12 @@ impl CameraBindgroup {
     &mut self,
     gpu: &GPU,
     camera: &'a mut CameraData,
-    nodes: &ArenaTree<SceneNode>,
   ) -> (&'a CameraData, &mut Self) {
     camera
       .projection
       .update_projection(&mut camera.projection_matrix);
 
-    let world_matrix = nodes.get_node(camera.node).data().local_matrix;
+    let world_matrix = camera.node.visit(|node| node.local_matrix);
     let view_matrix = world_matrix.inverse_or_identity();
     let rotation_matrix = world_matrix.extract_rotation_mat();
 
