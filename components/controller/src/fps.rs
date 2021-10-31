@@ -35,7 +35,7 @@ impl FPSController {
     spherical.azim = 1.;
     FPSController {
       spherical,
-      max_polar_angle: 179. / 180. * std::f32::consts::PI,
+      max_polar_angle: std::f32::consts::PI,
       min_polar_angle: 0.01,
 
       view_width: 1000.,
@@ -64,6 +64,10 @@ impl FPSController {
 }
 
 impl Controller for FPSController {
+  fn sync(&mut self, _target: &dyn Transformed3DControllee) {
+    self.spherical.reset_pose();
+  }
+
   fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
     let mat = target.matrix_mut();
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);

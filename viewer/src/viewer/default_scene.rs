@@ -1,8 +1,7 @@
 use image::*;
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::{
-  group::MeshDrawGroup,
-  tessellation::{CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter},
+use rendiation_renderable_mesh::tessellation::{
+  CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
 };
 use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
 use rendiation_webgpu::WebGPUTexture2dSource;
@@ -44,45 +43,40 @@ pub fn load_default_scene(scene: &mut Scene) {
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
-    todo!()
+    "/Users/mikialex/Desktop/test.png"
   };
-  let texture = scene.add_texture2d(load_img(path).into_source());
 
-  let texture_cube = scene.add_texture_cube(load_img_cube());
+  let texture = SceneTexture2D::new(Box::new(load_img(path).into_source()));
 
-  let background_mat = EnvMapBackGroundMaterial {
-    sampler: TextureSampler::default(),
-    texture: texture_cube,
-  };
-  let background_mat = scene.add_material(background_mat);
-  let bg = DrawableBackground::new(background_mat);
+  // let texture_cube = scene.add_texture_cube(load_img_cube());
 
-  scene.background = Box::new(bg);
+  // let background_mat = EnvMapBackGroundMaterial {
+  //   sampler: TextureSampler::default(),
+  //   texture: texture_cube,
+  // };
+  // let background_mat = scene.add_material(background_mat);
+  // let bg = DrawableBackground::new(background_mat);
+
+  // scene.background = Box::new(bg);
 
   {
     let mesh = SphereMeshParameter::default().tessellate();
-    let mesh = scene.add_mesh(mesh);
+    let mesh = MeshCell::new(mesh);
     let material = BasicMaterial {
       color: Vec3::splat(1.),
       sampler: TextureSampler::default(),
-      texture,
+      texture: texture.clone(),
       states: Default::default(),
     };
-    let material = scene.add_material(material);
+    let material = MaterialCell::new(material);
 
-    let model = MeshModel {
-      material,
-      mesh,
-      group: MeshDrawGroup::Full,
-      node: scene.get_root_handle(),
-    };
-
-    scene.add_model(model);
+    let model = MeshModel::new(material, mesh, scene.root.create_child());
+    scene.models.push(model)
   }
 
   {
     let mesh = CubeMeshParameter::default().tessellate();
-    let mesh = scene.add_mesh(mesh);
+    let mesh = MeshCell::new(mesh);
     let mut material = BasicMaterial {
       color: Vec3::splat(1.),
       sampler: TextureSampler::default(),
@@ -90,21 +84,16 @@ pub fn load_default_scene(scene: &mut Scene) {
       states: Default::default(),
     };
     material.states.depth_compare = wgpu::CompareFunction::Always;
-    let material = scene.add_material(material);
+    let material = MaterialCell::new(material);
 
-    let model = MeshModel {
-      material,
-      mesh,
-      group: MeshDrawGroup::Full,
-      node: scene.get_root_handle(),
-    };
-
-    scene.add_model(model);
+    let model = MeshModel::new(material, mesh, scene.root.create_child());
+    scene.models.push(model)
   }
 
   let camera = PerspectiveProjection::default();
-  let camera_node = scene.create_node(|node, _| {
-    node.local_matrix = Mat4::lookat(Vec3::splat(10.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+  let camera_node = scene.root.create_child();
+  camera_node.mutate(|node| {
+    node.local_matrix = Mat4::lookat(Vec3::splat(1.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
   });
   let camera = Camera::new(camera, camera_node);
   scene.active_camera = camera.into();

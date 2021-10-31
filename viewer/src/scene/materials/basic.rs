@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
@@ -11,7 +11,7 @@ use crate::*;
 pub struct BasicMaterial {
   pub color: Vec3<f32>,
   pub sampler: TextureSampler,
-  pub texture: Texture2DHandle,
+  pub texture: SceneTexture2D,
   pub states: MaterialStates,
 }
 
@@ -20,23 +20,6 @@ impl MaterialMeshLayoutRequire for BasicMaterial {
 }
 
 impl BasicMaterial {
-  pub fn create_bindgroup(
-    &self,
-    handle: MaterialHandle,
-    ubo: &wgpu::Buffer,
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) -> MaterialBindGroup {
-    let sampler = ctx.map_sampler(self.sampler, device);
-    device
-      .material_bindgroup_builder(handle)
-      .push(ubo.as_entire_binding())
-      .push_texture2d(ctx, self.texture)
-      .push(sampler.as_bindable())
-      .build(layout)
-  }
-
   pub fn get_shader_header() -> &'static str {
     "
     [[block]]
@@ -45,7 +28,7 @@ impl BasicMaterial {
     };
 
     [[group(1), binding(0)]]
-    var basic_material: BasicMaterial;
+    var<uniform> basic_material: BasicMaterial;
     
     [[group(1), binding(1)]]
     var r_color: texture_2d<f32>;
@@ -172,47 +155,46 @@ impl BasicMaterial {
 }
 
 pub struct BasicMaterialGPU {
-  state_id: ValueID<MaterialStates>,
+  state_id: Cell<ValueID<MaterialStates>>,
   _uniform: UniformBuffer<Vec3<f32>>,
   bindgroup: MaterialBindGroup,
+}
+
+impl PipelineRequester for BasicMaterialGPU {
+  type Container = CommonPipelineCache;
 }
 
 impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
 
-  fn request_pipeline(
-    &mut self,
+  fn pipeline_key(
+    &self,
     source: &Self::Source,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) {
-    self.state_id = STATE_ID.lock().unwrap().get_uuid(source.states);
-
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
-
-    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-
-    pipelines
-      .get_cache_mut::<Self, CommonPipelineCache>()
-      .request(&key, || source.create_pipeline(&gpu.device, &pipeline_ctx));
+    ctx: &PipelineCreateCtx,
+  ) -> <Self::Container as PipelineVariantContainer>::Key {
+    self
+      .state_id
+      .set(STATE_ID.lock().unwrap().get_uuid(source.states));
+    ().key_with(self.state_id.get())
+      .key_with(ctx.active_mesh.unwrap().topology())
+  }
+  fn create_pipeline(
+    &self,
+    source: &Self::Source,
+    device: &wgpu::Device,
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline {
+    source.create_pipeline(device, ctx)
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
+  fn setup_pass_bindgroup<'a>(
+    &self,
+    pass: &mut GPURenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx,
   ) {
-    let key = CommonPipelineVariantKey(self.state_id, ctx.active_mesh.unwrap().topology());
-
-    let pipeline = ctx
-      .pipelines
-      .get_cache::<Self, CommonPipelineCache>()
-      .retrieve(&key);
-
-    pass.set_pipeline(pipeline);
-    pass.set_bind_group(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
-    pass.set_bind_group(1, &self.bindgroup.gpu, &[]);
-    pass.set_bind_group(2, &ctx.camera_gpu.bindgroup, &[]);
+    pass.set_bind_group_owned(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
+    pass.set_bind_group_owned(1, &self.bindgroup.gpu, &[]);
+    pass.set_bind_group_owned(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 }
 
@@ -221,20 +203,25 @@ impl MaterialCPUResource for BasicMaterial {
 
   fn create(
     &mut self,
-    handle: MaterialHandle,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
+    bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
-    let bindgroup =
-      self.create_bindgroup(handle, _uniform.gpu(), &gpu.device, &bindgroup_layout, ctx);
+
+    let sampler = ctx.map_sampler(self.sampler, &gpu.device);
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
+      .push(_uniform.gpu().as_entire_binding())
+      .push_texture(&self.texture)
+      .push(sampler.as_bindable())
+      .build(&bindgroup_layout);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 
     BasicMaterialGPU {
-      state_id,
+      state_id: Cell::new(state_id),
       _uniform,
       bindgroup,
     }

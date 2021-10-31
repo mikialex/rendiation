@@ -1,110 +1,24 @@
-use std::{
-  cell::RefCell,
-  rc::{Rc, Weak},
-};
+use std::rc::Rc;
 
 use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
+use rendiation_webgpu::{BindableResource, WebGPUTexture2d, GPU};
 
-use crate::{SceneTextureCube, TextureCubeHandle};
+use crate::*;
 
-use super::{
-  MaterialHandle, SceneMaterialRenderPrepareCtx, SceneTexture2D, Texture2DHandle, WatchedArena,
-};
-
-pub struct MaterialBindGroup {
-  pub gpu: wgpu::BindGroup,
-  _references: Vec<MaterialTextureReferenceFinalizer>,
+pub trait BindGroupDirtyNotifier: 'static {
+  fn notify_dirty(&self);
 }
 
-#[derive(Default)]
-pub struct ReferenceFinalization {
-  deleting: Rc<RefCell<Vec<ReferenceRecord>>>,
+pub struct MaterialBindGroup<T = BindGroupDirtyWatcher> {
+  pub gpu: Rc<wgpu::BindGroup>,
+  pub dirty_notifier: Rc<T>,
 }
 
-impl ReferenceFinalization {
-  pub fn maintain(
-    &mut self,
-    texture_2ds: &WatchedArena<SceneTexture2D>,
-    texture_cubes: &WatchedArena<SceneTextureCube>,
-  ) {
-    self.deleting.borrow_mut().drain(..).for_each(|r| {
-      let material = r.material;
-      match r.resource {
-        ResourceReference::Texture2d(tex) => texture_2ds
-          .get_resource(tex)
-          .unwrap()
-          .remove_material_bind(material),
-        ResourceReference::TextureCube(tex) => texture_cubes
-          .get_resource(tex)
-          .unwrap()
-          .remove_material_bind(material),
-      }
-    })
-  }
-
-  pub fn create_sender(&self) -> ReferenceSender {
-    ReferenceSender {
-      deleting: Rc::downgrade(&self.deleting),
-    }
-  }
-}
-
-pub struct ReferenceSender {
-  deleting: Weak<RefCell<Vec<ReferenceRecord>>>,
-}
-
-#[derive(Clone, Copy)]
-pub struct ReferenceRecord {
-  material: MaterialHandle,
-  resource: ResourceReference,
-}
-
-#[derive(Clone, Copy)]
-pub enum ResourceReference {
-  Texture2d(Texture2DHandle),
-  TextureCube(TextureCubeHandle),
-}
-
-pub struct MaterialTextureReferenceFinalizer {
-  reference: ReferenceRecord,
-  sender: ReferenceSender,
-}
-
-impl Drop for MaterialTextureReferenceFinalizer {
-  fn drop(&mut self) {
-    self.sender.deleting.upgrade().map(|deleting| {
-      deleting
-        .try_borrow_mut()
-        .map(|mut deleting| deleting.push(self.reference))
-    });
-  }
-}
-
-pub struct MaterialBindGroupBuilder<'a, 'b> {
-  handle: MaterialHandle,
+pub struct MaterialBindGroupBuilder<'a, 'b, T> {
   device: &'a wgpu::Device,
+  queue: &'a wgpu::Queue,
   bindings: Vec<wgpu::BindingResource<'b>>,
-  references: Vec<MaterialTextureReferenceFinalizer>,
-}
-
-pub trait ViewerDeviceExt {
-  fn material_bindgroup_builder<'a, 'b>(
-    &'a self,
-    handle: MaterialHandle,
-  ) -> MaterialBindGroupBuilder<'a, 'b>;
-}
-impl ViewerDeviceExt for wgpu::Device {
-  fn material_bindgroup_builder<'a, 'b>(
-    &'a self,
-    handle: MaterialHandle,
-  ) -> MaterialBindGroupBuilder<'a, 'b> {
-    MaterialBindGroupBuilder {
-      handle,
-      device: self,
-      bindings: Vec::with_capacity(4),
-      references: Vec::with_capacity(4),
-    }
-  }
+  dirty_notifier: Rc<T>,
 }
 
 impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
@@ -150,59 +64,55 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
   }
 }
 
-impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
+impl<'a, 'b, W: BindGroupDirtyNotifier> MaterialBindGroupBuilder<'a, 'b, W> {
+  pub fn new(gpu: &'a GPU, watcher: Rc<W>) -> Self {
+    MaterialBindGroupBuilder {
+      device: &gpu.device,
+      queue: &gpu.queue,
+      dirty_notifier: watcher,
+      bindings: Vec::with_capacity(4),
+    }
+  }
+
   pub fn push(mut self, binding: wgpu::BindingResource<'b>) -> Self {
     self.bindings.push(binding);
     self
   }
 
-  pub fn push_texture2d<'c: 'b, 'd: 'b, 'e>(
-    mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d, 'e>,
-    handle: Texture2DHandle,
-  ) -> Self {
-    self.bindings.push(
-      ctx
-        .textures
-        .get_resource(handle)
-        .unwrap()
-        .as_material_bind(self.handle),
-    );
+  pub fn push_texture<T, U>(mut self, texture: &'b SceneTexture<T, U>) -> Self
+  where
+    T: MaterialBindableResourceUpdate<GPU = U>,
+  {
+    let mut texture = texture.content.borrow_mut();
 
-    self.references.push(MaterialTextureReferenceFinalizer {
-      reference: ReferenceRecord {
-        material: self.handle,
-        resource: ResourceReference::Texture2d(handle),
-      },
-      sender: ctx.reference_finalization.create_sender(),
-    });
+    let weak = Rc::downgrade(&self.dirty_notifier);
+
+    let notifier = move || {
+      if let Some(notifier) = weak.upgrade() {
+        notifier.notify_dirty();
+        return true;
+      }
+
+      false
+    };
+
+    texture.on_changed.push(Box::new(notifier));
+
+    // this unsafe is ok, but could be improved
+    let gpu: &'b WebGPUTexture2d = unsafe {
+      let t: &mut SceneTextureContent<T, U> = &mut texture;
+      let source = &t.source;
+      let g = &mut t.gpu;
+      let gpu = source.update(g, self.device, self.queue);
+      std::mem::transmute(gpu)
+    };
+
+    self.bindings.push(gpu.as_bindable());
+
     self
   }
 
-  pub fn push_texture_cube<'c: 'b, 'd: 'b, 'e>(
-    mut self,
-    ctx: &'c SceneMaterialRenderPrepareCtx<'d, 'e>,
-    handle: TextureCubeHandle,
-  ) -> Self {
-    self.bindings.push(
-      ctx
-        .texture_cubes
-        .get_resource(handle)
-        .unwrap()
-        .as_material_bind(self.handle),
-    );
-
-    self.references.push(MaterialTextureReferenceFinalizer {
-      reference: ReferenceRecord {
-        material: self.handle,
-        resource: ResourceReference::TextureCube(handle),
-      },
-      sender: ctx.reference_finalization.create_sender(),
-    });
-    self
-  }
-
-  pub fn build(self, layout: &wgpu::BindGroupLayout) -> MaterialBindGroup {
+  pub fn build(self, layout: &wgpu::BindGroupLayout) -> MaterialBindGroup<W> {
     let entries: Vec<_> = self
       .bindings
       .into_iter()
@@ -219,9 +129,11 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
       label: None,
     });
 
+    let gpu = Rc::new(gpu);
+
     MaterialBindGroup {
       gpu,
-      _references: self.references,
+      dirty_notifier: self.dirty_notifier,
     }
   }
 }

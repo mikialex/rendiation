@@ -156,7 +156,7 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
   }
 }
 
-pub trait PassContent: 'static {
+pub trait PassContent {
   fn update(
     &mut self,
     gpu: &GPU,
@@ -166,7 +166,7 @@ pub trait PassContent: 'static {
   );
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     scene: &'a Scene,
     pass_info: &'a PassTargetFormatInfo,
   );
@@ -180,7 +180,8 @@ pub struct SimplePipeline {
 
 impl SimplePipeline {
   #[rustfmt::skip]
-  pub fn render_simple(&mut self, engine: &RenderEngine, scene: &mut Scene) {
+  pub fn render_simple(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
+    let scene = &mut content.scene;
 
     let mut scene_depth = depth_attachment()
       .format(wgpu::TextureFormat::Depth32Float)
@@ -191,6 +192,7 @@ impl SimplePipeline {
       .with_depth(scene_depth.write(), clear(1.))
       .render_by(&mut BackGroundRendering)
       .render_by(&mut self.forward)
+      .render_by(&mut content.axis)
       .run(engine, scene);
 
   }
@@ -233,7 +235,7 @@ impl SimplePipeline {
   // }
 }
 
-pub fn pass(name: &'static str) -> PassDescriptor {
+pub fn pass<'t>(name: &'static str) -> PassDescriptor<'static, 't> {
   PassDescriptor {
     name,
     phantom: PhantomData,

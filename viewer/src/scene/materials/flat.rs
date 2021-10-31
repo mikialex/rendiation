@@ -1,43 +1,45 @@
-use rendiation_webgpu::*;
 use std::{borrow::Cow, cell::Cell, rc::Rc};
+
+use rendiation_algebra::Vec3;
+use rendiation_renderable_mesh::vertex::Vertex;
+use rendiation_webgpu::*;
 
 use crate::*;
 
 #[derive(Clone)]
-pub struct FatLineMaterial {
-  pub width: f32,
+pub struct FlatMaterial {
+  pub color: Vec3<f32>,
   pub states: MaterialStates,
 }
 
-pub struct FatlineMaterialGPU {
-  state_id: Cell<ValueID<MaterialStates>>,
-  _uniform: UniformBuffer<f32>,
-  bindgroup: MaterialBindGroup,
+impl MaterialMeshLayoutRequire for FlatMaterial {
+  type VertexInput = Vec<Vertex>;
 }
 
-impl FatLineMaterial {
+impl FlatMaterial {
+  pub fn get_shader_header() -> &'static str {
+    "
+    [[block]]
+    struct FlatMaterial {
+      color: vec3<f32>;
+    };
+
+    [[group(1), binding(0)]]
+    var<uniform> flat_material: FlatMaterial;
+    
+    "
+  }
+
   pub fn create_bindgroup_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[wgpu::BindGroupLayoutEntry {
         binding: 0,
         visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: UniformBuffer::<f32>::bind_layout(),
+        ty: UniformBuffer::<Vec3<f32>>::bind_layout(),
         count: None,
       }],
     })
-  }
-
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct FatlineMaterial {
-      width: f32;
-    };
-
-    [[group(1), binding(0)]]
-    var<uniform> fatline_material: FatlineMaterial;
-    "
   }
 
   pub fn create_pipeline(
@@ -70,11 +72,11 @@ impl FatLineMaterial {
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return textureSample(r_color, r_sampler, in.uv);
+          return vec4<f32>(flat_material.color, 1.);
       }}
       
       ",
-      vertex_header = FatLineVertex::get_shader_header(),
+      vertex_header = Vertex::get_shader_header(),
       material_header = Self::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
       object_header = TransformGPU::get_shader_header(),
@@ -130,12 +132,18 @@ impl FatLineMaterial {
   }
 }
 
-impl PipelineRequester for FatlineMaterialGPU {
+pub struct FlatMaterialGPU {
+  state_id: Cell<ValueID<MaterialStates>>,
+  _uniform: UniformBuffer<Vec3<f32>>,
+  bindgroup: MaterialBindGroup,
+}
+
+impl PipelineRequester for FlatMaterialGPU {
   type Container = CommonPipelineCache;
 }
 
-impl MaterialGPUResource for FatlineMaterialGPU {
-  type Source = FatLineMaterial;
+impl MaterialGPUResource for FlatMaterialGPU {
+  type Source = FlatMaterial;
 
   fn pipeline_key(
     &self,
@@ -168,8 +176,8 @@ impl MaterialGPUResource for FatlineMaterialGPU {
   }
 }
 
-impl MaterialCPUResource for FatLineMaterial {
-  type GPU = FatlineMaterialGPU;
+impl MaterialCPUResource for FlatMaterial {
+  type GPU = FlatMaterialGPU;
 
   fn create(
     &mut self,
@@ -177,17 +185,17 @@ impl MaterialCPUResource for FatLineMaterial {
     _ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
-    let device = &gpu.device;
-    let _uniform = UniformBuffer::create(device, self.width);
+    let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
-    let bindgroup_layout = Self::create_bindgroup_layout(device);
+    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
+
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
       .push(_uniform.gpu().as_entire_binding())
       .build(&bindgroup_layout);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
 
-    FatlineMaterialGPU {
+    FlatMaterialGPU {
       state_id: Cell::new(state_id),
       _uniform,
       bindgroup,

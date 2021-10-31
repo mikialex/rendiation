@@ -27,8 +27,8 @@ impl PassContent for ForwardScene {
   ) {
     self.render_list.models.clear();
 
-    scene.models.iter_mut().for_each(|(handle, _)| {
-      self.render_list.models.push(handle);
+    scene.models.iter_mut().for_each(|model| {
+      self.render_list.models.push(model.clone());
     });
 
     self.render_list.update(scene, gpu, pass);
@@ -36,7 +36,7 @@ impl PassContent for ForwardScene {
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     scene: &'a Scene,
     pass_info: &'a PassTargetFormatInfo,
   ) {

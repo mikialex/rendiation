@@ -43,7 +43,8 @@ impl<T> BindableResource for UniformBuffer<T> {
     wgpu::BindingType::Buffer {
       ty: wgpu::BufferBindingType::Uniform,
       has_dynamic_offset: false,
-      min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64),
+      // min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
+      min_binding_size: None,
     }
   }
 }

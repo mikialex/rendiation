@@ -48,21 +48,14 @@ impl SolidBackground {
 }
 
 impl SceneRenderable for SolidBackground {
-  fn update(
-    &mut self,
-    _gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    _components: &mut SceneComponents,
-  ) {
-  }
+  fn update(&mut self, _gpu: &GPU, _ctx: &mut SceneMaterialRenderPrepareCtxBase) {}
 
   fn setup_pass<'a>(
-    &'a self,
-    _pass: &mut wgpu::RenderPass<'a>,
-    _components: &'a SceneComponents,
-    _camera_gpu: &'a CameraBindgroup,
-    _pipeline_resource: &'a PipelineResourceManager,
-    _pass_info: &'a PassTargetFormatInfo,
+    &self,
+    _pass: &mut GPURenderPass<'a>,
+    _camera_gpu: &CameraBindgroup,
+    _pipeline_resource: &GPUResourceCache,
+    _pass_info: &PassTargetFormatInfo,
   ) {
   }
 }
@@ -77,78 +70,78 @@ fn build_mesh() -> BackgroundMesh {
 }
 use crate::scene::mesh::Mesh;
 
-pub struct DrawableBackground<S> {
-  mesh: MeshCell<BackgroundMesh>,
-  pub shading: TypedMaterialHandle<S>,
+pub struct DrawableBackground<S: MaterialCPUResource> {
+  mesh: MeshCellInner<BackgroundMesh>,
+  pub shading: MaterialCell<S>,
+  root: SceneNode,
 }
 
-impl<S: 'static> Background for DrawableBackground<S> {
+impl<S> Background for DrawableBackground<S>
+where
+  S: MaterialCPUResource + 'static,
+  MaterialCell<S>: materials::Material,
+{
   fn require_pass_clear(&self) -> Option<wgpu::Color> {
     None
   }
 }
 
-impl<S> SceneRenderable for DrawableBackground<S> {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    components: &mut SceneComponents,
-  ) {
-    components
-      .nodes
-      .get_root_node_mut()
-      .data_mut()
-      .get_model_gpu(gpu);
+impl<S> SceneRenderable for DrawableBackground<S>
+where
+  S: MaterialCPUResource,
+  MaterialCell<S>: materials::Material,
+{
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+    self.root.mutate(|node| {
+      node.get_model_gpu(gpu);
+    });
 
     self.mesh.update(gpu, &mut base.resources.custom_storage);
-    let m = components.materials.get_mut(self.shading.handle).unwrap();
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
       model_info: None,
       active_mesh: None,
     };
-    m.update(gpu, &mut ctx);
+    self.shading.update(gpu, &mut ctx);
   }
 
   fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    components: &'a SceneComponents,
-    camera_gpu: &'a CameraBindgroup,
-    pipeline_resource: &'a PipelineResourceManager,
-    pass_info: &'a PassTargetFormatInfo,
+    &self,
+    pass: &mut GPURenderPass<'a>,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+    pass_info: &PassTargetFormatInfo,
   ) {
-    let m = components.materials.get(self.shading.handle).unwrap();
-    let ctx = SceneMaterialPassSetupCtx {
-      pass: pass_info,
-      camera_gpu,
-      model_gpu: components
-        .nodes
-        .get_root_node()
-        .data()
-        .gpu
-        .as_ref()
-        .unwrap()
-        .into(),
-      pipelines: pipeline_resource,
-      active_mesh: None,
-    };
-    m.setup_pass(pass, &ctx);
-    self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);
+    self.root.visit(|node| {
+      let model_gpu = node.gpu.as_ref().unwrap().into();
+      let ctx = SceneMaterialPassSetupCtx {
+        pass: pass_info,
+        camera_gpu,
+        model_gpu,
+        resources,
+        active_mesh: None,
+      };
+      self.shading.setup_pass(pass, &ctx);
+      self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);
+    });
   }
 }
 
 impl<S: BackGroundShading> DrawableBackground<S> {
-  pub fn new(shading: TypedMaterialHandle<S>) -> Self {
-    let mesh = MeshCell::from(build_mesh());
+  pub fn new(shading: MaterialCell<S>, root: SceneNode) -> Self {
+    let mesh = build_mesh();
+    let mesh = MeshCellInner::new(mesh);
 
-    Self { mesh, shading }
+    Self {
+      mesh,
+      shading,
+      root,
+    }
   }
 }
 
-pub trait BackGroundShading {
+pub trait BackGroundShading: MaterialCPUResource {
   fn shader_header(&self) -> &'static str;
 
   fn shading(&self) -> &'static str;
@@ -179,7 +172,7 @@ pub trait BackGroundShading {
       out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
       return out;
     }}
-    
+
     [[stage(fragment)]]
     fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
       let direction = normalize(in.world_position);

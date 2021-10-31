@@ -1,13 +1,20 @@
 use std::{
   any::Any,
-  marker::PhantomData,
+  cell::{Cell, RefCell},
   ops::{Deref, DerefMut},
+  rc::Rc,
 };
-pub mod bindable;
-pub use bindable::*;
 pub mod states;
 pub use states::*;
 
+pub mod state_material;
+pub use state_material::*;
+
+pub mod wrapper;
+pub use wrapper::*;
+
+pub mod flat;
+pub use flat::*;
 pub mod basic;
 pub use basic::*;
 pub mod fatline;
@@ -16,65 +23,12 @@ pub mod env_background;
 pub use env_background::*;
 
 use rendiation_algebra::Mat4;
-use rendiation_webgpu::{BindGroupLayoutManager, PipelineResourceManager, GPU};
+use rendiation_webgpu::{
+  BindGroupLayoutManager, GPURenderPass, PipelineRequester, PipelineResourceManager, PipelineUnit,
+  PipelineVariantContainer, TopologyPipelineVariant, GPU,
+};
 
 use crate::*;
-
-impl Scene {
-  fn add_material_inner<M: Material + 'static, F: FnOnce(MaterialHandle) -> M>(
-    &mut self,
-    creator: F,
-  ) -> MaterialHandle {
-    self
-      .components
-      .materials
-      .insert_with(|handle| Box::new(creator(handle)))
-  }
-
-  pub fn add_material<M>(&mut self, material: M) -> TypedMaterialHandle<M>
-  where
-    M: MaterialCPUResource + 'static,
-    M::GPU: MaterialGPUResource<Source = M>,
-  {
-    let handle = self.add_material_inner(|handle| MaterialCell::new(material, handle));
-    TypedMaterialHandle {
-      handle,
-      ty: PhantomData,
-    }
-  }
-
-  pub fn get_mut_material<M>(&mut self, handle: TypedMaterialHandle<M>) -> &mut M
-  where
-    M: MaterialCPUResource + 'static,
-    M::GPU: MaterialGPUResource<Source = M>,
-  {
-    &mut self
-      .components
-      .materials
-      .get_mut(handle.handle)
-      .unwrap()
-      .as_any_mut()
-      .downcast_mut::<MaterialCell<M>>()
-      .unwrap()
-      .material
-  }
-
-  pub fn get_material<M>(&self, handle: TypedMaterialHandle<M>) -> &M
-  where
-    M: MaterialCPUResource + 'static,
-    M::GPU: MaterialGPUResource<Source = M>,
-  {
-    &self
-      .components
-      .materials
-      .get(handle.handle)
-      .unwrap()
-      .as_any()
-      .downcast_ref::<MaterialCell<M>>()
-      .unwrap()
-      .material
-  }
-}
 
 pub trait MaterialMeshLayoutRequire {
   type VertexInput;
@@ -84,15 +38,16 @@ pub trait MaterialCPUResource: Clone {
   type GPU: MaterialGPUResource<Source = Self>;
   fn create(
     &mut self,
-    handle: MaterialHandle,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
+    bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU;
 }
 
-pub trait MaterialGPUResource: Sized {
+pub trait MaterialGPUResource: Sized + PipelineRequester {
   type Source: MaterialCPUResource<GPU = Self>;
-  /// This Hook will be called before this material rendering(set_pass) happens if any change recorded.
+
+  /// This Hook will be called before this material rendering(set_pass)
   ///
   /// If return true, means the following procedure will use simple full refresh update logic:
   /// just rebuild the entire gpu resource. This is just for convenient case.
@@ -102,56 +57,95 @@ pub trait MaterialGPUResource: Sized {
     _source: &Self::Source,
     _gpu: &GPU,
     _ctx: &mut SceneMaterialRenderPrepareCtx,
-    _bindgroup_changed: bool,
+    _bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> bool {
     true
   }
 
-  /// This Hook will be called before this material rendering(set_pass) happens.
-  /// Users must request to prepare the real pipeline before render
-  fn request_pipeline(
-    &mut self,
+  fn pipeline_key(
+    &self,
     source: &Self::Source,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  );
+    ctx: &PipelineCreateCtx,
+  ) -> <Self::Container as PipelineVariantContainer>::Key;
+  fn create_pipeline(
+    &self,
+    source: &Self::Source,
+    device: &wgpu::Device,
+    ctx: &PipelineCreateCtx,
+  ) -> wgpu::RenderPipeline;
 
-  fn setup_pass<'a>(
-    &'a self,
-    _pass: &mut wgpu::RenderPass<'a>,
-    _ctx: &SceneMaterialPassSetupCtx<'a>,
+  fn setup_pass_bindgroup<'a>(
+    &self,
+    _pass: &mut GPURenderPass<'a>,
+    _ctx: &SceneMaterialPassSetupCtx,
   ) {
     // default do nothing
   }
 }
 
-pub struct MaterialCell<T>
+pub struct BindGroupDirtyWatcher {
+  dirty: Cell<bool>,
+}
+impl Default for BindGroupDirtyWatcher {
+  fn default() -> Self {
+    Self {
+      dirty: Cell::new(false),
+    }
+  }
+}
+
+impl BindGroupDirtyNotifier for BindGroupDirtyWatcher {
+  fn notify_dirty(&self) {
+    self.dirty.set(true);
+  }
+}
+
+pub struct MaterialCell<T: MaterialCPUResource> {
+  inner: Rc<RefCell<MaterialCellInner<T>>>,
+}
+
+impl<T: MaterialCPUResource> MaterialCell<T> {
+  pub fn new(material: T) -> Self {
+    let material = MaterialCellInner::new(material);
+    Self {
+      inner: Rc::new(RefCell::new(material)),
+    }
+  }
+}
+
+impl<T: MaterialCPUResource> Clone for MaterialCell<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+pub struct MaterialCellInner<T>
 where
   T: MaterialCPUResource,
 {
   property_changed: bool,
-  bindgroups_dirty: bool,
   material: T,
-  last_material: Option<T>,
+  bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
+  last_material: Option<T>, // todo
   gpu: Option<T::GPU>,
-  handle: MaterialHandle,
 }
 
-impl<T: MaterialCPUResource> MaterialCell<T> {
-  pub fn new(material: T, handle: MaterialHandle) -> Self {
+impl<T: MaterialCPUResource> MaterialCellInner<T> {
+  pub fn new(material: T) -> Self {
     Self {
       property_changed: true,
-      bindgroups_dirty: true,
+      bindgroup_watcher: Default::default(),
       material,
       last_material: None,
       gpu: None,
-      handle,
     }
   }
 
   fn refresh_cache(&mut self) {
     self.property_changed = false;
-    self.bindgroups_dirty = false;
+    self.bindgroup_watcher.dirty.set(false);
     self.last_material = self.material.clone().into();
   }
 }
@@ -160,16 +154,6 @@ pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub model_info: Option<(&'b Mat4<f32>, &'b TransformGPU)>,
   pub active_mesh: Option<&'b dyn Mesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
-}
-
-impl<'a> SceneMaterialRenderPrepareCtxBase<'a> {
-  pub fn material_ctx_empty<'b>(&'a mut self) -> SceneMaterialRenderPrepareCtx<'a, 'b> {
-    SceneMaterialRenderPrepareCtx {
-      model_info: None,
-      active_mesh: None,
-      base: self,
-    }
-  }
 }
 
 impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
@@ -190,9 +174,6 @@ pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub active_camera: &'a CameraData,
   pub camera_gpu: &'a CameraBindgroup,
   pub pass: &'a PassTargetFormatInfo,
-  pub textures: &'a mut WatchedArena<SceneTexture2D>,
-  pub texture_cubes: &'a mut WatchedArena<SceneTextureCube>,
-  pub reference_finalization: &'a ReferenceFinalization,
   pub resources: &'a mut GPUResourceCache,
 }
 
@@ -216,57 +197,73 @@ pub struct PipelineCreateCtx<'a> {
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {
-  pub pipelines: &'a PipelineResourceManager,
+  pub resources: &'a GPUResourceCache,
   pub model_gpu: Option<&'a TransformGPU>,
   pub active_mesh: Option<&'a dyn Mesh>,
   pub camera_gpu: &'a CameraBindgroup,
   pub pass: &'a PassTargetFormatInfo,
 }
 
+impl<'a> SceneMaterialPassSetupCtx<'a> {
+  pub fn pipeline_ctx(&self) -> PipelineCreateCtx {
+    PipelineCreateCtx {
+      layouts: &self.resources.layouts,
+      active_mesh: self.active_mesh,
+      pass: self.pass,
+    }
+  }
+}
+
 pub trait Material {
-  /// When material's referenced bindable resources(outer ubo, texture) reference has changed
-  /// This will be called, and the implementation should dirty it's inner bindgroups
-  fn on_ref_resource_changed(&mut self);
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, ctx: &SceneMaterialPassSetupCtx<'a>);
+  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T> Material for MaterialCell<T>
+impl<T> Material for MaterialCellInner<T>
 where
   T: 'static,
   T: MaterialCPUResource,
+  T::GPU: PipelineRequester,
+  // <T::GPU as PipelineRequester>::Container:
+  //   PipelineVariantContainer<Key = <T::GPU as PipelineRequester>::Container::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
     if let Some(self_gpu) = &mut self.gpu {
-      if self.property_changed || self.bindgroups_dirty {
-        if self_gpu.update(&self.material, gpu, ctx, self.bindgroups_dirty) {
-          self.gpu = T::create(&mut self.material, self.handle, gpu, ctx).into();
+      if self.property_changed || self.bindgroup_watcher.dirty.get() {
+        if self_gpu.update(&self.material, gpu, ctx, &self.bindgroup_watcher) {
+          self.gpu = T::create(&mut self.material, gpu, ctx, &self.bindgroup_watcher).into();
         }
         self.refresh_cache();
       }
     } else {
-      self.gpu = T::create(&mut self.material, self.handle, gpu, ctx).into();
+      self.gpu = T::create(&mut self.material, gpu, ctx, &self.bindgroup_watcher).into();
       self.refresh_cache();
     }
 
-    self
-      .gpu
-      .as_mut()
-      .unwrap()
-      .request_pipeline(&self.material, gpu, ctx);
+    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
+    let container = pipelines.get_cache_mut::<T::GPU>();
+
+    let m_gpu = self.gpu.as_mut().unwrap();
+    let key = m_gpu.pipeline_key(&self.material, &pipeline_ctx);
+
+    container.request(&key, || {
+      m_gpu.create_pipeline(&self.material, &gpu.device, &pipeline_ctx)
+    });
   }
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx<'a>,
-  ) {
-    self.gpu.as_ref().unwrap().setup_pass(pass, ctx)
-  }
-  fn on_ref_resource_changed(&mut self) {
-    self.bindgroups_dirty = true;
+
+  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
+    let gpu = self.gpu.as_ref().unwrap();
+
+    let container = ctx.resources.pipeline_resource.get_cache::<T::GPU>();
+    let pipeline_ctx = ctx.pipeline_ctx();
+    let key = gpu.pipeline_key(&self.material, &pipeline_ctx);
+    let pipeline = container.retrieve(&key);
+    pass.set_pipeline_owned(pipeline);
+
+    gpu.setup_pass_bindgroup(pass, ctx)
   }
 
   fn as_any(&self) -> &dyn Any {
@@ -279,18 +276,36 @@ where
   }
 }
 
-pub type CommonPipelineCache = TopologyPipelineVariant<StatePipelineVariant<PipelineUnit>>;
+impl<T> Material for MaterialCell<T>
+where
+  T: 'static,
+  T: MaterialCPUResource,
+  T::GPU: PipelineRequester,
+  // <T::GPU as PipelineRequester>::Container:
+  //   PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
+  T::GPU: MaterialGPUResource<Source = T>,
+{
+  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
+    let mut inner = self.inner.borrow_mut();
+    inner.update(gpu, ctx)
+  }
 
-pub struct CommonPipelineVariantKey(pub ValueID<MaterialStates>, pub wgpu::PrimitiveTopology);
+  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
+    let inner = self.inner.borrow();
+    inner.setup_pass(pass, ctx)
+  }
 
-impl AsRef<ValueID<MaterialStates>> for CommonPipelineVariantKey {
-  fn as_ref(&self) -> &ValueID<MaterialStates> {
-    &self.0
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    {
+      let mut inner = self.inner.borrow_mut();
+      inner.as_any_mut();
+    }
+    self
   }
 }
 
-impl AsRef<wgpu::PrimitiveTopology> for CommonPipelineVariantKey {
-  fn as_ref(&self) -> &wgpu::PrimitiveTopology {
-    &self.1
-  }
-}
+pub type CommonPipelineCache<T = PipelineUnit> = TopologyPipelineVariant<StatePipelineVariant<T>>;

@@ -9,6 +9,7 @@ pub use view::*;
 
 pub mod default_scene;
 pub use default_scene::*;
+pub mod helpers;
 
 use interphaser::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
@@ -16,6 +17,8 @@ use rendiation_webgpu::GPU;
 use winit::event::{Event, WindowEvent};
 
 use crate::*;
+
+use self::helpers::axis::AxisHelper;
 
 pub struct Viewer {
   _counter: Counter,
@@ -115,8 +118,9 @@ pub struct ViewerInner {
 }
 
 pub struct Viewer3dContent {
-  scene: Scene,
-  controller: ControllerWinitAdapter<OrbitController>,
+  pub scene: Scene,
+  pub controller: ControllerWinitAdapter<OrbitController>,
+  pub axis: AxisHelper,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -137,11 +141,11 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn render(&mut self, target: FrameTarget, gpu: &GPU, scene: &mut Viewer3dContent) {
-    scene.scene.maintain(&gpu.device, &gpu.queue);
+    scene.scene.maintain(gpu);
 
     self.engine.output = target.into();
 
-    self.pipeline.render_simple(&self.engine, &mut scene.scene)
+    self.pipeline.render_simple(&self.engine, scene)
   }
 }
 
@@ -154,10 +158,16 @@ impl Viewer3dContent {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    Self { scene, controller }
+    let axis = AxisHelper::new(&mut scene);
+
+    Self {
+      scene,
+      controller,
+      axis,
+    }
   }
 
-  pub fn resize_view(&mut self, size: (f32, f32)) {
+  fn resize_view(&mut self, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
       camera.projection.resize(size)
     }
@@ -175,13 +185,9 @@ impl Viewer3dContent {
 
   pub fn update_state(&mut self) {
     if let Some(camera) = &mut self.scene.active_camera {
-      let node = self
-        .scene
-        .components
-        .nodes
-        .get_node_mut(camera.node)
-        .data_mut();
-      self.controller.update(node);
+      camera.node.mutate(|node| {
+        self.controller.update(node);
+      });
     }
   }
 }

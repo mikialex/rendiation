@@ -5,31 +5,31 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 
-mod buffer;
 mod cache;
 mod encoder;
-mod queue;
-mod render_target;
+mod pass;
+mod pipeline;
 mod sampler;
 mod surface;
 mod texture;
+mod types;
 mod uniform;
-
-use std::cell::RefCell;
 
 pub use cache::*;
 pub use encoder::*;
-pub use queue::*;
-pub use render_target::*;
+pub use pass::*;
+pub use pipeline::*;
 pub use sampler::*;
 pub use surface::*;
 pub use texture::*;
+pub use types::*;
 pub use uniform::*;
 
-pub use wgpu::*;
+use std::cell::RefCell;
 
 use bytemuck::Pod;
 use rendiation_texture_types::Size;
+pub use wgpu::*;
 
 pub struct If<const B: bool>;
 pub trait True {}
@@ -55,18 +55,14 @@ impl BindableResource for wgpu::Sampler {
 }
 
 pub trait Renderable {
-  fn update(&mut self, gpu: &GPU, encoder: &mut wgpu::CommandEncoder) {
+  fn update(&mut self, gpu: &GPU, encoder: &mut GPUCommandEncoder) {
     // assume all gpu stuff prepared, and do nothing
   }
-  fn setup_pass<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>);
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>);
 }
 
 pub trait RenderPassCreator<T> {
-  fn create<'a>(
-    &'a self,
-    target: &'a T,
-    encoder: &'a mut wgpu::CommandEncoder,
-  ) -> wgpu::RenderPass<'a>;
+  fn create<'a>(&'a self, target: &'a T, encoder: &'a mut GPUCommandEncoder) -> GPURenderPass<'a>;
 
   // fn get_color_formats(&self) -> Vec<wgpu::TextureFormat>;
   // fn get_depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
@@ -77,7 +73,7 @@ pub struct GPU {
   adaptor: wgpu::Adapter,
   pub device: wgpu::Device,
   pub queue: wgpu::Queue,
-  pub encoder: RefCell<wgpu::CommandEncoder>,
+  pub encoder: RefCell<GPUCommandEncoder>,
 }
 
 pub trait SurfaceProvider {
@@ -106,6 +102,7 @@ impl GPU {
       .request_adapter(&wgpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: None,
+        force_fallback_adapter: false,
       })
       .await
       .expect("No suitable GPU adapters found on the system!");
@@ -118,6 +115,7 @@ impl GPU {
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
       label: "Main GPU encoder".into(),
     });
+    let encoder = GPUCommandEncoder::new(encoder);
 
     let encoder = RefCell::new(encoder);
 
@@ -141,6 +139,7 @@ impl GPU {
       .request_adapter(&wgpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: Some(&surface),
+        force_fallback_adapter: false,
       })
       .await
       .expect("No suitable GPU adapters found on the system!");
@@ -155,6 +154,7 @@ impl GPU {
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
       label: "Main GPU encoder".into(),
     });
+    let encoder = GPUCommandEncoder::new(encoder);
 
     let encoder = RefCell::new(encoder);
 
@@ -171,14 +171,15 @@ impl GPU {
   }
 
   pub fn submit(&self) {
-    let mut encoder = self
+    let encoder = self
       .device
       .create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: "Main GPU encoder".into(),
       });
+    let mut encoder = GPUCommandEncoder::new(encoder);
 
     let mut current_encoder = self.encoder.borrow_mut();
-    let current_encoder: &mut wgpu::CommandEncoder = &mut current_encoder;
+    let current_encoder: &mut GPUCommandEncoder = &mut current_encoder;
 
     std::mem::swap(current_encoder, &mut encoder);
 

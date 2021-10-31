@@ -46,6 +46,33 @@ where
   }
 }
 
+impl<T, C: LayoutAble> LayoutAble for If<T, C> {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+    if let Some(inner) = &mut self.inner {
+      inner.layout(constraint, ctx)
+    } else {
+      LayoutResult {
+        size: constraint.min(),
+        baseline_offset: 0.,
+      }
+    }
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    if let Some(inner) = &mut self.inner {
+      inner.set_position(position)
+    }
+  }
+}
+
+impl<T, C: Presentable> Presentable for If<T, C> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    if let Some(inner) = &mut self.inner {
+      inner.render(builder)
+    }
+  }
+}
+
 /// if item's key not changed, we consider this item should update not destroy
 pub trait IdentityKeyed {
   type Key: PartialEq;

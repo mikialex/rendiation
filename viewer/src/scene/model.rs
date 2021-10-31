@@ -1,120 +1,98 @@
-use std::marker::PhantomData;
+use std::cell::RefCell;
 
 use rendiation_renderable_mesh::group::MeshDrawGroup;
-use rendiation_webgpu::PipelineResourceManager;
+use rendiation_webgpu::GPURenderPass;
 
 use super::*;
 
-pub trait Model {
-  fn material(&self) -> MaterialHandle;
-  fn mesh(&self) -> MeshHandle;
-  fn group(&self) -> MeshDrawGroup;
-  fn node(&self) -> SceneNodeHandle;
+#[derive(Clone)]
+pub struct MeshModel {
+  pub inner: Rc<RefCell<MeshModelInner>>,
 }
 
-pub struct TypedHandle<T, H> {
-  pub(crate) handle: H,
-  pub(crate) ty: PhantomData<T>,
-}
-
-impl<T, H: Clone> Clone for TypedHandle<T, H> {
-  fn clone(&self) -> Self {
+impl MeshModel {
+  // todo add type constraint
+  pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
+    material: Ma,
+    mesh: Me,
+    node: SceneNode,
+  ) -> Self {
+    let inner = MeshModelInner {
+      material: Box::new(material),
+      mesh: Box::new(mesh),
+      group: Default::default(),
+      node,
+    };
     Self {
-      handle: self.handle.clone(),
-      ty: PhantomData,
+      inner: Rc::new(RefCell::new(inner)),
     }
   }
 }
 
-impl<T, H: Copy> Copy for TypedHandle<T, H> {}
-
-pub type TypedMaterialHandle<T> = TypedHandle<T, MaterialHandle>;
-pub type TypedMeshHandle<T> = TypedHandle<T, MeshHandle>;
-
-pub struct MeshModel<Ma, Me> {
-  pub material: TypedMaterialHandle<Ma>,
-  pub mesh: TypedMeshHandle<Me>,
-  pub group: MeshDrawGroup,
-  pub node: SceneNodeHandle,
-}
-
-impl SceneRenderable for dyn Model {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    components: &mut SceneComponents,
-  ) {
-    let material = components
-      .materials
-      .get_mut(self.material())
-      .unwrap()
-      .as_mut();
-    let mesh = components.meshes.get_mut(self.mesh()).unwrap();
-    let node = components.nodes.get_node_mut(self.node()).data_mut();
-
-    let mut ctx = SceneMaterialRenderPrepareCtx {
-      base,
-      model_info: node.get_model_gpu(gpu).into(),
-      active_mesh: mesh.as_ref().into(),
-    };
-
-    material.update(gpu, &mut ctx);
-
-    mesh.update(gpu, &mut base.resources.custom_storage);
+impl SceneRenderable for MeshModel {
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+    let mut inner = self.inner.borrow_mut();
+    inner.update(gpu, base)
   }
 
   fn setup_pass<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    components: &'a SceneComponents,
-    camera_gpu: &'a CameraBindgroup,
-    pipeline_resource: &'a PipelineResourceManager,
-    pass_info: &'a PassTargetFormatInfo,
+    &self,
+    pass: &mut GPURenderPass<'a>,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+    pass_info: &PassTargetFormatInfo,
   ) {
-    let material = components.materials.get(self.material()).unwrap().as_ref();
-    let node = components.nodes.get_node(self.node()).data();
-    let mesh = components.meshes.get(self.mesh()).unwrap().as_ref();
-
-    let ctx = SceneMaterialPassSetupCtx {
-      pass: pass_info,
-      camera_gpu,
-      model_gpu: node.gpu.as_ref().unwrap().into(),
-      pipelines: pipeline_resource,
-      active_mesh: mesh.into(),
-    };
-    material.setup_pass(pass, &ctx);
-
-    let mesh = components.meshes.get(self.mesh()).unwrap();
-    mesh.setup_pass_and_draw(pass, self.group());
+    let inner = self.inner.borrow();
+    inner.setup_pass(pass, camera_gpu, resources, pass_info)
   }
 }
 
-impl<Ma, Me> Model for MeshModel<Ma, Me>
-where
-  // constrain the model's mesh gpu layout and material requirement must be same
-  Me: GPUMeshLayoutSupport,
-  Ma: MaterialMeshLayoutRequire<VertexInput = Me::VertexInput>,
-{
-  fn material(&self) -> MaterialHandle {
-    self.material.handle
-  }
-
-  fn mesh(&self) -> MeshHandle {
-    self.mesh.handle
-  }
-
-  fn group(&self) -> MeshDrawGroup {
-    self.group
-  }
-
-  fn node(&self) -> SceneNodeHandle {
-    self.node
-  }
+pub struct MeshModelInner {
+  pub material: Box<dyn Material>,
+  pub mesh: Box<dyn Mesh>,
+  pub group: MeshDrawGroup,
+  pub node: SceneNode,
 }
 
-impl Scene {
-  pub fn add_model(&mut self, model: impl Model + 'static) -> ModelHandle {
-    self.models.insert(Box::new(model))
+impl SceneRenderable for MeshModelInner {
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+    let material = &mut self.material;
+    let mesh = &mut self.mesh;
+
+    self.node.mutate(|node| {
+      let mut ctx = SceneMaterialRenderPrepareCtx {
+        base,
+        model_info: node.get_model_gpu(gpu).into(),
+        active_mesh: mesh.as_ref().into(),
+      };
+
+      material.update(gpu, &mut ctx);
+
+      mesh.update(gpu, &mut base.resources.custom_storage);
+    });
+  }
+
+  fn setup_pass<'a>(
+    &self,
+    pass: &mut GPURenderPass<'a>,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+    pass_info: &PassTargetFormatInfo,
+  ) {
+    let material = &self.material;
+    let mesh = &self.mesh;
+
+    self.node.visit(|node| {
+      let ctx = SceneMaterialPassSetupCtx {
+        pass: pass_info,
+        camera_gpu,
+        model_gpu: node.gpu.as_ref().unwrap().into(),
+        resources,
+        active_mesh: mesh.as_ref().into(),
+      };
+      material.setup_pass(pass, &ctx);
+
+      mesh.setup_pass_and_draw(pass, self.group);
+    });
   }
 }

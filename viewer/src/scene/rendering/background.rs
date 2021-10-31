@@ -1,4 +1,4 @@
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::{GPURenderPass, GPU};
 
 use crate::*;
 
@@ -13,35 +13,29 @@ impl PassContent for BackGroundRendering {
     pass_info: &PassTargetFormatInfo,
   ) {
     if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu, &scene.components.nodes);
+      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,
         camera_gpu,
         pass: pass_info,
-        textures: &mut scene.texture_2ds,
-        texture_cubes: &mut scene.texture_cubes,
-        reference_finalization: &scene.reference_finalization,
         resources: &mut scene.resources,
       };
 
-      scene
-        .background
-        .update(gpu, &mut base, &mut scene.components);
+      scene.background.update(gpu, &mut base);
     }
   }
 
   fn setup_pass<'a>(
     &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
+    pass: &mut GPURenderPass<'a>,
     scene: &'a Scene,
     pass_info: &'a PassTargetFormatInfo,
   ) {
     scene.background.setup_pass(
       pass,
-      &scene.components,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
-      &scene.resources.pipeline_resource,
+      &scene.resources,
       pass_info,
     );
   }

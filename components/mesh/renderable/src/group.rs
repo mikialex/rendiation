@@ -51,6 +51,12 @@ pub enum MeshDrawGroup {
   SubMesh(usize),
 }
 
+impl Default for MeshDrawGroup {
+  fn default() -> Self {
+    Self::Full
+  }
+}
+
 impl<T: AbstractMesh> GroupedMesh<T> {
   pub fn new(mesh: T, groups: MeshGroupsInfo) -> Self {
     Self { mesh, groups }

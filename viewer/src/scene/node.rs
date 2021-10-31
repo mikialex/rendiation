@@ -1,10 +1,13 @@
+use std::{cell::RefCell, rc::Rc};
+
+use arena_tree::ArenaTree;
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
 use rendiation_webgpu::*;
 
-use super::{Scene, SceneNodeHandle};
+use super::SceneNodeHandle;
 
-pub struct SceneNode {
+pub struct SceneNodeData {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
   pub net_visible: bool,
@@ -12,7 +15,7 @@ pub struct SceneNode {
   pub gpu: Option<TransformGPU>,
 }
 
-impl Default for SceneNode {
+impl Default for SceneNodeData {
   fn default() -> Self {
     Self {
       visible: true,
@@ -24,17 +27,17 @@ impl Default for SceneNode {
   }
 }
 
-impl Transformed3DControllee for SceneNode {
+impl Transformed3DControllee for SceneNodeData {
   fn matrix(&self) -> &Mat4<f32> {
-    &self.world_matrix
+    &self.local_matrix
   }
 
   fn matrix_mut(&mut self) -> &mut Mat4<f32> {
-    &mut self.world_matrix
+    &mut self.local_matrix
   }
 }
 
-impl SceneNode {
+impl SceneNodeData {
   pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
@@ -62,78 +65,81 @@ impl SceneNode {
   }
 }
 
-impl Scene {
-  pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> SceneNodeHandle {
-    let mut node = SceneNode::default();
-    builder(&mut node, self);
-    let new = self.components.nodes.create_node(node);
-    let root = self.get_root_handle();
-    self.components.nodes.node_add_child_by_id(root, new);
-    new
+#[derive(Clone)]
+struct SceneNodeRef {
+  nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
+  handle: SceneNodeHandle,
+}
+
+impl Drop for SceneNodeRef {
+  fn drop(&mut self) {
+    let mut nodes = self.nodes.borrow_mut();
+    nodes.free_node(self.handle)
+  }
+}
+
+pub struct SceneNode {
+  nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
+  parent: Option<Rc<SceneNodeRef>>,
+  inner: Rc<SceneNodeRef>,
+}
+
+impl SceneNode {
+  pub fn from_root(nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>) -> Self {
+    let nodes_info = nodes.borrow();
+    let root = SceneNodeRef {
+      nodes: nodes.clone(),
+      handle: nodes_info.root(),
+    };
+    Self {
+      nodes: nodes.clone(),
+      parent: None,
+      inner: Rc::new(root),
+    }
   }
 
-  pub fn get_root_handle(&self) -> SceneNodeHandle {
-    self.components.nodes.get_root_node().handle()
-  }
-  pub fn get_root(&self) -> &SceneNode {
-    self.components.nodes.get_root_node().data()
-  }
-
-  pub fn get_root_node_mut(&mut self) -> &mut SceneNode {
-    self.components.nodes.get_root_node_mut().data_mut()
-  }
-
-  pub fn add_to_scene_root(&mut self, child_handle: SceneNodeHandle) {
-    self.node_add_child_by_handle(self.components.nodes.root(), child_handle);
-  }
-
-  pub fn node_add_child_by_handle(
-    &mut self,
-    parent_handle: SceneNodeHandle,
-    child_handle: SceneNodeHandle,
-  ) {
-    let (parent, child) = self
-      .components
+  pub fn create_child(&self) -> SceneNode {
+    let handle = self
       .nodes
-      .get_parent_child_pair(parent_handle, child_handle);
-    parent.add(child);
+      .borrow_mut()
+      .create_node(SceneNodeData::default());
+    let inner = SceneNodeRef {
+      nodes: self.nodes.clone(),
+      handle,
+    };
+    Self {
+      nodes: self.nodes.clone(),
+      parent: Some(self.inner.clone()),
+      inner: Rc::new(inner),
+    }
   }
 
-  pub fn node_remove_child_by_handle(
-    &mut self,
-    parent_handle: SceneNodeHandle,
-    child_handle: SceneNodeHandle,
-  ) {
-    let (parent, child) = self
-      .components
-      .nodes
-      .get_parent_child_pair(parent_handle, child_handle);
-    parent.remove(child);
+  pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
+    let mut nodes = self.nodes.borrow_mut();
+    let node = nodes.get_node_mut(self.inner.handle).data_mut();
+    f(node)
   }
 
-  pub fn get_node(&self, handle: SceneNodeHandle) -> &SceneNode {
-    self.components.nodes.get_node(handle).data()
+  pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
+    let nodes = self.nodes.borrow();
+    let node = nodes.get_node(self.inner.handle).data();
+    f(node)
   }
+}
 
-  pub fn get_node_mut(&mut self, handle: SceneNodeHandle) -> &mut SceneNode {
-    self.components.nodes.get_node_mut(handle).data_mut()
-  }
-
-  pub fn create_new_node(&mut self) -> &mut SceneNode {
-    let node = SceneNode::default();
-    let handle = self.components.nodes.create_node(node);
-    self.components.nodes.get_node_mut(handle).data_mut()
-  }
-
-  pub fn free_node(&mut self, handle: SceneNodeHandle) {
-    self.components.nodes.free_node(handle);
+impl Drop for SceneNode {
+  fn drop(&mut self) {
+    let mut _nodes = self.nodes.borrow_mut();
+    if let Some(_parent) = self.parent.as_ref() {
+      // todo buggy
+      // nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
+    }
   }
 }
 
 pub struct TransformGPU {
   pub ubo: wgpu::Buffer,
-  pub bindgroup: wgpu::BindGroup,
-  // pub layout: wgpu::BindGroupLayout,
+  pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
 impl BindGroupLayoutProvider for TransformGPU {
@@ -162,7 +168,7 @@ impl TransformGPU {
           matrix: mat4x4<f32>;
       };
       [[group(0), binding(0)]]
-      var model: ModelTransform;
+      var<uniform> model: ModelTransform;
     "#
   }
 
@@ -189,6 +195,8 @@ impl TransformGPU {
       }],
       label: None,
     });
+
+    let bindgroup = Rc::new(bindgroup);
 
     Self { ubo, bindgroup }
   }

@@ -33,8 +33,9 @@ impl System for DefaultSystem {
 }
 
 pub struct UpdateCtx<'a> {
+  /// the incremental time stamp since the application started
   pub time_stamp: Duration,
-  pub layout_changed: bool, // todo private
+  pub layout_changed: bool,
   pub fonts: &'a FontManager,
   pub last_frame_perf_info: &'a PerformanceInfo,
 }

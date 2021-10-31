@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::rc::Rc;
 
 use crate::*;
 use anymap::AnyMap;
@@ -11,7 +11,7 @@ use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshDrawGroup, MeshGroup},
   mesh::{AbstractMesh, IndexedMesh, NoneIndexedMesh, TriangleList},
   vertex::Vertex,
-  GPUMeshData, MeshGPU,
+  MeshGPU,
 };
 
 pub type FatlineData = NoneIndexedMesh<FatLineVertex>;
@@ -23,22 +23,18 @@ pub struct FatlineMeshCell {
 
 pub struct FatlineMeshGPU {
   range_full: MeshGroup,
-  vertex: wgpu::Buffer,
+  vertex: Rc<wgpu::Buffer>,
   /// All fatline gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
 }
 
 impl FatlineMeshGPU {
-  pub fn setup_pass_and_draw<'a>(
-    &'a self,
-    pass: &mut wgpu::RenderPass<'a>,
-    range: Option<MeshGroup>,
-  ) {
+  pub fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, range: Option<MeshGroup>) {
     let range = range.unwrap_or(self.range_full);
 
     self.instance.setup_pass(pass);
 
-    pass.set_vertex_buffer(1, self.vertex.slice(..));
+    pass.set_vertex_buffer_owned(1, &self.vertex);
 
     pass.draw(self.instance.get_range_full().into(), range.into());
   }
@@ -54,7 +50,7 @@ impl From<FatlineData> for FatlineMeshCell {
 }
 
 impl Mesh for FatlineMeshCell {
-  fn setup_pass_and_draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group: MeshDrawGroup) {
+  fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     self
       .gpu
       .as_ref()
@@ -79,6 +75,7 @@ impl Mesh for FatlineMeshCell {
           contents: vertex,
           usage: wgpu::BufferUsages::VERTEX,
         });
+      let vertex = Rc::new(vertex);
 
       let instance = storage
         .entry()
@@ -103,23 +100,23 @@ impl Mesh for FatlineMeshCell {
   }
 }
 
-pub type FatlineMeshHandle = TypedHandle<FatlineMeshCell, MeshHandle>;
+// pub type FatlineMeshHandle = TypedHandle<FatlineMeshCell, MeshHandle>;
 
-impl Scene {
-  pub fn add_fatline_mesh<M>(&mut self, mesh: FatlineData) -> FatlineMeshHandle
-  where
-    M: GPUMeshData + 'static,
-  {
-    let handle = self
-      .components
-      .meshes
-      .insert(Box::new(FatlineMeshCell::from(mesh)));
-    TypedMeshHandle {
-      handle,
-      ty: PhantomData,
-    }
-  }
-}
+// impl Scene {
+//   pub fn add_fatline_mesh<M>(&mut self, mesh: FatlineData) -> FatlineMeshHandle
+//   where
+//     M: GPUMeshData + 'static,
+//   {
+//     let handle = self
+//       .components
+//       .meshes
+//       .insert(Box::new(FatlineMeshCell::from(mesh)));
+//     TypedMeshHandle {
+//       handle,
+//       ty: PhantomData,
+//     }
+//   }
+// }
 
 use bytemuck::{Pod, Zeroable};
 

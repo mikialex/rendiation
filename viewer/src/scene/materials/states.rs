@@ -1,4 +1,6 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, rc::Rc, sync::Mutex};
+
+use rendiation_webgpu::{PipelineVariantContainer, PipelineVariantKey};
 
 use crate::scene::{ValueID, ValueIDGenerator};
 
@@ -60,84 +62,21 @@ impl<T> Default for StatePipelineVariant<T> {
   }
 }
 
-pub trait PipelineVariantContainer<V>: Default {
-  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline);
-
-  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline;
-}
-
-pub enum PipelineUnit {
-  Created(wgpu::RenderPipeline),
-  Empty,
-}
-impl Default for PipelineUnit {
-  fn default() -> Self {
-    PipelineUnit::Empty
-  }
-}
-
-impl<V> PipelineVariantContainer<V> for PipelineUnit {
-  fn request(&mut self, _variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
-    if let PipelineUnit::Empty = self {
-      *self = PipelineUnit::Created(creator());
-    }
-  }
-  fn retrieve(&self, _variant: &V) -> &wgpu::RenderPipeline {
-    match self {
-      PipelineUnit::Created(p) => p,
-      PipelineUnit::Empty => unreachable!(),
-    }
-  }
-}
-
-impl<T, V> PipelineVariantContainer<V> for StatePipelineVariant<T>
-where
-  T: PipelineVariantContainer<V>,
-  V: AsRef<ValueID<MaterialStates>>,
-{
-  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+impl<T: PipelineVariantContainer> PipelineVariantContainer for StatePipelineVariant<T> {
+  type Key = PipelineVariantKey<T::Key, ValueID<MaterialStates>>;
+  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
     self
       .pipelines
-      .entry(*variant.as_ref())
+      .entry(variant.current)
       .or_insert_with(Default::default)
-      .request(variant, creator);
+      .request(&variant.inner, creator);
   }
 
-  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
+  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
     self
       .pipelines
-      .get(variant.as_ref())
+      .get(&variant.current)
       .unwrap()
-      .retrieve(variant)
-  }
-}
-
-pub struct TopologyPipelineVariant<T> {
-  pipelines: [Option<T>; 5],
-}
-
-impl<T> Default for TopologyPipelineVariant<T> {
-  fn default() -> Self {
-    Self {
-      pipelines: [None, None, None, None, None],
-    }
-  }
-}
-
-impl<T, V> PipelineVariantContainer<V> for TopologyPipelineVariant<T>
-where
-  T: PipelineVariantContainer<V>,
-  V: AsRef<wgpu::PrimitiveTopology>,
-{
-  fn request(&mut self, variant: &V, creator: impl FnOnce() -> wgpu::RenderPipeline) {
-    let index = *variant.as_ref() as usize;
-    self.pipelines[index]
-      .get_or_insert_with(Default::default)
-      .request(variant, creator);
-  }
-
-  fn retrieve(&self, variant: &V) -> &wgpu::RenderPipeline {
-    let index = *variant.as_ref() as usize;
-    self.pipelines[index].as_ref().unwrap().retrieve(variant)
+      .retrieve(&variant.inner)
   }
 }

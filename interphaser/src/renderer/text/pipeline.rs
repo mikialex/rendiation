@@ -169,7 +169,7 @@ impl TextRendererPipeline {
     self.transform.update(queue);
   }
 
-  pub fn draw<'r>(&'r self, render_pass: &mut wgpu::RenderPass<'r>, text: &'r GPUxUITextPrimitive) {
+  pub fn draw<'r>(&'r self, render_pass: &mut GPURenderPass<'r>, text: &'r GPUxUITextPrimitive) {
     render_pass.set_pipeline(&self.raw);
     render_pass.set_bind_group(0, &self.bindgroup, &[]);
     render_pass.set_vertex_buffer(0, text.vertex_buffer.slice(..));
@@ -182,7 +182,7 @@ impl TextRendererPipeline {
   pub fn update_cache(
     &mut self,
     device: &wgpu::Device,
-    encoder: &mut wgpu::CommandEncoder,
+    encoder: &mut GPUCommandEncoder,
     offset: (u32, u32),
     data: TextureWriteData,
   ) {
