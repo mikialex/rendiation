@@ -67,6 +67,16 @@ impl PassContent for AxisHelper {
   }
 }
 
+fn material(color: Vec3<f32>) -> impl Material {
+  let mut material = FlatMaterial {
+    color,
+    states: Default::default(),
+  };
+  material.states.depth_write_enabled = false;
+  material.states.depth_compare = wgpu::CompareFunction::Always;
+  MaterialCell::new(material)
+}
+
 impl AxisHelper {
   pub fn new(scene: &mut Scene) -> Self {
     let cylinder = CylinderMeshParameter {
@@ -81,28 +91,32 @@ impl AxisHelper {
     // let tip = SphereMeshParameter::default().tessellate();
     // let tip = MeshCell::new(mesh);
 
-    let mut material = FlatMaterial {
-      color: Vec3::new(1., 0., 0.),
-      states: Default::default(),
-    };
-    material.states.depth_write_enabled = false;
-    material.states.depth_compare = wgpu::CompareFunction::Always;
-    let material = MaterialCell::new(material);
-
     let x_node = scene.create_node(|node, _| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(10.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+      node.local_matrix = Mat4::lookat(
+        Vec3::new(-1., 0., 0.),
+        Vec3::splat(0.),
+        Vec3::new(0., 1., 0.),
+      );
     });
-    let x = MeshModel::new(material.clone(), cylinder.clone(), x_node);
+    let x = MeshModel::new(material(Vec3::new(1., 0., 0.)), cylinder.clone(), x_node);
 
     let y_node = scene.create_node(|node, _| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(10.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+      node.local_matrix = Mat4::lookat(
+        Vec3::new(0., -1., 0.),
+        Vec3::splat(0.),
+        Vec3::new(1., 0., 0.),
+      );
     });
-    let y = MeshModel::new(material.clone(), cylinder.clone(), y_node);
+    let y = MeshModel::new(material(Vec3::new(0., 1., 0.)), cylinder.clone(), y_node);
 
     let z_node = scene.create_node(|node, _| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(10.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+      node.local_matrix = Mat4::lookat(
+        Vec3::new(0., 0., -1.),
+        Vec3::splat(0.),
+        Vec3::new(0., 1., 0.),
+      );
     });
-    let z = MeshModel::new(material, cylinder, z_node);
+    let z = MeshModel::new(material(Vec3::new(0., 0., 1.)), cylinder, z_node);
 
     Self {
       enabled: true,

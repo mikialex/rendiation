@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+  cell::RefCell,
+  rc::{Rc, Weak},
+};
 
 use arena_tree::ArenaTree;
 use rendiation_algebra::*;
@@ -69,14 +72,40 @@ impl SceneNode {
 pub struct SceneNodeRef {
   nodes: Rc<RefCell<ArenaTree<SceneNode>>>,
   handle: SceneNodeHandle,
-  // parent: Option<Box<SceneNodeRef>>,
-  // children: Vec<SceneNodeRef>,
 }
 
 impl Drop for SceneNodeRef {
   fn drop(&mut self) {
     let mut nodes = self.nodes.borrow_mut();
-    // todo remove node
+    nodes.free_node(self.handle)
+  }
+}
+
+pub struct SceneNodeReal {
+  nodes: Rc<RefCell<ArenaTree<SceneNode>>>,
+  parent: Rc<SceneNodeRef>,
+  inner: Rc<SceneNodeRef>,
+}
+
+impl SceneNodeReal {
+  pub fn create_child(&self) -> SceneNodeReal {
+    let handle = self.nodes.borrow_mut().create_node(SceneNode::default());
+    let inner = SceneNodeRef {
+      nodes: self.nodes.clone(),
+      handle,
+    };
+    Self {
+      nodes: self.nodes.clone(),
+      parent: self.inner.clone(),
+      inner: Rc::new(inner),
+    }
+  }
+}
+
+impl Drop for SceneNodeReal {
+  fn drop(&mut self) {
+    let mut nodes = self.nodes.borrow_mut();
+    nodes.node_remove_child_by_id(self.parent.handle, self.inner.handle);
   }
 }
 
@@ -89,18 +118,6 @@ impl Scene {
     let root = nodes.root();
     nodes.node_add_child_by_id(root, new);
     new
-  }
-
-  pub fn create_node2(&mut self) -> SceneNodeRef {
-    let handle = self
-      .components
-      .nodes
-      .borrow_mut()
-      .create_node(SceneNode::default());
-    SceneNodeRef {
-      nodes: self.components.nodes.clone(),
-      handle,
-    }
   }
 
   pub fn get_root_handle(&self) -> SceneNodeHandle {
