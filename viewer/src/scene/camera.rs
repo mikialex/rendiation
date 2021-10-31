@@ -1,12 +1,10 @@
 use std::{ops::Deref, rc::Rc};
 
-use arena_tree::ArenaTree;
 use rendiation_algebra::*;
+use rendiation_webgpu::*;
 
 use crate::SceneNode;
 
-use super::SceneNodeData;
-use rendiation_webgpu::*;
 
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);

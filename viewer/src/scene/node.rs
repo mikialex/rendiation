@@ -129,8 +129,8 @@ impl SceneNode {
 
 impl Drop for SceneNode {
   fn drop(&mut self) {
-    let mut nodes = self.nodes.borrow_mut();
-    if let Some(parent) = self.parent.as_ref() {
+    let mut _nodes = self.nodes.borrow_mut();
+    if let Some(_parent) = self.parent.as_ref() {
       // todo buggy
       // nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
     }
