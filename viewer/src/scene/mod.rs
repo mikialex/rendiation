@@ -78,9 +78,9 @@ impl Scene {
       let node_data = this.data_mut();
       node_data.hierarchy_update(parent.map(|p| p.data()));
       if node_data.net_visible {
-        NextTraverseVisit::SkipChildren
-      } else {
         NextTraverseVisit::VisitChildren
+      } else {
+        NextTraverseVisit::SkipChildren
       }
     });
   }

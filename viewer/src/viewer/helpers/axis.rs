@@ -90,8 +90,8 @@ impl AxisHelper {
     let x_node = scene.root.create_child();
     x_node.mutate(|node| {
       node.local_matrix = Mat4::lookat(
-        Vec3::new(-1., 0., 0.),
         Vec3::splat(0.),
+        Vec3::new(1., 0., 0.),
         Vec3::new(0., 1., 0.),
       );
     });
@@ -100,8 +100,8 @@ impl AxisHelper {
     let y_node = scene.root.create_child();
     y_node.mutate(|node| {
       node.local_matrix = Mat4::lookat(
-        Vec3::new(0., -1., 0.),
         Vec3::splat(0.),
+        Vec3::new(0., 1., 0.),
         Vec3::new(1., 0., 0.),
       );
     });
@@ -110,8 +110,8 @@ impl AxisHelper {
     let z_node = scene.root.create_child();
     z_node.mutate(|node| {
       node.local_matrix = Mat4::lookat(
-        Vec3::new(0., 0., -1.),
         Vec3::splat(0.),
+        Vec3::new(0., 0., 1.),
         Vec3::new(0., 1., 0.),
       );
     });
