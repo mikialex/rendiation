@@ -5,9 +5,10 @@ use crate::*;
 
 pub struct AxisHelper {
   pub enabled: bool,
-  x: MeshModel,
-  y: MeshModel,
-  z: MeshModel,
+  pub root: SceneNode,
+  x: Arrow,
+  y: Arrow,
+  z: Arrow,
 }
 
 impl PassContent for AxisHelper {
@@ -18,6 +19,10 @@ impl PassContent for AxisHelper {
     _resource: &mut ResourcePoolInner,
     pass_info: &PassTargetFormatInfo,
   ) {
+    if !self.enabled {
+      return;
+    }
+
     if let Some(active_camera) = &mut scene.active_camera {
       let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
 
@@ -40,84 +45,125 @@ impl PassContent for AxisHelper {
     scene: &'a Scene,
     pass_info: &'a PassTargetFormatInfo,
   ) {
-    self.x.setup_pass(
+    if !self.enabled {
+      return;
+    }
+    self.x.setup_pass(pass, scene, pass_info);
+    self.y.setup_pass(pass, scene, pass_info);
+    self.z.setup_pass(pass, scene, pass_info);
+  }
+}
+
+struct Arrow {
+  cylinder: MeshModel,
+  tip: MeshModel,
+  root: SceneNode,
+}
+
+impl Arrow {
+  pub fn update(
+    &mut self,
+    gpu: &rendiation_webgpu::GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtxBase,
+  ) {
+    self.cylinder.update(gpu, ctx);
+    self.tip.update(gpu, ctx);
+  }
+
+  fn setup_pass<'a>(
+    &'a self,
+    pass: &mut rendiation_webgpu::GPURenderPass<'a>,
+    scene: &'a Scene,
+    pass_info: &'a PassTargetFormatInfo,
+  ) {
+    self.cylinder.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
       &scene.resources,
       pass_info,
     );
 
-    self.y.setup_pass(
-      pass,
-      scene.active_camera.as_ref().unwrap().expect_gpu(),
-      &scene.resources,
-      pass_info,
-    );
-
-    self.z.setup_pass(
+    self.tip.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
       &scene.resources,
       pass_info,
     );
   }
-}
 
-fn material(color: Vec3<f32>) -> impl Material {
-  let mut material = FlatMaterial {
-    color,
-    states: Default::default(),
-  };
-  material.states.depth_write_enabled = false;
-  material.states.depth_compare = wgpu::CompareFunction::Always;
-  MaterialCell::new(material)
+  fn new(
+    parent: &SceneNode,
+    color: Vec3<f32>,
+    cylinder_mesh: impl Mesh + 'static,
+    tip_mesh: impl Mesh + 'static,
+  ) -> Self {
+    fn material(color: Vec3<f32>) -> impl Material + Clone {
+      let mut material = FlatMaterial {
+        color: Vec4::new(color.x, color.y, color.z, 1.0),
+        states: Default::default(),
+      };
+      material.states.depth_write_enabled = false;
+      material.states.depth_compare = wgpu::CompareFunction::Always;
+      MaterialCell::new(material)
+    }
+    let material = material(color);
+
+    let root = parent.create_child();
+
+    let node_cylinder = root.create_child();
+    let cylinder = MeshModel::new(material.clone(), cylinder_mesh, node_cylinder);
+
+    let node_tip = root.create_child();
+    node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
+    let tip = MeshModel::new(material, tip_mesh, node_tip);
+
+    Self {
+      root,
+      cylinder,
+      tip,
+    }
+  }
 }
 
 impl AxisHelper {
-  pub fn new(scene: &mut Scene) -> Self {
+  pub fn new(parent: &SceneNode) -> Self {
+    let root = parent.create_child();
+
     let cylinder = CylinderMeshParameter {
       radius_top: 0.01,
       radius_bottom: 0.01,
-      height: 4.,
+      height: 2.,
       ..Default::default()
     }
     .tessellate();
     let cylinder = MeshCell::new(cylinder);
 
-    // let tip = SphereMeshParameter::default().tessellate();
-    // let tip = MeshCell::new(mesh);
+    let tip = CylinderMeshParameter {
+      radius_top: 0.0,
+      radius_bottom: 0.06,
+      height: 0.1,
+      ..Default::default()
+    }
+    .tessellate();
+    let tip = MeshCell::new(tip);
 
-    let x_node = scene.root.create_child();
-    x_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(
-        Vec3::splat(0.),
-        Vec3::new(1., 0., 0.),
-        Vec3::new(0., 1., 0.),
-      );
+    let x = Arrow::new(&root, Vec3::new(1., 0., 0.), cylinder.clone(), tip.clone());
+    x.root.mutate(|node| {
+      node.local_matrix = Mat4::rotate_z(f32::PI() / 2.);
     });
-    let x = MeshModel::new(material(Vec3::new(1., 0., 0.)), cylinder.clone(), x_node);
 
-    let y_node = scene.root.create_child();
-    y_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(
-        Vec3::splat(0.),
-        Vec3::new(0., 1., 0.),
-        Vec3::new(1., 0., 0.),
-      );
+    let y = Arrow::new(&root, Vec3::new(0., 1., 0.), cylinder.clone(), tip.clone());
+    y.root.mutate(|_| {
+      // the cylinder is z up, so do nothing
     });
-    let y = MeshModel::new(material(Vec3::new(0., 1., 0.)), cylinder.clone(), y_node);
 
-    let z_node = scene.root.create_child();
-    z_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(
-        Vec3::splat(0.),
-        Vec3::new(0., 0., 1.),
-        Vec3::new(0., 1., 0.),
-      );
+    let z = Arrow::new(&root, Vec3::new(0., 0., 1.), cylinder, tip);
+    z.root.mutate(|node| {
+      node.local_matrix = Mat4::rotate_x(f32::PI() / 2.);
     });
-    let z = MeshModel::new(material(Vec3::new(0., 0., 1.)), cylinder, z_node);
 
     Self {
+      root,
       enabled: true,
       x,
       y,

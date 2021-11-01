@@ -1,6 +1,6 @@
 use std::{borrow::Cow, cell::Cell, rc::Rc};
 
-use rendiation_algebra::Vec3;
+use rendiation_algebra::Vec4;
 use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
 
@@ -8,7 +8,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct FlatMaterial {
-  pub color: Vec3<f32>,
+  pub color: Vec4<f32>,
   pub states: MaterialStates,
 }
 
@@ -21,7 +21,7 @@ impl FlatMaterial {
     "
     [[block]]
     struct FlatMaterial {
-      color: vec3<f32>;
+      color: vec4<f32>;
     };
 
     [[group(1), binding(0)]]
@@ -36,7 +36,7 @@ impl FlatMaterial {
       entries: &[wgpu::BindGroupLayoutEntry {
         binding: 0,
         visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: UniformBuffer::<Vec3<f32>>::bind_layout(),
+        ty: UniformBuffer::<Vec4<f32>>::bind_layout(),
         count: None,
       }],
     })
@@ -72,7 +72,7 @@ impl FlatMaterial {
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return vec4<f32>(flat_material.color, 1.);
+          return flat_material.color;
       }}
       
       ",
@@ -134,7 +134,7 @@ impl FlatMaterial {
 
 pub struct FlatMaterialGPU {
   state_id: Cell<ValueID<MaterialStates>>,
-  _uniform: UniformBuffer<Vec3<f32>>,
+  _uniform: UniformBuffer<Vec4<f32>>,
   bindgroup: MaterialBindGroup,
 }
 
