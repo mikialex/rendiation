@@ -149,7 +149,7 @@ impl AxisHelper {
 
     let x = Arrow::new(&root, Vec3::new(1., 0., 0.), cylinder.clone(), tip.clone());
     x.root.mutate(|node| {
-      node.local_matrix = Mat4::rotate_z(f32::PI() / 2.);
+      node.local_matrix = Mat4::rotate_z(-f32::PI() / 2.);
     });
 
     let y = Arrow::new(&root, Vec3::new(0., 1., 0.), cylinder.clone(), tip.clone());
