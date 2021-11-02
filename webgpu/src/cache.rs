@@ -6,7 +6,7 @@ use std::{
 };
 
 pub struct BindGroupLayoutManager {
-  cache: UnsafeCell<HashMap<TypeId, wgpu::BindGroupLayout>>,
+  cache: UnsafeCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
 }
 
 pub trait BindGroupLayoutProvider {
@@ -23,12 +23,12 @@ impl BindGroupLayoutManager {
   pub fn retrieve<T: BindGroupLayoutProvider + Any>(
     &self,
     device: &wgpu::Device,
-  ) -> &wgpu::BindGroupLayout {
+  ) -> &Rc<wgpu::BindGroupLayout> {
     let map = self.cache.get();
     let map = unsafe { &mut *map };
     map
       .entry(TypeId::of::<T>())
-      .or_insert_with(|| T::layout(device))
+      .or_insert_with(|| Rc::new(T::layout(device)))
   }
 }
 

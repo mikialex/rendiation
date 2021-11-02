@@ -1,13 +1,13 @@
 use std::{borrow::Cow, rc::Rc};
 
 pub struct PipelineBuilder {
-  name: String,
-  shader_source: String,
-  layouts: Vec<Rc<wgpu::BindGroupLayout>>,
-  targets: Vec<wgpu::ColorTargetState>,
-  depth_stencil: Option<wgpu::DepthStencilState>,
-  vertex_buffers: Vec<wgpu::VertexBufferLayout<'static>>,
-  primitive_state: wgpu::PrimitiveState,
+  pub name: String,
+  pub shader_source: String,
+  pub layouts: Vec<Rc<wgpu::BindGroupLayout>>,
+  pub targets: Vec<wgpu::ColorTargetState>,
+  pub depth_stencil: Option<wgpu::DepthStencilState>,
+  pub vertex_buffers: Vec<wgpu::VertexBufferLayout<'static>>,
+  pub primitive_state: wgpu::PrimitiveState,
 }
 
 impl PipelineBuilder {
@@ -23,7 +23,7 @@ impl PipelineBuilder {
     self
   }
 
-  pub fn build(self, device: wgpu::Device) -> wgpu::RenderPipeline {
+  pub fn build(self, device: &wgpu::Device) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
       label: self.name.as_str().into(),
       source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(self.shader_source.as_str())),
