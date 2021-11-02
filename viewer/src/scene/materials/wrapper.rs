@@ -43,7 +43,7 @@ where
   ) -> <Self::Container as PipelineVariantContainer>::Key {
     self
       .state_id
-      .set(STATE_ID.lock().unwrap().get_uuid(source.states));
+      .set(STATE_ID.lock().unwrap().get_uuid(&source.states));
     self
       .gpu
       .pipeline_key(&source.material, ctx)
@@ -83,7 +83,7 @@ where
   ) -> Self::GPU {
     let gpu = self.material.create(gpu, ctx, bgw);
 
-    let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
+    let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 
     SceneMaterialGPU {
       state_id: Cell::new(state_id),

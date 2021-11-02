@@ -4,6 +4,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(option_result_unwrap_unchecked)]
+#![feature(hash_raw_entry)]
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
 

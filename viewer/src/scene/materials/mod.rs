@@ -226,8 +226,6 @@ where
   T: 'static,
   T: MaterialCPUResource,
   T::GPU: PipelineRequester,
-  // <T::GPU as PipelineRequester>::Container:
-  //   PipelineVariantContainer<Key = <T::GPU as PipelineRequester>::Container::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -281,8 +279,6 @@ where
   T: 'static,
   T: MaterialCPUResource,
   T::GPU: PipelineRequester,
-  // <T::GPU as PipelineRequester>::Container:
-  //   PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {

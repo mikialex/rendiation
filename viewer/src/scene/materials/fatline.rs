@@ -144,7 +144,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
   ) -> <Self::Container as PipelineVariantContainer>::Key {
     self
       .state_id
-      .set(STATE_ID.lock().unwrap().get_uuid(source.states));
+      .set(STATE_ID.lock().unwrap().get_uuid(&source.states));
     ().key_with(self.state_id.get())
       .key_with(ctx.active_mesh.unwrap().topology())
   }
@@ -185,7 +185,7 @@ impl MaterialCPUResource for FatLineMaterial {
       .push(_uniform.gpu().as_entire_binding())
       .build(&bindgroup_layout);
 
-    let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
+    let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 
     FatlineMaterialGPU {
       state_id: Cell::new(state_id),
