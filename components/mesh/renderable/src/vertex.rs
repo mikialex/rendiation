@@ -61,11 +61,11 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
 use rendiation_webgpu as gpu;
 #[cfg(feature = "webgpu")]
 impl gpu::VertexBufferSourceType for Vertex {
-  fn vertex_layout() -> gpu::VertexBufferLayout<'static> {
-    gpu::VertexBufferLayout {
+  fn vertex_layout() -> gpu::VertexBufferLayoutOwned {
+    gpu::VertexBufferLayoutOwned {
       array_stride: std::mem::size_of::<Vertex>() as u64,
       step_mode: gpu::VertexStepMode::Vertex,
-      attributes: &[
+      attributes: vec![
         gpu::VertexAttribute {
           format: gpu::VertexFormat::Float32x3,
           offset: 0,

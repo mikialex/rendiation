@@ -1,12 +1,14 @@
 use std::{borrow::Cow, rc::Rc};
 
+use crate::VertexBufferLayoutOwned;
+
 pub struct PipelineBuilder {
   pub name: String,
   pub shader_source: String,
   pub layouts: Vec<Rc<wgpu::BindGroupLayout>>,
   pub targets: Vec<wgpu::ColorTargetState>,
   pub depth_stencil: Option<wgpu::DepthStencilState>,
-  pub vertex_buffers: Vec<wgpu::VertexBufferLayout<'static>>,
+  pub vertex_buffers: Vec<VertexBufferLayoutOwned>,
   pub primitive_state: wgpu::PrimitiveState,
 }
 
@@ -37,13 +39,15 @@ impl PipelineBuilder {
       push_constant_ranges: &[],
     });
 
+    let vertex_buffers: Vec<_> = self.vertex_buffers.iter().map(|v| v.as_raw()).collect();
+
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
       label: None,
       layout: Some(&pipeline_layout),
       vertex: wgpu::VertexState {
         module: &shader,
         entry_point: "vs_main",
-        buffers: self.vertex_buffers.as_slice(),
+        buffers: vertex_buffers.as_slice(),
       },
       fragment: Some(wgpu::FragmentState {
         module: &shader,

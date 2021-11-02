@@ -392,7 +392,7 @@ fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32)) -> 
 }
 
 impl VertexBufferSourceType for UIVertex {
-  fn vertex_layout() -> wgpu::VertexBufferLayout<'static> {
+  fn vertex_layout() -> VertexBufferLayoutOwned {
     wgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<UIVertex>() as u64,
       step_mode: wgpu::VertexStepMode::Vertex,
@@ -414,6 +414,7 @@ impl VertexBufferSourceType for UIVertex {
         },
       ],
     }
+    .into()
   }
 
   fn get_shader_header() -> &'static str {

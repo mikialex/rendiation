@@ -1,6 +1,6 @@
 use anymap::AnyMap;
 use rendiation_renderable_mesh::{group::MeshDrawGroup, GPUMeshData, MeshGPU};
-use rendiation_webgpu::{GPURenderPass, GPU};
+use rendiation_webgpu::{GPURenderPass, VertexBufferLayoutOwned, GPU};
 use std::{cell::RefCell, rc::Rc};
 
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
@@ -23,7 +23,7 @@ where
 pub trait Mesh {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
   fn update(&mut self, gpu: &GPU, storage: &mut AnyMap);
-  fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout>;
+  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
 
@@ -70,7 +70,7 @@ impl<T: GPUMeshData> Mesh for MeshCellInner<T> {
     self.data.update(&mut self.gpu, &gpu.device);
   }
 
-  fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
+  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
     self.data.vertex_layout()
   }
 
