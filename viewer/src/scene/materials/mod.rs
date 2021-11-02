@@ -24,8 +24,8 @@ pub use env_background::*;
 
 use rendiation_algebra::Mat4;
 use rendiation_webgpu::{
-  BindGroupLayoutManager, GPURenderPass, PipelineRequester, PipelineResourceManager, PipelineUnit,
-  PipelineVariantContainer, TopologyPipelineVariant, GPU,
+  BindGroupLayoutManager, GPURenderPass, PipelineBuilder, PipelineRequester,
+  PipelineResourceManager, PipelineUnit, PipelineVariantContainer, TopologyPipelineVariant, GPU,
 };
 
 use crate::*;
@@ -70,6 +70,7 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
   fn create_pipeline(
     &self,
     source: &Self::Source,
+    builder: &PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline;

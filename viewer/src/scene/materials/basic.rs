@@ -19,26 +19,8 @@ impl MaterialMeshLayoutRequire for BasicMaterial {
   type VertexInput = Vec<Vertex>;
 }
 
-impl BasicMaterial {
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct BasicMaterial {
-      color: vec3<f32>;
-    };
-
-    [[group(1), binding(0)]]
-    var<uniform> basic_material: BasicMaterial;
-    
-    [[group(1), binding(1)]]
-    var r_color: texture_2d<f32>;
-
-    [[group(1), binding(2)]]
-    var r_sampler: sampler;
-    "
-  }
-
-  pub fn create_bindgroup_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+impl BindGroupLayoutProvider for BasicMaterial {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[
@@ -63,15 +45,34 @@ impl BasicMaterial {
       ],
     })
   }
+}
+
+impl BasicMaterial {
+  pub fn get_shader_header() -> &'static str {
+    "
+    [[block]]
+    struct BasicMaterial {
+      color: vec3<f32>;
+    };
+
+    [[group(1), binding(0)]]
+    var<uniform> basic_material: BasicMaterial;
+    
+    [[group(1), binding(1)]]
+    var r_color: texture_2d<f32>;
+
+    [[group(1), binding(2)]]
+    var r_sampler: sampler;
+    "
+  }
 
   pub fn create_pipeline(
     &self,
+    builder: &PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    let bindgroup_layout = Self::create_bindgroup_layout(device);
-
-    let shader_source = format!(
+    builder.shader_source = format!(
       "
       {object_header}
       {material_header}
@@ -104,53 +105,21 @@ impl BasicMaterial {
       object_header = TransformGPU::get_shader_header(),
     );
 
-    let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-      label: None,
-      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-    });
+    builder
+      .with_layout(ctx.layouts.retrieve::<TransformGPU>(device))
+      .with_layout(ctx.layouts.retrieve::<BasicMaterial>(device))
+      .with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
 
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-      label: None,
-      bind_group_layouts: &[
-        ctx.layouts.retrieve::<TransformGPU>(device),
-        &bindgroup_layout,
-        ctx.layouts.retrieve::<CameraBindgroup>(device),
-      ],
-      push_constant_ranges: &[],
-    });
+    builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
 
-    let vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
-
-    let targets: Vec<_> = ctx
+    builder.targets = ctx
       .pass
       .color_formats
       .iter()
       .map(|&f| self.states.map_color_states(f))
       .collect();
 
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-      label: None,
-      layout: Some(&pipeline_layout),
-      vertex: wgpu::VertexState {
-        module: &shader,
-        entry_point: "vs_main",
-        buffers: &vertex_buffers,
-      },
-      fragment: Some(wgpu::FragmentState {
-        module: &shader,
-        entry_point: "fs_main",
-        targets: targets.as_slice(),
-      }),
-      primitive: wgpu::PrimitiveState {
-        cull_mode: None,
-        topology: wgpu::PrimitiveTopology::TriangleList,
-        ..Default::default()
-      },
-      depth_stencil: self
-        .states
-        .map_depth_stencil_state(ctx.pass.depth_stencil_format),
-      multisample: wgpu::MultisampleState::default(),
-    })
+    builder.build(device)
   }
 }
 
@@ -181,10 +150,11 @@ impl MaterialGPUResource for BasicMaterialGPU {
   fn create_pipeline(
     &self,
     source: &Self::Source,
+    builder: &PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    source.create_pipeline(device, ctx)
+    source.create_pipeline(builder, device, ctx)
   }
 
   fn setup_pass_bindgroup<'a>(
@@ -209,7 +179,7 @@ impl MaterialCPUResource for BasicMaterial {
   ) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
-    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
+    let bindgroup_layout = Self::layout(&gpu.device);
 
     let sampler = ctx.map_sampler(self.sampler, &gpu.device);
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
