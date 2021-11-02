@@ -158,7 +158,7 @@ impl Viewer3dContent {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let axis = AxisHelper::new(&mut scene);
+    let axis = AxisHelper::new(&scene.root);
 
     Self {
       scene,

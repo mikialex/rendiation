@@ -91,7 +91,7 @@ impl Mesh for FatlineMeshCell {
     });
   }
 
-  fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
+  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
     vec![FatLineVertex::vertex_layout(), Vertex::vertex_layout()]
   }
 
@@ -129,11 +129,11 @@ pub struct FatLineVertex {
 }
 
 impl VertexBufferSourceType for FatLineVertex {
-  fn vertex_layout() -> VertexBufferLayout<'static> {
-    VertexBufferLayout {
+  fn vertex_layout() -> VertexBufferLayoutOwned {
+    VertexBufferLayoutOwned {
       array_stride: std::mem::size_of::<Self>() as u64,
       step_mode: VertexStepMode::Instance,
-      attributes: &[
+      attributes: vec![
         VertexAttribute {
           format: VertexFormat::Float32x3,
           offset: 0,

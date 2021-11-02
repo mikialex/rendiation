@@ -24,8 +24,8 @@ pub use env_background::*;
 
 use rendiation_algebra::Mat4;
 use rendiation_webgpu::{
-  BindGroupLayoutManager, GPURenderPass, PipelineRequester, PipelineResourceManager, PipelineUnit,
-  PipelineVariantContainer, TopologyPipelineVariant, GPU,
+  BindGroupLayoutManager, GPURenderPass, PipelineBuilder, PipelineRequester,
+  PipelineResourceManager, PipelineUnit, PipelineVariantContainer, TopologyPipelineVariant, GPU,
 };
 
 use crate::*;
@@ -70,6 +70,7 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
   fn create_pipeline(
     &self,
     source: &Self::Source,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline;
@@ -226,8 +227,6 @@ where
   T: 'static,
   T: MaterialCPUResource,
   T::GPU: PipelineRequester,
-  // <T::GPU as PipelineRequester>::Container:
-  //   PipelineVariantContainer<Key = <T::GPU as PipelineRequester>::Container::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -250,7 +249,8 @@ where
     let key = m_gpu.pipeline_key(&self.material, &pipeline_ctx);
 
     container.request(&key, || {
-      m_gpu.create_pipeline(&self.material, &gpu.device, &pipeline_ctx)
+      let mut builder = Default::default();
+      m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx)
     });
   }
 
@@ -281,8 +281,6 @@ where
   T: 'static,
   T: MaterialCPUResource,
   T::GPU: PipelineRequester,
-  // <T::GPU as PipelineRequester>::Container:
-  //   PipelineVariantContainer<<T::GPU as PipelineRequester>::Key>,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {

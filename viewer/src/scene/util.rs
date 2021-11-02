@@ -106,21 +106,36 @@ impl<T> Default for ValueIDGenerator<T> {
   }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Hash, PartialEq, Eq)]
 pub struct ValueID<T> {
   value: usize,
   ty: PhantomData<T>,
 }
 
+impl<T> Clone for ValueID<T> {
+  fn clone(&self) -> Self {
+    Self {
+      value: self.value,
+      ty: self.ty,
+    }
+  }
+}
+
+impl<T> Copy for ValueID<T> {}
+
 impl<T> ValueIDGenerator<T>
 where
-  T: Eq + Hash,
+  T: Eq + Hash + Clone,
 {
-  pub fn get_uuid(&mut self, v: T) -> ValueID<T> {
+  pub fn get_uuid(&mut self, v: &T) -> ValueID<T> {
     let count = self.inner.len();
-    let id = self.inner.entry(v).or_insert(count);
+    let id = self
+      .inner
+      .raw_entry_mut()
+      .from_key(v)
+      .or_insert_with(|| (v.clone(), count));
     ValueID {
-      value: *id,
+      value: *id.1,
       ty: PhantomData,
     }
   }

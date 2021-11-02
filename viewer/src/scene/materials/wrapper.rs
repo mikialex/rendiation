@@ -43,7 +43,7 @@ where
   ) -> <Self::Container as PipelineVariantContainer>::Key {
     self
       .state_id
-      .set(STATE_ID.lock().unwrap().get_uuid(source.states));
+      .set(STATE_ID.lock().unwrap().get_uuid(&source.states));
     self
       .gpu
       .pipeline_key(&source.material, ctx)
@@ -53,10 +53,13 @@ where
   fn create_pipeline(
     &self,
     source: &Self::Source,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    self.gpu.create_pipeline(&source.material, device, ctx)
+    self
+      .gpu
+      .create_pipeline(&source.material, builder, device, ctx)
   }
 
   fn setup_pass_bindgroup<'a>(
@@ -83,7 +86,7 @@ where
   ) -> Self::GPU {
     let gpu = self.material.create(gpu, ctx, bgw);
 
-    let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
+    let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 
     SceneMaterialGPU {
       state_id: Cell::new(state_id),

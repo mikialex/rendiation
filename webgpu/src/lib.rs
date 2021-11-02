@@ -201,7 +201,7 @@ impl GPU {
 }
 
 pub trait VertexBufferSourceType {
-  fn vertex_layout() -> wgpu::VertexBufferLayout<'static>;
+  fn vertex_layout() -> VertexBufferLayoutOwned;
   fn get_shader_header() -> &'static str;
 }
 

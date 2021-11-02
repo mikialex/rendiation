@@ -41,7 +41,7 @@ impl MeshGPU {
 /// The GPUMesh's cpu data source trait
 pub trait GPUMeshData {
   fn update(&self, gpu: &mut Option<MeshGPU>, device: &gpu::Device);
-  fn vertex_layout(&self) -> Vec<gpu::VertexBufferLayout>;
+  fn vertex_layout(&self) -> Vec<gpu::VertexBufferLayoutOwned>;
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> gpu::PrimitiveTopology;
 }
@@ -57,7 +57,7 @@ where
   fn update(&self, gpu: &mut Option<MeshGPU>, device: &gpu::Device) {
     gpu.get_or_insert_with(|| self.mesh.create_gpu(device));
   }
-  fn vertex_layout(&self) -> Vec<gpu::VertexBufferLayout> {
+  fn vertex_layout(&self) -> Vec<gpu::VertexBufferLayoutOwned> {
     vec![V::vertex_layout()]
   }
 

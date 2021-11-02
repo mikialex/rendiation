@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
-  BindableResource, GPURenderPass, PipelineRequester, PipelineUnit, PipelineVariantContainer,
-  WebGPUTextureCube, GPU,
+  BindableResource, GPURenderPass, PipelineBuilder, PipelineRequester, PipelineUnit,
+  PipelineVariantContainer, WebGPUTextureCube, GPU,
 };
 
 use crate::*;
@@ -79,10 +79,11 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
   fn create_pipeline(
     &self,
     source: &Self::Source,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    source.create_pipeline(device, ctx)
+    source.create_pipeline(builder, device, ctx)
   }
 }
 

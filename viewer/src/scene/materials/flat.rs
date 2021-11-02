@@ -1,6 +1,6 @@
-use std::{borrow::Cow, cell::Cell, rc::Rc};
+use std::{cell::Cell, rc::Rc};
 
-use rendiation_algebra::Vec3;
+use rendiation_algebra::Vec4;
 use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
 
@@ -8,7 +8,7 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct FlatMaterial {
-  pub color: Vec3<f32>,
+  pub color: Vec4<f32>,
   pub states: MaterialStates,
 }
 
@@ -21,7 +21,7 @@ impl FlatMaterial {
     "
     [[block]]
     struct FlatMaterial {
-      color: vec3<f32>;
+      color: vec4<f32>;
     };
 
     [[group(1), binding(0)]]
@@ -29,27 +29,54 @@ impl FlatMaterial {
     
     "
   }
+}
 
-  pub fn create_bindgroup_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+impl BindGroupLayoutProvider for FlatMaterial {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[wgpu::BindGroupLayoutEntry {
         binding: 0,
         visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: UniformBuffer::<Vec3<f32>>::bind_layout(),
+        ty: UniformBuffer::<Vec4<f32>>::bind_layout(),
         count: None,
       }],
     })
   }
+}
 
-  pub fn create_pipeline(
+pub struct FlatMaterialGPU {
+  state_id: Cell<ValueID<MaterialStates>>,
+  _uniform: UniformBuffer<Vec4<f32>>,
+  bindgroup: MaterialBindGroup,
+}
+
+impl PipelineRequester for FlatMaterialGPU {
+  type Container = CommonPipelineCache;
+}
+
+impl MaterialGPUResource for FlatMaterialGPU {
+  type Source = FlatMaterial;
+
+  fn pipeline_key(
     &self,
+    source: &Self::Source,
+    ctx: &PipelineCreateCtx,
+  ) -> <Self::Container as PipelineVariantContainer>::Key {
+    self
+      .state_id
+      .set(STATE_ID.lock().unwrap().get_uuid(&source.states));
+    ().key_with(self.state_id.get())
+      .key_with(ctx.active_mesh.unwrap().topology())
+  }
+  fn create_pipeline(
+    &self,
+    source: &Self::Source,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    let bindgroup_layout = Self::create_bindgroup_layout(device);
-
-    let shader_source = format!(
+    builder.shader_source = format!(
       "
       {object_header}
       {material_header}
@@ -72,97 +99,35 @@ impl FlatMaterial {
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return vec4<f32>(flat_material.color, 1.);
+          return flat_material.color;
       }}
       
       ",
       vertex_header = Vertex::get_shader_header(),
-      material_header = Self::get_shader_header(),
+      material_header = FlatMaterial::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
       object_header = TransformGPU::get_shader_header(),
     );
 
-    let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-      label: None,
-      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-    });
+    builder
+      .with_layout(ctx.layouts.retrieve::<TransformGPU>(device))
+      .with_layout(ctx.layouts.retrieve::<FlatMaterial>(device))
+      .with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
 
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-      label: None,
-      bind_group_layouts: &[
-        ctx.layouts.retrieve::<TransformGPU>(device),
-        &bindgroup_layout,
-        ctx.layouts.retrieve::<CameraBindgroup>(device),
-      ],
-      push_constant_ranges: &[],
-    });
+    builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
 
-    let vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
-
-    let targets: Vec<_> = ctx
+    builder.targets = ctx
       .pass
       .color_formats
       .iter()
-      .map(|&f| self.states.map_color_states(f))
+      .map(|&f| source.states.map_color_states(f))
       .collect();
 
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-      label: None,
-      layout: Some(&pipeline_layout),
-      vertex: wgpu::VertexState {
-        module: &shader,
-        entry_point: "vs_main",
-        buffers: &vertex_buffers,
-      },
-      fragment: Some(wgpu::FragmentState {
-        module: &shader,
-        entry_point: "fs_main",
-        targets: targets.as_slice(),
-      }),
-      primitive: wgpu::PrimitiveState {
-        cull_mode: None,
-        topology: wgpu::PrimitiveTopology::TriangleList,
-        ..Default::default()
-      },
-      depth_stencil: self
-        .states
-        .map_depth_stencil_state(ctx.pass.depth_stencil_format),
-      multisample: wgpu::MultisampleState::default(),
-    })
-  }
-}
+    builder.depth_stencil = source
+      .states
+      .map_depth_stencil_state(ctx.pass.depth_stencil_format);
 
-pub struct FlatMaterialGPU {
-  state_id: Cell<ValueID<MaterialStates>>,
-  _uniform: UniformBuffer<Vec3<f32>>,
-  bindgroup: MaterialBindGroup,
-}
-
-impl PipelineRequester for FlatMaterialGPU {
-  type Container = CommonPipelineCache;
-}
-
-impl MaterialGPUResource for FlatMaterialGPU {
-  type Source = FlatMaterial;
-
-  fn pipeline_key(
-    &self,
-    source: &Self::Source,
-    ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key {
-    self
-      .state_id
-      .set(STATE_ID.lock().unwrap().get_uuid(source.states));
-    ().key_with(self.state_id.get())
-      .key_with(ctx.active_mesh.unwrap().topology())
-  }
-  fn create_pipeline(
-    &self,
-    source: &Self::Source,
-    device: &wgpu::Device,
-    ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
-    source.create_pipeline(device, ctx)
+    builder.build(device)
   }
 
   fn setup_pass_bindgroup<'a>(
@@ -187,13 +152,13 @@ impl MaterialCPUResource for FlatMaterial {
   ) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
-    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
+    let bindgroup_layout = Self::layout(&gpu.device);
 
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
       .push(_uniform.gpu().as_entire_binding())
       .build(&bindgroup_layout);
 
-    let state_id = STATE_ID.lock().unwrap().get_uuid(self.states);
+    let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 
     FlatMaterialGPU {
       state_id: Cell::new(state_id),

@@ -61,7 +61,7 @@ pub fn create_solid_pipeline(
     vertex: wgpu::VertexState {
       entry_point: "vs_main",
       module: &shader,
-      buffers: &[UIVertex::vertex_layout()],
+      buffers: &[UIVertex::vertex_layout().as_raw()],
     },
     primitive: wgpu::PrimitiveState {
       topology: wgpu::PrimitiveTopology::TriangleList,
@@ -225,7 +225,7 @@ pub fn create_texture_pipeline(
     vertex: wgpu::VertexState {
       entry_point: "vs_main",
       module: &shader,
-      buffers: &[UIVertex::vertex_layout()],
+      buffers: &[UIVertex::vertex_layout().as_raw()],
     },
     primitive: wgpu::PrimitiveState {
       topology: wgpu::PrimitiveTopology::TriangleList,

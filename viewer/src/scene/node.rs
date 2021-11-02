@@ -99,14 +99,15 @@ impl SceneNode {
   }
 
   pub fn create_child(&self) -> SceneNode {
-    let handle = self
-      .nodes
-      .borrow_mut()
-      .create_node(SceneNodeData::default());
+    let mut nodes_info = self.nodes.borrow_mut();
+    let handle = nodes_info.create_node(SceneNodeData::default());
     let inner = SceneNodeRef {
       nodes: self.nodes.clone(),
       handle,
     };
+
+    nodes_info.node_add_child_by_id(self.inner.handle, handle);
+
     Self {
       nodes: self.nodes.clone(),
       parent: Some(self.inner.clone()),
@@ -129,10 +130,9 @@ impl SceneNode {
 
 impl Drop for SceneNode {
   fn drop(&mut self) {
-    let mut _nodes = self.nodes.borrow_mut();
-    if let Some(_parent) = self.parent.as_ref() {
-      // todo buggy
-      // nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
+    let mut nodes = self.nodes.borrow_mut();
+    if let Some(parent) = self.parent.as_ref() {
+      nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
     }
   }
 }

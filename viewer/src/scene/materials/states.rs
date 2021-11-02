@@ -7,7 +7,7 @@ use crate::scene::{ValueID, ValueIDGenerator};
 pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct MaterialStates {
   pub depth_write_enabled: bool,
   pub depth_compare: wgpu::CompareFunction,
