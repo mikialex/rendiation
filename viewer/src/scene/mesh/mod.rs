@@ -90,10 +90,9 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
     inner.update(gpu, storage)
   }
 
-  fn vertex_layout(&self) -> Vec<wgpu::VertexBufferLayout> {
+  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
     let inner = self.inner.borrow();
-    let layout = inner.vertex_layout().clone();
-    unsafe { std::mem::transmute(layout) } // todo
+    inner.vertex_layout()
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {

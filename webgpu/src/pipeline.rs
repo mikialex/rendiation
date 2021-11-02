@@ -12,6 +12,24 @@ pub struct PipelineBuilder {
   pub primitive_state: wgpu::PrimitiveState,
 }
 
+impl Default for PipelineBuilder {
+  fn default() -> Self {
+    Self {
+      name: Default::default(),
+      shader_source: Default::default(),
+      layouts: Default::default(),
+      targets: Default::default(),
+      depth_stencil: Default::default(),
+      vertex_buffers: Default::default(),
+      primitive_state: wgpu::PrimitiveState {
+        cull_mode: None,
+        topology: wgpu::PrimitiveTopology::TriangleList,
+        ..Default::default()
+      },
+    }
+  }
+}
+
 impl PipelineBuilder {
   //
 
@@ -25,7 +43,7 @@ impl PipelineBuilder {
     self
   }
 
-  pub fn build(self, device: &wgpu::Device) -> wgpu::RenderPipeline {
+  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
       label: self.name.as_str().into(),
       source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(self.shader_source.as_str())),
@@ -59,7 +77,7 @@ impl PipelineBuilder {
         topology: wgpu::PrimitiveTopology::TriangleList,
         ..Default::default()
       },
-      depth_stencil: self.depth_stencil,
+      depth_stencil: self.depth_stencil.clone(),
       multisample: wgpu::MultisampleState::default(),
     })
   }

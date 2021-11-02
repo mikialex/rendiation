@@ -70,7 +70,7 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
   fn create_pipeline(
     &self,
     source: &Self::Source,
-    builder: &PipelineBuilder,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline;
@@ -249,7 +249,8 @@ where
     let key = m_gpu.pipeline_key(&self.material, &pipeline_ctx);
 
     container.request(&key, || {
-      m_gpu.create_pipeline(&self.material, &gpu.device, &pipeline_ctx)
+      let mut builder = Default::default();
+      m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx)
     });
   }
 

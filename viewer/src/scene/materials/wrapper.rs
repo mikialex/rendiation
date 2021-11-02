@@ -53,10 +53,13 @@ where
   fn create_pipeline(
     &self,
     source: &Self::Source,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    self.gpu.create_pipeline(&source.material, device, ctx)
+    self
+      .gpu
+      .create_pipeline(&source.material, builder, device, ctx)
   }
 
   fn setup_pass_bindgroup<'a>(

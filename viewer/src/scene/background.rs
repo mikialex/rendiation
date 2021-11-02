@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::rc::Rc;
 
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
@@ -191,64 +191,34 @@ pub trait BackGroundShading: MaterialCPUResource {
 
   fn create_pipeline(
     &self,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    let bindgroup_layout = self.create_bindgroup_layout(device);
-    let shader_source = self.shader();
-
     let states = MaterialStates {
       depth_write_enabled: false,
       depth_compare: wgpu::CompareFunction::Always,
       ..Default::default()
     };
 
-    println!("{}", shader_source);
+    builder.shader_source = self.shader();
 
-    let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-      label: None,
-      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-    });
+    let bindgroup_layout = self.create_bindgroup_layout(device);
 
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-      label: None,
-      bind_group_layouts: &[
-        ctx.layouts.retrieve::<TransformGPU>(device),
-        &bindgroup_layout,
-        ctx.layouts.retrieve::<CameraBindgroup>(device),
-      ],
-      push_constant_ranges: &[],
-    });
+    builder
+      .with_layout(ctx.layouts.retrieve::<TransformGPU>(device))
+      .with_layout(&Rc::new(bindgroup_layout))
+      .with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
 
-    let vertex_buffers = vec![Vertex::vertex_layout()];
+    builder.vertex_buffers = vec![Vertex::vertex_layout()];
 
-    let targets: Vec<_> = ctx
+    builder.targets = ctx
       .pass
       .color_formats
       .iter()
       .map(|&f| states.map_color_states(f))
       .collect();
 
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-      label: None,
-      layout: Some(&pipeline_layout),
-      vertex: wgpu::VertexState {
-        module: &shader,
-        entry_point: "vs_main",
-        buffers: &vertex_buffers,
-      },
-      fragment: Some(wgpu::FragmentState {
-        module: &shader,
-        entry_point: "fs_main",
-        targets: targets.as_slice(),
-      }),
-      primitive: wgpu::PrimitiveState {
-        cull_mode: None,
-        topology: wgpu::PrimitiveTopology::TriangleList,
-        ..Default::default()
-      },
-      depth_stencil: states.map_depth_stencil_state(ctx.pass.depth_stencil_format),
-      multisample: wgpu::MultisampleState::default(),
-    })
+    builder.build(device)
   }
 }

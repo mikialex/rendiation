@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::Cell, rc::Rc};
+use std::{cell::Cell, rc::Rc};
 
 use rendiation_algebra::Vec4;
 use rendiation_renderable_mesh::vertex::Vertex;
@@ -29,8 +29,10 @@ impl FlatMaterial {
     
     "
   }
+}
 
-  pub fn create_bindgroup_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+impl BindGroupLayoutProvider for FlatMaterial {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[wgpu::BindGroupLayoutEntry {
@@ -39,95 +41,6 @@ impl FlatMaterial {
         ty: UniformBuffer::<Vec4<f32>>::bind_layout(),
         count: None,
       }],
-    })
-  }
-
-  pub fn create_pipeline(
-    &self,
-    device: &wgpu::Device,
-    ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
-    let bindgroup_layout = Self::create_bindgroup_layout(device);
-
-    let shader_source = format!(
-      "
-      {object_header}
-      {material_header}
-      {camera_header}
-
-      struct VertexOutput {{
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] uv: vec2<f32>;
-      }};
-
-      [[stage(vertex)]]
-      fn vs_main(
-        {vertex_header}
-      ) -> VertexOutput {{
-        var out: VertexOutput;
-        out.uv = uv;
-        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
-        return out;
-      }}
-      
-      [[stage(fragment)]]
-      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return flat_material.color;
-      }}
-      
-      ",
-      vertex_header = Vertex::get_shader_header(),
-      material_header = Self::get_shader_header(),
-      camera_header = CameraBindgroup::get_shader_header(),
-      object_header = TransformGPU::get_shader_header(),
-    );
-
-    let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-      label: None,
-      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source.as_str())),
-    });
-
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-      label: None,
-      bind_group_layouts: &[
-        ctx.layouts.retrieve::<TransformGPU>(device),
-        &bindgroup_layout,
-        ctx.layouts.retrieve::<CameraBindgroup>(device),
-      ],
-      push_constant_ranges: &[],
-    });
-
-    let vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
-
-    let targets: Vec<_> = ctx
-      .pass
-      .color_formats
-      .iter()
-      .map(|&f| self.states.map_color_states(f))
-      .collect();
-
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-      label: None,
-      layout: Some(&pipeline_layout),
-      vertex: wgpu::VertexState {
-        module: &shader,
-        entry_point: "vs_main",
-        buffers: &vertex_buffers,
-      },
-      fragment: Some(wgpu::FragmentState {
-        module: &shader,
-        entry_point: "fs_main",
-        targets: targets.as_slice(),
-      }),
-      primitive: wgpu::PrimitiveState {
-        cull_mode: None,
-        topology: wgpu::PrimitiveTopology::TriangleList,
-        ..Default::default()
-      },
-      depth_stencil: self
-        .states
-        .map_depth_stencil_state(ctx.pass.depth_stencil_format),
-      multisample: wgpu::MultisampleState::default(),
     })
   }
 }
@@ -159,10 +72,58 @@ impl MaterialGPUResource for FlatMaterialGPU {
   fn create_pipeline(
     &self,
     source: &Self::Source,
+    builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) -> wgpu::RenderPipeline {
-    source.create_pipeline(device, ctx)
+    builder.shader_source = format!(
+      "
+      {object_header}
+      {material_header}
+      {camera_header}
+
+      struct VertexOutput {{
+        [[builtin(position)]] position: vec4<f32>;
+        [[location(0)]] uv: vec2<f32>;
+      }};
+
+      [[stage(vertex)]]
+      fn vs_main(
+        {vertex_header}
+      ) -> VertexOutput {{
+        var out: VertexOutput;
+        out.uv = uv;
+        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
+        return out;
+      }}
+      
+      [[stage(fragment)]]
+      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+          return flat_material.color;
+      }}
+      
+      ",
+      vertex_header = Vertex::get_shader_header(),
+      material_header = FlatMaterial::get_shader_header(),
+      camera_header = CameraBindgroup::get_shader_header(),
+      object_header = TransformGPU::get_shader_header(),
+    );
+
+    builder
+      .with_layout(ctx.layouts.retrieve::<TransformGPU>(device))
+      .with_layout(ctx.layouts.retrieve::<FlatMaterial>(device))
+      .with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
+
+    builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
+
+    builder.targets = ctx
+      .pass
+      .color_formats
+      .iter()
+      .map(|&f| source.states.map_color_states(f))
+      .collect();
+
+    builder.build(device)
   }
 
   fn setup_pass_bindgroup<'a>(
@@ -187,7 +148,7 @@ impl MaterialCPUResource for FlatMaterial {
   ) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
-    let bindgroup_layout = Self::create_bindgroup_layout(&gpu.device);
+    let bindgroup_layout = Self::layout(&gpu.device);
 
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
       .push(_uniform.gpu().as_entire_binding())
