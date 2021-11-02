@@ -115,6 +115,10 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       .map(|&f| source.states.map_color_states(f))
       .collect();
 
+    builder.depth_stencil = source
+      .states
+      .map_depth_stencil_state(ctx.pass.depth_stencil_format);
+
     builder.build(device)
   }
 

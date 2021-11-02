@@ -219,6 +219,8 @@ pub trait BackGroundShading: MaterialCPUResource {
       .map(|&f| states.map_color_states(f))
       .collect();
 
+    builder.depth_stencil = states.map_depth_stencil_state(ctx.pass.depth_stencil_format);
+
     builder.build(device)
   }
 }
