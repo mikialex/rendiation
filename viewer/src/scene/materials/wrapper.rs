@@ -6,8 +6,8 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct SceneMaterial<T> {
-  material: T,
-  states: MaterialStates,
+  pub material: T,
+  pub states: MaterialStates,
 }
 
 pub trait IntoCommonSceneMaterial: Sized {
@@ -50,16 +50,34 @@ where
       .key_with(self.state_id.get())
       .key_with(ctx.active_mesh.unwrap().topology())
   }
+
   fn create_pipeline(
     &self,
     source: &Self::Source,
     builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
+  ) {
+    builder.targets = ctx
+      .pass
+      .color_formats
+      .iter()
+      .map(|&f| source.states.map_color_states(f))
+      .collect();
+
+    builder.depth_stencil = source
+      .states
+      .map_depth_stencil_state(ctx.pass.depth_stencil_format);
+
+    builder.with_layout(ctx.layouts.retrieve::<TransformGPU>(device));
+
     self
       .gpu
-      .create_pipeline(&source.material, builder, device, ctx)
+      .create_pipeline(&source.material, builder, device, ctx);
+
+    builder.with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
+
+    builder.primitive_state.topology = ctx.active_mesh.unwrap().topology();
   }
 
   fn setup_pass_bindgroup<'a>(
@@ -67,7 +85,9 @@ where
     pass: &mut GPURenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx,
   ) {
+    pass.set_bind_group_owned(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     self.gpu.setup_pass_bindgroup(pass, ctx);
+    pass.set_bind_group_owned(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 }
 

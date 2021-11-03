@@ -100,8 +100,8 @@ impl Arrow {
     fn material(color: Vec3<f32>) -> impl Material + Clone {
       let mut material = FlatMaterial {
         color: Vec4::new(color.x, color.y, color.z, 1.0),
-        states: Default::default(),
-      };
+      }
+      .into_scene_material();
       material.states.depth_write_enabled = false;
       material.states.depth_compare = wgpu::CompareFunction::Always;
       MaterialCell::new(material)

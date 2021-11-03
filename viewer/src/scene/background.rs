@@ -194,7 +194,7 @@ pub trait BackGroundShading: MaterialCPUResource {
     builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
+  ) {
     let states = MaterialStates {
       depth_write_enabled: false,
       depth_compare: wgpu::CompareFunction::Always,
@@ -220,7 +220,5 @@ pub trait BackGroundShading: MaterialCPUResource {
       .collect();
 
     builder.depth_stencil = states.map_depth_stencil_state(ctx.pass.depth_stencil_format);
-
-    builder.build(device)
   }
 }

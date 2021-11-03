@@ -67,13 +67,14 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
     source: &Self::Source,
     ctx: &PipelineCreateCtx,
   ) -> <Self::Container as PipelineVariantContainer>::Key;
+
   fn create_pipeline(
     &self,
     source: &Self::Source,
     builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline;
+  );
 
   fn setup_pass_bindgroup<'a>(
     &self,
@@ -250,7 +251,8 @@ where
 
     container.request(&key, || {
       let mut builder = Default::default();
-      m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx)
+      m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
+      builder.build(&gpu.device)
     });
   }
 

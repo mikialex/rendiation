@@ -82,7 +82,7 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
     builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
+  ) {
     source.create_pipeline(builder, device, ctx)
   }
 }
