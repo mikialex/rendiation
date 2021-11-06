@@ -48,9 +48,21 @@ impl PassContent for AxisHelper {
     if !self.enabled {
       return;
     }
-    self.x.setup_pass(pass, scene, pass_info);
-    self.y.setup_pass(pass, scene, pass_info);
-    self.z.setup_pass(pass, scene, pass_info);
+    let center = self.root.visit(|n| n.world_matrix.position());
+    let camera = scene.active_camera.as_ref().unwrap();
+    let camera = camera.node.visit(|n| n.world_matrix.position());
+    let center_to_eye_dir = camera - center;
+    let center_to_eye_dir = center_to_eye_dir.normalize();
+    let x = Vec3::new(1., 0., 0.).dot(center_to_eye_dir);
+    let y = Vec3::new(0., 1., 0.).dot(center_to_eye_dir);
+    let z = Vec3::new(0., 0., 1.).dot(center_to_eye_dir);
+
+    let mut arr = [(x, &self.x), (y, &self.y), (z, &self.z)];
+    arr.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Less));
+
+    arr
+      .iter()
+      .for_each(|(_, a)| a.setup_pass(pass, scene, pass_info));
   }
 }
 
@@ -154,7 +166,7 @@ impl AxisHelper {
 
     let y = Arrow::new(&root, Vec3::new(0., 1., 0.), cylinder.clone(), tip.clone());
     y.root.mutate(|_| {
-      // the cylinder is z up, so do nothing
+      // the cylinder is y up, so do nothing
     });
 
     let z = Arrow::new(&root, Vec3::new(0., 0., 1.), cylinder, tip);
