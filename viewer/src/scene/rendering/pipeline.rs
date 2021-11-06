@@ -184,7 +184,7 @@ impl SimplePipeline {
     let scene = &mut content.scene;
 
     let mut scene_depth = depth_attachment()
-      .format(wgpu::TextureFormat::Depth32Float)
+      .format(wgpu::TextureFormat::Depth24PlusStencil8)
       .request(engine);
 
     pass("forward-group")

@@ -1,6 +1,7 @@
 use std::{ops::Deref, rc::Rc};
 
 use rendiation_algebra::*;
+use rendiation_geometry::*;
 use rendiation_webgpu::*;
 
 use crate::SceneNode;
@@ -9,9 +10,10 @@ pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
   fn resize(&mut self, size: (f32, f32));
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
 }
 
-impl<T: ResizableProjection> CameraProjection for T {
+impl<T: ResizableProjection + RayCaster3<f32>> CameraProjection for T {
   fn update_projection(&self, projection: &mut Mat4<f32>) {
     self.update_projection::<WebGPU>(projection);
   }
@@ -20,6 +22,10 @@ impl<T: ResizableProjection> CameraProjection for T {
   }
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
     self.pixels_per_unit(distance, view_height)
+  }
+
+  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
+    self.cast_ray(normalized_position)
   }
 }
 
@@ -50,7 +56,7 @@ impl std::ops::DerefMut for SceneCamera {
 }
 
 impl SceneCamera {
-  pub fn new(p: impl ResizableProjection + 'static, node: SceneNode) -> Self {
+  pub fn new(p: impl ResizableProjection + RayCaster3<f32> + 'static, node: SceneNode) -> Self {
     Self {
       cpu: Camera {
         view_size: Vec2::new(1024., 768.),
@@ -65,6 +71,11 @@ impl SceneCamera {
   pub fn resize(&mut self, size: (f32, f32)) {
     self.projection.resize(size);
     self.view_size = size.into();
+  }
+
+  pub fn cast_world_ray(&self, screen_position: Vec2<f32>) -> Ray3<f32> {
+    let normalized_position = screen_position / self.view_size * 2. - Vec2::splat(1.0);
+    self.projection.cast_ray(normalized_position)
   }
 
   pub fn get_updated_gpu(&mut self, gpu: &GPU) -> (&Camera, &mut CameraBindgroup) {
@@ -115,11 +126,7 @@ impl CameraBindgroup {
       var<uniform> camera: CameraTransform;
     "#
   }
-  pub fn update<'a>(
-    &mut self,
-    gpu: &GPU,
-    camera: &'a mut Camera,
-  ) -> (&'a Camera, &mut Self) {
+  pub fn update<'a>(&mut self, gpu: &GPU, camera: &'a mut Camera) -> (&'a Camera, &mut Self) {
     camera
       .projection
       .update_projection(&mut camera.projection_matrix);
