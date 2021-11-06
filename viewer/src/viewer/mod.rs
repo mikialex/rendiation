@@ -23,7 +23,7 @@ use self::helpers::axis::AxisHelper;
 pub struct Viewer {
   _counter: Counter,
   todo: Todo,
-  viewer: ViewerInner,
+  viewer: ViewerImpl,
 }
 
 impl Default for Viewer {
@@ -47,7 +47,7 @@ impl Default for Viewer {
     Viewer {
       _counter: Counter { count: 0 },
       todo,
-      viewer: ViewerInner {
+      viewer: ViewerImpl {
         content: Viewer3dContent::new(),
         size: Size::from_u32_pair_min_one((100, 100)),
         ctx: None,
@@ -85,7 +85,7 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
     .extend(AbsoluteAnchor::default())
 }
 
-impl CanvasPrinter for ViewerInner {
+impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
     self.content.update_state();
     self
@@ -111,7 +111,7 @@ impl CanvasPrinter for ViewerInner {
   }
 }
 
-pub struct ViewerInner {
+pub struct ViewerImpl {
   content: Viewer3dContent,
   size: Size,
   ctx: Option<Viewer3dRenderingCtx>,

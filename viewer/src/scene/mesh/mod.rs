@@ -27,24 +27,24 @@ pub trait Mesh {
   fn topology(&self) -> wgpu::PrimitiveTopology;
 }
 
-pub struct MeshCellInner<T> {
+pub struct MeshCellImpl<T> {
   data: T,
   gpu: Option<MeshGPU>,
 }
 
-impl<T> MeshCellInner<T> {
+impl<T> MeshCellImpl<T> {
   pub fn new(data: T) -> Self {
     Self { data, gpu: None }
   }
 }
 
 pub struct MeshCell<T> {
-  inner: Rc<RefCell<MeshCellInner<T>>>,
+  inner: Rc<RefCell<MeshCellImpl<T>>>,
 }
 
 impl<T> MeshCell<T> {
   pub fn new(mesh: T) -> Self {
-    let mesh = MeshCellInner::new(mesh);
+    let mesh = MeshCellImpl::new(mesh);
     Self {
       inner: Rc::new(RefCell::new(mesh)),
     }
@@ -59,7 +59,7 @@ impl<T> Clone for MeshCell<T> {
   }
 }
 
-impl<T: GPUMeshData> Mesh for MeshCellInner<T> {
+impl<T: GPUMeshData> Mesh for MeshCellImpl<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let gpu = self.gpu.as_ref().unwrap();
     gpu.setup_pass(pass);
@@ -108,7 +108,7 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
 //     let handle = self
 //       .components
 //       .meshes
-//       .insert(Box::new(MeshCellInner::from(mesh)));
+//       .insert(Box::new(MeshCellImpl::from(mesh)));
 //     TypedMeshHandle {
 //       handle,
 //       ty: PhantomData,

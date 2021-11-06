@@ -16,7 +16,7 @@ impl PassContent for AxisHelper {
     &mut self,
     gpu: &rendiation_webgpu::GPU,
     scene: &mut Scene,
-    _resource: &mut ResourcePoolInner,
+    _resource: &mut ResourcePoolImpl,
     pass_info: &PassTargetFormatInfo,
   ) {
     if !self.enabled {
@@ -68,8 +68,8 @@ impl PassContent for AxisHelper {
 }
 
 struct Arrow {
-  cylinder: AutoScalableMeshModelInner,
-  tip: AutoScalableMeshModelInner,
+  cylinder: AutoScalableMeshModelImpl,
+  tip: AutoScalableMeshModelImpl,
   root: SceneNode,
 }
 
@@ -128,13 +128,13 @@ impl Arrow {
 
     let node_cylinder = root.create_child();
     let mut cylinder =
-      MeshModelInner::new(material.clone(), cylinder_mesh, node_cylinder).into_auto_scale();
+      MeshModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_auto_scale();
 
     cylinder.independent_scale_factor = 100.;
 
     let node_tip = root.create_child();
     node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
-    let mut tip = MeshModelInner::new(material, tip_mesh, node_tip).into_auto_scale();
+    let mut tip = MeshModelImpl::new(material, tip_mesh, node_tip).into_auto_scale();
 
     tip.independent_scale_factor = 100.;
 

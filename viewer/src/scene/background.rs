@@ -71,7 +71,7 @@ fn build_mesh() -> BackgroundMesh {
 use crate::scene::mesh::Mesh;
 
 pub struct DrawableBackground<S: MaterialCPUResource> {
-  mesh: MeshCellInner<BackgroundMesh>,
+  mesh: MeshCellImpl<BackgroundMesh>,
   pub shading: MaterialCell<S>,
   root: SceneNode,
 }
@@ -131,7 +131,7 @@ where
 impl<S: BackGroundShading> DrawableBackground<S> {
   pub fn new(shading: MaterialCell<S>, root: SceneNode) -> Self {
     let mesh = build_mesh();
-    let mesh = MeshCellInner::new(mesh);
+    let mesh = MeshCellImpl::new(mesh);
 
     Self {
       mesh,

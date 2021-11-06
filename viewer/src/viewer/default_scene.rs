@@ -97,6 +97,6 @@ pub fn load_default_scene(scene: &mut Scene) {
   camera_node.mutate(|node| {
     node.local_matrix = Mat4::lookat(Vec3::splat(1.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
   });
-  let camera = Camera::new(camera, camera_node);
+  let camera = SceneCamera::new(camera, camera_node);
   scene.active_camera = camera.into();
 }

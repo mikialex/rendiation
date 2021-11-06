@@ -8,7 +8,7 @@ use super::*;
 
 #[derive(Clone)]
 pub struct MeshModel {
-  pub inner: Rc<RefCell<MeshModelInner>>,
+  pub inner: Rc<RefCell<MeshModelImpl>>,
 }
 
 impl MeshModel {
@@ -18,7 +18,7 @@ impl MeshModel {
     mesh: Me,
     node: SceneNode,
   ) -> Self {
-    let inner = MeshModelInner::new(material, mesh, node);
+    let inner = MeshModelImpl::new(material, mesh, node);
     Self {
       inner: Rc::new(RefCell::new(inner)),
     }
@@ -43,14 +43,14 @@ impl SceneRenderable for MeshModel {
   }
 }
 
-pub struct MeshModelInner {
+pub struct MeshModelImpl {
   pub material: Box<dyn Material>,
   pub mesh: Box<dyn Mesh>,
   pub group: MeshDrawGroup,
   pub node: SceneNode,
 }
 
-impl MeshModelInner {
+impl MeshModelImpl {
   // todo add type constraint
   pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
     material: Ma,
@@ -65,8 +65,8 @@ impl MeshModelInner {
     }
   }
 
-  pub fn into_auto_scale(self) -> AutoScalableMeshModelInner {
-    AutoScalableMeshModelInner {
+  pub fn into_auto_scale(self) -> AutoScalableMeshModelImpl {
+    AutoScalableMeshModelImpl {
       inner: self,
       override_gpu: None,
       override_position: None,
@@ -75,7 +75,7 @@ impl MeshModelInner {
   }
 }
 
-impl SceneRenderable for MeshModelInner {
+impl SceneRenderable for MeshModelImpl {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
@@ -118,8 +118,8 @@ impl SceneRenderable for MeshModelInner {
   }
 }
 
-pub struct AutoScalableMeshModelInner {
-  inner: MeshModelInner,
+pub struct AutoScalableMeshModelImpl {
+  inner: MeshModelImpl,
   override_gpu: Option<TransformGPU>,
 
   /// the position by default will choose by the node's world matrix;
@@ -133,21 +133,21 @@ pub struct AutoScalableMeshModelInner {
   pub independent_scale_factor: f32,
 }
 
-impl std::ops::Deref for AutoScalableMeshModelInner {
-  type Target = MeshModelInner;
+impl std::ops::Deref for AutoScalableMeshModelImpl {
+  type Target = MeshModelImpl;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
   }
 }
 
-impl std::ops::DerefMut for AutoScalableMeshModelInner {
+impl std::ops::DerefMut for AutoScalableMeshModelImpl {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.inner
   }
 }
 
-impl SceneRenderable for AutoScalableMeshModelInner {
+impl SceneRenderable for AutoScalableMeshModelImpl {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let inner = &mut self.inner;
     let material = &mut inner.material;

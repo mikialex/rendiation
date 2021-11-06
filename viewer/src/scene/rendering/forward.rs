@@ -22,7 +22,7 @@ impl PassContent for ForwardScene {
     &mut self,
     gpu: &GPU,
     scene: &mut Scene,
-    _resource: &mut ResourcePoolInner,
+    _resource: &mut ResourcePoolImpl,
     pass: &PassTargetFormatInfo,
   ) {
     self.render_list.models.clear();

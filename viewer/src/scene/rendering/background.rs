@@ -9,7 +9,7 @@ impl PassContent for BackGroundRendering {
     &mut self,
     gpu: &GPU,
     scene: &mut Scene,
-    _resource: &mut ResourcePoolInner,
+    _resource: &mut ResourcePoolImpl,
     pass_info: &PassTargetFormatInfo,
   ) {
     if let Some(active_camera) = &mut scene.active_camera {

@@ -7,6 +7,7 @@ pub mod materials;
 pub mod mesh;
 pub mod model;
 pub mod node;
+pub mod picking;
 pub mod rendering;
 pub mod texture;
 pub mod util;
@@ -23,6 +24,7 @@ pub use materials::*;
 pub use mesh::*;
 pub use model::*;
 pub use node::*;
+pub use picking::*;
 pub use rendering::*;
 pub use texture::*;
 pub use util::*;
@@ -42,8 +44,8 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 pub struct Scene {
   pub background: Box<dyn Background>,
 
-  pub active_camera: Option<Camera>,
-  pub cameras: Arena<Camera>,
+  pub active_camera: Option<SceneCamera>,
+  pub cameras: Arena<SceneCamera>,
   pub lights: Arena<SceneLight>,
   pub models: Vec<MeshModel>,
 

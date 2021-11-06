@@ -16,7 +16,7 @@
 //     &mut self,
 //     gpu: &GPU,
 //     scene: &mut Scene,
-//     resource: &mut ResourcePoolInner,
+//     resource: &mut ResourcePoolImpl,
 //     pass_info: &PassTargetFormatInfo,
 //   ) {
 //     // get resource pool texture and view , update bindgroup

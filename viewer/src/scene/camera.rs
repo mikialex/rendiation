@@ -23,36 +23,36 @@ impl<T: ResizableProjection> CameraProjection for T {
   }
 }
 
-pub struct CameraData {
+pub struct Camera {
   pub view_size: Vec2<f32>, // todo update to viewport config latter
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
 }
 
-pub struct Camera {
-  cpu: CameraData,
+pub struct SceneCamera {
+  cpu: Camera,
   gpu: Option<CameraBindgroup>,
 }
 
-impl Deref for Camera {
-  type Target = CameraData;
+impl Deref for SceneCamera {
+  type Target = Camera;
 
   fn deref(&self) -> &Self::Target {
     &self.cpu
   }
 }
 
-impl std::ops::DerefMut for Camera {
+impl std::ops::DerefMut for SceneCamera {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.cpu
   }
 }
 
-impl Camera {
+impl SceneCamera {
   pub fn new(p: impl ResizableProjection + 'static, node: SceneNode) -> Self {
     Self {
-      cpu: CameraData {
+      cpu: Camera {
         view_size: Vec2::new(1024., 768.),
         projection: Box::new(p),
         projection_matrix: Mat4::one(),
@@ -67,7 +67,7 @@ impl Camera {
     self.view_size = size.into();
   }
 
-  pub fn get_updated_gpu(&mut self, gpu: &GPU) -> (&CameraData, &mut CameraBindgroup) {
+  pub fn get_updated_gpu(&mut self, gpu: &GPU) -> (&Camera, &mut CameraBindgroup) {
     self
       .gpu
       .get_or_insert_with(|| CameraBindgroup::new(gpu))
@@ -118,8 +118,8 @@ impl CameraBindgroup {
   pub fn update<'a>(
     &mut self,
     gpu: &GPU,
-    camera: &'a mut CameraData,
-  ) -> (&'a CameraData, &mut Self) {
+    camera: &'a mut Camera,
+  ) -> (&'a Camera, &mut Self) {
     camera
       .projection
       .update_projection(&mut camera.projection_matrix);

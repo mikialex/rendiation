@@ -102,12 +102,12 @@ impl BindGroupDirtyNotifier for BindGroupDirtyWatcher {
 }
 
 pub struct MaterialCell<T: MaterialCPUResource> {
-  inner: Rc<RefCell<MaterialCellInner<T>>>,
+  inner: Rc<RefCell<MaterialCellImpl<T>>>,
 }
 
 impl<T: MaterialCPUResource> MaterialCell<T> {
   pub fn new(material: T) -> Self {
-    let material = MaterialCellInner::new(material);
+    let material = MaterialCellImpl::new(material);
     Self {
       inner: Rc::new(RefCell::new(material)),
     }
@@ -122,7 +122,7 @@ impl<T: MaterialCPUResource> Clone for MaterialCell<T> {
   }
 }
 
-pub struct MaterialCellInner<T>
+pub struct MaterialCellImpl<T>
 where
   T: MaterialCPUResource,
 {
@@ -133,7 +133,7 @@ where
   gpu: Option<T::GPU>,
 }
 
-impl<T: MaterialCPUResource> MaterialCellInner<T> {
+impl<T: MaterialCPUResource> MaterialCellImpl<T> {
   pub fn new(material: T) -> Self {
     Self {
       property_changed: true,
@@ -172,7 +172,7 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
 }
 
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
-  pub active_camera: &'a CameraData,
+  pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub pass: &'a PassTargetFormatInfo,
   pub resources: &'a mut GPUResourceCache,
@@ -222,7 +222,7 @@ pub trait Material {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T> Material for MaterialCellInner<T>
+impl<T> Material for MaterialCellImpl<T>
 where
   T: 'static,
   T: MaterialCPUResource,

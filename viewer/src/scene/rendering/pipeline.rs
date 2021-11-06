@@ -7,13 +7,13 @@ use rendiation_webgpu::*;
 use crate::*;
 
 #[derive(Default)]
-pub struct ResourcePoolInner {
+pub struct ResourcePoolImpl {
   pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
 }
 
 #[derive(Clone, Default)]
 pub struct ResourcePool {
-  pub inner: Rc<RefCell<ResourcePoolInner>>,
+  pub inner: Rc<RefCell<ResourcePoolImpl>>,
 }
 
 pub struct RenderEngine {
@@ -161,7 +161,7 @@ pub trait PassContent {
     &mut self,
     gpu: &GPU,
     scene: &mut Scene,
-    resource: &mut ResourcePoolInner,
+    resource: &mut ResourcePoolImpl,
     pass_info: &PassTargetFormatInfo,
   );
   fn setup_pass<'a>(
@@ -187,7 +187,7 @@ impl SimplePipeline {
       .format(wgpu::TextureFormat::Depth32Float)
       .request(engine);
 
-    pass("scene_pass")
+    pass("forward-group")
       .with_color(engine.screen(), scene.get_main_pass_load_op())
       .with_depth(scene_depth.write(), clear(1.))
       .render_by(&mut BackGroundRendering)
