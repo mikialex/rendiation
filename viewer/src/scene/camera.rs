@@ -5,10 +5,10 @@ use rendiation_webgpu::*;
 
 use crate::SceneNode;
 
-
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
   fn resize(&mut self, size: (f32, f32));
+  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
 }
 
 impl<T: ResizableProjection> CameraProjection for T {
@@ -17,6 +17,9 @@ impl<T: ResizableProjection> CameraProjection for T {
   }
   fn resize(&mut self, size: (f32, f32)) {
     self.resize(size);
+  }
+  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32{
+    self.pixels_per_unit(distance, view_height)
   }
 }
 

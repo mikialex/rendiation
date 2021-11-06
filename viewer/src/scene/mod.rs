@@ -71,12 +71,12 @@ impl Scene {
     }
   }
 
-  pub fn maintain(&mut self, _gpu: &GPU) {
+  pub fn maintain(&mut self, gpu: &GPU) {
     let mut nodes = self.nodes.borrow_mut();
     let root = nodes.root();
     nodes.traverse_mut(root, &mut Vec::new(), |this, parent| {
       let node_data = this.data_mut();
-      node_data.hierarchy_update(parent.map(|p| p.data()));
+      node_data.hierarchy_update(gpu, parent.map(|p| p.data()));
       if node_data.net_visible {
         NextTraverseVisit::VisitChildren
       } else {

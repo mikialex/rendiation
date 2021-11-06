@@ -38,7 +38,7 @@ impl Transformed3DControllee for SceneNodeData {
 }
 
 impl SceneNodeData {
-  pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
+  pub fn hierarchy_update(&mut self, gpu: &GPU, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
@@ -48,15 +48,18 @@ impl SceneNodeData {
       self.world_matrix = self.local_matrix;
       self.net_visible = self.visible
     }
+
+    if self.net_visible {
+      if let Some(t) = &mut self.gpu {
+        t.update(gpu, &self.world_matrix);
+      }
+    }
   }
 
-  pub fn get_model_gpu(&mut self, gpu: &GPU) -> (&Mat4<f32>, &TransformGPU) {
-    (
-      &self.world_matrix,
-      self
-        .gpu
-        .get_or_insert_with(|| TransformGPU::new(gpu, &self.world_matrix)),
-    )
+  pub fn get_model_gpu(&mut self, gpu: &GPU) -> &TransformGPU {
+    self
+      .gpu
+      .get_or_insert_with(|| TransformGPU::new(gpu, &self.world_matrix))
   }
 
   pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
@@ -138,6 +141,7 @@ impl Drop for SceneNode {
 }
 
 pub struct TransformGPU {
+  pub cache: Mat4<f32>,
   pub ubo: wgpu::Buffer,
   pub bindgroup: Rc<wgpu::BindGroup>,
 }
@@ -172,11 +176,19 @@ impl TransformGPU {
     "#
   }
 
-  pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) {
+  pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) -> &mut Self {
+    if self.cache == *matrix {
+      return self;
+    }
+    self.cache = *matrix;
+
     gpu
       .queue
       .write_buffer(&self.ubo, 0, bytemuck::cast_slice(matrix.as_ref()));
+
+    self
   }
+
   pub fn new(gpu: &GPU, matrix: &Mat4<f32>) -> Self {
     let device = &gpu.device;
     use wgpu::util::DeviceExt;
@@ -198,6 +210,10 @@ impl TransformGPU {
 
     let bindgroup = Rc::new(bindgroup);
 
-    Self { ubo, bindgroup }
+    Self {
+      ubo,
+      bindgroup,
+      cache: *matrix,
+    }
   }
 }

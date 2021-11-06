@@ -23,20 +23,19 @@ impl PassContent for AxisHelper {
       return;
     }
 
-    if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
+    let active_camera = scene.active_camera.as_mut().unwrap();
+    let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
 
-      let mut base = SceneMaterialRenderPrepareCtxBase {
-        active_camera,
-        camera_gpu,
-        pass: pass_info,
-        resources: &mut scene.resources,
-      };
+    let mut base = SceneMaterialRenderPrepareCtxBase {
+      active_camera,
+      camera_gpu,
+      pass: pass_info,
+      resources: &mut scene.resources,
+    };
 
-      self.x.update(gpu, &mut base);
-      self.y.update(gpu, &mut base);
-      self.z.update(gpu, &mut base);
-    }
+    self.x.update(gpu, &mut base);
+    self.y.update(gpu, &mut base);
+    self.z.update(gpu, &mut base);
   }
 
   fn setup_pass<'a>(
@@ -67,8 +66,8 @@ impl PassContent for AxisHelper {
 }
 
 struct Arrow {
-  cylinder: MeshModel,
-  tip: MeshModel,
+  cylinder: AutoScalableMeshModelInner,
+  tip: AutoScalableMeshModelInner,
   root: SceneNode,
 }
 
@@ -123,11 +122,12 @@ impl Arrow {
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
-    let cylinder = MeshModel::new(material.clone(), cylinder_mesh, node_cylinder);
+    let cylinder =
+      MeshModelInner::new(material.clone(), cylinder_mesh, node_cylinder).into_auto_scale();
 
     let node_tip = root.create_child();
     node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
-    let tip = MeshModel::new(material, tip_mesh, node_tip);
+    let tip = MeshModelInner::new(material, tip_mesh, node_tip).into_auto_scale();
 
     Self {
       root,

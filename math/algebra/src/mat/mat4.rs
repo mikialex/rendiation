@@ -556,6 +556,13 @@ where
     mat.into()
   }
 
+  pub fn extract_scale(&self) -> Vec3<T> {
+    let sx = Vec3::new(self.a1, self.a2, self.a3).length();
+    let sy = Vec3::new(self.b1, self.b2, self.b3).length();
+    let sz = Vec3::new(self.c1, self.c2, self.c3).length();
+    Vec3::new(sx, sy, sz)
+  }
+ 
 }
 
 impl<T> num_traits::Zero for Mat4<T>

@@ -22,6 +22,12 @@ impl Projection for PerspectiveProjection {
   fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<f32>) {
     *projection = Mat4::perspective_fov_aspect::<S>(self.fov, self.aspect, self.near, self.far);
   }
+
+  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
+    let pixels_of_dist_one = 2. * (self.fov * f32::pi_by_c180() / 2.).tan();
+    let distance_when_each_world_unit_match_screen_unit = view_height / pixels_of_dist_one;
+    distance_when_each_world_unit_match_screen_unit / distance
+  }
 }
 
 impl ResizableProjection for PerspectiveProjection {

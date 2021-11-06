@@ -22,7 +22,6 @@ pub use fatline::*;
 pub mod env_background;
 pub use env_background::*;
 
-use rendiation_algebra::Mat4;
 use rendiation_webgpu::{
   BindGroupLayoutManager, GPURenderPass, PipelineBuilder, PipelineRequester,
   PipelineResourceManager, PipelineUnit, PipelineVariantContainer, TopologyPipelineVariant, GPU,
@@ -153,7 +152,7 @@ impl<T: MaterialCPUResource> MaterialCellInner<T> {
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub model_info: Option<(&'b Mat4<f32>, &'b TransformGPU)>,
+  pub model_info: Option<&'b TransformGPU>,
   pub active_mesh: Option<&'b dyn Mesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
 }
