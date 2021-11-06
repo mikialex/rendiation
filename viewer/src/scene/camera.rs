@@ -18,12 +18,13 @@ impl<T: ResizableProjection> CameraProjection for T {
   fn resize(&mut self, size: (f32, f32)) {
     self.resize(size);
   }
-  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32{
+  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
     self.pixels_per_unit(distance, view_height)
   }
 }
 
 pub struct CameraData {
+  pub view_size: Vec2<f32>, // todo update to viewport config latter
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
@@ -52,12 +53,18 @@ impl Camera {
   pub fn new(p: impl ResizableProjection + 'static, node: SceneNode) -> Self {
     Self {
       cpu: CameraData {
+        view_size: Vec2::new(1024., 768.),
         projection: Box::new(p),
         projection_matrix: Mat4::one(),
         node,
       },
       gpu: None,
     }
+  }
+
+  pub fn resize(&mut self, size: (f32, f32)) {
+    self.projection.resize(size);
+    self.view_size = size.into();
   }
 
   pub fn get_updated_gpu(&mut self, gpu: &GPU) -> (&CameraData, &mut CameraBindgroup) {

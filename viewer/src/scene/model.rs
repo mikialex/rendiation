@@ -165,7 +165,7 @@ impl SceneRenderable for AutoScalableMeshModelInner {
       / base
         .active_camera
         .projection
-        .pixels_per_unit(distance, 1000.); // todo
+        .pixels_per_unit(distance, base.active_camera.view_size.y);
 
     let raw_scale = world_matrix.extract_scale();
     let new_scale = Vec3::splat(scale) / raw_scale;

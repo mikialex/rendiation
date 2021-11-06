@@ -169,7 +169,7 @@ impl Viewer3dContent {
 
   fn resize_view(&mut self, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
-      camera.projection.resize(size)
+      camera.resize(size)
     }
   }
 
