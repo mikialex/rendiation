@@ -33,9 +33,11 @@ impl PassContent for AxisHelper {
       resources: &mut scene.resources,
     };
 
-    self.x.update(gpu, &mut base);
-    self.y.update(gpu, &mut base);
-    self.z.update(gpu, &mut base);
+    let root_position = self.root.visit(|n| n.world_matrix.position());
+
+    self.x.update(gpu, &mut base, root_position);
+    self.y.update(gpu, &mut base, root_position);
+    self.z.update(gpu, &mut base, root_position);
   }
 
   fn setup_pass<'a>(
@@ -76,8 +78,11 @@ impl Arrow {
     &mut self,
     gpu: &rendiation_webgpu::GPU,
     ctx: &mut SceneMaterialRenderPrepareCtxBase,
+    root_position: Vec3<f32>,
   ) {
+    self.cylinder.override_position = root_position.into();
     self.cylinder.update(gpu, ctx);
+    self.tip.override_position = root_position.into();
     self.tip.update(gpu, ctx);
   }
 
@@ -122,12 +127,16 @@ impl Arrow {
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
-    let cylinder =
+    let mut cylinder =
       MeshModelInner::new(material.clone(), cylinder_mesh, node_cylinder).into_auto_scale();
+
+    cylinder.independent_scale_factor = 100.;
 
     let node_tip = root.create_child();
     node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
-    let tip = MeshModelInner::new(material, tip_mesh, node_tip).into_auto_scale();
+    let mut tip = MeshModelInner::new(material, tip_mesh, node_tip).into_auto_scale();
+
+    tip.independent_scale_factor = 100.;
 
     Self {
       root,

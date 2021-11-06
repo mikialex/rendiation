@@ -69,6 +69,8 @@ impl MeshModelInner {
     AutoScalableMeshModelInner {
       inner: self,
       override_gpu: None,
+      override_position: None,
+      independent_scale_factor: 1.,
     }
   }
 }
@@ -119,6 +121,16 @@ impl SceneRenderable for MeshModelInner {
 pub struct AutoScalableMeshModelInner {
   inner: MeshModelInner,
   override_gpu: Option<TransformGPU>,
+
+  /// the position by default will choose by the node's world matrix;
+  ///
+  /// but in sometimes, we need use another position for position
+  /// to keep consistent dynamic scale behavior among the group of scene node hierarchy.
+  /// in this case, we can use this override_position and update this position manually.
+  ///
+  pub override_position: Option<Vec3<f32>>,
+
+  pub independent_scale_factor: f32,
 }
 
 impl std::ops::Deref for AutoScalableMeshModelInner {
@@ -143,11 +155,13 @@ impl SceneRenderable for AutoScalableMeshModelInner {
 
     let mut world_matrix = inner.node.visit(|n| n.world_matrix);
 
-    let center = world_matrix.position();
+    let center = self
+      .override_position
+      .unwrap_or_else(|| world_matrix.position());
     let camera = base.active_camera.node.visit(|n| n.world_matrix.position());
     let distance = (camera - center).length();
 
-    let scale = 100. * 1.
+    let scale = self.independent_scale_factor * 1.
       / base
         .active_camera
         .projection
