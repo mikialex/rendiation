@@ -7,9 +7,6 @@ use std::{
 pub mod states;
 pub use states::*;
 
-pub mod state_material;
-pub use state_material::*;
-
 pub mod wrapper;
 pub use wrapper::*;
 

@@ -3,7 +3,6 @@ use crate::{Vec2, Vec3, Vec4};
 // https://github.com/maplant/aljabar/blob/master/src/vector.rs
 
 // Generates all the 2, 3, and 4-level swizzle functions.
-#[cfg(feature = "swizzle")]
 macro_rules! swizzle4 {
   // First level. Doesn't generate any functions itself because the one-letter functions
   // are manually provided in the Swizzle trait.
@@ -85,7 +84,6 @@ impl<T: Copy> Vec4<T> {
   pub fn a(&self) -> T { self.w }
 }
 
-#[cfg(feature = "swizzle")]
 impl<T: Copy> Vec4<T> {
   swizzle4! {x, x, y, z, w}
   swizzle4! {y, x, y, z, w}
@@ -97,7 +95,6 @@ impl<T: Copy> Vec4<T> {
   swizzle4! {a, r, g, b, a}
 }
 
-#[cfg(feature = "swizzle")]
 macro_rules! swizzle3 {
   ($a:ident, $x:ident, $y:ident, $z:ident) => {
     swizzle3!{ $a, $x, $x, $y, $z }
@@ -148,7 +145,6 @@ impl<T: Copy> Vec3<T> {
   pub fn b(&self) -> T { self.z }
 }
 
-#[cfg(feature = "swizzle")]
 impl<T: Copy> Vec3<T> {
   swizzle3! {x, x, y, z}
   swizzle3! {y, x, y, z}
@@ -158,7 +154,6 @@ impl<T: Copy> Vec3<T> {
   swizzle3! {b, r, g, b}
 }
 
-#[cfg(feature = "swizzle")]
 macro_rules! swizzle2 {
   ($a:ident, $x:ident, $y:ident) => {
     swizzle2! { $a, $x, $x, $y }
@@ -204,7 +199,6 @@ impl<T: Copy> Vec2<T> {
   pub fn g(&self) -> T { self.y }
 }
 
-#[cfg(feature = "swizzle")]
 impl<T: Copy> Vec2<T> {
   swizzle2! {x, x, y}
   swizzle2! {y, x, y}

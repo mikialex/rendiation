@@ -1,5 +1,4 @@
 use crate::*;
-use rendiation_algebra::*;
 
 pub type Ray3<T = f32> = HyperRay<T, Vec3<T>>;
 
@@ -157,7 +156,7 @@ impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for OrthographicProjection {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
     let z = (self.near + self.far) / (self.near - self.far); // i don't know why need this?
     let ndc = Vec3::new(normalized_position.x, normalized_position.y, z);
-    let origin = self.un_project(ndc);
+    let origin = self.un_project::<OpenGL>(ndc); // yes, the input ndc should be opengl, should we make this generic?
     HyperRay {
       origin,
       direction: Vec3::new(0., 0., -1.).into_normalized(), // check if it is -1
