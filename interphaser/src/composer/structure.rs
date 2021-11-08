@@ -21,6 +21,17 @@ where
       inner: None,
     }
   }
+
+  pub fn else_condition<F, EC>(self, func: F) -> Else<T, C, EC>
+  where
+    F: Fn(&T) -> EC + 'static,
+  {
+    Else {
+      if_com: self,
+      func: Box::new(func),
+      inner: None,
+    }
+  }
 }
 
 impl<T, C> Component<T> for If<T, C>
@@ -69,6 +80,68 @@ impl<T, C: Presentable> Presentable for If<T, C> {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     if let Some(inner) = &mut self.inner {
       inner.render(builder)
+    }
+  }
+}
+
+pub struct Else<T, C, EC> {
+  if_com: If<T, C>,
+  func: Box<dyn Fn(&T) -> EC>,
+  inner: Option<EC>,
+}
+
+impl<T, C, EC> Component<T> for Else<T, C, EC>
+where
+  C: Component<T>,
+  EC: Component<T>,
+{
+  fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
+    self.if_com.update(model, ctx);
+
+    if self.if_com.inner.is_none() {
+      if let Some(inner) = &mut self.inner {
+        inner.update(model, ctx);
+      } else {
+        self.inner = Some((self.func)(model));
+      }
+    } else {
+      self.inner = None
+    }
+  }
+
+  fn event(&mut self, model: &mut T, event: &mut crate::EventCtx) {
+    if let Some(inner) = &mut self.inner {
+      inner.event(model, event)
+    } else {
+      self.if_com.event(model, event);
+    }
+  }
+}
+
+impl<T, C: LayoutAble, EC: LayoutAble> LayoutAble for Else<T, C, EC> {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
+    if let Some(inner) = &mut self.inner {
+      inner.layout(constraint, ctx)
+    } else {
+      self.if_com.layout(constraint, ctx)
+    }
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    if let Some(inner) = &mut self.inner {
+      inner.set_position(position)
+    } else {
+      self.if_com.set_position(position);
+    }
+  }
+}
+
+impl<T, C: Presentable, EC: Presentable> Presentable for Else<T, C, EC> {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    if let Some(inner) = &mut self.inner {
+      inner.render(builder)
+    } else {
+      self.if_com.render(builder);
     }
   }
 }

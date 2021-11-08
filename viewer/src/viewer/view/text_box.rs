@@ -13,5 +13,5 @@ pub fn text_box(
         .extend(Container::size((200., 80.)))
     },
   )
-  // .else_condition(todo!())
+  .else_condition(|_| Text::default().editable())
 }
