@@ -13,7 +13,8 @@ pub trait Controller {
   ///
   /// After sync, if update triggered, should not change the target's state
   ///
-  /// This is useful when controller init or switch between different controllers
+  /// This is useful when controller init controllee or controllee switch between
+  /// different controllers
   fn sync(&mut self, target: &dyn Transformed3DControllee);
 
   /// update target states and return if state has actually changed
@@ -27,6 +28,9 @@ pub trait Transformed3DControllee {
 
 pub trait ControllerWinitEventSupport: Controller {
   type State: Default;
+
+  /// todo, the winit event lack of the local window bound state,
+  /// so if your canvas is not full window, this will be an issue
   fn event<T>(&mut self, state: &mut Self::State, event: &winit::event::Event<T>);
 }
 

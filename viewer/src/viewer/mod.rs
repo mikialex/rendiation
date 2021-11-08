@@ -14,7 +14,7 @@ pub mod helpers;
 use interphaser::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
 use rendiation_webgpu::GPU;
-use winit::event::{Event, WindowEvent};
+use winit::event::Event;
 
 use crate::*;
 
@@ -103,7 +103,8 @@ impl CanvasPrinter for ViewerImpl {
     let new_size = Size::from_u32_pair_min_one(new_size);
     if let Some(ctx) = &mut self.ctx {
       if self.size != new_size {
-        ctx.resize_view()
+        ctx.resize_view();
+        self.content.resize_view(layout_size);
       }
     }
     self.size = new_size;
@@ -167,7 +168,7 @@ impl Viewer3dContent {
     }
   }
 
-  fn resize_view(&mut self, size: (f32, f32)) {
+  pub fn resize_view(&mut self, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
       camera.resize(size)
     }
@@ -175,12 +176,6 @@ impl Viewer3dContent {
 
   pub fn event(&mut self, event: &Event<()>) {
     self.controller.event(event);
-
-    if let Event::WindowEvent { event, .. } = event {
-      if let WindowEvent::Resized(size) = event {
-        self.resize_view((size.width as f32, size.height as f32));
-      }
-    }
   }
 
   pub fn update_state(&mut self) {
