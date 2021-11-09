@@ -1,3 +1,4 @@
+use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
 use std::rc::Rc;
 
@@ -62,6 +63,15 @@ impl MaterialGPUResource for FatlineMaterialGPU {
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) {
+    let vertex_header = format!(
+      "
+    {}
+    {}
+    ",
+      Vertex::get_shader_header(),
+      FatLineVertex::get_shader_header()
+    );
+
     builder.shader_source = format!(
       "
       {object_header}
@@ -78,18 +88,78 @@ impl MaterialGPUResource for FatlineMaterialGPU {
         {vertex_header}
       ) -> VertexOutput {{
         var out: VertexOutput;
-        out.uv = uv;
-        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
+        
+        float aspect = resolution.x / resolution.y;
+        // camera space
+        vec4 start =  camera.view * model.matrix * vec4( fatline_start, 1.0 );
+        vec4 end =  camera.view * model.matrix * vec4( fatline_end, 1.0 );
+
+        // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
+        // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
+        // // but we need to perform ndc-space calculations in the shader, so we must address this issue directly
+        // // perhaps there is a more elegant solution -- WestLangley
+        // bool perspective = ( camera.projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
+        // if ( perspective ) {{
+        //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
+        //         trimSegment( start, end );
+        //     }} else if ( end.z < 0.0 && start.z >= 0.0 ) {{
+        //         trimSegment( end, start );
+        //     }}
+        // }}
+
+        // clip space
+        vec4 clipStart = camera.projection * start;
+        vec4 clipEnd = camera.projection * end;
+
+        // ndc space
+        vec2 ndcStart = clipStart.xy / clipStart.w;
+        vec2 ndcEnd = clipEnd.xy / clipEnd.w;
+
+        // direction
+        vec2 dir = ndcEnd - ndcStart;
+
+        // account for clip-space aspect ratio
+        dir.x *= aspect;
+        dir = normalize( dir );
+
+        // perpendicular to dir
+        vec2 offset = vec2( dir.y, - dir.x );
+
+        // undo aspect ratio adjustment
+        dir.x /= aspect;
+        offset.x /= aspect;
+
+        // sign flip
+        if ( position.x < 0.0 ) offset *= - 1.0;
+        // end caps
+        if ( position.y < 0.0 )  {{
+            offset += - dir;
+        }} else if ( position.y > 1.0 )  {{
+            offset += dir;
+        }}
+
+        // adjust for fatLineWidth
+        offset *= fatLineWidth;
+        // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
+        offset /= resolution.y;
+        // select end
+        vec4 clip = ( position.y < 0.5 ) ? clipStart : clipEnd;
+        // back to clip space
+        offset *= clip.w;
+        clip.xy += offset;
+
+        out.position = clip;
+
         return out;
       }}
       
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return textureSample(r_color, r_sampler, in.uv);
+          return vec4(1., 0., 0., 1.);
       }}
       
       ",
-      vertex_header = FatLineVertex::get_shader_header(),
+      vertex_header = vertex_header,
       material_header = FatLineMaterial::get_shader_header(),
       camera_header = CameraBindgroup::get_shader_header(),
       object_header = TransformGPU::get_shader_header(),

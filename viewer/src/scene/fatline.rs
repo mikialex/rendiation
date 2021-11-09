@@ -1,28 +1,69 @@
-// use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_webgpu::{GPURenderPass, GPU};
 
-// use crate::*;
+use crate::*;
 
-// pub struct Fatline {
-//   pub mesh: FatlineMeshHandle,
-//   pub material: TypedMaterialHandle<FatLineMaterial>,
-//   pub group: MeshDrawGroup,
-//   pub node: SceneNodeHandle,
-// }
+pub struct FatlineImpl {
+  pub material: MaterialCell<FatLineMaterial>,
+  pub mesh: FatlineMeshCellImpl,
+  pub group: MeshDrawGroup,
+  pub node: SceneNode,
+}
 
-// impl Model for Fatline {
-//   fn material(&self) -> MaterialHandle {
-//     self.material.handle
-//   }
+impl FatlineImpl {
+  pub fn new(
+    material: MaterialCell<FatLineMaterial>,
+    mesh: FatlineMeshCellImpl,
+    node: SceneNode,
+  ) -> Self {
+    Self {
+      material,
+      mesh,
+      group: Default::default(),
+      node,
+    }
+  }
+}
 
-//   fn mesh(&self) -> MeshHandle {
-//     self.mesh.handle
-//   }
+impl SceneRenderable for FatlineImpl {
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+    let material = &mut self.material;
+    let mesh = &mut self.mesh;
 
-//   fn group(&self) -> MeshDrawGroup {
-//     self.group
-//   }
+    self.node.mutate(|node| {
+      let mut ctx = SceneMaterialRenderPrepareCtx {
+        base,
+        model_info: node.get_model_gpu(gpu).into(),
+        active_mesh: Some(mesh),
+      };
 
-//   fn node(&self) -> SceneNodeHandle {
-//     self.node
-//   }
-// }
+      material.update(gpu, &mut ctx);
+
+      mesh.update(gpu, &mut base.resources.custom_storage);
+    });
+  }
+
+  fn setup_pass<'a>(
+    &self,
+    pass: &mut GPURenderPass<'a>,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+    pass_info: &PassTargetFormatInfo,
+  ) {
+    let material = &self.material;
+    let mesh = &self.mesh;
+
+    self.node.visit(|node| {
+      let ctx = SceneMaterialPassSetupCtx {
+        pass: pass_info,
+        camera_gpu,
+        model_gpu: node.gpu.as_ref().unwrap().into(),
+        resources,
+        active_mesh: Some(mesh),
+      };
+      material.setup_pass(pass, &ctx);
+
+      mesh.setup_pass_and_draw(pass, self.group);
+    });
+  }
+}
