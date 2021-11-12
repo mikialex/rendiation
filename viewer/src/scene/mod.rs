@@ -107,7 +107,6 @@ pub trait SceneRenderable {
     pass: &mut GPURenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
-    pass_info: &PassTargetFormatInfo,
   );
 }
 

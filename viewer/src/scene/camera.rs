@@ -2,6 +2,7 @@ use std::{ops::Deref, rc::Rc};
 
 use rendiation_algebra::*;
 use rendiation_geometry::*;
+use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
 use crate::SceneNode;
@@ -29,11 +30,57 @@ impl<T: ResizableProjection + RayCaster3<f32>> CameraProjection for T {
   }
 }
 
+pub struct CameraViewBounds {
+  pub width: f32,
+  pub height: f32,
+  pub to_left: f32,
+  pub to_top: f32,
+}
+
+impl CameraViewBounds {
+  pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>) {
+    let size = pass.info().buffer_size;
+    let width: usize = size.width.into();
+    let width = width as f32;
+    let height: usize = size.height.into();
+    let height = height as f32;
+    pass.set_viewport(
+      width * self.to_left,
+      height * self.to_top,
+      width * self.width,
+      height * self.height,
+      0.,
+      1.,
+    )
+  }
+}
+
+impl Default for CameraViewBounds {
+  fn default() -> Self {
+    Self {
+      width: 1.,
+      height: 1.,
+      to_left: 0.,
+      to_top: 0.,
+    }
+  }
+}
+
 pub struct Camera {
-  pub view_size: Vec2<f32>, // todo update to viewport config latter
+  pub bounds: CameraViewBounds, // todo apply as viewport
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
+}
+
+impl Camera {
+  pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
+    let width: usize = frame_size.width.into();
+    let width = width as f32 * self.bounds.width;
+    let height: usize = frame_size.height.into();
+    let height = height as f32 * self.bounds.height;
+    (width, height).into()
+  }
 }
 
 pub struct SceneCamera {
@@ -59,7 +106,7 @@ impl SceneCamera {
   pub fn new(p: impl ResizableProjection + RayCaster3<f32> + 'static, node: SceneNode) -> Self {
     Self {
       cpu: Camera {
-        view_size: Vec2::new(1024., 768.),
+        bounds: Default::default(),
         projection: Box::new(p),
         projection_matrix: Mat4::one(),
         node,
@@ -70,11 +117,9 @@ impl SceneCamera {
 
   pub fn resize(&mut self, size: (f32, f32)) {
     self.projection.resize(size);
-    self.view_size = size.into();
   }
 
-  pub fn cast_world_ray(&self, screen_position: Vec2<f32>) -> Ray3<f32> {
-    let normalized_position = screen_position / self.view_size * 2. - Vec2::splat(1.0);
+  pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
     self.projection.cast_ray(normalized_position)
   }
 

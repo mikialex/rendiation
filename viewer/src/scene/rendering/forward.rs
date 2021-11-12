@@ -23,7 +23,7 @@ impl PassContent for ForwardScene {
     gpu: &GPU,
     scene: &mut Scene,
     _resource: &mut ResourcePoolImpl,
-    pass: &PassTargetFormatInfo,
+    pass: &RenderPassInfo,
   ) {
     self.render_list.models.clear();
 
@@ -34,12 +34,7 @@ impl PassContent for ForwardScene {
     self.render_list.update(scene, gpu, pass);
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut GPURenderPass<'a>,
-    scene: &'a Scene,
-    pass_info: &'a PassTargetFormatInfo,
-  ) {
-    self.render_list.setup_pass(pass, scene, pass_info);
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+    self.render_list.setup_pass(pass, scene);
   }
 }

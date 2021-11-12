@@ -55,7 +55,6 @@ impl SceneRenderable for SolidBackground {
     _pass: &mut GPURenderPass<'a>,
     _camera_gpu: &CameraBindgroup,
     _pipeline_resource: &GPUResourceCache,
-    _pass_info: &PassTargetFormatInfo,
   ) {
   }
 }
@@ -111,12 +110,10 @@ where
     pass: &mut GPURenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
-    pass_info: &PassTargetFormatInfo,
   ) {
     self.root.visit(|node| {
       let model_gpu = node.gpu.as_ref().unwrap().into();
       let ctx = SceneMaterialPassSetupCtx {
-        pass: pass_info,
         camera_gpu,
         model_gpu,
         resources,
@@ -214,11 +211,13 @@ pub trait BackGroundShading: MaterialCPUResource {
 
     builder.targets = ctx
       .pass
+      .format_info
       .color_formats
       .iter()
       .map(|&f| states.map_color_states(f))
       .collect();
 
-    builder.depth_stencil = states.map_depth_stencil_state(ctx.pass.depth_stencil_format);
+    builder.depth_stencil =
+      states.map_depth_stencil_state(ctx.pass.format_info.depth_stencil_format);
   }
 }

@@ -176,16 +176,35 @@ impl<T> ApplicationInner<T> {
     let view = frame
       .texture
       .create_view(&wgpu::TextureViewDescriptor::default());
+    let view = Rc::new(view);
 
     self.current_perf.rendering_dispatch_time = time_measure(|| {
-      self.gpu.render_pass(
-        &mut WebGPUxUIRenderPass {
-          fonts: &self.fonts,
-          renderer: &mut self.ui_renderer,
-          presentation: &builder.present,
+      let mut task = WebGPUxUIRenderTask {
+        fonts: &self.fonts,
+        renderer: &mut self.ui_renderer,
+        presentation: &builder.present,
+      };
+
+      let mut encoder = self.gpu.encoder.borrow_mut();
+      task.update(&self.gpu, &mut encoder);
+
+      let mut decs = RenderPassDescriptorOwned::default();
+      decs.channels.push((
+        wgpu::Operations {
+          load: wgpu::LoadOp::Clear(wgpu::Color {
+            r: 1.,
+            g: 1.,
+            b: 1.,
+            a: 1.,
+          }),
+          store: true,
         },
-        &view,
-      )
+        view,
+        Size::from_u32_pair_min_one((100, 100)),
+      ));
+
+      let mut pass = encoder.begin_render_pass(&decs);
+      task.setup_pass(&mut pass);
     });
 
     self.gpu.submit();

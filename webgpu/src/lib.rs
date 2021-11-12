@@ -54,20 +54,6 @@ impl BindableResource for wgpu::Sampler {
   }
 }
 
-pub trait Renderable {
-  fn update(&mut self, gpu: &GPU, encoder: &mut GPUCommandEncoder) {
-    // assume all gpu stuff prepared, and do nothing
-  }
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>);
-}
-
-pub trait RenderPassCreator<T> {
-  fn create<'a>(&'a self, target: &'a T, encoder: &'a mut GPUCommandEncoder) -> GPURenderPass<'a>;
-
-  // fn get_color_formats(&self) -> Vec<wgpu::TextureFormat>;
-  // fn get_depth_stencil_format(&self) -> Option<wgpu::TextureFormat>;
-}
-
 pub struct GPU {
   instance: wgpu::Instance,
   adaptor: wgpu::Adapter,
@@ -184,19 +170,6 @@ impl GPU {
     std::mem::swap(current_encoder, &mut encoder);
 
     self.queue.submit(Some(encoder.finish()));
-  }
-
-  pub fn render_pass<R, T>(&self, renderable: &mut R, target: &T)
-  where
-    R: Renderable,
-    R: RenderPassCreator<T>,
-  {
-    let mut encoder = self.encoder.borrow_mut();
-    {
-      renderable.update(self, &mut encoder);
-      let mut pass = renderable.create(target, &mut encoder);
-      renderable.setup_pass(&mut pass);
-    }
   }
 }
 

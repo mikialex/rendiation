@@ -36,10 +36,9 @@ impl SceneRenderable for MeshModel {
     pass: &mut GPURenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
-    pass_info: &PassTargetFormatInfo,
   ) {
     let inner = self.inner.borrow();
-    inner.setup_pass(pass, camera_gpu, resources, pass_info)
+    inner.setup_pass(pass, camera_gpu, resources)
   }
 }
 
@@ -98,14 +97,12 @@ impl SceneRenderable for MeshModelImpl {
     pass: &mut GPURenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
-    pass_info: &PassTargetFormatInfo,
   ) {
     let material = &self.material;
     let mesh = &self.mesh;
 
     self.node.visit(|node| {
       let ctx = SceneMaterialPassSetupCtx {
-        pass: pass_info,
         camera_gpu,
         model_gpu: node.gpu.as_ref().unwrap().into(),
         resources,
@@ -161,11 +158,16 @@ impl SceneRenderable for AutoScalableMeshModelImpl {
     let camera = base.active_camera.node.visit(|n| n.world_matrix.position());
     let distance = (camera - center).length();
 
-    let scale = self.independent_scale_factor * 1.
+    let camera_view_height = base
+      .active_camera
+      .view_size_in_pixel(base.pass.buffer_size)
+      .y;
+
+    let scale = self.independent_scale_factor
       / base
         .active_camera
         .projection
-        .pixels_per_unit(distance, base.active_camera.view_size.y);
+        .pixels_per_unit(distance, camera_view_height);
 
     let raw_scale = world_matrix.extract_scale();
     let new_scale = Vec3::splat(scale) / raw_scale;
@@ -193,13 +195,11 @@ impl SceneRenderable for AutoScalableMeshModelImpl {
     pass: &mut GPURenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
-    pass_info: &PassTargetFormatInfo,
   ) {
     let material = &self.material;
     let mesh = &self.mesh;
 
     let ctx = SceneMaterialPassSetupCtx {
-      pass: pass_info,
       camera_gpu,
       model_gpu: self.override_gpu.as_ref(),
       resources,

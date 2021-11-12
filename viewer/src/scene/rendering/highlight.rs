@@ -17,7 +17,7 @@
 //     gpu: &GPU,
 //     scene: &mut Scene,
 //     resource: &mut ResourcePoolImpl,
-//     pass_info: &PassTargetFormatInfo,
+//     pass_info: &RenderPassInfo,
 //   ) {
 //     // get resource pool texture and view , update bindgroup
 //     todo!()
@@ -27,7 +27,7 @@
 //     &'a self,
 //     pass: &mut GPURenderPass<'a>,
 //     scene: &'a Scene,
-//     pass_info: &'a PassTargetFormatInfo,
+//     pass_info: &'a RenderPassInfo,
 //   ) {
 //     todo!()
 //   }

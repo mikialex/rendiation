@@ -1,5 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
+use rendiation_webgpu::RenderPassInfo;
 
 use crate::*;
 
@@ -17,7 +18,7 @@ impl PassContent for AxisHelper {
     gpu: &rendiation_webgpu::GPU,
     scene: &mut Scene,
     _resource: &mut ResourcePoolImpl,
-    pass_info: &PassTargetFormatInfo,
+    pass_info: &RenderPassInfo,
   ) {
     if !self.enabled {
       return;
@@ -40,12 +41,7 @@ impl PassContent for AxisHelper {
     self.z.update(gpu, &mut base, root_position);
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut rendiation_webgpu::GPURenderPass<'a>,
-    scene: &'a Scene,
-    pass_info: &'a PassTargetFormatInfo,
-  ) {
+  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
     if !self.enabled {
       return;
     }
@@ -61,9 +57,7 @@ impl PassContent for AxisHelper {
     let mut arr = [(x, &self.x), (y, &self.y), (z, &self.z)];
     arr.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Less));
 
-    arr
-      .iter()
-      .for_each(|(_, a)| a.setup_pass(pass, scene, pass_info));
+    arr.iter().for_each(|(_, a)| a.setup_pass(pass, scene));
   }
 }
 
@@ -86,24 +80,17 @@ impl Arrow {
     self.tip.update(gpu, ctx);
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut rendiation_webgpu::GPURenderPass<'a>,
-    scene: &'a Scene,
-    pass_info: &'a PassTargetFormatInfo,
-  ) {
+  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
     self.cylinder.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
       &scene.resources,
-      pass_info,
     );
 
     self.tip.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
       &scene.resources,
-      pass_info,
     );
   }
 

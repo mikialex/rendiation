@@ -60,6 +60,7 @@ where
   ) {
     builder.targets = ctx
       .pass
+      .format_info
       .color_formats
       .iter()
       .map(|&f| source.states.map_color_states(f))
@@ -67,7 +68,7 @@ where
 
     builder.depth_stencil = source
       .states
-      .map_depth_stencil_state(ctx.pass.depth_stencil_format);
+      .map_depth_stencil_state(ctx.pass.format_info.depth_stencil_format);
 
     builder.with_layout(ctx.layouts.retrieve::<TransformGPU>(device));
 

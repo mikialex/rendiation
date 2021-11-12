@@ -21,7 +21,8 @@ pub use env_background::*;
 
 use rendiation_webgpu::{
   BindGroupLayoutManager, GPURenderPass, PipelineBuilder, PipelineRequester,
-  PipelineResourceManager, PipelineUnit, PipelineVariantContainer, TopologyPipelineVariant, GPU,
+  PipelineResourceManager, PipelineUnit, PipelineVariantContainer, RenderPassInfo,
+  TopologyPipelineVariant, GPU,
 };
 
 use crate::*;
@@ -171,7 +172,7 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
-  pub pass: &'a PassTargetFormatInfo,
+  pub pass: &'a RenderPassInfo,
   pub resources: &'a mut GPUResourceCache,
 }
 
@@ -188,10 +189,10 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
   }
 }
 
-pub struct PipelineCreateCtx<'a> {
+pub struct PipelineCreateCtx<'a, 'b> {
   pub layouts: &'a BindGroupLayoutManager,
   pub active_mesh: Option<&'a dyn Mesh>,
-  pub pass: &'a PassTargetFormatInfo,
+  pub pass: &'b RenderPassInfo,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {
@@ -199,15 +200,14 @@ pub struct SceneMaterialPassSetupCtx<'a> {
   pub model_gpu: Option<&'a TransformGPU>,
   pub active_mesh: Option<&'a dyn Mesh>,
   pub camera_gpu: &'a CameraBindgroup,
-  pub pass: &'a PassTargetFormatInfo,
 }
 
 impl<'a> SceneMaterialPassSetupCtx<'a> {
-  pub fn pipeline_ctx(&self) -> PipelineCreateCtx {
+  pub fn pipeline_ctx<'b>(&'a self, pass: &'b RenderPassInfo) -> PipelineCreateCtx<'a, 'b> {
     PipelineCreateCtx {
       layouts: &self.resources.layouts,
       active_mesh: self.active_mesh,
-      pass: self.pass,
+      pass,
     }
   }
 }
@@ -256,7 +256,7 @@ where
     let gpu = self.gpu.as_ref().unwrap();
 
     let container = ctx.resources.pipeline_resource.get_cache::<T::GPU>();
-    let pipeline_ctx = ctx.pipeline_ctx();
+    let pipeline_ctx = ctx.pipeline_ctx(&pass.info());
     let key = gpu.pipeline_key(&self.material, &pipeline_ctx);
     let pipeline = container.retrieve(&key);
     pass.set_pipeline_owned(pipeline);

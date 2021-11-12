@@ -48,14 +48,12 @@ impl SceneRenderable for FatlineImpl {
     pass: &mut GPURenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
-    pass_info: &PassTargetFormatInfo,
   ) {
     let material = &self.material;
     let mesh = &self.mesh;
 
     self.node.visit(|node| {
       let ctx = SceneMaterialPassSetupCtx {
-        pass: pass_info,
         camera_gpu,
         model_gpu: node.gpu.as_ref().unwrap().into(),
         resources,

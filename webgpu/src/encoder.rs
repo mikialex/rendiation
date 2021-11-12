@@ -3,7 +3,10 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
-use crate::{GPURenderPass, GPURenderPassDataHolder, WebGPUTexture2d, WebGPUTexture2dSource};
+use crate::{
+  GPURenderPass, GPURenderPassDataHolder, RenderPassDescriptorOwned, RenderPassInfo,
+  WebGPUTexture2d, WebGPUTexture2dSource,
+};
 
 pub struct GPUCommandEncoder {
   encoder: wgpu::CommandEncoder,
@@ -38,12 +41,44 @@ impl GPUCommandEncoder {
 
   pub fn begin_render_pass<'a>(
     &'a mut self,
-    desc: &wgpu::RenderPassDescriptor<'a, '_>,
+    des: &'a RenderPassDescriptorOwned,
   ) -> GPURenderPass<'a> {
-    let pass = self.encoder.begin_render_pass(desc);
+    let color_attachments: Vec<_> = des
+      .channels
+      .iter()
+      .map(|(ops, view, _)| wgpu::RenderPassColorAttachment {
+        view,
+        resolve_target: None,
+        ops: *ops,
+      })
+      .collect();
+
+    let depth_stencil_attachment =
+      des
+        .depth_stencil_target
+        .as_ref()
+        .map(|(ops, view)| wgpu::RenderPassDepthStencilAttachment {
+          view,
+          depth_ops: (*ops).into(),
+          stencil_ops: None,
+        });
+
+    let desc = wgpu::RenderPassDescriptor {
+      label: des.name.as_str().into(),
+      color_attachments: color_attachments.as_slice(),
+      depth_stencil_attachment,
+    };
+
+    let info = RenderPassInfo {
+      buffer_size: des.channels.first().unwrap().2,
+      format_info: des.info.clone(),
+    };
+
+    let pass = self.encoder.begin_render_pass(&desc);
     GPURenderPass {
       pass,
       holder: &mut self.holder,
+      info,
     }
   }
 
