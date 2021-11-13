@@ -138,4 +138,8 @@ impl MaterialCPUResource for FlatMaterial {
       bindgroup,
     }
   }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    true
+  }
 }

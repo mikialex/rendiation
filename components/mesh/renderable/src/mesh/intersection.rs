@@ -1,5 +1,7 @@
 use std::cell::Cell;
 
+use crate::group::{GroupedMesh, MeshDrawGroup};
+
 use super::AbstractMesh;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
@@ -66,9 +68,43 @@ where
   }
 }
 
-use wasm_bindgen::prelude::*;
+pub trait IntersectAbleGroupedMesh {
+  fn intersect_list(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
+  );
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshDrawGroup,
+  ) -> Nearest<MeshBufferHitPoint>;
+}
 
-#[wasm_bindgen]
+impl<T: IntersectAbleAbstractMesh> IntersectAbleGroupedMesh for GroupedMesh<T> {
+  fn intersect_list(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
+  ) {
+    self.mesh.intersect_list(ray, conf, result)
+  }
+
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshDrawGroup,
+  ) -> Nearest<MeshBufferHitPoint> {
+    self.mesh.intersect_nearest(ray, conf)
+  }
+}
+
 #[derive(Copy, Clone)]
 pub enum ToleranceType {
   LocalSpace,

@@ -201,4 +201,7 @@ impl MaterialCPUResource for FatLineMaterial {
       bindgroup,
     }
   }
+  fn is_keep_mesh_shape(&self) -> bool {
+    false
+  }
 }

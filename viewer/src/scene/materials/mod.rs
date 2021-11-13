@@ -39,6 +39,7 @@ pub trait MaterialCPUResource: Clone {
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU;
+  fn is_keep_mesh_shape(&self) -> bool;
 }
 
 pub trait MaterialGPUResource: Sized + PipelineRequester {
@@ -215,6 +216,7 @@ impl<'a> SceneMaterialPassSetupCtx<'a> {
 pub trait Material {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
+  fn is_keep_mesh_shape(&self) -> bool;
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -264,6 +266,10 @@ where
     gpu.setup_pass_bindgroup(pass, ctx)
   }
 
+  fn is_keep_mesh_shape(&self) -> bool {
+    self.material.is_keep_mesh_shape()
+  }
+
   fn as_any(&self) -> &dyn Any {
     self
   }
@@ -289,6 +295,11 @@ where
   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
     let inner = self.inner.borrow();
     inner.setup_pass(pass, ctx)
+  }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    let inner = self.inner.borrow();
+    inner.is_keep_mesh_shape()
   }
 
   fn as_any(&self) -> &dyn Any {

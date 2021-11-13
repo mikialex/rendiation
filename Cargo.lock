@@ -1924,7 +1924,6 @@ dependencies = [
  "rendiation-webgpu",
  "soa_derive",
  "space-algorithm",
- "wasm-bindgen",
 ]
 
 [[package]]

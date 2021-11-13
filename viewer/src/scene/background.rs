@@ -3,6 +3,7 @@ use std::rc::Rc;
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh;
 use rendiation_renderable_mesh::tessellation::IndexedMeshTessellator;
 use rendiation_renderable_mesh::tessellation::SphereMeshParameter;
 use rendiation_renderable_mesh::vertex::Vertex;
@@ -59,7 +60,7 @@ impl SceneRenderable for SolidBackground {
   }
 }
 
-pub type BackgroundMesh = impl GPUMeshData;
+pub type BackgroundMesh = impl GPUMeshData + IntersectAbleGroupedMesh;
 fn build_mesh() -> BackgroundMesh {
   let sphere = SphereMeshParameter {
     radius: 100.,

@@ -165,4 +165,7 @@ impl MaterialCPUResource for BasicMaterial {
       bindgroup,
     }
   }
+  fn is_keep_mesh_shape(&self) -> bool {
+    true
+  }
 }

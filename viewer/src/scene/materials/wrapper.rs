@@ -114,4 +114,8 @@ where
       gpu,
     }
   }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    self.material.is_keep_mesh_shape()
+  }
 }

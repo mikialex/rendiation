@@ -7,7 +7,7 @@ pub fn text_box(
 ) -> impl UIComponent<String> {
   If::condition(
     |t: &String| t.is_empty(),
-    move |t| {
+    move |_t| {
       Text::default()
         .bind(move |s, _| s.content.set(placeholder))
         .extend(Container::size((200., 80.)))

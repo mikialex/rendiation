@@ -1,5 +1,7 @@
 use anymap::AnyMap;
-use rendiation_renderable_mesh::{group::MeshDrawGroup, GPUMeshData, MeshGPU};
+use rendiation_renderable_mesh::{
+  group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, MeshGPU,
+};
 use rendiation_webgpu::{GPURenderPass, VertexBufferLayoutOwned, GPU};
 use std::{cell::RefCell, rc::Rc};
 
@@ -25,6 +27,9 @@ pub trait Mesh {
   fn update(&mut self, gpu: &GPU, storage: &mut AnyMap);
   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
+
+  // the reason we use CPS style is for supporting refcell
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 pub struct MeshCellImpl<T> {
@@ -59,7 +64,7 @@ impl<T> Clone for MeshCell<T> {
   }
 }
 
-impl<T: GPUMeshData> Mesh for MeshCellImpl<T> {
+impl<T: GPUMeshData + IntersectAbleGroupedMesh> Mesh for MeshCellImpl<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let gpu = self.gpu.as_ref().unwrap();
     gpu.setup_pass(pass);
@@ -77,9 +82,13 @@ impl<T: GPUMeshData> Mesh for MeshCellImpl<T> {
   fn topology(&self) -> wgpu::PrimitiveTopology {
     self.data.topology()
   }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    f(&self.data)
+  }
 }
 
-impl<T: GPUMeshData> Mesh for MeshCell<T> {
+impl<T: GPUMeshData + IntersectAbleGroupedMesh> Mesh for MeshCell<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let inner = self.inner.borrow();
     inner.setup_pass_and_draw(pass, group);
@@ -98,27 +107,9 @@ impl<T: GPUMeshData> Mesh for MeshCell<T> {
   fn topology(&self) -> wgpu::PrimitiveTopology {
     self.inner.borrow().topology()
   }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    let inner = self.inner.borrow();
+    inner.try_pick(f);
+  }
 }
-
-// impl Scene {
-//   pub fn add_mesh<M>(&mut self, mesh: M) -> TypedMeshHandle<M>
-//   where
-//     M: GPUMeshData + 'static,
-//   {
-//     let handle = self
-//       .components
-//       .meshes
-//       .insert(Box::new(MeshCellImpl::from(mesh)));
-//     TypedMeshHandle {
-//       handle,
-//       ty: PhantomData,
-//     }
-//   }
-// }
-
-// /// the comprehensive data that provided by mesh and will affect graphic pipeline
-// pub struct MeshLayout {
-//   vertex: Vec<wgpu::VertexBufferLayout<'static>>,
-//   index: wgpu::IndexFormat,
-//   topology: wgpu::PrimitiveTopology,
-// }
