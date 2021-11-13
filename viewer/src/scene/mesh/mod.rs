@@ -29,7 +29,7 @@ pub trait Mesh {
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
   // the reason we use CPS style is for supporting refcell
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
+  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 pub struct MeshCellImpl<T> {

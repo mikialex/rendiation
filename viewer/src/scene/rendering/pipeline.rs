@@ -233,6 +233,7 @@ impl SimplePipeline {
   // }
 }
 
+#[allow(clippy::field_reassign_with_default)]
 pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
   let mut desc = RenderPassDescriptorOwned::default();
   desc.name = name.into();

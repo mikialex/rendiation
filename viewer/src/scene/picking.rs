@@ -15,11 +15,15 @@ impl Scene {
 
     let conf = MeshBufferIntersectConfig::default();
 
-    self.models.iter().for_each(|m| {
+    for m in self.models.iter() {
       let model = m.inner.borrow();
       let world_inv = model.node.visit(|n| n.world_matrix).inverse_or_identity(); // todo support view scale mesh
 
       let local_ray = world_ray.clone().apply_matrix_into(world_inv);
+
+      if !model.material.is_keep_mesh_shape() {
+        continue;
+      }
 
       let mesh = &model.mesh;
       mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
@@ -30,7 +34,7 @@ impl Scene {
           result.push(m);
         }
       });
-    });
+    }
 
     result
   }

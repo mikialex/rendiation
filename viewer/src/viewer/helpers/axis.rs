@@ -1,8 +1,5 @@
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::{
-  mesh::IntersectAbleAbstractMesh,
-  tessellation::{CylinderMeshParameter, IndexedMeshTessellator},
-};
+use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
 use rendiation_webgpu::RenderPassInfo;
 
 use crate::*;

@@ -258,7 +258,7 @@ where
     let gpu = self.gpu.as_ref().unwrap();
 
     let container = ctx.resources.pipeline_resource.get_cache::<T::GPU>();
-    let pipeline_ctx = ctx.pipeline_ctx(&pass.info());
+    let pipeline_ctx = ctx.pipeline_ctx(pass.info());
     let key = gpu.pipeline_key(&self.material, &pipeline_ctx);
     let pipeline = container.retrieve(&key);
     pass.set_pipeline_owned(pipeline);
