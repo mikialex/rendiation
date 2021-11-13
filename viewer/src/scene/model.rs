@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, hash::Hash};
 
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
@@ -9,6 +9,19 @@ use super::*;
 #[derive(Clone)]
 pub struct MeshModel {
   pub inner: Rc<RefCell<MeshModelImpl>>,
+}
+
+impl PartialEq for MeshModel {
+  fn eq(&self, other: &Self) -> bool {
+    Rc::ptr_eq(&self.inner, &other.inner)
+  }
+}
+impl Eq for MeshModel {}
+
+impl Hash for MeshModel {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.inner.as_ptr().hash(state);
+  }
 }
 
 impl MeshModel {

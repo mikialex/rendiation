@@ -4,21 +4,23 @@ use std::rc::Rc;
 pub use examples::*;
 
 pub mod view;
-use rendiation_texture::Size;
 pub use view::*;
 
 pub mod default_scene;
 pub use default_scene::*;
+
+pub mod selection;
+
 pub mod helpers;
+use self::{helpers::axis::AxisHelper, selection::SelectionSet};
 
 use interphaser::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
+use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
 use winit::event::Event;
 
 use crate::*;
-
-use self::helpers::axis::AxisHelper;
 
 pub struct Viewer {
   _counter: Counter,
@@ -120,6 +122,7 @@ pub struct ViewerImpl {
 
 pub struct Viewer3dContent {
   pub scene: Scene,
+  pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
   pub axis: AxisHelper,
 }
@@ -164,6 +167,7 @@ impl Viewer3dContent {
     Self {
       scene,
       controller,
+      selections: Default::default(),
       axis,
     }
   }
