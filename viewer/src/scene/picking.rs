@@ -4,7 +4,11 @@ use rendiation_renderable_mesh::mesh::{IntersectAbleGroupedMesh, MeshBufferInter
 use crate::*;
 
 impl Scene {
-  pub fn pick(&self, normalized_position: Vec2<f32>) -> Vec<&MeshModel> {
+  pub fn pick(
+    &self,
+    normalized_position: Vec2<f32>,
+    conf: &MeshBufferIntersectConfig,
+  ) -> Vec<&MeshModel> {
     let mut result = Vec::new();
 
     let camera = self.active_camera.as_ref().unwrap();
@@ -12,8 +16,6 @@ impl Scene {
     let world_ray = camera
       .cast_world_ray(normalized_position)
       .apply_matrix_into(view_mat);
-
-    let conf = MeshBufferIntersectConfig::default();
 
     for m in self.models.iter() {
       let model = m.inner.borrow();
@@ -28,9 +30,10 @@ impl Scene {
       let mesh = &model.mesh;
       mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
         if mesh
-          .intersect_nearest(local_ray, &conf, model.group)
+          .intersect_nearest(local_ray, conf, model.group)
           .is_some()
         {
+          println!("pick");
           result.push(m);
         }
       });

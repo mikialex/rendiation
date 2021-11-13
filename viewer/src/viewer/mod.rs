@@ -12,13 +12,16 @@ pub use default_scene::*;
 pub mod selection;
 
 pub mod helpers;
-use self::{helpers::axis::AxisHelper, selection::SelectionSet};
+use self::{
+  helpers::axis::AxisHelper,
+  selection::{Picker, SelectionSet},
+};
 
 use interphaser::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
 use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
-use winit::event::Event;
+use winit::event::{ElementState, Event, MouseButton};
 
 use crate::*;
 
@@ -96,8 +99,8 @@ impl CanvasPrinter for ViewerImpl {
       .render(canvas, gpu, &mut self.content)
   }
 
-  fn event(&mut self, event: &winit::event::Event<()>) {
-    self.content.event(event)
+  fn event(&mut self, event: &winit::event::Event<()>, states: &WindowState) {
+    self.content.event(event, states)
   }
 
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {
@@ -122,6 +125,7 @@ pub struct ViewerImpl {
 
 pub struct Viewer3dContent {
   pub scene: Scene,
+  pub picker: Picker,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
   pub axis: AxisHelper,
@@ -167,6 +171,7 @@ impl Viewer3dContent {
     Self {
       scene,
       controller,
+      picker: Default::default(),
       selections: Default::default(),
       axis,
     }
@@ -178,8 +183,32 @@ impl Viewer3dContent {
     }
   }
 
-  pub fn event(&mut self, event: &Event<()>) {
+  pub fn event(&mut self, event: &Event<()>, states: &WindowState) {
     self.controller.event(event);
+
+    #[allow(clippy::single_match)]
+    match event {
+      Event::WindowEvent { event, .. } => match event {
+        winit::event::WindowEvent::MouseInput { state, button, .. } => {
+          if *button == MouseButton::Left && *state == ElementState::Pressed {
+            // todo handle canvas is not full window case;
+            let normalized_position = (
+              states.mouse_position.x / states.size.width * 2. - 1.,
+              states.mouse_position.y / states.size.height * 2. - 1.,
+            );
+            
+            self.picker.pick_new(
+              &self.scene,
+              &mut self.selections,
+              normalized_position.into(),
+            );
+
+          }
+        }
+        _ => {}
+      },
+      _ => {}
+    }
   }
 
   pub fn update_state(&mut self) {
