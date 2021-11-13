@@ -71,6 +71,9 @@ pub struct Attachment<F: AttachmentFormat> {
   texture: Option<Rc<wgpu::Texture>>,
 }
 
+pub type ColorAttachment = Attachment<wgpu::TextureFormat>;
+pub type DepthAttachment = Attachment<wgpu::TextureFormat>; // todo
+
 impl<F: AttachmentFormat> Attachment<F> {
   pub fn write(&mut self) -> AttachmentWriteView<F> {
     AttachmentWriteView {
@@ -173,7 +176,8 @@ pub trait PassContent {
 #[derive(Default)]
 pub struct SimplePipeline {
   forward: ForwardScene,
-  // highlight: HighLight,
+  highlight: HighLighter,
+  background: BackGroundRendering,
 }
 
 impl SimplePipeline {
@@ -185,13 +189,32 @@ impl SimplePipeline {
       .format(wgpu::TextureFormat::Depth24PlusStencil8)
       .request(engine);
 
-    pass("forward-group")
+    let mut final_compose = pass("compose-all")
       .with_color(engine.screen(), scene.get_main_pass_load_op())
-      .with_depth(scene_depth.write(), clear(1.))
-      .render_by(&mut BackGroundRendering)
-      .render_by(&mut self.forward)
-      .render_by(&mut content.axis)
-      .run(engine, scene);
+      .with_depth(scene_depth.write(), clear(1.));
+
+    final_compose
+      .render(&mut self.background)
+      .render(&mut self.forward);
+
+    if content.selections.selected.len() > 0 && false {
+      let mut selected = attachment()
+        .format(wgpu::TextureFormat::Rgba8Unorm)
+        .request(engine);
+
+      pass("highlight-selected-mask")
+        .with_color(selected.write(), clear(color_same(0.)))
+        .render_by(&mut highlight(content.selections.selected.iter()))
+        .run(engine, scene);
+
+      let mut compose = self.highlight.draw(selected);
+
+      final_compose.render(&mut compose);
+    }
+
+    final_compose.render(&mut content.axis);
+
+    final_compose.run(engine, scene);
 
   }
 
@@ -287,6 +310,11 @@ impl<'a, 't> PassDescriptor<'a, 't> {
 
   #[must_use]
   pub fn render_by(mut self, renderable: &'t mut dyn PassContent) -> Self {
+    self.tasks.push(renderable);
+    self
+  }
+
+  pub fn render(&mut self, renderable: &'t mut dyn PassContent) -> &mut Self {
     self.tasks.push(renderable);
     self
   }

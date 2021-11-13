@@ -18,13 +18,15 @@ impl Picker {
     normalized_position: Vec2<f32>,
   ) {
     selections.clear();
-    let result = scene.pick(normalized_position, &self.config);
+    if let Some(nearest) = scene.pick_nearest(normalized_position, &self.config) {
+      selections.select(nearest);
+    }
   }
 }
 
 #[derive(Default)]
 pub struct SelectionSet {
-  selected: HashSet<MeshModel>,
+  pub selected: HashSet<MeshModel>,
 }
 
 impl SelectionSet {
