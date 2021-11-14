@@ -77,7 +77,6 @@ impl MaterialGPUResource for FlatMaterialGPU {
 
       struct VertexOutput {{
         [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] uv: vec2<f32>;
       }};
 
       [[stage(vertex)]]
@@ -85,7 +84,6 @@ impl MaterialGPUResource for FlatMaterialGPU {
         {vertex_header}
       ) -> VertexOutput {{
         var out: VertexOutput;
-        out.uv = uv;
         out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
         return out;
       }}
