@@ -162,20 +162,25 @@ impl BindGroupLayoutProvider for TransformGPU {
       }],
     })
   }
+
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct ModelTransform {{
+        matrix: mat4x4<f32>;
+      }};
+
+      [[group({group}), binding(0)]]
+      var<uniform> model: ModelTransform;
+    
+    ",
+      group = group
+    )
+  }
 }
 
 impl TransformGPU {
-  pub fn get_shader_header() -> &'static str {
-    r#"
-      [[block]]
-      struct ModelTransform {
-          matrix: mat4x4<f32>;
-      };
-      [[group(0), binding(0)]]
-      var<uniform> model: ModelTransform;
-    "#
-  }
-
   pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) -> &mut Self {
     if self.cache == *matrix {
       return self;

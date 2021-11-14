@@ -15,21 +15,6 @@ impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
 
-impl FlatMaterial {
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct FlatMaterial {
-      color: vec4<f32>;
-    };
-
-    [[group(1), binding(0)]]
-    var<uniform> flat_material: FlatMaterial;
-    
-    "
-  }
-}
-
 impl BindGroupLayoutProvider for FlatMaterial {
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -41,6 +26,22 @@ impl BindGroupLayoutProvider for FlatMaterial {
         count: None,
       }],
     })
+  }
+
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct FlatMaterial {{
+        color: vec4<f32>;
+      }};
+
+      [[group({group}), binding(0)]]
+      var<uniform> flat_material: FlatMaterial;
+    
+    ",
+      group = group
+    )
   }
 }
 

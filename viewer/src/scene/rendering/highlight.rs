@@ -1,7 +1,7 @@
 use crate::{ColorAttachment, PassContent, Scene};
 
 use rendiation_algebra::Vec4;
-use rendiation_webgpu::{BindGroup, PipelineBuilder, UniformBuffer};
+use rendiation_webgpu::{BindGroup, BindGroupDescriptor, PipelineBuilder, UniformBuffer};
 
 pub struct HighLighter {
   pub color: Vec4<f32>,
@@ -37,7 +37,11 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
     resource: &mut crate::ResourcePoolImpl,
     pass_info: &rendiation_webgpu::RenderPassInfo,
   ) {
-    todo!()
+    let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
+      label: todo!(),
+      layout: todo!(),
+      entries: todo!(),
+    });
   }
 
   fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {

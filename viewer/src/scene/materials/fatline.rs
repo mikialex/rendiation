@@ -27,19 +27,21 @@ impl BindGroupLayoutProvider for FatLineMaterial {
       }],
     })
   }
-}
 
-impl FatLineMaterial {
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct FatlineMaterial {
-      width: f32;
-    };
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct FatlineMaterial {{
+        width: f32;
+      }};
 
-    [[group(1), binding(0)]]
-    var<uniform> fatline_material: FatlineMaterial;
-    "
+      [[group({group}), binding(0)]]
+      var<uniform> fatline_material: FatlineMaterial;
+    
+    ",
+      group = group
+    )
   }
 }
 

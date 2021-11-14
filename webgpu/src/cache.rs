@@ -11,6 +11,7 @@ pub struct BindGroupLayoutManager {
 
 pub trait BindGroupLayoutProvider {
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
+  fn gen_shader_header(group: usize) -> String;
 }
 
 impl BindGroupLayoutManager {

@@ -45,25 +45,27 @@ impl BindGroupLayoutProvider for BasicMaterial {
       ],
     })
   }
-}
 
-impl BasicMaterial {
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct BasicMaterial {
-      color: vec3<f32>;
-    };
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct BasicMaterial {{
+        color: vec3<f32>;
+      }};
 
-    [[group(1), binding(0)]]
-    var<uniform> basic_material: BasicMaterial;
+      [[group({group}), binding(0)]]
+      var<uniform> basic_material: BasicMaterial;
+      
+      [[group({group}), binding(1)]]
+      var r_color: texture_2d<f32>;
+
+      [[group({group}), binding(2)]]
+      var r_sampler: sampler;
     
-    [[group(1), binding(1)]]
-    var r_color: texture_2d<f32>;
-
-    [[group(1), binding(2)]]
-    var r_sampler: sampler;
-    "
+    ",
+      group = group
+    )
   }
 }
 
