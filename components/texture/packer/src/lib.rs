@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicU64, AtomicUsize};
+
 use rendiation_texture::{Size, TextureRange};
 
 pub mod shelf;
@@ -13,6 +15,10 @@ pub enum PackError {
   SpaceNotEnough,
 }
 
+pub enum UnpackError {
+  UnpackItemNotExist,
+}
+
 /// padding should handle in user side
 pub trait TexturePacker: BaseTexturePacker {
   fn pack(&mut self, input: Size) -> Result<PackResult, PackError>;
@@ -23,11 +29,19 @@ pub trait PackableChecker: TexturePacker {
   fn can_pack(&self, input: Size) -> bool;
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PackId(usize);
+
+static GLOBAL_INCREASE_PACK_ID: AtomicUsize = AtomicUsize::new(0);
+impl Default for PackId {
+  fn default() -> Self {
+    PackId(GLOBAL_INCREASE_PACK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+  }
+}
+
 pub trait RePackablePacker: BaseTexturePacker {
   fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError>;
-  fn un_pack(&mut self, id: PackId);
+  fn un_pack(&mut self, id: PackId) -> Result<(), UnpackError>;
 }
 
 /// Some packer strategy maybe yield better result when input is batched
