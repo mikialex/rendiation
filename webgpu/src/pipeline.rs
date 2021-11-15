@@ -49,6 +49,16 @@ impl Default for PipelineBuilder {
 }
 
 impl PipelineBuilder {
+  pub fn include(&mut self, fun: impl Into<String>) -> &mut Self {
+    self.includes.push(fun.into());
+    self
+  }
+
+  pub fn declare_struct(&mut self, fun: impl Into<String>) -> &mut Self {
+    self.struct_declares.push(fun.into());
+    self
+  }
+
   pub fn include_vertex_entry(&mut self, fun: impl Into<String>) -> &mut Self {
     self.vertex_entries.push(fun.into());
     self
@@ -92,17 +102,45 @@ impl PipelineBuilder {
       "
     {bindgroups}
 
-    {vertex_output_struct}
+    {struct_declares}
+
+    {includes}
 
     {vertex_entries}
     
     {fragment_entries}
     
     ",
-      bindgroups = "",
-      vertex_output_struct = "",
-      vertex_entries = "",
-      fragment_entries = "",
+      bindgroups = self
+        .bindgroup_declarations
+        .iter()
+        .map(|s| s.as_ref())
+        .collect::<Vec<&str>>()
+        .join("\n"),
+      struct_declares = self
+        .struct_declares
+        .iter()
+        .map(|s| s.as_ref())
+        .collect::<Vec<&str>>()
+        .join("\n"),
+      includes = self
+        .includes
+        .iter()
+        .map(|s| s.as_ref())
+        .collect::<Vec<&str>>()
+        .join("\n"),
+      vertex_entries = self
+        .vertex_entries
+        .iter()
+        .map(|s| s.as_ref())
+        .collect::<Vec<&str>>()
+        .join("\n"),
+      fragment_entries = self
+        .fragment_entries
+        .iter()
+        .map(|s| s.as_ref())
+        .collect::<Vec<&str>>()
+        .join("\n"),
     );
 
     let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {

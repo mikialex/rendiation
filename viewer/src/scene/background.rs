@@ -140,45 +140,47 @@ impl<S: BackGroundShading> DrawableBackground<S> {
 pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
   fn shading(&self) -> &'static str;
 
-  fn shader(&self) -> String {
-    format!(
-      "
-    {object_header}
-    {material_header}
-    {camera_header}
-
-    {background_shading}
-
-    struct VertexOutput {{
+  fn shader(&self, builder: &mut PipelineBuilder) {
+    builder
+      .include(self.shading())
+      .declare_struct(
+        "
+     struct VertexOutputBackground {{
       [[builtin(position)]] position: vec4<f32>;
       [[location(0)]] uv: vec2<f32>;
       [[location(1)]] world_position: vec3<f32>;
     }};
-
-    [[stage(vertex)]]
-    fn vs_main(
-      {vertex_header}
-    ) -> VertexOutput {{
-      var out: VertexOutput;
-      out.uv = uv;
-      out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
-      out.position.z = out.position.w;
-      out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
-      return out;
-    }}
-
-    [[stage(fragment)]]
-    fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-      let direction = normalize(in.world_position);
-      return vec4<f32>(background_shading(direction), 1.0);
-    }}
     ",
-      vertex_header = Vertex::get_shader_header(),
-      material_header = self.shader_header(),
-      camera_header = CameraBindgroup::get_shader_header(),
-      object_header = TransformGPU::get_shader_header(),
-      background_shading = self.shading()
-    )
+      )
+      .include_vertex_entry(
+        "
+      [[stage(vertex)]]
+      fn vs_main(
+        [[location(0)]] position: vec3<f32>, // todo link with vertex type
+        [[location(1)]] normal: vec3<f32>,
+        [[location(2)]] uv: vec2<f32>,
+      ) -> VertexOutputBackground {{
+        var out: VertexOutput;
+        out.uv = uv;
+        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
+        out.position.z = out.position.w;
+        out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
+        return out;
+      }}
+    
+    ",
+      )
+      .use_vertex_entry("vs_main")
+      .include_vertex_entry(
+        " 
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+          let direction = normalize(in.world_position);
+          return vec4<f32>(background_shading(direction), 1.0);
+        }}
+    ",
+      )
+      .use_vertex_entry("fs_main");
   }
 
   fn create_pipeline(
@@ -193,9 +195,7 @@ pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
       ..Default::default()
     };
 
-    builder.shader_source = self.shader();
-
-    let bindgroup_layout = self.create_bindgroup_layout(device);
+    self.shader(builder);
 
     builder
       .with_layout::<TransformGPU>(ctx.layouts, device)

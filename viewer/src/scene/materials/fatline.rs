@@ -74,17 +74,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       FatLineVertex::get_shader_header()
     );
 
-    builder.shader_source = format!(
-      "
-      {object_header}
-      {material_header}
-      {camera_header}
-
-      struct VertexOutput {{
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] uv: vec2<f32>;
-      }};
-
+    builder.include_vertex_entry(format!("
       [[stage(vertex)]]
       fn vs_main(
         {vertex_header}
@@ -154,18 +144,15 @@ impl MaterialGPUResource for FatlineMaterialGPU {
 
         return out;
       }}
-      
-      [[stage(fragment)]]
-      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return vec4(1., 0., 0., 1.);
-      }}
-      
-      ",
-      vertex_header = vertex_header,
-      material_header = FatLineMaterial::get_shader_header(),
-      camera_header = CameraBindgroup::get_shader_header(),
-      object_header = TransformGPU::get_shader_header(),
-    );
+    ", vertex_header = vertex_header))
+      .use_vertex_entry("vs_main")
+      .include_fragment_entry("
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+            return vec4(1., 0., 0., 1.);
+        }}
+        ")
+      .use_fragment_entry("fs_main");
 
     builder.with_layout::<FatLineMaterial>(ctx.layouts, device);
 
