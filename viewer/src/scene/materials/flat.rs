@@ -101,7 +101,7 @@ impl MaterialGPUResource for FlatMaterialGPU {
       object_header = TransformGPU::get_shader_header(),
     );
 
-    builder.with_layout(ctx.layouts.retrieve::<FlatMaterial>(device));
+    builder.with_layout::<FlatMaterial>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }

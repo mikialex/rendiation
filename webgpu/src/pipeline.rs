@@ -1,6 +1,6 @@
 use std::{borrow::Cow, rc::Rc};
 
-use crate::VertexBufferLayoutOwned;
+use crate::{BindGroupLayoutManager, BindGroupLayoutProvider, VertexBufferLayoutOwned};
 
 pub struct PipelineBuilder {
   pub name: String,
@@ -69,8 +69,16 @@ impl PipelineBuilder {
     self
   }
 
-  pub fn with_layout(&mut self, layout: &Rc<wgpu::BindGroupLayout>) -> &mut Self {
+  pub fn with_layout<T: BindGroupLayoutProvider>(
+    &mut self,
+    cache: &BindGroupLayoutManager,
+    device: &wgpu::Device,
+  ) -> &mut Self {
+    let layout = cache.retrieve::<T>(device);
     self.layouts.push(layout.clone());
+    self
+      .bindgroup_declarations
+      .push(T::gen_shader_header(self.bindgroup_declarations.len()));
     self
   }
 
@@ -86,15 +94,15 @@ impl PipelineBuilder {
 
     {vertex_output_struct}
 
-    {vertex_entry}
+    {vertex_entries}
     
-    {fragment_entry}
+    {fragment_entries}
     
     ",
       bindgroups = "",
       vertex_output_struct = "",
-      vertex_entry = "",
-      fragment_entry = "",
+      vertex_entries = "",
+      fragment_entries = "",
     );
 
     let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
@@ -139,9 +137,7 @@ impl<S: BackGroundShading> DrawableBackground<S> {
   }
 }
 
-pub trait BackGroundShading: MaterialCPUResource {
-  fn shader_header(&self) -> &'static str;
-
+pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
   fn shading(&self) -> &'static str;
 
   fn shader(&self) -> String {
@@ -185,8 +181,6 @@ pub trait BackGroundShading: MaterialCPUResource {
     )
   }
 
-  fn create_bindgroup_layout(&self, device: &wgpu::Device) -> wgpu::BindGroupLayout;
-
   fn create_pipeline(
     &self,
     builder: &mut PipelineBuilder,
@@ -204,9 +198,9 @@ pub trait BackGroundShading: MaterialCPUResource {
     let bindgroup_layout = self.create_bindgroup_layout(device);
 
     builder
-      .with_layout(ctx.layouts.retrieve::<TransformGPU>(device))
-      .with_layout(&Rc::new(bindgroup_layout))
-      .with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
+      .with_layout::<TransformGPU>(ctx.layouts, device)
+      .with_layout::<Self>(ctx.layouts, device)
+      .with_layout::<CameraBindgroup>(ctx.layouts, device);
 
     builder.vertex_buffers = vec![Vertex::vertex_layout()];
 

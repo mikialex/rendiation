@@ -167,7 +167,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       object_header = TransformGPU::get_shader_header(),
     );
 
-    builder.with_layout(ctx.layouts.retrieve::<FatLineMaterial>(device));
+    builder.with_layout::<FatLineMaterial>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }

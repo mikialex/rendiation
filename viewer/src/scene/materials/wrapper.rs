@@ -70,13 +70,13 @@ where
       .states
       .map_depth_stencil_state(ctx.pass.format_info.depth_stencil_format);
 
-    builder.with_layout(ctx.layouts.retrieve::<TransformGPU>(device));
+    builder.with_layout::<TransformGPU>(ctx.layouts, device);
 
     self
       .gpu
       .create_pipeline(&source.material, builder, device, ctx);
 
-    builder.with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
+    builder.with_layout::<CameraBindgroup>(ctx.layouts, device);
 
     builder.primitive_state.topology = ctx.active_mesh.unwrap().topology();
   }
