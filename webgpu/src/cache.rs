@@ -9,8 +9,9 @@ pub struct BindGroupLayoutManager {
   cache: UnsafeCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
 }
 
-pub trait BindGroupLayoutProvider {
+pub trait BindGroupLayoutProvider: 'static {
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
+  fn gen_shader_header(group: usize) -> String;
 }
 
 impl BindGroupLayoutManager {

@@ -71,6 +71,9 @@ pub struct Attachment<F: AttachmentFormat> {
   texture: Option<Rc<wgpu::Texture>>,
 }
 
+pub type ColorAttachment = Attachment<wgpu::TextureFormat>;
+pub type DepthAttachment = Attachment<wgpu::TextureFormat>; // todo
+
 impl<F: AttachmentFormat> Attachment<F> {
   pub fn write(&mut self) -> AttachmentWriteView<F> {
     AttachmentWriteView {
@@ -170,14 +173,36 @@ pub trait PassContent {
   fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene);
 }
 
+impl<T: PassContent> PassContent for Option<T> {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    scene: &mut Scene,
+    resource: &mut ResourcePoolImpl,
+    pass_info: &RenderPassInfo,
+  ) {
+    if let Some(c) = self {
+      c.update(gpu, scene, resource, pass_info);
+    }
+  }
+
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+    if let Some(c) = self {
+      c.setup_pass(pass, scene);
+    }
+  }
+}
+
 #[derive(Default)]
 pub struct SimplePipeline {
   forward: ForwardScene,
-  // highlight: HighLight,
+  highlight: HighLighter,
+  background: BackGroundRendering,
 }
 
 impl SimplePipeline {
   #[rustfmt::skip]
+  #[allow(clippy::logic_bug)]
   pub fn render_simple(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
     let scene = &mut content.scene;
 
@@ -185,55 +210,36 @@ impl SimplePipeline {
       .format(wgpu::TextureFormat::Depth24PlusStencil8)
       .request(engine);
 
-    pass("forward-group")
+    let mut final_compose = pass("compose-all")
       .with_color(engine.screen(), scene.get_main_pass_load_op())
-      .with_depth(scene_depth.write(), clear(1.))
-      .render_by(&mut BackGroundRendering)
-      .render_by(&mut self.forward)
-      .render_by(&mut content.axis)
-      .run(engine, scene);
+      .with_depth(scene_depth.write(), clear(1.));
+
+    final_compose
+      .render(&mut self.background)
+      .render(&mut self.forward);
+
+    let mut highlight_compose = (!content.selections.selected.is_empty() && false).then(||{
+       let mut selected = attachment()
+        .format(wgpu::TextureFormat::Rgba8Unorm)
+        .request(engine);
+
+      pass("highlight-selected-mask")
+        .with_color(selected.write(), clear(color_same(0.)))
+        .render_by(&mut highlight(content.selections.selected.iter()))
+        .run(engine, scene);
+
+      self.highlight.draw(selected)
+    });
+
+    final_compose
+      .render(&mut highlight_compose)
+      .render(&mut content.axis);
+
+    final_compose.run(engine, scene);
 
   }
-
-  // #[rustfmt::skip]
-  // pub fn render(&mut self, engine: &RenderEngine, scene: &mut Scene) {
-
-  //   let mut scene_color = attachment()
-  //     .format(wgpu::TextureFormat::Rgba8Unorm)
-  //     .request(engine);
-
-  //   let mut scene_depth = depth_attachment()
-  //     .format(wgpu::TextureFormat::Depth32Float)
-  //     .request(engine);
-
-  //   pass("scene_pass")
-  //     .with_color(scene_color.write(), scene.get_main_pass_load_op())
-  //     .with_depth(scene_depth.write(), clear(1.))
-  //     .render_by(&mut BackGroundRendering)
-  //     .render_by(&mut self.forward)
-  //     .run(engine, scene);
-
-  //   let mut high_light_object_mask = attachment()
-  //     .format(wgpu::TextureFormat::Rgba8Unorm)
-  //     .request(engine);
-
-  //   // let high_light_object = scene.create_content(&mut self.highlight);
-  //   let high_light_object = &mut BackGroundRendering;
-
-  //   pass("high_light_pass")
-  //     .with_color( high_light_object_mask.write(), clear(color_same(1.)))
-  //     .render_by(high_light_object)
-  //     .run(engine, scene);
-
-  //   pass("final_compose")
-  //     .with_color(scene_color.write(), clear(color_same(1.)))
-  //     .with_color(engine.screen(), clear(color_same(1.)))
-  //     .render_by(&mut high_light_blend(high_light_object_mask))
-  //     .run(engine, scene);
-  // }
 }
 
-#[allow(clippy::field_reassign_with_default)]
 pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
   let mut desc = RenderPassDescriptorOwned::default();
   desc.name = name.into();
@@ -287,6 +293,11 @@ impl<'a, 't> PassDescriptor<'a, 't> {
 
   #[must_use]
   pub fn render_by(mut self, renderable: &'t mut dyn PassContent) -> Self {
+    self.tasks.push(renderable);
+    self
+  }
+
+  pub fn render(&mut self, renderable: &'t mut dyn PassContent) -> &mut Self {
     self.tasks.push(renderable);
     self
   }

@@ -1,14 +1,17 @@
+use std::cmp::Ordering;
+
 use rendiation_algebra::*;
+use rendiation_geometry::Nearest;
 use rendiation_renderable_mesh::mesh::{IntersectAbleGroupedMesh, MeshBufferIntersectConfig};
 
 use crate::*;
 
 impl Scene {
-  pub fn pick(
+  pub fn pick_nearest(
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Vec<&MeshModel> {
+  ) -> Option<&MeshModel> {
     let mut result = Vec::new();
 
     let camera = self.active_camera.as_ref().unwrap();
@@ -29,16 +32,20 @@ impl Scene {
 
       let mesh = &model.mesh;
       mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-        if mesh
-          .intersect_nearest(local_ray, conf, model.group)
-          .is_some()
-        {
+        if let Nearest(Some(r)) = mesh.intersect_nearest(local_ray, conf, model.group) {
           println!("pick");
-          result.push(m);
+          result.push((m, r));
         }
       });
     }
 
-    result
+    result.sort_by(|(_, a), (_, b)| {
+      a.hit
+        .distance
+        .partial_cmp(&b.hit.distance)
+        .unwrap_or(Ordering::Less)
+    });
+
+    result.first().map(|r| r.0)
   }
 }

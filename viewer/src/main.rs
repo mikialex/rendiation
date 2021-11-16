@@ -7,6 +7,7 @@
 #![feature(hash_raw_entry)]
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
+#![allow(clippy::field_reassign_with_default)]
 
 pub mod scene;
 pub use scene::*;

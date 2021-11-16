@@ -45,25 +45,27 @@ impl BindGroupLayoutProvider for BasicMaterial {
       ],
     })
   }
-}
 
-impl BasicMaterial {
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct BasicMaterial {
-      color: vec3<f32>;
-    };
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct BasicMaterial {{
+        color: vec3<f32>;
+      }};
 
-    [[group(1), binding(0)]]
-    var<uniform> basic_material: BasicMaterial;
+      [[group({group}), binding(0)]]
+      var<uniform> basic_material: BasicMaterial;
+      
+      [[group({group}), binding(1)]]
+      var r_color: texture_2d<f32>;
+
+      [[group({group}), binding(2)]]
+      var r_sampler: sampler;
     
-    [[group(1), binding(1)]]
-    var r_color: texture_2d<f32>;
-
-    [[group(1), binding(2)]]
-    var r_sampler: sampler;
-    "
+    ",
+      group = group
+    )
   }
 }
 
@@ -93,40 +95,18 @@ impl MaterialGPUResource for BasicMaterialGPU {
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) {
-    builder.shader_source = format!(
-      "
-      {object_header}
-      {material_header}
-      {camera_header}
-
-      struct VertexOutput {{
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] uv: vec2<f32>;
-      }};
-
-      [[stage(vertex)]]
-      fn vs_main(
-        {vertex_header}
-      ) -> VertexOutput {{
-        var out: VertexOutput;
-        out.uv = uv;
-        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);;
-        return out;
-      }}
-      
+    builder
+      .include_fragment_entry(
+        "
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
           return textureSample(r_color, r_sampler, in.uv);
       }}
-      
       ",
-      vertex_header = Vertex::get_shader_header(),
-      material_header = BasicMaterial::get_shader_header(),
-      camera_header = CameraBindgroup::get_shader_header(),
-      object_header = TransformGPU::get_shader_header(),
-    );
+      )
+      .use_fragment_entry("fs_main");
 
-    builder.with_layout(ctx.layouts.retrieve::<BasicMaterial>(device));
+    builder.with_layout::<BasicMaterial>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }
