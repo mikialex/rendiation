@@ -10,8 +10,8 @@ use super::{
   GlyphRasterTolerance, NormalizedGlyphRasterInfo,
 };
 
-pub struct GPUGlyphCache {
-  gpu: WebGPUGlyphCacheInstance,
+pub struct GlyphCache {
+  gpu: WebGlyphCacheInstance,
   packer: GlyphPacker,
   raster: Box<dyn GlyphRaster>,
   fonts: FontManager,
@@ -20,12 +20,12 @@ pub struct GPUGlyphCache {
   tolerance: GlyphRasterTolerance,
 }
 
-struct WebGPUGlyphCacheInstance {
+struct WebGlyphCacheInstance {
   sampler: wgpu::Sampler,
   texture: WebGPUTexture2d,
 }
 
-impl WebGPUGlyphCacheInstance {
+impl WebGlyphCacheInstance {
   pub fn init(size: Size, device: &wgpu::Device) -> Self {
     let desc = WebGPUTexture2dDescriptor::from_size(size).with_format(wgpu::TextureFormat::R8Unorm);
     Self {
@@ -77,11 +77,11 @@ pub enum CacheWriteErr {
   NoRoomForWholeQueue,
 }
 
-impl GPUGlyphCache {
+impl GlyphCache {
   pub fn new(device: &wgpu::Device) -> Self {
     let init_size = Size::from_usize_pair_min_one((512, 512));
     Self {
-      gpu: WebGPUGlyphCacheInstance::init(init_size, device),
+      gpu: WebGlyphCacheInstance::init(init_size, device),
       packer: GlyphPacker::init(init_size),
       raster: Box::new(AbGlyphRaster {}),
       fonts: FontManager::new_with_fallback_system_font("Arial"),
@@ -107,7 +107,7 @@ impl GPUGlyphCache {
           GlyphCacheResult::NotEnoughSpace => {
             let new_size = self.current_size * 2;
 
-            self.gpu = WebGPUGlyphCacheInstance::init(new_size, &gpu.device);
+            self.gpu = WebGlyphCacheInstance::init(new_size, &gpu.device);
             packer.rebuild_all(new_size);
 
             failed_process_all = true;

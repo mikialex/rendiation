@@ -1,9 +1,11 @@
 mod pipeline;
+use std::borrow::Borrow;
+
 use pipeline::*;
 mod text_quad_instance;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
-use rendiation_webgpu::{GPUCommandEncoder, GPURenderPass};
+use rendiation_webgpu::{GPUCommandEncoder, GPURenderPass, GPU};
 use text_quad_instance::*;
 
 use glyph_brush::{
@@ -13,7 +15,7 @@ use glyph_brush::{
 
 use crate::FontManager;
 
-use super::text_next::GPUGlyphCache;
+use super::text_next::GlyphCache;
 
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
@@ -22,8 +24,12 @@ pub struct GPUxUITextPrimitive {
 
 pub struct TextRenderer {
   pipeline: TextRendererPipeline,
-  glyph_brush: glyph_brush::GlyphBrush<Instance, Extra, ab_glyph::FontArc, DefaultSectionHasher>,
-  _exp: GPUGlyphCache,
+  glyph_cache: GlyphCache,
+  text_cache: TextCache,
+}
+
+pub struct TextCache {
+  cache: Vec<GPUxUITextPrimitive>,
 }
 
 impl TextRenderer {
@@ -46,7 +52,7 @@ impl TextRenderer {
         size,
         Vec2::new(1000., 1000.),
       ),
-      _exp: GPUGlyphCache::new(device),
+      _exp: GlyphCache::new(device),
       glyph_brush,
     }
   }
@@ -67,21 +73,25 @@ impl TextRenderer {
     self.pipeline.draw(pass, text)
   }
 
-  pub fn create_gpu_text<'a>(
+  pub fn queue_text<'a>(
     &mut self,
     device: &wgpu::Device,
     encoder: &mut GPUCommandEncoder,
     section: Section<'a, Extra>,
   ) -> Option<GPUxUITextPrimitive> {
-    self.glyph_brush.queue(section);
-    self.process_queued(device, encoder)
+    self.text_cache.queue_text(section);
   }
 
-  fn process_queued(
-    &mut self,
-    device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
-  ) -> Option<GPUxUITextPrimitive> {
+  pub fn get_cache_gpu_text(&self) {
+    //
+  }
+
+  fn process_queued(&mut self, gpu: &GPU) -> Option<GPUxUITextPrimitive> {
+    self._exp.process_queued(gpu);
+
+    let device = &gpu.device;
+    let encoder = &gpu.encoder.borrow();
+
     let brush_action = self.glyph_brush.process_queued(
       |rect, tex_data| {
         let offset = (rect.min[0], rect.min[1]);
