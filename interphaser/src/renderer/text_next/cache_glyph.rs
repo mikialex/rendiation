@@ -1,7 +1,5 @@
+use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
 use std::collections::HashSet;
-
-use rendiation_texture::{Size, TextureRange};
-use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource, GPU};
 
 use crate::FontManager;
 
@@ -11,46 +9,11 @@ use super::{
 };
 
 pub struct GlyphCache {
-  gpu: WebGlyphCacheInstance,
   packer: GlyphPacker,
   raster: Box<dyn GlyphRaster>,
-  fonts: FontManager,
   queue: HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
   current_size: Size,
   tolerance: GlyphRasterTolerance,
-}
-
-struct WebGlyphCacheInstance {
-  sampler: wgpu::Sampler,
-  texture: WebGPUTexture2d,
-}
-
-impl WebGlyphCacheInstance {
-  pub fn init(size: Size, device: &wgpu::Device) -> Self {
-    let desc = WebGPUTexture2dDescriptor::from_size(size).with_format(wgpu::TextureFormat::R8Unorm);
-    Self {
-      sampler: device.create_sampler(&wgpu::SamplerDescriptor {
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
-        address_mode_w: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        mipmap_filter: wgpu::FilterMode::Linear,
-        ..Default::default()
-      }),
-      texture: WebGPUTexture2d::create(device, desc),
-    }
-  }
-  pub fn update_texture(
-    &self,
-    data: &dyn WebGPUTexture2dSource,
-    range: TextureRange,
-    queue: &wgpu::Queue,
-  ) {
-    self
-      .texture
-      .upload_with_origin(queue, data, 0, range.origin);
-  }
 }
 
 /// Successful method of caching of the queue.
@@ -78,20 +41,22 @@ pub enum CacheWriteErr {
 }
 
 impl GlyphCache {
-  pub fn new(device: &wgpu::Device) -> Self {
-    let init_size = Size::from_usize_pair_min_one((512, 512));
+  pub fn new(init_size: Size) -> Self {
     Self {
-      gpu: WebGlyphCacheInstance::init(init_size, device),
       packer: GlyphPacker::init(init_size),
       raster: Box::new(AbGlyphRaster {}),
-      fonts: FontManager::new_with_fallback_system_font("Arial"),
       queue: Default::default(),
       current_size: init_size,
       tolerance: Default::default(),
     }
   }
 
-  pub fn process_queued(&mut self, gpu: &GPU) -> Result<CacheQueuedResult, CacheWriteErr> {
+  pub fn process_queued(
+    &mut self,
+    mut cache_update: impl FnMut(&Texture2DBuffer<u8>, TextureRange),
+    mut cache_resize: impl FnMut(Size),
+    fonts: &FontManager,
+  ) -> Result<CacheQueuedResult, CacheWriteErr> {
     let mut failed_process_all = true;
     let mut previous_cache_invalid = false;
 
@@ -99,15 +64,16 @@ impl GlyphCache {
 
     'all_process: while failed_process_all {
       for &(glyph_id, info) in self.queue.iter() {
-        match packer.pack(glyph_id, info, self.raster.as_mut(), &self.fonts) {
+        match packer.pack(glyph_id, info, self.raster.as_mut(), fonts) {
           GlyphCacheResult::NewCached { result, data } => {
-            self.gpu.update_texture(&data, result.1, &gpu.queue);
+            cache_update(&data, result.1);
           }
           GlyphCacheResult::AlreadyCached(_) => {}
           GlyphCacheResult::NotEnoughSpace => {
             let new_size = self.current_size * 2;
+            // todo max size limit
 
-            self.gpu = WebGlyphCacheInstance::init(new_size, &gpu.device);
+            cache_resize(new_size);
             packer.rebuild_all(new_size);
 
             failed_process_all = true;

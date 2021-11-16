@@ -1,5 +1,5 @@
 mod pipeline;
-use std::borrow::Borrow;
+use std::collections::HashMap;
 
 use pipeline::*;
 mod text_quad_instance;
@@ -13,9 +13,9 @@ use glyph_brush::{
   BrushAction, BrushError, DefaultSectionHasher, Extra, GlyphBrushBuilder, GlyphCruncher, Section,
 };
 
-use crate::FontManager;
+use crate::{renderer::text_next::CacheQueuedResult, FontManager, TextInfo};
 
-use super::text_next::GlyphCache;
+use super::text_next::{GlyphCache, TextCache, WebGPUTextureCache};
 
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
@@ -24,12 +24,9 @@ pub struct GPUxUITextPrimitive {
 
 pub struct TextRenderer {
   pipeline: TextRendererPipeline,
+  texture_cache: WebGPUTextureCache,
   glyph_cache: GlyphCache,
   text_cache: TextCache,
-}
-
-pub struct TextCache {
-  cache: Vec<GPUxUITextPrimitive>,
 }
 
 impl TextRenderer {
@@ -39,29 +36,19 @@ impl TextRenderer {
     render_format: wgpu::TextureFormat,
     fonts: &FontManager,
   ) -> Self {
-    let glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
-      .cache_redraws(false)
-      .build();
+    let init_size = Size::from_usize_pair_min_one((512, 512));
 
-    let size = Size::from_u32_pair_min_one(glyph_brush.texture_dimensions());
     Self {
       pipeline: TextRendererPipeline::new(
         device,
         filter_mode,
         render_format,
-        size,
+        init_size,
         Vec2::new(1000., 1000.),
       ),
-      _exp: GlyphCache::new(device),
-      glyph_brush,
-    }
-  }
-
-  pub fn update_fonts(&mut self, fonts: &FontManager) {
-    if fonts.active_font_count() != self.glyph_brush.fonts().len() {
-      self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
-        .cache_redraws(false)
-        .build()
+      glyph_cache: GlyphCache::new(init_size),
+      texture_cache: WebGPUTextureCache::init(init_size, device),
+      text_cache: Default::default(),
     }
   }
 
@@ -73,76 +60,22 @@ impl TextRenderer {
     self.pipeline.draw(pass, text)
   }
 
-  pub fn queue_text<'a>(
-    &mut self,
-    device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
-    section: Section<'a, Extra>,
-  ) -> Option<GPUxUITextPrimitive> {
-    self.text_cache.queue_text(section);
+  pub fn queue_text(&mut self, text: &TextInfo) {
+    self.text_cache.queue(text);
   }
 
-  pub fn get_cache_gpu_text(&self) {
+  pub fn get_cache_gpu_text(&self, text: &TextInfo) {
     //
   }
 
-  fn process_queued(&mut self, gpu: &GPU) -> Option<GPUxUITextPrimitive> {
-    self._exp.process_queued(gpu);
-
-    let device = &gpu.device;
-    let encoder = &gpu.encoder.borrow();
-
-    let brush_action = self.glyph_brush.process_queued(
-      |rect, tex_data| {
-        let offset = (rect.min[0], rect.min[1]);
-
-        let tex_data = TextureWriteData {
-          data: tex_data,
-          size: Size::from_u32_pair_min_one((rect.width(), rect.height())),
-        };
-
-        self
-          .pipeline
-          .update_cache(device, encoder, offset, tex_data);
-      },
-      Instance::from_vertex,
-    );
-
-    match brush_action {
-      Ok(brush_action) => match brush_action {
-        BrushAction::Draw(verts) => {
-          return self.pipeline.create_gpu_text(device, &verts);
-        }
-        BrushAction::ReDraw => {}
-      },
-      Err(BrushError::TextureTooSmall { suggested }) => {
-        // TODO: Obtain max texture dimensions using `wgpu`
-        // This is currently not possible I think. Ask!
-        let max_image_dimension = 2048;
-
-        let (new_width, new_height) = if (suggested.0 > max_image_dimension
-          || suggested.1 > max_image_dimension)
-          && (self.glyph_brush.texture_dimensions().0 < max_image_dimension
-            || self.glyph_brush.texture_dimensions().1 < max_image_dimension)
-        {
-          (max_image_dimension, max_image_dimension)
-        } else {
-          suggested
-        };
-
-        log::warn!(
-          "Increasing glyph texture size {old:?} -> {new:?}. \
-                             Consider building with `.initial_cache_size({new:?})` to avoid \
-                             resizing",
-          old = self.glyph_brush.texture_dimensions(),
-          new = (new_width, new_height),
-        );
-
-        let size = Size::from_u32_pair_min_one((new_width, new_height));
-        self.pipeline.increase_cache_size(device, size);
-        self.glyph_brush.resize_texture(new_width, new_height);
-      }
-    }
-    None
+  fn process_queued(&mut self, gpu: &GPU) {
+    // match self.glyph_cache.process_queued(gpu).unwrap() {
+    //   CacheQueuedResult::Adding => {
+    //     // build only new queued text
+    //   }
+    //   CacheQueuedResult::Reordering => {
+    //     // refresh all cached text with new glyph position
+    //   }
+    // }
   }
 }

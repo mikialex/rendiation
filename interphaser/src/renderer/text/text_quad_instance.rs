@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use glyph_brush::ab_glyph::{Rect, point};
+use glyph_brush::ab_glyph::{point, Rect};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
