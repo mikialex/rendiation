@@ -70,13 +70,40 @@ where
       .states
       .map_depth_stencil_state(ctx.pass.format_info.depth_stencil_format);
 
-    builder.with_layout(ctx.layouts.retrieve::<TransformGPU>(device));
+    builder.with_layout::<TransformGPU>(ctx.layouts, device);
+
+    builder
+      .include_vertex_entry(
+        "
+    [[stage(vertex)]]
+      fn vs_main(
+        [[location(0)]] position: vec3<f32>, // todo link with vertex type
+        [[location(1)]] normal: vec3<f32>,
+        [[location(2)]] uv: vec2<f32>,
+      ) -> VertexOutput {
+        var out: VertexOutput;
+        out.uv = uv;
+        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);;
+        return out;
+      }
+    
+    ",
+      )
+      .declare_struct(
+        "
+      struct VertexOutput {
+        [[builtin(position)]] position: vec4<f32>;
+        [[location(0)]] uv: vec2<f32>;
+      };
+    ",
+      )
+      .use_vertex_entry("vs_main");
 
     self
       .gpu
       .create_pipeline(&source.material, builder, device, ctx);
 
-    builder.with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
+    builder.with_layout::<CameraBindgroup>(ctx.layouts, device);
 
     builder.primitive_state.topology = ctx.active_mesh.unwrap().topology();
   }

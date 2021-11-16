@@ -2,6 +2,7 @@ use rendiation_webgpu::{GPURenderPass, RenderPassInfo, GPU};
 
 use crate::*;
 
+#[derive(Default)]
 pub struct BackGroundRendering;
 
 impl PassContent for BackGroundRendering {

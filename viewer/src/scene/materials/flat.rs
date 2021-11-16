@@ -15,21 +15,6 @@ impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
 
-impl FlatMaterial {
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct FlatMaterial {
-      color: vec4<f32>;
-    };
-
-    [[group(1), binding(0)]]
-    var<uniform> flat_material: FlatMaterial;
-    
-    "
-  }
-}
-
 impl BindGroupLayoutProvider for FlatMaterial {
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -41,6 +26,22 @@ impl BindGroupLayoutProvider for FlatMaterial {
         count: None,
       }],
     })
+  }
+
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct FlatMaterial {{
+        color: vec4<f32>;
+      }};
+
+      [[group({group}), binding(0)]]
+      var<uniform> flat_material: FlatMaterial;
+    
+    ",
+      group = group
+    )
   }
 }
 
@@ -69,40 +70,18 @@ impl MaterialGPUResource for FlatMaterialGPU {
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) {
-    builder.shader_source = format!(
-      "
-      {object_header}
-      {material_header}
-      {camera_header}
-
-      struct VertexOutput {{
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] uv: vec2<f32>;
-      }};
-
-      [[stage(vertex)]]
-      fn vs_main(
-        {vertex_header}
-      ) -> VertexOutput {{
-        var out: VertexOutput;
-        out.uv = uv;
-        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
-        return out;
-      }}
-      
+    builder
+      .include_fragment_entry(
+        "
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
           return flat_material.color;
       }}
-      
       ",
-      vertex_header = Vertex::get_shader_header(),
-      material_header = FlatMaterial::get_shader_header(),
-      camera_header = CameraBindgroup::get_shader_header(),
-      object_header = TransformGPU::get_shader_header(),
-    );
+      )
+      .use_fragment_entry("fs_main");
 
-    builder.with_layout(ctx.layouts.retrieve::<FlatMaterial>(device));
+    builder.with_layout::<FlatMaterial>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }

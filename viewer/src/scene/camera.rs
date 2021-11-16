@@ -156,21 +156,27 @@ impl BindGroupLayoutProvider for CameraBindgroup {
       }],
     })
   }
+
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct CameraTransform {{
+        projection: mat4x4<f32>;
+        rotation:   mat4x4<f32>;
+        view:       mat4x4<f32>;
+      }};
+
+      [[group({group}), binding(0)]]
+      var<uniform> camera: CameraTransform;
+    
+    ",
+      group = group
+    )
+  }
 }
 
 impl CameraBindgroup {
-  pub fn get_shader_header() -> &'static str {
-    r#"
-      [[block]]
-      struct CameraTransform {
-          projection: mat4x4<f32>;
-          rotation:   mat4x4<f32>;
-          view:       mat4x4<f32>;
-      };
-      [[group(2), binding(0)]]
-      var<uniform> camera: CameraTransform;
-    "#
-  }
   pub fn update<'a>(&mut self, gpu: &GPU, camera: &'a mut Camera) -> (&'a Camera, &mut Self) {
     camera
       .projection
