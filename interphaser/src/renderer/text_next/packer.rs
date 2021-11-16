@@ -80,7 +80,7 @@ impl<'a> GlyphPackFrameTask<'a> {
                   break GlyphCacheResult::NotEnoughSpace;
                 } else {
                   let (_, v) = self.packer.pack_info.pop_back().unwrap();
-                  self.packer.packer.un_pack(v.0);
+                  self.packer.packer.unpack(v.0).expect("glyph unpack error");
                 }
               } else {
                 break GlyphCacheResult::NotEnoughSpace;

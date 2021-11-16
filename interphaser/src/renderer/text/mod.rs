@@ -8,11 +8,6 @@ use rendiation_texture::Size;
 use rendiation_webgpu::{GPUCommandEncoder, GPURenderPass, GPU};
 use text_quad_instance::*;
 
-use glyph_brush::{
-  ab_glyph::{self},
-  BrushAction, BrushError, DefaultSectionHasher, Extra, GlyphBrushBuilder, GlyphCruncher, Section,
-};
-
 use crate::{renderer::text_next::CacheQueuedResult, FontManager, TextInfo};
 
 use super::text_next::{GlyphCache, TextCache, WebGPUTextureCache};
@@ -34,7 +29,6 @@ impl TextRenderer {
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
-    fonts: &FontManager,
   ) -> Self {
     let init_size = Size::from_usize_pair_min_one((512, 512));
 
@@ -68,14 +62,28 @@ impl TextRenderer {
     //
   }
 
-  fn process_queued(&mut self, gpu: &GPU) {
-    // match self.glyph_cache.process_queued(gpu).unwrap() {
-    //   CacheQueuedResult::Adding => {
-    //     // build only new queued text
-    //   }
-    //   CacheQueuedResult::Reordering => {
-    //     // refresh all cached text with new glyph position
-    //   }
-    // }
+  pub fn process_queued(&mut self, gpu: &GPU, fonts: &FontManager) {
+    self.text_cache.process_queued(&mut self.glyph_cache);
+
+    match self
+      .glyph_cache
+      .process_queued(
+        |data, range| {
+          //
+        },
+        |new_size| {
+          //
+        },
+        fonts,
+      )
+      .unwrap()
+    {
+      CacheQueuedResult::Adding => {
+        // build only new queued text
+      }
+      CacheQueuedResult::Reordering => {
+        // refresh all cached text with new glyph position
+      }
+    }
   }
 }

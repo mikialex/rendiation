@@ -54,7 +54,7 @@ impl<T: 'static> Application<T> {
     let fonts = FontManager::new_with_fallback_system_font("Arial");
 
     let prefer_target_fmt = surface.config.format;
-    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, &fonts);
+    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt);
 
     Self {
       event_loop,
@@ -186,7 +186,7 @@ impl<T> ApplicationInner<T> {
       };
 
       let mut encoder = self.gpu.encoder.borrow_mut();
-      task.update(&self.gpu, &mut encoder);
+      task.update(&self.gpu, &mut encoder, &self.fonts);
 
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((

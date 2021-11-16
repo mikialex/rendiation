@@ -11,10 +11,12 @@ pub trait BaseTexturePacker {
   fn config(&mut self, config: PackerConfig);
 }
 
+#[derive(Debug)]
 pub enum PackError {
   SpaceNotEnough,
 }
 
+#[derive(Debug)]
 pub enum UnpackError {
   UnpackItemNotExist,
 }
@@ -41,7 +43,7 @@ impl Default for PackId {
 
 pub trait RePackablePacker: BaseTexturePacker {
   fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError>;
-  fn un_pack(&mut self, id: PackId) -> Result<(), UnpackError>;
+  fn unpack(&mut self, id: PackId) -> Result<(), UnpackError>;
 }
 
 /// Some packer strategy maybe yield better result when input is batched

@@ -1,4 +1,3 @@
-use glyph_brush::{BuiltInLineBreaker, Section, Text};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
@@ -45,13 +44,8 @@ impl<'r> WebGPUxUIRenderTask<'r> {
     });
   }
 
-  pub fn update(&mut self, renderer: &GPU, encoder: &mut GPUCommandEncoder) {
-    self.renderer.update(
-      self.presentation,
-      &renderer.device,
-      &renderer.queue,
-      encoder,
-    )
+  pub fn update(&mut self, gpu: &GPU, encoder: &mut GPUCommandEncoder, fonts: &FontManager) {
+    self.renderer.update(self.presentation, gpu, encoder, fonts)
   }
 }
 
@@ -120,7 +114,7 @@ impl Primitive {
   pub fn create_gpu(
     &self,
     device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
+    _encoder: &mut GPUCommandEncoder,
     renderer: &mut TextRenderer,
     res: &UIxGPUxResource,
   ) -> Option<GPUxUIPrimitive> {
@@ -157,6 +151,7 @@ impl Primitive {
         }
       }
       Primitive::Text(text) => {
+        renderer.queue_text(text);
         // let x_correct = match text.horizon_align {
         //   glyph_brush::HorizontalAlign::Left => 0.,
         //   glyph_brush::HorizontalAlign::Center => text.bounds.width / 2.,
@@ -220,11 +215,7 @@ pub struct UIxGPUxResource {
 }
 
 impl WebGPUxUIRenderer {
-  pub fn new(
-    device: &wgpu::Device,
-    target_format: wgpu::TextureFormat,
-    fonts: &FontManager,
-  ) -> Self {
+  pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
     };
@@ -257,7 +248,6 @@ impl WebGPUxUIRenderer {
       device,
       wgpu::FilterMode::Linear,
       wgpu::TextureFormat::Bgra8UnormSrgb,
-      fonts,
     );
 
     let sampler = device.create_sampler(&SamplerDescriptor {
@@ -289,26 +279,32 @@ impl WebGPUxUIRenderer {
   fn update(
     &mut self,
     presentation: &UIPresentation,
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
+    gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
+    fonts: &FontManager,
   ) {
     self.gpu_primitive_cache.clear();
 
     self.resource.global_ui_state.screen_size =
       Vec2::new(presentation.view_size.width, presentation.view_size.height);
-    self.resource.global_ui_state.update(queue);
+    self.resource.global_ui_state.update(&gpu.queue);
 
     self
       .text_renderer
-      .resize_view(self.resource.global_ui_state.screen_size, queue);
+      .resize_view(self.resource.global_ui_state.screen_size, &gpu.queue);
 
-    self.gpu_primitive_cache.extend(
-      presentation
-        .primitives
-        .iter()
-        .filter_map(|p| p.create_gpu(device, encoder, &mut self.text_renderer, &self.resource)),
-    )
+    self
+      .gpu_primitive_cache
+      .extend(presentation.primitives.iter().filter_map(|p| {
+        p.create_gpu(
+          &gpu.device,
+          encoder,
+          &mut self.text_renderer,
+          &self.resource,
+        )
+      }));
+
+    self.text_renderer.process_queued(gpu, fonts);
   }
 }
 

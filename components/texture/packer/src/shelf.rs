@@ -245,7 +245,7 @@ impl RePackablePacker for ShelfPacker {
     })
   }
 
-  fn un_pack(&mut self, id: PackId) -> Result<(), UnpackError> {
+  fn unpack(&mut self, id: PackId) -> Result<(), UnpackError> {
     let (_result, shelf_id, section_id) = self
       .packed
       .remove(&id)
