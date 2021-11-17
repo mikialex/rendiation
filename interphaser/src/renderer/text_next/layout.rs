@@ -3,17 +3,18 @@ use crate::TextInfo;
 use super::{GlyphID, GlyphRasterInfo};
 
 pub struct LayoutedTextGlyphs {
-  glyphs: Vec<(GlyphID, GlyphRasterInfo)>,
+  pub glyphs: Vec<(GlyphID, GlyphRasterInfo)>,
 }
 
 pub trait TextGlyphLayouter {
-  fn layout(text: &TextInfo) -> LayoutedTextGlyphs;
+  fn layout(&self, text: &TextInfo) -> LayoutedTextGlyphs;
 }
 
+#[derive(Default)]
 pub struct GlyphBrushLayouter {}
 
 impl TextGlyphLayouter for GlyphBrushLayouter {
-    fn layout(text: &TextInfo) -> LayoutedTextGlyphs {
-        todo!()
-    }
+  fn layout(&self, text: &TextInfo) -> LayoutedTextGlyphs {
+    todo!()
+  }
 }

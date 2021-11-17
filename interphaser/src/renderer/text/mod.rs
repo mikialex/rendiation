@@ -10,7 +10,7 @@ use text_quad_instance::*;
 
 use crate::{renderer::text_next::CacheQueuedResult, FontManager, TextInfo};
 
-use super::text_next::{GlyphCache, TextCache, WebGPUTextureCache};
+use super::text_next::{GlyphBrushLayouter, GlyphCache, TextCache, WebGPUTextureCache};
 
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
@@ -43,7 +43,7 @@ impl TextRenderer {
       ),
       glyph_cache: GlyphCache::new(init_size, tolerance),
       texture_cache: WebGPUTextureCache::init(init_size, device),
-      text_cache: Default::default(),
+      text_cache: TextCache::new(GlyphBrushLayouter::default()),
     }
   }
 
