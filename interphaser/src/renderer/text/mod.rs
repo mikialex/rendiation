@@ -31,6 +31,7 @@ impl TextRenderer {
     render_format: wgpu::TextureFormat,
   ) -> Self {
     let init_size = Size::from_usize_pair_min_one((512, 512));
+    let tolerance = Default::default();
 
     Self {
       pipeline: TextRendererPipeline::new(
@@ -40,7 +41,7 @@ impl TextRenderer {
         init_size,
         Vec2::new(1000., 1000.),
       ),
-      glyph_cache: GlyphCache::new(init_size),
+      glyph_cache: GlyphCache::new(init_size, tolerance),
       texture_cache: WebGPUTextureCache::init(init_size, device),
       text_cache: Default::default(),
     }

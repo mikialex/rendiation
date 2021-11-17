@@ -3,7 +3,7 @@ use crate::FontManager;
 use super::GlyphID;
 use glyph_brush::ab_glyph::{point, Font};
 use rendiation_algebra::Vec2;
-use rendiation_texture::{Size, Texture2DBuffer};
+use rendiation_texture::{Size, Texture2D, Texture2DBuffer};
 
 pub trait GlyphRaster {
   fn raster(
@@ -111,11 +111,14 @@ impl GlyphRaster for AbGlyphRaster {
     let height = bounds.height().ceil() as usize;
     let size = Size::from_usize_pair_min_one((width, height));
 
-    let result = Texture2DBuffer::new(size);
-    outlined_glyph.draw(|x, y, c| {
-      //
-    });
+    let mut result = Texture2DBuffer::new(size);
+    outlined_glyph
+      .draw(|x, y, c| result.write((x as usize, y as usize).into(), into_unsigned_u8(c)));
 
     result
   }
+}
+
+fn into_unsigned_u8(f: f32) -> u8 {
+  (f * 255.) as u8
 }

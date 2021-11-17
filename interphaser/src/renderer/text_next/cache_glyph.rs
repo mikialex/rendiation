@@ -41,13 +41,13 @@ pub enum CacheWriteErr {
 }
 
 impl GlyphCache {
-  pub fn new(init_size: Size) -> Self {
+  pub fn new(init_size: Size, tolerance: GlyphRasterTolerance) -> Self {
     Self {
       packer: GlyphPacker::init(init_size),
       raster: Box::new(AbGlyphRaster {}),
       queue: Default::default(),
       current_size: init_size,
-      tolerance: Default::default(),
+      tolerance,
     }
   }
 

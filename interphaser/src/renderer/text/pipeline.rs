@@ -6,7 +6,7 @@ use rendiation_texture::Size;
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
-use super::text_quad_instance::Instance;
+use super::text_quad_instance::TextQuadInstance;
 use super::GPUxUITextPrimitive;
 
 pub struct TextRendererPipeline {
@@ -125,7 +125,7 @@ impl TextRendererPipeline {
         module: &shader,
         entry_point: "vs_main",
         buffers: &[wgpu::VertexBufferLayout {
-          array_stride: mem::size_of::<Instance>() as u64,
+          array_stride: mem::size_of::<TextQuadInstance>() as u64,
           step_mode: wgpu::VertexStepMode::Instance,
           attributes: &wgpu::vertex_attr_array![
               0 => Float32x3,
@@ -204,7 +204,7 @@ impl TextRendererPipeline {
   pub fn create_gpu_text(
     &mut self,
     device: &wgpu::Device,
-    instances: &[Instance],
+    instances: &[TextQuadInstance],
   ) -> Option<GPUxUITextPrimitive> {
     if instances.is_empty() {
       return None;
