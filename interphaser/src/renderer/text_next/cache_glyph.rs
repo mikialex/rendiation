@@ -1,5 +1,5 @@
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use crate::FontManager;
 
@@ -11,7 +11,7 @@ use super::{
 pub struct GlyphCache {
   packer: GlyphPacker,
   raster: Box<dyn GlyphRaster>,
-  queue: HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
+  queue: HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
   current_size: Size,
   tolerance: GlyphRasterTolerance,
 }
@@ -63,8 +63,8 @@ impl GlyphCache {
     let mut packer = self.packer.process_queued(&self.queue);
 
     'all_process: while failed_process_all {
-      for &(glyph_id, info) in self.queue.iter() {
-        match packer.pack(glyph_id, info, self.raster.as_mut(), fonts) {
+      for (&(glyph_id, info), &info_raw) in self.queue.iter() {
+        match packer.pack(glyph_id, info, info_raw, self.raster.as_mut(), fonts) {
           GlyphCacheResult::NewCached { result, data } => {
             cache_update(&data, result.1);
           }
@@ -96,6 +96,6 @@ impl GlyphCache {
   pub fn queue_glyph(&mut self, glyph_id: GlyphID, info: GlyphRasterInfo) {
     self
       .queue
-      .insert((glyph_id, info.normalize(&self.tolerance)));
+      .insert((glyph_id, info.normalize(&self.tolerance)), info);
   }
 }

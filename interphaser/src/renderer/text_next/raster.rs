@@ -3,13 +3,13 @@ use crate::FontManager;
 use super::GlyphID;
 use glyph_brush::ab_glyph::{point, Font};
 use rendiation_algebra::Vec2;
-use rendiation_texture::Texture2DBuffer;
+use rendiation_texture::{Size, Texture2DBuffer};
 
 pub trait GlyphRaster {
   fn raster(
     &mut self,
     glyph_id: GlyphID,
-    info: NormalizedGlyphRasterInfo,
+    info: GlyphRasterInfo,
     fonts: &FontManager,
   ) -> Texture2DBuffer<u8>;
 }
@@ -19,7 +19,7 @@ pub struct GlyphRasterInfo {
   // position in pixel
   position: Vec2<f32>,
   // pixel-height of text.
-  scale: Vec2<f32>,
+  scale: f32,
 }
 
 impl GlyphRasterInfo {
@@ -43,10 +43,7 @@ impl GlyphRasterInfo {
     }
 
     NormalizedGlyphRasterInfo {
-      scale_over_tolerance: (
-        (scale.x / tolerance.scale + 0.5) as u32,
-        (scale.y / tolerance.scale + 0.5) as u32,
-      ),
+      scale_over_tolerance: (scale / tolerance.scale + 0.5) as u32,
       // convert [-0.5, 0.5] -> [0, 1] then divide
       offset_over_tolerance: (
         ((offset.x + 0.5) / tolerance.position + 0.5) as u16,
@@ -72,7 +69,7 @@ impl Default for GlyphRasterTolerance {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NormalizedGlyphRasterInfo {
-  scale_over_tolerance: (u32, u32),
+  scale_over_tolerance: u32,
   offset_over_tolerance: (u16, u16),
 }
 
@@ -97,7 +94,7 @@ impl GlyphRaster for AbGlyphRaster {
   fn raster(
     &mut self,
     glyph_id: GlyphID,
-    info: NormalizedGlyphRasterInfo,
+    info: GlyphRasterInfo,
     fonts: &FontManager,
   ) -> Texture2DBuffer<u8> {
     let GlyphID(char, font_id) = glyph_id;
@@ -105,13 +102,20 @@ impl GlyphRaster for AbGlyphRaster {
 
     let q_glyph = font
       .glyph_id(char)
-      .with_scale_and_position(24.0, point(100.0, 0.0));
+      .with_scale_and_position(info.scale, point(info.position.x, info.position.y));
 
     // Draw it.
-    if let Some(q) = font.outline_glyph(q_glyph) {
-      q.draw(|x, y, c| { /* draw pixel `(x, y)` with coverage: `c` */ });
-    }
+    let outlined_glyph = font.outline_glyph(q_glyph).unwrap();
+    let bounds = outlined_glyph.px_bounds();
+    let width = bounds.width().ceil() as usize;
+    let height = bounds.height().ceil() as usize;
+    let size = Size::from_usize_pair_min_one((width, height));
 
-    todo!()
+    let result = Texture2DBuffer::new(size);
+    outlined_glyph.draw(|x, y, c| {
+      //
+    });
+
+    result
   }
 }

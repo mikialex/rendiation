@@ -1,6 +1,6 @@
 use glyph_brush::FontId;
 use linked_hash_map::LinkedHashMap;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
 use rendiation_texture_packer::{
@@ -9,7 +9,7 @@ use rendiation_texture_packer::{
 
 use crate::FontManager;
 
-use super::{GlyphRaster, NormalizedGlyphRasterInfo};
+use super::{GlyphRaster, GlyphRasterInfo, NormalizedGlyphRasterInfo};
 
 pub struct GlyphPacker {
   packer: Box<dyn RePackablePacker>,
@@ -29,7 +29,7 @@ impl GlyphPacker {
 
   pub fn process_queued<'a>(
     &'a mut self,
-    queue: &'a HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
+    queue: &'a HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
   ) -> GlyphPackFrameTask<'a> {
     GlyphPackFrameTask {
       packer: self,
@@ -40,7 +40,7 @@ impl GlyphPacker {
 
 pub struct GlyphPackFrameTask<'a> {
   packer: &'a mut GlyphPacker,
-  queue: &'a HashSet<(GlyphID, NormalizedGlyphRasterInfo)>,
+  queue: &'a HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
 }
 
 impl<'a> GlyphPackFrameTask<'a> {
@@ -52,13 +52,14 @@ impl<'a> GlyphPackFrameTask<'a> {
     &mut self,
     glyph_id: GlyphID,
     info: NormalizedGlyphRasterInfo,
+    raw_info: GlyphRasterInfo,
     raster: &mut dyn GlyphRaster,
     fonts: &FontManager,
   ) -> GlyphCacheResult {
     if let Some(result) = self.packer.pack_info.get_refresh(&(glyph_id, info)) {
       GlyphCacheResult::AlreadyCached(*result)
     } else {
-      let data = raster.raster(glyph_id, info, fonts);
+      let data = raster.raster(glyph_id, raw_info, fonts);
 
       loop {
         match self.packer.packer.pack_with_id(data.size()) {
@@ -76,7 +77,7 @@ impl<'a> GlyphPackFrameTask<'a> {
           Err(err) => match err {
             PackError::SpaceNotEnough => {
               if let Some((k, _)) = self.packer.pack_info.back() {
-                if self.queue.contains(k) {
+                if self.queue.contains_key(k) {
                   break GlyphCacheResult::NotEnoughSpace;
                 } else {
                   let (_, v) = self.packer.pack_info.pop_back().unwrap();
