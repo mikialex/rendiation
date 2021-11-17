@@ -2,8 +2,7 @@ use interphaser::*;
 
 pub fn text_box(
   placeholder: impl Into<String> + 'static + Copy,
-  value: impl Into<String>,
-  on_change: impl Fn(&mut String) + 'static,
+  on_change: impl Fn(&mut String) + 'static + Copy,
 ) -> impl UIComponent<String> {
   If::condition(
     |t: &String| t.is_empty(),
@@ -13,5 +12,5 @@ pub fn text_box(
         .extend(Container::size((200., 80.)))
     },
   )
-  .else_condition(|_| Text::default().editable())
+  .else_condition(move |_| Text::default().editable().on_change(on_change))
 }

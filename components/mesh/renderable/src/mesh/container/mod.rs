@@ -6,12 +6,21 @@ pub mod none_indexed;
 pub use indexed::*;
 pub use none_indexed::*;
 
+use crate::group::MeshGroup;
+
 pub trait AbstractMesh {
   type Primitive;
 
   fn draw_count(&self) -> usize;
   fn primitive_count(&self) -> usize;
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive;
+
+  fn get_full_group(&self) -> MeshGroup {
+    MeshGroup {
+      start: 0,
+      count: self.draw_count(),
+    }
+  }
 
   fn primitive_iter(&self) -> AbstractMeshIter<'_, Self>
   where
@@ -21,6 +30,22 @@ pub trait AbstractMesh {
       mesh: self,
       current: 0,
       count: self.primitive_count(),
+    }
+  }
+
+  fn primitive_iter_group(&self, group: MeshGroup) -> AbstractMeshIter<'_, Self>
+  where
+    Self: Sized,
+  {
+    assert!(group.start <= self.draw_count());
+    assert!(group.count <= self.draw_count());
+
+    let step = self.draw_count() / self.primitive_count();
+
+    AbstractMeshIter {
+      mesh: self,
+      current: group.start,
+      count: group.count / step,
     }
   }
 }
@@ -70,6 +95,21 @@ pub trait AbstractIndexMesh: AbstractMesh {
       mesh: self,
       current: 0,
       count: self.primitive_count(),
+    }
+  }
+  fn index_primitive_iter_group(&self, group: MeshGroup) -> AbstractIndexMeshIter<'_, Self>
+  where
+    Self: Sized,
+  {
+    assert!(group.start <= self.primitive_count());
+    assert!(group.count <= self.primitive_count());
+
+    let step = self.draw_count() / self.primitive_count();
+
+    AbstractIndexMeshIter {
+      mesh: self,
+      current: group.start,
+      count: group.count / step,
     }
   }
 }

@@ -68,10 +68,7 @@ impl<T: AbstractMesh> GroupedMesh<T> {
 
   pub fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
     match group {
-      MeshDrawGroup::Full => MeshGroup {
-        start: 0,
-        count: self.mesh.draw_count(),
-      },
+      MeshDrawGroup::Full => self.mesh.get_full_group(),
       MeshDrawGroup::SubMesh(i) => *self.groups.groups.get(i).unwrap(),
     }
   }
