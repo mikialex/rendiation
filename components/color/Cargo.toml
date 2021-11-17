@@ -6,3 +6,4 @@ version = "0.1.0"
 
 [dependencies]
 rendiation-algebra = {path = "../../math/algebra"}
+bytemuck = "1.4.1"

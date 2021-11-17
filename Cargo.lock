@@ -1884,6 +1884,7 @@ dependencies = [
 name = "rendiation-color"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "rendiation-algebra",
 ]
 
