@@ -174,8 +174,7 @@ impl BindGroupLayoutProvider for TransformGPU {
       [[group({group}), binding(0)]]
       var<uniform> model: ModelTransform;
     
-    ",
-      group = group
+    "
     )
   }
 }

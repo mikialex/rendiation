@@ -43,8 +43,7 @@ impl BindGroupLayoutProvider for EnvMapBackGroundMaterial {
 
       [[group({group}), binding(1)]]
       var r_sampler: sampler;
-    ",
-      group = group
+    "
     )
   }
 }

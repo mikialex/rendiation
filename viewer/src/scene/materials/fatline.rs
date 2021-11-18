@@ -39,8 +39,7 @@ impl BindGroupLayoutProvider for FatLineMaterial {
       [[group({group}), binding(0)]]
       var<uniform> fatline_material: FatlineMaterial;
     
-    ",
-      group = group
+    "
     )
   }
 }
@@ -144,7 +143,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
 
         return out;
       }}
-    ", vertex_header = vertex_header))
+    "))
       .use_vertex_entry("vs_main")
       .include_fragment_entry("
         [[stage(fragment)]]

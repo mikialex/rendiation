@@ -40,7 +40,6 @@ impl BindGroupLayoutProvider for FlatMaterial {
       var<uniform> flat_material: FlatMaterial;
     
     ",
-      group = group
     )
   }
 }

@@ -89,6 +89,31 @@ impl<F: AttachmentFormat> Attachment<F> {
       format: self.des.format,
     }
   }
+
+  pub fn read(&self) -> AttachmentReadView<F> {
+    AttachmentReadView {
+      phantom: PhantomData,
+      view: Rc::new(
+        self
+          .texture
+          .as_ref()
+          .unwrap()
+          .create_view(&wgpu::TextureViewDescriptor::default()),
+      ),
+    }
+  }
+
+  pub fn read_into(self) -> AttachmentOwnedReadView<F> {
+    let view = self
+      .texture
+      .as_ref()
+      .unwrap()
+      .create_view(&wgpu::TextureViewDescriptor::default());
+    AttachmentOwnedReadView {
+      _att: self,
+      view: Rc::new(view),
+    }
+  }
 }
 
 impl<F: AttachmentFormat> Drop for Attachment<F> {
@@ -112,10 +137,43 @@ pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
   format: F,
 }
 
-// pub struct AttachmentReadView<'a, F: AttachmentFormat> {
-//   attachment: &'a Attachment<F>,
-//   view: wgpu::TextureView,
-// }
+pub struct AttachmentReadView<'a, F: AttachmentFormat> {
+  phantom: PhantomData<&'a Attachment<F>>,
+  view: Rc<wgpu::TextureView>,
+}
+
+impl<'a, F: AttachmentFormat> BindableResource for AttachmentReadView<'a, F> {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(self.view.as_ref())
+  }
+
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Texture {
+      multisampled: false,
+      sample_type: wgpu::TextureSampleType::Float { filterable: true },
+      view_dimension: wgpu::TextureViewDimension::D2,
+    }
+  }
+}
+
+pub struct AttachmentOwnedReadView<F: AttachmentFormat> {
+  _att: Attachment<F>,
+  view: Rc<wgpu::TextureView>,
+}
+
+impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(self.view.as_ref())
+  }
+
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Texture {
+      multisampled: false,
+      sample_type: wgpu::TextureSampleType::Float { filterable: true },
+      view_dimension: wgpu::TextureViewDimension::D2,
+    }
+  }
+}
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor<F> {
@@ -228,7 +286,7 @@ impl SimplePipeline {
         .render_by(&mut highlight(content.selections.selected.iter()))
         .run(engine, scene);
 
-      self.highlight.draw(selected)
+      self.highlight.draw(selected.read_into())
     });
 
     final_compose

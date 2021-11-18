@@ -170,8 +170,7 @@ impl BindGroupLayoutProvider for CameraBindgroup {
       [[group({group}), binding(0)]]
       var<uniform> camera: CameraTransform;
     
-    ",
-      group = group
+    "
     )
   }
 }
