@@ -9,7 +9,7 @@ pub type TextHash = u64;
 
 pub struct TextCache {
   cache: LinkedHashMap<TextHash, TextCacheItem>,
-  queue: HashMap<TextHash, TextCacheItem>,
+  queue: HashMap<TextHash, LayoutedTextGlyphs>,
   layouter: Box<dyn TextGlyphLayouter>,
 }
 
@@ -28,12 +28,22 @@ pub struct TextCacheItem {
   gpu: GPUxUITextPrimitive,
 }
 
+impl TextInfo {
+  pub fn hash(&self) -> TextHash {
+    todo!()
+  }
+}
+
 impl TextCache {
   pub fn queue(&mut self, text: &TextInfo) {
-    // self.text_cache.queue(text);
+    self.queue.insert(text.hash(), self.layouter.layout(text));
   }
 
   pub fn process_queued(&mut self, glyph_cache: &mut GlyphCache) {
-    //
+    self.queue.iter().for_each(|(_, text)| {
+      for (gly_id, ras_info) in &text.glyphs {
+        glyph_cache.queue_glyph(*gly_id, *ras_info)
+      }
+    });
   }
 }
