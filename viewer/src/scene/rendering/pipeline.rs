@@ -89,6 +89,31 @@ impl<F: AttachmentFormat> Attachment<F> {
       format: self.des.format,
     }
   }
+
+  pub fn read(&self) -> AttachmentReadView<F> {
+    AttachmentReadView {
+      phantom: PhantomData,
+      view: Rc::new(
+        self
+          .texture
+          .as_ref()
+          .unwrap()
+          .create_view(&wgpu::TextureViewDescriptor::default()),
+      ),
+    }
+  }
+
+  pub fn read_into(self) -> AttachmentOwnedReadView<F> {
+    let view = self
+      .texture
+      .as_ref()
+      .unwrap()
+      .create_view(&wgpu::TextureViewDescriptor::default());
+    AttachmentOwnedReadView {
+      _att: self,
+      view: Rc::new(view),
+    }
+  }
 }
 
 impl<F: AttachmentFormat> Drop for Attachment<F> {
@@ -112,10 +137,43 @@ pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
   format: F,
 }
 
-// pub struct AttachmentReadView<'a, F: AttachmentFormat> {
-//   attachment: &'a Attachment<F>,
-//   view: wgpu::TextureView,
-// }
+pub struct AttachmentReadView<'a, F: AttachmentFormat> {
+  phantom: PhantomData<&'a Attachment<F>>,
+  view: Rc<wgpu::TextureView>,
+}
+
+impl<'a, F: AttachmentFormat> BindableResource for AttachmentReadView<'a, F> {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(self.view.as_ref())
+  }
+
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Texture {
+      multisampled: false,
+      sample_type: wgpu::TextureSampleType::Float { filterable: true },
+      view_dimension: wgpu::TextureViewDimension::D2,
+    }
+  }
+}
+
+pub struct AttachmentOwnedReadView<F: AttachmentFormat> {
+  _att: Attachment<F>,
+  view: Rc<wgpu::TextureView>,
+}
+
+impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(self.view.as_ref())
+  }
+
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Texture {
+      multisampled: false,
+      sample_type: wgpu::TextureSampleType::Float { filterable: true },
+      view_dimension: wgpu::TextureViewDimension::D2,
+    }
+  }
+}
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor<F> {
@@ -163,26 +221,14 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
 }
 
 pub trait PassContent {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    resource: &mut ResourcePoolImpl,
-    pass_info: &RenderPassInfo,
-  );
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo);
   fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene);
 }
 
 impl<T: PassContent> PassContent for Option<T> {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    resource: &mut ResourcePoolImpl,
-    pass_info: &RenderPassInfo,
-  ) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
     if let Some(c) = self {
-      c.update(gpu, scene, resource, pass_info);
+      c.update(gpu, scene, pass_info);
     }
   }
 
@@ -193,11 +239,20 @@ impl<T: PassContent> PassContent for Option<T> {
   }
 }
 
-#[derive(Default)]
 pub struct SimplePipeline {
   forward: ForwardScene,
   highlight: HighLighter,
   background: BackGroundRendering,
+}
+
+impl SimplePipeline {
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      forward: Default::default(),
+      highlight: HighLighter::new(gpu),
+      background: Default::default(),
+    }
+  }
 }
 
 impl SimplePipeline {
@@ -228,7 +283,7 @@ impl SimplePipeline {
         .render_by(&mut highlight(content.selections.selected.iter()))
         .run(engine, scene);
 
-      self.highlight.draw(selected)
+      self.highlight.draw(selected.read_into())
     });
 
     final_compose
@@ -303,8 +358,6 @@ impl<'a, 't> PassDescriptor<'a, 't> {
   }
 
   pub fn run(mut self, engine: &RenderEngine, scene: &mut Scene) {
-    let mut resource = engine.resource.inner.borrow_mut();
-
     let mut encoder = engine.gpu.encoder.borrow_mut();
 
     let info = RenderPassInfo {
@@ -313,7 +366,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     };
 
     for task in &mut self.tasks {
-      task.update(&engine.gpu, scene, &mut resource, &info)
+      task.update(&engine.gpu, scene, &info)
     }
 
     let mut pass = encoder.begin_render_pass(&self.desc);

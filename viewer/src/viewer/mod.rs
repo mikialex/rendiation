@@ -139,7 +139,7 @@ pub struct Viewer3dRenderingCtx {
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
-      pipeline: Default::default(),
+      pipeline: SimplePipeline::new(gpu.as_ref()),
       engine: RenderEngine::new(gpu),
     }
   }
@@ -196,13 +196,12 @@ impl Viewer3dContent {
               states.mouse_position.x / states.size.width * 2. - 1.,
               states.mouse_position.y / states.size.height * 2. - 1.,
             );
-            
+
             self.picker.pick_new(
               &self.scene,
               &mut self.selections,
               normalized_position.into(),
             );
-
           }
         }
         _ => {}

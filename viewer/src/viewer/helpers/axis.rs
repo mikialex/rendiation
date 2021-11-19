@@ -1,6 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
-use rendiation_webgpu::RenderPassInfo;
+use rendiation_webgpu::*;
 
 use crate::*;
 
@@ -13,13 +13,7 @@ pub struct AxisHelper {
 }
 
 impl PassContent for AxisHelper {
-  fn update(
-    &mut self,
-    gpu: &rendiation_webgpu::GPU,
-    scene: &mut Scene,
-    _resource: &mut ResourcePoolImpl,
-    pass_info: &RenderPassInfo,
-  ) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
     if !self.enabled {
       return;
     }

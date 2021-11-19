@@ -13,6 +13,9 @@ pub fn create_solid_pipeline(
     push_constant_ranges: &[],
   });
 
+  let vertex_header = UIVertex::get_shader_header();
+  let global_header = UIGlobalParameter::get_shader_header();
+
   let shader_source = format!(
     "
       {global_header}
@@ -44,10 +47,7 @@ pub fn create_solid_pipeline(
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
           return in.color;
       }}
-      
-      ",
-    vertex_header = UIVertex::get_shader_header(),
-    global_header = UIGlobalParameter::get_shader_header(),
+      "
   );
 
   let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {

@@ -63,8 +63,7 @@ impl BindGroupLayoutProvider for BasicMaterial {
       [[group({group}), binding(2)]]
       var r_sampler: sampler;
     
-    ",
-      group = group
+    "
     )
   }
 }

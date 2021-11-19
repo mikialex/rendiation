@@ -1,12 +1,31 @@
 use std::{
   any::{Any, TypeId},
-  cell::UnsafeCell,
+  cell::RefCell,
   collections::HashMap,
   rc::Rc,
 };
 
-pub struct BindGroupLayoutManager {
-  cache: UnsafeCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
+#[derive(Default)]
+pub struct SamplerCache<T> {
+  cache: RefCell<HashMap<T, Rc<wgpu::Sampler>>>,
+}
+
+impl<T> SamplerCache<T>
+where
+  T: Eq + std::hash::Hash + Into<wgpu::SamplerDescriptor<'static>> + Clone,
+{
+  pub fn retrieve(&self, device: &wgpu::Device, desc: &T) -> Rc<wgpu::Sampler> {
+    let mut map = self.cache.borrow_mut();
+    map
+      .entry(desc.clone()) // todo optimize move
+      .or_insert_with(|| Rc::new(device.create_sampler(&desc.clone().into())))
+      .clone()
+  }
+}
+
+#[derive(Default)]
+pub struct BindGroupLayoutCache {
+  cache: RefCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
 }
 
 pub trait BindGroupLayoutProvider: 'static {
@@ -14,28 +33,16 @@ pub trait BindGroupLayoutProvider: 'static {
   fn gen_shader_header(group: usize) -> String;
 }
 
-impl BindGroupLayoutManager {
-  pub fn new() -> Self {
-    Self {
-      cache: UnsafeCell::new(HashMap::new()),
-    }
-  }
-
+impl BindGroupLayoutCache {
   pub fn retrieve<T: BindGroupLayoutProvider + Any>(
     &self,
     device: &wgpu::Device,
-  ) -> &Rc<wgpu::BindGroupLayout> {
-    let map = self.cache.get();
-    let map = unsafe { &mut *map };
+  ) -> Rc<wgpu::BindGroupLayout> {
+    let mut map = self.cache.borrow_mut();
     map
       .entry(TypeId::of::<T>())
       .or_insert_with(|| Rc::new(T::layout(device)))
-  }
-}
-
-impl Default for BindGroupLayoutManager {
-  fn default() -> Self {
-    Self::new()
+      .clone()
   }
 }
 
@@ -125,7 +132,7 @@ impl<T: PipelineVariantContainer> PipelineVariantContainer for TopologyPipelineV
   }
 }
 
-pub struct PipelineResourceManager {
+pub struct PipelineResourceCache {
   pub cache: HashMap<TypeId, Box<dyn Any>>,
 }
 
@@ -133,7 +140,7 @@ pub trait PipelineRequester: Any {
   type Container: PipelineVariantContainer;
 }
 
-impl PipelineResourceManager {
+impl PipelineResourceCache {
   pub fn new() -> Self {
     Self {
       cache: HashMap::new(),
@@ -159,7 +166,7 @@ impl PipelineResourceManager {
   }
 }
 
-impl Default for PipelineResourceManager {
+impl Default for PipelineResourceCache {
   fn default() -> Self {
     Self::new()
   }
