@@ -20,9 +20,8 @@ pub mod env_background;
 pub use env_background::*;
 
 use rendiation_webgpu::{
-  BindGroupLayoutManager, GPURenderPass, PipelineBuilder, PipelineRequester,
-  PipelineResourceManager, PipelineUnit, PipelineVariantContainer, RenderPassInfo,
-  TopologyPipelineVariant, GPU,
+  BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineRequester, PipelineResourceCache,
+  PipelineUnit, PipelineVariantContainer, RenderPassInfo, TopologyPipelineVariant, GPU,
 };
 
 use crate::*;
@@ -178,7 +177,7 @@ pub struct SceneMaterialRenderPrepareCtxBase<'a> {
 }
 
 impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceManager, PipelineCreateCtx) {
+  pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceCache, PipelineCreateCtx) {
     (
       &mut self.base.resources.pipeline_resource,
       PipelineCreateCtx {
@@ -191,7 +190,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
 }
 
 pub struct PipelineCreateCtx<'a, 'b> {
-  pub layouts: &'a BindGroupLayoutManager,
+  pub layouts: &'a BindGroupLayoutCache,
   pub active_mesh: Option<&'a dyn Mesh>,
   pub pass: &'b RenderPassInfo,
 }

@@ -221,26 +221,14 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
 }
 
 pub trait PassContent {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    resource: &mut ResourcePoolImpl,
-    pass_info: &RenderPassInfo,
-  );
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo);
   fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene);
 }
 
 impl<T: PassContent> PassContent for Option<T> {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    resource: &mut ResourcePoolImpl,
-    pass_info: &RenderPassInfo,
-  ) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
     if let Some(c) = self {
-      c.update(gpu, scene, resource, pass_info);
+      c.update(gpu, scene, pass_info);
     }
   }
 
@@ -251,11 +239,20 @@ impl<T: PassContent> PassContent for Option<T> {
   }
 }
 
-#[derive(Default)]
 pub struct SimplePipeline {
   forward: ForwardScene,
   highlight: HighLighter,
   background: BackGroundRendering,
+}
+
+impl SimplePipeline {
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      forward: Default::default(),
+      highlight: HighLighter::new(gpu),
+      background: Default::default(),
+    }
+  }
 }
 
 impl SimplePipeline {
@@ -361,8 +358,6 @@ impl<'a, 't> PassDescriptor<'a, 't> {
   }
 
   pub fn run(mut self, engine: &RenderEngine, scene: &mut Scene) {
-    let mut resource = engine.resource.inner.borrow_mut();
-
     let mut encoder = engine.gpu.encoder.borrow_mut();
 
     let info = RenderPassInfo {
@@ -371,7 +366,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     };
 
     for task in &mut self.tasks {
-      task.update(&engine.gpu, scene, &mut resource, &info)
+      task.update(&engine.gpu, scene, &info)
     }
 
     let mut pass = encoder.begin_render_pass(&self.desc);

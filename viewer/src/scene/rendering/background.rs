@@ -6,13 +6,7 @@ use crate::*;
 pub struct BackGroundRendering;
 
 impl PassContent for BackGroundRendering {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    _resource: &mut ResourcePoolImpl,
-    pass_info: &RenderPassInfo,
-  ) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
     if let Some(active_camera) = &mut scene.active_camera {
       let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
 

@@ -12,7 +12,7 @@ pub mod rendering;
 pub mod texture;
 pub mod util;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 pub use anymap::AnyMap;
 pub use background::*;
@@ -26,6 +26,7 @@ pub use model::*;
 pub use node::*;
 pub use picking::*;
 pub use rendering::*;
+use rendiation_texture::TextureSampler;
 pub use texture::*;
 pub use util::*;
 
@@ -35,8 +36,9 @@ pub use arena_tree::*;
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 
-use rendiation_texture::TextureSampler;
-use rendiation_webgpu::{BindGroupLayoutManager, GPURenderPass, PipelineResourceManager, GPU};
+use rendiation_webgpu::{
+  BindGroupLayoutCache, GPURenderPass, PipelineResourceCache, SamplerCache, GPU,
+};
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
 pub type LightHandle = Handle<Box<dyn Light>>;
@@ -114,9 +116,9 @@ pub trait SceneRenderable {
 ///
 /// Resources once allocate never release until the cache drop
 pub struct GPUResourceCache {
-  pub(crate) samplers: HashMap<TextureSampler, Rc<wgpu::Sampler>>,
-  pub(crate) pipeline_resource: PipelineResourceManager,
-  pub(crate) layouts: BindGroupLayoutManager,
+  pub(crate) samplers: SamplerCache<TextureSampler>,
+  pub(crate) pipeline_resource: PipelineResourceCache,
+  pub(crate) layouts: BindGroupLayoutCache,
   pub(crate) custom_storage: AnyMap,
 }
 
