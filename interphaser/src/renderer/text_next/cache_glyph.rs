@@ -32,12 +32,17 @@ pub enum CacheQueuedResult {
 /// Returned from `DrawCache::cache_queued`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum CacheWriteErr {
-  /// At least one of the queued glyphs is too big to fit into the cache, even
-  /// if all other glyphs are removed.
-  GlyphTooLarge,
   /// Not all of the requested glyphs can fit into the cache, even if the
   /// cache is completely cleared before the attempt.
   NoRoomForWholeQueue,
+}
+
+pub enum TextureCacheAction<'a> {
+  ResizeTo(Size),
+  UpdateAt {
+    data: &'a Texture2DBuffer<u8>,
+    range: TextureRange,
+  },
 }
 
 impl GlyphCache {
@@ -53,8 +58,7 @@ impl GlyphCache {
 
   pub fn process_queued(
     &mut self,
-    mut cache_update: impl FnMut(&Texture2DBuffer<u8>, TextureRange),
-    mut cache_resize: impl FnMut(Size),
+    mut cache_update: impl FnMut(TextureCacheAction) -> bool, // return if cache_resize success
     fonts: &FontManager,
   ) -> Result<CacheQueuedResult, CacheWriteErr> {
     let mut failed_process_all = true;
@@ -66,14 +70,18 @@ impl GlyphCache {
       for (&(glyph_id, info), &info_raw) in self.queue.iter() {
         match packer.pack(glyph_id, info, info_raw, self.raster.as_mut(), fonts) {
           GlyphCacheResult::NewCached { result, data } => {
-            cache_update(&data, result.1);
+            cache_update(TextureCacheAction::UpdateAt {
+              data: &data,
+              range: result.1,
+            });
           }
           GlyphCacheResult::AlreadyCached(_) => {}
           GlyphCacheResult::NotEnoughSpace => {
             let new_size = self.current_size * 2;
-            // todo max size limit
 
-            cache_resize(new_size);
+            if !cache_update(TextureCacheAction::ResizeTo(new_size)) {
+              return Err(CacheWriteErr::NoRoomForWholeQueue);
+            }
             packer.rebuild_all(new_size);
 
             failed_process_all = true;

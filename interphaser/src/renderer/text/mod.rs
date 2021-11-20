@@ -8,7 +8,10 @@ use rendiation_texture::Size;
 use rendiation_webgpu::{GPUCommandEncoder, GPURenderPass, GPU};
 use text_quad_instance::*;
 
-use crate::{renderer::text_next::CacheQueuedResult, FontManager, TextInfo};
+use crate::{
+  renderer::text_next::{CacheQueuedResult, TextureCacheAction},
+  FontManager, TextInfo,
+};
 
 use super::text_next::{GlyphBrushLayouter, GlyphCache, TextCache, WebGPUTextureCache};
 
@@ -69,11 +72,18 @@ impl TextRenderer {
     match self
       .glyph_cache
       .process_queued(
-        |data, range| {
-          //
-        },
-        |new_size| {
-          //
+        |action| match action {
+          TextureCacheAction::ResizeTo(new_size) => {
+            if usize::from(new_size.width) > 4096 || usize::from(new_size.height) > 4096 {
+              return false;
+            }
+            self.texture_cache = WebGPUTextureCache::init(new_size, &gpu.device);
+            true
+          }
+          TextureCacheAction::UpdateAt { data, range } => {
+            self.texture_cache.update_texture(data, range, &gpu.queue);
+            true
+          }
         },
         fonts,
       )
