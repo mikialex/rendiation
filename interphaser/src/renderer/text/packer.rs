@@ -3,9 +3,7 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
-use rendiation_texture_packer::{
-  shelf::ShelfPacker, PackError, PackId, PackerConfig, RePackablePacker,
-};
+use rendiation_texture_packer::{PackError, PackId, PackerConfig, RePackablePacker};
 
 use crate::FontManager;
 
@@ -17,14 +15,23 @@ pub struct GlyphPacker {
 }
 
 impl GlyphPacker {
-  pub fn init(init_size: Size) -> Self {
+  pub fn init(init_size: Size, mut packer: impl RePackablePacker + 'static) -> Self {
+    packer.config(PackerConfig {
+      allow_90_rotation: false,
+      init_size,
+    });
     Self {
-      packer: Box::new(ShelfPacker::new(PackerConfig {
-        allow_90_rotation: false,
-        init_size,
-      })),
+      packer: Box::new(packer),
       pack_info: Default::default(),
     }
+  }
+
+  pub fn re_init(&mut self, init_size: Size) {
+    self.packer.config(PackerConfig {
+      allow_90_rotation: false,
+      init_size,
+    });
+    self.pack_info = Default::default();
   }
 
   pub fn process_queued<'a>(
@@ -45,7 +52,7 @@ pub struct GlyphPackFrameTask<'a> {
 
 impl<'a> GlyphPackFrameTask<'a> {
   pub fn rebuild_all(&mut self, new_size: Size) {
-    *self.packer = GlyphPacker::init(new_size);
+    self.packer.re_init(new_size);
   }
 
   pub fn pack(
@@ -55,9 +62,9 @@ impl<'a> GlyphPackFrameTask<'a> {
     raw_info: GlyphRasterInfo,
     raster: &mut dyn GlyphRaster,
     fonts: &FontManager,
-  ) -> GlyphCacheResult {
+  ) -> GlyphAddCacheResult {
     if let Some(result) = self.packer.pack_info.get_refresh(&(glyph_id, info)) {
-      GlyphCacheResult::AlreadyCached(*result)
+      GlyphAddCacheResult::AlreadyCached(*result)
     } else {
       let data = raster.raster(glyph_id, raw_info, fonts);
 
@@ -72,19 +79,19 @@ impl<'a> GlyphPackFrameTask<'a> {
               .entry((glyph_id, info))
               .or_insert((result.id, range));
 
-            break GlyphCacheResult::NewCached { result, data };
+            break GlyphAddCacheResult::NewCached { result, data };
           }
           Err(err) => match err {
             PackError::SpaceNotEnough => {
               if let Some((k, _)) = self.packer.pack_info.back() {
                 if self.queue.contains_key(k) {
-                  break GlyphCacheResult::NotEnoughSpace;
+                  break GlyphAddCacheResult::NotEnoughSpace;
                 } else {
                   let (_, v) = self.packer.pack_info.pop_back().unwrap();
                   self.packer.packer.unpack(v.0).expect("glyph unpack error");
                 }
               } else {
-                break GlyphCacheResult::NotEnoughSpace;
+                break GlyphAddCacheResult::NotEnoughSpace;
               }
             }
           },
@@ -94,7 +101,7 @@ impl<'a> GlyphPackFrameTask<'a> {
   }
 }
 
-pub enum GlyphCacheResult {
+pub enum GlyphAddCacheResult {
   NewCached {
     result: (PackId, TextureRange),
     data: Texture2DBuffer<u8>,

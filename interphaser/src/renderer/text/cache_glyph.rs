@@ -1,11 +1,12 @@
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
+use rendiation_texture_packer::RePackablePacker;
 use std::collections::HashMap;
 
 use crate::FontManager;
 
 use super::{
-  AbGlyphRaster, GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo,
-  GlyphRasterTolerance, NormalizedGlyphRasterInfo,
+  GlyphAddCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo, GlyphRasterTolerance,
+  NormalizedGlyphRasterInfo,
 };
 
 pub struct GlyphCache {
@@ -46,10 +47,15 @@ pub enum TextureCacheAction<'a> {
 }
 
 impl GlyphCache {
-  pub fn new(init_size: Size, tolerance: GlyphRasterTolerance) -> Self {
+  pub fn new(
+    init_size: Size,
+    tolerance: GlyphRasterTolerance,
+    raster: impl GlyphRaster + 'static,
+    packer: impl RePackablePacker + 'static,
+  ) -> Self {
     Self {
-      packer: GlyphPacker::init(init_size),
-      raster: Box::new(AbGlyphRaster {}),
+      packer: GlyphPacker::init(init_size, packer),
+      raster: Box::new(raster),
       queue: Default::default(),
       current_size: init_size,
       tolerance,
@@ -71,14 +77,14 @@ impl GlyphCache {
     'all_process: while failed_process_all {
       for (&(glyph_id, info), &info_raw) in self.queue.iter() {
         match pack_task.pack(glyph_id, info, info_raw, self.raster.as_mut(), fonts) {
-          GlyphCacheResult::NewCached { result, data } => {
+          GlyphAddCacheResult::NewCached { result, data } => {
             cache_update(TextureCacheAction::UpdateAt {
               data: &data,
               range: result.1,
             });
           }
-          GlyphCacheResult::AlreadyCached(_) => {}
-          GlyphCacheResult::NotEnoughSpace => {
+          GlyphAddCacheResult::AlreadyCached(_) => {}
+          GlyphAddCacheResult::NotEnoughSpace => {
             let new_size = self.current_size * 2;
 
             if !cache_update(TextureCacheAction::ResizeTo(new_size)) {

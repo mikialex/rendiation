@@ -95,6 +95,15 @@ pub struct PackerConfig {
   pub init_size: Size,
 }
 
+impl Default for PackerConfig {
+  fn default() -> Self {
+    Self {
+      allow_90_rotation: false,
+      init_size: Size::from_usize_pair_min_one((512, 512)),
+    }
+  }
+}
+
 pub struct PackResult {
   pub range: TextureRange,
   pub rotated: bool, // should clockwise matters?

@@ -88,7 +88,7 @@ impl core::hash::Hash for GlyphRasterInfo {
 
 impl Eq for GlyphRasterInfo {}
 
-pub struct AbGlyphRaster {}
+pub struct AbGlyphRaster;
 
 impl GlyphRaster for AbGlyphRaster {
   fn raster(

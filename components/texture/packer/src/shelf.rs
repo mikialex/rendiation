@@ -4,6 +4,7 @@ use rendiation_texture::TextureRange;
 
 use crate::*;
 
+#[derive(Default)]
 pub struct ShelfPacker {
   config: PackerConfig,
 
@@ -50,7 +51,7 @@ impl<T: SectionLike> RowAllocator<T> {
       let is_empty_new = section_new.is_empty();
       let extend_new = section_new.section().extent;
       if let Some((_, min_extend, is_empty)) = min {
-        if min_extend > extend_new && extend_new >= extent && !(!is_empty && is_empty_new) {
+        if (!is_empty_new || is_empty) && extend_new >= extent && min_extend > extend_new {
           min = (*section_id, extend_new, is_empty_new).into();
         }
       } else {

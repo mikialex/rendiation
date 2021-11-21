@@ -36,3 +36,13 @@ impl WebGPUTextureCache {
 pub struct WebGPUTextCache {
   cached: HashMap<TextHash, GPUxUITextPrimitive>,
 }
+
+impl WebGPUTextCache {
+  pub fn drop_cache(&mut self, text: TextHash) {
+    self.cached.remove(&text);
+  }
+
+  pub fn clear_cache(&mut self) {
+    self.cached.clear()
+  }
+}

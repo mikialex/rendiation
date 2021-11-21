@@ -3,6 +3,7 @@ mod gpu_renderer;
 use gpu_renderer::*;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
+use rendiation_texture_packer::shelf::ShelfPacker;
 use rendiation_webgpu::{GPURenderPass, GPU};
 
 pub mod cache_glyph;
@@ -49,7 +50,11 @@ impl TextRenderer {
 
     let texture_cache = WebGPUTextureCache::init(init_size, device);
 
-    let glyph_cache = GlyphCache::new(init_size, tolerance);
+    let raster = AbGlyphRaster;
+
+    let packer = ShelfPacker::default();
+
+    let glyph_cache = GlyphCache::new(init_size, tolerance, raster, packer);
 
     let text_cache = TextCache::new(glyph_cache, GlyphBrushLayouter::default());
 
@@ -81,6 +86,16 @@ impl TextRenderer {
 
   pub fn get_cache_gpu_text(&self, text: &TextInfo) -> Option<GPUxUITextPrimitive> {
     todo!();
+  }
+
+  pub fn drop_cache(&mut self, text: TextHash) {
+    self.cache.drop_cache(text);
+    self.gpu_vertex_cache.drop_cache(text);
+  }
+
+  pub fn clear_cache(&mut self) {
+    self.cache.clear_cache();
+    self.gpu_vertex_cache.clear_cache();
   }
 
   pub fn process_queued(&mut self, gpu: &GPU, fonts: &FontManager) {
