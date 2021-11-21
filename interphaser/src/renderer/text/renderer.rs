@@ -6,10 +6,11 @@ use rendiation_texture::Size;
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
-use super::text_quad_instance::TextQuadInstance;
+use crate::renderer::text::TextQuadInstance;
+
 use super::GPUxUITextPrimitive;
 
-pub struct TextRendererGPURenderer {
+pub struct TextGPURenderer {
   transform: UniformBufferData<[f32; 16]>,
   sampler: wgpu::Sampler,
   bindgroup_layout: wgpu::BindGroupLayout,
@@ -40,7 +41,7 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
   }
 }
 
-impl TextRendererGPURenderer {
+impl TextGPURenderer {
   pub fn new(
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
@@ -62,7 +63,7 @@ impl TextRendererGPURenderer {
     });
 
     let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: Some("wgpu_glyph::TextRendererGPURenderer uniforms"),
+      label: Some("wgpu_glyph::TextGPURenderer uniforms"),
       entries: &[
         wgpu::BindGroupLayoutEntry {
           binding: 0,
@@ -168,7 +169,7 @@ impl TextRendererGPURenderer {
   }
 }
 
-impl TextRendererGPURenderer {
+impl TextGPURenderer {
   pub fn cache_resized(&mut self, device: &wgpu::Device, cache_view: &wgpu::TextureView) {
     self.bindgroup = create_bindgroup(
       device,
@@ -222,7 +223,7 @@ fn create_bindgroup(
   cache: &wgpu::TextureView,
 ) -> wgpu::BindGroup {
   device.create_bind_group(&wgpu::BindGroupDescriptor {
-    label: Some("wgpu_glyph::TextRendererGPURenderer uniforms"),
+    label: Some("wgpu_glyph::TextGPURenderer uniforms"),
     layout,
     entries: &[
       wgpu::BindGroupEntry {

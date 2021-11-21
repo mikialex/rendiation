@@ -1,7 +1,6 @@
 mod renderer;
 
 use renderer::*;
-pub mod text_quad_instance;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
 use rendiation_webgpu::{GPURenderPass, GPU};
@@ -32,7 +31,7 @@ pub struct GPUxUITextPrimitive {
 }
 
 pub struct TextRenderer {
-  renderer: TextRendererGPURenderer,
+  renderer: TextGPURenderer,
   texture_cache: WebGPUTextureCache,
   glyph_cache: GlyphCache,
   text_cache: TextCache,
@@ -50,7 +49,7 @@ impl TextRenderer {
     let texture_cache = WebGPUTextureCache::init(init_size, device);
 
     Self {
-      renderer: TextRendererGPURenderer::new(
+      renderer: TextGPURenderer::new(
         device,
         filter_mode,
         render_format,

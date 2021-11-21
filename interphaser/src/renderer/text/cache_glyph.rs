@@ -1,11 +1,11 @@
 use rendiation_texture::{Size, Texture2DBuffer, TextureRange};
 use std::collections::HashMap;
 
-use crate::{renderer::text::text_quad_instance::TextQuadInstance, FontManager};
+use crate::FontManager;
 
 use super::{
   AbGlyphRaster, GlyphCacheResult, GlyphID, GlyphPacker, GlyphRaster, GlyphRasterInfo,
-  GlyphRasterTolerance, LayoutedTextGlyphs, NormalizedGlyphRasterInfo,
+  GlyphRasterTolerance, NormalizedGlyphRasterInfo,
 };
 
 pub struct GlyphCache {
@@ -54,10 +54,6 @@ impl GlyphCache {
       current_size: init_size,
       tolerance,
     }
-  }
-
-  pub fn generate_gpu_vertex(&self, text: &LayoutedTextGlyphs) -> Vec<TextQuadInstance> {
-    todo!()
   }
 
   pub fn process_queued(

@@ -2,7 +2,7 @@ use glyph_brush::*;
 
 use crate::{FontManager, TextInfo};
 
-use super::{GlyphID, GlyphRasterInfo};
+use super::{GlyphCache, GlyphID, GlyphRasterInfo};
 
 pub struct LayoutedTextGlyphs {
   pub glyphs: Vec<(GlyphID, GlyphRasterInfo)>,
@@ -63,5 +63,23 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
         })
         .collect(),
     }
+  }
+}
+
+use bytemuck::{Pod, Zeroable};
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Zeroable, Pod)]
+pub struct TextQuadInstance {
+  left_top: [f32; 3],
+  right_bottom: [f32; 2],
+  tex_left_top: [f32; 2],
+  tex_right_bottom: [f32; 2],
+  color: [f32; 4],
+}
+
+impl LayoutedTextGlyphs {
+  pub fn generate_gpu_vertex(&self, cache: &GlyphCache) -> Vec<TextQuadInstance> {
+    todo!()
   }
 }
