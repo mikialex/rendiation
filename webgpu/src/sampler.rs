@@ -31,8 +31,8 @@ impl<'a> From<GPUSamplerDescriptor> for wgpu::SamplerDescriptor<'a> {
   fn from(s: GPUSamplerDescriptor) -> Self {
     Self {
       label: None,
-      lod_min_clamp: unsafe { std::mem::transmute(s.lod_min_clamp) },
-      lod_max_clamp: unsafe { std::mem::transmute(s.lod_max_clamp) },
+      lod_min_clamp: f32::from_bits(s.lod_min_clamp) ,
+      lod_max_clamp:  f32::from_bits(s.lod_max_clamp) ,
       address_mode_u: s.address_mode_u,
       address_mode_v: s.address_mode_v,
       address_mode_w: s.address_mode_w,

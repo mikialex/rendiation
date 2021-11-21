@@ -17,9 +17,9 @@ pub trait GlyphRaster {
 #[derive(Clone, Copy, PartialEq)]
 pub struct GlyphRasterInfo {
   // position in pixel
-  position: Vec2<f32>,
+  pub position: Vec2<f32>,
   // pixel-height of text.
-  scale: f32,
+  pub scale: f32,
 }
 
 impl GlyphRasterInfo {

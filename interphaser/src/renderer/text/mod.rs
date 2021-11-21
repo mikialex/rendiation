@@ -67,7 +67,7 @@ impl TextRenderer {
   }
 
   pub fn process_queued(&mut self, gpu: &GPU, fonts: &FontManager) {
-    self.text_cache.process_queued(&mut self.glyph_cache);
+    self.text_cache.process_queued(&mut self.glyph_cache, fonts);
 
     match self
       .glyph_cache

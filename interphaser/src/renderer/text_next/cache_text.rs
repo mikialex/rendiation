@@ -1,6 +1,6 @@
 use linked_hash_map::LinkedHashMap;
 
-use crate::{renderer::text::GPUxUITextPrimitive, TextInfo};
+use crate::{renderer::text::GPUxUITextPrimitive, FontManager, TextInfo};
 use std::collections::HashMap;
 
 use super::{GlyphCache, LayoutedTextGlyphs, TextGlyphLayouter};
@@ -9,7 +9,7 @@ pub type TextHash = u64;
 
 pub struct TextCache {
   cache: LinkedHashMap<TextHash, TextCacheItem>,
-  queue: HashMap<TextHash, LayoutedTextGlyphs>,
+  queue: HashMap<TextHash, TextInfo>,
   layouter: Box<dyn TextGlyphLayouter>,
 }
 
@@ -36,12 +36,13 @@ impl TextInfo {
 
 impl TextCache {
   pub fn queue(&mut self, text: &TextInfo) {
-    self.queue.insert(text.hash(), self.layouter.layout(text));
+    self.queue.insert(text.hash(), text.clone());
   }
 
-  pub fn process_queued(&mut self, glyph_cache: &mut GlyphCache) {
+  pub fn process_queued(&mut self, glyph_cache: &mut GlyphCache, fonts: &FontManager) {
     self.queue.iter().for_each(|(_, text)| {
-      for (gly_id, ras_info) in &text.glyphs {
+      let layout = self.layouter.layout(text, fonts);
+      for (gly_id, ras_info) in &layout.glyphs {
         glyph_cache.queue_glyph(*gly_id, *ras_info)
       }
     });
