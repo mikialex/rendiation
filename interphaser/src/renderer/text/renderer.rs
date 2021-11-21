@@ -9,10 +9,9 @@ use wgpu::util::DeviceExt;
 use super::text_quad_instance::TextQuadInstance;
 use super::GPUxUITextPrimitive;
 
-pub struct TextRendererPipeline {
+pub struct TextRendererGPURenderer {
   transform: UniformBufferData<[f32; 16]>,
   sampler: wgpu::Sampler,
-  cache: WebGPUTexture2d,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
   raw: wgpu::RenderPipeline,
@@ -41,13 +40,13 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
   }
 }
 
-impl TextRendererPipeline {
+impl TextRendererGPURenderer {
   pub fn new(
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
-    cache_init_size: Size,
     view_size: Vec2<f32>,
+    cache_view: &wgpu::TextureView,
   ) -> Self {
     let transform =
       UniformBufferData::create(device, orthographic_projection(view_size.x, view_size.y));
@@ -62,10 +61,8 @@ impl TextRendererPipeline {
       ..Default::default()
     });
 
-    let cache = create_cache(device, cache_init_size);
-
     let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
+      label: Some("wgpu_glyph::TextRendererGPURenderer uniforms"),
       entries: &[
         wgpu::BindGroupLayoutEntry {
           binding: 0,
@@ -99,13 +96,7 @@ impl TextRendererPipeline {
       ],
     });
 
-    let bindgroup = create_bindgroup(
-      device,
-      &uniform_layout,
-      &transform,
-      &sampler,
-      cache.get_default_view(),
-    );
+    let bindgroup = create_bindgroup(device, &uniform_layout, &transform, &sampler, cache_view);
 
     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       label: None,
@@ -155,9 +146,8 @@ impl TextRendererPipeline {
     });
 
     Self {
-      transform,
       sampler,
-      cache,
+      transform,
       bindgroup_layout: uniform_layout,
       bindgroup,
       raw,
@@ -178,26 +168,14 @@ impl TextRendererPipeline {
   }
 }
 
-impl TextRendererPipeline {
-  pub fn update_cache(
-    &mut self,
-    device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
-    offset: (u32, u32),
-    data: TextureWriteData,
-  ) {
-    encoder.copy_source_to_texture_2d(device, data, &self.cache, offset);
-  }
-
-  pub fn increase_cache_size(&mut self, device: &wgpu::Device, size: Size) {
-    self.cache = create_cache(device, size);
-
+impl TextRendererGPURenderer {
+  pub fn cache_resized(&mut self, device: &wgpu::Device, cache_view: &wgpu::TextureView) {
     self.bindgroup = create_bindgroup(
       device,
       &self.bindgroup_layout,
       &self.transform,
       &self.sampler,
-      self.cache.get_default_view(),
+      cache_view,
     );
   }
 
@@ -236,11 +214,6 @@ pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
     ]
 }
 
-fn create_cache(device: &wgpu::Device, size: Size) -> WebGPUTexture2d {
-  let desc = WebGPUTexture2dDescriptor::from_size(size).with_format(wgpu::TextureFormat::R8Unorm);
-  WebGPUTexture2d::create(device, desc)
-}
-
 fn create_bindgroup(
   device: &wgpu::Device,
   layout: &wgpu::BindGroupLayout,
@@ -249,7 +222,7 @@ fn create_bindgroup(
   cache: &wgpu::TextureView,
 ) -> wgpu::BindGroup {
   device.create_bind_group(&wgpu::BindGroupDescriptor {
-    label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
+    label: Some("wgpu_glyph::TextRendererGPURenderer uniforms"),
     layout,
     entries: &[
       wgpu::BindGroupEntry {

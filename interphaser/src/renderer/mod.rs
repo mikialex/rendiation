@@ -4,7 +4,6 @@ use wgpu::util::DeviceExt;
 
 mod pipeline;
 mod text;
-mod text_next;
 use pipeline::*;
 
 use crate::FontManager;

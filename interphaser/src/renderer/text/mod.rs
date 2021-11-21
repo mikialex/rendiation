@@ -1,19 +1,30 @@
-mod pipeline;
-use std::collections::HashMap;
+mod renderer;
 
-use pipeline::*;
-mod text_quad_instance;
+use renderer::*;
+pub mod text_quad_instance;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
-use rendiation_webgpu::{GPUCommandEncoder, GPURenderPass, GPU};
-use text_quad_instance::*;
+use rendiation_webgpu::{GPURenderPass, GPU};
 
-use crate::{
-  renderer::text_next::{CacheQueuedResult, TextureCacheAction},
-  FontManager, TextInfo,
-};
+pub mod cache_glyph;
+pub use cache_glyph::*;
 
-use super::text_next::{GlyphBrushLayouter, GlyphCache, TextCache, WebGPUTextureCache};
+pub mod cache_text;
+pub use cache_text::*;
+
+pub mod cache_texture;
+pub use cache_texture::*;
+
+pub mod layout;
+pub use layout::*;
+
+pub mod raster;
+pub use raster::*;
+
+pub mod packer;
+pub use packer::*;
+
+use crate::{FontManager, TextInfo};
 
 pub struct GPUxUITextPrimitive {
   vertex_buffer: wgpu::Buffer,
@@ -21,7 +32,7 @@ pub struct GPUxUITextPrimitive {
 }
 
 pub struct TextRenderer {
-  pipeline: TextRendererPipeline,
+  renderer: TextRendererGPURenderer,
   texture_cache: WebGPUTextureCache,
   glyph_cache: GlyphCache,
   text_cache: TextCache,
@@ -36,26 +47,28 @@ impl TextRenderer {
     let init_size = Size::from_usize_pair_min_one((512, 512));
     let tolerance = Default::default();
 
+    let texture_cache = WebGPUTextureCache::init(init_size, device);
+
     Self {
-      pipeline: TextRendererPipeline::new(
+      renderer: TextRendererGPURenderer::new(
         device,
         filter_mode,
         render_format,
-        init_size,
         Vec2::new(1000., 1000.),
+        texture_cache.get_view(),
       ),
       glyph_cache: GlyphCache::new(init_size, tolerance),
-      texture_cache: WebGPUTextureCache::init(init_size, device),
+      texture_cache,
       text_cache: TextCache::new(GlyphBrushLayouter::default()),
     }
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
-    self.pipeline.resize_view(size, queue)
+    self.renderer.resize_view(size, queue)
   }
 
   pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: &'a GPUxUITextPrimitive) {
-    self.pipeline.draw(pass, text)
+    self.renderer.draw(pass, text)
   }
 
   pub fn queue_text(&mut self, text: &TextInfo) {
@@ -77,7 +90,11 @@ impl TextRenderer {
             if usize::from(new_size.width) > 4096 || usize::from(new_size.height) > 4096 {
               return false;
             }
-            self.texture_cache = WebGPUTextureCache::init(new_size, &gpu.device);
+            let device = &gpu.device;
+            self.texture_cache = WebGPUTextureCache::init(new_size, device);
+            self
+              .renderer
+              .cache_resized(device, self.texture_cache.get_view());
             true
           }
           TextureCacheAction::UpdateAt { data, range } => {
