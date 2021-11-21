@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use rendiation_texture::{Size, TextureRange};
 use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource};
+
+use super::{GPUxUITextPrimitive, TextHash};
 
 pub struct WebGPUTextureCache {
   texture: WebGPUTexture2d,
@@ -26,4 +30,9 @@ impl WebGPUTextureCache {
   pub fn get_view(&self) -> &wgpu::TextureView {
     self.texture.get_default_view()
   }
+}
+
+#[derive(Default)]
+pub struct WebGPUTextCache {
+  cached: HashMap<TextHash, GPUxUITextPrimitive>,
 }

@@ -56,6 +56,8 @@ impl GlyphCache {
     }
   }
 
+  // pub fn get_cached_glyph(&self, glyph: GlyphID, info: )
+
   pub fn process_queued(
     &mut self,
     mut cache_update: impl FnMut(TextureCacheAction) -> bool, // return if cache_resize success
@@ -64,11 +66,11 @@ impl GlyphCache {
     let mut failed_process_all = true;
     let mut previous_cache_invalid = false;
 
-    let mut packer = self.packer.process_queued(&self.queue);
+    let mut pack_task = self.packer.process_queued(&self.queue);
 
     'all_process: while failed_process_all {
       for (&(glyph_id, info), &info_raw) in self.queue.iter() {
-        match packer.pack(glyph_id, info, info_raw, self.raster.as_mut(), fonts) {
+        match pack_task.pack(glyph_id, info, info_raw, self.raster.as_mut(), fonts) {
           GlyphCacheResult::NewCached { result, data } => {
             cache_update(TextureCacheAction::UpdateAt {
               data: &data,
@@ -82,7 +84,7 @@ impl GlyphCache {
             if !cache_update(TextureCacheAction::ResizeTo(new_size)) {
               return Err(CacheWriteErr::NoRoomForWholeQueue);
             }
-            packer.rebuild_all(new_size);
+            pack_task.rebuild_all(new_size);
 
             failed_process_all = true;
             previous_cache_invalid = true;

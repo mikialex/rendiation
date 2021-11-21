@@ -10,7 +10,7 @@ use crate::renderer::text::TextQuadInstance;
 
 use super::GPUxUITextPrimitive;
 
-pub struct TextGPURenderer {
+pub struct TextWebGPURenderer {
   transform: UniformBufferData<[f32; 16]>,
   sampler: wgpu::Sampler,
   bindgroup_layout: wgpu::BindGroupLayout,
@@ -41,7 +41,7 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
   }
 }
 
-impl TextGPURenderer {
+impl TextWebGPURenderer {
   pub fn new(
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
@@ -169,7 +169,7 @@ impl TextGPURenderer {
   }
 }
 
-impl TextGPURenderer {
+impl TextWebGPURenderer {
   pub fn cache_resized(&mut self, device: &wgpu::Device, cache_view: &wgpu::TextureView) {
     self.bindgroup = create_bindgroup(
       device,
