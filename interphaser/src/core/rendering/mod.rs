@@ -1,5 +1,4 @@
-use crate::{Color, LayoutSize, UIPosition};
-use glyph_brush::{HorizontalAlign, VerticalAlign};
+use crate::{text::TextInfo, Color, LayoutSize, UIPosition};
 use std::rc::Rc;
 
 mod fonts;
@@ -67,31 +66,6 @@ impl Quad {
   pub fn is_point_in(&self, p: UIPosition) -> bool {
     p.x >= self.x && p.x <= self.x + self.width && p.y >= self.y && p.y <= self.y + self.height
   }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum LineWrap {
-  Single,
-  Multiple,
-}
-
-impl Default for LineWrap {
-  fn default() -> Self {
-    Self::Single
-  }
-}
-
-#[derive(Debug, Clone)]
-pub struct TextInfo {
-  pub content: String,
-  pub bounds: LayoutSize,
-  pub line_wrap: LineWrap,
-  pub horizon_align: HorizontalAlign,
-  pub vertical_align: VerticalAlign,
-  pub color: Color,
-  pub font_size: f32,
-  pub x: f32,
-  pub y: f32,
 }
 
 pub struct UIPresentation {

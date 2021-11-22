@@ -4,11 +4,10 @@ use std::mem;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
-use wgpu::util::DeviceExt;
 
 use crate::renderer::text::TextQuadInstance;
 
-use super::GPUxUITextPrimitive;
+use super::WebGPUxTextPrimitive;
 
 pub struct TextWebGPURenderer {
   transform: UniformBufferData<[f32; 16]>,
@@ -160,16 +159,14 @@ impl TextWebGPURenderer {
     self.transform.update(queue);
   }
 
-  pub fn draw<'r>(&'r self, render_pass: &mut GPURenderPass<'r>, text: &'r GPUxUITextPrimitive) {
+  pub fn draw<'r>(&'r self, render_pass: &mut GPURenderPass<'r>, text: &'r WebGPUxTextPrimitive) {
     render_pass.set_pipeline(&self.raw);
     render_pass.set_bind_group(0, &self.bindgroup, &[]);
     render_pass.set_vertex_buffer(0, text.vertex_buffer.slice(..));
 
     render_pass.draw(0..4, 0..text.length);
   }
-}
 
-impl TextWebGPURenderer {
   pub fn cache_resized(&mut self, device: &wgpu::Device, cache_view: &wgpu::TextureView) {
     self.bindgroup = create_bindgroup(
       device,
@@ -178,29 +175,6 @@ impl TextWebGPURenderer {
       &self.sampler,
       cache_view,
     );
-  }
-
-  pub fn create_gpu_text(
-    &mut self,
-    device: &wgpu::Device,
-    instances: &[TextQuadInstance],
-  ) -> Option<GPUxUITextPrimitive> {
-    if instances.is_empty() {
-      return None;
-    }
-    let instances_bytes = bytemuck::cast_slice(instances);
-
-    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: None,
-      contents: instances_bytes,
-      usage: wgpu::BufferUsages::VERTEX,
-    });
-
-    GPUxUITextPrimitive {
-      vertex_buffer,
-      length: instances.len() as u32,
-    }
-    .into()
   }
 }
 

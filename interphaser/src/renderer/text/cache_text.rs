@@ -1,12 +1,10 @@
-use crate::{renderer::text::GPUxUITextPrimitive, FontManager, TextInfo};
+use crate::{renderer::text::WebGPUxTextPrimitive, FontManager};
 use std::collections::HashMap;
 
 use super::{
-  CacheQueuedResult, GlyphCache, LayoutedTextGlyphs, TextGlyphLayouter, TextQuadInstance,
-  TextureCacheAction,
+  CacheQueuedResult, GlyphCache, LayoutedTextGlyphs, TextGlyphLayouter, TextHash, TextInfo,
+  TextQuadInstance, TextureCacheAction,
 };
-
-pub type TextHash = u64;
 
 pub struct TextCache {
   cache: HashMap<TextHash, LayoutedTextGlyphs>,
@@ -33,7 +31,7 @@ impl TextCache {
 
 pub struct TextCacheItem {
   pub layout: LayoutedTextGlyphs,
-  pub gpu: GPUxUITextPrimitive,
+  pub gpu: WebGPUxTextPrimitive,
 }
 
 impl TextInfo {

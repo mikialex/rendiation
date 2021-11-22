@@ -1,8 +1,8 @@
 use glyph_brush::*;
 
-use crate::{FontManager, TextInfo};
+use crate::FontManager;
 
-use super::{GlyphCache, GlyphID, GlyphRasterInfo};
+use super::{GlyphCache, GlyphID, GlyphRasterInfo, TextInfo};
 
 pub struct LayoutedTextGlyphs {
   pub glyphs: Vec<(GlyphID, GlyphRasterInfo)>,
@@ -13,7 +13,7 @@ pub trait TextGlyphLayouter {
 }
 
 #[derive(Default)]
-pub struct GlyphBrushLayouter {}
+pub struct GlyphBrushLayouter;
 
 impl TextGlyphLayouter for GlyphBrushLayouter {
   fn layout(&self, text: &TextInfo, fonts: &FontManager) -> LayoutedTextGlyphs {
@@ -80,6 +80,19 @@ pub struct TextQuadInstance {
 
 impl LayoutedTextGlyphs {
   pub fn generate_gpu_vertex(&self, cache: &GlyphCache) -> Vec<TextQuadInstance> {
-    todo!()
+    self
+      .glyphs
+      .iter()
+      .map(|(gid, info)| {
+        let (tex_left_top, tex_right_bottom) = cache.get_cached_glyph_normalized(*gid, *info);
+        TextQuadInstance {
+          left_top: [info.position.x, info.position.y, 0.],
+          right_bottom: todo!(),
+          tex_left_top,
+          tex_right_bottom,
+          color: [0., 0., 0., 1.],
+        }
+      })
+      .collect()
   }
 }

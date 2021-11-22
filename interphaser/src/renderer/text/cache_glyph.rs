@@ -62,7 +62,13 @@ impl GlyphCache {
     }
   }
 
-  // pub fn get_cached_glyph(&self, glyph: GlyphID, info: )
+  pub fn get_cached_glyph_normalized(
+    &self,
+    glyph: GlyphID,
+    info: GlyphRasterInfo,
+  ) -> ([f32; 2], [f32; 2]) {
+    todo!()
+  }
 
   pub fn process_queued(
     &mut self,

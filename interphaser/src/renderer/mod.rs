@@ -3,12 +3,13 @@ use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
 mod pipeline;
-mod text;
 use pipeline::*;
+
+pub mod text;
 
 use crate::FontManager;
 
-use self::text::{GPUxUITextPrimitive, TextRenderer};
+use self::text::{TextRenderer, WebGPUxTextPrimitive};
 
 use super::{Primitive, UIPresentation};
 
@@ -66,7 +67,7 @@ pub struct GPUxUITexturedPrimitive {
 pub enum GPUxUIPrimitive {
   SolidColor(GPUxUISolidColorPrimitive),
   Texture(GPUxUITexturedPrimitive),
-  Text(GPUxUITextPrimitive),
+  Text(WebGPUxTextPrimitive),
 }
 
 #[allow(clippy::vec_init_then_push)]

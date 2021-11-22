@@ -88,6 +88,7 @@ impl core::hash::Hash for GlyphRasterInfo {
 
 impl Eq for GlyphRasterInfo {}
 
+#[derive(Default)]
 pub struct AbGlyphRaster;
 
 impl GlyphRaster for AbGlyphRaster {

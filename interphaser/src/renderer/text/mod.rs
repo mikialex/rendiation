@@ -1,5 +1,6 @@
 mod gpu_renderer;
 
+use glyph_brush::{HorizontalAlign, VerticalAlign};
 use gpu_renderer::*;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
@@ -24,12 +25,34 @@ pub use raster::*;
 pub mod packer;
 pub use packer::*;
 
-use crate::{FontManager, TextInfo};
+use crate::{Color, FontManager, LayoutSize};
 
-pub struct GPUxUITextPrimitive {
-  vertex_buffer: wgpu::Buffer,
-  length: u32,
+#[derive(Debug, Copy, Clone)]
+pub enum LineWrap {
+  Single,
+  Multiple,
 }
+
+impl Default for LineWrap {
+  fn default() -> Self {
+    Self::Single
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextInfo {
+  pub content: String,
+  pub bounds: LayoutSize,
+  pub line_wrap: LineWrap,
+  pub horizon_align: HorizontalAlign,
+  pub vertical_align: VerticalAlign,
+  pub color: Color,
+  pub font_size: f32,
+  pub x: f32,
+  pub y: f32,
+}
+
+pub type TextHash = u64;
 
 pub struct TextRenderer {
   renderer: TextWebGPURenderer,
@@ -50,7 +73,7 @@ impl TextRenderer {
 
     let texture_cache = WebGPUTextureCache::init(init_size, device);
 
-    let raster = AbGlyphRaster;
+    let raster = AbGlyphRaster::default();
 
     let packer = ShelfPacker::default();
 
@@ -76,7 +99,7 @@ impl TextRenderer {
     self.renderer.resize_view(size, queue)
   }
 
-  pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: &'a GPUxUITextPrimitive) {
+  pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: &'a WebGPUxTextPrimitive) {
     self.renderer.draw(pass, text)
   }
 
@@ -84,7 +107,7 @@ impl TextRenderer {
     self.cache.queue(text);
   }
 
-  pub fn get_cache_gpu_text(&self, text: &TextInfo) -> Option<GPUxUITextPrimitive> {
+  pub fn get_cache_gpu_text(&self, text: &TextInfo) -> Option<WebGPUxTextPrimitive> {
     todo!();
   }
 
@@ -121,7 +144,9 @@ impl TextRenderer {
         }
       },
       |hash, data| {
-        //
+        self
+          .gpu_vertex_cache
+          .add_cache(hash, create_gpu_text(&gpu.device, data.as_slice()).unwrap())
       },
     );
   }

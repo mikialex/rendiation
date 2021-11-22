@@ -1,9 +1,38 @@
 use std::collections::HashMap;
 
 use rendiation_texture::{Size, TextureRange};
-use rendiation_webgpu::{WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource};
+use rendiation_webgpu::{
+  util::DeviceExt, WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource,
+};
 
-use super::{GPUxUITextPrimitive, TextHash};
+use super::{TextHash, TextQuadInstance};
+
+pub struct WebGPUxTextPrimitive {
+  pub vertex_buffer: wgpu::Buffer,
+  pub length: u32,
+}
+
+pub fn create_gpu_text(
+  device: &wgpu::Device,
+  instances: &[TextQuadInstance],
+) -> Option<WebGPUxTextPrimitive> {
+  if instances.is_empty() {
+    return None;
+  }
+  let instances_bytes = bytemuck::cast_slice(instances);
+
+  let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    label: None,
+    contents: instances_bytes,
+    usage: wgpu::BufferUsages::VERTEX,
+  });
+
+  WebGPUxTextPrimitive {
+    vertex_buffer,
+    length: instances.len() as u32,
+  }
+  .into()
+}
 
 pub struct WebGPUTextureCache {
   texture: WebGPUTexture2d,
@@ -34,12 +63,16 @@ impl WebGPUTextureCache {
 
 #[derive(Default)]
 pub struct WebGPUTextCache {
-  cached: HashMap<TextHash, GPUxUITextPrimitive>,
+  cached: HashMap<TextHash, WebGPUxTextPrimitive>,
 }
 
 impl WebGPUTextCache {
   pub fn drop_cache(&mut self, text: TextHash) {
     self.cached.remove(&text);
+  }
+
+  pub fn add_cache(&mut self, text: TextHash, data: WebGPUxTextPrimitive) {
+    self.cached.insert(text, data);
   }
 
   pub fn clear_cache(&mut self) {
