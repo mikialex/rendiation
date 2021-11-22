@@ -67,7 +67,21 @@ impl GlyphCache {
     glyph: GlyphID,
     info: GlyphRasterInfo,
   ) -> ([f32; 2], [f32; 2]) {
-    todo!()
+    let normalized = info.normalize(&self.tolerance);
+    let range = self.packer.get_packed(&(glyph, normalized)).unwrap();
+    
+    let (width, height) = self.current_size.into_usize();
+    let (width, height) = (width as f32, height as f32);
+
+    let x = range.origin.x as f32;
+    let y = range.origin.y as f32;
+
+    let (range_width, range_height) = range.size.into_usize();
+    let (range_width, range_height) = (range_width as f32, range_height as f32);
+    (
+      [x / width, y / height],
+      [(x + range_width) / width, (y + range_height) / height],
+    )
   }
 
   pub fn process_queued(

@@ -34,6 +34,10 @@ impl GlyphPacker {
     self.pack_info = Default::default();
   }
 
+  pub fn get_packed(&self, key: &(GlyphID, NormalizedGlyphRasterInfo)) -> Option<TextureRange> {
+    self.pack_info.get(key).map(|(_, range)| *range)
+  }
+
   pub fn process_queued<'a>(
     &'a mut self,
     queue: &'a HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
