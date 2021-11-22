@@ -6,10 +6,9 @@ mod pipeline;
 use pipeline::*;
 
 pub mod text;
+pub use text::*;
 
 use crate::FontManager;
-
-use self::text::{TextRenderer, WebGPUxTextPrimitive};
 
 use super::{Primitive, UIPresentation};
 
@@ -117,6 +116,7 @@ impl Primitive {
     _encoder: &mut GPUCommandEncoder,
     renderer: &mut TextRenderer,
     res: &UIxGPUxResource,
+    fonts: &FontManager,
   ) -> Option<GPUxUIPrimitive> {
     let p = match self {
       Primitive::Quad((quad, style)) => {
@@ -151,7 +151,7 @@ impl Primitive {
         }
       }
       Primitive::Text(text) => {
-        renderer.queue_text(text);
+        renderer.queue_text(text, fonts);
         // let x_correct = match text.horizon_align {
         //   glyph_brush::HorizontalAlign::Left => 0.,
         //   glyph_brush::HorizontalAlign::Center => text.bounds.width / 2.,
@@ -301,6 +301,7 @@ impl WebGPUxUIRenderer {
           encoder,
           &mut self.text_renderer,
           &self.resource,
+          fonts,
         )
       }));
 

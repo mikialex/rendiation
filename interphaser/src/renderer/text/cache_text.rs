@@ -8,7 +8,7 @@ use super::{
 
 pub struct TextCache {
   cache: HashMap<TextHash, LayoutedTextGlyphs>,
-  queue: HashMap<TextHash, TextInfo>,
+  queue: HashMap<TextHash, LayoutedTextGlyphs>,
   layouter: Box<dyn TextGlyphLayouter>,
   glyph_cache: GlyphCache,
 }
@@ -41,8 +41,9 @@ impl TextInfo {
 }
 
 impl TextCache {
-  pub fn queue(&mut self, text: &TextInfo) {
-    self.queue.insert(text.hash(), text.clone());
+  pub fn queue(&mut self, text: &TextInfo, fonts: &FontManager) {
+    let layout = self.layouter.layout(text, fonts);
+    self.queue.insert(text.hash(), layout);
   }
 
   pub fn drop_cache(&mut self, text: TextHash) {
@@ -57,10 +58,9 @@ impl TextCache {
     &mut self,
     fonts: &FontManager,
     tex_cache_update: impl FnMut(TextureCacheAction) -> bool, // return if cache_resize success
-    vert_cache_update: impl FnMut(TextHash, Vec<TextQuadInstance>),
+    mut vert_cache_update: impl FnMut(TextHash, Vec<TextQuadInstance>),
   ) {
-    self.queue.iter().for_each(|(_, text)| {
-      let layout = self.layouter.layout(text, fonts);
+    self.queue.iter().for_each(|(_, layout)| {
       for (gly_id, ras_info) in &layout.glyphs {
         self.glyph_cache.queue_glyph(*gly_id, *ras_info)
       }
@@ -74,17 +74,19 @@ impl TextCache {
       CacheQueuedResult::Adding => {
         // build only new queued text
         for (hash, text) in self.queue.drain() {
-          // vert_cache_update(hash, text.generate_gpu_vertex())
+          vert_cache_update(hash, text.generate_gpu_vertex(&self.glyph_cache));
+          self.cache.insert(hash, text);
         }
       }
       CacheQueuedResult::Reordering => {
         // refresh all cached text with new glyph position
-        // for (hash, text) in self.queue.drain() {
-        //   vert_cache_update(hash)
-        // }
-        // for (hash, text) in self.queue.drain() {
-        //   vert_cache_update(hash)
-        // }
+        for (hash, text) in self.queue.drain() {
+          vert_cache_update(hash, text.generate_gpu_vertex(&self.glyph_cache));
+          self.cache.insert(hash, text);
+        }
+        for (hash, text) in self.queue.drain() {
+          vert_cache_update(hash, text.generate_gpu_vertex(&self.glyph_cache));
+        }
       }
     }
   }

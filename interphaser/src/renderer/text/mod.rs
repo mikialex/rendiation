@@ -103,8 +103,8 @@ impl TextRenderer {
     self.renderer.draw(pass, text)
   }
 
-  pub fn queue_text(&mut self, text: &TextInfo) {
-    self.cache.queue(text);
+  pub fn queue_text(&mut self, text: &TextInfo, fonts: &FontManager) {
+    self.cache.queue(text, fonts);
   }
 
   pub fn get_cache_gpu_text(&self, text: &TextInfo) -> Option<WebGPUxTextPrimitive> {

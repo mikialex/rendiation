@@ -62,14 +62,14 @@ impl GlyphCache {
     }
   }
 
-  pub fn get_cached_glyph_normalized(
+  pub fn get_cached_glyph_info(
     &self,
     glyph: GlyphID,
     info: GlyphRasterInfo,
-  ) -> ([f32; 2], [f32; 2]) {
+  ) -> ([f32; 2], [f32; 2], (f32, f32)) {
     let normalized = info.normalize(&self.tolerance);
     let range = self.packer.get_packed(&(glyph, normalized)).unwrap();
-    
+
     let (width, height) = self.current_size.into_usize();
     let (width, height) = (width as f32, height as f32);
 
@@ -81,6 +81,7 @@ impl GlyphCache {
     (
       [x / width, y / height],
       [(x + range_width) / width, (y + range_height) / height],
+      (range_width, range_height),
     )
   }
 

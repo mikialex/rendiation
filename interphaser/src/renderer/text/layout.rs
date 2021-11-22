@@ -84,10 +84,12 @@ impl LayoutedTextGlyphs {
       .glyphs
       .iter()
       .map(|(gid, info)| {
-        let (tex_left_top, tex_right_bottom) = cache.get_cached_glyph_normalized(*gid, *info);
+        let (tex_left_top, tex_right_bottom, (width, height)) =
+          cache.get_cached_glyph_info(*gid, *info);
+
         TextQuadInstance {
           left_top: [info.position.x, info.position.y, 0.],
-          right_bottom: todo!(),
+          right_bottom: [info.position.x + width, info.position.y + height],
           tex_left_top,
           tex_right_bottom,
           color: [0., 0., 0., 1.],
