@@ -11,3 +11,5 @@
 <https://github.com/nical/etagere>
 
 <https://github.com/nical/guillotiere>
+
+<https://github.com/mapbox/shelf-pack/>

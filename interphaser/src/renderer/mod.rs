@@ -38,7 +38,7 @@ impl<'r> WebGPUxUIRenderTask<'r> {
         pass.draw_indexed(0..tex.length, 0, 0..1);
       }
       GPUxUIPrimitive::Text(text) => {
-        self.renderer.text_renderer.draw_gpu_text(pass, text);
+        self.renderer.text_renderer.draw_gpu_text(pass, *text);
       }
     });
   }
@@ -66,7 +66,7 @@ pub struct GPUxUITexturedPrimitive {
 pub enum GPUxUIPrimitive {
   SolidColor(GPUxUISolidColorPrimitive),
   Texture(GPUxUITexturedPrimitive),
-  Text(WebGPUxTextPrimitive),
+  Text(TextHash),
 }
 
 #[allow(clippy::vec_init_then_push)]
@@ -151,48 +151,11 @@ impl Primitive {
         }
       }
       Primitive::Text(text) => {
-        renderer.queue_text(text, fonts);
-        // let x_correct = match text.horizon_align {
-        //   glyph_brush::HorizontalAlign::Left => 0.,
-        //   glyph_brush::HorizontalAlign::Center => text.bounds.width / 2.,
-        //   glyph_brush::HorizontalAlign::Right => text.bounds.width,
-        // };
-
-        // let y_correct = match text.vertical_align {
-        //   glyph_brush::VerticalAlign::Top => 0.,
-        //   glyph_brush::VerticalAlign::Center => text.bounds.height / 2.,
-        //   glyph_brush::VerticalAlign::Bottom => text.bounds.height / 2.,
-        // };
-
-        // let text = renderer.create_gpu_text(
-        //   device,
-        //   encoder,
-        //   Section {
-        //     screen_position: (text.x + x_correct, text.y + y_correct),
-        //     bounds: text.bounds.into(),
-        //     text: vec![Text::new(text.content.as_str())
-        //       .with_color([text.color.r, text.color.g, text.color.b, text.color.a])
-        //       .with_scale(text.font_size)],
-        //     layout: match text.line_wrap {
-        //       crate::LineWrap::Single => glyph_brush::Layout::SingleLine {
-        //         line_breaker: BuiltInLineBreaker::default(),
-        //         h_align: text.horizon_align,
-        //         v_align: text.vertical_align,
-        //       },
-        //       crate::LineWrap::Multiple => glyph_brush::Layout::Wrap {
-        //         line_breaker: BuiltInLineBreaker::default(),
-        //         h_align: text.horizon_align,
-        //         v_align: text.vertical_align,
-        //       },
-        //     },
-        //   },
-        // );
-        // if let Some(text) = text {
-        //   GPUxUIPrimitive::Text(text)
-        // } else {
-        //   return None;
-        // }
-        return None;
+        if let Some(t) = renderer.queue_text(text, fonts) {
+          GPUxUIPrimitive::Text(t)
+        } else {
+          return None;
+        }
       }
     };
     p.into()

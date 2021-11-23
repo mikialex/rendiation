@@ -24,26 +24,17 @@ impl TextCache {
   }
 }
 
-// pub struct UIText{
-//   text: TextInfo,
-//   layout: Option<LayoutedTextGlyphs>
-// }
-
 pub struct TextCacheItem {
   pub layout: LayoutedTextGlyphs,
   pub gpu: WebGPUxTextPrimitive,
 }
 
-impl TextInfo {
-  pub fn hash(&self) -> TextHash {
-    todo!()
-  }
-}
-
 impl TextCache {
-  pub fn queue(&mut self, text: &TextInfo, fonts: &FontManager) {
+  pub fn queue(&mut self, text: &TextInfo, fonts: &FontManager) -> TextHash {
     let layout = self.layouter.layout(text, fonts);
-    self.queue.insert(text.hash(), layout);
+    let hash = text.hash();
+    self.queue.insert(hash, layout);
+    hash
   }
 
   pub fn drop_cache(&mut self, text: TextHash) {

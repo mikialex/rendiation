@@ -70,7 +70,7 @@ impl<'a> GlyphPackFrameTask<'a> {
     if let Some(result) = self.packer.pack_info.get_refresh(&(glyph_id, info)) {
       GlyphAddCacheResult::AlreadyCached(*result)
     } else {
-      let data = raster.raster(glyph_id, raw_info, fonts);
+      let data = raster.raster(glyph_id, raw_info, fonts).unwrap();
 
       loop {
         match self.packer.packer.pack_with_id(data.size()) {

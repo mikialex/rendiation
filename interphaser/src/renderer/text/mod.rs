@@ -1,10 +1,15 @@
 mod gpu_renderer;
 
+use std::{
+  collections::hash_map::DefaultHasher,
+  hash::{Hash, Hasher},
+};
+
 use glyph_brush::{HorizontalAlign, VerticalAlign};
 use gpu_renderer::*;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
-use rendiation_texture_packer::shelf::ShelfPacker;
+use rendiation_texture_packer::etagere_wrap::EtagerePacker;
 use rendiation_webgpu::{GPURenderPass, GPU};
 
 pub mod cache_glyph;
@@ -27,7 +32,7 @@ pub use packer::*;
 
 use crate::{Color, FontManager, LayoutSize};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum LineWrap {
   Single,
   Multiple,
@@ -54,6 +59,25 @@ pub struct TextInfo {
 
 pub type TextHash = u64;
 
+impl TextInfo {
+  pub fn hash(&self) -> TextHash {
+    let mut hasher = DefaultHasher::default();
+    self.content.hash(&mut hasher);
+    self.bounds.width.to_bits().hash(&mut hasher);
+    self.bounds.height.to_bits().hash(&mut hasher);
+    self.line_wrap.hash(&mut hasher);
+    self.horizon_align.hash(&mut hasher);
+    self.vertical_align.hash(&mut hasher);
+    self.color.r.to_bits().hash(&mut hasher);
+    self.color.g.to_bits().hash(&mut hasher);
+    self.color.b.to_bits().hash(&mut hasher);
+    self.font_size.to_bits().hash(&mut hasher);
+    self.x.to_bits().hash(&mut hasher);
+    self.y.to_bits().hash(&mut hasher);
+    hasher.finish()
+  }
+}
+
 pub struct TextRenderer {
   renderer: TextWebGPURenderer,
   gpu_texture_cache: WebGPUTextureCache,
@@ -75,7 +99,7 @@ impl TextRenderer {
 
     let raster = AbGlyphRaster::default();
 
-    let packer = ShelfPacker::default();
+    let packer = EtagerePacker::default();
 
     let glyph_cache = GlyphCache::new(init_size, tolerance, raster, packer);
 
@@ -99,16 +123,14 @@ impl TextRenderer {
     self.renderer.resize_view(size, queue)
   }
 
-  pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: &'a WebGPUxTextPrimitive) {
-    self.renderer.draw(pass, text)
+  pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: TextHash) {
+    if let Some(gpu_text) = self.gpu_vertex_cache.get_cache(text) {
+      self.renderer.draw(pass, gpu_text)
+    }
   }
 
-  pub fn queue_text(&mut self, text: &TextInfo, fonts: &FontManager) {
-    self.cache.queue(text, fonts);
-  }
-
-  pub fn get_cache_gpu_text(&self, text: &TextInfo) -> Option<WebGPUxTextPrimitive> {
-    todo!();
+  pub fn queue_text(&mut self, text: &TextInfo, fonts: &FontManager) -> Option<TextHash> {
+    (!text.content.is_empty()).then(|| self.cache.queue(text, fonts))
   }
 
   pub fn drop_cache(&mut self, text: TextHash) {

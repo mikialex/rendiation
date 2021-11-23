@@ -111,6 +111,7 @@ impl GlyphCache {
             if !cache_update(TextureCacheAction::ResizeTo(new_size)) {
               return Err(CacheWriteErr::NoRoomForWholeQueue);
             }
+            self.current_size = new_size;
             pack_task.rebuild_all(new_size);
 
             failed_process_all = true;

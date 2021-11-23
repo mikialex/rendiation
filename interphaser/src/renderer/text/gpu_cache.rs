@@ -67,6 +67,10 @@ pub struct WebGPUTextCache {
 }
 
 impl WebGPUTextCache {
+  pub fn get_cache(&self, text: TextHash) -> Option<&WebGPUxTextPrimitive> {
+    self.cached.get(&text)
+  }
+
   pub fn drop_cache(&mut self, text: TextHash) {
     self.cached.remove(&text);
   }

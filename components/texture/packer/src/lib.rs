@@ -1,7 +1,8 @@
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::AtomicU32;
 
 use rendiation_texture::{Size, TextureRange};
 
+pub mod etagere_wrap;
 pub mod shelf;
 pub mod skyline;
 
@@ -32,9 +33,9 @@ pub trait PackableChecker: TexturePacker {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PackId(usize);
+pub struct PackId(pub u32);
 
-static GLOBAL_INCREASE_PACK_ID: AtomicUsize = AtomicUsize::new(0);
+static GLOBAL_INCREASE_PACK_ID: AtomicU32 = AtomicU32::new(0);
 impl Default for PackId {
   fn default() -> Self {
     PackId(GLOBAL_INCREASE_PACK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed))

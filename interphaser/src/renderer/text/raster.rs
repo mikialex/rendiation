@@ -11,7 +11,7 @@ pub trait GlyphRaster {
     glyph_id: GlyphID,
     info: GlyphRasterInfo,
     fonts: &FontManager,
-  ) -> Texture2DBuffer<u8>;
+  ) -> Option<Texture2DBuffer<u8>>;
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -97,7 +97,7 @@ impl GlyphRaster for AbGlyphRaster {
     glyph_id: GlyphID,
     info: GlyphRasterInfo,
     fonts: &FontManager,
-  ) -> Texture2DBuffer<u8> {
+  ) -> Option<Texture2DBuffer<u8>> {
     let GlyphID(char, font_id) = glyph_id;
     let font = fonts.get_font(font_id);
 
@@ -116,7 +116,7 @@ impl GlyphRaster for AbGlyphRaster {
     outlined_glyph
       .draw(|x, y, c| result.write((x as usize, y as usize).into(), into_unsigned_u8(c)));
 
-    result
+    result.into()
   }
 }
 
