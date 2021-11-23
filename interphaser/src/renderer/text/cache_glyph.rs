@@ -62,13 +62,14 @@ impl GlyphCache {
     }
   }
 
+  #[allow(clippy::type_complexity)]
   pub fn get_cached_glyph_info(
     &self,
     glyph: GlyphID,
     info: GlyphRasterInfo,
-  ) -> ([f32; 2], [f32; 2], (f32, f32)) {
+  ) -> Option<([f32; 2], [f32; 2], (f32, f32))> {
     let normalized = info.normalize(&self.tolerance);
-    let range = self.packer.get_packed(&(glyph, normalized)).unwrap();
+    let range = self.packer.get_packed(&(glyph, normalized))?;
 
     let (width, height) = self.current_size.into_usize();
     let (width, height) = (width as f32, height as f32);
@@ -83,6 +84,7 @@ impl GlyphCache {
       [(x + range_width) / width, (y + range_height) / height],
       (range_width, range_height),
     )
+      .into()
   }
 
   pub fn process_queued(
@@ -104,6 +106,7 @@ impl GlyphCache {
               range: result.1,
             });
           }
+          GlyphAddCacheResult::NoGlyphRasterized => {}
           GlyphAddCacheResult::AlreadyCached(_) => {}
           GlyphAddCacheResult::NotEnoughSpace => {
             let new_size = self.current_size * 2;

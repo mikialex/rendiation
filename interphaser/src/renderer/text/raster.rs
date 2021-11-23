@@ -106,7 +106,7 @@ impl GlyphRaster for AbGlyphRaster {
       .with_scale_and_position(info.scale, point(info.position.x, info.position.y));
 
     // Draw it.
-    let outlined_glyph = font.outline_glyph(q_glyph).unwrap();
+    let outlined_glyph = font.outline_glyph(q_glyph)?;
     let bounds = outlined_glyph.px_bounds();
     let width = bounds.width().ceil() as usize;
     let height = bounds.height().ceil() as usize;

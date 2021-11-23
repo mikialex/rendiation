@@ -69,9 +69,7 @@ impl<'a> GlyphPackFrameTask<'a> {
   ) -> GlyphAddCacheResult {
     if let Some(result) = self.packer.pack_info.get_refresh(&(glyph_id, info)) {
       GlyphAddCacheResult::AlreadyCached(*result)
-    } else {
-      let data = raster.raster(glyph_id, raw_info, fonts).unwrap();
-
+    } else if let Some(data) = raster.raster(glyph_id, raw_info, fonts) {
       loop {
         match self.packer.packer.pack_with_id(data.size()) {
           Ok(result) => {
@@ -101,6 +99,8 @@ impl<'a> GlyphPackFrameTask<'a> {
           },
         }
       }
+    } else {
+      GlyphAddCacheResult::NoGlyphRasterized
     }
   }
 }
@@ -110,6 +110,7 @@ pub enum GlyphAddCacheResult {
     result: (PackId, TextureRange),
     data: Texture2DBuffer<u8>,
   },
+  NoGlyphRasterized,
   AlreadyCached((PackId, TextureRange)),
   NotEnoughSpace,
 }
