@@ -67,7 +67,7 @@ impl GlyphCache {
     &self,
     glyph: GlyphID,
     info: GlyphRasterInfo,
-  ) -> Option<([f32; 2], [f32; 2], (f32, f32))> {
+  ) -> Option<([f32; 2], [f32; 2])> {
     let normalized = info.normalize(&self.tolerance);
     let range = self.packer.get_packed(&(glyph, normalized))?;
 
@@ -82,7 +82,6 @@ impl GlyphCache {
     (
       [x / width, y / height],
       [(x + range_width) / width, (y + range_height) / height],
-      (range_width, range_height),
     )
       .into()
   }

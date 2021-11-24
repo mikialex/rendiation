@@ -52,7 +52,7 @@ impl TextCache {
     mut vert_cache_update: impl FnMut(TextHash, Vec<TextQuadInstance>),
   ) {
     self.queue.iter().for_each(|(_, layout)| {
-      for (gly_id, ras_info) in &layout.glyphs {
+      for (gly_id, ras_info, _) in &layout.glyphs {
         self.glyph_cache.queue_glyph(*gly_id, *ras_info)
       }
     });
