@@ -29,11 +29,19 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
       glyph_brush::VerticalAlign::Bottom => text.bounds.height / 2.,
     };
 
-    let layout = Layout::SingleLine {
-      line_breaker: BuiltInLineBreaker::default(),
-      h_align: HorizontalAlign::Center,
-      v_align: VerticalAlign::Center,
+    let layout = match text.line_wrap {
+      crate::LineWrap::Single => Layout::SingleLine {
+        line_breaker: BuiltInLineBreaker::default(),
+        h_align: HorizontalAlign::Center,
+        v_align: VerticalAlign::Center,
+      },
+      crate::LineWrap::Multiple => Layout::Wrap {
+        line_breaker: BuiltInLineBreaker::default(),
+        h_align: HorizontalAlign::Center,
+        v_align: VerticalAlign::Center,
+      },
     };
+
     let geometry = SectionGeometry {
       screen_position: (text.x + x_correct, text.y + y_correct),
       bounds: text.bounds.into(),
