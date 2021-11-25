@@ -5,6 +5,7 @@ use crate::*;
 pub struct EditableText {
   text: Text,
   cursor: Option<Cursor>,
+  on_change: Option<Box<dyn Fn(&mut String)>>,
 }
 
 use std::{
@@ -26,6 +27,11 @@ impl DerefMut for EditableText {
 }
 
 impl EditableText {
+  pub fn on_change(mut self, on_change: impl Fn(&mut String) + 'static) -> Self {
+    self.on_change = Some(Box::new(on_change));
+    self
+  }
+
   // when model updated by user side
   // cursor position maybe overflow the text length
   // so we simply clamp it
@@ -126,6 +132,7 @@ impl Text {
     EditableText {
       text: self,
       cursor: None,
+      on_change: None,
     }
   }
 }
@@ -136,12 +143,15 @@ impl Component<String> for EditableText {
 
     use winit::event::*;
 
+    let mut changed = false;
+
     match ctx.event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::KeyboardInput { input, .. } => {
           if let Some(virtual_keycode) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
               self.handle_input(virtual_keycode, model);
+              changed = true;
             }
           }
         }
@@ -152,10 +162,17 @@ impl Component<String> for EditableText {
         }
         WindowEvent::ReceivedCharacter(char) => {
           self.insert_at_cursor(*char, model);
+          changed = true;
         }
         _ => {}
       },
       _ => {}
+    }
+
+    if changed {
+      if let Some(on_change) = &self.on_change {
+        on_change(model);
+      }
     }
   }
 

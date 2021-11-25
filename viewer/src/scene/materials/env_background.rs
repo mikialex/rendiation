@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
-  BindableResource, GPURenderPass, PipelineBuilder, PipelineRequester, PipelineUnit,
-  PipelineVariantContainer, WebGPUTextureCube, GPU,
+  BindGroupLayoutProvider, BindableResource, GPURenderPass, PipelineBuilder, PipelineRequester,
+  PipelineUnit, PipelineVariantContainer, WebGPUTextureCube, GPU,
 };
 
 use crate::*;
@@ -14,26 +14,8 @@ pub struct EnvMapBackGroundMaterial {
   pub sampler: TextureSampler,
 }
 
-impl BackGroundShading for EnvMapBackGroundMaterial {
-  fn shading(&self) -> &'static str {
-    "
-    fn background_shading(direction: vec3<f32>) -> vec3<f32> {
-      return textureSample(r_color, r_sampler, direction).rgb;
-    }
-    "
-  }
-
-  fn shader_header(&self) -> &'static str {
-    "
-    [[group(1), binding(0)]]
-    var r_color: texture_cube<f32>;
-
-    [[group(1), binding(1)]]
-    var r_sampler: sampler;
-    "
-  }
-
-  fn create_bindgroup_layout(&self, device: &wgpu::Device) -> wgpu::BindGroupLayout {
+impl BindGroupLayoutProvider for EnvMapBackGroundMaterial {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[
@@ -51,6 +33,28 @@ impl BackGroundShading for EnvMapBackGroundMaterial {
         },
       ],
     })
+  }
+
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[group({group}), binding(0)]]
+      var r_color: texture_cube<f32>;
+
+      [[group({group}), binding(1)]]
+      var r_sampler: sampler;
+    "
+    )
+  }
+}
+
+impl BackGroundShading for EnvMapBackGroundMaterial {
+  fn shading(&self) -> &'static str {
+    "
+    fn background_shading(direction: vec3<f32>) -> vec3<f32> {
+      return textureSample(r_color, r_sampler, direction).rgb;
+    }
+    "
   }
 }
 
@@ -82,7 +86,7 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
     builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
+  ) {
     source.create_pipeline(builder, device, ctx)
   }
 }
@@ -96,7 +100,7 @@ impl MaterialCPUResource for EnvMapBackGroundMaterial {
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
-    let bindgroup_layout = self.create_bindgroup_layout(&gpu.device);
+    let bindgroup_layout = Self::layout(&gpu.device);
     let sampler = ctx.map_sampler(self.sampler, &gpu.device);
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
       .push_texture(&self.texture)
@@ -104,5 +108,9 @@ impl MaterialCPUResource for EnvMapBackGroundMaterial {
       .build(&bindgroup_layout);
 
     EnvMapBackGroundMaterialGPU { bindgroup }
+  }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    false
   }
 }

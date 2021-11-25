@@ -82,6 +82,15 @@ fn const_eval() {
 pub trait SpaceEntity<T: Scalar, const D: usize> {
   type Matrix: SquareMatrixDimension<D>;
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self;
+
+  fn apply_matrix_into(&mut self, mat: Self::Matrix) -> Self
+  where
+    Self: Clone,
+  {
+    let mut applied = self.clone();
+    applied.apply_matrix(mat);
+    applied
+  }
 }
 
 pub trait SpaceEntityCopyable<T: Scalar, const D: usize>: Copy + SpaceEntity<T, D> {

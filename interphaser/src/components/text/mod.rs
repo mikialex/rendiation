@@ -1,6 +1,8 @@
 use ab_glyph::*;
 use glyph_brush::*;
 
+use crate::text::LineWrap;
+use crate::text::TextInfo;
 use crate::*;
 
 pub use glyph_brush::HorizontalAlign;

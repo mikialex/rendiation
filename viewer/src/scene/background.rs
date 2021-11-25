@@ -1,8 +1,7 @@
-use std::rc::Rc;
-
 use rendiation_algebra::Vec3;
 use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh;
 use rendiation_renderable_mesh::tessellation::IndexedMeshTessellator;
 use rendiation_renderable_mesh::tessellation::SphereMeshParameter;
 use rendiation_renderable_mesh::vertex::Vertex;
@@ -55,12 +54,11 @@ impl SceneRenderable for SolidBackground {
     _pass: &mut GPURenderPass<'a>,
     _camera_gpu: &CameraBindgroup,
     _pipeline_resource: &GPUResourceCache,
-    _pass_info: &PassTargetFormatInfo,
   ) {
   }
 }
 
-pub type BackgroundMesh = impl GPUMeshData;
+pub type BackgroundMesh = impl GPUMeshData + IntersectAbleGroupedMesh;
 fn build_mesh() -> BackgroundMesh {
   let sphere = SphereMeshParameter {
     radius: 100.,
@@ -71,7 +69,7 @@ fn build_mesh() -> BackgroundMesh {
 use crate::scene::mesh::Mesh;
 
 pub struct DrawableBackground<S: MaterialCPUResource> {
-  mesh: MeshCellInner<BackgroundMesh>,
+  mesh: MeshCellImpl<BackgroundMesh>,
   pub shading: MaterialCell<S>,
   root: SceneNode,
 }
@@ -111,12 +109,10 @@ where
     pass: &mut GPURenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
-    pass_info: &PassTargetFormatInfo,
   ) {
     self.root.visit(|node| {
       let model_gpu = node.gpu.as_ref().unwrap().into();
       let ctx = SceneMaterialPassSetupCtx {
-        pass: pass_info,
         camera_gpu,
         model_gpu,
         resources,
@@ -131,7 +127,7 @@ where
 impl<S: BackGroundShading> DrawableBackground<S> {
   pub fn new(shading: MaterialCell<S>, root: SceneNode) -> Self {
     let mesh = build_mesh();
-    let mesh = MeshCellInner::new(mesh);
+    let mesh = MeshCellImpl::new(mesh);
 
     Self {
       mesh,
@@ -141,86 +137,82 @@ impl<S: BackGroundShading> DrawableBackground<S> {
   }
 }
 
-pub trait BackGroundShading: MaterialCPUResource {
-  fn shader_header(&self) -> &'static str;
-
+pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
   fn shading(&self) -> &'static str;
 
-  fn shader(&self) -> String {
-    format!(
-      "
-    {object_header}
-    {material_header}
-    {camera_header}
-
-    {background_shading}
-
-    struct VertexOutput {{
+  fn shader(&self, builder: &mut PipelineBuilder) {
+    builder
+      .include(self.shading())
+      .declare_struct(
+        "
+     struct VertexOutputBackground {{
       [[builtin(position)]] position: vec4<f32>;
       [[location(0)]] uv: vec2<f32>;
       [[location(1)]] world_position: vec3<f32>;
     }};
-
-    [[stage(vertex)]]
-    fn vs_main(
-      {vertex_header}
-    ) -> VertexOutput {{
-      var out: VertexOutput;
-      out.uv = uv;
-      out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
-      out.position.z = out.position.w;
-      out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
-      return out;
-    }}
-
-    [[stage(fragment)]]
-    fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-      let direction = normalize(in.world_position);
-      return vec4<f32>(background_shading(direction), 1.0);
-    }}
     ",
-      vertex_header = Vertex::get_shader_header(),
-      material_header = self.shader_header(),
-      camera_header = CameraBindgroup::get_shader_header(),
-      object_header = TransformGPU::get_shader_header(),
-      background_shading = self.shading()
-    )
+      )
+      .include_vertex_entry(
+        "
+      [[stage(vertex)]]
+      fn vs_main(
+        [[location(0)]] position: vec3<f32>, // todo link with vertex type
+        [[location(1)]] normal: vec3<f32>,
+        [[location(2)]] uv: vec2<f32>,
+      ) -> VertexOutputBackground {{
+        var out: VertexOutput;
+        out.uv = uv;
+        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
+        out.position.z = out.position.w;
+        out.world_position = (model.matrix * vec4<f32>(position, 1.0)).xyz;
+        return out;
+      }}
+    
+    ",
+      )
+      .use_vertex_entry("vs_main")
+      .include_vertex_entry(
+        " 
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+          let direction = normalize(in.world_position);
+          return vec4<f32>(background_shading(direction), 1.0);
+        }}
+    ",
+      )
+      .use_vertex_entry("fs_main");
   }
-
-  fn create_bindgroup_layout(&self, device: &wgpu::Device) -> wgpu::BindGroupLayout;
 
   fn create_pipeline(
     &self,
     builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
+  ) {
     let states = MaterialStates {
       depth_write_enabled: false,
       depth_compare: wgpu::CompareFunction::Always,
       ..Default::default()
     };
 
-    builder.shader_source = self.shader();
-
-    let bindgroup_layout = self.create_bindgroup_layout(device);
+    self.shader(builder);
 
     builder
-      .with_layout(ctx.layouts.retrieve::<TransformGPU>(device))
-      .with_layout(&Rc::new(bindgroup_layout))
-      .with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
+      .with_layout::<TransformGPU>(ctx.layouts, device)
+      .with_layout::<Self>(ctx.layouts, device)
+      .with_layout::<CameraBindgroup>(ctx.layouts, device);
 
     builder.vertex_buffers = vec![Vertex::vertex_layout()];
 
     builder.targets = ctx
-      .pass
+      .pass_info
+      .format_info
       .color_formats
       .iter()
       .map(|&f| states.map_color_states(f))
       .collect();
 
-    builder.depth_stencil = states.map_depth_stencil_state(ctx.pass.depth_stencil_format);
-
-    builder.build(device)
+    builder.depth_stencil =
+      states.map_depth_stencil_state(ctx.pass_info.format_info.depth_stencil_format);
   }
 }

@@ -1,53 +1,25 @@
-use glyph_brush::{BuiltInLineBreaker, Section, Text};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
 mod pipeline;
-mod text;
-mod text_next;
 use pipeline::*;
+
+pub mod text;
+pub use text::*;
 
 use crate::FontManager;
 
-use self::text::{GPUxUITextPrimitive, TextRenderer};
-
 use super::{Primitive, UIPresentation};
 
-pub struct WebGPUxUIRenderPass<'a> {
+pub struct WebGPUxUIRenderTask<'a> {
   pub renderer: &'a mut WebGPUxUIRenderer,
   pub fonts: &'a FontManager,
   pub presentation: &'a UIPresentation,
 }
 
-impl<'r> RenderPassCreator<wgpu::TextureView> for WebGPUxUIRenderPass<'r> {
-  fn create<'a>(
-    &'a self,
-    view: &'a wgpu::TextureView,
-    encoder: &'a mut GPUCommandEncoder,
-  ) -> GPURenderPass<'a> {
-    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-      label: "ui pass".into(),
-      color_attachments: &[wgpu::RenderPassColorAttachment {
-        view,
-        resolve_target: None,
-        ops: wgpu::Operations {
-          load: wgpu::LoadOp::Clear(wgpu::Color {
-            r: 1.,
-            g: 1.,
-            b: 1.,
-            a: 1.,
-          }),
-          store: true,
-        },
-      }],
-      depth_stencil_attachment: None,
-    })
-  }
-}
-
-impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>) {
+impl<'r> WebGPUxUIRenderTask<'r> {
+  pub fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>) {
     let renderer = &self.renderer;
     renderer.gpu_primitive_cache.iter().for_each(|p| match p {
       GPUxUIPrimitive::SolidColor(p) => {
@@ -66,19 +38,13 @@ impl<'r> Renderable for WebGPUxUIRenderPass<'r> {
         pass.draw_indexed(0..tex.length, 0, 0..1);
       }
       GPUxUIPrimitive::Text(text) => {
-        self.renderer.text_renderer.draw_gpu_text(pass, text);
+        self.renderer.text_renderer.draw_gpu_text(pass, *text);
       }
     });
   }
 
-  fn update(&mut self, renderer: &GPU, encoder: &mut GPUCommandEncoder) {
-    self.renderer.text_renderer.update_fonts(self.fonts);
-    self.renderer.update(
-      self.presentation,
-      &renderer.device,
-      &renderer.queue,
-      encoder,
-    )
+  pub fn update(&mut self, gpu: &GPU, encoder: &mut GPUCommandEncoder, fonts: &FontManager) {
+    self.renderer.update(self.presentation, gpu, encoder, fonts)
   }
 }
 
@@ -100,7 +66,7 @@ pub struct GPUxUITexturedPrimitive {
 pub enum GPUxUIPrimitive {
   SolidColor(GPUxUISolidColorPrimitive),
   Texture(GPUxUITexturedPrimitive),
-  Text(GPUxUITextPrimitive),
+  Text(TextHash),
 }
 
 #[allow(clippy::vec_init_then_push)]
@@ -147,9 +113,10 @@ impl Primitive {
   pub fn create_gpu(
     &self,
     device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
+    _encoder: &mut GPUCommandEncoder,
     renderer: &mut TextRenderer,
     res: &UIxGPUxResource,
+    fonts: &FontManager,
   ) -> Option<GPUxUIPrimitive> {
     let p = match self {
       Primitive::Quad((quad, style)) => {
@@ -184,43 +151,8 @@ impl Primitive {
         }
       }
       Primitive::Text(text) => {
-        let x_correct = match text.horizon_align {
-          glyph_brush::HorizontalAlign::Left => 0.,
-          glyph_brush::HorizontalAlign::Center => text.bounds.width / 2.,
-          glyph_brush::HorizontalAlign::Right => text.bounds.width,
-        };
-
-        let y_correct = match text.vertical_align {
-          glyph_brush::VerticalAlign::Top => 0.,
-          glyph_brush::VerticalAlign::Center => text.bounds.height / 2.,
-          glyph_brush::VerticalAlign::Bottom => text.bounds.height / 2.,
-        };
-
-        let text = renderer.create_gpu_text(
-          device,
-          encoder,
-          Section {
-            screen_position: (text.x + x_correct, text.y + y_correct),
-            bounds: text.bounds.into(),
-            text: vec![Text::new(text.content.as_str())
-              .with_color([text.color.r, text.color.g, text.color.b, text.color.a])
-              .with_scale(text.font_size)],
-            layout: match text.line_wrap {
-              crate::LineWrap::Single => glyph_brush::Layout::SingleLine {
-                line_breaker: BuiltInLineBreaker::default(),
-                h_align: text.horizon_align,
-                v_align: text.vertical_align,
-              },
-              crate::LineWrap::Multiple => glyph_brush::Layout::Wrap {
-                line_breaker: BuiltInLineBreaker::default(),
-                h_align: text.horizon_align,
-                v_align: text.vertical_align,
-              },
-            },
-          },
-        );
-        if let Some(text) = text {
-          GPUxUIPrimitive::Text(text)
+        if let Some(t) = renderer.queue_text(text, fonts) {
+          GPUxUIPrimitive::Text(t)
         } else {
           return None;
         }
@@ -246,11 +178,7 @@ pub struct UIxGPUxResource {
 }
 
 impl WebGPUxUIRenderer {
-  pub fn new(
-    device: &wgpu::Device,
-    target_format: wgpu::TextureFormat,
-    fonts: &FontManager,
-  ) -> Self {
+  pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
     };
@@ -283,7 +211,6 @@ impl WebGPUxUIRenderer {
       device,
       wgpu::FilterMode::Linear,
       wgpu::TextureFormat::Bgra8UnormSrgb,
-      fonts,
     );
 
     let sampler = device.create_sampler(&SamplerDescriptor {
@@ -315,26 +242,33 @@ impl WebGPUxUIRenderer {
   fn update(
     &mut self,
     presentation: &UIPresentation,
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
+    gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
+    fonts: &FontManager,
   ) {
     self.gpu_primitive_cache.clear();
 
     self.resource.global_ui_state.screen_size =
       Vec2::new(presentation.view_size.width, presentation.view_size.height);
-    self.resource.global_ui_state.update(queue);
+    self.resource.global_ui_state.update(&gpu.queue);
 
     self
       .text_renderer
-      .resize_view(self.resource.global_ui_state.screen_size, queue);
+      .resize_view(self.resource.global_ui_state.screen_size, &gpu.queue);
 
-    self.gpu_primitive_cache.extend(
-      presentation
-        .primitives
-        .iter()
-        .filter_map(|p| p.create_gpu(device, encoder, &mut self.text_renderer, &self.resource)),
-    )
+    self
+      .gpu_primitive_cache
+      .extend(presentation.primitives.iter().filter_map(|p| {
+        p.create_gpu(
+          &gpu.device,
+          encoder,
+          &mut self.text_renderer,
+          &self.resource,
+          fonts,
+        )
+      }));
+
+    self.text_renderer.process_queued(gpu, fonts);
   }
 }
 

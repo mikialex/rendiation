@@ -3,7 +3,28 @@ use std::{
   rc::Rc,
 };
 
+#[derive(Clone)]
+pub struct RenderPassInfo {
+  pub buffer_size: Size,
+  pub format_info: PassTargetFormatInfo,
+}
+
+#[derive(Clone, Default)]
+pub struct PassTargetFormatInfo {
+  pub depth_stencil_format: Option<wgpu::TextureFormat>,
+  pub color_formats: Vec<wgpu::TextureFormat>,
+}
+
+#[derive(Clone, Default)]
+pub struct RenderPassDescriptorOwned {
+  pub name: String,
+  pub channels: Vec<(wgpu::Operations<wgpu::Color>, Rc<wgpu::TextureView>, Size)>,
+  pub depth_stencil_target: Option<(wgpu::Operations<f32>, Rc<wgpu::TextureView>)>,
+  pub info: PassTargetFormatInfo,
+}
+
 pub struct GPURenderPass<'a> {
+  pub(crate) info: RenderPassInfo,
   pub(crate) pass: wgpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
 }
@@ -22,6 +43,7 @@ impl<'a> DerefMut for GPURenderPass<'a> {
   }
 }
 
+use rendiation_texture_types::Size;
 use typed_arena::Arena;
 
 #[derive(Default)]
@@ -32,6 +54,10 @@ pub struct GPURenderPassDataHolder {
 }
 
 impl<'a> GPURenderPass<'a> {
+  pub fn info(&self) -> &RenderPassInfo {
+    &self.info
+  }
+
   pub fn set_pipeline_owned(&mut self, pipeline: &Rc<wgpu::RenderPipeline>) {
     let pipeline = self.holder.pipelines.alloc(pipeline.clone());
     self.pass.set_pipeline(pipeline)

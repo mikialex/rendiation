@@ -1,4 +1,5 @@
 #![allow(clippy::suspicious_operation_groupings)]
+#![feature(trait_alias)]
 
 use rendiation_algebra::*;
 
@@ -17,8 +18,8 @@ pub mod intersect_util;
 pub mod line_segment;
 pub mod point;
 pub mod segment;
-pub mod triangle;
 pub mod space_line;
+pub mod triangle;
 
 pub use beziersegment::*;
 pub use hyperaabb::*;
@@ -30,8 +31,8 @@ pub use intersect_util::*;
 pub use line_segment::*;
 pub use point::*;
 pub use segment::*;
-pub use triangle::*;
 pub use space_line::*;
+pub use triangle::*;
 
 pub trait Positioned {
   type Position;
@@ -123,7 +124,6 @@ where
 {
   fn to_bounding(&self) -> Bound;
 }
-
 
 #[macro_export]
 macro_rules! intersect_reverse {

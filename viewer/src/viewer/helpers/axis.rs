@@ -1,5 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
+use rendiation_webgpu::*;
 
 use crate::*;
 
@@ -12,51 +13,43 @@ pub struct AxisHelper {
 }
 
 impl PassContent for AxisHelper {
-  fn update(
-    &mut self,
-    gpu: &rendiation_webgpu::GPU,
-    scene: &mut Scene,
-    _resource: &mut ResourcePoolInner,
-    pass_info: &PassTargetFormatInfo,
-  ) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
     if !self.enabled {
       return;
     }
 
-    if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
+    let mut base = scene.create_material_ctx_base(gpu, pass_info, &DefaultPassDispatcher);
 
-      let mut base = SceneMaterialRenderPrepareCtxBase {
-        active_camera,
-        camera_gpu,
-        pass: pass_info,
-        resources: &mut scene.resources,
-      };
+    let root_position = self.root.visit(|n| n.world_matrix.position());
 
-      self.x.update(gpu, &mut base);
-      self.y.update(gpu, &mut base);
-      self.z.update(gpu, &mut base);
-    }
+    self.x.update(gpu, &mut base, root_position);
+    self.y.update(gpu, &mut base, root_position);
+    self.z.update(gpu, &mut base, root_position);
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut rendiation_webgpu::GPURenderPass<'a>,
-    scene: &'a Scene,
-    pass_info: &'a PassTargetFormatInfo,
-  ) {
+  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
     if !self.enabled {
       return;
     }
-    self.x.setup_pass(pass, scene, pass_info);
-    self.y.setup_pass(pass, scene, pass_info);
-    self.z.setup_pass(pass, scene, pass_info);
+    let center = self.root.visit(|n| n.world_matrix.position());
+    let camera = scene.active_camera.as_ref().unwrap();
+    let camera = camera.node.visit(|n| n.world_matrix.position());
+    let center_to_eye_dir = camera - center;
+    let center_to_eye_dir = center_to_eye_dir.normalize();
+    let x = Vec3::new(1., 0., 0.).dot(center_to_eye_dir);
+    let y = Vec3::new(0., 1., 0.).dot(center_to_eye_dir);
+    let z = Vec3::new(0., 0., 1.).dot(center_to_eye_dir);
+
+    let mut arr = [(x, &self.x), (y, &self.y), (z, &self.z)];
+    arr.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Less));
+
+    arr.iter().for_each(|(_, a)| a.setup_pass(pass, scene));
   }
 }
 
 struct Arrow {
-  cylinder: MeshModel,
-  tip: MeshModel,
+  cylinder: AutoScalableMeshModelImpl,
+  tip: AutoScalableMeshModelImpl,
   root: SceneNode,
 }
 
@@ -65,29 +58,25 @@ impl Arrow {
     &mut self,
     gpu: &rendiation_webgpu::GPU,
     ctx: &mut SceneMaterialRenderPrepareCtxBase,
+    root_position: Vec3<f32>,
   ) {
+    self.cylinder.override_position = root_position.into();
     self.cylinder.update(gpu, ctx);
+    self.tip.override_position = root_position.into();
     self.tip.update(gpu, ctx);
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut rendiation_webgpu::GPURenderPass<'a>,
-    scene: &'a Scene,
-    pass_info: &'a PassTargetFormatInfo,
-  ) {
+  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
     self.cylinder.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
       &scene.resources,
-      pass_info,
     );
 
     self.tip.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),
       &scene.resources,
-      pass_info,
     );
   }
 
@@ -100,8 +89,8 @@ impl Arrow {
     fn material(color: Vec3<f32>) -> impl Material + Clone {
       let mut material = FlatMaterial {
         color: Vec4::new(color.x, color.y, color.z, 1.0),
-        states: Default::default(),
-      };
+      }
+      .into_scene_material();
       material.states.depth_write_enabled = false;
       material.states.depth_compare = wgpu::CompareFunction::Always;
       MaterialCell::new(material)
@@ -111,11 +100,16 @@ impl Arrow {
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
-    let cylinder = MeshModel::new(material.clone(), cylinder_mesh, node_cylinder);
+    let mut cylinder =
+      MeshModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_auto_scale();
+
+    cylinder.independent_scale_factor = 100.;
 
     let node_tip = root.create_child();
     node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
-    let tip = MeshModel::new(material, tip_mesh, node_tip);
+    let mut tip = MeshModelImpl::new(material, tip_mesh, node_tip).into_auto_scale();
+
+    tip.independent_scale_factor = 100.;
 
     Self {
       root,
@@ -154,7 +148,7 @@ impl AxisHelper {
 
     let y = Arrow::new(&root, Vec3::new(0., 1., 0.), cylinder.clone(), tip.clone());
     y.root.mutate(|_| {
-      // the cylinder is z up, so do nothing
+      // the cylinder is y up, so do nothing
     });
 
     let z = Arrow::new(&root, Vec3::new(0., 0., 1.), cylinder, tip);

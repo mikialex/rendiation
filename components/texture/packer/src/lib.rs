@@ -1,5 +1,8 @@
+use std::sync::atomic::AtomicU32;
+
 use rendiation_texture::{Size, TextureRange};
 
+pub mod etagere_wrap;
 pub mod shelf;
 pub mod skyline;
 
@@ -9,8 +12,14 @@ pub trait BaseTexturePacker {
   fn config(&mut self, config: PackerConfig);
 }
 
+#[derive(Debug)]
 pub enum PackError {
   SpaceNotEnough,
+}
+
+#[derive(Debug)]
+pub enum UnpackError {
+  UnpackItemNotExist,
 }
 
 /// padding should handle in user side
@@ -23,11 +32,19 @@ pub trait PackableChecker: TexturePacker {
   fn can_pack(&self, input: Size) -> bool;
 }
 
-#[derive(Clone, Copy)]
-pub struct PackId(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PackId(pub u32);
+
+static GLOBAL_INCREASE_PACK_ID: AtomicU32 = AtomicU32::new(0);
+impl Default for PackId {
+  fn default() -> Self {
+    PackId(GLOBAL_INCREASE_PACK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
+  }
+}
+
 pub trait RePackablePacker: BaseTexturePacker {
   fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError>;
-  fn un_pack(&mut self, id: PackId);
+  fn unpack(&mut self, id: PackId) -> Result<(), UnpackError>;
 }
 
 /// Some packer strategy maybe yield better result when input is batched
@@ -77,6 +94,15 @@ impl<P: TexturePacker> BatchTexturePacker for AutoBatchTexturePacker<P> {
 pub struct PackerConfig {
   pub allow_90_rotation: bool,
   pub init_size: Size,
+}
+
+impl Default for PackerConfig {
+  fn default() -> Self {
+    Self {
+      allow_90_rotation: false,
+      init_size: Size::from_usize_pair_min_one((512, 512)),
+    }
+  }
 }
 
 pub struct PackResult {

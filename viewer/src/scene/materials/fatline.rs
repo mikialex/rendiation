@@ -1,5 +1,6 @@
+use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
-use std::{cell::Cell, rc::Rc};
+use std::rc::Rc;
 
 use crate::*;
 
@@ -10,7 +11,6 @@ pub struct FatLineMaterial {
 }
 
 pub struct FatlineMaterialGPU {
-  state_id: Cell<ValueID<MaterialStates>>,
   _uniform: UniformBuffer<f32>,
   bindgroup: MaterialBindGroup,
 }
@@ -27,24 +27,25 @@ impl BindGroupLayoutProvider for FatLineMaterial {
       }],
     })
   }
-}
 
-impl FatLineMaterial {
-  pub fn get_shader_header() -> &'static str {
-    "
-    [[block]]
-    struct FatlineMaterial {
-      width: f32;
-    };
+  fn gen_shader_header(group: usize) -> String {
+    format!(
+      "
+      [[block]]
+      struct FatlineMaterial {{
+        width: f32;
+      }};
 
-    [[group(1), binding(0)]]
-    var<uniform> fatline_material: FatlineMaterial;
+      [[group({group}), binding(0)]]
+      var<uniform> fatline_material: FatlineMaterial;
+    
     "
+    )
   }
 }
 
 impl PipelineRequester for FatlineMaterialGPU {
-  type Container = CommonPipelineCache;
+  type Container = PipelineUnit;
 }
 
 impl MaterialGPUResource for FatlineMaterialGPU {
@@ -52,84 +53,117 @@ impl MaterialGPUResource for FatlineMaterialGPU {
 
   fn pipeline_key(
     &self,
-    source: &Self::Source,
-    ctx: &PipelineCreateCtx,
+    _source: &Self::Source,
+    _ctx: &PipelineCreateCtx,
   ) -> <Self::Container as PipelineVariantContainer>::Key {
-    self
-      .state_id
-      .set(STATE_ID.lock().unwrap().get_uuid(&source.states));
-    ().key_with(self.state_id.get())
-      .key_with(ctx.active_mesh.unwrap().topology())
   }
   fn create_pipeline(
     &self,
-    source: &Self::Source,
+    _source: &Self::Source,
     builder: &mut PipelineBuilder,
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
-  ) -> wgpu::RenderPipeline {
-    builder.shader_source = format!(
+  ) {
+    let vertex_header = format!(
       "
-      {object_header}
-      {material_header}
-      {camera_header}
+    {}
+    {}
+    ",
+      Vertex::get_shader_header(),
+      FatLineVertex::get_shader_header()
+    );
 
-      struct VertexOutput {{
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] uv: vec2<f32>;
-      }};
-
+    builder.include_vertex_entry(format!("
       [[stage(vertex)]]
       fn vs_main(
         {vertex_header}
       ) -> VertexOutput {{
         var out: VertexOutput;
-        out.uv = uv;
-        out.position = camera.projection * camera.view * model.matrix * vec4<f32>(position, 1.0);
+        
+        float aspect = resolution.x / resolution.y;
+        // camera space
+        vec4 start =  camera.view * model.matrix * vec4( fatline_start, 1.0 );
+        vec4 end =  camera.view * model.matrix * vec4( fatline_end, 1.0 );
+
+        // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
+        // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
+        // // but we need to perform ndc-space calculations in the shader, so we must address this issue directly
+        // // perhaps there is a more elegant solution -- WestLangley
+        // bool perspective = ( camera.projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
+        // if ( perspective ) {{
+        //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
+        //         trimSegment( start, end );
+        //     }} else if ( end.z < 0.0 && start.z >= 0.0 ) {{
+        //         trimSegment( end, start );
+        //     }}
+        // }}
+
+        // clip space
+        vec4 clipStart = camera.projection * start;
+        vec4 clipEnd = camera.projection * end;
+
+        // ndc space
+        vec2 ndcStart = clipStart.xy / clipStart.w;
+        vec2 ndcEnd = clipEnd.xy / clipEnd.w;
+
+        // direction
+        vec2 dir = ndcEnd - ndcStart;
+
+        // account for clip-space aspect ratio
+        dir.x *= aspect;
+        dir = normalize( dir );
+
+        // perpendicular to dir
+        vec2 offset = vec2( dir.y, - dir.x );
+
+        // undo aspect ratio adjustment
+        dir.x /= aspect;
+        offset.x /= aspect;
+
+        // sign flip
+        if ( position.x < 0.0 ) offset *= - 1.0;
+        // end caps
+        if ( position.y < 0.0 )  {{
+            offset += - dir;
+        }} else if ( position.y > 1.0 )  {{
+            offset += dir;
+        }}
+
+        // adjust for fatLineWidth
+        offset *= fatLineWidth;
+        // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
+        offset /= resolution.y;
+        // select end
+        vec4 clip = ( position.y < 0.5 ) ? clipStart : clipEnd;
+        // back to clip space
+        offset *= clip.w;
+        clip.xy += offset;
+
+        out.position = clip;
+
         return out;
       }}
-      
-      [[stage(fragment)]]
-      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return textureSample(r_color, r_sampler, in.uv);
-      }}
-      
-      ",
-      vertex_header = FatLineVertex::get_shader_header(),
-      material_header = FatLineMaterial::get_shader_header(),
-      camera_header = CameraBindgroup::get_shader_header(),
-      object_header = TransformGPU::get_shader_header(),
-    );
+    "))
+      .use_vertex_entry("vs_main")
+      .include_fragment_entry("
+        [[stage(fragment)]]
+        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+            return vec4(1., 0., 0., 1.);
+        }}
+        ")
+      .use_fragment_entry("fs_main");
 
-    builder
-      .with_layout(ctx.layouts.retrieve::<TransformGPU>(device))
-      .with_layout(ctx.layouts.retrieve::<FatLineMaterial>(device))
-      .with_layout(ctx.layouts.retrieve::<CameraBindgroup>(device));
+    builder.with_layout::<FatLineMaterial>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
-
-    builder.targets = ctx
-      .pass
-      .color_formats
-      .iter()
-      .map(|&f| source.states.map_color_states(f))
-      .collect();
-
-    builder.depth_stencil = source
-      .states
-      .map_depth_stencil_state(ctx.pass.depth_stencil_format);
-
-    builder.build(device)
   }
 
   fn setup_pass_bindgroup<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx,
+    _ctx: &SceneMaterialPassSetupCtx,
   ) {
-    pass.set_bind_group_owned(0, &ctx.model_gpu.unwrap().bindgroup, &[]);
     pass.set_bind_group_owned(1, &self.bindgroup.gpu, &[]);
-    pass.set_bind_group_owned(2, &ctx.camera_gpu.bindgroup, &[]);
   }
 }
 
@@ -150,12 +184,12 @@ impl MaterialCPUResource for FatLineMaterial {
       .push(_uniform.gpu().as_entire_binding())
       .build(&bindgroup_layout);
 
-    let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
-
     FatlineMaterialGPU {
-      state_id: Cell::new(state_id),
       _uniform,
       bindgroup,
     }
+  }
+  fn is_keep_mesh_shape(&self) -> bool {
+    false
   }
 }

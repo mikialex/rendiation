@@ -10,11 +10,15 @@ pub use hsl::*;
 pub use rgb::*;
 pub use ycocg::*;
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ColorWithAlpha<C, T> {
   pub color: C,
   pub a: T,
 }
+
+unsafe impl<T: bytemuck::Pod, C: bytemuck::Pod> bytemuck::Pod for ColorWithAlpha<T, C> {}
+unsafe impl<T: bytemuck::Zeroable, C: bytemuck::Pod> bytemuck::Zeroable for ColorWithAlpha<T, C> {}
 
 impl<C, T> ColorWithAlpha<C, T> {
   pub fn new(color: C, a: T) -> Self {

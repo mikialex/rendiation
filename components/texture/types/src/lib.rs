@@ -52,6 +52,18 @@ impl Size {
     let height = NonZeroUsize::new(size.1).unwrap_or(NonZeroUsize::new(1).unwrap());
     Size { width, height }
   }
+
+  pub fn into_usize(&self) -> (usize, usize) {
+    (usize::from(self.width), usize::from(self.height))
+  }
+
+  pub fn width_usize(&self) -> usize {
+    usize::from(self.width)
+  }
+
+  pub fn height_usize(&self) -> usize {
+    usize::from(self.height)
+  }
 }
 
 #[repr(u32)]

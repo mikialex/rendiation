@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use rendiation_texture::{AddressMode, FilterMode, TextureSampler};
+use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindableResource, WebGPUTexture2d, GPU};
 
 use crate::*;
@@ -27,40 +27,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
     sampler: TextureSampler,
     device: &wgpu::Device,
   ) -> Rc<wgpu::Sampler> {
-    fn convert_wrap(mode: AddressMode) -> wgpu::AddressMode {
-      match mode {
-        AddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
-        AddressMode::Repeat => wgpu::AddressMode::Repeat,
-        AddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
-        AddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
-      }
-    }
-    fn convert_filter(mode: FilterMode) -> wgpu::FilterMode {
-      match mode {
-        FilterMode::Nearest => wgpu::FilterMode::Nearest,
-        FilterMode::Linear => wgpu::FilterMode::Linear,
-      }
-    }
-
-    fn convert(sampler: TextureSampler) -> wgpu::SamplerDescriptor<'static> {
-      wgpu::SamplerDescriptor {
-        label: None,
-        address_mode_u: convert_wrap(sampler.address_mode_u),
-        address_mode_v: convert_wrap(sampler.address_mode_v),
-        address_mode_w: convert_wrap(sampler.address_mode_w),
-        mag_filter: convert_filter(sampler.mag_filter),
-        min_filter: convert_filter(sampler.min_filter),
-        mipmap_filter: convert_filter(sampler.mipmap_filter),
-        ..Default::default()
-      }
-    }
-
-    self
-      .resources
-      .samplers
-      .entry(sampler)
-      .or_insert_with(|| Rc::new(device.create_sampler(&convert(sampler))))
-      .clone()
+    self.resources.samplers.retrieve(device, &sampler)
   }
 }
 

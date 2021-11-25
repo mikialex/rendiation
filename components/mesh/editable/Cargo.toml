@@ -8,6 +8,6 @@ version = "0.1.0"
 
 [dependencies]
 arena = {path = "../../../utils/arena"}
-rendiation-algebra = {path = "../../../math/algebra", features = ["swizzle"]}
+rendiation-algebra = {path = "../../../math/algebra"}
 rendiation-geometry = {path = "../../../math/geometry"}
 tobj = "0.1.10"

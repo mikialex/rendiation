@@ -4,15 +4,14 @@ use std::mem;
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
-use wgpu::util::DeviceExt;
 
-use super::text_quad_instance::Instance;
-use super::GPUxUITextPrimitive;
+use crate::renderer::text::TextQuadInstance;
 
-pub struct TextRendererPipeline {
+use super::WebGPUxTextPrimitive;
+
+pub struct TextWebGPURenderer {
   transform: UniformBufferData<[f32; 16]>,
   sampler: wgpu::Sampler,
-  cache: WebGPUTexture2d,
   bindgroup_layout: wgpu::BindGroupLayout,
   bindgroup: wgpu::BindGroup,
   raw: wgpu::RenderPipeline,
@@ -41,13 +40,13 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
   }
 }
 
-impl TextRendererPipeline {
+impl TextWebGPURenderer {
   pub fn new(
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
-    cache_init_size: Size,
     view_size: Vec2<f32>,
+    cache_view: &wgpu::TextureView,
   ) -> Self {
     let transform =
       UniformBufferData::create(device, orthographic_projection(view_size.x, view_size.y));
@@ -62,10 +61,8 @@ impl TextRendererPipeline {
       ..Default::default()
     });
 
-    let cache = create_cache(device, cache_init_size);
-
     let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
+      label: Some("wgpu_glyph::TextGPURenderer uniforms"),
       entries: &[
         wgpu::BindGroupLayoutEntry {
           binding: 0,
@@ -99,13 +96,7 @@ impl TextRendererPipeline {
       ],
     });
 
-    let bindgroup = create_bindgroup(
-      device,
-      &uniform_layout,
-      &transform,
-      &sampler,
-      cache.get_default_view(),
-    );
+    let bindgroup = create_bindgroup(device, &uniform_layout, &transform, &sampler, cache_view);
 
     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
       label: None,
@@ -125,7 +116,7 @@ impl TextRendererPipeline {
         module: &shader,
         entry_point: "vs_main",
         buffers: &[wgpu::VertexBufferLayout {
-          array_stride: mem::size_of::<Instance>() as u64,
+          array_stride: mem::size_of::<TextQuadInstance>() as u64,
           step_mode: wgpu::VertexStepMode::Instance,
           attributes: &wgpu::vertex_attr_array![
               0 => Float32x3,
@@ -155,9 +146,8 @@ impl TextRendererPipeline {
     });
 
     Self {
-      transform,
       sampler,
-      cache,
+      transform,
       bindgroup_layout: uniform_layout,
       bindgroup,
       raw,
@@ -169,59 +159,22 @@ impl TextRendererPipeline {
     self.transform.update(queue);
   }
 
-  pub fn draw<'r>(&'r self, render_pass: &mut GPURenderPass<'r>, text: &'r GPUxUITextPrimitive) {
+  pub fn draw<'r>(&'r self, render_pass: &mut GPURenderPass<'r>, text: &'r WebGPUxTextPrimitive) {
     render_pass.set_pipeline(&self.raw);
     render_pass.set_bind_group(0, &self.bindgroup, &[]);
     render_pass.set_vertex_buffer(0, text.vertex_buffer.slice(..));
 
     render_pass.draw(0..4, 0..text.length);
   }
-}
 
-impl TextRendererPipeline {
-  pub fn update_cache(
-    &mut self,
-    device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
-    offset: (u32, u32),
-    data: TextureWriteData,
-  ) {
-    encoder.copy_source_to_texture_2d(device, data, &self.cache, offset);
-  }
-
-  pub fn increase_cache_size(&mut self, device: &wgpu::Device, size: Size) {
-    self.cache = create_cache(device, size);
-
+  pub fn cache_resized(&mut self, device: &wgpu::Device, cache_view: &wgpu::TextureView) {
     self.bindgroup = create_bindgroup(
       device,
       &self.bindgroup_layout,
       &self.transform,
       &self.sampler,
-      self.cache.get_default_view(),
+      cache_view,
     );
-  }
-
-  pub fn create_gpu_text(
-    &mut self,
-    device: &wgpu::Device,
-    instances: &[Instance],
-  ) -> Option<GPUxUITextPrimitive> {
-    if instances.is_empty() {
-      return None;
-    }
-    let instances_bytes = bytemuck::cast_slice(instances);
-
-    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: None,
-      contents: instances_bytes,
-      usage: wgpu::BufferUsages::VERTEX,
-    });
-
-    GPUxUITextPrimitive {
-      vertex_buffer,
-      length: instances.len() as u32,
-    }
-    .into()
   }
 }
 
@@ -236,11 +189,6 @@ pub fn orthographic_projection(width: f32, height: f32) -> [f32; 16] {
     ]
 }
 
-fn create_cache(device: &wgpu::Device, size: Size) -> WebGPUTexture2d {
-  let desc = WebGPUTexture2dDescriptor::from_size(size).with_format(wgpu::TextureFormat::R8Unorm);
-  WebGPUTexture2d::create(device, desc)
-}
-
 fn create_bindgroup(
   device: &wgpu::Device,
   layout: &wgpu::BindGroupLayout,
@@ -249,7 +197,7 @@ fn create_bindgroup(
   cache: &wgpu::TextureView,
 ) -> wgpu::BindGroup {
   device.create_bind_group(&wgpu::BindGroupDescriptor {
-    label: Some("wgpu_glyph::TextRendererPipeline uniforms"),
+    label: Some("wgpu_glyph::TextGPURenderer uniforms"),
     layout,
     entries: &[
       wgpu::BindGroupEntry {

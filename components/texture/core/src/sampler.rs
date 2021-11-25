@@ -22,3 +22,34 @@ impl Default for TextureSampler {
     }
   }
 }
+
+#[cfg(feature = "webgpu")]
+impl<'a> From<TextureSampler> for rendiation_webgpu::SamplerDescriptor<'a> {
+  fn from(val: TextureSampler) -> Self {
+    fn convert_wrap(mode: AddressMode) -> rendiation_webgpu::AddressMode {
+      match mode {
+        AddressMode::ClampToEdge => rendiation_webgpu::AddressMode::ClampToEdge,
+        AddressMode::Repeat => rendiation_webgpu::AddressMode::Repeat,
+        AddressMode::MirrorRepeat => rendiation_webgpu::AddressMode::MirrorRepeat,
+        AddressMode::ClampToBorder => rendiation_webgpu::AddressMode::ClampToBorder,
+      }
+    }
+    fn convert_filter(mode: FilterMode) -> rendiation_webgpu::FilterMode {
+      match mode {
+        FilterMode::Nearest => rendiation_webgpu::FilterMode::Nearest,
+        FilterMode::Linear => rendiation_webgpu::FilterMode::Linear,
+      }
+    }
+
+    rendiation_webgpu::SamplerDescriptor {
+      label: None,
+      address_mode_u: convert_wrap(val.address_mode_u),
+      address_mode_v: convert_wrap(val.address_mode_v),
+      address_mode_w: convert_wrap(val.address_mode_w),
+      mag_filter: convert_filter(val.mag_filter),
+      min_filter: convert_filter(val.min_filter),
+      mipmap_filter: convert_filter(val.mipmap_filter),
+      ..Default::default()
+    }
+  }
+}

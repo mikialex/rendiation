@@ -1,11 +1,15 @@
 use crate::SRGBColor;
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct HSLColor<T> {
   pub h: T,
   pub s: T,
   pub l: T,
 }
+
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for HSLColor<T> {}
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for HSLColor<T> {}
 
 impl From<HSLColor<f32>> for SRGBColor<f32> {
   fn from(color: HSLColor<f32>) -> Self {

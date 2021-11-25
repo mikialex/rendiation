@@ -27,7 +27,7 @@ impl Default for CylinderMeshParameter {
       radius_bottom: 1.,
       height: 1.,
       radial_segments: 10,
-      height_segments: 10,
+      height_segments: 1,
       open_ended: false,
       theta_start: 0.,
       theta_length: 2. * f32::PI(),

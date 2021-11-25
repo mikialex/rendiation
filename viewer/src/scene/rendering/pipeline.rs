@@ -7,13 +7,13 @@ use rendiation_webgpu::*;
 use crate::*;
 
 #[derive(Default)]
-pub struct ResourcePoolInner {
+pub struct ResourcePoolImpl {
   pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
 }
 
 #[derive(Clone, Default)]
 pub struct ResourcePool {
-  pub inner: Rc<RefCell<ResourcePoolInner>>,
+  pub inner: Rc<RefCell<ResourcePoolImpl>>,
 }
 
 pub struct RenderEngine {
@@ -39,6 +39,7 @@ impl RenderEngine {
     let output = self.output.as_ref().unwrap();
     AttachmentWriteView {
       phantom: PhantomData,
+      size: output.size,
       view: output.view.clone(),
       format: output.format,
     }
@@ -70,10 +71,14 @@ pub struct Attachment<F: AttachmentFormat> {
   texture: Option<Rc<wgpu::Texture>>,
 }
 
+pub type ColorAttachment = Attachment<wgpu::TextureFormat>;
+pub type DepthAttachment = Attachment<wgpu::TextureFormat>; // todo
+
 impl<F: AttachmentFormat> Attachment<F> {
   pub fn write(&mut self) -> AttachmentWriteView<F> {
     AttachmentWriteView {
       phantom: PhantomData,
+      size: self.size,
       view: Rc::new(
         self
           .texture
@@ -82,6 +87,31 @@ impl<F: AttachmentFormat> Attachment<F> {
           .create_view(&wgpu::TextureViewDescriptor::default()),
       ),
       format: self.des.format,
+    }
+  }
+
+  pub fn read(&self) -> AttachmentReadView<F> {
+    AttachmentReadView {
+      phantom: PhantomData,
+      view: Rc::new(
+        self
+          .texture
+          .as_ref()
+          .unwrap()
+          .create_view(&wgpu::TextureViewDescriptor::default()),
+      ),
+    }
+  }
+
+  pub fn read_into(self) -> AttachmentOwnedReadView<F> {
+    let view = self
+      .texture
+      .as_ref()
+      .unwrap()
+      .create_view(&wgpu::TextureViewDescriptor::default());
+    AttachmentOwnedReadView {
+      _att: self,
+      view: Rc::new(view),
     }
   }
 }
@@ -102,14 +132,48 @@ impl<F: AttachmentFormat> Drop for Attachment<F> {
 
 pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
   phantom: PhantomData<&'a Attachment<F>>,
+  size: Size,
   view: Rc<wgpu::TextureView>, // todo opt enum
   format: F,
 }
 
-// pub struct AttachmentReadView<'a, F: AttachmentFormat> {
-//   attachment: &'a Attachment<F>,
-//   view: wgpu::TextureView,
-// }
+pub struct AttachmentReadView<'a, F: AttachmentFormat> {
+  phantom: PhantomData<&'a Attachment<F>>,
+  view: Rc<wgpu::TextureView>,
+}
+
+impl<'a, F: AttachmentFormat> BindableResource for AttachmentReadView<'a, F> {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(self.view.as_ref())
+  }
+
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Texture {
+      multisampled: false,
+      sample_type: wgpu::TextureSampleType::Float { filterable: true },
+      view_dimension: wgpu::TextureViewDimension::D2,
+    }
+  }
+}
+
+pub struct AttachmentOwnedReadView<F: AttachmentFormat> {
+  _att: Attachment<F>,
+  view: Rc<wgpu::TextureView>,
+}
+
+impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(self.view.as_ref())
+  }
+
+  fn bind_layout() -> wgpu::BindingType {
+    wgpu::BindingType::Texture {
+      multisampled: false,
+      sample_type: wgpu::TextureSampleType::Float { filterable: true },
+      view_dimension: wgpu::TextureViewDimension::D2,
+    }
+  }
+}
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor<F> {
@@ -157,108 +221,95 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
 }
 
 pub trait PassContent {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    resource: &mut ResourcePoolInner,
-    pass_info: &PassTargetFormatInfo,
-  );
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut GPURenderPass<'a>,
-    scene: &'a Scene,
-    pass_info: &'a PassTargetFormatInfo,
-  );
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo);
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene);
 }
 
-#[derive(Default)]
+impl<T: PassContent> PassContent for Option<T> {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+    if let Some(c) = self {
+      c.update(gpu, scene, pass_info);
+    }
+  }
+
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+    if let Some(c) = self {
+      c.setup_pass(pass, scene);
+    }
+  }
+}
+
 pub struct SimplePipeline {
   forward: ForwardScene,
-  // highlight: HighLight,
+  highlight: HighLighter,
+  background: BackGroundRendering,
+}
+
+impl SimplePipeline {
+  pub fn new(gpu: &GPU) -> Self {
+    Self {
+      forward: Default::default(),
+      highlight: HighLighter::new(gpu),
+      background: Default::default(),
+    }
+  }
 }
 
 impl SimplePipeline {
   #[rustfmt::skip]
+  #[allow(clippy::logic_bug)]
   pub fn render_simple(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
     let scene = &mut content.scene;
 
     let mut scene_depth = depth_attachment()
-      .format(wgpu::TextureFormat::Depth32Float)
+      .format(wgpu::TextureFormat::Depth24PlusStencil8)
       .request(engine);
 
-    pass("scene_pass")
+    let mut final_compose = pass("compose-all")
       .with_color(engine.screen(), scene.get_main_pass_load_op())
-      .with_depth(scene_depth.write(), clear(1.))
-      .render_by(&mut BackGroundRendering)
-      .render_by(&mut self.forward)
-      .render_by(&mut content.axis)
-      .run(engine, scene);
+      .with_depth(scene_depth.write(), clear(1.));
+
+    final_compose
+      .render(&mut self.background)
+      .render(&mut self.forward);
+
+    let mut highlight_compose = (!content.selections.is_empty() && false).then(||{
+       let mut selected = attachment()
+        .format(wgpu::TextureFormat::Rgba8Unorm)
+        .request(engine);
+
+      pass("highlight-selected-mask")
+        .with_color(selected.write(), clear(color_same(0.)))
+        .render_by(&mut highlight(&content.selections))
+        .run(engine, scene);
+
+      self.highlight.draw(selected.read_into())
+    });
+
+    final_compose
+      .render(&mut highlight_compose)
+      .render(&mut content.axis);
+
+    final_compose.run(engine, scene);
 
   }
-
-  // #[rustfmt::skip]
-  // pub fn render(&mut self, engine: &RenderEngine, scene: &mut Scene) {
-
-  //   let mut scene_color = attachment()
-  //     .format(wgpu::TextureFormat::Rgba8Unorm)
-  //     .request(engine);
-
-  //   let mut scene_depth = depth_attachment()
-  //     .format(wgpu::TextureFormat::Depth32Float)
-  //     .request(engine);
-
-  //   pass("scene_pass")
-  //     .with_color(scene_color.write(), scene.get_main_pass_load_op())
-  //     .with_depth(scene_depth.write(), clear(1.))
-  //     .render_by(&mut BackGroundRendering)
-  //     .render_by(&mut self.forward)
-  //     .run(engine, scene);
-
-  //   let mut high_light_object_mask = attachment()
-  //     .format(wgpu::TextureFormat::Rgba8Unorm)
-  //     .request(engine);
-
-  //   // let high_light_object = scene.create_content(&mut self.highlight);
-  //   let high_light_object = &mut BackGroundRendering;
-
-  //   pass("high_light_pass")
-  //     .with_color( high_light_object_mask.write(), clear(color_same(1.)))
-  //     .render_by(high_light_object)
-  //     .run(engine, scene);
-
-  //   pass("final_compose")
-  //     .with_color(scene_color.write(), clear(color_same(1.)))
-  //     .with_color(engine.screen(), clear(color_same(1.)))
-  //     .render_by(&mut high_light_blend(high_light_object_mask))
-  //     .run(engine, scene);
-  // }
 }
 
-pub fn pass<'t>(name: &'static str) -> PassDescriptor<'static, 't> {
+pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
+  let mut desc = RenderPassDescriptorOwned::default();
+  desc.name = name.into();
   PassDescriptor {
-    name,
     phantom: PhantomData,
-    channels: Vec::new(),
     tasks: Vec::new(),
-    depth_stencil_target: None,
-    info: Default::default(),
+    desc,
   }
 }
 
 pub struct PassDescriptor<'a, 't> {
-  name: &'static str,
   phantom: PhantomData<&'a Attachment<wgpu::TextureFormat>>,
-  channels: Vec<(wgpu::Operations<wgpu::Color>, Rc<wgpu::TextureView>)>,
   tasks: Vec<&'t mut dyn PassContent>,
-  depth_stencil_target: Option<(wgpu::Operations<f32>, Rc<wgpu::TextureView>)>,
-  info: PassTargetFormatInfo,
-}
 
-#[derive(Clone, Default)]
-pub struct PassTargetFormatInfo {
-  pub depth_stencil_format: Option<wgpu::TextureFormat>,
-  pub color_formats: Vec<wgpu::TextureFormat>,
+  desc: RenderPassDescriptorOwned,
 }
 
 impl<'a, 't> PassDescriptor<'a, 't> {
@@ -268,8 +319,11 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     attachment: AttachmentWriteView<'a, wgpu::TextureFormat>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    self.channels.push((op.into(), attachment.view));
-    self.info.color_formats.push(attachment.format);
+    self
+      .desc
+      .channels
+      .push((op.into(), attachment.view, attachment.size));
+    self.desc.info.color_formats.push(attachment.format);
     self
   }
 
@@ -280,10 +334,15 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
     self
+      .desc
       .depth_stencil_target
       .replace((op.into(), attachment.view));
 
-    self.info.depth_stencil_format.replace(attachment.format);
+    self
+      .desc
+      .info
+      .depth_stencil_format
+      .replace(attachment.format);
     self
   }
 
@@ -293,41 +352,30 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     self
   }
 
-  pub fn run(mut self, engine: &RenderEngine, scene: &mut Scene) {
-    let mut resource = engine.resource.inner.borrow_mut();
+  pub fn render(&mut self, renderable: &'t mut dyn PassContent) -> &mut Self {
+    self.tasks.push(renderable);
+    self
+  }
 
+  pub fn run(mut self, engine: &RenderEngine, scene: &mut Scene) {
     let mut encoder = engine.gpu.encoder.borrow_mut();
 
-    let color_attachments: Vec<_> = self
-      .channels
-      .iter()
-      .map(|(ops, view)| wgpu::RenderPassColorAttachment {
-        view,
-        resolve_target: None,
-        ops: *ops,
-      })
-      .collect();
-
-    let depth_stencil_attachment = self.depth_stencil_target.as_ref().map(|(ops, view)| {
-      wgpu::RenderPassDepthStencilAttachment {
-        view,
-        depth_ops: (*ops).into(),
-        stencil_ops: None,
-      }
-    });
+    let info = RenderPassInfo {
+      buffer_size: self.desc.channels.first().unwrap().2,
+      format_info: self.desc.info.clone(),
+    };
 
     for task in &mut self.tasks {
-      task.update(&engine.gpu, scene, &mut resource, &self.info)
+      task.update(&engine.gpu, scene, &info)
     }
 
-    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-      label: self.name.into(),
-      color_attachments: color_attachments.as_slice(),
-      depth_stencil_attachment,
-    });
+    let mut pass = encoder.begin_render_pass(&self.desc);
+
+    let camera = scene.active_camera.as_ref().unwrap();
+    camera.bounds.setup_viewport(&mut pass);
 
     for task in &self.tasks {
-      task.setup_pass(&mut pass, scene, &self.info)
+      task.setup_pass(&mut pass, scene)
     }
   }
 }

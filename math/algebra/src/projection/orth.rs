@@ -33,6 +33,10 @@ impl Projection for OrthographicProjection {
       self.far,
     );
   }
+
+  fn pixels_per_unit(&self, _distance: f32, view_height: f32) -> f32 {
+    view_height / (self.top - self.bottom).abs()
+  }
 }
 
 pub struct ViewFrustumOrthographicProjection {
@@ -73,6 +77,10 @@ impl Default for ViewFrustumOrthographicProjection {
 impl Projection for ViewFrustumOrthographicProjection {
   fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<f32>) {
     self.orth.update_projection::<S>(projection);
+  }
+
+  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
+    self.orth.pixels_per_unit(distance, view_height)
   }
 }
 

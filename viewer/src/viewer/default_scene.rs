@@ -67,7 +67,8 @@ pub fn load_default_scene(scene: &mut Scene) {
       sampler: TextureSampler::default(),
       texture: texture.clone(),
       states: Default::default(),
-    };
+    }
+    .into_scene_material();
     let material = MaterialCell::new(material);
 
     let model = MeshModel::new(material, mesh, scene.root.create_child());
@@ -82,7 +83,8 @@ pub fn load_default_scene(scene: &mut Scene) {
       sampler: TextureSampler::default(),
       texture,
       states: Default::default(),
-    };
+    }
+    .into_scene_material();
     material.states.depth_compare = wgpu::CompareFunction::Always;
     let material = MaterialCell::new(material);
 
@@ -95,6 +97,6 @@ pub fn load_default_scene(scene: &mut Scene) {
   camera_node.mutate(|node| {
     node.local_matrix = Mat4::lookat(Vec3::splat(1.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
   });
-  let camera = Camera::new(camera, camera_node);
+  let camera = SceneCamera::new(camera, camera_node);
   scene.active_camera = camera.into();
 }

@@ -50,14 +50,14 @@ pub struct FrameTarget {
 }
 
 pub trait CanvasPrinter {
-  fn event(&mut self, event: &winit::event::Event<()>);
+  fn event(&mut self, event: &winit::event::Event<()>, states: &WindowState);
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size;
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget);
 }
 
 impl<T: CanvasPrinter> Component<T> for GPUCanvas {
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {
-    model.event(event.event);
+    model.event(event.event, event.states);
     match event.event {
       Event::MainEventsCleared => {
         let new_size = model.update_render_size(self.layout.size.into());

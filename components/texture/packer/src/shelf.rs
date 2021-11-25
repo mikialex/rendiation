@@ -1,77 +1,262 @@
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{HashMap, HashSet};
 
-use linked_hash_map::LinkedHashMap;
 use rendiation_texture::TextureRange;
 
 use crate::*;
 
 pub struct ShelfPacker {
   config: PackerConfig,
-  rows: LinkedHashMap<usize, Row>,
-  /// Mapping of row gaps bottom -> top
-  space_start_for_end: HashMap<usize, usize>,
-  /// Mapping of row gaps top -> bottom
-  space_end_for_start: HashMap<usize, usize>,
 
-  packed: HashMap<PackId, (usize, usize)>,
+  packed: HashMap<PackId, (TextureRange, usize, usize)>,
+  allocator: RowAllocator<Shelf>,
+}
+
+impl Default for ShelfPacker {
+  fn default() -> Self {
+    Self::new(Default::default())
+  }
 }
 
 impl ShelfPacker {
   pub fn new(config: PackerConfig) -> Self {
+    let (width, height) = config.init_size.into_usize();
     ShelfPacker {
       config,
-      rows: Default::default(),
-      space_start_for_end: Default::default(),
-      space_end_for_start: Default::default(),
       packed: Default::default(),
+      allocator: RowAllocator::new(Shelf::new(
+        Section {
+          start: 0,
+          extent: height,
+        },
+        Section {
+          start: 0,
+          extent: width,
+        },
+      )),
+    }
+  }
+
+  fn shelf_creator(&self) -> impl FnOnce(Section) -> Shelf + Copy {
+    let width = self.config.init_size.width_usize();
+    move |sec: Section| -> Shelf {
+      Shelf::new(
+        sec,
+        Section {
+          start: 0,
+          extent: width,
+        },
+      )
     }
   }
 }
 
 struct RowAllocator<T> {
-  sections: Vec<T>,
+  id: usize,
+  sections: HashMap<usize, T>,
+  free: HashSet<usize>,
 }
 
-trait ExtentGetter {
-  fn extend(&self) -> usize;
-}
-
-impl<T> RowAllocator<T> {
-  pub fn find_suitable(&mut self, extent: usize) -> &mut T {
-    todo!()
+impl<T: SectionLike> RowAllocator<T> {
+  fn new(init: T) -> Self {
+    let mut sections = HashMap::new();
+    sections.insert(0, init);
+    let mut free = HashSet::new();
+    free.insert(0);
+    Self {
+      id: 0,
+      sections,
+      free,
+    }
   }
 }
 
-pub struct ShelfSection {
-  start: usize,
-  width: usize,
+trait SectionLike {
+  fn section(&self) -> &Section;
+  fn is_empty(&self) -> bool;
 }
 
-impl ExtentGetter for ShelfSection {
-  fn extend(&self) -> usize {
-    self.width
+struct SectionNotExist;
+
+impl<T: SectionLike> RowAllocator<T> {
+  pub fn find_or_create_suitable(
+    &mut self,
+    extent: usize,
+    section_creator: impl FnOnce(Section) -> T + Copy,
+    section_packable: impl FnOnce(&T) -> bool + Copy,
+  ) -> Option<(&mut T, usize)> {
+    let mut min: Option<(usize, usize, bool)> = None;
+    for section_id in &self.free {
+      let section_new = self.sections.get(section_id).unwrap();
+      if !section_packable(section_new) {
+        continue;
+      }
+
+      let is_new_should_split = section_new.is_empty();
+      let extend_new = section_new.section().extent;
+      if let Some((_, min_extend, should_split)) = min {
+        if (!is_new_should_split || should_split) && extend_new >= extent && min_extend > extend_new
+        {
+          min = (*section_id, extend_new, is_new_should_split).into();
+        }
+      } else {
+        min = (*section_id, extend_new, is_new_should_split).into();
+      }
+    }
+
+    if let Some((section_id, _, should_split)) = min {
+      if should_split {
+        self.free.remove(&section_id);
+        let section = self.sections.remove(&section_id).unwrap();
+
+        let (top, bottom) = section.section().split(extent);
+
+        let top = section_creator(top);
+
+        if bottom.extent != 0 {
+          let bottom = section_creator(bottom);
+          self.id += 1;
+          self.sections.insert(self.id, bottom);
+          self.free.insert(self.id);
+        }
+
+        self.id += 1;
+        let section_id = self.id;
+        let section = self.sections.entry(section_id).or_insert(top);
+
+        (section, section_id).into()
+      } else {
+        let section = self.sections.get_mut(&section_id).unwrap();
+        (section, section_id).into()
+      }
+    } else {
+      None
+    }
+  }
+
+  pub fn get_section_mut(&mut self, section: usize) -> Result<&mut T, SectionNotExist> {
+    self.sections.get_mut(&section).ok_or(SectionNotExist)
+  }
+
+  /// The adjacent empty section will be merged
+  ///
+  /// return if is empty after drop
+  pub fn drop_section(
+    &mut self,
+    section_id: usize,
+    section_creator: impl FnOnce(Section) -> T + Copy,
+  ) -> Result<bool, SectionNotExist> {
+    let section = self.sections.remove(&section_id).ok_or(SectionNotExist)?;
+    assert!(section.is_empty()); // todo should we return error?
+
+    let section = *section.section();
+
+    if let Some((new_sec, old_to_remove)) = self.free.iter().find_map(|sec_id| {
+      let sec = self.sections.get(&section_id).unwrap();
+      section.try_merge(sec.section()).map(|r| (r, *sec_id))
+    }) {
+      self.sections.remove(&old_to_remove);
+      self.free.remove(&old_to_remove);
+      self.id += 1;
+      self.sections.insert(self.id, section_creator(new_sec));
+      self.free.insert(self.id);
+
+      let x_section = self.id;
+
+      if let Some((new_sec, old_to_remove)) = self.free.iter().find_map(|sec_id| {
+        let sec = self.sections.get(&section_id).unwrap();
+        section.try_merge(sec.section()).map(|r| (r, *sec_id))
+      }) {
+        self.sections.remove(&x_section);
+        self.free.remove(&x_section);
+
+        self.sections.remove(&old_to_remove);
+        self.free.remove(&old_to_remove);
+        self.id += 1;
+        self.sections.insert(self.id, section_creator(new_sec));
+        self.free.insert(self.id);
+      }
+    }
+
+    Ok(self.should_split())
+  }
+
+  pub fn should_split(&self) -> bool {
+    self.sections.len() == 1 && self.free.len() == 1
+  }
+}
+
+#[derive(Clone, Copy)]
+pub struct Section {
+  start: usize,
+  extent: usize,
+}
+
+impl Section {
+  pub fn split(&self, extent: usize) -> (Section, Section) {
+    assert!(extent < self.extent);
+    (
+      Section {
+        start: self.start,
+        extent,
+      },
+      Section {
+        start: self.start + extent,
+        extent: self.extent - extent,
+      },
+    )
+  }
+
+  pub fn try_merge(&self, other: &Self) -> Option<Self> {
+    let self_end = self.start + self.extent;
+    let other_end = other.start + other.extent;
+    if self.start == other_end {
+      Self {
+        start: other.start,
+        extent: self.extent + other.extent,
+      }
+      .into()
+    } else if self_end == other.start {
+      Self {
+        start: self.start,
+        extent: self.extent + other.extent,
+      }
+      .into()
+    } else {
+      None
+    }
+  }
+}
+
+impl SectionLike for Section {
+  fn section(&self) -> &Section {
+    self
+  }
+  fn is_empty(&self) -> bool {
+    true
   }
 }
 
 pub struct Shelf {
-  start: usize,
-  height: usize,
+  section: Section,
+  allocator: RowAllocator<Section>,
 }
 
-impl ExtentGetter for Shelf {
-  fn extend(&self) -> usize {
-    self.height
+impl Shelf {
+  fn new(v_section: Section, h_section: Section) -> Self {
+    Shelf {
+      section: v_section,
+      allocator: RowAllocator::new(h_section),
+    }
   }
 }
 
-/// Row of pixel data
-struct Row {
-  /// Row pixel height
-  height: usize,
-  /// Pixel width current in use by glyphs
-  width: usize,
-
-  items: Vec<TextureRange>,
+impl SectionLike for Shelf {
+  fn section(&self) -> &Section {
+    &self.section
+  }
+  fn is_empty(&self) -> bool {
+    self.allocator.should_split()
+  }
 }
 
 impl BaseTexturePacker for ShelfPacker {
@@ -85,7 +270,6 @@ impl BaseTexturePacker for ShelfPacker {
   }
 }
 
-/// https://github.com/alexheretic/glyph-brush/blob/master/draw-cache/src/lib.rs
 impl RePackablePacker for ShelfPacker {
   fn pack_with_id(
     &mut self,
@@ -94,122 +278,60 @@ impl RePackablePacker for ShelfPacker {
     let width = usize::from(input.width);
     let height = usize::from(input.height);
 
-    // find row to put the glyph in, most used rows first
-    let mut row_top = self
-      .rows
-      .iter()
-      .find(|(_, row)| row.width >= width && row.height >= height)
-      .map(|row| *row.0);
+    let packable = |_shelf: &Shelf| {
+      todo!();
+    };
 
-    if let Some(row_top) = row_top {
-      // // calculate the target rect
-      // let row = self.rows.get_refresh(&row_top).unwrap();
+    let (row, row_id) = self
+      .allocator
+      .find_or_create_suitable(height, self.shelf_creator(), packable)
+      .ok_or(PackError::SpaceNotEnough)?;
 
-      // let tex_coords = Rectangle {
-      //   min: [row.width, row_top],
-      //   max: [row.width + width, row_top + height],
-      // };
-      // let g = outlined.glyph();
+    let (section, section_id) = row
+      .allocator
+      .find_or_create_suitable(width, Section::from, |_| true)
+      .ok_or(PackError::SpaceNotEnough)?;
 
-      // // add the glyph to the row
-      // row.items.push(GlyphTexInfo {
-      //   glyph_info,
-      //   tex_coords: unaligned_tex_coords,
-      //   bounds_minus_position_over_scale: Rect {
-      //     min: point(
-      //       (bounds.min.x - g.position.x) / g.scale.x,
-      //       (bounds.min.y - g.position.y) / g.scale.y,
-      //     ),
-      //     max: point(
-      //       (bounds.max.x - g.position.x) / g.scale.x,
-      //       (bounds.max.y - g.position.y) / g.scale.y,
-      //     ),
-      //   },
-      // });
-      // row.width += width;
-      // in_use_rows.insert(row_top);
+    let range = TextureRange {
+      origin: (section.start, row.section.start).into(),
+      size: input,
+    };
 
-      // draw_and_upload.push((aligned_tex_coords, outlined));
+    let id = Default::default();
+    self.packed.insert(id, (range, row_id, section_id));
 
-      // self
-      //   .all_glyphs
-      //   .insert(glyph_info, (row_top, row.glyphs.len() as u32 - 1));
-    } else {
-      // See if there is space for a new row
-      let gap = self
-        .space_end_for_start
-        .iter()
-        .find(|&(start, end)| end - start >= height)
-        .map(|(&start, &end)| (start, end));
-
-      if let Some((gap_start, gap_end)) = gap {
-        // fill space for new row
-        let new_space_start = gap_start + width;
-        self.space_end_for_start.remove(&gap_start);
-        if new_space_start == gap_end {
-          self.space_start_for_end.remove(&gap_end);
-        } else {
-          self.space_end_for_start.insert(new_space_start, gap_end);
-          self.space_start_for_end.insert(gap_end, new_space_start);
-        }
-        // add the row
-        self.rows.insert(
-          gap_start,
-          Row {
-            width: 0,
-            height,
-            items: Vec::new(),
-          },
-        );
-        row_top = Some(gap_start);
-      } else {
-        // Remove old rows until room is available
-        // while !self.rows.is_empty() {
-        //   // check that the oldest row isn't also in use
-        //   if !in_use_rows.contains(self.rows.front().unwrap().0) {
-        //     // Remove row
-        //     let (top, row) = self.rows.pop_front().unwrap();
-
-        //     for g in row.glyphs {
-        //       self.all_glyphs.remove(&g.glyph_info);
-        //     }
-
-        //     let (mut new_start, mut new_end) = (top, top + row.height);
-        //     // Update the free space maps
-        //     // Combine with neighbouring free space if possible
-        //     if let Some(end) = self.space_end_for_start.remove(&new_end) {
-        //       new_end = end;
-        //     }
-        //     if let Some(start) = self.space_start_for_end.remove(&new_start) {
-        //       new_start = start;
-        //     }
-        //     self.space_start_for_end.insert(new_end, new_start);
-        //     self.space_end_for_start.insert(new_start, new_end);
-        //     if new_end - new_start >= aligned_height {
-        //       // The newly formed gap is big enough
-        //       gap = Some((new_start, new_end));
-        //       break;
-        //     }
-        //   }
-        //   // all rows left are in use
-        //   // try a clean insert of all needed glyphs
-        //   // if that doesn't work, fail
-        //   else if from_empty {
-        //     // already trying a clean insert, don't do it again
-        //     return Err(CacheWriteErr::NoRoomForWholeQueue);
-        //   } else {
-        //     // signal that a retry is needed
-        //     queue_success = false;
-        //     break 'per_glyph;
-        //   }
-        // }
-      }
-    }
-
-    todo!()
+    Ok(PackResultWithId {
+      result: PackResult {
+        range,
+        rotated: false,
+      },
+      id,
+    })
   }
 
-  fn un_pack(&mut self, id: PackId) {
-    todo!()
+  fn unpack(&mut self, id: PackId) -> Result<(), UnpackError> {
+    let (_result, shelf_id, section_id) = self
+      .packed
+      .remove(&id)
+      .ok_or(UnpackError::UnpackItemNotExist)?;
+
+    let shelf = self
+      .allocator
+      .get_section_mut(shelf_id)
+      .map_err(|_| UnpackError::UnpackItemNotExist)?;
+
+    let shelf_should_split = shelf
+      .allocator
+      .drop_section(section_id, Section::from)
+      .map_err(|_| UnpackError::UnpackItemNotExist)?;
+
+    if shelf_should_split {
+      self
+        .allocator
+        .drop_section(shelf_id, self.shelf_creator())
+        .map_err(|_| UnpackError::UnpackItemNotExist)?;
+    }
+
+    Ok(())
   }
 }

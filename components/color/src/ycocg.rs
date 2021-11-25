@@ -1,11 +1,16 @@
 use crate::LinearRGBColor;
 
 /// https://en.wikipedia.org/wiki/YCoCg
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct YCoCgRColor<T> {
   pub y: T,
   pub co: T,
   pub cg: T,
 }
+
+unsafe impl<T: bytemuck::Pod> bytemuck::Pod for YCoCgRColor<T> {}
+unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for YCoCgRColor<T> {}
 
 impl From<YCoCgRColor<f32>> for LinearRGBColor<f32> {
   fn from(color: YCoCgRColor<f32>) -> Self {

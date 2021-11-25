@@ -1,12 +1,25 @@
 use std::cell::Cell;
 
+use crate::group::{GroupedMesh, MeshDrawGroup, MeshGroup};
+
 use super::AbstractMesh;
 use rendiation_algebra::Vec3;
 use rendiation_geometry::*;
 
 pub trait IntersectAbleAbstractMesh {
-  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList);
-  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> Nearest<MeshBufferHitPoint>;
+  fn intersect_list(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshGroup,
+    result: &mut MeshBufferHitList,
+  );
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshGroup,
+  ) -> Nearest<MeshBufferHitPoint>;
 }
 
 pub struct MeshBufferHitPoint {
@@ -37,9 +50,15 @@ where
   G: AbstractMesh,
   G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, Config>,
 {
-  fn intersect_list(&self, ray: Ray3, conf: &Config, result: &mut MeshBufferHitList) {
+  fn intersect_list(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshGroup,
+    result: &mut MeshBufferHitList,
+  ) {
     self
-      .primitive_iter()
+      .primitive_iter_group(group)
       .enumerate()
       .filter_map(|(primitive_index, p)| {
         p.intersect(&ray, conf)
@@ -51,10 +70,15 @@ where
       })
       .for_each(|h| result.0.push(h))
   }
-  fn intersect_nearest(&self, ray: Ray3, conf: &Config) -> Nearest<MeshBufferHitPoint> {
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshGroup,
+  ) -> Nearest<MeshBufferHitPoint> {
     let mut nearest = Nearest::none();
     self
-      .primitive_iter()
+      .primitive_iter_group(group)
       .enumerate()
       .for_each(|(primitive_index, p)| {
         nearest.refresh_nearest(p.intersect(&ray, conf).map(|hit| MeshBufferHitPoint {
@@ -66,9 +90,45 @@ where
   }
 }
 
-use wasm_bindgen::prelude::*;
+pub trait IntersectAbleGroupedMesh {
+  fn intersect_list(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
+  );
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshDrawGroup,
+  ) -> Nearest<MeshBufferHitPoint>;
+}
 
-#[wasm_bindgen]
+impl<T: IntersectAbleAbstractMesh + AbstractMesh> IntersectAbleGroupedMesh for GroupedMesh<T> {
+  fn intersect_list(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    result: &mut MeshBufferHitList,
+    group: MeshDrawGroup,
+  ) {
+    let group = self.get_group(group);
+    self.mesh.intersect_list(ray, conf, group, result)
+  }
+
+  fn intersect_nearest(
+    &self,
+    ray: Ray3,
+    conf: &Config,
+    group: MeshDrawGroup,
+  ) -> Nearest<MeshBufferHitPoint> {
+    let group = self.get_group(group);
+    self.mesh.intersect_nearest(ray, conf, group)
+  }
+}
+
 #[derive(Copy, Clone)]
 pub enum ToleranceType {
   LocalSpace,
@@ -145,5 +205,7 @@ fn test() {
   let quad = Quad.tessellate();
   let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized());
   let mut result = MeshBufferHitList::new();
-  quad.mesh.intersect_list(ray, &config, &mut result);
+  quad
+    .mesh
+    .intersect_list(ray, &config, quad.mesh.get_full_group(), &mut result);
 }

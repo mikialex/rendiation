@@ -17,3 +17,7 @@ impl<T: Scalar, V> HyperRay<T, V> {
     HyperRay { origin, direction }
   }
 }
+
+pub trait HyperRayCaster<T: Scalar, V, P> {
+  fn cast_ray(&self, normalized_position: P) -> HyperRay<T, V>;
+}

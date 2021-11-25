@@ -1,29 +1,89 @@
-mod pipeline;
-use pipeline::*;
-mod text_quad_instance;
-use rendiation_algebra::Vec2;
-use rendiation_texture::Size;
-use rendiation_webgpu::{GPUCommandEncoder, GPURenderPass};
-use text_quad_instance::*;
+mod gpu_renderer;
 
-use glyph_brush::{
-  ab_glyph::{self},
-  BrushAction, BrushError, DefaultSectionHasher, Extra, GlyphBrushBuilder, GlyphCruncher, Section,
+use std::{
+  collections::hash_map::DefaultHasher,
+  hash::{Hash, Hasher},
 };
 
-use crate::FontManager;
+use glyph_brush::{HorizontalAlign, VerticalAlign};
+use gpu_renderer::*;
+use rendiation_algebra::Vec2;
+use rendiation_texture::Size;
+use rendiation_texture_packer::etagere_wrap::EtagerePacker;
+use rendiation_webgpu::{GPURenderPass, GPU};
 
-use super::text_next::GPUGlyphCache;
+pub mod cache_glyph;
+pub use cache_glyph::*;
 
-pub struct GPUxUITextPrimitive {
-  vertex_buffer: wgpu::Buffer,
-  length: u32,
+pub mod cache_text;
+pub use cache_text::*;
+
+pub mod gpu_cache;
+pub use gpu_cache::*;
+
+pub mod layout;
+pub use layout::*;
+
+pub mod raster;
+pub use raster::*;
+
+pub mod packer;
+pub use packer::*;
+
+use crate::{Color, FontManager, LayoutSize};
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum LineWrap {
+  Single,
+  Multiple,
+}
+
+impl Default for LineWrap {
+  fn default() -> Self {
+    Self::Single
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextInfo {
+  pub content: String,
+  pub bounds: LayoutSize,
+  pub line_wrap: LineWrap,
+  pub horizon_align: HorizontalAlign,
+  pub vertical_align: VerticalAlign,
+  pub color: Color,
+  pub font_size: f32,
+  pub x: f32,
+  pub y: f32,
+}
+
+pub type TextHash = u64;
+
+impl TextInfo {
+  pub fn hash(&self) -> TextHash {
+    let mut hasher = DefaultHasher::default();
+    self.content.hash(&mut hasher);
+    self.bounds.width.to_bits().hash(&mut hasher);
+    self.bounds.height.to_bits().hash(&mut hasher);
+    self.line_wrap.hash(&mut hasher);
+    self.horizon_align.hash(&mut hasher);
+    self.vertical_align.hash(&mut hasher);
+    self.color.r.to_bits().hash(&mut hasher);
+    self.color.g.to_bits().hash(&mut hasher);
+    self.color.b.to_bits().hash(&mut hasher);
+    self.font_size.to_bits().hash(&mut hasher);
+    self.x.to_bits().hash(&mut hasher);
+    self.y.to_bits().hash(&mut hasher);
+    hasher.finish()
+  }
 }
 
 pub struct TextRenderer {
-  pipeline: TextRendererPipeline,
-  glyph_brush: glyph_brush::GlyphBrush<Instance, Extra, ab_glyph::FontArc, DefaultSectionHasher>,
-  _exp: GPUGlyphCache,
+  renderer: TextWebGPURenderer,
+  gpu_texture_cache: WebGPUTextureCache,
+  gpu_vertex_cache: WebGPUTextCache,
+
+  cache: TextCache,
 }
 
 impl TextRenderer {
@@ -31,108 +91,85 @@ impl TextRenderer {
     device: &wgpu::Device,
     filter_mode: wgpu::FilterMode,
     render_format: wgpu::TextureFormat,
-    fonts: &FontManager,
   ) -> Self {
-    let glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
-      .cache_redraws(false)
-      .build();
+    let init_size = Size::from_usize_pair_min_one((512, 512));
+    let tolerance = Default::default();
 
-    let size = Size::from_u32_pair_min_one(glyph_brush.texture_dimensions());
+    let texture_cache = WebGPUTextureCache::init(init_size, device);
+
+    let raster = AbGlyphRaster::default();
+
+    let packer = EtagerePacker::default();
+
+    let glyph_cache = GlyphCache::new(init_size, tolerance, raster, packer);
+
+    let text_cache = TextCache::new(glyph_cache, GlyphBrushLayouter::default());
+
     Self {
-      pipeline: TextRendererPipeline::new(
+      renderer: TextWebGPURenderer::new(
         device,
         filter_mode,
         render_format,
-        size,
         Vec2::new(1000., 1000.),
+        texture_cache.get_view(),
       ),
-      _exp: GPUGlyphCache::new(device),
-      glyph_brush,
-    }
-  }
-
-  pub fn update_fonts(&mut self, fonts: &FontManager) {
-    if fonts.active_font_count() != self.glyph_brush.fonts().len() {
-      self.glyph_brush = GlyphBrushBuilder::using_fonts(fonts.get_fonts().clone())
-        .cache_redraws(false)
-        .build()
+      gpu_texture_cache: texture_cache,
+      gpu_vertex_cache: Default::default(),
+      cache: text_cache,
     }
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &wgpu::Queue) {
-    self.pipeline.resize_view(size, queue)
+    self.renderer.resize_view(size, queue)
   }
 
-  pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: &'a GPUxUITextPrimitive) {
-    self.pipeline.draw(pass, text)
-  }
-
-  pub fn create_gpu_text<'a>(
-    &mut self,
-    device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
-    section: Section<'a, Extra>,
-  ) -> Option<GPUxUITextPrimitive> {
-    self.glyph_brush.queue(section);
-    self.process_queued(device, encoder)
-  }
-
-  fn process_queued(
-    &mut self,
-    device: &wgpu::Device,
-    encoder: &mut GPUCommandEncoder,
-  ) -> Option<GPUxUITextPrimitive> {
-    let brush_action = self.glyph_brush.process_queued(
-      |rect, tex_data| {
-        let offset = (rect.min[0], rect.min[1]);
-
-        let tex_data = TextureWriteData {
-          data: tex_data,
-          size: Size::from_u32_pair_min_one((rect.width(), rect.height())),
-        };
-
-        self
-          .pipeline
-          .update_cache(device, encoder, offset, tex_data);
-      },
-      Instance::from_vertex,
-    );
-
-    match brush_action {
-      Ok(brush_action) => match brush_action {
-        BrushAction::Draw(verts) => {
-          return self.pipeline.create_gpu_text(device, &verts);
-        }
-        BrushAction::ReDraw => {}
-      },
-      Err(BrushError::TextureTooSmall { suggested }) => {
-        // TODO: Obtain max texture dimensions using `wgpu`
-        // This is currently not possible I think. Ask!
-        let max_image_dimension = 2048;
-
-        let (new_width, new_height) = if (suggested.0 > max_image_dimension
-          || suggested.1 > max_image_dimension)
-          && (self.glyph_brush.texture_dimensions().0 < max_image_dimension
-            || self.glyph_brush.texture_dimensions().1 < max_image_dimension)
-        {
-          (max_image_dimension, max_image_dimension)
-        } else {
-          suggested
-        };
-
-        log::warn!(
-          "Increasing glyph texture size {old:?} -> {new:?}. \
-                             Consider building with `.initial_cache_size({new:?})` to avoid \
-                             resizing",
-          old = self.glyph_brush.texture_dimensions(),
-          new = (new_width, new_height),
-        );
-
-        let size = Size::from_u32_pair_min_one((new_width, new_height));
-        self.pipeline.increase_cache_size(device, size);
-        self.glyph_brush.resize_texture(new_width, new_height);
-      }
+  pub fn draw_gpu_text<'a>(&'a self, pass: &mut GPURenderPass<'a>, text: TextHash) {
+    if let Some(gpu_text) = self.gpu_vertex_cache.get_cache(text) {
+      self.renderer.draw(pass, gpu_text)
     }
-    None
+  }
+
+  pub fn queue_text(&mut self, text: &TextInfo, fonts: &FontManager) -> Option<TextHash> {
+    (!text.content.is_empty()).then(|| self.cache.queue(text, fonts))
+  }
+
+  pub fn drop_cache(&mut self, text: TextHash) {
+    self.cache.drop_cache(text);
+    self.gpu_vertex_cache.drop_cache(text);
+  }
+
+  pub fn clear_cache(&mut self) {
+    self.cache.clear_cache();
+    self.gpu_vertex_cache.clear_cache();
+  }
+
+  pub fn process_queued(&mut self, gpu: &GPU, fonts: &FontManager) {
+    self.cache.process_queued(
+      fonts,
+      |action| match action {
+        TextureCacheAction::ResizeTo(new_size) => {
+          if usize::from(new_size.width) > 4096 || usize::from(new_size.height) > 4096 {
+            return false;
+          }
+          let device = &gpu.device;
+          self.gpu_texture_cache = WebGPUTextureCache::init(new_size, device);
+          self
+            .renderer
+            .cache_resized(device, self.gpu_texture_cache.get_view());
+          true
+        }
+        TextureCacheAction::UpdateAt { data, range } => {
+          self
+            .gpu_texture_cache
+            .update_texture(data, range, &gpu.queue);
+          true
+        }
+      },
+      |hash, data| {
+        self
+          .gpu_vertex_cache
+          .add_cache(hash, create_gpu_text(&gpu.device, data.as_slice()).unwrap())
+      },
+    );
   }
 }

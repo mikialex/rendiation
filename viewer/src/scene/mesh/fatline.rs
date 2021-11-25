@@ -16,7 +16,7 @@ use rendiation_renderable_mesh::{
 
 pub type FatlineData = NoneIndexedMesh<FatLineVertex>;
 
-pub struct FatlineMeshCell {
+pub struct FatlineMeshCellImpl {
   data: GroupedMesh<FatlineData>,
   gpu: Option<FatlineMeshGPU>,
 }
@@ -40,7 +40,7 @@ impl FatlineMeshGPU {
   }
 }
 
-impl From<FatlineData> for FatlineMeshCell {
+impl From<FatlineData> for FatlineMeshCellImpl {
   fn from(data: FatlineData) -> Self {
     Self {
       data: GroupedMesh::full(data),
@@ -49,7 +49,7 @@ impl From<FatlineData> for FatlineMeshCell {
   }
 }
 
-impl Mesh for FatlineMeshCell {
+impl Mesh for FatlineMeshCellImpl {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     self
       .gpu
@@ -155,9 +155,9 @@ impl VertexBufferSourceType for FatLineVertex {
 
   fn get_shader_header() -> &'static str {
     r#"
-      [[location(1)]] fatline_start: vec3<f32>,
-      [[location(2)]] fatline_end: vec3<f32>,
-      [[location(3)]] fatline_color: vec3<f32>,
+      [[location(4)]] fatline_start: vec3<f32>,
+      [[location(5)]] fatline_end: vec3<f32>,
+      [[location(6)]] fatline_color: vec3<f32>,
     "#
   }
 }

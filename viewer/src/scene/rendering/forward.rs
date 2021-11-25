@@ -18,13 +18,7 @@ pub struct ForwardScene {
 }
 
 impl PassContent for ForwardScene {
-  fn update(
-    &mut self,
-    gpu: &GPU,
-    scene: &mut Scene,
-    _resource: &mut ResourcePoolInner,
-    pass: &PassTargetFormatInfo,
-  ) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass: &RenderPassInfo) {
     self.render_list.models.clear();
 
     scene.models.iter_mut().for_each(|model| {
@@ -34,12 +28,7 @@ impl PassContent for ForwardScene {
     self.render_list.update(scene, gpu, pass);
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut GPURenderPass<'a>,
-    scene: &'a Scene,
-    pass_info: &'a PassTargetFormatInfo,
-  ) {
-    self.render_list.setup_pass(pass, scene, pass_info);
+  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+    self.render_list.setup_pass(pass, scene);
   }
 }

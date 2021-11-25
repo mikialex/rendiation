@@ -1,40 +1,49 @@
 use std::{
   any::{Any, TypeId},
-  cell::UnsafeCell,
+  cell::RefCell,
   collections::HashMap,
+  hint::unreachable_unchecked,
   rc::Rc,
 };
 
-pub struct BindGroupLayoutManager {
-  cache: UnsafeCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
+#[derive(Default)]
+pub struct SamplerCache<T> {
+  cache: RefCell<HashMap<T, Rc<wgpu::Sampler>>>,
 }
 
-pub trait BindGroupLayoutProvider {
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
-}
-
-impl BindGroupLayoutManager {
-  pub fn new() -> Self {
-    Self {
-      cache: UnsafeCell::new(HashMap::new()),
-    }
+impl<T> SamplerCache<T>
+where
+  T: Eq + std::hash::Hash + Into<wgpu::SamplerDescriptor<'static>> + Clone,
+{
+  pub fn retrieve(&self, device: &wgpu::Device, desc: &T) -> Rc<wgpu::Sampler> {
+    let mut map = self.cache.borrow_mut();
+    map
+      .entry(desc.clone()) // todo optimize move
+      .or_insert_with(|| Rc::new(device.create_sampler(&desc.clone().into())))
+      .clone()
   }
+}
 
+#[derive(Default)]
+pub struct BindGroupLayoutCache {
+  cache: RefCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
+}
+
+pub trait BindGroupLayoutProvider: 'static {
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
+  fn gen_shader_header(group: usize) -> String;
+}
+
+impl BindGroupLayoutCache {
   pub fn retrieve<T: BindGroupLayoutProvider + Any>(
     &self,
     device: &wgpu::Device,
-  ) -> &Rc<wgpu::BindGroupLayout> {
-    let map = self.cache.get();
-    let map = unsafe { &mut *map };
+  ) -> Rc<wgpu::BindGroupLayout> {
+    let mut map = self.cache.borrow_mut();
     map
       .entry(TypeId::of::<T>())
       .or_insert_with(|| Rc::new(T::layout(device)))
-  }
-}
-
-impl Default for BindGroupLayoutManager {
-  fn default() -> Self {
-    Self::new()
+      .clone()
   }
 }
 
@@ -51,9 +60,11 @@ impl Default for BindGroupLayoutManager {
 /// precisely
 pub trait PipelineVariantContainer: Default {
   type Key;
-  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline);
-
-  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline>;
+  fn request(
+    &mut self,
+    variant: &Self::Key,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline>;
 }
 
 pub enum PipelineUnit {
@@ -68,16 +79,22 @@ impl Default for PipelineUnit {
 
 impl PipelineVariantContainer for PipelineUnit {
   type Key = ();
-  fn request(&mut self, _variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
-    if let PipelineUnit::Empty = self {
-      *self = PipelineUnit::Created(Rc::new(creator()));
-    }
-  }
-  fn retrieve(&self, _variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
+  #[allow(clippy::needless_return)]
+  fn request(
+    &mut self,
+    _variant: &Self::Key,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline> {
     match self {
-      PipelineUnit::Created(p) => p,
-      PipelineUnit::Empty => unreachable!(),
-    }
+      PipelineUnit::Created(p) => return p,
+      PipelineUnit::Empty => {
+        *self = PipelineUnit::Created(Rc::new(creator()));
+      }
+    };
+    match self {
+      PipelineUnit::Created(p) => return p,
+      PipelineUnit::Empty => unsafe { unreachable_unchecked() },
+    };
   }
 }
 
@@ -110,21 +127,18 @@ impl<T> PipelineVariantKeyBuilder for T {}
 
 impl<T: PipelineVariantContainer> PipelineVariantContainer for TopologyPipelineVariant<T> {
   type Key = PipelineVariantKey<T::Key, wgpu::PrimitiveTopology>;
-  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+  fn request(
+    &mut self,
+    variant: &Self::Key,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline> {
     self.pipelines[variant.current as usize]
       .get_or_insert_with(Default::default)
-      .request(&variant.inner, creator);
-  }
-
-  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
-    self.pipelines[variant.current as usize]
-      .as_ref()
-      .unwrap()
-      .retrieve(&variant.inner)
+      .request(&variant.inner, creator)
   }
 }
 
-pub struct PipelineResourceManager {
+pub struct PipelineResourceCache {
   pub cache: HashMap<TypeId, Box<dyn Any>>,
 }
 
@@ -132,7 +146,7 @@ pub trait PipelineRequester: Any {
   type Container: PipelineVariantContainer;
 }
 
-impl PipelineResourceManager {
+impl PipelineResourceCache {
   pub fn new() -> Self {
     Self {
       cache: HashMap::new(),
@@ -158,7 +172,7 @@ impl PipelineResourceManager {
   }
 }
 
-impl Default for PipelineResourceManager {
+impl Default for PipelineResourceCache {
   fn default() -> Self {
     Self::new()
   }

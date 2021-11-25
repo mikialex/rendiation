@@ -5,8 +5,10 @@
 #![feature(type_alias_impl_trait)]
 #![feature(option_result_unwrap_unchecked)]
 #![feature(hash_raw_entry)]
+#![feature(format_args_capture)]
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
+#![allow(clippy::field_reassign_with_default)]
 
 pub mod scene;
 pub use scene::*;

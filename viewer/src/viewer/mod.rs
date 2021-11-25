@@ -4,26 +4,31 @@ use std::rc::Rc;
 pub use examples::*;
 
 pub mod view;
-use rendiation_texture::Size;
 pub use view::*;
 
 pub mod default_scene;
 pub use default_scene::*;
+
+pub mod selection;
+
 pub mod helpers;
+use self::{
+  helpers::axis::AxisHelper,
+  selection::{Picker, SelectionSet},
+};
 
 use interphaser::*;
 use rendiation_controller::{ControllerWinitAdapter, OrbitController};
+use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
-use winit::event::{Event, WindowEvent};
+use winit::event::{ElementState, Event, MouseButton};
 
 use crate::*;
-
-use self::helpers::axis::AxisHelper;
 
 pub struct Viewer {
   _counter: Counter,
   todo: Todo,
-  viewer: ViewerInner,
+  viewer: ViewerImpl,
 }
 
 impl Default for Viewer {
@@ -47,7 +52,7 @@ impl Default for Viewer {
     Viewer {
       _counter: Counter { count: 0 },
       todo,
-      viewer: ViewerInner {
+      viewer: ViewerImpl {
         content: Viewer3dContent::new(),
         size: Size::from_u32_pair_min_one((100, 100)),
         ctx: None,
@@ -85,7 +90,7 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
     .extend(AbsoluteAnchor::default())
 }
 
-impl CanvasPrinter for ViewerInner {
+impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
     self.content.update_state();
     self
@@ -94,8 +99,8 @@ impl CanvasPrinter for ViewerInner {
       .render(canvas, gpu, &mut self.content)
   }
 
-  fn event(&mut self, event: &winit::event::Event<()>) {
-    self.content.event(event)
+  fn event(&mut self, event: &winit::event::Event<()>, states: &WindowState) {
+    self.content.event(event, states)
   }
 
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {
@@ -103,7 +108,8 @@ impl CanvasPrinter for ViewerInner {
     let new_size = Size::from_u32_pair_min_one(new_size);
     if let Some(ctx) = &mut self.ctx {
       if self.size != new_size {
-        ctx.resize_view()
+        ctx.resize_view();
+        self.content.resize_view(layout_size);
       }
     }
     self.size = new_size;
@@ -111,7 +117,7 @@ impl CanvasPrinter for ViewerInner {
   }
 }
 
-pub struct ViewerInner {
+pub struct ViewerImpl {
   content: Viewer3dContent,
   size: Size,
   ctx: Option<Viewer3dRenderingCtx>,
@@ -119,6 +125,8 @@ pub struct ViewerInner {
 
 pub struct Viewer3dContent {
   pub scene: Scene,
+  pub picker: Picker,
+  pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
   pub axis: AxisHelper,
 }
@@ -131,7 +139,7 @@ pub struct Viewer3dRenderingCtx {
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
-      pipeline: Default::default(),
+      pipeline: SimplePipeline::new(gpu.as_ref()),
       engine: RenderEngine::new(gpu),
     }
   }
@@ -163,23 +171,42 @@ impl Viewer3dContent {
     Self {
       scene,
       controller,
+      picker: Default::default(),
+      selections: Default::default(),
       axis,
     }
   }
 
-  fn resize_view(&mut self, size: (f32, f32)) {
+  pub fn resize_view(&mut self, size: (f32, f32)) {
     if let Some(camera) = &mut self.scene.active_camera {
-      camera.projection.resize(size)
+      camera.resize(size)
     }
   }
 
-  pub fn event(&mut self, event: &Event<()>) {
+  pub fn event(&mut self, event: &Event<()>, states: &WindowState) {
     self.controller.event(event);
 
-    if let Event::WindowEvent { event, .. } = event {
-      if let WindowEvent::Resized(size) = event {
-        self.resize_view((size.width as f32, size.height as f32));
-      }
+    #[allow(clippy::single_match)]
+    match event {
+      Event::WindowEvent { event, .. } => match event {
+        winit::event::WindowEvent::MouseInput { state, button, .. } => {
+          if *button == MouseButton::Left && *state == ElementState::Pressed {
+            // todo handle canvas is not full window case;
+            let normalized_position = (
+              states.mouse_position.x / states.size.width * 2. - 1.,
+              states.mouse_position.y / states.size.height * 2. - 1.,
+            );
+
+            self.picker.pick_new(
+              &self.scene,
+              &mut self.selections,
+              normalized_position.into(),
+            );
+          }
+        }
+        _ => {}
+      },
+      _ => {}
     }
   }
 

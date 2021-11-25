@@ -7,15 +7,41 @@ use crate::scene::{ValueID, ValueIDGenerator};
 pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct MaterialStates {
   pub depth_write_enabled: bool,
   pub depth_compare: wgpu::CompareFunction,
-  // pub stencil: wgpu::StencilState,
-  // pub bias: Default::default(),
+  pub stencil: wgpu::StencilState,
+  pub bias: wgpu::DepthBiasState,
   pub blend: Option<wgpu::BlendState>,
   pub write_mask: wgpu::ColorWrites,
 }
+
+impl PartialEq for MaterialStates {
+  fn eq(&self, other: &Self) -> bool {
+    self.depth_write_enabled == other.depth_write_enabled
+      && self.depth_compare == other.depth_compare
+      && self.stencil == other.stencil
+      && self.bias == other.bias
+      && self.blend == other.blend
+      && self.write_mask == other.write_mask
+  }
+}
+
+impl std::hash::Hash for MaterialStates {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.depth_write_enabled.hash(state);
+    self.depth_compare.hash(state);
+    self.stencil.hash(state);
+    self.bias.slope_scale.to_bits().hash(state);
+    self.bias.clamp.to_bits().hash(state);
+    self.bias.constant.hash(state);
+    self.blend.hash(state);
+    self.write_mask.hash(state);
+  }
+}
+
+impl Eq for MaterialStates {}
 
 impl MaterialStates {
   pub fn map_color_states(&self, format: wgpu::TextureFormat) -> wgpu::ColorTargetState {
@@ -33,8 +59,8 @@ impl MaterialStates {
       format,
       depth_write_enabled: self.depth_write_enabled,
       depth_compare: self.depth_compare,
-      stencil: Default::default(),
-      bias: Default::default(),
+      stencil: self.stencil.clone(),
+      bias: self.bias,
     })
   }
 }
@@ -46,6 +72,8 @@ impl Default for MaterialStates {
       depth_compare: wgpu::CompareFunction::Less,
       blend: None,
       write_mask: wgpu::ColorWrites::all(),
+      bias: Default::default(),
+      stencil: Default::default(),
     }
   }
 }
@@ -64,19 +92,15 @@ impl<T> Default for StatePipelineVariant<T> {
 
 impl<T: PipelineVariantContainer> PipelineVariantContainer for StatePipelineVariant<T> {
   type Key = PipelineVariantKey<T::Key, ValueID<MaterialStates>>;
-  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+  fn request(
+    &mut self,
+    variant: &Self::Key,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline> {
     self
       .pipelines
       .entry(variant.current)
       .or_insert_with(Default::default)
-      .request(&variant.inner, creator);
-  }
-
-  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
-    self
-      .pipelines
-      .get(&variant.current)
-      .unwrap()
-      .retrieve(&variant.inner)
+      .request(&variant.inner, creator)
   }
 }
