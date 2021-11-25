@@ -33,13 +33,13 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
     let layout = match text.line_wrap {
       crate::LineWrap::Single => Layout::SingleLine {
         line_breaker: BuiltInLineBreaker::default(),
-        h_align: HorizontalAlign::Center,
-        v_align: VerticalAlign::Center,
+        h_align: text.horizon_align,
+        v_align: text.vertical_align,
       },
       crate::LineWrap::Multiple => Layout::Wrap {
         line_breaker: BuiltInLineBreaker::default(),
-        h_align: HorizontalAlign::Center,
-        v_align: VerticalAlign::Center,
+        h_align: text.horizon_align,
+        v_align: text.vertical_align,
       },
     };
 
@@ -60,7 +60,7 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
     LayoutedTextGlyphs {
       glyphs: raw_result
         .iter()
-        .zip(text.content.chars()) // todo seems buggy
+        .zip(text.content.chars().filter(|c| !c.is_control()))
         .filter_map(|(r, c)| {
           let font = fonts.get_font(r.font_id);
 
