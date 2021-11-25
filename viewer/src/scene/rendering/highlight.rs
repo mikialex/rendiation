@@ -1,4 +1,6 @@
-use crate::{AttachmentOwnedReadView, PassContent, Scene};
+use crate::{
+  AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher, Scene, SceneRenderable,
+};
 
 use rendiation_algebra::Vec4;
 use rendiation_texture::TextureSampler;
@@ -139,19 +141,41 @@ impl HighLightComposer {
 }
 
 pub struct HighLightDrawMaskTask<T> {
-  object: T,
+  objects: T,
 }
 
-pub fn highlight<T>(object: T) -> HighLightDrawMaskTask<T> {
-  HighLightDrawMaskTask { object }
+pub fn highlight<'i, T>(objects: T) -> HighLightDrawMaskTask<T> {
+  HighLightDrawMaskTask { objects }
 }
 
-impl<T> PassContent for HighLightDrawMaskTask<T> {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+struct HighLightMaskDispatcher;
+
+impl PassDispatcher for HighLightMaskDispatcher {
+  fn build_pipeline(&self, builder: &mut PipelineBuilder) {
     todo!()
+  }
+}
+
+impl<'i, T> PassContent for HighLightDrawMaskTask<T>
+where
+  T: IntoIterator<Item = &'i MeshModel> + Copy,
+{
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+    let mut base = scene.create_material_ctx_base(gpu, pass_info, &HighLightMaskDispatcher);
+
+    for model in self.objects {
+      let mut model = model.inner.borrow_mut();
+      model.update(gpu, &mut base);
+    }
   }
 
   fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
-    todo!()
+    for model in self.objects {
+      model.setup_pass(
+        pass,
+        scene.active_camera.as_ref().unwrap().expect_gpu(),
+        &scene.resources,
+      )
+    }
   }
 }

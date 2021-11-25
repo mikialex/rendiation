@@ -7,7 +7,7 @@ use crate::scene::{ValueID, ValueIDGenerator};
 pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct MaterialStates {
   pub depth_write_enabled: bool,
   pub depth_compare: wgpu::CompareFunction,
@@ -15,6 +15,17 @@ pub struct MaterialStates {
   pub bias: wgpu::DepthBiasState,
   pub blend: Option<wgpu::BlendState>,
   pub write_mask: wgpu::ColorWrites,
+}
+
+impl PartialEq for MaterialStates {
+  fn eq(&self, other: &Self) -> bool {
+    self.depth_write_enabled == other.depth_write_enabled
+      && self.depth_compare == other.depth_compare
+      && self.stencil == other.stencil
+      && self.bias == other.bias
+      && self.blend == other.blend
+      && self.write_mask == other.write_mask
+  }
 }
 
 impl std::hash::Hash for MaterialStates {

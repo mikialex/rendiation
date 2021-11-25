@@ -1,9 +1,9 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use rendiation_algebra::Vec2;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 
-use crate::{MeshModel, Scene};
+use crate::{MeshModel, MeshModelImpl, Scene};
 
 #[derive(Default)]
 pub struct Picker {
@@ -26,16 +26,52 @@ impl Picker {
 
 #[derive(Default)]
 pub struct SelectionSet {
-  pub selected: HashSet<MeshModel>,
+  pub selected: HashMap<*mut MeshModelImpl, MeshModel>,
+}
+
+impl<'a> IntoIterator for &'a mut SelectionSet {
+  type Item = &'a mut MeshModel;
+
+  type IntoIter = SelectionSetIterMutType<'a>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    mut_iter(&mut self.selected)
+  }
+}
+
+type SelectionSetIterMutType<'a> = impl Iterator<Item = &'a mut MeshModel>;
+
+fn mut_iter(map: &mut HashMap<*mut MeshModelImpl, MeshModel>) -> SelectionSetIterMutType {
+  map.into_iter().map(|(_, m)| m)
+}
+
+impl<'a> IntoIterator for &'a SelectionSet {
+  type Item = &'a MeshModel;
+
+  type IntoIter = SelectionSetIterType<'a>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    iter(&self.selected)
+  }
+}
+
+type SelectionSetIterType<'a> = impl Iterator<Item = &'a MeshModel>;
+
+fn iter(map: &HashMap<*mut MeshModelImpl, MeshModel>) -> SelectionSetIterType {
+  map.into_iter().map(|(_, m)| m)
 }
 
 impl SelectionSet {
+  pub fn is_empty(&self) -> bool {
+    self.selected.is_empty()
+  }
+
   pub fn select(&mut self, model: &MeshModel) {
-    self.selected.insert(model.clone());
+    self.selected.insert(model.inner.as_ptr(), model.clone());
   }
 
   pub fn deselect(&mut self, model: &MeshModel) {
-    self.selected.remove(model);
+    self.selected.remove(&model.inner.as_ptr());
   }
 
   pub fn clear(&mut self) {

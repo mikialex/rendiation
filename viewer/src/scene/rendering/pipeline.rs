@@ -273,14 +273,14 @@ impl SimplePipeline {
       .render(&mut self.background)
       .render(&mut self.forward);
 
-    let mut highlight_compose = (!content.selections.selected.is_empty() && false).then(||{
+    let mut highlight_compose = (!content.selections.is_empty() && false).then(||{
        let mut selected = attachment()
         .format(wgpu::TextureFormat::Rgba8Unorm)
         .request(engine);
 
       pass("highlight-selected-mask")
         .with_color(selected.write(), clear(color_same(0.)))
-        .render_by(&mut highlight(content.selections.selected.iter()))
+        .render_by(&mut highlight(&content.selections))
         .run(engine, scene);
 
       self.highlight.draw(selected.read_into())

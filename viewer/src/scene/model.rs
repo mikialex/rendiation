@@ -11,19 +11,6 @@ pub struct MeshModel {
   pub inner: Rc<RefCell<MeshModelImpl>>,
 }
 
-impl PartialEq for MeshModel {
-  fn eq(&self, other: &Self) -> bool {
-    Rc::ptr_eq(&self.inner, &other.inner)
-  }
-}
-impl Eq for MeshModel {}
-
-impl Hash for MeshModel {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.inner.as_ptr().hash(state);
-  }
-}
-
 impl MeshModel {
   // todo add type constraint
   pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
