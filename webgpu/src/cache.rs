@@ -79,6 +79,7 @@ impl Default for PipelineUnit {
 
 impl PipelineVariantContainer for PipelineUnit {
   type Key = ();
+  #[allow(clippy::needless_return)]
   fn request(
     &mut self,
     _variant: &Self::Key,

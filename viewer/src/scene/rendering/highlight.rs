@@ -144,7 +144,7 @@ pub struct HighLightDrawMaskTask<T> {
   objects: T,
 }
 
-pub fn highlight<'i, T>(objects: T) -> HighLightDrawMaskTask<T> {
+pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
   HighLightDrawMaskTask { objects }
 }
 

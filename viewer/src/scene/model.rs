@@ -1,4 +1,4 @@
-use std::{cell::RefCell, hash::Hash};
+use std::cell::RefCell;
 
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;

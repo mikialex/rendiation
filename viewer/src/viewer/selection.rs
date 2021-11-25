@@ -26,7 +26,7 @@ impl Picker {
 
 #[derive(Default)]
 pub struct SelectionSet {
-  pub selected: HashMap<*mut MeshModelImpl, MeshModel>,
+  pub selected: HashMap<*const MeshModelImpl, MeshModel>,
 }
 
 impl<'a> IntoIterator for &'a mut SelectionSet {
@@ -41,8 +41,8 @@ impl<'a> IntoIterator for &'a mut SelectionSet {
 
 type SelectionSetIterMutType<'a> = impl Iterator<Item = &'a mut MeshModel>;
 
-fn mut_iter(map: &mut HashMap<*mut MeshModelImpl, MeshModel>) -> SelectionSetIterMutType {
-  map.into_iter().map(|(_, m)| m)
+fn mut_iter(map: &mut HashMap<*const MeshModelImpl, MeshModel>) -> SelectionSetIterMutType {
+  map.iter_mut().map(|(_, m)| m)
 }
 
 impl<'a> IntoIterator for &'a SelectionSet {
@@ -57,8 +57,8 @@ impl<'a> IntoIterator for &'a SelectionSet {
 
 type SelectionSetIterType<'a> = impl Iterator<Item = &'a MeshModel>;
 
-fn iter(map: &HashMap<*mut MeshModelImpl, MeshModel>) -> SelectionSetIterType {
-  map.into_iter().map(|(_, m)| m)
+fn iter(map: &HashMap<*const MeshModelImpl, MeshModel>) -> SelectionSetIterType {
+  map.iter().map(|(_, m)| m)
 }
 
 impl SelectionSet {
@@ -71,7 +71,7 @@ impl SelectionSet {
   }
 
   pub fn deselect(&mut self, model: &MeshModel) {
-    self.selected.remove(&model.inner.as_ptr());
+    self.selected.remove(&(model.inner.as_ptr() as *const _));
   }
 
   pub fn clear(&mut self) {
