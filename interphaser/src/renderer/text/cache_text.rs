@@ -1,3 +1,5 @@
+use linked_hash_map::LinkedHashMap;
+
 use crate::{renderer::text::WebGPUxTextPrimitive, FontManager};
 use std::collections::HashMap;
 
@@ -7,7 +9,8 @@ use super::{
 };
 
 pub struct TextCache {
-  cache: HashMap<TextHash, LayoutedTextGlyphs>,
+  cache_lru_size: usize,
+  cache: LinkedHashMap<TextHash, LayoutedTextGlyphs>,
   queue: HashMap<TextHash, LayoutedTextGlyphs>,
   layouter: Box<dyn TextGlyphLayouter>,
   glyph_cache: GlyphCache,
@@ -16,6 +19,7 @@ pub struct TextCache {
 impl TextCache {
   pub fn new(glyph_cache: GlyphCache, layouter: impl TextGlyphLayouter + 'static) -> Self {
     Self {
+      cache_lru_size: 100,
       cache: Default::default(),
       queue: Default::default(),
       layouter: Box::new(layouter),
@@ -33,7 +37,9 @@ impl TextCache {
   pub fn queue(&mut self, text: &TextInfo, fonts: &FontManager) -> TextHash {
     let layout = self.layouter.layout(text, fonts);
     let hash = text.hash();
-    self.queue.insert(hash, layout);
+    if self.cache.get_refresh(&hash).is_none() {
+      self.queue.insert(hash, layout);
+    }
     hash
   }
 
@@ -51,6 +57,10 @@ impl TextCache {
     tex_cache_update: impl FnMut(TextureCacheAction) -> bool, // return if cache_resize success
     mut vert_cache_update: impl FnMut(TextHash, Vec<TextQuadInstance>),
   ) {
+    while self.cache.len() > self.cache_lru_size {
+      self.cache.pop_front();
+    }
+
     self.queue.iter().for_each(|(_, layout)| {
       for (gly_id, ras_info, _) in &layout.glyphs {
         self.glyph_cache.queue_glyph(*gly_id, *ras_info)
@@ -72,11 +82,10 @@ impl TextCache {
       CacheQueuedResult::Reordering => {
         // refresh all cached text with new glyph position
         for (hash, text) in self.queue.drain() {
-          vert_cache_update(hash, text.generate_gpu_vertex(&self.glyph_cache));
           self.cache.insert(hash, text);
         }
-        for (hash, text) in self.queue.drain() {
-          vert_cache_update(hash, text.generate_gpu_vertex(&self.glyph_cache));
+        for (hash, text) in self.cache.iter() {
+          vert_cache_update(*hash, text.generate_gpu_vertex(&self.glyph_cache));
         }
       }
     }

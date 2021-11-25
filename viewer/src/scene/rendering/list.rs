@@ -9,20 +9,11 @@ pub struct RenderList {
 
 impl RenderList {
   pub fn update(&mut self, scene: &mut Scene, gpu: &GPU, pass: &RenderPassInfo) {
-    if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
+    let mut base = scene.create_material_ctx_base(gpu, pass, &DefaultPassDispatcher);
 
-      let mut base = SceneMaterialRenderPrepareCtxBase {
-        active_camera,
-        camera_gpu,
-        pass,
-        resources: &mut scene.resources,
-      };
-
-      self.models.iter_mut().for_each(|model| {
-        model.update(gpu, &mut base);
-      });
-    }
+    self.models.iter_mut().for_each(|model| {
+      model.update(gpu, &mut base);
+    });
   }
 
   pub fn setup_pass<'p>(&self, gpu_pass: &mut GPURenderPass<'p>, scene: &'p Scene) {

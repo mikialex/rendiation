@@ -26,6 +26,7 @@ pub use model::*;
 pub use node::*;
 pub use picking::*;
 pub use rendering::*;
+use rendiation_algebra::PerspectiveProjection;
 use rendiation_texture::TextureSampler;
 pub use texture::*;
 pub use util::*;
@@ -37,7 +38,7 @@ use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 
 use rendiation_webgpu::{
-  BindGroupLayoutCache, GPURenderPass, PipelineResourceCache, SamplerCache, GPU,
+  BindGroupLayoutCache, GPURenderPass, PipelineResourceCache, RenderPassInfo, SamplerCache, GPU,
 };
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
@@ -46,6 +47,7 @@ pub type LightHandle = Handle<Box<dyn Light>>;
 pub struct Scene {
   pub background: Box<dyn Background>,
 
+  pub default_camera: SceneCamera,
   pub active_camera: Option<SceneCamera>,
   pub cameras: Arena<SceneCamera>,
   pub lights: Arena<SceneLight>,
@@ -62,10 +64,15 @@ impl Scene {
 
     let root = SceneNode::from_root(nodes.clone());
 
+    let default_camera = PerspectiveProjection::default();
+    let camera_node = root.create_child();
+    let default_camera = SceneCamera::new(default_camera, camera_node);
+
     Self {
       nodes,
       root,
       background: Box::new(SolidBackground::default()),
+      default_camera,
       cameras: Arena::new(),
       lights: Arena::new(),
       models: Vec::new(),
@@ -87,6 +94,27 @@ impl Scene {
         NextTraverseVisit::SkipChildren
       }
     });
+  }
+
+  pub fn create_material_ctx_base<'a>(
+    &'a mut self,
+    gpu: &GPU,
+    pass_info: &'a RenderPassInfo,
+    pass: &'a dyn PassDispatcher,
+  ) -> SceneMaterialRenderPrepareCtxBase<'a> {
+    let active_camera = self
+      .active_camera
+      .as_mut()
+      .unwrap_or(&mut self.default_camera);
+    let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
+
+    SceneMaterialRenderPrepareCtxBase {
+      active_camera,
+      camera_gpu,
+      pass_info,
+      resources: &mut self.resources,
+      pass,
+    }
   }
 }
 

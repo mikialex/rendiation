@@ -18,15 +18,7 @@ impl PassContent for AxisHelper {
       return;
     }
 
-    let active_camera = scene.active_camera.as_mut().unwrap();
-    let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
-
-    let mut base = SceneMaterialRenderPrepareCtxBase {
-      active_camera,
-      camera_gpu,
-      pass: pass_info,
-      resources: &mut scene.resources,
-    };
+    let mut base = scene.create_material_ctx_base(gpu, pass_info, &DefaultPassDispatcher);
 
     let root_position = self.root.visit(|n| n.world_matrix.position());
 

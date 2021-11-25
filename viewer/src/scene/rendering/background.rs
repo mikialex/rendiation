@@ -13,8 +13,9 @@ impl PassContent for BackGroundRendering {
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,
         camera_gpu,
-        pass: pass_info,
+        pass_info,
         resources: &mut scene.resources,
+        pass: &DefaultPassDispatcher,
       };
 
       scene.background.update(gpu, &mut base);

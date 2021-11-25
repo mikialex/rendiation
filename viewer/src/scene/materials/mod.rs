@@ -126,6 +126,7 @@ where
 {
   property_changed: bool,
   material: T,
+  current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
   bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
   last_material: Option<T>, // todo
   gpu: Option<T::GPU>,
@@ -136,6 +137,7 @@ impl<T: MaterialCPUResource> MaterialCellImpl<T> {
     Self {
       property_changed: true,
       bindgroup_watcher: Default::default(),
+      current_pipeline: None,
       material,
       last_material: None,
       gpu: None,
@@ -169,10 +171,20 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
   }
 }
 
+pub trait PassDispatcher {
+  fn build_pipeline(&self, builder: &mut PipelineBuilder);
+}
+
+pub struct DefaultPassDispatcher;
+impl PassDispatcher for DefaultPassDispatcher {
+  fn build_pipeline(&self, _builder: &mut PipelineBuilder) {}
+}
+
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
-  pub pass: &'a RenderPassInfo,
+  pub pass_info: &'a RenderPassInfo,
+  pub pass: &'a dyn PassDispatcher,
   pub resources: &'a mut GPUResourceCache,
 }
 
@@ -183,6 +195,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
       PipelineCreateCtx {
         layouts: &self.base.resources.layouts,
         active_mesh: self.active_mesh,
+        pass_info: self.base.pass_info,
         pass: self.base.pass,
       },
     )
@@ -192,7 +205,8 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
 pub struct PipelineCreateCtx<'a, 'b> {
   pub layouts: &'a BindGroupLayoutCache,
   pub active_mesh: Option<&'a dyn Mesh>,
-  pub pass: &'b RenderPassInfo,
+  pub pass_info: &'b RenderPassInfo,
+  pub pass: &'b dyn PassDispatcher,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {
@@ -200,16 +214,6 @@ pub struct SceneMaterialPassSetupCtx<'a> {
   pub model_gpu: Option<&'a TransformGPU>,
   pub active_mesh: Option<&'a dyn Mesh>,
   pub camera_gpu: &'a CameraBindgroup,
-}
-
-impl<'a> SceneMaterialPassSetupCtx<'a> {
-  pub fn pipeline_ctx<'b>(&'a self, pass: &'b RenderPassInfo) -> PipelineCreateCtx<'a, 'b> {
-    PipelineCreateCtx {
-      layouts: &self.resources.layouts,
-      active_mesh: self.active_mesh,
-      pass,
-    }
-  }
 }
 
 pub trait Material {
@@ -246,21 +250,21 @@ where
     let m_gpu = self.gpu.as_mut().unwrap();
     let key = m_gpu.pipeline_key(&self.material, &pipeline_ctx);
 
-    container.request(&key, || {
-      let mut builder = Default::default();
-      m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
-      builder.build(&gpu.device)
-    });
+    self.current_pipeline = container
+      .request(&key, || {
+        let mut builder = Default::default();
+        pipeline_ctx.pass.build_pipeline(&mut builder);
+        m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
+        builder.build(&gpu.device)
+      })
+      .clone()
+      .into();
   }
 
   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
     let gpu = self.gpu.as_ref().unwrap();
 
-    let container = ctx.resources.pipeline_resource.get_cache::<T::GPU>();
-    let pipeline_ctx = ctx.pipeline_ctx(pass.info());
-    let key = gpu.pipeline_key(&self.material, &pipeline_ctx);
-    let pipeline = container.retrieve(&key);
-    pass.set_pipeline_owned(pipeline);
+    pass.set_pipeline_owned(self.current_pipeline.as_ref().unwrap());
 
     gpu.setup_pass_bindgroup(pass, ctx)
   }

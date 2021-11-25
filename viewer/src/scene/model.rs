@@ -173,7 +173,7 @@ impl SceneRenderable for AutoScalableMeshModelImpl {
 
     let camera_view_height = base
       .active_camera
-      .view_size_in_pixel(base.pass.buffer_size)
+      .view_size_in_pixel(base.pass_info.buffer_size)
       .y;
 
     let scale = self.independent_scale_factor

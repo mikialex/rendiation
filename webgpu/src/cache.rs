@@ -2,6 +2,7 @@ use std::{
   any::{Any, TypeId},
   cell::RefCell,
   collections::HashMap,
+  hint::unreachable_unchecked,
   rc::Rc,
 };
 
@@ -59,9 +60,11 @@ impl BindGroupLayoutCache {
 /// precisely
 pub trait PipelineVariantContainer: Default {
   type Key;
-  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline);
-
-  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline>;
+  fn request(
+    &mut self,
+    variant: &Self::Key,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline>;
 }
 
 pub enum PipelineUnit {
@@ -76,16 +79,21 @@ impl Default for PipelineUnit {
 
 impl PipelineVariantContainer for PipelineUnit {
   type Key = ();
-  fn request(&mut self, _variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
-    if let PipelineUnit::Empty = self {
-      *self = PipelineUnit::Created(Rc::new(creator()));
-    }
-  }
-  fn retrieve(&self, _variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
+  fn request(
+    &mut self,
+    _variant: &Self::Key,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline> {
     match self {
-      PipelineUnit::Created(p) => p,
-      PipelineUnit::Empty => unreachable!(),
-    }
+      PipelineUnit::Created(p) => return p,
+      PipelineUnit::Empty => {
+        *self = PipelineUnit::Created(Rc::new(creator()));
+      }
+    };
+    match self {
+      PipelineUnit::Created(p) => return p,
+      PipelineUnit::Empty => unsafe { unreachable_unchecked() },
+    };
   }
 }
 
@@ -118,17 +126,14 @@ impl<T> PipelineVariantKeyBuilder for T {}
 
 impl<T: PipelineVariantContainer> PipelineVariantContainer for TopologyPipelineVariant<T> {
   type Key = PipelineVariantKey<T::Key, wgpu::PrimitiveTopology>;
-  fn request(&mut self, variant: &Self::Key, creator: impl FnOnce() -> wgpu::RenderPipeline) {
+  fn request(
+    &mut self,
+    variant: &Self::Key,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline> {
     self.pipelines[variant.current as usize]
       .get_or_insert_with(Default::default)
-      .request(&variant.inner, creator);
-  }
-
-  fn retrieve(&self, variant: &Self::Key) -> &Rc<wgpu::RenderPipeline> {
-    self.pipelines[variant.current as usize]
-      .as_ref()
-      .unwrap()
-      .retrieve(&variant.inner)
+      .request(&variant.inner, creator)
   }
 }
 

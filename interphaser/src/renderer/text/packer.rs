@@ -89,7 +89,7 @@ impl<'a> GlyphPackFrameTask<'a> {
                 if self.queue.contains_key(k) {
                   break GlyphAddCacheResult::NotEnoughSpace;
                 } else {
-                  let (_, v) = self.packer.pack_info.pop_back().unwrap();
+                  let (_, v) = self.packer.pack_info.pop_front().unwrap();
                   self.packer.packer.unpack(v.0).expect("glyph unpack error");
                 }
               } else {

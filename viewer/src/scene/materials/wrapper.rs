@@ -59,7 +59,7 @@ where
     ctx: &PipelineCreateCtx,
   ) {
     builder.targets = ctx
-      .pass
+      .pass_info
       .format_info
       .color_formats
       .iter()
@@ -68,7 +68,7 @@ where
 
     builder.depth_stencil = source
       .states
-      .map_depth_stencil_state(ctx.pass.format_info.depth_stencil_format);
+      .map_depth_stencil_state(ctx.pass_info.format_info.depth_stencil_format);
 
     builder.with_layout::<TransformGPU>(ctx.layouts, device);
 

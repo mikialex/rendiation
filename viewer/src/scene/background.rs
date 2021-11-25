@@ -205,7 +205,7 @@ pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
     builder.vertex_buffers = vec![Vertex::vertex_layout()];
 
     builder.targets = ctx
-      .pass
+      .pass_info
       .format_info
       .color_formats
       .iter()
@@ -213,6 +213,6 @@ pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
       .collect();
 
     builder.depth_stencil =
-      states.map_depth_stencil_state(ctx.pass.format_info.depth_stencil_format);
+      states.map_depth_stencil_state(ctx.pass_info.format_info.depth_stencil_format);
   }
 }
