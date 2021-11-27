@@ -1,5 +1,7 @@
 use std::sync::Mutex;
 
+use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder};
+
 use crate::scene::ValueIDGenerator;
 
 pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
@@ -60,6 +62,21 @@ impl MaterialStates {
       stencil: self.stencil.clone(),
       bias: self.bias,
     })
+  }
+
+  pub fn apply_pipeline_builder(
+    &self,
+    builder: &mut PipelineBuilder,
+    pass_info: &PassTargetFormatInfo,
+  ) {
+    builder.targets = pass_info
+      .color_formats
+      .iter()
+      .map(|&f| self.map_color_states(f))
+      .collect();
+
+    builder.depth_stencil =
+      self.map_depth_stencil_state(pass_info.depth_stencil_format);
   }
 }
 

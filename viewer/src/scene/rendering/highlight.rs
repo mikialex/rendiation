@@ -1,8 +1,8 @@
 use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
-  full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
-  Scene, SceneRenderable,
+  full_screen_vertex_shader, AttachmentOwnedReadView, MaterialStates, MeshModel, PassContent,
+  PassDispatcher, Scene, SceneRenderable,
 };
 
 use rendiation_algebra::Vec4;
@@ -122,20 +122,11 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
       .resources
       .pipeline_resource
       .get_or_insert_with(hasher, || {
-        let builder = HighLighter::build_pipeline(&gpu.device, &scene.resources.layouts);
-
-        // builder.targets = pass_info
-        //   .format_info
-        //   .color_formats
-        //   .iter()
-        //   .map(|&f| source.states.map_color_states(f))
-        //   .collect();
-
-        // builder.depth_stencil = source
-        //   .states
-        //   .map_depth_stencil_state(ctx.pass_info.format_info.depth_stencil_format);
-
-        builder
+        HighLighter::build_pipeline(
+          &gpu.device,
+          &scene.resources.layouts,
+          &pass_info.format_info,
+        )
       })
       .clone()
       .into();
@@ -149,7 +140,11 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
 }
 
 impl HighLighter {
-  fn build_pipeline(device: &wgpu::Device, layouts: &BindGroupLayoutCache) -> wgpu::RenderPipeline {
+  fn build_pipeline(
+    device: &wgpu::Device,
+    layouts: &BindGroupLayoutCache,
+    format_info: &PassTargetFormatInfo,
+  ) -> wgpu::RenderPipeline {
     let mut builder = PipelineBuilder::default();
     builder.with_topology(wgpu::PrimitiveTopology::TriangleStrip);
 
@@ -175,6 +170,12 @@ impl HighLighter {
     ",
       )
       .use_fragment_entry("fs_main");
+
+    MaterialStates {
+      blend: wgpu::BlendState::ALPHA_BLENDING.into(),
+      ..Default::default()
+    }
+    .apply_pipeline_builder(&mut builder, format_info);
 
     builder.build(device)
   }

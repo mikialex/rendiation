@@ -47,17 +47,9 @@ where
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) {
-    builder.targets = ctx
-      .pass_info
-      .format_info
-      .color_formats
-      .iter()
-      .map(|&f| source.states.map_color_states(f))
-      .collect();
-
-    builder.depth_stencil = source
+    source
       .states
-      .map_depth_stencil_state(ctx.pass_info.format_info.depth_stencil_format);
+      .apply_pipeline_builder(builder, &ctx.pass_info.format_info);
 
     builder.with_layout::<TransformGPU>(ctx.layouts, device);
 
