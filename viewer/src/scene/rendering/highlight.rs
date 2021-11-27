@@ -116,12 +116,26 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
     let mut hasher = Default::default();
 
     TypeId::of::<HighLighter>().hash(&mut hasher);
+    pass_info.format_info.hash(&mut hasher);
 
     self.pipeline = scene
       .resources
       .pipeline_resource
       .get_or_insert_with(hasher, || {
-        HighLighter::build_pipeline(&gpu.device, &scene.resources.layouts)
+        let builder = HighLighter::build_pipeline(&gpu.device, &scene.resources.layouts);
+
+        // builder.targets = pass_info
+        //   .format_info
+        //   .color_formats
+        //   .iter()
+        //   .map(|&f| source.states.map_color_states(f))
+        //   .collect();
+
+        // builder.depth_stencil = source
+        //   .states
+        //   .map_depth_stencil_state(ctx.pass_info.format_info.depth_stencil_format);
+
+        builder
       })
       .clone()
       .into();
@@ -137,17 +151,26 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
 impl HighLighter {
   fn build_pipeline(device: &wgpu::Device, layouts: &BindGroupLayoutCache) -> wgpu::RenderPipeline {
     let mut builder = PipelineBuilder::default();
+    builder.with_topology(wgpu::PrimitiveTopology::TriangleStrip);
 
     full_screen_vertex_shader(&mut builder);
     builder
       .with_layout::<HighLighter>(layouts, device)
+      .declare_struct(
+        "
+      struct VertexOutput {
+        [[builtin(position)]] position: vec4<f32>;
+        [[location(0)]] uv: vec2<f32>;
+      };
+    ",
+      )
       .include_fragment_entry(
         "
-    const CIRCLE_SAMPLES  = 32
+    // const CIRCLE_SAMPLES  = 32
 
     [[stage(fragment)]]
     fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-        return textureSample(r_color, r_sampler, in.uv);
+        return textureSample(mask, sampler, in.uv);
     }}
     ",
       )

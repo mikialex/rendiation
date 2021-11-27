@@ -240,19 +240,23 @@ where
       self.refresh_cache();
     }
 
-    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
     let mut hasher = Default::default();
 
     let m_gpu = self.gpu.as_mut().unwrap();
-    pipeline_ctx.pass.type_id().hash(&mut hasher);
+
     self.material.type_id().hash(&mut hasher);
+    ctx.pass_info.format_info.hash(&mut hasher);
+
+    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
+
+    pipeline_ctx.pass.type_id().hash(&mut hasher);
     m_gpu.hash_pipeline(&self.material, &mut hasher);
 
     self.current_pipeline = pipelines
       .get_or_insert_with(hasher, || {
         let mut builder = Default::default();
-        pipeline_ctx.pass.build_pipeline(&mut builder);
         m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
+        pipeline_ctx.pass.build_pipeline(&mut builder);
         builder.build(&gpu.device)
       })
       .clone()

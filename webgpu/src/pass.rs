@@ -9,7 +9,7 @@ pub struct RenderPassInfo {
   pub format_info: PassTargetFormatInfo,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Hash)]
 pub struct PassTargetFormatInfo {
   pub depth_stencil_format: Option<wgpu::TextureFormat>,
   pub color_formats: Vec<wgpu::TextureFormat>,

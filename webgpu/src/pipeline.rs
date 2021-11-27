@@ -162,12 +162,12 @@ impl PipelineBuilder {
       layout: Some(&pipeline_layout),
       vertex: wgpu::VertexState {
         module: &shader,
-        entry_point: "vs_main",
+        entry_point: self.active_vertex_entry.as_str(),
         buffers: vertex_buffers.as_slice(),
       },
       fragment: Some(wgpu::FragmentState {
         module: &shader,
-        entry_point: "fs_main",
+        entry_point: self.active_fragment_entry.as_str(),
         targets: self.targets.as_slice(),
       }),
       primitive: wgpu::PrimitiveState {
