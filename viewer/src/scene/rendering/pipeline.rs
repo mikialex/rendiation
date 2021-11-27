@@ -273,7 +273,7 @@ impl SimplePipeline {
       .render(&mut self.background)
       .render(&mut self.forward);
 
-    let mut highlight_compose = (!content.selections.is_empty() && false).then(||{
+    let mut highlight_compose = (!content.selections.is_empty()).then(||{
        let mut selected = attachment()
         .format(wgpu::TextureFormat::Rgba8Unorm)
         .request(engine);

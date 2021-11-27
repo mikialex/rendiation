@@ -1,5 +1,8 @@
+use std::rc::Rc;
+
 use crate::{
-  AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher, Scene, SceneRenderable,
+  full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
+  Scene, SceneRenderable,
 };
 
 use rendiation_algebra::Vec4;
@@ -24,6 +27,7 @@ impl HighLighter {
       mask,
       lighter: self,
       bindgroup: None,
+      pipeline: None,
     }
   }
 }
@@ -32,6 +36,7 @@ pub struct HighLightComposeTask<'a> {
   mask: AttachmentOwnedReadView<wgpu::TextureFormat>,
   lighter: &'a HighLighter,
   bindgroup: Option<wgpu::BindGroup>,
+  pipeline: Option<Rc<wgpu::RenderPipeline>>,
 }
 
 impl BindGroupLayoutProvider for HighLighter {
@@ -82,6 +87,10 @@ impl BindGroupLayoutProvider for HighLighter {
   }
 }
 
+impl PipelineRequester for HighLighter {
+  type Container = PipelineUnit;
+}
+
 impl<'x> PassContent for HighLightComposeTask<'x> {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
     let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
@@ -96,7 +105,7 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
           resource: self.mask.as_bindable(),
         },
         wgpu::BindGroupEntry {
-          binding: 1,
+          binding: 2,
           resource: scene
             .resources
             .samplers
@@ -108,25 +117,35 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
     });
     self.bindgroup = Some(bindgroup);
 
-    // todo pipeline
+    let container = scene
+      .resources
+      .pipeline_resource
+      .get_cache_mut::<HighLighter>();
+
+    self.pipeline = container
+      .request(&(), || {
+        HighLighter::build_pipeline(&gpu.device, &scene.resources.layouts)
+      })
+      .clone()
+      .into();
   }
 
   fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
-    // pass.set
+    pass.set_pipeline(self.pipeline.as_ref().unwrap());
+    pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
+    pass.draw(0..4, 0..1);
   }
 }
 
-struct HighLightComposer {
-  buffer: UniformBuffer<Vec4<f32>>,
-  bindgroup: BindGroup,
-}
-
-impl HighLightComposer {
-  fn build_pipeline(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
+impl HighLighter {
+  fn build_pipeline(device: &wgpu::Device, layouts: &BindGroupLayoutCache) -> wgpu::RenderPipeline {
     let mut builder = PipelineBuilder::default();
 
-    builder.include_fragment_entry(
-      "
+    full_screen_vertex_shader(&mut builder);
+    builder
+      .with_layout::<HighLighter>(layouts, device)
+      .include_fragment_entry(
+        "
     const CIRCLE_SAMPLES  = 32
 
     [[stage(fragment)]]
@@ -134,7 +153,8 @@ impl HighLightComposer {
         return textureSample(r_color, r_sampler, in.uv);
     }}
     ",
-    );
+      )
+      .use_fragment_entry("fs_main");
 
     builder.build(device)
   }
@@ -152,7 +172,16 @@ struct HighLightMaskDispatcher;
 
 impl PassDispatcher for HighLightMaskDispatcher {
   fn build_pipeline(&self, builder: &mut PipelineBuilder) {
-    todo!()
+    builder
+      .include_fragment_entry(
+        "
+    [[stage(fragment)]]
+    fn fs_highlight_mask_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
+        return vec4<f32>(1.);
+    }}
+    ",
+      )
+      .use_fragment_entry("fs_highlight_mask_main");
   }
 }
 
