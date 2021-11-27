@@ -73,19 +73,8 @@ pub struct BasicMaterialGPU {
   bindgroup: MaterialBindGroup,
 }
 
-impl PipelineRequester for BasicMaterialGPU {
-  type Container = PipelineUnit;
-}
-
 impl MaterialGPUResource for BasicMaterialGPU {
   type Source = BasicMaterial;
-
-  fn pipeline_key(
-    &self,
-    _source: &Self::Source,
-    _ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key {
-  }
 
   fn create_pipeline(
     &self,

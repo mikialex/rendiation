@@ -49,19 +49,9 @@ pub struct FlatMaterialGPU {
   bindgroup: MaterialBindGroup,
 }
 
-impl PipelineRequester for FlatMaterialGPU {
-  type Container = PipelineUnit;
-}
-
 impl MaterialGPUResource for FlatMaterialGPU {
   type Source = FlatMaterial;
 
-  fn pipeline_key(
-    &self,
-    _source: &Self::Source,
-    _ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key {
-  }
   fn create_pipeline(
     &self,
     _source: &Self::Source,

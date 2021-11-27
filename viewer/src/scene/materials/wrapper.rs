@@ -1,4 +1,4 @@
-use std::{cell::Cell, rc::Rc};
+use std::{cell::Cell, hash::Hash, rc::Rc};
 
 use rendiation_webgpu::*;
 
@@ -26,29 +26,18 @@ pub struct SceneMaterialGPU<T> {
   gpu: T,
 }
 
-impl<T: MaterialGPUResource> PipelineRequester for SceneMaterialGPU<T> {
-  type Container = CommonPipelineCache<T::Container>;
-}
-
 impl<T> MaterialGPUResource for SceneMaterialGPU<T>
 where
   T: MaterialGPUResource,
 {
   type Source = SceneMaterial<T::Source>;
 
-  fn pipeline_key(
-    &self,
-    source: &Self::Source,
-    ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key {
+  fn hash_pipeline(&self, source: &Self::Source, hasher: &mut PipelineHasher) {
     self
       .state_id
       .set(STATE_ID.lock().unwrap().get_uuid(&source.states));
-    self
-      .gpu
-      .pipeline_key(&source.material, ctx)
-      .key_with(self.state_id.get())
-      .key_with(ctx.active_mesh.unwrap().topology())
+    self.state_id.get().hash(hasher);
+    self.gpu.hash_pipeline(&source.material, hasher);
   }
 
   fn create_pipeline(

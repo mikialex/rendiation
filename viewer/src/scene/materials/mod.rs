@@ -1,6 +1,7 @@
 use std::{
   any::Any,
   cell::{Cell, RefCell},
+  hash::Hash,
   ops::{Deref, DerefMut},
   rc::Rc,
 };
@@ -20,8 +21,8 @@ pub mod env_background;
 pub use env_background::*;
 
 use rendiation_webgpu::{
-  BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineRequester, PipelineResourceCache,
-  PipelineUnit, PipelineVariantContainer, RenderPassInfo, TopologyPipelineVariant, GPU,
+  BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher, PipelineResourceCache,
+  RenderPassInfo, GPU,
 };
 
 use crate::*;
@@ -41,7 +42,7 @@ pub trait MaterialCPUResource: Clone {
   fn is_keep_mesh_shape(&self) -> bool;
 }
 
-pub trait MaterialGPUResource: Sized + PipelineRequester {
+pub trait MaterialGPUResource: Sized {
   type Source: MaterialCPUResource<GPU = Self>;
 
   /// This Hook will be called before this material rendering(set_pass)
@@ -59,11 +60,7 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
     true
   }
 
-  fn pipeline_key(
-    &self,
-    source: &Self::Source,
-    ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key;
+  fn hash_pipeline(&self, _source: &Self::Source, _hasher: &mut PipelineHasher) {}
 
   fn create_pipeline(
     &self,
@@ -171,7 +168,7 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
   }
 }
 
-pub trait PassDispatcher {
+pub trait PassDispatcher: Any {
   fn build_pipeline(&self, builder: &mut PipelineBuilder);
 }
 
@@ -228,7 +225,6 @@ impl<T> Material for MaterialCellImpl<T>
 where
   T: 'static,
   T: MaterialCPUResource,
-  T::GPU: PipelineRequester,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -245,13 +241,15 @@ where
     }
 
     let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-    let container = pipelines.get_cache_mut::<T::GPU>();
+    let mut hasher = Default::default();
 
     let m_gpu = self.gpu.as_mut().unwrap();
-    let key = m_gpu.pipeline_key(&self.material, &pipeline_ctx);
+    pipeline_ctx.pass.type_id().hash(&mut hasher);
+    self.material.type_id().hash(&mut hasher);
+    m_gpu.hash_pipeline(&self.material, &mut hasher);
 
-    self.current_pipeline = container
-      .request(&key, || {
+    self.current_pipeline = pipelines
+      .get_or_insert_with(hasher, || {
         let mut builder = Default::default();
         pipeline_ctx.pass.build_pipeline(&mut builder);
         m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
@@ -287,7 +285,6 @@ impl<T> Material for MaterialCell<T>
 where
   T: 'static,
   T: MaterialCPUResource,
-  T::GPU: PipelineRequester,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -317,5 +314,3 @@ where
     self
   }
 }
-
-pub type CommonPipelineCache<T = PipelineUnit> = TopologyPipelineVariant<StatePipelineVariant<T>>;

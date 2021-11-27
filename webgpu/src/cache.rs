@@ -1,8 +1,8 @@
 use std::{
   any::{Any, TypeId},
   cell::RefCell,
-  collections::HashMap,
-  hint::unreachable_unchecked,
+  collections::{hash_map::DefaultHasher, HashMap},
+  hash::Hasher,
   rc::Rc,
 };
 
@@ -47,103 +47,24 @@ impl BindGroupLayoutCache {
   }
 }
 
-/// The pipeline cache container abstraction
-///
-/// To get a cached pipeline, the common idea is to hashing the relevant state
-/// and visit a hashmap. In this case, the hashmap is the pipeline cache container.
-/// But to maximize performance, some case user just don't need hash if they know
-/// enough information about the cached pipeline. For example only cache the pipeline
-/// variant by primitive topology
-///
-/// This trait abstract the variant key to cached pipeline get and create logic
-/// and user can compose their key and container to compose the cache container behavior
-/// precisely
-pub trait PipelineVariantContainer: Default {
-  type Key;
-  fn request(
-    &mut self,
-    variant: &Self::Key,
-    creator: impl FnOnce() -> wgpu::RenderPipeline,
-  ) -> &Rc<wgpu::RenderPipeline>;
-}
-
-pub enum PipelineUnit {
-  Created(Rc<wgpu::RenderPipeline>),
-  Empty,
-}
-impl Default for PipelineUnit {
-  fn default() -> Self {
-    PipelineUnit::Empty
-  }
-}
-
-impl PipelineVariantContainer for PipelineUnit {
-  type Key = ();
-  #[allow(clippy::needless_return)]
-  fn request(
-    &mut self,
-    _variant: &Self::Key,
-    creator: impl FnOnce() -> wgpu::RenderPipeline,
-  ) -> &Rc<wgpu::RenderPipeline> {
-    match self {
-      PipelineUnit::Created(p) => return p,
-      PipelineUnit::Empty => {
-        *self = PipelineUnit::Created(Rc::new(creator()));
-      }
-    };
-    match self {
-      PipelineUnit::Created(p) => return p,
-      PipelineUnit::Empty => unsafe { unreachable_unchecked() },
-    };
-  }
-}
-
-pub struct TopologyPipelineVariant<T> {
-  pipelines: [Option<T>; 5],
-}
-
-impl<T> Default for TopologyPipelineVariant<T> {
-  fn default() -> Self {
-    Self {
-      pipelines: [None, None, None, None, None],
-    }
-  }
-}
-
-pub struct PipelineVariantKey<T, K> {
-  pub current: K,
-  pub inner: T,
-}
-
-pub trait PipelineVariantKeyBuilder: Sized {
-  fn key_with<K>(self, current: K) -> PipelineVariantKey<Self, K> {
-    PipelineVariantKey {
-      current,
-      inner: self,
-    }
-  }
-}
-impl<T> PipelineVariantKeyBuilder for T {}
-
-impl<T: PipelineVariantContainer> PipelineVariantContainer for TopologyPipelineVariant<T> {
-  type Key = PipelineVariantKey<T::Key, wgpu::PrimitiveTopology>;
-  fn request(
-    &mut self,
-    variant: &Self::Key,
-    creator: impl FnOnce() -> wgpu::RenderPipeline,
-  ) -> &Rc<wgpu::RenderPipeline> {
-    self.pipelines[variant.current as usize]
-      .get_or_insert_with(Default::default)
-      .request(&variant.inner, creator)
-  }
-}
-
+#[derive(Default)]
 pub struct PipelineResourceCache {
-  pub cache: HashMap<TypeId, Box<dyn Any>>,
+  pub cache: HashMap<u64, Rc<wgpu::RenderPipeline>>,
 }
 
-pub trait PipelineRequester: Any {
-  type Container: PipelineVariantContainer;
+#[derive(Default)]
+pub struct PipelineHasher {
+  hasher: DefaultHasher,
+}
+
+impl std::hash::Hasher for PipelineHasher {
+  fn finish(&self) -> u64 {
+    self.hasher.finish()
+  }
+
+  fn write(&mut self, bytes: &[u8]) {
+    self.hasher.write(bytes)
+  }
 }
 
 impl PipelineResourceCache {
@@ -153,27 +74,12 @@ impl PipelineResourceCache {
     }
   }
 
-  pub fn get_cache_mut<M: PipelineRequester>(&mut self) -> &mut M::Container {
-    self
-      .cache
-      .entry(TypeId::of::<M>())
-      .or_insert_with(|| Box::new(M::Container::default()))
-      .downcast_mut::<M::Container>()
-      .unwrap()
-  }
-
-  pub fn get_cache<M: PipelineRequester>(&self) -> &M::Container {
-    self
-      .cache
-      .get(&TypeId::of::<M>())
-      .unwrap()
-      .downcast_ref::<M::Container>()
-      .unwrap()
-  }
-}
-
-impl Default for PipelineResourceCache {
-  fn default() -> Self {
-    Self::new()
+  pub fn get_or_insert_with(
+    &mut self,
+    hasher: PipelineHasher,
+    creator: impl FnOnce() -> wgpu::RenderPipeline,
+  ) -> &Rc<wgpu::RenderPipeline> {
+    let key = hasher.finish();
+    self.cache.entry(key).or_insert_with(|| Rc::new(creator()))
   }
 }

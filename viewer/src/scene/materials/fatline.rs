@@ -44,19 +44,9 @@ impl BindGroupLayoutProvider for FatLineMaterial {
   }
 }
 
-impl PipelineRequester for FatlineMaterialGPU {
-  type Container = PipelineUnit;
-}
-
 impl MaterialGPUResource for FatlineMaterialGPU {
   type Source = FatLineMaterial;
 
-  fn pipeline_key(
-    &self,
-    _source: &Self::Source,
-    _ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key {
-  }
   fn create_pipeline(
     &self,
     _source: &Self::Source,

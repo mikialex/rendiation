@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
   full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
@@ -87,10 +87,6 @@ impl BindGroupLayoutProvider for HighLighter {
   }
 }
 
-impl PipelineRequester for HighLighter {
-  type Container = PipelineUnit;
-}
-
 impl<'x> PassContent for HighLightComposeTask<'x> {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
     let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
@@ -117,13 +113,14 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
     });
     self.bindgroup = Some(bindgroup);
 
-    let container = scene
+    let mut hasher = Default::default();
+
+    TypeId::of::<HighLighter>().hash(&mut hasher);
+
+    self.pipeline = scene
       .resources
       .pipeline_resource
-      .get_cache_mut::<HighLighter>();
-
-    self.pipeline = container
-      .request(&(), || {
+      .get_or_insert_with(hasher, || {
         HighLighter::build_pipeline(&gpu.device, &scene.resources.layouts)
       })
       .clone()
