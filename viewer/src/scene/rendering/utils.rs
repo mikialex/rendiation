@@ -1,3 +1,4 @@
+use rendiation_algebra::Vec2;
 use rendiation_webgpu::PipelineBuilder;
 
 pub fn full_screen_vertex_shader(builder: &mut PipelineBuilder) {
@@ -19,16 +20,19 @@ pub fn full_screen_vertex_shader(builder: &mut PipelineBuilder) {
         switch (i32(vertex_index)) {
           case 0: {
             out.position = vec4<f32>(left, top, depth, 1.);
-            // out.uv = 
+            out.uv = vec2<f32>(0., 0.);
           }
           case 1: {
             out.position = vec4<f32>(right, top, depth, 1.);
+            out.uv = vec2<f32>(1., 0.);
           }
           case 2: {
             out.position = vec4<f32>(left, bottom, depth, 1.);
+            out.uv = vec2<f32>(0., 1.);
           }
           case 3: {
             out.position = vec4<f32>(right, bottom, depth, 1.);
+            out.uv = vec2<f32>(1., 1.);
           }
         }
 
@@ -37,4 +41,10 @@ pub fn full_screen_vertex_shader(builder: &mut PipelineBuilder) {
     ",
     )
     .use_vertex_entry("vs_main_full_screen");
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod)]
+pub struct RenderPassGPUInfoData {
+  pub texel_size: Vec2<f32>,
 }

@@ -170,11 +170,7 @@ impl PipelineBuilder {
         entry_point: self.active_fragment_entry.as_str(),
         targets: self.targets.as_slice(),
       }),
-      primitive: wgpu::PrimitiveState {
-        cull_mode: None,
-        topology: wgpu::PrimitiveTopology::TriangleList,
-        ..Default::default()
-      },
+      primitive: self.primitive_state,
       depth_stencil: self.depth_stencil.clone(),
       multisample: wgpu::MultisampleState::default(),
     })
