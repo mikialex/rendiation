@@ -82,7 +82,7 @@ impl Arrow {
 
   fn new(
     parent: &SceneNode,
-    color: Vec3<f32>,
+    color: impl Into<Vec3<f32>>,
     cylinder_mesh: impl Mesh + 'static,
     tip_mesh: impl Mesh + 'static,
   ) -> Self {
@@ -95,7 +95,7 @@ impl Arrow {
       material.states.depth_compare = wgpu::CompareFunction::Always;
       MaterialCell::new(material)
     }
-    let material = material(color);
+    let material = material(color.into());
 
     let root = parent.create_child();
 
@@ -141,17 +141,17 @@ impl AxisHelper {
     .tessellate();
     let tip = MeshCell::new(tip);
 
-    let x = Arrow::new(&root, Vec3::new(1., 0., 0.), cylinder.clone(), tip.clone());
+    let x = Arrow::new(&root, (0.8, 0.1, 0.1), cylinder.clone(), tip.clone());
     x.root.mutate(|node| {
       node.local_matrix = Mat4::rotate_z(-f32::PI() / 2.);
     });
 
-    let y = Arrow::new(&root, Vec3::new(0., 1., 0.), cylinder.clone(), tip.clone());
+    let y = Arrow::new(&root, (0.1, 0.8, 0.1), cylinder.clone(), tip.clone());
     y.root.mutate(|_| {
       // the cylinder is y up, so do nothing
     });
 
-    let z = Arrow::new(&root, Vec3::new(0., 0., 1.), cylinder, tip);
+    let z = Arrow::new(&root, (0.1, 0.1, 0.8), cylinder, tip);
     z.root.mutate(|node| {
       node.local_matrix = Mat4::rotate_x(f32::PI() / 2.);
     });

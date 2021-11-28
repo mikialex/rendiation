@@ -23,8 +23,8 @@ pub struct HighLightData {
 impl Default for HighLightData {
   fn default() -> Self {
     Self {
-      color: (0., 0.8, 1., 1.).into(),
-      width: 1.,
+      color: (0., 0.4, 8., 1.).into(),
+      width: 2.,
     }
   }
 }
@@ -62,7 +62,7 @@ impl BindGroupLayoutProvider for HighLighter {
       entries: &[
         wgpu::BindGroupLayoutEntry {
           binding: 0,
-          visibility: wgpu::ShaderStages::VERTEX,
+          visibility: wgpu::ShaderStages::FRAGMENT,
           ty: UniformBuffer::<Vec4<f32>>::bind_layout(),
           count: None,
         },
@@ -215,8 +215,8 @@ impl HighLighter {
         "
     [[stage(fragment)]]
     fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-      var x_step: f32 = pass_info.texel_size.x;
-      var y_step: f32 = pass_info.texel_size.y;
+      var x_step: f32 = pass_info.texel_size.x * highlighter.width;
+      var y_step: f32 = pass_info.texel_size.y * highlighter.width;
 
       var all: f32 = 0.0;
       all = all + textureSample(mask, sampler, in.uv).x;
@@ -224,7 +224,9 @@ impl HighLighter {
       all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
       all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
 
-      return vec4<f32>(all / 4.);
+      var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
+
+      return vec4<f32>(highlighter.color.rgb, intensity);
     }}
     ",
       )
