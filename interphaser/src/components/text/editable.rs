@@ -62,6 +62,8 @@ impl EditableText {
       };
 
       self.cursor = Cursor::new(text_index).into()
+    } else {
+      self.cursor = None;
     }
   }
 
