@@ -112,7 +112,7 @@ impl Arrow {
     node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
     let mut tip = MeshModelImpl::new(material, tip_mesh, node_tip).into_matrix_overridable();
 
-    tip.push_override(auto_scale.clone());
+    tip.push_override(auto_scale);
 
     Self {
       root,

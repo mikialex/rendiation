@@ -286,6 +286,6 @@ impl WorldMatrixOverride for BillBoard {
     let rotation = Mat4::lookat(position, camera_position, Vec3::new(0., 1., 0.));
 
     // there must be cheaper ways
-    correction * rotation * scale * position_m
+    position_m * rotation * correction * scale
   }
 }
