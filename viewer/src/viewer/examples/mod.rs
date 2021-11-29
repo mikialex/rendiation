@@ -1,79 +1,44 @@
-use interphaser::*;
+use std::any::Any;
 
-use crate::button;
+use interphaser::UIComponent;
 
-pub struct Todo {
-  pub items: Vec<TodoItem>,
+pub mod counter;
+pub mod todo;
+
+use counter::*;
+use todo::*;
+
+pub struct UIExamples {
+  examples: Vec<Box<dyn Any>>,
 }
 
-#[derive(Clone, PartialEq)]
-pub struct TodoItem {
-  pub id: usize,
-  pub name: String,
-}
+impl Default for UIExamples {
+  fn default() -> Self {
+    let mut r = Self {
+      examples: Default::default(),
+    };
 
-// todo change to id
-impl IdentityKeyed for TodoItem {
-  type Key = usize;
+    let todo = Todo {
+      items: vec![
+        TodoItem {
+          name: String::from("t1中文测试"),
+          id: 0,
+        },
+        TodoItem {
+          name: String::from("test 2"),
+          id: 1,
+        },
+        TodoItem {
+          name: String::from("test gh3"),
+          id: 2,
+        },
+      ],
+    };
 
-  fn key(&self) -> Self::Key {
-    self.id
+    r.examples.push(Box::new(todo));
+    //  r.push(Box::new(Counter::default()));
+    r
   }
 }
 
-pub fn build_todo() -> impl UIComponent<Todo> {
-  For::by(|_| Child::flex(build_todo_item(), 1.))
-    .extend(Flex::column())
-    .extend(TodoItemDeleteHandler::by(|s: &mut Vec<TodoItem>, _, e| {
-      s.remove(s.iter().position(|item| item.name == e.name).unwrap());
-    }))
-    .extend(Container::size((800., 1000.)))
-    .lens(lens!(Todo, items))
-}
-
-pub struct TodoItemDeleteEvent {
-  name: String,
-}
-
-#[derive(Default)]
-pub struct TodoItemDelete;
-pub type TodoItemDeleteHandler<T> = EventHandler<T, TodoItemDelete>;
-impl EventHandlerType for TodoItemDelete {
-  type Event = TodoItemDeleteEvent;
-}
-impl<C> EventHandlerImpl<C> for TodoItemDelete {
-  fn downcast_event<'a>(&mut self, event: &'a mut EventCtx, _inner: &C) -> Option<&'a Self::Event> {
-    event
-      .custom_event
-      .consume_if_type_is::<TodoItemDeleteEvent>()
-  }
-  fn should_handle_in_bubble(&self) -> bool {
-    true
-  }
-}
-
-pub fn build_todo_item() -> impl UIComponent<TodoItem> {
-  let label = Text::default()
-    .editable()
-    .lens(lens!(TodoItem, name))
-    .extend(Container::size((200., 100.)));
-
-  let button = button("delete", |s: &mut TodoItem, c, _| {
-    println!("delete {}", s.name);
-    c.emit(TodoItemDeleteEvent {
-      name: s.name.clone(),
-    })
-  });
-
-  flex_group()
-    .child(Child::flex(label, 1.))
-    .child(Child::flex(button, 1.))
-    .extend(Flex::row())
-    .extend(Container::size((500., 120.)))
-}
-
-#[derive(PartialEq, Clone, Default)]
-
-pub struct Counter {
-  pub count: usize,
-}
+// pub fn build_ui_examples() -> impl UIComponent<UIExamples> {}

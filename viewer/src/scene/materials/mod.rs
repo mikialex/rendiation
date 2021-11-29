@@ -13,6 +13,8 @@ pub use wrapper::*;
 
 pub mod flat;
 pub use flat::*;
+pub mod line;
+pub use line::*;
 pub mod basic;
 pub use basic::*;
 pub mod fatline;
@@ -240,6 +242,8 @@ where
       self.refresh_cache();
     }
 
+    let topology = ctx.active_mesh.unwrap().topology();
+
     let mut hasher = Default::default();
 
     let m_gpu = self.gpu.as_mut().unwrap();
@@ -254,7 +258,9 @@ where
 
     self.current_pipeline = pipelines
       .get_or_insert_with(hasher, || {
-        let mut builder = Default::default();
+        let mut builder = PipelineBuilder::default();
+        builder.primitive_state.topology = topology;
+
         m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
         pipeline_ctx.pass.build_pipeline(&mut builder);
         builder.build(&gpu.device)

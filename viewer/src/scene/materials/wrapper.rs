@@ -85,8 +85,6 @@ where
       .create_pipeline(&source.material, builder, device, ctx);
 
     builder.with_layout::<CameraBindgroup>(ctx.layouts, device);
-
-    builder.primitive_state.topology = ctx.active_mesh.unwrap().topology();
   }
 
   fn setup_pass_bindgroup<'a>(

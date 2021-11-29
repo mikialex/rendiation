@@ -26,32 +26,14 @@ use winit::event::{ElementState, Event, MouseButton};
 use crate::*;
 
 pub struct Viewer {
-  _counter: Counter,
-  todo: Todo,
+  ui_examples: UIExamples,
   viewer: ViewerImpl,
 }
 
 impl Default for Viewer {
   fn default() -> Self {
-    let todo = Todo {
-      items: vec![
-        TodoItem {
-          name: String::from("t1中文测试"),
-          id: 0,
-        },
-        TodoItem {
-          name: String::from("test 2"),
-          id: 1,
-        },
-        TodoItem {
-          name: String::from("test gh3"),
-          id: 2,
-        },
-      ],
-    };
     Viewer {
-      _counter: Counter { count: 0 },
-      todo,
+      ui_examples: Default::default(),
       viewer: ViewerImpl {
         content: Viewer3dContent::new(),
         size: Size::from_u32_pair_min_one((100, 100)),
@@ -85,7 +67,7 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
     .child(AbsChild::new(
       GPUCanvas::default().lens(lens!(Viewer, viewer)),
     ))
-    .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
+    // .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
     .child(AbsChild::new(perf_panel()))
     .extend(AbsoluteAnchor::default())
 }
@@ -194,7 +176,7 @@ impl Viewer3dContent {
             // todo handle canvas is not full window case;
             let normalized_position = (
               states.mouse_position.x / states.size.width * 2. - 1.,
-              states.mouse_position.y / states.size.height * 2. - 1.,
+              -(states.mouse_position.y / states.size.height * 2. - 1.),
             );
 
             self.picker.pick_new(

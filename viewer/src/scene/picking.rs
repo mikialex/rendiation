@@ -15,10 +15,10 @@ impl Scene {
     let mut result = Vec::new();
 
     let camera = self.active_camera.as_ref().unwrap();
-    let view_mat = camera.node.visit(|n| n.world_matrix).inverse_or_identity();
+    let camera_world_mat = camera.node.visit(|n| n.world_matrix);
     let world_ray = camera
       .cast_world_ray(normalized_position)
-      .apply_matrix_into(view_mat);
+      .apply_matrix_into(camera_world_mat);
 
     for m in self.models.iter() {
       let model = m.inner.borrow();

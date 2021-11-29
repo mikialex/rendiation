@@ -12,7 +12,6 @@ pub struct BasicMaterial {
   pub color: Vec3<f32>,
   pub sampler: TextureSampler,
   pub texture: SceneTexture2D,
-  pub states: MaterialStates,
 }
 
 impl MaterialMeshLayoutRequire for BasicMaterial {
