@@ -21,6 +21,7 @@ pub struct PipelineBuilder {
   pub vertex_input: String,
   pub vertex_buffers: Vec<VertexBufferLayoutOwned>,
   pub primitive_state: wgpu::PrimitiveState,
+  pub multisample: wgpu::MultisampleState,
 }
 
 impl Default for PipelineBuilder {
@@ -44,6 +45,7 @@ impl Default for PipelineBuilder {
       active_vertex_entry: Default::default(),
       active_fragment_entry: Default::default(),
       vertex_input: Default::default(),
+      multisample: Default::default(),
     }
   }
 }
@@ -172,7 +174,7 @@ impl PipelineBuilder {
       }),
       primitive: self.primitive_state,
       depth_stencil: self.depth_stencil.clone(),
-      multisample: wgpu::MultisampleState::default(),
+      multisample: self.multisample,
     })
   }
 }

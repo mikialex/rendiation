@@ -234,6 +234,8 @@ impl HighLighter {
 
     MaterialStates {
       blend: wgpu::BlendState::ALPHA_BLENDING.into(),
+      depth_write_enabled: false,
+      depth_compare: wgpu::CompareFunction::Always,
       ..Default::default()
     }
     .apply_pipeline_builder(&mut builder, format_info);

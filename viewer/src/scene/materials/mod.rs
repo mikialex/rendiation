@@ -243,6 +243,7 @@ where
     }
 
     let topology = ctx.active_mesh.unwrap().topology();
+    let sample_count = ctx.pass_info.format_info.sample_count;
 
     let mut hasher = Default::default();
 
@@ -259,7 +260,9 @@ where
     self.current_pipeline = pipelines
       .get_or_insert_with(hasher, || {
         let mut builder = PipelineBuilder::default();
+
         builder.primitive_state.topology = topology;
+        builder.multisample.count = sample_count;
 
         m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
         pipeline_ctx.pass.build_pipeline(&mut builder);

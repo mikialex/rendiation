@@ -48,7 +48,7 @@ impl GPUCommandEncoder {
       .iter()
       .map(|(ops, view, _)| wgpu::RenderPassColorAttachment {
         view,
-        resolve_target: None,
+        resolve_target: des.resolve_target.as_ref().map(|t| t.as_ref()),
         ops: *ops,
       })
       .collect();

@@ -75,8 +75,7 @@ impl MaterialStates {
       .map(|&f| self.map_color_states(f))
       .collect();
 
-    builder.depth_stencil =
-      self.map_depth_stencil_state(pass_info.depth_stencil_format);
+    builder.depth_stencil = self.map_depth_stencil_state(pass_info.depth_stencil_format);
   }
 }
 

@@ -9,10 +9,21 @@ pub struct RenderPassInfo {
   pub format_info: PassTargetFormatInfo,
 }
 
-#[derive(Clone, Default, Hash)]
+#[derive(Clone, Hash)]
 pub struct PassTargetFormatInfo {
   pub depth_stencil_format: Option<wgpu::TextureFormat>,
   pub color_formats: Vec<wgpu::TextureFormat>,
+  pub sample_count: u32,
+}
+
+impl Default for PassTargetFormatInfo {
+  fn default() -> Self {
+    Self {
+      depth_stencil_format: Default::default(),
+      color_formats: Default::default(),
+      sample_count: 1,
+    }
+  }
 }
 
 #[derive(Clone, Default)]
@@ -20,6 +31,7 @@ pub struct RenderPassDescriptorOwned {
   pub name: String,
   pub channels: Vec<(wgpu::Operations<wgpu::Color>, Rc<wgpu::TextureView>, Size)>,
   pub depth_stencil_target: Option<(wgpu::Operations<f32>, Rc<wgpu::TextureView>)>,
+  pub resolve_target: Option<Rc<wgpu::TextureView>>,
   pub info: PassTargetFormatInfo,
 }
 
