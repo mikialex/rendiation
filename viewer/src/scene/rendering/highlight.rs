@@ -5,7 +5,7 @@ use crate::{
   PassDispatcher, RenderPassGPUInfoData, Scene, SceneRenderable,
 };
 
-use rendiation_algebra::{Vec2, Vec4};
+use rendiation_algebra::*;
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 
@@ -18,6 +18,7 @@ pub struct HighLighter {
 pub struct HighLightData {
   pub color: Vec4<f32>,
   pub width: f32,
+  pub _pad: Vec3<f32>,
 }
 
 impl Default for HighLightData {
@@ -25,6 +26,7 @@ impl Default for HighLightData {
     Self {
       color: (0., 0.4, 8., 1.).into(),
       width: 2.,
+      _pad: Default::default(),
     }
   }
 }

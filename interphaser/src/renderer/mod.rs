@@ -330,22 +330,10 @@ impl VertexBufferSourceType for UIVertex {
     wgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<UIVertex>() as u64,
       step_mode: wgpu::VertexStepMode::Vertex,
-      attributes: &[
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x2,
-          offset: 0,
-          shader_location: 0,
-        },
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x2,
-          offset: 4 * 2,
-          shader_location: 1,
-        },
-        wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x4,
-          offset: 4 * 2 + 4 * 2,
-          shader_location: 2,
-        },
+      attributes: &wgpu::vertex_attr_array![
+        0 => Float32x2,
+        1 => Float32x2,
+        2 => Float32x4,
       ],
     }
     .into()
