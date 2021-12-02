@@ -6,9 +6,7 @@ use rendiation_webgpu::{
   RenderPassInfo, WebGPUTexture2d, GPU,
 };
 
-use crate::{
-  full_screen_vertex_shader, AttachmentOwnedReadView, MaterialStates, PassContent, Scene,
-};
+use crate::{full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, Scene};
 
 pub struct CopyFrame {
   source: AttachmentOwnedReadView<wgpu::TextureFormat>,
@@ -56,23 +54,15 @@ impl PassContent for CopyFrame {
       .pipeline_resource
       .get_or_insert_with(hasher, || {
         let mut builder = PipelineBuilder::default();
-        builder.primitive_state = wgpu::PrimitiveState {
-          topology: wgpu::PrimitiveTopology::TriangleStrip,
-          front_face: wgpu::FrontFace::Cw,
-          ..Default::default()
-        };
 
-        full_screen_vertex_shader(&mut builder);
+        full_screen_vertex_shader(
+          &mut builder,
+          wgpu::BlendState::ALPHA_BLENDING.into(),
+          &pass_info.format_info,
+        );
+
         builder
           .with_layout::<Self>(&scene.resources.layouts, &gpu.device)
-          .declare_io_struct(
-            "
-            struct VertexOutput {
-              [[builtin(position)]] position: vec4<f32>;
-              [[location(0)]] uv: vec2<f32>;
-            };
-          ",
-          )
           .include_fragment_entry(
             "
           [[stage(fragment)]]
@@ -82,14 +72,6 @@ impl PassContent for CopyFrame {
           ",
           )
           .use_fragment_entry("fs_main");
-
-        MaterialStates {
-          blend: wgpu::BlendState::ALPHA_BLENDING.into(),
-          depth_write_enabled: false,
-          depth_compare: wgpu::CompareFunction::Always,
-          ..Default::default()
-        }
-        .apply_pipeline_builder(&mut builder, &pass_info.format_info);
 
         builder.build(&gpu.device)
       })

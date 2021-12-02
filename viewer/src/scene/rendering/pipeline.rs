@@ -418,7 +418,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
 
   #[must_use]
   pub fn resolve_to(mut self, attachment: AttachmentWriteView<wgpu::TextureFormat>) -> Self {
-    self.desc.resolve_target = attachment.view.clone().into();
+    self.desc.resolve_target = attachment.view.into();
     self
   }
 

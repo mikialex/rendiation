@@ -1,8 +1,36 @@
 use rendiation_algebra::Vec2;
-use rendiation_webgpu::{PipelineBuilder, ShaderUniformBlock};
+use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder, ShaderUniformBlock};
 
-pub fn full_screen_vertex_shader(builder: &mut PipelineBuilder) {
+use crate::MaterialStates;
+
+pub fn full_screen_vertex_shader(
+  builder: &mut PipelineBuilder,
+  blend: Option<wgpu::BlendState>,
+  format_info: &PassTargetFormatInfo,
+) {
+  builder.primitive_state = wgpu::PrimitiveState {
+    topology: wgpu::PrimitiveTopology::TriangleStrip,
+    front_face: wgpu::FrontFace::Cw,
+    ..Default::default()
+  };
+
+  MaterialStates {
+    blend,
+    depth_write_enabled: false,
+    depth_compare: wgpu::CompareFunction::Always,
+    ..Default::default()
+  }
+  .apply_pipeline_builder(builder, format_info);
+
   builder
+    .declare_io_struct(
+      "
+        struct VertexOutput {
+          [[builtin(position)]] position: vec4<f32>;
+          [[location(0)]] uv: vec2<f32>;
+        };
+      ",
+    )
     .include_vertex_entry(
       "
       [[stage(vertex)]]

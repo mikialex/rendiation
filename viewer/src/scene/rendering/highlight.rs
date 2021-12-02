@@ -1,8 +1,8 @@
 use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
-  full_screen_vertex_shader, AttachmentOwnedReadView, MaterialStates, MeshModel, PassContent,
-  PassDispatcher, RenderPassGPUInfoData, Scene, SceneRenderable,
+  full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
+  RenderPassGPUInfoData, Scene, SceneRenderable,
 };
 
 use rendiation_algebra::*;
@@ -202,23 +202,15 @@ impl HighLighter {
     format_info: &PassTargetFormatInfo,
   ) -> wgpu::RenderPipeline {
     let mut builder = PipelineBuilder::default();
-    builder.primitive_state = wgpu::PrimitiveState {
-      topology: wgpu::PrimitiveTopology::TriangleStrip,
-      front_face: wgpu::FrontFace::Cw,
-      ..Default::default()
-    };
 
-    full_screen_vertex_shader(&mut builder);
+    full_screen_vertex_shader(
+      &mut builder,
+      wgpu::BlendState::ALPHA_BLENDING.into(),
+      format_info,
+    );
+
     builder
       .with_layout::<HighLighter>(layouts, device)
-      .declare_io_struct(
-        "
-      struct VertexOutput {
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] uv: vec2<f32>;
-      };
-    ",
-      )
       .include_fragment_entry(
         "
     [[stage(fragment)]]
@@ -239,14 +231,6 @@ impl HighLighter {
     ",
       )
       .use_fragment_entry("fs_main");
-
-    MaterialStates {
-      blend: wgpu::BlendState::ALPHA_BLENDING.into(),
-      depth_write_enabled: false,
-      depth_compare: wgpu::CompareFunction::Always,
-      ..Default::default()
-    }
-    .apply_pipeline_builder(&mut builder, format_info);
 
     builder.build(device)
   }

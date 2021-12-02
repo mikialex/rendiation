@@ -5,6 +5,7 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 
+mod bindgroup;
 mod cache;
 mod encoder;
 mod pass;
@@ -15,6 +16,7 @@ mod texture;
 mod types;
 mod uniform;
 
+pub use bindgroup::*;
 pub use cache::*;
 pub use encoder::*;
 pub use pass::*;

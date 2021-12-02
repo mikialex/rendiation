@@ -26,6 +26,14 @@ pub struct ViewPosition;
 impl ShaderValue for ViewPosition {
   type ValueType = Vec3<f32>;
 }
+pub struct WorldPosition;
+impl ShaderValue for WorldPosition {
+  type ValueType = Vec3<f32>;
+}
+pub struct ClipPosition;
+impl ShaderValue for ClipPosition {
+  type ValueType = Vec4<f32>;
+}
 pub struct FragColor;
 impl ShaderValue for FragColor {
   type ValueType = Vec4<f32>;
@@ -45,8 +53,13 @@ pub struct Node<T> {
   handle: ArenaGraphNodeHandle<NodeData>,
 }
 
+pub struct ShaderFunction {
+  //
+}
+
 pub enum NodeData {
-  FunctionCall,
+  FunctionCall(Rc<ShaderFunction>),
+
   Uniform,
 }
 
