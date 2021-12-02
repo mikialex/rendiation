@@ -19,5 +19,5 @@ rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
 rendiation-texture-packer = {path = "../components/texture/packer"}
 rendiation-webgpu = {path = "../webgpu"}
-wgpu = "0.11"
+wgpu = {version = "0.11", features=["trace"]}
 winit = {version = "0.24.0"}

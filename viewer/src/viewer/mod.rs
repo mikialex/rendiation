@@ -68,7 +68,7 @@ pub fn create_ui() -> impl UIComponent<Viewer> {
       GPUCanvas::default().lens(lens!(Viewer, viewer)),
     ))
     // .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
-    .child(AbsChild::new(perf_panel()))
+    // .child(AbsChild::new(perf_panel()))
     .extend(AbsoluteAnchor::default())
 }
 

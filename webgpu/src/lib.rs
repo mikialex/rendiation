@@ -25,7 +25,7 @@ pub use texture::*;
 pub use types::*;
 pub use uniform::*;
 
-use std::cell::RefCell;
+use std::{cell::RefCell, path::Path};
 
 use bytemuck::Pod;
 use rendiation_texture_types::Size;
@@ -131,7 +131,10 @@ impl GPU {
       .expect("No suitable GPU adapters found on the system!");
 
     let (device, queue) = adaptor
-      .request_device(&wgpu::DeviceDescriptor::default(), None)
+      .request_device(
+        &wgpu::DeviceDescriptor::default(),
+        Path::new("/Users/mikialex/dev/rendiation/target/debug/trace").into(),
+      )
       .await
       .expect("Unable to find a suitable GPU device!");
 
