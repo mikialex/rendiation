@@ -65,7 +65,7 @@ impl PassContent for CopyFrame {
         full_screen_vertex_shader(&mut builder);
         builder
           .with_layout::<Self>(&scene.resources.layouts, &gpu.device)
-          .declare_struct(
+          .declare_io_struct(
             "
             struct VertexOutput {
               [[builtin(position)]] position: vec4<f32>;
@@ -136,4 +136,6 @@ impl BindGroupLayoutProvider for CopyFrame {
       "
     )
   }
+
+  fn register_uniform_struct_declare(_: &mut PipelineBuilder) {}
 }

@@ -21,6 +21,18 @@ pub struct HighLightData {
   pub _pad: Vec3<f32>,
 }
 
+impl ShaderUniformBlock for HighLightData {
+  fn shader_struct() -> &'static str {
+    "
+    [[block]]
+    struct HighLightData {
+      color: vec4<f32>;
+      width: f32;
+    };
+  "
+  }
+}
+
 impl Default for HighLightData {
   fn default() -> Self {
     Self {
@@ -90,21 +102,15 @@ impl BindGroupLayoutProvider for HighLighter {
     })
   }
 
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+    builder
+      .declare_uniform_struct::<HighLightData>()
+      .declare_uniform_struct::<RenderPassGPUInfoData>();
+  }
+
   fn gen_shader_header(group: usize) -> String {
     format!(
       "
-      [[block]]
-      struct HighLightData {{
-        color: vec4<f32>;
-        width: f32;
-      }};
-
-      
-      [[block]]
-      struct RenderPassGPUInfoData {{
-        texel_size:  vec2<f32>;
-      }};
-
       [[group({group}), binding(0)]]
       var<uniform> highlighter: HighLightData;
       
@@ -140,11 +146,11 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
       entries: &[
         wgpu::BindGroupEntry {
           binding: 0,
-          resource: self.lighter.data.gpu().as_entire_binding(),
+          resource: self.lighter.data.as_bindable(),
         },
         wgpu::BindGroupEntry {
           binding: 1,
-          resource: pass_info_gpu.gpu().as_entire_binding(),
+          resource: pass_info_gpu.as_bindable(),
         },
         wgpu::BindGroupEntry {
           binding: 2,
@@ -205,7 +211,7 @@ impl HighLighter {
     full_screen_vertex_shader(&mut builder);
     builder
       .with_layout::<HighLighter>(layouts, device)
-      .declare_struct(
+      .declare_io_struct(
         "
       struct VertexOutput {
         [[builtin(position)]] position: vec4<f32>;

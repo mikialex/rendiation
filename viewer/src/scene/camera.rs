@@ -1,5 +1,6 @@
 use std::{ops::Deref, rc::Rc};
 
+use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
@@ -136,7 +137,7 @@ impl SceneCamera {
 }
 
 pub struct CameraBindgroup {
-  pub ubo: wgpu::Buffer,
+  pub ubo: UniformBufferData<CameraGPUTransform>,
   pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
@@ -160,18 +161,37 @@ impl BindGroupLayoutProvider for CameraBindgroup {
   fn gen_shader_header(group: usize) -> String {
     format!(
       "
-      [[block]]
-      struct CameraTransform {{
-        projection: mat4x4<f32>;
-        rotation:   mat4x4<f32>;
-        view:       mat4x4<f32>;
-      }};
 
       [[group({group}), binding(0)]]
       var<uniform> camera: CameraTransform;
     
     "
     )
+  }
+
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+    builder.declare_uniform_struct::<CameraGPUTransform>();
+  }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable, Default)]
+pub struct CameraGPUTransform {
+  projection: Mat4<f32>,
+  rotation: Mat4<f32>,
+  view: Mat4<f32>,
+}
+
+impl ShaderUniformBlock for CameraGPUTransform {
+  fn shader_struct() -> &'static str {
+    "
+      [[block]]
+      struct CameraTransform {
+        projection: mat4x4<f32>;
+        rotation:   mat4x4<f32>;
+        view:       mat4x4<f32>;
+      };
+      "
   }
 }
 
@@ -181,45 +201,27 @@ impl CameraBindgroup {
       .projection
       .update_projection(&mut camera.projection_matrix);
 
+    let uniform: &mut CameraGPUTransform = &mut self.ubo;
     let world_matrix = camera.node.visit(|node| node.local_matrix);
-    let view_matrix = world_matrix.inverse_or_identity();
-    let rotation_matrix = world_matrix.extract_rotation_mat();
+    uniform.view = world_matrix.inverse_or_identity();
+    uniform.rotation = world_matrix.extract_rotation_mat();
+    uniform.projection = camera.projection_matrix;
 
-    gpu.queue.write_buffer(
-      &self.ubo,
-      0,
-      bytemuck::cast_slice(camera.projection_matrix.as_ref()),
-    );
-    gpu.queue.write_buffer(
-      &self.ubo,
-      64,
-      bytemuck::cast_slice(rotation_matrix.as_ref()),
-    );
-    gpu.queue.write_buffer(
-      &self.ubo,
-      64 + 64,
-      bytemuck::cast_slice(view_matrix.as_ref()),
-    );
+    self.ubo.update(&gpu.queue);
+
     (camera, self)
   }
 
   pub fn new(gpu: &GPU) -> Self {
     let device = &gpu.device;
-    use wgpu::util::DeviceExt;
 
-    let mat = [0_u8; 64 * 3];
-
-    let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: "CameraBindgroup Buffer".into(),
-      contents: &mat,
-      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-    });
+    let ubo: UniformBufferData<CameraGPUTransform> = UniformBufferData::create_default(device);
 
     let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
       layout: &Self::layout(device),
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
-        resource: ubo.as_entire_binding(),
+        resource: ubo.as_bindable(),
       }],
       label: None,
     });

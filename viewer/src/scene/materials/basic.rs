@@ -18,6 +18,21 @@ impl MaterialMeshLayoutRequire for BasicMaterial {
   type VertexInput = Vec<Vertex>;
 }
 
+pub struct BasicMaterialUniform {
+  pub color: Vec3<f32>,
+}
+
+impl ShaderUniformBlock for BasicMaterialUniform {
+  fn shader_struct() -> &'static str {
+    "
+    [[block]]
+    struct BasicMaterial {
+      color: vec3<f32>;
+    };
+    "
+  }
+}
+
 impl BindGroupLayoutProvider for BasicMaterial {
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -48,11 +63,6 @@ impl BindGroupLayoutProvider for BasicMaterial {
   fn gen_shader_header(group: usize) -> String {
     format!(
       "
-      [[block]]
-      struct BasicMaterial {{
-        color: vec3<f32>;
-      }};
-
       [[group({group}), binding(0)]]
       var<uniform> basic_material: BasicMaterial;
       
@@ -64,6 +74,10 @@ impl BindGroupLayoutProvider for BasicMaterial {
     
     "
     )
+  }
+
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+    builder.declare_uniform_struct::<BasicMaterialUniform>();
   }
 }
 
@@ -122,7 +136,7 @@ impl MaterialCPUResource for BasicMaterial {
 
     let sampler = ctx.map_sampler(self.sampler, &gpu.device);
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
-      .push(_uniform.gpu().as_entire_binding())
+      .push(_uniform.as_bindable())
       .push_texture(&self.texture)
       .push(sampler.as_bindable())
       .build(&bindgroup_layout);
@@ -134,5 +148,8 @@ impl MaterialCPUResource for BasicMaterial {
   }
   fn is_keep_mesh_shape(&self) -> bool {
     true
+  }
+  fn is_transparent(&self) -> bool {
+    false
   }
 }

@@ -42,6 +42,7 @@ pub trait MaterialCPUResource: Clone {
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
+  fn is_transparent(&self) -> bool;
 }
 
 pub trait MaterialGPUResource: Sized {
@@ -218,7 +219,13 @@ pub struct SceneMaterialPassSetupCtx<'a> {
 pub trait Material {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
+
+  /// this is to decide if could be picked by cpu side trivially.
   fn is_keep_mesh_shape(&self) -> bool;
+
+  /// this is to decide whether need or not sort.
+  fn is_transparent(&self) -> bool;
+
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -284,6 +291,10 @@ where
     self.material.is_keep_mesh_shape()
   }
 
+  fn is_transparent(&self) -> bool {
+    self.material.is_transparent()
+  }
+
   fn as_any(&self) -> &dyn Any {
     self
   }
@@ -313,6 +324,11 @@ where
   fn is_keep_mesh_shape(&self) -> bool {
     let inner = self.inner.borrow();
     inner.is_keep_mesh_shape()
+  }
+
+  fn is_transparent(&self) -> bool {
+    let inner = self.inner.borrow();
+    inner.is_transparent()
   }
 
   fn as_any(&self) -> &dyn Any {

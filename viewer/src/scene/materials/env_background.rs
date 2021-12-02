@@ -45,6 +45,8 @@ impl BindGroupLayoutProvider for EnvMapBackGroundMaterial {
     "
     )
   }
+
+  fn register_uniform_struct_declare(_builder: &mut PipelineBuilder) {}
 }
 
 impl BackGroundShading for EnvMapBackGroundMaterial {
@@ -100,6 +102,9 @@ impl MaterialCPUResource for EnvMapBackGroundMaterial {
   }
 
   fn is_keep_mesh_shape(&self) -> bool {
+    false
+  }
+  fn is_transparent(&self) -> bool {
     false
   }
 }

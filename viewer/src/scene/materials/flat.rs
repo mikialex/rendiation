@@ -15,6 +15,20 @@ impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
 
+pub struct FlatMaterialUniform {
+  pub color: Vec4<f32>,
+}
+
+impl ShaderUniformBlock for FlatMaterialUniform {
+  fn shader_struct() -> &'static str {
+    "
+        [[block]]
+        struct FlatMaterial {
+          color: vec4<f32>;
+        };"
+  }
+}
+
 impl BindGroupLayoutProvider for FlatMaterial {
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -31,16 +45,15 @@ impl BindGroupLayoutProvider for FlatMaterial {
   fn gen_shader_header(group: usize) -> String {
     format!(
       "
-      [[block]]
-      struct FlatMaterial {{
-        color: vec4<f32>;
-      }};
-
       [[group({group}), binding(0)]]
       var<uniform> flat_material: FlatMaterial;
     
     ",
     )
+  }
+
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+    builder.declare_uniform_struct::<FlatMaterialUniform>();
   }
 }
 
@@ -98,7 +111,7 @@ impl MaterialCPUResource for FlatMaterial {
     let bindgroup_layout = Self::layout(&gpu.device);
 
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
-      .push(_uniform.gpu().as_entire_binding())
+      .push(_uniform.as_bindable())
       .build(&bindgroup_layout);
 
     FlatMaterialGPU {
@@ -109,5 +122,9 @@ impl MaterialCPUResource for FlatMaterial {
 
   fn is_keep_mesh_shape(&self) -> bool {
     true
+  }
+
+  fn is_transparent(&self) -> bool {
+    false
   }
 }

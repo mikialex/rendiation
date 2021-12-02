@@ -1,5 +1,5 @@
 use rendiation_algebra::Vec2;
-use rendiation_webgpu::PipelineBuilder;
+use rendiation_webgpu::{PipelineBuilder, ShaderUniformBlock};
 
 pub fn full_screen_vertex_shader(builder: &mut PipelineBuilder) {
   builder
@@ -47,4 +47,15 @@ pub fn full_screen_vertex_shader(builder: &mut PipelineBuilder) {
 #[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
+}
+
+impl ShaderUniformBlock for RenderPassGPUInfoData {
+  fn shader_struct() -> &'static str {
+    "
+      [[block]]
+      struct RenderPassGPUInfoData {
+        texel_size:  vec2<f32>;
+      };
+      "
+  }
 }

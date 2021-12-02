@@ -1,63 +1,41 @@
-use std::{borrow::Cow, rc::Rc};
+use std::{any::TypeId, borrow::Cow, collections::HashMap, rc::Rc};
 
-use crate::{BindGroupLayoutCache, BindGroupLayoutProvider, VertexBufferLayoutOwned};
+use crate::{
+  BindGroupLayoutCache, BindGroupLayoutProvider, ShaderUniformBlock, VertexBufferLayoutOwned,
+};
 
-pub struct PipelineBuilder {
-  pub name: String,
+pub trait ShaderBuilder {
+  fn build_shader(&self) -> String;
+  fn register_uniform_type<U: ShaderUniformBlock>(&mut self);
+}
 
+#[derive(Default)]
+pub struct SimpleShaderBuilder {
+  pub uniform_structs_decl: HashMap<TypeId, &'static str>,
   pub struct_declares: Vec<String>,
   pub includes: Vec<String>,
-
   pub vertex_entries: Vec<String>,
   pub active_vertex_entry: String,
   pub fragment_entries: Vec<String>,
   pub active_fragment_entry: String,
-
   pub bindgroup_declarations: Vec<String>,
-  pub layouts: Vec<Rc<wgpu::BindGroupLayout>>,
-
-  pub targets: Vec<wgpu::ColorTargetState>,
-  pub depth_stencil: Option<wgpu::DepthStencilState>,
-  pub vertex_input: String,
-  pub vertex_buffers: Vec<VertexBufferLayoutOwned>,
-  pub primitive_state: wgpu::PrimitiveState,
-  pub multisample: wgpu::MultisampleState,
 }
 
-impl Default for PipelineBuilder {
-  fn default() -> Self {
-    Self {
-      name: Default::default(),
-      layouts: Default::default(),
-      targets: Default::default(),
-      depth_stencil: Default::default(),
-      vertex_buffers: Default::default(),
-      primitive_state: wgpu::PrimitiveState {
-        cull_mode: None,
-        topology: wgpu::PrimitiveTopology::TriangleList,
-        ..Default::default()
-      },
-      bindgroup_declarations: Default::default(),
-      struct_declares: Default::default(),
-      includes: Default::default(),
-      vertex_entries: Default::default(),
-      fragment_entries: Default::default(),
-      active_vertex_entry: Default::default(),
-      active_fragment_entry: Default::default(),
-      vertex_input: Default::default(),
-      multisample: Default::default(),
-    }
-  }
-}
-
-impl PipelineBuilder {
+impl SimpleShaderBuilder {
   pub fn include(&mut self, fun: impl Into<String>) -> &mut Self {
     self.includes.push(fun.into());
     self
   }
 
-  pub fn declare_struct(&mut self, fun: impl Into<String>) -> &mut Self {
+  pub fn declare_io_struct(&mut self, fun: impl Into<String>) -> &mut Self {
     self.struct_declares.push(fun.into());
+    self
+  }
+
+  pub fn declare_uniform_struct<U: ShaderUniformBlock>(&mut self) -> &mut Self {
+    self
+      .uniform_structs_decl
+      .insert(TypeId::of::<U>(), U::shader_struct());
     self
   }
 
@@ -81,26 +59,11 @@ impl PipelineBuilder {
     self
   }
 
-  pub fn with_layout<T: BindGroupLayoutProvider>(
-    &mut self,
-    cache: &BindGroupLayoutCache,
-    device: &wgpu::Device,
-  ) -> &mut Self {
-    self.layouts.push(cache.retrieve::<T>(device));
-    self
-      .bindgroup_declarations
-      .push(T::gen_shader_header(self.bindgroup_declarations.len()));
-    self
-  }
-
-  pub fn with_topology(&mut self, topology: wgpu::PrimitiveTopology) -> &mut Self {
-    self.primitive_state.topology = topology;
-    self
-  }
-
-  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
-    let shader_source = format!(
+  fn build_shader(&self) -> String {
+    format!(
       "
+    {uniform_struct_declares}
+
     {bindgroups}
 
     {struct_declares}
@@ -116,6 +79,12 @@ impl PipelineBuilder {
         .bindgroup_declarations
         .iter()
         .map(|s| s.as_ref())
+        .collect::<Vec<&str>>()
+        .join("\n"),
+      uniform_struct_declares = self
+        .uniform_structs_decl
+        .iter()
+        .map(|(_, s)| *s)
         .collect::<Vec<&str>>()
         .join("\n"),
       struct_declares = self
@@ -142,7 +111,84 @@ impl PipelineBuilder {
         .map(|s| s.as_ref())
         .collect::<Vec<&str>>()
         .join("\n"),
-    );
+    )
+  }
+}
+
+pub struct PipelineBuilder {
+  pub name: String,
+  pub shader_builder: SimpleShaderBuilder,
+
+  pub layouts: Vec<Rc<wgpu::BindGroupLayout>>,
+
+  pub targets: Vec<wgpu::ColorTargetState>,
+  pub depth_stencil: Option<wgpu::DepthStencilState>,
+  pub vertex_input: String,
+  pub vertex_buffers: Vec<VertexBufferLayoutOwned>,
+  pub primitive_state: wgpu::PrimitiveState,
+  pub multisample: wgpu::MultisampleState,
+}
+
+impl std::ops::Deref for PipelineBuilder {
+  type Target = SimpleShaderBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    &self.shader_builder
+  }
+}
+
+impl std::ops::DerefMut for PipelineBuilder {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.shader_builder
+  }
+}
+
+impl Default for PipelineBuilder {
+  fn default() -> Self {
+    Self {
+      name: Default::default(),
+      layouts: Default::default(),
+      targets: Default::default(),
+      depth_stencil: Default::default(),
+      vertex_buffers: Default::default(),
+      primitive_state: wgpu::PrimitiveState {
+        cull_mode: None,
+        topology: wgpu::PrimitiveTopology::TriangleList,
+        ..Default::default()
+      },
+      shader_builder: Default::default(),
+      vertex_input: Default::default(),
+      multisample: Default::default(),
+    }
+  }
+}
+
+impl PipelineBuilder {
+  pub fn with_layout<B: BindGroupLayoutProvider>(
+    &mut self,
+    cache: &BindGroupLayoutCache,
+    device: &wgpu::Device,
+  ) -> &mut Self {
+    self.layouts.push(cache.retrieve::<B>(device));
+    self
+      .shader_builder
+      .bindgroup_declarations
+      .push(B::gen_shader_header(
+        self.shader_builder.bindgroup_declarations.len(),
+      ));
+
+    B::register_uniform_struct_declare(self);
+
+    self
+  }
+
+  pub fn with_topology(&mut self, topology: wgpu::PrimitiveTopology) -> &mut Self {
+    self.primitive_state.topology = topology;
+    self
+  }
+
+  pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
+    let shader_source = self.shader_builder.build_shader();
 
     let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
       label: self.name.as_str().into(),

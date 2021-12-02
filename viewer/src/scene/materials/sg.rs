@@ -50,22 +50,6 @@ pub enum NodeData {
   Uniform,
 }
 
-pub struct Fog {
-  color: Vec3<f32>,
-  range: Vec2<f32>,
-}
-
-pub struct FogShaderInstance {
-  color: Node<Vec3<f32>>,
-  range: Node<Vec2<f32>>,
-}
-
-impl FogShaderInstance {
-  fn compute(view_position: Node<Vec3<f32>>, old_frag_color: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-    todo!()
-  }
-}
-
 pub trait ShaderComponent {
   fn build_shader(&self, builder: &mut ShaderBuilder);
 }

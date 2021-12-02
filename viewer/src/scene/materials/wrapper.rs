@@ -70,7 +70,7 @@ where
     
     ",
       )
-      .declare_struct(
+      .declare_io_struct(
         "
       struct VertexOutput {
         [[builtin(position)]] position: vec4<f32>;
@@ -123,5 +123,8 @@ where
 
   fn is_keep_mesh_shape(&self) -> bool {
     self.material.is_keep_mesh_shape()
+  }
+  fn is_transparent(&self) -> bool {
+    false
   }
 }

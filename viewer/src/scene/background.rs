@@ -143,7 +143,7 @@ pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
   fn shader(&self, builder: &mut PipelineBuilder) {
     builder
       .include(self.shading())
-      .declare_struct(
+      .declare_io_struct(
         "
      struct VertexOutputBackground {{
       [[builtin(position)]] position: vec4<f32>;

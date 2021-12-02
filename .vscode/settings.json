@@ -92,6 +92,7 @@
         "SRGB",
         "Subpixel",
         "swapchain",
+        "Tessellatable",
         "Tessellator",
         "Texel",
         "texels",

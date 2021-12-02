@@ -6,6 +6,8 @@ use std::{
   rc::Rc,
 };
 
+use crate::PipelineBuilder;
+
 #[derive(Default)]
 pub struct SamplerCache<T> {
   cache: RefCell<HashMap<T, Rc<wgpu::Sampler>>>,
@@ -32,6 +34,7 @@ pub struct BindGroupLayoutCache {
 pub trait BindGroupLayoutProvider: 'static {
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
   fn gen_shader_header(group: usize) -> String;
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder);
 }
 
 impl BindGroupLayoutCache {
