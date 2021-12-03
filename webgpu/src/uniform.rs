@@ -6,6 +6,8 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
+use crate::BindableResourceWgslCodeGen;
+
 use super::BindableResource;
 
 pub trait ShaderUniformBlock: Any {
@@ -52,6 +54,12 @@ impl<T> BindableResource for UniformBuffer<T> {
       // min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
       min_binding_size: None,
     }
+  }
+}
+
+impl<T: ShaderUniformBlock> BindableResourceWgslCodeGen for UniformBuffer<T> {
+  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str {
+    "uniform todo"
   }
 }
 
@@ -121,6 +129,12 @@ impl<T> BindableResource for UniformBufferData<T> {
       has_dynamic_offset: false,
       min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64),
     }
+  }
+}
+
+impl<T: ShaderUniformBlock> BindableResourceWgslCodeGen for UniformBufferData<T> {
+  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str {
+    "uniform todo"
   }
 }
 
@@ -197,5 +211,11 @@ impl<T> BindableResource for UniformBufferDataWithCache<T> {
       has_dynamic_offset: false,
       min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64),
     }
+  }
+}
+
+impl<T: ShaderUniformBlock> BindableResourceWgslCodeGen for UniformBufferDataWithCache<T> {
+  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str {
+    "uniform todo"
   }
 }

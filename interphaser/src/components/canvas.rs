@@ -59,7 +59,7 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {
     model.event(event.event, event.states);
     match event.event {
-      Event::MainEventsCleared => {
+      Event::RedrawRequested(_) => {
         let new_size = model.update_render_size(self.layout.size.into());
         if new_size != self.current_render_buffer_size {
           self.content = None;

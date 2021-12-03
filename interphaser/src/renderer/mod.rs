@@ -277,6 +277,16 @@ struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }
 
+impl ShaderUniformBlock for UIGlobalParameter {
+  fn shader_struct() -> &'static str {
+    "
+       [[block]] struct UIGlobalParameter {
+        screen_size: vec2<f32>;
+      };
+       "
+  }
+}
+
 unsafe impl bytemuck::Zeroable for UIGlobalParameter {}
 unsafe impl bytemuck::Pod for UIGlobalParameter {}
 

@@ -90,7 +90,6 @@ pub struct Attachment<F: AttachmentFormat> {
   des: AttachmentDescriptor<F>,
   size: Size,
   texture: Option<Rc<wgpu::Texture>>,
-  once: bool,
 }
 
 pub type ColorAttachment = Attachment<wgpu::TextureFormat>;
@@ -150,9 +149,7 @@ impl<F: AttachmentFormat> Drop for Attachment<F> {
         .entry((self.size, self.des.format.into(), self.des.sample_count))
         .or_insert_with(Default::default);
 
-      if !self.once {
-        cached.push(texture)
-      }
+      cached.push(texture)
     }
   }
 }
@@ -246,29 +243,6 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
       des: self,
       size,
       texture: Rc::new(texture).into(),
-      once: false,
-    }
-  }
-
-  /// Some impl issue on metal for reusing msaa resolve texture
-  pub fn request_once(self, engine: &RenderEngine) -> Attachment<F> {
-    let size = (self.sizer)(engine.output.as_ref().unwrap().size);
-    let texture = engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
-      label: None,
-      size: size.into_gpu_size(),
-      mip_level_count: 1,
-      sample_count: self.sample_count,
-      dimension: TextureDimension::D2,
-      format: self.format.into(),
-      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-    });
-
-    Attachment {
-      pool: engine.resource.clone(),
-      des: self,
-      size,
-      texture: Rc::new(texture).into(),
-      once: true,
     }
   }
 }
