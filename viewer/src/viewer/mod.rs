@@ -46,8 +46,13 @@ impl CanvasPrinter for ViewerImpl {
       .render(canvas, gpu, &mut self.content)
   }
 
-  fn event(&mut self, event: &winit::event::Event<()>, states: &WindowState) {
-    self.content.event(event, states)
+  fn event(
+    &mut self,
+    event: &winit::event::Event<()>,
+    states: &WindowState,
+    position_info: CanvasWindowPositionInfo,
+  ) {
+    self.content.event(event, states, position_info)
   }
 
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {
@@ -130,18 +135,25 @@ impl Viewer3dContent {
     }
   }
 
-  pub fn event(&mut self, event: &Event<()>, states: &WindowState) {
+  pub fn event(
+    &mut self,
+    event: &Event<()>,
+    states: &WindowState,
+    position_info: CanvasWindowPositionInfo,
+  ) {
     self.controller.event(event);
 
     #[allow(clippy::single_match)]
     match event {
       Event::WindowEvent { event, .. } => match event {
         winit::event::WindowEvent::MouseInput { state, button, .. } => {
+          let canvas_x = states.mouse_position.x - position_info.absolute_position.x;
+          let canvas_y = states.mouse_position.y - position_info.absolute_position.y;
+
           if *button == MouseButton::Left && *state == ElementState::Pressed {
-            // todo handle canvas is not full window case;
             let normalized_position = (
-              states.mouse_position.x / states.size.width * 2. - 1.,
-              -(states.mouse_position.y / states.size.height * 2. - 1.),
+              canvas_x / position_info.size.width * 2. - 1.,
+              -(canvas_y / position_info.size.height * 2. - 1.),
             );
 
             self.picker.pick_new(

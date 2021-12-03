@@ -5,9 +5,10 @@ use crate::Viewer;
 pub fn create_app() -> impl UIComponent<Viewer> {
   AbsoluteAnchor::default().wrap(
     absolute_group()
-      .child(AbsChild::new(
-        GPUCanvas::default().lens(lens!(Viewer, viewer)),
-      ))
+      .child(
+        AbsChild::new(GPUCanvas::default().lens(lens!(Viewer, viewer)))
+          .with_position((100., 100.).into()),
+      )
       // .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
       .child(AbsChild::new(perf_panel())),
   )

@@ -87,8 +87,8 @@ impl Text {
       };
       let geometry = SectionGeometry {
         screen_position: (
-          self.layout.position.x + x_correct,
-          self.layout.position.y + y_correct,
+          self.layout.absolute_position.x + x_correct,
+          self.layout.absolute_position.y + y_correct,
         ),
         bounds: self.layout.size.into(),
       };
@@ -123,8 +123,8 @@ impl Presentable for Text {
       line_wrap: self.line_wrap,
       horizon_align: self.horizon_align,
       vertical_align: self.vertical_align,
-      x: self.layout.position.x,
-      y: self.layout.position.y,
+      x: self.layout.absolute_position.x,
+      y: self.layout.absolute_position.y,
       color: (0., 0., 0., 1.).into(),
       font_size: 30.,
     }));
