@@ -13,6 +13,14 @@ pub trait ComponentExt<T>: Component<T> + Sized {
 
 impl<X, T> ComponentExt<T> for X where X: Component<T> + Sized {}
 
+pub trait ComponentAbilityExt<T, C>: ComponentAbility<T, C> + Sized {
+  fn wrap(self, inner: C) -> Ability<T, C, Self> {
+    Ability::new(inner, self)
+  }
+}
+
+impl<C, X, T> ComponentAbilityExt<T, C> for X where X: ComponentAbility<T, C> + Sized {}
+
 pub struct Ability<T, C, A> {
   inner: C,
   ability: A,

@@ -1,7 +1,5 @@
 use std::any::Any;
 
-use interphaser::UIComponent;
-
 pub mod counter;
 pub mod todo;
 
@@ -36,7 +34,7 @@ impl Default for UIExamples {
     };
 
     r.examples.push(Box::new(todo));
-    //  r.push(Box::new(Counter::default()));
+    r.examples.push(Box::new(Counter::default()));
     r
   }
 }
