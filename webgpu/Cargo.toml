@@ -8,5 +8,5 @@ version = "0.1.0"
 bytemuck = {version = "1.4.1", features = ["derive"]}
 rendiation-texture-types = {path = "../components/texture/types"}
 typed-arena = "2.0.1"
-wgpu = "0.11"
+wgpu = "0.11.1"
 winit = {version = "0.24.0"}

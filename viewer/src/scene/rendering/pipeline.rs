@@ -319,7 +319,7 @@ impl SimplePipeline {
     let mut msaa_color = engine.multisampled_attachment().request(engine);
     let mut msaa_depth = engine.multisampled_depth_attachment().request(engine);
 
-    let mut widgets_result = attachment().request_once(engine);
+    let mut widgets_result = attachment().request(engine);
 
     pass("scene-widgets")
       .with_color(msaa_color.write(), clear(all_zero()))
