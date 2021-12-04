@@ -5,7 +5,7 @@ use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::renderer::text::TextQuadInstance;
+use crate::TextQuadInstance;
 
 use super::WebGPUxTextPrimitive;
 

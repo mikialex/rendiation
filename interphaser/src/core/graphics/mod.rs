@@ -1,4 +1,4 @@
-use crate::{text::TextInfo, Color, LayoutSize, UIPosition};
+use crate::{Color, LayoutSize, TextCache, TextLayoutRef, UIPosition};
 use std::rc::Rc;
 
 mod fonts;
@@ -13,15 +13,17 @@ pub trait Presentable {
 
 pub struct PresentationBuilder<'a> {
   pub fonts: &'a FontManager,
+  pub texts: &'a mut TextCache,
   pub present: UIPresentation,
   pub parent_offset_chain: Vec<UIPosition>,
   pub current_origin_offset: UIPosition,
 }
 
 impl<'a> PresentationBuilder<'a> {
-  pub fn new(fonts: &'a FontManager) -> Self {
+  pub fn new(fonts: &'a FontManager, texts: &'a mut TextCache) -> Self {
     Self {
       fonts,
+      texts,
       present: UIPresentation::new(),
       parent_offset_chain: Vec::new(),
       current_origin_offset: Default::default(),
@@ -48,10 +50,10 @@ pub enum Style {
   Texture(Rc<wgpu::TextureView>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Primitive {
   Quad((Quad, Style)),
-  Text(TextInfo),
+  Text(TextLayoutRef),
 }
 
 #[derive(Debug, Clone, Default, Copy)]

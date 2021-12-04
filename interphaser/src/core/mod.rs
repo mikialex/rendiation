@@ -3,11 +3,14 @@ use std::time::Duration;
 
 pub use layout::*;
 
-mod rendering;
-pub use rendering::*;
+mod graphics;
+pub use graphics::*;
 
 mod event;
 pub use event::*;
+
+mod text;
+pub use text::*;
 
 use crate::*;
 

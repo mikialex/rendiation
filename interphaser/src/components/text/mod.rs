@@ -1,8 +1,3 @@
-use ab_glyph::*;
-use glyph_brush::*;
-
-use crate::text::LineWrap;
-use crate::text::TextInfo;
 use crate::*;
 
 pub use glyph_brush::HorizontalAlign;
@@ -14,14 +9,12 @@ pub use cursor::*;
 mod editable;
 pub use editable::*;
 
-pub(crate) type TextLayout = Vec<SectionGlyph>;
-
 pub struct Text {
   pub content: LayoutSource<String>,
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlign,
   pub vertical_align: VerticalAlign,
-  pub text_layout: Option<TextLayout>,
+  pub text_layout: Option<TextLayoutRef>,
   pub layout: LayoutUnit,
 }
 
@@ -66,42 +59,25 @@ impl Text {
     self
   }
 
-  pub(crate) fn get_text_layout(&mut self, fonts: &FontManager) -> &Vec<SectionGlyph> {
+  pub(super) fn get_text_layout(
+    &mut self,
+    fonts: &FontManager,
+    text: &mut TextCache,
+  ) -> &TextLayoutRef {
     self.text_layout.get_or_insert_with(|| {
-      let x_correct = match self.horizon_align {
-        glyph_brush::HorizontalAlign::Left => 0.,
-        glyph_brush::HorizontalAlign::Center => self.layout.size.width / 2.,
-        glyph_brush::HorizontalAlign::Right => self.layout.size.width,
+      let text_info = TextInfo {
+        content: self.content.get().clone(),
+        bounds: self.layout.size,
+        line_wrap: self.line_wrap,
+        horizon_align: self.horizon_align,
+        vertical_align: self.vertical_align,
+        x: self.layout.absolute_position.x,
+        y: self.layout.absolute_position.y,
+        color: (0., 0., 0., 1.).into(),
+        font_size: 30.,
       };
 
-      let y_correct = match self.vertical_align {
-        glyph_brush::VerticalAlign::Top => 0.,
-        glyph_brush::VerticalAlign::Center => self.layout.size.height / 2.,
-        glyph_brush::VerticalAlign::Bottom => self.layout.size.height / 2.,
-      };
-
-      let layout = Layout::SingleLine {
-        line_breaker: BuiltInLineBreaker::default(),
-        h_align: HorizontalAlign::Center,
-        v_align: VerticalAlign::Center,
-      };
-      let geometry = SectionGeometry {
-        screen_position: (
-          self.layout.absolute_position.x + x_correct,
-          self.layout.absolute_position.y + y_correct,
-        ),
-        bounds: self.layout.size.into(),
-      };
-
-      layout.calculate_glyphs(
-        fonts.get_fonts().as_slice(),
-        &geometry,
-        &[SectionText {
-          text: self.content.get().as_str(),
-          scale: PxScale::from(30.0),
-          font_id: FontId(0),
-        }],
-      )
+      text.cache_layout(&text_info, fonts)
     })
   }
 }
@@ -109,6 +85,9 @@ impl Text {
 impl<T> Component<T> for Text {
   fn update(&mut self, _: &T, ctx: &mut UpdateCtx) {
     self.layout.check_attach(ctx);
+    if self.content.changed() {
+      self.reset_text_layout();
+    }
     self.content.refresh(&mut self.layout, ctx);
   }
 }
@@ -117,17 +96,9 @@ impl Presentable for Text {
   fn render(&mut self, builder: &mut PresentationBuilder) {
     self.layout.update_world(builder.current_origin_offset);
 
-    builder.present.primitives.push(Primitive::Text(TextInfo {
-      content: self.content.get().clone(),
-      bounds: self.layout.size,
-      line_wrap: self.line_wrap,
-      horizon_align: self.horizon_align,
-      vertical_align: self.vertical_align,
-      x: self.layout.absolute_position.x,
-      y: self.layout.absolute_position.y,
-      color: (0., 0., 0., 1.).into(),
-      font_size: 30.,
-    }));
+    builder.present.primitives.push(Primitive::Text(
+      self.get_text_layout(builder.fonts, builder.texts).clone(),
+    ));
 
     builder.present.primitives.push(Primitive::Quad((
       self.layout.into_quad(),

@@ -99,8 +99,8 @@ pub struct TextQuadInstance {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
 pub struct GlyphBound {
-  left_top: [f32; 3],
-  right_bottom: [f32; 2],
+  pub left_top: [f32; 3],
+  pub right_bottom: [f32; 2],
 }
 
 impl LayoutedTextGlyphs {

@@ -1,4 +1,5 @@
 use rendiation_algebra::*;
+use rendiation_texture::Size;
 use rendiation_webgpu::*;
 use wgpu::util::DeviceExt;
 
@@ -8,7 +9,7 @@ use pipeline::*;
 pub mod text;
 pub use text::*;
 
-use crate::FontManager;
+use crate::{FontManager, TextCache, TextHash};
 
 use super::{Primitive, UIPresentation};
 
@@ -43,8 +44,16 @@ impl<'r> WebGPUxUIRenderTask<'r> {
     });
   }
 
-  pub fn update(&mut self, gpu: &GPU, encoder: &mut GPUCommandEncoder, fonts: &FontManager) {
-    self.renderer.update(self.presentation, gpu, encoder, fonts)
+  pub fn update(
+    &mut self,
+    gpu: &GPU,
+    encoder: &mut GPUCommandEncoder,
+    fonts: &FontManager,
+    texts: &mut TextCache,
+  ) {
+    self
+      .renderer
+      .update(self.presentation, gpu, encoder, fonts, texts)
   }
 }
 
@@ -114,9 +123,8 @@ impl Primitive {
     &self,
     device: &wgpu::Device,
     _encoder: &mut GPUCommandEncoder,
-    renderer: &mut TextRenderer,
     res: &UIxGPUxResource,
-    fonts: &FontManager,
+    texts: &mut TextCache,
   ) -> Option<GPUxUIPrimitive> {
     let p = match self {
       Primitive::Quad((quad, style)) => {
@@ -151,11 +159,8 @@ impl Primitive {
         }
       }
       Primitive::Text(text) => {
-        if let Some(t) = renderer.queue_text(text, fonts) {
-          GPUxUIPrimitive::Text(t)
-        } else {
-          return None;
-        }
+        texts.queue(text.hash());
+        GPUxUIPrimitive::Text(text.hash())
       }
     };
     p.into()
@@ -178,7 +183,11 @@ pub struct UIxGPUxResource {
 }
 
 impl WebGPUxUIRenderer {
-  pub fn new(device: &wgpu::Device, target_format: wgpu::TextureFormat) -> Self {
+  pub fn new(
+    device: &wgpu::Device,
+    target_format: wgpu::TextureFormat,
+    text_cache_init_size: Size,
+  ) -> Self {
     let global_ui_state = UIGlobalParameter {
       screen_size: Vec2::new(1000., 1000.),
     };
@@ -211,6 +220,7 @@ impl WebGPUxUIRenderer {
       device,
       wgpu::FilterMode::Linear,
       wgpu::TextureFormat::Bgra8UnormSrgb,
+      text_cache_init_size,
     );
 
     let sampler = device.create_sampler(&SamplerDescriptor {
@@ -245,6 +255,7 @@ impl WebGPUxUIRenderer {
     gpu: &GPU,
     encoder: &mut GPUCommandEncoder,
     fonts: &FontManager,
+    texts: &mut TextCache,
   ) {
     self.gpu_primitive_cache.clear();
 
@@ -256,19 +267,14 @@ impl WebGPUxUIRenderer {
       .text_renderer
       .resize_view(self.resource.global_ui_state.screen_size, &gpu.queue);
 
-    self
-      .gpu_primitive_cache
-      .extend(presentation.primitives.iter().filter_map(|p| {
-        p.create_gpu(
-          &gpu.device,
-          encoder,
-          &mut self.text_renderer,
-          &self.resource,
-          fonts,
-        )
-      }));
+    self.gpu_primitive_cache.extend(
+      presentation
+        .primitives
+        .iter()
+        .filter_map(|p| p.create_gpu(&gpu.device, encoder, &self.resource, texts)),
+    );
 
-    self.text_renderer.process_queued(gpu, fonts);
+    self.text_renderer.process_queued(gpu, fonts, texts);
   }
 }
 

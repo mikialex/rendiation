@@ -1,5 +1,3 @@
-use glyph_brush::ab_glyph::Font;
-
 use crate::*;
 
 pub struct EditableText {
@@ -41,21 +39,28 @@ impl EditableText {
     }
   }
 
-  fn update_cursor_by_click(&mut self, position: UIPosition, fonts: &FontManager) {
-    let layout = self.text.get_text_layout(fonts);
+  fn update_cursor_by_click(
+    &mut self,
+    position: UIPosition,
+    fonts: &FontManager,
+    texts: &mut TextCache,
+  ) {
+    let layout = self.text.get_text_layout(fonts, texts);
     let rect = layout
+      .layout()
+      .glyphs
       .iter()
-      .map(|sg| fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph))
+      .map(|(_, _, rect)| rect)
       .enumerate()
       .find(|(_, rect)| {
-        position.x >= rect.min.x
-          && position.x <= rect.max.x
-          && position.y >= rect.min.y
-          && position.y <= rect.max.y
+        position.x >= rect.left_top[0]
+          && position.x <= rect.right_bottom[0]
+          && position.y >= rect.left_top[1]
+          && position.y <= rect.right_bottom[1]
       });
 
     if let Some((index, rect)) = rect {
-      let text_index = if position.x >= (rect.max.x + rect.min.x) / 2. {
+      let text_index = if position.x >= (rect.left_top[0] + rect.right_bottom[0]) / 2. {
         index + 1
       } else {
         index
@@ -159,7 +164,7 @@ impl Component<String> for EditableText {
         }
         WindowEvent::MouseInput { state, button, .. } => {
           if let (MouseButton::Left, ElementState::Pressed) = (button, state) {
-            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts)
+            self.update_cursor_by_click(ctx.states.mouse_position, ctx.fonts, ctx.texts)
           }
         }
         WindowEvent::ReceivedCharacter(char) => {
@@ -198,9 +203,9 @@ impl Presentable for EditableText {
         return;
       }
 
-      let layout = self.text.get_text_layout(builder.fonts);
+      let layout = self.text.get_text_layout(builder.fonts, builder.texts);
       builder.present.primitives.push(Primitive::Quad((
-        cursor.create_quad(layout, builder.fonts),
+        cursor.create_quad(layout),
         Style::SolidColor((0., 0., 0., 1.).into()),
       )));
     }
