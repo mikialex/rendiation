@@ -1,4 +1,4 @@
-use crate::{Color, LayoutSize, TextCache, TextLayoutRef, UIPosition};
+use crate::{LayoutSize, TextCache, TextLayoutRef, UIPosition};
 use std::rc::Rc;
 
 mod fonts;
@@ -6,6 +6,12 @@ pub use fonts::*;
 
 mod path;
 pub use path::*;
+
+mod style;
+pub use style::*;
+
+mod api;
+pub use api::*;
 
 pub trait Presentable {
   fn render(&mut self, builder: &mut PresentationBuilder);
