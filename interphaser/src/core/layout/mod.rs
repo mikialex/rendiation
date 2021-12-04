@@ -4,6 +4,8 @@ mod unit;
 pub use unit::*;
 mod types;
 pub use types::*;
+mod alignment;
+pub use alignment::*;
 
 pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,

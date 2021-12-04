@@ -3,6 +3,8 @@ use crate::*;
 pub struct Container {
   pub size: LayoutSource<LayoutSize>,
   pub color: Color,
+  pub child_align: ContainerAlignment,
+  pub child_offset: ContainerItemOffset,
   layout: LayoutUnit,
 }
 
@@ -11,6 +13,8 @@ impl Container {
     Self {
       size: LayoutSource::new(size.into()),
       color: (1., 1., 1., 0.).into(),
+      child_align: Default::default(),
+      child_offset: Default::default(),
       layout: Default::default(),
     }
   }
@@ -56,6 +60,38 @@ impl<C: Presentable> PresentableAbility<C> for Container {
   }
 }
 
+#[derive(Default)]
+pub struct ContainerAlignment {
+  pub horizon: HorizontalAlignment,
+  pub vertical: VerticalAlignment,
+}
+
+impl ContainerAlignment {
+  pub fn make_offset(&self, parent: LayoutSize, child: LayoutSize) -> ContainerItemOffset {
+    let width_diff = parent.width - child.width;
+    let x = match self.horizon {
+      HorizontalAlignment::Center => width_diff / 2.,
+      HorizontalAlignment::Left => 0.,
+      HorizontalAlignment::Right => width_diff,
+    };
+
+    let height_diff = parent.height - child.height;
+    let y = match self.vertical {
+      VerticalAlignment::Center => height_diff / 2.,
+      VerticalAlignment::Top => 0.,
+      VerticalAlignment::Bottom => height_diff,
+    };
+
+    ContainerItemOffset { x, y }
+  }
+}
+
+#[derive(Default)]
+pub struct ContainerItemOffset {
+  pub x: f32,
+  pub y: f32,
+}
+
 impl<C: LayoutAble> LayoutAbility<C> for Container {
   fn layout(
     &mut self,
@@ -71,14 +107,11 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
       .size;
     self.layout.size = constraint.clamp(*self.size.get());
 
-    let child_offset_x = self.layout.size.width - child_size.width;
-    let child_offset_x = child_offset_x.max(0.) * 0.5;
-    let child_offset_y = self.layout.size.height - child_size.height;
-    let child_offset_y = child_offset_y.max(0.) * 0.5;
+    let align_offset = self.child_align.make_offset(self.layout.size, child_size);
 
     inner.set_position(UIPosition {
-      x: child_offset_x,
-      y: child_offset_y,
+      x: align_offset.x + self.child_offset.x,
+      y: align_offset.y + self.child_offset.y,
     });
 
     self.layout.size.with_default_baseline()

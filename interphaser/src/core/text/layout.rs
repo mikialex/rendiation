@@ -1,7 +1,7 @@
 use glyph_brush::ab_glyph::Font;
 use glyph_brush::*;
 
-use crate::FontManager;
+use crate::{FontManager, HorizontalAlignment};
 
 use super::{GlyphCache, GlyphID, GlyphRasterInfo, TextInfo};
 
@@ -16,30 +16,46 @@ pub trait TextGlyphLayouter {
 #[derive(Default)]
 pub struct GlyphBrushLayouter;
 
+fn convert_align_h(v: crate::HorizontalAlignment) -> glyph_brush::HorizontalAlign {
+  match v {
+    HorizontalAlignment::Left => glyph_brush::HorizontalAlign::Left,
+    HorizontalAlignment::Center => glyph_brush::HorizontalAlign::Center,
+    HorizontalAlignment::Right => glyph_brush::HorizontalAlign::Right,
+  }
+}
+
+fn convert_align_v(v: crate::VerticalAlignment) -> glyph_brush::VerticalAlign {
+  match v {
+    crate::VerticalAlignment::Center => glyph_brush::VerticalAlign::Center,
+    crate::VerticalAlignment::Top => glyph_brush::VerticalAlign::Top,
+    crate::VerticalAlignment::Bottom => glyph_brush::VerticalAlign::Bottom,
+  }
+}
+
 impl TextGlyphLayouter for GlyphBrushLayouter {
   fn layout(&self, text: &TextInfo, fonts: &FontManager) -> LayoutedTextGlyphs {
     let x_correct = match text.horizon_align {
-      glyph_brush::HorizontalAlign::Left => 0.,
-      glyph_brush::HorizontalAlign::Center => text.bounds.width / 2.,
-      glyph_brush::HorizontalAlign::Right => text.bounds.width,
+      crate::HorizontalAlignment::Left => 0.,
+      crate::HorizontalAlignment::Center => text.bounds.width / 2.,
+      crate::HorizontalAlignment::Right => text.bounds.width,
     };
 
     let y_correct = match text.vertical_align {
-      glyph_brush::VerticalAlign::Top => 0.,
-      glyph_brush::VerticalAlign::Center => text.bounds.height / 2.,
-      glyph_brush::VerticalAlign::Bottom => text.bounds.height / 2.,
+      crate::VerticalAlignment::Top => 0.,
+      crate::VerticalAlignment::Center => text.bounds.height / 2.,
+      crate::VerticalAlignment::Bottom => text.bounds.height / 2.,
     };
 
     let layout = match text.line_wrap {
       crate::LineWrap::Single => Layout::SingleLine {
         line_breaker: BuiltInLineBreaker::default(),
-        h_align: text.horizon_align,
-        v_align: text.vertical_align,
+        h_align: convert_align_h(text.horizon_align),
+        v_align: convert_align_v(text.vertical_align),
       },
       crate::LineWrap::Multiple => Layout::Wrap {
         line_breaker: BuiltInLineBreaker::default(),
-        h_align: text.horizon_align,
-        v_align: text.vertical_align,
+        h_align: convert_align_h(text.horizon_align),
+        v_align: convert_align_v(text.vertical_align),
       },
     };
 

@@ -3,7 +3,6 @@ use std::{
   hash::{Hash, Hasher},
 };
 
-use glyph_brush::{HorizontalAlign, VerticalAlign};
 use rendiation_texture::Size;
 use rendiation_texture_packer::etagere_wrap::EtagerePacker;
 
@@ -22,7 +21,7 @@ pub use raster::*;
 pub mod packer;
 pub use packer::*;
 
-use crate::{Color, LayoutSize};
+use crate::{Color, HorizontalAlignment, LayoutSize, VerticalAlignment};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum LineWrap {
@@ -41,8 +40,8 @@ pub struct TextInfo {
   pub content: String,
   pub bounds: LayoutSize,
   pub line_wrap: LineWrap,
-  pub horizon_align: HorizontalAlign,
-  pub vertical_align: VerticalAlign,
+  pub horizon_align: HorizontalAlignment,
+  pub vertical_align: VerticalAlignment,
   pub color: Color,
   pub font_size: f32,
   pub x: f32,
