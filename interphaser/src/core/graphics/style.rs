@@ -1,4 +1,6 @@
 use rendiation_color::*;
+
+use crate::TextureHandle;
 pub type Color = ColorWithAlpha<SRGBColor<f32>, f32>;
 
 pub struct SolidFillStyle {
@@ -6,11 +8,9 @@ pub struct SolidFillStyle {
   pub alpha: f32,
 }
 
-pub struct TextureId;
-
 pub enum FillStyle {
   Solid(SolidFillStyle),
-  Texture(TextureId),
+  Texture(TextureHandle),
 }
 
 pub struct StrokeStyle {

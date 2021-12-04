@@ -70,6 +70,26 @@ pub struct Quad {
   pub height: f32,
 }
 
+#[derive(Debug, Clone, Default, Copy)]
+pub struct RoundCorneredQuad {
+  pub quad: Quad,
+  pub radius: RadiusGroup,
+}
+
+pub enum QuadRadius {
+  No,
+  All(f32),
+  Four(RadiusGroup),
+}
+
+#[derive(Debug, Clone, Default, Copy)]
+pub struct RadiusGroup {
+  pub top_left: f32,
+  pub top_right: f32,
+  pub bottom_left: f32,
+  pub bottom_right: f32,
+}
+
 impl Quad {
   pub fn is_point_in(&self, p: UIPosition) -> bool {
     p.x >= self.x && p.x <= self.x + self.width && p.y >= self.y && p.y <= self.y + self.height
