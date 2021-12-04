@@ -1,34 +1,17 @@
 use crate::*;
 
-/// If we enable nightly feature, maybe we could avoid double boxing
-pub trait ComponentUpdater<C, T> {
-  fn update(&mut self, inner: &mut C, data: &T, ctx: &mut UpdateCtx);
-}
-
-impl<C, T> ComponentUpdater<C, T> for Box<dyn FnMut(&mut C, &T, &mut UpdateCtx)> {
-  fn update(&mut self, inner: &mut C, data: &T, ctx: &mut UpdateCtx) {
-    self(inner, data, ctx)
-  }
-}
-
-impl<C, T> ComponentUpdater<C, T> for Box<dyn FnMut(&mut C, &T)> {
-  fn update(&mut self, inner: &mut C, data: &T, _ctx: &mut UpdateCtx) {
-    self(inner, data)
-  }
-}
+pub type ComponentUpdater<C, T> = Box<dyn FnMut(&mut C, &T, &mut UpdateCtx)>;
 
 pub struct ComponentCell<C, T> {
   component: C,
-  updater: Box<dyn ComponentUpdater<C, T>>,
+  updater: ComponentUpdater<C, T>,
 }
 
-// I don't known why need static constraint here? wtf
-pub trait ComponentCellMaker<T: 'static>: Sized + 'static {
-  fn bind(self, updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
-    let fun = Box::new(updater) as Box<dyn FnMut(&mut Self, &T)>;
+pub trait ComponentCellMaker<T>: Sized {
+  fn bind(self, mut updater: impl FnMut(&mut Self, &T) + 'static) -> ComponentCell<Self, T> {
     ComponentCell {
       component: self,
-      updater: Box::new(fun),
+      updater: Box::new(move |c, t, _ctx| updater(c, t)),
     }
   }
 
@@ -36,14 +19,13 @@ pub trait ComponentCellMaker<T: 'static>: Sized + 'static {
     self,
     updater: impl FnMut(&mut Self, &T, &mut UpdateCtx) + 'static,
   ) -> ComponentCell<Self, T> {
-    let fun = Box::new(updater) as Box<dyn FnMut(&mut Self, &T, &mut UpdateCtx)>;
     ComponentCell {
       component: self,
-      updater: Box::new(fun),
+      updater: Box::new(updater),
     }
   }
 }
-impl<T: 'static, X: 'static> ComponentCellMaker<T> for X {}
+impl<T, X> ComponentCellMaker<T> for X {}
 
 impl<T, IC, C> ComponentAbility<T, IC> for ComponentCell<C, T>
 where
@@ -51,7 +33,7 @@ where
   C: ComponentAbility<T, IC>,
 {
   fn update(&mut self, model: &T, inner: &mut IC, ctx: &mut UpdateCtx) {
-    self.updater.update(&mut self.component, model, ctx);
+    (self.updater)(&mut self.component, model, ctx);
     self.component.update(model, inner, ctx);
   }
 
@@ -93,7 +75,7 @@ impl<C: Component<T>, T> Component<T> for ComponentCell<C, T> {
   }
 
   fn update(&mut self, model: &T, ctx: &mut UpdateCtx) {
-    self.updater.update(&mut self.component, model, ctx);
+    (self.updater)(&mut self.component, model, ctx);
     self.component.update(model, ctx);
   }
 }
