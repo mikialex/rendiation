@@ -19,24 +19,6 @@ use winit::event::{ElementState, Event, MouseButton};
 
 use crate::*;
 
-pub struct Viewer {
-  pub ui_examples: UIExamples,
-  pub viewer: ViewerImpl,
-}
-
-impl Default for Viewer {
-  fn default() -> Self {
-    Viewer {
-      ui_examples: Default::default(),
-      viewer: ViewerImpl {
-        content: Viewer3dContent::new(),
-        size: Size::from_u32_pair_min_one((100, 100)),
-        ctx: None,
-      },
-    }
-  }
-}
-
 impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
     self.content.update_state();
@@ -73,6 +55,16 @@ pub struct ViewerImpl {
   content: Viewer3dContent,
   size: Size,
   ctx: Option<Viewer3dRenderingCtx>,
+}
+
+impl Default for ViewerImpl {
+  fn default() -> Self {
+    Self {
+      content: Viewer3dContent::new(),
+      size: Size::from_u32_pair_min_one((100, 100)),
+      ctx: None,
+    }
+  }
 }
 
 pub struct Viewer3dContent {
