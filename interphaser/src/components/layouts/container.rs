@@ -1,5 +1,6 @@
 use crate::*;
 
+/// setup a sized box and use this for positioning child
 pub struct Container {
   pub size: LayoutSource<LayoutSize>,
   pub color: Color,
@@ -47,13 +48,7 @@ impl<T, C: Component<T>> ComponentAbility<T, C> for Container {
 
 impl<C: Presentable> PresentableAbility<C> for Container {
   fn render(&mut self, builder: &mut PresentationBuilder, inner: &mut C) {
-    self.layout.update_world(builder.current_origin_offset);
-    if self.color.a != 0. {
-      builder.present.primitives.push(Primitive::Quad((
-        self.layout.into_quad(),
-        Style::SolidColor(self.color),
-      )));
-    }
+    Presentable::render(self, builder);
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);
     builder.pop_offset()
@@ -125,5 +120,28 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
 impl<C> HotAreaPassBehavior<C> for Container {
   fn is_point_in(&self, point: crate::UIPosition, _inner: &C) -> bool {
     self.layout.into_quad().is_point_in(point)
+  }
+}
+
+impl LayoutAble for Container {
+  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
+    self.layout.size = constraint.clamp(*self.size.get());
+    self.layout.size.with_default_baseline()
+  }
+
+  fn set_position(&mut self, position: UIPosition) {
+    self.layout.set_relative_position(position);
+  }
+}
+
+impl Presentable for Container {
+  fn render(&mut self, builder: &mut PresentationBuilder) {
+    self.layout.update_world(builder.current_origin_offset);
+    if self.color.a != 0. {
+      builder.present.primitives.push(Primitive::Quad((
+        self.layout.into_quad(),
+        Style::SolidColor(self.color),
+      )));
+    }
   }
 }
