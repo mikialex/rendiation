@@ -1,8 +1,8 @@
-use std::{collections::HashMap, rc::Rc, sync::Mutex};
+use std::sync::Mutex;
 
-use rendiation_webgpu::{PipelineVariantContainer, PipelineVariantKey};
+use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder};
 
-use crate::scene::{ValueID, ValueIDGenerator};
+use crate::scene::ValueIDGenerator;
 
 pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
@@ -63,6 +63,20 @@ impl MaterialStates {
       bias: self.bias,
     })
   }
+
+  pub fn apply_pipeline_builder(
+    &self,
+    builder: &mut PipelineBuilder,
+    pass_info: &PassTargetFormatInfo,
+  ) {
+    builder.targets = pass_info
+      .color_formats
+      .iter()
+      .map(|&f| self.map_color_states(f))
+      .collect();
+
+    builder.depth_stencil = self.map_depth_stencil_state(pass_info.depth_stencil_format);
+  }
 }
 
 impl Default for MaterialStates {
@@ -75,32 +89,5 @@ impl Default for MaterialStates {
       bias: Default::default(),
       stencil: Default::default(),
     }
-  }
-}
-
-pub struct StatePipelineVariant<T> {
-  pipelines: HashMap<ValueID<MaterialStates>, T>,
-}
-
-impl<T> Default for StatePipelineVariant<T> {
-  fn default() -> Self {
-    Self {
-      pipelines: Default::default(),
-    }
-  }
-}
-
-impl<T: PipelineVariantContainer> PipelineVariantContainer for StatePipelineVariant<T> {
-  type Key = PipelineVariantKey<T::Key, ValueID<MaterialStates>>;
-  fn request(
-    &mut self,
-    variant: &Self::Key,
-    creator: impl FnOnce() -> wgpu::RenderPipeline,
-  ) -> &Rc<wgpu::RenderPipeline> {
-    self
-      .pipelines
-      .entry(variant.current)
-      .or_insert_with(Default::default)
-      .request(&variant.inner, creator)
   }
 }

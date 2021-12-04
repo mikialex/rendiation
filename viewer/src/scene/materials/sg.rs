@@ -26,6 +26,14 @@ pub struct ViewPosition;
 impl ShaderValue for ViewPosition {
   type ValueType = Vec3<f32>;
 }
+pub struct WorldPosition;
+impl ShaderValue for WorldPosition {
+  type ValueType = Vec3<f32>;
+}
+pub struct ClipPosition;
+impl ShaderValue for ClipPosition {
+  type ValueType = Vec4<f32>;
+}
 pub struct FragColor;
 impl ShaderValue for FragColor {
   type ValueType = Vec4<f32>;
@@ -45,25 +53,14 @@ pub struct Node<T> {
   handle: ArenaGraphNodeHandle<NodeData>,
 }
 
+pub struct ShaderFunction {
+  //
+}
+
 pub enum NodeData {
-  FunctionCall,
+  FunctionCall(Rc<ShaderFunction>),
+
   Uniform,
-}
-
-pub struct Fog {
-  color: Vec3<f32>,
-  range: Vec2<f32>,
-}
-
-pub struct FogShaderInstance {
-  color: Node<Vec3<f32>>,
-  range: Node<Vec2<f32>>,
-}
-
-impl FogShaderInstance {
-  fn compute(view_position: Node<Vec3<f32>>, old_frag_color: Node<Vec3<f32>>) -> Node<Vec3<f32>> {
-    todo!()
-  }
 }
 
 pub trait ShaderComponent {

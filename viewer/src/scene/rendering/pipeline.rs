@@ -8,7 +8,7 @@ use crate::*;
 
 #[derive(Default)]
 pub struct ResourcePoolImpl {
-  pub attachments: HashMap<(Size, wgpu::TextureFormat), Vec<wgpu::Texture>>,
+  pub attachments: HashMap<(Size, wgpu::TextureFormat, u32), Vec<wgpu::Texture>>,
 }
 
 #[derive(Clone, Default)]
@@ -19,6 +19,7 @@ pub struct ResourcePool {
 pub struct RenderEngine {
   resource: ResourcePool,
   gpu: Rc<GPU>,
+  msaa_sample_count: u32,
   pub output: Option<FrameTarget>,
 }
 
@@ -27,6 +28,7 @@ impl RenderEngine {
     Self {
       resource: Default::default(),
       output: Default::default(),
+      msaa_sample_count: 4,
       gpu,
     }
   }
@@ -42,6 +44,23 @@ impl RenderEngine {
       size: output.size,
       view: output.view.clone(),
       format: output.format,
+      sample_count: 1,
+    }
+  }
+
+  pub fn multisampled_attachment(&self) -> AttachmentDescriptor<wgpu::TextureFormat> {
+    AttachmentDescriptor {
+      format: wgpu::TextureFormat::Rgba8Unorm,
+      sample_count: self.msaa_sample_count,
+      sizer: default_sizer(),
+    }
+  }
+
+  pub fn multisampled_depth_attachment(&self) -> AttachmentDescriptor<wgpu::TextureFormat> {
+    AttachmentDescriptor {
+      format: wgpu::TextureFormat::Depth24PlusStencil8,
+      sample_count: self.msaa_sample_count,
+      sizer: default_sizer(),
     }
   }
 }
@@ -49,6 +68,7 @@ impl RenderEngine {
 pub fn attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
   AttachmentDescriptor {
     format: wgpu::TextureFormat::Rgba8Unorm,
+    sample_count: 1,
     sizer: default_sizer(),
   }
 }
@@ -56,6 +76,7 @@ pub fn attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
 pub fn depth_attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
   AttachmentDescriptor {
     format: wgpu::TextureFormat::Depth24PlusStencil8,
+    sample_count: 1,
     sizer: default_sizer(),
   }
 }
@@ -87,10 +108,12 @@ impl<F: AttachmentFormat> Attachment<F> {
           .create_view(&wgpu::TextureViewDescriptor::default()),
       ),
       format: self.des.format,
+      sample_count: self.des.sample_count,
     }
   }
 
   pub fn read(&self) -> AttachmentReadView<F> {
+    assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
       phantom: PhantomData,
       view: Rc::new(
@@ -104,6 +127,7 @@ impl<F: AttachmentFormat> Attachment<F> {
   }
 
   pub fn read_into(self) -> AttachmentOwnedReadView<F> {
+    assert_eq!(self.des.sample_count, 1); // todo support latter
     let view = self
       .texture
       .as_ref()
@@ -122,7 +146,7 @@ impl<F: AttachmentFormat> Drop for Attachment<F> {
       let mut pool = self.pool.inner.borrow_mut();
       let cached = pool
         .attachments
-        .entry((self.size, self.des.format.into()))
+        .entry((self.size, self.des.format.into(), self.des.sample_count))
         .or_insert_with(Default::default);
 
       cached.push(texture)
@@ -135,6 +159,7 @@ pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
   size: Size,
   view: Rc<wgpu::TextureView>, // todo opt enum
   format: F,
+  sample_count: u32,
 }
 
 pub struct AttachmentReadView<'a, F: AttachmentFormat> {
@@ -178,6 +203,7 @@ impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
 #[derive(Clone)]
 pub struct AttachmentDescriptor<F> {
   format: F,
+  sample_count: u32,
   sizer: Rc<dyn Fn(Size) -> Size>,
 }
 
@@ -198,19 +224,20 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
     let mut resource = engine.resource.inner.borrow_mut();
     let cached = resource
       .attachments
-      .entry((size, self.format.into()))
+      .entry((size, self.format.into(), self.sample_count))
       .or_insert_with(Default::default);
     let texture = cached.pop().unwrap_or_else(|| {
       engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: None,
         size: size.into_gpu_size(),
         mip_level_count: 1,
-        sample_count: 1,
+        sample_count: self.sample_count,
         dimension: TextureDimension::D2,
         format: self.format.into(),
         usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
       })
     });
+
     Attachment {
       pool: engine.resource.clone(),
       des: self,
@@ -261,9 +288,19 @@ impl SimplePipeline {
   pub fn render_simple(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
     let scene = &mut content.scene;
 
-    let mut scene_depth = depth_attachment()
-      .format(wgpu::TextureFormat::Depth24PlusStencil8)
-      .request(engine);
+    let mut scene_depth = depth_attachment().request(engine);
+
+    let mut msaa_color = engine.multisampled_attachment().request(engine);
+    let mut msaa_depth = engine.multisampled_depth_attachment().request(engine);
+
+    let mut widgets_result = attachment().request(engine);
+
+    pass("scene-widgets")
+      .with_color(msaa_color.write(), clear(all_zero()))
+      .with_depth(msaa_depth.write(), clear(1.))
+      .resolve_to(widgets_result.write())
+      .render_by(&mut content.axis)
+      .run(engine, scene);
 
     let mut final_compose = pass("compose-all")
       .with_color(engine.screen(), scene.get_main_pass_load_op())
@@ -273,7 +310,7 @@ impl SimplePipeline {
       .render(&mut self.background)
       .render(&mut self.forward);
 
-    let mut highlight_compose = (!content.selections.is_empty() && false).then(||{
+    let mut highlight_compose = (!content.selections.is_empty()).then(||{
        let mut selected = attachment()
         .format(wgpu::TextureFormat::Rgba8Unorm)
         .request(engine);
@@ -286,9 +323,11 @@ impl SimplePipeline {
       self.highlight.draw(selected.read_into())
     });
 
+    let mut copy_frame = copy_frame(widgets_result.read_into());
+
     final_compose
       .render(&mut highlight_compose)
-      .render(&mut content.axis);
+      .render(&mut copy_frame);
 
     final_compose.run(engine, scene);
 
@@ -324,6 +363,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
       .channels
       .push((op.into(), attachment.view, attachment.size));
     self.desc.info.color_formats.push(attachment.format);
+    self.desc.info.sample_count = attachment.sample_count;
     self
   }
 
@@ -343,6 +383,16 @@ impl<'a, 't> PassDescriptor<'a, 't> {
       .info
       .depth_stencil_format
       .replace(attachment.format);
+
+    self.desc.info.sample_count = attachment.sample_count;
+    // todo check sample count is same as color's
+
+    self
+  }
+
+  #[must_use]
+  pub fn resolve_to(mut self, attachment: AttachmentWriteView<wgpu::TextureFormat>) -> Self {
+    self.desc.resolve_target = attachment.view.into();
     self
   }
 
@@ -384,6 +434,15 @@ pub fn color(r: f64, g: f64, b: f64) -> wgpu::Color {
   wgpu::Color { r, g, b, a: 1. }
 }
 
+pub fn all_zero() -> wgpu::Color {
+  wgpu::Color {
+    r: 0.,
+    g: 0.,
+    b: 0.,
+    a: 0.,
+  }
+}
+
 pub fn color_same(r: f64) -> wgpu::Color {
   wgpu::Color {
     r,
@@ -396,6 +455,13 @@ pub fn color_same(r: f64) -> wgpu::Color {
 pub fn clear<V>(v: V) -> Operations<V> {
   wgpu::Operations {
     load: wgpu::LoadOp::Clear(v),
+    store: true,
+  }
+}
+
+pub fn load<V>() -> Operations<V> {
+  wgpu::Operations {
+    load: wgpu::LoadOp::Load,
     store: true,
   }
 }

@@ -47,7 +47,7 @@ impl<T> AbsChild<T> {
     }
   }
 
-  pub fn with_size(mut self, position: UIPosition) -> Self {
+  pub fn with_position(mut self, position: UIPosition) -> Self {
     self.position = position;
     self
   }

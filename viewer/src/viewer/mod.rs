@@ -1,10 +1,4 @@
-pub mod examples;
 use std::rc::Rc;
-
-pub use examples::*;
-
-pub mod view;
-pub use view::*;
 
 pub mod default_scene;
 pub use default_scene::*;
@@ -26,32 +20,14 @@ use winit::event::{ElementState, Event, MouseButton};
 use crate::*;
 
 pub struct Viewer {
-  _counter: Counter,
-  todo: Todo,
-  viewer: ViewerImpl,
+  pub ui_examples: UIExamples,
+  pub viewer: ViewerImpl,
 }
 
 impl Default for Viewer {
   fn default() -> Self {
-    let todo = Todo {
-      items: vec![
-        TodoItem {
-          name: String::from("t1中文测试"),
-          id: 0,
-        },
-        TodoItem {
-          name: String::from("test 2"),
-          id: 1,
-        },
-        TodoItem {
-          name: String::from("test gh3"),
-          id: 2,
-        },
-      ],
-    };
     Viewer {
-      _counter: Counter { count: 0 },
-      todo,
+      ui_examples: Default::default(),
       viewer: ViewerImpl {
         content: Viewer3dContent::new(),
         size: Size::from_u32_pair_min_one((100, 100)),
@@ -59,35 +35,6 @@ impl Default for Viewer {
       },
     }
   }
-}
-
-pub fn perf_panel() -> impl UIComponent<Viewer> {
-  Text::default()
-    .with_line_wrap(LineWrap::Multiple)
-    .with_horizon_align(HorizontalAlign::Left)
-    .with_vertical_align(VerticalAlign::Top)
-    .bind_with_ctx(|s, _t, ctx| {
-      let content = format!(
-        "frame_id: {}\nupdate_time: {}\nlayout_time: {}\nrendering_prepare_time: {}\nrendering_dispatch_time: {}",
-        ctx.last_frame_perf_info.frame_id,
-        ctx.last_frame_perf_info.update_time.as_micros() as f32 / 1000.,
-        ctx.last_frame_perf_info.layout_time.as_micros() as f32 / 1000.,
-        ctx.last_frame_perf_info.rendering_prepare_time.as_micros() as f32 / 1000.,
-        ctx.last_frame_perf_info.rendering_dispatch_time.as_micros() as f32 / 1000.,
-      );
-      s.content.set(content);
-    })
-    .extend(Container::size((500., 200.)))
-}
-
-pub fn create_ui() -> impl UIComponent<Viewer> {
-  absolute_group()
-    .child(AbsChild::new(
-      GPUCanvas::default().lens(lens!(Viewer, viewer)),
-    ))
-    .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
-    .child(AbsChild::new(perf_panel()))
-    .extend(AbsoluteAnchor::default())
 }
 
 impl CanvasPrinter for ViewerImpl {
@@ -99,8 +46,13 @@ impl CanvasPrinter for ViewerImpl {
       .render(canvas, gpu, &mut self.content)
   }
 
-  fn event(&mut self, event: &winit::event::Event<()>, states: &WindowState) {
-    self.content.event(event, states)
+  fn event(
+    &mut self,
+    event: &winit::event::Event<()>,
+    states: &WindowState,
+    position_info: CanvasWindowPositionInfo,
+  ) {
+    self.content.event(event, states, position_info)
   }
 
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size {
@@ -183,18 +135,25 @@ impl Viewer3dContent {
     }
   }
 
-  pub fn event(&mut self, event: &Event<()>, states: &WindowState) {
+  pub fn event(
+    &mut self,
+    event: &Event<()>,
+    states: &WindowState,
+    position_info: CanvasWindowPositionInfo,
+  ) {
     self.controller.event(event);
 
     #[allow(clippy::single_match)]
     match event {
       Event::WindowEvent { event, .. } => match event {
         winit::event::WindowEvent::MouseInput { state, button, .. } => {
+          let canvas_x = states.mouse_position.x - position_info.absolute_position.x;
+          let canvas_y = states.mouse_position.y - position_info.absolute_position.y;
+
           if *button == MouseButton::Left && *state == ElementState::Pressed {
-            // todo handle canvas is not full window case;
             let normalized_position = (
-              states.mouse_position.x / states.size.width * 2. - 1.,
-              states.mouse_position.y / states.size.height * 2. - 1.,
+              canvas_x / position_info.size.width * 2. - 1.,
+              -(canvas_y / position_info.size.height * 2. - 1.),
             );
 
             self.picker.pick_new(

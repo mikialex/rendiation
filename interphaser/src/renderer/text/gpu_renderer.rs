@@ -5,7 +5,7 @@ use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::renderer::text::TextQuadInstance;
+use crate::TextQuadInstance;
 
 use super::WebGPUxTextPrimitive;
 
@@ -87,7 +87,7 @@ impl TextWebGPURenderer {
           binding: 2,
           visibility: wgpu::ShaderStages::FRAGMENT,
           ty: wgpu::BindingType::Texture {
-            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
             view_dimension: wgpu::TextureViewDimension::D2,
             multisampled: false,
           },

@@ -25,6 +25,7 @@ pub struct ApplicationInner<T> {
   root_size_changed: bool,
   ui_renderer: WebGPUxUIRenderer,
   fonts: FontManager,
+  texts: TextCache,
 
   window: winit::window::Window,
   perf_info_last_frame: PerformanceInfo,
@@ -53,14 +54,18 @@ impl<T: 'static> Application<T> {
 
     let fonts = FontManager::new_with_fallback_system_font("Arial");
 
+    let text_cache_init_size = Size::from_usize_pair_min_one((512, 512));
+    let texts = TextCache::new_default_impl(text_cache_init_size);
+
     let prefer_target_fmt = surface.config.format;
-    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt);
+    let ui_renderer = WebGPUxUIRenderer::new(&gpu.device, prefer_target_fmt, text_cache_init_size);
 
     Self {
       event_loop,
       app: ApplicationInner {
         state,
         fonts,
+        texts,
         root: Box::new(ui),
         root_size_changed: true,
         window_states: WindowState::new(LayoutSize {
@@ -168,7 +173,7 @@ impl<T> ApplicationInner<T> {
   }
 
   fn render(&mut self, frame: &SurfaceTexture) {
-    let mut builder = PresentationBuilder::new(&self.fonts);
+    let mut builder = PresentationBuilder::new(&self.fonts, &mut self.texts);
     builder.present.view_size = self.window_states.size;
 
     self.current_perf.rendering_prepare_time = time_measure(|| self.root.render(&mut builder));
@@ -186,7 +191,7 @@ impl<T> ApplicationInner<T> {
       };
 
       let mut encoder = self.gpu.encoder.borrow_mut();
-      task.update(&self.gpu, &mut encoder, &self.fonts);
+      task.update(&self.gpu, &mut encoder, &self.fonts, &mut builder.texts);
 
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((
@@ -224,6 +229,7 @@ impl<T> ApplicationInner<T> {
       custom_event: Default::default(),
       states: &self.window_states,
       fonts: &self.fonts,
+      texts: &mut self.texts,
       gpu: self.gpu.clone(),
       view_may_changed: false,
     };

@@ -42,21 +42,15 @@ impl BindGroupLayoutProvider for FatLineMaterial {
     "
     )
   }
-}
 
-impl PipelineRequester for FatlineMaterialGPU {
-  type Container = PipelineUnit;
+  fn register_uniform_struct_declare(_: &mut PipelineBuilder) {
+    todo!()
+  }
 }
 
 impl MaterialGPUResource for FatlineMaterialGPU {
   type Source = FatLineMaterial;
 
-  fn pipeline_key(
-    &self,
-    _source: &Self::Source,
-    _ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key {
-  }
   fn create_pipeline(
     &self,
     _source: &Self::Source,
@@ -181,7 +175,7 @@ impl MaterialCPUResource for FatLineMaterial {
 
     let bindgroup_layout = Self::layout(device);
     let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
-      .push(_uniform.gpu().as_entire_binding())
+      .push(_uniform.as_bindable())
       .build(&bindgroup_layout);
 
     FatlineMaterialGPU {
@@ -190,6 +184,9 @@ impl MaterialCPUResource for FatLineMaterial {
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {
+    false
+  }
+  fn is_transparent(&self) -> bool {
     false
   }
 }

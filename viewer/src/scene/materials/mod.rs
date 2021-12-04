@@ -1,6 +1,7 @@
 use std::{
   any::Any,
   cell::{Cell, RefCell},
+  hash::Hash,
   ops::{Deref, DerefMut},
   rc::Rc,
 };
@@ -12,6 +13,8 @@ pub use wrapper::*;
 
 pub mod flat;
 pub use flat::*;
+pub mod line;
+pub use line::*;
 pub mod basic;
 pub use basic::*;
 pub mod fatline;
@@ -20,8 +23,8 @@ pub mod env_background;
 pub use env_background::*;
 
 use rendiation_webgpu::{
-  BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineRequester, PipelineResourceCache,
-  PipelineUnit, PipelineVariantContainer, RenderPassInfo, TopologyPipelineVariant, GPU,
+  BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher, PipelineResourceCache,
+  RenderPassInfo, GPU,
 };
 
 use crate::*;
@@ -39,9 +42,10 @@ pub trait MaterialCPUResource: Clone {
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
+  fn is_transparent(&self) -> bool;
 }
 
-pub trait MaterialGPUResource: Sized + PipelineRequester {
+pub trait MaterialGPUResource: Sized {
   type Source: MaterialCPUResource<GPU = Self>;
 
   /// This Hook will be called before this material rendering(set_pass)
@@ -59,11 +63,7 @@ pub trait MaterialGPUResource: Sized + PipelineRequester {
     true
   }
 
-  fn pipeline_key(
-    &self,
-    source: &Self::Source,
-    ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key;
+  fn hash_pipeline(&self, _source: &Self::Source, _hasher: &mut PipelineHasher) {}
 
   fn create_pipeline(
     &self,
@@ -171,7 +171,7 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
   }
 }
 
-pub trait PassDispatcher {
+pub trait PassDispatcher: Any {
   fn build_pipeline(&self, builder: &mut PipelineBuilder);
 }
 
@@ -219,7 +219,13 @@ pub struct SceneMaterialPassSetupCtx<'a> {
 pub trait Material {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
+
+  /// this is to decide if could be picked by cpu side trivially.
   fn is_keep_mesh_shape(&self) -> bool;
+
+  /// this is to decide whether need or not sort.
+  fn is_transparent(&self) -> bool;
+
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
@@ -228,7 +234,6 @@ impl<T> Material for MaterialCellImpl<T>
 where
   T: 'static,
   T: MaterialCPUResource,
-  T::GPU: PipelineRequester,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -244,17 +249,30 @@ where
       self.refresh_cache();
     }
 
-    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-    let container = pipelines.get_cache_mut::<T::GPU>();
+    let topology = ctx.active_mesh.unwrap().topology();
+    let sample_count = ctx.pass_info.format_info.sample_count;
+
+    let mut hasher = Default::default();
 
     let m_gpu = self.gpu.as_mut().unwrap();
-    let key = m_gpu.pipeline_key(&self.material, &pipeline_ctx);
 
-    self.current_pipeline = container
-      .request(&key, || {
-        let mut builder = Default::default();
-        pipeline_ctx.pass.build_pipeline(&mut builder);
+    self.material.type_id().hash(&mut hasher);
+    ctx.pass_info.format_info.hash(&mut hasher);
+
+    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
+
+    pipeline_ctx.pass.type_id().hash(&mut hasher);
+    m_gpu.hash_pipeline(&self.material, &mut hasher);
+
+    self.current_pipeline = pipelines
+      .get_or_insert_with(hasher, || {
+        let mut builder = PipelineBuilder::default();
+
+        builder.primitive_state.topology = topology;
+        builder.multisample.count = sample_count;
+
         m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
+        pipeline_ctx.pass.build_pipeline(&mut builder);
         builder.build(&gpu.device)
       })
       .clone()
@@ -273,6 +291,10 @@ where
     self.material.is_keep_mesh_shape()
   }
 
+  fn is_transparent(&self) -> bool {
+    self.material.is_transparent()
+  }
+
   fn as_any(&self) -> &dyn Any {
     self
   }
@@ -287,7 +309,6 @@ impl<T> Material for MaterialCell<T>
 where
   T: 'static,
   T: MaterialCPUResource,
-  T::GPU: PipelineRequester,
   T::GPU: MaterialGPUResource<Source = T>,
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
@@ -305,6 +326,11 @@ where
     inner.is_keep_mesh_shape()
   }
 
+  fn is_transparent(&self) -> bool {
+    let inner = self.inner.borrow();
+    inner.is_transparent()
+  }
+
   fn as_any(&self) -> &dyn Any {
     self
   }
@@ -317,5 +343,3 @@ where
     self
   }
 }
-
-pub type CommonPipelineCache<T = PipelineUnit> = TopologyPipelineVariant<StatePipelineVariant<T>>;

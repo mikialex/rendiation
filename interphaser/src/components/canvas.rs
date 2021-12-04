@@ -49,17 +49,32 @@ pub struct FrameTarget {
   pub view: Rc<wgpu::TextureView>,
 }
 
+pub struct CanvasWindowPositionInfo {
+  pub absolute_position: UIPosition,
+  pub size: LayoutSize,
+}
+
 pub trait CanvasPrinter {
-  fn event(&mut self, event: &winit::event::Event<()>, states: &WindowState);
+  fn event(
+    &mut self,
+    event: &winit::event::Event<()>,
+    states: &WindowState,
+    position_info: CanvasWindowPositionInfo,
+  );
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size;
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget);
 }
 
 impl<T: CanvasPrinter> Component<T> for GPUCanvas {
   fn event(&mut self, model: &mut T, event: &mut EventCtx) {
-    model.event(event.event, event.states);
+    let position_info = CanvasWindowPositionInfo {
+      absolute_position: self.layout.absolute_position,
+      size: self.layout.size,
+    };
+
+    model.event(event.event, event.states, position_info);
     match event.event {
-      Event::MainEventsCleared => {
+      Event::RedrawRequested(_) => {
         let new_size = model.update_render_size(self.layout.size.into());
         if new_size != self.current_render_buffer_size {
           self.content = None;

@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use arena_tree::ArenaTree;
+use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
 use rendiation_webgpu::*;
@@ -141,9 +142,25 @@ impl Drop for SceneNode {
 }
 
 pub struct TransformGPU {
-  pub cache: Mat4<f32>,
-  pub ubo: wgpu::Buffer,
+  pub ubo: UniformBufferDataWithCache<TransformGPUData>,
   pub bindgroup: Rc<wgpu::BindGroup>,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Zeroable, Pod, Default, PartialEq)]
+pub struct TransformGPUData {
+  pub world_matrix: Mat4<f32>,
+}
+
+impl ShaderUniformBlock for TransformGPUData {
+  fn shader_struct() -> &'static str {
+    "
+      [[block]]
+      struct ModelTransform {
+        matrix: mat4x4<f32>;
+      };
+    "
+  }
 }
 
 impl BindGroupLayoutProvider for TransformGPU {
@@ -166,58 +183,44 @@ impl BindGroupLayoutProvider for TransformGPU {
   fn gen_shader_header(group: usize) -> String {
     format!(
       "
-      [[block]]
-      struct ModelTransform {{
-        matrix: mat4x4<f32>;
-      }};
-
       [[group({group}), binding(0)]]
       var<uniform> model: ModelTransform;
     
     "
     )
   }
+
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+    builder.declare_uniform_struct::<TransformGPUData>();
+  }
 }
 
 impl TransformGPU {
   pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) -> &mut Self {
-    if self.cache == *matrix {
-      return self;
-    }
-    self.cache = *matrix;
-
-    gpu
-      .queue
-      .write_buffer(&self.ubo, 0, bytemuck::cast_slice(matrix.as_ref()));
-
+    self.ubo.world_matrix = *matrix;
+    self.ubo.update(&gpu.queue);
     self
   }
 
   pub fn new(gpu: &GPU, matrix: &Mat4<f32>) -> Self {
     let device = &gpu.device;
-    use wgpu::util::DeviceExt;
 
-    let ubo = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: "ModelTransformBindgroup Buffer".into(),
-      contents: bytemuck::cast_slice(matrix.as_ref()),
-      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-    });
+    let mut ubo: UniformBufferDataWithCache<TransformGPUData> =
+      UniformBufferDataWithCache::create_default(device);
+    ubo.world_matrix = *matrix;
+    ubo.update(&gpu.queue);
 
     let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
       layout: &Self::layout(device),
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
-        resource: ubo.as_entire_binding(),
+        resource: ubo.as_bindable(),
       }],
       label: None,
     });
 
     let bindgroup = Rc::new(bindgroup);
 
-    Self {
-      ubo,
-      bindgroup,
-      cache: *matrix,
-    }
+    Self { ubo, bindgroup }
   }
 }

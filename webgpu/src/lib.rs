@@ -5,6 +5,7 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 
+mod bindgroup;
 mod cache;
 mod encoder;
 mod pass;
@@ -15,6 +16,7 @@ mod texture;
 mod types;
 mod uniform;
 
+pub use bindgroup::*;
 pub use cache::*;
 pub use encoder::*;
 pub use pass::*;
@@ -42,6 +44,10 @@ pub trait BindableResource {
   fn bind_layout() -> wgpu::BindingType;
 }
 
+pub trait BindableResourceWgslCodeGen {
+  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str;
+}
+
 impl BindableResource for wgpu::Sampler {
   fn as_bindable(&self) -> wgpu::BindingResource {
     wgpu::BindingResource::Sampler(self)
@@ -51,6 +57,13 @@ impl BindableResource for wgpu::Sampler {
       comparison: false,
       filtering: true,
     }
+  }
+}
+
+impl BindableResourceWgslCodeGen for wgpu::Sampler {
+  // todo distinguish between depth and common
+  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str {
+    "sampler"
   }
 }
 
@@ -82,7 +95,7 @@ impl GPU {
   pub async fn new() -> Self {
     let backend = wgpu::Backends::PRIMARY;
     let instance = wgpu::Instance::new(backend);
-    let power_preference = wgpu::PowerPreference::default();
+    let power_preference = wgpu::PowerPreference::HighPerformance;
 
     let adaptor = instance
       .request_adapter(&wgpu::RequestAdapterOptions {
@@ -116,7 +129,7 @@ impl GPU {
   pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
     let backend = wgpu::Backends::PRIMARY;
     let instance = wgpu::Instance::new(backend);
-    let power_preference = wgpu::PowerPreference::default();
+    let power_preference = wgpu::PowerPreference::HighPerformance;
 
     let surface = surface_provider.create_surface(&instance);
     let size = surface_provider.size();

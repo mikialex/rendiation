@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
 use rendiation_webgpu::*;
@@ -7,6 +9,7 @@ use crate::*;
 pub struct AxisHelper {
   pub enabled: bool,
   pub root: SceneNode,
+  auto_scale: Rc<RefCell<ViewAutoScalable>>,
   x: Arrow,
   y: Arrow,
   z: Arrow,
@@ -22,9 +25,11 @@ impl PassContent for AxisHelper {
 
     let root_position = self.root.visit(|n| n.world_matrix.position());
 
-    self.x.update(gpu, &mut base, root_position);
-    self.y.update(gpu, &mut base, root_position);
-    self.z.update(gpu, &mut base, root_position);
+    self.auto_scale.borrow_mut().override_position = root_position.into();
+
+    self.x.update(gpu, &mut base);
+    self.y.update(gpu, &mut base);
+    self.z.update(gpu, &mut base);
   }
 
   fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
@@ -48,8 +53,8 @@ impl PassContent for AxisHelper {
 }
 
 struct Arrow {
-  cylinder: AutoScalableMeshModelImpl,
-  tip: AutoScalableMeshModelImpl,
+  cylinder: OverridableMeshModelImpl,
+  tip: OverridableMeshModelImpl,
   root: SceneNode,
 }
 
@@ -58,11 +63,8 @@ impl Arrow {
     &mut self,
     gpu: &rendiation_webgpu::GPU,
     ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    root_position: Vec3<f32>,
   ) {
-    self.cylinder.override_position = root_position.into();
     self.cylinder.update(gpu, ctx);
-    self.tip.override_position = root_position.into();
     self.tip.update(gpu, ctx);
   }
 
@@ -82,7 +84,8 @@ impl Arrow {
 
   fn new(
     parent: &SceneNode,
-    color: Vec3<f32>,
+    auto_scale: Rc<RefCell<ViewAutoScalable>>,
+    color: impl Into<Vec3<f32>>,
     cylinder_mesh: impl Mesh + 'static,
     tip_mesh: impl Mesh + 'static,
   ) -> Self {
@@ -95,21 +98,21 @@ impl Arrow {
       material.states.depth_compare = wgpu::CompareFunction::Always;
       MaterialCell::new(material)
     }
-    let material = material(color);
+    let material = material(color.into());
 
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
     let mut cylinder =
-      MeshModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_auto_scale();
+      MeshModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_matrix_overridable();
 
-    cylinder.independent_scale_factor = 100.;
+    cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
     node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
-    let mut tip = MeshModelImpl::new(material, tip_mesh, node_tip).into_auto_scale();
+    let mut tip = MeshModelImpl::new(material, tip_mesh, node_tip).into_matrix_overridable();
 
-    tip.independent_scale_factor = 100.;
+    tip.push_override(auto_scale);
 
     Self {
       root,
@@ -141,17 +144,34 @@ impl AxisHelper {
     .tessellate();
     let tip = MeshCell::new(tip);
 
-    let x = Arrow::new(&root, Vec3::new(1., 0., 0.), cylinder.clone(), tip.clone());
+    let auto_scale = Rc::new(RefCell::new(ViewAutoScalable {
+      override_position: None,
+      independent_scale_factor: 100.,
+    }));
+
+    let x = Arrow::new(
+      &root,
+      auto_scale.clone(),
+      (0.8, 0.1, 0.1),
+      cylinder.clone(),
+      tip.clone(),
+    );
     x.root.mutate(|node| {
       node.local_matrix = Mat4::rotate_z(-f32::PI() / 2.);
     });
 
-    let y = Arrow::new(&root, Vec3::new(0., 1., 0.), cylinder.clone(), tip.clone());
+    let y = Arrow::new(
+      &root,
+      auto_scale.clone(),
+      (0.1, 0.8, 0.1),
+      cylinder.clone(),
+      tip.clone(),
+    );
     y.root.mutate(|_| {
       // the cylinder is y up, so do nothing
     });
 
-    let z = Arrow::new(&root, Vec3::new(0., 0., 1.), cylinder, tip);
+    let z = Arrow::new(&root, auto_scale.clone(), (0.1, 0.1, 0.8), cylinder, tip);
     z.root.mutate(|node| {
       node.local_matrix = Mat4::rotate_x(f32::PI() / 2.);
     });
@@ -159,6 +179,7 @@ impl AxisHelper {
     Self {
       root,
       enabled: true,
+      auto_scale,
       x,
       y,
       z,

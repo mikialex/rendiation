@@ -100,24 +100,6 @@ impl Mesh for FatlineMeshCellImpl {
   }
 }
 
-// pub type FatlineMeshHandle = TypedHandle<FatlineMeshCell, MeshHandle>;
-
-// impl Scene {
-//   pub fn add_fatline_mesh<M>(&mut self, mesh: FatlineData) -> FatlineMeshHandle
-//   where
-//     M: GPUMeshData + 'static,
-//   {
-//     let handle = self
-//       .components
-//       .meshes
-//       .insert(Box::new(FatlineMeshCell::from(mesh)));
-//     TypedMeshHandle {
-//       handle,
-//       ty: PhantomData,
-//     }
-//   }
-// }
-
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]

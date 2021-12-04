@@ -16,13 +16,16 @@ pub use scene::*;
 pub mod viewer;
 pub use viewer::*;
 
+pub mod app;
+pub use app::*;
+
 use interphaser::Application;
 
 fn main() {
   env_logger::builder().init();
 
   let viewer = Viewer::default();
-  let ui = create_ui();
+  let ui = create_app();
 
   let viewer = futures::executor::block_on(Application::new(viewer, ui));
   viewer.run();

@@ -1,7 +1,5 @@
 use std::time::Instant;
 
-use glyph_brush::ab_glyph::Font;
-
 use crate::*;
 
 pub struct Cursor {
@@ -64,7 +62,9 @@ impl Cursor {
     self.position = None;
   }
 
-  fn get_position(&mut self, layout: &TextLayout, fonts: &FontManager) -> &CursorPositionInfo {
+  fn get_position(&mut self, layout: &TextLayoutRef) -> &CursorPositionInfo {
+    let layout = &layout.layout().glyphs;
+
     self.position.get_or_insert_with(|| {
       let index = if self.index == 0 { 0 } else { self.index - 1 };
       if layout.is_empty() {
@@ -77,14 +77,13 @@ impl Cursor {
         };
       }
 
-      let sg = &layout[index];
-      let rect = fonts.get_font(sg.font_id).glyph_bounds(&sg.glyph);
+      let rect = &layout[index].2;
 
-      let height = rect.max.y - rect.min.y;
+      let height = rect.right_bottom[1] - rect.left_top[1];
       let position = if self.index == 0 {
-        (rect.min.x, rect.min.y)
+        (rect.left_top[0], rect.left_top[1])
       } else {
-        (rect.max.x, rect.min.y)
+        (rect.right_bottom[0], rect.left_top[1])
       };
       CursorPositionInfo {
         position: position.into(),
@@ -93,8 +92,8 @@ impl Cursor {
     })
   }
 
-  pub fn create_quad(&mut self, layout: &TextLayout, fonts: &FontManager) -> Quad {
-    let position = self.get_position(layout, fonts);
+  pub fn create_quad(&mut self, layout: &TextLayoutRef) -> Quad {
+    let position = self.get_position(layout);
     Quad {
       x: position.position.x,
       y: position.position.y,

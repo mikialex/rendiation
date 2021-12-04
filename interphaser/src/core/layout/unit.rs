@@ -2,9 +2,11 @@ use crate::*;
 
 pub struct LayoutUnit {
   previous_constrains: LayoutConstraint,
+  /// relative to parent top left
   pub relative_position: UIPosition,
+  /// relative to screen top left
+  pub absolute_position: UIPosition,
   pub size: LayoutSize,
-  pub position: UIPosition,
   pub baseline_offset: f32,
   pub attached: bool,
   pub need_update: bool,
@@ -16,7 +18,7 @@ impl Default for LayoutUnit {
       previous_constrains: Default::default(),
       relative_position: Default::default(),
       size: Default::default(),
-      position: Default::default(),
+      absolute_position: Default::default(),
       baseline_offset: 0.,
       attached: false,
       need_update: true,
@@ -57,14 +59,14 @@ impl LayoutUnit {
   }
 
   pub fn update_world(&mut self, world_offset: UIPosition) {
-    self.position.x = self.relative_position.x + world_offset.x;
-    self.position.y = self.relative_position.y + world_offset.y;
+    self.absolute_position.x = self.relative_position.x + world_offset.x;
+    self.absolute_position.y = self.relative_position.y + world_offset.y;
   }
 
   pub fn into_quad(&self) -> Quad {
     Quad {
-      x: self.position.x,
-      y: self.position.y,
+      x: self.absolute_position.x,
+      y: self.absolute_position.y,
       width: self.size.width,
       height: self.size.height,
     }

@@ -5,7 +5,7 @@ use rendiation_webgpu::{
   util::DeviceExt, WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource,
 };
 
-use super::{TextHash, TextQuadInstance};
+use crate::{TextHash, TextQuadInstance};
 
 pub struct WebGPUxTextPrimitive {
   pub vertex_buffer: wgpu::Buffer,

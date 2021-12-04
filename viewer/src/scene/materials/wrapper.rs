@@ -1,4 +1,4 @@
-use std::{cell::Cell, rc::Rc};
+use std::{cell::Cell, hash::Hash, rc::Rc};
 
 use rendiation_webgpu::*;
 
@@ -26,29 +26,18 @@ pub struct SceneMaterialGPU<T> {
   gpu: T,
 }
 
-impl<T: MaterialGPUResource> PipelineRequester for SceneMaterialGPU<T> {
-  type Container = CommonPipelineCache<T::Container>;
-}
-
 impl<T> MaterialGPUResource for SceneMaterialGPU<T>
 where
   T: MaterialGPUResource,
 {
   type Source = SceneMaterial<T::Source>;
 
-  fn pipeline_key(
-    &self,
-    source: &Self::Source,
-    ctx: &PipelineCreateCtx,
-  ) -> <Self::Container as PipelineVariantContainer>::Key {
+  fn hash_pipeline(&self, source: &Self::Source, hasher: &mut PipelineHasher) {
     self
       .state_id
       .set(STATE_ID.lock().unwrap().get_uuid(&source.states));
-    self
-      .gpu
-      .pipeline_key(&source.material, ctx)
-      .key_with(self.state_id.get())
-      .key_with(ctx.active_mesh.unwrap().topology())
+    self.state_id.get().hash(hasher);
+    self.gpu.hash_pipeline(&source.material, hasher);
   }
 
   fn create_pipeline(
@@ -58,17 +47,9 @@ where
     device: &wgpu::Device,
     ctx: &PipelineCreateCtx,
   ) {
-    builder.targets = ctx
-      .pass_info
-      .format_info
-      .color_formats
-      .iter()
-      .map(|&f| source.states.map_color_states(f))
-      .collect();
-
-    builder.depth_stencil = source
+    source
       .states
-      .map_depth_stencil_state(ctx.pass_info.format_info.depth_stencil_format);
+      .apply_pipeline_builder(builder, &ctx.pass_info.format_info);
 
     builder.with_layout::<TransformGPU>(ctx.layouts, device);
 
@@ -89,7 +70,7 @@ where
     
     ",
       )
-      .declare_struct(
+      .declare_io_struct(
         "
       struct VertexOutput {
         [[builtin(position)]] position: vec4<f32>;
@@ -104,8 +85,6 @@ where
       .create_pipeline(&source.material, builder, device, ctx);
 
     builder.with_layout::<CameraBindgroup>(ctx.layouts, device);
-
-    builder.primitive_state.topology = ctx.active_mesh.unwrap().topology();
   }
 
   fn setup_pass_bindgroup<'a>(
@@ -144,5 +123,8 @@ where
 
   fn is_keep_mesh_shape(&self) -> bool {
     self.material.is_keep_mesh_shape()
+  }
+  fn is_transparent(&self) -> bool {
+    false
   }
 }

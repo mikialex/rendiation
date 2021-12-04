@@ -71,9 +71,3 @@ pub fn build_todo_item() -> impl UIComponent<TodoItem> {
     .extend(Flex::row())
     .extend(Container::size((500., 120.)))
 }
-
-#[derive(PartialEq, Clone, Default)]
-
-pub struct Counter {
-  pub count: usize,
-}

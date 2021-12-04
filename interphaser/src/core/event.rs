@@ -1,7 +1,7 @@
 use rendiation_webgpu::GPU;
 use std::{any::Any, rc::Rc};
 
-use crate::{FontManager, WindowState};
+use crate::{FontManager, TextCache, WindowState};
 
 pub struct EventCtx<'a> {
   pub view_may_changed: bool,
@@ -9,6 +9,7 @@ pub struct EventCtx<'a> {
   pub custom_event: CustomEventCtx,
   pub states: &'a WindowState,
   pub fonts: &'a FontManager,
+  pub texts: &'a mut TextCache,
   pub gpu: Rc<GPU>,
 }
 
