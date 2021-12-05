@@ -120,10 +120,30 @@ pub enum UILength {
   ParentPercent(f32),
 }
 
+impl From<f32> for UILength {
+  fn from(v: f32) -> Self {
+    Self::Px(v)
+  }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct UISize {
-  pub width: f32,
-  pub height: f32,
+pub struct UISize<T = f32> {
+  pub width: T,
+  pub height: T,
+}
+
+impl UISize<UILength> {
+  pub fn into_pixel(&self, parent: UISize) -> UISize {
+    let width = match self.width {
+      UILength::Px(px) => px,
+      UILength::ParentPercent(p) => parent.width * p,
+    };
+    let height = match self.height {
+      UILength::Px(px) => px,
+      UILength::ParentPercent(p) => parent.height * p,
+    };
+    UISize { width, height }
+  }
 }
 
 impl UISize {
@@ -149,7 +169,7 @@ impl UISize {
   }
 }
 
-impl<T: Into<f32>> From<(T, T)> for UISize {
+impl<X, T: Into<X>> From<(T, T)> for UISize<X> {
   fn from(value: (T, T)) -> Self {
     Self {
       width: value.0.into(),

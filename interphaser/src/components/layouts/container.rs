@@ -2,7 +2,7 @@ use crate::*;
 
 /// setup a sized box and use this for positioning child
 pub struct Container {
-  pub size: LayoutSource<UISize>,
+  pub size: LayoutSource<UISize<UILength>>,
   pub color: Color,
   pub child_align: ContainerAlignment,
   pub child_offset: ContainerItemOffset,
@@ -10,7 +10,7 @@ pub struct Container {
 }
 
 impl Container {
-  pub fn size(size: impl Into<UISize>) -> Self {
+  pub fn size(size: impl Into<UISize<UILength>>) -> Self {
     Self {
       size: LayoutSource::new(size.into()),
       color: (1., 1., 1., 0.).into(),
@@ -97,10 +97,13 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
     if self.layout.skipable(constraint) {
       return self.layout.size.with_default_baseline();
     }
+
+    let size_wish = self.size.get().into_pixel(constraint.max);
+
     let child_size = inner
-      .layout(LayoutConstraint::from_max(*self.size.get()), ctx)
+      .layout(LayoutConstraint::from_max(size_wish), ctx)
       .size;
-    self.layout.size = constraint.clamp(*self.size.get());
+    self.layout.size = constraint.clamp(size_wish);
 
     let align_offset = self.child_align.make_offset(self.layout.size, child_size);
 
@@ -125,7 +128,7 @@ impl<C> HotAreaPassBehavior<C> for Container {
 
 impl LayoutAble for Container {
   fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
-    self.layout.size = constraint.clamp(*self.size.get());
+    self.layout.size = constraint.clamp(self.size.get().into_pixel(constraint.max));
     self.layout.size.with_default_baseline()
   }
 
