@@ -34,6 +34,12 @@ pub fn button<T: 'static>(
   let on_mouse_in = state.on_event(|s, _, _| *s = ButtonState::Hovering);
   let on_mouse_out = state.on_event(|s, _, _| *s = ButtonState::Normal);
 
+  // let transition = TimeBasedTransition {
+  //   duration: 200,
+  //   ty: Transition::Linear,
+  // }
+  // .into_animation();
+
   Text::default()
     .bind(move |s, t| s.content.set(label.eval(t)))
     .extend(Container::size((200., 80.)).bind(move |s, _| {
