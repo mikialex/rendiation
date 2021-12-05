@@ -68,7 +68,7 @@ impl<T: 'static> Application<T> {
         texts,
         root: Box::new(ui),
         root_size_changed: true,
-        window_states: WindowState::new(LayoutSize {
+        window_states: WindowState::new(UISize {
           width: initial_size.0,
           height: initial_size.1,
         }),

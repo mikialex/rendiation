@@ -1,4 +1,4 @@
-use crate::{LayoutSize, TextCache, TextLayoutRef, UIPosition};
+use crate::{TextCache, TextLayoutRef, UIPosition, UISize};
 use std::rc::Rc;
 
 mod fonts;
@@ -97,7 +97,7 @@ impl Quad {
 }
 
 pub struct UIPresentation {
-  pub view_size: LayoutSize,
+  pub view_size: UISize,
   pub primitives: Vec<Primitive>,
 }
 
@@ -105,7 +105,7 @@ impl UIPresentation {
   pub fn new() -> Self {
     Self {
       primitives: Vec::new(),
-      view_size: LayoutSize::new(1000., 1000.),
+      view_size: UISize::new(1000., 1000.),
     }
   }
 

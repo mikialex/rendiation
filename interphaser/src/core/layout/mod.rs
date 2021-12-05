@@ -13,7 +13,7 @@ pub struct LayoutCtx<'a> {
 
 #[derive(Default)]
 pub struct LayoutResult {
-  pub size: LayoutSize,
+  pub size: UISize,
   pub baseline_offset: f32,
 }
 

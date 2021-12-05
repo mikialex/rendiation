@@ -2,7 +2,7 @@ use crate::*;
 
 /// setup a sized box and use this for positioning child
 pub struct Container {
-  pub size: LayoutSource<LayoutSize>,
+  pub size: LayoutSource<UISize>,
   pub color: Color,
   pub child_align: ContainerAlignment,
   pub child_offset: ContainerItemOffset,
@@ -10,7 +10,7 @@ pub struct Container {
 }
 
 impl Container {
-  pub fn size(size: impl Into<LayoutSize>) -> Self {
+  pub fn size(size: impl Into<UISize>) -> Self {
     Self {
       size: LayoutSource::new(size.into()),
       color: (1., 1., 1., 0.).into(),
@@ -62,7 +62,7 @@ pub struct ContainerAlignment {
 }
 
 impl ContainerAlignment {
-  pub fn make_offset(&self, parent: LayoutSize, child: LayoutSize) -> ContainerItemOffset {
+  pub fn make_offset(&self, parent: UISize, child: UISize) -> ContainerItemOffset {
     let width_diff = parent.width - child.width;
     let x = match self.horizon {
       HorizontalAlignment::Center => width_diff / 2.,

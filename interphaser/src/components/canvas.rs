@@ -51,7 +51,7 @@ pub struct FrameTarget {
 
 pub struct CanvasWindowPositionInfo {
   pub absolute_position: UIPosition,
-  pub size: LayoutSize,
+  pub size: UISize,
 }
 
 pub trait CanvasPrinter {

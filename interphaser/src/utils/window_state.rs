@@ -2,10 +2,10 @@ use std::collections::HashSet;
 
 use winit::event::*;
 
-use crate::{LayoutSize, UIPosition};
+use crate::{UIPosition, UISize};
 
 pub struct WindowState {
-  pub size: LayoutSize,
+  pub size: UISize,
   pub mouse_position: UIPosition,
   pub mouse_motion: (f32, f32),
   pub is_left_mouse_down: bool,
@@ -15,7 +15,7 @@ pub struct WindowState {
 }
 
 impl WindowState {
-  pub fn new(initial_size: LayoutSize) -> Self {
+  pub fn new(initial_size: UISize) -> Self {
     Self {
       size: initial_size,
       mouse_position: Default::default(),

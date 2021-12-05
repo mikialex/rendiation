@@ -169,7 +169,7 @@ where
               extra_height + (max_above_baseline - child_above_baseline)
             }
             CrossAxisAlignment::Fill => {
-              let fill_size: LayoutSize = self
+              let fill_size: UISize = self
                 .direction
                 .pack(self.direction.major(child_size), minor_dim)
                 .into();
@@ -199,7 +199,7 @@ where
       major = total_major;
     }
 
-    let my_size: LayoutSize = self.direction.pack(major, minor_dim).into();
+    let my_size: UISize = self.direction.pack(major, minor_dim).into();
 
     // if we don't have to fill the main axis, we loosen that axis before constraining
     let my_size = if !self.fill_major_axis {

@@ -21,7 +21,7 @@ pub use raster::*;
 pub mod packer;
 pub use packer::*;
 
-use crate::{Color, HorizontalAlignment, LayoutSize, VerticalAlignment};
+use crate::{Color, HorizontalAlignment, UISize, VerticalAlignment};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum LineWrap {
@@ -38,7 +38,7 @@ impl Default for LineWrap {
 #[derive(Debug, Clone)]
 pub struct TextInfo {
   pub content: String,
-  pub bounds: LayoutSize,
+  pub bounds: UISize,
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlignment,
   pub vertical_align: VerticalAlignment,

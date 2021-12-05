@@ -200,14 +200,14 @@ impl Axis {
   }
 
   /// Extract from the argument the magnitude along this axis
-  pub fn major(self, coords: LayoutSize) -> f32 {
+  pub fn major(self, coords: UISize) -> f32 {
     match self {
       Axis::Horizontal => coords.width,
       Axis::Vertical => coords.height,
     }
   }
   /// Extract from the argument the magnitude along the perpendicular axis
-  pub fn minor(self, coords: LayoutSize) -> f32 {
+  pub fn minor(self, coords: UISize) -> f32 {
     self.cross().major(coords)
   }
 
@@ -229,12 +229,12 @@ impl Axis {
   ) -> LayoutConstraint {
     match self {
       Axis::Horizontal => LayoutConstraint::new(
-        LayoutSize::new(min_major, bc.min().height),
-        LayoutSize::new(major, bc.max().height),
+        UISize::new(min_major, bc.min().height),
+        UISize::new(major, bc.max().height),
       ),
       Axis::Vertical => LayoutConstraint::new(
-        LayoutSize::new(bc.min().width, min_major),
-        LayoutSize::new(bc.max().width, major),
+        UISize::new(bc.min().width, min_major),
+        UISize::new(bc.max().width, major),
       ),
     }
   }
