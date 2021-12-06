@@ -48,6 +48,7 @@ impl<T: 'static> Application<T> {
 
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
+    let device_pixel_ratio = window.scale_factor();
 
     let (gpu, surface) = GPU::new_with_surface(&window).await;
     let gpu = Rc::new(gpu);
@@ -68,10 +69,13 @@ impl<T: 'static> Application<T> {
         texts,
         root: Box::new(ui),
         root_size_changed: true,
-        window_states: WindowState::new(UISize {
-          width: initial_size.0,
-          height: initial_size.1,
-        }),
+        window_states: WindowState::new(
+          UISize {
+            width: initial_size.0,
+            height: initial_size.1,
+          },
+          device_pixel_ratio as f32,
+        ),
         ui_renderer,
         window,
         last_update_inst: Instant::now(),

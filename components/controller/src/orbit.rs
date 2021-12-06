@@ -2,7 +2,7 @@ use rendiation_algebra::Vec2;
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
 
-use crate::{Controller, ControllerWinitEventSupport, Transformed3DControllee};
+use crate::{Controller, ControllerWinitEventSupport, InputBound, Transformed3DControllee};
 
 pub struct OrbitController {
   pub spherical: Spherical,
@@ -137,6 +137,7 @@ impl Controller for OrbitController {
 pub struct OrbitWinitWindowState {
   is_left_mouse_down: bool,
   is_right_mouse_down: bool,
+  mouse_position: Vec2<f32>,
 }
 
 impl Default for OrbitWinitWindowState {
@@ -144,6 +145,7 @@ impl Default for OrbitWinitWindowState {
     Self {
       is_left_mouse_down: false,
       is_right_mouse_down: false,
+      mouse_position: Default::default(),
     }
   }
 }
@@ -151,20 +153,32 @@ impl Default for OrbitWinitWindowState {
 use winit::event::*;
 impl ControllerWinitEventSupport for OrbitController {
   type State = OrbitWinitWindowState;
-  fn event<T>(&mut self, s: &mut Self::State, event: &winit::event::Event<T>) {
+  fn event<T>(&mut self, s: &mut Self::State, event: &winit::event::Event<T>, bound: InputBound) {
     match event {
       Event::WindowEvent { event, .. } => match event {
-        WindowEvent::MouseInput { button, state, .. } => match button {
-          MouseButton::Left => match state {
-            ElementState::Pressed => s.is_left_mouse_down = true,
-            ElementState::Released => s.is_left_mouse_down = false,
-          },
-          MouseButton::Right => match state {
-            ElementState::Pressed => s.is_right_mouse_down = true,
-            ElementState::Released => s.is_right_mouse_down = false,
-          },
-          _ => {}
-        },
+        WindowEvent::MouseInput { button, state, .. } => {
+          if let ElementState::Pressed = state {
+            if !bound.is_point_in(s.mouse_position) {
+              return;
+            }
+          }
+
+          match button {
+            MouseButton::Left => match state {
+              ElementState::Pressed => s.is_left_mouse_down = true,
+              ElementState::Released => s.is_left_mouse_down = false,
+            },
+            MouseButton::Right => match state {
+              ElementState::Pressed => s.is_right_mouse_down = true,
+              ElementState::Released => s.is_right_mouse_down = false,
+            },
+            _ => {}
+          }
+        }
+        WindowEvent::CursorMoved { position, .. } => {
+          s.mouse_position.x = position.x as f32;
+          s.mouse_position.y = position.y as f32;
+        }
         WindowEvent::MouseWheel { delta, .. } => {
           if let MouseScrollDelta::LineDelta(_, y) = delta {
             self.zoom(1.0 - y * 0.1);

@@ -1,6 +1,6 @@
 use interphaser::*;
 
-use crate::{MenuModel, UIExamples, ViewerImpl};
+use crate::{menu, MenuList, MenuModel, UIExamples, ViewerImpl};
 
 pub struct ViewerApplication {
   pub ui_examples: UIExamples,
@@ -19,22 +19,46 @@ impl Default for ViewerApplication {
 }
 
 pub fn create_app() -> impl UIComponent<ViewerApplication> {
+  Flex::column().wrap(
+    flex_group()
+      .child(Child::flex(menu().lens(lens!(ViewerApplication, menu)), 1.))
+      .child(Child::flex(
+        viewer().lens(lens!(ViewerApplication, viewer)),
+        1.,
+      )),
+  )
+}
+
+pub fn viewer() -> impl UIComponent<ViewerImpl> {
   AbsoluteAnchor::default().wrap(
     absolute_group()
-      .child(
-        AbsChild::new(
-          Container::size((400., 400.))
-            .wrap(GPUCanvas::default().lens(lens!(ViewerApplication, viewer))),
-        )
-        .with_position((100., 100.)),
-      )
+      .child(AbsChild::new(GPUCanvas::default()))
       // .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
       .child(AbsChild::new(perf_panel())),
   )
 }
 
 fn create_menu() -> MenuModel {
-  MenuModel { lists: vec![] }
+  MenuModel {
+    lists: vec![
+      MenuList {
+        name: "File".to_string(),
+        items: Vec::new(),
+      },
+      MenuList {
+        name: "Edit".to_string(),
+        items: Vec::new(),
+      },
+      MenuList {
+        name: "Settings".to_string(),
+        items: Vec::new(),
+      },
+      MenuList {
+        name: "Help".to_string(),
+        items: Vec::new(),
+      },
+    ],
+  }
 }
 
 fn perf_panel<T: 'static>() -> impl UIComponent<T> {

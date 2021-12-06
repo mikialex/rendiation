@@ -12,7 +12,7 @@ use self::{
 };
 
 use interphaser::*;
-use rendiation_controller::{ControllerWinitAdapter, OrbitController};
+use rendiation_controller::{ControllerWinitAdapter, InputBound, OrbitController};
 use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
 use winit::event::{ElementState, Event, MouseButton};
@@ -133,7 +133,16 @@ impl Viewer3dContent {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
-    self.controller.event(event);
+    let bound = InputBound {
+      origin: (
+        position_info.absolute_position.x,
+        position_info.absolute_position.y,
+      )
+        .into(),
+      size: (position_info.size.width, position_info.size.height).into(),
+    };
+
+    self.controller.event(event, bound);
 
     #[allow(clippy::single_match)]
     match event {

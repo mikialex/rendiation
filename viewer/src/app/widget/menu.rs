@@ -37,9 +37,9 @@ impl IdentityKeyed for MenuList {
 }
 
 pub fn menu() -> impl UIComponent<MenuModel> {
-  Container::size((100., 100.)).wrap(
+  Container::size((UILength::ParentPercent(100.), UILength::Px(100.))).wrap(
     For::by(|_| Child::flex(menu_title(), 1.)) //
-      .extend(Flex::column())
+      .extend(Flex::row())
       .lens(lens!(MenuModel, lists)),
   )
 }

@@ -12,10 +12,11 @@ pub struct WindowState {
   pub is_right_mouse_down: bool,
   pub mouse_wheel_delta: (f32, f32),
   pub pressed_key: HashSet<VirtualKeyCode>,
+  pub device_pixel_ratio: f32,
 }
 
 impl WindowState {
-  pub fn new(initial_size: UISize) -> Self {
+  pub fn new(initial_size: UISize, device_pixel_ratio: f32) -> Self {
     Self {
       size: initial_size,
       mouse_position: Default::default(),
@@ -24,6 +25,7 @@ impl WindowState {
       is_right_mouse_down: false,
       mouse_wheel_delta: (0.0, 0.0),
       pressed_key: HashSet::new(),
+      device_pixel_ratio,
     }
   }
   fn update_size(&mut self, size: &winit::dpi::PhysicalSize<u32>) {
@@ -46,6 +48,13 @@ impl WindowState {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => {
           self.update_size(size);
+        }
+        WindowEvent::ScaleFactorChanged {
+          scale_factor,
+          new_inner_size,
+        } => {
+          self.update_size(new_inner_size);
+          self.device_pixel_ratio = *scale_factor as f32;
         }
         WindowEvent::MouseInput { button, state, .. } => match button {
           MouseButton::Left => match state {
