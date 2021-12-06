@@ -6,6 +6,9 @@ pub struct Container {
   pub color: Color,
   pub child_align: ContainerAlignment,
   pub child_offset: ContainerItemOffset,
+  pub border: QuadBorder,
+  pub margin: QuadBoundaryWidth,
+  pub padding: QuadBoundaryWidth,
   layout: LayoutUnit,
 }
 
@@ -17,6 +20,9 @@ impl Container {
       child_align: Default::default(),
       child_offset: Default::default(),
       layout: Default::default(),
+      border: Default::default(),
+      margin: Default::default(),
+      padding: Default::default(),
     }
   }
 

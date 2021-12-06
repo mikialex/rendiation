@@ -82,6 +82,26 @@ pub enum QuadRadius {
   Four(RadiusGroup),
 }
 
+impl Default for QuadRadius {
+  fn default() -> Self {
+    Self::No
+  }
+}
+
+#[derive(Default)]
+pub struct QuadBoundaryWidth {
+  pub top: f32,
+  pub bottom: f32,
+  pub left: f32,
+  pub right: f32,
+}
+
+#[derive(Default)]
+pub struct QuadBorder {
+  pub radius: QuadRadius,
+  pub width: QuadBoundaryWidth,
+}
+
 #[derive(Debug, Clone, Default, Copy)]
 pub struct RadiusGroup {
   pub top_left: f32,
