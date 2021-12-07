@@ -136,11 +136,11 @@ impl UISize<UILength> {
   pub fn into_pixel(&self, parent: UISize) -> UISize {
     let width = match self.width {
       UILength::Px(px) => px,
-      UILength::ParentPercent(p) => parent.width * p,
+      UILength::ParentPercent(p) => parent.width * p / 100.,
     };
     let height = match self.height {
       UILength::Px(px) => px,
-      UILength::ParentPercent(p) => parent.height * p,
+      UILength::ParentPercent(p) => parent.height * p / 100.,
     };
     UISize { width, height }
   }
