@@ -3,6 +3,7 @@ use crate::UIPosition;
 pub trait Shape {
   // fn create_path(&self, builder: &mut Path2dBuilder);
   fn triangulate_fill<T>(&self, path: &mut Vec<T>);
+  // fn triangulate_stroke<T>(&self, path: &mut Vec<T>);
 }
 
 #[derive(Debug, Clone, Default, Copy)]
