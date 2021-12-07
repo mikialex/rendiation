@@ -2,13 +2,60 @@ use rendiation_algebra::*;
 use rendiation_geometry::*;
 
 pub struct Path2D<T> {
-  pub segments: Vec<T>,
+  pub segments: Vec<Path2dSegment<T>>,
+}
+
+pub struct LoopPath2D<T> {
+  pub segments: Vec<Path2dSegment<T>>,
+}
+
+pub struct ConvexLoopPath2D<T> {
+  pub segments: Vec<Path2dSegment<T>>,
+}
+
+pub struct TessellatedPathBuffer<T> {
+  segments: Vec<LineSegment<Vec2<T>>>,
+  is_convex: bool,
+}
+
+impl<T: Scalar> TessellatedPathBuffer<T> {
+  pub fn reset(&mut self) {
+    self.segments.clear();
+    self.is_convex = false;
+  }
+
+  pub fn add_line_segment(&mut self, line: LineSegment<Vec2<T>>) {
+    self.segments.push(line);
+  }
+
+  pub fn triangulate_fill(&self) {
+    let start_point = self.segments[0].start;
+    for segment in &self.segments {
+      //
+    }
+  }
+}
+
+impl<T: Scalar> ConvexLoopPath2D<T> {
+  pub fn triangulate_fill(&self, buffer: &mut TessellatedPathBuffer<T>) {
+    buffer.reset();
+    buffer.is_convex = true;
+    for segment in &self.segments {
+      //
+    }
+  }
 }
 
 pub enum Path2dSegment<T> {
   Line(LineSegment<Vec2<T>>),
   QuadBezier,
   CubicBezier,
+}
+
+impl<T> Path2dSegment<T> {
+  pub fn tessellate(&self, buffer: &mut TessellatedPathBuffer<T>) {
+    //
+  }
 }
 
 impl<T: Scalar> SpaceLineSegment<T, Vec2<T>> for Path2dSegment<T> {
@@ -82,7 +129,7 @@ impl Path2dBuilder {
     }
   }
 
-  pub fn build(mut self, close_path: bool) -> Path2D<Path2dSegment<f32>> {
+  pub fn build(mut self, close_path: bool) -> Path2D<f32> {
     if close_path {
       self.close_path();
     }
