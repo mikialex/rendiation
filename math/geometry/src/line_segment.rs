@@ -1,13 +1,49 @@
-use crate::{Positioned, SpaceEntity, SpaceLineSegment};
+use std::marker::PhantomData;
+
+use crate::{Positioned, SpaceEntity, SpaceLineSegmentShape};
 use rendiation_algebra::*;
 
+#[repr(C)]
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct LineSegment<U> {
+pub struct SpaceLineSegment<U, X> {
   pub start: U,
   pub end: U,
+  pub shape: X,
 }
 
-impl<T, U, V, M, const D: usize> SpaceEntity<T, D> for LineSegment<U>
+impl<V, X> SpaceLineSegment<V, X> {
+  pub fn sample<T>(&self, t: T) -> V
+  where
+    T: Scalar,
+    X: SpaceLineSegmentShape<T, V>,
+  {
+    self.shape.sample(t, &self.start, &self.end)
+  }
+
+  pub fn tangent_at<T>(&self, t: T) -> NormalizedVector<T, V>
+  where
+    T: Scalar,
+    X: SpaceLineSegmentShape<T, V>,
+    V: VectorSpace<T> + IntoNormalizedVector<T, V>,
+  {
+    self.shape.tangent_at(t, &self.start, &self.end)
+  }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, std::hash::Hash)]
+pub struct StraitLine<U> {
+  phantom: PhantomData<U>,
+}
+
+impl<U> Default for StraitLine<U> {
+  fn default() -> Self {
+    Self {
+      phantom: Default::default(),
+    }
+  }
+}
+
+impl<T, U, V, M, X, const D: usize> SpaceEntity<T, D> for SpaceLineSegment<U, X>
 where
   T: Scalar,
   M: SquareMatrixDimension<D>,
@@ -22,32 +58,32 @@ where
   }
 }
 
-impl<T, U, V> SpaceLineSegment<T, V> for LineSegment<U>
+impl<T, V> SpaceLineSegmentShape<T, V> for StraitLine<V>
 where
   T: Scalar,
-  U: Positioned<Position = V>,
+  V: Positioned<Position = V>,
   V: Lerp<T> + Copy,
 {
-  fn start(&self) -> V {
-    *self.start.position()
+  fn sample(&self, t: T, start: &V, end: &V) -> V {
+    start.lerp(*end, t)
   }
-  fn end(&self) -> V {
-    *self.end.position()
-  }
-  fn sample(&self, t: T) -> V {
-    self.start().lerp(self.end(), t)
-  }
-  fn tangent_at(&self, _t: T) -> NormalizedVector<T, V>
+  fn tangent_at(&self, _t: T, start: &V, end: &V) -> NormalizedVector<T, V>
   where
     V: VectorSpace<T> + IntoNormalizedVector<T, V>,
   {
-    (*self.end.position() - *self.start.position()).into_normalized()
+    (*end.position() - *start.position()).into_normalized()
   }
 }
 
+pub type LineSegment<U> = SpaceLineSegment<U, StraitLine<U>>;
+
 impl<V> LineSegment<V> {
-  pub fn new(start: V, end: V) -> Self {
-    Self { start, end }
+  pub fn line_segment(start: V, end: V) -> Self {
+    Self {
+      start,
+      end,
+      shape: StraitLine::default(),
+    }
   }
 
   pub fn iter_point(&self) -> LineSegmentIter<'_, V> {
@@ -88,11 +124,12 @@ impl<V: Copy> LineSegment<V> {
     LineSegment {
       start: f(self.start),
       end: f(self.end),
+      shape: StraitLine::default(),
     }
   }
 
   pub fn swap(&self) -> Self {
-    Self::new(self.end, self.start)
+    Self::line_segment(self.end, self.start)
   }
 
   pub fn swap_if(&self, prediction: impl FnOnce(Self) -> bool) -> Self {

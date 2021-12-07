@@ -22,23 +22,7 @@ impl<T: Scalar> Path2dSegment<T> {
   }
 }
 
-impl<T: Scalar> SpaceLineSegment<T, Vec2<T>> for Path2dSegment<T> {
-  fn start(&self) -> Vec2<T> {
-    match self {
-      Path2dSegment::Line(_) => todo!(),
-      Path2dSegment::QuadBezier => todo!(),
-      Path2dSegment::CubicBezier => todo!(),
-    }
-  }
-
-  fn end(&self) -> Vec2<T> {
-    match self {
-      Path2dSegment::Line(_) => todo!(),
-      Path2dSegment::QuadBezier => todo!(),
-      Path2dSegment::CubicBezier => todo!(),
-    }
-  }
-
+impl<T: Scalar> Path2dSegment<T> {
   fn sample(&self, t: T) -> Vec2<T> {
     match self {
       Path2dSegment::Line(l) => l.sample(t),

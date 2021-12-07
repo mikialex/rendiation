@@ -17,7 +17,6 @@ pub mod hypersphere;
 pub mod intersect_util;
 pub mod line_segment;
 pub mod point;
-pub mod segment;
 pub mod space_line;
 pub mod triangle;
 
@@ -30,7 +29,6 @@ pub use hypersphere::*;
 pub use intersect_util::*;
 pub use line_segment::*;
 pub use point::*;
-pub use segment::*;
 pub use space_line::*;
 pub use triangle::*;
 

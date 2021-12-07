@@ -1,16 +1,16 @@
 use rendiation_algebra::*;
 
-use crate::SpaceLineSegment;
+use crate::{SpaceLineSegment, SpaceLineSegmentShape};
 
-pub type QuadraticBezierSegment2D<T> = QuadraticBezierSegment<Vec2<T>>;
+pub type QuadraticBezierSegment2D<T> = QuadraticBezierShape<Vec2<T>>;
 
-pub struct QuadraticBezierSegment<V> {
-  pub from: V,
+pub type QuadraticBezierSegment<V> = SpaceLineSegment<V, QuadraticBezierShape<V>>;
+
+pub struct QuadraticBezierShape<V> {
   pub ctrl: V,
-  pub to: V,
 }
 
-impl<T, M, V, const D: usize> SpaceEntity<T, D> for QuadraticBezierSegment<V>
+impl<T, M, V, const D: usize> SpaceEntity<T, D> for QuadraticBezierShape<V>
 where
   M: SquareMatrixDimension<D> + SquareMatrix<T>,
   V: SpaceEntity<T, D, Matrix = M> + Copy,
@@ -18,40 +18,30 @@ where
 {
   type Matrix = M;
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
-    self.from.apply_matrix(mat);
     self.ctrl.apply_matrix(mat);
-    self.to.apply_matrix(mat);
     self
   }
 }
 
-impl<T, V> SpaceLineSegment<T, V> for QuadraticBezierSegment<V>
+impl<T, V> SpaceLineSegmentShape<T, V> for QuadraticBezierShape<V>
 where
   T: Scalar,
   V: VectorSpace<T>,
 {
-  fn start(&self) -> V {
-    self.from
-  }
-  fn end(&self) -> V {
-    self.to
-  }
-  fn sample(&self, t: T) -> V {
+  fn sample(&self, t: T, start: &V, end: &V) -> V {
     let t2 = t * t;
     let one_t = T::one() - t;
     let one_t2 = one_t * one_t;
 
-    self.from * one_t2 + self.ctrl * T::two() * one_t * t + self.to * t2
+    *start * one_t2 + self.ctrl * T::two() * one_t * t + *end * t2
   }
 }
 
 pub type CubicBezierSegment2D<T> = CubicBezierSegment<Vec2<T>>;
 
 pub struct CubicBezierSegment<V> {
-  pub from: V,
   pub ctrl1: V,
   pub ctrl2: V,
-  pub to: V,
 }
 
 impl<T, M, V, const D: usize> SpaceEntity<T, D> for CubicBezierSegment<V>
@@ -62,35 +52,27 @@ where
 {
   type Matrix = M;
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
-    self.from.apply_matrix(mat);
     self.ctrl1.apply_matrix(mat);
     self.ctrl2.apply_matrix(mat);
-    self.to.apply_matrix(mat);
     self
   }
 }
 
-impl<T, V> SpaceLineSegment<T, V> for CubicBezierSegment<V>
+impl<T, V> SpaceLineSegmentShape<T, V> for CubicBezierSegment<V>
 where
   T: Scalar,
   V: VectorSpace<T>,
 {
-  fn start(&self) -> V {
-    self.from
-  }
-  fn end(&self) -> V {
-    self.to
-  }
-  fn sample(&self, t: T) -> V {
+  fn sample(&self, t: T, start: &V, end: &V) -> V {
     let t2 = t * t;
     let t3 = t2 * t;
     let one_t = T::one() - t;
     let one_t2 = one_t * one_t;
     let one_t3 = one_t2 * one_t;
 
-    self.from * one_t3
+    *start * one_t3
       + self.ctrl1 * T::three() * one_t2 * t
       + self.ctrl2 * T::three() * one_t * t2
-      + self.to * t3
+      + *end * t3
   }
 }

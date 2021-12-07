@@ -1,6 +1,6 @@
 use rendiation_algebra::Vec2;
 use rendiation_geometry::LineSegment;
-use rendiation_geometry::SpaceLineSegment;
+use rendiation_geometry::SpaceLineSegmentShape;
 
 use crate::{Path2D, Path2dSegment};
 
@@ -21,7 +21,7 @@ impl Default for Path2dBuilder {
 impl Path2dBuilder {
   pub fn line_to(&mut self, point: impl Into<Vec2<f32>>) -> &mut Self {
     let point = point.into();
-    let curve = LineSegment::new(self.current_point, point);
+    let curve = LineSegment::line_segment(self.current_point, point);
     self.path.push(Path2dSegment::Line(curve));
     self.current_point = point;
     self
@@ -34,19 +34,19 @@ impl Path2dBuilder {
 
   fn close_path(&mut self) {
     // check should close?
-    if self.path.len() <= 2 {
-      return;
-    }
+    // if self.path.len() <= 2 {
+    //   return;
+    // }
 
-    let start = self.path.first().unwrap().start();
-    let end = self.path.last().unwrap().end();
+    // let start = self.path.first().unwrap().start();
+    // let end = self.path.last().unwrap().end();
 
-    // check if has closed actually
-    if start != end {
-      self
-        .path
-        .push(Path2dSegment::Line(LineSegment::new(end, start)));
-    }
+    // // check if has closed actually
+    // if start != end {
+    //   self
+    //     .path
+    //     .push(Path2dSegment::Line(LineSegment::new(end, start)));
+    // }
   }
 
   pub fn build(mut self, close_path: bool) -> Path2D<f32> {
