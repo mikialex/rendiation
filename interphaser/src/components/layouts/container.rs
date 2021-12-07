@@ -34,14 +34,12 @@ impl Container {
 
 impl<T> Component<T> for Container {
   fn update(&mut self, _model: &T, ctx: &mut UpdateCtx) {
-    self.layout.check_attach(ctx); // this is useless todo
     self.size.refresh(&mut self.layout, ctx);
   }
 }
 
 impl<T, C: Component<T>> ComponentAbility<T, C> for Container {
   fn update(&mut self, model: &T, inner: &mut C, ctx: &mut UpdateCtx) {
-    self.layout.check_attach(ctx); // this is useless todo
     self.size.refresh(&mut self.layout, ctx);
     inner.update(model, ctx);
     self.layout.or_layout_change(ctx);

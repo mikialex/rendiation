@@ -27,7 +27,7 @@ impl Default for LayoutUnit {
 }
 
 impl LayoutUnit {
-  pub fn check_attach(&mut self, ctx: &mut UpdateCtx) {
+  pub(super) fn check_attach(&mut self, ctx: &mut UpdateCtx) {
     if !self.attached {
       ctx.request_layout();
       self.attached = true;

@@ -59,6 +59,7 @@ impl<T> LayoutSource<T> {
   }
 
   pub fn refresh(&mut self, layout: &mut LayoutUnit, ctx: &mut UpdateCtx) {
+    layout.check_attach(ctx);
     if self.changed {
       layout.request_layout(ctx)
     }

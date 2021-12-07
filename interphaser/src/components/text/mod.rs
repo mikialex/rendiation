@@ -81,7 +81,6 @@ impl Text {
 
 impl<T> Component<T> for Text {
   fn update(&mut self, _: &T, ctx: &mut UpdateCtx) {
-    self.layout.check_attach(ctx);
     if self.content.changed() {
       self.reset_text_layout();
     }
