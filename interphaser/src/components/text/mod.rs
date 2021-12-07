@@ -90,7 +90,7 @@ impl<T> Component<T> for Text {
 
 impl Presentable for Text {
   fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.layout.update_world(builder.current_origin_offset);
+    self.layout.update_world(builder.current_origin_offset());
 
     builder.present.primitives.push(Primitive::Text(
       self.get_text_layout(builder.fonts, builder.texts).clone(),

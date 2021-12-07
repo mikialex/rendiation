@@ -10,6 +10,9 @@ pub use path::*;
 mod style;
 pub use style::*;
 
+mod shape;
+pub use shape::*;
+
 mod api;
 pub use api::*;
 
@@ -21,8 +24,8 @@ pub struct PresentationBuilder<'a> {
   pub fonts: &'a FontManager,
   pub texts: &'a mut TextCache,
   pub present: UIPresentation,
-  pub parent_offset_chain: Vec<UIPosition>,
-  pub current_origin_offset: UIPosition,
+  parent_offset_chain: Vec<UIPosition>,
+  current_origin_offset: UIPosition,
 }
 
 impl<'a> PresentationBuilder<'a> {
@@ -48,6 +51,10 @@ impl<'a> PresentationBuilder<'a> {
       self.current_origin_offset.y -= offset.y;
     }
   }
+
+  pub fn current_origin_offset(&self) -> UIPosition {
+    self.current_origin_offset
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -62,59 +69,6 @@ pub enum Primitive {
   Text(TextLayoutRef),
 }
 
-#[derive(Debug, Clone, Default, Copy)]
-pub struct Quad {
-  pub x: f32,
-  pub y: f32,
-  pub width: f32,
-  pub height: f32,
-}
-
-#[derive(Debug, Clone, Default, Copy)]
-pub struct RoundCorneredQuad {
-  pub quad: Quad,
-  pub radius: RadiusGroup,
-}
-
-pub enum QuadRadius {
-  No,
-  All(f32),
-  Four(RadiusGroup),
-}
-
-impl Default for QuadRadius {
-  fn default() -> Self {
-    Self::No
-  }
-}
-
-#[derive(Default)]
-pub struct QuadBoundaryWidth {
-  pub top: f32,
-  pub bottom: f32,
-  pub left: f32,
-  pub right: f32,
-}
-
-#[derive(Default)]
-pub struct QuadBorder {
-  pub radius: QuadRadius,
-  pub width: QuadBoundaryWidth,
-}
-
-#[derive(Debug, Clone, Default, Copy)]
-pub struct RadiusGroup {
-  pub top_left: f32,
-  pub top_right: f32,
-  pub bottom_left: f32,
-  pub bottom_right: f32,
-}
-
-impl Quad {
-  pub fn is_point_in(&self, p: UIPosition) -> bool {
-    p.x >= self.x && p.x <= self.x + self.width && p.y >= self.y && p.y <= self.y + self.height
-  }
-}
 
 pub struct UIPresentation {
   pub view_size: UISize,

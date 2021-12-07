@@ -143,7 +143,7 @@ impl LayoutAble for Container {
 
 impl Presentable for Container {
   fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.layout.update_world(builder.current_origin_offset);
+    self.layout.update_world(builder.current_origin_offset());
     if self.color.a != 0. {
       builder.present.primitives.push(Primitive::Quad((
         self.layout.into_quad(),
