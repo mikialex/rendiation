@@ -1,20 +1,8 @@
-use crate::{Path2dBuilder, UIPosition};
+use crate::UIPosition;
 
 pub trait Shape {
   // fn create_path(&self, builder: &mut Path2dBuilder);
   fn triangulate_fill<T>(&self, path: &mut Vec<T>);
-}
-
-pub struct MeshBuilder<T> {
-  buffer: Vec<T>,
-}
-
-impl<T> MeshBuilder<T> {
-  pub fn add_triangle(&mut self, a: T, b: T, c: T) {
-    self.buffer.push(a);
-    self.buffer.push(b);
-    self.buffer.push(c);
-  }
 }
 
 #[derive(Debug, Clone, Default, Copy)]

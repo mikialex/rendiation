@@ -13,6 +13,18 @@ pub struct ConvexLoopPath2D<T> {
   pub segments: Vec<Path2dSegment<T>>,
 }
 
+pub struct MeshBuilder<T> {
+  buffer: Vec<T>,
+}
+
+impl<T> MeshBuilder<T> {
+  pub fn add_triangle(&mut self, a: T, b: T, c: T) {
+    self.buffer.push(a);
+    self.buffer.push(b);
+    self.buffer.push(c);
+  }
+}
+
 pub struct TessellatedPathBuffer<T> {
   segments: Vec<LineSegment<Vec2<T>>>,
   is_convex: bool,
@@ -28,10 +40,14 @@ impl<T: Scalar> TessellatedPathBuffer<T> {
     self.segments.push(line);
   }
 
-  pub fn triangulate_fill(&self) {
-    let start_point = self.segments[0].start;
-    for segment in &self.segments {
-      //
+  pub fn triangulate_fill(&self, mesh_builder: &mut MeshBuilder<Vec2<T>>) {
+    if self.is_convex {
+      let start_point = self.segments[0].start;
+      for segment in self.segments.get(1..).unwrap().iter() {
+        mesh_builder.add_triangle(start_point, segment.start, segment.end);
+      }
+    } else {
+      todo!()
     }
   }
 }
@@ -41,7 +57,7 @@ impl<T: Scalar> ConvexLoopPath2D<T> {
     buffer.reset();
     buffer.is_convex = true;
     for segment in &self.segments {
-      //
+      segment.tessellate(buffer)
     }
   }
 }
@@ -52,9 +68,13 @@ pub enum Path2dSegment<T> {
   CubicBezier,
 }
 
-impl<T> Path2dSegment<T> {
+impl<T: Scalar> Path2dSegment<T> {
   pub fn tessellate(&self, buffer: &mut TessellatedPathBuffer<T>) {
-    //
+    match self {
+      Path2dSegment::Line(l) => buffer.add_line_segment(*l),
+      Path2dSegment::QuadBezier => todo!(),
+      Path2dSegment::CubicBezier => todo!(),
+    }
   }
 }
 
