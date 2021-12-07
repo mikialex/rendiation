@@ -1,6 +1,50 @@
-use rendiation_algebra::{IntoNormalizedVector, NormalizedVector, Scalar, VectorSpace};
+use rendiation_algebra::*;
 
-use crate::SpaceLineSegment;
+use crate::Positioned;
+
+#[repr(C)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct SpaceLineSegment<U, X> {
+  pub start: U,
+  pub end: U,
+  pub shape: X,
+}
+
+impl<V, X> SpaceLineSegment<V, X> {
+  pub fn sample<T>(&self, t: T) -> V
+  where
+    T: Scalar,
+    X: SpaceLineSegmentShape<T, V>,
+  {
+    self.shape.sample(t, &self.start, &self.end)
+  }
+
+  pub fn tangent_at<T>(&self, t: T) -> NormalizedVector<T, V>
+  where
+    T: Scalar,
+    X: SpaceLineSegmentShape<T, V>,
+    V: VectorSpace<T> + IntoNormalizedVector<T, V>,
+  {
+    self.shape.tangent_at(t, &self.start, &self.end)
+  }
+}
+
+impl<T, U, V, M, X, const D: usize> SpaceEntity<T, D> for SpaceLineSegment<U, X>
+where
+  T: Scalar,
+  M: SquareMatrixDimension<D>,
+  V: SpaceEntity<T, D, Matrix = M>,
+  U: Positioned<Position = V>,
+  X: SpaceEntity<T, D, Matrix = M>,
+{
+  type Matrix = M;
+  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
+    self.start.mut_position().apply_matrix(mat);
+    self.end.mut_position().apply_matrix(mat);
+    self.shape.apply_matrix(mat);
+    self
+  }
+}
 
 pub trait SpaceLineSegmentShape<T: Scalar, V> {
   fn sample(&self, t: T, start: &V, end: &V) -> V;

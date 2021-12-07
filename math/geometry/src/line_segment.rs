@@ -1,34 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::{Positioned, SpaceEntity, SpaceLineSegmentShape};
+use crate::{Positioned, SpaceLineSegment, SpaceLineSegmentShape};
 use rendiation_algebra::*;
-
-#[repr(C)]
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct SpaceLineSegment<U, X> {
-  pub start: U,
-  pub end: U,
-  pub shape: X,
-}
-
-impl<V, X> SpaceLineSegment<V, X> {
-  pub fn sample<T>(&self, t: T) -> V
-  where
-    T: Scalar,
-    X: SpaceLineSegmentShape<T, V>,
-  {
-    self.shape.sample(t, &self.start, &self.end)
-  }
-
-  pub fn tangent_at<T>(&self, t: T) -> NormalizedVector<T, V>
-  where
-    T: Scalar,
-    X: SpaceLineSegmentShape<T, V>,
-    V: VectorSpace<T> + IntoNormalizedVector<T, V>,
-  {
-    self.shape.tangent_at(t, &self.start, &self.end)
-  }
-}
 
 #[derive(Copy, Clone, PartialEq, Eq, std::hash::Hash)]
 pub struct StraitLine<U> {
@@ -43,7 +16,7 @@ impl<U> Default for StraitLine<U> {
   }
 }
 
-impl<T, U, V, M, X, const D: usize> SpaceEntity<T, D> for SpaceLineSegment<U, X>
+impl<T, U, V, M, const D: usize> SpaceEntity<T, D> for StraitLine<U>
 where
   T: Scalar,
   M: SquareMatrixDimension<D>,
@@ -51,9 +24,7 @@ where
   U: Positioned<Position = V>,
 {
   type Matrix = M;
-  fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
-    self.start.mut_position().apply_matrix(mat);
-    self.end.mut_position().apply_matrix(mat);
+  fn apply_matrix(&mut self, _mat: Self::Matrix) -> &mut Self {
     self
   }
 }
