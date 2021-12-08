@@ -44,7 +44,7 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
     let y_correct = match text.vertical_align {
       crate::VerticalAlignment::Top => 0.,
       crate::VerticalAlignment::Center => text.bounds.height / 2.,
-      crate::VerticalAlignment::Bottom => text.bounds.height / 2.,
+      crate::VerticalAlignment::Bottom => text.bounds.height,
     };
 
     let layout = match text.line_wrap {
