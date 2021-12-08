@@ -21,7 +21,7 @@ impl Default for ViewerApplication {
 pub fn create_app() -> impl UIComponent<ViewerApplication> {
   Flex::column().wrap(
     flex_group()
-      .child(Child::flex(menu().lens(lens!(ViewerApplication, menu)), 1.))
+      .child(Child::fixed(menu().lens(lens!(ViewerApplication, menu))))
       .child(Child::flex(
         viewer().lens(lens!(ViewerApplication, viewer)),
         1.,
@@ -42,19 +42,11 @@ fn create_menu() -> MenuModel {
   MenuModel {
     lists: vec![
       MenuList {
-        name: "File".to_string(),
+        name: "3D Examples".to_string(),
         items: Vec::new(),
       },
       MenuList {
-        name: "Edit".to_string(),
-        items: Vec::new(),
-      },
-      MenuList {
-        name: "Settings".to_string(),
-        items: Vec::new(),
-      },
-      MenuList {
-        name: "Help".to_string(),
+        name: "UI Examples".to_string(),
         items: Vec::new(),
       },
     ],

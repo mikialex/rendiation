@@ -2,10 +2,10 @@ use crate::*;
 
 /// setup a sized box and use this for positioning child
 pub struct Container {
-  pub size: LayoutSource<UISize<UILength>>,
   pub color: Color,
   pub child_align: ContainerAlignment,
   pub child_offset: ContainerItemOffset,
+  pub size: LayoutSource<ContainerSize>,
   pub border: QuadBorder,
   pub margin: QuadBoundaryWidth,
   pub padding: QuadBoundaryWidth,
@@ -15,10 +15,10 @@ pub struct Container {
 impl Container {
   pub fn size(size: impl Into<UISize<UILength>>) -> Self {
     Self {
-      size: LayoutSource::new(size.into()),
       color: (1., 1., 1., 0.).into(),
       child_align: Default::default(),
       child_offset: Default::default(),
+      size: LayoutSource::new(ContainerSize::ConstraintChild { size: size.into() }),
       layout: Default::default(),
       border: Default::default(),
       margin: Default::default(),
@@ -56,6 +56,57 @@ impl<C: Presentable> PresentableAbility<C> for Container {
     builder.push_offset(self.layout.relative_position);
     inner.render(builder);
     builder.pop_offset()
+  }
+}
+
+pub enum ContainerSize {
+  ConstraintChild { size: UISize<UILength> },
+  AdaptChild { behavior: AdaptChildSelfBehavior },
+}
+
+pub enum AdaptChildSelfBehavior {
+  Max,
+  Min,
+}
+
+impl ContainerSize {
+  pub fn compute_size_self(&self, constraint: LayoutConstraint) -> UISize {
+    match self {
+      ContainerSize::ConstraintChild { size } => {
+        let size = size.into_pixel(constraint.max);
+        constraint.clamp(size)
+      }
+      ContainerSize::AdaptChild { behavior } => match behavior {
+        AdaptChildSelfBehavior::Max => constraint.max,
+        AdaptChildSelfBehavior::Min => UISize::ZERO,
+      },
+    }
+  }
+
+  pub fn compute_size_pair(
+    &self,
+    constraint: LayoutConstraint,
+    child: &mut dyn LayoutAble,
+    ctx: &mut LayoutCtx,
+  ) -> (UISize, UISize) {
+    match self {
+      Self::ConstraintChild { size } => {
+        let size = size.into_pixel(constraint.max);
+        let size = constraint.clamp(size);
+
+        let child_size = child.layout(LayoutConstraint::from_max(size), ctx).size;
+
+        (size, child_size)
+      }
+      Self::AdaptChild { behavior } => {
+        let child_size = child.layout(constraint, ctx).size;
+        let self_size = match behavior {
+          AdaptChildSelfBehavior::Max => constraint.max,
+          AdaptChildSelfBehavior::Min => child_size,
+        };
+        (self_size, child_size)
+      }
+    }
   }
 }
 
@@ -102,12 +153,9 @@ impl<C: LayoutAble> LayoutAbility<C> for Container {
       return self.layout.size.with_default_baseline();
     }
 
-    let size_wish = self.size.get().into_pixel(constraint.max);
+    let (self_size, child_size) = self.size.get().compute_size_pair(constraint, inner, ctx);
 
-    let child_size = inner
-      .layout(LayoutConstraint::from_max(size_wish), ctx)
-      .size;
-    self.layout.size = constraint.clamp(size_wish);
+    self.layout.size = self_size;
 
     let align_offset = self.child_align.make_offset(self.layout.size, child_size);
 
@@ -132,7 +180,7 @@ impl<C> HotAreaPassBehavior<C> for Container {
 
 impl LayoutAble for Container {
   fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
-    self.layout.size = constraint.clamp(self.size.get().into_pixel(constraint.max));
+    self.layout.size = self.size.get().compute_size_self(constraint);
     self.layout.size.with_default_baseline()
   }
 
