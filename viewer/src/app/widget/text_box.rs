@@ -9,7 +9,7 @@ pub fn text_box(
     move |_t| {
       Text::default()
         .bind(move |s, _| s.content.set(placeholder))
-        .extend(Container::size((200., 80.)))
+        .extend(Container::sized((200., 80.)))
     },
   )
   .else_condition(move |_| Text::default().editable().on_change(on_change))

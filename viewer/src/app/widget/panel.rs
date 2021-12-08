@@ -10,11 +10,11 @@ pub fn panel<T: 'static>(
     .child(Child::flex(title, 1.))
     .child(Child::flex(panel_body, 1.))
     .extend(Flex::column())
-    .extend(Container::size((500., 600.)))
+    .extend(Container::sized((500., 600.)))
 }
 
 fn build_title() -> impl UIComponent<String> {
   Text::default()
     .bind(|s, t| s.content.set(t))
-    .extend(Container::size((500., 40.)))
+    .extend(Container::sized((500., 40.)))
 }

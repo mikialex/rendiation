@@ -1,3 +1,5 @@
+use rendiation_geometry::Rectangle;
+
 use crate::LayoutResult;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -195,3 +197,5 @@ impl From<(f32, f32)> for UIPosition {
     Self { x: v.0, y: v.1 }
   }
 }
+
+pub type UIBound = Rectangle<f32>;

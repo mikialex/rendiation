@@ -54,7 +54,7 @@ fn create_menu() -> MenuModel {
 }
 
 fn perf_panel<T: 'static>() -> impl UIComponent<T> {
-  Container::size((500., 200.)).wrap(
+  Container::sized((500., 200.)).wrap(
     Text::default()
     .with_line_wrap(LineWrap::Multiple)
     .with_horizon_align(HorizontalAlignment::Left)

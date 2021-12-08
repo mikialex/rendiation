@@ -13,12 +13,20 @@ pub struct Container {
 }
 
 impl Container {
-  pub fn size(size: impl Into<UISize<UILength>>) -> Self {
+  pub fn sized(size: impl Into<UISize<UILength>>) -> Self {
+    Self::size(ContainerSize::ConstraintChild { size: size.into() })
+  }
+
+  pub fn adapt(behavior: AdaptChildSelfBehavior) -> Self {
+    Self::size(ContainerSize::AdaptChild { behavior })
+  }
+
+  pub fn size(size: ContainerSize) -> Self {
     Self {
       color: (1., 1., 1., 0.).into(),
       child_align: Default::default(),
       child_offset: Default::default(),
-      size: LayoutSource::new(ContainerSize::ConstraintChild { size: size.into() }),
+      size: LayoutSource::new(size),
       layout: Default::default(),
       border: Default::default(),
       margin: Default::default(),
@@ -66,7 +74,7 @@ pub enum ContainerSize {
 
 pub enum AdaptChildSelfBehavior {
   Max,
-  Min,
+  Child,
 }
 
 impl ContainerSize {
@@ -78,7 +86,7 @@ impl ContainerSize {
       }
       ContainerSize::AdaptChild { behavior } => match behavior {
         AdaptChildSelfBehavior::Max => constraint.max,
-        AdaptChildSelfBehavior::Min => UISize::ZERO,
+        AdaptChildSelfBehavior::Child => constraint.min,
       },
     }
   }
@@ -102,7 +110,7 @@ impl ContainerSize {
         let child_size = child.layout(constraint, ctx).size;
         let self_size = match behavior {
           AdaptChildSelfBehavior::Max => constraint.max,
-          AdaptChildSelfBehavior::Min => child_size,
+          AdaptChildSelfBehavior::Child => child_size,
         };
         (self_size, child_size)
       }

@@ -42,7 +42,7 @@ pub fn button<T: 'static>(
 
   Text::default()
     .bind(move |s, t| s.content.set(label.eval(t)))
-    .extend(Container::size((200., 80.)).bind(move |s, _| {
+    .extend(Container::sized((200., 80.)).bind(move |s, _| {
       s.color = state.visit(|s| s.color());
     }))
     .extend(ClickHandler::by(on_click))

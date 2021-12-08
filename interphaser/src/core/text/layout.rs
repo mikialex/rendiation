@@ -1,12 +1,13 @@
 use glyph_brush::ab_glyph::Font;
 use glyph_brush::*;
 
-use crate::{FontManager, HorizontalAlignment};
+use crate::{FontManager, HorizontalAlignment, UIBound};
 
 use super::{GlyphCache, GlyphID, GlyphRasterInfo, TextInfo};
 
 pub struct LayoutedTextGlyphs {
   pub glyphs: Vec<(GlyphID, GlyphRasterInfo, GlyphBound)>,
+  pub bound: Option<UIBound>,
 }
 
 pub trait TextGlyphLayouter {
@@ -73,31 +74,40 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
         font_id: FontId(0),
       }],
     );
-    LayoutedTextGlyphs {
-      glyphs: raw_result
-        .iter()
-        .zip(text.content.chars().filter(|c| !c.is_control()))
-        .filter_map(|(r, c)| {
-          let font = fonts.get_font(r.font_id);
 
-          let outlined_glyph = font.outline_glyph(r.glyph.clone())?;
-          let bounds = outlined_glyph.px_bounds();
+    let mut bound = None;
 
-          (
-            GlyphID(c, r.font_id),
-            GlyphRasterInfo {
-              position: (r.glyph.position.x, r.glyph.position.y).into(),
-              scale: r.glyph.scale.x,
-            },
-            GlyphBound {
-              left_top: [bounds.min.x, bounds.min.y, 0.],
-              right_bottom: [bounds.max.x, bounds.max.y],
-            },
-          )
-            .into()
-        })
-        .collect(),
-    }
+    let glyphs = raw_result
+      .iter()
+      .zip(text.content.chars().filter(|c| !c.is_control()))
+      .filter_map(|(r, c)| {
+        let font = fonts.get_font(r.font_id);
+
+        let outlined_glyph = font.outline_glyph(r.glyph.clone())?;
+        let bounds = outlined_glyph.px_bounds();
+
+        let rect = UIBound {
+          min: (bounds.min.x, bounds.min.y).into(),
+          max: (bounds.min.x, bounds.min.y).into(),
+        };
+        bound.get_or_insert(rect).union(rect);
+
+        (
+          GlyphID(c, r.font_id),
+          GlyphRasterInfo {
+            position: (r.glyph.position.x, r.glyph.position.y).into(),
+            scale: r.glyph.scale.x,
+          },
+          GlyphBound {
+            left_top: [bounds.min.x, bounds.min.y, 0.],
+            right_bottom: [bounds.max.x, bounds.max.y],
+          },
+        )
+          .into()
+      })
+      .collect();
+
+    LayoutedTextGlyphs { glyphs, bound }
   }
 }
 

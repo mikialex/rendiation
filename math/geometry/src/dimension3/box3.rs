@@ -124,23 +124,10 @@ impl<T: Scalar> Box3<T> {
   }
 
   #[inline(always)]
-  pub fn union(&mut self, box3: Self) {
-    self.expand_by_box(box3)
-  }
-
-  #[inline(always)]
   pub fn is_empty(&self) -> bool {
     (self.max.x < self.min.x) || (self.max.y < self.min.y) || (self.max.z < self.min.z)
   }
 
-  #[inline(always)]
-  pub fn expand_by_box(&mut self, box3: Self) {
-    if self.is_empty() {
-      *self = box3;
-    }
-    self.min = self.min.min(box3.min);
-    self.max = self.max.max(box3.max);
-  }
 }
 
 impl<'a, T: Scalar> FromIterator<&'a Vec3<T>> for Box3<T> {
@@ -162,7 +149,7 @@ impl<T: Scalar> FromIterator<Vec3<T>> for Box3<T> {
 impl<'a, T: Scalar> FromIterator<&'a Box3<T>> for Box3<T> {
   fn from_iter<I: IntoIterator<Item = &'a Box3<T>>>(items: I) -> Self {
     let mut bbox = Self::empty();
-    items.into_iter().for_each(|p| bbox.expand_by_box(*p));
+    items.into_iter().for_each(|p| bbox.expand_by_other(*p));
     bbox
   }
 }
@@ -170,7 +157,7 @@ impl<'a, T: Scalar> FromIterator<&'a Box3<T>> for Box3<T> {
 impl<T: Scalar> FromIterator<Box3<T>> for Box3<T> {
   fn from_iter<I: IntoIterator<Item = Box3<T>>>(items: I) -> Self {
     let mut bbox = Self::empty();
-    items.into_iter().for_each(|p| bbox.expand_by_box(p));
+    items.into_iter().for_each(|p| bbox.expand_by_other(p));
     bbox
   }
 }
