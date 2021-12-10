@@ -6,7 +6,10 @@ use rendiation_geometry::*;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::SceneNode;
+use crate::{
+  helpers::{ColoredLineVertex, HelperLineMesh},
+  SceneNode,
+};
 
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
@@ -68,7 +71,7 @@ impl Default for CameraViewBounds {
 }
 
 pub struct Camera {
-  pub bounds: CameraViewBounds, // todo apply as viewport
+  pub bounds: CameraViewBounds,
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
@@ -81,6 +84,46 @@ impl Camera {
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
+  }
+
+  pub fn build_debug_line_in_camera_space(&self) -> HelperLineMesh {
+    let near_left_down = Vec3::new(0., 0., 0.);
+    let near_left_top = Vec3::new(0., 0., 0.);
+    let near_right_down = Vec3::new(0., 0., 0.);
+    let near_right_top = Vec3::new(0., 0., 0.);
+
+    let far_left_down = Vec3::new(0., 0., 0.);
+    let far_left_top = Vec3::new(0., 0., 0.);
+    let far_right_down = Vec3::new(0., 0., 0.);
+    let far_right_top = Vec3::new(0., 0., 0.);
+
+    let lines = vec![
+      [near_left_down, near_left_top],
+      [near_right_down, near_right_top],
+      [near_left_down, near_right_down],
+      [near_left_top, near_right_top],
+      //
+      [far_left_down, far_left_top],
+      [far_right_down, far_right_top],
+      [far_left_down, far_right_down],
+      [far_left_top, far_right_top],
+      //
+      [near_left_down, far_left_down],
+      [near_left_top, far_left_top],
+      [near_right_down, far_right_down],
+      [near_right_top, far_right_top],
+    ];
+
+    let line_buffer = lines
+      .iter()
+      .flat_map(|line| line.iter())
+      .map(|&v| ColoredLineVertex {
+        position: v,
+        color: Vec4::new(1., 1., 1., 1.),
+      })
+      .collect();
+
+    HelperLineMesh::new(line_buffer)
   }
 }
 
