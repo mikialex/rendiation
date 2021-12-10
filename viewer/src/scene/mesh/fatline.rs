@@ -107,7 +107,7 @@ use bytemuck::{Pod, Zeroable};
 pub struct FatLineVertex {
   pub start: Vec3<f32>,
   pub end: Vec3<f32>,
-  pub color: Vec3<f32>,
+  pub color: Vec4<f32>,
 }
 
 impl VertexBufferSourceType for FatLineVertex {
@@ -127,7 +127,7 @@ impl VertexBufferSourceType for FatLineVertex {
           shader_location: 1,
         },
         VertexAttribute {
-          format: VertexFormat::Float32x3,
+          format: VertexFormat::Float32x4,
           offset: 4 * 3 + 4 * 3,
           shader_location: 2,
         },
@@ -139,7 +139,7 @@ impl VertexBufferSourceType for FatLineVertex {
     r#"
       [[location(4)]] fatline_start: vec3<f32>,
       [[location(5)]] fatline_end: vec3<f32>,
-      [[location(6)]] fatline_color: vec3<f32>,
+      [[location(6)]] fatline_color: vec4<f32>,
     "#
   }
 }

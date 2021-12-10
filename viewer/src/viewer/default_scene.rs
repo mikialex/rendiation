@@ -96,5 +96,14 @@ pub fn load_default_scene(scene: &mut Scene) {
     node.local_matrix = Mat4::lookat(Vec3::splat(1.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
   });
   let camera = SceneCamera::new(camera, camera_node);
+
+  let camera_mesh = camera.build_debug_line_in_camera_space();
+  let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
+  let fatline_mat = FatLineMaterial::default();
+  let fatline_mat = MaterialCell::new(fatline_mat);
+  let fatline_node = scene.root.create_child();
+  let fatline = FatlineImpl::new(fatline_mat, camera_mesh, fatline_node);
+  // scene.add_model(fatline);
+
   scene.active_camera = camera.into();
 }

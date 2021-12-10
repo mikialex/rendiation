@@ -6,10 +6,7 @@ use rendiation_geometry::*;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::{
-  helpers::{ColoredLineVertex, HelperLineMesh},
-  SceneNode,
-};
+use crate::{helpers::HelperLineMesh, FatLineVertex, SceneNode};
 
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
@@ -116,10 +113,10 @@ impl Camera {
 
     let line_buffer = lines
       .iter()
-      .flat_map(|line| line.iter())
-      .map(|&v| ColoredLineVertex {
-        position: v,
+      .map(|[start, end]| FatLineVertex {
         color: Vec4::new(1., 1., 1., 1.),
+        start: *start,
+        end: *end,
       })
       .collect();
 

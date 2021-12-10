@@ -10,6 +10,15 @@ pub struct FatLineMaterial {
   pub states: MaterialStates,
 }
 
+impl Default for FatLineMaterial {
+  fn default() -> Self {
+    Self {
+      width: 1.,
+      states: Default::default(),
+    }
+  }
+}
+
 pub struct FatlineMaterialGPU {
   _uniform: UniformBuffer<f32>,
   bindgroup: MaterialBindGroup,
