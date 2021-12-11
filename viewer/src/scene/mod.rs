@@ -124,11 +124,6 @@ impl Default for Scene {
   }
 }
 
-#[derive(Default)]
-pub struct SceneComponents {
-  pub nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
-}
-
 pub trait SceneRenderable {
   fn update(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtxBase);
 

@@ -6,7 +6,10 @@ use rendiation_geometry::*;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::{helpers::camera::CameraHelper, SceneNode};
+use crate::{
+  helpers::camera::CameraHelper, GPUResourceCache, SceneMaterialRenderPrepareCtxBase, SceneNode,
+  SceneRenderable,
+};
 
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
@@ -76,17 +79,31 @@ pub struct Camera {
 }
 
 impl Camera {
-  pub fn update_helper_object(&mut self) {
-    self.helper_object =
-      CameraHelper::from_node_and_project_matrix(self.node.clone(), self.projection_matrix).into();
-  }
-
   pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
     let width: usize = frame_size.width.into();
     let width = width as f32 * self.bounds.width;
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
+  }
+}
+
+impl SceneRenderable for Camera {
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+    let helper = self.helper_object.get_or_insert_with(|| {
+      CameraHelper::from_node_and_project_matrix(self.node.clone(), self.projection_matrix)
+    });
+    helper.mesh.update(gpu, base)
+  }
+
+  fn setup_pass<'a>(
+    &self,
+    pass: &mut GPURenderPass<'a>,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+  ) {
+    let helper = self.helper_object.as_ref().unwrap();
+    helper.mesh.setup_pass(pass, camera_gpu, resources)
   }
 }
 

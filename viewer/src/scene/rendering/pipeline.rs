@@ -300,6 +300,7 @@ impl SimplePipeline {
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
       .render_by(&mut content.axis)
+      .render_by(&mut content.camera_helpers)
       .run(engine, scene);
 
     let mut final_compose = pass("compose-all")

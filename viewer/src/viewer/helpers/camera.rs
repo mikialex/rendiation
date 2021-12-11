@@ -1,14 +1,14 @@
 use rendiation_algebra::*;
 
 use crate::{
-  FatLineMaterial, FatLineVertex, FatlineImpl, FatlineMeshCellImpl, MaterialCell, PassContent,
-  SceneNode,
+  DefaultPassDispatcher, FatLineMaterial, FatLineVertex, FatlineImpl, FatlineMeshCellImpl,
+  MaterialCell, PassContent, SceneMaterialRenderPrepareCtxBase, SceneNode, SceneRenderable,
 };
 
 use super::HelperLineMesh;
 
 pub struct CameraHelper {
-  mesh: FatlineImpl,
+  pub mesh: FatlineImpl,
 }
 
 impl CameraHelper {
@@ -17,7 +17,7 @@ impl CameraHelper {
     let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
     let fatline_mat = FatLineMaterial::default();
     let fatline_mat = MaterialCell::new(fatline_mat);
-    let fatline = FatlineImpl::new(fatline_mat, camera_mesh, node.clone());
+    let fatline = FatlineImpl::new(fatline_mat, camera_mesh, node);
     Self { mesh: fatline }
   }
 }
@@ -76,6 +76,22 @@ impl PassContent for SceneCameraHelper {
     if !self.enabled {
       return;
     }
+
+    if let Some(active_camera) = &mut scene.active_camera {
+      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
+
+      let mut base = SceneMaterialRenderPrepareCtxBase {
+        active_camera,
+        camera_gpu,
+        pass_info,
+        resources: &mut scene.resources,
+        pass: &DefaultPassDispatcher,
+      };
+
+      for (_, camera) in &mut scene.cameras {
+        camera.update(gpu, &mut base);
+      }
+    }
   }
 
   fn setup_pass<'a>(
@@ -85,6 +101,14 @@ impl PassContent for SceneCameraHelper {
   ) {
     if !self.enabled {
       return;
+    }
+
+    for (_, camera) in &scene.cameras {
+      camera.setup_pass(
+        pass,
+        scene.active_camera.as_ref().unwrap().expect_gpu(),
+        &scene.resources,
+      );
     }
   }
 }
