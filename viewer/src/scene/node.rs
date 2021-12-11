@@ -82,13 +82,13 @@ impl Drop for SceneNodeRef {
   }
 }
 
-pub struct SceneNode {
+pub struct SceneNodeInner {
   nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
   parent: Option<Rc<SceneNodeRef>>,
   inner: Rc<SceneNodeRef>,
 }
 
-impl SceneNode {
+impl SceneNodeInner {
   pub fn from_root(nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>) -> Self {
     let nodes_info = nodes.borrow();
     let root = SceneNodeRef {
@@ -102,7 +102,7 @@ impl SceneNode {
     }
   }
 
-  pub fn create_child(&self) -> SceneNode {
+  pub fn create_child(&self) -> Self {
     let mut nodes_info = self.nodes.borrow_mut();
     let handle = nodes_info.create_node(SceneNodeData::default());
     let inner = SceneNodeRef {
@@ -132,12 +132,49 @@ impl SceneNode {
   }
 }
 
-impl Drop for SceneNode {
+impl Drop for SceneNodeInner {
   fn drop(&mut self) {
     let mut nodes = self.nodes.borrow_mut();
     if let Some(parent) = self.parent.as_ref() {
       nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
     }
+  }
+}
+
+#[derive(Clone)]
+pub struct SceneNode {
+  inner: Rc<RefCell<SceneNodeInner>>,
+}
+
+impl SceneNode {
+  pub fn from_root(nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>) -> Self {
+    let inner = SceneNodeInner::from_root(nodes);
+    Self {
+      inner: Rc::new(RefCell::new(inner)),
+    }
+  }
+
+  pub fn create_child(&self) -> Self {
+    let inner = self.inner.borrow();
+    let inner = inner.create_child();
+
+    SceneNode {
+      inner: Rc::new(RefCell::new(inner)),
+    }
+  }
+
+  pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
+    let inner = self.inner.borrow();
+    let mut nodes = inner.nodes.borrow_mut();
+    let node = nodes.get_node_mut(inner.inner.handle).data_mut();
+    f(node)
+  }
+
+  pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
+    let inner = self.inner.borrow();
+    let nodes = inner.nodes.borrow();
+    let node = nodes.get_node(inner.inner.handle).data();
+    f(node)
   }
 }
 

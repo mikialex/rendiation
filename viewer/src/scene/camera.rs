@@ -6,7 +6,7 @@ use rendiation_geometry::*;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::{helpers::HelperLineMesh, FatLineVertex, SceneNode};
+use crate::{helpers::camera::CameraHelper, SceneNode};
 
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
@@ -72,55 +72,21 @@ pub struct Camera {
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
+  helper_object: Option<CameraHelper>,
 }
 
 impl Camera {
+  pub fn update_helper_object(&mut self) {
+    self.helper_object =
+      CameraHelper::from_node_and_project_matrix(self.node.clone(), self.projection_matrix).into();
+  }
+
   pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
     let width: usize = frame_size.width.into();
     let width = width as f32 * self.bounds.width;
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
-  }
-
-  pub fn build_debug_line_in_camera_space(&self) -> HelperLineMesh {
-    let near_left_down = Vec3::new(0., 0., 0.);
-    let near_left_top = Vec3::new(0., 0., 0.);
-    let near_right_down = Vec3::new(0., 0., 0.);
-    let near_right_top = Vec3::new(0., 0., 0.);
-
-    let far_left_down = Vec3::new(0., 0., 0.);
-    let far_left_top = Vec3::new(0., 0., 0.);
-    let far_right_down = Vec3::new(0., 0., 0.);
-    let far_right_top = Vec3::new(0., 0., 0.);
-
-    let lines = vec![
-      [near_left_down, near_left_top],
-      [near_right_down, near_right_top],
-      [near_left_down, near_right_down],
-      [near_left_top, near_right_top],
-      //
-      [far_left_down, far_left_top],
-      [far_right_down, far_right_top],
-      [far_left_down, far_right_down],
-      [far_left_top, far_right_top],
-      //
-      [near_left_down, far_left_down],
-      [near_left_top, far_left_top],
-      [near_right_down, far_right_down],
-      [near_right_top, far_right_top],
-    ];
-
-    let line_buffer = lines
-      .iter()
-      .map(|[start, end]| FatLineVertex {
-        color: Vec4::new(1., 1., 1., 1.),
-        start: *start,
-        end: *end,
-      })
-      .collect();
-
-    HelperLineMesh::new(line_buffer)
   }
 }
 
@@ -151,6 +117,7 @@ impl SceneCamera {
         projection: Box::new(p),
         projection_matrix: Mat4::one(),
         node,
+        helper_object: None,
       },
       gpu: None,
     }
