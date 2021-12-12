@@ -77,14 +77,14 @@ pub struct Viewer3dContent {
 }
 
 pub struct Viewer3dRenderingCtx {
-  pipeline: SimplePipeline,
+  pipeline: ViewerPipeline,
   engine: RenderEngine,
 }
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
-      pipeline: SimplePipeline::new(gpu.as_ref()),
+      pipeline: ViewerPipeline::new(gpu.as_ref()),
       engine: RenderEngine::new(gpu),
     }
   }
