@@ -36,7 +36,7 @@ impl FatlineMeshGPU {
 
     pass.set_vertex_buffer_owned(1, &self.vertex);
 
-    pass.draw(self.instance.get_range_full().into(), range.into());
+    pass.draw_indexed(self.instance.get_range_full().into(), 0, range.into());
   }
 }
 
@@ -92,7 +92,7 @@ impl Mesh for FatlineMeshCellImpl {
   }
 
   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
-    vec![FatLineVertex::vertex_layout(), Vertex::vertex_layout()]
+    vec![Vertex::vertex_layout(), FatLineVertex::vertex_layout()]
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {
@@ -119,17 +119,17 @@ impl VertexBufferSourceType for FatLineVertex {
         VertexAttribute {
           format: VertexFormat::Float32x3,
           offset: 0,
-          shader_location: 0,
+          shader_location: 4,
         },
         VertexAttribute {
           format: VertexFormat::Float32x3,
           offset: 4 * 3,
-          shader_location: 1,
+          shader_location: 5,
         },
         VertexAttribute {
           format: VertexFormat::Float32x4,
           offset: 4 * 3 + 4 * 3,
-          shader_location: 2,
+          shader_location: 6,
         },
       ],
     }
