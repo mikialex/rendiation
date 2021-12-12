@@ -24,15 +24,22 @@ impl CameraHelper {
 }
 
 fn build_debug_line_in_camera_space() -> HelperLineMesh {
-  let near_left_down = Vec3::new(0., 0., 0.);
-  let near_left_top = Vec3::new(0., 0., 0.);
-  let near_right_down = Vec3::new(0., 0., 0.);
-  let near_right_top = Vec3::new(0., 0., 0.);
+  let near = 0.;
+  let far = 1.;
+  let left = 0.;
+  let right = 1.;
+  let top = 1.;
+  let bottom = 0.;
 
-  let far_left_down = Vec3::new(0., 0., 0.);
-  let far_left_top = Vec3::new(0., 0., 0.);
-  let far_right_down = Vec3::new(0., 0., 0.);
-  let far_right_top = Vec3::new(0., 0., 0.);
+  let near_left_down = Vec3::new(left, bottom, near);
+  let near_left_top = Vec3::new(left, top, near);
+  let near_right_down = Vec3::new(right, bottom, near);
+  let near_right_top = Vec3::new(right, top, near);
+
+  let far_left_down = Vec3::new(left, bottom, far);
+  let far_left_top = Vec3::new(left, top, far);
+  let far_right_down = Vec3::new(right, bottom, far);
+  let far_right_top = Vec3::new(right, top, far);
 
   let lines = vec![
     [near_left_down, near_left_top],

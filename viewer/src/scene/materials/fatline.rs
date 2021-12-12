@@ -13,7 +13,7 @@ pub struct FatLineMaterial {
 impl Default for FatLineMaterial {
   fn default() -> Self {
     Self {
-      width: 1.,
+      width: 10.,
       states: Default::default(),
     }
   }
