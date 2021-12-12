@@ -89,8 +89,8 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       [[stage(vertex)]]
       fn vs_fatline_main(
         {vertex_header}
-      ) -> VertexOutput {{
-        var out: VertexOutput;
+      ) -> FatlineVertexOutput {{
+        var out: FatlineVertexOutput;
         
         let resolution = vec2<f32>(1000., 1000.);
 
@@ -165,6 +165,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
 
         out.position = clip;
         out.uv = uv;
+        out.color = fatline_color;
 
         return out;
       }}
@@ -172,7 +173,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       .use_vertex_entry("vs_fatline_main")
       .include_fragment_entry("
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+        fn fs_main(in: FatlineVertexOutput) -> [[location(0)]] vec4<f32> {
 
           // discard corner
           let vUv = in.uv;
@@ -190,10 +191,19 @@ impl MaterialGPUResource for FatlineMaterialGPU {
             }
           }
 
-          return vec4<f32>(1., 0., 0., 1.);
+          return in.color;
         }
         ")
-      .use_fragment_entry("fs_main");
+      .use_fragment_entry("fs_main")
+      .declare_io_struct(
+        "
+      struct FatlineVertexOutput {
+        [[builtin(position)]] position: vec4<f32>;
+        [[location(0)]] uv: vec2<f32>;
+        [[location(1)]] color: vec4<f32>;
+      };
+    ",
+      );
 
     builder.with_layout::<FatLineMaterial>(ctx.layouts, device);
 
