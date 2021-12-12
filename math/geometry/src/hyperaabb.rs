@@ -36,6 +36,25 @@ impl<V> HyperAABB<V> {
     self.min = self.min.min(point);
     self.max = self.max.max(point);
   }
+
+  #[inline(always)]
+  pub fn expand_by_other<T>(&mut self, other: Self)
+  where
+    T: Scalar,
+    V: RealVector<T>,
+  {
+    self.min = self.min.min(other.min);
+    self.max = self.max.max(other.max);
+  }
+
+  #[inline(always)]
+  pub fn union<T>(&mut self, other: Self)
+  where
+    T: Scalar,
+    V: RealVector<T>,
+  {
+    self.expand_by_other(other)
+  }
 }
 
 impl<T, V, const D: usize> SolidEntity<T, D> for HyperAABB<V>

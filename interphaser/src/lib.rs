@@ -30,5 +30,3 @@ pub use app::*;
 mod perf;
 pub use perf::*;
 
-use rendiation_color::*;
-pub type Color = ColorWithAlpha<SRGBColor<f32>, f32>;

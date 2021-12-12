@@ -6,7 +6,7 @@ pub use orbit::*;
 pub mod fps;
 pub use fps::*;
 
-use rendiation_algebra::Mat4;
+use rendiation_algebra::{Mat4, Vec2};
 
 pub trait Controller {
   /// Sync the controller state to target state
@@ -26,12 +26,29 @@ pub trait Transformed3DControllee {
   fn matrix_mut(&mut self) -> &mut Mat4<f32>;
 }
 
+pub struct InputBound {
+  pub origin: Vec2<f32>,
+  pub size: Vec2<f32>,
+}
+
+impl InputBound {
+  pub fn is_point_in(&self, point: Vec2<f32>) -> bool {
+    point.x >= self.origin.x
+      && point.y >= self.origin.y
+      && point.x <= self.origin.x + self.size.x
+      && point.y <= self.origin.y + self.size.y
+  }
+}
+
 pub trait ControllerWinitEventSupport: Controller {
   type State: Default;
 
-  /// todo, the winit event lack of the local window bound state,
-  /// so if your canvas is not full window, this will be an issue
-  fn event<T>(&mut self, state: &mut Self::State, event: &winit::event::Event<T>);
+  fn event<T>(
+    &mut self,
+    state: &mut Self::State,
+    event: &winit::event::Event<T>,
+    bound: InputBound,
+  );
 }
 
 pub struct ControllerWinitAdapter<T: ControllerWinitEventSupport> {
@@ -66,7 +83,7 @@ impl<T: ControllerWinitEventSupport> ControllerWinitAdapter<T> {
     changed
   }
 
-  pub fn event<E>(&mut self, event: &winit::event::Event<E>) {
-    self.controller.event(&mut self.state, event)
+  pub fn event<E>(&mut self, event: &winit::event::Event<E>, bound: InputBound) {
+    self.controller.event(&mut self.state, event, bound)
   }
 }

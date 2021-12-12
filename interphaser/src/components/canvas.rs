@@ -22,7 +22,7 @@ impl Default for GPUCanvas {
 
 impl Presentable for GPUCanvas {
   fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.layout.update_world(builder.current_origin_offset);
+    self.layout.update_world(builder.current_origin_offset());
     if let Some(content) = &self.content {
       builder.present.primitives.push(Primitive::Quad((
         self.layout.into_quad(),
@@ -51,7 +51,7 @@ pub struct FrameTarget {
 
 pub struct CanvasWindowPositionInfo {
   pub absolute_position: UIPosition,
-  pub size: LayoutSize,
+  pub size: UISize,
 }
 
 pub trait CanvasPrinter {

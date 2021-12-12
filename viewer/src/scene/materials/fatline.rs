@@ -10,6 +10,30 @@ pub struct FatLineMaterial {
   pub states: MaterialStates,
 }
 
+impl Default for FatLineMaterial {
+  fn default() -> Self {
+    Self {
+      width: 10.,
+      states: Default::default(),
+    }
+  }
+}
+
+pub struct FatlineMaterialUniform {
+  pub width: f32,
+}
+
+impl ShaderUniformBlock for FatlineMaterialUniform {
+  fn shader_struct() -> &'static str {
+    "
+      [[block]]
+      struct FatlineMaterial {
+        width: f32;
+      };
+      "
+  }
+}
+
 pub struct FatlineMaterialGPU {
   _uniform: UniformBuffer<f32>,
   bindgroup: MaterialBindGroup,
@@ -21,7 +45,7 @@ impl BindGroupLayoutProvider for FatLineMaterial {
       label: None,
       entries: &[wgpu::BindGroupLayoutEntry {
         binding: 0,
-        visibility: wgpu::ShaderStages::FRAGMENT,
+        visibility: wgpu::ShaderStages::all(),
         ty: UniformBuffer::<f32>::bind_layout(),
         count: None,
       }],
@@ -31,20 +55,14 @@ impl BindGroupLayoutProvider for FatLineMaterial {
   fn gen_shader_header(group: usize) -> String {
     format!(
       "
-      [[block]]
-      struct FatlineMaterial {{
-        width: f32;
-      }};
-
       [[group({group}), binding(0)]]
       var<uniform> fatline_material: FatlineMaterial;
-    
     "
     )
   }
 
-  fn register_uniform_struct_declare(_: &mut PipelineBuilder) {
-    todo!()
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+    builder.declare_uniform_struct::<FatlineMaterialUniform>();
   }
 }
 
@@ -69,15 +87,17 @@ impl MaterialGPUResource for FatlineMaterialGPU {
 
     builder.include_vertex_entry(format!("
       [[stage(vertex)]]
-      fn vs_main(
+      fn vs_fatline_main(
         {vertex_header}
       ) -> VertexOutput {{
         var out: VertexOutput;
         
-        float aspect = resolution.x / resolution.y;
+        let resolution = vec2<f32>(1000., 1000.);
+
+        let aspect = resolution.x / resolution.y;
         // camera space
-        vec4 start =  camera.view * model.matrix * vec4( fatline_start, 1.0 );
-        vec4 end =  camera.view * model.matrix * vec4( fatline_end, 1.0 );
+        let start =  camera.view * model.matrix * vec4<f32>( fatline_start, 1.0 );
+        let end =  camera.view * model.matrix * vec4<f32>( fatline_end, 1.0 );
 
         // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
         // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
@@ -93,56 +113,67 @@ impl MaterialGPUResource for FatlineMaterialGPU {
         // }}
 
         // clip space
-        vec4 clipStart = camera.projection * start;
-        vec4 clipEnd = camera.projection * end;
+        let clipStart = camera.projection * start;
+        let clipEnd = camera.projection * end;
 
         // ndc space
-        vec2 ndcStart = clipStart.xy / clipStart.w;
-        vec2 ndcEnd = clipEnd.xy / clipEnd.w;
+        let ndcStart = clipStart.xy / clipStart.w;
+        let ndcEnd = clipEnd.xy / clipEnd.w;
 
         // direction
-        vec2 dir = ndcEnd - ndcStart;
+        var dir = ndcEnd - ndcStart;
 
         // account for clip-space aspect ratio
-        dir.x *= aspect;
+        dir.x = dir.x * aspect;
         dir = normalize( dir );
 
         // perpendicular to dir
-        vec2 offset = vec2( dir.y, - dir.x );
+        var offset = vec2<f32>( dir.y, - dir.x );
 
         // undo aspect ratio adjustment
-        dir.x /= aspect;
-        offset.x /= aspect;
+        dir.x = dir.x / aspect;
+        offset.x = offset.x / aspect;
 
         // sign flip
-        if ( position.x < 0.0 ) offset *= - 1.0;
+        if ( position.x < 0.0 ) {{
+          offset = - 1.0 * offset;
+        }};
+        
         // end caps
         if ( position.y < 0.0 )  {{
-            offset += - dir;
-        }} else if ( position.y > 1.0 )  {{
-            offset += dir;
+            offset = offset - dir;
+        }} elseif ( position.y > 1.0 )  {{
+            offset = offset + dir;
         }}
 
         // adjust for fatLineWidth
-        offset *= fatLineWidth;
+        offset = offset * fatline_material.width;
         // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
-        offset /= resolution.y;
+        offset = offset / resolution.y;
+
         // select end
-        vec4 clip = ( position.y < 0.5 ) ? clipStart : clipEnd;
+        var clip: vec4<f32>;
+        if ( position.y < 0.5 ) {{
+          clip = clipStart;
+        }} else {{
+          clip = clipEnd;
+        }}
+
         // back to clip space
-        offset *= clip.w;
-        clip.xy += offset;
+        offset = offset * clip.w;
+        clip = vec4<f32>(clip.xy + offset, clip.zw);
 
         out.position = clip;
+        out.uv = vec2<f32>(0.);
 
         return out;
       }}
     "))
-      .use_vertex_entry("vs_main")
+      .use_vertex_entry("vs_fatline_main")
       .include_fragment_entry("
         [[stage(fragment)]]
         fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-            return vec4(1., 0., 0., 1.);
+            return vec4<f32>(1., 0., 0., 1.);
         }}
         ")
       .use_fragment_entry("fs_main");

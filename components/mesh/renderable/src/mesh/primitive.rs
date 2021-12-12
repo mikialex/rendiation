@@ -80,7 +80,7 @@ where
     let data = data.as_ref();
     let start = data[offset];
     let end = data[offset + 1];
-    LineSegment { start, end }
+    LineSegment::line_segment(start, end)
   }
 }
 
@@ -98,14 +98,14 @@ where
     let data = data.as_ref();
     let start = data[index[offset].try_into().unwrap()];
     let end = data[index[offset + 1].try_into().unwrap()];
-    LineSegment { start, end }
+    LineSegment::line_segment(start, end)
   }
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
     let index = index.as_ref();
     let start = index[offset];
     let end = index[offset + 1];
-    LineSegment { start, end }
+    LineSegment::line_segment(start, end)
   }
 }
 

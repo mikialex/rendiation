@@ -7,35 +7,17 @@ pub mod selection;
 
 pub mod helpers;
 use self::{
-  helpers::axis::AxisHelper,
+  helpers::{axis::AxisHelper, camera::SceneCameraHelper},
   selection::{Picker, SelectionSet},
 };
 
 use interphaser::*;
-use rendiation_controller::{ControllerWinitAdapter, OrbitController};
+use rendiation_controller::{ControllerWinitAdapter, InputBound, OrbitController};
 use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
 use winit::event::{ElementState, Event, MouseButton};
 
 use crate::*;
-
-pub struct Viewer {
-  pub ui_examples: UIExamples,
-  pub viewer: ViewerImpl,
-}
-
-impl Default for Viewer {
-  fn default() -> Self {
-    Viewer {
-      ui_examples: Default::default(),
-      viewer: ViewerImpl {
-        content: Viewer3dContent::new(),
-        size: Size::from_u32_pair_min_one((100, 100)),
-        ctx: None,
-      },
-    }
-  }
-}
 
 impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
@@ -75,12 +57,23 @@ pub struct ViewerImpl {
   ctx: Option<Viewer3dRenderingCtx>,
 }
 
+impl Default for ViewerImpl {
+  fn default() -> Self {
+    Self {
+      content: Viewer3dContent::new(),
+      size: Size::from_u32_pair_min_one((100, 100)),
+      ctx: None,
+    }
+  }
+}
+
 pub struct Viewer3dContent {
   pub scene: Scene,
   pub picker: Picker,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
   pub axis: AxisHelper,
+  pub camera_helpers: SceneCameraHelper,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -126,6 +119,7 @@ impl Viewer3dContent {
       picker: Default::default(),
       selections: Default::default(),
       axis,
+      camera_helpers: SceneCameraHelper { enabled: true },
     }
   }
 
@@ -141,7 +135,16 @@ impl Viewer3dContent {
     states: &WindowState,
     position_info: CanvasWindowPositionInfo,
   ) {
-    self.controller.event(event);
+    let bound = InputBound {
+      origin: (
+        position_info.absolute_position.x,
+        position_info.absolute_position.y,
+      )
+        .into(),
+      size: (position_info.size.width, position_info.size.height).into(),
+    };
+
+    self.controller.event(event, bound);
 
     #[allow(clippy::single_match)]
     match event {

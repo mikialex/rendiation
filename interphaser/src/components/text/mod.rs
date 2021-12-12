@@ -1,8 +1,5 @@
 use crate::*;
 
-pub use glyph_brush::HorizontalAlign;
-pub use glyph_brush::VerticalAlign;
-
 mod cursor;
 pub use cursor::*;
 
@@ -12,8 +9,8 @@ pub use editable::*;
 pub struct Text {
   pub content: LayoutSource<String>,
   pub line_wrap: LineWrap,
-  pub horizon_align: HorizontalAlign,
-  pub vertical_align: VerticalAlign,
+  pub horizon_align: HorizontalAlignment,
+  pub vertical_align: VerticalAlignment,
   pub text_layout: Option<TextLayoutRef>,
   pub layout: LayoutUnit,
 }
@@ -23,8 +20,8 @@ impl Default for Text {
     Self {
       content: LayoutSource::new("".into()),
       layout: Default::default(),
-      horizon_align: HorizontalAlign::Center,
-      vertical_align: VerticalAlign::Center,
+      horizon_align: Default::default(),
+      vertical_align: Default::default(),
       line_wrap: Default::default(),
       text_layout: None,
     }
@@ -49,12 +46,12 @@ impl Text {
     self
   }
 
-  pub fn with_horizon_align(mut self, horizon_align: HorizontalAlign) -> Self {
+  pub fn with_horizon_align(mut self, horizon_align: HorizontalAlignment) -> Self {
     self.horizon_align = horizon_align;
     self
   }
 
-  pub fn with_vertical_align(mut self, vertical_align: VerticalAlign) -> Self {
+  pub fn with_vertical_align(mut self, vertical_align: VerticalAlignment) -> Self {
     self.vertical_align = vertical_align;
     self
   }
@@ -84,7 +81,6 @@ impl Text {
 
 impl<T> Component<T> for Text {
   fn update(&mut self, _: &T, ctx: &mut UpdateCtx) {
-    self.layout.check_attach(ctx);
     if self.content.changed() {
       self.reset_text_layout();
     }
@@ -94,7 +90,7 @@ impl<T> Component<T> for Text {
 
 impl Presentable for Text {
   fn render(&mut self, builder: &mut PresentationBuilder) {
-    self.layout.update_world(builder.current_origin_offset);
+    self.layout.update_world(builder.current_origin_offset());
 
     builder.present.primitives.push(Primitive::Text(
       self.get_text_layout(builder.fonts, builder.texts).clone(),

@@ -1099,6 +1099,7 @@ dependencies = [
 name = "interphaser"
 version = "0.1.0"
 dependencies = [
+ "arena",
  "bytemuck",
  "font-loader",
  "glyph_brush",

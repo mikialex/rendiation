@@ -1,7 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_geometry::Spherical;
 
-use crate::{Controller, ControllerWinitEventSupport, Transformed3DControllee};
+use crate::{Controller, ControllerWinitEventSupport, InputBound, Transformed3DControllee};
 
 pub struct FPSController {
   pub spherical: Spherical,
@@ -116,7 +116,7 @@ impl Controller for FPSController {
 use winit::event::*;
 impl ControllerWinitEventSupport for FPSController {
   type State = ();
-  fn event<T>(&mut self, _: &mut Self::State, event: &winit::event::Event<T>) {
+  fn event<T>(&mut self, _: &mut Self::State, event: &winit::event::Event<T>, _bound: InputBound) {
     match event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::KeyboardInput { input, .. } => {

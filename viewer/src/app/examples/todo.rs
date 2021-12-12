@@ -27,7 +27,7 @@ pub fn build_todo() -> impl UIComponent<Todo> {
     .extend(TodoItemDeleteHandler::by(|s: &mut Vec<TodoItem>, _, e| {
       s.remove(s.iter().position(|item| item.name == e.name).unwrap());
     }))
-    .extend(Container::size((800., 1000.)))
+    .extend(Container::sized((800., 1000.)))
     .lens(lens!(Todo, items))
 }
 
@@ -56,7 +56,7 @@ pub fn build_todo_item() -> impl UIComponent<TodoItem> {
   let label = Text::default()
     .editable()
     .lens(lens!(TodoItem, name))
-    .extend(Container::size((200., 100.)));
+    .extend(Container::sized((200., 100.)));
 
   let button = button("delete", |s: &mut TodoItem, c, _| {
     println!("delete {}", s.name);
@@ -69,5 +69,5 @@ pub fn build_todo_item() -> impl UIComponent<TodoItem> {
     .child(Child::flex(label, 1.))
     .child(Child::flex(button, 1.))
     .extend(Flex::row())
-    .extend(Container::size((500., 120.)))
+    .extend(Container::sized((500., 120.)))
 }

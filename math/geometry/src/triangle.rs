@@ -89,9 +89,9 @@ impl<'a, V: Copy> Iterator for Face3Iter<'a, V> {
 
 impl<V: Copy> Triangle<V> {
   pub fn for_each_edge(&self, mut visitor: impl FnMut(LineSegment<V>)) {
-    let ab = LineSegment::new(self.a, self.b);
-    let bc = LineSegment::new(self.b, self.c);
-    let ca = LineSegment::new(self.c, self.a);
+    let ab = LineSegment::line_segment(self.a, self.b);
+    let bc = LineSegment::line_segment(self.b, self.c);
+    let ca = LineSegment::line_segment(self.c, self.a);
     visitor(ab);
     visitor(bc);
     visitor(ca);

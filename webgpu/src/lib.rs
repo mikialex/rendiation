@@ -202,3 +202,17 @@ impl IndexBufferSourceType for u32 {
 impl IndexBufferSourceType for u16 {
   const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint16;
 }
+
+// #[derive(Default)]
+// pub struct VertexBufferLayoutBuilder {
+//   step_mode: wgpu::VertexStepMode,
+//   layout: Vec<VertexBufferLayoutBuilderInner>,
+// }
+
+// impl VertexBufferLayoutBuilder {}
+
+// struct VertexBufferLayoutBuilderInner {
+//   shader_name: &'static str,
+//   format: wgpu::VertexFormat,
+//   offset: wgpu::BufferAddress,
+// }

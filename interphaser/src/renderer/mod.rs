@@ -9,6 +9,9 @@ use pipeline::*;
 pub mod text;
 pub use text::*;
 
+pub mod graphics;
+pub use graphics::*;
+
 use crate::{FontManager, TextCache, TextHash};
 
 use super::{Primitive, UIPresentation};
@@ -321,45 +324,5 @@ impl UIGlobalParameter {
         count: None,
       }],
     })
-  }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct UIVertex {
-  position: Vec2<f32>,
-  uv: Vec2<f32>,
-  color: Vec4<f32>,
-}
-unsafe impl bytemuck::Zeroable for UIVertex {}
-unsafe impl bytemuck::Pod for UIVertex {}
-
-fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32)) -> UIVertex {
-  UIVertex {
-    position: position.into(),
-    uv: uv.into(),
-    color: color.into(),
-  }
-}
-
-impl VertexBufferSourceType for UIVertex {
-  fn vertex_layout() -> VertexBufferLayoutOwned {
-    wgpu::VertexBufferLayout {
-      array_stride: std::mem::size_of::<UIVertex>() as u64,
-      step_mode: wgpu::VertexStepMode::Vertex,
-      attributes: &wgpu::vertex_attr_array![
-        0 => Float32x2,
-        1 => Float32x2,
-        2 => Float32x4,
-      ],
-    }
-    .into()
-  }
-
-  fn get_shader_header() -> &'static str {
-    r#"
-      [[location(0)]] position: vec2<f32>,
-      [[location(1)]] uv: vec2<f32>,
-      [[location(2)]] color: vec4<f32>,
-    "#
   }
 }

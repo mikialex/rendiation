@@ -47,8 +47,8 @@ impl<T> AbsChild<T> {
     }
   }
 
-  pub fn with_position(mut self, position: UIPosition) -> Self {
-    self.position = position;
+  pub fn with_position(mut self, position: impl Into<UIPosition>) -> Self {
+    self.position = position.into();
     self
   }
 }

@@ -1,12 +1,13 @@
 use glyph_brush::ab_glyph::Font;
 use glyph_brush::*;
 
-use crate::FontManager;
+use crate::{FontManager, HorizontalAlignment, UIBound};
 
 use super::{GlyphCache, GlyphID, GlyphRasterInfo, TextInfo};
 
 pub struct LayoutedTextGlyphs {
   pub glyphs: Vec<(GlyphID, GlyphRasterInfo, GlyphBound)>,
+  pub bound: Option<UIBound>,
 }
 
 pub trait TextGlyphLayouter {
@@ -16,30 +17,46 @@ pub trait TextGlyphLayouter {
 #[derive(Default)]
 pub struct GlyphBrushLayouter;
 
+fn convert_align_h(v: crate::HorizontalAlignment) -> glyph_brush::HorizontalAlign {
+  match v {
+    HorizontalAlignment::Left => glyph_brush::HorizontalAlign::Left,
+    HorizontalAlignment::Center => glyph_brush::HorizontalAlign::Center,
+    HorizontalAlignment::Right => glyph_brush::HorizontalAlign::Right,
+  }
+}
+
+fn convert_align_v(v: crate::VerticalAlignment) -> glyph_brush::VerticalAlign {
+  match v {
+    crate::VerticalAlignment::Center => glyph_brush::VerticalAlign::Center,
+    crate::VerticalAlignment::Top => glyph_brush::VerticalAlign::Top,
+    crate::VerticalAlignment::Bottom => glyph_brush::VerticalAlign::Bottom,
+  }
+}
+
 impl TextGlyphLayouter for GlyphBrushLayouter {
   fn layout(&self, text: &TextInfo, fonts: &FontManager) -> LayoutedTextGlyphs {
     let x_correct = match text.horizon_align {
-      glyph_brush::HorizontalAlign::Left => 0.,
-      glyph_brush::HorizontalAlign::Center => text.bounds.width / 2.,
-      glyph_brush::HorizontalAlign::Right => text.bounds.width,
+      crate::HorizontalAlignment::Left => 0.,
+      crate::HorizontalAlignment::Center => text.bounds.width / 2.,
+      crate::HorizontalAlignment::Right => text.bounds.width,
     };
 
     let y_correct = match text.vertical_align {
-      glyph_brush::VerticalAlign::Top => 0.,
-      glyph_brush::VerticalAlign::Center => text.bounds.height / 2.,
-      glyph_brush::VerticalAlign::Bottom => text.bounds.height / 2.,
+      crate::VerticalAlignment::Top => 0.,
+      crate::VerticalAlignment::Center => text.bounds.height / 2.,
+      crate::VerticalAlignment::Bottom => text.bounds.height,
     };
 
     let layout = match text.line_wrap {
       crate::LineWrap::Single => Layout::SingleLine {
         line_breaker: BuiltInLineBreaker::default(),
-        h_align: text.horizon_align,
-        v_align: text.vertical_align,
+        h_align: convert_align_h(text.horizon_align),
+        v_align: convert_align_v(text.vertical_align),
       },
       crate::LineWrap::Multiple => Layout::Wrap {
         line_breaker: BuiltInLineBreaker::default(),
-        h_align: text.horizon_align,
-        v_align: text.vertical_align,
+        h_align: convert_align_h(text.horizon_align),
+        v_align: convert_align_v(text.vertical_align),
       },
     };
 
@@ -57,31 +74,40 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
         font_id: FontId(0),
       }],
     );
-    LayoutedTextGlyphs {
-      glyphs: raw_result
-        .iter()
-        .zip(text.content.chars().filter(|c| !c.is_control()))
-        .filter_map(|(r, c)| {
-          let font = fonts.get_font(r.font_id);
 
-          let outlined_glyph = font.outline_glyph(r.glyph.clone())?;
-          let bounds = outlined_glyph.px_bounds();
+    let mut bound = None;
 
-          (
-            GlyphID(c, r.font_id),
-            GlyphRasterInfo {
-              position: (r.glyph.position.x, r.glyph.position.y).into(),
-              scale: r.glyph.scale.x,
-            },
-            GlyphBound {
-              left_top: [bounds.min.x, bounds.min.y, 0.],
-              right_bottom: [bounds.max.x, bounds.max.y],
-            },
-          )
-            .into()
-        })
-        .collect(),
-    }
+    let glyphs = raw_result
+      .iter()
+      .zip(text.content.chars().filter(|c| !c.is_control()))
+      .filter_map(|(r, c)| {
+        let font = fonts.get_font(r.font_id);
+
+        let outlined_glyph = font.outline_glyph(r.glyph.clone())?;
+        let bounds = outlined_glyph.px_bounds();
+
+        let rect = UIBound {
+          min: (bounds.min.x, bounds.min.y).into(),
+          max: (bounds.min.x, bounds.min.y).into(),
+        };
+        bound.get_or_insert(rect).union(rect);
+
+        (
+          GlyphID(c, r.font_id),
+          GlyphRasterInfo {
+            position: (r.glyph.position.x, r.glyph.position.y).into(),
+            scale: r.glyph.scale.x,
+          },
+          GlyphBound {
+            left_top: [bounds.min.x, bounds.min.y, 0.],
+            right_bottom: [bounds.max.x, bounds.max.y],
+          },
+        )
+          .into()
+      })
+      .collect();
+
+    LayoutedTextGlyphs { glyphs, bound }
   }
 }
 

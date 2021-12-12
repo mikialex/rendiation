@@ -6,7 +6,7 @@ pub struct LayoutUnit {
   pub relative_position: UIPosition,
   /// relative to screen top left
   pub absolute_position: UIPosition,
-  pub size: LayoutSize,
+  pub size: UISize,
   pub baseline_offset: f32,
   pub attached: bool,
   pub need_update: bool,
@@ -27,7 +27,7 @@ impl Default for LayoutUnit {
 }
 
 impl LayoutUnit {
-  pub fn check_attach(&mut self, ctx: &mut UpdateCtx) {
+  pub(super) fn check_attach(&mut self, ctx: &mut UpdateCtx) {
     if !self.attached {
       ctx.request_layout();
       self.attached = true;

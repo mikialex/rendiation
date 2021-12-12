@@ -4,6 +4,8 @@ mod unit;
 pub use unit::*;
 mod types;
 pub use types::*;
+mod alignment;
+pub use alignment::*;
 
 pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
@@ -11,7 +13,7 @@ pub struct LayoutCtx<'a> {
 
 #[derive(Default)]
 pub struct LayoutResult {
-  pub size: LayoutSize,
+  pub size: UISize,
   pub baseline_offset: f32,
 }
 
@@ -57,6 +59,7 @@ impl<T> LayoutSource<T> {
   }
 
   pub fn refresh(&mut self, layout: &mut LayoutUnit, ctx: &mut UpdateCtx) {
+    layout.check_attach(ctx);
     if self.changed {
       layout.request_layout(ctx)
     }

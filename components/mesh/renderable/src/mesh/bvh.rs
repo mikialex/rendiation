@@ -156,7 +156,7 @@ impl EntityLineDebugAble for Box3 {
     let p6 = Vec3::new(self.max.x, self.max.y, self.min.z); // 110
     let p7 = Vec3::new(self.max.x, self.max.y, self.max.z); // 111
 
-    let mut line = |a, b| visitor(LineSegment::new(a, b));
+    let mut line = |a, b| visitor(LineSegment::line_segment(a, b));
     let mut quad = |a, b, c, d| {
       line(a, b);
       line(b, c);

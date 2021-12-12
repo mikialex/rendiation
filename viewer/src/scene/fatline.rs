@@ -4,7 +4,7 @@ use rendiation_webgpu::{GPURenderPass, GPU};
 use crate::*;
 
 pub struct FatlineImpl {
-  pub material: MaterialCell<FatLineMaterial>,
+  pub material: MaterialCell<SceneMaterial<FatLineMaterial>>,
   pub mesh: FatlineMeshCellImpl,
   pub group: MeshDrawGroup,
   pub node: SceneNode,
@@ -12,7 +12,7 @@ pub struct FatlineImpl {
 
 impl FatlineImpl {
   pub fn new(
-    material: MaterialCell<FatLineMaterial>,
+    material: MaterialCell<SceneMaterial<FatLineMaterial>>,
     mesh: FatlineMeshCellImpl,
     node: SceneNode,
   ) -> Self {

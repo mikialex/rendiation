@@ -6,7 +6,10 @@ use rendiation_geometry::*;
 use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::SceneNode;
+use crate::{
+  helpers::camera::CameraHelper, GPUResourceCache, SceneMaterialRenderPrepareCtxBase, SceneNode,
+  SceneRenderable,
+};
 
 pub trait CameraProjection {
   fn update_projection(&self, projection: &mut Mat4<f32>);
@@ -68,10 +71,11 @@ impl Default for CameraViewBounds {
 }
 
 pub struct Camera {
-  pub bounds: CameraViewBounds, // todo apply as viewport
+  pub bounds: CameraViewBounds,
   pub projection: Box<dyn CameraProjection>,
   pub projection_matrix: Mat4<f32>,
   pub node: SceneNode,
+  helper_object: Option<CameraHelper>,
 }
 
 impl Camera {
@@ -81,6 +85,25 @@ impl Camera {
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
+  }
+}
+
+impl SceneRenderable for Camera {
+  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+    let helper = self.helper_object.get_or_insert_with(|| {
+      CameraHelper::from_node_and_project_matrix(self.node.clone(), self.projection_matrix)
+    });
+    helper.mesh.update(gpu, base)
+  }
+
+  fn setup_pass<'a>(
+    &self,
+    pass: &mut GPURenderPass<'a>,
+    camera_gpu: &CameraBindgroup,
+    resources: &GPUResourceCache,
+  ) {
+    let helper = self.helper_object.as_ref().unwrap();
+    helper.mesh.setup_pass(pass, camera_gpu, resources)
   }
 }
 
@@ -111,6 +134,7 @@ impl SceneCamera {
         projection: Box::new(p),
         projection_matrix: Mat4::one(),
         node,
+        helper_object: None,
       },
       gpu: None,
     }

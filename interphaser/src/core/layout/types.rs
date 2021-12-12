@@ -1,9 +1,11 @@
+use rendiation_geometry::Rectangle;
+
 use crate::LayoutResult;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayoutConstraint {
-  pub min: LayoutSize,
-  pub max: LayoutSize,
+  pub min: UISize,
+  pub max: UISize,
 }
 
 impl Default for LayoutConstraint {
@@ -17,8 +19,8 @@ impl LayoutConstraint {
   ///
   /// Can be satisfied by any nonnegative size.
   pub const UNBOUNDED: Self = Self {
-    min: LayoutSize::ZERO,
-    max: LayoutSize::new(f32::INFINITY, f32::INFINITY),
+    min: UISize::ZERO,
+    max: UISize::new(f32::INFINITY, f32::INFINITY),
   };
 
   /// Create a new box constraints object.
@@ -29,7 +31,7 @@ impl LayoutConstraint {
   /// so that the layout is aligned to integers.
   ///
   /// [rounded away from zero]: struct.Size.html#method.expand
-  pub fn new(min: LayoutSize, max: LayoutSize) -> Self {
+  pub fn new(min: UISize, max: UISize) -> Self {
     Self { min, max }
   }
   /// Create a "tight" box constraints object.
@@ -40,7 +42,7 @@ impl LayoutConstraint {
   /// so that the layout is aligned to integers.
   ///
   /// [rounded away from zero]: struct.Size.html#method.expand
-  pub fn tight(size: LayoutSize) -> Self {
+  pub fn tight(size: UISize) -> Self {
     Self {
       min: size,
       max: size,
@@ -52,7 +54,7 @@ impl LayoutConstraint {
   /// Make a version with zero minimum size, but the same maximum size.
   pub fn loosen(&self) -> Self {
     Self {
-      min: LayoutSize::ZERO,
+      min: UISize::ZERO,
       max: self.max,
     }
   }
@@ -63,24 +65,24 @@ impl LayoutConstraint {
   /// so that the layout is aligned to integers.
   ///
   /// [rounded away from zero]: struct.Size.html#method.expand
-  pub fn constrain(&self, size: impl Into<LayoutSize>) -> LayoutSize {
+  pub fn constrain(&self, size: impl Into<UISize>) -> UISize {
     size.into().clamp(self.min, self.max)
   }
 
-  pub fn from_max(size: LayoutSize) -> Self {
+  pub fn from_max(size: UISize) -> Self {
     Self {
-      min: LayoutSize::ZERO,
+      min: UISize::ZERO,
       max: size,
     }
   }
-  pub fn max(&self) -> LayoutSize {
+  pub fn max(&self) -> UISize {
     self.max
   }
-  pub fn min(&self) -> LayoutSize {
+  pub fn min(&self) -> UISize {
     self.min
   }
-  pub fn clamp(&self, size: LayoutSize) -> LayoutSize {
-    LayoutSize {
+  pub fn clamp(&self, size: UISize) -> UISize {
+    UISize {
       width: size.width.clamp(self.min.width, self.max.width),
       height: size.height.clamp(self.min.height, self.max.height),
     }
@@ -92,13 +94,13 @@ impl LayoutConstraint {
   /// so that the layout is aligned to integers.
   ///
   /// [rounded away from zero]: struct.Size.html#method.expand
-  pub fn shrink(&self, diff: impl Into<LayoutSize>) -> Self {
+  pub fn shrink(&self, diff: impl Into<UISize>) -> Self {
     let diff = diff.into();
-    let min = LayoutSize::new(
+    let min = UISize::new(
       (self.min().width - diff.width).max(0.),
       (self.min().height - diff.height).max(0.),
     );
-    let max = LayoutSize::new(
+    let max = UISize::new(
       (self.max().width - diff.width).max(0.),
       (self.max().height - diff.height).max(0.),
     );
@@ -107,20 +109,46 @@ impl LayoutConstraint {
   }
 
   /// Test whether these constraints contain the given `Size`.
-  pub fn contains(&self, size: impl Into<LayoutSize>) -> bool {
+  pub fn contains(&self, size: impl Into<UISize>) -> bool {
     let size = size.into();
     (self.min.width <= size.width && size.width <= self.max.width)
       && (self.min.height <= size.height && size.height <= self.max.height)
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct LayoutSize {
-  pub width: f32,
-  pub height: f32,
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum UILength {
+  Px(f32),
+  ParentPercent(f32),
 }
 
-impl LayoutSize {
+impl From<f32> for UILength {
+  fn from(v: f32) -> Self {
+    Self::Px(v)
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct UISize<T = f32> {
+  pub width: T,
+  pub height: T,
+}
+
+impl UISize<UILength> {
+  pub fn into_pixel(&self, parent: UISize) -> UISize {
+    let width = match self.width {
+      UILength::Px(px) => px,
+      UILength::ParentPercent(p) => parent.width * p / 100.,
+    };
+    let height = match self.height {
+      UILength::Px(px) => px,
+      UILength::ParentPercent(p) => parent.height * p / 100.,
+    };
+    UISize { width, height }
+  }
+}
+
+impl UISize {
   pub const ZERO: Self = Self {
     width: 0.,
     height: 0.,
@@ -143,7 +171,7 @@ impl LayoutSize {
   }
 }
 
-impl<T: Into<f32>> From<(T, T)> for LayoutSize {
+impl<X, T: Into<X>> From<(T, T)> for UISize<X> {
   fn from(value: (T, T)) -> Self {
     Self {
       width: value.0.into(),
@@ -152,8 +180,8 @@ impl<T: Into<f32>> From<(T, T)> for LayoutSize {
   }
 }
 
-impl<T: From<f32>> From<LayoutSize> for (T, T) {
-  fn from(value: LayoutSize) -> Self {
+impl<T: From<f32>> From<UISize> for (T, T) {
+  fn from(value: UISize) -> Self {
     (value.width.into(), value.height.into())
   }
 }
@@ -169,3 +197,5 @@ impl From<(f32, f32)> for UIPosition {
     Self { x: v.0, y: v.1 }
   }
 }
+
+pub type UIBound = Rectangle<f32>;

@@ -1,25 +1,64 @@
 use interphaser::*;
 
-use crate::Viewer;
+use crate::{menu, MenuList, MenuModel, UIExamples, ViewerImpl};
 
-pub fn create_app() -> impl UIComponent<Viewer> {
+pub struct ViewerApplication {
+  pub ui_examples: UIExamples,
+  pub menu: MenuModel,
+  pub viewer: ViewerImpl,
+}
+
+impl Default for ViewerApplication {
+  fn default() -> Self {
+    ViewerApplication {
+      ui_examples: Default::default(),
+      viewer: Default::default(),
+      menu: create_menu(),
+    }
+  }
+}
+
+pub fn create_app() -> impl UIComponent<ViewerApplication> {
+  Flex::column().wrap(
+    flex_group()
+      .child(Child::fixed(menu().lens(lens!(ViewerApplication, menu))))
+      .child(Child::flex(
+        viewer().lens(lens!(ViewerApplication, viewer)),
+        1.,
+      )),
+  )
+}
+
+pub fn viewer() -> impl UIComponent<ViewerImpl> {
   AbsoluteAnchor::default().wrap(
     absolute_group()
-      .child(
-        AbsChild::new(GPUCanvas::default().lens(lens!(Viewer, viewer)))
-          .with_position((100., 100.).into()),
-      )
+      .child(AbsChild::new(GPUCanvas::default()))
       // .child(AbsChild::new(build_todo().lens(lens!(Viewer, todo))))
       .child(AbsChild::new(perf_panel())),
   )
 }
 
-pub fn perf_panel<T: 'static>() -> impl UIComponent<T> {
-  Container::size((500., 200.)).wrap(
+fn create_menu() -> MenuModel {
+  MenuModel {
+    lists: vec![
+      MenuList {
+        name: "3D Examples".to_string(),
+        items: Vec::new(),
+      },
+      MenuList {
+        name: "UI Examples".to_string(),
+        items: Vec::new(),
+      },
+    ],
+  }
+}
+
+fn perf_panel<T: 'static>() -> impl UIComponent<T> {
+  Container::sized((500., 200.)).wrap(
     Text::default()
     .with_line_wrap(LineWrap::Multiple)
-    .with_horizon_align(HorizontalAlign::Left)
-    .with_vertical_align(VerticalAlign::Top)
+    .with_horizon_align(HorizontalAlignment::Left)
+    .with_vertical_align(VerticalAlignment::Top)
     .bind_with_ctx(|s, _t, ctx| {
       let content = format!(
         "frame_id: {}\nupdate_time: {}\nlayout_time: {}\nrendering_prepare_time: {}\nrendering_dispatch_time: {}",
