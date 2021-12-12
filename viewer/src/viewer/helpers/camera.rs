@@ -2,7 +2,8 @@ use rendiation_algebra::*;
 
 use crate::{
   DefaultPassDispatcher, FatLineMaterial, FatLineVertex, FatlineImpl, FatlineMeshCellImpl,
-  MaterialCell, PassContent, SceneMaterialRenderPrepareCtxBase, SceneNode, SceneRenderable,
+  IntoCommonSceneMaterial, MaterialCell, PassContent, SceneMaterialRenderPrepareCtxBase, SceneNode,
+  SceneRenderable,
 };
 
 use super::HelperLineMesh;
@@ -15,7 +16,7 @@ impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, mat: Mat4<f32>) -> Self {
     let camera_mesh = build_debug_line_in_camera_space();
     let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
-    let fatline_mat = FatLineMaterial::default();
+    let fatline_mat = FatLineMaterial::default().into_scene_material();
     let fatline_mat = MaterialCell::new(fatline_mat);
     let fatline = FatlineImpl::new(fatline_mat, camera_mesh, node);
     Self { mesh: fatline }
