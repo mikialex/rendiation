@@ -164,7 +164,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
         clip = vec4<f32>(clip.xy + offset, clip.zw);
 
         out.position = clip;
-        out.uv = vec2<f32>(0.);
+        out.uv = uv;
 
         return out;
       }}
@@ -172,9 +172,26 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       .use_vertex_entry("vs_fatline_main")
       .include_fragment_entry("
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-            return vec4<f32>(1., 0., 0., 1.);
-        }}
+        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+
+          // discard corner
+          let vUv = in.uv;
+          if ( abs( vUv.y ) > 1.0 ) {
+            let a = vUv.x;
+            var b: f32;
+            if ( vUv.y > 0.0 ) {
+              b = vUv.y - 1.0;
+            } else {
+              b = vUv.y + 1.0;
+            }
+            let len2 = a * a + b * b;
+            if ( len2 > 1.0 ) {
+              discard;
+            }
+          }
+
+          return vec4<f32>(1., 0., 0., 1.);
+        }
         ")
       .use_fragment_entry("fs_main");
 
