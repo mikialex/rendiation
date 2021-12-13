@@ -3,10 +3,12 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
   BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, GPURenderPass, PipelineBuilder,
-  RenderPassInfo, WebGPUTexture2d, GPU,
+  WebGPUTexture2d, GPU,
 };
 
-use crate::{full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, Scene};
+use crate::{
+  full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, PassUpdateCtx, Scene,
+};
 
 pub struct CopyFrame {
   source: AttachmentOwnedReadView<wgpu::TextureFormat>,
@@ -23,7 +25,7 @@ pub fn copy_frame(source: AttachmentOwnedReadView<wgpu::TextureFormat>) -> CopyF
 }
 
 impl PassContent for CopyFrame {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
       layout: &Self::layout(&gpu.device),
       entries: &[
@@ -45,6 +47,8 @@ impl PassContent for CopyFrame {
     self.bindgroup = Some(bindgroup);
 
     let mut hasher = Default::default();
+
+    let pass_info = ctx.pass_info;
 
     TypeId::of::<Self>().hash(&mut hasher);
     pass_info.format_info.hash(&mut hasher);

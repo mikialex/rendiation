@@ -4,7 +4,7 @@ use rendiation_webgpu::{
   GPURenderPass, Operations, RenderPassDescriptorOwned, RenderPassInfo, GPU,
 };
 
-use crate::{Attachment, AttachmentWriteView, RenderEngine, Scene};
+use crate::{Attachment, AttachmentWriteView, PassGPUDataCache, RenderEngine, Scene};
 
 pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
   let mut desc = RenderPassDescriptorOwned::default();
@@ -16,13 +16,18 @@ pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
   }
 }
 
+pub struct PassUpdateCtx<'a> {
+  pub pass_info: &'a RenderPassInfo,
+  pub pass_gpu_cache: &'a mut PassGPUDataCache,
+}
+
 pub trait PassContent {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo);
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx);
   fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene);
 }
 
 impl<T: PassContent> PassContent for Option<T> {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &PassUpdateCtx) {
     if let Some(c) = self {
       c.update(gpu, scene, pass_info);
     }
@@ -106,8 +111,15 @@ impl<'a, 't> PassDescriptor<'a, 't> {
       format_info: self.desc.info.clone(),
     };
 
+    let mut pass_cache = engine.pass_cache.borrow_mut();
+
+    let ctx = PassUpdateCtx {
+      pass_info: &info,
+      pass_gpu_cache: &mut pass_cache,
+    };
+
     for task in &mut self.tasks {
-      task.update(&engine.gpu, scene, &info)
+      task.update(&engine.gpu, scene, &ctx)
     }
 
     let mut pass = encoder.begin_render_pass(&self.desc);

@@ -2,7 +2,7 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
   full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
-  RenderPassGPUInfoData, Scene, SceneRenderable,
+  PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderable,
 };
 
 use rendiation_algebra::*;
@@ -128,8 +128,10 @@ impl BindGroupLayoutProvider for HighLighter {
 }
 
 impl<'x> PassContent for HighLightComposeTask<'x> {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     self.lighter.data.update(&gpu.queue);
+
+    let pass_info = ctx.pass_info;
 
     // we should create new buffer  every frame.
     let buffer_size = pass_info.buffer_size.into_usize();
@@ -265,8 +267,8 @@ impl<'i, T> PassContent for HighLightDrawMaskTask<T>
 where
   T: IntoIterator<Item = &'i MeshModel> + Copy,
 {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
-    let mut base = scene.create_material_ctx_base(gpu, pass_info, &HighLightMaskDispatcher);
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene,  ctx: &PassUpdateCtx) {
+    let mut base = scene.create_material_ctx_base(gpu, ctx.pass_info, &HighLightMaskDispatcher);
 
     for model in self.objects {
       let mut model = model.inner.borrow_mut();

@@ -10,10 +10,11 @@ pub use attachment::*;
 
 use interphaser::FrameTarget;
 use rendiation_webgpu::GPU;
-use std::{marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 pub struct RenderEngine {
   resource: ResourcePool,
+  pass_cache: RefCell<PassGPUDataCache>,
   gpu: Rc<GPU>,
   msaa_sample_count: u32,
   pub output: Option<FrameTarget>,
@@ -24,6 +25,7 @@ impl RenderEngine {
     Self {
       resource: Default::default(),
       output: Default::default(),
+      pass_cache: Default::default(),
       msaa_sample_count: 4,
       gpu,
     }

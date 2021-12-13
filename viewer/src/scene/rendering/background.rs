@@ -1,4 +1,4 @@
-use rendiation_webgpu::{GPURenderPass, RenderPassInfo, GPU};
+use rendiation_webgpu::{GPURenderPass, GPU};
 
 use crate::*;
 
@@ -6,14 +6,14 @@ use crate::*;
 pub struct BackGroundRendering;
 
 impl PassContent for BackGroundRendering {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     if let Some(active_camera) = &mut scene.active_camera {
       let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         active_camera,
         camera_gpu,
-        pass_info,
+        pass_info: ctx.pass_info,
         resources: &mut scene.resources,
         pass: &DefaultPassDispatcher,
       };

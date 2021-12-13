@@ -16,12 +16,12 @@ pub struct AxisHelper {
 }
 
 impl PassContent for AxisHelper {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     if !self.enabled {
       return;
     }
 
-    let mut base = scene.create_material_ctx_base(gpu, pass_info, &DefaultPassDispatcher);
+    let mut base = scene.create_material_ctx_base(gpu, ctx.pass_info, &DefaultPassDispatcher);
 
     let root_position = self.root.visit(|n| n.world_matrix.position());
 
