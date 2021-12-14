@@ -115,12 +115,9 @@ impl BindGroupLayoutProvider for HighLighter {
       var<uniform> highlighter: HighLightData;
       
       [[group({group}), binding(1)]]
-      var<uniform> pass_info: RenderPassGPUInfoData;
-      
-      [[group({group}), binding(2)]]
       var mask: texture_2d<f32>;
 
-      [[group({group}), binding(3)]]
+      [[group({group}), binding(2)]]
       var sampler: sampler;
     "
     )
@@ -133,16 +130,6 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
 
     let pass_info = ctx.pass_info;
 
-    // we should create new buffer  every frame.
-    let buffer_size = pass_info.buffer_size.into_usize();
-    let buffer_size: Vec2<f32> = (buffer_size.0 as f32, buffer_size.1 as f32).into();
-    let pass_info_gpu = UniformBuffer::create(
-      &gpu.device,
-      RenderPassGPUInfoData {
-        texel_size: buffer_size.map(|v| 1. / v),
-      },
-    );
-
     let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
       layout: &HighLighter::layout(&gpu.device),
       entries: &[
@@ -152,14 +139,10 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
         },
         wgpu::BindGroupEntry {
           binding: 1,
-          resource: pass_info_gpu.as_bindable(),
-        },
-        wgpu::BindGroupEntry {
-          binding: 2,
           resource: self.mask.as_bindable(),
         },
         wgpu::BindGroupEntry {
-          binding: 3,
+          binding: 2,
           resource: scene
             .resources
             .samplers
