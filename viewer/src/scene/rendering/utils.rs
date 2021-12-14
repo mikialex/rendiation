@@ -72,7 +72,7 @@ pub fn full_screen_vertex_shader(
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod)]
+#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod, PartialEq)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
 }

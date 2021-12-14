@@ -5,10 +5,10 @@ use std::{
 };
 
 use rendiation_webgpu::{
-  util::RenderEncoder, GPURenderPass, Operations, RenderPassDescriptorOwned, RenderPassInfo, GPU,
+  GPURenderPass, Operations, RenderPassDescriptorOwned, RenderPassInfo, GPU,
 };
 
-use crate::{Attachment, AttachmentWriteView, PassGPUData, PassGPUDataCache, RenderEngine, Scene};
+use crate::{Attachment, AttachmentWriteView, PassGPUDataCache, RenderEngine, Scene};
 
 pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
   let mut desc = RenderPassDescriptorOwned::default();
@@ -27,7 +27,7 @@ pub struct PassUpdateCtx<'a> {
 
 pub struct SceneRenderPass<'a> {
   pass: GPURenderPass<'a>,
-  pass_gpu_cache: &'a RefCell<PassGPUDataCache>,
+  pub pass_gpu_cache: &'a RefCell<PassGPUDataCache>,
 }
 
 impl<'a> Deref for SceneRenderPass<'a> {

@@ -40,6 +40,9 @@ pub struct FatlineMaterialGPU {
 }
 
 impl BindGroupLayoutProvider for FatLineMaterial {
+  fn bind_preference() -> usize {
+    1
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,

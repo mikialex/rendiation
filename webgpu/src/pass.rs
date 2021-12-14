@@ -39,6 +39,7 @@ pub struct GPURenderPass<'a> {
   pub(crate) info: RenderPassInfo,
   pub(crate) pass: wgpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
+  pub(crate) placeholder_bg: Rc<wgpu::BindGroup>,
 }
 
 impl<'a> Deref for GPURenderPass<'a> {
@@ -73,6 +74,10 @@ impl<'a> GPURenderPass<'a> {
   pub fn set_pipeline_owned(&mut self, pipeline: &Rc<wgpu::RenderPipeline>) {
     let pipeline = self.holder.pipelines.alloc(pipeline.clone());
     self.pass.set_pipeline(pipeline)
+  }
+
+  pub fn set_bind_group_placeholder(&mut self, index: u32) {
+    self.set_bind_group_owned(index, &self.placeholder_bg.clone(), &[]);
   }
 
   pub fn set_bind_group_owned(

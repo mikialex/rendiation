@@ -2,7 +2,7 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
   full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
-  PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
+  PassGPUData, PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
 };
 
 use rendiation_algebra::*;
@@ -70,6 +70,9 @@ pub struct HighLightComposeTask<'a> {
 }
 
 impl BindGroupLayoutProvider for HighLighter {
+  fn bind_preference() -> usize {
+    0
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
@@ -83,17 +86,11 @@ impl BindGroupLayoutProvider for HighLighter {
         wgpu::BindGroupLayoutEntry {
           binding: 1,
           visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: UniformBuffer::<RenderPassGPUInfoData>::bind_layout(),
-          count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-          binding: 2,
-          visibility: wgpu::ShaderStages::FRAGMENT,
           ty: WebGPUTexture2d::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
-          binding: 3,
+          binding: 2,
           visibility: wgpu::ShaderStages::FRAGMENT,
           ty: wgpu::Sampler::bind_layout(),
           count: None,
@@ -176,6 +173,8 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
   fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, _scene: &'a Scene) {
     pass.set_pipeline(self.pipeline.as_ref().unwrap());
     pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
+    pass.set_bind_group_placeholder(1);
+    pass.set_bind_group_placeholder(2);
     pass.draw(0..4, 0..1);
   }
 }
@@ -196,6 +195,7 @@ impl HighLighter {
 
     builder
       .with_layout::<HighLighter>(layouts, device)
+      .with_layout::<PassGPUData>(layouts, device)
       .include_fragment_entry(
         "
     [[stage(fragment)]]
@@ -216,6 +216,8 @@ impl HighLighter {
     ",
       )
       .use_fragment_entry("fs_main");
+
+    builder.log_shader_when_finish = true;
 
     builder.build(device)
   }

@@ -92,6 +92,9 @@ impl PassContent for CopyFrame {
 }
 
 impl BindGroupLayoutProvider for CopyFrame {
+  fn bind_preference() -> usize {
+    0
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,

@@ -114,7 +114,7 @@ impl GPU {
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
       label: "Main GPU encoder".into(),
     });
-    let encoder = GPUCommandEncoder::new(encoder);
+    let encoder = GPUCommandEncoder::new(encoder, &device);
 
     let encoder = RefCell::new(encoder);
 
@@ -153,7 +153,7 @@ impl GPU {
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
       label: "Main GPU encoder".into(),
     });
-    let encoder = GPUCommandEncoder::new(encoder);
+    let encoder = GPUCommandEncoder::new(encoder, &device);
 
     let encoder = RefCell::new(encoder);
 
@@ -175,7 +175,7 @@ impl GPU {
       .create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: "Main GPU encoder".into(),
       });
-    let mut encoder = GPUCommandEncoder::new(encoder);
+    let mut encoder = GPUCommandEncoder::new(encoder, &self.device);
 
     let mut current_encoder = self.encoder.borrow_mut();
     let current_encoder: &mut GPUCommandEncoder = &mut current_encoder;

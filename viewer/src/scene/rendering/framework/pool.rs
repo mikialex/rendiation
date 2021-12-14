@@ -4,7 +4,7 @@ use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
 use rendiation_webgpu::{
   BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, PipelineBuilder, RenderPassInfo,
-  UniformBufferData, GPU,
+  UniformBufferDataWithCache, GPU,
 };
 
 use crate::RenderPassGPUInfoData;
@@ -25,7 +25,7 @@ pub struct PassGPUDataCache {
 }
 
 pub struct PassGPUData {
-  pub ubo: UniformBufferData<RenderPassGPUInfoData>,
+  pub ubo: UniformBufferDataWithCache<RenderPassGPUInfoData>,
   pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
@@ -43,7 +43,7 @@ impl PassGPUDataCache {
     };
 
     let g = self.pool.entry(key).or_insert_with(|| {
-      let ubo = UniformBufferData::create(&gpu.device, info);
+      let ubo = UniformBufferDataWithCache::create(&gpu.device, info);
 
       let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
         layout: &PassGPUData::layout(&gpu.device),
@@ -60,6 +60,7 @@ impl PassGPUDataCache {
       }
     });
 
+    *g.ubo = info;
     g.ubo.update(&gpu.queue);
 
     g
@@ -67,13 +68,17 @@ impl PassGPUDataCache {
 }
 
 impl BindGroupLayoutProvider for PassGPUData {
+  fn bind_preference() -> usize {
+    3
+  }
+
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[wgpu::BindGroupLayoutEntry {
         binding: 0,
         visibility: wgpu::ShaderStages::all(),
-        ty: UniformBufferData::<RenderPassGPUInfoData>::bind_layout(),
+        ty: UniformBufferDataWithCache::<RenderPassGPUInfoData>::bind_layout(),
         count: None,
       }],
     })
