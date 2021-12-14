@@ -1,10 +1,6 @@
 use rendiation_algebra::*;
 
-use crate::{
-  DefaultPassDispatcher, FatLineMaterial, FatLineVertex, FatlineImpl, FatlineMeshCellImpl,
-  IntoCommonSceneMaterial, MaterialCell, PassContent, PassUpdateCtx,
-  SceneMaterialRenderPrepareCtxBase, SceneNode, SceneRenderable,
-};
+use crate::*;
 
 use super::HelperLineMesh;
 
@@ -102,11 +98,7 @@ impl PassContent for SceneCameraHelper {
     }
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut rendiation_webgpu::GPURenderPass<'a>,
-    scene: &'a crate::Scene,
-  ) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a crate::Scene) {
     if !self.enabled {
       return;
     }

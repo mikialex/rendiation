@@ -28,7 +28,7 @@ impl PassContent for ForwardScene {
     self.render_list.update(scene, gpu, ctx.pass_info);
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     self.render_list.setup_pass(pass, scene);
   }
 }

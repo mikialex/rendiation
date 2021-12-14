@@ -38,7 +38,7 @@ use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 
 use rendiation_webgpu::{
-  BindGroupLayoutCache, GPURenderPass, PipelineResourceCache, RenderPassInfo, SamplerCache, GPU,
+  BindGroupLayoutCache, PipelineResourceCache, RenderPassInfo, SamplerCache, GPU,
 };
 
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
@@ -129,7 +129,7 @@ pub trait SceneRenderable {
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   );

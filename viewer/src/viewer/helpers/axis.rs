@@ -32,7 +32,7 @@ impl PassContent for AxisHelper {
     self.z.update(gpu, &mut base);
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     if !self.enabled {
       return;
     }
@@ -68,7 +68,7 @@ impl Arrow {
     self.tip.update(gpu, ctx);
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     self.cylinder.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),

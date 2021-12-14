@@ -8,7 +8,7 @@ use rendiation_webgpu::*;
 
 use crate::{
   helpers::camera::CameraHelper, GPUResourceCache, SceneMaterialRenderPrepareCtxBase, SceneNode,
-  SceneRenderable,
+  SceneRenderPass, SceneRenderable,
 };
 
 pub trait CameraProjection {
@@ -98,7 +98,7 @@ impl SceneRenderable for Camera {
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {

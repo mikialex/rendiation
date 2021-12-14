@@ -51,7 +51,7 @@ impl SceneRenderable for SolidBackground {
 
   fn setup_pass<'a>(
     &self,
-    _pass: &mut GPURenderPass<'a>,
+    _pass: &mut SceneRenderPass<'a>,
     _camera_gpu: &CameraBindgroup,
     _pipeline_resource: &GPUResourceCache,
   ) {
@@ -106,7 +106,7 @@ where
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {

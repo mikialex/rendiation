@@ -2,7 +2,7 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
   full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
-  PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderable,
+  PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
 };
 
 use rendiation_algebra::*;
@@ -190,7 +190,7 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
       .into();
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, _scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, _scene: &'a Scene) {
     pass.set_pipeline(self.pipeline.as_ref().unwrap());
     pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
     pass.draw(0..4, 0..1);
@@ -267,7 +267,7 @@ impl<'i, T> PassContent for HighLightDrawMaskTask<T>
 where
   T: IntoIterator<Item = &'i MeshModel> + Copy,
 {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene,  ctx: &PassUpdateCtx) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     let mut base = scene.create_material_ctx_base(gpu, ctx.pass_info, &HighLightMaskDispatcher);
 
     for model in self.objects {
@@ -276,7 +276,7 @@ where
     }
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     for model in self.objects {
       model.setup_pass(
         pass,

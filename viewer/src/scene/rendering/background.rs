@@ -1,4 +1,4 @@
-use rendiation_webgpu::{GPURenderPass, GPU};
+use rendiation_webgpu::GPU;
 
 use crate::*;
 
@@ -22,7 +22,7 @@ impl PassContent for BackGroundRendering {
     }
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     scene.background.setup_pass(
       pass,
       scene.active_camera.as_ref().unwrap().expect_gpu(),

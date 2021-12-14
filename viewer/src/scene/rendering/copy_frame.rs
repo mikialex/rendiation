@@ -2,12 +2,13 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
-  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, GPURenderPass, PipelineBuilder,
-  WebGPUTexture2d, GPU,
+  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, PipelineBuilder, WebGPUTexture2d,
+  GPU,
 };
 
 use crate::{
   full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, PassUpdateCtx, Scene,
+  SceneRenderPass,
 };
 
 pub struct CopyFrame {
@@ -83,7 +84,7 @@ impl PassContent for CopyFrame {
       .into();
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, _scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, _scene: &'a Scene) {
     pass.set_pipeline(self.pipeline.as_ref().unwrap());
     pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
     pass.draw(0..4, 0..1);

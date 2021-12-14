@@ -2,7 +2,6 @@ use std::cell::RefCell;
 
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
-use rendiation_webgpu::GPURenderPass;
 
 use super::*;
 
@@ -33,7 +32,7 @@ impl SceneRenderable for MeshModel {
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {
@@ -93,7 +92,7 @@ impl SceneRenderable for MeshModelImpl {
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {
@@ -178,7 +177,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {
