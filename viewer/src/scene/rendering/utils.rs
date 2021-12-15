@@ -75,6 +75,7 @@ pub fn full_screen_vertex_shader(
 #[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod, PartialEq)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
+  pub buffer_size: Vec2<f32>,
 }
 
 impl ShaderUniformBlock for RenderPassGPUInfoData {
@@ -83,6 +84,7 @@ impl ShaderUniformBlock for RenderPassGPUInfoData {
       [[block]]
       struct RenderPassGPUInfoData {
         texel_size:  vec2<f32>;
+        buffer_size:  vec2<f32>;
       };
       "
   }

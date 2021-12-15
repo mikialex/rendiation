@@ -95,7 +95,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       ) -> FatlineVertexOutput {{
         var out: FatlineVertexOutput;
         
-        let resolution = vec2<f32>(1000., 1000.);
+        let resolution = pass_info.buffer_size;
 
         let aspect = resolution.x / resolution.y;
         // camera space
@@ -208,7 +208,9 @@ impl MaterialGPUResource for FatlineMaterialGPU {
     ",
       );
 
-    builder.with_layout::<FatLineMaterial>(ctx.layouts, device);
+    builder
+      .with_layout::<FatLineMaterial>(ctx.layouts, device)
+      .with_layout::<PassGPUData>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }

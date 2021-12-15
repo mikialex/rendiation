@@ -217,8 +217,6 @@ impl HighLighter {
       )
       .use_fragment_entry("fs_main");
 
-    builder.log_shader_when_finish = true;
-
     builder.build(device)
   }
 }

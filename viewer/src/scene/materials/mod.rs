@@ -126,9 +126,9 @@ where
 {
   property_changed: bool,
   material: T,
+  last_material: Option<T>, // todo
   current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
   bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
-  last_material: Option<T>, // todo
   gpu: Option<T::GPU>,
 }
 
