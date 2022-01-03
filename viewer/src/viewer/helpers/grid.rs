@@ -1,6 +1,6 @@
 use rendiation_algebra::*;
 
-use crate::{FatLineVertex, SceneNode};
+use crate::*;
 
 use super::HelperLineMesh;
 
@@ -8,6 +8,26 @@ pub struct GridHelper {
   pub enabled: bool,
   pub root: SceneNode,
   pub config: GridConfig,
+  mesh: FatlineImpl,
+}
+
+impl GridHelper {
+  pub fn new(root: &SceneNode, config: GridConfig) -> Self {
+    let mesh = build_grid(&config);
+    let mesh = FatlineMeshCellImpl::from(mesh);
+    let mat = FatLineMaterial::default().into_scene_material();
+    let mat = MaterialCell::new(mat);
+    let root = root.clone();
+    let node = root.create_child();
+    let mesh = FatlineImpl::new(mat, mesh, node);
+
+    Self {
+      enabled: true,
+      root,
+      config,
+      mesh,
+    }
+  }
 }
 
 pub struct GridConfig {
@@ -17,7 +37,7 @@ pub struct GridConfig {
   pub height: usize,
 }
 
-fn build_grid(config: GridConfig) -> HelperLineMesh {
+fn build_grid(config: &GridConfig) -> HelperLineMesh {
   let mut lines = Vec::new();
 
   for x in 0..config.width_segments {
