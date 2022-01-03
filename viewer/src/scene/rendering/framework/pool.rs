@@ -40,7 +40,7 @@ impl PassGPUDataCache {
     let buffer_size: Vec2<f32> = (buffer_size.0 as f32, buffer_size.1 as f32).into();
     let info = RenderPassGPUInfoData {
       texel_size: buffer_size.map(|v| 1. / v),
-      buffer_size: buffer_size,
+      buffer_size,
     };
 
     let g = self.pool.entry(key).or_insert_with(|| {
