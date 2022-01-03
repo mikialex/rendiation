@@ -7,13 +7,6 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-#[derive(Clone)]
-pub struct BasicMaterial {
-  pub color: Vec3<f32>,
-  pub sampler: TextureSampler,
-  pub texture: SceneTexture2D,
-}
-
 impl MaterialMeshLayoutRequire for BasicMaterial {
   type VertexInput = Vec<Vertex>;
 }

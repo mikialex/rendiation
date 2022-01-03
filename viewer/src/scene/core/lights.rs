@@ -1,6 +1,6 @@
 use rendiation_algebra::Vec3;
 
-use super::SceneNodeHandle;
+use crate::SceneNodeHandle;
 
 pub struct SceneLight {
   pub light: Box<dyn Light>,

@@ -1,29 +1,31 @@
 use std::rc::Rc;
 
-use bytemuck::*;
-use rendiation_algebra::*;
+use rendiation_algebra::Vec4;
+use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
 
 use crate::*;
 
-#[derive(Clone, Copy, Zeroable, Pod)]
-#[repr(C)]
-pub struct LineMaterial {
+
+impl MaterialMeshLayoutRequire for FlatMaterial {
+  type VertexInput = Vec<Vertex>;
+}
+
+pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
 
-impl ShaderUniformBlock for LineMaterial {
+impl ShaderUniformBlock for FlatMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-    [[block]]
-    struct LineMaterial {
-      color: vec4<f32>;
-    };
-    "
+        [[block]]
+        struct FlatMaterial {
+          color: vec4<f32>;
+        };"
   }
 }
 
-impl BindGroupLayoutProvider for LineMaterial {
+impl BindGroupLayoutProvider for FlatMaterial {
   fn bind_preference() -> usize {
     1
   }
@@ -33,7 +35,7 @@ impl BindGroupLayoutProvider for LineMaterial {
       entries: &[wgpu::BindGroupLayoutEntry {
         binding: 0,
         visibility: wgpu::ShaderStages::FRAGMENT,
-        ty: UniformBuffer::<LineMaterial>::bind_layout(),
+        ty: UniformBuffer::<Vec4<f32>>::bind_layout(),
         count: None,
       }],
     })
@@ -43,24 +45,24 @@ impl BindGroupLayoutProvider for LineMaterial {
     format!(
       "
       [[group({group}), binding(0)]]
-      var<uniform> line_material: FlatMaterial;
+      var<uniform> flat_material: FlatMaterial;
     
     ",
     )
   }
 
   fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
-    builder.declare_uniform_struct::<LineMaterial>();
+    builder.declare_uniform_struct::<FlatMaterialUniform>();
   }
 }
 
-pub struct LineMaterialGPU {
-  _uniform: UniformBuffer<LineMaterial>,
+pub struct FlatMaterialGPU {
+  _uniform: UniformBuffer<Vec4<f32>>,
   bindgroup: MaterialBindGroup,
 }
 
-impl MaterialGPUResource for LineMaterialGPU {
-  type Source = LineMaterial;
+impl MaterialGPUResource for FlatMaterialGPU {
+  type Source = FlatMaterial;
 
   fn create_pipeline(
     &self,
@@ -74,13 +76,13 @@ impl MaterialGPUResource for LineMaterialGPU {
         "
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return line_material.color;
+          return flat_material.color;
       }}
       ",
       )
       .use_fragment_entry("fs_main");
 
-    builder.with_layout::<LineMaterial>(ctx.layouts, device);
+    builder.with_layout::<FlatMaterial>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }
@@ -94,8 +96,8 @@ impl MaterialGPUResource for LineMaterialGPU {
   }
 }
 
-impl MaterialCPUResource for LineMaterial {
-  type GPU = LineMaterialGPU;
+impl MaterialCPUResource for FlatMaterial {
+  type GPU = FlatMaterialGPU;
 
   fn create(
     &mut self,
@@ -103,7 +105,7 @@ impl MaterialCPUResource for LineMaterial {
     _ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
-    let _uniform = UniformBuffer::create(&gpu.device, self.clone());
+    let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::layout(&gpu.device);
 
@@ -111,7 +113,7 @@ impl MaterialCPUResource for LineMaterial {
       .push(_uniform.as_bindable())
       .build(&bindgroup_layout);
 
-    LineMaterialGPU {
+    FlatMaterialGPU {
       _uniform,
       bindgroup,
     }
@@ -124,13 +126,4 @@ impl MaterialCPUResource for LineMaterial {
   fn is_transparent(&self) -> bool {
     false
   }
-}
-
-#[derive(Clone)]
-pub struct LineDash {
-  pub screen_spaced: bool,
-  pub scale: f32,
-  pub gap_size: f32,
-  pub dash_size: f32,
-  pub view_scale: f32,
 }

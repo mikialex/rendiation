@@ -1,5 +1,3 @@
-use rendiation_algebra::Vec3;
-use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh;
 use rendiation_renderable_mesh::tessellation::IndexedMeshTessellator;
@@ -14,10 +12,6 @@ pub trait Background: 'static + SceneRenderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
 }
 
-pub struct SolidBackground {
-  pub intensity: Vec3<f32>,
-}
-
 impl Background for SolidBackground {
   fn require_pass_clear(&self) -> Option<wgpu::Color> {
     wgpu::Color {
@@ -27,22 +21,6 @@ impl Background for SolidBackground {
       a: 1.,
     }
     .into()
-  }
-}
-
-impl Default for SolidBackground {
-  fn default() -> Self {
-    Self {
-      intensity: Vec3::new(0.6, 0.6, 0.6),
-    }
-  }
-}
-
-impl SolidBackground {
-  pub fn black() -> Self {
-    Self {
-      intensity: Vec3::splat(0.0),
-    }
   }
 }
 
@@ -66,7 +44,6 @@ fn build_mesh() -> BackgroundMesh {
   };
   sphere.tessellate()
 }
-use crate::scene::mesh::Mesh;
 
 pub struct DrawableBackground<S: MaterialCPUResource> {
   mesh: MeshCellImpl<BackgroundMesh>,

@@ -1,4 +1,6 @@
-use super::*;
+use rendiation_webgpu::GPU;
+
+use crate::*;
 
 impl Scene {
   pub fn get_main_pass_load_op(&self) -> wgpu::Operations<wgpu::Color> {
