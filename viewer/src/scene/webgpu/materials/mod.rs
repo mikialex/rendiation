@@ -181,6 +181,7 @@ impl PassDispatcher for DefaultPassDispatcher {
 }
 
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
+  //  pub camera: &'a SceneCamera,
   pub active_camera: &'a Camera,
   pub camera_gpu: &'a CameraBindgroup,
   pub pass_info: &'a RenderPassInfo,

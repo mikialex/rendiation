@@ -3,43 +3,9 @@ use std::{ops::Deref, rc::Rc};
 use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_geometry::*;
-use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
-use crate::{
-  helpers::camera::CameraHelper, GPUResourceCache, SceneMaterialRenderPrepareCtxBase, SceneNode,
-  SceneRenderPass, SceneRenderable,
-};
-
-pub trait CameraProjection {
-  fn update_projection(&self, projection: &mut Mat4<f32>);
-  fn resize(&mut self, size: (f32, f32));
-  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
-}
-
-impl<T: ResizableProjection + RayCaster3<f32>> CameraProjection for T {
-  fn update_projection(&self, projection: &mut Mat4<f32>) {
-    self.update_projection::<WebGPU>(projection);
-  }
-  fn resize(&mut self, size: (f32, f32)) {
-    self.resize(size);
-  }
-  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
-    self.pixels_per_unit(distance, view_height)
-  }
-
-  fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
-    self.cast_ray(normalized_position)
-  }
-}
-
-pub struct CameraViewBounds {
-  pub width: f32,
-  pub height: f32,
-  pub to_left: f32,
-  pub to_top: f32,
-}
+use crate::*;
 
 impl CameraViewBounds {
   pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>) {
@@ -59,95 +25,26 @@ impl CameraViewBounds {
   }
 }
 
-impl Default for CameraViewBounds {
-  fn default() -> Self {
-    Self {
-      width: 1.,
-      height: 1.,
-      to_left: 0.,
-      to_top: 0.,
-    }
-  }
-}
+// impl SceneRenderable for Camera {
+//   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+//     let helper = self.helper_object.get_or_insert_with(|| {
+//       CameraHelper::from_node_and_project_matrix(self.node.clone(), self.projection_matrix)
+//     });
+//     helper.mesh.update(gpu, base)
+//   }
 
-pub struct Camera {
-  pub bounds: CameraViewBounds,
-  pub projection: Box<dyn CameraProjection>,
-  pub projection_matrix: Mat4<f32>,
-  pub node: SceneNode,
-  helper_object: Option<CameraHelper>,
-}
-
-impl Camera {
-  pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
-    let width: usize = frame_size.width.into();
-    let width = width as f32 * self.bounds.width;
-    let height: usize = frame_size.height.into();
-    let height = height as f32 * self.bounds.height;
-    (width, height).into()
-  }
-}
-
-impl SceneRenderable for Camera {
-  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
-    let helper = self.helper_object.get_or_insert_with(|| {
-      CameraHelper::from_node_and_project_matrix(self.node.clone(), self.projection_matrix)
-    });
-    helper.mesh.update(gpu, base)
-  }
-
-  fn setup_pass<'a>(
-    &self,
-    pass: &mut SceneRenderPass<'a>,
-    camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceCache,
-  ) {
-    let helper = self.helper_object.as_ref().unwrap();
-    helper.mesh.setup_pass(pass, camera_gpu, resources)
-  }
-}
-
-pub struct SceneCamera {
-  cpu: Camera,
-  gpu: Option<CameraBindgroup>,
-}
-
-impl Deref for SceneCamera {
-  type Target = Camera;
-
-  fn deref(&self) -> &Self::Target {
-    &self.cpu
-  }
-}
-
-impl std::ops::DerefMut for SceneCamera {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.cpu
-  }
-}
+//   fn setup_pass<'a>(
+//     &self,
+//     pass: &mut SceneRenderPass<'a>,
+//     camera_gpu: &CameraBindgroup,
+//     resources: &GPUResourceCache,
+//   ) {
+//     let helper = self.helper_object.as_ref().unwrap();
+//     helper.mesh.setup_pass(pass, camera_gpu, resources)
+//   }
+// }
 
 impl SceneCamera {
-  pub fn new(p: impl ResizableProjection + RayCaster3<f32> + 'static, node: SceneNode) -> Self {
-    Self {
-      cpu: Camera {
-        bounds: Default::default(),
-        projection: Box::new(p),
-        projection_matrix: Mat4::one(),
-        node,
-        helper_object: None,
-      },
-      gpu: None,
-    }
-  }
-
-  pub fn resize(&mut self, size: (f32, f32)) {
-    self.projection.resize(size);
-  }
-
-  pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
-    self.projection.cast_ray(normalized_position)
-  }
-
   pub fn get_updated_gpu(&mut self, gpu: &GPU) -> (&Camera, &mut CameraBindgroup) {
     self
       .gpu

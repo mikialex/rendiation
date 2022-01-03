@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_algebra::PerspectiveProjection;
-use rendiation_webgpu::{GPU, RenderPassInfo};
+use rendiation_webgpu::{RenderPassInfo, GPU};
 
 use crate::*;
 

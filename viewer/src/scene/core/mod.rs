@@ -21,3 +21,6 @@ pub use model::*;
 
 pub mod lights;
 pub use lights::*;
+
+pub mod camera;
+pub use camera::*;

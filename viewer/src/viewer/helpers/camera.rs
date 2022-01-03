@@ -92,9 +92,9 @@ impl PassContent for SceneCameraHelper {
         pass: &DefaultPassDispatcher,
       };
 
-      for (_, camera) in &mut scene.cameras {
-        camera.update(gpu, &mut base);
-      }
+      // for (_, camera) in &mut scene.cameras {
+      //   camera.update(gpu, &mut base);
+      // }
     }
   }
 
@@ -103,12 +103,12 @@ impl PassContent for SceneCameraHelper {
       return;
     }
 
-    for (_, camera) in &scene.cameras {
-      camera.setup_pass(
-        pass,
-        scene.active_camera.as_ref().unwrap().expect_gpu(),
-        &scene.resources,
-      );
-    }
+    // for (_, camera) in &scene.cameras {
+    //   camera.setup_pass(
+    //     pass,
+    //     scene.active_camera.as_ref().unwrap().expect_gpu(),
+    //     &scene.resources,
+    //   );
+    // }
   }
 }
