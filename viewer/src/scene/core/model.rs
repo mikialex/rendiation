@@ -23,9 +23,9 @@ impl MeshModel {
   }
 }
 
-pub struct MeshModelImpl {
-  pub material: Box<dyn Material>,
-  pub mesh: Box<dyn Mesh>,
+pub struct MeshModelImpl<Me = Box<dyn Mesh>, Ma = Box<dyn Material>> {
+  pub material: Ma,
+  pub mesh: Me,
   pub group: MeshDrawGroup,
   pub node: SceneNode,
 }

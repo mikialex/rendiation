@@ -5,6 +5,7 @@ pub mod fatline;
 pub mod materials;
 pub mod mesh;
 pub mod model;
+pub mod node;
 pub mod rendering;
 pub mod texture;
 
@@ -15,6 +16,7 @@ pub use fatline::*;
 pub use materials::*;
 pub use mesh::*;
 pub use model::*;
+pub use node::*;
 pub use rendering::*;
 pub use texture::*;
 

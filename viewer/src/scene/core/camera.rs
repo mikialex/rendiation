@@ -4,11 +4,6 @@ use rendiation_texture::Size;
 
 use crate::{ResourceWrapped, SceneNode};
 
-pub trait CameraChangeWatcher {
-  fn will_change(&mut self, camera: &Camera, id: usize);
-  fn will_drop(&mut self, camera: &Camera, id: usize);
-}
-
 pub struct SceneCamera {
   pub inner: ResourceWrapped<Camera>,
 }
@@ -52,9 +47,10 @@ impl SceneCamera {
   }
 }
 
+/// Manage multi camera view in scene
 pub struct CameraGroup {
   pub cameras: Vec<SceneCamera>,
-  current_rendering_camera: usize,
+  pub current_rendering_camera: usize,
   /// if no camera provides, we will use default-camera for handling this case easily.
   pub default_camera: SceneCamera,
 }
