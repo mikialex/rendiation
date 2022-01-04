@@ -27,7 +27,7 @@ impl CanvasPrinter for ViewerImpl {
     self
       .ctx
       .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-      .render(canvas, gpu, &mut self.content)
+      .render(canvas, &mut self.content)
   }
 
   fn event(
@@ -96,8 +96,8 @@ impl Viewer3dRenderingCtx {
     self.engine.notify_output_resized();
   }
 
-  pub fn render(&mut self, target: FrameTarget, gpu: &GPU, scene: &mut Viewer3dContent) {
-    scene.scene.maintain(gpu);
+  pub fn render(&mut self, target: FrameTarget, scene: &mut Viewer3dContent) {
+    scene.scene.maintain();
 
     self.engine.output = target.into();
 

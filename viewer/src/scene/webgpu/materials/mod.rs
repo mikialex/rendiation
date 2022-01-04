@@ -210,7 +210,6 @@ pub struct PipelineCreateCtx<'a, 'b> {
 pub struct SceneMaterialPassSetupCtx<'a> {
   pub resources: &'a GPUResourceCache,
   pub model_gpu: Option<&'a TransformGPU>,
-  pub active_mesh: Option<&'a dyn Mesh>,
   pub camera_gpu: &'a CameraBindgroup,
 }
 

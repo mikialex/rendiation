@@ -37,17 +37,16 @@ impl SceneRenderable for MeshModelImpl {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
 
-    self.node.mutate(|node| {
-      let mut ctx = SceneMaterialRenderPrepareCtx {
-        base,
-        model_info: node.get_model_gpu(gpu).into(),
-        active_mesh: mesh.as_ref().into(),
-      };
+    self.node.check_update_gpu(base.resources, gpu);
 
-      material.update(gpu, &mut ctx);
+    let mut ctx = SceneMaterialRenderPrepareCtx {
+      base,
+      active_mesh: mesh.as_ref().into(),
+    };
 
-      mesh.update(gpu, &mut base.resources.custom_storage);
-    });
+    material.update(gpu, &mut ctx);
+
+    mesh.update(gpu, &mut base.resources.custom_storage);
   }
 
   fn setup_pass<'a>(
@@ -62,9 +61,8 @@ impl SceneRenderable for MeshModelImpl {
     self.node.visit(|node| {
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
-        model_gpu: node.gpu.as_ref().unwrap().into(),
+        model_gpu: resources.nodes.get_unwrap(node).into(),
         resources,
-        active_mesh: mesh.as_ref().into(),
       };
       material.setup_pass(pass, &ctx);
 
@@ -119,7 +117,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
       world_matrix = override_impl.override_mat(world_matrix, base);
     }
 
-    let transform = self
+    self
       .override_gpu
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
@@ -147,7 +145,6 @@ impl SceneRenderable for OverridableMeshModelImpl {
       camera_gpu,
       model_gpu: self.override_gpu.as_ref(),
       resources,
-      active_mesh: mesh.as_ref().into(),
     };
     material.setup_pass(pass, &ctx);
 

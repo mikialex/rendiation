@@ -67,9 +67,7 @@ where
   MaterialCell<S>: materials::Material,
 {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
-    self.root.mutate(|node| {
-      node.get_model_gpu(gpu);
-    });
+    self.root.check_update_gpu(base.resources, gpu);
 
     self.mesh.update(gpu, &mut base.resources.custom_storage);
 
@@ -87,12 +85,11 @@ where
     resources: &GPUResourceCache,
   ) {
     self.root.visit(|node| {
-      let model_gpu = node.gpu.as_ref().unwrap().into();
+      let model_gpu = resources.nodes.get_unwrap(node).into();
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
         model_gpu,
         resources,
-        active_mesh: None,
       };
       self.shading.setup_pass(pass, &ctx);
       self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);

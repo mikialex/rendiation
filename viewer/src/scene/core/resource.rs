@@ -26,6 +26,12 @@ impl<T> ResourceWrapped<T> {
   }
 }
 
+impl<T: Default> Default for ResourceWrapped<T> {
+  fn default() -> Self {
+    Self::new(Default::default())
+  }
+}
+
 impl<T> Drop for ResourceWrapped<T> {
   fn drop(&mut self) {
     self

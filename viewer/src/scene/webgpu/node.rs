@@ -4,9 +4,48 @@ use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
-use crate::{ResourceMapper, SceneNodeDataImpl};
+use crate::{GPUResourceCache, ResourceMapper, SceneNode, SceneNodeData, SceneNodeDataImpl};
 
-pub type NodeGPU = ResourceMapper<TransformGPU, SceneNodeDataImpl>;
+#[derive(Default)]
+pub struct NodeGPU {
+  inner: ResourceMapper<TransformGPU, SceneNodeDataImpl>,
+}
+
+impl SceneNode {
+  pub fn check_update_gpu(&self, resources: &mut GPUResourceCache, gpu: &GPU) {
+    self.mutate(|node| {
+      resources.nodes.check_update_gpu(node, gpu);
+    });
+  }
+}
+
+impl NodeGPU {
+  pub fn check_update_gpu(&mut self, node: &mut SceneNodeData, gpu: &GPU) -> &TransformGPU {
+    self
+      .get_or_insert_with(node, |node| {
+        (TransformGPU::new(gpu, &node.world_matrix), |_, _| {})
+      })
+      .update(gpu, &node.world_matrix)
+  }
+
+  pub fn expect_gpu(&self, node: &SceneNodeData) -> &TransformGPU {
+    self.get_unwrap(node)
+  }
+}
+
+impl std::ops::Deref for NodeGPU {
+  type Target = ResourceMapper<TransformGPU, SceneNodeDataImpl>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
+impl std::ops::DerefMut for NodeGPU {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.inner
+  }
+}
 
 pub struct TransformGPU {
   pub ubo: UniformBufferDataWithCache<TransformGPUData>,

@@ -3,9 +3,8 @@ use std::{cell::RefCell, rc::Rc};
 use arena_tree::ArenaTree;
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
-use rendiation_webgpu::*;
 
-use crate::{ResourceWrapped, TransformGPU};
+use crate::ResourceWrapped;
 
 use super::SceneNodeHandle;
 
@@ -40,7 +39,7 @@ impl Transformed3DControllee for SceneNodeDataImpl {
 }
 
 impl SceneNodeDataImpl {
-  pub fn hierarchy_update(&mut self, gpu: &GPU, parent: Option<&Self>) {
+  pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
@@ -50,19 +49,7 @@ impl SceneNodeDataImpl {
       self.world_matrix = self.local_matrix;
       self.net_visible = self.visible
     }
-
-    if self.net_visible {
-      if let Some(t) = &mut self.gpu {
-        t.update(gpu, &self.world_matrix);
-      }
-    }
   }
-
-  // pub fn get_model_gpu(&mut self, gpu: &GPU) -> &TransformGPU {
-  //   self
-  //     .gpu
-  //     .get_or_insert_with(|| TransformGPU::new(gpu, &self.world_matrix))
-  // }
 
   pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
     self.local_matrix = Mat4::translate(position.0, position.1, position.2); // todo

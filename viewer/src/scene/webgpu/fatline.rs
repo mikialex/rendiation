@@ -30,17 +30,16 @@ impl SceneRenderable for FatlineImpl {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
 
-    self.node.mutate(|node| {
-      let mut ctx = SceneMaterialRenderPrepareCtx {
-        base,
-        model_info: node.get_model_gpu(gpu).into(),
-        active_mesh: Some(mesh),
-      };
+    self.node.check_update_gpu(base.resources, gpu);
 
-      material.update(gpu, &mut ctx);
+    let mut ctx = SceneMaterialRenderPrepareCtx {
+      base,
+      active_mesh: Some(mesh),
+    };
 
-      mesh.update(gpu, &mut base.resources.custom_storage);
-    });
+    material.update(gpu, &mut ctx);
+
+    mesh.update(gpu, &mut base.resources.custom_storage);
   }
 
   fn setup_pass<'a>(
@@ -55,9 +54,8 @@ impl SceneRenderable for FatlineImpl {
     self.node.visit(|node| {
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
-        model_gpu: node.gpu.as_ref().unwrap().into(),
+        model_gpu: resources.nodes.get_unwrap(node).into(),
         resources,
-        active_mesh: Some(mesh),
       };
       material.setup_pass(pass, &ctx);
 
