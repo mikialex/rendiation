@@ -5,31 +5,31 @@ use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
 use rendiation_webgpu::*;
 
-use crate::TransformGPU;
+use crate::{ResourceWrapped, TransformGPU};
 
 use super::SceneNodeHandle;
 
-pub struct SceneNodeData {
+pub type SceneNodeData = ResourceWrapped<SceneNodeDataImpl>;
+
+pub struct SceneNodeDataImpl {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
-  pub gpu: Option<TransformGPU>,
 }
 
-impl Default for SceneNodeData {
+impl Default for SceneNodeDataImpl {
   fn default() -> Self {
     Self {
       visible: true,
       local_matrix: Mat4::one(),
       net_visible: true,
       world_matrix: Mat4::one(),
-      gpu: None,
     }
   }
 }
 
-impl Transformed3DControllee for SceneNodeData {
+impl Transformed3DControllee for SceneNodeDataImpl {
   fn matrix(&self) -> &Mat4<f32> {
     &self.local_matrix
   }
@@ -39,7 +39,7 @@ impl Transformed3DControllee for SceneNodeData {
   }
 }
 
-impl SceneNodeData {
+impl SceneNodeDataImpl {
   pub fn hierarchy_update(&mut self, gpu: &GPU, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
@@ -58,11 +58,11 @@ impl SceneNodeData {
     }
   }
 
-  pub fn get_model_gpu(&mut self, gpu: &GPU) -> &TransformGPU {
-    self
-      .gpu
-      .get_or_insert_with(|| TransformGPU::new(gpu, &self.world_matrix))
-  }
+  // pub fn get_model_gpu(&mut self, gpu: &GPU) -> &TransformGPU {
+  //   self
+  //     .gpu
+  //     .get_or_insert_with(|| TransformGPU::new(gpu, &self.world_matrix))
+  // }
 
   pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
     self.local_matrix = Mat4::translate(position.0, position.1, position.2); // todo
@@ -105,7 +105,7 @@ impl SceneNodeInner {
 
   pub fn create_child(&self) -> Self {
     let mut nodes_info = self.nodes.borrow_mut();
-    let handle = nodes_info.create_node(SceneNodeData::default());
+    let handle = nodes_info.create_node(ResourceWrapped::new(SceneNodeDataImpl::default())); // todo use from
     let inner = SceneNodeRef {
       nodes: self.nodes.clone(),
       handle,
