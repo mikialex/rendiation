@@ -107,7 +107,6 @@ pub struct CameraGPUTransform {
 impl ShaderUniformBlock for CameraGPUTransform {
   fn shader_struct() -> &'static str {
     "
-      [[block]]
       struct CameraTransform {
         projection: mat4x4<f32>;
         rotation:   mat4x4<f32>;

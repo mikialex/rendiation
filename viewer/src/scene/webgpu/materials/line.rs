@@ -15,7 +15,6 @@ pub struct LineMaterial {
 impl ShaderUniformBlock for LineMaterial {
   fn shader_struct() -> &'static str {
     "
-    [[block]]
     struct LineMaterial {
       color: vec4<f32>;
     };

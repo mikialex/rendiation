@@ -192,7 +192,6 @@ pub struct TransformGPUData {
 impl ShaderUniformBlock for TransformGPUData {
   fn shader_struct() -> &'static str {
     "
-      [[block]]
       struct ModelTransform {
         matrix: mat4x4<f32>;
       };

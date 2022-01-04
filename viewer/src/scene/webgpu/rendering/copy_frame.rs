@@ -72,7 +72,7 @@ impl PassContent for CopyFrame {
             "
           [[stage(fragment)]]
           fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-            return textureSample(texture, sampler, in.uv);
+            return textureSample(texture, tex_sampler, in.uv);
           }}
           ",
           )
@@ -122,7 +122,7 @@ impl BindGroupLayoutProvider for CopyFrame {
         var texture: texture_2d<f32>;
   
         [[group({group}), binding(1)]]
-        var sampler: sampler;
+        var tex_sampler: sampler;
       "
     )
   }

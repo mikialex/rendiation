@@ -1,4 +1,3 @@
-[[block]]
 struct Globals {
     transform: mat4x4<f32>;
 };
@@ -45,7 +44,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
             pos = vec2<f32>(left, bottom);
             out.f_tex_pos = vec2<f32>(input.tex_left_top.x, input.tex_right_bottom.y);
         }
-        case 3: {
+        default: {
             pos = vec2<f32>(right, bottom);
             out.f_tex_pos = input.tex_right_bottom;
         }

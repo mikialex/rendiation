@@ -2,7 +2,6 @@ use std::rc::Rc;
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
-use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 
 use crate::*;
@@ -18,7 +17,6 @@ pub struct BasicMaterialUniform {
 impl ShaderUniformBlock for BasicMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-    [[block]]
     struct BasicMaterial {
       color: vec3<f32>;
     };

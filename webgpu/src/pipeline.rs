@@ -254,6 +254,7 @@ impl PipelineBuilder {
       primitive: self.primitive_state,
       depth_stencil: self.depth_stencil.clone(),
       multisample: self.multisample,
+      multiview: None,
     })
   }
 }

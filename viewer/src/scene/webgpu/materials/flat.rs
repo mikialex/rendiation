@@ -6,7 +6,6 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-
 impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
@@ -18,10 +17,9 @@ pub struct FlatMaterialUniform {
 impl ShaderUniformBlock for FlatMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-        [[block]]
-        struct FlatMaterial {
-          color: vec4<f32>;
-        };"
+      struct FlatMaterial {
+        color: vec4<f32>;
+      };"
   }
 }
 

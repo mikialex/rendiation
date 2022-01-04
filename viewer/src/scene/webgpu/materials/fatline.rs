@@ -26,7 +26,6 @@ pub struct FatlineMaterialUniform {
 impl ShaderUniformBlock for FatlineMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-      [[block]]
       struct FatlineMaterial {
         width: f32;
       };
@@ -145,7 +144,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
         // end caps
         if ( position.y < 0.0 )  {{
             offset = offset - dir;
-        }} elseif ( position.y > 1.0 )  {{
+        }} else if ( position.y > 1.0 )  {{
             offset = offset + dir;
         }}
 

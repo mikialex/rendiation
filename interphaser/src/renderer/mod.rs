@@ -289,7 +289,7 @@ struct UIGlobalParameter {
 impl ShaderUniformBlock for UIGlobalParameter {
   fn shader_struct() -> &'static str {
     "
-       [[block]] struct UIGlobalParameter {
+      struct UIGlobalParameter {
         screen_size: vec2<f32>;
       };
        "
@@ -302,7 +302,7 @@ unsafe impl bytemuck::Pod for UIGlobalParameter {}
 impl UIGlobalParameter {
   fn get_shader_header() -> &'static str {
     "
-    [[block]] struct UIGlobalParameter {
+    struct UIGlobalParameter {
       screen_size: vec2<f32>;
     };
     [[group(0), binding(0)]] 

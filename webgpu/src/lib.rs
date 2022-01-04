@@ -53,10 +53,7 @@ impl BindableResource for wgpu::Sampler {
     wgpu::BindingResource::Sampler(self)
   }
   fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Sampler {
-      comparison: false,
-      filtering: true,
-    }
+    wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
   }
 }
 

@@ -24,7 +24,6 @@ pub struct HighLightData {
 impl ShaderUniformBlock for HighLightData {
   fn shader_struct() -> &'static str {
     "
-    [[block]]
     struct HighLightData {
       color: vec4<f32>;
       width: f32;
@@ -115,7 +114,7 @@ impl BindGroupLayoutProvider for HighLighter {
       var mask: texture_2d<f32>;
 
       [[group({group}), binding(2)]]
-      var sampler: sampler;
+      var tex_sampler: sampler;
     "
     )
   }
@@ -204,15 +203,16 @@ impl HighLighter {
       var y_step: f32 = pass_info.texel_size.y * highlighter.width;
 
       var all: f32 = 0.0;
-      all = all + textureSample(mask, sampler, in.uv).x;
-      all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
-      all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
-      all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
+      all = all + textureSample(mask, tex_sampler, in.uv).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
 
       var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
 
       return vec4<f32>(highlighter.color.rgb, intensity);
     }}
+    
     ",
       )
       .use_fragment_entry("fs_main");
