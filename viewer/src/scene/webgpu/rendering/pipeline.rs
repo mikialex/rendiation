@@ -21,7 +21,7 @@ impl ViewerPipeline {
 impl ViewerPipeline {
   #[rustfmt::skip]
   #[allow(clippy::logic_bug)]
-  pub fn render_simple(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
+  pub fn render(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
     let scene = &mut content.scene;
 
     let mut scene_depth = depth_attachment().request(engine);
@@ -35,7 +35,8 @@ impl ViewerPipeline {
       .with_color(msaa_color.write(), clear(all_zero()))
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
-      .render_by(&mut content.axis)
+      .render_by(&mut content.axis_helper)
+      .render_by(&mut content.grid_helper)
       .render_by(&mut content.camera_helpers)
       .run(engine, scene);
 

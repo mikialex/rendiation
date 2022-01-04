@@ -7,7 +7,7 @@ pub mod selection;
 
 pub mod helpers;
 use self::{
-  helpers::{axis::AxisHelper, camera::CameraHelpers},
+  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper},
   selection::{Picker, SelectionSet},
 };
 
@@ -72,7 +72,8 @@ pub struct Viewer3dContent {
   pub picker: Picker,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
-  pub axis: AxisHelper,
+  pub axis_helper: AxisHelper,
+  pub grid_helper: GridHelper,
   pub camera_helpers: CameraHelpers,
 }
 
@@ -98,7 +99,7 @@ impl Viewer3dRenderingCtx {
 
     self.engine.output = target.into();
 
-    self.pipeline.render_simple(&self.engine, scene)
+    self.pipeline.render(&self.engine, scene)
   }
 }
 
@@ -111,14 +112,16 @@ impl Viewer3dContent {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let axis = AxisHelper::new(&scene.root);
+    let axis_helper = AxisHelper::new(&scene.root);
+    let grid_helper = GridHelper::new(&scene.root, Default::default());
 
     Self {
       scene,
       controller,
       picker: Default::default(),
       selections: Default::default(),
-      axis,
+      axis_helper,
+      grid_helper,
       camera_helpers: Default::default(),
     }
   }
