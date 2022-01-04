@@ -2,7 +2,7 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
   full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
-  RenderPassGPUInfoData, Scene, SceneRenderable,
+  PassGPUData, PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
 };
 
 use rendiation_algebra::*;
@@ -24,7 +24,6 @@ pub struct HighLightData {
 impl ShaderUniformBlock for HighLightData {
   fn shader_struct() -> &'static str {
     "
-    [[block]]
     struct HighLightData {
       color: vec4<f32>;
       width: f32;
@@ -70,6 +69,9 @@ pub struct HighLightComposeTask<'a> {
 }
 
 impl BindGroupLayoutProvider for HighLighter {
+  fn bind_preference() -> usize {
+    0
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
@@ -83,17 +85,11 @@ impl BindGroupLayoutProvider for HighLighter {
         wgpu::BindGroupLayoutEntry {
           binding: 1,
           visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: UniformBuffer::<RenderPassGPUInfoData>::bind_layout(),
-          count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-          binding: 2,
-          visibility: wgpu::ShaderStages::FRAGMENT,
           ty: WebGPUTexture2d::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
-          binding: 3,
+          binding: 2,
           visibility: wgpu::ShaderStages::FRAGMENT,
           ty: wgpu::Sampler::bind_layout(),
           count: None,
@@ -115,31 +111,20 @@ impl BindGroupLayoutProvider for HighLighter {
       var<uniform> highlighter: HighLightData;
       
       [[group({group}), binding(1)]]
-      var<uniform> pass_info: RenderPassGPUInfoData;
-      
-      [[group({group}), binding(2)]]
       var mask: texture_2d<f32>;
 
-      [[group({group}), binding(3)]]
-      var sampler: sampler;
+      [[group({group}), binding(2)]]
+      var tex_sampler: sampler;
     "
     )
   }
 }
 
 impl<'x> PassContent for HighLightComposeTask<'x> {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     self.lighter.data.update(&gpu.queue);
 
-    // we should create new buffer  every frame.
-    let buffer_size = pass_info.buffer_size.into_usize();
-    let buffer_size: Vec2<f32> = (buffer_size.0 as f32, buffer_size.1 as f32).into();
-    let pass_info_gpu = UniformBuffer::create(
-      &gpu.device,
-      RenderPassGPUInfoData {
-        texel_size: buffer_size.map(|v| 1. / v),
-      },
-    );
+    let pass_info = ctx.pass_info;
 
     let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
       layout: &HighLighter::layout(&gpu.device),
@@ -150,14 +135,10 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
         },
         wgpu::BindGroupEntry {
           binding: 1,
-          resource: pass_info_gpu.as_bindable(),
-        },
-        wgpu::BindGroupEntry {
-          binding: 2,
           resource: self.mask.as_bindable(),
         },
         wgpu::BindGroupEntry {
-          binding: 3,
+          binding: 2,
           resource: scene
             .resources
             .samplers
@@ -188,9 +169,11 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
       .into();
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, _scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, _scene: &'a Scene) {
     pass.set_pipeline(self.pipeline.as_ref().unwrap());
     pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
+    pass.set_bind_group_placeholder(1);
+    pass.set_bind_group_placeholder(2);
     pass.draw(0..4, 0..1);
   }
 }
@@ -211,6 +194,7 @@ impl HighLighter {
 
     builder
       .with_layout::<HighLighter>(layouts, device)
+      .with_layout::<PassGPUData>(layouts, device)
       .include_fragment_entry(
         "
     [[stage(fragment)]]
@@ -219,15 +203,16 @@ impl HighLighter {
       var y_step: f32 = pass_info.texel_size.y * highlighter.width;
 
       var all: f32 = 0.0;
-      all = all + textureSample(mask, sampler, in.uv).x;
-      all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
-      all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
-      all = all + textureSample(mask, sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
+      all = all + textureSample(mask, tex_sampler, in.uv).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
 
       var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
 
       return vec4<f32>(highlighter.color.rgb, intensity);
     }}
+    
     ",
       )
       .use_fragment_entry("fs_main");
@@ -265,8 +250,8 @@ impl<'i, T> PassContent for HighLightDrawMaskTask<T>
 where
   T: IntoIterator<Item = &'i MeshModel> + Copy,
 {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
-    let mut base = scene.create_material_ctx_base(gpu, pass_info, &HighLightMaskDispatcher);
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
+    let mut base = scene.create_material_ctx_base(gpu, ctx.pass_info, &HighLightMaskDispatcher);
 
     for model in self.objects {
       let mut model = model.inner.borrow_mut();
@@ -274,11 +259,14 @@ where
     }
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     for model in self.objects {
       model.setup_pass(
         pass,
-        scene.active_camera.as_ref().unwrap().expect_gpu(),
+        scene
+          .resources
+          .cameras
+          .expect_gpu(scene.active_camera.as_ref().unwrap()),
         &scene.resources,
       )
     }

@@ -16,12 +16,12 @@ pub struct AxisHelper {
 }
 
 impl PassContent for AxisHelper {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     if !self.enabled {
       return;
     }
 
-    let mut base = scene.create_material_ctx_base(gpu, pass_info, &DefaultPassDispatcher);
+    let mut base = scene.create_material_ctx_base(gpu, ctx.pass_info, &DefaultPassDispatcher);
 
     let root_position = self.root.visit(|n| n.world_matrix.position());
 
@@ -32,7 +32,7 @@ impl PassContent for AxisHelper {
     self.z.update(gpu, &mut base);
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     if !self.enabled {
       return;
     }
@@ -68,18 +68,14 @@ impl Arrow {
     self.tip.update(gpu, ctx);
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut rendiation_webgpu::GPURenderPass<'a>, scene: &'a Scene) {
-    self.cylinder.setup_pass(
-      pass,
-      scene.active_camera.as_ref().unwrap().expect_gpu(),
-      &scene.resources,
-    );
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
+    let camera = scene
+      .resources
+      .cameras
+      .expect_gpu(scene.active_camera.as_ref().unwrap());
 
-    self.tip.setup_pass(
-      pass,
-      scene.active_camera.as_ref().unwrap().expect_gpu(),
-      &scene.resources,
-    );
+    self.cylinder.setup_pass(pass, camera, &scene.resources);
+    self.tip.setup_pass(pass, camera, &scene.resources);
   }
 
   fn new(

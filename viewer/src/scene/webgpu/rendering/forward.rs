@@ -1,4 +1,6 @@
-use super::*;
+use rendiation_webgpu::GPU;
+
+use crate::*;
 
 impl Scene {
   pub fn get_main_pass_load_op(&self) -> wgpu::Operations<wgpu::Color> {
@@ -18,17 +20,17 @@ pub struct ForwardScene {
 }
 
 impl PassContent for ForwardScene {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     self.render_list.models.clear();
 
     scene.models.iter_mut().for_each(|model| {
       self.render_list.models.push(model.clone());
     });
 
-    self.render_list.update(scene, gpu, pass);
+    self.render_list.update(scene, gpu, ctx.pass_info);
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
     self.render_list.setup_pass(pass, scene);
   }
 }

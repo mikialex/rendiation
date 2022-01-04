@@ -1,29 +1,9 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::group::MeshDrawGroup;
-use rendiation_webgpu::GPURenderPass;
+use rendiation_webgpu::GPU;
 
-use super::*;
-
-#[derive(Clone)]
-pub struct MeshModel {
-  pub inner: Rc<RefCell<MeshModelImpl>>,
-}
-
-impl MeshModel {
-  // todo add type constraint
-  pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
-    material: Ma,
-    mesh: Me,
-    node: SceneNode,
-  ) -> Self {
-    let inner = MeshModelImpl::new(material, mesh, node);
-    Self {
-      inner: Rc::new(RefCell::new(inner)),
-    }
-  }
-}
+use crate::*;
 
 impl SceneRenderable for MeshModel {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
@@ -33,7 +13,7 @@ impl SceneRenderable for MeshModel {
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {
@@ -42,28 +22,7 @@ impl SceneRenderable for MeshModel {
   }
 }
 
-pub struct MeshModelImpl {
-  pub material: Box<dyn Material>,
-  pub mesh: Box<dyn Mesh>,
-  pub group: MeshDrawGroup,
-  pub node: SceneNode,
-}
-
 impl MeshModelImpl {
-  // todo add type constraint
-  pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
-    material: Ma,
-    mesh: Me,
-    node: SceneNode,
-  ) -> Self {
-    Self {
-      material: Box::new(material),
-      mesh: Box::new(mesh),
-      group: Default::default(),
-      node,
-    }
-  }
-
   pub fn into_matrix_overridable(self) -> OverridableMeshModelImpl {
     OverridableMeshModelImpl {
       inner: self,
@@ -78,22 +37,21 @@ impl SceneRenderable for MeshModelImpl {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
 
-    self.node.mutate(|node| {
-      let mut ctx = SceneMaterialRenderPrepareCtx {
-        base,
-        model_info: node.get_model_gpu(gpu).into(),
-        active_mesh: mesh.as_ref().into(),
-      };
+    self.node.check_update_gpu(base.resources, gpu);
 
-      material.update(gpu, &mut ctx);
+    let mut ctx = SceneMaterialRenderPrepareCtx {
+      base,
+      active_mesh: mesh.as_ref().into(),
+    };
 
-      mesh.update(gpu, &mut base.resources.custom_storage);
-    });
+    material.update(gpu, &mut ctx);
+
+    mesh.update(gpu, &mut base.resources.custom_storage);
   }
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {
@@ -103,9 +61,8 @@ impl SceneRenderable for MeshModelImpl {
     self.node.visit(|node| {
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
-        model_gpu: node.gpu.as_ref().unwrap().into(),
+        model_gpu: resources.nodes.get_unwrap(node).into(),
         resources,
-        active_mesh: mesh.as_ref().into(),
       };
       material.setup_pass(pass, &ctx);
 
@@ -160,14 +117,13 @@ impl SceneRenderable for OverridableMeshModelImpl {
       world_matrix = override_impl.override_mat(world_matrix, base);
     }
 
-    let transform = self
+    self
       .override_gpu
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
-      model_info: Some(transform),
       active_mesh: mesh.as_ref().into(),
     };
 
@@ -178,7 +134,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {
@@ -189,7 +145,6 @@ impl SceneRenderable for OverridableMeshModelImpl {
       camera_gpu,
       model_gpu: self.override_gpu.as_ref(),
       resources,
-      active_mesh: mesh.as_ref().into(),
     };
     material.setup_pass(pass, &ctx);
 
@@ -226,7 +181,7 @@ impl WorldMatrixOverride for ViewAutoScalable {
     world_matrix: Mat4<f32>,
     base: &mut SceneMaterialRenderPrepareCtxBase,
   ) -> Mat4<f32> {
-    let camera = &base.active_camera;
+    let camera = &base.camera;
 
     let center = self
       .override_position
@@ -269,7 +224,7 @@ impl WorldMatrixOverride for BillBoard {
     world_matrix: Mat4<f32>,
     base: &mut SceneMaterialRenderPrepareCtxBase,
   ) -> Mat4<f32> {
-    let camera = &base.active_camera;
+    let camera = &base.camera;
     let camera_position = camera.node.visit(|n| n.world_matrix.position());
 
     let scale = world_matrix.extract_scale();

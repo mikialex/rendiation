@@ -94,7 +94,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let camera = PerspectiveProjection::default();
     let camera_node = scene.root.create_child();
     camera_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(1.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+      node.local_matrix = Mat4::lookat(Vec3::splat(5.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
     });
     let camera = SceneCamera::new(camera, camera_node);
 

@@ -1,10 +1,6 @@
 use rendiation_algebra::*;
 
-use crate::{
-  DefaultPassDispatcher, FatLineMaterial, FatLineVertex, FatlineImpl, FatlineMeshCellImpl,
-  IntoCommonSceneMaterial, MaterialCell, PassContent, SceneMaterialRenderPrepareCtxBase, SceneNode,
-  SceneRenderable,
-};
+use crate::*;
 
 use super::HelperLineMesh;
 
@@ -70,53 +66,73 @@ fn build_debug_line_in_camera_space() -> HelperLineMesh {
   HelperLineMesh::new(line_buffer)
 }
 
-pub struct SceneCameraHelper {
+pub struct CameraHelpers {
   pub enabled: bool,
+  pub helpers: ResourceMapper<CameraHelper, Camera>,
 }
 
-impl PassContent for SceneCameraHelper {
+impl Default for CameraHelpers {
+  fn default() -> Self {
+    Self {
+      enabled: true,
+      helpers: Default::default(),
+    }
+  }
+}
+
+impl PassContent for CameraHelpers {
   fn update(
     &mut self,
     gpu: &rendiation_webgpu::GPU,
     scene: &mut crate::Scene,
-    pass_info: &rendiation_webgpu::RenderPassInfo,
+    ctx: &PassUpdateCtx,
   ) {
     if !self.enabled {
       return;
     }
 
-    if let Some(active_camera) = &mut scene.active_camera {
-      let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
+    if let Some(camera) = &mut scene.active_camera {
+      scene.resources.cameras.check_update_gpu(camera, gpu);
+
+      for (_, camera) in &mut scene.cameras {
+        scene.resources.cameras.check_update_gpu(camera, gpu);
+      }
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
-        active_camera,
-        camera_gpu,
-        pass_info,
+        camera,
+        pass_info: ctx.pass_info,
         resources: &mut scene.resources,
         pass: &DefaultPassDispatcher,
       };
 
-      for (_, camera) in &mut scene.cameras {
-        camera.update(gpu, &mut base);
+      for (_, draw_camera) in &mut scene.cameras {
+        let helper = self.helpers.get_or_insert_with(draw_camera, |draw_camera| {
+          (
+            CameraHelper::from_node_and_project_matrix(
+              draw_camera.node.clone(),
+              draw_camera.projection_matrix,
+            ),
+            |_, _| {}, // todo update
+          )
+        });
+        helper.mesh.update(gpu, &mut base)
       }
     }
   }
 
-  fn setup_pass<'a>(
-    &'a self,
-    pass: &mut rendiation_webgpu::GPURenderPass<'a>,
-    scene: &'a crate::Scene,
-  ) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a crate::Scene) {
     if !self.enabled {
       return;
     }
 
+    let main_camera = scene
+      .resources
+      .cameras
+      .get_unwrap(scene.active_camera.as_ref().unwrap());
+
     for (_, camera) in &scene.cameras {
-      camera.setup_pass(
-        pass,
-        scene.active_camera.as_ref().unwrap().expect_gpu(),
-        &scene.resources,
-      );
+      let helper = self.helpers.get_unwrap(camera);
+      helper.mesh.setup_pass(pass, main_camera, &scene.resources);
     }
   }
 }

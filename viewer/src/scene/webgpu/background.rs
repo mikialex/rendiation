@@ -1,5 +1,3 @@
-use rendiation_algebra::Vec3;
-use rendiation_algebra::Vector;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh;
 use rendiation_renderable_mesh::tessellation::IndexedMeshTessellator;
@@ -14,10 +12,6 @@ pub trait Background: 'static + SceneRenderable {
   fn require_pass_clear(&self) -> Option<wgpu::Color>;
 }
 
-pub struct SolidBackground {
-  pub intensity: Vec3<f32>,
-}
-
 impl Background for SolidBackground {
   fn require_pass_clear(&self) -> Option<wgpu::Color> {
     wgpu::Color {
@@ -30,28 +24,12 @@ impl Background for SolidBackground {
   }
 }
 
-impl Default for SolidBackground {
-  fn default() -> Self {
-    Self {
-      intensity: Vec3::new(0.6, 0.6, 0.6),
-    }
-  }
-}
-
-impl SolidBackground {
-  pub fn black() -> Self {
-    Self {
-      intensity: Vec3::splat(0.0),
-    }
-  }
-}
-
 impl SceneRenderable for SolidBackground {
   fn update(&mut self, _gpu: &GPU, _ctx: &mut SceneMaterialRenderPrepareCtxBase) {}
 
   fn setup_pass<'a>(
     &self,
-    _pass: &mut GPURenderPass<'a>,
+    _pass: &mut SceneRenderPass<'a>,
     _camera_gpu: &CameraBindgroup,
     _pipeline_resource: &GPUResourceCache,
   ) {
@@ -66,7 +44,6 @@ fn build_mesh() -> BackgroundMesh {
   };
   sphere.tessellate()
 }
-use crate::scene::mesh::Mesh;
 
 pub struct DrawableBackground<S: MaterialCPUResource> {
   mesh: MeshCellImpl<BackgroundMesh>,
@@ -90,15 +67,12 @@ where
   MaterialCell<S>: materials::Material,
 {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
-    self.root.mutate(|node| {
-      node.get_model_gpu(gpu);
-    });
+    self.root.check_update_gpu(base.resources, gpu);
 
     self.mesh.update(gpu, &mut base.resources.custom_storage);
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
-      model_info: None,
       active_mesh: None,
     };
     self.shading.update(gpu, &mut ctx);
@@ -106,17 +80,16 @@ where
 
   fn setup_pass<'a>(
     &self,
-    pass: &mut GPURenderPass<'a>,
+    pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   ) {
     self.root.visit(|node| {
-      let model_gpu = node.gpu.as_ref().unwrap().into();
+      let model_gpu = resources.nodes.get_unwrap(node).into();
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
         model_gpu,
         resources,
-        active_mesh: None,
       };
       self.shading.setup_pass(pass, &ctx);
       self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);

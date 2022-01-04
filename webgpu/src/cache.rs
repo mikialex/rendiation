@@ -32,6 +32,7 @@ pub struct BindGroupLayoutCache {
 }
 
 pub trait BindGroupLayoutProvider: 'static {
+  fn bind_preference() -> usize;
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
   fn gen_shader_header(group: usize) -> String;
   fn register_uniform_struct_declare(builder: &mut PipelineBuilder);

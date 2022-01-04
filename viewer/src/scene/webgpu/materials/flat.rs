@@ -6,11 +6,6 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-#[derive(Clone)]
-pub struct FlatMaterial {
-  pub color: Vec4<f32>,
-}
-
 impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
@@ -22,14 +17,16 @@ pub struct FlatMaterialUniform {
 impl ShaderUniformBlock for FlatMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-        [[block]]
-        struct FlatMaterial {
-          color: vec4<f32>;
-        };"
+      struct FlatMaterial {
+        color: vec4<f32>;
+      };"
   }
 }
 
 impl BindGroupLayoutProvider for FlatMaterial {
+  fn bind_preference() -> usize {
+    1
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{ops::DerefMut, rc::Rc};
 
 pub mod default_scene;
 pub use default_scene::*;
@@ -7,12 +7,14 @@ pub mod selection;
 
 pub mod helpers;
 use self::{
-  helpers::{axis::AxisHelper, camera::SceneCameraHelper},
+  helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper},
   selection::{Picker, SelectionSet},
 };
 
 use interphaser::*;
-use rendiation_controller::{ControllerWinitAdapter, InputBound, OrbitController};
+use rendiation_controller::{
+  ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
+};
 use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
 use winit::event::{ElementState, Event, MouseButton};
@@ -25,7 +27,7 @@ impl CanvasPrinter for ViewerImpl {
     self
       .ctx
       .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-      .render(canvas, gpu, &mut self.content)
+      .render(canvas, &mut self.content)
   }
 
   fn event(
@@ -72,19 +74,20 @@ pub struct Viewer3dContent {
   pub picker: Picker,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
-  pub axis: AxisHelper,
-  pub camera_helpers: SceneCameraHelper,
+  pub axis_helper: AxisHelper,
+  pub grid_helper: GridHelper,
+  pub camera_helpers: CameraHelpers,
 }
 
 pub struct Viewer3dRenderingCtx {
-  pipeline: SimplePipeline,
+  pipeline: ViewerPipeline,
   engine: RenderEngine,
 }
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
-      pipeline: SimplePipeline::new(gpu.as_ref()),
+      pipeline: ViewerPipeline::new(gpu.as_ref()),
       engine: RenderEngine::new(gpu),
     }
   }
@@ -93,12 +96,12 @@ impl Viewer3dRenderingCtx {
     self.engine.notify_output_resized();
   }
 
-  pub fn render(&mut self, target: FrameTarget, gpu: &GPU, scene: &mut Viewer3dContent) {
-    scene.scene.maintain(gpu);
+  pub fn render(&mut self, target: FrameTarget, scene: &mut Viewer3dContent) {
+    scene.scene.maintain();
 
     self.engine.output = target.into();
 
-    self.pipeline.render_simple(&self.engine, scene)
+    self.pipeline.render(&self.engine, scene)
   }
 }
 
@@ -111,15 +114,17 @@ impl Viewer3dContent {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let axis = AxisHelper::new(&scene.root);
+    let axis_helper = AxisHelper::new(&scene.root);
+    let grid_helper = GridHelper::new(&scene.root, Default::default());
 
     Self {
       scene,
       controller,
       picker: Default::default(),
       selections: Default::default(),
-      axis,
-      camera_helpers: SceneCameraHelper { enabled: true },
+      axis_helper,
+      grid_helper,
+      camera_helpers: Default::default(),
     }
   }
 
@@ -175,7 +180,9 @@ impl Viewer3dContent {
   pub fn update_state(&mut self) {
     if let Some(camera) = &mut self.scene.active_camera {
       camera.node.mutate(|node| {
-        self.controller.update(node);
+        self
+          .controller
+          .update(node.deref_mut() as &mut dyn Transformed3DControllee);
       });
     }
   }

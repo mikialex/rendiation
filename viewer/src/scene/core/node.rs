@@ -1,34 +1,34 @@
 use std::{cell::RefCell, rc::Rc};
 
 use arena_tree::ArenaTree;
-use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
-use rendiation_webgpu::*;
+
+use crate::ResourceWrapped;
 
 use super::SceneNodeHandle;
 
-pub struct SceneNodeData {
+pub type SceneNodeData = ResourceWrapped<SceneNodeDataImpl>;
+
+pub struct SceneNodeDataImpl {
   pub visible: bool,
   pub local_matrix: Mat4<f32>,
   pub net_visible: bool,
   pub world_matrix: Mat4<f32>,
-  pub gpu: Option<TransformGPU>,
 }
 
-impl Default for SceneNodeData {
+impl Default for SceneNodeDataImpl {
   fn default() -> Self {
     Self {
       visible: true,
       local_matrix: Mat4::one(),
       net_visible: true,
       world_matrix: Mat4::one(),
-      gpu: None,
     }
   }
 }
 
-impl Transformed3DControllee for SceneNodeData {
+impl Transformed3DControllee for SceneNodeDataImpl {
   fn matrix(&self) -> &Mat4<f32> {
     &self.local_matrix
   }
@@ -38,8 +38,8 @@ impl Transformed3DControllee for SceneNodeData {
   }
 }
 
-impl SceneNodeData {
-  pub fn hierarchy_update(&mut self, gpu: &GPU, parent: Option<&Self>) {
+impl SceneNodeDataImpl {
+  pub fn hierarchy_update(&mut self, parent: Option<&Self>) {
     if let Some(parent) = parent {
       self.net_visible = self.visible && parent.net_visible;
       if self.net_visible {
@@ -49,18 +49,6 @@ impl SceneNodeData {
       self.world_matrix = self.local_matrix;
       self.net_visible = self.visible
     }
-
-    if self.net_visible {
-      if let Some(t) = &mut self.gpu {
-        t.update(gpu, &self.world_matrix);
-      }
-    }
-  }
-
-  pub fn get_model_gpu(&mut self, gpu: &GPU) -> &TransformGPU {
-    self
-      .gpu
-      .get_or_insert_with(|| TransformGPU::new(gpu, &self.world_matrix))
   }
 
   pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
@@ -104,7 +92,7 @@ impl SceneNodeInner {
 
   pub fn create_child(&self) -> Self {
     let mut nodes_info = self.nodes.borrow_mut();
-    let handle = nodes_info.create_node(SceneNodeData::default());
+    let handle = nodes_info.create_node(ResourceWrapped::new(SceneNodeDataImpl::default())); // todo use from
     let inner = SceneNodeRef {
       nodes: self.nodes.clone(),
       handle,
@@ -175,89 +163,5 @@ impl SceneNode {
     let nodes = inner.nodes.borrow();
     let node = nodes.get_node(inner.inner.handle).data();
     f(node)
-  }
-}
-
-pub struct TransformGPU {
-  pub ubo: UniformBufferDataWithCache<TransformGPUData>,
-  pub bindgroup: Rc<wgpu::BindGroup>,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod, Default, PartialEq)]
-pub struct TransformGPUData {
-  pub world_matrix: Mat4<f32>,
-}
-
-impl ShaderUniformBlock for TransformGPUData {
-  fn shader_struct() -> &'static str {
-    "
-      [[block]]
-      struct ModelTransform {
-        matrix: mat4x4<f32>;
-      };
-    "
-  }
-}
-
-impl BindGroupLayoutProvider for TransformGPU {
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "ModelTransformBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64),
-        },
-        count: None,
-      }],
-    })
-  }
-
-  fn gen_shader_header(group: usize) -> String {
-    format!(
-      "
-      [[group({group}), binding(0)]]
-      var<uniform> model: ModelTransform;
-    
-    "
-    )
-  }
-
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
-    builder.declare_uniform_struct::<TransformGPUData>();
-  }
-}
-
-impl TransformGPU {
-  pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) -> &mut Self {
-    self.ubo.world_matrix = *matrix;
-    self.ubo.update(&gpu.queue);
-    self
-  }
-
-  pub fn new(gpu: &GPU, matrix: &Mat4<f32>) -> Self {
-    let device = &gpu.device;
-
-    let mut ubo: UniformBufferDataWithCache<TransformGPUData> =
-      UniformBufferDataWithCache::create_default(device);
-    ubo.world_matrix = *matrix;
-    ubo.update(&gpu.queue);
-
-    let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &Self::layout(device),
-      entries: &[wgpu::BindGroupEntry {
-        binding: 0,
-        resource: ubo.as_bindable(),
-      }],
-      label: None,
-    });
-
-    let bindgroup = Rc::new(bindgroup);
-
-    Self { ubo, bindgroup }
   }
 }

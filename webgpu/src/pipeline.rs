@@ -127,6 +127,7 @@ pub struct PipelineBuilder {
   pub vertex_buffers: Vec<VertexBufferLayoutOwned>,
   pub primitive_state: wgpu::PrimitiveState,
   pub multisample: wgpu::MultisampleState,
+  pub log_shader_when_finish: bool,
 }
 
 impl std::ops::Deref for PipelineBuilder {
@@ -159,8 +160,29 @@ impl Default for PipelineBuilder {
       shader_builder: Default::default(),
       vertex_input: Default::default(),
       multisample: Default::default(),
+      log_shader_when_finish: false,
     }
   }
+}
+
+pub struct PlaceholderBindgroup;
+impl BindGroupLayoutProvider for PlaceholderBindgroup {
+  fn bind_preference() -> usize {
+    0
+  }
+
+  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+      label: "PlaceholderBindgroup".into(),
+      entries: &[],
+    })
+  }
+
+  fn gen_shader_header(group: usize) -> String {
+    "".to_owned()
+  }
+
+  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {}
 }
 
 impl PipelineBuilder {
@@ -169,13 +191,20 @@ impl PipelineBuilder {
     cache: &BindGroupLayoutCache,
     device: &wgpu::Device,
   ) -> &mut Self {
-    self.layouts.push(cache.retrieve::<B>(device));
+    let group_index = B::bind_preference();
+
+    while self.layouts.len() <= group_index {
+      self
+        .layouts
+        .push(cache.retrieve::<PlaceholderBindgroup>(device))
+    }
+
+    self.layouts[group_index] = cache.retrieve::<B>(device);
+
     self
       .shader_builder
       .bindgroup_declarations
-      .push(B::gen_shader_header(
-        self.shader_builder.bindgroup_declarations.len(),
-      ));
+      .push(B::gen_shader_header(group_index));
 
     B::register_uniform_struct_declare(self);
 
@@ -189,6 +218,10 @@ impl PipelineBuilder {
 
   pub fn build(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
     let shader_source = self.shader_builder.build_shader();
+
+    if self.log_shader_when_finish {
+      println!("{}", shader_source);
+    }
 
     let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
       label: self.name.as_str().into(),
@@ -221,6 +254,7 @@ impl PipelineBuilder {
       primitive: self.primitive_state,
       depth_stencil: self.depth_stencil.clone(),
       multisample: self.multisample,
+      multiview: None,
     })
   }
 }

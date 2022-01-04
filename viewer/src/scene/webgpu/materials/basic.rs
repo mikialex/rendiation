@@ -2,17 +2,9 @@ use std::rc::Rc;
 
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
-use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 
 use crate::*;
-
-#[derive(Clone)]
-pub struct BasicMaterial {
-  pub color: Vec3<f32>,
-  pub sampler: TextureSampler,
-  pub texture: SceneTexture2D,
-}
 
 impl MaterialMeshLayoutRequire for BasicMaterial {
   type VertexInput = Vec<Vertex>;
@@ -25,7 +17,6 @@ pub struct BasicMaterialUniform {
 impl ShaderUniformBlock for BasicMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-    [[block]]
     struct BasicMaterial {
       color: vec3<f32>;
     };
@@ -34,6 +25,9 @@ impl ShaderUniformBlock for BasicMaterialUniform {
 }
 
 impl BindGroupLayoutProvider for BasicMaterial {
+  fn bind_preference() -> usize {
+    1
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,

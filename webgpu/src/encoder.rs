@@ -1,16 +1,14 @@
-use std::{
-  num::NonZeroU32,
-  ops::{Deref, DerefMut},
-};
+use std::{num::NonZeroU32, ops::{Deref, DerefMut}, rc::Rc};
 
 use crate::{
-  GPURenderPass, GPURenderPassDataHolder, RenderPassDescriptorOwned, RenderPassInfo,
-  WebGPUTexture2d, WebGPUTexture2dSource,
+  BindGroupLayoutProvider, GPURenderPass, GPURenderPassDataHolder, PlaceholderBindgroup,
+  RenderPassDescriptorOwned, RenderPassInfo, WebGPUTexture2d, WebGPUTexture2dSource,
 };
 
 pub struct GPUCommandEncoder {
   encoder: wgpu::CommandEncoder,
   holder: GPURenderPassDataHolder,
+  placeholder_bg: Rc<wgpu::BindGroup>,
 }
 
 impl Deref for GPUCommandEncoder {
@@ -28,10 +26,17 @@ impl DerefMut for GPUCommandEncoder {
 }
 
 impl GPUCommandEncoder {
-  pub fn new(encoder: wgpu::CommandEncoder) -> Self {
+  pub fn new(encoder: wgpu::CommandEncoder, device: &wgpu::Device) -> Self {
+    let placeholder_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+      layout: &PlaceholderBindgroup::layout(device),
+      entries: &[],
+      label: None,
+    });
+
     Self {
       encoder,
       holder: Default::default(),
+      placeholder_bg: Rc::new(placeholder_bg),
     }
   }
 
@@ -79,6 +84,7 @@ impl GPUCommandEncoder {
       pass,
       holder: &mut self.holder,
       info,
+      placeholder_bg: self.placeholder_bg.clone(),
     }
   }
 

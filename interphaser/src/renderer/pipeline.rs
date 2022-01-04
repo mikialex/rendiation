@@ -65,7 +65,7 @@ pub fn create_solid_pipeline(
     },
     primitive: wgpu::PrimitiveState {
       topology: wgpu::PrimitiveTopology::TriangleList,
-      clamp_depth: false,
+      unclipped_depth: false,
       conservative: false,
       cull_mode: None,
       front_face: wgpu::FrontFace::default(),
@@ -88,6 +88,7 @@ pub fn create_solid_pipeline(
         write_mask: wgpu::ColorWrites::ALL,
       }],
     }),
+    multiview: None,
   });
 
   render_pipeline
@@ -150,10 +151,7 @@ impl TextureBindGroup {
         wgpu::BindGroupLayoutEntry {
           binding: 1,
           visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: wgpu::BindingType::Sampler {
-            comparison: false,
-            filtering: true,
-          },
+          ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
           count: None,
         },
       ],
@@ -229,12 +227,12 @@ pub fn create_texture_pipeline(
     },
     primitive: wgpu::PrimitiveState {
       topology: wgpu::PrimitiveTopology::TriangleList,
-      clamp_depth: false,
       conservative: false,
       cull_mode: None,
       front_face: wgpu::FrontFace::default(),
       polygon_mode: wgpu::PolygonMode::default(),
       strip_index_format: None,
+      unclipped_depth: false,
     },
     depth_stencil: None,
     multisample: wgpu::MultisampleState {
@@ -252,6 +250,7 @@ pub fn create_texture_pipeline(
         write_mask: wgpu::ColorWrites::ALL,
       }],
     }),
+    multiview: None,
   });
 
   render_pipeline

@@ -1,4 +1,4 @@
-use rendiation_webgpu::{GPURenderPass, RenderPassInfo, GPU};
+use rendiation_webgpu::{RenderPassInfo, GPU};
 
 use crate::*;
 
@@ -16,11 +16,14 @@ impl RenderList {
     });
   }
 
-  pub fn setup_pass<'p>(&self, gpu_pass: &mut GPURenderPass<'p>, scene: &'p Scene) {
+  pub fn setup_pass<'p>(&self, gpu_pass: &mut SceneRenderPass<'p>, scene: &'p Scene) {
     self.models.iter().for_each(|model| {
       model.setup_pass(
         gpu_pass,
-        scene.active_camera.as_ref().unwrap().expect_gpu(),
+        scene
+          .resources
+          .cameras
+          .expect_gpu(scene.active_camera.as_ref().unwrap()),
         &scene.resources,
       )
     })

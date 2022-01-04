@@ -58,7 +58,7 @@ pub fn full_screen_vertex_shader(
             out.position = vec4<f32>(left, bottom, depth, 1.);
             out.uv = vec2<f32>(0., 1.);
           }
-          case 3: {
+          default: {
             out.position = vec4<f32>(right, bottom, depth, 1.);
             out.uv = vec2<f32>(1., 1.);
           }
@@ -72,17 +72,18 @@ pub fn full_screen_vertex_shader(
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod)]
+#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod, PartialEq)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
+  pub buffer_size: Vec2<f32>,
 }
 
 impl ShaderUniformBlock for RenderPassGPUInfoData {
   fn shader_struct() -> &'static str {
     "
-      [[block]]
       struct RenderPassGPUInfoData {
         texel_size:  vec2<f32>;
+        buffer_size:  vec2<f32>;
       };
       "
   }

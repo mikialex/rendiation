@@ -26,7 +26,6 @@ pub struct FatlineMaterialUniform {
 impl ShaderUniformBlock for FatlineMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-      [[block]]
       struct FatlineMaterial {
         width: f32;
       };
@@ -40,6 +39,9 @@ pub struct FatlineMaterialGPU {
 }
 
 impl BindGroupLayoutProvider for FatLineMaterial {
+  fn bind_preference() -> usize {
+    1
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
@@ -89,10 +91,10 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       [[stage(vertex)]]
       fn vs_fatline_main(
         {vertex_header}
-      ) -> VertexOutput {{
-        var out: VertexOutput;
+      ) -> FatlineVertexOutput {{
+        var out: FatlineVertexOutput;
         
-        let resolution = vec2<f32>(1000., 1000.);
+        let resolution = pass_info.buffer_size;
 
         let aspect = resolution.x / resolution.y;
         // camera space
@@ -142,7 +144,7 @@ impl MaterialGPUResource for FatlineMaterialGPU {
         // end caps
         if ( position.y < 0.0 )  {{
             offset = offset - dir;
-        }} elseif ( position.y > 1.0 )  {{
+        }} else if ( position.y > 1.0 )  {{
             offset = offset + dir;
         }}
 
@@ -164,7 +166,8 @@ impl MaterialGPUResource for FatlineMaterialGPU {
         clip = vec4<f32>(clip.xy + offset, clip.zw);
 
         out.position = clip;
-        out.uv = vec2<f32>(0.);
+        out.uv = uv;
+        out.color = fatline_color;
 
         return out;
       }}
@@ -172,13 +175,41 @@ impl MaterialGPUResource for FatlineMaterialGPU {
       .use_vertex_entry("vs_fatline_main")
       .include_fragment_entry("
         [[stage(fragment)]]
-        fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-            return vec4<f32>(1., 0., 0., 1.);
-        }}
-        ")
-      .use_fragment_entry("fs_main");
+        fn fs_main(in: FatlineVertexOutput) -> [[location(0)]] vec4<f32> {
 
-    builder.with_layout::<FatLineMaterial>(ctx.layouts, device);
+          // discard corner
+          let vUv = in.uv;
+          if ( abs( vUv.y ) > 1.0 ) {
+            let a = vUv.x;
+            var b: f32;
+            if ( vUv.y > 0.0 ) {
+              b = vUv.y - 1.0;
+            } else {
+              b = vUv.y + 1.0;
+            }
+            let len2 = a * a + b * b;
+            if ( len2 > 1.0 ) {
+              discard;
+            }
+          }
+
+          return in.color;
+        }
+        ")
+      .use_fragment_entry("fs_main")
+      .declare_io_struct(
+        "
+      struct FatlineVertexOutput {
+        [[builtin(position)]] position: vec4<f32>;
+        [[location(0)]] uv: vec2<f32>;
+        [[location(1)]] color: vec4<f32>;
+      };
+    ",
+      );
+
+    builder
+      .with_layout::<FatLineMaterial>(ctx.layouts, device)
+      .with_layout::<PassGPUData>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }

@@ -2,11 +2,14 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
-  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, GPURenderPass, PipelineBuilder,
-  RenderPassInfo, WebGPUTexture2d, GPU,
+  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, PipelineBuilder, WebGPUTexture2d,
+  GPU,
 };
 
-use crate::{full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, Scene};
+use crate::{
+  full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, PassUpdateCtx, Scene,
+  SceneRenderPass,
+};
 
 pub struct CopyFrame {
   source: AttachmentOwnedReadView<wgpu::TextureFormat>,
@@ -23,7 +26,7 @@ pub fn copy_frame(source: AttachmentOwnedReadView<wgpu::TextureFormat>) -> CopyF
 }
 
 impl PassContent for CopyFrame {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &RenderPassInfo) {
+  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
       layout: &Self::layout(&gpu.device),
       entries: &[
@@ -46,6 +49,8 @@ impl PassContent for CopyFrame {
 
     let mut hasher = Default::default();
 
+    let pass_info = ctx.pass_info;
+
     TypeId::of::<Self>().hash(&mut hasher);
     pass_info.format_info.hash(&mut hasher);
 
@@ -67,7 +72,7 @@ impl PassContent for CopyFrame {
             "
           [[stage(fragment)]]
           fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-            return textureSample(texture, sampler, in.uv);
+            return textureSample(texture, tex_sampler, in.uv);
           }}
           ",
           )
@@ -79,7 +84,7 @@ impl PassContent for CopyFrame {
       .into();
   }
 
-  fn setup_pass<'a>(&'a self, pass: &mut GPURenderPass<'a>, _scene: &'a Scene) {
+  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, _scene: &'a Scene) {
     pass.set_pipeline(self.pipeline.as_ref().unwrap());
     pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
     pass.draw(0..4, 0..1);
@@ -87,6 +92,9 @@ impl PassContent for CopyFrame {
 }
 
 impl BindGroupLayoutProvider for CopyFrame {
+  fn bind_preference() -> usize {
+    0
+  }
   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: None,
@@ -114,7 +122,7 @@ impl BindGroupLayoutProvider for CopyFrame {
         var texture: texture_2d<f32>;
   
         [[group({group}), binding(1)]]
-        var sampler: sampler;
+        var tex_sampler: sampler;
       "
     )
   }

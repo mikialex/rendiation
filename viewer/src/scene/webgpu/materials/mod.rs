@@ -126,9 +126,9 @@ where
 {
   property_changed: bool,
   material: T,
+  last_material: Option<T>, // todo
   current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
   bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
-  last_material: Option<T>, // todo
   gpu: Option<T::GPU>,
 }
 
@@ -152,7 +152,6 @@ impl<T: MaterialCPUResource> MaterialCellImpl<T> {
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub model_info: Option<&'b TransformGPU>,
   pub active_mesh: Option<&'b dyn Mesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
 }
@@ -181,8 +180,7 @@ impl PassDispatcher for DefaultPassDispatcher {
 }
 
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
-  pub active_camera: &'a Camera,
-  pub camera_gpu: &'a CameraBindgroup,
+  pub camera: &'a SceneCamera,
   pub pass_info: &'a RenderPassInfo,
   pub pass: &'a dyn PassDispatcher,
   pub resources: &'a mut GPUResourceCache,
@@ -212,7 +210,6 @@ pub struct PipelineCreateCtx<'a, 'b> {
 pub struct SceneMaterialPassSetupCtx<'a> {
   pub resources: &'a GPUResourceCache,
   pub model_gpu: Option<&'a TransformGPU>,
-  pub active_mesh: Option<&'a dyn Mesh>,
   pub camera_gpu: &'a CameraBindgroup,
 }
 
