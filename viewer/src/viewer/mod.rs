@@ -7,7 +7,7 @@ pub mod selection;
 
 pub mod helpers;
 use self::{
-  helpers::{axis::AxisHelper, camera::SceneCameraHelper},
+  helpers::{axis::AxisHelper, camera::CameraHelpers},
   selection::{Picker, SelectionSet},
 };
 
@@ -73,7 +73,7 @@ pub struct Viewer3dContent {
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
   pub axis: AxisHelper,
-  pub camera_helpers: SceneCameraHelper,
+  pub camera_helpers: CameraHelpers,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -119,7 +119,7 @@ impl Viewer3dContent {
       picker: Default::default(),
       selections: Default::default(),
       axis,
-      camera_helpers: SceneCameraHelper { enabled: true },
+      camera_helpers: Default::default(),
     }
   }
 

@@ -20,7 +20,10 @@ impl RenderList {
     self.models.iter().for_each(|model| {
       model.setup_pass(
         gpu_pass,
-        scene.active_camera.as_ref().unwrap().expect_gpu(),
+        scene
+          .resources
+          .cameras
+          .expect_gpu(scene.active_camera.as_ref().unwrap()),
         &scene.resources,
       )
     })

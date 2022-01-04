@@ -263,7 +263,10 @@ where
     for model in self.objects {
       model.setup_pass(
         pass,
-        scene.active_camera.as_ref().unwrap().expect_gpu(),
+        scene
+          .resources
+          .cameras
+          .expect_gpu(scene.active_camera.as_ref().unwrap()),
         &scene.resources,
       )
     }

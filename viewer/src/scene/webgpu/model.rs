@@ -1,7 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::group::MeshDrawGroup;
 use rendiation_webgpu::GPU;
 
 use crate::*;
@@ -186,7 +185,7 @@ impl WorldMatrixOverride for ViewAutoScalable {
     world_matrix: Mat4<f32>,
     base: &mut SceneMaterialRenderPrepareCtxBase,
   ) -> Mat4<f32> {
-    let camera = &base.active_camera;
+    let camera = &base.camera;
 
     let center = self
       .override_position
@@ -229,7 +228,7 @@ impl WorldMatrixOverride for BillBoard {
     world_matrix: Mat4<f32>,
     base: &mut SceneMaterialRenderPrepareCtxBase,
   ) -> Mat4<f32> {
-    let camera = &base.active_camera;
+    let camera = &base.camera;
     let camera_position = camera.node.visit(|n| n.world_matrix.position());
 
     let scale = world_matrix.extract_scale();

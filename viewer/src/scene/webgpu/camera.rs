@@ -1,8 +1,7 @@
-use std::{ops::Deref, rc::Rc};
+use std::rc::Rc;
 
 use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
-use rendiation_geometry::*;
 use rendiation_webgpu::*;
 
 use crate::*;
@@ -25,35 +24,34 @@ impl CameraViewBounds {
   }
 }
 
-// impl SceneRenderable for Camera {
-//   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
-//     let helper = self.helper_object.get_or_insert_with(|| {
-//       CameraHelper::from_node_and_project_matrix(self.node.clone(), self.projection_matrix)
-//     });
-//     helper.mesh.update(gpu, base)
-//   }
+#[derive(Default)]
+pub struct CameraGPU {
+  inner: ResourceMapper<CameraBindgroup, Camera>,
+}
 
-//   fn setup_pass<'a>(
-//     &self,
-//     pass: &mut SceneRenderPass<'a>,
-//     camera_gpu: &CameraBindgroup,
-//     resources: &GPUResourceCache,
-//   ) {
-//     let helper = self.helper_object.as_ref().unwrap();
-//     helper.mesh.setup_pass(pass, camera_gpu, resources)
-//   }
-// }
+impl std::ops::Deref for CameraGPU {
+  type Target = ResourceMapper<CameraBindgroup, Camera>;
 
-impl SceneCamera {
-  pub fn get_updated_gpu(&mut self, gpu: &GPU) -> (&Camera, &mut CameraBindgroup) {
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
+impl std::ops::DerefMut for CameraGPU {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.inner
+  }
+}
+
+impl CameraGPU {
+  pub fn check_update_gpu(&mut self, camera: &mut SceneCamera, gpu: &GPU) -> &CameraBindgroup {
     self
-      .gpu
-      .get_or_insert_with(|| CameraBindgroup::new(gpu))
-      .update(gpu, &mut self.cpu)
+      .get_or_insert_with(camera, |_| (CameraBindgroup::new(gpu), |_, _| {}))
+      .update(gpu, camera)
   }
 
-  pub fn expect_gpu(&self) -> &CameraBindgroup {
-    self.gpu.as_ref().unwrap()
+  pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraBindgroup {
+    self.get_unwrap(camera)
   }
 }
 
@@ -120,11 +118,7 @@ impl ShaderUniformBlock for CameraGPUTransform {
 }
 
 impl CameraBindgroup {
-  pub fn update<'a>(&mut self, gpu: &GPU, camera: &'a mut Camera) -> (&'a Camera, &mut Self) {
-    camera
-      .projection
-      .update_projection(&mut camera.projection_matrix);
-
+  pub fn update(&mut self, gpu: &GPU, camera: &Camera) -> &mut Self {
     let uniform: &mut CameraGPUTransform = &mut self.ubo;
     let world_matrix = camera.node.visit(|node| node.local_matrix);
     uniform.view = world_matrix.inverse_or_identity();
@@ -133,7 +127,7 @@ impl CameraBindgroup {
 
     self.ubo.update(&gpu.queue);
 
-    (camera, self)
+    self
   }
 
   pub fn new(gpu: &GPU) -> Self {

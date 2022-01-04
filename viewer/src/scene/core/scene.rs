@@ -60,6 +60,7 @@ impl Scene {
         NextTraverseVisit::SkipChildren
       }
     });
+    self.resources.maintain();
   }
 
   pub fn create_material_ctx_base<'a>(
@@ -68,15 +69,14 @@ impl Scene {
     pass_info: &'a RenderPassInfo,
     pass: &'a dyn PassDispatcher,
   ) -> SceneMaterialRenderPrepareCtxBase<'a> {
-    let active_camera = self
+    let camera = self
       .active_camera
       .as_mut()
       .unwrap_or(&mut self.default_camera);
-    let (active_camera, camera_gpu) = active_camera.get_updated_gpu(gpu);
+    self.resources.cameras.check_update_gpu(camera, gpu);
 
     SceneMaterialRenderPrepareCtxBase {
-      active_camera,
-      camera_gpu,
+      camera,
       pass_info,
       resources: &mut self.resources,
       pass,

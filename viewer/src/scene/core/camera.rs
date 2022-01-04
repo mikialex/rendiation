@@ -1,45 +1,50 @@
-use std::ops::Deref;
-
 use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
 
-use crate::{CameraBindgroup, SceneNode};
+use crate::{ResourceWrapped, SceneNode};
 
-pub struct SceneCamera {
-  pub cpu: Camera,
-  pub gpu: Option<CameraBindgroup>,
+pub trait CameraChangeWatcher {
+  fn will_change(&mut self, camera: &Camera, id: usize);
+  fn will_drop(&mut self, camera: &Camera, id: usize);
 }
 
-impl Deref for SceneCamera {
-  type Target = Camera;
+pub struct SceneCamera {
+  pub inner: ResourceWrapped<Camera>,
+}
+
+impl std::ops::Deref for SceneCamera {
+  type Target = ResourceWrapped<Camera>;
 
   fn deref(&self) -> &Self::Target {
-    &self.cpu
+    &self.inner
   }
 }
 
 impl std::ops::DerefMut for SceneCamera {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.cpu
+    &mut self.inner
   }
 }
 
 impl SceneCamera {
   pub fn new(p: impl ResizableProjection + RayCaster3<f32> + 'static, node: SceneNode) -> Self {
+    let mut inner = Camera {
+      bounds: Default::default(),
+      projection: Box::new(p),
+      projection_matrix: Mat4::one(),
+      node,
+    };
+    inner.projection_changed();
+
     Self {
-      cpu: Camera {
-        bounds: Default::default(),
-        projection: Box::new(p),
-        projection_matrix: Mat4::one(),
-        node,
-      },
-      gpu: None,
+      inner: ResourceWrapped::new(inner),
     }
   }
 
   pub fn resize(&mut self, size: (f32, f32)) {
     self.projection.resize(size);
+    self.projection_changed();
   }
 
   pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
@@ -109,5 +114,11 @@ impl Camera {
     let height: usize = frame_size.height.into();
     let height = height as f32 * self.bounds.height;
     (width, height).into()
+  }
+
+  pub fn projection_changed(&mut self) {
+    self
+      .projection
+      .update_projection(&mut self.projection_matrix);
   }
 }

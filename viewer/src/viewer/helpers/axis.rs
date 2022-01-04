@@ -69,17 +69,13 @@ impl Arrow {
   }
 
   fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
-    self.cylinder.setup_pass(
-      pass,
-      scene.active_camera.as_ref().unwrap().expect_gpu(),
-      &scene.resources,
-    );
+    let camera = scene
+      .resources
+      .cameras
+      .expect_gpu(scene.active_camera.as_ref().unwrap());
 
-    self.tip.setup_pass(
-      pass,
-      scene.active_camera.as_ref().unwrap().expect_gpu(),
-      &scene.resources,
-    );
+    self.cylinder.setup_pass(pass, camera, &scene.resources);
+    self.tip.setup_pass(pass, camera, &scene.resources);
   }
 
   fn new(
