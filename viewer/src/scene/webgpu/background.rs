@@ -75,7 +75,6 @@ where
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
-      model_info: None,
       active_mesh: None,
     };
     self.shading.update(gpu, &mut ctx);

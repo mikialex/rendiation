@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{ops::DerefMut, rc::Rc};
 
 pub mod default_scene;
 pub use default_scene::*;
@@ -12,7 +12,9 @@ use self::{
 };
 
 use interphaser::*;
-use rendiation_controller::{ControllerWinitAdapter, InputBound, OrbitController};
+use rendiation_controller::{
+  ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
+};
 use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
 use winit::event::{ElementState, Event, MouseButton};
@@ -178,7 +180,9 @@ impl Viewer3dContent {
   pub fn update_state(&mut self) {
     if let Some(camera) = &mut self.scene.active_camera {
       camera.node.mutate(|node| {
-        self.controller.update(node);
+        self
+          .controller
+          .update(node.deref_mut() as &mut dyn Transformed3DControllee);
       });
     }
   }

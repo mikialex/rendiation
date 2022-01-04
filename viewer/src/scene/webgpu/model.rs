@@ -126,7 +126,6 @@ impl SceneRenderable for OverridableMeshModelImpl {
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
-      model_info: Some(transform),
       active_mesh: mesh.as_ref().into(),
     };
 

@@ -41,6 +41,7 @@ pub trait SceneRenderable {
 /// Resources once allocate never release until the cache drop
 pub struct GPUResourceCache {
   pub(crate) cameras: CameraGPU,
+  pub(crate) nodes: NodeGPU,
   pub(crate) samplers: SamplerCache<TextureSampler>,
   pub(crate) pipeline_resource: PipelineResourceCache,
   pub(crate) layouts: BindGroupLayoutCache,
@@ -61,6 +62,7 @@ impl Default for GPUResourceCache {
       pipeline_resource: Default::default(),
       layouts: Default::default(),
       custom_storage: AnyMap::new(),
+      nodes: Default::default(),
     }
   }
 }

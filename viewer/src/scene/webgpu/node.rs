@@ -4,6 +4,10 @@ use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
+use crate::{ResourceMapper, SceneNodeDataImpl};
+
+pub type NodeGPU = ResourceMapper<TransformGPU, SceneNodeDataImpl>;
+
 pub struct TransformGPU {
   pub ubo: UniformBufferDataWithCache<TransformGPUData>,
   pub bindgroup: Rc<wgpu::BindGroup>,

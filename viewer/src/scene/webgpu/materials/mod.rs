@@ -152,7 +152,6 @@ impl<T: MaterialCPUResource> MaterialCellImpl<T> {
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub model_info: Option<&'b TransformGPU>,
   pub active_mesh: Option<&'b dyn Mesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
 }
