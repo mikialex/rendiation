@@ -56,9 +56,11 @@ fn create_menu() -> MenuModel {
 fn perf_panel<T: 'static>() -> impl UIComponent<T> {
   Container::sized((500., 200.)).wrap(
     Text::default()
-    .with_line_wrap(LineWrap::Multiple)
-    .with_horizon_align(HorizontalAlignment::Left)
-    .with_vertical_align(VerticalAlignment::Top)
+    .with_layout(TextLayoutConfig::SizedBox{
+        line_wrap: LineWrap::Multiple,
+        horizon_align: HorizontalAlignment::Left,
+        vertical_align:VerticalAlignment::Top,
+    })
     .bind_with_ctx(|s, _t, ctx| {
       let content = format!(
         "frame_id: {}\nupdate_time: {}\nlayout_time: {}\nrendering_prepare_time: {}\nrendering_dispatch_time: {}",

@@ -1,5 +1,7 @@
 use rendiation_algebra::*;
 
+use crate::SceneTextureCube;
+
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
 }
@@ -18,4 +20,8 @@ impl SolidBackground {
       intensity: Vec3::splat(0.0),
     }
   }
+}
+
+pub struct EnvMapBackground {
+  pub texture: SceneTextureCube,
 }

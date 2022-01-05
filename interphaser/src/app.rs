@@ -166,7 +166,10 @@ impl<T> ApplicationInner<T> {
         return;
       }
 
-      let mut ctx = LayoutCtx { fonts: &self.fonts };
+      let mut ctx = LayoutCtx {
+        fonts: &self.fonts,
+        text: &self.texts,
+      };
 
       self.root.layout(
         LayoutConstraint::from_max(self.window_states.size),

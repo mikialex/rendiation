@@ -1,4 +1,4 @@
-use crate::FontManager;
+use crate::{FontManager, TextRelaxedInfo, UISize};
 use std::{
   cell::RefCell,
   collections::{HashMap, HashSet},
@@ -77,6 +77,26 @@ impl TextCache {
     if !pool.gpu_cache.contains(&hash) {
       pool.queue.insert(hash);
     }
+  }
+
+  pub fn measure_size(&self, text: &TextRelaxedInfo, fonts: &FontManager) -> UISize {
+    let free_unbound = TextInfo {
+      content: text.content.clone(),
+      bounds: (100000., 100000.).into(),
+      line_wrap: Default::default(),
+      horizon_align: Default::default(),
+      vertical_align: Default::default(),
+      color: (0., 0., 0., 1.).into(),
+      font_size: text.font_size,
+      x: 0.,
+      y: 0.,
+    };
+    let layout = self.layouter.layout(&free_unbound, fonts);
+
+    layout
+      .bound
+      .map(|bound| (bound.width() + 3., bound.height()).into()) // todo why add extra 3, the tolerance is too high
+      .unwrap_or((0., 0.).into())
   }
 
   pub fn cache_layout(&mut self, text: &TextInfo, fonts: &FontManager) -> TextLayoutRef {

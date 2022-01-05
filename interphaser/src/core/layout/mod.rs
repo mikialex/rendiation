@@ -1,4 +1,4 @@
-use crate::{FontManager, UpdateCtx};
+use crate::{FontManager, TextCache, UpdateCtx};
 
 mod unit;
 pub use unit::*;
@@ -9,6 +9,7 @@ pub use alignment::*;
 
 pub struct LayoutCtx<'a> {
   pub fonts: &'a FontManager,
+  pub text: &'a TextCache,
 }
 
 #[derive(Default)]

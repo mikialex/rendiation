@@ -48,6 +48,11 @@ pub struct TextInfo {
   pub y: f32,
 }
 
+pub struct TextRelaxedInfo {
+  pub content: String,
+  pub font_size: f32,
+}
+
 pub type TextHash = u64;
 
 impl TextInfo {
