@@ -11,6 +11,8 @@
 mod core;
 pub use crate::core::*;
 
+pub use winit;
+
 #[macro_use]
 mod composer;
 pub use composer::*;
@@ -29,4 +31,3 @@ pub use app::*;
 
 mod perf;
 pub use perf::*;
-

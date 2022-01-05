@@ -9,8 +9,8 @@ pub struct CameraHelper {
 }
 
 impl CameraHelper {
-  pub fn from_node_and_project_matrix(node: SceneNode, mat: Mat4<f32>) -> Self {
-    let camera_mesh = build_debug_line_in_camera_space();
+  pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
+    let camera_mesh = build_debug_line_in_camera_space(project_mat);
     let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
     let fatline_mat = FatLineMaterial::default().into_scene_material();
     let fatline_mat = MaterialCell::new(fatline_mat);
@@ -19,13 +19,15 @@ impl CameraHelper {
   }
 }
 
-fn build_debug_line_in_camera_space() -> HelperLineMesh {
-  let near = 0.;
-  let far = 1.;
-  let left = 0.;
-  let right = 1.;
-  let top = 1.;
-  let bottom = 0.;
+fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
+  let zero = 0.001;
+  let one = 0.999;
+  let near = zero;
+  let far = one;
+  let left = -one;
+  let right = one;
+  let top = one;
+  let bottom = -one;
 
   let near_left_down = Vec3::new(left, bottom, near);
   let near_left_top = Vec3::new(left, top, near);
@@ -58,8 +60,8 @@ fn build_debug_line_in_camera_space() -> HelperLineMesh {
     .iter()
     .map(|[start, end]| FatLineVertex {
       color: Vec4::new(1., 1., 1., 1.),
-      start: *start,
-      end: *end,
+      start: *start * project_mat,
+      end: *end * project_mat,
     })
     .collect();
 

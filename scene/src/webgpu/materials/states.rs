@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder};
 
-use crate::scene::ValueIDGenerator;
+use crate::ValueIDGenerator;
 
 pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(ValueIDGenerator::default()));
