@@ -10,7 +10,7 @@ pub struct CameraHelper {
 
 impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
-    let camera_mesh = build_debug_line_in_camera_space(project_mat);
+    let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
     let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
     let fatline_mat = FatLineMaterial::default().into_scene_material();
     let fatline_mat = MaterialCell::new(fatline_mat);
