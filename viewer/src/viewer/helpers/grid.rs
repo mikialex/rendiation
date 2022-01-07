@@ -3,13 +3,13 @@ use rendiation_webgpu::GPU;
 
 use crate::*;
 
-use super::HelperLineMesh;
+use super::*;
 
 pub struct GridHelper {
   pub enabled: bool,
   pub root: SceneNode,
   pub config: GridConfig,
-  mesh: FatlineImpl,
+  mesh: HelperLineModel,
 }
 
 impl GridHelper {
@@ -24,7 +24,7 @@ impl GridHelper {
     let mat = MaterialCell::new(mat);
     let root = root.clone();
     let node = root.create_child();
-    let mesh = FatlineImpl::new_typed(mat, mesh, node);
+    let mesh = HelperLineModel::new_typed(mat, mesh, node);
 
     Self {
       enabled: true,

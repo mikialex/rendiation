@@ -2,20 +2,24 @@ use rendiation_algebra::*;
 
 use crate::*;
 
-use super::HelperLineMesh;
+use super::*;
 
 pub struct CameraHelper {
-  pub mesh: FatlineImpl,
+  model: HelperLineModel,
 }
 
 impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
     let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
     let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
-    let fatline_mat = FatLineMaterial::default().into_scene_material();
+    let fatline_mat = FatLineMaterial {
+      width: 3.,
+      states: Default::default(),
+    }
+    .into_scene_material();
     let fatline_mat = MaterialCell::new(fatline_mat);
-    let fatline = FatlineImpl::new_typed(fatline_mat, camera_mesh, node);
-    Self { mesh: fatline }
+    let fatline = HelperLineModel::new_typed(fatline_mat, camera_mesh, node);
+    Self { model: fatline }
   }
 }
 
@@ -117,7 +121,7 @@ impl PassContent for CameraHelpers {
             |_, _| {}, // todo update
           )
         });
-        helper.mesh.update(gpu, &mut base)
+        helper.model.update(gpu, &mut base)
       }
     }
   }
@@ -134,7 +138,7 @@ impl PassContent for CameraHelpers {
 
     for (_, camera) in &scene.cameras {
       let helper = self.helpers.get_unwrap(camera);
-      helper.mesh.setup_pass(pass, main_camera, &scene.resources);
+      helper.model.setup_pass(pass, main_camera, &scene.resources);
     }
   }
 }
