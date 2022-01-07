@@ -32,6 +32,25 @@ pub trait Mesh {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
+// todo can we find macros todo this?
+impl Mesh for Box<dyn Mesh> {
+  fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    self.as_ref().setup_pass_and_draw(pass, group)
+  }
+
+  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap) {
+    self.as_mut().update(gpu, storage)
+  }
+
+  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
+    self.as_ref().vertex_layout()
+  }
+
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    self.as_ref().topology()
+  }
+}
+
 pub struct MeshCellImpl<T> {
   data: T,
   gpu: Option<MeshGPU>,

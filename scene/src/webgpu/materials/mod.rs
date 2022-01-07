@@ -227,6 +227,32 @@ pub trait Material {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
+impl Material for Box<dyn Material> {
+  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
+    self.as_mut().update(gpu, ctx)
+  }
+
+  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
+    self.as_ref().setup_pass(pass, ctx)
+  }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    self.as_ref().is_keep_mesh_shape()
+  }
+
+  fn is_transparent(&self) -> bool {
+    self.as_ref().is_transparent()
+  }
+
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+}
+
 impl<T> Material for MaterialCellImpl<T>
 where
   T: 'static,

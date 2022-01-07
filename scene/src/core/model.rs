@@ -45,3 +45,15 @@ impl MeshModelImpl {
     }
   }
 }
+
+impl<Ma: Material + 'static, Me: Mesh + 'static> MeshModelImpl<Me, Ma> {
+  // todo add type constraint
+  pub fn new_typed(material: Ma, mesh: Me, node: SceneNode) -> Self {
+    Self {
+      material,
+      mesh,
+      group: Default::default(),
+      node,
+    }
+  }
+}

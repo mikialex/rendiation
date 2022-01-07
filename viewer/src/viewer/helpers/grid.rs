@@ -24,7 +24,7 @@ impl GridHelper {
     let mat = MaterialCell::new(mat);
     let root = root.clone();
     let node = root.create_child();
-    let mesh = FatlineImpl::new(mat, mesh, node);
+    let mesh = FatlineImpl::new_typed(mat, mesh, node);
 
     Self {
       enabled: true,

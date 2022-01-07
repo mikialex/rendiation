@@ -5,6 +5,10 @@ use rendiation_webgpu::GPU;
 
 use crate::*;
 
+pub type SceneFatlineMaterial = MaterialCell<SceneMaterial<FatLineMaterial>>;
+
+pub type FatlineImpl = MeshModelImpl<FatlineMeshCellImpl, SceneFatlineMaterial>;
+
 impl SceneRenderable for MeshModel {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let mut inner = self.inner.borrow_mut();
@@ -22,8 +26,8 @@ impl SceneRenderable for MeshModel {
   }
 }
 
-impl MeshModelImpl {
-  pub fn into_matrix_overridable(self) -> OverridableMeshModelImpl {
+impl<Me, Ma> MeshModelImpl<Me, Ma> {
+  pub fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma> {
     OverridableMeshModelImpl {
       inner: self,
       override_gpu: None,
@@ -32,16 +36,17 @@ impl MeshModelImpl {
   }
 }
 
-impl SceneRenderable for MeshModelImpl {
+impl<Me: Mesh, Ma: Material> SceneRenderable for MeshModelImpl<Me, Ma> {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
+    let mesh_dyn: &dyn Mesh = mesh;
 
     self.node.check_update_gpu(base.resources, gpu);
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
-      active_mesh: mesh.as_ref().into(),
+      active_mesh: mesh_dyn.into(),
     };
 
     material.update(gpu, &mut ctx);
@@ -71,13 +76,13 @@ impl SceneRenderable for MeshModelImpl {
   }
 }
 
-pub struct OverridableMeshModelImpl {
-  inner: MeshModelImpl,
+pub struct OverridableMeshModelImpl<Me = Box<dyn Mesh>, Ma = Box<dyn Material>> {
+  inner: MeshModelImpl<Me, Ma>,
   override_gpu: Option<TransformGPU>,
   overrides: Vec<Box<dyn WorldMatrixOverride>>,
 }
 
-impl OverridableMeshModelImpl {
+impl<Me, Ma> OverridableMeshModelImpl<Me, Ma> {
   pub fn push_override(&mut self, o: impl WorldMatrixOverride + 'static) {
     self.overrides.push(Box::new(o));
   }
@@ -91,25 +96,26 @@ pub trait WorldMatrixOverride {
   ) -> Mat4<f32>;
 }
 
-impl std::ops::Deref for OverridableMeshModelImpl {
-  type Target = MeshModelImpl;
+impl<Me, Ma> std::ops::Deref for OverridableMeshModelImpl<Me, Ma> {
+  type Target = MeshModelImpl<Me, Ma>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
   }
 }
 
-impl std::ops::DerefMut for OverridableMeshModelImpl {
+impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.inner
   }
 }
 
-impl SceneRenderable for OverridableMeshModelImpl {
+impl<Me: Mesh, Ma: Material> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let inner = &mut self.inner;
     let material = &mut inner.material;
     let mesh = &mut inner.mesh;
+    let mesh_dyn: &dyn Mesh = mesh;
 
     let mut world_matrix = inner.node.visit(|n| n.world_matrix);
 
@@ -124,7 +130,7 @@ impl SceneRenderable for OverridableMeshModelImpl {
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
-      active_mesh: mesh.as_ref().into(),
+      active_mesh: mesh_dyn.into(),
     };
 
     material.update(gpu, &mut ctx);
@@ -149,6 +155,18 @@ impl SceneRenderable for OverridableMeshModelImpl {
     material.setup_pass(pass, &ctx);
 
     mesh.setup_pass_and_draw(pass, self.group);
+  }
+}
+
+pub struct InverseWorld;
+
+impl WorldMatrixOverride for InverseWorld {
+  fn override_mat(
+    &self,
+    world_matrix: Mat4<f32>,
+    _base: &mut SceneMaterialRenderPrepareCtxBase,
+  ) -> Mat4<f32> {
+    world_matrix.inverse_or_identity()
   }
 }
 

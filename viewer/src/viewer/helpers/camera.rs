@@ -14,7 +14,7 @@ impl CameraHelper {
     let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
     let fatline_mat = FatLineMaterial::default().into_scene_material();
     let fatline_mat = MaterialCell::new(fatline_mat);
-    let fatline = FatlineImpl::new(fatline_mat, camera_mesh, node);
+    let fatline = FatlineImpl::new_typed(fatline_mat, camera_mesh, node);
     Self { mesh: fatline }
   }
 }

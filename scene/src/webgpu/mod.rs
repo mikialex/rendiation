@@ -1,7 +1,6 @@
 pub mod background;
 pub mod bindgroup;
 pub mod camera;
-pub mod fatline;
 pub mod materials;
 pub mod mesh;
 pub mod model;
@@ -12,7 +11,6 @@ pub mod texture;
 pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
-pub use fatline::*;
 pub use materials::*;
 pub use mesh::*;
 pub use model::*;
