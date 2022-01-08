@@ -49,6 +49,10 @@ impl Mesh for Box<dyn Mesh> {
   fn topology(&self) -> wgpu::PrimitiveTopology {
     self.as_ref().topology()
   }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    self.as_ref().try_pick(f)
+  }
 }
 
 pub struct MeshCellImpl<T> {

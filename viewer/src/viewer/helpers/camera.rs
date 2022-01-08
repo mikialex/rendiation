@@ -24,8 +24,8 @@ impl CameraHelper {
 }
 
 fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
-  let zero = 0.001;
-  let one = 0.999;
+  let zero = 0.0001;
+  let one = 0.9999;
   let near = zero;
   let far = one;
   let left = -one;
