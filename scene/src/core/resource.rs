@@ -16,6 +16,12 @@ pub struct ResourceWrapped<T> {
   pub watchers: Arena<Box<dyn Watcher<T>>>,
 }
 
+impl<T> From<T> for ResourceWrapped<T> {
+  fn from(inner: T) -> Self {
+    Self::new(inner)
+  }
+}
+
 impl<T> ResourceWrapped<T> {
   pub fn new(inner: T) -> Self {
     Self {

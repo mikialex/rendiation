@@ -56,7 +56,7 @@ impl From<FatlineData> for FatlineMeshCellImpl {
   }
 }
 
-impl Mesh for FatlineMeshCellImpl {
+impl WebGPUMesh for FatlineMeshCellImpl {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     self
       .gpu

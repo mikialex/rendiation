@@ -8,6 +8,8 @@ pub mod node;
 pub mod rendering;
 pub mod texture;
 
+use std::any::Any;
+
 pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
@@ -45,6 +47,8 @@ pub trait SceneRenderable {
 pub struct GPUResourceCache {
   pub cameras: CameraGPU,
   pub nodes: NodeGPU,
+  pub materials: ResourceMapper<Box<dyn Any>, Box<dyn WebGPUMaterial>>,
+  pub meshes: ResourceMapper<Box<dyn Any>, Box<dyn WebGPUMesh>>,
   pub texture_2ds: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_cubes: ResourceMapper<WebGPUTextureCube, TextureCubeSource>,
   pub samplers: SamplerCache<TextureSampler>,
@@ -66,6 +70,8 @@ impl Default for GPUResourceCache {
       texture_cubes: Default::default(),
       cameras: Default::default(),
       samplers: Default::default(),
+      materials: Default::default(),
+      meshes: Default::default(),
       pipeline_resource: Default::default(),
       layouts: Default::default(),
       custom_storage: AnyMap::new(),

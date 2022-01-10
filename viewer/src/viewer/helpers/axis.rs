@@ -82,10 +82,10 @@ impl Arrow {
     parent: &SceneNode,
     auto_scale: Rc<RefCell<ViewAutoScalable>>,
     color: impl Into<Vec3<f32>>,
-    cylinder_mesh: impl Mesh + 'static,
-    tip_mesh: impl Mesh + 'static,
+    cylinder_mesh: impl WebGPUMesh + 'static,
+    tip_mesh: impl WebGPUMesh + 'static,
   ) -> Self {
-    fn material(color: Vec3<f32>) -> impl Material + Clone {
+    fn material(color: Vec3<f32>) -> impl WebGPUMaterial + Clone {
       let mut material = FlatMaterial {
         color: Vec4::new(color.x, color.y, color.z, 1.0),
       }

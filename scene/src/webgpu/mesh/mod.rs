@@ -22,7 +22,7 @@ where
   type VertexInput = Vec<V>;
 }
 
-pub trait Mesh {
+pub trait WebGPUMesh {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
   fn update(&mut self, gpu: &GPU, storage: &mut AnyMap);
   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
@@ -33,7 +33,7 @@ pub trait Mesh {
 }
 
 // todo can we find macros todo this?
-impl Mesh for Box<dyn Mesh> {
+impl WebGPUMesh for Box<dyn WebGPUMesh> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     self.as_ref().setup_pass_and_draw(pass, group)
   }
@@ -87,7 +87,7 @@ impl<T> Clone for MeshCell<T> {
   }
 }
 
-impl<T: GPUMeshData + IntersectAbleGroupedMesh> Mesh for MeshCellImpl<T> {
+impl<T: GPUMeshData + IntersectAbleGroupedMesh> WebGPUMesh for MeshCellImpl<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let gpu = self.gpu.as_ref().unwrap();
     gpu.setup_pass(pass);
@@ -111,7 +111,7 @@ impl<T: GPUMeshData + IntersectAbleGroupedMesh> Mesh for MeshCellImpl<T> {
   }
 }
 
-impl<T: GPUMeshData + IntersectAbleGroupedMesh> Mesh for MeshCell<T> {
+impl<T: GPUMeshData + IntersectAbleGroupedMesh> WebGPUMesh for MeshCell<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let inner = self.inner.borrow();
     inner.setup_pass_and_draw(pass, group);

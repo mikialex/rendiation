@@ -54,7 +54,7 @@ pub struct DrawableBackground<S: MaterialCPUResource> {
 impl<S> Background for DrawableBackground<S>
 where
   S: MaterialCPUResource + 'static,
-  MaterialCell<S>: materials::Material,
+  MaterialCell<S>: materials::WebGPUMaterial,
 {
   fn require_pass_clear(&self) -> Option<wgpu::Color> {
     None
@@ -64,7 +64,7 @@ where
 impl<S> SceneRenderable for DrawableBackground<S>
 where
   S: MaterialCPUResource,
-  MaterialCell<S>: materials::Material,
+  MaterialCell<S>: materials::WebGPUMaterial,
 {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     self.root.check_update_gpu(base.resources, gpu);

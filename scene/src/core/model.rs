@@ -11,7 +11,7 @@ pub struct MeshModel {
 
 impl MeshModel {
   // todo add type constraint
-  pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
+  pub fn new<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static>(
     material: Ma,
     mesh: Me,
     node: SceneNode,
@@ -23,7 +23,7 @@ impl MeshModel {
   }
 }
 
-pub struct MeshModelImpl<Me = Box<dyn Mesh>, Ma = Box<dyn Material>> {
+pub struct MeshModelImpl<Me = Box<dyn WebGPUMesh>, Ma = Box<dyn WebGPUMaterial>> {
   pub material: Ma,
   pub mesh: Me,
   pub group: MeshDrawGroup,
@@ -32,7 +32,7 @@ pub struct MeshModelImpl<Me = Box<dyn Mesh>, Ma = Box<dyn Material>> {
 
 impl MeshModelImpl {
   // todo add type constraint
-  pub fn new<Ma: Material + 'static, Me: Mesh + 'static>(
+  pub fn new<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static>(
     material: Ma,
     mesh: Me,
     node: SceneNode,
@@ -46,7 +46,7 @@ impl MeshModelImpl {
   }
 }
 
-impl<Ma: Material + 'static, Me: Mesh + 'static> MeshModelImpl<Me, Ma> {
+impl<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static> MeshModelImpl<Me, Ma> {
   // todo add type constraint
   pub fn new_typed(material: Ma, mesh: Me, node: SceneNode) -> Self {
     Self {

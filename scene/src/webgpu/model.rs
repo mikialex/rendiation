@@ -36,11 +36,11 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me: Mesh, Ma: Material> SceneRenderable for MeshModelImpl<Me, Ma> {
+impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for MeshModelImpl<Me, Ma> {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
-    let mesh_dyn: &dyn Mesh = mesh;
+    let mesh_dyn: &dyn WebGPUMesh = mesh;
 
     self.node.check_update_gpu(base.resources, gpu);
 
@@ -76,7 +76,7 @@ impl<Me: Mesh, Ma: Material> SceneRenderable for MeshModelImpl<Me, Ma> {
   }
 }
 
-pub struct OverridableMeshModelImpl<Me = Box<dyn Mesh>, Ma = Box<dyn Material>> {
+pub struct OverridableMeshModelImpl<Me = Box<dyn WebGPUMesh>, Ma = Box<dyn WebGPUMaterial>> {
   inner: MeshModelImpl<Me, Ma>,
   override_gpu: Option<TransformGPU>,
   overrides: Vec<Box<dyn WorldMatrixOverride>>,
@@ -110,12 +110,12 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me: Mesh, Ma: Material> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
+impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let inner = &mut self.inner;
     let material = &mut inner.material;
     let mesh = &mut inner.mesh;
-    let mesh_dyn: &dyn Mesh = mesh;
+    let mesh_dyn: &dyn WebGPUMesh = mesh;
 
     let mut world_matrix = inner.node.visit(|n| n.world_matrix);
 

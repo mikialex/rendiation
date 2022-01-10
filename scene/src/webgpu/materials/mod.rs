@@ -135,7 +135,7 @@ impl<T: MaterialCPUResource> MaterialCellImpl<T> {
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub active_mesh: Option<&'b dyn Mesh>,
+  pub active_mesh: Option<&'b dyn WebGPUMesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
 }
 
@@ -185,7 +185,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
 
 pub struct PipelineCreateCtx<'a, 'b> {
   pub layouts: &'a BindGroupLayoutCache,
-  pub active_mesh: Option<&'a dyn Mesh>,
+  pub active_mesh: Option<&'a dyn WebGPUMesh>,
   pub pass_info: &'b RenderPassInfo,
   pub pass: &'b dyn PassDispatcher,
 }
@@ -196,7 +196,7 @@ pub struct SceneMaterialPassSetupCtx<'a> {
   pub camera_gpu: &'a CameraBindgroup,
 }
 
-pub trait Material {
+pub trait WebGPUMaterial {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
 
@@ -210,7 +210,7 @@ pub trait Material {
   fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl Material for Box<dyn Material> {
+impl WebGPUMaterial for Box<dyn WebGPUMaterial> {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
     self.as_mut().update(gpu, ctx)
   }
@@ -236,7 +236,7 @@ impl Material for Box<dyn Material> {
   }
 }
 
-impl<T> Material for MaterialCellImpl<T>
+impl<T> WebGPUMaterial for MaterialCellImpl<T>
 where
   T: 'static,
   T: MaterialCPUResource,
@@ -311,7 +311,7 @@ where
   }
 }
 
-impl<T> Material for MaterialCell<T>
+impl<T> WebGPUMaterial for MaterialCell<T>
 where
   T: 'static,
   T: MaterialCPUResource,
