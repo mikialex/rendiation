@@ -1,9 +1,15 @@
+use std::{cell::RefCell, rc::Rc};
+
 use rendiation_algebra::*;
 use rendiation_texture::TextureSampler;
 
 use crate::{ResourceWrapped, SceneTexture2D};
 
-pub type Material<T> = ResourceWrapped<T>;
+pub type MaterialInner<T> = ResourceWrapped<T>;
+
+pub struct Material<T> {
+  inner: Rc<RefCell<MaterialInner<T>>>,
+}
 
 #[derive(Clone)]
 pub struct PhysicalMaterial {
