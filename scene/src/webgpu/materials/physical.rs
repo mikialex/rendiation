@@ -6,25 +6,25 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-impl MaterialMeshLayoutRequire for BasicMaterial {
+impl MaterialMeshLayoutRequire for PhysicalMaterial {
   type VertexInput = Vec<Vertex>;
 }
 
-pub struct BasicMaterialUniform {
-  pub color: Vec3<f32>,
+pub struct PhysicalMaterialUniform {
+  pub albedo: Vec3<f32>,
 }
 
-impl ShaderUniformBlock for BasicMaterialUniform {
+impl ShaderUniformBlock for PhysicalMaterialUniform {
   fn shader_struct() -> &'static str {
     "
-    struct BasicMaterial {
-      color: vec3<f32>;
+    struct PhysicalMaterial {
+      albedo: vec3<f32>;
     };
     "
   }
 }
 
-impl BindGroupLayoutProvider for BasicMaterial {
+impl BindGroupLayoutProvider for PhysicalMaterial {
   fn bind_preference() -> usize {
     1
   }
@@ -58,10 +58,10 @@ impl BindGroupLayoutProvider for BasicMaterial {
     format!(
       "
       [[group({group}), binding(0)]]
-      var<uniform> basic_material: BasicMaterial;
+      var<uniform> material: PhysicalMaterial;
       
       [[group({group}), binding(1)]]
-      var r_color: texture_2d<f32>;
+      var material_albedo: texture_2d<f32>;
 
       [[group({group}), binding(2)]]
       var r_sampler: sampler;
@@ -71,17 +71,17 @@ impl BindGroupLayoutProvider for BasicMaterial {
   }
 
   fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
-    builder.declare_uniform_struct::<BasicMaterialUniform>();
+    builder.declare_uniform_struct::<PhysicalMaterialUniform>();
   }
 }
 
-pub struct BasicMaterialGPU {
+pub struct PhysicalMaterialGPU {
   _uniform: UniformBuffer<Vec3<f32>>,
   bindgroup: MaterialBindGroup,
 }
 
-impl MaterialGPUResource for BasicMaterialGPU {
-  type Source = BasicMaterial;
+impl MaterialGPUResource for PhysicalMaterialGPU {
+  type Source = PhysicalMaterial;
 
   fn create_pipeline(
     &self,
@@ -95,13 +95,13 @@ impl MaterialGPUResource for BasicMaterialGPU {
         "
       [[stage(fragment)]]
       fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return textureSample(r_color, r_sampler, in.uv);
+          return textureSample(material_albedo, r_sampler, in.uv);
       }}
       ",
       )
       .use_fragment_entry("fs_main");
 
-    builder.with_layout::<BasicMaterial>(ctx.layouts, device);
+    builder.with_layout::<PhysicalMaterial>(ctx.layouts, device);
 
     builder.vertex_buffers = ctx.active_mesh.unwrap().vertex_layout();
   }
@@ -115,8 +115,8 @@ impl MaterialGPUResource for BasicMaterialGPU {
   }
 }
 
-impl MaterialCPUResource for BasicMaterial {
-  type GPU = BasicMaterialGPU;
+impl MaterialCPUResource for PhysicalMaterial {
+  type GPU = PhysicalMaterialGPU;
 
   fn create(
     &mut self,
@@ -124,7 +124,7 @@ impl MaterialCPUResource for BasicMaterial {
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
-    let _uniform = UniformBuffer::create(&gpu.device, self.color);
+    let _uniform = UniformBuffer::create(&gpu.device, self.albedo);
 
     let bindgroup_layout = Self::layout(&gpu.device); // todo remove
 
@@ -135,7 +135,7 @@ impl MaterialCPUResource for BasicMaterial {
       .push(sampler.as_bindable())
       .build(&bindgroup_layout);
 
-    BasicMaterialGPU {
+    PhysicalMaterialGPU {
       _uniform,
       bindgroup,
     }

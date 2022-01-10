@@ -62,8 +62,8 @@ pub fn load_default_scene(scene: &mut Scene) {
   {
     let mesh = SphereMeshParameter::default().tessellate();
     let mesh = MeshCell::new(mesh);
-    let material = BasicMaterial {
-      color: Vec3::splat(1.),
+    let material = PhysicalMaterial {
+      albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture: texture.clone(),
     }
@@ -80,8 +80,8 @@ pub fn load_default_scene(scene: &mut Scene) {
   {
     let mesh = CubeMeshParameter::default().tessellate();
     let mesh = MeshCell::new(mesh);
-    let mut material = BasicMaterial {
-      color: Vec3::splat(1.),
+    let mut material = PhysicalMaterial {
+      albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture,
     }
