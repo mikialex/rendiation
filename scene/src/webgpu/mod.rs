@@ -18,6 +18,9 @@ pub use node::*;
 pub use rendering::*;
 pub use texture::*;
 
+pub mod model_collection;
+pub use model_collection::*;
+
 use anymap::AnyMap;
 use rendiation_texture::TextureSampler;
 

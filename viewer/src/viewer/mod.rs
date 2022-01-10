@@ -186,6 +186,7 @@ impl Viewer3dContent {
           .controller
           .update(node.deref_mut() as &mut dyn Transformed3DControllee);
       });
+      camera.trigger_change()
     }
   }
 }

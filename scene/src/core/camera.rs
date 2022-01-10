@@ -40,6 +40,7 @@ impl SceneCamera {
   pub fn resize(&mut self, size: (f32, f32)) {
     self.projection.resize(size);
     self.projection_changed();
+    self.trigger_change();
   }
 
   pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {

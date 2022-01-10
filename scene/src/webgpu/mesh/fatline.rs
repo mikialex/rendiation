@@ -21,6 +21,13 @@ pub struct FatlineMeshCellImpl {
   gpu: Option<FatlineMeshGPU>,
 }
 
+impl FatlineMeshCellImpl {
+  pub fn update_data(&mut self, data: FatlineData) {
+    self.data = GroupedMesh::full(data);
+    self.gpu = None;
+  }
+}
+
 pub struct FatlineMeshGPU {
   range_full: MeshGroup,
   vertex: Rc<wgpu::Buffer>,

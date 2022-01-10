@@ -45,9 +45,13 @@ impl std::ops::DerefMut for CameraGPU {
 
 impl CameraGPU {
   pub fn check_update_gpu(&mut self, camera: &mut SceneCamera, gpu: &GPU) -> &CameraBindgroup {
-    self
-      .get_or_insert_with(camera, |_| (CameraBindgroup::new(gpu), |_, _| {}))
-      .update(gpu, camera)
+    self.get_update_or_insert_with(
+      camera,
+      |_| CameraBindgroup::new(gpu),
+      |camera_gpu, camera| {
+        camera_gpu.update(gpu, camera);
+      },
+    )
   }
 
   pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraBindgroup {

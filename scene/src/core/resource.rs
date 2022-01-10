@@ -1,6 +1,6 @@
 use std::{
   cell::RefCell,
-  collections::HashMap,
+  collections::{HashMap, HashSet},
   marker::PhantomData,
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
@@ -23,6 +23,13 @@ impl<T> ResourceWrapped<T> {
       id: GLOBAL_ID.fetch_add(1, Ordering::Relaxed),
       watchers: Default::default(),
     }
+  }
+
+  pub fn trigger_change(&mut self) {
+    self
+      .watchers
+      .iter_mut()
+      .for_each(|(_, w)| w.will_change(&self.inner, self.id));
   }
 }
 
@@ -51,10 +58,7 @@ impl<T> std::ops::Deref for ResourceWrapped<T> {
 
 impl<T> std::ops::DerefMut for ResourceWrapped<T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    self
-      .watchers
-      .iter_mut()
-      .for_each(|(_, w)| w.will_change(&self.inner, self.id));
+    self.trigger_change();
     &mut self.inner
   }
 }
@@ -67,6 +71,7 @@ pub trait Watcher<T> {
 pub struct ResourceMapper<T, U> {
   data: HashMap<usize, T>,
   to_remove: Rc<RefCell<Vec<usize>>>,
+  changed: Rc<RefCell<HashSet<usize>>>,
   phantom: PhantomData<U>,
 }
 
@@ -75,6 +80,7 @@ impl<T, U> Default for ResourceMapper<T, U> {
     Self {
       data: Default::default(),
       to_remove: Default::default(),
+      changed: Default::default(),
       phantom: Default::default(),
     }
   }
@@ -87,21 +93,30 @@ impl<T, U> ResourceMapper<T, U> {
     });
   }
 
-  pub fn get_or_insert_with<W: FnMut(&U, usize) + 'static>(
+  pub fn get_update_or_insert_with(
     &mut self,
     source: &mut ResourceWrapped<U>,
-    creator: impl FnOnce(&U) -> (T, W),
+    creator: impl FnOnce(&U) -> T,
+    updater: impl FnOnce(&mut T, &U),
   ) -> &mut T {
-    self.data.entry(source.id).or_insert_with(|| {
-      let (item, w) = creator(&source.inner);
+    let mut new_created = false;
+    let resource = self.data.entry(source.id).or_insert_with(|| {
+      let item = creator(&source.inner);
+      new_created = true;
       source
         .watchers
         .insert(Box::new(ResourceWatcherWithAutoClean {
           to_remove: self.to_remove.clone(),
-          watch: w,
+          changed: self.changed.clone(),
         }));
       item
-    })
+    });
+
+    if new_created || self.changed.borrow_mut().remove(&source.id) {
+      updater(resource, source)
+    }
+
+    resource
   }
 
   pub fn get_unwrap(&self, source: &ResourceWrapped<U>) -> &T {
@@ -109,14 +124,14 @@ impl<T, U> ResourceMapper<T, U> {
   }
 }
 
-struct ResourceWatcherWithAutoClean<W> {
+struct ResourceWatcherWithAutoClean {
   to_remove: Rc<RefCell<Vec<usize>>>,
-  watch: W,
+  changed: Rc<RefCell<HashSet<usize>>>,
 }
 
-impl<T, W: FnMut(&T, usize)> Watcher<T> for ResourceWatcherWithAutoClean<W> {
-  fn will_change(&mut self, camera: &T, id: usize) {
-    (self.watch)(camera, id);
+impl<T> Watcher<T> for ResourceWatcherWithAutoClean {
+  fn will_change(&mut self, _camera: &T, id: usize) {
+    self.changed.borrow_mut().insert(id);
   }
 
   fn will_drop(&mut self, _camera: &T, id: usize) {

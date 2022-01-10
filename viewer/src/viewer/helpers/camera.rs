@@ -1,10 +1,12 @@
 use rendiation_algebra::*;
+use rendiation_geometry::LineSegment;
 
 use crate::*;
 
 use super::*;
 
 pub struct CameraHelper {
+  projection_cache: Mat4<f32>,
   model: HelperLineModel,
 }
 
@@ -19,8 +21,22 @@ impl CameraHelper {
     .into_scene_material();
     let fatline_mat = MaterialCell::new(fatline_mat);
     let fatline = HelperLineModel::new_typed(fatline_mat, camera_mesh, node);
-    Self { model: fatline }
+    Self {
+      model: fatline,
+      projection_cache: project_mat,
+    }
   }
+
+  pub fn update(&mut self, project_mat: Mat4<f32>) {
+    if self.projection_cache != project_mat {
+      let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
+      self.model.mesh.update_data(camera_mesh);
+    }
+  }
+}
+
+fn build_line_box(target: &mut Vec<LineSegment<Vec3<f32>>>, min: Vec3<f32>, max: Vec3<f32>) {
+  //
 }
 
 fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
@@ -112,15 +128,18 @@ impl PassContent for CameraHelpers {
       };
 
       for (_, draw_camera) in &mut scene.cameras {
-        let helper = self.helpers.get_or_insert_with(draw_camera, |draw_camera| {
-          (
+        let helper = self.helpers.get_update_or_insert_with(
+          draw_camera,
+          |draw_camera| {
             CameraHelper::from_node_and_project_matrix(
               draw_camera.node.clone(),
               draw_camera.projection_matrix,
-            ),
-            |_, _| {}, // todo update
-          )
-        });
+            )
+          },
+          |helper, camera| {
+            helper.update(camera.projection_matrix);
+          },
+        );
         helper.model.update(gpu, &mut base)
       }
     }

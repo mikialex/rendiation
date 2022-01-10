@@ -21,11 +21,13 @@ impl SceneNode {
 
 impl NodeGPU {
   pub fn check_update_gpu(&mut self, node: &mut SceneNodeData, gpu: &GPU) -> &TransformGPU {
-    self
-      .get_or_insert_with(node, |node| {
-        (TransformGPU::new(gpu, &node.world_matrix), |_, _| {})
-      })
-      .update(gpu, &node.world_matrix)
+    self.get_update_or_insert_with(
+      node,
+      |node| TransformGPU::new(gpu, &node.world_matrix),
+      |node_gpu, node| {
+        node_gpu.update(gpu, &node.world_matrix);
+      },
+    )
   }
 
   pub fn expect_gpu(&self, node: &SceneNodeData) -> &TransformGPU {

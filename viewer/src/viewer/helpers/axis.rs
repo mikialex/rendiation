@@ -134,7 +134,7 @@ impl AxisHelper {
     let tip = CylinderMeshParameter {
       radius_top: 0.0,
       radius_bottom: 0.06,
-      height: 0.1,
+      height: 0.2,
       ..Default::default()
     }
     .tessellate();
