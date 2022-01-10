@@ -39,7 +39,7 @@ impl<T> Watcher<T> for Weak<BindGroupDirtyWatcher> {
       v.notify_dirty();
       return false;
     }
-    return true;
+    true
   }
 
   fn will_drop(&mut self, _item: &T, _id: usize) {

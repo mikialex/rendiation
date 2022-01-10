@@ -20,22 +20,11 @@ impl<T> SceneTexture<T> {
   }
 
   pub fn mutate(&self, mutator: &dyn Fn(&mut T)) {
-    // let mut content = self.content.borrow_mut();
+    let mut content = self.content.borrow_mut();
 
-    // mutator(&mut content.source);
+    mutator(&mut content.source);
 
-    // content.gpu = None;
-
-    // let notifier_to_remove: Vec<_> = content
-    //   .on_changed
-    //   .iter()
-    //   .enumerate()
-    //   .filter_map(|(i, f)| (!f()).then(|| i))
-    //   .collect();
-
-    // notifier_to_remove.iter().for_each(|&i| {
-    //   content.on_changed.swap_remove(i)();
-    // });
+    content.trigger_change()
   }
 }
 
