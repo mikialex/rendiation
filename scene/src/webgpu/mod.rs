@@ -26,6 +26,8 @@ use rendiation_texture::TextureSampler;
 
 use rendiation_webgpu::*;
 
+use crate::{ResourceMapper, TextureCubeSource};
+
 pub trait SceneRenderable {
   fn update(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtxBase);
 
@@ -43,6 +45,8 @@ pub trait SceneRenderable {
 pub struct GPUResourceCache {
   pub cameras: CameraGPU,
   pub nodes: NodeGPU,
+  pub texture_2ds: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
+  pub texture_cubes: ResourceMapper<WebGPUTextureCube, TextureCubeSource>,
   pub samplers: SamplerCache<TextureSampler>,
   pub pipeline_resource: PipelineResourceCache,
   pub layouts: BindGroupLayoutCache,
@@ -58,6 +62,8 @@ impl GPUResourceCache {
 impl Default for GPUResourceCache {
   fn default() -> Self {
     Self {
+      texture_2ds: Default::default(),
+      texture_cubes: Default::default(),
       cameras: Default::default(),
       samplers: Default::default(),
       pipeline_resource: Default::default(),

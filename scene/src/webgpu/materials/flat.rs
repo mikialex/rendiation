@@ -100,14 +100,14 @@ impl MaterialCPUResource for FlatMaterial {
   fn create(
     &mut self,
     gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtx,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, self.color);
 
     let bindgroup_layout = Self::layout(&gpu.device);
 
-    let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.resources, bgw.clone())
       .push(_uniform.as_bindable())
       .build(&bindgroup_layout);
 

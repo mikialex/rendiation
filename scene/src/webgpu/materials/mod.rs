@@ -1,6 +1,6 @@
 use std::{
   any::Any,
-  cell::{Cell, RefCell},
+  cell::RefCell,
   hash::Hash,
   ops::{Deref, DerefMut},
   rc::Rc,
@@ -82,23 +82,6 @@ pub trait MaterialGPUResource: Sized {
   }
 }
 
-pub struct BindGroupDirtyWatcher {
-  dirty: Cell<bool>,
-}
-impl Default for BindGroupDirtyWatcher {
-  fn default() -> Self {
-    Self {
-      dirty: Cell::new(false),
-    }
-  }
-}
-
-impl BindGroupDirtyNotifier for BindGroupDirtyWatcher {
-  fn notify_dirty(&self) {
-    self.dirty.set(true);
-  }
-}
-
 pub struct MaterialCell<T: MaterialCPUResource> {
   inner: Rc<RefCell<MaterialCellImpl<T>>>,
 }
@@ -146,7 +129,7 @@ impl<T: MaterialCPUResource> MaterialCellImpl<T> {
 
   fn refresh_cache(&mut self) {
     self.property_changed = false;
-    self.bindgroup_watcher.dirty.set(false);
+    self.bindgroup_watcher.reset_clean();
     self.last_material = self.material.clone().into();
   }
 }
@@ -261,7 +244,7 @@ where
 {
   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
     if let Some(self_gpu) = &mut self.gpu {
-      if self.property_changed || self.bindgroup_watcher.dirty.get() {
+      if self.property_changed || self.bindgroup_watcher.get_dirty() {
         if self_gpu.update(&self.material, gpu, ctx, &self.bindgroup_watcher) {
           self.gpu = T::create(&mut self.material, gpu, ctx, &self.bindgroup_watcher).into();
         }

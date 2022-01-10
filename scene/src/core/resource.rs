@@ -25,11 +25,21 @@ impl<T> ResourceWrapped<T> {
     }
   }
 
+  fn get_mut_inner(&mut self) -> &mut T {
+    &mut self.inner
+  }
+
   pub fn trigger_change(&mut self) {
-    self
-      .watchers
-      .iter_mut()
-      .for_each(|(_, w)| w.will_change(&self.inner, self.id));
+    let mut to_drop = Vec::with_capacity(0);
+    self.watchers.iter_mut().for_each(|(h, w)| {
+      if !w.will_change(&self.inner, self.id) {
+        to_drop.push(h)
+      }
+    });
+
+    for handle in to_drop.drain(..) {
+      self.watchers.remove(handle);
+    }
   }
 }
 
@@ -64,7 +74,8 @@ impl<T> std::ops::DerefMut for ResourceWrapped<T> {
 }
 
 pub trait Watcher<T> {
-  fn will_change(&mut self, item: &T, id: usize);
+  // return should continue watch
+  fn will_change(&mut self, item: &T, id: usize) -> bool;
   fn will_drop(&mut self, item: &T, id: usize);
 }
 
@@ -113,7 +124,7 @@ impl<T, U> ResourceMapper<T, U> {
     });
 
     if new_created || self.changed.borrow_mut().remove(&source.id) {
-      updater(resource, source)
+      updater(resource, source.get_mut_inner())
     }
 
     resource
@@ -130,8 +141,9 @@ struct ResourceWatcherWithAutoClean {
 }
 
 impl<T> Watcher<T> for ResourceWatcherWithAutoClean {
-  fn will_change(&mut self, _camera: &T, id: usize) {
+  fn will_change(&mut self, _camera: &T, id: usize) -> bool {
     self.changed.borrow_mut().insert(id);
+    true
   }
 
   fn will_drop(&mut self, _camera: &T, id: usize) {

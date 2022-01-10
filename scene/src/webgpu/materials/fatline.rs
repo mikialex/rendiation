@@ -229,14 +229,14 @@ impl MaterialCPUResource for FatLineMaterial {
   fn create(
     &mut self,
     gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtx,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
     let device = &gpu.device;
     let _uniform = UniformBuffer::create(device, self.width);
 
     let bindgroup_layout = Self::layout(device);
-    let bindgroup = MaterialBindGroupBuilder::new(gpu, bgw.clone())
+    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.resources, bgw.clone())
       .push(_uniform.as_bindable())
       .build(&bindgroup_layout);
 
