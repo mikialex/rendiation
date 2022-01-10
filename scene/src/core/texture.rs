@@ -22,7 +22,7 @@ impl<T> SceneTexture<T> {
   pub fn mutate(&self, mutator: &dyn Fn(&mut T)) {
     let mut content = self.content.borrow_mut();
 
-    mutator(&mut content.source);
+    mutator(&mut content);
 
     content.trigger_change()
   }
