@@ -8,7 +8,10 @@ pub mod node;
 pub mod rendering;
 pub mod texture;
 
-use std::any::Any;
+use std::{
+  any::{Any, TypeId},
+  collections::HashMap,
+};
 
 pub use background::*;
 pub use bindgroup::*;
@@ -42,13 +45,11 @@ pub trait SceneRenderable {
 }
 
 /// GPU cache container for given scene
-///
-/// Resources once allocate never release until the cache drop
 pub struct GPUResourceCache {
   pub cameras: CameraGPU,
   pub nodes: NodeGPU,
-  pub materials: ResourceMapper<Box<dyn Any>, Box<dyn WebGPUMaterial>>,
-  pub meshes: ResourceMapper<Box<dyn Any>, Box<dyn WebGPUMesh>>,
+  pub materials: HashMap<TypeId, Box<dyn Any>>,
+  pub meshes: HashMap<TypeId, Box<dyn Any>>,
   pub texture_2ds: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_cubes: ResourceMapper<WebGPUTextureCube, TextureCubeSource>,
   pub samplers: SamplerCache<TextureSampler>,

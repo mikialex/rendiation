@@ -97,7 +97,7 @@ impl MaterialCPUResource for LineMaterial {
   type GPU = LineMaterialGPU;
 
   fn create(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,

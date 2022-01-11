@@ -98,7 +98,7 @@ impl MaterialCPUResource for FlatMaterial {
   type GPU = FlatMaterialGPU;
 
   fn create(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,

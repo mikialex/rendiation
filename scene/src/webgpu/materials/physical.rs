@@ -119,7 +119,7 @@ impl MaterialCPUResource for PhysicalMaterial {
   type GPU = PhysicalMaterialGPU;
 
   fn create(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,

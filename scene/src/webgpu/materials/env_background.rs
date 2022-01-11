@@ -89,7 +89,7 @@ impl MaterialCPUResource for EnvMapBackGroundMaterial {
   type GPU = EnvMapBackGroundMaterialGPU;
 
   fn create(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,

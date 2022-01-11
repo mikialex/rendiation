@@ -227,7 +227,7 @@ impl MaterialCPUResource for FatLineMaterial {
   type GPU = FatlineMaterialGPU;
 
   fn create(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
