@@ -19,10 +19,10 @@ pub struct ForwardScene;
 
 impl PassContent for ForwardScene {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
-    let (res, mut base) =
-      scene.create_material_ctx_base(gpu, ctx.pass_info, &DefaultPassDispatcher);
+    let (res, mut base, models) =
+      scene.create_material_ctx_base_and_models(gpu, ctx.pass_info, &DefaultPassDispatcher);
 
-    scene.models.iter_mut().for_each(|model| {
+    models.iter_mut().for_each(|model| {
       model.update(gpu, &mut base, res);
     });
   }

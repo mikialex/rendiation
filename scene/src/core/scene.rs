@@ -59,7 +59,7 @@ impl Scene {
     self.resources.content.maintain();
   }
 
-  pub fn create_material_ctx_base<'a>(
+  pub fn create_material_ctx_base_and_models<'a>(
     &'a mut self,
     gpu: &GPU,
     pass_info: &'a RenderPassInfo,
@@ -67,6 +67,7 @@ impl Scene {
   ) -> (
     &'a mut GPUResourceSceneCache,
     SceneMaterialRenderPrepareCtxBase<'a>,
+    &'a mut Vec<Box<dyn SceneRenderable>>,
   ) {
     let camera = self
       .active_camera
@@ -82,7 +83,21 @@ impl Scene {
         resources: &mut self.resources.content,
         pass,
       },
+      &mut self.models,
     )
+  }
+
+  pub fn create_material_ctx_base<'a>(
+    &'a mut self,
+    gpu: &GPU,
+    pass_info: &'a RenderPassInfo,
+    pass: &'a dyn PassDispatcher,
+  ) -> (
+    &'a mut GPUResourceSceneCache,
+    SceneMaterialRenderPrepareCtxBase<'a>,
+  ) {
+    let (a, b, c) = self.create_material_ctx_base_and_models(gpu, pass_info, pass);
+    (a, b)
   }
 }
 
