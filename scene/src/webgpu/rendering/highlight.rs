@@ -141,6 +141,7 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
           binding: 2,
           resource: scene
             .resources
+            .content
             .samplers
             .retrieve(&gpu.device, &TextureSampler::default())
             .as_bindable(),
@@ -157,11 +158,12 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
 
     self.pipeline = scene
       .resources
+      .content
       .pipeline_resource
       .get_or_insert_with(hasher, || {
         HighLighter::build_pipeline(
           &gpu.device,
-          &scene.resources.layouts,
+          &scene.resources.content.layouts,
           &pass_info.format_info,
         )
       })
@@ -251,10 +253,11 @@ where
   T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
 {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
-    let mut base = scene.create_material_ctx_base(gpu, ctx.pass_info, &HighLightMaskDispatcher);
+    let (res, mut base) =
+      scene.create_material_ctx_base(gpu, ctx.pass_info, &HighLightMaskDispatcher);
 
     for model in self.objects {
-      model.update(gpu, &mut base);
+      model.update(gpu, &mut base, res);
     }
   }
 
@@ -264,6 +267,7 @@ where
         pass,
         scene
           .resources
+          .content
           .cameras
           .expect_gpu(scene.active_camera.as_ref().unwrap()),
         &scene.resources,

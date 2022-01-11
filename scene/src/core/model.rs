@@ -9,7 +9,7 @@ pub struct MeshModel<Me, Ma> {
   pub inner: Rc<RefCell<MeshModelImpl<Me, Ma>>>,
 }
 
-impl<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static> MeshModel<Me, Ma> {
+impl<Ma: MaterialCPUResource + 'static, Me: WebGPUMesh + 'static> MeshModel<Me, Ma> {
   // todo add type constraint
   pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     let inner = MeshModelImpl::new(material, mesh, node);
@@ -29,18 +29,6 @@ pub struct MeshModelImpl<Me, Ma> {
 impl<Me, Ma> MeshModelImpl<Me, Ma> {
   // todo add type constraint
   pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
-    Self {
-      material,
-      mesh,
-      group: Default::default(),
-      node,
-    }
-  }
-}
-
-impl<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static> MeshModelImpl<Me, Ma> {
-  // todo add type constraint
-  pub fn new_typed(material: Ma, mesh: Me, node: SceneNode) -> Self {
     Self {
       material,
       mesh,

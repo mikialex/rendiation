@@ -56,7 +56,7 @@ impl Scene {
       node_data.hierarchy_update(parent.map(|p| p.data()).map(|d| d.deref()));
       NextTraverseVisit::VisitChildren
     });
-    self.resources.maintain();
+    self.resources.content.maintain();
   }
 
   pub fn create_material_ctx_base<'a>(
@@ -64,19 +64,25 @@ impl Scene {
     gpu: &GPU,
     pass_info: &'a RenderPassInfo,
     pass: &'a dyn PassDispatcher,
-  ) -> SceneMaterialRenderPrepareCtxBase<'a> {
+  ) -> (
+    &'a mut GPUResourceSceneCache,
+    SceneMaterialRenderPrepareCtxBase<'a>,
+  ) {
     let camera = self
       .active_camera
       .as_mut()
       .unwrap_or(&mut self.default_camera);
-    self.resources.cameras.check_update_gpu(camera, gpu);
+    self.resources.content.cameras.check_update_gpu(camera, gpu);
 
-    SceneMaterialRenderPrepareCtxBase {
-      camera,
-      pass_info,
-      resources: &mut self.resources,
-      pass,
-    }
+    (
+      &mut self.resources.scene,
+      SceneMaterialRenderPrepareCtxBase {
+        camera,
+        pass_info,
+        resources: &mut self.resources.content,
+        pass,
+      },
+    )
   }
 }
 

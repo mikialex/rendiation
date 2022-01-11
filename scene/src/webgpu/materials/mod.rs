@@ -105,7 +105,7 @@ pub trait MaterialGPUResource: Sized {
 
 type MaterialResourceMapper<T> = ResourceMapper<MaterialWebGPUResource<T>, T>;
 
-impl GPUResourceCache {
+impl GPUResourceSceneCache {
   pub fn update_material<M: MaterialCPUResource>(
     &mut self,
     m: &mut ResourceWrapped<M>,
@@ -275,7 +275,7 @@ pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub camera: &'a SceneCamera,
   pub pass_info: &'a RenderPassInfo,
   pub pass: &'a dyn PassDispatcher,
-  pub resources: &'a mut GPUResourceCache,
+  pub resources: &'a mut GPUResourceSubCache,
 }
 
 impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
@@ -300,50 +300,50 @@ pub struct PipelineCreateCtx<'a, 'b> {
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {
-  pub resources: &'a GPUResourceCache,
+  pub resources: &'a GPUResourceSubCache,
   pub model_gpu: Option<&'a TransformGPU>,
   pub camera_gpu: &'a CameraBindgroup,
 }
 
-pub trait WebGPUMaterial {
-  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
-  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
+// pub trait WebGPUMaterial {
+//   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
+//   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
 
-  /// this is to decide if could be picked by cpu side trivially.
-  fn is_keep_mesh_shape(&self) -> bool;
+//   /// this is to decide if could be picked by cpu side trivially.
+//   fn is_keep_mesh_shape(&self) -> bool;
 
-  /// this is to decide whether need or not sort.
-  fn is_transparent(&self) -> bool;
+//   /// this is to decide whether need or not sort.
+//   fn is_transparent(&self) -> bool;
 
-  fn as_any(&self) -> &dyn Any;
-  fn as_any_mut(&mut self) -> &mut dyn Any;
-}
+//   fn as_any(&self) -> &dyn Any;
+//   fn as_any_mut(&mut self) -> &mut dyn Any;
+// }
 
-impl WebGPUMaterial for Box<dyn WebGPUMaterial> {
-  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
-    self.as_mut().update(gpu, ctx)
-  }
+// impl WebGPUMaterial for Box<dyn WebGPUMaterial> {
+//   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
+//     self.as_mut().update(gpu, ctx)
+//   }
 
-  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
-    self.as_ref().setup_pass(pass, ctx)
-  }
+//   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
+//     self.as_ref().setup_pass(pass, ctx)
+//   }
 
-  fn is_keep_mesh_shape(&self) -> bool {
-    self.as_ref().is_keep_mesh_shape()
-  }
+//   fn is_keep_mesh_shape(&self) -> bool {
+//     self.as_ref().is_keep_mesh_shape()
+//   }
 
-  fn is_transparent(&self) -> bool {
-    self.as_ref().is_transparent()
-  }
+//   fn is_transparent(&self) -> bool {
+//     self.as_ref().is_transparent()
+//   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
+//   fn as_any(&self) -> &dyn Any {
+//     self
+//   }
 
-  fn as_any_mut(&mut self) -> &mut dyn Any {
-    self
-  }
-}
+//   fn as_any_mut(&mut self) -> &mut dyn Any {
+//     self
+//   }
+// }
 
 // impl<T> WebGPUMaterial for MaterialCellImpl<T>
 // where

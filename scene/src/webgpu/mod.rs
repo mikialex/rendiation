@@ -36,7 +36,12 @@ use rendiation_webgpu::*;
 use crate::{ResourceMapper, TextureCubeSource};
 
 pub trait SceneRenderable {
-  fn update(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtxBase);
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtxBase,
+    res: &mut GPUResourceSceneCache,
+  );
 
   fn setup_pass<'a>(
     &self,
@@ -54,12 +59,22 @@ pub trait SceneRenderable {
   }
 }
 
-/// GPU cache container for given scene
+#[derive(Default)]
 pub struct GPUResourceCache {
-  pub cameras: CameraGPU,
-  pub nodes: NodeGPU,
+  pub scene: GPUResourceSceneCache,
+  pub content: GPUResourceSubCache,
+}
+
+#[derive(Default)]
+pub struct GPUResourceSceneCache {
   pub materials: HashMap<TypeId, Box<dyn Any>>,
   pub meshes: HashMap<TypeId, Box<dyn Any>>,
+}
+
+/// GPU cache container for given scene
+pub struct GPUResourceSubCache {
+  pub cameras: CameraGPU,
+  pub nodes: NodeGPU,
   pub texture_2ds: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_cubes: ResourceMapper<WebGPUTextureCube, TextureCubeSource>,
   pub samplers: SamplerCache<TextureSampler>,
@@ -68,21 +83,19 @@ pub struct GPUResourceCache {
   pub custom_storage: AnyMap,
 }
 
-impl GPUResourceCache {
+impl GPUResourceSubCache {
   pub fn maintain(&mut self) {
     self.cameras.maintain();
   }
 }
 
-impl Default for GPUResourceCache {
+impl Default for GPUResourceSubCache {
   fn default() -> Self {
     Self {
       texture_2ds: Default::default(),
       texture_cubes: Default::default(),
       cameras: Default::default(),
       samplers: Default::default(),
-      materials: Default::default(),
-      meshes: Default::default(),
       pipeline_resource: Default::default(),
       layouts: Default::default(),
       custom_storage: AnyMap::new(),

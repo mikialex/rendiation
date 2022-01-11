@@ -4,7 +4,7 @@ use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
-use crate::{GPUResourceCache, ResourceMapper, SceneNode, SceneNodeData, SceneNodeDataImpl};
+use crate::{GPUResourceSubCache, ResourceMapper, SceneNode, SceneNodeData, SceneNodeDataImpl};
 
 #[derive(Default)]
 pub struct NodeGPU {
@@ -12,7 +12,7 @@ pub struct NodeGPU {
 }
 
 impl SceneNode {
-  pub fn check_update_gpu(&self, resources: &mut GPUResourceCache, gpu: &GPU) {
+  pub fn check_update_gpu(&self, resources: &mut GPUResourceSubCache, gpu: &GPU) {
     self.mutate(|node| {
       resources.nodes.check_update_gpu(node, gpu);
     });

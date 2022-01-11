@@ -31,7 +31,7 @@ impl SceneRenderable for SolidBackground {
     &self,
     _pass: &mut SceneRenderPass<'a>,
     _camera_gpu: &CameraBindgroup,
-    _pipeline_resource: &GPUResourceCache,
+    _pipeline_resource: &GPUResourceSubCache,
   ) {
   }
 }
@@ -80,7 +80,7 @@ where
     &self,
     pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceCache,
+    resources: &GPUResourceSubCache,
   ) {
     self.root.visit(|node| {
       let model_gpu = resources.nodes.get_unwrap(node).into();

@@ -6,7 +6,7 @@ use crate::*;
 pub trait MaterialBindableResourceUpdate {
   fn update<'a>(
     &self,
-    resources: &'a mut GPUResourceCache,
+    resources: &'a mut GPUResourceSubCache,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a>;
@@ -15,7 +15,7 @@ pub trait MaterialBindableResourceUpdate {
 impl MaterialBindableResourceUpdate for SceneTexture2D {
   fn update<'a>(
     &self,
-    resources: &'a mut GPUResourceCache,
+    resources: &'a mut GPUResourceSubCache,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a> {
@@ -39,7 +39,7 @@ impl MaterialBindableResourceUpdate for SceneTexture2D {
 impl MaterialBindableResourceUpdate for SceneTextureCube {
   fn update<'a>(
     &self,
-    resources: &'a mut GPUResourceCache,
+    resources: &'a mut GPUResourceSubCache,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a> {

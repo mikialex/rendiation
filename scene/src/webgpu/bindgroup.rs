@@ -59,7 +59,7 @@ pub struct MaterialBindGroupBuilder<'a, 'b> {
   queue: &'a wgpu::Queue,
   bindings: Vec<wgpu::BindingResource<'b>>,
   dirty_notifier: Rc<BindGroupDirtyWatcher>,
-  resources: &'a mut GPUResourceCache,
+  resources: &'a mut GPUResourceSubCache,
 }
 
 impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
@@ -75,7 +75,7 @@ impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
 impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
   pub fn new(
     gpu: &'a GPU,
-    resources: &'a mut GPUResourceCache,
+    resources: &'a mut GPUResourceSubCache,
     watcher: Rc<BindGroupDirtyWatcher>,
   ) -> Self {
     MaterialBindGroupBuilder {
