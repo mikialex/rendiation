@@ -1,15 +1,19 @@
 use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
+use rendiation_geometry::{Nearest, Ray3};
+use rendiation_renderable_mesh::mesh::{
+  IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
+};
 use rendiation_webgpu::GPU;
 
 use crate::*;
 
-pub type SceneFatlineMaterial = MaterialCell<SceneMaterial<FatLineMaterial>>;
+pub type SceneFatlineMaterial = MaterialInner<SceneMaterial<FatLineMaterial>>;
 
 pub type FatlineImpl = MeshModelImpl<FatlineMeshCellImpl, SceneFatlineMaterial>;
 
-impl SceneRenderable for MeshModel {
+impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma> {
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let mut inner = self.inner.borrow_mut();
     inner.update(gpu, base)
@@ -23,6 +27,14 @@ impl SceneRenderable for MeshModel {
   ) {
     let inner = self.inner.borrow();
     inner.setup_pass(pass, camera_gpu, resources)
+  }
+
+  fn ray_pick_nearest(
+    &self,
+    world_ray: &Ray3,
+    conf: &MeshBufferIntersectConfig,
+  ) -> Option<Nearest<MeshBufferHitPoint>> {
+    self.inner.borrow().ray_pick_nearest(world_ray, conf)
   }
 }
 
@@ -73,6 +85,27 @@ impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for MeshModelImpl<Me, M
 
       mesh.setup_pass_and_draw(pass, self.group);
     });
+  }
+
+  fn ray_pick_nearest(
+    &self,
+    world_ray: &Ray3,
+    conf: &MeshBufferIntersectConfig,
+  ) -> Option<Nearest<MeshBufferHitPoint>> {
+    let world_inv = self.node.visit(|n| n.world_matrix).inverse_or_identity();
+
+    let local_ray = world_ray.clone().apply_matrix_into(world_inv);
+
+    if !self.material.is_keep_mesh_shape() {
+      return None;
+    }
+
+    let mesh = &self.mesh;
+    let mut picked = None;
+    mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
+      picked = mesh.intersect_nearest(local_ray, conf, self.group).into();
+    });
+    picked
   }
 }
 

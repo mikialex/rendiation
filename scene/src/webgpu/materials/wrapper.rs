@@ -106,7 +106,7 @@ where
   type GPU = SceneMaterialGPU<T::GPU>;
 
   fn create(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,

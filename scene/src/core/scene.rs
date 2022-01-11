@@ -17,7 +17,7 @@ pub struct Scene {
   pub active_camera: Option<SceneCamera>,
   pub cameras: Arena<SceneCamera>,
   pub lights: Arena<SceneLight>,
-  pub models: Vec<MeshModel>,
+  pub models: Vec<Box<dyn SceneRenderable>>,
 
   nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
   pub root: SceneNode,

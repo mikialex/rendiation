@@ -5,17 +5,13 @@ use rendiation_renderable_mesh::group::MeshDrawGroup;
 use crate::*;
 
 #[derive(Clone)]
-pub struct MeshModel {
-  pub inner: Rc<RefCell<MeshModelImpl>>,
+pub struct MeshModel<Me, Ma> {
+  pub inner: Rc<RefCell<MeshModelImpl<Me, Ma>>>,
 }
 
-impl MeshModel {
+impl<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static> MeshModel<Me, Ma> {
   // todo add type constraint
-  pub fn new<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static>(
-    material: Ma,
-    mesh: Me,
-    node: SceneNode,
-  ) -> Self {
+  pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     let inner = MeshModelImpl::new(material, mesh, node);
     Self {
       inner: Rc::new(RefCell::new(inner)),
@@ -23,23 +19,19 @@ impl MeshModel {
   }
 }
 
-pub struct MeshModelImpl<Me = Box<dyn WebGPUMesh>, Ma = Box<dyn WebGPUMaterial>> {
+pub struct MeshModelImpl<Me, Ma> {
   pub material: Ma,
   pub mesh: Me,
   pub group: MeshDrawGroup,
   pub node: SceneNode,
 }
 
-impl MeshModelImpl {
+impl<Me, Ma> MeshModelImpl<Me, Ma> {
   // todo add type constraint
-  pub fn new<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static>(
-    material: Ma,
-    mesh: Me,
-    node: SceneNode,
-  ) -> Self {
+  pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     Self {
-      material: Box::new(material),
-      mesh: Box::new(mesh),
+      material,
+      mesh,
       group: Default::default(),
       node,
     }

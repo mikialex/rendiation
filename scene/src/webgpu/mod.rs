@@ -27,6 +27,8 @@ pub mod model_collection;
 pub use model_collection::*;
 
 use anymap::AnyMap;
+use rendiation_geometry::{Nearest, Ray3};
+use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
 use rendiation_texture::TextureSampler;
 
 use rendiation_webgpu::*;
@@ -42,6 +44,14 @@ pub trait SceneRenderable {
     camera_gpu: &CameraBindgroup,
     resources: &GPUResourceCache,
   );
+
+  fn ray_pick_nearest(
+    &self,
+    world_ray: &Ray3,
+    conf: &MeshBufferIntersectConfig,
+  ) -> Option<Nearest<MeshBufferHitPoint>> {
+    None
+  }
 }
 
 /// GPU cache container for given scene

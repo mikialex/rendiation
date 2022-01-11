@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use rendiation_algebra::*;
 use rendiation_geometry::Nearest;
-use rendiation_renderable_mesh::mesh::{IntersectAbleGroupedMesh, MeshBufferIntersectConfig};
+use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 
 use crate::*;
 
@@ -11,7 +11,7 @@ impl Scene {
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<&MeshModel> {
+  ) -> Option<&Box<dyn SceneRenderable>> {
     let mut result = Vec::new();
 
     let camera = self.active_camera.as_ref().unwrap();
@@ -21,22 +21,10 @@ impl Scene {
       .apply_matrix_into(camera_world_mat);
 
     for m in self.models.iter() {
-      let model = m.inner.borrow();
-      let world_inv = model.node.visit(|n| n.world_matrix).inverse_or_identity(); // todo support view scale mesh
-
-      let local_ray = world_ray.clone().apply_matrix_into(world_inv);
-
-      if !model.material.is_keep_mesh_shape() {
-        continue;
+      if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
+        println!("pick");
+        result.push((m, r));
       }
-
-      let mesh = &model.mesh;
-      mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-        if let Nearest(Some(r)) = mesh.intersect_nearest(local_ray, conf, model.group) {
-          println!("pick");
-          result.push((m, r));
-        }
-      });
     }
 
     result.sort_by(|(_, a), (_, b)| {

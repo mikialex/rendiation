@@ -420,41 +420,41 @@ impl WebGPUMaterial for Box<dyn WebGPUMaterial> {
 //   }
 // }
 
-impl<T> WebGPUMaterial for MaterialCell<T>
-where
-  T: 'static,
-  T: MaterialCPUResource,
-  T::GPU: MaterialGPUResource<Source = T>,
-{
-  fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
-    let mut inner = self.inner.borrow_mut();
-    inner.update(gpu, ctx)
-  }
+// impl<T> WebGPUMaterial for MaterialCell<T>
+// where
+//   T: 'static,
+//   T: MaterialCPUResource,
+//   T::GPU: MaterialGPUResource<Source = T>,
+// {
+//   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
+//     let mut inner = self.inner.borrow_mut();
+//     inner.update(gpu, ctx)
+//   }
 
-  fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
-    let inner = self.inner.borrow();
-    inner.setup_pass(pass, ctx)
-  }
+//   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
+//     let inner = self.inner.borrow();
+//     inner.setup_pass(pass, ctx)
+//   }
 
-  fn is_keep_mesh_shape(&self) -> bool {
-    let inner = self.inner.borrow();
-    inner.is_keep_mesh_shape()
-  }
+//   fn is_keep_mesh_shape(&self) -> bool {
+//     let inner = self.inner.borrow();
+//     inner.is_keep_mesh_shape()
+//   }
 
-  fn is_transparent(&self) -> bool {
-    let inner = self.inner.borrow();
-    inner.is_transparent()
-  }
+//   fn is_transparent(&self) -> bool {
+//     let inner = self.inner.borrow();
+//     inner.is_transparent()
+//   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
+//   fn as_any(&self) -> &dyn Any {
+//     self
+//   }
 
-  fn as_any_mut(&mut self) -> &mut dyn Any {
-    {
-      let mut inner = self.inner.borrow_mut();
-      inner.as_any_mut();
-    }
-    self
-  }
-}
+//   fn as_any_mut(&mut self) -> &mut dyn Any {
+//     {
+//       let mut inner = self.inner.borrow_mut();
+//       inner.as_any_mut();
+//     }
+//     self
+//   }
+// }

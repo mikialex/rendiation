@@ -4,7 +4,7 @@ use crate::*;
 
 #[derive(Default)]
 pub struct RenderList {
-  pub(crate) models: Vec<MeshModel>,
+  pub(crate) models: Vec<Box<dyn SceneRenderable>>,
 }
 
 impl RenderList {

@@ -47,7 +47,7 @@ fn build_mesh() -> BackgroundMesh {
 
 pub struct DrawableBackground<S: MaterialCPUResource> {
   mesh: MeshCellImpl<BackgroundMesh>,
-  pub shading: MaterialCell<S>,
+  pub shading: MaterialInner<S>,
   root: SceneNode,
 }
 

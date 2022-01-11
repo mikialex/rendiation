@@ -1,8 +1,8 @@
 use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
-  full_screen_vertex_shader, AttachmentOwnedReadView, MeshModel, PassContent, PassDispatcher,
-  PassGPUData, PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
+  full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, PassDispatcher, PassGPUData,
+  PassUpdateCtx, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
 };
 
 use rendiation_algebra::*;
@@ -248,13 +248,12 @@ impl PassDispatcher for HighLightMaskDispatcher {
 
 impl<'i, T> PassContent for HighLightDrawMaskTask<T>
 where
-  T: IntoIterator<Item = &'i MeshModel> + Copy,
+  T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
 {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     let mut base = scene.create_material_ctx_base(gpu, ctx.pass_info, &HighLightMaskDispatcher);
 
     for model in self.objects {
-      let mut model = model.inner.borrow_mut();
       model.update(gpu, &mut base);
     }
   }
