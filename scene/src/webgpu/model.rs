@@ -18,9 +18,14 @@ where
   Me: WebGPUMesh,
   Ma: MaterialCPUResource,
 {
-  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    base: &mut SceneMaterialRenderPrepareCtxBase,
+    res: &mut GPUResourceSceneCache,
+  ) {
     let mut inner = self.inner.borrow_mut();
-    inner.update(gpu, base)
+    inner.update(gpu, base, res)
   }
 
   fn setup_pass<'a>(
@@ -74,7 +79,7 @@ where
       active_mesh: mesh_dyn.into(),
     };
 
-    material.update(gpu, &mut ctx);
+    res.update_material(material, gpu, &mut ctx);
 
     mesh.update(gpu, &mut base.resources.custom_storage);
   }
@@ -83,21 +88,20 @@ where
     &self,
     pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceSubCache,
-    res_scene: &GPUResourceSceneCache,
+    resources: &GPUResourceCache,
   ) {
     let material = &self.material;
     let mesh = &self.mesh;
 
     self.node.visit(|node| {
+      let model_gpu = resources.content.nodes.get_unwrap(node).into();
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
-        model_gpu: resources.nodes.get_unwrap(node).into(),
-        resources,
+        model_gpu,
+        resources: &resources.content,
       };
-      material.setup_pass(pass, &ctx);
-
-      mesh.setup_pass_and_draw(pass, self.group);
+      resources.scene.setup_material(material, pass, &ctx);
+      self.mesh.setup_pass_and_draw(pass, self.group);
     });
   }
 
@@ -158,7 +162,12 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
 }
 
 impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
-  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    base: &mut SceneMaterialRenderPrepareCtxBase,
+    res: &mut GPUResourceSceneCache,
+  ) {
     let inner = &mut self.inner;
     let material = &mut inner.material;
     let mesh = &mut inner.mesh;
@@ -180,7 +189,7 @@ impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMes
       active_mesh: mesh_dyn.into(),
     };
 
-    material.update(gpu, &mut ctx);
+    res.update_material(material, gpu, &mut ctx);
 
     mesh.update(gpu, &mut base.resources.custom_storage);
   }
@@ -189,7 +198,7 @@ impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMes
     &self,
     pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceSubCache,
+    resources: &GPUResourceCache,
   ) {
     let material = &self.material;
     let mesh = &self.mesh;
@@ -197,11 +206,10 @@ impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMes
     let ctx = SceneMaterialPassSetupCtx {
       camera_gpu,
       model_gpu: self.override_gpu.as_ref(),
-      resources,
+      resources: &resources.content,
     };
-    material.setup_pass(pass, &ctx);
-
-    mesh.setup_pass_and_draw(pass, self.group);
+    resources.scene.setup_material(material, pass, &ctx);
+    self.mesh.setup_pass_and_draw(pass, self.group);
   }
 }
 

@@ -27,6 +27,7 @@ pub fn copy_frame(source: AttachmentOwnedReadView<wgpu::TextureFormat>) -> CopyF
 
 impl PassContent for CopyFrame {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
+    let resources = &mut scene.resources.content;
     let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
       layout: &Self::layout(&gpu.device),
       entries: &[
@@ -36,8 +37,7 @@ impl PassContent for CopyFrame {
         },
         wgpu::BindGroupEntry {
           binding: 1,
-          resource: scene
-            .resources
+          resource: resources
             .samplers
             .retrieve(&gpu.device, &TextureSampler::default())
             .as_bindable(),
@@ -54,8 +54,7 @@ impl PassContent for CopyFrame {
     TypeId::of::<Self>().hash(&mut hasher);
     pass_info.format_info.hash(&mut hasher);
 
-    self.pipeline = scene
-      .resources
+    self.pipeline = resources
       .pipeline_resource
       .get_or_insert_with(hasher, || {
         let mut builder = PipelineBuilder::default();
@@ -67,7 +66,7 @@ impl PassContent for CopyFrame {
         );
 
         builder
-          .with_layout::<Self>(&scene.resources.layouts, &gpu.device)
+          .with_layout::<Self>(&resources.layouts, &gpu.device)
           .include_fragment_entry(
             "
           [[stage(fragment)]]

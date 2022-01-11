@@ -166,7 +166,7 @@ impl GPUResourceSceneCache {
   }
 
   pub fn setup_material<'a, M: MaterialCPUResource>(
-    &'a self,
+    &self,
     m: &ResourceWrapped<M>,
     pass: &mut GPURenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx,
@@ -176,7 +176,7 @@ impl GPUResourceSceneCache {
       .materials
       .get(&type_id)
       .unwrap()
-      .downcast_mut::<MaterialResourceMapper<M>>()
+      .downcast_ref::<MaterialResourceMapper<M>>()
       .unwrap()
       .get_unwrap(m);
     let gpu = gpu_m.gpu.as_ref().unwrap();

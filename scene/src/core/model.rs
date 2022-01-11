@@ -20,7 +20,7 @@ impl<Ma: MaterialCPUResource + 'static, Me: WebGPUMesh + 'static> MeshModel<Me, 
 }
 
 pub struct MeshModelImpl<Me, Ma> {
-  pub material: Ma,
+  pub material: MaterialInner<Ma>,
   pub mesh: Me,
   pub group: MeshDrawGroup,
   pub node: SceneNode,
@@ -30,7 +30,7 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   // todo add type constraint
   pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     Self {
-      material,
+      material: material.into(),
       mesh,
       group: Default::default(),
       node,

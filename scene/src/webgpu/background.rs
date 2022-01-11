@@ -25,13 +25,19 @@ impl Background for SolidBackground {
 }
 
 impl SceneRenderable for SolidBackground {
-  fn update(&mut self, _gpu: &GPU, _ctx: &mut SceneMaterialRenderPrepareCtxBase) {}
+  fn update(
+    &mut self,
+    _gpu: &GPU,
+    _ctx: &mut SceneMaterialRenderPrepareCtxBase,
+    _res: &mut GPUResourceSceneCache,
+  ) {
+  }
 
   fn setup_pass<'a>(
     &self,
     _pass: &mut SceneRenderPass<'a>,
     _camera_gpu: &CameraBindgroup,
-    _pipeline_resource: &GPUResourceSubCache,
+    _pipeline_resource: &GPUResourceCache,
   ) {
   }
 }
@@ -64,7 +70,12 @@ impl<S> SceneRenderable for DrawableBackground<S>
 where
   S: MaterialCPUResource,
 {
-  fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    base: &mut SceneMaterialRenderPrepareCtxBase,
+    res: &mut GPUResourceSceneCache,
+  ) {
     self.root.check_update_gpu(base.resources, gpu);
 
     self.mesh.update(gpu, &mut base.resources.custom_storage);
@@ -73,23 +84,24 @@ where
       base,
       active_mesh: None,
     };
-    self.shading.update(gpu, &mut ctx);
+
+    res.update_material(&mut self.shading, gpu, &mut ctx);
   }
 
   fn setup_pass<'a>(
     &self,
     pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceSubCache,
+    resources: &GPUResourceCache,
   ) {
     self.root.visit(|node| {
-      let model_gpu = resources.nodes.get_unwrap(node).into();
+      let model_gpu = resources.content.nodes.get_unwrap(node).into();
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
         model_gpu,
-        resources,
+        resources: &resources.content,
       };
-      self.shading.setup_pass(pass, &ctx);
+      resources.scene.setup_material(&self.shading, pass, &ctx);
       self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);
     });
   }

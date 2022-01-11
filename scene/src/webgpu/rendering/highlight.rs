@@ -122,6 +122,7 @@ impl BindGroupLayoutProvider for HighLighter {
 
 impl<'x> PassContent for HighLightComposeTask<'x> {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
+    let resources = &mut scene.resources.content;
     self.lighter.data.update(&gpu.queue);
 
     let pass_info = ctx.pass_info;
@@ -139,9 +140,7 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
         },
         wgpu::BindGroupEntry {
           binding: 2,
-          resource: scene
-            .resources
-            .content
+          resource: resources
             .samplers
             .retrieve(&gpu.device, &TextureSampler::default())
             .as_bindable(),
@@ -156,16 +155,10 @@ impl<'x> PassContent for HighLightComposeTask<'x> {
     TypeId::of::<HighLighter>().hash(&mut hasher);
     pass_info.format_info.hash(&mut hasher);
 
-    self.pipeline = scene
-      .resources
-      .content
+    self.pipeline = resources
       .pipeline_resource
       .get_or_insert_with(hasher, || {
-        HighLighter::build_pipeline(
-          &gpu.device,
-          &scene.resources.content.layouts,
-          &pass_info.format_info,
-        )
+        HighLighter::build_pipeline(&gpu.device, &resources.layouts, &pass_info.format_info)
       })
       .clone()
       .into();
@@ -250,7 +243,7 @@ impl PassDispatcher for HighLightMaskDispatcher {
 
 impl<'i, T> PassContent for HighLightDrawMaskTask<T>
 where
-  T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
+  T: IntoIterator<Item = &'i mut dyn SceneRenderable> + Copy,
 {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     let (res, mut base) =
