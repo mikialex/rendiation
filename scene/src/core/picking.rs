@@ -11,7 +11,7 @@ impl Scene {
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<&Box<dyn SceneRenderable>> {
+  ) -> Option<&dyn SceneRenderable> {
     let mut result = Vec::new();
 
     let camera = self.active_camera.as_ref().unwrap();
@@ -34,6 +34,6 @@ impl Scene {
         .unwrap_or(Ordering::Less)
     });
 
-    result.first().map(|r| r.0)
+    result.first().map(|r| r.0.as_ref())
   }
 }

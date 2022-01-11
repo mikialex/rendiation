@@ -52,8 +52,8 @@ pub trait SceneRenderable {
 
   fn ray_pick_nearest(
     &self,
-    world_ray: &Ray3,
-    conf: &MeshBufferIntersectConfig,
+    _world_ray: &Ray3,
+    _conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
     None
   }

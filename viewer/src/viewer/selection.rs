@@ -26,7 +26,7 @@ impl Picker {
 
 #[derive(Default)]
 pub struct SelectionSet {
-  pub selected: HashMap<*const MeshModelImpl, MeshModel>,
+  pub selected: HashMap<usize, MeshModel>,
 }
 
 impl<'a> IntoIterator for &'a mut SelectionSet {

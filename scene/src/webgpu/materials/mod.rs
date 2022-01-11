@@ -120,19 +120,26 @@ impl GPUResourceSceneCache {
       .downcast_mut::<MaterialResourceMapper<M>>()
       .unwrap();
 
-    mapper.get_update_or_insert_with(
-      m,
-      |m| {
+    mapper.get_update_or_insert_with_logic(m, |x| match x {
+      ResourceLogic::Create(m) => {
         let mut gpu_m = MaterialWebGPUResource::<M>::default();
         gpu_m.gpu = M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher).into();
-        gpu_m
-      },
-      |gpu_m, m| {
-        let m_gpu = gpu_m.gpu.as_mut().unwrap();
-        if m_gpu.update(m, gpu, ctx, &gpu_m.bindgroup_watcher) {
-          gpu_m.gpu = M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher).into();
+        ResourceLogicResult::Create(gpu_m)
+      }
+      ResourceLogic::Update(gpu_m, m) => {
+        if gpu_m
+          .gpu
+          .as_mut()
+          .unwrap()
+          .update(m, gpu, ctx, &gpu_m.bindgroup_watcher)
+        {
+          gpu_m
+            .gpu
+            .replace(M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher));
         }
+
         gpu_m.refresh_cache();
+        let m_gpu = gpu_m.gpu.as_mut().unwrap();
 
         let topology = ctx.active_mesh.unwrap().topology();
         let sample_count = ctx.pass_info.format_info.sample_count;
@@ -160,8 +167,10 @@ impl GPUResourceSceneCache {
           })
           .clone()
           .into();
-      },
-    );
+
+        ResourceLogicResult::Update(gpu_m)
+      }
+    });
   }
 
   pub fn setup_material<'a, M: MaterialCPUResource>(
@@ -187,7 +196,7 @@ impl GPUResourceSceneCache {
 }
 
 pub struct MaterialWebGPUResource<T: MaterialCPUResource> {
-  last_material: Option<T>, // todo
+  _last_material: Option<T>, // todo
   bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
 
   current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
@@ -203,7 +212,7 @@ impl<T: MaterialCPUResource> MaterialWebGPUResource<T> {
 impl<T: MaterialCPUResource> Default for MaterialWebGPUResource<T> {
   fn default() -> Self {
     Self {
-      last_material: Default::default(),
+      _last_material: Default::default(),
       bindgroup_watcher: Default::default(),
       current_pipeline: Default::default(),
       gpu: Default::default(),

@@ -91,7 +91,6 @@ where
     resources: &GPUResourceCache,
   ) {
     let material = &self.material;
-    let mesh = &self.mesh;
 
     self.node.visit(|node| {
       let model_gpu = resources.content.nodes.get_unwrap(node).into();
@@ -201,7 +200,6 @@ impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMes
     resources: &GPUResourceCache,
   ) {
     let material = &self.material;
-    let mesh = &self.mesh;
 
     let ctx = SceneMaterialPassSetupCtx {
       camera_gpu,

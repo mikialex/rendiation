@@ -31,10 +31,6 @@ impl<T> ResourceWrapped<T> {
     }
   }
 
-  fn get_mut_inner(&mut self) -> &mut T {
-    &mut self.inner
-  }
-
   pub fn trigger_change(&mut self) {
     let mut to_drop = Vec::with_capacity(0);
     self.watchers.iter_mut().for_each(|(h, w)| {
@@ -103,11 +99,62 @@ impl<T, U> Default for ResourceMapper<T, U> {
   }
 }
 
-impl<T, U> ResourceMapper<T, U> {
+pub enum ResourceLogic<'a, 'b, T, U> {
+  Create(&'a U),
+  Update(&'b mut T, &'a U),
+}
+pub enum ResourceLogicResult<'a, T> {
+  Create(T),
+  Update(&'a mut T),
+}
+
+impl<'a, T> ResourceLogicResult<'a, T> {
+  pub fn unwrap_new(self) -> T {
+    match self {
+      ResourceLogicResult::Create(v) => v,
+      ResourceLogicResult::Update(_) => panic!(),
+    }
+  }
+
+  pub fn unwrap_update(self) -> &'a mut T {
+    match self {
+      ResourceLogicResult::Create(_) => panic!(),
+      ResourceLogicResult::Update(v) => v,
+    }
+  }
+}
+
+impl<T: 'static, U: 'static> ResourceMapper<T, U> {
   pub fn maintain(&mut self) {
     self.to_remove.borrow_mut().drain(..).for_each(|id| {
       self.data.remove(&id);
     });
+  }
+
+  /// this to bypass the borrow limits of get_update_or_insert_with
+  pub fn get_update_or_insert_with_logic<'a, 'b>(
+    &'b mut self,
+    source: &'a mut ResourceWrapped<U>,
+    mut logic: impl FnMut(ResourceLogic<'a, 'b, T, U>) -> ResourceLogicResult<'b, T>,
+  ) -> &'b mut T {
+    let mut new_created = false;
+    let mut resource = self.data.entry(source.id).or_insert_with(|| {
+      let item = logic(ResourceLogic::Create(&source.inner)).unwrap_new();
+      new_created = true;
+      source
+        .watchers
+        .insert(Box::new(ResourceWatcherWithAutoClean {
+          to_remove: self.to_remove.clone(),
+          changed: self.changed.clone(),
+        }));
+      item
+    });
+
+    if new_created || self.changed.borrow_mut().remove(&source.id) {
+      resource = logic(ResourceLogic::Update(resource, source)).unwrap_update();
+    }
+
+    resource
   }
 
   pub fn get_update_or_insert_with(
@@ -130,7 +177,7 @@ impl<T, U> ResourceMapper<T, U> {
     });
 
     if new_created || self.changed.borrow_mut().remove(&source.id) {
-      updater(resource, source.get_mut_inner())
+      updater(resource, source)
     }
 
     resource
