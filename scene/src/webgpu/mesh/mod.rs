@@ -32,28 +32,28 @@ pub trait WebGPUMesh {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
-// todo can we find macros todo this?
-impl WebGPUMesh for Box<dyn WebGPUMesh> {
-  fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
-    self.as_ref().setup_pass_and_draw(pass, group)
-  }
+// // todo can we find macros todo this?
+// impl WebGPUMesh for Box<dyn WebGPUMesh> {
+//   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+//     self.as_ref().setup_pass_and_draw(pass, group)
+//   }
 
-  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap) {
-    self.as_mut().update(gpu, storage)
-  }
+//   fn update(&mut self, gpu: &GPU, storage: &mut AnyMap) {
+//     self.as_mut().update(gpu, storage)
+//   }
 
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
-    self.as_ref().vertex_layout()
-  }
+//   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
+//     self.as_ref().vertex_layout()
+//   }
 
-  fn topology(&self) -> wgpu::PrimitiveTopology {
-    self.as_ref().topology()
-  }
+//   fn topology(&self) -> wgpu::PrimitiveTopology {
+//     self.as_ref().topology()
+//   }
 
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.as_ref().try_pick(f)
-  }
-}
+//   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+//     self.as_ref().try_pick(f)
+//   }
+// }
 
 pub struct MeshCellImpl<T> {
   data: T,

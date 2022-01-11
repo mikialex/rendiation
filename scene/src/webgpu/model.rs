@@ -13,7 +13,11 @@ pub type SceneFatlineMaterial = MaterialInner<SceneMaterial<FatLineMaterial>>;
 
 pub type FatlineImpl = MeshModelImpl<FatlineMeshCellImpl, SceneFatlineMaterial>;
 
-impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma> {
+impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
+where
+  Me: WebGPUMesh,
+  Ma: MaterialCPUResource,
+{
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let mut inner = self.inner.borrow_mut();
     inner.update(gpu, base)
@@ -48,7 +52,11 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for MeshModelImpl<Me, Ma> {
+impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
+where
+  Me: WebGPUMesh,
+  Ma: MaterialCPUResource,
+{
   fn update(&mut self, gpu: &GPU, base: &mut SceneMaterialRenderPrepareCtxBase) {
     let material = &mut self.material;
     let mesh = &mut self.mesh;
