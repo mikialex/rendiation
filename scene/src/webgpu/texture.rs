@@ -19,11 +19,11 @@ impl MaterialBindableResourceUpdate for SceneTexture2D {
     device: &wgpu::Device,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a> {
-    let mut texture = self.content.borrow_mut();
+    let texture = self.content.borrow();
     resources
       .texture_2ds
       .get_update_or_insert_with(
-        &mut texture,
+        &texture,
         |texture| {
           let source = texture.as_ref();
           let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
@@ -43,12 +43,12 @@ impl MaterialBindableResourceUpdate for SceneTextureCube {
     device: &wgpu::Device,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a> {
-    let mut texture = self.content.borrow_mut();
+    let texture = self.content.borrow();
 
     resources
       .texture_cubes
       .get_update_or_insert_with(
-        &mut texture,
+        &texture,
         |texture| {
           let source = texture.as_ref();
           let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);

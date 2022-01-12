@@ -99,7 +99,7 @@ impl GPUResourceSceneCache {
       .downcast_mut::<MaterialResourceMapper<M>>()
       .unwrap();
 
-    mapper.get_update_or_insert_with_logic(m, |x| match x {
+    let gpu_m = mapper.get_update_or_insert_with_logic(m, |x| match x {
       ResourceLogic::Create(m) => {
         let mut gpu_m = MaterialWebGPUResource::<M>::default();
         gpu_m.gpu = M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher).into();
@@ -118,38 +118,39 @@ impl GPUResourceSceneCache {
         }
 
         gpu_m.refresh_cache();
-        let m_gpu = gpu_m.gpu.as_mut().unwrap();
-
-        let topology = ctx.active_mesh.unwrap().topology();
-        let sample_count = ctx.pass_info.format_info.sample_count;
-
-        let mut hasher = Default::default();
-
-        type_id.hash(&mut hasher);
-        ctx.pass_info.format_info.hash(&mut hasher);
-
-        let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-
-        pipeline_ctx.pass.type_id().hash(&mut hasher);
-        m_gpu.hash_pipeline(m, &mut hasher);
-
-        gpu_m.current_pipeline = pipelines
-          .get_or_insert_with(hasher, || {
-            let mut builder = PipelineBuilder::default();
-
-            builder.primitive_state.topology = topology;
-            builder.multisample.count = sample_count;
-
-            m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
-            pipeline_ctx.pass.build_pipeline(&mut builder);
-            builder.build(&gpu.device)
-          })
-          .clone()
-          .into();
 
         ResourceLogicResult::Update(gpu_m)
       }
     });
+
+    let m_gpu = gpu_m.gpu.as_mut().unwrap();
+
+    let topology = ctx.active_mesh.unwrap().topology();
+    let sample_count = ctx.pass_info.format_info.sample_count;
+
+    let mut hasher = Default::default();
+
+    type_id.hash(&mut hasher);
+    ctx.pass_info.format_info.hash(&mut hasher);
+
+    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
+
+    pipeline_ctx.pass.type_id().hash(&mut hasher);
+    m_gpu.hash_pipeline(m, &mut hasher);
+
+    gpu_m.current_pipeline = pipelines
+      .get_or_insert_with(hasher, || {
+        let mut builder = PipelineBuilder::default();
+
+        builder.primitive_state.topology = topology;
+        builder.multisample.count = sample_count;
+
+        m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
+        pipeline_ctx.pass.build_pipeline(&mut builder);
+        builder.build(&gpu.device)
+      })
+      .clone()
+      .into();
   }
 
   pub fn setup_material<'a, M: MaterialCPUResource>(
