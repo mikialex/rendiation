@@ -16,8 +16,7 @@ impl<Me, Ma> Clone for MeshModel<Me, Ma> {
   }
 }
 
-impl<Ma: WebGPUMaterial + 'static, Me: WebGPUMesh + 'static> MeshModel<Me, Ma> {
-  // todo add type constraint
+impl<Ma, Me> MeshModel<Me, Ma> {
   pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     let inner = MeshModelImpl::new(material, mesh, node);
     Self {

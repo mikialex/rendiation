@@ -27,7 +27,9 @@ impl FatlineMesh {
 impl MeshCPUSource for FatlineMesh {
   type GPU = FatlineMeshGPU;
 
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {}
+  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {
+    *gpu_mesh = self.create(gpu, storage)
+  }
 
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU {
     let range_full = MeshGroup {
@@ -75,7 +77,7 @@ impl MeshCPUSource for FatlineMesh {
     wgpu::PrimitiveTopology::TriangleList
   }
 
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
+  fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 pub struct FatlineMeshGPU {

@@ -88,7 +88,7 @@ impl GPUResourceSceneCache {
   }
 }
 
-type MeshResourceMapper<T: MeshCPUSource> = ResourceMapper<T::GPU, T>;
+type MeshResourceMapper<T> = ResourceMapper<<T as MeshCPUSource>::GPU, T>;
 pub trait MeshCPUSource: Any {
   type GPU;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
@@ -159,11 +159,11 @@ where
 {
   type GPU = MeshGPU;
 
-  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {
+  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, _: &mut AnyMap) {
     self.deref().update(gpu_mesh, &gpu.device);
   }
 
-  fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU {
+  fn create(&self, gpu: &GPU, _: &mut AnyMap) -> Self::GPU {
     self.deref().create(&gpu.device)
   }
 

@@ -58,7 +58,9 @@ where
   fn create(&self, device: &gpu::Device) -> MeshGPU {
     self.mesh.create_gpu(device)
   }
-  fn update(&self, gpu: &mut MeshGPU, device: &gpu::Device) {}
+  fn update(&self, gpu: &mut MeshGPU, device: &gpu::Device) {
+    *gpu = self.create(device)
+  }
   fn vertex_layout(&self) -> Vec<gpu::VertexBufferLayoutOwned> {
     vec![V::vertex_layout()]
   }

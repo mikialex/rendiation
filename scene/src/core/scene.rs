@@ -3,7 +3,6 @@ use std::{cell::RefCell, ops::Deref, rc::Rc};
 use arena::{Arena, Handle};
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_algebra::PerspectiveProjection;
-use rendiation_webgpu::{RenderPassInfo, GPU};
 
 use crate::*;
 
@@ -61,47 +60,6 @@ impl Scene {
       NextTraverseVisit::VisitChildren
     });
     self.resources.content.maintain();
-  }
-
-  pub fn create_material_ctx_base_and_models<'a>(
-    &'a mut self,
-    gpu: &GPU,
-    pass_info: &'a RenderPassInfo,
-    pass: &'a dyn PassDispatcher,
-  ) -> (
-    &'a mut GPUResourceSceneCache,
-    SceneMaterialRenderPrepareCtxBase<'a>,
-    &'a mut Vec<Box<dyn SceneRenderableRc>>,
-  ) {
-    let camera = self
-      .active_camera
-      .as_mut()
-      .unwrap_or(&mut self.default_camera);
-    self.resources.content.cameras.check_update_gpu(camera, gpu);
-
-    (
-      &mut self.resources.scene,
-      SceneMaterialRenderPrepareCtxBase {
-        camera,
-        pass_info,
-        resources: &mut self.resources.content,
-        pass,
-      },
-      &mut self.models,
-    )
-  }
-
-  pub fn create_material_ctx_base<'a>(
-    &'a mut self,
-    gpu: &GPU,
-    pass_info: &'a RenderPassInfo,
-    pass: &'a dyn PassDispatcher,
-  ) -> (
-    &'a mut GPUResourceSceneCache,
-    SceneMaterialRenderPrepareCtxBase<'a>,
-  ) {
-    let (a, b, c) = self.create_material_ctx_base_and_models(gpu, pass_info, pass);
-    (a, b)
   }
 }
 
