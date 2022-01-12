@@ -1,6 +1,6 @@
 use crate::*;
 use rendiation_texture::Size;
-use rendiation_webgpu::{GPUTextureSize, GPU};
+use rendiation_webgpu::{FrameTarget, GPUTextureSize, GPU};
 use std::rc::Rc;
 use winit::event::Event;
 
@@ -41,12 +41,6 @@ impl LayoutAble for GPUCanvas {
   fn set_position(&mut self, position: UIPosition) {
     self.layout.set_relative_position(position)
   }
-}
-
-pub struct FrameTarget {
-  pub size: Size,
-  pub format: wgpu::TextureFormat,
-  pub view: Rc<wgpu::TextureView>,
 }
 
 pub struct CanvasWindowPositionInfo {

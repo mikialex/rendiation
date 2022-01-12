@@ -23,9 +23,6 @@ pub use node::*;
 pub use rendering::*;
 pub use texture::*;
 
-pub mod model_collection;
-pub use model_collection::*;
-
 use anymap::AnyMap;
 use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};

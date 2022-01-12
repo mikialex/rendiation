@@ -22,9 +22,6 @@ pub use picking::*;
 pub mod model;
 pub use model::*;
 
-pub mod model_collection;
-pub use model_collection::*;
-
 pub mod lights;
 pub use lights::*;
 

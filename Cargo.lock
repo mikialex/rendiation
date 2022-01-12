@@ -1858,7 +1858,6 @@ dependencies = [
  "arena-graph",
  "arena-tree",
  "bytemuck",
- "interphaser",
  "log",
  "once_cell",
  "rendiation-algebra",

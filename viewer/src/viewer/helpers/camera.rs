@@ -1,5 +1,4 @@
 use rendiation_algebra::*;
-use rendiation_geometry::LineSegment;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
 use crate::*;

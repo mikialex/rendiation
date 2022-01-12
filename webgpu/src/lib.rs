@@ -213,3 +213,9 @@ impl IndexBufferSourceType for u16 {
 //   format: wgpu::VertexFormat,
 //   offset: wgpu::BufferAddress,
 // }
+
+pub struct FrameTarget {
+  pub size: Size,
+  pub format: wgpu::TextureFormat,
+  pub view: std::rc::Rc<wgpu::TextureView>,
+}

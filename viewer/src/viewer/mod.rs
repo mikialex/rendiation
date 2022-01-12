@@ -19,11 +19,9 @@ use rendiation_controller::{
   ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
 };
 use rendiation_texture::Size;
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::*;
 
 use crate::*;
-
-
 
 impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {

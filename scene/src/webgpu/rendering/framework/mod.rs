@@ -8,8 +8,7 @@ pub use pool::*;
 pub mod attachment;
 pub use attachment::*;
 
-use interphaser::FrameTarget;
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::*;
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 pub struct RenderEngine {

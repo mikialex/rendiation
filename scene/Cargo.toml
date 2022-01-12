@@ -10,7 +10,6 @@ arena = {path = "../utils/arena"}
 arena-graph = {path = "../utils/arena-graph"}
 arena-tree = {path = "../utils/arena-tree"}
 bytemuck = {version = "1.4.1", features = ["derive"]}
-interphaser = {path = "../interphaser"}
 log = "0.4"
 once_cell = "1.4.0"
 rendiation-algebra = {path = "../math/algebra"}
