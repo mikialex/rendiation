@@ -1,5 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_geometry::LineSegment;
+use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
 use crate::*;
 
@@ -13,12 +14,13 @@ pub struct CameraHelper {
 impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
     let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
-    let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
+    let camera_mesh = camera_mesh.into_resourced();
     let fatline_mat = FatLineMaterial {
       width: 3.,
       states: Default::default(),
     }
-    .into_scene_material();
+    .into_scene_material()
+    .into_resourced();
     let fatline = HelperLineModel::new(fatline_mat, camera_mesh, node);
     Self {
       model: fatline,
@@ -29,7 +31,7 @@ impl CameraHelper {
   pub fn update(&mut self, project_mat: Mat4<f32>) {
     if self.projection_cache != project_mat {
       let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
-      self.model.mesh.update_data(camera_mesh);
+      *self.model.mesh = camera_mesh;
     }
   }
 }
@@ -75,7 +77,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
     [near_right_top, far_right_top],
   ];
 
-  let line_buffer = lines
+  let lines = lines
     .iter()
     .map(|[start, end]| FatLineVertex {
       color: Vec4::new(1., 1., 1., 1.),
@@ -84,7 +86,9 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
     })
     .collect();
 
-  HelperLineMesh::new(line_buffer)
+  let lines = NoneIndexedMesh::new(lines);
+  let lines = GroupedMesh::full(lines);
+  HelperLineMesh::new(lines)
 }
 
 pub struct CameraHelpers {
@@ -113,16 +117,24 @@ impl PassContent for CameraHelpers {
     }
 
     if let Some(camera) = &mut scene.active_camera {
-      scene.resources.cameras.check_update_gpu(camera, gpu);
+      scene
+        .resources
+        .content
+        .cameras
+        .check_update_gpu(camera, gpu);
 
       for (_, camera) in &mut scene.cameras {
-        scene.resources.cameras.check_update_gpu(camera, gpu);
+        scene
+          .resources
+          .content
+          .cameras
+          .check_update_gpu(camera, gpu);
       }
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         camera,
         pass_info: ctx.pass_info,
-        resources: &mut scene.resources,
+        resources: &mut scene.resources.content,
         pass: &DefaultPassDispatcher,
       };
 
@@ -139,7 +151,9 @@ impl PassContent for CameraHelpers {
             helper.update(camera.projection_matrix);
           },
         );
-        helper.model.update(gpu, &mut base)
+        helper
+          .model
+          .update(gpu, &mut base, &mut scene.resources.scene)
       }
     }
   }
@@ -151,6 +165,7 @@ impl PassContent for CameraHelpers {
 
     let main_camera = scene
       .resources
+      .content
       .cameras
       .get_unwrap(scene.active_camera.as_ref().unwrap());
 

@@ -70,13 +70,13 @@ impl SelectionSet {
   }
 
   pub fn select(&mut self, model: &dyn SceneRenderableRc) {
-    self
-      .selected
-      .insert(model.inner.as_ptr(), model.clone_boxed());
+    // self
+    //   .selected
+    //   .insert(model.inner.as_ptr(), model.clone_boxed());
   }
 
   pub fn deselect(&mut self, model: &dyn SceneRenderableRc) {
-    self.selected.remove(&(model.inner.as_ptr() as *const _));
+    // self.selected.remove(&(model.inner.as_ptr() as *const _));
   }
 
   pub fn clear(&mut self) {

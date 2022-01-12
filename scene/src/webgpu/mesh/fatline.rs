@@ -9,13 +9,19 @@ use rendiation_webgpu::util::DeviceExt;
 
 use rendiation_renderable_mesh::{
   group::{GroupedMesh, MeshDrawGroup, MeshGroup},
-  mesh::{AbstractMesh, IndexedMesh, NoneIndexedMesh, TriangleList},
+  mesh::{AbstractMesh, IndexedMesh, IntersectAbleGroupedMesh, NoneIndexedMesh, TriangleList},
   vertex::Vertex,
   MeshGPU,
 };
 
 pub struct FatlineMesh {
   inner: GroupedMesh<NoneIndexedMesh<FatLineVertex>>,
+}
+
+impl FatlineMesh {
+  pub fn new(inner: GroupedMesh<NoneIndexedMesh<FatLineVertex>>) -> Self {
+    Self { inner }
+  }
 }
 
 impl MeshCPUSource for FatlineMesh {
@@ -68,6 +74,8 @@ impl MeshCPUSource for FatlineMesh {
   fn topology(&self) -> wgpu::PrimitiveTopology {
     wgpu::PrimitiveTopology::TriangleList
   }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
 pub struct FatlineMeshGPU {

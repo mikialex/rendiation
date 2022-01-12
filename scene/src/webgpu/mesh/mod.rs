@@ -84,7 +84,7 @@ impl GPUResourceSceneCache {
       .unwrap()
       .get_unwrap(m);
 
-    m.setup_pass_and_draw(gpu_m, pass, group)
+    MeshCPUSource::setup_pass_and_draw(m.deref(), gpu_m, pass, group)
   }
 }
 
@@ -102,6 +102,8 @@ pub trait MeshCPUSource: Any {
   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
 
   fn topology(&self) -> wgpu::PrimitiveTopology;
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh));
 }
 
 pub struct MeshSource<T> {
@@ -153,7 +155,7 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
 
 impl<T> MeshCPUSource for MeshSource<T>
 where
-  T: GPUMeshData + Any,
+  T: GPUMeshData + IntersectAbleGroupedMesh + Any,
 {
   type GPU = MeshGPU;
 
@@ -182,9 +184,13 @@ where
   fn topology(&self) -> wgpu::PrimitiveTopology {
     self.deref().topology()
   }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    f(self.deref())
+  }
 }
 
-impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshInner<T> {
+impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
   fn setup_pass_and_draw<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
@@ -207,7 +213,7 @@ impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshInner
   }
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    f(self.deref())
+    self.deref().try_pick(f)
   }
 }
 

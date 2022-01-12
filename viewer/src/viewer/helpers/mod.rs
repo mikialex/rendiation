@@ -4,5 +4,5 @@ pub mod axis;
 pub mod camera;
 pub mod grid;
 
-pub type HelperLineMesh = FatlineData;
+pub type HelperLineMesh = FatlineMesh;
 pub type HelperLineModel = FatlineImpl;

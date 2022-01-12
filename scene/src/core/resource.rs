@@ -16,6 +16,14 @@ pub struct ResourceWrapped<T> {
   pub watchers: Arena<Box<dyn Watcher<T>>>,
 }
 
+pub trait IntoResourced: Sized {
+  fn into_resourced(self) -> ResourceWrapped<Self> {
+    self.into()
+  }
+}
+
+impl<T> IntoResourced for T {}
+
 impl<T> From<T> for ResourceWrapped<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)

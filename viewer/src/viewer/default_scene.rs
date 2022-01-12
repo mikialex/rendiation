@@ -33,7 +33,7 @@ pub fn load_img_cube() -> TextureCubeSource {
     Box::new(load_img(path).into_source())
   }
 
-  // this is awkward
+  // todo this is awkward
   let res: Vec<Box<dyn WebGPUTexture2dSource>> = path.iter().map(load).collect();
 
   unsafe { res.try_into().unwrap_unchecked() }
@@ -61,13 +61,14 @@ pub fn load_default_scene(scene: &mut Scene) {
 
   {
     let mesh = SphereMeshParameter::default().tessellate();
-    let mesh = MeshCell::new(mesh);
+    let mesh = MeshCell::new(MeshSource::new(mesh));
     let material = PhysicalMaterial {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture: texture.clone(),
     }
-    .into_scene_material();
+    .into_scene_material()
+    .into_resourced();
 
     let child = scene.root.create_child();
     child.mutate(|node| node.local_matrix = Mat4::translate(2., 0., 3.));
@@ -78,13 +79,14 @@ pub fn load_default_scene(scene: &mut Scene) {
 
   {
     let mesh = CubeMeshParameter::default().tessellate();
-    let mesh = MeshCell::new(mesh);
+    let mesh = MeshCell::new(MeshSource::new(mesh));
     let mut material = PhysicalMaterial {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture,
     }
-    .into_scene_material();
+    .into_scene_material()
+    .into_resourced();
     material.states.depth_compare = wgpu::CompareFunction::Always;
 
     let model = MeshModel::new(material, mesh, scene.root.create_child());
