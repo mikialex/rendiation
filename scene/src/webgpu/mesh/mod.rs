@@ -112,9 +112,7 @@ pub struct MeshSource<T> {
 
 impl<T> MeshSource<T> {
   pub fn new(inner: T) -> Self {
-    Self {
-      inner: inner.into(),
-    }
+    Self { inner }
   }
 }
 
@@ -229,8 +227,8 @@ impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCell<
   }
 
   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
-    let mut inner = self.inner.borrow_mut();
-    res.update_mesh(&mut inner, gpu, storage)
+    let inner = self.inner.borrow();
+    res.update_mesh(&inner, gpu, storage)
   }
 
   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
