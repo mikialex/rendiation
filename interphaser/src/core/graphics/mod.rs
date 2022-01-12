@@ -69,7 +69,6 @@ pub enum Primitive {
   Text(TextLayoutRef),
 }
 
-
 pub struct UIPresentation {
   pub view_size: UISize,
   pub primitives: Vec<Primitive>,

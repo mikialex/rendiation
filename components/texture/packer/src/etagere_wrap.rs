@@ -35,7 +35,10 @@ impl RePackablePacker for EtagerePacker {
   fn pack_with_id(&mut self, input: Size) -> Result<PackResultWithId, PackError> {
     let result = self
       .inner
-      .allocate(size2(input.width_usize() as i32, input.height_usize() as i32))
+      .allocate(size2(
+        input.width_usize() as i32,
+        input.height_usize() as i32,
+      ))
       .ok_or(PackError::SpaceNotEnough)?;
 
     Ok(PackResultWithId {
