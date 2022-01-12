@@ -47,6 +47,15 @@ where
   }
 }
 
+impl<Me, Ma> SceneRenderableRc for MeshModel<Me, Ma>
+where
+  Self: SceneRenderable + Clone,
+{
+  fn clone_boxed(&self) -> Box<dyn SceneRenderableRc> {
+    Box::new(self.clone())
+  }
+}
+
 impl<Me, Ma> MeshModelImpl<Me, Ma> {
   pub fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma> {
     OverridableMeshModelImpl {

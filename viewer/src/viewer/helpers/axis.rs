@@ -53,10 +53,12 @@ impl PassContent for AxisHelper {
 }
 
 struct Arrow {
-  cylinder: OverridableMeshModelImpl,
-  tip: OverridableMeshModelImpl,
+  cylinder: ScalableHelperMesh,
+  tip: ScalableHelperMesh,
   root: SceneNode,
 }
+
+type ScalableHelperMesh = impl SceneRenderable;
 
 impl Arrow {
   pub fn update(
@@ -85,14 +87,14 @@ impl Arrow {
     cylinder_mesh: impl WebGPUMesh + 'static,
     tip_mesh: impl WebGPUMesh + 'static,
   ) -> Self {
-    fn material(color: Vec3<f32>) -> impl WebGPUMaterial + Clone {
+    fn material(color: Vec3<f32>) -> impl MaterialCPUResource + Clone {
       let mut material = FlatMaterial {
         color: Vec4::new(color.x, color.y, color.z, 1.0),
       }
       .into_scene_material();
       material.states.depth_write_enabled = false;
       material.states.depth_compare = wgpu::CompareFunction::Always;
-      MaterialCell::new(material)
+      material
     }
     let material = material(color.into());
 

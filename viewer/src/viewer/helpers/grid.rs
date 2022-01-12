@@ -21,10 +21,9 @@ impl GridHelper {
       states: Default::default(),
     }
     .into_scene_material();
-    let mat = MaterialCell::new(mat);
     let root = root.clone();
     let node = root.create_child();
-    let mesh = HelperLineModel::new_typed(mat, mesh, node);
+    let mesh = HelperLineModel::new(mat, mesh, node);
 
     Self {
       enabled: true,

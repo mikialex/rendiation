@@ -19,8 +19,7 @@ impl CameraHelper {
       states: Default::default(),
     }
     .into_scene_material();
-    let fatline_mat = MaterialCell::new(fatline_mat);
-    let fatline = HelperLineModel::new_typed(fatline_mat, camera_mesh, node);
+    let fatline = HelperLineModel::new(fatline_mat, camera_mesh, node);
     Self {
       model: fatline,
       projection_cache: project_mat,

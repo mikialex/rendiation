@@ -17,7 +17,7 @@ pub struct Scene {
   pub active_camera: Option<SceneCamera>,
   pub cameras: Arena<SceneCamera>,
   pub lights: Arena<SceneLight>,
-  pub models: Vec<Box<dyn SceneRenderable>>,
+  pub models: Vec<Box<dyn SceneRenderableRc>>,
 
   nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
   pub root: SceneNode,
@@ -48,6 +48,10 @@ impl Scene {
     }
   }
 
+  pub fn add_model(&mut self, model: impl SceneRenderableRc) {
+    self.models.push(Box::new(model));
+  }
+
   pub fn maintain(&mut self) {
     let mut nodes = self.nodes.borrow_mut();
     let root = nodes.root();
@@ -67,7 +71,7 @@ impl Scene {
   ) -> (
     &'a mut GPUResourceSceneCache,
     SceneMaterialRenderPrepareCtxBase<'a>,
-    &'a mut Vec<Box<dyn SceneRenderable>>,
+    &'a mut Vec<Box<dyn SceneRenderableRc>>,
   ) {
     let camera = self
       .active_camera

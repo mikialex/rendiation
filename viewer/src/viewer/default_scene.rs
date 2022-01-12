@@ -68,13 +68,12 @@ pub fn load_default_scene(scene: &mut Scene) {
       texture: texture.clone(),
     }
     .into_scene_material();
-    let material = MaterialCell::new(material);
 
     let child = scene.root.create_child();
     child.mutate(|node| node.local_matrix = Mat4::translate(2., 0., 3.));
 
     let model = MeshModel::new(material, mesh, child);
-    scene.models.push(model)
+    scene.add_model(model)
   }
 
   {
@@ -87,10 +86,9 @@ pub fn load_default_scene(scene: &mut Scene) {
     }
     .into_scene_material();
     material.states.depth_compare = wgpu::CompareFunction::Always;
-    let material = MaterialCell::new(material);
 
     let model = MeshModel::new(material, mesh, scene.root.create_child());
-    scene.models.push(model)
+    scene.add_model(model)
   }
 
   {

@@ -3,7 +3,7 @@ use rendiation_renderable_mesh::{
   group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, MeshGPU,
 };
 use rendiation_webgpu::{GPURenderPass, VertexBufferLayoutOwned, GPU};
-use std::{cell::RefCell, rc::Rc};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
 use rendiation_webgpu::VertexBufferSourceType;
@@ -22,7 +22,7 @@ where
   type VertexInput = Vec<V>;
 }
 
-pub trait WebGPUMesh {
+pub trait WebGPUMesh: Any {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
   fn update(&mut self, gpu: &GPU, storage: &mut AnyMap);
   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
@@ -87,7 +87,7 @@ impl<T> Clone for MeshCell<T> {
   }
 }
 
-impl<T: GPUMeshData + IntersectAbleGroupedMesh> WebGPUMesh for MeshCellImpl<T> {
+impl<T: GPUMeshData + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCellImpl<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let gpu = self.gpu.as_ref().unwrap();
     gpu.setup_pass(pass);
@@ -111,7 +111,7 @@ impl<T: GPUMeshData + IntersectAbleGroupedMesh> WebGPUMesh for MeshCellImpl<T> {
   }
 }
 
-impl<T: GPUMeshData + IntersectAbleGroupedMesh> WebGPUMesh for MeshCell<T> {
+impl<T: GPUMeshData + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCell<T> {
   fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
     let inner = self.inner.borrow();
     inner.setup_pass_and_draw(pass, group);

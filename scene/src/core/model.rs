@@ -30,7 +30,7 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   // todo add type constraint
   pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     Self {
-      material: material.into(),
+      material: MaterialInner::new(material),
       mesh,
       group: Default::default(),
       node,

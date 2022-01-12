@@ -35,7 +35,7 @@ use rendiation_webgpu::*;
 
 use crate::{ResourceMapper, TextureCubeSource};
 
-pub trait SceneRenderable {
+pub trait SceneRenderable: 'static {
   fn update(
     &mut self,
     gpu: &GPU,
@@ -57,6 +57,10 @@ pub trait SceneRenderable {
   ) -> Option<Nearest<MeshBufferHitPoint>> {
     None
   }
+}
+
+pub trait SceneRenderableRc: SceneRenderable {
+  fn clone_boxed(&self) -> Box<dyn SceneRenderableRc>;
 }
 
 #[derive(Default)]
