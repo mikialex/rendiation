@@ -10,22 +10,13 @@
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::field_reassign_with_default)]
 
-pub use rendiation_scene::*;
+pub mod core;
+pub mod util;
+pub mod webgpu;
+pub use webgpu::*;
 
-pub mod viewer;
-pub use viewer::*;
+pub use crate::core::*;
+pub use util::*;
 
-pub mod app;
-pub use app::*;
-
-use interphaser::Application;
-
-fn main() {
-  env_logger::builder().init();
-
-  let viewer = ViewerApplication::default();
-  let ui = create_app();
-
-  let viewer = futures::executor::block_on(Application::new(viewer, ui));
-  viewer.run();
-}
+pub use arena::*;
+pub use arena_tree::*;

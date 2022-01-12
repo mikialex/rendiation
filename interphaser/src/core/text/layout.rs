@@ -88,7 +88,7 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
 
         let rect = UIBound {
           min: (bounds.min.x, bounds.min.y).into(),
-          max: (bounds.min.x, bounds.min.y).into(),
+          max: (bounds.max.x, bounds.max.y).into(),
         };
         bound.get_or_insert(rect).union(rect);
 

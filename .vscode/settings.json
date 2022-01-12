@@ -49,6 +49,7 @@
         "layouted",
         "Layouter",
         "Lerp",
+        "Lightable",
         "lookat",
         "Mesher",
         "mikialex",

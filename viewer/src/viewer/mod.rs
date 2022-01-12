@@ -2,6 +2,8 @@ use std::{ops::DerefMut, rc::Rc};
 
 pub mod default_scene;
 pub use default_scene::*;
+pub mod pipeline;
+pub use pipeline::*;
 
 pub mod selection;
 
@@ -11,13 +13,13 @@ use self::{
   selection::{Picker, SelectionSet},
 };
 
+use interphaser::winit::event::{ElementState, Event, MouseButton};
 use interphaser::*;
 use rendiation_controller::{
   ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
 };
 use rendiation_texture::Size;
 use rendiation_webgpu::GPU;
-use winit::event::{ElementState, Event, MouseButton};
 
 use crate::*;
 
@@ -184,6 +186,7 @@ impl Viewer3dContent {
           .controller
           .update(node.deref_mut() as &mut dyn Transformed3DControllee);
       });
+      camera.trigger_change()
     }
   }
 }

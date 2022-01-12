@@ -1,10 +1,14 @@
 [package]
 authors = ["MikiAlex <18516340862@163.com>"]
 edition = "2018"
-name = "viewer"
+name = "rendiation-scene"
 version = "0.1.0"
 
 [dependencies]
+arena = {path = "../utils/arena"}
+arena-graph = {path = "../utils/arena-graph"}
+arena-tree = {path = "../utils/arena-tree"}
+anymap = "0.12.1"
 bytemuck = {version = "1.4.1", features = ["derive"]}
 env_logger = "0.8.4"
 futures = "0.3.15"
@@ -18,5 +22,5 @@ rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable", features = ["webgpu"]}
 rendiation-texture = {path = "../components/texture/core", features = ["webgpu"]}
 rendiation-webgpu = {path = "../webgpu"}
-rendiation-scene = {path = "../scene"}
 wgpu = "0.12.0"
+winit = {version = "0.26.0"}

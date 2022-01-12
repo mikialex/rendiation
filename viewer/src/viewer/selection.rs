@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use rendiation_algebra::Vec2;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
+use rendiation_scene::{SceneRenderable, SceneRenderableRc};
 
-use crate::{MeshModel, MeshModelImpl, Scene};
+use crate::Scene;
 
 #[derive(Default)]
 pub struct Picker {
@@ -24,13 +25,15 @@ impl Picker {
   }
 }
 
+type Selected = Box<dyn SceneRenderableRc>;
+
 #[derive(Default)]
 pub struct SelectionSet {
-  pub selected: HashMap<*const MeshModelImpl, MeshModel>,
+  pub selected: HashMap<usize, Selected>,
 }
 
 impl<'a> IntoIterator for &'a mut SelectionSet {
-  type Item = &'a mut MeshModel;
+  type Item = &'a mut dyn SceneRenderable;
 
   type IntoIter = SelectionSetIterMutType<'a>;
 
@@ -39,14 +42,14 @@ impl<'a> IntoIterator for &'a mut SelectionSet {
   }
 }
 
-type SelectionSetIterMutType<'a> = impl Iterator<Item = &'a mut MeshModel>;
+type SelectionSetIterMutType<'a> = impl Iterator<Item = &'a mut dyn SceneRenderable>;
 
-fn mut_iter(map: &mut HashMap<*const MeshModelImpl, MeshModel>) -> SelectionSetIterMutType {
-  map.iter_mut().map(|(_, m)| m)
+fn mut_iter(map: &mut HashMap<usize, Selected>) -> SelectionSetIterMutType {
+  map.iter_mut().map(|(_, m)| m.as_mut().as_renderable_mut())
 }
 
 impl<'a> IntoIterator for &'a SelectionSet {
-  type Item = &'a MeshModel;
+  type Item = &'a dyn SceneRenderable;
 
   type IntoIter = SelectionSetIterType<'a>;
 
@@ -55,10 +58,10 @@ impl<'a> IntoIterator for &'a SelectionSet {
   }
 }
 
-type SelectionSetIterType<'a> = impl Iterator<Item = &'a MeshModel>;
+type SelectionSetIterType<'a> = impl Iterator<Item = &'a dyn SceneRenderable>;
 
-fn iter(map: &HashMap<*const MeshModelImpl, MeshModel>) -> SelectionSetIterType {
-  map.iter().map(|(_, m)| m)
+fn iter(map: &HashMap<usize, Selected>) -> SelectionSetIterType {
+  map.iter().map(|(_, m)| m.as_ref().as_renderable())
 }
 
 impl SelectionSet {
@@ -66,12 +69,12 @@ impl SelectionSet {
     self.selected.is_empty()
   }
 
-  pub fn select(&mut self, model: &MeshModel) {
-    self.selected.insert(model.inner.as_ptr(), model.clone());
+  pub fn select(&mut self, model: &dyn SceneRenderableRc) {
+    self.selected.insert(model.id(), model.clone_boxed());
   }
 
-  pub fn deselect(&mut self, model: &MeshModel) {
-    self.selected.remove(&(model.inner.as_ptr() as *const _));
+  pub fn deselect(&mut self, model: &dyn SceneRenderableRc) {
+    self.selected.remove(&model.id());
   }
 
   pub fn clear(&mut self) {

@@ -47,6 +47,7 @@ pub fn menu() -> impl UIComponent<MenuModel> {
 fn menu_title() -> impl UIComponent<MenuList> {
   Container::adapt(AdaptChildSelfBehavior::Child).wrap(
     Text::default()
+      .with_layout(TextLayoutConfig::SingleLineShrink)
       .bind(|s, t| s.content.set(t)) //
       .lens(lens!(MenuList, name)),
   )

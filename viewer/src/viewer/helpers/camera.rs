@@ -1,31 +1,54 @@
 use rendiation_algebra::*;
+use rendiation_geometry::LineSegment;
+use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
 use crate::*;
 
-use super::HelperLineMesh;
+use super::*;
 
 pub struct CameraHelper {
-  pub mesh: FatlineImpl,
+  projection_cache: Mat4<f32>,
+  model: HelperLineModel,
 }
 
 impl CameraHelper {
-  pub fn from_node_and_project_matrix(node: SceneNode, mat: Mat4<f32>) -> Self {
-    let camera_mesh = build_debug_line_in_camera_space();
-    let camera_mesh = FatlineMeshCellImpl::from(camera_mesh);
-    let fatline_mat = FatLineMaterial::default().into_scene_material();
-    let fatline_mat = MaterialCell::new(fatline_mat);
-    let fatline = FatlineImpl::new(fatline_mat, camera_mesh, node);
-    Self { mesh: fatline }
+  pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
+    let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
+    let camera_mesh = camera_mesh.into_resourced();
+    let fatline_mat = FatLineMaterial {
+      width: 3.,
+      states: Default::default(),
+    }
+    .into_scene_material()
+    .into_resourced();
+    let fatline = HelperLineModel::new(fatline_mat, camera_mesh, node);
+    Self {
+      model: fatline,
+      projection_cache: project_mat,
+    }
+  }
+
+  pub fn update(&mut self, project_mat: Mat4<f32>) {
+    if self.projection_cache != project_mat {
+      let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
+      *self.model.mesh = camera_mesh;
+    }
   }
 }
 
-fn build_debug_line_in_camera_space() -> HelperLineMesh {
-  let near = 0.;
-  let far = 1.;
-  let left = 0.;
-  let right = 1.;
-  let top = 1.;
-  let bottom = 0.;
+fn build_line_box(target: &mut Vec<LineSegment<Vec3<f32>>>, min: Vec3<f32>, max: Vec3<f32>) {
+  //
+}
+
+fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
+  let zero = 0.0001;
+  let one = 0.9999;
+  let near = zero;
+  let far = one;
+  let left = -one;
+  let right = one;
+  let top = one;
+  let bottom = -one;
 
   let near_left_down = Vec3::new(left, bottom, near);
   let near_left_top = Vec3::new(left, top, near);
@@ -54,16 +77,18 @@ fn build_debug_line_in_camera_space() -> HelperLineMesh {
     [near_right_top, far_right_top],
   ];
 
-  let line_buffer = lines
+  let lines = lines
     .iter()
     .map(|[start, end]| FatLineVertex {
       color: Vec4::new(1., 1., 1., 1.),
-      start: *start,
-      end: *end,
+      start: *start * project_mat,
+      end: *end * project_mat,
     })
     .collect();
 
-  HelperLineMesh::new(line_buffer)
+  let lines = NoneIndexedMesh::new(lines);
+  let lines = GroupedMesh::full(lines);
+  HelperLineMesh::new(lines)
 }
 
 pub struct CameraHelpers {
@@ -92,30 +117,43 @@ impl PassContent for CameraHelpers {
     }
 
     if let Some(camera) = &mut scene.active_camera {
-      scene.resources.cameras.check_update_gpu(camera, gpu);
+      scene
+        .resources
+        .content
+        .cameras
+        .check_update_gpu(camera, gpu);
 
       for (_, camera) in &mut scene.cameras {
-        scene.resources.cameras.check_update_gpu(camera, gpu);
+        scene
+          .resources
+          .content
+          .cameras
+          .check_update_gpu(camera, gpu);
       }
 
       let mut base = SceneMaterialRenderPrepareCtxBase {
         camera,
         pass_info: ctx.pass_info,
-        resources: &mut scene.resources,
+        resources: &mut scene.resources.content,
         pass: &DefaultPassDispatcher,
       };
 
       for (_, draw_camera) in &mut scene.cameras {
-        let helper = self.helpers.get_or_insert_with(draw_camera, |draw_camera| {
-          (
+        let helper = self.helpers.get_update_or_insert_with(
+          draw_camera,
+          |draw_camera| {
             CameraHelper::from_node_and_project_matrix(
               draw_camera.node.clone(),
               draw_camera.projection_matrix,
-            ),
-            |_, _| {}, // todo update
-          )
-        });
-        helper.mesh.update(gpu, &mut base)
+            )
+          },
+          |helper, camera| {
+            helper.update(camera.projection_matrix);
+          },
+        );
+        helper
+          .model
+          .update(gpu, &mut base, &mut scene.resources.scene)
       }
     }
   }
@@ -127,12 +165,13 @@ impl PassContent for CameraHelpers {
 
     let main_camera = scene
       .resources
+      .content
       .cameras
       .get_unwrap(scene.active_camera.as_ref().unwrap());
 
     for (_, camera) in &scene.cameras {
       let helper = self.helpers.get_unwrap(camera);
-      helper.mesh.setup_pass(pass, main_camera, &scene.resources);
+      helper.model.setup_pass(pass, main_camera, &scene.resources);
     }
   }
 }

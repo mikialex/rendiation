@@ -1850,6 +1850,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene"
+version = "0.1.0"
+dependencies = [
+ "anymap",
+ "arena",
+ "arena-graph",
+ "arena-tree",
+ "bytemuck",
+ "env_logger",
+ "futures",
+ "image",
+ "interphaser",
+ "log",
+ "once_cell",
+ "rendiation-algebra",
+ "rendiation-controller",
+ "rendiation-geometry",
+ "rendiation-renderable-mesh",
+ "rendiation-texture",
+ "rendiation-webgpu",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "rendiation-texture"
 version = "0.1.0"
 dependencies = [
@@ -2270,10 +2295,6 @@ checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 name = "viewer"
 version = "0.1.0"
 dependencies = [
- "anymap",
- "arena",
- "arena-graph",
- "arena-tree",
  "bytemuck",
  "env_logger",
  "futures",
@@ -2285,10 +2306,10 @@ dependencies = [
  "rendiation-controller",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
+ "rendiation-scene",
  "rendiation-texture",
  "rendiation-webgpu",
  "wgpu",
- "winit",
 ]
 
 [[package]]

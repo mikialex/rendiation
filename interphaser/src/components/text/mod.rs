@@ -6,11 +6,28 @@ pub use cursor::*;
 mod editable;
 pub use editable::*;
 
+pub enum TextLayoutConfig {
+  SizedBox {
+    line_wrap: LineWrap,
+    horizon_align: HorizontalAlignment,
+    vertical_align: VerticalAlignment,
+  },
+  SingleLineShrink,
+}
+
+impl Default for TextLayoutConfig {
+  fn default() -> Self {
+    Self::SizedBox {
+      line_wrap: Default::default(),
+      horizon_align: Default::default(),
+      vertical_align: Default::default(),
+    }
+  }
+}
+
 pub struct Text {
   pub content: LayoutSource<String>,
-  pub line_wrap: LineWrap,
-  pub horizon_align: HorizontalAlignment,
-  pub vertical_align: VerticalAlignment,
+  pub layout_config: TextLayoutConfig,
   pub text_layout: Option<TextLayoutRef>,
   pub layout: LayoutUnit,
 }
@@ -20,9 +37,7 @@ impl Default for Text {
     Self {
       content: LayoutSource::new("".into()),
       layout: Default::default(),
-      horizon_align: Default::default(),
-      vertical_align: Default::default(),
-      line_wrap: Default::default(),
+      layout_config: Default::default(),
       text_layout: None,
     }
   }
@@ -41,18 +56,8 @@ impl Text {
     self.text_layout = None;
   }
 
-  pub fn with_line_wrap(mut self, line_wrap: LineWrap) -> Self {
-    self.line_wrap = line_wrap;
-    self
-  }
-
-  pub fn with_horizon_align(mut self, horizon_align: HorizontalAlignment) -> Self {
-    self.horizon_align = horizon_align;
-    self
-  }
-
-  pub fn with_vertical_align(mut self, vertical_align: VerticalAlignment) -> Self {
-    self.vertical_align = vertical_align;
+  pub fn with_layout(mut self, config: TextLayoutConfig) -> Self {
+    self.layout_config = config;
     self
   }
 
@@ -62,16 +67,33 @@ impl Text {
     text: &mut TextCache,
   ) -> &TextLayoutRef {
     self.text_layout.get_or_insert_with(|| {
-      let text_info = TextInfo {
-        content: self.content.get().clone(),
-        bounds: self.layout.size,
-        line_wrap: self.line_wrap,
-        horizon_align: self.horizon_align,
-        vertical_align: self.vertical_align,
-        x: self.layout.absolute_position.x,
-        y: self.layout.absolute_position.y,
-        color: (0., 0., 0., 1.).into(),
-        font_size: 30.,
+      let text_info = match self.layout_config {
+        TextLayoutConfig::SizedBox {
+          line_wrap,
+          horizon_align,
+          vertical_align,
+        } => TextInfo {
+          content: self.content.get().clone(),
+          bounds: self.layout.size,
+          line_wrap,
+          horizon_align,
+          vertical_align,
+          x: self.layout.absolute_position.x,
+          y: self.layout.absolute_position.y,
+          color: (0., 0., 0., 1.).into(),
+          font_size: 30.,
+        },
+        TextLayoutConfig::SingleLineShrink => TextInfo {
+          content: self.content.get().clone(),
+          bounds: self.layout.size,
+          line_wrap: LineWrap::Single,
+          horizon_align: HorizontalAlignment::Left,
+          vertical_align: VerticalAlignment::Center,
+          x: self.layout.absolute_position.x,
+          y: self.layout.absolute_position.y,
+          color: (0., 0., 0., 1.).into(),
+          font_size: 30.,
+        },
       };
 
       text.cache_layout(&text_info, fonts)
@@ -104,12 +126,28 @@ impl Presentable for Text {
 }
 
 impl LayoutAble for Text {
-  fn layout(&mut self, constraint: LayoutConstraint, _ctx: &mut LayoutCtx) -> LayoutResult {
+  fn layout(&mut self, constraint: LayoutConstraint, ctx: &mut LayoutCtx) -> LayoutResult {
     if self.layout.skipable(constraint) {
       return self.layout.size.with_default_baseline();
     }
 
-    self.layout.size = constraint.max();
+    match self.layout_config {
+      TextLayoutConfig::SingleLineShrink => {
+        let size = ctx.text.measure_size(
+          // todo cache the size
+          &TextRelaxedInfo {
+            content: self.content.get().clone(),
+            font_size: 30.,
+          },
+          ctx.fonts,
+        );
+        self.layout.size = constraint.clamp(size);
+      }
+      _ => {
+        self.layout.size = constraint.max();
+      }
+    }
+
     self.layout.size.with_default_baseline()
   }
 

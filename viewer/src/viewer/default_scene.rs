@@ -33,7 +33,7 @@ pub fn load_img_cube() -> TextureCubeSource {
     Box::new(load_img(path).into_source())
   }
 
-  // this is awkward
+  // todo this is awkward
   let res: Vec<Box<dyn WebGPUTexture2dSource>> = path.iter().map(load).collect();
 
   unsafe { res.try_into().unwrap_unchecked() }
@@ -61,40 +61,43 @@ pub fn load_default_scene(scene: &mut Scene) {
 
   {
     let mesh = SphereMeshParameter::default().tessellate();
-    let mesh = MeshCell::new(mesh);
-    let material = BasicMaterial {
-      color: Vec3::splat(1.),
+    let mesh = MeshCell::new(MeshSource::new(mesh));
+    let material = PhysicalMaterial {
+      albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture: texture.clone(),
     }
-    .into_scene_material();
-    let material = MaterialCell::new(material);
+    .into_scene_material()
+    .into_resourced();
 
-    let model = MeshModel::new(material, mesh, scene.root.create_child());
-    scene.models.push(model)
+    let child = scene.root.create_child();
+    child.mutate(|node| node.local_matrix = Mat4::translate(2., 0., 3.));
+
+    let model = MeshModel::new(material, mesh, child);
+    scene.add_model(model)
   }
 
   {
     let mesh = CubeMeshParameter::default().tessellate();
-    let mesh = MeshCell::new(mesh);
-    let mut material = BasicMaterial {
-      color: Vec3::splat(1.),
+    let mesh = MeshCell::new(MeshSource::new(mesh));
+    let mut material = PhysicalMaterial {
+      albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture,
     }
-    .into_scene_material();
+    .into_scene_material()
+    .into_resourced();
     material.states.depth_compare = wgpu::CompareFunction::Always;
-    let material = MaterialCell::new(material);
 
     let model = MeshModel::new(material, mesh, scene.root.create_child());
-    scene.models.push(model)
+    scene.add_model(model)
   }
 
   {
     let camera = PerspectiveProjection::default();
     let camera_node = scene.root.create_child();
     camera_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(5.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+      node.local_matrix = Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
     });
     let camera = SceneCamera::new(camera, camera_node);
 
@@ -105,7 +108,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     let camera = PerspectiveProjection::default();
     let camera_node = scene.root.create_child();
     camera_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(-1.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
+      node.local_matrix = Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
     });
     let camera = SceneCamera::new(camera, camera_node);
 
