@@ -23,6 +23,8 @@ use rendiation_webgpu::GPU;
 
 use crate::*;
 
+
+
 impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
     self.content.update_state();
