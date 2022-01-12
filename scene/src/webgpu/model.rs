@@ -1,22 +1,22 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{any::Any, cell::RefCell, ops::Deref, rc::Rc};
 
 use rendiation_algebra::*;
 use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{
   IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
 };
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::{GPURenderPass, GPU};
 
 use crate::*;
 
 pub type SceneFatlineMaterial = MaterialInner<SceneMaterial<FatLineMaterial>>;
 
-pub type FatlineImpl = MeshModelImpl<FatlineMeshCellImpl, SceneFatlineMaterial>;
+pub type FatlineImpl = MeshModelImpl<MeshInner<FatlineMesh>, SceneFatlineMaterial>;
 
 impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
 where
   Me: WebGPUMesh,
-  Ma: MaterialCPUResource,
+  Ma: WebGPUMaterial,
 {
   fn update(
     &mut self,
@@ -66,10 +66,52 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
+pub trait WebGPUMaterial: Any {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    res: &mut GPUResourceSceneCache,
+  );
+
+  fn setup_pass<'a>(
+    &self,
+    res: &GPUResourceSceneCache,
+    pass: &mut GPURenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx,
+  );
+
+  fn is_keep_mesh_shape(&self) -> bool;
+}
+
+impl<T: MaterialCPUResource> WebGPUMaterial for MaterialInner<T> {
+  fn update(
+    &mut self,
+    gpu: &GPU,
+    ctx: &mut SceneMaterialRenderPrepareCtx,
+    res: &mut GPUResourceSceneCache,
+  ) {
+    res.update_material(self, gpu, ctx)
+  }
+
+  fn setup_pass<'a>(
+    &self,
+    res: &GPUResourceSceneCache,
+    pass: &mut GPURenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx,
+  ) {
+    res.setup_material(self, pass, ctx)
+  }
+
+  fn is_keep_mesh_shape(&self) -> bool {
+    self.deref().is_keep_mesh_shape()
+  }
+}
+
 impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
 where
   Me: WebGPUMesh,
-  Ma: MaterialCPUResource,
+  Ma: WebGPUMaterial,
 {
   fn update(
     &mut self,
@@ -88,9 +130,8 @@ where
       active_mesh: mesh_dyn.into(),
     };
 
-    res.update_material(material, gpu, &mut ctx);
-
-    mesh.update(gpu, &mut base.resources.custom_storage);
+    material.update(gpu, &mut ctx, res);
+    mesh.update(gpu, &mut base.resources.custom_storage, res);
   }
 
   fn setup_pass<'a>(
@@ -108,8 +149,10 @@ where
         model_gpu,
         resources: &resources.content,
       };
-      resources.scene.setup_material(material, pass, &ctx);
-      self.mesh.setup_pass_and_draw(pass, self.group);
+      material.setup_pass(&resources.scene, pass, &ctx);
+      self
+        .mesh
+        .setup_pass_and_draw(pass, self.group, &resources.scene);
     });
   }
 
@@ -169,7 +212,7 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
+impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
   fn update(
     &mut self,
     gpu: &GPU,
@@ -197,9 +240,9 @@ impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMes
       active_mesh: mesh_dyn.into(),
     };
 
-    res.update_material(material, gpu, &mut ctx);
+    material.update(gpu, &mut ctx, res);
 
-    mesh.update(gpu, &mut base.resources.custom_storage);
+    mesh.update(gpu, &mut base.resources.custom_storage, res);
   }
 
   fn setup_pass<'a>(
@@ -215,8 +258,10 @@ impl<Me: WebGPUMesh, Ma: MaterialCPUResource> SceneRenderable for OverridableMes
       model_gpu: self.override_gpu.as_ref(),
       resources: &resources.content,
     };
-    resources.scene.setup_material(material, pass, &ctx);
-    self.mesh.setup_pass_and_draw(pass, self.group);
+    material.setup_pass(&resources.scene, pass, &ctx);
+    self
+      .mesh
+      .setup_pass_and_draw(pass, self.group, &resources.scene);
   }
 }
 

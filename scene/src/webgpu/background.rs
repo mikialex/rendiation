@@ -52,7 +52,7 @@ fn build_mesh() -> BackgroundMesh {
 }
 
 pub struct DrawableBackground<S: MaterialCPUResource> {
-  mesh: MeshCellImpl<BackgroundMesh>,
+  mesh: MeshInner<MeshSource<BackgroundMesh>>,
   pub shading: MaterialInner<S>,
   root: SceneNode,
 }
@@ -78,7 +78,7 @@ where
   ) {
     self.root.check_update_gpu(base.resources, gpu);
 
-    self.mesh.update(gpu, &mut base.resources.custom_storage);
+    WebGPUMesh::update(&mut self.mesh, gpu, &mut base.resources.custom_storage, res);
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
@@ -102,7 +102,9 @@ where
         resources: &resources.content,
       };
       resources.scene.setup_material(&self.shading, pass, &ctx);
-      self.mesh.setup_pass_and_draw(pass, MeshDrawGroup::Full);
+      self
+        .mesh
+        .setup_pass_and_draw(pass, MeshDrawGroup::Full, &resources.scene);
     });
   }
 }
@@ -110,7 +112,7 @@ where
 impl<S: BackGroundShading> DrawableBackground<S> {
   pub fn new(shading: MaterialInner<S>, root: SceneNode) -> Self {
     let mesh = build_mesh();
-    let mesh = MeshCellImpl::new(mesh);
+    let mesh = MeshInner::new(MeshSource::new(mesh));
 
     Self {
       mesh,

@@ -14,17 +14,59 @@ use rendiation_renderable_mesh::{
   MeshGPU,
 };
 
-pub type FatlineData = NoneIndexedMesh<FatLineVertex>;
-
-pub struct FatlineMeshCellImpl {
-  data: GroupedMesh<FatlineData>,
-  gpu: Option<FatlineMeshGPU>,
+pub struct FatlineMesh {
+  inner: GroupedMesh<NoneIndexedMesh<FatLineVertex>>,
 }
 
-impl FatlineMeshCellImpl {
-  pub fn update_data(&mut self, data: FatlineData) {
-    self.data = GroupedMesh::full(data);
-    self.gpu = None;
+impl MeshCPUSource for FatlineMesh {
+  type GPU = FatlineMeshGPU;
+
+  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {}
+
+  fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU {
+    let range_full = MeshGroup {
+      start: 0,
+      count: self.inner.mesh.draw_count(),
+    };
+
+    let vertex = bytemuck::cast_slice(self.inner.mesh.data.as_slice());
+    let vertex = gpu
+      .device
+      .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: vertex,
+        usage: wgpu::BufferUsages::VERTEX,
+      });
+    let vertex = Rc::new(vertex);
+
+    let instance = storage
+      .entry()
+      .or_insert_with(|| create_fatline_quad(&gpu.device))
+      .data
+      .clone();
+
+    FatlineMeshGPU {
+      range_full,
+      vertex,
+      instance,
+    }
+  }
+
+  fn setup_pass_and_draw<'a>(
+    &self,
+    gpu: &Self::GPU,
+    pass: &mut GPURenderPass<'a>,
+    group: MeshDrawGroup,
+  ) {
+    gpu.setup_pass_and_draw(pass, self.inner.get_group(group).into())
+  }
+
+  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
+    vec![Vertex::vertex_layout(), FatLineVertex::vertex_layout()]
+  }
+
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    wgpu::PrimitiveTopology::TriangleList
   }
 }
 
@@ -44,66 +86,6 @@ impl FatlineMeshGPU {
     pass.set_vertex_buffer_owned(1, &self.vertex);
 
     pass.draw_indexed(self.instance.get_range_full().into(), 0, range.into());
-  }
-}
-
-impl From<FatlineData> for FatlineMeshCellImpl {
-  fn from(data: FatlineData) -> Self {
-    Self {
-      data: GroupedMesh::full(data),
-      gpu: None,
-    }
-  }
-}
-
-impl WebGPUMesh for FatlineMeshCellImpl {
-  fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
-    self
-      .gpu
-      .as_ref()
-      .unwrap()
-      .setup_pass_and_draw(pass, self.data.get_group(group).into())
-  }
-
-  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap) {
-    let cpu = &self.data.mesh;
-
-    self.gpu.get_or_insert_with(|| {
-      let range_full = MeshGroup {
-        start: 0,
-        count: cpu.draw_count(),
-      };
-
-      let vertex = bytemuck::cast_slice(cpu.data.as_slice());
-      let vertex = gpu
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-          label: None,
-          contents: vertex,
-          usage: wgpu::BufferUsages::VERTEX,
-        });
-      let vertex = Rc::new(vertex);
-
-      let instance = storage
-        .entry()
-        .or_insert_with(|| create_fatline_quad(&gpu.device))
-        .data
-        .clone();
-
-      FatlineMeshGPU {
-        range_full,
-        vertex,
-        instance,
-      }
-    });
-  }
-
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
-    vec![Vertex::vertex_layout(), FatLineVertex::vertex_layout()]
-  }
-
-  fn topology(&self) -> wgpu::PrimitiveTopology {
-    wgpu::PrimitiveTopology::TriangleList
   }
 }
 

@@ -7,7 +7,7 @@ use crate::{ResourceWrapped, SceneTexture2D};
 
 pub type MaterialInner<T> = ResourceWrapped<T>;
 
-pub struct Material<T> {
+pub struct MaterialRc<T> {
   inner: Rc<RefCell<MaterialInner<T>>>,
 }
 
