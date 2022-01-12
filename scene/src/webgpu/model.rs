@@ -19,12 +19,12 @@ where
   Ma: WebGPUMaterial,
 {
   fn update(
-    &mut self,
+    &self,
     gpu: &GPU,
     base: &mut SceneMaterialRenderPrepareCtxBase,
     res: &mut GPUResourceSceneCache,
   ) {
-    let mut inner = self.inner.borrow_mut();
+    let inner = self.inner.borrow();
     inner.update(gpu, base, res)
   }
 
@@ -51,8 +51,17 @@ impl<Me, Ma> SceneRenderableRc for MeshModel<Me, Ma>
 where
   Self: SceneRenderable + Clone,
 {
+  fn id(&self) -> usize {
+    self.inner.borrow().id()
+  }
   fn clone_boxed(&self) -> Box<dyn SceneRenderableRc> {
     Box::new(self.clone())
+  }
+  fn as_renderable(&self) -> &dyn SceneRenderable {
+    self
+  }
+  fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable {
+    self
   }
 }
 
@@ -60,7 +69,7 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   pub fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma> {
     OverridableMeshModelImpl {
       inner: self,
-      override_gpu: None,
+      override_gpu: Default::default(),
       overrides: Vec::with_capacity(1),
     }
   }
@@ -68,7 +77,7 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
 
 pub trait WebGPUMaterial: Any {
   fn update(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     res: &mut GPUResourceSceneCache,
@@ -86,7 +95,7 @@ pub trait WebGPUMaterial: Any {
 
 impl<T: MaterialCPUResource> WebGPUMaterial for MaterialInner<T> {
   fn update(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
     res: &mut GPUResourceSceneCache,
@@ -114,13 +123,13 @@ where
   Ma: WebGPUMaterial,
 {
   fn update(
-    &mut self,
+    &self,
     gpu: &GPU,
     base: &mut SceneMaterialRenderPrepareCtxBase,
     res: &mut GPUResourceSceneCache,
   ) {
-    let material = &mut self.material;
-    let mesh = &mut self.mesh;
+    let material = &self.material;
+    let mesh = &self.mesh;
     let mesh_dyn: &dyn WebGPUMesh = mesh;
 
     self.node.check_update_gpu(base.resources, gpu);
@@ -180,7 +189,7 @@ where
 
 pub struct OverridableMeshModelImpl<Me, Ma> {
   inner: MeshModelImpl<Me, Ma>,
-  override_gpu: Option<TransformGPU>,
+  override_gpu: RefCell<Option<TransformGPU>>,
   overrides: Vec<Box<dyn WorldMatrixOverride>>,
 }
 
@@ -214,14 +223,14 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
 
 impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
   fn update(
-    &mut self,
+    &self,
     gpu: &GPU,
     base: &mut SceneMaterialRenderPrepareCtxBase,
     res: &mut GPUResourceSceneCache,
   ) {
-    let inner = &mut self.inner;
-    let material = &mut inner.material;
-    let mesh = &mut inner.mesh;
+    let inner = &self.inner;
+    let material = &inner.material;
+    let mesh = &inner.mesh;
     let mesh_dyn: &dyn WebGPUMesh = mesh;
 
     let mut world_matrix = inner.node.visit(|n| n.world_matrix);
@@ -232,6 +241,7 @@ impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshMode
 
     self
       .override_gpu
+      .borrow_mut()
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
@@ -253,9 +263,10 @@ impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshMode
   ) {
     let material = &self.material;
 
+    let override_gpu = self.override_gpu.borrow();
     let ctx = SceneMaterialPassSetupCtx {
       camera_gpu,
-      model_gpu: self.override_gpu.as_ref(),
+      model_gpu: override_gpu.as_ref(),
       resources: &resources.content,
     };
     material.setup_pass(&resources.scene, pass, &ctx);

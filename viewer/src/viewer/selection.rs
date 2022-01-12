@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rendiation_algebra::Vec2;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
-use rendiation_scene::SceneRenderableRc;
+use rendiation_scene::{SceneRenderable, SceneRenderableRc};
 
 use crate::Scene;
 
@@ -33,7 +33,7 @@ pub struct SelectionSet {
 }
 
 impl<'a> IntoIterator for &'a mut SelectionSet {
-  type Item = &'a mut dyn SceneRenderableRc;
+  type Item = &'a mut dyn SceneRenderable;
 
   type IntoIter = SelectionSetIterMutType<'a>;
 
@@ -42,14 +42,14 @@ impl<'a> IntoIterator for &'a mut SelectionSet {
   }
 }
 
-type SelectionSetIterMutType<'a> = impl Iterator<Item = &'a mut dyn SceneRenderableRc>;
+type SelectionSetIterMutType<'a> = impl Iterator<Item = &'a mut dyn SceneRenderable>;
 
 fn mut_iter(map: &mut HashMap<usize, Selected>) -> SelectionSetIterMutType {
-  map.iter_mut().map(|(_, m)| m.as_mut())
+  map.iter_mut().map(|(_, m)| m.as_mut().as_renderable_mut())
 }
 
 impl<'a> IntoIterator for &'a SelectionSet {
-  type Item = &'a dyn SceneRenderableRc;
+  type Item = &'a dyn SceneRenderable;
 
   type IntoIter = SelectionSetIterType<'a>;
 
@@ -58,10 +58,10 @@ impl<'a> IntoIterator for &'a SelectionSet {
   }
 }
 
-type SelectionSetIterType<'a> = impl Iterator<Item = &'a dyn SceneRenderableRc>;
+type SelectionSetIterType<'a> = impl Iterator<Item = &'a dyn SceneRenderable>;
 
 fn iter(map: &HashMap<usize, Selected>) -> SelectionSetIterType {
-  map.iter().map(|(_, m)| m.as_ref())
+  map.iter().map(|(_, m)| m.as_ref().as_renderable())
 }
 
 impl SelectionSet {
@@ -70,13 +70,11 @@ impl SelectionSet {
   }
 
   pub fn select(&mut self, model: &dyn SceneRenderableRc) {
-    // self
-    //   .selected
-    //   .insert(model.inner.as_ptr(), model.clone_boxed());
+    self.selected.insert(model.id(), model.clone_boxed());
   }
 
   pub fn deselect(&mut self, model: &dyn SceneRenderableRc) {
-    // self.selected.remove(&(model.inner.as_ptr() as *const _));
+    self.selected.remove(&model.id());
   }
 
   pub fn clear(&mut self) {

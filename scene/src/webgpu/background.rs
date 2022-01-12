@@ -26,7 +26,7 @@ impl Background for SolidBackground {
 
 impl SceneRenderable for SolidBackground {
   fn update(
-    &mut self,
+    &self,
     _gpu: &GPU,
     _ctx: &mut SceneMaterialRenderPrepareCtxBase,
     _res: &mut GPUResourceSceneCache,
@@ -71,21 +71,21 @@ where
   S: MaterialCPUResource,
 {
   fn update(
-    &mut self,
+    &self,
     gpu: &GPU,
     base: &mut SceneMaterialRenderPrepareCtxBase,
     res: &mut GPUResourceSceneCache,
   ) {
     self.root.check_update_gpu(base.resources, gpu);
 
-    WebGPUMesh::update(&mut self.mesh, gpu, &mut base.resources.custom_storage, res);
+    WebGPUMesh::update(&self.mesh, gpu, &mut base.resources.custom_storage, res);
 
     let mut ctx = SceneMaterialRenderPrepareCtx {
       base,
       active_mesh: None,
     };
 
-    res.update_material(&mut self.shading, gpu, &mut ctx);
+    res.update_material(&self.shading, gpu, &mut ctx);
   }
 
   fn setup_pass<'a>(

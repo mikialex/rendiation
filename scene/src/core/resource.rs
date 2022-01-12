@@ -13,7 +13,7 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct ResourceWrapped<T> {
   id: usize,
   inner: T,
-  pub watchers: Arena<Box<dyn Watcher<T>>>,
+  pub watchers: RefCell<Arena<Box<dyn Watcher<T>>>>,
 }
 
 pub trait IntoResourced: Sized {
@@ -39,16 +39,20 @@ impl<T> ResourceWrapped<T> {
     }
   }
 
+  pub fn id(&self) -> usize {
+    self.id
+  }
+
   pub fn trigger_change(&mut self) {
     let mut to_drop = Vec::with_capacity(0);
-    self.watchers.iter_mut().for_each(|(h, w)| {
+    self.watchers.borrow_mut().iter_mut().for_each(|(h, w)| {
       if !w.will_change(&self.inner, self.id) {
         to_drop.push(h)
       }
     });
 
     for handle in to_drop.drain(..) {
-      self.watchers.remove(handle);
+      self.watchers.borrow_mut().remove(handle);
     }
   }
 }
@@ -63,6 +67,7 @@ impl<T> Drop for ResourceWrapped<T> {
   fn drop(&mut self) {
     self
       .watchers
+      .borrow_mut()
       .iter_mut()
       .for_each(|(_, w)| w.will_drop(&self.inner, self.id));
   }
@@ -142,7 +147,7 @@ impl<T: 'static, U: 'static> ResourceMapper<T, U> {
   /// this to bypass the borrow limits of get_update_or_insert_with
   pub fn get_update_or_insert_with_logic<'a, 'b>(
     &'b mut self,
-    source: &'a mut ResourceWrapped<U>,
+    source: &'a ResourceWrapped<U>,
     mut logic: impl FnMut(ResourceLogic<'a, 'b, T, U>) -> ResourceLogicResult<'b, T>,
   ) -> &'b mut T {
     let mut new_created = false;
@@ -151,6 +156,7 @@ impl<T: 'static, U: 'static> ResourceMapper<T, U> {
       new_created = true;
       source
         .watchers
+        .borrow_mut()
         .insert(Box::new(ResourceWatcherWithAutoClean {
           to_remove: self.to_remove.clone(),
           changed: self.changed.clone(),
@@ -167,7 +173,7 @@ impl<T: 'static, U: 'static> ResourceMapper<T, U> {
 
   pub fn get_update_or_insert_with(
     &mut self,
-    source: &mut ResourceWrapped<U>,
+    source: &ResourceWrapped<U>,
     creator: impl FnOnce(&U) -> T,
     updater: impl FnOnce(&mut T, &U),
   ) -> &mut T {
@@ -177,6 +183,7 @@ impl<T: 'static, U: 'static> ResourceMapper<T, U> {
       new_created = true;
       source
         .watchers
+        .borrow_mut()
         .insert(Box::new(ResourceWatcherWithAutoClean {
           to_remove: self.to_remove.clone(),
           changed: self.changed.clone(),

@@ -55,7 +55,7 @@ impl ViewerPipeline {
 
       pass("highlight-selected-mask")
         .with_color(selected.write(), clear(color_same(0.)))
-        // .render_by(&mut highlight(&content.selections))
+        .render_by(&mut highlight(&content.selections))
         .run(engine, scene);
 
       self.highlight.draw(selected.read_into())

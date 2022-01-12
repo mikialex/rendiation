@@ -37,7 +37,7 @@ pub trait WebGPUMesh: Any {
     group: MeshDrawGroup,
     res: &GPUResourceSceneCache,
   );
-  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache);
+  fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache);
   fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
@@ -48,7 +48,7 @@ pub trait WebGPUMesh: Any {
 impl GPUResourceSceneCache {
   pub fn update_mesh<M: MeshCPUSource>(
     &mut self,
-    m: &mut ResourceWrapped<M>,
+    m: &ResourceWrapped<M>,
     gpu: &GPU,
     storage: &mut AnyMap,
   ) {
@@ -200,7 +200,7 @@ impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
     res.setup_mesh(self, pass, group);
   }
 
-  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
+  fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
     res.update_mesh(self, gpu, storage)
   }
 
@@ -228,7 +228,7 @@ impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCell<
     res.setup_mesh(&inner, pass, group);
   }
 
-  fn update(&mut self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
+  fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
     let mut inner = self.inner.borrow_mut();
     res.update_mesh(&mut inner, gpu, storage)
   }

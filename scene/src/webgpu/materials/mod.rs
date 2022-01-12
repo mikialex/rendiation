@@ -81,33 +81,12 @@ pub trait MaterialGPUResource: Sized {
   }
 }
 
-// pub struct MaterialCell<T: MaterialCPUResource> {
-//   inner: Rc<RefCell<MaterialCellImpl<T>>>,
-// }
-
-// impl<T: MaterialCPUResource> MaterialCell<T> {
-//   pub fn new(material: T) -> Self {
-//     let material = MaterialCellImpl::new(material);
-//     Self {
-//       inner: Rc::new(RefCell::new(material)),
-//     }
-//   }
-// }
-
-// impl<T: MaterialCPUResource> Clone for MaterialCell<T> {
-//   fn clone(&self) -> Self {
-//     Self {
-//       inner: self.inner.clone(),
-//     }
-//   }
-// }
-
 type MaterialResourceMapper<T> = ResourceMapper<MaterialWebGPUResource<T>, T>;
 
 impl GPUResourceSceneCache {
   pub fn update_material<M: MaterialCPUResource>(
     &mut self,
-    m: &mut ResourceWrapped<M>,
+    m: &ResourceWrapped<M>,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtx,
   ) {
@@ -220,37 +199,6 @@ impl<T: MaterialCPUResource> Default for MaterialWebGPUResource<T> {
   }
 }
 
-// pub struct MaterialCellImpl<T>
-// where
-//   T: MaterialCPUResource,
-// {
-//   property_changed: bool,
-//   material: T,
-//   last_material: Option<T>, // todo
-//   current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
-//   bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
-//   gpu: Option<T::GPU>,
-// }
-
-// impl<T: MaterialCPUResource> MaterialCellImpl<T> {
-//   pub fn new(material: T) -> Self {
-//     Self {
-//       property_changed: true,
-//       bindgroup_watcher: Default::default(),
-//       current_pipeline: None,
-//       material,
-//       last_material: None,
-//       gpu: None,
-//     }
-//   }
-
-//   fn refresh_cache(&mut self) {
-//     self.property_changed = false;
-//     self.bindgroup_watcher.reset_clean();
-//     self.last_material = self.material.clone().into();
-//   }
-// }
-
 pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
   pub active_mesh: Option<&'b dyn WebGPUMesh>,
   pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
@@ -312,157 +260,3 @@ pub struct SceneMaterialPassSetupCtx<'a> {
   pub model_gpu: Option<&'a TransformGPU>,
   pub camera_gpu: &'a CameraBindgroup,
 }
-
-// pub trait WebGPUMaterial {
-//   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>);
-//   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx);
-
-//   /// this is to decide if could be picked by cpu side trivially.
-//   fn is_keep_mesh_shape(&self) -> bool;
-
-//   /// this is to decide whether need or not sort.
-//   fn is_transparent(&self) -> bool;
-
-//   fn as_any(&self) -> &dyn Any;
-//   fn as_any_mut(&mut self) -> &mut dyn Any;
-// }
-
-// impl WebGPUMaterial for Box<dyn WebGPUMaterial> {
-//   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
-//     self.as_mut().update(gpu, ctx)
-//   }
-
-//   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
-//     self.as_ref().setup_pass(pass, ctx)
-//   }
-
-//   fn is_keep_mesh_shape(&self) -> bool {
-//     self.as_ref().is_keep_mesh_shape()
-//   }
-
-//   fn is_transparent(&self) -> bool {
-//     self.as_ref().is_transparent()
-//   }
-
-//   fn as_any(&self) -> &dyn Any {
-//     self
-//   }
-
-//   fn as_any_mut(&mut self) -> &mut dyn Any {
-//     self
-//   }
-// }
-
-// impl<T> WebGPUMaterial for MaterialCellImpl<T>
-// where
-//   T: 'static,
-//   T: MaterialCPUResource,
-//   T::GPU: MaterialGPUResource<Source = T>,
-// {
-//   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
-//     if let Some(self_gpu) = &mut self.gpu {
-//       if self.property_changed || self.bindgroup_watcher.get_dirty() {
-//         if self_gpu.update(&self.material, gpu, ctx, &self.bindgroup_watcher) {
-//           self.gpu = T::create(&mut self.material, gpu, ctx, &self.bindgroup_watcher).into();
-//         }
-//         self.refresh_cache();
-//       }
-//     } else {
-//       self.gpu = T::create(&mut self.material, gpu, ctx, &self.bindgroup_watcher).into();
-//       self.refresh_cache();
-//     }
-
-//     let topology = ctx.active_mesh.unwrap().topology();
-//     let sample_count = ctx.pass_info.format_info.sample_count;
-
-//     let mut hasher = Default::default();
-
-//     let m_gpu = self.gpu.as_mut().unwrap();
-
-//     self.material.type_id().hash(&mut hasher);
-//     ctx.pass_info.format_info.hash(&mut hasher);
-
-//     let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-
-//     pipeline_ctx.pass.type_id().hash(&mut hasher);
-//     m_gpu.hash_pipeline(&self.material, &mut hasher);
-
-//     self.current_pipeline = pipelines
-//       .get_or_insert_with(hasher, || {
-//         let mut builder = PipelineBuilder::default();
-
-//         builder.primitive_state.topology = topology;
-//         builder.multisample.count = sample_count;
-
-//         m_gpu.create_pipeline(&self.material, &mut builder, &gpu.device, &pipeline_ctx);
-//         pipeline_ctx.pass.build_pipeline(&mut builder);
-//         builder.build(&gpu.device)
-//       })
-//       .clone()
-//       .into();
-//   }
-
-//   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
-//     let gpu = self.gpu.as_ref().unwrap();
-
-//     pass.set_pipeline_owned(self.current_pipeline.as_ref().unwrap());
-
-//     gpu.setup_pass_bindgroup(pass, ctx)
-//   }
-
-//   fn is_keep_mesh_shape(&self) -> bool {
-//     self.material.is_keep_mesh_shape()
-//   }
-
-//   fn is_transparent(&self) -> bool {
-//     self.material.is_transparent()
-//   }
-
-//   fn as_any(&self) -> &dyn Any {
-//     self
-//   }
-
-//   fn as_any_mut(&mut self) -> &mut dyn Any {
-//     self.property_changed = true;
-//     self
-//   }
-// }
-
-// impl<T> WebGPUMaterial for MaterialCell<T>
-// where
-//   T: 'static,
-//   T: MaterialCPUResource,
-//   T::GPU: MaterialGPUResource<Source = T>,
-// {
-//   fn update<'a, 'b>(&mut self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx<'a, 'b>) {
-//     let mut inner = self.inner.borrow_mut();
-//     inner.update(gpu, ctx)
-//   }
-
-//   fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>, ctx: &SceneMaterialPassSetupCtx) {
-//     let inner = self.inner.borrow();
-//     inner.setup_pass(pass, ctx)
-//   }
-
-//   fn is_keep_mesh_shape(&self) -> bool {
-//     let inner = self.inner.borrow();
-//     inner.is_keep_mesh_shape()
-//   }
-
-//   fn is_transparent(&self) -> bool {
-//     let inner = self.inner.borrow();
-//     inner.is_transparent()
-//   }
-
-//   fn as_any(&self) -> &dyn Any {
-//     self
-//   }
-
-//   fn as_any_mut(&mut self) -> &mut dyn Any {
-//     {
-//       let mut inner = self.inner.borrow_mut();
-//       inner.as_any_mut();
-//     }
-//     self
-//   }
-// }

@@ -243,7 +243,7 @@ impl PassDispatcher for HighLightMaskDispatcher {
 
 impl<'i, T> PassContent for HighLightDrawMaskTask<T>
 where
-  T: IntoIterator<Item = &'i mut dyn SceneRenderable> + Copy,
+  T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
 {
   fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
     let (res, mut base) =

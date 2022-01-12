@@ -103,7 +103,12 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
 
     let weak = Rc::downgrade(&self.dirty_notifier);
 
-    texture.content.borrow_mut().watchers.insert(Box::new(weak));
+    texture
+      .content
+      .borrow_mut()
+      .watchers
+      .borrow_mut()
+      .insert(Box::new(weak));
 
     self
   }

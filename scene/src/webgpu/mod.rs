@@ -37,7 +37,7 @@ use crate::{ResourceMapper, Scene, TextureCubeSource};
 
 pub trait SceneRenderable: 'static {
   fn update(
-    &mut self,
+    &self,
     gpu: &GPU,
     ctx: &mut SceneMaterialRenderPrepareCtxBase,
     res: &mut GPUResourceSceneCache,
@@ -60,7 +60,10 @@ pub trait SceneRenderable: 'static {
 }
 
 pub trait SceneRenderableRc: SceneRenderable {
+  fn id(&self) -> usize;
   fn clone_boxed(&self) -> Box<dyn SceneRenderableRc>;
+  fn as_renderable(&self) -> &dyn SceneRenderable;
+  fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable;
 }
 
 #[derive(Default)]
