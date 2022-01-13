@@ -12,7 +12,7 @@ glyph_brush = "0.7"
 image = "*"
 linked-hash-map = "0.5.4"
 log = "0.4"
-nfd = "0.0.4"
+# nfd = "0.0.4"
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-color = {path = "../components/color"}
 rendiation-geometry = {path = "../math/geometry"}
@@ -22,3 +22,9 @@ rendiation-texture-packer = {path = "../components/texture/packer"}
 rendiation-webgpu = {path = "../webgpu"}
 wgpu = "0.12.0"
 winit = {version = "0.26.0"}
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.28"
+console_error_panic_hook = "0.1.6"
+web-sys = { version = "0.3.53"}
+instant = "0.1.12"

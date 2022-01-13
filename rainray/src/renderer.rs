@@ -3,7 +3,6 @@ use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use indicatif::ProgressBar;
 use rayon::prelude::*;
-use std::time::Instant;
 
 pub struct Renderer {
   pub sample_per_pixel: usize,

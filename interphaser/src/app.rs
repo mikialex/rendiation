@@ -1,7 +1,4 @@
-use std::{
-  rc::Rc,
-  time::{Duration, Instant},
-};
+use std::rc::Rc;
 
 use rendiation_algebra::*;
 use rendiation_texture::Size;
@@ -46,6 +43,28 @@ impl<T: 'static> Application<T> {
     builder = builder.with_title("viewer");
     let window = builder.build(&event_loop).unwrap();
 
+    #[cfg(target_arch = "wasm32")]
+    {
+      use winit::platform::web::WindowExtWebSys;
+      // let query_string = web_sys::window().unwrap().location().search().unwrap();
+      // let level: log::Level = parse_url_query_string(&query_string, "RUST_LOG")
+      //     .map(|x| x.parse().ok())
+      //     .flatten()
+      //     .unwrap_or(log::Level::Error);
+      // console_log::init_with_level(level).expect("could not initialize logger");
+      // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+      // On wasm, append the canvas to the document body
+      web_sys::window()
+        .and_then(|win| win.document())
+        .and_then(|doc| doc.body())
+        .and_then(|body| {
+          body
+            .append_child(&web_sys::Element::from(window.canvas()))
+            .ok()
+        })
+        .expect("couldn't append canvas to document body");
+    }
+
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
     let device_pixel_ratio = window.scale_factor();
@@ -53,7 +72,7 @@ impl<T: 'static> Application<T> {
     let (gpu, surface) = GPU::new_with_surface(&window).await;
     let gpu = Rc::new(gpu);
 
-    let fonts = FontManager::new_with_fallback_system_font("Arial");
+    let fonts = FontManager::new_with_default_font();
 
     let text_cache_init_size = Size::from_usize_pair_min_one((512, 512));
     let texts = TextCache::new_default_impl(text_cache_init_size);
@@ -112,8 +131,13 @@ impl<T: 'static> Application<T> {
             app.window.request_redraw();
             app.last_update_inst = Instant::now();
           } else {
-            *control_flow =
-              ControlFlow::WaitUntil(Instant::now() + target_frametime - time_since_last_frame);
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+              *control_flow =
+                ControlFlow::WaitUntil(Instant::now() + target_frametime - time_since_last_frame);
+            }
+            #[cfg(target_arch = "wasm32")]
+            app.window.request_redraw();
           }
         }
         Event::WindowEvent {

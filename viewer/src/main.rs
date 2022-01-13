@@ -19,11 +19,28 @@ pub use app::*;
 use interphaser::Application;
 
 fn main() {
-  env_logger::builder().init();
+  #[cfg(target_arch = "wasm32")]
+  {
+    console_error_panic_hook::set_once();
+    // console_log::init_with_level(Level::Debug).ok();
 
-  let viewer = ViewerApplication::default();
-  let ui = create_app();
+    let viewer = ViewerApplication::default();
+    let ui = create_app();
 
-  let viewer = futures::executor::block_on(Application::new(viewer, ui));
-  viewer.run();
+    wasm_bindgen_futures::spawn_local(async move {
+      let viewer = Application::new(viewer, ui).await;
+      viewer.run();
+    });
+  }
+
+  #[cfg(not(target_arch = "wasm32"))]
+  {
+    env_logger::builder().init();
+
+    let viewer = ViewerApplication::default();
+    let ui = create_app();
+
+    let viewer = futures::executor::block_on(Application::new(viewer, ui));
+    viewer.run();
+  }
 }

@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use crate::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy)]
 pub struct PerformanceInfo {
