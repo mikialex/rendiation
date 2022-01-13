@@ -6,6 +6,7 @@
         "ATTRIBS",
         "azim",
         "backends",
+        "backface",
         "bbox",
         "Bezier",
         "Bgra",
