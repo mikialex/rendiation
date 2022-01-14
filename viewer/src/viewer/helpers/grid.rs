@@ -1,6 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
-use rendiation_webgpu::GPU;
+use webgpu::GPU;
 
 use crate::*;
 

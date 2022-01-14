@@ -8,7 +8,8 @@
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::field_reassign_with_default)]
 
-pub use rendiation_scene::*;
+use rendiation_scene::core::*;
+use rendiation_scene::webgpu::*;
 
 pub mod viewer;
 pub use viewer::*;

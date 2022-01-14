@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::*;
 use rendiation_algebra::{Vec2, Vec3, Vector};
 

@@ -19,7 +19,7 @@ use rendiation_controller::{
   ControllerWinitAdapter, InputBound, OrbitController, Transformed3DControllee,
 };
 use rendiation_texture::Size;
-use rendiation_webgpu::*;
+use webgpu::*;
 
 use crate::*;
 

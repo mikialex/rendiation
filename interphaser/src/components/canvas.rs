@@ -1,12 +1,12 @@
 use crate::*;
 use rendiation_texture::Size;
-use rendiation_webgpu::{FrameTarget, GPUTextureSize, GPU};
 use std::rc::Rc;
+use webgpu::{FrameTarget, GPUTextureSize, GPU};
 use winit::event::Event;
 
 pub struct GPUCanvas {
   current_render_buffer_size: Size,
-  content: Option<Rc<wgpu::TextureView>>,
+  content: Option<Rc<webgpu::TextureView>>,
   layout: LayoutUnit,
 }
 
@@ -74,20 +74,21 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
           self.content = None;
         }
 
-        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+        let format = webgpu::TextureFormat::Rgba8UnormSrgb;
 
         let target = self.content.get_or_insert_with(|| {
           let device = &event.gpu.device;
-          let tex = device.create_texture(&wgpu::TextureDescriptor {
+          let tex = device.create_texture(&webgpu::TextureDescriptor {
             size: new_size.into_gpu_size(),
             mip_level_count: 1,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension: webgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: webgpu::TextureUsages::RENDER_ATTACHMENT
+              | webgpu::TextureUsages::TEXTURE_BINDING,
             label: None,
           });
-          let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
+          let view = tex.create_view(&webgpu::TextureViewDescriptor::default());
           Rc::new(view)
         });
 

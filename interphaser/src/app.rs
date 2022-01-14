@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use rendiation_webgpu::*;
+use webgpu::*;
 use winit::{
   event::*,
   event_loop::{ControlFlow, EventLoop},
@@ -120,7 +120,7 @@ impl<T: 'static> Application<T> {
       match &event {
         Event::MainEventsCleared => {
           // Clamp to some max framerate to avoid busy-looping too much
-          // (we might be in wgpu::PresentMode::Mailbox, thus discarding superfluous frames)
+          // (we might be in webgpu::PresentMode::Mailbox, thus discarding superfluous frames)
           //
           // winit has window.current_monitor().video_modes() but that is a list of all full screen video modes.
           // So without extra dependencies it's a bit tricky to get the max refresh rate we can run the window on.
@@ -211,7 +211,7 @@ impl<T> ApplicationInner<T> {
 
     let view = frame
       .texture
-      .create_view(&wgpu::TextureViewDescriptor::default());
+      .create_view(&webgpu::TextureViewDescriptor::default());
     let view = Rc::new(view);
 
     self.current_perf.rendering_dispatch_time = time_measure(|| {
@@ -226,8 +226,8 @@ impl<T> ApplicationInner<T> {
 
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((
-        wgpu::Operations {
-          load: wgpu::LoadOp::Clear(wgpu::Color {
+        webgpu::Operations {
+          load: webgpu::LoadOp::Clear(webgpu::Color {
             r: 1.,
             g: 1.,
             b: 1.,

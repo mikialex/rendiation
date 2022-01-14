@@ -10,3 +10,6 @@ rendiation-texture-types = {path = "../components/texture/types"}
 typed-arena = "2.0.1"
 wgpu = "0.12.0"
 winit = {version = "0.26.0"}
+
+[features]
+webgl = ["wgpu/webgl"]

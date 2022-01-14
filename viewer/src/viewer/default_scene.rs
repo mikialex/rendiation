@@ -4,39 +4,39 @@ use rendiation_renderable_mesh::tessellation::{
   CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
 };
 use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
-use rendiation_webgpu::WebGPUTexture2dSource;
+use webgpu::WebGPUTexture2dSource;
 
 use crate::*;
 
-// pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-//   use image::io::Reader as ImageReader;
-//   let img = ImageReader::open(path).unwrap().decode().unwrap();
-//   match img {
-//     image::DynamicImage::ImageRgba8(img) => img,
-//     image::DynamicImage::ImageRgb8(img) => rgb_to_rgba(img),
-//     _ => panic!("unsupported texture type"),
-//   }
-// }
+pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+  use image::io::Reader as ImageReader;
+  let img = ImageReader::open(path).unwrap().decode().unwrap();
+  match img {
+    image::DynamicImage::ImageRgba8(img) => img,
+    image::DynamicImage::ImageRgb8(img) => rgb_to_rgba(img),
+    _ => panic!("unsupported texture type"),
+  }
+}
 
-// pub fn load_img_cube() -> TextureCubeSource {
-//   let path = vec![
-//     "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
-//     "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
-//     "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
-//     "C:/Users/mk/Desktop/rrf-resource/Park2/negy.jpg",
-//     "C:/Users/mk/Desktop/rrf-resource/Park2/posz.jpg",
-//     "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
-//   ];
+pub fn load_img_cube() -> TextureCubeSource {
+  let path = vec![
+    "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
+    "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
+    "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
+    "C:/Users/mk/Desktop/rrf-resource/Park2/negy.jpg",
+    "C:/Users/mk/Desktop/rrf-resource/Park2/posz.jpg",
+    "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
+  ];
 
-//   fn load(path: &&str) -> Box<dyn WebGPUTexture2dSource> {
-//     Box::new(load_img(path).into_source())
-//   }
+  fn load(path: &&str) -> Box<dyn WebGPUTexture2dSource> {
+    Box::new(load_img(path).into_source())
+  }
 
-//   // todo this is awkward
-//   let res: Vec<Box<dyn WebGPUTexture2dSource>> = path.iter().map(load).collect();
+  // todo this is awkward
+  let res: Vec<Box<dyn WebGPUTexture2dSource>> = path.iter().map(load).collect();
 
-//   unsafe { res.try_into().unwrap_unchecked() }
-// }
+  unsafe { res.try_into().unwrap_unchecked() }
+}
 
 pub fn load_default_scene(scene: &mut Scene) {
   // let path = if cfg!(windows) {
@@ -86,7 +86,7 @@ pub fn load_default_scene(scene: &mut Scene) {
   //   }
   //   .into_scene_material()
   //   .into_resourced();
-  //   material.states.depth_compare = wgpu::CompareFunction::Always;
+  //   material.states.depth_compare = webgpu::CompareFunction::Always;
 
   //   let model = MeshModel::new(material, mesh, scene.root.create_child());
   //   scene.add_model(model)

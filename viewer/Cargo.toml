@@ -17,11 +17,13 @@ rendiation-controller = {path = "../components/controller"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable", features = ["webgpu"]}
 rendiation-texture = {path = "../components/texture/core", features = ["webgpu"]}
-rendiation-webgpu = {path = "../webgpu"}
+webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
 rendiation-scene = {path = "../scene"}
-wgpu = "0.12.0"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.28"
 console_error_panic_hook = "0.1.6"
+
+[features]
+webgl = ["webgpu/webgl"]

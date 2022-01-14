@@ -1,8 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
 
-use crate::*;
-
 use super::*;
 
 pub struct CameraHelper {
@@ -114,12 +112,7 @@ impl Default for CameraHelpers {
 }
 
 impl PassContent for CameraHelpers {
-  fn update(
-    &mut self,
-    gpu: &rendiation_webgpu::GPU,
-    scene: &mut crate::Scene,
-    ctx: &PassUpdateCtx,
-  ) {
+  fn update(&mut self, gpu: &webgpu::GPU, scene: &mut crate::Scene, ctx: &PassUpdateCtx) {
     if !self.enabled {
       return;
     }
