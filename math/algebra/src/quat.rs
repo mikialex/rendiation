@@ -369,6 +369,7 @@ where
     (*self - b).length()
   }
 
+  #[must_use]
   pub fn normalize(&self) -> Self {
     let mag_sq = self.length2();
     if mag_sq > T::zero() {
@@ -394,6 +395,7 @@ where
     self.w.acos() * T::two()
   }
 
+  #[must_use]
   pub fn conj(&self) -> Self {
     Self {
       x: -self.x,
@@ -403,6 +405,7 @@ where
     }
   }
 
+  #[must_use]
   pub fn conjugate(&self) -> Self {
     Self {
       x: -self.x,
@@ -412,6 +415,7 @@ where
     }
   }
 
+  #[must_use]
   pub fn inverse(&self) -> Self {
     self.conjugate()
   }

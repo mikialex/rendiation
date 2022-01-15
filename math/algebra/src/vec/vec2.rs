@@ -66,6 +66,7 @@ where
   T: Scalar,
 {
   #[inline]
+  #[must_use]
   pub fn rotate(&self, anchor: Self, radians: T) -> Self {
     let v = *self - anchor;
     let x = v.x;

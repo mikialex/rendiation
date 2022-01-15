@@ -51,18 +51,22 @@ pub trait Vector<T: One + Zero + Copy>: Copy {
 /// the vector that in real number space
 pub trait RealVector<T: One + Zero + Real>: Vector<T> {
   #[inline]
+  #[must_use]
   fn min(self, rhs: Self) -> Self {
     self.zip(rhs, |a, b| a.min(b))
   }
   #[inline]
+  #[must_use]
   fn max(self, rhs: Self) -> Self {
     self.zip(rhs, |a, b| a.max(b))
   }
   #[inline]
+  #[must_use]
   fn clamp(self, min: Self, max: Self) -> Self {
     self.min(min).max(max)
   }
   #[inline]
+  #[must_use]
   fn saturate(self) -> Self {
     self.clamp(Self::zero(), Self::one())
   }
@@ -84,6 +88,7 @@ pub trait VectorSpace<T>:
 /// inner space define the length and angle based on vector space
 pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   #[inline]
+  #[must_use]
   fn normalize(&self) -> Self {
     let mag_sq = self.length2();
     if mag_sq > T::zero() {
@@ -94,6 +99,7 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   }
 
   #[inline]
+  #[must_use]
   fn reflect<Rhs: InnerData<Self>>(&self, normal: Rhs) -> Self {
     let normal = normal.get_inner();
     *self - normal * self.dot(normal) * T::two()
@@ -115,6 +121,7 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   }
 
   #[inline]
+  #[must_use]
   fn reverse(&self) -> Self {
     *self * -T::one()
   }

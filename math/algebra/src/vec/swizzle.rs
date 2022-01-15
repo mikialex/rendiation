@@ -59,6 +59,7 @@ macro_rules! swizzle4 {
   ($a:ident, $b:ident, $c:ident, $d:ident) => {
     paste::item! {
       #[doc(hidden)]
+      #[must_use]
       pub fn [< $a $b $c $d >](&self) -> Vec4<T> {
         [
           self.$a(),
@@ -119,6 +120,7 @@ macro_rules! swizzle3 {
   ($a:ident, $b:ident, $c:ident, $x:ident, $y:ident, $z:ident) => {
     paste::item! {
       #[doc(hidden)]
+      #[must_use]
       pub fn [< $a $b $c >](&self) -> Vec3<T> {
         [
           self.$a(),
@@ -162,6 +164,7 @@ macro_rules! swizzle2 {
   ($a:ident, $b:ident, $x:ident, $y:ident) => {
     paste::item! {
       #[doc(hidden)]
+      #[must_use]
       pub fn [< $a $b >](&self) -> Vec2<T> {
         [
           self.$a(),

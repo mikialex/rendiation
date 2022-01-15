@@ -539,6 +539,7 @@ where
     )
   }
 
+  #[must_use]
   pub fn extract_rotation_mat(&self) -> Self {
     let scale_inv = self.get_scale().map(|v|T::one() / v);
     let mut mat = self.to_mat3();

@@ -18,5 +18,6 @@ impl Lerp<f64> for f64 {
 }
 
 pub trait Slerp<T> {
+  #[must_use]
   fn slerp(self, rhs: Self, t: T) -> Self;
 }
