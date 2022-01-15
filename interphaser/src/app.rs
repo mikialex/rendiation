@@ -46,14 +46,6 @@ impl<T: 'static> Application<T> {
     #[cfg(target_arch = "wasm32")]
     {
       use winit::platform::web::WindowExtWebSys;
-      // let query_string = web_sys::window().unwrap().location().search().unwrap();
-      // let level: log::Level = parse_url_query_string(&query_string, "RUST_LOG")
-      //     .map(|x| x.parse().ok())
-      //     .flatten()
-      //     .unwrap_or(log::Level::Error);
-      // console_log::init_with_level(level).expect("could not initialize logger");
-      // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-      // On wasm, append the canvas to the document body
       web_sys::window()
         .and_then(|win| win.document())
         .and_then(|doc| doc.body())
@@ -126,10 +118,12 @@ impl<T: 'static> Application<T> {
           // So without extra dependencies it's a bit tricky to get the max refresh rate we can run the window on.
           // Therefore we just go with 60fps - sorry 120hz+ folks!
           let target_frametime = Duration::from_secs_f64(1.0 / 60.0);
+
           let time_since_last_frame = app.last_update_inst.elapsed();
+
           if time_since_last_frame >= target_frametime {
-            app.window.request_redraw();
             app.last_update_inst = Instant::now();
+            app.window.request_redraw();
           } else {
             #[cfg(not(target_arch = "wasm32"))]
             {

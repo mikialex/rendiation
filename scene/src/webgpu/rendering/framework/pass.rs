@@ -147,6 +147,11 @@ impl<'a, 't> PassDescriptor<'a, 't> {
       }
     }
 
+    #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
+    if let Some(resolve_target) = self.desc.resolve_target.take() {
+      self.desc.channels[0].1 = resolve_target
+    }
+
     let mut pass = encoder.begin_render_pass(&self.desc);
 
     let camera = scene.active_camera.as_ref().unwrap();
