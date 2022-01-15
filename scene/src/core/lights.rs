@@ -25,11 +25,3 @@ pub struct DirectionalLight {
   pub intensity: Vec3<f32>,
   pub direction: Vec3<f32>,
 }
-
-#[repr(C)]
-pub struct DirectionalLightShaderInfo {
-  pub intensity: Vec3<f32>,
-  pub _pad: f32,
-  pub direction: Vec3<f32>,
-  pub _pad2: f32,
-}

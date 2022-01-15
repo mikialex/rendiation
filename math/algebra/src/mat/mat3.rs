@@ -30,7 +30,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
     let t13 = self.c2 * self.b1 - self.b2 * self.c1;
     self.a1 * t11 + self.a2 * t12 + self.a3 * t13
   }
-  
+
   fn inverse(&self) -> Option<Self> {
     let det = self.det();
     if det == T::zero() {
@@ -153,7 +153,6 @@ impl<T> Mat3<T>
 where
   T: Scalar,
 {
-
   pub fn rotate_x(theta: T) -> Self {
     let (s, c) = theta.sin_cos();
 

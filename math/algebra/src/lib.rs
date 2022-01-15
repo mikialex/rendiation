@@ -1,4 +1,4 @@
-#![feature(const_generics)]
+#![feature(adt_const_params)]
 #![feature(trait_alias)]
 #![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]

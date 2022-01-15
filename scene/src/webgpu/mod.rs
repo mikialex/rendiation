@@ -7,6 +7,7 @@ pub mod model;
 pub mod node;
 pub mod rendering;
 pub mod texture;
+pub mod lights;
 
 use std::{
   any::{Any, TypeId},
@@ -22,9 +23,7 @@ pub use model::*;
 pub use node::*;
 pub use rendering::*;
 pub use texture::*;
-
-pub mod model_collection;
-pub use model_collection::*;
+pub use lights::*;
 
 use anymap::AnyMap;
 use rendiation_geometry::{Nearest, Ray3};

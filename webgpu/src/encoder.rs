@@ -1,4 +1,8 @@
-use std::{num::NonZeroU32, ops::{Deref, DerefMut}, rc::Rc};
+use std::{
+  num::NonZeroU32,
+  ops::{Deref, DerefMut},
+  rc::Rc,
+};
 
 use crate::{
   BindGroupLayoutProvider, GPURenderPass, GPURenderPassDataHolder, PlaceholderBindgroup,

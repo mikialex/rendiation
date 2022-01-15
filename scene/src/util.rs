@@ -13,7 +13,7 @@ impl<T> Default for ValueIDGenerator<T> {
   }
 }
 
-#[derive(Debug, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub struct ValueID<T> {
   value: usize,
   ty: PhantomData<T>,

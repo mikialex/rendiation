@@ -1,19 +1,17 @@
 use std::collections::HashMap;
 
 use rendiation_texture::{Size, TextureRange};
-use rendiation_webgpu::{
-  util::DeviceExt, WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource,
-};
+use webgpu::{util::DeviceExt, WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource};
 
 use crate::{TextHash, TextQuadInstance};
 
 pub struct WebGPUxTextPrimitive {
-  pub vertex_buffer: wgpu::Buffer,
+  pub vertex_buffer: webgpu::Buffer,
   pub length: u32,
 }
 
 pub fn create_gpu_text(
-  device: &wgpu::Device,
+  device: &webgpu::Device,
   instances: &[TextQuadInstance],
 ) -> Option<WebGPUxTextPrimitive> {
   if instances.is_empty() {
@@ -21,10 +19,10 @@ pub fn create_gpu_text(
   }
   let instances_bytes = bytemuck::cast_slice(instances);
 
-  let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+  let vertex_buffer = device.create_buffer_init(&webgpu::util::BufferInitDescriptor {
     label: None,
     contents: instances_bytes,
-    usage: wgpu::BufferUsages::VERTEX,
+    usage: webgpu::BufferUsages::VERTEX,
   });
 
   WebGPUxTextPrimitive {
@@ -39,8 +37,9 @@ pub struct WebGPUTextureCache {
 }
 
 impl WebGPUTextureCache {
-  pub fn init(size: Size, device: &wgpu::Device) -> Self {
-    let desc = WebGPUTexture2dDescriptor::from_size(size).with_format(wgpu::TextureFormat::R8Unorm);
+  pub fn init(size: Size, device: &webgpu::Device) -> Self {
+    let desc =
+      WebGPUTexture2dDescriptor::from_size(size).with_format(webgpu::TextureFormat::R8Unorm);
     Self {
       texture: WebGPUTexture2d::create(device, desc),
     }
@@ -49,14 +48,14 @@ impl WebGPUTextureCache {
     &self,
     data: &dyn WebGPUTexture2dSource,
     range: TextureRange,
-    queue: &wgpu::Queue,
+    queue: &webgpu::Queue,
   ) {
     self
       .texture
       .upload_with_origin(queue, data, 0, range.origin);
   }
 
-  pub fn get_view(&self) -> &wgpu::TextureView {
+  pub fn get_view(&self) -> &webgpu::TextureView {
     self.texture.get_default_view()
   }
 }

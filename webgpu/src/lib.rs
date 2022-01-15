@@ -1,5 +1,3 @@
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
@@ -124,7 +122,7 @@ impl GPU {
     }
   }
   pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
-    let backend = wgpu::Backends::PRIMARY;
+    let backend = wgpu::Backends::all();
     let instance = wgpu::Instance::new(backend);
     let power_preference = wgpu::PowerPreference::HighPerformance;
 
@@ -141,7 +139,14 @@ impl GPU {
       .expect("No suitable GPU adapters found on the system!");
 
     let (device, queue) = adaptor
-      .request_device(&wgpu::DeviceDescriptor::default(), None)
+      .request_device(
+        &wgpu::DeviceDescriptor {
+          label: None,
+          features: adaptor.features(),
+          limits: adaptor.limits(),
+        },
+        None,
+      )
       .await
       .expect("Unable to find a suitable GPU device!");
 
@@ -213,3 +218,9 @@ impl IndexBufferSourceType for u16 {
 //   format: wgpu::VertexFormat,
 //   offset: wgpu::BufferAddress,
 // }
+
+pub struct FrameTarget {
+  pub size: Size,
+  pub format: wgpu::TextureFormat,
+  pub view: std::rc::Rc<wgpu::TextureView>,
+}

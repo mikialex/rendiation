@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
-use rendiation_webgpu::*;
+use webgpu::*;
 
 use crate::*;
 
@@ -62,7 +62,7 @@ struct Arrow {
 impl Arrow {
   pub fn update(
     &mut self,
-    gpu: &rendiation_webgpu::GPU,
+    gpu: &webgpu::GPU,
     ctx: &mut SceneMaterialRenderPrepareCtxBase,
     res: &mut GPUResourceSceneCache,
   ) {
@@ -94,7 +94,7 @@ impl Arrow {
       }
       .into_scene_material();
       material.states.depth_write_enabled = false;
-      material.states.depth_compare = wgpu::CompareFunction::Always;
+      material.states.depth_compare = webgpu::CompareFunction::Always;
       material
     }
     let material = material(color.into());

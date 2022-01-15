@@ -1,8 +1,5 @@
 use rendiation_algebra::*;
-use rendiation_geometry::LineSegment;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
-
-use crate::*;
 
 use super::*;
 
@@ -36,19 +33,13 @@ impl CameraHelper {
   }
 }
 
-fn build_line_box(target: &mut Vec<LineSegment<Vec3<f32>>>, min: Vec3<f32>, max: Vec3<f32>) {
-  //
-}
-
-fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
-  let zero = 0.0001;
-  let one = 0.9999;
-  let near = zero;
-  let far = one;
-  let left = -one;
-  let right = one;
-  let top = one;
-  let bottom = -one;
+fn line_box(min: Vec3<f32>, max: Vec3<f32>) -> impl IntoIterator<Item = [Vec3<f32>; 2]> {
+  let near = min.x;
+  let far = max.x;
+  let left = min.z;
+  let right = max.z;
+  let top = max.y;
+  let bottom = min.y;
 
   let near_left_down = Vec3::new(left, bottom, near);
   let near_left_top = Vec3::new(left, top, near);
@@ -60,7 +51,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
   let far_right_down = Vec3::new(right, bottom, far);
   let far_right_top = Vec3::new(right, top, far);
 
-  let lines = vec![
+  [
     [near_left_down, near_left_top],
     [near_right_down, near_right_top],
     [near_left_down, near_right_down],
@@ -75,14 +66,29 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
     [near_left_top, far_left_top],
     [near_right_down, far_right_down],
     [near_right_top, far_right_top],
-  ];
+  ]
+}
 
-  let lines = lines
-    .iter()
+fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
+  let zero = 0.0001;
+  let one = 0.9999;
+
+  let near = zero;
+  let far = one;
+  let left = -one;
+  let right = one;
+  let top = one;
+  let bottom = -one;
+
+  let min = Vec3::new(near, left, bottom);
+  let max = Vec3::new(far, right, top);
+
+  let lines = line_box(min, max)
+    .into_iter()
     .map(|[start, end]| FatLineVertex {
       color: Vec4::new(1., 1., 1., 1.),
-      start: *start * project_mat,
-      end: *end * project_mat,
+      start: start * project_mat,
+      end: end * project_mat,
     })
     .collect();
 
@@ -106,12 +112,7 @@ impl Default for CameraHelpers {
 }
 
 impl PassContent for CameraHelpers {
-  fn update(
-    &mut self,
-    gpu: &rendiation_webgpu::GPU,
-    scene: &mut crate::Scene,
-    ctx: &PassUpdateCtx,
-  ) {
+  fn update(&mut self, gpu: &webgpu::GPU, scene: &mut crate::Scene, ctx: &PassUpdateCtx) {
     if !self.enabled {
       return;
     }

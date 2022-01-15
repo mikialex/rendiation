@@ -166,6 +166,7 @@ impl<F: AttachmentFormat> AttachmentDescriptor<F> {
       .attachments
       .entry((size, self.format.into(), self.sample_count))
       .or_insert_with(Default::default);
+
     let texture = cached.pop().unwrap_or_else(|| {
       engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: None,

@@ -8,20 +8,30 @@ pub struct FontManager {
 }
 
 impl FontManager {
-  pub fn new_with_fallback_system_font(fall_back_font_name: &str) -> Self {
-    let property = font_loader::system_fonts::FontPropertyBuilder::new()
-      .family(fall_back_font_name)
-      .build();
-
-    let (font, _) = font_loader::system_fonts::get(&property).unwrap();
-    let default_font = ab_glyph::FontArc::try_from_vec(font).unwrap();
-
+  pub fn new_with_default_font() -> Self {
     let mut fonts = Self {
       fonts: Vec::new(),
       fonts_by_name: HashMap::new(),
     };
 
-    fonts.add_font(fall_back_font_name, default_font);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+      let property = font_loader::system_fonts::FontPropertyBuilder::new()
+        .family("Arial")
+        .build();
+
+      let (font, _) = font_loader::system_fonts::get(&property).unwrap();
+      let default_font = ab_glyph::FontArc::try_from_vec(font).unwrap();
+      fonts.add_font("default", default_font);
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+      let default_font = include_bytes!("./CascadiaMonoPL-Regular.otf");
+      let default_font = ab_glyph::FontArc::try_from_slice(default_font).unwrap();
+      fonts.add_font("default", default_font);
+    }
+
     fonts
   }
 

@@ -127,7 +127,6 @@ impl<T: Scalar> Box3<T> {
   pub fn is_empty(&self) -> bool {
     (self.max.x < self.min.x) || (self.max.y < self.min.y) || (self.max.z < self.min.z)
   }
-
 }
 
 impl<'a, T: Scalar> FromIterator<&'a Vec3<T>> for Box3<T> {

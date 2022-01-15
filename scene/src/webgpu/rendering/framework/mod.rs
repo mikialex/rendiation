@@ -8,8 +8,7 @@ pub use pool::*;
 pub mod attachment;
 pub use attachment::*;
 
-use interphaser::FrameTarget;
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::*;
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 pub struct RenderEngine {
@@ -22,11 +21,18 @@ pub struct RenderEngine {
 
 impl RenderEngine {
   pub fn new(gpu: Rc<GPU>) -> Self {
+    let mut msaa_sample_count = 4;
+
+    #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
+    {
+      msaa_sample_count = 1;
+    }
+
     Self {
       resource: Default::default(),
       output: Default::default(),
       pass_cache: Default::default(),
-      msaa_sample_count: 4,
+      msaa_sample_count,
       gpu,
     }
   }

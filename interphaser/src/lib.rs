@@ -3,10 +3,16 @@
 #![feature(generic_associated_types)]
 #![feature(associated_type_bounds)]
 #![feature(type_alias_impl_trait)]
-#![feature(format_args_capture)]
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
+
+#[cfg(target_arch = "wasm32")]
+use instant::Instant;
+
+use std::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Instant;
 
 mod core;
 pub use crate::core::*;

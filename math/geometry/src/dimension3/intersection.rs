@@ -13,7 +13,7 @@ where
       FaceSide::Back => face.map(|v| *v.position()).flip(),
     };
 
-    let blackface_culling = match side {
+    let backface_culling = match side {
       FaceSide::Double => false,
       FaceSide::Back | FaceSide::Front => true,
     };
@@ -33,7 +33,7 @@ where
     let mut sign = T::zero();
 
     if DdN > T::zero() {
-      if blackface_culling {
+      if backface_culling {
         return Nearest::none();
       }
       sign = T::one();

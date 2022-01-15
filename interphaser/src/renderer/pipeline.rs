@@ -1,13 +1,13 @@
-use rendiation_webgpu::VertexBufferSourceType;
+use webgpu::VertexBufferSourceType;
 
 use crate::{renderer::UIGlobalParameter, UIVertex};
 
 pub fn create_solid_pipeline(
-  device: &wgpu::Device,
-  target_format: wgpu::TextureFormat,
-  global_uniform_bind_group_layout: &wgpu::BindGroupLayout,
-) -> wgpu::RenderPipeline {
-  let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+  device: &webgpu::Device,
+  target_format: webgpu::TextureFormat,
+  global_uniform_bind_group_layout: &webgpu::BindGroupLayout,
+) -> webgpu::RenderPipeline {
+  let pipeline_layout = device.create_pipeline_layout(&webgpu::PipelineLayoutDescriptor {
     label: Some("ui_solid_pipeline_layout"),
     bind_group_layouts: &[global_uniform_bind_group_layout],
     push_constant_ranges: &[],
@@ -50,42 +50,42 @@ pub fn create_solid_pipeline(
       "
   );
 
-  let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+  let shader = device.create_shader_module(&webgpu::ShaderModuleDescriptor {
     label: None,
-    source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
+    source: webgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
   });
 
-  let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+  let render_pipeline = device.create_render_pipeline(&webgpu::RenderPipelineDescriptor {
     label: Some("ui_solid_pipeline"),
     layout: Some(&pipeline_layout),
-    vertex: wgpu::VertexState {
+    vertex: webgpu::VertexState {
       entry_point: "vs_main",
       module: &shader,
       buffers: &[UIVertex::vertex_layout().as_raw()],
     },
-    primitive: wgpu::PrimitiveState {
-      topology: wgpu::PrimitiveTopology::TriangleList,
+    primitive: webgpu::PrimitiveState {
+      topology: webgpu::PrimitiveTopology::TriangleList,
       unclipped_depth: false,
       conservative: false,
       cull_mode: None,
-      front_face: wgpu::FrontFace::default(),
-      polygon_mode: wgpu::PolygonMode::default(),
+      front_face: webgpu::FrontFace::default(),
+      polygon_mode: webgpu::PolygonMode::default(),
       strip_index_format: None,
     },
     depth_stencil: None,
-    multisample: wgpu::MultisampleState {
+    multisample: webgpu::MultisampleState {
       alpha_to_coverage_enabled: false,
       count: 1,
       mask: !0,
     },
 
-    fragment: Some(wgpu::FragmentState {
+    fragment: Some(webgpu::FragmentState {
       module: &shader,
       entry_point: "fs_main",
-      targets: &[wgpu::ColorTargetState {
+      targets: &[webgpu::ColorTargetState {
         format: target_format,
-        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-        write_mask: wgpu::ColorWrites::ALL,
+        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+        write_mask: webgpu::ColorWrites::ALL,
       }],
     }),
     multiview: None,
@@ -95,26 +95,26 @@ pub fn create_solid_pipeline(
 }
 
 pub struct TextureBindGroup {
-  pub bindgroup: wgpu::BindGroup,
+  pub bindgroup: webgpu::BindGroup,
 }
 
 impl TextureBindGroup {
   pub fn new(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    sampler: &wgpu::Sampler,
-    view: &wgpu::TextureView,
+    device: &webgpu::Device,
+    layout: &webgpu::BindGroupLayout,
+    sampler: &webgpu::Sampler,
+    view: &webgpu::TextureView,
   ) -> Self {
-    let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let bindgroup = device.create_bind_group(&webgpu::BindGroupDescriptor {
       layout,
       entries: &[
-        wgpu::BindGroupEntry {
+        webgpu::BindGroupEntry {
           binding: 0,
-          resource: wgpu::BindingResource::TextureView(view),
+          resource: webgpu::BindingResource::TextureView(view),
         },
-        wgpu::BindGroupEntry {
+        webgpu::BindGroupEntry {
           binding: 1,
-          resource: wgpu::BindingResource::Sampler(sampler),
+          resource: webgpu::BindingResource::Sampler(sampler),
         },
       ],
       label: None,
@@ -134,24 +134,24 @@ impl TextureBindGroup {
     "
   }
 
-  pub fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+  pub fn create_bind_group_layout(device: &webgpu::Device) -> webgpu::BindGroupLayout {
+    device.create_bind_group_layout(&webgpu::BindGroupLayoutDescriptor {
       label: None,
       entries: &[
-        wgpu::BindGroupLayoutEntry {
+        webgpu::BindGroupLayoutEntry {
           binding: 0,
-          visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: wgpu::BindingType::Texture {
+          visibility: webgpu::ShaderStages::FRAGMENT,
+          ty: webgpu::BindingType::Texture {
             multisampled: false,
-            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-            view_dimension: wgpu::TextureViewDimension::D2,
+            sample_type: webgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: webgpu::TextureViewDimension::D2,
           },
           count: None,
         },
-        wgpu::BindGroupLayoutEntry {
+        webgpu::BindGroupLayoutEntry {
           binding: 1,
-          visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+          visibility: webgpu::ShaderStages::FRAGMENT,
+          ty: webgpu::BindingType::Sampler(webgpu::SamplerBindingType::Filtering),
           count: None,
         },
       ],
@@ -160,12 +160,12 @@ impl TextureBindGroup {
 }
 
 pub fn create_texture_pipeline(
-  device: &wgpu::Device,
-  target_format: wgpu::TextureFormat,
-  global_uniform_bind_group_layout: &wgpu::BindGroupLayout,
-  texture_bg_layout: &wgpu::BindGroupLayout,
-) -> wgpu::RenderPipeline {
-  let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+  device: &webgpu::Device,
+  target_format: webgpu::TextureFormat,
+  global_uniform_bind_group_layout: &webgpu::BindGroupLayout,
+  texture_bg_layout: &webgpu::BindGroupLayout,
+) -> webgpu::RenderPipeline {
+  let pipeline_layout = device.create_pipeline_layout(&webgpu::PipelineLayoutDescriptor {
     label: Some("ui_tex_pipeline_layout"),
     bind_group_layouts: &[global_uniform_bind_group_layout, texture_bg_layout],
     push_constant_ranges: &[],
@@ -212,42 +212,42 @@ pub fn create_texture_pipeline(
     texture_group = TextureBindGroup::get_shader_header()
   );
 
-  let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+  let shader = device.create_shader_module(&webgpu::ShaderModuleDescriptor {
     label: None,
-    source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
+    source: webgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
   });
 
-  let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+  let render_pipeline = device.create_render_pipeline(&webgpu::RenderPipelineDescriptor {
     label: Some("ui_solid_pipeline"),
     layout: Some(&pipeline_layout),
-    vertex: wgpu::VertexState {
+    vertex: webgpu::VertexState {
       entry_point: "vs_main",
       module: &shader,
       buffers: &[UIVertex::vertex_layout().as_raw()],
     },
-    primitive: wgpu::PrimitiveState {
-      topology: wgpu::PrimitiveTopology::TriangleList,
+    primitive: webgpu::PrimitiveState {
+      topology: webgpu::PrimitiveTopology::TriangleList,
       conservative: false,
       cull_mode: None,
-      front_face: wgpu::FrontFace::default(),
-      polygon_mode: wgpu::PolygonMode::default(),
+      front_face: webgpu::FrontFace::default(),
+      polygon_mode: webgpu::PolygonMode::default(),
       strip_index_format: None,
       unclipped_depth: false,
     },
     depth_stencil: None,
-    multisample: wgpu::MultisampleState {
+    multisample: webgpu::MultisampleState {
       alpha_to_coverage_enabled: false,
       count: 1,
       mask: !0,
     },
 
-    fragment: Some(wgpu::FragmentState {
+    fragment: Some(webgpu::FragmentState {
       module: &shader,
       entry_point: "fs_main",
-      targets: &[wgpu::ColorTargetState {
+      targets: &[webgpu::ColorTargetState {
         format: target_format,
-        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-        write_mask: wgpu::ColorWrites::ALL,
+        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+        write_mask: webgpu::ColorWrites::ALL,
       }],
     }),
     multiview: None,

@@ -60,7 +60,7 @@ impl<'a> PresentationBuilder<'a> {
 #[derive(Debug, Clone)]
 pub enum Style {
   SolidColor(Color),
-  Texture(Rc<wgpu::TextureView>),
+  Texture(Rc<webgpu::TextureView>),
 }
 
 #[derive(Clone)]
@@ -68,7 +68,6 @@ pub enum Primitive {
   Quad((Quad, Style)),
   Text(TextLayoutRef),
 }
-
 
 pub struct UIPresentation {
   pub view_size: UISize,

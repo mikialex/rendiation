@@ -1,11 +1,8 @@
-use std::{
-  rc::Rc,
-  time::{Duration, Instant},
-};
+use std::rc::Rc;
 
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use rendiation_webgpu::*;
+use webgpu::*;
 use winit::{
   event::*,
   event_loop::{ControlFlow, EventLoop},
@@ -46,6 +43,20 @@ impl<T: 'static> Application<T> {
     builder = builder.with_title("viewer");
     let window = builder.build(&event_loop).unwrap();
 
+    #[cfg(target_arch = "wasm32")]
+    {
+      use winit::platform::web::WindowExtWebSys;
+      web_sys::window()
+        .and_then(|win| win.document())
+        .and_then(|doc| doc.body())
+        .and_then(|body| {
+          body
+            .append_child(&web_sys::Element::from(window.canvas()))
+            .ok()
+        })
+        .expect("couldn't append canvas to document body");
+    }
+
     let initial_size = window.inner_size();
     let initial_size = (initial_size.width as f32, initial_size.height as f32);
     let device_pixel_ratio = window.scale_factor();
@@ -53,7 +64,7 @@ impl<T: 'static> Application<T> {
     let (gpu, surface) = GPU::new_with_surface(&window).await;
     let gpu = Rc::new(gpu);
 
-    let fonts = FontManager::new_with_fallback_system_font("Arial");
+    let fonts = FontManager::new_with_default_font();
 
     let text_cache_init_size = Size::from_usize_pair_min_one((512, 512));
     let texts = TextCache::new_default_impl(text_cache_init_size);
@@ -101,19 +112,26 @@ impl<T: 'static> Application<T> {
       match &event {
         Event::MainEventsCleared => {
           // Clamp to some max framerate to avoid busy-looping too much
-          // (we might be in wgpu::PresentMode::Mailbox, thus discarding superfluous frames)
+          // (we might be in webgpu::PresentMode::Mailbox, thus discarding superfluous frames)
           //
           // winit has window.current_monitor().video_modes() but that is a list of all full screen video modes.
           // So without extra dependencies it's a bit tricky to get the max refresh rate we can run the window on.
           // Therefore we just go with 60fps - sorry 120hz+ folks!
           let target_frametime = Duration::from_secs_f64(1.0 / 60.0);
+
           let time_since_last_frame = app.last_update_inst.elapsed();
+
           if time_since_last_frame >= target_frametime {
-            app.window.request_redraw();
             app.last_update_inst = Instant::now();
+            app.window.request_redraw();
           } else {
-            *control_flow =
-              ControlFlow::WaitUntil(Instant::now() + target_frametime - time_since_last_frame);
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+              *control_flow =
+                ControlFlow::WaitUntil(Instant::now() + target_frametime - time_since_last_frame);
+            }
+            #[cfg(target_arch = "wasm32")]
+            app.window.request_redraw();
           }
         }
         Event::WindowEvent {
@@ -187,7 +205,7 @@ impl<T> ApplicationInner<T> {
 
     let view = frame
       .texture
-      .create_view(&wgpu::TextureViewDescriptor::default());
+      .create_view(&webgpu::TextureViewDescriptor::default());
     let view = Rc::new(view);
 
     self.current_perf.rendering_dispatch_time = time_measure(|| {
@@ -202,8 +220,8 @@ impl<T> ApplicationInner<T> {
 
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((
-        wgpu::Operations {
-          load: wgpu::LoadOp::Clear(wgpu::Color {
+        webgpu::Operations {
+          load: webgpu::LoadOp::Clear(webgpu::Color {
             r: 1.,
             g: 1.,
             b: 1.,

@@ -1,5 +1,5 @@
-use rendiation_webgpu::GPU;
 use std::{any::Any, rc::Rc};
+use webgpu::GPU;
 
 use crate::{FontManager, TextCache, WindowState};
 

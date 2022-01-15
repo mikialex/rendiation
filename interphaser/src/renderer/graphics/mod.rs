@@ -1,5 +1,5 @@
 use rendiation_algebra::*;
-use rendiation_webgpu::{VertexBufferLayoutOwned, VertexBufferSourceType};
+use webgpu::{VertexBufferLayoutOwned, VertexBufferSourceType};
 
 #[derive(Debug, Copy, Clone)]
 pub struct UIVertex {
@@ -20,10 +20,10 @@ pub fn vertex(position: (f32, f32), uv: (f32, f32), color: (f32, f32, f32, f32))
 
 impl VertexBufferSourceType for UIVertex {
   fn vertex_layout() -> VertexBufferLayoutOwned {
-    wgpu::VertexBufferLayout {
+    webgpu::VertexBufferLayout {
       array_stride: std::mem::size_of::<UIVertex>() as u64,
-      step_mode: wgpu::VertexStepMode::Vertex,
-      attributes: &wgpu::vertex_attr_array![
+      step_mode: webgpu::VertexStepMode::Vertex,
+      attributes: &webgpu::vertex_attr_array![
         0 => Float32x2,
         1 => Float32x2,
         2 => Float32x4,

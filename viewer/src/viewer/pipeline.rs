@@ -1,4 +1,4 @@
-use rendiation_webgpu::*;
+use webgpu::*;
 
 use crate::*;
 
@@ -20,7 +20,6 @@ impl ViewerPipeline {
 
 impl ViewerPipeline {
   #[rustfmt::skip]
-  #[allow(clippy::logic_bug)]
   pub fn render(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
     let scene = &mut content.scene;
 
@@ -50,7 +49,7 @@ impl ViewerPipeline {
 
     let mut highlight_compose = (!content.selections.is_empty()).then(||{
        let mut selected = attachment()
-        .format(wgpu::TextureFormat::Rgba8Unorm)
+        .format(webgpu::TextureFormat::Rgba8Unorm)
         .request(engine);
 
       pass("highlight-selected-mask")
