@@ -23,15 +23,9 @@ impl<C: HotAreaProvider> HotAreaPassBehavior<C> for Flex {
   }
 }
 
-// https://github.com/rust-lang/rust/issues/56556
-// https://github.com/rust-lang/rust/pull/85499
-// workaround:
-pub trait ExactSizeIterator2<'a>: ExactSizeIterator {}
-impl<'a, T: ExactSizeIterator> ExactSizeIterator2<'a> for T {}
-
 impl<T, C> LayoutAbility<C> for Flex
 where
-  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child<T>, IntoIter: ExactSizeIterator2<'a>>,
+  for<'a> &'a mut C: IntoIterator<Item = &'a mut Child<T>, IntoIter: ExactSizeIterator>,
 {
   fn layout(&mut self, bc: LayoutConstraint, ctx: &mut LayoutCtx, inner: &mut C) -> LayoutResult {
     // we loosen our constraints when passing to children.

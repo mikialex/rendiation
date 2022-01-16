@@ -215,7 +215,7 @@ impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
 
 impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.base
+    self.base
   }
 }
 

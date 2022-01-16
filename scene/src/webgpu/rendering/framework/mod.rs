@@ -21,6 +21,7 @@ pub struct RenderEngine {
 
 impl RenderEngine {
   pub fn new(gpu: Rc<GPU>) -> Self {
+    #[allow(unused_mut)]
     let mut msaa_sample_count = 4;
 
     #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
