@@ -48,6 +48,7 @@ impl<V: Copy> Triangle<V> {
       c: f(self.c),
     }
   }
+  #[must_use]
   pub fn flip(&self) -> Self {
     Triangle {
       a: self.c,

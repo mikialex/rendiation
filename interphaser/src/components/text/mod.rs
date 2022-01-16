@@ -106,7 +106,6 @@ impl Text {
   pub fn get_text_boundary(&mut self, fonts: &FontManager, text: &TextCache) -> &UISize {
     self.text_layout_size_cache.get_or_insert_with(|| {
       text.measure_size(
-        // todo cache the size
         &TextRelaxedInfo {
           content: self.content.get().clone(),
           font_size: 30.,
