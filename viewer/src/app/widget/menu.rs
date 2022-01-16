@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{mem::Discriminant, rc::Rc};
 
 use interphaser::*;
 
@@ -36,6 +36,26 @@ impl IdentityKeyed for MenuList {
   }
 }
 
+impl IdentityKeyed for MenuItem {
+  type Key = Option<String>;
+
+  fn key(&self) -> Self::Key {
+    match self {
+      MenuItem::SubList {
+        name,
+        list,
+        disabled,
+      } => name.clone(),
+      MenuItem::Item {
+        name,
+        disabled,
+        on_click,
+      } => name.clone(),
+      MenuItem::Separation => None,
+    }
+  }
+}
+
 pub fn menu() -> impl UIComponent<MenuModel> {
   Container::sized((UILength::ParentPercent(100.), UILength::Px(50.))).wrap(
     For::by(|_| Child::flex(menu_title(), 1.)) //
@@ -51,4 +71,14 @@ fn menu_title() -> impl UIComponent<MenuList> {
       .bind(|s, t| s.content.set(t)) //
       .lens(lens!(MenuList, name)),
   )
+}
+
+fn menu_item() -> impl UIComponent<MenuList> {
+  Container::sized((200., 50.))
+}
+
+struct EnumMatcher<T> {
+  com: Box<dyn UIComponent<dyn Any>>,
+  disc: Discriminant<T>,
+  matcher: Box<dyn FnOnce(T) -> Box<dyn Any>>,
 }
