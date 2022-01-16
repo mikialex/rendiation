@@ -28,7 +28,8 @@ impl Default for TextLayoutConfig {
 pub struct Text {
   pub content: LayoutSource<String>,
   pub layout_config: TextLayoutConfig,
-  pub text_layout: Option<TextLayoutRef>,
+  pub text_layout_cache: Option<TextLayoutRef>,
+  pub text_layout_size_cache: Option<UISize>,
   pub layout: LayoutUnit,
 }
 
@@ -38,7 +39,8 @@ impl Default for Text {
       content: LayoutSource::new("".into()),
       layout: Default::default(),
       layout_config: Default::default(),
-      text_layout: None,
+      text_layout_cache: None,
+      text_layout_size_cache: None,
     }
   }
 }
@@ -52,8 +54,9 @@ impl Text {
   }
 
   // todo, put it in setters
-  pub fn reset_text_layout(&mut self) {
-    self.text_layout = None;
+  pub fn reset_text_layout_cache(&mut self) {
+    self.text_layout_cache = None;
+    self.text_layout_size_cache = None;
   }
 
   pub fn with_layout(mut self, config: TextLayoutConfig) -> Self {
@@ -66,7 +69,7 @@ impl Text {
     fonts: &FontManager,
     text: &mut TextCache,
   ) -> &TextLayoutRef {
-    self.text_layout.get_or_insert_with(|| {
+    self.text_layout_cache.get_or_insert_with(|| {
       let text_info = match self.layout_config {
         TextLayoutConfig::SizedBox {
           line_wrap,
@@ -99,12 +102,25 @@ impl Text {
       text.cache_layout(&text_info, fonts)
     })
   }
+
+  pub fn get_text_boundary(&mut self, fonts: &FontManager, text: &TextCache) -> &UISize {
+    self.text_layout_size_cache.get_or_insert_with(|| {
+      text.measure_size(
+        // todo cache the size
+        &TextRelaxedInfo {
+          content: self.content.get().clone(),
+          font_size: 30.,
+        },
+        fonts,
+      )
+    })
+  }
 }
 
 impl<T> Component<T> for Text {
   fn update(&mut self, _: &T, ctx: &mut UpdateCtx) {
     if self.content.changed() {
-      self.reset_text_layout();
+      self.reset_text_layout_cache();
     }
     self.content.refresh(&mut self.layout, ctx);
   }
@@ -133,15 +149,8 @@ impl LayoutAble for Text {
 
     match self.layout_config {
       TextLayoutConfig::SingleLineShrink => {
-        let size = ctx.text.measure_size(
-          // todo cache the size
-          &TextRelaxedInfo {
-            content: self.content.get().clone(),
-            font_size: 30.,
-          },
-          ctx.fonts,
-        );
-        self.layout.size = constraint.clamp(size);
+        let size = self.get_text_boundary(ctx.fonts, ctx.text);
+        self.layout.size = constraint.clamp(*size);
       }
       _ => {
         self.layout.size = constraint.max();

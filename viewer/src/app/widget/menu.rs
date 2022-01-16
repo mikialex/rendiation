@@ -45,12 +45,12 @@ impl IdentityKeyed for MenuItem {
         name,
         list,
         disabled,
-      } => name.clone(),
+      } => name.clone().into(),
       MenuItem::Item {
         name,
         disabled,
         on_click,
-      } => name.clone(),
+      } => name.clone().into(),
       MenuItem::Separation => None,
     }
   }
@@ -77,8 +77,8 @@ fn menu_item() -> impl UIComponent<MenuList> {
   Container::sized((200., 50.))
 }
 
-struct EnumMatcher<T> {
-  com: Box<dyn UIComponent<dyn Any>>,
-  disc: Discriminant<T>,
-  matcher: Box<dyn FnOnce(T) -> Box<dyn Any>>,
-}
+// struct EnumMatcher<T> {
+//   com: Box<dyn UIComponent<dyn Any>>,
+//   disc: Discriminant<T>,
+//   matcher: Box<dyn FnOnce(T) -> Box<dyn Any>>,
+// }

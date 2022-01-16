@@ -81,7 +81,7 @@ impl EditableText {
       model.insert(index, c);
 
       self.text.content.set(model.clone());
-      self.text.reset_text_layout();
+      self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_right();
     }
@@ -96,7 +96,7 @@ impl EditableText {
       model.remove(cursor.get_index() - 1);
 
       self.text.content.set(model.clone());
-      self.text.reset_text_layout();
+      self.text.reset_text_layout_cache();
       cursor.notify_text_layout_changed();
       cursor.move_left();
     }
