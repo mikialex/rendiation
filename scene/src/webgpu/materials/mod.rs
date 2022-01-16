@@ -21,6 +21,9 @@ pub use fatline::*;
 pub mod env_background;
 pub use env_background::*;
 
+pub mod sg;
+pub use sg::*;
+
 use rendiation_webgpu::{
   BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher, PipelineResourceCache,
   RenderPassInfo, GPU,
