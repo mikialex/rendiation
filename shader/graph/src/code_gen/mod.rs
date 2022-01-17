@@ -303,6 +303,7 @@ fn get_node_gen_result_var(
     Output(n) => n.to_shader_var_name(),
     Const(value) => value.const_to_glsl(),
     FieldGet { field_name } => todo!(),
+    StructConstruct { struct_id, fields } => todo!(),
   }
 }
 

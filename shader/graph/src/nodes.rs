@@ -84,7 +84,13 @@ pub enum ShaderGraphNodeData {
   Operator(OperatorNode),
   Input(ShaderGraphInputNode),
   Output(ShaderGraphOutput),
-  FieldGet { field_name: &'static str },
+  FieldGet {
+    field_name: &'static str,
+  },
+  StructConstruct {
+    struct_id: TypeId,
+    fields: Vec<ShaderGraphNodeRawHandleUntyped>,
+  },
   Const(Box<dyn ShaderGraphConstableNodeType>),
 }
 
