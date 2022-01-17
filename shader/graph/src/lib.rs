@@ -62,6 +62,8 @@ pub struct ShaderGraph {
   pub attributes: Vec<(NodeUntyped, usize)>,
   pub vertex_position: Option<Node<Vec4<f32>>>,
 
+  pub struct_define: HashMap<TypeId, String>,
+
   pub varyings: Vec<(NodeUntyped, usize)>,
   pub frag_outputs: Vec<(NodeUntyped, usize)>,
 
