@@ -1,0 +1,11 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2018"
+name = "shadergraph"
+version = "0.1.0"
+
+[dependencies]
+once_cell = "1.4.0"
+
+rendiation-algebra = {path = "../../math/algebra"}
+arena-graph = {path = "../../utils/arena-graph"}

@@ -16,6 +16,7 @@ members = [
   "components/texture/generative",
   "components/space",
   "interphaser",
+  "shader/graph",
   "scene",
   "viewer",
   "webgpu",

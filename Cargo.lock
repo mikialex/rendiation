@@ -2035,6 +2035,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadergraph"
+version = "0.1.0"
+dependencies = [
+ "arena-graph",
+ "once_cell",
+ "rendiation-algebra",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

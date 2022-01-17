@@ -40,7 +40,7 @@ pub type NodeUnTyped = ArenaGraphNodeHandle<NodeData>;
 
 pub struct Node<T> {
   ty: PhantomData<T>,
-  handle: ArenaGraphNodeHandle<NodeData>,
+  pub handle: ArenaGraphNodeHandle<NodeData>,
 }
 
 // pub fn connect(builder: &mut ShaderBuilder, nodes:)
