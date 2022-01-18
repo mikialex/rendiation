@@ -40,7 +40,7 @@ pub trait ShaderGraphAttributeNodeType: ShaderGraphNodeType {}
 #[derive(Copy, Clone)]
 pub struct AnyType {}
 
-pub struct ShaderGraphNode<T: ShaderGraphNodeType> {
+pub struct ShaderGraphNode<T> {
   phantom: PhantomData<T>,
   pub data: ShaderGraphNodeData,
   pub node_type: TypeId,

@@ -1,6 +1,10 @@
 use arena_graph::*;
 
-use std::{any::TypeId, collections::HashMap, sync::Mutex};
+use std::{
+  any::{Any, TypeId},
+  collections::HashMap,
+  sync::Mutex,
+};
 
 mod code_gen;
 
@@ -9,14 +13,14 @@ pub mod meta;
 pub mod nodes;
 pub mod operator;
 pub mod provider;
-pub mod swizzle;
 pub mod structor;
+pub mod swizzle;
 pub mod traits_impl;
 pub use builder::*;
-pub use structor::*;
 pub use meta::*;
 pub use nodes::*;
 pub use provider::*;
+pub use structor::*;
 pub use traits_impl::*;
 
 use rendiation_algebra::*;
@@ -33,7 +37,7 @@ pub struct ShaderTexture;
 pub struct ShaderSampler;
 
 #[derive(Copy, Clone)]
-pub struct Node<T: ShaderGraphNodeType> {
+pub struct Node<T> {
   pub handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
 }
 
@@ -50,7 +54,7 @@ pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub enum ShaderGraphUniformInputType {
   NoneUBO(NodeUntyped),
-  UBO((&'static UBOMetaInfo, Vec<NodeUntyped>)),
+  UBO((&'static UBOMetaInfo, NodeUntyped)),
 }
 
 pub struct ShaderGraphCompileResult {
@@ -63,11 +67,13 @@ pub struct ShaderGraphCompileResult {
 pub struct ShaderGraph {
   pub attributes: Vec<(NodeUntyped, usize)>,
   pub vertex_position: Option<Node<Vec4<f32>>>,
+  pub vertex_registered: HashMap<TypeId, NodeUntyped>,
 
   pub struct_define: HashMap<TypeId, String>,
 
   pub varyings: Vec<(NodeUntyped, usize)>,
   pub frag_outputs: Vec<(NodeUntyped, usize)>,
+  pub fragment_registered: HashMap<TypeId, NodeUntyped>,
 
   pub bindgroups: Vec<ShaderGraphBindGroup>,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
@@ -153,3 +159,59 @@ pub fn set_build_graph(g: ShaderGraph) {
 pub fn take_build_graph() -> ShaderGraph {
   IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
 }
+
+pub trait SemanticShaderValue: Any {
+  type ValueType;
+  const NAME: &'static str = "unnamed";
+  const STAGE: ShaderStages;
+}
+
+pub fn query<T: SemanticShaderValue>() -> Option<Node<T::ValueType>> {
+  todo!()
+}
+
+pub fn register<T: SemanticShaderValue>(node: Node<T::ValueType>) {
+  todo!()
+}
+
+pub fn uniform<T>() -> Option<Node<T>> {
+  todo!()
+}
+
+pub fn set_vertex_out<T>(node: Node<T>) {
+  //
+}
+
+pub fn set_fragment_out<T>(node: Node<T>) {
+  //
+}
+
+pub trait ShaderGraphBuilder {
+  fn build(&self);
+}
+
+// impl ShaderGraphBuilder for PassDispatcher {
+//   fn build(&self) {
+//     // set_vertex_in
+//   }
+// }
+
+// impl ShaderGraphBuilder for Geometry {
+//   fn build(&self) {
+//     // set_vertex_in
+//     // register semantic value
+//   }
+// }
+
+// impl ShaderGraphBuilder for Camera {
+//   fn build(&self) {
+//     // query geometry position in;
+//     // set project position
+//   }
+// }
+
+// impl ShaderGraphBuilder for Material {
+//   fn build(&self) {
+//     // write channel
+//   }
+// }
