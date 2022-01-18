@@ -1,11 +1,10 @@
-use glsl::parser::Parse;
-use glsl::syntax::*;
+use glsl::{parser::Parse, syntax::*};
 use quote::{format_ident, quote};
 use std::collections::HashSet;
 
-fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro2::TokenStream> {
-  use glsl::syntax::*;
+fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::TokenStream> {
   use glsl::visitor::*;
+  use glsl::*;
 
   // https://docs.rs/glsl/4.1.1/glsl/visitor/index.html
   struct ForeignFunctionCollector {
@@ -14,7 +13,7 @@ fn find_foreign_function(def: &mut syntax::FunctionDefinition) -> Vec<proc_macro
   }
 
   impl Visitor for ForeignFunctionCollector {
-    fn visit_expr(&mut self, exp: &mut Expr) -> Visit {
+    fn visit_expr(&mut self, exp: &Expr) -> Visit {
       if let Expr::FunCall(FunIdentifier::Identifier(ident), _) = exp {
         self.depend_functions.insert(ident.as_str().to_owned());
       }
@@ -155,25 +154,27 @@ pub fn gen_glsl_function(
   }
 }
 
-fn convert_type(glsl: &syntax::TypeSpecifierNonArray) -> proc_macro2::TokenStream {
-  use syntax::TypeSpecifierNonArray::*;
-  let sampler_type = glsl::syntax::TypeName("sampler".to_owned());
-  let texture_type = glsl::syntax::TypeName("texture2D".to_owned());
-  match glsl {
-    Float => quote! { f32 },
-    Vec2 => quote! { rendiation_algebra::Vec2<f32> },
-    Vec3 => quote! { rendiation_algebra::Vec3<f32> },
-    Vec4 => quote! { rendiation_algebra::Vec4<f32> },
-    Mat4 => quote! { rendiation_algebra::Mat4<f32> },
-    TypeName(ty) => {
-      if ty == &sampler_type {
-        quote! { shadergraph::ShaderSampler }
-      } else if ty == &texture_type {
-        quote! { shadergraph::ShaderTexture }
-      } else {
-        panic!("unsupported param type {:?}", glsl)
+fn convert_type(glsl: &TypeSpecifierNonArray) -> proc_macro2::TokenStream {
+  let sampler_type = TypeName("sampler".to_owned());
+  let texture_type = TypeName("texture2D".to_owned());
+
+  {
+    match glsl {
+      TypeSpecifierNonArray::Float => quote! { f32 },
+      TypeSpecifierNonArray::Vec2 => quote! { rendiation_algebra::Vec2<f32> },
+      TypeSpecifierNonArray::Vec3 => quote! { rendiation_algebra::Vec3<f32> },
+      TypeSpecifierNonArray::Vec4 => quote! { rendiation_algebra::Vec4<f32> },
+      TypeSpecifierNonArray::Mat4 => quote! { rendiation_algebra::Mat4<f32> },
+      TypeSpecifierNonArray::TypeName(ty) => {
+        if ty == &sampler_type {
+          quote! { shadergraph::ShaderSampler }
+        } else if ty == &texture_type {
+          quote! { shadergraph::ShaderTexture }
+        } else {
+          panic!("unsupported param type {:?}", glsl)
+        }
       }
+      _ => panic!("unsupported param type {:?}", glsl),
     }
-    _ => panic!("unsupported param type {:?}", glsl),
   }
 }
