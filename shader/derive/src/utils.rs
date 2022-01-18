@@ -19,7 +19,7 @@ impl StructInfo {
       })
       .collect();
 
-    let fields_raw = fields.iter().map(|f| f.clone()).collect();
+    let fields_raw = fields.iter().cloned().collect();
 
     StructInfo {
       struct_name,
@@ -35,12 +35,12 @@ impl StructInfo {
     self.fields_info.iter().map(f).collect()
   }
 
-  pub fn map_fields_with_index(
-    &self,
-    f: impl FnMut((usize, &(Ident, Type))) -> proc_macro2::TokenStream,
-  ) -> Vec<proc_macro2::TokenStream> {
-    self.fields_info.iter().enumerate().map(f).collect()
-  }
+  // pub fn map_fields_with_index(
+  //   &self,
+  //   f: impl FnMut((usize, &(Ident, Type))) -> proc_macro2::TokenStream,
+  // ) -> Vec<proc_macro2::TokenStream> {
+  //   self.fields_info.iter().enumerate().map(f).collect()
+  // }
 }
 
 pub fn only_accept_struct(input: &syn::DeriveInput) -> Result<&syn::DeriveInput, syn::Error> {

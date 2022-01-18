@@ -4,7 +4,6 @@ use std::collections::HashSet;
 
 fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::TokenStream> {
   use glsl::visitor::*;
-  use glsl::*;
 
   // https://docs.rs/glsl/4.1.1/glsl/visitor/index.html
   struct ForeignFunctionCollector {
@@ -72,7 +71,7 @@ pub fn gen_glsl_function(
   } else {
     format!("{}", function_name)
   };
-  let quoted_source = format!("{}", glsl);
+  let quoted_source = glsl.to_string();
   let function_source = if as_inner {
     quote! { None }
   } else {
