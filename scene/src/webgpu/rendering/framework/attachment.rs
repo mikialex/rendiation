@@ -152,6 +152,7 @@ pub fn default_sizer() -> Rc<dyn Fn(Size) -> Size> {
 }
 
 impl<F: AttachmentFormat> AttachmentDescriptor<F> {
+  #[must_use]
   pub fn format(mut self, format: F) -> Self {
     self.format = format;
     self

@@ -87,17 +87,19 @@ impl<'a, 'b> MaterialBindGroupBuilder<'a, 'b> {
     }
   }
 
+  #[must_use]
   pub fn push(mut self, binding: wgpu::BindingResource<'b>) -> Self {
     self.bindings.push(binding);
     self
   }
 
+  #[must_use]
   pub fn push_texture<T>(mut self, texture: &'b SceneTexture<T>) -> Self
   where
     SceneTexture<T>: MaterialBindableResourceUpdate,
   {
     let bindable = texture.update(self.resources, self.device, self.queue);
-    // I think this is safety! 🙏
+    // I think this is safe! 🙏
     let bindable = unsafe { std::mem::transmute(bindable) };
     self.bindings.push(bindable);
 

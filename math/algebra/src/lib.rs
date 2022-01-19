@@ -37,6 +37,7 @@ pub trait Scalar = Float
   + FloatConst
   + ScalarConstEval
   + Copy
+  + std::fmt::Debug
   + AddAssign<Self>
   + SubAssign<Self>
   + DivAssign<Self>
@@ -83,6 +84,7 @@ pub trait SpaceEntity<T: Scalar, const D: usize> {
   type Matrix: SquareMatrixDimension<D>;
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self;
 
+  #[must_use]
   fn apply_matrix_into(&mut self, mat: Self::Matrix) -> Self
   where
     Self: Clone,
@@ -94,6 +96,7 @@ pub trait SpaceEntity<T: Scalar, const D: usize> {
 }
 
 pub trait SpaceEntityCopyable<T: Scalar, const D: usize>: Copy + SpaceEntity<T, D> {
+  #[must_use]
   fn apply_matrix_into(&self, mat: Self::Matrix) -> Self {
     *self.clone().apply_matrix(mat)
   }

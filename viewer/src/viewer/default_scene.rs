@@ -39,13 +39,13 @@ pub fn load_img_cube() -> TextureCubeSource {
 }
 
 pub fn load_default_scene(scene: &mut Scene) {
-  // let path = if cfg!(windows) {
-  //   "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
-  // } else {
-  //   "/Users/mikialex/Desktop/test.png"
-  // };
+  let path = if cfg!(windows) {
+    "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
+  } else {
+    "/Users/mikialex/Desktop/test.png"
+  };
 
-  // let texture = SceneTexture2D::new(Box::new(load_img(path).into_source()));
+  let texture = SceneTexture2D::new(Box::new(load_img(path).into_source()));
 
   // let texture_cube = scene.add_texture_cube(load_img_cube());
 
@@ -58,39 +58,39 @@ pub fn load_default_scene(scene: &mut Scene) {
 
   // scene.background = Box::new(bg);
 
-  // {
-  //   let mesh = SphereMeshParameter::default().tessellate();
-  //   let mesh = MeshCell::new(MeshSource::new(mesh));
-  //   let material = PhysicalMaterial {
-  //     albedo: Vec3::splat(1.),
-  //     sampler: TextureSampler::default(),
-  //     texture: texture.clone(),
-  //   }
-  //   .into_scene_material()
-  //   .into_resourced();
+  {
+    let mesh = SphereMeshParameter::default().tessellate();
+    let mesh = MeshCell::new(MeshSource::new(mesh));
+    let material = PhysicalMaterial {
+      albedo: Vec3::splat(1.),
+      sampler: TextureSampler::default(),
+      texture: texture.clone(),
+    }
+    .into_scene_material()
+    .into_resourced();
 
-  //   let child = scene.root.create_child();
-  //   child.mutate(|node| node.local_matrix = Mat4::translate(2., 0., 3.));
+    let child = scene.root.create_child();
+    child.mutate(|node| node.local_matrix = Mat4::translate(2., 0., 3.));
 
-  //   let model = MeshModel::new(material, mesh, child);
-  //   scene.add_model(model)
-  // }
+    let model = MeshModel::new(material, mesh, child);
+    scene.add_model(model)
+  }
 
-  // {
-  //   let mesh = CubeMeshParameter::default().tessellate();
-  //   let mesh = MeshCell::new(MeshSource::new(mesh));
-  //   let mut material = PhysicalMaterial {
-  //     albedo: Vec3::splat(1.),
-  //     sampler: TextureSampler::default(),
-  //     texture,
-  //   }
-  //   .into_scene_material()
-  //   .into_resourced();
-  //   material.states.depth_compare = webgpu::CompareFunction::Always;
+  {
+    let mesh = CubeMeshParameter::default().tessellate();
+    let mesh = MeshCell::new(MeshSource::new(mesh));
+    let mut material = PhysicalMaterial {
+      albedo: Vec3::splat(1.),
+      sampler: TextureSampler::default(),
+      texture,
+    }
+    .into_scene_material()
+    .into_resourced();
+    material.states.depth_compare = webgpu::CompareFunction::Always;
 
-  //   let model = MeshModel::new(material, mesh, scene.root.create_child());
-  //   scene.add_model(model)
-  // }
+    let model = MeshModel::new(material, mesh, scene.root.create_child());
+    scene.add_model(model)
+  }
 
   {
     let camera = PerspectiveProjection::default();

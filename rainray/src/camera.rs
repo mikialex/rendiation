@@ -38,11 +38,12 @@ impl Camera {
 
   pub fn create_screen_ray(&self, screen_position: Vec2<f32>) -> Ray3 {
     let origin = self.matrix.position();
-    let target = Vec3::new(
-      screen_position.x * 2. - 1.,
-      screen_position.y * 2. - 1.,
-      0.5,
-    ) * self.get_vp_matrix_inverse();
+    let target = self.get_vp_matrix_inverse()
+      * Vec3::new(
+        screen_position.x * 2. - 1.,
+        screen_position.y * 2. - 1.,
+        0.5,
+      );
     let direction = (target - origin).into_normalized();
     Ray3::new(origin, direction)
   }

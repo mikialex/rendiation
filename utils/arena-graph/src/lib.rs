@@ -2,12 +2,14 @@ use std::collections::BTreeSet;
 
 pub use arena::*;
 
+#[derive(Clone)]
 pub struct ArenaGraph<T> {
   nodes: Arena<ArenaGraphNode<T>>,
 }
 
 pub type ArenaGraphNodeHandle<T> = Handle<ArenaGraphNode<T>>;
 
+#[derive(Clone)]
 pub struct ArenaGraphNode<T> {
   data: T,
   handle: ArenaGraphNodeHandle<T>,

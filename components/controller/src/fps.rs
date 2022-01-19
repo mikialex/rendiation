@@ -92,7 +92,7 @@ impl Controller for FPSController {
     }
 
     if move_dir.length() > 0.01 {
-      let position_new = move_dir * *mat;
+      let position_new = *mat * move_dir;
       let position_dir = (position_new - mat.position()).normalize();
       let position_new = mat.position() + position_dir;
 

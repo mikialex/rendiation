@@ -13,6 +13,36 @@ pub struct HighLighter {
   pub data: UniformBufferData<HighLightData>,
 }
 
+use crate::*;
+impl HighLighter {
+  // pub fn draw_highlight<'a, 'i, 't, 'p, T>(
+  //   &self,
+  //   engine: &RenderEngine,
+  //   scene: &mut Scene,
+  //   has_content: impl FnOnce() -> bool,
+  //   content: T,
+  //   target_compose: &mut PassDescriptor<'t, 'p>,
+  // ) -> &'a mut PassDescriptor<'t, 'p>
+  // where
+  //   T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
+  // {
+  //   let mut highlight_compose = has_content().then(|| {
+  //     let mut selected = attachment()
+  //       .format(webgpu::TextureFormat::Rgba8Unorm)
+  //       .request(engine);
+
+  //     pass("highlight-selected-mask")
+  //       .with_color(selected.write(), clear(color_same(0.)))
+  //       .render_by(&mut highlight(content))
+  //       .run(engine, scene);
+
+  //     self.draw(selected.read_into())
+  //   });
+
+  //   target_compose.render(&mut highlight_compose)
+  // }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
 pub struct HighLightData {

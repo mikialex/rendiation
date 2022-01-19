@@ -1,13 +1,14 @@
 pub mod background;
 pub mod bindgroup;
 pub mod camera;
+pub mod lights;
 pub mod materials;
 pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod rendering;
+pub mod shading;
 pub mod texture;
-pub mod lights;
 
 use std::{
   any::{Any, TypeId},
@@ -17,13 +18,14 @@ use std::{
 pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
+pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
 pub use model::*;
 pub use node::*;
 pub use rendering::*;
+pub use shading::*;
 pub use texture::*;
-pub use lights::*;
 
 use anymap::AnyMap;
 use rendiation_geometry::{Nearest, Ray3};

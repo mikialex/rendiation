@@ -21,6 +21,9 @@ pub use fatline::*;
 pub mod env_background;
 pub use env_background::*;
 
+// pub mod sg;
+// pub use sg::*;
+
 use rendiation_webgpu::{
   BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher, PipelineResourceCache,
   RenderPassInfo, GPU,
@@ -215,7 +218,7 @@ impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
 
 impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.base
+    self.base
   }
 }
 

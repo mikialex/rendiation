@@ -99,10 +99,12 @@ impl<V: Copy> LineSegment<V> {
     }
   }
 
+  #[must_use]
   pub fn swap(&self) -> Self {
     Self::line_segment(self.end, self.start)
   }
 
+  #[must_use]
   pub fn swap_if(&self, prediction: impl FnOnce(Self) -> bool) -> Self {
     if prediction(*self) {
       self.swap()

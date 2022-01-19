@@ -87,8 +87,8 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
     .into_iter()
     .map(|[start, end]| FatLineVertex {
       color: Vec4::new(1., 1., 1., 1.),
-      start: start * project_mat,
-      end: end * project_mat,
+      start: project_mat * start,
+      end: project_mat * end,
     })
     .collect();
 
