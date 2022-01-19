@@ -22,7 +22,7 @@ impl QEM {
     mat.c4 = 1.0;
     mat
       .inverse()
-      .map(|m| (Vec4::new(0.0, 0.0, 0.0, 1.0) * m).xyz())
+      .map(|m| (m * Vec4::new(0.0, 0.0, 0.0, 1.0)).xyz())
   }
 }
 

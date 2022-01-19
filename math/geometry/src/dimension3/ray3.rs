@@ -6,7 +6,7 @@ impl<T: Scalar> SpaceEntity<T, 3> for Ray3<T> {
   type Matrix = Mat4<T>;
   #[inline]
   fn apply_matrix(&mut self, mat: Self::Matrix) -> &mut Self {
-    let origin = self.origin * mat;
+    let origin = mat * self.origin;
     let direction = self.direction.transform_direction(mat);
     *self = Self::new(origin, direction);
     self

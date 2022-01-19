@@ -159,19 +159,16 @@ impl<T: Scalar> Mat4<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat4<T> {}
 
-impl<T> Mul<Mat4<T>> for Vec3<T>
+impl<T> Mul<Vec3<T>> for Mat4<T>
 where
-  T: Copy + Add<Output = T> + Div<Output = T> + Mul<Output = T> + num_traits::One,
+  T: Copy + Add<Output = T> + Mul<Output = T> + Div<Output = T> + num_traits::One,
 {
-  type Output = Self;
+  type Output = Vec3<T>;
 
-  fn mul(self, m: Mat4<T>) -> Self {
-    let w = T::one() / (m.a4 * self.x + m.b4 * self.y + m.c4 * self.z + m.d4);
-    Self {
-      x: (self.x * m.a1 + self.y * m.b1 + self.z * m.c1 + m.d1) * w,
-      y: (self.x * m.a2 + self.y * m.b2 + self.z * m.c2 + m.d2) * w,
-      z: (self.x * m.a3 + self.y * m.b3 + self.z * m.c3 + m.d3) * w,
-    }
+  fn mul(self, v: Vec3<T>) -> Vec3<T> {
+    let v = Vec4::new(v.x, v.y, v.z, T::one());
+    let v = self * v;
+    Vec3::new(v.x, v.y, v.z) / v.w
   }
 }
 
@@ -179,24 +176,8 @@ impl<T: Scalar> SpaceEntity<T, 3> for Vec3<T> {
   type Matrix = Mat4<T>;
   #[inline(always)]
   fn apply_matrix(&mut self, m: Self::Matrix) -> &mut Self {
-    *self = *self * m;
+    *self = m * *self;
     self
-  }
-}
-
-impl<T> Mul<Mat4<T>> for Vec4<T>
-where
-  T: Copy + Add<Output = T> + Mul<Output = T>,
-{
-  type Output = Self;
-
-  fn mul(self, m: Mat4<T>) -> Self {
-    Self {
-      x: (self.x * m.a1 + self.y * m.b1 + self.z * m.c1 + self.w * m.d1),
-      y: (self.x * m.a2 + self.y * m.b2 + self.z * m.c2 + self.w * m.d2),
-      z: (self.x * m.a3 + self.y * m.b3 + self.z * m.c3 + self.w * m.d3),
-      w: (self.x * m.a4 + self.y * m.b4 + self.z * m.c4 + self.w * m.d4),
-    }
   }
 }
 
@@ -204,31 +185,14 @@ impl<T> Mul<Vec4<T>> for Mat4<T>
 where
   T: Copy + Add<Output = T> + Mul<Output = T>,
 {
-  type Output = Self;
+  type Output = Vec4<T>;
 
-  fn mul(self, v: Vec4<T>) -> Self {
-    let a = self;
-
-    Self {
-      a1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1 * v.w,
-      a2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2 * v.w,
-      a3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3 * v.w,
-      a4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4 * v.w,
-
-      b1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1 * v.w,
-      b2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2 * v.w,
-      b3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3 * v.w,
-      b4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4 * v.w,
-
-      c1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1 * v.w,
-      c2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2 * v.w,
-      c3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3 * v.w,
-      c4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4 * v.w,
-
-      d1: a.a1 * v.x + a.b1 * v.y + a.c1 * v.z + a.d1 * v.w,
-      d2: a.a2 * v.x + a.b2 * v.y + a.c2 * v.z + a.d2 * v.w,
-      d3: a.a3 * v.x + a.b3 * v.y + a.c3 * v.z + a.d3 * v.w,
-      d4: a.a4 * v.x + a.b4 * v.y + a.c4 * v.z + a.d4 * v.w,
+  fn mul(self, v: Vec4<T>) -> Vec4<T> {
+    Vec4 {
+      x: (v.x * self.a1 + v.y * self.b1 + v.z * self.c1 + v.w * self.d1),
+      y: (v.x * self.a2 + v.y * self.b2 + v.z * self.c2 + v.w * self.d2),
+      z: (v.x * self.a3 + v.y * self.b3 + v.z * self.c3 + v.w * self.d3),
+      w: (v.x * self.a4 + v.y * self.b4 + v.z * self.c4 + v.w * self.d4),
     }
   }
 }
@@ -265,6 +229,24 @@ where
     }
   }
 }
+
+#[test]
+fn mul() {
+  let cgmath_mat1 = cgmath::Matrix4::<f32>::from_translation(cgmath::vec3(1., 2., 3.));
+  let cgmath_mat2 = cgmath::Matrix4::<f32>::from_nonuniform_scale(3., -2., 3.);
+  let cgmath_point = cgmath::vec4(1., 2., 3., 1.);
+  let cgmath_r = cgmath_mat1 * cgmath_mat2 * cgmath_point;
+  let cgmath_r: [f32; 4] = *cgmath_r.as_ref();
+
+  let math_mat1 = Mat4::<f32>::translate(1., 2., 3.);
+  let math_mat2 = Mat4::<f32>::scale(3., -2., 3.);
+  let math_point = Vec4::new(1., 2., 3., 1.);
+  let math_r = math_mat1 * math_mat2 * math_point;
+  let math_r: [f32; 4] = math_r.into();
+
+  assert_eq!(cgmath_r, math_r)
+}
+
 
 #[rustfmt::skip]
 impl<T: Sized> Mat4<T> {

@@ -37,6 +37,7 @@ pub trait Scalar = Float
   + FloatConst
   + ScalarConstEval
   + Copy
+  + std::fmt::Debug
   + AddAssign<Self>
   + SubAssign<Self>
   + DivAssign<Self>

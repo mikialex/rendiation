@@ -91,7 +91,7 @@ impl OrbitController {
 impl Controller for OrbitController {
   fn sync(&mut self, target: &dyn Transformed3DControllee) {
     let mat = target.matrix();
-    let position_new = Vec3::new(0., 0., -1.) * *mat;
+    let position_new = *mat * Vec3::new(0., 0., -1.);
     let origin = mat.position();
     let position_dir = position_new - origin;
     self.spherical = Spherical::from_vec3_and_center(position_dir, origin);

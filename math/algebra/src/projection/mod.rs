@@ -19,11 +19,11 @@ pub trait Projection: Send + Sync {
 
   fn project<S: NDCSpaceMapper>(&self, point: Vec3<f32>) -> Vec3<f32> {
     let point = Vec4::new(point.x, point.y, point.z, 1.);
-    (point * self.create_projection::<S>()).xyz()
+    (self.create_projection::<S>() * point).xyz()
   }
   fn un_project<S: NDCSpaceMapper>(&self, point: Vec3<f32>) -> Vec3<f32> {
     let point = Vec4::new(point.x, point.y, point.z, 1.);
-    (point * self.create_projection::<S>().inverse_or_identity()).xyz()
+    (self.create_projection::<S>().inverse_or_identity() * point).xyz()
   }
 }
 

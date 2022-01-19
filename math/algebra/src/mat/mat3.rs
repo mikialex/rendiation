@@ -1,5 +1,5 @@
 use crate::*;
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Div};
 
 #[repr(C)]
 #[rustfmt::skip]
@@ -61,27 +61,60 @@ impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Mat3<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Mat3<T> {}
 
-impl<T> Mul<Mat3<T>> for Vec2<T>
+impl<T> Mul<Vec2<T>> for Mat3<T>
 where
-  T: Copy + Add<Output = T> + Mul<Output = T> + num_traits::One,
+  T: Copy + Add<Output = T> + Mul<Output = T> + Div<Output = T> + num_traits::One,
 {
-  type Output = Self;
+  type Output = Vec2<T>;
 
-  fn mul(self, m: Mat3<T>) -> Self {
-    Self {
-      x: self.x * m.a1 + self.y * m.b1 + m.c1,
-      y: self.x * m.a2 + self.y * m.b2 + m.c2,
-    }
+  fn mul(self, v: Vec2<T>) -> Vec2<T> {
+    let v = Vec3::new(v.x, v.y, T::one());
+    let v = self * v;
+    Vec2::new(v.x, v.y) / v.z
   }
 }
+
 impl<T: Scalar> SpaceEntity<T, 2> for Vec2<T> {
   type Matrix = Mat3<T>;
   #[inline(always)]
   fn apply_matrix(&mut self, m: Self::Matrix) -> &mut Self {
-    *self = *self * m;
+    *self = m * *self;
     self
   }
 }
+
+impl<T> Mul<Vec3<T>> for Mat3<T>
+where
+  T: Copy + Add<Output = T> + Mul<Output = T>,
+{
+  type Output = Vec3<T>;
+
+  fn mul(self, v: Vec3<T>) -> Vec3<T> {
+    Vec3 {
+      x: v.x * self.a1 + v.y * self.b1 + v.z * self.c1,
+      y: v.x * self.a2 + v.y * self.b2 + v.z * self.c2,
+      z: v.x * self.a3 + v.y * self.b3 + v.z * self.c3,
+    }
+  }
+}
+
+#[test]
+fn mul() {
+  let cgmath_mat1 = cgmath::Matrix3::<f32>::from_translation(cgmath::vec2(1., 2.));
+  let cgmath_mat2 = cgmath::Matrix3::<f32>::from_nonuniform_scale(3., -2.);
+  let cgmath_point = cgmath::vec3(1., 2., 3.);
+  let cgmath_r = cgmath_mat1 * cgmath_mat2 * cgmath_point;
+  let cgmath_r: [f32; 3] = *cgmath_r.as_ref();
+
+  let math_mat1 = Mat3::<f32>::translate(1., 2.);
+  let math_mat2 = Mat3::<f32>::scale(3., -2.);
+  let math_point = Vec3::new(1., 2., 3.);
+  let math_r = math_mat1 * math_mat2 * math_point;
+  let math_r: [f32; 3] = math_r.into();
+
+  assert_eq!(cgmath_r, math_r)
+}
+
 
 impl<T> Mul for Mat3<T>
 where
@@ -104,21 +137,6 @@ where
       c1: a.a1 * m.c1 + a.b1 * m.c2 + a.c1 * m.c3,
       c2: a.a2 * m.c1 + a.b2 * m.c2 + a.c2 * m.c3,
       c3: a.a3 * m.c1 + a.b3 * m.c2 + a.c3 * m.c3,
-    }
-  }
-}
-
-impl<T> Mul<Mat3<T>> for Vec3<T>
-where
-  T: Copy + Add<Output = T> + Mul<Output = T> + One,
-{
-  type Output = Self;
-
-  fn mul(self, m: Mat3<T>) -> Self {
-    Self {
-      x: self.x * m.a1 + self.y * m.b1 + self.z * m.c1,
-      y: self.x * m.a2 + self.y * m.b2 + self.z * m.c2,
-      z: self.x * m.a3 + self.y * m.b3 + self.z * m.c3,
     }
   }
 }
@@ -254,10 +272,10 @@ where
     )
   }
 
-  pub fn scale(x: T, y: T, z: T) -> Self {
-    let (a1, a2, a3) = (x, T::zero(), T::zero());
-    let (b1, b2, b3) = (T::zero(), y, T::zero());
-    let (c1, c2, c3) = (T::zero(), T::zero(), z);
+  pub fn scale(x: T, y: T) -> Self {
+    let (a1, a2, a3) = (x,         T::zero(), T::zero());
+    let (b1, b2, b3) = (T::zero(), y,         T::zero());
+    let (c1, c2, c3) = (T::zero(), T::zero(), T::one());
 
     #[rustfmt::skip]
     Mat3::new(
@@ -268,9 +286,9 @@ where
   }
 
   pub fn translate(x: T, y: T) -> Self {
-    let (a1, a2, a3) = (T::one(), T::zero(), T::zero());
-    let (b1, b2, b3) = (T::zero(), T::one(), T::one());
-    let (c1, c2, c3) = (x, y, T::one());
+    let (a1, a2, a3) = (T::one(),  T::zero(), T::zero());
+    let (b1, b2, b3) = (T::zero(), T::one(),  T::zero());
+    let (c1, c2, c3) = (x,         y,         T::one());
 
     #[rustfmt::skip]
     Mat3::new(
