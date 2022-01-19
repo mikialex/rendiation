@@ -81,7 +81,7 @@ impl ShaderGraphBuilder for CameraBindgroup {
     let camera = register_uniform::<CameraGPUTransform>().expand();
     let model = query_uniform::<TransformGPUData>()?;
     let position = query::<WorldVertexPosition>()?;
-    // let clip_position = camera.projection *
+    let clip_position = camera.projection * (position, 0.).into();
     register::<ClipPosition>((position, 0.));
     Ok(())
   }

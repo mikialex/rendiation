@@ -35,14 +35,15 @@ where
   }
 }
 
-impl<T, U> Mul for Node<T>
+impl<I, T, U> Mul<Node<I>> for Node<T>
 where
   U: ShaderGraphNodeType,
-  T: ShaderGraphNodeType + Mul<Output = U>,
+  T: ShaderGraphNodeType,
+  T: Mul<I, Output = U>,
 {
   type Output = Node<U>;
 
-  fn mul(self, other: Self) -> Self::Output {
+  fn mul(self, other: Node<I>) -> Self::Output {
     ShaderGraphNodeData::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
@@ -52,14 +53,15 @@ where
   }
 }
 
-impl<T, U> Div for Node<T>
+impl<I, T, U> Div<Node<I>> for Node<T>
 where
   U: ShaderGraphNodeType,
-  T: ShaderGraphNodeType + Div<Output = U>,
+  T: ShaderGraphNodeType,
+  T: Div<I, Output = U>,
 {
   type Output = Node<U>;
 
-  fn div(self, other: Self) -> Self::Output {
+  fn div(self, other: Node<I>) -> Self::Output {
     ShaderGraphNodeData::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
