@@ -33,8 +33,3 @@ pub trait ShaderLight: ShaderUniformBlock {
 pub trait DirectShaderLight: ShaderLight {
   fn compute_direct_light() -> &'static str;
 }
-
-pub trait LightableSurfaceShading {
-  fn struct_define() -> &'static str;
-  fn struct_construct() -> &'static str;
-}

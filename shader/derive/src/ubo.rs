@@ -6,67 +6,7 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let s = StructInfo::new(input);
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_ubo_shadergraph_instance(&s));
-  generated.append_all(derive_ubo_webgl_upload_instance(&s));
   generated
-}
-
-pub fn derive_ubo_webgl_upload_instance(s: &StructInfo) -> proc_macro2::TokenStream {
-  let struct_name = &s.struct_name;
-  let instance_name = format_ident!("{}WebGLUniformUploadInstance", struct_name);
-
-  let instance_fields = s.map_fields(|(field_name, ty)| {
-    quote! { pub #field_name: <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance, }
-  });
-
-  let instance_create = s.map_fields(|(field_name, ty)| {
-    let field_str = format!("{}", field_name);
-    quote! { #field_name:
-     < <#ty as rendiation_webgl::WebGLUniformUploadable>::UploadInstance
-     as rendiation_webgl::UploadInstance<#ty> >::create(
-        format!("{}", #field_str).as_str(),
-        gl,
-        program
-     ),
-    }
-  });
-
-  let instance_upload = s.map_fields(|(field_name, ty)| {
-    quote! { <#ty as rendiation_webgl::WebGLUniformUploadable>::upload(&value.data.#field_name, &mut self.#field_name, renderer, resources); }
-  });
-
-  quote! {
-    #[cfg(feature = "webgl")]
-    pub struct #instance_name {
-      #(#instance_fields)*
-    }
-
-    #[cfg(feature = "webgl")]
-    impl rendiation_webgl::UploadInstance<#struct_name> for #instance_name {
-      fn create(
-        query_name_prefix: &str,
-        gl: &rendiation_webgl::WebGl2RenderingContext,
-        program: &rendiation_webgl::WebGlProgram
-      ) -> Self{
-        Self {
-          #(#instance_create)*
-        }
-      }
-      fn upload(
-        &mut self,
-        value: &rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGL, #struct_name>,
-        renderer: &mut rendiation_webgl::WebGLRenderer,
-        resources: &rendiation_ral::ResourceManager<rendiation_webgl::WebGL>,
-      ){
-        #(#instance_upload)*
-      }
-    }
-
-    #[cfg(feature = "webgl")]
-    impl rendiation_webgl::WebGLUniformUploadable for #struct_name {
-      type UploadValue = rendiation_ral::UniformBufferRef<'static, rendiation_webgl::WebGL, #struct_name>;
-      type UploadInstance = #instance_name;
-    }
-  }
 }
 
 pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStream {

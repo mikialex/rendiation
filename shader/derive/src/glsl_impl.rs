@@ -34,6 +34,11 @@ fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::Token
       "length",
       "texture",
       "sampler2D",
+      "smoothstep",
+      "sin",
+      "cos",
+      "tan",
+      "sqrt",
     ]
     .into_iter()
     .map(|s| s.to_owned())
@@ -100,19 +105,15 @@ pub fn gen_glsl_function(
     })
     .collect();
 
-  let input_node_prepare: Vec<_> = params
-    .iter()
-    .map(|(_, name)| {
-      quote! { let #name = #name.to_node(graph).handle.cast_type(); }
-    })
-    .collect();
-
-  let (gen_function_inputs, gen_node_connect): (Vec<_>, Vec<_>) = params
+  let (gen_function_inputs, input_node_prepare): (Vec<_>, Vec<_>) = params
     .iter()
     .map(|(ty, name)| {
       (
-        quote! { #name: impl shadergraph::ShaderGraphNodeOrConst<Output = #ty>, },
-        quote! { graph.nodes.connect_node(#name, result); },
+        quote! { #name: impl Into<Node<#ty>>, },
+        quote! {
+         let #name = #name.into().cast_untyped();
+         parameters.push(#name);
+        },
       )
     })
     .unzip();
@@ -132,21 +133,15 @@ pub fn gen_glsl_function(
     ) -> shadergraph::Node<#return_type> {
       use shadergraph::*;
 
-      modify_graph(|graph| {
-        let node = ShaderGraphNode::<#return_type>::new(
-          ShaderGraphNodeData::Function(
-            FunctionNode {
-              prototype: & #prototype_name
-            },
-          )
-        );
-        let result = graph.insert_node(node).handle;
-        unsafe {
-          #(#input_node_prepare)*
-          #(#gen_node_connect)*
-          result.cast_type().into()
-        }
-      })
+      let mut parameters = Vec::new();
+      #(#input_node_prepare)*
+
+      ShaderGraphNodeData::Function(
+        FunctionNode {
+          prototype: & #prototype_name,
+          parameters,
+        },
+      ).insert_graph()
 
     }
 

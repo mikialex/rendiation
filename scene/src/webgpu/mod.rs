@@ -7,6 +7,7 @@ pub mod mesh;
 pub mod model;
 pub mod node;
 pub mod rendering;
+pub mod shading;
 pub mod texture;
 
 use std::{
@@ -23,6 +24,7 @@ pub use mesh::*;
 pub use model::*;
 pub use node::*;
 pub use rendering::*;
+pub use shading::*;
 pub use texture::*;
 
 use anymap::AnyMap;

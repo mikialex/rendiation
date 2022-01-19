@@ -18,5 +18,6 @@ rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable", features = ["webgpu"]}
 rendiation-texture = {path = "../components/texture/core", features = ["webgpu"]}
 rendiation-webgpu = {path = "../webgpu"}
+shadergraph = {path = "../shader/graph"}
 wgpu = "0.12.0"
 winit = {version = "0.26.0"}

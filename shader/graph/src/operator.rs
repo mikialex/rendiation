@@ -1,6 +1,4 @@
-use crate::{
-  modify_graph, Node, OperatorNode, ShaderGraphNode, ShaderGraphNodeData, ShaderGraphNodeType,
-};
+use crate::{Node, OperatorNode, ShaderGraphNodeData, ShaderGraphNodeType};
 use std::ops::{Add, Div, Mul, Sub};
 
 impl<T, U> Add for Node<T>
@@ -11,17 +9,12 @@ where
   type Output = Node<U>;
 
   fn add(self, other: Self) -> Self::Output {
-    modify_graph(|graph| unsafe {
-      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Operator(OperatorNode {
-        left: self.handle.cast_type(),
-        right: other.handle.cast_type(),
-        operator: "+",
-      }));
-      let result = graph.insert_node(node).handle;
-      graph.nodes.connect_node(self.handle.cast_type(), result);
-      graph.nodes.connect_node(other.handle.cast_type(), result);
-      result.cast_type().into()
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "+",
     })
+    .insert_graph()
   }
 }
 
@@ -33,17 +26,12 @@ where
   type Output = Node<U>;
 
   fn sub(self, other: Self) -> Self::Output {
-    modify_graph(|graph| unsafe {
-      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Operator(OperatorNode {
-        left: self.handle.cast_type(),
-        right: other.handle.cast_type(),
-        operator: "-",
-      }));
-      let result = graph.insert_node(node).handle;
-      graph.nodes.connect_node(self.handle.cast_type(), result);
-      graph.nodes.connect_node(other.handle.cast_type(), result);
-      result.cast_type().into()
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "-",
     })
+    .insert_graph()
   }
 }
 
@@ -55,17 +43,12 @@ where
   type Output = Node<U>;
 
   fn mul(self, other: Self) -> Self::Output {
-    modify_graph(|graph| unsafe {
-      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Operator(OperatorNode {
-        left: self.handle.cast_type(),
-        right: other.handle.cast_type(),
-        operator: "*",
-      }));
-      let result = graph.insert_node(node).handle;
-      graph.nodes.connect_node(self.handle.cast_type(), result);
-      graph.nodes.connect_node(other.handle.cast_type(), result);
-      result.cast_type().into()
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "*",
     })
+    .insert_graph()
   }
 }
 
@@ -77,16 +60,11 @@ where
   type Output = Node<U>;
 
   fn div(self, other: Self) -> Self::Output {
-    modify_graph(|graph| unsafe {
-      let node = ShaderGraphNode::<T>::new(ShaderGraphNodeData::Operator(OperatorNode {
-        left: self.handle.cast_type(),
-        right: other.handle.cast_type(),
-        operator: "/",
-      }));
-      let result = graph.insert_node(node).handle;
-      graph.nodes.connect_node(self.handle.cast_type(), result);
-      graph.nodes.connect_node(other.handle.cast_type(), result);
-      result.cast_type().into()
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "/",
     })
+    .insert_graph()
   }
 }

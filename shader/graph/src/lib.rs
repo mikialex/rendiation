@@ -1,5 +1,7 @@
 use arena_graph::*;
 
+pub use shader_derives::*;
+
 use std::{
   any::{Any, TypeId},
   collections::HashMap,
@@ -24,6 +26,9 @@ pub use structor::*;
 pub use traits_impl::*;
 
 use rendiation_algebra::*;
+
+#[cfg(test)]
+mod test;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ShaderStages {
@@ -166,15 +171,19 @@ pub trait SemanticShaderValue: Any {
   const STAGE: ShaderStages;
 }
 
-pub fn query<T: SemanticShaderValue>() -> Option<Node<T::ValueType>> {
+pub fn query<T: SemanticShaderValue>() -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
   todo!()
 }
 
-pub fn register<T: SemanticShaderValue>(node: Node<T::ValueType>) {
+pub fn register<T: SemanticShaderValue>(node: impl Into<Node<T::ValueType>>) {
   todo!()
 }
 
-pub fn uniform<T>() -> Option<Node<T>> {
+pub fn register_uniform<T>() -> Node<T> {
+  todo!()
+}
+
+pub fn query_uniform<T>() -> Result<Node<T>, ShaderGraphBuildError> {
   todo!()
 }
 
@@ -186,8 +195,12 @@ pub fn set_fragment_out<T>(node: Node<T>) {
   //
 }
 
+pub enum ShaderGraphBuildError {
+  MissingRequiredDependency,
+}
+
 pub trait ShaderGraphBuilder {
-  fn build(&self);
+  fn build(&self) -> Result<(), ShaderGraphBuildError>;
 }
 
 // impl ShaderGraphBuilder for PassDispatcher {
