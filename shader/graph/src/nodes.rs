@@ -1,6 +1,6 @@
 use crate::{
   modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandleUntyped,
-  ShaderGraphNodeUntyped, ShaderSampler, ShaderTexture,
+  ShaderGraphNodeUntyped, ShaderSampler, ShaderStructMetaInfo, ShaderTexture,
 };
 use dyn_clone::DynClone;
 use rendiation_algebra::Vec2;
@@ -10,8 +10,15 @@ pub trait ShaderGraphNodeType: 'static + Copy {
   fn to_glsl_type() -> &'static str;
 }
 
+/// not inherit ShaderGraphNodeType to keep object safety
 pub trait ShaderGraphConstableNodeType: 'static + Send + Sync + DynClone {
   fn const_to_glsl(&self) -> String;
+}
+
+pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
+  type Instance;
+  fn meta_info() -> &'static ShaderStructMetaInfo;
+  fn expand(node: Node<Self>) -> Self::Instance;
 }
 
 impl<T> From<T> for Node<T>

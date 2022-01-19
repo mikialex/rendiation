@@ -10,7 +10,6 @@ use std::{
 
 mod code_gen;
 
-pub mod builder;
 pub mod meta;
 pub mod nodes;
 pub mod operator;
@@ -18,7 +17,6 @@ pub mod provider;
 pub mod structor;
 pub mod swizzle;
 pub mod traits_impl;
-pub use builder::*;
 pub use meta::*;
 pub use nodes::*;
 pub use provider::*;
@@ -59,7 +57,7 @@ pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub enum ShaderGraphUniformInputType {
   NoneUBO(NodeUntyped),
-  UBO((&'static UBOMetaInfo, NodeUntyped)),
+  UBO((&'static ShaderStructMetaInfo, NodeUntyped)),
 }
 
 pub struct ShaderGraphCompileResult {
@@ -74,7 +72,7 @@ pub struct ShaderGraph {
   pub vertex_position: Option<Node<Vec4<f32>>>,
   pub vertex_registered: HashMap<TypeId, NodeUntyped>,
 
-  pub struct_define: HashMap<TypeId, String>,
+  pub struct_define: HashMap<TypeId, &'static ShaderStructMetaInfo>,
 
   pub varyings: Vec<(NodeUntyped, usize)>,
   pub frag_outputs: Vec<(NodeUntyped, usize)>,

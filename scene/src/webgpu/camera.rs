@@ -78,10 +78,10 @@ impl SemanticShaderValue for ClipPosition {
 
 impl ShaderGraphBuilder for CameraBindgroup {
   fn build(&self) -> Result<(), ShaderGraphBuildError> {
-    let camera = register_uniform::<CameraGPUTransform>();
+    let camera = register_uniform::<CameraGPUTransform>().expand();
     let model = query_uniform::<TransformGPUData>()?;
     let position = query::<WorldVertexPosition>()?;
-    // let clip_position = uniform.
+    // let clip_position = camera.projection *
     register::<ClipPosition>((position, 0.));
     Ok(())
   }
@@ -124,7 +124,7 @@ impl BindGroupLayoutProvider for CameraBindgroup {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, Default)]
+#[derive(Clone, Copy, Pod, Zeroable, Default, ShaderUniform)]
 pub struct CameraGPUTransform {
   projection: Mat4<f32>,
   rotation: Mat4<f32>,

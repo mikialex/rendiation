@@ -5,8 +5,66 @@ use quote::{format_ident, quote};
 pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let s = StructInfo::new(input);
   let mut generated = proc_macro2::TokenStream::new();
-  generated.append_all(derive_ubo_shadergraph_instance(&s));
+  generated.append_all(derive_shader_struct(&s));
+  // generated.append_all(derive_ubo_shadergraph_instance(&s));
   generated
+}
+
+pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
+  let struct_name = &s.struct_name;
+  let shadergraph_instance_name = format_ident!("{}ShaderGraphInstance", struct_name);
+
+  let struct_name_str = format!("{}", struct_name);
+  let meta_info_name = format_ident!("{}_META_INFO", struct_name);
+
+  let meta_info_gen = s.map_fields(|(field_name, ty)| {
+    let field_str = format!("{}", field_name);
+    quote! { .add_field::<#ty>(#field_str) }
+  });
+
+  let instance_fields = s.map_fields(|(field_name, ty)| {
+    quote! { pub #field_name: shadergraph::Node<#ty>, }
+  });
+
+  let instance_fields_create = s.map_fields(|(field_name, ty)| {
+    let field_str = format!("{}", field_name);
+    quote! { #field_name: shadergraph::expand_single::<#ty>(node.cast_untyped(), #field_str), }
+  });
+
+  quote! {
+    #[allow(non_upper_case_globals)]
+    pub static #meta_info_name: once_cell::sync::Lazy<shadergraph::ShaderStructMetaInfo> =
+    once_cell::sync::Lazy::new(|| {
+        shadergraph::ShaderStructMetaInfo::new(
+          #struct_name_str,
+        )
+        #(#meta_info_gen)*
+        .gen_code_cache()
+    });
+
+    pub struct #shadergraph_instance_name {
+      #(#instance_fields)*
+    }
+
+    impl shadergraph::ShaderGraphNodeType for #struct_name {
+      fn to_glsl_type() -> &'static str{
+        #struct_name_str
+      }
+    }
+
+    impl shadergraph::ShaderGraphStructuralNodeType for #struct_name {
+      type Instance = #shadergraph_instance_name;
+      fn meta_info() -> &'static ShaderStructMetaInfo{
+        &#meta_info_name
+      }
+      fn expand(node: Node<Self>) -> Self::Instance{
+        #shadergraph_instance_name{
+          #(#instance_fields_create)*
+        }
+      }
+    }
+
+  }
 }
 
 pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStream {
@@ -14,7 +72,7 @@ pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStre
   let shadergraph_instance_name = format_ident!("{}ShaderGraphInstance", struct_name);
 
   let struct_name_str = format!("{}", struct_name);
-  let ubo_info_name = format_ident!("{}_UBO_INFO", struct_name);
+  let ubo_info_name = format_ident!("{}_META_INFO", struct_name);
 
   let ubo_info_gen = s.map_fields(|(field_name, ty)| {
     let field_str = format!("{}", field_name);
@@ -22,7 +80,7 @@ pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStre
   });
 
   let instance_fields = s.map_fields(|(field_name, ty)| {
-    quote! { pub #field_name: rendiation_shadergraph::Node<#ty>, }
+    quote! { pub #field_name: shadergraph::Node<#ty>, }
   });
 
   let instance_new = s.map_fields(|(field_name, ty)| {
@@ -32,9 +90,9 @@ pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStre
 
   quote! {
     #[allow(non_upper_case_globals)]
-    pub static #ubo_info_name: once_cell::sync::Lazy<rendiation_shadergraph::UBOMetaInfo> =
+    pub static #ubo_info_name: once_cell::sync::Lazy<shadergraph::ShaderStructMetaInfo> =
     once_cell::sync::Lazy::new(|| {
-        rendiation_shadergraph::UBOMetaInfo::new(
+        shadergraph::ShaderStructMetaInfo::new(
           #struct_name_str,
         )
         #(#ubo_info_gen)*
@@ -45,15 +103,15 @@ pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStre
       #(#instance_fields)*
     }
 
-    impl rendiation_shadergraph::ShaderGraphBindGroupItemProvider for #struct_name {
+    impl shadergraph::ShaderGraphBindGroupItemProvider for #struct_name {
       type ShaderGraphBindGroupItemInstance = #shadergraph_instance_name;
       fn create_instance<'a>(
         name: &'static str, // uniform buffer group not need set name
-        bindgroup_builder: &mut rendiation_shadergraph::ShaderGraphBindGroupBuilder<'a>,
+        bindgroup_builder: &mut shadergraph::ShaderGraphBindGroupBuilder<'a>,
         stage: rendiation_ral::ShaderStage)
        -> Self::ShaderGraphBindGroupItemInstance {
 
-        let mut ubo_builder = rendiation_shadergraph::UBOBuilder::new(
+        let mut ubo_builder = shadergraph::UBOBuilder::new(
           &#ubo_info_name,
           bindgroup_builder
         );

@@ -46,14 +46,14 @@ impl ShaderFunctionMetaInfo {
 }
 
 /// use for compile time ubo field reflection by procedure macro;
-pub struct UBOMetaInfo {
+pub struct ShaderStructMetaInfo {
   pub name: &'static str,
   pub fields: HashMap<&'static str, &'static str>, // fields name -> shader type name
   pub fields_record: Vec<&'static str>,
   pub code_cache: String,
 }
 
-impl UBOMetaInfo {
+impl ShaderStructMetaInfo {
   pub fn new(name: &'static str) -> Self {
     Self {
       name,

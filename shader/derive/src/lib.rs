@@ -16,7 +16,7 @@ pub fn derive_geometry(input: TokenStream) -> TokenStream {
   derive_geometry_impl(input).into()
 }
 
-#[proc_macro_derive(ShaderUniformBuffer)]
+#[proc_macro_derive(ShaderUniform)]
 pub fn derive_ubo(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
   derive_ubo_impl(&input).into()
