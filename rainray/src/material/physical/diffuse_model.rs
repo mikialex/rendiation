@@ -23,7 +23,7 @@ impl Material for Diffuse<Lambertian> {
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
-    (Vec3::new(x, y, z) * intersection.shading_normal.local_to_world()).into_normalized()
+    (intersection.shading_normal.local_to_world() * Vec3::new(x, y, z)).into_normalized()
   }
 
   fn pdf(
