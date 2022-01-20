@@ -64,12 +64,6 @@ pub struct CameraBindgroup {
   pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
-pub struct WorldVertexPosition;
-impl SemanticShaderValue for WorldVertexPosition {
-  type ValueType = Vec3<f32>;
-  const STAGE: shadergraph::ShaderStages = shadergraph::ShaderStages::Vertex;
-}
-
 pub struct ClipPosition;
 impl SemanticShaderValue for ClipPosition {
   type ValueType = Vec4<f32>;
@@ -79,10 +73,8 @@ impl SemanticShaderValue for ClipPosition {
 impl ShaderGraphBuilder for CameraBindgroup {
   fn build(&self) -> Result<(), ShaderGraphBuildError> {
     let camera = register_uniform::<CameraGPUTransform>().expand();
-    let model = query_uniform::<TransformGPUData>()?;
     let position = query::<WorldVertexPosition>()?;
-    let clip_position = camera.projection * (position, 0.).into();
-    register::<ClipPosition>(clip_position);
+    register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
     Ok(())
   }
 }

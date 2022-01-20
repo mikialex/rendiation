@@ -10,6 +10,7 @@ use std::{
 
 mod code_gen;
 
+pub mod control;
 pub mod meta;
 pub mod nodes;
 pub mod operator;
@@ -17,6 +18,7 @@ pub mod provider;
 pub mod structor;
 pub mod swizzle;
 pub mod traits_impl;
+pub use control::*;
 pub use meta::*;
 pub use nodes::*;
 pub use provider::*;
@@ -39,7 +41,7 @@ pub struct ShaderTexture;
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Node<T> {
   pub handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
 }
@@ -170,6 +172,15 @@ pub trait SemanticShaderValue: Any {
 }
 
 pub fn query<T: SemanticShaderValue>() -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+  todo!()
+}
+
+pub struct VertexIndex;
+impl SemanticShaderValue for VertexIndex {
+  type ValueType = u32;
+  const STAGE: ShaderStages = ShaderStages::Vertex;
+}
+pub fn query_built_in<T: SemanticShaderValue>() -> Node<T::ValueType> {
   todo!()
 }
 

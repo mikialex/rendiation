@@ -1,12 +1,35 @@
 use crate::{
-  modify_graph, AnyType, Node, ShaderGraphAttributeNodeType, ShaderGraphConstableNodeType,
-  ShaderGraphNodeData, ShaderGraphNodeType, ShaderSampler, ShaderTexture, TextureSamplingNode,
+  AnyType, Node, ShaderGraphAttributeNodeType, ShaderGraphConstableNodeType, ShaderGraphNodeData,
+  ShaderGraphNodeType, ShaderSampler, ShaderTexture, TextureSamplingNode,
 };
 use rendiation_algebra::*;
 
 impl ShaderGraphNodeType for AnyType {
   fn to_glsl_type() -> &'static str {
     unreachable!("Node can't created with type AnyType")
+  }
+}
+
+impl ShaderGraphNodeType for bool {
+  fn to_glsl_type() -> &'static str {
+    "bool"
+  }
+}
+
+impl ShaderGraphConstableNodeType for bool {
+  fn const_to_glsl(&self) -> String {
+    format!("{}", self)
+  }
+}
+
+impl ShaderGraphNodeType for u32 {
+  fn to_glsl_type() -> &'static str {
+    "uint"
+  }
+}
+impl ShaderGraphConstableNodeType for u32 {
+  fn const_to_glsl(&self) -> String {
+    format!("{}", self)
   }
 }
 
@@ -120,9 +143,9 @@ impl ShaderGraphNodeType for ShaderTexture {
 impl Node<ShaderTexture> {
   pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
     ShaderGraphNodeData::TextureSampling(TextureSamplingNode {
-      texture: *self,
-      sampler: sampler,
-      position: position,
+      texture: self.handle,
+      sampler: sampler.handle,
+      position: position.handle,
     })
     .insert_graph()
   }

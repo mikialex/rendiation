@@ -127,10 +127,15 @@ impl Display for MiddleVariableCodeGenResult {
 }
 
 impl ShaderGraph {
-  fn gen_code_node(&self, handle: NodeUntyped, ctx: &mut CodeGenCtx, builder: &mut CodeBuilder) {
+  fn gen_code_node(
+    &self,
+    handle: ShaderGraphNodeRawHandleUntyped,
+    ctx: &mut CodeGenCtx,
+    builder: &mut CodeBuilder,
+  ) {
     builder.write_ln("");
 
-    let depends = self.nodes.topological_order_list(handle.handle).unwrap();
+    let depends = self.nodes.topological_order_list(handle).unwrap();
 
     depends.iter().for_each(|&h| {
       // this node has generated, skip
@@ -153,15 +158,19 @@ impl ShaderGraph {
     let mut builder = CodeBuilder::new();
     builder.write_ln("void main() {").tab();
 
-    self.varyings.iter().for_each(|&v| {
-      self.gen_code_node(v.0, &mut ctx, &mut builder);
+    self.varyings.iter().for_each(|(v, _)| {
+      self.gen_code_node(v.handle, &mut ctx, &mut builder);
     });
 
     self.gen_code_node(
-      self
-        .vertex_position
-        .expect("vertex position not set")
-        .cast_untyped_node(),
+      unsafe {
+        self
+          .vertex_position
+          .as_ref()
+          .expect("vertex position not set")
+          .handle
+          .cast_type()
+      },
       &mut ctx,
       &mut builder,
     );
@@ -179,8 +188,8 @@ impl ShaderGraph {
     let mut builder = CodeBuilder::new();
     builder.write_ln("void main() {").tab();
 
-    self.frag_outputs.iter().for_each(|&v| {
-      self.gen_code_node(v.0, &mut ctx, &mut builder);
+    self.frag_outputs.iter().for_each(|(v, _)| {
+      self.gen_code_node(v.handle, &mut ctx, &mut builder);
     });
 
     builder.write_ln("").un_tab().write_ln("}");
@@ -258,15 +267,15 @@ impl ShaderGraphNode<AnyType> {
         let code = format!("{} {} {}", left, o.operator, right);
         Some((ctx.create_new_temp_name(), code, false))
       }
-      TextureSampling(n) => {
+      TextureSampling(n) => unsafe {
         let sampling_code = format!(
           "texture(sampler2D({}, {}), {})",
-          get_node_gen_result_var(n.texture.cast_untyped(), graph, ctx),
-          get_node_gen_result_var(n.sampler.cast_untyped(), graph, ctx),
-          get_node_gen_result_var(n.position.cast_untyped(), graph, ctx),
+          get_node_gen_result_var(n.texture.cast_type(), graph, ctx),
+          get_node_gen_result_var(n.sampler.cast_type(), graph, ctx),
+          get_node_gen_result_var(n.position.cast_type(), graph, ctx),
         );
         Some((ctx.create_new_temp_name(), sampling_code, false))
-      }
+      },
       Output(n) => {
         let from = node.from().iter().next().expect("output not set");
         Some((

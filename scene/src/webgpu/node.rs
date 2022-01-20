@@ -3,6 +3,7 @@ use std::rc::Rc;
 use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
+use shadergraph::ShaderUniform;
 
 use crate::{GPUResourceSubCache, ResourceMapper, SceneNode, SceneNodeData, SceneNodeDataImpl};
 
@@ -55,9 +56,32 @@ pub struct TransformGPU {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod, Default, PartialEq)]
+#[derive(Clone, Copy, Zeroable, Pod, Default, PartialEq, ShaderUniform)]
 pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
+}
+
+use shadergraph::*;
+pub struct WorldVertexPosition;
+impl SemanticShaderValue for WorldVertexPosition {
+  type ValueType = Vec3<f32>;
+  const STAGE: shadergraph::ShaderStages = shadergraph::ShaderStages::Vertex;
+}
+
+pub struct LocalVertexPosition;
+impl SemanticShaderValue for LocalVertexPosition {
+  type ValueType = Vec3<f32>;
+  const STAGE: shadergraph::ShaderStages = shadergraph::ShaderStages::Vertex;
+}
+
+impl ShaderGraphBuilder for TransformGPUData {
+  fn build(&self) -> Result<(), ShaderGraphBuildError> {
+    let model = register_uniform::<Self>().expand();
+    let position = query::<LocalVertexPosition>()?;
+    let position = model.world_matrix * (position, 0.).into();
+    register::<WorldVertexPosition>(position.xyz());
+    Ok(())
+  }
 }
 
 impl ShaderUniformBlock for TransformGPUData {

@@ -70,3 +70,88 @@ where
     .insert_graph()
   }
 }
+
+impl<T: PartialEq> Node<T> {
+  pub fn equals(&self, other: Self) -> Node<bool> {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "==",
+    })
+    .insert_graph()
+  }
+
+  pub fn not_equals(&self, other: Self) -> Node<bool> {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "!=",
+    })
+    .insert_graph()
+  }
+}
+
+impl<T: PartialOrd> Node<T> {
+  pub fn less_than(&self, other: Self) -> Node<bool> {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "<",
+    })
+    .insert_graph()
+  }
+  pub fn less_or_equal_than(&self, other: Self) -> Node<bool> {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "<=",
+    })
+    .insert_graph()
+  }
+  pub fn greater_than(&self, other: impl Into<Self>) -> Node<bool> {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.into().cast_untyped(),
+      operator: ">",
+    })
+    .insert_graph()
+  }
+  pub fn greater_or_equal_than(&self, other: Self) -> Node<bool> {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: ">=",
+    })
+    .insert_graph()
+  }
+}
+
+impl Node<bool> {
+  pub fn or(&self, other: Self) -> Self {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "||",
+    })
+    .insert_graph()
+  }
+
+  pub fn and(&self, other: Self) -> Self {
+    ShaderGraphNodeData::Operator(OperatorNode {
+      left: self.cast_untyped(),
+      right: other.cast_untyped(),
+      operator: "&&",
+    })
+    .insert_graph()
+  }
+
+  pub fn not(&self) -> Self {
+    todo!()
+    // ShaderGraphNodeData::Operator(OperatorNode {
+    //   left: self.cast_untyped(),
+    //   right: other.cast_untyped(),
+    //   operator: "!",
+    // })
+    // .insert_graph()
+  }
+}

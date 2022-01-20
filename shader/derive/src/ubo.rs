@@ -54,10 +54,10 @@ pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
     impl shadergraph::ShaderGraphStructuralNodeType for #struct_name {
       type Instance = #shadergraph_instance_name;
-      fn meta_info() -> &'static ShaderStructMetaInfo{
+      fn meta_info() -> &'static shadergraph::ShaderStructMetaInfo{
         &#meta_info_name
       }
-      fn expand(node: Node<Self>) -> Self::Instance{
+      fn expand(node: shadergraph::Node<Self>) -> Self::Instance{
         #shadergraph_instance_name{
           #(#instance_fields_create)*
         }

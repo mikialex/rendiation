@@ -1,6 +1,7 @@
 use crate::{
-  modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandleUntyped,
-  ShaderGraphNodeUntyped, ShaderSampler, ShaderStructMetaInfo, ShaderTexture,
+  modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandle,
+  ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped, ShaderSampler, ShaderStructMetaInfo,
+  ShaderTexture,
 };
 use dyn_clone::DynClone;
 use rendiation_algebra::Vec2;
@@ -152,11 +153,11 @@ impl ShaderGraphNodeData {
         texture,
         sampler,
         position,
-      }) => {
-        visitor(&texture.cast_untyped());
-        visitor(&sampler.cast_untyped());
-        visitor(&position.cast_untyped());
-      }
+      }) => unsafe {
+        visitor(&texture.cast_type());
+        visitor(&sampler.cast_type());
+        visitor(&position.cast_type());
+      },
       ShaderGraphNodeData::Swizzle { source, .. } => visitor(source),
       ShaderGraphNodeData::Compose(source) => source.iter().for_each(visitor),
       ShaderGraphNodeData::Operator(OperatorNode { left, right, .. }) => {
@@ -187,9 +188,9 @@ pub struct FunctionNode {
 
 #[derive(Clone)]
 pub struct TextureSamplingNode {
-  pub texture: Node<ShaderTexture>,
-  pub sampler: Node<ShaderSampler>,
-  pub position: Node<Vec2<f32>>,
+  pub texture: ShaderGraphNodeRawHandle<ShaderTexture>,
+  pub sampler: ShaderGraphNodeRawHandle<ShaderSampler>,
+  pub position: ShaderGraphNodeRawHandle<Vec2<f32>>,
 }
 
 #[derive(Clone)]
@@ -197,6 +198,45 @@ pub struct OperatorNode {
   pub left: ShaderGraphNodeRawHandleUntyped,
   pub right: ShaderGraphNodeRawHandleUntyped,
   pub operator: &'static str,
+}
+
+pub enum UnaryOperator {
+  Not,
+}
+
+pub enum BinaryOperator {
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Eq,
+  NotEq,
+  GreaterThan,
+  LessThan,
+  GreaterEqualThan,
+  LessEqualThan,
+}
+
+pub enum TrinaryOperator {
+  IfElse,
+}
+
+pub enum OperatorNode2 {
+  Unary {
+    one: ShaderGraphNodeRawHandleUntyped,
+    operator: &'static str,
+  },
+  Binary {
+    left: ShaderGraphNodeRawHandleUntyped,
+    right: ShaderGraphNodeRawHandleUntyped,
+    operator: &'static str,
+  },
+  Trinary {
+    forward: ShaderGraphNodeRawHandleUntyped,
+    left: ShaderGraphNodeRawHandleUntyped,
+    right: ShaderGraphNodeRawHandleUntyped,
+    operator: &'static str,
+  },
 }
 
 #[derive(Clone)]
