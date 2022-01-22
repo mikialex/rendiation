@@ -100,11 +100,17 @@ pub struct ForCtx {
 
 impl ForCtx {
   pub fn do_continue(&self) {
-    //
+    modify_graph(|builder| {
+      // todo insert node?
+      builder.code_builder.write_ln("continue");
+    });
   }
 
   pub fn do_break(&self) {
-    //
+    modify_graph(|builder| {
+      // todo insert node?
+      builder.code_builder.write_ln("break");
+    });
   }
 }
 
@@ -116,23 +122,30 @@ impl ShaderIterator for u32 {
   }
 }
 
-pub fn for_by<T, I: ShaderIterator<Item = T>>(iterable: I, logic: impl Fn(&ForCtx, Node<T>)) {
+pub fn for_by<T, I>(iterable: I, logic: impl Fn(&ForCtx, Node<T>))
+where
+  T: ShaderGraphNodeType,
+  I: ShaderIterator<Item = T>,
+{
   modify_graph(|builder| {
     builder.code_builder.write_ln("for ..{");
     builder.code_builder.tab();
   });
 
+  // todo optimize move
   let mut graph = take_build_graph();
   graph = graph.push_scope();
   set_build_graph(graph);
 
-  let i_node = todo!(); // input
+  // input
+  let i_node = ShaderGraphNodeData::Named("i".into()).insert_graph();
 
   let cx = ForCtx {};
 
   logic(&cx, i_node);
 
   // todo pop
+  // let result =
 
   modify_graph(|builder| {
     builder.code_builder.un_tab();

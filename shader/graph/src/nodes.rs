@@ -106,6 +106,7 @@ pub enum ShaderGraphNodeData {
   Operator(OperatorNode),
   Input(ShaderGraphInputNode),
   Output(ShaderGraphOutput),
+  Named(String),
   FieldGet {
     field_name: &'static str,
     struct_node: ShaderGraphNodeRawHandleUntyped,
