@@ -74,7 +74,7 @@ impl SemanticShaderValue for LocalVertexPosition {
   const STAGE: shadergraph::ShaderStages = shadergraph::ShaderStages::Vertex;
 }
 
-impl ShaderGraphBuilder for TransformGPUData {
+impl ShaderGraphProvider for TransformGPUData {
   fn build(&self) -> Result<(), ShaderGraphBuildError> {
     let model = register_uniform::<Self>().expand();
     let position = query::<LocalVertexPosition>()?;

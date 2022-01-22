@@ -70,7 +70,7 @@ impl SemanticShaderValue for ClipPosition {
   const STAGE: shadergraph::ShaderStages = shadergraph::ShaderStages::Vertex;
 }
 
-impl ShaderGraphBuilder for CameraBindgroup {
+impl ShaderGraphProvider for CameraBindgroup {
   fn build(&self) -> Result<(), ShaderGraphBuildError> {
     let camera = register_uniform::<CameraGPUTransform>().expand();
     let position = query::<WorldVertexPosition>()?;

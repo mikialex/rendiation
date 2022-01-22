@@ -46,20 +46,6 @@ pub struct IfNode {
 //   );
 // }
 
-// fn test() {
-//   let a = node(1).mutable();
-//   let c = node(0).mutable();
-
-//   for_by(xxx, |for_ctx, i| {
-//     let b = node(1);
-//     if_by(i > 0, || {
-//       a += b;
-//       for_ctx.do_continue();
-//     });
-//     c += i;
-//   });
-// }
-
 fn test() {
   let a = consts(1).mutable();
   let c = consts(0).mutable();
@@ -116,6 +102,10 @@ impl ForCtx {
   pub fn do_continue(&self) {
     //
   }
+
+  pub fn do_break(&self) {
+    //
+  }
 }
 
 impl ShaderIterator for u32 {
@@ -127,7 +117,11 @@ impl ShaderIterator for u32 {
 }
 
 pub fn for_by<T, I: ShaderIterator<Item = T>>(iterable: I, logic: impl Fn(&ForCtx, Node<T>)) {
-  //
+  let mut builder = ShaderGraphBuilder::new();
+  builder.code_builder.write_ln("for ..{");
+  builder.code_builder.tab();
+  // builder.graph.nodes();
+  builder.code_builder.write_ln("}");
 }
 
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {

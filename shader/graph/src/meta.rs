@@ -14,6 +14,7 @@ pub struct ShaderFunctionMetaInfo {
 }
 
 impl ShaderFunctionMetaInfo {
+  #[must_use]
   pub fn declare_function_dep(mut self, f: &'static ShaderFunctionMetaInfo) -> Self {
     self.depend_functions.insert(f);
     self
@@ -62,12 +63,15 @@ impl ShaderStructMetaInfo {
       code_cache: String::new(),
     }
   }
+
+  #[must_use]
   pub fn add_field<T: ShaderGraphNodeType>(mut self, name: &'static str) -> Self {
     self.fields.insert(name, T::to_glsl_type());
     self.fields_record.push(name);
     self
   }
 
+  #[must_use]
   pub fn gen_code_cache(mut self) -> Self {
     self.code_cache = String::from("uniform ")
       + self.name

@@ -1,32 +1,36 @@
-mod code_builder;
+pub mod code_builder;
 use crate::*;
 use arena_graph::{ArenaGraph, ArenaGraphNode, ArenaGraphNodeHandle};
-use code_builder::CodeBuilder;
+pub use code_builder::CodeBuilder;
 use std::{
   collections::{HashMap, HashSet},
   fmt::Display,
 };
 mod header;
 
-struct CodeGenCtx {
+pub struct CodeGenCtx {
+  ctx_guid: usize,
   var_guid: usize,
   code_gen_history: HashMap<ShaderGraphNodeRawHandleUntyped, MiddleVariableCodeGenResult>,
   depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
+  parent: Option<Box<CodeGenCtx>>,
 }
 
 #[allow(clippy::clone_double_ref)]
 impl CodeGenCtx {
-  fn new() -> Self {
+  fn new_root(ctx_guid: usize) -> Self {
     Self {
+      ctx_guid,
       var_guid: 0,
       code_gen_history: HashMap::new(),
       depend_functions: HashSet::new(),
+      parent: None,
     }
   }
 
   fn create_new_temp_name(&mut self) -> String {
     self.var_guid += 1;
-    format!("temp{}", self.var_guid)
+    format!("v{}-{}", self.ctx_guid, self.var_guid)
   }
 
   fn add_node_result(
@@ -88,6 +92,7 @@ struct MiddleVariableCodeGenResult {
   type_name: &'static str,
   var_name: String,
   expression_str: String,
+  /// mark if it is value such as gl_Position
   is_builtin_target: bool,
 }
 
@@ -96,7 +101,7 @@ impl MiddleVariableCodeGenResult {
     ref_node: ShaderGraphNodeRawHandleUntyped,
     var_name: String,
     expression_str: String,
-    graph: &ShaderGraph,
+    graph: &ShaderGraphShaderBuilder,
     is_builtin_target: bool,
   ) -> Self {
     let info = graph.nodes.get_node(ref_node).data();
@@ -126,7 +131,7 @@ impl Display for MiddleVariableCodeGenResult {
   }
 }
 
-impl ShaderGraph {
+impl ShaderGraphShaderBuilder {
   fn gen_code_node(
     &self,
     handle: ShaderGraphNodeRawHandleUntyped,
@@ -154,7 +159,7 @@ impl ShaderGraph {
   }
 
   pub fn gen_code_vertex(&self) -> String {
-    let mut ctx = CodeGenCtx::new();
+    let mut ctx = CodeGenCtx::new_root(0);
     let mut builder = CodeBuilder::new();
     builder.write_ln("void main() {").tab();
 
@@ -184,7 +189,7 @@ impl ShaderGraph {
   }
 
   pub fn gen_code_frag(&self) -> String {
-    let mut ctx = CodeGenCtx::new();
+    let mut ctx = CodeGenCtx::new_root(0);
     let mut builder = CodeBuilder::new();
     builder.write_ln("void main() {").tab();
 
@@ -206,7 +211,7 @@ impl ShaderGraphNode<AnyType> {
   fn gen_node_record(
     &self,
     handle: ArenaGraphNodeHandle<Self>,
-    graph: &ShaderGraph,
+    graph: &ShaderGraphShaderBuilder,
     ctx: &mut CodeGenCtx,
   ) -> Option<MiddleVariableCodeGenResult> {
     let node = graph.nodes.get_node(handle);
@@ -227,7 +232,7 @@ impl ShaderGraphNode<AnyType> {
   fn gen_code_record_exp(
     &self,
     node: &ArenaGraphNode<Self>,
-    graph: &ShaderGraph,
+    graph: &ShaderGraphShaderBuilder,
     ctx: &mut CodeGenCtx,
   ) -> Option<(String, String, bool)> {
     match &self.data {
@@ -291,7 +296,7 @@ impl ShaderGraphNode<AnyType> {
 
 fn get_node_gen_result_var(
   node: ArenaGraphNodeHandle<ShaderGraphNodeUntyped>,
-  graph: &ShaderGraph,
+  graph: &ShaderGraphShaderBuilder,
   ctx: &CodeGenCtx,
 ) -> String {
   let data = &graph.nodes.get_node(node).data().data;
@@ -307,6 +312,7 @@ fn get_node_gen_result_var(
     FieldGet { .. } => todo!(),
     StructConstruct { struct_id, fields } => todo!(),
     Compose(_) => todo!(),
+    _ => todo!(),
   }
 }
 

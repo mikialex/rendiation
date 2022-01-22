@@ -127,6 +127,7 @@ impl<T: PartialOrd> Node<T> {
 }
 
 impl Node<bool> {
+  #[must_use]
   pub fn or(&self, other: Self) -> Self {
     ShaderGraphNodeData::Operator(OperatorNode {
       left: self.cast_untyped(),
@@ -136,6 +137,7 @@ impl Node<bool> {
     .insert_graph()
   }
 
+  #[must_use]
   pub fn and(&self, other: Self) -> Self {
     ShaderGraphNodeData::Operator(OperatorNode {
       left: self.cast_untyped(),
@@ -145,6 +147,7 @@ impl Node<bool> {
     .insert_graph()
   }
 
+  #[must_use]
   pub fn not(&self) -> Self {
     todo!()
     // ShaderGraphNodeData::Operator(OperatorNode {

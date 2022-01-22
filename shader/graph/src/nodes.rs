@@ -1,7 +1,7 @@
 use crate::{
-  modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandle,
-  ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped, ShaderSampler, ShaderStructMetaInfo,
-  ShaderTexture,
+  modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphInner,
+  ShaderGraphNodeRawHandle, ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped, ShaderSampler,
+  ShaderStructMetaInfo, ShaderTexture,
 };
 use dyn_clone::DynClone;
 use rendiation_algebra::Vec2;
@@ -53,6 +53,7 @@ impl<T> Node<T> {
   }
 }
 
+#[derive(Clone)]
 pub struct ShaderGraphNode<T> {
   phantom: PhantomData<T>,
   pub data: ShaderGraphNodeData,
@@ -114,6 +115,8 @@ pub enum ShaderGraphNodeData {
     fields: Vec<ShaderGraphNodeRawHandleUntyped>,
   },
   Const(ConstNode),
+  // Termination,
+  Scope(ShaderGraphInner),
 }
 
 pub struct ConstNode {
@@ -169,6 +172,7 @@ impl ShaderGraphNodeData {
       ShaderGraphNodeData::FieldGet { struct_node, .. } => visitor(struct_node),
       ShaderGraphNodeData::StructConstruct { struct_id, fields } => fields.iter().for_each(visitor),
       ShaderGraphNodeData::Const(_) => {}
+      _ => todo!(),
     }
   }
 }
