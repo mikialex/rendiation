@@ -117,11 +117,27 @@ impl ShaderIterator for u32 {
 }
 
 pub fn for_by<T, I: ShaderIterator<Item = T>>(iterable: I, logic: impl Fn(&ForCtx, Node<T>)) {
-  let mut builder = ShaderGraphBuilder::new();
-  builder.code_builder.write_ln("for ..{");
-  builder.code_builder.tab();
-  // builder.graph.nodes();
-  builder.code_builder.write_ln("}");
+  modify_graph(|builder| {
+    builder.code_builder.write_ln("for ..{");
+    builder.code_builder.tab();
+  });
+
+  let mut graph = take_build_graph();
+  graph = graph.push_scope();
+  set_build_graph(graph);
+
+  let i_node = todo!(); // input
+
+  let cx = ForCtx {};
+
+  logic(&cx, i_node);
+
+  // todo pop
+
+  modify_graph(|builder| {
+    builder.code_builder.un_tab();
+    builder.code_builder.write_ln("}");
+  });
 }
 
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {

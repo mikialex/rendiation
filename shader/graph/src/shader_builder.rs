@@ -92,22 +92,21 @@ impl ShaderGraphShaderBuilder {
   }
 }
 
-pub static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<
-  Mutex<Option<ShaderGraphShaderBuilder>>,
-> = once_cell::sync::Lazy::new(|| Mutex::new(None));
+pub static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<Mutex<Option<ShaderGraphBuilder>>> =
+  once_cell::sync::Lazy::new(|| Mutex::new(None));
 
-pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphShaderBuilder) -> T) -> T {
+pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   let graph = guard.as_mut().unwrap();
   modifier(graph)
 }
 
-pub fn set_build_graph(g: ShaderGraphShaderBuilder) {
+pub fn set_build_graph(g: ShaderGraphBuilder) {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   *guard = Some(g);
 }
 
-pub fn take_build_graph() -> ShaderGraphShaderBuilder {
+pub fn take_build_graph() -> ShaderGraphBuilder {
   IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
 }
 
