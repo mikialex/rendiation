@@ -9,12 +9,29 @@ use crate::{
 };
 
 pub struct ShaderGraphBuilder {
+  pub scopes: Vec<ShaderGraphScopeBuilder>,
+}
+
+impl ShaderGraphBuilder {
+  pub fn top_scope(&mut self) -> &mut ShaderGraphScopeBuilder {
+    self.scopes.last_mut().unwrap()
+  }
+
+  pub fn push_scope(&mut self) {
+    self.scopes.push(ShaderGraphScopeBuilder::new());
+  }
+
+  pub fn pop_scope(&mut self) -> ShaderGraphScopeBuildResult {
+    todo!()
+  }
+}
+
+pub struct ShaderGraphScopeBuilder {
   pub graph_guid: usize,
   pub code_gen: CodeGenCtx,
   pub code_builder: CodeBuilder,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
   pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
-  pub parent: Option<Box<Self>>,
 }
 
 #[derive(Clone)]
@@ -24,7 +41,7 @@ pub struct ShaderGraphScopeBuildResult {
 
 pub struct ShaderGraphIncrementalBuilder {
   pub semantic_registered: HashMap<TypeId, NodeUntyped>,
-  pub graph: ShaderGraphBuilder,
+  pub graph: ShaderGraphScopeBuilder,
 }
 
 impl ShaderGraphIncrementalBuilder {
@@ -32,23 +49,13 @@ impl ShaderGraphIncrementalBuilder {
     todo!()
   }
 
-  pub fn build(self) -> ShaderGraphBuilder {
+  pub fn build(self) -> ShaderGraphScopeBuilder {
     todo!()
   }
 }
 
-impl ShaderGraphBuilder {
+impl ShaderGraphScopeBuilder {
   pub fn new() -> Self {
-    todo!()
-  }
-
-  pub fn push_scope(mut self) -> Self {
-    let mut scope = ShaderGraphBuilder::new();
-    scope.parent = Box::new(self).into();
-    scope
-  }
-
-  pub fn pop_scope(&mut self) -> ShaderGraphScopeBuildResult {
     todo!()
   }
 

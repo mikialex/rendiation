@@ -101,15 +101,17 @@ pub struct ForCtx {
 impl ForCtx {
   pub fn do_continue(&self) {
     modify_graph(|builder| {
+      let scope = builder.top_scope();
       // todo insert node?
-      builder.code_builder.write_ln("continue");
+      scope.code_builder.write_ln("continue");
     });
   }
 
   pub fn do_break(&self) {
     modify_graph(|builder| {
+      let scope = builder.top_scope();
       // todo insert node?
-      builder.code_builder.write_ln("break");
+      scope.code_builder.write_ln("break");
     });
   }
 }
@@ -128,14 +130,11 @@ where
   I: ShaderIterator<Item = T>,
 {
   modify_graph(|builder| {
-    builder.code_builder.write_ln("for ..{");
-    builder.code_builder.tab();
+    let scope = builder.top_scope();
+    scope.code_builder.write_ln("for ..{");
+    scope.code_builder.tab();
+    builder.push_scope()
   });
-
-  // todo optimize move
-  let mut graph = take_build_graph();
-  graph = graph.push_scope();
-  set_build_graph(graph);
 
   // input
   let i_node = ShaderGraphNodeData::Named("i".into()).insert_graph();
@@ -144,12 +143,15 @@ where
 
   logic(&cx, i_node);
 
-  // todo pop
-  // let result =
-
   modify_graph(|builder| {
-    builder.code_builder.un_tab();
-    builder.code_builder.write_ln("}");
+    let result = builder.pop_scope();
+    let result = ShaderGraphNodeData::Scope(result);
+
+    let scope = builder.top_scope();
+    result.insert_into_graph::<AnyType>(scope);
+
+    scope.code_builder.un_tab();
+    scope.code_builder.write_ln("}");
   });
 }
 

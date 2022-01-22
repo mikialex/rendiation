@@ -1,7 +1,7 @@
 use crate::{
   modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandle,
   ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped, ShaderGraphScopeBuildResult,
-  ShaderSampler, ShaderStructMetaInfo, ShaderTexture,
+  ShaderGraphScopeBuilder, ShaderSampler, ShaderStructMetaInfo, ShaderTexture,
 };
 use dyn_clone::DynClone;
 use rendiation_algebra::Vec2;
@@ -135,15 +135,23 @@ impl Clone for ConstNode {
 impl ShaderGraphNodeData {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
     modify_graph(|graph| {
-      let node = ShaderGraphNode::<T>::new(self.clone());
-      let result = graph.insert_node(node).handle;
-
-      self.visit_dependency(|dep| {
-        graph.nodes.connect_node(*dep, result);
-      });
-
-      unsafe { result.cast_type().into() }
+      let graph = graph.top_scope();
+      self.insert_into_graph(graph)
     })
+  }
+
+  pub fn insert_into_graph<T: ShaderGraphNodeType>(
+    self,
+    graph: &mut ShaderGraphScopeBuilder,
+  ) -> Node<T> {
+    let node = ShaderGraphNode::<T>::new(self.clone());
+    let result = graph.insert_node(node).handle;
+
+    self.visit_dependency(|dep| {
+      graph.nodes.connect_node(*dep, result);
+    });
+
+    unsafe { result.cast_type().into() }
   }
   pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandleUntyped)) {
     match self {
