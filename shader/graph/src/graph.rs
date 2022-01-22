@@ -7,16 +7,22 @@ use crate::{
   Node, NodeUntyped, ShaderGraphNodeType, ShaderGraphNodeUntyped,
 };
 
-#[derive(Clone, Default)]
-pub struct ShaderGraphInner {
+pub struct ShaderGraphBuilder {
   pub graph_guid: usize,
+  pub code_gen: CodeGenCtx,
+  pub code_builder: CodeBuilder,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
-  pub parent: Option<Box<ShaderGraphInner>>,
+  pub parent: Option<Box<Self>>,
+}
+
+#[derive(Clone)]
+pub struct ShaderGraphScopeBuildResult{
+  code: String
 }
 
 pub struct ShaderGraphIncrementalBuilder {
   pub semantic_registered: HashMap<TypeId, NodeUntyped>,
-  pub graph: ShaderGraphInner,
+  pub graph: ShaderGraphBuilder,
 }
 
 impl ShaderGraphIncrementalBuilder {
@@ -27,12 +33,6 @@ impl ShaderGraphIncrementalBuilder {
   pub fn build(self) -> ShaderGraphBuilder {
     todo!()
   }
-}
-
-pub struct ShaderGraphBuilder {
-  pub graph: ShaderGraphInner,
-  pub code_gen: CodeGenCtx,
-  pub code_builder: CodeBuilder,
 }
 
 impl ShaderGraphBuilder {
@@ -48,18 +48,8 @@ impl ShaderGraphBuilder {
   }
 }
 
-impl ShaderGraphInner {
-  pub fn build(self) -> ShaderGraphBuilder {
-    todo!()
-  }
-
-  pub fn build_incremental(self) -> ShaderGraphIncrementalBuilder {
-    todo!()
-  }
-}
-
 pub fn create_shader_function() {
-  let graph = ShaderGraphInner::default();
+  // let graph = ShaderGraphInner::default();
 
   //
 }
