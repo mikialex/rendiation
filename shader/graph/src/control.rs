@@ -87,16 +87,14 @@ pub struct ShaderArray<T> {
 pub trait ShaderIterator {
   type Item;
 
-  fn code_gen(&self) -> &'static str;
+  fn code_gen(&self, iter_item_name: &str) -> String;
 }
 
 pub fn consts<T>(v: T) -> Node<T> {
   todo!()
 }
 
-pub struct ForCtx {
-  //
-}
+pub struct ForCtx;
 
 impl ForCtx {
   pub fn do_continue(&self) {
@@ -119,8 +117,25 @@ impl ForCtx {
 impl ShaderIterator for u32 {
   type Item = u32;
 
-  fn code_gen(&self) -> &'static str {
+  fn code_gen(&self, iter_item_name: &str) -> String {
+    format!(
+      "for (int {name} = 0; {name} < {count}; ++i)",
+      name = iter_item_name,
+      count = self
+    )
+  }
+}
+
+impl<T> ShaderIterator for ShaderArray<T> {
+  type Item = T;
+
+  fn code_gen(&self, iter_item_name: &str) -> String {
     todo!()
+    // format!(
+    //   "for (int {name} = 0; {name} < {count}; ++i)",
+    //   name = iter_item_name,
+    //   count = self
+    // )
   }
 }
 
@@ -129,17 +144,22 @@ where
   T: ShaderGraphNodeType,
   I: ShaderIterator<Item = T>,
 {
+  let iter_item_name = "i"; // todo
+
   modify_graph(|builder| {
     let scope = builder.top_scope();
-    scope.code_builder.write_ln("for ..{");
+    scope
+      .code_builder
+      .write_ln(iterable.code_gen(iter_item_name).as_str());
+
     scope.code_builder.tab();
     builder.push_scope()
   });
 
   // input
-  let i_node = ShaderGraphNodeData::Named("i".into()).insert_graph();
+  let i_node = ShaderGraphNodeData::Named(iter_item_name.into()).insert_graph();
 
-  let cx = ForCtx {};
+  let cx = ForCtx;
 
   logic(&cx, i_node);
 
@@ -156,5 +176,36 @@ where
 }
 
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
-  //
+  let condition = condition.into();
+  let condition = "test"; // todo
+
+  modify_graph(|builder| {
+    let scope = builder.top_scope();
+    scope
+      .code_builder
+      .write_ln(format!("if ({}) {{", condition).as_str());
+
+    scope.code_builder.tab();
+    builder.push_scope()
+  });
+
+  logic();
+
+  modify_graph(|builder| {
+    let result = builder.pop_scope();
+    let result = ShaderGraphNodeData::Scope(result);
+
+    let scope = builder.top_scope();
+    result.insert_into_graph::<AnyType>(scope);
+
+    scope.code_builder.un_tab();
+    scope.code_builder.write_ln("}");
+  });
+}
+
+pub fn discard() {
+  modify_graph(|builder| {
+    let scope = builder.top_scope();
+    scope.code_builder.write_ln("discard;");
+  });
 }
