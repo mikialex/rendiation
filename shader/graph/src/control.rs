@@ -203,9 +203,24 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   });
 }
 
-pub fn discard() {
-  modify_graph(|builder| {
-    let scope = builder.top_scope();
-    scope.code_builder.write_ln("discard;");
-  });
+pub struct FragmentCtx;
+
+impl FragmentCtx {
+  pub fn discard() {
+    modify_graph(|builder| {
+      let scope = builder.top_scope();
+      scope.code_builder.write_ln("discard;");
+    });
+  }
+}
+
+pub struct FunctionCtx<T> {
+  phantom: PhantomData<T>,
+}
+
+impl<T> FunctionCtx<T> {
+  // how do we validate the ast generated match the function definition?
+  pub fn do_return(&self, return_value: Node<T>) {
+    //
+  }
 }
