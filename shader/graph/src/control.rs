@@ -1,78 +1,37 @@
-use std::{hash::Hasher, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::*;
 
-pub struct NodeScope {
-  environment: Vec<NodeUntyped>,
-}
-
-pub struct IfNode {
-  pub condition: Node<bool>,
-  // should be same type
-  pub true_value: ShaderGraphNodeRawHandleUntyped,
-  pub false_value: ShaderGraphNodeRawHandleUntyped,
-}
-
-// impl ShaderIterator for Node<ShaderArray<T>> {
-//   type Item = T;
-
-//   fn code_gen(&self) -> &'static str {
-//     "
-//         for(int i = 0; i < 32; i++) {
-
-//         }
-//         "
-//   }
-// }
-
-// let a = 1;
-// let c = 0;
-// for i in xxx {
-//     let b =1;
-//     if i> 10 {
-//         a+=b
-//         continue
-//     }
-//     c+= i;
-// }
-
-// fn test() {
-//   let a = node(1);
-//   let c = node(0);
-//   let b = node(1);
-//   xxx.iter().split(
-//     until(10).fold(a, |a| a + b),
-//     enumerate().fold(a, |a, i| a + i),
-//   );
-// }
-
-fn test() {
-  let a = consts(1).mutable();
-  let c = consts(0).mutable();
-
-  for_by(5, |for_ctx, i| {
-    let b = 1;
-    if_by(i.greater_than(0), || {
-      a.set(a.get() + b.into());
-      for_ctx.do_continue();
-    });
-    c.set(c.get() + i);
-  });
-}
-
+#[derive(Clone, Copy)]
 pub struct Mutable<T> {
   phantom: PhantomData<T>,
 }
 
-impl<T> Node<T> {
+impl<T: ShaderGraphNodeType> ShaderGraphNodeType for Mutable<T> {
+  fn to_glsl_type() -> &'static str {
+    T::to_glsl_type()
+  }
+}
+
+impl<T: ShaderGraphNodeType> Node<T> {
   pub fn mutable(&self) -> Node<Mutable<T>> {
-    todo!()
+    unsafe { self.handle.cast_type().into() }
   }
 }
 
 impl<T> Node<Mutable<T>> {
   pub fn get(&self) -> Node<T> {
     todo!()
+    // modify_graph(|builder| {
+    //   let value = builder.get_node_gen_result_var(self);
+    //   let scope = builder.top_scope();
+    //   let copied_value = scope.code_gen.create_new_unique_name();
+    //   scope
+    //     .code_builder
+    //     .write_ln(format!("return {};", return_value).as_str());
+
+    // ShaderGraphNodeData::Named(copied_value).insert_into_graph(for_body)
+    // });
   }
 
   pub fn set(&self, node: Node<T>) {
@@ -154,7 +113,7 @@ where
     scope.code_builder.tab();
     let for_body = builder.push_scope();
 
-    ShaderGraphNodeData::Named(iter_item_name.into()).insert_into_graph(for_body)
+    ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(for_body)
   });
 
   let cx = ForCtx;
@@ -216,7 +175,13 @@ pub struct FunctionCtx<T> {
 
 impl<T> FunctionCtx<T> {
   // how do we validate the ast generated match the function definition?
-  pub fn do_return(&self, return_value: Node<T>) {
-    //
+  pub fn do_return(&self, return_value: impl Into<Node<T>>) {
+    modify_graph(|builder| {
+      let return_value = builder.get_node_gen_result_var(return_value);
+      let scope = builder.top_scope();
+      scope
+        .code_builder
+        .write_ln(format!("return {};", return_value).as_str());
+    });
   }
 }

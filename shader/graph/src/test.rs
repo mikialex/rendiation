@@ -56,3 +56,50 @@ glsl_function!(
   }
   "
   );
+
+// impl ShaderIterator for Node<ShaderArray<T>> {
+//   type Item = T;
+
+//   fn code_gen(&self) -> &'static str {
+//     "
+//         for(int i = 0; i < 32; i++) {
+
+//         }
+//         "
+//   }
+// }
+
+// let a = 1;
+// let c = 0;
+// for i in xxx {
+//     let b =1;
+//     if i> 10 {
+//         a+=b
+//         continue
+//     }
+//     c+= i;
+// }
+
+// fn test() {
+//   let a = node(1);
+//   let c = node(0);
+//   let b = node(1);
+//   xxx.iter().split(
+//     until(10).fold(a, |a| a + b),
+//     enumerate().fold(a, |a, i| a + i),
+//   );
+// }
+
+fn test() {
+  let a = consts(1).mutable();
+  let c = consts(0).mutable();
+
+  for_by(5, |for_ctx, i| {
+    let b = 1;
+    if_by(i.greater_than(0), || {
+      a.set(a.get() + b.into());
+      for_ctx.do_continue();
+    });
+    c.set(c.get() + i);
+  });
+}
