@@ -59,8 +59,11 @@ pub trait ShaderIterator {
   fn code_gen(&self, iter_item_name: &str) -> String;
 }
 
-pub fn consts<T>(v: T) -> Node<T> {
-  todo!()
+pub fn consts<T>(v: T) -> Node<T>
+where
+  T: ShaderGraphConstableNodeType + ShaderGraphNodeType,
+{
+  v.into()
 }
 
 pub struct ForCtx;
