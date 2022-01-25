@@ -18,9 +18,9 @@ pub struct CodeGenCtx {
 
 #[allow(clippy::clone_double_ref)]
 impl CodeGenCtx {
-  fn new_root(ctx_guid: usize) -> Self {
+  fn new_root() -> Self {
     Self {
-      ctx_guid,
+      ctx_guid: 0,
       var_guid: 0,
       code_gen_history: HashMap::new(),
       depend_functions: HashSet::new(),
@@ -28,7 +28,17 @@ impl CodeGenCtx {
     }
   }
 
-  fn create_new_temp_name(&mut self) -> String {
+  fn new_from_parent(parent: Self) -> Self {
+    Self {
+      ctx_guid: parent.ctx_guid + 1,
+      var_guid: 0,
+      code_gen_history: HashMap::new(),
+      depend_functions: HashSet::new(),
+      parent: Box::new(parent).into(),
+    }
+  }
+
+  pub fn create_new_unique_name(&mut self) -> String {
     self.var_guid += 1;
     format!("v{}-{}", self.ctx_guid, self.var_guid)
   }
@@ -48,7 +58,7 @@ impl CodeGenCtx {
   }
 
   fn gen_fn_depends(&self) -> String {
-    let mut builder = CodeBuilder::new();
+    let mut builder = CodeBuilder::default();
     let mut resolved_fn = HashSet::new();
     self.depend_functions.iter().for_each(|f| {
       if f.depend_functions.is_empty() {
@@ -159,8 +169,8 @@ impl ShaderGraphShaderBuilder {
   }
 
   pub fn gen_code_vertex(&self) -> String {
-    let mut ctx = CodeGenCtx::new_root(0);
-    let mut builder = CodeBuilder::new();
+    let mut ctx = CodeGenCtx::new_root();
+    let mut builder = CodeBuilder::default();
     builder.write_ln("void main() {").tab();
 
     self.varyings.iter().for_each(|(v, _)| {
@@ -189,8 +199,8 @@ impl ShaderGraphShaderBuilder {
   }
 
   pub fn gen_code_frag(&self) -> String {
-    let mut ctx = CodeGenCtx::new_root(0);
-    let mut builder = CodeBuilder::new();
+    let mut ctx = CodeGenCtx::new_root();
+    let mut builder = CodeBuilder::default();
     builder.write_ln("void main() {").tab();
 
     self.frag_outputs.iter().for_each(|(v, _)| {
@@ -247,7 +257,7 @@ impl ShaderGraphNode<AnyType> {
             .collect::<Vec<_>>()
             .join(", ")
         );
-        Some((ctx.create_new_temp_name(), fn_call, false))
+        Some((ctx.create_new_unique_name(), fn_call, false))
       }
       BuiltInFunction { parameters, name } => {
         let fn_call = format!(
@@ -259,18 +269,18 @@ impl ShaderGraphNode<AnyType> {
             .collect::<Vec<_>>()
             .join(", ")
         );
-        Some((ctx.create_new_temp_name(), fn_call, false))
+        Some((ctx.create_new_unique_name(), fn_call, false))
       }
       Swizzle { ty, source } => {
         let from = get_node_gen_result_var(*source, graph, ctx);
         let swizzle_code = format!("{}.{}", from, ty);
-        Some((ctx.create_new_temp_name(), swizzle_code, false))
+        Some((ctx.create_new_unique_name(), swizzle_code, false))
       }
       Operator(o) => {
         let left = get_node_gen_result_var(o.left, graph, ctx);
         let right = get_node_gen_result_var(o.right, graph, ctx);
         let code = format!("{} {} {}", left, o.operator, right);
-        Some((ctx.create_new_temp_name(), code, false))
+        Some((ctx.create_new_unique_name(), code, false))
       }
       TextureSampling(n) => unsafe {
         let sampling_code = format!(
@@ -279,7 +289,7 @@ impl ShaderGraphNode<AnyType> {
           get_node_gen_result_var(n.sampler.cast_type(), graph, ctx),
           get_node_gen_result_var(n.position.cast_type(), graph, ctx),
         );
-        Some((ctx.create_new_temp_name(), sampling_code, false))
+        Some((ctx.create_new_unique_name(), sampling_code, false))
       },
       Output(n) => {
         let from = node.from().iter().next().expect("output not set");

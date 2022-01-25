@@ -4,14 +4,17 @@ pub struct CodeBuilder {
   str: String,
 }
 
-impl CodeBuilder {
-  pub fn new() -> Self {
+impl Default for CodeBuilder {
+  fn default() -> Self {
     Self {
       tab: String::from("  "),
       tab_state: 0,
       str: String::new(),
     }
   }
+}
+
+impl CodeBuilder {
   pub fn tab(&mut self) -> &mut Self {
     self.tab_state += 1;
     self

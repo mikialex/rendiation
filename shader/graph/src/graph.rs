@@ -12,16 +12,35 @@ pub struct ShaderGraphBuilder {
   pub scopes: Vec<ShaderGraphScopeBuilder>,
 }
 
+impl Default for ShaderGraphBuilder {
+  fn default() -> Self {
+    Self {
+      scopes: vec![ShaderGraphScopeBuilder::new()],
+    }
+  }
+}
+
 impl ShaderGraphBuilder {
   pub fn top_scope(&mut self) -> &mut ShaderGraphScopeBuilder {
     self.scopes.last_mut().unwrap()
   }
 
-  pub fn push_scope(&mut self) {
+  pub fn push_scope(&mut self) -> &mut ShaderGraphScopeBuilder {
     self.scopes.push(ShaderGraphScopeBuilder::new());
+    self.top_scope()
   }
 
   pub fn pop_scope(&mut self) -> ShaderGraphScopeBuildResult {
+    let top = self.scopes.pop().unwrap();
+    ShaderGraphScopeBuildResult {
+      code: top.code_builder.output(),
+    }
+  }
+
+  pub fn get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> String {
+    // self.scopes.iter().rev().find_map(|scope| {
+    //   //
+    // });
     todo!()
   }
 }

@@ -144,20 +144,18 @@ where
   T: ShaderGraphNodeType,
   I: ShaderIterator<Item = T>,
 {
-  let iter_item_name = "i"; // todo
-
-  modify_graph(|builder| {
+  let i_node = modify_graph(|builder| {
     let scope = builder.top_scope();
+    let iter_item_name = scope.code_gen.create_new_unique_name();
     scope
       .code_builder
-      .write_ln(iterable.code_gen(iter_item_name).as_str());
+      .write_ln(iterable.code_gen(iter_item_name.as_ref()).as_str());
 
     scope.code_builder.tab();
-    builder.push_scope()
-  });
+    let for_body = builder.push_scope();
 
-  // input
-  let i_node = ShaderGraphNodeData::Named(iter_item_name.into()).insert_graph();
+    ShaderGraphNodeData::Named(iter_item_name.into()).insert_into_graph(for_body)
+  });
 
   let cx = ForCtx;
 
@@ -176,17 +174,15 @@ where
 }
 
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
-  let condition = condition.into();
-  let condition = "test"; // todo
-
   modify_graph(|builder| {
+    let condition = builder.get_node_gen_result_var(condition);
     let scope = builder.top_scope();
     scope
       .code_builder
       .write_ln(format!("if ({}) {{", condition).as_str());
 
     scope.code_builder.tab();
-    builder.push_scope()
+    builder.push_scope();
   });
 
   logic();
