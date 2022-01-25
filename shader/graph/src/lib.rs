@@ -2,7 +2,7 @@ use arena_graph::*;
 
 pub use shader_derives::*;
 
-use std::any::Any;
+use std::{any::Any, cell::Cell};
 
 mod code_gen;
 
@@ -43,12 +43,20 @@ pub struct ShaderSampler;
 
 #[derive(Clone)]
 pub struct Node<T> {
-  pub handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
+  pub handle: Cell<ArenaGraphNodeHandle<ShaderGraphNode<T>>>,
+}
+
+impl<T> Node<T> {
+  pub fn handle(&self) -> ArenaGraphNodeHandle<ShaderGraphNode<T>> {
+    self.handle.get()
+  }
 }
 
 impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>> for Node<T> {
   fn from(handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>) -> Self {
-    Node { handle }
+    Node {
+      handle: Cell::new(handle),
+    }
   }
 }
 

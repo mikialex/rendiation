@@ -15,7 +15,7 @@ impl<T: ShaderGraphNodeType> ShaderGraphNodeType for Mutable<T> {
 
 impl<T: ShaderGraphNodeType> Node<T> {
   pub fn mutable(&self) -> Node<Mutable<T>> {
-    unsafe { self.handle.cast_type().into() }
+    unsafe { self.handle().cast_type().into() }
   }
 }
 
@@ -35,7 +35,17 @@ impl<T> Node<Mutable<T>> {
   }
 
   pub fn set(&self, node: Node<T>) {
-    //
+    unsafe { self.handle.set(node.handle().cast_type()) };
+    // modify_graph(|builder| {
+    //   let value = builder.get_node_gen_result_var(self);
+    //   let scope = builder.top_scope();
+    //   let copied_value = scope.code_gen.create_new_unique_name();
+    //   scope
+    //     .code_builder
+    //     .write_ln(format!("return {};", return_value).as_str());
+
+    // ShaderGraphNodeData::Named(copied_value).insert_into_graph(for_body)
+    // });
   }
 }
 

@@ -174,7 +174,7 @@ impl ShaderGraphShaderBuilder {
     builder.write_ln("void main() {").tab();
 
     self.varyings.iter().for_each(|(v, _)| {
-      self.gen_code_node(v.handle, &mut ctx, &mut builder);
+      self.gen_code_node(v.handle(), &mut ctx, &mut builder);
     });
 
     self.gen_code_node(
@@ -183,7 +183,7 @@ impl ShaderGraphShaderBuilder {
           .vertex_position
           .as_ref()
           .expect("vertex position not set")
-          .handle
+          .handle()
           .cast_type()
       },
       &mut ctx,
@@ -204,7 +204,7 @@ impl ShaderGraphShaderBuilder {
     builder.write_ln("void main() {").tab();
 
     self.frag_outputs.iter().for_each(|(v, _)| {
-      self.gen_code_node(v.handle, &mut ctx, &mut builder);
+      self.gen_code_node(v.handle(), &mut ctx, &mut builder);
     });
 
     builder.write_ln("").un_tab().write_ln("}");

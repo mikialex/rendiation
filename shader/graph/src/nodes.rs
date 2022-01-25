@@ -45,7 +45,7 @@ impl<T> Node<T> {
   /// we consider this a kind of up casting. Use this will reduce the
   /// unsafe code when we create ShaderGraphNodeData
   pub fn cast_untyped(&self) -> ShaderGraphNodeRawHandleUntyped {
-    unsafe { self.handle.cast_type() }
+    unsafe { self.handle.get().cast_type() }
   }
 
   pub fn cast_untyped_node(&self) -> NodeUntyped {
@@ -145,7 +145,7 @@ impl ShaderGraphNodeData {
     graph: &mut ShaderGraphScopeBuilder,
   ) -> Node<T> {
     let node = ShaderGraphNode::<T>::new(self.clone());
-    let result = graph.insert_node(node).handle;
+    let result = graph.insert_node(node).handle();
 
     self.visit_dependency(|dep| {
       graph.nodes.connect_node(*dep, result);
