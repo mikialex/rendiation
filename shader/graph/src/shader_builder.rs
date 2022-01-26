@@ -77,40 +77,47 @@ impl ShaderGraphShaderBuilder {
   }
 
   pub fn compile(&self) -> ShaderGraphCompileResult {
-    // do extra naga check;
-    let vertex = self.gen_code_vertex();
-    let frag = self.gen_code_frag();
+    todo!()
+    // // do extra naga check;
+    // let vertex = self.gen_code_vertex();
+    // let frag = self.gen_code_frag();
 
-    // let naga_vertex_ir = naga::front::glsl::parse_str(
-    //   &vertex,
-    //   "main",
-    //   naga::ShaderStage::Vertex,
-    //   HashMap::default(),
-    // );
-    // let naga_frag_ir = naga::front::glsl::parse_str(
-    //   &frag,
-    //   "main",
-    //   naga::ShaderStage::Fragment,
-    //   HashMap::default(),
-    // );
-    // if naga_vertex_ir.is_err() {
-    //   println!("{:?}", naga_vertex_ir);
-    //   println!("{:}", vertex);
+    // // let naga_vertex_ir = naga::front::glsl::parse_str(
+    // //   &vertex,
+    // //   "main",
+    // //   naga::ShaderStage::Vertex,
+    // //   HashMap::default(),
+    // // );
+    // // let naga_frag_ir = naga::front::glsl::parse_str(
+    // //   &frag,
+    // //   "main",
+    // //   naga::ShaderStage::Fragment,
+    // //   HashMap::default(),
+    // // );
+    // // if naga_vertex_ir.is_err() {
+    // //   println!("{:?}", naga_vertex_ir);
+    // //   println!("{:}", vertex);
+    // // }
+    // // if naga_frag_ir.is_err() {
+    // //   println!("{:?}", naga_frag_ir);
+    // //   println!("{:}", frag);
+    // // }
+    // ShaderGraphCompileResult {
+    //   vertex_shader: vertex,
+    //   frag_shader: frag,
+    //   shader_interface_info: self.shader_interface.clone(),
     // }
-    // if naga_frag_ir.is_err() {
-    //   println!("{:?}", naga_frag_ir);
-    //   println!("{:}", frag);
-    // }
-    ShaderGraphCompileResult {
-      vertex_shader: vertex,
-      frag_shader: frag,
-      shader_interface_info: self.shader_interface.clone(),
-    }
   }
 }
 
 pub static IN_BUILDING_SHADER: once_cell::sync::Lazy<Mutex<Option<ShaderGraphShaderBuilder>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(None));
+
+pub fn modify_shader_builder<T>(modifier: impl FnOnce(&mut ShaderGraphShaderBuilder) -> T) -> T {
+  let mut guard = IN_BUILDING_SHADER.lock().unwrap();
+  let builder = guard.as_mut().unwrap();
+  modifier(builder)
+}
 
 pub static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<Mutex<Option<ShaderGraphBuilder>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(None));
@@ -131,7 +138,20 @@ pub fn take_build_graph() -> ShaderGraphBuilder {
 }
 
 pub fn query<T: SemanticShaderValue>() -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
-  todo!()
+  modify_shader_builder(|builder| {
+    let registry = match T::STAGE {
+      ShaderStages::Vertex => &mut builder.vertex_registered,
+      ShaderStages::Fragment => &mut builder.fragment_registered,
+    };
+
+    registry
+      .get(&TypeId::of::<T>())
+      .map(|node| {
+        let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
+        n.get()
+      })
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+  })
 }
 
 pub struct VertexIndex;
@@ -144,7 +164,16 @@ pub fn query_built_in<T: SemanticShaderValue>() -> Node<T::ValueType> {
 }
 
 pub fn register<T: SemanticShaderValue>(node: impl Into<Node<T::ValueType>>) {
-  todo!()
+  modify_shader_builder(|builder| {
+    let registry = match T::STAGE {
+      ShaderStages::Vertex => &mut builder.vertex_registered,
+      ShaderStages::Fragment => &mut builder.fragment_registered,
+    };
+
+    registry
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| node.into().cast_untyped_node());
+  })
 }
 
 pub fn register_uniform<T>() -> Node<T> {
@@ -159,6 +188,6 @@ pub fn set_vertex_out<T>(node: Node<T>) {
   //
 }
 
-pub fn set_fragment_out<T>(node: Node<T>) {
-  //
+pub fn set_fragment_out<T>(channel: usize, node: Node<T>) {
+  // modify_shader_builder(|builder| builder.frag_output.set)
 }

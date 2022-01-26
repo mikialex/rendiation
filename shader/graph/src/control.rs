@@ -148,10 +148,9 @@ where
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   modify_graph(|builder| {
     let condition = builder.get_node_gen_result_var(condition);
+    let condition = format!("if ({}) {{", condition);
     let scope = builder.top_scope();
-    scope
-      .code_builder
-      .write_ln(format!("if ({}) {{", condition).as_str());
+    scope.code_builder.write_ln(condition);
 
     scope.code_builder.tab();
     builder.push_scope();
@@ -187,10 +186,8 @@ impl FragmentCtx {
 pub fn early_return<T>(return_value: impl Into<Node<T>>) {
   modify_graph(|builder| {
     let return_value = builder.get_node_gen_result_var(return_value);
-    let scope = builder.top_scope();
-    scope
-      .code_builder
-      .write_ln(format!("return {};", return_value).as_str());
+    let return_value = format!("return {};", return_value);
+    builder.top_scope().code_builder.write_ln(return_value);
   });
 }
 

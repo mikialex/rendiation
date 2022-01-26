@@ -23,7 +23,7 @@ impl ShaderGraphBuilder {
   }
 
   fn add_fn_dep(&mut self, node: &FunctionNode) {
-    self.depend_functions.insert(node.prototype.clone());
+    self.depend_functions.insert(node.prototype);
   }
 
   fn gen_fn_depends(&self) -> String {
@@ -32,21 +32,21 @@ impl ShaderGraphBuilder {
     self.depend_functions.iter().for_each(|f| {
       if f.depend_functions.is_empty() {
         f.function_source.map(|s| builder.write_ln("").write_raw(s));
-        resolved_fn.insert(f.clone());
+        resolved_fn.insert(f);
       }
 
       let mut fn_dep_graph = ArenaGraph::new();
       let mut resolving_fn = HashMap::new();
-      let mut fn_to_expand = vec![f.clone()];
+      let mut fn_to_expand = vec![f];
 
       while let Some(f) = fn_to_expand.pop() {
         let self_node_handle = *resolving_fn
-          .entry(f.clone())
-          .or_insert_with(|| fn_dep_graph.create_node(f.clone()));
+          .entry(f)
+          .or_insert_with(|| fn_dep_graph.create_node(f));
         f.depend_functions.iter().for_each(|f_d| {
           let dep_node_handle = resolving_fn
-            .entry(f_d.clone())
-            .or_insert_with(|| fn_dep_graph.create_node(f_d.clone()));
+            .entry(f_d)
+            .or_insert_with(|| fn_dep_graph.create_node(f_d));
           fn_dep_graph.connect_node(*dep_node_handle, self_node_handle);
         });
       }
@@ -56,7 +56,7 @@ impl ShaderGraphBuilder {
           let f = n.data();
           if !resolved_fn.contains(f) {
             f.function_source.map(|s| builder.write_ln("").write_raw(s));
-            resolved_fn.insert(f.clone());
+            resolved_fn.insert(f);
           }
         },
         &mut || panic!("loop exist"),
@@ -67,7 +67,7 @@ impl ShaderGraphBuilder {
 }
 
 impl ShaderGraphNodeData {
-  fn gen_expr(&self, builder: &ShaderGraphBuilder) -> Option<String> {
+  fn gen_expr(&self, builder: &mut ShaderGraphBuilder) -> Option<String> {
     let expr = match self {
       ShaderGraphNodeData::Function(n) => {
         builder.add_fn_dep(n);
