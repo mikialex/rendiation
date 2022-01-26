@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{any::TypeId, collections::HashMap, marker::PhantomData, sync::Mutex};
 
 use crate::*;
 
@@ -182,19 +182,47 @@ impl FragmentCtx {
   }
 }
 
-pub struct FunctionCtx<T> {
-  phantom: PhantomData<T>,
+/// you can only return the current function, so we don't need
+/// FunctionCtx to hold this function
+pub fn early_return<T>(return_value: impl Into<Node<T>>) {
+  modify_graph(|builder| {
+    let return_value = builder.get_node_gen_result_var(return_value);
+    let scope = builder.top_scope();
+    scope
+      .code_builder
+      .write_ln(format!("return {};", return_value).as_str());
+  });
 }
 
-impl<T> FunctionCtx<T> {
-  // how do we validate the ast generated match the function definition?
-  pub fn do_return(&self, return_value: impl Into<Node<T>>) {
-    modify_graph(|builder| {
-      let return_value = builder.get_node_gen_result_var(return_value);
-      let scope = builder.top_scope();
-      scope
-        .code_builder
-        .write_ln(format!("return {};", return_value).as_str());
-    });
+/// use runtime leak to statically store the user gen function
+pub static GLOBAL_USER_FUNCTIONS: once_cell::sync::Lazy<
+  Mutex<HashMap<TypeId, &'static ShaderFunctionMetaInfo>>,
+> = once_cell::sync::Lazy::new(|| Mutex::new(Default::default()));
+
+pub trait IntoParam {
+  fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped>;
+}
+
+impl<A, B> IntoParam for (A, B) {
+  fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped> {
+    todo!()
   }
+}
+
+pub fn function<T, P>(parameters: P, logic: impl Fn(P) -> Node<T> + Any) -> Node<T>
+where
+  T: ShaderGraphNodeType,
+  P: IntoParam,
+{
+  let mut guard = GLOBAL_USER_FUNCTIONS.lock().unwrap();
+
+  let meta = guard.entry(logic.type_id()).or_insert_with(|| {
+    todo!();
+  });
+
+  ShaderGraphNodeData::Function(FunctionNode {
+    prototype: meta,
+    parameters: todo!(),
+  })
+  .insert_graph()
 }

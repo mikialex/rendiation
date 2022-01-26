@@ -1,56 +1,25 @@
 pub mod code_builder;
+use std::collections::{HashMap, HashSet};
+
+pub use code_builder::*;
+
+pub mod shader;
+pub use shader::*;
+
+pub mod scope;
+pub use scope::*;
+
 use crate::*;
-use arena_graph::{ArenaGraph, ArenaGraphNode, ArenaGraphNodeHandle};
-pub use code_builder::CodeBuilder;
-use std::{
-  collections::{HashMap, HashSet},
-  fmt::Display,
-};
-mod header;
 
-pub struct CodeGenCtx {
-  ctx_guid: usize,
-  var_guid: usize,
-  code_gen_history: HashMap<ShaderGraphNodeRawHandleUntyped, MiddleVariableCodeGenResult>,
-  depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
-  parent: Option<Box<CodeGenCtx>>,
-}
-
-#[allow(clippy::clone_double_ref)]
-impl CodeGenCtx {
-  fn new_root() -> Self {
-    Self {
-      ctx_guid: 0,
-      var_guid: 0,
-      code_gen_history: HashMap::new(),
-      depend_functions: HashSet::new(),
-      parent: None,
-    }
-  }
-
-  fn new_from_parent(parent: Self) -> Self {
-    Self {
-      ctx_guid: parent.ctx_guid + 1,
-      var_guid: 0,
-      code_gen_history: HashMap::new(),
-      depend_functions: HashSet::new(),
-      parent: Box::new(parent).into(),
-    }
-  }
-
-  pub fn create_new_unique_name(&mut self) -> String {
-    self.var_guid += 1;
-    format!("v{}-{}", self.ctx_guid, self.var_guid)
-  }
-
-  fn add_node_result(
-    &mut self,
-    result: MiddleVariableCodeGenResult,
-  ) -> &MiddleVariableCodeGenResult {
+impl ShaderGraphBuilder {
+  pub fn get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> &str {
+    let node = node.into().cast_untyped();
     self
-      .code_gen_history
-      .entry(result.ref_node)
-      .or_insert(result)
+      .scopes
+      .iter()
+      .rev()
+      .find_map(|scope| scope.find_generated_node_exp(node))
+      .unwrap()
   }
 
   fn add_fn_dep(&mut self, node: &FunctionNode) {
@@ -97,244 +66,42 @@ impl CodeGenCtx {
   }
 }
 
-struct MiddleVariableCodeGenResult {
-  ref_node: ShaderGraphNodeRawHandleUntyped,
-  type_name: &'static str,
-  var_name: String,
-  expression_str: String,
-  /// mark if it is value such as gl_Position
-  is_builtin_target: bool,
-}
-
-impl MiddleVariableCodeGenResult {
-  fn new(
-    ref_node: ShaderGraphNodeRawHandleUntyped,
-    var_name: String,
-    expression_str: String,
-    graph: &ShaderGraphShaderBuilder,
-    is_builtin_target: bool,
-  ) -> Self {
-    let info = graph.nodes.get_node(ref_node).data();
-    Self {
-      type_name: graph.type_id_map.get(&info.node_type).unwrap(),
-      ref_node,
-      var_name,
-      expression_str,
-      is_builtin_target,
-    }
-  }
-}
-
-impl Display for MiddleVariableCodeGenResult {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "{} {} = {};",
-      if !self.is_builtin_target {
-        self.type_name
-      } else {
-        ""
-      },
-      self.var_name,
-      self.expression_str
-    )
-  }
-}
-
-impl ShaderGraphShaderBuilder {
-  fn gen_code_node(
-    &self,
-    handle: ShaderGraphNodeRawHandleUntyped,
-    ctx: &mut CodeGenCtx,
-    builder: &mut CodeBuilder,
-  ) {
-    builder.write_ln("");
-
-    let depends = self.nodes.topological_order_list(handle).unwrap();
-
-    depends.iter().for_each(|&h| {
-      // this node has generated, skip
-      if ctx.code_gen_history.contains_key(&h) {
-        return;
-      }
-
-      let node_wrap = self.nodes.get_node(h);
-
-      // None is input node, skip
-      if let Some(result) = node_wrap.data().gen_node_record(h, self, ctx) {
-        builder.write_ln(&format!("{}", result));
-        ctx.add_node_result(result);
-      }
-    });
-  }
-
-  pub fn gen_code_vertex(&self) -> String {
-    let mut ctx = CodeGenCtx::new_root();
-    let mut builder = CodeBuilder::default();
-    builder.write_ln("void main() {").tab();
-
-    self.varyings.iter().for_each(|(v, _)| {
-      self.gen_code_node(v.handle(), &mut ctx, &mut builder);
-    });
-
-    self.gen_code_node(
-      unsafe {
-        self
-          .vertex_position
-          .as_ref()
-          .expect("vertex position not set")
-          .handle()
-          .cast_type()
-      },
-      &mut ctx,
-      &mut builder,
-    );
-
-    builder.write_ln("").un_tab().write_ln("}");
-
-    let header = self.gen_header_vert();
-    let main = builder.output();
-    let lib = ctx.gen_fn_depends();
-    header + "\n" + &lib + "\n" + &main
-  }
-
-  pub fn gen_code_frag(&self) -> String {
-    let mut ctx = CodeGenCtx::new_root();
-    let mut builder = CodeBuilder::default();
-    builder.write_ln("void main() {").tab();
-
-    self.frag_outputs.iter().for_each(|(v, _)| {
-      self.gen_code_node(v.handle(), &mut ctx, &mut builder);
-    });
-
-    builder.write_ln("").un_tab().write_ln("}");
-
-    let header = self.gen_header_frag();
-    let main = builder.output();
-    let lib = ctx.gen_fn_depends();
-    header + "\n" + &lib + "\n" + &main
-  }
-}
-
-use ShaderGraphNodeData::*;
-impl ShaderGraphNode<AnyType> {
-  fn gen_node_record(
-    &self,
-    handle: ArenaGraphNodeHandle<Self>,
-    graph: &ShaderGraphShaderBuilder,
-    ctx: &mut CodeGenCtx,
-  ) -> Option<MiddleVariableCodeGenResult> {
-    let node = graph.nodes.get_node(handle);
-    if let Some((var_name, expression_str, is_builtin)) = self.gen_code_record_exp(node, graph, ctx)
-    {
-      Some(MiddleVariableCodeGenResult::new(
-        handle,
-        var_name,
-        expression_str,
-        graph,
-        is_builtin,
-      ))
-    } else {
-      None
-    }
-  }
-
-  fn gen_code_record_exp(
-    &self,
-    node: &ArenaGraphNode<Self>,
-    graph: &ShaderGraphShaderBuilder,
-    ctx: &mut CodeGenCtx,
-  ) -> Option<(String, String, bool)> {
-    match &self.data {
-      Function(n) => {
-        ctx.add_fn_dep(n);
-        let fn_call = format!(
+impl ShaderGraphNodeData {
+  fn gen_expr(&self, builder: &ShaderGraphBuilder) -> Option<String> {
+    let expr = match self {
+      ShaderGraphNodeData::Function(n) => {
+        builder.add_fn_dep(n);
+        format!(
           "{}({})",
           n.prototype.function_name,
           n.parameters
             .iter()
-            .map(|from| { get_node_gen_result_var(*from, graph, ctx) })
+            .map(|from| { builder.get_node_gen_result_var(*from) })
             .collect::<Vec<_>>()
             .join(", ")
-        );
-        Some((ctx.create_new_unique_name(), fn_call, false))
+        )
       }
-      BuiltInFunction { parameters, name } => {
-        let fn_call = format!(
-          "{}({})",
-          name,
-          parameters
-            .iter()
-            .map(|from| { get_node_gen_result_var(*from, graph, ctx) })
-            .collect::<Vec<_>>()
-            .join(", ")
-        );
-        Some((ctx.create_new_unique_name(), fn_call, false))
-      }
-      Swizzle { ty, source } => {
-        let from = get_node_gen_result_var(*source, graph, ctx);
-        let swizzle_code = format!("{}.{}", from, ty);
-        Some((ctx.create_new_unique_name(), swizzle_code, false))
-      }
-      Operator(o) => {
-        let left = get_node_gen_result_var(o.left, graph, ctx);
-        let right = get_node_gen_result_var(o.right, graph, ctx);
-        let code = format!("{} {} {}", left, o.operator, right);
-        Some((ctx.create_new_unique_name(), code, false))
-      }
-      TextureSampling(n) => unsafe {
-        let sampling_code = format!(
-          "texture(sampler2D({}, {}), {})",
-          get_node_gen_result_var(n.texture.cast_type(), graph, ctx),
-          get_node_gen_result_var(n.sampler.cast_type(), graph, ctx),
-          get_node_gen_result_var(n.position.cast_type(), graph, ctx),
-        );
-        Some((ctx.create_new_unique_name(), sampling_code, false))
-      },
-      Output(n) => {
-        let from = node.from().iter().next().expect("output not set");
-        Some((
-          n.to_shader_var_name(),
-          get_node_gen_result_var(*from, graph, ctx),
-          true,
-        ))
-      }
-      _ => None,
-    }
-  }
-}
-
-fn get_node_gen_result_var(
-  node: ArenaGraphNodeHandle<ShaderGraphNodeUntyped>,
-  graph: &ShaderGraphShaderBuilder,
-  ctx: &CodeGenCtx,
-) -> String {
-  let data = &graph.nodes.get_node(node).data().data;
-  match data {
-    Function(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
-    BuiltInFunction { .. } => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
-    TextureSampling(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
-    Swizzle { .. } => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
-    Operator(_) => ctx.code_gen_history.get(&node).unwrap().var_name.clone(),
-    Input(n) => n.name.clone(),
-    Output(n) => n.to_shader_var_name(),
-    Const(ConstNode { data }) => data.const_to_glsl(),
-    FieldGet { .. } => todo!(),
-    StructConstruct { struct_id, fields } => todo!(),
-    Compose(_) => todo!(),
-    _ => todo!(),
-  }
-}
-
-impl ShaderGraphOutput {
-  pub fn to_shader_var_name(&self) -> String {
-    match self {
-      Self::Vary(index) => format!("vary{}", index),
-      Self::Frag(index) => format!("frag{}", index),
-      Self::Vert => "gl_Position".to_owned(),
-    }
-  }
-  pub fn is_builtin(&self) -> bool {
-    matches!(self, Self::Vert)
+      ShaderGraphNodeData::BuiltInFunction { name, parameters } => todo!(),
+      ShaderGraphNodeData::TextureSampling(n) => format!(
+        "texture(sampler2D({}, {}), {})",
+        builder.get_node_gen_result_var(n.texture),
+        builder.get_node_gen_result_var(n.sampler),
+        builder.get_node_gen_result_var(n.position),
+      ),
+      ShaderGraphNodeData::Swizzle { ty, source } => todo!(),
+      ShaderGraphNodeData::Compose(_) => todo!(),
+      ShaderGraphNodeData::Operator(_) => todo!(),
+      ShaderGraphNodeData::Input(_) => todo!(),
+      ShaderGraphNodeData::Output(_) => todo!(),
+      ShaderGraphNodeData::Named(_) => todo!(),
+      ShaderGraphNodeData::FieldGet {
+        field_name,
+        struct_node,
+      } => todo!(),
+      ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
+      ShaderGraphNodeData::Const(_) => todo!(),
+      ShaderGraphNodeData::Scope(_) => todo!(),
+    };
+    expr.into()
   }
 }

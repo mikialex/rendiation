@@ -1,21 +1,26 @@
-use std::{any::TypeId, collections::HashMap};
+use std::{
+  any::TypeId,
+  collections::{HashMap, HashSet},
+};
 
 use arena_graph::ArenaGraph;
 
-use crate::{
-  code_gen::{CodeBuilder, CodeGenCtx},
-  Node, NodeUntyped, ShaderGraphNode, ShaderGraphNodeData, ShaderGraphNodeType,
-  ShaderGraphNodeUntyped,
-};
+use crate::*;
 
 pub struct ShaderGraphBuilder {
+  scope_count: usize,
   pub scopes: Vec<ShaderGraphScopeBuilder>,
+  pub depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
+  pub struct_defines: HashMap<TypeId, &'static ShaderStructMetaInfo>,
 }
 
 impl Default for ShaderGraphBuilder {
   fn default() -> Self {
     Self {
-      scopes: vec![ShaderGraphScopeBuilder::new()],
+      scope_count: 0,
+      scopes: vec![ShaderGraphScopeBuilder::new(0)],
+      depend_functions: Default::default(),
+      struct_defines: Default::default(),
     }
   }
 }
@@ -26,7 +31,10 @@ impl ShaderGraphBuilder {
   }
 
   pub fn push_scope(&mut self) -> &mut ShaderGraphScopeBuilder {
-    self.scopes.push(ShaderGraphScopeBuilder::new());
+    self.scope_count += 1;
+    self
+      .scopes
+      .push(ShaderGraphScopeBuilder::new(self.scope_count));
     self.top_scope()
   }
 
@@ -36,21 +44,13 @@ impl ShaderGraphBuilder {
       code: top.code_builder.output(),
     }
   }
-
-  pub fn get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> String {
-    // self.scopes.iter().rev().find_map(|scope| {
-    //   //
-    // });
-    todo!()
-  }
 }
 
 pub struct ShaderGraphScopeBuilder {
   pub graph_guid: usize,
-  pub code_gen: CodeGenCtx,
+  pub code_gen: CodeGenScopeCtx,
   pub code_builder: CodeBuilder,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
-  pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
 }
 
 #[derive(Clone)]
@@ -74,33 +74,24 @@ impl ShaderGraphIncrementalBuilder {
 }
 
 impl ShaderGraphScopeBuilder {
-  pub fn new() -> Self {
+  pub fn new(graph_guid: usize) -> Self {
+    Self {
+      graph_guid,
+      code_gen: CodeGenScopeCtx::new(graph_guid),
+      code_builder: Default::default(),
+      nodes: Default::default(),
+    }
+  }
+
+  pub fn find_generated_node_exp(&self, node: ShaderGraphNodeRawHandleUntyped) -> Option<&str> {
     todo!()
   }
 
   pub fn insert_node<T: ShaderGraphNodeType>(&mut self, node: ShaderGraphNode<T>) -> NodeUntyped {
-    self.register_type::<T>();
     self.nodes.create_node(node.into_any()).into()
   }
-  pub fn register_type<T: ShaderGraphNodeType>(&mut self) {
-    self
-      .type_id_map
-      .entry(TypeId::of::<T>())
-      .or_insert_with(T::to_glsl_type);
-  }
 
-  pub fn build(self, parent: Option<Box<CodeGenCtx>>) -> String {
+  pub fn build(self, parent: Option<Box<CodeGenScopeCtx>>) -> String {
     todo!()
   }
 }
-
-pub fn create_shader_function() {
-  // let graph = ShaderGraphInner::default();
-
-  //
-}
-
-// pub fn test_function(a: Node<f32>, b: Node<f32>) {
-//   create_shader_function();
-//   a + b
-// }

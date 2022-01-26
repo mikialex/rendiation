@@ -4,7 +4,8 @@ pub use shader_derives::*;
 
 use std::{any::Any, cell::Cell};
 
-mod code_gen;
+pub mod code_gen;
+pub use code_gen::*;
 
 pub mod control;
 pub mod graph;
@@ -16,6 +17,7 @@ pub mod shader_builder;
 pub mod structor;
 pub mod swizzle;
 pub mod traits_impl;
+pub mod types;
 pub use control::*;
 pub use graph::*;
 pub use meta::*;
@@ -24,6 +26,7 @@ pub use provider::*;
 pub use shader_builder::*;
 pub use structor::*;
 pub use traits_impl::*;
+pub use types::*;
 
 use rendiation_algebra::*;
 

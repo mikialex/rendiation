@@ -57,7 +57,6 @@ impl<T> Node<T> {
 pub struct ShaderGraphNode<T> {
   phantom: PhantomData<T>,
   pub data: ShaderGraphNodeData,
-  pub node_type: TypeId,
 }
 
 impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
@@ -65,7 +64,6 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
     Self {
       data,
       phantom: PhantomData,
-      node_type: TypeId::of::<T>(),
     }
   }
   pub fn into_any(self) -> ShaderGraphNodeUntyped {

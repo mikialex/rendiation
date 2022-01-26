@@ -2,39 +2,64 @@ use std::{any::TypeId, collections::HashMap, sync::Mutex};
 
 use crate::*;
 
-pub enum ShaderGraphUniformInputType {
-  NoneUBO(NodeUntyped),
-  UBO((&'static ShaderStructMetaInfo, NodeUntyped)),
-}
-
 pub struct ShaderGraphCompileResult {
   pub vertex_shader: String,
   pub frag_shader: String,
   pub shader_interface_info: PipelineShaderInterfaceInfo,
 }
 
-#[derive(Default)]
 pub struct ShaderGraphShaderBuilder {
-  pub attributes: Vec<(NodeUntyped, usize)>,
-  pub vertex_position: Option<Node<Vec4<f32>>>,
+  // states
+  pub shader_interface: PipelineShaderInterfaceInfo,
+
+  // uniforms
+  pub bindgroups: Vec<ShaderGraphBindGroup>,
+
+  // built in vertex in
+  pub vertex_index: Node<u32>,
+  pub instance_index: Node<u32>,
+
+  // user vertex in
+  pub vertex_in: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
+
+  // user semantic vertex
   pub vertex_registered: HashMap<TypeId, NodeUntyped>,
 
-  pub struct_define: HashMap<TypeId, &'static ShaderStructMetaInfo>,
+  // built in vertex out
+  pub vertex_point_size: Node<Mutable<f32>>,
+  pub vertex_position: Node<Mutable<f32>>,
 
-  pub varyings: Vec<(NodeUntyped, usize)>,
-  pub frag_outputs: Vec<(NodeUntyped, usize)>,
+  // user vertex out
+  pub vertex_out: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
+
+  pub varying_info: Vec<ShaderVaryingValueInfo>,
+
+  // user fragment in
+  pub fragment_in: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
+
   pub fragment_registered: HashMap<TypeId, NodeUntyped>,
 
-  pub bindgroups: Vec<ShaderGraphBindGroup>,
-  pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
+  pub frag_output: Vec<Node<Vec4<f32>>>,
+}
 
-  pub type_id_map: HashMap<TypeId, &'static str>, // totally hack
+pub enum ShaderVaryingInterpolation {
+  Flat,
+  Perspective,
+}
 
-  pub shader_interface: PipelineShaderInterfaceInfo,
+pub struct ShaderVaryingValueInfo {
+  interpolation: usize,
+  ty: PrimitiveShaderValueType,
+}
+
+pub enum ShaderGraphBindgroupEntry {
+  Sampler(Node<ShaderSampler>),
+  Texture(Node<ShaderTexture>),
+  UBO((&'static ShaderStructMetaInfo, NodeUntyped)),
 }
 
 pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<(ShaderGraphUniformInputType, ShaderStages)>,
+  pub inputs: Vec<(ShaderGraphBindgroupEntry, ShaderStages)>,
 }
 
 /// Descriptor of the shader input
@@ -47,6 +72,10 @@ pub struct PipelineShaderInterfaceInfo {
 }
 
 impl ShaderGraphShaderBuilder {
+  pub fn create() -> Self {
+    todo!();
+  }
+
   pub fn compile(&self) -> ShaderGraphCompileResult {
     // do extra naga check;
     let vertex = self.gen_code_vertex();
@@ -78,19 +107,10 @@ impl ShaderGraphShaderBuilder {
       shader_interface_info: self.shader_interface.clone(),
     }
   }
-
-  pub fn insert_node<T: ShaderGraphNodeType>(&mut self, node: ShaderGraphNode<T>) -> NodeUntyped {
-    self.register_type::<T>();
-    self.nodes.create_node(node.into_any()).into()
-  }
-
-  pub fn register_type<T: ShaderGraphNodeType>(&mut self) {
-    self
-      .type_id_map
-      .entry(TypeId::of::<T>())
-      .or_insert_with(T::to_glsl_type);
-  }
 }
+
+pub static IN_BUILDING_SHADER: once_cell::sync::Lazy<Mutex<Option<ShaderGraphShaderBuilder>>> =
+  once_cell::sync::Lazy::new(|| Mutex::new(None));
 
 pub static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<Mutex<Option<ShaderGraphBuilder>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(None));
