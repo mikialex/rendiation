@@ -2,58 +2,140 @@ use std::{any::TypeId, collections::HashMap, sync::Mutex};
 
 use crate::*;
 
-pub trait SemanticShaderValue: Any {
+pub trait SemanticVertexShaderValue: Any {
   type ValueType;
   const NAME: &'static str = "unnamed";
-  const STAGE: ShaderStages;
 }
 
+pub trait SemanticVertexFragmentIOValue: Any {
+  type ValueType;
+  const NAME: &'static str = "unnamed";
+}
+
+pub trait SemanticFragmentShaderValue: Any {
+  type ValueType;
+  const NAME: &'static str = "unnamed";
+}
+
+#[derive(Debug)]
 pub enum ShaderGraphBuildError {
   MissingRequiredDependency,
 }
 
+/// The reason why we use two function is that the build process
+/// require to generate two separate root scope: two entry main function;
 pub trait ShaderGraphProvider {
-  fn build(&self, builder: &mut ShaderGraphShaderBuilder) -> Result<(), ShaderGraphBuildError>;
+  fn build_vertex(
+    &self,
+    _builder: &mut ShaderGraphVertexBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+  fn build_fragment(
+    &self,
+    _builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+}
+
+/// entry
+pub fn build_shader(
+  builder: &dyn ShaderGraphProvider,
+) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
+  let bindgroup_builder = ShaderGraphBindGroupBuilder::default();
+
+  let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
+  builder.build_vertex(&mut vertex_builder)?;
+  let vertex_logic = vertex_builder.extract();
+  let vertex_shader = vertex_logic.compile();
+
+  let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
+  builder.build_fragment(&mut fragment_builder)?;
+  let (fragment_logic, bindgroup_builder) = fragment_builder.extract();
+  let frag_shader = fragment_logic.compile();
+
+  Ok(ShaderGraphCompileResult {
+    vertex_shader,
+    frag_shader,
+  })
 }
 
 pub struct ShaderGraphCompileResult {
   pub vertex_shader: String,
   pub frag_shader: String,
-  pub shader_interface_info: PipelineShaderInterfaceInfo,
 }
 
-pub struct ShaderGraphShaderBuilder {
+pub struct ShaderGraphVertexBuilder {
   // states
   pub shader_interface: PipelineShaderInterfaceInfo,
 
   // uniforms
-  pub bindgroups: Vec<ShaderGraphBindGroup>,
+  pub bindgroups: ShaderGraphBindGroupBuilder,
 
   // built in vertex in
   pub vertex_index: Node<u32>,
   pub instance_index: Node<u32>,
 
   // user vertex in
-  pub vertex_in: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
+  vertex_in: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
 
   // user semantic vertex
-  pub vertex_registered: HashMap<TypeId, NodeUntyped>,
+  vertex_registered: HashMap<TypeId, NodeUntyped>,
 
   // built in vertex out
   pub vertex_point_size: Node<Mutable<f32>>,
   pub vertex_position: Node<Mutable<f32>>,
 
   // user vertex out
-  pub vertex_out: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
+  vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+}
+
+impl std::ops::Deref for ShaderGraphVertexBuilder {
+  type Target = ShaderGraphBindGroupBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    &self.bindgroups
+  }
+}
+
+impl std::ops::DerefMut for ShaderGraphVertexBuilder {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.bindgroups
+  }
+}
+
+pub struct ShaderGraphFragmentBuilder {
+  // states
+  pub shader_interface: PipelineShaderInterfaceInfo,
+
+  // uniforms
+  pub bindgroups: ShaderGraphBindGroupBuilder,
 
   pub varying_info: Vec<ShaderVaryingValueInfo>,
 
   // user fragment in
-  pub fragment_in: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
+  fragment_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
 
-  pub fragment_registered: HashMap<TypeId, NodeUntyped>,
+  fragment_registered: HashMap<TypeId, NodeUntyped>,
 
   pub frag_output: Vec<Node<Vec4<f32>>>,
+}
+
+impl std::ops::Deref for ShaderGraphFragmentBuilder {
+  type Target = ShaderGraphBindGroupBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    &self.bindgroups
+  }
+}
+
+impl std::ops::DerefMut for ShaderGraphFragmentBuilder {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.bindgroups
+  }
 }
 
 pub enum ShaderVaryingInterpolation {
@@ -72,8 +154,24 @@ pub enum ShaderGraphBindgroupEntry {
   UBO((&'static ShaderStructMetaInfo, NodeUntyped)),
 }
 
+#[derive(Default)]
 pub struct ShaderGraphBindGroup {
-  pub inputs: Vec<(ShaderGraphBindgroupEntry, ShaderStages)>,
+  pub bindings: Vec<(ShaderGraphBindgroupEntry, ShaderStages)>,
+}
+
+#[derive(Default)]
+pub struct ShaderGraphBindGroupBuilder {
+  pub bindings: Vec<ShaderGraphBindGroup>,
+}
+
+impl ShaderGraphBindGroupBuilder {
+  pub fn register_uniform<T>(&mut self) -> Node<T> {
+    todo!()
+  }
+
+  pub fn query_uniform<T>(&mut self) -> Result<Node<T>, ShaderGraphBuildError> {
+    todo!()
+  }
 }
 
 /// Descriptor of the shader input
@@ -85,8 +183,8 @@ pub struct PipelineShaderInterfaceInfo {
 // pub primitive_states: PrimitiveState,
 }
 
-impl ShaderGraphShaderBuilder {
-  pub fn create() -> Self {
+impl ShaderGraphVertexBuilder {
+  pub fn create(bindgroups: ShaderGraphBindGroupBuilder) -> Self {
     let mut builder = ShaderGraphBuilder::default();
 
     let root = builder.top_scope();
@@ -102,9 +200,11 @@ impl ShaderGraphShaderBuilder {
     let instance_index =
       ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(root);
 
+    set_build_graph(builder);
+
     Self {
       shader_interface: Default::default(),
-      bindgroups: Default::default(),
+      bindgroups,
       vertex_index,
       instance_index,
       vertex_in: Default::default(),
@@ -112,22 +212,18 @@ impl ShaderGraphShaderBuilder {
       vertex_point_size,
       vertex_position,
       vertex_out: Default::default(),
-      varying_info: Default::default(),
-      fragment_in: Default::default(),
-      fragment_registered: Default::default(),
-      frag_output: Default::default(),
     }
   }
 
-  pub fn query<T: SemanticShaderValue>(
+  pub fn extract(&self) -> ShaderGraphBuilder {
+    take_build_graph()
+  }
+
+  pub fn query<T: SemanticVertexShaderValue>(
     &mut self,
   ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
-    let registry = match T::STAGE {
-      ShaderStages::Vertex => &mut self.vertex_registered,
-      ShaderStages::Fragment => &mut self.fragment_registered,
-    };
-
-    registry
+    self
+      .vertex_registered
       .get(&TypeId::of::<T>())
       .map(|node| {
         let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
@@ -136,64 +232,68 @@ impl ShaderGraphShaderBuilder {
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
 
-  pub fn register<T: SemanticShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
-    let registry = match T::STAGE {
-      ShaderStages::Vertex => &mut self.vertex_registered,
-      ShaderStages::Fragment => &mut self.fragment_registered,
-    };
-
-    registry
+  pub fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
+    self
+      .vertex_registered
       .entry(TypeId::of::<T>())
       .or_insert_with(|| node.into().cast_untyped_node());
   }
 
-  pub fn register_uniform<T>(&mut self) -> Node<T> {
-    todo!()
-  }
-
-  pub fn query_uniform<T>(&mut self) -> Result<Node<T>, ShaderGraphBuildError> {
-    todo!()
-  }
-
-  pub fn set_vertex_out<T>(&mut self, node: Node<T>) {
+  pub fn set_vertex_in() {
     //
   }
 
-  pub fn set_fragment_out<T>(&mut self, channel: usize, node: Node<T>) {
-    // modify_shader_builder(|builder| builder.frag_output.set)
+  pub fn set_vertex_out<T: SemanticVertexFragmentIOValue>(
+    &mut self,
+    node: impl Into<Node<T::ValueType>>,
+  ) {
+    self
+      .vertex_out
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| (node.into().cast_untyped_node(), todo!()));
+  }
+}
+
+impl ShaderGraphFragmentBuilder {
+  pub fn create(vertex: ShaderGraphVertexBuilder) -> Self {
+    // todo register vertex out to frag in
+
+    let builder = ShaderGraphBuilder::default();
+
+    set_build_graph(builder);
+
+    Self {
+      shader_interface: Default::default(),
+      bindgroups: vertex.bindgroups,
+      varying_info: Default::default(),
+      fragment_in: Default::default(),
+      fragment_registered: Default::default(),
+      frag_output: Default::default(),
+    }
   }
 
-  pub fn compile(&self) -> ShaderGraphCompileResult {
-    todo!()
-    // // do extra naga check;
-    // let vertex = self.gen_code_vertex();
-    // let frag = self.gen_code_frag();
+  pub fn get_fragment_in<T: SemanticVertexFragmentIOValue>(
+    &mut self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    self
+      .fragment_in
+      .get(&TypeId::of::<T>())
+      .map(|node| {
+        let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
+        n.get()
+      })
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+  }
 
-    // // let naga_vertex_ir = naga::front::glsl::parse_str(
-    // //   &vertex,
-    // //   "main",
-    // //   naga::ShaderStage::Vertex,
-    // //   HashMap::default(),
-    // // );
-    // // let naga_frag_ir = naga::front::glsl::parse_str(
-    // //   &frag,
-    // //   "main",
-    // //   naga::ShaderStage::Fragment,
-    // //   HashMap::default(),
-    // // );
-    // // if naga_vertex_ir.is_err() {
-    // //   println!("{:?}", naga_vertex_ir);
-    // //   println!("{:}", vertex);
-    // // }
-    // // if naga_frag_ir.is_err() {
-    // //   println!("{:?}", naga_frag_ir);
-    // //   println!("{:}", frag);
-    // // }
-    // ShaderGraphCompileResult {
-    //   vertex_shader: vertex,
-    //   frag_shader: frag,
-    //   shader_interface_info: self.shader_interface.clone(),
-    // }
+  pub fn set_fragment_out(&mut self, channel: usize, node: Node<Vec4<f32>>) {
+    while channel <= self.frag_output.len() {
+      self.frag_output.push(consts(Vec4::zero()));
+    }
+    self.frag_output[channel] = node;
+  }
+
+  pub fn extract(self) -> (ShaderGraphBuilder, ShaderGraphBindGroupBuilder) {
+    (take_build_graph(), self.bindgroups)
   }
 }
 
@@ -217,7 +317,6 @@ pub(crate) fn take_build_graph() -> ShaderGraphBuilder {
 
 /// built in semantics
 pub struct VertexIndex;
-impl SemanticShaderValue for VertexIndex {
+impl SemanticVertexShaderValue for VertexIndex {
   type ValueType = u32;
-  const STAGE: ShaderStages = ShaderStages::Vertex;
 }

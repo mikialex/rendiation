@@ -9,6 +9,9 @@ pub use shader::*;
 pub mod scope;
 pub use scope::*;
 
+pub mod targets;
+pub use targets::*;
+
 use crate::*;
 
 impl ShaderGraphBuilder {
@@ -63,44 +66,5 @@ impl ShaderGraphBuilder {
       )
     });
     builder.output()
-  }
-}
-
-impl ShaderGraphNodeData {
-  fn gen_expr(&self, builder: &mut ShaderGraphBuilder) -> Option<String> {
-    let expr = match self {
-      ShaderGraphNodeData::Function(n) => {
-        builder.add_fn_dep(n);
-        format!(
-          "{}({})",
-          n.prototype.function_name,
-          n.parameters
-            .iter()
-            .map(|from| { builder.get_node_gen_result_var(*from) })
-            .collect::<Vec<_>>()
-            .join(", ")
-        )
-      }
-      ShaderGraphNodeData::BuiltInFunction { name, parameters } => todo!(),
-      ShaderGraphNodeData::TextureSampling(n) => format!(
-        "texture(sampler2D({}, {}), {})",
-        builder.get_node_gen_result_var(n.texture),
-        builder.get_node_gen_result_var(n.sampler),
-        builder.get_node_gen_result_var(n.position),
-      ),
-      ShaderGraphNodeData::Swizzle { ty, source } => todo!(),
-      ShaderGraphNodeData::Compose(_) => todo!(),
-      ShaderGraphNodeData::Operator(_) => todo!(),
-      ShaderGraphNodeData::Input(_) => todo!(),
-      ShaderGraphNodeData::Named(_) => todo!(),
-      ShaderGraphNodeData::FieldGet {
-        field_name,
-        struct_node,
-      } => todo!(),
-      ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
-      ShaderGraphNodeData::Const(_) => todo!(),
-      ShaderGraphNodeData::Scope(_) => todo!(),
-    };
-    expr.into()
   }
 }

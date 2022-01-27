@@ -125,18 +125,30 @@ pub fn my_shader_function(a: impl Into<Node<f32>>, b: impl Into<Node<f32>>) -> N
   })
 }
 
-fn test(builder: &mut ShaderGraphShaderBuilder) {
-  let a = consts(1).mutable();
-  let c = consts(0).mutable();
+struct Test;
 
-  for_by(5, |for_ctx, i| {
-    let b = 1;
-    if_by(i.greater_than(0), || {
-      a.set(a.get() + b.into());
-      for_ctx.do_continue();
-    });
-    c.set(c.get() + i);
-  });
+impl ShaderGraphProvider for Test {
+  fn build_vertex(
+    &self,
+    _builder: &mut ShaderGraphVertexBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    consts(1.);
+    Ok(())
+  }
 
-  let d = my_shader_function(1.2, 2.3);
+  fn build_fragment(
+    &self,
+    _builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+}
+
+#[test]
+fn test_build_shader() {
+  let result = build_shader(&Test).unwrap();
+
+  println!("{}", result.vertex_shader);
+  println!("{}", result.frag_shader);
 }

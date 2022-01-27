@@ -44,6 +44,10 @@ impl ShaderGraphBuilder {
       code: top.code_builder.output(),
     }
   }
+
+  pub fn compile(mut self) -> String {
+    self.scopes.pop().unwrap().code_builder.output()
+  }
 }
 
 pub struct ShaderGraphScopeBuilder {
@@ -56,21 +60,6 @@ pub struct ShaderGraphScopeBuilder {
 #[derive(Clone)]
 pub struct ShaderGraphScopeBuildResult {
   pub code: String,
-}
-
-pub struct ShaderGraphIncrementalBuilder {
-  pub semantic_registered: HashMap<TypeId, NodeUntyped>,
-  pub graph: ShaderGraphScopeBuilder,
-}
-
-impl ShaderGraphIncrementalBuilder {
-  pub fn insert_graph<T: ShaderGraphNodeType>(&self) -> Node<T> {
-    todo!()
-  }
-
-  pub fn build(self) -> ShaderGraphScopeBuilder {
-    todo!()
-  }
 }
 
 impl ShaderGraphScopeBuilder {

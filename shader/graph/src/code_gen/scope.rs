@@ -25,30 +25,15 @@ impl CodeGenScopeCtx {
     self.var_guid += 1;
     format!("v{}-{}", self.ctx_guid, self.var_guid)
   }
-}
 
-struct MiddleVariableCodeGenResult {
-  pub type_name: &'static str,
-  pub var_name: String,
-  pub expression_str: String,
-  /// mark if it is value such as gl_Position
-  pub is_builtin_target: bool,
-}
-
-impl Display for MiddleVariableCodeGenResult {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "{} {} = {};",
-      if !self.is_builtin_target {
-        self.type_name
-      } else {
-        ""
-      },
-      self.var_name,
-      self.expression_str
-    )
+  pub fn write_node(&mut self, data: &ShaderGraphNodeData) -> &MiddleVariableCodeGenResult {
+    todo!()
   }
+}
+
+pub struct MiddleVariableCodeGenResult {
+  pub var_name: String,
+  pub statement: String,
 }
 
 // use ShaderGraphNodeData::*;

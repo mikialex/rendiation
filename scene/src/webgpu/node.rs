@@ -63,19 +63,20 @@ pub struct TransformGPUData {
 
 use shadergraph::*;
 pub struct WorldVertexPosition;
-impl SemanticShaderValue for WorldVertexPosition {
+impl SemanticVertexShaderValue for WorldVertexPosition {
   type ValueType = Vec3<f32>;
-  const STAGE: shadergraph::ShaderStages = shadergraph::ShaderStages::Vertex;
 }
 
 pub struct LocalVertexPosition;
-impl SemanticShaderValue for LocalVertexPosition {
+impl SemanticVertexShaderValue for LocalVertexPosition {
   type ValueType = Vec3<f32>;
-  const STAGE: shadergraph::ShaderStages = shadergraph::ShaderStages::Vertex;
 }
 
 impl ShaderGraphProvider for TransformGPUData {
-  fn build(&self, builder: &mut ShaderGraphShaderBuilder) -> Result<(), ShaderGraphBuildError> {
+  fn build_vertex(
+    &self,
+    builder: &mut ShaderGraphVertexBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
     let model = builder.register_uniform::<Self>().expand();
     let position = builder.query::<LocalVertexPosition>()?;
     let position = model.world_matrix * (position, 0.).into();

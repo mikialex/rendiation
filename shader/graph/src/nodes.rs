@@ -137,6 +137,8 @@ impl ShaderGraphNodeData {
     let node = ShaderGraphNode::<T>::new(self.clone());
     let result = graph.insert_node(node).handle();
 
+    graph.code_gen.write_node(&self);
+
     self.visit_dependency(|dep| {
       graph.nodes.connect_node(*dep, result);
     });
