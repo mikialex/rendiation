@@ -2,6 +2,20 @@ use std::{any::TypeId, collections::HashMap, sync::Mutex};
 
 use crate::*;
 
+pub trait SemanticShaderValue: Any {
+  type ValueType;
+  const NAME: &'static str = "unnamed";
+  const STAGE: ShaderStages;
+}
+
+pub enum ShaderGraphBuildError {
+  MissingRequiredDependency,
+}
+
+pub trait ShaderGraphProvider {
+  fn build(&self, builder: &mut ShaderGraphShaderBuilder) -> Result<(), ShaderGraphBuildError>;
+}
+
 pub struct ShaderGraphCompileResult {
   pub vertex_shader: String,
   pub frag_shader: String,
@@ -48,8 +62,8 @@ pub enum ShaderVaryingInterpolation {
 }
 
 pub struct ShaderVaryingValueInfo {
-  interpolation: usize,
-  ty: PrimitiveShaderValueType,
+  pub interpolation: usize,
+  pub ty: PrimitiveShaderValueType,
 }
 
 pub enum ShaderGraphBindgroupEntry {
@@ -73,7 +87,80 @@ pub struct PipelineShaderInterfaceInfo {
 
 impl ShaderGraphShaderBuilder {
   pub fn create() -> Self {
-    todo!();
+    let mut builder = ShaderGraphBuilder::default();
+
+    let root = builder.top_scope();
+    let vertex_point_size =
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(root);
+
+    let vertex_position =
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(root);
+
+    let vertex_index =
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(root);
+
+    let instance_index =
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(root);
+
+    Self {
+      shader_interface: Default::default(),
+      bindgroups: Default::default(),
+      vertex_index,
+      instance_index,
+      vertex_in: Default::default(),
+      vertex_registered: Default::default(),
+      vertex_point_size,
+      vertex_position,
+      vertex_out: Default::default(),
+      varying_info: Default::default(),
+      fragment_in: Default::default(),
+      fragment_registered: Default::default(),
+      frag_output: Default::default(),
+    }
+  }
+
+  pub fn query<T: SemanticShaderValue>(
+    &mut self,
+  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+    let registry = match T::STAGE {
+      ShaderStages::Vertex => &mut self.vertex_registered,
+      ShaderStages::Fragment => &mut self.fragment_registered,
+    };
+
+    registry
+      .get(&TypeId::of::<T>())
+      .map(|node| {
+        let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
+        n.get()
+      })
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+  }
+
+  pub fn register<T: SemanticShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
+    let registry = match T::STAGE {
+      ShaderStages::Vertex => &mut self.vertex_registered,
+      ShaderStages::Fragment => &mut self.fragment_registered,
+    };
+
+    registry
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| node.into().cast_untyped_node());
+  }
+
+  pub fn register_uniform<T>(&mut self) -> Node<T> {
+    todo!()
+  }
+
+  pub fn query_uniform<T>(&mut self) -> Result<Node<T>, ShaderGraphBuildError> {
+    todo!()
+  }
+
+  pub fn set_vertex_out<T>(&mut self, node: Node<T>) {
+    //
+  }
+
+  pub fn set_fragment_out<T>(&mut self, channel: usize, node: Node<T>) {
+    // modify_shader_builder(|builder| builder.frag_output.set)
   }
 
   pub fn compile(&self) -> ShaderGraphCompileResult {
@@ -110,84 +197,27 @@ impl ShaderGraphShaderBuilder {
   }
 }
 
-pub static IN_BUILDING_SHADER: once_cell::sync::Lazy<Mutex<Option<ShaderGraphShaderBuilder>>> =
+static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<Mutex<Option<ShaderGraphBuilder>>> =
   once_cell::sync::Lazy::new(|| Mutex::new(None));
 
-pub fn modify_shader_builder<T>(modifier: impl FnOnce(&mut ShaderGraphShaderBuilder) -> T) -> T {
-  let mut guard = IN_BUILDING_SHADER.lock().unwrap();
-  let builder = guard.as_mut().unwrap();
-  modifier(builder)
-}
-
-pub static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<Mutex<Option<ShaderGraphBuilder>>> =
-  once_cell::sync::Lazy::new(|| Mutex::new(None));
-
-pub fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
+pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   let graph = guard.as_mut().unwrap();
   modifier(graph)
 }
 
-pub fn set_build_graph(g: ShaderGraphBuilder) {
+pub(crate) fn set_build_graph(g: ShaderGraphBuilder) {
   let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
   *guard = Some(g);
 }
 
-pub fn take_build_graph() -> ShaderGraphBuilder {
+pub(crate) fn take_build_graph() -> ShaderGraphBuilder {
   IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
 }
 
-pub fn query<T: SemanticShaderValue>() -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
-  modify_shader_builder(|builder| {
-    let registry = match T::STAGE {
-      ShaderStages::Vertex => &mut builder.vertex_registered,
-      ShaderStages::Fragment => &mut builder.fragment_registered,
-    };
-
-    registry
-      .get(&TypeId::of::<T>())
-      .map(|node| {
-        let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
-        n.get()
-      })
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
-  })
-}
-
+/// built in semantics
 pub struct VertexIndex;
 impl SemanticShaderValue for VertexIndex {
   type ValueType = u32;
   const STAGE: ShaderStages = ShaderStages::Vertex;
-}
-pub fn query_built_in<T: SemanticShaderValue>() -> Node<T::ValueType> {
-  todo!()
-}
-
-pub fn register<T: SemanticShaderValue>(node: impl Into<Node<T::ValueType>>) {
-  modify_shader_builder(|builder| {
-    let registry = match T::STAGE {
-      ShaderStages::Vertex => &mut builder.vertex_registered,
-      ShaderStages::Fragment => &mut builder.fragment_registered,
-    };
-
-    registry
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| node.into().cast_untyped_node());
-  })
-}
-
-pub fn register_uniform<T>() -> Node<T> {
-  todo!()
-}
-
-pub fn query_uniform<T>() -> Result<Node<T>, ShaderGraphBuildError> {
-  todo!()
-}
-
-pub fn set_vertex_out<T>(node: Node<T>) {
-  //
-}
-
-pub fn set_fragment_out<T>(channel: usize, node: Node<T>) {
-  // modify_shader_builder(|builder| builder.frag_output.set)
 }

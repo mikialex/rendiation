@@ -79,13 +79,6 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
       _ => panic!("unwrap as input failed"),
     }
   }
-
-  pub fn unwrap_as_vary(&self) -> usize {
-    match &self.data {
-      ShaderGraphNodeData::Output(ShaderGraphOutput::Vary(n)) => *n,
-      _ => panic!("unwrap as input failed"),
-    }
-  }
 }
 
 #[derive(Clone)]
@@ -103,7 +96,6 @@ pub enum ShaderGraphNodeData {
   Compose(Vec<ShaderGraphNodeRawHandleUntyped>),
   Operator(OperatorNode),
   Input(ShaderGraphInputNode),
-  Output(ShaderGraphOutput),
   Named(String),
   FieldGet {
     field_name: &'static str,
@@ -175,20 +167,12 @@ impl ShaderGraphNodeData {
         visitor(right);
       }
       ShaderGraphNodeData::Input(_) => {}
-      ShaderGraphNodeData::Output(_) => {} // is this kind of node valid??
       ShaderGraphNodeData::FieldGet { struct_node, .. } => visitor(struct_node),
       ShaderGraphNodeData::StructConstruct { struct_id, fields } => fields.iter().for_each(visitor),
       ShaderGraphNodeData::Const(_) => {}
       _ => todo!(),
     }
   }
-}
-
-#[derive(Clone)]
-pub enum ShaderGraphOutput {
-  Vary(usize),
-  Frag(usize),
-  Vert,
 }
 
 #[derive(Clone)]
@@ -251,14 +235,23 @@ pub enum OperatorNode2 {
 }
 
 #[derive(Clone)]
-pub struct ShaderGraphInputNode {
-  pub node_type: ShaderGraphInputNodeType,
-  pub name: String,
+pub enum ShaderGraphInputNode {
+  BuiltIn,
+  Uniform {
+    bindgroup_index: usize,
+    entry_index: usize,
+  },
+  VertexIn {
+    ty: ShaderGraphVertexFragmentIOType,
+    index: usize,
+  },
+  FragmentIn {
+    ty: ShaderGraphVertexFragmentIOType,
+    index: usize,
+  },
 }
 
-#[derive(Clone)]
-pub enum ShaderGraphInputNodeType {
-  Uniform,
-  Attribute,
-  Vary,
+#[derive(Copy, Clone)]
+pub enum ShaderGraphVertexFragmentIOType {
+  Float,
 }

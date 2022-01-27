@@ -92,7 +92,6 @@ impl ShaderGraphNodeData {
       ShaderGraphNodeData::Compose(_) => todo!(),
       ShaderGraphNodeData::Operator(_) => todo!(),
       ShaderGraphNodeData::Input(_) => todo!(),
-      ShaderGraphNodeData::Output(_) => todo!(),
       ShaderGraphNodeData::Named(_) => todo!(),
       ShaderGraphNodeData::FieldGet {
         field_name,

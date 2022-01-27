@@ -71,10 +71,10 @@ impl SemanticShaderValue for ClipPosition {
 }
 
 impl ShaderGraphProvider for CameraBindgroup {
-  fn build(&self) -> Result<(), ShaderGraphBuildError> {
-    let camera = register_uniform::<CameraGPUTransform>().expand();
-    let position = query::<WorldVertexPosition>()?;
-    register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
+  fn build(&self, builder: &mut ShaderGraphShaderBuilder) -> Result<(), ShaderGraphBuildError> {
+    let camera = builder.register_uniform::<CameraGPUTransform>().expand();
+    let position = builder.query::<WorldVertexPosition>()?;
+    builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
     Ok(())
   }
 }

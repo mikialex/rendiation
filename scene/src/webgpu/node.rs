@@ -75,11 +75,11 @@ impl SemanticShaderValue for LocalVertexPosition {
 }
 
 impl ShaderGraphProvider for TransformGPUData {
-  fn build(&self) -> Result<(), ShaderGraphBuildError> {
-    let model = register_uniform::<Self>().expand();
-    let position = query::<LocalVertexPosition>()?;
+  fn build(&self, builder: &mut ShaderGraphShaderBuilder) -> Result<(), ShaderGraphBuildError> {
+    let model = builder.register_uniform::<Self>().expand();
+    let position = builder.query::<LocalVertexPosition>()?;
     let position = model.world_matrix * (position, 0.).into();
-    register::<WorldVertexPosition>(position.xyz());
+    builder.register::<WorldVertexPosition>(position.xyz());
     Ok(())
   }
 }

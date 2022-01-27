@@ -67,17 +67,3 @@ pub type NodeUntyped = Node<AnyType>;
 pub type ShaderGraphNodeRawHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
 pub type ShaderGraphNodeRawHandleUntyped = ArenaGraphNodeHandle<ShaderGraphNode<AnyType>>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
-
-pub trait SemanticShaderValue: Any {
-  type ValueType;
-  const NAME: &'static str = "unnamed";
-  const STAGE: ShaderStages;
-}
-
-pub enum ShaderGraphBuildError {
-  MissingRequiredDependency,
-}
-
-pub trait ShaderGraphProvider {
-  fn build(&self) -> Result<(), ShaderGraphBuildError>;
-}
