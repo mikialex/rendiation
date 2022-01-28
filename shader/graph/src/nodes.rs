@@ -55,15 +55,20 @@ pub struct ShaderGraphNode<T> {
 }
 
 impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
+  #[must_use]
   pub fn new(data: ShaderGraphNodeData) -> Self {
     Self {
       data,
       phantom: PhantomData,
     }
   }
+
+  #[must_use]
   pub fn into_any(self) -> ShaderGraphNodeUntyped {
     unsafe { std::mem::transmute(self) }
   }
+
+  #[must_use]
   pub fn into_typed(self) -> ShaderGraphNode<T> {
     unsafe { std::mem::transmute(self) }
   }

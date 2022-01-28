@@ -4,35 +4,7 @@ pub struct WGSL;
 
 impl ShaderGraphCodeGenTarget for WGSL {
   fn gen_primitive_literal(&self, v: PrimitiveShaderValue) -> String {
-    let grouped = match v {
-      PrimitiveShaderValue::Float32(f) => return float_to_shader(f),
-      PrimitiveShaderValue::Vec2Float32(v) => {
-        let v: &[f32; 2] = v.as_ref();
-        float_group(v.as_slice())
-      }
-      PrimitiveShaderValue::Vec3Float32(v) => {
-        let v: &[f32; 3] = v.as_ref();
-        float_group(v.as_slice())
-      }
-      PrimitiveShaderValue::Vec4Float32(v) => {
-        let v: &[f32; 4] = v.as_ref();
-        float_group(v.as_slice())
-      }
-      PrimitiveShaderValue::Mat2Float32(v) => {
-        let v: &[f32; 4] = v.as_ref();
-        float_group(v.as_slice())
-      }
-      PrimitiveShaderValue::Mat3Float32(v) => {
-        let v: &[f32; 9] = v.as_ref();
-        float_group(v.as_slice())
-      }
-      PrimitiveShaderValue::Mat4Float32(v) => {
-        let v: &[f32; 16] = v.as_ref();
-        float_group(v.as_slice())
-      }
-      PrimitiveShaderValue::Uint32(_) => todo!(),
-    };
-    format!("{}{}", self.gen_primitive_type(v.into()), grouped)
+    gen_primitive_literal_common(self, v)
   }
 
   fn gen_primitive_type(&self, ty: PrimitiveShaderValueType) -> &'static str {
@@ -44,7 +16,8 @@ impl ShaderGraphCodeGenTarget for WGSL {
       PrimitiveShaderValueType::Mat2Float32 => "mat2x2<f32>",
       PrimitiveShaderValueType::Mat3Float32 => "mat3x3<f32>",
       PrimitiveShaderValueType::Mat4Float32 => "mat4x4<f32>",
-      PrimitiveShaderValueType::Uint32 => todo!(),
+      PrimitiveShaderValueType::Uint32 => "u32",
+      PrimitiveShaderValueType::Bool => "bool",
     }
   }
 
@@ -82,7 +55,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
         format!("{} {} {}", left, o.operator, right)
       }
       ShaderGraphNodeData::Input(_) => return None,
-      ShaderGraphNodeData::Named(name) => format!("{name}"),
+      ShaderGraphNodeData::Named(name) => name.clone(),
       ShaderGraphNodeData::FieldGet {
         field_name,
         struct_node,
@@ -93,9 +66,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
       ),
       ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
       ShaderGraphNodeData::Const(ConstNode { data }) => self.gen_primitive_literal(*data),
-      ShaderGraphNodeData::Copy(node) => {
-        format!("{}", builder.get_node_gen_result_var(*node))
-      }
+      ShaderGraphNodeData::Copy(node) => builder.get_node_gen_result_var(*node).to_owned(),
       ShaderGraphNodeData::Scope(_) => todo!(),
       ShaderGraphNodeData::Compose { target, parameters } => {
         format!(

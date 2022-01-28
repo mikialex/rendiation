@@ -2,6 +2,7 @@ use rendiation_algebra::*;
 
 #[derive(Clone, Copy)]
 pub enum PrimitiveShaderValueType {
+  Bool,
   Uint32,
   Float32,
   Vec2Float32,
@@ -14,6 +15,7 @@ pub enum PrimitiveShaderValueType {
 
 #[derive(Clone, Copy)]
 pub enum PrimitiveShaderValue {
+  Bool(bool),
   Uint32(u32),
   Float32(f32),
   Vec2Float32(Vec2<f32>),
@@ -35,6 +37,7 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
       PrimitiveShaderValue::Mat2Float32(_) => PrimitiveShaderValueType::Mat2Float32,
       PrimitiveShaderValue::Mat3Float32(_) => PrimitiveShaderValueType::Mat3Float32,
       PrimitiveShaderValue::Mat4Float32(_) => PrimitiveShaderValueType::Mat4Float32,
+      PrimitiveShaderValue::Bool(_) => PrimitiveShaderValueType::Bool,
     }
   }
 }

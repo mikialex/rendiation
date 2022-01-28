@@ -6,21 +6,11 @@ pub struct GLSL {
 
 impl ShaderGraphCodeGenTarget for GLSL {
   fn gen_primitive_literal(&self, v: PrimitiveShaderValue) -> String {
-    match v {
-      PrimitiveShaderValue::Float32(f) => float_to_shader(f),
-      PrimitiveShaderValue::Vec2Float32(v) => {
-        format!("vec2({}, {})", float_to_shader(v.x), float_to_shader(v.y),)
-      }
-      PrimitiveShaderValue::Vec3Float32(_) => todo!(),
-      PrimitiveShaderValue::Vec4Float32(_) => todo!(),
-      PrimitiveShaderValue::Mat2Float32(_) => todo!(),
-      PrimitiveShaderValue::Mat3Float32(_) => todo!(),
-      PrimitiveShaderValue::Mat4Float32(_) => todo!(),
-      PrimitiveShaderValue::Uint32(_) => todo!(),
-    }
+    gen_primitive_literal_common(self, v)
   }
   fn gen_primitive_type(&self, ty: PrimitiveShaderValueType) -> &'static str {
     match ty {
+      PrimitiveShaderValueType::Bool => "bool",
       PrimitiveShaderValueType::Float32 => "float",
       PrimitiveShaderValueType::Vec2Float32 => "vec2",
       PrimitiveShaderValueType::Vec3Float32 => "vec3",
@@ -28,7 +18,7 @@ impl ShaderGraphCodeGenTarget for GLSL {
       PrimitiveShaderValueType::Mat2Float32 => "mat2",
       PrimitiveShaderValueType::Mat3Float32 => "mat3",
       PrimitiveShaderValueType::Mat4Float32 => "mat4",
-      PrimitiveShaderValueType::Uint32 => todo!(),
+      PrimitiveShaderValueType::Uint32 => "int",
     }
   }
 
