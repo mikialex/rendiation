@@ -72,6 +72,10 @@ impl SemanticVertexShaderValue for LocalVertexPosition {
   type ValueType = Vec3<f32>;
 }
 
+impl SemanticShaderUniform for TransformGPUData {
+  const TYPE: SemanticBinding = SemanticBinding::Object;
+}
+
 impl ShaderGraphProvider for TransformGPUData {
   fn build_vertex(
     &self,

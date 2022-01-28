@@ -164,12 +164,39 @@ pub struct ShaderGraphBindGroupBuilder {
   pub bindings: Vec<ShaderGraphBindGroup>,
 }
 
+#[derive(Clone, Copy)]
+pub enum SemanticBinding {
+  Global,
+  Camera,
+  Pass,
+  Material,
+  Object,
+}
+
+impl SemanticBinding {
+  pub fn binding_index(&self) -> usize {
+    match self {
+      SemanticBinding::Global => 4,
+      SemanticBinding::Camera => 3,
+      SemanticBinding::Pass => 2,
+      SemanticBinding::Material => 1,
+      SemanticBinding::Object => 0,
+    }
+  }
+}
+
+pub trait SemanticShaderUniform: ShaderGraphStructuralNodeType {
+  const TYPE: SemanticBinding;
+}
+
 impl ShaderGraphBindGroupBuilder {
-  pub fn register_uniform<T>(&mut self) -> Node<T> {
+  pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T> {
     todo!()
   }
 
-  pub fn query_uniform<T>(&mut self) -> Result<Node<T>, ShaderGraphBuildError> {
+  pub fn query_uniform<T: SemanticShaderUniform>(
+    &mut self,
+  ) -> Result<Node<T>, ShaderGraphBuildError> {
     todo!()
   }
 }

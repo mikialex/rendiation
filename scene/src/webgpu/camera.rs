@@ -125,6 +125,10 @@ pub struct CameraGPUTransform {
   view: Mat4<f32>,
 }
 
+impl SemanticShaderUniform for CameraGPUTransform {
+  const TYPE: SemanticBinding = SemanticBinding::Camera;
+}
+
 impl ShaderUniformBlock for CameraGPUTransform {
   fn shader_struct() -> &'static str {
     "
