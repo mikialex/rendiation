@@ -72,12 +72,23 @@ impl ShaderGraphScopeBuilder {
     }
   }
 
-  pub fn find_generated_node_exp(&self, node: ShaderGraphNodeRawHandleUntyped) -> Option<&str> {
-    todo!()
+  pub fn get_node_gen_result_var(&self, node: ShaderGraphNodeRawHandleUntyped) -> Option<&str> {
+    if node.graph_id != node.graph_id {
+      return None;
+    }
+    self
+      .code_gen
+      .code_gen_history
+      .get(&node)
+      .map(|v| v.var_name.as_ref())
   }
 
   pub fn insert_node<T: ShaderGraphNodeType>(&mut self, node: ShaderGraphNode<T>) -> NodeUntyped {
-    self.nodes.create_node(node.into_any()).into()
+    ShaderGraphNodeRawHandle {
+      handle: self.nodes.create_node(node.into_any()),
+      graph_id: self.graph_guid,
+    }
+    .into()
   }
 
   pub fn build(self, parent: Option<Box<CodeGenScopeCtx>>) -> String {

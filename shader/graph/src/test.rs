@@ -132,7 +132,8 @@ impl ShaderGraphProvider for Test {
     &self,
     _builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    consts(1.);
+    let a = consts(1.) + consts(2.);
+    let _: Node<_> = (Vec3::zero(), a).into();
     Ok(())
   }
 
@@ -149,6 +150,6 @@ impl ShaderGraphProvider for Test {
 fn test_build_shader() {
   let result = build_shader(&Test).unwrap();
 
-  println!("{}", result.vertex_shader);
-  println!("{}", result.frag_shader);
+  println!("vertex: \n{}", result.vertex_shader);
+  println!("fragment: \n{}", result.frag_shader);
 }

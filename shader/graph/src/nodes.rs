@@ -1,9 +1,4 @@
-use crate::{
-  modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandle,
-  ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeUntyped, ShaderGraphScopeBuildResult,
-  ShaderGraphScopeBuilder, ShaderSampler, ShaderStructMetaInfo, ShaderTexture,
-};
-use dyn_clone::DynClone;
+use crate::*;
 use rendiation_algebra::Vec2;
 use std::{any::TypeId, marker::PhantomData};
 
@@ -11,9 +6,9 @@ pub trait ShaderGraphNodeType: 'static + Copy {
   fn to_glsl_type() -> &'static str;
 }
 
-/// not inherit ShaderGraphNodeType to keep object safety
-pub trait ShaderGraphConstableNodeType: 'static + Send + Sync + DynClone {
-  fn const_to_glsl(&self) -> String;
+pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
+  fn to_primitive_type() -> PrimitiveShaderValueType;
+  fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
 pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
@@ -24,11 +19,11 @@ pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
 
 impl<T> From<T> for Node<T>
 where
-  T: ShaderGraphConstableNodeType + ShaderGraphNodeType,
+  T: PrimitiveShaderGraphNodeType,
 {
   fn from(input: T) -> Self {
     ShaderGraphNodeData::Const(ConstNode {
-      data: Box::new(input),
+      data: input.to_primitive(),
     })
     .insert_graph()
   }
@@ -93,9 +88,13 @@ pub enum ShaderGraphNodeData {
     ty: &'static str,
     source: ShaderGraphNodeRawHandleUntyped,
   },
-  Compose(Vec<ShaderGraphNodeRawHandleUntyped>),
+  Compose {
+    target: PrimitiveShaderValueType,
+    parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
+  },
   Operator(OperatorNode),
   Input(ShaderGraphInputNode),
+  /// This is workaround for some case
   Named(String),
   FieldGet {
     field_name: &'static str,
@@ -105,43 +104,50 @@ pub enum ShaderGraphNodeData {
     struct_id: TypeId,
     fields: Vec<ShaderGraphNodeRawHandleUntyped>,
   },
+  Copy(ShaderGraphNodeRawHandleUntyped),
   Const(ConstNode),
   // Termination,
   Scope(ShaderGraphScopeBuildResult),
 }
 
+#[derive(Clone)]
 pub struct ConstNode {
-  pub data: Box<dyn ShaderGraphConstableNodeType>,
-}
-
-impl Clone for ConstNode {
-  fn clone(&self) -> Self {
-    Self {
-      data: dyn_clone::clone_box(&*self.data),
-    }
-  }
+  pub data: PrimitiveShaderValue,
 }
 
 impl ShaderGraphNodeData {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
-    modify_graph(|graph| {
-      let graph = graph.top_scope();
-      self.insert_into_graph(graph)
-    })
+    modify_graph(|graph| self.insert_into_graph(graph))
   }
 
   pub fn insert_into_graph<T: ShaderGraphNodeType>(
     self,
-    graph: &mut ShaderGraphScopeBuilder,
+    graph: &mut ShaderGraphBuilder,
   ) -> Node<T> {
+    let language = WGSL;
+    let expr = language.gen_expr(&self, graph);
+
+    let graph = graph.top_scope();
     let node = ShaderGraphNode::<T>::new(self.clone());
     let result = graph.insert_node(node).handle();
 
-    graph.code_gen.write_node(&self);
+    if let Some(expr) = expr {
+      let var_name = graph.code_gen.create_new_unique_name();
+      let statement = format!("{var_name} = {expr};");
 
-    self.visit_dependency(|dep| {
-      graph.nodes.connect_node(*dep, result);
-    });
+      graph.code_builder.write_ln(&statement);
+      graph.code_gen.code_gen_history.insert(
+        result,
+        MiddleVariableCodeGenResult {
+          var_name,
+          statement,
+        },
+      );
+    }
+
+    // self.visit_dependency(|dep| {
+    //   graph.nodes.connect_node(*dep, result);
+    // });
 
     unsafe { result.cast_type().into() }
   }
@@ -163,7 +169,7 @@ impl ShaderGraphNodeData {
         visitor(&position.cast_type());
       },
       ShaderGraphNodeData::Swizzle { source, .. } => visitor(source),
-      ShaderGraphNodeData::Compose(source) => source.iter().for_each(visitor),
+      ShaderGraphNodeData::Compose { parameters, .. } => parameters.iter().for_each(visitor),
       ShaderGraphNodeData::Operator(OperatorNode { left, right, .. }) => {
         visitor(left);
         visitor(right);

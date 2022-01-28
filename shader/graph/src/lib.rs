@@ -46,17 +46,17 @@ pub struct ShaderSampler;
 
 #[derive(Clone)]
 pub struct Node<T> {
-  pub handle: Cell<ArenaGraphNodeHandle<ShaderGraphNode<T>>>,
+  pub handle: Cell<ShaderGraphNodeRawHandle<T>>,
 }
 
 impl<T> Node<T> {
-  pub fn handle(&self) -> ArenaGraphNodeHandle<ShaderGraphNode<T>> {
+  pub fn handle(&self) -> ShaderGraphNodeRawHandle<T> {
     self.handle.get()
   }
 }
 
-impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>> for Node<T> {
-  fn from(handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>) -> Self {
+impl<T: ShaderGraphNodeType> From<ShaderGraphNodeRawHandle<T>> for Node<T> {
+  fn from(handle: ShaderGraphNodeRawHandle<T>) -> Self {
     Node {
       handle: Cell::new(handle),
     }
@@ -64,6 +64,44 @@ impl<T: ShaderGraphNodeType> From<ArenaGraphNodeHandle<ShaderGraphNode<T>>> for 
 }
 
 pub type NodeUntyped = Node<AnyType>;
-pub type ShaderGraphNodeRawHandle<T> = ArenaGraphNodeHandle<ShaderGraphNode<T>>;
-pub type ShaderGraphNodeRawHandleUntyped = ArenaGraphNodeHandle<ShaderGraphNode<AnyType>>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
+
+pub struct ShaderGraphNodeRawHandle<T> {
+  handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
+  graph_id: usize,
+}
+
+impl<T> ShaderGraphNodeRawHandle<T> {
+  pub unsafe fn cast_type<X>(&self) -> ShaderGraphNodeRawHandle<X> {
+    let t: &ShaderGraphNodeRawHandle<X> = std::mem::transmute(self);
+    *t
+  }
+}
+
+impl<T> Clone for ShaderGraphNodeRawHandle<T> {
+  fn clone(&self) -> ShaderGraphNodeRawHandle<T> {
+    Self {
+      handle: self.handle,
+      graph_id: self.graph_id,
+    }
+  }
+}
+
+impl<T> Copy for ShaderGraphNodeRawHandle<T> {}
+
+impl<T> PartialEq for ShaderGraphNodeRawHandle<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.handle == other.handle && self.graph_id == other.graph_id
+  }
+}
+
+impl<T> Eq for ShaderGraphNodeRawHandle<T> {}
+
+use core::hash::Hash;
+impl<T> Hash for ShaderGraphNodeRawHandle<T> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.handle.hash(state);
+  }
+}
+
+pub type ShaderGraphNodeRawHandleUntyped = ShaderGraphNodeRawHandle<AnyType>;

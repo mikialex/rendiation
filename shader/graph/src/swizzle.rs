@@ -1,4 +1,4 @@
-use crate::{Node, ShaderGraphNodeData, ShaderGraphNodeType};
+use crate::{Node, PrimitiveShaderGraphNodeType, ShaderGraphNodeData, ShaderGraphNodeType};
 use rendiation_algebra::{Vec3, Vec4};
 
 fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
@@ -33,6 +33,10 @@ where
   fn from((a, b): (A, B)) -> Self {
     let a = a.into().cast_untyped();
     let b = b.into().cast_untyped();
-    ShaderGraphNodeData::Compose(vec![a, b]).insert_graph()
+    ShaderGraphNodeData::Compose {
+      target: Vec4::<f32>::to_primitive_type(),
+      parameters: vec![a, b],
+    }
+    .insert_graph()
   }
 }

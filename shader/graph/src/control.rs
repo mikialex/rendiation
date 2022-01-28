@@ -19,38 +19,14 @@ impl<T: ShaderGraphNodeType> Node<T> {
   }
 }
 
-impl<T> Node<Mutable<T>> {
+impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
   pub fn get(&self) -> Node<T> {
-    todo!()
-    // modify_graph(|builder| {
-    //   let value = builder.get_node_gen_result_var(self);
-    //   let scope = builder.top_scope();
-    //   let copied_value = scope.code_gen.create_new_unique_name();
-    //   scope
-    //     .code_builder
-    //     .write_ln(format!("return {};", return_value).as_str());
-
-    // ShaderGraphNodeData::Named(copied_value).insert_into_graph(for_body)
-    // });
+    ShaderGraphNodeData::Copy(self.cast_untyped()).insert_graph()
   }
 
   pub fn set(&self, node: Node<T>) {
     unsafe { self.handle.set(node.handle().cast_type()) };
-    // modify_graph(|builder| {
-    //   let value = builder.get_node_gen_result_var(self);
-    //   let scope = builder.top_scope();
-    //   let copied_value = scope.code_gen.create_new_unique_name();
-    //   scope
-    //     .code_builder
-    //     .write_ln(format!("return {};", return_value).as_str());
-
-    // ShaderGraphNodeData::Named(copied_value).insert_into_graph(for_body)
-    // });
   }
-}
-
-pub struct ShaderArray<T> {
-  phantom: PhantomData<T>,
 }
 
 pub trait ShaderIterator {
@@ -59,9 +35,10 @@ pub trait ShaderIterator {
   fn code_gen(&self, iter_item_name: &str) -> String;
 }
 
+#[must_use]
 pub fn consts<T>(v: T) -> Node<T>
 where
-  T: ShaderGraphConstableNodeType + ShaderGraphNodeType,
+  T: PrimitiveShaderGraphNodeType,
 {
   v.into()
 }
@@ -98,18 +75,22 @@ impl ShaderIterator for u32 {
   }
 }
 
-impl<T> ShaderIterator for ShaderArray<T> {
-  type Item = T;
+// pub struct ShaderArray<T> {
+//   phantom: PhantomData<T>,
+// }
 
-  fn code_gen(&self, iter_item_name: &str) -> String {
-    todo!()
-    // format!(
-    //   "for (int {name} = 0; {name} < {count}; ++i)",
-    //   name = iter_item_name,
-    //   count = self
-    // )
-  }
-}
+// impl<T> ShaderIterator for ShaderArray<T> {
+//   type Item = T;
+
+//   fn code_gen(&self, iter_item_name: &str) -> String {
+//     todo!()
+//     // format!(
+//     //   "for (int {name} = 0; {name} < {count}; ++i)",
+//     //   name = iter_item_name,
+//     //   count = self
+//     // )
+//   }
+// }
 
 pub fn for_by<T, I>(iterable: I, logic: impl Fn(&ForCtx, Node<T>))
 where
@@ -124,9 +105,9 @@ where
       .write_ln(iterable.code_gen(iter_item_name.as_ref()).as_str());
 
     scope.code_builder.tab();
-    let for_body = builder.push_scope();
+    builder.push_scope();
 
-    ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(for_body)
+    ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(builder)
   });
 
   let cx = ForCtx;
@@ -134,14 +115,14 @@ where
   logic(&cx, i_node);
 
   modify_graph(|builder| {
+    let scope = builder.top_scope();
+    scope.code_builder.un_tab();
+    scope.code_builder.write_ln("}");
+
     let result = builder.pop_scope();
     let result = ShaderGraphNodeData::Scope(result);
 
-    let scope = builder.top_scope();
-    result.insert_into_graph::<AnyType>(scope);
-
-    scope.code_builder.un_tab();
-    scope.code_builder.write_ln("}");
+    result.insert_into_graph::<AnyType>(builder);
   });
 }
 
@@ -159,14 +140,13 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   logic();
 
   modify_graph(|builder| {
+    let scope = builder.top_scope();
+    scope.code_builder.un_tab();
+    scope.code_builder.write_ln("}");
     let result = builder.pop_scope();
     let result = ShaderGraphNodeData::Scope(result);
 
-    let scope = builder.top_scope();
-    result.insert_into_graph::<AnyType>(scope);
-
-    scope.code_builder.un_tab();
-    scope.code_builder.write_ln("}");
+    result.insert_into_graph::<AnyType>(builder);
   });
 }
 

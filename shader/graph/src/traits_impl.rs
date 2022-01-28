@@ -1,7 +1,4 @@
-use crate::{
-  AnyType, Node, ShaderGraphAttributeNodeType, ShaderGraphConstableNodeType, ShaderGraphNodeData,
-  ShaderGraphNodeType, ShaderSampler, ShaderTexture, TextureSamplingNode,
-};
+use crate::*;
 use rendiation_algebra::*;
 
 impl ShaderGraphNodeType for AnyType {
@@ -16,91 +13,77 @@ impl ShaderGraphNodeType for bool {
   }
 }
 
-impl ShaderGraphConstableNodeType for bool {
-  fn const_to_glsl(&self) -> String {
-    format!("{}", self)
-  }
-}
-
 impl ShaderGraphNodeType for u32 {
   fn to_glsl_type() -> &'static str {
     "uint"
   }
 }
-impl ShaderGraphConstableNodeType for u32 {
-  fn const_to_glsl(&self) -> String {
-    format!("{}", self)
+impl PrimitiveShaderGraphNodeType for u32 {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Uint32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Uint32(*self)
   }
 }
-
 impl ShaderGraphNodeType for f32 {
   fn to_glsl_type() -> &'static str {
     "float"
   }
 }
-impl ShaderGraphAttributeNodeType for f32 {}
-impl ShaderGraphConstableNodeType for f32 {
-  fn const_to_glsl(&self) -> String {
-    let mut result = format!("{}", self);
-    if result.contains('.') {
-      result
-    } else {
-      result.push_str(".0");
-      result
-    }
+impl PrimitiveShaderGraphNodeType for f32 {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Float32(*self)
   }
 }
+impl ShaderGraphAttributeNodeType for f32 {}
 
 impl ShaderGraphNodeType for Vec2<f32> {
   fn to_glsl_type() -> &'static str {
     "vec2"
   }
 }
-impl ShaderGraphAttributeNodeType for Vec2<f32> {}
-impl ShaderGraphConstableNodeType for Vec2<f32> {
-  fn const_to_glsl(&self) -> String {
-    format!(
-      "vec2({}, {})",
-      self.x.const_to_glsl(),
-      self.y.const_to_glsl()
-    )
+impl PrimitiveShaderGraphNodeType for Vec2<f32> {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Vec2Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Vec2Float32(*self)
   }
 }
+impl ShaderGraphAttributeNodeType for Vec2<f32> {}
 
 impl ShaderGraphNodeType for Vec3<f32> {
   fn to_glsl_type() -> &'static str {
     "vec3"
   }
 }
-impl ShaderGraphAttributeNodeType for Vec3<f32> {}
-impl ShaderGraphConstableNodeType for Vec3<f32> {
-  fn const_to_glsl(&self) -> String {
-    format!(
-      "vec3({}, {}, {})",
-      self.x.const_to_glsl(),
-      self.y.const_to_glsl(),
-      self.z.const_to_glsl()
-    )
+impl PrimitiveShaderGraphNodeType for Vec3<f32> {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Vec3Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Vec3Float32(*self)
   }
 }
-
+impl ShaderGraphAttributeNodeType for Vec3<f32> {}
 impl ShaderGraphNodeType for Vec4<f32> {
   fn to_glsl_type() -> &'static str {
     "vec4"
   }
 }
-impl ShaderGraphAttributeNodeType for Vec4<f32> {}
-impl ShaderGraphConstableNodeType for Vec4<f32> {
-  fn const_to_glsl(&self) -> String {
-    format!(
-      "vec4({}, {}, {}, {})",
-      self.x.const_to_glsl(),
-      self.y.const_to_glsl(),
-      self.z.const_to_glsl(),
-      self.w.const_to_glsl()
-    )
+impl PrimitiveShaderGraphNodeType for Vec4<f32> {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Vec4Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Vec4Float32(*self)
   }
 }
+impl ShaderGraphAttributeNodeType for Vec4<f32> {}
 
 impl ShaderGraphNodeType for Mat4<f32> {
   fn to_glsl_type() -> &'static str {

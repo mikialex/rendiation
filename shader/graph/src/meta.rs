@@ -3,7 +3,7 @@ use std::{
   hash::{Hash, Hasher},
 };
 
-use crate::ShaderGraphNodeType;
+use crate::*;
 
 /// use for compile time ubo field reflection by procedure macro;
 #[derive(Debug, Eq)]
@@ -44,6 +44,12 @@ impl ShaderFunctionMetaInfo {
       depend_functions: HashSet::new(),
     }
   }
+}
+
+pub enum ShaderValueMeta {
+  Primitive(PrimitiveShaderValueType),
+  Structure(ShaderStructMetaInfo),
+  Array(Box<Self>),
 }
 
 /// use for compile time ubo field reflection by procedure macro;

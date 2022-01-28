@@ -21,7 +21,7 @@ impl ShaderGraphBuilder {
       .scopes
       .iter()
       .rev()
-      .find_map(|scope| scope.find_generated_node_exp(node))
+      .find_map(|scope| scope.get_node_gen_result_var(node))
       .unwrap()
   }
 

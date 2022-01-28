@@ -5,15 +5,30 @@ pub struct GLSL {
 }
 
 impl ShaderGraphCodeGenTarget for GLSL {
-  fn gen_primitive_type(&self, ty: crate::PrimitiveShaderValueType) -> &'static str {
+  fn gen_primitive_literal(&self, v: PrimitiveShaderValue) -> String {
+    match v {
+      PrimitiveShaderValue::Float32(f) => float_to_shader(f),
+      PrimitiveShaderValue::Vec2Float32(v) => {
+        format!("vec2({}, {})", float_to_shader(v.x), float_to_shader(v.y),)
+      }
+      PrimitiveShaderValue::Vec3Float32(_) => todo!(),
+      PrimitiveShaderValue::Vec4Float32(_) => todo!(),
+      PrimitiveShaderValue::Mat2Float32(_) => todo!(),
+      PrimitiveShaderValue::Mat3Float32(_) => todo!(),
+      PrimitiveShaderValue::Mat4Float32(_) => todo!(),
+      PrimitiveShaderValue::Uint32(_) => todo!(),
+    }
+  }
+  fn gen_primitive_type(&self, ty: PrimitiveShaderValueType) -> &'static str {
     match ty {
-      crate::PrimitiveShaderValueType::Float32 => "float",
-      crate::PrimitiveShaderValueType::Vec2Float32 => "vec2",
-      crate::PrimitiveShaderValueType::Vec3Float32 => "vec3",
-      crate::PrimitiveShaderValueType::Vec4Float32 => "vec4",
-      crate::PrimitiveShaderValueType::Mat2Float32 => "mat2",
-      crate::PrimitiveShaderValueType::Mat3Float32 => "mat3",
-      crate::PrimitiveShaderValueType::Mat4Float32 => "mat4",
+      PrimitiveShaderValueType::Float32 => "float",
+      PrimitiveShaderValueType::Vec2Float32 => "vec2",
+      PrimitiveShaderValueType::Vec3Float32 => "vec3",
+      PrimitiveShaderValueType::Vec4Float32 => "vec4",
+      PrimitiveShaderValueType::Mat2Float32 => "mat2",
+      PrimitiveShaderValueType::Mat3Float32 => "mat3",
+      PrimitiveShaderValueType::Mat4Float32 => "mat4",
+      PrimitiveShaderValueType::Uint32 => todo!(),
     }
   }
 
@@ -42,8 +57,10 @@ impl ShaderGraphCodeGenTarget for GLSL {
         builder.get_node_gen_result_var(n.sampler),
         builder.get_node_gen_result_var(n.position),
       ),
-      ShaderGraphNodeData::Swizzle { ty, source } => todo!(),
-      ShaderGraphNodeData::Compose(_) => todo!(),
+      ShaderGraphNodeData::Swizzle { ty, source } => {
+        format!("{}.{}", builder.get_node_gen_result_var(*source), ty)
+      }
+      ShaderGraphNodeData::Compose { .. } => todo!(),
       ShaderGraphNodeData::Operator(_) => todo!(),
       ShaderGraphNodeData::Input(_) => return None,
       ShaderGraphNodeData::Named(_) => return None,
@@ -54,6 +71,9 @@ impl ShaderGraphCodeGenTarget for GLSL {
       ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
       ShaderGraphNodeData::Const(_) => todo!(),
       ShaderGraphNodeData::Scope(_) => todo!(),
+      ShaderGraphNodeData::Copy(node) => {
+        format!("{}", builder.get_node_gen_result_var(*node))
+      }
     };
     expr.into()
   }
