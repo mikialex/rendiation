@@ -4,18 +4,35 @@ pub struct WGSL;
 
 impl ShaderGraphCodeGenTarget for WGSL {
   fn gen_primitive_literal(&self, v: PrimitiveShaderValue) -> String {
-    match v {
-      PrimitiveShaderValue::Float32(f) => float_to_shader(f),
+    let grouped = match v {
+      PrimitiveShaderValue::Float32(f) => return float_to_shader(f),
       PrimitiveShaderValue::Vec2Float32(v) => {
-        format!("vec2({}, {})", float_to_shader(v.x), float_to_shader(v.y),)
+        let v: &[f32; 2] = v.as_ref();
+        float_group(v.as_slice())
       }
-      PrimitiveShaderValue::Vec3Float32(_) => todo!(),
-      PrimitiveShaderValue::Vec4Float32(_) => todo!(),
-      PrimitiveShaderValue::Mat2Float32(_) => todo!(),
-      PrimitiveShaderValue::Mat3Float32(_) => todo!(),
-      PrimitiveShaderValue::Mat4Float32(_) => todo!(),
+      PrimitiveShaderValue::Vec3Float32(v) => {
+        let v: &[f32; 3] = v.as_ref();
+        float_group(v.as_slice())
+      }
+      PrimitiveShaderValue::Vec4Float32(v) => {
+        let v: &[f32; 4] = v.as_ref();
+        float_group(v.as_slice())
+      }
+      PrimitiveShaderValue::Mat2Float32(v) => {
+        let v: &[f32; 4] = v.as_ref();
+        float_group(v.as_slice())
+      }
+      PrimitiveShaderValue::Mat3Float32(v) => {
+        let v: &[f32; 9] = v.as_ref();
+        float_group(v.as_slice())
+      }
+      PrimitiveShaderValue::Mat4Float32(v) => {
+        let v: &[f32; 16] = v.as_ref();
+        float_group(v.as_slice())
+      }
       PrimitiveShaderValue::Uint32(_) => todo!(),
-    }
+    };
+    format!("{}{}", self.gen_primitive_type(v.into()), grouped)
   }
 
   fn gen_primitive_type(&self, ty: PrimitiveShaderValueType) -> &'static str {

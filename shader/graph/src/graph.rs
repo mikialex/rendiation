@@ -73,9 +73,6 @@ impl ShaderGraphScopeBuilder {
   }
 
   pub fn get_node_gen_result_var(&self, node: ShaderGraphNodeRawHandleUntyped) -> Option<&str> {
-    if node.graph_id != node.graph_id {
-      return None;
-    }
     self
       .code_gen
       .code_gen_history
