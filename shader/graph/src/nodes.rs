@@ -6,11 +6,21 @@ pub trait ShaderGraphNodeType: 'static + Copy {
   fn to_type() -> ShaderValueType;
 }
 
+#[derive(Clone, Copy)]
 pub enum ShaderValueType {
-  Primitive(PrimitiveShaderValueType),
-  Struct(&'static ShaderStructMetaInfo),
+  Fixed(ShaderStructMemberValueType),
   Sampler,
   Texture,
+}
+
+#[derive(Clone, Copy)]
+pub enum ShaderStructMemberValueType {
+  Primitive(PrimitiveShaderValueType),
+  Struct(&'static ShaderStructMetaInfo),
+  // FixedSizeArray((&'static ShaderValueType, usize)),
+}
+pub trait ShaderStructMemberValueNodeType {
+  fn to_type() -> ShaderStructMemberValueType;
 }
 
 pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
@@ -20,7 +30,15 @@ pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
 
 impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
   fn to_type() -> ShaderValueType {
-    ShaderValueType::Primitive(T::to_primitive_type())
+    ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(
+      T::to_primitive_type(),
+    ))
+  }
+}
+
+impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
+  fn to_type() -> ShaderStructMemberValueType {
+    ShaderStructMemberValueType::Primitive(T::to_primitive_type())
   }
 }
 
@@ -97,10 +115,6 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
 #[derive(Clone)]
 pub enum ShaderGraphNodeData {
   Function(FunctionNode),
-  BuiltInFunction {
-    name: &'static str,
-    parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
-  },
   TextureSampling(TextureSamplingNode),
   Swizzle {
     ty: &'static str,
@@ -140,19 +154,16 @@ impl ShaderGraphNodeData {
 
   pub fn insert_into_graph<T: ShaderGraphNodeType>(
     self,
-    graph: &mut ShaderGraphBuilder,
+    builder: &mut ShaderGraphBuilder,
   ) -> Node<T> {
     let language = WGSL;
-    let expr = language.gen_expr(&self, graph);
 
-    let graph = graph.top_scope();
+    let graph = builder.top_scope();
     let node = ShaderGraphNode::<T>::new(self.clone());
     let result = graph.insert_node(node).handle();
 
-    if let Some(expr) = expr {
-      let var_name = graph.code_gen.create_new_unique_name();
-      let statement = format!("{var_name} = {expr};");
-
+    if let Some((var_name, statement)) = language.gen_statement(&self, builder) {
+      let graph = builder.top_scope();
       graph.code_builder.write_ln(&statement);
       graph.code_gen.code_gen_history.insert(
         result,
@@ -172,9 +183,6 @@ impl ShaderGraphNodeData {
   pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandleUntyped)) {
     match self {
       ShaderGraphNodeData::Function(FunctionNode { parameters, .. }) => {
-        parameters.iter().for_each(visitor)
-      }
-      ShaderGraphNodeData::BuiltInFunction { parameters, .. } => {
         parameters.iter().for_each(visitor)
       }
       ShaderGraphNodeData::TextureSampling(TextureSamplingNode {

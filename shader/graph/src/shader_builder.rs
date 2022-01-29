@@ -52,12 +52,12 @@ pub fn build_shader(
   let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
   builder.build_vertex(&mut vertex_builder)?;
   let mut result = vertex_builder.extract();
-  let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, &mut result);
+  let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
 
   let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
   builder.build_fragment(&mut fragment_builder)?;
   let mut result = fragment_builder.extract();
-  let frag_shader = target.gen_fragment_shader(&mut fragment_builder, &mut result);
+  let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
 
   Ok(ShaderGraphCompileResult {
     vertex_shader,

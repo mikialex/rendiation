@@ -40,7 +40,6 @@ impl ShaderGraphCodeGenTarget for GLSL {
             .join(", ")
         )
       }
-      ShaderGraphNodeData::BuiltInFunction { name, parameters } => todo!(),
       ShaderGraphNodeData::TextureSampling(n) => format!(
         "texture(sampler2D({}, {}), {})",
         builder.get_node_gen_result_var(n.texture),
@@ -71,7 +70,7 @@ impl ShaderGraphCodeGenTarget for GLSL {
   fn gen_vertex_shader(
     &self,
     vertex: &mut ShaderGraphVertexBuilder,
-    builder: &mut ShaderGraphBuilder,
+    builder: ShaderGraphBuilder,
   ) -> String {
     todo!()
   }
@@ -79,8 +78,16 @@ impl ShaderGraphCodeGenTarget for GLSL {
   fn gen_fragment_shader(
     &self,
     vertex: &mut ShaderGraphFragmentBuilder,
-    builder: &mut ShaderGraphBuilder,
+    builder: ShaderGraphBuilder,
   ) -> String {
+    todo!()
+  }
+
+  fn gen_statement(
+    &self,
+    expr: &ShaderGraphNodeData,
+    builder: &mut ShaderGraphBuilder,
+  ) -> Option<(String, String)> {
     todo!()
   }
 }

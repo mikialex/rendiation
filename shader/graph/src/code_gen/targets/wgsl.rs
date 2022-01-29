@@ -8,17 +8,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
   }
 
   fn gen_primitive_type(&self, ty: PrimitiveShaderValueType) -> &'static str {
-    match ty {
-      PrimitiveShaderValueType::Float32 => "f32",
-      PrimitiveShaderValueType::Vec2Float32 => "vec2<f32>",
-      PrimitiveShaderValueType::Vec3Float32 => "vec3<f32>",
-      PrimitiveShaderValueType::Vec4Float32 => "vec4<f32>",
-      PrimitiveShaderValueType::Mat2Float32 => "mat2x2<f32>",
-      PrimitiveShaderValueType::Mat3Float32 => "mat3x3<f32>",
-      PrimitiveShaderValueType::Mat4Float32 => "mat4x4<f32>",
-      PrimitiveShaderValueType::Uint32 => "u32",
-      PrimitiveShaderValueType::Bool => "bool",
-    }
+    gen_primitive_type_impl(ty)
   }
 
   fn gen_expr(
@@ -39,7 +29,6 @@ impl ShaderGraphCodeGenTarget for WGSL {
             .join(", ")
         )
       }
-      ShaderGraphNodeData::BuiltInFunction { name, parameters } => todo!(),
       ShaderGraphNodeData::TextureSampling(n) => format!(
         "textureSample({}, {}, {})",
         builder.get_node_gen_result_var(n.texture),
@@ -84,21 +73,100 @@ impl ShaderGraphCodeGenTarget for WGSL {
     expr.into()
   }
 
+  fn gen_statement(
+    &self,
+    expr: &ShaderGraphNodeData,
+    builder: &mut ShaderGraphBuilder,
+  ) -> Option<(String, String)> {
+    let name = builder.top_scope().code_gen.create_new_unique_name();
+    let expr = self.gen_expr(expr, builder)?;
+    let statement = format!("let {name} = {expr};");
+    (name, statement).into()
+  }
+
   fn gen_vertex_shader(
     &self,
     vertex: &mut ShaderGraphVertexBuilder,
-    builder: &mut ShaderGraphBuilder,
+    builder: ShaderGraphBuilder,
   ) -> String {
-    todo!()
+    format!(
+      "
+{struct_define}
+{header}
+{functions}
+{entry}
+    ",
+      struct_define = "",
+      header = gen_bindings(&vertex.bindgroups, ShaderStages::Vertex),
+      functions = builder.gen_fn_depends(),
+      entry = gen_entry(ShaderStages::Vertex, builder.compile())
+    )
   }
 
   fn gen_fragment_shader(
     &self,
     vertex: &mut ShaderGraphFragmentBuilder,
-    builder: &mut ShaderGraphBuilder,
+    builder: ShaderGraphBuilder,
   ) -> String {
-    todo!()
+    format!(
+      "
+{struct_define}
+{header}
+{functions}
+{entry}
+    ",
+      struct_define = "",
+      header = gen_bindings(&vertex.bindgroups, ShaderStages::Fragment),
+      functions = builder.gen_fn_depends(),
+      entry = gen_entry(ShaderStages::Fragment, builder.compile())
+    )
   }
+}
+
+fn gen_bindings(builder: &ShaderGraphBindGroupBuilder, stage: ShaderStages) -> String {
+  builder
+    .bindings
+    .iter()
+    .enumerate()
+    .map(|(group_index, b)| {
+      b.bindings
+        .iter()
+        .enumerate()
+        .filter_map(|(item_index, entry)| gen_bind_entry(entry, group_index, item_index, stage))
+        .collect::<Vec<_>>()
+        .join("\n")
+    })
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
+fn gen_bind_entry(
+  entry: &ShaderGraphBindEntry,
+  group_index: usize,
+  item_index: usize,
+  stage: ShaderStages,
+) -> Option<String> {
+  match stage {
+    ShaderStages::Vertex => entry.used_in_vertex,
+    ShaderStages::Fragment => entry.used_in_fragment,
+  }
+  .then(|| {
+    format!(
+      "[[group({}), binding({})]] var{} {}: {};",
+      group_index,
+      item_index,
+      match entry.ty {
+        ShaderGraphBindType::UBO(_) => "<uniform>",
+        _ => "",
+      },
+      "unnamed_todo",
+      match entry.ty {
+        ShaderGraphBindType::Sampler(_) => "sampler",
+        ShaderGraphBindType::Texture(_) => "texture2d<f32>",
+        ShaderGraphBindType::UBO((meta, _)) => meta.name,
+      }
+    )
+  })
 }
 
 fn gen_entry(stage: ShaderStages, content: String) -> String {
@@ -115,4 +183,45 @@ fn {name}_main(input) -> {{
 }}
 "
   )
+}
+
+fn gen_primitive_type_impl(ty: PrimitiveShaderValueType) -> &'static str {
+  match ty {
+    PrimitiveShaderValueType::Float32 => "f32",
+    PrimitiveShaderValueType::Vec2Float32 => "vec2<f32>",
+    PrimitiveShaderValueType::Vec3Float32 => "vec3<f32>",
+    PrimitiveShaderValueType::Vec4Float32 => "vec4<f32>",
+    PrimitiveShaderValueType::Mat2Float32 => "mat2x2<f32>",
+    PrimitiveShaderValueType::Mat3Float32 => "mat3x3<f32>",
+    PrimitiveShaderValueType::Mat4Float32 => "mat4x4<f32>",
+    PrimitiveShaderValueType::Uint32 => "u32",
+    PrimitiveShaderValueType::Bool => "bool",
+  }
+}
+
+fn gen_type_impl(ty: ShaderValueType) -> String {
+  match ty {
+    ShaderValueType::Sampler => "sampler".to_owned(),
+    ShaderValueType::Texture => "texture_2d<f32>".to_owned(),
+    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty).to_owned(),
+  }
+}
+
+fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> &'static str {
+  match ty {
+    ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type_impl(ty),
+    ShaderStructMemberValueType::Struct(meta) => meta.name,
+  }
+}
+
+fn gen_struct(meta: &ShaderStructMetaInfo) -> String {
+  let mut builder = CodeBuilder::default();
+  builder.write_ln(format!("struct {} {{", meta.name));
+  builder.tab();
+  for (field_name, ty) in &meta.fields {
+    builder.write_ln(format!("{}: {};", field_name, gen_fix_type_impl(*ty)));
+  }
+  builder.un_tab();
+  builder.write_ln("}}");
+  builder.output()
 }

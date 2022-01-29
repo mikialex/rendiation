@@ -14,15 +14,20 @@ pub trait ShaderGraphCodeGenTarget {
     data: &ShaderGraphNodeData,
     builder: &mut ShaderGraphBuilder,
   ) -> Option<String>;
+  fn gen_statement(
+    &self,
+    expr: &ShaderGraphNodeData,
+    builder: &mut ShaderGraphBuilder,
+  ) -> Option<(String, String)>;
   fn gen_vertex_shader(
     &self,
     vertex: &mut ShaderGraphVertexBuilder,
-    builder: &mut ShaderGraphBuilder,
+    builder: ShaderGraphBuilder,
   ) -> String;
   fn gen_fragment_shader(
     &self,
     vertex: &mut ShaderGraphFragmentBuilder,
-    builder: &mut ShaderGraphBuilder,
+    builder: ShaderGraphBuilder,
   ) -> String;
 }
 
