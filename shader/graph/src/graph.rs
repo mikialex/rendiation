@@ -87,8 +87,4 @@ impl ShaderGraphScopeBuilder {
     }
     .into()
   }
-
-  pub fn build(self, parent: Option<Box<CodeGenScopeCtx>>) -> String {
-    todo!()
-  }
 }
