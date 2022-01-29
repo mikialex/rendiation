@@ -57,6 +57,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
       ShaderGraphNodeData::Input(_) => return None,
       ShaderGraphNodeData::Named(name) => name.clone(),
       ShaderGraphNodeData::FieldGet {
+        // todo should this merged with swizzle
         field_name,
         struct_node,
       } => format!(
@@ -82,4 +83,36 @@ impl ShaderGraphCodeGenTarget for WGSL {
     };
     expr.into()
   }
+
+  fn gen_vertex_shader(
+    &self,
+    vertex: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphBuilder,
+  ) -> String {
+    todo!()
+  }
+
+  fn gen_fragment_shader(
+    &self,
+    vertex: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderGraphBuilder,
+  ) -> String {
+    todo!()
+  }
+}
+
+fn gen_entry(stage: ShaderStages, content: String) -> String {
+  let name = match stage {
+    ShaderStages::Vertex => "vertex",
+    ShaderStages::Fragment => "fragment",
+  };
+
+  format!(
+    "
+[[stage({name})]]
+fn {name}_main(input) -> {{
+{content}
+}}
+"
+  )
 }

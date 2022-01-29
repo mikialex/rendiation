@@ -47,15 +47,17 @@ pub fn build_shader(
 ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
   let bindgroup_builder = ShaderGraphBindGroupBuilder::default();
 
+  let target = WGSL;
+
   let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
   builder.build_vertex(&mut vertex_builder)?;
-  let vertex_logic = vertex_builder.extract();
-  let vertex_shader = vertex_logic.compile();
+  let mut result = vertex_builder.extract();
+  let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, &mut result);
 
   let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
   builder.build_fragment(&mut fragment_builder)?;
-  let (fragment_logic, bindgroup_builder) = fragment_builder.extract();
-  let frag_shader = fragment_logic.compile();
+  let mut result = fragment_builder.extract();
+  let frag_shader = target.gen_fragment_shader(&mut fragment_builder, &mut result);
 
   Ok(ShaderGraphCompileResult {
     vertex_shader,
@@ -148,15 +150,21 @@ pub struct ShaderVaryingValueInfo {
   pub ty: PrimitiveShaderValueType,
 }
 
-pub enum ShaderGraphBindgroupEntry {
+pub enum ShaderGraphBindType {
   Sampler(Node<ShaderSampler>),
   Texture(Node<ShaderTexture>),
   UBO((&'static ShaderStructMetaInfo, NodeUntyped)),
 }
 
+pub struct ShaderGraphBindEntry {
+  pub ty: ShaderGraphBindType,
+  pub used_in_vertex: bool,
+  pub used_in_fragment: bool,
+}
+
 #[derive(Default)]
 pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<(ShaderGraphBindgroupEntry, ShaderStages)>,
+  pub bindings: Vec<ShaderGraphBindEntry>,
 }
 
 #[derive(Default)]
@@ -338,8 +346,8 @@ impl ShaderGraphFragmentBuilder {
     self.frag_output[channel] = node;
   }
 
-  pub fn extract(self) -> (ShaderGraphBuilder, ShaderGraphBindGroupBuilder) {
-    (take_build_graph(), self.bindgroups)
+  pub fn extract(&self) -> ShaderGraphBuilder {
+    take_build_graph()
   }
 }
 

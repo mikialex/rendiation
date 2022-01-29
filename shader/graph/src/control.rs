@@ -8,8 +8,8 @@ pub struct Mutable<T> {
 }
 
 impl<T: ShaderGraphNodeType> ShaderGraphNodeType for Mutable<T> {
-  fn to_glsl_type() -> &'static str {
-    T::to_glsl_type()
+  fn to_type() -> ShaderValueType {
+    T::to_type()
   }
 }
 

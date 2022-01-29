@@ -67,4 +67,20 @@ impl ShaderGraphCodeGenTarget for GLSL {
     };
     expr.into()
   }
+
+  fn gen_vertex_shader(
+    &self,
+    vertex: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphBuilder,
+  ) -> String {
+    todo!()
+  }
+
+  fn gen_fragment_shader(
+    &self,
+    vertex: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderGraphBuilder,
+  ) -> String {
+    todo!()
+  }
 }

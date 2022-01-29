@@ -3,12 +3,25 @@ use rendiation_algebra::Vec2;
 use std::{any::TypeId, marker::PhantomData};
 
 pub trait ShaderGraphNodeType: 'static + Copy {
-  fn to_glsl_type() -> &'static str;
+  fn to_type() -> ShaderValueType;
+}
+
+pub enum ShaderValueType {
+  Primitive(PrimitiveShaderValueType),
+  Struct(&'static ShaderStructMetaInfo),
+  Sampler,
+  Texture,
 }
 
 pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
   fn to_primitive_type() -> PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
+}
+
+impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
+  fn to_type() -> ShaderValueType {
+    ShaderValueType::Primitive(T::to_primitive_type())
+  }
 }
 
 pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
@@ -181,7 +194,7 @@ impl ShaderGraphNodeData {
       }
       ShaderGraphNodeData::Input(_) => {}
       ShaderGraphNodeData::FieldGet { struct_node, .. } => visitor(struct_node),
-      ShaderGraphNodeData::StructConstruct { struct_id, fields } => fields.iter().for_each(visitor),
+      ShaderGraphNodeData::StructConstruct { fields, .. } => fields.iter().for_each(visitor),
       ShaderGraphNodeData::Const(_) => {}
       _ => todo!(),
     }

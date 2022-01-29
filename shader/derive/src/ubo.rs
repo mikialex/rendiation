@@ -39,7 +39,6 @@ pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
           #struct_name_str,
         )
         #(#meta_info_gen)*
-        .gen_code_cache()
     });
 
     pub struct #shadergraph_instance_name {
@@ -47,8 +46,8 @@ pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
 
     impl shadergraph::ShaderGraphNodeType for #struct_name {
-      fn to_glsl_type() -> &'static str{
-        #struct_name_str
+      fn to_type() -> shadergraph::ShaderValueType{
+        shadergraph::ShaderValueType::Struct(&#meta_info_name)
       }
     }
 
@@ -96,7 +95,6 @@ pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStre
           #struct_name_str,
         )
         #(#ubo_info_gen)*
-        .gen_code_cache()
     });
 
     pub struct #shadergraph_instance_name {

@@ -14,6 +14,16 @@ pub trait ShaderGraphCodeGenTarget {
     data: &ShaderGraphNodeData,
     builder: &mut ShaderGraphBuilder,
   ) -> Option<String>;
+  fn gen_vertex_shader(
+    &self,
+    vertex: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphBuilder,
+  ) -> String;
+  fn gen_fragment_shader(
+    &self,
+    vertex: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderGraphBuilder,
+  ) -> String;
 }
 
 pub fn float_to_shader(f: f32) -> String {
