@@ -276,15 +276,16 @@ pub enum ShaderGraphInputNode {
     entry_index: usize,
   },
   VertexIn {
-    ty: ShaderGraphVertexFragmentIOType,
+    ty: PrimitiveShaderValueType,
     index: usize,
   },
   FragmentIn {
-    ty: ShaderGraphVertexFragmentIOType,
+    ty: PrimitiveShaderValueType,
     index: usize,
   },
 }
 
+// todo
 #[derive(Copy, Clone)]
 pub enum ShaderGraphVertexFragmentIOType {
   Float,

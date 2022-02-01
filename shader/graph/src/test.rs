@@ -104,7 +104,7 @@ fn build_shader_function() {
     c.set(c.get() + i);
   });
 
-  let d = my_shader_function(1.2, 2.3);
+  // let d = my_shader_function(1.2, 2.3);
 }
 
 // #[shader_function]
@@ -114,16 +114,16 @@ fn build_shader_function() {
 //     c + 1.0.into()
 // }
 
-pub fn my_shader_function(a: impl Into<Node<f32>>, b: impl Into<Node<f32>>) -> Node<f32> {
-  let a = a.into();
-  let b = b.into();
+// pub fn my_shader_function(a: impl Into<Node<f32>>, b: impl Into<Node<f32>>) -> Node<f32> {
+//   let a = a.into();
+//   let b = b.into();
 
-  function((a, b), |(a, b)| {
-    let c = a + b;
-    if_by(c.greater_than(0.), || early_return(2.));
-    c + 1.0.into()
-  })
-}
+//   function((a, b), |(a, b)| {
+//     let c = a + b;
+//     if_by(c.greater_than(0.), || early_return(2.));
+//     c + 1.0.into()
+//   })
+// }
 
 struct Test;
 

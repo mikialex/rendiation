@@ -186,20 +186,20 @@ impl<A, B> IntoParam for (A, B) {
   }
 }
 
-pub fn function<T, P>(parameters: P, logic: impl Fn(P) -> Node<T> + Any) -> Node<T>
-where
-  T: ShaderGraphNodeType,
-  P: IntoParam,
-{
-  let mut guard = GLOBAL_USER_FUNCTIONS.lock().unwrap();
+// pub fn function<T, P>(parameters: P, logic: impl Fn(P) -> Node<T> + Any) -> Node<T>
+// where
+//   T: ShaderGraphNodeType,
+//   P: IntoParam,
+// {
+//   let mut guard = GLOBAL_USER_FUNCTIONS.lock().unwrap();
 
-  let meta = guard.entry(logic.type_id()).or_insert_with(|| {
-    todo!();
-  });
+//   let meta = guard.entry(logic.type_id()).or_insert_with(|| {
+//     todo!();
+//   });
 
-  ShaderGraphNodeData::Function(FunctionNode {
-    prototype: meta,
-    parameters: todo!(),
-  })
-  .insert_graph()
-}
+//   ShaderGraphNodeData::Function(FunctionNode {
+//     prototype: meta,
+//     parameters: todo!(),
+//   })
+//   .insert_graph()
+// }

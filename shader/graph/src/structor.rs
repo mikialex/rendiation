@@ -26,9 +26,9 @@ where
   .insert_graph()
 }
 
-pub fn construct_struct<T>(instance: T::Instance) -> Node<T>
-where
-  T: ShaderGraphStructuralNodeType,
-{
-  todo!()
-}
+// pub fn construct_struct<T>(instance: T::Instance) -> Node<T>
+// where
+//   T: ShaderGraphStructuralNodeType,
+// {
+//   todo!()
+// }

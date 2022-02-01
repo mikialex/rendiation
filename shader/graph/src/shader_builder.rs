@@ -2,13 +2,18 @@ use std::{any::TypeId, collections::HashMap, sync::Mutex};
 
 use crate::*;
 
+pub trait SemanticVertexGeometryIn: Any {
+  type ValueType: PrimitiveShaderGraphNodeType;
+  const NAME: &'static str = "unnamed";
+}
+
 pub trait SemanticVertexShaderValue: Any {
   type ValueType: ShaderGraphNodeType;
   const NAME: &'static str = "unnamed";
 }
 
 pub trait SemanticVertexFragmentIOValue: Any {
-  type ValueType: ShaderGraphNodeType;
+  type ValueType: PrimitiveShaderGraphNodeType;
   const NAME: &'static str = "unnamed";
 }
 
@@ -82,7 +87,7 @@ pub struct ShaderGraphVertexBuilder {
   pub instance_index: Node<u32>,
 
   // user vertex in
-  vertex_in: Vec<(NodeUntyped, PrimitiveShaderValueType)>,
+  vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
 
   // user semantic vertex
   vertex_registered: HashMap<TypeId, NodeUntyped>,
@@ -273,18 +278,30 @@ impl ShaderGraphVertexBuilder {
       .or_insert_with(|| node.into().cast_untyped_node());
   }
 
-  pub fn set_vertex_in() {
-    //
+  pub fn register_vertex_in<T: SemanticVertexGeometryIn>(&mut self) -> Node<T::ValueType> {
+    let ty = T::ValueType::to_primitive_type();
+    let node = ShaderGraphNodeData::Input(ShaderGraphInputNode::VertexIn {
+      ty,
+      index: self.vertex_in.len(),
+    })
+    .insert_graph();
+    self
+      .vertex_in
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| (node.cast_untyped_node(), ty));
+    node
   }
 
   pub fn set_vertex_out<T: SemanticVertexFragmentIOValue>(
     &mut self,
     node: impl Into<Node<T::ValueType>>,
   ) {
-    self
-      .vertex_out
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| (node.into().cast_untyped_node(), todo!()));
+    self.vertex_out.entry(TypeId::of::<T>()).or_insert_with(|| {
+      (
+        node.into().cast_untyped_node(),
+        T::ValueType::to_primitive_type(),
+      )
+    });
   }
 }
 
