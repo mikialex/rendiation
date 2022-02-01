@@ -115,12 +115,33 @@ impl ShaderGraphCodeGenTarget for WGSL {
 {functions}
 {entry}
     ",
-      struct_define = "",
+      struct_define = gen_structs(&builder),
       header = gen_bindings(&vertex.bindgroups, ShaderStages::Fragment),
       functions = builder.gen_fn_depends(),
       entry = gen_entry(ShaderStages::Fragment, builder.compile())
     )
   }
+}
+
+fn gen_structs(builder: &ShaderGraphBuilder) -> String {
+  builder
+    .struct_defines
+    .iter()
+    .map(|(_, meta)| gen_struct(meta))
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
+fn gen_struct(meta: &ShaderStructMetaInfo) -> String {
+  let mut builder = CodeBuilder::default();
+  builder.write_ln(format!("struct {} {{", meta.name));
+  builder.tab();
+  for (field_name, ty) in &meta.fields {
+    builder.write_ln(format!("{}: {};", field_name, gen_fix_type_impl(*ty)));
+  }
+  builder.un_tab();
+  builder.write_ln("}}");
+  builder.output()
 }
 
 fn gen_bindings(builder: &ShaderGraphBindGroupBuilder, stage: ShaderStages) -> String {
@@ -212,16 +233,4 @@ fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> &'static str {
     ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type_impl(ty),
     ShaderStructMemberValueType::Struct(meta) => meta.name,
   }
-}
-
-fn gen_struct(meta: &ShaderStructMetaInfo) -> String {
-  let mut builder = CodeBuilder::default();
-  builder.write_ln(format!("struct {} {{", meta.name));
-  builder.tab();
-  for (field_name, ty) in &meta.fields {
-    builder.write_ln(format!("{}: {};", field_name, gen_fix_type_impl(*ty)));
-  }
-  builder.un_tab();
-  builder.write_ln("}}");
-  builder.output()
 }

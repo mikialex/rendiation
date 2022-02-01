@@ -4,6 +4,18 @@ use std::{any::TypeId, marker::PhantomData};
 
 pub trait ShaderGraphNodeType: 'static + Copy {
   fn to_type() -> ShaderValueType;
+  fn extract_struct_define() -> Option<&'static ShaderStructMetaInfo> {
+    match Self::to_type() {
+      ShaderValueType::Fixed(v) => {
+        if let ShaderStructMemberValueType::Struct(s) = v {
+          Some(s)
+        } else {
+          None
+        }
+      }
+      _ => None,
+    }
+  }
 }
 
 #[derive(Clone, Copy)]
@@ -157,6 +169,10 @@ impl ShaderGraphNodeData {
     builder: &mut ShaderGraphBuilder,
   ) -> Node<T> {
     let language = WGSL;
+
+    if let Some(s) = T::extract_struct_define() {
+      builder.struct_defines.insert(TypeId::of::<T>(), s);
+    }
 
     let graph = builder.top_scope();
     let node = ShaderGraphNode::<T>::new(self.clone());
