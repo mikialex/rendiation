@@ -73,11 +73,15 @@ pub struct ShaderGraphNodeRawHandle<T> {
 
 impl<T> ShaderGraphNodeRawHandle<T> {
   /// # Safety
-  /// 
+  ///
   /// force type casting
   pub unsafe fn cast_type<X>(&self) -> ShaderGraphNodeRawHandle<X> {
     let t: &ShaderGraphNodeRawHandle<X> = std::mem::transmute(self);
     *t
+  }
+
+  pub fn cast_untyped(&self) -> ShaderGraphNodeRawHandleUntyped {
+    unsafe { self.cast_type() }
   }
 }
 
