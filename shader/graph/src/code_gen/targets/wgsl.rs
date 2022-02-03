@@ -153,7 +153,9 @@ fn gen_bindings(builder: &ShaderGraphBindGroupBuilder, stage: ShaderStages) -> S
       b.bindings
         .iter()
         .enumerate()
-        .filter_map(|(item_index, entry)| gen_bind_entry(entry, group_index, item_index, stage))
+        .filter_map(|(item_index, (entry, _))| {
+          gen_bind_entry(entry, group_index, item_index, stage)
+        })
         .collect::<Vec<_>>()
         .join("\n")
     })
@@ -177,15 +179,11 @@ fn gen_bind_entry(
       group_index,
       item_index,
       match entry.ty {
-        ShaderGraphBindType::UBO(_) => "<uniform>",
+        ShaderValueType::Fixed(_) => "<uniform>",
         _ => "",
       },
       "unnamed_todo",
-      match entry.ty {
-        ShaderGraphBindType::Sampler(_) => "sampler",
-        ShaderGraphBindType::Texture(_) => "texture2d<f32>",
-        ShaderGraphBindType::UBO((meta, _)) => meta.name,
-      }
+      gen_type_impl(entry.ty),
     )
   })
 }

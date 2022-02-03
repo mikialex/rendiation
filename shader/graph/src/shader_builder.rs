@@ -155,28 +155,24 @@ pub struct ShaderVaryingValueInfo {
   pub ty: PrimitiveShaderValueType,
 }
 
-#[derive(Clone)]
-pub enum ShaderGraphBindType {
-  Sampler(ShaderGraphNodeRawHandle<ShaderSampler>),
-  Texture(ShaderGraphNodeRawHandle<ShaderTexture>),
-  UBO(
-    (
-      &'static ShaderStructMetaInfo,
-      ShaderGraphNodeRawHandleUntyped,
-    ),
-  ),
-}
+// #[derive(Clone)]
+// pub enum ShaderGraphBindType {
+//   Sampler(ShaderGraphNodeRawHandle<ShaderSampler>),
+//   Texture(ShaderGraphNodeRawHandle<ShaderTexture>),
+//   UBO((ShaderStructMemberValueType, ShaderGraphNodeRawHandleUntyped)),
+// }
 
 #[derive(Clone)]
 pub struct ShaderGraphBindEntry {
-  pub ty: ShaderGraphBindType,
+  pub ty: ShaderValueType,
+  pub node: ShaderGraphNodeRawHandleUntyped,
   pub used_in_vertex: bool,
   pub used_in_fragment: bool,
 }
 
 #[derive(Default, Clone)]
 pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<ShaderGraphBindEntry>,
+  pub bindings: Vec<(ShaderGraphBindEntry, TypeId)>,
 }
 
 pub struct ShaderGraphBindGroupBuilder {
@@ -212,7 +208,7 @@ impl SemanticBinding {
   }
 }
 
-pub trait SemanticShaderUniform: ShaderGraphStructuralNodeType {
+pub trait SemanticShaderUniform: ShaderGraphNodeType {
   const TYPE: SemanticBinding;
 }
 
@@ -220,22 +216,31 @@ impl ShaderGraphBindGroupBuilder {
   pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T> {
     let bindgroup_index = T::TYPE.binding_index();
     let bindgroup = &mut self.bindings[bindgroup_index];
+    let type_id = TypeId::of::<T>();
 
-    let struct_meta = T::meta_info();
-    let entry_index = bindgroup.bindings.len();
-    let node: Node<T> = ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
-      bindgroup_index,
-      entry_index,
-    })
-    .insert_graph();
+    if let Some((entry, _)) = bindgroup.bindings.iter().find(|entry| entry.1 == type_id) {
+      unsafe { entry.node.cast_type().into() }
+    } else {
+      let ty = T::to_type();
+      let entry_index = bindgroup.bindings.len();
+      let node: Node<T> = ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
+        bindgroup_index,
+        entry_index,
+      })
+      .insert_graph();
 
-    bindgroup.bindings.push(ShaderGraphBindEntry {
-      ty: ShaderGraphBindType::UBO((struct_meta, node.handle().cast_untyped())),
-      used_in_vertex: true,
-      used_in_fragment: true,
-    });
+      bindgroup.bindings.push((
+        ShaderGraphBindEntry {
+          ty,
+          used_in_vertex: true, // todo
+          used_in_fragment: true,
+          node: node.handle().cast_untyped(),
+        },
+        type_id,
+      ));
 
-    node
+      node
+    }
   }
 
   pub fn query_uniform<T: SemanticShaderUniform>(
