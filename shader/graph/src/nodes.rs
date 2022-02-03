@@ -1,18 +1,57 @@
-use crate::{
-  modify_graph, Node, NodeUntyped, ShaderFunctionMetaInfo, ShaderGraphNodeRawHandleUntyped,
-  ShaderGraphNodeUntyped, ShaderSampler, ShaderStructMetaInfo, ShaderTexture,
-};
-use dyn_clone::DynClone;
+use crate::*;
 use rendiation_algebra::Vec2;
 use std::{any::TypeId, marker::PhantomData};
 
 pub trait ShaderGraphNodeType: 'static + Copy {
-  fn to_glsl_type() -> &'static str;
+  fn to_type() -> ShaderValueType;
+  fn extract_struct_define() -> Option<&'static ShaderStructMetaInfo> {
+    match Self::to_type() {
+      ShaderValueType::Fixed(v) => {
+        if let ShaderStructMemberValueType::Struct(s) = v {
+          Some(s)
+        } else {
+          None
+        }
+      }
+      _ => None,
+    }
+  }
 }
 
-/// not inherit ShaderGraphNodeType to keep object safety
-pub trait ShaderGraphConstableNodeType: 'static + Send + Sync + DynClone {
-  fn const_to_glsl(&self) -> String;
+#[derive(Clone, Copy)]
+pub enum ShaderValueType {
+  Fixed(ShaderStructMemberValueType),
+  Sampler,
+  Texture,
+}
+
+#[derive(Clone, Copy)]
+pub enum ShaderStructMemberValueType {
+  Primitive(PrimitiveShaderValueType),
+  Struct(&'static ShaderStructMetaInfo),
+  // FixedSizeArray((&'static ShaderValueType, usize)),
+}
+pub trait ShaderStructMemberValueNodeType {
+  fn to_type() -> ShaderStructMemberValueType;
+}
+
+pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
+  fn to_primitive_type() -> PrimitiveShaderValueType;
+  fn to_primitive(&self) -> PrimitiveShaderValue;
+}
+
+impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
+  fn to_type() -> ShaderValueType {
+    ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(
+      T::to_primitive_type(),
+    ))
+  }
+}
+
+impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
+  fn to_type() -> ShaderStructMemberValueType {
+    ShaderStructMemberValueType::Primitive(T::to_primitive_type())
+  }
 }
 
 pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
@@ -23,11 +62,11 @@ pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
 
 impl<T> From<T> for Node<T>
 where
-  T: ShaderGraphConstableNodeType + ShaderGraphNodeType,
+  T: PrimitiveShaderGraphNodeType,
 {
   fn from(input: T) -> Self {
     ShaderGraphNodeData::Const(ConstNode {
-      data: Box::new(input),
+      data: input.to_primitive(),
     })
     .insert_graph()
   }
@@ -44,7 +83,7 @@ impl<T> Node<T> {
   /// we consider this a kind of up casting. Use this will reduce the
   /// unsafe code when we create ShaderGraphNodeData
   pub fn cast_untyped(&self) -> ShaderGraphNodeRawHandleUntyped {
-    unsafe { self.handle.cast_type() }
+    unsafe { self.handle.get().cast_type() }
   }
 
   pub fn cast_untyped_node(&self) -> NodeUntyped {
@@ -52,23 +91,27 @@ impl<T> Node<T> {
   }
 }
 
+#[derive(Clone)]
 pub struct ShaderGraphNode<T> {
   phantom: PhantomData<T>,
   pub data: ShaderGraphNodeData,
-  pub node_type: TypeId,
 }
 
 impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
+  #[must_use]
   pub fn new(data: ShaderGraphNodeData) -> Self {
     Self {
       data,
       phantom: PhantomData,
-      node_type: TypeId::of::<T>(),
     }
   }
+
+  #[must_use]
   pub fn into_any(self) -> ShaderGraphNodeUntyped {
     unsafe { std::mem::transmute(self) }
   }
+
+  #[must_use]
   pub fn into_typed(self) -> ShaderGraphNode<T> {
     unsafe { std::mem::transmute(self) }
   }
@@ -79,31 +122,24 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
       _ => panic!("unwrap as input failed"),
     }
   }
-
-  pub fn unwrap_as_vary(&self) -> usize {
-    match &self.data {
-      ShaderGraphNodeData::Output(ShaderGraphOutput::Vary(n)) => *n,
-      _ => panic!("unwrap as input failed"),
-    }
-  }
 }
 
 #[derive(Clone)]
 pub enum ShaderGraphNodeData {
   Function(FunctionNode),
-  BuiltInFunction {
-    name: &'static str,
-    parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
-  },
   TextureSampling(TextureSamplingNode),
   Swizzle {
     ty: &'static str,
     source: ShaderGraphNodeRawHandleUntyped,
   },
-  Compose(Vec<ShaderGraphNodeRawHandleUntyped>),
+  Compose {
+    target: PrimitiveShaderValueType,
+    parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
+  },
   Operator(OperatorNode),
   Input(ShaderGraphInputNode),
-  Output(ShaderGraphOutput),
+  /// This is workaround for some case
+  Named(String),
   FieldGet {
     field_name: &'static str,
     struct_node: ShaderGraphNodeRawHandleUntyped,
@@ -112,71 +148,81 @@ pub enum ShaderGraphNodeData {
     struct_id: TypeId,
     fields: Vec<ShaderGraphNodeRawHandleUntyped>,
   },
+  Copy(ShaderGraphNodeRawHandleUntyped),
   Const(ConstNode),
+  // Termination,
+  Scope(ShaderGraphScopeBuildResult),
 }
 
+#[derive(Clone)]
 pub struct ConstNode {
-  pub data: Box<dyn ShaderGraphConstableNodeType>,
-}
-
-impl Clone for ConstNode {
-  fn clone(&self) -> Self {
-    Self {
-      data: dyn_clone::clone_box(&*self.data),
-    }
-  }
+  pub data: PrimitiveShaderValue,
 }
 
 impl ShaderGraphNodeData {
-  pub fn insert_graph<T: ShaderGraphNodeType>(&self) -> Node<T> {
-    modify_graph(|graph| {
-      let node = ShaderGraphNode::<T>::new(self.clone());
-      let result = graph.insert_node(node).handle;
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    modify_graph(|graph| self.insert_into_graph(graph))
+  }
 
-      self.visit_dependency(|dep| {
-        graph.nodes.connect_node(*dep, result);
-      });
+  pub fn insert_into_graph<T: ShaderGraphNodeType>(
+    self,
+    builder: &mut ShaderGraphBuilder,
+  ) -> Node<T> {
+    let language = WGSL;
 
-      unsafe { result.cast_type().into() }
-    })
+    if let Some(s) = T::extract_struct_define() {
+      builder.struct_defines.insert(TypeId::of::<T>(), s);
+    }
+
+    let graph = builder.top_scope();
+    let node = ShaderGraphNode::<T>::new(self.clone());
+    let result = graph.insert_node(node).handle();
+
+    if let Some((var_name, statement)) = language.gen_statement(&self, builder) {
+      let graph = builder.top_scope();
+      graph.code_builder.write_ln(&statement);
+      graph.code_gen.code_gen_history.insert(
+        result,
+        MiddleVariableCodeGenResult {
+          var_name,
+          statement,
+        },
+      );
+    }
+
+    // self.visit_dependency(|dep| {
+    //   graph.nodes.connect_node(*dep, result);
+    // });
+
+    unsafe { result.cast_type().into() }
   }
   pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandleUntyped)) {
     match self {
       ShaderGraphNodeData::Function(FunctionNode { parameters, .. }) => {
         parameters.iter().for_each(visitor)
       }
-      ShaderGraphNodeData::BuiltInFunction { parameters, .. } => {
-        parameters.iter().for_each(visitor)
-      }
       ShaderGraphNodeData::TextureSampling(TextureSamplingNode {
         texture,
         sampler,
         position,
-      }) => {
-        visitor(&texture.cast_untyped());
-        visitor(&sampler.cast_untyped());
-        visitor(&position.cast_untyped());
-      }
+      }) => unsafe {
+        visitor(&texture.cast_type());
+        visitor(&sampler.cast_type());
+        visitor(&position.cast_type());
+      },
       ShaderGraphNodeData::Swizzle { source, .. } => visitor(source),
-      ShaderGraphNodeData::Compose(source) => source.iter().for_each(visitor),
+      ShaderGraphNodeData::Compose { parameters, .. } => parameters.iter().for_each(visitor),
       ShaderGraphNodeData::Operator(OperatorNode { left, right, .. }) => {
         visitor(left);
         visitor(right);
       }
       ShaderGraphNodeData::Input(_) => {}
-      ShaderGraphNodeData::Output(_) => {} // is this kind of node valid??
       ShaderGraphNodeData::FieldGet { struct_node, .. } => visitor(struct_node),
-      ShaderGraphNodeData::StructConstruct { struct_id, fields } => fields.iter().for_each(visitor),
+      ShaderGraphNodeData::StructConstruct { fields, .. } => fields.iter().for_each(visitor),
       ShaderGraphNodeData::Const(_) => {}
+      _ => todo!(),
     }
   }
-}
-
-#[derive(Clone)]
-pub enum ShaderGraphOutput {
-  Vary(usize),
-  Frag(usize),
-  Vert,
 }
 
 #[derive(Clone)]
@@ -187,9 +233,9 @@ pub struct FunctionNode {
 
 #[derive(Clone)]
 pub struct TextureSamplingNode {
-  pub texture: Node<ShaderTexture>,
-  pub sampler: Node<ShaderSampler>,
-  pub position: Node<Vec2<f32>>,
+  pub texture: ShaderGraphNodeRawHandle<ShaderTexture>,
+  pub sampler: ShaderGraphNodeRawHandle<ShaderSampler>,
+  pub position: ShaderGraphNodeRawHandle<Vec2<f32>>,
 }
 
 #[derive(Clone)]
@@ -199,15 +245,64 @@ pub struct OperatorNode {
   pub operator: &'static str,
 }
 
-#[derive(Clone)]
-pub struct ShaderGraphInputNode {
-  pub node_type: ShaderGraphInputNodeType,
-  pub name: String,
+pub enum UnaryOperator {
+  Not,
+}
+
+pub enum BinaryOperator {
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Eq,
+  NotEq,
+  GreaterThan,
+  LessThan,
+  GreaterEqualThan,
+  LessEqualThan,
+}
+
+pub enum TrinaryOperator {
+  IfElse,
+}
+
+pub enum OperatorNode2 {
+  Unary {
+    one: ShaderGraphNodeRawHandleUntyped,
+    operator: &'static str,
+  },
+  Binary {
+    left: ShaderGraphNodeRawHandleUntyped,
+    right: ShaderGraphNodeRawHandleUntyped,
+    operator: &'static str,
+  },
+  Trinary {
+    forward: ShaderGraphNodeRawHandleUntyped,
+    left: ShaderGraphNodeRawHandleUntyped,
+    right: ShaderGraphNodeRawHandleUntyped,
+    operator: &'static str,
+  },
 }
 
 #[derive(Clone)]
-pub enum ShaderGraphInputNodeType {
-  Uniform,
-  Attribute,
-  Vary,
+pub enum ShaderGraphInputNode {
+  BuiltIn,
+  Uniform {
+    bindgroup_index: usize,
+    entry_index: usize,
+  },
+  VertexIn {
+    ty: PrimitiveShaderValueType,
+    index: usize,
+  },
+  FragmentIn {
+    ty: PrimitiveShaderValueType,
+    index: usize,
+  },
+}
+
+// todo
+#[derive(Copy, Clone)]
+pub enum ShaderGraphVertexFragmentIOType {
+  Float,
 }

@@ -119,6 +119,7 @@ pub fn gen_glsl_function(
     .unzip();
 
   quote! {
+    #[allow(non_upper_case_globals)]
     pub static #prototype_name: once_cell::sync::Lazy<shadergraph::ShaderFunctionMetaInfo> =
     once_cell::sync::Lazy::new(|| {
         shadergraph::ShaderFunctionMetaInfo::new(

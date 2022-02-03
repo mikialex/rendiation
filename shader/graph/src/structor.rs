@@ -7,8 +7,8 @@ impl<T> Node<T>
 where
   T: ShaderGraphStructuralNodeType,
 {
-  pub fn expand(&self) -> T::Instance {
-    T::expand(*self)
+  pub fn expand(self) -> T::Instance {
+    T::expand(self)
   }
 }
 
@@ -25,3 +25,10 @@ where
   }
   .insert_graph()
 }
+
+// pub fn construct_struct<T>(instance: T::Instance) -> Node<T>
+// where
+//   T: ShaderGraphStructuralNodeType,
+// {
+//   todo!()
+// }

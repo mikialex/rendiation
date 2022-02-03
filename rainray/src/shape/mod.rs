@@ -24,20 +24,13 @@ pub trait Shape: Sync + Send + 'static {
   }
 }
 
+#[derive(Default)]
 pub struct IntersectionStatistic {
   pub box3: usize,
   pub sphere: usize,
   pub triangle: usize,
 }
-impl Default for IntersectionStatistic {
-  fn default() -> Self {
-    Self {
-      box3: 0,
-      sphere: 0,
-      triangle: 0,
-    }
-  }
-}
+
 impl AddAssign for IntersectionStatistic {
   fn add_assign(&mut self, rhs: Self) {
     self.box3 += rhs.box3;

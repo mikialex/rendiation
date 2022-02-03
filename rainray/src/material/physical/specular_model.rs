@@ -22,7 +22,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
     let x = sample.x;
     let y = sample.y;
     let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
-    (h * normal.local_to_world()).into_normalized()
+    (normal.local_to_world() * h).into_normalized()
   }
 
   fn surface_normal_pdf(
@@ -57,7 +57,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
     let x = sample.x;
     let y = sample.y;
     let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
-    (h * normal.local_to_world()).into_normalized()
+    (normal.local_to_world() * h).into_normalized()
   }
 
   fn surface_normal_pdf(

@@ -39,7 +39,6 @@ pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
           #struct_name_str,
         )
         #(#meta_info_gen)*
-        .gen_code_cache()
     });
 
     pub struct #shadergraph_instance_name {
@@ -47,17 +46,25 @@ pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     }
 
     impl shadergraph::ShaderGraphNodeType for #struct_name {
-      fn to_glsl_type() -> &'static str{
-        #struct_name_str
+      fn to_type() -> shadergraph::ShaderValueType{
+        shadergraph::ShaderValueType::Fixed(
+          ShaderStructMemberValueType::Struct(&#meta_info_name)
+        )
+      }
+    }
+
+    impl shadergraph::ShaderStructMemberValueNodeType for #struct_name {
+      fn to_type() -> shadergraph::ShaderStructMemberValueType {
+        shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name)
       }
     }
 
     impl shadergraph::ShaderGraphStructuralNodeType for #struct_name {
       type Instance = #shadergraph_instance_name;
-      fn meta_info() -> &'static ShaderStructMetaInfo{
+      fn meta_info() -> &'static shadergraph::ShaderStructMetaInfo{
         &#meta_info_name
       }
-      fn expand(node: Node<Self>) -> Self::Instance{
+      fn expand(node: shadergraph::Node<Self>) -> Self::Instance{
         #shadergraph_instance_name{
           #(#instance_fields_create)*
         }
@@ -96,7 +103,6 @@ pub fn derive_ubo_shadergraph_instance(s: &StructInfo) -> proc_macro2::TokenStre
           #struct_name_str,
         )
         #(#ubo_info_gen)*
-        .gen_code_cache()
     });
 
     pub struct #shadergraph_instance_name {
