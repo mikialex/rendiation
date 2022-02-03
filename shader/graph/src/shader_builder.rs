@@ -176,12 +176,14 @@ pub struct ShaderGraphBindGroup {
 }
 
 pub struct ShaderGraphBindGroupBuilder {
+  pub current_stage: ShaderStages,
   pub bindings: Vec<ShaderGraphBindGroup>,
 }
 
 impl Default for ShaderGraphBindGroupBuilder {
   fn default() -> Self {
     Self {
+      current_stage: ShaderStages::Vertex,
       bindings: vec![Default::default(); 5],
     }
   }
@@ -214,39 +216,54 @@ pub trait SemanticShaderUniform: ShaderGraphNodeType {
 
 impl ShaderGraphBindGroupBuilder {
   pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T> {
+    if let Ok(node) = self.query_uniform() {
+      return node;
+    }
+
     let bindgroup_index = T::TYPE.binding_index();
     let bindgroup = &mut self.bindings[bindgroup_index];
     let type_id = TypeId::of::<T>();
 
-    if let Some((entry, _)) = bindgroup.bindings.iter().find(|entry| entry.1 == type_id) {
-      unsafe { entry.node.cast_type().into() }
-    } else {
-      let ty = T::to_type();
-      let entry_index = bindgroup.bindings.len();
-      let node: Node<T> = ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
-        bindgroup_index,
-        entry_index,
-      })
-      .insert_graph();
+    let ty = T::to_type();
+    let entry_index = bindgroup.bindings.len();
+    let node: Node<T> = ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
+      bindgroup_index,
+      entry_index,
+    })
+    .insert_graph();
 
-      bindgroup.bindings.push((
-        ShaderGraphBindEntry {
-          ty,
-          used_in_vertex: true, // todo
-          used_in_fragment: true,
-          node: node.handle().cast_untyped(),
-        },
-        type_id,
-      ));
+    bindgroup.bindings.push((
+      ShaderGraphBindEntry {
+        ty,
+        used_in_vertex: self.current_stage == ShaderStages::Vertex,
+        used_in_fragment: self.current_stage == ShaderStages::Fragment,
+        node: node.handle().cast_untyped(),
+      },
+      type_id,
+    ));
 
-      node
-    }
+    node
   }
 
   pub fn query_uniform<T: SemanticShaderUniform>(
     &mut self,
   ) -> Result<Node<T>, ShaderGraphBuildError> {
-    todo!()
+    let bindgroup_index = T::TYPE.binding_index();
+    let bindgroup = &mut self.bindings[bindgroup_index];
+    let type_id = TypeId::of::<T>();
+    let used_in_vertex = self.current_stage == ShaderStages::Vertex;
+    let used_in_fragment = self.current_stage == ShaderStages::Fragment;
+
+    bindgroup
+      .bindings
+      .iter_mut()
+      .find(|entry| entry.1 == type_id)
+      .map(|(entry, _)| unsafe {
+        entry.used_in_vertex |= used_in_vertex;
+        entry.used_in_fragment |= used_in_fragment;
+        entry.node.cast_type().into()
+      })
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
 }
 
@@ -342,12 +359,14 @@ impl ShaderGraphVertexBuilder {
 }
 
 impl ShaderGraphFragmentBuilder {
-  pub fn create(vertex: ShaderGraphVertexBuilder) -> Self {
+  pub fn create(mut vertex: ShaderGraphVertexBuilder) -> Self {
     // todo register vertex out to frag in
 
     let builder = ShaderGraphBuilder::default();
 
     set_build_graph(builder);
+
+    vertex.current_stage = ShaderStages::Fragment;
 
     Self {
       shader_interface: Default::default(),
