@@ -152,7 +152,7 @@ pub enum ShaderGraphNodeData {
   Copy(ShaderGraphNodeRawHandleUntyped),
   Const(ConstNode),
   // Termination,
-  Scope(ShaderGraphScopeBuildResult),
+  Scope,
 }
 
 #[derive(Clone)]
@@ -180,9 +180,8 @@ impl ShaderGraphNodeData {
     let result = graph.insert_node(node).handle();
 
     if let Some((var_name, statement)) = language.gen_statement(&self, builder) {
-      let graph = builder.top_scope();
-      graph.code_builder.write_ln(&statement);
-      graph.code_gen.code_gen_history.insert(
+      builder.code_builder.write_ln(&statement);
+      builder.top_scope().code_gen.code_gen_history.insert(
         result,
         MiddleVariableCodeGenResult {
           var_name,

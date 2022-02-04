@@ -9,6 +9,7 @@ use crate::*;
 
 pub struct ShaderGraphBuilder {
   scope_count: usize,
+  pub code_builder: CodeBuilder,
   pub scopes: Vec<ShaderGraphScopeBuilder>,
   pub depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
   pub struct_defines: HashMap<TypeId, &'static ShaderStructMetaInfo>,
@@ -18,6 +19,7 @@ impl Default for ShaderGraphBuilder {
   fn default() -> Self {
     Self {
       scope_count: 0,
+      code_builder: Default::default(),
       scopes: vec![ShaderGraphScopeBuilder::new(0)],
       depend_functions: Default::default(),
       struct_defines: Default::default(),
@@ -35,31 +37,24 @@ impl ShaderGraphBuilder {
     self
       .scopes
       .push(ShaderGraphScopeBuilder::new(self.scope_count));
+    self.code_builder.tab();
     self.top_scope()
   }
 
-  pub fn pop_scope(&mut self) -> ShaderGraphScopeBuildResult {
-    let top = self.scopes.pop().unwrap();
-    ShaderGraphScopeBuildResult {
-      code: top.code_builder.output(),
-    }
+  pub fn pop_scope(&mut self) {
+    self.scopes.pop().unwrap();
+    self.code_builder.un_tab();
   }
 
-  pub fn compile(mut self) -> String {
-    self.scopes.pop().unwrap().code_builder.output()
+  pub fn compile(self) -> String {
+    self.code_builder.output()
   }
 }
 
 pub struct ShaderGraphScopeBuilder {
   pub graph_guid: usize,
   pub code_gen: CodeGenScopeCtx,
-  pub code_builder: CodeBuilder,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
-}
-
-#[derive(Clone)]
-pub struct ShaderGraphScopeBuildResult {
-  pub code: String,
 }
 
 impl ShaderGraphScopeBuilder {
@@ -67,7 +62,6 @@ impl ShaderGraphScopeBuilder {
     Self {
       graph_guid,
       code_gen: CodeGenScopeCtx::new(graph_guid),
-      code_builder: Default::default(),
       nodes: Default::default(),
     }
   }

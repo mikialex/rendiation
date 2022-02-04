@@ -1,12 +1,12 @@
 pub mod wgsl;
 pub use wgsl::*;
 
-pub mod glsl;
-pub use glsl::*;
+// pub mod glsl;
+// pub use glsl::*;
 
 use crate::*;
 
-pub trait ShaderGraphCodeGenTarget {
+pub trait ShaderGraphCodeGenTarget: Send + Sync {
   fn gen_primitive_literal(&self, v: PrimitiveShaderValue) -> String;
   fn gen_primitive_type(&self, ty: PrimitiveShaderValueType) -> &'static str;
   fn gen_expr(

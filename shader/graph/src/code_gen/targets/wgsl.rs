@@ -57,7 +57,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
       ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
       ShaderGraphNodeData::Const(ConstNode { data }) => self.gen_primitive_literal(*data),
       ShaderGraphNodeData::Copy(node) => builder.get_node_gen_result_var(*node).to_owned(),
-      ShaderGraphNodeData::Scope(scope) => scope.code.clone(),
+      ShaderGraphNodeData::Scope => "".into(),
       ShaderGraphNodeData::Compose { target, parameters } => {
         format!(
           "{}({})",

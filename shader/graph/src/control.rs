@@ -50,7 +50,7 @@ impl ForCtx {
     modify_graph(|builder| {
       let scope = builder.top_scope();
       // todo insert node?
-      scope.code_builder.write_ln("continue");
+      builder.code_builder.write_ln("continue");
     });
   }
 
@@ -58,7 +58,7 @@ impl ForCtx {
     modify_graph(|builder| {
       let scope = builder.top_scope();
       // todo insert node?
-      scope.code_builder.write_ln("break");
+      builder.code_builder.write_ln("break");
     });
   }
 }
@@ -100,12 +100,12 @@ where
   let i_node = modify_graph(|builder| {
     let scope = builder.top_scope();
     let iter_item_name = scope.code_gen.create_new_unique_name();
-    scope
+    builder
       .code_builder
       .write_ln(iterable.code_gen(iter_item_name.as_ref()).as_str());
 
     let scope = builder.push_scope();
-    scope.code_builder.tab();
+    builder.code_builder.tab();
 
     ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(builder)
   });
@@ -116,13 +116,12 @@ where
 
   modify_graph(|builder| {
     let scope = builder.top_scope();
-    scope.code_builder.un_tab();
-    scope.code_builder.write_ln("}");
+    builder.code_builder.un_tab();
+    builder.code_builder.write_ln("}");
 
-    let result = builder.pop_scope();
-    let result = ShaderGraphNodeData::Scope(result);
+    builder.pop_scope();
 
-    result.insert_into_graph::<AnyType>(builder);
+    ShaderGraphNodeData::Scope.insert_into_graph::<AnyType>(builder);
   });
 }
 
@@ -131,22 +130,21 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
     let condition = builder.get_node_gen_result_var(condition);
     let condition = format!("if ({}) {{", condition);
     let scope = builder.top_scope();
-    scope.code_builder.write_ln(condition);
+    builder.code_builder.write_ln(condition);
 
     let scope = builder.push_scope();
-    scope.code_builder.tab();
+    builder.code_builder.tab();
   });
 
   logic();
 
   modify_graph(|builder| {
     let scope = builder.top_scope();
-    scope.code_builder.un_tab();
-    scope.code_builder.write_ln("}");
-    let result = builder.pop_scope();
-    let result = ShaderGraphNodeData::Scope(result);
+    builder.code_builder.un_tab();
+    builder.code_builder.write_ln("}");
+    builder.pop_scope();
 
-    result.insert_into_graph::<AnyType>(builder);
+    ShaderGraphNodeData::Scope.insert_into_graph::<AnyType>(builder);
   });
 }
 
@@ -156,7 +154,7 @@ impl FragmentCtx {
   pub fn discard() {
     modify_graph(|builder| {
       let scope = builder.top_scope();
-      scope.code_builder.write_ln("discard;");
+      builder.code_builder.write_ln("discard;");
     });
   }
 }
@@ -167,7 +165,7 @@ pub fn early_return<T>(return_value: impl Into<Node<T>>) {
   modify_graph(|builder| {
     let return_value = builder.get_node_gen_result_var(return_value);
     let return_value = format!("return {};", return_value);
-    builder.top_scope().code_builder.write_ln(return_value);
+    builder.code_builder.write_ln(return_value);
   });
 }
 
