@@ -4,10 +4,7 @@ use std::{
   rc::Rc,
 };
 
-use crate::{
-  BindGroupLayoutProvider, GPURenderPass, GPURenderPassDataHolder, PlaceholderBindgroup,
-  RenderPassDescriptorOwned, RenderPassInfo, WebGPUTexture2d, WebGPUTexture2dSource,
-};
+use crate::*;
 
 pub struct GPUCommandEncoder {
   encoder: wgpu::CommandEncoder,

@@ -57,7 +57,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
       ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
       ShaderGraphNodeData::Const(ConstNode { data }) => self.gen_primitive_literal(*data),
       ShaderGraphNodeData::Copy(node) => builder.get_node_gen_result_var(*node).to_owned(),
-      ShaderGraphNodeData::Scope(_) => todo!(),
+      ShaderGraphNodeData::Scope(scope) => scope.code.clone(),
       ShaderGraphNodeData::Compose { target, parameters } => {
         format!(
           "{}({})",
@@ -223,6 +223,7 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
     ShaderValueType::Sampler => "sampler".to_owned(),
     ShaderValueType::Texture => "texture_2d<f32>".to_owned(),
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty).to_owned(),
+    ShaderValueType::Never => unreachable!("can not code generate never type"),
   }
 }
 

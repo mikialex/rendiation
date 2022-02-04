@@ -130,10 +130,26 @@ struct Test;
 impl ShaderGraphProvider for Test {
   fn build_vertex(
     &self,
-    _builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let a = consts(1.) + consts(2.);
     let _: Node<_> = (Vec3::zero(), a).into();
+    builder.vertex_position.set(Vec4::one());
+
+    let a = consts(1).mutable();
+    let c = consts(0).mutable();
+
+    for_by(5, |for_ctx, i| {
+      let b = 1;
+      if_by(i.greater_than(0), || {
+        a.set(a.get() + b.into());
+        for_ctx.do_continue();
+      });
+      c.set(c.get() + i);
+    });
+
+    let d = reduceLightBleeding(1., 2.);
+
     Ok(())
   }
 

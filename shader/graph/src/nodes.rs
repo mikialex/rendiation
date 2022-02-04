@@ -23,6 +23,7 @@ pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
   Sampler,
   Texture,
+  Never,
 }
 
 #[derive(Clone, Copy)]

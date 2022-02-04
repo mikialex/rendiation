@@ -65,14 +65,20 @@ pub fn build_shader(
   let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
 
   Ok(ShaderGraphCompileResult {
+    language: Box::new(target),
     vertex_shader,
     frag_shader,
+    states: Default::default(),
+    bindings: fragment_builder.bindgroups,
   })
 }
 
 pub struct ShaderGraphCompileResult {
+  pub language: Box<dyn ShaderGraphCodeGenTarget>,
   pub vertex_shader: String,
   pub frag_shader: String,
+  pub states: PipelineShaderInterfaceInfo,
+  pub bindings: ShaderGraphBindGroupBuilder,
 }
 
 pub struct ShaderGraphVertexBuilder {
@@ -94,7 +100,7 @@ pub struct ShaderGraphVertexBuilder {
 
   // built in vertex out
   pub vertex_point_size: Node<Mutable<f32>>,
-  pub vertex_position: Node<Mutable<f32>>,
+  pub vertex_position: Node<Mutable<Vec4<f32>>>,
 
   // user vertex out
   vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
@@ -154,13 +160,6 @@ pub struct ShaderVaryingValueInfo {
   pub interpolation: usize,
   pub ty: PrimitiveShaderValueType,
 }
-
-// #[derive(Clone)]
-// pub enum ShaderGraphBindType {
-//   Sampler(ShaderGraphNodeRawHandle<ShaderSampler>),
-//   Texture(ShaderGraphNodeRawHandle<ShaderTexture>),
-//   UBO((ShaderStructMemberValueType, ShaderGraphNodeRawHandleUntyped)),
-// }
 
 #[derive(Clone)]
 pub struct ShaderGraphBindEntry {

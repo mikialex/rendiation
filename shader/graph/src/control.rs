@@ -24,8 +24,8 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
     ShaderGraphNodeData::Copy(self.cast_untyped()).insert_graph()
   }
 
-  pub fn set(&self, node: Node<T>) {
-    unsafe { self.handle.set(node.handle().cast_type()) };
+  pub fn set(&self, node: impl Into<Node<T>>) {
+    unsafe { self.handle.set(node.into().handle().cast_type()) };
   }
 }
 
@@ -104,8 +104,8 @@ where
       .code_builder
       .write_ln(iterable.code_gen(iter_item_name.as_ref()).as_str());
 
+    let scope = builder.push_scope();
     scope.code_builder.tab();
-    builder.push_scope();
 
     ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(builder)
   });
@@ -133,8 +133,8 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
     let scope = builder.top_scope();
     scope.code_builder.write_ln(condition);
 
+    let scope = builder.push_scope();
     scope.code_builder.tab();
-    builder.push_scope();
   });
 
   logic();

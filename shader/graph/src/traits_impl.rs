@@ -3,7 +3,7 @@ use rendiation_algebra::*;
 
 impl ShaderGraphNodeType for AnyType {
   fn to_type() -> ShaderValueType {
-    unreachable!("Node can't created with type AnyType")
+    ShaderValueType::Never
   }
 }
 

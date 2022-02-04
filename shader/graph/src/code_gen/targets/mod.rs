@@ -81,7 +81,7 @@ pub fn gen_primitive_literal_common<T: ShaderGraphCodeGenTarget>(
       let v: &[f32; 16] = v.as_ref();
       float_group(v.as_slice())
     }
-    PrimitiveShaderValue::Uint32(_) => todo!(),
+    PrimitiveShaderValue::Uint32(v) => format!("{}", v),
   };
   format!("{}{}", target.gen_primitive_type(v.into()), grouped)
 }
