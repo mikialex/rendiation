@@ -89,18 +89,12 @@ impl ShaderGraphCodeGenTarget for WGSL {
     vertex: &mut ShaderGraphVertexBuilder,
     builder: ShaderGraphBuilder,
   ) -> String {
-    format!(
-      "
-{struct_define}
-{header}
-{functions}
-{entry}
-    ",
-      struct_define = "",
-      header = gen_bindings(&vertex.bindgroups, ShaderStages::Vertex),
-      functions = builder.gen_fn_depends(),
-      entry = gen_entry(ShaderStages::Vertex, builder.compile())
-    )
+    let mut code = CodeBuilder::default();
+    gen_structs(&mut code, &builder);
+    gen_bindings(&mut code, &vertex.bindgroups, ShaderStages::Vertex);
+    builder.gen_fn_depends(&mut code);
+    gen_entry(&mut code, ShaderStages::Vertex, builder.compile());
+    code.output()
   }
 
   fn gen_fragment_shader(
@@ -108,32 +102,23 @@ impl ShaderGraphCodeGenTarget for WGSL {
     vertex: &mut ShaderGraphFragmentBuilder,
     builder: ShaderGraphBuilder,
   ) -> String {
-    format!(
-      "
-{struct_define}
-{header}
-{functions}
-{entry}
-    ",
-      struct_define = gen_structs(&builder),
-      header = gen_bindings(&vertex.bindgroups, ShaderStages::Fragment),
-      functions = builder.gen_fn_depends(),
-      entry = gen_entry(ShaderStages::Fragment, builder.compile())
-    )
+    let mut code = CodeBuilder::default();
+    gen_structs(&mut code, &builder);
+    gen_bindings(&mut code, &vertex.bindgroups, ShaderStages::Fragment);
+    builder.gen_fn_depends(&mut code);
+    gen_entry(&mut code, ShaderStages::Fragment, builder.compile());
+    code.output()
   }
 }
 
-fn gen_structs(builder: &ShaderGraphBuilder) -> String {
+fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
   builder
     .struct_defines
     .iter()
-    .map(|(_, meta)| gen_struct(meta))
-    .collect::<Vec<_>>()
-    .join("\n")
+    .for_each(|(_, meta)| gen_struct(code, meta))
 }
 
-fn gen_struct(meta: &ShaderStructMetaInfo) -> String {
-  let mut builder = CodeBuilder::default();
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfo) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
   for (field_name, ty) in &meta.fields {
@@ -141,40 +126,39 @@ fn gen_struct(meta: &ShaderStructMetaInfo) -> String {
   }
   builder.un_tab();
   builder.write_ln("}}");
-  builder.output()
 }
 
-fn gen_bindings(builder: &ShaderGraphBindGroupBuilder, stage: ShaderStages) -> String {
+fn gen_bindings(
+  code: &mut CodeBuilder,
+  builder: &ShaderGraphBindGroupBuilder,
+  stage: ShaderStages,
+) {
   builder
     .bindings
     .iter()
     .enumerate()
-    .map(|(group_index, b)| {
+    .for_each(|(group_index, b)| {
       b.bindings
         .iter()
         .enumerate()
-        .filter_map(|(item_index, (entry, _))| {
-          gen_bind_entry(entry, group_index, item_index, stage)
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+        .for_each(|(item_index, (entry, _))| {
+          gen_bind_entry(code, entry, group_index, item_index, stage)
+        });
     })
-    .collect::<Vec<_>>()
-    .join("\n")
 }
 
 fn gen_bind_entry(
+  code: &mut CodeBuilder,
   entry: &ShaderGraphBindEntry,
   group_index: usize,
   item_index: usize,
   stage: ShaderStages,
-) -> Option<String> {
-  match stage {
+) {
+  if match stage {
     ShaderStages::Vertex => entry.used_in_vertex,
     ShaderStages::Fragment => entry.used_in_fragment,
-  }
-  .then(|| {
-    format!(
+  } {
+    code.write_ln(format!(
       "[[group({}), binding({})]] var{} {}: {};",
       group_index,
       item_index,
@@ -184,24 +168,20 @@ fn gen_bind_entry(
       },
       "unnamed_todo",
       gen_type_impl(entry.ty),
-    )
-  })
+    ));
+  }
 }
 
-fn gen_entry(stage: ShaderStages, content: String) -> String {
+fn gen_entry(code: &mut CodeBuilder, stage: ShaderStages, content: String) {
   let name = match stage {
     ShaderStages::Vertex => "vertex",
     ShaderStages::Fragment => "fragment",
   };
 
-  format!(
-    "
-[[stage({name})]]
-fn {name}_main(input) -> {{
-{content}
-}}
-"
-  )
+  code.write_ln(format!("[[stage({name})]]"));
+  code.write_ln(format!("fn {name}_main(input) -> {{"));
+  code.write_raw(content);
+  code.write_ln("}");
 }
 
 fn gen_primitive_type_impl(ty: PrimitiveShaderValueType) -> &'static str {

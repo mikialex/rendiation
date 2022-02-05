@@ -3,9 +3,6 @@ use std::collections::{HashMap, HashSet};
 
 pub use code_builder::*;
 
-pub mod shader;
-pub use shader::*;
-
 pub mod scope;
 pub use scope::*;
 
@@ -29,8 +26,7 @@ impl ShaderGraphBuilder {
     self.depend_functions.insert(node.prototype);
   }
 
-  fn gen_fn_depends(&self) -> String {
-    let mut builder = CodeBuilder::default();
+  fn gen_fn_depends(&self, builder: &mut CodeBuilder) {
     let mut resolved_fn = HashSet::new();
     self.depend_functions.iter().for_each(|f| {
       if f.depend_functions.is_empty() {
@@ -65,6 +61,5 @@ impl ShaderGraphBuilder {
         &mut || panic!("loop exist"),
       )
     });
-    builder.output()
   }
 }

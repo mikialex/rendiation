@@ -17,9 +17,11 @@ pub struct ShaderGraphBuilder {
 
 impl Default for ShaderGraphBuilder {
   fn default() -> Self {
+    let mut code_builder = CodeBuilder::default();
+    code_builder.tab();
     Self {
       scope_count: 0,
-      code_builder: Default::default(),
+      code_builder,
       scopes: vec![ShaderGraphScopeBuilder::new(0)],
       depend_functions: Default::default(),
       struct_defines: Default::default(),

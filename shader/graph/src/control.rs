@@ -68,7 +68,7 @@ impl ShaderIterator for u32 {
 
   fn code_gen(&self, iter_item_name: &str) -> String {
     format!(
-      "for (int {name} = 0; {name} < {count}; ++i)",
+      "for (int {name} = 0; {name} < {count}; ++i) {{",
       name = iter_item_name,
       count = self
     )
@@ -104,7 +104,7 @@ where
       .code_builder
       .write_ln(iterable.code_gen(iter_item_name.as_ref()).as_str());
 
-    let scope = builder.push_scope();
+    builder.push_scope();
     builder.code_builder.tab();
 
     ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(builder)
@@ -115,7 +115,6 @@ where
   logic(&cx, i_node);
 
   modify_graph(|builder| {
-    let scope = builder.top_scope();
     builder.code_builder.un_tab();
     builder.code_builder.write_ln("}");
 
