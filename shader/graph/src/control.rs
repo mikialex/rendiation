@@ -48,7 +48,6 @@ pub struct ForCtx;
 impl ForCtx {
   pub fn do_continue(&self) {
     modify_graph(|builder| {
-      let scope = builder.top_scope();
       // todo insert node?
       builder.code_builder.write_ln("continue");
     });
@@ -56,7 +55,6 @@ impl ForCtx {
 
   pub fn do_break(&self) {
     modify_graph(|builder| {
-      let scope = builder.top_scope();
       // todo insert node?
       builder.code_builder.write_ln("break");
     });
@@ -128,17 +126,15 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   modify_graph(|builder| {
     let condition = builder.get_node_gen_result_var(condition);
     let condition = format!("if ({}) {{", condition);
-    let scope = builder.top_scope();
     builder.code_builder.write_ln(condition);
 
-    let scope = builder.push_scope();
+    builder.push_scope();
     builder.code_builder.tab();
   });
 
   logic();
 
   modify_graph(|builder| {
-    let scope = builder.top_scope();
     builder.code_builder.un_tab();
     builder.code_builder.write_ln("}");
     builder.pop_scope();
