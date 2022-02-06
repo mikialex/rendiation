@@ -148,7 +148,6 @@ pub struct FragmentCtx;
 impl FragmentCtx {
   pub fn discard() {
     modify_graph(|builder| {
-      let scope = builder.top_scope();
       builder.code_builder.write_ln("discard;");
     });
   }

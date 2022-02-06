@@ -148,7 +148,8 @@ impl ShaderGraphProvider for Test {
       c.set(c.get() + i);
     });
 
-    let d = reduceLightBleeding(1., 2.);
+    // let x = a.get() + c.get();
+    let _ = reduceLightBleeding(1., 2.);
 
     Ok(())
   }

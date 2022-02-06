@@ -83,5 +83,16 @@ pub fn gen_primitive_literal_common<T: ShaderGraphCodeGenTarget>(
     }
     PrimitiveShaderValue::Uint32(v) => format!("{}", v),
   };
-  format!("{}{}", target.gen_primitive_type(v.into()), grouped)
+  #[allow(clippy::match_like_matches_macro)]
+  let require_constructor = match v {
+    PrimitiveShaderValue::Bool(_) => false,
+    PrimitiveShaderValue::Uint32(_) => false,
+    PrimitiveShaderValue::Float32(_) => false,
+    _ => true,
+  };
+  if require_constructor {
+    format!("{}{}", target.gen_primitive_type(v.into()), grouped)
+  } else {
+    grouped
+  }
 }
