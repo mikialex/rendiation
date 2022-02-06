@@ -21,11 +21,22 @@ impl<T: ShaderGraphNodeType> Node<T> {
 
 impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
   pub fn get(&self) -> Node<T> {
-    ShaderGraphNodeData::Copy(self.cast_untyped()).insert_graph()
+    unsafe { self.handle().cast_type().into() }
   }
 
   pub fn set(&self, node: impl Into<Node<T>>) {
-    unsafe { self.handle.set(node.into().handle().cast_type()) };
+    let node = node.into();
+    let handle = node.handle();
+    modify_graph(|builder| {
+      let assign_statement = format!(
+        "{} = {}",
+        builder.get_node_gen_result_var(self.get()),
+        builder.get_node_gen_result_var(node)
+      );
+      builder.code_builder.write_ln(assign_statement);
+    });
+
+    // unsafe { self.handle.set(handle.cast_type()) };
   }
 }
 
@@ -117,8 +128,6 @@ where
     builder.code_builder.write_ln("}");
 
     builder.pop_scope();
-
-    ShaderGraphNodeData::Scope.insert_into_graph::<AnyType>(builder);
   });
 }
 
@@ -138,8 +147,6 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
     builder.code_builder.un_tab();
     builder.code_builder.write_ln("}");
     builder.pop_scope();
-
-    ShaderGraphNodeData::Scope.insert_into_graph::<AnyType>(builder);
   });
 }
 

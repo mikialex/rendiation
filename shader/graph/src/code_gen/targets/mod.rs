@@ -14,6 +14,7 @@ pub trait ShaderGraphCodeGenTarget: Send + Sync {
     data: &ShaderGraphNodeData,
     builder: &mut ShaderGraphBuilder,
   ) -> Option<String>;
+  fn gen_input_name(&self, input: &ShaderGraphInputNode) -> String;
   fn gen_statement(
     &self,
     expr: &ShaderGraphNodeData,

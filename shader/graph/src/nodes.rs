@@ -127,7 +127,7 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
 
 #[derive(Clone)]
 pub enum ShaderGraphNodeData {
-  Function(FunctionNode),
+  FunctionCall(FunctionNode),
   TextureSampling(TextureSamplingNode),
   Swizzle {
     ty: &'static str,
@@ -151,8 +151,6 @@ pub enum ShaderGraphNodeData {
   },
   Copy(ShaderGraphNodeRawHandleUntyped),
   Const(ConstNode),
-  // Termination,
-  Scope,
 }
 
 #[derive(Clone)]
@@ -179,6 +177,16 @@ impl ShaderGraphNodeData {
     let node = ShaderGraphNode::<T>::new(self.clone());
     let result = graph.insert_node(node).handle();
 
+    if let ShaderGraphNodeData::Input(input) = &self {
+      builder.top_scope().code_gen.code_gen_history.insert(
+        result,
+        MiddleVariableCodeGenResult {
+          var_name: language.gen_input_name(input),
+          statement: "".to_owned(),
+        },
+      );
+    }
+
     if let Some((var_name, statement)) = language.gen_statement(&self, builder) {
       builder.code_builder.write_ln(&statement);
       builder.top_scope().code_gen.code_gen_history.insert(
@@ -198,7 +206,7 @@ impl ShaderGraphNodeData {
   }
   pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandleUntyped)) {
     match self {
-      ShaderGraphNodeData::Function(FunctionNode { parameters, .. }) => {
+      ShaderGraphNodeData::FunctionCall(FunctionNode { parameters, .. }) => {
         parameters.iter().for_each(visitor)
       }
       ShaderGraphNodeData::TextureSampling(TextureSamplingNode {

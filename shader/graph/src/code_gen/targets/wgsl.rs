@@ -17,7 +17,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
     builder: &mut ShaderGraphBuilder,
   ) -> Option<String> {
     let expr = match data {
-      ShaderGraphNodeData::Function(n) => {
+      ShaderGraphNodeData::FunctionCall(n) => {
         builder.add_fn_dep(n);
         format!(
           "{}({})",
@@ -57,7 +57,6 @@ impl ShaderGraphCodeGenTarget for WGSL {
       ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
       ShaderGraphNodeData::Const(ConstNode { data }) => self.gen_primitive_literal(*data),
       ShaderGraphNodeData::Copy(node) => builder.get_node_gen_result_var(*node).to_owned(),
-      ShaderGraphNodeData::Scope => return None,
       ShaderGraphNodeData::Compose { target, parameters } => {
         format!(
           "{}({})",
@@ -71,6 +70,18 @@ impl ShaderGraphCodeGenTarget for WGSL {
       }
     };
     expr.into()
+  }
+
+  fn gen_input_name(&self, input: &ShaderGraphInputNode) -> String {
+    match input {
+      ShaderGraphInputNode::BuiltIn => "built_in".to_owned(),
+      ShaderGraphInputNode::Uniform {
+        bindgroup_index,
+        entry_index,
+      } => format!("uniform_b_{}_i_{}", bindgroup_index, entry_index),
+      ShaderGraphInputNode::VertexIn { index, .. } => format!("vertex_in_{}", index),
+      ShaderGraphInputNode::FragmentIn { index, .. } => format!("fragment_in_{}", index),
+    }
   }
 
   fn gen_statement(
