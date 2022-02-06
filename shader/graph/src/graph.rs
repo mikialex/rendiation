@@ -9,7 +9,6 @@ use crate::*;
 
 pub struct ShaderGraphBuilder {
   scope_count: usize,
-  pub code_builder: CodeBuilder,
   pub scopes: Vec<ShaderGraphScopeBuilder>,
   pub depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
   pub struct_defines: HashMap<TypeId, &'static ShaderStructMetaInfo>,
@@ -17,11 +16,8 @@ pub struct ShaderGraphBuilder {
 
 impl Default for ShaderGraphBuilder {
   fn default() -> Self {
-    let mut code_builder = CodeBuilder::default();
-    code_builder.tab();
     Self {
       scope_count: 0,
-      code_builder,
       scopes: vec![ShaderGraphScopeBuilder::new(0)],
       depend_functions: Default::default(),
       struct_defines: Default::default(),
@@ -39,17 +35,11 @@ impl ShaderGraphBuilder {
     self
       .scopes
       .push(ShaderGraphScopeBuilder::new(self.scope_count));
-    self.code_builder.tab();
     self.top_scope()
   }
 
   pub fn pop_scope(&mut self) {
     self.scopes.pop().unwrap();
-    self.code_builder.un_tab();
-  }
-
-  pub fn compile(self) -> String {
-    self.code_builder.output()
   }
 }
 
@@ -57,6 +47,7 @@ pub struct ShaderGraphScopeBuilder {
   pub graph_guid: usize,
   pub code_gen: CodeGenScopeCtx,
   pub nodes: ArenaGraph<ShaderGraphNodeUntyped>,
+  pub barriers: Vec<ShaderGraphNodeRawHandleUntyped>,
 }
 
 impl ShaderGraphScopeBuilder {
@@ -65,6 +56,7 @@ impl ShaderGraphScopeBuilder {
       graph_guid,
       code_gen: CodeGenScopeCtx::new(graph_guid),
       nodes: Default::default(),
+      barriers: Default::default(),
     }
   }
 

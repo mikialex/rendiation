@@ -108,12 +108,8 @@ where
   let i_node = modify_graph(|builder| {
     let scope = builder.top_scope();
     let iter_item_name = scope.code_gen.create_new_unique_name();
-    builder
-      .code_builder
-      .write_ln(iterable.code_gen(iter_item_name.as_ref()).as_str());
 
     builder.push_scope();
-    builder.code_builder.tab();
 
     ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(builder)
   });
@@ -123,29 +119,26 @@ where
   logic(&cx, i_node);
 
   modify_graph(|builder| {
-    builder.code_builder.un_tab();
-    builder.code_builder.write_ln("}");
-
     builder.pop_scope();
   });
 }
 
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   modify_graph(|builder| {
-    let condition = builder.get_node_gen_result_var(condition);
-    let condition = format!("if ({}) {{", condition);
-    builder.code_builder.write_ln(condition);
-
     builder.push_scope();
-    builder.code_builder.tab();
   });
 
   logic();
 
   modify_graph(|builder| {
-    builder.code_builder.un_tab();
-    builder.code_builder.write_ln("}");
     builder.pop_scope();
+
+    let condition = condition.into();
+
+    ShaderScopeNode::If {
+      condition: condition.cast_untyped(),
+      scope: todo!(),
+    }
   });
 }
 
@@ -153,9 +146,7 @@ pub struct FragmentCtx;
 
 impl FragmentCtx {
   pub fn discard() {
-    modify_graph(|builder| {
-      builder.code_builder.write_ln("discard;");
-    });
+    ShaderGraphNodeData::SideEffect(ShaderSideEffectNode::Termination).insert_graph();
   }
 }
 

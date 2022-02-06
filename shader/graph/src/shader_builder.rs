@@ -52,25 +52,27 @@ pub fn build_shader(
 ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
   let bindgroup_builder = ShaderGraphBindGroupBuilder::default();
 
-  let target = WGSL;
+  todo!()
 
-  let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
-  builder.build_vertex(&mut vertex_builder)?;
-  let result = vertex_builder.extract();
-  let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
+  // let target = WGSL;
 
-  let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
-  builder.build_fragment(&mut fragment_builder)?;
-  let result = fragment_builder.extract();
-  let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
+  // let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
+  // builder.build_vertex(&mut vertex_builder)?;
+  // let result = vertex_builder.extract();
+  // let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
 
-  Ok(ShaderGraphCompileResult {
-    language: Box::new(target),
-    vertex_shader,
-    frag_shader,
-    states: Default::default(),
-    bindings: fragment_builder.bindgroups,
-  })
+  // let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
+  // builder.build_fragment(&mut fragment_builder)?;
+  // let result = fragment_builder.extract();
+  // let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
+
+  // Ok(ShaderGraphCompileResult {
+  //   language: Box::new(target),
+  //   vertex_shader,
+  //   frag_shader,
+  //   states: Default::default(),
+  //   bindings: fragment_builder.bindgroups,
+  // })
 }
 
 pub struct ShaderGraphCompileResult {

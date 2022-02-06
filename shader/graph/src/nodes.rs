@@ -151,6 +151,26 @@ pub enum ShaderGraphNodeData {
   },
   Copy(ShaderGraphNodeRawHandleUntyped),
   Const(ConstNode),
+  Scope(ShaderScopeNode),
+  SideEffect(ShaderSideEffectNode),
+}
+
+#[derive(Clone)]
+pub enum ShaderSideEffectNode {
+  Continue,
+  Break,
+  Return,
+  Termination,
+}
+
+#[derive(Clone)]
+pub enum ShaderScopeNode {
+  If {
+    condition: ShaderGraphNodeRawHandleUntyped,
+    scope: ArenaGraph<ShaderGraphNodeUntyped>,
+  },
+  For {},
+  // While,
 }
 
 #[derive(Clone)]
@@ -159,6 +179,10 @@ pub struct ConstNode {
 }
 
 impl ShaderGraphNodeData {
+  pub fn insert_effect() {
+    //
+  }
+
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
     modify_graph(|graph| self.insert_into_graph(graph))
   }
@@ -167,7 +191,7 @@ impl ShaderGraphNodeData {
     self,
     builder: &mut ShaderGraphBuilder,
   ) -> Node<T> {
-    let language = WGSL;
+    // let language = WGSL;
 
     if let Some(s) = T::extract_struct_define() {
       builder.struct_defines.insert(TypeId::of::<T>(), s);
@@ -177,30 +201,37 @@ impl ShaderGraphNodeData {
     let node = ShaderGraphNode::<T>::new(self.clone());
     let result = graph.insert_node(node).handle();
 
-    if let ShaderGraphNodeData::Input(input) = &self {
-      builder.top_scope().code_gen.code_gen_history.insert(
-        result,
-        MiddleVariableCodeGenResult {
-          var_name: language.gen_input_name(input),
-          statement: "".to_owned(),
-        },
-      );
-    }
+    // if let ShaderGraphNodeData::Input(input) = &self {
+    //   builder.top_scope().code_gen.code_gen_history.insert(
+    //     result,
+    //     MiddleVariableCodeGenResult {
+    //       var_name: language.gen_input_name(input),
+    //       statement: "".to_owned(),
+    //     },
+    //   );
+    // }
 
-    if let Some((var_name, statement)) = language.gen_statement(&self, builder) {
-      builder.code_builder.write_ln(&statement);
-      builder.top_scope().code_gen.code_gen_history.insert(
-        result,
-        MiddleVariableCodeGenResult {
-          var_name,
-          statement,
-        },
-      );
-    }
+    // if let Some((var_name, statement)) = language.gen_statement(&self, builder) {
+    //   builder.code_builder.write_ln(&statement);
+    //   builder.top_scope().code_gen.code_gen_history.insert(
+    //     result,
+    //     MiddleVariableCodeGenResult {
+    //       var_name,
+    //       statement,
+    //     },
+    //   );
+    // }
 
-    // self.visit_dependency(|dep| {
-    //   graph.nodes.connect_node(*dep, result);
-    // });
+    self.visit_dependency(|dep| {
+      builder
+        .top_scope()
+        .nodes
+        .connect_node(dep.handle, result.handle);
+    });
+    let graph = builder.top_scope();
+    for barrier in &graph.barriers {
+      graph.nodes.connect_node(barrier.handle, result.handle);
+    }
 
     unsafe { result.cast_type().into() }
   }
