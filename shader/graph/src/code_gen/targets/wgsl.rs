@@ -74,7 +74,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
 
   fn gen_input_name(&self, input: &ShaderGraphInputNode) -> String {
     match input {
-      ShaderGraphInputNode::BuiltIn => "built_in".to_owned(),
+      ShaderGraphInputNode::BuiltIn(ty) => gen_built_in(*ty).to_owned(),
       ShaderGraphInputNode::Uniform {
         bindgroup_index,
         entry_index,
@@ -222,5 +222,14 @@ fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> &'static str {
   match ty {
     ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type_impl(ty),
     ShaderStructMemberValueType::Struct(meta) => meta.name,
+  }
+}
+
+fn gen_built_in(ty: ShaderBuiltIn) -> &'static str {
+  match ty {
+    ShaderBuiltIn::VertexClipPosition => "bt_vertex_clip_position",
+    ShaderBuiltIn::VertexPointSize => "bt_vertex_point_size",
+    ShaderBuiltIn::VertexIndexId => "bt_vertex_vertex_id",
+    ShaderBuiltIn::VertexInstanceId => "bt_vertex_instance_id",
   }
 }

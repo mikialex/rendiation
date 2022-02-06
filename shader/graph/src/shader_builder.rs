@@ -279,17 +279,24 @@ impl ShaderGraphVertexBuilder {
   pub fn create(bindgroups: ShaderGraphBindGroupBuilder) -> Self {
     let mut builder = ShaderGraphBuilder::default();
 
-    let vertex_point_size =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+    let vertex_point_size = ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(
+      ShaderBuiltIn::VertexPointSize,
+    ))
+    .insert_into_graph(&mut builder);
 
-    let vertex_position =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+    let vertex_position = ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(
+      ShaderBuiltIn::VertexClipPosition,
+    ))
+    .insert_into_graph(&mut builder);
 
     let vertex_index =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId))
+        .insert_into_graph(&mut builder);
 
-    let instance_index =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+    let instance_index = ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(
+      ShaderBuiltIn::VertexInstanceId,
+    ))
+    .insert_into_graph(&mut builder);
 
     set_build_graph(builder);
 

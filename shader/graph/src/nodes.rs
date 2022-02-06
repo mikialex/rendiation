@@ -294,7 +294,7 @@ pub enum OperatorNode2 {
 
 #[derive(Clone)]
 pub enum ShaderGraphInputNode {
-  BuiltIn,
+  BuiltIn(ShaderBuiltIn),
   Uniform {
     bindgroup_index: usize,
     entry_index: usize,
@@ -307,6 +307,14 @@ pub enum ShaderGraphInputNode {
     ty: PrimitiveShaderValueType,
     index: usize,
   },
+}
+
+#[derive(Copy, Clone)]
+pub enum ShaderBuiltIn {
+  VertexClipPosition,
+  VertexPointSize,
+  VertexIndexId,
+  VertexInstanceId,
 }
 
 // todo
