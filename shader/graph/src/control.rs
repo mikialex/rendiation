@@ -26,7 +26,6 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
 
   pub fn set(&self, node: impl Into<Node<T>>) {
     let node = node.into();
-    let handle = node.handle();
     modify_graph(|builder| {
       let assign_statement = format!(
         "{} = {}",
