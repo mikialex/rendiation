@@ -92,7 +92,6 @@ impl<T> Node<T> {
   }
 }
 
-#[derive(Clone)]
 pub struct ShaderGraphNode<T> {
   phantom: PhantomData<T>,
   pub data: ShaderGraphNodeData,
@@ -125,7 +124,6 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
   }
 }
 
-#[derive(Clone)]
 pub enum ShaderGraphNodeData {
   FunctionCall(FunctionNode),
   TextureSampling(TextureSamplingNode),
@@ -140,7 +138,7 @@ pub enum ShaderGraphNodeData {
   Operator(OperatorNode),
   Input(ShaderGraphInputNode),
   /// This is workaround for some case
-  Named(String),
+  UnNamed,
   FieldGet {
     field_name: &'static str,
     struct_node: ShaderGraphNodeRawHandleUntyped,
@@ -150,27 +148,38 @@ pub enum ShaderGraphNodeData {
     fields: Vec<ShaderGraphNodeRawHandleUntyped>,
   },
   Copy(ShaderGraphNodeRawHandleUntyped),
+  Write {
+    source: ShaderGraphNodeRawHandleUntyped,
+    target: ShaderGraphNodeRawHandleUntyped,
+  },
   Const(ConstNode),
-  Scope(ShaderScopeNode),
+  ControlFlow(ShaderControlFlowNode),
   SideEffect(ShaderSideEffectNode),
 }
 
-#[derive(Clone)]
 pub enum ShaderSideEffectNode {
   Continue,
   Break,
-  Return,
+  Return(ShaderGraphNodeRawHandleUntyped),
   Termination,
 }
 
-#[derive(Clone)]
-pub enum ShaderScopeNode {
+pub enum ShaderControlFlowNode {
   If {
     condition: ShaderGraphNodeRawHandleUntyped,
-    scope: ArenaGraph<ShaderGraphNodeUntyped>,
+    scope: ShaderGraphScope,
   },
-  For {},
+  For {
+    source: ShaderIteratorAble,
+    scope: ShaderGraphScope,
+  },
   // While,
+}
+
+#[derive(Clone)]
+pub enum ShaderIteratorAble {
+  Const(u32),
+  Count(Node<u32>),
 }
 
 #[derive(Clone)]
@@ -178,11 +187,68 @@ pub struct ConstNode {
   pub data: PrimitiveShaderValue,
 }
 
-impl ShaderGraphNodeData {
-  pub fn insert_effect() {
-    //
+impl ShaderSideEffectNode {
+  pub fn insert_graph_bottom(self) {
+    self.insert_graph(0);
   }
+  pub fn insert_graph(self, target_scope_id: usize) {
+    modify_graph(|graph| {
+      let node = ShaderGraphNodeData::SideEffect(self).insert_into_graph::<AnyType>(graph);
+      let mut find_target_scope = false;
+      for scope in &mut graph.scopes {
+        if scope.graph_guid == target_scope_id {
+          find_target_scope = true;
+        }
+        if find_target_scope {
+          scope.has_side_effect = true;
+        }
+      }
+      assert!(find_target_scope);
+      let top = graph.top_scope_mut();
+      let nodes = &mut top.nodes;
+      top
+        .inserted
+        .iter()
+        .take(top.inserted.len() - 1)
+        .for_each(|n| nodes.connect_node(n.handle, node.handle().handle));
+      top.barriers.push(node.handle());
+    })
+  }
+}
 
+impl ShaderControlFlowNode {
+  pub fn has_side_effect(&self) -> bool {
+    match self {
+      ShaderControlFlowNode::If { scope, .. } => scope.has_side_effect,
+      ShaderControlFlowNode::For { scope, .. } => scope.has_side_effect,
+    }
+  }
+  pub fn insert_into_graph(self, builder: &mut ShaderGraphBuilder) {
+    let has_side_effect = self.has_side_effect();
+    let node = ShaderGraphNodeData::ControlFlow(self).insert_into_graph::<AnyType>(builder);
+    let top = builder.top_scope_mut();
+    let nodes = &mut top.nodes;
+
+    if has_side_effect {
+      top
+        .inserted
+        .iter()
+        .take(top.inserted.len() - 1)
+        .for_each(|n| nodes.connect_node(n.handle, node.handle().handle));
+      top.barriers.push(node.handle());
+    }
+
+    // todo fix
+    // visit all the node in this scope generate before, and check
+    // if it's same and generate dep, if not pass the captured to parent scope
+    // top
+    //   .captured
+    //   .iter()
+    //   .for_each(|n| nodes.connect_node(n.handle, node.handle().handle))
+  }
+}
+
+impl ShaderGraphNodeData {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
     modify_graph(|graph| self.insert_into_graph(graph))
   }
@@ -191,44 +257,29 @@ impl ShaderGraphNodeData {
     self,
     builder: &mut ShaderGraphBuilder,
   ) -> Node<T> {
-    // let language = WGSL;
-
     if let Some(s) = T::extract_struct_define() {
       builder.struct_defines.insert(TypeId::of::<T>(), s);
     }
 
-    let graph = builder.top_scope();
-    let node = ShaderGraphNode::<T>::new(self.clone());
+    let mut nodes_to_connect = Vec::new();
+    self.visit_dependency(|dep| {
+      nodes_to_connect.push(*dep);
+    });
+
+    let graph = builder.top_scope_mut();
+    let node = ShaderGraphNode::<T>::new(self);
     let result = graph.insert_node(node).handle();
 
-    // if let ShaderGraphNodeData::Input(input) = &self {
-    //   builder.top_scope().code_gen.code_gen_history.insert(
-    //     result,
-    //     MiddleVariableCodeGenResult {
-    //       var_name: language.gen_input_name(input),
-    //       statement: "".to_owned(),
-    //     },
-    //   );
-    // }
-
-    // if let Some((var_name, statement)) = language.gen_statement(&self, builder) {
-    //   builder.code_builder.write_ln(&statement);
-    //   builder.top_scope().code_gen.code_gen_history.insert(
-    //     result,
-    //     MiddleVariableCodeGenResult {
-    //       var_name,
-    //       statement,
-    //     },
-    //   );
-    // }
-
-    self.visit_dependency(|dep| {
-      builder
-        .top_scope()
-        .nodes
-        .connect_node(dep.handle, result.handle);
+    nodes_to_connect.iter().for_each(|n| {
+      let top = builder.top_scope_mut();
+      if top.nodes.get_node_if(n.handle).is_none() {
+        top.captured.push(*n);
+      } else {
+        top.nodes.connect_node(n.handle, result.handle);
+      }
     });
-    let graph = builder.top_scope();
+
+    let graph = builder.top_scope_mut();
     for barrier in &graph.barriers {
       graph.nodes.connect_node(barrier.handle, result.handle);
     }
@@ -259,7 +310,19 @@ impl ShaderGraphNodeData {
       ShaderGraphNodeData::FieldGet { struct_node, .. } => visitor(struct_node),
       ShaderGraphNodeData::StructConstruct { fields, .. } => fields.iter().for_each(visitor),
       ShaderGraphNodeData::Const(_) => {}
-      _ => todo!(),
+      ShaderGraphNodeData::UnNamed => {}
+      ShaderGraphNodeData::Copy(from) => visitor(from),
+      ShaderGraphNodeData::Write { source, target } => {
+        visitor(source);
+        visitor(target);
+      }
+      ShaderGraphNodeData::ControlFlow(cf) => match cf {
+        ShaderControlFlowNode::If { condition, .. } => visitor(condition),
+        ShaderControlFlowNode::For { source, .. } => {
+          // todo
+        }
+      },
+      ShaderGraphNodeData::SideEffect(_) => {}
     }
   }
 }

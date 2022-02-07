@@ -49,34 +49,29 @@ pub trait ShaderGraphProvider {
 /// entry
 pub fn build_shader(
   builder: &dyn ShaderGraphProvider,
+  target: &dyn ShaderGraphCodeGenTarget,
 ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
   let bindgroup_builder = ShaderGraphBindGroupBuilder::default();
 
-  todo!()
+  let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
+  builder.build_vertex(&mut vertex_builder)?;
+  let result = vertex_builder.extract();
+  let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
 
-  // let target = WGSL;
+  let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
+  builder.build_fragment(&mut fragment_builder)?;
+  let result = fragment_builder.extract();
+  let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
 
-  // let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
-  // builder.build_vertex(&mut vertex_builder)?;
-  // let result = vertex_builder.extract();
-  // let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
-
-  // let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
-  // builder.build_fragment(&mut fragment_builder)?;
-  // let result = fragment_builder.extract();
-  // let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
-
-  // Ok(ShaderGraphCompileResult {
-  //   language: Box::new(target),
-  //   vertex_shader,
-  //   frag_shader,
-  //   states: Default::default(),
-  //   bindings: fragment_builder.bindgroups,
-  // })
+  Ok(ShaderGraphCompileResult {
+    vertex_shader,
+    frag_shader,
+    states: Default::default(),
+    bindings: fragment_builder.bindgroups,
+  })
 }
 
 pub struct ShaderGraphCompileResult {
-  pub language: Box<dyn ShaderGraphCodeGenTarget>,
   pub vertex_shader: String,
   pub frag_shader: String,
   pub states: PipelineShaderInterfaceInfo,
@@ -105,7 +100,7 @@ pub struct ShaderGraphVertexBuilder {
   pub vertex_position: Node<Mutable<Vec4<f32>>>,
 
   // user vertex out
-  vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+  pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
 }
 
 impl std::ops::Deref for ShaderGraphVertexBuilder {

@@ -165,7 +165,7 @@ impl ShaderGraphProvider for Test {
 
 #[test]
 fn test_build_shader() {
-  let result = build_shader(&Test).unwrap();
+  let result = build_shader(&Test, &WGSL).unwrap();
 
   println!("vertex: \n{}", result.vertex_shader);
   println!("fragment: \n{}", result.frag_shader);

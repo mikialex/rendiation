@@ -2,7 +2,10 @@ use arena_graph::*;
 
 pub use shader_derives::*;
 
-use std::{any::Any, cell::Cell};
+use std::{
+  any::Any,
+  cell::{Cell, RefCell},
+};
 
 pub mod code_gen;
 pub use code_gen::*;
@@ -45,6 +48,7 @@ pub struct ShaderSampler;
 #[derive(Clone)]
 pub struct Node<T> {
   pub handle: Cell<ShaderGraphNodeRawHandle<T>>,
+  write_barriers: RefCell<Vec<ShaderGraphNodeRawHandleUntyped>>,
 }
 
 impl<T> Node<T> {
@@ -57,6 +61,7 @@ impl<T: ShaderGraphNodeType> From<ShaderGraphNodeRawHandle<T>> for Node<T> {
   fn from(handle: ShaderGraphNodeRawHandle<T>) -> Self {
     Node {
       handle: Cell::new(handle),
+      write_barriers: Default::default(),
     }
   }
 }

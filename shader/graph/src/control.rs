@@ -27,22 +27,15 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
   pub fn set(&self, node: impl Into<Node<T>>) {
     let node = node.into();
     modify_graph(|builder| {
-      let assign_statement = format!(
-        "{} = {}",
-        builder.get_node_gen_result_var(self.get()),
-        builder.get_node_gen_result_var(node)
-      );
-      builder.code_builder.write_ln(assign_statement);
+      ShaderGraphNodeData::Write {
+        source: node.cast_untyped(),
+        target: self.get().cast_untyped(),
+      }
+      .insert_into_graph::<AnyType>(builder)
     });
 
     // unsafe { self.handle.set(handle.cast_type()) };
   }
-}
-
-pub trait ShaderIterator {
-  type Item;
-
-  fn code_gen(&self, iter_item_name: &str) -> String;
 }
 
 #[must_use]
@@ -53,73 +46,47 @@ where
   v.into()
 }
 
-pub struct ForCtx;
+pub struct ForCtx {
+  target_scope_id: usize,
+}
 
 impl ForCtx {
   pub fn do_continue(&self) {
-    modify_graph(|builder| {
-      // todo insert node?
-      builder.code_builder.write_ln("continue");
-    });
+    ShaderSideEffectNode::Continue.insert_graph(self.target_scope_id);
   }
 
   pub fn do_break(&self) {
-    modify_graph(|builder| {
-      // todo insert node?
-      builder.code_builder.write_ln("break");
-    });
+    ShaderSideEffectNode::Break.insert_graph(self.target_scope_id);
   }
 }
 
-impl ShaderIterator for u32 {
-  type Item = u32;
-
-  fn code_gen(&self, iter_item_name: &str) -> String {
-    format!(
-      "for (int {name} = 0; {name} < {count}; ++i) {{",
-      name = iter_item_name,
-      count = self
-    )
+impl From<u32> for ShaderIteratorAble {
+  fn from(v: u32) -> Self {
+    ShaderIteratorAble::Const(v)
   }
 }
 
-// pub struct ShaderArray<T> {
-//   phantom: PhantomData<T>,
-// }
-
-// impl<T> ShaderIterator for ShaderArray<T> {
-//   type Item = T;
-
-//   fn code_gen(&self, iter_item_name: &str) -> String {
-//     todo!()
-//     // format!(
-//     //   "for (int {name} = 0; {name} < {count}; ++i)",
-//     //   name = iter_item_name,
-//     //   count = self
-//     // )
-//   }
-// }
-
-pub fn for_by<T, I>(iterable: I, logic: impl Fn(&ForCtx, Node<T>))
+pub fn for_by<T>(iterable: impl Into<ShaderIteratorAble>, logic: impl Fn(&ForCtx, Node<T>))
 where
   T: ShaderGraphNodeType,
-  I: ShaderIterator<Item = T>,
 {
-  let i_node = modify_graph(|builder| {
-    let scope = builder.top_scope();
-    let iter_item_name = scope.code_gen.create_new_unique_name();
+  let (i_node, target_scope_id) = modify_graph(|builder| {
+    let id = builder.push_scope().graph_guid;
 
-    builder.push_scope();
-
-    ShaderGraphNodeData::Named(iter_item_name).insert_into_graph(builder)
+    (ShaderGraphNodeData::UnNamed.insert_into_graph(builder), id)
   });
-
-  let cx = ForCtx;
+  let cx = ForCtx { target_scope_id };
 
   logic(&cx, i_node);
 
   modify_graph(|builder| {
-    builder.pop_scope();
+    let scope = builder.pop_scope();
+
+    ShaderControlFlowNode::For {
+      source: iterable.into(),
+      scope,
+    }
+    .insert_into_graph(builder)
   });
 }
 
@@ -131,14 +98,10 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   logic();
 
   modify_graph(|builder| {
-    builder.pop_scope();
+    let scope = builder.pop_scope();
+    let condition = condition.into().cast_untyped();
 
-    let condition = condition.into();
-
-    ShaderScopeNode::If {
-      condition: condition.cast_untyped(),
-      scope: todo!(),
-    }
+    ShaderControlFlowNode::If { condition, scope }.insert_into_graph(builder);
   });
 }
 
@@ -146,18 +109,14 @@ pub struct FragmentCtx;
 
 impl FragmentCtx {
   pub fn discard() {
-    ShaderGraphNodeData::SideEffect(ShaderSideEffectNode::Termination).insert_graph();
+    ShaderSideEffectNode::Termination.insert_graph_bottom();
   }
 }
 
 /// you can only return the current function, so we don't need
 /// FunctionCtx to hold this function
 pub fn early_return<T>(return_value: impl Into<Node<T>>) {
-  modify_graph(|builder| {
-    let return_value = builder.get_node_gen_result_var(return_value);
-    let return_value = format!("return {};", return_value);
-    builder.code_builder.write_ln(return_value);
-  });
+  ShaderSideEffectNode::Return(return_value.into().cast_untyped()).insert_graph_bottom();
 }
 
 /// use runtime leak to statically store the user gen function
