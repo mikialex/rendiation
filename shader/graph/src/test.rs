@@ -133,23 +133,24 @@ impl ShaderGraphProvider for Test {
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let a = consts(1.) + consts(2.);
-    let _: Node<_> = (Vec3::zero(), a).into();
-    builder.vertex_position.set(Vec4::one());
+    let a: Node<_> = (Vec3::zero(), a).into();
+    builder.vertex_position.set(a);
 
-    let a = consts(1).mutable();
-    let c = consts(0).mutable();
+    // let a = consts(1).mutable();
+    // let c = consts(0).mutable();
 
-    for_by(5, |for_ctx, i| {
-      let b = 1;
-      if_by(i.greater_than(0), || {
-        a.set(a.get() + b.into());
-        for_ctx.do_continue();
-      });
-      c.set(c.get() + i);
-    });
+    // for_by(5, |for_ctx, i| {
+    //   let b = 1;
+    //   if_by(i.greater_than(0), || {
+    //     a.set(a.get() + b.into());
+    //     for_ctx.do_continue();
+    //   });
+    //   c.set(c.get() + i);
+    //   builder.vertex_position.set(Vec4::one());
+    // });
 
-    let _ = a.get() + c.get();
-    let _ = reduceLightBleeding(1., 2.);
+    // let _ = a.get() + c.get();
+    // let _ = reduceLightBleeding(1., 2.);
 
     Ok(())
   }

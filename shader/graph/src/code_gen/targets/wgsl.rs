@@ -65,7 +65,15 @@ fn gen_node_with_dep_in_entry(
   root.nodes.traverse_dfs_in_topological_order(
     node.handle,
     &mut |n| {
-      gen_node(&n.data().data, node, cx, code);
+      gen_node(
+        &n.data().data,
+        ShaderGraphNodeRawHandle {
+          handle: n.handle(),
+          graph_id: node.graph_id,
+        },
+        cx,
+        code,
+      );
     },
     &mut || panic!("loop"),
   );

@@ -70,8 +70,8 @@ pub type NodeUntyped = Node<AnyType>;
 pub type ShaderGraphNodeUntyped = ShaderGraphNode<AnyType>;
 
 pub struct ShaderGraphNodeRawHandle<T> {
-  handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
-  graph_id: usize,
+  pub(crate) handle: ArenaGraphNodeHandle<ShaderGraphNode<T>>,
+  pub(crate) graph_id: usize,
 }
 
 impl<T> ShaderGraphNodeRawHandle<T> {

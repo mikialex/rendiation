@@ -26,6 +26,7 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
 
   pub fn set(&self, node: impl Into<Node<T>>) {
     let node = node.into();
+    let handle = node.handle();
     modify_graph(|builder| {
       ShaderGraphNodeData::Write {
         source: node.cast_untyped(),
@@ -34,7 +35,7 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
       .insert_into_graph::<AnyType>(builder)
     });
 
-    // unsafe { self.handle.set(handle.cast_type()) };
+    unsafe { self.handle.set(handle.cast_type()) };
   }
 }
 
