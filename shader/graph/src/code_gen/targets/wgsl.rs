@@ -136,6 +136,16 @@ fn gen_node(
       }
       ShaderSideEffectNode::Termination => code.write_ln("discard;"),
     },
+    ShaderGraphNodeData::Input(input) => {
+      cx.top_scope_mut().code_gen_history.insert(
+        handle,
+        MiddleVariableCodeGenResult {
+          var_name: gen_input_name(input),
+          statement: "".to_owned(),
+        },
+      );
+      code
+    }
     expr => {
       let name = cx.create_new_unique_name();
       let expr = gen_expr(expr, cx);
@@ -181,7 +191,7 @@ fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
       let right = cx.get_node_gen_result_var(o.right);
       format!("{} {} {}", left, o.operator, right)
     }
-    ShaderGraphNodeData::Input(input) => gen_input_name(input),
+    ShaderGraphNodeData::Input(_) => todo!(),
     ShaderGraphNodeData::UnNamed => todo!(),
     ShaderGraphNodeData::FieldGet {
       // todo should this merged with swizzle
