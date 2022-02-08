@@ -66,7 +66,7 @@ where
   T: PrimitiveShaderGraphNodeType,
 {
   fn from(input: T) -> Self {
-    ShaderGraphNodeData::Const(ConstNode {
+    ShaderGraphNodeExpr::Const(ConstNode {
       data: input.to_primitive(),
     })
     .insert_graph()
@@ -124,7 +124,7 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
   }
 }
 
-pub enum ShaderGraphNodeData {
+pub enum ShaderGraphNodeExpr {
   FunctionCall {
     prototype: &'static ShaderFunctionMetaInfo,
     parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
@@ -139,9 +139,6 @@ pub enum ShaderGraphNodeData {
     parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
   },
   Operator(OperatorNode),
-  Input(ShaderGraphInputNode),
-  /// This is workaround for some case
-  UnNamed,
   FieldGet {
     field_name: &'static str,
     struct_node: ShaderGraphNodeRawHandleUntyped,
@@ -150,15 +147,35 @@ pub enum ShaderGraphNodeData {
     struct_id: TypeId,
     fields: Vec<ShaderGraphNodeRawHandleUntyped>,
   },
+  Const(ConstNode),
   Copy(ShaderGraphNodeRawHandleUntyped),
+}
+
+impl ShaderGraphNodeExpr {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    modify_graph(|graph| self.insert_into_graph(graph))
+  }
+
+  pub fn insert_into_graph<T: ShaderGraphNodeType>(
+    self,
+    builder: &mut ShaderGraphBuilder,
+  ) -> Node<T> {
+    ShaderGraphNodeData::Expr(self).insert_into_graph(builder)
+  }
+}
+
+pub enum ShaderGraphNodeData {
+  Input(ShaderGraphInputNode),
+  /// This is workaround for some case
+  UnNamed,
   Write {
     source: ShaderGraphNodeRawHandleUntyped,
     target: ShaderGraphNodeRawHandleUntyped,
     implicit: bool,
   },
-  Const(ConstNode),
   ControlFlow(ShaderControlFlowNode),
   SideEffect(ShaderSideEffectNode),
+  Expr(ShaderGraphNodeExpr),
 }
 
 pub enum ShaderSideEffectNode {
@@ -348,28 +365,30 @@ impl ShaderGraphNodeData {
 
   pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandleUntyped)) {
     match self {
-      ShaderGraphNodeData::FunctionCall { parameters, .. } => parameters.iter().for_each(visitor),
-      ShaderGraphNodeData::TextureSampling(TextureSamplingNode {
-        texture,
-        sampler,
-        position,
-      }) => unsafe {
-        visitor(&texture.cast_type());
-        visitor(&sampler.cast_type());
-        visitor(&position.cast_type());
+      ShaderGraphNodeData::Expr(expr) => match expr {
+        ShaderGraphNodeExpr::FunctionCall { parameters, .. } => parameters.iter().for_each(visitor),
+        ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+          texture,
+          sampler,
+          position,
+        }) => unsafe {
+          visitor(&texture.cast_type());
+          visitor(&sampler.cast_type());
+          visitor(&position.cast_type());
+        },
+        ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
+        ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter().for_each(visitor),
+        ShaderGraphNodeExpr::Operator(OperatorNode { left, right, .. }) => {
+          visitor(left);
+          visitor(right);
+        }
+        ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
+        ShaderGraphNodeExpr::StructConstruct { fields, .. } => fields.iter().for_each(visitor),
+        ShaderGraphNodeExpr::Const(_) => {}
+        ShaderGraphNodeExpr::Copy(from) => visitor(from),
       },
-      ShaderGraphNodeData::Swizzle { source, .. } => visitor(source),
-      ShaderGraphNodeData::Compose { parameters, .. } => parameters.iter().for_each(visitor),
-      ShaderGraphNodeData::Operator(OperatorNode { left, right, .. }) => {
-        visitor(left);
-        visitor(right);
-      }
       ShaderGraphNodeData::Input(_) => {}
-      ShaderGraphNodeData::FieldGet { struct_node, .. } => visitor(struct_node),
-      ShaderGraphNodeData::StructConstruct { fields, .. } => fields.iter().for_each(visitor),
-      ShaderGraphNodeData::Const(_) => {}
       ShaderGraphNodeData::UnNamed => {}
-      ShaderGraphNodeData::Copy(from) => visitor(from),
       ShaderGraphNodeData::Write { source, target, .. } => {
         visitor(source);
         visitor(target);

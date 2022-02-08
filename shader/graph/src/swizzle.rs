@@ -1,4 +1,4 @@
-use crate::{Node, PrimitiveShaderGraphNodeType, ShaderGraphNodeData, ShaderGraphNodeType};
+use crate::{Node, PrimitiveShaderGraphNodeType, ShaderGraphNodeExpr, ShaderGraphNodeType};
 use rendiation_algebra::{Vec3, Vec4};
 
 fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
@@ -6,7 +6,7 @@ fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
   ty: &'static str,
 ) -> Node<T> {
   let source = n.cast_untyped();
-  ShaderGraphNodeData::Swizzle { ty, source }.insert_graph()
+  ShaderGraphNodeExpr::Swizzle { ty, source }.insert_graph()
 }
 
 // improve, how to paste string literal?
@@ -33,7 +33,7 @@ where
   fn from((a, b): (A, B)) -> Self {
     let a = a.into().cast_untyped();
     let b = b.into().cast_untyped();
-    ShaderGraphNodeData::Compose {
+    ShaderGraphNodeExpr::Compose {
       target: Vec4::<f32>::to_primitive_type(),
       parameters: vec![a, b],
     }

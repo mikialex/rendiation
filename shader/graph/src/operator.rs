@@ -1,4 +1,4 @@
-use crate::{Node, OperatorNode, ShaderGraphNodeData, ShaderGraphNodeType};
+use crate::{Node, OperatorNode, ShaderGraphNodeExpr, ShaderGraphNodeType};
 use std::ops::{Add, Div, Mul, Sub};
 
 impl<T, U> Add for Node<T>
@@ -9,7 +9,7 @@ where
   type Output = Node<U>;
 
   fn add(self, other: Self) -> Self::Output {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "+",
@@ -26,7 +26,7 @@ where
   type Output = Node<U>;
 
   fn sub(self, other: Self) -> Self::Output {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "-",
@@ -44,7 +44,7 @@ where
   type Output = Node<U>;
 
   fn mul(self, other: Node<I>) -> Self::Output {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "*",
@@ -62,7 +62,7 @@ where
   type Output = Node<U>;
 
   fn div(self, other: Node<I>) -> Self::Output {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "/",
@@ -73,7 +73,7 @@ where
 
 impl<T: PartialEq> Node<T> {
   pub fn equals(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "==",
@@ -82,7 +82,7 @@ impl<T: PartialEq> Node<T> {
   }
 
   pub fn not_equals(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "!=",
@@ -93,7 +93,7 @@ impl<T: PartialEq> Node<T> {
 
 impl<T: PartialOrd> Node<T> {
   pub fn less_than(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "<",
@@ -101,7 +101,7 @@ impl<T: PartialOrd> Node<T> {
     .insert_graph()
   }
   pub fn less_or_equal_than(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "<=",
@@ -109,7 +109,7 @@ impl<T: PartialOrd> Node<T> {
     .insert_graph()
   }
   pub fn greater_than(&self, other: impl Into<Self>) -> Node<bool> {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.into().cast_untyped(),
       operator: ">",
@@ -117,7 +117,7 @@ impl<T: PartialOrd> Node<T> {
     .insert_graph()
   }
   pub fn greater_or_equal_than(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: ">=",
@@ -129,7 +129,7 @@ impl<T: PartialOrd> Node<T> {
 impl Node<bool> {
   #[must_use]
   pub fn or(&self, other: Self) -> Self {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "||",
@@ -139,7 +139,7 @@ impl Node<bool> {
 
   #[must_use]
   pub fn and(&self, other: Self) -> Self {
-    ShaderGraphNodeData::Operator(OperatorNode {
+    ShaderGraphNodeExpr::Operator(OperatorNode {
       left: self.cast_untyped(),
       right: other.cast_untyped(),
       operator: "&&",
@@ -150,7 +150,7 @@ impl Node<bool> {
   #[must_use]
   pub fn not(&self) -> Self {
     todo!()
-    // ShaderGraphNodeData::Operator(OperatorNode {
+    // ShaderGraphNodeExpr::Operator(OperatorNode {
     //   left: self.cast_untyped(),
     //   right: other.cast_untyped(),
     //   operator: "!",

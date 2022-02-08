@@ -102,7 +102,7 @@ impl ShaderGraphNodeType for ShaderTexture {
 
 impl Node<ShaderTexture> {
   pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
-    ShaderGraphNodeData::TextureSampling(TextureSamplingNode {
+    ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),

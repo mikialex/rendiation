@@ -202,7 +202,7 @@ fn gen_node(
       );
       code
     }
-    expr => {
+    ShaderGraphNodeData::Expr(expr) => {
       let name = cx.create_new_unique_name();
       let expr = gen_expr(expr, cx);
       let statement = format!("let {name} = {expr};");
@@ -219,9 +219,9 @@ fn gen_node(
   };
 }
 
-fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
+fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
   match data {
-    ShaderGraphNodeData::FunctionCall {
+    ShaderGraphNodeExpr::FunctionCall {
       prototype,
       parameters,
     } => {
@@ -236,21 +236,21 @@ fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
-    ShaderGraphNodeData::TextureSampling(n) => format!(
+    ShaderGraphNodeExpr::TextureSampling(n) => format!(
       "textureSample({}, {}, {})",
       cx.get_node_gen_result_var(n.texture),
       cx.get_node_gen_result_var(n.sampler),
       cx.get_node_gen_result_var(n.position),
     ),
-    ShaderGraphNodeData::Swizzle { ty, source } => {
+    ShaderGraphNodeExpr::Swizzle { ty, source } => {
       format!("{}.{}", cx.get_node_gen_result_var(*source), ty)
     }
-    ShaderGraphNodeData::Operator(o) => {
+    ShaderGraphNodeExpr::Operator(o) => {
       let left = cx.get_node_gen_result_var(o.left);
       let right = cx.get_node_gen_result_var(o.right);
       format!("{} {} {}", left, o.operator, right)
     }
-    ShaderGraphNodeData::FieldGet {
+    ShaderGraphNodeExpr::FieldGet {
       // todo should this merged with swizzle
       field_name,
       struct_node,
@@ -259,10 +259,10 @@ fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
       cx.get_node_gen_result_var(*struct_node),
       field_name
     ),
-    ShaderGraphNodeData::StructConstruct { struct_id, fields } => todo!(),
-    ShaderGraphNodeData::Const(ConstNode { data }) => gen_primitive_literal(*data),
-    ShaderGraphNodeData::Copy(node) => cx.get_node_gen_result_var(*node).to_owned(),
-    ShaderGraphNodeData::Compose { target, parameters } => {
+    ShaderGraphNodeExpr::StructConstruct { struct_id, fields } => todo!(),
+    ShaderGraphNodeExpr::Const(ConstNode { data }) => gen_primitive_literal(*data),
+    ShaderGraphNodeExpr::Copy(node) => cx.get_node_gen_result_var(*node).to_owned(),
+    ShaderGraphNodeExpr::Compose { target, parameters } => {
       format!(
         "{}({})",
         gen_primitive_type(*target),
@@ -273,11 +273,6 @@ fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
-    ShaderGraphNodeData::Input(_) => todo!(),
-    ShaderGraphNodeData::UnNamed => todo!(),
-    ShaderGraphNodeData::Write { source, target, .. } => todo!(),
-    ShaderGraphNodeData::ControlFlow(_) => todo!(),
-    ShaderGraphNodeData::SideEffect(_) => todo!(),
   }
 }
 

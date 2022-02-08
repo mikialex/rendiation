@@ -276,12 +276,12 @@ impl ShaderGraphVertexBuilder {
   pub fn create(bindgroups: ShaderGraphBindGroupBuilder) -> Self {
     let mut builder = ShaderGraphBuilder::default();
 
-    let vertex_point_size = ShaderGraphNodeData::Const(ConstNode {
+    let vertex_point_size = ShaderGraphNodeExpr::Const(ConstNode {
       data: PrimitiveShaderValue::Float32(1.),
     })
     .insert_into_graph(&mut builder);
 
-    let vertex_position = ShaderGraphNodeData::Const(ConstNode {
+    let vertex_position = ShaderGraphNodeExpr::Const(ConstNode {
       data: PrimitiveShaderValue::Vec4Float32(Vec4::zero()),
     })
     .insert_into_graph(&mut builder);
