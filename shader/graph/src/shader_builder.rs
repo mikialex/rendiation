@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::HashMap, sync::Mutex};
+use std::{any::TypeId, cell::UnsafeCell, collections::HashMap};
 
 use crate::*;
 
@@ -426,22 +426,42 @@ impl ShaderGraphFragmentBuilder {
   }
 }
 
-static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<Mutex<Option<ShaderGraphBuilder>>> =
-  once_cell::sync::Lazy::new(|| Mutex::new(None));
+pub struct SuperUnsafeCell<T> {
+  pub data: UnsafeCell<T>,
+}
+
+impl<T> SuperUnsafeCell<T> {
+  pub fn new(v: T) -> Self {
+    Self {
+      data: UnsafeCell::new(v),
+    }
+  }
+  pub fn get_mut(&self) -> &mut T {
+    unsafe { &mut *(self.data.get()) }
+  }
+  pub fn get(&self) -> &T {
+    unsafe { &*(self.data.get()) }
+  }
+}
+
+unsafe impl<T> Sync for SuperUnsafeCell<T> {}
+unsafe impl<T> Send for SuperUnsafeCell<T> {}
+
+static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<
+  SuperUnsafeCell<Option<ShaderGraphBuilder>>,
+> = once_cell::sync::Lazy::new(|| SuperUnsafeCell::new(None));
 
 pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
-  let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-  let graph = guard.as_mut().unwrap();
+  let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
   modifier(graph)
 }
 
 pub(crate) fn set_build_graph(g: ShaderGraphBuilder) {
-  let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-  *guard = Some(g);
+  IN_BUILDING_SHADER_GRAPH.get_mut().replace(g);
 }
 
 pub(crate) fn take_build_graph() -> ShaderGraphBuilder {
-  IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
+  IN_BUILDING_SHADER_GRAPH.get_mut().take().unwrap()
 }
 
 /// built in semantics

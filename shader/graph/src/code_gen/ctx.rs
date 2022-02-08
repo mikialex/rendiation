@@ -76,14 +76,17 @@ impl CodeGenCtx {
     });
   }
 
-  pub fn get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> &str {
+  pub fn try_get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> Option<&str> {
     let node = node.into().cast_untyped();
     self
       .scopes
       .iter()
       .rev()
       .find_map(|scope| scope.get_node_gen_result_var(node))
-      .unwrap()
+  }
+
+  pub fn get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> &str {
+    self.try_get_node_gen_result_var(node).unwrap()
   }
 
   pub fn create_new_unique_name(&mut self) -> String {

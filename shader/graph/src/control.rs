@@ -27,9 +27,17 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
   pub fn set(&self, node: impl Into<Node<T>>) {
     let node = node.into();
     let write = modify_graph(|builder| {
+      if self.handle().graph_id != builder.top_scope().graph_guid {
+        builder
+          .top_scope_mut()
+          .writes
+          .push((self.clone_inner(), self.handle().cast_untyped()));
+      }
+
       ShaderGraphNodeData::Write {
         source: node.cast_untyped(),
         target: self.get().cast_untyped(),
+        implicit: false,
       }
       .insert_into_graph::<AnyType>(builder)
     });
@@ -91,6 +99,7 @@ where
 }
 
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
+  let condition = condition.into();
   modify_graph(|builder| {
     builder.push_scope();
   });
@@ -99,7 +108,7 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
 
   modify_graph(|builder| {
     let scope = builder.pop_scope();
-    let condition = condition.into().cast_untyped();
+    let condition = condition.cast_untyped();
 
     ShaderControlFlowNode::If { condition, scope }.insert_into_graph(builder);
   });

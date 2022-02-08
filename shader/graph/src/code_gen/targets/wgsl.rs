@@ -61,19 +61,20 @@ fn gen_node_with_dep_in_entry(
   cx: &mut CodeGenCtx,
   code: &mut CodeBuilder,
 ) {
+  println!("entry");
   let root = builder.scopes.first().unwrap();
   root.nodes.traverse_dfs_in_topological_order(
     node.handle,
     &mut |n| {
-      gen_node(
-        &n.data().data,
-        ShaderGraphNodeRawHandle {
-          handle: n.handle(),
-          graph_id: node.graph_id,
-        },
-        cx,
-        code,
-      );
+      let h = ShaderGraphNodeRawHandle {
+        handle: n.handle(),
+        graph_id: node.graph_id,
+      };
+      println!("dep node {:?} {}", n.handle(), node.graph_id);
+      if cx.try_get_node_gen_result_var(h).is_none() {
+        println!("gen node {:?} {}", n.handle(), node.graph_id);
+        gen_node(&n.data().data, h, cx, code);
+      }
     },
     &mut || panic!("loop"),
   );
@@ -81,10 +82,12 @@ fn gen_node_with_dep_in_entry(
 
 fn gen_scope_full(scope: &ShaderGraphScope, cx: &mut CodeGenCtx, code: &mut CodeBuilder) {
   let nodes = &scope.nodes;
+  cx.push_scope();
   scope
     .inserted
     .iter()
-    .for_each(|n| gen_node(&nodes.get_node(n.handle).data().data, *n, cx, code))
+    .for_each(|n| gen_node(&nodes.get_node(n.handle).data().data, *n, cx, code));
+  cx.pop_scope();
 }
 
 fn gen_node(
@@ -94,40 +97,82 @@ fn gen_node(
   code: &mut CodeBuilder,
 ) {
   match data {
-    ShaderGraphNodeData::Write { source, target } => code.write_ln(format!(
-      "{} = {};",
-      cx.get_node_gen_result_var(*target),
-      cx.get_node_gen_result_var(*source)
-    )),
-    ShaderGraphNodeData::ControlFlow(cf) => match cf {
-      ShaderControlFlowNode::If { condition, scope } => {
-        code
-          .write_ln(format!(
-            "if ({}) {{",
-            cx.get_node_gen_result_var(*condition)
-          ))
-          .tab();
-
-        gen_scope_full(scope, cx, code);
-
-        code.write_ln("}").un_tab()
-      }
-      ShaderControlFlowNode::For { source, scope } => {
+    ShaderGraphNodeData::Write {
+      source,
+      target,
+      implicit,
+    } => {
+      if *implicit {
         let name = cx.create_new_unique_name();
-        let head = match source {
-          ShaderIteratorAble::Const(v) => format!("for(int {name} = 0; {name} < {v}; {name}++) {{"),
-          ShaderIteratorAble::Count(v) => format!(
-            "for(int {name} = 0; {name} < {count}; {name}++) {{",
-            count = cx.get_node_gen_result_var(v.handle().cast_untyped())
-          ),
-        };
-        code.write_ln(head).tab();
-
-        gen_scope_full(scope, cx, code);
-
-        code.write_ln("}").un_tab()
+        code.write_ln(format!(
+          "let {} = {};",
+          name,
+          cx.get_node_gen_result_var(*target)
+        ));
+        cx.top_scope_mut().code_gen_history.insert(
+          handle,
+          MiddleVariableCodeGenResult {
+            var_name: name,
+            statement: "".to_owned(),
+          },
+        );
+      } else {
+        let var_name = cx.get_node_gen_result_var(*target).to_owned();
+        code.write_ln(format!(
+          "{} = {};",
+          cx.get_node_gen_result_var(*target),
+          cx.get_node_gen_result_var(*source)
+        ));
+        cx.top_scope_mut().code_gen_history.insert(
+          handle,
+          MiddleVariableCodeGenResult {
+            var_name,
+            statement: "".to_owned(),
+          },
+        );
       }
-    },
+      code
+    }
+    ShaderGraphNodeData::ControlFlow(cf) => {
+      cx.top_scope_mut().code_gen_history.insert(
+        handle,
+        MiddleVariableCodeGenResult {
+          var_name: "error_cf".to_owned(),
+          statement: "".to_owned(),
+        },
+      );
+      match cf {
+        ShaderControlFlowNode::If { condition, scope } => {
+          code
+            .write_ln(format!(
+              "if ({}) {{",
+              cx.get_node_gen_result_var(*condition)
+            ))
+            .tab();
+
+          gen_scope_full(scope, cx, code);
+
+          code.un_tab().write_ln("}")
+        }
+        ShaderControlFlowNode::For { source, scope } => {
+          let name = cx.create_new_unique_name();
+          let head = match source {
+            ShaderIteratorAble::Const(v) => {
+              format!("for(int {name} = 0; {name} < {v}; {name}++) {{")
+            }
+            ShaderIteratorAble::Count(v) => format!(
+              "for(int {name} = 0; {name} < {count}; {name}++) {{",
+              count = cx.get_node_gen_result_var(v.handle().cast_untyped())
+            ),
+          };
+          code.write_ln(head).tab();
+
+          gen_scope_full(scope, cx, code);
+
+          code.un_tab().write_ln("}")
+        }
+      }
+    }
     ShaderGraphNodeData::SideEffect(effect) => match effect {
       ShaderSideEffectNode::Continue => code.write_ln("continue;"),
       ShaderSideEffectNode::Break => code.write_ln("break;"),
@@ -141,6 +186,17 @@ fn gen_node(
         handle,
         MiddleVariableCodeGenResult {
           var_name: gen_input_name(input),
+          statement: "".to_owned(),
+        },
+      );
+      code
+    }
+    ShaderGraphNodeData::UnNamed => {
+      let var_name = cx.create_new_unique_name();
+      cx.top_scope_mut().code_gen_history.insert(
+        handle,
+        MiddleVariableCodeGenResult {
+          var_name,
           statement: "".to_owned(),
         },
       );
@@ -216,7 +272,7 @@ fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
-    ShaderGraphNodeData::Write { source, target } => todo!(),
+    ShaderGraphNodeData::Write { source, target, .. } => todo!(),
     ShaderGraphNodeData::ControlFlow(_) => todo!(),
     ShaderGraphNodeData::SideEffect(_) => todo!(),
   }

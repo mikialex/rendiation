@@ -2,10 +2,7 @@ use arena_graph::*;
 
 pub use shader_derives::*;
 
-use std::{
-  any::Any,
-  cell::{Cell, RefCell},
-};
+use std::{any::Any, cell::Cell, rc::Rc};
 
 pub mod code_gen;
 pub use code_gen::*;
@@ -47,21 +44,22 @@ pub struct ShaderSampler;
 
 #[derive(Clone)]
 pub struct Node<T> {
-  pub handle: Cell<ShaderGraphNodeRawHandle<T>>,
-  write_barriers: RefCell<Vec<ShaderGraphNodeRawHandleUntyped>>,
+  pub(crate) handle: Rc<Cell<ShaderGraphNodeRawHandle<T>>>,
 }
 
 impl<T> Node<T> {
   pub fn handle(&self) -> ShaderGraphNodeRawHandle<T> {
     self.handle.get()
   }
+  pub fn clone_inner(&self) -> Rc<Cell<ShaderGraphNodeRawHandleUntyped>> {
+    unsafe { std::mem::transmute(self.handle.clone()) }
+  }
 }
 
 impl<T: ShaderGraphNodeType> From<ShaderGraphNodeRawHandle<T>> for Node<T> {
   fn from(handle: ShaderGraphNodeRawHandle<T>) -> Self {
     Node {
-      handle: Cell::new(handle),
-      write_barriers: Default::default(),
+      handle: Rc::new(Cell::new(handle)),
     }
   }
 }

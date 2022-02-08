@@ -1,7 +1,4 @@
-use std::{
-  any::TypeId,
-  collections::{HashMap, HashSet},
-};
+use std::{any::TypeId, collections::HashMap};
 
 use arena_graph::ArenaGraph;
 
@@ -49,6 +46,10 @@ pub struct ShaderGraphScope {
   pub inserted: Vec<ShaderGraphNodeRawHandleUntyped>,
   pub barriers: Vec<ShaderGraphNodeRawHandleUntyped>,
   pub captured: Vec<ShaderGraphNodeRawHandleUntyped>,
+  pub writes: Vec<(
+    Rc<Cell<ShaderGraphNodeRawHandleUntyped>>,
+    ShaderGraphNodeRawHandleUntyped,
+  )>,
 }
 
 impl ShaderGraphScope {
@@ -60,6 +61,7 @@ impl ShaderGraphScope {
       inserted: Default::default(),
       barriers: Default::default(),
       captured: Default::default(),
+      writes: Default::default(),
     }
   }
 

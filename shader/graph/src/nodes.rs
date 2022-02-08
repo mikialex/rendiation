@@ -151,6 +151,7 @@ pub enum ShaderGraphNodeData {
   Write {
     source: ShaderGraphNodeRawHandleUntyped,
     target: ShaderGraphNodeRawHandleUntyped,
+    implicit: bool,
   },
   Const(ConstNode),
   ControlFlow(ShaderControlFlowNode),
@@ -223,8 +224,27 @@ impl ShaderControlFlowNode {
       ShaderControlFlowNode::For { scope, .. } => scope.has_side_effect,
     }
   }
+  pub fn collect_captured(&self) -> Vec<ShaderGraphNodeRawHandleUntyped> {
+    match self {
+      ShaderControlFlowNode::If { scope, .. } => scope.captured.clone(),
+      ShaderControlFlowNode::For { scope, .. } => scope.captured.clone(),
+    }
+  }
+  pub fn collect_writes(
+    &self,
+  ) -> Vec<(
+    Rc<Cell<ShaderGraphNodeRawHandleUntyped>>,
+    ShaderGraphNodeRawHandleUntyped,
+  )> {
+    match self {
+      ShaderControlFlowNode::If { scope, .. } => scope.writes.clone(),
+      ShaderControlFlowNode::For { scope, .. } => scope.writes.clone(),
+    }
+  }
   pub fn insert_into_graph(self, builder: &mut ShaderGraphBuilder) {
     let has_side_effect = self.has_side_effect();
+    let captured = self.collect_captured();
+    let writes = self.collect_writes();
     let node = ShaderGraphNodeData::ControlFlow(self).insert_into_graph::<AnyType>(builder);
     let top = builder.top_scope_mut();
     let nodes = &mut top.nodes;
@@ -238,13 +258,45 @@ impl ShaderControlFlowNode {
       top.barriers.push(node.handle());
     }
 
-    // todo fix
     // visit all the node in this scope generate before, and check
     // if it's same and generate dep, if not pass the captured to parent scope
-    // top
-    //   .captured
-    //   .iter()
-    //   .for_each(|n| nodes.connect_node(n.handle, node.handle().handle))
+    for captured in captured {
+      let mut find_captured = false;
+      for &n in top.inserted.iter().take(top.inserted.len() - 1) {
+        if captured == n {
+          nodes.connect_node(n.handle, node.handle().handle);
+          find_captured = true;
+          break;
+        }
+      }
+      if !find_captured {
+        top.captured.push(captured);
+      }
+    }
+
+    for write in &writes {
+      let im_write = ShaderGraphNodeData::Write {
+        target: write.1,
+        source: node.handle(),
+        implicit: true,
+      }
+      .insert_into_graph_inner::<AnyType>(top);
+
+      write.0.set(im_write.handle());
+    }
+
+    for write in writes {
+      let mut find_write = false;
+      for &n in top.inserted.iter().take(top.inserted.len() - 1) {
+        if write.1 == n {
+          find_write = true;
+          break;
+        }
+      }
+      if !find_write {
+        top.writes.push(write);
+      }
+    }
   }
 }
 
@@ -261,27 +313,31 @@ impl ShaderGraphNodeData {
       builder.struct_defines.insert(TypeId::of::<T>(), s);
     }
 
+    self.insert_into_graph_inner(builder.top_scope_mut())
+  }
+
+  pub fn insert_into_graph_inner<T: ShaderGraphNodeType>(
+    self,
+    top: &mut ShaderGraphScope,
+  ) -> Node<T> {
     let mut nodes_to_connect = Vec::new();
     self.visit_dependency(|dep| {
       nodes_to_connect.push(*dep);
     });
 
-    let graph = builder.top_scope_mut();
     let node = ShaderGraphNode::<T>::new(self);
-    let result = graph.insert_node(node).handle();
+    let result = top.insert_node(node).handle();
 
     nodes_to_connect.iter().for_each(|n| {
-      let top = builder.top_scope_mut();
-      if top.nodes.get_node_if(n.handle).is_none() {
+      if n.graph_id != top.graph_guid {
         top.captured.push(*n);
       } else {
         top.nodes.connect_node(n.handle, result.handle);
       }
     });
 
-    let graph = builder.top_scope_mut();
-    for barrier in &graph.barriers {
-      graph.nodes.connect_node(barrier.handle, result.handle);
+    for barrier in &top.barriers {
+      top.nodes.connect_node(barrier.handle, result.handle);
     }
 
     unsafe { result.cast_type().into() }
@@ -312,7 +368,7 @@ impl ShaderGraphNodeData {
       ShaderGraphNodeData::Const(_) => {}
       ShaderGraphNodeData::UnNamed => {}
       ShaderGraphNodeData::Copy(from) => visitor(from),
-      ShaderGraphNodeData::Write { source, target } => {
+      ShaderGraphNodeData::Write { source, target, .. } => {
         visitor(source);
         visitor(target);
       }
