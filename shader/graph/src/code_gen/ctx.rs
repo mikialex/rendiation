@@ -35,8 +35,8 @@ impl CodeGenCtx {
     self.scopes.pop().unwrap()
   }
 
-  pub fn add_fn_dep(&mut self, node: &FunctionNode) {
-    self.depend_functions.insert(node.prototype);
+  pub fn add_fn_dep(&mut self, meta: &'static ShaderFunctionMetaInfo) {
+    self.depend_functions.insert(meta);
   }
 
   pub fn gen_fn_depends(&self, builder: &mut CodeBuilder) {

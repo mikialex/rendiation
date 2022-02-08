@@ -221,12 +221,15 @@ fn gen_node(
 
 fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
   match data {
-    ShaderGraphNodeData::FunctionCall(n) => {
-      cx.add_fn_dep(n);
+    ShaderGraphNodeData::FunctionCall {
+      prototype,
+      parameters,
+    } => {
+      cx.add_fn_dep(prototype);
       format!(
         "{}({})",
-        n.prototype.function_name,
-        n.parameters
+        prototype.function_name,
+        parameters
           .iter()
           .map(|from| { cx.get_node_gen_result_var(*from) })
           .collect::<Vec<_>>()
@@ -247,8 +250,6 @@ fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
       let right = cx.get_node_gen_result_var(o.right);
       format!("{} {} {}", left, o.operator, right)
     }
-    ShaderGraphNodeData::Input(_) => todo!(),
-    ShaderGraphNodeData::UnNamed => todo!(),
     ShaderGraphNodeData::FieldGet {
       // todo should this merged with swizzle
       field_name,
@@ -272,6 +273,8 @@ fn gen_expr(data: &ShaderGraphNodeData, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
+    ShaderGraphNodeData::Input(_) => todo!(),
+    ShaderGraphNodeData::UnNamed => todo!(),
     ShaderGraphNodeData::Write { source, target, .. } => todo!(),
     ShaderGraphNodeData::ControlFlow(_) => todo!(),
     ShaderGraphNodeData::SideEffect(_) => todo!(),
@@ -401,8 +404,6 @@ fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> &'static str {
 
 fn gen_built_in(ty: ShaderBuiltIn) -> &'static str {
   match ty {
-    ShaderBuiltIn::VertexClipPosition => "bt_vertex_clip_position",
-    ShaderBuiltIn::VertexPointSize => "bt_vertex_point_size",
     ShaderBuiltIn::VertexIndexId => "bt_vertex_vertex_id",
     ShaderBuiltIn::VertexInstanceId => "bt_vertex_instance_id",
   }

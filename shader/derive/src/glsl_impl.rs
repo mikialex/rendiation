@@ -137,12 +137,10 @@ pub fn gen_glsl_function(
       let mut parameters = Vec::new();
       #(#input_node_prepare)*
 
-      ShaderGraphNodeData::FunctionCall(
-        FunctionNode {
-          prototype: & #prototype_name,
-          parameters,
-        },
-      ).insert_graph()
+      ShaderGraphNodeData::FunctionCall {
+        prototype: & #prototype_name,
+        parameters,
+      }.insert_graph()
 
     }
 

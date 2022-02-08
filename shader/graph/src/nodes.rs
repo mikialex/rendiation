@@ -125,7 +125,10 @@ impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
 }
 
 pub enum ShaderGraphNodeData {
-  FunctionCall(FunctionNode),
+  FunctionCall {
+    prototype: &'static ShaderFunctionMetaInfo,
+    parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
+  },
   TextureSampling(TextureSamplingNode),
   Swizzle {
     ty: &'static str,
@@ -342,11 +345,10 @@ impl ShaderGraphNodeData {
 
     unsafe { result.cast_type().into() }
   }
+
   pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandleUntyped)) {
     match self {
-      ShaderGraphNodeData::FunctionCall(FunctionNode { parameters, .. }) => {
-        parameters.iter().for_each(visitor)
-      }
+      ShaderGraphNodeData::FunctionCall { parameters, .. } => parameters.iter().for_each(visitor),
       ShaderGraphNodeData::TextureSampling(TextureSamplingNode {
         texture,
         sampler,
@@ -374,19 +376,14 @@ impl ShaderGraphNodeData {
       }
       ShaderGraphNodeData::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
-        ShaderControlFlowNode::For { source, .. } => {
-          // todo
-        }
+        ShaderControlFlowNode::For { source, .. } => match source {
+          ShaderIteratorAble::Const(_) => {}
+          ShaderIteratorAble::Count(c) => visitor(&c.cast_untyped()),
+        },
       },
       ShaderGraphNodeData::SideEffect(_) => {}
     }
   }
-}
-
-#[derive(Clone)]
-pub struct FunctionNode {
-  pub prototype: &'static ShaderFunctionMetaInfo,
-  pub parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
 }
 
 #[derive(Clone)]
@@ -461,8 +458,6 @@ pub enum ShaderGraphInputNode {
 
 #[derive(Copy, Clone)]
 pub enum ShaderBuiltIn {
-  VertexClipPosition,
-  VertexPointSize,
   VertexIndexId,
   VertexInstanceId,
 }
