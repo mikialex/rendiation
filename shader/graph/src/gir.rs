@@ -319,3 +319,26 @@ pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
   fn meta_info() -> &'static ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
 }
+
+pub enum ShaderVaryingInterpolation {
+  Flat,
+  Perspective,
+}
+
+pub struct ShaderVaryingValueInfo {
+  pub interpolation: usize,
+  pub ty: PrimitiveShaderValueType,
+}
+
+#[derive(Clone)]
+pub struct ShaderGraphBindEntry {
+  pub ty: ShaderValueType,
+  pub node: ShaderGraphNodeRawHandleUntyped,
+  pub used_in_vertex: bool,
+  pub used_in_fragment: bool,
+}
+
+#[derive(Default, Clone)]
+pub struct ShaderGraphBindGroup {
+  pub bindings: Vec<(ShaderGraphBindEntry, TypeId)>,
+}

@@ -105,6 +105,13 @@ pub struct ShaderGraphVertexBuilder {
 
   // user vertex out
   pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+
+  pending_resolve: HashMap<TypeId, PendingResolve>,
+}
+
+struct PendingResolve {
+  unresolved: Rc<Cell<ShaderGraphNodeRawHandleUntyped>>,
+  depend_by: Vec<ShaderGraphNodeRawHandleUntyped>,
 }
 
 impl std::ops::Deref for ShaderGraphVertexBuilder {
@@ -150,29 +157,6 @@ impl std::ops::DerefMut for ShaderGraphFragmentBuilder {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.bindgroups
   }
-}
-
-pub enum ShaderVaryingInterpolation {
-  Flat,
-  Perspective,
-}
-
-pub struct ShaderVaryingValueInfo {
-  pub interpolation: usize,
-  pub ty: PrimitiveShaderValueType,
-}
-
-#[derive(Clone)]
-pub struct ShaderGraphBindEntry {
-  pub ty: ShaderValueType,
-  pub node: ShaderGraphNodeRawHandleUntyped,
-  pub used_in_vertex: bool,
-  pub used_in_fragment: bool,
-}
-
-#[derive(Default, Clone)]
-pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<(ShaderGraphBindEntry, TypeId)>,
 }
 
 pub struct ShaderGraphBindGroupBuilder {
@@ -311,11 +295,38 @@ impl ShaderGraphVertexBuilder {
       vertex_point_size,
       vertex_position,
       vertex_out: Default::default(),
+      pending_resolve: Default::default(),
     }
   }
 
   pub fn extract(&self) -> ShaderGraphBuilder {
     take_build_graph()
+  }
+
+  pub fn query_last<T>(&mut self) -> Node<T::ValueType>
+  where
+    T: SemanticVertexShaderValue,
+    T::ValueType: Default,
+  {
+    let cell = &self
+      .pending_resolve
+      .entry(TypeId::of::<T>())
+      .or_insert_with(|| todo!())
+      .unresolved;
+    let cell: &Rc<Cell<ShaderGraphNodeRawHandle<T::ValueType>>> =
+      unsafe { std::mem::transmute(cell) };
+    Node {
+      handle: cell.clone(),
+    }
+  }
+
+  pub fn resolve_all_pending(&mut self) {
+    let registered = &self.vertex_registered;
+    self.pending_resolve.drain().for_each(|(id, to_resolve)| {
+      if let Some(target) = registered.get(&id) {
+        //
+      }
+    })
   }
 
   pub fn query<T: SemanticVertexShaderValue>(
@@ -440,6 +451,7 @@ impl<T> SuperUnsafeCell<T> {
       data: UnsafeCell::new(v),
     }
   }
+  #[allow(clippy::mut_from_ref)]
   pub fn get_mut(&self) -> &mut T {
     unsafe { &mut *(self.data.get()) }
   }

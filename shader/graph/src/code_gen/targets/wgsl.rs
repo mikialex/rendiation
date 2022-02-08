@@ -259,7 +259,18 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       cx.get_node_gen_result_var(*struct_node),
       field_name
     ),
-    ShaderGraphNodeExpr::StructConstruct { struct_id, fields } => todo!(),
+    ShaderGraphNodeExpr::StructConstruct { struct_id, fields } => {
+      // format!(
+      //   "{}({})",
+      //   prototype.function_name,
+      //   parameters
+      //     .iter()
+      //     .map(|from| { cx.get_node_gen_result_var(*from) })
+      //     .collect::<Vec<_>>()
+      //     .join(", ")
+      // )
+      todo!()
+    }
     ShaderGraphNodeExpr::Const(ConstNode { data }) => gen_primitive_literal(*data),
     ShaderGraphNodeExpr::Copy(node) => cx.get_node_gen_result_var(*node).to_owned(),
     ShaderGraphNodeExpr::Compose { target, parameters } => {
