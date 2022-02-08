@@ -1,6 +1,20 @@
 use crate::*;
 use rendiation_algebra::*;
 
+impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
+  fn to_type() -> ShaderValueType {
+    ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(
+      T::to_primitive_type(),
+    ))
+  }
+}
+
+impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
+  fn to_type() -> ShaderStructMemberValueType {
+    ShaderStructMemberValueType::Primitive(T::to_primitive_type())
+  }
+}
+
 impl ShaderGraphNodeType for AnyType {
   fn to_type() -> ShaderValueType {
     ShaderValueType::Never

@@ -122,26 +122,26 @@ impl FragmentCtx {
   }
 }
 
-/// you can only return the current function, so we don't need
-/// FunctionCtx to hold this function
-pub fn early_return<T>(return_value: impl Into<Node<T>>) {
-  ShaderSideEffectNode::Return(return_value.into().cast_untyped()).insert_graph_bottom();
-}
+// /// you can only return the current function, so we don't need
+// /// FunctionCtx to hold this function
+// pub fn early_return<T>(return_value: impl Into<Node<T>>) {
+//   ShaderSideEffectNode::Return(return_value.into().cast_untyped()).insert_graph_bottom();
+// }
 
-/// use runtime leak to statically store the user gen function
-pub static GLOBAL_USER_FUNCTIONS: once_cell::sync::Lazy<
-  Mutex<HashMap<TypeId, &'static ShaderFunctionMetaInfo>>,
-> = once_cell::sync::Lazy::new(|| Mutex::new(Default::default()));
+// /// use runtime leak to statically store the user gen function
+// pub static GLOBAL_USER_FUNCTIONS: once_cell::sync::Lazy<
+//   Mutex<HashMap<TypeId, &'static ShaderFunctionMetaInfo>>,
+// > = once_cell::sync::Lazy::new(|| Mutex::new(Default::default()));
 
-pub trait IntoParam {
-  fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped>;
-}
+// pub trait IntoParam {
+//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped>;
+// }
 
-impl<A, B> IntoParam for (A, B) {
-  fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped> {
-    todo!()
-  }
-}
+// impl<A, B> IntoParam for (A, B) {
+//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped> {
+//     todo!()
+//   }
+// }
 
 // pub fn function<T, P>(parameters: P, logic: impl Fn(P) -> Node<T> + Any) -> Node<T>
 // where

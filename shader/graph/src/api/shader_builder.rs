@@ -1,4 +1,8 @@
-use std::{any::TypeId, cell::UnsafeCell, collections::HashMap};
+use std::{
+  any::{Any, TypeId},
+  cell::UnsafeCell,
+  collections::HashMap,
+};
 
 use crate::*;
 
