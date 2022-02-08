@@ -1,7 +1,4 @@
-use crate::{
-  Node, ShaderGraphNodeData, ShaderGraphNodeRawHandleUntyped, ShaderGraphNodeType,
-  ShaderGraphStructuralNodeType,
-};
+use crate::*;
 
 impl<T> Node<T>
 where
@@ -19,7 +16,7 @@ pub fn expand_single<T>(
 where
   T: ShaderGraphNodeType,
 {
-  ShaderGraphNodeData::FieldGet {
+  ShaderGraphNodeExpr::FieldGet {
     field_name,
     struct_node,
   }

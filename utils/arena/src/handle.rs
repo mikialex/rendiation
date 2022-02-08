@@ -1,4 +1,4 @@
-use std::{cmp, hash::Hash, marker::PhantomData};
+use std::{cmp, fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// An handle (and generation) into an `Arena`.
 ///
@@ -14,11 +14,20 @@ use std::{cmp, hash::Hash, marker::PhantomData};
 /// let idx = arena.insert(123);
 /// assert_eq!(arena[idx], 123);
 /// ```
-#[derive(Debug)]
 pub struct Handle<T> {
   pub(crate) handle: usize,
   pub(crate) generation: u64,
   pub(crate) phantom: PhantomData<T>,
+}
+
+impl<T> Debug for Handle<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("Handle")
+      .field("handle", &self.handle)
+      .field("generation", &self.generation)
+      .field("phantom", &self.phantom)
+      .finish()
+  }
 }
 
 impl<T> Handle<T> {

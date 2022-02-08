@@ -130,10 +130,37 @@ struct Test;
 impl ShaderGraphProvider for Test {
   fn build_vertex(
     &self,
-    _builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let a = consts(1.) + consts(2.);
-    let _: Node<_> = (Vec3::zero(), a).into();
+    let a: Node<_> = (Vec3::zero(), a).into();
+    builder.vertex_position.set(a);
+
+    builder.vertex_position.set(Vec4::zero());
+
+    let a = consts(1.).mutable();
+    let c = consts(0.).mutable();
+
+    for_by(5, |for_ctx, i| {
+      let b = 1.;
+      if_by(i.greater_than(0), || {
+        a.set(a.get() + b.into());
+        for_ctx.do_continue();
+      });
+
+      let r: Node<Vec4<f32>> = (Vec3::zero(), a.get()).into();
+      builder.vertex_position.set(r);
+    });
+
+    if_by(false, || {
+      a.set(a.get() + c.get());
+      let r: Node<Vec4<f32>> = (Vec3::zero(), a.get()).into();
+      builder.vertex_position.set(r);
+    });
+
+    let x = reduceLightBleeding(a.get(), 2.);
+    builder.vertex_point_size.set(x);
+
     Ok(())
   }
 
@@ -148,7 +175,7 @@ impl ShaderGraphProvider for Test {
 
 #[test]
 fn test_build_shader() {
-  let result = build_shader(&Test).unwrap();
+  let result = build_shader(&Test, &WGSL).unwrap();
 
   println!("vertex: \n{}", result.vertex_shader);
   println!("fragment: \n{}", result.frag_shader);

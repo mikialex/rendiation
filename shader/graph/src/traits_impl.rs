@@ -1,9 +1,23 @@
 use crate::*;
 use rendiation_algebra::*;
 
+impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
+  fn to_type() -> ShaderValueType {
+    ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(
+      T::to_primitive_type(),
+    ))
+  }
+}
+
+impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
+  fn to_type() -> ShaderStructMemberValueType {
+    ShaderStructMemberValueType::Primitive(T::to_primitive_type())
+  }
+}
+
 impl ShaderGraphNodeType for AnyType {
   fn to_type() -> ShaderValueType {
-    unreachable!("Node can't created with type AnyType")
+    ShaderValueType::Never
   }
 }
 
@@ -102,7 +116,7 @@ impl ShaderGraphNodeType for ShaderTexture {
 
 impl Node<ShaderTexture> {
   pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
-    ShaderGraphNodeData::TextureSampling(TextureSamplingNode {
+    ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),

@@ -68,6 +68,10 @@ impl<T> ArenaGraph<T> {
     handle
   }
 
+  pub fn get_node_if(&self, handle: ArenaGraphNodeHandle<T>) -> Option<&ArenaGraphNode<T>> {
+    self.nodes.get(handle)
+  }
+
   pub fn get_node(&self, handle: ArenaGraphNodeHandle<T>) -> &ArenaGraphNode<T> {
     self.nodes.get(handle).unwrap()
   }

@@ -1,4 +1,8 @@
-use std::{any::TypeId, collections::HashMap, sync::Mutex};
+use std::{
+  any::{Any, TypeId},
+  cell::UnsafeCell,
+  collections::HashMap,
+};
 
 use crate::*;
 
@@ -49,10 +53,9 @@ pub trait ShaderGraphProvider {
 /// entry
 pub fn build_shader(
   builder: &dyn ShaderGraphProvider,
+  target: &dyn ShaderGraphCodeGenTarget,
 ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
   let bindgroup_builder = ShaderGraphBindGroupBuilder::default();
-
-  let target = WGSL;
 
   let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
   builder.build_vertex(&mut vertex_builder)?;
@@ -67,12 +70,16 @@ pub fn build_shader(
   Ok(ShaderGraphCompileResult {
     vertex_shader,
     frag_shader,
+    states: Default::default(),
+    bindings: fragment_builder.bindgroups,
   })
 }
 
 pub struct ShaderGraphCompileResult {
   pub vertex_shader: String,
   pub frag_shader: String,
+  pub states: PipelineShaderInterfaceInfo,
+  pub bindings: ShaderGraphBindGroupBuilder,
 }
 
 pub struct ShaderGraphVertexBuilder {
@@ -94,10 +101,10 @@ pub struct ShaderGraphVertexBuilder {
 
   // built in vertex out
   pub vertex_point_size: Node<Mutable<f32>>,
-  pub vertex_position: Node<Mutable<f32>>,
+  pub vertex_position: Node<Mutable<Vec4<f32>>>,
 
   // user vertex out
-  vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+  pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
 }
 
 impl std::ops::Deref for ShaderGraphVertexBuilder {
@@ -154,13 +161,6 @@ pub struct ShaderVaryingValueInfo {
   pub interpolation: usize,
   pub ty: PrimitiveShaderValueType,
 }
-
-// #[derive(Clone)]
-// pub enum ShaderGraphBindType {
-//   Sampler(ShaderGraphNodeRawHandle<ShaderSampler>),
-//   Texture(ShaderGraphNodeRawHandle<ShaderTexture>),
-//   UBO((ShaderStructMemberValueType, ShaderGraphNodeRawHandleUntyped)),
-// }
 
 #[derive(Clone)]
 pub struct ShaderGraphBindEntry {
@@ -280,17 +280,24 @@ impl ShaderGraphVertexBuilder {
   pub fn create(bindgroups: ShaderGraphBindGroupBuilder) -> Self {
     let mut builder = ShaderGraphBuilder::default();
 
-    let vertex_point_size =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+    let vertex_point_size = ShaderGraphNodeExpr::Const(ConstNode {
+      data: PrimitiveShaderValue::Float32(1.),
+    })
+    .insert_into_graph(&mut builder);
 
-    let vertex_position =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+    let vertex_position = ShaderGraphNodeExpr::Const(ConstNode {
+      data: PrimitiveShaderValue::Vec4Float32(Vec4::zero()),
+    })
+    .insert_into_graph(&mut builder);
 
     let vertex_index =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId))
+        .insert_into_graph(&mut builder);
 
-    let instance_index =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn).insert_into_graph(&mut builder);
+    let instance_index = ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(
+      ShaderBuiltIn::VertexInstanceId,
+    ))
+    .insert_into_graph(&mut builder);
 
     set_build_graph(builder);
 
@@ -423,22 +430,42 @@ impl ShaderGraphFragmentBuilder {
   }
 }
 
-static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<Mutex<Option<ShaderGraphBuilder>>> =
-  once_cell::sync::Lazy::new(|| Mutex::new(None));
+pub struct SuperUnsafeCell<T> {
+  pub data: UnsafeCell<T>,
+}
+
+impl<T> SuperUnsafeCell<T> {
+  pub fn new(v: T) -> Self {
+    Self {
+      data: UnsafeCell::new(v),
+    }
+  }
+  pub fn get_mut(&self) -> &mut T {
+    unsafe { &mut *(self.data.get()) }
+  }
+  pub fn get(&self) -> &T {
+    unsafe { &*(self.data.get()) }
+  }
+}
+
+unsafe impl<T> Sync for SuperUnsafeCell<T> {}
+unsafe impl<T> Send for SuperUnsafeCell<T> {}
+
+static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<
+  SuperUnsafeCell<Option<ShaderGraphBuilder>>,
+> = once_cell::sync::Lazy::new(|| SuperUnsafeCell::new(None));
 
 pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
-  let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-  let graph = guard.as_mut().unwrap();
+  let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
   modifier(graph)
 }
 
 pub(crate) fn set_build_graph(g: ShaderGraphBuilder) {
-  let mut guard = IN_BUILDING_SHADER_GRAPH.lock().unwrap();
-  *guard = Some(g);
+  IN_BUILDING_SHADER_GRAPH.get_mut().replace(g);
 }
 
 pub(crate) fn take_build_graph() -> ShaderGraphBuilder {
-  IN_BUILDING_SHADER_GRAPH.lock().unwrap().take().unwrap()
+  IN_BUILDING_SHADER_GRAPH.get_mut().take().unwrap()
 }
 
 /// built in semantics
