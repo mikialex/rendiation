@@ -8,7 +8,7 @@ pub use crate::*;
 
 pub enum ShaderGraphNodeExpr {
   FunctionCall {
-    prototype: &'static ShaderFunctionMetaInfo,
+    meta: &'static ShaderFunctionMetaInfo,
     parameters: Vec<ShaderGraphNodeRawHandle>,
   },
   TextureSampling(TextureSamplingNode),
@@ -26,7 +26,7 @@ pub enum ShaderGraphNodeExpr {
     struct_node: ShaderGraphNodeRawHandle,
   },
   StructConstruct {
-    struct_id: TypeId,
+    meta: &'static ShaderStructMetaInfo,
     fields: Vec<ShaderGraphNodeRawHandle>,
   },
   Const(ConstNode),

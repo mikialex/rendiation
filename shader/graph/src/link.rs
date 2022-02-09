@@ -154,11 +154,7 @@ impl ShaderGraphNodeData {
       nodes_to_connect.push(*dep);
     });
 
-    let is_write = if let ShaderGraphNodeData::Write { .. } = self {
-      true
-    } else {
-      false
-    };
+    let is_write = matches!(self, ShaderGraphNodeData::Write { .. });
 
     let result = top.insert_node(self).handle();
 
@@ -191,9 +187,9 @@ impl ShaderGraphNodeData {
           sampler,
           position,
         }) => {
-          visitor(&texture);
-          visitor(&sampler);
-          visitor(&position);
+          visitor(texture);
+          visitor(sampler);
+          visitor(position);
         }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter().for_each(visitor),

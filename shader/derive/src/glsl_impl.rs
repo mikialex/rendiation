@@ -138,7 +138,7 @@ pub fn gen_glsl_function(
       #(#input_node_prepare)*
 
       ShaderGraphNodeExpr::FunctionCall {
-        prototype: & #prototype_name,
+        meta: & #prototype_name,
         parameters,
       }.insert_graph()
 

@@ -63,7 +63,7 @@ fn gen_node_with_dep_in_entry(
       println!("dep node {:?} {}", n.handle(), node.graph_id);
       if cx.try_get_node_gen_result_var(h).is_none() {
         println!("gen node {:?} {}", n.handle(), node.graph_id);
-        gen_node(&n.data(), h, cx, code);
+        gen_node(n.data(), h, cx, code);
       }
     },
     &mut || panic!("loop"),
@@ -76,7 +76,7 @@ fn gen_scope_full(scope: &ShaderGraphScope, cx: &mut CodeGenCtx, code: &mut Code
   scope
     .inserted
     .iter()
-    .for_each(|n| gen_node(&nodes.get_node(n.handle).data(), *n, cx, code));
+    .for_each(|n| gen_node(nodes.get_node(n.handle).data(), *n, cx, code));
   cx.pop_scope();
 }
 
@@ -212,7 +212,7 @@ fn gen_node(
 fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
   match data {
     ShaderGraphNodeExpr::FunctionCall {
-      prototype,
+      meta: prototype,
       parameters,
     } => {
       cx.add_fn_dep(prototype);
@@ -249,17 +249,16 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       cx.get_node_gen_result_var(*struct_node),
       field_name
     ),
-    ShaderGraphNodeExpr::StructConstruct { struct_id, fields } => {
-      // format!(
-      //   "{}({})",
-      //   prototype.function_name,
-      //   parameters
-      //     .iter()
-      //     .map(|from| { cx.get_node_gen_result_var(*from) })
-      //     .collect::<Vec<_>>()
-      //     .join(", ")
-      // )
-      todo!()
+    ShaderGraphNodeExpr::StructConstruct { meta, fields } => {
+      format!(
+        "{}({})",
+        meta.name,
+        fields
+          .iter()
+          .map(|from| { cx.get_node_gen_result_var(*from) })
+          .collect::<Vec<_>>()
+          .join(", ")
+      )
     }
     ShaderGraphNodeExpr::Const(ConstNode { data }) => gen_primitive_literal(*data),
     ShaderGraphNodeExpr::Copy(node) => cx.get_node_gen_result_var(*node).to_owned(),
