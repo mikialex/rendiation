@@ -1,5 +1,5 @@
 use crate::*;
-use std::any::TypeId;
+use std::{any::TypeId, marker::PhantomData};
 
 impl ShaderGraphNodeExpr {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
@@ -50,7 +50,7 @@ impl ShaderControlFlowNode {
       ShaderControlFlowNode::For { scope, .. } => scope.has_side_effect,
     }
   }
-  pub fn collect_captured(&self) -> Vec<ShaderGraphNodeRawHandleUntyped> {
+  pub fn collect_captured(&self) -> Vec<ShaderGraphNodeRawHandle> {
     match self {
       ShaderControlFlowNode::If { scope, .. } => scope.captured.clone(),
       ShaderControlFlowNode::For { scope, .. } => scope.captured.clone(),
@@ -58,10 +58,7 @@ impl ShaderControlFlowNode {
   }
   pub fn collect_writes(
     &self,
-  ) -> Vec<(
-    Rc<Cell<ShaderGraphNodeRawHandleUntyped>>,
-    ShaderGraphNodeRawHandleUntyped,
-  )> {
+  ) -> Vec<(Rc<Cell<ShaderGraphNodeRawHandle>>, ShaderGraphNodeRawHandle)> {
     match self {
       ShaderControlFlowNode::If { scope, .. } => scope.writes.clone(),
       ShaderControlFlowNode::For { scope, .. } => scope.writes.clone(),
@@ -84,8 +81,8 @@ impl ShaderControlFlowNode {
       top.barriers.push(node.handle());
     }
 
-    // visit all the node in this scope generate before, and check
-    // if it's same and generate dep, if not pass the captured to parent scope
+    // visit all the captured node in this scope generate before, and check
+    // if it's same and generate dep, if not, pass the captured to parent scope
     for captured in captured {
       let mut find_captured = false;
       for &n in top.inserted.iter().take(top.inserted.len() - 1) {
@@ -100,7 +97,10 @@ impl ShaderControlFlowNode {
       }
     }
 
-    for write in &writes {
+    // visit all the captured write node in this scope generate before, and check
+    // if it's same and generate dep and a write node, if not, pass the captured
+    // to parent scope
+    for write in writes {
       let im_write = ShaderGraphNodeData::Write {
         target: write.1,
         source: node.handle(),
@@ -109,9 +109,7 @@ impl ShaderControlFlowNode {
       .insert_into_graph_inner::<AnyType>(top);
 
       write.0.set(im_write.handle());
-    }
 
-    for write in writes {
       let mut find_write = false;
       for &n in top.inserted.iter().take(top.inserted.len() - 1) {
         if write.1 == n {
@@ -151,8 +149,7 @@ impl ShaderGraphNodeData {
       nodes_to_connect.push(*dep);
     });
 
-    let node = ShaderGraphNode::<T>::new(self);
-    let result = top.insert_node(node).handle();
+    let result = top.insert_node(self).handle();
 
     nodes_to_connect.iter().for_each(|n| {
       if n.graph_id != top.graph_guid {
@@ -165,11 +162,13 @@ impl ShaderGraphNodeData {
     for barrier in &top.barriers {
       top.nodes.connect_node(barrier.handle, result.handle);
     }
-
-    unsafe { result.cast_type().into() }
+    Node {
+      phantom: PhantomData,
+      handle: NodeInner::Settled(result),
+    }
   }
 
-  pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandleUntyped)) {
+  pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandle)) {
     match self {
       ShaderGraphNodeData::Expr(expr) => match expr {
         ShaderGraphNodeExpr::FunctionCall { parameters, .. } => parameters.iter().for_each(visitor),
@@ -177,11 +176,11 @@ impl ShaderGraphNodeData {
           texture,
           sampler,
           position,
-        }) => unsafe {
-          visitor(&texture.cast_type());
-          visitor(&sampler.cast_type());
-          visitor(&position.cast_type());
-        },
+        }) => {
+          visitor(&texture);
+          visitor(&sampler);
+          visitor(&position);
+        }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter().for_each(visitor),
         ShaderGraphNodeExpr::Operator(OperatorNode { left, right, .. }) => {
@@ -203,7 +202,7 @@ impl ShaderGraphNodeData {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
         ShaderControlFlowNode::For { source, .. } => match source {
           ShaderIteratorAble::Const(_) => {}
-          ShaderIteratorAble::Count(c) => visitor(&c.cast_untyped()),
+          ShaderIteratorAble::Count(c) => visitor(&c.handle()),
         },
       },
       ShaderGraphNodeData::SideEffect(_) => {}

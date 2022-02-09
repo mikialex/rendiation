@@ -9,10 +9,7 @@ where
   }
 }
 
-pub fn expand_single<T>(
-  struct_node: ShaderGraphNodeRawHandleUntyped,
-  field_name: &'static str,
-) -> Node<T>
+pub fn expand_single<T>(struct_node: ShaderGraphNodeRawHandle, field_name: &'static str) -> Node<T>
 where
   T: ShaderGraphNodeType,
 {

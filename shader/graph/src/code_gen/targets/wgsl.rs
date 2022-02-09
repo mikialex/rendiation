@@ -14,19 +14,9 @@ impl ShaderGraphCodeGenTarget for WGSL {
     gen_structs(&mut code, &builder);
     gen_bindings(&mut code, &vertex.bindgroups, ShaderStages::Vertex);
     gen_entry(&mut code, ShaderStages::Vertex, |code| {
-      gen_node_with_dep_in_entry(
-        vertex.vertex_position.handle().cast_untyped(),
-        &builder,
-        &mut cx,
-        code,
-      );
+      gen_node_with_dep_in_entry(vertex.vertex_position.handle(), &builder, &mut cx, code);
 
-      gen_node_with_dep_in_entry(
-        vertex.vertex_point_size.handle().cast_untyped(),
-        &builder,
-        &mut cx,
-        code,
-      );
+      gen_node_with_dep_in_entry(vertex.vertex_point_size.handle(), &builder, &mut cx, code);
 
       vertex.vertex_out.iter().for_each(|(_, (v, _))| {
         gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
@@ -47,7 +37,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
     gen_bindings(&mut code, &fragment.bindgroups, ShaderStages::Fragment);
     gen_entry(&mut code, ShaderStages::Fragment, |code| {
       fragment.frag_output.iter().for_each(|v| {
-        gen_node_with_dep_in_entry(v.handle().cast_untyped(), &builder, &mut cx, code);
+        gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
       })
     });
     cx.gen_fn_depends(&mut code);
@@ -56,7 +46,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
 }
 
 fn gen_node_with_dep_in_entry(
-  node: ShaderGraphNodeRawHandleUntyped,
+  node: ShaderGraphNodeRawHandle,
   builder: &ShaderGraphBuilder,
   cx: &mut CodeGenCtx,
   code: &mut CodeBuilder,
@@ -73,7 +63,7 @@ fn gen_node_with_dep_in_entry(
       println!("dep node {:?} {}", n.handle(), node.graph_id);
       if cx.try_get_node_gen_result_var(h).is_none() {
         println!("gen node {:?} {}", n.handle(), node.graph_id);
-        gen_node(&n.data().data, h, cx, code);
+        gen_node(&n.data(), h, cx, code);
       }
     },
     &mut || panic!("loop"),
@@ -86,13 +76,13 @@ fn gen_scope_full(scope: &ShaderGraphScope, cx: &mut CodeGenCtx, code: &mut Code
   scope
     .inserted
     .iter()
-    .for_each(|n| gen_node(&nodes.get_node(n.handle).data().data, *n, cx, code));
+    .for_each(|n| gen_node(&nodes.get_node(n.handle).data(), *n, cx, code));
   cx.pop_scope();
 }
 
 fn gen_node(
   data: &ShaderGraphNodeData,
-  handle: ShaderGraphNodeRawHandleUntyped,
+  handle: ShaderGraphNodeRawHandle,
   cx: &mut CodeGenCtx,
   code: &mut CodeBuilder,
 ) {
@@ -162,7 +152,7 @@ fn gen_node(
             }
             ShaderIteratorAble::Count(v) => format!(
               "for(int {name} = 0; {name} < {count}; {name}++) {{",
-              count = cx.get_node_gen_result_var(v.handle().cast_untyped())
+              count = cx.get_node_gen_result_var(v.handle())
             ),
           };
           code.write_ln(head).tab();

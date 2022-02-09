@@ -111,7 +111,7 @@ pub fn gen_glsl_function(
       (
         quote! { #name: impl Into<Node<#ty>>, },
         quote! {
-         let #name = #name.into().cast_untyped();
+         let #name = #name.into().handle();
          parameters.push(#name);
         },
       )

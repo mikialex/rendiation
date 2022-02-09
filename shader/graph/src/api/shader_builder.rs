@@ -97,7 +97,7 @@ pub struct ShaderGraphVertexBuilder {
   vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
 
   // user semantic vertex
-  vertex_registered: HashMap<TypeId, NodeUntyped>,
+  registry: SemanticRegistry,
 
   // built in vertex out
   pub vertex_point_size: Node<Mutable<f32>>,
@@ -105,13 +105,6 @@ pub struct ShaderGraphVertexBuilder {
 
   // user vertex out
   pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
-
-  pending_resolve: HashMap<TypeId, PendingResolve>,
-}
-
-struct PendingResolve {
-  unresolved: Rc<Cell<ShaderGraphNodeRawHandleUntyped>>,
-  depend_by: Vec<ShaderGraphNodeRawHandleUntyped>,
 }
 
 impl std::ops::Deref for ShaderGraphVertexBuilder {
@@ -140,7 +133,7 @@ pub struct ShaderGraphFragmentBuilder {
   // user fragment in
   fragment_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
 
-  fragment_registered: HashMap<TypeId, NodeUntyped>,
+  registry: SemanticRegistry,
 
   pub frag_output: Vec<Node<Vec4<f32>>>,
 }
@@ -221,7 +214,7 @@ impl ShaderGraphBindGroupBuilder {
         ty,
         used_in_vertex: self.current_stage == ShaderStages::Vertex,
         used_in_fragment: self.current_stage == ShaderStages::Fragment,
-        node: node.handle().cast_untyped(),
+        node: node.handle(),
       },
       type_id,
     ));
@@ -245,7 +238,7 @@ impl ShaderGraphBindGroupBuilder {
       .map(|(entry, _)| unsafe {
         entry.used_in_vertex |= used_in_vertex;
         entry.used_in_fragment |= used_in_fragment;
-        entry.node.cast_type().into()
+        entry.node.into_node()
       })
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
@@ -262,28 +255,30 @@ pub struct PipelineShaderInterfaceInfo {
 
 impl ShaderGraphVertexBuilder {
   pub fn create(bindgroups: ShaderGraphBindGroupBuilder) -> Self {
-    let mut builder = ShaderGraphBuilder::default();
+    let builder = ShaderGraphBuilder::default();
+
+    set_build_graph(builder);
 
     let vertex_point_size = ShaderGraphNodeExpr::Const(ConstNode {
       data: PrimitiveShaderValue::Float32(1.),
     })
-    .insert_into_graph(&mut builder);
+    .insert_graph()
+    .mutable();
 
     let vertex_position = ShaderGraphNodeExpr::Const(ConstNode {
       data: PrimitiveShaderValue::Vec4Float32(Vec4::zero()),
     })
-    .insert_into_graph(&mut builder);
+    .insert_graph()
+    .mutable();
 
     let vertex_index =
       ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId))
-        .insert_into_graph(&mut builder);
+        .insert_graph();
 
     let instance_index = ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(
       ShaderBuiltIn::VertexInstanceId,
     ))
-    .insert_into_graph(&mut builder);
-
-    set_build_graph(builder);
+    .insert_graph();
 
     Self {
       shader_interface: Default::default(),
@@ -291,11 +286,10 @@ impl ShaderGraphVertexBuilder {
       vertex_index,
       instance_index,
       vertex_in: Default::default(),
-      vertex_registered: Default::default(),
+      registry: Default::default(),
       vertex_point_size,
       vertex_position,
       vertex_out: Default::default(),
-      pending_resolve: Default::default(),
     }
   }
 
@@ -308,45 +302,27 @@ impl ShaderGraphVertexBuilder {
     T: SemanticVertexShaderValue,
     T::ValueType: Default,
   {
-    let cell = &self
-      .pending_resolve
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| todo!())
-      .unresolved;
-    let cell: &Rc<Cell<ShaderGraphNodeRawHandle<T::ValueType>>> =
-      unsafe { std::mem::transmute(cell) };
-    Node {
-      handle: cell.clone(),
-    }
+    let n = self.registry.query_last(TypeId::of::<T>());
+    unsafe { std::mem::transmute(n) }
   }
 
-  pub fn resolve_all_pending(&mut self) {
-    let registered = &self.vertex_registered;
-    self.pending_resolve.drain().for_each(|(id, to_resolve)| {
-      if let Some(target) = registered.get(&id) {
-        //
-      }
-    })
+  pub fn resolve_all_pending(&mut self, root_scope: &mut ShaderGraphScope) {
+    self.registry.resolve_all_pending(root_scope);
   }
 
   pub fn query<T: SemanticVertexShaderValue>(
     &mut self,
   ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
     self
-      .vertex_registered
-      .get(&TypeId::of::<T>())
-      .map(|node| {
-        let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
-        n.get()
-      })
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+      .registry
+      .query(TypeId::of::<T>())
+      .map(|n| unsafe { std::mem::transmute(n) })
   }
 
   pub fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
     self
-      .vertex_registered
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| node.into().cast_untyped_node());
+      .registry
+      .register(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
   pub fn register_vertex_in<T: SemanticVertexGeometryIn>(&mut self) -> Node<T::ValueType> {
@@ -391,29 +367,37 @@ impl ShaderGraphFragmentBuilder {
       bindgroups: vertex.bindgroups,
       varying_info: Default::default(),
       fragment_in: Default::default(),
-      fragment_registered: Default::default(),
+      registry: Default::default(),
       frag_output: Default::default(),
     }
   }
 
-  pub fn query<T: SemanticVertexShaderValue>(
+  pub fn query_last<T>(&mut self) -> Node<T::ValueType>
+  where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: Default,
+  {
+    let n = self.registry.query_last(TypeId::of::<T>());
+    unsafe { std::mem::transmute(n) }
+  }
+
+  pub fn resolve_all_pending(&mut self, root_scope: &mut ShaderGraphScope) {
+    self.registry.resolve_all_pending(root_scope);
+  }
+
+  pub fn query<T: SemanticFragmentShaderValue>(
     &mut self,
   ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
     self
-      .fragment_registered
-      .get(&TypeId::of::<T>())
-      .map(|node| {
-        let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
-        n.get()
-      })
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+      .registry
+      .query(TypeId::of::<T>())
+      .map(|n| unsafe { std::mem::transmute(n) })
   }
 
-  pub fn register<T: SemanticVertexShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
+  pub fn register<T: SemanticFragmentShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
     self
-      .fragment_registered
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| node.into().cast_untyped_node());
+      .registry
+      .register(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
   pub fn get_fragment_in<T: SemanticVertexFragmentIOValue>(
