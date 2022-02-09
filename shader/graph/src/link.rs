@@ -77,7 +77,12 @@ impl ShaderControlFlowNode {
         .inserted
         .iter()
         .take(top.inserted.len() - 1)
-        .for_each(|n| nodes.connect_node(n.handle, node.handle().handle));
+        .for_each(|n| {
+          let d = nodes.get_node(n.handle).data();
+          if let ShaderGraphNodeData::Write { .. } = d {
+            nodes.connect_node(n.handle, node.handle().handle)
+          }
+        });
       top.barriers.push(node.handle());
     }
 
@@ -149,6 +154,12 @@ impl ShaderGraphNodeData {
       nodes_to_connect.push(*dep);
     });
 
+    let is_write = if let ShaderGraphNodeData::Write { .. } = self {
+      true
+    } else {
+      false
+    };
+
     let result = top.insert_node(self).handle();
 
     nodes_to_connect.iter().for_each(|n| {
@@ -159,9 +170,12 @@ impl ShaderGraphNodeData {
       }
     });
 
-    for barrier in &top.barriers {
-      top.nodes.connect_node(barrier.handle, result.handle);
+    if is_write {
+      for barrier in &top.barriers {
+        top.nodes.connect_node(barrier.handle, result.handle);
+      }
     }
+
     Node {
       phantom: PhantomData,
       handle: NodeInner::Settled(result),
@@ -203,6 +217,61 @@ impl ShaderGraphNodeData {
         ShaderControlFlowNode::For { source, .. } => match source {
           ShaderIteratorAble::Const(_) => {}
           ShaderIteratorAble::Count(c) => visitor(&c.handle()),
+        },
+      },
+      ShaderGraphNodeData::SideEffect(_) => {}
+    }
+  }
+
+  pub fn replace_dependency(
+    &mut self,
+    old: ShaderGraphNodeRawHandle,
+    new: ShaderGraphNodeRawHandle,
+  ) {
+    self.visit_dependency_mut(|dep| {
+      if *dep == old {
+        *dep = new;
+      }
+    })
+  }
+
+  pub fn visit_dependency_mut(&mut self, mut visitor: impl FnMut(&mut ShaderGraphNodeRawHandle)) {
+    match self {
+      ShaderGraphNodeData::Expr(expr) => match expr {
+        ShaderGraphNodeExpr::FunctionCall { parameters, .. } => {
+          parameters.iter_mut().for_each(visitor)
+        }
+        ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+          texture,
+          sampler,
+          position,
+        }) => {
+          visitor(texture);
+          visitor(sampler);
+          visitor(position);
+        }
+        ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
+        ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter_mut().for_each(visitor),
+        ShaderGraphNodeExpr::Operator(OperatorNode { left, right, .. }) => {
+          visitor(left);
+          visitor(right);
+        }
+        ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
+        ShaderGraphNodeExpr::StructConstruct { fields, .. } => fields.iter_mut().for_each(visitor),
+        ShaderGraphNodeExpr::Const(_) => {}
+        ShaderGraphNodeExpr::Copy(from) => visitor(from),
+      },
+      ShaderGraphNodeData::Input(_) => {}
+      ShaderGraphNodeData::UnNamed => {}
+      ShaderGraphNodeData::Write { source, target, .. } => {
+        visitor(source);
+        visitor(target);
+      }
+      ShaderGraphNodeData::ControlFlow(cf) => match cf {
+        ShaderControlFlowNode::If { condition, .. } => visitor(condition),
+        ShaderControlFlowNode::For { source, .. } => match source {
+          ShaderIteratorAble::Const(_) => {}
+          ShaderIteratorAble::Count(c) => visitor(&mut c.handle()),
         },
       },
       ShaderGraphNodeData::SideEffect(_) => {}

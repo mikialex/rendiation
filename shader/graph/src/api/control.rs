@@ -28,6 +28,15 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
     unsafe { self.handle().into_node() }
   }
 
+  // pub fn get_last(&self) -> Node<T> {
+  //   // the reason we should clone node here is that
+  //   // when we finally resolve dependency, we should distinguish between
+  //   // the node we want replace the dependency or not, so this copy will
+  //   // actually not code gen and will be replaced by the last resolve node.
+  //   let node = ShaderGraphNodeExpr::Copy(self.get().handle()).insert_graph();
+  //   self.get()
+  // }
+
   pub fn set(&self, node: impl Into<Node<T>>) {
     match &self.handle {
       NodeInner::Settled(_) => unreachable!(),
