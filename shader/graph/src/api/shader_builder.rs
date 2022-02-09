@@ -297,13 +297,9 @@ impl ShaderGraphVertexBuilder {
     take_build_graph()
   }
 
-  pub fn resolve_all_pending(&mut self, root_scope: &mut ShaderGraphScope) {
-    self.registry.resolve_all_pending(root_scope);
-  }
-
   pub fn query<T: SemanticVertexShaderValue>(
     &mut self,
-  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+  ) -> Result<&Node<Mutable<T::ValueType>>, ShaderGraphBuildError> {
     self
       .registry
       .query(TypeId::of::<T>())
@@ -363,13 +359,9 @@ impl ShaderGraphFragmentBuilder {
     }
   }
 
-  pub fn resolve_all_pending(&mut self, root_scope: &mut ShaderGraphScope) {
-    self.registry.resolve_all_pending(root_scope);
-  }
-
   pub fn query<T: SemanticFragmentShaderValue>(
     &mut self,
-  ) -> Result<Node<T::ValueType>, ShaderGraphBuildError> {
+  ) -> Result<&Node<Mutable<T::ValueType>>, ShaderGraphBuildError> {
     self
       .registry
       .query(TypeId::of::<T>())

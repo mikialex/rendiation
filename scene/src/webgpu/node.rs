@@ -82,7 +82,7 @@ impl ShaderGraphProvider for TransformGPUData {
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let model = builder.register_uniform::<Self>().expand();
-    let position = builder.query::<LocalVertexPosition>()?;
+    let position = builder.query::<LocalVertexPosition>()?.get_last();
     let position = model.world_matrix * (position, 0.).into();
     builder.register::<WorldVertexPosition>(position.xyz());
     Ok(())
