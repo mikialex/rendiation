@@ -8,29 +8,29 @@ pub use crate::*;
 
 pub enum ShaderGraphNodeExpr {
   FunctionCall {
-    prototype: &'static ShaderFunctionMetaInfo,
-    parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
+    meta: &'static ShaderFunctionMetaInfo,
+    parameters: Vec<ShaderGraphNodeRawHandle>,
   },
   TextureSampling(TextureSamplingNode),
   Swizzle {
     ty: &'static str,
-    source: ShaderGraphNodeRawHandleUntyped,
+    source: ShaderGraphNodeRawHandle,
   },
   Compose {
     target: PrimitiveShaderValueType,
-    parameters: Vec<ShaderGraphNodeRawHandleUntyped>,
+    parameters: Vec<ShaderGraphNodeRawHandle>,
   },
   Operator(OperatorNode),
   FieldGet {
     field_name: &'static str,
-    struct_node: ShaderGraphNodeRawHandleUntyped,
+    struct_node: ShaderGraphNodeRawHandle,
   },
   StructConstruct {
-    struct_id: TypeId,
-    fields: Vec<ShaderGraphNodeRawHandleUntyped>,
+    meta: &'static ShaderStructMetaInfo,
+    fields: Vec<ShaderGraphNodeRawHandle>,
   },
   Const(ConstNode),
-  Copy(ShaderGraphNodeRawHandleUntyped),
+  Copy(ShaderGraphNodeRawHandle),
 }
 
 pub enum ShaderGraphNodeData {
@@ -38,8 +38,11 @@ pub enum ShaderGraphNodeData {
   /// This is workaround for some case
   UnNamed,
   Write {
-    source: ShaderGraphNodeRawHandleUntyped,
-    target: ShaderGraphNodeRawHandleUntyped,
+    source: ShaderGraphNodeRawHandle,
+    target: ShaderGraphNodeRawHandle,
+    /// implicit true is describe the write behavior
+    /// of a scope to a value, the wrote value is a new
+    /// value could be depend, so it's a new node.
     implicit: bool,
   },
   ControlFlow(ShaderControlFlowNode),
@@ -50,13 +53,13 @@ pub enum ShaderGraphNodeData {
 pub enum ShaderSideEffectNode {
   Continue,
   Break,
-  Return(ShaderGraphNodeRawHandleUntyped),
+  Return(ShaderGraphNodeRawHandle),
   Termination,
 }
 
 pub enum ShaderControlFlowNode {
   If {
-    condition: ShaderGraphNodeRawHandleUntyped,
+    condition: ShaderGraphNodeRawHandle,
     scope: ShaderGraphScope,
   },
   For {
@@ -66,7 +69,6 @@ pub enum ShaderControlFlowNode {
   // While,
 }
 
-#[derive(Clone)]
 pub enum ShaderIteratorAble {
   Const(u32),
   Count(Node<u32>),
@@ -79,15 +81,15 @@ pub struct ConstNode {
 
 #[derive(Clone)]
 pub struct TextureSamplingNode {
-  pub texture: ShaderGraphNodeRawHandle<ShaderTexture>,
-  pub sampler: ShaderGraphNodeRawHandle<ShaderSampler>,
-  pub position: ShaderGraphNodeRawHandle<Vec2<f32>>,
+  pub texture: ShaderGraphNodeRawHandle,
+  pub sampler: ShaderGraphNodeRawHandle,
+  pub position: ShaderGraphNodeRawHandle,
 }
 
 #[derive(Clone)]
 pub struct OperatorNode {
-  pub left: ShaderGraphNodeRawHandleUntyped,
-  pub right: ShaderGraphNodeRawHandleUntyped,
+  pub left: ShaderGraphNodeRawHandle,
+  pub right: ShaderGraphNodeRawHandle,
   pub operator: &'static str,
 }
 
@@ -114,18 +116,18 @@ pub enum TrinaryOperator {
 
 pub enum OperatorNode2 {
   Unary {
-    one: ShaderGraphNodeRawHandleUntyped,
+    one: ShaderGraphNodeRawHandle,
     operator: &'static str,
   },
   Binary {
-    left: ShaderGraphNodeRawHandleUntyped,
-    right: ShaderGraphNodeRawHandleUntyped,
+    left: ShaderGraphNodeRawHandle,
+    right: ShaderGraphNodeRawHandle,
     operator: &'static str,
   },
   Trinary {
-    forward: ShaderGraphNodeRawHandleUntyped,
-    left: ShaderGraphNodeRawHandleUntyped,
-    right: ShaderGraphNodeRawHandleUntyped,
+    forward: ShaderGraphNodeRawHandle,
+    left: ShaderGraphNodeRawHandle,
+    right: ShaderGraphNodeRawHandle,
     operator: &'static str,
   },
 }
@@ -318,4 +320,27 @@ pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
   type Instance;
   fn meta_info() -> &'static ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
+}
+
+pub enum ShaderVaryingInterpolation {
+  Flat,
+  Perspective,
+}
+
+pub struct ShaderVaryingValueInfo {
+  pub interpolation: usize,
+  pub ty: PrimitiveShaderValueType,
+}
+
+#[derive(Clone)]
+pub struct ShaderGraphBindEntry {
+  pub ty: ShaderValueType,
+  pub node: ShaderGraphNodeRawHandle,
+  pub used_in_vertex: bool,
+  pub used_in_fragment: bool,
+}
+
+#[derive(Default, Clone)]
+pub struct ShaderGraphBindGroup {
+  pub bindings: Vec<(ShaderGraphBindEntry, TypeId)>,
 }

@@ -5,7 +5,7 @@ fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
   n: &Node<I>,
   ty: &'static str,
 ) -> Node<T> {
-  let source = n.cast_untyped();
+  let source = n.handle();
   ShaderGraphNodeExpr::Swizzle { ty, source }.insert_graph()
 }
 
@@ -31,8 +31,8 @@ where
   B: Into<Node<f32>>,
 {
   fn from((a, b): (A, B)) -> Self {
-    let a = a.into().cast_untyped();
-    let b = b.into().cast_untyped();
+    let a = a.into().handle();
+    let b = b.into().handle();
     ShaderGraphNodeExpr::Compose {
       target: Vec4::<f32>::to_primitive_type(),
       parameters: vec![a, b],

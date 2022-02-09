@@ -28,7 +28,7 @@ pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
   let instance_fields_create = s.map_fields(|(field_name, ty)| {
     let field_str = format!("{}", field_name);
-    quote! { #field_name: shadergraph::expand_single::<#ty>(node.cast_untyped(), #field_str), }
+    quote! { #field_name: shadergraph::expand_single::<#ty>(node.handle(), #field_str), }
   });
 
   quote! {

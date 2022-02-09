@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::HashMap, marker::PhantomData, sync::Mutex};
+use std::marker::PhantomData;
 
 use crate::*;
 
@@ -15,34 +15,66 @@ impl<T: ShaderGraphNodeType> ShaderGraphNodeType for Mutable<T> {
 
 impl<T: ShaderGraphNodeType> Node<T> {
   pub fn mutable(&self) -> Node<Mutable<T>> {
-    unsafe { self.handle().cast_type().into() }
+    let node = ShaderGraphNodeExpr::Copy(self.handle()).insert_graph::<T>();
+    let pending = modify_graph(|builder| {
+      let top = builder.top_scope_mut();
+      let pending = PendingResolve {
+        current: Cell::new(node.handle()),
+        last_depends_history: Default::default(),
+      };
+      let pending = Rc::new(pending);
+      top.unresolved.push(pending.clone());
+      pending
+    });
+    Node {
+      phantom: PhantomData,
+      handle: NodeInner::Unresolved(pending),
+    }
   }
 }
 
 impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
   pub fn get(&self) -> Node<T> {
-    unsafe { self.handle().cast_type().into() }
+    unsafe { self.handle().into_node() }
+  }
+
+  pub fn get_last(&self) -> Node<T> {
+    // the reason we should clone node here is that
+    // when we finally resolve dependency, we should distinguish between
+    // the node we want replace the dependency or not, so this copy will
+    // actually not code gen and will be replaced by the last resolve node.
+    let node = ShaderGraphNodeExpr::Copy(self.get().handle()).insert_graph();
+    match &self.handle {
+      NodeInner::Settled(_) => unreachable!(),
+      NodeInner::Unresolved(v) => v.last_depends_history.borrow_mut().push(node.handle()),
+    }
+    node
   }
 
   pub fn set(&self, node: impl Into<Node<T>>) {
-    let node = node.into();
-    let write = modify_graph(|builder| {
-      if self.handle().graph_id != builder.top_scope().graph_guid {
-        builder
-          .top_scope_mut()
-          .writes
-          .push((self.clone_inner(), self.handle().cast_untyped()));
-      }
+    match &self.handle {
+      NodeInner::Settled(_) => unreachable!(),
+      NodeInner::Unresolved(v) => {
+        let node = node.into();
+        let write = modify_graph(|builder| {
+          if self.handle().graph_id != builder.top_scope().graph_guid {
+            builder
+              .top_scope_mut()
+              .writes
+              .push((v.clone(), self.handle()));
+          }
 
-      ShaderGraphNodeData::Write {
-        source: node.cast_untyped(),
-        target: self.get().cast_untyped(),
-        implicit: false,
-      }
-      .insert_into_graph::<AnyType>(builder)
-    });
+          ShaderGraphNodeData::Write {
+            source: node.handle(),
+            target: self.get().handle(),
+            implicit: false,
+          }
+          .insert_into_graph::<AnyType>(builder)
+        });
 
-    unsafe { self.handle.set(write.handle().cast_type()) };
+        v.current.set(write.handle())
+      }
+    }
   }
 }
 
@@ -108,7 +140,7 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
 
   modify_graph(|builder| {
     let scope = builder.pop_scope();
-    let condition = condition.cast_untyped();
+    let condition = condition.handle();
 
     ShaderControlFlowNode::If { condition, scope }.insert_into_graph(builder);
   });
@@ -125,7 +157,7 @@ impl FragmentCtx {
 // /// you can only return the current function, so we don't need
 // /// FunctionCtx to hold this function
 // pub fn early_return<T>(return_value: impl Into<Node<T>>) {
-//   ShaderSideEffectNode::Return(return_value.into().cast_untyped()).insert_graph_bottom();
+//   ShaderSideEffectNode::Return(return_value.into().handle()).insert_graph_bottom();
 // }
 
 // /// use runtime leak to statically store the user gen function
@@ -134,11 +166,11 @@ impl FragmentCtx {
 // > = once_cell::sync::Lazy::new(|| Mutex::new(Default::default()));
 
 // pub trait IntoParam {
-//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped>;
+//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandle>;
 // }
 
 // impl<A, B> IntoParam for (A, B) {
-//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandleUntyped> {
+//   fn into_param(self) -> Vec<ShaderGraphNodeRawHandle> {
 //     todo!()
 //   }
 // }

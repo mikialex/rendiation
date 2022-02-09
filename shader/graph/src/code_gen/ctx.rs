@@ -76,8 +76,7 @@ impl CodeGenCtx {
     });
   }
 
-  pub fn try_get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> Option<&str> {
-    let node = node.into().cast_untyped();
+  pub fn try_get_node_gen_result_var(&self, node: ShaderGraphNodeRawHandle) -> Option<&str> {
     self
       .scopes
       .iter()
@@ -85,7 +84,7 @@ impl CodeGenCtx {
       .find_map(|scope| scope.get_node_gen_result_var(node))
   }
 
-  pub fn get_node_gen_result_var<T>(&self, node: impl Into<Node<T>>) -> &str {
+  pub fn get_node_gen_result_var(&self, node: ShaderGraphNodeRawHandle) -> &str {
     self.try_get_node_gen_result_var(node).unwrap()
   }
 
@@ -97,11 +96,11 @@ impl CodeGenCtx {
 
 #[derive(Default)]
 pub struct CodeGenScopeCtx {
-  pub code_gen_history: HashMap<ShaderGraphNodeRawHandleUntyped, MiddleVariableCodeGenResult>,
+  pub code_gen_history: HashMap<ShaderGraphNodeRawHandle, MiddleVariableCodeGenResult>,
 }
 
 impl CodeGenScopeCtx {
-  pub fn get_node_gen_result_var(&self, node: ShaderGraphNodeRawHandleUntyped) -> Option<&str> {
+  pub fn get_node_gen_result_var(&self, node: ShaderGraphNodeRawHandle) -> Option<&str> {
     self
       .code_gen_history
       .get(&node)

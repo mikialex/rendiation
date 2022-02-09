@@ -10,8 +10,8 @@ where
 
   fn add(self, other: Self) -> Self::Output {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "+",
     })
     .insert_graph()
@@ -27,8 +27,8 @@ where
 
   fn sub(self, other: Self) -> Self::Output {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "-",
     })
     .insert_graph()
@@ -45,8 +45,8 @@ where
 
   fn mul(self, other: Node<I>) -> Self::Output {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "*",
     })
     .insert_graph()
@@ -63,8 +63,8 @@ where
 
   fn div(self, other: Node<I>) -> Self::Output {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "/",
     })
     .insert_graph()
@@ -74,8 +74,8 @@ where
 impl<T: PartialEq> Node<T> {
   pub fn equals(&self, other: Self) -> Node<bool> {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "==",
     })
     .insert_graph()
@@ -83,8 +83,8 @@ impl<T: PartialEq> Node<T> {
 
   pub fn not_equals(&self, other: Self) -> Node<bool> {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "!=",
     })
     .insert_graph()
@@ -94,32 +94,32 @@ impl<T: PartialEq> Node<T> {
 impl<T: PartialOrd> Node<T> {
   pub fn less_than(&self, other: Self) -> Node<bool> {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "<",
     })
     .insert_graph()
   }
   pub fn less_or_equal_than(&self, other: Self) -> Node<bool> {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "<=",
     })
     .insert_graph()
   }
   pub fn greater_than(&self, other: impl Into<Self>) -> Node<bool> {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.into().cast_untyped(),
+      left: self.handle(),
+      right: other.into().handle(),
       operator: ">",
     })
     .insert_graph()
   }
   pub fn greater_or_equal_than(&self, other: Self) -> Node<bool> {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: ">=",
     })
     .insert_graph()
@@ -130,8 +130,8 @@ impl Node<bool> {
   #[must_use]
   pub fn or(&self, other: Self) -> Self {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "||",
     })
     .insert_graph()
@@ -140,8 +140,8 @@ impl Node<bool> {
   #[must_use]
   pub fn and(&self, other: Self) -> Self {
     ShaderGraphNodeExpr::Operator(OperatorNode {
-      left: self.cast_untyped(),
-      right: other.cast_untyped(),
+      left: self.handle(),
+      right: other.handle(),
       operator: "&&",
     })
     .insert_graph()
@@ -151,8 +151,8 @@ impl Node<bool> {
   pub fn not(&self) -> Self {
     todo!()
     // ShaderGraphNodeExpr::Operator(OperatorNode {
-    //   left: self.cast_untyped(),
-    //   right: other.cast_untyped(),
+    //   left: self.handle(),
+    //   right: other.handle(),
     //   operator: "!",
     // })
     // .insert_graph()

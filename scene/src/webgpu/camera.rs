@@ -75,7 +75,7 @@ impl ShaderGraphProvider for CameraBindgroup {
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let camera = builder.register_uniform::<CameraGPUTransform>().expand();
-    let position = builder.query::<WorldVertexPosition>()?;
+    let position = builder.query::<WorldVertexPosition>()?.get_last();
     builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
     Ok(())
   }
