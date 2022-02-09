@@ -59,12 +59,14 @@ pub fn build_shader(
 
   let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
   builder.build_vertex(&mut vertex_builder)?;
-  let result = vertex_builder.extract();
+  let mut result = vertex_builder.extract();
+  result.top_scope_mut().resolve_all_pending();
   let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
 
   let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
   builder.build_fragment(&mut fragment_builder)?;
-  let result = fragment_builder.extract();
+  let mut result = fragment_builder.extract();
+  result.top_scope_mut().resolve_all_pending();
   let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
 
   Ok(ShaderGraphCompileResult {
@@ -241,6 +243,25 @@ impl ShaderGraphBindGroupBuilder {
         entry.node.into_node()
       })
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+  }
+}
+
+#[derive(Default)]
+pub struct SemanticRegistry {
+  registered: HashMap<TypeId, NodeUntyped>,
+}
+
+impl SemanticRegistry {
+  pub fn query(&mut self, id: TypeId) -> Result<&Node<Mutable<AnyType>>, ShaderGraphBuildError> {
+    self
+      .registered
+      .get(&id)
+      .map(|node| unsafe { std::mem::transmute(node) })
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+  }
+
+  pub fn register(&mut self, id: TypeId, node: NodeUntyped) {
+    self.registered.entry(id).or_insert_with(|| node);
   }
 }
 

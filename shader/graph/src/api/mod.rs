@@ -10,6 +10,3 @@ pub use swizzle::*;
 
 pub mod control;
 pub use control::*;
-
-pub mod semantic;
-pub use semantic::*;
