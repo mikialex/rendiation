@@ -56,9 +56,7 @@ impl ShaderControlFlowNode {
       ShaderControlFlowNode::For { scope, .. } => scope.captured.clone(),
     }
   }
-  pub fn collect_writes(
-    &self,
-  ) -> Vec<(Rc<Cell<ShaderGraphNodeRawHandle>>, ShaderGraphNodeRawHandle)> {
+  pub fn collect_writes(&self) -> Vec<(Rc<PendingResolve>, ShaderGraphNodeRawHandle)> {
     match self {
       ShaderControlFlowNode::If { scope, .. } => scope.writes.clone(),
       ShaderControlFlowNode::For { scope, .. } => scope.writes.clone(),
@@ -113,7 +111,7 @@ impl ShaderControlFlowNode {
       }
       .insert_into_graph_inner::<AnyType>(top);
 
-      write.0.set(im_write.handle());
+      write.0.current.set(im_write.handle());
 
       let mut find_write = false;
       for &n in top.inserted.iter().take(top.inserted.len() - 1) {

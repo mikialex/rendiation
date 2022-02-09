@@ -297,15 +297,6 @@ impl ShaderGraphVertexBuilder {
     take_build_graph()
   }
 
-  pub fn query_last<T>(&mut self) -> Node<T::ValueType>
-  where
-    T: SemanticVertexShaderValue,
-    T::ValueType: Default,
-  {
-    let n = self.registry.query_last(TypeId::of::<T>());
-    unsafe { std::mem::transmute(n) }
-  }
-
   pub fn resolve_all_pending(&mut self, root_scope: &mut ShaderGraphScope) {
     self.registry.resolve_all_pending(root_scope);
   }
@@ -370,15 +361,6 @@ impl ShaderGraphFragmentBuilder {
       registry: Default::default(),
       frag_output: Default::default(),
     }
-  }
-
-  pub fn query_last<T>(&mut self) -> Node<T::ValueType>
-  where
-    T: SemanticFragmentShaderValue,
-    T::ValueType: Default,
-  {
-    let n = self.registry.query_last(TypeId::of::<T>());
-    unsafe { std::mem::transmute(n) }
   }
 
   pub fn resolve_all_pending(&mut self, root_scope: &mut ShaderGraphScope) {

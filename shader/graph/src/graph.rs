@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::HashMap, marker::PhantomData};
+use std::{any::TypeId, cell::RefCell, collections::HashMap, marker::PhantomData};
 
 use arena_graph::ArenaGraph;
 
@@ -6,7 +6,12 @@ use crate::*;
 
 pub enum NodeInner {
   Settled(ShaderGraphNodeRawHandle),
-  Unresolved(Rc<Cell<ShaderGraphNodeRawHandle>>),
+  Unresolved(Rc<PendingResolve>),
+}
+
+pub struct PendingResolve {
+  pub current: Cell<ShaderGraphNodeRawHandle>,
+  pub last_depends_history: RefCell<Vec<ShaderGraphNodeRawHandle>>,
 }
 
 #[repr(transparent)]
@@ -19,7 +24,7 @@ impl<T> Node<T> {
   pub fn handle(&self) -> ShaderGraphNodeRawHandle {
     match &self.handle {
       NodeInner::Settled(h) => *h,
-      NodeInner::Unresolved(h) => h.get(),
+      NodeInner::Unresolved(v) => v.current.get(),
     }
   }
 }
@@ -130,7 +135,9 @@ impl ShaderGraphBuilder {
   }
 
   pub fn pop_scope(&mut self) -> ShaderGraphScope {
-    self.scopes.pop().unwrap()
+    let mut scope = self.scopes.pop().unwrap();
+    scope.resolve_all_pending();
+    scope
   }
 }
 
@@ -152,7 +159,11 @@ pub struct ShaderGraphScope {
   pub captured: Vec<ShaderGraphNodeRawHandle>,
   /// any scoped inserted nodes's write to dependency which not exist in current scope.
   /// when scope popped, ditto
-  pub writes: Vec<(Rc<Cell<ShaderGraphNodeRawHandle>>, ShaderGraphNodeRawHandle)>,
+  ///
+  /// require clone Rc<PendingResolve> is to add the implicit write node after the scope
+  pub writes: Vec<(Rc<PendingResolve>, ShaderGraphNodeRawHandle)>,
+
+  pub unresolved: Vec<Rc<PendingResolve>>,
 }
 
 impl ShaderGraphScope {
@@ -165,7 +176,25 @@ impl ShaderGraphScope {
       barriers: Default::default(),
       captured: Default::default(),
       writes: Default::default(),
+      unresolved: Default::default(),
     }
+  }
+
+  pub fn resolve_all_pending(&mut self) {
+    let nodes = &mut self.nodes;
+    self.unresolved.drain(..).for_each(|p| {
+      p.last_depends_history.borrow().iter().for_each(|old_h| {
+        let old = nodes.get_node(old_h.handle);
+        let mut dependency = old.from().clone();
+        dependency.drain(..).for_each(|d| {
+          let dd = nodes.get_node_mut(d);
+          dd.data_mut().replace_dependency(*old_h, p.current.get());
+          nodes.connect_node(p.current.get().handle, d);
+          // todo cut old connection;
+          // todo check fix duplicate connection
+        })
+      })
+    })
   }
 
   pub fn insert_node(&mut self, node: ShaderGraphNodeData) -> NodeUntyped {

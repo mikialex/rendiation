@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{any::Any, marker::PhantomData};
 
 use crate::*;
 
@@ -16,9 +16,19 @@ impl<T: ShaderGraphNodeType> ShaderGraphNodeType for Mutable<T> {
 impl<T: ShaderGraphNodeType> Node<T> {
   pub fn mutable(&self) -> Node<Mutable<T>> {
     let node = ShaderGraphNodeExpr::Copy(self.handle()).insert_graph::<T>();
+    let pending = modify_graph(|builder| {
+      let top = builder.top_scope_mut();
+      let pending = PendingResolve {
+        current: Cell::new(node.handle()),
+        last_depends_history: Default::default(),
+      };
+      let pending = Rc::new(pending);
+      top.unresolved.push(pending.clone());
+      pending
+    });
     Node {
       phantom: PhantomData,
-      handle: NodeInner::Unresolved(Rc::new(Cell::new(node.handle()))),
+      handle: NodeInner::Unresolved(pending),
     }
   }
 }
@@ -28,26 +38,30 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
     unsafe { self.handle().into_node() }
   }
 
-  // pub fn get_last(&self) -> Node<T> {
-  //   // the reason we should clone node here is that
-  //   // when we finally resolve dependency, we should distinguish between
-  //   // the node we want replace the dependency or not, so this copy will
-  //   // actually not code gen and will be replaced by the last resolve node.
-  //   let node = ShaderGraphNodeExpr::Copy(self.get().handle()).insert_graph();
-  //   self.get()
-  // }
+  pub fn get_last(&self) -> Node<T> {
+    // the reason we should clone node here is that
+    // when we finally resolve dependency, we should distinguish between
+    // the node we want replace the dependency or not, so this copy will
+    // actually not code gen and will be replaced by the last resolve node.
+    let node = ShaderGraphNodeExpr::Copy(self.get().handle()).insert_graph();
+    match &self.handle {
+      NodeInner::Settled(_) => unreachable!(),
+      NodeInner::Unresolved(v) => v.last_depends_history.borrow_mut().push(node.handle()),
+    }
+    node
+  }
 
   pub fn set(&self, node: impl Into<Node<T>>) {
     match &self.handle {
       NodeInner::Settled(_) => unreachable!(),
-      NodeInner::Unresolved(handle) => {
+      NodeInner::Unresolved(v) => {
         let node = node.into();
         let write = modify_graph(|builder| {
           if self.handle().graph_id != builder.top_scope().graph_guid {
             builder
               .top_scope_mut()
               .writes
-              .push((handle.clone(), self.handle()));
+              .push((v.clone(), self.handle()));
           }
 
           ShaderGraphNodeData::Write {
@@ -58,7 +72,7 @@ impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
           .insert_into_graph::<AnyType>(builder)
         });
 
-        handle.set(write.handle())
+        v.current.set(write.handle())
       }
     }
   }

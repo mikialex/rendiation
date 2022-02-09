@@ -14,18 +14,18 @@ pub struct SemanticRegistry {
 }
 
 impl SemanticRegistry {
-  pub fn query_last(&mut self, id: TypeId) -> NodeUntyped {
-    let cell = &self
-      .pending_resolve
-      .entry(id)
-      .or_insert_with(|| todo!())
-      .unresolved;
-    let cell: &Rc<Cell<ShaderGraphNodeRawHandle>> = unsafe { std::mem::transmute(cell) };
-    Node {
-      handle: NodeInner::Unresolved(cell.clone()),
-      phantom: PhantomData,
-    }
-  }
+  // pub fn query_last(&mut self, id: TypeId) -> NodeUntyped {
+  //   let cell = &self
+  //     .pending_resolve
+  //     .entry(id)
+  //     .or_insert_with(|| todo!())
+  //     .unresolved;
+  //   let cell: &Rc<Cell<ShaderGraphNodeRawHandle>> = unsafe { std::mem::transmute(cell) };
+  //   Node {
+  //     handle: NodeInner::Unresolved(cell.clone()),
+  //     phantom: PhantomData,
+  //   }
+  // }
 
   pub fn resolve_all_pending(&mut self, root_scope: &mut ShaderGraphScope) {
     let registered = &self.registered;
