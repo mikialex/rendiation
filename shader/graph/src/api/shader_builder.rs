@@ -96,7 +96,7 @@ pub struct ShaderGraphVertexBuilder {
   pub instance_index: Node<u32>,
 
   // user vertex in
-  vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+  pub(crate) vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
 
   // user semantic vertex
   registry: SemanticRegistry,
@@ -371,15 +371,13 @@ impl ShaderGraphVertexBuilder {
 
   pub fn register_vertex_in<T: SemanticVertexGeometryIn>(&mut self) -> Node<T::ValueType> {
     let ty = T::ValueType::to_primitive_type();
-    let node = ShaderGraphNodeData::Input(ShaderGraphInputNode::VertexIn {
-      ty,
-      index: self.vertex_in.len(),
-    })
-    .insert_graph();
+    let index = self.vertex_in.len();
+    let node =
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::VertexIn { ty, index }).insert_graph();
     self
       .vertex_in
       .entry(TypeId::of::<T>())
-      .or_insert_with(|| (node.cast_untyped_node(), ty));
+      .or_insert_with(|| (node.cast_untyped_node(), ty, index));
     node
   }
 

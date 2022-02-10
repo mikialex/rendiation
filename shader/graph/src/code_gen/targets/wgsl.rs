@@ -13,15 +13,21 @@ impl ShaderGraphCodeGenTarget for WGSL {
 
     gen_structs(&mut code, &builder);
     gen_bindings(&mut code, &vertex.bindgroups, ShaderStages::Vertex);
-    gen_entry(&mut code, ShaderStages::Vertex, |code| {
-      gen_node_with_dep_in_entry(vertex.vertex_position.handle(), &builder, &mut cx, code);
+    gen_entry(
+      &mut code,
+      ShaderStages::Vertex,
+      |code| {
+        gen_node_with_dep_in_entry(vertex.vertex_position.handle(), &builder, &mut cx, code);
 
-      gen_node_with_dep_in_entry(vertex.vertex_point_size.handle(), &builder, &mut cx, code);
+        gen_node_with_dep_in_entry(vertex.vertex_point_size.handle(), &builder, &mut cx, code);
 
-      vertex.vertex_out.iter().for_each(|(_, (v, _))| {
-        gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-      })
-    });
+        vertex.vertex_out.iter().for_each(|(_, (v, _))| {
+          gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
+        })
+      },
+      |code| gen_vertex_in_declare(code, vertex),
+      |code| {},
+    );
     cx.gen_fn_depends(&mut code);
     code.output()
   }
@@ -35,14 +41,33 @@ impl ShaderGraphCodeGenTarget for WGSL {
     let mut cx = CodeGenCtx::default();
     gen_structs(&mut code, &builder);
     gen_bindings(&mut code, &fragment.bindgroups, ShaderStages::Fragment);
-    gen_entry(&mut code, ShaderStages::Fragment, |code| {
-      fragment.frag_output.iter().for_each(|v| {
-        gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-      })
-    });
+    gen_entry(
+      &mut code,
+      ShaderStages::Fragment,
+      |code| {
+        fragment.frag_output.iter().for_each(|v| {
+          gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
+        })
+      },
+      |code| {},
+      |code| {},
+    );
     cx.gen_fn_depends(&mut code);
     code.output()
   }
+}
+
+fn gen_vertex_in_declare(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {
+  code.write_ln("[[builtin(vertex_index)]] bt_vertex_vertex_id: u32,");
+  code.write_ln("[[builtin(instance_index)]] bt_vertex_instance_id: u32,");
+  vertex.vertex_in.iter().for_each(|(_, (_, ty, index))| {
+    code.write_ln(format!(
+      "[[location({})]] vertex_in_{}: {},",
+      index,
+      index,
+      gen_primitive_type(*ty)
+    ));
+  })
 }
 
 fn gen_node_with_dep_in_entry(
@@ -351,6 +376,8 @@ fn gen_entry(
   code: &mut CodeBuilder,
   stage: ShaderStages,
   mut content: impl FnMut(&mut CodeBuilder),
+  mut parameter: impl FnMut(&mut CodeBuilder),
+  mut return_type: impl FnMut(&mut CodeBuilder),
 ) {
   let name = match stage {
     ShaderStages::Vertex => "vertex",
@@ -358,7 +385,11 @@ fn gen_entry(
   };
 
   code.write_ln(format!("[[stage({name})]]"));
-  code.write_ln(format!("fn {name}_main(input) -> {{"));
+  code.write_ln(format!("fn {name}_main(")).tab();
+  parameter(code);
+  code.un_tab().write_ln(") ->");
+  return_type(code);
+  code.write_raw("{");
   code.tab();
   content(code);
   code.un_tab();
