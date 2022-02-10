@@ -53,33 +53,6 @@ impl<T> Node<T> {
   }
 }
 
-// impl<T: ShaderGraphNodeType> ShaderGraphNode<T> {
-//   #[must_use]
-//   pub fn new(data: ShaderGraphNodeData) -> Self {
-//     Self {
-//       data,
-//       phantom: PhantomData,
-//     }
-//   }
-
-//   #[must_use]
-//   pub fn into_any(self) -> ShaderGraphNodeUntyped {
-//     unsafe { std::mem::transmute(self) }
-//   }
-
-//   #[must_use]
-//   pub fn into_typed(self) -> ShaderGraphNode<T> {
-//     unsafe { std::mem::transmute(self) }
-//   }
-
-//   pub fn unwrap_as_input(&self) -> &ShaderGraphInputNode {
-//     match &self.data {
-//       ShaderGraphNodeData::Input(n) => n,
-//       _ => panic!("unwrap as input failed"),
-//     }
-//   }
-// }
-
 pub type NodeUntyped = Node<AnyType>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -129,7 +102,7 @@ impl ShaderGraphBuilder {
   }
 
   pub fn push_scope(&mut self) -> &mut ShaderGraphScope {
-    self.scope_count += 1;
+    self.scope_count += 1; // todo use global as scope id
     self.scopes.push(ShaderGraphScope::new(self.scope_count));
     self.top_scope_mut()
   }

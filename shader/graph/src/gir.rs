@@ -335,9 +335,8 @@ pub struct ShaderVaryingValueInfo {
 #[derive(Clone)]
 pub struct ShaderGraphBindEntry {
   pub ty: ShaderValueType,
-  pub node: ShaderGraphNodeRawHandle,
-  pub used_in_vertex: bool,
-  pub used_in_fragment: bool,
+  pub node_vertex: Option<ShaderGraphNodeRawHandle>,
+  pub node_fragment: Option<ShaderGraphNodeRawHandle>,
 }
 
 #[derive(Default, Clone)]

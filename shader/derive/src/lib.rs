@@ -24,7 +24,7 @@ pub fn derive_ubo(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn glsl_function(input: TokenStream) -> TokenStream {
-  let input = parse_macro_input!(input as syn::LitStr);
-  let glsl = input.value();
-  gen_glsl_function(&glsl, false, "").into()
+  // let input = format!("{}", proc_macro_faithful_display::faithful_display(&input));
+  let input = format!("{}", input);
+  gen_glsl_function(input.as_str(), false, "").into()
 }

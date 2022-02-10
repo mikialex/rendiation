@@ -51,7 +51,6 @@ fn gen_node_with_dep_in_entry(
   cx: &mut CodeGenCtx,
   code: &mut CodeBuilder,
 ) {
-  println!("entry");
   let root = builder.scopes.first().unwrap();
   root.nodes.traverse_dfs_in_topological_order(
     node.handle,
@@ -60,9 +59,7 @@ fn gen_node_with_dep_in_entry(
         handle: n.handle(),
         graph_id: node.graph_id,
       };
-      println!("dep node {:?} {}", n.handle(), node.graph_id);
       if cx.try_get_node_gen_result_var(h).is_none() {
-        println!("gen node {:?} {}", n.handle(), node.graph_id);
         gen_node(n.data(), h, cx, code);
       }
     },
@@ -332,18 +329,19 @@ fn gen_bind_entry(
   stage: ShaderStages,
 ) {
   if match stage {
-    ShaderStages::Vertex => entry.used_in_vertex,
-    ShaderStages::Fragment => entry.used_in_fragment,
+    ShaderStages::Vertex => entry.node_vertex.is_some(),
+    ShaderStages::Fragment => entry.node_fragment.is_some(),
   } {
     code.write_ln(format!(
-      "[[group({}), binding({})]] var{} {}: {};",
+      "[[group({}), binding({})]] var{} uniform_b_{}_i_{}: {};",
       group_index,
       item_index,
       match entry.ty {
         ShaderValueType::Fixed(_) => "<uniform>",
         _ => "",
       },
-      "unnamed_todo",
+      group_index,
+      item_index,
       gen_type_impl(entry.ty),
     ));
   }
