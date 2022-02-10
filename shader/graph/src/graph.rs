@@ -27,6 +27,16 @@ impl<T> Node<T> {
       NodeInner::Unresolved(v) => v.current.get(),
     }
   }
+
+  /// # Safety
+  /// force type casting
+  pub unsafe fn cast_type<X>(self) -> Node<X>
+  where
+    X: ShaderGraphNodeType,
+  {
+    modify_graph(|g| g.check_register_type::<X>());
+    std::mem::transmute(self)
+  }
 }
 
 impl<T> From<T> for Node<T>
@@ -94,6 +104,12 @@ impl Default for ShaderGraphBuilder {
 }
 
 impl ShaderGraphBuilder {
+  pub fn check_register_type<T: ShaderGraphNodeType>(&mut self) {
+    if let Some(s) = T::extract_struct_define() {
+      self.struct_defines.insert(TypeId::of::<T>(), s);
+    }
+  }
+
   pub fn top_scope_mut(&mut self) -> &mut ShaderGraphScope {
     self.scopes.last_mut().unwrap()
   }

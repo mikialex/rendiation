@@ -299,7 +299,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfo) {
     builder.write_ln(format!("{}: {};", field_name, gen_fix_type_impl(*ty)));
   }
   builder.un_tab();
-  builder.write_ln("}}");
+  builder.write_ln("}");
 }
 
 fn gen_bindings(

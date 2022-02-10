@@ -268,7 +268,7 @@ impl ShaderGraphBindGroupBuilder {
   pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T> {
     let node =
       self.register_uniform_inner(TypeId::of::<T>(), T::TYPE.binding_index(), T::to_type());
-    unsafe { std::mem::transmute(node) }
+    unsafe { node.cast_type() }
   }
 
   #[inline]
@@ -276,7 +276,7 @@ impl ShaderGraphBindGroupBuilder {
     &mut self,
   ) -> Result<Node<T>, ShaderGraphBuildError> {
     let result = self.query_uniform_inner(TypeId::of::<T>(), T::TYPE.binding_index());
-    unsafe { std::mem::transmute(result) }
+    result.map(|n| unsafe { n.cast_type() })
   }
 }
 

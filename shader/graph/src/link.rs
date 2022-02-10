@@ -136,9 +136,7 @@ impl ShaderGraphNodeData {
     self,
     builder: &mut ShaderGraphBuilder,
   ) -> Node<T> {
-    if let Some(s) = T::extract_struct_define() {
-      builder.struct_defines.insert(TypeId::of::<T>(), s);
-    }
+    builder.check_register_type::<T>();
 
     self.insert_into_graph_inner(builder.top_scope_mut())
   }
