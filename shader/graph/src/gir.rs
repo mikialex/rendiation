@@ -65,6 +65,7 @@ pub enum ShaderControlFlowNode {
   For {
     source: ShaderIteratorAble,
     scope: ShaderGraphScope,
+    iter: ShaderGraphNodeRawHandle,
   },
   // While,
 }
@@ -86,15 +87,8 @@ pub struct TextureSamplingNode {
   pub position: ShaderGraphNodeRawHandle,
 }
 
-#[derive(Clone)]
-pub struct OperatorNode {
-  pub left: ShaderGraphNodeRawHandle,
-  pub right: ShaderGraphNodeRawHandle,
-  pub operator: &'static str,
-}
-
 pub enum UnaryOperator {
-  Not,
+  LogicalNot,
 }
 
 pub enum BinaryOperator {
@@ -108,27 +102,19 @@ pub enum BinaryOperator {
   LessThan,
   GreaterEqualThan,
   LessEqualThan,
+  LogicalOr,
+  LogicalAnd,
 }
 
-pub enum TrinaryOperator {
-  IfElse,
-}
-
-pub enum OperatorNode2 {
+pub enum OperatorNode {
   Unary {
     one: ShaderGraphNodeRawHandle,
-    operator: &'static str,
+    operator: UnaryOperator,
   },
   Binary {
     left: ShaderGraphNodeRawHandle,
     right: ShaderGraphNodeRawHandle,
-    operator: &'static str,
-  },
-  Trinary {
-    forward: ShaderGraphNodeRawHandle,
-    left: ShaderGraphNodeRawHandle,
-    right: ShaderGraphNodeRawHandle,
-    operator: &'static str,
+    operator: BinaryOperator,
   },
 }
 
@@ -153,12 +139,6 @@ pub enum ShaderGraphInputNode {
 pub enum ShaderBuiltIn {
   VertexIndexId,
   VertexInstanceId,
-}
-
-// todo
-#[derive(Copy, Clone)]
-pub enum ShaderGraphVertexFragmentIOType {
-  Float,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -273,7 +253,26 @@ pub enum ShaderStructMemberValueType {
 /// use for compile time ubo field reflection by procedure macro;
 pub struct ShaderStructMetaInfo {
   pub name: &'static str,
-  pub fields: Vec<(&'static str, ShaderStructMemberValueType)>,
+  pub fields: Vec<ShaderStructFieldMetaInfo>,
+}
+
+/// https://www.w3.org/TR/WGSL/#builtin-values
+pub enum ShaderBuiltInDecorator {
+  VertexIndex,
+  InstanceIndex,
+  VertexPositionOut,
+  FragmentPositionIn,
+}
+
+pub enum ShaderFieldDecorator {
+  BuiltIn(ShaderBuiltInDecorator),
+  Location(usize),
+}
+
+pub struct ShaderStructFieldMetaInfo {
+  pub name: std::borrow::Cow<'static, str>,
+  pub ty: ShaderStructMemberValueType,
+  pub ty_deco: Option<ShaderFieldDecorator>,
 }
 
 impl ShaderStructMetaInfo {
@@ -286,7 +285,11 @@ impl ShaderStructMetaInfo {
 
   #[must_use]
   pub fn add_field<T: ShaderStructMemberValueNodeType>(mut self, name: &'static str) -> Self {
-    self.fields.push((name, T::to_type()));
+    self.fields.push(ShaderStructFieldMetaInfo {
+      name: std::borrow::Cow::Borrowed(name),
+      ty: T::to_type(),
+      ty_deco: None,
+    });
     self
   }
 }
@@ -322,22 +325,17 @@ pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
   fn expand(node: Node<Self>) -> Self::Instance;
 }
 
+#[derive(Copy, Clone)]
 pub enum ShaderVaryingInterpolation {
   Flat,
   Perspective,
 }
 
-pub struct ShaderVaryingValueInfo {
-  pub interpolation: usize,
-  pub ty: PrimitiveShaderValueType,
-}
-
 #[derive(Clone)]
 pub struct ShaderGraphBindEntry {
   pub ty: ShaderValueType,
-  pub node: ShaderGraphNodeRawHandle,
-  pub used_in_vertex: bool,
-  pub used_in_fragment: bool,
+  pub node_vertex: Option<ShaderGraphNodeRawHandle>,
+  pub node_fragment: Option<ShaderGraphNodeRawHandle>,
 }
 
 #[derive(Default, Clone)]

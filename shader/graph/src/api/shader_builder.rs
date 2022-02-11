@@ -96,17 +96,16 @@ pub struct ShaderGraphVertexBuilder {
   pub instance_index: Node<u32>,
 
   // user vertex in
-  vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+  pub(crate) vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
 
   // user semantic vertex
   registry: SemanticRegistry,
 
   // built in vertex out
-  pub vertex_point_size: Node<Mutable<f32>>,
-  pub vertex_position: Node<Mutable<Vec4<f32>>>,
+  pub vertex_position: NodeMutable<Vec4<f32>>,
 
   // user vertex out
-  pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+  pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
 }
 
 impl std::ops::Deref for ShaderGraphVertexBuilder {
@@ -130,10 +129,16 @@ pub struct ShaderGraphFragmentBuilder {
   // uniforms
   pub bindgroups: ShaderGraphBindGroupBuilder,
 
-  pub varying_info: Vec<ShaderVaryingValueInfo>,
-
   // user fragment in
-  fragment_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType)>,
+  pub(crate) fragment_in: HashMap<
+    TypeId,
+    (
+      NodeUntyped,
+      PrimitiveShaderValueType,
+      ShaderVaryingInterpolation,
+      usize,
+    ),
+  >,
 
   registry: SemanticRegistry,
 
@@ -155,7 +160,7 @@ impl std::ops::DerefMut for ShaderGraphFragmentBuilder {
 }
 
 pub struct ShaderGraphBindGroupBuilder {
-  pub current_stage: ShaderStages,
+  pub(crate) current_stage: ShaderStages,
   pub bindings: Vec<ShaderGraphBindGroup>,
 }
 
@@ -194,29 +199,36 @@ pub trait SemanticShaderUniform: ShaderGraphNodeType {
 }
 
 impl ShaderGraphBindGroupBuilder {
-  pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T> {
-    if let Ok(node) = self.query_uniform() {
+  #[inline(never)]
+  fn register_uniform_inner(
+    &mut self,
+    type_id: TypeId,
+    bindgroup_index: usize,
+    ty: ShaderValueType,
+  ) -> NodeUntyped {
+    if let Ok(node) = self.query_uniform_inner(type_id, bindgroup_index) {
       return node;
     }
 
-    let bindgroup_index = T::TYPE.binding_index();
     let bindgroup = &mut self.bindings[bindgroup_index];
-    let type_id = TypeId::of::<T>();
 
-    let ty = T::to_type();
     let entry_index = bindgroup.bindings.len();
-    let node: Node<T> = ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
+    let node = ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
       bindgroup_index,
       entry_index,
     })
     .insert_graph();
 
+    let (node_vertex, node_fragment) = match self.current_stage {
+      ShaderStages::Vertex => (node.handle().into(), None),
+      ShaderStages::Fragment => (None, node.handle().into()),
+    };
+
     bindgroup.bindings.push((
       ShaderGraphBindEntry {
         ty,
-        used_in_vertex: self.current_stage == ShaderStages::Vertex,
-        used_in_fragment: self.current_stage == ShaderStages::Fragment,
-        node: node.handle(),
+        node_vertex,
+        node_fragment,
       },
       type_id,
     ));
@@ -224,44 +236,70 @@ impl ShaderGraphBindGroupBuilder {
     node
   }
 
-  pub fn query_uniform<T: SemanticShaderUniform>(
+  #[inline(never)]
+  fn query_uniform_inner(
     &mut self,
-  ) -> Result<Node<T>, ShaderGraphBuildError> {
-    let bindgroup_index = T::TYPE.binding_index();
+    type_id: TypeId,
+    bindgroup_index: usize,
+  ) -> Result<NodeUntyped, ShaderGraphBuildError> {
+    let current_stage = self.current_stage;
     let bindgroup = &mut self.bindings[bindgroup_index];
-    let type_id = TypeId::of::<T>();
-    let used_in_vertex = self.current_stage == ShaderStages::Vertex;
-    let used_in_fragment = self.current_stage == ShaderStages::Fragment;
 
     bindgroup
       .bindings
       .iter_mut()
-      .find(|entry| entry.1 == type_id)
-      .map(|(entry, _)| unsafe {
-        entry.used_in_vertex |= used_in_vertex;
-        entry.used_in_fragment |= used_in_fragment;
-        entry.node.into_node()
+      .enumerate()
+      .find(|(_, entry)| entry.1 == type_id)
+      .map(|(i, (entry, _))| unsafe {
+        let node = match current_stage {
+          ShaderStages::Vertex => &mut entry.node_vertex,
+          ShaderStages::Fragment => &mut entry.node_fragment,
+        };
+        node
+          .get_or_insert_with(|| {
+            ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
+              bindgroup_index,
+              entry_index: i,
+            })
+            .insert_graph::<AnyType>()
+            .handle()
+          })
+          .into_node()
       })
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+  }
+
+  #[inline]
+  pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T> {
+    let node =
+      self.register_uniform_inner(TypeId::of::<T>(), T::TYPE.binding_index(), T::to_type());
+    unsafe { node.cast_type() }
+  }
+
+  #[inline]
+  pub fn query_uniform<T: SemanticShaderUniform>(
+    &mut self,
+  ) -> Result<Node<T>, ShaderGraphBuildError> {
+    let result = self.query_uniform_inner(TypeId::of::<T>(), T::TYPE.binding_index());
+    result.map(|n| unsafe { n.cast_type() })
   }
 }
 
 #[derive(Default)]
 pub struct SemanticRegistry {
-  registered: HashMap<TypeId, NodeUntyped>,
+  registered: HashMap<TypeId, NodeMutable<AnyType>>,
 }
 
 impl SemanticRegistry {
-  pub fn query(&mut self, id: TypeId) -> Result<&Node<Mutable<AnyType>>, ShaderGraphBuildError> {
+  pub fn query(&mut self, id: TypeId) -> Result<&NodeMutable<AnyType>, ShaderGraphBuildError> {
     self
       .registered
       .get(&id)
-      .map(|node| unsafe { std::mem::transmute(node) })
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
 
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) {
-    self.registered.entry(id).or_insert_with(|| node);
+    self.registered.entry(id).or_insert_with(|| node.mutable());
   }
 }
 
@@ -280,12 +318,7 @@ impl ShaderGraphVertexBuilder {
 
     set_build_graph(builder);
 
-    let vertex_point_size = ShaderGraphNodeExpr::Const(ConstNode {
-      data: PrimitiveShaderValue::Float32(1.),
-    })
-    .insert_graph()
-    .mutable();
-
+    // default position
     let vertex_position = ShaderGraphNodeExpr::Const(ConstNode {
       data: PrimitiveShaderValue::Vec4Float32(Vec4::zero()),
     })
@@ -308,7 +341,6 @@ impl ShaderGraphVertexBuilder {
       instance_index,
       vertex_in: Default::default(),
       registry: Default::default(),
-      vertex_point_size,
       vertex_position,
       vertex_out: Default::default(),
     }
@@ -320,7 +352,7 @@ impl ShaderGraphVertexBuilder {
 
   pub fn query<T: SemanticVertexShaderValue>(
     &mut self,
-  ) -> Result<&Node<Mutable<T::ValueType>>, ShaderGraphBuildError> {
+  ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
       .registry
       .query(TypeId::of::<T>())
@@ -335,15 +367,13 @@ impl ShaderGraphVertexBuilder {
 
   pub fn register_vertex_in<T: SemanticVertexGeometryIn>(&mut self) -> Node<T::ValueType> {
     let ty = T::ValueType::to_primitive_type();
-    let node = ShaderGraphNodeData::Input(ShaderGraphInputNode::VertexIn {
-      ty,
-      index: self.vertex_in.len(),
-    })
-    .insert_graph();
+    let index = self.vertex_in.len();
+    let node =
+      ShaderGraphNodeData::Input(ShaderGraphInputNode::VertexIn { ty, index }).insert_graph();
     self
       .vertex_in
       .entry(TypeId::of::<T>())
-      .or_insert_with(|| (node.cast_untyped_node(), ty));
+      .or_insert_with(|| (node.cast_untyped_node(), ty, index));
     node
   }
 
@@ -351,10 +381,12 @@ impl ShaderGraphVertexBuilder {
     &mut self,
     node: impl Into<Node<T::ValueType>>,
   ) {
+    let len = self.vertex_out.len();
     self.vertex_out.entry(TypeId::of::<T>()).or_insert_with(|| {
       (
         node.into().cast_untyped_node(),
         T::ValueType::to_primitive_type(),
+        len,
       )
     });
   }
@@ -362,19 +394,28 @@ impl ShaderGraphVertexBuilder {
 
 impl ShaderGraphFragmentBuilder {
   pub fn create(mut vertex: ShaderGraphVertexBuilder) -> Self {
-    // todo register vertex out to frag in
-
     let builder = ShaderGraphBuilder::default();
-
     set_build_graph(builder);
+
+    let mut fragment_in = HashMap::default();
+    vertex.vertex_out.iter().for_each(|(id, (_, ty, index))| {
+      let node = ShaderGraphNodeData::Input(ShaderGraphInputNode::FragmentIn {
+        ty: *ty,
+        index: *index,
+      })
+      .insert_graph();
+      fragment_in.insert(
+        *id,
+        (node, *ty, ShaderVaryingInterpolation::Perspective, *index),
+      );
+    });
 
     vertex.current_stage = ShaderStages::Fragment;
 
     Self {
       shader_interface: Default::default(),
       bindgroups: vertex.bindgroups,
-      varying_info: Default::default(),
-      fragment_in: Default::default(),
+      fragment_in,
       registry: Default::default(),
       frag_output: Default::default(),
     }
@@ -382,7 +423,7 @@ impl ShaderGraphFragmentBuilder {
 
   pub fn query<T: SemanticFragmentShaderValue>(
     &mut self,
-  ) -> Result<&Node<Mutable<T::ValueType>>, ShaderGraphBuildError> {
+  ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
       .registry
       .query(TypeId::of::<T>())
@@ -401,15 +442,12 @@ impl ShaderGraphFragmentBuilder {
     self
       .fragment_in
       .get(&TypeId::of::<T>())
-      .map(|node| {
-        let n: &Node<Mutable<T::ValueType>> = unsafe { std::mem::transmute(node) };
-        n.get()
-      })
+      .map(|(n, _, _, _)| unsafe { (*n).cast_type() })
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
 
   pub fn set_fragment_out(&mut self, channel: usize, node: Node<Vec4<f32>>) {
-    while channel <= self.frag_output.len() {
+    while channel >= self.frag_output.len() {
       self.frag_output.push(consts(Vec4::zero()));
     }
     self.frag_output[channel] = node;
@@ -457,10 +495,4 @@ pub(crate) fn set_build_graph(g: ShaderGraphBuilder) {
 
 pub(crate) fn take_build_graph() -> ShaderGraphBuilder {
   IN_BUILDING_SHADER_GRAPH.get_mut().take().unwrap()
-}
-
-/// built in semantics
-pub struct VertexIndex;
-impl SemanticVertexShaderValue for VertexIndex {
-  type ValueType = u32;
 }

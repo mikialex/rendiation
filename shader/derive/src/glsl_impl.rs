@@ -63,7 +63,7 @@ pub fn gen_glsl_function(
   as_inner: bool,
   override_name: &str,
 ) -> proc_macro2::TokenStream {
-  let glsl = glsl.trim_start();
+  // let glsl = glsl.trim_start();
   let mut parsed = FunctionDefinition::parse(glsl).unwrap();
   let foreign = find_foreign_function(&mut parsed);
 

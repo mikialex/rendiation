@@ -12,16 +12,32 @@ impl ShaderGraphCodeGenTarget for WGSL {
     let mut cx = CodeGenCtx::default();
 
     gen_structs(&mut code, &builder);
+    gen_vertex_out_struct(&mut code, &vertex);
     gen_bindings(&mut code, &vertex.bindgroups, ShaderStages::Vertex);
-    gen_entry(&mut code, ShaderStages::Vertex, |code| {
-      gen_node_with_dep_in_entry(vertex.vertex_position.handle(), &builder, &mut cx, code);
+    gen_entry(
+      &mut code,
+      ShaderStages::Vertex,
+      |code| {
+        code.write_ln("var out: VertexOut;");
+        let root = gen_node_with_dep_in_entry(
+          vertex.vertex_position.get().handle(),
+          &builder,
+          &mut cx,
+          code,
+        );
+        code.write_ln(format!("out.position = {root};"));
 
-      gen_node_with_dep_in_entry(vertex.vertex_point_size.handle(), &builder, &mut cx, code);
-
-      vertex.vertex_out.iter().for_each(|(_, (v, _))| {
-        gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-      })
-    });
+        vertex.vertex_out.iter().for_each(|(_, (v, _, i))| {
+          let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
+          code.write_ln(format!("out.vertex_out{i} = {root};"));
+        });
+        code.write_ln("return out;");
+      },
+      |code| gen_vertex_in_declare(code, vertex),
+      |code| {
+        code.write_raw("VertexOut");
+      },
+    );
     cx.gen_fn_depends(&mut code);
     code.output()
   }
@@ -34,15 +50,95 @@ impl ShaderGraphCodeGenTarget for WGSL {
     let mut code = CodeBuilder::default();
     let mut cx = CodeGenCtx::default();
     gen_structs(&mut code, &builder);
+    gen_fragment_out_struct(&mut code, &fragment);
     gen_bindings(&mut code, &fragment.bindgroups, ShaderStages::Fragment);
-    gen_entry(&mut code, ShaderStages::Fragment, |code| {
-      fragment.frag_output.iter().for_each(|v| {
-        gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-      })
-    });
+    gen_entry(
+      &mut code,
+      ShaderStages::Fragment,
+      |code| {
+        code.write_ln("var out: FragmentOut;");
+        fragment.frag_output.iter().enumerate().for_each(|(i, v)| {
+          let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
+          code.write_ln(format!("out.frag_out{i} = {root};"));
+        });
+        code.write_ln("return out;");
+      },
+      |code| gen_fragment_in_declare(code, fragment),
+      |code| {
+        code.write_raw("FragmentOut");
+      },
+    );
     cx.gen_fn_depends(&mut code);
     code.output()
   }
+}
+
+fn gen_vertex_in_declare(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {
+  code.write_ln("[[builtin(vertex_index)]] bt_vertex_vertex_id: u32,");
+  code.write_ln("[[builtin(instance_index)]] bt_vertex_instance_id: u32,");
+  vertex.vertex_in.iter().for_each(|(_, (_, ty, index))| {
+    code.write_ln(format!(
+      "[[location({index})]] vertex_in_{index}: {},",
+      gen_primitive_type(*ty)
+    ));
+  })
+}
+
+fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {
+  let mut shader_struct = ShaderStructMetaInfo {
+    name: "VertexOut",
+    fields: Default::default(),
+  };
+
+  shader_struct.fields.push(ShaderStructFieldMetaInfo {
+    name: "position".into(),
+    ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
+    ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut).into(),
+  });
+
+  vertex.vertex_out.iter().for_each(|(_, (_, ty, i))| {
+    shader_struct.fields.push(ShaderStructFieldMetaInfo {
+      name: std::borrow::Cow::Owned(format!("vertex_out{}", i)),
+      ty: ShaderStructMemberValueType::Primitive(*ty),
+      ty_deco: None,
+    });
+  });
+
+  gen_struct(code, &shader_struct);
+}
+
+fn gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
+  match int {
+    ShaderVaryingInterpolation::Flat => "flat",
+    ShaderVaryingInterpolation::Perspective => "perspective",
+  }
+}
+
+fn gen_fragment_in_declare(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBuilder) {
+  frag.fragment_in.iter().for_each(|(_, (_, ty, int, i))| {
+    code.write_ln(format!(
+      "[[location({i})]] [[interpolate({})]] fragment_in_{i}: {}",
+      gen_interpolation(*int),
+      gen_primitive_type(*ty)
+    ));
+  });
+}
+
+fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBuilder) {
+  let mut shader_struct = ShaderStructMetaInfo {
+    name: "FragmentOut",
+    fields: Default::default(),
+  };
+
+  frag.frag_output.iter().enumerate().for_each(|(i, _)| {
+    shader_struct.fields.push(ShaderStructFieldMetaInfo {
+      name: std::borrow::Cow::Owned(format!("frag_out{}", i)),
+      ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
+      ty_deco: None,
+    });
+  });
+
+  gen_struct(code, &shader_struct);
 }
 
 fn gen_node_with_dep_in_entry(
@@ -50,9 +146,9 @@ fn gen_node_with_dep_in_entry(
   builder: &ShaderGraphBuilder,
   cx: &mut CodeGenCtx,
   code: &mut CodeBuilder,
-) {
-  println!("entry");
+) -> String {
   let root = builder.scopes.first().unwrap();
+  let mut last = None;
   root.nodes.traverse_dfs_in_topological_order(
     node.handle,
     &mut |n| {
@@ -60,14 +156,17 @@ fn gen_node_with_dep_in_entry(
         handle: n.handle(),
         graph_id: node.graph_id,
       };
-      println!("dep node {:?} {}", n.handle(), node.graph_id);
       if cx.try_get_node_gen_result_var(h).is_none() {
-        println!("gen node {:?} {}", n.handle(), node.graph_id);
         gen_node(n.data(), h, cx, code);
+      }
+
+      if let Some(name) = cx.try_get_node_gen_result_var(h) {
+        last = name.to_owned().into();
       }
     },
     &mut || panic!("loop"),
   );
+  last.unwrap()
 }
 
 fn gen_scope_full(scope: &ShaderGraphScope, cx: &mut CodeGenCtx, code: &mut CodeBuilder) {
@@ -95,7 +194,7 @@ fn gen_node(
       if *implicit {
         let name = cx.create_new_unique_name();
         code.write_ln(format!(
-          "let {} = {};",
+          "var {} = {};",
           name,
           cx.get_node_gen_result_var(*target)
         ));
@@ -144,14 +243,18 @@ fn gen_node(
 
           code.un_tab().write_ln("}")
         }
-        ShaderControlFlowNode::For { source, scope } => {
-          let name = cx.create_new_unique_name();
+        ShaderControlFlowNode::For {
+          source,
+          scope,
+          iter,
+        } => {
+          let name = cx.get_node_gen_result_var(*iter);
           let head = match source {
             ShaderIteratorAble::Const(v) => {
-              format!("for(int {name} = 0; {name} < {v}; {name}++) {{")
+              format!("for(var {name}: i32 = 0; {name} < {v}; {name} = {name} + 1) {{")
             }
             ShaderIteratorAble::Count(v) => format!(
-              "for(int {name} = 0; {name} < {count}; {name}++) {{",
+              "for(var {name}: i32 = 0; {name} < {count}; {name} = {name} + 1) {{",
               count = cx.get_node_gen_result_var(v.handle())
             ),
           };
@@ -195,7 +298,7 @@ fn gen_node(
     ShaderGraphNodeData::Expr(expr) => {
       let name = cx.create_new_unique_name();
       let expr = gen_expr(expr, cx);
-      let statement = format!("let {name} = {expr};");
+      let statement = format!("var {name} = {expr};");
       code.write_ln(&statement);
       cx.top_scope_mut().code_gen_history.insert(
         handle,
@@ -235,13 +338,39 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
     ShaderGraphNodeExpr::Swizzle { ty, source } => {
       format!("{}.{}", cx.get_node_gen_result_var(*source), ty)
     }
-    ShaderGraphNodeExpr::Operator(o) => {
-      let left = cx.get_node_gen_result_var(o.left);
-      let right = cx.get_node_gen_result_var(o.right);
-      format!("{} {} {}", left, o.operator, right)
-    }
+    ShaderGraphNodeExpr::Operator(o) => match o {
+      OperatorNode::Unary { one, operator } => {
+        let op = match operator {
+          UnaryOperator::LogicalNot => "!",
+        };
+        let one = cx.get_node_gen_result_var(*one);
+        format!("{}{}", op, one)
+      }
+      OperatorNode::Binary {
+        left,
+        right,
+        operator,
+      } => {
+        let op = match operator {
+          BinaryOperator::Add => "+",
+          BinaryOperator::Sub => "-",
+          BinaryOperator::Mul => "*",
+          BinaryOperator::Div => "/",
+          BinaryOperator::Eq => "==",
+          BinaryOperator::NotEq => "!=",
+          BinaryOperator::GreaterThan => ">",
+          BinaryOperator::LessThan => "<",
+          BinaryOperator::GreaterEqualThan => ">=",
+          BinaryOperator::LessEqualThan => "<=",
+          BinaryOperator::LogicalOr => "||",
+          BinaryOperator::LogicalAnd => "&&",
+        };
+        let left = cx.get_node_gen_result_var(*left);
+        let right = cx.get_node_gen_result_var(*right);
+        format!("{} {} {}", left, op, right)
+      }
+    },
     ShaderGraphNodeExpr::FieldGet {
-      // todo should this merged with swizzle
       field_name,
       struct_node,
     } => format!(
@@ -298,11 +427,33 @@ fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
 fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfo) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
-  for (field_name, ty) in &meta.fields {
-    builder.write_ln(format!("{}: {};", field_name, gen_fix_type_impl(*ty)));
+  for ShaderStructFieldMetaInfo { name, ty, ty_deco } in &meta.fields {
+    let built_in_deco = if let Some(ty_deco) = ty_deco {
+      match ty_deco {
+        ShaderFieldDecorator::BuiltIn(built_in) => format!(
+          "[[builtin({})]]",
+          match built_in {
+            ShaderBuiltInDecorator::VertexIndex => "vertex_index",
+            ShaderBuiltInDecorator::InstanceIndex => "instance_index",
+            ShaderBuiltInDecorator::VertexPositionOut => "position",
+            ShaderBuiltInDecorator::FragmentPositionIn => "position",
+          }
+        ),
+        ShaderFieldDecorator::Location(location) => format!("[[location({location})]]"),
+      }
+    } else {
+      "".to_owned()
+    };
+
+    builder.write_ln(format!(
+      "{} {}: {};",
+      built_in_deco,
+      name,
+      gen_fix_type_impl(*ty)
+    ));
   }
   builder.un_tab();
-  builder.write_ln("}}");
+  builder.write_ln("};");
 }
 
 fn gen_bindings(
@@ -332,18 +483,19 @@ fn gen_bind_entry(
   stage: ShaderStages,
 ) {
   if match stage {
-    ShaderStages::Vertex => entry.used_in_vertex,
-    ShaderStages::Fragment => entry.used_in_fragment,
+    ShaderStages::Vertex => entry.node_vertex.is_some(),
+    ShaderStages::Fragment => entry.node_fragment.is_some(),
   } {
     code.write_ln(format!(
-      "[[group({}), binding({})]] var{} {}: {};",
+      "[[group({}), binding({})]] var{} uniform_b_{}_i_{}: {};",
       group_index,
       item_index,
       match entry.ty {
         ShaderValueType::Fixed(_) => "<uniform>",
         _ => "",
       },
-      "unnamed_todo",
+      group_index,
+      item_index,
       gen_type_impl(entry.ty),
     ));
   }
@@ -353,6 +505,8 @@ fn gen_entry(
   code: &mut CodeBuilder,
   stage: ShaderStages,
   mut content: impl FnMut(&mut CodeBuilder),
+  mut parameter: impl FnMut(&mut CodeBuilder),
+  mut return_type: impl FnMut(&mut CodeBuilder),
 ) {
   let name = match stage {
     ShaderStages::Vertex => "vertex",
@@ -360,7 +514,11 @@ fn gen_entry(
   };
 
   code.write_ln(format!("[[stage({name})]]"));
-  code.write_ln(format!("fn {name}_main(input) -> {{"));
+  code.write_ln(format!("fn {name}_main(")).tab();
+  parameter(code);
+  code.un_tab().write_ln(") ->");
+  return_type(code);
+  code.write_raw("{");
   code.tab();
   content(code);
   code.un_tab();
