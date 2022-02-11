@@ -1,3 +1,4 @@
+use super::test_provider_success;
 use crate as shadergraph;
 use crate::*;
 
@@ -34,8 +35,5 @@ impl ShaderGraphProvider for TestUniform {
 
 #[test]
 fn test() {
-  let result = build_shader(&TestUniform::default(), &WGSL).unwrap();
-
-  println!("vertex: \n{}", result.vertex_shader);
-  println!("fragment: \n{}", result.frag_shader);
+  test_provider_success(&TestUniform::default());
 }

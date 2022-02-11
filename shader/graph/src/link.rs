@@ -1,5 +1,11 @@
 use crate::*;
-use std::{any::TypeId, marker::PhantomData};
+use std::marker::PhantomData;
+
+impl OperatorNode {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    ShaderGraphNodeExpr::Operator(self).insert_graph()
+  }
+}
 
 impl ShaderGraphNodeExpr {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
@@ -170,7 +176,7 @@ impl ShaderGraphNodeData {
 
     Node {
       phantom: PhantomData,
-      handle: NodeInner::Settled(result),
+      handle: result,
     }
   }
 
@@ -189,10 +195,13 @@ impl ShaderGraphNodeData {
         }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter().for_each(visitor),
-        ShaderGraphNodeExpr::Operator(OperatorNode { left, right, .. }) => {
-          visitor(left);
-          visitor(right);
-        }
+        ShaderGraphNodeExpr::Operator(op) => match op {
+          OperatorNode::Unary { one, .. } => visitor(one),
+          OperatorNode::Binary { left, right, .. } => {
+            visitor(left);
+            visitor(right);
+          }
+        },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
         ShaderGraphNodeExpr::StructConstruct { fields, .. } => fields.iter().for_each(visitor),
         ShaderGraphNodeExpr::Const(_) => {}
@@ -244,10 +253,13 @@ impl ShaderGraphNodeData {
         }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
         ShaderGraphNodeExpr::Compose { parameters, .. } => parameters.iter_mut().for_each(visitor),
-        ShaderGraphNodeExpr::Operator(OperatorNode { left, right, .. }) => {
-          visitor(left);
-          visitor(right);
-        }
+        ShaderGraphNodeExpr::Operator(op) => match op {
+          OperatorNode::Unary { one, .. } => visitor(one),
+          OperatorNode::Binary { left, right, .. } => {
+            visitor(left);
+            visitor(right);
+          }
+        },
         ShaderGraphNodeExpr::FieldGet { struct_node, .. } => visitor(struct_node),
         ShaderGraphNodeExpr::StructConstruct { fields, .. } => fields.iter_mut().for_each(visitor),
         ShaderGraphNodeExpr::Const(_) => {}

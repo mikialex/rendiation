@@ -46,3 +46,38 @@ glsl_function!(
     return (mean <= moments.x ? 1.0 : pMax);
   }
 );
+
+#[test]
+fn build_shader_function() {
+  let a = consts(1).mutable();
+  let c = consts(0).mutable();
+
+  for_by(5, |for_ctx, i| {
+    let b = 1;
+    if_by(i.greater_than(0), || {
+      a.set(a.get() + b.into());
+      for_ctx.do_continue();
+    });
+    c.set(c.get() + i);
+  });
+
+  // let d = my_shader_function(1.2, 2.3);
+}
+
+// #[shader_function]
+// pub fn my_shader_function(a: Node<f32>, b: Node<f32>) -> Node<f32> {
+//     let c = a + b;
+//     if_by(c.greater_than(0.), || early_return(2.));
+//     c + 1.0.into()
+// }
+
+// pub fn my_shader_function(a: impl Into<Node<f32>>, b: impl Into<Node<f32>>) -> Node<f32> {
+//   let a = a.into();
+//   let b = b.into();
+
+//   function((a, b), |(a, b)| {
+//     let c = a + b;
+//     if_by(c.greater_than(0.), || early_return(2.));
+//     c + 1.0.into()
+//   })
+// }

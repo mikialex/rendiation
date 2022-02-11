@@ -1,3 +1,5 @@
+#![feature(explicit_generic_args_with_impl_trait)]
+
 use arena_graph::*;
 
 pub use shader_derives::*;

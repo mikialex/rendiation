@@ -1,4 +1,4 @@
-use crate::{Node, OperatorNode, ShaderGraphNodeExpr, ShaderGraphNodeType};
+use crate::*;
 use std::ops::{Add, Div, Mul, Sub};
 
 impl<T, U> Add for Node<T>
@@ -9,11 +9,11 @@ where
   type Output = Node<U>;
 
   fn add(self, other: Self) -> Self::Output {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "+",
-    })
+      operator: BinaryOperator::Add,
+    }
     .insert_graph()
   }
 }
@@ -26,11 +26,11 @@ where
   type Output = Node<U>;
 
   fn sub(self, other: Self) -> Self::Output {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "-",
-    })
+      operator: BinaryOperator::Sub,
+    }
     .insert_graph()
   }
 }
@@ -44,11 +44,11 @@ where
   type Output = Node<U>;
 
   fn mul(self, other: Node<I>) -> Self::Output {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "*",
-    })
+      operator: BinaryOperator::Mul,
+    }
     .insert_graph()
   }
 }
@@ -62,66 +62,66 @@ where
   type Output = Node<U>;
 
   fn div(self, other: Node<I>) -> Self::Output {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "/",
-    })
+      operator: BinaryOperator::Div,
+    }
     .insert_graph()
   }
 }
 
 impl<T: PartialEq> Node<T> {
   pub fn equals(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "==",
-    })
+      operator: BinaryOperator::Eq,
+    }
     .insert_graph()
   }
 
   pub fn not_equals(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "!=",
-    })
+      operator: BinaryOperator::NotEq,
+    }
     .insert_graph()
   }
 }
 
 impl<T: PartialOrd> Node<T> {
   pub fn less_than(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "<",
-    })
+      operator: BinaryOperator::LessThan,
+    }
     .insert_graph()
   }
   pub fn less_or_equal_than(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "<=",
-    })
+      operator: BinaryOperator::LessEqualThan,
+    }
     .insert_graph()
   }
   pub fn greater_than(&self, other: impl Into<Self>) -> Node<bool> {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.into().handle(),
-      operator: ">",
-    })
+      operator: BinaryOperator::GreaterThan,
+    }
     .insert_graph()
   }
   pub fn greater_or_equal_than(&self, other: Self) -> Node<bool> {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: ">=",
-    })
+      operator: BinaryOperator::GreaterEqualThan,
+    }
     .insert_graph()
   }
 }
@@ -129,32 +129,30 @@ impl<T: PartialOrd> Node<T> {
 impl Node<bool> {
   #[must_use]
   pub fn or(&self, other: Self) -> Self {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "||",
-    })
+      operator: BinaryOperator::LogicalOr,
+    }
     .insert_graph()
   }
 
   #[must_use]
   pub fn and(&self, other: Self) -> Self {
-    ShaderGraphNodeExpr::Operator(OperatorNode {
+    OperatorNode::Binary {
       left: self.handle(),
       right: other.handle(),
-      operator: "&&",
-    })
+      operator: BinaryOperator::LogicalAnd,
+    }
     .insert_graph()
   }
 
   #[must_use]
   pub fn not(&self) -> Self {
-    todo!()
-    // ShaderGraphNodeExpr::Operator(OperatorNode {
-    //   left: self.handle(),
-    //   right: other.handle(),
-    //   operator: "!",
-    // })
-    // .insert_graph()
+    OperatorNode::Unary {
+      operator: UnaryOperator::LogicalNot,
+      one: self.handle(),
+    }
+    .insert_graph()
   }
 }

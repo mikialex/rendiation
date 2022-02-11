@@ -1,90 +1,4 @@
-use std::marker::PhantomData;
-
 use crate::*;
-
-#[derive(Clone, Copy)]
-pub struct Mutable<T> {
-  phantom: PhantomData<T>,
-}
-
-impl<T: ShaderGraphNodeType> ShaderGraphNodeType for Mutable<T> {
-  fn to_type() -> ShaderValueType {
-    T::to_type()
-  }
-}
-
-impl<T: ShaderGraphNodeType> Node<T> {
-  pub fn mutable(&self) -> Node<Mutable<T>> {
-    let node = ShaderGraphNodeExpr::Copy(self.handle()).insert_graph::<T>();
-    let pending = modify_graph(|builder| {
-      let top = builder.top_scope_mut();
-      let pending = PendingResolve {
-        current: Cell::new(node.handle()),
-        last_depends_history: Default::default(),
-      };
-      let pending = Rc::new(pending);
-      top.unresolved.push(pending.clone());
-      pending
-    });
-    Node {
-      phantom: PhantomData,
-      handle: NodeInner::Unresolved(pending),
-    }
-  }
-}
-
-impl<T: ShaderGraphNodeType> Node<Mutable<T>> {
-  pub fn get(&self) -> Node<T> {
-    unsafe { self.handle().into_node() }
-  }
-
-  pub fn get_last(&self) -> Node<T> {
-    // the reason we should clone node here is that
-    // when we finally resolve dependency, we should distinguish between
-    // the node we want replace the dependency or not, so this copy will
-    // actually not code gen and will be replaced by the last resolve node.
-    let node = ShaderGraphNodeExpr::Copy(self.get().handle()).insert_graph();
-    match &self.handle {
-      NodeInner::Settled(_) => unreachable!(),
-      NodeInner::Unresolved(v) => v.last_depends_history.borrow_mut().push(node.handle()),
-    }
-    node
-  }
-
-  pub fn set(&self, node: impl Into<Node<T>>) {
-    match &self.handle {
-      NodeInner::Settled(_) => unreachable!(),
-      NodeInner::Unresolved(v) => {
-        let node = node.into();
-        let write = modify_graph(|builder| {
-          if self.handle().graph_id != builder.top_scope().graph_guid {
-            builder
-              .top_scope_mut()
-              .writes
-              .push((v.clone(), self.handle()));
-          }
-
-          ShaderGraphNodeData::Write {
-            source: node.handle(),
-            target: self.get().handle(),
-            implicit: false,
-          }
-          .insert_into_graph::<AnyType>(builder)
-        });
-
-        v.current.set(write.handle())
-      }
-    }
-  }
-}
-
-#[must_use]
-pub fn consts<T>(v: T) -> Node<T>
-where
-  T: PrimitiveShaderGraphNodeType,
-{
-  v.into()
-}
 
 pub struct ForCtx {
   target_scope_id: usize,
@@ -111,9 +25,10 @@ where
   T: ShaderGraphNodeType,
 {
   let (i_node, target_scope_id) = modify_graph(|builder| {
+    let node = ShaderGraphNodeData::UnNamed.insert_into_graph(builder);
     let id = builder.push_scope().graph_guid;
 
-    (ShaderGraphNodeData::UnNamed.insert_into_graph(builder), id)
+    (node, id)
   });
   let cx = ForCtx { target_scope_id };
 
@@ -125,6 +40,7 @@ where
     ShaderControlFlowNode::For {
       source: iterable.into(),
       scope,
+      iter: i_node.handle(),
     }
     .insert_into_graph(builder)
   });
