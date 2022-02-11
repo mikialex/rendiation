@@ -77,6 +77,7 @@ impl<T: ShaderGraphNodeType> Node<T> {
 }
 
 impl<T: ShaderGraphNodeType> NodeMutable<T> {
+
   pub fn get(&self) -> Node<T> {
     unsafe { self.pending.current.get().into_node() }
   }

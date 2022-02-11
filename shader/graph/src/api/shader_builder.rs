@@ -287,7 +287,7 @@ impl ShaderGraphBindGroupBuilder {
 
 #[derive(Default)]
 pub struct SemanticRegistry {
-  registered: HashMap<TypeId, NodeUntyped>,
+  registered: HashMap<TypeId, NodeMutable<AnyType>>,
 }
 
 impl SemanticRegistry {
@@ -295,12 +295,11 @@ impl SemanticRegistry {
     self
       .registered
       .get(&id)
-      .map(|node| unsafe { std::mem::transmute(node) })
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
 
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) {
-    self.registered.entry(id).or_insert_with(|| node);
+    self.registered.entry(id).or_insert_with(|| node.mutable());
   }
 }
 
@@ -443,10 +442,7 @@ impl ShaderGraphFragmentBuilder {
     self
       .fragment_in
       .get(&TypeId::of::<T>())
-      .map(|node| {
-        let n: &NodeMutable<T::ValueType> = unsafe { std::mem::transmute(node) };
-        n.get()
-      })
+      .map(|(n, _, _, _)| unsafe { (*n).cast_type() })
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
 
