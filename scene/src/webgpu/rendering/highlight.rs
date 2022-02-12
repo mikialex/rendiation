@@ -256,6 +256,16 @@ pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
 
 struct HighLightMaskDispatcher;
 
+impl ShaderGraphProvider for HighLightMaskDispatcher {
+  fn build_fragment(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.set_fragment_out(0, Vec4::one().into());
+    Ok(())
+  }
+}
+
 impl PassDispatcher for HighLightMaskDispatcher {
   fn build_pipeline(&self, builder: &mut PipelineBuilder) {
     builder

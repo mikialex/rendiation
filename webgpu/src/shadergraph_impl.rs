@@ -108,3 +108,15 @@ pub fn build_pipeline(
 
   todo!()
 }
+
+// pub struct BindGroup {
+//   raw: wgpu::BindGroup,
+// }
+
+// pub struct BindGroupBuildSource{
+//   // source:
+// }
+
+// pub struct Uniform{
+
+// }

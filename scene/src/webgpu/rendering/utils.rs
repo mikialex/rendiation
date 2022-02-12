@@ -88,10 +88,14 @@ pub fn build_shader_graph() {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod, PartialEq)]
+#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod, PartialEq, ShaderUniform)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
   pub buffer_size: Vec2<f32>,
+}
+
+impl SemanticShaderUniform for RenderPassGPUInfoData {
+  const TYPE: SemanticBinding = SemanticBinding::Pass;
 }
 
 impl ShaderUniformBlock for RenderPassGPUInfoData {

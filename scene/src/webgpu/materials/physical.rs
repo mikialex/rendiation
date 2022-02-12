@@ -9,9 +9,14 @@ use crate::*;
 impl MaterialMeshLayoutRequire for PhysicalMaterial {
   type VertexInput = Vec<Vertex>;
 }
-
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
 pub struct PhysicalMaterialUniform {
   pub albedo: Vec3<f32>,
+}
+
+impl SemanticShaderUniform for PhysicalMaterialUniform {
+  const TYPE: SemanticBinding = SemanticBinding::Material;
 }
 
 impl ShaderUniformBlock for PhysicalMaterialUniform {
@@ -78,6 +83,22 @@ impl BindGroupLayoutProvider for PhysicalMaterial {
 pub struct PhysicalMaterialGPU {
   _uniform: UniformBuffer<Vec3<f32>>,
   bindgroup: MaterialBindGroup,
+}
+
+impl ShaderGraphProvider for PhysicalMaterialGPU {
+  fn build_fragment(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    let uniform = builder
+      .register_uniform::<PhysicalMaterialUniform>()
+      .expand();
+
+    let result = (uniform.albedo, 1.).into();
+
+    builder.set_fragment_out(0, result);
+    Ok(())
+  }
 }
 
 impl MaterialGPUResource for PhysicalMaterialGPU {

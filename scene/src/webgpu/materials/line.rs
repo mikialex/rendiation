@@ -6,10 +6,14 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-#[derive(Clone, Copy, Zeroable, Pod)]
 #[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
 pub struct LineMaterial {
   pub color: Vec4<f32>,
+}
+
+impl SemanticShaderUniform for LineMaterial {
+  const TYPE: SemanticBinding = SemanticBinding::Material;
 }
 
 impl ShaderUniformBlock for LineMaterial {
@@ -56,6 +60,18 @@ impl BindGroupLayoutProvider for LineMaterial {
 pub struct LineMaterialGPU {
   _uniform: UniformBuffer<LineMaterial>,
   bindgroup: MaterialBindGroup,
+}
+
+impl ShaderGraphProvider for LineMaterialGPU {
+  fn build_fragment(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    let uniform = builder.register_uniform::<FlatMaterialUniform>().expand();
+
+    builder.set_fragment_out(0, uniform.color);
+    Ok(())
+  }
 }
 
 impl MaterialGPUResource for LineMaterialGPU {

@@ -66,6 +66,8 @@ pub struct EnvMapBackGroundMaterialGPU {
   bindgroup: MaterialBindGroup,
 }
 
+impl ShaderGraphProvider for EnvMapBackGroundMaterialGPU {}
+
 impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
   type Source = EnvMapBackGroundMaterial;
   fn setup_pass_bindgroup<'a>(&self, pass: &mut GPURenderPass, ctx: &SceneMaterialPassSetupCtx) {

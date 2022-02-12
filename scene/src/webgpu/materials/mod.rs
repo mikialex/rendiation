@@ -44,7 +44,7 @@ pub trait MaterialCPUResource: Clone + Any {
   fn is_transparent(&self) -> bool;
 }
 
-pub trait MaterialGPUResource: Sized {
+pub trait MaterialGPUResource: Sized + ShaderGraphProvider {
   type Source: MaterialCPUResource<GPU = Self>;
 
   /// This Hook will be called before this material rendering(set_pass)
@@ -219,11 +219,23 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
   }
 }
 
-pub trait PassDispatcher: Any {
+pub trait PassDispatcher: Any + ShaderGraphProvider {
   fn build_pipeline(&self, builder: &mut PipelineBuilder);
 }
 
 pub struct DefaultPassDispatcher;
+
+impl ShaderGraphProvider for DefaultPassDispatcher {
+  fn build_vertex(
+    &self,
+    builder: &mut ShaderGraphVertexBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder
+      .bindgroups
+      .register_uniform::<RenderPassGPUInfoData>();
+    Ok(())
+  }
+}
 impl PassDispatcher for DefaultPassDispatcher {
   fn build_pipeline(&self, _builder: &mut PipelineBuilder) {}
 }

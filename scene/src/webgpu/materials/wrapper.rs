@@ -26,6 +26,8 @@ pub struct SceneMaterialGPU<T> {
   gpu: T,
 }
 
+impl<T> ShaderGraphProvider for SceneMaterialGPU<T> {}
+
 impl<T> MaterialGPUResource for SceneMaterialGPU<T>
 where
   T: MaterialGPUResource,

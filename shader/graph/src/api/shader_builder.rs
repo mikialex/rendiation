@@ -50,6 +50,28 @@ pub trait ShaderGraphProvider {
   }
 }
 
+impl ShaderGraphProvider for [&dyn ShaderGraphProvider] {
+  fn build_vertex(
+    &self,
+    builder: &mut ShaderGraphVertexBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    for p in self {
+      p.build_vertex(builder)?;
+    }
+    Ok(())
+  }
+
+  fn build_fragment(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    for p in self {
+      p.build_fragment(builder)?;
+    }
+    Ok(())
+  }
+}
+
 /// entry
 pub fn build_shader(
   builder: &dyn ShaderGraphProvider,
@@ -400,6 +422,10 @@ impl ShaderGraphFragmentBuilder {
       registry: Default::default(),
       frag_output: Default::default(),
     }
+  }
+
+  pub fn discard(&self) {
+    ShaderSideEffectNode::Termination.insert_graph_bottom();
   }
 
   pub fn query<T: SemanticFragmentShaderValue>(

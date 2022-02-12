@@ -1,5 +1,5 @@
 use crate::{Node, PrimitiveShaderGraphNodeType, ShaderGraphNodeExpr, ShaderGraphNodeType};
-use rendiation_algebra::{Vec3, Vec4};
+use rendiation_algebra::*;
 
 fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
   n: &Node<I>,
@@ -23,6 +23,11 @@ macro_rules! swizzle {
 }
 
 swizzle!(Vec4<f32>, Vec3<f32>, xyz, "xyz");
+swizzle!(Vec4<f32>, Vec2<f32>, xy, "xy");
+swizzle!(Vec4<f32>, f32, w, "w");
+
+swizzle!(Vec2<f32>, f32, x, "x");
+swizzle!(Vec2<f32>, f32, y, "y");
 // todo impl rest swizzle by magic
 
 impl<A, B> From<(A, B)> for Node<Vec4<f32>>

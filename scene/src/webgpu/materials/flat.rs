@@ -15,6 +15,22 @@ pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
 
+impl SemanticShaderUniform for FlatMaterialUniform {
+  const TYPE: SemanticBinding = SemanticBinding::Material;
+}
+
+impl ShaderGraphProvider for FlatMaterialGPU {
+  fn build_fragment(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    let uniform = builder.register_uniform::<FlatMaterialUniform>().expand();
+
+    builder.set_fragment_out(0, uniform.color);
+    Ok(())
+  }
+}
+
 impl ShaderUniformBlock for FlatMaterialUniform {
   fn shader_struct() -> &'static str {
     "

@@ -62,14 +62,6 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   });
 }
 
-pub struct FragmentCtx;
-
-impl FragmentCtx {
-  pub fn discard() {
-    ShaderSideEffectNode::Termination.insert_graph_bottom();
-  }
-}
-
 // /// you can only return the current function, so we don't need
 // /// FunctionCtx to hold this function
 // pub fn early_return<T>(return_value: impl Into<Node<T>>) {
