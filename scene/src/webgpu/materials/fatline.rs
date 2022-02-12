@@ -5,18 +5,19 @@ use std::rc::Rc;
 
 use crate::*;
 
-#[derive(Clone)]
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
 pub struct FatLineMaterial {
   pub width: f32,
-  pub states: MaterialStates,
+}
+
+impl SemanticShaderUniform for FatLineMaterial {
+  const TYPE: SemanticBinding = SemanticBinding::Material;
 }
 
 impl Default for FatLineMaterial {
   fn default() -> Self {
-    Self {
-      width: 10.,
-      states: Default::default(),
-    }
+    Self { width: 10. }
   }
 }
 
@@ -77,91 +78,92 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     let pass_info = builder.query_uniform::<RenderPassGPUInfoData>()?.expand();
     let camera = builder.query_uniform::<CameraGPUTransform>()?.expand();
     let model = builder.query_uniform::<TransformGPUData>()?.expand();
+    let material = builder.register_uniform::<FatLineMaterial>().expand();
 
     let resolution = pass_info.buffer_size;
     let aspect = resolution.x() / resolution.y();
 
-    // camera space
-    let start = camera.view * model.world_matrix * (fatline_start, 1.0).into();
-    let end = camera.view * model.world_matrix * (fatline_end, 1.0).into();
+    // // camera space
+    // let start = camera.view * model.world_matrix * (fatline_start, 1.0).into();
+    // let end = camera.view * model.world_matrix * (fatline_end, 1.0).into();
 
-    // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
-    // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
-    // // but we need to perform ndc-space calculations in the shader, so we must address this issue directly
-    // // perhaps there is a more elegant solution -- WestLangley
-    // bool perspective = ( camera.projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
-    // if ( perspective ) {{
-    //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
-    //         trimSegment( start, end );
-    //     }} else if ( end.z < 0.0 && start.z >= 0.0 ) {{
-    //         trimSegment( end, start );
-    //     }}
-    // }}
+    // // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
+    // // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
+    // // // but we need to perform ndc-space calculations in the shader, so we must address this issue directly
+    // // // perhaps there is a more elegant solution -- WestLangley
+    // // bool perspective = ( camera.projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
+    // // if ( perspective ) {{
+    // //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
+    // //         trimSegment( start, end );
+    // //     }} else if ( end.z < 0.0 && start.z >= 0.0 ) {{
+    // //         trimSegment( end, start );
+    // //     }}
+    // // }}
 
-    // clip space
-    let clipStart = camera.projection * start;
-    let clipEnd = camera.projection * end;
+    // // clip space
+    // let clipStart = camera.projection * start;
+    // let clipEnd = camera.projection * end;
 
-    // ndc space
-    let ndcStart = clipStart.xy() / clipStart.w();
-    let ndcEnd = clipEnd.xy() / clipEnd.w();
+    // // ndc space
+    // let ndcStart = clipStart.xy() / clipStart.w();
+    // let ndcEnd = clipEnd.xy() / clipEnd.w();
 
-    // direction
-    let dir = ndcEnd - ndcStart;
+    // // direction
+    // let dir = ndcEnd - ndcStart;
 
-    // account for clip-space aspect ratio
-    dir.x = dir.x() * aspect;
-    dir = normalize(dir);
+    // // account for clip-space aspect ratio
+    // dir.x = dir.x() * aspect;
+    // dir = normalize(dir);
 
-    // perpendicular to dir
-    let offset = Vec2::new(dir.y, -dir.x);
+    // // perpendicular to dir
+    // let offset = Vec2::new(dir.y, -dir.x);
 
-    // undo aspect ratio adjustment
-    dir.x = dir.x / aspect;
-    offset.x = offset.x / aspect;
+    // // undo aspect ratio adjustment
+    // dir.x = dir.x / aspect;
+    // offset.x = offset.x / aspect;
 
-    // sign flip
-    if (position.x < 0.0) {
-      {
-        offset = -1.0 * offset;
-      }
-    };
+    // // sign flip
+    // if (position.x < 0.0) {
+    //   {
+    //     offset = -1.0 * offset;
+    //   }
+    // };
 
-    // end caps
-    if (position.y < 0.0) {
-      {
-        offset = offset - dir;
-      }
-    } else if (position.y > 1.0) {
-      {
-        offset = offset + dir;
-      }
-    }
+    // // end caps
+    // if (position.y < 0.0) {
+    //   {
+    //     offset = offset - dir;
+    //   }
+    // } else if (position.y > 1.0) {
+    //   {
+    //     offset = offset + dir;
+    //   }
+    // }
 
-    // adjust for fatLineWidth
-    offset = offset * fatline_material.width;
-    // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
-    offset = offset / resolution.y();
+    // // adjust for fatLineWidth
+    // offset = offset * material.width;
+    // // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
+    // offset = offset / resolution.y();
 
-    // select end
-    let clip: vec4<f32>;
-    if (position.y < 0.5) {
-      {
-        clip = clipStart;
-      }
-    } else {
-      {
-        clip = clipEnd;
-      }
-    }
+    // // select end
+    // let clip: vec4<f32>;
+    // if (position.y < 0.5) {
+    //   {
+    //     clip = clipStart;
+    //   }
+    // } else {
+    //   {
+    //     clip = clipEnd;
+    //   }
+    // }
 
-    // back to clip space
-    offset = offset * clip.w;
-    clip = (clip.xy + offset, clip.zw).into();
+    // // back to clip space
+    // offset = offset * clip.w;
+    // clip = (clip.xy + offset, clip.zw).into();
 
-    builder.vertex_position.set(clip);
-    builder.set_vertex_out(uv);
-    builder.set_vertex_out(fatline_color);
+    // builder.vertex_position.set(clip);
+    // builder.set_vertex_out::<FragmentUv>(uv);
+    // builder.set_vertex_out::<FragmentColorAndAlpha>(fatline_color);
 
     Ok(())
   }
@@ -170,22 +172,41 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     &self,
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let vUv = builder.get_fragment_in();
-    let color = builder.get_fragment_in();
-    // discard corner
-    if (abs(vUv.y) > 1.0) {
-      let a = vUv.x;
-      let b: f32;
-      if (vUv.y > 0.0) {
-        b = vUv.y - 1.0;
-      } else {
-        b = vUv.y + 1.0;
-      }
-      let len2 = a * a + b * b;
-      if (len2 > 1.0) {
-        builder.discard();
-      }
-    }
+    let vUv = builder.get_fragment_in::<FragmentUv>()?;
+    let color = builder.get_fragment_in::<FragmentColorAndAlpha>()?;
+
+    // wgsl!(
+    //   // discard corner
+    //   let vUv = in.uv;
+    //   if ( abs( vUv.y ) > 1.0 ) {
+    //     let a = vUv.x;
+    //     var b: f32;
+    //     if ( vUv.y > 0.0 ) {
+    //       b = vUv.y - 1.0;
+    //     } else {
+    //       b = vUv.y + 1.0;
+    //     }
+    //     let len2 = a * a + b * b;
+    //     if ( len2 > 1.0 ) {
+    //       discard;
+    //     }
+    //   }
+    // );
+
+    // // discard corner
+    // if (abs(vUv.y) > 1.0) {
+    //   let a = vUv.x;
+    //   let b: f32;
+    //   if (vUv.y > 0.0) {
+    //     b = vUv.y - 1.0;
+    //   } else {
+    //     b = vUv.y + 1.0;
+    //   }
+    //   let len2 = a * a + b * b;
+    //   if (len2 > 1.0) {
+    //     builder.discard();
+    //   }
+    // }
 
     builder.set_fragment_out(0, color);
     Ok(())
