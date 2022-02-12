@@ -1,15 +1,17 @@
 use std::borrow::Cow;
 
-use shadergraph::ShaderGraphCompileResult;
+use shadergraph::*;
 
-pub fn build_shader(
-  compile_result: &ShaderGraphCompileResult,
+pub fn build_pipeline(
+  builder: &dyn ShaderGraphProvider,
   device: &wgpu::Device,
-) -> wgpu::RenderPipeline {
+) -> Result<wgpu::RenderPipeline, ShaderGraphBuildError> {
+  let target = WGSL;
+  let compile_result = build_shader(builder, &target)?;
+
   let ShaderGraphCompileResult {
     vertex_shader,
     frag_shader,
-    states,
     bindings,
   } = compile_result;
 
@@ -83,23 +85,26 @@ pub fn build_shader(
 
   // let vertex_buffers: Vec<_> = self.vertex_buffers.iter().map(|v| v.as_raw()).collect();
 
-  // device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+  // let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
   //   label: None,
   //   layout: Some(&pipeline_layout),
   //   vertex: wgpu::VertexState {
   //     module: &vertex_shader,
-  //     entry_point: self.active_vertex_entry.as_str(),
+  //     entry_point: target.vertex_entry_name(),
   //     buffers: vertex_buffers.as_slice(),
   //   },
   //   fragment: Some(wgpu::FragmentState {
   //     module: &frag_shader,
-  //     entry_point: self.active_fragment_entry.as_str(),
+  //     entry_point: target.fragment_entry_name(),
   //     targets: self.targets.as_slice(),
   //   }),
   //   primitive: self.primitive_state,
   //   depth_stencil: self.depth_stencil.clone(),
   //   multisample: self.multisample,
   //   multiview: None,
-  // })
+  // });
+
+  // pipeline.into()
+
   todo!()
 }

@@ -72,7 +72,6 @@ pub fn build_shader(
   Ok(ShaderGraphCompileResult {
     vertex_shader,
     frag_shader,
-    states: Default::default(),
     bindings: fragment_builder.bindgroups,
   })
 }
@@ -80,14 +79,10 @@ pub fn build_shader(
 pub struct ShaderGraphCompileResult {
   pub vertex_shader: String,
   pub frag_shader: String,
-  pub states: PipelineShaderInterfaceInfo,
   pub bindings: ShaderGraphBindGroupBuilder,
 }
 
 pub struct ShaderGraphVertexBuilder {
-  // states
-  pub shader_interface: PipelineShaderInterfaceInfo,
-
   // uniforms
   pub bindgroups: ShaderGraphBindGroupBuilder,
 
@@ -123,9 +118,6 @@ impl std::ops::DerefMut for ShaderGraphVertexBuilder {
 }
 
 pub struct ShaderGraphFragmentBuilder {
-  // states
-  pub shader_interface: PipelineShaderInterfaceInfo,
-
   // uniforms
   pub bindgroups: ShaderGraphBindGroupBuilder,
 
@@ -303,15 +295,6 @@ impl SemanticRegistry {
   }
 }
 
-/// Descriptor of the shader input
-#[derive(Clone, Default)]
-pub struct PipelineShaderInterfaceInfo {
-  // pub bindgroup_layouts: Vec<Vec<rendiation_webgpu::BindGroupLayoutEntry>>,
-// pub vertex_state: Option<Vec<rendiation_webgpu::VertexBufferLayout<'static>>>,
-// pub preferred_target_states: TargetStates,
-// pub primitive_states: PrimitiveState,
-}
-
 impl ShaderGraphVertexBuilder {
   pub fn create(bindgroups: ShaderGraphBindGroupBuilder) -> Self {
     let builder = ShaderGraphBuilder::default();
@@ -335,7 +318,6 @@ impl ShaderGraphVertexBuilder {
     .insert_graph();
 
     Self {
-      shader_interface: Default::default(),
       bindgroups,
       vertex_index,
       instance_index,
@@ -413,7 +395,6 @@ impl ShaderGraphFragmentBuilder {
     vertex.current_stage = ShaderStages::Fragment;
 
     Self {
-      shader_interface: Default::default(),
       bindgroups: vertex.bindgroups,
       fragment_in,
       registry: Default::default(),

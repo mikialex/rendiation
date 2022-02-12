@@ -2,6 +2,15 @@ use crate::*;
 
 pub struct WGSL;
 
+impl WGSL {
+  pub fn vertex_entry_name(&self) -> &'static str {
+    "vertex_main"
+  }
+  pub fn fragment_entry_name(&self) -> &'static str {
+    "fragment_main"
+  }
+}
+
 impl ShaderGraphCodeGenTarget for WGSL {
   fn gen_vertex_shader(
     &self,
