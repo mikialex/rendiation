@@ -1,9 +1,7 @@
 use rendiation_texture_types::{Size, TextureOrigin};
 use wgpu::util::DeviceExt;
 
-use crate::{
-  BindableResource, BindableResourceWgslCodeGen, WebGPUTexture, WebGPUTextureCubeDescriptor,
-};
+use crate::{BindableResource, WebGPUTexture, WebGPUTextureCubeDescriptor};
 
 pub trait WebGPUTexture2dSource {
   fn format(&self) -> wgpu::TextureFormat;
@@ -183,12 +181,6 @@ impl BindableResource for WebGPUTexture2d {
       sample_type: wgpu::TextureSampleType::Float { filterable: true },
       view_dimension: wgpu::TextureViewDimension::D2,
     }
-  }
-}
-
-impl BindableResourceWgslCodeGen for WebGPUTexture2d {
-  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str {
-    "texture_cube<f32>"
   }
 }
 

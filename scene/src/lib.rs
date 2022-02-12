@@ -20,4 +20,5 @@ pub use util::*;
 pub use arena::*;
 pub use arena_tree::*;
 
+use bytemuck::*;
 use shadergraph::*;

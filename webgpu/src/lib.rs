@@ -42,23 +42,12 @@ pub trait BindableResource {
   fn bind_layout() -> wgpu::BindingType;
 }
 
-pub trait BindableResourceWgslCodeGen {
-  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str;
-}
-
 impl BindableResource for wgpu::Sampler {
   fn as_bindable(&self) -> wgpu::BindingResource {
     wgpu::BindingResource::Sampler(self)
   }
   fn bind_layout() -> wgpu::BindingType {
     wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
-  }
-}
-
-impl BindableResourceWgslCodeGen for wgpu::Sampler {
-  // todo distinguish between depth and common
-  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str {
-    "sampler"
   }
 }
 

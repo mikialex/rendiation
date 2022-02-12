@@ -1,6 +1,6 @@
 use rendiation_texture_types::CubeTextureFace;
 
-use crate::{BindableResource, BindableResourceWgslCodeGen, WebGPUTexture, WebGPUTexture2dSource};
+use crate::{BindableResource, WebGPUTexture, WebGPUTexture2dSource};
 
 /// The wrapper type that make sure the inner desc
 /// is suitable for cube texture
@@ -23,12 +23,6 @@ impl BindableResource for WebGPUTextureCube {
       sample_type: wgpu::TextureSampleType::Float { filterable: true },
       view_dimension: wgpu::TextureViewDimension::Cube,
     }
-  }
-}
-
-impl BindableResourceWgslCodeGen for WebGPUTextureCube {
-  fn wgsl_type_name(layout: wgpu::BindingType) -> &'static str {
-    "texture_2d<f32>"
   }
 }
 

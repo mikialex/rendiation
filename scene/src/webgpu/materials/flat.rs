@@ -9,7 +9,8 @@ use crate::*;
 impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
-
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
 pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }

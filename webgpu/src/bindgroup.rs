@@ -1,4 +1,4 @@
-use crate::{BindableResource, BindableResourceWgslCodeGen};
+use crate::BindableResource;
 
 #[derive(Default)]
 pub struct BindGroupMetaInfo {
@@ -13,7 +13,7 @@ impl BindGroupMetaInfo {
     visibility: wgpu::ShaderStages,
   ) -> &mut Self
   where
-    T: BindableResource + BindableResourceWgslCodeGen,
+    T: BindableResource,
   {
     let entry = wgpu::BindGroupLayoutEntry {
       binding: self.entries.len() as u32,

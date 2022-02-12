@@ -12,7 +12,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
     let mut cx = CodeGenCtx::default();
 
     gen_structs(&mut code, &builder);
-    gen_vertex_out_struct(&mut code, &vertex);
+    gen_vertex_out_struct(&mut code, vertex);
     gen_bindings(&mut code, &vertex.bindgroups, ShaderStages::Vertex);
     gen_entry(
       &mut code,
