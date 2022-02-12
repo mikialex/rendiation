@@ -50,7 +50,7 @@ impl ShaderGraphCodeGenTarget for WGSL {
     let mut code = CodeBuilder::default();
     let mut cx = CodeGenCtx::default();
     gen_structs(&mut code, &builder);
-    gen_fragment_out_struct(&mut code, &fragment);
+    gen_fragment_out_struct(&mut code, fragment);
     gen_bindings(&mut code, &fragment.bindgroups, ShaderStages::Fragment);
     gen_entry(
       &mut code,

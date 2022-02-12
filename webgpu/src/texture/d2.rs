@@ -132,11 +132,13 @@ impl WebGPUTexture2dDescriptor {
     }
   }
 
+  #[must_use]
   pub fn with_format(mut self, format: wgpu::TextureFormat) -> Self {
     self.desc.format = format;
     self
   }
 
+  #[must_use]
   pub fn with_level_count(mut self, level_count: MipLevelCount) -> Self {
     self.desc.mip_level_count = level_count.get_level_count_wgpu(Size::from_u32_pair_min_one((
       self.desc.size.width,
@@ -211,6 +213,7 @@ impl WebGPUTexture2d {
     self.upload_with_origin(queue, source, mip_level, TextureOrigin::zero())
   }
 
+  #[must_use]
   pub fn upload_into(
     self,
     queue: &wgpu::Queue,
@@ -250,6 +253,7 @@ impl WebGPUTexture2d {
     self
   }
 
+  #[must_use]
   pub fn upload_with_origin_into(
     self,
     queue: &wgpu::Queue,

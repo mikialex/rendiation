@@ -10,9 +10,6 @@ pub use states::*;
 pub mod wrapper;
 pub use wrapper::*;
 
-pub mod shadergraph_impl;
-pub use shadergraph_impl::*;
-
 pub mod flat;
 pub use flat::*;
 pub mod line;

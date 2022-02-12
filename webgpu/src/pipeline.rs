@@ -1,8 +1,10 @@
-use std::{any::TypeId, borrow::Cow, collections::HashMap, rc::Rc};
+use std::{any::{TypeId, Any}, borrow::Cow, collections::HashMap, rc::Rc};
 
-use crate::{
-  BindGroupLayoutCache, BindGroupLayoutProvider, ShaderUniformBlock, VertexBufferLayoutOwned,
-};
+use crate::{BindGroupLayoutCache, BindGroupLayoutProvider, VertexBufferLayoutOwned};
+
+pub trait ShaderUniformBlock: Any {
+  fn shader_struct() -> &'static str;
+}
 
 pub trait ShaderBuilder {
   fn build_shader(&self) -> String;

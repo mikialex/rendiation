@@ -44,6 +44,7 @@ impl WebGPUTextureCube {
     }
   }
 
+  #[must_use]
   pub fn upload(
     self,
     queue: &wgpu::Queue,
@@ -54,6 +55,7 @@ impl WebGPUTextureCube {
     self.upload_with_origin(queue, source, face, mip_level, (0, 0))
   }
 
+  #[must_use]
   pub fn upload_with_origin(
     self,
     queue: &wgpu::Queue,

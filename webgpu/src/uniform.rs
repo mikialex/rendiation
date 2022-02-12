@@ -1,16 +1,11 @@
 use bytemuck::Pod;
 use std::{
-  any::Any,
   cell::Cell,
   marker::PhantomData,
   ops::{Deref, DerefMut},
 };
 
 use super::BindableResource;
-
-pub trait ShaderUniformBlock: Any {
-  fn shader_struct() -> &'static str;
-}
 
 pub struct UniformBuffer<T> {
   gpu: wgpu::Buffer,

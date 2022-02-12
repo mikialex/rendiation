@@ -3,7 +3,6 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 
-mod bindgroup;
 mod cache;
 mod encoder;
 mod pass;
@@ -13,13 +12,14 @@ mod surface;
 mod texture;
 mod types;
 mod uniform;
+pub mod shadergraph_impl;
 
-pub use bindgroup::*;
 pub use cache::*;
 pub use encoder::*;
 pub use pass::*;
 pub use pipeline::*;
 pub use sampler::*;
+pub use shadergraph_impl::*;
 pub use surface::*;
 pub use texture::*;
 pub use types::*;
@@ -30,12 +30,6 @@ use std::cell::RefCell;
 use bytemuck::Pod;
 use rendiation_texture_types::Size;
 pub use wgpu::*;
-
-pub struct If<const B: bool>;
-pub trait True {}
-impl True for If<true> {}
-pub trait True2 {}
-impl True2 for If<true> {}
 
 pub trait BindableResource {
   fn as_bindable(&self) -> wgpu::BindingResource;
