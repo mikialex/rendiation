@@ -19,14 +19,14 @@ impl SemanticShaderUniform for PhysicalMaterialUniform {
 }
 
 pub struct PhysicalMaterialGPU {
-  _uniform: UniformBuffer<Vec3<f32>>,
+  uniform: UniformBuffer<Vec3<f32>>,
   sampler: GPUSampler,
   texture: GPUTexture,
 }
 
 impl ShaderBindingProvider for PhysicalMaterialGPU {
   fn maintain_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
-    builder.register_uniform(&self._uniform);
+    builder.register_uniform(&self.uniform);
     builder.register_uniform(&self.sampler);
     builder.register_uniform(&self.texture);
   }
@@ -53,7 +53,7 @@ impl MaterialCPUResource for PhysicalMaterial {
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {
     PhysicalMaterialGPU {
-      _uniform: res.uniforms.get(self.albedo),
+      uniform: res.uniforms.get(self.albedo),
       sampler: res.samplers.get(self.sampler),
       texture: res.texture_2ds.get(self.texture),
     }

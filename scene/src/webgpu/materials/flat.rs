@@ -41,7 +41,7 @@ impl SemanticShaderUniform for FlatMaterialUniform {
 
 impl ShaderBindingProvider for FlatMaterialGPU {
   fn maintain_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
-    builder.register_uniform(&self._uniform);
+    builder.register_uniform(&self.uniform);
   }
 }
 
@@ -50,7 +50,7 @@ impl ShaderGraphProvider for FlatMaterialGPU {
     &self,
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.register_uniform_by(&self._uniform).expand();
+    let uniform = builder.register_uniform_by(&self.uniform).expand();
 
     builder.set_fragment_out(0, uniform.color);
     Ok(())
@@ -58,25 +58,15 @@ impl ShaderGraphProvider for FlatMaterialGPU {
 }
 
 pub struct FlatMaterialGPU {
-  _uniform: MaterialUniform<FlatMaterialUniform>,
-  bindgroup: MaterialBindGroup,
+  uniform: MaterialUniform<FlatMaterialUniform>,
 }
 
 impl MaterialCPUResource for FlatMaterial {
   type GPU = FlatMaterialGPU;
 
-  fn create_gpu(&self, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
-    let _uniform = UniformBuffer::create(&gpu.device, FlatMaterialUniform { color: self.color });
-
-    let bindgroup_layout = Self::layout(&gpu.device);
-
-    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.resources, bgw.clone())
-      .push(_uniform.as_bindable())
-      .build(&bindgroup_layout);
-
+  fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {
     FlatMaterialGPU {
-      _uniform: MaterialUniform { inner: _uniform },
-      bindgroup,
+      uniform: res.uniforms.get(self.uniform),
     }
   }
 

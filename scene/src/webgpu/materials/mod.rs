@@ -21,10 +21,10 @@ pub mod line;
 pub use line::*;
 pub mod physical;
 pub use physical::*;
-pub mod fatline;
-pub use fatline::*;
-pub mod env_background;
-pub use env_background::*;
+// pub mod fatline;
+// pub use fatline::*;
+// pub mod env_background;
+// pub use env_background::*;
 
 use rendiation_webgpu::{
   build_pipeline, BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher,

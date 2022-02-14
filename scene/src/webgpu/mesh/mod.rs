@@ -31,7 +31,7 @@ where
   type VertexInput = Vec<V>;
 }
 
-pub trait WebGPUMesh {
+pub trait WebGPUMesh: ShaderGraphProvider + 'static {
   fn setup_pass_and_draw<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
@@ -90,7 +90,7 @@ impl GPUResourceSceneCache {
 }
 
 type MeshResourceMapper<T> = ResourceMapper<<T as MeshCPUSource>::GPU, T>;
-pub trait MeshCPUSource: ShaderGraphProvider + Any {
+pub trait MeshCPUSource: Any {
   type GPU;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
@@ -189,6 +189,15 @@ where
   }
 }
 
+impl<T> ShaderGraphProvider for MeshInner<T> {
+  fn build_vertex(
+    &self,
+    _builder: &mut shadergraph::ShaderGraphVertexBuilder,
+  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    todo!()
+  }
+}
+
 impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
   fn setup_pass_and_draw<'a>(
     &self,
@@ -213,6 +222,15 @@ impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
     self.deref().try_pick(f)
+  }
+}
+
+impl<T> ShaderGraphProvider for MeshCell<T> {
+  fn build_vertex(
+    &self,
+    _builder: &mut shadergraph::ShaderGraphVertexBuilder,
+  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    todo!()
   }
 }
 
