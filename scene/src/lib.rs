@@ -3,6 +3,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(hash_raw_entry)]
+#![feature(trait_upcasting)]
 #![feature(explicit_generic_args_with_impl_trait)]
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]

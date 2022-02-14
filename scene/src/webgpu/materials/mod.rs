@@ -39,12 +39,7 @@ pub trait MaterialMeshLayoutRequire {
 
 pub trait MaterialCPUResource: Clone + Any {
   type GPU: MaterialGPUResource<Source = Self>;
-  fn create(
-    &self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-    bgw: &Rc<BindGroupDirtyWatcher>,
-  ) -> Self::GPU;
+  fn update_gpu(&self, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
@@ -52,38 +47,7 @@ pub trait MaterialCPUResource: Clone + Any {
 pub trait MaterialGPUResource: Sized + ShaderGraphProvider {
   type Source: MaterialCPUResource<GPU = Self>;
 
-  /// This Hook will be called before this material rendering(set_pass)
-  ///
-  /// If return true, means the following procedure will use simple full refresh update logic:
-  /// just rebuild the entire gpu resource. This is just for convenient case.
-  /// You can also impl incremental update logic to improve performance in high dynamic scenario
-  fn update(
-    &mut self,
-    _source: &Self::Source,
-    _gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtx,
-    _bgw: &Rc<BindGroupDirtyWatcher>,
-  ) -> bool {
-    true
-  }
-
   fn hash_pipeline(&self, _source: &Self::Source, _hasher: &mut PipelineHasher) {}
-
-  fn create_pipeline(
-    &self,
-    source: &Self::Source,
-    builder: &mut PipelineBuilder,
-    device: &wgpu::Device,
-    ctx: &PipelineCreateCtx,
-  );
-
-  fn setup_pass_bindgroup<'a>(
-    &self,
-    _pass: &mut GPURenderPass<'a>,
-    _ctx: &SceneMaterialPassSetupCtx,
-  ) {
-    // default do nothing
-  }
 }
 
 type MaterialResourceMapper<T> = ResourceMapper<MaterialWebGPUResource<T>, T>;
@@ -145,14 +109,25 @@ impl GPUResourceSceneCache {
 
     gpu_m.current_pipeline = pipelines
       .get_or_insert_with(hasher, || {
-        let mut builder = PipelineBuilder::default();
+        build_shader(
+          &[
+            ctx.pass as &dyn ShaderGraphProvider,
+            m_gpu as &dyn ShaderGraphProvider,
+          ]
+          .as_slice(),
+          &WGSL,
+        );
 
-        builder.primitive_state.topology = topology;
-        builder.multisample.count = sample_count;
+        // let mut builder = PipelineBuilder::default();
 
-        m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
-        pipeline_ctx.pass.build_pipeline(&mut builder);
-        builder.build(&gpu.device)
+        // builder.primitive_state.topology = topology;
+        // builder.multisample.count = sample_count;
+
+        // m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
+        // pipeline_ctx.pass.build_pipeline(&mut builder);
+        // builder.build(&gpu.device)
+
+        todo!()
       })
       .clone()
       .into();
@@ -181,24 +156,13 @@ impl GPUResourceSceneCache {
 }
 
 pub struct MaterialWebGPUResource<T: MaterialCPUResource> {
-  _last_material: Option<T>, // todo
-  bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
-
   current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
   gpu: Option<T::GPU>,
-}
-
-impl<T: MaterialCPUResource> MaterialWebGPUResource<T> {
-  fn refresh_cache(&mut self) {
-    self.bindgroup_watcher.reset_clean();
-  }
 }
 
 impl<T: MaterialCPUResource> Default for MaterialWebGPUResource<T> {
   fn default() -> Self {
     Self {
-      _last_material: Default::default(),
-      bindgroup_watcher: Default::default(),
       current_pipeline: Default::default(),
       gpu: Default::default(),
     }

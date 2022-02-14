@@ -50,12 +50,12 @@ pub trait ShaderGraphProvider {
   }
 }
 
-impl ShaderGraphProvider for [&dyn ShaderGraphProvider] {
+impl<'a> ShaderGraphProvider for &'a [&dyn ShaderGraphProvider] {
   fn build_vertex(
     &self,
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    for p in self {
+    for p in *self {
       p.build_vertex(builder)?;
     }
     Ok(())
@@ -65,7 +65,7 @@ impl ShaderGraphProvider for [&dyn ShaderGraphProvider] {
     &self,
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    for p in self {
+    for p in *self {
       p.build_fragment(builder)?;
     }
     Ok(())
