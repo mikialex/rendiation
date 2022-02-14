@@ -17,6 +17,7 @@ pub struct PhysicalMaterialUniform {
 
 impl SemanticShaderUniform for PhysicalMaterialUniform {
   const TYPE: SemanticBinding = SemanticBinding::Material;
+  type Node = Self;
 }
 
 impl ShaderUniformBlock for PhysicalMaterialUniform {
@@ -82,6 +83,8 @@ impl BindGroupLayoutProvider for PhysicalMaterial {
 
 pub struct PhysicalMaterialGPU {
   _uniform: UniformBuffer<Vec3<f32>>,
+  // sampler: GPUSampler,
+  // texture: GPUTexture,
   bindgroup: MaterialBindGroup,
 }
 

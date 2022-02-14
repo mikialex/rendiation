@@ -74,6 +74,7 @@ impl SemanticVertexShaderValue for LocalVertexPosition {
 
 impl SemanticShaderUniform for TransformGPUData {
   const TYPE: SemanticBinding = SemanticBinding::Object;
+  type Node = Self;
 }
 
 impl ShaderGraphProvider for TransformGPUData {

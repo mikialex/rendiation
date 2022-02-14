@@ -127,6 +127,7 @@ pub struct CameraGPUTransform {
 
 impl SemanticShaderUniform for CameraGPUTransform {
   const TYPE: SemanticBinding = SemanticBinding::Camera;
+  type Node = Self;
 }
 
 impl ShaderUniformBlock for CameraGPUTransform {

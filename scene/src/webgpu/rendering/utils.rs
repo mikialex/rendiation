@@ -96,6 +96,7 @@ pub struct RenderPassGPUInfoData {
 
 impl SemanticShaderUniform for RenderPassGPUInfoData {
   const TYPE: SemanticBinding = SemanticBinding::Pass;
+  type Node = Self;
 }
 
 impl ShaderUniformBlock for RenderPassGPUInfoData {

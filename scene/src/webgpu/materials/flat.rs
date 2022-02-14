@@ -15,8 +15,34 @@ pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
 
+pub struct MaterialUniform<T> {
+  pub inner: UniformBuffer<T>,
+}
+
+impl<T: ShaderGraphNodeType> SemanticShaderUniform for MaterialUniform<T> {
+  const TYPE: SemanticBinding = SemanticBinding::Material;
+  type Node = T;
+}
+
+impl<T> BindProvider for MaterialUniform<T> {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    self.inner.as_bindable()
+  }
+
+  fn add_bind_record(&self, record: BindGroupCacheInvalidation) {
+    todo!()
+  }
+}
+
 impl SemanticShaderUniform for FlatMaterialUniform {
   const TYPE: SemanticBinding = SemanticBinding::Material;
+  type Node = Self;
+}
+
+impl ShaderBindingProvider for FlatMaterialGPU {
+  fn maintain_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
+    builder.register_uniform(&self._uniform);
+  }
 }
 
 impl ShaderGraphProvider for FlatMaterialGPU {
@@ -24,7 +50,7 @@ impl ShaderGraphProvider for FlatMaterialGPU {
     &self,
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.register_uniform::<FlatMaterialUniform>().expand();
+    let uniform = builder.register_uniform_by(&self._uniform).expand();
 
     builder.set_fragment_out(0, uniform.color);
     Ok(())
@@ -72,7 +98,7 @@ impl BindGroupLayoutProvider for FlatMaterial {
 }
 
 pub struct FlatMaterialGPU {
-  _uniform: UniformBuffer<Vec4<f32>>,
+  _uniform: MaterialUniform<FlatMaterialUniform>,
   bindgroup: MaterialBindGroup,
 }
 
@@ -120,7 +146,7 @@ impl MaterialCPUResource for FlatMaterial {
     ctx: &mut SceneMaterialRenderPrepareCtx,
     bgw: &Rc<BindGroupDirtyWatcher>,
   ) -> Self::GPU {
-    let _uniform = UniformBuffer::create(&gpu.device, self.color);
+    let _uniform = UniformBuffer::create(&gpu.device, FlatMaterialUniform { color: self.color });
 
     let bindgroup_layout = Self::layout(&gpu.device);
 
@@ -129,7 +155,7 @@ impl MaterialCPUResource for FlatMaterial {
       .build(&bindgroup_layout);
 
     FlatMaterialGPU {
-      _uniform,
+      _uniform: MaterialUniform { inner: _uniform },
       bindgroup,
     }
   }

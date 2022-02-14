@@ -12,6 +12,9 @@ pub use wrapper::*;
 pub mod semantic;
 pub use semantic::*;
 
+pub mod binding;
+pub use binding::*;
+
 pub mod flat;
 pub use flat::*;
 pub mod line;

@@ -208,7 +208,8 @@ impl SemanticBinding {
   }
 }
 
-pub trait SemanticShaderUniform: ShaderGraphNodeType {
+pub trait SemanticShaderUniform: Any {
+  type Node: ShaderGraphNodeType;
   const TYPE: SemanticBinding;
 }
 
@@ -284,16 +285,24 @@ impl ShaderGraphBindGroupBuilder {
   }
 
   #[inline]
-  pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T> {
-    let node =
-      self.register_uniform_inner(TypeId::of::<T>(), T::TYPE.binding_index(), T::to_type());
+  pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T::Node> {
+    let node = self.register_uniform_inner(
+      TypeId::of::<T>(),
+      T::TYPE.binding_index(),
+      T::Node::to_type(),
+    );
     unsafe { node.cast_type() }
+  }
+
+  #[inline]
+  pub fn register_uniform_by<T: SemanticShaderUniform>(&mut self, _instance: &T) -> Node<T::Node> {
+    self.register_uniform::<T>()
   }
 
   #[inline]
   pub fn query_uniform<T: SemanticShaderUniform>(
     &mut self,
-  ) -> Result<Node<T>, ShaderGraphBuildError> {
+  ) -> Result<Node<T::Node>, ShaderGraphBuildError> {
     let result = self.query_uniform_inner(TypeId::of::<T>(), T::TYPE.binding_index());
     result.map(|n| unsafe { n.cast_type() })
   }

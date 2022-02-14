@@ -14,6 +14,7 @@ pub struct LineMaterial {
 
 impl SemanticShaderUniform for LineMaterial {
   const TYPE: SemanticBinding = SemanticBinding::Material;
+  type Node = Self;
 }
 
 impl ShaderUniformBlock for LineMaterial {
