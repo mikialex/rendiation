@@ -62,19 +62,10 @@ pub struct FlatMaterialGPU {
   bindgroup: MaterialBindGroup,
 }
 
-impl MaterialGPUResource for FlatMaterialGPU {
-  type Source = FlatMaterial;
-}
-
 impl MaterialCPUResource for FlatMaterial {
   type GPU = FlatMaterialGPU;
 
-  fn create(
-    &self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-    bgw: &Rc<BindGroupDirtyWatcher>,
-  ) -> Self::GPU {
+  fn create_gpu(&self, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
     let _uniform = UniformBuffer::create(&gpu.device, FlatMaterialUniform { color: self.color });
 
     let bindgroup_layout = Self::layout(&gpu.device);

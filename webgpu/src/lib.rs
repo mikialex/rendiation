@@ -8,11 +8,11 @@ mod encoder;
 mod pass;
 mod pipeline;
 mod sampler;
+pub mod shadergraph_impl;
 mod surface;
 mod texture;
 mod types;
 mod uniform;
-pub mod shadergraph_impl;
 
 pub use cache::*;
 pub use encoder::*;

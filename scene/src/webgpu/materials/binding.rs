@@ -75,6 +75,10 @@ pub struct GPUSampler {
   sampler_cache: usize,
 }
 
+pub struct GPUTexture {
+  //
+}
+
 pub struct BindGroupBuilder<'a> {
   cache: BindGroupCache,
   items: Vec<Vec<&'a dyn BindProvider>>,

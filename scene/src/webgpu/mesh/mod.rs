@@ -3,6 +3,7 @@ use rendiation_renderable_mesh::{
   group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, MeshGPU,
 };
 use rendiation_webgpu::{GPURenderPass, VertexBufferLayoutOwned, GPU};
+use shadergraph::ShaderGraphProvider;
 use std::{
   any::{Any, TypeId},
   ops::Deref,
@@ -30,7 +31,7 @@ where
   type VertexInput = Vec<V>;
 }
 
-pub trait WebGPUMesh: Any {
+pub trait WebGPUMesh {
   fn setup_pass_and_draw<'a>(
     &self,
     pass: &mut GPURenderPass<'a>,
@@ -89,7 +90,7 @@ impl GPUResourceSceneCache {
 }
 
 type MeshResourceMapper<T> = ResourceMapper<<T as MeshCPUSource>::GPU, T>;
-pub trait MeshCPUSource: Any {
+pub trait MeshCPUSource: ShaderGraphProvider + Any {
   type GPU;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;

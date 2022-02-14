@@ -27,8 +27,8 @@ pub mod env_background;
 pub use env_background::*;
 
 use rendiation_webgpu::{
-  BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher, PipelineResourceCache,
-  RenderPassInfo, GPU,
+  build_pipeline, BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher,
+  PipelineResourceCache, RenderPassInfo, GPU,
 };
 
 use crate::*;
@@ -38,16 +38,11 @@ pub trait MaterialMeshLayoutRequire {
 }
 
 pub trait MaterialCPUResource: Clone + Any {
-  type GPU: MaterialGPUResource<Source = Self>;
-  fn update_gpu(&self, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU;
+  type GPU: ShaderGraphProvider;
+  fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU;
+  fn hash_pipeline(&self, _hasher: &mut PipelineHasher, gpu: &Self::GPU) {}
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
-}
-
-pub trait MaterialGPUResource: Sized + ShaderGraphProvider {
-  type Source: MaterialCPUResource<GPU = Self>;
-
-  fn hash_pipeline(&self, _source: &Self::Source, _hasher: &mut PipelineHasher) {}
 }
 
 type MaterialResourceMapper<T> = ResourceMapper<MaterialWebGPUResource<T>, T>;
@@ -71,23 +66,12 @@ impl GPUResourceSceneCache {
     let gpu_m = mapper.get_update_or_insert_with_logic(m, |x| match x {
       ResourceLogic::Create(m) => {
         let mut gpu_m = MaterialWebGPUResource::<M>::default();
-        gpu_m.gpu = M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher).into();
+        gpu_m.gpu = M::create_gpu(m, ctx).into();
         ResourceLogicResult::Create(gpu_m)
       }
       ResourceLogic::Update(gpu_m, m) => {
-        if gpu_m
-          .gpu
-          .as_mut()
-          .unwrap()
-          .update(m, gpu, ctx, &gpu_m.bindgroup_watcher)
-        {
-          gpu_m
-            .gpu
-            .replace(M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher));
-        }
-
-        gpu_m.refresh_cache();
-
+        // todo check should really recreate?
+        gpu_m.gpu.replace(M::create_gpu(m, ctx));
         ResourceLogicResult::Update(gpu_m)
       }
     });
@@ -109,14 +93,15 @@ impl GPUResourceSceneCache {
 
     gpu_m.current_pipeline = pipelines
       .get_or_insert_with(hasher, || {
-        build_shader(
+        build_pipeline(
           &[
             ctx.pass as &dyn ShaderGraphProvider,
             m_gpu as &dyn ShaderGraphProvider,
           ]
           .as_slice(),
-          &WGSL,
-        );
+          &gpu.device,
+        )
+        .unwrap()
 
         // let mut builder = PipelineBuilder::default();
 
@@ -126,8 +111,6 @@ impl GPUResourceSceneCache {
         // m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
         // pipeline_ctx.pass.build_pipeline(&mut builder);
         // builder.build(&gpu.device)
-
-        todo!()
       })
       .clone()
       .into();
@@ -151,7 +134,8 @@ impl GPUResourceSceneCache {
 
     pass.set_pipeline_owned(gpu_m.current_pipeline.as_ref().unwrap());
 
-    gpu.setup_pass_bindgroup(pass, ctx)
+    // gpu.setup_pass_bindgroup(pass, ctx)
+    todo!()
   }
 }
 

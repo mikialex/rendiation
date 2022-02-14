@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
@@ -22,8 +20,16 @@ impl SemanticShaderUniform for PhysicalMaterialUniform {
 
 pub struct PhysicalMaterialGPU {
   _uniform: UniformBuffer<Vec3<f32>>,
-  // sampler: GPUSampler,
-  // texture: GPUTexture,
+  sampler: GPUSampler,
+  texture: GPUTexture,
+}
+
+impl ShaderBindingProvider for PhysicalMaterialGPU {
+  fn maintain_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
+    builder.register_uniform(&self._uniform);
+    builder.register_uniform(&self.sampler);
+    builder.register_uniform(&self.texture);
+  }
 }
 
 impl ShaderGraphProvider for PhysicalMaterialGPU {
@@ -45,17 +51,12 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
 impl MaterialCPUResource for PhysicalMaterial {
   type GPU = PhysicalMaterialGPU;
 
-  fn create(&self, gpu: &GPU, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
-    let _uniform = UniformBuffer::create(&gpu.device, self.albedo);
-
-    let sampler = ctx.map_sampler(self.sampler, &gpu.device);
-    let bindgroup = MaterialBindGroupBuilder::new(gpu, ctx.resources, bgw.clone())
-      .push(_uniform.as_bindable())
-      .push_texture(&self.texture)
-      .push(sampler.as_bindable())
-      .build(&bindgroup_layout);
-
-    PhysicalMaterialGPU { _uniform }
+  fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {
+    PhysicalMaterialGPU {
+      _uniform: res.uniforms.get(self.albedo),
+      sampler: res.samplers.get(self.sampler),
+      texture: res.texture_2ds.get(self.texture),
+    }
   }
   fn is_keep_mesh_shape(&self) -> bool {
     true
