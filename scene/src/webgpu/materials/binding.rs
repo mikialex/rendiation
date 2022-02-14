@@ -3,7 +3,7 @@ use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 use shadergraph::SemanticShaderUniform;
 
 pub trait ShaderBindingProvider {
-  fn maintain_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>);
+  fn setup_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>);
 }
 
 #[derive(Clone)]
@@ -84,13 +84,19 @@ pub struct BindGroupBuilder<'a> {
   items: Vec<Vec<&'a dyn BindProvider>>,
 }
 
+impl<'a> BindGroupBuilder<'a> {
+  pub fn create() -> Self {
+    todo!()
+  }
+}
+
 pub trait BindProvider {
   fn as_bindable(&self) -> wgpu::BindingResource;
   fn add_bind_record(&self, record: BindGroupCacheInvalidation);
 }
 
 impl<'a> BindGroupBuilder<'a> {
-  pub fn register_uniform<T>(&mut self, item: &'a T)
+  pub fn setup_uniform<T>(&mut self, item: &'a T)
   where
     T: SemanticShaderUniform + BindProvider,
   {

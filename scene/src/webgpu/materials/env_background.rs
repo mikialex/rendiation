@@ -87,7 +87,7 @@ impl MaterialGPUResource for EnvMapBackGroundMaterialGPU {
   }
 }
 
-impl MaterialCPUResource for EnvMapBackGroundMaterial {
+impl WebGPUMaterial for EnvMapBackGroundMaterial {
   type GPU = EnvMapBackGroundMaterialGPU;
 
   fn create(

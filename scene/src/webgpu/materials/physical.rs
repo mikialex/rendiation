@@ -25,10 +25,10 @@ pub struct PhysicalMaterialGPU {
 }
 
 impl ShaderBindingProvider for PhysicalMaterialGPU {
-  fn maintain_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
-    builder.register_uniform(&self.uniform);
-    builder.register_uniform(&self.sampler);
-    builder.register_uniform(&self.texture);
+  fn setup_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
+    builder.setup_uniform(&self.uniform);
+    builder.setup_uniform(&self.sampler);
+    builder.setup_uniform(&self.texture);
   }
 }
 
@@ -48,7 +48,7 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
   }
 }
 
-impl MaterialCPUResource for PhysicalMaterial {
+impl WebGPUMaterial for PhysicalMaterial {
   type GPU = PhysicalMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {

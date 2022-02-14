@@ -51,7 +51,7 @@ fn build_mesh() -> BackgroundMesh {
   sphere.tessellate()
 }
 
-pub struct DrawableBackground<S: MaterialCPUResource> {
+pub struct DrawableBackground<S: WebGPUMaterial> {
   mesh: MeshInner<MeshSource<BackgroundMesh>>,
   pub shading: MaterialInner<S>,
   root: SceneNode,
@@ -59,7 +59,7 @@ pub struct DrawableBackground<S: MaterialCPUResource> {
 
 impl<S> Background for DrawableBackground<S>
 where
-  S: MaterialCPUResource,
+  S: WebGPUMaterial,
 {
   fn require_pass_clear(&self) -> Option<wgpu::Color> {
     None
@@ -68,7 +68,7 @@ where
 
 impl<S> SceneRenderable for DrawableBackground<S>
 where
-  S: MaterialCPUResource,
+  S: WebGPUMaterial,
 {
   fn update(
     &self,
@@ -122,7 +122,7 @@ impl<S: BackGroundShading> DrawableBackground<S> {
   }
 }
 
-pub trait BackGroundShading: MaterialCPUResource + BindGroupLayoutProvider {
+pub trait BackGroundShading: WebGPUMaterial + BindGroupLayoutProvider {
   fn shading(&self) -> &'static str;
 
   fn shader(&self, builder: &mut PipelineBuilder) {

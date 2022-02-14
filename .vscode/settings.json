@@ -79,6 +79,7 @@
         "Renderable",
         "renderables",
         "rendergraph",
+        "renderpass",
         "Rendiation",
         "Rendium",
         "repr",

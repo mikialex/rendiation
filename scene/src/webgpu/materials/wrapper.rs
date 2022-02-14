@@ -21,7 +21,7 @@ pub trait IntoCommonSceneMaterial: Sized {
 
 impl<T> IntoCommonSceneMaterial for T {}
 
-impl<T: MaterialCPUResource> ShaderGraphProvider for SceneMaterialGPU<T> {}
+impl<T: WebGPUMaterial> ShaderGraphProvider for SceneMaterialGPU<T> {}
 
 // impl<T> MaterialGPUResource for SceneMaterialGPU<T>
 // where
@@ -92,15 +92,22 @@ pub struct SceneMaterialGPU<T> {
   gpu: T,
 }
 
-impl<T> MaterialCPUResource for SceneMaterial<T>
+impl<T: ShaderHashProvider> ShaderHashProvider for SceneMaterialGPU<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.state_id.get().hash(hasher);
+    self.gpu.hash_pipeline(hasher)
+  }
+}
+
+impl<T> WebGPUMaterial for SceneMaterial<T>
 where
   T: Clone,
-  T: MaterialCPUResource,
+  T: WebGPUMaterial,
 {
   type GPU = SceneMaterialGPU<T::GPU>;
 
   fn create_gpu(&self, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
-    let gpu = self.material.create(ctx);
+    let gpu = self.material.create_gpu(ctx);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 
@@ -108,14 +115,6 @@ where
       state_id: Cell::new(state_id),
       gpu,
     }
-  }
-
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher, gpu: &Self::GPU) {
-    gpu
-      .state_id
-      .set(STATE_ID.lock().unwrap().get_uuid(&self.states));
-    gpu.state_id.get().hash(hasher);
-    self.material.hash_pipeline(&gpu.gpu, hasher);
   }
 
   fn is_keep_mesh_shape(&self) -> bool {

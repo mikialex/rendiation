@@ -40,8 +40,8 @@ impl SemanticShaderUniform for FlatMaterialUniform {
 }
 
 impl ShaderBindingProvider for FlatMaterialGPU {
-  fn maintain_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
-    builder.register_uniform(&self.uniform);
+  fn setup_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
+    builder.setup_uniform(&self.uniform);
   }
 }
 
@@ -61,7 +61,7 @@ pub struct FlatMaterialGPU {
   uniform: MaterialUniform<FlatMaterialUniform>,
 }
 
-impl MaterialCPUResource for FlatMaterial {
+impl WebGPUMaterial for FlatMaterial {
   type GPU = FlatMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {

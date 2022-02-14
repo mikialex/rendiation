@@ -203,7 +203,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
   }
 }
 
-impl MaterialCPUResource for FatLineMaterial {
+impl WebGPUMaterial for FatLineMaterial {
   type GPU = FatlineMaterialGPU;
 
   fn create_gpu(&self, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {

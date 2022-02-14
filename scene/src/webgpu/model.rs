@@ -75,25 +75,25 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
-pub trait WebGPUMaterial: Any {
-  fn update(
-    &self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-    res: &mut GPUResourceSceneCache,
-  );
+// pub trait WebGPUMaterial: Any {
+//   fn update(
+//     &self,
+//     gpu: &GPU,
+//     ctx: &mut SceneMaterialRenderPrepareCtx,
+//     res: &mut GPUResourceSceneCache,
+//   );
 
-  fn setup_pass<'a>(
-    &self,
-    res: &GPUResourceSceneCache,
-    pass: &mut GPURenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx,
-  );
+//   fn setup_pass<'a>(
+//     &self,
+//     res: &GPUResourceSceneCache,
+//     pass: &mut GPURenderPass<'a>,
+//     ctx: &SceneMaterialPassSetupCtx,
+//   );
 
-  fn is_keep_mesh_shape(&self) -> bool;
-}
+//   fn is_keep_mesh_shape(&self) -> bool;
+// }
 
-impl<T: MaterialCPUResource> WebGPUMaterial for MaterialInner<T> {
+impl<T: WebGPUMaterial> WebGPUMaterial for MaterialInner<T> {
   fn update(
     &self,
     gpu: &GPU,

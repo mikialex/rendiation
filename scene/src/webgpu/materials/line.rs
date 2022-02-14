@@ -40,7 +40,7 @@ impl ShaderGraphProvider for LineMaterialGPU {
   }
 }
 
-impl MaterialCPUResource for LineMaterial {
+impl WebGPUMaterial for LineMaterial {
   type GPU = LineMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {

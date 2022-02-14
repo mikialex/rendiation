@@ -15,12 +15,12 @@ pub use semantic::*;
 pub mod binding;
 pub use binding::*;
 
-pub mod flat;
-pub use flat::*;
-pub mod line;
-pub use line::*;
-pub mod physical;
-pub use physical::*;
+// pub mod flat;
+// pub use flat::*;
+// pub mod line;
+// pub use line::*;
+// pub mod physical;
+// pub use physical::*;
 // pub mod fatline;
 // pub use fatline::*;
 // pub mod env_background;
@@ -37,18 +37,52 @@ pub trait MaterialMeshLayoutRequire {
   type VertexInput;
 }
 
-pub trait MaterialCPUResource: Clone + Any {
-  type GPU: ShaderGraphProvider;
+pub trait ShaderHashProvider {
+  fn hash_pipeline(&self, _hasher: &mut PipelineHasher);
+}
+
+pub trait RenderPassBuilder {
+  fn setup_pass<'a>(&self, pass: GPURenderPass<'a>);
+}
+
+impl<T: ShaderBindingProvider> RenderPassBuilder for T {
+  fn setup_pass<'a>(&self, pass: GPURenderPass<'a>) {
+    todo!()
+  }
+}
+
+pub trait SourceOfRendering:
+  ShaderHashProvider // able to get pipeline from cache at low cost
+   + ShaderGraphProvider // able to provide shader logic and config pipeline
+   + RenderPassBuilder // able to bind resource to renderpass
+{
+}
+
+impl<T> SourceOfRendering for T where T: ShaderHashProvider + ShaderGraphProvider + RenderPassBuilder
+{}
+
+#[derive(Default)]
+pub struct RenderSourceBuilder<'a> {
+  source: Vec<&'a dyn SourceOfRendering>,
+}
+
+impl<'a> RenderSourceBuilder<'a> {
+  pub fn setup_pass(&self) {
+    //
+  }
+}
+
+pub trait WebGPUMaterial: Clone + Any {
+  type GPU: SourceOfRendering;
   fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU;
-  fn hash_pipeline(&self, _hasher: &mut PipelineHasher, gpu: &Self::GPU) {}
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
 
-type MaterialResourceMapper<T> = ResourceMapper<MaterialWebGPUResource<T>, T>;
+type MaterialResourceMapper<T> = ResourceMapper<<T as WebGPUMaterial>::GPU, T>;
 
 impl GPUResourceSceneCache {
-  pub fn update_material<M: MaterialCPUResource>(
+  pub fn update_material<M: WebGPUMaterial>(
     &mut self,
     m: &ResourceWrapped<M>,
     gpu: &GPU,
@@ -64,14 +98,10 @@ impl GPUResourceSceneCache {
       .unwrap();
 
     let gpu_m = mapper.get_update_or_insert_with_logic(m, |x| match x {
-      ResourceLogic::Create(m) => {
-        let mut gpu_m = MaterialWebGPUResource::<M>::default();
-        gpu_m.gpu = M::create_gpu(m, ctx).into();
-        ResourceLogicResult::Create(gpu_m)
-      }
+      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, ctx)),
       ResourceLogic::Update(gpu_m, m) => {
         // todo check should really recreate?
-        gpu_m.gpu.replace(M::create_gpu(m, ctx));
+        *gpu_m = M::create_gpu(m, ctx);
         ResourceLogicResult::Update(gpu_m)
       }
     });
@@ -89,7 +119,7 @@ impl GPUResourceSceneCache {
     let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
 
     pipeline_ctx.pass.type_id().hash(&mut hasher);
-    m_gpu.hash_pipeline(m, &mut hasher);
+    m.hash_pipeline(&mut hasher, &m_gpu);
 
     gpu_m.current_pipeline = pipelines
       .get_or_insert_with(hasher, || {
@@ -114,9 +144,14 @@ impl GPUResourceSceneCache {
       })
       .clone()
       .into();
+
+    let mut binding_builder = BindGroupBuilder::create();
+    m_gpu.setup_binding(&mut binding_builder);
+    // gpu_m.current_pipeline =
+    // binding_builder.
   }
 
-  pub fn setup_material<'a, M: MaterialCPUResource>(
+  pub fn setup_material<'a, M: WebGPUMaterial>(
     &self,
     m: &ResourceWrapped<M>,
     pass: &mut GPURenderPass<'a>,
@@ -136,20 +171,6 @@ impl GPUResourceSceneCache {
 
     // gpu.setup_pass_bindgroup(pass, ctx)
     todo!()
-  }
-}
-
-pub struct MaterialWebGPUResource<T: MaterialCPUResource> {
-  current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
-  gpu: Option<T::GPU>,
-}
-
-impl<T: MaterialCPUResource> Default for MaterialWebGPUResource<T> {
-  fn default() -> Self {
-    Self {
-      current_pipeline: Default::default(),
-      gpu: Default::default(),
-    }
   }
 }
 
