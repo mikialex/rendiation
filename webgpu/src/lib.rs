@@ -10,9 +10,7 @@ mod pipeline;
 mod sampler;
 pub mod shadergraph_impl;
 mod surface;
-mod texture;
 mod types;
-mod uniform;
 
 pub use cache::*;
 pub use encoder::*;
@@ -21,9 +19,7 @@ pub use pipeline::*;
 pub use sampler::*;
 pub use shadergraph_impl::*;
 pub use surface::*;
-pub use texture::*;
 pub use types::*;
-pub use uniform::*;
 
 use std::cell::RefCell;
 
@@ -31,18 +27,15 @@ use bytemuck::Pod;
 use rendiation_texture_types::Size;
 pub use wgpu::*;
 
+pub use resource::*;
+mod resource;
+
+pub use binding::*;
+mod binding;
+
 pub trait BindableResource {
   fn as_bindable(&self) -> wgpu::BindingResource;
   fn bind_layout() -> wgpu::BindingType;
-}
-
-impl BindableResource for wgpu::Sampler {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::Sampler(self)
-  }
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
-  }
 }
 
 pub struct GPU {

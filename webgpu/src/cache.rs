@@ -1,12 +1,9 @@
 use std::{
-  any::{Any, TypeId},
   cell::RefCell,
   collections::{hash_map::DefaultHasher, HashMap},
   hash::Hasher,
   rc::Rc,
 };
-
-use crate::PipelineBuilder;
 
 #[derive(Default)]
 pub struct SamplerCache<T> {
@@ -22,31 +19,6 @@ where
     map
       .entry(desc.clone()) // todo optimize move
       .or_insert_with(|| Rc::new(device.create_sampler(&desc.clone().into())))
-      .clone()
-  }
-}
-
-#[derive(Default)]
-pub struct BindGroupLayoutCache {
-  cache: RefCell<HashMap<TypeId, Rc<wgpu::BindGroupLayout>>>,
-}
-
-pub trait BindGroupLayoutProvider: 'static {
-  fn bind_preference() -> usize;
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout;
-  fn gen_shader_header(group: usize) -> String;
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder);
-}
-
-impl BindGroupLayoutCache {
-  pub fn retrieve<T: BindGroupLayoutProvider + Any>(
-    &self,
-    device: &wgpu::Device,
-  ) -> Rc<wgpu::BindGroupLayout> {
-    let mut map = self.cache.borrow_mut();
-    map
-      .entry(TypeId::of::<T>())
-      .or_insert_with(|| Rc::new(T::layout(device)))
       .clone()
   }
 }

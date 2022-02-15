@@ -5,8 +5,9 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
-use super::BindableResource;
+use crate::BindableResource;
 
+/// Typed uniform buffer
 pub struct UniformBuffer<T> {
   gpu: wgpu::Buffer,
   phantom: PhantomData<T>,
@@ -50,6 +51,7 @@ impl<T> BindableResource for UniformBuffer<T> {
   }
 }
 
+/// Typed uniform buffer with cpu data
 pub struct UniformBufferData<T> {
   gpu: wgpu::Buffer,
   data: T,
