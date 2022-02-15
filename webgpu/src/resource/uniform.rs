@@ -5,9 +5,9 @@ use std::{
   ops::{Deref, DerefMut},
 };
 
-use crate::BindableResource;
+use crate::BindableResourceView;
 
-/// Typed uniform buffer
+/// Typed wrapper
 pub struct UniformBuffer<T> {
   gpu: wgpu::Buffer,
   phantom: PhantomData<T>,
@@ -36,18 +36,9 @@ impl<T: Pod> UniformBuffer<T> {
   }
 }
 
-impl<T> BindableResource for UniformBuffer<T> {
+impl<T> BindableResourceView for UniformBuffer<T> {
   fn as_bindable(&self) -> wgpu::BindingResource {
     self.gpu.as_entire_binding()
-  }
-
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Buffer {
-      ty: wgpu::BufferBindingType::Uniform,
-      has_dynamic_offset: false,
-      // min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
-      min_binding_size: None,
-    }
   }
 }
 
@@ -107,17 +98,9 @@ impl<T: Pod> UniformBufferData<T> {
   }
 }
 
-impl<T> BindableResource for UniformBufferData<T> {
+impl<T> BindableResourceView for UniformBufferData<T> {
   fn as_bindable(&self) -> wgpu::BindingResource {
     self.gpu.as_entire_binding()
-  }
-
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Buffer {
-      ty: wgpu::BufferBindingType::Uniform,
-      has_dynamic_offset: false,
-      min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64),
-    }
   }
 }
 
@@ -183,16 +166,8 @@ impl<T: Pod> UniformBufferDataWithCache<T> {
   }
 }
 
-impl<T> BindableResource for UniformBufferDataWithCache<T> {
+impl<T> BindableResourceView for UniformBufferDataWithCache<T> {
   fn as_bindable(&self) -> wgpu::BindingResource {
     self.gpu.as_entire_binding()
-  }
-
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Buffer {
-      ty: wgpu::BufferBindingType::Uniform,
-      has_dynamic_offset: false,
-      min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64),
-    }
   }
 }

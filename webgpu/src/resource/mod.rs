@@ -106,6 +106,16 @@ impl<T: Resource> Clone for ResourceViewRc<T> {
   }
 }
 
+impl<T> BindableResourceView for ResourceViewRc<T>
+where
+  T::View: BindableResourceView,
+  T: Resource,
+{
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    self.inner.as_bindable()
+  }
+}
+
 impl<T: Resource> ResourceRc<T> {
   #[must_use]
   pub fn create(desc: T::Descriptor, device: &wgpu::Device) -> Self {
@@ -128,13 +138,13 @@ impl<T: Resource> ResourceRc<T> {
   }
 }
 
-impl<T: Resource> BindProvider for ResourceViewRc<T> {
+impl<T> BindProvider for ResourceViewRc<T>
+where
+  T: Resource,
+  T::View: BindableResourceView,
+{
   fn view_id(&self) -> usize {
     self.inner.guid
-  }
-
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    todo!()
   }
 
   fn add_bind_record(&self, record: BindGroupCacheInvalidation) {

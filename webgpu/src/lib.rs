@@ -34,11 +34,6 @@ mod resource;
 pub use binding::*;
 mod binding;
 
-pub trait BindableResource {
-  fn as_bindable(&self) -> wgpu::BindingResource;
-  fn bind_layout() -> wgpu::BindingType;
-}
-
 pub struct GPU {
   instance: wgpu::Instance,
   adaptor: wgpu::Adapter,

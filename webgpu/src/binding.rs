@@ -7,6 +7,10 @@ use std::{
 
 use crate::*;
 
+pub trait BindableResourceView {
+  fn as_bindable(&self) -> wgpu::BindingResource;
+}
+
 pub struct PlaceholderBindgroup;
 
 impl PlaceholderBindgroup {
@@ -20,15 +24,6 @@ impl PlaceholderBindgroup {
 
 pub struct BindGroupObject {
   bg: Rc<wgpu::BindGroup>,
-}
-
-pub struct GPUSampler {
-  des: wgpu::SamplerDescriptor<'static>,
-  sampler_cache: usize,
-}
-
-pub struct GPUTexture {
-  //
 }
 
 pub trait ShaderBindingProvider {
@@ -56,11 +51,8 @@ impl Drop for BindGroupCacheInvalidation {
   }
 }
 
-// pub trait BindableResource: Resource {}
-
-pub trait BindProvider {
+pub trait BindProvider: BindableResourceView {
   fn view_id(&self) -> usize;
-  fn as_bindable(&self) -> wgpu::BindingResource;
   fn add_bind_record(&self, record: BindGroupCacheInvalidation);
 }
 
@@ -81,9 +73,10 @@ impl BindingBuilder {
     }
   }
 
-  pub fn setup_uniform<T: Resource>(&mut self, group: usize, item: &ResourceViewRc<T>)
-  // where
-  //   T: SemanticShaderUniform,
+  pub fn setup_uniform<T>(&mut self, group: usize, item: &ResourceViewRc<T>)
+  where
+    T: Resource,
+    T::View: BindableResourceView,
   {
     self.items[group].push(Box::new(item.clone()))
   }
