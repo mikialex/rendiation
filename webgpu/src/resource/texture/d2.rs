@@ -1,12 +1,13 @@
 use rendiation_texture_types::{Size, TextureOrigin};
 use wgpu::util::DeviceExt;
 
-use crate::{Resource, ResourceRc, WebGPUTextureCubeDescriptor};
+use crate::*;
 
-pub struct GPURawTexture2d(pub(crate) wgpu::Texture);
-pub struct GPURawTexture2dView(pub(crate) wgpu::TextureView);
+pub struct GPURawTexture2d(pub wgpu::Texture);
+pub struct GPURawTexture2dView(pub wgpu::TextureView);
 
 pub type GPUTexture2d = ResourceRc<GPURawTexture2d>;
+pub type GPUTexture2dView = ResourceViewRc<GPURawTexture2d>;
 
 impl Resource for GPURawTexture2d {
   type Descriptor = WebGPUTexture2dDescriptor;

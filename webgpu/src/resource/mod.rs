@@ -108,23 +108,22 @@ impl<T: Resource> Clone for ResourceViewRc<T> {
 
 impl<T: Resource> ResourceRc<T> {
   #[must_use]
-  pub fn create(&self, desc: T::Descriptor, device: &wgpu::Device) -> Self {
+  pub fn create(desc: T::Descriptor, device: &wgpu::Device) -> Self {
     Self {
       inner: Rc::new(ResourceContainer::create(desc, device)),
     }
   }
 
-  pub fn create_view(
-    &self,
-    desc: T::ViewDescriptor,
-    device: &wgpu::Device,
-  ) -> ResourceViewContainer<T> {
+  pub fn create_view(&self, desc: T::ViewDescriptor, device: &wgpu::Device) -> ResourceViewRc<T> {
     let view = self.inner.resource.create_view(&desc, device);
-    ResourceViewContainer {
+    let inner = ResourceViewContainer {
       resource: self.clone(),
       view,
       guid: todo!(),
       desc,
+    };
+    ResourceViewRc {
+      inner: Rc::new(inner),
     }
   }
 }

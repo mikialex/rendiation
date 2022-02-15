@@ -8,10 +8,11 @@ pub struct WebGPUTextureCubeDescriptor {
   pub(crate) desc: wgpu::TextureDescriptor<'static>,
 }
 
-pub struct GPURawTextureCube(pub(crate) wgpu::Texture);
-pub struct GPURawTextureCubeView(pub(crate) wgpu::TextureView);
+pub struct GPURawTextureCube(pub wgpu::Texture);
+pub struct GPURawTextureCubeView(pub wgpu::TextureView);
 
 pub type GPUTextureCube = ResourceRc<GPURawTextureCube>;
+pub type GPUTextureCubeView = ResourceViewRc<GPURawTextureCube>;
 
 impl Resource for GPURawTextureCube {
   type Descriptor = WebGPUTextureCubeDescriptor;
