@@ -1,4 +1,4 @@
-pub mod background;
+// pub mod background;
 pub mod bindgroup;
 pub mod camera;
 pub mod lights;
@@ -15,7 +15,7 @@ use std::{
   collections::HashMap,
 };
 
-pub use background::*;
+// pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
 pub use lights::*;
@@ -34,21 +34,15 @@ use rendiation_texture::TextureSampler;
 
 use rendiation_webgpu::*;
 
-use crate::{ResourceMapper, Scene, TextureCubeSource};
+use crate::{ResourceMapper, Scene, SceneCamera, TextureCubeSource};
 
 pub trait SceneRenderable: 'static {
-  fn update(
-    &self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    res: &mut GPUResourceSceneCache,
-  );
-
   fn setup_pass<'a>(
     &self,
+    gpu: &GPU,
     pass: &mut SceneRenderPass<'a>,
-    camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceCache,
+    camera_gpu: &SceneCamera,
+    resources: &mut GPUResourceCache,
   );
 
   fn ray_pick_nearest(
@@ -81,8 +75,8 @@ pub struct GPUResourceSceneCache {
 
 /// GPU cache container for given scene
 pub struct GPUResourceSubCache {
-  pub cameras: CameraGPU,
-  pub nodes: NodeGPU,
+  pub cameras: CameraGPUStore,
+  pub nodes: NodeGPUStore,
 
   // pub uniforms: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_2ds: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,

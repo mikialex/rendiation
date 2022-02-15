@@ -1,4 +1,4 @@
-use rendiation_webgpu::{RenderPassInfo, GPU};
+use rendiation_webgpu::GPU;
 
 use crate::*;
 
@@ -8,24 +8,13 @@ pub struct RenderList {
 }
 
 impl RenderList {
-  pub fn update(&mut self, scene: &mut Scene, gpu: &GPU, pass: &RenderPassInfo) {
-    let (ctx, mut base) = scene.create_material_ctx_base(gpu, pass, &DefaultPassDispatcher);
-
-    self.models.iter_mut().for_each(|model| {
-      model.update(gpu, &mut base, ctx);
-    });
-  }
-
-  pub fn setup_pass<'p>(&self, gpu_pass: &mut SceneRenderPass<'p>, scene: &'p Scene) {
+  pub fn setup_pass<'p>(&self, gpu: &GPU, gpu_pass: &mut SceneRenderPass<'p>, scene: &mut Scene) {
     self.models.iter().for_each(|model| {
       model.setup_pass(
+        gpu,
         gpu_pass,
-        scene
-          .resources
-          .content
-          .cameras
-          .expect_gpu(scene.active_camera.as_ref().unwrap()),
-        &scene.resources,
+        scene.active_camera.as_ref().unwrap(),
+        &mut scene.resources,
       )
     })
   }

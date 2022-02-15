@@ -86,7 +86,7 @@ impl GPUResourceSceneCache {
     &mut self,
     m: &ResourceWrapped<M>,
     gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
+    res: &mut GPUResourceSubCache,
   ) {
     let type_id = TypeId::of::<M>();
 
@@ -98,80 +98,80 @@ impl GPUResourceSceneCache {
       .unwrap();
 
     let gpu_m = mapper.get_update_or_insert_with_logic(m, |x| match x {
-      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, ctx)),
+      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res)),
       ResourceLogic::Update(gpu_m, m) => {
         // todo check should really recreate?
-        *gpu_m = M::create_gpu(m, ctx);
+        *gpu_m = M::create_gpu(m, res);
         ResourceLogicResult::Update(gpu_m)
       }
     });
 
-    let m_gpu = gpu_m.gpu.as_mut().unwrap();
+    // let m_gpu = gpu_m.gpu.as_mut().unwrap();
 
-    let topology = ctx.active_mesh.unwrap().topology();
-    let sample_count = ctx.pass_info.format_info.sample_count;
+    // let topology = ctx.active_mesh.unwrap().topology();
+    // let sample_count = ctx.pass_info.format_info.sample_count;
 
-    let mut hasher = Default::default();
+    // let mut hasher = Default::default();
 
-    type_id.hash(&mut hasher);
-    ctx.pass_info.format_info.hash(&mut hasher);
+    // type_id.hash(&mut hasher);
+    // ctx.pass_info.format_info.hash(&mut hasher);
 
-    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
+    // let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
 
-    pipeline_ctx.pass.type_id().hash(&mut hasher);
-    m.hash_pipeline(&mut hasher, &m_gpu);
+    // pipeline_ctx.pass.type_id().hash(&mut hasher);
+    // m.hash_pipeline(&mut hasher, &m_gpu);
 
-    gpu_m.current_pipeline = pipelines
-      .get_or_insert_with(hasher, || {
-        build_pipeline(
-          &[
-            ctx.pass as &dyn ShaderGraphProvider,
-            m_gpu as &dyn ShaderGraphProvider,
-          ]
-          .as_slice(),
-          &gpu.device,
-        )
-        .unwrap()
+    // gpu_m.current_pipeline = pipelines
+    //   .get_or_insert_with(hasher, || {
+    //     build_pipeline(
+    //       &[
+    //         ctx.pass as &dyn ShaderGraphProvider,
+    //         m_gpu as &dyn ShaderGraphProvider,
+    //       ]
+    //       .as_slice(),
+    //       &gpu.device,
+    //     )
+    //     .unwrap()
 
-        // let mut builder = PipelineBuilder::default();
+    //     // let mut builder = PipelineBuilder::default();
 
-        // builder.primitive_state.topology = topology;
-        // builder.multisample.count = sample_count;
+    //     // builder.primitive_state.topology = topology;
+    //     // builder.multisample.count = sample_count;
 
-        // m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
-        // pipeline_ctx.pass.build_pipeline(&mut builder);
-        // builder.build(&gpu.device)
-      })
-      .clone()
-      .into();
+    //     // m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
+    //     // pipeline_ctx.pass.build_pipeline(&mut builder);
+    //     // builder.build(&gpu.device)
+    //   })
+    //   .clone()
+    //   .into();
 
-    let mut binding_builder = BindGroupBuilder::create();
-    m_gpu.setup_binding(&mut binding_builder);
-    // gpu_m.current_pipeline =
-    // binding_builder.
+    // let mut binding_builder = BindGroupBuilder::create();
+    // m_gpu.setup_binding(&mut binding_builder);
+    // // gpu_m.current_pipeline =
+    // // binding_builder.
   }
 
-  pub fn setup_material<'a, M: WebGPUMaterial>(
-    &self,
-    m: &ResourceWrapped<M>,
-    pass: &mut GPURenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx,
-  ) {
-    let type_id = TypeId::of::<M>();
-    let gpu_m = self
-      .materials
-      .get(&type_id)
-      .unwrap()
-      .downcast_ref::<MaterialResourceMapper<M>>()
-      .unwrap()
-      .get_unwrap(m);
-    let gpu = gpu_m.gpu.as_ref().unwrap();
+  // pub fn setup_material<'a, M: WebGPUMaterial>(
+  //   &self,
+  //   m: &ResourceWrapped<M>,
+  //   pass: &mut GPURenderPass<'a>,
+  //   ctx: &SceneMaterialPassSetupCtx,
+  // ) {
+  //   let type_id = TypeId::of::<M>();
+  //   let gpu_m = self
+  //     .materials
+  //     .get(&type_id)
+  //     .unwrap()
+  //     .downcast_ref::<MaterialResourceMapper<M>>()
+  //     .unwrap()
+  //     .get_unwrap(m);
+  //   let gpu = gpu_m.gpu.as_ref().unwrap();
 
-    pass.set_pipeline_owned(gpu_m.current_pipeline.as_ref().unwrap());
+  //   pass.set_pipeline_owned(gpu_m.current_pipeline.as_ref().unwrap());
 
-    // gpu.setup_pass_bindgroup(pass, ctx)
-    todo!()
-  }
+  //   // gpu.setup_pass_bindgroup(pass, ctx)
+  //   todo!()
+  // }
 }
 
 pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
@@ -245,5 +245,5 @@ pub struct PipelineCreateCtx<'a, 'b> {
 pub struct SceneMaterialPassSetupCtx<'a> {
   pub resources: &'a GPUResourceSubCache,
   pub model_gpu: Option<&'a TransformGPU>,
-  pub camera_gpu: &'a CameraBindgroup,
+  pub camera_gpu: &'a CameraGPUStore,
 }

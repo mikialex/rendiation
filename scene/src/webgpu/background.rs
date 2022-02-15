@@ -25,19 +25,12 @@ impl Background for SolidBackground {
 }
 
 impl SceneRenderable for SolidBackground {
-  fn update(
-    &self,
-    _gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    _res: &mut GPUResourceSceneCache,
-  ) {
-  }
-
   fn setup_pass<'a>(
     &self,
+    _gpu: &GPU,
     _pass: &mut SceneRenderPass<'a>,
     _camera_gpu: &CameraBindgroup,
-    _pipeline_resource: &GPUResourceCache,
+    _res: &mut GPUResourceCache,
   ) {
   }
 }
@@ -70,32 +63,15 @@ impl<S> SceneRenderable for DrawableBackground<S>
 where
   S: WebGPUMaterial,
 {
-  fn update(
-    &self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    res: &mut GPUResourceSceneCache,
-  ) {
-    self.root.check_update_gpu(base.resources, gpu);
-
-    WebGPUMesh::update(&self.mesh, gpu, &mut base.resources.custom_storage, res);
-
-    let mut ctx = SceneMaterialRenderPrepareCtx {
-      base,
-      active_mesh: None,
-    };
-
-    res.update_material(&self.shading, gpu, &mut ctx);
-  }
-
   fn setup_pass<'a>(
     &self,
+    gpu: &GPU,
     pass: &mut SceneRenderPass<'a>,
     camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceCache,
+    resources: &mut GPUResourceCache,
   ) {
     self.root.visit(|node| {
-      let model_gpu = resources.content.nodes.get_unwrap(node).into();
+      let model_gpu = resources.content.nodes.check_update_gpu(node);
       let ctx = SceneMaterialPassSetupCtx {
         camera_gpu,
         model_gpu,

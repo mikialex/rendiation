@@ -9,6 +9,10 @@ use crate::*;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 
+pub trait Background {}
+
+impl Background for SolidBackground {}
+
 pub struct Scene {
   pub background: Box<dyn Background>,
 

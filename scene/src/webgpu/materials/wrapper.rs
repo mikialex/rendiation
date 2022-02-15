@@ -87,15 +87,22 @@ impl<T: WebGPUMaterial> ShaderGraphProvider for SceneMaterialGPU<T> {}
 //   }
 // }
 
-pub struct SceneMaterialGPU<T> {
+pub struct SceneMaterialGPU<T: WebGPUMaterial> {
   state_id: Cell<ValueID<MaterialStates>>,
-  gpu: T,
+  gpu: T::GPU,
 }
 
-impl<T: ShaderHashProvider> ShaderHashProvider for SceneMaterialGPU<T> {
+impl<T: WebGPUMaterial> ShaderHashProvider for SceneMaterialGPU<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.state_id.get().hash(hasher);
-    self.gpu.hash_pipeline(hasher)
+    // self.gpu.hash_pipeline(hasher)
+    todo!()
+  }
+}
+
+impl<T: WebGPUMaterial> ShaderBindingProvider for SceneMaterialGPU<T> {
+  fn setup_binding(&self, builder: &mut BindingBuilder) {
+    todo!()
   }
 }
 
@@ -104,9 +111,9 @@ where
   T: Clone,
   T: WebGPUMaterial,
 {
-  type GPU = SceneMaterialGPU<T::GPU>;
+  type GPU = SceneMaterialGPU<T>;
 
-  fn create_gpu(&self, ctx: &mut SceneMaterialRenderPrepareCtx) -> Self::GPU {
+  fn create_gpu(&self, ctx: &mut GPUResourceSubCache) -> Self::GPU {
     let gpu = self.material.create_gpu(ctx);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);

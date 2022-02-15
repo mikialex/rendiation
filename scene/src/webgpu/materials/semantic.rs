@@ -1,5 +1,5 @@
 use rendiation_algebra::*;
-use shadergraph::SemanticVertexFragmentIOValue;
+use shadergraph::*;
 
 pub struct FragmentUv;
 
@@ -16,5 +16,20 @@ impl SemanticVertexFragmentIOValue for FragmentColor {
 pub struct FragmentColorAndAlpha;
 
 impl SemanticVertexFragmentIOValue for FragmentColorAndAlpha {
+  type ValueType = Vec4<f32>;
+}
+
+pub struct WorldVertexPosition;
+impl SemanticVertexShaderValue for WorldVertexPosition {
+  type ValueType = Vec3<f32>;
+}
+
+pub struct LocalVertexPosition;
+impl SemanticVertexShaderValue for LocalVertexPosition {
+  type ValueType = Vec3<f32>;
+}
+
+pub struct ClipPosition;
+impl SemanticVertexShaderValue for ClipPosition {
   type ValueType = Vec4<f32>;
 }

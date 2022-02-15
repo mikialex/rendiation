@@ -27,7 +27,7 @@ pub struct PassUpdateCtx<'a> {
 
 pub struct SceneRenderPass<'a> {
   pass: GPURenderPass<'a>,
-  pub pass_gpu_cache: &'a RefCell<PassGPUDataCache>,
+  pub pass_gpu_cache: &'a PassGPUDataCache,
 }
 
 impl<'a> Deref for SceneRenderPass<'a> {
@@ -45,20 +45,13 @@ impl<'a> DerefMut for SceneRenderPass<'a> {
 }
 
 pub trait PassContent {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx);
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene);
+  fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene);
 }
 
 impl<T: PassContent> PassContent for Option<T> {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &PassUpdateCtx) {
+  fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene) {
     if let Some(c) = self {
-      c.update(gpu, scene, pass_info);
-    }
-  }
-
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
-    if let Some(c) = self {
-      c.setup_pass(pass, scene);
+      c.setup_pass(gpu, pass, scene);
     }
   }
 }
@@ -134,19 +127,6 @@ impl<'a, 't> PassDescriptor<'a, 't> {
       format_info: self.desc.info.clone(),
     };
 
-    {
-      let mut pass_cache = engine.pass_cache.borrow_mut();
-
-      let ctx = PassUpdateCtx {
-        pass_info: &info,
-        pass_gpu_cache: &mut pass_cache,
-      };
-
-      for task in &mut self.tasks {
-        task.update(&engine.gpu, scene, &ctx)
-      }
-    }
-
     #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
     if let Some(resolve_target) = self.desc.resolve_target.take() {
       self.desc.channels[0].1 = resolve_target
@@ -157,9 +137,10 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     let camera = scene.active_camera.as_ref().unwrap();
     camera.bounds.setup_viewport(&mut pass);
 
+    let mut pass_gpu_cache = engine.pass_cache.borrow_mut();
     let mut pass = SceneRenderPass {
       pass,
-      pass_gpu_cache: &engine.pass_cache,
+      pass_gpu_cache: &mut pass_gpu_cache,
     };
 
     for task in &self.tasks {
@@ -169,7 +150,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
       let default_pass_gpu = pass_cache.get_updated_pass_gpu_info(pass_index, &info, &engine.gpu);
       pass.set_bind_group_owned(3, &default_pass_gpu.bindgroup, &[]);
 
-      task.setup_pass(&mut pass, scene)
+      task.setup_pass(&engine.gpu, &mut pass, scene)
     }
   }
 }

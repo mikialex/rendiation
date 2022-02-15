@@ -9,33 +9,24 @@ use rendiation_webgpu::{GPURenderPass, GPU};
 
 use crate::*;
 
-pub type SceneFatlineMaterial = MaterialInner<SceneMaterial<FatLineMaterial>>;
+// pub type SceneFatlineMaterial = MaterialInner<SceneMaterial<FatLineMaterial>>;
 
-pub type FatlineImpl = MeshModelImpl<MeshInner<FatlineMesh>, SceneFatlineMaterial>;
+// pub type FatlineImpl = MeshModelImpl<MeshInner<FatlineMesh>, SceneFatlineMaterial>;
 
 impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
 where
   Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
+  Ma: WebGPUSceneMaterial,
 {
-  fn update(
-    &self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    res: &mut GPUResourceSceneCache,
-  ) {
-    let inner = self.inner.borrow();
-    inner.update(gpu, base, res)
-  }
-
   fn setup_pass<'a>(
     &self,
+    gpu: &GPU,
     pass: &mut SceneRenderPass<'a>,
-    camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceCache,
+    camera_gpu: &SceneCamera,
+    resources: &mut GPUResourceCache,
   ) {
     let inner = self.inner.borrow();
-    inner.setup_pass(pass, camera_gpu, resources)
+    inner.setup_pass(gpu, pass, camera_gpu, resources)
   }
 
   fn ray_pick_nearest(
@@ -75,41 +66,26 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
-// pub trait WebGPUMaterial: Any {
-//   fn update(
-//     &self,
-//     gpu: &GPU,
-//     ctx: &mut SceneMaterialRenderPrepareCtx,
-//     res: &mut GPUResourceSceneCache,
-//   );
-
-//   fn setup_pass<'a>(
-//     &self,
-//     res: &GPUResourceSceneCache,
-//     pass: &mut GPURenderPass<'a>,
-//     ctx: &SceneMaterialPassSetupCtx,
-//   );
-
-//   fn is_keep_mesh_shape(&self) -> bool;
-// }
-
-impl<T: WebGPUMaterial> WebGPUMaterial for MaterialInner<T> {
-  fn update(
+pub trait WebGPUSceneMaterial: Any {
+  fn setup_pass<'a>(
     &self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-    res: &mut GPUResourceSceneCache,
-  ) {
-    res.update_material(self, gpu, ctx)
-  }
+    res: &GPUResourceSceneCache,
+    pass: &mut GPURenderPass<'a>,
+    ctx: &SceneMaterialPassSetupCtx,
+  );
 
+  fn is_keep_mesh_shape(&self) -> bool;
+}
+
+impl<T: WebGPUMaterial> WebGPUSceneMaterial for MaterialInner<T> {
   fn setup_pass<'a>(
     &self,
     res: &GPUResourceSceneCache,
     pass: &mut GPURenderPass<'a>,
     ctx: &SceneMaterialPassSetupCtx,
   ) {
-    res.setup_material(self, pass, ctx)
+    // res.setup_material(self, pass, ctx)
+    todo!()
   }
 
   fn is_keep_mesh_shape(&self) -> bool {
@@ -120,49 +96,21 @@ impl<T: WebGPUMaterial> WebGPUMaterial for MaterialInner<T> {
 impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
 where
   Me: WebGPUMesh,
-  Ma: WebGPUMaterial,
+  Ma: WebGPUSceneMaterial,
 {
-  fn update(
-    &self,
-    gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    res: &mut GPUResourceSceneCache,
-  ) {
-    let material = &self.material;
-    let mesh = &self.mesh;
-    let mesh_dyn: &dyn WebGPUMesh = mesh;
-
-    self.node.check_update_gpu(base.resources, gpu);
-
-    let mut ctx = SceneMaterialRenderPrepareCtx {
-      base,
-      active_mesh: mesh_dyn.into(),
-    };
-
-    material.update(gpu, &mut ctx, res);
-    mesh.update(gpu, &mut base.resources.custom_storage, res);
-  }
-
   fn setup_pass<'a>(
     &self,
+    gpu: &GPU,
     pass: &mut SceneRenderPass<'a>,
-    camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceCache,
+    camera: &SceneCamera,
+    resources: &mut GPUResourceCache,
   ) {
-    let material = &self.material;
-
-    self.node.visit(|node| {
-      let model_gpu = resources.content.nodes.get_unwrap(node).into();
-      let ctx = SceneMaterialPassSetupCtx {
-        camera_gpu,
-        model_gpu,
-        resources: &resources.content,
-      };
-      material.setup_pass(&resources.scene, pass, &ctx);
-      self
-        .mesh
-        .setup_pass_and_draw(pass, self.group, &resources.scene);
-    });
+    let pass_gpu = pass.pass_gpu_cache;
+    let camera_gpu = resources.content.cameras.check_update_gpu(camera, gpu);
+    let node_gpu = resources.content.nodes.check_update_gpu(&self.node, gpu);
+    // let material_gpu = self.material.check_update_gpu(&mut resources.content, gpu);
+    // let mesh_gpu = self.mesh.check_update_gpu(&mut resources.content, gpu);
+    todo!()
   }
 
   fn ray_pick_nearest(
@@ -221,58 +169,25 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
-  fn update(
+impl<Me: WebGPUMesh, Ma: WebGPUSceneMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
+  fn setup_pass<'a>(
     &self,
     gpu: &GPU,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-    res: &mut GPUResourceSceneCache,
+    pass: &mut SceneRenderPass<'a>,
+    camera_gpu: &SceneCamera,
+    resources: &mut GPUResourceCache,
   ) {
-    let inner = &self.inner;
-    let material = &inner.material;
-    let mesh = &inner.mesh;
-    let mesh_dyn: &dyn WebGPUMesh = mesh;
-
-    let mut world_matrix = inner.node.visit(|n| n.world_matrix);
-
-    for override_impl in &self.overrides {
-      world_matrix = override_impl.override_mat(world_matrix, base);
-    }
-
-    self
+    let pass_gpu = pass.pass_gpu_cache;
+    let mut world_matrix = self.inner.node.visit(|n| n.world_matrix);
+    let node_gpu = self
       .override_gpu
       .borrow_mut()
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
-    let mut ctx = SceneMaterialRenderPrepareCtx {
-      base,
-      active_mesh: mesh_dyn.into(),
-    };
-
-    material.update(gpu, &mut ctx, res);
-
-    mesh.update(gpu, &mut base.resources.custom_storage, res);
-  }
-
-  fn setup_pass<'a>(
-    &self,
-    pass: &mut SceneRenderPass<'a>,
-    camera_gpu: &CameraBindgroup,
-    resources: &GPUResourceCache,
-  ) {
-    let material = &self.material;
-
-    let override_gpu = self.override_gpu.borrow();
-    let ctx = SceneMaterialPassSetupCtx {
-      camera_gpu,
-      model_gpu: override_gpu.as_ref(),
-      resources: &resources.content,
-    };
-    material.setup_pass(&resources.scene, pass, &ctx);
-    self
-      .mesh
-      .setup_pass_and_draw(pass, self.group, &resources.scene);
+    // let material_gpu = self.material.check_update_gpu(&mut resources.content, gpu);
+    // let mesh_gpu = self.mesh.check_update_gpu(&mut resources.content, gpu);
+    todo!()
   }
 }
 

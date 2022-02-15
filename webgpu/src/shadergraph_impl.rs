@@ -2,10 +2,55 @@ use std::borrow::Cow;
 
 use shadergraph::*;
 
+pub fn create_bindgroup_layout_by_node_ty<'a>(
+  device: &wgpu::Device,
+  iter: impl Iterator<Item = (&'a ShaderValueType, wgpu::ShaderStages)>,
+) -> wgpu::BindGroupLayout {
+  let entries: Vec<_> = iter
+    .enumerate()
+    .map(|(i, (ty, visibility))| {
+      let ty = match ty {
+        shadergraph::ShaderValueType::Fixed(_) => wgpu::BindingType::Buffer {
+          ty: wgpu::BufferBindingType::Uniform,
+          has_dynamic_offset: false,
+          // min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
+          min_binding_size: None,
+        },
+        shadergraph::ShaderValueType::Sampler => {
+          wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
+        }
+        shadergraph::ShaderValueType::Texture => wgpu::BindingType::Texture {
+          multisampled: false,
+          sample_type: wgpu::TextureSampleType::Float { filterable: true },
+          view_dimension: wgpu::TextureViewDimension::D2,
+        },
+        shadergraph::ShaderValueType::Never => unreachable!(),
+      };
+
+      wgpu::BindGroupLayoutEntry {
+        binding: i as u32,
+        visibility,
+        ty,
+        count: None,
+      }
+    })
+    .collect();
+
+  device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    label: None,
+    entries: entries.as_ref(),
+  })
+}
+
+pub struct GPURenderPipeline {
+  pub pipeline: wgpu::RenderPipeline,
+  pub bg_layouts: Vec<wgpu::BindGroupLayout>,
+}
+
 pub fn build_pipeline(
   builder: &dyn ShaderGraphProvider,
   device: &wgpu::Device,
-) -> Result<wgpu::RenderPipeline, ShaderGraphBuildError> {
+) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
   let target = WGSL;
   let compile_result = build_shader(builder, &target)?;
 
@@ -28,50 +73,18 @@ pub fn build_pipeline(
     .bindings
     .iter()
     .map(|binding| {
-      let entries: Vec<_> = binding
-        .bindings
-        .iter()
-        .enumerate()
-        .map(|(i, (binding, _))| {
-          let ty = match binding.ty {
-            shadergraph::ShaderValueType::Fixed(_) => wgpu::BindingType::Buffer {
-              ty: wgpu::BufferBindingType::Uniform,
-              has_dynamic_offset: false,
-              // min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
-              min_binding_size: None,
-            },
-            shadergraph::ShaderValueType::Sampler => {
-              wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
-            }
-            shadergraph::ShaderValueType::Texture => wgpu::BindingType::Texture {
-              multisampled: false,
-              sample_type: wgpu::TextureSampleType::Float { filterable: true },
-              view_dimension: wgpu::TextureViewDimension::D2,
-            },
-            shadergraph::ShaderValueType::Never => unreachable!(),
-          };
+      let iter = binding.bindings.iter().map(|(binding, _)| {
+        let mut visibility = wgpu::ShaderStages::NONE;
+        if binding.node_vertex.is_some() {
+          visibility.set(wgpu::ShaderStages::VERTEX, true);
+        }
+        if binding.node_fragment.is_some() {
+          visibility.set(wgpu::ShaderStages::FRAGMENT, true);
+        }
+        (&binding.ty, visibility)
+      });
 
-          let mut visibility = wgpu::ShaderStages::NONE;
-          if binding.node_vertex.is_some() {
-            visibility.set(wgpu::ShaderStages::VERTEX, true);
-          }
-          if binding.node_fragment.is_some() {
-            visibility.set(wgpu::ShaderStages::FRAGMENT, true);
-          }
-
-          wgpu::BindGroupLayoutEntry {
-            binding: i as u32,
-            visibility,
-            ty,
-            count: None,
-          }
-        })
-        .collect();
-
-      device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: entries.as_ref(),
-      })
+      create_bindgroup_layout_by_node_ty(device, iter)
     })
     .collect();
 

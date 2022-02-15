@@ -1,42 +1,33 @@
-use std::rc::Rc;
-
 use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
-use shadergraph::ShaderUniform;
+use shadergraph::*;
 
-use crate::{GPUResourceSubCache, ResourceMapper, SceneNode, SceneNodeData, SceneNodeDataImpl};
+use crate::*;
 
 #[derive(Default)]
-pub struct NodeGPU {
+pub struct NodeGPUStore {
   inner: ResourceMapper<TransformGPU, SceneNodeDataImpl>,
 }
 
-impl SceneNode {
-  pub fn check_update_gpu(&self, resources: &mut GPUResourceSubCache, gpu: &GPU) {
-    self.mutate(|node| {
-      resources.nodes.check_update_gpu(node, gpu);
-    });
+impl NodeGPUStore {
+  pub fn check_update_gpu(&mut self, node: &SceneNode, gpu: &GPU) -> &TransformGPU {
+    node.visit(|node| {
+      let r = self.get_update_or_insert_with(
+        node,
+        |node| TransformGPU::new(gpu, &node.world_matrix),
+        |node_gpu, node| {
+          node_gpu.update(gpu, &node.world_matrix);
+        },
+      );
+
+      // todo can i workaround this?
+      unsafe { std::mem::transmute(r) }
+    })
   }
 }
 
-impl NodeGPU {
-  pub fn check_update_gpu(&mut self, node: &mut SceneNodeData, gpu: &GPU) -> &TransformGPU {
-    self.get_update_or_insert_with(
-      node,
-      |node| TransformGPU::new(gpu, &node.world_matrix),
-      |node_gpu, node| {
-        node_gpu.update(gpu, &node.world_matrix);
-      },
-    )
-  }
-
-  pub fn expect_gpu(&self, node: &SceneNodeData) -> &TransformGPU {
-    self.get_unwrap(node)
-  }
-}
-
-impl std::ops::Deref for NodeGPU {
+impl std::ops::Deref for NodeGPUStore {
   type Target = ResourceMapper<TransformGPU, SceneNodeDataImpl>;
 
   fn deref(&self) -> &Self::Target {
@@ -44,7 +35,7 @@ impl std::ops::Deref for NodeGPU {
   }
 }
 
-impl std::ops::DerefMut for NodeGPU {
+impl std::ops::DerefMut for NodeGPUStore {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.inner
   }
@@ -52,7 +43,6 @@ impl std::ops::DerefMut for NodeGPU {
 
 pub struct TransformGPU {
   pub ubo: UniformBufferDataWithCache<TransformGPUData>,
-  pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
 #[repr(C)]
@@ -61,28 +51,17 @@ pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
 }
 
-use shadergraph::*;
-pub struct WorldVertexPosition;
-impl SemanticVertexShaderValue for WorldVertexPosition {
-  type ValueType = Vec3<f32>;
-}
-
-pub struct LocalVertexPosition;
-impl SemanticVertexShaderValue for LocalVertexPosition {
-  type ValueType = Vec3<f32>;
-}
-
 impl SemanticShaderUniform for TransformGPUData {
   const TYPE: SemanticBinding = SemanticBinding::Object;
   type Node = Self;
 }
 
-impl ShaderGraphProvider for TransformGPUData {
+impl ShaderGraphProvider for TransformGPU {
   fn build_vertex(
     &self,
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let model = builder.register_uniform::<Self>().expand();
+    let model = builder.register_uniform::<TransformGPUData>().expand();
     let position = builder.query::<LocalVertexPosition>()?.get_last();
     let position = model.world_matrix * (position, 0.).into();
     builder.register::<WorldVertexPosition>(position.xyz());
@@ -90,48 +69,9 @@ impl ShaderGraphProvider for TransformGPUData {
   }
 }
 
-impl ShaderUniformBlock for TransformGPUData {
-  fn shader_struct() -> &'static str {
-    "
-        struct ModelTransform {
-          matrix: mat4x4<f32>;
-        };
-      "
-  }
-}
-
-impl BindGroupLayoutProvider for TransformGPU {
-  fn bind_preference() -> usize {
-    0
-  }
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "ModelTransformBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64),
-        },
-        count: None,
-      }],
-    })
-  }
-
-  fn gen_shader_header(group: usize) -> String {
-    format!(
-      "
-        [[group({group}), binding(0)]]
-        var<uniform> model: ModelTransform;
-      
-      "
-    )
-  }
-
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
-    builder.declare_uniform_struct::<TransformGPUData>();
+impl ShaderBindingProvider for TransformGPU {
+  fn setup_binding(&self, builder: &mut crate::BindingBuilder) {
+    // builder.setup_uniform(&self.ubo)
   }
 }
 
@@ -150,17 +90,6 @@ impl TransformGPU {
     ubo.world_matrix = *matrix;
     ubo.update(&gpu.queue);
 
-    let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &Self::layout(device),
-      entries: &[wgpu::BindGroupEntry {
-        binding: 0,
-        resource: ubo.as_bindable(),
-      }],
-      label: None,
-    });
-
-    let bindgroup = Rc::new(bindgroup);
-
-    Self { ubo, bindgroup }
+    Self { ubo }
   }
 }

@@ -1,6 +1,3 @@
-use std::rc::Rc;
-
-use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
@@ -25,51 +22,45 @@ impl CameraViewBounds {
 }
 
 #[derive(Default)]
-pub struct CameraGPU {
-  inner: ResourceMapper<CameraBindgroup, Camera>,
+pub struct CameraGPUStore {
+  inner: ResourceMapper<CameraGPU, Camera>,
 }
 
-impl std::ops::Deref for CameraGPU {
-  type Target = ResourceMapper<CameraBindgroup, Camera>;
+impl std::ops::Deref for CameraGPUStore {
+  type Target = ResourceMapper<CameraGPU, Camera>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
   }
 }
 
-impl std::ops::DerefMut for CameraGPU {
+impl std::ops::DerefMut for CameraGPUStore {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.inner
   }
 }
 
-impl CameraGPU {
-  pub fn check_update_gpu(&mut self, camera: &mut SceneCamera, gpu: &GPU) -> &CameraBindgroup {
+impl CameraGPUStore {
+  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
     self.get_update_or_insert_with(
       camera,
-      |_| CameraBindgroup::new(gpu),
+      |_| CameraGPU::new(gpu),
       |camera_gpu, camera| {
         camera_gpu.update(gpu, camera);
       },
     )
   }
 
-  pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraBindgroup {
+  pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraGPU {
     self.get_unwrap(camera)
   }
 }
 
-pub struct CameraBindgroup {
+pub struct CameraGPU {
   pub ubo: UniformBufferData<CameraGPUTransform>,
-  pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
-pub struct ClipPosition;
-impl SemanticVertexShaderValue for ClipPosition {
-  type ValueType = Vec4<f32>;
-}
-
-impl ShaderGraphProvider for CameraBindgroup {
+impl ShaderGraphProvider for CameraGPU {
   fn build_vertex(
     &self,
     builder: &mut ShaderGraphVertexBuilder,
@@ -78,42 +69,6 @@ impl ShaderGraphProvider for CameraBindgroup {
     let position = builder.query::<WorldVertexPosition>()?.get_last();
     builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
     Ok(())
-  }
-}
-
-impl BindGroupLayoutProvider for CameraBindgroup {
-  fn bind_preference() -> usize {
-    2
-  }
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "CameraBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64 * 3),
-        },
-        count: None,
-      }],
-    })
-  }
-
-  fn gen_shader_header(group: usize) -> String {
-    format!(
-      "
-
-      [[group({group}), binding(0)]]
-      var<uniform> camera: CameraTransform;
-    
-    "
-    )
-  }
-
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
-    builder.declare_uniform_struct::<CameraGPUTransform>();
   }
 }
 
@@ -130,19 +85,7 @@ impl SemanticShaderUniform for CameraGPUTransform {
   type Node = Self;
 }
 
-impl ShaderUniformBlock for CameraGPUTransform {
-  fn shader_struct() -> &'static str {
-    "
-      struct CameraTransform {
-        projection: mat4x4<f32>;
-        rotation:   mat4x4<f32>;
-        view:       mat4x4<f32>;
-      };
-      "
-  }
-}
-
-impl CameraBindgroup {
+impl CameraGPU {
   pub fn update(&mut self, gpu: &GPU, camera: &Camera) -> &mut Self {
     let uniform: &mut CameraGPUTransform = &mut self.ubo;
     let world_matrix = camera.node.visit(|node| node.local_matrix);
@@ -160,16 +103,6 @@ impl CameraBindgroup {
 
     let ubo: UniformBufferData<CameraGPUTransform> = UniformBufferData::create_default(device);
 
-    let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &Self::layout(device),
-      entries: &[wgpu::BindGroupEntry {
-        binding: 0,
-        resource: ubo.as_bindable(),
-      }],
-      label: None,
-    });
-    let bindgroup = Rc::new(bindgroup);
-
-    Self { ubo, bindgroup }
+    Self { ubo }
   }
 }
