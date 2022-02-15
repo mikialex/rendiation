@@ -15,3 +15,12 @@ impl std::ops::Deref for WebGPUTexture {
     &self.texture
   }
 }
+
+// pub struct Tex<
+//   const DIMENSION: wgpu::TextureDimension,
+//   const FORMAT: usize,
+//   const MULTI_SAMPLE: bool,
+// > {
+//   pub texture: wgpu::Texture,
+//   pub desc: wgpu::TextureDescriptor<'static>,
+// }

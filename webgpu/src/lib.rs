@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
+#![feature(adt_const_params)]
 
 mod cache;
 mod encoder;
