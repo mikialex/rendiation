@@ -129,7 +129,7 @@ impl BindingBuilder {
         Rc::new(bindgroup)
       });
 
-      pass.set_bind_group_owned(group_index as u32, &bindgroup, &[]);
+      pass.set_bind_group_owned(group_index as u32, bindgroup, &[]);
     }
   }
 }

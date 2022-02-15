@@ -1,45 +1,31 @@
 use rendiation_texture_types::{Size, TextureOrigin};
 use wgpu::util::DeviceExt;
 
-use crate::{BindableResource, WebGPUTexture, WebGPUTextureCubeDescriptor};
+use crate::{Resource, ResourceRc, WebGPUTextureCubeDescriptor};
 
-pub struct WebGPUTexture2d {
-  pub(crate) texture: WebGPUTexture,
-  texture_view: wgpu::TextureView,
+pub struct GPURawTexture2d(pub(crate) wgpu::Texture);
+pub struct GPURawTexture2dView(pub(crate) wgpu::TextureView);
+
+pub type GPUTexture2d = ResourceRc<GPURawTexture2d>;
+
+impl Resource for GPURawTexture2d {
+  type Descriptor = WebGPUTexture2dDescriptor;
+
+  type View = GPURawTexture2dView;
+
+  type ViewDescriptor = ();
+
+  fn create_resource(desc: &Self::Descriptor, device: &wgpu::Device) -> Self {
+    let desc = &desc.desc;
+    GPURawTexture2d(device.create_texture(desc))
+  }
+
+  fn create_view(&self, desc: &Self::ViewDescriptor, device: &wgpu::Device) -> Self::View {
+    GPURawTexture2dView(self.0.create_view(&Default::default()))
+  }
 }
 
-impl BindableResource for WebGPUTexture2d {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(&self.texture_view)
-  }
-
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Texture {
-      multisampled: false,
-      sample_type: wgpu::TextureSampleType::Float { filterable: true },
-      view_dimension: wgpu::TextureViewDimension::D2,
-    }
-  }
-}
-
-impl WebGPUTexture2d {
-  pub fn create(device: &wgpu::Device, desc: WebGPUTexture2dDescriptor) -> Self {
-    let desc = desc.desc;
-    let texture = device.create_texture(&desc);
-    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-    let texture = WebGPUTexture { texture, desc };
-
-    Self {
-      texture,
-      texture_view,
-    }
-  }
-
-  pub fn get_default_view(&self) -> &wgpu::TextureView {
-    &self.texture_view
-  }
-
+impl GPUTexture2d {
   pub fn upload(
     &self,
     queue: &wgpu::Queue,
@@ -69,7 +55,7 @@ impl WebGPUTexture2d {
   ) -> &Self {
     queue.write_texture(
       wgpu::ImageCopyTexture {
-        texture: &self.texture,
+        texture: &self.inner.resource.0,
         mip_level: mip_level as u32,
         origin: wgpu::Origin3d {
           x: origin.x as u32,

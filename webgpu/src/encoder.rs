@@ -93,7 +93,7 @@ impl GPUCommandEncoder {
     &mut self,
     device: &wgpu::Device,
     source: impl WebGPUTexture2dSource,
-    target: &WebGPUTexture2d,
+    target: &GPUTexture2d,
     origin: (u32, u32),
   ) -> &mut Self {
     let (upload_buffer, size) = source.create_upload_buffer(device);
@@ -108,7 +108,7 @@ impl GPUCommandEncoder {
         },
       },
       wgpu::ImageCopyTexture {
-        texture: &target.texture,
+        texture: &target.0,
         mip_level: 0,
         origin: wgpu::Origin3d {
           x: origin.0,

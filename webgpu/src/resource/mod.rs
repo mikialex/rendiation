@@ -19,6 +19,14 @@ pub struct ResourceViewContainer<T: Resource> {
   desc: T::ViewDescriptor,
 }
 
+impl<T: Resource> std::ops::Deref for ResourceViewContainer<T> {
+  type Target = T::View;
+
+  fn deref(&self) -> &Self::Target {
+    &self.view
+  }
+}
+
 /// store the resource with it's create parameter,
 /// and some dropping callbacks
 pub struct ResourceContainer<T: Resource> {
@@ -27,6 +35,14 @@ pub struct ResourceContainer<T: Resource> {
   desc: T::Descriptor,
   /// when resource dropped, all referenced bindgroup should drop
   invalidation_tokens: RefCell<Vec<BindGroupCacheInvalidation>>,
+}
+
+impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    &self.resource
+  }
 }
 
 impl<T: Resource> ResourceContainer<T> {
@@ -54,6 +70,14 @@ pub struct ResourceRc<T: Resource> {
   inner: Rc<ResourceContainer<T>>,
 }
 
+impl<T: Resource> std::ops::Deref for ResourceRc<T> {
+  type Target = ResourceContainer<T>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
 impl<T: Resource> Clone for ResourceRc<T> {
   fn clone(&self) -> Self {
     Self {
@@ -66,6 +90,14 @@ pub struct ResourceViewRc<T: Resource> {
   inner: Rc<ResourceViewContainer<T>>,
 }
 
+impl<T: Resource> std::ops::Deref for ResourceViewRc<T> {
+  type Target = ResourceViewContainer<T>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
 impl<T: Resource> Clone for ResourceViewRc<T> {
   fn clone(&self) -> Self {
     Self {
@@ -75,6 +107,7 @@ impl<T: Resource> Clone for ResourceViewRc<T> {
 }
 
 impl<T: Resource> ResourceRc<T> {
+  #[must_use]
   pub fn create(&self, desc: T::Descriptor, device: &wgpu::Device) -> Self {
     Self {
       inner: Rc::new(ResourceContainer::create(desc, device)),

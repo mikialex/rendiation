@@ -3,18 +3,38 @@ pub use d2::*;
 pub mod cube;
 pub use cube::*;
 
-pub struct WebGPUTexture {
-  pub texture: wgpu::Texture,
-  pub desc: wgpu::TextureDescriptor<'static>,
-}
+use crate::{Resource, ResourceRc};
 
-impl std::ops::Deref for WebGPUTexture {
-  type Target = wgpu::Texture;
+pub type GPUTexture = ResourceRc<wgpu::Texture>;
 
-  fn deref(&self) -> &Self::Target {
-    &self.texture
+impl Resource for wgpu::Texture {
+  type Descriptor = wgpu::TextureDescriptor<'static>;
+
+  type View = wgpu::TextureView;
+
+  type ViewDescriptor = wgpu::TextureViewDescriptor<'static>;
+
+  fn create_resource(desc: &Self::Descriptor, device: &wgpu::Device) -> Self {
+    device.create_texture(desc)
+  }
+
+  fn create_view(&self, desc: &Self::ViewDescriptor, device: &wgpu::Device) -> Self::View {
+    self.create_view(desc)
   }
 }
+
+// pub struct WebGPUTexture {
+//   pub texture: wgpu::Texture,
+//   pub desc: wgpu::TextureDescriptor<'static>,
+// }
+
+// impl std::ops::Deref for WebGPUTexture {
+//   type Target = wgpu::Texture;
+
+//   fn deref(&self) -> &Self::Target {
+//     &self.texture
+//   }
+// }
 
 // pub struct Tex<
 //   const DIMENSION: wgpu::TextureDimension,

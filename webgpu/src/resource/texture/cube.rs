@@ -1,6 +1,6 @@
 use rendiation_texture_types::CubeTextureFace;
 
-use crate::{BindableResource, WebGPUTexture, WebGPUTexture2dSource};
+use crate::*;
 
 /// The wrapper type that make sure the inner desc
 /// is suitable for cube texture
@@ -8,42 +8,32 @@ pub struct WebGPUTextureCubeDescriptor {
   pub(crate) desc: wgpu::TextureDescriptor<'static>,
 }
 
-pub struct WebGPUTextureCube {
-  texture: WebGPUTexture,
-  texture_view: wgpu::TextureView,
-}
+pub struct GPURawTextureCube(pub(crate) wgpu::Texture);
+pub struct GPURawTextureCubeView(pub(crate) wgpu::TextureView);
 
-impl BindableResource for WebGPUTextureCube {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(&self.texture_view)
+pub type GPUTextureCube = ResourceRc<GPURawTextureCube>;
+
+impl Resource for GPURawTextureCube {
+  type Descriptor = WebGPUTextureCubeDescriptor;
+
+  type View = GPURawTextureCubeView;
+
+  type ViewDescriptor = ();
+
+  fn create_resource(desc: &Self::Descriptor, device: &wgpu::Device) -> Self {
+    let desc = &desc.desc;
+    GPURawTextureCube(device.create_texture(desc))
   }
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Texture {
-      multisampled: false,
-      sample_type: wgpu::TextureSampleType::Float { filterable: true },
-      view_dimension: wgpu::TextureViewDimension::Cube,
-    }
-  }
-}
 
-impl WebGPUTextureCube {
-  pub fn create(device: &wgpu::Device, desc: WebGPUTextureCubeDescriptor) -> Self {
-    let desc = desc.desc;
-
-    let texture = device.create_texture(&desc);
-    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+  fn create_view(&self, desc: &Self::ViewDescriptor, device: &wgpu::Device) -> Self::View {
+    GPURawTextureCubeView(self.0.create_view(&wgpu::TextureViewDescriptor {
       dimension: Some(wgpu::TextureViewDimension::Cube),
       ..wgpu::TextureViewDescriptor::default()
-    });
-
-    let texture = WebGPUTexture { texture, desc };
-
-    Self {
-      texture,
-      texture_view,
-    }
+    }))
   }
+}
 
+impl GPUTextureCube {
   #[must_use]
   pub fn upload(
     self,
@@ -67,7 +57,7 @@ impl WebGPUTextureCube {
     // validation
     queue.write_texture(
       wgpu::ImageCopyTexture {
-        texture: &self.texture,
+        texture: &self.0,
         mip_level: mip_level as u32,
         origin: wgpu::Origin3d {
           x: origin.0 as u32,
