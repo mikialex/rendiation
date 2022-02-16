@@ -7,6 +7,12 @@ impl OperatorNode {
   }
 }
 
+impl ShaderGraphInputNode {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    ShaderGraphNodeData::Input(self).insert_graph()
+  }
+}
+
 impl ShaderGraphNodeExpr {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
     modify_graph(|graph| self.insert_into_graph(graph))

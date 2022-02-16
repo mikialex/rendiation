@@ -71,14 +71,10 @@ impl ShaderGraphVertexBuilder {
     .insert_graph()
     .mutable();
 
-    let vertex_index =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId))
-        .insert_graph();
+    let vertex_index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId).insert_graph();
 
-    let instance_index = ShaderGraphNodeData::Input(ShaderGraphInputNode::BuiltIn(
-      ShaderBuiltIn::VertexInstanceId,
-    ))
-    .insert_graph();
+    let instance_index =
+      ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexInstanceId).insert_graph();
 
     Self {
       bindgroups,
@@ -120,8 +116,7 @@ impl ShaderGraphVertexBuilder {
   {
     let ty = T::ValueType::to_primitive_type();
     let index = self.vertex_in.len();
-    let node =
-      ShaderGraphNodeData::Input(ShaderGraphInputNode::VertexIn { ty, index }).insert_graph();
+    let node = ShaderGraphInputNode::VertexIn { ty, index }.insert_graph();
     self.register::<T>(node);
 
     self
@@ -136,17 +131,21 @@ impl ShaderGraphVertexBuilder {
     self.vertex_layouts.push(layout)
   }
 
-  pub fn set_vertex_out<T>(&mut self, node: impl Into<Node<T::ValueType>>)
-  where
+  pub fn set_vertex_out<T>(
+    &mut self,
+    node: impl Into<Node<<T as SemanticVertexShaderValue>::ValueType>>,
+  ) where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T: SemanticFragmentShaderValue,
+    <T as SemanticVertexShaderValue>::ValueType: PrimitiveShaderGraphNodeType,
+    T: SemanticFragmentShaderValue<ValueType = <T as SemanticVertexShaderValue>::ValueType>,
   {
     let len = self.vertex_out.len();
     let node = node.into();
     self.vertex_out.entry(TypeId::of::<T>()).or_insert_with(|| {
       (
         node.cast_untyped_node(),
-        T::ValueType::to_primitive_type(),
+        <T as SemanticVertexShaderValue>::ValueType::to_primitive_type(),
         len,
       )
     });

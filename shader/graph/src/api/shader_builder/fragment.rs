@@ -56,10 +56,10 @@ impl ShaderGraphFragmentBuilder {
 
     let mut fragment_in = HashMap::default();
     vertex.vertex_out.iter().for_each(|(id, (_, ty, index))| {
-      let node = ShaderGraphNodeData::Input(ShaderGraphInputNode::FragmentIn {
+      let node = ShaderGraphInputNode::FragmentIn {
         ty: *ty,
         index: *index,
-      })
+      }
       .insert_graph();
       fragment_in.insert(
         *id,
@@ -100,10 +100,14 @@ impl ShaderGraphFragmentBuilder {
       .register(TypeId::of::<T>(), node.into().cast_untyped_node());
   }
 
-  pub fn get_fragment_in<T>(&mut self) -> Result<Node<T::ValueType>, ShaderGraphBuildError>
+  pub fn get_fragment_in<T>(
+    &mut self,
+  ) -> Result<Node<<T as SemanticVertexShaderValue>::ValueType>, ShaderGraphBuildError>
   where
     T: SemanticFragmentShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T: SemanticVertexShaderValue,
+    <T as SemanticVertexShaderValue>::ValueType: PrimitiveShaderGraphNodeType,
+    T: SemanticFragmentShaderValue<ValueType = <T as SemanticVertexShaderValue>::ValueType>,
   {
     self
       .fragment_in

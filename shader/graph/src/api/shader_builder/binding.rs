@@ -31,10 +31,10 @@ impl ShaderGraphBindGroupBuilder {
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let node = ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
+    let node = ShaderGraphInputNode::Uniform {
       bindgroup_index,
       entry_index,
-    })
+    }
     .insert_graph();
 
     let (node_vertex, node_fragment) = match self.current_stage {
@@ -75,10 +75,10 @@ impl ShaderGraphBindGroupBuilder {
         };
         node
           .get_or_insert_with(|| {
-            ShaderGraphNodeData::Input(ShaderGraphInputNode::Uniform {
+            ShaderGraphInputNode::Uniform {
               bindgroup_index,
               entry_index: i,
-            })
+            }
             .insert_graph::<AnyType>()
             .handle()
           })

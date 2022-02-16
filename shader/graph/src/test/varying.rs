@@ -4,7 +4,11 @@ use crate::*;
 struct Test;
 
 struct TestSemantic;
-impl SemanticVertexFragmentIOValue for TestSemantic {
+impl SemanticVertexShaderValue for TestSemantic {
+  type ValueType = Vec4<f32>;
+}
+
+impl SemanticFragmentShaderValue for TestSemantic {
   type ValueType = Vec4<f32>;
 }
 
