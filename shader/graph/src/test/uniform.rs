@@ -48,7 +48,7 @@ impl ShaderGraphProvider for TestUniform {
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let value = (builder.query_uniform::<Self>()?.expand().data3, 1.).into();
-    builder.set_fragment_out(0, value);
+    builder.set_fragment_out(0, value)?;
     Ok(())
   }
 }

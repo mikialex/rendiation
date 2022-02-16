@@ -66,10 +66,14 @@ impl ShaderGraphCodeGenTarget for WGSL {
       ShaderStages::Fragment,
       |code| {
         code.write_ln("var out: FragmentOut;");
-        fragment.frag_output.iter().enumerate().for_each(|(i, v)| {
-          let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-          code.write_ln(format!("out.frag_out{i} = {root};"));
-        });
+        fragment
+          .frag_output
+          .iter()
+          .enumerate()
+          .for_each(|(i, (v, _))| {
+            let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
+            code.write_ln(format!("out.frag_out{i} = {root};"));
+          });
         code.write_ln("return out;");
       },
       |code| gen_fragment_in_declare(code, fragment),

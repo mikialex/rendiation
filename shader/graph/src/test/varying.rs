@@ -22,7 +22,7 @@ impl ShaderGraphProvider for Test {
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let v = builder.get_fragment_in::<TestSemantic>()?;
-    builder.set_fragment_out(0, v);
+    builder.set_fragment_out(0, v)?;
     Ok(())
   }
 }

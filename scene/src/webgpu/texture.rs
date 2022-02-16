@@ -28,7 +28,7 @@ impl MaterialBindableResourceUpdate for SceneTexture2D {
           let source = texture.as_ref();
           let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
-          WebGPUTexture2d::create(device, desc).upload_into(queue, source, 0)
+          GPUTexture2d::create(device, desc).upload_into(queue, source, 0)
         },
         |_, _| {},
       )

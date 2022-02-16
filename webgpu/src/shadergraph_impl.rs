@@ -58,6 +58,11 @@ pub fn build_pipeline(
     vertex_shader,
     frag_shader,
     bindings,
+    vertex_layouts,
+    primitive_state,
+    color_states,
+    depth_stencil,
+    multisample,
   } = compile_result;
 
   let vertex_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
@@ -88,48 +93,48 @@ pub fn build_pipeline(
     })
     .collect();
 
-  let layouts: Vec<_> = layouts.iter().collect();
+  let layouts_ref: Vec<_> = layouts.iter().collect();
 
   let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
     label: None,
-    bind_group_layouts: layouts.as_slice(),
+    bind_group_layouts: layouts_ref.as_slice(),
     push_constant_ranges: &[],
   });
 
-  // let vertex_buffers: Vec<_> = self.vertex_buffers.iter().map(|v| v.as_raw()).collect();
+  let vertex_buffers: Vec<_> = vertex_layouts
+    .iter()
+    .map(|v| convert_vertex_layout(v))
+    .collect();
 
-  // let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-  //   label: None,
-  //   layout: Some(&pipeline_layout),
-  //   vertex: wgpu::VertexState {
-  //     module: &vertex_shader,
-  //     entry_point: target.vertex_entry_name(),
-  //     buffers: vertex_buffers.as_slice(),
-  //   },
-  //   fragment: Some(wgpu::FragmentState {
-  //     module: &frag_shader,
-  //     entry_point: target.fragment_entry_name(),
-  //     targets: self.targets.as_slice(),
-  //   }),
-  //   primitive: self.primitive_state,
-  //   depth_stencil: self.depth_stencil.clone(),
-  //   multisample: self.multisample,
-  //   multiview: None,
-  // });
+  let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+    label: None,
+    layout: Some(&pipeline_layout),
+    vertex: wgpu::VertexState {
+      module: &vertex_shader,
+      entry_point: target.vertex_entry_name(),
+      buffers: vertex_buffers.as_slice(),
+    },
+    fragment: Some(wgpu::FragmentState {
+      module: &frag_shader,
+      entry_point: target.fragment_entry_name(),
+      targets: color_states.as_slice(),
+    }),
+    primitive: primitive_state,
+    depth_stencil: depth_stencil.clone(),
+    multisample,
+    multiview: None,
+  });
 
-  // pipeline.into()
-
-  todo!()
+  Ok(GPURenderPipeline {
+    pipeline,
+    bg_layouts: layouts,
+  })
 }
 
-// pub struct BindGroup {
-//   raw: wgpu::BindGroup,
-// }
-
-// pub struct BindGroupBuildSource{
-//   // source:
-// }
-
-// pub struct Uniform{
-
-// }
+pub fn convert_vertex_layout(layout: &ShaderGraphVertexBufferLayout) -> wgpu::VertexBufferLayout {
+  wgpu::VertexBufferLayout {
+    array_stride: layout.array_stride,
+    step_mode: layout.step_mode,
+    attributes: layout.attributes.as_slice(),
+  }
+}

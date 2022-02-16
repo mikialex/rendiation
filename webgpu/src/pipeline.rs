@@ -172,25 +172,6 @@
 //   }
 // }
 
-// impl BindGroupLayoutProvider for PlaceholderBindgroup {
-//   fn bind_preference() -> usize {
-//     0
-//   }
-
-//   fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-//     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-//       label: "PlaceholderBindgroup".into(),
-//       entries: &[],
-//     })
-//   }
-
-//   fn gen_shader_header(group: usize) -> String {
-//     "".to_owned()
-//   }
-
-//   fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {}
-// }
-
 // impl PipelineBuilder {
 //   pub fn with_layout<B: BindGroupLayoutProvider>(
 //     &mut self,

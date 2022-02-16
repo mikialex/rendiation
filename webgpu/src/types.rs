@@ -39,34 +39,3 @@ impl From<DepthStencilTextureFormat> for wgpu::TextureFormat {
     }
   }
 }
-
-/// Describes how the vertex buffer is interpreted.
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub struct VertexBufferLayoutOwned {
-  /// The stride, in bytes, between elements of this buffer.
-  pub array_stride: wgpu::BufferAddress,
-  /// How often this vertex buffer is "stepped" forward.
-  pub step_mode: wgpu::VertexStepMode,
-  /// The list of attributes which comprise a single vertex.
-  pub attributes: Vec<wgpu::VertexAttribute>,
-}
-
-impl VertexBufferLayoutOwned {
-  pub fn as_raw(&self) -> wgpu::VertexBufferLayout {
-    wgpu::VertexBufferLayout {
-      array_stride: self.array_stride,
-      step_mode: self.step_mode,
-      attributes: self.attributes.as_slice(),
-    }
-  }
-}
-
-impl<'a> From<wgpu::VertexBufferLayout<'a>> for VertexBufferLayoutOwned {
-  fn from(layout: wgpu::VertexBufferLayout<'a>) -> Self {
-    Self {
-      array_stride: layout.array_stride,
-      step_mode: layout.step_mode,
-      attributes: layout.attributes.to_owned(),
-    }
-  }
-}

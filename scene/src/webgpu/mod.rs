@@ -78,8 +78,8 @@ pub struct GPUResourceSubCache {
   pub cameras: CameraGPUStore,
   pub nodes: NodeGPUStore,
 
-  // pub uniforms: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_2ds: ResourceMapper<WebGPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
+  // pub uniforms: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
+  pub texture_2ds: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_cubes: ResourceMapper<WebGPUTextureCube, TextureCubeSource>,
   pub samplers: SamplerCache<TextureSampler>,
 

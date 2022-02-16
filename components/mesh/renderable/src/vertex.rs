@@ -57,39 +57,32 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
   }
 }
 
-#[cfg(feature = "webgpu")]
-use rendiation_webgpu as gpu;
-#[cfg(feature = "webgpu")]
-impl gpu::VertexBufferSourceType for Vertex {
-  fn vertex_layout() -> gpu::VertexBufferLayoutOwned {
-    gpu::VertexBufferLayoutOwned {
-      array_stride: std::mem::size_of::<Vertex>() as u64,
-      step_mode: gpu::VertexStepMode::Vertex,
+#[cfg(feature = "sg")]
+impl shadergraph::ShaderGraphGeometryProvider for Vertex {
+  fn provide_layout_and_vertex_in(builder: &mut shadergraph::ShaderGraphVertexBuilder) {
+    use shadergraph::*;
+
+    let layout = ShaderGraphVertexBufferLayout {
+      array_stride: std::mem::size_of::<Self>() as u64,
+      step_mode: VertexStepMode::Vertex,
       attributes: vec![
-        gpu::VertexAttribute {
-          format: gpu::VertexFormat::Float32x3,
+        VertexAttribute {
+          format: VertexFormat::Float32x3,
           offset: 0,
-          shader_location: 0,
+          shader_location: builder.register_vertex_in::<GeometryLocalSpacePosition>(),
         },
-        gpu::VertexAttribute {
-          format: gpu::VertexFormat::Float32x3,
+        VertexAttribute {
+          format: VertexFormat::Float32x3,
           offset: 4 * 3,
-          shader_location: 1,
+          shader_location: builder.register_vertex_in::<GeometryLocalSpaceNormal>(),
         },
-        gpu::VertexAttribute {
-          format: gpu::VertexFormat::Float32x2,
+        VertexAttribute {
+          format: VertexFormat::Float32x2,
           offset: 4 * 3 + 4 * 3,
-          shader_location: 2,
+          shader_location: builder.register_vertex_in::<GeometryUV>(),
         },
       ],
-    }
-  }
-
-  fn get_shader_header() -> &'static str {
-    r#"
-      [[location(0)]] position: vec3<f32>,
-      [[location(1)]] normal: vec3<f32>,
-      [[location(2)]] uv: vec2<f32>,
-    "#
+    };
+    builder.push_vertex_layout(layout);
   }
 }

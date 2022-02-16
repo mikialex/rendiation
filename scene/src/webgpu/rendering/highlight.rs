@@ -115,7 +115,7 @@ impl BindGroupLayoutProvider for HighLighter {
         wgpu::BindGroupLayoutEntry {
           binding: 1,
           visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: WebGPUTexture2d::bind_layout(),
+          ty: GPUTexture2d::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {

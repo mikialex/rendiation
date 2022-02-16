@@ -42,7 +42,6 @@ impl MeshGPU {
 pub trait GPUMeshData {
   fn create(&self, device: &gpu::Device) -> MeshGPU;
   fn update(&self, gpu: &mut MeshGPU, device: &gpu::Device);
-  fn vertex_layout(&self) -> Vec<gpu::VertexBufferLayoutOwned>;
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> gpu::PrimitiveTopology;
 }
@@ -51,7 +50,6 @@ impl<I, V, T> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 where
   V: Pod,
   T: PrimitiveTopologyMeta<V>,
-  V: gpu::VertexBufferSourceType,
   I: gpu::IndexBufferSourceType,
   IndexedMesh<I, V, T, Vec<V>>: AbstractMesh,
 {
@@ -60,9 +58,6 @@ where
   }
   fn update(&self, gpu: &mut MeshGPU, device: &gpu::Device) {
     *gpu = self.create(device)
-  }
-  fn vertex_layout(&self) -> Vec<gpu::VertexBufferLayoutOwned> {
-    vec![V::vertex_layout()]
   }
 
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
@@ -84,7 +79,6 @@ impl<I, V, T> IndexedMesh<I, V, T, Vec<V>>
 where
   V: Pod,
   T: PrimitiveTopologyMeta<V>,
-  V: gpu::VertexBufferSourceType,
   I: gpu::IndexBufferSourceType,
   Self: AbstractMesh,
 {

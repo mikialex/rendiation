@@ -1,5 +1,5 @@
 use rendiation_algebra::Vec2;
-use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder, ShaderUniformBlock};
+use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder};
 use shadergraph::*;
 
 use crate::MaterialStates;
@@ -97,15 +97,4 @@ pub struct RenderPassGPUInfoData {
 impl SemanticShaderUniform for RenderPassGPUInfoData {
   const TYPE: SemanticBinding = SemanticBinding::Pass;
   type Node = Self;
-}
-
-impl ShaderUniformBlock for RenderPassGPUInfoData {
-  fn shader_struct() -> &'static str {
-    "
-      struct RenderPassGPUInfoData {
-        texel_size:  vec2<f32>;
-        buffer_size:  vec2<f32>;
-      };
-      "
-  }
 }

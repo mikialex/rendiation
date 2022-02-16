@@ -1897,6 +1897,7 @@ dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-webgpu",
+ "shadergraph",
  "soa_derive",
  "space-algorithm",
 ]
@@ -2111,6 +2112,7 @@ dependencies = [
  "paste",
  "rendiation-algebra",
  "shader-derives",
+ "wgpu-types",
 ]
 
 [[package]]

@@ -3,8 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
 use rendiation_webgpu::{
-  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, PipelineBuilder, RenderPassInfo,
-  UniformBufferDataWithCache, GPU,
+  BindGroupDescriptor, PipelineBuilder, RenderPassInfo, UniformBufferDataWithCache, GPU,
 };
 
 use crate::RenderPassGPUInfoData;
@@ -65,36 +64,5 @@ impl PassGPUDataCache {
     g.ubo.update(&gpu.queue);
 
     g
-  }
-}
-
-impl BindGroupLayoutProvider for PassGPUData {
-  fn bind_preference() -> usize {
-    3
-  }
-
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: None,
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::all(),
-        ty: UniformBufferDataWithCache::<RenderPassGPUInfoData>::bind_layout(),
-        count: None,
-      }],
-    })
-  }
-
-  fn gen_shader_header(group: usize) -> String {
-    format!(
-      "
-      [[group({group}), binding(0)]]
-      var<uniform> pass_info: RenderPassGPUInfoData;
-    "
-    )
-  }
-
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
-    builder.declare_uniform_struct::<RenderPassGPUInfoData>();
   }
 }

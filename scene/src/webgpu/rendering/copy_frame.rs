@@ -2,7 +2,7 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{
-  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, PipelineBuilder, WebGPUTexture2d,
+  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, GPUTexture2d, PipelineBuilder,
   GPU,
 };
 
@@ -101,7 +101,7 @@ impl BindGroupLayoutProvider for CopyFrame {
         wgpu::BindGroupLayoutEntry {
           binding: 0,
           visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: WebGPUTexture2d::bind_layout(),
+          ty: GPUTexture2d::bind_layout(),
           count: None,
         },
         wgpu::BindGroupLayoutEntry {
