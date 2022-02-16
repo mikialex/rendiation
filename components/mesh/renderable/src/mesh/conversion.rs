@@ -87,6 +87,7 @@ where
   V: Copy,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
+  #[must_use]
   pub fn merge_vertex_by_sorting(
     &self,
     mut sorter: impl FnMut(&V, &V) -> Ordering,
