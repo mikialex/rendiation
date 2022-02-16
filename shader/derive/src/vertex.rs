@@ -8,20 +8,21 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
     .fields_raw
     .iter()
     .map(|f| {
-      let field_name = f.ident.as_ref().unwrap();
+      let field_name = f.ident.as_ref().expect("require named field");
       let ty = &f.ty;
 
       let attr = f
         .attrs
         .iter()
         .find(|a| a.path.is_ident("semantic"))
-        .unwrap();
+        .expect("require semantic attribute");
+      let token = attr.parse_args::<syn::Type>().expect("expect type");
 
       quote! {
         VertexAttribute {
-          format: <#ty as VertexInShaderGraphNodeType>::to_vertex_format(),
+          format: < #ty as VertexInShaderGraphNodeType >::to_vertex_format(),
           offset: offset_of!(Self, #field_name) as u64,
-          shader_location: builder.register_vertex_in::<#attr.tokens>(),
+          shader_location: builder.register_vertex_in::<#token>(),
         },
       }
     })
