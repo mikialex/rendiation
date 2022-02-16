@@ -77,7 +77,6 @@ impl<T: ShaderGraphNodeType> Node<T> {
 }
 
 impl<T: ShaderGraphNodeType> NodeMutable<T> {
-
   pub fn get(&self) -> Node<T> {
     unsafe { self.pending.current.get().into_node() }
   }
@@ -118,9 +117,6 @@ impl<T: ShaderGraphNodeType> NodeMutable<T> {
     self.pending.current.set(write.handle())
   }
 }
-
-// this for not include samplers/textures as attributes
-pub trait ShaderGraphAttributeNodeType: ShaderGraphNodeType {}
 
 #[derive(Copy, Clone)]
 pub struct AnyType;

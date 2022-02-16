@@ -25,5 +25,7 @@ pub use traits_impl::*;
 
 use rendiation_algebra::*;
 
+pub use memoffset::*;
+
 #[cfg(test)]
 mod test;

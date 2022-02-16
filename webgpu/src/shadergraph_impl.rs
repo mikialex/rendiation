@@ -101,10 +101,7 @@ pub fn build_pipeline(
     push_constant_ranges: &[],
   });
 
-  let vertex_buffers: Vec<_> = vertex_layouts
-    .iter()
-    .map(|v| convert_vertex_layout(v))
-    .collect();
+  let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
 
   let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
     label: None,
@@ -120,7 +117,7 @@ pub fn build_pipeline(
       targets: color_states.as_slice(),
     }),
     primitive: primitive_state,
-    depth_stencil: depth_stencil.clone(),
+    depth_stencil,
     multisample,
     multiview: None,
   });

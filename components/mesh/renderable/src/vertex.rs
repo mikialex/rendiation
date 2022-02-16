@@ -68,17 +68,17 @@ impl shadergraph::ShaderGraphGeometryProvider for Vertex {
       attributes: vec![
         VertexAttribute {
           format: VertexFormat::Float32x3,
-          offset: 0,
+          offset: offset_of!(Self, position) as u64,
           shader_location: builder.register_vertex_in::<GeometryLocalSpacePosition>(),
         },
         VertexAttribute {
           format: VertexFormat::Float32x3,
-          offset: 4 * 3,
+          offset: offset_of!(Self, normal) as u64,
           shader_location: builder.register_vertex_in::<GeometryLocalSpaceNormal>(),
         },
         VertexAttribute {
           format: VertexFormat::Float32x2,
-          offset: 4 * 3 + 4 * 3,
+          offset: offset_of!(Self, uv) as u64,
           shader_location: builder.register_vertex_in::<GeometryUV>(),
         },
       ],

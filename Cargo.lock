@@ -2107,6 +2107,7 @@ name = "shadergraph"
 version = "0.1.0"
 dependencies = [
  "arena-graph",
+ "memoffset",
  "naga",
  "once_cell",
  "paste",

@@ -112,7 +112,7 @@ impl ShaderGraphVertexBuilder {
   pub fn register_vertex_in<T>(&mut self) -> u32
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: PrimitiveShaderGraphNodeType,
+    T::ValueType: VertexInShaderGraphNodeType,
   {
     let ty = T::ValueType::to_primitive_type();
     let index = self.vertex_in.len();
@@ -153,6 +153,9 @@ impl ShaderGraphVertexBuilder {
   }
 }
 
-pub trait ShaderGraphGeometryProvider {
-  fn provide_layout_and_vertex_in(builder: &mut ShaderGraphVertexBuilder);
+pub trait ShaderGraphVertexInProvider {
+  fn provide_layout_and_vertex_in(
+    builder: &mut ShaderGraphVertexBuilder,
+    step_mode: VertexStepMode,
+  );
 }

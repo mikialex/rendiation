@@ -319,6 +319,10 @@ pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
+pub trait VertexInShaderGraphNodeType: PrimitiveShaderGraphNodeType {
+  fn to_vertex_format() -> VertexFormat;
+}
+
 pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
   type Instance;
   fn meta_info() -> &'static ShaderStructMetaInfo;

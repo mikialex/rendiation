@@ -78,7 +78,7 @@ pub fn build_shader(
   let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
 
   let vertex_layouts = vertex_builder.vertex_layouts.clone();
-  let primitive_state = vertex_builder.primitive_state.clone();
+  let primitive_state = vertex_builder.primitive_state;
 
   let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
   builder.build_fragment(&mut fragment_builder)?;

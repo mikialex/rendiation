@@ -47,7 +47,12 @@ impl PrimitiveShaderGraphNodeType for f32 {
     PrimitiveShaderValue::Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for f32 {}
+
+impl VertexInShaderGraphNodeType for f32 {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32
+  }
+}
 
 impl PrimitiveShaderGraphNodeType for Vec2<f32> {
   fn to_primitive_type() -> PrimitiveShaderValueType {
@@ -57,7 +62,11 @@ impl PrimitiveShaderGraphNodeType for Vec2<f32> {
     PrimitiveShaderValue::Vec2Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for Vec2<f32> {}
+impl VertexInShaderGraphNodeType for Vec2<f32> {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32x2
+  }
+}
 
 impl PrimitiveShaderGraphNodeType for Vec3<f32> {
   fn to_primitive_type() -> PrimitiveShaderValueType {
@@ -67,7 +76,11 @@ impl PrimitiveShaderGraphNodeType for Vec3<f32> {
     PrimitiveShaderValue::Vec3Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for Vec3<f32> {}
+impl VertexInShaderGraphNodeType for Vec3<f32> {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32x3
+  }
+}
 
 impl PrimitiveShaderGraphNodeType for Vec4<f32> {
   fn to_primitive_type() -> PrimitiveShaderValueType {
@@ -77,7 +90,11 @@ impl PrimitiveShaderGraphNodeType for Vec4<f32> {
     PrimitiveShaderValue::Vec4Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for Vec4<f32> {}
+impl VertexInShaderGraphNodeType for Vec4<f32> {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32x4
+  }
+}
 
 impl ShaderGraphNodeType for ShaderSampler {
   fn to_type() -> ShaderValueType {
