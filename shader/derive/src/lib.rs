@@ -2,18 +2,18 @@ use proc_macro::TokenStream;
 
 use syn::parse_macro_input;
 
-mod geometry;
 mod glsl_impl;
-mod ubo;
+mod uniform;
 mod utils;
-use geometry::*;
+mod vertex;
 use glsl_impl::*;
-use ubo::*;
+use uniform::*;
+use vertex::*;
 
-#[proc_macro_derive(ShaderGeometry)]
-pub fn derive_geometry(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(ShaderVertex, attributes(semantic))]
+pub fn derive_vertex(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
-  derive_geometry_impl(input).into()
+  derive_vertex_impl(input).into()
 }
 
 #[proc_macro_derive(ShaderUniform)]

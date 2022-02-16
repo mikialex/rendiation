@@ -5,9 +5,15 @@ use std::{hash::Hash, mem};
 
 #[repr(C)]
 #[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
+#[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))]
 pub struct Vertex {
+  #[cfg_attr(feature = "shader", semantic(GeometryLocalSpacePosition))]
   pub position: Vec3<f32>,
+
+  #[cfg_attr(feature = "shader", semantic(GeometryLocalSpaceNormal))]
   pub normal: Vec3<f32>,
+  
+  #[cfg_attr(feature = "shader", semantic(GeometryUV))]
   pub uv: Vec2<f32>,
 }
 
@@ -54,35 +60,5 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
     position: Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
     normal: Vec3::new(0.0, 1.0, 0.0),
     uv: Vec2::new(tc[0] as f32, tc[1] as f32),
-  }
-}
-
-#[cfg(feature = "sg")]
-impl shadergraph::ShaderGraphGeometryProvider for Vertex {
-  fn provide_layout_and_vertex_in(builder: &mut shadergraph::ShaderGraphVertexBuilder) {
-    use shadergraph::*;
-
-    let layout = ShaderGraphVertexBufferLayout {
-      array_stride: std::mem::size_of::<Self>() as u64,
-      step_mode: VertexStepMode::Vertex,
-      attributes: vec![
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: offset_of!(Self, position) as u64,
-          shader_location: builder.register_vertex_in::<GeometryLocalSpacePosition>(),
-        },
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: offset_of!(Self, normal) as u64,
-          shader_location: builder.register_vertex_in::<GeometryLocalSpaceNormal>(),
-        },
-        VertexAttribute {
-          format: VertexFormat::Float32x2,
-          offset: offset_of!(Self, uv) as u64,
-          shader_location: builder.register_vertex_in::<GeometryUV>(),
-        },
-      ],
-    };
-    builder.push_vertex_layout(layout);
   }
 }

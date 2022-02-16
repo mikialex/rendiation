@@ -23,5 +23,5 @@ rendiation-webgpu = {path = "../../../webgpu", optional = true}
 shadergraph = {path = "../../../shader/graph", optional = true}
 
 [features]
-sg = ["shadergraph"]
+shader = ["shadergraph"]
 webgpu = ["rendiation-webgpu"]
