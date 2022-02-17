@@ -1,5 +1,4 @@
 use crate::*;
-use std::marker::PhantomData;
 
 impl OperatorNode {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {

@@ -19,11 +19,6 @@ pub struct LineDash {
   pub view_scale: f32,
 }
 
-impl SemanticShaderUniform for LineMaterial {
-  const TYPE: SemanticBinding = SemanticBinding::Material;
-  type Node = Self;
-}
-
 pub struct LineMaterialGPU {
   uniform: UniformBuffer<LineMaterial>,
 }

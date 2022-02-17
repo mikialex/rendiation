@@ -3,7 +3,7 @@ pub use d2::*;
 pub mod cube;
 pub use cube::*;
 
-use crate::{Resource, ResourceRc};
+use crate::*;
 
 pub type GPUTexture = ResourceRc<wgpu::Texture>;
 
@@ -14,11 +14,11 @@ impl Resource for wgpu::Texture {
 
   type ViewDescriptor = wgpu::TextureViewDescriptor<'static>;
 
-  fn create_resource(desc: &Self::Descriptor, device: &wgpu::Device) -> Self {
+  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
     device.create_texture(desc)
   }
 
-  fn create_view(&self, desc: &Self::ViewDescriptor, device: &wgpu::Device) -> Self::View {
+  fn create_view(&self, desc: &Self::ViewDescriptor) -> Self::View {
     self.create_view(desc)
   }
 }

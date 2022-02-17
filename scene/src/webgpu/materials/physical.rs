@@ -13,11 +13,6 @@ pub struct PhysicalMaterialUniform {
   pub albedo: Vec3<f32>,
 }
 
-impl SemanticShaderUniform for PhysicalMaterialUniform {
-  const TYPE: SemanticBinding = SemanticBinding::Material;
-  type Node = Self;
-}
-
 pub struct PhysicalMaterialGPU {
   uniform: UniformBuffer<Vec3<f32>>,
   sampler: GPUSampler,
@@ -25,7 +20,7 @@ pub struct PhysicalMaterialGPU {
 }
 
 impl ShaderBindingProvider for PhysicalMaterialGPU {
-  fn setup_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
+  fn setup_binding(&self, builder: &mut BindingBuilder) {
     builder.setup_uniform(&self.uniform);
     builder.setup_uniform(&self.sampler);
     builder.setup_uniform(&self.texture);
@@ -38,7 +33,7 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     let uniform = builder
-      .register_uniform::<PhysicalMaterialUniform>()
+      .register_uniform_by(&self.uniform, SB::Material)
       .expand();
 
     let result = (uniform.albedo, 1.).into();

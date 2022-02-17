@@ -1,4 +1,4 @@
-use rendiation_texture_types::Size;
+use crate::*;
 
 pub struct GPUSurface {
   pub surface: wgpu::Surface,
@@ -9,7 +9,7 @@ pub struct GPUSurface {
 impl GPUSurface {
   pub fn new(
     adapter: &wgpu::Adapter,
-    device: &wgpu::Device,
+    device: &GPUDevice,
     surface: wgpu::Surface,
     size: Size,
   ) -> Self {
@@ -34,7 +34,7 @@ impl GPUSurface {
     }
   }
 
-  pub fn resize(&mut self, size: Size, device: &wgpu::Device) {
+  pub fn resize(&mut self, size: Size, device: &GPUDevice) {
     self.config.width = Into::<usize>::into(size.width) as u32;
     self.config.height = Into::<usize>::into(size.height) as u32;
     self.surface.configure(device, &self.config);

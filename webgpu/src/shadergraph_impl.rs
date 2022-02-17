@@ -2,8 +2,10 @@ use std::borrow::Cow;
 
 use shadergraph::*;
 
+use crate::{GPUDevice, GPURenderPipeline};
+
 pub fn create_bindgroup_layout_by_node_ty<'a>(
-  device: &wgpu::Device,
+  device: &GPUDevice,
   iter: impl Iterator<Item = (&'a ShaderValueType, wgpu::ShaderStages)>,
 ) -> wgpu::BindGroupLayout {
   let entries: Vec<_> = iter
@@ -42,14 +44,9 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
   })
 }
 
-pub struct GPURenderPipeline {
-  pub pipeline: wgpu::RenderPipeline,
-  pub bg_layouts: Vec<wgpu::BindGroupLayout>,
-}
-
 pub fn build_pipeline(
   builder: &dyn ShaderGraphProvider,
-  device: &wgpu::Device,
+  device: &GPUDevice,
 ) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
   let target = WGSL;
   let compile_result = build_shader(builder, &target)?;
@@ -122,10 +119,11 @@ pub fn build_pipeline(
     multiview: None,
   });
 
-  Ok(GPURenderPipeline {
-    pipeline,
-    bg_layouts: layouts,
-  })
+  // Ok(GPURenderPipeline {
+  //   pipeline,
+  //   bg_layouts: layouts,
+  // })
+  todo!()
 }
 
 pub fn convert_vertex_layout(layout: &ShaderGraphVertexBufferLayout) -> wgpu::VertexBufferLayout {

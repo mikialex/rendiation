@@ -6,7 +6,6 @@ pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let s = StructInfo::new(input);
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_shader_struct(&s));
-  // generated.append_all(derive_ubo_shadergraph_instance(&s));
   generated
 }
 
@@ -48,7 +47,7 @@ pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     impl shadergraph::ShaderGraphNodeType for #struct_name {
       fn to_type() -> shadergraph::ShaderValueType{
         shadergraph::ShaderValueType::Fixed(
-          ShaderStructMemberValueType::Struct(&#meta_info_name)
+          shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name)
         )
       }
     }

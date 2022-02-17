@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 pub use texture::*;
 pub mod texture;
 
@@ -13,10 +11,10 @@ use crate::*;
 
 pub struct ResourceViewContainer<T: Resource> {
   // when resource view is hold, the resource it self should keep existing
-  resource: ResourceRc<T>,
-  view: T::View,
-  guid: usize,
-  desc: T::ViewDescriptor,
+  pub resource: ResourceRc<T>,
+  pub view: T::View,
+  pub guid: usize,
+  pub desc: T::ViewDescriptor,
 }
 
 impl<T: Resource> std::ops::Deref for ResourceViewContainer<T> {
@@ -30,9 +28,9 @@ impl<T: Resource> std::ops::Deref for ResourceViewContainer<T> {
 /// store the resource with it's create parameter,
 /// and some dropping callbacks
 pub struct ResourceContainer<T: Resource> {
-  guid: usize,
-  resource: T,
-  desc: T::Descriptor,
+  pub guid: usize,
+  pub resource: T,
+  pub desc: T::Descriptor,
   /// when resource dropped, all referenced bindgroup should drop
   invalidation_tokens: RefCell<Vec<BindGroupCacheInvalidation>>,
 }
@@ -45,11 +43,12 @@ impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
   }
 }
 
+static RESOURCE_GUID: AtomicUsize = AtomicUsize::new(0);
 impl<T: Resource> ResourceContainer<T> {
-  pub fn create(desc: T::Descriptor, device: &wgpu::Device) -> Self {
+  pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self {
     let resource = T::create_resource(&desc, device);
     Self {
-      guid: todo!(),
+      guid: RESOURCE_GUID.fetch_add(1, Ordering::Relaxed),
       resource,
       desc,
       invalidation_tokens: Default::default(),
@@ -62,8 +61,8 @@ pub trait Resource: 'static {
   type View;
   type ViewDescriptor;
 
-  fn create_resource(des: &Self::Descriptor, device: &wgpu::Device) -> Self;
-  fn create_view(&self, des: &Self::ViewDescriptor, device: &wgpu::Device) -> Self::View;
+  fn create_resource(des: &Self::Descriptor, device: &GPUDevice) -> Self;
+  fn create_view(&self, des: &Self::ViewDescriptor) -> Self::View;
 }
 
 pub struct ResourceRc<T: Resource> {
@@ -116,20 +115,21 @@ where
   }
 }
 
+static RESOURCE_VIEW_GUID: AtomicUsize = AtomicUsize::new(0);
 impl<T: Resource> ResourceRc<T> {
   #[must_use]
-  pub fn create(desc: T::Descriptor, device: &wgpu::Device) -> Self {
+  pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self {
     Self {
       inner: Rc::new(ResourceContainer::create(desc, device)),
     }
   }
 
-  pub fn create_view(&self, desc: T::ViewDescriptor, device: &wgpu::Device) -> ResourceViewRc<T> {
-    let view = self.inner.resource.create_view(&desc, device);
+  pub fn create_view(&self, desc: T::ViewDescriptor) -> ResourceViewRc<T> {
+    let view = self.inner.resource.create_view(&desc);
     let inner = ResourceViewContainer {
       resource: self.clone(),
       view,
-      guid: todo!(),
+      guid: RESOURCE_VIEW_GUID.fetch_add(1, Ordering::Relaxed),
       desc,
     };
     ResourceViewRc {

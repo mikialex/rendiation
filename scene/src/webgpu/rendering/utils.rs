@@ -93,8 +93,3 @@ pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
   pub buffer_size: Vec2<f32>,
 }
-
-impl SemanticShaderUniform for RenderPassGPUInfoData {
-  const TYPE: SemanticBinding = SemanticBinding::Pass;
-  type Node = Self;
-}

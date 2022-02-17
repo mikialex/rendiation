@@ -3,6 +3,7 @@ use quote::quote;
 
 pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
   let s = StructInfo::new(&input);
+  let struct_name = &s.struct_name;
 
   let vertex_attributes: Vec<_> = s
     .fields_raw
@@ -21,7 +22,7 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
       quote! {
         VertexAttribute {
           format: < #ty as VertexInShaderGraphNodeType >::to_vertex_format(),
-          offset: offset_of!(Self, #field_name) as u64,
+          offset: shadergraph::offset_of!(Self, #field_name) as u64,
           shader_location: builder.register_vertex_in::<#token>(),
         },
       }
@@ -29,7 +30,7 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
     .collect();
 
   quote! {
-    impl shadergraph::ShaderGraphVertexInProvider for Vertex {
+    impl shadergraph::ShaderGraphVertexInProvider for #struct_name {
       fn provide_layout_and_vertex_in(
         builder: &mut shadergraph::ShaderGraphVertexBuilder,
         step_mode: shadergraph::VertexStepMode

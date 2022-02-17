@@ -1,5 +1,4 @@
 use crate::*;
-use rendiation_algebra::*;
 
 impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
   fn to_type() -> ShaderValueType {

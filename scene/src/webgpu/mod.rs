@@ -1,7 +1,7 @@
 // pub mod background;
 pub mod bindgroup;
 pub mod camera;
-pub mod lights;
+// pub mod lights;
 pub mod materials;
 pub mod mesh;
 pub mod model;
@@ -18,7 +18,7 @@ use std::{
 // pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
-pub use lights::*;
+// pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
 pub use model::*;
@@ -80,10 +80,10 @@ pub struct GPUResourceSubCache {
 
   // pub uniforms: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_2ds: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_cubes: ResourceMapper<WebGPUTextureCube, TextureCubeSource>,
+  pub texture_cubes: ResourceMapper<GPUTextureCube, TextureCubeSource>,
   pub samplers: SamplerCache<TextureSampler>,
 
-  pub pipeline_resource: PipelineResourceCache,
+  pub pipeline_resource: RenderPipelineCache,
   pub layouts: BindGroupLayoutCache,
   pub custom_storage: AnyMap,
 }

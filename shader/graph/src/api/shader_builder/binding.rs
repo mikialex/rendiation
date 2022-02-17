@@ -1,6 +1,39 @@
-use std::any::TypeId;
-
 use crate::*;
+
+#[derive(Clone, Copy)]
+pub enum SemanticBinding {
+  Global,
+  Camera,
+  Pass,
+  Material,
+  Object,
+}
+
+/// simple and wonderful
+pub type SB = SemanticBinding;
+
+impl SemanticBinding {
+  pub fn binding_index(&self) -> usize {
+    match self {
+      SemanticBinding::Global => 4,
+      SemanticBinding::Camera => 3,
+      SemanticBinding::Pass => 2,
+      SemanticBinding::Material => 1,
+      SemanticBinding::Object => 0,
+    }
+  }
+}
+
+impl From<SB> for usize {
+  fn from(v: SB) -> Self {
+    v.binding_index()
+  }
+}
+
+/// should impl by user's container ty
+pub trait ShaderUniformProvider: Any {
+  type Node: ShaderGraphNodeType;
+}
 
 pub struct ShaderGraphBindGroupBuilder {
   pub(crate) current_stage: ShaderStages,
@@ -88,25 +121,29 @@ impl ShaderGraphBindGroupBuilder {
   }
 
   #[inline]
-  pub fn register_uniform<T: SemanticShaderUniform>(&mut self) -> Node<T::Node> {
-    let node = self.register_uniform_inner(
-      TypeId::of::<T>(),
-      T::TYPE.binding_index(),
-      T::Node::to_type(),
-    );
+  pub fn register_uniform<T: ShaderUniformProvider>(
+    &mut self,
+    index: impl Into<usize>,
+  ) -> Node<T::Node> {
+    let node = self.register_uniform_inner(TypeId::of::<T>(), index.into(), T::Node::to_type());
     unsafe { node.cast_type() }
   }
 
   #[inline]
-  pub fn register_uniform_by<T: SemanticShaderUniform>(&mut self, _instance: &T) -> Node<T::Node> {
-    self.register_uniform::<T>()
+  pub fn register_uniform_by<T: ShaderUniformProvider>(
+    &mut self,
+    _instance: &T,
+    index: impl Into<usize>,
+  ) -> Node<T::Node> {
+    self.register_uniform::<T>(index)
   }
 
   #[inline]
-  pub fn query_uniform<T: SemanticShaderUniform>(
+  pub fn query_uniform<T: ShaderUniformProvider>(
     &mut self,
+    index: impl Into<usize>,
   ) -> Result<Node<T::Node>, ShaderGraphBuildError> {
-    let result = self.query_uniform_inner(TypeId::of::<T>(), T::TYPE.binding_index());
+    let result = self.query_uniform_inner(TypeId::of::<T>(), index.into());
     result.map(|n| unsafe { n.cast_type() })
   }
 }

@@ -1,9 +1,3 @@
-use std::{
-  num::NonZeroU32,
-  ops::{Deref, DerefMut},
-  rc::Rc,
-};
-
 use crate::*;
 
 pub struct GPUCommandEncoder {
@@ -27,7 +21,7 @@ impl DerefMut for GPUCommandEncoder {
 }
 
 impl GPUCommandEncoder {
-  pub fn new(encoder: wgpu::CommandEncoder, device: &wgpu::Device) -> Self {
+  pub fn new(encoder: wgpu::CommandEncoder, device: &GPUDevice) -> Self {
     let placeholder_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
       layout: &PlaceholderBindgroup::layout(device),
       entries: &[],
@@ -91,7 +85,7 @@ impl GPUCommandEncoder {
 
   pub fn copy_source_to_texture_2d(
     &mut self,
-    device: &wgpu::Device,
+    device: &GPUDevice,
     source: impl WebGPUTexture2dSource,
     target: &GPUTexture2d,
     origin: (u32, u32),

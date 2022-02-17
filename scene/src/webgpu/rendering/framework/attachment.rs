@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, rc::Rc};
 
 use rendiation_texture::Size;
-use rendiation_webgpu::{BindableResource, GPUTextureSize, TextureDimension, TextureUsages};
+use rendiation_webgpu::{GPUTextureSize, TextureDimension, TextureUsages};
 
 use crate::{RenderEngine, ResourcePool};
 

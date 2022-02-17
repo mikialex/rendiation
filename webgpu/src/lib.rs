@@ -1,43 +1,45 @@
-#![allow(incomplete_features)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
-#![allow(unreachable_code)]
-#![feature(adt_const_params)]
-
-mod cache;
+mod device;
 mod encoder;
 mod pass;
-mod pipeline;
-mod sampler;
-pub mod shadergraph_impl;
+mod resource;
+mod shadergraph_impl;
 mod surface;
 mod types;
 
-pub use cache::*;
+pub use device::*;
 pub use encoder::*;
 pub use pass::*;
-pub use pipeline::*;
-pub use sampler::*;
-pub use shadergraph_impl::*;
+pub use resource::*;
 pub use surface::*;
 pub use types::*;
-
-use std::cell::RefCell;
-
-use bytemuck::Pod;
-use rendiation_texture_types::Size;
-pub use wgpu::*;
-
-pub use resource::*;
-mod resource;
 
 pub use binding::*;
 mod binding;
 
+pub use pipeline::*;
+mod pipeline;
+
+use bytemuck::*;
+pub use wgpu::*;
+
+use std::{
+  cell::{Cell, RefCell},
+  collections::{hash_map::DefaultHasher, HashMap},
+  hash::{Hash, Hasher},
+  marker::PhantomData,
+  num::{NonZeroU32, NonZeroU8},
+  ops::{Deref, DerefMut},
+  rc::Rc,
+  sync::atomic::{AtomicUsize, Ordering},
+};
+
+use rendiation_texture_types::*;
+use wgpu::util::DeviceExt;
+
 pub struct GPU {
-  instance: wgpu::Instance,
-  adaptor: wgpu::Adapter,
-  pub device: wgpu::Device,
+  _instance: wgpu::Instance,
+  _adaptor: wgpu::Adapter,
+  pub device: GPUDevice,
   pub queue: wgpu::Queue,
   pub encoder: RefCell<GPUCommandEncoder>,
 }
@@ -61,10 +63,10 @@ impl SurfaceProvider for winit::window::Window {
 impl GPU {
   pub async fn new() -> Self {
     let backend = wgpu::Backends::PRIMARY;
-    let instance = wgpu::Instance::new(backend);
+    let _instance = wgpu::Instance::new(backend);
     let power_preference = wgpu::PowerPreference::HighPerformance;
 
-    let adaptor = instance
+    let _adaptor = _instance
       .request_adapter(&wgpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: None,
@@ -73,10 +75,12 @@ impl GPU {
       .await
       .expect("No suitable GPU adapters found on the system!");
 
-    let (device, queue) = adaptor
+    let (device, queue) = _adaptor
       .request_device(&wgpu::DeviceDescriptor::default(), None)
       .await
       .expect("Unable to find a suitable GPU device!");
+
+    let device = GPUDevice::new(device);
 
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
       label: "Main GPU encoder".into(),
@@ -86,8 +90,8 @@ impl GPU {
     let encoder = RefCell::new(encoder);
 
     Self {
-      instance,
-      adaptor,
+      _instance,
+      _adaptor,
       device,
       queue,
       encoder,
@@ -95,13 +99,13 @@ impl GPU {
   }
   pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
     let backend = wgpu::Backends::all();
-    let instance = wgpu::Instance::new(backend);
+    let _instance = wgpu::Instance::new(backend);
     let power_preference = wgpu::PowerPreference::HighPerformance;
 
-    let surface = surface_provider.create_surface(&instance);
+    let surface = surface_provider.create_surface(&_instance);
     let size = surface_provider.size();
 
-    let adaptor = instance
+    let _adaptor = _instance
       .request_adapter(&wgpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: Some(&surface),
@@ -110,19 +114,21 @@ impl GPU {
       .await
       .expect("No suitable GPU adapters found on the system!");
 
-    let (device, queue) = adaptor
+    let (device, queue) = _adaptor
       .request_device(
         &wgpu::DeviceDescriptor {
           label: None,
-          features: adaptor.features(),
-          limits: adaptor.limits(),
+          features: _adaptor.features(),
+          limits: _adaptor.limits(),
         },
         None,
       )
       .await
       .expect("Unable to find a suitable GPU device!");
 
-    let surface = GPUSurface::new(&adaptor, &device, surface, size);
+    let device = GPUDevice::new(device);
+
+    let surface = GPUSurface::new(&_adaptor, &device, surface, size);
 
     let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
       label: "Main GPU encoder".into(),
@@ -133,8 +139,8 @@ impl GPU {
 
     (
       Self {
-        instance,
-        adaptor,
+        _instance,
+        _adaptor,
         device,
         queue,
         encoder,
@@ -160,11 +166,6 @@ impl GPU {
   }
 }
 
-// pub trait VertexBufferSourceType {
-//   fn vertex_layout() -> VertexBufferLayoutOwned;
-//   fn get_shader_header() -> &'static str;
-// }
-
 pub trait IndexBufferSourceType: Pod {
   const FORMAT: wgpu::IndexFormat;
 }
@@ -176,20 +177,6 @@ impl IndexBufferSourceType for u32 {
 impl IndexBufferSourceType for u16 {
   const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint16;
 }
-
-// #[derive(Default)]
-// pub struct VertexBufferLayoutBuilder {
-//   step_mode: wgpu::VertexStepMode,
-//   layout: Vec<VertexBufferLayoutBuilderInner>,
-// }
-
-// impl VertexBufferLayoutBuilder {}
-
-// struct VertexBufferLayoutBuilderInner {
-//   shader_name: &'static str,
-//   format: wgpu::VertexFormat,
-//   offset: wgpu::BufferAddress,
-// }
 
 pub struct FrameTarget {
   pub size: Size,

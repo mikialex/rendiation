@@ -1,10 +1,3 @@
-use std::{
-  cell::RefCell,
-  collections::{hash_map::DefaultHasher, HashMap},
-  hash::{Hash, Hasher},
-  rc::Rc,
-};
-
 use crate::*;
 
 pub trait BindableResourceView {
@@ -14,7 +7,7 @@ pub trait BindableResourceView {
 pub struct PlaceholderBindgroup;
 
 impl PlaceholderBindgroup {
-  pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+  pub fn layout(device: &GPUDevice) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
       label: "PlaceholderBindgroup".into(),
       entries: &[],
@@ -22,7 +15,7 @@ impl PlaceholderBindgroup {
   }
 }
 
-pub struct BindGroupObject {
+pub struct GPUBindGroup {
   bg: Rc<wgpu::BindGroup>,
 }
 
@@ -30,15 +23,17 @@ pub trait ShaderBindingProvider {
   fn setup_binding(&self, builder: &mut BindingBuilder);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct BindGroupCache {
   cache: Rc<RefCell<HashMap<u64, Rc<wgpu::BindGroup>>>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct BindGroupLayoutCache {
-  cache: Rc<RefCell<HashMap<u64, Rc<wgpu::BindGroupLayout>>>>,
+  cache: Rc<RefCell<HashMap<u64, RawBindGroupLayout>>>,
 }
+
+pub type RawBindGroupLayout = Rc<wgpu::BindGroupLayout>;
 
 pub struct BindGroupCacheInvalidation {
   cache_id_to_drop: u64,
@@ -56,10 +51,6 @@ pub trait BindProvider: BindableResourceView {
   fn add_bind_record(&self, record: BindGroupCacheInvalidation);
 }
 
-pub struct ShaderBindingResult {
-  bindings: Vec<BindGroupObject>,
-}
-
 pub struct BindingBuilder {
   cache: BindGroupCache,
   items: [Vec<Box<dyn BindProvider>>; 5],
@@ -73,6 +64,10 @@ impl BindingBuilder {
     }
   }
 
+  pub fn reset(&mut self) {
+    //
+  }
+
   pub fn setup_uniform<T>(&mut self, group: usize, item: &ResourceViewRc<T>)
   where
     T: Resource,
@@ -84,13 +79,15 @@ impl BindingBuilder {
   pub fn setup_pass(
     &self,
     pass: &mut GPURenderPass,
-    device: &wgpu::Device,
+    device: &GPUDevice,
     pipeline: &GPURenderPipeline,
   ) {
     for (group_index, group) in self.items.iter().enumerate() {
       if group.is_empty() {
         pass.set_bind_group_placeholder(group_index as u32);
       }
+
+      let layout = &pipeline.bg_layouts[group_index];
 
       // hash
       let mut hasher = DefaultHasher::default();
@@ -116,7 +113,7 @@ impl BindingBuilder {
 
         let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
           label: None,
-          layout: &pipeline.bg_layouts[group_index],
+          layout: &layout,
           entries: &entries,
         });
         Rc::new(bindgroup)

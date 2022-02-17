@@ -1,13 +1,7 @@
-use std::{
-  any::{Any, TypeId},
-  collections::HashMap,
-};
-
 use crate::*;
 
 pub trait SemanticFragmentShaderValue: Any {
   type ValueType: ShaderGraphNodeType;
-  const NAME: &'static str = "unnamed";
 }
 
 pub struct ShaderGraphFragmentBuilder {

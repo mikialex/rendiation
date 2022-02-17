@@ -51,18 +51,13 @@ pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
 }
 
-impl SemanticShaderUniform for TransformGPUData {
-  const TYPE: SemanticBinding = SemanticBinding::Object;
-  type Node = Self;
-}
-
 impl ShaderGraphProvider for TransformGPU {
   fn build_vertex(
     &self,
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let model = builder.register_uniform::<TransformGPUData>().expand();
-    let position = builder.query::<LocalVertexPosition>()?.get_last();
+    let model = builder.register_uniform_by(&self.ubo, SB::Object).expand();
+    let position = builder.query::<GeometryPosition>()?.get_last();
     let position = model.world_matrix * (position, 0.).into();
     builder.register::<WorldVertexPosition>(position.xyz());
     Ok(())
@@ -70,7 +65,7 @@ impl ShaderGraphProvider for TransformGPU {
 }
 
 impl ShaderBindingProvider for TransformGPU {
-  fn setup_binding(&self, builder: &mut crate::BindingBuilder) {
+  fn setup_binding(&self, builder: &mut BindingBuilder) {
     // builder.setup_uniform(&self.ubo)
   }
 }

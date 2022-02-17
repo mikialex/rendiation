@@ -1,5 +1,7 @@
+use bytemuck::*;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
+use shadergraph::ShaderUniform;
 use webgpu::util::DeviceExt;
 use webgpu::*;
 
@@ -281,25 +283,13 @@ impl WebGPUxUIRenderer {
   }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+#[derive(Debug, Copy, Clone, ShaderUniform, Zeroable, Pod)]
 struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }
 
-unsafe impl bytemuck::Zeroable for UIGlobalParameter {}
-unsafe impl bytemuck::Pod for UIGlobalParameter {}
-
 impl UIGlobalParameter {
-  fn get_shader_header() -> &'static str {
-    "
-    struct UIGlobalParameter {
-      screen_size: vec2<f32>;
-    };
-    [[group(0), binding(0)]] 
-    var<uniform> ui_global_parameter: UIGlobalParameter;
-    "
-  }
-
   fn create_bind_group_layout(device: &webgpu::Device) -> webgpu::BindGroupLayout {
     device.create_bind_group_layout(&webgpu::BindGroupLayoutDescriptor {
       label: None,

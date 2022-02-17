@@ -12,15 +12,12 @@ pub use wrapper::*;
 pub mod semantic;
 pub use semantic::*;
 
-pub mod binding;
-pub use binding::*;
-
 // pub mod flat;
 // pub use flat::*;
 // pub mod line;
 // pub use line::*;
-// pub mod physical;
-// pub use physical::*;
+pub mod physical;
+pub use physical::*;
 // pub mod fatline;
 // pub use fatline::*;
 // pub mod env_background;
@@ -28,7 +25,7 @@ pub use binding::*;
 
 use rendiation_webgpu::{
   build_pipeline, BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher,
-  PipelineResourceCache, RenderPassInfo, GPU,
+  RenderPassInfo, RenderPipelineCache, GPU,
 };
 
 use crate::*;
@@ -206,7 +203,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
   ) -> Result<(), ShaderGraphBuildError> {
     builder
       .bindgroups
-      .register_uniform::<RenderPassGPUInfoData>();
+      .register_uniform::<RenderPassGPUInfoData>(SB::Pass);
     Ok(())
   }
 }
@@ -222,7 +219,7 @@ pub struct SceneMaterialRenderPrepareCtxBase<'a> {
 }
 
 impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceCache, PipelineCreateCtx) {
+  pub fn pipeline_ctx(&mut self) -> (&mut RenderPipelineCache, PipelineCreateCtx) {
     (
       &mut self.base.resources.pipeline_resource,
       PipelineCreateCtx {

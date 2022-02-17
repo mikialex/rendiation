@@ -1,5 +1,3 @@
-use rendiation_texture_types::CubeTextureFace;
-
 use crate::*;
 
 /// The wrapper type that make sure the inner desc
@@ -21,12 +19,12 @@ impl Resource for GPURawTextureCube {
 
   type ViewDescriptor = ();
 
-  fn create_resource(desc: &Self::Descriptor, device: &wgpu::Device) -> Self {
+  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
     let desc = &desc.desc;
     GPURawTextureCube(device.create_texture(desc))
   }
 
-  fn create_view(&self, desc: &Self::ViewDescriptor, device: &wgpu::Device) -> Self::View {
+  fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
     GPURawTextureCubeView(self.0.create_view(&wgpu::TextureViewDescriptor {
       dimension: Some(wgpu::TextureViewDimension::Cube),
       ..wgpu::TextureViewDescriptor::default()

@@ -65,7 +65,7 @@ impl ShaderGraphProvider for CameraGPU {
     &self,
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let camera = builder.register_uniform::<CameraGPUTransform>().expand();
+    let camera = builder.register_uniform_by(&self.ubo, SB::Camera).expand();
     let position = builder.query::<WorldVertexPosition>()?.get_last();
     builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
     Ok(())
@@ -78,11 +78,6 @@ pub struct CameraGPUTransform {
   projection: Mat4<f32>,
   rotation: Mat4<f32>,
   view: Mat4<f32>,
-}
-
-impl SemanticShaderUniform for CameraGPUTransform {
-  const TYPE: SemanticBinding = SemanticBinding::Camera;
-  type Node = Self;
 }
 
 impl CameraGPU {

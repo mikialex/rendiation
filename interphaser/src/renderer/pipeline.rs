@@ -1,5 +1,3 @@
-use webgpu::VertexBufferSourceType;
-
 use crate::{renderer::UIGlobalParameter, UIVertex};
 
 pub fn create_solid_pipeline(

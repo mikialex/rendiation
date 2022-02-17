@@ -1,4 +1,4 @@
-use rendiation_texture_types::Size;
+use crate::*;
 
 pub trait GPUTextureSize {
   fn into_gpu_size(self) -> wgpu::Extent3d;
@@ -12,12 +12,6 @@ impl GPUTextureSize for Size {
       depth_or_array_layers: 1,
     }
   }
-}
-
-pub struct RenderTarget {
-  attachments: Vec<(wgpu::Texture, wgpu::TextureFormat)>,
-  depth: Option<(wgpu::Texture, wgpu::TextureFormat)>,
-  size: Size,
 }
 
 #[derive(Copy, Clone)]

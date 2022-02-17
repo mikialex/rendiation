@@ -1,11 +1,4 @@
-use bytemuck::Pod;
-use std::{
-  cell::Cell,
-  marker::PhantomData,
-  ops::{Deref, DerefMut},
-};
-
-use crate::BindableResourceView;
+use crate::*;
 
 /// Typed wrapper
 pub struct UniformBuffer<T> {
@@ -14,8 +7,7 @@ pub struct UniformBuffer<T> {
 }
 
 impl<T: Pod> UniformBuffer<T> {
-  pub fn create(device: &wgpu::Device, data: T) -> Self {
-    use wgpu::util::DeviceExt;
+  pub fn create(device: &GPUDevice, data: T) -> Self {
     let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: bytemuck::cast_slice(&[data]),
@@ -65,15 +57,14 @@ impl<T> DerefMut for UniformBufferData<T> {
 }
 
 impl<T: Pod> UniformBufferData<T> {
-  pub fn create_default(device: &wgpu::Device) -> Self
+  pub fn create_default(device: &GPUDevice) -> Self
   where
     T: Default,
   {
     Self::create(device, T::default())
   }
 
-  pub fn create(device: &wgpu::Device, data: T) -> Self {
-    use wgpu::util::DeviceExt;
+  pub fn create(device: &GPUDevice, data: T) -> Self {
     let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: bytemuck::cast_slice(&[data]),
@@ -128,15 +119,14 @@ impl<T: Copy> DerefMut for UniformBufferDataWithCache<T> {
 }
 
 impl<T: Pod> UniformBufferDataWithCache<T> {
-  pub fn create_default(device: &wgpu::Device) -> Self
+  pub fn create_default(device: &GPUDevice) -> Self
   where
     T: Default,
   {
     Self::create(device, T::default())
   }
 
-  pub fn create(device: &wgpu::Device, data: T) -> Self {
-    use wgpu::util::DeviceExt;
+  pub fn create(device: &GPUDevice, data: T) -> Self {
     let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
       label: None,
       contents: bytemuck::cast_slice(&[data]),

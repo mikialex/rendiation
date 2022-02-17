@@ -20,7 +20,9 @@ rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
 rendiation-texture-packer = {path = "../components/texture/packer"}
 webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
+shadergraph = {path = "../shader/graph"}
 winit = {version = "0.26.0"}
+once_cell = "1.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.28"

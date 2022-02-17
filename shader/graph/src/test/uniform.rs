@@ -9,22 +9,19 @@ pub struct TestUniform {
   pub data3: Vec3<f32>,
 }
 
-impl SemanticShaderUniform for TestUniform {
-  const TYPE: SemanticBinding = SemanticBinding::Object;
+impl ShaderUniformProvider for TestUniform {
   type Node = Self;
 }
 
 pub struct FakeTexture2d;
 
-impl SemanticShaderUniform for FakeTexture2d {
-  const TYPE: SemanticBinding = SemanticBinding::Object;
+impl ShaderUniformProvider for FakeTexture2d {
   type Node = ShaderTexture;
 }
 
 pub struct FakeSampler;
 
-impl SemanticShaderUniform for FakeSampler {
-  const TYPE: SemanticBinding = SemanticBinding::Object;
+impl ShaderUniformProvider for FakeSampler {
   type Node = ShaderSampler;
 }
 
@@ -33,9 +30,9 @@ impl ShaderGraphProvider for TestUniform {
     &self,
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.register_uniform::<Self>().expand();
-    let tex = builder.register_uniform::<FakeTexture2d>();
-    let sampler = builder.register_uniform::<FakeSampler>();
+    let uniform = builder.register_uniform::<Self>(SB::Object).expand();
+    let tex = builder.register_uniform::<FakeTexture2d>(SB::Object);
+    let sampler = builder.register_uniform::<FakeSampler>(SB::Object);
 
     let color = tex.sample(sampler, uniform.data2);
     builder.vertex_position.set(color);
@@ -47,7 +44,11 @@ impl ShaderGraphProvider for TestUniform {
     &self,
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let value = (builder.query_uniform::<Self>()?.expand().data3, 1.).into();
+    let value = (
+      builder.query_uniform::<Self>(SB::Object)?.expand().data3,
+      1.,
+    )
+      .into();
     builder.set_fragment_out(0, value)?;
     Ok(())
   }

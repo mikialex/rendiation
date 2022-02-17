@@ -1,5 +1,4 @@
-use crate::{Node, PrimitiveShaderGraphNodeType, ShaderGraphNodeExpr, ShaderGraphNodeType};
-use rendiation_algebra::*;
+use crate::*;
 
 fn swizzle_node<I: ShaderGraphNodeType, T: ShaderGraphNodeType>(
   n: &Node<I>,

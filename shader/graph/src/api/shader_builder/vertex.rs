@@ -1,13 +1,7 @@
-use std::{
-  any::{Any, TypeId},
-  collections::HashMap,
-};
-
 use crate::*;
 
 pub trait SemanticVertexShaderValue: Any {
   type ValueType: ShaderGraphNodeType;
-  const NAME: &'static str = "unnamed";
 }
 
 /// Describes how the vertex buffer is interpreted.
@@ -150,6 +144,13 @@ impl ShaderGraphVertexBuilder {
       )
     });
     self.register::<T>(node);
+  }
+
+  pub fn register_vertex<V>(&mut self, step_mode: VertexStepMode)
+  where
+    V: ShaderGraphVertexInProvider,
+  {
+    V::provide_layout_and_vertex_in(self, step_mode)
   }
 }
 

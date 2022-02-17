@@ -11,11 +11,6 @@ pub struct FatLineMaterial {
   pub width: f32,
 }
 
-impl SemanticShaderUniform for FatLineMaterial {
-  const TYPE: SemanticBinding = SemanticBinding::Material;
-  type Node = Self;
-}
-
 impl Default for FatLineMaterial {
   fn default() -> Self {
     Self { width: 10. }

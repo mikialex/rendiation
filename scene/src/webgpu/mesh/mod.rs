@@ -2,7 +2,7 @@ use anymap::AnyMap;
 use rendiation_renderable_mesh::{
   group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, MeshGPU,
 };
-use rendiation_webgpu::{GPURenderPass, VertexBufferLayoutOwned, GPU};
+use rendiation_webgpu::{GPURenderPass, GPU};
 use shadergraph::ShaderGraphProvider;
 use std::{
   any::{Any, TypeId},
@@ -10,7 +10,6 @@ use std::{
 };
 
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
-use rendiation_webgpu::VertexBufferSourceType;
 
 pub mod fatline;
 pub use fatline::*;
@@ -24,10 +23,7 @@ pub trait GPUMeshLayoutSupport {
   type VertexInput;
 }
 
-impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
-where
-  V: VertexBufferSourceType,
-{
+impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>> {
   type VertexInput = Vec<V>;
 }
 
@@ -39,7 +35,6 @@ pub trait WebGPUMesh: ShaderGraphProvider + 'static {
     res: &GPUResourceSceneCache,
   );
   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache);
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
   // the reason we use CPS style is for supporting refcell
@@ -100,7 +95,6 @@ pub trait MeshCPUSource: Any {
     pass: &mut GPURenderPass<'a>,
     group: MeshDrawGroup,
   );
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned>;
 
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
@@ -176,10 +170,6 @@ where
     gpu.draw(pass, self.get_group(group).into())
   }
 
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
-    self.deref().vertex_layout()
-  }
-
   fn topology(&self) -> wgpu::PrimitiveTopology {
     self.deref().topology()
   }
@@ -210,10 +200,6 @@ impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
 
   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
     res.update_mesh(self, gpu, storage)
-  }
-
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
-    self.deref().vertex_layout()
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {
@@ -248,11 +234,6 @@ impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCell<
   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
     let inner = self.inner.borrow();
     res.update_mesh(&inner, gpu, storage)
-  }
-
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
-    let inner = self.inner.borrow();
-    inner.vertex_layout()
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {

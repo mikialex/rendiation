@@ -1,9 +1,3 @@
-use std::{
-  any::{Any, TypeId},
-  cell::UnsafeCell,
-  collections::HashMap,
-};
-
 use crate::*;
 
 pub mod binding;
@@ -112,32 +106,6 @@ pub struct ShaderGraphCompileResult {
   pub color_states: Vec<ColorTargetState>,
   pub depth_stencil: Option<DepthStencilState>,
   pub multisample: MultisampleState,
-}
-
-#[derive(Clone, Copy)]
-pub enum SemanticBinding {
-  Global,
-  Camera,
-  Pass,
-  Material,
-  Object,
-}
-
-impl SemanticBinding {
-  pub fn binding_index(&self) -> usize {
-    match self {
-      SemanticBinding::Global => 4,
-      SemanticBinding::Camera => 3,
-      SemanticBinding::Pass => 2,
-      SemanticBinding::Material => 1,
-      SemanticBinding::Object => 0,
-    }
-  }
-}
-
-pub trait SemanticShaderUniform: Any {
-  type Node: ShaderGraphNodeType;
-  const TYPE: SemanticBinding;
 }
 
 #[derive(Default)]

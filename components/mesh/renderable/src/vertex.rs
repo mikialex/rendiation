@@ -5,15 +5,15 @@ use std::{hash::Hash, mem};
 
 #[repr(C)]
 #[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
-#[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))]
+// #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))]
 pub struct Vertex {
-  #[cfg_attr(feature = "shader", semantic(GeometryLocalSpacePosition))]
+  // #[cfg_attr(feature = "shader", semantic(GeometryPosition))]
   pub position: Vec3<f32>,
 
-  #[cfg_attr(feature = "shader", semantic(GeometryLocalSpaceNormal))]
+  // #[cfg_attr(feature = "shader", semantic(GeometryNormal))]
   pub normal: Vec3<f32>,
 
-  #[cfg_attr(feature = "shader", semantic(GeometryUV))]
+  // #[cfg_attr(feature = "shader", semantic(GeometryUV))]
   pub uv: Vec2<f32>,
 }
 

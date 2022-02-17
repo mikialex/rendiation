@@ -53,7 +53,7 @@ impl MaterialBindableResourceUpdate for SceneTextureCube {
           let source = texture.as_ref();
           let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);
 
-          WebGPUTextureCube::create(device, desc)
+          GPUTextureCube::create(device, desc)
             .upload(queue, source[0].as_ref(), CubeTextureFace::PositiveX, 0)
             .upload(queue, source[1].as_ref(), CubeTextureFace::NegativeX, 0)
             .upload(queue, source[2].as_ref(), CubeTextureFace::PositiveY, 0)

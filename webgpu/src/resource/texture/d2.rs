@@ -1,6 +1,3 @@
-use rendiation_texture_types::{Size, TextureOrigin};
-use wgpu::util::DeviceExt;
-
 use crate::*;
 
 pub struct GPURawTexture2d(pub wgpu::Texture);
@@ -16,12 +13,12 @@ impl Resource for GPURawTexture2d {
 
   type ViewDescriptor = ();
 
-  fn create_resource(desc: &Self::Descriptor, device: &wgpu::Device) -> Self {
+  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
     let desc = &desc.desc;
     GPURawTexture2d(device.create_texture(desc))
   }
 
-  fn create_view(&self, desc: &Self::ViewDescriptor, device: &wgpu::Device) -> Self::View {
+  fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
     GPURawTexture2dView(self.0.create_view(&Default::default()))
   }
 }
@@ -130,7 +127,7 @@ pub trait WebGPUTexture2dSource {
   /// So we calculate padded_width by rounding width
   /// up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
   /// Return width with padding
-  fn create_upload_buffer(&self, device: &wgpu::Device) -> (wgpu::Buffer, Size) {
+  fn create_upload_buffer(&self, device: &GPUDevice) -> (wgpu::Buffer, Size) {
     let width: usize = self.size().width.into();
 
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
