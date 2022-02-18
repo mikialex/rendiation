@@ -1,8 +1,14 @@
 use crate::*;
 use rendiation_texture::Size;
 use std::rc::Rc;
-use webgpu::{FrameTarget, GPUTextureSize, GPU};
+use webgpu::{GPUTextureSize, GPU};
 use winit::event::Event;
+
+pub struct FrameTarget {
+  pub size: Size,
+  pub format: webgpu::TextureFormat,
+  pub view: std::rc::Rc<webgpu::TextureView>,
+}
 
 pub struct GPUCanvas {
   current_render_buffer_size: Size,

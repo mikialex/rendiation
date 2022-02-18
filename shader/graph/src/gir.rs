@@ -146,7 +146,7 @@ pub struct ShaderTexture;
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum PrimitiveShaderValueType {
   Bool,
   Uint32,
@@ -229,7 +229,7 @@ impl ShaderFunctionMetaInfo {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
   Sampler,
@@ -237,7 +237,7 @@ pub enum ShaderValueType {
   Never,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum ShaderStructMemberValueType {
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
@@ -248,6 +248,12 @@ pub enum ShaderStructMemberValueType {
 pub struct ShaderStructMetaInfo {
   pub name: &'static str,
   pub fields: Vec<ShaderStructFieldMetaInfo>,
+}
+
+impl PartialEq for ShaderStructMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name
+  }
 }
 
 /// https://www.w3.org/TR/WGSL/#builtin-values

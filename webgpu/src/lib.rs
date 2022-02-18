@@ -2,7 +2,6 @@ mod device;
 mod encoder;
 mod pass;
 mod resource;
-mod shadergraph_impl;
 mod surface;
 mod types;
 
@@ -23,6 +22,7 @@ use bytemuck::*;
 pub use wgpu::*;
 
 use std::{
+  borrow::Cow,
   cell::{Cell, RefCell},
   collections::{hash_map::DefaultHasher, HashMap},
   hash::{Hash, Hasher},
@@ -34,6 +34,7 @@ use std::{
 };
 
 use rendiation_texture_types::*;
+use typed_arena::Arena;
 use wgpu::util::DeviceExt;
 
 pub struct GPU {
@@ -41,23 +42,6 @@ pub struct GPU {
   _adaptor: wgpu::Adapter,
   pub device: GPUDevice,
   pub queue: wgpu::Queue,
-  pub encoder: RefCell<GPUCommandEncoder>,
-}
-
-pub trait SurfaceProvider {
-  fn create_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface;
-  fn size(&self) -> Size;
-}
-
-impl SurfaceProvider for winit::window::Window {
-  fn create_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface {
-    unsafe { instance.create_surface(self) }
-  }
-
-  fn size(&self) -> Size {
-    let size = self.inner_size();
-    Size::from_u32_pair_min_one((size.width, size.height))
-  }
 }
 
 impl GPU {
@@ -82,19 +66,11 @@ impl GPU {
 
     let device = GPUDevice::new(device);
 
-    let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-      label: "Main GPU encoder".into(),
-    });
-    let encoder = GPUCommandEncoder::new(encoder, &device);
-
-    let encoder = RefCell::new(encoder);
-
     Self {
       _instance,
       _adaptor,
       device,
       queue,
-      encoder,
     }
   }
   pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
@@ -130,38 +106,25 @@ impl GPU {
 
     let surface = GPUSurface::new(&_adaptor, &device, surface, size);
 
-    let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-      label: "Main GPU encoder".into(),
-    });
-    let encoder = GPUCommandEncoder::new(encoder, &device);
-
-    let encoder = RefCell::new(encoder);
-
     (
       Self {
         _instance,
         _adaptor,
         device,
         queue,
-        encoder,
       },
       surface,
     )
   }
 
-  pub fn submit(&self) {
+  pub fn create_encoder(&self) -> GPUCommandEncoder {
     let encoder = self
       .device
-      .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: "Main GPU encoder".into(),
-      });
-    let mut encoder = GPUCommandEncoder::new(encoder, &self.device);
+      .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    GPUCommandEncoder::new(encoder, &self.device)
+  }
 
-    let mut current_encoder = self.encoder.borrow_mut();
-    let current_encoder: &mut GPUCommandEncoder = &mut current_encoder;
-
-    std::mem::swap(current_encoder, &mut encoder);
-
+  pub fn submit_encoder(&self, encoder: GPUCommandEncoder) {
     self.queue.submit(Some(encoder.finish()));
   }
 }
@@ -176,10 +139,4 @@ impl IndexBufferSourceType for u32 {
 
 impl IndexBufferSourceType for u16 {
   const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint16;
-}
-
-pub struct FrameTarget {
-  pub size: Size,
-  pub format: wgpu::TextureFormat,
-  pub view: std::rc::Rc<wgpu::TextureView>,
 }

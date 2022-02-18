@@ -30,18 +30,39 @@ impl GPUDevice {
   pub fn create_and_cache_render_pipeline(
     &self,
     hasher: PipelineHasher,
-    creator: impl FnOnce(&wgpu::Device, &BindGroupLayoutCache) -> GPURenderPipeline,
+    creator: impl FnOnce(&Self) -> GPURenderPipeline,
   ) -> GPURenderPipeline {
-    self.inner.pipeline_cache.get_or_insert_with(hasher, || {
-      creator(&self.inner.device, &self.inner.bindgroup_layout_cache)
-    })
+    self
+      .inner
+      .pipeline_cache
+      .get_or_insert_with(hasher, || creator(&self))
   }
 
   pub fn create_and_cache_bindgroup_layout(
     &self,
     layouts: &[BindGroupLayoutEntry],
-  ) -> RawBindGroupLayout {
-    todo!()
+  ) -> GPUBindGroupLayout {
+    let mut hasher = DefaultHasher::default();
+    layouts.hash(&mut hasher);
+    let key = hasher.finish();
+
+    self
+      .inner
+      .bindgroup_layout_cache
+      .cache
+      .borrow_mut()
+      .entry(key)
+      .or_insert_with(|| {
+        let inner = self.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+          label: None,
+          entries: layouts,
+        });
+        GPUBindGroupLayout {
+          inner: Rc::new(inner),
+          cache_id: key,
+        }
+      })
+      .clone()
   }
 
   pub fn create_binding_builder(&self) -> BindingBuilder {

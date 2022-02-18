@@ -38,6 +38,7 @@ impl<T> BindableResourceView for UniformBuffer<T> {
 pub struct UniformBufferData<T> {
   gpu: wgpu::Buffer,
   data: T,
+  last: Cell<Option<T>>,
   changed: Cell<bool>,
 }
 
@@ -74,12 +75,29 @@ impl<T: Pod> UniformBufferData<T> {
       gpu,
       data,
       changed: Cell::new(false),
+      last: Default::default(),
     }
   }
 
   pub fn update(&self, queue: &wgpu::Queue) {
     if self.changed.get() {
       queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[self.data]));
+      self.changed.set(false);
+      self.last.set(self.data.into());
+    }
+  }
+
+  pub fn update_with_diff(&self, queue: &wgpu::Queue)
+  where
+    T: PartialEq,
+  {
+    if self.changed.get() {
+      if let Some(last) = self.last.get() {
+        if last != self.data {
+          queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[self.data]))
+        }
+        self.last.set(self.data.into());
+      } // if last is none, means we use init value, not need update
       self.changed.set(false);
     }
   }
@@ -90,73 +108,6 @@ impl<T: Pod> UniformBufferData<T> {
 }
 
 impl<T> BindableResourceView for UniformBufferData<T> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    self.gpu.as_entire_binding()
-  }
-}
-
-pub struct UniformBufferDataWithCache<T> {
-  gpu: wgpu::Buffer,
-  data: T,
-  last: Cell<Option<T>>, // maybe unsafe cell?
-}
-
-impl<T> Deref for UniformBufferDataWithCache<T> {
-  type Target = T;
-
-  fn deref(&self) -> &Self::Target {
-    &self.data
-  }
-}
-
-impl<T: Copy> DerefMut for UniformBufferDataWithCache<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    if self.last.get().is_none() {
-      self.last.set(self.data.into())
-    }
-    &mut self.data
-  }
-}
-
-impl<T: Pod> UniformBufferDataWithCache<T> {
-  pub fn create_default(device: &GPUDevice) -> Self
-  where
-    T: Default,
-  {
-    Self::create(device, T::default())
-  }
-
-  pub fn create(device: &GPUDevice, data: T) -> Self {
-    let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: None,
-      contents: bytemuck::cast_slice(&[data]),
-      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-    });
-    Self {
-      gpu,
-      data,
-      last: Cell::new(None),
-    }
-  }
-
-  pub fn update(&self, queue: &wgpu::Queue)
-  where
-    T: PartialEq,
-  {
-    if let Some(last) = self.last.get() {
-      if last != self.data {
-        queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[self.data]))
-      }
-      self.last.set(None)
-    }
-  }
-
-  pub fn gpu(&self) -> &wgpu::Buffer {
-    &self.gpu
-  }
-}
-
-impl<T> BindableResourceView for UniformBufferDataWithCache<T> {
   fn as_bindable(&self) -> wgpu::BindingResource {
     self.gpu.as_entire_binding()
   }

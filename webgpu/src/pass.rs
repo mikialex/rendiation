@@ -53,9 +53,6 @@ impl<'a> DerefMut for GPURenderPass<'a> {
   }
 }
 
-use rendiation_texture_types::Size;
-use typed_arena::Arena;
-
 #[derive(Default)]
 pub struct GPURenderPassDataHolder {
   buffers: Arena<Rc<wgpu::Buffer>>,

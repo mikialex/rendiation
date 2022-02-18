@@ -22,6 +22,7 @@ impl DerefMut for GPUCommandEncoder {
 
 impl GPUCommandEncoder {
   pub fn new(encoder: wgpu::CommandEncoder, device: &GPUDevice) -> Self {
+    // todo cache this
     let placeholder_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
       layout: &PlaceholderBindgroup::layout(device),
       entries: &[],

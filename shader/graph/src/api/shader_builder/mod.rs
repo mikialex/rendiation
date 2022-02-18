@@ -15,6 +15,7 @@ pub use builtin::*;
 pub enum ShaderGraphBuildError {
   MissingRequiredDependency,
   FragmentOutputSlotNotDeclared,
+  FailedDowncastShaderValueFromInput,
 }
 
 /// The reason why we use two function is that the build process

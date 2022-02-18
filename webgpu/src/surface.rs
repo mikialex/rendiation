@@ -1,5 +1,21 @@
 use crate::*;
 
+pub trait SurfaceProvider {
+  fn create_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface;
+  fn size(&self) -> Size;
+}
+
+impl SurfaceProvider for winit::window::Window {
+  fn create_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface {
+    unsafe { instance.create_surface(self) }
+  }
+
+  fn size(&self) -> Size {
+    let size = self.inner_size();
+    Size::from_u32_pair_min_one((size.width, size.height))
+  }
+}
+
 pub struct GPUSurface {
   pub surface: wgpu::Surface,
   pub config: wgpu::SurfaceConfiguration,

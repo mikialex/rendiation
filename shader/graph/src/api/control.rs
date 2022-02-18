@@ -20,6 +20,7 @@ impl From<u32> for ShaderIteratorAble {
   }
 }
 
+#[inline(never)]
 pub fn for_by<T>(iterable: impl Into<ShaderIteratorAble>, logic: impl Fn(&ForCtx, Node<T>))
 where
   T: ShaderGraphNodeType,
@@ -46,6 +47,7 @@ where
   });
 }
 
+#[inline(never)]
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   let condition = condition.into();
   modify_graph(|builder| {

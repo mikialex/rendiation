@@ -15,10 +15,6 @@ impl PlaceholderBindgroup {
   }
 }
 
-pub struct GPUBindGroup {
-  bg: Rc<wgpu::BindGroup>,
-}
-
 pub trait ShaderBindingProvider {
   fn setup_binding(&self, builder: &mut BindingBuilder);
 }
@@ -30,10 +26,14 @@ pub struct BindGroupCache {
 
 #[derive(Clone, Default)]
 pub struct BindGroupLayoutCache {
-  cache: Rc<RefCell<HashMap<u64, RawBindGroupLayout>>>,
+  pub cache: Rc<RefCell<HashMap<u64, GPUBindGroupLayout>>>,
 }
 
-pub type RawBindGroupLayout = Rc<wgpu::BindGroupLayout>;
+#[derive(Clone)]
+pub struct GPUBindGroupLayout {
+  pub(crate) inner: Rc<wgpu::BindGroupLayout>,
+  pub(crate) cache_id: u64,
+}
 
 pub struct BindGroupCacheInvalidation {
   cache_id_to_drop: u64,
@@ -93,9 +93,8 @@ impl BindingBuilder {
       let mut hasher = DefaultHasher::default();
       group.iter().for_each(|b| {
         b.view_id().hash(&mut hasher);
-        // todo hash bind ty
-        // hash ty could only hash the bindgroup layout guid
       });
+      layout.cache_id.hash(&mut hasher);
       let hash = hasher.finish();
 
       let mut cache = self.cache.cache.borrow_mut();
@@ -113,7 +112,7 @@ impl BindingBuilder {
 
         let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
           label: None,
-          layout: &layout,
+          layout: layout.inner.as_ref(),
           entries: &entries,
         });
         Rc::new(bindgroup)
