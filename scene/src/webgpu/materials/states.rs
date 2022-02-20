@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use rendiation_webgpu::PassTargetFormatInfo;
+use rendiation_webgpu::{PassTargetFormatInfo, PipelineHasher};
 use shadergraph::ShaderGraphFragmentBuilder;
 
 use crate::ValueIDGenerator;

@@ -6,12 +6,19 @@ impl BindableResourceView for wgpu::Sampler {
   }
 }
 
+impl BindableResourceView for RawSampler {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::Sampler(self.as_ref())
+  }
+}
+
 pub type GPUSampler = ResourceRc<RawSampler>;
+pub type GPUSamplerView = ResourceViewRc<RawSampler>;
 
 impl Resource for RawSampler {
   type Descriptor = wgpu::SamplerDescriptor<'static>;
 
-  type View = ();
+  type View = RawSampler;
 
   type ViewDescriptor = ();
 
@@ -19,7 +26,9 @@ impl Resource for RawSampler {
     device.create_and_cache_sampler(desc.clone())
   }
 
-  fn create_view(&self, _: &Self::ViewDescriptor) -> Self::View {}
+  fn create_view(&self, _: &Self::ViewDescriptor) -> Self::View {
+    self.clone()
+  }
 }
 
 /// make desc hashable

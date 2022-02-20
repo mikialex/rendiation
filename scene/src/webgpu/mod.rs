@@ -30,7 +30,6 @@ pub use texture::*;
 use anymap::AnyMap;
 use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
-use rendiation_texture::TextureSampler;
 
 use rendiation_webgpu::*;
 
@@ -79,12 +78,9 @@ pub struct GPUResourceSubCache {
   pub nodes: NodeGPUStore,
 
   // pub uniforms: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_2ds: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_cubes: ResourceMapper<GPUTextureCube, TextureCubeSource>,
-  pub samplers: SamplerCache<TextureSampler>,
+  pub texture_2ds: ResourceMapper<GPUTexture2dView, Box<dyn WebGPUTexture2dSource>>,
+  pub texture_cubes: ResourceMapper<GPUTextureCubeView, TextureCubeSource>,
 
-  pub pipeline_resource: RenderPipelineCache,
-  pub layouts: BindGroupLayoutCache,
   pub custom_storage: AnyMap,
 }
 
@@ -100,9 +96,6 @@ impl Default for GPUResourceSubCache {
       texture_2ds: Default::default(),
       texture_cubes: Default::default(),
       cameras: Default::default(),
-      samplers: Default::default(),
-      pipeline_resource: Default::default(),
-      layouts: Default::default(),
       custom_storage: AnyMap::new(),
       nodes: Default::default(),
     }

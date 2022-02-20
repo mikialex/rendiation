@@ -14,14 +14,9 @@ rendiation-geometry = {path = "../../../math/geometry"}
 
 space-algorithm = {path = "../../space"}
 
-# rendiation-derives = {path = "../derives", optional = true}
-# rendiation-shadergraph = {path = "../shader-graph", optional = true}
-# rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
-
 log = "0.4"
 rendiation-webgpu = {path = "../../../webgpu", optional = true}
-shadergraph = {path = "../../../shader/graph", optional = true}
+shadergraph = {path = "../../../shader/graph"}
 
 [features]
-shader = ["shadergraph"]
 webgpu = ["rendiation-webgpu"]

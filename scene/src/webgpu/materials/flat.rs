@@ -15,25 +15,6 @@ pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
 
-pub struct MaterialUniform<T> {
-  pub inner: UniformBuffer<T>,
-}
-
-impl<T: ShaderGraphNodeType> ShaderUniformProvider for MaterialUniform<T> {
-  const TYPE: SemanticBinding = SemanticBinding::Material;
-  type Node = T;
-}
-
-impl<T> BindProvider for MaterialUniform<T> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    self.inner.as_bindable()
-  }
-
-  fn add_bind_record(&self, record: BindGroupCacheInvalidation) {
-    todo!()
-  }
-}
-
 impl ShaderBindingProvider for FlatMaterialGPU {
   fn setup_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
     builder.setup_uniform(&self.uniform);

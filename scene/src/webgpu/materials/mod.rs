@@ -30,7 +30,7 @@ pub trait MaterialMeshLayoutRequire {
 }
 
 pub trait ShaderHashProvider {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher);
+  fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
 }
 
 pub trait RenderPassBuilder {
@@ -196,38 +196,16 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
   ) -> Result<(), ShaderGraphBuildError> {
     builder
       .bindgroups
-      .register_uniform::<RenderPassGPUInfoData>(SB::Pass);
+      .register_uniform::<UniformBuffer<RenderPassGPUInfoData>>(SB::Pass);
     Ok(())
   }
 }
-impl ShaderGraphProvider for DefaultPassDispatcher {}
 
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub camera: &'a SceneCamera,
   pub pass_info: &'a RenderPassInfo,
   pub pass: &'a dyn PassDispatcher,
   pub resources: &'a mut GPUResourceSubCache,
-}
-
-impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub fn pipeline_ctx(&mut self) -> (&mut RenderPipelineCache, PipelineCreateCtx) {
-    (
-      &mut self.base.resources.pipeline_resource,
-      PipelineCreateCtx {
-        layouts: &self.base.resources.layouts,
-        active_mesh: self.active_mesh,
-        pass_info: self.base.pass_info,
-        pass: self.base.pass,
-      },
-    )
-  }
-}
-
-pub struct PipelineCreateCtx<'a, 'b> {
-  pub layouts: &'a BindGroupLayoutCache,
-  pub active_mesh: Option<&'a dyn WebGPUMesh>,
-  pub pass_info: &'b RenderPassInfo,
-  pub pass: &'b dyn PassDispatcher,
 }
 
 pub struct SceneMaterialPassSetupCtx<'a> {

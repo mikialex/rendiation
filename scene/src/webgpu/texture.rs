@@ -7,16 +7,22 @@ pub trait MaterialBindableResourceUpdate {
   fn update<'a>(
     &self,
     resources: &'a mut GPUResourceSubCache,
-    device: &wgpu::Device,
+    device: &GPUDevice,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a>;
 }
+
+// impl GPUResourceSubCache {
+//   pub fn update_texture(&mut self, tex: &SceneTexture2D, target: &mut GPUTexture2dView) {
+//     //
+//   }
+// }
 
 impl MaterialBindableResourceUpdate for SceneTexture2D {
   fn update<'a>(
     &self,
     resources: &'a mut GPUResourceSubCache,
-    device: &wgpu::Device,
+    device: &GPUDevice,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a> {
     let texture = self.content.borrow();
@@ -28,7 +34,7 @@ impl MaterialBindableResourceUpdate for SceneTexture2D {
           let source = texture.as_ref();
           let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
-          GPUTexture2d::create(device, desc).upload_into(queue, source, 0)
+          GPUTexture2d::create(desc, device).upload_into(queue, source, 0)
         },
         |_, _| {},
       )
@@ -40,7 +46,7 @@ impl MaterialBindableResourceUpdate for SceneTextureCube {
   fn update<'a>(
     &self,
     resources: &'a mut GPUResourceSubCache,
-    device: &wgpu::Device,
+    device: &GPUDevice,
     queue: &wgpu::Queue,
   ) -> wgpu::BindingResource<'a> {
     let texture = self.content.borrow();
@@ -53,7 +59,7 @@ impl MaterialBindableResourceUpdate for SceneTextureCube {
           let source = texture.as_ref();
           let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);
 
-          GPUTextureCube::create(device, desc)
+          GPUTextureCube::create(desc, device)
             .upload(queue, source[0].as_ref(), CubeTextureFace::PositiveX, 0)
             .upload(queue, source[1].as_ref(), CubeTextureFace::NegativeX, 0)
             .upload(queue, source[2].as_ref(), CubeTextureFace::PositiveY, 0)

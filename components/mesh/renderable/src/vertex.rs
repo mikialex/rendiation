@@ -4,16 +4,19 @@ use rendiation_geometry::Positioned;
 use std::{hash::Hash, mem};
 
 #[repr(C)]
-#[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
-// #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))]
+#[derive(Clone, Copy, soa_derive::StructOfArray, Debug, shadergraph::ShaderVertex)]
+// #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))] // todo, figure out how to use with feature gate
 pub struct Vertex {
   // #[cfg_attr(feature = "shader", semantic(GeometryPosition))]
+  #[semantic(GeometryPosition)]
   pub position: Vec3<f32>,
 
   // #[cfg_attr(feature = "shader", semantic(GeometryNormal))]
+  #[semantic(GeometryNormal)]
   pub normal: Vec3<f32>,
 
   // #[cfg_attr(feature = "shader", semantic(GeometryUV))]
+  #[semantic(GeometryUV)]
   pub uv: Vec2<f32>,
 }
 

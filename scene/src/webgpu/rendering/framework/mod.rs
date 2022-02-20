@@ -16,7 +16,8 @@ pub struct RenderEngine {
   pass_cache: RefCell<PassGPUDataCache>,
   gpu: Rc<GPU>,
   msaa_sample_count: u32,
-  pub output: Option<FrameTarget>,
+  // encoder: GPUCommandEncoder,
+  pub output: Option<GPUTexture2dView>,
 }
 
 impl RenderEngine {

@@ -76,12 +76,12 @@ impl BindingBuilder {
     self.items.iter_mut().for_each(|item| item.clear());
   }
 
-  pub fn setup_uniform<T>(&mut self, group: usize, item: &ResourceViewRc<T>)
+  pub fn setup_uniform<T>(&mut self, item: &ResourceViewRc<T>, group: impl Into<usize>)
   where
     T: Resource,
     T::View: BindableResourceView,
   {
-    self.items[group].push(Box::new(item.clone()))
+    self.items[group.into()].push(Box::new(item.clone()))
   }
 
   pub fn setup_pass(

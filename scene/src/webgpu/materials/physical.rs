@@ -13,17 +13,19 @@ pub struct PhysicalMaterialUniform {
   pub albedo: Vec3<f32>,
 }
 
+impl ShaderHashProvider for PhysicalMaterialGPU {}
+
 pub struct PhysicalMaterialGPU {
-  uniform: UniformBuffer<Vec3<f32>>,
-  sampler: GPUSampler,
-  texture: GPUTexture,
+  uniform: UniformBuffer<PhysicalMaterialUniform>,
+  sampler: GPUSamplerView,
+  texture: GPUTexture2dView,
 }
 
 impl ShaderBindingProvider for PhysicalMaterialGPU {
   fn setup_binding(&self, builder: &mut BindingBuilder) {
-    builder.setup_uniform(&self.uniform);
-    builder.setup_uniform(&self.sampler);
-    builder.setup_uniform(&self.texture);
+    builder.setup_uniform(&self.uniform, SB::Material);
+    builder.setup_uniform(&self.sampler, SB::Material);
+    builder.setup_uniform(&self.texture, SB::Material);
   }
 }
 
@@ -36,7 +38,13 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
       .register_uniform_by(&self.uniform, SB::Material)
       .expand();
 
-    let result = (uniform.albedo, 1.).into();
+    let albedo_tex = builder.register_uniform_by(&self.texture, SB::Material);
+    let sampler = builder.register_uniform_by(&self.sampler, SB::Material);
+
+    let uv = builder.query::<FragmentUv>()?.get();
+    let albedo = albedo_tex.sample(sampler, uv).xyz() * uniform.albedo;
+
+    let result = (albedo, 1.).into();
 
     builder.set_fragment_out(0, result);
     Ok(())

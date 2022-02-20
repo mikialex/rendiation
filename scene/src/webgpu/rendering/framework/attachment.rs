@@ -107,38 +107,38 @@ pub struct AttachmentReadView<'a, F: AttachmentFormat> {
   pub(super) view: Rc<wgpu::TextureView>,
 }
 
-impl<'a, F: AttachmentFormat> BindableResource for AttachmentReadView<'a, F> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(self.view.as_ref())
-  }
+// impl<'a, F: AttachmentFormat> BindableResource for AttachmentReadView<'a, F> {
+//   fn as_bindable(&self) -> wgpu::BindingResource {
+//     wgpu::BindingResource::TextureView(self.view.as_ref())
+//   }
 
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Texture {
-      multisampled: false,
-      sample_type: wgpu::TextureSampleType::Float { filterable: true },
-      view_dimension: wgpu::TextureViewDimension::D2,
-    }
-  }
-}
+//   fn bind_layout() -> wgpu::BindingType {
+//     wgpu::BindingType::Texture {
+//       multisampled: false,
+//       sample_type: wgpu::TextureSampleType::Float { filterable: true },
+//       view_dimension: wgpu::TextureViewDimension::D2,
+//     }
+//   }
+// }
 
 pub struct AttachmentOwnedReadView<F: AttachmentFormat> {
   _att: Attachment<F>,
   view: Rc<wgpu::TextureView>,
 }
 
-impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(self.view.as_ref())
-  }
+// impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
+//   fn as_bindable(&self) -> wgpu::BindingResource {
+//     wgpu::BindingResource::TextureView(self.view.as_ref())
+//   }
 
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Texture {
-      multisampled: false,
-      sample_type: wgpu::TextureSampleType::Float { filterable: true },
-      view_dimension: wgpu::TextureViewDimension::D2,
-    }
-  }
-}
+//   fn bind_layout() -> wgpu::BindingType {
+//     wgpu::BindingType::Texture {
+//       multisampled: false,
+//       sample_type: wgpu::TextureSampleType::Float { filterable: true },
+//       view_dimension: wgpu::TextureViewDimension::D2,
+//     }
+//   }
+// }
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor<F> {
