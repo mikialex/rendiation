@@ -179,8 +179,8 @@ pub struct WebGPUxUIRenderer {
 }
 
 pub struct UIxGPUxResource {
-  solid_color_pipeline: webgpu::RenderPipeline,
-  texture_pipeline: webgpu::RenderPipeline,
+  solid_color_pipeline: webgpu::GPURenderPipeline,
+  texture_pipeline: webgpu::GPURenderPipeline,
   global_ui_state: UniformBufferData<UIGlobalParameter>,
   texture_bg_layout: webgpu::BindGroupLayout,
   sampler: webgpu::Sampler,
@@ -211,15 +211,13 @@ impl WebGPUxUIRenderer {
 
     let texture_bg_layout = TextureBindGroup::create_bind_group_layout(device);
 
-    let solid_color_pipeline =
-      create_solid_pipeline(device, target_format, &global_uniform_bind_group_layout);
+    let solid_color_pipeline = device
+      .build_pipeline_by_shadergraph(&SolidUIPipeline { target_format })
+      .unwrap();
 
-    let texture_pipeline = create_texture_pipeline(
-      device,
-      target_format,
-      &global_uniform_bind_group_layout,
-      &texture_bg_layout,
-    );
+    let texture_pipeline = device
+      .build_pipeline_by_shadergraph(&TextureUIPipeline { target_format })
+      .unwrap();
 
     let text_renderer = TextRenderer::new(
       device,

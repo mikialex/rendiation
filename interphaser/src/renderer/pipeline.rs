@@ -57,16 +57,6 @@ impl ShaderGraphProvider for SolidUIPipeline {
   }
 }
 
-pub fn create_solid_pipeline(
-  device: &webgpu::GPUDevice,
-  target_format: webgpu::TextureFormat,
-  global_uniform_bind_group_layout: &webgpu::BindGroupLayout,
-) -> webgpu::GPURenderPipeline {
-  device
-    .build_pipeline_by_shadergraph(&SolidUIPipeline { target_format })
-    .unwrap()
-}
-
 pub struct TextureBindGroup {
   pub bindgroup: webgpu::BindGroup,
 }
@@ -132,99 +122,60 @@ impl TextureBindGroup {
   }
 }
 
-pub fn create_texture_pipeline(
-  device: &webgpu::Device,
+pub struct TextureUIPipeline {
   target_format: webgpu::TextureFormat,
-  global_uniform_bind_group_layout: &webgpu::BindGroupLayout,
-  texture_bg_layout: &webgpu::BindGroupLayout,
-) -> webgpu::RenderPipeline {
-  let pipeline_layout = device.create_pipeline_layout(&webgpu::PipelineLayoutDescriptor {
-    label: Some("ui_tex_pipeline_layout"),
-    bind_group_layouts: &[global_uniform_bind_group_layout, texture_bg_layout],
-    push_constant_ranges: &[],
-  });
+}
 
-  let shader_source = format!(
-    "
-      {global_header}
-      {texture_group}
-
-      struct VertexOutput {{
-        [[builtin(position)]] position: vec4<f32>;
-        [[location(0)]] color: vec4<f32>;
-        [[location(1)]] uv: vec2<f32>;
-      }};
-
-      [[stage(vertex)]]
-      fn vs_main(
-        {vertex_header}
-      ) -> VertexOutput {{
-        var out: VertexOutput;
-
-        out.color = color;
-        out.uv = uv;
-
-        out.position = vec4<f32>(
-            2.0 * position.x / ui_global_parameter.screen_size.x - 1.0,
-            1.0 - 2.0 * position.y / ui_global_parameter.screen_size.y,
-            0.0,
-            1.0,
-        );
-
-        return out;
-      }}
-      
-      [[stage(fragment)]]
-      fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-          return textureSample(r_color, r_sampler, in.uv) * in.color;
-      }}
-      
-      ",
-    vertex_header = UIVertex::get_shader_header(),
-    global_header = UIGlobalParameter::get_shader_header(),
-    texture_group = TextureBindGroup::get_shader_header()
-  );
-
-  let shader = device.create_shader_module(&webgpu::ShaderModuleDescriptor {
-    label: None,
-    source: webgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(shader_source.as_str())),
-  });
-
-  let render_pipeline = device.create_render_pipeline(&webgpu::RenderPipelineDescriptor {
-    label: Some("ui_solid_pipeline"),
-    layout: Some(&pipeline_layout),
-    vertex: webgpu::VertexState {
-      entry_point: "vs_main",
-      module: &shader,
-      buffers: &[UIVertex::vertex_layout().as_raw()],
-    },
-    primitive: webgpu::PrimitiveState {
+impl ShaderGraphProvider for TextureUIPipeline {
+  fn build_vertex(
+    &self,
+    builder: &mut ShaderGraphVertexBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
+    builder.primitive_state = webgpu::PrimitiveState {
       topology: webgpu::PrimitiveTopology::TriangleList,
-      conservative: false,
       cull_mode: None,
-      front_face: webgpu::FrontFace::default(),
-      polygon_mode: webgpu::PolygonMode::default(),
-      strip_index_format: None,
-      unclipped_depth: false,
-    },
-    depth_stencil: None,
-    multisample: webgpu::MultisampleState {
-      alpha_to_coverage_enabled: false,
-      count: 1,
-      mask: !0,
-    },
+      ..Default::default()
+    };
 
-    fragment: Some(webgpu::FragmentState {
-      module: &shader,
-      entry_point: "fs_main",
-      targets: &[webgpu::ColorTargetState {
-        format: target_format,
-        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-        write_mask: webgpu::ColorWrites::ALL,
-      }],
-    }),
-    multiview: None,
-  });
+    let position = builder.query::<GeometryPosition>()?.get();
+    let color = builder.query::<GeometryColor>()?.get();
+    let uv = builder.query::<GeometryUV>()?.get();
 
-  render_pipeline
+    let global = builder
+      .register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global)
+      .expand();
+
+    let vertex = (
+      consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
+      consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
+      consts(0.0),
+      consts(1.0),
+    )
+      .into();
+
+    builder.vertex_position.set(vertex);
+    builder.set_vertex_out::<FragmentColor>(color);
+    builder.set_vertex_out::<FragmentUv>(uv);
+
+    Ok(())
+  }
+
+  fn build_fragment(
+    &self,
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.push_fragment_out_slot(ColorTargetState {
+      format: self.target_format,
+      blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+      write_mask: webgpu::ColorWrites::ALL,
+    });
+
+    let texture = builder.register_uniform()?.get();
+    let sampler = builder.register_uniform()?.get();
+    let uv = builder.query::<FragmentUv>();
+    let color = texture.sample(sampler, uv);
+    builder.set_fragment_out(0, color);
+    Ok(())
+  }
 }
