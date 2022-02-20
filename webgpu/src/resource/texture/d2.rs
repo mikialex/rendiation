@@ -6,6 +6,12 @@ pub struct GPURawTexture2dView(pub wgpu::TextureView);
 pub type GPUTexture2d = ResourceRc<GPURawTexture2d>;
 pub type GPUTexture2dView = ResourceViewRc<GPURawTexture2d>;
 
+impl BindableResourceView for GPURawTexture2dView {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(&self.0)
+  }
+}
+
 impl Resource for GPURawTexture2d {
   type Descriptor = WebGPUTexture2dDescriptor;
 
@@ -213,6 +219,12 @@ impl WebGPUTexture2dDescriptor {
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
       },
     }
+  }
+
+  #[must_use]
+  pub fn with_render_target_ability(mut self) -> Self {
+    self.desc.usage |= wgpu::TextureUsages::RENDER_ATTACHMENT;
+    self
   }
 
   #[must_use]

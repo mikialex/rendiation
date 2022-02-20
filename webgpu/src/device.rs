@@ -35,7 +35,7 @@ impl GPUDevice {
     self
       .inner
       .pipeline_cache
-      .get_or_insert_with(hasher, || creator(&self))
+      .get_or_insert_with(hasher, || creator(self))
   }
 
   pub fn create_and_cache_bindgroup_layout(
@@ -138,7 +138,7 @@ impl RenderPipelineCache {
       .cache
       .borrow_mut()
       .entry(key)
-      .or_insert_with(|| creator())
+      .or_insert_with(creator)
       .clone()
   }
 }

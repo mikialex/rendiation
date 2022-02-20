@@ -1,5 +1,4 @@
 use crate::{TextCache, TextLayoutRef, UIPosition, UISize};
-use std::rc::Rc;
 
 mod fonts;
 pub use fonts::*;
@@ -15,6 +14,7 @@ pub use shape::*;
 
 mod api;
 pub use api::*;
+use webgpu::GPUTexture2dView;
 
 pub trait Presentable {
   fn render(&mut self, builder: &mut PresentationBuilder);
@@ -57,10 +57,10 @@ impl<'a> PresentationBuilder<'a> {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Style {
   SolidColor(Color),
-  Texture(Rc<webgpu::TextureView>),
+  Texture(GPUTexture2dView),
 }
 
 #[derive(Clone)]

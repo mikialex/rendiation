@@ -1,18 +1,12 @@
 use crate::*;
 use rendiation_texture::Size;
 use std::rc::Rc;
-use webgpu::{GPUTextureSize, GPU};
+use webgpu::{GPUTexture2d, GPUTexture2dView, WebGPUTexture2dDescriptor, GPU};
 use winit::event::Event;
-
-pub struct FrameTarget {
-  pub size: Size,
-  pub format: webgpu::TextureFormat,
-  pub view: std::rc::Rc<webgpu::TextureView>,
-}
 
 pub struct GPUCanvas {
   current_render_buffer_size: Size,
-  content: Option<Rc<webgpu::TextureView>>,
+  content: Option<GPUTexture2dView>,
   layout: LayoutUnit,
 }
 
@@ -62,7 +56,7 @@ pub trait CanvasPrinter {
     position_info: CanvasWindowPositionInfo,
   );
   fn update_render_size(&mut self, layout_size: (f32, f32)) -> Size;
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget);
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPUTexture2dView);
 }
 
 impl<T: CanvasPrinter> Component<T> for GPUCanvas {
@@ -84,27 +78,16 @@ impl<T: CanvasPrinter> Component<T> for GPUCanvas {
 
         let target = self.content.get_or_insert_with(|| {
           let device = &event.gpu.device;
-          let tex = device.create_texture(&webgpu::TextureDescriptor {
-            size: new_size.into_gpu_size(),
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: webgpu::TextureDimension::D2,
-            format,
-            usage: webgpu::TextureUsages::RENDER_ATTACHMENT
-              | webgpu::TextureUsages::TEXTURE_BINDING,
-            label: None,
-          });
-          let view = tex.create_view(&webgpu::TextureViewDescriptor::default());
-          Rc::new(view)
+          let texture = GPUTexture2d::create(
+            WebGPUTexture2dDescriptor::from_size(new_size)
+              .with_render_target_ability()
+              .with_format(format),
+            device,
+          );
+          texture.create_view(())
         });
 
-        let target = FrameTarget {
-          size: new_size,
-          format,
-          view: target.clone(),
-        };
-
-        model.draw_canvas(&event.gpu, target);
+        model.draw_canvas(&event.gpu, target.clone());
       }
       _ => {}
     }

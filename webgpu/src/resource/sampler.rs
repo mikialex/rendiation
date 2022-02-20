@@ -69,20 +69,18 @@ impl<'a> From<GPUSamplerDescriptor> for wgpu::SamplerDescriptor<'a> {
 
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for GPUSamplerDescriptor {
   fn from(s: wgpu::SamplerDescriptor<'a>) -> Self {
-    unsafe {
-      Self {
-        lod_min_clamp: std::mem::transmute(s.lod_min_clamp),
-        lod_max_clamp: std::mem::transmute(s.lod_max_clamp),
-        address_mode_u: s.address_mode_u,
-        address_mode_v: s.address_mode_v,
-        address_mode_w: s.address_mode_w,
-        mag_filter: s.mag_filter,
-        min_filter: s.min_filter,
-        mipmap_filter: s.mipmap_filter,
-        compare: s.compare,
-        anisotropy_clamp: s.anisotropy_clamp,
-        border_color: s.border_color,
-      }
+    Self {
+      lod_min_clamp: s.lod_min_clamp.to_bits(),
+      lod_max_clamp: s.lod_max_clamp.to_bits(),
+      address_mode_u: s.address_mode_u,
+      address_mode_v: s.address_mode_v,
+      address_mode_w: s.address_mode_w,
+      mag_filter: s.mag_filter,
+      min_filter: s.min_filter,
+      mipmap_filter: s.mipmap_filter,
+      compare: s.compare,
+      anisotropy_clamp: s.anisotropy_clamp,
+      border_color: s.border_color,
     }
   }
 }

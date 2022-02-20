@@ -153,7 +153,7 @@ impl Primitive {
             entries: &[
               webgpu::BindGroupEntry {
                 binding: 0,
-                resource: view.as_ref().as_bindable(),
+                resource: view.as_bindable(),
               },
               webgpu::BindGroupEntry {
                 binding: 1,
