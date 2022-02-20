@@ -216,7 +216,7 @@ impl<T> ApplicationInner<T> {
       };
 
       let mut encoder = self.gpu.create_encoder();
-      task.update(&self.gpu, &mut encoder, &self.fonts, &mut builder.texts);
+      task.update(&self.gpu, &mut encoder, &self.fonts, builder.texts);
 
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((

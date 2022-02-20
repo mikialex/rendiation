@@ -25,6 +25,7 @@ impl DerefMut for EditableText {
 }
 
 impl EditableText {
+  #[must_use]
   pub fn on_change(mut self, on_change: impl Fn(&mut String) + 'static) -> Self {
     self.on_change = Some(Box::new(on_change));
     self

@@ -59,6 +59,7 @@ impl Text {
     self.text_layout_size_cache = None;
   }
 
+  #[must_use]
   pub fn with_layout(mut self, config: TextLayoutConfig) -> Self {
     self.layout_config = config;
     self

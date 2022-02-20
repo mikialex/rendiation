@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 
-use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder};
+use rendiation_webgpu::PassTargetFormatInfo;
+use shadergraph::ShaderGraphFragmentBuilder;
 
 use crate::ValueIDGenerator;
 
@@ -66,7 +67,7 @@ impl MaterialStates {
 
   pub fn apply_pipeline_builder(
     &self,
-    builder: &mut PipelineBuilder,
+    builder: &mut ShaderGraphFragmentBuilder,
     pass_info: &PassTargetFormatInfo,
   ) {
     builder.targets = pass_info

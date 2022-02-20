@@ -1,5 +1,5 @@
 use rendiation_algebra::Vec2;
-use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder};
+use rendiation_webgpu::PassTargetFormatInfo;
 use shadergraph::*;
 
 use crate::MaterialStates;
@@ -32,7 +32,7 @@ switch (i32(vertex_index)) {
 ";
 
 pub fn full_screen_vertex_shader(
-  builder: &mut PipelineBuilder,
+  builder: &mut ShaderGraphVertexBuilder,
   blend: Option<wgpu::BlendState>,
   format_info: &PassTargetFormatInfo,
 ) {
@@ -97,21 +97,6 @@ pub fn full_screen_vertex_shader(
     ",
     )
     .use_vertex_entry("vs_main_full_screen");
-}
-
-pub fn build_shader_graph() {
-  // let left = -1.;
-  // let right = 1.;
-  // let top = 1;
-  // let bottom = -1.0;
-  // let depth = 0.0;
-
-  // let vertex_index = query_built_in::<VertexIndex>();
-  // switch_by(
-  //   vertex_index,
-  //   [(0, ((left, bottom, depth, 1.).into()), (0., 1.).into())],
-  //   ((right, bottom, depth, 1.).into(), (1., 1.).into()),
-  // )
 }
 
 #[repr(C)]

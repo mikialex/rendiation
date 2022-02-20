@@ -9,8 +9,6 @@ pub use states::*;
 
 pub mod wrapper;
 pub use wrapper::*;
-pub mod semantic;
-pub use semantic::*;
 
 // pub mod flat;
 // pub use flat::*;
@@ -23,10 +21,7 @@ pub use physical::*;
 // pub mod env_background;
 // pub use env_background::*;
 
-use rendiation_webgpu::{
-  build_pipeline, BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher,
-  RenderPassInfo, RenderPipelineCache, GPU,
-};
+use rendiation_webgpu::*;
 
 use crate::*;
 
@@ -35,7 +30,7 @@ pub trait MaterialMeshLayoutRequire {
 }
 
 pub trait ShaderHashProvider {
-  fn hash_pipeline(&self, _hasher: &mut PipelineHasher);
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher);
 }
 
 pub trait RenderPassBuilder {
@@ -190,9 +185,7 @@ impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
   }
 }
 
-pub trait PassDispatcher: Any + ShaderGraphProvider {
-  fn build_pipeline(&self, builder: &mut PipelineBuilder);
-}
+pub trait PassDispatcher: Any + SourceOfRendering {}
 
 pub struct DefaultPassDispatcher;
 
@@ -207,9 +200,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
     Ok(())
   }
 }
-impl PassDispatcher for DefaultPassDispatcher {
-  fn build_pipeline(&self, _builder: &mut PipelineBuilder) {}
-}
+impl ShaderGraphProvider for DefaultPassDispatcher {}
 
 pub struct SceneMaterialRenderPrepareCtxBase<'a> {
   pub camera: &'a SceneCamera,
