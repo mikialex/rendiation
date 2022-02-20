@@ -2,9 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use rendiation_algebra::Vec2;
 use rendiation_texture::Size;
-use rendiation_webgpu::{
-  BindGroupDescriptor, PipelineBuilder, RenderPassInfo, UniformBufferDataWithCache, GPU,
-};
+use rendiation_webgpu::{BindGroupDescriptor, RenderPassInfo, UniformBufferData, GPU};
 
 use crate::RenderPassGPUInfoData;
 
@@ -24,7 +22,7 @@ pub struct PassGPUDataCache {
 }
 
 pub struct PassGPUData {
-  pub ubo: UniformBufferDataWithCache<RenderPassGPUInfoData>,
+  pub ubo: UniformBufferData<RenderPassGPUInfoData>,
   pub bindgroup: Rc<wgpu::BindGroup>,
 }
 
@@ -43,7 +41,7 @@ impl PassGPUDataCache {
     };
 
     let g = self.pool.entry(key).or_insert_with(|| {
-      let ubo = UniformBufferDataWithCache::create(&gpu.device, info);
+      let ubo = UniformBufferData::create(&gpu.device, info);
 
       let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
         layout: &PassGPUData::layout(&gpu.device),

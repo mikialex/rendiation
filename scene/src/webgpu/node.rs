@@ -42,7 +42,7 @@ impl std::ops::DerefMut for NodeGPUStore {
 }
 
 pub struct TransformGPU {
-  pub ubo: UniformBufferDataWithCache<TransformGPUData>,
+  pub ubo: UniformBufferData<TransformGPUData>,
 }
 
 #[repr(C)]
@@ -73,15 +73,14 @@ impl ShaderBindingProvider for TransformGPU {
 impl TransformGPU {
   pub fn update(&mut self, gpu: &GPU, matrix: &Mat4<f32>) -> &mut Self {
     self.ubo.world_matrix = *matrix;
-    self.ubo.update(&gpu.queue);
+    self.ubo.update_with_diff(&gpu.queue);
     self
   }
 
   pub fn new(gpu: &GPU, matrix: &Mat4<f32>) -> Self {
     let device = &gpu.device;
 
-    let mut ubo: UniformBufferDataWithCache<TransformGPUData> =
-      UniformBufferDataWithCache::create_default(device);
+    let mut ubo: UniformBufferData<TransformGPUData> = UniformBufferData::create_default(device);
     ubo.world_matrix = *matrix;
     ubo.update(&gpu.queue);
 
