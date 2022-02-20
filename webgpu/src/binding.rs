@@ -35,6 +35,14 @@ pub struct GPUBindGroupLayout {
   pub(crate) cache_id: u64,
 }
 
+impl Deref for GPUBindGroupLayout {
+  type Target = wgpu::BindGroupLayout;
+
+  fn deref(&self) -> &Self::Target {
+    &self.inner
+  }
+}
+
 pub struct BindGroupCacheInvalidation {
   cache_id_to_drop: u64,
   cache: BindGroupCache,
@@ -65,7 +73,7 @@ impl BindingBuilder {
   }
 
   pub fn reset(&mut self) {
-    //
+    self.items.iter_mut().for_each(|item| item.clear());
   }
 
   pub fn setup_uniform<T>(&mut self, group: usize, item: &ResourceViewRc<T>)

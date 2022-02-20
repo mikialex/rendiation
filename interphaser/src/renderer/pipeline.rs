@@ -1,10 +1,10 @@
 use shadergraph::*;
-use webgpu::UniformBuffer;
+use webgpu::*;
 
 use crate::{renderer::UIGlobalParameter, UIVertex};
 
 pub struct SolidUIPipeline {
-  target_format: webgpu::TextureFormat,
+  pub target_format: webgpu::TextureFormat,
 }
 
 impl ShaderGraphProvider for SolidUIPipeline {
@@ -26,7 +26,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
       .register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global)
       .expand();
 
-    let vertex = (
+    let vertex: Node<Vec4<_>> = (
       consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
       consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
       consts(0.0),
@@ -52,78 +52,13 @@ impl ShaderGraphProvider for SolidUIPipeline {
 
     let color = builder.query::<FragmentColor>()?.get();
     let color = (color, 1.).into();
-    builder.set_fragment_out(0, color);
+    builder.set_fragment_out(0, color)?;
     Ok(())
   }
 }
 
-pub struct TextureBindGroup {
-  pub bindgroup: webgpu::BindGroup,
-}
-
-impl TextureBindGroup {
-  pub fn new(
-    device: &webgpu::Device,
-    layout: &webgpu::BindGroupLayout,
-    sampler: &webgpu::Sampler,
-    view: &webgpu::TextureView,
-  ) -> Self {
-    let bindgroup = device.create_bind_group(&webgpu::BindGroupDescriptor {
-      layout,
-      entries: &[
-        webgpu::BindGroupEntry {
-          binding: 0,
-          resource: webgpu::BindingResource::TextureView(view),
-        },
-        webgpu::BindGroupEntry {
-          binding: 1,
-          resource: webgpu::BindingResource::Sampler(sampler),
-        },
-      ],
-      label: None,
-    });
-    Self { bindgroup }
-  }
-}
-
-impl TextureBindGroup {
-  fn get_shader_header() -> &'static str {
-    "
-    [[group(1), binding(0)]]
-    var r_color: texture_2d<f32>;
-
-    [[group(1), binding(1)]]
-    var r_sampler: sampler;
-    "
-  }
-
-  pub fn create_bind_group_layout(device: &webgpu::Device) -> webgpu::BindGroupLayout {
-    device.create_bind_group_layout(&webgpu::BindGroupLayoutDescriptor {
-      label: None,
-      entries: &[
-        webgpu::BindGroupLayoutEntry {
-          binding: 0,
-          visibility: webgpu::ShaderStages::FRAGMENT,
-          ty: webgpu::BindingType::Texture {
-            multisampled: false,
-            sample_type: webgpu::TextureSampleType::Float { filterable: true },
-            view_dimension: webgpu::TextureViewDimension::D2,
-          },
-          count: None,
-        },
-        webgpu::BindGroupLayoutEntry {
-          binding: 1,
-          visibility: webgpu::ShaderStages::FRAGMENT,
-          ty: webgpu::BindingType::Sampler(webgpu::SamplerBindingType::Filtering),
-          count: None,
-        },
-      ],
-    })
-  }
-}
-
 pub struct TextureUIPipeline {
-  target_format: webgpu::TextureFormat,
+  pub target_format: webgpu::TextureFormat,
 }
 
 impl ShaderGraphProvider for TextureUIPipeline {
@@ -146,7 +81,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
       .register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global)
       .expand();
 
-    let vertex = (
+    let vertex: Node<Vec4<_>> = (
       consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
       consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
       consts(0.0),
@@ -170,12 +105,12 @@ impl ShaderGraphProvider for TextureUIPipeline {
       blend: Some(webgpu::BlendState::ALPHA_BLENDING),
       write_mask: webgpu::ColorWrites::ALL,
     });
-
-    let texture = builder.register_uniform()?.get();
-    let sampler = builder.register_uniform()?.get();
-    let uv = builder.query::<FragmentUv>();
+    use webgpu::container::*;
+    let texture = builder.register_uniform::<SemanticGPUTexture2d<Self>>(SemanticBinding::Material);
+    let sampler = builder.register_uniform::<SemanticGPUSampler<Self>>(SemanticBinding::Material);
+    let uv = builder.query::<FragmentUv>()?.get();
     let color = texture.sample(sampler, uv);
-    builder.set_fragment_out(0, color);
+    builder.set_fragment_out(0, color)?;
     Ok(())
   }
 }

@@ -2,7 +2,7 @@ use crate::*;
 
 use shadergraph::*;
 pub mod container;
-// pub use container;
+pub use container as c;
 
 #[derive(Clone)]
 pub struct GPURenderPipeline {
@@ -18,6 +18,11 @@ impl GPURenderPipeline {
     Self {
       inner: Rc::new(inner),
     }
+  }
+
+  pub fn get_layout(&self, sb: SemanticBinding) -> &GPUBindGroupLayout {
+    let index = sb.binding_index();
+    self.bg_layouts.get(index).unwrap()
   }
 }
 

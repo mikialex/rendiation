@@ -232,9 +232,10 @@ impl<T> ApplicationInner<T> {
         view,
         Size::from_u32_pair_min_one((100, 100)),
       ));
-
-      let mut pass = encoder.begin_render_pass(&decs);
-      task.setup_pass(&mut pass);
+      {
+        let mut pass = encoder.begin_render_pass(&decs);
+        task.setup_pass(&mut pass);
+      }
       self.gpu.submit_encoder(encoder)
     });
   }

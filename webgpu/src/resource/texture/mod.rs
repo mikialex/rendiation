@@ -23,24 +23,8 @@ impl Resource for wgpu::Texture {
   }
 }
 
-// pub struct WebGPUTexture {
-//   pub texture: wgpu::Texture,
-//   pub desc: wgpu::TextureDescriptor<'static>,
-// }
-
-// impl std::ops::Deref for WebGPUTexture {
-//   type Target = wgpu::Texture;
-
-//   fn deref(&self) -> &Self::Target {
-//     &self.texture
-//   }
-// }
-
-// pub struct Tex<
-//   const DIMENSION: wgpu::TextureDimension,
-//   const FORMAT: usize,
-//   const MULTI_SAMPLE: bool,
-// > {
-//   pub texture: wgpu::Texture,
-//   pub desc: wgpu::TextureDescriptor<'static>,
-// }
+impl BindableResourceView for wgpu::TextureView {
+  fn as_bindable(&self) -> wgpu::BindingResource {
+    wgpu::BindingResource::TextureView(self)
+  }
+}
