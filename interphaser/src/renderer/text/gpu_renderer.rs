@@ -42,7 +42,7 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
 
 impl TextWebGPURenderer {
   pub fn new(
-    device: &webgpu::Device,
+    device: &webgpu::GPUDevice,
     filter_mode: webgpu::FilterMode,
     render_format: webgpu::TextureFormat,
     view_size: Vec2<f32>,

@@ -215,7 +215,7 @@ impl<T> ApplicationInner<T> {
         presentation: &builder.present,
       };
 
-      let mut encoder = self.gpu.encoder.borrow_mut();
+      let mut encoder = self.gpu.create_encoder();
       task.update(&self.gpu, &mut encoder, &self.fonts, &mut builder.texts);
 
       let mut decs = RenderPassDescriptorOwned::default();
@@ -235,9 +235,8 @@ impl<T> ApplicationInner<T> {
 
       let mut pass = encoder.begin_render_pass(&decs);
       task.setup_pass(&mut pass);
+      self.gpu.submit_encoder(encoder)
     });
-
-    self.gpu.submit();
   }
 
   fn execute(&mut self, frame: &SurfaceTexture) {

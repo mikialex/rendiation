@@ -189,7 +189,7 @@ pub struct UIxGPUxResource {
 
 impl WebGPUxUIRenderer {
   pub fn new(
-    device: &webgpu::Device,
+    device: &webgpu::GPUDevice,
     target_format: webgpu::TextureFormat,
     text_cache_init_size: Size,
   ) -> Self {

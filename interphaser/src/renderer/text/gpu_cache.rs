@@ -40,12 +40,12 @@ pub struct WebGPUTextureCache {
 }
 
 impl WebGPUTextureCache {
-  pub fn init(size: Size, device: &webgpu::Device) -> Self {
+  pub fn init(size: Size, device: &webgpu::GPUDevice) -> Self {
     let desc = WebGPUTexture2dDescriptor::from_size(size) //
       .with_format(webgpu::TextureFormat::R8Unorm);
 
     let texture = GPUTexture2d::create(desc, device);
-    let view = texture.create_view((), device);
+    let view = texture.create_view(());
 
     Self { texture, view }
   }

@@ -31,5 +31,5 @@ macro_rules! both {
 }
 
 both!(FragmentUv, Vec2<f32>);
-both!(FragmentColor, Vec2<f32>);
-both!(FragmentColorAndAlpha, Vec2<f32>);
+both!(FragmentColor, Vec3<f32>);
+both!(FragmentColorAndAlpha, Vec4<f32>);

@@ -71,6 +71,15 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
   device.create_and_cache_bindgroup_layout(entries.as_ref())
 }
 
+impl GPUDevice {
+  pub fn build_pipeline_by_shadergraph(
+    &self,
+    builder: &dyn ShaderGraphProvider,
+  ) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
+    build_pipeline(builder, self)
+  }
+}
+
 pub fn build_pipeline(
   builder: &dyn ShaderGraphProvider,
   device: &GPUDevice,
