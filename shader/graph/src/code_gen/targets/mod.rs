@@ -6,12 +6,12 @@ use crate::*;
 pub trait ShaderGraphCodeGenTarget {
   fn gen_vertex_shader(
     &self,
-    vertex: &mut ShaderGraphVertexBuilder,
+    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
     builder: ShaderGraphBuilder,
   ) -> String;
   fn gen_fragment_shader(
     &self,
-    vertex: &mut ShaderGraphFragmentBuilder,
+    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
     builder: ShaderGraphBuilder,
   ) -> String;
 }

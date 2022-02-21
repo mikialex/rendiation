@@ -14,15 +14,21 @@ impl WGSL {
 impl ShaderGraphCodeGenTarget for WGSL {
   fn gen_vertex_shader(
     &self,
-    vertex: &mut ShaderGraphVertexBuilder,
+    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
     builder: ShaderGraphBuilder,
   ) -> String {
+    let vertex = &pipeline_builder.vertex;
+
     let mut code = CodeBuilder::default();
     let mut cx = CodeGenCtx::default();
 
     gen_structs(&mut code, &builder);
     gen_vertex_out_struct(&mut code, vertex);
-    gen_bindings(&mut code, &vertex.bindgroups, ShaderStages::Vertex);
+    gen_bindings(
+      &mut code,
+      &pipeline_builder.bindgroups,
+      ShaderStages::Vertex,
+    );
     gen_entry(
       &mut code,
       ShaderStages::Vertex,
@@ -53,14 +59,20 @@ impl ShaderGraphCodeGenTarget for WGSL {
 
   fn gen_fragment_shader(
     &self,
-    fragment: &mut ShaderGraphFragmentBuilder,
+    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
     builder: ShaderGraphBuilder,
   ) -> String {
+    let fragment = &pipeline_builder.fragment;
+
     let mut code = CodeBuilder::default();
     let mut cx = CodeGenCtx::default();
     gen_structs(&mut code, &builder);
     gen_fragment_out_struct(&mut code, fragment);
-    gen_bindings(&mut code, &fragment.bindgroups, ShaderStages::Fragment);
+    gen_bindings(
+      &mut code,
+      &pipeline_builder.bindgroups,
+      ShaderStages::Fragment,
+    );
     gen_entry(
       &mut code,
       ShaderStages::Fragment,
@@ -490,7 +502,7 @@ fn gen_bindings(
 
 fn gen_bind_entry(
   code: &mut CodeBuilder,
-  entry: &ShaderGraphBindEntry,
+  entry: &(ShaderValueType, ShaderStageVisibility),
   group_index: usize,
   item_index: usize,
   stage: ShaderStages,
@@ -503,13 +515,13 @@ fn gen_bind_entry(
       "[[group({}), binding({})]] var{} uniform_b_{}_i_{}: {};",
       group_index,
       item_index,
-      match entry.ty {
+      match entry.0 {
         ShaderValueType::Fixed(_) => "<uniform>",
         _ => "",
       },
       group_index,
       item_index,
-      gen_type_impl(entry.ty),
+      gen_type_impl(entry.0),
     ));
   }
 }

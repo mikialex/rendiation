@@ -22,16 +22,16 @@ pub struct ShaderGraphRenderPipelineBuilder {
   // uniforms
   pub bindgroups: ShaderGraphBindGroupBuilder,
 
-  vertex: ShaderGraphVertexBuilder,
-  fragment: ShaderGraphFragmentBuilder,
+  pub(crate) vertex: ShaderGraphVertexBuilder,
+  pub(crate) fragment: ShaderGraphFragmentBuilder,
 }
 
 impl Default for ShaderGraphRenderPipelineBuilder {
   fn default() -> Self {
     Self {
       bindgroups: Default::default(),
-      vertex: Default::default(),
-      fragment: Default::default(),
+      vertex: ShaderGraphVertexBuilder::new(),
+      fragment: ShaderGraphFragmentBuilder::new(),
     }
   }
 }
@@ -53,21 +53,53 @@ impl std::ops::DerefMut for ShaderGraphRenderPipelineBuilder {
 impl ShaderGraphRenderPipelineBuilder {
   pub fn vertex<T>(
     &mut self,
-    logic: impl FnOnce(ShaderGraphVertexBuilder) -> Result<T, ShaderGraphBuildError>,
+    logic: impl FnOnce(&mut ShaderGraphVertexBuilder) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
-    todo!()
+    set_current_building(true.into());
+    let result = logic(&mut self.vertex)?;
+    set_current_building(None);
+    Ok(result)
   }
   pub fn fragment<T>(
     &mut self,
-    logic: impl FnOnce(ShaderGraphFragmentBuilder) -> Result<T, ShaderGraphBuildError>,
+    logic: impl FnOnce(&mut ShaderGraphFragmentBuilder) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
-    todo!()
+    set_current_building(true.into());
+    let result = logic(&mut self.fragment)?;
+    set_current_building(None);
+    Ok(result)
   }
 
   pub fn build(
+    self,
     target: &dyn ShaderGraphCodeGenTarget,
   ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
-    todo!()
+    let PipelineShaderGraphPair {
+      vertex, fragment, ..
+    } = take_build_graph();
+
+    vertex.top_scope_mut().resolve_all_pending();
+    let vertex_shader = target.gen_vertex_shader(&self, vertex);
+
+    fragment.top_scope_mut().resolve_all_pending();
+    let frag_shader = target.gen_fragment_shader(&self, fragment);
+
+    Ok(ShaderGraphCompileResult {
+      vertex_shader,
+      frag_shader,
+      bindings: self.bindgroups,
+      vertex_layouts: self.vertex.vertex_layouts,
+      primitive_state: self.vertex.primitive_state,
+      color_states: self
+        .fragment
+        .frag_output
+        .iter()
+        .cloned()
+        .map(|(_, s)| s)
+        .collect(),
+      depth_stencil: self.fragment.depth_stencil,
+      multisample: self.fragment.multisample,
+    })
   }
 }
 
@@ -93,45 +125,6 @@ impl<'a> ShaderGraphProvider for &'a [&dyn ShaderGraphProvider] {
     }
     Ok(())
   }
-}
-
-/// entry
-pub fn build_shader(
-  builder: &ShaderGraphRenderPipelineBuilder,
-  target: &dyn ShaderGraphCodeGenTarget,
-) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
-  let bindgroup_builder = ShaderGraphBindGroupBuilder::default();
-
-  let mut vertex_builder = ShaderGraphVertexBuilder::create(bindgroup_builder);
-  builder.build_vertex(&mut vertex_builder)?;
-  let mut result = vertex_builder.extract();
-  result.top_scope_mut().resolve_all_pending();
-  let vertex_shader = target.gen_vertex_shader(&mut vertex_builder, result);
-
-  let vertex_layouts = vertex_builder.vertex_layouts.clone();
-  let primitive_state = vertex_builder.primitive_state;
-
-  let mut fragment_builder = ShaderGraphFragmentBuilder::create(vertex_builder);
-  builder.build_fragment(&mut fragment_builder)?;
-  let mut result = fragment_builder.extract();
-  result.top_scope_mut().resolve_all_pending();
-  let frag_shader = target.gen_fragment_shader(&mut fragment_builder, result);
-
-  Ok(ShaderGraphCompileResult {
-    vertex_shader,
-    frag_shader,
-    bindings: fragment_builder.bindgroups,
-    vertex_layouts,
-    primitive_state,
-    color_states: fragment_builder
-      .frag_output
-      .iter()
-      .cloned()
-      .map(|(_, s)| s)
-      .collect(),
-    depth_stencil: fragment_builder.depth_stencil,
-    multisample: fragment_builder.multisample,
-  })
 }
 
 pub struct ShaderGraphCompileResult {
@@ -185,6 +178,7 @@ impl<T> SuperUnsafeCell<T> {
 unsafe impl<T> Sync for SuperUnsafeCell<T> {}
 unsafe impl<T> Send for SuperUnsafeCell<T> {}
 
+#[derive(Default)]
 struct PipelineShaderGraphPair {
   vertex: ShaderGraphBuilder,
   fragment: ShaderGraphBuilder,
@@ -211,8 +205,10 @@ pub(crate) fn set_current_building(current: Option<bool>) {
   graph.current = current
 }
 
-pub(crate) fn set_build_graph(g: PipelineShaderGraphPair) {
-  IN_BUILDING_SHADER_GRAPH.get_mut().replace(g);
+pub(crate) fn set_build_graph() {
+  IN_BUILDING_SHADER_GRAPH
+    .get_mut()
+    .replace(Default::default());
 }
 
 pub(crate) fn take_build_graph() -> PipelineShaderGraphPair {

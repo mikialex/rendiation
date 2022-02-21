@@ -52,6 +52,7 @@ impl Default for ShaderGraphBindGroupBuilder {
   }
 }
 
+#[derive(Clone)]
 pub struct UniformNodePreparer<T> {
   bindgroup_index: usize,
   entry_index: usize,
@@ -59,8 +60,8 @@ pub struct UniformNodePreparer<T> {
   visibility_modifier: Rc<Cell<ShaderStageVisibility>>,
 }
 
-impl<T: PrimitiveShaderGraphNodeType> UniformNodePreparer<T> {
-  pub fn get(&self) -> Node<T> {
+impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
+  pub fn using(&self) -> Node<T> {
     ShaderGraphInputNode::Uniform {
       bindgroup_index: self.bindgroup_index,
       entry_index: self.entry_index,
@@ -70,54 +71,49 @@ impl<T: PrimitiveShaderGraphNodeType> UniformNodePreparer<T> {
 }
 
 impl ShaderGraphBindGroupBuilder {
-  #[inline(never)]
-  fn register_uniform_inner(&mut self, bindgroup_index: usize, ty: ShaderValueType) -> NodeUntyped {
-    if let Ok(node) = self.query_uniform_inner(type_id, bindgroup_index) {
-      return node;
-    }
-
-    let bindgroup = &mut self.bindings[bindgroup_index];
-
-    let entry_index = bindgroup.bindings.len();
-
-    bindgroup.bindings.push(ty);
-
-    node
-  }
-
-  #[inline]
   pub fn register_uniform_ty_inner<T: Any, N: ShaderGraphNodeType>(
     &mut self,
     index: impl Into<usize>,
-  ) -> Node<N> {
-    let node = self.register_uniform_inner(TypeId::of::<T>(), index.into(), N::to_type());
-    unsafe { node.cast_type() }
+  ) -> UniformNodePreparer<N> {
+    let bindgroup_index = index.into();
+    let bindgroup = &mut self.bindings[bindgroup_index];
+
+    let entry_index = bindgroup.bindings.len();
+    let ty = N::to_type();
+
+    let visibility_modifier = Rc::new(Cell::new(ShaderStageVisibility::None));
+
+    bindgroup.bindings.push((ty, visibility_modifier.clone()));
+
+    UniformNodePreparer {
+      bindgroup_index,
+      entry_index,
+      phantom: Default::default(),
+      visibility_modifier,
+    }
   }
 
-  #[inline]
   pub fn register_uniform<T: ShaderUniformProvider>(
     &mut self,
     index: impl Into<usize>,
-  ) -> Node<T::Node> {
+  ) -> UniformNodePreparer<T::Node> {
     self.register_uniform_ty_inner::<T, T::Node>(index)
   }
 
-  #[inline]
   pub fn register_uniform_by<T: ShaderUniformProvider>(
     &mut self,
     _instance: &T,
     index: impl Into<usize>,
-  ) -> Node<T::Node> {
+  ) -> UniformNodePreparer<T::Node> {
     self.register_uniform::<T>(index)
   }
 
   /// N: the node type you want toc cast
-  #[inline]
   pub fn register_uniform_dyn_ty_by<T, N>(
     &mut self,
     instance: &T,
     index: impl Into<usize>,
-  ) -> Result<Node<N>, ShaderGraphBuildError>
+  ) -> Result<UniformNodePreparer<N>, ShaderGraphBuildError>
   where
     T: DynamicShaderUniformProvider,
     N: ShaderGraphNodeType,

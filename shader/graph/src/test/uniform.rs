@@ -35,15 +35,15 @@ impl ShaderGraphProvider for TestUniform {
     let sampler = builder.register_uniform::<FakeSampler>(SB::Object);
 
     builder.vertex(|builder| {
-      let uniform = uniform.expand();
-      let color = tex.sample(sampler, uniform.data2);
+      let uniform = uniform.using().expand();
+      let color = tex.using().sample(sampler.using(), uniform.data2);
       builder.vertex_position.set(color);
       builder.vertex_position.set((uniform.data3, uniform.data));
       Ok(())
     })?;
 
     builder.fragment(|builder| {
-      let uniform = uniform.expand();
+      let uniform = uniform.using().expand();
       let value = (uniform.data3, 1.).into();
       builder.set_fragment_out(0, value)?;
       Ok(())

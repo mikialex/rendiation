@@ -27,28 +27,15 @@ pub struct ShaderGraphFragmentBuilder {
 }
 
 impl ShaderGraphFragmentBuilder {
-  pub fn create(mut vertex: ShaderGraphVertexBuilder) -> Self {
-    let builder = ShaderGraphBuilder::default();
-    set_build_graph(builder);
+  pub(crate) fn new() -> Self {
+    set_current_building(false.into());
 
-    let mut fragment_in = HashMap::default();
-    vertex.vertex_out.iter().for_each(|(id, (_, ty, index))| {
-      let node = ShaderGraphInputNode::FragmentIn {
-        ty: *ty,
-        index: *index,
-      }
-      .insert_graph();
-      fragment_in.insert(
-        *id,
-        (node, *ty, ShaderVaryingInterpolation::Perspective, *index),
-      );
-    });
-    // todo setup fragin into registry
+    // todo setup builtin fragment in
 
-    vertex.current_stage = ShaderStages::Fragment;
+    set_current_building(None);
 
     Self {
-      fragment_in,
+      fragment_in: Default::default(),
       registry: Default::default(),
       frag_output: Default::default(),
       multisample: Default::default(),
@@ -113,9 +100,5 @@ impl ShaderGraphFragmentBuilder {
 
   pub fn set_explicit_depth(&mut self, node: Node<f32>) {
     self.depth_output = node.into()
-  }
-
-  pub fn extract(&self) -> ShaderGraphBuilder {
-    take_build_graph()
   }
 }

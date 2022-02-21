@@ -345,4 +345,5 @@ pub enum ShaderStageVisibility {
   Vertex,
   Fragment,
   Both,
+  None,
 }

@@ -36,10 +36,8 @@ pub struct ShaderGraphVertexBuilder {
 }
 
 impl ShaderGraphVertexBuilder {
-  pub fn create(bindgroups: ShaderGraphBindGroupBuilder) -> Self {
-    let builder = ShaderGraphBuilder::default();
-
-    set_build_graph(builder);
+  pub(crate) fn new() -> Self {
+    set_current_building(true.into());
 
     // default position
     let vertex_position = ShaderGraphNodeExpr::Const(ConstNode {
@@ -52,6 +50,7 @@ impl ShaderGraphVertexBuilder {
 
     let instance_index =
       ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexInstanceId).insert_graph();
+    set_current_building(None);
 
     Self {
       vertex_index,
@@ -63,10 +62,6 @@ impl ShaderGraphVertexBuilder {
       vertex_layouts: Default::default(),
       primitive_state: Default::default(),
     }
-  }
-
-  pub fn extract(&self) -> ShaderGraphBuilder {
-    take_build_graph()
   }
 
   pub fn query<T: SemanticVertexShaderValue>(
