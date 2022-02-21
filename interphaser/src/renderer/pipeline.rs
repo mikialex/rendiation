@@ -8,52 +8,51 @@ pub struct SolidUIPipeline {
 }
 
 impl ShaderGraphProvider for SolidUIPipeline {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut shadergraph::ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
-    builder.primitive_state = webgpu::PrimitiveState {
-      topology: webgpu::PrimitiveTopology::TriangleList,
-      cull_mode: None,
-      ..Default::default()
-    };
+    let global =
+      builder.register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
 
-    let position = builder.query::<GeometryPosition>()?.get();
-    let color = builder.query::<GeometryColor>()?.get();
+    builder.vertex(|builder| {
+      builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
+      builder.primitive_state = webgpu::PrimitiveState {
+        topology: webgpu::PrimitiveTopology::TriangleList,
+        cull_mode: None,
+        ..Default::default()
+      };
 
-    let global = builder
-      .register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global)
-      .expand();
+      let position = builder.query::<GeometryPosition>()?.get();
+      let color = builder.query::<GeometryColor>()?.get();
 
-    let vertex: Node<Vec4<_>> = (
-      consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
-      consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
-      consts(0.0),
-      consts(1.0),
-    )
-      .into();
+      let global = global.using().expand();
 
-    builder.vertex_position.set(vertex);
-    builder.set_vertex_out::<FragmentColor>(color);
+      let vertex: Node<Vec4<_>> = (
+        consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
+        consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
+        consts(0.0),
+        consts(1.0),
+      )
+        .into();
 
-    Ok(())
-  }
+      builder.vertex_position.set(vertex);
+      builder.set_vertex_out::<FragmentColor>(color);
 
-  fn build_fragment(
-    &self,
-    builder: &mut shadergraph::ShaderGraphFragmentBuilder,
-  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    builder.push_fragment_out_slot(ColorTargetState {
-      format: self.target_format,
-      blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-      write_mask: webgpu::ColorWrites::ALL,
-    });
+      Ok(())
+    })?;
 
-    let color = builder.query::<FragmentColor>()?.get();
-    let color = (color, 1.).into();
-    builder.set_fragment_out(0, color)?;
-    Ok(())
+    builder.fragment(|builder| {
+      builder.push_fragment_out_slot(ColorTargetState {
+        format: self.target_format,
+        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+        write_mask: webgpu::ColorWrites::ALL,
+      });
+
+      let color = builder.query::<FragmentColor>()?.get();
+      let color = (color, 1.).into();
+      builder.set_fragment_out(0, color)
+    })
   }
 }
 
@@ -62,55 +61,58 @@ pub struct TextureUIPipeline {
 }
 
 impl ShaderGraphProvider for TextureUIPipeline {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
-    builder.primitive_state = webgpu::PrimitiveState {
-      topology: webgpu::PrimitiveTopology::TriangleList,
-      cull_mode: None,
-      ..Default::default()
-    };
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    let global =
+      builder.register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
 
-    let position = builder.query::<GeometryPosition>()?.get();
-    let color = builder.query::<GeometryColor>()?.get();
-    let uv = builder.query::<GeometryUV>()?.get();
+    builder.vertex(|builder| {
+      builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
+      builder.primitive_state = webgpu::PrimitiveState {
+        topology: webgpu::PrimitiveTopology::TriangleList,
+        cull_mode: None,
+        ..Default::default()
+      };
 
-    let global = builder
-      .register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global)
-      .expand();
+      let position = builder.query::<GeometryPosition>()?.get();
+      let color = builder.query::<GeometryColor>()?.get();
+      let uv = builder.query::<GeometryUV>()?.get();
 
-    let vertex: Node<Vec4<_>> = (
-      consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
-      consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
-      consts(0.0),
-      consts(1.0),
-    )
-      .into();
+      let global = global.using().expand();
 
-    builder.vertex_position.set(vertex);
-    builder.set_vertex_out::<FragmentColor>(color);
-    builder.set_vertex_out::<FragmentUv>(uv);
+      let vertex: Node<Vec4<_>> = (
+        consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
+        consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
+        consts(0.0),
+        consts(1.0),
+      )
+        .into();
 
-    Ok(())
-  }
+      builder.vertex_position.set(vertex);
+      builder.set_vertex_out::<FragmentColor>(color);
+      builder.set_vertex_out::<FragmentUv>(uv);
 
-  fn build_fragment(
-    &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    builder.push_fragment_out_slot(ColorTargetState {
-      format: self.target_format,
-      blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-      write_mask: webgpu::ColorWrites::ALL,
-    });
+      Ok(())
+    })?;
+
     use webgpu::container::*;
     let texture = builder.register_uniform::<SemanticGPUTexture2d<Self>>(SemanticBinding::Material);
     let sampler = builder.register_uniform::<SemanticGPUSampler<Self>>(SemanticBinding::Material);
-    let uv = builder.query::<FragmentUv>()?.get();
-    let color = texture.sample(sampler, uv);
-    builder.set_fragment_out(0, color)?;
-    Ok(())
+
+    builder.fragment(|builder| {
+      builder.push_fragment_out_slot(ColorTargetState {
+        format: self.target_format,
+        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+        write_mask: webgpu::ColorWrites::ALL,
+      });
+      let uv = builder.query::<FragmentUv>()?.get();
+      let texture = texture.using();
+      let sampler = sampler.using();
+
+      let color = texture.sample(sampler, uv);
+      builder.set_fragment_out(0, color)
+    })
   }
 }
