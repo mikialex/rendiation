@@ -16,9 +16,6 @@ pub struct ShaderGraphVertexBufferLayout {
 }
 
 pub struct ShaderGraphVertexBuilder {
-  // uniforms
-  pub bindgroups: ShaderGraphBindGroupBuilder,
-
   // built in vertex in
   pub vertex_index: Node<u32>,
   pub instance_index: Node<u32>,
@@ -36,20 +33,6 @@ pub struct ShaderGraphVertexBuilder {
 
   // user vertex out
   pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
-}
-
-impl std::ops::Deref for ShaderGraphVertexBuilder {
-  type Target = ShaderGraphBindGroupBuilder;
-
-  fn deref(&self) -> &Self::Target {
-    &self.bindgroups
-  }
-}
-
-impl std::ops::DerefMut for ShaderGraphVertexBuilder {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.bindgroups
-  }
 }
 
 impl ShaderGraphVertexBuilder {
@@ -71,7 +54,6 @@ impl ShaderGraphVertexBuilder {
       ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexInstanceId).insert_graph();
 
     Self {
-      bindgroups,
       vertex_index,
       instance_index,
       vertex_in: Default::default(),

@@ -335,14 +335,14 @@ pub enum ShaderVaryingInterpolation {
   Perspective,
 }
 
-#[derive(Clone)]
-pub struct ShaderGraphBindEntry {
-  pub ty: ShaderValueType,
-  pub node_vertex: Option<ShaderGraphNodeRawHandle>,
-  pub node_fragment: Option<ShaderGraphNodeRawHandle>,
-}
-
 #[derive(Default, Clone)]
 pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<(ShaderGraphBindEntry, TypeId)>,
+  pub bindings: Vec<(ShaderValueType, Rc<Cell<ShaderStageVisibility>>)>,
+}
+
+#[derive(Clone)]
+pub enum ShaderStageVisibility {
+  Vertex,
+  Fragment,
+  Both,
 }

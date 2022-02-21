@@ -29,6 +29,10 @@ pub trait MaterialMeshLayoutRequire {
   type VertexInput;
 }
 
+pub trait ShaderBindingProvider {
+  fn setup_binding(&self, builder: &mut BindingBuilder);
+}
+
 pub trait ShaderHashProvider {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
 }

@@ -15,10 +15,6 @@ impl PlaceholderBindgroup {
   }
 }
 
-pub trait ShaderBindingProvider {
-  fn setup_binding(&self, builder: &mut BindingBuilder);
-}
-
 #[derive(Clone, Default)]
 pub struct BindGroupCache {
   cache: Rc<RefCell<HashMap<u64, Rc<wgpu::BindGroup>>>>,

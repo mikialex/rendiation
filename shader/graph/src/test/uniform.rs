@@ -26,31 +26,28 @@ impl ShaderUniformProvider for FakeSampler {
 }
 
 impl ShaderGraphProvider for TestUniform {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.register_uniform::<Self>(SB::Object).expand();
+    let uniform = builder.register_uniform::<Self>(SB::Object);
     let tex = builder.register_uniform::<FakeTexture2d>(SB::Object);
     let sampler = builder.register_uniform::<FakeSampler>(SB::Object);
 
-    let color = tex.sample(sampler, uniform.data2);
-    builder.vertex_position.set(color);
-    builder.vertex_position.set((uniform.data3, uniform.data));
-    Ok(())
-  }
+    builder.vertex(|builder| {
+      let uniform = uniform.expand();
+      let color = tex.sample(sampler, uniform.data2);
+      builder.vertex_position.set(color);
+      builder.vertex_position.set((uniform.data3, uniform.data));
+      Ok(())
+    })?;
 
-  fn build_fragment(
-    &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    let value = (
-      builder.query_uniform::<Self>(SB::Object)?.expand().data3,
-      1.,
-    )
-      .into();
-    builder.set_fragment_out(0, value)?;
-    Ok(())
+    builder.fragment(|builder| {
+      let uniform = uniform.expand();
+      let value = (uniform.data3, 1.).into();
+      builder.set_fragment_out(0, value)?;
+      Ok(())
+    })
   }
 }
 

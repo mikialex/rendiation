@@ -60,9 +60,9 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     &self,
     builder: &mut ShaderGraphVertexBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let pass_info = builder.query_uniform::<RenderPassGPUInfoData>()?.expand();
-    let camera = builder.query_uniform::<CameraGPUTransform>()?.expand();
-    let model = builder.query_uniform::<TransformGPUData>()?.expand();
+    // let pass_info = builder.query_uniform::<RenderPassGPUInfoData>()?.expand();
+    // let camera = builder.query_uniform::<CameraGPUTransform>()?.expand();
+    // let model = builder.query_uniform::<TransformGPUData>()?.expand();
     let material = builder.register_uniform::<FatLineMaterial>().expand();
 
     let resolution = pass_info.buffer_size;

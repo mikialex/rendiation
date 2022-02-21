@@ -5,9 +5,6 @@ pub trait SemanticFragmentShaderValue: Any {
 }
 
 pub struct ShaderGraphFragmentBuilder {
-  // uniforms
-  pub bindgroups: ShaderGraphBindGroupBuilder,
-
   // user fragment in
   pub(crate) fragment_in: HashMap<
     TypeId,
@@ -27,20 +24,6 @@ pub struct ShaderGraphFragmentBuilder {
   pub depth_stencil: Option<DepthStencilState>,
   // improve: check if all the output should be multisampled target
   pub multisample: MultisampleState,
-}
-
-impl std::ops::Deref for ShaderGraphFragmentBuilder {
-  type Target = ShaderGraphBindGroupBuilder;
-
-  fn deref(&self) -> &Self::Target {
-    &self.bindgroups
-  }
-}
-
-impl std::ops::DerefMut for ShaderGraphFragmentBuilder {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.bindgroups
-  }
 }
 
 impl ShaderGraphFragmentBuilder {
@@ -65,7 +48,6 @@ impl ShaderGraphFragmentBuilder {
     vertex.current_stage = ShaderStages::Fragment;
 
     Self {
-      bindgroups: vertex.bindgroups,
       fragment_in,
       registry: Default::default(),
       frag_output: Default::default(),

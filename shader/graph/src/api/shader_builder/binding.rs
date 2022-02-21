@@ -41,27 +41,37 @@ pub trait DynamicShaderUniformProvider: Any {
 }
 
 pub struct ShaderGraphBindGroupBuilder {
-  pub(crate) current_stage: ShaderStages,
   pub bindings: Vec<ShaderGraphBindGroup>,
 }
 
 impl Default for ShaderGraphBindGroupBuilder {
   fn default() -> Self {
     Self {
-      current_stage: ShaderStages::Vertex,
       bindings: vec![Default::default(); 5],
     }
   }
 }
 
+pub struct UniformNodePreparer<T> {
+  bindgroup_index: usize,
+  entry_index: usize,
+  phantom: PhantomData<T>,
+  visibility_modifier: Rc<Cell<ShaderStageVisibility>>,
+}
+
+impl<T: PrimitiveShaderGraphNodeType> UniformNodePreparer<T> {
+  pub fn get(&self) -> Node<T> {
+    ShaderGraphInputNode::Uniform {
+      bindgroup_index: self.bindgroup_index,
+      entry_index: self.entry_index,
+    }
+    .insert_graph()
+  }
+}
+
 impl ShaderGraphBindGroupBuilder {
   #[inline(never)]
-  fn register_uniform_inner(
-    &mut self,
-    type_id: TypeId,
-    bindgroup_index: usize,
-    ty: ShaderValueType,
-  ) -> NodeUntyped {
+  fn register_uniform_inner(&mut self, bindgroup_index: usize, ty: ShaderValueType) -> NodeUntyped {
     if let Ok(node) = self.query_uniform_inner(type_id, bindgroup_index) {
       return node;
     }
@@ -69,60 +79,10 @@ impl ShaderGraphBindGroupBuilder {
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let node = ShaderGraphInputNode::Uniform {
-      bindgroup_index,
-      entry_index,
-    }
-    .insert_graph();
 
-    let (node_vertex, node_fragment) = match self.current_stage {
-      ShaderStages::Vertex => (node.handle().into(), None),
-      ShaderStages::Fragment => (None, node.handle().into()),
-    };
-
-    bindgroup.bindings.push((
-      ShaderGraphBindEntry {
-        ty,
-        node_vertex,
-        node_fragment,
-      },
-      type_id,
-    ));
+    bindgroup.bindings.push(ty);
 
     node
-  }
-
-  #[inline(never)]
-  fn query_uniform_inner(
-    &mut self,
-    type_id: TypeId,
-    bindgroup_index: usize,
-  ) -> Result<NodeUntyped, ShaderGraphBuildError> {
-    let current_stage = self.current_stage;
-    let bindgroup = &mut self.bindings[bindgroup_index];
-
-    bindgroup
-      .bindings
-      .iter_mut()
-      .enumerate()
-      .find(|(_, entry)| entry.1 == type_id)
-      .map(|(i, (entry, _))| unsafe {
-        let node = match current_stage {
-          ShaderStages::Vertex => &mut entry.node_vertex,
-          ShaderStages::Fragment => &mut entry.node_fragment,
-        };
-        node
-          .get_or_insert_with(|| {
-            ShaderGraphInputNode::Uniform {
-              bindgroup_index,
-              entry_index: i,
-            }
-            .insert_graph::<AnyType>()
-            .handle()
-          })
-          .into_node()
-      })
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
   }
 
   #[inline]
@@ -166,14 +126,5 @@ impl ShaderGraphBindGroupBuilder {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
     Ok(self.register_uniform_ty_inner::<T, N>(index))
-  }
-
-  #[inline]
-  pub fn query_uniform<T: ShaderUniformProvider>(
-    &mut self,
-    index: impl Into<usize>,
-  ) -> Result<Node<T::Node>, ShaderGraphBuildError> {
-    let result = self.query_uniform_inner(TypeId::of::<T>(), index.into());
-    result.map(|n| unsafe { n.cast_type() })
   }
 }

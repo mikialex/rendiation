@@ -18,19 +18,65 @@ pub enum ShaderGraphBuildError {
   FailedDowncastShaderValueFromInput,
 }
 
+pub struct ShaderGraphRenderPipelineBuilder {
+  // uniforms
+  pub bindgroups: ShaderGraphBindGroupBuilder,
+
+  vertex: ShaderGraphVertexBuilder,
+  fragment: ShaderGraphFragmentBuilder,
+}
+
+impl Default for ShaderGraphRenderPipelineBuilder {
+  fn default() -> Self {
+    Self {
+      bindgroups: Default::default(),
+      vertex: Default::default(),
+      fragment: Default::default(),
+    }
+  }
+}
+
+impl std::ops::Deref for ShaderGraphRenderPipelineBuilder {
+  type Target = ShaderGraphBindGroupBuilder;
+
+  fn deref(&self) -> &Self::Target {
+    &self.bindgroups
+  }
+}
+
+impl std::ops::DerefMut for ShaderGraphRenderPipelineBuilder {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.bindgroups
+  }
+}
+
+impl ShaderGraphRenderPipelineBuilder {
+  pub fn vertex<T>(
+    &mut self,
+    logic: impl FnOnce(ShaderGraphVertexBuilder) -> Result<T, ShaderGraphBuildError>,
+  ) -> Result<T, ShaderGraphBuildError> {
+    todo!()
+  }
+  pub fn fragment<T>(
+    &mut self,
+    logic: impl FnOnce(ShaderGraphFragmentBuilder) -> Result<T, ShaderGraphBuildError>,
+  ) -> Result<T, ShaderGraphBuildError> {
+    todo!()
+  }
+
+  pub fn build(
+    target: &dyn ShaderGraphCodeGenTarget,
+  ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
+    todo!()
+  }
+}
+
 /// The reason why we use two function is that the build process
 /// require to generate two separate root scope: two entry main function;
 pub trait ShaderGraphProvider {
-  fn build_vertex(
+  fn build(
     &self,
-    _builder: &mut ShaderGraphVertexBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    // default do nothing
-    Ok(())
-  }
-  fn build_fragment(
-    &self,
-    _builder: &mut ShaderGraphFragmentBuilder,
+    _builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     // default do nothing
     Ok(())
@@ -38,22 +84,12 @@ pub trait ShaderGraphProvider {
 }
 
 impl<'a> ShaderGraphProvider for &'a [&dyn ShaderGraphProvider] {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     for p in *self {
-      p.build_vertex(builder)?;
-    }
-    Ok(())
-  }
-
-  fn build_fragment(
-    &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    for p in *self {
-      p.build_fragment(builder)?;
+      p.build(builder)?;
     }
     Ok(())
   }
@@ -61,7 +97,7 @@ impl<'a> ShaderGraphProvider for &'a [&dyn ShaderGraphProvider] {
 
 /// entry
 pub fn build_shader(
-  builder: &dyn ShaderGraphProvider,
+  builder: &ShaderGraphRenderPipelineBuilder,
   target: &dyn ShaderGraphCodeGenTarget,
 ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
   let bindgroup_builder = ShaderGraphBindGroupBuilder::default();
@@ -149,19 +185,36 @@ impl<T> SuperUnsafeCell<T> {
 unsafe impl<T> Sync for SuperUnsafeCell<T> {}
 unsafe impl<T> Send for SuperUnsafeCell<T> {}
 
+struct PipelineShaderGraphPair {
+  vertex: ShaderGraphBuilder,
+  fragment: ShaderGraphBuilder,
+  current: Option<bool>,
+}
+
 static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<
-  SuperUnsafeCell<Option<ShaderGraphBuilder>>,
+  SuperUnsafeCell<Option<PipelineShaderGraphPair>>,
 > = once_cell::sync::Lazy::new(|| SuperUnsafeCell::new(None));
 
 pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
   let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
+  let is_vertex = graph.current.unwrap();
+  let graph = if is_vertex {
+    &mut graph.vertex
+  } else {
+    &mut graph.fragment
+  };
   modifier(graph)
 }
 
-pub(crate) fn set_build_graph(g: ShaderGraphBuilder) {
+pub(crate) fn set_current_building(current: Option<bool>) {
+  let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
+  graph.current = current
+}
+
+pub(crate) fn set_build_graph(g: PipelineShaderGraphPair) {
   IN_BUILDING_SHADER_GRAPH.get_mut().replace(g);
 }
 
-pub(crate) fn take_build_graph() -> ShaderGraphBuilder {
+pub(crate) fn take_build_graph() -> PipelineShaderGraphPair {
   IN_BUILDING_SHADER_GRAPH.get_mut().take().unwrap()
 }
