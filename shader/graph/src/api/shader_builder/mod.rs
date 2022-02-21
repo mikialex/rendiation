@@ -71,10 +71,10 @@ impl ShaderGraphRenderPipelineBuilder {
     Ok(result)
   }
 
-  pub fn build(
+  pub fn build<T: ShaderGraphCodeGenTarget>(
     self,
-    target: &dyn ShaderGraphCodeGenTarget,
-  ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
+    target: T,
+  ) -> Result<ShaderGraphCompileResult<T>, ShaderGraphBuildError> {
     let PipelineShaderGraphPair {
       mut vertex,
       mut fragment,
@@ -82,14 +82,13 @@ impl ShaderGraphRenderPipelineBuilder {
     } = take_build_graph();
 
     vertex.top_scope_mut().resolve_all_pending();
-    let vertex_shader = target.gen_vertex_shader(&self, vertex);
-
     fragment.top_scope_mut().resolve_all_pending();
-    let frag_shader = target.gen_fragment_shader(&self, fragment);
+
+    let shader = target.compile(&self, vertex, fragment);
 
     Ok(ShaderGraphCompileResult {
-      vertex_shader,
-      frag_shader,
+      shader,
+      target,
       bindings: self.bindgroups,
       vertex_layouts: self.vertex.vertex_layouts,
       primitive_state: self.vertex.primitive_state,
@@ -118,9 +117,9 @@ pub trait ShaderGraphProvider {
   }
 }
 
-pub struct ShaderGraphCompileResult {
-  pub vertex_shader: String,
-  pub frag_shader: String,
+pub struct ShaderGraphCompileResult<T: ShaderGraphCodeGenTarget> {
+  pub target: T,
+  pub shader: T::ShaderSource,
   pub bindings: ShaderGraphBindGroupBuilder,
   pub vertex_layouts: Vec<ShaderGraphVertexBufferLayout>,
   pub primitive_state: PrimitiveState,

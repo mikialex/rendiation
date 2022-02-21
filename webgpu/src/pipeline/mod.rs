@@ -79,88 +79,81 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
 impl GPUDevice {
   pub fn build_pipeline_by_shadergraph(
     &self,
-    builder: &dyn ShaderGraphProvider,
+    builder: ShaderGraphRenderPipelineBuilder,
   ) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
-    build_pipeline(builder, self)
+    let compile_result = builder.build(WGSL)?;
+
+    let ShaderGraphCompileResult {
+      shader,
+      bindings,
+      vertex_layouts,
+      primitive_state,
+      color_states,
+      depth_stencil,
+      multisample,
+      target,
+    } = compile_result;
+
+    let WGSLShaderSource { vertex, fragment } = shader;
+
+    let vertex = self.create_shader_module(&wgpu::ShaderModuleDescriptor {
+      label: None,
+      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(vertex.as_str())),
+    });
+    let fragment = self.create_shader_module(&wgpu::ShaderModuleDescriptor {
+      label: None,
+      source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(fragment.as_str())),
+    });
+
+    let layouts: Vec<_> = bindings
+      .bindings
+      .iter()
+      .map(|binding| {
+        let iter = binding.bindings.iter().map(|(ty, vis)| {
+          let visibility = match vis.get() {
+            ShaderStageVisibility::Vertex => wgpu::ShaderStages::VERTEX,
+            ShaderStageVisibility::Fragment => wgpu::ShaderStages::FRAGMENT,
+            ShaderStageVisibility::Both => wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ShaderStageVisibility::None => wgpu::ShaderStages::NONE,
+          };
+          (ty, visibility)
+        });
+
+        create_bindgroup_layout_by_node_ty(self, iter)
+      })
+      .collect();
+
+    let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();
+
+    let pipeline_layout = self.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+      label: None,
+      bind_group_layouts: layouts_ref.as_slice(),
+      push_constant_ranges: &[],
+    });
+
+    let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
+
+    let pipeline = self.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+      label: None,
+      layout: Some(&pipeline_layout),
+      vertex: wgpu::VertexState {
+        module: &vertex,
+        entry_point: target.vertex_entry_name(),
+        buffers: vertex_buffers.as_slice(),
+      },
+      fragment: Some(wgpu::FragmentState {
+        module: &fragment,
+        entry_point: target.fragment_entry_name(),
+        targets: color_states.as_slice(),
+      }),
+      primitive: primitive_state,
+      depth_stencil,
+      multisample,
+      multiview: None,
+    });
+
+    Ok(GPURenderPipeline::new(pipeline, layouts))
   }
-}
-
-pub fn build_pipeline(
-  builder: &dyn ShaderGraphProvider,
-  device: &GPUDevice,
-) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
-  let target = WGSL;
-  let compile_result = build_shader(builder, &target)?;
-
-  let ShaderGraphCompileResult {
-    vertex_shader,
-    frag_shader,
-    bindings,
-    vertex_layouts,
-    primitive_state,
-    color_states,
-    depth_stencil,
-    multisample,
-  } = compile_result;
-
-  let vertex_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-    label: None,
-    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(vertex_shader.as_str())),
-  });
-  let frag_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-    label: None,
-    source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(frag_shader.as_str())),
-  });
-
-  let layouts: Vec<_> = bindings
-    .bindings
-    .iter()
-    .map(|binding| {
-      let iter = binding.bindings.iter().map(|(binding, _)| {
-        let mut visibility = wgpu::ShaderStages::NONE;
-        if binding.node_vertex.is_some() {
-          visibility.set(wgpu::ShaderStages::VERTEX, true);
-        }
-        if binding.node_fragment.is_some() {
-          visibility.set(wgpu::ShaderStages::FRAGMENT, true);
-        }
-        (&binding.ty, visibility)
-      });
-
-      create_bindgroup_layout_by_node_ty(device, iter)
-    })
-    .collect();
-
-  let layouts_ref: Vec<_> = layouts.iter().map(|l| l.inner.as_ref()).collect();
-
-  let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-    label: None,
-    bind_group_layouts: layouts_ref.as_slice(),
-    push_constant_ranges: &[],
-  });
-
-  let vertex_buffers: Vec<_> = vertex_layouts.iter().map(convert_vertex_layout).collect();
-
-  let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-    label: None,
-    layout: Some(&pipeline_layout),
-    vertex: wgpu::VertexState {
-      module: &vertex_shader,
-      entry_point: target.vertex_entry_name(),
-      buffers: vertex_buffers.as_slice(),
-    },
-    fragment: Some(wgpu::FragmentState {
-      module: &frag_shader,
-      entry_point: target.fragment_entry_name(),
-      targets: color_states.as_slice(),
-    }),
-    primitive: primitive_state,
-    depth_stencil,
-    multisample,
-    multiview: None,
-  });
-
-  Ok(GPURenderPipeline::new(pipeline, layouts))
 }
 
 pub fn convert_vertex_layout(layout: &ShaderGraphVertexBufferLayout) -> wgpu::VertexBufferLayout {

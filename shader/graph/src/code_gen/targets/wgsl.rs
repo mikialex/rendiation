@@ -11,91 +11,107 @@ impl WGSL {
   }
 }
 
+pub struct WGSLShaderSource {
+  pub vertex: String,
+  pub fragment: String,
+}
+
 impl ShaderGraphCodeGenTarget for WGSL {
-  fn gen_vertex_shader(
+  type ShaderSource = WGSLShaderSource;
+
+  fn compile(
     &self,
-    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
-    builder: ShaderGraphBuilder,
-  ) -> String {
-    let vertex = &pipeline_builder.vertex;
+    builder: &ShaderGraphRenderPipelineBuilder,
+    vertex: ShaderGraphBuilder,
+    fragment: ShaderGraphBuilder,
+  ) -> Self::ShaderSource {
+    let vertex = gen_vertex_shader(builder, vertex);
+    let fragment = gen_fragment_shader(builder, fragment);
+    WGSLShaderSource { vertex, fragment }
+  }
+}
 
-    let mut code = CodeBuilder::default();
-    let mut cx = CodeGenCtx::default();
+fn gen_vertex_shader(
+  pipeline_builder: &ShaderGraphRenderPipelineBuilder,
+  builder: ShaderGraphBuilder,
+) -> String {
+  let vertex = &pipeline_builder.vertex;
 
-    gen_structs(&mut code, &builder);
-    gen_vertex_out_struct(&mut code, vertex);
-    gen_bindings(
-      &mut code,
-      &pipeline_builder.bindgroups,
-      ShaderStages::Vertex,
-    );
-    gen_entry(
-      &mut code,
-      ShaderStages::Vertex,
-      |code| {
-        code.write_ln("var out: VertexOut;");
-        let root = gen_node_with_dep_in_entry(
-          vertex.vertex_position.get().handle(),
-          &builder,
-          &mut cx,
-          code,
-        );
-        code.write_ln(format!("out.position = {root};"));
+  let mut code = CodeBuilder::default();
+  let mut cx = CodeGenCtx::default();
 
-        vertex.vertex_out.iter().for_each(|(_, (v, _, i))| {
+  gen_structs(&mut code, &builder);
+  gen_vertex_out_struct(&mut code, vertex);
+  gen_bindings(
+    &mut code,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Vertex,
+  );
+  gen_entry(
+    &mut code,
+    ShaderStages::Vertex,
+    |code| {
+      code.write_ln("var out: VertexOut;");
+      let root = gen_node_with_dep_in_entry(
+        vertex.vertex_position.get().handle(),
+        &builder,
+        &mut cx,
+        code,
+      );
+      code.write_ln(format!("out.position = {root};"));
+
+      vertex.vertex_out.iter().for_each(|(_, (v, _, i))| {
+        let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
+        code.write_ln(format!("out.vertex_out{i} = {root};"));
+      });
+      code.write_ln("return out;");
+    },
+    |code| gen_vertex_in_declare(code, vertex),
+    |code| {
+      code.write_raw("VertexOut");
+    },
+  );
+  cx.gen_fn_depends(&mut code);
+  code.output()
+}
+
+fn gen_fragment_shader(
+  pipeline_builder: &ShaderGraphRenderPipelineBuilder,
+  builder: ShaderGraphBuilder,
+) -> String {
+  let fragment = &pipeline_builder.fragment;
+
+  let mut code = CodeBuilder::default();
+  let mut cx = CodeGenCtx::default();
+  gen_structs(&mut code, &builder);
+  gen_fragment_out_struct(&mut code, fragment);
+  gen_bindings(
+    &mut code,
+    &pipeline_builder.bindgroups,
+    ShaderStages::Fragment,
+  );
+  gen_entry(
+    &mut code,
+    ShaderStages::Fragment,
+    |code| {
+      code.write_ln("var out: FragmentOut;");
+      fragment
+        .frag_output
+        .iter()
+        .enumerate()
+        .for_each(|(i, (v, _))| {
           let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-          code.write_ln(format!("out.vertex_out{i} = {root};"));
+          code.write_ln(format!("out.frag_out{i} = {root};"));
         });
-        code.write_ln("return out;");
-      },
-      |code| gen_vertex_in_declare(code, vertex),
-      |code| {
-        code.write_raw("VertexOut");
-      },
-    );
-    cx.gen_fn_depends(&mut code);
-    code.output()
-  }
-
-  fn gen_fragment_shader(
-    &self,
-    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
-    builder: ShaderGraphBuilder,
-  ) -> String {
-    let fragment = &pipeline_builder.fragment;
-
-    let mut code = CodeBuilder::default();
-    let mut cx = CodeGenCtx::default();
-    gen_structs(&mut code, &builder);
-    gen_fragment_out_struct(&mut code, fragment);
-    gen_bindings(
-      &mut code,
-      &pipeline_builder.bindgroups,
-      ShaderStages::Fragment,
-    );
-    gen_entry(
-      &mut code,
-      ShaderStages::Fragment,
-      |code| {
-        code.write_ln("var out: FragmentOut;");
-        fragment
-          .frag_output
-          .iter()
-          .enumerate()
-          .for_each(|(i, (v, _))| {
-            let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-            code.write_ln(format!("out.frag_out{i} = {root};"));
-          });
-        code.write_ln("return out;");
-      },
-      |code| gen_fragment_in_declare(code, fragment),
-      |code| {
-        code.write_raw("FragmentOut");
-      },
-    );
-    cx.gen_fn_depends(&mut code);
-    code.output()
-  }
+      code.write_ln("return out;");
+    },
+    |code| gen_fragment_in_declare(code, fragment),
+    |code| {
+      code.write_raw("FragmentOut");
+    },
+  );
+  cx.gen_fn_depends(&mut code);
+  code.output()
 }
 
 fn gen_vertex_in_declare(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {

@@ -4,16 +4,13 @@ pub use wgsl::*;
 use crate::*;
 
 pub trait ShaderGraphCodeGenTarget {
-  fn gen_vertex_shader(
+  type ShaderSource;
+  fn compile(
     &self,
-    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
-    builder: ShaderGraphBuilder,
-  ) -> String;
-  fn gen_fragment_shader(
-    &self,
-    pipeline_builder: &ShaderGraphRenderPipelineBuilder,
-    builder: ShaderGraphBuilder,
-  ) -> String;
+    builder: &ShaderGraphRenderPipelineBuilder,
+    vertex: ShaderGraphBuilder,
+    fragment: ShaderGraphBuilder,
+  ) -> Self::ShaderSource;
 }
 
 /// common & shareable impl
