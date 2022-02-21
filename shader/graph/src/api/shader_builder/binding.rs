@@ -62,6 +62,23 @@ pub struct UniformNodePreparer<T> {
 
 impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
   pub fn using(&self) -> Node<T> {
+    match get_current_stage_unwrap() {
+      ShaderStages::Vertex => match self.visibility_modifier.get() {
+        ShaderStageVisibility::Fragment => {
+          self.visibility_modifier.set(ShaderStageVisibility::Both)
+        }
+        ShaderStageVisibility::None => self.visibility_modifier.set(ShaderStageVisibility::Vertex),
+        _ => {}
+      },
+      ShaderStages::Fragment => match self.visibility_modifier.get() {
+        ShaderStageVisibility::Vertex => self.visibility_modifier.set(ShaderStageVisibility::Both),
+        ShaderStageVisibility::None => self
+          .visibility_modifier
+          .set(ShaderStageVisibility::Fragment),
+        _ => {}
+      },
+    }
+
     ShaderGraphInputNode::Uniform {
       bindgroup_index: self.bindgroup_index,
       entry_index: self.entry_index,

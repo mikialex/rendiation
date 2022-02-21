@@ -37,7 +37,7 @@ pub struct ShaderGraphVertexBuilder {
 
 impl ShaderGraphVertexBuilder {
   pub(crate) fn new() -> Self {
-    set_current_building(true.into());
+    set_current_building(ShaderStages::Vertex.into());
 
     // default position
     let vertex_position = ShaderGraphNodeExpr::Const(ConstNode {

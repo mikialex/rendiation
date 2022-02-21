@@ -28,6 +28,7 @@ pub struct ShaderGraphRenderPipelineBuilder {
 
 impl Default for ShaderGraphRenderPipelineBuilder {
   fn default() -> Self {
+    set_build_graph();
     Self {
       bindgroups: Default::default(),
       vertex: ShaderGraphVertexBuilder::new(),
@@ -55,7 +56,7 @@ impl ShaderGraphRenderPipelineBuilder {
     &mut self,
     logic: impl FnOnce(&mut ShaderGraphVertexBuilder) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
-    set_current_building(true.into());
+    set_current_building(ShaderStages::Vertex.into());
     let result = logic(&mut self.vertex)?;
     set_current_building(None);
     Ok(result)
@@ -64,7 +65,7 @@ impl ShaderGraphRenderPipelineBuilder {
     &mut self,
     logic: impl FnOnce(&mut ShaderGraphFragmentBuilder) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
-    set_current_building(true.into());
+    set_current_building(ShaderStages::Fragment.into());
     let result = logic(&mut self.fragment)?;
     set_current_building(None);
     Ok(result)
@@ -75,7 +76,9 @@ impl ShaderGraphRenderPipelineBuilder {
     target: &dyn ShaderGraphCodeGenTarget,
   ) -> Result<ShaderGraphCompileResult, ShaderGraphBuildError> {
     let PipelineShaderGraphPair {
-      vertex, fragment, ..
+      mut vertex,
+      mut fragment,
+      ..
     } = take_build_graph();
 
     vertex.top_scope_mut().resolve_all_pending();
@@ -111,18 +114,6 @@ pub trait ShaderGraphProvider {
     _builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     // default do nothing
-    Ok(())
-  }
-}
-
-impl<'a> ShaderGraphProvider for &'a [&dyn ShaderGraphProvider] {
-  fn build(
-    &self,
-    builder: &mut ShaderGraphRenderPipelineBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    for p in *self {
-      p.build(builder)?;
-    }
     Ok(())
   }
 }
@@ -179,10 +170,10 @@ unsafe impl<T> Sync for SuperUnsafeCell<T> {}
 unsafe impl<T> Send for SuperUnsafeCell<T> {}
 
 #[derive(Default)]
-struct PipelineShaderGraphPair {
+pub(crate) struct PipelineShaderGraphPair {
   vertex: ShaderGraphBuilder,
   fragment: ShaderGraphBuilder,
-  current: Option<bool>,
+  current: Option<ShaderStages>,
 }
 
 static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<
@@ -191,18 +182,22 @@ static IN_BUILDING_SHADER_GRAPH: once_cell::sync::Lazy<
 
 pub(crate) fn modify_graph<T>(modifier: impl FnOnce(&mut ShaderGraphBuilder) -> T) -> T {
   let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
-  let is_vertex = graph.current.unwrap();
-  let graph = if is_vertex {
-    &mut graph.vertex
-  } else {
-    &mut graph.fragment
+  let graph = match graph.current.unwrap() {
+    ShaderStages::Vertex => &mut graph.vertex,
+    ShaderStages::Fragment => &mut graph.fragment,
   };
+
   modifier(graph)
 }
 
-pub(crate) fn set_current_building(current: Option<bool>) {
+pub(crate) fn set_current_building(current: Option<ShaderStages>) {
   let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
   graph.current = current
+}
+
+pub(crate) fn get_current_stage_unwrap() -> ShaderStages {
+  let graph = IN_BUILDING_SHADER_GRAPH.get_mut().as_mut().unwrap();
+  graph.current.unwrap()
 }
 
 pub(crate) fn set_build_graph() {

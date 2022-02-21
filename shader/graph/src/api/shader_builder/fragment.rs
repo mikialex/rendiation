@@ -28,7 +28,7 @@ pub struct ShaderGraphFragmentBuilder {
 
 impl ShaderGraphFragmentBuilder {
   pub(crate) fn new() -> Self {
-    set_current_building(false.into());
+    set_current_building(ShaderStages::Fragment.into());
 
     // todo setup builtin fragment in
 

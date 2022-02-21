@@ -19,12 +19,13 @@ impl ShaderGraphProvider for Test {
   ) -> Result<(), ShaderGraphBuildError> {
     let varying = builder.vertex(|builder| {
       builder.set_vertex_out::<TestSemantic>(Vec4::default());
-      let varying = builder.set_vertex_out_anonymous(Vec4::default());
-      Ok(varying)
+      // let varying = builder.set_vertex_out_anonymous(Vec4::default());
+      // Ok(varying)
+      Ok(())
     })?;
     builder.fragment(|builder| {
       let v = builder.get_fragment_in::<TestSemantic>()?;
-      let v2 = builder.get_fragment_in_anonymous(varying);
+      // let v2 = builder.get_fragment_in_anonymous(varying);
       builder.set_fragment_out(0, v)
     })
   }

@@ -494,8 +494,14 @@ fn gen_bindings(
       b.bindings
         .iter()
         .enumerate()
-        .for_each(|(item_index, (entry, _))| {
-          gen_bind_entry(code, entry, group_index, item_index, stage)
+        .for_each(|(item_index, entry)| {
+          gen_bind_entry(
+            code,
+            &(entry.0, entry.1.get()),
+            group_index,
+            item_index,
+            stage,
+          )
         });
     })
 }
@@ -507,10 +513,7 @@ fn gen_bind_entry(
   item_index: usize,
   stage: ShaderStages,
 ) {
-  if match stage {
-    ShaderStages::Vertex => entry.node_vertex.is_some(),
-    ShaderStages::Fragment => entry.node_fragment.is_some(),
-  } {
+  if entry.1.is_visible_to(stage) {
     code.write_ln(format!(
       "[[group({}), binding({})]] var{} uniform_b_{}_i_{}: {};",
       group_index,

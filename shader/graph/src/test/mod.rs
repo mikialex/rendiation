@@ -6,7 +6,9 @@ mod varying;
 use crate::*;
 
 pub fn test_provider_success(s: &dyn ShaderGraphProvider) {
-  let result = build_shader(s, &WGSL);
+  let mut builder = Default::default();
+  s.build(&mut builder).unwrap();
+  let result = builder.build(&WGSL);
   test_build_result_success(result)
 }
 

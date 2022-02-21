@@ -340,10 +340,26 @@ pub struct ShaderGraphBindGroup {
   pub bindings: Vec<(ShaderValueType, Rc<Cell<ShaderStageVisibility>>)>,
 }
 
-#[derive(Clone)]
+// use bitset
+#[derive(Clone, Copy)]
 pub enum ShaderStageVisibility {
   Vertex,
   Fragment,
   Both,
   None,
+}
+
+impl ShaderStageVisibility {
+  pub fn is_visible_to(&self, stage: ShaderStages) -> bool {
+    match self {
+      ShaderStageVisibility::Vertex => {
+        matches!(stage, ShaderStages::Vertex)
+      }
+      ShaderStageVisibility::Fragment => {
+        matches!(stage, ShaderStages::Fragment)
+      }
+      ShaderStageVisibility::Both => true,
+      ShaderStageVisibility::None => false,
+    }
+  }
 }
