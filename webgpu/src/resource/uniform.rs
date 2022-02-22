@@ -2,16 +2,16 @@ use crate::*;
 
 /// Typed wrapper
 pub struct UniformBuffer<T> {
-  gpu: wgpu::Buffer,
+  gpu: gpu::Buffer,
   phantom: PhantomData<T>,
 }
 
 impl<T: Pod> UniformBuffer<T> {
   pub fn create(device: &GPUDevice, data: T) -> Self {
-    let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    let gpu = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
       label: None,
       contents: bytemuck::cast_slice(&[data]),
-      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+      usage: gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST,
     });
     Self {
       gpu,
@@ -19,24 +19,24 @@ impl<T: Pod> UniformBuffer<T> {
     }
   }
 
-  pub fn update(&self, queue: &wgpu::Queue, data: T) {
+  pub fn update(&self, queue: &gpu::Queue, data: T) {
     queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[data]))
   }
 
-  pub fn gpu(&self) -> &wgpu::Buffer {
+  pub fn gpu(&self) -> &gpu::Buffer {
     &self.gpu
   }
 }
 
 impl<T> BindableResourceView for UniformBuffer<T> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource {
     self.gpu.as_entire_binding()
   }
 }
 
 /// Typed uniform buffer with cpu data
 pub struct UniformBufferData<T> {
-  gpu: wgpu::Buffer,
+  gpu: gpu::Buffer,
   data: T,
   last: Cell<Option<T>>,
   changed: Cell<bool>,
@@ -66,10 +66,10 @@ impl<T: Pod> UniformBufferData<T> {
   }
 
   pub fn create(device: &GPUDevice, data: T) -> Self {
-    let gpu = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    let gpu = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
       label: None,
       contents: bytemuck::cast_slice(&[data]),
-      usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+      usage: gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST,
     });
     Self {
       gpu,
@@ -79,7 +79,7 @@ impl<T: Pod> UniformBufferData<T> {
     }
   }
 
-  pub fn update(&self, queue: &wgpu::Queue) {
+  pub fn update(&self, queue: &gpu::Queue) {
     if self.changed.get() {
       queue.write_buffer(&self.gpu, 0, bytemuck::cast_slice(&[self.data]));
       self.changed.set(false);
@@ -87,7 +87,7 @@ impl<T: Pod> UniformBufferData<T> {
     }
   }
 
-  pub fn update_with_diff(&self, queue: &wgpu::Queue)
+  pub fn update_with_diff(&self, queue: &gpu::Queue)
   where
     T: PartialEq,
   {
@@ -102,13 +102,13 @@ impl<T: Pod> UniformBufferData<T> {
     }
   }
 
-  pub fn gpu(&self) -> &wgpu::Buffer {
+  pub fn gpu(&self) -> &gpu::Buffer {
     &self.gpu
   }
 }
 
 impl<T> BindableResourceView for UniformBufferData<T> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource {
     self.gpu.as_entire_binding()
   }
 }

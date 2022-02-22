@@ -33,6 +33,7 @@ pub struct ShaderGraphVertexBuilder {
 
   // user vertex out
   pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
+  pub(crate) vertex_out_not_synced_to_fragment: HashSet<TypeId>,
 }
 
 impl ShaderGraphVertexBuilder {
@@ -61,7 +62,31 @@ impl ShaderGraphVertexBuilder {
       vertex_out: Default::default(),
       vertex_layouts: Default::default(),
       primitive_state: Default::default(),
+      vertex_out_not_synced_to_fragment: Default::default(),
     }
+  }
+
+  pub fn sync_fragment_out(&mut self, fragment: &mut ShaderGraphFragmentBuilder) {
+    let vertex_out = &mut self.vertex_out;
+    self
+      .vertex_out_not_synced_to_fragment
+      .drain()
+      .for_each(|id| {
+        let (_, ty, index) = vertex_out.get(&id).unwrap();
+
+        set_current_building(ShaderStages::Fragment.into());
+        let node = ShaderGraphInputNode::FragmentIn {
+          ty: *ty,
+          index: *index,
+        }
+        .insert_graph();
+        set_current_building(None);
+
+        fragment.fragment_in.insert(
+          id,
+          (node, *ty, ShaderVaryingInterpolation::Perspective, *index),
+        );
+      })
   }
 
   pub fn query<T: SemanticVertexShaderValue>(
@@ -113,7 +138,8 @@ impl ShaderGraphVertexBuilder {
   {
     let len = self.vertex_out.len();
     let node = node.into();
-    self.vertex_out.entry(TypeId::of::<T>()).or_insert_with(|| {
+    let id = TypeId::of::<T>();
+    self.vertex_out.entry(id).or_insert_with(|| {
       (
         node.cast_untyped_node(),
         <T as SemanticVertexShaderValue>::ValueType::to_primitive_type(),
@@ -121,6 +147,7 @@ impl ShaderGraphVertexBuilder {
       )
     });
     self.register::<T>(node);
+    self.vertex_out_not_synced_to_fragment.insert(id);
   }
 
   pub fn register_vertex<V>(&mut self, step_mode: VertexStepMode)

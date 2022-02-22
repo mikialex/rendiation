@@ -5,14 +5,14 @@ pub use cube::*;
 
 use crate::*;
 
-pub type GPUTexture = ResourceRc<wgpu::Texture>;
+pub type GPUTexture = ResourceRc<gpu::Texture>;
 
-impl Resource for wgpu::Texture {
-  type Descriptor = wgpu::TextureDescriptor<'static>;
+impl Resource for gpu::Texture {
+  type Descriptor = gpu::TextureDescriptor<'static>;
 
-  type View = wgpu::TextureView;
+  type View = gpu::TextureView;
 
-  type ViewDescriptor = wgpu::TextureViewDescriptor<'static>;
+  type ViewDescriptor = gpu::TextureViewDescriptor<'static>;
 
   fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
     device.create_texture(desc)
@@ -23,8 +23,8 @@ impl Resource for wgpu::Texture {
   }
 }
 
-impl BindableResourceView for wgpu::TextureView {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(self)
+impl BindableResourceView for gpu::TextureView {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    gpu::BindingResource::TextureView(self)
   }
 }

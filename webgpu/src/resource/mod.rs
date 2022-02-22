@@ -110,7 +110,7 @@ where
   T::View: BindableResourceView,
   T: Resource,
 {
-  fn as_bindable(&self) -> wgpu::BindingResource {
+  fn as_bindable(&self) -> gpu::BindingResource {
     self.inner.as_bindable()
   }
 }

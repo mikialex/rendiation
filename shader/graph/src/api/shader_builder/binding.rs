@@ -88,7 +88,7 @@ impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
 }
 
 impl ShaderGraphBindGroupBuilder {
-  pub fn register_uniform_ty_inner<T: Any, N: ShaderGraphNodeType>(
+  pub(crate) fn uniform_ty_inner<T: Any, N: ShaderGraphNodeType>(
     &mut self,
     index: impl Into<usize>,
   ) -> UniformNodePreparer<N> {
@@ -110,23 +110,23 @@ impl ShaderGraphBindGroupBuilder {
     }
   }
 
-  pub fn register_uniform<T: ShaderUniformProvider>(
+  pub fn uniform<T: ShaderUniformProvider>(
     &mut self,
     index: impl Into<usize>,
   ) -> UniformNodePreparer<T::Node> {
-    self.register_uniform_ty_inner::<T, T::Node>(index)
+    self.uniform_ty_inner::<T, T::Node>(index)
   }
 
-  pub fn register_uniform_by<T: ShaderUniformProvider>(
+  pub fn uniform_by<T: ShaderUniformProvider>(
     &mut self,
     _instance: &T,
     index: impl Into<usize>,
   ) -> UniformNodePreparer<T::Node> {
-    self.register_uniform::<T>(index)
+    self.uniform::<T>(index)
   }
 
   /// N: the node type you want toc cast
-  pub fn register_uniform_dyn_ty_by<T, N>(
+  pub fn uniform_dyn_ty_by<T, N>(
     &mut self,
     instance: &T,
     index: impl Into<usize>,
@@ -138,6 +138,44 @@ impl ShaderGraphBindGroupBuilder {
     if instance.to_value() != N::to_type() {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
-    Ok(self.register_uniform_ty_inner::<T, N>(index))
+    Ok(self.uniform_ty_inner::<T, N>(index))
+  }
+
+  pub(crate) fn wrap(&mut self) -> ShaderGraphBindGroupDirectBuilder {
+    ShaderGraphBindGroupDirectBuilder { builder: self }
+  }
+}
+
+pub struct ShaderGraphBindGroupDirectBuilder<'a> {
+  builder: &'a mut ShaderGraphBindGroupBuilder,
+}
+
+impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
+  pub fn uniform<T: ShaderUniformProvider>(&mut self, index: impl Into<usize>) -> Node<T::Node> {
+    self.builder.uniform_ty_inner::<T, T::Node>(index).using()
+  }
+
+  pub fn uniform_by<T: ShaderUniformProvider>(
+    &mut self,
+    _instance: &T,
+    index: impl Into<usize>,
+  ) -> Node<T::Node> {
+    self.uniform::<T>(index)
+  }
+
+  /// N: the node type you want toc cast
+  pub fn uniform_dyn_ty_by<T, N>(
+    &mut self,
+    instance: &T,
+    index: impl Into<usize>,
+  ) -> Result<Node<N>, ShaderGraphBuildError>
+  where
+    T: DynamicShaderUniformProvider,
+    N: ShaderGraphNodeType,
+  {
+    if instance.to_value() != N::to_type() {
+      return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
+    }
+    Ok(self.builder.uniform_ty_inner::<T, N>(index).using())
   }
 }

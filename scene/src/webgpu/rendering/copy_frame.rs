@@ -126,5 +126,5 @@ impl BindGroupLayoutProvider for CopyFrame {
     )
   }
 
-  fn register_uniform_struct_declare(_: &mut PipelineBuilder) {}
+  fn uniform_struct_declare(_: &mut PipelineBuilder) {}
 }

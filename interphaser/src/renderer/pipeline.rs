@@ -12,10 +12,9 @@ impl ShaderGraphProvider for SolidUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global =
-      builder.register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
+    let global = builder.uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
 
-    builder.vertex(|builder| {
+    builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
       builder.primitive_state = webgpu::PrimitiveState {
         topology: webgpu::PrimitiveTopology::TriangleList,
@@ -42,7 +41,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
       Ok(())
     })?;
 
-    builder.fragment(|builder| {
+    builder.fragment(|builder, _| {
       builder.push_fragment_out_slot(ColorTargetState {
         format: self.target_format,
         blend: Some(webgpu::BlendState::ALPHA_BLENDING),
@@ -65,10 +64,9 @@ impl ShaderGraphProvider for TextureUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global =
-      builder.register_uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
+    let global = builder.uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
 
-    builder.vertex(|builder| {
+    builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
       builder.primitive_state = webgpu::PrimitiveState {
         topology: webgpu::PrimitiveTopology::TriangleList,
@@ -98,18 +96,16 @@ impl ShaderGraphProvider for TextureUIPipeline {
     })?;
 
     use webgpu::container::*;
-    let texture = builder.register_uniform::<SemanticGPUTexture2d<Self>>(SemanticBinding::Material);
-    let sampler = builder.register_uniform::<SemanticGPUSampler<Self>>(SemanticBinding::Material);
 
-    builder.fragment(|builder| {
+    builder.fragment(|builder, binding| {
       builder.push_fragment_out_slot(ColorTargetState {
         format: self.target_format,
         blend: Some(webgpu::BlendState::ALPHA_BLENDING),
         write_mask: webgpu::ColorWrites::ALL,
       });
       let uv = builder.query::<FragmentUv>()?.get();
-      let texture = texture.using();
-      let sampler = sampler.using();
+      let texture = binding.uniform::<SemanticGPUTexture2d<Self>>(SemanticBinding::Material);
+      let sampler = binding.uniform::<SemanticGPUSampler<Self>>(SemanticBinding::Material);
 
       let color = texture.sample(sampler, uv);
       builder.set_fragment_out(0, color)

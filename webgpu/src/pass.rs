@@ -8,8 +8,8 @@ pub struct RenderPassInfo {
 
 #[derive(Clone, Hash)]
 pub struct PassTargetFormatInfo {
-  pub depth_stencil_format: Option<wgpu::TextureFormat>,
-  pub color_formats: Vec<wgpu::TextureFormat>,
+  pub depth_stencil_format: Option<gpu::TextureFormat>,
+  pub color_formats: Vec<gpu::TextureFormat>,
   pub sample_count: u32,
 }
 
@@ -26,21 +26,21 @@ impl Default for PassTargetFormatInfo {
 #[derive(Clone, Default)]
 pub struct RenderPassDescriptorOwned {
   pub name: String,
-  pub channels: Vec<(wgpu::Operations<wgpu::Color>, Rc<wgpu::TextureView>, Size)>,
-  pub depth_stencil_target: Option<(wgpu::Operations<f32>, Rc<wgpu::TextureView>)>,
-  pub resolve_target: Option<Rc<wgpu::TextureView>>,
+  pub channels: Vec<(gpu::Operations<gpu::Color>, Rc<gpu::TextureView>, Size)>,
+  pub depth_stencil_target: Option<(gpu::Operations<f32>, Rc<gpu::TextureView>)>,
+  pub resolve_target: Option<Rc<gpu::TextureView>>,
   pub info: PassTargetFormatInfo,
 }
 
 pub struct GPURenderPass<'a> {
   pub(crate) info: RenderPassInfo,
-  pub(crate) pass: wgpu::RenderPass<'a>,
+  pub(crate) pass: gpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
-  pub(crate) placeholder_bg: Rc<wgpu::BindGroup>,
+  pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
 }
 
 impl<'a> Deref for GPURenderPass<'a> {
-  type Target = wgpu::RenderPass<'a>;
+  type Target = gpu::RenderPass<'a>;
 
   fn deref(&self) -> &Self::Target {
     &self.pass
@@ -55,9 +55,9 @@ impl<'a> DerefMut for GPURenderPass<'a> {
 
 #[derive(Default)]
 pub struct GPURenderPassDataHolder {
-  buffers: Arena<Rc<wgpu::Buffer>>,
-  bindgroups: Arena<Rc<wgpu::BindGroup>>,
-  pipelines: Arena<Rc<wgpu::RenderPipeline>>,
+  buffers: Arena<Rc<gpu::Buffer>>,
+  bindgroups: Arena<Rc<gpu::BindGroup>>,
+  pipelines: Arena<Rc<gpu::RenderPipeline>>,
 }
 
 impl<'a> GPURenderPass<'a> {
@@ -65,7 +65,7 @@ impl<'a> GPURenderPass<'a> {
     &self.info
   }
 
-  pub fn set_pipeline_owned(&mut self, pipeline: &Rc<wgpu::RenderPipeline>) {
+  pub fn set_pipeline_owned(&mut self, pipeline: &Rc<gpu::RenderPipeline>) {
     let pipeline = self.holder.pipelines.alloc(pipeline.clone());
     self.pass.set_pipeline(pipeline)
   }
@@ -77,22 +77,22 @@ impl<'a> GPURenderPass<'a> {
   pub fn set_bind_group_owned(
     &mut self,
     index: u32,
-    bind_group: &Rc<wgpu::BindGroup>,
-    offsets: &[wgpu::DynamicOffset],
+    bind_group: &Rc<gpu::BindGroup>,
+    offsets: &[gpu::DynamicOffset],
   ) {
     let bind_group = self.holder.bindgroups.alloc(bind_group.clone());
     self.set_bind_group(index, bind_group, offsets)
   }
 
-  pub fn set_vertex_buffer_owned(&mut self, slot: u32, buffer: &Rc<wgpu::Buffer>) {
+  pub fn set_vertex_buffer_owned(&mut self, slot: u32, buffer: &Rc<gpu::Buffer>) {
     let buffer = self.holder.buffers.alloc(buffer.clone());
     self.pass.set_vertex_buffer(slot, buffer.slice(..))
   }
 
   pub fn set_index_buffer_owned(
     &mut self,
-    buffer: &Rc<wgpu::Buffer>,
-    index_format: wgpu::IndexFormat,
+    buffer: &Rc<gpu::Buffer>,
+    index_format: gpu::IndexFormat,
   ) {
     let buffer = self.holder.buffers.alloc(buffer.clone());
     self.pass.set_index_buffer(buffer.slice(..), index_format)

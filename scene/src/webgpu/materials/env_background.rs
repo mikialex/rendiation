@@ -49,7 +49,7 @@ impl BindGroupLayoutProvider for EnvMapBackGroundMaterial {
     )
   }
 
-  fn register_uniform_struct_declare(_builder: &mut PipelineBuilder) {}
+  fn uniform_struct_declare(_builder: &mut PipelineBuilder) {}
 }
 
 impl BackGroundShading for EnvMapBackGroundMaterial {

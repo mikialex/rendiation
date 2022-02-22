@@ -1,12 +1,12 @@
 use crate::*;
 
 pub trait SurfaceProvider {
-  fn create_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface;
+  fn create_surface(&self, instance: &gpu::Instance) -> gpu::Surface;
   fn size(&self) -> Size;
 }
 
 impl SurfaceProvider for winit::window::Window {
-  fn create_surface(&self, instance: &wgpu::Instance) -> wgpu::Surface {
+  fn create_surface(&self, instance: &gpu::Instance) -> gpu::Surface {
     unsafe { instance.create_surface(self) }
   }
 
@@ -17,28 +17,28 @@ impl SurfaceProvider for winit::window::Window {
 }
 
 pub struct GPUSurface {
-  pub surface: wgpu::Surface,
-  pub config: wgpu::SurfaceConfiguration,
+  pub surface: gpu::Surface,
+  pub config: gpu::SurfaceConfiguration,
   pub size: Size,
 }
 
 impl GPUSurface {
   pub fn new(
-    adapter: &wgpu::Adapter,
+    adapter: &gpu::Adapter,
     device: &GPUDevice,
-    surface: wgpu::Surface,
+    surface: gpu::Surface,
     size: Size,
   ) -> Self {
     let swapchain_format = surface
       .get_preferred_format(adapter)
-      .unwrap_or(wgpu::TextureFormat::Rgba8UnormSrgb);
+      .unwrap_or(gpu::TextureFormat::Rgba8UnormSrgb);
 
-    let config = wgpu::SurfaceConfiguration {
-      usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+    let config = gpu::SurfaceConfiguration {
+      usage: gpu::TextureUsages::RENDER_ATTACHMENT,
       format: swapchain_format,
       width: Into::<usize>::into(size.width) as u32,
       height: Into::<usize>::into(size.height) as u32,
-      present_mode: wgpu::PresentMode::Mailbox,
+      present_mode: gpu::PresentMode::Mailbox,
     };
 
     surface.configure(device, &config);
@@ -57,7 +57,7 @@ impl GPUSurface {
     self.size = size;
   }
 
-  pub fn get_current_frame(&mut self) -> Result<wgpu::SurfaceTexture, wgpu::SurfaceError> {
+  pub fn get_current_frame(&mut self) -> Result<gpu::SurfaceTexture, gpu::SurfaceError> {
     self.surface.get_current_texture()
   }
 }

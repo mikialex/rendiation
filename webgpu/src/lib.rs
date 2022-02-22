@@ -19,7 +19,8 @@ pub use pipeline::*;
 mod pipeline;
 
 use bytemuck::*;
-pub use wgpu::*;
+pub use gpu::*;
+use wgpu as gpu;
 
 use std::{
   borrow::Cow,
@@ -33,25 +34,25 @@ use std::{
   sync::atomic::{AtomicUsize, Ordering},
 };
 
+use gpu::util::DeviceExt;
 use rendiation_texture_types::*;
 use typed_arena::Arena;
-use wgpu::util::DeviceExt;
 
 pub struct GPU {
-  _instance: wgpu::Instance,
-  _adaptor: wgpu::Adapter,
+  _instance: gpu::Instance,
+  _adaptor: gpu::Adapter,
   pub device: GPUDevice,
-  pub queue: wgpu::Queue,
+  pub queue: gpu::Queue,
 }
 
 impl GPU {
   pub async fn new() -> Self {
-    let backend = wgpu::Backends::PRIMARY;
-    let _instance = wgpu::Instance::new(backend);
-    let power_preference = wgpu::PowerPreference::HighPerformance;
+    let backend = gpu::Backends::PRIMARY;
+    let _instance = gpu::Instance::new(backend);
+    let power_preference = gpu::PowerPreference::HighPerformance;
 
     let _adaptor = _instance
-      .request_adapter(&wgpu::RequestAdapterOptions {
+      .request_adapter(&gpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: None,
         force_fallback_adapter: false,
@@ -60,7 +61,7 @@ impl GPU {
       .expect("No suitable GPU adapters found on the system!");
 
     let (device, queue) = _adaptor
-      .request_device(&wgpu::DeviceDescriptor::default(), None)
+      .request_device(&gpu::DeviceDescriptor::default(), None)
       .await
       .expect("Unable to find a suitable GPU device!");
 
@@ -74,15 +75,15 @@ impl GPU {
     }
   }
   pub async fn new_with_surface(surface_provider: &dyn SurfaceProvider) -> (Self, GPUSurface) {
-    let backend = wgpu::Backends::all();
-    let _instance = wgpu::Instance::new(backend);
-    let power_preference = wgpu::PowerPreference::HighPerformance;
+    let backend = gpu::Backends::all();
+    let _instance = gpu::Instance::new(backend);
+    let power_preference = gpu::PowerPreference::HighPerformance;
 
     let surface = surface_provider.create_surface(&_instance);
     let size = surface_provider.size();
 
     let _adaptor = _instance
-      .request_adapter(&wgpu::RequestAdapterOptions {
+      .request_adapter(&gpu::RequestAdapterOptions {
         power_preference,
         compatible_surface: Some(&surface),
         force_fallback_adapter: false,
@@ -92,7 +93,7 @@ impl GPU {
 
     let (device, queue) = _adaptor
       .request_device(
-        &wgpu::DeviceDescriptor {
+        &gpu::DeviceDescriptor {
           label: None,
           features: _adaptor.features(),
           limits: _adaptor.limits(),
@@ -120,7 +121,7 @@ impl GPU {
   pub fn create_encoder(&self) -> GPUCommandEncoder {
     let encoder = self
       .device
-      .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+      .create_command_encoder(&gpu::CommandEncoderDescriptor { label: None });
     GPUCommandEncoder::new(encoder, &self.device)
   }
 
@@ -130,13 +131,13 @@ impl GPU {
 }
 
 pub trait IndexBufferSourceType: Pod {
-  const FORMAT: wgpu::IndexFormat;
+  const FORMAT: gpu::IndexFormat;
 }
 
 impl IndexBufferSourceType for u32 {
-  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint32;
+  const FORMAT: gpu::IndexFormat = gpu::IndexFormat::Uint32;
 }
 
 impl IndexBufferSourceType for u16 {
-  const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint16;
+  const FORMAT: gpu::IndexFormat = gpu::IndexFormat::Uint16;
 }

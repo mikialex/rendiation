@@ -50,7 +50,7 @@ impl BindGroupLayoutProvider for FatLineMaterial {
     )
   }
 
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+  fn uniform_struct_declare(builder: &mut PipelineBuilder) {
     builder.declare_uniform_struct::<FatlineMaterialUniform>();
   }
 }
@@ -63,7 +63,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     // let pass_info = builder.query_uniform::<RenderPassGPUInfoData>()?.expand();
     // let camera = builder.query_uniform::<CameraGPUTransform>()?.expand();
     // let model = builder.query_uniform::<TransformGPUData>()?.expand();
-    let material = builder.register_uniform::<FatLineMaterial>().expand();
+    let material = builder.uniform::<FatLineMaterial>().expand();
 
     let resolution = pass_info.buffer_size;
     let aspect = resolution.x() / resolution.y();

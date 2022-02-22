@@ -8,7 +8,7 @@ impl ShaderGraphProvider for Test {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.vertex(|builder| {
+    builder.vertex(|builder, _| {
       let a = consts(1.) + consts(2.);
       let a: Node<_> = (Vec3::zero(), a).into();
       builder.vertex_position.set(a);

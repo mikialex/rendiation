@@ -1,14 +1,14 @@
 use crate::*;
 
-pub struct GPURawTexture2d(pub wgpu::Texture);
-pub struct GPURawTexture2dView(pub wgpu::TextureView);
+pub struct GPURawTexture2d(pub gpu::Texture);
+pub struct GPURawTexture2dView(pub gpu::TextureView);
 
 pub type GPUTexture2d = ResourceRc<GPURawTexture2d>;
 pub type GPUTexture2dView = ResourceViewRc<GPURawTexture2d>;
 
 impl BindableResourceView for GPURawTexture2dView {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(&self.0)
+  fn as_bindable(&self) -> gpu::BindingResource {
+    gpu::BindingResource::TextureView(&self.0)
   }
 }
 
@@ -32,7 +32,7 @@ impl Resource for GPURawTexture2d {
 impl GPUTexture2d {
   pub fn upload(
     &self,
-    queue: &wgpu::Queue,
+    queue: &gpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
   ) -> &Self {
@@ -42,7 +42,7 @@ impl GPUTexture2d {
   #[must_use]
   pub fn upload_into(
     self,
-    queue: &wgpu::Queue,
+    queue: &gpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
   ) -> Self {
@@ -52,24 +52,24 @@ impl GPUTexture2d {
 
   pub fn upload_with_origin(
     &self,
-    queue: &wgpu::Queue,
+    queue: &gpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
     origin: TextureOrigin,
   ) -> &Self {
     queue.write_texture(
-      wgpu::ImageCopyTexture {
+      gpu::ImageCopyTexture {
         texture: &self.inner.resource.0,
         mip_level: mip_level as u32,
-        origin: wgpu::Origin3d {
+        origin: gpu::Origin3d {
           x: origin.x as u32,
           y: origin.y as u32,
           z: 0,
         },
-        aspect: wgpu::TextureAspect::All,
+        aspect: gpu::TextureAspect::All,
       },
       source.as_bytes(),
-      wgpu::ImageDataLayout {
+      gpu::ImageDataLayout {
         offset: 0,
         bytes_per_row: Some(source.bytes_per_row()),
         rows_per_image: None,
@@ -82,7 +82,7 @@ impl GPUTexture2d {
   #[must_use]
   pub fn upload_with_origin_into(
     self,
-    queue: &wgpu::Queue,
+    queue: &gpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     mip_level: usize,
     origin: TextureOrigin,
@@ -93,7 +93,7 @@ impl GPUTexture2d {
 }
 
 pub trait WebGPUTexture2dSource {
-  fn format(&self) -> wgpu::TextureFormat;
+  fn format(&self) -> gpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;
   fn bytes_per_pixel(&self) -> usize;
@@ -110,18 +110,18 @@ pub trait WebGPUTexture2dSource {
     .unwrap()
   }
 
-  fn gpu_size(&self) -> wgpu::Extent3d {
+  fn gpu_size(&self) -> gpu::Extent3d {
     let size = self.size();
-    wgpu::Extent3d {
+    gpu::Extent3d {
       width: Into::<usize>::into(size.width) as u32,
       height: Into::<usize>::into(size.height) as u32,
       depth_or_array_layers: 1,
     }
   }
 
-  fn gpu_cube_size(&self) -> wgpu::Extent3d {
+  fn gpu_cube_size(&self) -> gpu::Extent3d {
     let size = self.size();
-    wgpu::Extent3d {
+    gpu::Extent3d {
       width: Into::<usize>::into(size.width) as u32,
       height: Into::<usize>::into(size.height) as u32,
       depth_or_array_layers: 6,
@@ -129,21 +129,21 @@ pub trait WebGPUTexture2dSource {
   }
 
   /// It is a webgpu requirement that:
-  /// BufferCopyView.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
+  /// BufferCopyView.layout.bytes_per_row % gpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
   /// So we calculate padded_width by rounding width
-  /// up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
+  /// up to the next multiple of gpu::COPY_BYTES_PER_ROW_ALIGNMENT.
   /// Return width with padding
-  fn create_upload_buffer(&self, device: &GPUDevice) -> (wgpu::Buffer, Size) {
+  fn create_upload_buffer(&self, device: &GPUDevice) -> (gpu::Buffer, Size) {
     let width: usize = self.size().width.into();
 
-    let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+    let align = gpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
     let padding_size = (align - width % align) % align;
 
     let buffer = if padding_size == 0 {
-      device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+      device.create_buffer_init(&gpu::util::BufferInitDescriptor {
         label: None,
         contents: self.as_bytes(),
-        usage: wgpu::BufferUsages::COPY_SRC,
+        usage: gpu::BufferUsages::COPY_SRC,
       })
     } else {
       // will this be optimized well or we should just use copy_from_slice?
@@ -153,10 +153,10 @@ pub trait WebGPUTexture2dSource {
         .flat_map(|row| row.iter().copied().chain((0..padding_size).map(|_| 0)))
         .collect();
 
-      device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+      device.create_buffer_init(&gpu::util::BufferInitDescriptor {
         label: None,
         contents: padded_data.as_slice(),
-        usage: wgpu::BufferUsages::COPY_SRC,
+        usage: gpu::BufferUsages::COPY_SRC,
       })
     };
 
@@ -168,14 +168,14 @@ pub trait WebGPUTexture2dSource {
   fn create_tex2d_desc(&self, level_count: MipLevelCount) -> WebGPUTexture2dDescriptor {
     // todo validation;
     WebGPUTexture2dDescriptor {
-      desc: wgpu::TextureDescriptor {
+      desc: gpu::TextureDescriptor {
         label: None,
         size: self.gpu_size(),
         mip_level_count: level_count.get_level_count_wgpu(self.size()),
         sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
+        dimension: gpu::TextureDimension::D2,
         format: self.format(),
-        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
       },
     }
   }
@@ -183,14 +183,14 @@ pub trait WebGPUTexture2dSource {
   fn create_cube_desc(&self, level_count: MipLevelCount) -> WebGPUTextureCubeDescriptor {
     // todo validation;
     WebGPUTextureCubeDescriptor {
-      desc: wgpu::TextureDescriptor {
+      desc: gpu::TextureDescriptor {
         label: None,
         size: self.gpu_cube_size(),
         mip_level_count: level_count.get_level_count_wgpu(self.size()),
         sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
+        dimension: gpu::TextureDimension::D2,
         format: self.format(),
-        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
       },
     }
   }
@@ -199,36 +199,36 @@ pub trait WebGPUTexture2dSource {
 /// The wrapper type that make sure the inner desc
 /// is suitable for 2d texture
 pub struct WebGPUTexture2dDescriptor {
-  desc: wgpu::TextureDescriptor<'static>,
+  desc: gpu::TextureDescriptor<'static>,
 }
 
 impl WebGPUTexture2dDescriptor {
   pub fn from_size(size: Size) -> Self {
     Self {
-      desc: wgpu::TextureDescriptor {
+      desc: gpu::TextureDescriptor {
         label: None,
-        size: wgpu::Extent3d {
+        size: gpu::Extent3d {
           width: Into::<usize>::into(size.width) as u32,
           height: Into::<usize>::into(size.height) as u32,
           depth_or_array_layers: 1,
         },
         mip_level_count: 1,
         sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        dimension: gpu::TextureDimension::D2,
+        format: gpu::TextureFormat::Rgba8UnormSrgb,
+        usage: gpu::TextureUsages::TEXTURE_BINDING | gpu::TextureUsages::COPY_DST,
       },
     }
   }
 
   #[must_use]
   pub fn with_render_target_ability(mut self) -> Self {
-    self.desc.usage |= wgpu::TextureUsages::RENDER_ATTACHMENT;
+    self.desc.usage |= gpu::TextureUsages::RENDER_ATTACHMENT;
     self
   }
 
   #[must_use]
-  pub fn with_format(mut self, format: wgpu::TextureFormat) -> Self {
+  pub fn with_format(mut self, format: gpu::TextureFormat) -> Self {
     self.desc.format = format;
     self
   }

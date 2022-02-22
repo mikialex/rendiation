@@ -3,11 +3,11 @@ use crate::*;
 /// The wrapper type that make sure the inner desc
 /// is suitable for cube texture
 pub struct WebGPUTextureCubeDescriptor {
-  pub(crate) desc: wgpu::TextureDescriptor<'static>,
+  pub(crate) desc: gpu::TextureDescriptor<'static>,
 }
 
-pub struct GPURawTextureCube(pub wgpu::Texture);
-pub struct GPURawTextureCubeView(pub wgpu::TextureView);
+pub struct GPURawTextureCube(pub gpu::Texture);
+pub struct GPURawTextureCubeView(pub gpu::TextureView);
 
 pub type GPUTextureCube = ResourceRc<GPURawTextureCube>;
 pub type GPUTextureCubeView = ResourceViewRc<GPURawTextureCube>;
@@ -25,9 +25,9 @@ impl Resource for GPURawTextureCube {
   }
 
   fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
-    GPURawTextureCubeView(self.0.create_view(&wgpu::TextureViewDescriptor {
-      dimension: Some(wgpu::TextureViewDimension::Cube),
-      ..wgpu::TextureViewDescriptor::default()
+    GPURawTextureCubeView(self.0.create_view(&gpu::TextureViewDescriptor {
+      dimension: Some(gpu::TextureViewDimension::Cube),
+      ..gpu::TextureViewDescriptor::default()
     }))
   }
 }
@@ -36,7 +36,7 @@ impl GPUTextureCube {
   #[must_use]
   pub fn upload(
     self,
-    queue: &wgpu::Queue,
+    queue: &gpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     face: CubeTextureFace,
     mip_level: usize,
@@ -47,7 +47,7 @@ impl GPUTextureCube {
   #[must_use]
   pub fn upload_with_origin(
     self,
-    queue: &wgpu::Queue,
+    queue: &gpu::Queue,
     source: &dyn WebGPUTexture2dSource,
     face: CubeTextureFace,
     mip_level: usize,
@@ -55,18 +55,18 @@ impl GPUTextureCube {
   ) -> Self {
     // validation
     queue.write_texture(
-      wgpu::ImageCopyTexture {
+      gpu::ImageCopyTexture {
         texture: &self.0,
         mip_level: mip_level as u32,
-        origin: wgpu::Origin3d {
+        origin: gpu::Origin3d {
           x: origin.0 as u32,
           y: origin.1 as u32,
           z: face as u32,
         },
-        aspect: wgpu::TextureAspect::All,
+        aspect: gpu::TextureAspect::All,
       },
       source.as_bytes(),
-      wgpu::ImageDataLayout {
+      gpu::ImageDataLayout {
         offset: 0,
         bytes_per_row: Some(source.bytes_per_row()),
         rows_per_image: None,

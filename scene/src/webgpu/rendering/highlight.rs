@@ -100,7 +100,7 @@ impl BindGroupLayoutProvider for HighLighter {
     })
   }
 
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
+  fn uniform_struct_declare(builder: &mut PipelineBuilder) {
     builder
       .declare_uniform_struct::<HighLightData>()
       .declare_uniform_struct::<RenderPassGPUInfoData>();

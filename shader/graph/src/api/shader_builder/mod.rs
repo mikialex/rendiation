@@ -54,27 +54,36 @@ impl std::ops::DerefMut for ShaderGraphRenderPipelineBuilder {
 impl ShaderGraphRenderPipelineBuilder {
   pub fn vertex<T>(
     &mut self,
-    logic: impl FnOnce(&mut ShaderGraphVertexBuilder) -> Result<T, ShaderGraphBuildError>,
+    logic: impl FnOnce(
+      &mut ShaderGraphVertexBuilder,
+      &mut ShaderGraphBindGroupDirectBuilder,
+    ) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
     set_current_building(ShaderStages::Vertex.into());
-    let result = logic(&mut self.vertex)?;
+    let result = logic(&mut self.vertex, &mut self.bindgroups.wrap())?;
     set_current_building(None);
     Ok(result)
   }
   pub fn fragment<T>(
     &mut self,
-    logic: impl FnOnce(&mut ShaderGraphFragmentBuilder) -> Result<T, ShaderGraphBuildError>,
+    logic: impl FnOnce(
+      &mut ShaderGraphFragmentBuilder,
+      &mut ShaderGraphBindGroupDirectBuilder,
+    ) -> Result<T, ShaderGraphBuildError>,
   ) -> Result<T, ShaderGraphBuildError> {
+    self.vertex.sync_fragment_out(&mut self.fragment);
     set_current_building(ShaderStages::Fragment.into());
-    let result = logic(&mut self.fragment)?;
+    let result = logic(&mut self.fragment, &mut self.bindgroups.wrap())?;
     set_current_building(None);
     Ok(result)
   }
 
   pub fn build<T: ShaderGraphCodeGenTarget>(
-    self,
+    mut self,
     target: T,
   ) -> Result<ShaderGraphCompileResult<T>, ShaderGraphBuildError> {
+    self.vertex.sync_fragment_out(&mut self.fragment);
+
     let PipelineShaderGraphPair {
       mut vertex,
       mut fragment,
@@ -114,6 +123,12 @@ pub trait ShaderGraphProvider {
   ) -> Result<(), ShaderGraphBuildError> {
     // default do nothing
     Ok(())
+  }
+
+  fn build_self(&self) -> Result<ShaderGraphRenderPipelineBuilder, ShaderGraphBuildError> {
+    let mut builder = Default::default();
+    self.build(&mut builder)?;
+    Ok(builder)
   }
 }
 

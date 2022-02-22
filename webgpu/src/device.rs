@@ -6,7 +6,7 @@ pub struct GPUDevice {
 }
 
 impl GPUDevice {
-  pub fn new(device: wgpu::Device) -> Self {
+  pub fn new(device: gpu::Device) -> Self {
     let inner = GPUDeviceInner {
       device,
       sampler_cache: Default::default(),
@@ -53,7 +53,7 @@ impl GPUDevice {
       .borrow_mut()
       .entry(key)
       .or_insert_with(|| {
-        let inner = self.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let inner = self.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
           label: None,
           entries: layouts,
         });
@@ -71,7 +71,7 @@ impl GPUDevice {
 }
 
 struct GPUDeviceInner {
-  device: wgpu::Device,
+  device: gpu::Device,
   sampler_cache: SamplerCache,
   bindgroup_cache: BindGroupCache,
   bindgroup_layout_cache: BindGroupLayoutCache,
@@ -79,14 +79,14 @@ struct GPUDeviceInner {
 }
 
 impl Deref for GPUDevice {
-  type Target = wgpu::Device;
+  type Target = gpu::Device;
 
   fn deref(&self) -> &Self::Target {
     &self.inner.device
   }
 }
 
-pub type RawSampler = Rc<wgpu::Sampler>;
+pub type RawSampler = Rc<gpu::Sampler>;
 #[derive(Default)]
 pub struct SamplerCache {
   cache: RefCell<HashMap<GPUSamplerDescriptor, RawSampler>>,
@@ -95,9 +95,9 @@ pub struct SamplerCache {
 impl SamplerCache {
   pub fn retrieve(
     &self,
-    device: &wgpu::Device,
+    device: &gpu::Device,
     desc: impl Into<GPUSamplerDescriptor>,
-  ) -> Rc<wgpu::Sampler> {
+  ) -> Rc<gpu::Sampler> {
     let mut map = self.cache.borrow_mut();
     let desc = desc.into();
     map

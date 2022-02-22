@@ -1,7 +1,7 @@
 use bytemuck::*;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use shadergraph::{SemanticBinding, ShaderUniform};
+use shadergraph::{SemanticBinding, ShaderGraphProvider, ShaderUniform};
 use webgpu::util::DeviceExt;
 use webgpu::*;
 
@@ -217,11 +217,11 @@ impl WebGPUxUIRenderer {
     });
 
     let solid_color_pipeline = device
-      .build_pipeline_by_shadergraph(&SolidUIPipeline { target_format })
+      .build_pipeline_by_shadergraph(SolidUIPipeline { target_format }.build_self().unwrap())
       .unwrap();
 
     let texture_pipeline = device
-      .build_pipeline_by_shadergraph(&TextureUIPipeline { target_format })
+      .build_pipeline_by_shadergraph(TextureUIPipeline { target_format }.build_self().unwrap())
       .unwrap();
 
     let texture_bg_layout = texture_pipeline

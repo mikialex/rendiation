@@ -200,7 +200,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
   ) -> Result<(), ShaderGraphBuildError> {
     builder
       .bindgroups
-      .register_uniform::<UniformBuffer<RenderPassGPUInfoData>>(SB::Pass);
+      .uniform::<UniformBuffer<RenderPassGPUInfoData>>(SB::Pass);
     Ok(())
   }
 }

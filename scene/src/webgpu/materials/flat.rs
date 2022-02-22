@@ -26,7 +26,7 @@ impl ShaderGraphProvider for FlatMaterialGPU {
     &self,
     builder: &mut ShaderGraphFragmentBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.register_uniform_by(&self.uniform).expand();
+    let uniform = builder.uniform_by(&self.uniform).expand();
 
     builder.set_fragment_out(0, uniform.color);
     Ok(())

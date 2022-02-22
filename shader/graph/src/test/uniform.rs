@@ -30,19 +30,20 @@ impl ShaderGraphProvider for TestUniform {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.register_uniform::<Self>(SB::Object);
-    let tex = builder.register_uniform::<FakeTexture2d>(SB::Object);
-    let sampler = builder.register_uniform::<FakeSampler>(SB::Object);
+    let uniform = builder.uniform::<Self>(SB::Object);
 
-    builder.vertex(|builder| {
+    builder.vertex(|builder, binding| {
+      let tex = binding.uniform::<FakeTexture2d>(SB::Object);
+      let sampler = binding.uniform::<FakeSampler>(SB::Object);
+
       let uniform = uniform.using().expand();
-      let color = tex.using().sample(sampler.using(), uniform.data2);
+      let color = tex.sample(sampler, uniform.data2);
       builder.vertex_position.set(color);
       builder.vertex_position.set((uniform.data3, uniform.data));
       Ok(())
     })?;
 
-    builder.fragment(|builder| {
+    builder.fragment(|builder, _| {
       let uniform = uniform.using().expand();
       let value = (uniform.data3, 1.).into();
       builder.set_fragment_out(0, value)?;

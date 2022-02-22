@@ -1,14 +1,14 @@
 use crate::*;
 
-impl BindableResourceView for wgpu::Sampler {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::Sampler(self)
+impl BindableResourceView for gpu::Sampler {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    gpu::BindingResource::Sampler(self)
   }
 }
 
 impl BindableResourceView for RawSampler {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::Sampler(self.as_ref())
+  fn as_bindable(&self) -> gpu::BindingResource {
+    gpu::BindingResource::Sampler(self.as_ref())
   }
 }
 
@@ -16,7 +16,7 @@ pub type GPUSampler = ResourceRc<RawSampler>;
 pub type GPUSamplerView = ResourceViewRc<RawSampler>;
 
 impl Resource for RawSampler {
-  type Descriptor = wgpu::SamplerDescriptor<'static>;
+  type Descriptor = gpu::SamplerDescriptor<'static>;
 
   type View = RawSampler;
 
@@ -57,7 +57,7 @@ pub struct GPUSamplerDescriptor {
   pub border_color: Option<SamplerBorderColor>,
 }
 
-impl<'a> From<GPUSamplerDescriptor> for wgpu::SamplerDescriptor<'a> {
+impl<'a> From<GPUSamplerDescriptor> for gpu::SamplerDescriptor<'a> {
   fn from(s: GPUSamplerDescriptor) -> Self {
     Self {
       label: None,
@@ -76,8 +76,8 @@ impl<'a> From<GPUSamplerDescriptor> for wgpu::SamplerDescriptor<'a> {
   }
 }
 
-impl<'a> From<wgpu::SamplerDescriptor<'a>> for GPUSamplerDescriptor {
-  fn from(s: wgpu::SamplerDescriptor<'a>) -> Self {
+impl<'a> From<gpu::SamplerDescriptor<'a>> for GPUSamplerDescriptor {
+  fn from(s: gpu::SamplerDescriptor<'a>) -> Self {
     Self {
       lod_min_clamp: s.lod_min_clamp.to_bits(),
       lod_max_clamp: s.lod_max_clamp.to_bits(),

@@ -30,24 +30,22 @@ impl ShaderBindingProvider for PhysicalMaterialGPU {
 }
 
 impl ShaderGraphProvider for PhysicalMaterialGPU {
-  fn build_fragment(
+  fn build(
     &self,
-    builder: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder
-      .register_uniform_by(&self.uniform, SB::Material)
-      .expand();
+    builder.fragment(|builder, binding| {
+      let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
+      let albedo_tex = binding.uniform_by(&self.texture, SB::Material);
+      let sampler = binding.uniform_by(&self.sampler, SB::Material);
 
-    let albedo_tex = builder.register_uniform_by(&self.texture, SB::Material);
-    let sampler = builder.register_uniform_by(&self.sampler, SB::Material);
+      let uv = builder.query::<FragmentUv>()?.get();
+      let albedo = albedo_tex.sample(sampler, uv).xyz() * uniform.albedo;
 
-    let uv = builder.query::<FragmentUv>()?.get();
-    let albedo = albedo_tex.sample(sampler, uv).xyz() * uniform.albedo;
+      let result = (albedo, 1.).into();
 
-    let result = (albedo, 1.).into();
-
-    builder.set_fragment_out(0, result);
-    Ok(())
+      builder.set_fragment_out(0, result)
+    })
   }
 }
 

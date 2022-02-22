@@ -1,14 +1,14 @@
 use crate::*;
 
 pub trait BindableResourceView {
-  fn as_bindable(&self) -> wgpu::BindingResource;
+  fn as_bindable(&self) -> gpu::BindingResource;
 }
 
 pub struct PlaceholderBindgroup;
 
 impl PlaceholderBindgroup {
-  pub fn layout(device: &GPUDevice) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+  pub fn layout(device: &GPUDevice) -> gpu::BindGroupLayout {
+    device.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
       label: "PlaceholderBindgroup".into(),
       entries: &[],
     })
@@ -17,7 +17,7 @@ impl PlaceholderBindgroup {
 
 #[derive(Clone, Default)]
 pub struct BindGroupCache {
-  cache: Rc<RefCell<HashMap<u64, Rc<wgpu::BindGroup>>>>,
+  cache: Rc<RefCell<HashMap<u64, Rc<gpu::BindGroup>>>>,
 }
 
 #[derive(Clone, Default)]
@@ -27,12 +27,12 @@ pub struct BindGroupLayoutCache {
 
 #[derive(Clone)]
 pub struct GPUBindGroupLayout {
-  pub(crate) inner: Rc<wgpu::BindGroupLayout>,
+  pub(crate) inner: Rc<gpu::BindGroupLayout>,
   pub(crate) cache_id: u64,
 }
 
 impl Deref for GPUBindGroupLayout {
-  type Target = wgpu::BindGroupLayout;
+  type Target = gpu::BindGroupLayout;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
@@ -108,13 +108,13 @@ impl BindingBuilder {
         let entries: Vec<_> = group
           .iter()
           .enumerate()
-          .map(|(i, item)| wgpu::BindGroupEntry {
+          .map(|(i, item)| gpu::BindGroupEntry {
             binding: i as u32,
             resource: item.as_bindable(),
           })
           .collect();
 
-        let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bindgroup = device.create_bind_group(&gpu::BindGroupDescriptor {
           label: None,
           layout: layout.inner.as_ref(),
           entries: &entries,
