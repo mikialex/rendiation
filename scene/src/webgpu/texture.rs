@@ -3,72 +3,53 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-pub trait MaterialBindableResourceUpdate {
-  fn update<'a>(
+impl SceneTexture2D {
+  pub fn check_update_gpu<'a>(
     &self,
     resources: &'a mut GPUResourceSubCache,
-    device: &GPUDevice,
-    queue: &wgpu::Queue,
-  ) -> wgpu::BindingResource<'a>;
-}
-
-// impl GPUResourceSubCache {
-//   pub fn update_texture(&mut self, tex: &SceneTexture2D, target: &mut GPUTexture2dView) {
-//     //
-//   }
-// }
-
-impl MaterialBindableResourceUpdate for SceneTexture2D {
-  fn update<'a>(
-    &self,
-    resources: &'a mut GPUResourceSubCache,
-    device: &GPUDevice,
-    queue: &wgpu::Queue,
-  ) -> wgpu::BindingResource<'a> {
+    gpu: &GPU,
+  ) -> &'a GPUTexture2dView {
     let texture = self.content.borrow();
-    resources
-      .texture_2ds
-      .get_update_or_insert_with(
-        &texture,
-        |texture| {
-          let source = texture.as_ref();
-          let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
+    resources.texture_2ds.get_update_or_insert_with(
+      &texture,
+      |texture| {
+        let source = texture.as_ref();
+        let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
-          GPUTexture2d::create(desc, device).upload_into(queue, source, 0)
-        },
-        |_, _| {},
-      )
-      .as_bindable()
+        GPUTexture2d::create(desc, &gpu.device)
+          .upload_into(&gpu.queue, source, 0)
+          .create_view(Default::default())
+      },
+      |_, _| {},
+    )
   }
 }
 
-impl MaterialBindableResourceUpdate for SceneTextureCube {
-  fn update<'a>(
+impl SceneTextureCube {
+  pub fn check_update_gpu<'a>(
     &self,
     resources: &'a mut GPUResourceSubCache,
-    device: &GPUDevice,
-    queue: &wgpu::Queue,
-  ) -> wgpu::BindingResource<'a> {
+    gpu: &GPU,
+  ) -> &'a GPUTextureCubeView {
     let texture = self.content.borrow();
 
-    resources
-      .texture_cubes
-      .get_update_or_insert_with(
-        &texture,
-        |texture| {
-          let source = texture.as_ref();
-          let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);
+    resources.texture_cubes.get_update_or_insert_with(
+      &texture,
+      |texture| {
+        let source = texture.as_ref();
+        let desc = source[0].create_cube_desc(MipLevelCount::EmptyMipMap);
+        let queue = &gpu.queue;
 
-          GPUTextureCube::create(desc, device)
-            .upload(queue, source[0].as_ref(), CubeTextureFace::PositiveX, 0)
-            .upload(queue, source[1].as_ref(), CubeTextureFace::NegativeX, 0)
-            .upload(queue, source[2].as_ref(), CubeTextureFace::PositiveY, 0)
-            .upload(queue, source[3].as_ref(), CubeTextureFace::NegativeY, 0)
-            .upload(queue, source[4].as_ref(), CubeTextureFace::PositiveZ, 0)
-            .upload(queue, source[5].as_ref(), CubeTextureFace::NegativeZ, 0)
-        },
-        |_, _| {},
-      )
-      .as_bindable()
+        GPUTextureCube::create(desc, &gpu.device)
+          .upload(queue, source[0].as_ref(), CubeTextureFace::PositiveX, 0)
+          .upload(queue, source[1].as_ref(), CubeTextureFace::NegativeX, 0)
+          .upload(queue, source[2].as_ref(), CubeTextureFace::PositiveY, 0)
+          .upload(queue, source[3].as_ref(), CubeTextureFace::NegativeY, 0)
+          .upload(queue, source[4].as_ref(), CubeTextureFace::PositiveZ, 0)
+          .upload(queue, source[5].as_ref(), CubeTextureFace::NegativeZ, 0)
+          .create_view(Default::default())
+      },
+      |_, _| {},
+    )
   }
 }

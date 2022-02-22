@@ -76,17 +76,17 @@ impl MeshCPUSource for FatlineMesh {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
-impl ShaderGraphProvider for FatlineMesh {
-  fn build_vertex(
-    &self,
-    builder: &mut ShaderGraphVertexBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
-    builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);
-    builder.primitive_state.topology = wgpu::PrimitiveTopology::TriangleList;
-    Ok(())
-  }
-}
+// impl ShaderGraphProvider for FatlineMesh {
+//   fn build_vertex(
+//     &self,
+//     builder: &mut ShaderGraphVertexBuilder,
+//   ) -> Result<(), ShaderGraphBuildError> {
+//     builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
+//     builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);
+//     builder.primitive_state.topology = wgpu::PrimitiveTopology::TriangleList;
+//     Ok(())
+//   }
+// }
 
 pub struct FatlineMeshGPU {
   range_full: MeshGroup,

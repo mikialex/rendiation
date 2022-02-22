@@ -57,33 +57,45 @@ pub trait SourceOfRendering:
 impl<T> SourceOfRendering for T where T: ShaderHashProvider + ShaderGraphProvider + RenderPassBuilder
 {}
 
-#[derive(Default)]
-pub struct RenderSourceBuilder<'a> {
-  source: Vec<&'a dyn SourceOfRendering>,
-}
-
-impl<'a> RenderSourceBuilder<'a> {
-  pub fn setup_pass(&self) {
-    //
-  }
-}
-
 pub trait WebGPUMaterial: Clone + Any {
   type GPU: SourceOfRendering;
-  fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU;
+  fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
 }
 
-type MaterialResourceMapper<T> = ResourceMapper<<T as WebGPUMaterial>::GPU, T>;
+pub trait WebGPUSceneMaterial: 'static {
+  fn check_update_gpu<'a>(
+    &mut self,
+    res: &'a mut GPUResourceSceneCache,
+    sub_res: &mut GPUResourceSubCache,
+    gpu: &GPU,
+  ) -> &'a dyn SourceOfRendering;
+  fn is_keep_mesh_shape(&self) -> bool;
+}
 
+impl<M: WebGPUMaterial> WebGPUSceneMaterial for ResourceWrapped<M> {
+  fn check_update_gpu<'a>(
+    &mut self,
+    res: &'a mut GPUResourceSceneCache,
+    sub_res: &mut GPUResourceSubCache,
+    gpu: &GPU,
+  ) -> &'a dyn SourceOfRendering {
+    res.update_material(self, gpu, sub_res)
+  }
+  fn is_keep_mesh_shape(&self) -> bool {
+    self.is_keep_mesh_shape()
+  }
+}
+
+type MaterialResourceMapper<T> = ResourceMapper<<T as WebGPUMaterial>::GPU, T>;
 impl GPUResourceSceneCache {
   pub fn update_material<M: WebGPUMaterial>(
     &mut self,
     m: &ResourceWrapped<M>,
     gpu: &GPU,
     res: &mut GPUResourceSubCache,
-  ) {
+  ) -> &M::GPU {
     let type_id = TypeId::of::<M>();
 
     let mapper = self
@@ -94,98 +106,14 @@ impl GPUResourceSceneCache {
       .unwrap();
 
     let gpu_m = mapper.get_update_or_insert_with_logic(m, |x| match x {
-      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res)),
+      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res, gpu)),
       ResourceLogic::Update(gpu_m, m) => {
         // todo check should really recreate?
-        *gpu_m = M::create_gpu(m, res);
+        *gpu_m = M::create_gpu(m, res, gpu);
         ResourceLogicResult::Update(gpu_m)
       }
     });
-
-    // let m_gpu = gpu_m.gpu.as_mut().unwrap();
-
-    // let topology = ctx.active_mesh.unwrap().topology();
-    // let sample_count = ctx.pass_info.format_info.sample_count;
-
-    // let mut hasher = Default::default();
-
-    // type_id.hash(&mut hasher);
-    // ctx.pass_info.format_info.hash(&mut hasher);
-
-    // let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-
-    // pipeline_ctx.pass.type_id().hash(&mut hasher);
-    // m.hash_pipeline(&mut hasher, &m_gpu);
-
-    // gpu_m.current_pipeline = pipelines
-    //   .get_or_insert_with(hasher, || {
-    //     build_pipeline(
-    //       &[
-    //         ctx.pass as &dyn ShaderGraphProvider,
-    //         m_gpu as &dyn ShaderGraphProvider,
-    //       ]
-    //       .as_slice(),
-    //       &gpu.device,
-    //     )
-    //     .unwrap()
-
-    //     // let mut builder = PipelineBuilder::default();
-
-    //     // builder.primitive_state.topology = topology;
-    //     // builder.multisample.count = sample_count;
-
-    //     // m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
-    //     // pipeline_ctx.pass.build_pipeline(&mut builder);
-    //     // builder.build(&gpu.device)
-    //   })
-    //   .clone()
-    //   .into();
-
-    // let mut binding_builder = BindGroupBuilder::create();
-    // m_gpu.setup_binding(&mut binding_builder);
-    // // gpu_m.current_pipeline =
-    // // binding_builder.
-  }
-
-  // pub fn setup_material<'a, M: WebGPUMaterial>(
-  //   &self,
-  //   m: &ResourceWrapped<M>,
-  //   pass: &mut GPURenderPass<'a>,
-  //   ctx: &SceneMaterialPassSetupCtx,
-  // ) {
-  //   let type_id = TypeId::of::<M>();
-  //   let gpu_m = self
-  //     .materials
-  //     .get(&type_id)
-  //     .unwrap()
-  //     .downcast_ref::<MaterialResourceMapper<M>>()
-  //     .unwrap()
-  //     .get_unwrap(m);
-  //   let gpu = gpu_m.gpu.as_ref().unwrap();
-
-  //   pass.set_pipeline_owned(gpu_m.current_pipeline.as_ref().unwrap());
-
-  //   // gpu.setup_pass_bindgroup(pass, ctx)
-  //   todo!()
-  // }
-}
-
-pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub active_mesh: Option<&'b dyn WebGPUMesh>,
-  pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
-}
-
-impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
-  type Target = SceneMaterialRenderPrepareCtxBase<'a>;
-
-  fn deref(&self) -> &Self::Target {
-    self.base
-  }
-}
-
-impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    self.base
+    gpu_m
   }
 }
 
@@ -194,14 +122,14 @@ pub trait PassDispatcher: Any + SourceOfRendering {}
 pub struct DefaultPassDispatcher;
 
 impl ShaderGraphProvider for DefaultPassDispatcher {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder
       .bindgroups
       .uniform::<UniformBuffer<RenderPassGPUInfoData>>(SB::Pass);
-    Ok(())
+    todo!()
   }
 }
 

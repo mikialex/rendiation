@@ -52,11 +52,11 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
 impl WebGPUMaterial for PhysicalMaterial {
   type GPU = PhysicalMaterialGPU;
 
-  fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {
+  fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
     PhysicalMaterialGPU {
       uniform: res.uniforms.get(self.albedo),
       sampler: res.samplers.get(self.sampler),
-      texture: res.texture_2ds.get(self.texture),
+      texture: self.texture.check_update_gpu(res, gpu).clone(),
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {

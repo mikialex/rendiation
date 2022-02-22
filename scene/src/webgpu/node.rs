@@ -52,15 +52,17 @@ pub struct TransformGPUData {
 }
 
 impl ShaderGraphProvider for TransformGPU {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let model = builder.uniform_by(&self.ubo, SB::Object).expand();
-    let position = builder.query::<GeometryPosition>()?.get_last();
-    let position = model.world_matrix * (position, 0.).into();
-    builder.register::<WorldVertexPosition>(position.xyz());
-    Ok(())
+    builder.vertex(|builder, binding| {
+      let model = binding.uniform_by(&self.ubo, SB::Object).expand();
+      let position = builder.query::<GeometryPosition>()?.get_last();
+      let position = model.world_matrix * (position, 0.).into();
+      builder.register::<WorldVertexPosition>(position.xyz());
+      Ok(())
+    })
   }
 }
 

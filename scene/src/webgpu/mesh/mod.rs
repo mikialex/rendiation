@@ -16,7 +16,7 @@ pub use fatline::*;
 
 use crate::{
   GPUResourceSceneCache, MeshCell, MeshInner, ResourceLogic, ResourceLogicResult, ResourceMapper,
-  ResourceWrapped,
+  ResourceWrapped, SourceOfRendering,
 };
 
 pub trait GPUMeshLayoutSupport {
@@ -27,18 +27,29 @@ impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
   type VertexInput = Vec<V>;
 }
 
-pub trait WebGPUMesh: ShaderGraphProvider + 'static {
-  fn setup_pass_and_draw<'a>(
-    &self,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-    res: &GPUResourceSceneCache,
-  );
-  fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache);
+pub trait WebGPUSceneMesh: 'static {
+  fn check_update_gpu<'a>(
+    &mut self,
+    res: &'a mut GPUResourceSceneCache,
+    sub_res: &mut AnyMap,
+    gpu: &GPU,
+  ) -> &'a dyn SourceOfRendering;
+
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
   // the reason we use CPS style is for supporting refcell
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
+}
+
+impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
+  fn check_update_gpu<'a>(
+    &mut self,
+    res: &'a mut GPUResourceSceneCache,
+    sub_res: &mut AnyMap,
+    gpu: &GPU,
+  ) -> &'a dyn SourceOfRendering {
+    res.update_mesh(self, gpu, sub_res)
+  }
 }
 
 impl GPUResourceSceneCache {
@@ -47,7 +58,7 @@ impl GPUResourceSceneCache {
     m: &ResourceWrapped<M>,
     gpu: &GPU,
     storage: &mut AnyMap,
-  ) {
+  ) -> &dyn SourceOfRendering {
     let type_id = TypeId::of::<M>();
 
     let mapper = self
@@ -63,6 +74,8 @@ impl GPUResourceSceneCache {
         ResourceLogicResult::Update(gpu_m)
       }
     });
+
+    todo!()
   }
 
   pub fn setup_mesh<'a, M: MeshCPUSource>(
@@ -179,69 +192,69 @@ where
   }
 }
 
-impl<T> ShaderGraphProvider for MeshInner<T> {
-  fn build_vertex(
-    &self,
-    _builder: &mut shadergraph::ShaderGraphVertexBuilder,
-  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    todo!()
-  }
-}
+// impl<T> ShaderGraphProvider for MeshInner<T> {
+//   fn build_vertex(
+//     &self,
+//     _builder: &mut shadergraph::ShaderGraphVertexBuilder,
+//   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+//     todo!()
+//   }
+// }
 
-impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
-  fn setup_pass_and_draw<'a>(
-    &self,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-    res: &GPUResourceSceneCache,
-  ) {
-    res.setup_mesh(self, pass, group);
-  }
+// impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
+//   fn setup_pass_and_draw<'a>(
+//     &self,
+//     pass: &mut GPURenderPass<'a>,
+//     group: MeshDrawGroup,
+//     res: &GPUResourceSceneCache,
+//   ) {
+//     res.setup_mesh(self, pass, group);
+//   }
 
-  fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
-    res.update_mesh(self, gpu, storage)
-  }
+//   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
+//     res.update_mesh(self, gpu, storage)
+//   }
 
-  fn topology(&self) -> wgpu::PrimitiveTopology {
-    self.deref().topology()
-  }
+//   fn topology(&self) -> wgpu::PrimitiveTopology {
+//     self.deref().topology()
+//   }
 
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.deref().try_pick(f)
-  }
-}
+//   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+//     self.deref().try_pick(f)
+//   }
+// }
 
-impl<T> ShaderGraphProvider for MeshCell<T> {
-  fn build_vertex(
-    &self,
-    _builder: &mut shadergraph::ShaderGraphVertexBuilder,
-  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    todo!()
-  }
-}
+// impl<T> ShaderGraphProvider for MeshCell<T> {
+//   fn build_vertex(
+//     &self,
+//     _builder: &mut shadergraph::ShaderGraphVertexBuilder,
+//   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+//     todo!()
+//   }
+// }
 
-impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCell<T> {
-  fn setup_pass_and_draw<'a>(
-    &self,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-    res: &GPUResourceSceneCache,
-  ) {
-    let inner = self.inner.borrow();
-    res.setup_mesh(&inner, pass, group);
-  }
+// impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCell<T> {
+//   fn setup_pass_and_draw<'a>(
+//     &self,
+//     pass: &mut GPURenderPass<'a>,
+//     group: MeshDrawGroup,
+//     res: &GPUResourceSceneCache,
+//   ) {
+//     let inner = self.inner.borrow();
+//     res.setup_mesh(&inner, pass, group);
+//   }
 
-  fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
-    let inner = self.inner.borrow();
-    res.update_mesh(&inner, gpu, storage)
-  }
+//   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
+//     let inner = self.inner.borrow();
+//     res.update_mesh(&inner, gpu, storage)
+//   }
 
-  fn topology(&self) -> wgpu::PrimitiveTopology {
-    self.inner.borrow().topology()
-  }
+//   fn topology(&self) -> wgpu::PrimitiveTopology {
+//     self.inner.borrow().topology()
+//   }
 
-  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    let inner = self.inner.borrow();
-    inner.try_pick(f);
-  }
-}
+//   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+//     let inner = self.inner.borrow();
+//     inner.try_pick(f);
+//   }
+// }

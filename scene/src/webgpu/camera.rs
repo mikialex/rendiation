@@ -61,14 +61,16 @@ pub struct CameraGPU {
 }
 
 impl ShaderGraphProvider for CameraGPU {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let camera = builder.uniform_by(&self.ubo, SB::Camera).expand();
-    let position = builder.query::<WorldVertexPosition>()?.get_last();
-    builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
-    Ok(())
+    builder.vertex(|builder, binding| {
+      let camera = binding.uniform_by(&self.ubo, SB::Camera).expand();
+      let position = builder.query::<WorldVertexPosition>()?.get_last();
+      builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
+      Ok(())
+    })
   }
 }
 

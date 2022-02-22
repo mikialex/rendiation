@@ -39,31 +39,30 @@ struct FullScreenQuad {
 }
 
 impl ShaderGraphProvider for FullScreenQuad {
-  fn build_vertex(
+  fn build(
     &self,
-    _builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.primitive_state = wgpu::PrimitiveState {
-      topology: wgpu::PrimitiveTopology::TriangleStrip,
-      front_face: wgpu::FrontFace::Cw,
-      ..Default::default()
-    };
-    todo!();
-    Ok(())
-  }
+    builder.vertex(|builder, binding| {
+      builder.primitive_state = wgpu::PrimitiveState {
+        topology: wgpu::PrimitiveTopology::TriangleStrip,
+        front_face: wgpu::FrontFace::Cw,
+        ..Default::default()
+      };
+      todo!();
+      Ok(())
+    })?;
 
-  fn build_fragment(
-    &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    MaterialStates {
-      blend: self.blend,
-      depth_write_enabled: false,
-      depth_compare: wgpu::CompareFunction::Always,
-      ..Default::default()
-    }
-    .apply_pipeline_builder(builder);
-    Ok(())
+    builder.fragment(|builder, binding| {
+      MaterialStates {
+        blend: self.blend,
+        depth_write_enabled: false,
+        depth_compare: wgpu::CompareFunction::Always,
+        ..Default::default()
+      }
+      .apply_pipeline_builder(builder);
+      Ok(())
+    })
   }
 }
 

@@ -15,7 +15,7 @@ use crate::*;
 
 impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
 where
-  Me: WebGPUMesh,
+  Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
   fn setup_pass<'a>(
@@ -66,36 +66,9 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
-pub trait WebGPUSceneMaterial: Any {
-  fn setup_pass<'a>(
-    &self,
-    res: &GPUResourceSceneCache,
-    pass: &mut GPURenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx,
-  );
-
-  fn is_keep_mesh_shape(&self) -> bool;
-}
-
-impl<T: WebGPUMaterial> WebGPUSceneMaterial for MaterialInner<T> {
-  fn setup_pass<'a>(
-    &self,
-    res: &GPUResourceSceneCache,
-    pass: &mut GPURenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx,
-  ) {
-    // res.setup_material(self, pass, ctx)
-    todo!()
-  }
-
-  fn is_keep_mesh_shape(&self) -> bool {
-    self.deref().is_keep_mesh_shape()
-  }
-}
-
 impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
 where
-  Me: WebGPUMesh,
+  Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
   fn setup_pass<'a>(
@@ -108,8 +81,22 @@ where
     let pass_gpu = pass.pass_gpu_cache;
     let camera_gpu = resources.content.cameras.check_update_gpu(camera, gpu);
     let node_gpu = resources.content.nodes.check_update_gpu(&self.node, gpu);
-    // let material_gpu = self.material.check_update_gpu(&mut resources.content, gpu);
-    // let mesh_gpu = self.mesh.check_update_gpu(&mut resources.content, gpu);
+    let material_gpu =
+      self
+        .material
+        .check_update_gpu(&mut resources.scene, &mut resources.content, gpu);
+    let mesh_gpu = self.mesh.check_update_gpu(
+      &mut resources.scene,
+      &mut resources.content.custom_storage,
+      gpu,
+    );
+
+    // let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
+
+    // let mut hasher = Default::default();
+
+    // gpu.device.create_and_cache_render_pipeline(hasher, creator)
+
     todo!()
   }
 
@@ -169,7 +156,9 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me: WebGPUMesh, Ma: WebGPUSceneMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
+impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
+  for OverridableMeshModelImpl<Me, Ma>
+{
   fn setup_pass<'a>(
     &self,
     gpu: &GPU,

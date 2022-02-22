@@ -40,19 +40,12 @@ impl<T: WebGPUMaterial> ShaderBindingProvider for SceneMaterialGPU<T> {
 }
 
 impl<T: WebGPUMaterial> ShaderGraphProvider for SceneMaterialGPU<T> {
-  fn build_fragment(
+  fn build(
     &self,
-    builder: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
     todo!();
-    self.gpu.build_fragment(builder)
-  }
-
-  fn build_vertex(
-    &self,
-    builder: &mut ShaderGraphVertexBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    self.gpu.build_vertex(builder)
+    self.gpu.build(builder)
   }
 }
 
