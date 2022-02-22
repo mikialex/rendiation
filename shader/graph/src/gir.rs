@@ -192,16 +192,8 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
 #[derive(Debug, Eq)]
 pub struct ShaderFunctionMetaInfo {
   pub function_name: &'static str,
-  pub function_source: Option<&'static str>, // None is builtin function, no need to gen code
-  pub depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
-}
-
-impl ShaderFunctionMetaInfo {
-  #[must_use]
-  pub fn declare_function_dep(mut self, f: &'static ShaderFunctionMetaInfo) -> Self {
-    self.depend_functions.insert(f);
-    self
-  }
+  pub function_source: &'static str,
+  pub depend_functions: &'static [&'static ShaderFunctionMetaInfo],
 }
 
 impl Hash for ShaderFunctionMetaInfo {
@@ -216,16 +208,6 @@ impl Hash for ShaderFunctionMetaInfo {
 impl PartialEq for ShaderFunctionMetaInfo {
   fn eq(&self, other: &Self) -> bool {
     self.function_name == other.function_name
-  }
-}
-
-impl ShaderFunctionMetaInfo {
-  pub fn new(function_name: &'static str, function_source: Option<&'static str>) -> Self {
-    Self {
-      function_name,
-      function_source,
-      depend_functions: HashSet::new(),
-    }
   }
 }
 

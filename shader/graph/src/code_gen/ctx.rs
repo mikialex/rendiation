@@ -41,7 +41,7 @@ impl CodeGenCtx {
     let mut resolved_fn = HashSet::new();
     self.depend_functions.iter().for_each(|f| {
       if f.depend_functions.is_empty() {
-        f.function_source.map(|s| builder.write_ln("").write_raw(s));
+        builder.write_ln("").write_raw(f.function_source);
         resolved_fn.insert(f);
       }
 
@@ -65,7 +65,7 @@ impl CodeGenCtx {
         &mut |n| {
           let f = n.data();
           if !resolved_fn.contains(f) {
-            f.function_source.map(|s| builder.write_ln("").write_raw(s));
+            builder.write_ln("").write_raw(f.function_source);
             resolved_fn.insert(f);
           }
         },

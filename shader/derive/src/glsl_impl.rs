@@ -39,6 +39,7 @@ fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::Token
       "cos",
       "tan",
       "sqrt",
+      "floor",
     ]
     .into_iter()
     .map(|s| s.to_owned())
@@ -52,36 +53,27 @@ fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::Token
     .iter()
     .filter(|&f| !collector.exclude_functions.contains(f))
     .map(|f| {
-      let prototype_name = format_ident!("{}_FUNCTION", f);
-      quote! { .declare_function_dep(& #prototype_name) }
+      let prototype_name = gen_meta_name(f);
+      quote! { &#prototype_name, }
     })
     .collect()
 }
 
-pub fn gen_glsl_function(
-  glsl: &str,
-  as_inner: bool,
-  override_name: &str,
-) -> proc_macro2::TokenStream {
-  // let glsl = glsl.trim_start();
+fn gen_meta_name(name: &str) -> syn::Ident {
+  format_ident!("{}_SHADER_FUNCTION", name)
+}
+
+pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
   let mut parsed = FunctionDefinition::parse(glsl).unwrap();
   let foreign = find_foreign_function(&mut parsed);
 
   let function_name = parsed.prototype.name.as_str();
 
-  let prototype_name = format_ident!("{}_FUNCTION", function_name);
+  let prototype_name = gen_meta_name(function_name);
   let function_name = format_ident!("{}", function_name);
-  let quoted_function_name = if as_inner {
-    override_name.to_owned()
-  } else {
-    format!("{}", function_name)
-  };
+  let quoted_function_name = format!("{}", function_name);
   let quoted_source = glsl.to_string();
-  let function_source = if as_inner {
-    quote! { None }
-  } else {
-    quote! {Some(#quoted_source)}
-  };
+  let function_source = quote! {#quoted_source};
 
   // https://docs.rs/glsl/4.1.1/glsl/syntax/struct.FunctionPrototype.html
   let return_type = convert_type(&parsed.prototype.ty.ty.ty);
@@ -120,14 +112,14 @@ pub fn gen_glsl_function(
 
   quote! {
     #[allow(non_upper_case_globals)]
-    pub static #prototype_name: once_cell::sync::Lazy<shadergraph::ShaderFunctionMetaInfo> =
-    once_cell::sync::Lazy::new(|| {
-        shadergraph::ShaderFunctionMetaInfo::new(
-          #quoted_function_name,
-          #function_source
-        )
-        #(#foreign)*
-    });
+    pub static #prototype_name: shadergraph::ShaderFunctionMetaInfo =
+      shadergraph::ShaderFunctionMetaInfo{
+        function_name: #quoted_function_name,
+        function_source: #function_source,
+        depend_functions:&[
+          #(#foreign)*
+        ]
+      };
 
     pub fn #function_name (
       #(#gen_function_inputs)*
