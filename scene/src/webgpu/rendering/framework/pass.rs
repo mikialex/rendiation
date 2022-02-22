@@ -25,25 +25,6 @@ pub struct PassUpdateCtx<'a> {
   pub pass_gpu_cache: &'a mut PassGPUDataCache,
 }
 
-pub struct SceneRenderPass<'a> {
-  pass: GPURenderPass<'a>,
-  pub pass_gpu_cache: &'a PassGPUDataCache,
-}
-
-impl<'a> Deref for SceneRenderPass<'a> {
-  type Target = GPURenderPass<'a>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.pass
-  }
-}
-
-impl<'a> DerefMut for SceneRenderPass<'a> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.pass
-  }
-}
-
 pub trait PassContent {
   fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene);
 }

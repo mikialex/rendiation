@@ -17,11 +17,11 @@ impl Scene {
 #[derive(Default)]
 pub struct ForwardScene;
 
-impl PassContent for ForwardScene {
-  fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene) {
-    let resources = &mut scene.resources;
-    scene.models.iter().for_each(|model| {
-      model.setup_pass(gpu, pass, scene.active_camera.as_ref().unwrap(), resources)
-    })
-  }
-}
+// impl PassContent for ForwardScene {
+//   fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene) {
+//     let resources = &mut scene.resources;
+//     scene.models.iter().for_each(|model| {
+//       model.setup_pass(gpu, pass, scene.active_camera.as_ref().unwrap(), resources)
+//     })
+//   }
+// }

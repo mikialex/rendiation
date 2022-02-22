@@ -56,8 +56,8 @@ where
 {
   type GPU = SceneMaterialGPU<T>;
 
-  fn create_gpu(&self, ctx: &mut GPUResourceSubCache) -> Self::GPU {
-    let gpu = self.material.create_gpu(ctx);
+  fn create_gpu(&self, ctx: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+    let gpu = self.material.create_gpu(ctx, gpu);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 

@@ -50,6 +50,10 @@ impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
   ) -> &'a dyn SourceOfRendering {
     res.update_mesh(self, gpu, sub_res)
   }
+
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    todo!()
+  }
 }
 
 impl GPUResourceSceneCache {
