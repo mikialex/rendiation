@@ -146,10 +146,10 @@ fn convert_type(glsl: &TypeSpecifierNonArray) -> proc_macro2::TokenStream {
   {
     match glsl {
       TypeSpecifierNonArray::Float => quote! { f32 },
-      TypeSpecifierNonArray::Vec2 => quote! { rendiation_algebra::Vec2<f32> },
-      TypeSpecifierNonArray::Vec3 => quote! { rendiation_algebra::Vec3<f32> },
-      TypeSpecifierNonArray::Vec4 => quote! { rendiation_algebra::Vec4<f32> },
-      TypeSpecifierNonArray::Mat4 => quote! { rendiation_algebra::Mat4<f32> },
+      TypeSpecifierNonArray::Vec2 => quote! { shadergraph::Vec2<f32> },
+      TypeSpecifierNonArray::Vec3 => quote! { shadergraph::Vec3<f32> },
+      TypeSpecifierNonArray::Vec4 => quote! { shadergraph::Vec4<f32> },
+      TypeSpecifierNonArray::Mat4 => quote! { shadergraph::Mat4<f32> },
       TypeSpecifierNonArray::TypeName(ty) => {
         if ty == &sampler_type {
           quote! { shadergraph::ShaderSampler }

@@ -12,6 +12,7 @@ paste = "1.0.2"
 rendiation-algebra = {path = "../../math/algebra"}
 shader-derives = {path = "../derive"}
 wgpu-types = "*"
+bytemuck = {version = "1.4.1", features = ["derive"]}
 
 [dev-dependencies]
 naga = {version = "*", features = ["wgsl-in"]}
