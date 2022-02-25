@@ -26,9 +26,9 @@ impl Default for PassTargetFormatInfo {
 #[derive(Clone, Default)]
 pub struct RenderPassDescriptorOwned {
   pub name: String,
-  pub channels: Vec<(gpu::Operations<gpu::Color>, Rc<gpu::TextureView>, Size)>,
-  pub depth_stencil_target: Option<(gpu::Operations<f32>, Rc<gpu::TextureView>)>,
-  pub resolve_target: Option<Rc<gpu::TextureView>>,
+  pub channels: Vec<(gpu::Operations<gpu::Color>, GPUTexture2dView, Size)>,
+  pub depth_stencil_target: Option<(gpu::Operations<f32>, GPUTexture2dView)>,
+  pub resolve_target: Option<GPUTexture2dView>,
   pub info: PassTargetFormatInfo,
 }
 

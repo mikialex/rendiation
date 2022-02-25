@@ -10,16 +10,11 @@ use rendiation_webgpu::{
 
 use crate::{Attachment, AttachmentWriteView, PassGPUDataCache, RenderEngine, Scene};
 
-pub fn pass<'t>(
-  name: impl Into<String>,
-  engine: &RenderEngine,
-  encoder: &mut GPUCommandEncoder,
-) -> PassDescriptor<'static, 't> {
+pub fn pass(name: impl Into<String>, engine: &RenderEngine) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
   desc.name = name.into();
   PassDescriptor {
     phantom: PhantomData,
-    tasks: Vec::new(),
     desc,
   }
 }
@@ -29,14 +24,12 @@ pub struct PassUpdateCtx<'a> {
   pub pass_gpu_cache: &'a mut PassGPUDataCache,
 }
 
-pub struct PassDescriptor<'a, 't> {
+pub struct PassDescriptor<'a> {
   phantom: PhantomData<&'a Attachment>,
-  tasks: Vec<&'t mut dyn PassContent>,
-
   desc: RenderPassDescriptorOwned,
 }
 
-impl<'a, 't> PassDescriptor<'a, 't> {
+impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_color(
     mut self,
@@ -81,18 +74,11 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     self
   }
 
-  #[must_use]
-  pub fn render_by(mut self, renderable: &'t mut dyn PassContent) -> Self {
-    self.tasks.push(renderable);
-    self
-  }
-
-  pub fn render(&mut self, renderable: &'t mut dyn PassContent) -> &mut Self {
-    self.tasks.push(renderable);
-    self
-  }
-
-  pub fn run(mut self, engine: &RenderEngine, encoder: &mut GPUCommandEncoder) {
+  pub fn run<'e>(
+    mut self,
+    engine: &RenderEngine,
+    encoder: &'e mut GPUCommandEncoder,
+  ) -> ActiveRenderPass<'e> {
     let info = RenderPassInfo {
       buffer_size: self.desc.channels.first().unwrap().2,
       format_info: self.desc.info.clone(),
@@ -103,26 +89,27 @@ impl<'a, 't> PassDescriptor<'a, 't> {
       self.desc.channels[0].1 = resolve_target
     }
 
-    let mut pass = encoder.begin_render_pass(&self.desc);
-
-    let camera = scene.active_camera.as_ref().unwrap();
-    camera.bounds.setup_viewport(&mut pass);
-
-    let mut pass_gpu_cache = engine.pass_cache.borrow_mut();
-    let mut pass = SceneRenderPass {
-      pass,
-      pass_gpu_cache: &mut pass_gpu_cache,
-    };
-
-    for task in &self.tasks {
-      let pass_index = 0;
-
-      let mut pass_cache = engine.pass_cache.borrow_mut();
-      let default_pass_gpu = pass_cache.get_updated_pass_gpu_info(pass_index, &info, &engine.gpu);
-      pass.set_bind_group_owned(3, &default_pass_gpu.bindgroup, &[]);
-
-      task.setup_pass(&engine.gpu, &mut pass, scene)
+    ActiveRenderPass {
+      desc: self.desc,
+      pass: encoder.begin_render_pass(&self.desc),
     }
+  }
+}
+
+pub trait PassContent {
+  fn render(&self, pass: &mut GPURenderPass);
+}
+
+pub struct ActiveRenderPass<'p> {
+  desc: RenderPassDescriptorOwned,
+  pass: GPURenderPass<'p>,
+}
+
+impl<'p> ActiveRenderPass<'p> {
+  #[must_use]
+  pub fn render(mut self, renderable: &mut dyn PassContent) -> Self {
+    renderable.render(&mut self.pass);
+    self
   }
 }
 

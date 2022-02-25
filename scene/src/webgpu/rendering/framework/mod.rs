@@ -16,7 +16,7 @@ pub struct RenderEngine {
   pass_cache: RefCell<PassGPUDataCache>,
   gpu: Rc<GPU>,
   msaa_sample_count: u32,
-  // encoder: GPUCommandEncoder,
+  encoder: GPUCommandEncoder,
   pub output: Option<GPUTexture2dView>,
 }
 
@@ -47,10 +47,7 @@ impl RenderEngine {
     let output = self.output.as_ref().unwrap();
     AttachmentWriteView {
       phantom: PhantomData,
-      size: output.size,
       view: output.clone(),
-      format: output.format,
-      sample_count: 1,
     }
   }
 

@@ -1,7 +1,9 @@
 use std::{marker::PhantomData, rc::Rc};
 
 use rendiation_texture::{Size, Texture2D};
-use rendiation_webgpu::{GPUTextureSize, TextureDimension, TextureUsages};
+use rendiation_webgpu::{
+  GPUTexture2d, GPUTexture2dView, GPUTextureSize, TextureDimension, TextureUsages,
+};
 
 use crate::{RenderEngine, ResourcePool};
 
@@ -26,23 +28,14 @@ pub struct Attachment {
   pool: ResourcePool,
   des: AttachmentDescriptor,
   size: Size,
-  texture: Option<Rc<wgpu::Texture>>,
+  texture: GPUTexture2d,
 }
 
 impl Attachment {
   pub fn write(&mut self) -> AttachmentWriteView {
     AttachmentWriteView {
       phantom: PhantomData,
-      size: self.size,
-      view: Rc::new(
-        self
-          .texture
-          .as_ref()
-          .unwrap()
-          .create_view(&wgpu::TextureViewDescriptor::default()),
-      ),
-      format: self.des.format,
-      sample_count: self.des.sample_count,
+      view: self.texture.create_view(Default::default()),
     }
   }
 
@@ -50,13 +43,7 @@ impl Attachment {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
       phantom: PhantomData,
-      view: Rc::new(
-        self
-          .texture
-          .as_ref()
-          .unwrap()
-          .create_view(&wgpu::TextureViewDescriptor::default()),
-      ),
+      view: self.texture.create_view(Default::default()),
     }
   }
 
@@ -74,26 +61,9 @@ impl Attachment {
   }
 }
 
-impl Drop for Attachment {
-  fn drop(&mut self) {
-    if let Ok(texture) = Rc::try_unwrap(self.texture.take().unwrap()) {
-      let mut pool = self.pool.inner.borrow_mut();
-      let cached = pool
-        .attachments
-        .entry((self.size, self.des.format.into(), self.des.sample_count))
-        .or_insert_with(Default::default);
-
-      cached.push(texture)
-    }
-  }
-}
-
 pub struct AttachmentWriteView<'a> {
   pub(super) phantom: PhantomData<&'a Attachment>,
-  pub(super) size: Size,
-  pub(super) view: Rc<wgpu::TextureView>, // todo opt enum
-  pub(super) format: wgpu::TextureFormat,
-  pub(super) sample_count: u32,
+  pub(super) view: GPUTexture2dView,
 }
 
 pub struct AttachmentReadView<'a> {
@@ -161,6 +131,9 @@ impl AttachmentDescriptor {
       .attachments
       .entry((size, self.format.into(), self.sample_count))
       .or_insert_with(Default::default);
+
+      // todo check ref count and find available resource 
+      todo!();
 
     let texture = cached.pop().unwrap_or_else(|| {
       engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
