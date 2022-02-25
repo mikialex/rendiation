@@ -43,18 +43,18 @@ impl RenderEngine {
     self.resource.inner.borrow_mut().attachments.clear();
   }
 
-  pub fn screen(&self) -> AttachmentWriteView<wgpu::TextureFormat> {
+  pub fn screen(&self) -> AttachmentWriteView {
     let output = self.output.as_ref().unwrap();
     AttachmentWriteView {
       phantom: PhantomData,
       size: output.size,
-      view: output.view.clone(),
+      view: output.clone(),
       format: output.format,
       sample_count: 1,
     }
   }
 
-  pub fn multisampled_attachment(&self) -> AttachmentDescriptor<wgpu::TextureFormat> {
+  pub fn multisampled_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
       format: wgpu::TextureFormat::Rgba8Unorm,
       sample_count: self.msaa_sample_count,
@@ -62,7 +62,7 @@ impl RenderEngine {
     }
   }
 
-  pub fn multisampled_depth_attachment(&self) -> AttachmentDescriptor<wgpu::TextureFormat> {
+  pub fn multisampled_depth_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
       format: wgpu::TextureFormat::Depth24PlusStencil8,
       sample_count: self.msaa_sample_count,

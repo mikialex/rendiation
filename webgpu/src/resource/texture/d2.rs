@@ -202,6 +202,14 @@ pub struct WebGPUTexture2dDescriptor {
   desc: gpu::TextureDescriptor<'static>,
 }
 
+impl std::ops::Deref for WebGPUTexture2dDescriptor {
+  type Target = gpu::TextureDescriptor<'static>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.desc
+  }
+}
+
 impl WebGPUTexture2dDescriptor {
   pub fn from_size(size: Size) -> Self {
     Self {

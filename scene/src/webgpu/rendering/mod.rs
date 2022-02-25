@@ -14,8 +14,8 @@ pub mod utils;
 use rendiation_webgpu::GPURenderPass;
 pub use utils::*;
 
-// pub mod framework;
-// pub use framework::*;
+pub mod framework;
+pub use framework::*;
 
 pub struct SceneRenderPass<'a> {
   pass: GPURenderPass<'a>,

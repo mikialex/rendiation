@@ -5,12 +5,16 @@ use std::{
 };
 
 use rendiation_webgpu::{
-  GPURenderPass, Operations, RenderPassDescriptorOwned, RenderPassInfo, GPU,
+  GPUCommandEncoder, GPURenderPass, Operations, RenderPassDescriptorOwned, RenderPassInfo, GPU,
 };
 
 use crate::{Attachment, AttachmentWriteView, PassGPUDataCache, RenderEngine, Scene};
 
-pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
+pub fn pass<'t>(
+  name: impl Into<String>,
+  engine: &RenderEngine,
+  encoder: &mut GPUCommandEncoder,
+) -> PassDescriptor<'static, 't> {
   let mut desc = RenderPassDescriptorOwned::default();
   desc.name = name.into();
   PassDescriptor {
@@ -25,20 +29,8 @@ pub struct PassUpdateCtx<'a> {
   pub pass_gpu_cache: &'a mut PassGPUDataCache,
 }
 
-pub trait PassContent {
-  fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene);
-}
-
-impl<T: PassContent> PassContent for Option<T> {
-  fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene) {
-    if let Some(c) = self {
-      c.setup_pass(gpu, pass, scene);
-    }
-  }
-}
-
 pub struct PassDescriptor<'a, 't> {
-  phantom: PhantomData<&'a Attachment<wgpu::TextureFormat>>,
+  phantom: PhantomData<&'a Attachment>,
   tasks: Vec<&'t mut dyn PassContent>,
 
   desc: RenderPassDescriptorOwned,
@@ -48,7 +40,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
   #[must_use]
   pub fn with_color(
     mut self,
-    attachment: AttachmentWriteView<'a, wgpu::TextureFormat>,
+    attachment: AttachmentWriteView<'a>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
     self
@@ -63,7 +55,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: AttachmentWriteView<wgpu::TextureFormat>,
+    attachment: AttachmentWriteView,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
     self
@@ -84,7 +76,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
   }
 
   #[must_use]
-  pub fn resolve_to(mut self, attachment: AttachmentWriteView<wgpu::TextureFormat>) -> Self {
+  pub fn resolve_to(mut self, attachment: AttachmentWriteView) -> Self {
     self.desc.resolve_target = attachment.view.into();
     self
   }
@@ -100,9 +92,7 @@ impl<'a, 't> PassDescriptor<'a, 't> {
     self
   }
 
-  pub fn run(mut self, engine: &RenderEngine, scene: &mut Scene) {
-    let mut encoder = engine.gpu.encoder.borrow_mut();
-
+  pub fn run(mut self, engine: &RenderEngine, encoder: &mut GPUCommandEncoder) {
     let info = RenderPassInfo {
       buffer_size: self.desc.channels.first().unwrap().2,
       format_info: self.desc.info.clone(),

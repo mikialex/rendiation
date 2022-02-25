@@ -1,11 +1,11 @@
 use std::{marker::PhantomData, rc::Rc};
 
-use rendiation_texture::Size;
+use rendiation_texture::{Size, Texture2D};
 use rendiation_webgpu::{GPUTextureSize, TextureDimension, TextureUsages};
 
 use crate::{RenderEngine, ResourcePool};
 
-pub fn attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
+pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
     format: wgpu::TextureFormat::Rgba8Unorm,
     sample_count: 1,
@@ -13,7 +13,7 @@ pub fn attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
   }
 }
 
-pub fn depth_attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
+pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
     format: wgpu::TextureFormat::Depth24PlusStencil8,
     sample_count: 1,
@@ -21,22 +21,16 @@ pub fn depth_attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
   }
 }
 
-pub trait AttachmentFormat: Into<wgpu::TextureFormat> + Copy {}
-impl<T: Into<wgpu::TextureFormat> + Copy> AttachmentFormat for T {}
-
 #[derive(Clone)]
-pub struct Attachment<F: AttachmentFormat> {
+pub struct Attachment {
   pool: ResourcePool,
-  des: AttachmentDescriptor<F>,
+  des: AttachmentDescriptor,
   size: Size,
   texture: Option<Rc<wgpu::Texture>>,
 }
 
-pub type ColorAttachment = Attachment<wgpu::TextureFormat>;
-pub type DepthAttachment = Attachment<wgpu::TextureFormat>; // todo
-
-impl<F: AttachmentFormat> Attachment<F> {
-  pub fn write(&mut self) -> AttachmentWriteView<F> {
+impl Attachment {
+  pub fn write(&mut self) -> AttachmentWriteView {
     AttachmentWriteView {
       phantom: PhantomData,
       size: self.size,
@@ -52,7 +46,7 @@ impl<F: AttachmentFormat> Attachment<F> {
     }
   }
 
-  pub fn read(&self) -> AttachmentReadView<F> {
+  pub fn read(&self) -> AttachmentReadView {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
       phantom: PhantomData,
@@ -66,7 +60,7 @@ impl<F: AttachmentFormat> Attachment<F> {
     }
   }
 
-  pub fn read_into(self) -> AttachmentOwnedReadView<F> {
+  pub fn read_into(self) -> AttachmentOwnedReadView {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     let view = self
       .texture
@@ -80,7 +74,7 @@ impl<F: AttachmentFormat> Attachment<F> {
   }
 }
 
-impl<F: AttachmentFormat> Drop for Attachment<F> {
+impl Drop for Attachment {
   fn drop(&mut self) {
     if let Ok(texture) = Rc::try_unwrap(self.texture.take().unwrap()) {
       let mut pool = self.pool.inner.borrow_mut();
@@ -94,20 +88,20 @@ impl<F: AttachmentFormat> Drop for Attachment<F> {
   }
 }
 
-pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
-  pub(super) phantom: PhantomData<&'a Attachment<F>>,
+pub struct AttachmentWriteView<'a> {
+  pub(super) phantom: PhantomData<&'a Attachment>,
   pub(super) size: Size,
   pub(super) view: Rc<wgpu::TextureView>, // todo opt enum
-  pub(super) format: F,
+  pub(super) format: wgpu::TextureFormat,
   pub(super) sample_count: u32,
 }
 
-pub struct AttachmentReadView<'a, F: AttachmentFormat> {
-  phantom: PhantomData<&'a Attachment<F>>,
+pub struct AttachmentReadView<'a> {
+  phantom: PhantomData<&'a Attachment>,
   pub(super) view: Rc<wgpu::TextureView>,
 }
 
-// impl<'a, F: AttachmentFormat> BindableResource for AttachmentReadView<'a, F> {
+// impl<'a,> BindableResource for AttachmentReadView<'a, F> {
 //   fn as_bindable(&self) -> wgpu::BindingResource {
 //     wgpu::BindingResource::TextureView(self.view.as_ref())
 //   }
@@ -121,12 +115,12 @@ pub struct AttachmentReadView<'a, F: AttachmentFormat> {
 //   }
 // }
 
-pub struct AttachmentOwnedReadView<F: AttachmentFormat> {
-  _att: Attachment<F>,
+pub struct AttachmentOwnedReadView {
+  _att: Attachment,
   view: Rc<wgpu::TextureView>,
 }
 
-// impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
+// impl BindableResource for AttachmentOwnedReadView {
 //   fn as_bindable(&self) -> wgpu::BindingResource {
 //     wgpu::BindingResource::TextureView(self.view.as_ref())
 //   }
@@ -141,8 +135,8 @@ pub struct AttachmentOwnedReadView<F: AttachmentFormat> {
 // }
 
 #[derive(Clone)]
-pub struct AttachmentDescriptor<F> {
-  pub(super) format: F,
+pub struct AttachmentDescriptor {
+  pub(super) format: wgpu::TextureFormat,
   pub(super) sample_count: u32,
   pub(super) sizer: Rc<dyn Fn(Size) -> Size>,
 }
@@ -151,17 +145,17 @@ pub fn default_sizer() -> Rc<dyn Fn(Size) -> Size> {
   Rc::new(|size| size)
 }
 
-impl<F: AttachmentFormat> AttachmentDescriptor<F> {
+impl AttachmentDescriptor {
   #[must_use]
-  pub fn format(mut self, format: F) -> Self {
+  pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
     self.format = format;
     self
   }
 }
 
-impl<F: AttachmentFormat> AttachmentDescriptor<F> {
-  pub fn request(self, engine: &RenderEngine) -> Attachment<F> {
-    let size = (self.sizer)(engine.output.as_ref().unwrap().size);
+impl AttachmentDescriptor {
+  pub fn request(self, engine: &RenderEngine) -> Attachment {
+    let size = (self.sizer)(engine.output.as_ref().unwrap().resource.desc.desc.size());
     let mut resource = engine.resource.inner.borrow_mut();
     let cached = resource
       .attachments
