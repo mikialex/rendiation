@@ -36,10 +36,10 @@ use rendiation_webgpu::*;
 use crate::{ResourceMapper, Scene, SceneCamera, TextureCubeSource};
 
 pub trait SceneRenderable: 'static {
-  fn setup_pass<'a>(
+  fn setup_pass(
     &self,
     gpu: &GPU,
-    pass: &mut SceneRenderPass<'a>,
+    pass: &mut SceneRenderPass,
     camera_gpu: &SceneCamera,
     resources: &mut GPUResourceCache,
   );

@@ -18,10 +18,10 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass<'a>(
+  fn setup_pass(
     &self,
     gpu: &GPU,
-    pass: &mut SceneRenderPass<'a>,
+    pass: &mut SceneRenderPass,
     camera_gpu: &SceneCamera,
     resources: &mut GPUResourceCache,
   ) {
@@ -71,14 +71,14 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass<'a>(
+  fn setup_pass(
     &self,
     gpu: &GPU,
-    pass: &mut SceneRenderPass<'a>,
+    pass: &mut SceneRenderPass,
     camera: &SceneCamera,
     resources: &mut GPUResourceCache,
   ) {
-    let pass_gpu = pass.pass_gpu_cache;
+    let pass_gpu = pass.dispatcher;
     let camera_gpu = resources.content.cameras.check_update_gpu(camera, gpu);
     let node_gpu = resources.content.nodes.check_update_gpu(&self.node, gpu);
     let material_gpu =
@@ -159,14 +159,14 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
 impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   for OverridableMeshModelImpl<Me, Ma>
 {
-  fn setup_pass<'a>(
+  fn setup_pass(
     &self,
     gpu: &GPU,
-    pass: &mut SceneRenderPass<'a>,
+    pass: &mut SceneRenderPass,
     camera_gpu: &SceneCamera,
     resources: &mut GPUResourceCache,
   ) {
-    let pass_gpu = pass.pass_gpu_cache;
+    let pass_gpu = pass.dispatcher;
     let mut world_matrix = self.inner.node.visit(|n| n.world_matrix);
     let node_gpu = self
       .override_gpu

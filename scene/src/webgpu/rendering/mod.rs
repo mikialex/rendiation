@@ -17,12 +17,14 @@ pub use utils::*;
 pub mod framework;
 pub use framework::*;
 
-pub struct SceneRenderPass<'a> {
-  pass: GPURenderPass<'a>,
-  // pub pass_gpu_cache: &'a PassGPUDataCache,
+use crate::SourceOfRendering;
+
+pub struct SceneRenderPass<'a, 'b> {
+  pub pass: GPURenderPass<'a>,
+  pub dispatcher: &'b dyn SourceOfRendering,
 }
 
-impl<'a> std::ops::Deref for SceneRenderPass<'a> {
+impl<'a, 'b> std::ops::Deref for SceneRenderPass<'a, 'b> {
   type Target = GPURenderPass<'a>;
 
   fn deref(&self) -> &Self::Target {
@@ -30,7 +32,7 @@ impl<'a> std::ops::Deref for SceneRenderPass<'a> {
   }
 }
 
-impl<'a> std::ops::DerefMut for SceneRenderPass<'a> {
+impl<'a, 'b> std::ops::DerefMut for SceneRenderPass<'a, 'b> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.pass
   }

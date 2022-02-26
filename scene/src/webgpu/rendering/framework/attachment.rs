@@ -9,7 +9,7 @@ use crate::RenderEngine;
 
 #[derive(Default)]
 pub struct ResourcePoolImpl {
-  pub attachments: HashMap<(Size, wgpu::TextureFormat, u32), Vec<wgpu::Texture>>,
+  pub attachments: HashMap<(Size, wgpu::TextureFormat, u32), Vec<GPUTexture2d>>,
 }
 
 #[derive(Clone, Default)]
@@ -100,7 +100,7 @@ impl AttachmentDescriptor {
 
 impl AttachmentDescriptor {
   pub fn request(self, engine: &RenderEngine) -> Attachment {
-    let size = engine.output.as_ref().unwrap().resource.desc.size;
+    let size = engine.output.resource.desc.size;
     let size = GPUTextureSize::from_gpu_size(size);
     let size = (self.sizer)(size);
     let mut resource = engine.resource.inner.borrow_mut();
@@ -113,15 +113,18 @@ impl AttachmentDescriptor {
     todo!();
 
     let texture = cached.pop().unwrap_or_else(|| {
-      engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
-        label: None,
-        size: size.into_gpu_size(),
-        mip_level_count: 1,
-        sample_count: self.sample_count,
-        dimension: TextureDimension::D2,
-        format: self.format.into(),
-        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-      })
+      // GPUTexture2d::create(GPUTexture2dDescriptor::default(), device)
+      // engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
+      //   label: None,
+      //   size: size.into_gpu_size(),
+      //   mip_level_count: 1,
+      //   sample_count: self.sample_count,
+      //   dimension: TextureDimension::D2,
+      //   format: self.format.into(),
+      //   usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      // })
+
+      todo!()
     });
 
     Attachment {

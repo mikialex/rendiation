@@ -8,7 +8,12 @@ pub struct RenderList {
 }
 
 impl RenderList {
-  pub fn setup_pass<'p>(&self, gpu: &GPU, gpu_pass: &mut SceneRenderPass<'p>, scene: &mut Scene) {
+  pub fn setup_pass<'p, 'a>(
+    &self,
+    gpu: &GPU,
+    gpu_pass: &mut SceneRenderPass<'p, 'a>,
+    scene: &mut Scene,
+  ) {
     self.models.iter().for_each(|model| {
       model.setup_pass(
         gpu,
