@@ -1,11 +1,5 @@
 use crate::*;
 
-#[derive(Clone)]
-pub struct RenderPassInfo {
-  pub buffer_size: Size,
-  pub format_info: PassTargetFormatInfo,
-}
-
 #[derive(Clone, Hash)]
 pub struct PassTargetFormatInfo {
   pub depth_stencil_format: Option<gpu::TextureFormat>,
@@ -47,14 +41,12 @@ impl ColorChannelView {
 #[derive(Default)]
 pub struct RenderPassDescriptorOwned {
   pub name: String,
-  pub channels: Vec<(gpu::Operations<gpu::Color>, ColorChannelView, Size)>,
+  pub channels: Vec<(gpu::Operations<gpu::Color>, ColorChannelView)>,
   pub depth_stencil_target: Option<(gpu::Operations<f32>, ColorChannelView)>,
   pub resolve_target: Option<ColorChannelView>,
-  pub info: PassTargetFormatInfo,
 }
 
 pub struct GPURenderPass<'a> {
-  pub(crate) info: RenderPassInfo,
   pub(crate) pass: gpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
   pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
@@ -82,10 +74,6 @@ pub struct GPURenderPassDataHolder {
 }
 
 impl<'a> GPURenderPass<'a> {
-  pub fn info(&self) -> &RenderPassInfo {
-    &self.info
-  }
-
   pub fn set_pipeline_owned(&mut self, pipeline: &Rc<gpu::RenderPipeline>) {
     let pipeline = self.holder.pipelines.alloc(pipeline.clone());
     self.pass.set_pipeline(pipeline)

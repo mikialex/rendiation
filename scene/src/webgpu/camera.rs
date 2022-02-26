@@ -5,19 +5,20 @@ use crate::*;
 
 impl CameraViewBounds {
   pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>) {
-    let size = pass.info().buffer_size;
-    let width: usize = size.width.into();
-    let width = width as f32;
-    let height: usize = size.height.into();
-    let height = height as f32;
-    pass.set_viewport(
-      width * self.to_left,
-      height * self.to_top,
-      width * self.width,
-      height * self.height,
-      0.,
-      1.,
-    )
+    todo!();
+    // let size = pass.info().buffer_size;
+    // let width: usize = size.width.into();
+    // let width = width as f32;
+    // let height: usize = size.height.into();
+    // let height = height as f32;
+    // pass.set_viewport(
+    //   width * self.to_left,
+    //   height * self.to_top,
+    //   width * self.width,
+    //   height * self.height,
+    //   0.,
+    //   1.,
+    // )
   }
 }
 

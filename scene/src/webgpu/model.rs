@@ -221,25 +221,26 @@ impl WorldMatrixOverride for ViewAutoScalable {
     world_matrix: Mat4<f32>,
     base: &mut SceneMaterialRenderPrepareCtxBase,
   ) -> Mat4<f32> {
-    let camera = &base.camera;
+    todo!();
+    // let camera = &base.camera;
 
-    let center = self
-      .override_position
-      .unwrap_or_else(|| world_matrix.position());
-    let camera_position = camera.node.visit(|n| n.world_matrix.position());
-    let distance = (camera_position - center).length();
+    // let center = self
+    //   .override_position
+    //   .unwrap_or_else(|| world_matrix.position());
+    // let camera_position = camera.node.visit(|n| n.world_matrix.position());
+    // let distance = (camera_position - center).length();
 
-    let camera_view_height = camera.view_size_in_pixel(base.pass_info.buffer_size).y;
+    // let camera_view_height = camera.view_size_in_pixel(base.pass_info.buffer_size).y;
 
-    let scale = self.independent_scale_factor
-      / camera
-        .projection
-        .pixels_per_unit(distance, camera_view_height);
+    // let scale = self.independent_scale_factor
+    //   / camera
+    //     .projection
+    //     .pixels_per_unit(distance, camera_view_height);
 
-    let raw_scale = world_matrix.extract_scale();
-    let new_scale = Vec3::splat(scale) / raw_scale;
+    // let raw_scale = world_matrix.extract_scale();
+    // let new_scale = Vec3::splat(scale) / raw_scale;
 
-    Mat4::scale(new_scale.x, new_scale.y, new_scale.z) * world_matrix
+    // Mat4::scale(new_scale.x, new_scale.y, new_scale.z) * world_matrix
   }
 }
 

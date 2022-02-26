@@ -100,7 +100,7 @@ impl AttachmentDescriptor {
 
 impl AttachmentDescriptor {
   pub fn request(self, engine: &RenderEngine) -> Attachment {
-    let size = match engine.output {
+    let size = match &engine.output {
       ColorChannelView::Texture(t) => t.resource.desc.size,
       ColorChannelView::SurfaceTexture(t) => todo!(),
     };

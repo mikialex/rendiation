@@ -47,7 +47,7 @@ impl GPUCommandEncoder {
     let color_attachments: Vec<_> = des
       .channels
       .iter()
-      .map(|(ops, view, _)| gpu::RenderPassColorAttachment {
+      .map(|(ops, view)| gpu::RenderPassColorAttachment {
         view: view.as_view(),
         resolve_target: des.resolve_target.as_ref().map(|t| t.as_view()),
         ops: *ops,
@@ -70,16 +70,10 @@ impl GPUCommandEncoder {
       depth_stencil_attachment,
     };
 
-    let info = RenderPassInfo {
-      buffer_size: des.channels.first().unwrap().2,
-      format_info: des.info.clone(),
-    };
-
     let pass = self.encoder.begin_render_pass(&desc);
     GPURenderPass {
       pass,
       holder: &mut self.holder,
-      info,
       placeholder_bg: self.placeholder_bg.clone(),
     }
   }

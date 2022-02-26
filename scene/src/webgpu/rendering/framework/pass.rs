@@ -5,8 +5,7 @@ use std::{
 };
 
 use rendiation_webgpu::{
-  GPUCommandEncoder, GPURenderPass, GPUTextureSize, Operations, RenderPassDescriptorOwned,
-  RenderPassInfo, GPU,
+  GPUCommandEncoder, GPURenderPass, GPUTextureSize, Operations, RenderPassDescriptorOwned, GPU,
 };
 
 use crate::{Attachment, AttachmentWriteView, RenderEngine, Scene};
@@ -32,14 +31,10 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView<'a>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    let desc = &attachment.view.resource.desc;
-    self.desc.channels.push((
-      op.into(),
-      attachment.view.clone(),
-      GPUTextureSize::from_gpu_size(desc.size),
-    ));
-    self.desc.info.color_formats.push(desc.format);
-    self.desc.info.sample_count = desc.sample_count;
+    self
+      .desc
+      .channels
+      .push((op.into(), attachment.view.clone()));
     self
   }
 
@@ -49,15 +44,11 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
-    let desc = &attachment.view.resource.desc;
     self
       .desc
       .depth_stencil_target
       .replace((op.into(), attachment.view.clone()));
 
-    self.desc.info.depth_stencil_format.replace(desc.format);
-
-    self.desc.info.sample_count = desc.sample_count;
     // todo check sample count is same as color's
 
     self

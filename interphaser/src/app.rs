@@ -229,8 +229,7 @@ impl<T> ApplicationInner<T> {
           }),
           store: true,
         },
-        view,
-        Size::from_u32_pair_min_one((100, 100)),
+        ColorChannelView::SurfaceTexture(view.clone()),
       ));
       {
         let mut pass = encoder.begin_render_pass(&decs);
