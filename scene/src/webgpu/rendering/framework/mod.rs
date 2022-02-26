@@ -12,11 +12,11 @@ pub struct RenderEngine {
   msaa_sample_count: u32,
   gpu: Rc<GPU>,
   encoder: GPUCommandEncoder,
-  pub output: GPUTexture2dView,
+  pub output: ColorChannelView,
 }
 
 impl RenderEngine {
-  pub fn new(gpu: Rc<GPU>, output: GPUTexture2dView) -> Self {
+  pub fn new(gpu: Rc<GPU>, output: ColorChannelView) -> Self {
     #[allow(unused_mut)]
     let mut msaa_sample_count = 4;
 

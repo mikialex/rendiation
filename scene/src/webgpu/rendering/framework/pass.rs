@@ -32,10 +32,10 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView<'a>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    let desc = attachment.view.resource.desc;
+    let desc = &attachment.view.resource.desc;
     self.desc.channels.push((
       op.into(),
-      attachment.view,
+      attachment.view.clone(),
       GPUTextureSize::from_gpu_size(desc.size),
     ));
     self.desc.info.color_formats.push(desc.format);
@@ -49,11 +49,11 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
-    let desc = attachment.view.resource.desc;
+    let desc = &attachment.view.resource.desc;
     self
       .desc
       .depth_stencil_target
-      .replace((op.into(), attachment.view));
+      .replace((op.into(), attachment.view.clone()));
 
     self.desc.info.depth_stencil_format.replace(desc.format);
 
@@ -69,20 +69,23 @@ impl<'a> PassDescriptor<'a> {
     self
   }
 
-  pub fn run<'e>(mut self, engine: &'e RenderEngine) -> ActiveRenderPass<'e> {
-    let info = RenderPassInfo {
-      buffer_size: self.desc.channels.first().unwrap().2,
-      format_info: self.desc.info.clone(),
-    };
-
+  #[must_use]
+  pub fn run(self, engine: &mut RenderEngine) -> ActiveRenderPass {
     #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
     if let Some(resolve_target) = self.desc.resolve_target.take() {
       self.desc.channels[0].1 = resolve_target
     }
 
+    let pass = engine.encoder.begin_render_pass(&self.desc);
+
+    // safety: the pass will reference the desc which refs the texture views to write
+    // and they drop together.
+    // todo, move the desc into command encoder and we can remove this unsafe
+    let pass = unsafe { std::mem::transmute(pass) };
+
     ActiveRenderPass {
       desc: self.desc,
-      pass: engine.encoder.begin_render_pass(&self.desc),
+      pass,
     }
   }
 }
@@ -92,8 +95,8 @@ pub trait PassContent {
 }
 
 pub struct ActiveRenderPass<'p> {
-  desc: RenderPassDescriptorOwned,
   pass: GPURenderPass<'p>,
+  desc: RenderPassDescriptorOwned,
 }
 
 impl<'p> ActiveRenderPass<'p> {

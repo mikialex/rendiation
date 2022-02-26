@@ -73,7 +73,7 @@ impl MaterialStates {
     });
 
     // and depth_stencil if they exist
-    let format = builder.depth_stencil.map(|s| s.format);
+    let format = builder.depth_stencil.as_ref().map(|s| s.format);
     builder.depth_stencil = self.map_depth_stencil_state(format);
   }
 }

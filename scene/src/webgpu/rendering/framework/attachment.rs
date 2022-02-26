@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
 use rendiation_texture::{Size, Texture2D};
 use rendiation_webgpu::{
-  GPUTexture2d, GPUTexture2dView, GPUTextureSize, TextureDimension, TextureUsages,
+  ColorChannelView, GPUTexture2d, GPUTexture2dView, GPUTextureSize, TextureDimension, TextureUsages,
 };
 
 use crate::RenderEngine;
@@ -45,7 +45,7 @@ impl Attachment {
   pub fn write(&mut self) -> AttachmentWriteView {
     AttachmentWriteView {
       phantom: PhantomData,
-      view: self.texture.create_view(Default::default()),
+      view: self.texture.create_view(Default::default()).into(),
     }
   }
 
@@ -53,30 +53,30 @@ impl Attachment {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
       phantom: PhantomData,
-      view: self.texture.create_view(Default::default()),
+      view: self.texture.create_view(Default::default()).into(),
     }
   }
 
   pub fn read_into(self) -> AttachmentOwnedReadView {
     assert_eq!(self.des.sample_count, 1); // todo support latter
-    let view = self.texture.create_view(());
+    let view = self.texture.create_view(()).into();
     AttachmentOwnedReadView { _att: self, view }
   }
 }
 
 pub struct AttachmentWriteView<'a> {
   pub(super) phantom: PhantomData<&'a Attachment>,
-  pub(super) view: GPUTexture2dView,
+  pub(super) view: ColorChannelView,
 }
 
 pub struct AttachmentReadView<'a> {
   phantom: PhantomData<&'a Attachment>,
-  pub(super) view: GPUTexture2dView,
+  pub(super) view: ColorChannelView,
 }
 
 pub struct AttachmentOwnedReadView {
   _att: Attachment,
-  view: GPUTexture2dView,
+  view: ColorChannelView,
 }
 
 #[derive(Clone)]
@@ -100,7 +100,10 @@ impl AttachmentDescriptor {
 
 impl AttachmentDescriptor {
   pub fn request(self, engine: &RenderEngine) -> Attachment {
-    let size = engine.output.resource.desc.size;
+    let size = match engine.output {
+      ColorChannelView::Texture(t) => t.resource.desc.size,
+      ColorChannelView::SurfaceTexture(t) => todo!(),
+    };
     let size = GPUTextureSize::from_gpu_size(size);
     let size = (self.sizer)(size);
     let mut resource = engine.resource.inner.borrow_mut();

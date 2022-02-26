@@ -66,7 +66,7 @@ pub trait WebGPUMaterial: Clone + Any {
 
 pub trait WebGPUSceneMaterial: 'static {
   fn check_update_gpu<'a>(
-    &mut self,
+    &self,
     res: &'a mut GPUResourceSceneCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
@@ -76,7 +76,7 @@ pub trait WebGPUSceneMaterial: 'static {
 
 impl<M: WebGPUMaterial> WebGPUSceneMaterial for ResourceWrapped<M> {
   fn check_update_gpu<'a>(
-    &mut self,
+    &self,
     res: &'a mut GPUResourceSceneCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,

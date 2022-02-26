@@ -23,12 +23,33 @@ impl Default for PassTargetFormatInfo {
   }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
+pub enum ColorChannelView {
+  Texture(GPUTexture2dView),
+  SurfaceTexture(Rc<gpu::TextureView>),
+}
+
+impl From<GPUTexture2dView> for ColorChannelView {
+  fn from(view: GPUTexture2dView) -> Self {
+    Self::Texture(view)
+  }
+}
+
+impl ColorChannelView {
+  pub fn as_view(&self) -> &gpu::TextureView {
+    match self {
+      ColorChannelView::Texture(t) => &t.view.0,
+      ColorChannelView::SurfaceTexture(v) => v.as_ref(),
+    }
+  }
+}
+
+#[derive(Default)]
 pub struct RenderPassDescriptorOwned {
   pub name: String,
-  pub channels: Vec<(gpu::Operations<gpu::Color>, GPUTexture2dView, Size)>,
-  pub depth_stencil_target: Option<(gpu::Operations<f32>, GPUTexture2dView)>,
-  pub resolve_target: Option<GPUTexture2dView>,
+  pub channels: Vec<(gpu::Operations<gpu::Color>, ColorChannelView, Size)>,
+  pub depth_stencil_target: Option<(gpu::Operations<f32>, ColorChannelView)>,
+  pub resolve_target: Option<ColorChannelView>,
   pub info: PassTargetFormatInfo,
 }
 

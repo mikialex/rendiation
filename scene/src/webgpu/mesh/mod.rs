@@ -29,7 +29,7 @@ impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 
 pub trait WebGPUSceneMesh: 'static {
   fn check_update_gpu<'a>(
-    &mut self,
+    &self,
     res: &'a mut GPUResourceSceneCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
@@ -43,7 +43,7 @@ pub trait WebGPUSceneMesh: 'static {
 
 impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
   fn check_update_gpu<'a>(
-    &mut self,
+    &self,
     res: &'a mut GPUResourceSceneCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
