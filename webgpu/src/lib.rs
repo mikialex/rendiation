@@ -22,6 +22,7 @@ use bytemuck::*;
 pub use gpu::*;
 use wgpu as gpu;
 
+use __core::num::NonZeroUsize;
 use std::{
   borrow::Cow,
   cell::{Cell, RefCell},

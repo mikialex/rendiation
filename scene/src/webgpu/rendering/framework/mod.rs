@@ -1,27 +1,22 @@
 pub mod pass;
-
 pub use pass::*;
-
-pub mod pool;
-pub use pool::*;
 
 pub mod attachment;
 pub use attachment::*;
 
 use rendiation_webgpu::*;
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+use std::{marker::PhantomData, rc::Rc};
 
 pub struct RenderEngine {
   resource: ResourcePool,
-  pass_cache: RefCell<PassGPUDataCache>,
-  gpu: Rc<GPU>,
   msaa_sample_count: u32,
+  gpu: Rc<GPU>,
   encoder: GPUCommandEncoder,
-  pub output: Option<GPUTexture2dView>,
+  pub output: GPUTexture2dView,
 }
 
 impl RenderEngine {
-  pub fn new(gpu: Rc<GPU>) -> Self {
+  pub fn new(gpu: Rc<GPU>, output: GPUTexture2dView) -> Self {
     #[allow(unused_mut)]
     let mut msaa_sample_count = 4;
 
@@ -30,11 +25,13 @@ impl RenderEngine {
       msaa_sample_count = 1;
     }
 
+    let encoder = gpu.create_encoder();
+
     Self {
       resource: Default::default(),
-      output: Default::default(),
-      pass_cache: Default::default(),
+      output,
       msaa_sample_count,
+      encoder,
       gpu,
     }
   }
@@ -44,10 +41,9 @@ impl RenderEngine {
   }
 
   pub fn screen(&self) -> AttachmentWriteView {
-    let output = self.output.as_ref().unwrap();
     AttachmentWriteView {
       phantom: PhantomData,
-      view: output.clone(),
+      view: self.output.clone(),
     }
   }
 

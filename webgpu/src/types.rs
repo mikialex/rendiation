@@ -2,6 +2,7 @@ use crate::*;
 
 pub trait GPUTextureSize {
   fn into_gpu_size(self) -> gpu::Extent3d;
+  fn from_gpu_size(size: Extent3d) -> Self;
 }
 
 impl GPUTextureSize for Size {
@@ -10,6 +11,12 @@ impl GPUTextureSize for Size {
       width: usize::from(self.width) as u32,
       height: usize::from(self.height) as u32,
       depth_or_array_layers: 1,
+    }
+  }
+  fn from_gpu_size(size: Extent3d) -> Self {
+    Size {
+      width: NonZeroUsize::new(size.width as usize).unwrap(),
+      height: NonZeroUsize::new(size.height as usize).unwrap(),
     }
   }
 }

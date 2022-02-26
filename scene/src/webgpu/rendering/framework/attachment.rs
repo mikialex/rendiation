@@ -1,11 +1,21 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
 use rendiation_texture::{Size, Texture2D};
 use rendiation_webgpu::{
   GPUTexture2d, GPUTexture2dView, GPUTextureSize, TextureDimension, TextureUsages,
 };
 
-use crate::{RenderEngine, ResourcePool};
+use crate::RenderEngine;
+
+#[derive(Default)]
+pub struct ResourcePoolImpl {
+  pub attachments: HashMap<(Size, wgpu::TextureFormat, u32), Vec<wgpu::Texture>>,
+}
+
+#[derive(Clone, Default)]
+pub struct ResourcePool {
+  pub inner: Rc<RefCell<ResourcePoolImpl>>,
+}
 
 pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
@@ -49,15 +59,8 @@ impl Attachment {
 
   pub fn read_into(self) -> AttachmentOwnedReadView {
     assert_eq!(self.des.sample_count, 1); // todo support latter
-    let view = self
-      .texture
-      .as_ref()
-      .unwrap()
-      .create_view(&wgpu::TextureViewDescriptor::default());
-    AttachmentOwnedReadView {
-      _att: self,
-      view: Rc::new(view),
-    }
+    let view = self.texture.create_view(());
+    AttachmentOwnedReadView { _att: self, view }
   }
 }
 
@@ -68,41 +71,13 @@ pub struct AttachmentWriteView<'a> {
 
 pub struct AttachmentReadView<'a> {
   phantom: PhantomData<&'a Attachment>,
-  pub(super) view: Rc<wgpu::TextureView>,
+  pub(super) view: GPUTexture2dView,
 }
-
-// impl<'a,> BindableResource for AttachmentReadView<'a, F> {
-//   fn as_bindable(&self) -> wgpu::BindingResource {
-//     wgpu::BindingResource::TextureView(self.view.as_ref())
-//   }
-
-//   fn bind_layout() -> wgpu::BindingType {
-//     wgpu::BindingType::Texture {
-//       multisampled: false,
-//       sample_type: wgpu::TextureSampleType::Float { filterable: true },
-//       view_dimension: wgpu::TextureViewDimension::D2,
-//     }
-//   }
-// }
 
 pub struct AttachmentOwnedReadView {
   _att: Attachment,
-  view: Rc<wgpu::TextureView>,
+  view: GPUTexture2dView,
 }
-
-// impl BindableResource for AttachmentOwnedReadView {
-//   fn as_bindable(&self) -> wgpu::BindingResource {
-//     wgpu::BindingResource::TextureView(self.view.as_ref())
-//   }
-
-//   fn bind_layout() -> wgpu::BindingType {
-//     wgpu::BindingType::Texture {
-//       multisampled: false,
-//       sample_type: wgpu::TextureSampleType::Float { filterable: true },
-//       view_dimension: wgpu::TextureViewDimension::D2,
-//     }
-//   }
-// }
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor {
@@ -125,15 +100,17 @@ impl AttachmentDescriptor {
 
 impl AttachmentDescriptor {
   pub fn request(self, engine: &RenderEngine) -> Attachment {
-    let size = (self.sizer)(engine.output.as_ref().unwrap().resource.desc.desc.size());
+    let size = engine.output.as_ref().unwrap().resource.desc.size;
+    let size = GPUTextureSize::from_gpu_size(size);
+    let size = (self.sizer)(size);
     let mut resource = engine.resource.inner.borrow_mut();
     let cached = resource
       .attachments
       .entry((size, self.format.into(), self.sample_count))
       .or_insert_with(Default::default);
 
-      // todo check ref count and find available resource 
-      todo!();
+    // todo check ref count and find available resource
+    todo!();
 
     let texture = cached.pop().unwrap_or_else(|| {
       engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
@@ -151,7 +128,7 @@ impl AttachmentDescriptor {
       pool: engine.resource.clone(),
       des: self,
       size,
-      texture: Rc::new(texture).into(),
+      texture: texture.clone(),
     }
   }
 }

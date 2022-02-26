@@ -5,23 +5,19 @@ use std::{
 };
 
 use rendiation_webgpu::{
-  GPUCommandEncoder, GPURenderPass, Operations, RenderPassDescriptorOwned, RenderPassInfo, GPU,
+  GPUCommandEncoder, GPURenderPass, GPUTextureSize, Operations, RenderPassDescriptorOwned,
+  RenderPassInfo, GPU,
 };
 
-use crate::{Attachment, AttachmentWriteView, PassGPUDataCache, RenderEngine, Scene};
+use crate::{Attachment, AttachmentWriteView, RenderEngine, Scene};
 
-pub fn pass(name: impl Into<String>, engine: &RenderEngine) -> PassDescriptor<'static> {
+pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
   desc.name = name.into();
   PassDescriptor {
     phantom: PhantomData,
     desc,
   }
-}
-
-pub struct PassUpdateCtx<'a> {
-  pub pass_info: &'a RenderPassInfo,
-  pub pass_gpu_cache: &'a mut PassGPUDataCache,
 }
 
 pub struct PassDescriptor<'a> {
@@ -36,12 +32,14 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView<'a>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    self
-      .desc
-      .channels
-      .push((op.into(), attachment.view, attachment.size));
-    self.desc.info.color_formats.push(attachment.format);
-    self.desc.info.sample_count = attachment.sample_count;
+    let desc = attachment.view.resource.desc;
+    self.desc.channels.push((
+      op.into(),
+      attachment.view,
+      GPUTextureSize::from_gpu_size(desc.size),
+    ));
+    self.desc.info.color_formats.push(desc.format);
+    self.desc.info.sample_count = desc.sample_count;
     self
   }
 
@@ -51,18 +49,15 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
+    let desc = attachment.view.resource.desc;
     self
       .desc
       .depth_stencil_target
       .replace((op.into(), attachment.view));
 
-    self
-      .desc
-      .info
-      .depth_stencil_format
-      .replace(attachment.format);
+    self.desc.info.depth_stencil_format.replace(desc.format);
 
-    self.desc.info.sample_count = attachment.sample_count;
+    self.desc.info.sample_count = desc.sample_count;
     // todo check sample count is same as color's
 
     self
@@ -74,11 +69,7 @@ impl<'a> PassDescriptor<'a> {
     self
   }
 
-  pub fn run<'e>(
-    mut self,
-    engine: &RenderEngine,
-    encoder: &'e mut GPUCommandEncoder,
-  ) -> ActiveRenderPass<'e> {
+  pub fn run<'e>(mut self, engine: &'e RenderEngine) -> ActiveRenderPass<'e> {
     let info = RenderPassInfo {
       buffer_size: self.desc.channels.first().unwrap().2,
       format_info: self.desc.info.clone(),
@@ -91,7 +82,7 @@ impl<'a> PassDescriptor<'a> {
 
     ActiveRenderPass {
       desc: self.desc,
-      pass: encoder.begin_render_pass(&self.desc),
+      pass: engine.encoder.begin_render_pass(&self.desc),
     }
   }
 }
