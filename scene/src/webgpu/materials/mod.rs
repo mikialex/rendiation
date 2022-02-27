@@ -67,7 +67,7 @@ pub trait WebGPUMaterial: Clone + Any {
 pub trait WebGPUSceneMaterial: 'static {
   fn check_update_gpu<'a>(
     &self,
-    res: &'a mut GPUResourceSceneCache,
+    res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
   ) -> &'a dyn SourceOfRendering;
@@ -77,7 +77,7 @@ pub trait WebGPUSceneMaterial: 'static {
 impl<M: WebGPUMaterial> WebGPUSceneMaterial for ResourceWrapped<M> {
   fn check_update_gpu<'a>(
     &self,
-    res: &'a mut GPUResourceSceneCache,
+    res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
   ) -> &'a dyn SourceOfRendering {
@@ -89,7 +89,7 @@ impl<M: WebGPUMaterial> WebGPUSceneMaterial for ResourceWrapped<M> {
 }
 
 type MaterialResourceMapper<T> = ResourceMapper<<T as WebGPUMaterial>::GPU, T>;
-impl GPUResourceSceneCache {
+impl GPUMaterialCache {
   pub fn update_material<M: WebGPUMaterial>(
     &mut self,
     m: &ResourceWrapped<M>,
@@ -99,7 +99,7 @@ impl GPUResourceSceneCache {
     let type_id = TypeId::of::<M>();
 
     let mapper = self
-      .materials
+      .inner
       .entry(type_id)
       .or_insert_with(|| Box::new(MaterialResourceMapper::<M>::default()))
       .downcast_mut::<MaterialResourceMapper<M>>()

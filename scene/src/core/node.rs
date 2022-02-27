@@ -90,6 +90,7 @@ impl SceneNodeInner {
     }
   }
 
+  #[must_use]
   pub fn create_child(&self) -> Self {
     let mut nodes_info = self.nodes.borrow_mut();
     let handle = nodes_info.create_node(ResourceWrapped::new(SceneNodeDataImpl::default())); // todo use from
@@ -142,6 +143,7 @@ impl SceneNode {
     }
   }
 
+  #[must_use]
   pub fn create_child(&self) -> Self {
     let inner = self.inner.borrow();
     let inner = inner.create_child();

@@ -79,19 +79,19 @@ where
     resources: &mut GPUResourceCache,
   ) {
     let pass_gpu = pass.dispatcher;
-    let camera_gpu = resources.content.cameras.check_update_gpu(camera, gpu);
-    let node_gpu = resources.content.nodes.check_update_gpu(&self.node, gpu);
+    let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
+    let node_gpu = resources.nodes.check_update_gpu(&self.node, gpu);
     let material_gpu =
       self
         .material
-        .check_update_gpu(&mut resources.scene, &mut resources.content, gpu);
+        .check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
     let mesh_gpu = self.mesh.check_update_gpu(
-      &mut resources.scene,
-      &mut resources.content.custom_storage,
+      &mut resources.scene.meshes,
+      &mut resources.custom_storage,
       gpu,
     );
 
-    // let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
+    let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
 
     // let mut hasher = Default::default();
 

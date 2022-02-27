@@ -15,8 +15,8 @@ pub mod fatline;
 pub use fatline::*;
 
 use crate::{
-  GPUResourceSceneCache, MeshCell, MeshInner, ResourceLogic, ResourceLogicResult, ResourceMapper,
-  ResourceWrapped, SourceOfRendering,
+  GPUMeshCache, GPUResourceSceneCache, MeshCell, MeshInner, ResourceLogic, ResourceLogicResult,
+  ResourceMapper, ResourceWrapped, SourceOfRendering,
 };
 
 pub trait GPUMeshLayoutSupport {
@@ -30,7 +30,7 @@ impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 pub trait WebGPUSceneMesh: 'static {
   fn check_update_gpu<'a>(
     &self,
-    res: &'a mut GPUResourceSceneCache,
+    res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
   ) -> &'a dyn SourceOfRendering;
@@ -44,7 +44,7 @@ pub trait WebGPUSceneMesh: 'static {
 impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
   fn check_update_gpu<'a>(
     &self,
-    res: &'a mut GPUResourceSceneCache,
+    res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
   ) -> &'a dyn SourceOfRendering {
@@ -56,7 +56,7 @@ impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
   }
 }
 
-impl GPUResourceSceneCache {
+impl GPUMeshCache {
   pub fn update_mesh<M: MeshCPUSource>(
     &mut self,
     m: &ResourceWrapped<M>,
@@ -66,7 +66,7 @@ impl GPUResourceSceneCache {
     let type_id = TypeId::of::<M>();
 
     let mapper = self
-      .meshes
+      .inner
       .entry(type_id)
       .or_insert_with(|| Box::new(MeshResourceMapper::<M>::default()))
       .downcast_mut::<MeshResourceMapper<M>>()
@@ -90,7 +90,7 @@ impl GPUResourceSceneCache {
   ) {
     let type_id = TypeId::of::<M>();
     let gpu_m = self
-      .meshes
+      .inner
       .get(&type_id)
       .unwrap()
       .downcast_ref::<MeshResourceMapper<M>>()

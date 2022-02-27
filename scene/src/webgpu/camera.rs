@@ -61,6 +61,14 @@ pub struct CameraGPU {
   pub ubo: UniformBufferData<CameraGPUTransform>,
 }
 
+impl ShaderHashProvider for CameraGPU {}
+
+impl ShaderBindingProvider for CameraGPU {
+  fn setup_binding(&self, builder: &mut BindingBuilder) {
+    todo!()
+  }
+}
+
 impl ShaderGraphProvider for CameraGPU {
   fn build(
     &self,

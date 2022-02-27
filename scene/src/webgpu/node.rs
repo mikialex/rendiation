@@ -51,6 +51,8 @@ pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
 }
 
+impl ShaderHashProvider for TransformGPU {}
+
 impl ShaderGraphProvider for TransformGPU {
   fn build(
     &self,

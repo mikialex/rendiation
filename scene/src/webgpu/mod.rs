@@ -33,7 +33,7 @@ use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectCo
 
 use rendiation_webgpu::*;
 
-use crate::{ResourceMapper, Scene, SceneCamera, TextureCubeSource};
+use crate::{ResourceMapper, SceneCamera, TextureCubeSource};
 
 pub trait SceneRenderable: 'static {
   fn setup_pass(
@@ -60,44 +60,45 @@ pub trait SceneRenderableRc: SceneRenderable {
   fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable;
 }
 
-#[derive(Default)]
 pub struct GPUResourceCache {
   pub scene: GPUResourceSceneCache,
   pub content: GPUResourceSubCache,
+  pub custom_storage: AnyMap,
+  pub cameras: CameraGPUStore,
+  pub nodes: NodeGPUStore,
+}
+
+impl Default for GPUResourceCache {
+  fn default() -> Self {
+    Self {
+      scene: Default::default(),
+      content: Default::default(),
+      custom_storage: AnyMap::new(),
+      cameras: Default::default(),
+      nodes: Default::default(),
+    }
+  }
+}
+
+#[derive(Default)]
+pub struct GPUMaterialCache {
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
+}
+#[derive(Default)]
+pub struct GPUMeshCache {
+  pub inner: HashMap<TypeId, Box<dyn Any>>,
 }
 
 #[derive(Default)]
 pub struct GPUResourceSceneCache {
-  pub materials: HashMap<TypeId, Box<dyn Any>>,
-  pub meshes: HashMap<TypeId, Box<dyn Any>>,
+  pub materials: GPUMaterialCache,
+  pub meshes: GPUMeshCache,
 }
 
 /// GPU cache container for given scene
+#[derive(Default)]
 pub struct GPUResourceSubCache {
-  pub cameras: CameraGPUStore,
-  pub nodes: NodeGPUStore,
-
   // pub uniforms: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
   pub texture_2ds: ResourceMapper<GPUTexture2dView, Box<dyn WebGPUTexture2dSource>>,
   pub texture_cubes: ResourceMapper<GPUTextureCubeView, TextureCubeSource>,
-
-  pub custom_storage: AnyMap,
-}
-
-impl GPUResourceSubCache {
-  pub fn maintain(&mut self) {
-    self.cameras.maintain();
-  }
-}
-
-impl Default for GPUResourceSubCache {
-  fn default() -> Self {
-    Self {
-      texture_2ds: Default::default(),
-      texture_cubes: Default::default(),
-      cameras: Default::default(),
-      custom_storage: AnyMap::new(),
-      nodes: Default::default(),
-    }
-  }
 }

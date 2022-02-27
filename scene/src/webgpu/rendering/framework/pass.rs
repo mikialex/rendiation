@@ -1,12 +1,6 @@
-use std::{
-  cell::RefCell,
-  marker::PhantomData,
-  ops::{Deref, DerefMut},
-};
+use std::marker::PhantomData;
 
-use rendiation_webgpu::{
-  GPUCommandEncoder, GPURenderPass, GPUTextureSize, Operations, RenderPassDescriptorOwned, GPU,
-};
+use rendiation_webgpu::{GPURenderPass, Operations, RenderPassDescriptorOwned};
 
 use crate::{Attachment, AttachmentWriteView, RenderEngine, Scene};
 
@@ -31,10 +25,7 @@ impl<'a> PassDescriptor<'a> {
     attachment: AttachmentWriteView<'a>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    self
-      .desc
-      .channels
-      .push((op.into(), attachment.view.clone()));
+    self.desc.channels.push((op.into(), attachment.view));
     self
   }
 
@@ -47,7 +38,7 @@ impl<'a> PassDescriptor<'a> {
     self
       .desc
       .depth_stencil_target
-      .replace((op.into(), attachment.view.clone()));
+      .replace((op.into(), attachment.view));
 
     // todo check sample count is same as color's
 
@@ -87,7 +78,7 @@ pub trait PassContent {
 
 pub struct ActiveRenderPass<'p> {
   pass: GPURenderPass<'p>,
-  desc: RenderPassDescriptorOwned,
+  pub desc: RenderPassDescriptorOwned,
 }
 
 impl<'p> ActiveRenderPass<'p> {
