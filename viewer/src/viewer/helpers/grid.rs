@@ -17,7 +17,7 @@ impl GridHelper {
   pub fn new(root: &SceneNode, config: GridConfig) -> Self {
     let mesh = build_grid(&config).into_resourced();
     let mat = FatLineMaterial { width: 1. }
-      .into_scene_material()
+      .use_state()
       .into_resourced();
     let root = root.clone();
     let node = root.create_child();

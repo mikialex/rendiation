@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use rendiation_webgpu::{GPURenderPass, Operations, RenderPassDescriptorOwned};
 
-use crate::{Attachment, AttachmentWriteView, RenderEngine, Scene};
+use crate::{Attachment, AttachmentWriteView, RenderEngine};
 
 pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();

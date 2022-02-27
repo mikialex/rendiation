@@ -3,7 +3,6 @@ use rendiation_renderable_mesh::{
   group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, MeshGPU,
 };
 use rendiation_webgpu::{GPURenderPass, GPU};
-use shadergraph::ShaderGraphProvider;
 use std::{
   any::{Any, TypeId},
   ops::Deref,
@@ -14,10 +13,7 @@ use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
 pub mod fatline;
 pub use fatline::*;
 
-use crate::{
-  GPUMeshCache, GPUResourceSceneCache, MeshCell, MeshInner, ResourceLogic, ResourceLogicResult,
-  ResourceMapper, ResourceWrapped, SourceOfRendering,
-};
+use crate::*;
 
 pub trait GPUMeshLayoutSupport {
   type VertexInput;

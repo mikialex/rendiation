@@ -5,35 +5,35 @@ use rendiation_webgpu::*;
 use crate::*;
 
 #[derive(Clone)]
-pub struct SceneMaterial<T> {
+pub struct StateControl<T> {
   pub material: T,
   pub states: MaterialStates,
 }
 
-pub trait IntoCommonSceneMaterial: Sized {
-  fn into_scene_material(self) -> SceneMaterial<Self> {
-    SceneMaterial {
+pub trait IntoStateControl: Sized {
+  fn use_state(self) -> StateControl<Self> {
+    StateControl {
       material: self,
       states: Default::default(),
     }
   }
 }
 
-impl<T> IntoCommonSceneMaterial for T {}
+impl<T> IntoStateControl for T {}
 
-pub struct SceneMaterialGPU<T: WebGPUMaterial> {
+pub struct StateControlGPU<T: WebGPUMaterial> {
   state_id: Cell<ValueID<MaterialStates>>,
   gpu: T::GPU,
 }
 
-impl<T: WebGPUMaterial> ShaderHashProvider for SceneMaterialGPU<T> {
+impl<T: WebGPUMaterial> ShaderHashProvider for StateControlGPU<T> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
     self.state_id.get().hash(hasher); // todo where is updating
     self.gpu.hash_pipeline(hasher);
   }
 }
 
-impl<T> ShaderBindingProvider for SceneMaterialGPU<T>
+impl<T> ShaderBindingProvider for StateControlGPU<T>
 where
   T: WebGPUMaterial,
 {
@@ -42,29 +42,28 @@ where
   }
 }
 
-impl<T: WebGPUMaterial> ShaderGraphProvider for SceneMaterialGPU<T> {
+impl<T: WebGPUMaterial> ShaderGraphProvider for StateControlGPU<T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    todo!();
     self.gpu.build(builder)
   }
 }
 
-impl<T> WebGPUMaterial for SceneMaterial<T>
+impl<T> WebGPUMaterial for StateControl<T>
 where
   T: Clone,
   T: WebGPUMaterial,
 {
-  type GPU = SceneMaterialGPU<T>;
+  type GPU = StateControlGPU<T>;
 
   fn create_gpu(&self, ctx: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
     let gpu = self.material.create_gpu(ctx, gpu);
 
     let state_id = STATE_ID.lock().unwrap().get_uuid(&self.states);
 
-    SceneMaterialGPU {
+    StateControlGPU {
       state_id: Cell::new(state_id),
       gpu,
     }

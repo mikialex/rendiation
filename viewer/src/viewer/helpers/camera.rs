@@ -12,9 +12,7 @@ impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
     let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
     let camera_mesh = camera_mesh.into_resourced();
-    let fatline_mat = FatLineMaterial { width: 3. }
-      .into_scene_material()
-      .into_resourced();
+    let fatline_mat = FatLineMaterial { width: 3. }.use_state().into_resourced();
     let fatline = HelperLineModel::new(fatline_mat, camera_mesh, node);
     Self {
       model: fatline,

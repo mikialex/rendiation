@@ -9,7 +9,7 @@ use rendiation_webgpu::{BindingBuilder, GPURenderPass, PipelineHasher, GPU};
 
 use crate::*;
 
-// pub type SceneFatlineMaterial = MaterialInner<SceneMaterial<FatLineMaterial>>;
+// pub type SceneFatlineMaterial = MaterialInner<StateControl<FatLineMaterial>>;
 
 // pub type FatlineImpl = MeshModelImpl<MeshInner<FatlineMesh>, SceneFatlineMaterial>;
 

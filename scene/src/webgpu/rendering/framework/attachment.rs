@@ -45,7 +45,7 @@ impl Attachment {
   pub fn write(&mut self) -> AttachmentWriteView {
     AttachmentWriteView {
       phantom: PhantomData,
-      view: self.texture.create_view(Default::default()).into(),
+      view: self.texture.create_view(()).into(),
     }
   }
 
@@ -53,7 +53,7 @@ impl Attachment {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
       phantom: PhantomData,
-      view: self.texture.create_view(Default::default()).into(),
+      view: self.texture.create_view(()).into(),
     }
   }
 

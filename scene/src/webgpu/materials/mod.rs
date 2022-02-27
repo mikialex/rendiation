@@ -1,8 +1,6 @@
 use std::{
   any::{Any, TypeId},
-  hash::Hash,
-  ops::{Deref, DerefMut},
-  rc::Rc,
+  ops::Deref,
 };
 pub mod states;
 pub use states::*;
@@ -14,8 +12,8 @@ pub use wrapper::*;
 // pub use flat::*;
 // pub mod line;
 // pub use line::*;
-// pub mod physical;
-// pub use physical::*;
+pub mod physical;
+pub use physical::*;
 // pub mod fatline;
 // pub use fatline::*;
 // pub mod env_background;
@@ -35,16 +33,6 @@ pub trait ShaderBindingProvider {
 
 pub trait ShaderHashProvider {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
-}
-
-pub trait RenderPassBuilder {
-  fn setup_pass<'a>(&self, pass: GPURenderPass<'a>);
-}
-
-impl<T: ShaderBindingProvider> RenderPassBuilder for T {
-  fn setup_pass<'a>(&self, pass: GPURenderPass<'a>) {
-    todo!()
-  }
 }
 
 pub trait SourceOfRendering:
@@ -86,7 +74,7 @@ impl<M: WebGPUMaterial> WebGPUSceneMaterial for ResourceWrapped<M> {
     res.update_material(self, gpu, sub_res)
   }
   fn is_keep_mesh_shape(&self) -> bool {
-    self.is_keep_mesh_shape()
+    self.deref().is_keep_mesh_shape()
   }
 }
 
@@ -107,15 +95,14 @@ impl GPUMaterialCache {
       .downcast_mut::<MaterialResourceMapper<M>>()
       .unwrap();
 
-    let gpu_m = mapper.get_update_or_insert_with_logic(m, |x| match x {
+    mapper.get_update_or_insert_with_logic(m, |x| match x {
       ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res, gpu)),
       ResourceLogic::Update(gpu_m, m) => {
         // todo check should really recreate?
         *gpu_m = M::create_gpu(m, res, gpu);
         ResourceLogicResult::Update(gpu_m)
       }
-    });
-    gpu_m
+    })
   }
 }
 

@@ -1,5 +1,24 @@
 use crate::*;
 
+pub struct GPUBufferBindingRange {
+  offset: usize,
+  size: Option<usize>,
+}
+
+impl<T: 'static> Resource for UniformBuffer<T> {
+  type Descriptor = T;
+
+  type View = ();
+
+  type ViewDescriptor = GPUBufferBindingRange;
+
+  fn create_resource(des: &Self::Descriptor, device: &GPUDevice) -> Self {
+    Self::create(device, data)
+  }
+
+  fn create_view(&self, _des: &Self::ViewDescriptor) -> Self::View {}
+}
+
 /// Typed wrapper
 pub struct UniformBuffer<T> {
   gpu: gpu::Buffer,

@@ -92,7 +92,7 @@ impl Arrow {
       let mut material = FlatMaterial {
         color: Vec4::new(color.x, color.y, color.z, 1.0),
       }
-      .into_scene_material();
+      .use_state();
       material.states.depth_write_enabled = false;
       material.states.depth_compare = webgpu::CompareFunction::Always;
       material
