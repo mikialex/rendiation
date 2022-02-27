@@ -50,12 +50,14 @@ impl<T: ShaderBindingProvider> RenderPassBuilder for T {
 pub trait SourceOfRendering:
   ShaderHashProvider // able to get pipeline from cache at low cost
    + ShaderGraphProvider // able to provide shader logic and config pipeline
-   + RenderPassBuilder // able to bind resource to renderpass
+   + ShaderBindingProvider // able to bind resource to renderpass
 {
 }
 
-impl<T> SourceOfRendering for T where T: ShaderHashProvider + ShaderGraphProvider + RenderPassBuilder
-{}
+impl<T> SourceOfRendering for T where
+  T: ShaderHashProvider + ShaderGraphProvider + ShaderBindingProvider
+{
+}
 
 pub trait WebGPUMaterial: Clone + Any {
   type GPU: SourceOfRendering;

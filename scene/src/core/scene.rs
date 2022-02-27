@@ -63,7 +63,7 @@ impl Scene {
       node_data.hierarchy_update(parent.map(|p| p.data()).map(|d| d.deref()));
       NextTraverseVisit::VisitChildren
     });
-    self.resources.content.maintain();
+    self.resources.cameras.maintain();
   }
 }
 

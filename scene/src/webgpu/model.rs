@@ -5,7 +5,7 @@ use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{
   IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
 };
-use rendiation_webgpu::{GPURenderPass, GPU};
+use rendiation_webgpu::{BindingBuilder, GPURenderPass, PipelineHasher, GPU};
 
 use crate::*;
 
@@ -93,11 +93,28 @@ where
 
     let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
 
-    // let mut hasher = Default::default();
+    let mut hasher = PipelineHasher::default();
+    let mut binding_builder = BindingBuilder::default();
+    components.iter().for_each(|c| {
+      c.hash_pipeline(&mut hasher);
+      c.setup_binding(&mut binding_builder);
+    });
 
-    // gpu.device.create_and_cache_render_pipeline(hasher, creator)
+    let pipeline = gpu
+      .device
+      .create_and_cache_render_pipeline(hasher, |device| {
+        let mut pipeline_builder = ShaderGraphRenderPipelineBuilder::default();
 
-    todo!()
+        components
+          .iter()
+          .for_each(|c| c.build(&mut pipeline_builder).unwrap());
+
+        device
+          .build_pipeline_by_shadergraph(pipeline_builder)
+          .unwrap()
+      });
+
+    binding_builder.setup_pass(pass, &gpu.device, &pipeline);
   }
 
   fn ray_pick_nearest(

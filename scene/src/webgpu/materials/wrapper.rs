@@ -33,12 +33,12 @@ impl<T: WebGPUMaterial> ShaderHashProvider for SceneMaterialGPU<T> {
   }
 }
 
-impl<T> RenderPassBuilder for SceneMaterialGPU<T>
+impl<T> ShaderBindingProvider for SceneMaterialGPU<T>
 where
   T: WebGPUMaterial,
 {
-  fn setup_pass(&self, pass: GPURenderPass) {
-    self.gpu.setup_pass(pass)
+  fn setup_binding(&self, builder: &mut BindingBuilder) {
+    self.gpu.setup_binding(builder)
   }
 }
 

@@ -55,6 +55,7 @@ pub trait BindProvider: BindableResourceView {
   fn add_bind_record(&self, record: BindGroupCacheInvalidation);
 }
 
+#[derive(Default)]
 pub struct BindingBuilder {
   cache: BindGroupCache,
   items: [Vec<Box<dyn BindProvider>>; 5],
