@@ -117,7 +117,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
   ) -> Result<(), ShaderGraphBuildError> {
     builder
       .bindgroups
-      .uniform::<UniformBuffer<RenderPassGPUInfoData>>(SB::Pass);
+      .uniform::<UniformBufferView<RenderPassGPUInfoData>>(SB::Pass);
     todo!()
   }
 }

@@ -154,6 +154,15 @@ impl<T: Resource> ResourceRc<T> {
     }
   }
 
+  pub fn create_with_source(source: T::Source, device: &GPUDevice) -> Self
+  where
+    T: InitResourceBySource,
+  {
+    Self {
+      inner: Rc::new(ResourceContainer::create_with_source(source, device)),
+    }
+  }
+
   pub fn create_view(&self, desc: T::ViewDescriptor) -> ResourceViewRc<T> {
     let view = self.inner.resource.create_view(&desc);
     let inner = ResourceViewContainer {

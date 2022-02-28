@@ -153,7 +153,9 @@ impl TextWebGPURenderer {
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &webgpu::Queue) {
-    *self.transform = orthographic_projection(size.x, size.y);
+    self
+      .transform
+      .mutate(|t| *t = orthographic_projection(size.x, size.y));
     self.transform.update(queue);
   }
 

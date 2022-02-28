@@ -271,13 +271,16 @@ impl WebGPUxUIRenderer {
   ) {
     self.gpu_primitive_cache.clear();
 
-    self.resource.global_ui_state.screen_size =
-      Vec2::new(presentation.view_size.width, presentation.view_size.height);
-    self.resource.global_ui_state.update(&gpu.queue);
+    let screen_size = Vec2::new(presentation.view_size.width, presentation.view_size.height);
 
     self
-      .text_renderer
-      .resize_view(self.resource.global_ui_state.screen_size, &gpu.queue);
+      .resource
+      .global_ui_state
+      .mutate(|t| t.screen_size = screen_size);
+
+    self.resource.global_ui_state.update(&gpu.queue);
+
+    self.text_renderer.resize_view(screen_size, &gpu.queue);
 
     self.gpu_primitive_cache.extend(
       presentation

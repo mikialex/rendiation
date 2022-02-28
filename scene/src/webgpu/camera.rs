@@ -58,7 +58,7 @@ impl CameraGPUStore {
 }
 
 pub struct CameraGPU {
-  pub ubo: UniformBufferData<CameraGPUTransform>,
+  pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
 
 impl ShaderHashProvider for CameraGPU {}
@@ -93,21 +93,22 @@ pub struct CameraGPUTransform {
 
 impl CameraGPU {
   pub fn update(&mut self, gpu: &GPU, camera: &Camera) -> &mut Self {
-    let uniform: &mut CameraGPUTransform = &mut self.ubo;
-    let world_matrix = camera.node.visit(|node| node.local_matrix);
-    uniform.view = world_matrix.inverse_or_identity();
-    uniform.rotation = world_matrix.extract_rotation_mat();
-    uniform.projection = camera.projection_matrix;
+    self.ubo.resource.mutate(|uniform| {
+      let world_matrix = camera.node.visit(|node| node.local_matrix);
+      uniform.view = world_matrix.inverse_or_identity();
+      uniform.rotation = world_matrix.extract_rotation_mat();
+      uniform.projection = camera.projection_matrix;
+    });
 
-    self.ubo.update(&gpu.queue);
+    self.ubo.resource.update(&gpu.queue);
 
     self
   }
 
   pub fn new(gpu: &GPU) -> Self {
-    let device = &gpu.device;
-
-    let ubo: UniformBufferData<CameraGPUTransform> = UniformBufferData::create_default(device);
+    let ubo =
+      UniformBufferDataResource::create_with_source(CameraGPUTransform::default(), &gpu.device);
+    let ubo = ubo.create_view(());
 
     Self { ubo }
   }
