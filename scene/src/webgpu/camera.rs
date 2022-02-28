@@ -1,24 +1,23 @@
 use rendiation_algebra::*;
+use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
 use crate::*;
 
 impl CameraViewBounds {
-  pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>) {
-    todo!();
-    // let size = pass.info().buffer_size;
-    // let width: usize = size.width.into();
-    // let width = width as f32;
-    // let height: usize = size.height.into();
-    // let height = height as f32;
-    // pass.set_viewport(
-    //   width * self.to_left,
-    //   height * self.to_top,
-    //   width * self.width,
-    //   height * self.height,
-    //   0.,
-    //   1.,
-    // )
+  pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>, buffer_size: Size) {
+    let width: usize = buffer_size.width.into();
+    let width = width as f32;
+    let height: usize = buffer_size.height.into();
+    let height = height as f32;
+    pass.set_viewport(
+      width * self.to_left,
+      height * self.to_top,
+      width * self.width,
+      height * self.height,
+      0.,
+      1.,
+    )
   }
 }
 
@@ -65,7 +64,7 @@ impl ShaderHashProvider for CameraGPU {}
 
 impl ShaderBindingProvider for CameraGPU {
   fn setup_binding(&self, builder: &mut BindingBuilder) {
-    todo!()
+    builder.setup_uniform(&self.ubo, SB::Camera)
   }
 }
 
