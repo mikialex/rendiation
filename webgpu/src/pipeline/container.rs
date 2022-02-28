@@ -2,27 +2,14 @@ use shadergraph::*;
 
 pub use crate::*;
 
-impl<T: ShaderGraphNodeType> ShaderUniformProvider for UniformBuffer<T> {
+impl<T: ShaderGraphNodeType> ShaderUniformProvider for UniformBufferView<T> {
   type Node = T;
 }
 
-impl<T: ShaderGraphNodeType> ShaderUniformProvider for UniformBufferData<T> {
-  type Node = T;
-}
-
-pub struct SemanticUniformCell<T, S> {
-  pub s: S,
-  pub res: T,
-}
-
-pub type SemanticGPUTexture2d<T> = SemanticUniformCell<T, GPUTexture2d>;
-
-impl<T: 'static> ShaderUniformProvider for SemanticGPUTexture2d<T> {
+impl ShaderUniformProvider for GPUTexture2dView {
   type Node = ShaderTexture;
 }
 
-pub type SemanticGPUSampler<T> = SemanticUniformCell<T, GPUSampler>;
-
-impl<T: 'static> ShaderUniformProvider for SemanticGPUSampler<T> {
+impl ShaderUniformProvider for GPUSamplerView {
   type Node = ShaderSampler;
 }

@@ -19,16 +19,18 @@ impl Resource for GPURawTextureCube {
 
   type ViewDescriptor = ();
 
-  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    let desc = &desc.desc;
-    GPURawTextureCube(device.create_texture(desc))
-  }
-
   fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
     GPURawTextureCubeView(self.0.create_view(&gpu::TextureViewDescriptor {
       dimension: Some(gpu::TextureViewDimension::Cube),
       ..gpu::TextureViewDescriptor::default()
     }))
+  }
+}
+
+impl InitResourceByAllocation for GPURawTextureCube {
+  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
+    let desc = &desc.desc;
+    GPURawTextureCube(device.create_texture(desc))
   }
 }
 

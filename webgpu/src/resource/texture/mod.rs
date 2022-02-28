@@ -14,12 +14,14 @@ impl Resource for gpu::Texture {
 
   type ViewDescriptor = gpu::TextureViewDescriptor<'static>;
 
-  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    device.create_texture(desc)
-  }
-
   fn create_view(&self, desc: &Self::ViewDescriptor) -> Self::View {
     self.create_view(desc)
+  }
+}
+
+impl InitResourceByAllocation for gpu::Texture {
+  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
+    device.create_texture(desc)
   }
 }
 

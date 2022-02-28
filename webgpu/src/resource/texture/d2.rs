@@ -19,13 +19,15 @@ impl Resource for GPURawTexture2d {
 
   type ViewDescriptor = ();
 
+  fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
+    GPURawTexture2dView(self.0.create_view(&Default::default()))
+  }
+}
+
+impl InitResourceByAllocation for GPURawTexture2d {
   fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
     let desc = &desc.desc;
     GPURawTexture2d(device.create_texture(desc))
-  }
-
-  fn create_view(&self, _desc: &Self::ViewDescriptor) -> Self::View {
-    GPURawTexture2dView(self.0.create_view(&Default::default()))
   }
 }
 

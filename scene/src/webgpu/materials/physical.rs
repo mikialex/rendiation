@@ -16,7 +16,7 @@ pub struct PhysicalMaterialUniform {
 impl ShaderHashProvider for PhysicalMaterialGPU {}
 
 pub struct PhysicalMaterialGPU {
-  uniform: UniformBuffer<PhysicalMaterialUniform>,
+  uniform: UniformBufferView<PhysicalMaterialUniform>,
   sampler: GPUSamplerView,
   texture: GPUTexture2dView,
 }

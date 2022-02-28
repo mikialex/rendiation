@@ -45,8 +45,24 @@ impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
 
 static RESOURCE_GUID: AtomicUsize = AtomicUsize::new(0);
 impl<T: Resource> ResourceContainer<T> {
-  pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self {
+  pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self
+  where
+    T: InitResourceByAllocation,
+  {
     let resource = T::create_resource(&desc, device);
+    Self {
+      guid: RESOURCE_GUID.fetch_add(1, Ordering::Relaxed),
+      resource,
+      desc,
+      invalidation_tokens: Default::default(),
+    }
+  }
+
+  pub fn create_with_source(source: T::Source, device: &GPUDevice) -> Self
+  where
+    T: InitResourceBySource,
+  {
+    let (resource, desc) = T::create_resource_with_source(&source, device);
     Self {
       guid: RESOURCE_GUID.fetch_add(1, Ordering::Relaxed),
       resource,
@@ -56,13 +72,24 @@ impl<T: Resource> ResourceContainer<T> {
   }
 }
 
-pub trait Resource: 'static {
+pub trait Resource: 'static + Sized {
   type Descriptor;
   type View;
   type ViewDescriptor;
 
-  fn create_resource(des: &Self::Descriptor, device: &GPUDevice) -> Self;
   fn create_view(&self, des: &Self::ViewDescriptor) -> Self::View;
+}
+
+pub trait InitResourceByAllocation: Resource {
+  fn create_resource(des: &Self::Descriptor, device: &GPUDevice) -> Self;
+}
+
+pub trait InitResourceBySource: Resource {
+  type Source;
+  fn create_resource_with_source(
+    source: &Self::Source,
+    device: &GPUDevice,
+  ) -> (Self, Self::Descriptor);
 }
 
 pub struct ResourceRc<T: Resource> {
@@ -118,7 +145,10 @@ where
 static RESOURCE_VIEW_GUID: AtomicUsize = AtomicUsize::new(0);
 impl<T: Resource> ResourceRc<T> {
   #[must_use]
-  pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self {
+  pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self
+  where
+    T: InitResourceByAllocation,
+  {
     Self {
       inner: Rc::new(ResourceContainer::create(desc, device)),
     }

@@ -22,12 +22,14 @@ impl Resource for RawSampler {
 
   type ViewDescriptor = ();
 
-  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
-    device.create_and_cache_sampler(desc.clone())
-  }
-
   fn create_view(&self, _: &Self::ViewDescriptor) -> Self::View {
     self.clone()
+  }
+}
+
+impl InitResourceByAllocation for RawSampler {
+  fn create_resource(desc: &Self::Descriptor, device: &GPUDevice) -> Self {
+    device.create_and_cache_sampler(desc.clone())
   }
 }
 

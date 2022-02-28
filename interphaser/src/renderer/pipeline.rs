@@ -12,7 +12,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global = builder.uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
+    let global = builder.uniform::<UniformBufferView<UIGlobalParameter>>(SemanticBinding::Global);
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
@@ -64,7 +64,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-    let global = builder.uniform::<UniformBuffer<UIGlobalParameter>>(SemanticBinding::Global);
+    let global = builder.uniform::<UniformBufferView<UIGlobalParameter>>(SemanticBinding::Global);
 
     builder.vertex(|builder, _| {
       builder.register_vertex::<UIVertex>(VertexStepMode::Vertex);
@@ -104,8 +104,8 @@ impl ShaderGraphProvider for TextureUIPipeline {
         write_mask: webgpu::ColorWrites::ALL,
       });
       let uv = builder.query::<FragmentUv>()?.get();
-      let texture = binding.uniform::<SemanticGPUTexture2d<Self>>(SemanticBinding::Material);
-      let sampler = binding.uniform::<SemanticGPUSampler<Self>>(SemanticBinding::Material);
+      let texture = binding.uniform::<GPUTexture2dView>(SemanticBinding::Material);
+      let sampler = binding.uniform::<GPUSamplerView>(SemanticBinding::Material);
 
       let color = texture.sample(sampler, uv);
       builder.set_fragment_out(0, color)

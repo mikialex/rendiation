@@ -1,27 +1,37 @@
 use crate::*;
 
-pub struct GPUBufferBindingRange {
-  offset: usize,
-  size: Option<usize>,
-}
+pub type UniformBufferView<T> = ResourceViewRc<UniformBuffer<T>>;
 
 impl<T: 'static> Resource for UniformBuffer<T> {
-  type Descriptor = T;
+  type Descriptor = ();
+  type View = Rc<gpu::Buffer>;
+  type ViewDescriptor = ();
 
-  type View = ();
-
-  type ViewDescriptor = GPUBufferBindingRange;
-
-  fn create_resource(des: &Self::Descriptor, device: &GPUDevice) -> Self {
-    Self::create(device, data)
+  fn create_view(&self, _des: &Self::ViewDescriptor) -> Self::View {
+    self.gpu.clone()
   }
+}
 
-  fn create_view(&self, _des: &Self::ViewDescriptor) -> Self::View {}
+impl<T: Pod> InitResourceBySource for UniformBuffer<T> {
+  type Source = T;
+
+  fn create_resource_with_source(
+    source: &Self::Source,
+    device: &GPUDevice,
+  ) -> (Self, Self::Descriptor) {
+    (Self::create(device, *source), ())
+  }
+}
+
+impl BindableResourceView for Rc<gpu::Buffer> {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    self.as_entire_binding()
+  }
 }
 
 /// Typed wrapper
 pub struct UniformBuffer<T> {
-  gpu: gpu::Buffer,
+  gpu: Rc<gpu::Buffer>,
   phantom: PhantomData<T>,
 }
 
@@ -33,7 +43,7 @@ impl<T: Pod> UniformBuffer<T> {
       usage: gpu::BufferUsages::UNIFORM | gpu::BufferUsages::COPY_DST,
     });
     Self {
-      gpu,
+      gpu: Rc::new(gpu),
       phantom: PhantomData,
     }
   }
