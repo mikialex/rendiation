@@ -1,4 +1,4 @@
-use rendiation_webgpu::GPU;
+use rendiation_webgpu::*;
 
 use crate::*;
 
@@ -14,14 +14,24 @@ impl Scene {
   // }
 }
 
-#[derive(Default)]
-pub struct ForwardScene;
+pub struct ForwardScene<'a> {
+  scene: &'a mut Scene,
+}
 
-// impl PassContent for ForwardScene {
-//   fn setup_pass<'a>(&self, gpu: &GPU, pass: &mut SceneRenderPass<'a>, scene: &mut Scene) {
-//     let resources = &mut scene.resources;
-//     scene.models.iter().for_each(|model| {
-//       model.setup_pass(gpu, pass, scene.active_camera.as_ref().unwrap(), resources)
-//     })
-//   }
-// }
+impl<'a> PassContent for ForwardScene<'a> {
+  fn render(&mut self, gpu: &GPU, pass: &mut GPURenderPass) {
+    let resources = &mut self.scene.resources;
+    let mut pass = SceneRenderPass {
+      pass,
+      dispatcher: todo!(),
+    };
+    self.scene.models.iter().for_each(|model| {
+      model.setup_pass(
+        gpu,
+        &mut pass,
+        self.scene.active_camera.as_ref().unwrap(),
+        resources,
+      )
+    })
+  }
+}

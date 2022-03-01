@@ -8,6 +8,7 @@
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::unit_arg)]
 
 pub mod core;
 pub mod util;

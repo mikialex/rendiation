@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use rendiation_webgpu::{GPURenderPass, Operations, RenderPassDescriptorOwned};
+use rendiation_webgpu::{GPURenderPass, Operations, RenderPassDescriptorOwned, GPU};
 
 use crate::{Attachment, AttachmentWriteView, RenderEngine};
 
@@ -67,24 +67,26 @@ impl<'a> PassDescriptor<'a> {
 
     ActiveRenderPass {
       desc: self.desc,
+      gpu: &engine.gpu,
       pass,
     }
   }
 }
 
 pub trait PassContent {
-  fn render(&self, pass: &mut GPURenderPass);
+  fn render(&mut self, gpu: &GPU, pass: &mut GPURenderPass);
 }
 
 pub struct ActiveRenderPass<'p> {
   pass: GPURenderPass<'p>,
+  gpu: &'p GPU,
   pub desc: RenderPassDescriptorOwned,
 }
 
 impl<'p> ActiveRenderPass<'p> {
   #[must_use]
   pub fn render(mut self, renderable: &mut dyn PassContent) -> Self {
-    renderable.render(&mut self.pass);
+    renderable.render(self.gpu, &mut self.pass);
     self
   }
 }

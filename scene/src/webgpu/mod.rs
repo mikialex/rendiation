@@ -40,7 +40,7 @@ pub trait SceneRenderable: 'static {
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    camera_gpu: &SceneCamera,
+    camera: &SceneCamera,
     resources: &mut GPUResourceCache,
   );
 

@@ -66,6 +66,13 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
+fn setup_pass_core( gpu: &GPU,
+    pass: &mut SceneRenderPass,
+    camera: &SceneCamera,
+    resources: &mut GPUResourceCache,) {
+      
+    }
+
 impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
 where
   Me: WebGPUSceneMesh,
