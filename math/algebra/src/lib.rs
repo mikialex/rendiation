@@ -16,6 +16,7 @@ pub mod interpolation;
 pub mod mat;
 pub mod projection;
 pub mod quat;
+pub mod std140;
 pub mod utils;
 pub mod vec;
 
@@ -24,6 +25,7 @@ use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 pub use interpolation::*;
 pub use mat::*;
 pub use projection::*;
+pub use std140::*;
 pub use vec::*;
 
 pub use self::quat::*;

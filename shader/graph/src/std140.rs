@@ -79,14 +79,6 @@ impl Std140TypeMapper for Mat2<f32> {
   type StorageType = Shader140Mat2;
 }
 
-#[repr(C)]
-#[rustfmt::skip]
-#[derive(Clone, Copy, Zeroable, Pod)]
-pub struct Shader140Mat2{
-	pub a1:f32, pub a2:f32, _pad1: [f32; 2],
-	pub b1:f32, pub b2:f32, _pad2: [f32; 2],
-}
-
 unsafe impl Std140 for Shader140Mat3 {
   const ALIGNMENT: usize = 16;
   const PAD_AT_END: bool = true;
@@ -95,44 +87,9 @@ impl Std140TypeMapper for Mat3<f32> {
   type StorageType = Shader140Mat3;
 }
 
-#[repr(C)]
-#[rustfmt::skip]
-#[derive(Clone, Copy, Zeroable, Pod)]
-pub struct Shader140Mat3 {
-  pub a1: f32, pub a2: f32, pub a3: f32, _pad1: f32,
-  pub b1: f32, pub b2: f32, pub b3: f32, _pad2: f32,
-  pub c1: f32, pub c2: f32, pub c3: f32, _pad3: f32,
-}
-
 unsafe impl Std140 for Mat4<f32> {
   const ALIGNMENT: usize = 16;
   const PAD_AT_END: bool = true;
-}
-
-/// GLSL's `bool` type.
-///
-/// Boolean values in GLSL are 32 bits, in contrast with Rust's 8 bit bools.
-#[derive(Clone, Copy, Eq, PartialEq, Zeroable, Pod)]
-#[repr(transparent)]
-pub struct Bool(u32);
-
-impl From<bool> for Bool {
-  fn from(v: bool) -> Self {
-    Self(v as u32)
-  }
-}
-
-impl From<Bool> for bool {
-  fn from(v: Bool) -> Self {
-    v.0 != 0
-  }
-}
-
-use core::fmt::{Debug, Formatter};
-impl Debug for Bool {
-  fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-    write!(f, "Bool({:?})", bool::from(*self))
-  }
 }
 
 /// Gives the number of bytes needed to make `offset` be aligned to `alignment`.
@@ -169,4 +126,28 @@ pub const fn max_arr<const N: usize>(input: [usize; N]) -> usize {
   }
 
   max
+}
+
+#[repr(C, align(16))]
+#[derive(Clone, Copy)]
+pub struct Shader140ArrayWrapper<T> {
+  pub inner: T,
+}
+
+unsafe impl<T: Zeroable> Zeroable for Shader140ArrayWrapper<T> {}
+unsafe impl<T: Pod> Pod for Shader140ArrayWrapper<T> {}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Shader140Array<T, const U: usize> {
+  pub inner: [Shader140ArrayWrapper<T>; U],
+}
+
+unsafe impl<T: Zeroable, const U: usize> Zeroable for Shader140Array<T, U> {}
+unsafe impl<T: Pod, const U: usize> Pod for Shader140Array<T, U> {}
+
+unsafe impl<T: Std140, const U: usize> Std140 for Shader140Array<T, U> {
+  const ALIGNMENT: usize = max(4, T::ALIGNMENT);
+
+  const PAD_AT_END: bool = true;
 }

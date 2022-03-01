@@ -110,20 +110,6 @@ impl PrimitiveShaderGraphNodeType for Mat4<f32> {
   }
 }
 
-// impl ShaderGraphBindGroupItemProvider for ShaderSampler {
-//   type ShaderGraphBindGroupItemInstance = Node<ShaderSampler>;
-
-//   fn create_instance(
-//     name: &'static str,
-//     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
-//     stage: ShaderStage,
-//   ) -> Self::ShaderGraphBindGroupItemInstance {
-//     let node = bindgroup_builder.create_uniform_node::<ShaderSampler>(name);
-//     bindgroup_builder.add_none_ubo(unsafe { node.handle.cast_type().into() }, stage);
-//     node
-//   }
-// }
-
 impl ShaderGraphNodeType for ShaderTexture {
   fn to_type() -> ShaderValueType {
     ShaderValueType::Texture
@@ -132,25 +118,27 @@ impl ShaderGraphNodeType for ShaderTexture {
 
 impl Node<ShaderTexture> {
   pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
-    ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+    ShaderGraphNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),
-    })
+    }
     .insert_graph()
   }
 }
 
-// impl ShaderGraphBindGroupItemProvider for ShaderTexture {
-//   type ShaderGraphBindGroupItemInstance = Node<ShaderTexture>;
+impl ShaderGraphNodeType for ShaderSamplerCombinedTexture {
+  fn to_type() -> ShaderValueType {
+    ShaderValueType::Texture
+  }
+}
 
-//   fn create_instance(
-//     name: &'static str,
-//     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
-//     stage: ShaderStage,
-//   ) -> Self::ShaderGraphBindGroupItemInstance {
-//     let node = bindgroup_builder.create_uniform_node::<ShaderTexture>(name);
-//     bindgroup_builder.add_none_ubo(unsafe { node.handle.cast_type().into() }, stage);
-//     node
-//   }
-// }
+impl Node<ShaderSamplerCombinedTexture> {
+  pub fn sample(&self, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
+    ShaderGraphNodeExpr::SamplerCombinedTextureSampling {
+      texture: self.handle(),
+      position: position.handle(),
+    }
+    .insert_graph()
+  }
+}

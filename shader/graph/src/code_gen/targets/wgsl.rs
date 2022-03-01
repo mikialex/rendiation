@@ -353,6 +353,10 @@ fn gen_node(
   };
 }
 
+fn expand_combined(var: &str) -> (String, String) {
+  (format!("{}_t", var), format!("{}_s", var))
+}
+
 fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
   match data {
     ShaderGraphNodeExpr::FunctionCall {
@@ -370,11 +374,25 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
           .join(", ")
       )
     }
-    ShaderGraphNodeExpr::TextureSampling(n) => format!(
+    ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
+      let combined = cx.get_node_gen_result_var(*texture);
+      let (tex, sampler) = expand_combined(combined);
+      format!(
+        "textureSample({}, {}, {})",
+        tex,
+        sampler,
+        cx.get_node_gen_result_var(*position),
+      )
+    }
+    ShaderGraphNodeExpr::TextureSampling {
+      texture,
+      sampler,
+      position,
+    } => format!(
       "textureSample({}, {}, {})",
-      cx.get_node_gen_result_var(n.texture),
-      cx.get_node_gen_result_var(n.sampler),
-      cx.get_node_gen_result_var(n.position),
+      cx.get_node_gen_result_var(*texture),
+      cx.get_node_gen_result_var(*sampler),
+      cx.get_node_gen_result_var(*position),
     ),
     ShaderGraphNodeExpr::Swizzle { ty, source } => {
       format!("{}.{}", cx.get_node_gen_result_var(*source), ty)
@@ -507,18 +525,34 @@ fn gen_bindings(
     .iter()
     .enumerate()
     .for_each(|(group_index, b)| {
-      b.bindings
-        .iter()
-        .enumerate()
-        .for_each(|(item_index, entry)| {
+      let mut item_index = 0;
+      b.bindings.iter().for_each(|entry| match entry.0 {
+        ShaderValueType::SamplerCombinedTexture => {
+          gen_bind_entry(
+            code,
+            &(ShaderValueType::Texture, entry.1.get()),
+            group_index,
+            &mut item_index,
+            stage,
+          );
+          gen_bind_entry(
+            code,
+            &(ShaderValueType::Sampler, entry.1.get()),
+            group_index,
+            &mut item_index,
+            stage,
+          );
+        }
+        _ => {
           gen_bind_entry(
             code,
             &(entry.0, entry.1.get()),
             group_index,
-            item_index,
+            &mut item_index,
             stage,
-          )
-        });
+          );
+        }
+      });
     })
 }
 
@@ -526,7 +560,7 @@ fn gen_bind_entry(
   code: &mut CodeBuilder,
   entry: &(ShaderValueType, ShaderStageVisibility),
   group_index: usize,
-  item_index: usize,
+  item_index: &mut usize,
   stage: ShaderStages,
 ) {
   if entry.1.is_visible_to(stage) {
@@ -542,6 +576,7 @@ fn gen_bind_entry(
       item_index,
       gen_type_impl(entry.0),
     ));
+    *item_index += 1;
   }
 }
 
@@ -589,6 +624,7 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
     ShaderValueType::Texture => "texture_2d<f32>".to_owned(),
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty).to_owned(),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
+    _ => unreachable!("combined sampler texture should handled above"),
   }
 }
 

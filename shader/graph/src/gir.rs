@@ -5,7 +5,15 @@ pub enum ShaderGraphNodeExpr {
     meta: &'static ShaderFunctionMetaInfo,
     parameters: Vec<ShaderGraphNodeRawHandle>,
   },
-  TextureSampling(TextureSamplingNode),
+  TextureSampling {
+    texture: ShaderGraphNodeRawHandle,
+    sampler: ShaderGraphNodeRawHandle,
+    position: ShaderGraphNodeRawHandle,
+  },
+  SamplerCombinedTextureSampling {
+    texture: ShaderGraphNodeRawHandle,
+    position: ShaderGraphNodeRawHandle,
+  },
   Swizzle {
     ty: &'static str,
     source: ShaderGraphNodeRawHandle,
@@ -74,13 +82,6 @@ pub struct ConstNode {
   pub data: PrimitiveShaderValue,
 }
 
-#[derive(Clone)]
-pub struct TextureSamplingNode {
-  pub texture: ShaderGraphNodeRawHandle,
-  pub sampler: ShaderGraphNodeRawHandle,
-  pub position: ShaderGraphNodeRawHandle,
-}
-
 pub enum UnaryOperator {
   LogicalNot,
 }
@@ -145,6 +146,8 @@ pub enum ShaderStages {
 pub struct ShaderTexture;
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
+#[derive(Clone, Copy)]
+pub struct ShaderSamplerCombinedTexture;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum PrimitiveShaderValueType {
@@ -216,6 +219,7 @@ pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
   Sampler,
   Texture,
+  SamplerCombinedTexture,
   Never,
 }
 

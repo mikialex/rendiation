@@ -62,6 +62,9 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
           view_dimension: gpu::TextureViewDimension::D2,
         },
         shadergraph::ShaderValueType::Never => unreachable!(),
+        shadergraph::ShaderValueType::SamplerCombinedTexture => {
+          todo!()
+        }
       };
 
       gpu::BindGroupLayoutEntry {

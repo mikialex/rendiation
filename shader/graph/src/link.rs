@@ -189,13 +189,17 @@ impl ShaderGraphNodeData {
     match self {
       ShaderGraphNodeData::Expr(expr) => match expr {
         ShaderGraphNodeExpr::FunctionCall { parameters, .. } => parameters.iter().for_each(visitor),
-        ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+        ShaderGraphNodeExpr::TextureSampling {
           texture,
           sampler,
           position,
-        }) => {
+        } => {
           visitor(texture);
           visitor(sampler);
+          visitor(position);
+        }
+        ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
+          visitor(texture);
           visitor(position);
         }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
@@ -247,13 +251,17 @@ impl ShaderGraphNodeData {
         ShaderGraphNodeExpr::FunctionCall { parameters, .. } => {
           parameters.iter_mut().for_each(visitor)
         }
-        ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+        ShaderGraphNodeExpr::TextureSampling {
           texture,
           sampler,
           position,
-        }) => {
+        } => {
           visitor(texture);
           visitor(sampler);
+          visitor(position);
+        }
+        ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
+          visitor(texture);
           visitor(position);
         }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
