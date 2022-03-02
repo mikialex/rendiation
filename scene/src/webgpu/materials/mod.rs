@@ -110,6 +110,11 @@ pub trait PassDispatcher: Any + SourceOfRendering {}
 
 pub struct DefaultPassDispatcher;
 
+impl ShaderHashProvider for DefaultPassDispatcher {}
+impl ShaderBindingProvider for DefaultPassDispatcher {
+  fn setup_binding(&self, _: &mut BindingBuilder) {}
+}
+
 impl ShaderGraphProvider for DefaultPassDispatcher {
   fn build(
     &self,

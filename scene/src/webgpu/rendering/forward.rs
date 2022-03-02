@@ -23,7 +23,7 @@ impl<'a> PassContent for ForwardScene<'a> {
     let resources = &mut self.scene.resources;
     let mut pass = SceneRenderPass {
       pass,
-      dispatcher: todo!(),
+      dispatcher: &DefaultPassDispatcher,
     };
     self.scene.models.iter().for_each(|model| {
       model.setup_pass(

@@ -1,9 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 
-use rendiation_texture::{Size, Texture2D};
-use rendiation_webgpu::{
-  ColorChannelView, GPUTexture2d, GPUTexture2dView, GPUTextureSize, TextureDimension, TextureUsages,
-};
+use rendiation_texture::*;
+use rendiation_webgpu::*;
 
 use crate::RenderEngine;
 
@@ -37,7 +35,6 @@ pub fn depth_attachment() -> AttachmentDescriptor {
 pub struct Attachment {
   pool: ResourcePool,
   des: AttachmentDescriptor,
-  size: Size,
   texture: GPUTexture2d,
 }
 
@@ -109,7 +106,7 @@ impl AttachmentDescriptor {
     let mut resource = engine.resource.inner.borrow_mut();
     let cached = resource
       .attachments
-      .entry((size, self.format.into(), self.sample_count))
+      .entry((size, self.format, self.sample_count))
       .or_insert_with(Default::default);
 
     // todo check ref count and find available resource
@@ -133,7 +130,6 @@ impl AttachmentDescriptor {
     Attachment {
       pool: engine.resource.clone(),
       des: self,
-      size,
       texture: texture.clone(),
     }
   }
