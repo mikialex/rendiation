@@ -243,6 +243,13 @@ impl WebGPUTexture2dDescriptor {
     self
   }
 
+  /// todo use another type for multi sample
+  #[must_use]
+  pub fn with_sample_count(mut self, sample_count: u32) -> Self {
+    self.desc.sample_count = sample_count;
+    self
+  }
+
   #[must_use]
   pub fn with_level_count(mut self, level_count: MipLevelCount) -> Self {
     self.desc.mip_level_count = level_count.get_level_count_wgpu(Size::from_u32_pair_min_one((

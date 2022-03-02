@@ -7,7 +7,25 @@ use crate::RenderEngine;
 
 #[derive(Default)]
 pub struct ResourcePoolImpl {
-  pub attachments: HashMap<(Size, wgpu::TextureFormat, u32), Vec<GPUTexture2d>>,
+  attachments: HashMap<PooledTextureKey, SingleResourcePool>,
+}
+
+impl ResourcePoolImpl {
+  pub fn clear(&mut self) {
+    self.attachments.clear();
+  }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+struct PooledTextureKey {
+  size: Size,
+  format: wgpu::TextureFormat,
+  sample_count: u32,
+}
+
+#[derive(Default)]
+struct SingleResourcePool {
+  cached: Vec<GPUTexture2d>,
 }
 
 #[derive(Clone, Default)]
@@ -36,6 +54,15 @@ pub struct Attachment {
   pool: ResourcePool,
   des: AttachmentDescriptor,
   texture: GPUTexture2d,
+  key: PooledTextureKey,
+}
+
+impl Drop for Attachment {
+  fn drop(&mut self) {
+    let mut pool = self.pool.inner.borrow_mut();
+    let pool = pool.attachments.get_mut(&self.key).unwrap();
+    pool.cached.push(self.texture.clone())
+  }
 }
 
 impl Attachment {
@@ -103,34 +130,34 @@ impl AttachmentDescriptor {
     };
     let size = GPUTextureSize::from_gpu_size(size);
     let size = (self.sizer)(size);
+
+    let key = PooledTextureKey {
+      size,
+      format: self.format,
+      sample_count: self.sample_count,
+    };
+
     let mut resource = engine.resource.inner.borrow_mut();
     let cached = resource
       .attachments
-      .entry((size, self.format, self.sample_count))
+      .entry(key)
       .or_insert_with(Default::default);
 
-    // todo check ref count and find available resource
-    todo!();
-
-    let texture = cached.pop().unwrap_or_else(|| {
-      // GPUTexture2d::create(GPUTexture2dDescriptor::default(), device)
-      // engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
-      //   label: None,
-      //   size: size.into_gpu_size(),
-      //   mip_level_count: 1,
-      //   sample_count: self.sample_count,
-      //   dimension: TextureDimension::D2,
-      //   format: self.format.into(),
-      //   usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-      // })
-
-      todo!()
+    let texture = cached.cached.pop().unwrap_or_else(|| {
+      GPUTexture2d::create(
+        WebGPUTexture2dDescriptor::from_size(size)
+          .with_render_target_ability()
+          .with_sample_count(self.sample_count)
+          .with_format(self.format),
+        &engine.gpu.device,
+      )
     });
 
     Attachment {
       pool: engine.resource.clone(),
       des: self,
-      texture: texture.clone(),
+      key,
+      texture,
     }
   }
 }

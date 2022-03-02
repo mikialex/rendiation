@@ -37,7 +37,7 @@ impl RenderEngine {
   }
 
   pub fn notify_output_resized(&self) {
-    self.resource.inner.borrow_mut().attachments.clear();
+    self.resource.inner.borrow_mut().clear();
   }
 
   pub fn screen(&self) -> AttachmentWriteView {
