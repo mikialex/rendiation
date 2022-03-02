@@ -127,12 +127,6 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
   }
 }
 
-pub struct SceneMaterialRenderPrepareCtxBase<'a> {
-  pub camera: &'a SceneCamera,
-  pub pass: &'a dyn PassDispatcher,
-  pub resources: &'a mut GPUResourceSubCache,
-}
-
 pub struct SceneMaterialPassSetupCtx<'a> {
   pub resources: &'a GPUResourceSubCache,
   pub model_gpu: Option<&'a TransformGPU>,

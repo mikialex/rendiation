@@ -1,11 +1,12 @@
-use std::{any::Any, cell::RefCell, ops::Deref, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
 use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{
   IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
 };
-use rendiation_webgpu::{BindingBuilder, GPURenderPass, PipelineHasher, GPU};
+use rendiation_texture::Size;
+use rendiation_webgpu::{BindingBuilder, PipelineHasher, GPU};
 
 use crate::*;
 
@@ -22,11 +23,11 @@ where
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    camera_gpu: &SceneCamera,
+    camera: &SceneCamera,
     resources: &mut GPUResourceCache,
   ) {
     let inner = self.inner.borrow();
-    inner.setup_pass(gpu, pass, camera_gpu, resources)
+    inner.setup_pass(gpu, pass, camera, resources)
   }
 
   fn ray_pick_nearest(
@@ -66,28 +67,23 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
-fn setup_pass_core( gpu: &GPU,
-    pass: &mut SceneRenderPass,
-    camera: &SceneCamera,
-    resources: &mut GPUResourceCache,) {
-      
-    }
-
-impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
+impl<Me, Ma> MeshModelImpl<Me, Ma>
 where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass(
+  fn setup_pass_core(
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
     camera: &SceneCamera,
+    override_node: Option<&TransformGPU>,
     resources: &mut GPUResourceCache,
   ) {
     let pass_gpu = pass.dispatcher;
     let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
-    let node_gpu = resources.nodes.check_update_gpu(&self.node, gpu);
+    let node_gpu =
+      override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&self.node, gpu));
     let material_gpu =
       self
         .material
@@ -122,6 +118,22 @@ where
       });
 
     binding_builder.setup_pass(pass, &gpu.device, &pipeline);
+  }
+}
+
+impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
+where
+  Me: WebGPUSceneMesh,
+  Ma: WebGPUSceneMaterial,
+{
+  fn setup_pass(
+    &self,
+    gpu: &GPU,
+    pass: &mut SceneRenderPass,
+    camera: &SceneCamera,
+    resources: &mut GPUResourceCache,
+  ) {
+    self.setup_pass_core(gpu, pass, camera, None, resources);
   }
 
   fn ray_pick_nearest(
@@ -159,11 +171,12 @@ impl<Me, Ma> OverridableMeshModelImpl<Me, Ma> {
 }
 
 pub trait WorldMatrixOverride {
-  fn override_mat(
-    &self,
-    world_matrix: Mat4<f32>,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-  ) -> Mat4<f32>;
+  fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32>;
+}
+
+pub struct WorldMatrixOverrideCtx<'a> {
+  pub camera: &'a Camera,
+  pub buffer_size: Size,
 }
 
 impl<Me, Ma> std::ops::Deref for OverridableMeshModelImpl<Me, Ma> {
@@ -187,31 +200,33 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    camera_gpu: &SceneCamera,
+    camera: &SceneCamera,
     resources: &mut GPUResourceCache,
   ) {
-    let pass_gpu = pass.dispatcher;
+    let ctx = WorldMatrixOverrideCtx {
+      camera: &camera,
+      buffer_size: todo!(),
+    };
+
     let mut world_matrix = self.inner.node.visit(|n| n.world_matrix);
-    let node_gpu = self
-      .override_gpu
-      .borrow_mut()
+    self
+      .overrides
+      .iter()
+      .for_each(|o| world_matrix = o.override_mat(world_matrix, &ctx));
+
+    let mut override_gpu = self.override_gpu.borrow_mut();
+    let node_gpu = override_gpu
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
-    // let material_gpu = self.material.check_update_gpu(&mut resources.content, gpu);
-    // let mesh_gpu = self.mesh.check_update_gpu(&mut resources.content, gpu);
-    todo!()
+    self.setup_pass_core(gpu, pass, camera, Some(node_gpu), resources);
   }
 }
 
 pub struct InverseWorld;
 
 impl WorldMatrixOverride for InverseWorld {
-  fn override_mat(
-    &self,
-    world_matrix: Mat4<f32>,
-    _base: &mut SceneMaterialRenderPrepareCtxBase,
-  ) -> Mat4<f32> {
+  fn override_mat(&self, world_matrix: Mat4<f32>, _ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
     world_matrix.inverse_or_identity()
   }
 }
@@ -229,42 +244,33 @@ pub struct ViewAutoScalable {
 }
 
 impl WorldMatrixOverride for Rc<RefCell<ViewAutoScalable>> {
-  fn override_mat(
-    &self,
-    world_matrix: Mat4<f32>,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-  ) -> Mat4<f32> {
+  fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
     let inner = self.borrow();
-    inner.override_mat(world_matrix, base)
+    inner.override_mat(world_matrix, ctx)
   }
 }
 
 impl WorldMatrixOverride for ViewAutoScalable {
-  fn override_mat(
-    &self,
-    world_matrix: Mat4<f32>,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-  ) -> Mat4<f32> {
-    todo!();
-    // let camera = &base.camera;
+  fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
+    let camera = &ctx.camera;
 
-    // let center = self
-    //   .override_position
-    //   .unwrap_or_else(|| world_matrix.position());
-    // let camera_position = camera.node.visit(|n| n.world_matrix.position());
-    // let distance = (camera_position - center).length();
+    let center = self
+      .override_position
+      .unwrap_or_else(|| world_matrix.position());
+    let camera_position = camera.node.visit(|n| n.world_matrix.position());
+    let distance = (camera_position - center).length();
 
-    // let camera_view_height = camera.view_size_in_pixel(base.pass_info.buffer_size).y;
+    let camera_view_height = camera.view_size_in_pixel(ctx.buffer_size).y;
 
-    // let scale = self.independent_scale_factor
-    //   / camera
-    //     .projection
-    //     .pixels_per_unit(distance, camera_view_height);
+    let scale = self.independent_scale_factor
+      / camera
+        .projection
+        .pixels_per_unit(distance, camera_view_height);
 
-    // let raw_scale = world_matrix.extract_scale();
-    // let new_scale = Vec3::splat(scale) / raw_scale;
+    let raw_scale = world_matrix.extract_scale();
+    let new_scale = Vec3::splat(scale) / raw_scale;
 
-    // Mat4::scale(new_scale.x, new_scale.y, new_scale.z) * world_matrix
+    Mat4::scale(new_scale.x, new_scale.y, new_scale.z) * world_matrix
   }
 }
 
@@ -284,12 +290,8 @@ impl Default for BillBoard {
 }
 
 impl WorldMatrixOverride for BillBoard {
-  fn override_mat(
-    &self,
-    world_matrix: Mat4<f32>,
-    base: &mut SceneMaterialRenderPrepareCtxBase,
-  ) -> Mat4<f32> {
-    let camera = &base.camera;
+  fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
+    let camera = &ctx.camera;
     let camera_position = camera.node.visit(|n| n.world_matrix.position());
 
     let scale = world_matrix.extract_scale();
