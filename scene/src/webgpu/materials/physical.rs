@@ -8,7 +8,7 @@ impl MaterialMeshLayoutRequire for PhysicalMaterial {
   type VertexInput = Vec<Vertex>;
 }
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
 pub struct PhysicalMaterialUniform {
   pub albedo: Vec3<f32>,
 }
@@ -21,11 +21,11 @@ pub struct PhysicalMaterialGPU {
   texture: GPUTexture2dView,
 }
 
-impl ShaderBindingProvider for PhysicalMaterialGPU {
-  fn setup_binding(&self, builder: &mut BindingBuilder) {
-    builder.setup_uniform(&self.uniform, SB::Material);
-    builder.setup_uniform(&self.sampler, SB::Material);
-    builder.setup_uniform(&self.texture, SB::Material);
+impl ShaderPassBuilder for PhysicalMaterialGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.setup_uniform(&self.uniform, SB::Material);
+    ctx.binding.setup_uniform(&self.sampler, SB::Material);
+    ctx.binding.setup_uniform(&self.texture, SB::Material);
   }
 }
 

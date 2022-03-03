@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
 pub struct FatLineMaterial {
   pub width: f32,
 }

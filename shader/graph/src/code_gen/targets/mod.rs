@@ -1,6 +1,9 @@
 pub mod wgsl;
 pub use wgsl::*;
 
+pub mod glsl_es;
+pub use glsl_es::*;
+
 use crate::*;
 
 pub trait ShaderGraphCodeGenTarget {

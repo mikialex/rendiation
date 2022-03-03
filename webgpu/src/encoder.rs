@@ -44,13 +44,19 @@ impl GPUCommandEncoder {
     &'a mut self,
     des: &'a RenderPassDescriptorOwned,
   ) -> GPURenderPass<'a> {
+    // should we do some check here?
+    let mut size = Size::from_u32_pair_min_one((100, 100));
+
     let color_attachments: Vec<_> = des
       .channels
       .iter()
-      .map(|(ops, view)| gpu::RenderPassColorAttachment {
-        view: view.as_view(),
-        resolve_target: des.resolve_target.as_ref().map(|t| t.as_view()),
-        ops: *ops,
+      .map(|(ops, view)| {
+        size = view.size();
+        gpu::RenderPassColorAttachment {
+          view: view.as_view(),
+          resolve_target: des.resolve_target.as_ref().map(|t| t.as_view()),
+          ops: *ops,
+        }
       })
       .collect();
 
@@ -75,6 +81,7 @@ impl GPUCommandEncoder {
       pass,
       holder: &mut self.holder,
       placeholder_bg: self.placeholder_bg.clone(),
+      size,
     }
   }
 

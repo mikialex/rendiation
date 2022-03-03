@@ -35,7 +35,12 @@ pub enum ShaderGraphNodeExpr {
   Copy(ShaderGraphNodeRawHandle),
 }
 
-pub enum ShaderGraphNodeData {
+pub struct ShaderGraphNodeData {
+  pub node: ShaderGraphNode,
+  pub ty: ShaderValueType,
+}
+
+pub enum ShaderGraphNode {
   Input(ShaderGraphInputNode),
   /// This is workaround for some case
   UnNamed,
@@ -253,6 +258,14 @@ pub enum ShaderBuiltInDecorator {
 pub enum ShaderFieldDecorator {
   BuiltIn(ShaderBuiltInDecorator),
   Location(usize),
+}
+
+pub trait ShaderFieldTypeMapper {
+  type ShaderType: ShaderStructMemberValueNodeType;
+}
+
+impl<T: ShaderStructMemberValueNodeType> ShaderFieldTypeMapper for T {
+  type ShaderType = T;
 }
 
 pub struct ShaderStructFieldMetaInfo {

@@ -96,7 +96,7 @@ impl<T: ShaderGraphNodeType> NodeMutable<T> {
           .push((self.pending.clone(), current));
       }
 
-      ShaderGraphNodeData::Write {
+      ShaderGraphNode::Write {
         source: node.handle(),
         target: self.get().handle(),
         implicit: false,
@@ -231,7 +231,9 @@ impl ShaderGraphScope {
         let mut dependency = old.from().clone();
         dependency.drain(..).for_each(|d| {
           let dd = nodes.get_node_mut(d);
-          dd.data_mut().replace_dependency(*old_h, p.current.get());
+          dd.data_mut()
+            .node
+            .replace_dependency(*old_h, p.current.get());
           nodes.connect_node(p.current.get().handle, d);
           // todo cut old connection;
           // todo check fix duplicate connection

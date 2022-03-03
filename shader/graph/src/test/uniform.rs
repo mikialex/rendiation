@@ -2,7 +2,7 @@ use super::test_provider_success;
 use crate as shadergraph;
 use crate::*;
 
-#[derive(ShaderUniform, Clone, Copy, Default)]
+#[derive(ShaderStruct, Clone, Copy, Default)]
 pub struct TestUniform {
   pub data: f32,
   pub data2: Vec2<f32>,

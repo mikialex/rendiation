@@ -33,12 +33,12 @@ impl<T: WebGPUMaterial> ShaderHashProvider for StateControlGPU<T> {
   }
 }
 
-impl<T> ShaderBindingProvider for StateControlGPU<T>
+impl<T> ShaderPassBuilder for StateControlGPU<T>
 where
   T: WebGPUMaterial,
 {
-  fn setup_binding(&self, builder: &mut BindingBuilder) {
-    self.gpu.setup_binding(builder)
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.gpu.setup_pass(ctx)
   }
 }
 

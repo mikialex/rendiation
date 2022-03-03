@@ -110,14 +110,18 @@ impl ShaderGraphVertexBuilder {
     T: SemanticVertexShaderValue,
     T::ValueType: VertexInShaderGraphNodeType,
   {
-    let ty = T::ValueType::to_primitive_type();
+    self.register_vertex_in_inner(T::ValueType::to_primitive_type(), TypeId::of::<T>())
+  }
+
+  /// untyped version
+  pub fn register_vertex_in_inner(&mut self, ty: PrimitiveShaderValueType, ty_id: TypeId) -> u32 {
     let index = self.vertex_in.len();
     let node = ShaderGraphInputNode::VertexIn { ty, index }.insert_graph();
-    self.register::<T>(node);
+    self.registry.register(ty_id, node);
 
     self
       .vertex_in
-      .entry(TypeId::of::<T>())
+      .entry(ty_id)
       .or_insert_with(|| (node.cast_untyped_node(), ty, index));
 
     index as u32

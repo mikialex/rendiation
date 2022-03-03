@@ -70,6 +70,42 @@ where
   }
 }
 
+impl<T> AddAssign for Node<T>
+where
+  Self: Add<Output = Self> + Copy,
+{
+  fn add_assign(&mut self, rhs: Self) {
+    *self = *self + rhs;
+  }
+}
+
+impl<T> SubAssign for Node<T>
+where
+  Self: Sub<Output = Self> + Copy,
+{
+  fn sub_assign(&mut self, rhs: Self) {
+    *self = *self - rhs;
+  }
+}
+
+impl<T> MulAssign for Node<T>
+where
+  Self: Mul<Output = Self> + Copy,
+{
+  fn mul_assign(&mut self, rhs: Self) {
+    *self = *self * rhs;
+  }
+}
+
+impl<T> DivAssign for Node<T>
+where
+  Self: Div<Output = Self> + Copy,
+{
+  fn div_assign(&mut self, rhs: Self) {
+    *self = *self / rhs;
+  }
+}
+
 impl<T: PartialEq> Node<T> {
   pub fn equals(&self, other: Self) -> Node<bool> {
     OperatorNode::Binary {

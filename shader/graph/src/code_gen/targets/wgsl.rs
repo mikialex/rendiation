@@ -198,7 +198,7 @@ fn gen_node_with_dep_in_entry(
         graph_id: node.graph_id,
       };
       if cx.try_get_node_gen_result_var(h).is_none() {
-        gen_node(n.data(), h, cx, code);
+        gen_node(&n.data().node, h, cx, code);
       }
 
       if let Some(name) = cx.try_get_node_gen_result_var(h) {
@@ -216,18 +216,18 @@ fn gen_scope_full(scope: &ShaderGraphScope, cx: &mut CodeGenCtx, code: &mut Code
   scope
     .inserted
     .iter()
-    .for_each(|n| gen_node(nodes.get_node(n.handle).data(), *n, cx, code));
+    .for_each(|n| gen_node(&nodes.get_node(n.handle).data().node, *n, cx, code));
   cx.pop_scope();
 }
 
 fn gen_node(
-  data: &ShaderGraphNodeData,
+  data: &ShaderGraphNode,
   handle: ShaderGraphNodeRawHandle,
   cx: &mut CodeGenCtx,
   code: &mut CodeBuilder,
 ) {
   match data {
-    ShaderGraphNodeData::Write {
+    ShaderGraphNode::Write {
       source,
       target,
       implicit,
@@ -263,7 +263,7 @@ fn gen_node(
       }
       code
     }
-    ShaderGraphNodeData::ControlFlow(cf) => {
+    ShaderGraphNode::ControlFlow(cf) => {
       cx.top_scope_mut().code_gen_history.insert(
         handle,
         MiddleVariableCodeGenResult {
@@ -307,7 +307,7 @@ fn gen_node(
         }
       }
     }
-    ShaderGraphNodeData::SideEffect(effect) => match effect {
+    ShaderGraphNode::SideEffect(effect) => match effect {
       ShaderSideEffectNode::Continue => code.write_ln("continue;"),
       ShaderSideEffectNode::Break => code.write_ln("break;"),
       ShaderSideEffectNode::Return(v) => {
@@ -315,7 +315,7 @@ fn gen_node(
       }
       ShaderSideEffectNode::Termination => code.write_ln("discard;"),
     },
-    ShaderGraphNodeData::Input(input) => {
+    ShaderGraphNode::Input(input) => {
       cx.top_scope_mut().code_gen_history.insert(
         handle,
         MiddleVariableCodeGenResult {
@@ -325,7 +325,7 @@ fn gen_node(
       );
       code
     }
-    ShaderGraphNodeData::UnNamed => {
+    ShaderGraphNode::UnNamed => {
       let var_name = cx.create_new_unique_name();
       cx.top_scope_mut().code_gen_history.insert(
         handle,
@@ -336,7 +336,7 @@ fn gen_node(
       );
       code
     }
-    ShaderGraphNodeData::Expr(expr) => {
+    ShaderGraphNode::Expr(expr) => {
       let name = cx.create_new_unique_name();
       let expr = gen_expr(expr, cx);
       let statement = format!("var {name} = {expr};");
@@ -624,7 +624,9 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
     ShaderValueType::Texture => "texture_2d<f32>".to_owned(),
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty).to_owned(),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
-    _ => unreachable!("combined sampler texture should handled above"),
+    ShaderValueType::SamplerCombinedTexture => {
+      unreachable!("combined sampler texture should handled above")
+    }
   }
 }
 

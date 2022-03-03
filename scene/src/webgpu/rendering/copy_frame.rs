@@ -1,15 +1,9 @@
 use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use rendiation_texture::TextureSampler;
-use rendiation_webgpu::{
-  BindGroupDescriptor, BindGroupLayoutProvider, BindableResource, GPUTexture2d, PipelineBuilder,
-  GPU,
-};
+use rendiation_webgpu::{BindGroupDescriptor, GPUTexture2d, GPU};
 
-use crate::{
-  full_screen_vertex_shader, AttachmentOwnedReadView, PassContent, PassUpdateCtx, Scene,
-  SceneRenderPass,
-};
+use crate::{AttachmentOwnedReadView, PassContent, Scene, SceneRenderPass};
 
 pub struct CopyFrame {
   source: AttachmentOwnedReadView<wgpu::TextureFormat>,
@@ -88,43 +82,4 @@ impl PassContent for CopyFrame {
     pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
     pass.draw(0..4, 0..1);
   }
-}
-
-impl BindGroupLayoutProvider for CopyFrame {
-  fn bind_preference() -> usize {
-    0
-  }
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: None,
-      entries: &[
-        wgpu::BindGroupLayoutEntry {
-          binding: 0,
-          visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: GPUTexture2d::bind_layout(),
-          count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-          binding: 1,
-          visibility: wgpu::ShaderStages::FRAGMENT,
-          ty: wgpu::Sampler::bind_layout(),
-          count: None,
-        },
-      ],
-    })
-  }
-
-  fn gen_shader_header(group: usize) -> String {
-    format!(
-      "
-        [[group({group}), binding(0)]]
-        var texture: texture_2d<f32>;
-  
-        [[group({group}), binding(1)]]
-        var tex_sampler: sampler;
-      "
-    )
-  }
-
-  fn uniform_struct_declare(_: &mut PipelineBuilder) {}
 }

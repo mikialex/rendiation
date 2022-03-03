@@ -1,7 +1,7 @@
 use bytemuck::*;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
-use shadergraph::{SemanticBinding, ShaderGraphProvider, ShaderUniform};
+use shadergraph::{SemanticBinding, ShaderGraphProvider, ShaderStruct};
 use webgpu::util::DeviceExt;
 use webgpu::*;
 
@@ -294,7 +294,7 @@ impl WebGPUxUIRenderer {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, ShaderUniform, Zeroable, Pod)]
+#[derive(Debug, Copy, Clone, ShaderStruct, Zeroable, Pod)]
 struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }

@@ -36,6 +36,20 @@ impl ColorChannelView {
       ColorChannelView::SurfaceTexture(v) => v.as_ref(),
     }
   }
+
+  pub fn size(&self) -> Size {
+    todo!()
+    // match self {
+    //   ColorChannelView::Texture(t) => &t.resource.desc.size,
+    //   ColorChannelView::SurfaceTexture(v) => v.as_ref(),
+    // }
+  }
+}
+
+pub struct GPURenderPassCtx<'a, 'b> {
+  pub pass: &'b gpu::RenderPass<'a>,
+  pub gpu: &'b GPU,
+  pub binding: &'b mut BindingBuilder,
 }
 
 #[derive(Default)]
@@ -50,6 +64,7 @@ pub struct GPURenderPass<'a> {
   pub(crate) pass: gpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
   pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
+  pub(crate) size: Size,
 }
 
 impl<'a> Deref for GPURenderPass<'a> {
@@ -74,6 +89,10 @@ pub struct GPURenderPassDataHolder {
 }
 
 impl<'a> GPURenderPass<'a> {
+  pub fn size(&self) -> Size {
+    self.size
+  }
+
   pub fn set_pipeline_owned(&mut self, pipeline: &Rc<gpu::RenderPipeline>) {
     let pipeline = self.holder.pipelines.alloc(pipeline.clone());
     self.pass.set_pipeline(pipeline)

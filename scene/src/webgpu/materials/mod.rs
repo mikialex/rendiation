@@ -27,8 +27,8 @@ pub trait MaterialMeshLayoutRequire {
   type VertexInput;
 }
 
-pub trait ShaderBindingProvider {
-  fn setup_binding(&self, builder: &mut BindingBuilder);
+pub trait ShaderPassBuilder {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
 }
 
 pub trait ShaderHashProvider {
@@ -38,14 +38,12 @@ pub trait ShaderHashProvider {
 pub trait SourceOfRendering:
   ShaderHashProvider // able to get pipeline from cache at low cost
    + ShaderGraphProvider // able to provide shader logic and config pipeline
-   + ShaderBindingProvider // able to bind resource to renderpass
+   + ShaderPassBuilder // able to bind resource to renderpass
 {
 }
 
-impl<T> SourceOfRendering for T where
-  T: ShaderHashProvider + ShaderGraphProvider + ShaderBindingProvider
-{
-}
+impl<T> SourceOfRendering for T where T: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder
+{}
 
 pub trait WebGPUMaterial: Clone + Any {
   type GPU: SourceOfRendering;
@@ -106,13 +104,11 @@ impl GPUMaterialCache {
   }
 }
 
-pub trait PassDispatcher: Any + SourceOfRendering {}
-
 pub struct DefaultPassDispatcher;
 
 impl ShaderHashProvider for DefaultPassDispatcher {}
-impl ShaderBindingProvider for DefaultPassDispatcher {
-  fn setup_binding(&self, _: &mut BindingBuilder) {}
+impl ShaderPassBuilder for DefaultPassDispatcher {
+  fn setup_pass(&self, _: &mut GPURenderPassCtx) {}
 }
 
 impl ShaderGraphProvider for DefaultPassDispatcher {

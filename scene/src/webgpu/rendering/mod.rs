@@ -8,10 +8,10 @@ pub use list::*;
 // pub use copy_frame::*;
 // pub mod highlight;
 // pub use highlight::*;
-// pub mod background;
-// pub use background::*;
+pub mod background;
+pub use background::*;
 pub mod utils;
-use rendiation_webgpu::GPURenderPass;
+use rendiation_webgpu::{BindingBuilder, GPURenderPass};
 pub use utils::*;
 
 pub mod framework;
@@ -21,6 +21,7 @@ use crate::SourceOfRendering;
 
 pub struct SceneRenderPass<'a, 'b> {
   pub pass: &'b mut GPURenderPass<'a>,
+  pub binding: BindingBuilder,
   pub dispatcher: &'b dyn SourceOfRendering,
 }
 

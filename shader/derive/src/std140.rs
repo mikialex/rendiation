@@ -1,8 +1,49 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote};
-use syn::{parse::Parser, parse_quote, Data, DeriveInput, Field, Fields, Type, Visibility};
+use syn::{
+  parse::Parser, AttrStyle, Attribute, Data, DeriveInput, Field, Fields, Type, Visibility,
+};
+
+fn get_ident_from_stream(tokens: TokenStream) -> Option<Ident> {
+  match tokens.into_iter().next() {
+    Some(TokenTree::Group(group)) => get_ident_from_stream(group.stream()),
+    Some(TokenTree::Ident(ident)) => Some(ident),
+    _ => None,
+  }
+}
+
+/// get a simple #[foo(bar)] attribute, returning "bar"
+fn get_simple_attr(attributes: &[Attribute], attr_name: &str) -> Option<Ident> {
+  for attr in attributes {
+    if let (AttrStyle::Outer, Some(outer_ident), Some(inner_ident)) = (
+      &attr.style,
+      attr.path.get_ident(),
+      get_ident_from_stream(attr.tokens.clone()),
+    ) {
+      if outer_ident.to_string() == attr_name {
+        return Some(inner_ident);
+      }
+    }
+  }
+
+  None
+}
+
+fn get_repr(attributes: &[Attribute]) -> Option<String> {
+  get_simple_attr(attributes, "repr").map(|ident| ident.to_string())
+}
+
+fn check_attributes(attributes: &[Attribute]) -> Result<(), &'static str> {
+  let repr = get_repr(attributes);
+  match repr.as_ref().map(|repr| repr.as_str()) {
+    Some("C") => Ok(()),
+    Some("transparent") => Ok(()),
+    _ => Err("Pod requires the struct to be #[repr(C)] or #[repr(transparent)]"),
+  }
+}
 
 pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
+  check_attributes(&input.attrs).unwrap();
   let input_name = &input.ident;
   let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -131,10 +172,10 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
   let mut new_fields = fields.clone();
   new_fields.clear();
   fields.iter().enumerate().for_each(|(index, f)| {
-    let mut f = f.clone();
-    let ty = &f.ty;
-    f.ty = parse_quote!(<#ty as shadergraph::Std140TypeMapper>::StorageType);
-    new_fields.push(f);
+    // let mut f = f.clone();
+    // let ty = &f.ty;
+    // f.ty = parse_quote!(<#ty as shadergraph::Std140TypeMapper>::StorageType);
+    new_fields.push(f.clone());
 
     let pad_field_name = format_ident!("_pad{}", index);
     let pad_fn = &pad_fns[index];
@@ -180,7 +221,7 @@ pub fn std140_impl(mut input: DeriveInput) -> TokenStream {
             let size = ::core::mem::size_of::<Self>();
             let align = <Self as shadergraph::Std140>::ALIGNMENT;
 
-            let zeroed: Self = ::crevice::internal::bytemuck::Zeroable::zeroed();
+            let zeroed: Self = shadergraph::Zeroable::zeroed();
 
             #[derive(Debug)]
             struct Field {

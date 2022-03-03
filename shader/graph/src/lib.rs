@@ -34,7 +34,7 @@ use std::{
   collections::HashSet,
   hash::{Hash, Hasher},
   marker::PhantomData,
-  ops::{Add, Div, Mul, Sub},
+  ops::*,
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
 };

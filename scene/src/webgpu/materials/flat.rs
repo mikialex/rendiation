@@ -10,12 +10,12 @@ impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
 pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
 
-impl ShaderBindingProvider for FlatMaterialGPU {
+impl ShaderPassBuilder for FlatMaterialGPU {
   fn setup_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
     builder.setup_uniform(&self.uniform);
   }

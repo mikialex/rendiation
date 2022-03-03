@@ -62,9 +62,9 @@ pub struct CameraGPU {
 
 impl ShaderHashProvider for CameraGPU {}
 
-impl ShaderBindingProvider for CameraGPU {
-  fn setup_binding(&self, builder: &mut BindingBuilder) {
-    builder.setup_uniform(&self.ubo, SB::Camera)
+impl ShaderPassBuilder for CameraGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.setup_uniform(&self.ubo, SB::Camera)
   }
 }
 
@@ -83,11 +83,11 @@ impl ShaderGraphProvider for CameraGPU {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, Default, ShaderUniform)]
+#[derive(Clone, Copy, Pod, Zeroable, Default, ShaderStruct)]
 pub struct CameraGPUTransform {
-  projection: Mat4<f32>,
-  rotation: Mat4<f32>,
-  view: Mat4<f32>,
+  pub projection: Mat4<f32>,
+  pub rotation: Mat4<f32>,
+  pub view: Mat4<f32>,
 }
 
 impl CameraGPU {

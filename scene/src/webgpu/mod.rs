@@ -1,4 +1,4 @@
-// pub mod background;
+pub mod background;
 pub mod bindgroup;
 pub mod camera;
 // pub mod lights;
@@ -15,7 +15,7 @@ use std::{
   collections::HashMap,
 };
 
-// pub use background::*;
+pub use background::*;
 pub use bindgroup::*;
 pub use camera::*;
 // pub use lights::*;

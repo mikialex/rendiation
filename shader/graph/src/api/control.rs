@@ -26,7 +26,7 @@ where
   T: ShaderGraphNodeType,
 {
   let (i_node, target_scope_id) = modify_graph(|builder| {
-    let node = ShaderGraphNodeData::UnNamed.insert_into_graph(builder);
+    let node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
     let id = builder.push_scope().graph_guid;
 
     (node, id)
@@ -96,7 +96,7 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
 //     todo!();
 //   });
 
-//   ShaderGraphNodeData::Function(FunctionNode {
+//   ShaderGraphNode::Function(FunctionNode {
 //     prototype: meta,
 //     parameters: todo!(),
 //   })

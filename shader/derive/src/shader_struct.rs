@@ -2,32 +2,32 @@ use crate::utils::StructInfo;
 use quote::TokenStreamExt;
 use quote::{format_ident, quote};
 
-pub fn derive_ubo_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
+pub fn derive_shader_struct_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let s = StructInfo::new(input);
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_shader_struct(&s));
   generated
 }
 
-pub fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
+fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
   let struct_name = &s.struct_name;
   let shadergraph_instance_name = format_ident!("{}ShaderGraphInstance", struct_name);
 
   let struct_name_str = format!("{}", struct_name);
   let meta_info_name = format_ident!("{}_META_INFO", struct_name);
 
-  let meta_info_gen = s.map_fields(|(field_name, ty)| {
+  let meta_info_gen = s.map_visible_fields(|(field_name, ty)| {
     let field_str = format!("{}", field_name);
-    quote! { .add_field::<#ty>(#field_str) }
+    quote! { .add_field::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(#field_str) }
   });
 
-  let instance_fields = s.map_fields(|(field_name, ty)| {
-    quote! { pub #field_name: shadergraph::Node<#ty>, }
+  let instance_fields = s.map_visible_fields(|(field_name, ty)| {
+    quote! { pub #field_name: shadergraph::Node<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>, }
   });
 
-  let instance_fields_create = s.map_fields(|(field_name, ty)| {
+  let instance_fields_create = s.map_visible_fields(|(field_name, ty)| {
     let field_str = format!("{}", field_name);
-    quote! { #field_name: shadergraph::expand_single::<#ty>(node.handle(), #field_str), }
+    quote! { #field_name: shadergraph::expand_single::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str), }
   });
 
   quote! {

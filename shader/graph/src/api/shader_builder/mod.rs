@@ -161,7 +161,7 @@ impl SemanticRegistry {
   }
 }
 
-pub struct SuperUnsafeCell<T> {
+struct SuperUnsafeCell<T> {
   pub data: UnsafeCell<T>,
 }
 
@@ -174,9 +174,6 @@ impl<T> SuperUnsafeCell<T> {
   #[allow(clippy::mut_from_ref)]
   pub fn get_mut(&self) -> &mut T {
     unsafe { &mut *(self.data.get()) }
-  }
-  pub fn get(&self) -> &T {
-    unsafe { &*(self.data.get()) }
   }
 }
 

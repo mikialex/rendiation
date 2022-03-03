@@ -5,7 +5,7 @@ use rendiation_webgpu::*;
 use crate::*;
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderUniform)]
+#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
 pub struct LineMaterial {
   pub color: Vec4<f32>,
 }

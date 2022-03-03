@@ -6,7 +6,7 @@ use rendiation_renderable_mesh::mesh::{
   IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
 };
 use rendiation_texture::Size;
-use rendiation_webgpu::{BindingBuilder, PipelineHasher, GPU};
+use rendiation_webgpu::{GPURenderPassCtx, PipelineHasher, GPU};
 
 use crate::*;
 
@@ -97,10 +97,14 @@ where
     let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
 
     let mut hasher = PipelineHasher::default();
-    let mut binding_builder = BindingBuilder::default();
+    let mut ctx = GPURenderPassCtx {
+      pass: pass.pass,
+      gpu,
+      binding: &mut pass.binding,
+    };
     components.iter().for_each(|c| {
       c.hash_pipeline(&mut hasher);
-      c.setup_binding(&mut binding_builder);
+      c.setup_pass(&mut ctx);
     });
 
     let pipeline = gpu
@@ -117,7 +121,7 @@ where
           .unwrap()
       });
 
-    binding_builder.setup_pass(pass, &gpu.device, &pipeline);
+    pass.binding.setup_pass(pass.pass, &gpu.device, &pipeline);
   }
 }
 
@@ -205,7 +209,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   ) {
     let ctx = WorldMatrixOverrideCtx {
       camera: &camera,
-      buffer_size: todo!(),
+      buffer_size: pass.size(),
     };
 
     let mut world_matrix = self.inner.node.visit(|n| n.world_matrix);

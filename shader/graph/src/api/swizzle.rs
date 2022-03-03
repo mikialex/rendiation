@@ -23,10 +23,14 @@ macro_rules! swizzle {
 
 swizzle!(Vec4<f32>, Vec3<f32>, xyz, "xyz");
 swizzle!(Vec4<f32>, Vec2<f32>, xy, "xy");
+swizzle!(Vec4<f32>, f32, x, "x");
+swizzle!(Vec4<f32>, f32, y, "y");
+swizzle!(Vec4<f32>, f32, z, "z");
 swizzle!(Vec4<f32>, f32, w, "w");
 
 swizzle!(Vec3<f32>, f32, x, "x");
 swizzle!(Vec3<f32>, f32, y, "y");
+swizzle!(Vec3<f32>, f32, z, "z");
 
 swizzle!(Vec2<f32>, f32, x, "x");
 swizzle!(Vec2<f32>, f32, y, "y");

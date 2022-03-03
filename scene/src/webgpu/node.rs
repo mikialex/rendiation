@@ -46,7 +46,7 @@ pub struct TransformGPU {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Zeroable, Pod, Default, PartialEq, ShaderUniform)]
+#[derive(Clone, Copy, Zeroable, Pod, Default, PartialEq, ShaderStruct)]
 pub struct TransformGPUData {
   pub world_matrix: Mat4<f32>,
 }
@@ -68,9 +68,9 @@ impl ShaderGraphProvider for TransformGPU {
   }
 }
 
-impl ShaderBindingProvider for TransformGPU {
-  fn setup_binding(&self, builder: &mut BindingBuilder) {
-    builder.setup_uniform(&self.ubo, SemanticBinding::Object)
+impl ShaderPassBuilder for TransformGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.setup_uniform(&self.ubo, SB::Object)
   }
 }
 
