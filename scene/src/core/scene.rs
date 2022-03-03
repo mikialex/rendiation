@@ -9,14 +9,7 @@ use crate::*;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 
-pub trait Background: ShaderPassBuilder {}
 
-impl Background for SolidBackground {}
-impl ShaderPassBuilder for SolidBackground {
-  fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
-    todo!()
-  }
-}
 
 pub struct Scene {
   pub background: Box<dyn Background>,

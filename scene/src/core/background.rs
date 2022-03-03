@@ -1,6 +1,10 @@
 use rendiation_algebra::*;
 
-use crate::SceneTextureCube;
+use crate::{SceneTextureCube, WebGPUBackground};
+
+pub trait Background: WebGPUBackground {}
+
+impl Background for SolidBackground {}
 
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
