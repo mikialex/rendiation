@@ -208,7 +208,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
     resources: &mut GPUResourceCache,
   ) {
     let ctx = WorldMatrixOverrideCtx {
-      camera: &camera,
+      camera,
       buffer_size: pass.size(),
     };
 

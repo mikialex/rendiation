@@ -53,12 +53,20 @@ impl WebGPUMaterial for PhysicalMaterial {
   type GPU = PhysicalMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
-    todo!()
-    // PhysicalMaterialGPU {
-    //   uniform: res.uniforms.get(self.albedo),
-    //   sampler: res.samplers.get(self.sampler),
-    //   texture: self.texture.check_update_gpu(res, gpu).clone(),
-    // }
+    let uniform = PhysicalMaterialUniform {
+      albedo: self.albedo,
+    };
+    let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
+    let uniform = uniform.create_view(Default::default());
+
+    let sampler = GPUSampler::create(self.sampler.into(), &gpu.device);
+    let sampler = sampler.create_view(Default::default());
+
+    PhysicalMaterialGPU {
+      uniform,
+      sampler,
+      texture: self.texture.check_update_gpu(res, gpu).clone(),
+    }
   }
   fn is_keep_mesh_shape(&self) -> bool {
     true
