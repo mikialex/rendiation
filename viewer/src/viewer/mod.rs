@@ -24,7 +24,7 @@ use webgpu::*;
 use crate::*;
 
 impl CanvasPrinter for ViewerImpl {
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPUTexture2dView) {
     self.content.update_state();
     self
       .ctx
@@ -98,7 +98,7 @@ impl Viewer3dRenderingCtx {
     self.engine.notify_output_resized();
   }
 
-  pub fn render(&mut self, target: FrameTarget, scene: &mut Viewer3dContent) {
+  pub fn render(&mut self, target: GPUTexture2dView, scene: &mut Viewer3dContent) {
     scene.scene.maintain();
 
     self.engine.output = target.into();
