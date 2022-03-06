@@ -2,8 +2,9 @@ use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindGroupDescriptor, GPUTexture2d, GPU};
+use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentOwnedReadView, PassContent, Scene, SceneRenderPass};
+use crate::{AttachmentOwnedReadView, PassContent, Scene, SceneRenderPass, ShaderPassBuilder};
 
 pub struct CopyFrame {
   source: AttachmentOwnedReadView,
@@ -11,6 +12,29 @@ pub struct CopyFrame {
 
 pub fn copy_frame(source: AttachmentOwnedReadView) -> CopyFrame {
   CopyFrame { source }
+}
+
+impl ShaderPassBuilder for CopyFrame {
+  fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
+    ctx.binding.setup_uniform(todo!(), SB::Material);
+    ctx.binding.setup_pass(ctx.pass, &ctx.gpu.device, todo!());
+  }
+}
+
+impl ShaderGraphProvider for CopyFrame {
+  fn build(
+    &self,
+    builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let uniform = binding
+        .uniform_by(&self.lighter.data, SB::Material)
+        .expand();
+
+      let uv = builder.query::<FragmentUv>()?;
+      builder.set_fragment_out(0, (uniform.color, edge_intensity(uv)))
+    })
+  }
 }
 
 // impl PassContent for CopyFrame {

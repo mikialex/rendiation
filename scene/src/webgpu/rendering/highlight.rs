@@ -36,7 +36,8 @@ impl Default for HighLightData {
 impl HighLighter {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      data: UniformBufferData::create(&gpu.device, Default::default()),
+      data: UniformBufferDataResource::create_with_source(Default::default(), &gpu.device)
+        .create_view(Default::default()),
     }
   }
 }
@@ -125,7 +126,7 @@ where
         gpu,
         pass,
         self.scene.active_camera.as_ref().unwrap(),
-        &self.scene.resources,
+        &mut self.scene.resources,
       )
     }
   }
