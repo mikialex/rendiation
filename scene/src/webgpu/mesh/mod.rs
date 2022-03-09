@@ -192,12 +192,13 @@ where
   }
 }
 
-// impl<T> ShaderGraphProvider for MeshInner<T> {
-//   fn build_vertex(
+// impl ShaderGraphProvider for MeshGPU {
+//   fn build(
 //     &self,
-//     _builder: &mut shadergraph::ShaderGraphVertexBuilder,
-//   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-//     todo!()
+//     _builder: &mut ShaderGraphRenderPipelineBuilder,
+//   ) -> Result<(), ShaderGraphBuildError> {
+//     // default do nothing
+//     Ok(())
 //   }
 // }
 
