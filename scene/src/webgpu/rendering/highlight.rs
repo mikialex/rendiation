@@ -1,8 +1,7 @@
 use std::{any::TypeId, hash::Hash, rc::Rc};
 
 use crate::{
-  AttachmentOwnedReadView, PassContent, RenderPassGPUInfoData, Scene, SceneRenderPass,
-  SceneRenderable,
+  AttachmentReadView, PassContent, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
 };
 
 use rendiation_algebra::*;
@@ -43,7 +42,7 @@ impl HighLighter {
 }
 
 impl HighLighter {
-  pub fn draw(&self, mask: AttachmentOwnedReadView) -> HighLightComposeTask {
+  pub fn draw<'a, 'b>(&'a self, mask: AttachmentReadView<'b>) -> HighLightComposeTask<'a, 'b> {
     HighLightComposeTask {
       mask,
       lighter: self,
@@ -51,18 +50,18 @@ impl HighLighter {
   }
 }
 
-pub struct HighLightComposeTask<'a> {
-  mask: AttachmentOwnedReadView,
+pub struct HighLightComposeTask<'a, 'b> {
+  mask: AttachmentReadView<'b>,
   lighter: &'a HighLighter,
 }
 
-impl<'a> ShaderPassBuilder for HighLightComposeTask<'a> {
+impl<'a, 'b> ShaderPassBuilder for HighLightComposeTask<'a, 'b> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.setup_uniform(&self.lighter.data, SB::Material)
   }
 }
 
-impl<'a> ShaderGraphProvider for HighLightComposeTask<'a> {
+impl<'a, 'b> ShaderGraphProvider for HighLightComposeTask<'a, 'b> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

@@ -4,24 +4,24 @@ use rendiation_texture::TextureSampler;
 use rendiation_webgpu::{BindGroupDescriptor, GPUTexture2d, GPU};
 use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentOwnedReadView, PassContent, Scene, SceneRenderPass, ShaderPassBuilder};
+use crate::{AttachmentReadView, PassContent, Scene, SceneRenderPass, ShaderPassBuilder};
 
-pub struct CopyFrame {
-  source: AttachmentOwnedReadView,
+pub struct CopyFrame<'a> {
+  source: AttachmentReadView<'a>,
 }
 
-pub fn copy_frame(source: AttachmentOwnedReadView) -> CopyFrame {
+pub fn copy_frame(source: AttachmentReadView) -> CopyFrame {
   CopyFrame { source }
 }
 
-impl ShaderPassBuilder for CopyFrame {
+impl<'a> ShaderPassBuilder for CopyFrame<'a> {
   fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
     ctx.binding.setup_uniform(todo!(), SB::Material);
     ctx.binding.setup_pass(ctx.pass, &ctx.gpu.device, todo!());
   }
 }
 
-impl ShaderGraphProvider for CopyFrame {
+impl<'a> ShaderGraphProvider for CopyFrame<'a> {
   fn build(
     &self,
     builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,
