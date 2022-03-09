@@ -1,10 +1,7 @@
-use std::{any::TypeId, hash::Hash, rc::Rc};
-
 use rendiation_texture::TextureSampler;
-use rendiation_webgpu::{BindGroupDescriptor, GPUTexture2d, GPU};
 use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentReadView, PassContent, Scene, SceneRenderPass, ShaderPassBuilder};
+use crate::{AttachmentReadView, ShaderPassBuilder};
 
 pub struct CopyFrame<'a> {
   sampler: TextureSampler,
@@ -20,8 +17,8 @@ pub fn copy_frame(source: AttachmentReadView) -> CopyFrame {
 
 impl<'a> ShaderPassBuilder for CopyFrame<'a> {
   fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
-    ctx.binding.setup_uniform(todo!(), SB::Material);
-    ctx.binding.setup_uniform(todo!(), SB::Material);
+    ctx.binding.setup_uniform(&self.sampler, SB::Material);
+    ctx.binding.setup_uniform(&self.source, SB::Material);
     ctx.binding.setup_pass(ctx.pass, &ctx.gpu.device, todo!());
     ctx.pass.draw(0..4, 0..1);
   }
@@ -37,7 +34,8 @@ impl<'a> ShaderGraphProvider for CopyFrame<'a> {
       let source = binding.uniform_by(&self.source, SB::Material).expand();
 
       let uv = builder.query::<FragmentUv>()?;
-      builder.set_fragment_out(0, (uniform.color, edge_intensity(uv)))
+      let value = source.sample(sampler, uv);
+      builder.set_fragment_out(0, value)
     })
   }
 }
