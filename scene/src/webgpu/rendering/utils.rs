@@ -53,7 +53,7 @@ impl ShaderGraphProvider for FullScreenQuad {
       Ok(())
     })?;
 
-    builder.fragment(|builder, binding| {
+    builder.fragment(|builder, _| {
       MaterialStates {
         blend: self.blend,
         depth_write_enabled: false,

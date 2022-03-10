@@ -416,7 +416,7 @@ fn gen_bindings(
 }
 
 fn gen_entry(code: &mut CodeBuilder, _: ShaderStages, mut content: impl FnMut(&mut CodeBuilder)) {
-  code.write_ln(format!("void main() {{")).tab();
+  code.write_ln("void main() {").tab();
   content(code);
   code.un_tab().write_ln("}");
 }

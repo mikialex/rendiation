@@ -80,12 +80,6 @@ impl Attachment {
       view: self.texture.create_view(()).into(),
     }
   }
-
-  pub fn read_into(self) -> AttachmentOwnedReadView {
-    assert_eq!(self.des.sample_count, 1); // todo support latter
-    let view = self.texture.create_view(()).into();
-    AttachmentOwnedReadView { _att: self, view }
-  }
 }
 
 pub struct AttachmentWriteView<'a> {
@@ -96,11 +90,6 @@ pub struct AttachmentWriteView<'a> {
 pub struct AttachmentReadView<'a> {
   phantom: PhantomData<&'a Attachment>,
   pub(super) view: ColorChannelView,
-}
-
-pub struct AttachmentOwnedReadView {
-  _att: Attachment,
-  view: ColorChannelView,
 }
 
 #[derive(Clone)]

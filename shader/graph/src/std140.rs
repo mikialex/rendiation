@@ -10,6 +10,10 @@ impl<T: Std140> Std140TypeMapper for T {
 
 /// Trait implemented for all `std140` primitives. Generally should not be
 /// implemented outside this crate.
+///
+/// # Safety
+///
+///  should only be impl for std140 layout type, except for primitives
 pub unsafe trait Std140: Copy + Zeroable + Pod {
   /// The required alignment of the type. Must be a power of two.
   ///

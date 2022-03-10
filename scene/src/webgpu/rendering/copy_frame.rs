@@ -1,85 +1,41 @@
-use std::{any::TypeId, hash::Hash, rc::Rc};
-
 use rendiation_texture::TextureSampler;
-use rendiation_webgpu::{BindGroupDescriptor, GPUTexture2d, GPU};
+use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentOwnedReadView, PassContent, Scene, SceneRenderPass};
+use crate::{AttachmentReadView, ShaderPassBuilder};
 
-pub struct CopyFrame {
-  source: AttachmentOwnedReadView<wgpu::TextureFormat>,
-  bindgroup: Option<wgpu::BindGroup>,
-  pipeline: Option<Rc<wgpu::RenderPipeline>>,
+pub struct CopyFrame<'a> {
+  sampler: TextureSampler,
+  source: AttachmentReadView<'a>,
 }
 
-pub fn copy_frame(source: AttachmentOwnedReadView<wgpu::TextureFormat>) -> CopyFrame {
+pub fn copy_frame(source: AttachmentReadView) -> CopyFrame {
   CopyFrame {
     source,
-    bindgroup: None,
-    pipeline: None,
+    sampler: Default::default(),
   }
 }
 
-impl PassContent for CopyFrame {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
-    let resources = &mut scene.resources.content;
-    let bindgroup = gpu.device.create_bind_group(&BindGroupDescriptor {
-      layout: &Self::layout(&gpu.device),
-      entries: &[
-        wgpu::BindGroupEntry {
-          binding: 0,
-          resource: self.source.as_bindable(),
-        },
-        wgpu::BindGroupEntry {
-          binding: 1,
-          resource: resources
-            .samplers
-            .retrieve(&gpu.device, &TextureSampler::default())
-            .as_bindable(),
-        },
-      ],
-      label: None,
-    });
-    self.bindgroup = Some(bindgroup);
-
-    let mut hasher = Default::default();
-
-    let pass_info = ctx.pass_info;
-
-    TypeId::of::<Self>().hash(&mut hasher);
-    pass_info.format_info.hash(&mut hasher);
-
-    self.pipeline = resources
-      .pipeline_resource
-      .get_or_insert_with(hasher, || {
-        let mut builder = PipelineBuilder::default();
-
-        full_screen_vertex_shader(
-          &mut builder,
-          wgpu::BlendState::ALPHA_BLENDING.into(),
-          &pass_info.format_info,
-        );
-
-        builder
-          .with_layout::<Self>(&resources.layouts, &gpu.device)
-          .include_fragment_entry(
-            "
-          [[stage(fragment)]]
-          fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-            return textureSample(texture, tex_sampler, in.uv);
-          }}
-          ",
-          )
-          .use_fragment_entry("fs_main");
-
-        builder.build(&gpu.device)
-      })
-      .clone()
-      .into();
+impl<'a> ShaderPassBuilder for CopyFrame<'a> {
+  fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
+    ctx.binding.setup_uniform(&self.sampler, SB::Material);
+    ctx.binding.setup_uniform(&self.source, SB::Material);
+    ctx.binding.setup_pass(ctx.pass, &ctx.gpu.device, todo!());
+    ctx.pass.draw(0..4, 0..1);
   }
+}
 
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, _scene: &'a Scene) {
-    pass.set_pipeline(self.pipeline.as_ref().unwrap());
-    pass.set_bind_group(0, self.bindgroup.as_ref().unwrap(), &[]);
-    pass.draw(0..4, 0..1);
+impl<'a> ShaderGraphProvider for CopyFrame<'a> {
+  fn build(
+    &self,
+    builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), shadergraph::ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let sampler = binding.uniform_by(&self.sampler, SB::Material).expand();
+      let source = binding.uniform_by(&self.source, SB::Material).expand();
+
+      let uv = builder.query::<FragmentUv>()?;
+      let value = source.sample(sampler, uv);
+      builder.set_fragment_out(0, value)
+    })
   }
 }
