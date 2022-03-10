@@ -101,6 +101,24 @@ impl ShaderGraphNodeType for ShaderSampler {
   }
 }
 
+impl PrimitiveShaderGraphNodeType for Mat2<f32> {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Mat2Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Mat2Float32(*self)
+  }
+}
+
+impl PrimitiveShaderGraphNodeType for Mat3<f32> {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Mat3Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Mat3Float32(*self)
+  }
+}
+
 impl PrimitiveShaderGraphNodeType for Mat4<f32> {
   fn to_primitive_type() -> PrimitiveShaderValueType {
     PrimitiveShaderValueType::Mat4Float32

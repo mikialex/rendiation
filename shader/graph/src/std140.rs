@@ -58,6 +58,9 @@ unsafe impl Std140 for Bool {
 impl Std140TypeMapper for bool {
   type StorageType = Bool;
 }
+impl ShaderFieldTypeMapper for Bool {
+  type ShaderType = bool;
+}
 
 unsafe impl Std140 for Vec2<f32> {
   const ALIGNMENT: usize = 8;
@@ -78,6 +81,9 @@ unsafe impl Std140 for Shader140Mat2 {
 impl Std140TypeMapper for Mat2<f32> {
   type StorageType = Shader140Mat2;
 }
+impl ShaderFieldTypeMapper for Shader140Mat2 {
+  type ShaderType = Mat2<f32>;
+}
 
 unsafe impl Std140 for Shader140Mat3 {
   const ALIGNMENT: usize = 16;
@@ -85,6 +91,9 @@ unsafe impl Std140 for Shader140Mat3 {
 }
 impl Std140TypeMapper for Mat3<f32> {
   type StorageType = Shader140Mat3;
+}
+impl ShaderFieldTypeMapper for Shader140Mat3 {
+  type ShaderType = Mat3<f32>;
 }
 
 unsafe impl Std140 for Mat4<f32> {
