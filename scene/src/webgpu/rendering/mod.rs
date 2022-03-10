@@ -17,11 +17,12 @@ pub use utils::*;
 pub mod framework;
 pub use framework::*;
 
-use crate::SourceOfRendering;
+use crate::{GPUResourceCache, SourceOfRendering};
 
 pub struct SceneRenderPass<'a, 'b> {
   pub pass: &'b mut GPURenderPass<'a>,
   pub binding: BindingBuilder,
+  pub resources: &'b GPUResourceCache,
   pub dispatcher: &'b dyn SourceOfRendering,
 }
 

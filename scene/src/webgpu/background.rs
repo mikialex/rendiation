@@ -25,14 +25,7 @@ impl WebGPUBackground for SolidBackground {
 }
 
 impl SceneRenderable for SolidBackground {
-  fn setup_pass<'a>(
-    &self,
-    _gpu: &GPU,
-    _pass: &mut SceneRenderPass,
-    _camera: &SceneCamera,
-    _res: &mut GPUResourceCache,
-  ) {
-  }
+  fn setup_pass<'a>(&self, _gpu: &GPU, _pass: &mut SceneRenderPass, _camera: &SceneCamera) {}
 }
 
 // pub type BackgroundMesh = impl GPUMeshData + IntersectAbleGroupedMesh;

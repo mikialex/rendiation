@@ -19,15 +19,9 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass(
-    &self,
-    gpu: &GPU,
-    pass: &mut SceneRenderPass,
-    camera: &SceneCamera,
-    resources: &mut GPUResourceCache,
-  ) {
+  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     let inner = self.inner.borrow();
-    inner.setup_pass(gpu, pass, camera, resources)
+    inner.setup_pass(gpu, pass, camera)
   }
 
   fn ray_pick_nearest(
@@ -78,8 +72,8 @@ where
     pass: &mut SceneRenderPass,
     camera: &SceneCamera,
     override_node: Option<&TransformGPU>,
-    resources: &mut GPUResourceCache,
   ) {
+    let resources = &mut pass.resources;
     let pass_gpu = pass.dispatcher;
     let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
     let node_gpu =
@@ -130,14 +124,8 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass(
-    &self,
-    gpu: &GPU,
-    pass: &mut SceneRenderPass,
-    camera: &SceneCamera,
-    resources: &mut GPUResourceCache,
-  ) {
-    self.setup_pass_core(gpu, pass, camera, None, resources);
+  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    self.setup_pass_core(gpu, pass, camera, None);
   }
 
   fn ray_pick_nearest(
@@ -200,13 +188,7 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
 impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   for OverridableMeshModelImpl<Me, Ma>
 {
-  fn setup_pass(
-    &self,
-    gpu: &GPU,
-    pass: &mut SceneRenderPass,
-    camera: &SceneCamera,
-    resources: &mut GPUResourceCache,
-  ) {
+  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     let ctx = WorldMatrixOverrideCtx {
       camera,
       buffer_size: pass.size(),
@@ -223,7 +205,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
-    self.setup_pass_core(gpu, pass, camera, Some(node_gpu), resources);
+    self.setup_pass_core(gpu, pass, camera, Some(node_gpu));
   }
 }
 

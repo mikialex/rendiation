@@ -36,13 +36,7 @@ use rendiation_webgpu::*;
 use crate::{ResourceMapper, SceneCamera, TextureCubeSource};
 
 pub trait SceneRenderable: 'static {
-  fn setup_pass(
-    &self,
-    gpu: &GPU,
-    pass: &mut SceneRenderPass,
-    camera: &SceneCamera,
-    resources: &mut GPUResourceCache,
-  );
+  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera);
 
   fn ray_pick_nearest(
     &self,
@@ -66,6 +60,12 @@ pub struct GPUResourceCache {
   pub custom_storage: AnyMap,
   pub cameras: CameraGPUStore,
   pub nodes: NodeGPUStore,
+}
+
+impl GPUResourceCache {
+  pub fn maintain(&mut self) {
+    self.cameras.maintain();
+  }
 }
 
 impl Default for GPUResourceCache {

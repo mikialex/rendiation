@@ -1,4 +1,5 @@
 use rendiation_texture::TextureSampler;
+use rendiation_webgpu::GPUSampler;
 use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
 use crate::{AttachmentReadView, ShaderPassBuilder};
@@ -17,7 +18,10 @@ pub fn copy_frame(source: AttachmentReadView) -> CopyFrame {
 
 impl<'a> ShaderPassBuilder for CopyFrame<'a> {
   fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
-    ctx.binding.setup_uniform(&self.sampler, SB::Material);
+    let sampler = GPUSampler::create(self.sampler.into(), &gpu.device);
+    let sampler = sampler.create_view(Default::default());
+
+    ctx.binding.setup_uniform(&sampler, SB::Material);
     ctx.binding.setup_uniform(&self.source, SB::Material);
     ctx.binding.setup_pass(ctx.pass, &ctx.gpu.device, todo!());
     ctx.pass.draw(0..4, 0..1);

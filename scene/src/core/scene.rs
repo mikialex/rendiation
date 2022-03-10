@@ -9,8 +9,6 @@ use crate::*;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
 pub type LightHandle = Handle<Box<dyn Light>>;
 
-
-
 pub struct Scene {
   pub background: Box<dyn Background>,
 
@@ -22,7 +20,6 @@ pub struct Scene {
 
   nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
   pub root: SceneNode,
-  pub resources: GPUResourceCache,
 }
 
 impl Scene {
@@ -45,7 +42,6 @@ impl Scene {
       models: Vec::new(),
 
       active_camera: None,
-      resources: Default::default(),
     }
   }
 
@@ -61,7 +57,6 @@ impl Scene {
       node_data.hierarchy_update(parent.map(|p| p.data()).map(|d| d.deref()));
       NextTraverseVisit::VisitChildren
     });
-    self.resources.cameras.maintain();
   }
 }
 
