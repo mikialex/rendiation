@@ -19,19 +19,13 @@ pub struct ForwardScene<'a> {
 }
 
 impl<'a> PassContent for ForwardScene<'a> {
-  fn render(&mut self, gpu: &GPU, pass: &mut GPURenderPass) {
-    let resources = &mut self.scene.resources;
-    let mut pass = SceneRenderPass {
-      pass,
-      dispatcher: &DefaultPassDispatcher,
-      binding: Default::default(),
-    };
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
     self.scene.models.iter().for_each(|model| {
       model.setup_pass(
         gpu,
         &mut pass,
+        &DefaultPassDispatcher,
         self.scene.active_camera.as_ref().unwrap(),
-        resources,
       )
     })
   }

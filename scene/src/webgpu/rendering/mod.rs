@@ -23,7 +23,6 @@ pub struct SceneRenderPass<'a, 'b> {
   pub pass: &'b mut GPURenderPass<'a>,
   pub binding: BindingBuilder,
   pub resources: &'b GPUResourceCache,
-  pub dispatcher: &'b dyn SourceOfRendering,
 }
 
 impl<'a, 'b> std::ops::Deref for SceneRenderPass<'a, 'b> {

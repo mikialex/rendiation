@@ -19,9 +19,15 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn setup_pass(
+    &self,
+    gpu: &GPU,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn SourceOfRendering,
+    camera: &SceneCamera,
+  ) {
     let inner = self.inner.borrow();
-    inner.setup_pass(gpu, pass, camera)
+    inner.setup_pass(gpu, pass, dispatcher, camera)
   }
 
   fn ray_pick_nearest(
@@ -72,9 +78,10 @@ where
     pass: &mut SceneRenderPass,
     camera: &SceneCamera,
     override_node: Option<&TransformGPU>,
+    dispatcher: &dyn SourceOfRendering,
   ) {
     let resources = &mut pass.resources;
-    let pass_gpu = pass.dispatcher;
+    let pass_gpu = dispatcher;
     let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
     let node_gpu =
       override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&self.node, gpu));
@@ -124,8 +131,14 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    self.setup_pass_core(gpu, pass, camera, None);
+  fn setup_pass(
+    &self,
+    gpu: &GPU,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn SourceOfRendering,
+    camera: &SceneCamera,
+  ) {
+    self.setup_pass_core(gpu, pass, camera, None, dispatcher);
   }
 
   fn ray_pick_nearest(
@@ -188,7 +201,13 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
 impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   for OverridableMeshModelImpl<Me, Ma>
 {
-  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn setup_pass(
+    &self,
+    gpu: &GPU,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn SourceOfRendering,
+    camera: &SceneCamera,
+  ) {
     let ctx = WorldMatrixOverrideCtx {
       camera,
       buffer_size: pass.size(),
@@ -205,7 +224,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
-    self.setup_pass_core(gpu, pass, camera, Some(node_gpu));
+    self.setup_pass_core(gpu, pass, camera, Some(node_gpu), dispatcher);
   }
 }
 

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use rendiation_webgpu::{GPURenderPass, Operations, RenderPassDescriptorOwned, GPU};
 
-use crate::{Attachment, AttachmentWriteView, RenderEngine};
+use crate::{Attachment, AttachmentWriteView, RenderEngine, SceneRenderPass};
 
 pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
@@ -74,7 +74,7 @@ impl<'a> PassDescriptor<'a> {
 }
 
 pub trait PassContent {
-  fn render(&mut self, gpu: &GPU, pass: &mut GPURenderPass);
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass);
 }
 
 pub struct ActiveRenderPass<'p> {
@@ -86,7 +86,12 @@ pub struct ActiveRenderPass<'p> {
 impl<'p> ActiveRenderPass<'p> {
   #[must_use]
   pub fn render(mut self, renderable: &mut dyn PassContent) -> Self {
-    renderable.render(self.gpu, &mut self.pass);
+    let pass = SceneRenderPass {
+      pass: &mut self.pass,
+      binding: Default::default(),
+      resources: todo!(),
+    };
+    renderable.render(self.gpu, &mut pass);
     self
   }
 }

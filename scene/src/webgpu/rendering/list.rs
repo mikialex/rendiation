@@ -13,13 +13,14 @@ impl RenderList {
     gpu: &GPU,
     gpu_pass: &mut SceneRenderPass<'p, 'a>,
     scene: &mut Scene,
+    dispatcher: &dyn SourceOfRendering,
   ) {
     self.models.iter().for_each(|model| {
       model.setup_pass(
         gpu,
         gpu_pass,
+        dispatcher,
         scene.active_camera.as_ref().unwrap(),
-        &mut scene.resources,
       )
     })
   }

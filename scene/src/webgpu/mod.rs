@@ -34,7 +34,13 @@ use rendiation_webgpu::*;
 use crate::{ResourceMapper, SceneCamera, TextureCubeSource};
 
 pub trait SceneRenderable: 'static {
-  fn setup_pass(&self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera);
+  fn setup_pass(
+    &self,
+    gpu: &GPU,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn SourceOfRendering,
+    camera: &SceneCamera,
+  );
 
   fn ray_pick_nearest(
     &self,
