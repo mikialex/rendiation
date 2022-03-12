@@ -18,7 +18,7 @@ pub fn copy_frame(source: AttachmentReadView) -> CopyFrame {
 
 impl<'a> ShaderPassBuilder for CopyFrame<'a> {
   fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
-    let sampler = GPUSampler::create(self.sampler.into(), &gpu.device);
+    let sampler = GPUSampler::create(self.sampler.into(), &ctx.gpu.device);
     let sampler = sampler.create_view(Default::default());
 
     ctx.binding.setup_uniform(&sampler, SB::Material);

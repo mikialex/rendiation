@@ -13,11 +13,9 @@ impl<'a> PassContent for BackGroundRendering<'a> {
       dispatcher: &DefaultPassDispatcher,
       binding: Default::default(),
     };
-    self.scene.background.setup_pass(
-      gpu,
-      &mut pass,
-      self.scene.active_camera.as_ref().unwrap(),
-      &mut self.scene.resources,
-    );
+    self
+      .scene
+      .background
+      .setup_pass(gpu, &mut pass, self.scene.active_camera.as_ref().unwrap());
   }
 }

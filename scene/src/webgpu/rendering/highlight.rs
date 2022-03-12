@@ -121,12 +121,7 @@ where
 {
   fn render(&mut self, gpu: &GPU, pass: &mut GPURenderPass) {
     for model in self.objects {
-      model.setup_pass(
-        gpu,
-        pass,
-        self.scene.active_camera.as_ref().unwrap(),
-        &mut self.scene.resources,
-      )
+      model.setup_pass(gpu, pass, self.scene.active_camera.as_ref().unwrap())
     }
   }
 }

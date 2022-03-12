@@ -1,5 +1,4 @@
 pub mod background;
-pub mod bindgroup;
 pub mod camera;
 // pub mod lights;
 pub mod materials;
@@ -16,7 +15,6 @@ use std::{
 };
 
 pub use background::*;
-pub use bindgroup::*;
 pub use camera::*;
 // pub use lights::*;
 pub use materials::*;
