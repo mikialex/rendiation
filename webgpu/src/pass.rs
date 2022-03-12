@@ -20,7 +20,11 @@ impl Default for PassTargetFormatInfo {
 #[derive(Clone)]
 pub enum ColorChannelView {
   Texture(GPUTexture2dView),
-  SurfaceTexture(Rc<gpu::TextureView>),
+  SurfaceTexture {
+    size: Size,
+    format: gpu::TextureFormat,
+    view: Rc<gpu::TextureView>,
+  },
 }
 
 impl From<GPUTexture2dView> for ColorChannelView {
@@ -33,16 +37,15 @@ impl ColorChannelView {
   pub fn as_view(&self) -> &gpu::TextureView {
     match self {
       ColorChannelView::Texture(t) => &t.view.0,
-      ColorChannelView::SurfaceTexture(v) => v.as_ref(),
+      ColorChannelView::SurfaceTexture { view, .. } => view.as_ref(),
     }
   }
 
   pub fn size(&self) -> Size {
-    todo!()
-    // match self {
-    //   ColorChannelView::Texture(t) => &t.resource.desc.size,
-    //   ColorChannelView::SurfaceTexture(v) => v.as_ref(),
-    // }
+    match self {
+      ColorChannelView::Texture(t) => GPUTextureSize::from_gpu_size(t.resource.desc.size),
+      ColorChannelView::SurfaceTexture { size, .. } => *size,
+    }
   }
 }
 

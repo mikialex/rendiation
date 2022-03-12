@@ -113,11 +113,7 @@ impl AttachmentDescriptor {
 
 impl AttachmentDescriptor {
   pub fn request(self, engine: &RenderEngine) -> Attachment {
-    let size = match &engine.output {
-      ColorChannelView::Texture(t) => t.resource.desc.size,
-      ColorChannelView::SurfaceTexture(t) => todo!(),
-    };
-    let size = GPUTextureSize::from_gpu_size(size);
+    let size = engine.output.size();
     let size = (self.sizer)(size);
 
     let key = PooledTextureKey {

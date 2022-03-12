@@ -229,7 +229,11 @@ impl<T> ApplicationInner<T> {
           }),
           store: true,
         },
-        ColorChannelView::SurfaceTexture(view.clone()),
+        ColorChannelView::SurfaceTexture {
+          view: view.clone(),
+          size: self.surface.size,
+          format: self.surface.config.format,
+        },
       ));
       {
         let mut pass = encoder.begin_render_pass(&decs);
