@@ -99,7 +99,7 @@ where
 
     let mut hasher = PipelineHasher::default();
     let mut ctx = GPURenderPassCtx {
-      pass: pass.pass,
+      pass: &mut pass.pass,
       gpu,
       binding: &mut pass.binding,
     };
@@ -122,7 +122,9 @@ where
           .unwrap()
       });
 
-    pass.binding.setup_pass(pass.pass, &gpu.device, &pipeline);
+    pass
+      .binding
+      .setup_pass(&mut pass.pass, &gpu.device, &pipeline);
   }
 }
 

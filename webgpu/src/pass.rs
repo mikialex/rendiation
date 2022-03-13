@@ -55,7 +55,7 @@ pub struct GPURenderPassCtx<'a, 'b> {
   pub binding: &'b mut BindingBuilder,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct RenderPassDescriptorOwned {
   pub name: String,
   pub channels: Vec<(gpu::Operations<gpu::Color>, ColorChannelView)>,

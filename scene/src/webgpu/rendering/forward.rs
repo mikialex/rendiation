@@ -23,7 +23,7 @@ impl<'a> PassContent for ForwardScene<'a> {
     self.scene.models.iter().for_each(|model| {
       model.setup_pass(
         gpu,
-        &mut pass,
+        pass,
         &DefaultPassDispatcher,
         self.scene.active_camera.as_ref().unwrap(),
       )

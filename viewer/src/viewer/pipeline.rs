@@ -20,7 +20,7 @@ impl ViewerPipeline {
 
 impl ViewerPipeline {
   #[rustfmt::skip]
-  pub fn render(&mut self, engine: &RenderEngine, content: &mut Viewer3dContent) {
+  pub fn render(&mut self, engine: &FrameCtx, content: &mut Viewer3dContent) {
     let scene = &mut content.scene;
 
     let mut scene_depth = depth_attachment().request(engine);

@@ -21,8 +21,8 @@ impl<'a> ShaderPassBuilder for CopyFrame<'a> {
     let sampler = GPUSampler::create(self.sampler.into(), &ctx.gpu.device);
     let sampler = sampler.create_view(Default::default());
 
-    ctx.binding.setup_uniform(&sampler, SB::Material);
-    ctx.binding.setup_uniform(&self.source, SB::Material);
+    // ctx.binding.setup_uniform(&sampler, SB::Material);
+    // ctx.binding.setup_uniform(&self.source, SB::Material);
     ctx.binding.setup_pass(ctx.pass, &ctx.gpu.device, todo!());
     ctx.pass.draw(0..4, 0..1);
   }
@@ -34,12 +34,13 @@ impl<'a> ShaderGraphProvider for CopyFrame<'a> {
     builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let sampler = binding.uniform_by(&self.sampler, SB::Material).expand();
-      let source = binding.uniform_by(&self.source, SB::Material).expand();
+      // let sampler = binding.uniform_by(&self.sampler, SB::Material).expand();
+      // let source = binding.uniform_by(&self.source, SB::Material).expand();
 
-      let uv = builder.query::<FragmentUv>()?;
-      let value = source.sample(sampler, uv);
-      builder.set_fragment_out(0, value)
+      // let uv = builder.query::<FragmentUv>()?;
+      // let value = source.sample(sampler, uv);
+      // builder.set_fragment_out(0, value)
+      Ok(())
     })
   }
 }

@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use rendiation_webgpu::{GPURenderPass, Operations, RenderPassDescriptorOwned, GPU};
+use rendiation_webgpu::{Operations, RenderPassDescriptorOwned, GPU};
 
-use crate::{Attachment, AttachmentWriteView, RenderEngine, SceneRenderPass};
+use crate::{Attachment, AttachmentWriteView, FrameCtx, SceneRenderPass};
 
 pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
@@ -52,22 +52,18 @@ impl<'a> PassDescriptor<'a> {
   }
 
   #[must_use]
-  pub fn run(self, engine: &mut RenderEngine) -> ActiveRenderPass {
-    #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
-    if let Some(resolve_target) = self.desc.resolve_target.take() {
-      self.desc.channels[0].1 = resolve_target
-    }
+  pub fn run<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
+    let mut pass = ctx.encoder.begin_render_pass(self.desc.clone());
 
-    let pass = engine.encoder.begin_render_pass(&self.desc);
-
-    // safety: the pass will reference the desc which refs the texture views to write
-    // and they drop together.
-    // todo, move the desc into command encoder and we can remove this unsafe
-    let pass = unsafe { std::mem::transmute(pass) };
+    let pass = SceneRenderPass {
+      pass,
+      binding: Default::default(),
+      resources: &mut ctx.resources,
+    };
 
     ActiveRenderPass {
       desc: self.desc,
-      gpu: &engine.gpu,
+      gpu: &ctx.gpu,
       pass,
     }
   }
@@ -78,7 +74,7 @@ pub trait PassContent {
 }
 
 pub struct ActiveRenderPass<'p> {
-  pass: GPURenderPass<'p>,
+  pass: SceneRenderPass<'p, 'p>,
   gpu: &'p GPU,
   pub desc: RenderPassDescriptorOwned,
 }
@@ -86,12 +82,7 @@ pub struct ActiveRenderPass<'p> {
 impl<'p> ActiveRenderPass<'p> {
   #[must_use]
   pub fn render(mut self, renderable: &mut dyn PassContent) -> Self {
-    let pass = SceneRenderPass {
-      pass: &mut self.pass,
-      binding: Default::default(),
-      resources: todo!(),
-    };
-    renderable.render(self.gpu, &mut pass);
+    renderable.render(self.gpu, &mut self.pass);
     self
   }
 }

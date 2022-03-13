@@ -5,31 +5,34 @@ pub mod attachment;
 pub use attachment::*;
 
 use rendiation_webgpu::*;
-use std::{marker::PhantomData, rc::Rc};
+use std::marker::PhantomData;
 
-pub struct RenderEngine {
-  resource: ResourcePool,
+use crate::GPUResourceCache;
+
+pub struct FrameCtx<'a> {
+  pool: &'a ResourcePool,
   msaa_sample_count: u32,
-  gpu: Rc<GPU>,
+  gpu: &'a GPU,
   encoder: GPUCommandEncoder,
-  pub output: ColorChannelView,
+  resources: &'a mut GPUResourceCache,
+  pub output: &'a ColorChannelView,
 }
 
-impl RenderEngine {
-  pub fn new(gpu: Rc<GPU>, output: ColorChannelView) -> Self {
-    #[allow(unused_mut)]
-    let mut msaa_sample_count = 4;
-
-    #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
-    {
-      msaa_sample_count = 1;
-    }
+impl<'a> FrameCtx<'a> {
+  pub fn new(
+    gpu: &'a GPU,
+    output: &'a ColorChannelView,
+    pool: &'a ResourcePool,
+    resources: &'a mut GPUResourceCache,
+  ) -> Self {
+    let msaa_sample_count = 4;
 
     let encoder = gpu.create_encoder();
 
     Self {
-      resource: Default::default(),
+      pool,
       output,
+      resources,
       msaa_sample_count,
       encoder,
       gpu,
@@ -37,7 +40,7 @@ impl RenderEngine {
   }
 
   pub fn notify_output_resized(&self) {
-    self.resource.inner.borrow_mut().clear();
+    self.pool.inner.borrow_mut().clear();
   }
 
   pub fn screen(&self) -> AttachmentWriteView {

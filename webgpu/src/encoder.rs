@@ -3,6 +3,7 @@ use crate::*;
 pub struct GPUCommandEncoder {
   encoder: gpu::CommandEncoder,
   holder: GPURenderPassDataHolder,
+  active_pass_target_holder: Option<RenderPassDescriptorOwned>,
   placeholder_bg: Rc<gpu::BindGroup>,
 }
 
@@ -33,6 +34,7 @@ impl GPUCommandEncoder {
       encoder,
       holder: Default::default(),
       placeholder_bg: Rc::new(placeholder_bg),
+      active_pass_target_holder: Default::default(),
     }
   }
 
@@ -40,10 +42,9 @@ impl GPUCommandEncoder {
     self.encoder.finish()
   }
 
-  pub fn begin_render_pass<'a>(
-    &'a mut self,
-    des: &'a RenderPassDescriptorOwned,
-  ) -> GPURenderPass<'a> {
+  pub fn begin_render_pass<'a>(&'a mut self, des: RenderPassDescriptorOwned) -> GPURenderPass<'a> {
+    self.active_pass_target_holder.replace(des);
+    let des = self.active_pass_target_holder.as_ref().unwrap();
     // should we do some check here?
     let mut size = Size::from_u32_pair_min_one((100, 100));
 

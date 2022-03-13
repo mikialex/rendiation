@@ -10,7 +10,7 @@ impl<'a> PassContent for BackGroundRendering<'a> {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
     self.scene.background.setup_pass(
       gpu,
-      &mut pass,
+      pass,
       &DefaultPassDispatcher,
       self.scene.active_camera.as_ref().unwrap(),
     );

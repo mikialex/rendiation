@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
 use rendiation_texture::*;
 use rendiation_webgpu::*;
 
-use crate::RenderEngine;
+use crate::FrameCtx;
 
 #[derive(Default)]
 pub struct ResourcePoolImpl {
@@ -112,8 +112,8 @@ impl AttachmentDescriptor {
 }
 
 impl AttachmentDescriptor {
-  pub fn request(self, engine: &RenderEngine) -> Attachment {
-    let size = engine.output.size();
+  pub fn request(self, ctx: &FrameCtx) -> Attachment {
+    let size = ctx.output.size();
     let size = (self.sizer)(size);
 
     let key = PooledTextureKey {
@@ -122,7 +122,7 @@ impl AttachmentDescriptor {
       sample_count: self.sample_count,
     };
 
-    let mut resource = engine.resource.inner.borrow_mut();
+    let mut resource = ctx.pool.inner.borrow_mut();
     let cached = resource
       .attachments
       .entry(key)
@@ -134,12 +134,12 @@ impl AttachmentDescriptor {
           .with_render_target_ability()
           .with_sample_count(self.sample_count)
           .with_format(self.format),
-        &engine.gpu.device,
+        &ctx.gpu.device,
       )
     });
 
     Attachment {
-      pool: engine.resource.clone(),
+      pool: ctx.pool.clone(),
       des: self,
       key,
       texture,

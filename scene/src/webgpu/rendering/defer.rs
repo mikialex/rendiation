@@ -9,7 +9,7 @@ pub struct MaterialDeferPassResult {
   material: Attachment,
 }
 
-pub fn defer(engine: &RenderEngine) -> MaterialDeferPassResult {
+pub fn defer(ctx: &RenderEngine) -> MaterialDeferPassResult {
   todo!()
 }
 

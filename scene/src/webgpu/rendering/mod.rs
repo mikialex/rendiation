@@ -17,24 +17,24 @@ pub use utils::*;
 pub mod framework;
 pub use framework::*;
 
-use crate::{GPUResourceCache, SourceOfRendering};
+use crate::GPUResourceCache;
 
 pub struct SceneRenderPass<'a, 'b> {
-  pub pass: &'b mut GPURenderPass<'a>,
+  pub pass: GPURenderPass<'a>,
   pub binding: BindingBuilder,
-  pub resources: &'b GPUResourceCache,
+  pub resources: &'b mut GPUResourceCache,
 }
 
 impl<'a, 'b> std::ops::Deref for SceneRenderPass<'a, 'b> {
   type Target = GPURenderPass<'a>;
 
   fn deref(&self) -> &Self::Target {
-    self.pass
+    &self.pass
   }
 }
 
 impl<'a, 'b> std::ops::DerefMut for SceneRenderPass<'a, 'b> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    self.pass
+    &mut self.pass
   }
 }

@@ -236,7 +236,7 @@ impl<T> ApplicationInner<T> {
         },
       ));
       {
-        let mut pass = encoder.begin_render_pass(&decs);
+        let mut pass = encoder.begin_render_pass(decs);
         task.setup_pass(&mut pass);
       }
       self.gpu.submit_encoder(encoder)

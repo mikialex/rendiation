@@ -83,14 +83,14 @@ pub struct Viewer3dContent {
 
 pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
-  engine: RenderEngine,
+  engine: FrameCtx,
 }
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
-      engine: RenderEngine::new(gpu),
+      engine: FrameCtx::new(gpu),
     }
   }
 
