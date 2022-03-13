@@ -83,14 +83,18 @@ pub struct Viewer3dContent {
 
 pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
-  ctx: FrameCtx,
+  pool: ResourcePool,
+  resources: GPUResourceCache,
+  gpu: Rc<GPU>,
 }
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
-      ctx: FrameCtx::new(gpu),
+      gpu,
+      resources: Default::default(),
+      pool: Default::default(),
     }
   }
 
@@ -101,9 +105,9 @@ impl Viewer3dRenderingCtx {
   pub fn render(&mut self, target: GPUTexture2dView, scene: &mut Viewer3dContent) {
     scene.scene.maintain();
 
-    self.ctx.output = target.into();
+    let ctx = FrameCtx::new(&self.gpu, target.into() & self.pool, &mut self.resources);
 
-    self.pipeline.render(&self.ctx, scene)
+    self.pipeline.render(&mut ctx, scene)
   }
 }
 

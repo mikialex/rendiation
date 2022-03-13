@@ -9,9 +9,7 @@ pub struct ViewerPipeline {
 impl ViewerPipeline {
   pub fn new(gpu: &GPU) -> Self {
     Self {
-      forward: Default::default(),
       highlight: HighLighter::new(gpu),
-      background: Default::default(),
     }
   }
 }

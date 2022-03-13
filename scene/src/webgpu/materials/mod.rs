@@ -14,8 +14,8 @@ pub use flat::*;
 // pub use line::*;
 pub mod physical;
 pub use physical::*;
-// pub mod fatline;
-// pub use fatline::*;
+pub mod fatline;
+pub use fatline::*;
 // pub mod env_background;
 // pub use env_background::*;
 
