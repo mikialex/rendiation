@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use rendiation_algebra::Vec4;
 use rendiation_renderable_mesh::vertex::Vertex;
 use rendiation_webgpu::*;
@@ -15,35 +13,40 @@ pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
 
-impl ShaderPassBuilder for FlatMaterialGPU {
-  fn setup_binding<'a>(&'a self, builder: &mut BindGroupBuilder<'a>) {
-    builder.setup_uniform(&self.uniform);
-  }
+pub struct FlatMaterialGPU {
+  uniform: UniformBufferView<FlatMaterialUniform>,
 }
+
+impl ShaderHashProvider for FlatMaterialGPU {}
 
 impl ShaderGraphProvider for FlatMaterialGPU {
-  fn build_fragment(
+  fn build(
     &self,
-    builder: &mut ShaderGraphFragmentBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let uniform = builder.uniform_by(&self.uniform).expand();
+    builder.fragment(|builder, binding| {
+      let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
 
-    builder.set_fragment_out(0, uniform.color);
-    Ok(())
+      builder.set_fragment_out(0, uniform.color)
+    })
   }
 }
 
-pub struct FlatMaterialGPU {
-  uniform: MaterialUniform<FlatMaterialUniform>,
+impl ShaderPassBuilder for FlatMaterialGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.setup_uniform(&self.uniform, SB::Material);
+  }
 }
 
 impl WebGPUMaterial for FlatMaterial {
   type GPU = FlatMaterialGPU;
 
-  fn create_gpu(&self, res: &mut GPUResourceSubCache) -> Self::GPU {
-    FlatMaterialGPU {
-      uniform: res.uniforms.get(self.uniform),
-    }
+  fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+    let uniform = FlatMaterialUniform { color: self.color };
+    let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
+    let uniform = uniform.create_view(Default::default());
+
+    FlatMaterialGPU { uniform }
   }
 
   fn is_keep_mesh_shape(&self) -> bool {

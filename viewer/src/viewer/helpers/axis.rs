@@ -15,30 +15,18 @@ pub struct AxisHelper {
   z: Arrow,
 }
 
-impl PassContent for AxisHelper {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
+impl PassContentWithCamera for AxisHelper {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
 
-    let (res, mut base) =
-      scene.create_material_ctx_base(gpu, ctx.pass_info, &DefaultPassDispatcher);
-
+    // update the auto scale
     let root_position = self.root.visit(|n| n.world_matrix.position());
-
     self.auto_scale.borrow_mut().override_position = root_position.into();
 
-    self.x.update(gpu, &mut base, res);
-    self.y.update(gpu, &mut base, res);
-    self.z.update(gpu, &mut base, res);
-  }
-
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
-    if !self.enabled {
-      return;
-    }
+    // sort by the camera
     let center = self.root.visit(|n| n.world_matrix.position());
-    let camera = scene.active_camera.as_ref().unwrap();
     let camera = camera.node.visit(|n| n.world_matrix.position());
     let center_to_eye_dir = camera - center;
     let center_to_eye_dir = center_to_eye_dir.normalize();
@@ -49,7 +37,7 @@ impl PassContent for AxisHelper {
     let mut arr = [(x, &self.x), (y, &self.y), (z, &self.z)];
     arr.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Less));
 
-    arr.iter().for_each(|(_, a)| a.setup_pass(pass, scene));
+    arr.iter().for_each(|(_, a)| a.render(gpu, pass, camera));
   }
 }
 
@@ -59,28 +47,15 @@ struct Arrow {
   root: SceneNode,
 }
 
+impl PassContentWithCamera for Arrow {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    let dispatcher = &DefaultPassDispatcher;
+    self.cylinder.setup_pass(pass, gpu, dispatcher, camera);
+    self.tip.setup_pass(pass, gpu, dispatcher, camera);
+  }
+}
+
 impl Arrow {
-  pub fn update(
-    &mut self,
-    gpu: &webgpu::GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtxBase,
-    res: &mut GPUResourceSceneCache,
-  ) {
-    self.cylinder.update(gpu, ctx, res);
-    self.tip.update(gpu, ctx, res);
-  }
-
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
-    let camera = scene
-      .resources
-      .content
-      .cameras
-      .expect_gpu(scene.active_camera.as_ref().unwrap());
-
-    self.cylinder.setup_pass(pass, camera, &scene.resources);
-    self.tip.setup_pass(pass, camera, &scene.resources);
-  }
-
   fn new(
     parent: &SceneNode,
     auto_scale: Rc<RefCell<ViewAutoScalable>>,

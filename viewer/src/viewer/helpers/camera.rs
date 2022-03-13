@@ -106,7 +106,7 @@ impl Default for CameraHelpers {
   }
 }
 
-impl PassContent for CameraHelpers {
+impl PassContentWithCamera for CameraHelpers {
   fn update(&mut self, gpu: &webgpu::GPU, scene: &mut crate::Scene, ctx: &PassUpdateCtx) {
     if !self.enabled {
       return;
@@ -168,6 +168,30 @@ impl PassContent for CameraHelpers {
     for (_, camera) in &scene.cameras {
       let helper = self.helpers.get_unwrap(camera);
       helper.model.setup_pass(pass, main_camera, &scene.resources);
+    }
+  }
+
+  fn render(&mut self, gpu: &webgpu::GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    if !self.enabled {
+      return;
+    }
+
+    for (_, draw_camera) in &mut scene.cameras {
+      let helper = self.helpers.get_update_or_insert_with(
+        draw_camera,
+        |draw_camera| {
+          CameraHelper::from_node_and_project_matrix(
+            draw_camera.node.clone(),
+            draw_camera.projection_matrix,
+          )
+        },
+        |helper, camera| {
+          helper.update(camera.projection_matrix);
+        },
+      );
+      helper
+        .model
+        .update(gpu, &mut base, &mut scene.resources.scene)
     }
   }
 }

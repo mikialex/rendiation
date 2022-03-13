@@ -16,9 +16,7 @@ pub struct GridHelper {
 impl GridHelper {
   pub fn new(root: &SceneNode, config: GridConfig) -> Self {
     let mesh = build_grid(&config).into_resourced();
-    let mat = FatLineMaterial { width: 1. }
-      .use_state()
-      .into_resourced();
+    let mat = FatLineMaterial { width: 1. }.use_state().into_resourced();
     let root = root.clone();
     let node = root.create_child();
     let mesh = HelperLineModel::new(mat, mesh, node);
@@ -32,29 +30,13 @@ impl GridHelper {
   }
 }
 
-impl PassContent for GridHelper {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx) {
+impl PassContentWithCamera for GridHelper {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
 
-    let (res, mut base) =
-      scene.create_material_ctx_base(gpu, ctx.pass_info, &DefaultPassDispatcher);
-    self.mesh.update(gpu, &mut base, res);
-  }
-
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
-    if !self.enabled {
-      return;
-    }
-
-    let camera = scene
-      .resources
-      .content
-      .cameras
-      .expect_gpu(scene.active_camera.as_ref().unwrap());
-
-    self.mesh.setup_pass(pass, camera, &scene.resources);
+    self.mesh.render(gpu, pass, camera)
   }
 }
 
