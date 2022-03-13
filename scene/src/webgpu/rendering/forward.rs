@@ -15,18 +15,21 @@ impl Scene {
 }
 
 pub struct ForwardScene<'a> {
-  scene: &'a mut Scene,
+  scene: &'a  Scene,
 }
 
-impl<'a> PassContent for ForwardScene<'a> {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
-    self.scene.models.iter().for_each(|model| {
-      model.setup_pass(
-        gpu,
-        pass,
-        &DefaultPassDispatcher,
-        self.scene.active_camera.as_ref().unwrap(),
-      )
-    })
+impl<'a> PassContentWithCamera for ForwardScene<'a> {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    self
+      .scene
+      .models
+      .iter()
+      .for_each(|model| model.setup_pass(gpu, pass, &DefaultPassDispatcher, camera))
+  }
+}
+
+impl Scene {
+  pub fn render_forward_all(&self) -> impl PassContent + '_ {
+    self.render_by_main_camera(ForwardScene { scene: self })
   }
 }

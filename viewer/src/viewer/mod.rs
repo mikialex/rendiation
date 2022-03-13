@@ -83,27 +83,27 @@ pub struct Viewer3dContent {
 
 pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
-  engine: FrameCtx,
+  ctx: FrameCtx,
 }
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
-      engine: FrameCtx::new(gpu),
+      ctx: FrameCtx::new(gpu),
     }
   }
 
   pub fn resize_view(&mut self) {
-    self.engine.notify_output_resized();
+    self.ctx.notify_output_resized();
   }
 
   pub fn render(&mut self, target: GPUTexture2dView, scene: &mut Viewer3dContent) {
     scene.scene.maintain();
 
-    self.engine.output = target.into();
+    self.ctx.output = target.into();
 
-    self.pipeline.render(&self.engine, scene)
+    self.pipeline.render(&self.ctx, scene)
   }
 }
 

@@ -3,16 +3,20 @@ use rendiation_webgpu::*;
 use crate::*;
 
 pub struct BackGroundRendering<'a> {
-  scene: &'a mut Scene,
+  scene: &'a Scene,
 }
 
-impl<'a> PassContent for BackGroundRendering<'a> {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
-    self.scene.background.setup_pass(
-      gpu,
-      pass,
-      &DefaultPassDispatcher,
-      self.scene.active_camera.as_ref().unwrap(),
-    );
+impl<'a> PassContentWithCamera for BackGroundRendering<'a> {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    self
+      .scene
+      .background
+      .setup_pass(gpu, pass, &DefaultPassDispatcher, camera);
+  }
+}
+
+impl Scene {
+  pub fn render_background(&self) -> impl PassContent + '_ {
+    self.render_by_main_camera(BackGroundRendering { scene: self })
   }
 }

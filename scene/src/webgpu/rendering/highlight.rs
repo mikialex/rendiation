@@ -1,11 +1,6 @@
-use std::{any::TypeId, hash::Hash, rc::Rc};
-
-use crate::{
-  AttachmentReadView, PassContent, RenderPassGPUInfoData, Scene, SceneRenderPass, SceneRenderable,
-};
+use crate::{AttachmentReadView, PassContent, Scene, SceneRenderPass, SceneRenderable};
 
 use rendiation_algebra::*;
-use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 
 pub struct HighLighter {
@@ -95,7 +90,7 @@ impl<'a, 'b> ShaderGraphProvider for HighLightComposeTask<'a, 'b> {
 
 pub struct HighLightDrawMaskTask<'a, T> {
   objects: T,
-  scene: &'a mut Scene,
+  scene: &'a Scene,
 }
 
 pub fn highlight<T>(objects: T, scene: &mut Scene) -> HighLightDrawMaskTask<T> {
@@ -109,10 +104,7 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, _| {
-      builder.set_fragment_out(0, Vec4::one().into());
-      Ok(())
-    })
+    builder.fragment(|builder, _| builder.set_fragment_out(0, Vec4::one().into()))
   }
 }
 

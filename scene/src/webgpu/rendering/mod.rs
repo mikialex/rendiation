@@ -11,13 +11,13 @@ pub use highlight::*;
 pub mod background;
 pub use background::*;
 pub mod utils;
-use rendiation_webgpu::{BindingBuilder, GPURenderPass};
+use rendiation_webgpu::{BindingBuilder, GPURenderPass, GPU};
 pub use utils::*;
 
 pub mod framework;
 pub use framework::*;
 
-use crate::GPUResourceCache;
+use crate::{GPUResourceCache, Scene, SceneCamera};
 
 pub struct SceneRenderPass<'a, 'b> {
   pub pass: GPURenderPass<'a>,
@@ -37,4 +37,28 @@ impl<'a, 'b> std::ops::DerefMut for SceneRenderPass<'a, 'b> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.pass
   }
+}
+
+pub struct CameraRef<'a, T> {
+  camera: &'a SceneCamera,
+  inner: T,
+}
+
+impl Scene {
+  pub fn render_by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
+    CameraRef {
+      camera: self.active_camera.as_ref().unwrap(),
+      inner,
+    }
+  }
+}
+
+impl<'a, T: PassContentWithCamera> PassContent for CameraRef<'a, T> {
+  fn render(&mut self, gpu: &rendiation_webgpu::GPU, pass: &mut SceneRenderPass) {
+    self.inner.render(gpu, pass, self.camera);
+  }
+}
+
+pub trait PassContentWithCamera {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera);
 }
