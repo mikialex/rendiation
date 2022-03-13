@@ -114,7 +114,7 @@ where
 {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
     for model in self.objects {
-      model.setup_pass(
+      model.render(
         gpu,
         pass,
         todo!(),

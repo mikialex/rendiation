@@ -42,7 +42,7 @@ impl GPUCommandEncoder {
     self.encoder.finish()
   }
 
-  pub fn begin_render_pass<'a>(&'a mut self, des: RenderPassDescriptorOwned) -> GPURenderPass<'a> {
+  pub fn begin_render_pass(&mut self, des: RenderPassDescriptorOwned) -> GPURenderPass {
     self.active_pass_target_holder.replace(des);
     let des = self.active_pass_target_holder.as_ref().unwrap();
     // should we do some check here?

@@ -107,70 +107,6 @@ impl Default for CameraHelpers {
 }
 
 impl PassContentWithCamera for CameraHelpers {
-  fn update(&mut self, gpu: &webgpu::GPU, scene: &mut crate::Scene, ctx: &PassUpdateCtx) {
-    if !self.enabled {
-      return;
-    }
-
-    if let Some(camera) = &mut scene.active_camera {
-      scene
-        .resources
-        .content
-        .cameras
-        .check_update_gpu(camera, gpu);
-
-      for (_, camera) in &mut scene.cameras {
-        scene
-          .resources
-          .content
-          .cameras
-          .check_update_gpu(camera, gpu);
-      }
-
-      let mut base = SceneMaterialRenderPrepareCtxBase {
-        camera,
-        pass_info: ctx.pass_info,
-        resources: &mut scene.resources.content,
-        pass: &DefaultPassDispatcher,
-      };
-
-      for (_, draw_camera) in &mut scene.cameras {
-        let helper = self.helpers.get_update_or_insert_with(
-          draw_camera,
-          |draw_camera| {
-            CameraHelper::from_node_and_project_matrix(
-              draw_camera.node.clone(),
-              draw_camera.projection_matrix,
-            )
-          },
-          |helper, camera| {
-            helper.update(camera.projection_matrix);
-          },
-        );
-        helper
-          .model
-          .update(gpu, &mut base, &mut scene.resources.scene)
-      }
-    }
-  }
-
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a crate::Scene) {
-    if !self.enabled {
-      return;
-    }
-
-    let main_camera = scene
-      .resources
-      .content
-      .cameras
-      .get_unwrap(scene.active_camera.as_ref().unwrap());
-
-    for (_, camera) in &scene.cameras {
-      let helper = self.helpers.get_unwrap(camera);
-      helper.model.setup_pass(pass, main_camera, &scene.resources);
-    }
-  }
-
   fn render(&mut self, gpu: &webgpu::GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;
@@ -189,9 +125,7 @@ impl PassContentWithCamera for CameraHelpers {
           helper.update(camera.projection_matrix);
         },
       );
-      helper
-        .model
-        .update(gpu, &mut base, &mut scene.resources.scene)
+      helper.model.render(gpu, pass)
     }
   }
 }

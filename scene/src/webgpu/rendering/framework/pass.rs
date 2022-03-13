@@ -52,18 +52,18 @@ impl<'a> PassDescriptor<'a> {
   }
 
   #[must_use]
-  pub fn run<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
-    let mut pass = ctx.encoder.begin_render_pass(self.desc.clone());
+  pub fn render<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
+    let pass = ctx.encoder.begin_render_pass(self.desc.clone());
 
     let pass = SceneRenderPass {
       pass,
       binding: Default::default(),
-      resources: &mut ctx.resources,
+      resources: ctx.resources,
     };
 
     ActiveRenderPass {
       desc: self.desc,
-      gpu: &ctx.gpu,
+      gpu: ctx.gpu,
       pass,
     }
   }
@@ -81,7 +81,7 @@ pub struct ActiveRenderPass<'p> {
 
 impl<'p> ActiveRenderPass<'p> {
   #[must_use]
-  pub fn render(mut self, renderable: &mut dyn PassContent) -> Self {
+  pub fn by(mut self, renderable: &mut dyn PassContent) -> Self {
     renderable.render(self.gpu, &mut self.pass);
     self
   }

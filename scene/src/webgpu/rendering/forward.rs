@@ -15,7 +15,7 @@ impl Scene {
 }
 
 pub struct ForwardScene<'a> {
-  scene: &'a  Scene,
+  scene: &'a Scene,
 }
 
 impl<'a> PassContentWithCamera for ForwardScene<'a> {
@@ -24,7 +24,7 @@ impl<'a> PassContentWithCamera for ForwardScene<'a> {
       .scene
       .models
       .iter()
-      .for_each(|model| model.setup_pass(gpu, pass, &DefaultPassDispatcher, camera))
+      .for_each(|model| model.render(gpu, pass, &DefaultPassDispatcher, camera))
   }
 }
 

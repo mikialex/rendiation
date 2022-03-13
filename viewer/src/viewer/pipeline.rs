@@ -30,18 +30,10 @@ impl ViewerPipeline {
       .with_color(msaa_color.write(), clear(all_zero()))
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
-      .render_by(&mut content.axis_helper)
-      .render_by(&mut content.grid_helper)
-      .render_by(&mut content.camera_helpers)
-      .run(ctx, scene);
-
-    let mut final_compose = pass("compose-all")
-      .with_color(ctx.screen(), scene.get_main_pass_load_op())
-      .with_depth(scene_depth.write(), clear(1.));
-
-    final_compose
-      .render(&mut self.background)
-      .render(&mut self.forward);
+      .render(ctx)
+      .by(&mut content.axis_helper)
+      .by(&mut content.grid_helper)
+      .by(&mut content.camera_helpers);
 
     let mut highlight_compose = (!content.selections.is_empty()).then(||{
        let mut selected = attachment()
@@ -50,19 +42,20 @@ impl ViewerPipeline {
 
       pass("highlight-selected-mask")
         .with_color(selected.write(), clear(color_same(0.)))
-        .render_by(&mut highlight(&content.selections))
-        .run(ctx, scene);
+        .render(ctx)
+        .by(&mut highlight(&content.selections));
 
       self.highlight.draw(selected.read_into())
     });
 
-    let mut copy_frame = copy_frame(widgets_result.read_into());
-
-    final_compose
-      .render(&mut highlight_compose)
-      .render(&mut copy_frame);
-
-    final_compose.run(ctx, scene);
+    let mut final_compose = pass("compose-all")
+      .with_color(ctx.screen(), scene.get_main_pass_load_op())
+      .with_depth(scene_depth.write(), clear(1.))
+      .render(ctx)
+      .by(&mut self.background)
+      .by(&mut self.forward)
+      .by(&mut highlight_compose)
+      .by(&mut copy_frame(widgets_result.read_into()));
 
   }
 }

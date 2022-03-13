@@ -16,7 +16,7 @@ impl RenderList {
     dispatcher: &dyn SourceOfRendering,
   ) {
     self.models.iter().for_each(|model| {
-      model.setup_pass(
+      model.render(
         gpu,
         gpu_pass,
         dispatcher,

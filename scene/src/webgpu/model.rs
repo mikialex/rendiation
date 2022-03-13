@@ -10,16 +10,16 @@ use rendiation_webgpu::{GPURenderPassCtx, PipelineHasher, GPU};
 
 use crate::*;
 
-// pub type SceneFatlineMaterial = MaterialInner<StateControl<FatLineMaterial>>;
+pub type SceneFatlineMaterial = MaterialInner<StateControl<FatLineMaterial>>;
 
-// pub type FatlineImpl = MeshModelImpl<MeshInner<FatlineMesh>, SceneFatlineMaterial>;
+pub type FatlineImpl = MeshModelImpl<MeshInner<FatlineMesh>, SceneFatlineMaterial>;
 
 impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
 where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass(
+  fn render(
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
@@ -27,7 +27,7 @@ where
     camera: &SceneCamera,
   ) {
     let inner = self.inner.borrow();
-    inner.setup_pass(gpu, pass, dispatcher, camera)
+    inner.render(gpu, pass, dispatcher, camera)
   }
 
   fn ray_pick_nearest(
@@ -133,7 +133,7 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass(
+  fn render(
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
@@ -203,7 +203,7 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
 impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   for OverridableMeshModelImpl<Me, Ma>
 {
-  fn setup_pass(
+  fn render(
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,

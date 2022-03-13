@@ -27,8 +27,8 @@ impl PassContentWithCamera for AxisHelper {
 
     // sort by the camera
     let center = self.root.visit(|n| n.world_matrix.position());
-    let camera = camera.node.visit(|n| n.world_matrix.position());
-    let center_to_eye_dir = camera - center;
+    let camera_position = camera.node.visit(|n| n.world_matrix.position());
+    let center_to_eye_dir = camera_position - center;
     let center_to_eye_dir = center_to_eye_dir.normalize();
     let x = Vec3::new(1., 0., 0.).dot(center_to_eye_dir);
     let y = Vec3::new(0., 1., 0.).dot(center_to_eye_dir);
@@ -50,8 +50,8 @@ struct Arrow {
 impl PassContentWithCamera for Arrow {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     let dispatcher = &DefaultPassDispatcher;
-    self.cylinder.setup_pass(pass, gpu, dispatcher, camera);
-    self.tip.setup_pass(pass, gpu, dispatcher, camera);
+    self.cylinder.render(gpu, pass, dispatcher, camera);
+    self.tip.render(gpu, pass, dispatcher, camera);
   }
 }
 
@@ -60,10 +60,10 @@ impl Arrow {
     parent: &SceneNode,
     auto_scale: Rc<RefCell<ViewAutoScalable>>,
     color: impl Into<Vec3<f32>>,
-    cylinder_mesh: impl WebGPUMesh,
-    tip_mesh: impl WebGPUMesh,
+    cylinder_mesh: impl MeshCPUSource,
+    tip_mesh: impl MeshCPUSource,
   ) -> Self {
-    fn material(color: Vec3<f32>) -> impl MaterialCPUResource + Clone {
+    fn material(color: Vec3<f32>) -> impl WebGPUMaterial + Clone {
       let mut material = FlatMaterial {
         color: Vec4::new(color.x, color.y, color.z, 1.0),
       }
@@ -79,7 +79,7 @@ impl Arrow {
     let node_cylinder = root.create_child();
     let mut cylinder = MeshModelImpl::new(
       material.clone().into_resourced(),
-      cylinder_mesh,
+      cylinder_mesh.into_resourced(),
       node_cylinder,
     )
     .into_matrix_overridable();
@@ -88,8 +88,12 @@ impl Arrow {
 
     let node_tip = root.create_child();
     node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
-    let mut tip =
-      MeshModelImpl::new(material.into_resourced(), tip_mesh, node_tip).into_matrix_overridable();
+    let mut tip = MeshModelImpl::new(
+      material.into_resourced(),
+      tip_mesh.into_resourced(),
+      node_tip,
+    )
+    .into_matrix_overridable();
 
     tip.push_override(auto_scale);
 

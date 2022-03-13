@@ -11,7 +11,7 @@ impl<'a> PassContentWithCamera for BackGroundRendering<'a> {
     self
       .scene
       .background
-      .setup_pass(gpu, pass, &DefaultPassDispatcher, camera);
+      .render(gpu, pass, &DefaultPassDispatcher, camera);
   }
 }
 
