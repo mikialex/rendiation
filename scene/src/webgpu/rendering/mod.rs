@@ -45,9 +45,17 @@ pub struct CameraRef<'a, T> {
 }
 
 impl Scene {
-  pub fn render_by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
+  pub fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
     CameraRef {
       camera: self.active_camera.as_ref().unwrap(),
+      inner,
+    }
+  }
+
+  pub fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T> {
+    CameraSceneRef {
+      camera: self.active_camera.as_ref().unwrap(),
+      scene: self,
       inner,
     }
   }
@@ -61,4 +69,20 @@ impl<'a, T: PassContentWithCamera> PassContent for CameraRef<'a, T> {
 
 pub trait PassContentWithCamera {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera);
+}
+
+pub trait PassContentWithSceneAndCamera {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera);
+}
+
+pub struct CameraSceneRef<'a, T> {
+  camera: &'a SceneCamera,
+  scene: &'a Scene,
+  inner: T,
+}
+
+impl<'a, T: PassContentWithSceneAndCamera> PassContent for CameraSceneRef<'a, T> {
+  fn render(&mut self, gpu: &rendiation_webgpu::GPU, pass: &mut SceneRenderPass) {
+    self.inner.render(gpu, pass, self.scene, self.camera);
+  }
 }

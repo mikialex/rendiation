@@ -1,5 +1,6 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
+use webgpu::GPU;
 
 use super::*;
 
@@ -106,8 +107,8 @@ impl Default for CameraHelpers {
   }
 }
 
-impl PassContentWithCamera for CameraHelpers {
-  fn render(&mut self, gpu: &webgpu::GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+impl PassContentWithSceneAndCamera for CameraHelpers {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
@@ -125,7 +126,10 @@ impl PassContentWithCamera for CameraHelpers {
           helper.update(camera.projection_matrix);
         },
       );
-      helper.model.render(gpu, pass)
+      
+      helper
+        .model
+        .render(gpu, pass, &DefaultPassDispatcher, camera)
     }
   }
 }

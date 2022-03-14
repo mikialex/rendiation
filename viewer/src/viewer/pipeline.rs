@@ -31,19 +31,19 @@ impl ViewerPipeline {
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
       .render(ctx)
-      .by(&mut content.axis_helper)
-      .by(&mut content.grid_helper)
-      .by(&mut content.camera_helpers);
+      .by(&mut scene.by_main_camera(content.axis_helper))
+      .by(&mut scene.by_main_camera(content.grid_helper))
+      .by(&mut scene.by_main_camera_and_self(content.camera_helpers));
 
-    let mut highlight_compose = (!content.selections.is_empty()).then(||{
-       let mut selected = attachment()
+    let mut highlight_compose = (!content.selections.is_empty()).then(|| {
+      let mut selected = attachment()
         .format(webgpu::TextureFormat::Rgba8Unorm)
         .request(ctx);
 
       pass("highlight-selected-mask")
         .with_color(selected.write(), clear(color_same(0.)))
         .render(ctx)
-        .by(&mut highlight(&content.selections));
+        .by(&mut scene.by_main_camera(highlight(&content.selections)));
 
       self.highlight.draw(selected.read_into())
     });
@@ -52,10 +52,9 @@ impl ViewerPipeline {
       .with_color(ctx.screen(), scene.get_main_pass_load_op())
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
-      .by(&mut self.background)
-      .by(&mut self.forward)
+      .by(&mut scene.by_main_camera_and_self(BackGroundRendering))
+      .by(&mut scene.by_main_camera_and_self(ForwardScene))
       .by(&mut highlight_compose)
       .by(&mut copy_frame(widgets_result.read_into()));
-
   }
 }

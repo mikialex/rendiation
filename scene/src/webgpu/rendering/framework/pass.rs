@@ -73,6 +73,14 @@ pub trait PassContent {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass);
 }
 
+impl<T: PassContent> PassContent for Option<T> {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
+    if let Some(content) = self {
+      content.render(gpu, pass);
+    }
+  }
+}
+
 pub struct ActiveRenderPass<'p> {
   pass: SceneRenderPass<'p, 'p>,
   gpu: &'p GPU,

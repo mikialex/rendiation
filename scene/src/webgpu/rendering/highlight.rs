@@ -88,13 +88,12 @@ impl<'a, 'b> ShaderGraphProvider for HighLightComposeTask<'a, 'b> {
 //   }
 // );
 
-pub struct HighLightDrawMaskTask<'a, T> {
+pub struct HighLightDrawMaskTask<T> {
   objects: T,
-  scene: &'a Scene,
 }
 
-pub fn highlight<T>(objects: T, scene: &mut Scene) -> HighLightDrawMaskTask<T> {
-  HighLightDrawMaskTask { objects, scene }
+pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
+  HighLightDrawMaskTask { objects }
 }
 
 struct HighLightMaskDispatcher;
@@ -108,18 +107,13 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
   }
 }
 
-impl<'s, 'i, T> PassContent for HighLightDrawMaskTask<'s, T>
+impl<'i, T> PassContentWithCamera for HighLightDrawMaskTask<T>
 where
   T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
 {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     for model in self.objects {
-      model.render(
-        gpu,
-        pass,
-        todo!(),
-        self.scene.active_camera.as_ref().unwrap(),
-      )
+      model.render(gpu, pass, todo!(), camera)
     }
   }
 }

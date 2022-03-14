@@ -36,9 +36,7 @@ impl PassContentWithCamera for GridHelper {
       return;
     }
 
-    self
-      .mesh
-      .setup_pass(gpu, pass, &DefaultPassDispatcher, camera)
+    self.mesh.render(gpu, pass, &DefaultPassDispatcher, camera)
   }
 }
 
