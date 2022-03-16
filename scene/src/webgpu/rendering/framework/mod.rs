@@ -43,9 +43,9 @@ impl<'a> FrameCtx<'a> {
     self.pool.inner.borrow_mut().clear();
   }
 
-  pub fn screen(&self) -> AttachmentWriteView {
+  pub fn screen(&self) -> AttachmentWriteView<&Attachment> {
     AttachmentWriteView {
-      phantom: PhantomData,
+      resource: todo!(),
       view: self.output.clone(),
     }
   }

@@ -1,4 +1,4 @@
-use crate::{AttachmentReadView, PassContent, Scene, SceneRenderPass, SceneRenderable};
+use crate::{AttachmentReadView, SceneRenderPass, SceneRenderable};
 
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
@@ -37,7 +37,7 @@ impl HighLighter {
 }
 
 impl HighLighter {
-  pub fn draw<'a, 'b>(&'a self, mask: AttachmentReadView<'b>) -> HighLightComposeTask<'a, 'b> {
+  pub fn draw<'a, T>(&'a self, mask: AttachmentReadView<T>) -> HighLightComposeTask<'a, T> {
     HighLightComposeTask {
       mask,
       lighter: self,
@@ -45,18 +45,18 @@ impl HighLighter {
   }
 }
 
-pub struct HighLightComposeTask<'a, 'b> {
-  mask: AttachmentReadView<'b>,
+pub struct HighLightComposeTask<'a, T> {
+  mask: AttachmentReadView<T>,
   lighter: &'a HighLighter,
 }
 
-impl<'a, 'b> ShaderPassBuilder for HighLightComposeTask<'a, 'b> {
+impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.setup_uniform(&self.lighter.data, SB::Material)
   }
 }
 
-impl<'a, 'b> ShaderGraphProvider for HighLightComposeTask<'a, 'b> {
+impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,

@@ -4,19 +4,19 @@ use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
 use crate::{AttachmentReadView, ShaderPassBuilder};
 
-pub struct CopyFrame<'a> {
+pub struct CopyFrame<T> {
   sampler: TextureSampler,
-  source: AttachmentReadView<'a>,
+  source: AttachmentReadView<T>,
 }
 
-pub fn copy_frame(source: AttachmentReadView) -> CopyFrame {
+pub fn copy_frame<T>(source: AttachmentReadView<T>) -> CopyFrame<T> {
   CopyFrame {
     source,
     sampler: Default::default(),
   }
 }
 
-impl<'a> ShaderPassBuilder for CopyFrame<'a> {
+impl<T> ShaderPassBuilder for CopyFrame<T> {
   fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
     let sampler = GPUSampler::create(self.sampler.into(), &ctx.gpu.device);
     let sampler = sampler.create_view(Default::default());
@@ -28,7 +28,7 @@ impl<'a> ShaderPassBuilder for CopyFrame<'a> {
   }
 }
 
-impl<'a> ShaderGraphProvider for CopyFrame<'a> {
+impl<T> ShaderGraphProvider for CopyFrame<T> {
   fn build(
     &self,
     builder: &mut shadergraph::ShaderGraphRenderPipelineBuilder,

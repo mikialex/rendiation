@@ -66,29 +66,38 @@ impl Drop for Attachment {
 }
 
 impl Attachment {
-  pub fn write(&mut self) -> AttachmentWriteView {
+  pub fn write(&mut self) -> AttachmentWriteView<&Self> {
     AttachmentWriteView {
-      phantom: PhantomData,
+      resource: self,
       view: self.texture.create_view(()).into(),
     }
   }
 
-  pub fn read(&self) -> AttachmentReadView {
+  pub fn read(&self) -> AttachmentReadView<&Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
-      phantom: PhantomData,
+      resource: self,
       view: self.texture.create_view(()).into(),
+    }
+  }
+
+  pub fn read_into(self) -> AttachmentReadView<Self> {
+    assert_eq!(self.des.sample_count, 1); // todo support latter
+    let view = self.texture.create_view(()).into();
+    AttachmentReadView {
+      resource: self,
+      view,
     }
   }
 }
 
-pub struct AttachmentWriteView<'a> {
-  pub(super) phantom: PhantomData<&'a Attachment>,
+pub struct AttachmentWriteView<T> {
+  pub(super) resource: T,
   pub(super) view: ColorChannelView,
 }
 
-pub struct AttachmentReadView<'a> {
-  phantom: PhantomData<&'a Attachment>,
+pub struct AttachmentReadView<T> {
+  resource: T,
   pub(super) view: ColorChannelView,
 }
 
