@@ -33,6 +33,12 @@ pub struct ResourcePool {
   pub inner: Rc<RefCell<ResourcePoolImpl>>,
 }
 
+impl ResourcePool {
+  pub fn clear(&mut self) {
+    self.inner.borrow_mut().clear()
+  }
+}
+
 pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
     format: wgpu::TextureFormat::Rgba8Unorm,

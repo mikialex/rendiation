@@ -99,7 +99,7 @@ impl Viewer3dRenderingCtx {
   }
 
   pub fn resize_view(&mut self) {
-    self.ctx.notify_output_resized();
+    self.pool.clear();
   }
 
   pub fn render(&mut self, target: GPUTexture2dView, scene: &mut Viewer3dContent) {
