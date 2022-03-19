@@ -2,6 +2,8 @@ use glsl::{parser::Parse, syntax::*};
 use quote::{format_ident, quote};
 use std::collections::HashSet;
 
+use crate::shader::gen_meta_name;
+
 fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::TokenStream> {
   use glsl::visitor::*;
 
@@ -57,10 +59,6 @@ fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::Token
       quote! { &#prototype_name, }
     })
     .collect()
-}
-
-fn gen_meta_name(name: &str) -> syn::Ident {
-  format_ident!("{}_SHADER_FUNCTION", name)
 }
 
 pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {

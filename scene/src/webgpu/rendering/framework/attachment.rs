@@ -72,10 +72,11 @@ impl Drop for Attachment {
 }
 
 impl Attachment {
-  pub fn write(&mut self) -> AttachmentWriteView<&Self> {
+  pub fn write(&mut self) -> AttachmentWriteView<&mut Self> {
+    let view = self.texture.create_view(()).into();
     AttachmentWriteView {
       resource: self,
-      view: self.texture.create_view(()).into(),
+      view,
     }
   }
 

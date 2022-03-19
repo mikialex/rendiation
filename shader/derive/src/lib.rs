@@ -2,12 +2,12 @@ use proc_macro::TokenStream;
 
 use syn::parse_macro_input;
 
-mod glsl_impl;
+mod shader;
 mod shader_struct;
 mod std140;
 mod utils;
 mod vertex;
-use glsl_impl::*;
+use shader::*;
 use shader_struct::*;
 use std140::*;
 use vertex::*;

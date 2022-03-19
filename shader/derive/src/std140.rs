@@ -20,7 +20,7 @@ fn get_simple_attr(attributes: &[Attribute], attr_name: &str) -> Option<Ident> {
       attr.path.get_ident(),
       get_ident_from_stream(attr.tokens.clone()),
     ) {
-      if outer_ident.to_string() == attr_name {
+      if *outer_ident == attr_name {
         return Some(inner_ident);
       }
     }
@@ -35,7 +35,7 @@ fn get_repr(attributes: &[Attribute]) -> Option<String> {
 
 fn check_attributes(attributes: &[Attribute]) -> Result<(), &'static str> {
   let repr = get_repr(attributes);
-  match repr.as_ref().map(|repr| repr.as_str()) {
+  match repr.as_deref() {
     Some("C") => Ok(()),
     Some("transparent") => Ok(()),
     _ => Err("Pod requires the struct to be #[repr(C)] or #[repr(transparent)]"),

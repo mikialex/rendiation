@@ -5,7 +5,6 @@ pub mod attachment;
 pub use attachment::*;
 
 use rendiation_webgpu::*;
-use std::marker::PhantomData;
 
 use crate::GPUResourceCache;
 
