@@ -4,6 +4,7 @@ pub use pass::*;
 pub mod attachment;
 pub use attachment::*;
 
+use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
 use crate::GPUResourceCache;
@@ -11,16 +12,16 @@ use crate::GPUResourceCache;
 pub struct FrameCtx<'a> {
   pool: &'a ResourcePool,
   msaa_sample_count: u32,
+  frame_size: Size,
   gpu: &'a GPU,
   encoder: GPUCommandEncoder,
   resources: &'a mut GPUResourceCache,
-  pub output: ColorChannelView,
 }
 
 impl<'a> FrameCtx<'a> {
   pub fn new(
     gpu: &'a GPU,
-    output: ColorChannelView,
+    frame_size: Size,
     pool: &'a ResourcePool,
     resources: &'a mut GPUResourceCache,
   ) -> Self {
@@ -30,7 +31,7 @@ impl<'a> FrameCtx<'a> {
 
     Self {
       pool,
-      output,
+      frame_size,
       resources,
       msaa_sample_count,
       encoder,
@@ -40,13 +41,6 @@ impl<'a> FrameCtx<'a> {
 
   pub fn notify_output_resized(&self) {
     self.pool.inner.borrow_mut().clear();
-  }
-
-  pub fn screen(&self) -> AttachmentWriteView<&mut Attachment> {
-    AttachmentWriteView {
-      resource: todo!(),
-      view: self.output.clone(),
-    }
   }
 
   pub fn multisampled_attachment(&self) -> AttachmentDescriptor {

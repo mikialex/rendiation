@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use rendiation_texture::*;
 use rendiation_webgpu::*;
@@ -129,7 +129,7 @@ impl AttachmentDescriptor {
 
 impl AttachmentDescriptor {
   pub fn request(self, ctx: &FrameCtx) -> Attachment {
-    let size = ctx.output.size();
+    let size = ctx.frame_size;
     let size = (self.sizer)(size);
 
     let key = PooledTextureKey {

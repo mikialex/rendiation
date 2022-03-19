@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use rendiation_webgpu::{Operations, RenderPassDescriptorOwned, GPU};
+use rendiation_webgpu::{ColorChannelView, Operations, RenderPassDescriptorOwned, GPU};
 
 use crate::{Attachment, AttachmentWriteView, FrameCtx, SceneRenderPass};
 
@@ -18,27 +18,33 @@ pub struct PassDescriptor<'a> {
   desc: RenderPassDescriptorOwned,
 }
 
+impl<'a> From<AttachmentWriteView<&'a mut Attachment>> for ColorChannelView {
+  fn from(val: AttachmentWriteView<&'a mut Attachment>) -> Self {
+    val.view
+  }
+}
+
 impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_color(
     mut self,
-    attachment: AttachmentWriteView<&'a mut Attachment>,
+    attachment: impl Into<ColorChannelView> + 'a,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    self.desc.channels.push((op.into(), attachment.view));
+    self.desc.channels.push((op.into(), attachment.into()));
     self
   }
 
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: AttachmentWriteView<&'a mut Attachment>,
+    attachment: impl Into<ColorChannelView> + 'a,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
     self
       .desc
       .depth_stencil_target
-      .replace((op.into(), attachment.view));
+      .replace((op.into(), attachment.into()));
 
     // todo check sample count is same as color's
 

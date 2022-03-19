@@ -16,7 +16,12 @@ impl ViewerPipeline {
 
 impl ViewerPipeline {
   #[rustfmt::skip]
-  pub fn render(&mut self, ctx: &mut FrameCtx, content: &mut Viewer3dContent) {
+  pub fn render(
+    &mut self, 
+    ctx: &mut FrameCtx, 
+    content: &mut Viewer3dContent, 
+    final_target: ColorChannelView
+  ) {
     let scene = &mut content.scene;
 
     let mut scene_depth = depth_attachment().request(ctx);
@@ -49,7 +54,7 @@ impl ViewerPipeline {
     });
 
     pass("compose-all")
-      // .with_color(ctx.screen(), scene.get_main_pass_load_op())
+      .with_color(final_target, scene.get_main_pass_load_op())
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(&mut scene.by_main_camera_and_self(BackGroundRendering))

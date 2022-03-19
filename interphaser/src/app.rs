@@ -221,12 +221,7 @@ impl<T> ApplicationInner<T> {
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((
         webgpu::Operations {
-          load: webgpu::LoadOp::Clear(webgpu::Color {
-            r: 1.,
-            g: 1.,
-            b: 1.,
-            a: 1.,
-          }),
+          load: webgpu::LoadOp::Clear(webgpu::Color::WHITE),
           store: true,
         },
         ColorChannelView::SurfaceTexture {

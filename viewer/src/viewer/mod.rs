@@ -29,7 +29,7 @@ impl CanvasPrinter for ViewerImpl {
     self
       .ctx
       .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-      .render(canvas, &mut self.content)
+      .render(ColorChannelView::Texture(canvas), &mut self.content)
   }
 
   fn event(
@@ -102,12 +102,12 @@ impl Viewer3dRenderingCtx {
     self.pool.clear();
   }
 
-  pub fn render(&mut self, target: GPUTexture2dView, scene: &mut Viewer3dContent) {
+  pub fn render(&mut self, target: ColorChannelView, scene: &mut Viewer3dContent) {
     scene.scene.maintain();
 
-    let mut ctx = FrameCtx::new(&self.gpu, target.into(), &self.pool, &mut self.resources);
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &mut self.resources);
 
-    self.pipeline.render(&mut ctx, scene)
+    self.pipeline.render(&mut ctx, scene, target)
   }
 }
 
