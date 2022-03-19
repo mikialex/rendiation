@@ -31,9 +31,9 @@ impl ViewerPipeline {
       .with_depth(msaa_depth.write(), clear(1.))
       .resolve_to(widgets_result.write())
       .render(ctx)
-      .by(&mut scene.by_main_camera(content.axis_helper))
-      .by(&mut scene.by_main_camera(content.grid_helper))
-      .by(&mut scene.by_main_camera_and_self(content.camera_helpers));
+      .by(&mut scene.by_main_camera(&mut content.axis_helper))
+      .by(&mut scene.by_main_camera(&mut content.grid_helper))
+      .by(&mut scene.by_main_camera_and_self(&mut content.camera_helpers));
 
     let mut highlight_compose = (!content.selections.is_empty()).then(|| {
       let mut selected = attachment()
@@ -48,8 +48,8 @@ impl ViewerPipeline {
       self.highlight.draw(selected.read_into())
     });
 
-    let mut final_compose = pass("compose-all")
-      .with_color(ctx.screen(), scene.get_main_pass_load_op())
+    pass("compose-all")
+      // .with_color(ctx.screen(), scene.get_main_pass_load_op())
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(&mut scene.by_main_camera_and_self(BackGroundRendering))

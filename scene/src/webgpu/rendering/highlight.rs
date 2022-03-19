@@ -45,6 +45,12 @@ impl HighLighter {
   }
 }
 
+impl<'a, T> PassContent for HighLightComposeTask<'a, T> {
+  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
+    todo!()
+  }
+}
+
 pub struct HighLightComposeTask<'a, T> {
   mask: AttachmentReadView<T>,
   lighter: &'a HighLighter,

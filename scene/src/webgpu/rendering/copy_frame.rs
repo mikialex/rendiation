@@ -2,11 +2,17 @@ use rendiation_texture::TextureSampler;
 use rendiation_webgpu::GPUSampler;
 use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentReadView, ShaderPassBuilder};
+use crate::{AttachmentReadView, PassContent, ShaderPassBuilder};
 
 pub struct CopyFrame<T> {
   sampler: TextureSampler,
   source: AttachmentReadView<T>,
+}
+
+impl<T> PassContent for CopyFrame<T> {
+  fn render(&mut self, gpu: &rendiation_webgpu::GPU, pass: &mut crate::SceneRenderPass) {
+    todo!()
+  }
 }
 
 pub fn copy_frame<T>(source: AttachmentReadView<T>) -> CopyFrame<T> {

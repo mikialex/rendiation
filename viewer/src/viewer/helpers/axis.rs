@@ -15,7 +15,7 @@ pub struct AxisHelper {
   z: Arrow,
 }
 
-impl PassContentWithCamera for AxisHelper {
+impl PassContentWithCamera for &mut AxisHelper {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;
@@ -34,10 +34,12 @@ impl PassContentWithCamera for AxisHelper {
     let y = Vec3::new(0., 1., 0.).dot(center_to_eye_dir);
     let z = Vec3::new(0., 0., 1.).dot(center_to_eye_dir);
 
-    let mut arr = [(x, &self.x), (y, &self.y), (z, &self.z)];
+    let mut arr = [(x, &mut self.x), (y, &mut self.y), (z, &mut self.z)];
     arr.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Less));
 
-    arr.iter().for_each(|(_, a)| a.render(gpu, pass, camera));
+    arr
+      .iter_mut()
+      .for_each(|(_, a)| a.render(gpu, pass, camera));
   }
 }
 

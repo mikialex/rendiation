@@ -14,13 +14,13 @@ pub struct FrameCtx<'a> {
   gpu: &'a GPU,
   encoder: GPUCommandEncoder,
   resources: &'a mut GPUResourceCache,
-  pub output: &'a ColorChannelView,
+  pub output: ColorChannelView,
 }
 
 impl<'a> FrameCtx<'a> {
   pub fn new(
     gpu: &'a GPU,
-    output: &'a ColorChannelView,
+    output: ColorChannelView,
     pool: &'a ResourcePool,
     resources: &'a mut GPUResourceCache,
   ) -> Self {
@@ -42,7 +42,7 @@ impl<'a> FrameCtx<'a> {
     self.pool.inner.borrow_mut().clear();
   }
 
-  pub fn screen(&self) -> AttachmentWriteView<&Attachment> {
+  pub fn screen(&self) -> AttachmentWriteView<&mut Attachment> {
     AttachmentWriteView {
       resource: todo!(),
       view: self.output.clone(),

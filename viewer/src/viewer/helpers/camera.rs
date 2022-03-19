@@ -107,13 +107,13 @@ impl Default for CameraHelpers {
   }
 }
 
-impl PassContentWithSceneAndCamera for CameraHelpers {
+impl PassContentWithSceneAndCamera for &mut CameraHelpers {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
 
-    for (_, draw_camera) in &mut scene.cameras {
+    for (_, draw_camera) in &scene.cameras {
       let helper = self.helpers.get_update_or_insert_with(
         draw_camera,
         |draw_camera| {
@@ -126,7 +126,7 @@ impl PassContentWithSceneAndCamera for CameraHelpers {
           helper.update(camera.projection_matrix);
         },
       );
-      
+
       helper
         .model
         .render(gpu, pass, &DefaultPassDispatcher, camera)

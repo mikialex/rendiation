@@ -234,28 +234,55 @@ where
 //   }
 // }
 
-// impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUMesh for MeshCell<T> {
-//   fn setup_pass_and_draw<'a>(
-//     &self,
-//     pass: &mut GPURenderPass<'a>,
-//     group: MeshDrawGroup,
-//     res: &GPUResourceSceneCache,
-//   ) {
-//     let inner = self.inner.borrow();
-//     res.setup_mesh(&inner, pass, group);
-//   }
+impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCell<T> {
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    self.inner.borrow().topology()
+  }
 
-//   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
-//     let inner = self.inner.borrow();
-//     res.update_mesh(&inner, gpu, storage)
-//   }
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    let inner = self.inner.borrow();
+    inner.try_pick(f);
+  }
 
-//   fn topology(&self) -> wgpu::PrimitiveTopology {
-//     self.inner.borrow().topology()
-//   }
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMeshCache,
+    sub_res: &mut AnyMap,
+    gpu: &GPU,
+  ) -> &'a dyn SourceOfRendering {
+    let inner = self.inner.borrow();
+    inner.check_update_gpu(res, sub_res, gpu)
+  }
+}
 
-//   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-//     let inner = self.inner.borrow();
-//     inner.try_pick(f);
-//   }
-// }
+impl<T> MeshCPUSource for MeshCell<T>
+where
+  T: MeshCPUSource,
+{
+  type GPU = T::GPU;
+
+  fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, res: &mut AnyMap) {
+    self.inner.borrow().update(gpu_mesh, gpu, res);
+  }
+
+  fn create(&self, gpu: &GPU, res: &mut AnyMap) -> Self::GPU {
+    self.inner.borrow().create(gpu, res)
+  }
+
+  fn setup_pass_and_draw<'a>(
+    &self,
+    gpu: &Self::GPU,
+    pass: &mut GPURenderPass<'a>,
+    group: MeshDrawGroup,
+  ) {
+    self.inner.borrow().setup_pass_and_draw(gpu, pass, group);
+  }
+
+  fn topology(&self) -> wgpu::PrimitiveTopology {
+    self.inner.borrow().topology()
+  }
+
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    self.inner.borrow().try_pick(f)
+  }
+}

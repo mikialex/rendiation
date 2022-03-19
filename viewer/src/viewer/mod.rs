@@ -105,7 +105,7 @@ impl Viewer3dRenderingCtx {
   pub fn render(&mut self, target: GPUTexture2dView, scene: &mut Viewer3dContent) {
     scene.scene.maintain();
 
-    let ctx = FrameCtx::new(&self.gpu, target.into() & self.pool, &mut self.resources);
+    let mut ctx = FrameCtx::new(&self.gpu, target.into(), &self.pool, &mut self.resources);
 
     self.pipeline.render(&mut ctx, scene)
   }

@@ -30,7 +30,7 @@ impl GridHelper {
   }
 }
 
-impl PassContentWithCamera for GridHelper {
+impl PassContentWithCamera for &mut GridHelper {
   fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;

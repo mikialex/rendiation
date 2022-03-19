@@ -22,7 +22,7 @@ impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_color(
     mut self,
-    attachment: AttachmentWriteView<&'a Attachment>,
+    attachment: AttachmentWriteView<&'a mut Attachment>,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
     self.desc.channels.push((op.into(), attachment.view));
@@ -32,7 +32,7 @@ impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: AttachmentWriteView<&'a Attachment>,
+    attachment: AttachmentWriteView<&'a mut Attachment>,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
     self
@@ -46,7 +46,7 @@ impl<'a> PassDescriptor<'a> {
   }
 
   #[must_use]
-  pub fn resolve_to(mut self, attachment: AttachmentWriteView<&'a Attachment>) -> Self {
+  pub fn resolve_to(mut self, attachment: AttachmentWriteView<&'a mut Attachment>) -> Self {
     self.desc.resolve_target = attachment.view.into();
     self
   }
@@ -88,7 +88,7 @@ pub struct ActiveRenderPass<'p> {
 }
 
 impl<'p> ActiveRenderPass<'p> {
-  #[must_use]
+  #[allow(clippy::return_self_not_must_use)]
   pub fn by(mut self, renderable: &mut dyn PassContent) -> Self {
     renderable.render(self.gpu, &mut self.pass);
     self
