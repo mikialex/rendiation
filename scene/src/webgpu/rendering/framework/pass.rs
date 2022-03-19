@@ -95,7 +95,7 @@ pub struct ActiveRenderPass<'p> {
 
 impl<'p> ActiveRenderPass<'p> {
   #[allow(clippy::return_self_not_must_use)]
-  pub fn by(mut self, renderable: &mut dyn PassContent) -> Self {
+  pub fn by(mut self, mut renderable: impl PassContent) -> Self {
     renderable.render(self.gpu, &mut self.pass);
     self
   }
