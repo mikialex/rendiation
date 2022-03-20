@@ -48,7 +48,7 @@ impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {
-    todo!()
+    self.deref().topology()
   }
 }
 

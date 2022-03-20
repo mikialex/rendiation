@@ -30,6 +30,12 @@ pub fn glsl_function(input: TokenStream) -> TokenStream {
   gen_glsl_function(input.as_str()).into()
 }
 
+#[proc_macro]
+pub fn wgsl_function(input: TokenStream) -> TokenStream {
+  let input = format!("{}", input);
+  gen_wgsl_function(input.as_str()).into()
+}
+
 #[proc_macro_attribute]
 pub fn std140_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);

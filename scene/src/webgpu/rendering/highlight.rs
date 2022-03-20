@@ -79,20 +79,20 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
   }
 }
 
-// wgsl_function!(
-//   fn edge_intensity(uv: vec2<f32>) -> f32 {
-//     var x_step: f32 = pass_info.texel_size.x * highlighter.width;
-//       var y_step: f32 = pass_info.texel_size.y * highlighter.width;
+wgsl_function!(
+  fn edge_intensity(uv: vec2<f32>) -> f32 {
+    var x_step: f32 = pass_info.texel_size.x * highlighter.width;
+      var y_step: f32 = pass_info.texel_size.y * highlighter.width;
 
-//       var all: f32 = 0.0;
-//       all = all + textureSample(mask, tex_sampler, in.uv).x;
-//       all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
-//       all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
-//       all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
+      var all: f32 = 0.0;
+      all = all + textureSample(mask, tex_sampler, in.uv).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
+      all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
 
-//       var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
-//   }
-// );
+      var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
+  }
+);
 
 pub struct HighLightDrawMaskTask<T> {
   objects: T,
