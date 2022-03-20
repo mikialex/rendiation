@@ -23,7 +23,7 @@ where
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn SourceOfRendering,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
   ) {
     let inner = self.inner.borrow();
@@ -78,7 +78,7 @@ where
     pass: &mut SceneRenderPass,
     camera: &SceneCamera,
     override_node: Option<&TransformGPU>,
-    dispatcher: &dyn SourceOfRendering,
+    dispatcher: &dyn RenderComponent,
   ) {
     let resources = &mut pass.resources;
     let pass_gpu = dispatcher;
@@ -137,7 +137,7 @@ where
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn SourceOfRendering,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
   ) {
     self.setup_pass_core(gpu, pass, camera, None, dispatcher);
@@ -207,7 +207,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn SourceOfRendering,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
   ) {
     let ctx = WorldMatrixOverrideCtx {

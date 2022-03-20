@@ -28,5 +28,5 @@ pub use lights::*;
 pub mod camera;
 pub use camera::*;
 
-pub mod resource;
-pub use resource::*;
+pub mod identity;
+pub use identity::*;

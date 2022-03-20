@@ -1,9 +1,9 @@
 use rendiation_algebra::*;
 use rendiation_texture::TextureSampler;
 
-use crate::{ResourceWrapped, SceneTexture2D};
+use crate::{Identity, SceneTexture2D};
 
-pub type MaterialInner<T> = ResourceWrapped<T>;
+pub type MaterialInner<T> = Identity<T>;
 
 #[derive(Clone)]
 pub struct PhysicalMaterial {

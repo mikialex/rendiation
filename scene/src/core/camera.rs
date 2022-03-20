@@ -2,14 +2,14 @@ use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
 
-use crate::{ResourceWrapped, SceneNode};
+use crate::{Identity, SceneNode};
 
 pub struct SceneCamera {
-  pub inner: ResourceWrapped<Camera>,
+  pub inner: Identity<Camera>,
 }
 
 impl std::ops::Deref for SceneCamera {
-  type Target = ResourceWrapped<Camera>;
+  type Target = Identity<Camera>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
@@ -33,7 +33,7 @@ impl SceneCamera {
     inner.projection_changed();
 
     Self {
-      inner: ResourceWrapped::new(inner),
+      inner: Identity::new(inner),
     }
   }
 

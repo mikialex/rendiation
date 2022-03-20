@@ -95,7 +95,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
 
 pub struct CameraHelpers {
   pub enabled: bool,
-  pub helpers: ResourceMapper<CameraHelper, Camera>,
+  pub helpers: IdentityMapper<CameraHelper, Camera>,
 }
 
 impl Default for CameraHelpers {

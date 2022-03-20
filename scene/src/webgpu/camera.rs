@@ -23,11 +23,11 @@ impl CameraViewBounds {
 
 #[derive(Default)]
 pub struct CameraGPUStore {
-  inner: ResourceMapper<CameraGPU, Camera>,
+  inner: IdentityMapper<CameraGPU, Camera>,
 }
 
 impl std::ops::Deref for CameraGPUStore {
-  type Target = ResourceMapper<CameraGPU, Camera>;
+  type Target = IdentityMapper<CameraGPU, Camera>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner

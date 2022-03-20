@@ -7,7 +7,7 @@ use crate::*;
 
 #[derive(Default)]
 pub struct NodeGPUStore {
-  inner: ResourceMapper<TransformGPU, SceneNodeDataImpl>,
+  inner: IdentityMapper<TransformGPU, SceneNodeDataImpl>,
 }
 
 impl NodeGPUStore {
@@ -28,7 +28,7 @@ impl NodeGPUStore {
 }
 
 impl std::ops::Deref for NodeGPUStore {
-  type Target = ResourceMapper<TransformGPU, SceneNodeDataImpl>;
+  type Target = IdentityMapper<TransformGPU, SceneNodeDataImpl>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner

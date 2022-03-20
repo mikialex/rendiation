@@ -31,18 +31,17 @@ pub trait ShaderPassBuilder {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
 }
 
-pub trait SourceOfRendering:
+pub trait RenderComponent:
   ShaderHashProvider // able to get pipeline from cache at low cost
    + ShaderGraphProvider // able to provide shader logic and config pipeline
    + ShaderPassBuilder // able to bind resource to renderpass
 {
 }
 
-impl<T> SourceOfRendering for T where T: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder
-{}
+impl<T> RenderComponent for T where T: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {}
 
 pub trait WebGPUMaterial: Clone + Any {
-  type GPU: SourceOfRendering;
+  type GPU: RenderComponent;
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
@@ -54,17 +53,17 @@ pub trait WebGPUSceneMaterial: 'static {
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
-  ) -> &'a dyn SourceOfRendering;
+  ) -> &'a dyn RenderComponent;
   fn is_keep_mesh_shape(&self) -> bool;
 }
 
-impl<M: WebGPUMaterial> WebGPUSceneMaterial for ResourceWrapped<M> {
+impl<M: WebGPUMaterial> WebGPUSceneMaterial for Identity<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
-  ) -> &'a dyn SourceOfRendering {
+  ) -> &'a dyn RenderComponent {
     res.update_material(self, gpu, sub_res)
   }
   fn is_keep_mesh_shape(&self) -> bool {
@@ -72,11 +71,11 @@ impl<M: WebGPUMaterial> WebGPUSceneMaterial for ResourceWrapped<M> {
   }
 }
 
-type MaterialResourceMapper<T> = ResourceMapper<<T as WebGPUMaterial>::GPU, T>;
+type MaterialIdentityMapper<T> = IdentityMapper<<T as WebGPUMaterial>::GPU, T>;
 impl GPUMaterialCache {
   pub fn update_material<M: WebGPUMaterial>(
     &mut self,
-    m: &ResourceWrapped<M>,
+    m: &Identity<M>,
     gpu: &GPU,
     res: &mut GPUResourceSubCache,
   ) -> &M::GPU {
@@ -85,8 +84,8 @@ impl GPUMaterialCache {
     let mapper = self
       .inner
       .entry(type_id)
-      .or_insert_with(|| Box::new(MaterialResourceMapper::<M>::default()))
-      .downcast_mut::<MaterialResourceMapper<M>>()
+      .or_insert_with(|| Box::new(MaterialIdentityMapper::<M>::default()))
+      .downcast_mut::<MaterialIdentityMapper<M>>()
       .unwrap();
 
     mapper.get_update_or_insert_with_logic(m, |x| match x {

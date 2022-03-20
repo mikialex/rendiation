@@ -29,7 +29,7 @@ pub trait WebGPUSceneMesh: 'static {
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-  ) -> &'a dyn SourceOfRendering;
+  ) -> &'a dyn RenderComponent;
 
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
@@ -37,13 +37,13 @@ pub trait WebGPUSceneMesh: 'static {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
-impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
+impl<M: MeshCPUSource> WebGPUSceneMesh for Identity<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-  ) -> &'a dyn SourceOfRendering {
+  ) -> &'a dyn RenderComponent {
     res.update_mesh(self, gpu, sub_res)
   }
 
@@ -55,17 +55,17 @@ impl<M: MeshCPUSource> WebGPUSceneMesh for ResourceWrapped<M> {
 impl GPUMeshCache {
   pub fn update_mesh<M: MeshCPUSource>(
     &mut self,
-    m: &ResourceWrapped<M>,
+    m: &Identity<M>,
     gpu: &GPU,
     storage: &mut AnyMap,
-  ) -> &dyn SourceOfRendering {
+  ) -> &dyn RenderComponent {
     let type_id = TypeId::of::<M>();
 
     let mapper = self
       .inner
       .entry(type_id)
-      .or_insert_with(|| Box::new(MeshResourceMapper::<M>::default()))
-      .downcast_mut::<MeshResourceMapper<M>>()
+      .or_insert_with(|| Box::new(MeshIdentityMapper::<M>::default()))
+      .downcast_mut::<MeshIdentityMapper<M>>()
       .unwrap();
     mapper.get_update_or_insert_with_logic(m, |x| match x {
       ResourceLogic::Create(m) => ResourceLogicResult::Create(m.create(gpu, storage)),
@@ -78,7 +78,7 @@ impl GPUMeshCache {
 
   pub fn setup_mesh<'a, M: MeshCPUSource>(
     &self,
-    m: &ResourceWrapped<M>,
+    m: &Identity<M>,
     pass: &mut GPURenderPass<'a>,
     group: MeshDrawGroup,
   ) {
@@ -87,7 +87,7 @@ impl GPUMeshCache {
       .inner
       .get(&type_id)
       .unwrap()
-      .downcast_ref::<MeshResourceMapper<M>>()
+      .downcast_ref::<MeshIdentityMapper<M>>()
       .unwrap()
       .get_unwrap(m);
 
@@ -95,9 +95,9 @@ impl GPUMeshCache {
   }
 }
 
-type MeshResourceMapper<T> = ResourceMapper<<T as MeshCPUSource>::GPU, T>;
+type MeshIdentityMapper<T> = IdentityMapper<<T as MeshCPUSource>::GPU, T>;
 pub trait MeshCPUSource: Any {
-  type GPU: SourceOfRendering;
+  type GPU: RenderComponent;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
   fn setup_pass_and_draw<'a>(
@@ -241,7 +241,7 @@ impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for Mesh
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-  ) -> &'a dyn SourceOfRendering {
+  ) -> &'a dyn RenderComponent {
     let inner = self.inner.borrow();
     inner.check_update_gpu(res, sub_res, gpu)
   }

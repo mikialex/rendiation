@@ -31,14 +31,14 @@ use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectCo
 
 use rendiation_webgpu::*;
 
-use crate::{ResourceMapper, SceneCamera, TextureCubeSource};
+use crate::{IdentityMapper, SceneCamera, TextureCubeSource};
 
 pub trait SceneRenderable: 'static {
   fn render(
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn SourceOfRendering,
+    dispatcher: &dyn RenderComponent,
     camera: &SceneCamera,
   );
 
@@ -102,7 +102,7 @@ pub struct GPUResourceSceneCache {
 /// GPU cache container for given scene
 #[derive(Default)]
 pub struct GPUResourceSubCache {
-  // pub uniforms: ResourceMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_2ds: ResourceMapper<GPUTexture2dView, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_cubes: ResourceMapper<GPUTextureCubeView, TextureCubeSource>,
+  // pub uniforms: IdentityMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
+  pub texture_2ds: IdentityMapper<GPUTexture2dView, Box<dyn WebGPUTexture2dSource>>,
+  pub texture_cubes: IdentityMapper<GPUTextureCubeView, TextureCubeSource>,
 }

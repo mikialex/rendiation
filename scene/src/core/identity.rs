@@ -10,27 +10,27 @@ use arena::Arena;
 
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 
-pub struct ResourceWrapped<T> {
+pub struct Identity<T> {
   id: usize,
   inner: T,
   pub watchers: RefCell<Arena<Box<dyn Watcher<T>>>>,
 }
 
 pub trait IntoResourced: Sized {
-  fn into_resourced(self) -> ResourceWrapped<Self> {
+  fn into_resourced(self) -> Identity<Self> {
     self.into()
   }
 }
 
 impl<T> IntoResourced for T {}
 
-impl<T> From<T> for ResourceWrapped<T> {
+impl<T> From<T> for Identity<T> {
   fn from(inner: T) -> Self {
     Self::new(inner)
   }
 }
 
-impl<T> ResourceWrapped<T> {
+impl<T> Identity<T> {
   pub fn new(inner: T) -> Self {
     Self {
       inner,
@@ -57,13 +57,13 @@ impl<T> ResourceWrapped<T> {
   }
 }
 
-impl<T: Default> Default for ResourceWrapped<T> {
+impl<T: Default> Default for Identity<T> {
   fn default() -> Self {
     Self::new(Default::default())
   }
 }
 
-impl<T> Drop for ResourceWrapped<T> {
+impl<T> Drop for Identity<T> {
   fn drop(&mut self) {
     self
       .watchers
@@ -73,7 +73,7 @@ impl<T> Drop for ResourceWrapped<T> {
   }
 }
 
-impl<T> std::ops::Deref for ResourceWrapped<T> {
+impl<T> std::ops::Deref for Identity<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -81,7 +81,7 @@ impl<T> std::ops::Deref for ResourceWrapped<T> {
   }
 }
 
-impl<T> std::ops::DerefMut for ResourceWrapped<T> {
+impl<T> std::ops::DerefMut for Identity<T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     self.trigger_change();
     &mut self.inner
@@ -94,14 +94,14 @@ pub trait Watcher<T> {
   fn will_drop(&mut self, item: &T, id: usize);
 }
 
-pub struct ResourceMapper<T, U> {
+pub struct IdentityMapper<T, U> {
   data: HashMap<usize, T>,
   to_remove: Rc<RefCell<Vec<usize>>>,
   changed: Rc<RefCell<HashSet<usize>>>,
   phantom: PhantomData<U>,
 }
 
-impl<T, U> Default for ResourceMapper<T, U> {
+impl<T, U> Default for IdentityMapper<T, U> {
   fn default() -> Self {
     Self {
       data: Default::default(),
@@ -137,7 +137,7 @@ impl<'a, T> ResourceLogicResult<'a, T> {
   }
 }
 
-impl<T: 'static, U: 'static> ResourceMapper<T, U> {
+impl<T: 'static, U: 'static> IdentityMapper<T, U> {
   pub fn maintain(&mut self) {
     self.to_remove.borrow_mut().drain(..).for_each(|id| {
       self.data.remove(&id);
@@ -147,7 +147,7 @@ impl<T: 'static, U: 'static> ResourceMapper<T, U> {
   /// this to bypass the borrow limits of get_update_or_insert_with
   pub fn get_update_or_insert_with_logic<'a, 'b>(
     &'b mut self,
-    source: &'a ResourceWrapped<U>,
+    source: &'a Identity<U>,
     mut logic: impl FnMut(ResourceLogic<'a, 'b, T, U>) -> ResourceLogicResult<'b, T>,
   ) -> &'b mut T {
     let mut new_created = false;
@@ -173,7 +173,7 @@ impl<T: 'static, U: 'static> ResourceMapper<T, U> {
 
   pub fn get_update_or_insert_with(
     &mut self,
-    source: &ResourceWrapped<U>,
+    source: &Identity<U>,
     creator: impl FnOnce(&U) -> T,
     updater: impl FnOnce(&mut T, &U),
   ) -> &mut T {
@@ -198,7 +198,7 @@ impl<T: 'static, U: 'static> ResourceMapper<T, U> {
     resource
   }
 
-  pub fn get_unwrap(&self, source: &ResourceWrapped<U>) -> &T {
+  pub fn get_unwrap(&self, source: &Identity<U>) -> &T {
     self.data.get(&source.id).unwrap()
   }
 }
