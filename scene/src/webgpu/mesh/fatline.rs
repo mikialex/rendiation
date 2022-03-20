@@ -24,7 +24,7 @@ impl FatlineMesh {
   }
 }
 
-impl MeshCPUSource for FatlineMesh {
+impl WebGPUMesh for FatlineMesh {
   type GPU = FatlineMeshGPU;
 
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {

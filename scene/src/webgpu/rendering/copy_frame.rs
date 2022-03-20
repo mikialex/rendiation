@@ -1,8 +1,8 @@
 use rendiation_texture::TextureSampler;
-use rendiation_webgpu::GPUSampler;
+use rendiation_webgpu::*;
 use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentReadView, PassContent, ShaderPassBuilder};
+use crate::{AttachmentReadView, PassContent};
 
 pub struct CopyFrame<T> {
   sampler: TextureSampler,

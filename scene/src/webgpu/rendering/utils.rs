@@ -1,7 +1,8 @@
 use rendiation_algebra::Vec2;
+use rendiation_webgpu::ShaderPassBuilder;
 use shadergraph::*;
 
-use crate::{MaterialStates, ShaderPassBuilder};
+use crate::MaterialStates;
 
 wgsl_function!(
   fn generate_quad(

@@ -1,8 +1,8 @@
 use anymap::AnyMap;
 use rendiation_renderable_mesh::{
-  group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, MeshGPU,
+  group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU,
 };
-use rendiation_webgpu::{GPURenderPass, GPURenderPassCtx, GPU};
+use rendiation_webgpu::{GPURenderPass, GPU};
 use std::{
   any::{Any, TypeId},
   ops::Deref,
@@ -37,7 +37,7 @@ pub trait WebGPUSceneMesh: 'static {
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
 }
 
-impl<M: MeshCPUSource> WebGPUSceneMesh for Identity<M> {
+impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
@@ -53,7 +53,7 @@ impl<M: MeshCPUSource> WebGPUSceneMesh for Identity<M> {
 }
 
 impl GPUMeshCache {
-  pub fn update_mesh<M: MeshCPUSource>(
+  pub fn update_mesh<M: WebGPUMesh>(
     &mut self,
     m: &Identity<M>,
     gpu: &GPU,
@@ -76,7 +76,7 @@ impl GPUMeshCache {
     })
   }
 
-  pub fn setup_mesh<'a, M: MeshCPUSource>(
+  pub fn setup_mesh<'a, M: WebGPUMesh>(
     &self,
     m: &Identity<M>,
     pass: &mut GPURenderPass<'a>,
@@ -91,12 +91,12 @@ impl GPUMeshCache {
       .unwrap()
       .get_unwrap(m);
 
-    MeshCPUSource::setup_pass_and_draw(m.deref(), gpu_m, pass, group)
+    WebGPUMesh::setup_pass_and_draw(m.deref(), gpu_m, pass, group)
   }
 }
 
-type MeshIdentityMapper<T> = IdentityMapper<<T as MeshCPUSource>::GPU, T>;
-pub trait MeshCPUSource: Any {
+type MeshIdentityMapper<T> = IdentityMapper<<T as WebGPUMesh>::GPU, T>;
+pub trait WebGPUMesh: Any {
   type GPU: RenderComponent;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
@@ -157,15 +157,11 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
   }
 }
 
-impl ShaderPassBuilder for MeshGPU {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {}
-}
-
-impl<T> MeshCPUSource for MeshSource<T>
+impl<T> WebGPUMesh for MeshSource<T>
 where
-  T: GPUMeshData + IntersectAbleGroupedMesh + Any,
+  T: GPUMeshData<GPU = TypedMeshGPU<T>> + IntersectAbleGroupedMesh + Any,
 {
-  type GPU = MeshGPU;
+  type GPU = TypedMeshGPU<T>;
 
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, _: &mut AnyMap) {
     self.deref().update(gpu_mesh, &gpu.device);
@@ -194,39 +190,7 @@ where
   }
 }
 
-// impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
-//   fn setup_pass_and_draw<'a>(
-//     &self,
-//     pass: &mut GPURenderPass<'a>,
-//     group: MeshDrawGroup,
-//     res: &GPUResourceSceneCache,
-//   ) {
-//     res.setup_mesh(self, pass, group);
-//   }
-
-//   fn update(&self, gpu: &GPU, storage: &mut AnyMap, res: &mut GPUResourceSceneCache) {
-//     res.update_mesh(self, gpu, storage)
-//   }
-
-//   fn topology(&self) -> wgpu::PrimitiveTopology {
-//     self.deref().topology()
-//   }
-
-//   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-//     self.deref().try_pick(f)
-//   }
-// }
-
-// impl<T> ShaderGraphProvider for MeshCell<T> {
-//   fn build_vertex(
-//     &self,
-//     _builder: &mut shadergraph::ShaderGraphVertexBuilder,
-//   ) -> Result<(), shadergraph::ShaderGraphBuildError> {
-//     todo!()
-//   }
-// }
-
-impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCell<T> {
+impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCell<T> {
   fn topology(&self) -> wgpu::PrimitiveTopology {
     self.inner.borrow().topology()
   }
@@ -247,9 +211,9 @@ impl<T: MeshCPUSource + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for Mesh
   }
 }
 
-impl<T> MeshCPUSource for MeshCell<T>
+impl<T> WebGPUMesh for MeshCell<T>
 where
-  T: MeshCPUSource,
+  T: WebGPUMesh,
 {
   type GPU = T::GPU;
 

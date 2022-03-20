@@ -27,10 +27,6 @@ pub trait MaterialMeshLayoutRequire {
   type VertexInput;
 }
 
-pub trait ShaderPassBuilder {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
-}
-
 pub trait RenderComponent:
   ShaderHashProvider // able to get pipeline from cache at low cost
    + ShaderGraphProvider // able to provide shader logic and config pipeline

@@ -1,5 +1,9 @@
 use crate::*;
 
+pub trait ShaderPassBuilder {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
+}
+
 #[derive(Clone, Hash)]
 pub struct PassTargetFormatInfo {
   pub depth_stencil_format: Option<gpu::TextureFormat>,

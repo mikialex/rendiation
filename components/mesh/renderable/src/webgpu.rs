@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use __core::marker::PhantomData;
 use bytemuck::Pod;
 use gpu::util::DeviceExt;
 use gpu::GPURenderPass;
@@ -15,22 +16,28 @@ pub struct MeshGPU {
   index: Option<(Rc<gpu::Buffer>, gpu::IndexFormat)>,
 }
 
-impl ShaderGraphProvider for MeshGPU {
+pub struct TypedMeshGPU<T> {
+  marker: PhantomData<T>,
+  inner: MeshGPU,
+}
+
+impl<T: GPUMeshData> ShaderGraphProvider for TypedMeshGPU<T> {
   fn build(
     &self,
-    _builder: &mut ShaderGraphRenderPipelineBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    todo!();
-    // default do nothing
+    T::build_shader(builder);
     Ok(())
   }
 }
 
-impl gpu::ShaderHashProvider for MeshGPU {
-  fn hash_pipeline(&self, _hasher: &mut gpu::PipelineHasher) {
+impl<T> gpu::ShaderPassBuilder for TypedMeshGPU<T> {
+  fn setup_pass(&self, ctx: &mut gpu::GPURenderPassCtx) {
     todo!()
   }
 }
+
+impl<T: 'static> gpu::ShaderHashProvider for TypedMeshGPU<T> {}
 
 impl MeshGPU {
   pub fn get_range_full(&self) -> MeshGroup {
@@ -56,12 +63,29 @@ impl MeshGPU {
   }
 }
 
+impl<T> TypedMeshGPU<T> {
+  pub fn get_range_full(&self) -> MeshGroup {
+    self.inner.get_range_full()
+  }
+
+  pub fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>) {
+    self.inner.setup_pass(pass)
+  }
+
+  pub fn draw<'a>(&self, pass: &mut gpu::RenderPass<'a>, range: Option<MeshGroup>) {
+    self.inner.draw(pass, range)
+  }
+}
+
 /// The GPUMesh's cpu data source trait
 pub trait GPUMeshData {
-  fn create(&self, device: &gpu::Device) -> MeshGPU;
-  fn update(&self, gpu: &mut MeshGPU, device: &gpu::Device);
+  type GPU;
+  fn create(&self, device: &gpu::Device) -> Self::GPU;
+  fn update(&self, gpu: &mut Self::GPU, device: &gpu::Device);
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> gpu::PrimitiveTopology;
+
+  fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder);
 }
 
 impl<I, V, T> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
@@ -71,10 +95,14 @@ where
   I: gpu::IndexBufferSourceType,
   IndexedMesh<I, V, T, Vec<V>>: AbstractMesh,
 {
-  fn create(&self, device: &gpu::Device) -> MeshGPU {
-    self.mesh.create_gpu(device)
+  type GPU = TypedMeshGPU<Self>;
+  fn create(&self, device: &gpu::Device) -> Self::GPU {
+    TypedMeshGPU {
+      marker: Default::default(),
+      inner: self.mesh.create_gpu(device),
+    }
   }
-  fn update(&self, gpu: &mut MeshGPU, device: &gpu::Device) {
+  fn update(&self, gpu: &mut Self::GPU, device: &gpu::Device) {
     *gpu = self.create(device)
   }
 
@@ -90,6 +118,10 @@ where
       PrimitiveTopology::TriangleList => gpu::PrimitiveTopology::TriangleList,
       PrimitiveTopology::TriangleStrip => gpu::PrimitiveTopology::TriangleStrip,
     }
+  }
+
+  fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder) {
+    todo!()
   }
 }
 
