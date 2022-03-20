@@ -4,6 +4,7 @@ use bytemuck::Pod;
 use gpu::util::DeviceExt;
 use gpu::GPURenderPass;
 use rendiation_webgpu as gpu;
+use shadergraph::*;
 
 use crate::group::*;
 use crate::mesh::*;
@@ -12,6 +13,23 @@ pub struct MeshGPU {
   range_full: MeshGroup,
   vertex: Vec<Rc<gpu::Buffer>>,
   index: Option<(Rc<gpu::Buffer>, gpu::IndexFormat)>,
+}
+
+impl ShaderGraphProvider for MeshGPU {
+  fn build(
+    &self,
+    _builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    todo!();
+    // default do nothing
+    Ok(())
+  }
+}
+
+impl gpu::ShaderHashProvider for MeshGPU {
+  fn hash_pipeline(&self, _hasher: &mut gpu::PipelineHasher) {
+    todo!()
+  }
 }
 
 impl MeshGPU {

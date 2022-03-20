@@ -24,6 +24,7 @@ use wgpu as gpu;
 
 use __core::num::NonZeroUsize;
 use std::{
+  any::*,
   borrow::Cow,
   cell::{Cell, RefCell},
   collections::{hash_map::DefaultHasher, HashMap},

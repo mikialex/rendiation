@@ -90,9 +90,18 @@ impl ShaderGraphProvider for FatlineMeshGPU {
   }
 }
 
+impl ShaderHashProvider for FatlineMeshGPU {}
+
 impl ShaderPassBuilder for FatlineMeshGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    // ctx.set
+    // let pass = ctx.pass;
+    // let range = range.unwrap_or(self.range_full);
+
+    // self.instance.setup_pass(pass);
+
+    // pass.set_vertex_buffer_owned(1, &self.vertex);
+
+    // pass.draw_indexed(self.instance.get_range_full().into(), 0, range.into());
   }
 }
 

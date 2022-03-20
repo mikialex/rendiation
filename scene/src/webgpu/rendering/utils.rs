@@ -1,7 +1,7 @@
 use rendiation_algebra::Vec2;
 use shadergraph::*;
 
-use crate::MaterialStates;
+use crate::{MaterialStates, ShaderPassBuilder};
 
 wgsl_function!(
   fn generate_quad(
@@ -38,18 +38,23 @@ struct FullScreenQuad {
   blend: Option<wgpu::BlendState>,
 }
 
+impl ShaderPassBuilder for FullScreenQuad {
+  fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
+    ctx.pass.draw(0..4, 0..1)
+  }
+}
+
 impl ShaderGraphProvider for FullScreenQuad {
   fn build(
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.vertex(|builder, binding| {
+    builder.vertex(|builder, _| {
       builder.primitive_state = wgpu::PrimitiveState {
         topology: wgpu::PrimitiveTopology::TriangleStrip,
         front_face: wgpu::FrontFace::Cw,
         ..Default::default()
       };
-      todo!();
       Ok(())
     })?;
 

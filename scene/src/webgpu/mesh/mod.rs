@@ -2,7 +2,7 @@ use anymap::AnyMap;
 use rendiation_renderable_mesh::{
   group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, MeshGPU,
 };
-use rendiation_webgpu::{GPURenderPass, GPU};
+use rendiation_webgpu::{GPURenderPass, GPURenderPassCtx, GPU};
 use std::{
   any::{Any, TypeId},
   ops::Deref,
@@ -73,9 +73,7 @@ impl GPUMeshCache {
         m.update(gpu_m, gpu, storage);
         ResourceLogicResult::Update(gpu_m)
       }
-    });
-
-    todo!()
+    })
   }
 
   pub fn setup_mesh<'a, M: MeshCPUSource>(
@@ -99,7 +97,7 @@ impl GPUMeshCache {
 
 type MeshResourceMapper<T> = ResourceMapper<<T as MeshCPUSource>::GPU, T>;
 pub trait MeshCPUSource: Any {
-  type GPU;
+  type GPU: SourceOfRendering;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
   fn setup_pass_and_draw<'a>(
@@ -159,6 +157,10 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
   }
 }
 
+impl ShaderPassBuilder for MeshGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {}
+}
+
 impl<T> MeshCPUSource for MeshSource<T>
 where
   T: GPUMeshData + IntersectAbleGroupedMesh + Any,
@@ -191,16 +193,6 @@ where
     f(self.deref())
   }
 }
-
-// impl ShaderGraphProvider for MeshGPU {
-//   fn build(
-//     &self,
-//     _builder: &mut ShaderGraphRenderPipelineBuilder,
-//   ) -> Result<(), ShaderGraphBuildError> {
-//     // default do nothing
-//     Ok(())
-//   }
-// }
 
 // impl<T: MeshCPUSource + Any> WebGPUMesh for MeshInner<T> {
 //   fn setup_pass_and_draw<'a>(

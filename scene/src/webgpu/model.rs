@@ -104,7 +104,7 @@ where
       binding: &mut pass.binding,
     };
     components.iter().for_each(|c| {
-      c.hash_pipeline(&mut hasher);
+      c.hash_pipeline_and_with_type_id(&mut hasher);
       c.setup_pass(&mut ctx);
     });
 

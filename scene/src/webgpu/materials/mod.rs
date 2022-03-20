@@ -31,10 +31,6 @@ pub trait ShaderPassBuilder {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx);
 }
 
-pub trait ShaderHashProvider {
-  fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
-}
-
 pub trait SourceOfRendering:
   ShaderHashProvider // able to get pipeline from cache at low cost
    + ShaderGraphProvider // able to provide shader logic and config pipeline
