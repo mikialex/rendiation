@@ -44,7 +44,7 @@ impl StructInfo {
       .iter()
       .filter_map(|f| {
         if matches!(f.vis, Visibility::Inherited) {
-          return None;
+          None
         } else {
           let field_name = f.ident.as_ref().unwrap().clone();
           let ty = f.ty.clone();

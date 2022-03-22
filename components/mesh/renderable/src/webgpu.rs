@@ -33,7 +33,7 @@ impl<T: GPUMeshData> ShaderGraphProvider for TypedMeshGPU<T> {
 
 impl<T> gpu::ShaderPassBuilder for TypedMeshGPU<T> {
   fn setup_pass(&self, ctx: &mut gpu::GPURenderPassCtx) {
-    todo!()
+    self.setup_pass(ctx.pass)
   }
 }
 
@@ -44,7 +44,7 @@ impl MeshGPU {
     self.range_full
   }
 
-  pub fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>) {
+  pub fn setup_pass(&self, pass: &mut GPURenderPass) {
     self.vertex.iter().enumerate().for_each(|(i, gpu)| {
       pass.set_vertex_buffer_owned(i as u32, gpu);
     });
@@ -53,7 +53,7 @@ impl MeshGPU {
     }
   }
 
-  pub fn draw<'a>(&self, pass: &mut gpu::RenderPass<'a>, range: Option<MeshGroup>) {
+  pub fn draw(&self, pass: &mut gpu::RenderPass, range: Option<MeshGroup>) {
     let range = range.unwrap_or(self.range_full);
     if self.index.is_some() {
       pass.draw_indexed(range.into(), 0, 0..1);
@@ -68,11 +68,11 @@ impl<T> TypedMeshGPU<T> {
     self.inner.get_range_full()
   }
 
-  pub fn setup_pass<'a>(&self, pass: &mut GPURenderPass<'a>) {
+  pub fn setup_pass(&self, pass: &mut GPURenderPass) {
     self.inner.setup_pass(pass)
   }
 
-  pub fn draw<'a>(&self, pass: &mut gpu::RenderPass<'a>, range: Option<MeshGroup>) {
+  pub fn draw(&self, pass: &mut gpu::RenderPass, range: Option<MeshGroup>) {
     self.inner.draw(pass, range)
   }
 }
@@ -91,6 +91,7 @@ pub trait GPUMeshData {
 impl<I, V, T> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>>
 where
   V: Pod,
+  V: ShaderGraphVertexInProvider,
   T: PrimitiveTopologyMeta<V>,
   I: gpu::IndexBufferSourceType,
   IndexedMesh<I, V, T, Vec<V>>: AbstractMesh,
@@ -121,7 +122,12 @@ where
   }
 
   fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder) {
-    todo!()
+    builder
+      .vertex(|builder, _| {
+        builder.register_vertex::<V>(VertexStepMode::Vertex);
+        Ok(())
+      })
+      .unwrap();
   }
 }
 

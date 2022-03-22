@@ -37,7 +37,7 @@ impl HighLighter {
 }
 
 impl HighLighter {
-  pub fn draw<'a, T>(&'a self, mask: AttachmentReadView<T>) -> HighLightComposeTask<'a, T> {
+  pub fn draw<T>(&self, mask: AttachmentReadView<T>) -> HighLightComposeTask<T> {
     HighLightComposeTask {
       mask,
       lighter: self,
