@@ -6,6 +6,7 @@ members = [
   "utils/arena",
   "utils/arena-graph",
   "utils/arena-tree",
+  "utils/storage",
   "components/color",
   "components/controller",
   "components/mesh/renderable",
