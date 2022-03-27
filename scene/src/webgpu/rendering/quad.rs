@@ -2,7 +2,7 @@ use rendiation_algebra::Vec2;
 use rendiation_webgpu::ShaderPassBuilder;
 use shadergraph::*;
 
-use crate::MaterialStates;
+use crate::{MaterialStates, PassContent, RenderComponent, SceneRenderPass};
 
 wgsl_function!(
   fn generate_quad(
@@ -77,4 +77,22 @@ impl ShaderGraphProvider for FullScreenQuad {
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
   pub buffer_size: Vec2<f32>,
+}
+
+pub struct QuadDraw<T> {
+  content: T,
+}
+
+pub trait UseQuadDraw: Sized {
+  fn draw_quad(self) -> QuadDraw<Self> {
+    QuadDraw { content: self }
+  }
+}
+
+impl<T> UseQuadDraw for T {}
+
+impl<T> PassContent for QuadDraw<T> {
+  fn render(&mut self, pass: &mut SceneRenderPass) {
+    todo!()
+  }
 }

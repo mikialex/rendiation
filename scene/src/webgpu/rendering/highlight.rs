@@ -37,17 +37,12 @@ impl HighLighter {
 }
 
 impl HighLighter {
-  pub fn draw<T>(&self, mask: AttachmentReadView<T>) -> HighLightComposeTask<T> {
+  pub fn draw<T: 'static>(&self, mask: AttachmentReadView<T>) -> impl PassContent + '_ {
     HighLightComposeTask {
       mask,
       lighter: self,
     }
-  }
-}
-
-impl<'a, T> PassContent for HighLightComposeTask<'a, T> {
-  fn render(&mut self, pass: &mut SceneRenderPass) {
-    todo!()
+    .draw_quad()
   }
 }
 

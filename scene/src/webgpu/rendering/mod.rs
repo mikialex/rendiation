@@ -10,9 +10,9 @@ pub mod highlight;
 pub use highlight::*;
 pub mod background;
 pub use background::*;
-pub mod utils;
+pub mod quad;
+pub use quad::*;
 use rendiation_webgpu::{GPURenderPass, GPURenderPassCtx};
-pub use utils::*;
 
 pub mod framework;
 pub use framework::*;

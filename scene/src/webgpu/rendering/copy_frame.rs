@@ -2,32 +2,19 @@ use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentReadView, PassContent};
+use crate::{AttachmentReadView, PassContent, UseQuadDraw};
 
 pub struct CopyFrame<T> {
   sampler: TextureSampler,
   source: AttachmentReadView<T>,
 }
 
-impl<T> PassContent for CopyFrame<T> {
-  fn render(&mut self, pass: &mut crate::SceneRenderPass) {
-    todo!()
-  }
-}
-
-pub fn copy_frame<T>(source: AttachmentReadView<T>) -> CopyFrame<T> {
+pub fn copy_frame<T>(source: AttachmentReadView<T>) -> impl PassContent {
   CopyFrame {
     source,
     sampler: Default::default(),
   }
-}
-
-pub struct QuadDraw;
-
-impl ShaderPassBuilder for QuadDraw {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.pass.draw(0..4, 0..1);
-  }
+  .draw_quad()
 }
 
 impl<T> ShaderPassBuilder for CopyFrame<T> {

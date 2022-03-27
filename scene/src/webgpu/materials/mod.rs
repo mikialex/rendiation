@@ -29,7 +29,7 @@ pub trait MaterialMeshLayoutRequire {
 
 pub trait RenderComponent:
   ShaderHashProvider // able to get pipeline from cache at low cost
-   + ShaderGraphProvider // able to provide shader logic and config pipeline
+  + ShaderGraphProvider // able to provide shader logic and config pipeline
    + ShaderPassBuilder // able to bind resource to renderpass
 {
   fn render(&self, 
@@ -63,7 +63,7 @@ pub struct RenderEmitter<'a, 'b>{
 }
 
 impl<'a, 'b>  RenderEmitter<'a, 'b>{
-  pub fn new(contents: &'a[&'b dyn RenderComponentAny]) -> Self {
+  pub fn new(contents: &'a [&'b dyn RenderComponentAny]) -> Self {
     Self{
       contents
     }
