@@ -20,7 +20,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat2<T> {
     #[rustfmt::skip]
     Mat2 { 
       a1, a2,
-      b1, b2 
+      b1, b2,
     }
   }
   fn det(&self) -> T {
@@ -115,9 +115,9 @@ where
     let b2 = ty * y + c;
 
     #[rustfmt::skip]
-    Mat2 { 
-      a1, a2, 
-      b1, b2 
+    Mat2 {
+      a1, a2,
+      b1, b2,
     }
   }
 

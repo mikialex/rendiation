@@ -1,14 +1,14 @@
+mod dimension;
 mod mat2;
 mod mat3;
 mod mat4;
-mod dimension;
 mod space_conversion_marker;
 
 pub use dimension::*;
-pub use space_conversion_marker::*;
 pub use mat2::*;
 pub use mat3::*;
 pub use mat4::*;
+pub use space_conversion_marker::*;
 
 use crate::*;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};

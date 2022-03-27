@@ -17,10 +17,10 @@ impl ViewerPipeline {
 impl ViewerPipeline {
   #[rustfmt::skip]
   pub fn render(
-    &mut self, 
-    ctx: &mut FrameCtx, 
-    content: &mut Viewer3dContent, 
-    final_target: ColorChannelView
+    &mut self,
+    ctx: &mut FrameCtx,
+    content: &mut Viewer3dContent,
+    final_target: ColorChannelView,
   ) {
     let scene = &mut content.scene;
 

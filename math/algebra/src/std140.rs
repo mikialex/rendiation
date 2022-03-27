@@ -42,8 +42,8 @@ impl From<Mat3<f32>> for Shader140Mat3 {
   fn from(v: Mat3<f32>) -> Self {
     Self {
       a1: v.a1, a2: v.a2, a3: v.a3,
-      b1: v.b1, b2: v.b2, b3: v.b3, 
-      c1: v.c1, c2: v.c2, c3: v.c3, 
+      b1: v.b1, b2: v.b2, b3: v.b3,
+      c1: v.c1, c2: v.c2, c3: v.c3,
       ..Default::default()
     }
   }
@@ -68,7 +68,6 @@ pub struct Shader140Mat2{
 	pub b1:f32, pub b2:f32, _pad2: [f32; 2],
 }
 
-
 impl From<Mat2<f32>> for Shader140Mat2 {
   #[rustfmt::skip]
   fn from(v: Mat2<f32>) -> Self {
@@ -84,8 +83,8 @@ impl From<Shader140Mat2> for Mat2<f32> {
   #[rustfmt::skip]
   fn from(v: Shader140Mat2) -> Self {
     Self {
-      a1: v.a1, a2: v.a2, 
-      b1: v.b1, b2: v.b2, 
+      a1: v.a1, a2: v.a2,
+      b1: v.b1, b2: v.b2,
     }
   }
 }

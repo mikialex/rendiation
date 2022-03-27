@@ -27,46 +27,37 @@ pub trait MaterialMeshLayoutRequire {
   type VertexInput;
 }
 
-pub trait RenderComponent:
-  ShaderHashProvider // able to get pipeline from cache at low cost
-  + ShaderGraphProvider // able to provide shader logic and config pipeline
-   + ShaderPassBuilder // able to bind resource to renderpass
-{
-  fn render(&self, 
-    gpu: &GPU,
-    ctx: &mut GPURenderPassCtx ,) {
-      let mut hasher = PipelineHasher::default();
-      self.hash_pipeline(&mut hasher);
-  
-      let pipeline = gpu
-        .device
-        .create_and_cache_render_pipeline(hasher, |device| {
-  
-          device
-            .build_pipeline_by_shadergraph(self.build_self().unwrap())
-            .unwrap()
-        });
-  
-      ctx
-        .binding
-        .setup_pass(&mut ctx.pass, &gpu.device, &pipeline);
+pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {
+  fn render(&self, gpu: &GPU, ctx: &mut GPURenderPassCtx) {
+    let mut hasher = PipelineHasher::default();
+    self.hash_pipeline(&mut hasher);
+
+    let pipeline = gpu
+      .device
+      .create_and_cache_render_pipeline(hasher, |device| {
+        device
+          .build_pipeline_by_shadergraph(self.build_self().unwrap())
+          .unwrap()
+      });
+
+    ctx
+      .binding
+      .setup_pass(&mut ctx.pass, &gpu.device, &pipeline);
   }
 }
 
 impl<T> RenderComponent for T where T: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {}
 
-pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny  {}
-impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny   {}
+pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny {}
+impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny {}
 
-pub struct RenderEmitter<'a, 'b>{
-  contents: &'a[&'b dyn RenderComponentAny]
+pub struct RenderEmitter<'a, 'b> {
+  contents: &'a [&'b dyn RenderComponentAny],
 }
 
-impl<'a, 'b>  RenderEmitter<'a, 'b>{
+impl<'a, 'b> RenderEmitter<'a, 'b> {
   pub fn new(contents: &'a [&'b dyn RenderComponentAny]) -> Self {
-    Self{
-      contents
-    }
+    Self { contents }
   }
 }
 
@@ -78,12 +69,12 @@ impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
 
 impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
   fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
-    self.contents
+    self
+      .contents
       .iter()
       .for_each(|com| com.hash_pipeline_and_with_type_id(hasher))
   }
 }
-
 
 impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
   fn build(
@@ -94,7 +85,6 @@ impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
     Ok(())
   }
 }
-
 
 pub trait WebGPUMaterial: Clone + Any {
   type GPU: RenderComponentAny;

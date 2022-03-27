@@ -19,14 +19,14 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
   fn transpose(&self) -> Mat4<T> {
     #[rustfmt::skip]
     Mat4::new(
-      self.a1, self.b1, self.c1, self.d1, 
-      self.a2, self.b2, self.c2, self.d2, 
-      self.a3, self.b3, self.c3, self.d3, 
+      self.a1, self.b1, self.c1, self.d1,
+      self.a2, self.b2, self.c2, self.d2,
+      self.a3, self.b3, self.c3, self.d3,
       self.a4, self.b4, self.c4, self.d4,
     )
   }
 
-   fn det(&self) -> T {
+  fn det(&self) -> T {
     let m = self;
     m.a1 * m.b2 * m.c3 * m.d4
       - m.a1 * m.b2 * m.c4 * m.d3 
@@ -131,7 +131,7 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
     })
   }
 
-  fn max_scale(&self) -> T{
+  fn max_scale(&self) -> T {
     let x = self.a1 * self.a1 + self.a2 * self.a2 + self.a3 * self.a3;
     let y = self.b1 * self.b1 + self.b2 * self.b2 + self.b3 * self.b3;
     let z = self.c1 * self.c1 + self.c2 * self.c2 + self.c3 * self.c3;
@@ -246,7 +246,6 @@ fn mul() {
 
   assert_eq!(cgmath_r, math_r)
 }
-
 
 #[rustfmt::skip]
 impl<T: Sized> Mat4<T> {
@@ -523,16 +522,16 @@ where
 
   #[must_use]
   pub fn extract_rotation_mat(&self) -> Self {
-    let scale_inv = self.get_scale().map(|v|T::one() / v);
+    let scale_inv = self.get_scale().map(|v| T::one() / v);
     let mut mat = self.to_mat3();
     mat.a1 *= scale_inv.x;
     mat.a2 *= scale_inv.x;
     mat.a3 *= scale_inv.x;
-    
+
     mat.b1 *= scale_inv.y;
     mat.b2 *= scale_inv.y;
     mat.b3 *= scale_inv.y;
-    
+
     mat.c1 *= scale_inv.z;
     mat.c2 *= scale_inv.z;
     mat.c3 *= scale_inv.z;
@@ -545,7 +544,6 @@ where
     let sz = Vec3::new(self.c1, self.c2, self.c3).length();
     Vec3::new(sx, sy, sz)
   }
- 
 }
 
 impl<T> num_traits::Zero for Mat4<T>
@@ -586,7 +584,6 @@ where
 
 impl<T: Scalar> From<Mat3<T>> for Mat4<T> {
   fn from(m: Mat3<T>) -> Self {
-
     #[rustfmt::skip]
     Self {
       a1: m.a1,      a2: m.a2,      a3: m.a3,      a4: T::zero(),
