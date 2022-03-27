@@ -23,9 +23,9 @@ pub struct PhysicalMaterialGPU {
 
 impl ShaderPassBuilder for PhysicalMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.setup_uniform(&self.uniform, SB::Material);
-    ctx.binding.setup_uniform(&self.sampler, SB::Material);
-    ctx.binding.setup_uniform(&self.texture, SB::Material);
+    ctx.binding.bind(&self.uniform, SB::Material);
+    ctx.binding.bind(&self.sampler, SB::Material);
+    ctx.binding.bind(&self.texture, SB::Material);
   }
 }
 

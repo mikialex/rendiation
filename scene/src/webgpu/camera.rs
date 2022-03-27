@@ -64,7 +64,7 @@ impl ShaderHashProvider for CameraGPU {}
 
 impl ShaderPassBuilder for CameraGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.setup_uniform(&self.ubo, SB::Camera)
+    ctx.binding.bind(&self.ubo, SB::Camera)
   }
 }
 

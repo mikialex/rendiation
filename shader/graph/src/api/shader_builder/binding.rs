@@ -31,12 +31,12 @@ impl From<SB> for usize {
 }
 
 /// should impl by user's container ty
-pub trait ShaderUniformProvider: Any {
+pub trait ShaderUniformProvider {
   type Node: ShaderGraphNodeType;
 }
 
 /// should impl by user's container ty
-pub trait DynamicShaderUniformProvider: Any {
+pub trait DynamicShaderUniformProvider {
   fn to_value(&self) -> ShaderValueType;
 }
 
@@ -88,7 +88,7 @@ impl<T: ShaderGraphNodeType> UniformNodePreparer<T> {
 }
 
 impl ShaderGraphBindGroupBuilder {
-  pub(crate) fn uniform_ty_inner<T: Any, N: ShaderGraphNodeType>(
+  pub(crate) fn uniform_ty_inner<T, N: ShaderGraphNodeType>(
     &mut self,
     index: impl Into<usize>,
   ) -> UniformNodePreparer<N> {

@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use rendiation_texture::*;
 use rendiation_webgpu::*;
+use shadergraph::{ShaderTexture, ShaderUniformProvider};
 
 use crate::FrameCtx;
 
@@ -108,12 +109,16 @@ pub struct AttachmentReadView<T> {
   pub(super) view: ColorChannelView,
 }
 
-impl<T> UniformSource for AttachmentReadView<T> {
+impl<T> BindingSource for AttachmentReadView<T> {
   type Uniform = GPUTexture2dView;
 
   fn get_uniform(&self) -> Self::Uniform {
     todo!()
   }
+}
+
+impl<T> ShaderUniformProvider for AttachmentReadView<T> {
+  type Node = ShaderTexture;
 }
 
 #[derive(Clone)]

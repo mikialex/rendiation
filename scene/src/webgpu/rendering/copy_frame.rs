@@ -35,8 +35,8 @@ impl<T> ShaderPassBuilder for CopyFrame<T> {
     let sampler = GPUSampler::create(self.sampler.into(), &ctx.gpu.device);
     let sampler = sampler.create_view(Default::default());
 
-    ctx.binding.setup_uniform(&sampler, SB::Material);
-    ctx.binding.setup_uniform(&self.source, SB::Material);
+    ctx.binding.bind(&sampler, SB::Material);
+    ctx.binding.bind(&self.source, SB::Material);
   }
 }
 

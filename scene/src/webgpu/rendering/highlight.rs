@@ -58,7 +58,8 @@ pub struct HighLightComposeTask<'a, T> {
 
 impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.setup_uniform(&self.lighter.data, SB::Material)
+    ctx.binding.bind(&self.lighter.data, SB::Material);
+    ctx.binding.bind(&self.mask, SB::Material);
   }
 }
 
@@ -71,6 +72,8 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
       let uniform = binding
         .uniform_by(&self.lighter.data, SB::Material)
         .expand();
+
+      let mask = binding.uniform_by(&self.mask, SB::Material);
 
       let uv = builder.query::<FragmentUv>()?;
       // builder.set_fragment_out(0, (uniform.color, edge_intensity(uv)))

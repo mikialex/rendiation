@@ -34,7 +34,7 @@ impl ShaderGraphProvider for FlatMaterialGPU {
 
 impl ShaderPassBuilder for FlatMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.setup_uniform(&self.uniform, SB::Material);
+    ctx.binding.bind(&self.uniform, SB::Material);
   }
 }
 

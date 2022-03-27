@@ -70,7 +70,7 @@ impl ShaderGraphProvider for TransformGPU {
 
 impl ShaderPassBuilder for TransformGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.setup_uniform(&self.ubo, SB::Object)
+    ctx.binding.bind(&self.ubo, SB::Object)
   }
 }
 

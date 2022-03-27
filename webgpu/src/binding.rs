@@ -55,12 +55,12 @@ pub trait BindProvider: BindableResourceView + 'static {
   fn add_bind_record(&self, record: BindGroupCacheInvalidation);
 }
 
-pub trait UniformSource {
+pub trait BindingSource {
   type Uniform: BindProvider;
   fn get_uniform(&self) -> Self::Uniform;
 }
 
-impl<T> UniformSource for ResourceViewRc<T>
+impl<T> BindingSource for ResourceViewRc<T>
 where
   T: Resource,
   T::View: BindableResourceView,
@@ -90,9 +90,9 @@ impl BindingBuilder {
     self.items.iter_mut().for_each(|item| item.clear());
   }
 
-  pub fn setup_uniform<T>(&mut self, item: &T, group: impl Into<usize>)
+  pub fn bind<T>(&mut self, item: &T, group: impl Into<usize>)
   where
-    T: UniformSource,
+    T: BindingSource,
   {
     self.items[group.into()].push(Box::new(item.get_uniform()))
   }

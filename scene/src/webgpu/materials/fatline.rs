@@ -28,7 +28,7 @@ impl ShaderHashProvider for FatlineMaterialGPU {}
 
 impl ShaderPassBuilder for FatlineMaterialGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    ctx.binding.setup_uniform(&self.uniform, SB::Material);
+    ctx.binding.bind(&self.uniform, SB::Material);
   }
 }
 
@@ -153,7 +153,7 @@ wgsl_function!(
 );
 
 wgsl_function!(
-  fn fatline_round_corner(uv: vec2<f32>)  {
+  fn fatline_round_corner(uv: vec2<f32>) {
     if (abs(vUv.y) > 1.0) {
       let a = vUv.x;
       let b: f32;
