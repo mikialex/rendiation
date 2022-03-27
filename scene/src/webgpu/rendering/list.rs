@@ -13,7 +13,7 @@ impl RenderList {
     gpu: &GPU,
     gpu_pass: &mut SceneRenderPass<'p, 'a>,
     scene: &mut Scene,
-    dispatcher: &dyn RenderComponent,
+    dispatcher: &dyn RenderComponentAny,
   ) {
     self.models.iter().for_each(|model| {
       model.render(

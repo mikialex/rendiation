@@ -6,7 +6,7 @@ use rendiation_renderable_mesh::mesh::{
   IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
 };
 use rendiation_texture::Size;
-use rendiation_webgpu::{GPURenderPassCtx, PipelineHasher, GPU};
+use rendiation_webgpu::{GPURenderPassCtx, GPU};
 
 use crate::*;
 
@@ -23,7 +23,7 @@ where
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponent,
+    dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
     let inner = self.inner.borrow();
@@ -78,7 +78,7 @@ where
     pass: &mut SceneRenderPass,
     camera: &SceneCamera,
     override_node: Option<&TransformGPU>,
-    dispatcher: &dyn RenderComponent,
+    dispatcher: &dyn RenderComponentAny,
   ) {
     let resources = &mut pass.resources;
     let pass_gpu = dispatcher;
@@ -96,35 +96,12 @@ where
     );
 
     let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
-
-    let mut hasher = PipelineHasher::default();
     let mut ctx = GPURenderPassCtx {
       pass: &mut pass.pass,
       gpu,
       binding: &mut pass.binding,
     };
-    components.iter().for_each(|c| {
-      c.hash_pipeline_and_with_type_id(&mut hasher);
-      c.setup_pass(&mut ctx);
-    });
-
-    let pipeline = gpu
-      .device
-      .create_and_cache_render_pipeline(hasher, |device| {
-        let mut pipeline_builder = ShaderGraphRenderPipelineBuilder::default();
-
-        components
-          .iter()
-          .for_each(|c| c.build(&mut pipeline_builder).unwrap());
-
-        device
-          .build_pipeline_by_shadergraph(pipeline_builder)
-          .unwrap()
-      });
-
-    pass
-      .binding
-      .setup_pass(&mut pass.pass, &gpu.device, &pipeline);
+    RenderEmitter::new(components.as_slice()).render(gpu, &mut ctx);
   }
 }
 
@@ -137,7 +114,7 @@ where
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponent,
+    dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
     self.setup_pass_core(gpu, pass, camera, None, dispatcher);
@@ -207,7 +184,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponent,
+    dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
     let ctx = WorldMatrixOverrideCtx {

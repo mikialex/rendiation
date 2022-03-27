@@ -22,6 +22,14 @@ pub fn copy_frame<T>(source: AttachmentReadView<T>) -> CopyFrame<T> {
   }
 }
 
+pub struct QuadDraw;
+
+impl ShaderPassBuilder for QuadDraw {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.pass.draw(0..4, 0..1);
+  }
+}
+
 impl<T> ShaderPassBuilder for CopyFrame<T> {
   fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
     let sampler = GPUSampler::create(self.sampler.into(), &ctx.gpu.device);
@@ -29,8 +37,6 @@ impl<T> ShaderPassBuilder for CopyFrame<T> {
 
     // ctx.binding.setup_uniform(&sampler, SB::Material);
     // ctx.binding.setup_uniform(&self.source, SB::Material);
-    ctx.binding.setup_pass(ctx.pass, &ctx.gpu.device, todo!());
-    ctx.pass.draw(0..4, 0..1);
   }
 }
 

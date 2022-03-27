@@ -32,12 +32,72 @@ pub trait RenderComponent:
    + ShaderGraphProvider // able to provide shader logic and config pipeline
    + ShaderPassBuilder // able to bind resource to renderpass
 {
+  fn render(&self, 
+    gpu: &GPU,
+    ctx: &mut GPURenderPassCtx ,) {
+      let mut hasher = PipelineHasher::default();
+      self.hash_pipeline(&mut hasher);
+  
+      let pipeline = gpu
+        .device
+        .create_and_cache_render_pipeline(hasher, |device| {
+  
+          device
+            .build_pipeline_by_shadergraph(self.build_self().unwrap())
+            .unwrap()
+        });
+  
+      ctx
+        .binding
+        .setup_pass(&mut ctx.pass, &gpu.device, &pipeline);
+  }
 }
 
 impl<T> RenderComponent for T where T: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {}
 
+pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny  {}
+impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny   {}
+
+pub struct RenderEmitter<'a, 'b>{
+  contents: &'a[&'b dyn RenderComponentAny]
+}
+
+impl<'a, 'b>  RenderEmitter<'a, 'b>{
+  pub fn new(contents: &'a[&'b dyn RenderComponentAny]) -> Self {
+    Self{
+      contents
+    }
+  }
+}
+
+impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.contents.iter().for_each(|c| c.setup_pass(ctx))
+  }
+}
+
+impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.contents
+      .iter()
+      .for_each(|com| com.hash_pipeline_and_with_type_id(hasher))
+  }
+}
+
+
+impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.contents.iter().for_each(|c| c.build(builder).unwrap());
+    Ok(())
+  }
+}
+
+
 pub trait WebGPUMaterial: Clone + Any {
-  type GPU: RenderComponent;
+  type GPU: RenderComponentAny;
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
   fn is_keep_mesh_shape(&self) -> bool;
   fn is_transparent(&self) -> bool;
@@ -49,7 +109,7 @@ pub trait WebGPUSceneMaterial: 'static {
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
-  ) -> &'a dyn RenderComponent;
+  ) -> &'a dyn RenderComponentAny;
   fn is_keep_mesh_shape(&self) -> bool;
 }
 
@@ -59,7 +119,7 @@ impl<M: WebGPUMaterial> WebGPUSceneMaterial for Identity<M> {
     res: &'a mut GPUMaterialCache,
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
-  ) -> &'a dyn RenderComponent {
+  ) -> &'a dyn RenderComponentAny {
     res.update_material(self, gpu, sub_res)
   }
   fn is_keep_mesh_shape(&self) -> bool {

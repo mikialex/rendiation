@@ -38,7 +38,7 @@ pub trait SceneRenderable: 'static {
     &self,
     gpu: &GPU,
     pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponent,
+    dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   );
 

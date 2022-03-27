@@ -29,7 +29,7 @@ pub trait WebGPUSceneMesh: 'static {
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-  ) -> &'a dyn RenderComponent;
+  ) -> &'a dyn RenderComponentAny;
 
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
@@ -43,7 +43,7 @@ impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-  ) -> &'a dyn RenderComponent {
+  ) -> &'a dyn RenderComponentAny {
     res.update_mesh(self, gpu, sub_res)
   }
 
@@ -58,7 +58,7 @@ impl GPUMeshCache {
     m: &Identity<M>,
     gpu: &GPU,
     storage: &mut AnyMap,
-  ) -> &dyn RenderComponent {
+  ) -> &dyn RenderComponentAny {
     let type_id = TypeId::of::<M>();
 
     let mapper = self
@@ -205,7 +205,7 @@ impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCel
     res: &'a mut GPUMeshCache,
     sub_res: &mut AnyMap,
     gpu: &GPU,
-  ) -> &'a dyn RenderComponent {
+  ) -> &'a dyn RenderComponentAny {
     let inner = self.inner.borrow();
     inner.check_update_gpu(res, sub_res, gpu)
   }

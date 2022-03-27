@@ -112,13 +112,18 @@ pub struct RenderPipelineCache {
   pub cache: RefCell<HashMap<u64, GPURenderPipeline>>,
 }
 
-pub trait ShaderHashProvider: Any {
+pub trait ShaderHashProvider {
   fn hash_pipeline(&self, _hasher: &mut PipelineHasher) {}
+}
+
+pub trait ShaderHashProviderAny: ShaderHashProvider + Any {
   fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
     self.type_id().hash(hasher);
     self.hash_pipeline(hasher);
   }
 }
+
+impl<T> ShaderHashProviderAny for T where T: ShaderHashProvider + Any {}
 
 #[derive(Default)]
 pub struct PipelineHasher {

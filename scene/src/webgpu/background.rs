@@ -29,7 +29,7 @@ impl SceneRenderable for SolidBackground {
     &self,
     _gpu: &GPU,
     _pass: &mut SceneRenderPass,
-    _dispatcher: &dyn RenderComponent,
+    _dispatcher: &dyn RenderComponentAny,
     _camera: &SceneCamera,
   ) {
   }
