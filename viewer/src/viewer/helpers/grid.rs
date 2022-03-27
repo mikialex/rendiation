@@ -1,6 +1,5 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
-use webgpu::GPU;
 
 use crate::*;
 
@@ -31,12 +30,12 @@ impl GridHelper {
 }
 
 impl PassContentWithCamera for &mut GridHelper {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
 
-    self.mesh.render(gpu, pass, &DefaultPassDispatcher, camera)
+    self.mesh.render(pass, &DefaultPassDispatcher, camera)
   }
 }
 

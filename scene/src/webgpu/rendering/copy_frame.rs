@@ -10,7 +10,7 @@ pub struct CopyFrame<T> {
 }
 
 impl<T> PassContent for CopyFrame<T> {
-  fn render(&mut self, gpu: &rendiation_webgpu::GPU, pass: &mut crate::SceneRenderPass) {
+  fn render(&mut self, pass: &mut crate::SceneRenderPass) {
     todo!()
   }
 }

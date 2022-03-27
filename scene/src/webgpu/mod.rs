@@ -36,7 +36,6 @@ use crate::{IdentityMapper, SceneCamera, TextureCubeSource};
 pub trait SceneRenderable: 'static {
   fn render(
     &self,
-    gpu: &GPU,
     pass: &mut SceneRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,

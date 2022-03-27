@@ -108,7 +108,7 @@ impl Default for CameraHelpers {
 }
 
 impl PassContentWithSceneAndCamera for &mut CameraHelpers {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
@@ -127,9 +127,7 @@ impl PassContentWithSceneAndCamera for &mut CameraHelpers {
         },
       );
 
-      helper
-        .model
-        .render(gpu, pass, &DefaultPassDispatcher, camera)
+      helper.model.render(pass, &DefaultPassDispatcher, camera)
     }
   }
 }

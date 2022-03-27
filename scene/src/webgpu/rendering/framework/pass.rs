@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use rendiation_webgpu::{ColorChannelView, Operations, RenderPassDescriptorOwned, GPU};
+use rendiation_webgpu::{
+  ColorChannelView, GPURenderPassCtx, Operations, RenderPassDescriptorOwned,
+};
 
 use crate::{Attachment, AttachmentWriteView, FrameCtx, SceneRenderPass};
 
@@ -61,42 +63,45 @@ impl<'a> PassDescriptor<'a> {
   pub fn render<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
     let pass = ctx.encoder.begin_render_pass(self.desc.clone());
 
-    let pass = SceneRenderPass {
+    let c = GPURenderPassCtx {
       pass,
+      gpu: ctx.gpu,
       binding: Default::default(),
+    };
+
+    let pass = SceneRenderPass {
+      ctx: c,
       resources: ctx.resources,
     };
 
     ActiveRenderPass {
       desc: self.desc,
-      gpu: ctx.gpu,
       pass,
     }
   }
 }
 
 pub trait PassContent {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass);
+  fn render(&mut self, pass: &mut SceneRenderPass);
 }
 
 impl<T: PassContent> PassContent for Option<T> {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
+  fn render(&mut self, pass: &mut SceneRenderPass) {
     if let Some(content) = self {
-      content.render(gpu, pass);
+      content.render(pass);
     }
   }
 }
 
 pub struct ActiveRenderPass<'p> {
-  pass: SceneRenderPass<'p, 'p>,
-  gpu: &'p GPU,
+  pass: SceneRenderPass<'p, 'p, 'p>,
   pub desc: RenderPassDescriptorOwned,
 }
 
 impl<'p> ActiveRenderPass<'p> {
   #[allow(clippy::return_self_not_must_use)]
   pub fn by(mut self, mut renderable: impl PassContent) -> Self {
-    renderable.render(self.gpu, &mut self.pass);
+    renderable.render(&mut self.pass);
     self
   }
 }

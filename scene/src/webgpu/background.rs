@@ -27,7 +27,6 @@ impl WebGPUBackground for SolidBackground {
 impl SceneRenderable for SolidBackground {
   fn render<'a>(
     &self,
-    _gpu: &GPU,
     _pass: &mut SceneRenderPass,
     _dispatcher: &dyn RenderComponentAny,
     _camera: &SceneCamera,

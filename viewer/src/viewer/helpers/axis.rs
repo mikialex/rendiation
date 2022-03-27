@@ -2,7 +2,6 @@ use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
-use webgpu::*;
 
 use crate::*;
 
@@ -16,7 +15,7 @@ pub struct AxisHelper {
 }
 
 impl PassContentWithCamera for &mut AxisHelper {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
@@ -37,9 +36,7 @@ impl PassContentWithCamera for &mut AxisHelper {
     let mut arr = [(x, &mut self.x), (y, &mut self.y), (z, &mut self.z)];
     arr.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Less));
 
-    arr
-      .iter_mut()
-      .for_each(|(_, a)| a.render(gpu, pass, camera));
+    arr.iter_mut().for_each(|(_, a)| a.render(pass, camera));
   }
 }
 
@@ -50,10 +47,10 @@ struct Arrow {
 }
 
 impl PassContentWithCamera for Arrow {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     let dispatcher = &DefaultPassDispatcher;
-    self.cylinder.render(gpu, pass, dispatcher, camera);
-    self.tip.render(gpu, pass, dispatcher, camera);
+    self.cylinder.render(pass, dispatcher, camera);
+    self.tip.render(pass, dispatcher, camera);
   }
 }
 

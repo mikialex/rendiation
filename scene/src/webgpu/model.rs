@@ -6,7 +6,6 @@ use rendiation_renderable_mesh::mesh::{
   IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
 };
 use rendiation_texture::Size;
-use rendiation_webgpu::{GPURenderPassCtx, GPU};
 
 use crate::*;
 
@@ -21,13 +20,12 @@ where
 {
   fn render(
     &self,
-    gpu: &GPU,
     pass: &mut SceneRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
     let inner = self.inner.borrow();
-    inner.render(gpu, pass, dispatcher, camera)
+    inner.render(pass, dispatcher, camera)
   }
 
   fn ray_pick_nearest(
@@ -74,12 +72,12 @@ where
 {
   fn setup_pass_core(
     &self,
-    gpu: &GPU,
     pass: &mut SceneRenderPass,
     camera: &SceneCamera,
     override_node: Option<&TransformGPU>,
     dispatcher: &dyn RenderComponentAny,
   ) {
+    let gpu = pass.ctx.gpu;
     let resources = &mut pass.resources;
     let pass_gpu = dispatcher;
     let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
@@ -96,12 +94,8 @@ where
     );
 
     let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
-    let mut ctx = GPURenderPassCtx {
-      pass: &mut pass.pass,
-      gpu,
-      binding: &mut pass.binding,
-    };
-    RenderEmitter::new(components.as_slice()).render(gpu, &mut ctx);
+
+    RenderEmitter::new(components.as_slice()).render(gpu, &mut pass.ctx);
   }
 }
 
@@ -112,12 +106,11 @@ where
 {
   fn render(
     &self,
-    gpu: &GPU,
     pass: &mut SceneRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
-    self.setup_pass_core(gpu, pass, camera, None, dispatcher);
+    self.setup_pass_core(pass, camera, None, dispatcher);
   }
 
   fn ray_pick_nearest(
@@ -182,11 +175,11 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
 {
   fn render(
     &self,
-    gpu: &GPU,
     pass: &mut SceneRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
+    let gpu = pass.ctx.gpu;
     let ctx = WorldMatrixOverrideCtx {
       camera,
       buffer_size: pass.size(),
@@ -203,7 +196,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
-    self.setup_pass_core(gpu, pass, camera, Some(node_gpu), dispatcher);
+    self.setup_pass_core(pass, camera, Some(node_gpu), dispatcher);
   }
 }
 

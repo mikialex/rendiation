@@ -1,5 +1,3 @@
-use rendiation_webgpu::*;
-
 use crate::*;
 
 impl Scene {
@@ -17,10 +15,10 @@ impl Scene {
 pub struct ForwardScene;
 
 impl PassContentWithSceneAndCamera for ForwardScene {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
     scene
       .models
       .iter()
-      .for_each(|model| model.render(gpu, pass, &DefaultPassDispatcher, camera))
+      .for_each(|model| model.render(pass, &DefaultPassDispatcher, camera))
   }
 }

@@ -11,7 +11,7 @@ pub use highlight::*;
 pub mod background;
 pub use background::*;
 pub mod utils;
-use rendiation_webgpu::{BindingBuilder, GPURenderPass, GPU};
+use rendiation_webgpu::{GPURenderPass, GPURenderPassCtx};
 pub use utils::*;
 
 pub mod framework;
@@ -19,23 +19,22 @@ pub use framework::*;
 
 use crate::{GPUResourceCache, Scene, SceneCamera};
 
-pub struct SceneRenderPass<'a, 'b> {
-  pub pass: GPURenderPass<'a>,
-  pub binding: BindingBuilder,
-  pub resources: &'b mut GPUResourceCache,
+pub struct SceneRenderPass<'a, 'b, 'c> {
+  pub ctx: GPURenderPassCtx<'a, 'b>,
+  pub resources: &'c mut GPUResourceCache,
 }
 
-impl<'a, 'b> std::ops::Deref for SceneRenderPass<'a, 'b> {
+impl<'a, 'b, 'c> std::ops::Deref for SceneRenderPass<'a, 'b, 'c> {
   type Target = GPURenderPass<'a>;
 
   fn deref(&self) -> &Self::Target {
-    &self.pass
+    &self.ctx.pass
   }
 }
 
-impl<'a, 'b> std::ops::DerefMut for SceneRenderPass<'a, 'b> {
+impl<'a, 'b, 'c> std::ops::DerefMut for SceneRenderPass<'a, 'b, 'c> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.pass
+    &mut self.ctx.pass
   }
 }
 
@@ -62,17 +61,17 @@ impl Scene {
 }
 
 impl<'a, T: PassContentWithCamera> PassContent for CameraRef<'a, T> {
-  fn render(&mut self, gpu: &rendiation_webgpu::GPU, pass: &mut SceneRenderPass) {
-    self.inner.render(gpu, pass, self.camera);
+  fn render(&mut self, pass: &mut SceneRenderPass) {
+    self.inner.render(pass, self.camera);
   }
 }
 
 pub trait PassContentWithCamera {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera);
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera);
 }
 
 pub trait PassContentWithSceneAndCamera {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera);
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera);
 }
 
 pub struct CameraSceneRef<'a, T> {
@@ -82,7 +81,7 @@ pub struct CameraSceneRef<'a, T> {
 }
 
 impl<'a, T: PassContentWithSceneAndCamera> PassContent for CameraSceneRef<'a, T> {
-  fn render(&mut self, gpu: &rendiation_webgpu::GPU, pass: &mut SceneRenderPass) {
-    self.inner.render(gpu, pass, self.scene, self.camera);
+  fn render(&mut self, pass: &mut SceneRenderPass) {
+    self.inner.render(pass, self.scene, self.camera);
   }
 }

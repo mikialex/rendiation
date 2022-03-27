@@ -1,5 +1,3 @@
-use rendiation_webgpu::GPU;
-
 use crate::*;
 
 #[derive(Default)]
@@ -8,20 +6,15 @@ pub struct RenderList {
 }
 
 impl RenderList {
-  pub fn setup_pass<'p, 'a>(
+  pub fn setup_pass<'p, 'a, 'r>(
     &self,
-    gpu: &GPU,
-    gpu_pass: &mut SceneRenderPass<'p, 'a>,
+    gpu_pass: &mut SceneRenderPass<'p, 'a, 'r>,
     scene: &mut Scene,
     dispatcher: &dyn RenderComponentAny,
   ) {
-    self.models.iter().for_each(|model| {
-      model.render(
-        gpu,
-        gpu_pass,
-        dispatcher,
-        scene.active_camera.as_ref().unwrap(),
-      )
-    })
+    self
+      .models
+      .iter()
+      .for_each(|model| model.render(gpu_pass, dispatcher, scene.active_camera.as_ref().unwrap()))
   }
 }

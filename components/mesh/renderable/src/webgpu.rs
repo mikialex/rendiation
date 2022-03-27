@@ -33,7 +33,7 @@ impl<T: GPUMeshData> ShaderGraphProvider for TypedMeshGPU<T> {
 
 impl<T> gpu::ShaderPassBuilder for TypedMeshGPU<T> {
   fn setup_pass(&self, ctx: &mut gpu::GPURenderPassCtx) {
-    self.setup_pass(ctx.pass)
+    self.setup_pass(&mut ctx.pass)
   }
 }
 

@@ -54,9 +54,9 @@ impl ColorChannelView {
 }
 
 pub struct GPURenderPassCtx<'a, 'b> {
-  pub pass: &'b mut GPURenderPass<'a>,
+  pub pass: GPURenderPass<'a>,
   pub gpu: &'b GPU,
-  pub binding: &'b mut BindingBuilder,
+  pub binding: BindingBuilder,
 }
 
 #[derive(Default, Clone)]

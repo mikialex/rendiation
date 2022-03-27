@@ -46,7 +46,7 @@ impl HighLighter {
 }
 
 impl<'a, T> PassContent for HighLightComposeTask<'a, T> {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass) {
+  fn render(&mut self, pass: &mut SceneRenderPass) {
     todo!()
   }
 }
@@ -117,9 +117,9 @@ impl<'i, T> PassContentWithCamera for HighLightDrawMaskTask<T>
 where
   T: IntoIterator<Item = &'i dyn SceneRenderable> + Copy,
 {
-  fn render(&mut self, gpu: &GPU, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     for model in self.objects {
-      model.render(gpu, pass, todo!(), camera)
+      model.render(pass, todo!(), camera)
     }
   }
 }
