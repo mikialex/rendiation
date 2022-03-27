@@ -50,9 +50,26 @@ impl Drop for BindGroupCacheInvalidation {
   }
 }
 
-pub trait BindProvider: BindableResourceView {
+pub trait BindProvider: BindableResourceView + 'static {
   fn view_id(&self) -> usize;
   fn add_bind_record(&self, record: BindGroupCacheInvalidation);
+}
+
+pub trait UniformSource {
+  type Uniform: BindProvider;
+  fn get_uniform(&self) -> Self::Uniform;
+}
+
+impl<T> UniformSource for ResourceViewRc<T>
+where
+  T: Resource,
+  T::View: BindableResourceView,
+{
+  type Uniform = Self;
+
+  fn get_uniform(&self) -> Self::Uniform {
+    self.clone()
+  }
 }
 
 #[derive(Default)]
@@ -75,10 +92,9 @@ impl BindingBuilder {
 
   pub fn setup_uniform<T>(&mut self, item: &T, group: impl Into<usize>)
   where
-    T: Clone + 'static,
-    T: BindProvider,
+    T: UniformSource,
   {
-    self.items[group.into()].push(Box::new(item.clone()))
+    self.items[group.into()].push(Box::new(item.get_uniform()))
   }
 
   pub fn setup_pass(

@@ -108,6 +108,14 @@ pub struct AttachmentReadView<T> {
   pub(super) view: ColorChannelView,
 }
 
+impl<T> UniformSource for AttachmentReadView<T> {
+  type Uniform = GPUTexture2dView;
+
+  fn get_uniform(&self) -> Self::Uniform {
+    todo!()
+  }
+}
+
 #[derive(Clone)]
 pub struct AttachmentDescriptor {
   pub(super) format: wgpu::TextureFormat,
