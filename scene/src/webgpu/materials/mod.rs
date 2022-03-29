@@ -16,8 +16,6 @@ pub mod physical;
 pub use physical::*;
 pub mod fatline;
 pub use fatline::*;
-// pub mod env_background;
-// pub use env_background::*;
 
 use rendiation_webgpu::*;
 
