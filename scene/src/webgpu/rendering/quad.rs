@@ -1,8 +1,8 @@
 use rendiation_algebra::Vec2;
-use rendiation_webgpu::ShaderPassBuilder;
+use rendiation_webgpu::{ShaderHashProvider, ShaderPassBuilder};
 use shadergraph::*;
 
-use crate::{MaterialStates, PassContent, RenderComponent, SceneRenderPass};
+use crate::*;
 
 wgsl_function!(
   fn generate_quad(
@@ -39,12 +39,18 @@ struct FullScreenQuad {
   blend: Option<wgpu::BlendState>,
 }
 
+impl Default for FullScreenQuad {
+  fn default() -> Self {
+    Self { blend: None }
+  }
+}
+
 impl ShaderPassBuilder for FullScreenQuad {
   fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
     ctx.pass.draw(0..4, 0..1)
   }
 }
-
+impl ShaderHashProvider for FullScreenQuad {}
 impl ShaderGraphProvider for FullScreenQuad {
   fn build(
     &self,
@@ -80,19 +86,27 @@ pub struct RenderPassGPUInfoData {
 }
 
 pub struct QuadDraw<T> {
+  quad: FullScreenQuad,
   content: T,
 }
 
 pub trait UseQuadDraw: Sized {
   fn draw_quad(self) -> QuadDraw<Self> {
-    QuadDraw { content: self }
+    QuadDraw {
+      content: self,
+      quad: Default::default(),
+    }
   }
 }
 
 impl<T> UseQuadDraw for T {}
 
-impl<T> PassContent for QuadDraw<T> {
+impl<T> PassContent for QuadDraw<T>
+where
+// T: RenderComponentAny,
+{
   fn render(&mut self, pass: &mut SceneRenderPass) {
-    todo!()
+    // let components: [&dyn RenderComponentAny; 2] = [&self.quad, &self.content];
+    // RenderEmitter::new(components.as_slice()).render(&mut pass.ctx);
   }
 }

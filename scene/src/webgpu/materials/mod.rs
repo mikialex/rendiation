@@ -26,11 +26,12 @@ pub trait MaterialMeshLayoutRequire {
 }
 
 pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {
-  fn render(&self, gpu: &GPU, ctx: &mut GPURenderPassCtx) {
+  fn render(&self, ctx: &mut GPURenderPassCtx) {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline(&mut hasher);
 
-    let pipeline = gpu
+    let pipeline = ctx
+      .gpu
       .device
       .create_and_cache_render_pipeline(hasher, |device| {
         device
@@ -40,7 +41,7 @@ pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPass
 
     ctx
       .binding
-      .setup_pass(&mut ctx.pass, &gpu.device, &pipeline);
+      .setup_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
   }
 }
 

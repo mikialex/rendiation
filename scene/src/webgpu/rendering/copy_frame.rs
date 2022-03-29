@@ -2,7 +2,7 @@ use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 use shadergraph::{FragmentUv, ShaderGraphProvider, SB};
 
-use crate::{AttachmentReadView, PassContent, UseQuadDraw};
+use crate::{AttachmentReadView, PassContent, RenderComponentAny, UseQuadDraw};
 
 pub struct CopyFrame<T> {
   sampler: TextureSampler,

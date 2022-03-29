@@ -95,7 +95,7 @@ where
 
     let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
 
-    RenderEmitter::new(components.as_slice()).render(gpu, &mut pass.ctx);
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx);
   }
 }
 
