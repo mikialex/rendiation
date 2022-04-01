@@ -1,0 +1,16 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "fontext"
+version = "0.1.0"
+
+[dependencies]
+rendiation-algebra = {path = "../../math/algebra"}
+rendiation-geometry = {path = "../../math/geometry"}
+rendiation-color = {path = "../color"}
+rendiation-texture = {path = "../texture/core"}
+rendiation-texture-packer = {path = "../texture/packer"}
+linked-hash-map = "0.5.4"
+font-loader = "0.11.0"
+glyph_brush = "0.7"
+bytemuck = "1.4.1"

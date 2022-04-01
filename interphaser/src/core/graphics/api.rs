@@ -1,5 +1,4 @@
-use crate::{FillStyle, Path2dBuilder, Shape, StrokeStyle};
-use arena::*;
+use crate::{FillStyle, Shape, StrokeStyle};
 
 pub trait PainterAPI {
   // type Image;
@@ -16,11 +15,11 @@ pub struct TextureHandle {
   // pool: ImagePool<T>,
 }
 
-pub struct ImagePool<T> {
-  images: Arena<T>,
-}
+// pub struct ImagePool<T> {
+//   images: Arena<T>,
+// }
 
-pub struct Painter {
-  path_builder: Path2dBuilder,
-  // images: ImagePool
-}
+// pub struct Painter {
+//   path_builder: Path2dBuilder,
+//   // images: ImagePool
+// }

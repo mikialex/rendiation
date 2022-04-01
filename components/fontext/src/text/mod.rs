@@ -3,6 +3,7 @@ use std::{
   hash::{Hash, Hasher},
 };
 
+use rendiation_color::*;
 use rendiation_texture::Size;
 use rendiation_texture_packer::etagere_wrap::EtagerePacker;
 
@@ -21,7 +22,7 @@ pub use raster::*;
 pub mod packer;
 pub use packer::*;
 
-use crate::{Color, HorizontalAlignment, UISize, VerticalAlignment};
+use crate::{HorizontalAlignment, Rectangle, VerticalAlignment};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum LineWrap {
@@ -34,6 +35,8 @@ impl Default for LineWrap {
     Self::Single
   }
 }
+
+type Color = ColorWithAlpha<SRGBColor<f32>, f32>;
 
 #[derive(Debug, Clone)]
 pub struct TextInfo {

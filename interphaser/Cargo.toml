@@ -7,18 +7,15 @@ version = "0.1.0"
 [dependencies]
 arena = {path = "../utils/arena"}
 bytemuck = {version = "1.4.1", features = ["derive"]}
-font-loader = "0.11.0"
-glyph_brush = "0.7"
 image = "*"
-linked-hash-map = "0.5.4"
 log = "0.4"
 # nfd = "0.0.4"
 rendiation-algebra = {path = "../math/algebra"}
 rendiation-color = {path = "../components/color"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
+fontext = {path = "../components/fontext"}
 rendiation-texture = {path = "../components/texture/core"}
-rendiation-texture-packer = {path = "../components/texture/packer"}
 webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
 shadergraph = {path = "../shader/graph"}
 winit = {version = "0.26.0"}

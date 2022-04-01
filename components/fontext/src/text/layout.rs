@@ -1,13 +1,13 @@
 use glyph_brush::ab_glyph::Font;
 use glyph_brush::*;
 
-use crate::{FontManager, HorizontalAlignment, UIBound};
+use crate::{FontManager, HorizontalAlignment, Rectangle};
 
 use super::{GlyphCache, GlyphID, GlyphRasterInfo, TextInfo};
 
 pub struct LayoutedTextGlyphs {
   pub glyphs: Vec<(GlyphID, GlyphRasterInfo, GlyphBound)>,
-  pub bound: Option<UIBound>,
+  pub bound: Option<Rectangle>,
 }
 
 pub trait TextGlyphLayouter {
@@ -86,7 +86,7 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
         let outlined_glyph = font.outline_glyph(r.glyph.clone())?;
         let bounds = outlined_glyph.px_bounds();
 
-        let rect = UIBound {
+        let rect = Rectangle {
           min: (bounds.min.x, bounds.min.y).into(),
           max: (bounds.max.x, bounds.max.y).into(),
         };
