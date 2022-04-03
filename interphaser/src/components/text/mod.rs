@@ -9,8 +9,8 @@ pub use editable::*;
 pub enum TextLayoutConfig {
   SizedBox {
     line_wrap: LineWrap,
-    horizon_align: HorizontalAlignment,
-    vertical_align: VerticalAlignment,
+    horizon_align: TextHorizontalAlignment,
+    vertical_align: TextVerticalAlignment,
   },
   SingleLineShrink,
 }
@@ -91,8 +91,8 @@ impl Text {
           content: self.content.get().clone(),
           bounds: self.layout.size.into(),
           line_wrap: LineWrap::Single,
-          horizon_align: HorizontalAlignment::Left,
-          vertical_align: VerticalAlignment::Center,
+          horizon_align: TextHorizontalAlignment::Left,
+          vertical_align: TextVerticalAlignment::Center,
           x: self.layout.absolute_position.x,
           y: self.layout.absolute_position.y,
           color: (0., 0., 0., 1.).into(),

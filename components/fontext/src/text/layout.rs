@@ -12,34 +12,34 @@ pub trait TextGlyphLayouter {
 #[derive(Default)]
 pub struct GlyphBrushLayouter;
 
-fn convert_align_h(v: crate::HorizontalAlignment) -> glyph_brush::HorizontalAlign {
+fn convert_align_h(v: crate::TextHorizontalAlignment) -> glyph_brush::HorizontalAlign {
   match v {
-    HorizontalAlignment::Left => glyph_brush::HorizontalAlign::Left,
-    HorizontalAlignment::Center => glyph_brush::HorizontalAlign::Center,
-    HorizontalAlignment::Right => glyph_brush::HorizontalAlign::Right,
+    TextHorizontalAlignment::Left => glyph_brush::HorizontalAlign::Left,
+    TextHorizontalAlignment::Center => glyph_brush::HorizontalAlign::Center,
+    TextHorizontalAlignment::Right => glyph_brush::HorizontalAlign::Right,
   }
 }
 
-fn convert_align_v(v: crate::VerticalAlignment) -> glyph_brush::VerticalAlign {
+fn convert_align_v(v: crate::TextVerticalAlignment) -> glyph_brush::VerticalAlign {
   match v {
-    crate::VerticalAlignment::Center => glyph_brush::VerticalAlign::Center,
-    crate::VerticalAlignment::Top => glyph_brush::VerticalAlign::Top,
-    crate::VerticalAlignment::Bottom => glyph_brush::VerticalAlign::Bottom,
+    crate::TextVerticalAlignment::Center => glyph_brush::VerticalAlign::Center,
+    crate::TextVerticalAlignment::Top => glyph_brush::VerticalAlign::Top,
+    crate::TextVerticalAlignment::Bottom => glyph_brush::VerticalAlign::Bottom,
   }
 }
 
 impl TextGlyphLayouter for GlyphBrushLayouter {
   fn layout(&self, text: &TextInfo, fonts: &FontManager) -> LayoutedTextGlyphs {
     let x_correct = match text.horizon_align {
-      crate::HorizontalAlignment::Left => 0.,
-      crate::HorizontalAlignment::Center => text.bounds.0 / 2.,
-      crate::HorizontalAlignment::Right => text.bounds.0,
+      crate::TextHorizontalAlignment::Left => 0.,
+      crate::TextHorizontalAlignment::Center => text.bounds.0 / 2.,
+      crate::TextHorizontalAlignment::Right => text.bounds.0,
     };
 
     let y_correct = match text.vertical_align {
-      crate::VerticalAlignment::Top => 0.,
-      crate::VerticalAlignment::Center => text.bounds.1 / 2.,
-      crate::VerticalAlignment::Bottom => text.bounds.1,
+      crate::TextVerticalAlignment::Top => 0.,
+      crate::TextVerticalAlignment::Center => text.bounds.1 / 2.,
+      crate::TextVerticalAlignment::Bottom => text.bounds.1,
     };
 
     let layout = match text.line_wrap {

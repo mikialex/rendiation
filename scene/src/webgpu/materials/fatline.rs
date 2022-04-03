@@ -173,7 +173,7 @@ wgsl_function!(
 impl WebGPUMaterial for FatLineMaterial {
   type GPU = FatlineMaterialGPU;
 
-  fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
+  fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
     let uniform = FatlineMaterialUniform { width: self.width };
     let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
     let uniform = uniform.create_view(Default::default());

@@ -27,26 +27,26 @@ pub mod fonts;
 pub use fonts::*;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum HorizontalAlignment {
+pub enum TextHorizontalAlignment {
   Center,
   Left,
   Right,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum VerticalAlignment {
+pub enum TextVerticalAlignment {
   Center,
   Top,
   Bottom,
 }
 
-impl Default for HorizontalAlignment {
+impl Default for TextHorizontalAlignment {
   fn default() -> Self {
     Self::Center
   }
 }
 
-impl Default for VerticalAlignment {
+impl Default for TextVerticalAlignment {
   fn default() -> Self {
     Self::Center
   }
