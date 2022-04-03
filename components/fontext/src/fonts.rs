@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use glyph_brush::{ab_glyph, FontId};
+use crate::*;
 
 pub struct FontManager {
   fonts_by_name: HashMap<String, (ab_glyph::FontArc, FontId)>,

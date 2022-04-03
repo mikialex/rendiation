@@ -1,14 +1,4 @@
-use crate::{FontManager, TextRelaxedInfo};
-use std::{
-  cell::RefCell,
-  collections::{HashMap, HashSet},
-  rc::Rc,
-};
-
-use super::{
-  CacheQueuedResult, GlyphCache, LayoutedTextGlyphs, TextGlyphLayouter, TextHash, TextInfo,
-  TextQuadInstance, TextureCacheAction,
-};
+use crate::*;
 
 pub struct TextCache {
   cache: Rc<RefCell<TextCachePool>>,
