@@ -37,14 +37,14 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
   fn layout(&self, text: &TextInfo, fonts: &FontManager) -> LayoutedTextGlyphs {
     let x_correct = match text.horizon_align {
       crate::HorizontalAlignment::Left => 0.,
-      crate::HorizontalAlignment::Center => text.bounds.width / 2.,
-      crate::HorizontalAlignment::Right => text.bounds.width,
+      crate::HorizontalAlignment::Center => text.bounds.0 / 2.,
+      crate::HorizontalAlignment::Right => text.bounds.0,
     };
 
     let y_correct = match text.vertical_align {
       crate::VerticalAlignment::Top => 0.,
-      crate::VerticalAlignment::Center => text.bounds.height / 2.,
-      crate::VerticalAlignment::Bottom => text.bounds.height,
+      crate::VerticalAlignment::Center => text.bounds.1 / 2.,
+      crate::VerticalAlignment::Bottom => text.bounds.1,
     };
 
     let layout = match text.line_wrap {

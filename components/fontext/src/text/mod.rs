@@ -22,7 +22,7 @@ pub use raster::*;
 pub mod packer;
 pub use packer::*;
 
-use crate::{HorizontalAlignment, Rectangle, VerticalAlignment};
+use crate::{HorizontalAlignment, VerticalAlignment};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum LineWrap {
@@ -41,7 +41,7 @@ type Color = ColorWithAlpha<SRGBColor<f32>, f32>;
 #[derive(Debug, Clone)]
 pub struct TextInfo {
   pub content: String,
-  pub bounds: UISize,
+  pub bounds: (f32, f32),
   pub line_wrap: LineWrap,
   pub horizon_align: HorizontalAlignment,
   pub vertical_align: VerticalAlignment,
@@ -62,8 +62,8 @@ impl TextInfo {
   pub fn hash(&self) -> TextHash {
     let mut hasher = DefaultHasher::default();
     self.content.hash(&mut hasher);
-    self.bounds.width.to_bits().hash(&mut hasher);
-    self.bounds.height.to_bits().hash(&mut hasher);
+    self.bounds.0.to_bits().hash(&mut hasher);
+    self.bounds.1.to_bits().hash(&mut hasher);
     self.line_wrap.hash(&mut hasher);
     self.horizon_align.hash(&mut hasher);
     self.vertical_align.hash(&mut hasher);
