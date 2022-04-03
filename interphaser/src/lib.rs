@@ -38,3 +38,5 @@ pub use app::*;
 
 mod perf;
 pub use perf::*;
+
+pub use fontext::*;

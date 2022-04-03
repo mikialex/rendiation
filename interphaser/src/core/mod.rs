@@ -9,9 +9,6 @@ pub use graphics::*;
 mod event;
 pub use event::*;
 
-mod text;
-pub use text::*;
-
 use crate::*;
 
 pub trait Component<T, S: System = DefaultSystem> {

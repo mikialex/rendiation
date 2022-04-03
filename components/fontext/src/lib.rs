@@ -31,9 +31,3 @@ impl Default for VerticalAlignment {
     Self::Center
   }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct UISize<T = f32> {
-  pub width: T,
-  pub height: T,
-}

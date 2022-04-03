@@ -78,7 +78,7 @@ impl Text {
           vertical_align,
         } => TextInfo {
           content: self.content.get().clone(),
-          bounds: self.layout.size,
+          bounds: self.layout.size.into(),
           line_wrap,
           horizon_align,
           vertical_align,
@@ -89,7 +89,7 @@ impl Text {
         },
         TextLayoutConfig::SingleLineShrink => TextInfo {
           content: self.content.get().clone(),
-          bounds: self.layout.size,
+          bounds: self.layout.size.into(),
           line_wrap: LineWrap::Single,
           horizon_align: HorizontalAlignment::Left,
           vertical_align: VerticalAlignment::Center,
@@ -106,13 +106,15 @@ impl Text {
 
   pub fn get_text_boundary(&mut self, fonts: &FontManager, text: &TextCache) -> &UISize {
     self.text_layout_size_cache.get_or_insert_with(|| {
-      text.measure_size(
-        &TextRelaxedInfo {
-          content: self.content.get().clone(),
-          font_size: 30.,
-        },
-        fonts,
-      )
+      text
+        .measure_size(
+          &TextRelaxedInfo {
+            content: self.content.get().clone(),
+            font_size: 30.,
+          },
+          fonts,
+        )
+        .into()
     })
   }
 }
