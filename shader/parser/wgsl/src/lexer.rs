@@ -63,7 +63,6 @@ struct ReadCursor {
 #[derive(Clone, Debug)]
 pub struct Lexer<'a> {
   input: &'a str,
-  source: &'a str,
   cursor: ReadCursor,
 }
 
@@ -71,7 +70,6 @@ impl<'a> Lexer<'a> {
   pub fn new(input: &'a str) -> Self {
     Lexer {
       input,
-      source: input,
       cursor: ReadCursor { column: 0, row: 0 },
     }
   }

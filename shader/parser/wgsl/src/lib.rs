@@ -1,10 +1,11 @@
 mod ast;
-use ast::*;
+pub use ast::*;
 
 mod lexer;
 use lexer::*;
 
 mod parser;
-use parser::*;
+pub use parser::*;
 
-type Span = std::ops::Range<usize>;
+#[cfg(test)]
+mod test;

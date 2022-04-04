@@ -1,4 +1,4 @@
-type Span = std::ops::Range<usize>;
+pub type Span = std::ops::Range<usize>;
 
 use crate::lexer::{Lexer, Token};
 

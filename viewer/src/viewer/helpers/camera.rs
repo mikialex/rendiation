@@ -1,6 +1,5 @@
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::NoneIndexedMesh};
-use webgpu::GPU;
 
 use super::*;
 
