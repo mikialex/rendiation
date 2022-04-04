@@ -64,6 +64,7 @@ struct ReadCursor {
 pub struct Lexer<'a> {
   input: &'a str,
   cursor: ReadCursor,
+  pub parsing_type: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -71,6 +72,7 @@ impl<'a> Lexer<'a> {
     Lexer {
       input,
       cursor: ReadCursor { column: 0, row: 0 },
+      parsing_type: false,
     }
   }
 
@@ -84,18 +86,7 @@ impl<'a> Lexer<'a> {
   #[must_use]
   pub fn next(&mut self) -> TokenSpan<'a> {
     loop {
-      let token = self.consume_token(false);
-      match token.token {
-        Token::Trivia => continue,
-        _ => return token,
-      }
-    }
-  }
-
-  #[must_use]
-  pub fn next_generic(&mut self) -> TokenSpan<'a> {
-    loop {
-      let token = self.consume_token(false);
+      let token = self.consume_token();
       match token.token {
         Token::Trivia => continue,
         _ => return token,
@@ -133,6 +124,7 @@ impl<'a> Lexer<'a> {
         Token::Bool(_) => "boolean",
         Token::End => "",
       };
+      panic!("ddd");
       Err(ParseError::Unexpected(next.token, description))
     }
   }
@@ -149,7 +141,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-  fn consume_token(&mut self, generic: bool) -> TokenSpan<'a> {
+  fn consume_token(&mut self) -> TokenSpan<'a> {
     let mut input = self.input;
     let start_cursor = self.cursor.clone();
 
@@ -188,9 +180,9 @@ impl<'a> Lexer<'a> {
       '<' | '>' => {
         input = chars.as_str();
         let next = chars.next();
-        if next == Some('=') && !generic {
+        if next == Some('=') && !self.parsing_type {
           (Token::LogicalOperation(cur), chars.as_str())
-        } else if next == Some(cur) && !generic {
+        } else if next == Some(cur) && !self.parsing_type {
           (Token::ShiftOperation(cur), chars.as_str())
         } else {
           (Token::Paren(cur), input)
@@ -218,8 +210,11 @@ impl<'a> Lexer<'a> {
           "return" => (Token::Keyword(Keyword::Return), rest),
           "break" => (Token::Keyword(Keyword::Break), rest),
           "continue" => (Token::Keyword(Keyword::Continue), rest),
-          "let" => (Token::Keyword(Keyword::Declare(DeclarationType::Let)), rest),
-          "const" => (
+          "var" => (
+            Token::Keyword(Keyword::Declare(DeclarationType::Variable)),
+            rest,
+          ),
+          "let" => (
             Token::Keyword(Keyword::Declare(DeclarationType::Const)),
             rest,
           ),

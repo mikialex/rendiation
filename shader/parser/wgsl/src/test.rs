@@ -50,11 +50,11 @@ fn test_parse_statement(input: &str) -> Statement {
 fn parse_st_test() {
   test_parse_statement("return 1;");
   test_parse_statement("{}");
-  test_parse_statement("{;}"); // fix me
+  test_parse_statement("{;}");
   test_parse_statement("a = 2; ");
   test_parse_statement("(1+ 1); ");
   test_parse_statement("let a = (1+ 1); ");
-  test_parse_statement("const a = b = (1+ 1); ");
+  test_parse_statement("var a = (1+ 1); ");
   test_parse_statement(
     "
     if 1+1 {
@@ -76,5 +76,31 @@ fn parse_st_test() {
             print();
         }
     ",
+  );
+}
+
+fn test_parse_function(input: &str) -> FunctionDefine {
+  let r = FunctionDefine::parse(&mut Lexer::new(input)).unwrap();
+  println!("{:#?}", r);
+  r
+}
+
+#[test]
+fn parse_function_test() {
+  test_parse_function(
+    "
+  fn edge_intensity(uv: vec2<f32>) -> f32 {
+    var x_step: f32 = pass_info.texel_size.x * highlighter.width;
+    var y_step: f32 = pass_info.texel_size.y * highlighter.width;
+
+    var all: f32 = 0.0;
+    all = all + textureSample(mask, tex_sampler, in.uv).x;
+    all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
+    all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
+    all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
+
+    var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
+  }
+  ",
   );
 }

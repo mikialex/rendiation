@@ -12,6 +12,7 @@ impl SyntaxElement for FunctionDefine {
     if !input.skip(Token::Paren(')')) {
       loop {
         let name = parse_ident(input)?;
+        input.expect(Token::Separator(':'))?;
         let arg = TypeExpression::parse(input)?;
         arguments.push((name, arg));
         match input.next().token {
@@ -47,14 +48,50 @@ fn parse_ident<'a>(lexer: &mut Lexer<'a>) -> Result<Ident, ParseError<'a>> {
   Ok(r)
 }
 
+fn check_primitive_ty(name: &str) -> Option<PrimitiveDataType> {
+  match name {
+    "vec2" => PrimitiveDataType::Vec2,
+    "vec3" => PrimitiveDataType::Vec3,
+    "vec4" => PrimitiveDataType::Vec4,
+    _ => return None,
+  }
+  .into()
+}
+
+fn check_value_ty(name: &str) -> Result<PrimitiveValueType, ParseError> {
+  let r = match name {
+    "f32" => PrimitiveValueType::Float32,
+    "u32" => PrimitiveValueType::UnsignedInt32,
+    "i32" => PrimitiveValueType::Int32,
+    _ => return Err(ParseError::Any("unknown primitive value type")),
+  };
+
+  Ok(r)
+}
+
 impl SyntaxElement for TypeExpression {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    lexer.parsing_type = true;
     let r = match lexer.next().token {
-      Token::Word(name) => TypeExpression::Named(Ident {
-        name: name.to_owned(),
-      }),
-      _ => return Err(ParseError::Any("cant parse type_expression")),
+      Token::Word(name) => {
+        if let Some(data_ty) = check_primitive_ty(name) {
+          lexer.expect(Token::Paren('<'))?;
+          let value_ty = match lexer.next().token {
+            Token::Word(name) => check_value_ty(name)?,
+            _ => return Err(ParseError::Any("cant parse type_expression")),
+          };
+          lexer.expect(Token::Paren('>'))?;
+          TypeExpression::Primitive { value_ty, data_ty }
+        } else {
+          TypeExpression::Struct(Ident {
+            name: name.to_owned(),
+          })
+        }
+      }
+      _ => panic!("sad"),
+      // _ => return Err(ParseError::Any("cant parse type_expression")),
     };
+    lexer.parsing_type = false;
     Ok(r)
   }
 }
@@ -158,33 +195,61 @@ impl SyntaxElement for Statement {
 pub fn parse_expression_like_statement<'a>(
   lexer: &mut Lexer<'a>,
 ) -> Result<Statement, ParseError<'a>> {
-  let r = match lexer.peek().token {
-    Token::Keyword(keyword) => match keyword {
-      Kw::Declare(ty) => {
-        let _ = lexer.next();
-        let exp = Expression::parse(lexer)?;
-        if let Expression::Assign { left, right } = exp {
-          let r = Statement::Declare {
-            ty,
-            name: left,
-            init: *right,
-          };
-          lexer.expect(Token::Separator(';'))?;
-          r
+  let mut lex = lexer.clone();
+  let mut has_assign = false;
+  loop {
+    match lex.next().token {
+      Token::Operation('=') => has_assign = true,
+      Token::Separator(';') => break,
+      _ => {}
+    }
+  }
+
+  let r = if has_assign {
+    match lexer.next().token {
+      Token::Keyword(Kw::Declare(declare_ty)) => {
+        let name = parse_ident(lexer)?;
+        let ty = if lexer.skip(Token::Separator(':')) {
+          TypeExpression::parse(lexer)?.into()
         } else {
-          return Err(ParseError::Any("cant parse simple declare statement"));
+          None
+        };
+
+        lexer.expect(Token::Operation('='))?;
+        let exp = Expression::parse(lexer)?;
+        lexer.expect(Token::Separator(';'))?;
+
+        Statement::Declare {
+          declare_ty,
+          ty,
+          name,
+          init: exp,
         }
       }
-      _ => return Err(ParseError::Any("cant parse simple statement")),
-    },
-    Token::Separator(';') => {
-      let _ = lexer.next();
-      Statement::Empty
+      Token::Word(name) => {
+        let name = Ident {
+          name: name.to_owned(),
+        };
+        lexer.expect(Token::Operation('='))?;
+        let exp = Expression::parse(lexer)?;
+        lexer.expect(Token::Separator(';'))?;
+        Statement::Assignment { name, value: exp }
+      }
+      _ => {
+        return Err(ParseError::Any("assignment expect ident on left side"));
+      }
     }
-    _ => {
-      let exp = Expression::parse(lexer)?;
-      lexer.expect(Token::Separator(';'))?;
-      Statement::Expression(exp)
+  } else {
+    match lexer.peek().token {
+      Token::Separator(';') => {
+        let _ = lexer.next();
+        Statement::Empty
+      }
+      _ => {
+        let exp = Expression::parse(lexer)?;
+        lexer.expect(Token::Separator(';'))?;
+        Statement::Expression(exp)
+      }
     }
   };
   Ok(r)
@@ -194,38 +259,8 @@ pub fn parse_expression_like_statement<'a>(
 
 impl SyntaxElement for Expression {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
-    let mut l = lexer.clone();
-    if let Token::Word(_) = l.next().token {
-      if let Token::Operation('=') = l.next().token {
-        return parse_assignment_expression(lexer);
-      }
-    }
-
     parse_exp_with_binary_operators(lexer)
   }
-}
-
-fn parse_assignment_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
-  parse_binary_like_right(
-    lexer,
-    &|tk| tk == Token::Operation('='),
-    &|lexer| {
-      let r = match lexer.next().token {
-        Token::Word(ident) => Ok(Ident {
-          name: ident.to_owned(),
-        }),
-        _ => Err(ParseError::Any("assignment left should only be ident")),
-      };
-
-      lexer.clone().expect(Token::Operation('='))?;
-      r
-    },
-    &|lexer| parse_exp_with_binary_operators(lexer),
-    &|left, _, right| Expression::Assign {
-      left,
-      right: Box::new(right),
-    },
-  )
 }
 
 pub fn parse_exp_with_binary_operators<'a>(

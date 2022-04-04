@@ -83,11 +83,16 @@ pub struct For {
 pub enum Statement {
   Block(Block),
   Declare {
-    ty: DeclarationType,
+    declare_ty: DeclarationType,
+    ty: Option<TypeExpression>,
     name: Ident,
     init: Expression,
   },
   Empty,
+  Assignment {
+    name: Ident,
+    value: Expression,
+  },
   Expression(Expression),
   Return {
     value: Option<Expression>,
@@ -101,18 +106,31 @@ pub enum Statement {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DeclarationType {
-  Let,
+  Variable,
   Const,
 }
 
 #[derive(Debug)]
+pub enum PrimitiveValueType {
+  Float32,
+  UnsignedInt32,
+  Int32,
+}
+
+#[derive(Debug)]
+pub enum PrimitiveDataType {
+  Vec2,
+  Vec3,
+  Vec4,
+}
+
+#[derive(Debug)]
 pub enum TypeExpression {
-  Named(Ident),
-  // should we support this(generics) now?
-  // Constructor {
-  //     name: Ident,
-  //     parameters: Vec<Box<TypeExpression>>,
-  // },
+  Struct(Ident),
+  Primitive {
+    value_ty: PrimitiveValueType,
+    data_ty: PrimitiveDataType,
+  },
 }
 
 #[derive(Debug)]
@@ -134,10 +152,6 @@ pub enum Expression {
   ItemAccess {
     from: Box<Self>,
     to: Ident,
-  },
-  Assign {
-    left: Ident,
-    right: Box<Self>,
   },
   PrimitiveConst(PrimitiveConstValue),
   Ident(Ident),
