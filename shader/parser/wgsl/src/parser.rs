@@ -58,41 +58,61 @@ fn check_primitive_ty(name: &str) -> Option<PrimitiveDataType> {
   .into()
 }
 
-fn check_value_ty(name: &str) -> Result<PrimitiveValueType, ParseError> {
-  let r = match name {
+fn check_value_ty(name: &str) -> Option<PrimitiveValueType> {
+  match name {
     "f32" => PrimitiveValueType::Float32,
     "u32" => PrimitiveValueType::UnsignedInt32,
     "i32" => PrimitiveValueType::Int32,
-    _ => return Err(ParseError::Any("unknown primitive value type")),
-  };
+    _ => return None,
+  }
+  .into()
+}
 
+fn is_primitive_ident(name: &str) -> bool {
+  check_value_ty(name).is_some() || check_primitive_ty(name).is_some()
+}
+
+// todo move to lexer
+fn is_primitive_ty(lexer: &Lexer) -> bool {
+  match lexer.peek().token {
+    Token::Word(name) => is_primitive_ident(name),
+    _ => false,
+  }
+}
+
+fn parser_primitive_ty<'a>(lexer: &mut Lexer<'a>) -> Result<PrimitiveType, ParseError<'a>> {
+  lexer.parsing_type = true;
+
+  let r = match lexer.next().token {
+    Token::Word(name) => {
+      if let Some(ty) = check_value_ty(name) {
+        PrimitiveType::Scalar(ty)
+      } else {
+        let data_ty = check_primitive_ty(name).unwrap();
+
+        lexer.expect(Token::Paren('<'))?;
+        let value_ty = match lexer.next().token {
+          Token::Word(name) => {
+            check_value_ty(name).ok_or(ParseError::Any("unknown primitive value type"))?
+          }
+          _ => return Err(ParseError::Any("cant parse type_expression")),
+        };
+        lexer.expect(Token::Paren('>'))?;
+        PrimitiveType::Vector(PrimitiveVectorType { value_ty, data_ty })
+      }
+    }
+    _ => unreachable!(),
+  };
   Ok(r)
 }
 
 impl SyntaxElement for TypeExpression {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
-    lexer.parsing_type = true;
-    let r = match lexer.next().token {
-      Token::Word(name) => {
-        if let Some(data_ty) = check_primitive_ty(name) {
-          lexer.expect(Token::Paren('<'))?;
-          let value_ty = match lexer.next().token {
-            Token::Word(name) => check_value_ty(name)?,
-            _ => return Err(ParseError::Any("cant parse type_expression")),
-          };
-          lexer.expect(Token::Paren('>'))?;
-          TypeExpression::Primitive { value_ty, data_ty }
-        } else {
-          TypeExpression::Struct(Ident {
-            name: name.to_owned(),
-          })
-        }
-      }
-      _ => panic!("sad"),
-      // _ => return Err(ParseError::Any("cant parse type_expression")),
-    };
-    lexer.parsing_type = false;
-    Ok(r)
+    if is_primitive_ty(lexer) {
+      Ok(TypeExpression::Primitive(parser_primitive_ty(lexer)?))
+    } else {
+      Ok(TypeExpression::Struct(parse_ident(lexer)?))
+    }
   }
 }
 
@@ -429,16 +449,20 @@ pub fn parse_single_expression<'a>(input: &mut Lexer<'a>) -> Result<Expression, 
       inner
     }
     Token::Word(name) => {
-      if let Token::Paren('(') = input.peek().token {
-        Expression::FunctionCall(parse_function_parameters(input, name)?)
+      if is_primitive_ident(name) {
+        // let ty = parser_primitive_ty(lexer)
+        todo!()
       } else {
-        Expression::Ident(Ident {
-          name: name.to_owned(),
-        })
+        if let Token::Paren('(') = input.peek().token {
+          Expression::FunctionCall(parse_function_parameters(input, name)?)
+        } else {
+          Expression::Ident(Ident {
+            name: name.to_owned(),
+          })
+        }
       }
     }
-    _ => panic!(),
-    // _ => return Err(ParseError::Any("failed in parse single expression")),
+    _ => return Err(ParseError::Any("failed in parse single expression")),
   };
   Ok(r)
 }
@@ -477,6 +501,7 @@ fn parse_binary_like_left<'a, L, R>(
   Ok(result)
 }
 
+#[allow(unused)]
 fn parse_binary_like_right<'a, L, R>(
   lexer: &mut Lexer<'a>,
   separator: &impl Fn(Token<'a>) -> bool,

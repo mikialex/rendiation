@@ -2,19 +2,6 @@ pub type Span = std::ops::Range<usize>;
 
 use crate::lexer::{Lexer, Token};
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum NumericType {
-  Float,
-  Int,
-  UnsignedInt,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum PrimitiveType {
-  Numeric(NumericType),
-  Bool,
-}
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PrimitiveConstValue {
   Bool(bool),
@@ -125,12 +112,21 @@ pub enum PrimitiveDataType {
 }
 
 #[derive(Debug)]
+pub struct PrimitiveVectorType {
+  pub value_ty: PrimitiveValueType,
+  pub data_ty: PrimitiveDataType,
+}
+
+#[derive(Debug)]
+pub enum PrimitiveType {
+  Scalar(PrimitiveValueType),
+  Vector(PrimitiveVectorType),
+}
+
+#[derive(Debug)]
 pub enum TypeExpression {
   Struct(Ident),
-  Primitive {
-    value_ty: PrimitiveValueType,
-    data_ty: PrimitiveDataType,
-  },
+  Primitive(PrimitiveType),
 }
 
 #[derive(Debug)]
@@ -145,6 +141,10 @@ pub enum Expression {
     right: Box<Self>,
   },
   FunctionCall(FunctionCall),
+  PrimitiveConstruct {
+    ty: PrimitiveType,
+    arguments: Vec<Expression>,
+  },
   ArrayAccess {
     array: Box<Self>,
     index: Box<Self>,
