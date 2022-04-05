@@ -22,7 +22,7 @@ pub enum ParseError<'a> {
 }
 
 pub trait SyntaxElement: Sized {
-  fn parse<'a>(input: &mut Lexer<'a>) -> Result<Self, ParseError<'a>>;
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>>;
 }
 
 #[derive(Debug)]
@@ -44,6 +44,26 @@ pub struct If {
   pub accept: Block,
   pub elses: Vec<IfElse>,
   pub reject: Option<Block>,
+}
+
+/// https://www.w3.org/TR/WGSL/#switch-statement
+#[derive(Debug)]
+pub struct Switch {
+  pub target: Expression,
+  pub cases: Vec<SwitchBody>,
+}
+
+#[derive(Debug)]
+pub enum CaseType {
+  Const(Expression), // todo const literal,
+  Default,
+}
+
+#[derive(Debug)]
+pub struct SwitchBody {
+  pub case: CaseType,
+  pub statements: Vec<Statement>,
+  pub fallthrough: bool,
 }
 
 #[derive(Debug)]
@@ -85,9 +105,15 @@ pub enum Statement {
     value: Option<Expression>,
   },
   If(If),
+  Switch(Switch),
   While(While),
+  Loop {
+    statements: Vec<Self>,
+    // continuing:
+  },
   Break,
   Continue,
+  Discard,
   For(For),
 }
 

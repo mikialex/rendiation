@@ -124,6 +124,75 @@ impl SyntaxElement for Block {
   }
 }
 
+impl SyntaxElement for Switch {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    lexer.expect(Token::Keyword(Kw::Switch))?;
+    let target = Expression::parse(lexer)?;
+    lexer.expect(Token::Paren('{'))?;
+    let mut cases = Vec::new();
+    while lexer.peek().token != Token::Paren('}') {
+      cases.push(SwitchBody::parse(lexer)?);
+    }
+    lexer.expect(Token::Paren('}'))?;
+    Ok(Self { target, cases })
+  }
+}
+
+impl SyntaxElement for SwitchBody {
+  fn parse<'a>(input: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let r = match input.next().token {
+      Token::Keyword(kw) => match kw {
+        Keyword::Case => todo!(),
+        Keyword::Default => {
+          input.skip(Token::Separator(':'));
+          let (statements, fallthrough) = parse_case_compound_statement(input)?;
+          Self {
+            case: CaseType::Default,
+            statements,
+            fallthrough,
+          }
+        }
+        _ => {
+          return Err(ParseError::Any(
+            "failed to parse switch body, expect case or default",
+          ))
+        }
+      },
+      _ => {
+        return Err(ParseError::Any(
+          "failed to parse switch body, expect case or default",
+        ))
+      }
+    };
+    Ok(r)
+  }
+}
+
+fn parse_case_compound_statement<'a>(
+  lexer: &mut Lexer<'a>,
+) -> Result<(Vec<Statement>, bool), ParseError<'a>> {
+  let mut statements = Vec::new();
+  lexer.expect(Token::Paren('{'))?;
+  let mut fallthrough = false;
+  while lexer.peek().token != Token::Paren('}')
+    || lexer.peek().token != Token::Keyword(Kw::FallThrough)
+  {
+    if lexer.skip(Token::Keyword(Kw::FallThrough)) {
+      fallthrough = true;
+      lexer.expect(Token::Separator(';'))?;
+    } else {
+      if fallthrough {
+        return Err(ParseError::Any(
+          "fallthrough should be last statement in switch body",
+        ));
+      }
+      statements.push(Statement::parse(lexer)?);
+    }
+  }
+  lexer.expect(Token::Paren('}'))?;
+  Ok((statements, fallthrough))
+}
+
 impl SyntaxElement for Statement {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
     let r = match lexer.peek().token {
@@ -138,6 +207,18 @@ impl SyntaxElement for Statement {
           };
           lexer.expect(Token::Separator(';'))?;
           Statement::Return { value }
+        }
+        Kw::Loop => {
+          let _ = lexer.next();
+          lexer.expect(Token::Separator(';'))?;
+          // Statement::Discard
+          todo!()
+        }
+        Kw::Switch => Statement::Switch(Switch::parse(lexer)?),
+        Kw::Discard => {
+          let _ = lexer.next();
+          lexer.expect(Token::Separator(';'))?;
+          Statement::Discard
         }
         Kw::Break => {
           let _ = lexer.next();
