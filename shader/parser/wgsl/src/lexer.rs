@@ -85,6 +85,7 @@ impl<'a> Lexer<'a> {
   }
 
   #[must_use]
+  #[allow(clippy::should_implement_trait)]
   pub fn next(&mut self) -> TokenSpan<'a> {
     loop {
       let token = self.consume_token();
@@ -126,7 +127,6 @@ impl<'a> Lexer<'a> {
         Token::End => "",
         Token::BuiltInType(_) => "builtin_type",
       };
-      panic!("ddd");
       Err(ParseError::Unexpected(next.token, description))
     }
   }
@@ -220,7 +220,7 @@ impl<'a> Lexer<'a> {
             Token::Keyword(Keyword::Declare(DeclarationType::Const)),
             rest,
           ),
-          "f32" | "u32" | "i32" | "bool" | "vec2" | "vec3" | "vec4" => {
+          "f32" | "u32" | "i32" | "bool" | "vec2" | "vec3" | "vec4" | "mat4x4" | "mat3x3" => {
             (Token::BuiltInType(word), rest)
           }
           "fn" => (Token::Keyword(Keyword::Function), rest),

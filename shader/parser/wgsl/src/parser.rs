@@ -51,6 +51,9 @@ fn check_primitive_ty(name: &str) -> Option<PrimitiveDataType> {
     "vec2" => PrimitiveDataType::Vec2,
     "vec3" => PrimitiveDataType::Vec3,
     "vec4" => PrimitiveDataType::Vec4,
+    "mat2x2" => PrimitiveDataType::Mat2,
+    "mat3x3" => PrimitiveDataType::Mat3,
+    "mat4x4" => PrimitiveDataType::Mat4,
     _ => return None,
   }
   .into()
@@ -207,6 +210,7 @@ pub fn parse_expression_like_statement<'a>(
   lexer: &mut Lexer<'a>,
 ) -> Result<Statement, ParseError<'a>> {
   let mut lex = lexer.clone();
+  let mut lex2 = lexer.clone();
   let mut has_assign = false;
   loop {
     match lex.next().token {
@@ -216,51 +220,56 @@ pub fn parse_expression_like_statement<'a>(
     }
   }
 
-  let r = if has_assign {
-    match lexer.next().token {
-      Token::Keyword(Kw::Declare(declare_ty)) => {
-        let name = parse_ident(lexer)?;
-        let ty = if lexer.skip(Token::Separator(':')) {
-          TypeExpression::parse(lexer)?.into()
-        } else {
-          None
-        };
+  let r = match lexer.next().token {
+    Token::Keyword(Kw::Declare(declare_ty)) => {
+      let name = parse_ident(lexer)?;
+      let ty = if lexer.skip(Token::Separator(':')) {
+        TypeExpression::parse(lexer)?.into()
+      } else {
+        None
+      };
 
+      let exp = if let Token::Operation('=') = lexer.peek().token {
         lexer.expect(Token::Operation('='))?;
-        let exp = Expression::parse(lexer)?;
-        lexer.expect(Token::Separator(';'))?;
+        Expression::parse(lexer)?.into()
+      } else {
+        None
+      };
 
-        Statement::Declare {
-          declare_ty,
-          ty,
-          name,
-          init: exp,
-        }
+      lexer.expect(Token::Separator(';'))?;
+
+      Statement::Declare {
+        declare_ty,
+        ty,
+        name,
+        init: exp,
       }
-      Token::Word(name) => {
+    }
+    Token::Word(name) => {
+      if has_assign {
         let name = Ident::from(name);
         lexer.expect(Token::Operation('='))?;
         let exp = Expression::parse(lexer)?;
         lexer.expect(Token::Separator(';'))?;
         Statement::Assignment { name, value: exp }
-      }
-      _ => {
-        return Err(ParseError::Any("assignment expect ident on left side"));
-      }
-    }
-  } else {
-    match lexer.peek().token {
-      Token::Separator(';') => {
-        let _ = lexer.next();
-        Statement::Empty
-      }
-      _ => {
-        let exp = Expression::parse(lexer)?;
+      } else {
+        let exp = Expression::parse(&mut lex2)?;
+        *lexer = lex2;
         lexer.expect(Token::Separator(';'))?;
         Statement::Expression(exp)
       }
     }
+    Token::Separator(';') => {
+      let _ = lexer.next();
+      Statement::Empty
+    }
+    _ => {
+      let exp = Expression::parse(lexer)?;
+      lexer.expect(Token::Separator(';'))?;
+      Statement::Expression(exp)
+    }
   };
+
   Ok(r)
 }
 

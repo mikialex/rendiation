@@ -2,7 +2,7 @@ mod ast;
 pub use ast::*;
 
 mod lexer;
-use lexer::*;
+pub use lexer::*;
 
 mod parser;
 pub use parser::*;

@@ -73,7 +73,7 @@ pub enum Statement {
     declare_ty: DeclarationType,
     ty: Option<TypeExpression>,
     name: Ident,
-    init: Expression,
+    init: Option<Expression>,
   },
   Empty,
   Assignment {
@@ -109,6 +109,9 @@ pub enum PrimitiveDataType {
   Vec2,
   Vec3,
   Vec4,
+  Mat2,
+  Mat3,
+  Mat4,
 }
 
 #[derive(Debug)]

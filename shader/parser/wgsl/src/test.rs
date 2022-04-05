@@ -86,7 +86,7 @@ fn test_parse_function(input: &str) -> FunctionDefine {
 }
 
 #[test]
-fn parse_function_test() {
+fn parse_function_test1() {
   test_parse_function(
     "
   fn edge_intensity(uv: vec2<f32>) -> f32 {
@@ -100,6 +100,54 @@ fn parse_function_test() {
     all = all + textureSample(mask, tex_sampler, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
 
     var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
+  }
+  ",
+  );
+}
+
+#[test]
+fn parse_function_test2() {
+  test_parse_function(
+    "
+  fn background_direction(vertex_index: u32, view: mat4x4<f32>, projection_inv: mat4x4<f32>) -> vec3<f32> {
+    // hacky way to draw a large triangle
+    let tmp1 = i32(vertex_index) / 2;
+    let tmp2 = i32(vertex_index) & 1;
+    let pos = vec4<f32>(
+        f32(tmp1) * 4.0 - 1.0,
+        f32(tmp2) * 4.0 - 1.0,
+        1.0,
+        1.0
+    );
+
+    // transposition = inversion for this orthonormal matrix
+    let inv_model_view = transpose(mat3x3<f32>(view.x.xyz, view.y.xyz, view.z.xyz));
+    let unprojected = projection_inv * pos;
+
+    return inv_model_view * unprojected.xyz;
+  }
+  ",
+  );
+}
+
+#[test]
+fn parse_function_test3() {
+  test_parse_function(
+    "
+  fn fatline_round_corner(uv: vec2<f32>) {
+    if (abs(vUv.y) > 1.0) {
+      let a = vUv.x;
+      let b: f32;
+      if (vUv.y > 0.0) {
+        b = vUv.y - 1.0;
+      } else {
+        b = vUv.y + 1.0;
+      }
+      let len2 = a * a + b * b;
+      if (len2 > 1.0) {
+        discard;
+      }
+    }
   }
   ",
   );
