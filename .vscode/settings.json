@@ -96,6 +96,7 @@
         "skipable",
         "Slerp",
         "spirv",
+        "splitn",
         "SRGB",
         "structor",
         "Subpixel",

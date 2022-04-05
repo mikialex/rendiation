@@ -31,6 +31,7 @@ pub enum Token<'a> {
   String(&'a str),
   Word(&'a str),
   Keyword(Keyword),
+  BuiltInType(&'a str),
   Operation(char),
   LogicalOperation(char),
   ShiftOperation(char),
@@ -123,6 +124,7 @@ impl<'a> Lexer<'a> {
         Token::Trivia => "trivia",
         Token::Bool(_) => "boolean",
         Token::End => "",
+        Token::BuiltInType(_) => "builtin_type",
       };
       panic!("ddd");
       Err(ParseError::Unexpected(next.token, description))
@@ -218,6 +220,9 @@ impl<'a> Lexer<'a> {
             Token::Keyword(Keyword::Declare(DeclarationType::Const)),
             rest,
           ),
+          "f32" | "u32" | "i32" | "bool" | "vec2" | "vec3" | "vec4" => {
+            (Token::BuiltInType(word), rest)
+          }
           "fn" => (Token::Keyword(Keyword::Function), rest),
           _ => (Token::Word(word), rest),
         }
