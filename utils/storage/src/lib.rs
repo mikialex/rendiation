@@ -35,13 +35,15 @@ pub trait StorageBehavior<T>: Sized {
   fn size(c: &Self::Container) -> usize;
 }
 
-impl<T, S: StorageBehavior<T>> Storage<T, S> {
-  pub fn new() -> Self {
+impl<T, S: StorageBehavior<T>> Default for Storage<T, S> {
+  fn default() -> Self {
     Self {
-      data: S::Container::default(),
+      data: Default::default(),
     }
   }
+}
 
+impl<T, S: StorageBehavior<T>> Storage<T, S> {
   pub fn insert(&mut self, v: T) -> Handle<T, S> {
     S::insert(&mut self.data, v)
   }

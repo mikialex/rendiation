@@ -324,7 +324,7 @@ pub fn parse_exp_with_binary_operators<'a>(
                       Token::Operation('&') => Some(BinaryOperator::And),
                       _ => None,
                     },
-                    |lexer| parse_exp_with_binary_operators_no_logic_no_bit(lexer),
+                    parse_exp_with_binary_operators_no_logic_no_bit,
                   )
                 },
               )
@@ -377,7 +377,7 @@ pub fn parse_exp_with_binary_operators_no_logic_no_bit<'a>(
                   Token::Operation('%') => Some(BinaryOperator::Mod),
                   _ => None,
                 },
-                |lexer| parse_exp_with_postfix(lexer),
+                parse_exp_with_postfix,
               )
             },
           )
@@ -452,14 +452,12 @@ pub fn parse_single_expression<'a>(input: &mut Lexer<'a>) -> Result<Expression, 
       if is_primitive_ident(name) {
         // let ty = parser_primitive_ty(lexer)
         todo!()
+      } else if let Token::Paren('(') = input.peek().token {
+        Expression::FunctionCall(parse_function_parameters(input, name)?)
       } else {
-        if let Token::Paren('(') = input.peek().token {
-          Expression::FunctionCall(parse_function_parameters(input, name)?)
-        } else {
-          Expression::Ident(Ident {
-            name: name.to_owned(),
-          })
-        }
+        Expression::Ident(Ident {
+          name: name.to_owned(),
+        })
       }
     }
     _ => return Err(ParseError::Any("failed in parse single expression")),
@@ -512,10 +510,12 @@ fn parse_binary_like_right<'a, L, R>(
   let mut backup = lexer.clone();
   let left = left_parser(lexer);
   if let Ok(left) = left {
-    while separator(lexer.peek().token) {
-      let token = lexer.next().token;
-      let right = parse_binary_like_right(lexer, separator, left_parser, right_parser, assemble)?;
-      return Ok(assemble(left, token, right));
+    loop {
+      if separator(lexer.peek().token) {
+        let token = lexer.next().token;
+        let right = parse_binary_like_right(lexer, separator, left_parser, right_parser, assemble)?;
+        return Ok(assemble(left, token, right));
+      }
     }
     right_parser(lexer)
   } else {

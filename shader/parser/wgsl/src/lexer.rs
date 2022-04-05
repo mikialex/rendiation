@@ -286,7 +286,7 @@ impl<'a> Lexer<'a> {
 
   fn consume_any(&mut self, what: impl Fn(char) -> bool) -> (&'a str, &'a str) {
     let input = self.input;
-    let pos = input.find(|c| !what(c)).unwrap_or_else(|| input.len());
+    let pos = input.find(|c| !what(c)).unwrap_or(input.len());
     input.split_at(pos)
   }
 
@@ -310,7 +310,7 @@ impl<'a> Lexer<'a> {
         ('0'..='9').contains(&c) || c == '.'
       }
     };
-    let pos = input.find(|c| !what(c)).unwrap_or_else(|| input.len());
+    let pos = input.find(|c| !what(c)).unwrap_or(input.len());
     let (value, rest) = input.split_at(pos);
 
     let mut rest_iter = rest.chars();
@@ -319,7 +319,7 @@ impl<'a> Lexer<'a> {
       'u' | 'i' | 'f' => {
         let width_end = rest_iter
           .position(|c| !('0'..='9').contains(&c))
-          .unwrap_or_else(|| rest.len() - 1);
+          .unwrap_or(rest.len() - 1);
         let (width, rest) = rest[1..].split_at(width_end);
         (Token::Number { value, ty, width }, rest)
       }

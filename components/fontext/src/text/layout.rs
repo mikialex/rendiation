@@ -57,7 +57,7 @@ impl TextGlyphLayouter for GlyphBrushLayouter {
 
     let geometry = SectionGeometry {
       screen_position: (text.x + x_correct, text.y + y_correct),
-      bounds: text.bounds.into(),
+      bounds: text.bounds,
     };
 
     let raw_result = layout.calculate_glyphs(

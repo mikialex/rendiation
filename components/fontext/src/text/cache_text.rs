@@ -72,7 +72,7 @@ impl TextCache {
   pub fn measure_size(&self, text: &TextRelaxedInfo, fonts: &FontManager) -> (f32, f32) {
     let free_unbound = TextInfo {
       content: text.content.clone(),
-      bounds: (100000., 100000.).into(),
+      bounds: (100000., 100000.),
       line_wrap: Default::default(),
       horizon_align: Default::default(),
       vertical_align: Default::default(),

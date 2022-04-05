@@ -52,6 +52,7 @@ impl LayoutConstraint {
   /// Create a "loose" version of the constraints.
   ///
   /// Make a version with zero minimum size, but the same maximum size.
+  #[must_use]
   pub fn loosen(&self) -> Self {
     Self {
       min: UISize::ZERO,
@@ -94,6 +95,7 @@ impl LayoutConstraint {
   /// so that the layout is aligned to integers.
   ///
   /// [rounded away from zero]: struct.Size.html#method.expand
+  #[must_use]
   pub fn shrink(&self, diff: impl Into<UISize>) -> Self {
     let diff = diff.into();
     let min = UISize::new(
@@ -164,6 +166,7 @@ impl UISize {
     }
   }
 
+  #[must_use]
   pub fn clamp(self, min: Self, max: Self) -> Self {
     let width = self.width.max(min.width).min(max.width);
     let height = self.height.max(min.height).min(max.height);
