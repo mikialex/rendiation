@@ -40,9 +40,7 @@ impl SyntaxElement for FunctionDefine {
 
 fn parse_ident<'a>(lexer: &mut Lexer<'a>) -> Result<Ident, ParseError<'a>> {
   let r = match lexer.next().token {
-    Token::Word(name) => Ident {
-      name: name.to_owned(),
-    },
+    Token::Word(name) => Ident::from(name),
     _ => return Err(ParseError::Any("cant parse ident")),
   };
   Ok(r)
@@ -68,51 +66,44 @@ fn check_value_ty(name: &str) -> Option<PrimitiveValueType> {
   .into()
 }
 
-fn is_primitive_ident(name: &str) -> bool {
-  check_value_ty(name).is_some() || check_primitive_ty(name).is_some()
-}
+impl SyntaxElement for PrimitiveType {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let r = match lexer.next().token {
+      Token::BuiltInType(name) => {
+        let p_ty = if let Some(ty) = check_value_ty(name) {
+          PrimitiveType::Scalar(ty)
+        } else {
+          let data_ty = check_primitive_ty(name).unwrap();
 
-// todo move to lexer
-fn is_primitive_ty(lexer: &Lexer) -> bool {
-  match lexer.peek().token {
-    Token::Word(name) => is_primitive_ident(name),
-    _ => false,
-  }
-}
-
-fn parser_primitive_ty<'a>(lexer: &mut Lexer<'a>) -> Result<PrimitiveType, ParseError<'a>> {
-  lexer.parsing_type = true;
-
-  let r = match lexer.next().token {
-    Token::Word(name) => {
-      if let Some(ty) = check_value_ty(name) {
-        PrimitiveType::Scalar(ty)
-      } else {
-        let data_ty = check_primitive_ty(name).unwrap();
-
-        lexer.expect(Token::Paren('<'))?;
-        let value_ty = match lexer.next().token {
-          Token::Word(name) => {
-            check_value_ty(name).ok_or(ParseError::Any("unknown primitive value type"))?
-          }
-          _ => return Err(ParseError::Any("cant parse type_expression")),
+          lexer.expect(Token::Paren('<'))?;
+          let value_ty = match lexer.next().token {
+            Token::BuiltInType(name) => {
+              check_value_ty(name).ok_or(ParseError::Any("unknown primitive value type"))?
+            }
+            _ => return Err(ParseError::Any("missing primitive value type")),
+          };
+          lexer.expect(Token::Paren('>'))?;
+          PrimitiveType::Vector(PrimitiveVectorType { value_ty, data_ty })
         };
-        lexer.expect(Token::Paren('>'))?;
-        PrimitiveType::Vector(PrimitiveVectorType { value_ty, data_ty })
+        p_ty
       }
-    }
-    _ => unreachable!(),
-  };
-  Ok(r)
+      _ => return Err(ParseError::Any("cant parse primitive type")),
+    };
+    Ok(r)
+  }
 }
 
 impl SyntaxElement for TypeExpression {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
-    if is_primitive_ty(lexer) {
-      Ok(TypeExpression::Primitive(parser_primitive_ty(lexer)?))
-    } else {
-      Ok(TypeExpression::Struct(parse_ident(lexer)?))
-    }
+    let r = match lexer.peek().token {
+      Token::Word(name) => {
+        _ = lexer.next();
+        TypeExpression::Struct(Ident::from(name))
+      }
+      Token::BuiltInType(_) => TypeExpression::Primitive(PrimitiveType::parse(lexer)?),
+      _ => return Err(ParseError::Any("cant parse type_expression")),
+    };
+    Ok(r)
   }
 }
 
@@ -247,9 +238,7 @@ pub fn parse_expression_like_statement<'a>(
         }
       }
       Token::Word(name) => {
-        let name = Ident {
-          name: name.to_owned(),
-        };
+        let name = Ident::from(name);
         lexer.expect(Token::Operation('='))?;
         let exp = Expression::parse(lexer)?;
         lexer.expect(Token::Separator(';'))?;
@@ -404,11 +393,9 @@ pub fn parse_exp_with_postfix<'a>(input: &mut Lexer<'a>) -> Result<Expression, P
       Token::Separator('.') => {
         let _ = input.next();
         match input.next().token {
-          Token::Word(ident) => Expression::ItemAccess {
+          Token::Word(name) => Expression::ItemAccess {
             from: Box::new(result),
-            to: Ident {
-              name: ident.to_owned(),
-            },
+            to: Ident::from(name),
           },
           _ => return Err(ParseError::Any("only ident can dot with")),
         }
@@ -422,6 +409,7 @@ pub fn parse_exp_with_postfix<'a>(input: &mut Lexer<'a>) -> Result<Expression, P
 
 // EXP_SINGLE
 pub fn parse_single_expression<'a>(input: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
+  let mut backup = input.clone();
   let r = match input.next().token {
     Token::Number { .. } => Expression::PrimitiveConst(PrimitiveConstValue::Numeric(
       NumericTypeConstValue::Float(1.), // todo
@@ -448,12 +436,20 @@ pub fn parse_single_expression<'a>(input: &mut Lexer<'a>) -> Result<Expression, 
       input.expect(Token::Paren(')'))?;
       inner
     }
+    Token::BuiltInType(_) => {
+      let ty = PrimitiveType::parse(&mut backup)?;
+      *input = backup;
+      Expression::PrimitiveConstruct {
+        ty,
+        arguments: parse_function_parameters(input)?,
+      }
+    }
     Token::Word(name) => {
-      if is_primitive_ident(name) {
-        // let ty = parser_primitive_ty(lexer)
-        todo!()
-      } else if let Token::Paren('(') = input.peek().token {
-        Expression::FunctionCall(parse_function_parameters(input, name)?)
+      if let Token::Paren('(') = input.peek().token {
+        Expression::FunctionCall(FunctionCall {
+          name: Ident::from(name),
+          arguments: parse_function_parameters(input)?,
+        })
       } else {
         Expression::Ident(Ident {
           name: name.to_owned(),
@@ -527,8 +523,7 @@ fn parse_binary_like_right<'a, L, R>(
 
 pub fn parse_function_parameters<'a>(
   input: &mut Lexer<'a>,
-  name: &'a str,
-) -> Result<FunctionCall, ParseError<'a>> {
+) -> Result<Vec<Expression>, ParseError<'a>> {
   input.expect(Token::Paren('('))?;
   let mut arguments = Vec::new();
   // if skipped means empty argument
@@ -543,8 +538,5 @@ pub fn parse_function_parameters<'a>(
       }
     }
   }
-  Ok(FunctionCall {
-    name: name.to_owned(),
-    arguments,
-  })
+  Ok(arguments)
 }

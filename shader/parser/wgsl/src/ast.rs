@@ -159,13 +159,21 @@ pub enum Expression {
 
 #[derive(Debug)]
 pub struct FunctionCall {
-  pub name: String,
+  pub name: Ident,
   pub arguments: Vec<Expression>,
 }
 
 #[derive(Debug)]
 pub struct Ident {
   pub name: String,
+}
+
+impl From<&str> for Ident {
+  fn from(name: &str) -> Self {
+    Self {
+      name: name.to_owned(),
+    }
+  }
 }
 
 #[derive(Copy, Clone, Debug)]
