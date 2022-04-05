@@ -3,32 +3,32 @@ use crate::*;
 use Keyword as Kw;
 
 impl SyntaxElement for FunctionDefine {
-  fn parse<'a>(input: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
-    input.expect(Token::Keyword(Kw::Function))?;
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    lexer.expect(Token::Keyword(Kw::Function))?;
 
-    let name = parse_ident(input)?;
-    input.expect(Token::Paren('('))?;
+    let name = parse_ident(lexer)?;
+    lexer.expect(Token::Paren('('))?;
     let mut arguments = Vec::new();
-    if !input.skip(Token::Paren(')')) {
+    if !lexer.skip(Token::Paren(')')) {
       loop {
-        let name = parse_ident(input)?;
-        input.expect(Token::Separator(':'))?;
-        let arg = TypeExpression::parse(input)?;
+        let name = parse_ident(lexer)?;
+        lexer.expect(Token::Separator(':'))?;
+        let arg = TypeExpression::parse(lexer)?;
         arguments.push((name, arg));
-        match input.next().token {
+        match lexer.next().token {
           Token::Paren(')') => break,
           Token::Separator(',') => (),
           other => return Err(ParseError::Unexpected(other, "argument list separator")),
         }
       }
     };
-    let return_type = if input.skip(Token::Arrow) {
-      Some(TypeExpression::parse(input)?)
+    let return_type = if lexer.skip(Token::Arrow) {
+      Some(TypeExpression::parse(lexer)?)
     } else {
       None
     };
 
-    let body = Block::parse(input)?;
+    let body = Block::parse(lexer)?;
     Ok(FunctionDefine {
       name,
       arguments,
@@ -139,13 +139,13 @@ impl SyntaxElement for Switch {
 }
 
 impl SyntaxElement for SwitchBody {
-  fn parse<'a>(input: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
-    let r = match input.next().token {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let r = match lexer.next().token {
       Token::Keyword(kw) => match kw {
         Keyword::Case => todo!(),
         Keyword::Default => {
-          input.skip(Token::Separator(':'));
-          let (statements, fallthrough) = parse_case_compound_statement(input)?;
+          lexer.skip(Token::Separator(':'));
+          let (statements, fallthrough) = parse_case_compound_statement(lexer)?;
           Self {
             case: CaseType::Default,
             statements,
@@ -467,22 +467,22 @@ pub fn parse_exp_with_binary_operators_no_logic_no_bit<'a>(
 }
 
 // EXP_WITH_POSTFIX
-pub fn parse_exp_with_postfix<'a>(input: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
-  let mut result = parse_single_expression(input)?;
+pub fn parse_exp_with_postfix<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
+  let mut result = parse_single_expression(lexer)?;
   loop {
-    result = match input.peek().token {
+    result = match lexer.peek().token {
       Token::Paren('[') => {
-        let _ = input.next();
-        let index = parse_single_expression(input)?;
-        input.expect(Token::Paren(']'))?;
+        let _ = lexer.next();
+        let index = parse_single_expression(lexer)?;
+        lexer.expect(Token::Paren(']'))?;
         Expression::ArrayAccess {
           array: Box::new(result),
           index: Box::new(index),
         }
       }
       Token::Separator('.') => {
-        let _ = input.next();
-        match input.next().token {
+        let _ = lexer.next();
+        match lexer.next().token {
           Token::Word(name) => Expression::ItemAccess {
             from: Box::new(result),
             to: Ident::from(name),
@@ -498,15 +498,15 @@ pub fn parse_exp_with_postfix<'a>(input: &mut Lexer<'a>) -> Result<Expression, P
 }
 
 // EXP_SINGLE
-pub fn parse_single_expression<'a>(input: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
-  let mut backup = input.clone();
-  let r = match input.next().token {
+pub fn parse_single_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
+  let mut backup = lexer.clone();
+  let r = match lexer.next().token {
     Token::Number { .. } => Expression::PrimitiveConst(PrimitiveConstValue::Numeric(
       NumericTypeConstValue::Float(1.), // todo
     )),
     Token::Bool(v) => Expression::PrimitiveConst(PrimitiveConstValue::Bool(v)),
     Token::Operation('-') => {
-      let inner = Expression::parse(input)?;
+      let inner = Expression::parse(lexer)?;
       let inner = Box::new(inner);
       Expression::UnaryOperator {
         op: UnaryOperator::Neg,
@@ -514,7 +514,7 @@ pub fn parse_single_expression<'a>(input: &mut Lexer<'a>) -> Result<Expression, 
       }
     }
     Token::Operation('!') => {
-      let inner = Expression::parse(input)?;
+      let inner = Expression::parse(lexer)?;
       let inner = Box::new(inner);
       Expression::UnaryOperator {
         op: UnaryOperator::Not,
@@ -522,23 +522,23 @@ pub fn parse_single_expression<'a>(input: &mut Lexer<'a>) -> Result<Expression, 
       }
     }
     Token::Paren('(') => {
-      let inner = Expression::parse(input)?;
-      input.expect(Token::Paren(')'))?;
+      let inner = Expression::parse(lexer)?;
+      lexer.expect(Token::Paren(')'))?;
       inner
     }
     Token::BuiltInType(_) => {
       let ty = PrimitiveType::parse(&mut backup)?;
-      *input = backup;
+      *lexer = backup;
       Expression::PrimitiveConstruct {
         ty,
-        arguments: parse_function_parameters(input)?,
+        arguments: parse_function_parameters(lexer)?,
       }
     }
     Token::Word(name) => {
-      if let Token::Paren('(') = input.peek().token {
+      if let Token::Paren('(') = lexer.peek().token {
         Expression::FunctionCall(FunctionCall {
           name: Ident::from(name),
-          arguments: parse_function_parameters(input)?,
+          arguments: parse_function_parameters(lexer)?,
         })
       } else {
         Expression::Ident(Ident {
@@ -612,16 +612,16 @@ fn parse_binary_like_right<'a, L, R>(
 }
 
 pub fn parse_function_parameters<'a>(
-  input: &mut Lexer<'a>,
+  lexer: &mut Lexer<'a>,
 ) -> Result<Vec<Expression>, ParseError<'a>> {
-  input.expect(Token::Paren('('))?;
+  lexer.expect(Token::Paren('('))?;
   let mut arguments = Vec::new();
   // if skipped means empty argument
-  if !input.skip(Token::Paren(')')) {
+  if !lexer.skip(Token::Paren(')')) {
     loop {
-      let arg = Expression::parse(input)?;
+      let arg = Expression::parse(lexer)?;
       arguments.push(arg);
-      match input.next().token {
+      match lexer.next().token {
         Token::Paren(')') => break,
         Token::Separator(',') => (),
         other => return Err(ParseError::Unexpected(other, "argument list separator")),
