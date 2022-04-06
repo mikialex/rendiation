@@ -142,7 +142,16 @@ impl SyntaxElement for SwitchBody {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
     let r = match lexer.next().token {
       Token::Keyword(kw) => match kw {
-        Keyword::Case => todo!(),
+        Keyword::Case => {
+          let selectors = parse_case_selectors(lexer)?;
+          lexer.skip(Token::Separator(':'));
+          let (statements, fallthrough) = parse_case_compound_statement(lexer)?;
+          Self {
+            case: CaseType::Const(selectors),
+            statements,
+            fallthrough,
+          }
+        }
         Keyword::Default => {
           lexer.skip(Token::Separator(':'));
           let (statements, fallthrough) = parse_case_compound_statement(lexer)?;
@@ -166,6 +175,20 @@ impl SyntaxElement for SwitchBody {
     };
     Ok(r)
   }
+}
+
+fn parse_case_selectors<'a>(lexer: &mut Lexer<'a>) -> Result<Vec<Expression>, ParseError<'a>> {
+  let mut re = Vec::new();
+  loop {
+    re.push(Expression::parse(lexer)?);
+    match lexer.peek().token {
+      Token::Separator(',') => continue,
+      Token::Separator(':') => break,
+      Token::Separator('{') => break,
+      _ => return Err(ParseError::Any("expect colon or comma or selection block")),
+    }
+  }
+  Ok(re)
 }
 
 fn parse_case_compound_statement<'a>(

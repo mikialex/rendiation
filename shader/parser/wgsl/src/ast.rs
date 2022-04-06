@@ -55,7 +55,7 @@ pub struct Switch {
 
 #[derive(Debug)]
 pub enum CaseType {
-  Const(Expression), // todo const literal,
+  Const(Vec<Expression>), // todo const literal,
   Default,
 }
 
