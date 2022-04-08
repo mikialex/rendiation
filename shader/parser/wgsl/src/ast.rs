@@ -131,6 +131,7 @@ pub enum PrimitiveValueType {
   Float32,
   UnsignedInt32,
   Int32,
+  Bool,
 }
 
 #[derive(Debug)]

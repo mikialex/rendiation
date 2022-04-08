@@ -1,4 +1,4 @@
-use std::{mem::Discriminant, rc::Rc};
+use std::rc::Rc;
 
 use interphaser::*;
 
@@ -41,16 +41,8 @@ impl IdentityKeyed for MenuItem {
 
   fn key(&self) -> Self::Key {
     match self {
-      MenuItem::SubList {
-        name,
-        list,
-        disabled,
-      } => name.clone().into(),
-      MenuItem::Item {
-        name,
-        disabled,
-        on_click,
-      } => name.clone().into(),
+      MenuItem::SubList { name, .. } => name.clone().into(),
+      MenuItem::Item { name, .. } => name.clone().into(),
       MenuItem::Separation => None,
     }
   }
@@ -73,9 +65,9 @@ fn menu_title() -> impl UIComponent<MenuList> {
   )
 }
 
-fn menu_item() -> impl UIComponent<MenuList> {
-  Container::sized((200., 50.))
-}
+// fn menu_item() -> impl UIComponent<MenuList> {
+//   Container::sized((200., 50.))
+// }
 
 // struct EnumMatcher<T> {
 //   com: Box<dyn UIComponent<dyn Any>>,

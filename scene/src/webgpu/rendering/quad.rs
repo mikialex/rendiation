@@ -4,36 +4,39 @@ use shadergraph::*;
 
 use crate::*;
 
-wgsl_function!(
-  fn generate_quad(
-    vertex_index: u32
-  ) -> VertexOut {
-    var left: f32 = -1.0;
-    var right: f32 = 1.0;
-    var top: f32 = 1.0;
-    var bottom: f32 = -1.0;
-    var depth: f32 = 0.0;
+// todo
+// struct VertexOut {}
 
-    switch (i32(vertex_index)) {
-      case 0: {
-        out.position = vec4<f32>(left, top, depth, 1.);
-        out.uv = vec2<f32>(0., 0.);
-      }
-      case 1: {
-        out.position = vec4<f32>(right, top, depth, 1.);
-        out.uv = vec2<f32>(1., 0.);
-      }
-      case 2: {
-        out.position = vec4<f32>(left, bottom, depth, 1.);
-        out.uv = vec2<f32>(0., 1.);
-      }
-      default: {
-        out.position = vec4<f32>(right, bottom, depth, 1.);
-        out.uv = vec2<f32>(1., 1.);
-      }
-    }
-  }
-);
+// wgsl_function!(
+//   fn generate_quad(
+//     vertex_index: u32
+//   ) -> VertexOut {
+//     var left: f32 = -1.0;
+//     var right: f32 = 1.0;
+//     var top: f32 = 1.0;
+//     var bottom: f32 = -1.0;
+//     var depth: f32 = 0.0;
+
+//     switch (i32(vertex_index)) {
+//       case 0: {
+//         out.position = vec4<f32>(left, top, depth, 1.);
+//         out.uv = vec2<f32>(0., 0.);
+//       }
+//       case 1: {
+//         out.position = vec4<f32>(right, top, depth, 1.);
+//         out.uv = vec2<f32>(1., 0.);
+//       }
+//       case 2: {
+//         out.position = vec4<f32>(left, bottom, depth, 1.);
+//         out.uv = vec2<f32>(0., 1.);
+//       }
+//       default: {
+//         out.position = vec4<f32>(right, bottom, depth, 1.);
+//         out.uv = vec2<f32>(1., 1.);
+//       }
+//     }
+//   }
+// );
 
 struct FullScreenQuad {
   blend: Option<wgpu::BlendState>,

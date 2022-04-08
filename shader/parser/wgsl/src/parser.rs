@@ -70,6 +70,7 @@ fn check_value_ty(name: &str) -> Option<PrimitiveValueType> {
     "f32" => PrimitiveValueType::Float32,
     "u32" => PrimitiveValueType::UnsignedInt32,
     "i32" => PrimitiveValueType::Int32,
+    "bool" => PrimitiveValueType::Bool,
     _ => return None,
   }
   .into()

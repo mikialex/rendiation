@@ -147,7 +147,7 @@ wgsl_function!(
 );
 
 wgsl_function!(
-  fn fatline_round_corner(uv: vec2<f32>) {
+  fn discard_fatline_round_corner(uv: vec2<f32>) -> bool {
     if (abs(vUv.y) > 1.0) {
       let a = vUv.x;
       let b: f32;
@@ -158,9 +158,10 @@ wgsl_function!(
       }
       let len2 = a * a + b * b;
       if (len2 > 1.0) {
-        discard;
+        return true;
       }
     }
+    return false;
   }
 );
 
