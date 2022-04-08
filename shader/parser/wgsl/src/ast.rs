@@ -171,6 +171,7 @@ pub enum PrimitiveType {
   Scalar(PrimitiveValueType),
   Vector(PrimitiveVectorType),
   Texture(TextureType),
+  Sampler,
 }
 
 #[derive(Debug)]

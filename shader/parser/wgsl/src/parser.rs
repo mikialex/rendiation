@@ -120,6 +120,8 @@ impl SyntaxElement for PrimitiveType {
               value_ty,
               container_ty,
             })
+          } else if name == "sampler" {
+            PrimitiveType::Sampler
           } else {
             return Err(ParseError::Any("unexpected builtin type"));
           }

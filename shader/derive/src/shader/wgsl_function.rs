@@ -108,6 +108,7 @@ fn convert_type(ty: &TypeExpression) -> proc_macro2::TokenStream {
           TextureContainerType::CubeArray => todo!(),
         }
       }
+      PrimitiveType::Sampler => quote! { shadergraph::ShaderSampler },
     },
   }
 }
