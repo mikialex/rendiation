@@ -97,7 +97,7 @@ pub enum Statement {
   },
   Empty,
   Assignment {
-    name: Ident,
+    lhs: LhsExpression,
     value: Expression,
   },
   Expression(Expression),
@@ -184,6 +184,36 @@ pub enum Expression {
   },
   PrimitiveConst(PrimitiveConstValue),
   Ident(Ident),
+}
+
+// pub enum PrimaryExpression{
+//   Ident(Ident),
+//   PrimitiveConst(PrimitiveConstValue),
+//   FunctionCall(FunctionCall),
+// }
+
+// pub struct SingularExpression {
+//   primary: Box<>,
+
+// }
+
+#[derive(Debug)]
+pub struct LhsExpression {
+  pub content: LhsExpressionCore,
+  pub postfix: Vec<PostFixExpression>,
+}
+
+#[derive(Debug)]
+pub enum LhsExpressionCore {
+  Ident(Ident),
+  Deref(Box<LhsExpression>),
+  Ref(Box<LhsExpression>),
+}
+
+#[derive(Debug)]
+pub enum PostFixExpression {
+  ArrayAccess { index: Box<Expression> },
+  FieldAccess { field: Ident },
 }
 
 #[derive(Debug)]

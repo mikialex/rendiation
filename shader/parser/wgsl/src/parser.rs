@@ -198,7 +198,7 @@ fn parse_case_compound_statement<'a>(
   lexer.expect(Token::Paren('{'))?;
   let mut fallthrough = false;
   while lexer.peek().token != Token::Paren('}')
-    || lexer.peek().token != Token::Keyword(Kw::FallThrough)
+    && lexer.peek().token != Token::Keyword(Kw::FallThrough)
   {
     if lexer.skip(Token::Keyword(Kw::FallThrough)) {
       fallthrough = true;
@@ -349,13 +349,15 @@ pub fn parse_expression_like_statement<'a>(
         init: exp,
       }
     }
-    Token::Word(name) => {
+    Token::Word(_) => {
       if has_assign {
-        let name = Ident::from(name);
+        // todo fix expect world first
+        let lhs = LhsExpression::parse(&mut lex2)?;
+        *lexer = lex2;
         lexer.expect(Token::Operation('='))?;
         let exp = Expression::parse(lexer)?;
         lexer.expect(Token::Separator(';'))?;
-        Statement::Assignment { name, value: exp }
+        Statement::Assignment { lhs, value: exp }
       } else {
         let exp = Expression::parse(&mut lex2)?;
         *lexer = lex2;
@@ -569,7 +571,7 @@ pub fn parse_single_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, 
         })
       }
     }
-    _ => return Err(ParseError::Any("failed in parse single expression")),
+    _ => panic!(), // _ => return Err(ParseError::Any("failed in parse single expression")),
   };
   Ok(r)
 }
@@ -652,4 +654,61 @@ pub fn parse_function_parameters<'a>(
     }
   }
   Ok(arguments)
+}
+
+impl SyntaxElement for LhsExpression {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let content = LhsExpressionCore::parse(lexer)?;
+    let postfix = Vec::<PostFixExpression>::parse(lexer)?;
+    Ok(Self { content, postfix })
+  }
+}
+
+impl SyntaxElement for LhsExpressionCore {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let r = match lexer.next().token {
+      Token::Word(name) => Self::Ident(Ident::from(name)),
+      Token::Paren('(') => {
+        let r = Self::parse(lexer)?;
+        lexer.expect(Token::Paren(')'))?;
+        return Ok(r);
+      }
+      Token::Operation('*') => {
+        let r = LhsExpression::parse(lexer)?;
+        Self::Deref(Box::new(r))
+      }
+      Token::Operation('&') => {
+        let r = LhsExpression::parse(lexer)?;
+        Self::Ref(Box::new(r))
+      }
+      _ => return Err(ParseError::Any("expect ident, deref or ref operator")),
+    };
+    Ok(r)
+  }
+}
+
+impl SyntaxElement for Vec<PostFixExpression> {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let mut r = Vec::new();
+    loop {
+      match lexer.peek().token {
+        Token::Separator('[') => {
+          let _ = lexer.next();
+          let index = Expression::parse(lexer)?;
+          r.push(PostFixExpression::ArrayAccess {
+            index: Box::new(index),
+          })
+        }
+        Token::Separator('.') => {
+          let _ = lexer.next();
+          r.push(PostFixExpression::FieldAccess {
+            field: parse_ident(lexer)?,
+          })
+        }
+        _ => break,
+      };
+    }
+
+    Ok(r)
+  }
 }
