@@ -52,7 +52,7 @@ fn parse_ident<'a>(lexer: &mut Lexer<'a>) -> Result<Ident, ParseError<'a>> {
   Ok(r)
 }
 
-fn check_primitive_ty(name: &str) -> Option<PrimitiveVecDataType> {
+fn check_vec_ty(name: &str) -> Option<PrimitiveVecDataType> {
   match name {
     "vec2" => PrimitiveVecDataType::Vec2,
     "vec3" => PrimitiveVecDataType::Vec3,
@@ -89,6 +89,17 @@ fn check_value_ty(name: &str) -> Option<PrimitiveValueType> {
   .into()
 }
 
+impl SyntaxElement for PrimitiveValueType {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    match lexer.next().token {
+      Token::BuiltInType(name) => {
+        check_value_ty(name).ok_or(ParseError::Any("unknown primitive value type"))
+      }
+      _ => Err(ParseError::Any("missing primitive value type")),
+    }
+  }
+}
+
 impl SyntaxElement for PrimitiveType {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
     let r = match lexer.next().token {
@@ -96,20 +107,22 @@ impl SyntaxElement for PrimitiveType {
         let p_ty = if let Some(ty) = check_value_ty(name) {
           PrimitiveType::Scalar(ty)
         } else {
-          let data_ty = check_primitive_ty(name).unwrap();
-
-          lexer.expect(Token::Paren('<'))?;
-          let value_ty = match lexer.next().token {
-            Token::BuiltInType(name) => {
-              check_value_ty(name).ok_or(ParseError::Any("unknown primitive value type"))?
-            }
-            _ => return Err(ParseError::Any("missing primitive value type")),
-          };
-          lexer.expect(Token::Paren('>'))?;
-          PrimitiveType::Vector(PrimitiveVectorType {
-            value_ty,
-            vec_ty: data_ty,
-          })
+          if let Some(vec_ty) = check_vec_ty(name) {
+            lexer.expect(Token::Paren('<'))?;
+            let value_ty = PrimitiveValueType::parse(lexer)?;
+            lexer.expect(Token::Paren('>'))?;
+            PrimitiveType::Vector(PrimitiveVectorType { value_ty, vec_ty })
+          } else if let Some(container_ty) = check_texture_ty(name) {
+            lexer.expect(Token::Paren('<'))?;
+            let value_ty = PrimitiveValueType::parse(lexer)?;
+            lexer.expect(Token::Paren('>'))?;
+            PrimitiveType::Texture(TextureType {
+              value_ty,
+              container_ty,
+            })
+          } else {
+            return Err(ParseError::Any("unexpected builtin type"));
+          }
         };
         p_ty
       }

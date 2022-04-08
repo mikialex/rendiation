@@ -73,7 +73,11 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
       let uv = builder.query::<FragmentUv>()?.get();
       builder.set_fragment_out(
         0,
-        (uniform.color.xyz(), edge_intensity(uv) * uniform.color.w()).into(),
+        (
+          uniform.color.xyz(),
+          edge_intensity(uv, mask) * uniform.color.w(),
+        )
+          .into(),
       )?;
       todo!()
     })
@@ -81,7 +85,7 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
 }
 
 wgsl_function!(
-  fn edge_intensity(uv: vec2<f32>) -> f32 {
+  fn edge_intensity(uv: vec2<f32>, mask: texture_2d<f32>) -> f32 {
     var x_step: f32 = pass_info.texel_size.x * highlighter.width;
     var y_step: f32 = pass_info.texel_size.y * highlighter.width;
 

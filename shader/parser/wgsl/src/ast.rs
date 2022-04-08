@@ -170,6 +170,7 @@ pub struct PrimitiveVectorType {
 pub enum PrimitiveType {
   Scalar(PrimitiveValueType),
   Vector(PrimitiveVectorType),
+  Texture(TextureType),
 }
 
 #[derive(Debug)]

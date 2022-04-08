@@ -94,6 +94,20 @@ fn convert_type(ty: &TypeExpression) -> proc_macro2::TokenStream {
           PrimitiveVecDataType::Mat4 => quote! { shadergraph::Mat4<#inner> },
         }
       }
+      PrimitiveType::Texture(TextureType {
+        value_ty,
+        container_ty,
+      }) => {
+        let _ = convert_scalar(value_ty); // todo
+        match container_ty {
+          TextureContainerType::D1 => todo!(),
+          TextureContainerType::D2 => quote! { shadergraph::ShaderTexture },
+          TextureContainerType::D2Array => todo!(),
+          TextureContainerType::D3 => todo!(),
+          TextureContainerType::Cube => todo!(),
+          TextureContainerType::CubeArray => todo!(),
+        }
+      }
     },
   }
 }
