@@ -70,8 +70,11 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
 
       let mask = binding.uniform_by(&self.mask, SB::Material);
 
-      let uv = builder.query::<FragmentUv>()?;
-      // builder.set_fragment_out(0, (uniform.color, edge_intensity(uv)))
+      let uv = builder.query::<FragmentUv>()?.get();
+      builder.set_fragment_out(
+        0,
+        (uniform.color.xyz(), edge_intensity(uv) * uniform.color.w()).into(),
+      )?;
       todo!()
     })
   }

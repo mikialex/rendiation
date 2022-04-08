@@ -80,15 +80,18 @@ fn convert_type(ty: &TypeExpression) -> proc_macro2::TokenStream {
     }
     TypeExpression::Primitive(p) => match p {
       PrimitiveType::Scalar(sty) => convert_scalar(sty),
-      PrimitiveType::Vector(PrimitiveVectorType { value_ty, data_ty }) => {
+      PrimitiveType::Vector(PrimitiveVectorType {
+        value_ty,
+        vec_ty: data_ty,
+      }) => {
         let inner = convert_scalar(value_ty);
         match data_ty {
-          PrimitiveDataType::Vec2 => quote! { shadergraph::Vec2<#inner> },
-          PrimitiveDataType::Vec3 => quote! { shadergraph::Vec3<#inner> },
-          PrimitiveDataType::Vec4 => quote! { shadergraph::Vec4<#inner> },
-          PrimitiveDataType::Mat2 => quote! { shadergraph::Mat2<#inner> },
-          PrimitiveDataType::Mat3 => quote! { shadergraph::Mat3<#inner> },
-          PrimitiveDataType::Mat4 => quote! { shadergraph::Mat4<#inner> },
+          PrimitiveVecDataType::Vec2 => quote! { shadergraph::Vec2<#inner> },
+          PrimitiveVecDataType::Vec3 => quote! { shadergraph::Vec3<#inner> },
+          PrimitiveVecDataType::Vec4 => quote! { shadergraph::Vec4<#inner> },
+          PrimitiveVecDataType::Mat2 => quote! { shadergraph::Mat2<#inner> },
+          PrimitiveVecDataType::Mat3 => quote! { shadergraph::Mat3<#inner> },
+          PrimitiveVecDataType::Mat4 => quote! { shadergraph::Mat4<#inner> },
         }
       }
     },

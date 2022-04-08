@@ -232,9 +232,8 @@ impl<'a> Lexer<'a> {
             Token::Keyword(Keyword::Declare(DeclarationType::Const)),
             rest,
           ),
-          "f32" | "u32" | "i32" | "bool" | "vec2" | "vec3" | "vec4" | "mat4x4" | "mat3x3" => {
-            (Token::BuiltInType(word), rest)
-          }
+          "f32" | "u32" | "i32" | "bool" | "vec2" | "vec3" | "vec4" | "mat4x4" | "mat3x3"
+          | "sampler" | "comparison_sampler" | "texture2d" => (Token::BuiltInType(word), rest),
           "fn" => (Token::Keyword(Keyword::Function), rest),
           _ => (Token::Word(word), rest),
         }

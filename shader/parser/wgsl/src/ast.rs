@@ -135,7 +135,7 @@ pub enum PrimitiveValueType {
 }
 
 #[derive(Debug)]
-pub enum PrimitiveDataType {
+pub enum PrimitiveVecDataType {
   Vec2,
   Vec3,
   Vec4,
@@ -145,9 +145,25 @@ pub enum PrimitiveDataType {
 }
 
 #[derive(Debug)]
+pub enum TextureContainerType {
+  D1,
+  D2,
+  D2Array,
+  D3,
+  Cube,
+  CubeArray,
+}
+
+#[derive(Debug)]
+pub struct TextureType {
+  pub value_ty: PrimitiveValueType,
+  pub container_ty: TextureContainerType,
+}
+
+#[derive(Debug)]
 pub struct PrimitiveVectorType {
   pub value_ty: PrimitiveValueType,
-  pub data_ty: PrimitiveDataType,
+  pub vec_ty: PrimitiveVecDataType,
 }
 
 #[derive(Debug)]

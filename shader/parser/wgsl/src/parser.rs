@@ -52,14 +52,27 @@ fn parse_ident<'a>(lexer: &mut Lexer<'a>) -> Result<Ident, ParseError<'a>> {
   Ok(r)
 }
 
-fn check_primitive_ty(name: &str) -> Option<PrimitiveDataType> {
+fn check_primitive_ty(name: &str) -> Option<PrimitiveVecDataType> {
   match name {
-    "vec2" => PrimitiveDataType::Vec2,
-    "vec3" => PrimitiveDataType::Vec3,
-    "vec4" => PrimitiveDataType::Vec4,
-    "mat2x2" => PrimitiveDataType::Mat2,
-    "mat3x3" => PrimitiveDataType::Mat3,
-    "mat4x4" => PrimitiveDataType::Mat4,
+    "vec2" => PrimitiveVecDataType::Vec2,
+    "vec3" => PrimitiveVecDataType::Vec3,
+    "vec4" => PrimitiveVecDataType::Vec4,
+    "mat2x2" => PrimitiveVecDataType::Mat2,
+    "mat3x3" => PrimitiveVecDataType::Mat3,
+    "mat4x4" => PrimitiveVecDataType::Mat4,
+    _ => return None,
+  }
+  .into()
+}
+
+fn check_texture_ty(name: &str) -> Option<TextureContainerType> {
+  match name {
+    "texture_1d" => TextureContainerType::D1,
+    "texture_2d" => TextureContainerType::D2,
+    "texture_2d_array" => TextureContainerType::D2Array,
+    "texture_3d" => TextureContainerType::D3,
+    "texture_cube" => TextureContainerType::Cube,
+    "texture_cube_array" => TextureContainerType::CubeArray,
     _ => return None,
   }
   .into()
@@ -93,7 +106,10 @@ impl SyntaxElement for PrimitiveType {
             _ => return Err(ParseError::Any("missing primitive value type")),
           };
           lexer.expect(Token::Paren('>'))?;
-          PrimitiveType::Vector(PrimitiveVectorType { value_ty, data_ty })
+          PrimitiveType::Vector(PrimitiveVectorType {
+            value_ty,
+            vec_ty: data_ty,
+          })
         };
         p_ty
       }
