@@ -64,93 +64,87 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
   }
 }
 
-// wgsl_function!(
-//   fn fatline_vertex(
-//     start: vec3<f32>,
-//     end: vec3<f32>,
-//     current_point: vec3<f32>
-//     view_size: vec2<f32>,
-//     width: f32,
-//   ) -> vec3<f32> {
-//     // camera space
-//     let start = camera.view * model.world_matrix * (fatline_start, 1.0).into();
-//     let end = camera.view * model.world_matrix * (fatline_end, 1.0).into();
+wgsl_function!(
+  fn fatline_vertex(
+    start: vec3<f32>,
+    end: vec3<f32>,
+    current_point: vec3<f32>,
+    view_size: vec2<f32>,
+    width: f32,
+  ) -> vec3<f32> {
+      // camera space
+      let start = camera.view * model.world_matrix * vec4<f32>(fatline_start, 1.0);
+      let end = camera.view * model.world_matrix * vec4<f32>(fatline_end, 1.0);
 
-//     // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
-//     // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
-//     // // but we need to perform ndc-space calculations in the shader, so we must address this issue directly
-//     // // perhaps there is a more elegant solution -- WestLangley
-//     // bool perspective = ( camera.projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
-//     // if ( perspective ) {{
-//     //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
-//     //         trimSegment( start, end );
-//     //     }} else if ( end.z < 0.0 && start.z >= 0.0 ) {{
-//     //         trimSegment( end, start );
-//     //     }}
-//     // }}
+      // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
+      // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
+      // // but we need to perform ndc-space calculations in the shader, so we must address this issue directly
+      // // perhaps there is a more elegant solution -- WestLangley
+      // bool perspective = ( camera.projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
+      // if ( perspective ) {{
+      //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
+      //         trimSegment( start, end );
+      //     }} else if ( end.z < 0.0 && start.z >= 0.0 ) {{
+      //         trimSegment( end, start );
+      //     }}
+      // }}
 
-//     // clip space
-//     let clipStart = camera.projection * start;
-//     let clipEnd = camera.projection * end;
+      // clip space
+      let clipStart = camera.projection * start;
+      let clipEnd = camera.projection * end;
 
-//     // ndc space
-//     let ndcStart = clipStart.xy() / clipStart.w();
-//     let ndcEnd = clipEnd.xy() / clipEnd.w();
+      // ndc space
+      let ndcStart = clipStart.xy / clipStart.w;
+      let ndcEnd = clipEnd.xy / clipEnd.w;
 
-//     // direction
-//     let dir = ndcEnd - ndcStart;
+      // direction
+      let dir = ndcEnd - ndcStart;
 
-//     // account for clip-space aspect ratio
-//     dir.x = dir.x() * aspect;
-//     dir = normalize(dir);
+      // account for clip-space aspect ratio
+      dir.x = dir.x * aspect;
+      dir = normalize(dir);
 
-//     // perpendicular to dir
-//     let offset = Vec2::new(dir.y, -dir.x);
+      // perpendicular to dir
+      let offset = vec2<f32>(dir.y, -dir.x);
 
-//     // undo aspect ratio adjustment
-//     dir.x = dir.x / aspect;
-//     offset.x = offset.x / aspect;
+      // undo aspect ratio adjustment
+      dir.x = dir.x / aspect;
+      offset.x = offset.x / aspect;
 
-//     // sign flip
-//     if (position.x < 0.0) {
-//       {
-//         offset = -1.0 * offset;
-//       }
-//     };
+      // sign flip
+      if (position.x < 0.0) {
+          offset = -1.0 * offset;
+      };
 
-//     // end caps
-//     if (position.y < 0.0) {
-//       {
-//         offset = offset - dir;
-//       }
-//     } else if (position.y > 1.0) {
-//       {
-//         offset = offset + dir;
-//       }
-//     }
+      // end caps
+      if position.y < 0.0 {
+          offset = offset - dir;
+      } elseif (position.y > 1.0) {
+          offset = offset + dir;
+      }
 
-//     // adjust for fatLineWidth
-//     offset = offset * material.width;
-//     // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
-//     offset = offset / resolution.y();
+      // adjust for fatLineWidth
+      offset = offset * material.width;
+      // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
+      offset = offset / resolution.y;
 
-//     // select end
-//     let clip: vec4<f32>;
-//     if (position.y < 0.5) {
-//       {
-//         clip = clipStart;
-//       }
-//     } else {
-//       {
-//         clip = clipEnd;
-//       }
-//     }
+      // select end
+      let clip: vec4<f32>;
+      if (position.y < 0.5) {
+        {
+          clip = clipStart;
+        }
+      } else {
+        {
+          clip = clipEnd;
+        }
+      }
 
-//     // back to clip space
-//     offset = offset * clip.w;
-//     clip = (clip.xy + offset, clip.zw).into();
-//   }
-// );
+      // back to clip space
+      offset = offset * clip.w;
+      clip = vec4<f32>(clip.xy + offset, clip.zw);
+  }
+);
 
 wgsl_function!(
   fn fatline_round_corner(uv: vec2<f32>) {

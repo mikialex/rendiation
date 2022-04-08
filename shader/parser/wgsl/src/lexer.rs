@@ -69,7 +69,7 @@ struct ReadCursor {
 
 #[derive(Clone, Debug)]
 pub struct Lexer<'a> {
-  pub input: &'a str,
+  input: &'a str,
   cursor: ReadCursor,
   pub parsing_type: bool,
 }
@@ -133,7 +133,6 @@ impl<'a> Lexer<'a> {
         Token::End => "",
         Token::BuiltInType(_) => "builtin_type",
       };
-      panic!("dd");
       Err(ParseError::Unexpected(next.token, description))
     }
   }

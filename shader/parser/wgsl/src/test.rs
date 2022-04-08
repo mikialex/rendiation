@@ -3,7 +3,7 @@ use crate::*;
 // cargo test -- --nocapture
 // can print log in unit test, but have some order issue
 pub fn parse(input: &str) -> Expression {
-  let r = Expression::parse(&mut Lexer::new(input)).unwrap();
+  let r = Expression::parse_input(input).unwrap();
   println!("{:#?}", r);
   r
 }
@@ -41,7 +41,7 @@ fn parse_expression_test() {
 }
 
 fn test_parse_statement(input: &str) -> Statement {
-  let r = Statement::parse(&mut Lexer::new(input)).unwrap();
+  let r = Statement::parse_input(input).unwrap();
   println!("{:#?}", r);
   r
 }
@@ -80,7 +80,7 @@ fn parse_st_test() {
 }
 
 fn test_parse_function(input: &str) -> FunctionDefine {
-  let r = FunctionDefine::parse(&mut Lexer::new(input)).unwrap();
+  let r = FunctionDefine::parse_input(input).unwrap();
   println!("{:#?}", r);
   r
 }

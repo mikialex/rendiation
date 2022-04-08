@@ -17,7 +17,13 @@ impl SyntaxElement for FunctionDefine {
         arguments.push((name, arg));
         match lexer.next().token {
           Token::Paren(')') => break,
-          Token::Separator(',') => (),
+          Token::Separator(',') => {
+            // the last ',' is optional
+            if lexer.peek().token == Token::Paren(')') {
+              let _ = lexer.next();
+              break;
+            }
+          }
           other => return Err(ParseError::Unexpected(other, "argument list separator")),
         }
       }
