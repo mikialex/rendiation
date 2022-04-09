@@ -18,7 +18,7 @@ impl SceneTexture2D {
 
         GPUTexture2d::create(desc, &gpu.device)
           .upload_into(&gpu.queue, source, 0)
-          .create_view(Default::default())
+          .create_default_view()
       },
       |_, _| {},
     )
@@ -47,7 +47,7 @@ impl SceneTextureCube {
           .upload(queue, source[3].as_ref(), CubeTextureFace::NegativeY, 0)
           .upload(queue, source[4].as_ref(), CubeTextureFace::PositiveZ, 0)
           .upload(queue, source[5].as_ref(), CubeTextureFace::NegativeZ, 0)
-          .create_view(Default::default())
+          .create_default_view()
       },
       |_, _| {},
     )

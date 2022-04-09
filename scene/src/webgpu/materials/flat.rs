@@ -44,7 +44,7 @@ impl WebGPUMaterial for FlatMaterial {
   fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
     let uniform = FlatMaterialUniform { color: self.color };
     let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_view(Default::default());
+    let uniform = uniform.create_default_view();
 
     FlatMaterialGPU { uniform }
   }

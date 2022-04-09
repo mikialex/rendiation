@@ -175,6 +175,13 @@ impl<T: Resource> ResourceRc<T> {
       inner: Rc::new(inner),
     }
   }
+
+  pub fn create_default_view(&self) -> ResourceViewRc<T>
+  where
+    T::ViewDescriptor: Default,
+  {
+    self.create_default_view()
+  }
 }
 
 impl<T> BindProvider for ResourceViewRc<T>

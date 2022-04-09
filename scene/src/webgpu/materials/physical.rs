@@ -57,10 +57,10 @@ impl WebGPUMaterial for PhysicalMaterial {
       albedo: self.albedo,
     };
     let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_view(Default::default());
+    let uniform = uniform.create_default_view();
 
     let sampler = GPUSampler::create(self.sampler.into(), &gpu.device);
-    let sampler = sampler.create_view(Default::default());
+    let sampler = sampler.create_default_view();
 
     PhysicalMaterialGPU {
       uniform,

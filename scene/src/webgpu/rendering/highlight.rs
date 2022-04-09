@@ -31,7 +31,7 @@ impl HighLighter {
   pub fn new(gpu: &GPU) -> Self {
     Self {
       data: UniformBufferDataResource::create_with_source(Default::default(), &gpu.device)
-        .create_view(Default::default()),
+        .create_default_view(),
     }
   }
 }

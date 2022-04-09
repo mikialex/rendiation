@@ -171,7 +171,7 @@ impl WebGPUMaterial for FatLineMaterial {
   fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
     let uniform = FatlineMaterialUniform { width: self.width };
     let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
-    let uniform = uniform.create_view(Default::default());
+    let uniform = uniform.create_default_view();
 
     FatlineMaterialGPU { uniform }
   }
