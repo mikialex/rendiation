@@ -29,7 +29,37 @@ pub enum RenderTargetView {
     format: gpu::TextureFormat,
     view: Rc<gpu::TextureView>,
     view_id: usize,
+    /// when resource dropped, all referenced bindgroup should drop
+    invalidation_tokens: Rc<RefCell<Vec<BindGroupCacheInvalidation>>>,
   },
+}
+
+impl BindableResourceView for RenderTargetView {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    match self {
+      RenderTargetView::Texture(t) => t.as_bindable(),
+      RenderTargetView::SurfaceTexture { view, .. } => gpu::BindingResource::TextureView(&view),
+    }
+  }
+}
+
+impl BindProvider for RenderTargetView {
+  fn view_id(&self) -> usize {
+    match self {
+      RenderTargetView::Texture(t) => t.view_id(),
+      RenderTargetView::SurfaceTexture { view_id, .. } => *view_id,
+    }
+  }
+
+  fn add_bind_record(&self, record: BindGroupCacheInvalidation) {
+    match self {
+      RenderTargetView::Texture(t) => t.add_bind_record(record),
+      RenderTargetView::SurfaceTexture {
+        invalidation_tokens,
+        ..
+      } => invalidation_tokens.borrow_mut().push(record),
+    }
+  }
 }
 
 impl From<GPUTexture2dView> for RenderTargetView {

@@ -78,6 +78,7 @@ impl GPUSurface {
         size: self.size,
         format: self.config.format,
         view_id: get_resource_view_guid(),
+        invalidation_tokens: Default::default(),
       },
     ))
   }

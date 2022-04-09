@@ -76,7 +76,7 @@ impl Attachment {
   pub fn write(&mut self) -> AttachmentWriteView<&mut Self> {
     let view = self.texture.create_view(()).into();
     AttachmentWriteView {
-      resource: self,
+      _resource: self,
       view,
     }
   }
@@ -84,7 +84,7 @@ impl Attachment {
   pub fn read(&self) -> AttachmentReadView<&Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
-      resource: self,
+      _resource: self,
       view: self.texture.create_view(()).into(),
     }
   }
@@ -93,27 +93,27 @@ impl Attachment {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     let view = self.texture.create_view(()).into();
     AttachmentReadView {
-      resource: self,
+      _resource: self,
       view,
     }
   }
 }
 
 pub struct AttachmentWriteView<T> {
-  pub(super) resource: T,
+  _resource: T,
   pub(super) view: RenderTargetView,
 }
 
 pub struct AttachmentReadView<T> {
-  resource: T,
+  _resource: T,
   pub(super) view: RenderTargetView,
 }
 
 impl<T> BindingSource for AttachmentReadView<T> {
-  type Uniform = GPUTexture2dView;
+  type Uniform = RenderTargetView;
 
   fn get_uniform(&self) -> Self::Uniform {
-    todo!()
+    self.view.clone()
   }
 }
 
