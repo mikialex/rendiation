@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use rendiation_webgpu::{
-  ColorChannelView, GPURenderPassCtx, Operations, RenderPassDescriptorOwned,
+  GPURenderPassCtx, Operations, RenderPassDescriptorOwned, RenderTargetView,
 };
 
 use crate::{Attachment, AttachmentWriteView, FrameCtx, SceneRenderPass};
@@ -20,7 +20,7 @@ pub struct PassDescriptor<'a> {
   desc: RenderPassDescriptorOwned,
 }
 
-impl<'a> From<AttachmentWriteView<&'a mut Attachment>> for ColorChannelView {
+impl<'a> From<AttachmentWriteView<&'a mut Attachment>> for RenderTargetView {
   fn from(val: AttachmentWriteView<&'a mut Attachment>) -> Self {
     val.view
   }
@@ -30,7 +30,7 @@ impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_color(
     mut self,
-    attachment: impl Into<ColorChannelView> + 'a,
+    attachment: impl Into<RenderTargetView> + 'a,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
     self.desc.channels.push((op.into(), attachment.into()));
@@ -40,7 +40,7 @@ impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: impl Into<ColorChannelView> + 'a,
+    attachment: impl Into<RenderTargetView> + 'a,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
     self

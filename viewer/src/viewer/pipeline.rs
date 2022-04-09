@@ -20,7 +20,7 @@ impl ViewerPipeline {
     &mut self,
     ctx: &mut FrameCtx,
     content: &mut Viewer3dContent,
-    final_target: ColorChannelView,
+    final_target: RenderTargetView,
   ) {
     let scene = &mut content.scene;
 

@@ -44,18 +44,14 @@ impl<T: Resource> std::ops::Deref for ResourceContainer<T> {
 }
 
 static RESOURCE_GUID: AtomicUsize = AtomicUsize::new(0);
+
 impl<T: Resource> ResourceContainer<T> {
   pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self
   where
     T: InitResourceByAllocation,
   {
     let resource = T::create_resource(&desc, device);
-    Self {
-      guid: RESOURCE_GUID.fetch_add(1, Ordering::Relaxed),
-      resource,
-      desc,
-      invalidation_tokens: Default::default(),
-    }
+    Self::create_with_raw(resource, desc)
   }
 
   pub fn create_with_source(source: T::Source, device: &GPUDevice) -> Self
@@ -63,6 +59,10 @@ impl<T: Resource> ResourceContainer<T> {
     T: InitResourceBySource,
   {
     let (resource, desc) = T::create_resource_with_source(&source, device);
+    Self::create_with_raw(resource, desc)
+  }
+
+  pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self {
     Self {
       guid: RESOURCE_GUID.fetch_add(1, Ordering::Relaxed),
       resource,
@@ -143,6 +143,10 @@ where
 }
 
 static RESOURCE_VIEW_GUID: AtomicUsize = AtomicUsize::new(0);
+pub fn get_resource_view_guid() -> usize {
+  RESOURCE_VIEW_GUID.fetch_add(1, Ordering::Relaxed)
+}
+
 impl<T: Resource> ResourceRc<T> {
   #[must_use]
   pub fn create(desc: T::Descriptor, device: &GPUDevice) -> Self
@@ -151,6 +155,15 @@ impl<T: Resource> ResourceRc<T> {
   {
     Self {
       inner: Rc::new(ResourceContainer::create(desc, device)),
+    }
+  }
+
+  pub fn create_with_raw(resource: T, desc: T::Descriptor) -> Self
+  where
+    T: InitResourceByAllocation,
+  {
+    Self {
+      inner: Rc::new(ResourceContainer::create_with_raw(resource, desc)),
     }
   }
 
@@ -168,7 +181,7 @@ impl<T: Resource> ResourceRc<T> {
     let inner = ResourceViewContainer {
       resource: self.clone(),
       view,
-      guid: RESOURCE_VIEW_GUID.fetch_add(1, Ordering::Relaxed),
+      guid: get_resource_view_guid(),
       desc,
     };
     ResourceViewRc {
@@ -180,7 +193,7 @@ impl<T: Resource> ResourceRc<T> {
   where
     T::ViewDescriptor: Default,
   {
-    self.create_default_view()
+    self.create_view(Default::default())
   }
 }
 

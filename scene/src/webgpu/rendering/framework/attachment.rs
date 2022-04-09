@@ -101,12 +101,12 @@ impl Attachment {
 
 pub struct AttachmentWriteView<T> {
   pub(super) resource: T,
-  pub(super) view: ColorChannelView,
+  pub(super) view: RenderTargetView,
 }
 
 pub struct AttachmentReadView<T> {
   resource: T,
-  pub(super) view: ColorChannelView,
+  pub(super) view: RenderTargetView,
 }
 
 impl<T> BindingSource for AttachmentReadView<T> {

@@ -22,33 +22,34 @@ impl Default for PassTargetFormatInfo {
 }
 
 #[derive(Clone)]
-pub enum ColorChannelView {
+pub enum RenderTargetView {
   Texture(GPUTexture2dView),
   SurfaceTexture {
     size: Size,
     format: gpu::TextureFormat,
     view: Rc<gpu::TextureView>,
+    view_id: usize,
   },
 }
 
-impl From<GPUTexture2dView> for ColorChannelView {
+impl From<GPUTexture2dView> for RenderTargetView {
   fn from(view: GPUTexture2dView) -> Self {
     Self::Texture(view)
   }
 }
 
-impl ColorChannelView {
+impl RenderTargetView {
   pub fn as_view(&self) -> &gpu::TextureView {
     match self {
-      ColorChannelView::Texture(t) => &t.view.0,
-      ColorChannelView::SurfaceTexture { view, .. } => view.as_ref(),
+      RenderTargetView::Texture(t) => &t.view.0,
+      RenderTargetView::SurfaceTexture { view, .. } => view.as_ref(),
     }
   }
 
   pub fn size(&self) -> Size {
     match self {
-      ColorChannelView::Texture(t) => GPUTextureSize::from_gpu_size(t.resource.desc.size),
-      ColorChannelView::SurfaceTexture { size, .. } => *size,
+      RenderTargetView::Texture(t) => GPUTextureSize::from_gpu_size(t.resource.desc.size),
+      RenderTargetView::SurfaceTexture { size, .. } => *size,
     }
   }
 }
@@ -62,9 +63,9 @@ pub struct GPURenderPassCtx<'a, 'b> {
 #[derive(Default, Clone)]
 pub struct RenderPassDescriptorOwned {
   pub name: String,
-  pub channels: Vec<(gpu::Operations<gpu::Color>, ColorChannelView)>,
-  pub depth_stencil_target: Option<(gpu::Operations<f32>, ColorChannelView)>,
-  pub resolve_target: Option<ColorChannelView>,
+  pub channels: Vec<(gpu::Operations<gpu::Color>, RenderTargetView)>,
+  pub depth_stencil_target: Option<(gpu::Operations<f32>, RenderTargetView)>,
+  pub resolve_target: Option<RenderTargetView>,
 }
 
 pub struct GPURenderPass<'a> {

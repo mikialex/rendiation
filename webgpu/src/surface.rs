@@ -57,7 +57,28 @@ impl GPUSurface {
     self.size = size;
   }
 
-  pub fn get_current_frame(&mut self) -> Result<gpu::SurfaceTexture, gpu::SurfaceError> {
+  pub fn get_current_frame(&self) -> Result<gpu::SurfaceTexture, gpu::SurfaceError> {
     self.surface.get_current_texture()
+  }
+
+  pub fn get_current_frame_with_render_target_view(
+    &self,
+  ) -> Result<(gpu::SurfaceTexture, RenderTargetView), gpu::SurfaceError> {
+    let frame = self.get_current_frame()?;
+
+    let view = frame
+      .texture
+      .create_view(&gpu::TextureViewDescriptor::default());
+    let view = Rc::new(view);
+
+    Ok((
+      frame,
+      RenderTargetView::SurfaceTexture {
+        view: view.clone(),
+        size: self.size,
+        format: self.config.format,
+        view_id: get_resource_view_guid(),
+      },
+    ))
   }
 }

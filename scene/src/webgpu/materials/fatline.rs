@@ -38,10 +38,10 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
-      // let pass_info = builder.query_uniform::<RenderPassGPUInfoData>()?.expand();
-      // let camera = builder.query_uniform::<CameraGPUTransform>()?.expand();
-      // let model = builder.query_uniform::<TransformGPUData>()?.expand();
-      let material = binding.uniform_by(&self.uniform, SB::Material).expand();
+      // let pass_info = builder.query::<RenderPassGPUInfoData>()?.expand();
+      // let camera = builder.query::<CameraGPUTransform>()?.expand();
+      // let model = builder.query::<TransformGPUData>()?.expand();
+      // let material = binding.uniform_by(&self.uniform, SB::Material).expand();
 
       // let resolution = builder.query::<ViewSize>();
       // let aspect = resolution.x() / resolution.y();
