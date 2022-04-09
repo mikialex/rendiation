@@ -18,6 +18,9 @@ only_vertex!(GeometryColorWithAlpha, Vec4<f32>);
 only_vertex!(WorldVertexPosition, Vec3<f32>);
 only_vertex!(ClipPosition, Vec4<f32>);
 
+only_vertex!(CameraProjectionMatrix, Mat4<f32>);
+only_vertex!(CameraViewMatrix, Mat4<f32>);
+
 macro_rules! both {
   ($Type: ident, $NodeType: ty) => {
     pub struct $Type;
