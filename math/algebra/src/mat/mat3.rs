@@ -1,5 +1,5 @@
 use crate::*;
-use std::ops::{Add, Mul, Div};
+use std::ops::{Add, Div, Mul};
 
 #[repr(C)]
 #[rustfmt::skip]
@@ -114,7 +114,6 @@ fn mul() {
 
   assert_eq!(cgmath_r, math_r)
 }
-
 
 impl<T> Mul for Mat3<T>
 where
@@ -273,8 +272,8 @@ where
   }
 
   pub fn scale(x: T, y: T) -> Self {
-    let (a1, a2, a3) = (x,         T::zero(), T::zero());
-    let (b1, b2, b3) = (T::zero(), y,         T::zero());
+    let (a1, a2, a3) = (x, T::zero(), T::zero());
+    let (b1, b2, b3) = (T::zero(), y, T::zero());
     let (c1, c2, c3) = (T::zero(), T::zero(), T::one());
 
     #[rustfmt::skip]
@@ -286,9 +285,9 @@ where
   }
 
   pub fn translate(x: T, y: T) -> Self {
-    let (a1, a2, a3) = (T::one(),  T::zero(), T::zero());
-    let (b1, b2, b3) = (T::zero(), T::one(),  T::zero());
-    let (c1, c2, c3) = (x,         y,         T::one());
+    let (a1, a2, a3) = (T::one(), T::zero(), T::zero());
+    let (b1, b2, b3) = (T::zero(), T::one(), T::zero());
+    let (c1, c2, c3) = (x, y, T::one());
 
     #[rustfmt::skip]
     Mat3::new(

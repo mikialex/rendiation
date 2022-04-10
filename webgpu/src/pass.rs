@@ -1,18 +1,13 @@
-use std::{
-  ops::{Deref, DerefMut},
-  rc::Rc,
-};
+use crate::*;
 
-#[derive(Clone)]
-pub struct RenderPassInfo {
-  pub buffer_size: Size,
-  pub format_info: PassTargetFormatInfo,
+pub trait ShaderPassBuilder {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {}
 }
 
 #[derive(Clone, Hash)]
 pub struct PassTargetFormatInfo {
-  pub depth_stencil_format: Option<wgpu::TextureFormat>,
-  pub color_formats: Vec<wgpu::TextureFormat>,
+  pub depth_stencil_format: Option<gpu::TextureFormat>,
+  pub color_formats: Vec<gpu::TextureFormat>,
   pub sample_count: u32,
 }
 
@@ -26,24 +21,92 @@ impl Default for PassTargetFormatInfo {
   }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
+pub enum RenderTargetView {
+  Texture(GPUTexture2dView),
+  SurfaceTexture {
+    size: Size,
+    format: gpu::TextureFormat,
+    view: Rc<gpu::TextureView>,
+    view_id: usize,
+    /// when resource dropped, all referenced bindgroup should drop
+    invalidation_tokens: Rc<RefCell<Vec<BindGroupCacheInvalidation>>>,
+  },
+}
+
+impl BindableResourceView for RenderTargetView {
+  fn as_bindable(&self) -> gpu::BindingResource {
+    match self {
+      RenderTargetView::Texture(t) => t.as_bindable(),
+      RenderTargetView::SurfaceTexture { view, .. } => gpu::BindingResource::TextureView(&view),
+    }
+  }
+}
+
+impl BindProvider for RenderTargetView {
+  fn view_id(&self) -> usize {
+    match self {
+      RenderTargetView::Texture(t) => t.view_id(),
+      RenderTargetView::SurfaceTexture { view_id, .. } => *view_id,
+    }
+  }
+
+  fn add_bind_record(&self, record: BindGroupCacheInvalidation) {
+    match self {
+      RenderTargetView::Texture(t) => t.add_bind_record(record),
+      RenderTargetView::SurfaceTexture {
+        invalidation_tokens,
+        ..
+      } => invalidation_tokens.borrow_mut().push(record),
+    }
+  }
+}
+
+impl From<GPUTexture2dView> for RenderTargetView {
+  fn from(view: GPUTexture2dView) -> Self {
+    Self::Texture(view)
+  }
+}
+
+impl RenderTargetView {
+  pub fn as_view(&self) -> &gpu::TextureView {
+    match self {
+      RenderTargetView::Texture(t) => &t.view.0,
+      RenderTargetView::SurfaceTexture { view, .. } => view.as_ref(),
+    }
+  }
+
+  pub fn size(&self) -> Size {
+    match self {
+      RenderTargetView::Texture(t) => GPUTextureSize::from_gpu_size(t.resource.desc.size),
+      RenderTargetView::SurfaceTexture { size, .. } => *size,
+    }
+  }
+}
+
+pub struct GPURenderPassCtx<'a, 'b> {
+  pub pass: GPURenderPass<'a>,
+  pub gpu: &'b GPU,
+  pub binding: BindingBuilder,
+}
+
+#[derive(Default, Clone)]
 pub struct RenderPassDescriptorOwned {
   pub name: String,
-  pub channels: Vec<(wgpu::Operations<wgpu::Color>, Rc<wgpu::TextureView>, Size)>,
-  pub depth_stencil_target: Option<(wgpu::Operations<f32>, Rc<wgpu::TextureView>)>,
-  pub resolve_target: Option<Rc<wgpu::TextureView>>,
-  pub info: PassTargetFormatInfo,
+  pub channels: Vec<(gpu::Operations<gpu::Color>, RenderTargetView)>,
+  pub depth_stencil_target: Option<(gpu::Operations<f32>, RenderTargetView)>,
+  pub resolve_target: Option<RenderTargetView>,
 }
 
 pub struct GPURenderPass<'a> {
-  pub(crate) info: RenderPassInfo,
-  pub(crate) pass: wgpu::RenderPass<'a>,
+  pub(crate) pass: gpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
-  pub(crate) placeholder_bg: Rc<wgpu::BindGroup>,
+  pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
+  pub(crate) size: Size,
 }
 
 impl<'a> Deref for GPURenderPass<'a> {
-  type Target = wgpu::RenderPass<'a>;
+  type Target = gpu::RenderPass<'a>;
 
   fn deref(&self) -> &Self::Target {
     &self.pass
@@ -56,22 +119,19 @@ impl<'a> DerefMut for GPURenderPass<'a> {
   }
 }
 
-use rendiation_texture_types::Size;
-use typed_arena::Arena;
-
 #[derive(Default)]
 pub struct GPURenderPassDataHolder {
-  buffers: Arena<Rc<wgpu::Buffer>>,
-  bindgroups: Arena<Rc<wgpu::BindGroup>>,
-  pipelines: Arena<Rc<wgpu::RenderPipeline>>,
+  buffers: Arena<Rc<gpu::Buffer>>,
+  bindgroups: Arena<Rc<gpu::BindGroup>>,
+  pipelines: Arena<Rc<gpu::RenderPipeline>>,
 }
 
 impl<'a> GPURenderPass<'a> {
-  pub fn info(&self) -> &RenderPassInfo {
-    &self.info
+  pub fn size(&self) -> Size {
+    self.size
   }
 
-  pub fn set_pipeline_owned(&mut self, pipeline: &Rc<wgpu::RenderPipeline>) {
+  pub fn set_pipeline_owned(&mut self, pipeline: &Rc<gpu::RenderPipeline>) {
     let pipeline = self.holder.pipelines.alloc(pipeline.clone());
     self.pass.set_pipeline(pipeline)
   }
@@ -83,22 +143,22 @@ impl<'a> GPURenderPass<'a> {
   pub fn set_bind_group_owned(
     &mut self,
     index: u32,
-    bind_group: &Rc<wgpu::BindGroup>,
-    offsets: &[wgpu::DynamicOffset],
+    bind_group: &Rc<gpu::BindGroup>,
+    offsets: &[gpu::DynamicOffset],
   ) {
     let bind_group = self.holder.bindgroups.alloc(bind_group.clone());
     self.set_bind_group(index, bind_group, offsets)
   }
 
-  pub fn set_vertex_buffer_owned(&mut self, slot: u32, buffer: &Rc<wgpu::Buffer>) {
+  pub fn set_vertex_buffer_owned(&mut self, slot: u32, buffer: &Rc<gpu::Buffer>) {
     let buffer = self.holder.buffers.alloc(buffer.clone());
     self.pass.set_vertex_buffer(slot, buffer.slice(..))
   }
 
   pub fn set_index_buffer_owned(
     &mut self,
-    buffer: &Rc<wgpu::Buffer>,
-    index_format: wgpu::IndexFormat,
+    buffer: &Rc<gpu::Buffer>,
+    index_format: gpu::IndexFormat,
   ) {
     let buffer = self.holder.buffers.alloc(buffer.clone());
     self.pass.set_index_buffer(buffer.slice(..), index_format)

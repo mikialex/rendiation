@@ -86,7 +86,7 @@ pub trait Texture2dSampleAble: Texture2D {
     Address: Fn(T) -> T,
     Filter: Fn(T, Self::Pixel, Self::Pixel) -> Self::Pixel,
   {
-    let corrected = position.map(|v| address(v));
+    let corrected = position.map(address);
     let size = Vec2::new(self.width().into(), self.height().into());
     let sample_position = corrected.zip(size, |c, size| c * size);
     let min_x_min_y = sample_position.map(|v| v.floor().into());

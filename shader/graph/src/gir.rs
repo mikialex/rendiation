@@ -1,17 +1,19 @@
-use std::any::TypeId;
-use std::{
-  collections::HashSet,
-  hash::{Hash, Hasher},
-};
-
-pub use crate::*;
+use crate::*;
 
 pub enum ShaderGraphNodeExpr {
   FunctionCall {
     meta: &'static ShaderFunctionMetaInfo,
     parameters: Vec<ShaderGraphNodeRawHandle>,
   },
-  TextureSampling(TextureSamplingNode),
+  TextureSampling {
+    texture: ShaderGraphNodeRawHandle,
+    sampler: ShaderGraphNodeRawHandle,
+    position: ShaderGraphNodeRawHandle,
+  },
+  SamplerCombinedTextureSampling {
+    texture: ShaderGraphNodeRawHandle,
+    position: ShaderGraphNodeRawHandle,
+  },
   Swizzle {
     ty: &'static str,
     source: ShaderGraphNodeRawHandle,
@@ -33,7 +35,12 @@ pub enum ShaderGraphNodeExpr {
   Copy(ShaderGraphNodeRawHandle),
 }
 
-pub enum ShaderGraphNodeData {
+pub struct ShaderGraphNodeData {
+  pub node: ShaderGraphNode,
+  pub ty: ShaderValueType,
+}
+
+pub enum ShaderGraphNode {
   Input(ShaderGraphInputNode),
   /// This is workaround for some case
   UnNamed,
@@ -78,13 +85,6 @@ pub enum ShaderIteratorAble {
 #[derive(Clone)]
 pub struct ConstNode {
   pub data: PrimitiveShaderValue,
-}
-
-#[derive(Clone)]
-pub struct TextureSamplingNode {
-  pub texture: ShaderGraphNodeRawHandle,
-  pub sampler: ShaderGraphNodeRawHandle,
-  pub position: ShaderGraphNodeRawHandle,
 }
 
 pub enum UnaryOperator {
@@ -151,8 +151,10 @@ pub enum ShaderStages {
 pub struct ShaderTexture;
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
-
 #[derive(Clone, Copy)]
+pub struct ShaderSamplerCombinedTexture;
+
+#[derive(Clone, Copy, PartialEq)]
 pub enum PrimitiveShaderValueType {
   Bool,
   Uint32,
@@ -198,16 +200,8 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
 #[derive(Debug, Eq)]
 pub struct ShaderFunctionMetaInfo {
   pub function_name: &'static str,
-  pub function_source: Option<&'static str>, // None is builtin function, no need to gen code
-  pub depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
-}
-
-impl ShaderFunctionMetaInfo {
-  #[must_use]
-  pub fn declare_function_dep(mut self, f: &'static ShaderFunctionMetaInfo) -> Self {
-    self.depend_functions.insert(f);
-    self
-  }
+  pub function_source: &'static str,
+  pub depend_functions: &'static [&'static ShaderFunctionMetaInfo],
 }
 
 impl Hash for ShaderFunctionMetaInfo {
@@ -225,25 +219,16 @@ impl PartialEq for ShaderFunctionMetaInfo {
   }
 }
 
-impl ShaderFunctionMetaInfo {
-  pub fn new(function_name: &'static str, function_source: Option<&'static str>) -> Self {
-    Self {
-      function_name,
-      function_source,
-      depend_functions: HashSet::new(),
-    }
-  }
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
   Sampler,
   Texture,
+  SamplerCombinedTexture,
   Never,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum ShaderStructMemberValueType {
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
@@ -254,6 +239,12 @@ pub enum ShaderStructMemberValueType {
 pub struct ShaderStructMetaInfo {
   pub name: &'static str,
   pub fields: Vec<ShaderStructFieldMetaInfo>,
+}
+
+impl PartialEq for ShaderStructMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name
+  }
 }
 
 /// https://www.w3.org/TR/WGSL/#builtin-values
@@ -267,6 +258,14 @@ pub enum ShaderBuiltInDecorator {
 pub enum ShaderFieldDecorator {
   BuiltIn(ShaderBuiltInDecorator),
   Location(usize),
+}
+
+pub trait ShaderFieldTypeMapper {
+  type ShaderType: ShaderStructMemberValueNodeType;
+}
+
+impl<T: ShaderStructMemberValueNodeType> ShaderFieldTypeMapper for T {
+  type ShaderType = T;
 }
 
 pub struct ShaderStructFieldMetaInfo {
@@ -319,6 +318,10 @@ pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 
+pub trait VertexInShaderGraphNodeType: PrimitiveShaderGraphNodeType {
+  fn to_vertex_format() -> VertexFormat;
+}
+
 pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
   type Instance;
   fn meta_info() -> &'static ShaderStructMetaInfo;
@@ -331,14 +334,31 @@ pub enum ShaderVaryingInterpolation {
   Perspective,
 }
 
-#[derive(Clone)]
-pub struct ShaderGraphBindEntry {
-  pub ty: ShaderValueType,
-  pub node_vertex: Option<ShaderGraphNodeRawHandle>,
-  pub node_fragment: Option<ShaderGraphNodeRawHandle>,
-}
-
 #[derive(Default, Clone)]
 pub struct ShaderGraphBindGroup {
-  pub bindings: Vec<(ShaderGraphBindEntry, TypeId)>,
+  pub bindings: Vec<(ShaderValueType, Rc<Cell<ShaderStageVisibility>>)>,
+}
+
+// use bitset
+#[derive(Clone, Copy)]
+pub enum ShaderStageVisibility {
+  Vertex,
+  Fragment,
+  Both,
+  None,
+}
+
+impl ShaderStageVisibility {
+  pub fn is_visible_to(&self, stage: ShaderStages) -> bool {
+    match self {
+      ShaderStageVisibility::Vertex => {
+        matches!(stage, ShaderStages::Vertex)
+      }
+      ShaderStageVisibility::Fragment => {
+        matches!(stage, ShaderStages::Fragment)
+      }
+      ShaderStageVisibility::Both => true,
+      ShaderStageVisibility::None => false,
+    }
+  }
 }

@@ -9,8 +9,8 @@ pub use editable::*;
 pub enum TextLayoutConfig {
   SizedBox {
     line_wrap: LineWrap,
-    horizon_align: HorizontalAlignment,
-    vertical_align: VerticalAlignment,
+    horizon_align: TextHorizontalAlignment,
+    vertical_align: TextVerticalAlignment,
   },
   SingleLineShrink,
 }
@@ -59,6 +59,7 @@ impl Text {
     self.text_layout_size_cache = None;
   }
 
+  #[must_use]
   pub fn with_layout(mut self, config: TextLayoutConfig) -> Self {
     self.layout_config = config;
     self
@@ -77,7 +78,7 @@ impl Text {
           vertical_align,
         } => TextInfo {
           content: self.content.get().clone(),
-          bounds: self.layout.size,
+          bounds: self.layout.size.into(),
           line_wrap,
           horizon_align,
           vertical_align,
@@ -88,10 +89,10 @@ impl Text {
         },
         TextLayoutConfig::SingleLineShrink => TextInfo {
           content: self.content.get().clone(),
-          bounds: self.layout.size,
+          bounds: self.layout.size.into(),
           line_wrap: LineWrap::Single,
-          horizon_align: HorizontalAlignment::Left,
-          vertical_align: VerticalAlignment::Center,
+          horizon_align: TextHorizontalAlignment::Left,
+          vertical_align: TextVerticalAlignment::Center,
           x: self.layout.absolute_position.x,
           y: self.layout.absolute_position.y,
           color: (0., 0., 0., 1.).into(),
@@ -105,13 +106,15 @@ impl Text {
 
   pub fn get_text_boundary(&mut self, fonts: &FontManager, text: &TextCache) -> &UISize {
     self.text_layout_size_cache.get_or_insert_with(|| {
-      text.measure_size(
-        &TextRelaxedInfo {
-          content: self.content.get().clone(),
-          font_size: 30.,
-        },
-        fonts,
-      )
+      text
+        .measure_size(
+          &TextRelaxedInfo {
+            content: self.content.get().clone(),
+            font_size: 30.,
+          },
+          fonts,
+        )
+        .into()
     })
   }
 }

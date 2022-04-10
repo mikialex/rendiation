@@ -4,10 +4,19 @@ use rendiation_geometry::Positioned;
 use std::{hash::Hash, mem};
 
 #[repr(C)]
-#[derive(Clone, Copy, soa_derive::StructOfArray, Debug)]
+#[derive(Clone, Copy, soa_derive::StructOfArray, Debug, shadergraph::ShaderVertex)]
+// #[cfg_attr(feature = "shader", derive(shadergraph::ShaderVertex))] // todo, figure out how to use with feature gate
 pub struct Vertex {
+  // #[cfg_attr(feature = "shader", semantic(GeometryPosition))]
+  #[semantic(GeometryPosition)]
   pub position: Vec3<f32>,
+
+  // #[cfg_attr(feature = "shader", semantic(GeometryNormal))]
+  #[semantic(GeometryNormal)]
   pub normal: Vec3<f32>,
+
+  // #[cfg_attr(feature = "shader", semantic(GeometryUV))]
+  #[semantic(GeometryUV)]
   pub uv: Vec2<f32>,
 }
 
@@ -54,42 +63,5 @@ pub fn vertex(pos: [f32; 3], _: [f32; 3], tc: [f32; 2]) -> Vertex {
     position: Vec3::new(pos[0] as f32, pos[1] as f32, pos[2] as f32),
     normal: Vec3::new(0.0, 1.0, 0.0),
     uv: Vec2::new(tc[0] as f32, tc[1] as f32),
-  }
-}
-
-#[cfg(feature = "webgpu")]
-use rendiation_webgpu as gpu;
-#[cfg(feature = "webgpu")]
-impl gpu::VertexBufferSourceType for Vertex {
-  fn vertex_layout() -> gpu::VertexBufferLayoutOwned {
-    gpu::VertexBufferLayoutOwned {
-      array_stride: std::mem::size_of::<Vertex>() as u64,
-      step_mode: gpu::VertexStepMode::Vertex,
-      attributes: vec![
-        gpu::VertexAttribute {
-          format: gpu::VertexFormat::Float32x3,
-          offset: 0,
-          shader_location: 0,
-        },
-        gpu::VertexAttribute {
-          format: gpu::VertexFormat::Float32x3,
-          offset: 4 * 3,
-          shader_location: 1,
-        },
-        gpu::VertexAttribute {
-          format: gpu::VertexFormat::Float32x2,
-          offset: 4 * 3 + 4 * 3,
-          shader_location: 2,
-        },
-      ],
-    }
-  }
-
-  fn get_shader_header() -> &'static str {
-    r#"
-      [[location(0)]] position: vec3<f32>,
-      [[location(1)]] normal: vec3<f32>,
-      [[location(2)]] uv: vec2<f32>,
-    "#
   }
 }

@@ -148,8 +148,8 @@ impl<T: 'static> Application<T> {
           _ => {}
         },
         Event::RedrawRequested(_) => {
-          if let Ok(frame) = app.surface.get_current_frame() {
-            app.execute(&frame);
+          if let Ok((frame, view)) = app.surface.get_current_frame_with_render_target_view() {
+            app.execute(&view);
             app.frame_end();
             frame.present();
           }
@@ -197,16 +197,11 @@ impl<T> ApplicationInner<T> {
     });
   }
 
-  fn render(&mut self, frame: &SurfaceTexture) {
+  fn render(&mut self, frame: &RenderTargetView) {
     let mut builder = PresentationBuilder::new(&self.fonts, &mut self.texts);
     builder.present.view_size = self.window_states.size;
 
     self.current_perf.rendering_prepare_time = time_measure(|| self.root.render(&mut builder));
-
-    let view = frame
-      .texture
-      .create_view(&webgpu::TextureViewDescriptor::default());
-    let view = Rc::new(view);
 
     self.current_perf.rendering_dispatch_time = time_measure(|| {
       let mut task = WebGPUxUIRenderTask {
@@ -215,32 +210,26 @@ impl<T> ApplicationInner<T> {
         presentation: &builder.present,
       };
 
-      let mut encoder = self.gpu.encoder.borrow_mut();
-      task.update(&self.gpu, &mut encoder, &self.fonts, &mut builder.texts);
+      let mut encoder = self.gpu.create_encoder();
+      task.update(&self.gpu, &mut encoder, &self.fonts, builder.texts);
 
       let mut decs = RenderPassDescriptorOwned::default();
       decs.channels.push((
         webgpu::Operations {
-          load: webgpu::LoadOp::Clear(webgpu::Color {
-            r: 1.,
-            g: 1.,
-            b: 1.,
-            a: 1.,
-          }),
+          load: webgpu::LoadOp::Clear(webgpu::Color::WHITE),
           store: true,
         },
-        view,
-        Size::from_u32_pair_min_one((100, 100)),
+        frame.clone(),
       ));
-
-      let mut pass = encoder.begin_render_pass(&decs);
-      task.setup_pass(&mut pass);
+      {
+        let mut pass = encoder.begin_render_pass(decs);
+        task.setup_pass(&mut pass);
+      }
+      self.gpu.submit_encoder(encoder)
     });
-
-    self.gpu.submit();
   }
 
-  fn execute(&mut self, frame: &SurfaceTexture) {
+  fn execute(&mut self, frame: &RenderTargetView) {
     self.update();
     self.render(frame);
   }

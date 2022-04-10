@@ -58,8 +58,8 @@ fn perf_panel<T: 'static>() -> impl UIComponent<T> {
     Text::default()
     .with_layout(TextLayoutConfig::SizedBox{
         line_wrap: LineWrap::Multiple,
-        horizon_align: HorizontalAlignment::Left,
-        vertical_align:VerticalAlignment::Top,
+        horizon_align: TextHorizontalAlignment::Left,
+        vertical_align: TextVerticalAlignment::Top,
     })
     .bind_with_ctx(|s, _t, ctx| {
       let content = format!(

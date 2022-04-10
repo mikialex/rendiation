@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use rendiation_texture::{Size, TextureRange};
-use webgpu::{util::DeviceExt, WebGPUTexture2d, WebGPUTexture2dDescriptor, WebGPUTexture2dSource};
+use webgpu::{
+  util::DeviceExt, GPUTexture2d, GPUTexture2dView, WebGPUTexture2dDescriptor, WebGPUTexture2dSource,
+};
 
 use crate::{TextHash, TextQuadInstance};
 
@@ -33,16 +35,19 @@ pub fn create_gpu_text(
 }
 
 pub struct WebGPUTextureCache {
-  texture: WebGPUTexture2d,
+  texture: GPUTexture2d,
+  view: GPUTexture2dView,
 }
 
 impl WebGPUTextureCache {
-  pub fn init(size: Size, device: &webgpu::Device) -> Self {
-    let desc =
-      WebGPUTexture2dDescriptor::from_size(size).with_format(webgpu::TextureFormat::R8Unorm);
-    Self {
-      texture: WebGPUTexture2d::create(device, desc),
-    }
+  pub fn init(size: Size, device: &webgpu::GPUDevice) -> Self {
+    let desc = WebGPUTexture2dDescriptor::from_size(size) //
+      .with_format(webgpu::TextureFormat::R8Unorm);
+
+    let texture = GPUTexture2d::create(desc, device);
+    let view = texture.create_view(());
+
+    Self { texture, view }
   }
   pub fn update_texture(
     &self,
@@ -56,7 +61,7 @@ impl WebGPUTextureCache {
   }
 
   pub fn get_view(&self) -> &webgpu::TextureView {
-    self.texture.get_default_view()
+    &self.view.0
   }
 }
 

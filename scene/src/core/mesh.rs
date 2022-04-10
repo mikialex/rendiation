@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::ResourceWrapped;
+use crate::Identity;
 
-pub type MeshInner<T> = ResourceWrapped<T>;
+pub type MeshInner<T> = Identity<T>;
 
 pub struct MeshCell<T> {
   pub inner: Rc<RefCell<MeshInner<T>>>,

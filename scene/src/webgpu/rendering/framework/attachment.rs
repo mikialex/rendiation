@@ -1,11 +1,46 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use rendiation_texture::Size;
-use rendiation_webgpu::{BindableResource, GPUTextureSize, TextureDimension, TextureUsages};
+use rendiation_texture::*;
+use rendiation_webgpu::*;
+use shadergraph::{ShaderTexture, ShaderUniformProvider};
 
-use crate::{RenderEngine, ResourcePool};
+use crate::FrameCtx;
 
-pub fn attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
+#[derive(Default)]
+pub struct ResourcePoolImpl {
+  attachments: HashMap<PooledTextureKey, SingleResourcePool>,
+}
+
+impl ResourcePoolImpl {
+  pub fn clear(&mut self) {
+    self.attachments.clear();
+  }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+struct PooledTextureKey {
+  size: Size,
+  format: wgpu::TextureFormat,
+  sample_count: u32,
+}
+
+#[derive(Default)]
+struct SingleResourcePool {
+  cached: Vec<GPUTexture2d>,
+}
+
+#[derive(Clone, Default)]
+pub struct ResourcePool {
+  pub inner: Rc<RefCell<ResourcePoolImpl>>,
+}
+
+impl ResourcePool {
+  pub fn clear(&mut self) {
+    self.inner.borrow_mut().clear()
+  }
+}
+
+pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
     format: wgpu::TextureFormat::Rgba8Unorm,
     sample_count: 1,
@@ -13,7 +48,7 @@ pub fn attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
   }
 }
 
-pub fn depth_attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
+pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
     format: wgpu::TextureFormat::Depth24PlusStencil8,
     sample_count: 1,
@@ -21,128 +56,74 @@ pub fn depth_attachment() -> AttachmentDescriptor<wgpu::TextureFormat> {
   }
 }
 
-pub trait AttachmentFormat: Into<wgpu::TextureFormat> + Copy {}
-impl<T: Into<wgpu::TextureFormat> + Copy> AttachmentFormat for T {}
-
 #[derive(Clone)]
-pub struct Attachment<F: AttachmentFormat> {
+pub struct Attachment {
   pool: ResourcePool,
-  des: AttachmentDescriptor<F>,
-  size: Size,
-  texture: Option<Rc<wgpu::Texture>>,
+  des: AttachmentDescriptor,
+  texture: GPUTexture2d,
+  key: PooledTextureKey,
 }
 
-pub type ColorAttachment = Attachment<wgpu::TextureFormat>;
-pub type DepthAttachment = Attachment<wgpu::TextureFormat>; // todo
+impl Drop for Attachment {
+  fn drop(&mut self) {
+    let mut pool = self.pool.inner.borrow_mut();
+    let pool = pool.attachments.get_mut(&self.key).unwrap();
+    pool.cached.push(self.texture.clone())
+  }
+}
 
-impl<F: AttachmentFormat> Attachment<F> {
-  pub fn write(&mut self) -> AttachmentWriteView<F> {
+impl Attachment {
+  pub fn write(&mut self) -> AttachmentWriteView<&mut Self> {
+    let view = self.texture.create_view(()).into();
     AttachmentWriteView {
-      phantom: PhantomData,
-      size: self.size,
-      view: Rc::new(
-        self
-          .texture
-          .as_ref()
-          .unwrap()
-          .create_view(&wgpu::TextureViewDescriptor::default()),
-      ),
-      format: self.des.format,
-      sample_count: self.des.sample_count,
+      _resource: self,
+      view,
     }
   }
 
-  pub fn read(&self) -> AttachmentReadView<F> {
+  pub fn read(&self) -> AttachmentReadView<&Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
     AttachmentReadView {
-      phantom: PhantomData,
-      view: Rc::new(
-        self
-          .texture
-          .as_ref()
-          .unwrap()
-          .create_view(&wgpu::TextureViewDescriptor::default()),
-      ),
+      _resource: self,
+      view: self.texture.create_view(()).into(),
     }
   }
 
-  pub fn read_into(self) -> AttachmentOwnedReadView<F> {
+  pub fn read_into(self) -> AttachmentReadView<Self> {
     assert_eq!(self.des.sample_count, 1); // todo support latter
-    let view = self
-      .texture
-      .as_ref()
-      .unwrap()
-      .create_view(&wgpu::TextureViewDescriptor::default());
-    AttachmentOwnedReadView {
-      _att: self,
-      view: Rc::new(view),
+    let view = self.texture.create_view(()).into();
+    AttachmentReadView {
+      _resource: self,
+      view,
     }
   }
 }
 
-impl<F: AttachmentFormat> Drop for Attachment<F> {
-  fn drop(&mut self) {
-    if let Ok(texture) = Rc::try_unwrap(self.texture.take().unwrap()) {
-      let mut pool = self.pool.inner.borrow_mut();
-      let cached = pool
-        .attachments
-        .entry((self.size, self.des.format.into(), self.des.sample_count))
-        .or_insert_with(Default::default);
+pub struct AttachmentWriteView<T> {
+  _resource: T,
+  pub(super) view: RenderTargetView,
+}
 
-      cached.push(texture)
-    }
+pub struct AttachmentReadView<T> {
+  _resource: T,
+  pub(super) view: RenderTargetView,
+}
+
+impl<T> BindingSource for AttachmentReadView<T> {
+  type Uniform = RenderTargetView;
+
+  fn get_uniform(&self) -> Self::Uniform {
+    self.view.clone()
   }
 }
 
-pub struct AttachmentWriteView<'a, F: AttachmentFormat> {
-  pub(super) phantom: PhantomData<&'a Attachment<F>>,
-  pub(super) size: Size,
-  pub(super) view: Rc<wgpu::TextureView>, // todo opt enum
-  pub(super) format: F,
-  pub(super) sample_count: u32,
-}
-
-pub struct AttachmentReadView<'a, F: AttachmentFormat> {
-  phantom: PhantomData<&'a Attachment<F>>,
-  pub(super) view: Rc<wgpu::TextureView>,
-}
-
-impl<'a, F: AttachmentFormat> BindableResource for AttachmentReadView<'a, F> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(self.view.as_ref())
-  }
-
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Texture {
-      multisampled: false,
-      sample_type: wgpu::TextureSampleType::Float { filterable: true },
-      view_dimension: wgpu::TextureViewDimension::D2,
-    }
-  }
-}
-
-pub struct AttachmentOwnedReadView<F: AttachmentFormat> {
-  _att: Attachment<F>,
-  view: Rc<wgpu::TextureView>,
-}
-
-impl<F: AttachmentFormat> BindableResource for AttachmentOwnedReadView<F> {
-  fn as_bindable(&self) -> wgpu::BindingResource {
-    wgpu::BindingResource::TextureView(self.view.as_ref())
-  }
-
-  fn bind_layout() -> wgpu::BindingType {
-    wgpu::BindingType::Texture {
-      multisampled: false,
-      sample_type: wgpu::TextureSampleType::Float { filterable: true },
-      view_dimension: wgpu::TextureViewDimension::D2,
-    }
-  }
+impl<T> ShaderUniformProvider for AttachmentReadView<T> {
+  type Node = ShaderTexture;
 }
 
 #[derive(Clone)]
-pub struct AttachmentDescriptor<F> {
-  pub(super) format: F,
+pub struct AttachmentDescriptor {
+  pub(super) format: wgpu::TextureFormat,
   pub(super) sample_count: u32,
   pub(super) sizer: Rc<dyn Fn(Size) -> Size>,
 }
@@ -151,40 +132,46 @@ pub fn default_sizer() -> Rc<dyn Fn(Size) -> Size> {
   Rc::new(|size| size)
 }
 
-impl<F: AttachmentFormat> AttachmentDescriptor<F> {
+impl AttachmentDescriptor {
   #[must_use]
-  pub fn format(mut self, format: F) -> Self {
+  pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
     self.format = format;
     self
   }
 }
 
-impl<F: AttachmentFormat> AttachmentDescriptor<F> {
-  pub fn request(self, engine: &RenderEngine) -> Attachment<F> {
-    let size = (self.sizer)(engine.output.as_ref().unwrap().size);
-    let mut resource = engine.resource.inner.borrow_mut();
+impl AttachmentDescriptor {
+  pub fn request(self, ctx: &FrameCtx) -> Attachment {
+    let size = ctx.frame_size;
+    let size = (self.sizer)(size);
+
+    let key = PooledTextureKey {
+      size,
+      format: self.format,
+      sample_count: self.sample_count,
+    };
+
+    let mut resource = ctx.pool.inner.borrow_mut();
     let cached = resource
       .attachments
-      .entry((size, self.format.into(), self.sample_count))
+      .entry(key)
       .or_insert_with(Default::default);
 
-    let texture = cached.pop().unwrap_or_else(|| {
-      engine.gpu.device.create_texture(&wgpu::TextureDescriptor {
-        label: None,
-        size: size.into_gpu_size(),
-        mip_level_count: 1,
-        sample_count: self.sample_count,
-        dimension: TextureDimension::D2,
-        format: self.format.into(),
-        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-      })
+    let texture = cached.cached.pop().unwrap_or_else(|| {
+      GPUTexture2d::create(
+        WebGPUTexture2dDescriptor::from_size(size)
+          .with_render_target_ability()
+          .with_sample_count(self.sample_count)
+          .with_format(self.format),
+        &ctx.gpu.device,
+      )
     });
 
     Attachment {
-      pool: engine.resource.clone(),
+      pool: ctx.pool.clone(),
       des: self,
-      size,
-      texture: Rc::new(texture).into(),
+      key,
+      texture,
     }
   }
 }

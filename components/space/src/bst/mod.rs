@@ -12,7 +12,7 @@ pub trait BSTBounding<const D: usize, const N: usize>:
   CenterAblePrimitive + Default + Copy + ContainAble<f32, Self, D> + FromIterator<Self>
 {
   fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize;
-
+  #[must_use]
   fn compute_sub_space(&self, index: usize) -> Self;
 }
 

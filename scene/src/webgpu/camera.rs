@@ -1,17 +1,14 @@
-use std::rc::Rc;
-
-use bytemuck::{Pod, Zeroable};
 use rendiation_algebra::*;
+use rendiation_texture::Size;
 use rendiation_webgpu::*;
 
 use crate::*;
 
 impl CameraViewBounds {
-  pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>) {
-    let size = pass.info().buffer_size;
-    let width: usize = size.width.into();
+  pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>, buffer_size: Size) {
+    let width: usize = buffer_size.width.into();
     let width = width as f32;
-    let height: usize = size.height.into();
+    let height: usize = buffer_size.height.into();
     let height = height as f32;
     pass.set_viewport(
       width * self.to_left,
@@ -25,150 +22,93 @@ impl CameraViewBounds {
 }
 
 #[derive(Default)]
-pub struct CameraGPU {
-  inner: ResourceMapper<CameraBindgroup, Camera>,
+pub struct CameraGPUStore {
+  inner: IdentityMapper<CameraGPU, Camera>,
 }
 
-impl std::ops::Deref for CameraGPU {
-  type Target = ResourceMapper<CameraBindgroup, Camera>;
+impl std::ops::Deref for CameraGPUStore {
+  type Target = IdentityMapper<CameraGPU, Camera>;
 
   fn deref(&self) -> &Self::Target {
     &self.inner
   }
 }
 
-impl std::ops::DerefMut for CameraGPU {
+impl std::ops::DerefMut for CameraGPUStore {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.inner
   }
 }
 
-impl CameraGPU {
-  pub fn check_update_gpu(&mut self, camera: &mut SceneCamera, gpu: &GPU) -> &CameraBindgroup {
+impl CameraGPUStore {
+  pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
     self.get_update_or_insert_with(
       camera,
-      |_| CameraBindgroup::new(gpu),
+      |_| CameraGPU::new(gpu),
       |camera_gpu, camera| {
         camera_gpu.update(gpu, camera);
       },
     )
   }
 
-  pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraBindgroup {
+  pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraGPU {
     self.get_unwrap(camera)
   }
 }
 
-pub struct CameraBindgroup {
-  pub ubo: UniformBufferData<CameraGPUTransform>,
-  pub bindgroup: Rc<wgpu::BindGroup>,
+pub struct CameraGPU {
+  pub ubo: UniformBufferDataView<CameraGPUTransform>,
 }
 
-pub struct ClipPosition;
-impl SemanticVertexShaderValue for ClipPosition {
-  type ValueType = Vec4<f32>;
+impl ShaderHashProvider for CameraGPU {}
+
+impl ShaderPassBuilder for CameraGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.ubo, SB::Camera)
+  }
 }
 
-impl ShaderGraphProvider for CameraBindgroup {
-  fn build_vertex(
+impl ShaderGraphProvider for CameraGPU {
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let camera = builder.register_uniform::<CameraGPUTransform>().expand();
-    let position = builder.query::<WorldVertexPosition>()?.get_last();
-    builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
-    Ok(())
-  }
-}
-
-impl BindGroupLayoutProvider for CameraBindgroup {
-  fn bind_preference() -> usize {
-    2
-  }
-  fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-      label: "CameraBindgroup".into(),
-      entries: &[wgpu::BindGroupLayoutEntry {
-        binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
-        ty: wgpu::BindingType::Buffer {
-          ty: wgpu::BufferBindingType::Uniform,
-          has_dynamic_offset: false,
-          min_binding_size: wgpu::BufferSize::new(64 * 3),
-        },
-        count: None,
-      }],
+    builder.vertex(|builder, binding| {
+      let camera = binding.uniform_by(&self.ubo, SB::Camera).expand();
+      let position = builder.query::<WorldVertexPosition>()?.get_last();
+      builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
+      Ok(())
     })
-  }
-
-  fn gen_shader_header(group: usize) -> String {
-    format!(
-      "
-
-      [[group({group}), binding(0)]]
-      var<uniform> camera: CameraTransform;
-    
-    "
-    )
-  }
-
-  fn register_uniform_struct_declare(builder: &mut PipelineBuilder) {
-    builder.declare_uniform_struct::<CameraGPUTransform>();
   }
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, Default, ShaderUniform)]
+#[derive(Clone, Copy, Pod, Zeroable, Default, ShaderStruct)]
 pub struct CameraGPUTransform {
-  projection: Mat4<f32>,
-  rotation: Mat4<f32>,
-  view: Mat4<f32>,
+  pub projection: Mat4<f32>,
+  pub rotation: Mat4<f32>,
+  pub view: Mat4<f32>,
 }
 
-impl SemanticShaderUniform for CameraGPUTransform {
-  const TYPE: SemanticBinding = SemanticBinding::Camera;
-}
-
-impl ShaderUniformBlock for CameraGPUTransform {
-  fn shader_struct() -> &'static str {
-    "
-      struct CameraTransform {
-        projection: mat4x4<f32>;
-        rotation:   mat4x4<f32>;
-        view:       mat4x4<f32>;
-      };
-      "
-  }
-}
-
-impl CameraBindgroup {
+impl CameraGPU {
   pub fn update(&mut self, gpu: &GPU, camera: &Camera) -> &mut Self {
-    let uniform: &mut CameraGPUTransform = &mut self.ubo;
-    let world_matrix = camera.node.visit(|node| node.local_matrix);
-    uniform.view = world_matrix.inverse_or_identity();
-    uniform.rotation = world_matrix.extract_rotation_mat();
-    uniform.projection = camera.projection_matrix;
+    self.ubo.resource.mutate(|uniform| {
+      let world_matrix = camera.node.visit(|node| node.local_matrix);
+      uniform.view = world_matrix.inverse_or_identity();
+      uniform.rotation = world_matrix.extract_rotation_mat();
+      uniform.projection = camera.projection_matrix;
+    });
 
-    self.ubo.update(&gpu.queue);
+    self.ubo.resource.update(&gpu.queue);
 
     self
   }
 
   pub fn new(gpu: &GPU) -> Self {
-    let device = &gpu.device;
+    let ubo =
+      UniformBufferDataResource::create_with_source(CameraGPUTransform::default(), &gpu.device);
+    let ubo = ubo.create_view(());
 
-    let ubo: UniformBufferData<CameraGPUTransform> = UniformBufferData::create_default(device);
-
-    let bindgroup = device.create_bind_group(&wgpu::BindGroupDescriptor {
-      layout: &Self::layout(device),
-      entries: &[wgpu::BindGroupEntry {
-        binding: 0,
-        resource: ubo.as_bindable(),
-      }],
-      label: None,
-    });
-    let bindgroup = Rc::new(bindgroup);
-
-    Self { ubo, bindgroup }
+    Self { ubo }
   }
 }

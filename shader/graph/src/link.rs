@@ -1,9 +1,14 @@
 use crate::*;
-use std::marker::PhantomData;
 
 impl OperatorNode {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
     ShaderGraphNodeExpr::Operator(self).insert_graph()
+  }
+}
+
+impl ShaderGraphInputNode {
+  pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
+    ShaderGraphNode::Input(self).insert_graph()
   }
 }
 
@@ -16,7 +21,7 @@ impl ShaderGraphNodeExpr {
     self,
     builder: &mut ShaderGraphBuilder,
   ) -> Node<T> {
-    ShaderGraphNodeData::Expr(self).insert_into_graph(builder)
+    ShaderGraphNode::Expr(self).insert_into_graph(builder)
   }
 }
 
@@ -26,7 +31,7 @@ impl ShaderSideEffectNode {
   }
   pub fn insert_graph(self, target_scope_id: usize) {
     modify_graph(|graph| {
-      let node = ShaderGraphNodeData::SideEffect(self).insert_into_graph::<AnyType>(graph);
+      let node = ShaderGraphNode::SideEffect(self).insert_into_graph::<AnyType>(graph);
       let mut find_target_scope = false;
       for scope in &mut graph.scopes {
         if scope.graph_guid == target_scope_id {
@@ -72,7 +77,7 @@ impl ShaderControlFlowNode {
     let has_side_effect = self.has_side_effect();
     let captured = self.collect_captured();
     let writes = self.collect_writes();
-    let node = ShaderGraphNodeData::ControlFlow(self).insert_into_graph::<AnyType>(builder);
+    let node = ShaderGraphNode::ControlFlow(self).insert_into_graph::<AnyType>(builder);
     let top = builder.top_scope_mut();
     let nodes = &mut top.nodes;
 
@@ -83,7 +88,7 @@ impl ShaderControlFlowNode {
         .take(top.inserted.len() - 1)
         .for_each(|n| {
           let d = nodes.get_node(n.handle).data();
-          if let ShaderGraphNodeData::Write { .. } = d {
+          if let ShaderGraphNode::Write { .. } = d.node {
             nodes.connect_node(n.handle, node.handle().handle)
           }
         });
@@ -110,12 +115,12 @@ impl ShaderControlFlowNode {
     // if it's same and generate dep and a write node, if not, pass the captured
     // to parent scope
     for write in writes {
-      let im_write = ShaderGraphNodeData::Write {
+      let im_write = ShaderGraphNode::Write {
         target: write.1,
         source: node.handle(),
         implicit: true,
       }
-      .insert_into_graph_inner::<AnyType>(top);
+      .insert_into_graph_inner::<AnyType>(top, ShaderValueType::Never);
 
       write.0.current.set(im_write.handle());
 
@@ -133,7 +138,7 @@ impl ShaderControlFlowNode {
   }
 }
 
-impl ShaderGraphNodeData {
+impl ShaderGraphNode {
   pub fn insert_graph<T: ShaderGraphNodeType>(self) -> Node<T> {
     modify_graph(|graph| self.insert_into_graph(graph))
   }
@@ -144,21 +149,24 @@ impl ShaderGraphNodeData {
   ) -> Node<T> {
     builder.check_register_type::<T>();
 
-    self.insert_into_graph_inner(builder.top_scope_mut())
+    self.insert_into_graph_inner(builder.top_scope_mut(), T::to_type())
   }
 
-  pub fn insert_into_graph_inner<T: ShaderGraphNodeType>(
+  fn insert_into_graph_inner<T: ShaderGraphNodeType>(
     self,
     top: &mut ShaderGraphScope,
+    ty: ShaderValueType,
   ) -> Node<T> {
     let mut nodes_to_connect = Vec::new();
     self.visit_dependency(|dep| {
       nodes_to_connect.push(*dep);
     });
 
-    let is_write = matches!(self, ShaderGraphNodeData::Write { .. });
+    let is_write = matches!(self, ShaderGraphNode::Write { .. });
 
-    let result = top.insert_node(self).handle();
+    let result = top
+      .insert_node(ShaderGraphNodeData { node: self, ty })
+      .handle();
 
     nodes_to_connect.iter().for_each(|n| {
       if n.graph_id != top.graph_guid {
@@ -182,15 +190,19 @@ impl ShaderGraphNodeData {
 
   pub fn visit_dependency(&self, mut visitor: impl FnMut(&ShaderGraphNodeRawHandle)) {
     match self {
-      ShaderGraphNodeData::Expr(expr) => match expr {
+      ShaderGraphNode::Expr(expr) => match expr {
         ShaderGraphNodeExpr::FunctionCall { parameters, .. } => parameters.iter().for_each(visitor),
-        ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+        ShaderGraphNodeExpr::TextureSampling {
           texture,
           sampler,
           position,
-        }) => {
+        } => {
           visitor(texture);
           visitor(sampler);
+          visitor(position);
+        }
+        ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
+          visitor(texture);
           visitor(position);
         }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
@@ -207,20 +219,20 @@ impl ShaderGraphNodeData {
         ShaderGraphNodeExpr::Const(_) => {}
         ShaderGraphNodeExpr::Copy(from) => visitor(from),
       },
-      ShaderGraphNodeData::Input(_) => {}
-      ShaderGraphNodeData::UnNamed => {}
-      ShaderGraphNodeData::Write { source, target, .. } => {
+      ShaderGraphNode::Input(_) => {}
+      ShaderGraphNode::UnNamed => {}
+      ShaderGraphNode::Write { source, target, .. } => {
         visitor(source);
         visitor(target);
       }
-      ShaderGraphNodeData::ControlFlow(cf) => match cf {
+      ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
         ShaderControlFlowNode::For { source, .. } => match source {
           ShaderIteratorAble::Const(_) => {}
           ShaderIteratorAble::Count(c) => visitor(&c.handle()),
         },
       },
-      ShaderGraphNodeData::SideEffect(_) => {}
+      ShaderGraphNode::SideEffect(_) => {}
     }
   }
 
@@ -238,17 +250,21 @@ impl ShaderGraphNodeData {
 
   pub fn visit_dependency_mut(&mut self, mut visitor: impl FnMut(&mut ShaderGraphNodeRawHandle)) {
     match self {
-      ShaderGraphNodeData::Expr(expr) => match expr {
+      ShaderGraphNode::Expr(expr) => match expr {
         ShaderGraphNodeExpr::FunctionCall { parameters, .. } => {
           parameters.iter_mut().for_each(visitor)
         }
-        ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+        ShaderGraphNodeExpr::TextureSampling {
           texture,
           sampler,
           position,
-        }) => {
+        } => {
           visitor(texture);
           visitor(sampler);
+          visitor(position);
+        }
+        ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
+          visitor(texture);
           visitor(position);
         }
         ShaderGraphNodeExpr::Swizzle { source, .. } => visitor(source),
@@ -265,20 +281,20 @@ impl ShaderGraphNodeData {
         ShaderGraphNodeExpr::Const(_) => {}
         ShaderGraphNodeExpr::Copy(from) => visitor(from),
       },
-      ShaderGraphNodeData::Input(_) => {}
-      ShaderGraphNodeData::UnNamed => {}
-      ShaderGraphNodeData::Write { source, target, .. } => {
+      ShaderGraphNode::Input(_) => {}
+      ShaderGraphNode::UnNamed => {}
+      ShaderGraphNode::Write { source, target, .. } => {
         visitor(source);
         visitor(target);
       }
-      ShaderGraphNodeData::ControlFlow(cf) => match cf {
+      ShaderGraphNode::ControlFlow(cf) => match cf {
         ShaderControlFlowNode::If { condition, .. } => visitor(condition),
         ShaderControlFlowNode::For { source, .. } => match source {
           ShaderIteratorAble::Const(_) => {}
           ShaderIteratorAble::Count(c) => visitor(&mut c.handle()),
         },
       },
-      ShaderGraphNodeData::SideEffect(_) => {}
+      ShaderGraphNode::SideEffect(_) => {}
     }
   }
 }

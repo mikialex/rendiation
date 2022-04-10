@@ -20,12 +20,13 @@ impl From<u32> for ShaderIteratorAble {
   }
 }
 
+#[inline(never)]
 pub fn for_by<T>(iterable: impl Into<ShaderIteratorAble>, logic: impl Fn(&ForCtx, Node<T>))
 where
   T: ShaderGraphNodeType,
 {
   let (i_node, target_scope_id) = modify_graph(|builder| {
-    let node = ShaderGraphNodeData::UnNamed.insert_into_graph(builder);
+    let node = ShaderGraphNode::UnNamed.insert_into_graph(builder);
     let id = builder.push_scope().graph_guid;
 
     (node, id)
@@ -46,6 +47,7 @@ where
   });
 }
 
+#[inline(never)]
 pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
   let condition = condition.into();
   modify_graph(|builder| {
@@ -60,14 +62,6 @@ pub fn if_by(condition: impl Into<Node<bool>>, logic: impl Fn()) {
 
     ShaderControlFlowNode::If { condition, scope }.insert_into_graph(builder);
   });
-}
-
-pub struct FragmentCtx;
-
-impl FragmentCtx {
-  pub fn discard() {
-    ShaderSideEffectNode::Termination.insert_graph_bottom();
-  }
 }
 
 // /// you can only return the current function, so we don't need
@@ -102,7 +96,7 @@ impl FragmentCtx {
 //     todo!();
 //   });
 
-//   ShaderGraphNodeData::Function(FunctionNode {
+//   ShaderGraphNode::Function(FunctionNode {
 //     prototype: meta,
 //     parameters: todo!(),
 //   })

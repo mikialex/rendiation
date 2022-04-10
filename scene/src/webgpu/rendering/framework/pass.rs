@@ -1,176 +1,108 @@
-use std::{
-  cell::RefCell,
-  marker::PhantomData,
-  ops::{Deref, DerefMut},
-};
+use std::marker::PhantomData;
 
 use rendiation_webgpu::{
-  GPURenderPass, Operations, RenderPassDescriptorOwned, RenderPassInfo, GPU,
+  GPURenderPassCtx, Operations, RenderPassDescriptorOwned, RenderTargetView,
 };
 
-use crate::{Attachment, AttachmentWriteView, PassGPUDataCache, RenderEngine, Scene};
+use crate::{Attachment, AttachmentWriteView, FrameCtx, SceneRenderPass};
 
-pub fn pass<'t>(name: impl Into<String>) -> PassDescriptor<'static, 't> {
+pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
   desc.name = name.into();
   PassDescriptor {
     phantom: PhantomData,
-    tasks: Vec::new(),
     desc,
   }
 }
 
-pub struct PassUpdateCtx<'a> {
-  pub pass_info: &'a RenderPassInfo,
-  pub pass_gpu_cache: &'a mut PassGPUDataCache,
-}
-
-pub struct SceneRenderPass<'a> {
-  pass: GPURenderPass<'a>,
-  pub pass_gpu_cache: &'a RefCell<PassGPUDataCache>,
-}
-
-impl<'a> Deref for SceneRenderPass<'a> {
-  type Target = GPURenderPass<'a>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.pass
-  }
-}
-
-impl<'a> DerefMut for SceneRenderPass<'a> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.pass
-  }
-}
-
-pub trait PassContent {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, ctx: &PassUpdateCtx);
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene);
-}
-
-impl<T: PassContent> PassContent for Option<T> {
-  fn update(&mut self, gpu: &GPU, scene: &mut Scene, pass_info: &PassUpdateCtx) {
-    if let Some(c) = self {
-      c.update(gpu, scene, pass_info);
-    }
-  }
-
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a Scene) {
-    if let Some(c) = self {
-      c.setup_pass(pass, scene);
-    }
-  }
-}
-
-pub struct PassDescriptor<'a, 't> {
-  phantom: PhantomData<&'a Attachment<wgpu::TextureFormat>>,
-  tasks: Vec<&'t mut dyn PassContent>,
-
+pub struct PassDescriptor<'a> {
+  phantom: PhantomData<&'a Attachment>,
   desc: RenderPassDescriptorOwned,
 }
 
-impl<'a, 't> PassDescriptor<'a, 't> {
+impl<'a> From<AttachmentWriteView<&'a mut Attachment>> for RenderTargetView {
+  fn from(val: AttachmentWriteView<&'a mut Attachment>) -> Self {
+    val.view
+  }
+}
+
+impl<'a> PassDescriptor<'a> {
   #[must_use]
   pub fn with_color(
     mut self,
-    attachment: AttachmentWriteView<'a, wgpu::TextureFormat>,
+    attachment: impl Into<RenderTargetView> + 'a,
     op: impl Into<wgpu::Operations<wgpu::Color>>,
   ) -> Self {
-    self
-      .desc
-      .channels
-      .push((op.into(), attachment.view, attachment.size));
-    self.desc.info.color_formats.push(attachment.format);
-    self.desc.info.sample_count = attachment.sample_count;
+    self.desc.channels.push((op.into(), attachment.into()));
     self
   }
 
   #[must_use]
   pub fn with_depth(
     mut self,
-    attachment: AttachmentWriteView<wgpu::TextureFormat>,
+    attachment: impl Into<RenderTargetView> + 'a,
     op: impl Into<wgpu::Operations<f32>>,
   ) -> Self {
     self
       .desc
       .depth_stencil_target
-      .replace((op.into(), attachment.view));
+      .replace((op.into(), attachment.into()));
 
-    self
-      .desc
-      .info
-      .depth_stencil_format
-      .replace(attachment.format);
-
-    self.desc.info.sample_count = attachment.sample_count;
     // todo check sample count is same as color's
 
     self
   }
 
   #[must_use]
-  pub fn resolve_to(mut self, attachment: AttachmentWriteView<wgpu::TextureFormat>) -> Self {
+  pub fn resolve_to(mut self, attachment: AttachmentWriteView<&'a mut Attachment>) -> Self {
     self.desc.resolve_target = attachment.view.into();
     self
   }
 
   #[must_use]
-  pub fn render_by(mut self, renderable: &'t mut dyn PassContent) -> Self {
-    self.tasks.push(renderable);
-    self
-  }
+  pub fn render<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
+    let pass = ctx.encoder.begin_render_pass(self.desc.clone());
 
-  pub fn render(&mut self, renderable: &'t mut dyn PassContent) -> &mut Self {
-    self.tasks.push(renderable);
-    self
-  }
-
-  pub fn run(mut self, engine: &RenderEngine, scene: &mut Scene) {
-    let mut encoder = engine.gpu.encoder.borrow_mut();
-
-    let info = RenderPassInfo {
-      buffer_size: self.desc.channels.first().unwrap().2,
-      format_info: self.desc.info.clone(),
-    };
-
-    {
-      let mut pass_cache = engine.pass_cache.borrow_mut();
-
-      let ctx = PassUpdateCtx {
-        pass_info: &info,
-        pass_gpu_cache: &mut pass_cache,
-      };
-
-      for task in &mut self.tasks {
-        task.update(&engine.gpu, scene, &ctx)
-      }
-    }
-
-    #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
-    if let Some(resolve_target) = self.desc.resolve_target.take() {
-      self.desc.channels[0].1 = resolve_target
-    }
-
-    let mut pass = encoder.begin_render_pass(&self.desc);
-
-    let camera = scene.active_camera.as_ref().unwrap();
-    camera.bounds.setup_viewport(&mut pass);
-
-    let mut pass = SceneRenderPass {
+    let c = GPURenderPassCtx {
       pass,
-      pass_gpu_cache: &engine.pass_cache,
+      gpu: ctx.gpu,
+      binding: Default::default(),
     };
 
-    for task in &self.tasks {
-      let pass_index = 0;
+    let pass = SceneRenderPass {
+      ctx: c,
+      resources: ctx.resources,
+    };
 
-      let mut pass_cache = engine.pass_cache.borrow_mut();
-      let default_pass_gpu = pass_cache.get_updated_pass_gpu_info(pass_index, &info, &engine.gpu);
-      pass.set_bind_group_owned(3, &default_pass_gpu.bindgroup, &[]);
-
-      task.setup_pass(&mut pass, scene)
+    ActiveRenderPass {
+      desc: self.desc,
+      pass,
     }
+  }
+}
+
+pub trait PassContent {
+  fn render(&mut self, pass: &mut SceneRenderPass);
+}
+
+impl<T: PassContent> PassContent for Option<T> {
+  fn render(&mut self, pass: &mut SceneRenderPass) {
+    if let Some(content) = self {
+      content.render(pass);
+    }
+  }
+}
+
+pub struct ActiveRenderPass<'p> {
+  pass: SceneRenderPass<'p, 'p, 'p>,
+  pub desc: RenderPassDescriptorOwned,
+}
+
+impl<'p> ActiveRenderPass<'p> {
+  #[allow(clippy::return_self_not_must_use)]
+  pub fn by(mut self, mut renderable: impl PassContent) -> Self {
+    renderable.render(&mut self.pass);
+    self
   }
 }
 

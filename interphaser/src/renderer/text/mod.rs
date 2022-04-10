@@ -16,7 +16,7 @@ pub struct TextRenderer {
 
 impl TextRenderer {
   pub fn new(
-    device: &webgpu::Device,
+    device: &webgpu::GPUDevice,
     filter_mode: webgpu::FilterMode,
     render_format: webgpu::TextureFormat,
     init_size: Size,

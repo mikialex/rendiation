@@ -3,6 +3,7 @@
 #![feature(generic_associated_types)]
 #![feature(associated_type_bounds)]
 #![feature(type_alias_impl_trait)]
+#![feature(explicit_generic_args_with_impl_trait)]
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::single_match)]
@@ -37,3 +38,5 @@ pub use app::*;
 
 mod perf;
 pub use perf::*;
+
+pub use fontext::*;

@@ -1,5 +1,4 @@
 use crate::*;
-use rendiation_algebra::*;
 
 impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
   fn to_type() -> ShaderValueType {
@@ -47,7 +46,12 @@ impl PrimitiveShaderGraphNodeType for f32 {
     PrimitiveShaderValue::Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for f32 {}
+
+impl VertexInShaderGraphNodeType for f32 {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32
+  }
+}
 
 impl PrimitiveShaderGraphNodeType for Vec2<f32> {
   fn to_primitive_type() -> PrimitiveShaderValueType {
@@ -57,7 +61,11 @@ impl PrimitiveShaderGraphNodeType for Vec2<f32> {
     PrimitiveShaderValue::Vec2Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for Vec2<f32> {}
+impl VertexInShaderGraphNodeType for Vec2<f32> {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32x2
+  }
+}
 
 impl PrimitiveShaderGraphNodeType for Vec3<f32> {
   fn to_primitive_type() -> PrimitiveShaderValueType {
@@ -67,7 +75,11 @@ impl PrimitiveShaderGraphNodeType for Vec3<f32> {
     PrimitiveShaderValue::Vec3Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for Vec3<f32> {}
+impl VertexInShaderGraphNodeType for Vec3<f32> {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32x3
+  }
+}
 
 impl PrimitiveShaderGraphNodeType for Vec4<f32> {
   fn to_primitive_type() -> PrimitiveShaderValueType {
@@ -77,11 +89,33 @@ impl PrimitiveShaderGraphNodeType for Vec4<f32> {
     PrimitiveShaderValue::Vec4Float32(*self)
   }
 }
-impl ShaderGraphAttributeNodeType for Vec4<f32> {}
+impl VertexInShaderGraphNodeType for Vec4<f32> {
+  fn to_vertex_format() -> VertexFormat {
+    VertexFormat::Float32x4
+  }
+}
 
 impl ShaderGraphNodeType for ShaderSampler {
   fn to_type() -> ShaderValueType {
     ShaderValueType::Sampler
+  }
+}
+
+impl PrimitiveShaderGraphNodeType for Mat2<f32> {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Mat2Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Mat2Float32(*self)
+  }
+}
+
+impl PrimitiveShaderGraphNodeType for Mat3<f32> {
+  fn to_primitive_type() -> PrimitiveShaderValueType {
+    PrimitiveShaderValueType::Mat3Float32
+  }
+  fn to_primitive(&self) -> PrimitiveShaderValue {
+    PrimitiveShaderValue::Mat3Float32(*self)
   }
 }
 
@@ -94,20 +128,6 @@ impl PrimitiveShaderGraphNodeType for Mat4<f32> {
   }
 }
 
-// impl ShaderGraphBindGroupItemProvider for ShaderSampler {
-//   type ShaderGraphBindGroupItemInstance = Node<ShaderSampler>;
-
-//   fn create_instance(
-//     name: &'static str,
-//     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
-//     stage: ShaderStage,
-//   ) -> Self::ShaderGraphBindGroupItemInstance {
-//     let node = bindgroup_builder.create_uniform_node::<ShaderSampler>(name);
-//     bindgroup_builder.add_none_ubo(unsafe { node.handle.cast_type().into() }, stage);
-//     node
-//   }
-// }
-
 impl ShaderGraphNodeType for ShaderTexture {
   fn to_type() -> ShaderValueType {
     ShaderValueType::Texture
@@ -116,25 +136,27 @@ impl ShaderGraphNodeType for ShaderTexture {
 
 impl Node<ShaderTexture> {
   pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
-    ShaderGraphNodeExpr::TextureSampling(TextureSamplingNode {
+    ShaderGraphNodeExpr::TextureSampling {
       texture: self.handle(),
       sampler: sampler.handle(),
       position: position.handle(),
-    })
+    }
     .insert_graph()
   }
 }
 
-// impl ShaderGraphBindGroupItemProvider for ShaderTexture {
-//   type ShaderGraphBindGroupItemInstance = Node<ShaderTexture>;
+impl ShaderGraphNodeType for ShaderSamplerCombinedTexture {
+  fn to_type() -> ShaderValueType {
+    ShaderValueType::Texture
+  }
+}
 
-//   fn create_instance(
-//     name: &'static str,
-//     bindgroup_builder: &mut ShaderGraphBindGroupBuilder<'_>,
-//     stage: ShaderStage,
-//   ) -> Self::ShaderGraphBindGroupItemInstance {
-//     let node = bindgroup_builder.create_uniform_node::<ShaderTexture>(name);
-//     bindgroup_builder.add_none_ubo(unsafe { node.handle.cast_type().into() }, stage);
-//     node
-//   }
-// }
+impl Node<ShaderSamplerCombinedTexture> {
+  pub fn sample(&self, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
+    ShaderGraphNodeExpr::SamplerCombinedTextureSampling {
+      texture: self.handle(),
+      position: position.handle(),
+    }
+    .insert_graph()
+  }
+}

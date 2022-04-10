@@ -1,0 +1,9 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "canvase"
+version = "0.1.0"
+
+[dependencies]
+rendiation-algebra = {path = "../../math/algebra"}
+bytemuck = "1.4.1"

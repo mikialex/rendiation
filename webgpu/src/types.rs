@@ -1,23 +1,24 @@
-use rendiation_texture_types::Size;
+use crate::*;
 
 pub trait GPUTextureSize {
-  fn into_gpu_size(self) -> wgpu::Extent3d;
+  fn into_gpu_size(self) -> gpu::Extent3d;
+  fn from_gpu_size(size: Extent3d) -> Self;
 }
 
 impl GPUTextureSize for Size {
-  fn into_gpu_size(self) -> wgpu::Extent3d {
-    wgpu::Extent3d {
+  fn into_gpu_size(self) -> gpu::Extent3d {
+    gpu::Extent3d {
       width: usize::from(self.width) as u32,
       height: usize::from(self.height) as u32,
       depth_or_array_layers: 1,
     }
   }
-}
-
-pub struct RenderTarget {
-  attachments: Vec<(wgpu::Texture, wgpu::TextureFormat)>,
-  depth: Option<(wgpu::Texture, wgpu::TextureFormat)>,
-  size: Size,
+  fn from_gpu_size(size: Extent3d) -> Self {
+    Size {
+      width: NonZeroUsize::new(size.width as usize).unwrap(),
+      height: NonZeroUsize::new(size.height as usize).unwrap(),
+    }
+  }
 }
 
 #[derive(Copy, Clone)]
@@ -30,43 +31,12 @@ pub enum DepthStencilTextureFormat {
   Depth24PlusStencil8 = 37,
 }
 
-impl From<DepthStencilTextureFormat> for wgpu::TextureFormat {
+impl From<DepthStencilTextureFormat> for gpu::TextureFormat {
   fn from(value: DepthStencilTextureFormat) -> Self {
     match value {
-      DepthStencilTextureFormat::Depth32Float => wgpu::TextureFormat::Depth32Float,
-      DepthStencilTextureFormat::Depth24Plus => wgpu::TextureFormat::Depth24Plus,
-      DepthStencilTextureFormat::Depth24PlusStencil8 => wgpu::TextureFormat::Depth24PlusStencil8,
-    }
-  }
-}
-
-/// Describes how the vertex buffer is interpreted.
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub struct VertexBufferLayoutOwned {
-  /// The stride, in bytes, between elements of this buffer.
-  pub array_stride: wgpu::BufferAddress,
-  /// How often this vertex buffer is "stepped" forward.
-  pub step_mode: wgpu::VertexStepMode,
-  /// The list of attributes which comprise a single vertex.
-  pub attributes: Vec<wgpu::VertexAttribute>,
-}
-
-impl VertexBufferLayoutOwned {
-  pub fn as_raw(&self) -> wgpu::VertexBufferLayout {
-    wgpu::VertexBufferLayout {
-      array_stride: self.array_stride,
-      step_mode: self.step_mode,
-      attributes: self.attributes.as_slice(),
-    }
-  }
-}
-
-impl<'a> From<wgpu::VertexBufferLayout<'a>> for VertexBufferLayoutOwned {
-  fn from(layout: wgpu::VertexBufferLayout<'a>) -> Self {
-    Self {
-      array_stride: layout.array_stride,
-      step_mode: layout.step_mode,
-      attributes: layout.attributes.to_owned(),
+      DepthStencilTextureFormat::Depth32Float => gpu::TextureFormat::Depth32Float,
+      DepthStencilTextureFormat::Depth24Plus => gpu::TextureFormat::Depth24Plus,
+      DepthStencilTextureFormat::Depth24PlusStencil8 => gpu::TextureFormat::Depth24PlusStencil8,
     }
   }
 }

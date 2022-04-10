@@ -1,13 +1,3 @@
-use std::{
-  any::TypeId,
-  cell::RefCell,
-  collections::HashMap,
-  marker::PhantomData,
-  sync::atomic::{AtomicUsize, Ordering},
-};
-
-use arena_graph::ArenaGraph;
-
 use crate::*;
 
 #[repr(transparent)]
@@ -77,7 +67,6 @@ impl<T: ShaderGraphNodeType> Node<T> {
 }
 
 impl<T: ShaderGraphNodeType> NodeMutable<T> {
-
   pub fn get(&self) -> Node<T> {
     unsafe { self.pending.current.get().into_node() }
   }
@@ -107,7 +96,7 @@ impl<T: ShaderGraphNodeType> NodeMutable<T> {
           .push((self.pending.clone(), current));
       }
 
-      ShaderGraphNodeData::Write {
+      ShaderGraphNode::Write {
         source: node.handle(),
         target: self.get().handle(),
         implicit: false,
@@ -118,9 +107,6 @@ impl<T: ShaderGraphNodeType> NodeMutable<T> {
     self.pending.current.set(write.handle())
   }
 }
-
-// this for not include samplers/textures as attributes
-pub trait ShaderGraphAttributeNodeType: ShaderGraphNodeType {}
 
 #[derive(Copy, Clone)]
 pub struct AnyType;
@@ -245,7 +231,9 @@ impl ShaderGraphScope {
         let mut dependency = old.from().clone();
         dependency.drain(..).for_each(|d| {
           let dd = nodes.get_node_mut(d);
-          dd.data_mut().replace_dependency(*old_h, p.current.get());
+          dd.data_mut()
+            .node
+            .replace_dependency(*old_h, p.current.get());
           nodes.connect_node(p.current.get().handle, d);
           // todo cut old connection;
           // todo check fix duplicate connection

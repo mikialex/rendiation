@@ -2,7 +2,7 @@
 
 Contents and Responsibility:
 
-* Provide builder like api for convenience;
-* Workaround some annoy wgpu lifetime limitations for convenience, but also expose raw api for performance;
-* Shareable & reuseable components
+* Using strict and polished api surface to reduce runtime exception
+* Workaround annoying wgpu lifetime limitations, but also expose raw api for performance;
 * Potential performance optimization and inspection
+* Shareable & reuseable components

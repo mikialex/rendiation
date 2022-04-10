@@ -5,7 +5,7 @@ use rendiation_renderable_mesh::group::MeshDrawGroup;
 use crate::*;
 
 pub struct MeshModel<Me, Ma> {
-  pub inner: Rc<RefCell<ResourceWrapped<MeshModelImpl<Me, Ma>>>>,
+  pub inner: Rc<RefCell<Identity<MeshModelImpl<Me, Ma>>>>,
 }
 
 impl<Me, Ma> Clone for MeshModel<Me, Ma> {

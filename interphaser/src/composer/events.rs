@@ -136,13 +136,9 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseUp {
   }
 }
 
+#[derive(Default)]
 pub struct Click {
   mouse_down: bool,
-}
-impl Default for Click {
-  fn default() -> Self {
-    Self { mouse_down: false }
-  }
 }
 
 pub type ClickHandler<T> = EventHandler<T, Click>;
@@ -182,14 +178,11 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseMove {
   }
 }
 
+#[derive(Default)]
 pub struct MouseIn {
   is_mouse_in: bool,
 }
-impl Default for MouseIn {
-  fn default() -> Self {
-    Self { is_mouse_in: false }
-  }
-}
+
 pub type MouseInHandler<T> = EventHandler<T, MouseIn>;
 impl EventHandlerType for MouseIn {
   type Event = ();
@@ -211,13 +204,9 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseIn {
   }
 }
 
+#[derive(Default)]
 pub struct MouseOut {
   is_mouse_in: bool,
-}
-impl Default for MouseOut {
-  fn default() -> Self {
-    Self { is_mouse_in: false }
-  }
 }
 pub type MouseOutHandler<T> = EventHandler<T, MouseOut>;
 impl EventHandlerType for MouseOut {

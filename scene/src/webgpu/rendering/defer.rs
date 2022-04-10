@@ -2,21 +2,6 @@ pub struct DeferPassDispatcher {
   //
 }
 
-impl PassDispatcher for DeferPassDispatcher {
-  fn build_pipeline(&self, builder: &mut PipelineBuilder) {
-    // builder
-    //   .include_fragment_entry(
-    //     "
-    // [[stage(fragment)]]
-    // fn fs_highlight_mask_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {{
-    //     return vec4<f32>(1.);
-    // }}
-    // ",
-    //   )
-    //   .use_fragment_entry("fs_highlight_mask_main");
-  }
-}
-
 pub struct MaterialDeferPassResult {
   world_position: Attachment,
   depth: Attachment,
@@ -24,7 +9,7 @@ pub struct MaterialDeferPassResult {
   material: Attachment,
 }
 
-pub fn defer(engine: &RenderEngine) -> MaterialDeferPassResult {
+pub fn defer(ctx: &RenderEngine) -> MaterialDeferPassResult {
   todo!()
 }
 
@@ -38,4 +23,3 @@ pub trait DeferShading: LightableSurfaceShading {
     source: &dyn ShaderComponent,
   );
 }
-

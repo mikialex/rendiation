@@ -24,7 +24,7 @@ impl FatlineMesh {
   }
 }
 
-impl MeshCPUSource for FatlineMesh {
+impl WebGPUMesh for FatlineMesh {
   type GPU = FatlineMeshGPU;
 
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap) {
@@ -69,15 +69,40 @@ impl MeshCPUSource for FatlineMesh {
     gpu.setup_pass_and_draw(pass, self.inner.get_group(group).into())
   }
 
-  fn vertex_layout(&self) -> Vec<VertexBufferLayoutOwned> {
-    vec![Vertex::vertex_layout(), FatLineVertex::vertex_layout()]
-  }
-
   fn topology(&self) -> wgpu::PrimitiveTopology {
     wgpu::PrimitiveTopology::TriangleList
   }
 
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
+}
+
+impl ShaderGraphProvider for FatlineMeshGPU {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.vertex(|builder, _| {
+      builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
+      builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);
+      builder.primitive_state.topology = wgpu::PrimitiveTopology::TriangleList;
+      Ok(())
+    })
+  }
+}
+
+impl ShaderHashProvider for FatlineMeshGPU {}
+
+impl ShaderPassBuilder for FatlineMeshGPU {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    // let pass = ctx.pass;
+    // let range = range.unwrap_or(self.range_full);
+
+    // self.instance.setup_pass(pass);
+
+    // pass.set_vertex_buffer_owned(1, &self.vertex);
+
+    // pass.draw_indexed(self.instance.get_range_full().into(), 0, range.into());
+  }
 }
 
 pub struct FatlineMeshGPU {
@@ -102,45 +127,23 @@ impl FatlineMeshGPU {
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
-#[derive(Copy, Clone, Zeroable, Pod)]
+#[derive(Copy, Clone, Zeroable, Pod, ShaderVertex)]
 pub struct FatLineVertex {
+  #[semantic(FatLineStart)]
   pub start: Vec3<f32>,
+  #[semantic(FatLineEnd)]
   pub end: Vec3<f32>,
+  #[semantic(GeometryColorWithAlpha)]
   pub color: Vec4<f32>,
 }
 
-impl VertexBufferSourceType for FatLineVertex {
-  fn vertex_layout() -> VertexBufferLayoutOwned {
-    VertexBufferLayoutOwned {
-      array_stride: std::mem::size_of::<Self>() as u64,
-      step_mode: VertexStepMode::Instance,
-      attributes: vec![
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: 0,
-          shader_location: 4,
-        },
-        VertexAttribute {
-          format: VertexFormat::Float32x3,
-          offset: 4 * 3,
-          shader_location: 5,
-        },
-        VertexAttribute {
-          format: VertexFormat::Float32x4,
-          offset: 4 * 3 + 4 * 3,
-          shader_location: 6,
-        },
-      ],
-    }
-  }
-
-  fn get_shader_header() -> &'static str {
-    r#"
-      [[location(4)]] fatline_start: vec3<f32>,
-      [[location(5)]] fatline_end: vec3<f32>,
-      [[location(6)]] fatline_color: vec4<f32>,
-    "#
-  }
+struct FatLineStart;
+impl SemanticVertexShaderValue for FatLineStart {
+  type ValueType = Vec3<f32>;
+}
+struct FatLineEnd;
+impl SemanticVertexShaderValue for FatLineEnd {
+  type ValueType = Vec3<f32>;
 }
 
 pub struct FatlineQuadInstance {

@@ -4,11 +4,11 @@ use arena_tree::ArenaTree;
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
 
-use crate::ResourceWrapped;
+use crate::Identity;
 
 use super::SceneNodeHandle;
 
-pub type SceneNodeData = ResourceWrapped<SceneNodeDataImpl>;
+pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 
 pub struct SceneNodeDataImpl {
   pub visible: bool,
@@ -90,9 +90,10 @@ impl SceneNodeInner {
     }
   }
 
+  #[must_use]
   pub fn create_child(&self) -> Self {
     let mut nodes_info = self.nodes.borrow_mut();
-    let handle = nodes_info.create_node(ResourceWrapped::new(SceneNodeDataImpl::default())); // todo use from
+    let handle = nodes_info.create_node(Identity::new(SceneNodeDataImpl::default())); // todo use from
     let inner = SceneNodeRef {
       nodes: self.nodes.clone(),
       handle,
@@ -142,6 +143,7 @@ impl SceneNode {
     }
   }
 
+  #[must_use]
   pub fn create_child(&self) -> Self {
     let inner = self.inner.borrow();
     let inner = inner.create_child();

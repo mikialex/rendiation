@@ -1,4 +1,4 @@
-use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field, Ident, Type};
+use syn::{punctuated::Punctuated, spanned::Spanned, Data, Field, Ident, Type, Visibility};
 
 pub struct StructInfo {
   pub struct_name: Ident,
@@ -28,11 +28,31 @@ impl StructInfo {
     }
   }
 
-  pub fn map_fields(
+  pub fn _map_fields(
     &self,
     f: impl FnMut(&(Ident, Type)) -> proc_macro2::TokenStream,
   ) -> Vec<proc_macro2::TokenStream> {
     self.fields_info.iter().map(f).collect()
+  }
+
+  pub fn map_visible_fields(
+    &self,
+    f: impl FnMut((Ident, Type)) -> proc_macro2::TokenStream,
+  ) -> Vec<proc_macro2::TokenStream> {
+    self
+      .fields_raw
+      .iter()
+      .filter_map(|f| {
+        if matches!(f.vis, Visibility::Inherited) {
+          None
+        } else {
+          let field_name = f.ident.as_ref().unwrap().clone();
+          let ty = f.ty.clone();
+          (field_name, ty).into()
+        }
+      })
+      .map(f)
+      .collect()
   }
 
   // pub fn map_fields_with_index(

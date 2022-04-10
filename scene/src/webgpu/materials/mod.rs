@@ -1,10 +1,9 @@
 use std::{
   any::{Any, TypeId},
-  hash::Hash,
-  ops::{Deref, DerefMut},
-  rc::Rc,
+  ops::Deref,
 };
 pub mod states;
+use rendiation_renderable_mesh::group::MeshGroup;
 pub use states::*;
 
 pub mod wrapper;
@@ -12,19 +11,14 @@ pub use wrapper::*;
 
 pub mod flat;
 pub use flat::*;
-pub mod line;
-pub use line::*;
+// pub mod line;
+// pub use line::*;
 pub mod physical;
 pub use physical::*;
 pub mod fatline;
 pub use fatline::*;
-pub mod env_background;
-pub use env_background::*;
 
-use rendiation_webgpu::{
-  BindGroupLayoutCache, GPURenderPass, PipelineBuilder, PipelineHasher, PipelineResourceCache,
-  RenderPassInfo, GPU,
-};
+use rendiation_webgpu::*;
 
 use crate::*;
 
@@ -32,232 +26,151 @@ pub trait MaterialMeshLayoutRequire {
   type VertexInput;
 }
 
-pub trait MaterialCPUResource: Clone + Any {
-  type GPU: MaterialGPUResource<Source = Self>;
-  fn create(
-    &self,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-    bgw: &Rc<BindGroupDirtyWatcher>,
-  ) -> Self::GPU;
-  fn is_keep_mesh_shape(&self) -> bool;
-  fn is_transparent(&self) -> bool;
-}
+pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {
+  fn render(&self, ctx: &mut GPURenderPassCtx) {
+    let mut hasher = PipelineHasher::default();
+    self.hash_pipeline(&mut hasher);
 
-pub trait MaterialGPUResource: Sized {
-  type Source: MaterialCPUResource<GPU = Self>;
-
-  /// This Hook will be called before this material rendering(set_pass)
-  ///
-  /// If return true, means the following procedure will use simple full refresh update logic:
-  /// just rebuild the entire gpu resource. This is just for convenient case.
-  /// You can also impl incremental update logic to improve performance in high dynamic scenario
-  fn update(
-    &mut self,
-    _source: &Self::Source,
-    _gpu: &GPU,
-    _ctx: &mut SceneMaterialRenderPrepareCtx,
-    _bgw: &Rc<BindGroupDirtyWatcher>,
-  ) -> bool {
-    true
-  }
-
-  fn hash_pipeline(&self, _source: &Self::Source, _hasher: &mut PipelineHasher) {}
-
-  fn create_pipeline(
-    &self,
-    source: &Self::Source,
-    builder: &mut PipelineBuilder,
-    device: &wgpu::Device,
-    ctx: &PipelineCreateCtx,
-  );
-
-  fn setup_pass_bindgroup<'a>(
-    &self,
-    _pass: &mut GPURenderPass<'a>,
-    _ctx: &SceneMaterialPassSetupCtx,
-  ) {
-    // default do nothing
-  }
-}
-
-type MaterialResourceMapper<T> = ResourceMapper<MaterialWebGPUResource<T>, T>;
-
-impl GPUResourceSceneCache {
-  pub fn update_material<M: MaterialCPUResource>(
-    &mut self,
-    m: &ResourceWrapped<M>,
-    gpu: &GPU,
-    ctx: &mut SceneMaterialRenderPrepareCtx,
-  ) {
-    let type_id = TypeId::of::<M>();
-
-    let mapper = self
-      .materials
-      .entry(type_id)
-      .or_insert_with(|| Box::new(MaterialResourceMapper::<M>::default()))
-      .downcast_mut::<MaterialResourceMapper<M>>()
-      .unwrap();
-
-    let gpu_m = mapper.get_update_or_insert_with_logic(m, |x| match x {
-      ResourceLogic::Create(m) => {
-        let mut gpu_m = MaterialWebGPUResource::<M>::default();
-        gpu_m.gpu = M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher).into();
-        ResourceLogicResult::Create(gpu_m)
-      }
-      ResourceLogic::Update(gpu_m, m) => {
-        if gpu_m
-          .gpu
-          .as_mut()
+    let pipeline = ctx
+      .gpu
+      .device
+      .create_and_cache_render_pipeline(hasher, |device| {
+        device
+          .build_pipeline_by_shadergraph(self.build_self().unwrap())
           .unwrap()
-          .update(m, gpu, ctx, &gpu_m.bindgroup_watcher)
-        {
-          gpu_m
-            .gpu
-            .replace(M::create(m, gpu, ctx, &gpu_m.bindgroup_watcher));
-        }
+      });
 
-        gpu_m.refresh_cache();
-
-        ResourceLogicResult::Update(gpu_m)
-      }
-    });
-
-    let m_gpu = gpu_m.gpu.as_mut().unwrap();
-
-    let topology = ctx.active_mesh.unwrap().topology();
-    let sample_count = ctx.pass_info.format_info.sample_count;
-
-    let mut hasher = Default::default();
-
-    type_id.hash(&mut hasher);
-    ctx.pass_info.format_info.hash(&mut hasher);
-
-    let (pipelines, pipeline_ctx) = ctx.pipeline_ctx();
-
-    pipeline_ctx.pass.type_id().hash(&mut hasher);
-    m_gpu.hash_pipeline(m, &mut hasher);
-
-    gpu_m.current_pipeline = pipelines
-      .get_or_insert_with(hasher, || {
-        let mut builder = PipelineBuilder::default();
-
-        builder.primitive_state.topology = topology;
-        builder.multisample.count = sample_count;
-
-        m_gpu.create_pipeline(m, &mut builder, &gpu.device, &pipeline_ctx);
-        pipeline_ctx.pass.build_pipeline(&mut builder);
-        builder.build(&gpu.device)
-      })
-      .clone()
-      .into();
-  }
-
-  pub fn setup_material<'a, M: MaterialCPUResource>(
-    &self,
-    m: &ResourceWrapped<M>,
-    pass: &mut GPURenderPass<'a>,
-    ctx: &SceneMaterialPassSetupCtx,
-  ) {
-    let type_id = TypeId::of::<M>();
-    let gpu_m = self
-      .materials
-      .get(&type_id)
-      .unwrap()
-      .downcast_ref::<MaterialResourceMapper<M>>()
-      .unwrap()
-      .get_unwrap(m);
-    let gpu = gpu_m.gpu.as_ref().unwrap();
-
-    pass.set_pipeline_owned(gpu_m.current_pipeline.as_ref().unwrap());
-
-    gpu.setup_pass_bindgroup(pass, ctx)
+    ctx
+      .binding
+      .setup_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
   }
 }
 
-pub struct MaterialWebGPUResource<T: MaterialCPUResource> {
-  _last_material: Option<T>, // todo
-  bindgroup_watcher: Rc<BindGroupDirtyWatcher>,
+impl<T> RenderComponent for T where T: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {}
 
-  current_pipeline: Option<Rc<wgpu::RenderPipeline>>,
-  gpu: Option<T::GPU>,
+pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny {}
+impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny {}
+
+#[derive(Clone, Copy)]
+pub enum DrawCommand {
+  Array(MeshGroup),
+  Elements(MeshGroup),
 }
 
-impl<T: MaterialCPUResource> MaterialWebGPUResource<T> {
-  fn refresh_cache(&mut self) {
-    self.bindgroup_watcher.reset_clean();
+pub struct RenderEmitter<'a, 'b> {
+  contents: &'a [&'b dyn RenderComponentAny],
+  draw: DrawCommand,
+}
+
+impl<'a, 'b> RenderEmitter<'a, 'b> {
+  pub fn new(contents: &'a [&'b dyn RenderComponentAny], draw: DrawCommand) -> Self {
+    Self { contents, draw }
   }
 }
 
-impl<T: MaterialCPUResource> Default for MaterialWebGPUResource<T> {
-  fn default() -> Self {
-    Self {
-      _last_material: Default::default(),
-      bindgroup_watcher: Default::default(),
-      current_pipeline: Default::default(),
-      gpu: Default::default(),
+impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    self.contents.iter().for_each(|c| c.setup_pass(ctx));
+    match self.draw {
+      DrawCommand::Array(g) => ctx.pass.draw(g.into(), 0..1),
+      DrawCommand::Elements(g) => ctx.pass.draw_indexed(g.into(), 0, 0..1),
     }
   }
 }
 
-pub struct SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub active_mesh: Option<&'b dyn WebGPUMesh>,
-  pub base: &'b mut SceneMaterialRenderPrepareCtxBase<'a>,
-}
-
-impl<'a, 'b> Deref for SceneMaterialRenderPrepareCtx<'a, 'b> {
-  type Target = SceneMaterialRenderPrepareCtxBase<'a>;
-
-  fn deref(&self) -> &Self::Target {
-    self.base
+impl<'a, 'b> ShaderHashProvider for RenderEmitter<'a, 'b> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self
+      .contents
+      .iter()
+      .for_each(|com| com.hash_pipeline_and_with_type_id(hasher))
   }
 }
 
-impl<'a, 'b> DerefMut for SceneMaterialRenderPrepareCtx<'a, 'b> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    self.base
+impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    self.contents.iter().for_each(|c| c.build(builder).unwrap());
+    Ok(())
   }
 }
 
-pub trait PassDispatcher: Any {
-  fn build_pipeline(&self, builder: &mut PipelineBuilder);
+pub trait WebGPUMaterial: Clone + Any {
+  type GPU: RenderComponentAny;
+  fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU;
+  fn is_keep_mesh_shape(&self) -> bool;
+  fn is_transparent(&self) -> bool;
+}
+
+pub trait WebGPUSceneMaterial: 'static {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMaterialCache,
+    sub_res: &mut GPUResourceSubCache,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny;
+  fn is_keep_mesh_shape(&self) -> bool;
+}
+
+impl<M: WebGPUMaterial> WebGPUSceneMaterial for Identity<M> {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMaterialCache,
+    sub_res: &mut GPUResourceSubCache,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny {
+    res.update_material(self, gpu, sub_res)
+  }
+  fn is_keep_mesh_shape(&self) -> bool {
+    self.deref().is_keep_mesh_shape()
+  }
+}
+
+type MaterialIdentityMapper<T> = IdentityMapper<<T as WebGPUMaterial>::GPU, T>;
+impl GPUMaterialCache {
+  pub fn update_material<M: WebGPUMaterial>(
+    &mut self,
+    m: &Identity<M>,
+    gpu: &GPU,
+    res: &mut GPUResourceSubCache,
+  ) -> &M::GPU {
+    let type_id = TypeId::of::<M>();
+
+    let mapper = self
+      .inner
+      .entry(type_id)
+      .or_insert_with(|| Box::new(MaterialIdentityMapper::<M>::default()))
+      .downcast_mut::<MaterialIdentityMapper<M>>()
+      .unwrap();
+
+    mapper.get_update_or_insert_with_logic(m, |x| match x {
+      ResourceLogic::Create(m) => ResourceLogicResult::Create(M::create_gpu(m, res, gpu)),
+      ResourceLogic::Update(gpu_m, m) => {
+        // todo check should really recreate?
+        *gpu_m = M::create_gpu(m, res, gpu);
+        ResourceLogicResult::Update(gpu_m)
+      }
+    })
+  }
 }
 
 pub struct DefaultPassDispatcher;
-impl PassDispatcher for DefaultPassDispatcher {
-  fn build_pipeline(&self, _builder: &mut PipelineBuilder) {}
+
+impl ShaderHashProvider for DefaultPassDispatcher {}
+impl ShaderPassBuilder for DefaultPassDispatcher {
+  fn setup_pass(&self, _: &mut GPURenderPassCtx) {}
 }
 
-pub struct SceneMaterialRenderPrepareCtxBase<'a> {
-  pub camera: &'a SceneCamera,
-  pub pass_info: &'a RenderPassInfo,
-  pub pass: &'a dyn PassDispatcher,
-  pub resources: &'a mut GPUResourceSubCache,
-}
-
-impl<'a, 'b> SceneMaterialRenderPrepareCtx<'a, 'b> {
-  pub fn pipeline_ctx(&mut self) -> (&mut PipelineResourceCache, PipelineCreateCtx) {
-    (
-      &mut self.base.resources.pipeline_resource,
-      PipelineCreateCtx {
-        layouts: &self.base.resources.layouts,
-        active_mesh: self.active_mesh,
-        pass_info: self.base.pass_info,
-        pass: self.base.pass,
-      },
-    )
+impl ShaderGraphProvider for DefaultPassDispatcher {
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder
+      .bindgroups
+      .uniform::<UniformBufferView<RenderPassGPUInfoData>>(SB::Pass);
+    todo!()
   }
-}
-
-pub struct PipelineCreateCtx<'a, 'b> {
-  pub layouts: &'a BindGroupLayoutCache,
-  pub active_mesh: Option<&'a dyn WebGPUMesh>,
-  pub pass_info: &'b RenderPassInfo,
-  pub pass: &'b dyn PassDispatcher,
-}
-
-pub struct SceneMaterialPassSetupCtx<'a> {
-  pub resources: &'a GPUResourceSubCache,
-  pub model_gpu: Option<&'a TransformGPU>,
-  pub camera_gpu: &'a CameraBindgroup,
 }

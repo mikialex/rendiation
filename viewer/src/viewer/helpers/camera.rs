@@ -12,12 +12,7 @@ impl CameraHelper {
   pub fn from_node_and_project_matrix(node: SceneNode, project_mat: Mat4<f32>) -> Self {
     let camera_mesh = build_debug_line_in_camera_space(project_mat.inverse_or_identity());
     let camera_mesh = camera_mesh.into_resourced();
-    let fatline_mat = FatLineMaterial {
-      width: 3.,
-      states: Default::default(),
-    }
-    .into_scene_material()
-    .into_resourced();
+    let fatline_mat = FatLineMaterial { width: 3. }.use_state().into_resourced();
     let fatline = HelperLineModel::new(fatline_mat, camera_mesh, node);
     Self {
       model: fatline,
@@ -99,7 +94,7 @@ fn build_debug_line_in_camera_space(project_mat: Mat4<f32>) -> HelperLineMesh {
 
 pub struct CameraHelpers {
   pub enabled: bool,
-  pub helpers: ResourceMapper<CameraHelper, Camera>,
+  pub helpers: IdentityMapper<CameraHelper, Camera>,
 }
 
 impl Default for CameraHelpers {
@@ -111,68 +106,27 @@ impl Default for CameraHelpers {
   }
 }
 
-impl PassContent for CameraHelpers {
-  fn update(&mut self, gpu: &webgpu::GPU, scene: &mut crate::Scene, ctx: &PassUpdateCtx) {
+impl PassContentWithSceneAndCamera for &mut CameraHelpers {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
     if !self.enabled {
       return;
     }
 
-    if let Some(camera) = &mut scene.active_camera {
-      scene
-        .resources
-        .content
-        .cameras
-        .check_update_gpu(camera, gpu);
+    for (_, draw_camera) in &scene.cameras {
+      let helper = self.helpers.get_update_or_insert_with(
+        draw_camera,
+        |draw_camera| {
+          CameraHelper::from_node_and_project_matrix(
+            draw_camera.node.clone(),
+            draw_camera.projection_matrix,
+          )
+        },
+        |helper, camera| {
+          helper.update(camera.projection_matrix);
+        },
+      );
 
-      for (_, camera) in &mut scene.cameras {
-        scene
-          .resources
-          .content
-          .cameras
-          .check_update_gpu(camera, gpu);
-      }
-
-      let mut base = SceneMaterialRenderPrepareCtxBase {
-        camera,
-        pass_info: ctx.pass_info,
-        resources: &mut scene.resources.content,
-        pass: &DefaultPassDispatcher,
-      };
-
-      for (_, draw_camera) in &mut scene.cameras {
-        let helper = self.helpers.get_update_or_insert_with(
-          draw_camera,
-          |draw_camera| {
-            CameraHelper::from_node_and_project_matrix(
-              draw_camera.node.clone(),
-              draw_camera.projection_matrix,
-            )
-          },
-          |helper, camera| {
-            helper.update(camera.projection_matrix);
-          },
-        );
-        helper
-          .model
-          .update(gpu, &mut base, &mut scene.resources.scene)
-      }
-    }
-  }
-
-  fn setup_pass<'a>(&'a self, pass: &mut SceneRenderPass<'a>, scene: &'a crate::Scene) {
-    if !self.enabled {
-      return;
-    }
-
-    let main_camera = scene
-      .resources
-      .content
-      .cameras
-      .get_unwrap(scene.active_camera.as_ref().unwrap());
-
-    for (_, camera) in &scene.cameras {
-      let helper = self.helpers.get_unwrap(camera);
-      helper.model.setup_pass(pass, main_camera, &scene.resources);
+      helper.model.render(pass, &DefaultPassDispatcher, camera)
     }
   }
 }

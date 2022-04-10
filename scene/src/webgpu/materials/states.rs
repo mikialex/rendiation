@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use rendiation_webgpu::{PassTargetFormatInfo, PipelineBuilder};
+use shadergraph::ShaderGraphFragmentBuilder;
 
 use crate::ValueIDGenerator;
 
@@ -64,18 +64,16 @@ impl MaterialStates {
     })
   }
 
-  pub fn apply_pipeline_builder(
-    &self,
-    builder: &mut PipelineBuilder,
-    pass_info: &PassTargetFormatInfo,
-  ) {
-    builder.targets = pass_info
-      .color_formats
-      .iter()
-      .map(|&f| self.map_color_states(f))
-      .collect();
+  pub fn apply_pipeline_builder(&self, builder: &mut ShaderGraphFragmentBuilder) {
+    // override all outputs states
+    builder.frag_output.iter_mut().for_each(|(_, state)| {
+      let format = state.format;
+      *state = self.map_color_states(format);
+    });
 
-    builder.depth_stencil = self.map_depth_stencil_state(pass_info.depth_stencil_format);
+    // and depth_stencil if they exist
+    let format = builder.depth_stencil.as_ref().map(|s| s.format);
+    builder.depth_stencil = self.map_depth_stencil_state(format);
   }
 }
 

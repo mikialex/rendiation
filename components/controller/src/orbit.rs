@@ -134,20 +134,11 @@ impl Controller for OrbitController {
   }
 }
 
+#[derive(Default)]
 pub struct OrbitWinitWindowState {
   is_left_mouse_down: bool,
   is_right_mouse_down: bool,
   mouse_position: Vec2<f32>,
-}
-
-impl Default for OrbitWinitWindowState {
-  fn default() -> Self {
-    Self {
-      is_left_mouse_down: false,
-      is_right_mouse_down: false,
-      mouse_position: Default::default(),
-    }
-  }
 }
 
 use winit::event::*;

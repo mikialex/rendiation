@@ -42,7 +42,7 @@ impl<'a> WebGPUTexture2dSource for TextureWriteData<'a> {
 
 impl TextWebGPURenderer {
   pub fn new(
-    device: &webgpu::Device,
+    device: &webgpu::GPUDevice,
     filter_mode: webgpu::FilterMode,
     render_format: webgpu::TextureFormat,
     view_size: Vec2<f32>,
@@ -153,7 +153,9 @@ impl TextWebGPURenderer {
   }
 
   pub fn resize_view(&mut self, size: Vec2<f32>, queue: &webgpu::Queue) {
-    *self.transform = orthographic_projection(size.x, size.y);
+    self
+      .transform
+      .mutate(|t| *t = orthographic_projection(size.x, size.y));
     self.transform.update(queue);
   }
 

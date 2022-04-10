@@ -4,26 +4,30 @@ use crate::*;
 struct Test;
 
 struct TestSemantic;
-impl SemanticVertexFragmentIOValue for TestSemantic {
+impl SemanticVertexShaderValue for TestSemantic {
+  type ValueType = Vec4<f32>;
+}
+
+impl SemanticFragmentShaderValue for TestSemantic {
   type ValueType = Vec4<f32>;
 }
 
 impl ShaderGraphProvider for Test {
-  fn build_vertex(
+  fn build(
     &self,
-    builder: &mut ShaderGraphVertexBuilder,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.set_vertex_out::<TestSemantic>(Vec4::default());
-    Ok(())
-  }
-
-  fn build_fragment(
-    &self,
-    builder: &mut ShaderGraphFragmentBuilder,
-  ) -> Result<(), ShaderGraphBuildError> {
-    let v = builder.get_fragment_in::<TestSemantic>()?;
-    builder.set_fragment_out(0, v);
-    Ok(())
+    builder.vertex(|builder, _| {
+      builder.set_vertex_out::<TestSemantic>(Vec4::default());
+      // let varying = builder.set_vertex_out_anonymous(Vec4::default());
+      // Ok(varying)
+      Ok(())
+    })?;
+    builder.fragment(|builder, _| {
+      let v = builder.get_fragment_in::<TestSemantic>()?;
+      // let v2 = builder.get_fragment_in_anonymous(varying);
+      builder.set_fragment_out(0, v)
+    })
   }
 }
 

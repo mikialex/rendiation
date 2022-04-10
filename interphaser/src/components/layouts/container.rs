@@ -34,6 +34,7 @@ impl Container {
     }
   }
 
+  #[must_use]
   pub fn color(mut self, color: Color) -> Self {
     self.color = color;
     self

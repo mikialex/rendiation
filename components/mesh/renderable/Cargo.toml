@@ -4,9 +4,6 @@ edition = "2021"
 name = "rendiation-renderable-mesh"
 version = "0.1.0"
 
-# [features]
-# shadergraph = ["rendiation-shadergraph", "rendiation-derives"]
-
 [dependencies]
 bytemuck = "1.4.1"
 once_cell = "1.4.0"
@@ -17,12 +14,9 @@ rendiation-geometry = {path = "../../../math/geometry"}
 
 space-algorithm = {path = "../../space"}
 
-# rendiation-derives = {path = "../derives", optional = true}
-# rendiation-shadergraph = {path = "../shader-graph", optional = true}
-# rendiation-webgpu = {path = "../ral/backend/webgpu", optional = true}
-
 log = "0.4"
 rendiation-webgpu = {path = "../../../webgpu", optional = true}
+shadergraph = {path = "../../../shader/graph"}
 
 [features]
 webgpu = ["rendiation-webgpu"]

@@ -2,28 +2,44 @@ use proc_macro::TokenStream;
 
 use syn::parse_macro_input;
 
-mod geometry;
-mod glsl_impl;
-mod ubo;
+mod shader;
+mod shader_struct;
+mod std140;
 mod utils;
-use geometry::*;
-use glsl_impl::*;
-use ubo::*;
+mod vertex;
+use shader::*;
+use shader_struct::*;
+use std140::*;
+use vertex::*;
 
-#[proc_macro_derive(ShaderGeometry)]
-pub fn derive_geometry(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(ShaderVertex, attributes(semantic))]
+pub fn derive_vertex(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
-  derive_geometry_impl(input).into()
+  derive_vertex_impl(input).into()
 }
 
-#[proc_macro_derive(ShaderUniform)]
-pub fn derive_ubo(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(ShaderStruct)]
+pub fn derive_shader_struct(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);
-  derive_ubo_impl(&input).into()
+  derive_shader_struct_impl(&input).into()
 }
 
 #[proc_macro]
 pub fn glsl_function(input: TokenStream) -> TokenStream {
   let input = format!("{}", input);
-  gen_glsl_function(input.as_str(), false, "").into()
+  gen_glsl_function(input.as_str()).into()
+}
+
+#[proc_macro]
+pub fn wgsl_function(input: TokenStream) -> TokenStream {
+  let input = format!("{}", input);
+  gen_wgsl_function(input.as_str()).into()
+}
+
+#[proc_macro_attribute]
+pub fn std140_layout(_args: TokenStream, input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as syn::DeriveInput);
+  let expanded = std140_impl(input);
+
+  TokenStream::from(expanded)
 }

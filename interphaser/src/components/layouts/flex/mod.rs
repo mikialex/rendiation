@@ -48,6 +48,7 @@ impl Flex {
   /// Builder-style method for specifying the childrens' [`CrossAxisAlignment`].
   ///
   /// [`CrossAxisAlignment`]: enum.CrossAxisAlignment.html
+  #[must_use]
   pub fn cross_axis_alignment(mut self, alignment: CrossAxisAlignment) -> Self {
     self.cross_alignment = alignment;
     self
@@ -56,6 +57,7 @@ impl Flex {
   /// Builder-style method for specifying the childrens' [`MainAxisAlignment`].
   ///
   /// [`MainAxisAlignment`]: enum.MainAxisAlignment.html
+  #[must_use]
   pub fn main_axis_alignment(mut self, alignment: MainAxisAlignment) -> Self {
     self.main_alignment = alignment;
     self
@@ -75,6 +77,7 @@ impl Flex {
   /// The default value is `false`.
   ///
   /// [`MainAxisAlignment`]: enum.MainAxisAlignment.html
+  #[must_use]
   pub fn must_fill_main_axis(mut self, fill: bool) -> Self {
     self.fill_major_axis = fill;
     self
@@ -119,6 +122,7 @@ impl<T> Child<T> {
     }
   }
 
+  #[must_use]
   pub fn self_alignment(mut self, a: CrossAxisAlignment) -> Self {
     match &mut self {
       Child::Fixed { alignment, .. } => *alignment = a.into(),
@@ -192,6 +196,7 @@ pub enum Axis {
 
 impl Axis {
   /// Get the axis perpendicular to this one.
+  #[must_use]
   pub fn cross(self) -> Axis {
     match self {
       Axis::Horizontal => Axis::Vertical,

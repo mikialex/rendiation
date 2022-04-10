@@ -1,5 +1,7 @@
+use bytemuck::*;
 use rendiation_algebra::*;
 use rendiation_texture::Size;
+use shadergraph::{SemanticBinding, ShaderGraphProvider, ShaderStruct};
 use webgpu::util::DeviceExt;
 use webgpu::*;
 
@@ -27,16 +29,16 @@ impl<'r> WebGPUxUIRenderTask<'r> {
     let renderer = &self.renderer;
     renderer.gpu_primitive_cache.iter().for_each(|p| match p {
       GPUxUIPrimitive::SolidColor(p) => {
-        pass.set_pipeline(&renderer.resource.solid_color_pipeline);
+        pass.set_pipeline(&renderer.resource.solid_color_pipeline.pipeline);
         pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
         pass.set_index_buffer(p.index_buffer.slice(..), webgpu::IndexFormat::Uint32);
         pass.set_vertex_buffer(0, p.vertex_buffer.slice(..));
         pass.draw_indexed(0..p.length, 0, 0..1);
       }
       GPUxUIPrimitive::Texture(tex) => {
-        pass.set_pipeline(&renderer.resource.texture_pipeline);
+        pass.set_pipeline(&renderer.resource.texture_pipeline.pipeline);
         pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
-        pass.set_bind_group(1, &tex.bindgroup.bindgroup, &[]);
+        pass.set_bind_group(1, &tex.bindgroup, &[]);
         pass.set_index_buffer(tex.index_buffer.slice(..), webgpu::IndexFormat::Uint32);
         pass.set_vertex_buffer(0, tex.vertex_buffer.slice(..));
         pass.draw_indexed(0..tex.length, 0, 0..1);
@@ -69,7 +71,7 @@ pub struct GPUxUISolidColorPrimitive {
 }
 
 pub struct GPUxUITexturedPrimitive {
-  bindgroup: TextureBindGroup,
+  bindgroup: webgpu::BindGroup,
   vertex_buffer: webgpu::Buffer,
   index_buffer: webgpu::Buffer,
   length: u32,
@@ -124,43 +126,50 @@ fn build_quad(
 impl Primitive {
   pub fn create_gpu(
     &self,
-    device: &webgpu::Device,
+    device: &webgpu::GPUDevice,
     _encoder: &mut GPUCommandEncoder,
     res: &UIxGPUxResource,
     texts: &mut TextCache,
   ) -> Option<GPUxUIPrimitive> {
     let p = match self {
-      Primitive::Quad((quad, style)) => {
-        match style {
-          crate::Style::SolidColor(color) => {
-            let color = *color;
+      Primitive::Quad((quad, style)) => match style {
+        crate::Style::SolidColor(color) => {
+          let color = *color;
 
-            // let index_mesh: UIMesh = IndexedMesh::new(vertices, index);
-            let (index_buffer, vertex_buffer) = build_quad(device, quad, color);
+          let (index_buffer, vertex_buffer) = build_quad(device, quad, color);
 
-            GPUxUIPrimitive::SolidColor(GPUxUISolidColorPrimitive {
-              vertex_buffer,
-              index_buffer,
-              length: 6,
-            })
-          }
-          crate::Style::Texture(view) => {
-            let (index_buffer, vertex_buffer) = build_quad(device, quad, (1., 1., 1., 1.).into());
-
-            GPUxUIPrimitive::Texture(GPUxUITexturedPrimitive {
-              vertex_buffer,
-              index_buffer,
-              length: 6,
-              bindgroup: TextureBindGroup::new(
-                device,
-                &res.texture_bg_layout,
-                &res.sampler,
-                view.as_ref(),
-              ),
-            })
-          }
+          GPUxUIPrimitive::SolidColor(GPUxUISolidColorPrimitive {
+            vertex_buffer,
+            index_buffer,
+            length: 6,
+          })
         }
-      }
+        crate::Style::Texture(view) => {
+          let (index_buffer, vertex_buffer) = build_quad(device, quad, (1., 1., 1., 1.).into());
+
+          let bindgroup = device.create_bind_group(&webgpu::BindGroupDescriptor {
+            label: None,
+            layout: &res.texture_bg_layout,
+            entries: &[
+              webgpu::BindGroupEntry {
+                binding: 0,
+                resource: view.as_bindable(),
+              },
+              webgpu::BindGroupEntry {
+                binding: 1,
+                resource: res.sampler.as_bindable(),
+              },
+            ],
+          });
+
+          GPUxUIPrimitive::Texture(GPUxUITexturedPrimitive {
+            vertex_buffer,
+            index_buffer,
+            length: 6,
+            bindgroup,
+          })
+        }
+      },
       Primitive::Text(text) => {
         texts.queue(text.hash());
         GPUxUIPrimitive::Text(text.hash())
@@ -177,17 +186,17 @@ pub struct WebGPUxUIRenderer {
 }
 
 pub struct UIxGPUxResource {
-  solid_color_pipeline: webgpu::RenderPipeline,
-  texture_pipeline: webgpu::RenderPipeline,
+  solid_color_pipeline: webgpu::GPURenderPipeline,
+  texture_pipeline: webgpu::GPURenderPipeline,
   global_ui_state: UniformBufferData<UIGlobalParameter>,
-  texture_bg_layout: webgpu::BindGroupLayout,
+  texture_bg_layout: webgpu::GPUBindGroupLayout,
   sampler: webgpu::Sampler,
   global_bindgroup: webgpu::BindGroup,
 }
 
 impl WebGPUxUIRenderer {
   pub fn new(
-    device: &webgpu::Device,
+    device: &webgpu::GPUDevice,
     target_format: webgpu::TextureFormat,
     text_cache_init_size: Size,
   ) -> Self {
@@ -207,17 +216,17 @@ impl WebGPUxUIRenderer {
       label: None,
     });
 
-    let texture_bg_layout = TextureBindGroup::create_bind_group_layout(device);
+    let solid_color_pipeline = device
+      .build_pipeline_by_shadergraph(SolidUIPipeline { target_format }.build_self().unwrap())
+      .unwrap();
 
-    let solid_color_pipeline =
-      create_solid_pipeline(device, target_format, &global_uniform_bind_group_layout);
+    let texture_pipeline = device
+      .build_pipeline_by_shadergraph(TextureUIPipeline { target_format }.build_self().unwrap())
+      .unwrap();
 
-    let texture_pipeline = create_texture_pipeline(
-      device,
-      target_format,
-      &global_uniform_bind_group_layout,
-      &texture_bg_layout,
-    );
+    let texture_bg_layout = texture_pipeline
+      .get_layout(SemanticBinding::Material)
+      .clone();
 
     let text_renderer = TextRenderer::new(
       device,
@@ -262,13 +271,16 @@ impl WebGPUxUIRenderer {
   ) {
     self.gpu_primitive_cache.clear();
 
-    self.resource.global_ui_state.screen_size =
-      Vec2::new(presentation.view_size.width, presentation.view_size.height);
-    self.resource.global_ui_state.update(&gpu.queue);
+    let screen_size = Vec2::new(presentation.view_size.width, presentation.view_size.height);
 
     self
-      .text_renderer
-      .resize_view(self.resource.global_ui_state.screen_size, &gpu.queue);
+      .resource
+      .global_ui_state
+      .mutate(|t| t.screen_size = screen_size);
+
+    self.resource.global_ui_state.update(&gpu.queue);
+
+    self.text_renderer.resize_view(screen_size, &gpu.queue);
 
     self.gpu_primitive_cache.extend(
       presentation
@@ -281,35 +293,13 @@ impl WebGPUxUIRenderer {
   }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+#[derive(Debug, Copy, Clone, ShaderStruct, Zeroable, Pod)]
 struct UIGlobalParameter {
   pub screen_size: Vec2<f32>,
 }
 
-impl ShaderUniformBlock for UIGlobalParameter {
-  fn shader_struct() -> &'static str {
-    "
-      struct UIGlobalParameter {
-        screen_size: vec2<f32>;
-      };
-       "
-  }
-}
-
-unsafe impl bytemuck::Zeroable for UIGlobalParameter {}
-unsafe impl bytemuck::Pod for UIGlobalParameter {}
-
 impl UIGlobalParameter {
-  fn get_shader_header() -> &'static str {
-    "
-    struct UIGlobalParameter {
-      screen_size: vec2<f32>;
-    };
-    [[group(0), binding(0)]] 
-    var<uniform> ui_global_parameter: UIGlobalParameter;
-    "
-  }
-
   fn create_bind_group_layout(device: &webgpu::Device) -> webgpu::BindGroupLayout {
     device.create_bind_group_layout(&webgpu::BindGroupLayoutDescriptor {
       label: None,

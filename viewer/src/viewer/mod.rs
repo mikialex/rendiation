@@ -24,12 +24,12 @@ use webgpu::*;
 use crate::*;
 
 impl CanvasPrinter for ViewerImpl {
-  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: FrameTarget) {
+  fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPUTexture2dView) {
     self.content.update_state();
     self
       .ctx
       .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
-      .render(canvas, &mut self.content)
+      .render(RenderTargetView::Texture(canvas), &mut self.content)
   }
 
   fn event(
@@ -83,27 +83,31 @@ pub struct Viewer3dContent {
 
 pub struct Viewer3dRenderingCtx {
   pipeline: ViewerPipeline,
-  engine: RenderEngine,
+  pool: ResourcePool,
+  resources: GPUResourceCache,
+  gpu: Rc<GPU>,
 }
 
 impl Viewer3dRenderingCtx {
   pub fn new(gpu: Rc<GPU>) -> Self {
     Self {
       pipeline: ViewerPipeline::new(gpu.as_ref()),
-      engine: RenderEngine::new(gpu),
+      gpu,
+      resources: Default::default(),
+      pool: Default::default(),
     }
   }
 
   pub fn resize_view(&mut self) {
-    self.engine.notify_output_resized();
+    self.pool.clear();
   }
 
-  pub fn render(&mut self, target: FrameTarget, scene: &mut Viewer3dContent) {
+  pub fn render(&mut self, target: RenderTargetView, scene: &mut Viewer3dContent) {
     scene.scene.maintain();
 
-    self.engine.output = target.into();
+    let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &mut self.resources);
 
-    self.pipeline.render(&self.engine, scene)
+    self.pipeline.render(&mut ctx, scene, target)
   }
 }
 

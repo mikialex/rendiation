@@ -1,59 +1,49 @@
 pub mod pass;
-
 pub use pass::*;
-
-pub mod pool;
-pub use pool::*;
 
 pub mod attachment;
 pub use attachment::*;
 
+use rendiation_texture::Size;
 use rendiation_webgpu::*;
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
-pub struct RenderEngine {
-  resource: ResourcePool,
-  pass_cache: RefCell<PassGPUDataCache>,
-  gpu: Rc<GPU>,
+use crate::GPUResourceCache;
+
+pub struct FrameCtx<'a> {
+  pool: &'a ResourcePool,
   msaa_sample_count: u32,
-  pub output: Option<FrameTarget>,
+  frame_size: Size,
+  gpu: &'a GPU,
+  encoder: GPUCommandEncoder,
+  resources: &'a mut GPUResourceCache,
 }
 
-impl RenderEngine {
-  pub fn new(gpu: Rc<GPU>) -> Self {
-    #[allow(unused_mut)]
-    let mut msaa_sample_count = 4;
+impl<'a> FrameCtx<'a> {
+  pub fn new(
+    gpu: &'a GPU,
+    frame_size: Size,
+    pool: &'a ResourcePool,
+    resources: &'a mut GPUResourceCache,
+  ) -> Self {
+    let msaa_sample_count = 4;
 
-    #[cfg(all(target_arch = "wasm32", feature = "webgl"))]
-    {
-      msaa_sample_count = 1;
-    }
+    let encoder = gpu.create_encoder();
 
     Self {
-      resource: Default::default(),
-      output: Default::default(),
-      pass_cache: Default::default(),
+      pool,
+      frame_size,
+      resources,
       msaa_sample_count,
+      encoder,
       gpu,
     }
   }
 
   pub fn notify_output_resized(&self) {
-    self.resource.inner.borrow_mut().attachments.clear();
+    self.pool.inner.borrow_mut().clear();
   }
 
-  pub fn screen(&self) -> AttachmentWriteView<wgpu::TextureFormat> {
-    let output = self.output.as_ref().unwrap();
-    AttachmentWriteView {
-      phantom: PhantomData,
-      size: output.size,
-      view: output.view.clone(),
-      format: output.format,
-      sample_count: 1,
-    }
-  }
-
-  pub fn multisampled_attachment(&self) -> AttachmentDescriptor<wgpu::TextureFormat> {
+  pub fn multisampled_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
       format: wgpu::TextureFormat::Rgba8Unorm,
       sample_count: self.msaa_sample_count,
@@ -61,7 +51,7 @@ impl RenderEngine {
     }
   }
 
-  pub fn multisampled_depth_attachment(&self) -> AttachmentDescriptor<wgpu::TextureFormat> {
+  pub fn multisampled_depth_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
       format: wgpu::TextureFormat::Depth24PlusStencil8,
       sample_count: self.msaa_sample_count,

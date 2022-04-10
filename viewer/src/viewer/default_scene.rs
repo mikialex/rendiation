@@ -66,7 +66,7 @@ pub fn load_default_scene(scene: &mut Scene) {
       sampler: TextureSampler::default(),
       texture: texture.clone(),
     }
-    .into_scene_material()
+    .use_state()
     .into_resourced();
 
     let child = scene.root.create_child();
@@ -84,7 +84,7 @@ pub fn load_default_scene(scene: &mut Scene) {
       sampler: TextureSampler::default(),
       texture,
     }
-    .into_scene_material()
+    .use_state()
     .into_resourced();
     material.states.depth_compare = webgpu::CompareFunction::Always;
 

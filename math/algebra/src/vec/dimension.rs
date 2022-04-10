@@ -81,6 +81,14 @@ pub trait VectorSpace<T>:
   + Sized
   + Copy
 {
+  #[inline]
+  #[must_use]
+  fn reverse(&self) -> Self
+  where
+    T: Scalar,
+  {
+    *self * -T::one()
+  }
 }
 
 /// https://en.wikipedia.org/wiki/Inner_product
@@ -118,12 +126,6 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
   #[inline]
   fn distance<Rhs: InnerData<Self>>(&self, b: Rhs) -> T {
     (*self - b.get_inner()).length()
-  }
-
-  #[inline]
-  #[must_use]
-  fn reverse(&self) -> Self {
-    *self * -T::one()
   }
 
   #[inline]
