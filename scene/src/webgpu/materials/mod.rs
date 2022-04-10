@@ -3,6 +3,7 @@ use std::{
   ops::Deref,
 };
 pub mod states;
+use rendiation_renderable_mesh::group::MeshGroup;
 pub use states::*;
 
 pub mod wrapper;
@@ -50,19 +51,30 @@ impl<T> RenderComponent for T where T: ShaderHashProvider + ShaderGraphProvider 
 pub trait RenderComponentAny: RenderComponent + ShaderHashProviderAny {}
 impl<T> RenderComponentAny for T where T: RenderComponent + ShaderHashProviderAny {}
 
+#[derive(Clone, Copy)]
+pub enum DrawCommand {
+  Array(MeshGroup),
+  Elements(MeshGroup),
+}
+
 pub struct RenderEmitter<'a, 'b> {
   contents: &'a [&'b dyn RenderComponentAny],
+  draw: DrawCommand,
 }
 
 impl<'a, 'b> RenderEmitter<'a, 'b> {
-  pub fn new(contents: &'a [&'b dyn RenderComponentAny]) -> Self {
-    Self { contents }
+  pub fn new(contents: &'a [&'b dyn RenderComponentAny], draw: DrawCommand) -> Self {
+    Self { contents, draw }
   }
 }
 
 impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.contents.iter().for_each(|c| c.setup_pass(ctx))
+    self.contents.iter().for_each(|c| c.setup_pass(ctx));
+    match self.draw {
+      DrawCommand::Array(g) => ctx.pass.draw(g.into(), 0..1),
+      DrawCommand::Elements(g) => ctx.pass.draw_indexed(g.into(), 0, 0..1),
+    }
   }
 }
 

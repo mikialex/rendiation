@@ -75,24 +75,6 @@ impl GPUMeshCache {
       }
     })
   }
-
-  pub fn setup_mesh<'a, M: WebGPUMesh>(
-    &self,
-    m: &Identity<M>,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-  ) {
-    let type_id = TypeId::of::<M>();
-    let gpu_m = self
-      .inner
-      .get(&type_id)
-      .unwrap()
-      .downcast_ref::<MeshIdentityMapper<M>>()
-      .unwrap()
-      .get_unwrap(m);
-
-    WebGPUMesh::setup_pass_and_draw(m.deref(), gpu_m, pass, group)
-  }
 }
 
 type MeshIdentityMapper<T> = IdentityMapper<<T as WebGPUMesh>::GPU, T>;

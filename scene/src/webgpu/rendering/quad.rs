@@ -68,6 +68,10 @@ impl ShaderGraphProvider for FullScreenQuad {
         front_face: wgpu::FrontFace::Cw,
         ..Default::default()
       };
+      let out = generate_quad(builder.vertex_index).expand();
+      builder.register::<ClipPosition>(out.position);
+      builder.vertex_position.set(out.position);
+      builder.set_vertex_out::<FragmentUv>(out.uv);
       Ok(())
     })?;
 
