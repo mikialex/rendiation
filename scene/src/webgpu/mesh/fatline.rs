@@ -32,11 +32,6 @@ impl WebGPUMesh for FatlineMesh {
   }
 
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU {
-    let range_full = MeshGroup {
-      start: 0,
-      count: self.inner.mesh.draw_count(),
-    };
-
     let vertex = bytemuck::cast_slice(self.inner.mesh.data.as_slice());
     let vertex = gpu
       .device
@@ -49,24 +44,21 @@ impl WebGPUMesh for FatlineMesh {
 
     let instance = storage
       .entry()
-      .or_insert_with(|| create_fatline_quad(&gpu.device))
+      .or_insert_with(|| create_fatline_quad_gpu(&gpu.device))
       .data
       .clone();
 
-    FatlineMeshGPU {
-      range_full,
-      vertex,
-      instance,
-    }
+    FatlineMeshGPU { vertex, instance }
   }
 
-  fn setup_pass_and_draw<'a>(
-    &self,
-    gpu: &Self::GPU,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-  ) {
-    gpu.setup_pass_and_draw(pass, self.inner.get_group(group).into())
+  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    FATLINE_INSTANCE.with(|instance| {
+      pass.draw_indexed(
+        0..instance.draw_count() as u32,
+        0,
+        MeshGroup::from(self.inner.get_group(group)).into(),
+      )
+    })
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {
@@ -94,34 +86,15 @@ impl ShaderHashProvider for FatlineMeshGPU {}
 
 impl ShaderPassBuilder for FatlineMeshGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    // let pass = ctx.pass;
-    // let range = range.unwrap_or(self.range_full);
-
-    // self.instance.setup_pass(pass);
-
-    // pass.set_vertex_buffer_owned(1, &self.vertex);
-
-    // pass.draw_indexed(self.instance.get_range_full().into(), 0, range.into());
+    self.instance.setup_pass(&mut ctx.pass);
+    ctx.pass.set_vertex_buffer_owned(1, &self.vertex);
   }
 }
 
 pub struct FatlineMeshGPU {
-  range_full: MeshGroup,
   vertex: Rc<wgpu::Buffer>,
   /// All fatline gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
-}
-
-impl FatlineMeshGPU {
-  pub fn setup_pass_and_draw<'a>(&self, pass: &mut GPURenderPass<'a>, range: Option<MeshGroup>) {
-    let range = range.unwrap_or(self.range_full);
-
-    self.instance.setup_pass(pass);
-
-    pass.set_vertex_buffer_owned(1, &self.vertex);
-
-    pass.draw_indexed(self.instance.get_range_full().into(), 0, range.into());
-  }
 }
 
 use bytemuck::{Pod, Zeroable};
@@ -150,7 +123,7 @@ pub struct FatlineQuadInstance {
   data: Rc<MeshGPU>,
 }
 
-fn create_fatline_quad(device: &wgpu::Device) -> FatlineQuadInstance {
+fn create_fatline_quad() -> IndexedMesh<u16, Vertex, TriangleList> {
   #[rustfmt::skip]
   let positions: Vec<isize> = vec![- 1, 2, 0, 1, 2, 0, - 1, 1, 0, 1, 1, 0, - 1, 0, 0, 1, 0, 0, - 1, - 1, 0, 1, - 1, 0];
   let positions: &[Vec3<isize>] = bytemuck::cast_slice(positions.as_slice());
@@ -168,9 +141,15 @@ fn create_fatline_quad(device: &wgpu::Device) -> FatlineQuadInstance {
     .collect();
 
   let index = vec![0, 2, 1, 2, 3, 1, 2, 4, 3, 4, 5, 3, 4, 6, 5, 6, 7, 5];
+  IndexedMesh::new(data, index)
+}
 
-  let mesh: IndexedMesh<u16, Vertex, TriangleList> = IndexedMesh::new(data, index);
+thread_local! {
+  static FATLINE_INSTANCE: IndexedMesh<u16, Vertex, TriangleList> = create_fatline_quad()
+}
+
+fn create_fatline_quad_gpu(device: &wgpu::Device) -> FatlineQuadInstance {
   FatlineQuadInstance {
-    data: Rc::new(mesh.create_gpu(device)),
+    data: Rc::new(FATLINE_INSTANCE.with(|f| f.create_gpu(device))),
   }
 }

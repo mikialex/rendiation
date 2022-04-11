@@ -81,12 +81,15 @@ where
     let resources = &mut pass.resources;
     let pass_gpu = dispatcher;
     let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
+
     let node_gpu =
       override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&self.node, gpu));
+
     let material_gpu =
       self
         .material
         .check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
+
     let mesh_gpu = self.mesh.check_update_gpu(
       &mut resources.scene.meshes,
       &mut resources.custom_storage,
@@ -95,7 +98,12 @@ where
 
     let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
 
-    RenderEmitter::new(components.as_slice(), todo!()).render(&mut pass.ctx);
+    let emitter = MeshDrawcallEmitterWrap {
+      group: self.group,
+      mesh: &self.mesh,
+    };
+
+    RenderEmitter::new(components.as_slice(), &emitter).render(&mut pass.ctx);
   }
 }
 

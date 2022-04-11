@@ -32,9 +32,16 @@ pub trait WebGPUSceneMesh: 'static {
   ) -> &'a dyn RenderComponentAny;
 
   fn topology(&self) -> wgpu::PrimitiveTopology;
+  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
 
   // the reason we use CPS style is for supporting refcell
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
+}
+
+impl<T: WebGPUSceneMesh> MeshDrawcallEmitter for T {
+  fn draw(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx, group: MeshDrawGroup) {
+    self.draw_impl(&mut ctx.pass, group)
+  }
 }
 
 impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
@@ -45,6 +52,9 @@ impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
     res.update_mesh(self, gpu, sub_res)
+  }
+  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    self.deref().draw_impl(pass, group)
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {
@@ -82,12 +92,7 @@ pub trait WebGPUMesh: Any {
   type GPU: RenderComponent;
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, storage: &mut AnyMap);
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
-  fn setup_pass_and_draw<'a>(
-    &self,
-    gpu: &Self::GPU,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-  );
+  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
 
   fn topology(&self) -> wgpu::PrimitiveTopology;
 
@@ -153,14 +158,8 @@ where
     self.deref().create(&gpu.device)
   }
 
-  fn setup_pass_and_draw<'a>(
-    &self,
-    gpu: &Self::GPU,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-  ) {
-    gpu.setup_pass(pass);
-    gpu.draw(pass, self.get_group(group).into())
+  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    self.deref().draw(pass, group)
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {
@@ -191,6 +190,10 @@ impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCel
     let inner = self.inner.borrow();
     inner.check_update_gpu(res, sub_res, gpu)
   }
+
+  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    self.inner.borrow().draw_impl(pass, group)
+  }
 }
 
 impl<T> WebGPUMesh for MeshCell<T>
@@ -207,13 +210,8 @@ where
     self.inner.borrow().create(gpu, res)
   }
 
-  fn setup_pass_and_draw<'a>(
-    &self,
-    gpu: &Self::GPU,
-    pass: &mut GPURenderPass<'a>,
-    group: MeshDrawGroup,
-  ) {
-    self.inner.borrow().setup_pass_and_draw(gpu, pass, group);
+  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    self.inner.borrow().draw_impl(pass, group);
   }
 
   fn topology(&self) -> wgpu::PrimitiveTopology {

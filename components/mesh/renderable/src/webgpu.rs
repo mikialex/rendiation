@@ -84,6 +84,7 @@ pub trait GPUMeshData {
   fn update(&self, gpu: &mut Self::GPU, device: &gpu::Device);
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> gpu::PrimitiveTopology;
+  fn draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
 
   fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder);
 }
@@ -109,6 +110,11 @@ where
 
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup {
     self.get_group(group)
+  }
+
+  fn draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+    let range = self.get_group(group);
+    pass.draw_indexed(range.into(), 0, 0..1);
   }
 
   fn topology(&self) -> gpu::PrimitiveTopology {

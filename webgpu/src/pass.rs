@@ -1,7 +1,7 @@
 use crate::*;
 
 pub trait ShaderPassBuilder {
-  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {}
+  fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
 }
 
 #[derive(Clone, Hash)]
