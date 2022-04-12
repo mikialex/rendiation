@@ -74,7 +74,7 @@ impl GPUSurface {
     Ok((
       frame,
       RenderTargetView::SurfaceTexture {
-        view: view.clone(),
+        view,
         size: self.size,
         format: self.config.format,
         view_id: get_resource_view_guid(),

@@ -106,25 +106,23 @@ impl SyntaxElement for PrimitiveType {
       Token::BuiltInType(name) => {
         let p_ty = if let Some(ty) = check_value_ty(name) {
           PrimitiveType::Scalar(ty)
+        } else if let Some(vec_ty) = check_vec_ty(name) {
+          lexer.expect(Token::Paren('<'))?;
+          let value_ty = PrimitiveValueType::parse(lexer)?;
+          lexer.expect(Token::Paren('>'))?;
+          PrimitiveType::Vector(PrimitiveVectorType { value_ty, vec_ty })
+        } else if let Some(container_ty) = check_texture_ty(name) {
+          lexer.expect(Token::Paren('<'))?;
+          let value_ty = PrimitiveValueType::parse(lexer)?;
+          lexer.expect(Token::Paren('>'))?;
+          PrimitiveType::Texture(TextureType {
+            value_ty,
+            container_ty,
+          })
+        } else if name == "sampler" {
+          PrimitiveType::Sampler
         } else {
-          if let Some(vec_ty) = check_vec_ty(name) {
-            lexer.expect(Token::Paren('<'))?;
-            let value_ty = PrimitiveValueType::parse(lexer)?;
-            lexer.expect(Token::Paren('>'))?;
-            PrimitiveType::Vector(PrimitiveVectorType { value_ty, vec_ty })
-          } else if let Some(container_ty) = check_texture_ty(name) {
-            lexer.expect(Token::Paren('<'))?;
-            let value_ty = PrimitiveValueType::parse(lexer)?;
-            lexer.expect(Token::Paren('>'))?;
-            PrimitiveType::Texture(TextureType {
-              value_ty,
-              container_ty,
-            })
-          } else if name == "sampler" {
-            PrimitiveType::Sampler
-          } else {
-            return Err(ParseError::Any("unexpected builtin type"));
-          }
+          return Err(ParseError::Any("unexpected builtin type"));
         };
         p_ty
       }

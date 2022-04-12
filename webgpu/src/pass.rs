@@ -38,7 +38,7 @@ impl BindableResourceView for RenderTargetView {
   fn as_bindable(&self) -> gpu::BindingResource {
     match self {
       RenderTargetView::Texture(t) => t.as_bindable(),
-      RenderTargetView::SurfaceTexture { view, .. } => gpu::BindingResource::TextureView(&view),
+      RenderTargetView::SurfaceTexture { view, .. } => gpu::BindingResource::TextureView(view),
     }
   }
 }

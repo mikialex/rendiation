@@ -22,7 +22,7 @@ pub enum ParseError<'a> {
 }
 
 pub trait SyntaxElement: Sized {
-  fn parse_input<'a>(input: &'a str) -> Result<Self, ParseError<'a>> {
+  fn parse_input(input: &str) -> Result<Self, ParseError> {
     Self::parse(&mut Lexer::new(input))
   }
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>>;

@@ -17,7 +17,7 @@ pub fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
   let return_type = fun
     .return_type
     .as_ref()
-    .map(|ty| convert_type(ty))
+    .map(convert_type)
     .unwrap_or(quote! {()});
 
   let (gen_function_inputs, input_node_prepare): (Vec<_>, Vec<_>) = fun

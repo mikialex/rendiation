@@ -8,7 +8,7 @@ use rendiation_webgpu::*;
 use rendiation_webgpu::util::DeviceExt;
 
 use rendiation_renderable_mesh::{
-  group::{GroupedMesh, MeshDrawGroup, MeshGroup},
+  group::{GroupedMesh, MeshDrawGroup},
   mesh::{AbstractMesh, IndexedMesh, IntersectAbleGroupedMesh, NoneIndexedMesh, TriangleList},
   vertex::Vertex,
   MeshGPU,
@@ -56,7 +56,7 @@ impl WebGPUMesh for FatlineMesh {
       pass.draw_indexed(
         0..instance.draw_count() as u32,
         0,
-        MeshGroup::from(self.inner.get_group(group)).into(),
+        self.inner.get_group(group).into(),
       )
     })
   }

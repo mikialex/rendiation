@@ -41,14 +41,9 @@ wgsl_function!(
   }
 );
 
+#[derive(Default)]
 struct FullScreenQuad {
   blend: Option<wgpu::BlendState>,
-}
-
-impl Default for FullScreenQuad {
-  fn default() -> Self {
-    Self { blend: None }
-  }
 }
 
 impl ShaderPassBuilder for FullScreenQuad {
