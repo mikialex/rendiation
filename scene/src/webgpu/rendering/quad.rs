@@ -46,11 +46,13 @@ struct FullScreenQuad {
   blend: Option<wgpu::BlendState>,
 }
 
-impl ShaderPassBuilder for FullScreenQuad {
-  fn setup_pass(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
+impl DrawcallEmitter for FullScreenQuad {
+  fn draw(&self, ctx: &mut rendiation_webgpu::GPURenderPassCtx) {
     ctx.pass.draw(0..4, 0..1)
   }
 }
+
+impl ShaderPassBuilder for FullScreenQuad {}
 impl ShaderHashProvider for FullScreenQuad {}
 impl ShaderGraphProvider for FullScreenQuad {
   fn build(
@@ -112,6 +114,6 @@ where
 {
   fn render(&mut self, pass: &mut SceneRenderPass) {
     // let components: [&dyn RenderComponentAny; 2] = [&self.quad, &self.content];
-    // RenderEmitter::new(components.as_slice()).render(&mut pass.ctx);
+    // RenderEmitter::new(components.as_slice(), &self.quad).render(&mut pass.ctx);
   }
 }
