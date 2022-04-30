@@ -37,14 +37,14 @@ where
   }
 }
 
-impl<Me, Ma> SceneRenderableRc for MeshModel<Me, Ma>
+impl<Me, Ma> SceneRenderableShareable for MeshModel<Me, Ma>
 where
   Self: SceneRenderable + Clone,
 {
   fn id(&self) -> usize {
     self.inner.borrow().id()
   }
-  fn clone_boxed(&self) -> Box<dyn SceneRenderableRc> {
+  fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable> {
     Box::new(self.clone())
   }
   fn as_renderable(&self) -> &dyn SceneRenderable {

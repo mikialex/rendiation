@@ -16,7 +16,7 @@ pub struct Scene {
   pub active_camera: Option<SceneCamera>,
   pub cameras: Arena<SceneCamera>,
   pub lights: Arena<SceneLight>,
-  pub models: Vec<Box<dyn SceneRenderableRc>>,
+  pub models: Vec<Box<dyn SceneRenderableShareable>>,
 
   nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
   pub root: SceneNode,
@@ -45,7 +45,7 @@ impl Scene {
     }
   }
 
-  pub fn add_model(&mut self, model: impl SceneRenderableRc) {
+  pub fn add_model(&mut self, model: impl SceneRenderableShareable) {
     self.models.push(Box::new(model));
   }
 

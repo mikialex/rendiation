@@ -11,7 +11,7 @@ impl Scene {
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<&dyn SceneRenderableRc> {
+  ) -> Option<&dyn SceneRenderableShareable> {
     let mut result = Vec::new();
 
     let camera = self.active_camera.as_ref().unwrap();

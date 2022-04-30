@@ -50,9 +50,9 @@ pub trait SceneRenderable: 'static {
   }
 }
 
-pub trait SceneRenderableRc: SceneRenderable {
+pub trait SceneRenderableShareable: SceneRenderable {
   fn id(&self) -> usize;
-  fn clone_boxed(&self) -> Box<dyn SceneRenderableRc>;
+  fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable>;
   fn as_renderable(&self) -> &dyn SceneRenderable;
   fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable;
 }

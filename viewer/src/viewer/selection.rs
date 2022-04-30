@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rendiation_algebra::Vec2;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
-use rendiation_scene::{SceneRenderable, SceneRenderableRc};
+use rendiation_scene::{SceneRenderable, SceneRenderableShareable};
 
 use crate::Scene;
 
@@ -25,7 +25,7 @@ impl Picker {
   }
 }
 
-type Selected = Box<dyn SceneRenderableRc>;
+type Selected = Box<dyn SceneRenderableShareable>;
 
 #[derive(Default)]
 pub struct SelectionSet {
@@ -69,11 +69,11 @@ impl SelectionSet {
     self.selected.is_empty()
   }
 
-  pub fn select(&mut self, model: &dyn SceneRenderableRc) {
+  pub fn select(&mut self, model: &dyn SceneRenderableShareable) {
     self.selected.insert(model.id(), model.clone_boxed());
   }
 
-  pub fn deselect(&mut self, model: &dyn SceneRenderableRc) {
+  pub fn deselect(&mut self, model: &dyn SceneRenderableShareable) {
     self.selected.remove(&model.id());
   }
 
