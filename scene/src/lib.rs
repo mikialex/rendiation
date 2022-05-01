@@ -1,4 +1,5 @@
 #![feature(capture_disjoint_fields)]
+#![feature(specialization)]
 #![feature(array_methods)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]

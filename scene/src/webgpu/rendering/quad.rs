@@ -110,10 +110,10 @@ impl<T> UseQuadDraw for T {}
 
 impl<T> PassContent for QuadDraw<T>
 where
-// T: RenderComponentAny,
+  T: RenderComponentAny,
 {
   fn render(&mut self, pass: &mut SceneRenderPass) {
-    // let components: [&dyn RenderComponentAny; 2] = [&self.quad, &self.content];
-    // RenderEmitter::new(components.as_slice(), &self.quad).render(&mut pass.ctx);
+    let components: [&dyn RenderComponentAny; 2] = [&self.quad, &self.content];
+    RenderEmitter::new(components.as_slice(), &self.quad).render(&mut pass.ctx);
   }
 }

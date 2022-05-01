@@ -1,3 +1,5 @@
+use std::{any::Any, hash::Hash};
+
 use rendiation_texture::TextureSampler;
 use rendiation_webgpu::*;
 use shadergraph::{FragmentUv, ShaderGraphProvider, ShaderSampler, ShaderUniformProvider, SB};
@@ -7,6 +9,16 @@ use crate::{AttachmentReadView, PassContent, UseQuadDraw};
 pub struct CopyFrame<T> {
   sampler: ImmediateSampler,
   source: AttachmentReadView<T>,
+}
+struct CopyFrameTypeMark;
+impl<T> ShaderHashProvider for CopyFrame<T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {}
+}
+
+impl<T> ShaderHashProviderAny for CopyFrame<T> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    CopyFrameTypeMark.type_id().hash(hasher);
+  }
 }
 
 pub fn copy_frame<T>(source: AttachmentReadView<T>) -> impl PassContent {

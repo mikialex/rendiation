@@ -1,5 +1,6 @@
 use crate::{AttachmentReadView, SceneRenderPass, SceneRenderable};
 
+use __core::{any::Any, hash::Hash};
 use rendiation_algebra::*;
 use rendiation_webgpu::*;
 
@@ -55,6 +56,16 @@ impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.lighter.data, SB::Material);
     ctx.binding.bind(&self.mask, SB::Material);
+  }
+}
+
+impl<'a, T> ShaderHashProvider for HighLightComposeTask<'a, T> {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {}
+}
+
+impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
+  fn hash_pipeline_and_with_type_id(&self, hasher: &mut PipelineHasher) {
+    self.lighter.type_id().hash(hasher);
   }
 }
 

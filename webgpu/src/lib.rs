@@ -1,3 +1,6 @@
+#![feature(specialization)]
+#![allow(incomplete_features)]
+
 mod device;
 mod encoder;
 mod pass;
