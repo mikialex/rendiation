@@ -60,7 +60,7 @@ impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
 }
 
 impl<'a, T> ShaderHashProvider for HighLightComposeTask<'a, T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {}
+  fn hash_pipeline(&self, _: &mut PipelineHasher) {}
 }
 
 impl<'a, T> ShaderHashProviderAny for HighLightComposeTask<'a, T> {
@@ -87,8 +87,7 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
         (
           uniform.color.xyz(),
           edge_intensity(uv, mask) * uniform.color.w(),
-        )
-          .into(),
+        ),
       )?;
       todo!()
     })
@@ -128,7 +127,7 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, _| builder.set_fragment_out(0, Vec4::one().into()))
+    builder.fragment(|builder, _| builder.set_fragment_out(0, Vec4::one()))
   }
 }
 

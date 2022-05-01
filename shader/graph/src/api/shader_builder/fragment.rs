@@ -88,13 +88,13 @@ impl ShaderGraphFragmentBuilder {
   pub fn set_fragment_out(
     &mut self,
     slot: usize,
-    node: Node<Vec4<f32>>,
+    node: impl Into<Node<Vec4<f32>>>,
   ) -> Result<(), ShaderGraphBuildError> {
     self
       .frag_output
       .get_mut(slot)
       .ok_or(ShaderGraphBuildError::FragmentOutputSlotNotDeclared)?
-      .0 = node;
+      .0 = node.into();
     Ok(())
   }
 

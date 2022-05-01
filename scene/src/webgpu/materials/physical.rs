@@ -42,9 +42,7 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
       let uv = builder.query::<FragmentUv>()?.get();
       let albedo = albedo_tex.sample(sampler, uv).xyz() * uniform.albedo;
 
-      let result = (albedo, 1.).into();
-
-      builder.set_fragment_out(0, result)
+      builder.set_fragment_out(0, (albedo, 1.))
     })
   }
 }

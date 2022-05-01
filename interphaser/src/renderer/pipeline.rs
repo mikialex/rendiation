@@ -49,8 +49,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
       });
 
       let color = builder.query::<FragmentColor>()?.get();
-      let color = (color, 1.).into();
-      builder.set_fragment_out(0, color)
+      builder.set_fragment_out(0, (color, 1.))
     })
   }
 }
@@ -107,8 +106,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
       let texture = binding.uniform::<GPUTexture2dView>(SemanticBinding::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SemanticBinding::Material);
 
-      let color = texture.sample(sampler, uv);
-      builder.set_fragment_out(0, color)
+      builder.set_fragment_out(0, texture.sample(sampler, uv))
     })
   }
 }

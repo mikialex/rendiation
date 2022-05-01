@@ -45,8 +45,7 @@ impl ShaderGraphProvider for TestUniform {
 
     builder.fragment(|builder, _| {
       let uniform = uniform.using().expand();
-      let value = (uniform.data3, 1.).into();
-      builder.set_fragment_out(0, value)?;
+      builder.set_fragment_out(0, (uniform.data3, 1.))?;
       Ok(())
     })
   }

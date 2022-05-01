@@ -12,7 +12,7 @@ pub struct CopyFrame<T> {
 }
 struct CopyFrameTypeMark;
 impl<T> ShaderHashProvider for CopyFrame<T> {
-  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {}
+  fn hash_pipeline(&self, _: &mut PipelineHasher) {}
 }
 
 impl<T> ShaderHashProviderAny for CopyFrame<T> {
