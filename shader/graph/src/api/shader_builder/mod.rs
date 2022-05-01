@@ -13,7 +13,7 @@ pub use builtin::*;
 
 #[derive(Debug)]
 pub enum ShaderGraphBuildError {
-  MissingRequiredDependency,
+  MissingRequiredDependency(&'static str),
   FragmentOutputSlotNotDeclared,
   FailedDowncastShaderValueFromInput,
 }
@@ -149,11 +149,15 @@ pub struct SemanticRegistry {
 }
 
 impl SemanticRegistry {
-  pub fn query(&mut self, id: TypeId) -> Result<&NodeMutable<AnyType>, ShaderGraphBuildError> {
+  pub fn query(
+    &mut self,
+    id: TypeId,
+    name: &'static str,
+  ) -> Result<&NodeMutable<AnyType>, ShaderGraphBuildError> {
     self
       .registered
       .get(&id)
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
   }
 
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) {

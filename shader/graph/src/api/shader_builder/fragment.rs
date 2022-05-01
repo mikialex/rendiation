@@ -2,6 +2,7 @@ use crate::*;
 
 pub trait SemanticFragmentShaderValue: Any {
   type ValueType: ShaderGraphNodeType;
+  const NAME: &'static str = core::intrinsics::type_name::<Self>();
 }
 
 pub struct ShaderGraphFragmentBuilder {
@@ -53,7 +54,7 @@ impl ShaderGraphFragmentBuilder {
   ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
       .registry
-      .query(TypeId::of::<T>())
+      .query(TypeId::of::<T>(), T::NAME)
       .map(|n| unsafe { std::mem::transmute(n) })
   }
 
@@ -76,7 +77,7 @@ impl ShaderGraphFragmentBuilder {
       .fragment_in
       .get(&TypeId::of::<T>())
       .map(|(n, _, _, _)| unsafe { (*n).cast_type() })
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency)
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency(<T as SemanticVertexShaderValue>::NAME))
   }
 
   /// always called by pass side to declare outputs
