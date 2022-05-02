@@ -110,11 +110,11 @@ pub struct FatLineVertex {
   pub color: Vec4<f32>,
 }
 
-struct FatLineStart;
+pub struct FatLineStart;
 impl SemanticVertexShaderValue for FatLineStart {
   type ValueType = Vec3<f32>;
 }
-struct FatLineEnd;
+pub struct FatLineEnd;
 impl SemanticVertexShaderValue for FatLineEnd {
   type ValueType = Vec3<f32>;
 }
