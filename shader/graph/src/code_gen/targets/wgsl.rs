@@ -148,18 +148,22 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
   gen_struct(code, &shader_struct);
 }
 
-fn gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
-  match int {
-    ShaderVaryingInterpolation::Flat => "flat",
-    ShaderVaryingInterpolation::Perspective => "perspective",
-  }
-}
+// fn gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
+//   match int {
+//     ShaderVaryingInterpolation::Flat => "flat",
+//     ShaderVaryingInterpolation::Perspective => "perspective",
+//   }
+// }
 
 fn gen_fragment_in_declare(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBuilder) {
-  frag.fragment_in.iter().for_each(|(_, (_, ty, int, i))| {
+  frag.fragment_in.iter().for_each(|(_, (_, ty, _int, i))| {
+    // code.write_ln(format!(
+    //   "[[location({i})]] [[interpolate({})]] fragment_in_{i}: {}",
+    //   gen_interpolation(*int),
+    //   gen_primitive_type(*ty)
+    // ));
     code.write_ln(format!(
-      "[[location({i})]] [[interpolate({})]] fragment_in_{i}: {}",
-      gen_interpolation(*int),
+      "[[location({i})]]fragment_in_{i}: {}",
       gen_primitive_type(*ty)
     ));
   });
