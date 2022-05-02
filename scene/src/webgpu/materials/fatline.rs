@@ -40,12 +40,12 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     builder.vertex(|builder, binding| {
       // let pass_info = builder.query::<RenderPassGPUInfoData>()?.expand();
       // let camera = builder.query::<CameraGPUTransform>()?.expand();
-      // let model = builder.query::<TransformGPUData>()?.expand();
-      // let material = binding.uniform_by(&self.uniform, SB::Material).expand();
+      // let model = builder.query::<TransformGPUData>()?.get();
+      let material = binding.uniform_by(&self.uniform, SB::Material).expand();
 
       let resolution = builder.query::<RenderBufferSize>();
 
-      // builder.vertex_position.set(clip);
+      // builder.vertex_position.set(fatline_vertex());
       // builder.set_vertex_out::<FragmentUv>(uv);
       // builder.set_vertex_out::<FragmentColorAndAlpha>(fatline_color);
 
@@ -56,7 +56,9 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
       let uv = builder.query::<FragmentUv>()?.get();
       let color = builder.query::<FragmentColorAndAlpha>()?.get();
 
-      discard_fatline_round_corner(uv);
+      if_by(discard_fatline_round_corner(uv), || {
+        builder.discard();
+      });
 
       builder.set_fragment_out(0, color)
     })
@@ -65,21 +67,23 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
 
 wgsl_function!(
   fn fatline_vertex(
+    projection: mat4x4<f32>,
+    view: mat4x4<f32>,
+    world_matrix: mat4x4<f32>,
     start: vec3<f32>,
     end: vec3<f32>,
-    current_point: vec3<f32>,
     view_size: vec2<f32>,
     width: f32,
-  ) -> vec3<f32> {
+  ) -> vec4<f32> {
       // camera space
-      let start = camera.view * model.world_matrix * vec4<f32>(fatline_start, 1.0);
-      let end = camera.view * model.world_matrix * vec4<f32>(fatline_end, 1.0);
+      let start = view * world_matrix * vec4<f32>(fatline_start, 1.0);
+      let end = view * world_matrix * vec4<f32>(fatline_end, 1.0);
 
       // // special case for perspective projection, and segments that terminate either in, or behind, the camera plane
       // // clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
       // // but we need to perform ndc-space calculations in the shader, so we must address this issue directly
       // // perhaps there is a more elegant solution -- WestLangley
-      // bool perspective = ( camera.projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
+      // bool perspective = ( projection[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
       // if ( perspective ) {{
       //     if ( start.z < 0.0 && end.z >= 0.0 ) {{
       //         trimSegment( start, end );
@@ -89,8 +93,8 @@ wgsl_function!(
       // }}
 
       // clip space
-      let clipStart = camera.projection * start;
-      let clipEnd = camera.projection * end;
+      let clipStart = projection * start;
+      let clipEnd = projection * end;
 
       // ndc space
       let ndcStart = clipStart.xy / clipStart.w;
@@ -123,7 +127,7 @@ wgsl_function!(
       }
 
       // adjust for fatLineWidth
-      offset = offset * material.width;
+      offset = offset * width;
       // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
       offset = offset / resolution.y;
 
@@ -141,7 +145,7 @@ wgsl_function!(
 
       // back to clip space
       offset = offset * clip.w;
-      clip = vec4<f32>(clip.xy + offset, clip.zw);
+      return vec4<f32>(clip.xy + offset, clip.zw);
   }
 );
 

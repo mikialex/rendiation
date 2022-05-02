@@ -47,6 +47,7 @@ pub fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
         ]
       };
 
+    #[allow(clippy::too_many_arguments)]
     pub fn #function_name (
       #(#gen_function_inputs)*
     ) -> shadergraph::Node<#return_type> {
