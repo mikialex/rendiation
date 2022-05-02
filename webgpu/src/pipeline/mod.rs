@@ -98,6 +98,8 @@ impl GPUDevice {
     } = compile_result;
 
     let WGSLShaderSource { vertex, fragment } = shader;
+    println!("{}", vertex);
+    println!("{}", fragment);
 
     let vertex = self.create_shader_module(&gpu::ShaderModuleDescriptor {
       label: None,

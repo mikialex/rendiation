@@ -81,6 +81,7 @@ impl ShaderGraphVertexBuilder {
           index: *index,
         }
         .insert_graph();
+        fragment.registry.register(id, node);
         set_current_building(None);
 
         fragment.fragment_in.insert(

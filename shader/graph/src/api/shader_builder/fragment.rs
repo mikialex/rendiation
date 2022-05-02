@@ -17,7 +17,7 @@ pub struct ShaderGraphFragmentBuilder {
     ),
   >,
 
-  registry: SemanticRegistry,
+  pub(crate) registry: SemanticRegistry,
 
   pub frag_output: Vec<(Node<Vec4<f32>>, ColorTargetState)>,
   pub depth_output: Option<Node<f32>>,
@@ -77,7 +77,9 @@ impl ShaderGraphFragmentBuilder {
       .fragment_in
       .get(&TypeId::of::<T>())
       .map(|(n, _, _, _)| unsafe { (*n).cast_type() })
-      .ok_or(ShaderGraphBuildError::MissingRequiredDependency(<T as SemanticVertexShaderValue>::NAME))
+      .ok_or(ShaderGraphBuildError::MissingRequiredDependency(
+        <T as SemanticVertexShaderValue>::NAME,
+      ))
   }
 
   /// always called by pass side to declare outputs

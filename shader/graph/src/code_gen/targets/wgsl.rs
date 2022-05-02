@@ -141,7 +141,7 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
     shader_struct.fields.push(ShaderStructFieldMetaInfo {
       name: std::borrow::Cow::Owned(format!("vertex_out{}", i)),
       ty: ShaderStructMemberValueType::Primitive(*ty),
-      ty_deco: None,
+      ty_deco: ShaderFieldDecorator::Location(*i).into(),
     });
   });
 
