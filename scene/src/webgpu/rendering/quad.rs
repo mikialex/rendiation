@@ -86,7 +86,8 @@ impl ShaderGraphProvider for FullScreenQuad {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Zeroable, bytemuck::Pod, PartialEq, ShaderStruct)]
+#[std140_layout]
+#[derive(Copy, Clone, PartialEq, ShaderStruct)]
 pub struct RenderPassGPUInfoData {
   pub texel_size: Vec2<f32>,
   pub buffer_size: Vec2<f32>,

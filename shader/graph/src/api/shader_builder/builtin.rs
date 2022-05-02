@@ -39,3 +39,5 @@ both!(FragmentSpecular, Vec3<f32>);
 both!(FragmentSpecularShininess, f32);
 both!(FragmentColor, Vec3<f32>);
 both!(FragmentColorAndAlpha, Vec4<f32>);
+
+both!(RenderBufferSize, Vec2<f32>);

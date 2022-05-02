@@ -178,9 +178,19 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder
+    let pass = builder
       .bindgroups
       .uniform::<UniformBufferView<RenderPassGPUInfoData>>(SB::Pass);
-    todo!()
+
+    builder.vertex(|builder, _| {
+      let pass = pass.using().expand();
+      builder.register::<RenderBufferSize>(pass.buffer_size);
+      Ok(())
+    })?;    
+    builder.fragment(|builder, _| {
+      let pass = pass.using().expand();
+      builder.register::<RenderBufferSize>(pass.buffer_size);
+      Ok(())
+    })
   }
 }

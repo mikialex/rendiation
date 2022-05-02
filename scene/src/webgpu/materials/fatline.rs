@@ -43,8 +43,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
       // let model = builder.query::<TransformGPUData>()?.expand();
       // let material = binding.uniform_by(&self.uniform, SB::Material).expand();
 
-      // let resolution = builder.query::<ViewSize>();
-      // let aspect = resolution.x() / resolution.y();
+      let resolution = builder.query::<RenderBufferSize>();
 
       // builder.vertex_position.set(clip);
       // builder.set_vertex_out::<FragmentUv>(uv);
@@ -53,11 +52,11 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
       Ok(())
     })?;
 
-    builder.fragment(|builder, binding| {
-      let uv = builder.query::<FragmentUv>()?;
+    builder.fragment(|builder, _| {
+      let uv = builder.query::<FragmentUv>()?.get();
       let color = builder.query::<FragmentColorAndAlpha>()?.get();
 
-      // todo corner discard
+      discard_fatline_round_corner(uv);
 
       builder.set_fragment_out(0, color)
     })
