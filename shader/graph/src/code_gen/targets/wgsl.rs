@@ -163,7 +163,7 @@ fn gen_fragment_in_declare(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     //   gen_primitive_type(*ty)
     // ));
     code.write_ln(format!(
-      "[[location({i})]]fragment_in_{i}: {}",
+      "[[location({i})]] fragment_in_{i}: {},",
       gen_primitive_type(*ty)
     ));
   });
@@ -179,7 +179,7 @@ fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
     shader_struct.fields.push(ShaderStructFieldMetaInfo {
       name: std::borrow::Cow::Owned(format!("frag_out{}", i)),
       ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
-      ty_deco: None,
+      ty_deco: ShaderFieldDecorator::Location(i).into(),
     });
   });
 

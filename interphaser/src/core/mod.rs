@@ -20,6 +20,22 @@ pub trait Component<T, S: System = DefaultSystem> {
 pub trait UIComponent<T>: Component<T> + Presentable + LayoutAble + 'static {}
 impl<X, T> UIComponent<T> for X where X: Component<T> + Presentable + LayoutAble + 'static {}
 
+pub trait BoxUIComponent<T>: UIComponent<T> + Sized {
+  fn boxed(self) -> Box<dyn UIComponent<T>> {
+    Box::new(self)
+  }
+}
+impl<X, T> BoxUIComponent<T> for X where X: UIComponent<T> {}
+impl<T> Component<T> for Box<dyn UIComponent<T>> {
+  fn event(&mut self, model: &mut T, event: &mut <DefaultSystem as System>::EventCtx<'_>) {
+    self.as_mut().event(model, event)
+  }
+
+  fn update(&mut self, model: &T, ctx: &mut <DefaultSystem as System>::UpdateCtx<'_>) {
+    self.as_mut().update(model, ctx)
+  }
+}
+
 pub trait System {
   type EventCtx<'a>;
   type UpdateCtx<'a>;
