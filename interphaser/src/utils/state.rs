@@ -84,6 +84,13 @@ impl<T> StateCell<T> {
       f(self_clone.state.borrow_mut().deref_mut(), ctx, event)
     }
   }
+
+  pub fn on_event_trigger<X, E>(
+    &self,
+    f: impl Fn(&mut T) + Copy,
+  ) -> impl Fn(&mut X, &mut EventHandleCtx, &E) {
+    self.on_event(move |s, _, _| f(s))
+  }
 }
 
 impl<T> Clone for StateCell<T> {

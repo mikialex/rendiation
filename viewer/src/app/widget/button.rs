@@ -29,25 +29,24 @@ pub fn button<T: 'static>(
   let mut label = label.into();
   let state = ButtonState::use_state();
 
-  let on_mouse_down = state.on_event(|s, _, _| *s = ButtonState::Pressed);
-  let on_mouse_up = state.on_event(|s, _, _| *s = ButtonState::Hovering);
-  let on_mouse_in = state.on_event(|s, _, _| *s = ButtonState::Hovering);
-  let on_mouse_out = state.on_event(|s, _, _| *s = ButtonState::Normal);
+  let on_mouse_down = state.on_event_trigger(|s| *s = ButtonState::Pressed);
+  let on_mouse_up = state.on_event_trigger(|s| *s = ButtonState::Hovering);
+  let on_mouse_in = state.on_event_trigger(|s| *s = ButtonState::Hovering);
+  let on_mouse_out = state.on_event_trigger(|s| *s = ButtonState::Normal);
+
+  let events = EventHandlerGroup::default()
+    .with(ClickHandler::by(on_click))
+    .with(MouseInHandler::by(on_mouse_in))
+    .with(MouseOutHandler::by(on_mouse_out))
+    .with(MouseDownHandler::by(on_mouse_down))
+    .with(MouseUpHandler::by(on_mouse_up));
 
   // let transition = TimeBasedTransition {
   //   duration: 200,
   //   ty: Transition::Linear,
   // }
   // .into_animation();
-
-  Text::default()
-    .bind(move |s, t| s.content.set(label.eval(t)))
-    .extend(Container::sized((200., 80.)).bind(move |s, _| {
-      s.color = state.visit(|s| s.color());
-    }))
-    .extend(ClickHandler::by(on_click))
-    .extend(MouseInHandler::by(on_mouse_in))
-    .extend(MouseOutHandler::by(on_mouse_out))
-    .extend(MouseDownHandler::by(on_mouse_down))
-    .extend(MouseUpHandler::by(on_mouse_up))
+  Container::sized((200., 80.)) //
+    .wrap(Text::default().bind(move |s, t| s.content.set(label.eval(t))))
+    .extend(events)
 }
