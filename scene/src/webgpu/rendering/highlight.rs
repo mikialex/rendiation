@@ -23,7 +23,7 @@ impl Default for HighLightData {
     Self {
       color: (0., 0.4, 8., 1.).into(),
       width: 2.,
-      ..Default::default()
+      ..Zeroable::zeroed()
     }
   }
 }

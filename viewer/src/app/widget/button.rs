@@ -46,7 +46,9 @@ pub fn button<T: 'static>(
   //   ty: Transition::Linear,
   // }
   // .into_animation();
-  Container::sized((200., 80.)) //
+
+  Container::sized((200., 80.))
+    .bind(move |s, _| s.color = state.visit(|s| s.color()))
     .wrap(Text::default().bind(move |s, t| s.content.set(label.eval(t))))
     .extend(events)
 }
