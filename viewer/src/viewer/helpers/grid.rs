@@ -35,7 +35,7 @@ impl PassContentWithCamera for &mut GridHelper {
       return;
     }
 
-    self.mesh.render(pass, &DefaultPassDispatcher, camera)
+    self.mesh.render(pass, &pass.default_dispatcher(), camera)
   }
 }
 

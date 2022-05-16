@@ -96,7 +96,7 @@ where
       gpu,
     );
 
-    let components = [pass_gpu, mesh_gpu, camera_gpu, node_gpu, material_gpu];
+    let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
     let emitter = MeshDrawcallEmitterWrap {
       group: self.group,

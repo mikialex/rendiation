@@ -166,7 +166,9 @@ impl GPUMaterialCache {
   }
 }
 
-pub struct DefaultPassDispatcher;
+pub struct DefaultPassDispatcher {
+  pub format: wgpu::TextureFormat,
+}
 
 impl ShaderHashProvider for DefaultPassDispatcher {}
 impl ShaderPassBuilder for DefaultPassDispatcher {
@@ -186,10 +188,16 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
       let pass = pass.using().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
       Ok(())
-    })?;    
+    })?;
     builder.fragment(|builder, _| {
       let pass = pass.using().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
+
+      builder.push_fragment_out_slot(ColorTargetState {
+        format: self.format,
+        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+        write_mask: webgpu::ColorWrites::ALL,
+      });
       Ok(())
     })
   }

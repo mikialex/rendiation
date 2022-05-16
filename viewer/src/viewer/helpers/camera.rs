@@ -126,7 +126,9 @@ impl PassContentWithSceneAndCamera for &mut CameraHelpers {
         },
       );
 
-      helper.model.render(pass, &DefaultPassDispatcher, camera)
+      helper
+        .model
+        .render(pass, &pass.default_dispatcher(), camera)
     }
   }
 }

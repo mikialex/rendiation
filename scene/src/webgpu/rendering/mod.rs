@@ -17,11 +17,17 @@ use rendiation_webgpu::{GPURenderPass, GPURenderPassCtx};
 pub mod framework;
 pub use framework::*;
 
-use crate::{GPUResourceCache, Scene, SceneCamera};
+use crate::{DefaultPassDispatcher, GPUResourceCache, Scene, SceneCamera};
 
 pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
   pub resources: &'c mut GPUResourceCache,
+}
+
+impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
+  pub fn default_dispatcher(&self) -> DefaultPassDispatcher {
+    DefaultPassDispatcher { format: todo!() }
+  }
 }
 
 impl<'a, 'b, 'c> std::ops::Deref for SceneRenderPass<'a, 'b, 'c> {

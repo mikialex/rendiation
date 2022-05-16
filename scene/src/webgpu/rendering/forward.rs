@@ -19,6 +19,6 @@ impl PassContentWithSceneAndCamera for ForwardScene {
     scene
       .models
       .iter()
-      .for_each(|model| model.render(pass, &DefaultPassDispatcher, camera))
+      .for_each(|model| model.render(pass, &pass.default_dispatcher(), camera))
   }
 }

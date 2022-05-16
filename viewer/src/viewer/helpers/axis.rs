@@ -48,7 +48,7 @@ struct Arrow {
 
 impl PassContentWithCamera for Arrow {
   fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    let dispatcher = &DefaultPassDispatcher;
+    let dispatcher = &pass.default_dispatcher();
     self.cylinder.render(pass, dispatcher, camera);
     self.tip.render(pass, dispatcher, camera);
   }
