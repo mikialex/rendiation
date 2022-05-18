@@ -44,9 +44,9 @@ impl<T: Scalar> Mat4<T> {
 
     #[rustfmt::skip]
     let mat = Mat4::new(
-      w,         T::zero(), T::zero(),             T::zero(),
-      T::zero(), h,         T::zero(),             T::zero(),
-      T::zero(), T::zero(), q,                    -T::one(),
+      w,         T::zero(), T::zero(),           T::zero(),
+      T::zero(), h,         T::zero(),           T::zero(),
+      T::zero(), T::zero(), q,                  -T::one(),
       T::zero(), T::zero(), T::two() * near * q, T::zero(),
     );
 

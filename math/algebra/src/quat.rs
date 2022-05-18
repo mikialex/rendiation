@@ -396,16 +396,6 @@ where
   }
 
   #[must_use]
-  pub fn conj(&self) -> Self {
-    Self {
-      x: -self.x,
-      y: -self.y,
-      z: -self.z,
-      w: self.w,
-    }
-  }
-
-  #[must_use]
   pub fn conjugate(&self) -> Self {
     Self {
       x: -self.x,

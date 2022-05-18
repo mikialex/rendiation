@@ -17,7 +17,6 @@ pub mod mat;
 pub mod projection;
 pub mod quat;
 pub mod std140;
-pub mod utils;
 pub mod vec;
 
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};

@@ -37,19 +37,20 @@ impl<T: Scalar> SquareMatrix<T> for Mat3<T> {
       return None;
     }
 
-    let invdet = T::one() / det;
+    let inv_det = T::one() / det;
 
-    Some(Self {
-      a1: (self.c3 * self.b2 - self.b3 * self.c2) * invdet,
-      a2: (self.a3 * self.c2 - self.c3 * self.a2) * invdet,
-      a3: (self.b3 * self.a2 - self.a3 * self.b2) * invdet,
-      b1: (self.b3 * self.c1 - self.c3 * self.b1) * invdet,
-      b2: (self.c3 * self.a1 - self.a3 * self.c1) * invdet,
-      b3: (self.a3 * self.b1 - self.b3 * self.a1) * invdet,
-      c1: (self.c2 * self.b1 - self.b2 * self.c1) * invdet,
-      c2: (self.a2 * self.c1 - self.c2 * self.a1) * invdet,
-      c3: (self.b2 * self.a1 - self.a2 * self.b1) * invdet,
-    })
+    Self {
+      a1: (self.c3 * self.b2 - self.b3 * self.c2) * inv_det,
+      a2: (self.a3 * self.c2 - self.c3 * self.a2) * inv_det,
+      a3: (self.b3 * self.a2 - self.a3 * self.b2) * inv_det,
+      b1: (self.b3 * self.c1 - self.c3 * self.b1) * inv_det,
+      b2: (self.c3 * self.a1 - self.a3 * self.c1) * inv_det,
+      b3: (self.a3 * self.b1 - self.b3 * self.a1) * inv_det,
+      c1: (self.c2 * self.b1 - self.b2 * self.c1) * inv_det,
+      c2: (self.a2 * self.c1 - self.c2 * self.a1) * inv_det,
+      c3: (self.b2 * self.a1 - self.a2 * self.b1) * inv_det,
+    }
+    .into()
   }
   fn max_scale(&self) -> T {
     let x = self.a1 * self.a1 + self.a2 * self.a2;

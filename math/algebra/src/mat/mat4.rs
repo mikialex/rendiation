@@ -61,74 +61,30 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
     }
 
     let m = self;
-    let invdet = T::one() / det;
+    let inv_det = T::one() / det;
 
-    Some(Self {
-      a1: invdet
-        * (m.b2 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.b3 * (m.c4 * m.d2 - m.c2 * m.d4)
-          + m.b4 * (m.c2 * m.d3 - m.c3 * m.d2)),
-      a2: -invdet
-        * (m.a2 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.a3 * (m.c4 * m.d2 - m.c2 * m.d4)
-          + m.a4 * (m.c2 * m.d3 - m.c3 * m.d2)),
-      a3: invdet
-        * (m.a2 * (m.b3 * m.d4 - m.b4 * m.d3)
-          + m.a3 * (m.b4 * m.d2 - m.b2 * m.d4)
-          + m.a4 * (m.b2 * m.d3 - m.b3 * m.d2)),
-      a4: -invdet
-        * (m.a2 * (m.b3 * m.c4 - m.b4 * m.c3)
-          + m.a3 * (m.b4 * m.c2 - m.b2 * m.c4)
-          + m.a4 * (m.b2 * m.c3 - m.b3 * m.c2)),
-      b1: -invdet
-        * (m.b1 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.b3 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.b4 * (m.c1 * m.d3 - m.c3 * m.d1)),
-      b2: invdet
-        * (m.a1 * (m.c3 * m.d4 - m.c4 * m.d3)
-          + m.a3 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.a4 * (m.c1 * m.d3 - m.c3 * m.d1)),
-      b3: -invdet
-        * (m.a1 * (m.b3 * m.d4 - m.b4 * m.d3)
-          + m.a3 * (m.b4 * m.d1 - m.b1 * m.d4)
-          + m.a4 * (m.b1 * m.d3 - m.b3 * m.d1)),
-      b4: invdet
-        * (m.a1 * (m.b3 * m.c4 - m.b4 * m.c3)
-          + m.a3 * (m.b4 * m.c1 - m.b1 * m.c4)
-          + m.a4 * (m.b1 * m.c3 - m.b3 * m.c1)),
-      c1: invdet
-        * (m.b1 * (m.c2 * m.d4 - m.c4 * m.d2)
-          + m.b2 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.b4 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      c2: -invdet
-        * (m.a1 * (m.c2 * m.d4 - m.c4 * m.d2)
-          + m.a2 * (m.c4 * m.d1 - m.c1 * m.d4)
-          + m.a4 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      c3: invdet
-        * (m.a1 * (m.b2 * m.d4 - m.b4 * m.d2)
-          + m.a2 * (m.b4 * m.d1 - m.b1 * m.d4)
-          + m.a4 * (m.b1 * m.d2 - m.b2 * m.d1)),
-      c4: -invdet
-        * (m.a1 * (m.b2 * m.c4 - m.b4 * m.c2)
-          + m.a2 * (m.b4 * m.c1 - m.b1 * m.c4)
-          + m.a4 * (m.b1 * m.c2 - m.b2 * m.c1)),
-      d1: -invdet
-        * (m.b1 * (m.c2 * m.d3 - m.c3 * m.d2)
-          + m.b2 * (m.c3 * m.d1 - m.c1 * m.d3)
-          + m.b3 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      d2: invdet
-        * (m.a1 * (m.c2 * m.d3 - m.c3 * m.d2)
-          + m.a2 * (m.c3 * m.d1 - m.c1 * m.d3)
-          + m.a3 * (m.c1 * m.d2 - m.c2 * m.d1)),
-      d3: -invdet
-        * (m.a1 * (m.b2 * m.d3 - m.b3 * m.d2)
-          + m.a2 * (m.b3 * m.d1 - m.b1 * m.d3)
-          + m.a3 * (m.b1 * m.d2 - m.b2 * m.d1)),
-      d4: invdet
-        * (m.a1 * (m.b2 * m.c3 - m.b3 * m.c2)
-          + m.a2 * (m.b3 * m.c1 - m.b1 * m.c3)
-          + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
-    })
+    Self {
+      a1:  inv_det * (m.b2 * (m.c3 * m.d4 - m.c4 * m.d3) + m.b3 * (m.c4 * m.d2 - m.c2 * m.d4) + m.b4 * (m.c2 * m.d3 - m.c3 * m.d2)),
+      a2: -inv_det * (m.a2 * (m.c3 * m.d4 - m.c4 * m.d3) + m.a3 * (m.c4 * m.d2 - m.c2 * m.d4) + m.a4 * (m.c2 * m.d3 - m.c3 * m.d2)),
+      a3:  inv_det * (m.a2 * (m.b3 * m.d4 - m.b4 * m.d3) + m.a3 * (m.b4 * m.d2 - m.b2 * m.d4) + m.a4 * (m.b2 * m.d3 - m.b3 * m.d2)),
+      a4: -inv_det * (m.a2 * (m.b3 * m.c4 - m.b4 * m.c3) + m.a3 * (m.b4 * m.c2 - m.b2 * m.c4) + m.a4 * (m.b2 * m.c3 - m.b3 * m.c2)),
+
+      b1: -inv_det * (m.b1 * (m.c3 * m.d4 - m.c4 * m.d3) + m.b3 * (m.c4 * m.d1 - m.c1 * m.d4) + m.b4 * (m.c1 * m.d3 - m.c3 * m.d1)),
+      b2:  inv_det * (m.a1 * (m.c3 * m.d4 - m.c4 * m.d3) + m.a3 * (m.c4 * m.d1 - m.c1 * m.d4) + m.a4 * (m.c1 * m.d3 - m.c3 * m.d1)),
+      b3: -inv_det * (m.a1 * (m.b3 * m.d4 - m.b4 * m.d3) + m.a3 * (m.b4 * m.d1 - m.b1 * m.d4) + m.a4 * (m.b1 * m.d3 - m.b3 * m.d1)),
+      b4:  inv_det * (m.a1 * (m.b3 * m.c4 - m.b4 * m.c3) + m.a3 * (m.b4 * m.c1 - m.b1 * m.c4) + m.a4 * (m.b1 * m.c3 - m.b3 * m.c1)),
+
+      c1:  inv_det * (m.b1 * (m.c2 * m.d4 - m.c4 * m.d2) + m.b2 * (m.c4 * m.d1 - m.c1 * m.d4) + m.b4 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      c2: -inv_det * (m.a1 * (m.c2 * m.d4 - m.c4 * m.d2) + m.a2 * (m.c4 * m.d1 - m.c1 * m.d4) + m.a4 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      c3:  inv_det * (m.a1 * (m.b2 * m.d4 - m.b4 * m.d2) + m.a2 * (m.b4 * m.d1 - m.b1 * m.d4) + m.a4 * (m.b1 * m.d2 - m.b2 * m.d1)),
+      c4: -inv_det * (m.a1 * (m.b2 * m.c4 - m.b4 * m.c2) + m.a2 * (m.b4 * m.c1 - m.b1 * m.c4) + m.a4 * (m.b1 * m.c2 - m.b2 * m.c1)),
+      
+      d1: -inv_det * (m.b1 * (m.c2 * m.d3 - m.c3 * m.d2) + m.b2 * (m.c3 * m.d1 - m.c1 * m.d3) + m.b3 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      d2:  inv_det * (m.a1 * (m.c2 * m.d3 - m.c3 * m.d2) + m.a2 * (m.c3 * m.d1 - m.c1 * m.d3) + m.a3 * (m.c1 * m.d2 - m.c2 * m.d1)),
+      d3: -inv_det * (m.a1 * (m.b2 * m.d3 - m.b3 * m.d2) + m.a2 * (m.b3 * m.d1 - m.b1 * m.d3) + m.a3 * (m.b1 * m.d2 - m.b2 * m.d1)),
+      d4:  inv_det * (m.a1 * (m.b2 * m.c3 - m.b3 * m.c2) + m.a2 * (m.b3 * m.c1 - m.b1 * m.c3) + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
+    }
+    .into()
   }
 
   fn max_scale(&self) -> T {
@@ -467,34 +423,34 @@ where
       return None;
     }
 
-    let invdet = T::one() / det;
+    let inv_det = T::one() / det;
 
     Some(Self {
-      a1: invdet * (m.b2 * m.c3 + m.b3 * -m.c2),
-      a2: invdet * (m.c2 * m.a3 + m.c3 * -m.a2),
-      a3: invdet * (m.a2 * m.b3 - m.a3 * m.b2),
+      a1: inv_det * (m.b2 * m.c3 + m.b3 * -m.c2),
+      a2: inv_det * (m.c2 * m.a3 + m.c3 * -m.a2),
+      a3: inv_det * (m.a2 * m.b3 - m.a3 * m.b2),
       a4: T::zero(),
-      b1: invdet * (m.b3 * m.c1 + m.b1 * -m.c3),
-      b2: invdet * (m.c3 * m.a1 + m.c1 * -m.a3),
-      b3: invdet * (m.a3 * m.b1 - m.a1 * m.b3),
+      b1: inv_det * (m.b3 * m.c1 + m.b1 * -m.c3),
+      b2: inv_det * (m.c3 * m.a1 + m.c1 * -m.a3),
+      b3: inv_det * (m.a3 * m.b1 - m.a1 * m.b3),
       b4: T::zero(),
-      c1: invdet * (m.b1 * m.c2 + m.b2 * -m.c1),
-      c2: invdet * (m.c1 * m.a2 + m.c2 * -m.a1),
-      c3: invdet * (m.a1 * m.b2 - m.a2 * m.b1),
+      c1: inv_det * (m.b1 * m.c2 + m.b2 * -m.c1),
+      c2: inv_det * (m.c1 * m.a2 + m.c2 * -m.a1),
+      c3: inv_det * (m.a1 * m.b2 - m.a2 * m.b1),
       c4: T::zero(),
-      d1: invdet
+      d1: inv_det
         * (m.b1 * (m.c3 * m.d2 - m.c2 * m.d3)
           + m.b2 * (m.c1 * m.d3 - m.c3 * m.d1)
           + m.b3 * (m.c2 * m.d1 - m.c1 * m.d2)),
-      d2: invdet
+      d2: inv_det
         * (m.c1 * (m.a3 * m.d2 - m.a2 * m.d3)
           + m.c2 * (m.a1 * m.d3 - m.a3 * m.d1)
           + m.c3 * (m.a2 * m.d1 - m.a1 * m.d2)),
-      d3: invdet
+      d3: inv_det
         * (m.d1 * (m.a3 * m.b2 - m.a2 * m.b3)
           + m.d2 * (m.a1 * m.b3 - m.a3 * m.b1)
           + m.d3 * (m.a2 * m.b1 - m.a1 * m.b2)),
-      d4: invdet
+      d4: inv_det
         * (m.a1 * (m.b2 * m.c3 - m.b3 * m.c2)
           + m.a2 * (m.b3 * m.c1 - m.b1 * m.c3)
           + m.a3 * (m.b1 * m.c2 - m.b2 * m.c1)),
