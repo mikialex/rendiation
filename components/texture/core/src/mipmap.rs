@@ -15,17 +15,18 @@ impl<T: Texture2D> MipMap<T> {
     &mut self.levels[0]
   }
 
+  /// validate the mip arrays' each layer size is a valid mipmap array
   pub fn validate_size(&self) -> bool {
     let mut previous_level = None;
-    let mut is_valid = false;
-    self.levels.iter().for_each(|level| {
+
+    for level in self.levels {
       if let Some(previous) = previous_level {
         if previous.width / 2 != level.width || previous.height / 2 != level.height {
-          is_valid = false;
+          return false;
         }
       };
       previous_level = level.into.size().into()
-    });
-    is_valid
+    }
+    true
   }
 }

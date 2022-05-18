@@ -36,30 +36,27 @@ where
     let abs = direction.map(|c| c.abs());
     let max_axis_project = abs.x.max(abs.y).max(abs.z);
     let dir = direction / max_axis_project;
-    let re_range = |v: S| (v + S::one()) * S::half();
 
-    if dir.x == S::one() {
-      let at = Vec2::new(dir.y, dir.z).map(re_range);
-      self.positive_x.sample_dyn(at, address, filter)
+    let (face, at) = if dir.x == S::one() {
+      (&self.positive_x, (dir.y, dir.z))
     } else if dir.x == -S::one() {
-      let at = Vec2::new(dir.y, dir.z).map(re_range);
-      self.negative_x.sample_dyn(at, address, filter)
+      (&self.negative_x, (dir.y, dir.z))
     }
     //
     else if dir.y == S::one() {
-      let at = Vec2::new(dir.x, dir.z).map(re_range);
-      self.positive_y.sample_dyn(at, address, filter)
+      (&self.positive_y, (dir.x, dir.z))
     } else if dir.y == -S::one() {
-      let at = Vec2::new(dir.x, dir.z).map(re_range);
-      self.negative_y.sample_dyn(at, address, filter)
+      (&self.negative_y, (dir.x, dir.z))
     }
     //
     else if dir.z == S::one() {
-      let at = Vec2::new(dir.x, dir.y).map(re_range);
-      self.positive_z.sample_dyn(at, address, filter)
+      (&self.positive_z, (dir.x, dir.y))
     } else {
-      let at = Vec2::new(dir.x, dir.y).map(re_range);
-      self.negative_z.sample_dyn(at, address, filter)
-    }
+      (&self.negative_z, (dir.x, dir.y))
+    };
+
+    let re_range = |v: S| (v + S::one()) * S::half();
+    let pixel_position = Vec2::from(at).map(re_range);
+    face.sample_dyn(pixel_position, address, filter)
   }
 }
