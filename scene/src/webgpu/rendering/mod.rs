@@ -26,7 +26,9 @@ pub struct SceneRenderPass<'a, 'b, 'c> {
 
 impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
   pub fn default_dispatcher(&self) -> DefaultPassDispatcher {
-    DefaultPassDispatcher { format: todo!() }
+    DefaultPassDispatcher {
+      formats: self.ctx.pass.formats().clone(),
+    }
   }
 }
 

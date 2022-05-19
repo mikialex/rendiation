@@ -82,6 +82,13 @@ impl RenderTargetView {
       RenderTargetView::SurfaceTexture { size, .. } => *size,
     }
   }
+
+  pub fn format(&self) -> wgpu::TextureFormat {
+    match self {
+      RenderTargetView::Texture(t) => t.resource.desc.format,
+      RenderTargetView::SurfaceTexture { format, .. } => *format,
+    }
+  }
 }
 
 pub struct GPURenderPassCtx<'a, 'b> {
@@ -98,11 +105,18 @@ pub struct RenderPassDescriptorOwned {
   pub resolve_target: Option<RenderTargetView>,
 }
 
+#[derive(Clone)]
+pub struct RenderTargetFormatsInfo {
+  pub color_formats: Vec<wgpu::TextureFormat>, // todo use array
+  pub depth_stencil_formats: Option<wgpu::TextureFormat>,
+}
+
 pub struct GPURenderPass<'a> {
   pub(crate) pass: gpu::RenderPass<'a>,
   pub(crate) holder: &'a GPURenderPassDataHolder,
   pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
   pub(crate) size: Size,
+  pub(crate) formats: RenderTargetFormatsInfo,
 }
 
 impl<'a> Deref for GPURenderPass<'a> {
@@ -129,6 +143,10 @@ pub struct GPURenderPassDataHolder {
 impl<'a> GPURenderPass<'a> {
   pub fn size(&self) -> Size {
     self.size
+  }
+
+  pub fn formats(&self) -> &RenderTargetFormatsInfo {
+    &self.formats
   }
 
   pub fn set_pipeline_owned(&mut self, pipeline: &Rc<gpu::RenderPipeline>) {

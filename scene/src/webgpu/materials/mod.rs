@@ -167,7 +167,7 @@ impl GPUMaterialCache {
 }
 
 pub struct DefaultPassDispatcher {
-  pub format: wgpu::TextureFormat,
+  pub formats: RenderTargetFormatsInfo,
 }
 
 impl ShaderHashProvider for DefaultPassDispatcher {}
@@ -194,7 +194,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
       builder.register::<RenderBufferSize>(pass.buffer_size);
 
       builder.push_fragment_out_slot(ColorTargetState {
-        format: self.format,
+        format: self.formats.color_formats[0], // todo improvements
         blend: Some(webgpu::BlendState::ALPHA_BLENDING),
         write_mask: webgpu::ColorWrites::ALL,
       });

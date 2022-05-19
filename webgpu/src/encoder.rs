@@ -45,7 +45,7 @@ impl GPUCommandEncoder {
   pub fn begin_render_pass(&mut self, des: RenderPassDescriptorOwned) -> GPURenderPass {
     self.active_pass_target_holder.replace(des);
     let des = self.active_pass_target_holder.as_ref().unwrap();
-    // should we do some check here?
+    // todo should we do some check here?
     let mut size = Size::from_u32_pair_min_one((100, 100));
 
     let color_attachments: Vec<_> = des
@@ -77,12 +77,21 @@ impl GPUCommandEncoder {
       depth_stencil_attachment,
     };
 
+    let formats = RenderTargetFormatsInfo {
+      color_formats: des.channels.iter().map(|(_, view)| view.format()).collect(),
+      depth_stencil_formats: des
+        .depth_stencil_target
+        .as_ref()
+        .map(|(_, view)| view.format()),
+    };
+
     let pass = self.encoder.begin_render_pass(&desc);
     GPURenderPass {
       pass,
       holder: &mut self.holder,
       placeholder_bg: self.placeholder_bg.clone(),
       size,
+      formats,
     }
   }
 
