@@ -218,6 +218,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "canvase"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "rendiation-algebra",
+]
+
+[[package]]
 name = "cast"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

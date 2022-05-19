@@ -17,6 +17,7 @@ members = [
   "components/texture/generative",
   "components/space",
   "components/fontext",
+  "components/canvase",
   "interphaser",
   "shader/graph",
   "shader/derive",
