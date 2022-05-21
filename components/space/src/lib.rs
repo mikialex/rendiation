@@ -17,6 +17,10 @@ pub trait AbstractTree {
   fn has_children(&self) -> bool {
     self.children_count() == 0
   }
+  /// Check if this node is a leaf of the tree.
+  fn is_leaf(&self) -> bool {
+    !self.has_children()
+  }
 
   fn traverse(&self, visitor: &mut impl FnMut(&Self)) {
     visitor(self);
@@ -25,7 +29,7 @@ pub trait AbstractTree {
 
   /// Get the tree depth starting with this node. (not including self)
   fn get_max_children_depth(&self) -> usize {
-    if !self.has_children() {
+    if self.is_leaf() {
       return 0;
     }
 

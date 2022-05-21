@@ -5,7 +5,6 @@
 /// Useful for quickly ordering polygons along a particular view vector.
 /// Is not tied to a particular math library.
 ///
-use std::cmp;
 
 /// The result of one plane being cut by another one.
 /// The "cut" here is an attempt to classify a plane as being
@@ -37,7 +36,7 @@ impl<T> AbstractTree for BspNode<T> {
     }
   }
   fn has_children(&self) -> bool {
-    self.values.is_empty()
+    !self.values.is_empty()
   }
 }
 
@@ -79,27 +78,6 @@ impl<T> BspNode<T> {
       front: None,
       back: None,
     }
-  }
-
-  /// Check if this node is a leaf of the tree.
-  pub fn is_leaf(&self) -> bool {
-    self.front.is_none() && self.back.is_none()
-  }
-
-  /// Get the tree depth starting with this node.
-  pub fn get_depth(&self) -> usize {
-    if self.values.is_empty() {
-      return 0;
-    }
-    let df = match self.front {
-      Some(ref node) => node.get_depth(),
-      None => 0,
-    };
-    let db = match self.back {
-      Some(ref node) => node.get_depth(),
-      None => 0,
-    };
-    1 + cmp::max(df, db)
   }
 }
 

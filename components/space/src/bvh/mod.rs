@@ -10,8 +10,9 @@ use rendiation_geometry::SolidEntity;
 use std::iter::FromIterator;
 pub use strategy::*;
 
-use crate::utils::{
-  bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption,
+use crate::{
+  utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
+  AbstractTree,
 };
 
 pub trait BVHBounding:
@@ -24,6 +25,32 @@ pub trait BVHBounding:
 pub struct FlattenBVH<B: BVHBounding> {
   pub nodes: Vec<FlattenBVHNode<B>>,
   pub sorted_primitive_index: Vec<usize>,
+}
+
+pub struct BVHTreeNodeRef<'a, B: BVHBounding> {
+  pub tree: &'a FlattenBVH<B>,
+  pub node: &'a FlattenBVHNode<B>,
+}
+
+impl<'a, B: BVHBounding> AbstractTree for BVHTreeNodeRef<'a, B> {
+  fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
+    if let Some(n) = self.node.left_child_offset() {
+      visitor(&self.tree.create_node_ref(n))
+    }
+    if let Some(n) = self.node.right_child_offset() {
+      visitor(&self.tree.create_node_ref(n))
+    }
+  }
+  fn children_count(&self) -> usize {
+    if self.has_children() {
+      2
+    } else {
+      0
+    }
+  }
+  fn has_children(&self) -> bool {
+    self.node.left_child_offset().is_some()
+  }
 }
 
 impl<B: BVHBounding> FlattenBVH<B> {
@@ -50,6 +77,13 @@ impl<B: BVHBounding> FlattenBVH<B> {
     Self {
       nodes,
       sorted_primitive_index: index_list,
+    }
+  }
+
+  fn create_node_ref(&self, index: usize) -> BVHTreeNodeRef<B> {
+    BVHTreeNodeRef {
+      tree: self,
+      node: &self.nodes[index],
     }
   }
 

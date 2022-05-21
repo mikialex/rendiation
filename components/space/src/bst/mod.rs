@@ -1,5 +1,6 @@
-use crate::utils::{
-  bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption,
+use crate::{
+  utils::{bounding_from_build_source, BuildPrimitive, CenterAblePrimitive, TreeBuildOption},
+  AbstractTree,
 };
 use std::{iter::FromIterator, marker::PhantomData, ops::Range};
 
@@ -32,6 +33,38 @@ pub struct BSTNode<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> {
 pub struct BSTTree<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> {
   pub nodes: Vec<BSTNode<T, N, D>>,
   pub sorted_primitive_index: Vec<usize>,
+}
+
+pub struct BSTTreeNodeRef<'a, T, const N: usize, const D: usize>
+where
+  T: BinarySpaceTree<D, N>,
+{
+  pub tree: &'a BSTTree<T, N, D>,
+  pub node: &'a BSTNode<T, N, D>,
+}
+
+impl<'a, T, const N: usize, const D: usize> AbstractTree for BSTTreeNodeRef<'a, T, N, D>
+where
+  T: BinarySpaceTree<D, N>,
+{
+  fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
+    if let Some(children) = &self.node.child {
+      for child in children {
+        let child = self.tree.create_node_ref(*child);
+        visitor(&child)
+      }
+    }
+  }
+  fn children_count(&self) -> usize {
+    if self.has_children() {
+      N
+    } else {
+      0
+    }
+  }
+  fn has_children(&self) -> bool {
+    self.node.child.is_some()
+  }
 }
 
 pub struct BSTTreeBuilder<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> {
@@ -125,6 +158,13 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTree<T, N, D> 
     Self {
       nodes,
       sorted_primitive_index: index_list,
+    }
+  }
+
+  fn create_node_ref(&self, index: usize) -> BSTTreeNodeRef<T, N, D> {
+    BSTTreeNodeRef {
+      tree: self,
+      node: &self.nodes[index],
     }
   }
 
