@@ -68,14 +68,17 @@ where
   }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct HyperAABBBySize<V> {
-  pub position: V,
-  pub size: V,
-}
-
-impl<V> HyperAABBBySize<V> {
-  pub fn new(position: V, size: V) -> Self {
-    Self { position, size }
+impl<T, V, const D: usize> SpaceBounding<T, HyperSphere<T, V>, D> for HyperAABB<V>
+where
+  T: Scalar,
+  HyperSphere<T, V>: SolidEntity<T, D>,
+  Self: SolidEntity<T, D>,
+  V: InnerProductSpace<T>,
+{
+  #[inline(always)]
+  fn to_bounding(&self) -> HyperSphere<T, V> {
+    let center = (self.max + self.min) * T::half();
+    let radius = (self.max - center).length();
+    HyperSphere::new(center, radius)
   }
 }

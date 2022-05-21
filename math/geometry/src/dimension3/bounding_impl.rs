@@ -32,15 +32,3 @@ where
     [self.map(|v| *v.position()).0].iter().collect()
   }
 }
-
-impl<T> SpaceBounding<T, Sphere<T>, 3> for Box3<T>
-where
-  T: Scalar,
-{
-  #[inline(always)]
-  fn to_bounding(&self) -> Sphere<T> {
-    let center = (self.max + self.min) * T::half();
-    let radius = (self.max - center).length();
-    Sphere::new(center, radius)
-  }
-}

@@ -94,7 +94,7 @@ impl Controller for OrbitController {
     let position_new = *mat * Vec3::new(0., 0., -1.);
     let origin = mat.position();
     let position_dir = position_new - origin;
-    self.spherical = Spherical::from_vec3_and_center(position_dir, origin);
+    self.spherical = Spherical::from_sphere_point_and_center(position_dir, origin);
     self.reset_damping()
   }
 
@@ -118,7 +118,7 @@ impl Controller for OrbitController {
     self.spherical.center += self.pan_offset;
 
     let matrix = target.matrix_mut();
-    let eye = self.spherical.to_vec3();
+    let eye = self.spherical.to_sphere_point();
     *matrix = Mat4::lookat(eye, self.spherical.center, Vec3::new(0.0, 1.0, 0.0));
 
     // update damping effect

@@ -31,7 +31,7 @@ impl<T: Scalar> Spherical<T> {
     self.azim = T::zero();
   }
 
-  pub fn to_vec3(&self) -> Vec3<T> {
+  pub fn to_sphere_point(&self) -> Vec3<T> {
     let sin_radius = self.polar.sin() * self.radius;
     Vec3::new(
       sin_radius * self.azim.sin(),
@@ -40,7 +40,7 @@ impl<T: Scalar> Spherical<T> {
     ) + self.center
   }
 
-  pub fn from_vec3_and_center(forward: Vec3<T>, eye: Vec3<T>) -> Self {
+  pub fn from_sphere_point_and_center(forward: Vec3<T>, eye: Vec3<T>) -> Self {
     let dir = forward.reverse();
 
     let radius = dir.length();

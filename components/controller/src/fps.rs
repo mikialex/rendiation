@@ -98,13 +98,13 @@ impl Controller for FPSController {
 
       *mat = Mat4::lookat(
         position_new,
-        position_new + self.spherical.to_vec3(),
+        position_new + self.spherical.to_sphere_point(),
         Vec3::new(0.0, 1.0, 0.0),
       );
     } else {
       *mat = Mat4::lookat(
         mat.position(),
-        mat.position() + self.spherical.to_vec3(),
+        mat.position() + self.spherical.to_sphere_point(),
         Vec3::new(0.0, 1.0, 0.0),
       );
     }

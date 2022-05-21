@@ -30,6 +30,41 @@ impl<T: Scalar> Frustum<T> {
   }
 }
 
+impl<T: Scalar> SpaceEntity<T, 3> for Frustum<T> {
+  type Matrix = Mat4<T>;
+
+  fn apply_matrix(&mut self, _mat: Self::Matrix) -> &mut Self {
+    todo!()
+  }
+}
+
+impl<T: Scalar> LebesgueMeasurable<T, 3> for Frustum<T> {
+  fn measure(&self) -> T {
+    todo!()
+  }
+}
+
+impl<T: Scalar> SolidEntity<T, 3> for Frustum<T> {
+  type Center = Vec3<T>;
+
+  fn centroid(&self) -> Self::Center {
+    todo!()
+  }
+}
+
+impl<T: Scalar> ContainAble<T, Vec3<T>, 3> for Frustum<T> {
+  fn contains(&self, target: &Vec3<T>) -> bool {
+    for p in &self.planes {
+      let distance = p.distance_to(target);
+      if distance < T::zero() {
+        return false;
+      }
+    }
+
+    true
+  }
+}
+
 intersect_reverse!(Sphere, bool, (), Frustum);
 impl IntersectAble<Sphere, bool> for Frustum {
   fn intersect(&self, sphere: &Sphere, _: &()) -> bool {
