@@ -4,7 +4,7 @@
 /// Provides an abstract `BspNode` structure, which can be seen as a tree.
 /// Useful for quickly ordering polygons along a particular view vector.
 /// Is not tied to a particular math library.
-/// 
+///
 use std::cmp;
 
 /// The result of one plane being cut by another one.
@@ -23,6 +23,22 @@ pub enum PlaneCut<T> {
     /// Sub-planes in the back of the base plane.
     back: Vec<T>,
   },
+}
+
+use crate::*;
+
+impl<T> AbstractTree for BspNode<T> {
+  fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
+    if let Some(n) = self.front.as_ref() {
+      visitor(n.as_ref())
+    }
+    if let Some(n) = self.back.as_ref() {
+      visitor(n.as_ref())
+    }
+  }
+  fn has_children(&self) -> bool {
+    self.values.is_empty()
+  }
 }
 
 /// A plane abstracted to the matter of partitioning.
