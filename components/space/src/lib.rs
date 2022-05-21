@@ -3,5 +3,6 @@
 
 pub mod bst;
 pub mod bvh;
+pub mod bsp;
 pub mod incremental_bvh;
 pub mod utils;
