@@ -1,6 +1,4 @@
-use rendiation_algebra::*;
-
-use crate::{SpaceLineSegment, SpaceLineSegmentShape};
+use crate::*;
 
 pub type QuadraticBezierSegment2D<T> = QuadraticBezierShape<Vec2<T>>;
 

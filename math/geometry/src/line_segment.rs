@@ -1,7 +1,4 @@
-use std::marker::PhantomData;
-
-use crate::{Positioned, SpaceLineSegment, SpaceLineSegmentShape};
-use rendiation_algebra::*;
+use crate::*;
 
 #[derive(Copy, Clone, PartialEq, Eq, std::hash::Hash)]
 pub struct StraitLine<U> {

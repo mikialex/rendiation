@@ -1,5 +1,4 @@
-use crate::{Positioned, SpaceEntity};
-use rendiation_algebra::{Scalar, SquareMatrixDimension};
+use crate::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Point<U>(pub U);

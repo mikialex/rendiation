@@ -1,5 +1,4 @@
-use crate::{Box3, LineSegment, Point, Positioned, SpaceBounding, Sphere, Triangle};
-use rendiation_algebra::*;
+use crate::*;
 
 impl<T, U> SpaceBounding<T, Box3<T>, 3> for Triangle<U>
 where

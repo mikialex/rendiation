@@ -1,4 +1,4 @@
-use rendiation_algebra::*;
+use crate::*;
 
 pub struct Spherical<T = f32> {
   pub center: Vec3<T>,

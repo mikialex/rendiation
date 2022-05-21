@@ -3,6 +3,10 @@
 
 use rendiation_algebra::*;
 
+use std::iter::FromIterator;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
+
 pub mod dimension3;
 pub use dimension3::*;
 pub mod dimension2;

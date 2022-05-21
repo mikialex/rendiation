@@ -1,7 +1,4 @@
-use std::iter::FromIterator;
-
-use crate::{ContainAble, HyperAABB, LebesgueMeasurable};
-use rendiation_algebra::{Mat3, Scalar, SpaceEntity, Vec2};
+use crate::*;
 
 pub type Rectangle<T = f32> = HyperAABB<Vec2<T>>;
 

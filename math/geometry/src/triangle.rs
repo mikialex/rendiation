@@ -1,5 +1,4 @@
-use crate::{LineSegment, Positioned, SpaceEntity};
-use rendiation_algebra::{Scalar, SquareMatrixDimension, Vec3};
+use crate::*;
 
 pub enum FaceSide {
   Front,

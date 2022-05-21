@@ -1,8 +1,4 @@
-use std::ops::{Deref, DerefMut};
-
-use rendiation_algebra::{Scalar, Vec3, VectorSpace};
-
-use crate::HyperRay;
+use crate::*;
 
 pub trait HitDistanceCompareAble {
   fn is_near_than(&self, other: &Self) -> bool;

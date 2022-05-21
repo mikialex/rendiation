@@ -1,5 +1,4 @@
-use crate::LineSegment;
-use rendiation_algebra::{InnerProductSpace, Scalar, Vec3};
+use crate::*;
 
 pub type LineSegment3D<T = f32> = LineSegment<Vec3<T>>;
 

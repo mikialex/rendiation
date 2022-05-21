@@ -1,9 +1,4 @@
-use rendiation_algebra::*;
-
-use crate::{
-  ContainAble, HyperAABB, InnerProductSpace, LebesgueMeasurable, SolidEntity, SpaceBounding,
-  SpaceEntity,
-};
+use crate::*;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HyperSphere<T, V> {

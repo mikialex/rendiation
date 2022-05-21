@@ -1,6 +1,4 @@
-use crate::{Axis3, HyperAABB, LebesgueMeasurable};
-use rendiation_algebra::*;
-use std::iter::FromIterator;
+use crate::*;
 
 pub type Box3<T = f32> = HyperAABB<Vec3<T>>;
 
@@ -158,5 +156,16 @@ impl<T: Scalar> FromIterator<Box3<T>> for Box3<T> {
     let mut bbox = Self::empty();
     items.into_iter().for_each(|p| bbox.expand_by_other(p));
     bbox
+  }
+}
+
+impl<T: Scalar> ContainAble<T, Box3<T>, 3> for Box3<T> {
+  fn contains(&self, box3: &Box3<T>) -> bool {
+    self.min.x <= box3.min.x
+      && self.min.y <= box3.min.y
+      && self.min.z <= box3.min.z
+      && self.max.x >= box3.max.x
+      && self.max.y >= box3.max.y
+      && self.max.z >= box3.max.z
   }
 }

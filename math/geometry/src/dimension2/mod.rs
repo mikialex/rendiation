@@ -5,7 +5,7 @@ pub use circle::*;
 pub use ellipse::*;
 pub use rectangle::*;
 
-use crate::{Positioned, SpaceAxis};
+use crate::*;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Axis2 {

@@ -1,5 +1,4 @@
-use crate::Triangle;
-use rendiation_algebra::*;
+use crate::*;
 
 pub type Triangle3D<T = f32> = Triangle<Vec3<T>>;
 

@@ -1,4 +1,4 @@
-use rendiation_algebra::*;
+use crate::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct HyperPlane<T: Scalar, V> {
