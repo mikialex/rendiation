@@ -5,25 +5,6 @@
 /// Useful for quickly ordering polygons along a particular view vector.
 /// Is not tied to a particular math library.
 ///
-
-/// The result of one plane being cut by another one.
-/// The "cut" here is an attempt to classify a plane as being
-/// in front or in the back of another one.
-#[derive(Debug)]
-pub enum PlaneCut<T> {
-  /// The planes are one the same geometrical plane.
-  Sibling(T),
-  /// Planes are different, thus we can either determine that
-  /// our plane is completely in front/back of another one,
-  /// or split it into these sub-groups.
-  Cut {
-    /// Sub-planes in front of the base plane.
-    front: Vec<T>,
-    /// Sub-planes in the back of the base plane.
-    back: Vec<T>,
-  },
-}
-
 use crate::*;
 
 impl<T> AbstractTree for BspNode<T> {
@@ -39,24 +20,28 @@ impl<T> AbstractTree for BspNode<T> {
 
 /// A plane abstracted to the matter of partitioning.
 pub trait Plane: Sized + Clone {
+  type PlaneCut: PlaneCutResult<Self>;
+
   /// Try to cut a different plane by this one.
-  fn cut(&self, plane: Self) -> PlaneCut<Self>;
+  fn cut(&self, plane: &Self) -> Self::PlaneCut;
   /// Check if a different plane is aligned in the same direction
   /// as this one.
   fn is_aligned(&self, plane: &Self) -> bool;
 }
 
+/// Use this trait as the abstraction of the cutting result
+/// is because we want avoid any allocation at best when get the front and back result.
+pub trait PlaneCutResult<T> {
+  /// If the current plane is exact same plane, which actually not been cut.
+  /// If false, we check the front and back result.
+  fn is_sibling(&self) -> bool;
+  fn iter_front(&self, visitor: impl FnMut(T));
+  fn iter_back(&self, visitor: impl FnMut(T));
+}
+
 /// Add a list of planes to a particular front/end branch of some root node.
-fn add_side<T: Plane>(side: &mut Option<Box<BspNode<T>>>, mut planes: Vec<T>) {
-  if !planes.is_empty() {
-    if side.is_none() {
-      *side = Some(Box::new(BspNode::new()));
-    }
-    let node = side.as_mut().unwrap();
-    for p in planes.drain(..) {
-      node.insert(p)
-    }
-  }
+fn add_side<T: Plane>(side: &mut Option<Box<BspNode<T>>>, plane: T) {
+  side.get_or_insert_default().as_mut().insert(plane)
 }
 
 /// A node in the `BspTree`, which can be considered a tree itself.
@@ -92,12 +77,12 @@ impl<T: Plane> BspNode<T> {
       self.values.push(value);
       return;
     }
-    match self.values[0].cut(value) {
-      PlaneCut::Sibling(value) => self.values.push(value),
-      PlaneCut::Cut { front, back } => {
-        add_side(&mut self.front, front);
-        add_side(&mut self.back, back);
-      }
+    let cut_result = self.values[0].cut(&value);
+    if cut_result.is_sibling() {
+      self.values.push(value)
+    } else {
+      cut_result.iter_front(|p| add_side(&mut self.front, p));
+      cut_result.iter_back(|p| add_side(&mut self.back, p));
     }
   }
 
