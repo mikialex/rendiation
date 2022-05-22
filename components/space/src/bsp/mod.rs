@@ -35,9 +35,6 @@ impl<T> AbstractTree for BspNode<T> {
       visitor(n.as_ref())
     }
   }
-  fn has_children(&self) -> bool {
-    !self.values.is_empty()
-  }
 }
 
 /// A plane abstracted to the matter of partitioning.

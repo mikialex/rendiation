@@ -9,10 +9,15 @@ pub mod test;
 pub use apply::*;
 use rendiation_geometry::ContainAble;
 
+/// The BST tree build source trait
+///
 pub trait BSTBounding<const D: usize, const N: usize>:
   CenterAblePrimitive + Default + Copy + ContainAble<f32, Self, D> + FromIterator<Self>
 {
+  /// Check which sub space should the build primitive belong
   fn pre_classify_primitive(&self, p: &BuildPrimitive<Self>) -> usize;
+
+  /// Compute the child space BSTBounding by child index
   #[must_use]
   fn compute_sub_space(&self, index: usize) -> Self;
 }
