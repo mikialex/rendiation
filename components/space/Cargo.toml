@@ -13,6 +13,7 @@ name = "bvh"
 
 [dependencies]
 
+rendiation-abstract-tree = {path = "../../utils/abstract-tree"}
 rendiation-algebra = {path = "../../math/algebra"}
 rendiation-geometry = {path = "../../math/geometry"}
 
