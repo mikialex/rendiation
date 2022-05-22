@@ -1,7 +1,6 @@
 mod apply;
 mod node;
 mod strategy;
-mod traverse;
 
 pub mod test;
 
@@ -27,6 +26,7 @@ pub struct FlattenBVH<B: BVHBounding> {
   pub sorted_primitive_index: Vec<usize>,
 }
 
+#[derive(Clone)]
 pub struct BVHTreeNodeRef<'a, B: BVHBounding> {
   pub tree: &'a FlattenBVH<B>,
   pub node: &'a FlattenBVHNode<B>,
@@ -89,5 +89,14 @@ impl<B: BVHBounding> FlattenBVH<B> {
 
   pub fn sorted_primitive_index(&self) -> &Vec<usize> {
     &self.sorted_primitive_index
+  }
+
+  pub fn traverse(
+    &self,
+    mut branch_enter_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
+    mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
+  ) {
+    let root = self.create_node_ref(0);
+    root.traverse_by_parent_leaf(|n| branch_enter_visitor(n.node), |n| leaf_visitor(n.node))
   }
 }
