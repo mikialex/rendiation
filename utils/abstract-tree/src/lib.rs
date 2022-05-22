@@ -67,7 +67,7 @@ pub trait AbstractTree {
 
     while let Some(node) = stack.pop() {
       let next = if let Some(parent) = node.get_parent() {
-        visitor(&node, Some(parent))
+        visitor(&node, Some(&parent))
       } else {
         visitor(&node, None)
       };
@@ -92,8 +92,9 @@ pub trait AbstractTree {
   }
 }
 
-pub trait AbstractParentTree {
-  fn get_parent(&self) -> Option<&Self>;
+pub trait AbstractParentTree: Sized {
+  /// this actually requires self is cheap to create/clone
+  fn get_parent(&self) -> Option<Self>;
 
   fn get_tree_depth(&self) -> usize {
     let mut count = 0;
@@ -110,7 +111,7 @@ pub trait AbstractParentTree {
 
   fn traverse_pair_parent_chain(&self, visitor: &mut impl FnMut(&Self, Option<&Self>)) {
     if let Some(parent) = self.get_parent() {
-      visitor(self, parent.into());
+      visitor(self, Some(&parent));
       parent.traverse_pair_parent_chain(visitor)
     } else {
       visitor(self, None);

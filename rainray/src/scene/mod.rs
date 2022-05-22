@@ -1,5 +1,5 @@
 use arena::{Arena, Handle};
-use arena_tree::{ArenaTree, ArenaTreeNodeHandle, NextTraverseVisit};
+use arena_tree::*;
 use rendiation_algebra::*;
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
@@ -94,35 +94,39 @@ impl Scene {
         node_data.update(parent.map(|p| p.data()));
         NextTraverseVisit::VisitChildren
       });
-    self.nodes.traverse(root, &mut Vec::new(), |this, _| {
-      let node_data = this.data();
-      node_data.payloads.iter().for_each(|payload| match payload {
-        SceneNodePayload::Model(model_handle) => {
-          let model = scene_model.get(*model_handle).unwrap();
-          let world_matrix_inverse = node_data.world_matrix.inverse_or_identity();
-          let instance = ModelInstance {
-            world_matrix: node_data.world_matrix,
-            world_matrix_inverse,
-            normal_matrix: world_matrix_inverse.transpose(),
-            model: *model_handle,
-          };
-          if let Some(mut bbox) = model.shape.get_bbox(self) {
-            models_in_bvh.push(instance);
-            models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
-          } else {
-            models_unbound.push(instance);
+    self
+      .nodes
+      .create_node_ref(root)
+      .traverse_pair_subtree(&mut |this, _| {
+        let this = this.node;
+        let node_data = this.data();
+        node_data.payloads.iter().for_each(|payload| match payload {
+          SceneNodePayload::Model(model_handle) => {
+            let model = scene_model.get(*model_handle).unwrap();
+            let world_matrix_inverse = node_data.world_matrix.inverse_or_identity();
+            let instance = ModelInstance {
+              world_matrix: node_data.world_matrix,
+              world_matrix_inverse,
+              normal_matrix: world_matrix_inverse.transpose(),
+              model: *model_handle,
+            };
+            if let Some(mut bbox) = model.shape.get_bbox(self) {
+              models_in_bvh.push(instance);
+              models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
+            } else {
+              models_unbound.push(instance);
+            }
           }
-        }
-        SceneNodePayload::Light(_light) => {
-          // let light = scene_light.get(*light).unwrap().as_ref();
-          // lights.push(LightInstance {
-          //   node: node_data,
-          //   light,
-          // });
-        }
+          SceneNodePayload::Light(_light) => {
+            // let light = scene_light.get(*light).unwrap().as_ref();
+            // lights.push(LightInstance {
+            //   node: node_data,
+            //   light,
+            // });
+          }
+        });
+        NextTraverseVisit::VisitChildren
       });
-      NextTraverseVisit::VisitChildren
-    });
 
     let models_bvh = FlattenBVH::new(
       models_in_bvh_source.into_iter(),
