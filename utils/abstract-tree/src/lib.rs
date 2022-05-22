@@ -28,7 +28,7 @@ pub trait AbstractTree {
   }
 
   /// leaf_visitor: when meet leaf, return if should continue visit tree
-  fn traverse_by_parent_leaf(
+  fn traverse_by_branch_leaf(
     &self,
     mut branch_enter_visitor: impl FnMut(&Self) -> NextTraverseVisit,
     mut leaf_visitor: impl FnMut(&Self) -> bool,
@@ -55,6 +55,31 @@ pub trait AbstractTree {
     }
   }
 
+  fn traverse_pair_subtree(
+    &self,
+    visitor: &mut impl FnMut(&Self, Option<&Self>) -> NextTraverseVisit,
+  ) where
+    Self: AbstractParentTree + Clone,
+  {
+    use NextTraverseVisit::*;
+    let mut stack = Vec::new();
+    stack.push(self.clone());
+
+    while let Some(node) = stack.pop() {
+      let next = if let Some(parent) = node.get_parent() {
+        visitor(&node, Some(parent))
+      } else {
+        visitor(&node, None)
+      };
+
+      match next {
+        Exit => return,
+        VisitChildren => node.visit_children(|child| stack.push(child.clone())),
+        SkipChildren => continue,
+      };
+    }
+  }
+
   /// Get the tree depth starting with this node. (not including self)
   fn get_max_children_depth(&self) -> usize {
     if self.is_leaf() {
@@ -70,6 +95,12 @@ pub trait AbstractTree {
 pub trait AbstractParentTree {
   fn get_parent(&self) -> Option<&Self>;
 
+  fn get_tree_depth(&self) -> usize {
+    let mut count = 0;
+    self.traverse_parent(&mut |_| count += 1);
+    count - 1
+  }
+
   fn traverse_parent(&self, visitor: &mut impl FnMut(&Self)) {
     visitor(self);
     if let Some(parent) = self.get_parent() {
@@ -77,10 +108,10 @@ pub trait AbstractParentTree {
     }
   }
 
-  fn traverse_parent_pair(&self, visitor: &mut impl FnMut(&Self, Option<&Self>)) {
+  fn traverse_pair_parent_chain(&self, visitor: &mut impl FnMut(&Self, Option<&Self>)) {
     if let Some(parent) = self.get_parent() {
       visitor(self, parent.into());
-      parent.traverse_parent_pair(visitor)
+      parent.traverse_pair_parent_chain(visitor)
     } else {
       visitor(self, None);
     }

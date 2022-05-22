@@ -98,7 +98,7 @@ impl<B: BVHBounding> FlattenBVH<B> {
     mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
   ) {
     let root = self.create_node_ref(0);
-    root.traverse_by_parent_leaf(
+    root.traverse_by_branch_leaf(
       |n| {
         if branch_enter_visitor(n.node) {
           NextTraverseVisit::VisitChildren
