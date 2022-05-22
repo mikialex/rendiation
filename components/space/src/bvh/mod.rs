@@ -5,6 +5,7 @@ mod strategy;
 pub mod test;
 
 pub use node::*;
+use rendiation_abstract_tree::NextTraverseVisit;
 use rendiation_geometry::SolidEntity;
 use std::iter::FromIterator;
 pub use strategy::*;
@@ -97,6 +98,15 @@ impl<B: BVHBounding> FlattenBVH<B> {
     mut leaf_visitor: impl FnMut(&FlattenBVHNode<B>) -> bool,
   ) {
     let root = self.create_node_ref(0);
-    root.traverse_by_parent_leaf(|n| branch_enter_visitor(n.node), |n| leaf_visitor(n.node))
+    root.traverse_by_parent_leaf(
+      |n| {
+        if branch_enter_visitor(n.node) {
+          NextTraverseVisit::VisitChildren
+        } else {
+          NextTraverseVisit::SkipChildren
+        }
+      },
+      |n| leaf_visitor(n.node),
+    )
   }
 }

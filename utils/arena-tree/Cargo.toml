@@ -1,7 +1,8 @@
 [package]
+edition = "2021"
 name = "arena-tree"
 version = "0.0.1"
-edition = "2021"
 
 [dependencies]
-arena = { path = "../arena" }
+arena = {path = "../arena"}
+rendiation-abstract-tree = {path = "../abstract-tree"}

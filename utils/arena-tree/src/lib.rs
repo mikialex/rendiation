@@ -1,4 +1,5 @@
 use arena::*;
+pub use rendiation_abstract_tree::*;
 
 pub struct ArenaTree<T> {
   nodes: Arena<ArenaTreeNode<T>>,
@@ -141,23 +142,6 @@ impl<T> ArenaTree<T> {
     }
   }
 
-  pub fn traverse_parent(
-    &mut self,
-    index: ArenaTreeNodeHandle<T>,
-    visitor: &mut impl FnMut(&mut ArenaTreeNode<T>, Option<&mut ArenaTreeNode<T>>),
-  ) {
-    if let Some(parent) = self.get_node(index).parent {
-      self.traverse_parent(parent, visitor)
-    }
-    if let Some(parent_index) = self.get_node(index).parent {
-      let (parent, this) = self.get_parent_child_pair(parent_index, index);
-      visitor(this, Some(parent));
-    } else {
-      let this = self.get_node_mut(index);
-      visitor(this, None);
-    }
-  }
-
   pub fn traverse_mut(
     &mut self,
     start_index: ArenaTreeNodeHandle<T>,
@@ -213,12 +197,6 @@ impl<T> ArenaTree<T> {
       };
     }
   }
-}
-
-pub enum NextTraverseVisit {
-  Exit,
-  VisitChildren,
-  SkipChildren,
 }
 
 pub struct TraverseIter<'a, T> {
