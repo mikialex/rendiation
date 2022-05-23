@@ -1,6 +1,7 @@
+use rendiation_algebra::Vec2;
 use rendiation_texture_types::Size;
 
-use crate::Texture2D;
+use crate::{Texture2D, Texture2dInitAble};
 
 pub struct Texture2DBuffer<P> {
   data: Vec<P>,
@@ -8,16 +9,6 @@ pub struct Texture2DBuffer<P> {
 }
 
 impl<P: Clone> Texture2DBuffer<P> {
-  pub fn new(size: Size) -> Self
-  where
-    P: Default,
-  {
-    Self {
-      data: vec![P::default(); size.area()],
-      size,
-    }
-  }
-
   pub fn size(&self) -> Size {
     self.size
   }
@@ -33,16 +24,30 @@ impl<P: Clone> Texture2DBuffer<P> {
 
 impl<P: Copy> Texture2D for Texture2DBuffer<P> {
   type Pixel = P;
-
-  fn get(&self, position: rendiation_algebra::Vec2<usize>) -> &Self::Pixel {
+  fn get(&self, position: impl Into<Vec2<usize>>) -> &Self::Pixel {
+    let position = position.into();
     &self.data[position.y * usize::from(self.size.width) + position.x]
   }
 
-  fn get_mut(&mut self, position: rendiation_algebra::Vec2<usize>) -> &mut Self::Pixel {
+  fn get_mut(&mut self, position: impl Into<Vec2<usize>>) -> &mut Self::Pixel {
+    let position = position.into();
     &mut self.data[position.y * usize::from(self.size.width) + position.x]
   }
 
   fn size(&self) -> Size {
     self.size
+  }
+}
+
+impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
+  fn init_with(size: Size, pixel: Self::Pixel) -> Self {
+    Self {
+      data: vec![pixel; size.area()],
+      size,
+    }
+  }
+
+  fn init_default(size: Size) -> Self {
+    Self::init_with(size, Default::default())
   }
 }

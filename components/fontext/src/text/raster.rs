@@ -1,3 +1,5 @@
+use rendiation_texture::Texture2dInitAble;
+
 use crate::*;
 
 pub trait GlyphRaster {
@@ -107,9 +109,8 @@ impl GlyphRaster for AbGlyphRaster {
     let height = bounds.height().ceil() as usize;
     let size = Size::from_usize_pair_min_one((width, height));
 
-    let mut result = Texture2DBuffer::new(size);
-    outlined_glyph
-      .draw(|x, y, c| result.write((x as usize, y as usize).into(), into_unsigned_u8(c)));
+    let mut result = Texture2DBuffer::init_default(size);
+    outlined_glyph.draw(|x, y, c| result.write((x as usize, y as usize), into_unsigned_u8(c)));
 
     result.into()
   }

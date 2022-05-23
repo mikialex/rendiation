@@ -5,6 +5,7 @@ use rendiation_algebra::{Vec2, Vec3, Vector};
 
 use indicatif::ProgressBar;
 use rayon::prelude::*;
+use rendiation_texture::Texture2D;
 
 pub struct Renderer {
   pub sample_per_pixel: usize,
@@ -32,14 +33,16 @@ impl Renderer {
     let width = frame.width();
 
     frame
-      .data
-      .par_iter_mut()
-      .enumerate()
-      .flat_map(|f| {
-        let x = f.0;
-        f.1.par_iter_mut().enumerate().map(move |i| ((x, i.0), i.1))
-      })
-      .for_each(|((i, j), pixel)| {
+      .inner
+      .iter_mut()
+      // .data
+      // .par_iter_mut()
+      // .enumerate()
+      // .flat_map(|f| {
+      //   let x = f.0;
+      //   f.1.par_iter_mut().enumerate().map(move |i| ((x, i.0), i.1))
+      // })
+      .for_each(|(pixel, (i, j))| {
         let x = i as f32 / frame_size.x;
         let y = (frame_size.y - j as f32) / frame_size.y;
 

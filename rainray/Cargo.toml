@@ -17,4 +17,5 @@ rendiation-algebra = {path = "../math/algebra"}
 rendiation-color = {path = "../components/color"}
 rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
+rendiation-texture = {path = "../components/texture/core"}
 space-algorithm = {path = "../components/space"}

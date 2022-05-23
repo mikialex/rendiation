@@ -18,6 +18,7 @@ impl<'a, T: Texture2D> Iterator for TexturePixels<'a, T> {
     let width = self.texture.size().width;
     let x = self.current % width;
     let y = self.current / width;
+    self.current += 1;
     Some((self.texture.get(vector!(x, y)), (x, y)))
   }
 }
@@ -38,6 +39,7 @@ impl<'a, T: Texture2D> Iterator for TexturePixelsMut<'a, T> {
     let width = self.texture.size().width;
     let x = self.current % width;
     let y = self.current / width;
+    self.current += 1;
     let pixel = unsafe { std::mem::transmute(self.texture.get_mut(vector!(x, y))) };
     Some((pixel, (x, y)))
   }

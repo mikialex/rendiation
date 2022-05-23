@@ -3,7 +3,7 @@ use rendiation_algebra::{Scalar, Vec3};
 use crate::RGBColor;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Default)]
 pub struct LinearRGBColor<T> {
   pub r: T,
   pub g: T,

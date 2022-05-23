@@ -36,14 +36,14 @@ pub use image::*;
 pub trait Texture2D: Sized {
   type Pixel: Copy;
 
-  fn get(&self, position: Vec2<usize>) -> &Self::Pixel;
-  fn get_mut(&mut self, position: Vec2<usize>) -> &mut Self::Pixel;
+  fn get(&self, position: impl Into<Vec2<usize>>) -> &Self::Pixel;
+  fn get_mut(&mut self, position: impl Into<Vec2<usize>>) -> &mut Self::Pixel;
 
-  fn read(&self, position: Vec2<usize>) -> Self::Pixel {
+  fn read(&self, position: impl Into<Vec2<usize>>) -> Self::Pixel {
     *self.get(position)
   }
-  fn write(&mut self, position: Vec2<usize>, v: Self::Pixel) {
-    *self.get_mut(position) = v;
+  fn write(&mut self, position: impl Into<Vec2<usize>>, v: Self::Pixel) {
+    *self.get_mut(position.into()) = v;
   }
 
   fn size(&self) -> Size;
@@ -74,6 +74,29 @@ pub trait Texture2D: Sized {
       all,
     }
   }
+
+  fn clear(&mut self, pixel: Self::Pixel) {
+    self.iter_mut().for_each(|(p, _)| *p = pixel)
+  }
+
+  fn map<T: Texture2dInitAble>(&self, mapper: impl Fn(Self::Pixel) -> T::Pixel) -> T {
+    let mut target = T::init_default(self.size());
+    self.iter().for_each(|(&p, xy)| {
+      let p = mapper(p);
+      target.write(xy, p)
+    });
+    target
+  }
+}
+
+pub trait Texture2dInitAble: Texture2D {
+  // maybe add init_not_care to optimize perf
+
+  /// note, we don't require Self::Pixel: Default here for a reason:
+  /// It's impl's responsible to decide if use the default impl of Self::Pixel
+  /// in case of Self::Pixel: Default not exist
+  fn init_default(size: Size) -> Self;
+  fn init_with(size: Size, pixel: Self::Pixel) -> Self;
 }
 
 /// Not all texture storage container has continues memory,
@@ -153,11 +176,13 @@ where
 {
   type Pixel = P;
 
-  fn get(&self, position: Vec2<usize>) -> &Self::Pixel {
+  fn get(&self, position: impl Into<Vec2<usize>>) -> &Self::Pixel {
+    let position = position.into();
     self.get_pixel(position.x as u32, position.y as u32)
   }
 
-  fn get_mut(&mut self, position: Vec2<usize>) -> &mut Self::Pixel {
+  fn get_mut(&mut self, position: impl Into<Vec2<usize>>) -> &mut Self::Pixel {
+    let position = position.into();
     self.get_pixel_mut(position.x as u32, position.y as u32)
   }
 
@@ -167,6 +192,21 @@ where
       width: NonZeroUsize::new(d.0 as usize).unwrap(),
       height: NonZeroUsize::new(d.1 as usize).unwrap(),
     }
+  }
+}
+
+impl Texture2dInitAble for ImageBuffer<Rgba<u8>, Vec<u8>> {
+  fn init_with(size: Size, pixel: Self::Pixel) -> Self {
+    let mut result = ImageBuffer::new(
+      <usize as std::convert::From<_>>::from(size.width) as u32,
+      <usize as std::convert::From<_>>::from(size.height) as u32,
+    );
+    result.clear(pixel);
+    result
+  }
+
+  fn init_default(size: Size) -> Self {
+    Self::init_with(size, image::Rgba([0, 0, 0, 0]))
   }
 }
 

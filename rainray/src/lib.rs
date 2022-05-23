@@ -1,3 +1,4 @@
+#![feature(explicit_generic_args_with_impl_trait)]
 #![allow(clippy::or_fun_call)]
 #![allow(clippy::many_single_char_names)]
 #![allow(unstable_name_collisions)]
