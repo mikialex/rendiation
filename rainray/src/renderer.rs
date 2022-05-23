@@ -35,13 +35,7 @@ impl Renderer {
     frame
       .inner
       .iter_mut()
-      // .data
-      // .par_iter_mut()
-      // .enumerate()
-      // .flat_map(|f| {
-      //   let x = f.0;
-      //   f.1.par_iter_mut().enumerate().map(move |i| ((x, i.0), i.1))
-      // })
+      .par_bridge()
       .for_each(|(pixel, (i, j))| {
         let x = i as f32 / frame_size.x;
         let y = (frame_size.y - j as f32) / frame_size.y;
