@@ -65,6 +65,15 @@ pub trait Texture2D: Sized {
       all: self.pixel_count(),
     }
   }
+
+  fn iter_mut(&mut self) -> TexturePixelsMut<'_, Self> {
+    let all = self.pixel_count();
+    TexturePixelsMut {
+      texture: self,
+      current: 0,
+      all,
+    }
+  }
 }
 
 /// Not all texture storage container has continues memory,
