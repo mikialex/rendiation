@@ -91,6 +91,13 @@ pub trait AbstractTree {
     max_depth + 1
   }
 }
+pub trait AbstractTreeMut {
+  fn visit_children_mut(&mut self, visitor: impl FnMut(&mut Self));
+  fn traverse_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
+    visitor(self);
+    self.visit_children_mut(|child| child.traverse_mut(visitor))
+  }
+}
 
 pub trait AbstractParentTree: Sized {
   /// this actually requires self is cheap to create/clone

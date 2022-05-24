@@ -7,7 +7,7 @@
 ///
 use crate::*;
 
-mod csg;
+pub mod csg;
 
 impl<T> AbstractTree for BspNode<T> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {

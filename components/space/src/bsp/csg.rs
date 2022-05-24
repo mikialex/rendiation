@@ -1,5 +1,5 @@
 use rendiation_algebra::*;
-use rendiation_geometry::Plane;
+use rendiation_geometry::{Plane, Triangle};
 
 use crate::*;
 
@@ -22,6 +22,17 @@ impl AbstractTree for CSGNode {
   }
 }
 
+impl AbstractTreeMut for CSGNode {
+  fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
+    if let Some(front) = &mut self.front {
+      visitor(front)
+    }
+    if let Some(back) = &mut self.back {
+      visitor(back)
+    }
+  }
+}
+
 #[derive(Clone)]
 pub struct CSGMesh {
   polygons: Vec<Polygon>,
@@ -32,49 +43,55 @@ impl CSGMesh {
     Self { polygons }
   }
 
+  #[must_use]
   pub fn union(&self, other: Self) -> Self {
     let mut a = CSGNode::from_polygons(self.polygons.clone());
-    let mut b = CSGNode::from_polygons(other.polygons.clone());
+    let mut b = CSGNode::from_polygons(other.polygons);
     a.clip_to(&b);
     b.clip_to(&a);
     b.invert();
     b.clip_to(&a);
     b.invert();
     a.build(b.all_polygons());
-    return Self::from_polygons(a.all_polygons());
-  }
-  pub fn subtract(&self, other: Self) -> Self {
-    let mut a = CSGNode::from_polygons(self.polygons.clone());
-    let mut b = CSGNode::from_polygons(other.polygons.clone());
-    a.invert();
-    a.clip_to(&b);
-    b.clip_to(&a);
-    b.invert();
-    b.clip_to(&a);
-    b.invert();
-    a.build(b.all_polygons());
-    a.invert();
-    return Self::from_polygons(a.all_polygons());
-  }
-  pub fn intersect(&self, other: Self) -> Self {
-    let mut a = CSGNode::from_polygons(self.polygons.clone());
-    let mut b = CSGNode::from_polygons(other.polygons.clone());
-    a.invert();
-    b.clip_to(&a);
-    b.invert();
-    a.clip_to(&b);
-    b.clip_to(&a);
-    a.build(b.all_polygons());
-    a.invert();
-    return Self::from_polygons(a.all_polygons());
+    Self::from_polygons(a.all_polygons())
   }
 
+  #[must_use]
+  pub fn subtract(&self, other: Self) -> Self {
+    let mut a = CSGNode::from_polygons(self.polygons.clone());
+    let mut b = CSGNode::from_polygons(other.polygons);
+    a.invert();
+    a.clip_to(&b);
+    b.clip_to(&a);
+    b.invert();
+    b.clip_to(&a);
+    b.invert();
+    a.build(b.all_polygons());
+    a.invert();
+    Self::from_polygons(a.all_polygons())
+  }
+
+  #[must_use]
+  pub fn intersect(&self, other: Self) -> Self {
+    let mut a = CSGNode::from_polygons(self.polygons.clone());
+    let mut b = CSGNode::from_polygons(other.polygons);
+    a.invert();
+    b.clip_to(&a);
+    b.invert();
+    a.clip_to(&b);
+    b.clip_to(&a);
+    a.build(b.all_polygons());
+    a.invert();
+    Self::from_polygons(a.all_polygons())
+  }
+
+  #[must_use]
   pub fn inverse(&self) -> Self {
     let mut csg = self.clone();
     csg.polygons.iter_mut().for_each(|p| {
       p.flip();
     });
-    return csg;
+    csg
   }
 }
 
@@ -97,21 +114,32 @@ impl CSGNode {
   }
 
   /// Recursively remove all polygons in `polygons` that are inside this BSP tree.
+  #[allow(clippy::ptr_arg)]
   fn clip_polygons(&self, polygons: &Vec<Polygon>) -> Vec<Polygon> {
     if let Some(plane) = &self.plane {
+      let mut coplanar_front = Vec::new();
+      let mut coplanar_back = Vec::new();
       let mut front = Vec::new();
       let mut back = Vec::new();
 
       for polygon in &self.polygons {
-        polygon.split(*plane, &mut front, &mut back, &mut front, &mut back);
+        polygon.split(
+          *plane,
+          &mut coplanar_front,
+          &mut coplanar_back,
+          &mut front,
+          &mut back,
+        );
       }
 
       let mut result = Vec::new();
 
       if let Some(front_node) = &self.front {
+        result.extend(front_node.clip_polygons(&coplanar_front));
         result.extend(front_node.clip_polygons(&front));
       }
       if let Some(back_node) = &self.back {
+        result.extend(back_node.clip_polygons(&coplanar_back));
         result.extend(back_node.clip_polygons(&back));
       }
       result
@@ -122,7 +150,7 @@ impl CSGNode {
 
   /// Remove all polygons in this BSP tree that are inside the other BSP tree `bsp`.
   fn clip_to(&mut self, bsp: &Self) {
-    self.traverse(&mut |n| n.polygons = bsp.clip_polygons(&n.polygons));
+    self.traverse_mut(&mut |n| n.polygons = bsp.clip_polygons(&n.polygons));
   }
 
   /// Return a list of all polygons in this BSP tree.
@@ -146,9 +174,20 @@ impl CSGNode {
     let mut front = Vec::new();
     let mut back = Vec::new();
 
+    let mut other_coplanar = Vec::new();
+
     for polygon in polygons {
-      polygon.split(*plane, &mut polygons, &mut polygons, &mut front, &mut back);
+      polygon.split(
+        *plane,
+        &mut self.polygons,
+        &mut other_coplanar,
+        &mut front,
+        &mut back,
+      );
     }
+
+    self.polygons.extend(other_coplanar);
+
     self.front.get_or_insert_default().build(front);
     self.back.get_or_insert_default().build(back);
   }
@@ -162,14 +201,21 @@ impl CSGNode {
 
 #[derive(Clone, Copy)]
 struct Vertex {
-  position: Vec3<f32>,
-  normal: Vec3<f32>,
-  uv: Vec3<f32>,
+  pub position: Vec3<f32>,
+  pub normal: Vec3<f32>,
+  pub uv: Vec3<f32>,
 }
 
 impl Vertex {
   fn flip(&mut self) {
     self.normal = self.normal.reverse();
+  }
+  fn lerp(&self, other: Self, t: f32) -> Self {
+    Self {
+      position: self.position.lerp(other.position, t),
+      normal: self.normal.lerp(other.normal, t),
+      uv: self.uv.lerp(other.uv, t),
+    }
   }
 }
 
@@ -188,13 +234,6 @@ const FRONT: u8 = 1;
 const BACK: u8 = 2;
 const SPANNING: u8 = 3;
 const EPSILON: f32 = 1e-5;
-
-enum PlaneSideType {
-  Front,
-  Back,
-  Coplanar,
-  Spanning,
-}
 
 impl Polygon {
   fn flip(&mut self) {
@@ -219,7 +258,7 @@ impl Polygon {
   ) {
     // Classify each point as well as the entire polygon into one of the above
     // four classes.
-    let mut polygonType = 0;
+    let mut polygon_type = 0;
     let mut types = Vec::new();
     for vertex in &self.vertices {
       let t = plane.normal.dot(vertex.position) - plane.constant;
@@ -230,12 +269,12 @@ impl Polygon {
       } else {
         COPLANAR
       };
-      polygonType |= ty;
+      polygon_type |= ty;
       types.push(ty);
     }
 
     // Put the polygon in the correct list, splitting it when necessary.
-    match polygonType {
+    match polygon_type {
       COPLANAR => if plane.normal.dot(self.plane.normal) > 0. {
         coplanar_front
       } else {
@@ -260,23 +299,36 @@ impl Polygon {
             f.push(vi);
           }
           if ti != FRONT {
-            b.push(if ti != BACK { vi.clone() } else { vi });
+            b.push(vi);
           }
           if (ti | tj) == SPANNING {
-            // let t = (plane.constant - plane.normal.dot(vi.position)) / plane.normal.dot(vj.position -vi.position);
-            // let v = vi.interpolate(vj, t);
-            // f.push(v);
-            // b.push(v.clone());
+            let t = (plane.constant - plane.normal.dot(vi.position))
+              / plane.normal.dot(vj.position - vi.position);
+            let v = vi.lerp(vj, t);
+            f.push(v);
+            b.push(v);
           }
         }
         if f.len() >= 3 {
-          // front.push(new Polygon(f, polygon.shared));
+          front.push(Polygon::new(f));
         }
         if b.len() >= 3 {
-          // back.push(new Polygon(b, polygon.shared));
+          back.push(Polygon::new(b));
         }
       }
       _ => unreachable!(),
+    }
+  }
+
+  fn new(vertices: Vec<Vertex>) -> Self {
+    let triangle = Triangle {
+      a: vertices[0].position,
+      b: vertices[1].position,
+      c: vertices[2].position,
+    };
+    Self {
+      plane: triangle.into(),
+      vertices,
     }
   }
 }
