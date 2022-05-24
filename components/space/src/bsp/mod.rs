@@ -7,6 +7,8 @@
 ///
 use crate::*;
 
+mod csg;
+
 impl<T> AbstractTree for BspNode<T> {
   fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
     if let Some(n) = self.front.as_ref() {
