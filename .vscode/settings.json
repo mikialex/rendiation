@@ -108,6 +108,7 @@
         "texels",
         "Uint",
         "unclipped",
+        "uninit",
         "unnormalized",
         "Unorm",
         "unprojected",

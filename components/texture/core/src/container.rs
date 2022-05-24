@@ -47,7 +47,12 @@ impl<P: Copy + Default> Texture2dInitAble for Texture2DBuffer<P> {
     }
   }
 
-  fn init_default(size: Size) -> Self {
-    Self::init_with(size, Default::default())
+  #[allow(clippy::uninit_vec)]
+  fn init_not_care(size: Size) -> Self {
+    let width = usize::from(size.width);
+    let height = usize::from(size.height);
+    let mut buffer = Vec::with_capacity(width * height * 4);
+    unsafe { buffer.set_len(width * height * 4) };
+    Self { data: buffer, size }
   }
 }

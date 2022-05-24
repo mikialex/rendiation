@@ -80,7 +80,7 @@ pub trait Texture2D: Sized {
   }
 
   fn map<T: Texture2dInitAble>(&self, mapper: impl Fn(Self::Pixel) -> T::Pixel) -> T {
-    let mut target = T::init_default(self.size());
+    let mut target = T::init_not_care(self.size());
     self.iter().for_each(|(&p, xy)| {
       let p = mapper(p);
       target.write(xy, p)
@@ -90,13 +90,10 @@ pub trait Texture2D: Sized {
 }
 
 pub trait Texture2dInitAble: Texture2D {
-  // maybe add init_not_care to optimize perf
-
-  /// note, we don't require Self::Pixel: Default here for a reason:
-  /// It's impl's responsible to decide if use the default impl of Self::Pixel
-  /// in case of Self::Pixel: Default not exist
-  fn init_default(size: Size) -> Self;
   fn init_with(size: Size, pixel: Self::Pixel) -> Self;
+  /// Opt in use a fast allocation call,
+  /// use this function to get better performance.
+  fn init_not_care(size: Size) -> Self;
 }
 
 /// Not all texture storage container has continues memory,
@@ -205,8 +202,13 @@ impl Texture2dInitAble for ImageBuffer<Rgba<u8>, Vec<u8>> {
     result
   }
 
-  fn init_default(size: Size) -> Self {
-    Self::init_with(size, image::Rgba([0, 0, 0, 0]))
+  #[allow(clippy::uninit_vec)]
+  fn init_not_care(size: Size) -> Self {
+    let width = <usize as std::convert::From<_>>::from(size.width);
+    let height = <usize as std::convert::From<_>>::from(size.height);
+    let mut buffer = Vec::with_capacity(width * height * 4);
+    unsafe { buffer.set_len(width * height * 4) };
+    ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap()
   }
 }
 
