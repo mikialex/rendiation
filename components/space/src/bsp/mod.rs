@@ -32,11 +32,14 @@ impl<T> AbstractTreeMut for BspNode<T> {
 }
 
 /// A plane abstracted to the matter of partitioning.
-pub trait Plane: Sized + Clone {
+pub trait BSPPlane: Sized + Clone {
   type PlaneCut: PlaneCutResult<Self>;
 
   /// Try to cut a different plane by this one.
   fn cut(&self, plane: &Self) -> Self::PlaneCut;
+}
+
+pub trait BSPPlaneAlignable {
   /// Check if a different plane is aligned in the same direction
   /// as this one.
   fn is_aligned(&self, plane: &Self) -> bool;
@@ -50,11 +53,6 @@ pub trait PlaneCutResult<T> {
   fn is_sibling(&self) -> bool;
   fn iter_front(&self, visitor: impl FnMut(T));
   fn iter_back(&self, visitor: impl FnMut(T));
-}
-
-/// Add a list of planes to a particular front/end branch of some root node.
-fn add_side<T: Plane>(side: &mut Option<Box<BspNode<T>>>, plane: T) {
-  side.get_or_insert_default().as_mut().insert(plane)
 }
 
 /// A node in the `BspTree`, which can be considered a tree itself.
@@ -82,27 +80,30 @@ impl<T> Default for BspNode<T> {
   }
 }
 
-impl<T: Plane> BspNode<T> {
+impl<T: BSPPlane> BspNode<T> {
   /// Insert a value into the sub-tree starting with this node.
   /// This operation may spawn additional leafs/branches of the tree.
   pub fn insert(&mut self, value: T) {
-    if self.coplanar.is_empty() {
-      self.coplanar.push(value);
-      return;
-    }
-    let cut_result = self.coplanar[0].cut(&value);
-    if cut_result.is_sibling() {
-      self.coplanar.push(value)
+    if let Some(first) = self.coplanar.first() {
+      let cut_result = first.cut(&value);
+      if cut_result.is_sibling() {
+        self.coplanar.push(value)
+      } else {
+        cut_result.iter_front(|p| self.front.get_or_insert_default().insert(p));
+        cut_result.iter_back(|p| self.back.get_or_insert_default().insert(p));
+      }
     } else {
-      cut_result.iter_front(|p| add_side(&mut self.front, p));
-      cut_result.iter_back(|p| add_side(&mut self.back, p));
+      self.coplanar.push(value);
     }
   }
 
   /// Build the draw order of this sub-tree into an `out` vector,
   /// so that the contained planes are sorted back to front according
   /// to the view vector defined as the `base` plane front direction.
-  pub fn order(&self, base: &T, out: &mut Vec<T>) {
+  pub fn order(&self, base: &T, out: &mut Vec<T>)
+  where
+    T: BSPPlaneAlignable,
+  {
     let (former, latter) = match self.coplanar.first() {
       None => return,
       Some(first) if base.is_aligned(first) => (self.front.as_ref(), self.back.as_ref()),
