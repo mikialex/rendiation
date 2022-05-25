@@ -3,35 +3,9 @@ use rendiation_geometry::{Plane, Triangle};
 
 use crate::*;
 
-#[derive(Clone, Default)]
-struct CSGNode {
-  polygons: Vec<Polygon>,
-  plane: Option<Plane>,
-  front: Option<Box<CSGNode>>,
-  back: Option<Box<CSGNode>>,
-}
+use super::BspNode;
 
-impl AbstractTree for CSGNode {
-  fn visit_children(&self, mut visitor: impl FnMut(&Self)) {
-    if let Some(front) = &self.front {
-      visitor(front)
-    }
-    if let Some(back) = &self.back {
-      visitor(back)
-    }
-  }
-}
-
-impl AbstractTreeMut for CSGNode {
-  fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
-    if let Some(front) = &mut self.front {
-      visitor(front)
-    }
-    if let Some(back) = &mut self.back {
-      visitor(back)
-    }
-  }
-}
+type CSGNode = BspNode<Polygon>;
 
 #[derive(Clone)]
 pub struct CSGMesh {
@@ -98,11 +72,8 @@ impl CSGMesh {
 impl CSGNode {
   /// Convert solid space to empty space and empty space to solid space.
   fn invert(&mut self) {
-    for polygon in &mut self.polygons {
+    for polygon in &mut self.coplanar {
       polygon.flip();
-    }
-    if let Some(plane) = &mut self.plane {
-      plane.flip();
     }
     if let Some(front) = &mut self.front {
       front.invert();
@@ -116,15 +87,16 @@ impl CSGNode {
   /// Recursively remove all polygons in `polygons` that are inside this BSP tree.
   #[allow(clippy::ptr_arg)]
   fn clip_polygons(&self, polygons: &Vec<Polygon>) -> Vec<Polygon> {
-    if let Some(plane) = &self.plane {
+    if let Some(first) = &self.coplanar.first() {
+      let plane = first.plane;
       let mut coplanar_front = Vec::new();
       let mut coplanar_back = Vec::new();
       let mut front = Vec::new();
       let mut back = Vec::new();
 
-      for polygon in &self.polygons {
+      for polygon in &self.coplanar {
         polygon.split(
-          *plane,
+          plane,
           &mut coplanar_front,
           &mut coplanar_back,
           &mut front,
@@ -150,13 +122,13 @@ impl CSGNode {
 
   /// Remove all polygons in this BSP tree that are inside the other BSP tree `bsp`.
   fn clip_to(&mut self, bsp: &Self) {
-    self.traverse_mut(&mut |n| n.polygons = bsp.clip_polygons(&n.polygons));
+    self.traverse_mut(&mut |n| n.coplanar = bsp.clip_polygons(&n.coplanar));
   }
 
   /// Return a list of all polygons in this BSP tree.
   fn all_polygons(&self) -> Vec<Polygon> {
     let mut result = Vec::new();
-    self.traverse(&mut |n| result.extend(n.polygons.iter().cloned()));
+    self.traverse(&mut |n| result.extend(n.coplanar.iter().cloned()));
     result
   }
 
@@ -169,7 +141,7 @@ impl CSGNode {
       return;
     }
 
-    let plane = self.plane.get_or_insert_with(|| polygons[0].plane);
+    let plane = self.coplanar.first().unwrap_or(&polygons[0]).plane;
 
     let mut front = Vec::new();
     let mut back = Vec::new();
@@ -178,15 +150,15 @@ impl CSGNode {
 
     for polygon in polygons {
       polygon.split(
-        *plane,
-        &mut self.polygons,
+        plane,
+        &mut self.coplanar,
         &mut other_coplanar,
         &mut front,
         &mut back,
       );
     }
 
-    self.polygons.extend(other_coplanar);
+    self.coplanar.extend(other_coplanar);
 
     self.front.get_or_insert_default().build(front);
     self.back.get_or_insert_default().build(back);

@@ -20,6 +20,17 @@ impl<T> AbstractTree for BspNode<T> {
   }
 }
 
+impl<T> AbstractTreeMut for BspNode<T> {
+  fn visit_children_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
+    if let Some(n) = self.front.as_mut() {
+      visitor(n.as_mut())
+    }
+    if let Some(n) = self.back.as_mut() {
+      visitor(n.as_mut())
+    }
+  }
+}
+
 /// A plane abstracted to the matter of partitioning.
 pub trait Plane: Sized + Clone {
   type PlaneCut: PlaneCutResult<Self>;
@@ -49,7 +60,7 @@ fn add_side<T: Plane>(side: &mut Option<Box<BspNode<T>>>, plane: T) {
 /// A node in the `BspTree`, which can be considered a tree itself.
 #[derive(Clone, Debug)]
 pub struct BspNode<T> {
-  values: Vec<T>,
+  coplanar: Vec<T>,
   front: Option<Box<BspNode<T>>>,
   back: Option<Box<BspNode<T>>>,
 }
@@ -58,7 +69,7 @@ impl<T> BspNode<T> {
   /// Create a new node.
   pub fn new() -> Self {
     BspNode {
-      values: Vec::new(),
+      coplanar: Vec::new(),
       front: None,
       back: None,
     }
@@ -75,13 +86,13 @@ impl<T: Plane> BspNode<T> {
   /// Insert a value into the sub-tree starting with this node.
   /// This operation may spawn additional leafs/branches of the tree.
   pub fn insert(&mut self, value: T) {
-    if self.values.is_empty() {
-      self.values.push(value);
+    if self.coplanar.is_empty() {
+      self.coplanar.push(value);
       return;
     }
-    let cut_result = self.values[0].cut(&value);
+    let cut_result = self.coplanar[0].cut(&value);
     if cut_result.is_sibling() {
-      self.values.push(value)
+      self.coplanar.push(value)
     } else {
       cut_result.iter_front(|p| add_side(&mut self.front, p));
       cut_result.iter_back(|p| add_side(&mut self.back, p));
@@ -92,7 +103,7 @@ impl<T: Plane> BspNode<T> {
   /// so that the contained planes are sorted back to front according
   /// to the view vector defined as the `base` plane front direction.
   pub fn order(&self, base: &T, out: &mut Vec<T>) {
-    let (former, latter) = match self.values.first() {
+    let (former, latter) = match self.coplanar.first() {
       None => return,
       Some(first) if base.is_aligned(first) => (self.front.as_ref(), self.back.as_ref()),
       Some(_) => (self.back.as_ref(), self.front.as_ref()),
@@ -102,7 +113,7 @@ impl<T: Plane> BspNode<T> {
       node.order(base, out);
     }
 
-    out.extend_from_slice(&self.values);
+    out.extend_from_slice(&self.coplanar);
 
     if let Some(node) = latter {
       node.order(base, out);
