@@ -219,18 +219,6 @@ where
   }
 }
 
-impl<'a, T> DivAssign<&'a T> for Quat<T>
-where
-  T: DivAssign<T> + Copy,
-{
-  fn div_assign(&mut self, s: &'a T) {
-    self.x /= *s;
-    self.y /= *s;
-    self.z /= *s;
-    self.w /= *s;
-  }
-}
-
 impl<T> Quat<T>
 where
   T: Copy,
@@ -238,14 +226,6 @@ where
   /// Creates a new Quat from multiple components
   pub fn new(x: T, y: T, z: T, w: T) -> Self {
     Self { x, y, z, w }
-  }
-
-  pub fn len() -> usize {
-    4
-  }
-
-  pub fn to_tuple(self) -> (T, T, T, T) {
-    (self.x, self.y, self.z, self.w)
   }
 }
 
