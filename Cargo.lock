@@ -1916,11 +1916,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-mesh-generator"
+version = "0.1.0"
+
+[[package]]
 name = "rendiation-renderable-mesh"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "log",
  "once_cell",
  "rendiation-algebra",
  "rendiation-geometry",

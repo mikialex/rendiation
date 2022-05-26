@@ -16,7 +16,7 @@ impl<T: Scalar> LebesgueMeasurable<T, 2> for Sphere<T> {
   }
 }
 
-impl<T: Scalar + 'static> Sphere<T> {
+impl<T: Scalar> Sphere<T> {
   // we cant impl from iter trait because it need iter twice
   pub fn from_points<'a, I>(items: &'a I) -> Self
   where

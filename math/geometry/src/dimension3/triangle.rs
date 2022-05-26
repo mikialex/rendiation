@@ -13,8 +13,8 @@ impl<T: Scalar> Triangle3D<T> {
     self.face_normal_unnormalized().into_normalized()
   }
 
-  pub fn is_front_facing(&self, direction: Vec3<T>) -> bool {
-    self.face_normal_unnormalized().dot(direction) < T::zero()
+  pub fn is_same_direction(&self, direction: Vec3<T>) -> bool {
+    self.face_normal_unnormalized().dot(direction) > T::zero()
   }
 }
 

@@ -14,7 +14,6 @@ rendiation-geometry = {path = "../../../math/geometry"}
 
 space-algorithm = {path = "../../space"}
 
-log = "0.4"
 rendiation-webgpu = {path = "../../../webgpu", optional = true}
 shadergraph = {path = "../../../shader/graph"}
 

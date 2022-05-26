@@ -42,7 +42,8 @@ pub trait Scalar = Float
   + AddAssign<Self>
   + SubAssign<Self>
   + DivAssign<Self>
-  + MulAssign<Self>;
+  + MulAssign<Self>
+  + 'static;
 
 const PI: f32 = std::f32::consts::PI;
 

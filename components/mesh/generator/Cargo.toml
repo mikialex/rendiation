@@ -1,0 +1,5 @@
+[package]
+authors = ["mikialex <18516340862@163.com>"]
+edition = "2021"
+name = "rendiation-mesh-generator"
+version = "0.1.0"
