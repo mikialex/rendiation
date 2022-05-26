@@ -97,3 +97,15 @@ impl<V: Copy> Triangle<V> {
     visitor(ca);
   }
 }
+
+impl<T> From<(T, T, T)> for Triangle<T> {
+  fn from(value: (T, T, T)) -> Self {
+    Self::new(value.0, value.1, value.2)
+  }
+}
+
+impl<T> From<Triangle<T>> for (T, T, T) {
+  fn from(tri: Triangle<T>) -> Self {
+    (tri.a, tri.b, tri.c)
+  }
+}

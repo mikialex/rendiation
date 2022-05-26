@@ -1,4 +1,5 @@
 use arena::{Arena, Handle};
+use rendiation_geometry::Triangle;
 
 use crate::{HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeMeshData, HalfEdgeVertex};
 
@@ -48,6 +49,10 @@ pub struct HalfEdgeMeshBuilder<'a, M: HalfEdgeMeshData> {
   not_committed_half_edges: Vec<Handle<HalfEdge<M>>>,
 }
 
+impl<M: HalfEdgeMeshData> HalfEdgeMesh<M> {
+  // pub fn build_triangle_face()
+}
+
 struct TestMeshSchema;
 
 impl HalfEdgeMeshData for TestMeshSchema {
@@ -62,20 +67,22 @@ fn build_mesh() {
   let mut builder = HalfEdgeMeshBuilder::new(&mut mesh);
 
   let (a, b, c) = builder
-    .push_triangle_face(
+    .build_triangle_face(Triangle::new(
       BuildingVertex::Detached(()),
       BuildingVertex::Detached(()),
       BuildingVertex::Detached(()),
-    )
-    .unwrap();
+    ))
+    .unwrap()
+    .into();
 
   let (b, a, d) = builder
-    .push_triangle_face(
+    .build_triangle_face(Triangle::new(
       BuildingVertex::Attached(b),
       BuildingVertex::Attached(a),
       BuildingVertex::Detached(()),
-    )
-    .unwrap();
+    ))
+    .unwrap()
+    .into();
 }
 
 impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
@@ -97,27 +104,18 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     });
   }
 
-  pub fn push_any_face(&mut self, path: &[BuildingVertex<M>]) -> Result<(), HalfEdgeBuildError> {
+  pub fn build_any_face(&mut self, path: &[BuildingVertex<M>]) -> Result<(), HalfEdgeBuildError> {
     if path.len() < 3 {
       return Err(FaceConstructionInputTooSmall);
     }
     todo!()
   }
 
-  pub fn push_triangle_face(
+  pub fn build_triangle_face(
     &mut self,
-    a: BuildingVertex<M>,
-    b: BuildingVertex<M>,
-    c: BuildingVertex<M>,
-  ) -> Result<
-    (
-      Handle<HalfEdgeVertex<M>>,
-      Handle<HalfEdgeVertex<M>>,
-      Handle<HalfEdgeVertex<M>>,
-    ),
-    HalfEdgeBuildError,
-  > {
-    let result = self.push_triangle_face_impl(a, b, c);
+    triangle: Triangle<BuildingVertex<M>>,
+  ) -> Result<Triangle<Handle<HalfEdgeVertex<M>>>, HalfEdgeBuildError> {
+    let result = self.build_triangle_face_impl(triangle);
     if result.is_err() {
       self.recovery()
     }
@@ -201,19 +199,14 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     edge.pair = pair;
   }
 
-  fn push_triangle_face_impl(
+  fn build_triangle_face_impl(
     &mut self,
-    a: BuildingVertex<M>,
-    b: BuildingVertex<M>,
-    c: BuildingVertex<M>,
-  ) -> Result<
-    (
-      Handle<HalfEdgeVertex<M>>,
-      Handle<HalfEdgeVertex<M>>,
-      Handle<HalfEdgeVertex<M>>,
-    ),
-    HalfEdgeBuildError,
-  > {
+    triangle: Triangle<BuildingVertex<M>>,
+  ) -> Result<Triangle<Handle<HalfEdgeVertex<M>>>, HalfEdgeBuildError> {
+    let a = triangle.a;
+    let b = triangle.b;
+    let c = triangle.c;
+
     if a.is_same_and_attached(&b) || b.is_same_and_attached(&c) || c.is_same_and_attached(&a) {
       return Err(TriangleInputDegenerated);
     }
@@ -237,6 +230,6 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     self.link_half_edge(ab, bc, ca, face);
     self.link_half_edge(bc, ca, ab, face);
 
-    Ok((a.0, b.0, c.0))
+    Ok((a.0, b.0, c.0).into())
   }
 }
