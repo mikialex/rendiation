@@ -42,6 +42,10 @@ pub enum NoneManifoldError {
 use HalfEdgeBuildError::*;
 use NoneManifoldError::*;
 
+/// The builder for add a triangle or a path loop mesh face on mesh.
+/// The reason why we need this struct is, this struct works like a ctx
+/// to help undo the modification when it's not valid. And, provide a
+/// reuseable heap allocation for building large mesh face in a loop
 pub struct HalfEdgeMeshBuilder<'a, M: HalfEdgeMeshData> {
   mesh: &'a mut HalfEdgeMesh<M>,
   /// for operation recovery

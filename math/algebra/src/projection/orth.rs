@@ -1,29 +1,30 @@
 use crate::{Mat4, NDCSpaceMapper, Projection, ResizableProjection, Scalar};
 
-pub struct OrthographicProjection {
-  pub left: f32,
-  pub right: f32,
-  pub top: f32,
-  pub bottom: f32,
-  pub near: f32,
-  pub far: f32,
+#[derive(Debug, Copy, Clone)]
+pub struct OrthographicProjection<T> {
+  pub left: T,
+  pub right: T,
+  pub top: T,
+  pub bottom: T,
+  pub near: T,
+  pub far: T,
 }
 
-impl Default for OrthographicProjection {
+impl<T: Scalar> Default for OrthographicProjection<T> {
   fn default() -> Self {
     Self {
-      left: -50.0,
-      right: 50.0,
-      top: 50.0,
-      bottom: -50.0,
-      near: 0.0,
-      far: 1000.0,
+      left: T::eval::<-50.>(),
+      right: T::eval::<50.>(),
+      top: T::eval::<50.>(),
+      bottom: T::eval::<-50.>(),
+      near: T::zero(),
+      far: T::eval::<1000.>(),
     }
   }
 }
 
-impl Projection for OrthographicProjection {
-  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<f32>) {
+impl<T: Scalar> Projection<T> for OrthographicProjection<T> {
+  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
     *projection = Mat4::ortho::<S>(
       self.left,
       self.right,
@@ -34,58 +35,58 @@ impl Projection for OrthographicProjection {
     );
   }
 
-  fn pixels_per_unit(&self, _distance: f32, view_height: f32) -> f32 {
+  fn pixels_per_unit(&self, _distance: T, view_height: T) -> T {
     view_height / (self.top - self.bottom).abs()
   }
 }
 
-pub struct ViewFrustumOrthographicProjection {
-  orth: OrthographicProjection,
-  aspect: f32,
-  frustum_size: f32,
+pub struct ViewFrustumOrthographicProjection<T> {
+  orth: OrthographicProjection<T>,
+  aspect: T,
+  frustum_size: T,
 }
 
-impl ViewFrustumOrthographicProjection {
-  pub fn set_aspect(&mut self, aspect: f32) {
+impl<T: Scalar> ViewFrustumOrthographicProjection<T> {
+  pub fn set_aspect(&mut self, aspect: T) {
     self.aspect = aspect;
     self.update_orth();
   }
 
-  pub fn set_frustum_size(&mut self, frustum_size: f32) {
+  pub fn set_frustum_size(&mut self, frustum_size: T) {
     self.frustum_size = frustum_size;
     self.update_orth();
   }
 
   fn update_orth(&mut self) {
-    self.orth.left = self.frustum_size * self.aspect / -2.;
-    self.orth.right = self.frustum_size * self.aspect / 2.;
-    self.orth.top = self.frustum_size / 2.;
-    self.orth.bottom = self.frustum_size / -2.;
+    self.orth.left = self.frustum_size * self.aspect / -T::two();
+    self.orth.right = self.frustum_size * self.aspect / T::two();
+    self.orth.top = self.frustum_size / T::two();
+    self.orth.bottom = self.frustum_size / -T::two();
   }
 }
 
-impl Default for ViewFrustumOrthographicProjection {
+impl<T: Scalar> Default for ViewFrustumOrthographicProjection<T> {
   fn default() -> Self {
     ViewFrustumOrthographicProjection {
       orth: OrthographicProjection::default(),
-      aspect: 1.,
-      frustum_size: 50.,
+      aspect: T::one(),
+      frustum_size: T::eval::<50.>(),
     }
   }
 }
 
-impl Projection for ViewFrustumOrthographicProjection {
-  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<f32>) {
+impl<T: Scalar> Projection<T> for ViewFrustumOrthographicProjection<T> {
+  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
     self.orth.update_projection::<S>(projection);
   }
 
-  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
+  fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
     self.orth.pixels_per_unit(distance, view_height)
   }
 }
 
-impl ResizableProjection for ViewFrustumOrthographicProjection {
-  fn resize(&mut self, size: (f32, f32)) {
+impl<T: Scalar> ResizableProjection<T> for ViewFrustumOrthographicProjection<T> {
+  fn resize(&mut self, size: (T, T)) {
     self.set_aspect(size.0 / size.1);
   }
 }

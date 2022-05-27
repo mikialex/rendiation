@@ -1,44 +1,46 @@
-use crate::{Mat4, NDCSpaceMapper, Projection, ResizableProjection, Scalar};
+use crate::*;
 
-pub struct PerspectiveProjection {
-  pub near: f32,
-  pub far: f32,
-  pub fov: f32,
-  pub aspect: f32,
+#[derive(Debug, Copy, Clone)]
+pub struct PerspectiveProjection<T> {
+  pub near: T,
+  pub far: T,
+  pub fov: Deg<T>,
+  pub aspect: T,
 }
 
-impl Default for PerspectiveProjection {
+impl<T: Scalar> Default for PerspectiveProjection<T> {
   fn default() -> Self {
     Self {
-      near: 1.,
-      far: 100_000.,
-      fov: 90.,
-      aspect: 1.,
+      near: T::eval::<1.>(),
+      far: T::eval::<100_000.>(),
+      fov: Deg::by(T::eval::<90.>()),
+      aspect: T::eval::<1.>(),
     }
   }
 }
 
-impl Projection for PerspectiveProjection {
-  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<f32>) {
-    *projection = Mat4::perspective_fov_aspect::<S>(self.fov, self.aspect, self.near, self.far);
+impl<T: Scalar> Projection<T> for PerspectiveProjection<T> {
+  fn update_projection<S: NDCSpaceMapper>(&self, projection: &mut Mat4<T>) {
+    *projection =
+      Mat4::perspective_fov_aspect::<S>(self.fov.to_rad(), self.aspect, self.near, self.far);
   }
 
-  fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32 {
-    let pixels_of_dist_one = 2. * (self.fov * f32::pi_by_c180() / 2.).tan();
+  fn pixels_per_unit(&self, distance: T, view_height: T) -> T {
+    let pixels_of_dist_one = T::two() * (self.fov.to_rad() / T::two()).tan();
     let distance_when_each_world_unit_match_screen_unit = view_height / pixels_of_dist_one;
     distance_when_each_world_unit_match_screen_unit / distance
   }
 }
 
-impl ResizableProjection for PerspectiveProjection {
-  fn resize(&mut self, size: (f32, f32)) {
+impl<T: Scalar> ResizableProjection<T> for PerspectiveProjection<T> {
+  fn resize(&mut self, size: (T, T)) {
     self.aspect = size.0 / size.1;
   }
 }
 
 impl<T: Scalar> Mat4<T> {
   pub fn perspective_fov_aspect<S: NDCSpaceMapper>(fov: T, aspect: T, near: T, far: T) -> Self {
-    let h = T::one() / (fov * T::half() * T::pi_by_c180()).tan();
+    let h = T::one() / (fov * T::half()).tan();
     let w = h / aspect;
     let q = -far / (far - near);
 

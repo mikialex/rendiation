@@ -23,7 +23,10 @@ impl std::ops::DerefMut for SceneCamera {
 }
 
 impl SceneCamera {
-  pub fn new(p: impl ResizableProjection + RayCaster3<f32> + 'static, node: SceneNode) -> Self {
+  pub fn new(
+    p: impl ResizableProjection<f32> + RayCaster3<f32> + 'static,
+    node: SceneNode,
+  ) -> Self {
     let mut inner = Camera {
       bounds: Default::default(),
       projection: Box::new(p),
@@ -81,7 +84,7 @@ pub trait CameraProjection {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32>;
 }
 
-impl<T: ResizableProjection + RayCaster3<f32>> CameraProjection for T {
+impl<T: ResizableProjection<f32> + RayCaster3<f32>> CameraProjection for T {
   fn update_projection(&self, projection: &mut Mat4<f32>) {
     self.update_projection::<WebGPU>(projection);
   }

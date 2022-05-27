@@ -152,7 +152,7 @@ impl<T: Scalar> Ray3<T> {
 
 pub trait RayCaster3<T: Scalar> = HyperRayCaster<T, Vec3<T>, Vec2<T>>;
 
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for OrthographicProjection {
+impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for OrthographicProjection<f32> {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
     let z = (self.near + self.far) / (self.near - self.far); // i don't know why need this?
     let ndc = Vec3::new(normalized_position.x, normalized_position.y, z);
@@ -164,7 +164,7 @@ impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for OrthographicProjection {
   }
 }
 
-impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for PerspectiveProjection {
+impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for PerspectiveProjection<f32> {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
     let ndc = Vec3::new(normalized_position.x, normalized_position.y, -0.5);
     let direction = self.un_project::<OpenGL>(ndc); // ditto

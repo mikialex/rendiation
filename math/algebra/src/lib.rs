@@ -12,6 +12,7 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::from_over_into)]
 
+pub mod angle;
 pub mod interpolation;
 pub mod mat;
 pub mod projection;
@@ -21,6 +22,7 @@ pub mod vec;
 
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
+pub use angle::*;
 pub use interpolation::*;
 pub use mat::*;
 pub use projection::*;
@@ -43,6 +45,9 @@ pub trait Scalar = Float
   + SubAssign<Self>
   + DivAssign<Self>
   + MulAssign<Self>
+  + Send
+  + Sync
+  + Default
   + 'static;
 
 const PI: f32 = std::f32::consts::PI;
@@ -106,17 +111,25 @@ pub trait SpaceEntityCopyable<T: Scalar, const D: usize>: Copy + SpaceEntity<T, 
 
 impl<T: Scalar, const D: usize, X: Copy + SpaceEntity<T, D>> SpaceEntityCopyable<T, D> for X {}
 
-// pub trait Chirality { }
-// pub struct Left;
-// pub struct Right;
+/// Use for define the coordinate's handiness.
+#[derive(Debug, Copy, Clone)]
+pub enum Handiness {
+  Left,
+  Right,
+}
 
+/// Should impl on target clip space.
+/// The target clip space is defined by the API vendors such as OpenGL or WebGPU
 pub trait NDCSpaceMapper {
+  /// We use OpenGL's NDC range as standard, this function return the transformation matrix
+  /// from the OpenGL's NDC space to it's defined NDC Space
   fn from_opengl_standard<T: Scalar>() -> Mat4<T>;
 }
 
 pub struct OpenGL;
 
 impl NDCSpaceMapper for OpenGL {
+  /// Of course we don't need transform here, so it's identity
   fn from_opengl_standard<T: Scalar>() -> Mat4<T> {
     Mat4::identity()
   }
