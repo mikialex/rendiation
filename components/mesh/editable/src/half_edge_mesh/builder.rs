@@ -26,6 +26,11 @@ impl<M: HalfEdgeMeshData> BuildingVertex<M> {
   }
 }
 
+/// use this handle to create unbound error early to debug
+fn uninit_handle<T>() -> Handle<T> {
+  Handle::from_raw_parts(usize::MAX, u64::MAX)
+}
+
 #[derive(Debug)]
 pub enum HalfEdgeBuildError {
   NonManifoldOperation(NoneManifoldError),
@@ -86,7 +91,7 @@ fn build_mesh() {
     .iter_half_edge(&mesh)
     .for_each(|(he, _)| {
       //
-      println!("{}", he.data)
+      println!("he {}", he.data)
     })
 
   // let (b, a, d) = builder
@@ -144,7 +149,7 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
       BuildingVertex::Detached(v) => {
         let vertex = HalfEdgeVertex {
           data: v,
-          edge: Handle::from_raw_parts(0, 0),
+          edge: uninit_handle(),
         };
         let inserted = self.mesh.vertices.insert(vertex);
         self.not_committed_vertices.push(inserted);
@@ -174,12 +179,17 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
       data: M::HalfEdge::default(),
       vert: from.0,
       pair: None,
-      face: Handle::from_raw_parts(0, 0),
-      next: Handle::from_raw_parts(0, 0),
-      prev: Handle::from_raw_parts(0, 0),
+      face: uninit_handle(),
+      next: uninit_handle(),
+      prev: uninit_handle(),
     };
     let inserted = self.mesh.half_edges.insert(edge);
     self.not_committed_half_edges.push(inserted);
+
+    let mut from = self.mesh.vertices.get_mut(from.0).unwrap();
+    if from.edge == uninit_handle() {
+      from.edge = inserted;
+    }
     Ok(inserted)
   }
 
@@ -202,15 +212,22 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     next: Handle<HalfEdge<M>>,
     face: Handle<HalfEdgeFace<M>>,
   ) {
-    let next_vert = self.mesh.half_edges.get(edge).unwrap().vert;
+    let next_vert = self.mesh.half_edges.get(next).unwrap().vert;
     let self_vert = self.mesh.half_edges.get(edge).unwrap().vert;
-    let pair = HalfEdge::get_by_two_points(&self.mesh, next_vert, self_vert);
 
-    let edge = self.mesh.half_edges.get_mut(edge).unwrap();
-    edge.next = next;
-    edge.prev = prev;
-    edge.face = face;
-    edge.pair = pair;
+    let e = self.mesh.half_edges.get_mut(edge).unwrap();
+    e.next = next;
+    e.prev = prev;
+    e.face = face;
+  }
+
+  fn setup_pair(&mut self, edge: Handle<HalfEdge<M>>, next: Handle<HalfEdge<M>>) {
+    let next_vert = self.mesh.half_edges.get(next).unwrap().vert;
+    let self_vert = self.mesh.half_edges.get(edge).unwrap().vert;
+
+    let pair = HalfEdge::get_by_two_points(&self.mesh, next_vert, self_vert);
+    let e = self.mesh.half_edges.get_mut(edge).unwrap();
+    e.pair = pair;
   }
 
   fn build_triangle_face_impl(
@@ -235,7 +252,6 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     let bc = self.insert_building_half_edge(b, c)?;
     let ca = self.insert_building_half_edge(c, a)?;
 
-    // todo checked ok, create face
     let face = self.mesh.faces.insert(HalfEdgeFace {
       data: M::Face::default(),
       edge: ab,
@@ -243,6 +259,11 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     self.link_half_edge(ca, ab, bc, face);
     self.link_half_edge(ab, bc, ca, face);
     self.link_half_edge(bc, ca, ab, face);
+
+    // should link first, or we will use uninit handle
+    self.setup_pair(ab, bc);
+    self.setup_pair(bc, ca);
+    self.setup_pair(ca, ab);
 
     Ok((a.0, b.0, c.0).into())
   }

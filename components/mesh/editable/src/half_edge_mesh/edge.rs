@@ -31,6 +31,9 @@ impl<M: HalfEdgeMeshData> HalfEdge<M> {
     from: Handle<HalfEdgeVertex<M>>,
     to: Handle<HalfEdgeVertex<M>>,
   ) -> Option<Handle<HalfEdge<M>>> {
+    if from == to {
+      return None;
+    }
     let from_v = mesh.vertices.get(from).unwrap();
     from_v
       .iter_half_edge(mesh)
