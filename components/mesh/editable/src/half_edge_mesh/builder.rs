@@ -3,6 +3,7 @@ use rendiation_geometry::Triangle;
 
 use crate::{HalfEdge, HalfEdgeFace, HalfEdgeMesh, HalfEdgeMeshData, HalfEdgeVertex};
 
+#[derive(Debug)]
 pub enum BuildingVertex<M: HalfEdgeMeshData> {
   Detached(M::Vertex),
   Attached(Handle<HalfEdgeVertex<M>>),
@@ -31,18 +32,19 @@ fn uninit_handle<T>() -> Handle<T> {
   Handle::from_raw_parts(usize::MAX, u64::MAX)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum HalfEdgeBuildError {
   NonManifoldOperation(NoneManifoldError),
   FaceConstructionInputTooSmall,
   TriangleInputDegenerated,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum NoneManifoldError {
   AdjacentFaceSideInvert,
   BowtieVertex,
-  DanglingPointOrEdge,
+  DanglingPoint,
+  DanglingEdge,
 }
 use HalfEdgeBuildError::*;
 use NoneManifoldError::*;
@@ -114,6 +116,13 @@ fn build_mesh() {
     ))
     .unwrap()
     .into();
+
+  let err = builder.build_triangle_face(Triangle::new(
+    BuildingVertex::Attached(b),
+    BuildingVertex::Attached(a),
+    BuildingVertex::Detached("_"),
+  ));
+  assert_eq!(err, Err(NonManifoldOperation(DanglingEdge)))
 }
 
 impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
@@ -170,7 +179,7 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
       BuildingVertex::Attached(v) => {
         let vertex = self.mesh.vertices.get(v).unwrap();
         if !vertex.is_boundary_vertex(&self.mesh) {
-          Err(NonManifoldOperation(DanglingPointOrEdge))
+          Err(NonManifoldOperation(DanglingPoint))
         } else {
           Ok((v, false))
         }
@@ -233,13 +242,24 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     e.face = face;
   }
 
-  fn setup_pair(&mut self, edge: Handle<HalfEdge<M>>, next: Handle<HalfEdge<M>>) {
+  fn setup_pair(
+    &mut self,
+    edge: Handle<HalfEdge<M>>,
+    next: Handle<HalfEdge<M>>,
+  ) -> Result<(), HalfEdgeBuildError> {
     let next_vert = self.mesh.half_edges.get(next).unwrap().vert;
     let self_vert = self.mesh.half_edges.get(edge).unwrap().vert;
+
+    if let Some(same) = HalfEdge::get_by_two_points(&self.mesh, self_vert, next_vert) {
+      if same != edge {
+        return Err(NonManifoldOperation(DanglingEdge));
+      }
+    }
 
     let pair = HalfEdge::get_by_two_points(&self.mesh, next_vert, self_vert);
     let e = self.mesh.half_edges.get_mut(edge).unwrap();
     e.pair = pair;
+    Ok(())
   }
 
   fn build_triangle_face_impl(
@@ -273,9 +293,9 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     self.link_half_edge(bc, ca, ab, face);
 
     // should link first, or we will use uninit handle
-    self.setup_pair(ab, bc);
-    self.setup_pair(bc, ca);
-    self.setup_pair(ca, ab);
+    self.setup_pair(ab, bc)?;
+    self.setup_pair(bc, ca)?;
+    self.setup_pair(ca, ab)?;
 
     Ok((a.0, b.0, c.0).into())
   }

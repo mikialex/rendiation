@@ -6,7 +6,7 @@ pub enum FaceSide {
   Double,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Triangle<V = Vec3<f32>> {
   pub a: V,
   pub b: V,
