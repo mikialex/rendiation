@@ -39,7 +39,8 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
     if let Some(next) = result {
       self.current = (self.mesh.half_edges.get(next).unwrap(), next);
     } else {
-      self.current = self.start;
+      let prev = self.start.0.prev();
+      self.current = (self.mesh.half_edges.get(prev).unwrap(), prev);
     }
 
     result

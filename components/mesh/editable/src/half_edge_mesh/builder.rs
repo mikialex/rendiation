@@ -70,6 +70,16 @@ impl HalfEdgeMeshData for TestMeshSchema {
   type Vertex = &'static str;
 }
 
+pub struct TriangleBuildSource<M: HalfEdgeMeshData> {
+  a: BuildingVertex<M>,
+  b: BuildingVertex<M>,
+  c: BuildingVertex<M>,
+  ab: M::HalfEdge,
+  bc: M::HalfEdge,
+  ca: M::HalfEdge,
+  face: M::Face,
+}
+
 #[test]
 fn build_mesh() {
   let mut mesh = HalfEdgeMesh::<TestMeshSchema>::new();
@@ -84,24 +94,26 @@ fn build_mesh() {
     .unwrap()
     .into();
 
-  mesh
-    .vertices
-    .get(a)
-    .unwrap()
-    .iter_half_edge(&mesh)
-    .for_each(|(he, _)| {
-      //
-      println!("he {}", he.data)
-    })
+  // println!("test");
 
-  // let (b, a, d) = builder
-  //   .build_triangle_face(Triangle::new(
-  //     BuildingVertex::Attached(b),
-  //     BuildingVertex::Attached(a),
-  //     BuildingVertex::Detached("d"),
-  //   ))
+  // mesh
+  //   .vertices
+  //   .get(a)
   //   .unwrap()
-  //   .into();
+  //   .iter_half_edge(&mesh)
+  //   .for_each(|(he, _)| {
+  //     //
+  //     println!("he {}", he.data)
+  //   })
+
+  let (b, a, d) = builder
+    .build_triangle_face(Triangle::new(
+      BuildingVertex::Attached(b),
+      BuildingVertex::Attached(a),
+      BuildingVertex::Detached("d"),
+    ))
+    .unwrap()
+    .into();
 }
 
 impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
@@ -157,7 +169,7 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
       }
       BuildingVertex::Attached(v) => {
         let vertex = self.mesh.vertices.get(v).unwrap();
-        if vertex.is_boundary_vertex(&self.mesh) {
+        if !vertex.is_boundary_vertex(&self.mesh) {
           Err(NonManifoldOperation(DanglingPointOrEdge))
         } else {
           Ok((v, false))
@@ -199,7 +211,7 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     b: (Handle<HalfEdgeVertex<M>>, bool),
     c: (Handle<HalfEdgeVertex<M>>, bool),
   ) -> Result<(), HalfEdgeBuildError> {
-    if b.1 && !a.1 && !c.1 {
+    if b.1 && !a.1 && c.1 {
       return Err(NonManifoldOperation(BowtieVertex));
     }
     Ok(())
