@@ -60,9 +60,9 @@ impl<M: HalfEdgeMeshData> HalfEdgeMesh<M> {
 struct TestMeshSchema;
 
 impl HalfEdgeMeshData for TestMeshSchema {
-  type Face = ();
-  type HalfEdge = ();
-  type Vertex = ();
+  type Face = &'static str;
+  type HalfEdge = &'static str;
+  type Vertex = &'static str;
 }
 
 #[test]
@@ -72,21 +72,31 @@ fn build_mesh() {
 
   let (a, b, c) = builder
     .build_triangle_face(Triangle::new(
-      BuildingVertex::Detached(()),
-      BuildingVertex::Detached(()),
-      BuildingVertex::Detached(()),
+      BuildingVertex::Detached("a"),
+      BuildingVertex::Detached("b"),
+      BuildingVertex::Detached("c"),
     ))
     .unwrap()
     .into();
 
-  let (b, a, d) = builder
-    .build_triangle_face(Triangle::new(
-      BuildingVertex::Attached(b),
-      BuildingVertex::Attached(a),
-      BuildingVertex::Detached(()),
-    ))
+  mesh
+    .vertices
+    .get(a)
     .unwrap()
-    .into();
+    .iter_half_edge(&mesh)
+    .for_each(|(he, _)| {
+      //
+      println!("{}", he.data)
+    })
+
+  // let (b, a, d) = builder
+  //   .build_triangle_face(Triangle::new(
+  //     BuildingVertex::Attached(b),
+  //     BuildingVertex::Attached(a),
+  //     BuildingVertex::Detached("d"),
+  //   ))
+  //   .unwrap()
+  //   .into();
 }
 
 impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {

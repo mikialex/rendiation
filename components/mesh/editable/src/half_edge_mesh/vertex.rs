@@ -11,31 +11,38 @@ pub struct HalfEdgeVertex<M: HalfEdgeMeshData> {
   pub(super) edge: Handle<HalfEdge<M>>,
 }
 
+/// An iterator that iterate all half edges from this vertex
 pub struct HalfEdgeVertexHalfEdgeIter<'a, M: HalfEdgeMeshData> {
   mesh: &'a HalfEdgeMesh<M>,
   has_meet_one_side_boundary: bool,
   has_visited_start: bool,
   start: EdgeIterItem<'a, M>,
-  start_vert: &'a HalfEdgeVertex<M>,
+  self_vert: &'a HalfEdgeVertex<M>,
   current: EdgeIterItem<'a, M>,
 }
 
 impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
-  pub fn next_right(&mut self) -> Option<Handle<HalfEdge<M>>> {
+  fn next_half_edge(&mut self, reverse_direction: bool) -> Option<Handle<HalfEdge<M>>> {
     let current_vert = self.mesh.vertices.get(self.current.0.vert).unwrap();
-    if current_vert as *const _ == self.start_vert as *const _ {
+
+    let result = if current_vert as *const _ == self.self_vert as *const _ {
       self.current.0.pair()
     } else {
-      Some(self.current.0.next())
-    }
-  }
-  pub fn next_left(&mut self) -> Option<Handle<HalfEdge<M>>> {
-    let current_vert = self.mesh.vertices.get(self.current.0.vert).unwrap();
-    if current_vert as *const _ == self.start_vert as *const _ {
-      self.current.0.pair()
+      if reverse_direction {
+        Some(self.current.0.next())
+      } else {
+        Some(self.current.0.prev())
+      }
+    };
+
+    // update current
+    if let Some(next) = result {
+      self.current = (self.mesh.half_edges.get(next).unwrap(), next);
     } else {
-      Some(self.current.0.prev())
+      self.current = self.start;
     }
+
+    result
   }
 }
 
@@ -51,25 +58,24 @@ impl<'a, M: HalfEdgeMeshData> Iterator for HalfEdgeVertexHalfEdgeIter<'a, M> {
     }
 
     if !self.has_meet_one_side_boundary {
-      if let Some(next) = self.next_right() {
+      if let Some(next) = self.next_half_edge(false) {
         let next_v = self.mesh.half_edges.get(next).unwrap();
+
+        // check if we meet the start and end the iteration
         if next_v as *const _ == self.start.0 as *const _ {
-          None
+          return None;
         } else {
-          Some((next_v, next))
+          return Some((next_v, next));
         }
       } else {
+        // go check another side
         self.has_meet_one_side_boundary = true;
-        self.current = self.start;
-        self
-          .next_left()
-          .map(|p| (self.mesh.half_edges.get(p).unwrap(), p))
       }
-    } else {
-      self
-        .next_left()
-        .map(|p| (self.mesh.half_edges.get(p).unwrap(), p))
     }
+
+    self
+      .next_half_edge(true)
+      .map(|p| (self.mesh.half_edges.get(p).unwrap(), p))
   }
 }
 
@@ -120,7 +126,7 @@ impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
       has_meet_one_side_boundary: false,
       has_visited_start: false,
       start: (start, self.edge),
-      start_vert: self,
+      self_vert: self,
       current: (start, self.edge),
     }
   }
