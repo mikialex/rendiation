@@ -12,7 +12,7 @@ pub struct HalfEdgeVertex<M: HalfEdgeMeshData> {
 }
 
 /// An iterator that iterate all half edges from this vertex
-pub struct HalfEdgeVertexHalfEdgeIter<'a, M: HalfEdgeMeshData> {
+pub struct VertexToHalfEdgeIter<'a, M: HalfEdgeMeshData> {
   mesh: &'a HalfEdgeMesh<M>,
   has_meet_one_side_boundary: bool,
   has_visited_start: bool,
@@ -21,7 +21,7 @@ pub struct HalfEdgeVertexHalfEdgeIter<'a, M: HalfEdgeMeshData> {
   current: EdgeIterItem<'a, M>,
 }
 
-impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
+impl<'a, M: HalfEdgeMeshData> VertexToHalfEdgeIter<'a, M> {
   fn next_half_edge(&mut self, reverse_direction: bool) -> Option<Handle<HalfEdge<M>>> {
     let current_vert = self.mesh.vertices.get(self.current.0.vert).unwrap();
 
@@ -52,7 +52,7 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
 
 pub type EdgeIterItem<'a, M> = (&'a HalfEdge<M>, Handle<HalfEdge<M>>);
 
-impl<'a, M: HalfEdgeMeshData> Iterator for HalfEdgeVertexHalfEdgeIter<'a, M> {
+impl<'a, M: HalfEdgeMeshData> Iterator for VertexToHalfEdgeIter<'a, M> {
   type Item = EdgeIterItem<'a, M>;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -85,12 +85,12 @@ impl<'a, M: HalfEdgeMeshData> Iterator for HalfEdgeVertexHalfEdgeIter<'a, M> {
 
 pub type FaceIterItem<'a, M> = (&'a HalfEdgeFace<M>, Handle<HalfEdgeFace<M>>);
 
-pub struct HalfEdgeVertexHalfFaceIter<'a, M: HalfEdgeMeshData> {
-  inner: HalfEdgeVertexHalfEdgeIter<'a, M>,
+pub struct VertexToFaceIter<'a, M: HalfEdgeMeshData> {
+  inner: VertexToHalfEdgeIter<'a, M>,
   has_visited_start: bool,
 }
 
-impl<'a, M: HalfEdgeMeshData> Iterator for HalfEdgeVertexHalfFaceIter<'a, M> {
+impl<'a, M: HalfEdgeMeshData> Iterator for VertexToFaceIter<'a, M> {
   type Item = FaceIterItem<'a, M>;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -124,12 +124,13 @@ impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
     self.iter_half_edge(&mesh).count()
   }
 
-  pub fn iter_half_edge<'a>(
-    &'a self,
-    mesh: &'a HalfEdgeMesh<M>,
-  ) -> HalfEdgeVertexHalfEdgeIter<'a, M> {
+  pub fn face_connected_count(&self, mesh: &HalfEdgeMesh<M>) -> usize {
+    self.iter_face(&mesh).count()
+  }
+
+  pub fn iter_half_edge<'a>(&'a self, mesh: &'a HalfEdgeMesh<M>) -> VertexToHalfEdgeIter<'a, M> {
     let start = mesh.half_edges.get(self.edge).unwrap();
-    HalfEdgeVertexHalfEdgeIter {
+    VertexToHalfEdgeIter {
       mesh,
       has_meet_one_side_boundary: false,
       has_visited_start: false,
@@ -139,8 +140,8 @@ impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
     }
   }
 
-  pub fn iter_face<'a>(&'a self, mesh: &'a HalfEdgeMesh<M>) -> HalfEdgeVertexHalfFaceIter<'a, M> {
-    HalfEdgeVertexHalfFaceIter {
+  pub fn iter_face<'a>(&'a self, mesh: &'a HalfEdgeMesh<M>) -> VertexToFaceIter<'a, M> {
+    VertexToFaceIter {
       inner: self.iter_half_edge(mesh),
       has_visited_start: false,
     }

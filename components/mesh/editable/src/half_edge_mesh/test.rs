@@ -27,6 +27,8 @@ pub struct TriangleBuildSource<M: HalfEdgeMeshData> {
 fn build_mesh() {
   let mut mesh = HalfEdgeMesh::<TestMeshSchema>::new();
 
+  assert_eq!(mesh.face_count(), 0);
+
   let (a, b, c) = mesh
     .build_triangle_face(Triangle::new(
       BuildingVertex::Detached("a"),
@@ -39,6 +41,16 @@ fn build_mesh() {
   assert_eq!(mesh[a].half_edge_connected_count(&mesh), 2);
   assert_eq!(mesh[b].half_edge_connected_count(&mesh), 2);
   assert_eq!(mesh[c].half_edge_connected_count(&mesh), 2);
+
+  assert_eq!(mesh[a].face_connected_count(&mesh), 1);
+  assert_eq!(mesh[b].face_connected_count(&mesh), 1);
+  assert_eq!(mesh[c].face_connected_count(&mesh), 1);
+
+  assert_eq!(mesh[a].is_boundary_vertex(&mesh), true);
+  assert_eq!(mesh[b].is_boundary_vertex(&mesh), true);
+  assert_eq!(mesh[c].is_boundary_vertex(&mesh), true);
+
+  assert_eq!(mesh.face_count(), 1);
 
   let (b, a, d) = mesh
     .build_triangle_face(Triangle::new(
@@ -54,6 +66,13 @@ fn build_mesh() {
   assert_eq!(mesh[c].half_edge_connected_count(&mesh), 2);
   assert_eq!(mesh[d].half_edge_connected_count(&mesh), 2);
 
+  assert_eq!(mesh[a].is_boundary_vertex(&mesh), true);
+  assert_eq!(mesh[b].is_boundary_vertex(&mesh), true);
+  assert_eq!(mesh[c].is_boundary_vertex(&mesh), true);
+  assert_eq!(mesh[d].is_boundary_vertex(&mesh), true);
+
+  assert_eq!(mesh.face_count(), 2);
+
   // mesh
   //   .vertices
   //   .get(a)
@@ -63,10 +82,18 @@ fn build_mesh() {
   //     he.debug(&mesh);
   //   });
 
-  // let err = builder.build_triangle_face(Triangle::new(
-  //   BuildingVertex::Attached(b),
-  //   BuildingVertex::Attached(a),
-  //   BuildingVertex::Detached("_"),
-  // ));
-  // assert_eq!(err, Err(NonManifoldOperation(DanglingEdge)))
+  let err = mesh.build_triangle_face(Triangle::new(
+    BuildingVertex::Attached(b),
+    BuildingVertex::Attached(a),
+    BuildingVertex::Detached("_"),
+  ));
+  assert_eq!(err.is_err(), true);
+
+  
+  let err = mesh.build_triangle_face(Triangle::new(
+    BuildingVertex::Attached(b),
+    BuildingVertex::Detached("_"),
+    BuildingVertex::Detached("_"),
+  ));
+  assert_eq!(err.is_err(), true);
 }

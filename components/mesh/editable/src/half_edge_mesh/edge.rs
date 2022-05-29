@@ -52,6 +52,7 @@ impl<M: HalfEdgeMeshData> HalfEdge<M> {
   pub fn start(&self) -> Handle<HalfEdgeVertex<M>> {
     self.vert
   }
+
   pub fn end(&self, mesh: &HalfEdgeMesh<M>) -> Handle<HalfEdgeVertex<M>> {
     mesh.half_edges.get(self.next()).unwrap().vert()
   }
