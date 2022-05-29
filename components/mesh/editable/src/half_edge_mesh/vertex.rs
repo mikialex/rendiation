@@ -39,16 +39,6 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
       }
     };
 
-    // let result = if current_vert as *const _ == self.self_vert as *const _ {
-    //   self.current.0.pair()
-    // } else {
-    //   if !reverse_direction {
-    //     Some(self.current.0.next())
-    //   } else {
-    //     Some(self.current.0.prev())
-    //   }
-    // };
-
     // update current
     if let Some(next) = result {
       self.current = (self.mesh.half_edges.get(next).unwrap(), next);

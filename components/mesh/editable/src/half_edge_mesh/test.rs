@@ -40,16 +40,19 @@ fn build_mesh() {
   assert_eq!(mesh[b].half_edge_connected_count(&mesh), 2);
   assert_eq!(mesh[c].half_edge_connected_count(&mesh), 2);
 
-  // let (b, a, d) = mesh
-  //   .build_triangle_face(Triangle::new(
-  //     BuildingVertex::Attached(b),
-  //     BuildingVertex::Attached(a),
-  //     BuildingVertex::Detached("d"),
-  //   ))
-  //   .unwrap()
-  //   .into();
+  let (b, a, d) = mesh
+    .build_triangle_face(Triangle::new(
+      BuildingVertex::Attached(b),
+      BuildingVertex::Attached(a),
+      BuildingVertex::Detached("d"),
+    ))
+    .unwrap()
+    .into();
 
-  // println!("test");
+  assert_eq!(mesh[a].half_edge_connected_count(&mesh), 4);
+  assert_eq!(mesh[b].half_edge_connected_count(&mesh), 4);
+  assert_eq!(mesh[c].half_edge_connected_count(&mesh), 2);
+  assert_eq!(mesh[d].half_edge_connected_count(&mesh), 2);
 
   // mesh
   //   .vertices

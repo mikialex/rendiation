@@ -201,6 +201,10 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
     }
 
     let pair = HalfEdge::get_by_two_points(&self.mesh, next_vert, self_vert);
+    if let Some(pair) = pair {
+      let p = self.mesh.half_edges.get_mut(pair).unwrap();
+      p.pair = Some(edge);
+    }
     let e = self.mesh.half_edges.get_mut(edge).unwrap();
     e.pair = pair;
     Ok(())
