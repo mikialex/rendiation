@@ -25,22 +25,35 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
   fn next_half_edge(&mut self, reverse_direction: bool) -> Option<Handle<HalfEdge<M>>> {
     let current_vert = self.mesh.vertices.get(self.current.0.vert).unwrap();
 
-    let result = if current_vert as *const _ == self.self_vert as *const _ {
-      self.current.0.pair()
-    } else {
-      if !reverse_direction {
-        Some(self.current.0.next())
+    let result = if !reverse_direction {
+      if current_vert as *const _ == self.self_vert as *const _ {
+        self.current.0.pair()
       } else {
+        Some(self.current.0.next())
+      }
+    } else {
+      if current_vert as *const _ == self.self_vert as *const _ {
         Some(self.current.0.prev())
+      } else {
+        self.current.0.pair()
       }
     };
+
+    // let result = if current_vert as *const _ == self.self_vert as *const _ {
+    //   self.current.0.pair()
+    // } else {
+    //   if !reverse_direction {
+    //     Some(self.current.0.next())
+    //   } else {
+    //     Some(self.current.0.prev())
+    //   }
+    // };
 
     // update current
     if let Some(next) = result {
       self.current = (self.mesh.half_edges.get(next).unwrap(), next);
     } else {
-      let prev = self.start.0.prev();
-      self.current = (self.mesh.half_edges.get(prev).unwrap(), prev);
+      self.current = self.start;
     }
 
     result
