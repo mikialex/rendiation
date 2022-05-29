@@ -1,7 +1,10 @@
 pub mod builder;
 pub mod edge;
 pub mod face;
+mod test;
 pub mod vertex;
+
+use std::ops::Index;
 
 pub use builder::*;
 pub use edge::*;
@@ -20,6 +23,30 @@ pub struct HalfEdgeMesh<M: HalfEdgeMeshData> {
   pub half_edges: Arena<HalfEdge<M>>, // todo not pub
   pub faces: Arena<HalfEdgeFace<M>>,
   pub vertices: Arena<HalfEdgeVertex<M>>,
+}
+
+impl<M: HalfEdgeMeshData> Index<Handle<HalfEdgeVertex<M>>> for HalfEdgeMesh<M> {
+  type Output = HalfEdgeVertex<M>;
+
+  fn index(&self, index: Handle<HalfEdgeVertex<M>>) -> &Self::Output {
+    &self.vertices[index]
+  }
+}
+
+impl<M: HalfEdgeMeshData> Index<Handle<HalfEdge<M>>> for HalfEdgeMesh<M> {
+  type Output = HalfEdge<M>;
+
+  fn index(&self, index: Handle<HalfEdge<M>>) -> &Self::Output {
+    &self.half_edges[index]
+  }
+}
+
+impl<M: HalfEdgeMeshData> Index<Handle<HalfEdgeFace<M>>> for HalfEdgeMesh<M> {
+  type Output = HalfEdgeFace<M>;
+
+  fn index(&self, index: Handle<HalfEdgeFace<M>>) -> &Self::Output {
+    &self.faces[index]
+  }
 }
 
 impl<M: HalfEdgeMeshData> HalfEdgeMesh<M> {

@@ -1,6 +1,6 @@
-use arena::Handle;
-
 use crate::{HalfEdgeMesh, HalfEdgeMeshData};
+use arena::Handle;
+use std::fmt::Debug;
 
 use super::{HalfEdgeFace, HalfEdgeVertex};
 
@@ -70,5 +70,17 @@ impl<M: HalfEdgeMeshData> HalfEdge<M> {
 
   pub fn is_border(&self) -> bool {
     self.pair.is_none()
+  }
+
+  pub(crate) fn debug(&self, mesh: &HalfEdgeMesh<M>)
+  where
+    M::Vertex: Debug,
+    M::HalfEdge: Debug,
+  {
+    println!("debug half edge: {:?}", self.data);
+    let start = &mesh.vertices.get(self.vert).unwrap().data;
+    println!("  start: {:?}", start);
+    let end = &mesh.vertices.get(self.end(mesh)).unwrap().data;
+    println!("  end  : {:?}", end);
   }
 }

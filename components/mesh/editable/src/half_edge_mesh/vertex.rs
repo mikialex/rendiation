@@ -28,7 +28,7 @@ impl<'a, M: HalfEdgeMeshData> HalfEdgeVertexHalfEdgeIter<'a, M> {
     let result = if current_vert as *const _ == self.self_vert as *const _ {
       self.current.0.pair()
     } else {
-      if reverse_direction {
+      if !reverse_direction {
         Some(self.current.0.next())
       } else {
         Some(self.current.0.prev())
@@ -115,6 +115,10 @@ impl<M: HalfEdgeMeshData> HalfEdgeVertex<M> {
       .iter_half_edge(mesh)
       .find(|(e, _)| e.is_border())
       .is_some()
+  }
+
+  pub fn half_edge_connected_count(&self, mesh: &HalfEdgeMesh<M>) -> usize {
+    self.iter_half_edge(&mesh).count()
   }
 
   pub fn iter_half_edge<'a>(

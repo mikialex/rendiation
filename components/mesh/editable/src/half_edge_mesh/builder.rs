@@ -61,68 +61,12 @@ pub struct HalfEdgeMeshBuilder<'a, M: HalfEdgeMeshData> {
 }
 
 impl<M: HalfEdgeMeshData> HalfEdgeMesh<M> {
-  // pub fn build_triangle_face()
-}
-
-struct TestMeshSchema;
-
-impl HalfEdgeMeshData for TestMeshSchema {
-  type Face = &'static str;
-  type HalfEdge = &'static str;
-  type Vertex = &'static str;
-}
-
-pub struct TriangleBuildSource<M: HalfEdgeMeshData> {
-  a: BuildingVertex<M>,
-  b: BuildingVertex<M>,
-  c: BuildingVertex<M>,
-  ab: M::HalfEdge,
-  bc: M::HalfEdge,
-  ca: M::HalfEdge,
-  face: M::Face,
-}
-
-#[test]
-fn build_mesh() {
-  let mut mesh = HalfEdgeMesh::<TestMeshSchema>::new();
-  let mut builder = HalfEdgeMeshBuilder::new(&mut mesh);
-
-  let (a, b, c) = builder
-    .build_triangle_face(Triangle::new(
-      BuildingVertex::Detached("a"),
-      BuildingVertex::Detached("b"),
-      BuildingVertex::Detached("c"),
-    ))
-    .unwrap()
-    .into();
-
-  // println!("test");
-
-  // mesh
-  //   .vertices
-  //   .get(a)
-  //   .unwrap()
-  //   .iter_half_edge(&mesh)
-  //   .for_each(|(he, _)| {
-  //     //
-  //     println!("he {}", he.data)
-  //   })
-
-  let (b, a, d) = builder
-    .build_triangle_face(Triangle::new(
-      BuildingVertex::Attached(b),
-      BuildingVertex::Attached(a),
-      BuildingVertex::Detached("d"),
-    ))
-    .unwrap()
-    .into();
-
-  let err = builder.build_triangle_face(Triangle::new(
-    BuildingVertex::Attached(b),
-    BuildingVertex::Attached(a),
-    BuildingVertex::Detached("_"),
-  ));
-  assert_eq!(err, Err(NonManifoldOperation(DanglingEdge)))
+  pub fn build_triangle_face(
+    &mut self,
+    triangle: Triangle<BuildingVertex<M>>,
+  ) -> Result<Triangle<Handle<HalfEdgeVertex<M>>>, HalfEdgeBuildError> {
+    HalfEdgeMeshBuilder::new(self).build_triangle_face(triangle)
+  }
 }
 
 impl<'a, M: HalfEdgeMeshData> HalfEdgeMeshBuilder<'a, M> {
