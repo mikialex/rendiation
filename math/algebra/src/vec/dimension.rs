@@ -5,7 +5,7 @@ use num_traits::real::Real;
 use crate::*;
 
 // this trait for avoid conflict impl
-pub trait VectorImpl {}
+pub(crate) trait VectorSelfCrateImpl {}
 
 // this trait for mark the vector's dimension
 pub trait VectorDimension<const D: usize> {}
@@ -138,26 +138,10 @@ pub trait InnerProductSpace<T: Scalar>: VectorSpace<T> {
 impl<T, V> Lerp<T> for V
 where
   T: Scalar,
-  V: VectorImpl + VectorSpace<T>,
+  V: VectorSelfCrateImpl + VectorSpace<T>,
 {
   #[inline(always)]
   fn lerp(self, b: Self, t: T) -> Self {
     self * (T::one() - t) + b * t
-  }
-}
-
-impl<T: Scalar, V> Slerp<T> for V
-where
-  T: Scalar,
-  V: VectorImpl + InnerProductSpace<T> + VectorSpace<T>,
-{
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot > T::zero() { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
   }
 }

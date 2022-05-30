@@ -26,32 +26,37 @@ impl<T: Scalar> SquareMatrix<T> for Mat4<T> {
     )
   }
 
+  #[rustfmt::skip]
   fn det(&self) -> T {
     let m = self;
-    m.a1 * m.b2 * m.c3 * m.d4
-      - m.a1 * m.b2 * m.c4 * m.d3 
-      + m.a1 * m.b3 * m.c4 * m.d2
-      - m.a1 * m.b3 * m.c2 * m.d4
-      + m.a1 * m.b4 * m.c2 * m.d3
-      - m.a1 * m.b4 * m.c3 * m.d2
-      - m.a2 * m.b3 * m.c4 * m.d1
-      + m.a2 * m.b3 * m.c1 * m.d4
-      - m.a2 * m.b4 * m.c1 * m.d3
-      + m.a2 * m.b4 * m.c3 * m.d1
-      - m.a2 * m.b1 * m.c3 * m.d4
-      + m.a2 * m.b1 * m.c4 * m.d3
-      + m.a3 * m.b4 * m.c1 * m.d2
-      - m.a3 * m.b4 * m.c2 * m.d1
-      + m.a3 * m.b1 * m.c2 * m.d4
-      - m.a3 * m.b1 * m.c4 * m.d2
-      + m.a3 * m.b2 * m.c4 * m.d1
-      - m.a3 * m.b2 * m.c1 * m.d4
-      - m.a4 * m.b1 * m.c2 * m.d3
-      + m.a4 * m.b1 * m.c3 * m.d2
-      - m.a4 * m.b2 * m.c3 * m.d1
-      + m.a4 * m.b2 * m.c1 * m.d3
-      - m.a4 * m.b3 * m.c1 * m.d2
-      + m.a4 * m.b3 * m.c2 * m.d1
+
+      m.a1 * m.b2 * m.c3 * m.d4
+    - m.a1 * m.b2 * m.c4 * m.d3 
+    + m.a1 * m.b3 * m.c4 * m.d2
+    - m.a1 * m.b3 * m.c2 * m.d4
+    + m.a1 * m.b4 * m.c2 * m.d3
+    - m.a1 * m.b4 * m.c3 * m.d2
+
+    - m.a2 * m.b3 * m.c4 * m.d1
+    + m.a2 * m.b3 * m.c1 * m.d4
+    - m.a2 * m.b4 * m.c1 * m.d3
+    + m.a2 * m.b4 * m.c3 * m.d1
+    - m.a2 * m.b1 * m.c3 * m.d4
+    + m.a2 * m.b1 * m.c4 * m.d3
+
+    + m.a3 * m.b4 * m.c1 * m.d2
+    - m.a3 * m.b4 * m.c2 * m.d1
+    + m.a3 * m.b1 * m.c2 * m.d4
+    - m.a3 * m.b1 * m.c4 * m.d2
+    + m.a3 * m.b2 * m.c4 * m.d1
+    - m.a3 * m.b2 * m.c1 * m.d4
+
+    - m.a4 * m.b1 * m.c2 * m.d3
+    + m.a4 * m.b1 * m.c3 * m.d2
+    - m.a4 * m.b2 * m.c3 * m.d1
+    + m.a4 * m.b2 * m.c1 * m.d3
+    - m.a4 * m.b3 * m.c1 * m.d2
+    + m.a4 * m.b3 * m.c2 * m.d1
   }
 
   fn inverse(&self) -> Option<Self> {
@@ -253,139 +258,59 @@ where
   T: Scalar,
 {
   pub fn rotate_x(theta: T) -> Self {
-    let (s, c) = theta.sin_cos();
-
-    let a1 = T::one();
-    let a2 = T::zero();
-    let a3 = T::zero();
-    let a4 = T::zero();
-
-    let b1 = T::zero();
-    let b2 = c;
-    let b3 = s;
-    let b4 = T::zero();
-
-    let c1 = T::zero();
-    let c2 = -s;
-    let c3 = c;
-    let c4 = T::zero();
-
-    let d1 = T::zero();
-    let d2 = T::zero();
-    let d3 = T::zero();
-    let d4 = T::one();
+    let (sin, cos) = theta.sin_cos();
 
     #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, 
-      b1, b2, b3, b4, 
-      c1, c2, c3, c4, 
-      d1, d2, d3, d4,
+      T::one(),   T::zero(), T::zero(), T::zero(), 
+      T::zero(),  cos,       sin,       T::zero(), 
+      T::zero(), -sin,       cos,       T::zero(), 
+      T::zero(),  T::zero(), T::zero(), T::one(),
     )
   }
 
   pub fn rotate_y(theta: T) -> Self {
-    let (s, c) = theta.sin_cos();
-
-    let a1 = c;
-    let a2 = T::zero();
-    let a3 = -s;
-    let a4 = T::zero();
-
-    let b1 = T::zero();
-    let b2 = T::one();
-    let b3 = T::zero();
-    let b4 = T::zero();
-
-    let c1 = s;
-    let c2 = T::zero();
-    let c3 = c;
-    let c4 = T::zero();
-
-    let d1 = T::zero();
-    let d2 = T::zero();
-    let d3 = T::zero();
-    let d4 = T::one();
+    let (sin, cos) = theta.sin_cos();
 
     #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, 
-      b1, b2, b3, b4, 
-      c1, c2, c3, c4, 
-      d1, d2, d3, d4,
+      cos,       T::zero(), -sin,       T::zero(), 
+      T::zero(), T::one(),   T::zero(), T::zero(), 
+      sin,       T::zero(),  cos,       T::zero(), 
+      T::zero(), T::zero(),  T::zero(), T::one(),
     )
   }
 
   pub fn rotate_z(theta: T) -> Self {
-    let (s, c) = theta.sin_cos();
-
-    let a1 = c;
-    let a2 = s;
-    let a3 = T::zero();
-    let a4 = T::zero();
-
-    let b1 = -s;
-    let b2 = c;
-    let b3 = T::zero();
-    let b4 = T::zero();
-
-    let c1 = T::zero();
-    let c2 = T::zero();
-    let c3 = T::one();
-    let c4 = T::zero();
-
-    let d1 = T::zero();
-    let d2 = T::zero();
-    let d3 = T::zero();
-    let d4 = T::one();
+    let (sin, cos) = theta.sin_cos();
 
     #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, 
-      b1, b2, b3, b4, 
-      c1, c2, c3, c4, 
-      d1, d2, d3, d4,
+      cos,       sin,       T::zero(), T::zero(), 
+     -sin,       cos,       T::zero(), T::zero(), 
+      T::zero(), T::zero(), T::one(),  T::zero(), 
+      T::zero(), T::zero(), T::zero(), T::one(),
     )
   }
 
   pub fn rotate(axis: Vec3<T>, theta: T) -> Self {
-    let (s, c) = theta.sin_cos();
+    let (sin, cos) = theta.sin_cos();
 
     let x = axis.x;
     let y = axis.y;
     let z = axis.z;
 
-    let t = T::one() - c;
+    let t = T::one() - cos;
     let tx = t * x;
     let ty = t * y;
     let tz = t * z;
 
-    let a1 = tx * x + c;
-    let a2 = tx * y + s * z;
-    let a3 = tx * z - s * y;
-    let a4 = T::zero();
-
-    let b1 = tx * y - s * z;
-    let b2 = ty * y + c;
-    let b3 = ty * z + s * x;
-    let b4 = T::zero();
-
-    let c1 = tx * z + s * y;
-    let c2 = ty * z - s * x;
-    let c3 = tz * z + c;
-    let c4 = T::zero();
-
-    let d1 = T::zero();
-    let d2 = T::zero();
-    let d3 = T::zero();
-    let d4 = T::one();
-
     #[rustfmt::skip]
     Mat4::new(
-      a1, a2, a3, a4, 
-      b1, b2, b3, b4, 
-      c1, c2, c3, c4, 
-      d1, d2, d3, d4,
+      tx * x + cos,     tx * y + sin * z, tx * z - sin * y, T::zero(),
+      tx * y - sin * z, ty * y + cos,     ty * z + sin * x, T::zero(),
+      tx * z + sin * y, ty * z - sin * x, tz * z + cos,     T::zero(),
+      T::zero(),        T::zero(),        T::zero(),        T::one(),
     )
   }
 

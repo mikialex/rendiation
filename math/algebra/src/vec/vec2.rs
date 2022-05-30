@@ -17,7 +17,7 @@ unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec2<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec2<T> {}
 
 impl<T: Scalar> VectorDimension<2> for Vec2<T> {}
-impl<T: Scalar> VectorImpl for Vec2<T> {}
+impl<T: Scalar> VectorSelfCrateImpl for Vec2<T> {}
 impl<T: Scalar> RealVector<T> for Vec2<T> {}
 impl<T> VectorSpace<T> for Vec2<T> where
   T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Div<T, Output = T> + Copy

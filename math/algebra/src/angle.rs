@@ -1,7 +1,7 @@
 use crate::Scalar;
 
 /// A simple value wrapper that indicate the inner value type is in degree unit.
-/// Avoid possible mis conversion of degree and rad.
+/// Avoid possible miss conversion between degree and rad.
 ///
 /// We do not impl any function on it, especially trigonometric function which is only
 /// meaningful for rad unit, and we consider the common scalar angle unit type is rad.
