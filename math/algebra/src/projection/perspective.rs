@@ -39,17 +39,19 @@ impl<T: Scalar> ResizableProjection<T> for PerspectiveProjection<T> {
 }
 
 impl<T: Scalar> Mat4<T> {
+  // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix/opengl-perspective-projection-matrix
   pub fn perspective_fov_aspect<S: NDCSpaceMapper>(fov: T, aspect: T, near: T, far: T) -> Self {
     let h = T::one() / (fov * T::half()).tan();
     let w = h / aspect;
-    let q = -far / (far - near);
+    let c = -(far + near) / (far - near);
+    let q = -T::two() * near * far / (far - near);
 
     #[rustfmt::skip]
     let mat = Mat4::new(
-      w,         T::zero(), T::zero(),           T::zero(),
-      T::zero(), h,         T::zero(),           T::zero(),
-      T::zero(), T::zero(), q,                  -T::one(),
-      T::zero(), T::zero(), T::two() * near * q, T::zero(),
+      w,         T::zero(), T::zero(), T::zero(),
+      T::zero(), h,         T::zero(), T::zero(),
+      T::zero(), T::zero(), c,        -T::one(),
+      T::zero(), T::zero(), q,         T::zero(),
     );
 
     S::from_opengl_standard::<T>() * mat
