@@ -4,7 +4,7 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-impl MaterialMeshLayoutRequire for PhysicalMaterial {
+impl<S: SceneContent> MaterialMeshLayoutRequire for PhysicalMaterial<S> {
   type VertexInput = Vec<Vertex>;
 }
 #[repr(C)]
@@ -47,7 +47,7 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
   }
 }
 
-impl WebGPUMaterial for PhysicalMaterial {
+impl WebGPUMaterial for PhysicalMaterial<WebGPUScene> {
   type GPU = PhysicalMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {

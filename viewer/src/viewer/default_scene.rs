@@ -18,7 +18,7 @@ pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
   }
 }
 
-pub fn load_img_cube() -> TextureCubeSource {
+pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
   let path = vec![
     "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
     "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
@@ -38,14 +38,14 @@ pub fn load_img_cube() -> TextureCubeSource {
   unsafe { res.try_into().unwrap_unchecked() }
 }
 
-pub fn load_default_scene(scene: &mut Scene) {
+pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
     "/Users/mikialex/Desktop/test.png"
   };
 
-  let texture = SceneTexture2D::new(Box::new(load_img(path).into_source()));
+  let texture = SceneTexture2D::<WebGPUScene>::new(Box::new(load_img(path).into_source()));
 
   // let texture_cube = scene.add_texture_cube(load_img_cube());
 
@@ -69,7 +69,7 @@ pub fn load_default_scene(scene: &mut Scene) {
     .use_state()
     .into_resourced();
 
-    let child = scene.root.create_child();
+    let child = scene.root().create_child();
     child.mutate(|node| node.local_matrix = Mat4::translate(2., 0., 3.));
 
     let model = MeshModel::new(material, mesh, child);
@@ -88,13 +88,13 @@ pub fn load_default_scene(scene: &mut Scene) {
     .into_resourced();
     material.states.depth_compare = webgpu::CompareFunction::Always;
 
-    let model = MeshModel::new(material, mesh, scene.root.create_child());
+    let model = MeshModel::new(material, mesh, scene.root().create_child());
     scene.add_model(model)
   }
 
   {
     let camera = PerspectiveProjection::default();
-    let camera_node = scene.root.create_child();
+    let camera_node = scene.root().create_child();
     camera_node.mutate(|node| {
       node.local_matrix = Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
     });
@@ -105,7 +105,7 @@ pub fn load_default_scene(scene: &mut Scene) {
 
   {
     let camera = PerspectiveProjection::default();
-    let camera_node = scene.root.create_child();
+    let camera_node = scene.root().create_child();
     camera_node.mutate(|node| {
       node.local_matrix = Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), Vec3::new(0., 1., 0.));
     });

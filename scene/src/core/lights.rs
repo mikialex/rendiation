@@ -1,13 +1,11 @@
 use rendiation_algebra::Vec3;
 
-use crate::SceneNodeHandle;
+use crate::{SceneContent, SceneNodeHandle};
 
-pub struct SceneLight {
-  pub light: Box<dyn Light>,
+pub struct SceneLight<S: SceneContent> {
+  pub light: S::Light,
   pub node: SceneNodeHandle,
 }
-
-pub trait Light {}
 
 #[derive(Debug, Clone, Copy)]
 pub struct PointLight {

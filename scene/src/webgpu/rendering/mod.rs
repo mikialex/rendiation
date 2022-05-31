@@ -17,7 +17,7 @@ use rendiation_webgpu::{GPURenderPass, GPURenderPassCtx};
 pub mod framework;
 pub use framework::*;
 
-use crate::{DefaultPassDispatcher, GPUResourceCache, Scene, SceneCamera};
+use crate::{DefaultPassDispatcher, GPUResourceCache, Scene, SceneCamera, WebGPUScene};
 
 pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
@@ -51,7 +51,7 @@ pub struct CameraRef<'a, T> {
   inner: T,
 }
 
-impl Scene {
+impl Scene<WebGPUScene> {
   pub fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
     CameraRef {
       camera: self.active_camera.as_ref().unwrap(),
@@ -79,12 +79,17 @@ pub trait PassContentWithCamera {
 }
 
 pub trait PassContentWithSceneAndCamera {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera);
+  fn render(
+    &mut self,
+    pass: &mut SceneRenderPass,
+    scene: &Scene<WebGPUScene>,
+    camera: &SceneCamera,
+  );
 }
 
 pub struct CameraSceneRef<'a, T> {
   camera: &'a SceneCamera,
-  scene: &'a Scene,
+  scene: &'a Scene<WebGPUScene>,
   inner: T,
 }
 

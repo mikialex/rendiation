@@ -1,28 +1,51 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-use arena::{Arena, Handle};
-use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
+use arena::Arena;
+use arena_tree::ArenaTree;
 use rendiation_algebra::PerspectiveProjection;
+use rendiation_webgpu::WebGPUTexture2dSource;
 
 use crate::*;
 
-pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
-pub type LightHandle = Handle<Box<dyn Light>>;
+pub trait SceneContent {
+  type BackGround;
+  type Model;
+  type Light;
+  type Texture2D;
+  type TextureCube;
+}
 
-pub struct Scene {
-  pub background: Box<dyn Background>,
+#[derive(Copy, Clone)]
+pub struct WebGPUScene;
+impl SceneContent for WebGPUScene {
+  type BackGround = Box<dyn WebGPUBackground>;
+  type Model = Box<dyn SceneRenderableShareable>;
+  type Light = Box<dyn SceneRenderableShareable>;
+  type Texture2D = Box<dyn WebGPUTexture2dSource>;
+  type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
+}
+
+pub struct Scene<S: SceneContent> {
+  pub background: Option<S::BackGround>,
 
   pub default_camera: SceneCamera,
   pub active_camera: Option<SceneCamera>,
+
+  /// All cameras in the scene
   pub cameras: Arena<SceneCamera>,
-  pub lights: Arena<SceneLight>,
-  pub models: Vec<Box<dyn SceneRenderableShareable>>,
+  /// All lights in the scene
+  pub lights: Arena<SceneLight<S>>,
+  /// All models in the scene
+  pub models: Vec<S::Model>,
 
   nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
-  pub root: SceneNode,
+  root: SceneNode,
 }
 
-impl Scene {
+impl<S: SceneContent> Scene<S> {
+  pub fn root(&self) -> &SceneNode {
+    &self.root
+  }
   pub fn new() -> Self {
     let nodes: Rc<RefCell<ArenaTree<SceneNodeData>>> = Default::default();
 
@@ -35,7 +58,7 @@ impl Scene {
     Self {
       nodes,
       root,
-      background: Box::new(SolidBackground::default()),
+      background: None,
       default_camera,
       cameras: Arena::new(),
       lights: Arena::new(),
@@ -43,10 +66,6 @@ impl Scene {
 
       active_camera: None,
     }
-  }
-
-  pub fn add_model(&mut self, model: impl SceneRenderableShareable) {
-    self.models.push(Box::new(model));
   }
 
   pub fn maintain(&mut self) {
@@ -60,7 +79,7 @@ impl Scene {
   }
 }
 
-impl Default for Scene {
+impl<S: SceneContent> Default for Scene<S> {
   fn default() -> Self {
     Self::new()
   }

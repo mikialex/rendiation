@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rendiation_algebra::Vec2;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
-use rendiation_scene::{SceneRenderable, SceneRenderableShareable};
+use rendiation_scene::{SceneRenderable, SceneRenderableShareable, WebGPUScene};
 
 use crate::Scene;
 
@@ -14,7 +14,7 @@ pub struct Picker {
 impl Picker {
   pub fn pick_new(
     &self,
-    scene: &Scene,
+    scene: &Scene<WebGPUScene>,
     selections: &mut SelectionSet,
     normalized_position: Vec2<f32>,
   ) {

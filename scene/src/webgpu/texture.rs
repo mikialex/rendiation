@@ -3,7 +3,7 @@ use rendiation_webgpu::*;
 
 use crate::*;
 
-impl SceneTexture2D {
+impl SceneTexture2D<WebGPUScene> {
   pub fn check_update_gpu<'a>(
     &self,
     resources: &'a mut GPUResourceSubCache,
@@ -25,7 +25,7 @@ impl SceneTexture2D {
   }
 }
 
-impl SceneTextureCube {
+impl SceneTextureCube<WebGPUScene> {
   pub fn check_update_gpu<'a>(
     &self,
     resources: &'a mut GPUResourceSubCache,

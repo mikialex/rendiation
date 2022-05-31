@@ -1,13 +1,8 @@
+use crate::{Identity, SceneContent};
 use std::{cell::RefCell, rc::Rc};
 
-use rendiation_webgpu::WebGPUTexture2dSource;
-
-use crate::Identity;
-
-pub type TextureCubeSource = [Box<dyn WebGPUTexture2dSource>; 6];
-
-pub type SceneTexture2D = SceneTexture<Box<dyn WebGPUTexture2dSource>>;
-pub type SceneTextureCube = SceneTexture<TextureCubeSource>;
+pub type SceneTexture2D<S> = SceneTexture<<S as SceneContent>::Texture2D>;
+pub type SceneTextureCube<S> = SceneTexture<<S as SceneContent>::TextureCube>;
 
 pub struct SceneTexture<T> {
   pub content: Rc<RefCell<Identity<T>>>,

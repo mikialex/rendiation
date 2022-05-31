@@ -6,7 +6,7 @@ use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 
 use crate::*;
 
-impl Scene {
+impl Scene<WebGPUScene> {
   pub fn pick_nearest(
     &self,
     normalized_position: Vec2<f32>,

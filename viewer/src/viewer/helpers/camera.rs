@@ -107,7 +107,12 @@ impl Default for CameraHelpers {
 }
 
 impl PassContentWithSceneAndCamera for &mut CameraHelpers {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+  fn render(
+    &mut self,
+    pass: &mut SceneRenderPass,
+    scene: &Scene<WebGPUScene>,
+    camera: &SceneCamera,
+  ) {
     if !self.enabled {
       return;
     }

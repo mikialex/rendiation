@@ -25,13 +25,16 @@ pub use rendering::*;
 pub use shading::*;
 pub use texture::*;
 
+pub mod picking;
+pub use picking::*;
+
 use anymap::AnyMap;
 use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
 
 use rendiation_webgpu::*;
 
-use crate::{IdentityMapper, SceneCamera, TextureCubeSource};
+use crate::{IdentityMapper, Scene, SceneCamera, SceneContent, WebGPUScene};
 
 pub trait SceneRenderable: 'static {
   fn render(
@@ -50,6 +53,7 @@ pub trait SceneRenderable: 'static {
   }
 }
 
+/// renderable but allow cheap clone and shared ownership
 pub trait SceneRenderableShareable: SceneRenderable {
   fn id(&self) -> usize;
   fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable>;
@@ -102,6 +106,12 @@ pub struct GPUResourceSceneCache {
 #[derive(Default)]
 pub struct GPUResourceSubCache {
   // pub uniforms: IdentityMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_2ds: IdentityMapper<GPUTexture2dView, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_cubes: IdentityMapper<GPUTextureCubeView, TextureCubeSource>,
+  pub texture_2ds: IdentityMapper<GPUTexture2dView, <WebGPUScene as SceneContent>::Texture2D>,
+  pub texture_cubes: IdentityMapper<GPUTextureCubeView, <WebGPUScene as SceneContent>::TextureCube>,
+}
+
+impl Scene<WebGPUScene> {
+  pub fn add_model(&mut self, model: impl SceneRenderableShareable) {
+    self.models.push(Box::new(model));
+  }
 }

@@ -16,9 +16,6 @@ pub use texture::*;
 pub mod background;
 pub use background::*;
 
-pub mod picking;
-pub use picking::*;
-
 pub mod model;
 pub use model::*;
 

@@ -1,8 +1,8 @@
 use crate::*;
 
-impl Scene {
+impl Scene<WebGPUScene> {
   pub fn get_main_pass_load_op(&self) -> wgpu::Operations<wgpu::Color> {
-    let load = if let Some(clear_color) = self.background.require_pass_clear() {
+    let load = if let Some(clear_color) = self.background.as_ref().unwrap().require_pass_clear() {
       wgpu::LoadOp::Clear(clear_color)
     } else {
       wgpu::LoadOp::Load
@@ -15,7 +15,12 @@ impl Scene {
 pub struct ForwardScene;
 
 impl PassContentWithSceneAndCamera for ForwardScene {
-  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene, camera: &SceneCamera) {
+  fn render(
+    &mut self,
+    pass: &mut SceneRenderPass,
+    scene: &Scene<WebGPUScene>,
+    camera: &SceneCamera,
+  ) {
     scene
       .models
       .iter()

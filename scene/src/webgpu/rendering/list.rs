@@ -9,7 +9,7 @@ impl RenderList {
   pub fn setup_pass<'p, 'a, 'r>(
     &self,
     gpu_pass: &mut SceneRenderPass<'p, 'a, 'r>,
-    scene: &mut Scene,
+    scene: &mut Scene<WebGPUScene>,
     dispatcher: &dyn RenderComponentAny,
   ) {
     self

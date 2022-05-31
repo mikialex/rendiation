@@ -1,14 +1,13 @@
 use std::{cell::RefCell, rc::Rc};
 
-use arena_tree::ArenaTree;
+use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
 
 use crate::Identity;
 
-use super::SceneNodeHandle;
-
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
+pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
 
 pub struct SceneNodeDataImpl {
   pub visible: bool,

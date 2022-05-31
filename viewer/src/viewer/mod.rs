@@ -72,7 +72,7 @@ impl Default for ViewerImpl {
 }
 
 pub struct Viewer3dContent {
-  pub scene: Scene,
+  pub scene: Scene<WebGPUScene>,
   pub picker: Picker,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
@@ -120,8 +120,8 @@ impl Viewer3dContent {
     let controller = OrbitController::default();
     let controller = ControllerWinitAdapter::new(controller);
 
-    let axis_helper = AxisHelper::new(&scene.root);
-    let grid_helper = GridHelper::new(&scene.root, Default::default());
+    let axis_helper = AxisHelper::new(scene.root());
+    let grid_helper = GridHelper::new(scene.root(), Default::default());
 
     Self {
       scene,
