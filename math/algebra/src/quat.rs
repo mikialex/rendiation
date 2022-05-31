@@ -1,8 +1,6 @@
 use crate::*;
-use std::fmt;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default, Hash, Eq, PartialEq)]
@@ -89,16 +87,18 @@ where
 
 impl<T> Mul for Quat<T>
 where
-  T: Mul<Output = T>,
+  T: Scalar,
 {
   type Output = Self;
 
   fn mul(self, other: Self) -> Self {
+    let (qax, qay, qaz, qaw) = self.into();
+    let (qbx, qby, qbz, qbw) = other.into();
     Self {
-      x: self.x * other.x,
-      y: self.y * other.y,
-      z: self.z * other.z,
-      w: self.w * other.w,
+      x: qax * qbw + qaw * qbx + qay * qbz - qaz * qby,
+      y: qay * qbw + qaw * qby + qaz * qbx - qax * qbz,
+      z: qaz * qbw + qaw * qbz + qax * qby - qay * qbx,
+      w: qaw * qbw - qax * qbx - qay * qby - qaz * qbz,
     }
   }
 }
@@ -116,106 +116,6 @@ where
       z: self.z / s,
       w: self.w / s,
     }
-  }
-}
-
-impl<T> Div for Quat<T>
-where
-  T: Div<Output = T>,
-{
-  type Output = Self;
-
-  fn div(self, other: Self) -> Self {
-    Self {
-      x: self.x / other.x,
-      y: self.y / other.y,
-      z: self.z / other.z,
-      w: self.w / other.w,
-    }
-  }
-}
-
-impl<T> AddAssign for Quat<T>
-where
-  T: AddAssign<T>,
-{
-  fn add_assign(&mut self, other: Self) {
-    self.x += other.x;
-    self.y += other.y;
-    self.z += other.z;
-    self.w += other.w;
-  }
-}
-
-impl<T> SubAssign for Quat<T>
-where
-  T: SubAssign<T>,
-{
-  fn sub_assign(&mut self, other: Self) {
-    self.x -= other.x;
-    self.y -= other.y;
-    self.z -= other.z;
-    self.w -= other.w;
-  }
-}
-
-impl<T> MulAssign<T> for Quat<T>
-where
-  T: MulAssign<T> + Copy,
-{
-  fn mul_assign(&mut self, s: T) {
-    self.x *= s;
-    self.y *= s;
-    self.z *= s;
-    self.w *= s;
-  }
-}
-
-impl<T> MulAssign for Quat<T>
-where
-  T: MulAssign<T>,
-{
-  fn mul_assign(&mut self, other: Self) {
-    self.x *= other.x;
-    self.y *= other.y;
-    self.z *= other.z;
-    self.w *= other.w;
-  }
-}
-
-impl<'a, T> MulAssign<&'a T> for Quat<T>
-where
-  T: MulAssign<T> + Copy,
-{
-  fn mul_assign(&mut self, other: &'a T) {
-    self.x *= *other;
-    self.y *= *other;
-    self.z *= *other;
-    self.w *= *other;
-  }
-}
-
-impl<T> DivAssign<T> for Quat<T>
-where
-  T: DivAssign<T> + Copy,
-{
-  fn div_assign(&mut self, s: T) {
-    self.x /= s;
-    self.y /= s;
-    self.z /= s;
-    self.w /= s;
-  }
-}
-
-impl<T> DivAssign for Quat<T>
-where
-  T: DivAssign<T>,
-{
-  fn div_assign(&mut self, other: Self) {
-    self.x /= other.x;
-    self.y /= other.y;
-    self.z /= other.z;
-    self.w /= other.w;
   }
 }
 
@@ -293,46 +193,6 @@ where
     }
   }
 
-  pub fn euler_xyz(euler: &Vec3<T>) -> Self {
-    let p = (euler.x * T::half()).sin_cos();
-    let h = (euler.y * T::half()).sin_cos();
-    let b = (euler.z * T::half()).sin_cos();
-
-    let sp = p.0;
-    let sb = b.0;
-    let sh = h.0;
-    let cp = p.1;
-    let cb = b.1;
-    let ch = h.1;
-
-    Self {
-      w: cp * ch * cb + sp * sh * sb,
-      x: sp * ch * cb - cp * sh * sb,
-      y: cp * sh * cb + sp * ch * sb,
-      z: cp * ch * sb - sp * sh * cb,
-    }
-  }
-
-  pub fn euler_zxy(euler: &Vec3<T>) -> Self {
-    let p = (euler.x * T::half()).sin_cos();
-    let h = (euler.y * T::half()).sin_cos();
-    let b = (euler.z * T::half()).sin_cos();
-
-    let sp = p.0;
-    let sb = b.0;
-    let sh = h.0;
-    let cp = p.1;
-    let cb = b.1;
-    let ch = h.1;
-
-    Self {
-      w: cp * ch * cb + sp * sh * sb,
-      x: cp * sh * cb + sp * ch * sb,
-      y: cp * ch * sb - sp * sh * cb,
-      z: sp * ch * cb - cp * sh * sb,
-    }
-  }
-
   pub fn dot(&self, b: Self) -> T {
     self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
   }
@@ -354,9 +214,10 @@ where
     let mag_sq = self.length2();
     if mag_sq > T::zero() {
       let inv_sqrt = T::one() / mag_sq.sqrt();
-      return *self * inv_sqrt;
+      *self * inv_sqrt
+    } else {
+      (T::zero(), T::zero(), T::zero(), T::one()).into()
     }
-    *self
   }
 
   pub fn axis(&self) -> Vec3<T> {
@@ -391,28 +252,12 @@ where
   }
 }
 
-impl<T> Lerp<T> for Quat<T>
-where
-  T: Copy + num_traits::One + Mul<Output = T> + Add<Output = T> + Sub<Output = T>,
-{
-  #[inline(always)]
-  fn lerp(self, b: Self, t: T) -> Self {
-    self * (T::one() - t) + b * t
-  }
-}
-
 impl<T> Slerp<T> for Quat<T>
 where
   T: Scalar,
 {
-  fn slerp(self, other: Self, factor: T) -> Self {
-    let dot = self.dot(other);
-
-    let s = T::one() - factor;
-    let t = if dot > T::zero() { factor } else { -factor };
-    let q = self * s + other * t;
-
-    q.normalize()
+  fn slerp(self, _other: Self, _factor: T) -> Self {
+    todo!()
   }
 }
 
@@ -437,7 +282,7 @@ where
 
 impl<T> num_traits::One for Quat<T>
 where
-  T: num_traits::One,
+  T: Scalar,
 {
   #[inline(always)]
   fn one() -> Self {
@@ -450,22 +295,9 @@ where
   }
 }
 
-impl<T> fmt::Display for Quat<T>
-where
-  T: Debug,
-{
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(
-      f,
-      "({:?}, {:?}, {:?}, {:?})",
-      self.x, self.y, self.z, self.w
-    )
-  }
-}
-
 impl<T> From<Vec4<T>> for Quat<T>
 where
-  T: Copy + Div<Output = T>,
+  T: Copy,
 {
   fn from(v: Vec4<T>) -> Self {
     Self {
@@ -479,7 +311,7 @@ where
 
 impl<T> From<[T; 4]> for Quat<T>
 where
-  T: Copy + Div<Output = T>,
+  T: Copy,
 {
   fn from(v: [T; 4]) -> Self {
     Self {
@@ -493,7 +325,7 @@ where
 
 impl<T> From<(T, T, T, T)> for Quat<T>
 where
-  T: Copy + Div<Output = T>,
+  T: Copy,
 {
   fn from(v: (T, T, T, T)) -> Self {
     Self {
@@ -502,6 +334,12 @@ where
       z: v.2,
       w: v.3,
     }
+  }
+}
+
+impl<T> Into<(T, T, T, T)> for Quat<T> {
+  fn into(self) -> (T, T, T, T) {
+    (self.x, self.y, self.z, self.w)
   }
 }
 

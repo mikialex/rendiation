@@ -13,6 +13,7 @@
 #![allow(clippy::from_over_into)]
 
 pub mod angle;
+pub mod euler;
 pub mod interpolation;
 pub mod mat;
 pub mod projection;
@@ -23,6 +24,7 @@ pub mod vec;
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
 pub use angle::*;
+pub use euler::*;
 pub use interpolation::*;
 pub use mat::*;
 pub use projection::*;
