@@ -24,7 +24,8 @@ members = [
   "shader/graph",
   "shader/derive",
   "shader/parser/wgsl",
-  "scene",
+  "scene/core",
+  "scene/webgpu",
   "viewer",
   "webgpu",
 ]
