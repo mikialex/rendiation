@@ -1,4 +1,4 @@
-#[derive(PartialEq, Clone, Default)]
+#[derive(PartialEq, Eq, Clone, Default)]
 pub struct Counter {
   pub count: usize,
 }

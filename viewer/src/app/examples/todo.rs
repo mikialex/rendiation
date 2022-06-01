@@ -6,7 +6,7 @@ pub struct Todo {
   pub items: Vec<TodoItem>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TodoItem {
   pub id: usize,
   pub name: String,

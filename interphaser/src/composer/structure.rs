@@ -173,7 +173,7 @@ where
   }
 }
 
-impl<'a, T, C> Component<Vec<T>> for For<T, C>
+impl<T, C> Component<Vec<T>> for For<T, C>
 where
   T: 'static + IdentityKeyed + Clone,
   C: Component<T>,
@@ -264,7 +264,7 @@ impl<C: Presentable> Presentable for ComponentArray<C> {
   }
 }
 
-impl<'a, T, C> Component<T> for ComponentArray<C>
+impl<T, C> Component<T> for ComponentArray<C>
 where
   C: Component<T>,
 {

@@ -10,11 +10,11 @@ pub static STATE_ID: once_cell::sync::Lazy<Mutex<ValueIDGenerator<MaterialStates
 #[derive(Debug, Clone)]
 pub struct MaterialStates {
   pub depth_write_enabled: bool,
-  pub depth_compare: wgpu::CompareFunction,
-  pub stencil: wgpu::StencilState,
-  pub bias: wgpu::DepthBiasState,
-  pub blend: Option<wgpu::BlendState>,
-  pub write_mask: wgpu::ColorWrites,
+  pub depth_compare: webgpu::CompareFunction,
+  pub stencil: webgpu::StencilState,
+  pub bias: webgpu::DepthBiasState,
+  pub blend: Option<webgpu::BlendState>,
+  pub write_mask: webgpu::ColorWrites,
 }
 
 impl PartialEq for MaterialStates {
@@ -44,8 +44,8 @@ impl std::hash::Hash for MaterialStates {
 impl Eq for MaterialStates {}
 
 impl MaterialStates {
-  pub fn map_color_states(&self, format: wgpu::TextureFormat) -> wgpu::ColorTargetState {
-    wgpu::ColorTargetState {
+  pub fn map_color_states(&self, format: webgpu::TextureFormat) -> webgpu::ColorTargetState {
+    webgpu::ColorTargetState {
       format,
       blend: self.blend,
       write_mask: self.write_mask,
@@ -53,9 +53,9 @@ impl MaterialStates {
   }
   pub fn map_depth_stencil_state(
     &self,
-    format: Option<wgpu::TextureFormat>,
-  ) -> Option<wgpu::DepthStencilState> {
-    format.map(|format| wgpu::DepthStencilState {
+    format: Option<webgpu::TextureFormat>,
+  ) -> Option<webgpu::DepthStencilState> {
+    format.map(|format| webgpu::DepthStencilState {
       format,
       depth_write_enabled: self.depth_write_enabled,
       depth_compare: self.depth_compare,
@@ -81,9 +81,9 @@ impl Default for MaterialStates {
   fn default() -> Self {
     Self {
       depth_write_enabled: true,
-      depth_compare: wgpu::CompareFunction::Less,
+      depth_compare: webgpu::CompareFunction::Less,
       blend: None,
-      write_mask: wgpu::ColorWrites::all(),
+      write_mask: webgpu::ColorWrites::all(),
       bias: Default::default(),
       stencil: Default::default(),
     }

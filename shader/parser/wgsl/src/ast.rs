@@ -120,7 +120,7 @@ pub enum Statement {
   For(For),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeclarationType {
   Variable,
   Const,

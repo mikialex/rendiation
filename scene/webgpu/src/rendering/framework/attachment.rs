@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use rendiation_texture::*;
+use rendiation_texture::Size;
 use shadergraph::{ShaderTexture, ShaderUniformProvider};
-use ::webgpu::*;
+use webgpu::*;
 
 use crate::FrameCtx;
 
@@ -20,7 +20,7 @@ impl ResourcePoolImpl {
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 struct PooledTextureKey {
   size: Size,
-  format: wgpu::TextureFormat,
+  format: ::webgpu::TextureFormat,
   sample_count: u32,
 }
 
@@ -42,7 +42,7 @@ impl ResourcePool {
 
 pub fn attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: wgpu::TextureFormat::Rgba8Unorm,
+    format: webgpu::TextureFormat::Rgba8Unorm,
     sample_count: 1,
     sizer: default_sizer(),
   }
@@ -50,7 +50,7 @@ pub fn attachment() -> AttachmentDescriptor {
 
 pub fn depth_attachment() -> AttachmentDescriptor {
   AttachmentDescriptor {
-    format: wgpu::TextureFormat::Depth24PlusStencil8,
+    format: webgpu::TextureFormat::Depth24PlusStencil8,
     sample_count: 1,
     sizer: default_sizer(),
   }
@@ -123,7 +123,7 @@ impl<T> ShaderUniformProvider for AttachmentReadView<T> {
 
 #[derive(Clone)]
 pub struct AttachmentDescriptor {
-  pub(super) format: wgpu::TextureFormat,
+  pub(super) format: webgpu::TextureFormat,
   pub(super) sample_count: u32,
   pub(super) sizer: Rc<dyn Fn(Size) -> Size>,
 }
@@ -134,7 +134,7 @@ pub fn default_sizer() -> Rc<dyn Fn(Size) -> Size> {
 
 impl AttachmentDescriptor {
   #[must_use]
-  pub fn format(mut self, format: wgpu::TextureFormat) -> Self {
+  pub fn format(mut self, format: webgpu::TextureFormat) -> Self {
     self.format = format;
     self
   }

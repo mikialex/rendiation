@@ -61,7 +61,7 @@ impl Renderer {
     let duration = now.elapsed();
     println!(
       "rendering used {} milliseconds.",
-      duration.as_secs() * 1000 + u64::from(duration.subsec_millis())
+      duration.as_secs() * 1000 + <u64 as From<_>>::from(duration.subsec_millis())
     );
   }
 }

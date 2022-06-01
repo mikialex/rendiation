@@ -45,7 +45,7 @@ impl<'a> FrameCtx<'a> {
 
   pub fn multisampled_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
-      format: wgpu::TextureFormat::Rgba8Unorm,
+      format: webgpu::TextureFormat::Rgba8Unorm,
       sample_count: self.msaa_sample_count,
       sizer: default_sizer(),
     }
@@ -53,7 +53,7 @@ impl<'a> FrameCtx<'a> {
 
   pub fn multisampled_depth_attachment(&self) -> AttachmentDescriptor {
     AttachmentDescriptor {
-      format: wgpu::TextureFormat::Depth24PlusStencil8,
+      format: webgpu::TextureFormat::Depth24PlusStencil8,
       sample_count: self.msaa_sample_count,
       sizer: default_sizer(),
     }

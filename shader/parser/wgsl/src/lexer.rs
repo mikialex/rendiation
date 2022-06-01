@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::*;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Keyword {
   If,
   ElseIf,
@@ -22,7 +22,7 @@ pub enum Keyword {
   Function,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Token<'a> {
   Separator(char),
   DoubleColon,

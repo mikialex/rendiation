@@ -1,7 +1,7 @@
 [package]
 authors = ["MikiAlex <18516340862@163.com>"]
 edition = "2021"
-name = "rendiation-scene-webgpu"
+name = "rendiation-scene-raytracing"
 version = "0.1.0"
 
 [dependencies]

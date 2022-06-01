@@ -3,12 +3,12 @@ use webgpu::*;
 use crate::*;
 
 pub trait WebGPUBackground: 'static + SceneRenderable {
-  fn require_pass_clear(&self) -> Option<wgpu::Color>;
+  fn require_pass_clear(&self) -> Option<webgpu::Color>;
 }
 
 impl WebGPUBackground for SolidBackground {
-  fn require_pass_clear(&self) -> Option<wgpu::Color> {
-    wgpu::Color {
+  fn require_pass_clear(&self) -> Option<webgpu::Color> {
+    webgpu::Color {
       r: self.intensity.r() as f64,
       g: self.intensity.g() as f64,
       b: self.intensity.b() as f64,
@@ -29,7 +29,7 @@ impl SceneRenderable for SolidBackground {
 }
 
 impl WebGPUBackground for EnvMapBackground<WebGPUScene> {
-  fn require_pass_clear(&self) -> Option<wgpu::Color> {
+  fn require_pass_clear(&self) -> Option<webgpu::Color> {
     None
   }
 }

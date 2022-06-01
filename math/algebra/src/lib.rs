@@ -33,7 +33,8 @@ pub use vec::*;
 
 pub use self::quat::*;
 
-pub use num_traits::*;
+pub use num_traits::Zero;
+use num_traits::*;
 
 #[macro_use]
 pub mod macros;

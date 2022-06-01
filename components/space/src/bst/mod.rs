@@ -112,7 +112,7 @@ impl<T: BinarySpaceTree<D, N>, const N: usize, const D: usize> BSTTreeBuilder<T,
       self.crossed.push(index)
     }
   }
-  fn apply_index_source(&mut self, index_source: &mut Vec<usize>, range: Range<usize>) {
+  fn apply_index_source(&mut self, index_source: &mut [usize], range: Range<usize>) {
     let mut start = range.start;
     let ranges = &mut self.ranges;
     self

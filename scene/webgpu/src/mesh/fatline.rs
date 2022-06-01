@@ -35,10 +35,10 @@ impl WebGPUMesh for FatlineMesh {
     let vertex = bytemuck::cast_slice(self.inner.mesh.data.as_slice());
     let vertex = gpu
       .device
-      .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+      .create_buffer_init(&webgpu::util::BufferInitDescriptor {
         label: None,
         contents: vertex,
-        usage: wgpu::BufferUsages::VERTEX,
+        usage: webgpu::BufferUsages::VERTEX,
       });
     let vertex = Rc::new(vertex);
 
@@ -61,8 +61,8 @@ impl WebGPUMesh for FatlineMesh {
     })
   }
 
-  fn topology(&self) -> wgpu::PrimitiveTopology {
-    wgpu::PrimitiveTopology::TriangleList
+  fn topology(&self) -> webgpu::PrimitiveTopology {
+    webgpu::PrimitiveTopology::TriangleList
   }
 
   fn try_pick(&self, _f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {}
@@ -76,7 +76,7 @@ impl ShaderGraphProvider for FatlineMeshGPU {
     builder.vertex(|builder, _| {
       builder.register_vertex::<Vertex>(VertexStepMode::Vertex);
       builder.register_vertex::<FatLineVertex>(VertexStepMode::Instance);
-      builder.primitive_state.topology = wgpu::PrimitiveTopology::TriangleList;
+      builder.primitive_state.topology = webgpu::PrimitiveTopology::TriangleList;
       Ok(())
     })
   }
@@ -92,7 +92,7 @@ impl ShaderPassBuilder for FatlineMeshGPU {
 }
 
 pub struct FatlineMeshGPU {
-  vertex: Rc<wgpu::Buffer>,
+  vertex: Rc<webgpu::Buffer>,
   /// All fatline gpu instance shall share one instance buffer
   instance: Rc<MeshGPU>,
 }
@@ -148,7 +148,7 @@ thread_local! {
   static FATLINE_INSTANCE: IndexedMesh<u16, Vertex, TriangleList> = create_fatline_quad()
 }
 
-fn create_fatline_quad_gpu(device: &wgpu::Device) -> FatlineQuadInstance {
+fn create_fatline_quad_gpu(device: &webgpu::Device) -> FatlineQuadInstance {
   FatlineQuadInstance {
     data: Rc::new(FATLINE_INSTANCE.with(|f| f.create_gpu(device))),
   }

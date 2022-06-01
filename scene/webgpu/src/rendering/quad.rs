@@ -43,7 +43,7 @@ wgsl_function!(
 
 #[derive(Default)]
 struct FullScreenQuad {
-  blend: Option<wgpu::BlendState>,
+  blend: Option<webgpu::BlendState>,
 }
 
 impl DrawcallEmitter for FullScreenQuad {
@@ -60,9 +60,9 @@ impl ShaderGraphProvider for FullScreenQuad {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, _| {
-      builder.primitive_state = wgpu::PrimitiveState {
-        topology: wgpu::PrimitiveTopology::TriangleStrip,
-        front_face: wgpu::FrontFace::Cw,
+      builder.primitive_state = webgpu::PrimitiveState {
+        topology: webgpu::PrimitiveTopology::TriangleStrip,
+        front_face: webgpu::FrontFace::Cw,
         ..Default::default()
       };
       let out = generate_quad(builder.vertex_index).expand();
@@ -76,7 +76,7 @@ impl ShaderGraphProvider for FullScreenQuad {
       MaterialStates {
         blend: self.blend,
         depth_write_enabled: false,
-        depth_compare: wgpu::CompareFunction::Always,
+        depth_compare: webgpu::CompareFunction::Always,
         ..Default::default()
       }
       .apply_pipeline_builder(builder);

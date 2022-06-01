@@ -1,4 +1,3 @@
-#![feature(slice_partition_at_index)]
 #![feature(option_get_or_insert_default)]
 #![allow(clippy::type_complexity)]
 

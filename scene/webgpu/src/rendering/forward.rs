@@ -1,13 +1,13 @@
 use crate::*;
 
-pub fn get_main_pass_load_op(scene: &Scene<WebGPUScene>) -> wgpu::Operations<wgpu::Color> {
+pub fn get_main_pass_load_op(scene: &Scene<WebGPUScene>) -> webgpu::Operations<webgpu::Color> {
   let load = if let Some(clear_color) = scene.background.as_ref().unwrap().require_pass_clear() {
-    wgpu::LoadOp::Clear(clear_color)
+    webgpu::LoadOp::Clear(clear_color)
   } else {
-    wgpu::LoadOp::Load
+    webgpu::LoadOp::Load
   };
 
-  wgpu::Operations { load, store: true }
+  webgpu::Operations { load, store: true }
 }
 
 pub struct ForwardScene;

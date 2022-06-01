@@ -31,7 +31,7 @@ pub trait WebGPUSceneMesh: 'static {
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny;
 
-  fn topology(&self) -> wgpu::PrimitiveTopology;
+  fn topology(&self) -> webgpu::PrimitiveTopology;
   fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
 
   // the reason we use CPS style is for supporting refcell
@@ -57,7 +57,7 @@ impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
     self.deref().draw_impl(pass, group)
   }
 
-  fn topology(&self) -> wgpu::PrimitiveTopology {
+  fn topology(&self) -> webgpu::PrimitiveTopology {
     self.deref().topology()
   }
 }
@@ -94,7 +94,7 @@ pub trait WebGPUMesh: Any {
   fn create(&self, gpu: &GPU, storage: &mut AnyMap) -> Self::GPU;
   fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
 
-  fn topology(&self) -> wgpu::PrimitiveTopology;
+  fn topology(&self) -> webgpu::PrimitiveTopology;
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh));
 }
@@ -162,7 +162,7 @@ where
     self.deref().draw(pass, group)
   }
 
-  fn topology(&self) -> wgpu::PrimitiveTopology {
+  fn topology(&self) -> webgpu::PrimitiveTopology {
     self.deref().topology()
   }
 
@@ -172,7 +172,7 @@ where
 }
 
 impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCell<T> {
-  fn topology(&self) -> wgpu::PrimitiveTopology {
+  fn topology(&self) -> webgpu::PrimitiveTopology {
     self.inner.borrow().topology()
   }
 
@@ -214,7 +214,7 @@ where
     self.inner.borrow().draw_impl(pass, group);
   }
 
-  fn topology(&self) -> wgpu::PrimitiveTopology {
+  fn topology(&self) -> webgpu::PrimitiveTopology {
     self.inner.borrow().topology()
   }
 

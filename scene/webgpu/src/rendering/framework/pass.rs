@@ -29,7 +29,7 @@ impl<'a> PassDescriptor<'a> {
   pub fn with_color(
     mut self,
     attachment: impl Into<RenderTargetView> + 'a,
-    op: impl Into<wgpu::Operations<wgpu::Color>>,
+    op: impl Into<webgpu::Operations<webgpu::Color>>,
   ) -> Self {
     self.desc.channels.push((op.into(), attachment.into()));
     self
@@ -39,7 +39,7 @@ impl<'a> PassDescriptor<'a> {
   pub fn with_depth(
     mut self,
     attachment: impl Into<RenderTargetView> + 'a,
-    op: impl Into<wgpu::Operations<f32>>,
+    op: impl Into<webgpu::Operations<f32>>,
   ) -> Self {
     self
       .desc
@@ -104,12 +104,12 @@ impl<'p> ActiveRenderPass<'p> {
   }
 }
 
-pub fn color(r: f64, g: f64, b: f64) -> wgpu::Color {
-  wgpu::Color { r, g, b, a: 1. }
+pub fn color(r: f64, g: f64, b: f64) -> webgpu::Color {
+  webgpu::Color { r, g, b, a: 1. }
 }
 
-pub fn all_zero() -> wgpu::Color {
-  wgpu::Color {
+pub fn all_zero() -> webgpu::Color {
+  webgpu::Color {
     r: 0.,
     g: 0.,
     b: 0.,
@@ -117,8 +117,8 @@ pub fn all_zero() -> wgpu::Color {
   }
 }
 
-pub fn color_same(r: f64) -> wgpu::Color {
-  wgpu::Color {
+pub fn color_same(r: f64) -> webgpu::Color {
+  webgpu::Color {
     r,
     g: r,
     b: r,
@@ -127,15 +127,15 @@ pub fn color_same(r: f64) -> wgpu::Color {
 }
 
 pub fn clear<V>(v: V) -> Operations<V> {
-  wgpu::Operations {
-    load: wgpu::LoadOp::Clear(v),
+  webgpu::Operations {
+    load: webgpu::LoadOp::Clear(v),
     store: true,
   }
 }
 
 pub fn load<V>() -> Operations<V> {
-  wgpu::Operations {
-    load: wgpu::LoadOp::Load,
+  webgpu::Operations {
+    load: webgpu::LoadOp::Load,
     store: true,
   }
 }

@@ -154,7 +154,7 @@ pub struct ShaderSampler;
 #[derive(Clone, Copy)]
 pub struct ShaderSamplerCombinedTexture;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PrimitiveShaderValueType {
   Bool,
   Uint32,

@@ -1969,8 +1969,6 @@ dependencies = [
  "rendiation-texture",
  "rendiation-webgpu",
  "shadergraph",
- "wgpu",
- "winit",
 ]
 
 [[package]]
