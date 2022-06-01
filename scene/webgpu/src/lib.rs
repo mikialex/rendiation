@@ -1,3 +1,9 @@
+#![feature(specialization)]
+#![feature(hash_raw_entry)]
+#![feature(explicit_generic_args_with_impl_trait)]
+#![allow(incomplete_features)]
+#![allow(clippy::field_reassign_with_default)]
+
 pub mod util;
 pub use util::*;
 
@@ -32,9 +38,6 @@ pub use node::*;
 pub use rendering::*;
 pub use shading::*;
 pub use texture::*;
-
-pub mod picking;
-pub use picking::*;
 
 use anymap::AnyMap;
 use rendiation_geometry::{Nearest, Ray3};
@@ -128,8 +131,52 @@ pub struct GPUResourceSubCache {
   pub texture_cubes: IdentityMapper<GPUTextureCubeView, <WebGPUScene as SceneContent>::TextureCube>,
 }
 
-impl Scene<WebGPUScene> {
-  pub fn add_model(&mut self, model: impl SceneRenderableShareable) {
+pub trait WebGPUSceneExtension {
+  fn add_model(&mut self, model: impl SceneRenderableShareable);
+  fn pick_nearest(
+    &self,
+    normalized_position: Vec2<f32>,
+    conf: &MeshBufferIntersectConfig,
+  ) -> Option<&dyn SceneRenderableShareable>;
+}
+
+// use rendiation_algebra::*;
+// use rendiation_geometry::Nearest;
+// use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
+use std::cmp::Ordering;
+
+impl WebGPUSceneExtension for Scene<WebGPUScene> {
+  fn add_model(&mut self, model: impl SceneRenderableShareable) {
     self.models.push(Box::new(model));
+  }
+
+  fn pick_nearest(
+    &self,
+    normalized_position: Vec2<f32>,
+    conf: &MeshBufferIntersectConfig,
+  ) -> Option<&dyn SceneRenderableShareable> {
+    let mut result = Vec::new();
+
+    let camera = self.active_camera.as_ref().unwrap();
+    let camera_world_mat = camera.node.visit(|n| n.world_matrix);
+    let world_ray = camera
+      .cast_world_ray(normalized_position)
+      .apply_matrix_into(camera_world_mat);
+
+    for m in self.models.iter() {
+      if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
+        println!("pick");
+        result.push((m, r));
+      }
+    }
+
+    result.sort_by(|(_, a), (_, b)| {
+      a.hit
+        .distance
+        .partial_cmp(&b.hit.distance)
+        .unwrap_or(Ordering::Less)
+    });
+
+    result.first().map(|r| r.0.as_ref())
   }
 }

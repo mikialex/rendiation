@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use rendiation_algebra::Vec2;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
-use rendiation_scene::{SceneRenderable, SceneRenderableShareable, WebGPUScene};
 
-use crate::Scene;
+use crate::*;
 
 #[derive(Default)]
 pub struct Picker {

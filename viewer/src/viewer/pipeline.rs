@@ -54,7 +54,7 @@ impl ViewerPipeline {
     });
 
     pass("compose-all")
-      .with_color(final_target, scene.get_main_pass_load_op())
+      .with_color(final_target, get_main_pass_load_op(scene))
       .with_depth(scene_depth.write(), clear(1.))
       .render(ctx)
       .by(scene.by_main_camera_and_self(BackGroundRendering))

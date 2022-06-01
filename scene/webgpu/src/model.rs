@@ -55,8 +55,12 @@ where
   }
 }
 
-impl<Me, Ma> MeshModelImpl<Me, Ma> {
-  pub fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma> {
+pub trait WebGPUModelExt<Me, Ma> {
+  fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma>;
+}
+
+impl<Me, Ma> WebGPUModelExt<Me, Ma> for MeshModelImpl<Me, Ma> {
+  fn into_matrix_overridable(self) -> OverridableMeshModelImpl<Me, Ma> {
     OverridableMeshModelImpl {
       inner: self,
       override_gpu: Default::default(),
@@ -65,46 +69,43 @@ impl<Me, Ma> MeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me, Ma> MeshModelImpl<Me, Ma>
-where
+fn setup_pass_core<Me, Ma>(
+  model: &MeshModelImpl<Me, Ma>,
+  pass: &mut SceneRenderPass,
+  camera: &SceneCamera,
+  override_node: Option<&TransformGPU>,
+  dispatcher: &dyn RenderComponentAny,
+) where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn setup_pass_core(
-    &self,
-    pass: &mut SceneRenderPass,
-    camera: &SceneCamera,
-    override_node: Option<&TransformGPU>,
-    dispatcher: &dyn RenderComponentAny,
-  ) {
-    let gpu = pass.ctx.gpu;
-    let resources = &mut pass.resources;
-    let pass_gpu = dispatcher;
-    let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
+  let gpu = pass.ctx.gpu;
+  let resources = &mut pass.resources;
+  let pass_gpu = dispatcher;
+  let camera_gpu = resources.cameras.check_update_gpu(camera, gpu);
 
-    let node_gpu =
-      override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&self.node, gpu));
+  let node_gpu =
+    override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
 
-    let material_gpu =
-      self
-        .material
-        .check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
+  let material_gpu =
+    model
+      .material
+      .check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
 
-    let mesh_gpu = self.mesh.check_update_gpu(
-      &mut resources.scene.meshes,
-      &mut resources.custom_storage,
-      gpu,
-    );
+  let mesh_gpu = model.mesh.check_update_gpu(
+    &mut resources.scene.meshes,
+    &mut resources.custom_storage,
+    gpu,
+  );
 
-    let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
+  let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
-    let emitter = MeshDrawcallEmitterWrap {
-      group: self.group,
-      mesh: &self.mesh,
-    };
+  let emitter = MeshDrawcallEmitterWrap {
+    group: model.group,
+    mesh: &model.mesh,
+  };
 
-    RenderEmitter::new(components.as_slice(), &emitter).render(&mut pass.ctx);
-  }
+  RenderEmitter::new(components.as_slice(), &emitter).render(&mut pass.ctx);
 }
 
 impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
@@ -118,7 +119,7 @@ where
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
-    self.setup_pass_core(pass, camera, None, dispatcher);
+    setup_pass_core(self, pass, camera, None, dispatcher);
   }
 
   fn ray_pick_nearest(
@@ -204,7 +205,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
       .get_or_insert_with(|| TransformGPU::new(gpu, &world_matrix))
       .update(gpu, &world_matrix);
 
-    self.setup_pass_core(pass, camera, Some(node_gpu), dispatcher);
+    setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher);
   }
 }
 

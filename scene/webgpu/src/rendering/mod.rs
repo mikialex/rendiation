@@ -51,15 +51,20 @@ pub struct CameraRef<'a, T> {
   inner: T,
 }
 
-impl Scene<WebGPUScene> {
-  pub fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
+pub trait WebGPUScenePipelineHelper {
+  fn by_main_camera<T>(&self, inner: T) -> CameraRef<T>;
+  fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T>;
+}
+
+impl WebGPUScenePipelineHelper for Scene<WebGPUScene> {
+  fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
     CameraRef {
       camera: self.active_camera.as_ref().unwrap(),
       inner,
     }
   }
 
-  pub fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T> {
+  fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T> {
     CameraSceneRef {
       camera: self.active_camera.as_ref().unwrap(),
       scene: self,

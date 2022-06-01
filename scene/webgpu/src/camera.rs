@@ -4,21 +4,19 @@ use webgpu::*;
 
 use crate::*;
 
-impl CameraViewBounds {
-  pub fn setup_viewport<'a>(&self, pass: &mut GPURenderPass<'a>, buffer_size: Size) {
-    let width: usize = buffer_size.width.into();
-    let width = width as f32;
-    let height: usize = buffer_size.height.into();
-    let height = height as f32;
-    pass.set_viewport(
-      width * self.to_left,
-      height * self.to_top,
-      width * self.width,
-      height * self.height,
-      0.,
-      1.,
-    )
-  }
+pub fn setup_viewport<'a>(cb: &CameraViewBounds, pass: &mut GPURenderPass<'a>, buffer_size: Size) {
+  let width: usize = buffer_size.width.into();
+  let width = width as f32;
+  let height: usize = buffer_size.height.into();
+  let height = height as f32;
+  pass.set_viewport(
+    width * cb.to_left,
+    height * cb.to_top,
+    width * cb.width,
+    height * cb.height,
+    0.,
+    1.,
+  )
 }
 
 #[derive(Default)]
