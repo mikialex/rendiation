@@ -54,7 +54,7 @@ impl Integrator for PathTraceIntegrator {
   fn default_sample_per_pixel(&self) -> usize {
     128
   }
-  fn integrate(&self, scene: &Scene, ray: Ray3) -> LinearRGBColor<f32> {
+  fn integrate(&self, scene: &Scene<RayTracingScene>, ray: Ray3) -> LinearRGBColor<f32> {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = ray;

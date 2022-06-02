@@ -1,31 +1,10 @@
-use arena::{Arena, Handle};
-use arena_tree::*;
-use rendiation_algebra::*;
-use space_algorithm::{
-  bvh::{FlattenBVH, SAH},
-  utils::TreeBuildOption,
-};
-
-pub mod node;
 use crate::*;
-pub use node::*;
+use space_algorithm::bvh::FlattenBVH;
 
-pub struct Scene {
-  pub nodes: ArenaTree<SceneNode>,
-  pub background: Option<Box<dyn Background>>,
-
-  pub models: Arena<Model>,
-  pub lights: Arena<Light>,
-
+struct SceneAcceleration {
   models_in_bvh: Vec<ModelInstance>,
   models_unbound: Vec<ModelInstance>,
   models_bvh: Option<FlattenBVH<Box3>>,
-}
-
-impl Default for Scene {
-  fn default() -> Self {
-    Self::new()
-  }
 }
 
 impl Scene {
@@ -308,4 +287,10 @@ impl ModelInstance {
     let model = scene.models.get(self.model).unwrap();
     model.shape.intersect_statistic(local_ray, scene)
   }
+}
+
+pub trait RayTracingSceneExt {}
+
+impl RayTracingSceneExt for Scene<RayTracingScene> {
+  //
 }

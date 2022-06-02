@@ -1,5 +1,6 @@
 use crate::*;
 
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Copy, Clone, PartialEq, Eq, std::hash::Hash)]
 pub struct StraitLine<U> {
   phantom: PhantomData<U>,

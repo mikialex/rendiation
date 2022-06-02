@@ -26,7 +26,6 @@ impl ShadingNormalProvider for Triangle<Vertex> {
       .unwrap_or(Vec3::new(1., 0., 0.));
     let normal =
       barycentric.x * self.a.normal + barycentric.y * self.b.normal + barycentric.z * self.c.normal;
-    use rendiation_algebra::IntoNormalizedVector;
     unsafe { normal.into_normalized_unchecked() }
   }
 }
@@ -72,7 +71,7 @@ where
     self
   }
 
-  fn intersect(&self, ray: Ray3, _scene: &Scene) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3, _scene: &Scene<RayTracingScene>) -> PossibleIntersection {
     let nearest =
       self
         .mesh
@@ -91,11 +90,15 @@ where
     }))
   }
 
-  fn get_bbox(&self, _scene: &Scene) -> Option<Box3> {
+  fn get_bbox(&self, _scene: &Scene<RayTracingScene>) -> Option<Box3> {
     None
   }
 
-  fn intersect_statistic(&self, ray: Ray3, _scene: &Scene) -> IntersectionStatistic {
+  fn intersect_statistic(
+    &self,
+    ray: Ray3,
+    _scene: &Scene<RayTracingScene>,
+  ) -> IntersectionStatistic {
     let stat = self.mesh.intersect_nearest_bvh_statistic(ray, &self.bvh);
     IntersectionStatistic {
       box3: stat.bound,
@@ -169,7 +172,6 @@ impl TriangleMesh<IndexedMesh> {
         .map(|p| p.map(|v| *v.position()).face_normal())
         .collect();
 
-      use rendiation_algebra::Vector;
       mesh.data.iter_mut().for_each(|v| v.normal = Vec3::zero());
 
       #[allow(clippy::needless_range_loop)]
@@ -179,7 +181,6 @@ impl TriangleMesh<IndexedMesh> {
           v.normal += face_normals[i].value
         }
       }
-      use rendiation_algebra::InnerProductSpace;
       mesh
         .data
         .iter_mut()

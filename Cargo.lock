@@ -1740,8 +1740,8 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
+ "rendiation-scene-raytracing",
  "rendiation-texture",
- "space-algorithm",
  "tobj 2.0.3",
 ]
 
@@ -1948,6 +1948,26 @@ dependencies = [
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
+]
+
+[[package]]
+name = "rendiation-scene-raytracing"
+version = "0.1.0"
+dependencies = [
+ "arena",
+ "arena-graph",
+ "arena-tree",
+ "bytemuck",
+ "log",
+ "once_cell",
+ "rand",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-renderable-mesh",
+ "rendiation-scene-core",
+ "rendiation-texture",
+ "space-algorithm",
+ "tobj 2.0.3",
 ]
 
 [[package]]

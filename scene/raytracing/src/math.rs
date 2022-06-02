@@ -4,7 +4,7 @@ use rendiation_algebra::{InnerProductSpace, NormalizedVector, Vec2, Vec3};
 pub type NormalizedVec3<T> = NormalizedVector<T, Vec3<T>>;
 pub use rendiation_geometry::*;
 
-extern crate rand as randx;
+pub use rand as randx;
 
 pub fn rand() -> f32 {
   randx::random()

@@ -20,7 +20,7 @@ impl Renderer {
     }
   }
 
-  pub fn render(&mut self, camera: &Camera, scene: &mut Scene, frame: &mut Frame) {
+  pub fn render(&mut self, camera: &Camera, scene: &mut Scene<RayTracingScene>, frame: &mut Frame) {
     scene.update();
 
     println!("rendering...");

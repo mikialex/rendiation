@@ -1,9 +1,28 @@
+use rendiation_algebra::*;
+pub use rendiation_scene_core::*;
+
+pub mod background;
+pub mod light;
+pub mod material;
+pub mod math;
+pub mod model;
+pub mod scene;
+pub mod shape;
+
+pub use background::*;
+pub use light::*;
+pub use material::*;
+pub use math::*;
+pub use model::*;
+pub use scene::*;
+pub use shape::*;
+
 #[derive(Copy, Clone)]
 pub struct RayTracingScene;
 impl SceneContent for RayTracingScene {
-  type BackGround = Box<dyn WebGPUBackground>;
-  type Model = Box<dyn SceneRenderableShareable>;
-  type Light = Box<dyn SceneRenderableShareable>;
-  type Texture2D = Box<dyn WebGPUTexture2dSource>;
-  type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
+  type BackGround = Box<dyn Background>;
+  type Model = Model;
+  type Light = Light;
+  type Texture2D = ();
+  type TextureCube = ();
 }
