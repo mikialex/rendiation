@@ -35,7 +35,7 @@ impl Renderer {
     let bar_inv = (frame.pixel_count() as f32 / 100.).ceil() as usize;
     let frame_size = frame.size().map(|v| v as f32);
     let jitter_unit = frame_size.map(|v| 1. / v);
-    let width = frame.width();
+    let height = frame.height();
 
     frame
       .inner
@@ -57,7 +57,7 @@ impl Renderer {
         energy_acc /= self.sample_per_pixel as f32;
         *pixel = energy_acc.into();
 
-        if (i * width + j) % bar_inv == 0 {
+        if (i + j * height) % bar_inv == 0 {
           progress_bar.inc(1);
         }
       });
