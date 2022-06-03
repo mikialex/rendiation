@@ -46,6 +46,7 @@ impl SceneCamera {
     self.trigger_change();
   }
 
+  /// normalized_position: -1 to 1
   pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
     let camera_world_mat = self.node.visit(|n| n.world_matrix);
     self
