@@ -173,11 +173,11 @@ where
 
 impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCell<T> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.inner.borrow().topology()
+    self.inner.read().unwrap().topology()
   }
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    let inner = self.inner.borrow();
+    let inner = self.inner.read().unwrap();
     inner.try_pick(f);
   }
 
@@ -187,12 +187,12 @@ impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCel
     sub_res: &mut AnyMap,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
-    let inner = self.inner.borrow();
+    let inner = self.inner.read().unwrap();
     inner.check_update_gpu(res, sub_res, gpu)
   }
 
   fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
-    self.inner.borrow().draw_impl(pass, group)
+    self.inner.read().unwrap().draw_impl(pass, group)
   }
 }
 
@@ -203,22 +203,22 @@ where
   type GPU = T::GPU;
 
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, res: &mut AnyMap) {
-    self.inner.borrow().update(gpu_mesh, gpu, res);
+    self.inner.read().unwrap().update(gpu_mesh, gpu, res);
   }
 
   fn create(&self, gpu: &GPU, res: &mut AnyMap) -> Self::GPU {
-    self.inner.borrow().create(gpu, res)
+    self.inner.read().unwrap().create(gpu, res)
   }
 
   fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
-    self.inner.borrow().draw_impl(pass, group);
+    self.inner.read().unwrap().draw_impl(pass, group);
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.inner.borrow().topology()
+    self.inner.read().unwrap().topology()
   }
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.inner.borrow().try_pick(f)
+    self.inner.read().unwrap().try_pick(f)
   }
 }

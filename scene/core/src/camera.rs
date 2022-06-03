@@ -47,7 +47,11 @@ impl SceneCamera {
   }
 
   pub fn cast_world_ray(&self, normalized_position: Vec2<f32>) -> Ray3<f32> {
-    self.projection.cast_ray(normalized_position)
+    let camera_world_mat = self.node.visit(|n| n.world_matrix);
+    self
+      .projection
+      .cast_ray(normalized_position)
+      .apply_matrix_into(camera_world_mat)
   }
 }
 
@@ -77,7 +81,7 @@ impl Default for CameraViewBounds {
   }
 }
 
-pub trait CameraProjection {
+pub trait CameraProjection: Sync + Send {
   fn update_projection(&self, projection: &mut Mat4<f32>);
   fn resize(&mut self, size: (f32, f32));
   fn pixels_per_unit(&self, distance: f32, view_height: f32) -> f32;

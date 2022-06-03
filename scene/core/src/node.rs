@@ -1,10 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use crate::*;
 
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_algebra::*;
 use rendiation_controller::Transformed3DControllee;
-
-use crate::Identity;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
@@ -58,26 +56,26 @@ impl SceneNodeDataImpl {
 
 #[derive(Clone)]
 struct SceneNodeRef {
-  nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
+  nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>,
   handle: SceneNodeHandle,
 }
 
 impl Drop for SceneNodeRef {
   fn drop(&mut self) {
-    let mut nodes = self.nodes.borrow_mut();
+    let mut nodes = self.nodes.write().unwrap();
     nodes.free_node(self.handle)
   }
 }
 
 pub struct SceneNodeInner {
-  nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
-  parent: Option<Rc<SceneNodeRef>>,
-  inner: Rc<SceneNodeRef>,
+  nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>,
+  parent: Option<Arc<SceneNodeRef>>,
+  inner: Arc<SceneNodeRef>,
 }
 
 impl SceneNodeInner {
-  pub fn from_root(nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>) -> Self {
-    let nodes_info = nodes.borrow();
+  pub fn from_root(nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>) -> Self {
+    let nodes_info = nodes.read().unwrap();
     let root = SceneNodeRef {
       nodes: nodes.clone(),
       handle: nodes_info.root(),
@@ -85,13 +83,13 @@ impl SceneNodeInner {
     Self {
       nodes: nodes.clone(),
       parent: None,
-      inner: Rc::new(root),
+      inner: Arc::new(root),
     }
   }
 
   #[must_use]
   pub fn create_child(&self) -> Self {
-    let mut nodes_info = self.nodes.borrow_mut();
+    let mut nodes_info = self.nodes.write().unwrap();
     let handle = nodes_info.create_node(Identity::new(SceneNodeDataImpl::default())); // todo use from
     let inner = SceneNodeRef {
       nodes: self.nodes.clone(),
@@ -103,18 +101,18 @@ impl SceneNodeInner {
     Self {
       nodes: self.nodes.clone(),
       parent: Some(self.inner.clone()),
-      inner: Rc::new(inner),
+      inner: Arc::new(inner),
     }
   }
 
   pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let mut nodes = self.nodes.borrow_mut();
+    let mut nodes = self.nodes.write().unwrap();
     let node = nodes.get_node_mut(self.inner.handle).data_mut();
     f(node)
   }
 
   pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let nodes = self.nodes.borrow();
+    let nodes = self.nodes.read().unwrap();
     let node = nodes.get_node(self.inner.handle).data();
     f(node)
   }
@@ -122,7 +120,7 @@ impl SceneNodeInner {
 
 impl Drop for SceneNodeInner {
   fn drop(&mut self) {
-    let mut nodes = self.nodes.borrow_mut();
+    let mut nodes = self.nodes.write().unwrap();
     if let Some(parent) = self.parent.as_ref() {
       nodes.node_remove_child_by_id(parent.handle, self.inner.handle);
     }
@@ -131,37 +129,37 @@ impl Drop for SceneNodeInner {
 
 #[derive(Clone)]
 pub struct SceneNode {
-  inner: Rc<RefCell<SceneNodeInner>>,
+  inner: Arc<RwLock<SceneNodeInner>>,
 }
 
 impl SceneNode {
-  pub fn from_root(nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>) -> Self {
+  pub fn from_root(nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>) -> Self {
     let inner = SceneNodeInner::from_root(nodes);
     Self {
-      inner: Rc::new(RefCell::new(inner)),
+      inner: Arc::new(RwLock::new(inner)),
     }
   }
 
   #[must_use]
   pub fn create_child(&self) -> Self {
-    let inner = self.inner.borrow();
+    let inner = self.inner.read().unwrap();
     let inner = inner.create_child();
 
     SceneNode {
-      inner: Rc::new(RefCell::new(inner)),
+      inner: Arc::new(RwLock::new(inner)),
     }
   }
 
   pub fn mutate<F: FnMut(&mut SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let inner = self.inner.borrow();
-    let mut nodes = inner.nodes.borrow_mut();
+    let inner = self.inner.read().unwrap();
+    let mut nodes = inner.nodes.write().unwrap();
     let node = nodes.get_node_mut(inner.inner.handle).data_mut();
     f(node)
   }
 
   pub fn visit<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> T {
-    let inner = self.inner.borrow();
-    let nodes = inner.nodes.borrow();
+    let inner = self.inner.read().unwrap();
+    let nodes = inner.nodes.read().unwrap();
     let node = nodes.get_node(inner.inner.handle).data();
     f(node)
   }

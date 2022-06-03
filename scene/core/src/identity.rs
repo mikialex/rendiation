@@ -1,10 +1,4 @@
-use std::{
-  cell::RefCell,
-  collections::{HashMap, HashSet},
-  marker::PhantomData,
-  rc::Rc,
-  sync::atomic::{AtomicUsize, Ordering},
-};
+use crate::*;
 
 use arena::Arena;
 
@@ -13,7 +7,7 @@ static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Identity<T> {
   id: usize,
   inner: T,
-  pub watchers: RefCell<Arena<Box<dyn Watcher<T>>>>,
+  pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
 }
 
 pub trait IntoResourced: Sized {
@@ -45,14 +39,19 @@ impl<T> Identity<T> {
 
   pub fn trigger_change(&mut self) {
     let mut to_drop = Vec::with_capacity(0);
-    self.watchers.borrow_mut().iter_mut().for_each(|(h, w)| {
-      if !w.will_change(&self.inner, self.id) {
-        to_drop.push(h)
-      }
-    });
+    self
+      .watchers
+      .write()
+      .unwrap()
+      .iter_mut()
+      .for_each(|(h, w)| {
+        if !w.will_change(&self.inner, self.id) {
+          to_drop.push(h)
+        }
+      });
 
     for handle in to_drop.drain(..) {
-      self.watchers.borrow_mut().remove(handle);
+      self.watchers.write().unwrap().remove(handle);
     }
   }
 }
@@ -67,7 +66,8 @@ impl<T> Drop for Identity<T> {
   fn drop(&mut self) {
     self
       .watchers
-      .borrow_mut()
+      .write()
+      .unwrap()
       .iter_mut()
       .for_each(|(_, w)| w.will_drop(&self.inner, self.id));
   }
@@ -88,7 +88,7 @@ impl<T> std::ops::DerefMut for Identity<T> {
   }
 }
 
-pub trait Watcher<T> {
+pub trait Watcher<T>: Sync + Send {
   // return should continue watch
   fn will_change(&mut self, item: &T, id: usize) -> bool;
   fn will_drop(&mut self, item: &T, id: usize);
@@ -96,8 +96,8 @@ pub trait Watcher<T> {
 
 pub struct IdentityMapper<T, U> {
   data: HashMap<usize, T>,
-  to_remove: Rc<RefCell<Vec<usize>>>,
-  changed: Rc<RefCell<HashSet<usize>>>,
+  to_remove: Arc<RwLock<Vec<usize>>>,
+  changed: Arc<RwLock<HashSet<usize>>>,
   phantom: PhantomData<U>,
 }
 
@@ -139,7 +139,7 @@ impl<'a, T> ResourceLogicResult<'a, T> {
 
 impl<T: 'static, U: 'static> IdentityMapper<T, U> {
   pub fn maintain(&mut self) {
-    self.to_remove.borrow_mut().drain(..).for_each(|id| {
+    self.to_remove.write().unwrap().drain(..).for_each(|id| {
       self.data.remove(&id);
     });
   }
@@ -156,7 +156,8 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
       new_created = true;
       source
         .watchers
-        .borrow_mut()
+        .write()
+        .unwrap()
         .insert(Box::new(ResourceWatcherWithAutoClean {
           to_remove: self.to_remove.clone(),
           changed: self.changed.clone(),
@@ -164,7 +165,7 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
       item
     });
 
-    if new_created || self.changed.borrow_mut().remove(&source.id) {
+    if new_created || self.changed.write().unwrap().remove(&source.id) {
       resource = logic(ResourceLogic::Update(resource, source)).unwrap_update();
     }
 
@@ -183,7 +184,8 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
       new_created = true;
       source
         .watchers
-        .borrow_mut()
+        .write()
+        .unwrap()
         .insert(Box::new(ResourceWatcherWithAutoClean {
           to_remove: self.to_remove.clone(),
           changed: self.changed.clone(),
@@ -191,7 +193,7 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
       item
     });
 
-    if new_created || self.changed.borrow_mut().remove(&source.id) {
+    if new_created || self.changed.write().unwrap().remove(&source.id) {
       updater(resource, source)
     }
 
@@ -204,17 +206,17 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
 }
 
 struct ResourceWatcherWithAutoClean {
-  to_remove: Rc<RefCell<Vec<usize>>>,
-  changed: Rc<RefCell<HashSet<usize>>>,
+  to_remove: Arc<RwLock<Vec<usize>>>,
+  changed: Arc<RwLock<HashSet<usize>>>,
 }
 
 impl<T> Watcher<T> for ResourceWatcherWithAutoClean {
   fn will_change(&mut self, _camera: &T, id: usize) -> bool {
-    self.changed.borrow_mut().insert(id);
+    self.changed.write().unwrap().insert(id);
     true
   }
 
   fn will_drop(&mut self, _camera: &T, id: usize) {
-    self.to_remove.borrow_mut().push(id);
+    self.to_remove.write().unwrap().push(id);
   }
 }

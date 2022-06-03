@@ -3,11 +3,12 @@ use rendiation_algebra::*;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());
-  let perspective = PerspectiveProjection::default();
-  let mut camera = Camera::new();
 
   let mut frame = Frame::new(1000, 1000);
   let mut scene = Scene::new();
+
+  let perspective = PerspectiveProjection::default();
+  let camera = SceneCamera::new(perspective, scene.root().create_child());
 
   scene
     .model_node(
@@ -34,11 +35,17 @@ fn main() {
       bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
     });
 
-  fn ball(scene: &mut Scene, position: Vec3<f32>, size: f32, roughness: f32, metallic: f32) {
+  fn ball(
+    scene: &mut Scene<RayTracingScene>,
+    position: Vec3<f32>,
+    size: f32,
+    roughness: f32,
+    metallic: f32,
+  ) {
     let roughness = if roughness == 0.0 { 0.04 } else { roughness };
     scene.model_node(
       Sphere::new(position, size),
-      PhysicalMaterial {
+      RtxPhysicalMaterial {
         specular: Specular {
           roughness,
           metallic,
@@ -75,12 +82,14 @@ fn main() {
       );
     }
   }
-  camera.matrix = Mat4::lookat(
-    Vec3::new(0., width_all / 2., 10.),
-    Vec3::new(0., width_all / 2., 0.),
-    Vec3::new(0., 1., 0.),
-  );
-  perspective.update_projection::<OpenGL>(&mut camera.projection_matrix);
+
+  camera.node.mutate(|node| {
+    node.local_matrix = Mat4::lookat(
+      Vec3::new(0., width_all / 2., 10.),
+      Vec3::new(0., width_all / 2., 0.),
+      Vec3::new(0., 1., 0.),
+    );
+  });
 
   renderer.render(&camera, &mut scene, &mut frame);
   frame.write_result("ball_array");

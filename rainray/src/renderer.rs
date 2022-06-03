@@ -20,7 +20,12 @@ impl Renderer {
     }
   }
 
-  pub fn render(&mut self, camera: &Camera, scene: &mut Scene<RayTracingScene>, frame: &mut Frame) {
+  pub fn render(
+    &mut self,
+    camera: &SceneCamera,
+    scene: &mut Scene<RayTracingScene>,
+    frame: &mut Frame,
+  ) {
     scene.update();
 
     println!("rendering...");
@@ -44,7 +49,7 @@ impl Renderer {
 
         for _ in 0..self.sample_per_pixel {
           let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
-          let ray = camera.create_screen_ray(sample_point);
+          let ray = camera.cast_world_ray(sample_point);
           energy_acc += self.integrator.integrate(scene, ray).into();
         }
 

@@ -7,7 +7,7 @@ pub use diffuse_model::*;
 
 use crate::Intersection;
 
-pub struct PhysicalMaterial<D, S> {
+pub struct RtxPhysicalMaterial<D, S> {
   pub diffuse: D,
   pub specular: S,
 }
@@ -101,7 +101,7 @@ pub trait PhysicalDiffuse: Material {
   fn albedo(&self) -> Vec3<f32>;
 }
 
-impl<D, S> Material for PhysicalMaterial<D, S>
+impl<D, S> Material for RtxPhysicalMaterial<D, S>
 where
   D: PhysicalDiffuse + Send + Sync + 'static,
   S: PhysicalSpecular + Send + Sync + 'static,

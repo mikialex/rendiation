@@ -1,18 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
-
-use crate::Identity;
+use crate::*;
 
 pub type MeshInner<T> = Identity<T>;
 
 pub struct MeshCell<T> {
-  pub inner: Rc<RefCell<MeshInner<T>>>,
+  pub inner: Arc<RwLock<MeshInner<T>>>,
 }
 
 impl<T> MeshCell<T> {
   pub fn new(mesh: T) -> Self {
     let mesh = MeshInner::new(mesh);
     Self {
-      inner: Rc::new(RefCell::new(mesh)),
+      inner: Arc::new(RwLock::new(mesh)),
     }
   }
 }

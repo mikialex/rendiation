@@ -159,10 +159,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     let mut result = Vec::new();
 
     let camera = self.active_camera.as_ref().unwrap();
-    let camera_world_mat = camera.node.visit(|n| n.world_matrix);
-    let world_ray = camera
-      .cast_world_ray(normalized_position)
-      .apply_matrix_into(camera_world_mat);
+    let world_ray = camera.cast_world_ray(normalized_position);
 
     for m in self.models.iter() {
       if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {

@@ -1,11 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
-
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 
 use crate::*;
 
 pub struct MeshModel<Me, Ma> {
-  pub inner: Rc<RefCell<Identity<MeshModelImpl<Me, Ma>>>>,
+  pub inner: Arc<RwLock<Identity<MeshModelImpl<Me, Ma>>>>,
 }
 
 impl<Me, Ma> Clone for MeshModel<Me, Ma> {
@@ -20,7 +18,7 @@ impl<Ma, Me> MeshModel<Me, Ma> {
   pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     let inner = MeshModelImpl::new(material, mesh, node);
     Self {
-      inner: Rc::new(RefCell::new(inner.into_resourced())),
+      inner: Arc::new(RwLock::new(inner.into_resourced())),
     }
   }
 }

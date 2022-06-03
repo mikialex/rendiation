@@ -1,6 +1,6 @@
 use crate::*;
 use arena::Handle;
-use arena_tree::{ArenaTreeNodeHandle, NextTraverseVisit};
+use arena_tree::ArenaTreeNodeHandle;
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
   utils::TreeBuildOption,
@@ -43,18 +43,15 @@ pub trait RayTracingSceneExt {
 
 impl RayTracingSceneExt for Scene<RayTracingScene> {
   fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self {
-    // let mut node = SceneNode::default();
-    // builder(&mut node, self);
-    // let new = self.nodes.create_node(node);
-    // let root = self.nodes.root();
-    // self.nodes.node_add_child_by_id(root, new);
+    let node = self.root().create_child();
+    node.mutate(|node| builder(node, self));
     self
   }
 
   fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
-    // let model = Model::new(shape, material);
-    // let model = self.models.insert(model);
-    // self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
+    let node = self.root().create_child();
+    let model = Model::new(shape, material, node);
+    self.models.push(model);
     self
   }
 
@@ -64,12 +61,10 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
     material: impl Material,
     m: impl Fn(&mut SceneNodeDataImpl),
   ) -> &mut Self {
-    // let model = Model::new(shape, material);
-    // let model = self.models.insert(model);
-    // self.create_node(|node, _| {
-    //   node.payloads.push(SceneNodePayload::Model(model));
-    //   m(node)
-    // });
+    let node = self.root().create_child();
+    node.mutate(|node| m(node));
+    let model = Model::new(shape, material, node);
+    self.models.push(model);
     self
   }
 
@@ -80,14 +75,10 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
   }
 
   fn update(&mut self) {
-    let _scene_light = &self.lights;
-    let scene_model = &self.models;
-
     let mut models_unbound = Vec::new();
     let mut models_in_bvh = Vec::new();
     let mut models_in_bvh_source = Vec::new();
 
-    let root = self.root();
     self.maintain();
 
     for (i, model) in self.models.iter().enumerate() {

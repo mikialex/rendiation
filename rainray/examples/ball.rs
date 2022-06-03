@@ -3,21 +3,25 @@ use rendiation_algebra::*;
 
 fn main() {
   let mut renderer = Renderer::new(PathTraceIntegrator::default());
-  let perspective = PerspectiveProjection::default();
-  let mut camera = Camera::new();
-  camera.matrix = Mat4::lookat(
-    Vec3::new(0., 7., 10.),
-    Vec3::new(0., 5., 0.),
-    Vec3::new(0., 1., 0.),
-  );
-  perspective.update_projection::<OpenGL>(&mut camera.projection_matrix);
 
   let mut frame = Frame::new(500, 500);
+
   let mut scene = Scene::new();
+
+  let perspective = PerspectiveProjection::default();
+  let camera = SceneCamera::new(perspective, scene.root().create_child());
+  camera.node.mutate(|node| {
+    node.local_matrix = Mat4::lookat(
+      Vec3::new(0., 8., 10.),
+      Vec3::new(0., 5., 0.),
+      Vec3::new(0., 1., 0.),
+    );
+  });
+
   scene
     .model_node(
       Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
-      PhysicalMaterial {
+      RtxPhysicalMaterial {
         specular: Specular {
           roughness: 0.3,
           metallic: 0.9,

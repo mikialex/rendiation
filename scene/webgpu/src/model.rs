@@ -24,7 +24,7 @@ where
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
-    let inner = self.inner.borrow();
+    let inner = self.inner.read().unwrap();
     inner.render(pass, dispatcher, camera)
   }
 
@@ -33,7 +33,7 @@ where
     world_ray: &Ray3,
     conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
-    self.inner.borrow().ray_pick_nearest(world_ray, conf)
+    self.inner.read().unwrap().ray_pick_nearest(world_ray, conf)
   }
 }
 
@@ -42,7 +42,7 @@ where
   Self: SceneRenderable + Clone,
 {
   fn id(&self) -> usize {
-    self.inner.borrow().id()
+    self.inner.read().unwrap().id()
   }
   fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable> {
     Box::new(self.clone())

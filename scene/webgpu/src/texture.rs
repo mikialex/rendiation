@@ -8,7 +8,7 @@ pub fn check_update_gpu_2d<'a>(
   resources: &'a mut GPUResourceSubCache,
   gpu: &GPU,
 ) -> &'a GPUTexture2dView {
-  let texture = source.content.borrow();
+  let texture = source.content.read().unwrap();
   resources.texture_2ds.get_update_or_insert_with(
     &texture,
     |texture| {
@@ -28,7 +28,7 @@ pub fn check_update_gpu_cube<'a>(
   resources: &'a mut GPUResourceSubCache,
   gpu: &GPU,
 ) -> &'a GPUTextureCubeView {
-  let texture = source.content.borrow();
+  let texture = source.content.read().unwrap();
 
   resources.texture_cubes.get_update_or_insert_with(
     &texture,

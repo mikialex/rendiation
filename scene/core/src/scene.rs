@@ -1,10 +1,8 @@
-use std::{cell::RefCell, ops::Deref, rc::Rc};
+use crate::*;
 
 use arena::Arena;
 use arena_tree::{ArenaTree, NextTraverseVisit};
 use rendiation_algebra::PerspectiveProjection;
-
-use crate::*;
 
 pub trait SceneContent {
   type BackGround;
@@ -28,7 +26,7 @@ pub struct Scene<S: SceneContent> {
   /// All models in the scene
   pub models: Vec<S::Model>,
 
-  nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
+  nodes: Arc<RwLock<ArenaTree<SceneNodeData>>>,
   root: SceneNode,
 
   pub extension: S::SceneExt,
@@ -39,7 +37,7 @@ impl<S: SceneContent> Scene<S> {
     &self.root
   }
   pub fn new() -> Self {
-    let nodes: Rc<RefCell<ArenaTree<SceneNodeData>>> = Default::default();
+    let nodes: Arc<RwLock<ArenaTree<SceneNodeData>>> = Default::default();
 
     let root = SceneNode::from_root(nodes.clone());
 
@@ -62,7 +60,7 @@ impl<S: SceneContent> Scene<S> {
   }
 
   pub fn maintain(&mut self) {
-    let mut nodes = self.nodes.borrow_mut();
+    let mut nodes = self.nodes.write().unwrap();
     let root = nodes.root();
     nodes.traverse_mut(root, &mut Vec::new(), |this, parent| {
       let node_data = this.data_mut();
