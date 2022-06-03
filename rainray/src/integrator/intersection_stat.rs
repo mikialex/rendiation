@@ -1,5 +1,6 @@
 use crate::Integrator;
 use rendiation_color::LinearRGBColor;
+use rendiation_scene_raytracing::RayTracingSceneExt;
 
 pub struct IntersectionVisualize {
   pub box_weight: f32,

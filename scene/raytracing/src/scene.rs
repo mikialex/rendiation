@@ -1,63 +1,85 @@
 use crate::*;
-use space_algorithm::bvh::FlattenBVH;
+use arena::Handle;
+use arena_tree::{ArenaTreeNodeHandle, NextTraverseVisit};
+use space_algorithm::{
+  bvh::{FlattenBVH, SAH},
+  utils::TreeBuildOption,
+};
 
-struct SceneAcceleration {
+#[derive(Copy, Clone)]
+pub struct RayTracingScene;
+impl SceneContent for RayTracingScene {
+  type BackGround = Box<dyn Background>;
+  type Model = Model;
+  type Light = Light;
+  type Texture2D = ();
+  type TextureCube = ();
+  type SceneExt = SceneAcceleration;
+}
+
+#[derive(Default)]
+pub struct SceneAcceleration {
   models_in_bvh: Vec<ModelInstance>,
   models_unbound: Vec<ModelInstance>,
   models_bvh: Option<FlattenBVH<Box3>>,
 }
 
-impl Scene {
-  pub fn new() -> Self {
-    Self {
-      nodes: ArenaTree::new(SceneNode::default()),
-      background: None,
-      models: Arena::new(),
-      lights: Arena::new(),
-      models_in_bvh: Vec::new(),
-      models_unbound: Vec::new(),
-      models_bvh: None,
-    }
-  }
-
-  pub fn create_node(&mut self, builder: impl Fn(&mut SceneNode, &mut Self)) -> &mut Self {
-    let mut node = SceneNode::default();
-    builder(&mut node, self);
-    let new = self.nodes.create_node(node);
-    let root = self.nodes.root();
-    self.nodes.node_add_child_by_id(root, new);
-    self
-  }
-
-  pub fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
-    let model = Model::new(shape, material);
-    let model = self.models.insert(model);
-    self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
-    self
-  }
-
-  pub fn model_node_with_modify(
+pub trait RayTracingSceneExt {
+  fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self;
+  fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self;
+  fn model_node_with_modify(
     &mut self,
     shape: impl Shape,
     material: impl Material,
-    m: impl Fn(&mut SceneNode),
-  ) -> &mut Self {
-    let model = Model::new(shape, material);
-    let model = self.models.insert(model);
-    self.create_node(|node, _| {
-      node.payloads.push(SceneNodePayload::Model(model));
-      m(node)
-    });
+    m: impl Fn(&mut SceneNodeDataImpl),
+  ) -> &mut Self;
+  fn background(&mut self, background: impl Background) -> &mut Self;
+  fn update(&mut self);
+  fn get_any_hit(&self, world_ray: Ray3) -> bool;
+  fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic;
+  fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)>;
+  fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool;
+}
+
+impl RayTracingSceneExt for Scene<RayTracingScene> {
+  fn create_node(&mut self, builder: impl Fn(&mut SceneNodeDataImpl, &mut Self)) -> &mut Self {
+    // let mut node = SceneNode::default();
+    // builder(&mut node, self);
+    // let new = self.nodes.create_node(node);
+    // let root = self.nodes.root();
+    // self.nodes.node_add_child_by_id(root, new);
     self
   }
 
-  pub fn background(&mut self, background: impl Background) -> &mut Self {
+  fn model_node(&mut self, shape: impl Shape, material: impl Material) -> &mut Self {
+    // let model = Model::new(shape, material);
+    // let model = self.models.insert(model);
+    // self.create_node(|node, _| node.payloads.push(SceneNodePayload::Model(model)));
+    self
+  }
+
+  fn model_node_with_modify(
+    &mut self,
+    shape: impl Shape,
+    material: impl Material,
+    m: impl Fn(&mut SceneNodeDataImpl),
+  ) -> &mut Self {
+    // let model = Model::new(shape, material);
+    // let model = self.models.insert(model);
+    // self.create_node(|node, _| {
+    //   node.payloads.push(SceneNodePayload::Model(model));
+    //   m(node)
+    // });
+    self
+  }
+
+  fn background(&mut self, background: impl Background) -> &mut Self {
     let background: Box<dyn Background> = Box::new(background);
     self.background = background.into();
     self
   }
 
-  pub fn update(&mut self) {
+  fn update(&mut self) {
     let _scene_light = &self.lights;
     let scene_model = &self.models;
 
@@ -65,47 +87,30 @@ impl Scene {
     let mut models_in_bvh = Vec::new();
     let mut models_in_bvh_source = Vec::new();
 
-    let root = self.nodes.root();
-    self
-      .nodes
-      .traverse_mut(root, &mut Vec::new(), |this, parent| {
-        let node_data = this.data_mut();
-        node_data.update(parent.map(|p| p.data()));
-        NextTraverseVisit::VisitChildren
+    let root = self.root();
+    self.maintain();
+
+    for (i, model) in self.models.iter().enumerate() {
+      model.node.visit(|node_data| {
+        let world_matrix_inverse = node_data.world_matrix.inverse_or_identity();
+        let instance = ModelInstance {
+          world_matrix: node_data.world_matrix,
+          world_matrix_inverse,
+          normal_matrix: world_matrix_inverse.transpose(),
+          model: i,
+        };
+        if let Some(mut bbox) = model.shape.get_bbox(self) {
+          models_in_bvh.push(instance);
+          models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
+        } else {
+          models_unbound.push(instance);
+        }
       });
-    self
-      .nodes
-      .create_node_ref(root)
-      .traverse_pair_subtree(&mut |this, _| {
-        let this = this.node;
-        let node_data = this.data();
-        node_data.payloads.iter().for_each(|payload| match payload {
-          SceneNodePayload::Model(model_handle) => {
-            let model = scene_model.get(*model_handle).unwrap();
-            let world_matrix_inverse = node_data.world_matrix.inverse_or_identity();
-            let instance = ModelInstance {
-              world_matrix: node_data.world_matrix,
-              world_matrix_inverse,
-              normal_matrix: world_matrix_inverse.transpose(),
-              model: *model_handle,
-            };
-            if let Some(mut bbox) = model.shape.get_bbox(self) {
-              models_in_bvh.push(instance);
-              models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
-            } else {
-              models_unbound.push(instance);
-            }
-          }
-          SceneNodePayload::Light(_light) => {
-            // let light = scene_light.get(*light).unwrap().as_ref();
-            // lights.push(LightInstance {
-            //   node: node_data,
-            //   light,
-            // });
-          }
-        });
-        NextTraverseVisit::VisitChildren
-      });
+    }
+
+    // for (i, light) in self.lights.iter().enumerate() {
+    //   //
+    // }
 
     let models_bvh = FlattenBVH::new(
       models_in_bvh_source.into_iter(),
@@ -113,19 +118,20 @@ impl Scene {
       &TreeBuildOption::default(),
     );
 
-    self.models_bvh = models_bvh.into();
-    self.models_in_bvh = models_in_bvh;
-    self.models_unbound = models_unbound;
+    self.extension.models_bvh = models_bvh.into();
+    self.extension.models_in_bvh = models_in_bvh;
+    self.extension.models_unbound = models_unbound;
   }
 
-  pub fn get_any_hit(&self, world_ray: Ray3) -> bool {
+  fn get_any_hit(&self, world_ray: Ray3) -> bool {
     let mut find = false;
-    let bvh = self.models_bvh.as_ref().unwrap();
+    let ext = &self.extension;
+    let bvh = ext.models_bvh.as_ref().unwrap();
     bvh.traverse(
       |branch| branch.bounding.intersect(&world_ray, &()),
       |leaf| {
         find = leaf.iter_primitive(bvh).any(|&i| {
-          let model = &self.models_in_bvh[i];
+          let model = &ext.models_in_bvh[i];
           model.has_any_hit(world_ray, self)
         });
         !find
@@ -135,7 +141,7 @@ impl Scene {
       return true;
     }
 
-    for model in &self.models_unbound {
+    for model in &ext.models_unbound {
       if model.has_any_hit(world_ray, self) {
         return true;
       }
@@ -143,10 +149,11 @@ impl Scene {
     false
   }
 
-  pub fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic {
+  fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic {
     let mut box_c = 0;
     let mut stat = IntersectionStatistic::default();
-    let bvh = self.models_bvh.as_ref().unwrap();
+    let ext = &self.extension;
+    let bvh = ext.models_bvh.as_ref().unwrap();
     bvh.traverse(
       |branch| {
         box_c += 1;
@@ -154,44 +161,45 @@ impl Scene {
       },
       |leaf| {
         leaf.iter_primitive(bvh).for_each(|&i| {
-          let model = &self.models_in_bvh[i];
+          let model = &ext.models_in_bvh[i];
           stat += model.get_intersection_stat(world_ray, self);
         });
         true
       },
     );
 
-    for model in &self.models_unbound {
+    for model in &ext.models_unbound {
       stat += model.get_intersection_stat(world_ray, self);
     }
     stat
   }
 
-  pub fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {
+  fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &ModelInstance)> {
     let mut min_distance = std::f32::INFINITY;
     let mut result = None;
+    let ext = &self.extension;
 
-    let bvh = self.models_bvh.as_ref().unwrap();
+    let bvh = ext.models_bvh.as_ref().unwrap();
 
     bvh.traverse(
       |branch| branch.bounding.intersect(&world_ray, &()),
       |leaf| {
         leaf.iter_primitive(bvh).for_each(|&i| {
-          let model = &self.models_in_bvh[i];
+          let model = &ext.models_in_bvh[i];
           model.update_nearest_hit(world_ray, self, &mut result, &mut min_distance);
         });
         true
       },
     );
 
-    for model in &self.models_unbound {
+    for model in &ext.models_unbound {
       model.update_nearest_hit(world_ray, self, &mut result, &mut min_distance);
     }
 
     result.map(|(intersection, model)| (intersection, min_distance, model))
   }
 
-  pub fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool {
+  fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool {
     let ray = Ray3::from_point_to_point(point_a, point_b);
     let distance = (point_a - point_b).length();
 
@@ -204,13 +212,8 @@ impl Scene {
 }
 
 pub type NodeHandle = ArenaTreeNodeHandle<SceneNode>;
-pub type ModelHandle = Handle<Model>;
+pub type ModelHandle = usize;
 pub type LightHandle = Handle<Light>;
-
-pub enum SceneNodePayload {
-  Model(ModelHandle),
-  Light(LightHandle),
-}
 
 pub struct ModelInstance {
   pub world_matrix: Mat4<f32>,
@@ -224,7 +227,7 @@ impl ModelInstance {
     &self,
     view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &Scene<RayTracingScene>,
   ) -> BSDFSampleResult {
     let model = scene.models.get(self.model).unwrap();
     let light_dir = model
@@ -241,7 +244,7 @@ impl ModelInstance {
     view_dir: NormalizedVec3<f32>,
     light_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
-    scene: &Scene,
+    scene: &Scene<RayTracingScene>,
   ) -> Vec3<f32> {
     let model = scene.models.get(self.model).unwrap();
     model.material.bsdf(view_dir, light_dir, intersection)
@@ -250,7 +253,7 @@ impl ModelInstance {
   pub fn update_nearest_hit<'b>(
     &'b self,
     world_ray: Ray3,
-    scene: &Scene,
+    scene: &Scene<RayTracingScene>,
     result: &mut Option<(Intersection, &'b ModelInstance)>,
     min_distance: &mut f32,
   ) {
@@ -276,21 +279,19 @@ impl ModelInstance {
     }
   }
 
-  pub fn has_any_hit(&self, world_ray: Ray3, scene: &Scene) -> bool {
+  pub fn has_any_hit(&self, world_ray: Ray3, scene: &Scene<RayTracingScene>) -> bool {
     let local_ray = world_ray.apply_matrix_into(self.world_matrix_inverse);
     let model = scene.models.get(self.model).unwrap();
     model.shape.has_any_intersect(local_ray, scene)
   }
 
-  pub fn get_intersection_stat(&self, world_ray: Ray3, scene: &Scene) -> IntersectionStatistic {
+  pub fn get_intersection_stat(
+    &self,
+    world_ray: Ray3,
+    scene: &Scene<RayTracingScene>,
+  ) -> IntersectionStatistic {
     let local_ray = world_ray.apply_matrix_into(self.world_matrix_inverse);
     let model = scene.models.get(self.model).unwrap();
     model.shape.intersect_statistic(local_ray, scene)
   }
-}
-
-pub trait RayTracingSceneExt {}
-
-impl RayTracingSceneExt for Scene<RayTracingScene> {
-  //
 }

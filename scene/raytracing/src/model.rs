@@ -5,17 +5,22 @@ use crate::*;
 pub struct Model {
   pub shape: Box<dyn Shape>,
   pub material: Box<dyn Material>,
+  pub node: SceneNode,
 }
 
 impl Model {
-  pub fn new<M, G>(shape: G, material: M) -> Self
+  pub fn new<M, G>(shape: G, material: M, node: SceneNode) -> Self
   where
     M: Material,
     G: Shape,
   {
     let shape = Box::new(shape);
     let material = Box::new(material);
-    Model { shape, material }
+    Model {
+      shape,
+      material,
+      node,
+    }
   }
 }
 

@@ -55,6 +55,7 @@ impl SceneContent for WebGPUScene {
   type Light = Box<dyn SceneRenderableShareable>;
   type Texture2D = Box<dyn WebGPUTexture2dSource>;
   type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
+  type SceneExt = ();
 }
 
 pub trait SceneRenderable: 'static {

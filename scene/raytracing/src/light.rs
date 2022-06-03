@@ -1,6 +1,7 @@
 use crate::NormalizedVec3;
 use rendiation_algebra::*;
 use rendiation_geometry::SurfaceAreaMeasure;
+use rendiation_scene_core::SceneNode;
 
 pub trait SurfaceAreaMeasureAble {
   fn surface_area(&self) -> f32;
@@ -35,6 +36,7 @@ pub trait LightShape: Send + Sync + SurfaceAreaMeasureAble {
 pub struct Light {
   pub emissive: Vec3<f32>,
   pub shape: Box<dyn LightShape>,
+  pub node: SceneNode,
 }
 
 pub struct LightSampleResult {

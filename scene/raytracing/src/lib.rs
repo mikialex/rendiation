@@ -16,13 +16,3 @@ pub use math::*;
 pub use model::*;
 pub use scene::*;
 pub use shape::*;
-
-#[derive(Copy, Clone)]
-pub struct RayTracingScene;
-impl SceneContent for RayTracingScene {
-  type BackGround = Box<dyn Background>;
-  type Model = Model;
-  type Light = Light;
-  type Texture2D = ();
-  type TextureCube = ();
-}

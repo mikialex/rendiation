@@ -12,6 +12,7 @@ pub trait SceneContent {
   type Light;
   type Texture2D;
   type TextureCube;
+  type SceneExt: Default;
 }
 
 pub struct Scene<S: SceneContent> {
@@ -29,6 +30,8 @@ pub struct Scene<S: SceneContent> {
 
   nodes: Rc<RefCell<ArenaTree<SceneNodeData>>>,
   root: SceneNode,
+
+  pub extension: S::SceneExt,
 }
 
 impl<S: SceneContent> Scene<S> {
@@ -54,6 +57,7 @@ impl<S: SceneContent> Scene<S> {
       models: Vec::new(),
 
       active_camera: None,
+      extension: Default::default(),
     }
   }
 

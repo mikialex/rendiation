@@ -1,7 +1,7 @@
 use rendiation_algebra::{Vec3, Vector};
 use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
-use rendiation_scene_raytracing::RayTracingScene;
+use rendiation_scene_raytracing::{RayTracingScene, RayTracingSceneExt};
 
 use crate::{math::rand_point_in_unit_sphere, Scene};
 

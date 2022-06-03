@@ -78,6 +78,7 @@
         "Rasterized",
         "Raycastable",
         "Raycaster",
+        "raytracing",
         "refcell",
         "Renderable",
         "renderables",

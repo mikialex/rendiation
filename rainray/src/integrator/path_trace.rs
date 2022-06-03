@@ -27,7 +27,7 @@ impl PathTraceIntegrator {
   // next event estimation
   fn sample_lights(
     &self,
-    _scene: &Scene,
+    _scene: &Scene<RayTracingScene>,
     _model: &ModelInstance,
     _intersection: &Intersection,
     _view_dir: NormalizedVec3<f32>,
