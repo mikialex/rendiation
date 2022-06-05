@@ -112,6 +112,12 @@ pub struct Camera {
   pub node: SceneNode,
 }
 
+impl AsRef<Self> for Camera {
+  fn as_ref(&self) -> &Self {
+    self
+  }
+}
+
 impl Camera {
   pub fn view_size_in_pixel(&self, frame_size: Size) -> Vec2<f32> {
     let width: usize = frame_size.width.into();

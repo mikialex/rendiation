@@ -10,6 +10,12 @@ pub struct Identity<T> {
   pub watchers: RwLock<Arena<Box<dyn Watcher<T>>>>,
 }
 
+impl<T> AsRef<T> for Identity<T> {
+  fn as_ref(&self) -> &T {
+    &self.inner
+  }
+}
+
 pub trait IntoResourced: Sized {
   fn into_resourced(self) -> Identity<Self> {
     self.into()
@@ -94,14 +100,14 @@ pub trait Watcher<T>: Sync + Send {
   fn will_drop(&mut self, item: &T, id: usize);
 }
 
-pub struct IdentityMapper<T, U> {
+pub struct IdentityMapper<T, U: ?Sized> {
   data: HashMap<usize, T>,
   to_remove: Arc<RwLock<Vec<usize>>>,
   changed: Arc<RwLock<HashSet<usize>>>,
   phantom: PhantomData<U>,
 }
 
-impl<T, U> Default for IdentityMapper<T, U> {
+impl<T, U: ?Sized> Default for IdentityMapper<T, U> {
   fn default() -> Self {
     Self {
       data: Default::default(),
@@ -137,7 +143,7 @@ impl<'a, T> ResourceLogicResult<'a, T> {
   }
 }
 
-impl<T: 'static, U: 'static> IdentityMapper<T, U> {
+impl<T: 'static, U: 'static + ?Sized> IdentityMapper<T, U> {
   pub fn maintain(&mut self) {
     self.to_remove.write().unwrap().drain(..).for_each(|id| {
       self.data.remove(&id);
@@ -145,10 +151,10 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
   }
 
   /// this to bypass the borrow limits of get_update_or_insert_with
-  pub fn get_update_or_insert_with_logic<'a, 'b>(
+  pub fn get_update_or_insert_with_logic<'a, 'b, X>(
     &'b mut self,
-    source: &'a Identity<U>,
-    mut logic: impl FnMut(ResourceLogic<'a, 'b, T, U>) -> ResourceLogicResult<'b, T>,
+    source: &'a Identity<X>,
+    mut logic: impl FnMut(ResourceLogic<'a, 'b, T, X>) -> ResourceLogicResult<'b, T>,
   ) -> &'b mut T {
     let mut new_created = false;
     let mut resource = self.data.entry(source.id).or_insert_with(|| {
@@ -172,15 +178,15 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
     resource
   }
 
-  pub fn get_update_or_insert_with(
+  pub fn get_update_or_insert_with<X: AsRef<U>>(
     &mut self,
-    source: &Identity<U>,
+    source: &Identity<X>,
     creator: impl FnOnce(&U) -> T,
     updater: impl FnOnce(&mut T, &U),
   ) -> &mut T {
     let mut new_created = false;
     let resource = self.data.entry(source.id).or_insert_with(|| {
-      let item = creator(&source.inner);
+      let item = creator(source.inner.as_ref());
       new_created = true;
       source
         .watchers
@@ -194,13 +200,13 @@ impl<T: 'static, U: 'static> IdentityMapper<T, U> {
     });
 
     if new_created || self.changed.write().unwrap().remove(&source.id) {
-      updater(resource, source)
+      updater(resource, source.inner.as_ref())
     }
 
     resource
   }
 
-  pub fn get_unwrap(&self, source: &Identity<U>) -> &T {
+  pub fn get_unwrap<X>(&self, source: &Identity<X>) -> &T {
     self.data.get(&source.id).unwrap()
   }
 }

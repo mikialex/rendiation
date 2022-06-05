@@ -3,31 +3,38 @@ use webgpu::*;
 
 use crate::*;
 
-pub fn check_update_gpu_2d<'a>(
-  source: &SceneTexture2D<WebGPUScene>,
+pub fn check_update_gpu_2d<'a, P>(
+  source: &SceneTexture2D<P>,
   resources: &'a mut GPUResourceSubCache,
   gpu: &GPU,
-) -> &'a GPUTexture2dView {
+) -> &'a GPUTexture2dView
+where
+  P: SceneContent,
+  P::Texture2D: AsRef<dyn WebGPUTexture2dSource>,
+{
   let texture = source.content.read().unwrap();
   resources.texture_2ds.get_update_or_insert_with(
     &texture,
     |texture| {
-      let source = texture.as_ref();
-      let desc = source.create_tex2d_desc(MipLevelCount::EmptyMipMap);
+      let desc = texture.create_tex2d_desc(MipLevelCount::EmptyMipMap);
 
       GPUTexture2d::create(desc, &gpu.device)
-        .upload_into(&gpu.queue, source, 0)
+        .upload_into(&gpu.queue, texture, 0)
         .create_default_view()
     },
     |_, _| {},
   )
 }
 
-pub fn check_update_gpu_cube<'a>(
-  source: &SceneTextureCube<WebGPUScene>,
+pub fn check_update_gpu_cube<'a, P>(
+  source: &SceneTextureCube<P>,
   resources: &'a mut GPUResourceSubCache,
   gpu: &GPU,
-) -> &'a GPUTextureCubeView {
+) -> &'a GPUTextureCubeView
+where
+  P: SceneContent,
+  P::TextureCube: AsRef<[Box<dyn WebGPUTexture2dSource>; 6]>,
+{
   let texture = source.content.read().unwrap();
 
   resources.texture_cubes.get_update_or_insert_with(

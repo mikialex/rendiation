@@ -1742,7 +1742,6 @@ dependencies = [
  "rendiation-renderable-mesh",
  "rendiation-scene-raytracing",
  "rendiation-texture",
- "tobj 2.0.3",
 ]
 
 [[package]]

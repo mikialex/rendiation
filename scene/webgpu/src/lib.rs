@@ -128,8 +128,8 @@ pub struct GPUResourceSceneCache {
 #[derive(Default)]
 pub struct GPUResourceSubCache {
   // pub uniforms: IdentityMapper<GPUTexture2d, Box<dyn WebGPUTexture2dSource>>,
-  pub texture_2ds: IdentityMapper<GPUTexture2dView, <WebGPUScene as SceneContent>::Texture2D>,
-  pub texture_cubes: IdentityMapper<GPUTextureCubeView, <WebGPUScene as SceneContent>::TextureCube>,
+  pub texture_2ds: IdentityMapper<GPUTexture2dView, dyn WebGPUTexture2dSource>,
+  pub texture_cubes: IdentityMapper<GPUTextureCubeView, [Box<dyn WebGPUTexture2dSource>; 6]>,
 }
 
 pub trait WebGPUSceneExtension {

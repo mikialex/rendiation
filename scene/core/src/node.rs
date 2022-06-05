@@ -14,6 +14,12 @@ pub struct SceneNodeDataImpl {
   pub world_matrix: Mat4<f32>,
 }
 
+impl AsRef<Self> for SceneNodeDataImpl {
+  fn as_ref(&self) -> &Self {
+    self
+  }
+}
+
 impl Default for SceneNodeDataImpl {
   fn default() -> Self {
     Self {

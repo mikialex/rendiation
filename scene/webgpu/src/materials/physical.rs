@@ -63,7 +63,7 @@ impl WebGPUMaterial for PhysicalMaterial<WebGPUScene> {
     PhysicalMaterialGPU {
       uniform,
       sampler,
-      texture: check_update_gpu_2d(&self.texture, res, gpu).clone(),
+      texture: check_update_gpu_2d::<WebGPUScene>(&self.texture, res, gpu).clone(),
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {
