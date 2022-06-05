@@ -30,15 +30,22 @@ impl<'r> WebGPUxUIRenderTask<'r> {
     renderer.gpu_primitive_cache.iter().for_each(|p| match p {
       GPUxUIPrimitive::SolidColor(p) => {
         pass.set_pipeline(&renderer.resource.solid_color_pipeline.pipeline);
-        pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
+        pass.set_bind_group_placeholder(0);
+        pass.set_bind_group_placeholder(1);
+        pass.set_bind_group_placeholder(2);
+        pass.set_bind_group_placeholder(3);
+        pass.set_bind_group(4, &self.renderer.resource.global_bindgroup, &[]);
         pass.set_index_buffer(p.index_buffer.slice(..), webgpu::IndexFormat::Uint32);
         pass.set_vertex_buffer(0, p.vertex_buffer.slice(..));
         pass.draw_indexed(0..p.length, 0, 0..1);
       }
       GPUxUIPrimitive::Texture(tex) => {
         pass.set_pipeline(&renderer.resource.texture_pipeline.pipeline);
-        pass.set_bind_group(0, &self.renderer.resource.global_bindgroup, &[]);
+        pass.set_bind_group_placeholder(0);
         pass.set_bind_group(1, &tex.bindgroup, &[]);
+        pass.set_bind_group_placeholder(2);
+        pass.set_bind_group_placeholder(3);
+        pass.set_bind_group(4, &self.renderer.resource.global_bindgroup, &[]);
         pass.set_index_buffer(tex.index_buffer.slice(..), webgpu::IndexFormat::Uint32);
         pass.set_vertex_buffer(0, tex.vertex_buffer.slice(..));
         pass.draw_indexed(0..tex.length, 0, 0..1);

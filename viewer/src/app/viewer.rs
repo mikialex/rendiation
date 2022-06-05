@@ -20,12 +20,11 @@ impl Default for ViewerApplication {
 
 pub fn create_app() -> impl UIComponent<ViewerApplication> {
   Flex::column().wrap(
-    flex_group()
-      .child(Child::fixed(menu().lens(lens!(ViewerApplication, menu))))
-      .child(Child::flex(
-        viewer().lens(lens!(ViewerApplication, viewer)),
-        1.,
-      )),
+    flex_group().child(Child::fixed(menu().lens(lens!(ViewerApplication, menu)))),
+    // .child(Child::flex(
+    //   viewer().lens(lens!(ViewerApplication, viewer)),
+    //   1.,
+    // )),
   )
 }
 
