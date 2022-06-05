@@ -12,12 +12,13 @@ pub mod background;
 pub use background::*;
 pub mod quad;
 pub use quad::*;
+use rendiation_scene_core::SceneContent;
 use webgpu::{GPURenderPass, GPURenderPassCtx};
 
 pub mod framework;
 pub use framework::*;
 
-use crate::{DefaultPassDispatcher, GPUResourceCache, Scene, SceneCamera, WebGPUScene};
+use crate::{DefaultPassDispatcher, GPUResourceCache, Scene, SceneCamera};
 
 pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
@@ -51,12 +52,12 @@ pub struct CameraRef<'a, T> {
   inner: T,
 }
 
-pub trait WebGPUScenePipelineHelper {
+pub trait WebGPUScenePipelineHelper<S: SceneContent> {
   fn by_main_camera<T>(&self, inner: T) -> CameraRef<T>;
-  fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T>;
+  fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T, S>;
 }
 
-impl WebGPUScenePipelineHelper for Scene<WebGPUScene> {
+impl<S: SceneContent> WebGPUScenePipelineHelper<S> for Scene<S> {
   fn by_main_camera<T>(&self, inner: T) -> CameraRef<T> {
     CameraRef {
       camera: self.active_camera.as_ref().unwrap(),
@@ -64,7 +65,7 @@ impl WebGPUScenePipelineHelper for Scene<WebGPUScene> {
     }
   }
 
-  fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T> {
+  fn by_main_camera_and_self<T>(&self, inner: T) -> CameraSceneRef<T, S> {
     CameraSceneRef {
       camera: self.active_camera.as_ref().unwrap(),
       scene: self,
@@ -83,22 +84,21 @@ pub trait PassContentWithCamera {
   fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera);
 }
 
-pub trait PassContentWithSceneAndCamera {
-  fn render(
-    &mut self,
-    pass: &mut SceneRenderPass,
-    scene: &Scene<WebGPUScene>,
-    camera: &SceneCamera,
-  );
+pub trait PassContentWithSceneAndCamera<S: SceneContent> {
+  fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera);
 }
 
-pub struct CameraSceneRef<'a, T> {
+pub struct CameraSceneRef<'a, T, S: SceneContent> {
   camera: &'a SceneCamera,
-  scene: &'a Scene<WebGPUScene>,
+  scene: &'a Scene<S>,
   inner: T,
 }
 
-impl<'a, T: PassContentWithSceneAndCamera> PassContent for CameraSceneRef<'a, T> {
+impl<'a, T, S> PassContent for CameraSceneRef<'a, T, S>
+where
+  T: PassContentWithSceneAndCamera<S>,
+  S: SceneContent,
+{
   fn render(&mut self, pass: &mut SceneRenderPass) {
     self.inner.render(pass, self.scene, self.camera);
   }

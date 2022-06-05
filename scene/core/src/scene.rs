@@ -4,7 +4,7 @@ use arena::Arena;
 use arena_tree::{ArenaTree, NextTraverseVisit};
 use rendiation_algebra::PerspectiveProjection;
 
-pub trait SceneContent {
+pub trait SceneContent: Clone + Copy + 'static {
   type BackGround;
   type Model;
   type Light;

@@ -61,7 +61,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   {
     let mesh = SphereMeshParameter::default().tessellate();
     let mesh = MeshCell::new(MeshSource::new(mesh));
-    let material = PhysicalMaterial {
+    let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture: texture.clone(),
@@ -79,7 +79,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   {
     let mesh = CubeMeshParameter::default().tessellate();
     let mesh = MeshCell::new(MeshSource::new(mesh));
-    let mut material = PhysicalMaterial {
+    let mut material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture,

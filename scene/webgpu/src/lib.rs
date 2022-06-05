@@ -20,6 +20,7 @@ pub mod rendering;
 pub mod shading;
 pub mod texture;
 
+use __core::ops::Deref;
 use std::{
   any::{Any, TypeId},
   collections::HashMap,
@@ -141,9 +142,6 @@ pub trait WebGPUSceneExtension {
   ) -> Option<&dyn SceneRenderableShareable>;
 }
 
-// use rendiation_algebra::*;
-// use rendiation_geometry::Nearest;
-// use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 use std::cmp::Ordering;
 
 impl WebGPUSceneExtension for Scene<WebGPUScene> {

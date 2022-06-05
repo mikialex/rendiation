@@ -6,10 +6,10 @@ pub struct RenderList {
 }
 
 impl RenderList {
-  pub fn setup_pass<'p, 'a, 'r>(
+  pub fn setup_pass<'p, 'a, 'r, P: SceneContent>(
     &self,
     gpu_pass: &mut SceneRenderPass<'p, 'a, 'r>,
-    scene: &mut Scene<WebGPUScene>,
+    scene: &mut Scene<P>,
     dispatcher: &dyn RenderComponentAny,
   ) {
     self

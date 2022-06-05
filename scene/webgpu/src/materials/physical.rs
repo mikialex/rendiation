@@ -47,7 +47,11 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
   }
 }
 
-impl WebGPUMaterial for PhysicalMaterial<WebGPUScene> {
+impl<S> WebGPUMaterial for PhysicalMaterial<S>
+where
+  S: SceneContent,
+  S::Texture2D: AsRef<dyn WebGPUTexture2dSource>,
+{
   type GPU = PhysicalMaterialGPU;
 
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
@@ -63,7 +67,7 @@ impl WebGPUMaterial for PhysicalMaterial<WebGPUScene> {
     PhysicalMaterialGPU {
       uniform,
       sampler,
-      texture: check_update_gpu_2d::<WebGPUScene>(&self.texture, res, gpu).clone(),
+      texture: check_update_gpu_2d::<S>(&self.texture, res, gpu).clone(),
     }
   }
   fn is_keep_mesh_shape(&self) -> bool {

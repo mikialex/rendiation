@@ -106,7 +106,7 @@ impl Default for CameraHelpers {
   }
 }
 
-impl PassContentWithSceneAndCamera for &mut CameraHelpers {
+impl PassContentWithSceneAndCamera<WebGPUScene> for &mut CameraHelpers {
   fn render(
     &mut self,
     pass: &mut SceneRenderPass,
