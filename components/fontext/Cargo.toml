@@ -5,12 +5,17 @@ name = "fontext"
 version = "0.1.0"
 
 [dependencies]
+bytemuck = "1.4.1"
+font-loader = "0.11.0"
+linked-hash-map = "0.5.4"
 rendiation-algebra = {path = "../../math/algebra"}
-rendiation-geometry = {path = "../../math/geometry"}
 rendiation-color = {path = "../color"}
+rendiation-geometry = {path = "../../math/geometry"}
 rendiation-texture = {path = "../texture/core"}
 rendiation-texture-packer = {path = "../texture/packer"}
-linked-hash-map = "0.5.4"
-font-loader = "0.11.0"
-glyph_brush = "0.7"
-bytemuck = "1.4.1"
+
+glyph_brush = {version = "0.7", optional = true}
+
+[features]
+default = ["glyph_brush_impl"]
+glyph_brush_impl = ["glyph_brush"]

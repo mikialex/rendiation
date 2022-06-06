@@ -24,6 +24,7 @@ pub use text::*;
 pub mod fonts;
 pub use fonts::*;
 
+#[cfg(feature = "glyph_brush_impl")]
 pub mod impls;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
