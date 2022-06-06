@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use __core::marker::PhantomData;
 use bytemuck::Pod;
+use core::marker::PhantomData;
 use gpu::util::DeviceExt;
 use gpu::GPURenderPass;
 use rendiation_webgpu as gpu;

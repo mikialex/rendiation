@@ -1,56 +1,46 @@
 use crate::*;
 
+pub trait Font: Any {
+  fn raster(&self, glyph_id: GlyphID, info: GlyphRasterInfo) -> Option<Texture2DBuffer<u8>>;
+  fn as_any(&self) -> &dyn Any;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FontId(pub(crate) usize);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GlyphID(pub(crate) char, pub(crate) FontId);
+
+#[derive(Default)]
 pub struct FontManager {
-  fonts_by_name: HashMap<String, (ab_glyph::FontArc, FontId)>,
-  fonts: Vec<ab_glyph::FontArc>,
+  fonts_by_name: HashMap<String, (Rc<dyn Font>, FontId)>,
+  fonts: Vec<Rc<dyn Font>>,
 }
 
 impl FontManager {
-  pub fn new_with_default_font() -> Self {
-    let mut fonts = Self {
-      fonts: Vec::new(),
-      fonts_by_name: HashMap::new(),
-    };
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-      let property = font_loader::system_fonts::FontPropertyBuilder::new()
-        .family("Arial")
-        .build();
-
-      let (font, _) = font_loader::system_fonts::get(&property).unwrap();
-      let default_font = ab_glyph::FontArc::try_from_vec(font).unwrap();
-      fonts.add_font("default", default_font);
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    {
-      let default_font = include_bytes!("./CascadiaMonoPL-Regular.otf");
-      let default_font = ab_glyph::FontArc::try_from_slice(default_font).unwrap();
-      fonts.add_font("default", default_font);
-    }
-
-    fonts
-  }
-
-  pub fn active_font_count(&self) -> usize {
+  pub fn font_count(&self) -> usize {
     self.fonts.len()
   }
 
-  pub fn add_font(&mut self, name: &str, font: ab_glyph::FontArc) -> FontId {
+  pub fn add_font(&mut self, name: &str, font: impl Font) -> FontId {
     self
       .fonts_by_name
       .entry(name.to_owned())
       .or_insert_with(|| {
         let index = self.fonts.len();
+        let font = Rc::new(font);
         self.fonts.push(font.clone());
         (font, FontId(index))
       })
       .1
   }
 
-  pub fn get_font(&self, id: FontId) -> &ab_glyph::FontArc {
-    self.fonts.get(id.0).unwrap()
+  pub fn get_font(&self, id: FontId) -> Option<&dyn Font> {
+    self.fonts.get(id.0).map(|f| f.as_ref() as &dyn Font)
+  }
+
+  pub fn get_fonts(&self) -> Vec<&dyn Font> {
+    self.fonts.iter().map(|f| f.as_ref() as &dyn Font).collect()
   }
 
   pub fn get_font_id_or_fallback(&self, name: &str) -> FontId {
@@ -61,7 +51,12 @@ impl FontManager {
     }
   }
 
-  pub fn get_fonts(&self) -> &Vec<ab_glyph::FontArc> {
-    &self.fonts
+  pub(crate) fn raster(
+    &self,
+    glyph_id: GlyphID,
+    info: GlyphRasterInfo,
+  ) -> Option<Texture2DBuffer<u8>> {
+    let font = self.get_font(glyph_id.1)?;
+    font.raster(glyph_id, info)
   }
 }

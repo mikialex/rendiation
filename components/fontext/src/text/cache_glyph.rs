@@ -2,7 +2,6 @@ use crate::*;
 
 pub struct GlyphCache {
   packer: GlyphPacker,
-  raster: Box<dyn GlyphRaster>,
   queue: HashMap<(GlyphID, NormalizedGlyphRasterInfo), GlyphRasterInfo>,
   current_size: Size,
   tolerance: GlyphRasterTolerance,
@@ -41,12 +40,10 @@ impl GlyphCache {
   pub fn new(
     init_size: Size,
     tolerance: GlyphRasterTolerance,
-    raster: impl GlyphRaster + 'static,
     packer: impl RePackablePacker + 'static,
   ) -> Self {
     Self {
       packer: GlyphPacker::init(init_size, packer),
-      raster: Box::new(raster),
       queue: Default::default(),
       current_size: init_size,
       tolerance,
@@ -89,7 +86,7 @@ impl GlyphCache {
 
     'all_process: while failed_process_all {
       for (&(glyph_id, info), &info_raw) in self.queue.iter() {
-        match pack_task.pack(glyph_id, info, info_raw, self.raster.as_mut(), fonts) {
+        match pack_task.pack(glyph_id, info, info_raw, fonts) {
           GlyphAddCacheResult::NewCached { result, data } => {
             cache_update(TextureCacheAction::UpdateAt {
               data: &data,

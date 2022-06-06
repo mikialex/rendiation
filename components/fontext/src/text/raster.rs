@@ -1,15 +1,4 @@
-use rendiation_texture::Texture2dInitAble;
-
 use crate::*;
-
-pub trait GlyphRaster {
-  fn raster(
-    &mut self,
-    glyph_id: GlyphID,
-    info: GlyphRasterInfo,
-    fonts: &FontManager,
-  ) -> Option<Texture2DBuffer<u8>>;
-}
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct GlyphRasterInfo {
@@ -84,38 +73,3 @@ impl core::hash::Hash for GlyphRasterInfo {
 }
 
 impl Eq for GlyphRasterInfo {}
-
-#[derive(Default)]
-pub struct AbGlyphRaster;
-
-impl GlyphRaster for AbGlyphRaster {
-  fn raster(
-    &mut self,
-    glyph_id: GlyphID,
-    info: GlyphRasterInfo,
-    fonts: &FontManager,
-  ) -> Option<Texture2DBuffer<u8>> {
-    let GlyphID(char, font_id) = glyph_id;
-    let font = fonts.get_font(font_id);
-
-    let q_glyph = font
-      .glyph_id(char)
-      .with_scale_and_position(info.scale, point(info.position.x, info.position.y));
-
-    // Draw it.
-    let outlined_glyph = font.outline_glyph(q_glyph)?;
-    let bounds = outlined_glyph.px_bounds();
-    let width = bounds.width().ceil() as usize;
-    let height = bounds.height().ceil() as usize;
-    let size = Size::from_usize_pair_min_one((width, height));
-
-    let mut result = Texture2DBuffer::init_not_care(size);
-    outlined_glyph.draw(|x, y, c| result.write((x as usize, y as usize), into_unsigned_u8(c)));
-
-    result.into()
-  }
-}
-
-fn into_unsigned_u8(f: f32) -> u8 {
-  (f * 255.) as u8
-}

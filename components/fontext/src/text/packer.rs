@@ -55,12 +55,11 @@ impl<'a> GlyphPackFrameTask<'a> {
     glyph_id: GlyphID,
     info: NormalizedGlyphRasterInfo,
     raw_info: GlyphRasterInfo,
-    raster: &mut dyn GlyphRaster,
     fonts: &FontManager,
   ) -> GlyphAddCacheResult {
     if let Some(result) = self.packer.pack_info.get_refresh(&(glyph_id, info)) {
       GlyphAddCacheResult::AlreadyCached(*result)
-    } else if let Some(data) = raster.raster(glyph_id, raw_info, fonts) {
+    } else if let Some(data) = fonts.raster(glyph_id, raw_info) {
       loop {
         match self.packer.packer.pack_with_id(data.size()) {
           Ok(result) => {
@@ -105,6 +104,3 @@ pub enum GlyphAddCacheResult {
   AlreadyCached((PackId, TextureRange)),
   NotEnoughSpace,
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct GlyphID(pub char, pub FontId);

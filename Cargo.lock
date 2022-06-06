@@ -1917,6 +1917,10 @@ dependencies = [
 [[package]]
 name = "rendiation-mesh-generator"
 version = "0.1.0"
+dependencies = [
+ "rendiation-algebra",
+ "rendiation-geometry",
+]
 
 [[package]]
 name = "rendiation-renderable-mesh"

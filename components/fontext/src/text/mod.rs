@@ -67,17 +67,3 @@ impl TextInfo {
     hasher.finish()
   }
 }
-
-impl TextCache {
-  pub fn new_default_impl(init_size: Size) -> Self {
-    let tolerance = Default::default();
-
-    let raster = AbGlyphRaster::default();
-
-    let packer = EtagerePacker::default();
-
-    let glyph_cache = GlyphCache::new(init_size, tolerance, raster, packer);
-
-    Self::new(glyph_cache, GlyphBrushLayouter::default())
-  }
-}

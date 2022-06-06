@@ -4,15 +4,13 @@ use rendiation_texture::{Size, Texture2D, Texture2DBuffer, TextureRange};
 use rendiation_texture_packer::etagere_wrap::EtagerePacker;
 use rendiation_texture_packer::{PackError, PackId, PackerConfig, RePackablePacker};
 
-use glyph_brush::ab_glyph::{point, Font};
-use glyph_brush::*;
-use glyph_brush::{ab_glyph, FontId};
 use linked_hash_map::LinkedHashMap;
 
 use rendiation_algebra::Vec2;
 use rendiation_color::*;
 
 use std::{
+  any::Any,
   cell::RefCell,
   collections::hash_map::DefaultHasher,
   collections::{HashMap, HashSet},
@@ -25,6 +23,8 @@ pub use text::*;
 
 pub mod fonts;
 pub use fonts::*;
+
+pub mod impls;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum TextHorizontalAlignment {
