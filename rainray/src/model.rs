@@ -2,6 +2,7 @@ use rendiation_algebra::Vec3;
 
 use crate::*;
 
+#[derive(Clone)]
 pub struct Model {
   pub shape: Box<dyn Shape>,
   pub material: Box<dyn Material>,

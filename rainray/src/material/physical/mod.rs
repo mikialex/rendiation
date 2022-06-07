@@ -7,11 +7,13 @@ pub use diffuse_model::*;
 
 use crate::Intersection;
 
+#[derive(Clone)]
 pub struct RtxPhysicalMaterial<D, S> {
   pub diffuse: D,
   pub specular: S,
 }
 
+#[derive(Clone)]
 pub struct Specular<D, G, F> {
   pub roughness: f32,
   pub metallic: f32,
@@ -21,6 +23,7 @@ pub struct Specular<D, G, F> {
   pub fresnel_model: F,
 }
 
+#[derive(Clone)]
 pub struct Diffuse<T> {
   pub albedo: Vec3<f32>,
   pub diffuse_model: T,
@@ -51,7 +54,7 @@ pub trait MicroFacetFresnel {
 // http://www.codinglabs.net/article_physically_based_rendering_cook_torrance.aspx
 // https://blog.selfshadow.com/publications/s2012-shading-course/burley/s2012_pbs_disney_brdf_notes_v3.pdf
 pub trait PhysicalSpecular:
-  MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel
+  MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel + Clone
 {
   fn f0(&self, albedo: Vec3<f32>) -> Vec3<f32>;
 
@@ -79,7 +82,7 @@ pub trait PhysicalSpecular:
 
 impl<D, G, F> PhysicalSpecular for Specular<D, G, F>
 where
-  Self: MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel,
+  Self: MicroFacetNormalDistribution + MicroFacetGeometricShadow + MicroFacetFresnel + Clone,
 {
   fn f0(&self, albedo: Vec3<f32>) -> Vec3<f32> {
     let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
@@ -97,7 +100,7 @@ where
   }
 }
 
-pub trait PhysicalDiffuse: Material {
+pub trait PhysicalDiffuse: Material + Clone {
   fn albedo(&self) -> Vec3<f32>;
 }
 

@@ -1,4 +1,5 @@
 use crate::NormalizedVec3;
+use dyn_clone::DynClone;
 use rendiation_algebra::*;
 use rendiation_geometry::SurfaceAreaMeasure;
 
@@ -18,7 +19,7 @@ pub struct LightSourceShapeSample {
 }
 
 /// https://www.pbr-book.org/3ed-2018/Light_Transport_I_Surface_Reflection/Sampling_Light_Sources#fragment-ShapeInterface-5
-pub trait LightShape: Send + Sync + SurfaceAreaMeasureAble {
+pub trait LightShape: Send + Sync + SurfaceAreaMeasureAble + DynClone {
   fn pdf(&self) -> f32 {
     1.0 / self.surface_area()
   }
@@ -26,12 +27,15 @@ pub trait LightShape: Send + Sync + SurfaceAreaMeasureAble {
   fn sample_on_light_source(&self) -> LightSourceShapeSample;
 }
 
+dyn_clone::clone_trait_object!(LightShape);
+
 // impl LightShape for Sphere {
 //   fn sample_on_light_source(&self) -> LightSourceShapeSample {
 //     todo!()
 //   }
 // }
 
+#[derive(Clone)]
 pub struct Light {
   pub emissive: Vec3<f32>,
   pub shape: Box<dyn LightShape>,

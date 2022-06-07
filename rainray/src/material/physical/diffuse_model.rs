@@ -2,6 +2,7 @@ use crate::*;
 
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vec3, Vector};
 
+#[derive(Clone)]
 pub struct Lambertian;
 impl Material for Diffuse<Lambertian> {
   fn bsdf(
@@ -42,6 +43,7 @@ impl PhysicalDiffuse for Diffuse<Lambertian> {
   }
 }
 
+#[derive(Clone)]
 pub struct OrenNayar {
   /// the standard deviation of the microfacet orientation angle
   /// in radians

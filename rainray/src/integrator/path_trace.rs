@@ -83,9 +83,8 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
         current_ray = Ray3::new(intersection.position, light_dir.sample);
       } else {
         // hit outside target, sample background;
-        if let Some(background) = &target.background {
-          energy += background.sample(&current_ray) * throughput;
-        }
+        energy += target.sample_environment(current_ray) * throughput;
+
         break;
       }
     }

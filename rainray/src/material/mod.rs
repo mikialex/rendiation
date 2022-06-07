@@ -5,7 +5,7 @@ pub mod physical;
 pub use physical::*;
 use rendiation_algebra::Vec3;
 
-pub trait Material: Send + Sync + 'static {
+pub trait Material: Send + Sync + 'static + dyn_clone::DynClone {
   /// sample the light input dir with brdf importance
   fn sample_light_dir_use_bsdf_importance(
     &self,
@@ -37,6 +37,8 @@ pub trait Material: Send + Sync + 'static {
     intersection: &Intersection,
   ) -> Vec3<f32>;
 }
+
+dyn_clone::clone_trait_object!(Material);
 
 pub trait Evaluation<C, I, O> {
   fn evaluate(&self, input: I, ctx: &C) -> O;

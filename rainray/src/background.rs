@@ -1,9 +1,12 @@
 use rendiation_algebra::*;
 use rendiation_geometry::Ray3;
 
-pub trait Background: Sync + 'static {
+pub trait Background: Send + Sync + 'static + dyn_clone::DynClone {
   fn sample(&self, ray: &Ray3) -> Vec3<f32>;
 }
+
+dyn_clone::clone_trait_object!(Background);
+
 pub trait BackgroundToBoxed: Background + Sized {
   fn to_boxed(self) -> Box<dyn Background> {
     Box::new(self) as Box<dyn Background>
@@ -24,6 +27,7 @@ impl Background for GradientBackground {
   }
 }
 
+#[derive(Clone)]
 pub struct SolidBackground {
   pub intensity: Vec3<f32>,
 }
@@ -44,6 +48,7 @@ impl SolidBackground {
   }
 }
 
+#[derive(Clone)]
 pub struct GradientBackground {
   pub top_intensity: Vec3<f32>,
   pub bottom_intensity: Vec3<f32>,

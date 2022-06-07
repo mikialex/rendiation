@@ -1,8 +1,9 @@
 use rainray::*;
 use rendiation_algebra::*;
+use rendiation_scene_raytracing::*;
 
 fn main() {
-  let mut renderer = Renderer::new(PathTraceIntegrator::default());
+  let mut renderer = PathTraceIntegrator::default();
 
   let mut frame = Frame::new(1000, 1000);
   let mut scene = Scene::new();
@@ -91,6 +92,8 @@ fn main() {
     );
   });
 
-  renderer.render(&camera, &mut scene, &mut frame);
+  let mut source = scene.build_traceable();
+
+  renderer.render(&camera, &mut source, &mut frame, 128);
   frame.write_result("ball_array");
 }

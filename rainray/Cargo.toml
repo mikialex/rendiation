@@ -5,6 +5,7 @@ name = "rainray"
 version = "0.1.0"
 
 [dependencies]
+dyn-clone = "1.0.5"
 image = "*"
 indicatif = "0.15"
 rand = "0.7.3"
@@ -19,3 +20,6 @@ rendiation-geometry = {path = "../math/geometry"}
 rendiation-renderable-mesh = {path = "../components/mesh/renderable"}
 rendiation-texture = {path = "../components/texture/core"}
 space-algorithm = {path = "../components/space"}
+
+[dev-dependencies]
+rendiation-scene-raytracing = {path = "../scene/raytracing"}

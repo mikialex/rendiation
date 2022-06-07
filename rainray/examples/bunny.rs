@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use rainray::*;
 use rendiation_algebra::*;
+use rendiation_scene_raytracing::*;
 
 fn main() {
-  let mut renderer = Renderer::new(PathTraceIntegrator::default());
+  let mut renderer = PathTraceIntegrator::default();
   // renderer.sample_per_pixel = 1;
 
   let mut frame = Frame::new(600, 600);
@@ -24,7 +27,9 @@ fn main() {
 
   scene
     .model_node_with_modify(
-      TriangleMesh::from_path_obj("/Users/mikialex/testdata/obj/bunny.obj"),
+      Arc::new(TriangleMesh::from_path_obj(
+        "/Users/mikialex/testdata/obj/bunny.obj",
+      )),
       // TriangleMesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
       // Diffuse {
       //   albedo: Vec3::new(0.3, 0.4, 0.8),
@@ -77,7 +82,8 @@ fn main() {
       bottom_intensity: Vec3::new(0.8, 0.8, 0.6),
     });
 
-  renderer.render(&camera, &mut scene, &mut frame);
+  let mut source = scene.build_traceable();
+  renderer.render(&camera, &mut source, &mut frame, 128);
 
   frame.write_result("bunny");
 }

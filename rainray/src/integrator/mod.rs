@@ -76,4 +76,5 @@ pub trait RayTraceable: Send + Sync {
   fn get_min_dist_hit_stat(&self, world_ray: Ray3) -> IntersectionStatistic;
   fn get_min_dist_hit(&self, world_ray: Ray3) -> Option<(Intersection, f32, &Model)>;
   fn test_point_visible_to_point(&self, point_a: Vec3<f32>, point_b: Vec3<f32>) -> bool;
+  fn sample_environment(&self, world_ray: Ray3) -> Vec3<f32>;
 }

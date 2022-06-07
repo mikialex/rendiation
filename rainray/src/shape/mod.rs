@@ -6,7 +6,7 @@ pub mod mesh;
 pub use mesh::*;
 use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
 
-pub trait Shape: Sync + Send + 'static {
+pub trait Shape: Sync + Send + 'static + dyn_clone::DynClone {
   fn as_any(&self) -> &dyn Any;
 
   fn intersect(&self, ray: Ray3) -> PossibleIntersection;
@@ -23,6 +23,8 @@ pub trait Shape: Sync + Send + 'static {
     Default::default()
   }
 }
+
+dyn_clone::clone_trait_object!(Shape);
 
 #[derive(Default)]
 pub struct IntersectionStatistic {

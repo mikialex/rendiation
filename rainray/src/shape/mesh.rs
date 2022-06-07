@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rendiation_algebra::{Vec2, Vec3};
 use rendiation_geometry::{Box3, Ray3, Triangle};
 use rendiation_renderable_mesh::{
@@ -62,7 +64,7 @@ where
   }
 }
 
-impl<G> Shape for TriangleMesh<G>
+impl<G> Shape for Arc<TriangleMesh<G>>
 where
   G: BVHIntersectAbleExtendedAbstractMesh<Box3> + Send + Sync + 'static,
   G: AbstractMesh<Primitive = Triangle<Vertex>>,

@@ -1,6 +1,7 @@
 use crate::*;
 use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vec3, Vector};
 
+#[derive(Clone)]
 pub struct BlinnPhong;
 impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
   fn d(&self, n: NormalizedVec3<f32>, h: NormalizedVec3<f32>) -> f32 {
@@ -37,6 +38,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
   }
 }
 
+#[derive(Clone)]
 pub struct Beckmann;
 impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
   fn d(&self, n: NormalizedVec3<f32>, h: NormalizedVec3<f32>) -> f32 {
@@ -73,6 +75,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
   }
 }
 
+#[derive(Clone)]
 pub struct GGX;
 impl<G, F> MicroFacetNormalDistribution for Specular<GGX, G, F> {
   fn d(&self, n: NormalizedVec3<f32>, h: NormalizedVec3<f32>) -> f32 {
@@ -97,6 +100,7 @@ impl<G, F> MicroFacetNormalDistribution for Specular<GGX, G, F> {
   }
 }
 
+#[derive(Clone)]
 pub struct CookTorrance;
 impl<D, F> MicroFacetGeometricShadow for Specular<D, CookTorrance, F> {
   fn g(&self, l: NormalizedVec3<f32>, v: NormalizedVec3<f32>, n: NormalizedVec3<f32>) -> f32 {
@@ -107,6 +111,7 @@ impl<D, F> MicroFacetGeometricShadow for Specular<D, CookTorrance, F> {
   }
 }
 
+#[derive(Clone)]
 pub struct Schlick;
 impl<D, G> MicroFacetFresnel for Specular<D, G, Schlick> {
   fn f(&self, v: NormalizedVec3<f32>, h: NormalizedVec3<f32>, f0: Vec3<f32>) -> Vec3<f32> {
