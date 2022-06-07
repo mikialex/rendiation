@@ -1,6 +1,6 @@
 use std::{any::Any, ops::AddAssign};
 
-use crate::{math::*, RayTracingScene, Scene};
+use crate::math::*;
 
 pub mod mesh;
 pub use mesh::*;
@@ -9,21 +9,17 @@ use rendiation_algebra::{IntoNormalizedVector, Mat4, SpaceEntity, Vec2, Vec3};
 pub trait Shape: Sync + Send + 'static {
   fn as_any(&self) -> &dyn Any;
 
-  fn intersect(&self, ray: Ray3, scene: &Scene<RayTracingScene>) -> PossibleIntersection;
+  fn intersect(&self, ray: Ray3) -> PossibleIntersection;
 
-  fn has_any_intersect(&self, ray: Ray3, scene: &Scene<RayTracingScene>) -> bool {
-    self.intersect(ray, scene).0.is_some()
+  fn has_any_intersect(&self, ray: Ray3) -> bool {
+    self.intersect(ray).0.is_some()
   }
 
-  fn get_bbox(&self, _scene: &Scene<RayTracingScene>) -> Option<Box3> {
+  fn get_bbox(&self) -> Option<Box3> {
     None
   }
 
-  fn intersect_statistic(
-    &self,
-    _ray: Ray3,
-    _scene: &Scene<RayTracingScene>,
-  ) -> IntersectionStatistic {
+  fn intersect_statistic(&self, _ray: Ray3) -> IntersectionStatistic {
     Default::default()
   }
 }
@@ -105,7 +101,7 @@ impl Shape for Sphere {
     self
   }
 
-  fn intersect(&self, ray: Ray3, _: &Scene<RayTracingScene>) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
@@ -118,7 +114,7 @@ impl Shape for Sphere {
     }))
   }
 
-  fn get_bbox(&self, _scene: &Scene<RayTracingScene>) -> Option<Box3> {
+  fn get_bbox(&self) -> Option<Box3> {
     self.to_bounding().into()
   }
 }
@@ -128,7 +124,7 @@ impl Shape for Plane {
     self
   }
 
-  fn intersect(&self, ray: Ray3, _: &Scene<RayTracingScene>) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3) -> PossibleIntersection {
     let result: Nearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
       position: near.position,

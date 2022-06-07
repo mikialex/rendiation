@@ -1,6 +1,5 @@
-use crate::Integrator;
+use crate::{Integrator, RayTraceable};
 use rendiation_color::LinearRGBColor;
-use rendiation_scene_raytracing::RayTracingSceneExt;
 
 pub struct IntersectionVisualize {
   pub box_weight: f32,
@@ -21,13 +20,9 @@ impl Default for IntersectionVisualize {
   }
 }
 
-impl Integrator for IntersectionVisualize {
-  fn integrate(
-    &self,
-    scene: &crate::Scene<rendiation_scene_raytracing::RayTracingScene>,
-    ray: rendiation_geometry::Ray3,
-  ) -> LinearRGBColor<f32> {
-    let stat = scene.get_min_dist_hit_stat(ray);
+impl<T: RayTraceable> Integrator<T> for IntersectionVisualize {
+  fn integrate(&self, target: &T, ray: rendiation_geometry::Ray3) -> LinearRGBColor<f32> {
+    let stat = target.get_min_dist_hit_stat(ray);
     let cost_estimate = self.box_weight * stat.box3 as f32
       + self.sphere_weight * stat.sphere as f32
       + self.triangle_weight * stat.triangle as f32;

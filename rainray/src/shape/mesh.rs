@@ -71,7 +71,7 @@ where
     self
   }
 
-  fn intersect(&self, ray: Ray3, _scene: &Scene<RayTracingScene>) -> PossibleIntersection {
+  fn intersect(&self, ray: Ray3) -> PossibleIntersection {
     let nearest =
       self
         .mesh
@@ -90,15 +90,11 @@ where
     }))
   }
 
-  fn get_bbox(&self, _scene: &Scene<RayTracingScene>) -> Option<Box3> {
+  fn get_bbox(&self) -> Option<Box3> {
     None
   }
 
-  fn intersect_statistic(
-    &self,
-    ray: Ray3,
-    _scene: &Scene<RayTracingScene>,
-  ) -> IntersectionStatistic {
+  fn intersect_statistic(&self, ray: Ray3) -> IntersectionStatistic {
     let stat = self.mesh.intersect_nearest_bvh_statistic(ray, &self.bvh);
     IntersectionStatistic {
       box3: stat.bound,

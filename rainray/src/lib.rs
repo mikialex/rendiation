@@ -3,18 +3,26 @@
 #![allow(clippy::many_single_char_names)]
 #![allow(unstable_name_collisions)]
 
-// mod camera;
 mod frame;
 mod integrator;
-mod renderer;
 mod sampler;
-// mod scene;
 
-// pub use camera::*;
 pub use frame::*;
 pub use integrator::*;
-pub use renderer::*;
 pub use sampler::*;
-// pub use scene::*;
 
-pub use rendiation_scene_raytracing::*;
+pub mod background;
+pub mod light;
+pub mod material;
+pub mod math;
+pub mod model;
+pub mod shape;
+
+pub use background::*;
+pub use light::*;
+pub use material::*;
+pub use math::*;
+pub use model::*;
+pub use shape::*;
+
+use rendiation_algebra::*;

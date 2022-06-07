@@ -1740,8 +1740,9 @@ dependencies = [
  "rendiation-color",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
- "rendiation-scene-raytracing",
  "rendiation-texture",
+ "space-algorithm",
+ "tobj 2.0.4",
 ]
 
 [[package]]
@@ -1963,14 +1964,12 @@ dependencies = [
  "bytemuck",
  "log",
  "once_cell",
- "rand",
+ "rainray",
  "rendiation-algebra",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-texture",
- "space-algorithm",
- "tobj 2.0.3",
 ]
 
 [[package]]
@@ -2395,9 +2394,9 @@ checksum = "fe69d3e3b94bf71dfd868eb38b0830917bb177a7b32b58cab7ca72691aba7729"
 
 [[package]]
 name = "tobj"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18ae31f5c23500c4bbbea8420c1761e9bdfdd8eeb95f35f37c97cb67ec9d7aff"
+checksum = "2468f55be8e59cf7219f1685cf1af4eb00ef2314823a7941a41c8d69538f881b"
 
 [[package]]
 name = "toml"
