@@ -22,7 +22,7 @@ impl Renderer {
 
   pub fn render(
     &mut self,
-    camera: &SceneCamera,
+    ray_source: &(impl RayCaster3<f32> + Send + Sync),
     scene: &mut Scene<RayTracingScene>,
     frame: &mut Frame,
   ) {
@@ -50,7 +50,7 @@ impl Renderer {
         for _ in 0..self.sample_per_pixel {
           let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
           let sample_point = sample_point * 2. - Vec2::one();
-          let ray = camera.cast_world_ray(sample_point);
+          let ray = ray_source.cast_ray(sample_point);
           energy_acc += self.integrator.integrate(scene, ray).into();
         }
 

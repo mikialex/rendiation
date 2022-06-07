@@ -7,14 +7,14 @@
 mod frame;
 mod integrator;
 mod renderer;
-// mod sampler;
+mod sampler;
 // mod scene;
 
 // pub use camera::*;
 pub use frame::*;
 pub use integrator::*;
 pub use renderer::*;
-// pub use sampler::*;
+pub use sampler::*;
 // pub use scene::*;
 
 pub use rendiation_scene_raytracing::*;
