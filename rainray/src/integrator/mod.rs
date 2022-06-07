@@ -20,12 +20,14 @@ use crate::*;
 pub trait Integrator<T: Send + Sync>: Send + Sync {
   fn integrate(&self, target: &T, ray: Ray3) -> LinearRGBColor<f32>;
 
+  type PixelSampler: PixelSampler;
+  fn create_pixel_sampler(&self) -> Self::PixelSampler;
+
   fn render(
     &mut self,
     ray_source: &(impl RayCaster3<f32> + Send + Sync),
     scene: &mut T,
     frame: &mut Frame,
-    sample_per_pixel: usize,
   ) {
     println!("rendering...");
     let now = Instant::now();
@@ -44,17 +46,15 @@ pub trait Integrator<T: Send + Sync>: Send + Sync {
         let x = i as f32 / frame_size.x;
         let y = (frame_size.y - j as f32) / frame_size.y;
 
-        let mut energy_acc = Vec3::zero();
-
-        for _ in 0..sample_per_pixel {
-          let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
-          let sample_point = sample_point * 2. - Vec2::one();
-          let ray = ray_source.cast_ray(sample_point);
-          energy_acc += self.integrate(scene, ray).into();
-        }
-
-        energy_acc /= sample_per_pixel as f32;
-        *pixel = energy_acc.into();
+        *pixel = self
+          .create_pixel_sampler()
+          .sample_pixel(|| {
+            let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
+            let sample_point = sample_point * 2. - Vec2::one();
+            let ray = ray_source.cast_ray(sample_point);
+            self.integrate(scene, ray).into()
+          })
+          .into();
 
         if (i + j * height) % bar_inv == 0 {
           progress_bar.inc(1);

@@ -1,4 +1,4 @@
-use rendiation_algebra::Vec2;
+use rendiation_algebra::*;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
 
@@ -38,6 +38,56 @@ pub struct CameraSample {
   pub film_position: Vec2<f32>,
   pub time: f32,
   pub lens: Vec2<f32>,
+}
+
+pub trait PixelSampler: Sized {
+  fn should_sample(&self) -> bool;
+  fn update_sample_result(&mut self, result: Vec3<f32>);
+  fn take_result(self) -> Vec3<f32>;
+
+  fn sample_pixel(mut self, per_sample: impl Fn() -> Vec3<f32>) -> Vec3<f32> {
+    loop {
+      if !self.should_sample() {
+        break self.take_result();
+      }
+      self.update_sample_result(per_sample())
+    }
+  }
+}
+
+pub struct FixedSamplesPerPixel {
+  target_samples_per_pixel: usize,
+  current_samples: usize,
+  accumulate: Vec3<f32>,
+}
+
+impl FixedSamplesPerPixel {
+  pub fn by_target_samples_per_pixel(target_samples_per_pixel: usize) -> Self {
+    Self {
+      target_samples_per_pixel,
+      current_samples: 0,
+      accumulate: Vec3::zero(),
+    }
+  }
+}
+
+impl PixelSampler for FixedSamplesPerPixel {
+  fn should_sample(&self) -> bool {
+    self.current_samples < self.target_samples_per_pixel
+  }
+
+  fn update_sample_result(&mut self, result: Vec3<f32>) {
+    self.current_samples += 1;
+    self.accumulate += result;
+  }
+
+  fn take_result(self) -> Vec3<f32> {
+    if self.current_samples == 0 {
+      self.accumulate
+    } else {
+      self.accumulate / self.current_samples as f32
+    }
+  }
 }
 
 // /// Each storage contains samples need by one time pixel sampling

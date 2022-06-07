@@ -6,8 +6,9 @@ use crate::*;
 use rendiation_algebra::RealVector;
 
 pub struct PathTraceIntegrator {
+  pub samples_per_pixel: usize,
   pub exposure_upper_bound: f32,
-  pub bounce_time_limit: u64,
+  pub bounce_time_limit: usize,
   pub roulette_threshold: f32,
   pub roulette_factor: f32,
 }
@@ -15,6 +16,7 @@ pub struct PathTraceIntegrator {
 impl Default for PathTraceIntegrator {
   fn default() -> Self {
     Self {
+      samples_per_pixel: 128,
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
       roulette_threshold: 0.05,
@@ -51,6 +53,11 @@ impl Default for PathTraceIntegrator {
 // }
 
 impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
+  type PixelSampler = FixedSamplesPerPixel;
+  fn create_pixel_sampler(&self) -> Self::PixelSampler {
+    FixedSamplesPerPixel::by_target_samples_per_pixel(self.samples_per_pixel)
+  }
+
   fn integrate(&self, target: &T, ray: Ray3) -> LinearRGBColor<f32> {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);

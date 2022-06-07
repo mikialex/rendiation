@@ -83,7 +83,7 @@ fn main() {
     });
 
   let mut source = scene.build_traceable();
-  renderer.render(&camera, &mut source, &mut frame, 128);
+  renderer.render(&camera, &mut source, &mut frame);
 
   frame.write_result("bunny");
 }
