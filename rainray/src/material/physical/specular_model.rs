@@ -1,5 +1,5 @@
 use crate::*;
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vec3, Vector};
+use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec3, Vector};
 
 #[derive(Clone)]
 pub struct BlinnPhong;
@@ -12,14 +12,18 @@ impl<G, F> MicroFacetNormalDistribution for Specular<BlinnPhong, G, F> {
   }
   // https://segmentfault.com/a/1190000000432254
   // https://www.cs.princeton.edu/courses/archive/fall16/cos526/papers/importance.pdf
-  fn sample_micro_surface_normal(&self, normal: NormalizedVec3<f32>) -> NormalizedVec3<f32> {
+  fn sample_micro_surface_normal(
+    &self,
+    normal: NormalizedVec3<f32>,
+    sampler: &mut dyn Sampler,
+  ) -> NormalizedVec3<f32> {
     let roughness_2 = self.roughness * self.roughness;
     let power = 2.0 / roughness_2 - 2.;
-    let theta = rand().powf(1.0 / (power + 1.0)).acos();
+    let theta = sampler.next().powf(1.0 / (power + 1.0)).acos();
 
     let (sin_t, cos_t) = theta.sin_cos();
     // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
+    let sample = concentric_sample_disk(sampler);
     let x = sample.x;
     let y = sample.y;
     let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
@@ -47,15 +51,19 @@ impl<G, F> MicroFacetNormalDistribution for Specular<Beckmann, G, F> {
     let m2 = self.roughness * self.roughness;
     ((nh2 - 1.0) / (m2 * nh2)).exp() / (m2 * PI * nh2 * nh2)
   }
-  fn sample_micro_surface_normal(&self, normal: NormalizedVec3<f32>) -> NormalizedVec3<f32> {
+  fn sample_micro_surface_normal(
+    &self,
+    normal: NormalizedVec3<f32>,
+    sampler: &mut dyn Sampler,
+  ) -> NormalizedVec3<f32> {
     // PIT for Beckmann distribution microfacet normal
     // θ = arctan √(-m^2 ln U)
     let m2 = self.roughness * self.roughness;
-    let theta = (m2 * -rand().ln()).sqrt().atan();
+    let theta = (m2 * -sampler.next().ln()).sqrt().atan();
 
     let (sin_t, cos_t) = theta.sin_cos();
     // Generate halfway vector by sampling azimuth uniformly
-    let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
+    let sample = concentric_sample_disk(sampler);
     let x = sample.x;
     let y = sample.y;
     let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
@@ -87,7 +95,11 @@ impl<G, F> MicroFacetNormalDistribution for Specular<GGX, G, F> {
   }
 
   // https://schuttejoe.github.io/post/ggximportancesamplingpart1/
-  fn sample_micro_surface_normal(&self, _normal: NormalizedVec3<f32>) -> NormalizedVec3<f32> {
+  fn sample_micro_surface_normal(
+    &self,
+    _normal: NormalizedVec3<f32>,
+    _sampler: &mut dyn Sampler,
+  ) -> NormalizedVec3<f32> {
     todo!()
   }
 

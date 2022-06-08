@@ -9,8 +9,7 @@ pub struct PathTraceIntegrator {
   pub sampling_config: AdaptivePixelSamplerConfig,
   pub exposure_upper_bound: f32,
   pub bounce_time_limit: usize,
-  pub roulette_threshold: f32,
-  pub roulette_factor: f32,
+  pub roulette: RussianRoulette,
 }
 
 impl Default for PathTraceIntegrator {
@@ -19,8 +18,7 @@ impl Default for PathTraceIntegrator {
       sampling_config: Default::default(),
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
-      roulette_threshold: 0.05,
-      roulette_factor: 0.05,
+      roulette: Default::default(),
     }
   }
 }
@@ -58,7 +56,12 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
     self.sampling_config.into()
   }
 
-  fn integrate(&self, target: &T, ray: Ray3) -> LinearRGBColor<f32> {
+  type Sampler = RngSampler;
+  fn create_sampler(&self) -> Self::Sampler {
+    Default::default()
+  }
+
+  fn integrate(&self, target: &T, ray: Ray3, sampler: &mut Self::Sampler) -> LinearRGBColor<f32> {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = ray;
@@ -68,7 +71,7 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
         let view_dir = current_ray.direction.reverse();
 
         let BSDFSampleResult { light_dir, bsdf } =
-          model.sample_light_dir_use_bsdf_importance(view_dir, &intersection);
+          model.sample_light_dir_use_bsdf_importance(view_dir, &intersection, sampler);
 
         if light_dir.pdf == 0.0 {
           break;
@@ -79,12 +82,8 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
 
         // energy += self.sample_lights(target, model, &intersection, view_dir) * throughput;
 
-        // roulette exist
-        if throughput.max_channel() < self.roulette_threshold {
-          if rand() < self.roulette_factor {
-            break;
-          }
-          throughput /= 1. - self.roulette_factor;
+        if self.roulette.roulette_exit(&mut throughput) {
+          break;
         }
 
         current_ray = Ray3::new(intersection.position, light_dir.sample);
@@ -101,5 +100,35 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
     (energy / self.exposure_upper_bound)
       .min(Vec3::splat(1.0))
       .into()
+  }
+}
+
+/// https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/Russian_Roulette_and_Splitting
+pub struct RussianRoulette {
+  pub roulette_threshold: f32,
+  pub roulette_factor: f32,
+}
+
+impl Default for RussianRoulette {
+  fn default() -> Self {
+    Self {
+      roulette_threshold: 0.05,
+      roulette_factor: 0.05,
+    }
+  }
+}
+
+impl RussianRoulette {
+  /// Roulette exit, a classical way to terminate low contribute path in an unbiased way
+  ///
+  /// return should break sampling
+  pub fn roulette_exit(&self, throughput: &mut Vec3<f32>) -> bool {
+    if throughput.max_channel() < self.roulette_threshold {
+      if rand() < self.roulette_factor {
+        return true;
+      }
+      *throughput /= 1. - self.roulette_factor;
+    }
+    false
   }
 }

@@ -1,6 +1,6 @@
 use crate::*;
 
-use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec2, Vec3, Vector};
+use rendiation_algebra::{InnerProductSpace, IntoNormalizedVector, Vec3, Vector};
 
 #[derive(Clone)]
 pub struct Lambertian;
@@ -18,9 +18,10 @@ impl Material for Diffuse<Lambertian> {
     &self,
     _view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
+    sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     // Simple cosine-sampling using Malley's method
-    let sample = concentric_sample_disk(Vec2::new(rand(), rand()));
+    let sample = concentric_sample_disk(sampler);
     let x = sample.x;
     let y = sample.y;
     let z = (1.0 - x * x - y * y).sqrt();
@@ -104,6 +105,7 @@ impl Material for OrenNayar {
     &self,
     _view_dir: NormalizedVec3<f32>,
     _intersection: &Intersection,
+    _sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
     todo!()
   }

@@ -1,5 +1,5 @@
-use crate::Intersection;
 use crate::{math::*, ImportanceSampled};
+use crate::{Intersection, Sampler};
 
 pub mod physical;
 pub use physical::*;
@@ -11,8 +11,9 @@ pub trait Material: Send + Sync + 'static + dyn_clone::DynClone {
     &self,
     view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
+    sampler: &mut dyn Sampler,
   ) -> ImportanceSampled<NormalizedVec3<f32>> {
-    let light_dir = self.sample_light_dir_use_bsdf_importance_impl(view_dir, intersection);
+    let light_dir = self.sample_light_dir_use_bsdf_importance_impl(view_dir, intersection, sampler);
     ImportanceSampled {
       sample: light_dir,
       pdf: self.pdf(view_dir, light_dir, intersection),
@@ -23,6 +24,7 @@ pub trait Material: Send + Sync + 'static + dyn_clone::DynClone {
     &self,
     view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
+    sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32>;
   fn pdf(
     &self,

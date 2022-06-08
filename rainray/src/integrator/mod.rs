@@ -18,10 +18,13 @@ use crate::Frame;
 use crate::*;
 
 pub trait Integrator<T: Send + Sync>: Send + Sync {
-  fn integrate(&self, target: &T, ray: Ray3) -> LinearRGBColor<f32>;
+  fn integrate(&self, target: &T, ray: Ray3, sampler: &mut Self::Sampler) -> LinearRGBColor<f32>;
 
   type PixelSampler: PixelSampler;
   fn create_pixel_sampler(&self) -> Self::PixelSampler;
+
+  type Sampler: Sampler;
+  fn create_sampler(&self) -> Self::Sampler;
 
   fn render(
     &mut self,
@@ -49,10 +52,12 @@ pub trait Integrator<T: Send + Sync>: Send + Sync {
         *pixel = self
           .create_pixel_sampler()
           .sample_pixel(|| {
-            let sample_point = Vec2::new(x, y) + jitter_unit.map(|v| v * rand());
+            let mut sampler = self.create_sampler();
+
+            let sample_point = Vec2::new(x, y) + jitter_unit * sampler.next_2d_vec();
             let sample_point = sample_point * 2. - Vec2::one();
             let ray = ray_source.cast_ray(sample_point);
-            self.integrate(scene, ray).into()
+            self.integrate(scene, ray, &mut sampler).into()
           })
           .into();
 

@@ -34,7 +34,11 @@ pub trait MicroFacetNormalDistribution {
   fn d(&self, n: NormalizedVec3<f32>, h: NormalizedVec3<f32>) -> f32;
 
   /// sample a micro surface normal in normal's tangent space.
-  fn sample_micro_surface_normal(&self, normal: NormalizedVec3<f32>) -> NormalizedVec3<f32>;
+  fn sample_micro_surface_normal(
+    &self,
+    normal: NormalizedVec3<f32>,
+    sampler: &mut dyn Sampler,
+  ) -> NormalizedVec3<f32>;
   fn surface_normal_pdf(
     &self,
     normal: NormalizedVec3<f32>,
@@ -64,8 +68,10 @@ pub trait PhysicalSpecular:
     &self,
     view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
+    sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
-    let micro_surface_normal = self.sample_micro_surface_normal(intersection.shading_normal);
+    let micro_surface_normal =
+      self.sample_micro_surface_normal(intersection.shading_normal, sampler);
     view_dir.reverse().reflect(micro_surface_normal)
   }
   fn pdf(
@@ -138,15 +144,16 @@ where
     &self,
     view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
+    sampler: &mut dyn Sampler,
   ) -> NormalizedVec3<f32> {
-    if rand() < self.specular.specular_estimate(self.diffuse.albedo()) {
+    if sampler.next() < self.specular.specular_estimate(self.diffuse.albedo()) {
       self
         .specular
-        .sample_light_dir_use_bsdf_importance(view_dir, intersection)
+        .sample_light_dir_use_bsdf_importance(view_dir, intersection, sampler)
     } else {
       self
         .diffuse
-        .sample_light_dir_use_bsdf_importance_impl(view_dir, intersection)
+        .sample_light_dir_use_bsdf_importance_impl(view_dir, intersection, sampler)
     }
   }
 

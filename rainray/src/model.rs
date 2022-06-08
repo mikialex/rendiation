@@ -31,10 +31,12 @@ impl Model {
     &self,
     view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
+    sampler: &mut dyn Sampler,
   ) -> BSDFSampleResult {
-    let light_dir = self
-      .material
-      .sample_light_dir_use_bsdf_importance(view_dir, intersection);
+    let light_dir =
+      self
+        .material
+        .sample_light_dir_use_bsdf_importance(view_dir, intersection, sampler);
     let bsdf = self.material.bsdf(view_dir, light_dir.sample, intersection);
     BSDFSampleResult { light_dir, bsdf }
   }
