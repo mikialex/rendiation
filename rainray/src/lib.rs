@@ -5,10 +5,12 @@
 
 mod frame;
 mod integrator;
+mod pixel_sampler;
 mod sampler;
 
 pub use frame::*;
 pub use integrator::*;
+pub use pixel_sampler::*;
 pub use sampler::*;
 
 pub mod background;
