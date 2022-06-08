@@ -53,9 +53,9 @@ impl Default for PathTraceIntegrator {
 // }
 
 impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
-  type PixelSampler = FixedSamplesPerPixel;
+  type PixelSampler = AdaptivePixelSampler;
   fn create_pixel_sampler(&self) -> Self::PixelSampler {
-    FixedSamplesPerPixel::by_target_samples_per_pixel(self.samples_per_pixel)
+    AdaptivePixelSampler::default()
   }
 
   fn integrate(&self, target: &T, ray: Ray3) -> LinearRGBColor<f32> {

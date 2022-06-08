@@ -10,6 +10,7 @@ image = "*"
 indicatif = "0.15"
 rand = "0.7.3"
 rayon = "1.5.0"
+statrs = "0.15.0"
 tobj = "2.0.3"
 
 arena = {path = "../utils/arena"}

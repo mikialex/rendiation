@@ -90,6 +90,94 @@ impl PixelSampler for FixedSamplesPerPixel {
   }
 }
 
+/// http://luthuli.cs.uiuc.edu/~daf/courses/Rendering/Papers-2/RTHWJ.article.pdf
+/// https://www.researchgate.net/publication/220721426_Antialiased_ray_tracing_by_adaptive_progressive_refinement
+///
+/// ## Summarize
+///
+/// For most of pixels, their samples are assumed to be normal distributed. So we could estimate the
+/// expectation(the final result) within a given tolerance range with in a  given confidence interval
+/// by using the Student-T distribution.
+pub struct AdaptivePixelSampler {
+  min_sample_count: usize,
+  max_sample_count: usize,
+  /// tolerance upper bound - tolerance lower bound
+  tolerance_width: f32,
+  confidence_level: f32,
+
+  variance: f32,
+  current_m2_accumulate: f32,
+  current_samples: usize,
+  accumulate: Vec3<f32>,
+}
+
+impl Default for AdaptivePixelSampler {
+  fn default() -> Self {
+    Self {
+      min_sample_count: 32,
+      max_sample_count: 128,
+      tolerance_width: 0.02,
+      confidence_level: 0.95,
+      variance: 0.,
+      current_m2_accumulate: 0.,
+      current_samples: 0,
+      accumulate: Vec3::zero(),
+    }
+  }
+}
+
+impl PixelSampler for AdaptivePixelSampler {
+  fn should_sample(&self) -> bool {
+    if self.current_samples < self.min_sample_count {
+      return true;
+    }
+
+    if self.current_samples >= self.max_sample_count {
+      return false;
+    }
+
+    use statrs::distribution::StudentsT;
+    let student_t = StudentsT::new(0.0, 1.0, (self.current_samples - 1) as f64).unwrap();
+    let alpha = 1.0 - self.confidence_level;
+    let tolerance_width = 2.
+      * student_t.inverse_cdf(1.0 - alpha as f64 / 2.0) as f32
+      * (self.variance / self.current_samples as f32).sqrt();
+
+    tolerance_width > self.tolerance_width
+  }
+
+  fn update_sample_result(&mut self, result: Vec3<f32>) {
+    self.current_samples += 1;
+    self.accumulate += result;
+
+    // todo use luminance
+    fn result_to_scalar(v: Vec3<f32>) -> f32 {
+      (v.x + v.y + v.z) / 3.
+    }
+
+    // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+    let mean = result_to_scalar(self.accumulate / self.current_samples as f32);
+    let new = result_to_scalar(result);
+    let delta = new - mean;
+    let next_mean = mean + delta / self.current_samples as f32;
+    let delta2 = new - next_mean;
+    self.current_m2_accumulate += delta * delta2;
+
+    self.variance = self.current_m2_accumulate / (self.current_samples - 1) as f32;
+  }
+
+  fn take_result(self) -> Vec3<f32> {
+    return Vec3::splat(
+      (self.current_samples - self.min_sample_count) as f32 / self.max_sample_count as f32,
+    );
+    if self.current_samples == 0 {
+      self.accumulate
+    } else {
+      self.accumulate / self.current_samples as f32
+    }
+  }
+}
+
 // /// Each storage contains samples need by one time pixel sampling
 // pub struct SampleStorage {
 //   samples_1d_array: Vec<f32>,
@@ -105,6 +193,7 @@ impl PixelSampler for FixedSamplesPerPixel {
 // }
 
 use rand::{rngs::ThreadRng, Rng};
+use statrs::distribution::ContinuousCDF;
 
 #[derive(Default)]
 pub struct RngSampler {
