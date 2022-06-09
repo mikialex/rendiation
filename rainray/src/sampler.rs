@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use rendiation_algebra::Vec2;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
@@ -18,31 +20,64 @@ pub trait Sampler {
   fn next_2d_vec(&mut self) -> Vec2<f32> {
     Vec2::from(self.next_2d())
   }
-
-  // /// When the rendering algorithm is ready to start work on a given pixel,
-  // /// it starts by calling StartPixel(), providing the coordinates of the pixel in the image.
-  // ///
-  // /// Some Sampler implementations use the knowledge of which pixel is being sampled to improve the
-  // /// overall distribution of the samples that they generate for the pixel, while others ignore this information.
-  // fn start_pixel(&mut self, _pixel: Vec2<usize>) {}
-  // fn next_samples(&mut self) {}
 }
 
-// impl Sampler for &mut dyn Sampler {
-//   fn next(&mut self) -> f32 {
-//     todo!()
-//   }
+/// Contains samples need by one sequence of multidimensional pixel sampling
+pub struct OneSampleStorage {
+  samples_1d_array: Vec<f32>,
+  samples_2d_array: Vec<(f32, f32)>,
+}
 
-//   fn next_2d(&mut self) -> (f32, f32) {
-//     todo!()
-//   }
-// }
+pub struct SampleStorage {
+  /// storage for each sampling
+  samples: Vec<OneSampleStorage>,
+}
 
-// /// Each storage contains samples need by one time pixel sampling
-// pub struct SampleStorage {
-//   samples_1d_array: Vec<f32>,
-//   samples_2d_array: Vec<Vec2<f32>>,
-// }
+pub struct SamplingStorageState {
+  current_sampling_index: usize,
+  current_1d_index: usize,
+  current_2d_index: usize,
+}
+
+pub struct PrecomputedSampler {
+  storage: Arc<SampleStorage>,
+  state: SamplingStorageState,
+  backup: RngSampler,
+}
+
+impl Sampler for PrecomputedSampler {
+  fn next(&mut self) -> f32 {
+    if let Some(one_storage) = self.storage.samples.get(self.state.current_sampling_index) {
+      if let Some(sample) = one_storage
+        .samples_1d_array
+        .get(self.state.current_1d_index)
+      {
+        self.state.current_1d_index += 1;
+        *sample
+      } else {
+        self.backup.next()
+      }
+    } else {
+      self.backup.next()
+    }
+  }
+
+  fn next_2d(&mut self) -> (f32, f32) {
+    if let Some(one_storage) = self.storage.samples.get(self.state.current_sampling_index) {
+      if let Some(sample) = one_storage
+        .samples_2d_array
+        .get(self.state.current_2d_index)
+      {
+        self.state.current_2d_index += 1;
+        *sample
+      } else {
+        self.backup.next_2d()
+      }
+    } else {
+      self.backup.next_2d()
+    }
+  }
+}
 
 use rand::{rngs::ThreadRng, Rng};
 
@@ -60,6 +95,29 @@ impl Sampler for RngSampler {
     (self.rng.gen(), self.rng.gen())
   }
 }
+
+// use sobol::params::JoeKuoD6;
+// use sobol::Sobol;
+
+// pub struct SobolSequence {
+//   generator: usize,
+// }
+
+// impl Sampler for SobolSequence {
+//   fn next(&mut self) -> f32 {
+//     let params = JoeKuoD6::minimal();
+//     let seq = Sobol::<f32>::new(300, &params);
+
+//     for point in seq.take(100) {
+//       println!("{:?}", point);
+//     }
+//     todo!()
+//   }
+
+//   fn next_2d(&mut self) -> (f32, f32) {
+//     (self.rng.gen(), self.rng.gen())
+//   }
+// }
 
 macro_rules! AssertLeType {
   ($left:expr, $right:expr) => {
