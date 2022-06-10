@@ -21,7 +21,7 @@ impl Default for AOIntegrator {
 fn sample_ao_surface(
   surface_point: Vec3<f32>,
   target: &impl RayTraceable,
-  sampler: &mut impl Sampler,
+  sampler: &mut dyn Sampler,
 ) -> f32 {
   let test_ray = Ray3::new(surface_point, uniform_sample_sphere_dir(sampler));
   if target.get_any_hit(test_ray) {
@@ -42,7 +42,7 @@ impl<T: RayTraceable> Integrator<T> for AOIntegrator {
     Default::default()
   }
 
-  fn integrate(&self, target: &T, ray: Ray3, sampler: &mut Self::Sampler) -> LinearRGBColor<f32> {
+  fn integrate(&self, target: &T, ray: Ray3, sampler: &mut dyn Sampler) -> LinearRGBColor<f32> {
     let ao_estimate = if let Some((intersection, _, _)) = target.get_min_dist_hit(ray) {
       let mut ao_acc = 0.;
       for _ in 0..self.sample_count {

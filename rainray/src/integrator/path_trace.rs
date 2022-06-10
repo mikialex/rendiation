@@ -56,12 +56,17 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
     self.sampling_config.into()
   }
 
+  // type PixelSampler = FixedSamplesPerPixel;
+  // fn create_pixel_sampler(&self) -> Self::PixelSampler {
+  //   FixedSamplesPerPixel::by_target_samples_per_pixel(128)
+  // }
+
   type Sampler = RngSampler;
   fn create_sampler(&self) -> Self::Sampler {
     Default::default()
   }
 
-  fn integrate(&self, target: &T, ray: Ray3, sampler: &mut Self::Sampler) -> LinearRGBColor<f32> {
+  fn integrate(&self, target: &T, ray: Ray3, sampler: &mut dyn Sampler) -> LinearRGBColor<f32> {
     let mut energy = Vec3::new(0., 0., 0.);
     let mut throughput = Vec3::new(1., 1., 1.);
     let mut current_ray = ray;

@@ -1,4 +1,4 @@
-use crate::{FixedSamplesPerPixel, Integrator, RayTraceable, RngSampler};
+use crate::{FixedSamplesPerPixel, Integrator, RayTraceable, RngSampler, Sampler};
 use rendiation_color::LinearRGBColor;
 use rendiation_geometry::Ray3;
 
@@ -32,7 +32,7 @@ impl<T: RayTraceable> Integrator<T> for IntersectionVisualize {
     Default::default()
   }
 
-  fn integrate(&self, target: &T, ray: Ray3, _: &mut Self::Sampler) -> LinearRGBColor<f32> {
+  fn integrate(&self, target: &T, ray: Ray3, _: &mut dyn Sampler) -> LinearRGBColor<f32> {
     let stat = target.get_min_dist_hit_stat(ray);
     let cost_estimate = self.box_weight * stat.box3 as f32
       + self.sphere_weight * stat.sphere as f32

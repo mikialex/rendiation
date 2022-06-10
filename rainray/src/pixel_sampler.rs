@@ -4,13 +4,14 @@ pub trait PixelSampler: Sized {
   fn should_sample(&self) -> bool;
   fn update_sample_result(&mut self, result: Vec3<f32>);
   fn take_result(self) -> Vec3<f32>;
+  fn next_sample_index(&self) -> usize;
 
-  fn sample_pixel(mut self, per_sample: impl Fn() -> Vec3<f32>) -> Vec3<f32> {
+  fn sample_pixel(mut self, per_sample: impl Fn(usize) -> Vec3<f32>) -> Vec3<f32> {
     loop {
       if !self.should_sample() {
         break self.take_result();
       }
-      self.update_sample_result(per_sample())
+      self.update_sample_result(per_sample(self.next_sample_index()))
     }
   }
 }
@@ -47,6 +48,9 @@ impl PixelSampler for FixedSamplesPerPixel {
     } else {
       self.accumulate / self.current_samples as f32
     }
+  }
+  fn next_sample_index(&self) -> usize {
+    self.current_samples
   }
 }
 
@@ -150,5 +154,8 @@ impl PixelSampler for AdaptivePixelSampler {
     } else {
       self.accumulate / self.current_samples as f32
     }
+  }
+  fn next_sample_index(&self) -> usize {
+    self.current_samples
   }
 }

@@ -22,15 +22,116 @@ pub trait Sampler {
   }
 }
 
-/// Contains samples need by one sequence of multidimensional pixel sampling
-pub struct OneSampleStorage {
-  samples_1d_array: Vec<f32>,
-  samples_2d_array: Vec<(f32, f32)>,
+pub struct SampleStorage {
+  samples_1d_arrays: Vec<Vec<f32>>,
+  samples_2d_arrays: Vec<Vec<(f32, f32)>>,
 }
 
-pub struct SampleStorage {
-  /// storage for each sampling
-  samples: Vec<OneSampleStorage>,
+pub struct SamplePrecomputedRequest {
+  pub min_spp: usize,
+  pub max_1d_dimension: usize,
+  pub max_2d_dimension: usize,
+}
+
+fn get_samples_2d(samples: &mut [(f32, f32)]) {
+  let scramble = (
+    rand::thread_rng().gen_range(0, u32::MAX),
+    rand::thread_rng().gen_range(0, u32::MAX),
+  );
+  sample_2d(samples, scramble, 0)
+}
+fn get_samples_1d(samples: &mut [f32]) {
+  let scramble = rand::thread_rng().gen_range(0, u32::MAX);
+  sample_1d(samples, scramble, 0);
+}
+
+/// Generate a 2D pattern of low discrepancy samples to fill the slice
+/// sample values will be normalized between [0, 1]
+pub fn sample_2d(samples: &mut [(f32, f32)], scramble: (u32, u32), offset: u32) {
+  for s in samples.iter_mut().enumerate() {
+    *s.1 = sample_02(s.0 as u32 + offset, scramble);
+  }
+}
+/// Generate a 1D pattern of low discrepancy samples to fill the slice
+/// sample values will be normalized between [0, 1]
+pub fn sample_1d(samples: &mut [f32], scramble: u32, offset: u32) {
+  for s in samples.iter_mut().enumerate() {
+    *s.1 = van_der_corput(s.0 as u32 + offset, scramble);
+  }
+}
+/// Generate a sample from a scrambled (0, 2) sequence
+pub fn sample_02(n: u32, scramble: (u32, u32)) -> (f32, f32) {
+  (van_der_corput(n, scramble.0), sobol(n, scramble.1))
+}
+/// Generate a scrambled Van der Corput sequence value
+/// as described by Kollig & Keller (2002) and in PBR
+/// method is specialized for base 2
+pub fn van_der_corput(mut n: u32, scramble: u32) -> f32 {
+  n = (n << 16) | (n >> 16);
+  n = ((n & 0x00ff00ff) << 8) | ((n & 0xff00ff00) >> 8);
+  n = ((n & 0x0f0f0f0f) << 4) | ((n & 0xf0f0f0f0) >> 4);
+  n = ((n & 0x33333333) << 2) | ((n & 0xcccccccc) >> 2);
+  n = ((n & 0x55555555) << 1) | ((n & 0xaaaaaaaa) >> 1);
+  n ^= scramble;
+  f32::min(
+    ((n >> 8) & 0xffffff) as f32 / ((1 << 24) as f32),
+    1.0 - f32::EPSILON,
+  )
+}
+/// Generate a scrambled Sobol' sequence value
+/// as described by Kollig & Keller (2002) and in PBR
+/// method is specialized for base 2
+pub fn sobol(mut n: u32, mut scramble: u32) -> f32 {
+  let mut i = 1 << 31;
+  while n != 0 {
+    if n & 0x1 != 0 {
+      scramble ^= i;
+    }
+    n >>= 1;
+    i ^= i >> 1;
+  }
+  f32::min(
+    ((scramble >> 8) & 0xffffff) as f32 / ((1 << 24) as f32),
+    1.0 - f32::EPSILON,
+  )
+}
+
+impl SampleStorage {
+  pub fn generate(request: SamplePrecomputedRequest) -> Self {
+    let spp = request.min_spp.next_power_of_two();
+
+    let mut rng = ThreadRng::default();
+    let samples_1d_arrays = (0..request.max_1d_dimension)
+      // .map(|_| seq1_array.clone())
+      .map(|_| {
+        let mut v = vec![0.; spp];
+        get_samples_1d(&mut v);
+        v
+      })
+      .map(|mut v| {
+        v.as_mut_slice().shuffle(&mut rng);
+        v
+      })
+      .collect();
+
+    let samples_2d_arrays = (0..request.max_2d_dimension)
+      // .map(|_| seq2_array.clone())
+      .map(|_| {
+        let mut v = vec![(0., 0.); spp];
+        get_samples_2d(&mut v);
+        v
+      })
+      .map(|mut v| {
+        v.as_mut_slice().shuffle(&mut rng);
+        v
+      })
+      .collect();
+
+    Self {
+      samples_1d_arrays,
+      samples_2d_arrays,
+    }
+  }
 }
 
 pub struct SamplingStorageState {
@@ -45,14 +146,29 @@ pub struct PrecomputedSampler {
   backup: RngSampler,
 }
 
+impl PrecomputedSampler {
+  pub fn new(source: &Arc<SampleStorage>, current_sampling_index: usize) -> Self {
+    Self {
+      storage: source.clone(),
+      state: SamplingStorageState {
+        current_sampling_index,
+        current_1d_index: 0,
+        current_2d_index: 0,
+      },
+      backup: Default::default(),
+    }
+  }
+}
+
 impl Sampler for PrecomputedSampler {
   fn next(&mut self) -> f32 {
-    if let Some(one_storage) = self.storage.samples.get(self.state.current_sampling_index) {
-      if let Some(sample) = one_storage
-        .samples_1d_array
-        .get(self.state.current_1d_index)
-      {
-        self.state.current_1d_index += 1;
+    if let Some(array) = self
+      .storage
+      .samples_1d_arrays
+      .get(self.state.current_1d_index)
+    {
+      self.state.current_1d_index += 1;
+      if let Some(sample) = array.get(self.state.current_sampling_index) {
         *sample
       } else {
         self.backup.next()
@@ -63,12 +179,13 @@ impl Sampler for PrecomputedSampler {
   }
 
   fn next_2d(&mut self) -> (f32, f32) {
-    if let Some(one_storage) = self.storage.samples.get(self.state.current_sampling_index) {
-      if let Some(sample) = one_storage
-        .samples_2d_array
-        .get(self.state.current_2d_index)
-      {
-        self.state.current_2d_index += 1;
+    if let Some(array) = self
+      .storage
+      .samples_2d_arrays
+      .get(self.state.current_2d_index)
+    {
+      self.state.current_2d_index += 1;
+      if let Some(sample) = array.get(self.state.current_sampling_index) {
         *sample
       } else {
         self.backup.next_2d()
@@ -79,7 +196,7 @@ impl Sampler for PrecomputedSampler {
   }
 }
 
-use rand::{rngs::ThreadRng, Rng};
+use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
 
 #[derive(Default)]
 pub struct RngSampler {
@@ -95,29 +212,6 @@ impl Sampler for RngSampler {
     (self.rng.gen(), self.rng.gen())
   }
 }
-
-// use sobol::params::JoeKuoD6;
-// use sobol::Sobol;
-
-// pub struct SobolSequence {
-//   generator: usize,
-// }
-
-// impl Sampler for SobolSequence {
-//   fn next(&mut self) -> f32 {
-//     let params = JoeKuoD6::minimal();
-//     let seq = Sobol::<f32>::new(300, &params);
-
-//     for point in seq.take(100) {
-//       println!("{:?}", point);
-//     }
-//     todo!()
-//   }
-
-//   fn next_2d(&mut self) -> (f32, f32) {
-//     (self.rng.gen(), self.rng.gen())
-//   }
-// }
 
 macro_rules! AssertLeType {
   ($left:expr, $right:expr) => {
