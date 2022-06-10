@@ -12,6 +12,8 @@ use rendiation_algebra::Vec2;
 /// The task of a Sampler is to generate a sequence of -dimensional samples in
 /// [0, 1) ^ d
 pub trait Sampler {
+  fn reset(&mut self, next_sampling_index: usize);
+
   fn next(&mut self) -> f32;
 
   /// While a 2D sample value could be constructed by using values returned by a pair of calls to sample(),
@@ -22,9 +24,22 @@ pub trait Sampler {
   }
 }
 
+#[derive(Clone)]
 pub struct SampleStorage {
   samples_1d_arrays: Vec<Vec<f32>>,
   samples_2d_arrays: Vec<Vec<(f32, f32)>>,
+}
+
+impl SampleStorage {
+  pub fn shuffle(&mut self) {
+    let mut rng = ThreadRng::default();
+    self.samples_1d_arrays.iter_mut().for_each(|v| {
+      v.as_mut_slice().shuffle(&mut rng);
+    });
+    self.samples_2d_arrays.iter_mut().for_each(|v| {
+      v.as_mut_slice().shuffle(&mut rng);
+    });
+  }
 }
 
 pub struct SamplePrecomputedRequest {
@@ -147,11 +162,11 @@ pub struct PrecomputedSampler {
 }
 
 impl PrecomputedSampler {
-  pub fn new(source: &Arc<SampleStorage>, current_sampling_index: usize) -> Self {
+  pub fn new(source: &Arc<SampleStorage>) -> Self {
     Self {
       storage: source.clone(),
       state: SamplingStorageState {
-        current_sampling_index,
+        current_sampling_index: 0,
         current_1d_index: 0,
         current_2d_index: 0,
       },
@@ -161,6 +176,12 @@ impl PrecomputedSampler {
 }
 
 impl Sampler for PrecomputedSampler {
+  fn reset(&mut self, next_sampling_index: usize) {
+    self.state.current_1d_index = 0;
+    self.state.current_2d_index = 0;
+    self.state.current_sampling_index = next_sampling_index;
+  }
+
   fn next(&mut self) -> f32 {
     if let Some(array) = self
       .storage
@@ -211,6 +232,8 @@ impl Sampler for RngSampler {
   fn next_2d(&mut self) -> (f32, f32) {
     (self.rng.gen(), self.rng.gen())
   }
+
+  fn reset(&mut self, _next_sampling_index: usize) {}
 }
 
 macro_rules! AssertLeType {

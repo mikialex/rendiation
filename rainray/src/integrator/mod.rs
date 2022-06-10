@@ -41,13 +41,6 @@ pub trait Integrator<T: Send + Sync>: Send + Sync {
     let jitter_unit = frame_size.map(|v| 1. / v);
     let height = frame.height();
 
-    // let sampling_cache = SampleStorage::generate(SamplePrecomputedRequest {
-    //   min_spp: 128,
-    //   max_1d_dimension: 50,
-    //   max_2d_dimension: 50,
-    // });
-    // let sampling_cache = std::sync::Arc::new(sampling_cache);
-
     frame
       .inner
       .iter_mut()
@@ -56,19 +49,12 @@ pub trait Integrator<T: Send + Sync>: Send + Sync {
         let x = i as f32 / frame_size.x;
         let y = (frame_size.y - j as f32) / frame_size.y;
 
-        let sampling_cache = SampleStorage::generate(SamplePrecomputedRequest {
-          min_spp: 128,
-          max_1d_dimension: 50,
-          max_2d_dimension: 50,
-        });
-        let sampling_cache = std::sync::Arc::new(sampling_cache);
+        let mut sampler = self.create_sampler();
 
         *pixel = self
           .create_pixel_sampler()
-          .sample_pixel(|i| {
-            // let mut sampler = self.create_sampler();
-
-            let mut sampler = PrecomputedSampler::new(&sampling_cache, i);
+          .sample_pixel(|next_sampling_index| {
+            sampler.reset(next_sampling_index);
 
             let sample_point = Vec2::new(x, y) + jitter_unit * sampler.next_2d_vec();
             let sample_point = sample_point * 2. - Vec2::one();

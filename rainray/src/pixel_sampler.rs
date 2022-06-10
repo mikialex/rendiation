@@ -6,7 +6,7 @@ pub trait PixelSampler: Sized {
   fn take_result(self) -> Vec3<f32>;
   fn next_sample_index(&self) -> usize;
 
-  fn sample_pixel(mut self, per_sample: impl Fn(usize) -> Vec3<f32>) -> Vec3<f32> {
+  fn sample_pixel(mut self, mut per_sample: impl FnMut(usize) -> Vec3<f32>) -> Vec3<f32> {
     loop {
       if !self.should_sample() {
         break self.take_result();
