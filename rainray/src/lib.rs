@@ -7,13 +7,11 @@
 
 mod frame;
 mod integrator;
-mod pixel_sampler;
-mod sampler;
+mod sampling;
+pub use sampling::*;
 
 pub use frame::*;
 pub use integrator::*;
-pub use pixel_sampler::*;
-pub use sampler::*;
 
 pub mod background;
 pub mod light;

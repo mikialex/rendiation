@@ -1,6 +1,6 @@
-use std::sync::Arc;
-
+use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
 use rendiation_algebra::Vec2;
+use std::sync::Arc;
 
 /// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Sampling_Interface#fragment-SamplerInterface-2
 
@@ -48,98 +48,23 @@ pub struct SamplePrecomputedRequest {
   pub max_2d_dimension: usize,
 }
 
-fn get_samples_2d(samples: &mut [(f32, f32)]) {
-  let scramble = (
-    rand::thread_rng().gen_range(0, u32::MAX),
-    rand::thread_rng().gen_range(0, u32::MAX),
-  );
-  sample_2d(samples, scramble, 0)
-}
-fn get_samples_1d(samples: &mut [f32]) {
-  let scramble = rand::thread_rng().gen_range(0, u32::MAX);
-  sample_1d(samples, scramble, 0);
-}
-
-/// Generate a 2D pattern of low discrepancy samples to fill the slice
-/// sample values will be normalized between [0, 1]
-pub fn sample_2d(samples: &mut [(f32, f32)], scramble: (u32, u32), offset: u32) {
-  for s in samples.iter_mut().enumerate() {
-    *s.1 = sample_02(s.0 as u32 + offset, scramble);
-  }
-}
-/// Generate a 1D pattern of low discrepancy samples to fill the slice
-/// sample values will be normalized between [0, 1]
-pub fn sample_1d(samples: &mut [f32], scramble: u32, offset: u32) {
-  for s in samples.iter_mut().enumerate() {
-    *s.1 = van_der_corput(s.0 as u32 + offset, scramble);
-  }
-}
-/// Generate a sample from a scrambled (0, 2) sequence
-pub fn sample_02(n: u32, scramble: (u32, u32)) -> (f32, f32) {
-  (van_der_corput(n, scramble.0), sobol(n, scramble.1))
-}
-/// Generate a scrambled Van der Corput sequence value
-/// as described by Kollig & Keller (2002) and in PBR
-/// method is specialized for base 2
-pub fn van_der_corput(mut n: u32, scramble: u32) -> f32 {
-  n = (n << 16) | (n >> 16);
-  n = ((n & 0x00ff00ff) << 8) | ((n & 0xff00ff00) >> 8);
-  n = ((n & 0x0f0f0f0f) << 4) | ((n & 0xf0f0f0f0) >> 4);
-  n = ((n & 0x33333333) << 2) | ((n & 0xcccccccc) >> 2);
-  n = ((n & 0x55555555) << 1) | ((n & 0xaaaaaaaa) >> 1);
-  n ^= scramble;
-  f32::min(
-    ((n >> 8) & 0xffffff) as f32 / ((1 << 24) as f32),
-    1.0 - f32::EPSILON,
-  )
-}
-/// Generate a scrambled Sobol' sequence value
-/// as described by Kollig & Keller (2002) and in PBR
-/// method is specialized for base 2
-pub fn sobol(mut n: u32, mut scramble: u32) -> f32 {
-  let mut i = 1 << 31;
-  while n != 0 {
-    if n & 0x1 != 0 {
-      scramble ^= i;
-    }
-    n >>= 1;
-    i ^= i >> 1;
-  }
-  f32::min(
-    ((scramble >> 8) & 0xffffff) as f32 / ((1 << 24) as f32),
-    1.0 - f32::EPSILON,
-  )
+pub trait SampleGenerator: Default {
+  fn override_ssp(&self, ssp: usize) -> usize;
+  fn gen_1d(&self, index: usize) -> f32;
+  fn gen_2d(&self, index: usize) -> (f32, f32);
 }
 
 impl SampleStorage {
-  pub fn generate(request: SamplePrecomputedRequest) -> Self {
-    let spp = request.min_spp.next_power_of_two();
+  pub fn generate<G: SampleGenerator>(request: SamplePrecomputedRequest) -> Self {
+    let gen = G::default();
+    let spp = gen.override_ssp(request.min_spp);
 
-    let mut rng = ThreadRng::default();
     let samples_1d_arrays = (0..request.max_1d_dimension)
-      // .map(|_| seq1_array.clone())
-      .map(|_| {
-        let mut v = vec![0.; spp];
-        get_samples_1d(&mut v);
-        v
-      })
-      .map(|mut v| {
-        v.as_mut_slice().shuffle(&mut rng);
-        v
-      })
+      .map(|_| (0..spp).map(|i| gen.gen_1d(i)).collect())
       .collect();
 
     let samples_2d_arrays = (0..request.max_2d_dimension)
-      // .map(|_| seq2_array.clone())
-      .map(|_| {
-        let mut v = vec![(0., 0.); spp];
-        get_samples_2d(&mut v);
-        v
-      })
-      .map(|mut v| {
-        v.as_mut_slice().shuffle(&mut rng);
-        v
-      })
+      .map(|_| (0..spp).map(|i| gen.gen_2d(i)).collect())
       .collect();
 
     Self {
@@ -217,8 +142,6 @@ impl Sampler for PrecomputedSampler {
   }
 }
 
-use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
-
 #[derive(Default)]
 pub struct RngSampler {
   rng: ThreadRng,
@@ -234,35 +157,4 @@ impl Sampler for RngSampler {
   }
 
   fn reset(&mut self, _next_sampling_index: usize) {}
-}
-
-macro_rules! AssertLeType {
-  ($left:expr, $right:expr) => {
-    [(); $right - $left]
-  };
-}
-
-macro_rules! AssertEqType {
-  ($left:expr, $right: expr) => {
-    (AssertLeType!($left, $right), AssertLeType!($right, $left))
-  };
-}
-
-/// https://github.com/rust-lang/rust/issues/76560
-/// https://hackmd.io/OZG_XiLFRs2Xmw5s39jRzA?view
-pub struct ConstSampler<const N: usize> {}
-
-impl<const N: usize> ConstSampler<N> {
-  pub fn sample<const R: usize>(self) -> ConstSampler<R>
-  where
-    AssertEqType!(N + 1, R): Sized,
-  {
-    ConstSampler {}
-  }
-}
-
-#[cfg(test)]
-pub fn test(sampler: ConstSampler<1>) -> ConstSampler<3> {
-  let sampler2 = sampler.sample::<2>();
-  sampler2.sample::<3>()
 }

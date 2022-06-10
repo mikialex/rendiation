@@ -20,11 +20,13 @@ impl Default for PathTraceIntegrator {
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
       roulette: Default::default(),
-      sampling_input_cache: SampleStorage::generate(SamplePrecomputedRequest {
-        min_spp: 128,
-        max_1d_dimension: 50,
-        max_2d_dimension: 50,
-      }),
+      sampling_input_cache: SampleStorage::generate::<SobolSamplingGenerator>(
+        SamplePrecomputedRequest {
+          min_spp: 128,
+          max_1d_dimension: 50,
+          max_2d_dimension: 50,
+        },
+      ),
     }
   }
 }
