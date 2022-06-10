@@ -1,9 +1,25 @@
-use crate::{math::*, ImportanceSampled};
+use crate::math::*;
 use crate::{Intersection, Sampler};
 
 pub mod physical;
 pub use physical::*;
 use rendiation_algebra::Vec3;
+
+pub struct ImportanceSampled<T, U> {
+  pub sample: T,
+  pub pdf: f32,
+  pub importance: U,
+}
+
+// pub trait ImportanceSampling<T> {
+//   type Sample
+//   type Value
+//   fn sampling(&self) -> Self::Result;
+//   fn pdf(&self) -> f32;
+//   fn eval(&self) -> Self::Value;
+// }
+
+pub type BRDFImportantSampled = ImportanceSampled<NormalizedVec3<f32>, Vec3<f32>>;
 
 pub trait Material: Send + Sync + 'static + dyn_clone::DynClone {
   /// sample the light input dir with brdf importance
@@ -12,11 +28,12 @@ pub trait Material: Send + Sync + 'static + dyn_clone::DynClone {
     view_dir: NormalizedVec3<f32>,
     intersection: &Intersection,
     sampler: &mut dyn Sampler,
-  ) -> ImportanceSampled<NormalizedVec3<f32>> {
+  ) -> BRDFImportantSampled {
     let light_dir = self.sample_light_dir_use_bsdf_importance_impl(view_dir, intersection, sampler);
     ImportanceSampled {
       sample: light_dir,
       pdf: self.pdf(view_dir, light_dir, intersection),
+      importance: self.bsdf(view_dir, light_dir, intersection),
     }
   }
 

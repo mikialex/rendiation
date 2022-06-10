@@ -82,15 +82,20 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
       if let Some((intersection, _, model)) = target.get_min_dist_hit(current_ray) {
         let view_dir = current_ray.direction.reverse();
 
-        let BSDFSampleResult { light_dir, bsdf } =
-          model.sample_light_dir_use_bsdf_importance(view_dir, &intersection, sampler);
+        let BRDFImportantSampled {
+          sample: light_dir,
+          pdf,
+          importance: bsdf,
+        } = model
+          .material
+          .sample_light_dir_use_bsdf_importance(view_dir, &intersection, sampler);
 
-        if light_dir.pdf == 0.0 {
+        if pdf == 0.0 {
           break;
         }
 
-        let cos = light_dir.sample.dot(intersection.shading_normal).abs();
-        throughput = throughput * cos * bsdf / light_dir.pdf;
+        let cos = light_dir.dot(intersection.shading_normal).abs();
+        throughput = throughput * cos * bsdf / pdf;
 
         // energy += self.sample_lights(target, model, &intersection, view_dir) * throughput;
 
@@ -98,7 +103,7 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
           break;
         }
 
-        current_ray = Ray3::new(intersection.position, light_dir.sample);
+        current_ray = Ray3::new(intersection.position, light_dir);
       } else {
         // hit outside target, sample background;
         energy += target.sample_environment(current_ray) * throughput;

@@ -169,11 +169,3 @@ where
     diff.lerp(spec, specular_estimate)
   }
 }
-
-// pub trait ImportanceSampling<T> {
-//   type Sample
-//   type Value
-//   fn sampling(&self) -> Self::Result;
-//   fn pdf(&self) -> f32;
-//   fn eval(&self) -> Self::Value;
-// }

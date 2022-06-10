@@ -1,5 +1,3 @@
-use rendiation_algebra::Vec3;
-
 use crate::*;
 
 #[derive(Clone)]
@@ -26,28 +24,6 @@ impl Model {
       world_matrix_inverse: Default::default(),
       normal_matrix: Default::default(),
     }
-  }
-  pub fn sample_light_dir_use_bsdf_importance(
-    &self,
-    view_dir: NormalizedVec3<f32>,
-    intersection: &Intersection,
-    sampler: &mut dyn Sampler,
-  ) -> BSDFSampleResult {
-    let light_dir =
-      self
-        .material
-        .sample_light_dir_use_bsdf_importance(view_dir, intersection, sampler);
-    let bsdf = self.material.bsdf(view_dir, light_dir.sample, intersection);
-    BSDFSampleResult { light_dir, bsdf }
-  }
-
-  pub fn bsdf(
-    &self,
-    view_dir: NormalizedVec3<f32>,
-    light_dir: NormalizedVec3<f32>,
-    intersection: &Intersection,
-  ) -> Vec3<f32> {
-    self.material.bsdf(view_dir, light_dir, intersection)
   }
 
   pub fn update_nearest_hit<'b>(
@@ -86,14 +62,4 @@ impl Model {
     let local_ray = world_ray.apply_matrix_into(self.world_matrix_inverse);
     self.shape.intersect_statistic(local_ray)
   }
-}
-
-pub struct BSDFSampleResult {
-  pub light_dir: ImportanceSampled<NormalizedVec3<f32>>,
-  pub bsdf: Vec3<f32>,
-}
-
-pub struct ImportanceSampled<T> {
-  pub sample: T,
-  pub pdf: f32,
 }
