@@ -62,7 +62,14 @@ pub trait PhysicalSpecular:
 {
   fn f0(&self, albedo: Vec3<f32>) -> Vec3<f32>;
 
-  fn specular_estimate(&self, albedo: Vec3<f32>) -> f32;
+  fn specular_estimate(&self, albedo: Vec3<f32>) -> f32 {
+    // Estimate specular contribution using Fresnel term
+    fn mix_scalar<N: Scalar>(x: N, y: N, a: N) -> N {
+      x * (N::one() - a) + y * a
+    }
+    let f0 = self.f0(albedo).max_channel();
+    mix_scalar(f0, 1.0, 0.2)
+  }
 
   fn sample_light_dir_use_bsdf_importance(
     &self,
@@ -93,16 +100,6 @@ where
   fn f0(&self, albedo: Vec3<f32>) -> Vec3<f32> {
     let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
     Vec3::splat(f0).lerp(albedo, self.metallic)
-  }
-
-  fn specular_estimate(&self, albedo: Vec3<f32>) -> f32 {
-    // Estimate specular contribution using Fresnel term
-    fn mix_scalar<N: Scalar>(x: N, y: N, a: N) -> N {
-      x * (N::one() - a) + y * a
-    }
-    let f0 = ((self.ior - 1.0) / (self.ior + 1.0)).powi(2);
-    let f = (1.0 - self.metallic) * f0 + self.metallic * albedo.x; // albedo.mean()
-    mix_scalar(f, 1.0, 0.2)
   }
 }
 
@@ -137,7 +134,10 @@ where
     let specular = (d * g * f) / (4.0 * n.dot(l) * n.dot(v));
 
     let diffuse = self.diffuse.bsdf(view_dir, light_dir, intersection);
-    specular + (Vec3::splat(1.0) - f) * diffuse
+
+    // i don't know why
+    let estimate = self.specular.specular_estimate(self.diffuse.albedo());
+    specular + (1.0 - estimate) * diffuse
   }
 
   fn sample_light_dir_use_bsdf_importance_impl(

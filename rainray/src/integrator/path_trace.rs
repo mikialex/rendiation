@@ -10,7 +10,6 @@ pub struct PathTraceIntegrator {
   pub exposure_upper_bound: f32,
   pub bounce_time_limit: usize,
   pub roulette: RussianRoulette,
-  pub sampling_input_cache: SampleStorage,
 }
 
 impl Default for PathTraceIntegrator {
@@ -20,13 +19,6 @@ impl Default for PathTraceIntegrator {
       exposure_upper_bound: 1.0,
       bounce_time_limit: 20,
       roulette: Default::default(),
-      sampling_input_cache: SampleStorage::generate::<SobolSamplingGenerator>(
-        SamplePrecomputedRequest {
-          min_spp: 128,
-          max_1d_dimension: 50,
-          max_2d_dimension: 50,
-        },
-      ),
     }
   }
 }
@@ -67,8 +59,12 @@ impl<T: RayTraceable> Integrator<T> for PathTraceIntegrator {
   type Sampler = PrecomputedSampler;
   // todo optimize, use shuffle iter?
   fn create_sampler(&self) -> Self::Sampler {
-    let mut sampling_cache = self.sampling_input_cache.clone();
-    sampling_cache.shuffle();
+    let sampling_cache =
+      SampleStorage::generate::<SobolSamplingGenerator>(SamplePrecomputedRequest {
+        min_spp: 128,
+        max_1d_dimension: 50,
+        max_2d_dimension: 50,
+      });
     let sampling_cache = std::sync::Arc::new(sampling_cache);
     PrecomputedSampler::new(&sampling_cache)
   }

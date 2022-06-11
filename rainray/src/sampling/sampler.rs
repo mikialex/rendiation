@@ -59,13 +59,21 @@ impl SampleStorage {
     let gen = G::default();
     let spp = gen.override_ssp(request.min_spp);
 
-    let samples_1d_arrays = (0..request.max_1d_dimension)
+    let mut samples_1d_arrays: Vec<Vec<f32>> = (0..request.max_1d_dimension)
       .map(|_| (0..spp).map(|i| gen.gen_1d(i)).collect())
       .collect();
 
-    let samples_2d_arrays = (0..request.max_2d_dimension)
+    let mut samples_2d_arrays: Vec<Vec<(f32, f32)>> = (0..request.max_2d_dimension)
       .map(|_| (0..spp).map(|i| gen.gen_2d(i)).collect())
       .collect();
+
+    let mut rng = ThreadRng::default();
+    samples_1d_arrays.iter_mut().for_each(|v| {
+      v.as_mut_slice().shuffle(&mut rng);
+    });
+    samples_2d_arrays.iter_mut().for_each(|v| {
+      v.as_mut_slice().shuffle(&mut rng);
+    });
 
     Self {
       samples_1d_arrays,
