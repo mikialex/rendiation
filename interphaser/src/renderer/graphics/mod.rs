@@ -7,7 +7,7 @@ pub struct UIVertex {
   position: Vec2<f32>,
   #[semantic(GeometryUV)]
   uv: Vec2<f32>,
-  #[semantic(GeometryColor)]
+  #[semantic(GeometryColorWithAlpha)]
   color: Vec4<f32>,
 }
 unsafe impl bytemuck::Zeroable for UIVertex {}

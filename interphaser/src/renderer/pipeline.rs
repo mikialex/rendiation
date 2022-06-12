@@ -23,7 +23,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
       };
 
       let position = builder.query::<GeometryPosition>()?.get();
-      let color = builder.query::<GeometryColor>()?.get();
+      let color = builder.query::<GeometryColorWithAlpha>()?.get();
 
       let global = global.using().expand();
 
@@ -36,7 +36,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
         .into();
 
       builder.vertex_position.set(vertex);
-      builder.set_vertex_out::<FragmentColor>(color);
+      builder.set_vertex_out::<FragmentColorAndAlpha>(color);
 
       Ok(())
     })?;
@@ -48,8 +48,8 @@ impl ShaderGraphProvider for SolidUIPipeline {
         write_mask: webgpu::ColorWrites::ALL,
       });
 
-      let color = builder.query::<FragmentColor>()?.get();
-      builder.set_fragment_out(0, (color, 1.))
+      let color = builder.query::<FragmentColorAndAlpha>()?.get();
+      builder.set_fragment_out(0, color)
     })
   }
 }
@@ -74,7 +74,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
       };
 
       let position = builder.query::<GeometryPosition>()?.get();
-      let color = builder.query::<GeometryColor>()?.get();
+      let color = builder.query::<GeometryColorWithAlpha>()?.get();
       let uv = builder.query::<GeometryUV>()?.get();
 
       let global = global.using().expand();
@@ -88,7 +88,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
         .into();
 
       builder.vertex_position.set(vertex);
-      builder.set_vertex_out::<FragmentColor>(color);
+      builder.set_vertex_out::<FragmentColorAndAlpha>(color);
       builder.set_vertex_out::<FragmentUv>(uv);
 
       Ok(())
