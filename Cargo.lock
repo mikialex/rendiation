@@ -1989,6 +1989,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1382d1f0a252c4bf97dc20d979a2fdd05b024acd7c2ed0f7595d7817666a157"
 
 [[package]]
+name = "rendiation-abstract-graph"
+version = "0.0.1"
+
+[[package]]
 name = "rendiation-abstract-tree"
 version = "0.0.1"
 

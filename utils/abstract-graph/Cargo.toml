@@ -1,0 +1,4 @@
+[package]
+edition = "2021"
+name = "rendiation-abstract-graph"
+version = "0.0.1"
