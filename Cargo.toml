@@ -8,6 +8,7 @@ members = [
   "utils/arena-tree",
   "utils/storage",
   "utils/abstract-tree",
+  "utils/abstract-graph",
   "components/color",
   "components/controller",
   "components/mesh/renderable",
