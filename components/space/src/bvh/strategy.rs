@@ -1,3 +1,5 @@
+use rendiation_geometry::SurfaceAreaMeasure;
+
 use crate::utils::{bounding_from_build_source, CenterAblePrimitive, TreeBuildOption};
 
 use super::{node::FlattenBVHNode, BVHBounding, BuildPrimitive, FlattenBVHNodeChildInfo};
@@ -84,8 +86,7 @@ impl<B: BalanceTreeBounding> BVHBuildStrategy<B> for BalanceTree {
   }
 }
 
-pub trait SAHBounding: BalanceTreeBounding + Default {
-  fn get_surface_heuristic(&self) -> f32;
+pub trait SAHBounding: BalanceTreeBounding + Default + SurfaceAreaMeasure<f32> {
   fn get_unit_from_center_by_axis(
     center: &<Self as CenterAblePrimitive>::Center,
     axis: Self::AxisType,
@@ -156,7 +157,7 @@ struct SAHPartitionGroup<B: SAHBounding> {
 }
 impl<B: SAHBounding> SAHPartitionGroup<B> {
   fn cost(&self) -> f32 {
-    self.bounding.get_surface_heuristic() * self.primitive_count as f32
+    self.bounding.surface_area() * self.primitive_count as f32
   }
 }
 

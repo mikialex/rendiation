@@ -70,7 +70,7 @@ pub trait LengthMeasurable<T: Scalar>: LebesgueMeasurable<T, 1> {
     self.measure()
   }
 }
-impl<T: Scalar> LengthMeasurable<T> for T where T: LebesgueMeasurable<T, 1> {}
+impl<T: Scalar, X> LengthMeasurable<T> for X where X: LebesgueMeasurable<T, 1> {}
 
 pub trait AreaMeasurable<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 2> {
   #[inline(always)]
@@ -78,15 +78,15 @@ pub trait AreaMeasurable<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 2
     self.measure()
   }
 }
-impl<T: Scalar> AreaMeasurable<T> for T where T: SpaceEntity<T, 2> + LebesgueMeasurable<T, 2> {}
+impl<T: Scalar, X> AreaMeasurable<T> for X where X: SpaceEntity<T, 2> + LebesgueMeasurable<T, 2> {}
 
-pub trait VolumeMeasurable<T: Scalar>: LebesgueMeasurable<T, 3> {
+pub trait VolumeMeasurable<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurable<T, 3> {
   #[inline(always)]
   fn volume(&self) -> T {
     self.measure()
   }
 }
-impl<T: Scalar> VolumeMeasurable<T> for T where T: LebesgueMeasurable<T, 3> {}
+impl<T: Scalar, X> VolumeMeasurable<T> for X where X: SpaceEntity<T, 3> + LebesgueMeasurable<T, 3> {}
 
 pub trait SurfaceAreaMeasure<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {
   #[inline(always)]
@@ -94,7 +94,7 @@ pub trait SurfaceAreaMeasure<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurable<
     self.measure()
   }
 }
-impl<T: Scalar> SurfaceAreaMeasure<T> for T where T: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {}
+impl<T: Scalar, X> SurfaceAreaMeasure<T> for X where X: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {}
 
 pub trait PerimeterMeasure<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {
   #[inline(always)]
@@ -102,7 +102,7 @@ pub trait PerimeterMeasure<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T,
     self.measure()
   }
 }
-impl<T: Scalar> PerimeterMeasure<T> for T where T: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {}
+impl<T: Scalar, X> PerimeterMeasure<T> for X where X: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {}
 
 pub trait SolidEntity<T: Scalar, const D: usize>:
   SpaceEntity<T, D> + LebesgueMeasurable<T, D>

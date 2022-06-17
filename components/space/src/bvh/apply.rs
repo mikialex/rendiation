@@ -67,18 +67,6 @@ impl SAHBounding for Box3 {
   }
 
   #[inline(always)]
-  fn get_surface_heuristic(&self) -> f32 {
-    let x_expand = self.max.x - self.min.x;
-    let y_expand = self.max.y - self.min.y;
-    let z_expand = self.max.z - self.min.z;
-    if x_expand < 0.0 || y_expand < 0.0 || z_expand < 0.0 {
-      0.0
-    } else {
-      x_expand * y_expand + x_expand * z_expand + y_expand * z_expand
-    }
-  }
-
-  #[inline(always)]
   fn empty() -> Self {
     Self::empty()
   }
