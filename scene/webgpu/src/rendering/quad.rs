@@ -85,14 +85,6 @@ impl ShaderGraphProvider for FullScreenQuad {
   }
 }
 
-#[repr(C)]
-#[std140_layout]
-#[derive(Copy, Clone, PartialEq, ShaderStruct)]
-pub struct RenderPassGPUInfoData {
-  pub texel_size: Vec2<f32>,
-  pub buffer_size: Vec2<f32>,
-}
-
 pub struct QuadDraw<T> {
   quad: FullScreenQuad,
   content: T,

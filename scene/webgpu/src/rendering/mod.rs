@@ -13,7 +13,7 @@ pub use background::*;
 pub mod quad;
 pub use quad::*;
 use rendiation_scene_core::SceneContent;
-use webgpu::{GPURenderPass, GPURenderPassCtx};
+use webgpu::{GPURenderPass, GPURenderPassCtx, UniformBufferView};
 
 pub mod framework;
 pub use framework::*;
@@ -23,12 +23,14 @@ use crate::{DefaultPassDispatcher, GPUResourceCache, Scene, SceneCamera};
 pub struct SceneRenderPass<'a, 'b, 'c> {
   pub ctx: GPURenderPassCtx<'a, 'b>,
   pub resources: &'c mut GPUResourceCache,
+  pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
 }
 
 impl<'a, 'b, 'c> SceneRenderPass<'a, 'b, 'c> {
   pub fn default_dispatcher(&self) -> DefaultPassDispatcher {
     DefaultPassDispatcher {
       formats: self.ctx.pass.formats().clone(),
+      pass_info: self.pass_info.clone(),
     }
   }
 }

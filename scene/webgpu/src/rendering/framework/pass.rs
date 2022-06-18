@@ -1,8 +1,21 @@
 use std::marker::PhantomData;
 
-use webgpu::{GPURenderPassCtx, Operations, RenderPassDescriptorOwned, RenderTargetView};
+use bytemuck::Zeroable;
+use rendiation_algebra::Vec2;
+use shadergraph::{std140_layout, ShaderStruct};
+use webgpu::{
+  GPURenderPassCtx, Operations, RenderPassDescriptorOwned, RenderTargetView, UniformBufferResource,
+};
 
 use crate::{Attachment, AttachmentWriteView, FrameCtx, SceneRenderPass};
+
+#[repr(C)]
+#[std140_layout]
+#[derive(Copy, Clone, PartialEq, ShaderStruct)]
+pub struct RenderPassGPUInfoData {
+  pub texel_size: Vec2<f32>,
+  pub buffer_size: Vec2<f32>,
+}
 
 pub fn pass(name: impl Into<String>) -> PassDescriptor<'static> {
   let mut desc = RenderPassDescriptorOwned::default();
@@ -51,6 +64,12 @@ impl<'a> PassDescriptor<'a> {
     self
   }
 
+  fn buffer_size(&self) -> Vec2<f32> {
+    let first = &self.desc.channels.first().unwrap().1;
+    let size = first.size().into_usize();
+    Vec2::new(size.0 as f32, size.1 as f32)
+  }
+
   #[must_use]
   pub fn resolve_to(mut self, attachment: AttachmentWriteView<&'a mut Attachment>) -> Self {
     self.desc.resolve_target = attachment.view.into();
@@ -61,6 +80,15 @@ impl<'a> PassDescriptor<'a> {
   pub fn render<'x>(self, ctx: &'x mut FrameCtx) -> ActiveRenderPass<'x> {
     let pass = ctx.encoder.begin_render_pass(self.desc.clone());
 
+    let buffer_size = self.buffer_size();
+    let pass_info = RenderPassGPUInfoData {
+      texel_size: buffer_size.map(|v| 1.0 / v),
+      buffer_size,
+      ..Zeroable::zeroed()
+    };
+    let pass_info = UniformBufferResource::create_with_source(pass_info, &ctx.gpu.device);
+    let pass_info = pass_info.create_default_view();
+
     let c = GPURenderPassCtx {
       pass,
       gpu: ctx.gpu,
@@ -70,6 +98,7 @@ impl<'a> PassDescriptor<'a> {
     let pass = SceneRenderPass {
       ctx: c,
       resources: ctx.resources,
+      pass_info,
     };
 
     ActiveRenderPass {

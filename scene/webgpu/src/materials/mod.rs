@@ -172,11 +172,14 @@ impl GPUMaterialCache {
 
 pub struct DefaultPassDispatcher {
   pub formats: RenderTargetFormatsInfo,
+  pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
 }
 
 impl ShaderHashProvider for DefaultPassDispatcher {}
 impl ShaderPassBuilder for DefaultPassDispatcher {
-  fn setup_pass(&self, _: &mut GPURenderPassCtx) {}
+  fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
+    ctx.binding.bind(&self.pass_info, SB::Pass);
+  }
 }
 
 impl ShaderGraphProvider for DefaultPassDispatcher {
@@ -184,9 +187,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    let pass = builder
-      .bindgroups
-      .uniform::<UniformBufferView<RenderPassGPUInfoData>>(SB::Pass);
+    let pass = builder.bindgroups.uniform_by(&self.pass_info, SB::Pass);
 
     builder.vertex(|builder, _| {
       let pass = pass.using().expand();
