@@ -105,7 +105,7 @@ fn setup_pass_core<Me, Ma>(
     mesh: &model.mesh,
   };
 
-  RenderEmitter::new(components.as_slice(), &emitter).render(&mut pass.ctx);
+  RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
 }
 
 impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>

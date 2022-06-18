@@ -27,22 +27,28 @@ pub trait MaterialMeshLayoutRequire {
 }
 
 pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {
-  fn render(&self, ctx: &mut GPURenderPassCtx) {
+  fn render(&self, ctx: &mut GPURenderPassCtx, emitter: &dyn DrawcallEmitter) {
     let mut hasher = PipelineHasher::default();
     self.hash_pipeline(&mut hasher);
 
     let pipeline = ctx
       .gpu
       .device
-      .create_and_cache_render_pipeline(hasher, |device| {
+      .get_or_cache_create_render_pipeline(hasher, |device| {
         device
           .build_pipeline_by_shadergraph(self.build_self().unwrap())
           .unwrap()
       });
 
+    ctx.binding.reset();
+
+    self.setup_pass(ctx);
+
     ctx
       .binding
       .setup_pass(&mut ctx.pass, &ctx.gpu.device, &pipeline);
+
+    emitter.draw(ctx);
   }
 }
 
@@ -72,19 +78,17 @@ impl<'a> DrawcallEmitter for MeshDrawcallEmitterWrap<'a> {
 
 pub struct RenderEmitter<'a, 'b> {
   contents: &'a [&'b dyn RenderComponentAny],
-  emitter: &'b dyn DrawcallEmitter,
 }
 
 impl<'a, 'b> RenderEmitter<'a, 'b> {
-  pub fn new(contents: &'a [&'b dyn RenderComponentAny], emitter: &'b dyn DrawcallEmitter) -> Self {
-    Self { contents, emitter }
+  pub fn new(contents: &'a [&'b dyn RenderComponentAny]) -> Self {
+    Self { contents }
   }
 }
 
 impl<'a, 'b> ShaderPassBuilder for RenderEmitter<'a, 'b> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     self.contents.iter().for_each(|c| c.setup_pass(ctx));
-    self.emitter.draw(ctx);
   }
 }
 

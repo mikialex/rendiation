@@ -27,7 +27,7 @@ impl GPUDevice {
     self.inner.sampler_cache.retrieve(&self.inner.device, desc)
   }
 
-  pub fn create_and_cache_render_pipeline(
+  pub fn get_or_cache_create_render_pipeline(
     &self,
     hasher: PipelineHasher,
     creator: impl FnOnce(&Self) -> GPURenderPipeline,

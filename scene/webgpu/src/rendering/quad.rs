@@ -115,6 +115,6 @@ where
 {
   fn render(&mut self, pass: &mut SceneRenderPass) {
     let components: [&dyn RenderComponentAny; 2] = [&self.quad, &self.content];
-    RenderEmitter::new(components.as_slice(), &self.quad).render(&mut pass.ctx);
+    RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &self.quad);
   }
 }
