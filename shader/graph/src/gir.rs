@@ -22,6 +22,7 @@ pub enum ShaderGraphNodeExpr {
     target: PrimitiveShaderValueType,
     parameters: Vec<ShaderGraphNodeRawHandle>,
   },
+  MatInverse(ShaderGraphNodeRawHandle),
   Operator(OperatorNode),
   FieldGet {
     field_name: &'static str,

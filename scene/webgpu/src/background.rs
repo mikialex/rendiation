@@ -74,7 +74,7 @@ impl<T: ShadingBackground> ShaderGraphProvider for ShadingBackgroundTask<T> {
   ) -> Result<(), ShaderGraphBuildError> {
     // logic
     let direction = builder.vertex(|builder, _| {
-      let proj_inv = builder.query::<CameraProjectionMatrix>()?.get(); // todo inverse
+      let proj_inv = builder.query::<CameraProjectionMatrix>()?.get().inverse();
       let view = builder.query::<CameraViewMatrix>()?.get();
       Ok(background_direction(builder.vertex_index, view, proj_inv))
     })?;
