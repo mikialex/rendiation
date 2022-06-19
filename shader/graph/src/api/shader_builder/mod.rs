@@ -160,8 +160,8 @@ impl SemanticRegistry {
       .ok_or(ShaderGraphBuildError::MissingRequiredDependency(name))
   }
 
-  pub fn register(&mut self, id: TypeId, node: NodeUntyped) {
-    self.registered.entry(id).or_insert_with(|| node.mutable());
+  pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &NodeMutable<AnyType> {
+    self.registered.entry(id).or_insert_with(|| node.mutable())
   }
 }
 

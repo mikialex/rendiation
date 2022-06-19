@@ -106,7 +106,9 @@ impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    self.contents.iter().for_each(|c| c.build(builder).unwrap());
+    for c in self.contents {
+      c.build(builder)?;
+    }
     Ok(())
   }
 }

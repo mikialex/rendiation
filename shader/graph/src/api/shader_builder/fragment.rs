@@ -58,10 +58,27 @@ impl ShaderGraphFragmentBuilder {
       .map(|n| unsafe { std::mem::transmute(n) })
   }
 
-  pub fn register<T: SemanticFragmentShaderValue>(&mut self, node: impl Into<Node<T::ValueType>>) {
-    self
+  pub fn query_or_insert_default<T>(&mut self) -> &NodeMutable<T::ValueType>
+  where
+    T: SemanticFragmentShaderValue,
+    T::ValueType: PrimitiveShaderGraphNodeType,
+  {
+    if let Ok(n) = self.registry.query(TypeId::of::<T>(), T::NAME) {
+      unsafe { std::mem::transmute(n) }
+    } else {
+      let default: T::ValueType = Default::default();
+      self.register::<T>(default)
+    }
+  }
+
+  pub fn register<T: SemanticFragmentShaderValue>(
+    &mut self,
+    node: impl Into<Node<T::ValueType>>,
+  ) -> &NodeMutable<T::ValueType> {
+    let n = self
       .registry
       .register(TypeId::of::<T>(), node.into().cast_untyped_node());
+    unsafe { std::mem::transmute(n) }
   }
 
   pub fn get_fragment_in<T>(

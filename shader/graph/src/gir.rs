@@ -313,7 +313,7 @@ pub trait ShaderStructMemberValueNodeType {
   fn to_type() -> ShaderStructMemberValueType;
 }
 
-pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType {
+pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType + Default {
   fn to_primitive_type() -> PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
