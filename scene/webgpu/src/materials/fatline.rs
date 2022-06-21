@@ -38,28 +38,22 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.vertex(|builder, binding| {
-      let projection = builder.query::<CameraProjectionMatrix>()?.get();
-      let view = builder.query::<CameraViewMatrix>()?.get();
-      let world = builder.query::<WorldMatrix>()?.get();
-      let start = builder.query::<FatLineStart>()?.get();
-      let end = builder.query::<FatLineEnd>()?.get();
-      let position = builder.query::<GeometryPosition>()?.get();
       let uv = builder.query::<GeometryUV>()?.get();
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?.get();
       let material = binding.uniform_by(&self.uniform, SB::Material).expand();
 
-      let resolution = builder.query::<RenderBufferSize>()?.get();
-
-      builder.vertex_position.set(fatline_vertex(
-        projection,
-        view,
-        world,
-        start,
-        end,
-        position,
-        resolution,
+      let vertex_position = fatline_vertex(
+        builder.query::<CameraProjectionMatrix>()?.get(),
+        builder.query::<CameraViewMatrix>()?.get(),
+        builder.query::<WorldMatrix>()?.get(),
+        builder.query::<FatLineStart>()?.get(),
+        builder.query::<FatLineEnd>()?.get(),
+        builder.query::<GeometryPosition>()?.get(),
+        builder.query::<RenderBufferSize>()?.get(),
         material.width,
-      ));
+      );
+
+      builder.vertex_position.set(vertex_position);
       builder.set_vertex_out::<FragmentUv>(uv);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color_with_alpha);
       Ok(())
