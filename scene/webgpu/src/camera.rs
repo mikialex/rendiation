@@ -74,6 +74,8 @@ impl ShaderGraphProvider for CameraGPU {
     builder.vertex(|builder, binding| {
       let camera = binding.uniform_by(&self.ubo, SB::Camera).expand();
       let position = builder.query::<WorldVertexPosition>()?.get_last();
+      builder.register::<CameraViewMatrix>(camera.view);
+      builder.register::<CameraProjectionMatrix>(camera.projection);
       builder.register::<ClipPosition>(camera.projection * camera.view * (position, 1.).into());
       Ok(())
     })
