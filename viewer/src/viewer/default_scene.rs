@@ -39,6 +39,10 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
 }
 
 pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
+  scene.background = Some(Box::new(SolidBackground {
+    intensity: Vec3::new(0.1, 0.2, 0.3),
+  }));
+
   let path = if cfg!(windows) {
     "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
   } else {
