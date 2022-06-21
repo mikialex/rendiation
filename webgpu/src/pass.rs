@@ -89,6 +89,13 @@ impl RenderTargetView {
       RenderTargetView::SurfaceTexture { format, .. } => *format,
     }
   }
+
+  pub fn sample_count(&self) -> u32 {
+    match self {
+      RenderTargetView::Texture(t) => t.resource.desc.sample_count,
+      RenderTargetView::SurfaceTexture { .. } => 1,
+    }
+  }
 }
 
 pub struct GPURenderPassCtx<'a, 'b> {
@@ -105,10 +112,11 @@ pub struct RenderPassDescriptorOwned {
   pub resolve_target: Option<RenderTargetView>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct RenderTargetFormatsInfo {
-  pub color_formats: Vec<wgpu::TextureFormat>, // todo use array
+  pub color_formats: Vec<wgpu::TextureFormat>,
   pub depth_stencil_formats: Option<wgpu::TextureFormat>,
+  pub sample_count: u32,
 }
 
 pub struct GPURenderPass<'a> {
@@ -137,7 +145,7 @@ impl<'a> DerefMut for GPURenderPass<'a> {
 pub struct GPURenderPassDataHolder {
   buffers: Arena<Rc<gpu::Buffer>>,
   bindgroups: Arena<Rc<gpu::BindGroup>>,
-  pipelines: Arena<Rc<gpu::RenderPipeline>>,
+  pipelines: Arena<GPURenderPipeline>,
 }
 
 impl<'a> GPURenderPass<'a> {
@@ -149,9 +157,9 @@ impl<'a> GPURenderPass<'a> {
     &self.formats
   }
 
-  pub fn set_pipeline_owned(&mut self, pipeline: &Rc<gpu::RenderPipeline>) {
+  pub fn set_pipeline_owned(&mut self, pipeline: &GPURenderPipeline) {
     let pipeline = self.holder.pipelines.alloc(pipeline.clone());
-    self.pass.set_pipeline(pipeline)
+    self.pass.set_pipeline(&pipeline.inner.as_ref().pipeline)
   }
 
   pub fn set_bind_group_placeholder(&mut self, index: u32) {

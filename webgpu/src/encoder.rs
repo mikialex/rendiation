@@ -83,6 +83,7 @@ impl GPUCommandEncoder {
         .depth_stencil_target
         .as_ref()
         .map(|(_, view)| view.format()),
+      sample_count: des.channels.first().unwrap().1.sample_count(),
     };
 
     let pass = self.encoder.begin_render_pass(&desc);

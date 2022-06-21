@@ -3,6 +3,7 @@ use std::{
   ops::Deref,
 };
 pub mod states;
+use __core::hash::Hash;
 use rendiation_renderable_mesh::group::MeshDrawGroup;
 pub use states::*;
 
@@ -43,6 +44,8 @@ pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPass
     ctx.binding.reset();
 
     self.setup_pass(ctx);
+
+    ctx.pass.set_pipeline_owned(&pipeline);
 
     ctx
       .binding
@@ -177,7 +180,11 @@ pub struct DefaultPassDispatcher {
   pub pass_info: UniformBufferView<RenderPassGPUInfoData>,
 }
 
-impl ShaderHashProvider for DefaultPassDispatcher {}
+impl ShaderHashProvider for DefaultPassDispatcher {
+  fn hash_pipeline(&self, hasher: &mut PipelineHasher) {
+    self.formats.hash(hasher);
+  }
+}
 impl ShaderPassBuilder for DefaultPassDispatcher {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.pass_info, SB::Pass);
@@ -200,11 +207,27 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
       let pass = pass.using().expand();
       builder.register::<RenderBufferSize>(pass.buffer_size);
 
-      builder.push_fragment_out_slot(ColorTargetState {
-        format: self.formats.color_formats[0], // todo improvements
-        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-        write_mask: webgpu::ColorWrites::ALL,
-      });
+      for &format in &self.formats.color_formats {
+        builder.push_fragment_out_slot(ColorTargetState {
+          format,
+          blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+          write_mask: webgpu::ColorWrites::ALL,
+        });
+      }
+
+      builder.depth_stencil = self
+        .formats
+        .depth_stencil_formats
+        .map(|format| DepthStencilState {
+          format,
+          depth_write_enabled: true,
+          depth_compare: CompareFunction::Always,
+          stencil: Default::default(),
+          bias: Default::default(),
+        });
+
+      builder.multisample.count = self.formats.sample_count;
+
       Ok(())
     })
   }
