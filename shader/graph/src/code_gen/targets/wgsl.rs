@@ -47,8 +47,10 @@ fn gen_vertex_shader(
     &pipeline_builder.bindgroups,
     ShaderStages::Vertex,
   );
+
+  let mut code_entry = CodeBuilder::default();
   gen_entry(
-    &mut code,
+    &mut code_entry,
     ShaderStages::Vertex,
     |code| {
       code.write_ln("var out: VertexOut;");
@@ -72,7 +74,7 @@ fn gen_vertex_shader(
     },
   );
   cx.gen_fn_depends(&mut code);
-  code.output()
+  code.output() + code_entry.output().as_str()
 }
 
 fn gen_fragment_shader(
@@ -90,8 +92,10 @@ fn gen_fragment_shader(
     &pipeline_builder.bindgroups,
     ShaderStages::Fragment,
   );
+
+  let mut code_entry = CodeBuilder::default();
   gen_entry(
-    &mut code,
+    &mut code_entry,
     ShaderStages::Fragment,
     |code| {
       code.write_ln("var out: FragmentOut;");
@@ -111,7 +115,7 @@ fn gen_fragment_shader(
     },
   );
   cx.gen_fn_depends(&mut code);
-  code.output()
+  code.output() + code_entry.output().as_str()
 }
 
 fn gen_vertex_in_declare(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {

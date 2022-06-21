@@ -295,12 +295,17 @@ impl SyntaxElement for Statement {
           let accept = Block::parse(lexer)?;
           let mut elses = Vec::new();
 
-          while lexer.peek().token == Token::Keyword(Kw::ElseIf) {
-            lexer.expect(Token::Keyword(Kw::ElseIf))?;
-            elses.push(IfElse {
-              condition: Expression::parse(lexer)?,
-              accept: Block::parse(lexer)?,
-            });
+          while lexer.peek().token == Token::Keyword(Kw::Else) {
+            lexer.expect(Token::Keyword(Kw::Else))?;
+            if lexer.peek().token == Token::Keyword(Kw::If) {
+              lexer.expect(Token::Keyword(Kw::If))?;
+              elses.push(IfElse {
+                condition: Expression::parse(lexer)?,
+                accept: Block::parse(lexer)?,
+              });
+            } else {
+              break;
+            }
           }
 
           let reject = if lexer.skip(Token::Keyword(Kw::Else)) {

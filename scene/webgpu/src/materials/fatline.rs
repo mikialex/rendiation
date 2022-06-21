@@ -43,6 +43,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
       let world = builder.query::<WorldMatrix>()?.get();
       let start = builder.query::<FatLineStart>()?.get();
       let end = builder.query::<FatLineEnd>()?.get();
+      let position = builder.query::<GeometryPosition>()?.get();
       let uv = builder.query::<GeometryUV>()?.get();
       let color_with_alpha = builder.query::<GeometryColorWithAlpha>()?.get();
       let material = binding.uniform_by(&self.uniform, SB::Material).expand();
@@ -55,6 +56,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
         world,
         start,
         end,
+        position,
         resolution,
         material.width,
       ));
@@ -67,9 +69,9 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
       let uv = builder.query::<FragmentUv>()?.get();
       let color = builder.query::<FragmentColorAndAlpha>()?.get();
 
-      if_by(discard_fatline_round_corner(uv), || {
-        builder.discard();
-      });
+      // if_by(discard_fatline_round_corner(uv), || {
+      //   builder.discard();
+      // });
 
       builder.set_fragment_out(0, color)
     })
@@ -81,8 +83,9 @@ wgsl_function!(
     projection: mat4x4<f32>,
     view: mat4x4<f32>,
     world_matrix: mat4x4<f32>,
-    start: vec3<f32>,
-    end: vec3<f32>,
+    fatline_start: vec3<f32>,
+    fatline_end: vec3<f32>,
+    position: vec3<f32>,
     view_size: vec2<f32>,
     width: f32,
   ) -> vec4<f32> {
@@ -103,6 +106,8 @@ wgsl_function!(
       //     }}
       // }}
 
+      let aspect = view_size.x / view_size.y;
+
       // clip space
       let clipStart = projection * start;
       let clipEnd = projection * end;
@@ -112,14 +117,14 @@ wgsl_function!(
       let ndcEnd = clipEnd.xy / clipEnd.w;
 
       // direction
-      let dir = ndcEnd - ndcStart;
+      var dir = ndcEnd - ndcStart;
 
       // account for clip-space aspect ratio
       dir.x = dir.x * aspect;
       dir = normalize(dir);
 
       // perpendicular to dir
-      let offset = vec2<f32>(dir.y, -dir.x);
+      var offset = vec2<f32>(dir.y, -dir.x);
 
       // undo aspect ratio adjustment
       dir.x = dir.x / aspect;
@@ -131,27 +136,23 @@ wgsl_function!(
       };
 
       // end caps
-      if position.y < 0.0 {
+      if (position.y < 0.0) {
           offset = offset - dir;
-      } elseif (position.y > 1.0) {
+      } else if (position.y > 1.0) {
           offset = offset + dir;
       }
 
       // adjust for fatLineWidth
       offset = offset * width;
       // adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
-      offset = offset / resolution.y;
+      offset = offset / view_size.y;
 
       // select end
-      let clip: vec4<f32>;
+      var clip: vec4<f32>;
       if (position.y < 0.5) {
-        {
           clip = clipStart;
-        }
       } else {
-        {
           clip = clipEnd;
-        }
       }
 
       // back to clip space

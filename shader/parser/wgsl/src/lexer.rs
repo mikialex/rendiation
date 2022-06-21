@@ -5,7 +5,6 @@ use crate::*;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Keyword {
   If,
-  ElseIf,
   Else,
   For,
   While,
@@ -211,7 +210,6 @@ impl<'a> Lexer<'a> {
           "true" => (Token::Bool(true), rest),
           "false" => (Token::Bool(false), rest),
           "if" => (Token::Keyword(Keyword::If), rest),
-          "elseif" => (Token::Keyword(Keyword::ElseIf), rest),
           "else" => (Token::Keyword(Keyword::Else), rest),
           "while" => (Token::Keyword(Keyword::While), rest),
           "for" => (Token::Keyword(Keyword::For), rest),

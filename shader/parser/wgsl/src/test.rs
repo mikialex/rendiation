@@ -61,7 +61,7 @@ fn parse_st_test() {
         if false {
             return test;
         }
-    } elseif test2 {
+    } else if test2 {
         return 9;
     }  else {
         return x;
