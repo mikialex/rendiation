@@ -244,6 +244,16 @@ pub struct FunctionCall {
   pub arguments: Vec<Expression>,
 }
 
+impl FunctionCall {
+  #[allow(clippy::match_like_matches_macro)]
+  pub fn is_builtin(&self) -> bool {
+    match self.name.name.as_str() {
+      "dot" | "cross" => true,
+      _ => false,
+    }
+  }
+}
+
 #[derive(Debug)]
 pub struct Ident {
   pub name: String,
