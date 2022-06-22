@@ -456,7 +456,7 @@ fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> &'static str {
 fn gen_built_in(ty: ShaderBuiltIn) -> &'static str {
   match ty {
     ShaderBuiltIn::VertexIndexId => "gl_VertexId",
-    ShaderBuiltIn::VertexInstanceId => "gl_VertexInstanceId",
+    ShaderBuiltIn::VertexInstanceId => "gl_InstanceID",
   }
 }
 
