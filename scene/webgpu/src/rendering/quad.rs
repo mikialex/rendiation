@@ -106,7 +106,8 @@ where
   T: RenderComponentAny,
 {
   fn render(&mut self, pass: &mut SceneRenderPass) {
-    let components: [&dyn RenderComponentAny; 2] = [&self.quad, &self.content];
+    let base = pass.default_dispatcher();
+    let components: [&dyn RenderComponentAny; 3] = [&base, &self.quad, &self.content];
     RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &self.quad);
   }
 }

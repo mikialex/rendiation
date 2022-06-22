@@ -34,10 +34,17 @@ impl ShaderGraphProvider for PhysicalMaterialGPU {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
+    // i don't think it's the good place for this logic, but where?
+    builder.vertex(|builder, _| {
+      let uv = builder.query::<GeometryUV>()?.get();
+      builder.set_vertex_out::<FragmentUv>(uv);
+      Ok(())
+    })?;
+
     builder.fragment(|builder, binding| {
       let uniform = binding.uniform_by(&self.uniform, SB::Material).expand();
-      let albedo_tex = binding.uniform_by(&self.texture, SB::Material);
       let sampler = binding.uniform_by(&self.sampler, SB::Material);
+      let albedo_tex = binding.uniform_by(&self.texture, SB::Material);
 
       let uv = builder.query::<FragmentUv>()?.get();
       let albedo = albedo_tex.sample(sampler, uv).xyz() * uniform.albedo;
