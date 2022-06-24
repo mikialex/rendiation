@@ -6,6 +6,9 @@ pub use ast::*;
 mod visitor;
 pub use visitor::*;
 
+mod analysis;
+pub use analysis::*;
+
 mod lexer;
 pub use lexer::*;
 

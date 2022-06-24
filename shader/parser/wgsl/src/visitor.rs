@@ -1,45 +1,16 @@
-use std::collections::HashSet;
-
 use crate::*;
 
 pub trait ASTVisitor<T> {
-  fn visit(&mut self, ast: &T) -> bool {
+  fn visit(&mut self, _ast: &T) -> bool {
     true
   }
 }
 
 impl<T, X> ASTVisitor<T> for X {
-  default fn visit(&mut self, ast: &T) -> bool {
+  default fn visit(&mut self, _ast: &T) -> bool {
     true
   }
 }
-
-struct ForeignImplCollector {
-  depend_user_functions: HashSet<String>,
-  depend_user_struct: HashSet<String>,
-}
-
-impl ASTVisitor<FunctionCall> for ForeignImplCollector {
-  fn visit(&mut self, ast: &FunctionCall) -> bool {
-    if !ast.is_builtin() {
-      self.depend_user_functions.insert(ast.name.name.clone());
-    }
-    true
-  }
-}
-
-impl ASTVisitor<TypeExpression> for ForeignImplCollector {
-  fn visit(&mut self, ast: &TypeExpression) -> bool {
-    if let TypeExpression::Struct(s) = ast {
-      self.depend_user_struct.insert(s.name.clone());
-    }
-    true
-  }
-}
-
-pub trait WgslASTVisitor: ASTVisitor<PrimitiveType> + ASTVisitor<TextureType> {}
-
-impl<T> WgslASTVisitor for T where T: ASTVisitor<PrimitiveType> + ASTVisitor<TextureType> {}
 
 pub trait ASTElement: Sized {
   fn visit_children<T>(&self, _visitor: &mut T) {
@@ -52,20 +23,6 @@ pub trait ASTElement: Sized {
     }
   }
 }
-
-// struct Test;
-
-// impl ASTVisitor<PrimitiveType> for Test {
-//   fn visit(&mut self, ast: &PrimitiveType) -> bool {
-//     true
-//   }
-// }
-
-// #[test]
-// fn t() {
-//   let t: PrimitiveType = todo!();
-//   t.visit_by(&mut Test)
-// }
 
 impl ASTElement for PrimitiveType {
   fn visit_children<T>(&self, visitor: &mut T) {
