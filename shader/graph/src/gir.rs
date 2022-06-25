@@ -243,7 +243,16 @@ pub enum ShaderStructMemberValueType {
 #[derive(Debug)]
 pub struct ShaderStructMetaInfo {
   pub name: &'static str,
-  pub fields: Vec<ShaderStructFieldMetaInfo>,
+  pub fields: &'static [ShaderStructFieldMetaInfo],
+}
+
+impl ShaderStructMetaInfo {
+  pub fn to_owned(&self) -> ShaderStructMetaInfoOwned {
+    ShaderStructMetaInfoOwned {
+      name: self.name.to_owned(),
+      fields: self.fields.iter().map(|f| f.to_owned()).collect(),
+    }
+  }
 }
 
 impl PartialEq for ShaderStructMetaInfo {
@@ -253,7 +262,7 @@ impl PartialEq for ShaderStructMetaInfo {
 }
 
 /// https://www.w3.org/TR/WGSL/#builtin-values
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ShaderBuiltInDecorator {
   VertexIndex,
   InstanceIndex,
@@ -261,7 +270,7 @@ pub enum ShaderBuiltInDecorator {
   FragmentPositionIn,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ShaderFieldDecorator {
   BuiltIn(ShaderBuiltInDecorator),
   Location(usize),
@@ -277,24 +286,45 @@ impl<T: ShaderStructMemberValueNodeType> ShaderFieldTypeMapper for T {
 
 #[derive(Debug)]
 pub struct ShaderStructFieldMetaInfo {
-  pub name: std::borrow::Cow<'static, str>,
+  pub name: &'static str,
   pub ty: ShaderStructMemberValueType,
   pub ty_deco: Option<ShaderFieldDecorator>,
 }
 
-impl ShaderStructMetaInfo {
-  pub fn new(name: &'static str) -> Self {
+impl ShaderStructFieldMetaInfo {
+  pub fn to_owned(&self) -> ShaderStructFieldMetaInfoOwned {
+    ShaderStructFieldMetaInfoOwned {
+      name: self.name.to_owned(),
+      ty: self.ty,
+      ty_deco: self.ty_deco,
+    }
+  }
+}
+
+pub struct ShaderStructFieldMetaInfoOwned {
+  pub name: String,
+  pub ty: ShaderStructMemberValueType,
+  pub ty_deco: Option<ShaderFieldDecorator>,
+}
+
+pub struct ShaderStructMetaInfoOwned {
+  pub name: String,
+  pub fields: Vec<ShaderStructFieldMetaInfoOwned>,
+}
+
+impl ShaderStructMetaInfoOwned {
+  pub fn new(name: &str) -> Self {
     Self {
-      name,
+      name: name.to_owned(),
       fields: Default::default(),
     }
   }
 
   #[must_use]
-  pub fn add_field<T: ShaderStructMemberValueNodeType>(mut self, name: &'static str) -> Self {
-    self.fields.push(ShaderStructFieldMetaInfo {
-      name: std::borrow::Cow::Borrowed(name),
-      ty: T::to_type(),
+  pub fn add_field<T: ShaderStructMemberValueNodeType>(mut self, name: &str) -> Self {
+    self.fields.push(ShaderStructFieldMetaInfoOwned {
+      name: name.to_owned(),
+      ty: T::TYPE,
       ty_deco: None,
     });
     self
@@ -302,9 +332,9 @@ impl ShaderStructMetaInfo {
 }
 
 pub trait ShaderGraphNodeType: 'static + Copy {
-  fn to_type() -> ShaderValueType;
+  const TYPE: ShaderValueType;
   fn extract_struct_define() -> Option<&'static ShaderStructMetaInfo> {
-    match Self::to_type() {
+    match Self::TYPE {
       ShaderValueType::Fixed(v) => {
         if let ShaderStructMemberValueType::Struct(s) = v {
           Some(s)
@@ -318,11 +348,11 @@ pub trait ShaderGraphNodeType: 'static + Copy {
 }
 
 pub trait ShaderStructMemberValueNodeType {
-  fn to_type() -> ShaderStructMemberValueType;
+  const TYPE: ShaderStructMemberValueType;
 }
 
 pub trait PrimitiveShaderGraphNodeType: ShaderGraphNodeType + Default {
-  fn to_primitive_type() -> PrimitiveShaderValueType;
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType;
   fn to_primitive(&self) -> PrimitiveShaderValue;
 }
 

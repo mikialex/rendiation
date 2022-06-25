@@ -20,9 +20,15 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
   let struct_name_str = format!("{}", struct_name);
   let meta_info_name = gen_struct_meta_name(struct_name_str.as_str());
 
-  let meta_info_gen = s.map_visible_fields(|(field_name, ty)| {
+  let meta_info_fields = s.map_visible_fields(|(field_name, ty)| {
     let field_str = format!("{}", field_name);
-    quote! { .add_field::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(#field_str) }
+    quote! {
+     shadergraph::ShaderStructFieldMetaInfo {
+       name: #field_str,
+       ty: <<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType as shadergraph::ShaderStructMemberValueNodeType>::TYPE,
+       ty_deco: None,
+     },
+    }
   });
 
   let instance_fields = s.map_visible_fields(|(field_name, ty)| {
@@ -36,30 +42,26 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
 
   quote! {
     #[allow(non_upper_case_globals)]
-    pub static #meta_info_name: once_cell::sync::Lazy<shadergraph::ShaderStructMetaInfo> =
-    once_cell::sync::Lazy::new(|| {
-        shadergraph::ShaderStructMetaInfo::new(
-          #struct_name_str,
-        )
-        #(#meta_info_gen)*
-    });
+    pub const #meta_info_name: &shadergraph::ShaderStructMetaInfo =
+        &shadergraph::ShaderStructMetaInfo {
+          name: #struct_name_str,
+          fields: &[
+            #(#meta_info_fields)*
+          ]
+        };
 
     pub struct #shadergraph_instance_name {
       #(#instance_fields)*
     }
 
     impl shadergraph::ShaderGraphNodeType for #struct_name {
-      fn to_type() -> shadergraph::ShaderValueType{
-        shadergraph::ShaderValueType::Fixed(
-          shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name)
-        )
-      }
+      const TYPE: shadergraph::ShaderValueType =
+        shadergraph::ShaderValueType::Fixed(shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name));
     }
 
     impl shadergraph::ShaderStructMemberValueNodeType for #struct_name {
-      fn to_type() -> shadergraph::ShaderStructMemberValueType {
-        shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name)
-      }
+      const TYPE: shadergraph::ShaderStructMemberValueType =
+        shadergraph::ShaderStructMemberValueType::Struct(&#meta_info_name);
     }
 
     impl shadergraph::ShaderGraphStructuralNodeType for #struct_name {

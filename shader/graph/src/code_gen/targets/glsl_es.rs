@@ -378,13 +378,13 @@ fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
   builder
     .struct_defines
     .iter()
-    .for_each(|(_, meta)| gen_struct(code, meta))
+    .for_each(|(_, &meta)| gen_struct(code, &meta.to_owned()))
 }
 
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfo) {
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
-  for ShaderStructFieldMetaInfo { name, ty, .. } in &meta.fields {
+  for ShaderStructFieldMetaInfoOwned { name, ty, .. } in &meta.fields {
     builder.write_ln(format!("{}: {};", gen_fix_type_impl(*ty), name,));
   }
   builder.un_tab();

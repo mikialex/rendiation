@@ -129,7 +129,7 @@ impl ShaderGraphVertexBuilder {
     T: SemanticVertexShaderValue,
     T::ValueType: VertexInShaderGraphNodeType,
   {
-    self.register_vertex_in_inner(T::ValueType::to_primitive_type(), TypeId::of::<T>())
+    self.register_vertex_in_inner(T::ValueType::PRIMITIVE_TYPE, TypeId::of::<T>())
   }
 
   /// untyped version
@@ -165,7 +165,7 @@ impl ShaderGraphVertexBuilder {
     self.vertex_out.entry(id).or_insert_with(|| {
       (
         node.cast_untyped_node(),
-        <T as SemanticVertexShaderValue>::ValueType::to_primitive_type(),
+        <T as SemanticVertexShaderValue>::ValueType::PRIMITIVE_TYPE,
         len,
       )
     });

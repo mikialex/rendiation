@@ -130,20 +130,17 @@ fn gen_vertex_in_declare(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
 }
 
 fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {
-  let mut shader_struct = ShaderStructMetaInfo {
-    name: "VertexOut",
-    fields: Default::default(),
-  };
+  let mut shader_struct = ShaderStructMetaInfoOwned::new("VertexOut");
 
-  shader_struct.fields.push(ShaderStructFieldMetaInfo {
+  shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
     name: "position".into(),
     ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
     ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut).into(),
   });
 
   vertex.vertex_out.iter().for_each(|(_, (_, ty, i))| {
-    shader_struct.fields.push(ShaderStructFieldMetaInfo {
-      name: std::borrow::Cow::Owned(format!("vertex_out{}", i)),
+    shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
+      name: format!("vertex_out{}", i),
       ty: ShaderStructMemberValueType::Primitive(*ty),
       ty_deco: ShaderFieldDecorator::Location(*i).into(),
     });
@@ -174,14 +171,10 @@ fn gen_fragment_in_declare(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBui
 }
 
 fn gen_fragment_out_struct(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBuilder) {
-  let mut shader_struct = ShaderStructMetaInfo {
-    name: "FragmentOut",
-    fields: Default::default(),
-  };
-
+  let mut shader_struct = ShaderStructMetaInfoOwned::new("FragmentOut");
   frag.frag_output.iter().enumerate().for_each(|(i, _)| {
-    shader_struct.fields.push(ShaderStructFieldMetaInfo {
-      name: std::borrow::Cow::Owned(format!("frag_out{}", i)),
+    shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
+      name: format!("frag_out{}", i),
       ty: ShaderStructMemberValueType::Primitive(PrimitiveShaderValueType::Vec4Float32),
       ty_deco: ShaderFieldDecorator::Location(i).into(),
     });
@@ -489,13 +482,13 @@ fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
   builder
     .struct_defines
     .iter()
-    .for_each(|(_, meta)| gen_struct(code, meta))
+    .for_each(|(_, &meta)| gen_struct(code, &meta.to_owned()))
 }
 
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfo) {
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
-  for ShaderStructFieldMetaInfo { name, ty, ty_deco } in &meta.fields {
+  for ShaderStructFieldMetaInfoOwned { name, ty, ty_deco } in &meta.fields {
     let built_in_deco = if let Some(ty_deco) = ty_deco {
       match ty_deco {
         ShaderFieldDecorator::BuiltIn(built_in) => format!(
