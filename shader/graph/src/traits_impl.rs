@@ -1,47 +1,35 @@
 use crate::*;
 
 impl<T: PrimitiveShaderGraphNodeType> ShaderGraphNodeType for T {
-  fn to_type() -> ShaderValueType {
-    ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(
-      T::to_primitive_type(),
-    ))
-  }
+  const TYPE: ShaderValueType =
+    ShaderValueType::Fixed(ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE));
 }
 
 impl<T: PrimitiveShaderGraphNodeType> ShaderStructMemberValueNodeType for T {
-  fn to_type() -> ShaderStructMemberValueType {
-    ShaderStructMemberValueType::Primitive(T::to_primitive_type())
-  }
+  const TYPE: ShaderStructMemberValueType =
+    ShaderStructMemberValueType::Primitive(T::PRIMITIVE_TYPE);
 }
 
 impl ShaderGraphNodeType for AnyType {
-  fn to_type() -> ShaderValueType {
-    ShaderValueType::Never
-  }
+  const TYPE: ShaderValueType = ShaderValueType::Never;
 }
 
 impl PrimitiveShaderGraphNodeType for bool {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Bool
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Bool;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Bool(*self)
   }
 }
 
 impl PrimitiveShaderGraphNodeType for u32 {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Uint32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Uint32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Uint32(*self)
   }
 }
 
 impl PrimitiveShaderGraphNodeType for f32 {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Float32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Float32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Float32(*self)
   }
@@ -54,9 +42,7 @@ impl VertexInShaderGraphNodeType for f32 {
 }
 
 impl PrimitiveShaderGraphNodeType for Vec2<f32> {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Vec2Float32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Vec2Float32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Vec2Float32(*self)
   }
@@ -68,9 +54,7 @@ impl VertexInShaderGraphNodeType for Vec2<f32> {
 }
 
 impl PrimitiveShaderGraphNodeType for Vec3<f32> {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Vec3Float32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Vec3Float32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Vec3Float32(*self)
   }
@@ -82,9 +66,7 @@ impl VertexInShaderGraphNodeType for Vec3<f32> {
 }
 
 impl PrimitiveShaderGraphNodeType for Vec4<f32> {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Vec4Float32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Vec4Float32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Vec4Float32(*self)
   }
@@ -96,42 +78,32 @@ impl VertexInShaderGraphNodeType for Vec4<f32> {
 }
 
 impl ShaderGraphNodeType for ShaderSampler {
-  fn to_type() -> ShaderValueType {
-    ShaderValueType::Sampler
-  }
+  const TYPE: ShaderValueType = ShaderValueType::Sampler;
 }
 
 impl PrimitiveShaderGraphNodeType for Mat2<f32> {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Mat2Float32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Mat2Float32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Mat2Float32(*self)
   }
 }
 
 impl PrimitiveShaderGraphNodeType for Mat3<f32> {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Mat3Float32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Mat3Float32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Mat3Float32(*self)
   }
 }
 
 impl PrimitiveShaderGraphNodeType for Mat4<f32> {
-  fn to_primitive_type() -> PrimitiveShaderValueType {
-    PrimitiveShaderValueType::Mat4Float32
-  }
+  const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Mat4Float32;
   fn to_primitive(&self) -> PrimitiveShaderValue {
     PrimitiveShaderValue::Mat4Float32(*self)
   }
 }
 
 impl ShaderGraphNodeType for ShaderTexture {
-  fn to_type() -> ShaderValueType {
-    ShaderValueType::Texture
-  }
+  const TYPE: ShaderValueType = ShaderValueType::Texture;
 }
 
 impl Node<ShaderTexture> {
@@ -146,9 +118,7 @@ impl Node<ShaderTexture> {
 }
 
 impl ShaderGraphNodeType for ShaderSamplerCombinedTexture {
-  fn to_type() -> ShaderValueType {
-    ShaderValueType::Texture
-  }
+  const TYPE: ShaderValueType = ShaderValueType::Texture;
 }
 
 impl Node<ShaderSamplerCombinedTexture> {

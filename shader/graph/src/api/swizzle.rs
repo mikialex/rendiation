@@ -45,7 +45,7 @@ where
     let a = a.into().handle();
     let b = b.into().handle();
     ShaderGraphNodeExpr::Compose {
-      target: Vec4::<f32>::to_primitive_type(),
+      target: Vec4::<f32>::PRIMITIVE_TYPE,
       parameters: vec![a, b],
     }
     .insert_graph()
@@ -65,7 +65,7 @@ where
     let c = c.into().handle();
     let d = d.into().handle();
     ShaderGraphNodeExpr::Compose {
-      target: Vec4::<f32>::to_primitive_type(),
+      target: Vec4::<f32>::PRIMITIVE_TYPE,
       parameters: vec![a, b, c, d],
     }
     .insert_graph()

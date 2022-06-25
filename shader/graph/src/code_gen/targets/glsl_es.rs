@@ -58,7 +58,7 @@ fn gen_vertex_shader(
       code.write_ln(format!("vertex_out{i} = {root};"));
     });
   });
-  cx.gen_fn_depends(&mut code);
+  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
   code.output()
 }
 
@@ -86,7 +86,7 @@ fn gen_fragment_shader(
         code.write_ln(format!("frag_out{i} = {root};"));
       });
   });
-  cx.gen_fn_depends(&mut code);
+  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
   code.output()
 }
 
@@ -378,13 +378,13 @@ fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
   builder
     .struct_defines
     .iter()
-    .for_each(|(_, meta)| gen_struct(code, meta))
+    .for_each(|&meta| gen_struct(code, &meta.to_owned()))
 }
 
-fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfo) {
+fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
   builder.write_ln(format!("struct {} {{", meta.name));
   builder.tab();
-  for ShaderStructFieldMetaInfo { name, ty, .. } in &meta.fields {
+  for ShaderStructFieldMetaInfoOwned { name, ty, .. } in &meta.fields {
     builder.write_ln(format!("{}: {};", gen_fix_type_impl(*ty), name,));
   }
   builder.un_tab();

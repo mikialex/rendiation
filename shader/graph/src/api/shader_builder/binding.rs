@@ -96,7 +96,7 @@ impl ShaderGraphBindGroupBuilder {
     let bindgroup = &mut self.bindings[bindgroup_index];
 
     let entry_index = bindgroup.bindings.len();
-    let ty = N::to_type();
+    let ty = N::TYPE;
 
     let visibility_modifier = Rc::new(Cell::new(ShaderStageVisibility::None));
 
@@ -135,7 +135,7 @@ impl ShaderGraphBindGroupBuilder {
     T: DynamicShaderUniformProvider,
     N: ShaderGraphNodeType,
   {
-    if instance.to_value() != N::to_type() {
+    if instance.to_value() != N::TYPE {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
     Ok(self.uniform_ty_inner::<T, N>(index))
@@ -173,7 +173,7 @@ impl<'a> ShaderGraphBindGroupDirectBuilder<'a> {
     T: DynamicShaderUniformProvider,
     N: ShaderGraphNodeType,
   {
-    if instance.to_value() != N::to_type() {
+    if instance.to_value() != N::TYPE {
       return Err(ShaderGraphBuildError::FailedDowncastShaderValueFromInput);
     }
     Ok(self.builder.uniform_ty_inner::<T, N>(index).using())

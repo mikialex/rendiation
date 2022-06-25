@@ -20,6 +20,8 @@ wgsl_function!(
     var bottom: f32 = -1.0;
     var depth: f32 = 0.0;
 
+    var out: QuadVertexOut;
+
     switch (i32(vertex_index)) {
       case 0: {
         out.position = vec4<f32>(left, top, depth, 1.);
@@ -38,6 +40,8 @@ wgsl_function!(
         out.uv = vec2<f32>(1., 1.);
       }
     }
+    
+    return out;
   }
 );
 

@@ -4,6 +4,7 @@ pub struct CodeGenCtx {
   var_guid: usize,
   scopes: Vec<CodeGenScopeCtx>,
   depend_functions: HashSet<&'static ShaderFunctionMetaInfo>,
+  depend_types: HashSet<&'static ShaderStructMetaInfo>,
 }
 
 impl Default for CodeGenCtx {
@@ -12,6 +13,7 @@ impl Default for CodeGenCtx {
       var_guid: Default::default(),
       scopes: vec![Default::default()],
       depend_functions: Default::default(),
+      depend_types: Default::default(),
     }
   }
 }
@@ -34,44 +36,38 @@ impl CodeGenCtx {
   }
 
   pub fn add_fn_dep(&mut self, meta: &'static ShaderFunctionMetaInfo) {
-    self.depend_functions.insert(meta);
+    if self.depend_functions.insert(meta) {
+      for ty in meta.depend_types {
+        self.add_ty_dep(ty)
+      }
+      for f in meta.depend_functions {
+        self.add_fn_dep(f)
+      }
+    }
   }
 
-  pub fn gen_fn_depends(&self, builder: &mut CodeBuilder) {
-    let mut resolved_fn = HashSet::new();
-    self.depend_functions.iter().for_each(|f| {
-      if f.depend_functions.is_empty() {
-        builder.write_ln("").write_raw(f.function_source);
-        resolved_fn.insert(f);
+  fn add_ty_dep(&mut self, meta: &'static ShaderStructMetaInfo) {
+    if self.depend_types.insert(meta) {
+      for f in meta.fields {
+        if let ShaderStructMemberValueType::Struct(s) = f.ty {
+          self.add_ty_dep(s)
+        }
       }
+    }
+  }
 
-      let mut fn_dep_graph = ArenaGraph::new();
-      let mut resolving_fn = HashMap::new();
-      let mut fn_to_expand = vec![f];
+  pub fn gen_fn_and_ty_depends(
+    &self,
+    builder: &mut CodeBuilder,
+    struct_gen: impl Fn(&mut CodeBuilder, &ShaderStructMetaInfoOwned),
+  ) {
+    for &ty in &self.depend_types {
+      struct_gen(builder, &ty.to_owned())
+    }
 
-      while let Some(f) = fn_to_expand.pop() {
-        let self_node_handle = *resolving_fn
-          .entry(f)
-          .or_insert_with(|| fn_dep_graph.create_node(f));
-        f.depend_functions.iter().for_each(|f_d| {
-          let dep_node_handle = resolving_fn
-            .entry(f_d)
-            .or_insert_with(|| fn_dep_graph.create_node(f_d));
-          fn_dep_graph.connect_node(*dep_node_handle, self_node_handle);
-        });
-      }
-      fn_dep_graph.traverse_dfs_in_topological_order(
-        Handle::from_raw_parts(0, 0),
-        &mut |n| {
-          let f = n.data();
-          if !resolved_fn.contains(f) {
-            builder.write_ln("").write_raw(f.function_source);
-            resolved_fn.insert(f);
-          }
-        },
-        &mut || panic!("loop exist"),
-      )
-    });
+    for f in &self.depend_functions {
+      builder.write_ln("").write_raw(f.function_source);
+    }
   }
 
   pub fn try_get_node_gen_result_var(&self, node: ShaderGraphNodeRawHandle) -> Option<&str> {

@@ -143,7 +143,8 @@ impl ShaderGraphNodeRawHandle {
 
 pub struct ShaderGraphBuilder {
   pub scopes: Vec<ShaderGraphScope>,
-  pub struct_defines: HashMap<TypeId, &'static ShaderStructMetaInfo>,
+  /// if struct insert order matters, we have to use linked hashmap
+  pub struct_defines: HashSet<&'static ShaderStructMetaInfo>,
 }
 
 impl Default for ShaderGraphBuilder {
@@ -158,7 +159,17 @@ impl Default for ShaderGraphBuilder {
 impl ShaderGraphBuilder {
   pub fn check_register_type<T: ShaderGraphNodeType>(&mut self) {
     if let Some(s) = T::extract_struct_define() {
-      self.struct_defines.insert(TypeId::of::<T>(), s);
+      self.check_insert(s)
+    }
+  }
+
+  fn check_insert(&mut self, s: &'static ShaderStructMetaInfo) {
+    if self.struct_defines.insert(s) {
+      for f in s.fields {
+        if let ShaderStructMemberValueType::Struct(s) = f.ty {
+          self.check_insert(s)
+        }
+      }
     }
   }
 

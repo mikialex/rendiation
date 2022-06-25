@@ -149,7 +149,7 @@ impl ShaderGraphNode {
   ) -> Node<T> {
     builder.check_register_type::<T>();
 
-    self.insert_into_graph_inner(builder.top_scope_mut(), T::to_type())
+    self.insert_into_graph_inner(builder.top_scope_mut(), T::TYPE)
   }
 
   fn insert_into_graph_inner<T: ShaderGraphNodeType>(
