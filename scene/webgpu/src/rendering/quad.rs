@@ -40,14 +40,21 @@ wgsl_function!(
         out.uv = vec2<f32>(1., 1.);
       }
     }
-    
+
     return out;
   }
 );
 
-#[derive(Default)]
 struct FullScreenQuad {
   blend: Option<webgpu::BlendState>,
+}
+
+impl Default for FullScreenQuad {
+  fn default() -> Self {
+    Self {
+      blend: Some(webgpu::BlendState::ALPHA_BLENDING),
+    }
+  }
 }
 
 impl DrawcallEmitter for FullScreenQuad {
