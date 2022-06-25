@@ -40,6 +40,8 @@ wgsl_function!(
         out.uv = vec2<f32>(1., 1.);
       }
     }
+    
+    return out;
   }
 );
 
