@@ -107,7 +107,9 @@ impl Viewer3dRenderingCtx {
 
     let mut ctx = FrameCtx::new(&self.gpu, target.size(), &self.pool, &mut self.resources);
 
-    self.pipeline.render(&mut ctx, scene, target)
+    self.pipeline.render(&mut ctx, scene, target);
+
+    ctx.submit()
   }
 }
 

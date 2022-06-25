@@ -39,6 +39,10 @@ impl<'a> FrameCtx<'a> {
     }
   }
 
+  pub fn submit(self) {
+    self.gpu.submit_encoder(self.encoder)
+  }
+
   pub fn notify_output_resized(&self) {
     self.pool.inner.borrow_mut().clear();
   }
