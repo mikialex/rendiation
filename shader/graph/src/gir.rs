@@ -223,7 +223,7 @@ impl Hash for ShaderFunctionMetaInfo {
   }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
   Sampler,
@@ -232,7 +232,7 @@ pub enum ShaderValueType {
   Never,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ShaderStructMemberValueType {
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
@@ -258,6 +258,12 @@ impl ShaderStructMetaInfo {
 impl PartialEq for ShaderStructMetaInfo {
   fn eq(&self, other: &Self) -> bool {
     self.name == other.name
+  }
+}
+impl Eq for ShaderStructMetaInfo {}
+impl Hash for ShaderStructMetaInfo {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.name.hash(state);
   }
 }
 

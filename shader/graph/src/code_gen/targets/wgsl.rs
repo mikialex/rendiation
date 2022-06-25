@@ -482,7 +482,7 @@ fn gen_structs(code: &mut CodeBuilder, builder: &ShaderGraphBuilder) {
   builder
     .struct_defines
     .iter()
-    .for_each(|(_, &meta)| gen_struct(code, &meta.to_owned()))
+    .for_each(|&meta| gen_struct(code, &meta.to_owned()))
 }
 
 fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
