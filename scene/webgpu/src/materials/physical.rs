@@ -8,7 +8,8 @@ impl<S: SceneContent> MaterialMeshLayoutRequire for PhysicalMaterial<S> {
   type VertexInput = Vec<Vertex>;
 }
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
+#[std140_layout]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct PhysicalMaterialUniform {
   pub albedo: Vec3<f32>,
 }
@@ -64,6 +65,7 @@ where
   fn create_gpu(&self, res: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
     let uniform = PhysicalMaterialUniform {
       albedo: self.albedo,
+      ..Zeroable::zeroed()
     };
     let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
     let uniform = uniform.create_default_view();

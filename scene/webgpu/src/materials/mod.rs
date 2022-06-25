@@ -12,8 +12,6 @@ pub use wrapper::*;
 
 pub mod flat;
 pub use flat::*;
-// pub mod line;
-// pub use line::*;
 pub mod physical;
 pub use physical::*;
 pub mod fatline;

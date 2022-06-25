@@ -8,7 +8,8 @@ impl MaterialMeshLayoutRequire for FlatMaterial {
   type VertexInput = Vec<Vertex>;
 }
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
+#[std140_layout]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct FlatMaterialUniform {
   pub color: Vec4<f32>,
 }
@@ -42,7 +43,10 @@ impl WebGPUMaterial for FlatMaterial {
   type GPU = FlatMaterialGPU;
 
   fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
-    let uniform = FlatMaterialUniform { color: self.color };
+    let uniform = FlatMaterialUniform {
+      color: self.color,
+      ..Zeroable::zeroed()
+    };
     let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
     let uniform = uniform.create_default_view();
 

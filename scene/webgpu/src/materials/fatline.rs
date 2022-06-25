@@ -15,7 +15,8 @@ impl Default for FatLineMaterial {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, ShaderStruct)]
+#[std140_layout]
+#[derive(Clone, Copy, ShaderStruct)]
 pub struct FatlineMaterialUniform {
   pub width: f32,
 }
@@ -178,7 +179,10 @@ impl WebGPUMaterial for FatLineMaterial {
   type GPU = FatlineMaterialGPU;
 
   fn create_gpu(&self, _: &mut GPUResourceSubCache, gpu: &GPU) -> Self::GPU {
-    let uniform = FatlineMaterialUniform { width: self.width };
+    let uniform = FatlineMaterialUniform {
+      width: self.width,
+      ..Zeroable::zeroed()
+    };
     let uniform = UniformBufferResource::create_with_source(uniform, &gpu.device);
     let uniform = uniform.create_default_view();
 
