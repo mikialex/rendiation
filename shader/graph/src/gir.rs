@@ -155,7 +155,7 @@ pub struct ShaderSampler;
 #[derive(Clone, Copy)]
 pub struct ShaderSamplerCombinedTexture;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PrimitiveShaderValueType {
   Bool,
   Uint32,
@@ -198,11 +198,20 @@ impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
 }
 
 /// use for compile time ubo field reflection by procedure macro;
-#[derive(Debug, Eq)]
+#[derive(Debug)]
 pub struct ShaderFunctionMetaInfo {
   pub function_name: &'static str,
   pub function_source: &'static str,
   pub depend_functions: &'static [&'static ShaderFunctionMetaInfo],
+  pub depend_types: &'static [&'static ShaderStructMetaInfo],
+}
+
+// todo use other uuid mechanism as identity
+impl Eq for ShaderFunctionMetaInfo {}
+impl PartialEq for ShaderFunctionMetaInfo {
+  fn eq(&self, other: &Self) -> bool {
+    self.function_name == other.function_name
+  }
 }
 
 impl Hash for ShaderFunctionMetaInfo {
@@ -211,12 +220,6 @@ impl Hash for ShaderFunctionMetaInfo {
     H: Hasher,
   {
     self.function_name.hash(state);
-  }
-}
-
-impl PartialEq for ShaderFunctionMetaInfo {
-  fn eq(&self, other: &Self) -> bool {
-    self.function_name == other.function_name
   }
 }
 
@@ -229,7 +232,7 @@ pub enum ShaderValueType {
   Never,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ShaderStructMemberValueType {
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
@@ -237,6 +240,7 @@ pub enum ShaderStructMemberValueType {
 }
 
 /// use for compile time ubo field reflection by procedure macro;
+#[derive(Debug)]
 pub struct ShaderStructMetaInfo {
   pub name: &'static str,
   pub fields: Vec<ShaderStructFieldMetaInfo>,
@@ -249,6 +253,7 @@ impl PartialEq for ShaderStructMetaInfo {
 }
 
 /// https://www.w3.org/TR/WGSL/#builtin-values
+#[derive(Debug)]
 pub enum ShaderBuiltInDecorator {
   VertexIndex,
   InstanceIndex,
@@ -256,6 +261,7 @@ pub enum ShaderBuiltInDecorator {
   FragmentPositionIn,
 }
 
+#[derive(Debug)]
 pub enum ShaderFieldDecorator {
   BuiltIn(ShaderBuiltInDecorator),
   Location(usize),
@@ -269,6 +275,7 @@ impl<T: ShaderStructMemberValueNodeType> ShaderFieldTypeMapper for T {
   type ShaderType = T;
 }
 
+#[derive(Debug)]
 pub struct ShaderStructFieldMetaInfo {
   pub name: std::borrow::Cow<'static, str>,
   pub ty: ShaderStructMemberValueType,

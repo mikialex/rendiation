@@ -241,3 +241,18 @@ impl ASTElement for IfElse {
     self.accept.visit_by(visitor);
   }
 }
+
+impl ASTElement for FunctionDefine {
+  fn visit_children<T>(&self, visitor: &mut T) {
+    self.name.visit_by(visitor);
+
+    for (i, s) in &self.arguments {
+      i.visit_by(visitor);
+      s.visit_by(visitor);
+    }
+    if let Some(re) = &self.return_type {
+      re.visit_by(visitor)
+    }
+    self.body.visit_by(visitor);
+  }
+}

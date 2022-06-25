@@ -9,12 +9,16 @@ pub fn derive_shader_struct_impl(input: &syn::DeriveInput) -> proc_macro2::Token
   generated
 }
 
+pub fn gen_struct_meta_name(name: &str) -> syn::Ident {
+  format_ident!("{}_META_INFO", name)
+}
+
 fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
   let struct_name = &s.struct_name;
   let shadergraph_instance_name = format_ident!("{}ShaderGraphInstance", struct_name);
 
   let struct_name_str = format!("{}", struct_name);
-  let meta_info_name = format_ident!("{}_META_INFO", struct_name);
+  let meta_info_name = gen_struct_meta_name(struct_name_str.as_str());
 
   let meta_info_gen = s.map_visible_fields(|(field_name, ty)| {
     let field_str = format!("{}", field_name);

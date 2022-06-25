@@ -248,7 +248,7 @@ impl FunctionCall {
   #[allow(clippy::match_like_matches_macro)]
   pub fn is_builtin(&self) -> bool {
     match self.name.name.as_str() {
-      "dot" | "cross" => true,
+      "dot" | "cross" | "abs" | "transpose" | "normalize" | "textureSample" => true,
       _ => false,
     }
   }

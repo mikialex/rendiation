@@ -1,9 +1,10 @@
 use crate::*;
 use std::collections::HashSet;
 
-struct ForeignImplCollector {
-  depend_user_functions: HashSet<String>,
-  depend_user_struct: HashSet<String>,
+#[derive(Default)]
+pub struct ForeignImplCollector {
+  pub depend_user_functions: HashSet<String>,
+  pub depend_user_struct: HashSet<String>,
 }
 
 impl ASTVisitor<FunctionCall> for ForeignImplCollector {

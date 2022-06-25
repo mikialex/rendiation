@@ -2,7 +2,7 @@ use glsl::{parser::Parse, syntax::*};
 use quote::{format_ident, quote};
 use std::collections::HashSet;
 
-use crate::shader::gen_meta_name;
+use crate::shader::gen_fn_meta_name;
 
 fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::TokenStream> {
   use glsl::visitor::*;
@@ -55,7 +55,7 @@ fn find_foreign_function(def: &mut FunctionDefinition) -> Vec<proc_macro2::Token
     .iter()
     .filter(|&f| !collector.exclude_functions.contains(f))
     .map(|f| {
-      let prototype_name = gen_meta_name(f);
+      let prototype_name = gen_fn_meta_name(f);
       quote! { &#prototype_name, }
     })
     .collect()
@@ -67,7 +67,7 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
 
   let function_name = parsed.prototype.name.as_str();
 
-  let prototype_name = gen_meta_name(function_name);
+  let prototype_name = gen_fn_meta_name(function_name);
   let function_name = format_ident!("{}", function_name);
   let quoted_function_name = format!("{}", function_name);
   let quoted_source = glsl.to_string();
@@ -116,6 +116,9 @@ pub fn gen_glsl_function(glsl: &str) -> proc_macro2::TokenStream {
         function_source: #function_source,
         depend_functions:&[
           #(#foreign)*
+        ],
+        depend_types: &[
+          // todo
         ]
       };
 

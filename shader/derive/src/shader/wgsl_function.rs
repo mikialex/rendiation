@@ -2,13 +2,33 @@
 use quote::{format_ident, quote};
 use wgsl_parser::*;
 
-use crate::shader::gen_meta_name;
+use crate::{shader::gen_fn_meta_name, shader_struct::gen_struct_meta_name};
 
 pub fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
   let fun = FunctionDefine::parse_input(wgsl).expect("wgsl parse error");
 
+  let mut collector = ForeignImplCollector::default();
+  fun.visit_by(&mut collector);
+  let foreign_functions: Vec<_> = collector
+    .depend_user_functions
+    .iter()
+    .map(|f_name| {
+      let name = gen_fn_meta_name(f_name);
+      quote! { #name, }
+    })
+    .collect();
+
+  let foreign_types: Vec<_> = collector
+    .depend_user_struct
+    .iter()
+    .map(|f_name| {
+      let name = gen_struct_meta_name(f_name);
+      quote! { #name, }
+    })
+    .collect();
+
   let function_name = fun.name.name.as_ref();
-  let prototype_name = gen_meta_name(function_name);
+  let prototype_name = gen_fn_meta_name(function_name);
   let function_name = format_ident!("{}", function_name);
   let quoted_function_name = format!("{}", function_name);
   let quoted_source = wgsl.to_string();
@@ -43,7 +63,10 @@ pub fn gen_wgsl_function(wgsl: &str) -> proc_macro2::TokenStream {
         function_name: #quoted_function_name,
         function_source: #function_source,
         depend_functions:&[
-          // #(#foreign)*
+          #(#foreign_functions)*
+        ],
+        depend_types: &[
+          #(#foreign_types)*
         ]
       };
 
