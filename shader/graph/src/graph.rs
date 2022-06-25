@@ -164,10 +164,11 @@ impl ShaderGraphBuilder {
   }
 
   fn check_insert(&mut self, s: &'static ShaderStructMetaInfo) {
-    self.struct_defines.insert(s);
-    for f in s.fields {
-      if let ShaderStructMemberValueType::Struct(s) = f.ty {
-        self.check_insert(s)
+    if self.struct_defines.insert(s) {
+      for f in s.fields {
+        if let ShaderStructMemberValueType::Struct(s) = f.ty {
+          self.check_insert(s)
+        }
       }
     }
   }

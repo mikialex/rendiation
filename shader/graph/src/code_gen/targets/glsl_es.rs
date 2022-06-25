@@ -58,7 +58,7 @@ fn gen_vertex_shader(
       code.write_ln(format!("vertex_out{i} = {root};"));
     });
   });
-  cx.gen_fn_depends(&mut code);
+  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
   code.output()
 }
 
@@ -86,7 +86,7 @@ fn gen_fragment_shader(
         code.write_ln(format!("frag_out{i} = {root};"));
       });
   });
-  cx.gen_fn_depends(&mut code);
+  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
   code.output()
 }
 

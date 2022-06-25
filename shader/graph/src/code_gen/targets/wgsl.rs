@@ -73,7 +73,7 @@ fn gen_vertex_shader(
       code.write_raw("VertexOut");
     },
   );
-  cx.gen_fn_depends(&mut code);
+  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
   code.output() + code_entry.output().as_str()
 }
 
@@ -114,7 +114,7 @@ fn gen_fragment_shader(
       code.write_raw("FragmentOut");
     },
   );
-  cx.gen_fn_depends(&mut code);
+  cx.gen_fn_and_ty_depends(&mut code, gen_struct);
   code.output() + code_entry.output().as_str()
 }
 
