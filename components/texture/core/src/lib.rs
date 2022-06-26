@@ -217,6 +217,14 @@ pub struct Texture2DSource<T> {
   pub inner: T,
 }
 
+impl<T> core::fmt::Debug for Texture2DSource<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("Texture2DSource")
+      .field("inner", &"raw data skipped")
+      .finish()
+  }
+}
+
 impl<T> Deref for Texture2DSource<T> {
   type Target = T;
 

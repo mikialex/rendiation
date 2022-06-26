@@ -17,6 +17,7 @@ pub struct TextWebGPURenderer {
   raw: webgpu::RenderPipeline,
 }
 
+#[derive(Debug)]
 pub struct TextureWriteData<'a> {
   pub data: &'a [u8],
   pub size: Size,

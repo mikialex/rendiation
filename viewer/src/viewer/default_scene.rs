@@ -35,7 +35,7 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
   // todo this is awkward
   let res: Vec<Box<dyn WebGPUTexture2dSource>> = path.iter().map(load).collect();
 
-  unsafe { res.try_into().unwrap_unchecked() }
+  res.try_into().unwrap()
 }
 
 pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {

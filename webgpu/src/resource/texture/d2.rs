@@ -94,7 +94,7 @@ impl GPUTexture2d {
   }
 }
 
-pub trait WebGPUTexture2dSource {
+pub trait WebGPUTexture2dSource: Debug {
   fn format(&self) -> gpu::TextureFormat;
   fn as_bytes(&self) -> &[u8];
   fn size(&self) -> Size;

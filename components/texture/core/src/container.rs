@@ -8,6 +8,15 @@ pub struct Texture2DBuffer<P> {
   size: Size,
 }
 
+impl<T> core::fmt::Debug for Texture2DBuffer<T> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("Texture2DBuffer")
+      .field("data", &"raw data skipped")
+      .field("size", &self.size)
+      .finish()
+  }
+}
+
 impl<P: Clone> Texture2DBuffer<P> {
   pub fn size(&self) -> Size {
     self.size

@@ -24,6 +24,7 @@ use bytemuck::*;
 pub use gpu::*;
 use wgpu as gpu;
 
+use __core::fmt::Debug;
 use __core::num::NonZeroUsize;
 use std::{
   any::*,
