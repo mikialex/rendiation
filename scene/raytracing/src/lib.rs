@@ -53,11 +53,31 @@ pub struct ModelNode {
 pub struct RayTracingScene;
 impl SceneContent for RayTracingScene {
   type BackGround = Box<dyn RayTracingBackground>;
-  type Model = ModelNode;
+  type Model = Box<dyn RayTracingModel>;
   type Light = ();
   type Texture2D = ();
   type TextureCube = ();
   type SceneExt = ();
+}
+
+pub trait RayTracingModel {
+  fn get_shape(&self) -> Box<dyn Shape>;
+  fn get_material(&self) -> Box<dyn Material>;
+  fn get_node(&self) -> &SceneNode;
+}
+
+impl RayTracingModel for ModelNode {
+  fn get_shape(&self) -> Box<dyn Shape> {
+    self.model.shape.clone()
+  }
+
+  fn get_material(&self) -> Box<dyn Material> {
+    self.model.material.clone()
+  }
+
+  fn get_node(&self) -> &SceneNode {
+    &self.node
+  }
 }
 
 #[derive(Default)]
@@ -94,7 +114,7 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
       model: Model::new(shape, material),
       node,
     };
-    self.models.push(model);
+    self.models.push(Box::new(model));
     self
   }
 
@@ -110,7 +130,7 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
       model: Model::new(shape, material),
       node,
     };
-    self.models.push(model);
+    self.models.push(Box::new(model));
     self
   }
 
@@ -128,17 +148,23 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
     let mut models_in_bvh_source = Vec::new();
 
     for model in self.models.iter() {
-      model.node.visit(|node_data| {
-        let mut instance = model.model.clone();
-        instance.world_matrix_inverse = node_data.world_matrix.inverse_or_identity();
-        instance.normal_matrix = instance.world_matrix_inverse.transpose();
-        instance.world_matrix = node_data.world_matrix;
+      model.get_node().visit(|node_data| {
+        let mut model = Model {
+          shape: model.get_shape(),
+          material: model.get_material(),
+          world_matrix: Default::default(),
+          world_matrix_inverse: Default::default(),
+          normal_matrix: Default::default(), // object space direction to world_space
+        };
+        model.world_matrix_inverse = node_data.world_matrix.inverse_or_identity();
+        model.normal_matrix = model.world_matrix_inverse.transpose();
+        model.world_matrix = node_data.world_matrix;
 
-        if let Some(mut bbox) = model.model.shape.get_bbox() {
-          result.models_in_bvh.push(instance);
+        if let Some(mut bbox) = model.shape.get_bbox() {
+          result.models_in_bvh.push(model);
           models_in_bvh_source.push(*bbox.apply_matrix(node_data.world_matrix));
         } else {
-          result.models_unbound.push(instance);
+          result.models_unbound.push(model);
         }
       });
     }

@@ -7,7 +7,7 @@ use rendiation_webgpu::*;
 pub struct FusionScene;
 impl SceneContent for FusionScene {
   type BackGround = Box<dyn FusionBackground>;
-  type Model = Box<dyn SceneRenderableShareable>;
+  type Model = Box<dyn FusionModel>;
   type Light = Box<dyn SceneRenderableShareable>;
   type Texture2D = Box<dyn WebGPUTexture2dSource>;
   type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
@@ -15,3 +15,5 @@ impl SceneContent for FusionScene {
 }
 
 pub trait FusionBackground: RayTracingBackground + WebGPUBackground {}
+
+pub trait FusionModel: RayTracingModel + SceneRenderableShareable {}
