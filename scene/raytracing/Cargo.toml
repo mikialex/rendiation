@@ -5,16 +5,20 @@ name = "rendiation-scene-raytracing"
 version = "0.1.0"
 
 [dependencies]
+dyn-clone = "1.0.5"
+image = "*"
+indicatif = "0.15"
+rand = "0.7.3"
+rayon = "1.5.0"
+statrs = "0.15.0"
+tobj = "2.0.3"
+
 arena = {path = "../../utils/arena"}
-arena-graph = {path = "../../utils/arena-graph"}
 arena-tree = {path = "../../utils/arena-tree"}
-bytemuck = {version = "1.4.1", features = ["derive"]}
-log = "0.4"
-once_cell = "1.4.0"
-rainray = {path = "../../rainray"}
 rendiation-algebra = {path = "../../math/algebra"}
+rendiation-color = {path = "../../components/color"}
 rendiation-geometry = {path = "../../math/geometry"}
-rendiation-renderable-mesh = {path = "../../components/mesh/renderable", features = ["webgpu"]}
+rendiation-renderable-mesh = {path = "../../components/mesh/renderable"}
 rendiation-scene-core = {path = "../core"}
-rendiation-texture = {path = "../../components/texture/core", features = ["webgpu"]}
+rendiation-texture = {path = "../../components/texture/core"}
 space-algorithm = {path = "../../components/space"}

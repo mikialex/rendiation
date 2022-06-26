@@ -1,6 +1,4 @@
-# RainRay
-
-yet another ray tracer;
+# Ray tracing based scene rendering 
 
 ```shell
 cargo run --example ball --release

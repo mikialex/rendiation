@@ -1,21 +1,14 @@
-use std::sync::Arc;
-
-use rainray::*;
 use rendiation_algebra::*;
 use rendiation_scene_raytracing::*;
 
 fn main() {
   let mut renderer = PathTraceIntegrator::default();
-  // renderer.sample_per_pixel = 1;
 
-  let mut frame = Frame::new(600, 600);
+  let mut frame = Frame::new(500, 500);
 
   let mut scene = Scene::new();
 
-  let perspective = PerspectiveProjection {
-    fov: Deg::by(65.),
-    ..Default::default()
-  };
+  let perspective = PerspectiveProjection::default();
   let camera = SceneCamera::new(perspective, scene.root().create_child());
   camera.node.mutate(|node| {
     node.local_matrix = Mat4::lookat(
@@ -26,43 +19,42 @@ fn main() {
   });
 
   scene
-    .model_node_with_modify(
-      Arc::new(TriangleMesh::from_path_obj(
-        "/Users/mikialex/testdata/obj/bunny.obj",
-      )),
-      // TriangleMesh::from_path_obj("C:/Users/mk/Desktop/bunny.obj"),
-      // Diffuse {
-      //   albedo: Vec3::new(0.3, 0.4, 0.8),
-      //   diffuse_model: Lambertian,
-      // },
+    .model_node(
+      Sphere::new(Vec3::new(0., 5., 0.), 4.0), // main ball
       RtxPhysicalMaterial {
         specular: Specular {
-          roughness: 0.001,
+          roughness: 0.3,
           metallic: 0.9,
           ior: 1.6,
-          normal_distribution_model: Beckmann,
+          normal_distribution_model: BlinnPhong,
           geometric_shadow_model: CookTorrance,
           fresnel_model: Schlick,
         },
         diffuse: Diffuse {
-          albedo: Vec3::new(0.5, 0.5, 0.5),
+          albedo: Vec3::new(0.1, 0.3, 0.3),
           diffuse_model: Lambertian,
         },
       },
-      |node| {
-        node.local_matrix = Mat4::translate(1., 0., 0.)
-        // node.local_matrix = Mat4::translate(0., 2., 0.) * Mat4::rotate_y(3.)
-      },
     )
-    .model_node_with_modify(
+    .model_node(
       Plane::new(Vec3::new(0., 1.0, 0.).into_normalized(), 0.0), // ground
       Diffuse {
         albedo: Vec3::new(0.3, 0.4, 0.8),
         diffuse_model: Lambertian,
       },
-      |node| {
-        node.local_matrix = Mat4::translate(0., 1.0, 0.)
-        // node.local_matrix = Mat4::translate(0., 2., 0.) * Mat4::rotate_y(3.)
+    )
+    .model_node(
+      Sphere::new(Vec3::new(3., 2., 2.), 2.0),
+      Diffuse {
+        albedo: Vec3::new(0.4, 0.8, 0.2),
+        diffuse_model: Lambertian,
+      },
+    )
+    .model_node(
+      Sphere::new(Vec3::new(-3., 2., 4.), 1.0),
+      Diffuse {
+        albedo: Vec3::new(1.0, 0.7, 0.0),
+        diffuse_model: Lambertian,
       },
     )
     // .create_node(|node, scene| {
@@ -85,5 +77,5 @@ fn main() {
   let mut source = scene.build_traceable();
   renderer.render(&camera, &mut source, &mut frame);
 
-  frame.write_result("bunny");
+  frame.write_result("ball");
 }

@@ -1,4 +1,5 @@
 use rendiation_scene_core::SceneContent;
+// use rendiation_scene_raytracing::*;
 use rendiation_scene_webgpu::*;
 use rendiation_webgpu::*;
 
@@ -14,6 +15,6 @@ impl SceneContent for FusionScene {
 }
 
 pub trait FusionBackground:
-  rainray::Background + rendiation_scene_webgpu::WebGPUBackground
+  rendiation_scene_raytracing::Background + rendiation_scene_webgpu::WebGPUBackground
 {
 }

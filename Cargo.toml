@@ -2,7 +2,6 @@
 members = [
   "math/algebra",
   "math/geometry",
-  "rainray",
   "utils/arena",
   "utils/arena-graph",
   "utils/arena-tree",
