@@ -40,6 +40,10 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
     quote! { #field_name: shadergraph::expand_single::<<#ty as shadergraph::ShaderFieldTypeMapper>::ShaderType>(node.handle(), #field_str), }
   });
 
+  let construct_nodes = s.map_visible_fields(|(field_name, _ty)| {
+    quote! { instance.#field_name.handle(), }
+  });
+
   quote! {
     #[allow(non_upper_case_globals)]
     pub const #meta_info_name: &shadergraph::ShaderStructMetaInfo =
@@ -73,6 +77,20 @@ fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {
         #shadergraph_instance_name{
           #(#instance_fields_create)*
         }
+      }
+      fn construct(instance: Self::Instance) -> shadergraph::Node<Self>{
+          shadergraph::ShaderGraphNodeExpr::StructConstruct {
+            meta: Self::meta_info(),
+            fields: vec![
+              #(#construct_nodes)*
+            ],
+          }.insert_graph()
+      }
+    }
+
+    impl #shadergraph_instance_name {
+      fn construct(self) -> shadergraph::Node<#struct_name> {
+        <#struct_name as shadergraph::ShaderGraphStructuralNodeType>::construct(self)
       }
     }
 

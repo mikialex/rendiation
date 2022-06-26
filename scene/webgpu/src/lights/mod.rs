@@ -1,35 +1,38 @@
 pub mod directional;
 pub use directional::*;
-use webgpu::ShaderUniformBlock;
+use rendiation_algebra::*;
+use shadergraph::*;
 
 pub struct LightList<T> {
   pub lights: Vec<T>,
 }
 
-pub static LIGHT_TRANSMISSION_MODEL: &str = "
-  struct IncidentLight {
-    vec3 color;
-    vec3 direction;
-  };
-  
-  struct ReflectedLight {
-    vec3 directDiffuse;
-    vec3 directSpecular;
-    vec3 indirectDiffuse;
-    vec3 indirectSpecular;
-  };
-  
-  struct GeometricContext {
-    vec3 position;
-    vec3 normal;
-    vec3 viewDir;
-  };
-  ";
+#[derive(Copy, Clone, ShaderStruct)]
+pub struct ShaderIncidentLight {
+  pub color: Vec3<f32>,
+  pub direction: Vec3<f32>,
+}
 
-pub trait ShaderLight: ShaderUniformBlock {
+#[derive(Copy, Clone, ShaderStruct)]
+pub struct ShaderLightingResult {
+  pub diffuse: Vec3<f32>,
+  pub specular: Vec3<f32>,
+}
+
+#[derive(Copy, Clone, ShaderStruct)]
+pub struct ShaderLightingGeometricCtx {
+  pub position: Vec3<f32>,
+  pub normal: Vec3<f32>,
+  pub view_dir: Vec3<f32>,
+}
+
+pub trait ShaderLight: ShaderGraphStructuralNodeType + Sized {
   fn name() -> &'static str;
 }
 
 pub trait DirectShaderLight: ShaderLight {
-  fn compute_direct_light() -> &'static str;
+  fn compute_direct_light(
+    node: &ExpandedNode<Self>,
+    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> ExpandedNode<ShaderIncidentLight>;
 }

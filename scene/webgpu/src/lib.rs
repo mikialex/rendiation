@@ -11,7 +11,7 @@ pub use rendiation_scene_core::*;
 
 pub mod background;
 pub mod camera;
-// pub mod lights;
+pub mod lights;
 pub mod materials;
 pub mod mesh;
 pub mod model;
@@ -31,7 +31,7 @@ use shadergraph::*;
 
 pub use background::*;
 pub use camera::*;
-// pub use lights::*;
+pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
 pub use model::*;

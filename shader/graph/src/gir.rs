@@ -370,7 +370,9 @@ pub trait ShaderGraphStructuralNodeType: ShaderGraphNodeType {
   type Instance;
   fn meta_info() -> &'static ShaderStructMetaInfo;
   fn expand(node: Node<Self>) -> Self::Instance;
+  fn construct(instance: Self::Instance) -> Node<Self>;
 }
+pub type ExpandedNode<T> = <T as ShaderGraphStructuralNodeType>::Instance;
 
 #[derive(Copy, Clone)]
 pub enum ShaderVaryingInterpolation {
