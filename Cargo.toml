@@ -26,6 +26,7 @@ members = [
   "shader/derive",
   "shader/parser/wgsl",
   "scene/core",
+  "scene/fusion",
   "scene/webgpu",
   "scene/raytracing",
   "viewer",

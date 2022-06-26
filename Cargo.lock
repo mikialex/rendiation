@@ -2078,6 +2078,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rendiation-scene-fusion"
+version = "0.1.0"
+dependencies = [
+ "arena",
+ "arena-graph",
+ "arena-tree",
+ "bytemuck",
+ "log",
+ "once_cell",
+ "rainray",
+ "rendiation-algebra",
+ "rendiation-geometry",
+ "rendiation-renderable-mesh",
+ "rendiation-scene-core",
+ "rendiation-scene-raytracing",
+ "rendiation-scene-webgpu",
+ "rendiation-texture",
+ "rendiation-webgpu",
+ "space-algorithm",
+]
+
+[[package]]
 name = "rendiation-scene-raytracing"
 version = "0.1.0"
 dependencies = [
