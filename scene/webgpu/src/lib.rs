@@ -135,7 +135,7 @@ pub struct GPUResourceSubCache {
 
 pub trait WebGPUSceneExtension {
   fn add_model(&mut self, model: impl SceneRenderableShareable);
-  fn pick_nearest(
+  fn interaction_picking(
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
@@ -149,7 +149,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     self.models.push(Box::new(model));
   }
 
-  fn pick_nearest(
+  fn interaction_picking(
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
