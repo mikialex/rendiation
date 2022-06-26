@@ -1,26 +1,19 @@
 use rendiation_algebra::*;
 use rendiation_geometry::Ray3;
 
-pub trait Background: Send + Sync + 'static + dyn_clone::DynClone {
+pub trait RayTracingBackground: Send + Sync + 'static + dyn_clone::DynClone {
   fn sample(&self, ray: &Ray3) -> Vec3<f32>;
 }
 
-dyn_clone::clone_trait_object!(Background);
+dyn_clone::clone_trait_object!(RayTracingBackground);
 
-pub trait BackgroundToBoxed: Background + Sized {
-  fn to_boxed(self) -> Box<dyn Background> {
-    Box::new(self) as Box<dyn Background>
-  }
-}
-
-impl Background for SolidBackground {
+impl RayTracingBackground for SolidBackground {
   fn sample(&self, _ray: &Ray3) -> Vec3<f32> {
     self.intensity
   }
 }
 
-impl BackgroundToBoxed for GradientBackground {}
-impl Background for GradientBackground {
+impl RayTracingBackground for GradientBackground {
   fn sample(&self, ray: &Ray3) -> Vec3<f32> {
     let t = ray.direction.y / 2.0 + 1.;
     self.bottom_intensity.lerp(self.top_intensity, t)

@@ -1,5 +1,5 @@
 use rendiation_scene_core::SceneContent;
-// use rendiation_scene_raytracing::*;
+use rendiation_scene_raytracing::*;
 use rendiation_scene_webgpu::*;
 use rendiation_webgpu::*;
 
@@ -14,7 +14,4 @@ impl SceneContent for FusionScene {
   type SceneExt = ();
 }
 
-pub trait FusionBackground:
-  rendiation_scene_raytracing::Background + rendiation_scene_webgpu::WebGPUBackground
-{
-}
+pub trait FusionBackground: RayTracingBackground + WebGPUBackground {}

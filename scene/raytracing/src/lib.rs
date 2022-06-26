@@ -52,7 +52,7 @@ pub struct ModelNode {
 #[derive(Copy, Clone)]
 pub struct RayTracingScene;
 impl SceneContent for RayTracingScene {
-  type BackGround = Box<dyn Background>;
+  type BackGround = Box<dyn RayTracingBackground>;
   type Model = ModelNode;
   type Light = ();
   type Texture2D = ();
@@ -65,7 +65,7 @@ pub struct SceneAcceleration {
   models_in_bvh: Vec<Model>,
   models_unbound: Vec<Model>,
   models_bvh: Option<FlattenBVH<Box3>>,
-  env: Option<Box<dyn Background>>,
+  env: Option<Box<dyn RayTracingBackground>>,
 }
 
 pub trait RayTracingSceneExt {
@@ -77,7 +77,7 @@ pub trait RayTracingSceneExt {
     material: impl Material,
     m: impl Fn(&mut SceneNodeDataImpl),
   ) -> &mut Self;
-  fn background(&mut self, background: impl Background) -> &mut Self;
+  fn background(&mut self, background: impl RayTracingBackground) -> &mut Self;
   fn build_traceable(&mut self) -> SceneAcceleration;
 }
 
@@ -114,8 +114,8 @@ impl RayTracingSceneExt for Scene<RayTracingScene> {
     self
   }
 
-  fn background(&mut self, background: impl Background) -> &mut Self {
-    let background: Box<dyn Background> = Box::new(background);
+  fn background(&mut self, background: impl RayTracingBackground) -> &mut Self {
+    let background: Box<dyn RayTracingBackground> = Box::new(background);
     self.background = background.into();
     self
   }
