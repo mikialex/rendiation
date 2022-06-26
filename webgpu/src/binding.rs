@@ -4,17 +4,6 @@ pub trait BindableResourceView {
   fn as_bindable(&self) -> gpu::BindingResource;
 }
 
-pub struct PlaceholderBindgroup;
-
-impl PlaceholderBindgroup {
-  pub fn layout(device: &GPUDevice) -> gpu::BindGroupLayout {
-    device.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
-      label: "PlaceholderBindgroup".into(),
-      entries: &[],
-    })
-  }
-}
-
 #[derive(Clone, Default)]
 pub struct BindGroupCache {
   cache: Rc<RefCell<HashMap<u64, Rc<gpu::BindGroup>>>>,

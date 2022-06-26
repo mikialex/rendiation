@@ -23,17 +23,10 @@ impl DerefMut for GPUCommandEncoder {
 
 impl GPUCommandEncoder {
   pub fn new(encoder: gpu::CommandEncoder, device: &GPUDevice) -> Self {
-    // todo cache this
-    let placeholder_bg = device.create_bind_group(&gpu::BindGroupDescriptor {
-      layout: &PlaceholderBindgroup::layout(device),
-      entries: &[],
-      label: None,
-    });
-
     Self {
       encoder,
       holder: Default::default(),
-      placeholder_bg: Rc::new(placeholder_bg),
+      placeholder_bg: device.inner.placeholder_bg.clone(),
       active_pass_target_holder: Default::default(),
     }
   }

@@ -19,7 +19,7 @@ pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
 }
 
 pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
-  let path = vec![
+  let path = [
     "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
     "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
     "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
@@ -32,10 +32,13 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
     Box::new(load_img(path).into_source())
   }
 
-  // todo this is awkward
-  let res: Vec<Box<dyn WebGPUTexture2dSource>> = path.iter().map(load).collect();
-
-  res.try_into().unwrap()
+  // https://github.com/rust-lang/rust/issues/81615
+  path
+    .iter()
+    .map(load)
+    .collect::<Vec<_>>()
+    .try_into()
+    .unwrap()
 }
 
 pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {

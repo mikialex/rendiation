@@ -2,17 +2,27 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct GPUDevice {
-  inner: Rc<GPUDeviceInner>,
+  pub(crate) inner: Rc<GPUDeviceInner>,
 }
 
 impl GPUDevice {
   pub fn new(device: gpu::Device) -> Self {
+    let placeholder_bg = device.create_bind_group(&gpu::BindGroupDescriptor {
+      layout: &device.create_bind_group_layout(&gpu::BindGroupLayoutDescriptor {
+        label: "PlaceholderBindgroup".into(),
+        entries: &[],
+      }),
+      entries: &[],
+      label: None,
+    });
+
     let inner = GPUDeviceInner {
       device,
       sampler_cache: Default::default(),
       bindgroup_cache: Default::default(),
       bindgroup_layout_cache: Default::default(),
       pipeline_cache: Default::default(),
+      placeholder_bg: Rc::new(placeholder_bg),
     };
 
     Self {
@@ -70,12 +80,13 @@ impl GPUDevice {
   }
 }
 
-struct GPUDeviceInner {
+pub(crate) struct GPUDeviceInner {
   device: gpu::Device,
   sampler_cache: SamplerCache,
   bindgroup_cache: BindGroupCache,
   bindgroup_layout_cache: BindGroupLayoutCache,
   pipeline_cache: RenderPipelineCache,
+  pub(crate) placeholder_bg: Rc<gpu::BindGroup>,
 }
 
 impl Deref for GPUDevice {
