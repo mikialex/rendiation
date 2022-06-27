@@ -1,4 +1,4 @@
-use crate::*;
+use shadergraph::*;
 
 pub struct WGSL;
 

@@ -7,7 +7,7 @@ pub trait SemanticFragmentShaderValue: Any {
 
 pub struct ShaderGraphFragmentBuilder {
   // user fragment in
-  pub(crate) fragment_in: HashMap<
+  pub fragment_in: HashMap<
     TypeId,
     (
       NodeUntyped,

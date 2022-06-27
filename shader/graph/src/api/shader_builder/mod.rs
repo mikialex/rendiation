@@ -22,8 +22,9 @@ pub struct ShaderGraphRenderPipelineBuilder {
   // uniforms
   pub bindgroups: ShaderGraphBindGroupBuilder,
 
-  pub(crate) vertex: ShaderGraphVertexBuilder,
-  pub(crate) fragment: ShaderGraphFragmentBuilder,
+  // todo sealed except for codegen
+  pub vertex: ShaderGraphVertexBuilder,
+  pub fragment: ShaderGraphFragmentBuilder,
 }
 
 impl Default for ShaderGraphRenderPipelineBuilder {

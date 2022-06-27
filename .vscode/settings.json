@@ -21,6 +21,7 @@
         "bytemuck",
         "Chirality",
         "clippy",
+        "codegen",
         "colorspace",
         "combinators",
         "consts",

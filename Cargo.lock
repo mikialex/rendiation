@@ -947,6 +947,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "glsl-codegen-graph"
+version = "0.1.0"
+dependencies = [
+ "shadergraph",
+]
+
+[[package]]
 name = "glsl-shader-derives"
 version = "0.1.0"
 dependencies = [
@@ -2164,6 +2171,7 @@ dependencies = [
  "shadergraph",
  "typed-arena",
  "wgpu",
+ "wgsl-codegen-graph",
  "winit",
 ]
 
@@ -2332,6 +2340,7 @@ dependencies = [
  "rendiation-algebra",
  "shader-derives",
  "wgpu-types",
+ "wgsl-codegen-graph",
 ]
 
 [[package]]
@@ -2916,6 +2925,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "549533d9e1cdd4b4cda7718d33ff500fc4c34b5467b71d76b547ae0324f3b2a2"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "wgsl-codegen-graph"
+version = "0.1.0"
+dependencies = [
+ "shadergraph",
 ]
 
 [[package]]

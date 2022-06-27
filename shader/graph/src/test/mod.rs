@@ -4,6 +4,7 @@ mod uniform;
 mod varying;
 
 use crate::*;
+use wgsl_codegen_graph::*;
 
 pub fn test_provider_success(s: &dyn ShaderGraphProvider) {
   let mut builder = Default::default();

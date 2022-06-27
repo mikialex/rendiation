@@ -1,6 +1,7 @@
 use crate::*;
 
 use shadergraph::*;
+use wgsl_codegen_graph::*;
 pub mod container;
 pub use container as c;
 

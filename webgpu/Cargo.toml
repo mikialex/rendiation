@@ -10,6 +10,7 @@ rendiation-texture-types = {path = "../components/texture/types"}
 shadergraph = {path = "../shader/graph"}
 typed-arena = "2.0.1"
 wgpu = "0.12.0"
+wgsl-codegen-graph = {path = "../shader/language/wgsl/codegen-graph"}
 winit = {version = "0.26.0"}
 
 [features]

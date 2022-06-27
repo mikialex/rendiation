@@ -22,7 +22,7 @@ pub struct ShaderGraphVertexBuilder {
   pub instance_index: Node<u32>,
 
   // user vertex in
-  pub(crate) vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
+  pub vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
   pub vertex_layouts: Vec<ShaderGraphVertexBufferLayout>,
   pub primitive_state: PrimitiveState,
 
@@ -30,7 +30,7 @@ pub struct ShaderGraphVertexBuilder {
   registry: SemanticRegistry,
 
   // user vertex out
-  pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
+  pub vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
   pub(crate) vertex_out_not_synced_to_fragment: HashSet<TypeId>,
 }
 

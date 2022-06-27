@@ -121,8 +121,8 @@ pub type NodeUntyped = Node<AnyType>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ShaderGraphNodeRawHandle {
-  pub(crate) handle: ArenaGraphNodeHandle<ShaderGraphNodeData>,
-  pub(crate) graph_id: usize,
+  pub handle: ArenaGraphNodeHandle<ShaderGraphNodeData>,
+  pub graph_id: usize,
 }
 
 impl ShaderGraphNodeRawHandle {

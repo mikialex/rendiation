@@ -32,7 +32,6 @@ use arena_graph::*;
 use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell, UnsafeCell},
-  collections::hash_map::Entry,
   collections::HashMap,
   collections::HashSet,
   hash::{Hash, Hasher},

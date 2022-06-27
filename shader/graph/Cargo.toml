@@ -17,3 +17,4 @@ wgpu-types = "*"
 [dev-dependencies]
 glsl-shader-derives = {path = "../language/glsl/derive"}
 naga = {version = "*", features = ["wgsl-in"]}
+wgsl-codegen-graph = {path = "../language/wgsl/codegen-graph"}

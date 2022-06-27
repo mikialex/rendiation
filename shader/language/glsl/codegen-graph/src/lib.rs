@@ -1,4 +1,4 @@
-use crate::*;
+use shadergraph::*;
 
 pub struct GLSLes {
   pub is_es300: bool,
