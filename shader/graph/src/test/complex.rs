@@ -11,9 +11,10 @@ impl ShaderGraphProvider for Test {
     builder.vertex(|builder, _| {
       let a = consts(1.) + consts(2.);
       let a: Node<_> = (Vec3::zero(), a).into();
-      builder.vertex_position.set(a);
+      let position = builder.query_or_insert_default::<ClipPosition>();
+      position.set(a);
 
-      builder.vertex_position.set(Vec4::zero());
+      position.set(Vec4::zero());
 
       let a = consts(1.).mutable();
       let c = reduceLightBleeding(a.get(), 2.).mutable();
@@ -26,13 +27,13 @@ impl ShaderGraphProvider for Test {
         });
 
         let r: Node<Vec4<f32>> = (Vec3::zero(), a.get()).into();
-        builder.vertex_position.set(r);
+        position.set(r);
       });
 
       if_by(false, || {
         a.set(a.get() + c.get());
         let r: Node<Vec4<f32>> = (Vec3::zero(), a.get()).into();
-        builder.vertex_position.set(r);
+        position.set(r);
       });
 
       Ok(())

@@ -15,4 +15,5 @@ shader-derives = {path = "../derive"}
 wgpu-types = "*"
 
 [dev-dependencies]
+glsl-shader-derives = {path = "../language/glsl/derive"}
 naga = {version = "*", features = ["wgsl-in"]}

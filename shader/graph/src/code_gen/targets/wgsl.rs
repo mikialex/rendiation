@@ -54,13 +54,11 @@ fn gen_vertex_shader(
     ShaderStages::Vertex,
     |code| {
       code.write_ln("var out: VertexOut;");
-      let root = gen_node_with_dep_in_entry(
-        vertex.vertex_position.get().handle(),
-        &builder,
-        &mut cx,
-        code,
-      );
-      code.write_ln(format!("out.position = {root};"));
+
+      if let Ok(position) = vertex.query::<ClipPosition>() {
+        let root = gen_node_with_dep_in_entry(position.get().handle(), &builder, &mut cx, code);
+        code.write_ln(format!("out.position = {root};"));
+      }
 
       vertex.vertex_out.iter().for_each(|(_, (v, _, i))| {
         let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);

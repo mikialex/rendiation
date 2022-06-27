@@ -35,7 +35,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
       )
         .into();
 
-      builder.vertex_position.set(vertex);
+      builder.register::<ClipPosition>(vertex);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color);
 
       Ok(())
@@ -87,7 +87,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
       )
         .into();
 
-      builder.vertex_position.set(vertex);
+      builder.register::<ClipPosition>(vertex);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color);
       builder.set_vertex_out::<FragmentUv>(uv);
 

@@ -150,7 +150,7 @@ pub struct SemanticRegistry {
 
 impl SemanticRegistry {
   pub fn query(
-    &mut self,
+    &self,
     id: TypeId,
     name: &'static str,
   ) -> Result<&NodeMutable<AnyType>, ShaderGraphBuildError> {
@@ -161,7 +161,10 @@ impl SemanticRegistry {
   }
 
   pub fn register(&mut self, id: TypeId, node: NodeUntyped) -> &NodeMutable<AnyType> {
-    self.registered.entry(id).or_insert_with(|| node.mutable())
+    let node = node.mutable();
+    self.registered.insert(id, node);
+    // fixme, rust hashmap, pain in the ass..
+    self.registered.get(&id).unwrap()
   }
 }
 

@@ -2324,6 +2324,7 @@ version = "0.1.0"
 dependencies = [
  "arena-graph",
  "bytemuck",
+ "glsl-shader-derives",
  "memoffset",
  "naga",
  "once_cell",

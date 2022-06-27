@@ -50,7 +50,7 @@ impl ShaderGraphFragmentBuilder {
   }
 
   pub fn query<T: SemanticFragmentShaderValue>(
-    &mut self,
+    &self,
   ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
       .registry

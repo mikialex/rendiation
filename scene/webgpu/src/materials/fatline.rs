@@ -54,7 +54,7 @@ impl ShaderGraphProvider for FatlineMaterialGPU {
         material.width,
       );
 
-      builder.vertex_position.set(vertex_position);
+      builder.register::<ClipPosition>(vertex_position);
       builder.set_vertex_out::<FragmentUv>(uv);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color_with_alpha);
       Ok(())

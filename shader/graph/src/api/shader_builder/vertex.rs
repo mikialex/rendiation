@@ -29,9 +29,6 @@ pub struct ShaderGraphVertexBuilder {
   // user semantic vertex
   registry: SemanticRegistry,
 
-  // built in vertex out
-  pub vertex_position: NodeMutable<Vec4<f32>>,
-
   // user vertex out
   pub(crate) vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
   pub(crate) vertex_out_not_synced_to_fragment: HashSet<TypeId>,
@@ -40,13 +37,6 @@ pub struct ShaderGraphVertexBuilder {
 impl ShaderGraphVertexBuilder {
   pub(crate) fn new() -> Self {
     set_current_building(ShaderStages::Vertex.into());
-
-    // default position
-    let vertex_position = ShaderGraphNodeExpr::Const(ConstNode {
-      data: PrimitiveShaderValue::Vec4Float32(Vec4::zero()),
-    })
-    .insert_graph()
-    .mutable();
 
     let vertex_index = ShaderGraphInputNode::BuiltIn(ShaderBuiltIn::VertexIndexId).insert_graph();
 
@@ -59,7 +49,6 @@ impl ShaderGraphVertexBuilder {
       instance_index,
       vertex_in: Default::default(),
       registry: Default::default(),
-      vertex_position,
       vertex_out: Default::default(),
       vertex_layouts: Default::default(),
       primitive_state: Default::default(),
@@ -92,7 +81,7 @@ impl ShaderGraphVertexBuilder {
   }
 
   pub fn query<T: SemanticVertexShaderValue>(
-    &mut self,
+    &self,
   ) -> Result<&NodeMutable<T::ValueType>, ShaderGraphBuildError> {
     self
       .registry

@@ -1,5 +1,6 @@
 use crate as shadergraph;
 use crate::*;
+use glsl_shader_derives::*;
 
 glsl_function!(
   vec3 importanceSampleCone(const in vec2 coords, const in float cosConeAngle) {

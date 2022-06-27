@@ -38,8 +38,8 @@ impl ShaderGraphProvider for TestUniform {
 
       let uniform = uniform.using().expand();
       let color = tex.sample(sampler, uniform.data2);
-      builder.vertex_position.set(color);
-      builder.vertex_position.set((uniform.data3, uniform.data));
+      builder.register::<ClipPosition>(color);
+      builder.register::<ClipPosition>((uniform.data3, uniform.data));
       Ok(())
     })?;
 
