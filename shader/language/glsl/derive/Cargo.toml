@@ -1,7 +1,7 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
 edition = "2018"
-name = "shader-derives"
+name = "glsl-shader-derives"
 version = "0.1.0"
 
 [lib]
@@ -12,4 +12,5 @@ proc-macro2 = "1.0.4"
 quote = "1.0.2"
 syn = "1.0.11"
 
-shader-derives-shared = {path = "../derive-shared"}
+glsl = "6.0.1"
+shader-derives-shared = {path = "../../../derive-shared"}

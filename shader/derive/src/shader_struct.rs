@@ -1,16 +1,13 @@
 use crate::utils::StructInfo;
 use quote::TokenStreamExt;
 use quote::{format_ident, quote};
+use shader_derives_shared::gen_struct_meta_name;
 
 pub fn derive_shader_struct_impl(input: &syn::DeriveInput) -> proc_macro2::TokenStream {
   let s = StructInfo::new(input);
   let mut generated = proc_macro2::TokenStream::new();
   generated.append_all(derive_shader_struct(&s));
   generated
-}
-
-pub fn gen_struct_meta_name(name: &str) -> syn::Ident {
-  format_ident!("{}_META_INFO", name)
 }
 
 fn derive_shader_struct(s: &StructInfo) -> proc_macro2::TokenStream {

@@ -28,6 +28,7 @@ use std::{
 
 use bytemuck::*;
 use shadergraph::*;
+use wgsl_shader_derives::*;
 
 pub use background::*;
 pub use camera::*;
