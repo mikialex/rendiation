@@ -1,4 +1,3 @@
-use crate as shadergraph;
 use crate::*;
 use glsl_shader_derives::*;
 

@@ -40,6 +40,3 @@ use std::{
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
 };
-
-#[cfg(test)]
-mod test;

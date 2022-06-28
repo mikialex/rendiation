@@ -13,8 +13,3 @@ paste = "1.0.2"
 rendiation-algebra = {path = "../../math/algebra"}
 shader-derives = {path = "../derive"}
 wgpu-types = "*"
-
-[dev-dependencies]
-glsl-shader-derives = {path = "../language/glsl/derive"}
-naga = {version = "*", features = ["wgsl-in"]}
-wgsl-codegen-graph = {path = "../language/wgsl/codegen-graph"}

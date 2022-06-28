@@ -22,6 +22,7 @@ members = [
   "components/canvase",
   "interphaser",
   "shader/graph",
+  "shader/testing",
   "shader/derive",
   "shader/derive-shared",
   "shader/language/wgsl/parser",

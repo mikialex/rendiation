@@ -1,9 +1,11 @@
+#![feature(explicit_generic_args_with_impl_trait)]
+
 mod complex;
 mod function;
 mod uniform;
 mod varying;
 
-use crate::*;
+use shadergraph::*;
 use wgsl_codegen_graph::*;
 
 pub fn test_provider_success(s: &dyn ShaderGraphProvider) {

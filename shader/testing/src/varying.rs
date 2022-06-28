@@ -1,4 +1,3 @@
-use super::test_provider_success;
 use crate::*;
 
 struct Test;
