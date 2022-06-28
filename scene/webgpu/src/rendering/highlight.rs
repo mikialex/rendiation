@@ -2,6 +2,7 @@ use crate::{AttachmentReadView, SceneRenderPass, SceneRenderable};
 
 use __core::{any::Any, hash::Hash};
 use rendiation_algebra::*;
+use rendiation_texture::TextureSampler;
 use webgpu::*;
 
 pub struct HighLighter {
@@ -56,6 +57,12 @@ impl<'a, T> ShaderPassBuilder for HighLightComposeTask<'a, T> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
     ctx.binding.bind(&self.lighter.data, SB::Material);
     ctx.binding.bind(&self.mask, SB::Material);
+
+    // todo optimize immediate sampler api
+    let sampler = GPUSampler::create(TextureSampler::default().into(), &ctx.gpu.device);
+    ctx
+      .binding
+      .bind(&sampler.create_default_view(), SB::Material);
   }
 }
 
@@ -75,37 +82,45 @@ impl<'a, T> ShaderGraphProvider for HighLightComposeTask<'a, T> {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
-      let uniform = binding
+      let highlighter = binding
         .uniform_by(&self.lighter.data, SB::Material)
         .expand();
 
       let mask = binding.uniform_by(&self.mask, SB::Material);
+      let sampler = binding.uniform::<GPUSamplerView>(SB::Material);
 
       let uv = builder.query::<FragmentUv>()?.get();
+      let size = builder.query::<RenderBufferSize>()?.get();
+
       builder.set_fragment_out(
         0,
         (
-          uniform.color.xyz(),
-          edge_intensity(uv, mask) * uniform.color.w(),
+          highlighter.color.xyz(),
+          edge_intensity(uv, mask, sampler, highlighter.width, size) * highlighter.color.w(),
         ),
-      )?;
-      todo!()
+      )
     })
   }
 }
 
 wgsl_function!(
-  fn edge_intensity(uv: vec2<f32>, mask: texture_2d<f32>) -> f32 {
-    var x_step: f32 = pass_info.texel_size.x * highlighter.width;
-    var y_step: f32 = pass_info.texel_size.y * highlighter.width;
+  fn edge_intensity(
+    uv: vec2<f32>,
+    mask: texture_2d<f32>,
+    sp: sampler,
+    width: f32,
+    buffer_size: vec2<f32>
+  ) -> f32 {
+    var x_step: f32 = width / buffer_size.x;
+    var y_step: f32 = width / buffer_size.y;
 
     var all: f32 = 0.0;
-    all = all + textureSample(mask, sp, in.uv).x;
-    all = all + textureSample(mask, sp, vec2<f32>(in.uv.x + x_step, in.uv.y)).x;
-    all = all + textureSample(mask, sp, vec2<f32>(in.uv.x, in.uv.y + y_step)).x;
-    all = all + textureSample(mask, sp, vec2<f32>(in.uv.x + x_step, in.uv.y+ y_step)).x;
+    all = all + textureSample(mask, sp, uv).x;
+    all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y)).x;
+    all = all + textureSample(mask, sp, vec2<f32>(uv.x, uv.y + y_step)).x;
+    all = all + textureSample(mask, sp, vec2<f32>(uv.x + x_step, uv.y+ y_step)).x;
 
-    var intensity = (1.0 - 2.0 * abs(all / 4. - 0.5)) * highlighter.color.a;
+    return (1.0 - 2.0 * abs(all / 4. - 0.5));
   }
 );
 
@@ -119,6 +134,8 @@ pub fn highlight<T>(objects: T) -> HighLightDrawMaskTask<T> {
 
 struct HighLightMaskDispatcher;
 
+pub const HIGH_LIGHT_MASK_TARGET_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
+
 impl ShaderHashProvider for HighLightMaskDispatcher {}
 impl ShaderPassBuilder for HighLightMaskDispatcher {}
 
@@ -127,7 +144,14 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
     &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
-    builder.fragment(|builder, _| builder.set_fragment_out(0, Vec4::one()))
+    builder.fragment(|builder, _| {
+      builder.push_fragment_out_slot(ColorTargetState {
+        format: HIGH_LIGHT_MASK_TARGET_FORMAT,
+        blend: None,
+        write_mask: webgpu::ColorWrites::ALL,
+      });
+      Ok(())
+    })
   }
 }
 

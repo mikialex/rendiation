@@ -60,6 +60,9 @@ impl<M: WebGPUMesh> WebGPUSceneMesh for Identity<M> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
     self.deref().topology()
   }
+  fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
+    self.deref().try_pick(f)
+  }
 }
 
 impl GPUMeshCache {
