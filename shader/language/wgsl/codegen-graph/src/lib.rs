@@ -530,7 +530,12 @@ fn gen_bindings(
         ShaderValueType::SamplerCombinedTexture => {
           gen_bind_entry(
             code,
-            &(ShaderValueType::Texture, entry.1.get()),
+            &(
+              ShaderValueType::Texture {
+                dimension: TextureViewDimension::D2,
+              },
+              entry.1.get(),
+            ),
             group_index,
             &mut item_index,
             stage,
@@ -615,13 +620,22 @@ fn gen_primitive_type(ty: PrimitiveShaderValueType) -> &'static str {
     PrimitiveShaderValueType::Mat4Float32 => "mat4x4<f32>",
     PrimitiveShaderValueType::Uint32 => "u32",
     PrimitiveShaderValueType::Bool => "bool",
+    PrimitiveShaderValueType::Int32 => "i32",
   }
 }
 
 fn gen_type_impl(ty: ShaderValueType) -> String {
   match ty {
     ShaderValueType::Sampler => "sampler".to_owned(),
-    ShaderValueType::Texture => "texture_2d<f32>".to_owned(),
+    ShaderValueType::CompareSampler => "sampler_comparison".to_owned(),
+    ShaderValueType::Texture { dimension } => match dimension {
+      TextureViewDimension::D1 => "texture_1d<f32>".to_owned(),
+      TextureViewDimension::D2 => "texture_2d<f32>".to_owned(),
+      TextureViewDimension::D2Array => "texture_2d_array<f32>".to_owned(),
+      TextureViewDimension::Cube => "texture_cube<f32>".to_owned(),
+      TextureViewDimension::CubeArray => "texture_cube_array<f32>".to_owned(),
+      TextureViewDimension::D3 => "texture_3d<f32>".to_owned(),
+    },
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty).to_owned(),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
     ShaderValueType::SamplerCombinedTexture => {

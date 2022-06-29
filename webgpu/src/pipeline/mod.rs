@@ -48,23 +48,24 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
     .enumerate()
     .map(|(i, (ty, visibility))| {
       let ty = match ty {
-        shadergraph::ShaderValueType::Fixed(_) => gpu::BindingType::Buffer {
+        ShaderValueType::Fixed(_) => gpu::BindingType::Buffer {
           ty: gpu::BufferBindingType::Uniform,
           has_dynamic_offset: false,
           // min_binding_size: gpu::BufferSize::new(std::mem::size_of::<T>() as u64), // todo
           min_binding_size: None,
         },
-        shadergraph::ShaderValueType::Sampler => {
-          gpu::BindingType::Sampler(gpu::SamplerBindingType::Filtering)
-        }
-        shadergraph::ShaderValueType::Texture => gpu::BindingType::Texture {
+        ShaderValueType::Sampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Filtering),
+        ShaderValueType::Texture { dimension } => gpu::BindingType::Texture {
           multisampled: false,
           sample_type: gpu::TextureSampleType::Float { filterable: true },
-          view_dimension: gpu::TextureViewDimension::D2,
+          view_dimension: *dimension,
         },
-        shadergraph::ShaderValueType::Never => unreachable!(),
-        shadergraph::ShaderValueType::SamplerCombinedTexture => {
+        ShaderValueType::Never => unreachable!(),
+        ShaderValueType::SamplerCombinedTexture => {
           todo!()
+        }
+        ShaderValueType::CompareSampler => {
+          gpu::BindingType::Sampler(gpu::SamplerBindingType::Comparison)
         }
       };
 

@@ -162,7 +162,7 @@ fn convert_type(glsl: &TypeSpecifierNonArray) -> proc_macro2::TokenStream {
         if ty == &sampler_type {
           quote! { shadergraph::ShaderSampler }
         } else if ty == &texture_type {
-          quote! { shadergraph::ShaderTexture }
+          quote! { shadergraph::ShaderTexture2D }
         } else {
           panic!("unsupported param type {:?}", glsl)
         }

@@ -430,13 +430,19 @@ fn gen_primitive_type(ty: PrimitiveShaderValueType) -> &'static str {
     PrimitiveShaderValueType::Mat4Float32 => "mat4",
     PrimitiveShaderValueType::Uint32 => "uint",
     PrimitiveShaderValueType::Bool => "bool",
+    PrimitiveShaderValueType::Int32 => "int",
   }
 }
 
 fn gen_type_impl(ty: ShaderValueType) -> String {
   match ty {
     ShaderValueType::Sampler => unreachable!("unable to use standalone sampler in glsl es target"),
-    ShaderValueType::Texture => unreachable!("unable to use standalone sampler in glsl es target"),
+    ShaderValueType::CompareSampler => {
+      unreachable!("unable to use compare sampler in glsl es target")
+    }
+    ShaderValueType::Texture { .. } => {
+      unreachable!("unable to use standalone texture in glsl es target")
+    }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty).to_owned(),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
     ShaderValueType::SamplerCombinedTexture => "sampler2D".to_owned(),

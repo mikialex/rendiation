@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use rendiation_texture::Size;
-use shadergraph::{ShaderTexture, ShaderUniformProvider};
+use shadergraph::{ShaderTexture2D, ShaderUniformProvider};
 use webgpu::*;
 
 use crate::FrameCtx;
@@ -118,7 +118,7 @@ impl<T> BindingSource for AttachmentReadView<T> {
 }
 
 impl<T> ShaderUniformProvider for AttachmentReadView<T> {
-  type Node = ShaderTexture;
+  type Node = ShaderTexture2D;
 }
 
 #[derive(Clone)]

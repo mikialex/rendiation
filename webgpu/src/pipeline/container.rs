@@ -11,7 +11,7 @@ impl<T: ShaderGraphNodeType> ShaderUniformProvider for UniformBufferDataView<T> 
 }
 
 impl ShaderUniformProvider for GPUTexture2dView {
-  type Node = ShaderTexture;
+  type Node = ShaderTexture2D;
 }
 
 impl ShaderUniformProvider for GPUSamplerView {

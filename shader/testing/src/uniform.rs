@@ -15,7 +15,7 @@ impl ShaderUniformProvider for TestUniform {
 pub struct FakeTexture2d;
 
 impl ShaderUniformProvider for FakeTexture2d {
-  type Node = ShaderTexture;
+  type Node = ShaderTexture2D;
 }
 
 pub struct FakeSampler;

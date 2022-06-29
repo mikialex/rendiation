@@ -80,6 +80,9 @@ impl VertexInShaderGraphNodeType for Vec4<f32> {
 impl ShaderGraphNodeType for ShaderSampler {
   const TYPE: ShaderValueType = ShaderValueType::Sampler;
 }
+impl ShaderGraphNodeType for ShaderCompareSampler {
+  const TYPE: ShaderValueType = ShaderValueType::CompareSampler;
+}
 
 impl PrimitiveShaderGraphNodeType for Mat2<f32> {
   const PRIMITIVE_TYPE: PrimitiveShaderValueType = PrimitiveShaderValueType::Mat2Float32;
@@ -102,11 +105,13 @@ impl PrimitiveShaderGraphNodeType for Mat4<f32> {
   }
 }
 
-impl ShaderGraphNodeType for ShaderTexture {
-  const TYPE: ShaderValueType = ShaderValueType::Texture;
+impl ShaderGraphNodeType for ShaderTexture2D {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::D2,
+  };
 }
 
-impl Node<ShaderTexture> {
+impl Node<ShaderTexture2D> {
   pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec2<f32>>) -> Node<Vec4<f32>> {
     ShaderGraphNodeExpr::TextureSampling {
       texture: self.handle(),
@@ -118,7 +123,9 @@ impl Node<ShaderTexture> {
 }
 
 impl ShaderGraphNodeType for ShaderSamplerCombinedTexture {
-  const TYPE: ShaderValueType = ShaderValueType::Texture;
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::D2,
+  };
 }
 
 impl Node<ShaderSamplerCombinedTexture> {

@@ -149,15 +149,18 @@ pub enum ShaderStages {
 }
 
 #[derive(Clone, Copy)]
-pub struct ShaderTexture;
+pub struct ShaderTexture2D;
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
+#[derive(Clone, Copy)]
+pub struct ShaderCompareSampler;
 #[derive(Clone, Copy)]
 pub struct ShaderSamplerCombinedTexture;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PrimitiveShaderValueType {
   Bool,
+  Int32,
   Uint32,
   Float32,
   Vec2Float32,
@@ -166,6 +169,12 @@ pub enum PrimitiveShaderValueType {
   Mat2Float32,
   Mat3Float32,
   Mat4Float32,
+}
+
+pub enum PrimitiveScalarShaderType {
+  Int32,
+  Uint32,
+  Float32,
 }
 
 #[derive(Clone, Copy)]
@@ -227,7 +236,8 @@ impl Hash for ShaderFunctionMetaInfo {
 pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
   Sampler,
-  Texture,
+  CompareSampler,
+  Texture { dimension: TextureViewDimension },
   SamplerCombinedTexture,
   Never,
 }
