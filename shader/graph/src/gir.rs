@@ -246,7 +246,7 @@ pub enum ShaderValueType {
 pub enum ShaderStructMemberValueType {
   Primitive(PrimitiveShaderValueType),
   Struct(&'static ShaderStructMetaInfo),
-  // FixedSizeArray((&'static ShaderValueType, usize)),
+  FixedSizeArray((&'static ShaderStructMemberValueType, usize)),
 }
 
 /// use for compile time ubo field reflection by procedure macro;

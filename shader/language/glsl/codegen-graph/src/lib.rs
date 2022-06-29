@@ -453,6 +453,7 @@ fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> &'static str {
   match ty {
     ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type(ty),
     ShaderStructMemberValueType::Struct(meta) => meta.name,
+    ShaderStructMemberValueType::FixedSizeArray(_) => todo!(),
   }
 }
 

@@ -636,7 +636,7 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
       TextureViewDimension::CubeArray => "texture_cube_array<f32>".to_owned(),
       TextureViewDimension::D3 => "texture_3d<f32>".to_owned(),
     },
-    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty).to_owned(),
+    ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
     ShaderValueType::SamplerCombinedTexture => {
       unreachable!("combined sampler texture should handled above")
@@ -644,10 +644,13 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
   }
 }
 
-fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> &'static str {
+fn gen_fix_type_impl(ty: ShaderStructMemberValueType) -> String {
   match ty {
-    ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type(ty),
-    ShaderStructMemberValueType::Struct(meta) => meta.name,
+    ShaderStructMemberValueType::Primitive(ty) => gen_primitive_type(ty).to_owned(),
+    ShaderStructMemberValueType::Struct(meta) => meta.name.to_owned(),
+    ShaderStructMemberValueType::FixedSizeArray((ty, length)) => {
+      format!("array<{}, {}>", gen_fix_type_impl(*ty), length)
+    }
   }
 }
 

@@ -137,3 +137,10 @@ impl Node<ShaderSamplerCombinedTexture> {
     .insert_graph()
   }
 }
+
+impl<T: ShaderStructMemberValueNodeType, const N: usize> ShaderStructMemberValueNodeType
+  for [T; N]
+{
+  const TYPE: ShaderStructMemberValueType =
+    ShaderStructMemberValueType::FixedSizeArray((&T::TYPE, N));
+}
