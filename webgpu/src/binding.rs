@@ -67,6 +67,18 @@ pub struct BindingBuilder {
   items: [Vec<Box<dyn BindProvider>>; 5],
 }
 
+impl<'a, 'b> GPURenderPassCtx<'a, 'b> {
+  pub fn bind_immediate_sampler(
+    &mut self,
+    sampler: &(impl Into<SamplerDescriptor<'static>> + Clone),
+    group: impl Into<usize>,
+  ) {
+    let sampler = GPUSampler::create(sampler.clone().into(), &self.gpu.device);
+    let sampler = sampler.create_default_view();
+    self.binding.bind(&sampler, group.into());
+  }
+}
+
 impl BindingBuilder {
   pub fn create(cache: &BindGroupCache) -> Self {
     Self {

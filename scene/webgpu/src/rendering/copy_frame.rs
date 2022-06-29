@@ -29,7 +29,7 @@ pub fn copy_frame<T>(source: AttachmentReadView<T>) -> impl PassContent {
   .draw_quad()
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ImmediateSampler {
   inner: TextureSampler,
 }
@@ -38,12 +38,15 @@ impl ShaderUniformProvider for ImmediateSampler {
   type Node = ShaderSampler;
 }
 
+impl From<ImmediateSampler> for SamplerDescriptor<'static> {
+  fn from(val: ImmediateSampler) -> Self {
+    val.inner.into()
+  }
+}
+
 impl<T> ShaderPassBuilder for CopyFrame<T> {
   fn setup_pass(&self, ctx: &mut webgpu::GPURenderPassCtx) {
-    let sampler = GPUSampler::create(self.sampler.inner.into(), &ctx.gpu.device);
-    let sampler = sampler.create_default_view();
-
-    ctx.binding.bind(&sampler, SB::Material);
+    ctx.bind_immediate_sampler(&self.sampler, SB::Material);
     ctx.binding.bind(&self.source, SB::Material);
   }
 }
