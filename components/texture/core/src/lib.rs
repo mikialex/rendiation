@@ -87,6 +87,12 @@ pub trait Texture2D: Sized {
     });
     target
   }
+
+  fn fill_by(&mut self, writer: impl Fn(Vec2<usize>) -> Self::Pixel) {
+    self.iter_mut().for_each(|(p, xy)| {
+      *p = writer(xy.into());
+    });
+  }
 }
 
 pub trait Texture2dInitAble: Texture2D {

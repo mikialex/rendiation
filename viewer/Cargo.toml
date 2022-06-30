@@ -19,6 +19,7 @@ rendiation-renderable-mesh = {path = "../components/mesh/renderable", features =
 rendiation-scene-core = {path = "../scene/core"}
 rendiation-scene-webgpu = {path = "../scene/webgpu"}
 rendiation-texture = {path = "../components/texture/core", features = ["webgpu"]}
+rendiation-generative-texture = {path = "../components/texture/generative"}
 webgpu = {package = "rendiation-webgpu", path = "../webgpu"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

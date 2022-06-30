@@ -1,10 +1,18 @@
-use rendiation_algebra::{InnerProductSpace, Vec3, Vector};
+use rendiation_algebra::*;
 
 pub struct WorleyNoise {
   repeat: i32,
   hasher: Hasher,
   _offset_0: i32,
   _offset_1: i32,
+}
+
+impl TextureGenerator for WorleyNoise {
+  type Pixel = f32;
+  fn gen(&self, p: Vec2<usize>) -> Self::Pixel {
+    let (x, y) = p.map(|v| v as f32).into();
+    self.get((x, y, 0.).into())
+  }
 }
 
 impl WorleyNoise {
@@ -92,6 +100,8 @@ impl WorleyNoise {
 }
 
 use std::num::Wrapping;
+
+use crate::TextureGenerator;
 
 // const PRIME32_1: Wrapping<u32> = Wrapping(2654435761);
 const PRIME32_1: Wrapping<u32> = Wrapping(2246822519);
