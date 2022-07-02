@@ -98,10 +98,34 @@ impl RenderTargetView {
   }
 }
 
+/// Stored extra binding states info for up level usage
 pub struct GPURenderPassCtx<'a, 'b> {
   pub pass: GPURenderPass<'a>,
   pub gpu: &'b GPU,
   pub binding: BindingBuilder,
+  incremental_vertex_binding_index: u32,
+}
+
+impl<'a, 'b> GPURenderPassCtx<'a, 'b> {
+  pub fn new(pass: GPURenderPass<'a>, gpu: &'b GPU) -> Self {
+    Self {
+      pass,
+      gpu,
+      binding: Default::default(),
+      incremental_vertex_binding_index: 0,
+    }
+  }
+
+  pub fn reset_vertex_binding_index(&mut self) {
+    self.incremental_vertex_binding_index = 0;
+  }
+
+  pub fn set_vertex_buffer_owned_next(&mut self, buffer: &Rc<gpu::Buffer>) {
+    self
+      .pass
+      .set_vertex_buffer_owned(self.incremental_vertex_binding_index, buffer);
+    self.incremental_vertex_binding_index += 1;
+  }
 }
 
 #[derive(Default, Clone)]
@@ -189,4 +213,30 @@ impl<'a> GPURenderPass<'a> {
     let buffer = self.holder.buffers.alloc(buffer.clone());
     self.pass.set_index_buffer(buffer.slice(..), index_format)
   }
+
+  pub fn draw_by_command(&mut self, com: DrawCommand) {
+    match com {
+      DrawCommand::Indexed {
+        base_vertex,
+        indices,
+        instances,
+      } => self.draw_indexed(indices, base_vertex, instances),
+      DrawCommand::Array {
+        vertices,
+        instances,
+      } => self.draw(vertices, instances),
+    }
+  }
+}
+
+pub enum DrawCommand {
+  Indexed {
+    base_vertex: i32,
+    indices: Range<u32>,
+    instances: Range<u32>,
+  },
+  Array {
+    vertices: Range<u32>,
+    instances: Range<u32>,
+  },
 }

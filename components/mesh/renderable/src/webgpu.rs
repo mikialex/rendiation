@@ -3,7 +3,8 @@ use std::rc::Rc;
 use bytemuck::Pod;
 use core::marker::PhantomData;
 use gpu::util::DeviceExt;
-use gpu::GPURenderPass;
+use gpu::DrawCommand;
+use gpu::GPURenderPassCtx;
 use rendiation_webgpu as gpu;
 use shadergraph::*;
 
@@ -33,7 +34,7 @@ impl<T: GPUMeshData> ShaderGraphProvider for TypedMeshGPU<T> {
 
 impl<T> gpu::ShaderPassBuilder for TypedMeshGPU<T> {
   fn setup_pass(&self, ctx: &mut gpu::GPURenderPassCtx) {
-    self.setup_pass(&mut ctx.pass)
+    self.setup_pass(ctx)
   }
 }
 
@@ -44,21 +45,12 @@ impl MeshGPU {
     self.range_full
   }
 
-  pub fn setup_pass(&self, pass: &mut GPURenderPass) {
-    self.vertex.iter().enumerate().for_each(|(i, gpu)| {
-      pass.set_vertex_buffer_owned(i as u32, gpu);
+  pub fn setup_pass(&self, pass: &mut GPURenderPassCtx) {
+    self.vertex.iter().for_each(|gpu| {
+      pass.set_vertex_buffer_owned_next(gpu);
     });
     if let Some((index, format)) = &self.index {
-      pass.set_index_buffer_owned(index, *format);
-    }
-  }
-
-  pub fn draw(&self, pass: &mut gpu::RenderPass, range: Option<MeshGroup>) {
-    let range = range.unwrap_or(self.range_full);
-    if self.index.is_some() {
-      pass.draw_indexed(range.into(), 0, 0..1);
-    } else {
-      pass.draw(range.into(), 0..1);
+      pass.pass.set_index_buffer_owned(index, *format);
     }
   }
 }
@@ -68,12 +60,8 @@ impl<T> TypedMeshGPU<T> {
     self.inner.get_range_full()
   }
 
-  pub fn setup_pass(&self, pass: &mut GPURenderPass) {
+  pub fn setup_pass(&self, pass: &mut GPURenderPassCtx) {
     self.inner.setup_pass(pass)
-  }
-
-  pub fn draw(&self, pass: &mut gpu::RenderPass, range: Option<MeshGroup>) {
-    self.inner.draw(pass, range)
   }
 }
 
@@ -84,7 +72,7 @@ pub trait GPUMeshData {
   fn update(&self, gpu: &mut Self::GPU, device: &gpu::Device);
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> gpu::PrimitiveTopology;
-  fn draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
+  fn draw(&self, group: MeshDrawGroup) -> DrawCommand;
 
   fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder);
 }
@@ -112,9 +100,13 @@ where
     self.get_group(group)
   }
 
-  fn draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+  fn draw(&self, group: MeshDrawGroup) -> DrawCommand {
     let range = self.get_group(group);
-    pass.draw_indexed(range.into(), 0, 0..1);
+    DrawCommand::Indexed {
+      base_vertex: 0,
+      indices: range.into(),
+      instances: 0..1,
+    }
   }
 
   fn topology(&self) -> gpu::PrimitiveTopology {

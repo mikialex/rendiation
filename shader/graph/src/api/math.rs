@@ -9,4 +9,7 @@ where
   pub fn inverse(self) -> Self {
     ShaderGraphNodeExpr::MatInverse(self.handle()).insert_graph()
   }
+  pub fn transpose(self) -> Self {
+    ShaderGraphNodeExpr::MatTranspose(self.handle()).insert_graph()
+  }
 }
