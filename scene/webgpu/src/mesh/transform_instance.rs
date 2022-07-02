@@ -1,5 +1,6 @@
 use rendiation_algebra::*;
 use std::rc::Rc;
+use webgpu::util::DeviceExt;
 
 use crate::*;
 
@@ -78,9 +79,17 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
 
   fn create(&self, gpu: &webgpu::GPU, storage: &mut anymap::AnyMap) -> Self::GPU {
     let mesh_gpu = self.mesh.create(gpu, storage);
+    let instance_gpu = gpu
+      .device
+      .deref()
+      .create_buffer_init(&webgpu::util::BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(self.transforms.as_slice()),
+        usage: BufferUsages::VERTEX,
+      });
     TransformInstanceGPU {
       mesh_gpu,
-      instance_gpu: todo!(),
+      instance_gpu: Rc::new(instance_gpu),
     }
   }
 
@@ -99,7 +108,8 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
 
   fn try_pick(
     &self,
-    f: &mut dyn FnMut(&dyn rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh),
+    _f: &mut dyn FnMut(&dyn rendiation_renderable_mesh::mesh::IntersectAbleGroupedMesh),
   ) {
+    // todo support picking?
   }
 }
