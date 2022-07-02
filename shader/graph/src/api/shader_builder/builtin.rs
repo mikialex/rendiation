@@ -1,5 +1,6 @@
 use crate::*;
 
+#[macro_export]
 macro_rules! only_vertex {
   ($Type: ident, $NodeType: ty) => {
     pub struct $Type;

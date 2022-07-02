@@ -71,3 +71,41 @@ where
     .insert_graph()
   }
 }
+
+impl<A, B, C, D> From<(A, B, C, D)> for Node<Mat4<f32>>
+where
+  A: Into<Node<Vec4<f32>>>,
+  B: Into<Node<Vec4<f32>>>,
+  C: Into<Node<Vec4<f32>>>,
+  D: Into<Node<Vec4<f32>>>,
+{
+  fn from((a, b, c, d): (A, B, C, D)) -> Self {
+    let a = a.into().handle();
+    let b = b.into().handle();
+    let c = c.into().handle();
+    let d = d.into().handle();
+    ShaderGraphNodeExpr::Compose {
+      target: Mat4::<f32>::PRIMITIVE_TYPE,
+      parameters: vec![a, b, c, d],
+    }
+    .insert_graph()
+  }
+}
+
+impl<A, B, C> From<(A, B, C)> for Node<Mat3<f32>>
+where
+  A: Into<Node<Vec3<f32>>>,
+  B: Into<Node<Vec3<f32>>>,
+  C: Into<Node<Vec3<f32>>>,
+{
+  fn from((a, b, c): (A, B, C)) -> Self {
+    let a = a.into().handle();
+    let b = b.into().handle();
+    let c = c.into().handle();
+    ShaderGraphNodeExpr::Compose {
+      target: Mat3::<f32>::PRIMITIVE_TYPE,
+      parameters: vec![a, b, c],
+    }
+    .insert_graph()
+  }
+}

@@ -461,6 +461,9 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       )
     }
     ShaderGraphNodeExpr::MatInverse(n) => format!("inverse({})", cx.get_node_gen_result_var(*n)),
+    ShaderGraphNodeExpr::MatTranspose(n) => {
+      format!("transpose({})", cx.get_node_gen_result_var(*n))
+    }
   }
 }
 
