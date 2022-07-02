@@ -1,10 +1,10 @@
 #![allow(unused)]
-#![allow(unstable_name_collisions)]
-use rendiation_algebra::Vec3;
+use rendiation_algebra::*;
 
 pub mod perlin;
 pub mod worley;
 
-pub trait NoiseFn3D {
-  fn get(input: Vec3<f32>) -> f32;
+pub trait TextureGenerator {
+  type Pixel;
+  fn gen(&self, p: Vec2<usize>) -> Self::Pixel;
 }

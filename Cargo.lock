@@ -2024,6 +2024,7 @@ version = "0.0.1"
 dependencies = [
  "image",
  "rendiation-algebra",
+ "rendiation-texture",
 ]
 
 [[package]]
@@ -2656,6 +2657,7 @@ dependencies = [
  "once_cell",
  "rendiation-algebra",
  "rendiation-controller",
+ "rendiation-generative-texture",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",

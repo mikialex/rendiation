@@ -1,9 +1,17 @@
+use crate::TextureGenerator;
 use rendiation_algebra::*;
 
 /// https://flafla2.github.io/2014/08/09/perlinnoise.html
 pub struct PerlinNoise {
   seed: usize,
   repeat: i32,
+}
+
+impl TextureGenerator for PerlinNoise {
+  type Pixel = f32;
+  fn gen(&self, p: Vec2<usize>) -> Self::Pixel {
+    todo!()
+  }
 }
 
 impl PerlinNoise {

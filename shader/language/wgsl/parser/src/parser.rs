@@ -365,8 +365,9 @@ pub fn parse_expression_like_statement<'a>(
     }
   }
 
-  let r = match lexer.next().token {
+  let r = match lexer.peek().token {
     Token::Keyword(Kw::Declare(declare_ty)) => {
+      let _ = lexer.next();
       let name = parse_ident(lexer)?;
       let ty = if lexer.skip(Token::Separator(':')) {
         TypeExpression::parse(lexer)?.into()
@@ -391,6 +392,7 @@ pub fn parse_expression_like_statement<'a>(
       }
     }
     Token::Word(_) => {
+      let _ = lexer.next();
       if has_assign {
         // todo fix expect world first
         let lhs = LhsExpression::parse(&mut lex2)?;
