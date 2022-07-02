@@ -89,11 +89,7 @@ impl<'a> PassDescriptor<'a> {
     let pass_info = UniformBufferResource::create_with_source(pass_info, &ctx.gpu.device);
     let pass_info = pass_info.create_default_view();
 
-    let c = GPURenderPassCtx {
-      pass,
-      gpu: ctx.gpu,
-      binding: Default::default(),
-    };
+    let c = GPURenderPassCtx::new(pass, ctx.gpu);
 
     let pass = SceneRenderPass {
       ctx: c,
