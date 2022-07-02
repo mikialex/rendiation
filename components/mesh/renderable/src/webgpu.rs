@@ -3,7 +3,7 @@ use std::rc::Rc;
 use bytemuck::Pod;
 use core::marker::PhantomData;
 use gpu::util::DeviceExt;
-use gpu::GPURenderPass;
+use gpu::DrawCommand;
 use gpu::GPURenderPassCtx;
 use rendiation_webgpu as gpu;
 use shadergraph::*;
@@ -53,15 +53,6 @@ impl MeshGPU {
       pass.pass.set_index_buffer_owned(index, *format);
     }
   }
-
-  pub fn draw(&self, pass: &mut gpu::RenderPass, range: Option<MeshGroup>) {
-    let range = range.unwrap_or(self.range_full);
-    if self.index.is_some() {
-      pass.draw_indexed(range.into(), 0, 0..1);
-    } else {
-      pass.draw(range.into(), 0..1);
-    }
-  }
 }
 
 impl<T> TypedMeshGPU<T> {
@@ -72,10 +63,6 @@ impl<T> TypedMeshGPU<T> {
   pub fn setup_pass(&self, pass: &mut GPURenderPassCtx) {
     self.inner.setup_pass(pass)
   }
-
-  pub fn draw(&self, pass: &mut gpu::RenderPass, range: Option<MeshGroup>) {
-    self.inner.draw(pass, range)
-  }
 }
 
 /// The GPUMesh's cpu data source trait
@@ -85,7 +72,7 @@ pub trait GPUMeshData {
   fn update(&self, gpu: &mut Self::GPU, device: &gpu::Device);
   fn get_group(&self, group: MeshDrawGroup) -> MeshGroup;
   fn topology(&self) -> gpu::PrimitiveTopology;
-  fn draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup);
+  fn draw(&self, group: MeshDrawGroup) -> DrawCommand;
 
   fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder);
 }
@@ -113,9 +100,13 @@ where
     self.get_group(group)
   }
 
-  fn draw<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
+  fn draw(&self, group: MeshDrawGroup) -> DrawCommand {
     let range = self.get_group(group);
-    pass.draw_indexed(range.into(), 0, 0..1);
+    DrawCommand::Indexed {
+      base_vertex: 0,
+      indices: range.into(),
+      instances: 0..1,
+    }
   }
 
   fn topology(&self) -> gpu::PrimitiveTopology {

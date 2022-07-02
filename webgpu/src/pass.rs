@@ -213,4 +213,30 @@ impl<'a> GPURenderPass<'a> {
     let buffer = self.holder.buffers.alloc(buffer.clone());
     self.pass.set_index_buffer(buffer.slice(..), index_format)
   }
+
+  pub fn draw_by_command(&mut self, com: DrawCommand) {
+    match com {
+      DrawCommand::Indexed {
+        base_vertex,
+        indices,
+        instances,
+      } => self.draw_indexed(indices, base_vertex, instances),
+      DrawCommand::Array {
+        vertices,
+        instances,
+      } => self.draw(vertices, instances),
+    }
+  }
+}
+
+pub enum DrawCommand {
+  Indexed {
+    base_vertex: i32,
+    indices: Range<u32>,
+    instances: Range<u32>,
+  },
+  Array {
+    vertices: Range<u32>,
+    instances: Range<u32>,
+  },
 }

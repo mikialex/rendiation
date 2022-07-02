@@ -51,13 +51,11 @@ impl WebGPUMesh for FatlineMesh {
     FatlineMeshGPU { vertex, instance }
   }
 
-  fn draw_impl<'a>(&self, pass: &mut GPURenderPass<'a>, group: MeshDrawGroup) {
-    FATLINE_INSTANCE.with(|instance| {
-      pass.draw_indexed(
-        0..instance.draw_count() as u32,
-        0,
-        self.inner.get_group(group).into(),
-      )
+  fn draw_impl<'a>(&self, group: MeshDrawGroup) -> DrawCommand {
+    FATLINE_INSTANCE.with(|instance| DrawCommand::Indexed {
+      base_vertex: 0,
+      indices: 0..instance.draw_count() as u32,
+      instances: self.inner.get_group(group).into(),
     })
   }
 

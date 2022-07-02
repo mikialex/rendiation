@@ -34,7 +34,7 @@ use std::{
   hash::{Hash, Hasher},
   marker::PhantomData,
   num::{NonZeroU32, NonZeroU8},
-  ops::{Deref, DerefMut},
+  ops::{Deref, DerefMut, Range},
   rc::Rc,
   sync::atomic::{AtomicUsize, Ordering},
 };

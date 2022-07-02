@@ -1,4 +1,5 @@
 use rendiation_algebra::*;
+use rendiation_renderable_mesh::group::MeshDrawGroup;
 use std::rc::Rc;
 use webgpu::util::DeviceExt;
 
@@ -94,11 +95,7 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
   }
 
   // we should constrain this call
-  fn draw_impl<'a>(
-    &self,
-    pass: &mut webgpu::GPURenderPass<'a>,
-    group: rendiation_renderable_mesh::group::MeshDrawGroup,
-  ) {
+  fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
     todo!()
   }
 
