@@ -94,9 +94,19 @@ impl<M: WebGPUMesh> WebGPUMesh for TransformInstance<M> {
     }
   }
 
-  // we should constrain this call
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    todo!()
+    let mut inner = self.mesh.draw_impl(group);
+    match &mut inner {
+      DrawCommand::Indexed { instances, .. } => {
+        assert_eq!(*instances, 0..1);
+        *instances = 0..self.transforms.len() as u32;
+      }
+      DrawCommand::Array { instances, .. } => {
+        assert_eq!(*instances, 0..1);
+        *instances = 0..self.transforms.len() as u32;
+      }
+    }
+    inner
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
