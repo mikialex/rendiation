@@ -86,8 +86,8 @@ impl ShaderHashProvider for FatlineMeshGPU {}
 
 impl ShaderPassBuilder for FatlineMeshGPU {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.instance.setup_pass(&mut ctx.pass);
-    ctx.pass.set_vertex_buffer_owned(1, &self.vertex);
+    self.instance.setup_pass(ctx);
+    ctx.set_vertex_buffer_owned_next(&self.vertex);
   }
 }
 

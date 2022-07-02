@@ -4,6 +4,7 @@ use bytemuck::Pod;
 use core::marker::PhantomData;
 use gpu::util::DeviceExt;
 use gpu::GPURenderPass;
+use gpu::GPURenderPassCtx;
 use rendiation_webgpu as gpu;
 use shadergraph::*;
 
@@ -33,7 +34,7 @@ impl<T: GPUMeshData> ShaderGraphProvider for TypedMeshGPU<T> {
 
 impl<T> gpu::ShaderPassBuilder for TypedMeshGPU<T> {
   fn setup_pass(&self, ctx: &mut gpu::GPURenderPassCtx) {
-    self.setup_pass(&mut ctx.pass)
+    self.setup_pass(ctx)
   }
 }
 
@@ -44,12 +45,12 @@ impl MeshGPU {
     self.range_full
   }
 
-  pub fn setup_pass(&self, pass: &mut GPURenderPass) {
-    self.vertex.iter().enumerate().for_each(|(i, gpu)| {
-      pass.set_vertex_buffer_owned(i as u32, gpu);
+  pub fn setup_pass(&self, pass: &mut GPURenderPassCtx) {
+    self.vertex.iter().for_each(|gpu| {
+      pass.set_vertex_buffer_owned_next(gpu);
     });
     if let Some((index, format)) = &self.index {
-      pass.set_index_buffer_owned(index, *format);
+      pass.pass.set_index_buffer_owned(index, *format);
     }
   }
 
@@ -68,7 +69,7 @@ impl<T> TypedMeshGPU<T> {
     self.inner.get_range_full()
   }
 
-  pub fn setup_pass(&self, pass: &mut GPURenderPass) {
+  pub fn setup_pass(&self, pass: &mut GPURenderPassCtx) {
     self.inner.setup_pass(pass)
   }
 

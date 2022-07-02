@@ -40,6 +40,7 @@ pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPass
       });
 
     ctx.binding.reset();
+    ctx.reset_vertex_binding_index();
 
     self.setup_pass(ctx);
 

@@ -98,10 +98,34 @@ impl RenderTargetView {
   }
 }
 
+/// Stored extra binding states info for up level usage
 pub struct GPURenderPassCtx<'a, 'b> {
   pub pass: GPURenderPass<'a>,
   pub gpu: &'b GPU,
   pub binding: BindingBuilder,
+  incremental_vertex_binding_index: u32,
+}
+
+impl<'a, 'b> GPURenderPassCtx<'a, 'b> {
+  pub fn new(pass: GPURenderPass<'a>, gpu: &'b GPU) -> Self {
+    Self {
+      pass,
+      gpu,
+      binding: Default::default(),
+      incremental_vertex_binding_index: 0,
+    }
+  }
+
+  pub fn reset_vertex_binding_index(&mut self) {
+    self.incremental_vertex_binding_index = 0;
+  }
+
+  pub fn set_vertex_buffer_owned_next(&mut self, buffer: &Rc<gpu::Buffer>) {
+    self
+      .pass
+      .set_vertex_buffer_owned(self.incremental_vertex_binding_index, buffer);
+    self.incremental_vertex_binding_index += 1;
+  }
 }
 
 #[derive(Default, Clone)]

@@ -65,8 +65,8 @@ impl<M: WebGPUMesh> ShaderHashProvider for TransformInstanceGPU<M> {}
 
 impl<M: WebGPUMesh> ShaderPassBuilder for TransformInstanceGPU<M> {
   fn setup_pass(&self, ctx: &mut GPURenderPassCtx) {
-    self.mesh_gpu.setup_pass(ctx)
-    // todo set_vertex_buffer_owned for self, the index should be considered
+    self.mesh_gpu.setup_pass(ctx);
+    ctx.set_vertex_buffer_owned_next(&self.instance_gpu);
   }
 }
 
