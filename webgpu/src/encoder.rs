@@ -46,11 +46,11 @@ impl GPUCommandEncoder {
       .iter()
       .map(|(ops, view)| {
         size = view.size();
-        gpu::RenderPassColorAttachment {
+        Some(gpu::RenderPassColorAttachment {
           view: view.as_view(),
           resolve_target: des.resolve_target.as_ref().map(|t| t.as_view()),
           ops: *ops,
-        }
+        })
       })
       .collect();
 

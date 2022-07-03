@@ -102,7 +102,7 @@ impl TextWebGPURenderer {
       bind_group_layouts: &[&uniform_layout],
     });
 
-    let shader = device.create_shader_module(&webgpu::ShaderModuleDescriptor {
+    let shader = device.create_shader_module(webgpu::ShaderModuleDescriptor {
       label: Some("Glyph Shader"),
       source: webgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("./glyph.wgsl"))),
     });
@@ -135,11 +135,11 @@ impl TextWebGPURenderer {
       fragment: Some(webgpu::FragmentState {
         module: &shader,
         entry_point: "fs_main",
-        targets: &[webgpu::ColorTargetState {
+        targets: &[Some(webgpu::ColorTargetState {
           format: render_format,
           blend: Some(webgpu::BlendState::ALPHA_BLENDING),
           write_mask: webgpu::ColorWrites::ALL,
-        }],
+        })],
       }),
       multiview: None,
     });

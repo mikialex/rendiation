@@ -103,11 +103,11 @@ impl GPUDevice {
     println!("{}", vertex);
     println!("{}", fragment);
 
-    let vertex = self.create_shader_module(&gpu::ShaderModuleDescriptor {
+    let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
       source: gpu::ShaderSource::Wgsl(Cow::Borrowed(vertex.as_str())),
     });
-    let fragment = self.create_shader_module(&gpu::ShaderModuleDescriptor {
+    let fragment = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,
       source: gpu::ShaderSource::Wgsl(Cow::Borrowed(fragment.as_str())),
     });
@@ -151,7 +151,11 @@ impl GPUDevice {
       fragment: Some(gpu::FragmentState {
         module: &fragment,
         entry_point: target.fragment_entry_name(),
-        targets: color_states.as_slice(),
+        targets: color_states
+          .iter()
+          .map(|s| Some(s.clone()))
+          .collect::<Vec<_>>()
+          .as_slice(),
       }),
       primitive: primitive_state,
       depth_stencil,

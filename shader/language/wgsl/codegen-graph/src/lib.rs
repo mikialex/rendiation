@@ -117,11 +117,11 @@ fn gen_fragment_shader(
 }
 
 fn gen_vertex_in_declare(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {
-  code.write_ln("[[builtin(vertex_index)]] bt_vertex_vertex_id: u32,");
-  code.write_ln("[[builtin(instance_index)]] bt_vertex_instance_id: u32,");
+  code.write_ln("@builtin(vertex_index) bt_vertex_vertex_id: u32,");
+  code.write_ln("@builtin(instance_index) bt_vertex_instance_id: u32,");
   vertex.vertex_in.iter().for_each(|(_, (_, ty, index))| {
     code.write_ln(format!(
-      "[[location({index})]] vertex_in_{index}: {},",
+      "@location({index}) vertex_in_{index}: {},",
       gen_primitive_type(*ty)
     ));
   })
@@ -147,22 +147,22 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
   gen_struct(code, &shader_struct);
 }
 
-// fn gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
-//   match int {
-//     ShaderVaryingInterpolation::Flat => "flat",
-//     ShaderVaryingInterpolation::Perspective => "perspective",
-//   }
-// }
+fn _gen_interpolation(int: ShaderVaryingInterpolation) -> &'static str {
+  match int {
+    ShaderVaryingInterpolation::Flat => "flat",
+    ShaderVaryingInterpolation::Perspective => "perspective",
+  }
+}
 
 fn gen_fragment_in_declare(code: &mut CodeBuilder, frag: &ShaderGraphFragmentBuilder) {
   frag.fragment_in.iter().for_each(|(_, (_, ty, _int, i))| {
     // code.write_ln(format!(
-    //   "[[location({i})]] [[interpolate({})]] fragment_in_{i}: {}",
+    //   "@location({i}) @interpolate({}, center) fragment_in_{i}: {}",
     //   gen_interpolation(*int),
     //   gen_primitive_type(*ty)
     // ));
     code.write_ln(format!(
-      "[[location({i})]] fragment_in_{i}: {},",
+      "@location({i}) fragment_in_{i}: {},",
       gen_primitive_type(*ty)
     ));
   });
@@ -493,7 +493,7 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
     let built_in_deco = if let Some(ty_deco) = ty_deco {
       match ty_deco {
         ShaderFieldDecorator::BuiltIn(built_in) => format!(
-          "[[builtin({})]]",
+          "@builtin({})",
           match built_in {
             ShaderBuiltInDecorator::VertexIndex => "vertex_index",
             ShaderBuiltInDecorator::InstanceIndex => "instance_index",
@@ -501,14 +501,14 @@ fn gen_struct(builder: &mut CodeBuilder, meta: &ShaderStructMetaInfoOwned) {
             ShaderBuiltInDecorator::FragmentPositionIn => "position",
           }
         ),
-        ShaderFieldDecorator::Location(location) => format!("[[location({location})]]"),
+        ShaderFieldDecorator::Location(location) => format!("@location({location})"),
       }
     } else {
       "".to_owned()
     };
 
     builder.write_ln(format!(
-      "{} {}: {};",
+      "{} {}: {},",
       built_in_deco,
       name,
       gen_fix_type_impl(*ty)
@@ -573,7 +573,7 @@ fn gen_bind_entry(
 ) {
   if entry.1.is_visible_to(stage) {
     code.write_ln(format!(
-      "[[group({}), binding({})]] var{} uniform_b_{}_i_{}: {};",
+      "@group({}) @binding({}) var{} uniform_b_{}_i_{}: {};",
       group_index,
       item_index,
       match entry.0 {
@@ -595,13 +595,13 @@ fn gen_entry(
   mut parameter: impl FnMut(&mut CodeBuilder),
   mut return_type: impl FnMut(&mut CodeBuilder),
 ) {
-  let name = match stage {
+  let stage_name = match stage {
     ShaderStages::Vertex => "vertex",
     ShaderStages::Fragment => "fragment",
   };
 
-  code.write_ln(format!("[[stage({name})]]"));
-  code.write_ln(format!("fn {name}_main(")).tab();
+  code.write_ln(format!("@{stage_name}"));
+  code.write_ln(format!("fn {stage_name}_main(")).tab();
   parameter(code);
   code.un_tab().write_ln(") ->");
   return_type(code);

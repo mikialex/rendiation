@@ -29,13 +29,16 @@ impl GPUSurface {
     surface: gpu::Surface,
     size: Size,
   ) -> Self {
-    let swapchain_format = surface
-      .get_preferred_format(adapter)
-      .unwrap_or(gpu::TextureFormat::Rgba8UnormSrgb);
+    let formats = surface.get_supported_formats(adapter);
+    let swapchain_format = formats
+      .iter()
+      .find(|&f| *f == gpu::TextureFormat::Rgba8UnormSrgb)
+      .or(formats.first())
+      .expect("could not find support formats in surface");
 
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
-      format: swapchain_format,
+      format: *swapchain_format,
       width: Into::<usize>::into(size.width) as u32,
       height: Into::<usize>::into(size.height) as u32,
       present_mode: gpu::PresentMode::Mailbox,
