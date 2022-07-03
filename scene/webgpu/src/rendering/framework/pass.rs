@@ -1,13 +1,4 @@
-use std::marker::PhantomData;
-
-use bytemuck::Zeroable;
-use rendiation_algebra::Vec2;
-use shadergraph::{std140_layout, ShaderStruct};
-use webgpu::{
-  GPURenderPassCtx, Operations, RenderPassDescriptorOwned, RenderTargetView, UniformBufferResource,
-};
-
-use crate::{Attachment, AttachmentWriteView, FrameCtx, SceneRenderPass};
+use crate::*;
 
 #[repr(C)]
 #[std140_layout]

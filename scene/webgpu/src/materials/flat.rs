@@ -1,12 +1,5 @@
-use rendiation_algebra::Vec4;
-use rendiation_renderable_mesh::vertex::Vertex;
-use webgpu::*;
-
 use crate::*;
 
-impl MaterialMeshLayoutRequire for FlatMaterial {
-  type VertexInput = Vec<Vertex>;
-}
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]

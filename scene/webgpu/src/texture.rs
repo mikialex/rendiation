@@ -1,6 +1,3 @@
-use rendiation_texture::CubeTextureFace;
-use webgpu::*;
-
 use crate::*;
 
 pub fn check_update_gpu_2d<'a, P>(

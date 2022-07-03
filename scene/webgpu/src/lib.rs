@@ -1,13 +1,7 @@
-#![feature(specialization)]
+#![feature(min_specialization)]
 #![feature(hash_raw_entry)]
 #![feature(explicit_generic_args_with_impl_trait)]
-#![allow(incomplete_features)]
 #![allow(clippy::field_reassign_with_default)]
-
-pub mod util;
-pub use util::*;
-
-pub use rendiation_scene_core::*;
 
 pub mod background;
 pub mod camera;
@@ -19,16 +13,7 @@ pub mod node;
 pub mod rendering;
 pub mod shading;
 pub mod texture;
-
-use __core::ops::Deref;
-use std::{
-  any::{Any, TypeId},
-  collections::HashMap,
-};
-
-use bytemuck::*;
-use shadergraph::*;
-use wgsl_shader_derives::*;
+pub mod util;
 
 pub use background::*;
 pub use camera::*;
@@ -40,14 +25,31 @@ pub use node::*;
 pub use rendering::*;
 pub use shading::*;
 pub use texture::*;
+pub use util::*;
 
 use anymap::AnyMap;
-use rendiation_geometry::{Nearest, Ray3};
-use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
-
+use bytemuck::*;
+use rendiation_algebra::*;
+use rendiation_geometry::*;
+use rendiation_renderable_mesh::group::MeshDrawGroup;
+use rendiation_renderable_mesh::mesh::*;
+pub use rendiation_scene_core::*;
+use rendiation_texture::{CubeTextureFace, Size, TextureSampler};
+use shadergraph::*;
+use webgpu::util::DeviceExt;
 use webgpu::*;
+use wgsl_shader_derives::*;
 
-use crate::{IdentityMapper, Scene, SceneCamera, SceneContent};
+use core::ops::Deref;
+use std::{
+  any::{Any, TypeId},
+  cell::{Cell, RefCell},
+  collections::HashMap,
+  hash::Hash,
+  marker::PhantomData,
+  rc::Rc,
+  sync::Mutex,
+};
 
 #[derive(Copy, Clone)]
 pub struct WebGPUScene;

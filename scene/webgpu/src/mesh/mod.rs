@@ -1,12 +1,4 @@
-use anymap::AnyMap;
-use rendiation_renderable_mesh::{
-  group::MeshDrawGroup, mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU,
-};
-use std::{
-  any::{Any, TypeId},
-  ops::Deref,
-};
-use webgpu::GPU;
+use rendiation_renderable_mesh::{mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU};
 
 use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
 

@@ -1,7 +1,3 @@
-use rendiation_algebra::*;
-use rendiation_texture::Size;
-use webgpu::*;
-
 use crate::*;
 
 pub fn setup_viewport<'a>(cb: &CameraViewBounds, pass: &mut GPURenderPass<'a>, buffer_size: Size) {

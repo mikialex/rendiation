@@ -3,12 +3,10 @@ use std::{
   ops::Deref,
 };
 pub mod states;
-use __core::hash::Hash;
-use rendiation_renderable_mesh::group::MeshDrawGroup;
 pub use states::*;
 
-pub mod wrapper;
-pub use wrapper::*;
+use __core::hash::Hash;
+use rendiation_renderable_mesh::group::MeshDrawGroup;
 
 pub mod flat;
 pub use flat::*;
@@ -20,10 +18,6 @@ pub use fatline::*;
 use webgpu::*;
 
 use crate::*;
-
-pub trait MaterialMeshLayoutRequire {
-  type VertexInput;
-}
 
 pub trait RenderComponent: ShaderHashProvider + ShaderGraphProvider + ShaderPassBuilder {
   fn render(&self, ctx: &mut GPURenderPassCtx, emitter: &dyn DrawcallEmitter) {

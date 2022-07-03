@@ -1,5 +1,3 @@
-use webgpu::*;
-
 use crate::*;
 
 pub trait WebGPUBackground: 'static + SceneRenderable {

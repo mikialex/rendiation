@@ -1,7 +1,3 @@
-use rendiation_algebra::Vec2;
-use shadergraph::*;
-use webgpu::{ShaderHashProvider, ShaderPassBuilder};
-
 use crate::*;
 
 #[derive(Copy, Clone, ShaderStruct)]

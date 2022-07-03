@@ -1,15 +1,8 @@
-use crate::{AttachmentReadView, SceneRenderPass, SceneRenderable};
-
-use __core::{any::Any, hash::Hash};
-use rendiation_algebra::*;
-use rendiation_texture::TextureSampler;
-use webgpu::*;
+use crate::*;
 
 pub struct HighLighter {
   pub data: UniformBufferDataView<HighLightData>,
 }
-
-use crate::*;
 
 #[repr(C)]
 #[std140_layout]

@@ -1,8 +1,3 @@
-use rendiation_algebra::*;
-use rendiation_renderable_mesh::group::MeshDrawGroup;
-use std::rc::Rc;
-use webgpu::util::DeviceExt;
-
 use crate::*;
 
 pub struct TransformInstance<M> {

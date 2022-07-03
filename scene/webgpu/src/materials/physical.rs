@@ -1,12 +1,5 @@
-use rendiation_algebra::Vec3;
-use rendiation_renderable_mesh::vertex::Vertex;
-use webgpu::*;
-
 use crate::*;
 
-impl<S: SceneContent> MaterialMeshLayoutRequire for PhysicalMaterial<S> {
-  type VertexInput = Vec<Vertex>;
-}
 #[repr(C)]
 #[std140_layout]
 #[derive(Clone, Copy, ShaderStruct)]

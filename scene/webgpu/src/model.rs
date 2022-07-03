@@ -1,12 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
-use rendiation_algebra::*;
-use rendiation_geometry::{Nearest, Ray3};
-use rendiation_renderable_mesh::mesh::{
-  IntersectAbleGroupedMesh, MeshBufferHitPoint, MeshBufferIntersectConfig,
-};
-use rendiation_texture::Size;
-
 use crate::*;
 
 pub type SceneFatlineMaterial = MaterialInner<StateControl<FatLineMaterial>>;

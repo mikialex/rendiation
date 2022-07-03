@@ -1,5 +1,4 @@
-use std::hash::Hash;
-use std::{collections::HashMap, marker::PhantomData};
+use crate::*;
 
 pub struct ValueIDGenerator<T> {
   inner: HashMap<T, usize>,

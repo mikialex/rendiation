@@ -1,10 +1,4 @@
-use std::{any::Any, hash::Hash};
-
-use rendiation_texture::TextureSampler;
-use shadergraph::{FragmentUv, ShaderGraphProvider, ShaderSampler, ShaderUniformProvider, SB};
-use webgpu::*;
-
-use crate::{AttachmentReadView, PassContent, UseQuadDraw};
+use crate::*;
 
 pub struct CopyFrame<T> {
   sampler: ImmediateSampler,

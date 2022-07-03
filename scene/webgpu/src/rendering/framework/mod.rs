@@ -4,10 +4,7 @@ pub use pass::*;
 pub mod attachment;
 pub use attachment::*;
 
-use rendiation_texture::Size;
-use webgpu::*;
-
-use crate::GPUResourceCache;
+use crate::*;
 
 pub struct FrameCtx<'a> {
   pool: &'a ResourcePool,

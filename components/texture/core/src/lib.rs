@@ -22,7 +22,7 @@ pub use container::*;
 pub use io::*;
 pub mod container;
 #[cfg(feature = "webgpu")]
-pub mod webgpu;
+mod webgpu;
 #[cfg(feature = "webgpu")]
 pub use webgpu::*;
 

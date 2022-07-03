@@ -1,5 +1,3 @@
-use webgpu::*;
-
 use crate::*;
 
 #[repr(C)]
