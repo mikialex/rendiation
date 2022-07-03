@@ -1,6 +1,6 @@
 [package]
 authors = ["mikialex <18516340862@163.com>"]
-edition = "2018"
+edition = "2021"
 name = "shader-derives"
 version = "0.1.0"
 
