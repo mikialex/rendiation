@@ -1,7 +1,7 @@
 pub mod directional;
 pub use directional::*;
-use rendiation_algebra::*;
-use shadergraph::*;
+
+use crate::*;
 
 #[derive(Default)]
 pub struct LightList<T> {
@@ -12,34 +12,55 @@ impl<T> LightList<T> {
   //
 }
 
-pub struct DrawDefer<'a, T> {
+pub struct DrawDefer<'a, T, D, S, R> {
   pub light: &'a T,
+  pub defer: &'a D,
+  pub shading: &'a S,
+  pub target: &'a R,
 }
 
-// impl<'a, T: DirectShaderLight> ShaderGraphProvider for DrawDefer<'a, T> {
-//   fn build(
-//     &self,
-//     builder: &mut ShaderGraphRenderPipelineBuilder,
-//   ) -> Result<(), ShaderGraphBuildError> {
-//     builder.fragment(|builder, binding| {
-//       // let position = builder.query::<WorldFragmentPosition>()?.get();
-//       // let normal = builder.query::<WorldFragmentNormal>()?.get();
-//       // let camera_position = builder.query::<CameraPosition>()?.get();
+pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
+  fn reconstruct_geometry_ctx(
+    builder: &mut ShaderGraphFragmentBuilder,
+  ) -> ExpandedNode<ShaderLightingGeometricCtx>;
 
-//       // let view_dir = camera_position - position;
+  fn reconstruct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ExpandedNode<S>;
+}
 
-//       // let ctx = ExpandedNode::<ShaderLightingGeometricCtx> {
-//       //   position,
-//       //   normal,
-//       //   view_dir,
-//       // };
+pub trait LightPassSchema {
+  fn write_lighting(
+    builder: &mut ShaderGraphFragmentBuilder,
+    result: ExpandedNode<ShaderLightingResult>,
+  );
+}
 
-//       // let incident_light = T::compute_direct_light(todo!(), &ctx);
+/// super clean, super powerful
+impl<'a, T, S, D, R> ShaderGraphProvider for DrawDefer<'a, T, D, S, R>
+where
+  T: DirectShaderLight,
+  S: LightableSurfaceShading,
+  D: DeferGBufferSchema<S>,
+  R: LightPassSchema,
+{
+  fn build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let geom_ctx = D::reconstruct_geometry_ctx(builder);
 
-//       Ok(())
-//     })
-//   }
-// }
+      let shading = D::reconstruct_shading(builder);
+
+      let incident_light = T::compute_direct_light(todo!(), &geom_ctx);
+
+      let result = S::compute_lighting(&shading, &incident_light, &geom_ctx);
+
+      R::write_lighting(builder, result);
+
+      Ok(())
+    })
+  }
+}
 
 #[derive(Copy, Clone, ShaderStruct)]
 pub struct ShaderIncidentLight {

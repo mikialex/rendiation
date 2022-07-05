@@ -99,6 +99,24 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     scene.add_model(model)
   }
 
+  // {
+  //   let mesh = TransformInstance {
+  //     mesh: CubeMeshParameter::default().tessellate(),
+  //     transforms: vec![Mat4::translate(10., 10., 10.)],
+  //   };
+  //   let mesh = mesh.into_resourced();
+  //   let mut material = PhysicalMaterial::<WebGPUScene> {
+  //     albedo: Vec3::splat(1.),
+  //     sampler: TextureSampler::default(),
+  //     texture,
+  //   }
+  //   .use_state()
+  //   .into_resourced();
+
+  //   let model = MeshModel::new(material, mesh, scene.root().create_child());
+  //   scene.add_model(model)
+  // }
+
   let up = Vec3::new(0., 1., 0.);
 
   {

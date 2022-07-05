@@ -23,6 +23,7 @@ pub struct GPUSurface {
 }
 
 impl GPUSurface {
+  #[allow(clippy::or_fun_call)]
   pub fn new(
     adapter: &gpu::Adapter,
     device: &GPUDevice,

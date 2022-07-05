@@ -1,7 +1,16 @@
 pub mod physical;
 pub use physical::*;
 
-pub trait LightableSurfaceShading {
-  fn struct_define() -> &'static str;
-  fn struct_construct() -> &'static str;
+use crate::*;
+
+pub trait LightableSurfaceShading: ShaderGraphStructuralNodeType {
+  /// define how we construct a shader material instance from shader build ctx
+  fn construct(builder: &ShaderGraphFragmentBuilder) -> ExpandedNode<Self>;
+
+  /// define how we compute result lighting from a give pixel of surface and lighting
+  fn compute_lighting(
+    self_node: &ExpandedNode<Self>,
+    direct_light: &ExpandedNode<ShaderIncidentLight>,
+    ctx: &ExpandedNode<ShaderLightingGeometricCtx>,
+  ) -> ExpandedNode<ShaderLightingResult>;
 }
