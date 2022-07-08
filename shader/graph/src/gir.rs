@@ -129,11 +129,11 @@ pub enum ShaderGraphInputNode {
   },
   VertexIn {
     ty: PrimitiveShaderValueType,
-    index: usize,
+    location: usize,
   },
   FragmentIn {
     ty: PrimitiveShaderValueType,
-    index: usize,
+    location: usize,
   },
 }
 

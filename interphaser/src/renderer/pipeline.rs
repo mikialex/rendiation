@@ -27,13 +27,12 @@ impl ShaderGraphProvider for SolidUIPipeline {
 
       let global = global.using().expand();
 
-      let vertex: Node<Vec4<_>> = (
+      let vertex = (
         consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
         consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
         consts(0.0),
         consts(1.0),
-      )
-        .into();
+      );
 
       builder.register::<ClipPosition>(vertex);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color);

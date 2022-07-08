@@ -50,10 +50,19 @@ fn gen_vertex_shader(
       code.write_ln(format!("gl_Position = {root};"));
     }
 
-    vertex.vertex_out.iter().for_each(|(_, (v, _, i))| {
-      let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-      code.write_ln(format!("vertex_out{i} = {root};"));
-    });
+    vertex.vertex_out.iter().for_each(
+      |(
+        _,
+        VertexIOInfo {
+          node: v,
+          location: i,
+          ..
+        },
+      )| {
+        let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
+        code.write_ln(format!("vertex_out{i} = {root};"));
+      },
+    );
   });
   cx.gen_fn_and_ty_depends(&mut code, gen_struct);
   code.output()
@@ -369,8 +378,12 @@ fn gen_input_name(input: &ShaderGraphInputNode) -> String {
       bindgroup_index,
       entry_index,
     } => format!("uniform_b_{}_i_{}", bindgroup_index, entry_index),
-    ShaderGraphInputNode::VertexIn { index, .. } => format!("vertex_in_{}", index),
-    ShaderGraphInputNode::FragmentIn { index, .. } => format!("fragment_in_{}", index),
+    ShaderGraphInputNode::VertexIn {
+      location: index, ..
+    } => format!("vertex_in_{}", index),
+    ShaderGraphInputNode::FragmentIn {
+      location: index, ..
+    } => format!("fragment_in_{}", index),
   }
 }
 
