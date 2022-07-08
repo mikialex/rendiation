@@ -536,6 +536,7 @@ fn gen_bindings(
             &(
               ShaderValueType::Texture {
                 dimension: TextureViewDimension::D2,
+                sample_type: TextureSampleType::Float { filterable: true },
               },
               entry.1.get(),
             ),
@@ -631,14 +632,25 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
   match ty {
     ShaderValueType::Sampler => "sampler".to_owned(),
     ShaderValueType::CompareSampler => "sampler_comparison".to_owned(),
-    ShaderValueType::Texture { dimension } => match dimension {
-      TextureViewDimension::D1 => "texture_1d<f32>".to_owned(),
-      TextureViewDimension::D2 => "texture_2d<f32>".to_owned(),
-      TextureViewDimension::D2Array => "texture_2d_array<f32>".to_owned(),
-      TextureViewDimension::Cube => "texture_cube<f32>".to_owned(),
-      TextureViewDimension::CubeArray => "texture_cube_array<f32>".to_owned(),
-      TextureViewDimension::D3 => "texture_3d<f32>".to_owned(),
-    },
+    ShaderValueType::Texture {
+      dimension,
+      sample_type,
+    } => {
+      let suffix = match sample_type {
+        TextureSampleType::Float { .. } => "",
+        TextureSampleType::Depth => "_depth",
+        TextureSampleType::Sint => todo!(),
+        TextureSampleType::Uint => todo!(),
+      };
+      match dimension {
+        TextureViewDimension::D1 => format!("texture{suffix}_1d<f32>"),
+        TextureViewDimension::D2 => format!("texture{suffix}_2d<f32>"),
+        TextureViewDimension::D2Array => format!("texture{suffix}_2d_array<f32>"),
+        TextureViewDimension::Cube => format!("texture{suffix}_cube<f32>"),
+        TextureViewDimension::CubeArray => format!("texture{suffix}_cube_array<f32>"),
+        TextureViewDimension::D3 => format!("texture{suffix}_3d<f32>"),
+      }
+    }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
     ShaderValueType::SamplerCombinedTexture => {

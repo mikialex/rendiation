@@ -150,7 +150,26 @@ pub enum ShaderStages {
 }
 
 #[derive(Clone, Copy)]
+pub struct ShaderTexture1D;
+#[derive(Clone, Copy)]
 pub struct ShaderTexture2D;
+#[derive(Clone, Copy)]
+pub struct ShaderTexture3D;
+#[derive(Clone, Copy)]
+pub struct ShaderTextureCube;
+#[derive(Clone, Copy)]
+pub struct ShaderTexture2DArray;
+#[derive(Clone, Copy)]
+pub struct ShaderTextureCubeArray;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthTexture2D;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthTexture2DArray;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthTextureCubeArray;
+#[derive(Clone, Copy)]
+pub struct ShaderDepthCube;
+
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
 #[derive(Clone, Copy)]
@@ -238,7 +257,10 @@ pub enum ShaderValueType {
   Fixed(ShaderStructMemberValueType),
   Sampler,
   CompareSampler,
-  Texture { dimension: TextureViewDimension },
+  Texture {
+    dimension: TextureViewDimension,
+    sample_type: TextureSampleType,
+  },
   SamplerCombinedTexture,
   Never,
 }

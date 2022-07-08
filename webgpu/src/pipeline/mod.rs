@@ -55,9 +55,12 @@ pub fn create_bindgroup_layout_by_node_ty<'a>(
           min_binding_size: None,
         },
         ShaderValueType::Sampler => gpu::BindingType::Sampler(gpu::SamplerBindingType::Filtering),
-        ShaderValueType::Texture { dimension } => gpu::BindingType::Texture {
+        ShaderValueType::Texture {
+          dimension,
+          sample_type,
+        } => gpu::BindingType::Texture {
           multisampled: false,
-          sample_type: gpu::TextureSampleType::Float { filterable: true },
+          sample_type: *sample_type,
           view_dimension: *dimension,
         },
         ShaderValueType::Never => unreachable!(),

@@ -188,3 +188,26 @@ fn parse_function_test4() {
   ",
   );
 }
+
+#[test]
+fn parse_function_test5() {
+  test_parse_function(
+    "
+    fn linear_blur(
+      direction: vec2<f32>,
+      weights: ShaderSamplingWeights,
+      texture: texture_2d<f32>,
+      sp: sampler,
+      uv: vec2<f32>,
+      texel_size: vec2<f32>
+    ) -> f32 {
+      let sample_offset = texel_size * direction;
+      var sum: vec4<f32>;
+      for (var i: i32 = 2; i < weights.weight_count; i++) {
+          vec4 samples = textureSample(texture, sp, uv + float(i) * sample_offset);
+          sum = lin_space(1.0, sum, weights.weights[i], samples);
+      }
+    }
+  ",
+  );
+}

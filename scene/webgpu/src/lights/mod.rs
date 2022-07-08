@@ -3,22 +3,72 @@ pub use directional::*;
 
 use crate::*;
 
-#[derive(Default)]
-pub struct LightList<T> {
+pub struct LightList<T: ShaderLight> {
   pub lights: Vec<T>,
+  pub lights_gpu: UniformBufferDataView<[T; 32]>,
 }
 
-impl<T> LightList<T> {
-  //
+impl<T: ShaderLight> LightList<T> {
+  pub fn update(&mut self) {
+    //
+  }
+
+  pub fn collect_lights_for_naive_forward<S: LightableSurfaceShading>(
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+    shading: ExpandedNode<S>,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let lights = todo!();
+      let light_result = todo!();
+      // for_by(lights, |_, _| {
+      //   //
+      // });
+      Ok(())
+    })
+  }
 }
 
-pub struct DrawDefer<'a, T, D, S, R> {
-  pub light: &'a T,
+pub trait LightCollection {
+  fn collect_lights_for_naive_forward(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError>;
+  fn draw_defer_passes(&self, ctx: &mut FrameCtx);
+}
+
+pub struct LightSystem {
+  pub lights: Vec<Box<dyn LightCollection>>,
+}
+
+impl LightSystem {
+  pub fn collect_lights_for_naive_forward<S: LightableSurfaceShading>(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    for light in &self.lights {
+      light.collect_lights_for_naive_forward(builder)?
+    }
+    Ok(())
+  }
+
+  pub fn draw_defer_passes(&self, ctx: &mut FrameCtx) {
+    for light in &self.lights {
+      light.draw_defer_passes(ctx);
+    }
+  }
+}
+
+pub struct DrawDefer<'a, T: 'static, D, S, R> {
+  pub light: &'a UniformBufferDataView<T>,
   pub defer: &'a D,
   pub shading: &'a S,
   pub target: &'a R,
 }
 
+/// define a specific g buffer layout.
+///
+/// this trait is parameterized over shading, which means we could encode/reconstruct
+/// different surface shading into one schema theoretically
 pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
   fn reconstruct_geometry_ctx(
     builder: &mut ShaderGraphFragmentBuilder,
@@ -27,6 +77,7 @@ pub trait DeferGBufferSchema<S: LightableSurfaceShading> {
   fn reconstruct_shading(builder: &mut ShaderGraphFragmentBuilder) -> ExpandedNode<S>;
 }
 
+/// define a specific light buffer layout.
 pub trait LightPassSchema {
   fn write_lighting(
     builder: &mut ShaderGraphFragmentBuilder,
@@ -47,11 +98,13 @@ where
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, binding| {
+      let light = binding.uniform_by(self.light, SB::Pass).expand();
+
       let geom_ctx = D::reconstruct_geometry_ctx(builder);
 
       let shading = D::reconstruct_shading(builder);
 
-      let incident_light = T::compute_direct_light(todo!(), &geom_ctx);
+      let incident_light = T::compute_direct_light(&light, &geom_ctx);
 
       let result = S::compute_lighting(&shading, &incident_light, &geom_ctx);
 

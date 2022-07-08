@@ -108,6 +108,49 @@ impl PrimitiveShaderGraphNodeType for Mat4<f32> {
 impl ShaderGraphNodeType for ShaderTexture2D {
   const TYPE: ShaderValueType = ShaderValueType::Texture {
     dimension: TextureViewDimension::D2,
+    sample_type: TextureSampleType::Float { filterable: true },
+  };
+}
+impl ShaderGraphNodeType for ShaderTextureCube {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::Cube,
+    sample_type: TextureSampleType::Float { filterable: true },
+  };
+}
+impl ShaderGraphNodeType for ShaderTexture1D {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::D1,
+    sample_type: TextureSampleType::Float { filterable: true },
+  };
+}
+impl ShaderGraphNodeType for ShaderTexture3D {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::D3,
+    sample_type: TextureSampleType::Float { filterable: true },
+  };
+}
+impl ShaderGraphNodeType for ShaderTexture2DArray {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::D2Array,
+    sample_type: TextureSampleType::Float { filterable: true },
+  };
+}
+impl ShaderGraphNodeType for ShaderTextureCubeArray {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::CubeArray,
+    sample_type: TextureSampleType::Float { filterable: true },
+  };
+}
+impl ShaderGraphNodeType for ShaderDepthTexture2DArray {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::D2Array,
+    sample_type: TextureSampleType::Depth,
+  };
+}
+impl ShaderGraphNodeType for ShaderDepthTextureCubeArray {
+  const TYPE: ShaderValueType = ShaderValueType::Texture {
+    dimension: TextureViewDimension::CubeArray,
+    sample_type: TextureSampleType::Depth,
   };
 }
 
@@ -125,6 +168,7 @@ impl Node<ShaderTexture2D> {
 impl ShaderGraphNodeType for ShaderSamplerCombinedTexture {
   const TYPE: ShaderValueType = ShaderValueType::Texture {
     dimension: TextureViewDimension::D2,
+    sample_type: TextureSampleType::Float { filterable: true },
   };
 }
 
