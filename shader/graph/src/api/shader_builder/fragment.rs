@@ -102,7 +102,7 @@ impl ShaderGraphFragmentBuilder {
   }
 
   /// Declare fragment outputs
-  pub fn out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
+  pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
     self.frag_output.push((consts(Vec4::zero()), meta.into()));
     self.frag_output.len() - 1
   }

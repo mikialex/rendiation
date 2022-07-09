@@ -41,10 +41,10 @@ impl ShaderGraphProvider for SolidUIPipeline {
     })?;
 
     builder.fragment(|builder, _| {
-      builder.out_by(channel(self.target_format).with_alpha_blend());
-
       let color = builder.query::<FragmentColorAndAlpha>()?.get();
-      builder.set_fragment_out(0, color)
+
+      let slot = builder.define_out_by(channel(self.target_format).with_alpha_blend());
+      builder.set_fragment_out(slot, color)
     })
   }
 }
@@ -92,7 +92,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
     use webgpu::container::*;
 
     builder.fragment(|builder, binding| {
-      builder.out_by(channel(self.target_format).with_alpha_blend());
+      builder.define_out_by(channel(self.target_format).with_alpha_blend());
       let uv = builder.query::<FragmentUv>()?.get();
       let texture = binding.uniform::<GPUTexture2dView>(SemanticBinding::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SemanticBinding::Material);

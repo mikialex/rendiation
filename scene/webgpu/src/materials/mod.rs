@@ -101,7 +101,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
       builder.register::<RenderBufferSize>(pass.buffer_size);
 
       for &format in &self.formats.color_formats {
-        builder.out_by(channel(format));
+        builder.define_out_by(channel(format));
       }
 
       builder.depth_stencil = self

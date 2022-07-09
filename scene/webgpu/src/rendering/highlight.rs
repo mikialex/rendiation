@@ -133,7 +133,7 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
     builder: &mut ShaderGraphRenderPipelineBuilder,
   ) -> Result<(), ShaderGraphBuildError> {
     builder.fragment(|builder, _| {
-      builder.out_by(channel(HIGH_LIGHT_MASK_TARGET_FORMAT));
+      builder.define_out_by(channel(HIGH_LIGHT_MASK_TARGET_FORMAT));
       Ok(())
     })
   }

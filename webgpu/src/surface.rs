@@ -19,6 +19,7 @@ impl SurfaceProvider for winit::window::Window {
 pub struct GPUSurface {
   pub surface: gpu::Surface,
   pub config: gpu::SurfaceConfiguration,
+  pub present_mode_supported: Vec<gpu::PresentMode>,
   pub size: Size,
 }
 
@@ -37,17 +38,20 @@ impl GPUSurface {
       .or(formats.first())
       .expect("could not find support formats in surface");
 
+    let present_mode_supported = surface.get_supported_modes(adapter);
+
     let config = gpu::SurfaceConfiguration {
       usage: gpu::TextureUsages::RENDER_ATTACHMENT,
       format: *swapchain_format,
       width: Into::<usize>::into(size.width) as u32,
       height: Into::<usize>::into(size.height) as u32,
-      present_mode: gpu::PresentMode::Mailbox,
+      present_mode: gpu::PresentMode::AutoVsync,
     };
 
     surface.configure(device, &config);
 
     Self {
+      present_mode_supported,
       surface,
       config,
       size,
