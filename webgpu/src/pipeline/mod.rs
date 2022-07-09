@@ -86,6 +86,7 @@ impl GPUDevice {
     &self,
     builder: ShaderGraphRenderPipelineBuilder,
   ) -> Result<GPURenderPipeline, ShaderGraphBuildError> {
+    let log_result = builder.log_result;
     let compile_result = builder.build(WGSL)?;
 
     let ShaderGraphCompileResult {
@@ -100,8 +101,15 @@ impl GPUDevice {
     } = compile_result;
 
     let WGSLShaderSource { vertex, fragment } = shader;
-    println!("{}", vertex);
-    println!("{}", fragment);
+
+    if log_result {
+      println!();
+      println!("=== shadergraph build result ===");
+      println!("vertex shader: ");
+      println!("{}", vertex);
+      println!("fragment shader: ");
+      println!("{}", fragment);
+    }
 
     let vertex = self.create_shader_module(gpu::ShaderModuleDescriptor {
       label: None,

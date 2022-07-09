@@ -70,11 +70,17 @@ pub trait SceneRenderable: 'static {
     camera: &SceneCamera,
   );
 
+  /// default return None for ray un-pickable
   fn ray_pick_nearest(
     &self,
     _world_ray: &Ray3,
     _conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
+    None
+  }
+
+  /// default return None for unbound or not applicable
+  fn get_bounding_info(&self) -> Option<Box3> {
     None
   }
 }

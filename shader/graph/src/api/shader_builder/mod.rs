@@ -25,6 +25,9 @@ pub struct ShaderGraphRenderPipelineBuilder {
   // todo sealed except for codegen
   pub vertex: ShaderGraphVertexBuilder,
   pub fragment: ShaderGraphFragmentBuilder,
+
+  /// Log the shader build result when building shader, for debug purpose.
+  pub log_result: bool,
 }
 
 impl Default for ShaderGraphRenderPipelineBuilder {
@@ -34,6 +37,7 @@ impl Default for ShaderGraphRenderPipelineBuilder {
       bindgroups: Default::default(),
       vertex: ShaderGraphVertexBuilder::new(),
       fragment: ShaderGraphFragmentBuilder::new(),
+      log_result: false,
     }
   }
 }
