@@ -101,14 +101,8 @@ pub struct FatLineVertex {
   pub color: Vec4<f32>,
 }
 
-pub struct FatLineStart;
-impl SemanticVertexShaderValue for FatLineStart {
-  type ValueType = Vec3<f32>;
-}
-pub struct FatLineEnd;
-impl SemanticVertexShaderValue for FatLineEnd {
-  type ValueType = Vec3<f32>;
-}
+only_vertex!(FatLineStart, Vec3<f32>);
+only_vertex!(FatLineEnd, Vec3<f32>);
 
 pub struct FatlineQuadInstance {
   data: Rc<MeshGPU>,

@@ -13,6 +13,8 @@ use vertex::*;
 ///
 /// The struct's mem layout will generate the correct vertex buffer layout
 /// and inject semantic shader value in shadergraph.
+///
+/// ## The memory layout should be compact
 #[proc_macro_derive(ShaderVertex, attributes(semantic))]
 pub fn derive_vertex(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as syn::DeriveInput);

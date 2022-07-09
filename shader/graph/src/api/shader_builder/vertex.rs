@@ -119,7 +119,7 @@ impl ShaderGraphVertexBuilder {
   pub fn register_vertex_in<T>(&mut self) -> u32
   where
     T: SemanticVertexShaderValue,
-    T::ValueType: VertexInShaderGraphNodeType,
+    T::ValueType: PrimitiveShaderGraphNodeType,
   {
     self.register_vertex_in_inner(T::ValueType::PRIMITIVE_TYPE, TypeId::of::<T>())
   }
@@ -178,3 +178,89 @@ pub trait ShaderGraphVertexInProvider {
     step_mode: VertexStepMode,
   );
 }
+
+#[derive(Default)]
+pub struct AttributesListBuilder {
+  inner: Vec<VertexAttribute>,
+  byte_size_all: u64,
+}
+
+impl AttributesListBuilder {
+  pub fn push(&mut self, format: VertexFormat, shader_location: u32) {
+    let size = format.size();
+    let att = VertexAttribute {
+      format,
+      offset: self.byte_size_all,
+      shader_location,
+    };
+    self.inner.push(att);
+    self.byte_size_all += size;
+  }
+
+  pub fn build(self, builder: &mut ShaderGraphVertexBuilder, step_mode: VertexStepMode) {
+    let layout = ShaderGraphVertexBufferLayout {
+      array_stride: self.byte_size_all,
+      step_mode,
+      attributes: self.inner,
+    };
+    builder.push_vertex_layout(layout);
+  }
+}
+
+pub trait VertexInBuilder {
+  fn build_attribute<S>(
+    builder: &mut AttributesListBuilder,
+    vertex_builder: &mut ShaderGraphVertexBuilder,
+  ) where
+    S: SemanticVertexShaderValue<ValueType = Self>;
+}
+
+impl<T: VertexInShaderGraphNodeType> VertexInBuilder for T {
+  fn build_attribute<S>(
+    builder: &mut AttributesListBuilder,
+    vertex_builder: &mut ShaderGraphVertexBuilder,
+  ) where
+    S: SemanticVertexShaderValue<ValueType = Self>,
+  {
+    builder.push(
+      T::to_vertex_format(),
+      vertex_builder.register_vertex_in::<S>(),
+    )
+  }
+}
+
+impl VertexInBuilder for Mat4<f32> {
+  #[rustfmt::skip]
+  fn build_attribute<S>(
+    builder: &mut AttributesListBuilder,
+    vertex_builder: &mut ShaderGraphVertexBuilder,
+  ) where
+    S: SemanticVertexShaderValue<ValueType = Self>,
+  {
+    let format = Vec4::<f32>::to_vertex_format();
+    
+    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
+    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
+    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
+    builder.push(format, vertex_builder.register_vertex_in::<SemanticShaderMat4VertexInColum<S, 0>>());
+    
+    let c1 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 0>>().unwrap().get();
+    let c2 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 1>>().unwrap().get();
+    let c3 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 2>>().unwrap().get();
+    let c4 = vertex_builder.query::<SemanticShaderMat4VertexInColum<S, 3>>().unwrap().get();
+
+    let mat: Node<Self> = (c1, c2, c3, c4).into();
+    vertex_builder.register::<S>(mat);
+  }
+}
+
+struct SemanticShaderMat4VertexInColum<S, const N: usize> {
+  phantom: PhantomData<S>,
+}
+
+impl<S: 'static, const N: usize> SemanticVertexShaderValue
+  for SemanticShaderMat4VertexInColum<S, N>
+{
+  type ValueType = Vec4<f32>;
+}
+

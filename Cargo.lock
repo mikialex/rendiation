@@ -2362,7 +2362,6 @@ version = "0.1.0"
 dependencies = [
  "arena-graph",
  "bytemuck",
- "memoffset",
  "once_cell",
  "paste",
  "rendiation-algebra",

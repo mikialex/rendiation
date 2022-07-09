@@ -24,7 +24,6 @@ pub mod std140;
 pub use std140::*;
 
 pub use bytemuck::*;
-pub use memoffset::offset_of;
 pub use rendiation_algebra::*;
 pub use shader_derives::*;
 

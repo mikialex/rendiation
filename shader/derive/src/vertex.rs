@@ -9,7 +9,6 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
     .fields_raw
     .iter()
     .map(|f| {
-      let field_name = f.ident.as_ref().expect("require named field");
       let ty = &f.ty;
 
       let attr = f
@@ -20,11 +19,7 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
       let token = attr.parse_args::<syn::Type>().expect("expect type");
 
       quote! {
-        VertexAttribute {
-          format: < #ty as VertexInShaderGraphNodeType >::to_vertex_format(),
-          offset: shadergraph::offset_of!(Self, #field_name) as u64,
-          shader_location: builder.register_vertex_in::<#token>(),
-        },
+       < #ty as VertexInBuilder >::build_attribute::<#token>(&mut list_builder, builder);
       }
     })
     .collect();
@@ -37,14 +32,9 @@ pub fn derive_vertex_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
       ) {
         use shadergraph::*;
 
-        let layout = ShaderGraphVertexBufferLayout {
-          array_stride: std::mem::size_of::<Self>() as u64,
-          step_mode,
-          attributes: vec![
-            #(#vertex_attributes)*
-          ],
-        };
-        builder.push_vertex_layout(layout);
+        let mut list_builder = AttributesListBuilder::default();
+        #(#vertex_attributes)*
+        list_builder.build(builder, step_mode);
       }
     }
   }

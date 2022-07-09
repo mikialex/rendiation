@@ -109,3 +109,9 @@ where
     .insert_graph()
   }
 }
+
+impl From<Node<Mat4<f32>>> for Node<Mat3<f32>> {
+  fn from(_: Node<Mat4<f32>>) -> Self {
+    todo!()
+  }
+}

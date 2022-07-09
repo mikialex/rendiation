@@ -10,21 +10,13 @@ pub struct TransformInstanceGPU<M: WebGPUMesh> {
   instance_gpu: Rc<webgpu::Buffer>,
 }
 
-only_vertex!(ShaderMat4VertexColumOne, Vec4<f32>);
-only_vertex!(ShaderMat4VertexColumTwo, Vec4<f32>);
-only_vertex!(ShaderMat4VertexColumThree, Vec4<f32>);
-only_vertex!(ShaderMat4VertexColumFour, Vec4<f32>);
+only_vertex!(TransformInstanceMat, Mat4<f32>);
+
 #[repr(C)]
 #[derive(Clone, Copy, shadergraph::ShaderVertex)]
 pub struct ShaderMat4VertexInput {
-  #[semantic(ShaderMat4VertexColumOne)]
-  colum1: Vec4<f32>,
-  #[semantic(ShaderMat4VertexColumTwo)]
-  colum2: Vec4<f32>,
-  #[semantic(ShaderMat4VertexColumThree)]
-  colum3: Vec4<f32>,
-  #[semantic(ShaderMat4VertexColumFour)]
-  colum4: Vec4<f32>,
+  #[semantic(TransformInstanceMat)]
+  mat: Mat4<f32>,
 }
 
 impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
@@ -36,12 +28,8 @@ impl<M: WebGPUMesh> ShaderGraphProvider for TransformInstanceGPU<M> {
     builder.vertex(|builder, _| {
       builder.register_vertex::<ShaderMat4VertexInput>(VertexStepMode::Instance);
 
-      let c1 = builder.query::<ShaderMat4VertexColumOne>()?.get();
-      let c2 = builder.query::<ShaderMat4VertexColumTwo>()?.get();
-      let c3 = builder.query::<ShaderMat4VertexColumThree>()?.get();
-      let c4 = builder.query::<ShaderMat4VertexColumFour>()?.get();
-      let world_mat: Node<Mat4<f32>> = (c1, c2, c3, c4).into();
-      let world_normal_mat: Node<Mat3<f32>> = (c1.xyz(), c2.xyz(), c3.xyz()).into();
+      let world_mat = builder.query::<TransformInstanceMat>()?.get();
+      let world_normal_mat: Node<Mat3<f32>> = world_mat.into();
       let world_normal_mat = world_normal_mat.inverse().transpose();
 
       if let Ok(position) = builder.query::<GeometryPosition>() {
