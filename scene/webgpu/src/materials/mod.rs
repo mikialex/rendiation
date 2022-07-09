@@ -101,11 +101,7 @@ impl ShaderGraphProvider for DefaultPassDispatcher {
       builder.register::<RenderBufferSize>(pass.buffer_size);
 
       for &format in &self.formats.color_formats {
-        builder.push_fragment_out_slot(ColorTargetState {
-          format,
-          blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-          write_mask: webgpu::ColorWrites::ALL,
-        });
+        builder.define_out_by(channel(format));
       }
 
       builder.depth_stencil = self

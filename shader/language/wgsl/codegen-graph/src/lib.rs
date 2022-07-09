@@ -60,10 +60,13 @@ fn gen_vertex_shader(
         code.write_ln(format!("out.position = {root};"));
       }
 
-      vertex.vertex_out.iter().for_each(|(_, (v, _, i))| {
-        let root = gen_node_with_dep_in_entry(v.handle(), &builder, &mut cx, code);
-        code.write_ln(format!("out.vertex_out{i} = {root};"));
-      });
+      vertex
+        .vertex_out
+        .iter()
+        .for_each(|(_, VertexIOInfo { node, location, .. })| {
+          let root = gen_node_with_dep_in_entry(node.handle(), &builder, &mut cx, code);
+          code.write_ln(format!("out.vertex_out{location} = {root};"));
+        });
       code.write_ln("return out;");
     },
     |code| gen_vertex_in_declare(code, vertex),
@@ -119,12 +122,15 @@ fn gen_fragment_shader(
 fn gen_vertex_in_declare(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {
   code.write_ln("@builtin(vertex_index) bt_vertex_vertex_id: u32,");
   code.write_ln("@builtin(instance_index) bt_vertex_instance_id: u32,");
-  vertex.vertex_in.iter().for_each(|(_, (_, ty, index))| {
-    code.write_ln(format!(
-      "@location({index}) vertex_in_{index}: {},",
-      gen_primitive_type(*ty)
-    ));
-  })
+  vertex
+    .vertex_in
+    .iter()
+    .for_each(|(_, VertexIOInfo { ty, location, .. })| {
+      code.write_ln(format!(
+        "@location({location}) vertex_in_{location}: {},",
+        gen_primitive_type(*ty)
+      ));
+    })
 }
 
 fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuilder) {
@@ -136,13 +142,16 @@ fn gen_vertex_out_struct(code: &mut CodeBuilder, vertex: &ShaderGraphVertexBuild
     ty_deco: ShaderFieldDecorator::BuiltIn(ShaderBuiltInDecorator::VertexPositionOut).into(),
   });
 
-  vertex.vertex_out.iter().for_each(|(_, (_, ty, i))| {
-    shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
-      name: format!("vertex_out{}", i),
-      ty: ShaderStructMemberValueType::Primitive(*ty),
-      ty_deco: ShaderFieldDecorator::Location(*i).into(),
+  vertex
+    .vertex_out
+    .iter()
+    .for_each(|(_, VertexIOInfo { ty, location, .. })| {
+      shader_struct.fields.push(ShaderStructFieldMetaInfoOwned {
+        name: format!("vertex_out{location}"),
+        ty: ShaderStructMemberValueType::Primitive(*ty),
+        ty_deco: ShaderFieldDecorator::Location(*location).into(),
+      });
     });
-  });
 
   gen_struct(code, &shader_struct);
 }
@@ -474,8 +483,12 @@ fn gen_input_name(input: &ShaderGraphInputNode) -> String {
       bindgroup_index,
       entry_index,
     } => format!("uniform_b_{}_i_{}", bindgroup_index, entry_index),
-    ShaderGraphInputNode::VertexIn { index, .. } => format!("vertex_in_{}", index),
-    ShaderGraphInputNode::FragmentIn { index, .. } => format!("fragment_in_{}", index),
+    ShaderGraphInputNode::VertexIn {
+      location: index, ..
+    } => format!("vertex_in_{}", index),
+    ShaderGraphInputNode::FragmentIn {
+      location: index, ..
+    } => format!("fragment_in_{}", index),
   }
 }
 
@@ -536,6 +549,7 @@ fn gen_bindings(
             &(
               ShaderValueType::Texture {
                 dimension: TextureViewDimension::D2,
+                sample_type: TextureSampleType::Float { filterable: true },
               },
               entry.1.get(),
             ),
@@ -631,14 +645,25 @@ fn gen_type_impl(ty: ShaderValueType) -> String {
   match ty {
     ShaderValueType::Sampler => "sampler".to_owned(),
     ShaderValueType::CompareSampler => "sampler_comparison".to_owned(),
-    ShaderValueType::Texture { dimension } => match dimension {
-      TextureViewDimension::D1 => "texture_1d<f32>".to_owned(),
-      TextureViewDimension::D2 => "texture_2d<f32>".to_owned(),
-      TextureViewDimension::D2Array => "texture_2d_array<f32>".to_owned(),
-      TextureViewDimension::Cube => "texture_cube<f32>".to_owned(),
-      TextureViewDimension::CubeArray => "texture_cube_array<f32>".to_owned(),
-      TextureViewDimension::D3 => "texture_3d<f32>".to_owned(),
-    },
+    ShaderValueType::Texture {
+      dimension,
+      sample_type,
+    } => {
+      let suffix = match sample_type {
+        TextureSampleType::Float { .. } => "",
+        TextureSampleType::Depth => "_depth",
+        TextureSampleType::Sint => todo!(),
+        TextureSampleType::Uint => todo!(),
+      };
+      match dimension {
+        TextureViewDimension::D1 => format!("texture{suffix}_1d<f32>"),
+        TextureViewDimension::D2 => format!("texture{suffix}_2d<f32>"),
+        TextureViewDimension::D2Array => format!("texture{suffix}_2d_array<f32>"),
+        TextureViewDimension::Cube => format!("texture{suffix}_cube<f32>"),
+        TextureViewDimension::CubeArray => format!("texture{suffix}_cube_array<f32>"),
+        TextureViewDimension::D3 => format!("texture{suffix}_3d<f32>"),
+      }
+    }
     ShaderValueType::Fixed(ty) => gen_fix_type_impl(ty),
     ShaderValueType::Never => unreachable!("can not code generate never type"),
     ShaderValueType::SamplerCombinedTexture => {

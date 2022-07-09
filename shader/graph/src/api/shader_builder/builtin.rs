@@ -23,6 +23,7 @@ only_vertex!(ClipPosition, Vec4<f32>);
 only_vertex!(CameraProjectionMatrix, Mat4<f32>);
 only_vertex!(CameraViewMatrix, Mat4<f32>);
 
+#[macro_export]
 macro_rules! both {
   ($Type: ident, $NodeType: ty) => {
     pub struct $Type;

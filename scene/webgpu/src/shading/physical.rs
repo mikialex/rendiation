@@ -9,9 +9,17 @@ pub struct PhysicalShading {
   pub roughness: f32,
 }
 
+both!(ColorChannel, Vec3<f32>);
+both!(SpecularChannel, Vec3<f32>);
+both!(RoughnessChannel, f32);
+
 impl LightableSurfaceShading for PhysicalShading {
-  fn construct(builder: &ShaderGraphFragmentBuilder) -> ExpandedNode<Self> {
-    todo!()
+  fn construct(builder: &mut ShaderGraphFragmentBuilder) -> ExpandedNode<Self> {
+    ExpandedNode::<Self> {
+      diffuse: builder.query_or_insert_default::<ColorChannel>().get(),
+      specular: builder.query_or_insert_default::<SpecularChannel>().get(),
+      roughness: builder.query_or_insert_default::<RoughnessChannel>().get(),
+    }
   }
 
   fn compute_lighting(

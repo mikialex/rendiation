@@ -22,7 +22,7 @@ pub struct ShaderGraphVertexBuilder {
   pub instance_index: Node<u32>,
 
   // user vertex in
-  pub vertex_in: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
+  pub vertex_in: HashMap<TypeId, VertexIOInfo>,
   pub vertex_layouts: Vec<ShaderGraphVertexBufferLayout>,
   pub primitive_state: PrimitiveState,
 
@@ -30,8 +30,15 @@ pub struct ShaderGraphVertexBuilder {
   registry: SemanticRegistry,
 
   // user vertex out
-  pub vertex_out: HashMap<TypeId, (NodeUntyped, PrimitiveShaderValueType, usize)>,
+  pub vertex_out: HashMap<TypeId, VertexIOInfo>,
   pub(crate) vertex_out_not_synced_to_fragment: HashSet<TypeId>,
+}
+
+#[derive(Copy, Clone)]
+pub struct VertexIOInfo {
+  pub node: NodeUntyped,
+  pub ty: PrimitiveShaderValueType,
+  pub location: usize,
 }
 
 impl ShaderGraphVertexBuilder {
@@ -62,20 +69,16 @@ impl ShaderGraphVertexBuilder {
       .vertex_out_not_synced_to_fragment
       .drain()
       .for_each(|id| {
-        let (_, ty, index) = vertex_out.get(&id).unwrap();
+        let VertexIOInfo { ty, location, .. } = *vertex_out.get(&id).unwrap();
 
         set_current_building(ShaderStages::Fragment.into());
-        let node = ShaderGraphInputNode::FragmentIn {
-          ty: *ty,
-          index: *index,
-        }
-        .insert_graph();
+        let node = ShaderGraphInputNode::FragmentIn { ty, location }.insert_graph();
         fragment.registry.register(id, node);
         set_current_building(None);
 
         fragment.fragment_in.insert(
           id,
-          (node, *ty, ShaderVaryingInterpolation::Perspective, *index),
+          (node, ty, ShaderVaryingInterpolation::Perspective, location),
         );
       })
   }
@@ -123,16 +126,17 @@ impl ShaderGraphVertexBuilder {
 
   /// untyped version
   pub fn register_vertex_in_inner(&mut self, ty: PrimitiveShaderValueType, ty_id: TypeId) -> u32 {
-    let index = self.vertex_in.len();
-    let node = ShaderGraphInputNode::VertexIn { ty, index }.insert_graph();
+    let location = self.vertex_in.len();
+    let node = ShaderGraphInputNode::VertexIn { ty, location }.insert_graph();
     self.registry.register(ty_id, node);
 
-    self
-      .vertex_in
-      .entry(ty_id)
-      .or_insert_with(|| (node.cast_untyped_node(), ty, index));
+    self.vertex_in.entry(ty_id).or_insert_with(|| VertexIOInfo {
+      node: node.cast_untyped_node(),
+      ty,
+      location,
+    });
 
-    index as u32
+    location as u32
   }
 
   pub fn push_vertex_layout(&mut self, layout: ShaderGraphVertexBufferLayout) {
@@ -148,15 +152,13 @@ impl ShaderGraphVertexBuilder {
     <T as SemanticVertexShaderValue>::ValueType: PrimitiveShaderGraphNodeType,
     T: SemanticFragmentShaderValue<ValueType = <T as SemanticVertexShaderValue>::ValueType>,
   {
-    let len = self.vertex_out.len();
+    let location = self.vertex_out.len();
     let node = node.into();
     let id = TypeId::of::<T>();
-    self.vertex_out.entry(id).or_insert_with(|| {
-      (
-        node.cast_untyped_node(),
-        <T as SemanticVertexShaderValue>::ValueType::PRIMITIVE_TYPE,
-        len,
-      )
+    self.vertex_out.entry(id).or_insert_with(|| VertexIOInfo {
+      node: node.cast_untyped_node(),
+      ty: <T as SemanticVertexShaderValue>::ValueType::PRIMITIVE_TYPE,
+      location,
     });
     self.register::<T>(node);
     self.vertex_out_not_synced_to_fragment.insert(id);

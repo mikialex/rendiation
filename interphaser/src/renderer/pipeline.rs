@@ -27,13 +27,12 @@ impl ShaderGraphProvider for SolidUIPipeline {
 
       let global = global.using().expand();
 
-      let vertex: Node<Vec4<_>> = (
+      let vertex = (
         consts(2.0) * position.x() / global.screen_size.x() - consts(1.0),
         consts(1.0) - consts(2.0) * position.y() / global.screen_size.y(),
         consts(0.0),
         consts(1.0),
-      )
-        .into();
+      );
 
       builder.register::<ClipPosition>(vertex);
       builder.set_vertex_out::<FragmentColorAndAlpha>(color);
@@ -42,14 +41,10 @@ impl ShaderGraphProvider for SolidUIPipeline {
     })?;
 
     builder.fragment(|builder, _| {
-      builder.push_fragment_out_slot(ColorTargetState {
-        format: self.target_format,
-        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-        write_mask: webgpu::ColorWrites::ALL,
-      });
-
       let color = builder.query::<FragmentColorAndAlpha>()?.get();
-      builder.set_fragment_out(0, color)
+
+      let slot = builder.define_out_by(channel(self.target_format).with_alpha_blend());
+      builder.set_fragment_out(slot, color)
     })
   }
 }
@@ -97,11 +92,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
     use webgpu::container::*;
 
     builder.fragment(|builder, binding| {
-      builder.push_fragment_out_slot(ColorTargetState {
-        format: self.target_format,
-        blend: Some(webgpu::BlendState::ALPHA_BLENDING),
-        write_mask: webgpu::ColorWrites::ALL,
-      });
+      builder.define_out_by(channel(self.target_format).with_alpha_blend());
       let uv = builder.query::<FragmentUv>()?.get();
       let texture = binding.uniform::<GPUTexture2dView>(SemanticBinding::Material);
       let sampler = binding.uniform::<GPUSamplerView>(SemanticBinding::Material);

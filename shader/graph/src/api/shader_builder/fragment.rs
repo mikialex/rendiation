@@ -1,3 +1,5 @@
+use wgpu_types::{BlendState, ColorWrites, TextureFormat};
+
 use crate::*;
 
 pub trait SemanticFragmentShaderValue: Any {
@@ -99,9 +101,10 @@ impl ShaderGraphFragmentBuilder {
       ))
   }
 
-  /// always called by pass side to declare outputs
-  pub fn push_fragment_out_slot(&mut self, meta: ColorTargetState) {
-    self.frag_output.push((consts(Vec4::zero()), meta));
+  /// Declare fragment outputs
+  pub fn define_out_by(&mut self, meta: impl Into<ColorTargetState>) -> usize {
+    self.frag_output.push((consts(Vec4::zero()), meta.into()));
+    self.frag_output.len() - 1
   }
 
   /// always called by material side to provide fragment out
@@ -120,5 +123,36 @@ impl ShaderGraphFragmentBuilder {
 
   pub fn set_explicit_depth(&mut self, node: Node<f32>) {
     self.depth_output = node.into()
+  }
+}
+
+pub struct ColorTargetStateBuilder {
+  state: ColorTargetState,
+}
+
+impl ColorTargetStateBuilder {
+  pub fn with_blend(mut self, blend: impl Into<BlendState>) -> Self {
+    self.state.blend = Some(blend.into());
+    self
+  }
+  pub fn with_alpha_blend(mut self) -> Self {
+    self.state.blend = Some(BlendState::ALPHA_BLENDING);
+    self
+  }
+}
+
+pub fn channel(format: TextureFormat) -> ColorTargetStateBuilder {
+  ColorTargetStateBuilder {
+    state: ColorTargetState {
+      format,
+      blend: None,
+      write_mask: ColorWrites::ALL,
+    },
+  }
+}
+
+impl From<ColorTargetStateBuilder> for ColorTargetState {
+  fn from(b: ColorTargetStateBuilder) -> Self {
+    b.state
   }
 }

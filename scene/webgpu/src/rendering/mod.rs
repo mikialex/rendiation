@@ -12,6 +12,8 @@ pub mod quad;
 pub use quad::*;
 pub mod framework;
 pub use framework::*;
+pub mod blur;
+pub use blur::*;
 
 use crate::*;
 
