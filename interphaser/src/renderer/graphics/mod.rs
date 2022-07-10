@@ -3,12 +3,12 @@ use shadergraph::*;
 
 #[derive(Debug, Copy, Clone, ShaderVertex)]
 pub struct UIVertex {
-  #[semantic(GeometryPosition)]
-  position: Vec2<f32>,
+  #[semantic(GeometryPosition2D)]
+  pub position: Vec2<f32>,
   #[semantic(GeometryUV)]
-  uv: Vec2<f32>,
+  pub uv: Vec2<f32>,
   #[semantic(GeometryColorWithAlpha)]
-  color: Vec4<f32>,
+  pub color: Vec4<f32>,
 }
 unsafe impl bytemuck::Zeroable for UIVertex {}
 unsafe impl bytemuck::Pod for UIVertex {}

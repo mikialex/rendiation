@@ -22,7 +22,7 @@ impl ShaderGraphProvider for SolidUIPipeline {
         ..Default::default()
       };
 
-      let position = builder.query::<GeometryPosition>()?.get();
+      let position = builder.query::<GeometryPosition2D>()?.get();
       let color = builder.query::<GeometryColorWithAlpha>()?.get();
 
       let global = global.using().expand();
@@ -68,7 +68,7 @@ impl ShaderGraphProvider for TextureUIPipeline {
         ..Default::default()
       };
 
-      let position = builder.query::<GeometryPosition>()?.get();
+      let position = builder.query::<GeometryPosition2D>()?.get();
       let color = builder.query::<GeometryColorWithAlpha>()?.get();
       let uv = builder.query::<GeometryUV>()?.get();
 

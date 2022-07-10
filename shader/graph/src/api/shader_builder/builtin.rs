@@ -10,6 +10,7 @@ macro_rules! only_vertex {
   };
 }
 
+only_vertex!(GeometryPosition2D, Vec2<f32>);
 only_vertex!(GeometryPosition, Vec3<f32>);
 only_vertex!(GeometryNormal, Vec3<f32>);
 only_vertex!(GeometryUV, Vec2<f32>);
