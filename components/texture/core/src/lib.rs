@@ -51,7 +51,7 @@ pub trait Texture2D: Sized {
     self.size().width.into()
   }
   fn height(&self) -> usize {
-    self.size().width.into()
+    self.size().height.into()
   }
 
   fn pixel_count(&self) -> usize {
