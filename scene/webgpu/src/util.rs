@@ -12,7 +12,6 @@ impl<T> Default for ValueIDGenerator<T> {
   }
 }
 
-#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct ValueID<T> {
   value: usize,

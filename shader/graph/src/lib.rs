@@ -1,4 +1,3 @@
-#![feature(explicit_generic_args_with_impl_trait)]
 #![feature(specialization)]
 #![feature(core_intrinsics)]
 #![feature(const_type_name)]

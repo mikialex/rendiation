@@ -5,14 +5,17 @@ pub type Sphere<T = f32> = HyperSphere<T, Vec3<T>>;
 impl<T: Scalar> LebesgueMeasurable<T, 3> for Sphere<T> {
   #[inline(always)]
   fn measure(&self) -> T {
-    T::eval::<{ 3.0 / 4.0 * std::f32::consts::PI }>() * self.radius * self.radius * self.radius
+    T::eval::<{ scalar_transmute(3.0 / 4.0 * std::f32::consts::PI) }>()
+      * self.radius
+      * self.radius
+      * self.radius
   }
 }
 
 impl<T: Scalar> LebesgueMeasurable<T, 2> for Sphere<T> {
   #[inline(always)]
   fn measure(&self) -> T {
-    T::eval::<{ 4.0 * std::f32::consts::PI }>() * self.radius * self.radius
+    T::eval::<{ scalar_transmute(4.0 * std::f32::consts::PI) }>() * self.radius * self.radius
   }
 }
 

@@ -55,29 +55,34 @@ pub trait Scalar = Float
 
 const PI: f32 = std::f32::consts::PI;
 
+pub const fn scalar_transmute(value: f32) -> u32 {
+  unsafe { std::mem::transmute(value) }
+}
+
 pub trait ScalarConstEval: Sized {
-  fn eval<const N: f32>() -> Self;
+  fn eval<const N: u32>() -> Self;
   fn half() -> Self {
-    Self::eval::<0.5>()
+    Self::eval::<{ scalar_transmute(0.5) }>()
   }
   fn two() -> Self {
-    Self::eval::<2.0>()
+    Self::eval::<{ scalar_transmute(2.0) }>()
   }
   fn three() -> Self {
-    Self::eval::<3.0>()
+    Self::eval::<{ scalar_transmute(3.0) }>()
   }
   fn pi_by_c180() -> Self {
-    Self::eval::<{ PI / 180.0 }>()
+    Self::eval::<{ scalar_transmute(PI / 180.0) }>()
   }
   fn c180_by_pi() -> Self {
-    Self::eval::<{ 180.0 / PI }>()
+    Self::eval::<{ scalar_transmute(180.0 / PI) }>()
   }
   fn by_usize_div(a: usize, b: usize) -> Self;
 }
 
 impl<T: From<f32>> ScalarConstEval for T {
-  fn eval<const N: f32>() -> Self {
-    N.into()
+  fn eval<const N: u32>() -> Self {
+    let float: f32 = unsafe { std::mem::transmute(N) };
+    float.into()
   }
   fn by_usize_div(a: usize, b: usize) -> Self {
     ((a as f32) / (b as f32)).into()
@@ -86,8 +91,8 @@ impl<T: From<f32>> ScalarConstEval for T {
 
 #[test]
 fn const_eval() {
-  assert_eq!(f32::eval::<1.5>(), 1.5);
-  assert_eq!(f64::eval::<1.5>(), 1.5);
+  assert_eq!(f32::eval::<{ scalar_transmute(1.5) }>(), 1.5);
+  assert_eq!(f64::eval::<{ scalar_transmute(1.5) }>(), 1.5);
 }
 
 pub trait SpaceEntity<T: Scalar, const D: usize> {

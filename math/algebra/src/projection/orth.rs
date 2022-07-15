@@ -1,4 +1,4 @@
-use crate::{Mat4, NDCSpaceMapper, Projection, ResizableProjection, Scalar};
+use crate::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct OrthographicProjection<T> {
@@ -13,12 +13,12 @@ pub struct OrthographicProjection<T> {
 impl<T: Scalar> Default for OrthographicProjection<T> {
   fn default() -> Self {
     Self {
-      left: T::eval::<-50.>(),
-      right: T::eval::<50.>(),
-      top: T::eval::<50.>(),
-      bottom: T::eval::<-50.>(),
+      left: T::eval::<{ scalar_transmute(-50.0) }>(),
+      right: T::eval::<{ scalar_transmute(50.0) }>(),
+      top: T::eval::<{ scalar_transmute(50.0) }>(),
+      bottom: T::eval::<{ scalar_transmute(-50.0) }>(),
       near: T::zero(),
-      far: T::eval::<1000.>(),
+      far: T::eval::<{ scalar_transmute(1000.0) }>(),
     }
   }
 }
@@ -70,7 +70,7 @@ impl<T: Scalar> Default for ViewFrustumOrthographicProjection<T> {
     ViewFrustumOrthographicProjection {
       orth: OrthographicProjection::default(),
       aspect: T::one(),
-      frustum_size: T::eval::<50.>(),
+      frustum_size: T::eval::<{ scalar_transmute(50.0) }>(),
     }
   }
 }

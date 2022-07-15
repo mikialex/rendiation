@@ -1,4 +1,3 @@
-#![feature(explicit_generic_args_with_impl_trait)]
 #![feature(generic_const_exprs)]
 #![allow(clippy::or_fun_call)]
 #![allow(clippy::many_single_char_names)]

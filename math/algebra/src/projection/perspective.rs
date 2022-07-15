@@ -11,10 +11,10 @@ pub struct PerspectiveProjection<T> {
 impl<T: Scalar> Default for PerspectiveProjection<T> {
   fn default() -> Self {
     Self {
-      near: T::eval::<1.>(),
-      far: T::eval::<100_000.>(),
-      fov: Deg::by(T::eval::<90.>()),
-      aspect: T::eval::<1.>(),
+      near: T::eval::<{ scalar_transmute(1.0) }>(),
+      far: T::eval::<{ scalar_transmute(100_1000.0) }>(),
+      fov: Deg::by(T::eval::<{ scalar_transmute(90.0) }>()),
+      aspect: T::eval::<{ scalar_transmute(1.0) }>(),
     }
   }
 }

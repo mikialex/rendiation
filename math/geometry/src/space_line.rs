@@ -51,7 +51,7 @@ pub trait SpaceLineSegmentShape<T: Scalar, V> {
   where
     V: VectorSpace<T> + IntoNormalizedVector<T, V>,
   {
-    let delta = T::eval::<0.00001>();
+    let delta = T::eval::<{ scalar_transmute(0.00001) }>();
     let t1 = (t - delta).max(T::zero());
     let t2 = t + delta.min(T::one());
 

@@ -1,6 +1,5 @@
 #![feature(min_specialization)]
 #![feature(hash_raw_entry)]
-#![feature(explicit_generic_args_with_impl_trait)]
 #![allow(clippy::field_reassign_with_default)]
 
 pub mod background;
