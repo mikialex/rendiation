@@ -38,7 +38,7 @@ fn check_attributes(attributes: &[Attribute]) -> Result<(), &'static str> {
   match repr.as_deref() {
     Some("C") => Ok(()),
     Some("transparent") => Ok(()),
-    _ => Err("Pod requires the struct to be #[repr(C)] or #[repr(transparent)]"),
+    _ => Err("Implementation requires the struct to be #[repr(C)] or #[repr(transparent)]"),
   }
 }
 

@@ -5,6 +5,8 @@ pub use default_scene::*;
 pub mod pipeline;
 pub use pipeline::*;
 
+pub mod controller;
+pub use controller::*;
 pub mod selection;
 
 pub mod helpers;
