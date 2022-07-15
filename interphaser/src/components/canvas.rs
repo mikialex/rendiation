@@ -44,6 +44,7 @@ impl LayoutAble for GPUCanvas {
 }
 
 pub struct CanvasWindowPositionInfo {
+  /// in window coordinates
   pub absolute_position: UIPosition,
   pub size: UISize,
 }

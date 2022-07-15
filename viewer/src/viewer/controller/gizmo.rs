@@ -1,6 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use interphaser::{winit::event::Event, MouseDown};
+use interphaser::{
+  winit::event::{ElementState, Event, MouseButton, WindowEvent},
+  CanvasWindowPositionInfo, MouseDown, WindowState,
+};
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::tessellation::{CubeMeshParameter, IndexedMeshTessellator};
 
@@ -86,15 +89,44 @@ impl AxisActiveState {
     self.y_active = false;
     self.z_active = false;
   }
+
+  pub fn has_active(&self) -> bool {
+    self.x_active && self.y_active && self.z_active
+  }
 }
 
 impl MovingGizmo {
-  pub fn event(&mut self, event: &Event<()>) {
-    match event {
-      Event::WindowEvent { event, .. } => match event {
+  fn update_active_state(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
+    //
+  }
+  fn update_target(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
+    //
+  }
+
+  pub fn event(
+    &mut self,
+    event: &Event<()>,
+    info: &CanvasWindowPositionInfo,
+    states: &WindowState,
+  ) {
+    if let Event::WindowEvent { event, .. } = event {
+      match event {
+        WindowEvent::KeyboardInput { input, .. } => todo!(),
+        WindowEvent::CursorMoved { .. } => {
+          if self.active.has_active() {
+            self.update_target(states, info)
+          }
+        }
+        WindowEvent::MouseInput { state, button, .. } => {
+          if *button == MouseButton::Left {
+            match state {
+              ElementState::Pressed => self.update_active_state(states, info),
+              ElementState::Released => self.active.reset(),
+            }
+          }
+        }
         _ => {}
-      },
-      _ => {}
+      }
     }
   }
 }
