@@ -18,7 +18,7 @@ impl Picker {
     normalized_position: Vec2<f32>,
   ) {
     selections.clear();
-    if let Some(nearest) = scene.interaction_picking(normalized_position, &self.config) {
+    if let Some((nearest, _)) = scene.interaction_picking(normalized_position, &self.config) {
       selections.select(nearest);
     }
   }

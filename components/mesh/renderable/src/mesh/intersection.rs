@@ -22,6 +22,7 @@ pub trait IntersectAbleAbstractMesh {
   ) -> Nearest<MeshBufferHitPoint>;
 }
 
+#[derive(Copy, Clone)]
 pub struct MeshBufferHitPoint {
   pub hit: HitPoint3D,
   pub primitive_index: usize,

@@ -110,16 +110,17 @@ impl AxisActiveState {
 impl MovingGizmo {
   pub fn new(root: &SceneNode) -> Self {
     let x = build_axis_arrow(root).eventable();
-    let y = build_axis_arrow(root);
-    let z = build_axis_arrow(root);
+    let y = build_axis_arrow(root).eventable();
+    let z = build_axis_arrow(root).eventable();
     todo!()
   }
 
   fn update_active_state(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
     let ray = todo!();
-    if let Some(target) = interaction_picking(self.view.iter().map(|m| m.as_ref()), ray, todo!()) {
+    let targets = self.view.iter().map(|m| m.as_ref());
+    if let Some((target, details)) = interaction_picking(targets, ray, todo!()) {
       target.event(&MouseDown3DEvent {
-        world_position: todo!(),
+        world_position: details.hit.position,
       })
     }
     //

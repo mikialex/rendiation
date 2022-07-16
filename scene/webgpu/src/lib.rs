@@ -168,7 +168,7 @@ pub trait WebGPUSceneExtension {
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<&dyn SceneRenderableShareable>;
+  ) -> Option<(&dyn SceneRenderableShareable, MeshBufferHitPoint)>;
 }
 
 use std::cmp::Ordering;
@@ -182,7 +182,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<&dyn SceneRenderableShareable> {
+  ) -> Option<(&dyn SceneRenderableShareable, MeshBufferHitPoint)> {
     let camera = self.active_camera.as_ref().unwrap();
     let world_ray = camera.cast_world_ray(normalized_position);
 
@@ -194,7 +194,7 @@ pub fn interaction_picking<'a, T: IntoIterator<Item = &'a dyn SceneRenderableSha
   content: T,
   world_ray: Ray3,
   conf: &MeshBufferIntersectConfig,
-) -> Option<&'a dyn SceneRenderableShareable> {
+) -> Option<(&'a dyn SceneRenderableShareable, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {
@@ -210,5 +210,5 @@ pub fn interaction_picking<'a, T: IntoIterator<Item = &'a dyn SceneRenderableSha
       .unwrap_or(Ordering::Less)
   });
 
-  result.first().map(|r| r.0)
+  result.first().copied()
 }
