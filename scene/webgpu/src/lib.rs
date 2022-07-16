@@ -98,6 +98,21 @@ pub trait SceneRenderableShareable: SceneRenderable {
   fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable;
 }
 
+impl SceneRenderable for Box<dyn SceneRenderableShareable> {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    self.as_ref().render(pass, dispatcher, camera)
+  }
+
+  fn event(&mut self, event: &dyn Any) {
+    self.as_mut().event(event)
+  }
+}
+
 pub struct GPUResourceCache {
   pub scene: GPUResourceSceneCache,
   pub content: GPUResourceSubCache,

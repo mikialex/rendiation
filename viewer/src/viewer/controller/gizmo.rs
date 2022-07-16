@@ -75,7 +75,7 @@ pub struct MovingGizmo {
   view: Vec<Box<dyn SceneRenderableShareable>>,
 }
 
-fn build_axis_arrow() -> Box<dyn SceneRenderableShareable> {
+fn build_axis_arrow(root: &SceneNode) -> Box<dyn SceneRenderableShareable> {
   todo!();
 }
 
@@ -108,7 +108,10 @@ impl AxisActiveState {
 }
 
 impl MovingGizmo {
-  pub fn new() -> Self {
+  pub fn new(root: &SceneNode) -> Self {
+    let x = build_axis_arrow(root).eventable();
+    let y = build_axis_arrow(root);
+    let z = build_axis_arrow(root);
     todo!()
   }
 

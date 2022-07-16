@@ -32,6 +32,7 @@
         "Encodable",
         "eval",
         "evaluatable",
+        "eventable",
         "fatline",
         "Finalizer",
         "fontext",

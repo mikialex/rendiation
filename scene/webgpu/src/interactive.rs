@@ -25,11 +25,11 @@ impl<T> InteractiveWatchable<T> {
 }
 
 pub trait InteractiveWatchableInit<T> {
-  fn interactive_watchable(self) -> InteractiveWatchable<T>;
+  fn eventable(self) -> InteractiveWatchable<T>;
 }
 
 impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
-  fn interactive_watchable(self) -> InteractiveWatchable<T> {
+  fn eventable(self) -> InteractiveWatchable<T> {
     InteractiveWatchable {
       inner: self,
       callbacks: Default::default(),
