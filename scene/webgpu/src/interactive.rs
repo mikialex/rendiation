@@ -18,7 +18,7 @@ pub struct InteractiveWatchable<T> {
 }
 
 impl<T> InteractiveWatchable<T> {
-  pub fn on(&mut self, cb: impl Fn(&T, &dyn Any) + 'static) -> &mut Self {
+  pub fn on(mut self, cb: impl Fn(&T, &dyn Any) + 'static) -> Self {
     self.callbacks.push(Box::new(cb));
     self
   }

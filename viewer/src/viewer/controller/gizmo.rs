@@ -5,7 +5,10 @@ use interphaser::{
   CanvasWindowPositionInfo, WindowState,
 };
 use rendiation_algebra::Vec3;
-use rendiation_renderable_mesh::tessellation::{CubeMeshParameter, IndexedMeshTessellator};
+use rendiation_renderable_mesh::{
+  mesh::MeshBufferHitPoint,
+  tessellation::{CubeMeshParameter, IndexedMeshTessellator},
+};
 
 use crate::*;
 
@@ -16,13 +19,23 @@ pub struct Gizmo {
 }
 
 impl Gizmo {
-  pub fn new(root: SceneNode) -> Self {
+  pub fn new(root: &SceneNode) -> Self {
     let auto_scale = ViewAutoScalable {
       override_position: None,
       independent_scale_factor: 100.,
     };
     let auto_scale = Rc::new(RefCell::new(auto_scale));
     todo!()
+  }
+
+  pub fn event(
+    &mut self,
+    event: &Event<()>,
+    info: &CanvasWindowPositionInfo,
+    states: &WindowState,
+    scene: &Scene<WebGPUScene>,
+  ) {
+    self.translate.event(event, info, states, scene)
   }
 }
 
@@ -109,25 +122,27 @@ impl AxisActiveState {
 
 impl MovingGizmo {
   pub fn new(root: &SceneNode) -> Self {
-    let x = build_axis_arrow(root).eventable();
+    let x = build_axis_arrow(root).eventable().on(|node, e| {
+      if let Some(e) = e.downcast_ref::<MouseDown3DEvent>() {
+        //
+      }
+      //
+    });
     let y = build_axis_arrow(root).eventable();
     let z = build_axis_arrow(root).eventable();
     todo!()
   }
 
-  fn update_active_state(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
-    let ray = todo!();
-    let targets = self.view.iter().map(|m| m.as_ref());
-    if let Some((target, details)) = interaction_picking(targets, ray, todo!()) {
-      target.event(&MouseDown3DEvent {
-        world_position: details.hit.position,
-      })
-    }
-    //
-  }
-  fn update_target(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
-    let ray = todo!();
-    //
+  fn interact(
+    &mut self,
+    states: &WindowState,
+    info: &CanvasWindowPositionInfo,
+    scene: &Scene<WebGPUScene>,
+  ) -> Option<(&mut dyn SceneRenderableShareable, MeshBufferHitPoint)> {
+    let normalized_position = info.compute_normalized_position_in_canvas_coordinate(states);
+    let ray = scene.build_picking_ray_by_view_camera(normalized_position.into());
+    let targets = self.view.iter_mut().map(|m| m.as_mut());
+    interaction_picking_mut(targets, ray, &Default::default())
   }
 
   pub fn event(
@@ -135,6 +150,7 @@ impl MovingGizmo {
     event: &Event<()>,
     info: &CanvasWindowPositionInfo,
     states: &WindowState,
+    scene: &Scene<WebGPUScene>,
   ) {
     if !self.enabled {
       return;
@@ -145,14 +161,22 @@ impl MovingGizmo {
         WindowEvent::KeyboardInput { input, .. } => todo!(),
         WindowEvent::CursorMoved { .. } => {
           if self.active.has_active() {
-            self.update_target(states, info)
+            if let Some((target, details)) = self.interact(states, info, scene) {
+              target.event(&MouseMove3DEvent {
+                world_position: details.hit.position,
+              });
+            }
           }
         }
         WindowEvent::MouseInput { state, button, .. } => {
-          if *button == MouseButton::Left {
-            match state {
-              ElementState::Pressed => self.update_active_state(states, info),
-              ElementState::Released => self.active.reset(),
+          if let Some((target, details)) = self.interact(states, info, scene) {
+            if *button == MouseButton::Left {
+              match state {
+                ElementState::Pressed => target.event(&MouseDown3DEvent {
+                  world_position: details.hit.position,
+                }),
+                ElementState::Released => self.active.reset(),
+              }
             }
           }
         }

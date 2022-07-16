@@ -164,6 +164,7 @@ pub struct GPUResourceSubCache {
 
 pub trait WebGPUSceneExtension {
   fn add_model(&mut self, model: impl SceneRenderableShareable);
+  fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3;
   fn interaction_picking(
     &self,
     normalized_position: Vec2<f32>,
@@ -177,15 +178,17 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
   fn add_model(&mut self, model: impl SceneRenderableShareable) {
     self.models.push(Box::new(model));
   }
+  fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3 {
+    let camera = self.active_camera.as_ref().unwrap();
+    camera.cast_world_ray(normalized_position)
+  }
 
   fn interaction_picking(
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
   ) -> Option<(&dyn SceneRenderableShareable, MeshBufferHitPoint)> {
-    let camera = self.active_camera.as_ref().unwrap();
-    let world_ray = camera.cast_world_ray(normalized_position);
-
+    let world_ray = self.build_picking_ray_by_view_camera(normalized_position);
     interaction_picking(self.models.iter().map(|m| m.as_ref()), world_ray, conf)
   }
 }
@@ -211,4 +214,27 @@ pub fn interaction_picking<'a, T: IntoIterator<Item = &'a dyn SceneRenderableSha
   });
 
   result.first().copied()
+}
+
+pub fn interaction_picking_mut<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShareable>>(
+  content: T,
+  world_ray: Ray3,
+  conf: &MeshBufferIntersectConfig,
+) -> Option<(&'a mut dyn SceneRenderableShareable, MeshBufferHitPoint)> {
+  let mut result = Vec::new();
+
+  for m in content {
+    if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
+      result.push((m, r));
+    }
+  }
+
+  result.sort_by(|(_, a), (_, b)| {
+    a.hit
+      .distance
+      .partial_cmp(&b.hit.distance)
+      .unwrap_or(Ordering::Less)
+  });
+
+  result.into_iter().next()
 }

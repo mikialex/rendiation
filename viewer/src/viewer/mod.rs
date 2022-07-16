@@ -81,6 +81,7 @@ pub struct Viewer3dContent {
   pub axis_helper: AxisHelper,
   pub grid_helper: GridHelper,
   pub camera_helpers: CameraHelpers,
+  pub gizmo: Gizmo,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -127,6 +128,8 @@ impl Viewer3dContent {
     let axis_helper = AxisHelper::new(scene.root());
     let grid_helper = GridHelper::new(scene.root(), Default::default());
 
+    let gizmo = Gizmo::new(scene.root());
+
     Self {
       scene,
       controller,
@@ -135,6 +138,7 @@ impl Viewer3dContent {
       axis_helper,
       grid_helper,
       camera_helpers: Default::default(),
+      gizmo,
     }
   }
 
@@ -159,25 +163,20 @@ impl Viewer3dContent {
       size: (position_info.size.width, position_info.size.height).into(),
     };
 
+    self.gizmo.event(event, &position_info, states, &self.scene);
     self.controller.event(event, bound);
 
     #[allow(clippy::single_match)]
     match event {
       Event::WindowEvent { event, .. } => match event {
         winit::event::WindowEvent::MouseInput { state, button, .. } => {
-          let canvas_x = states.mouse_position.x - position_info.absolute_position.x;
-          let canvas_y = states.mouse_position.y - position_info.absolute_position.y;
-
           if *button == MouseButton::Left && *state == ElementState::Pressed {
-            let normalized_position = (
-              canvas_x / position_info.size.width * 2. - 1.,
-              -(canvas_y / position_info.size.height * 2. - 1.),
-            );
-
             self.picker.pick_new(
               &self.scene,
               &mut self.selections,
-              normalized_position.into(),
+              position_info
+                .compute_normalized_position_in_canvas_coordinate(states)
+                .into(),
             );
           }
         }

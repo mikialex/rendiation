@@ -49,6 +49,21 @@ pub struct CanvasWindowPositionInfo {
   pub size: UISize,
 }
 
+impl CanvasWindowPositionInfo {
+  pub fn compute_normalized_position_in_canvas_coordinate(
+    &self,
+    states: &WindowState,
+  ) -> (f32, f32) {
+    let canvas_x = states.mouse_position.x - self.absolute_position.x;
+    let canvas_y = states.mouse_position.y - self.absolute_position.y;
+
+    (
+      canvas_x / self.size.width * 2. - 1.,
+      -(canvas_y / self.size.height * 2. - 1.),
+    )
+  }
+}
+
 pub trait CanvasPrinter {
   fn event(
     &mut self,
