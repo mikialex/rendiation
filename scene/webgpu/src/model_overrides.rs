@@ -78,6 +78,9 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
 
     setup_pass_core(self, pass, camera, Some(node_gpu), dispatcher);
   }
+  fn event(&mut self, event: &dyn Any) {
+    self.inner.event(event)
+  }
 }
 
 pub struct InverseWorld;

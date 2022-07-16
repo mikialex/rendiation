@@ -24,6 +24,7 @@ impl SceneRenderable for SolidBackground {
     _camera: &SceneCamera,
   ) {
   }
+  fn event(&mut self, _: &dyn Any) {}
 }
 
 impl<P: SceneContent> WebGPUBackground for EnvMapBackground<P> {
@@ -40,6 +41,7 @@ impl<P: SceneContent> SceneRenderable for EnvMapBackground<P> {
     _camera: &SceneCamera,
   ) {
   }
+  fn event(&mut self, _: &dyn Any) {}
 }
 
 struct ShadingBackgroundTask<T> {

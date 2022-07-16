@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use interphaser::{
   winit::event::{ElementState, Event, MouseButton, WindowEvent},
-  CanvasWindowPositionInfo, MouseDown, WindowState,
+  CanvasWindowPositionInfo, WindowState,
 };
 use rendiation_algebra::Vec3;
 use rendiation_renderable_mesh::tessellation::{CubeMeshParameter, IndexedMeshTessellator};
@@ -62,16 +62,17 @@ fn build_rotation_circle() -> Box<dyn SceneRenderable> {
 
 pub struct MovingGizmo {
   pub enabled: bool,
+  active: AxisActiveState,
+  last_active_world_position: Vec3<f32>,
+  // x: Box<dyn SceneRenderableShareable>,
+  // y: Box<dyn SceneRenderableShareable>,
+  // z: Box<dyn SceneRenderableShareable>,
+  // xy_hint: Box<dyn SceneRenderableShareable>,
+  // xz_hint: Box<dyn SceneRenderableShareable>,
+  // zy_hint: Box<dyn SceneRenderableShareable>,
   pub root: SceneNode,
   auto_scale: Rc<RefCell<ViewAutoScalable>>,
-  active: AxisActiveState,
-  x: Box<dyn SceneRenderableShareable>,
-  y: Box<dyn SceneRenderableShareable>,
-  z: Box<dyn SceneRenderableShareable>,
-  xy_hint: Box<dyn SceneRenderableShareable>,
-  xz_hint: Box<dyn SceneRenderableShareable>,
-  zy_hint: Box<dyn SceneRenderableShareable>,
-  last_active_world_position: Vec3<f32>,
+  view: Vec<Box<dyn SceneRenderableShareable>>,
 }
 
 fn build_axis_arrow() -> Box<dyn SceneRenderableShareable> {
@@ -107,11 +108,21 @@ impl AxisActiveState {
 }
 
 impl MovingGizmo {
-  fn update_active_state(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
+  pub fn new() -> Self {
+    todo!()
+  }
 
+  fn update_active_state(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
+    let ray = todo!();
+    if let Some(target) = interaction_picking(self.view.iter().map(|m| m.as_ref()), ray, todo!()) {
+      target.event(&MouseDown3DEvent {
+        world_position: todo!(),
+      })
+    }
     //
   }
   fn update_target(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
+    let ray = todo!();
     //
   }
 
@@ -121,6 +132,10 @@ impl MovingGizmo {
     info: &CanvasWindowPositionInfo,
     states: &WindowState,
   ) {
+    if !self.enabled {
+      return;
+    }
+
     if let Event::WindowEvent { event, .. } = event {
       match event {
         WindowEvent::KeyboardInput { input, .. } => todo!(),
@@ -149,14 +164,14 @@ impl PassContentWithCamera for &mut MovingGizmo {
       return;
     }
 
-    if self.active.x {
-      self.x.render(pass, &pass.default_dispatcher(), camera);
-    }
-    if self.active.y {
-      self.y.render(pass, &pass.default_dispatcher(), camera);
-    }
-    if self.active.z {
-      self.z.render(pass, &pass.default_dispatcher(), camera);
-    }
+    // if self.active.x {
+    //   self.x.render(pass, &pass.default_dispatcher(), camera);
+    // }
+    // if self.active.y {
+    //   self.y.render(pass, &pass.default_dispatcher(), camera);
+    // }
+    // if self.active.z {
+    //   self.z.render(pass, &pass.default_dispatcher(), camera);
+    // }
   }
 }

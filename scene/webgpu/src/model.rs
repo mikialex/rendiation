@@ -26,6 +26,11 @@ where
   ) -> Option<Nearest<MeshBufferHitPoint>> {
     self.inner.read().unwrap().ray_pick_nearest(world_ray, conf)
   }
+
+  fn event(&mut self, event: &dyn Any) {
+    let mut inner = self.inner.write().unwrap();
+    inner.event(event)
+  }
 }
 
 impl<Me, Ma> SceneRenderableShareable for MeshModel<Me, Ma>
@@ -124,52 +129,5 @@ where
     });
     picked
   }
+  fn event(&mut self, _: &dyn Any) {}
 }
-
-// pub struct InteractiveWatchable<T> {
-//   inner: T,
-//   callbacks: Vec<Box<dyn Fn(&T)>>,
-// }
-
-// impl<T> InteractiveWatchable<T> {
-//   pub fn on(&mut self, cb: impl Fn(&T) + 'static) -> &mut Self {
-//     self.callbacks.push(Box::new(cb));
-//     self
-//   }
-// }
-
-// pub trait InteractiveWatchableInit<T> {
-//   fn interactive_watchable(self) -> InteractiveWatchable<T>;
-// }
-
-// impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
-//   fn interactive_watchable(self) -> InteractiveWatchable<T> {
-//     InteractiveWatchable {
-//       inner: self,
-//       callbacks: Default::default(),
-//     }
-//   }
-// }
-
-// impl<T: SceneRenderable> SceneRenderable for InteractiveWatchable<T> {
-//   fn render(
-//     &self,
-//     pass: &mut SceneRenderPass,
-//     dispatcher: &dyn RenderComponentAny,
-//     camera: &SceneCamera,
-//   ) {
-//     self.inner.render(pass, dispatcher, camera)
-//   }
-
-//   fn ray_pick_nearest(
-//     &self,
-//     _world_ray: &Ray3,
-//     _conf: &MeshBufferIntersectConfig,
-//   ) -> Option<Nearest<MeshBufferHitPoint>> {
-//     None
-//   }
-
-//   fn get_bounding_info(&self) -> Option<Box3> {
-//     self.inner.get_bounding_info()
-//   }
-// }

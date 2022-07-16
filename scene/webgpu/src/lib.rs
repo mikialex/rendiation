@@ -4,6 +4,7 @@
 
 pub mod background;
 pub mod camera;
+pub mod interactive;
 pub mod lights;
 pub mod materials;
 pub mod mesh;
@@ -17,6 +18,7 @@ pub mod util;
 
 pub use background::*;
 pub use camera::*;
+pub use interactive::*;
 pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
@@ -70,6 +72,8 @@ pub trait SceneRenderable: 'static {
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   );
+
+  fn event(&mut self, event: &dyn Any);
 
   /// default return None for ray un-pickable
   fn ray_pick_nearest(
