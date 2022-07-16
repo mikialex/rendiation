@@ -8,6 +8,7 @@ pub mod lights;
 pub mod materials;
 pub mod mesh;
 pub mod model;
+pub mod model_overrides;
 pub mod node;
 pub mod rendering;
 pub mod shading;
@@ -20,6 +21,7 @@ pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
 pub use model::*;
+pub use model_overrides::*;
 pub use node::*;
 pub use rendering::*;
 pub use shading::*;
@@ -162,25 +164,32 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
   ) -> Option<&dyn SceneRenderableShareable> {
-    let mut result = Vec::new();
-
     let camera = self.active_camera.as_ref().unwrap();
     let world_ray = camera.cast_world_ray(normalized_position);
 
-    for m in self.models.iter() {
-      if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
-        println!("pick");
-        result.push((m, r));
-      }
-    }
-
-    result.sort_by(|(_, a), (_, b)| {
-      a.hit
-        .distance
-        .partial_cmp(&b.hit.distance)
-        .unwrap_or(Ordering::Less)
-    });
-
-    result.first().map(|r| r.0.as_ref())
+    interaction_picking(self.models.iter().map(|m| m.as_ref()), world_ray, conf)
   }
+}
+
+pub fn interaction_picking<'a, T: IntoIterator<Item = &'a dyn SceneRenderableShareable>>(
+  content: T,
+  world_ray: Ray3,
+  conf: &MeshBufferIntersectConfig,
+) -> Option<&'a dyn SceneRenderableShareable> {
+  let mut result = Vec::new();
+
+  for m in content {
+    if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
+      result.push((m, r));
+    }
+  }
+
+  result.sort_by(|(_, a), (_, b)| {
+    a.hit
+      .distance
+      .partial_cmp(&b.hit.distance)
+      .unwrap_or(Ordering::Less)
+  });
+
+  result.first().map(|r| r.0)
 }

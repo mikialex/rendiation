@@ -61,42 +61,54 @@ fn build_rotation_circle() -> Box<dyn SceneRenderable> {
 }
 
 pub struct MovingGizmo {
+  pub enabled: bool,
   pub root: SceneNode,
   auto_scale: Rc<RefCell<ViewAutoScalable>>,
   active: AxisActiveState,
-  x: Box<dyn SceneRenderable>,
-  y: Box<dyn SceneRenderable>,
-  z: Box<dyn SceneRenderable>,
-  xy_hint: Box<dyn SceneRenderable>,
-  xz_hint: Box<dyn SceneRenderable>,
-  zy_hint: Box<dyn SceneRenderable>,
+  x: Box<dyn SceneRenderableShareable>,
+  y: Box<dyn SceneRenderableShareable>,
+  z: Box<dyn SceneRenderableShareable>,
+  xy_hint: Box<dyn SceneRenderableShareable>,
+  xz_hint: Box<dyn SceneRenderableShareable>,
+  zy_hint: Box<dyn SceneRenderableShareable>,
+  last_active_world_position: Vec3<f32>,
 }
 
-fn build_axis_arrow() -> Box<dyn SceneRenderable> {
+fn build_axis_arrow() -> Box<dyn SceneRenderableShareable> {
   todo!();
 }
 
 #[derive(Copy, Clone)]
 pub struct AxisActiveState {
-  x_active: bool,
-  y_active: bool,
-  z_active: bool,
+  x: bool,
+  y: bool,
+  z: bool,
 }
 
 impl AxisActiveState {
   pub fn reset(&mut self) {
-    self.x_active = false;
-    self.y_active = false;
-    self.z_active = false;
+    self.x = false;
+    self.y = false;
+    self.z = false;
   }
 
   pub fn has_active(&self) -> bool {
-    self.x_active && self.y_active && self.z_active
+    self.x && self.y && self.z
+  }
+  pub fn only_x(&self) -> bool {
+    self.x && !self.y && !self.z
+  }
+  pub fn only_y(&self) -> bool {
+    !self.x && self.y && !self.z
+  }
+  pub fn only_z(&self) -> bool {
+    !self.x && !self.y && self.z
   }
 }
 
 impl MovingGizmo {
   fn update_active_state(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
+
     //
   }
   fn update_target(&mut self, states: &WindowState, info: &CanvasWindowPositionInfo) {
@@ -127,6 +139,24 @@ impl MovingGizmo {
         }
         _ => {}
       }
+    }
+  }
+}
+
+impl PassContentWithCamera for &mut MovingGizmo {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    if !self.enabled {
+      return;
+    }
+
+    if self.active.x {
+      self.x.render(pass, &pass.default_dispatcher(), camera);
+    }
+    if self.active.y {
+      self.y.render(pass, &pass.default_dispatcher(), camera);
+    }
+    if self.active.z {
+      self.z.render(pass, &pass.default_dispatcher(), camera);
     }
   }
 }
