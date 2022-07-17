@@ -16,48 +16,52 @@ pub struct MouseUp3DEvent {
   pub world_position: Vec3<f32>,
 }
 
-type Listener = Box<dyn Fn(&mut dyn Any, &dyn Any)>;
+type Listener<S> = Box<dyn Fn(&mut S, &dyn Any)>;
 
-pub struct InteractiveWatchable<T> {
+pub struct InteractiveWatchable<T, S> {
   inner: T,
-  callbacks: Vec<Listener>,
+  callbacks: Vec<Listener<S>>,
+  updates: Option<Box<dyn Fn(&S, &mut T)>>,
 }
 
-impl<T> InteractiveWatchable<T> {
-  pub fn on<S: 'static, E: 'static>(mut self, cb: impl Fn(&mut S, &E) + 'static) -> Self {
+impl<T, S> InteractiveWatchable<T, S> {
+  pub fn on<E: 'static>(mut self, cb: impl Fn(&mut S, &E) + 'static) -> Self {
     self.callbacks.push(Box::new(move |state, event| {
-      if let Some(state) = state.downcast_mut::<S>() {
-        if let Some(event) = event.downcast_ref::<E>() {
-          cb(state, event)
-        }
+      if let Some(event) = event.downcast_ref::<E>() {
+        cb(state, event)
       }
     }));
+    self
+  }
+  pub fn update(mut self, updater: impl Fn(&S, &mut T) + 'static) -> Self {
+    self.updates = Some(Box::new(updater));
     self
   }
 }
 
 pub trait InteractiveWatchableInit<T> {
-  fn eventable(self) -> InteractiveWatchable<T>;
+  fn eventable<S>(self) -> InteractiveWatchable<T, S>;
 }
 
 impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
-  fn eventable(self) -> InteractiveWatchable<T> {
+  fn eventable<S>(self) -> InteractiveWatchable<T, S> {
     InteractiveWatchable {
       inner: self,
       callbacks: Default::default(),
+      updates: None,
     }
   }
 }
 
-impl<T: SceneRenderable> Component3D for InteractiveWatchable<T> {
-  fn event(&self, event: &dyn Any, states: &mut dyn Any) {
+impl<T: SceneRenderable, S> Component3D<S> for InteractiveWatchable<T, S> {
+  fn event(&self, event: &dyn Any, states: &mut S) {
     for cb in &self.callbacks {
       cb(states, event)
     }
   }
 }
 
-impl<T: SceneRenderable> SceneRenderable for InteractiveWatchable<T> {
+impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
   fn render(
     &self,
     pass: &mut SceneRenderPass,

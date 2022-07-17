@@ -57,7 +57,7 @@ impl PassContentWithCamera for Arrow {
 impl Arrow {
   fn new(
     parent: &SceneNode,
-    auto_scale: Rc<RefCell<ViewAutoScalable>>,
+    auto_scale: &Rc<RefCell<ViewAutoScalable>>,
     color: impl Into<Vec3<f32>>,
     cylinder_mesh: impl WebGPUMesh,
     tip_mesh: impl WebGPUMesh,
@@ -94,7 +94,7 @@ impl Arrow {
     )
     .into_matrix_overridable();
 
-    tip.push_override(auto_scale);
+    tip.push_override(auto_scale.clone());
 
     Self {
       root,
@@ -126,14 +126,14 @@ impl AxisHelper {
     .tessellate();
     let tip = MeshCell::new(MeshSource::new(tip));
 
-    let auto_scale = Rc::new(RefCell::new(ViewAutoScalable {
+    let auto_scale = &Rc::new(RefCell::new(ViewAutoScalable {
       override_position: None,
       independent_scale_factor: 100.,
     }));
 
     let x = Arrow::new(
       &root,
-      auto_scale.clone(),
+      auto_scale,
       (0.8, 0.1, 0.1),
       cylinder.clone(),
       tip.clone(),
@@ -144,7 +144,7 @@ impl AxisHelper {
 
     let y = Arrow::new(
       &root,
-      auto_scale.clone(),
+      auto_scale,
       (0.1, 0.8, 0.1),
       cylinder.clone(),
       tip.clone(),
@@ -153,7 +153,7 @@ impl AxisHelper {
       // the cylinder is y up, so do nothing
     });
 
-    let z = Arrow::new(&root, auto_scale.clone(), (0.1, 0.1, 0.8), cylinder, tip);
+    let z = Arrow::new(&root, auto_scale, (0.1, 0.1, 0.8), cylinder, tip);
     z.root.mutate(|node| {
       node.local_matrix = Mat4::rotate_x(f32::PI() / 2.);
     });
@@ -161,7 +161,7 @@ impl AxisHelper {
     Self {
       root,
       enabled: true,
-      auto_scale,
+      auto_scale: auto_scale.clone(),
       x,
       y,
       z,

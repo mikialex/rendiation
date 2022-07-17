@@ -28,6 +28,7 @@ use crate::*;
 impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPUTexture2dView) {
     self.content.update_state();
+    self.content.gizmo.update();
     self
       .ctx
       .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
@@ -59,8 +60,8 @@ impl CanvasPrinter for ViewerImpl {
 
 pub struct ViewerImpl {
   content: Viewer3dContent,
-  size: Size,
   ctx: Option<Viewer3dRenderingCtx>,
+  size: Size,
 }
 
 impl Default for ViewerImpl {

@@ -15,7 +15,7 @@ use crate::*;
 pub struct Gizmo {
   // scale: AxisScaleGizmo,
   // rotation: RotationGizmo,
-  translate: MovingGizmo,
+  translate: TranslateGizmo,
 }
 
 impl Gizmo {
@@ -25,7 +25,9 @@ impl Gizmo {
       independent_scale_factor: 100.,
     };
     let auto_scale = Rc::new(RefCell::new(auto_scale));
-    todo!()
+    Self {
+      translate: TranslateGizmo::new(root, &auto_scale),
+    }
   }
 
   pub fn event(
@@ -37,57 +39,56 @@ impl Gizmo {
   ) {
     self.translate.event(event, info, states, scene)
   }
+
+  pub fn update(&mut self) {}
 }
 
-pub struct AxisScaleGizmo {
-  pub root: SceneNode,
-  auto_scale: Rc<RefCell<ViewAutoScalable>>,
-  active: AxisActiveState,
-  x: Box<dyn SceneRenderable>,
-  y: Box<dyn SceneRenderable>,
-  z: Box<dyn SceneRenderable>,
-}
+// pub struct AxisScaleGizmo {
+//   pub root: SceneNode,
+//   auto_scale: Rc<RefCell<ViewAutoScalable>>,
+//   active: AxisActiveState,
+//   x: Box<dyn SceneRenderable>,
+//   y: Box<dyn SceneRenderable>,
+//   z: Box<dyn SceneRenderable>,
+// }
 
-fn build_box() -> Box<dyn SceneRenderable> {
-  let mesh = CubeMeshParameter::default().tessellate();
-  let mesh = MeshCell::new(MeshSource::new(mesh));
-  todo!();
-}
+// fn build_box() -> Box<dyn SceneRenderable> {
+//   let mesh = CubeMeshParameter::default().tessellate();
+//   let mesh = MeshCell::new(MeshSource::new(mesh));
+//   todo!();
+// }
 
-pub struct RotationGizmo {
-  pub root: SceneNode,
-  auto_scale: Rc<RefCell<ViewAutoScalable>>,
-  active: AxisActiveState,
-  x: Box<dyn SceneRenderable>,
-  y: Box<dyn SceneRenderable>,
-  z: Box<dyn SceneRenderable>,
-}
+// pub struct RotationGizmo {
+//   pub root: SceneNode,
+//   auto_scale: Rc<RefCell<ViewAutoScalable>>,
+//   active: AxisActiveState,
+//   x: Box<dyn SceneRenderable>,
+//   y: Box<dyn SceneRenderable>,
+//   z: Box<dyn SceneRenderable>,
+// }
 
-fn build_rotation_circle() -> Box<dyn SceneRenderable> {
-  let mut position = Vec::new();
-  let segments = 50;
-  for i in 0..segments {
-    let p = i as f32 / segments as f32;
-    position.push(Vec3::new(p.cos(), p.sin(), 0.))
-  }
-  todo!();
-}
+// fn build_rotation_circle() -> Box<dyn SceneRenderable> {
+//   let mut position = Vec::new();
+//   let segments = 50;
+//   for i in 0..segments {
+//     let p = i as f32 / segments as f32;
+//     position.push(Vec3::new(p.cos(), p.sin(), 0.))
+//   }
+//   todo!();
+// }
 
-pub struct MovingGizmo {
+pub struct TranslateGizmo {
   pub enabled: bool,
   states: MovingGizmoState,
-  // x: Box<dyn SceneRenderableShareable>,
-  // y: Box<dyn SceneRenderableShareable>,
-  // z: Box<dyn SceneRenderableShareable>,
-  // xy_hint: Box<dyn SceneRenderableShareable>,
-  // xz_hint: Box<dyn SceneRenderableShareable>,
-  // zy_hint: Box<dyn SceneRenderableShareable>,
   pub root: SceneNode,
   auto_scale: Rc<RefCell<ViewAutoScalable>>,
-  view: Vec<Box<dyn Component3D>>,
+  view: Vec<Box<dyn Component3D<MovingGizmoState>>>,
 }
 
-fn build_axis_arrow(root: &SceneNode) -> Box<dyn SceneRenderableShareable> {
+fn build_axis_arrow(
+  root: &SceneNode,
+  auto_scale: &Rc<RefCell<ViewAutoScalable>>,
+) -> Box<dyn SceneRenderableShareable> {
   todo!();
 }
 
@@ -123,26 +124,18 @@ struct MovingGizmoState {
   last_active_world_position: Vec3<f32>,
 }
 
-impl MovingGizmo {
-  pub fn new(root: &SceneNode) -> Self {
-    fn active(
-      active: impl Fn(&mut AxisActiveState),
-    ) -> impl Fn(&mut MovingGizmoState, &MouseDown3DEvent) {
-      move |state, event| {
-        active(&mut state.active);
-        state.last_active_world_position = event.world_position;
-      }
-    };
-
-    let x = build_axis_arrow(root)
+impl TranslateGizmo {
+  pub fn new(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>) -> Self {
+    let x = build_axis_arrow(root, auto_scale)
       .eventable()
+      .update(|s, node| {})
       .on(active(|a| a.x = true));
 
-    let y = build_axis_arrow(root)
+    let y = build_axis_arrow(root, auto_scale)
       .eventable()
       .on(active(|a| a.y = true));
 
-    let z = build_axis_arrow(root)
+    let z = build_axis_arrow(root, auto_scale)
       .eventable()
       .on(active(|a| a.z = true));
 
@@ -152,7 +145,7 @@ impl MovingGizmo {
       enabled: false,
       states: Default::default(),
       root: root.clone(),
-      auto_scale: todo!(),
+      auto_scale: auto_scale.clone(),
       view: todo!(),
     }
   }
@@ -173,7 +166,16 @@ impl MovingGizmo {
   }
 }
 
-impl PassContentWithCamera for &mut MovingGizmo {
+fn active(
+  active: impl Fn(&mut AxisActiveState),
+) -> impl Fn(&mut MovingGizmoState, &MouseDown3DEvent) {
+  move |state, event| {
+    active(&mut state.active);
+    state.last_active_world_position = event.world_position;
+  }
+}
+
+impl PassContentWithCamera for &mut TranslateGizmo {
   fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
     if !self.enabled {
       return;
@@ -187,7 +189,7 @@ impl PassContentWithCamera for &mut MovingGizmo {
   }
 }
 
-fn interact<I: Component3D + Copy, T: IntoIterator<Item = I>>(
+fn interact<S, I: Component3D<S> + Copy, T: IntoIterator<Item = I>>(
   view: T,
   states: &WindowState,
   info: &CanvasWindowPositionInfo,
@@ -198,10 +200,10 @@ fn interact<I: Component3D + Copy, T: IntoIterator<Item = I>>(
   interaction_picking(view, ray, &Default::default())
 }
 
-pub fn map_3d_events<I: Component3D + Copy, T: IntoIterator<Item = I>>(
+pub fn map_3d_events<S, I: Component3D<S> + Copy, T: IntoIterator<Item = I>>(
   event: &Event<()>,
   view: T,
-  user_state: &mut dyn Any,
+  user_state: &mut S,
   info: &CanvasWindowPositionInfo,
   window_state: &WindowState,
   scene: &Scene<WebGPUScene>,
@@ -238,17 +240,17 @@ pub fn map_3d_events<I: Component3D + Copy, T: IntoIterator<Item = I>>(
   }
 }
 
-pub trait Component3D: SceneRenderable {
-  fn event(&self, event: &dyn Any, states: &mut dyn Any) {}
-  fn update(&mut self, states: &mut dyn Any) {}
+pub trait Component3D<T>: SceneRenderable {
+  fn event(&self, event: &dyn Any, states: &mut T) {}
+  fn update(&mut self, states: &mut T) {}
 }
 
-impl<'a> Component3D for &dyn Component3D {
-  fn event(&self, event: &dyn Any, states: &mut dyn Any) {}
+impl<T> Component3D<T> for &dyn Component3D<T> {
+  fn event(&self, event: &dyn Any, states: &mut T) {}
 
-  fn update(&mut self, states: &mut dyn Any) {}
+  fn update(&mut self, states: &mut T) {}
 }
-impl<'a> SceneRenderable for &dyn Component3D {
+impl<T> SceneRenderable for &dyn Component3D<T> {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
