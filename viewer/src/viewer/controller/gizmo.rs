@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 use interphaser::{
   winit::event::{ElementState, Event, MouseButton, WindowEvent},
@@ -13,8 +13,8 @@ use rendiation_renderable_mesh::{
 use crate::*;
 
 pub struct Gizmo {
-  scale: AxisScaleGizmo,
-  rotation: RotationGizmo,
+  // scale: AxisScaleGizmo,
+  // rotation: RotationGizmo,
   translate: MovingGizmo,
 }
 
@@ -75,8 +75,7 @@ fn build_rotation_circle() -> Box<dyn SceneRenderable> {
 
 pub struct MovingGizmo {
   pub enabled: bool,
-  active: AxisActiveState,
-  last_active_world_position: Vec3<f32>,
+  states: MovingGizmoState,
   // x: Box<dyn SceneRenderableShareable>,
   // y: Box<dyn SceneRenderableShareable>,
   // z: Box<dyn SceneRenderableShareable>,
@@ -92,7 +91,7 @@ fn build_axis_arrow(root: &SceneNode) -> Box<dyn SceneRenderableShareable> {
   todo!();
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct AxisActiveState {
   x: bool,
   y: bool,
@@ -101,9 +100,7 @@ pub struct AxisActiveState {
 
 impl AxisActiveState {
   pub fn reset(&mut self) {
-    self.x = false;
-    self.y = false;
-    self.z = false;
+    *self = Default::default();
   }
 
   pub fn has_active(&self) -> bool {
@@ -120,69 +117,59 @@ impl AxisActiveState {
   }
 }
 
+#[derive(Default)]
+struct MovingGizmoState {
+  active: AxisActiveState,
+  last_active_world_position: Vec3<f32>,
+}
+
 impl MovingGizmo {
   pub fn new(root: &SceneNode) -> Self {
-    let x = build_axis_arrow(root).eventable().on(|node, e| {
-      if let Some(e) = e.downcast_ref::<MouseDown3DEvent>() {
-        //
+    fn active(
+      active: impl Fn(&mut AxisActiveState),
+    ) -> impl Fn(&mut MovingGizmoState, &MouseDown3DEvent) {
+      move |state, event| {
+        active(&mut state.active);
+        state.last_active_world_position = event.world_position;
       }
-      //
-    });
-    let y = build_axis_arrow(root).eventable();
-    let z = build_axis_arrow(root).eventable();
-    todo!()
-  }
+    };
 
-  fn interact(
-    &mut self,
-    states: &WindowState,
-    info: &CanvasWindowPositionInfo,
-    scene: &Scene<WebGPUScene>,
-  ) -> Option<(&mut dyn SceneRenderableShareable, MeshBufferHitPoint)> {
-    let normalized_position = info.compute_normalized_position_in_canvas_coordinate(states);
-    let ray = scene.build_picking_ray_by_view_camera(normalized_position.into());
-    let targets = self.view.iter_mut().map(|m| m.as_mut());
-    interaction_picking_mut(targets, ray, &Default::default())
+    let x = build_axis_arrow(root)
+      .eventable()
+      .on(active(|a| a.x = true));
+
+    let y = build_axis_arrow(root)
+      .eventable()
+      .on(active(|a| a.y = true));
+
+    let z = build_axis_arrow(root)
+      .eventable()
+      .on(active(|a| a.z = true));
+
+    let views = vec![x, y, z];
+
+    Self {
+      enabled: false,
+      states: Default::default(),
+      root: root.clone(),
+      auto_scale: todo!(),
+      view: todo!(),
+    }
   }
 
   pub fn event(
     &mut self,
     event: &Event<()>,
     info: &CanvasWindowPositionInfo,
-    states: &WindowState,
+    window_state: &WindowState,
     scene: &Scene<WebGPUScene>,
   ) {
     if !self.enabled {
       return;
     }
 
-    if let Event::WindowEvent { event, .. } = event {
-      match event {
-        WindowEvent::KeyboardInput { input, .. } => todo!(),
-        WindowEvent::CursorMoved { .. } => {
-          if self.active.has_active() {
-            if let Some((target, details)) = self.interact(states, info, scene) {
-              target.event(&MouseMove3DEvent {
-                world_position: details.hit.position,
-              });
-            }
-          }
-        }
-        WindowEvent::MouseInput { state, button, .. } => {
-          if let Some((target, details)) = self.interact(states, info, scene) {
-            if *button == MouseButton::Left {
-              match state {
-                ElementState::Pressed => target.event(&MouseDown3DEvent {
-                  world_position: details.hit.position,
-                }),
-                ElementState::Released => self.active.reset(),
-              }
-            }
-          }
-        }
-        _ => {}
-      }
-    }
+    let view = self.view.iter_mut().map(|m| m.as_mut());
+    map_3d_events(event, view, &mut self.states, info, window_state, scene);
   }
 }
 
@@ -192,14 +179,62 @@ impl PassContentWithCamera for &mut MovingGizmo {
       return;
     }
 
-    // if self.active.x {
-    //   self.x.render(pass, &pass.default_dispatcher(), camera);
-    // }
-    // if self.active.y {
-    //   self.y.render(pass, &pass.default_dispatcher(), camera);
-    // }
-    // if self.active.z {
-    //   self.z.render(pass, &pass.default_dispatcher(), camera);
-    // }
+    let dispatcher = &pass.default_dispatcher();
+
+    for c in &self.view {
+      c.render(pass, dispatcher, camera)
+    }
+  }
+}
+
+fn interact<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShareable>>(
+  view: T,
+  states: &WindowState,
+  info: &CanvasWindowPositionInfo,
+  scene: &Scene<WebGPUScene>,
+) -> Option<(&'a mut dyn SceneRenderableShareable, MeshBufferHitPoint)> {
+  let normalized_position = info.compute_normalized_position_in_canvas_coordinate(states);
+  let ray = scene.build_picking_ray_by_view_camera(normalized_position.into());
+  interaction_picking_mut(view, ray, &Default::default())
+}
+
+pub fn map_3d_events<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShareable>>(
+  event: &Event<()>,
+  view: T,
+  user_state: &mut dyn Any,
+  info: &CanvasWindowPositionInfo,
+  window_state: &WindowState,
+  scene: &Scene<WebGPUScene>,
+) {
+  if let Event::WindowEvent { event, .. } = event {
+    match event {
+      WindowEvent::KeyboardInput { input, .. } => todo!(),
+      WindowEvent::CursorMoved { .. } => {
+        if let Some((target, details)) = interact(view, window_state, info, scene) {
+          target.event(
+            &MouseMove3DEvent {
+              world_position: details.hit.position,
+            },
+            user_state,
+          );
+        }
+      }
+      WindowEvent::MouseInput { state, button, .. } => {
+        if let Some((target, details)) = interact(view, window_state, info, scene) {
+          if *button == MouseButton::Left {
+            match state {
+              ElementState::Pressed => target.event(
+                &MouseDown3DEvent {
+                  world_position: details.hit.position,
+                },
+                user_state,
+              ),
+              ElementState::Released => todo!(),
+            }
+          }
+        }
+      }
+      _ => {}
+    }
   }
 }

@@ -73,7 +73,7 @@ pub trait SceneRenderable: 'static {
     camera: &SceneCamera,
   );
 
-  fn event(&mut self, event: &dyn Any);
+  fn event(&mut self, event: &dyn Any, states: &mut dyn Any);
 
   /// default return None for ray un-pickable
   fn ray_pick_nearest(
@@ -108,8 +108,8 @@ impl SceneRenderable for Box<dyn SceneRenderableShareable> {
     self.as_ref().render(pass, dispatcher, camera)
   }
 
-  fn event(&mut self, event: &dyn Any) {
-    self.as_mut().event(event)
+  fn event(&mut self, event: &dyn Any, states: &mut dyn Any) {
+    self.as_mut().event(event, states)
   }
 }
 

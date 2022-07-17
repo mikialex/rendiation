@@ -10,16 +10,22 @@ pub struct MouseUp3DEvent {
   pub world_position: Vec3<f32>,
 }
 
-type Listener<T> = Box<dyn Fn(&T, &dyn Any)>;
+type Listener = Box<dyn Fn(&mut dyn Any, &dyn Any)>;
 
 pub struct InteractiveWatchable<T> {
   inner: T,
-  callbacks: Vec<Listener<T>>,
+  callbacks: Vec<Listener>,
 }
 
 impl<T> InteractiveWatchable<T> {
-  pub fn on(mut self, cb: impl Fn(&T, &dyn Any) + 'static) -> Self {
-    self.callbacks.push(Box::new(cb));
+  pub fn on<S: 'static, E: 'static>(mut self, cb: impl Fn(&mut S, &E) + 'static) -> Self {
+    self.callbacks.push(Box::new(move |state, event| {
+      if let Some(state) = state.downcast_mut::<S>() {
+        if let Some(event) = event.downcast_ref::<E>() {
+          cb(state, event)
+        }
+      }
+    }));
     self
   }
 }
@@ -59,9 +65,9 @@ impl<T: SceneRenderable> SceneRenderable for InteractiveWatchable<T> {
     self.inner.get_bounding_info()
   }
 
-  fn event(&mut self, event: &dyn Any) {
+  fn event(&mut self, event: &dyn Any, states: &mut dyn Any) {
     for cb in &mut self.callbacks {
-      cb(&self.inner, event)
+      cb(states, event)
     }
   }
 }

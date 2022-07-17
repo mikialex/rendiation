@@ -27,9 +27,9 @@ where
     self.inner.read().unwrap().ray_pick_nearest(world_ray, conf)
   }
 
-  fn event(&mut self, event: &dyn Any) {
+  fn event(&mut self, event: &dyn Any, states: &mut dyn Any) {
     let mut inner = self.inner.write().unwrap();
-    inner.event(event)
+    inner.event(event, states)
   }
 }
 
@@ -129,5 +129,5 @@ where
     });
     picked
   }
-  fn event(&mut self, _: &dyn Any) {}
+  fn event(&mut self, _: &dyn Any, _: &mut dyn Any) {}
 }
