@@ -84,7 +84,7 @@ pub struct MovingGizmo {
   // zy_hint: Box<dyn SceneRenderableShareable>,
   pub root: SceneNode,
   auto_scale: Rc<RefCell<ViewAutoScalable>>,
-  view: Vec<Box<dyn SceneRenderableShareable>>,
+  view: Vec<Box<dyn Component3D>>,
 }
 
 fn build_axis_arrow(root: &SceneNode) -> Box<dyn SceneRenderableShareable> {
@@ -168,7 +168,7 @@ impl MovingGizmo {
       return;
     }
 
-    let view = self.view.iter_mut().map(|m| m.as_mut());
+    let view = self.view.iter().map(|m| m.as_ref());
     map_3d_events(event, view, &mut self.states, info, window_state, scene);
   }
 }
@@ -187,18 +187,18 @@ impl PassContentWithCamera for &mut MovingGizmo {
   }
 }
 
-fn interact<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShareable>>(
+fn interact<I: Component3D + Copy, T: IntoIterator<Item = I>>(
   view: T,
   states: &WindowState,
   info: &CanvasWindowPositionInfo,
   scene: &Scene<WebGPUScene>,
-) -> Option<(&'a mut dyn SceneRenderableShareable, MeshBufferHitPoint)> {
+) -> Option<(I, MeshBufferHitPoint)> {
   let normalized_position = info.compute_normalized_position_in_canvas_coordinate(states);
   let ray = scene.build_picking_ray_by_view_camera(normalized_position.into());
-  interaction_picking_mut(view, ray, &Default::default())
+  interaction_picking(view, ray, &Default::default())
 }
 
-pub fn map_3d_events<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShareable>>(
+pub fn map_3d_events<I: Component3D + Copy, T: IntoIterator<Item = I>>(
   event: &Event<()>,
   view: T,
   user_state: &mut dyn Any,
@@ -208,7 +208,6 @@ pub fn map_3d_events<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShare
 ) {
   if let Event::WindowEvent { event, .. } = event {
     match event {
-      WindowEvent::KeyboardInput { input, .. } => todo!(),
       WindowEvent::CursorMoved { .. } => {
         if let Some((target, details)) = interact(view, window_state, info, scene) {
           target.event(
@@ -236,5 +235,26 @@ pub fn map_3d_events<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShare
       }
       _ => {}
     }
+  }
+}
+
+pub trait Component3D: SceneRenderable {
+  fn event(&self, event: &dyn Any, states: &mut dyn Any) {}
+  fn update(&mut self, states: &mut dyn Any) {}
+}
+
+impl<'a> Component3D for &dyn Component3D {
+  fn event(&self, event: &dyn Any, states: &mut dyn Any) {}
+
+  fn update(&mut self, states: &mut dyn Any) {}
+}
+impl<'a> SceneRenderable for &dyn Component3D {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    todo!()
   }
 }

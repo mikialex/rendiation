@@ -4,7 +4,6 @@
 
 pub mod background;
 pub mod camera;
-pub mod interactive;
 pub mod lights;
 pub mod materials;
 pub mod mesh;
@@ -18,7 +17,6 @@ pub mod util;
 
 pub use background::*;
 pub use camera::*;
-pub use interactive::*;
 pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
@@ -65,15 +63,13 @@ impl SceneContent for WebGPUScene {
   type SceneExt = ();
 }
 
-pub trait SceneRenderable: 'static {
+pub trait SceneRenderable {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   );
-
-  fn event(&mut self, event: &dyn Any, states: &mut dyn Any);
 
   /// default return None for ray un-pickable
   fn ray_pick_nearest(
@@ -106,10 +102,6 @@ impl SceneRenderable for Box<dyn SceneRenderableShareable> {
     camera: &SceneCamera,
   ) {
     self.as_ref().render(pass, dispatcher, camera)
-  }
-
-  fn event(&mut self, event: &dyn Any, states: &mut dyn Any) {
-    self.as_mut().event(event, states)
   }
 }
 
@@ -163,7 +155,7 @@ pub struct GPUResourceSubCache {
 }
 
 pub trait WebGPUSceneExtension {
-  fn add_model(&mut self, model: impl SceneRenderableShareable);
+  fn add_model(&mut self, model: impl SceneRenderableShareable + 'static);
   fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3;
   fn interaction_picking(
     &self,
@@ -175,7 +167,7 @@ pub trait WebGPUSceneExtension {
 use std::cmp::Ordering;
 
 impl WebGPUSceneExtension for Scene<WebGPUScene> {
-  fn add_model(&mut self, model: impl SceneRenderableShareable) {
+  fn add_model(&mut self, model: impl SceneRenderableShareable + 'static) {
     self.models.push(Box::new(model));
   }
   fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3 {
@@ -193,11 +185,34 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
   }
 }
 
-pub fn interaction_picking<'a, T: IntoIterator<Item = &'a dyn SceneRenderableShareable>>(
+impl<'a> SceneRenderable for &'a dyn SceneRenderableShareable {
+  fn ray_pick_nearest(
+    &self,
+    _world_ray: &Ray3,
+    _conf: &MeshBufferIntersectConfig,
+  ) -> Option<Nearest<MeshBufferHitPoint>> {
+    None
+  }
+
+  fn get_bounding_info(&self) -> Option<Box3> {
+    None
+  }
+
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    todo!()
+  }
+}
+
+pub fn interaction_picking<I: SceneRenderable + Copy, T: IntoIterator<Item = I>>(
   content: T,
   world_ray: Ray3,
   conf: &MeshBufferIntersectConfig,
-) -> Option<(&'a dyn SceneRenderableShareable, MeshBufferHitPoint)> {
+) -> Option<(I, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {

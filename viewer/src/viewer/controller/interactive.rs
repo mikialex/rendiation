@@ -1,3 +1,9 @@
+use std::any::Any;
+
+use rendiation_algebra::*;
+use rendiation_geometry::{Box3, Nearest, Ray3};
+use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
+
 use crate::*;
 
 pub struct MouseDown3DEvent {
@@ -43,6 +49,14 @@ impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
   }
 }
 
+impl<T: SceneRenderable> Component3D for InteractiveWatchable<T> {
+  fn event(&self, event: &dyn Any, states: &mut dyn Any) {
+    for cb in &self.callbacks {
+      cb(states, event)
+    }
+  }
+}
+
 impl<T: SceneRenderable> SceneRenderable for InteractiveWatchable<T> {
   fn render(
     &self,
@@ -63,11 +77,5 @@ impl<T: SceneRenderable> SceneRenderable for InteractiveWatchable<T> {
 
   fn get_bounding_info(&self) -> Option<Box3> {
     self.inner.get_bounding_info()
-  }
-
-  fn event(&mut self, event: &dyn Any, states: &mut dyn Any) {
-    for cb in &mut self.callbacks {
-      cb(states, event)
-    }
   }
 }
