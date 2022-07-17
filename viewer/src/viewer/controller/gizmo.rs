@@ -40,7 +40,9 @@ impl Gizmo {
     self.translate.event(event, info, states, scene)
   }
 
-  pub fn update(&mut self) {}
+  pub fn update(&mut self) {
+    self.translate.update()
+  }
 }
 
 // pub struct AxisScaleGizmo {
@@ -163,6 +165,19 @@ impl TranslateGizmo {
 
     let view = self.view.iter().map(|m| m.as_ref());
     map_3d_events(event, view, &mut self.states, info, window_state, scene);
+
+    if let Event::WindowEvent { event, .. } = event {
+      if let WindowEvent::CursorMoved { .. } = event {
+        if self.states.active.has_active() {
+          //
+        }
+      }
+    }
+  }
+  pub fn update(&mut self) {
+    for view in &mut self.view {
+      view.update(&mut self.states)
+    }
   }
 }
 
