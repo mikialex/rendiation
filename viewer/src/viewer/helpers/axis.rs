@@ -54,8 +54,8 @@ impl Arrow {
     parent: &SceneNode,
     auto_scale: &Rc<RefCell<ViewAutoScalable>>,
     color: impl Into<Vec3<f32>>,
-    cylinder_mesh: impl WebGPUMesh,
-    tip_mesh: impl WebGPUMesh,
+    cylinder_mesh: &(impl WebGPUMesh + Clone),
+    tip_mesh: &(impl WebGPUMesh + Clone),
   ) -> Self {
     fn material(color: Vec3<f32>) -> impl WebGPUMaterial + Clone {
       let mut material = FlatMaterial {
@@ -73,7 +73,7 @@ impl Arrow {
     let node_cylinder = root.create_child();
     let mut cylinder = MeshModelImpl::new(
       material.clone().into_resourced(),
-      cylinder_mesh.into_resourced(),
+      cylinder_mesh.clone().into_resourced(),
       node_cylinder,
     )
     .into_matrix_overridable();
@@ -81,10 +81,10 @@ impl Arrow {
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
-    node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
+    node_tip.set_local_matrix(Mat4::translate(0., 1., 0.));
     let mut tip = MeshModelImpl::new(
       material.into_resourced(),
-      tip_mesh.into_resourced(),
+      tip_mesh.clone().into_resourced(),
       node_tip,
     )
     .into_matrix_overridable();
@@ -110,7 +110,7 @@ impl AxisHelper {
       ..Default::default()
     }
     .tessellate();
-    let cylinder = MeshCell::new(MeshSource::new(cylinder));
+    let cylinder = &MeshCell::new(MeshSource::new(cylinder));
 
     let tip = CylinderMeshParameter {
       radius_top: 0.0,
@@ -119,39 +119,22 @@ impl AxisHelper {
       ..Default::default()
     }
     .tessellate();
-    let tip = MeshCell::new(MeshSource::new(tip));
+    let tip = &MeshCell::new(MeshSource::new(tip));
 
     let auto_scale = &Rc::new(RefCell::new(ViewAutoScalable {
       override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
       independent_scale_factor: 100.,
     }));
 
-    let x = Arrow::new(
-      &root,
-      auto_scale,
-      (0.8, 0.1, 0.1),
-      cylinder.clone(),
-      tip.clone(),
-    );
-    x.root.mutate(|node| {
-      node.local_matrix = Mat4::rotate_z(-f32::PI() / 2.);
-    });
+    let x = Arrow::new(&root, auto_scale, (0.8, 0.1, 0.1), cylinder, tip);
+    x.root.set_local_matrix(Mat4::rotate_z(-f32::PI() / 2.));
 
-    let y = Arrow::new(
-      &root,
-      auto_scale,
-      (0.1, 0.8, 0.1),
-      cylinder.clone(),
-      tip.clone(),
-    );
-    y.root.mutate(|_| {
-      // the cylinder is y up, so do nothing
-    });
+    let y = Arrow::new(&root, auto_scale, (0.1, 0.8, 0.1), cylinder, tip);
+    y.root.set_local_matrix(Mat4::identity());
+    // the cylinder is y up, so do nothing
 
     let z = Arrow::new(&root, auto_scale, (0.1, 0.1, 0.8), cylinder, tip);
-    z.root.mutate(|node| {
-      node.local_matrix = Mat4::rotate_x(f32::PI() / 2.);
-    });
+    z.root.set_local_matrix(Mat4::rotate_x(f32::PI() / 2.));
 
     Self {
       root,

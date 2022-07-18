@@ -77,7 +77,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     .into_resourced();
 
     let child = scene.root().create_child();
-    child.mutate(|node| node.local_matrix = Mat4::translate(2., 0., 3.));
+    child.set_local_matrix(Mat4::translate(2., 0., 3.));
 
     let model = MeshModel::new(material, mesh, child);
     scene.add_model(model)
@@ -122,22 +122,16 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   {
     let camera = PerspectiveProjection::default();
     let camera_node = scene.root().create_child();
-    camera_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up);
-    });
+    camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
     let camera = SceneCamera::new(camera, camera_node);
-
     scene.active_camera = camera.into();
   }
 
   {
     let camera = PerspectiveProjection::default();
     let camera_node = scene.root().create_child();
-    camera_node.mutate(|node| {
-      node.local_matrix = Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up);
-    });
+    camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
     let camera = SceneCamera::new(camera, camera_node);
-
     scene.cameras.insert(camera);
   }
 }

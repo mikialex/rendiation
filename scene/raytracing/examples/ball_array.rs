@@ -83,13 +83,11 @@ fn main() {
     }
   }
 
-  camera.node.mutate(|node| {
-    node.local_matrix = Mat4::lookat(
-      Vec3::new(0., width_all / 2., 10.),
-      Vec3::new(0., width_all / 2., 0.),
-      Vec3::new(0., 1., 0.),
-    );
-  });
+  camera.node.set_local_matrix(Mat4::lookat(
+    Vec3::new(0., width_all / 2., 10.),
+    Vec3::new(0., width_all / 2., 0.),
+    Vec3::new(0., 1., 0.),
+  ));
 
   let mut source = scene.build_traceable();
 
