@@ -8,7 +8,6 @@ use crate::*;
 pub struct AxisHelper {
   pub enabled: bool,
   pub root: SceneNode,
-  auto_scale: Rc<RefCell<ViewAutoScalable>>,
   x: Arrow,
   y: Arrow,
   z: Arrow,
@@ -19,10 +18,6 @@ impl PassContentWithCamera for &mut AxisHelper {
     if !self.enabled {
       return;
     }
-
-    // update the auto scale
-    let root_position = self.root.visit(|n| n.world_matrix.position());
-    self.auto_scale.borrow_mut().override_position = root_position.into();
 
     // sort by the camera
     let center = self.root.visit(|n| n.world_matrix.position());
@@ -127,7 +122,7 @@ impl AxisHelper {
     let tip = MeshCell::new(MeshSource::new(tip));
 
     let auto_scale = &Rc::new(RefCell::new(ViewAutoScalable {
-      override_position: None,
+      override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
       independent_scale_factor: 100.,
     }));
 
@@ -161,7 +156,6 @@ impl AxisHelper {
     Self {
       root,
       enabled: true,
-      auto_scale: auto_scale.clone(),
       x,
       y,
       z,

@@ -88,14 +88,29 @@ impl WorldMatrixOverride for InverseWorld {
   }
 }
 
+/// the position by default will choose by the node's world matrix;
+///
+/// but in sometimes, we need use another position for position
+/// to keep consistent dynamic scale behavior among the group of scene node hierarchy.
+/// in this case, we can use this override_position and update this position manually.
+pub enum ViewAutoScalablePositionOverride {
+  None,
+  Fixed(Vec3<f32>),
+  SyncNode(SceneNode),
+}
+
+impl ViewAutoScalablePositionOverride {
+  pub fn get_optional_position(&self) -> Option<Vec3<f32>> {
+    match self {
+      ViewAutoScalablePositionOverride::None => None,
+      ViewAutoScalablePositionOverride::Fixed(f) => Some(*f),
+      ViewAutoScalablePositionOverride::SyncNode(n) => Some(n.visit(|n| n.world_matrix.position())),
+    }
+  }
+}
+
 pub struct ViewAutoScalable {
-  /// the position by default will choose by the node's world matrix;
-  ///
-  /// but in sometimes, we need use another position for position
-  /// to keep consistent dynamic scale behavior among the group of scene node hierarchy.
-  /// in this case, we can use this override_position and update this position manually.
-  ///
-  pub override_position: Option<Vec3<f32>>,
+  pub override_position: ViewAutoScalablePositionOverride,
 
   pub independent_scale_factor: f32,
 }
@@ -113,6 +128,7 @@ impl WorldMatrixOverride for ViewAutoScalable {
 
     let center = self
       .override_position
+      .get_optional_position()
       .unwrap_or_else(|| world_matrix.position());
     let camera_position = camera.node.visit(|n| n.world_matrix.position());
     let distance = (camera_position - center).length();

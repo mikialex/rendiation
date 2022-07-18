@@ -21,7 +21,7 @@ pub struct Gizmo {
 impl Gizmo {
   pub fn new(root: &SceneNode) -> Self {
     let auto_scale = ViewAutoScalable {
-      override_position: None,
+      override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
       independent_scale_factor: 100.,
     };
     let auto_scale = Rc::new(RefCell::new(auto_scale));
