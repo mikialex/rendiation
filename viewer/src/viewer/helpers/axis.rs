@@ -35,39 +35,50 @@ impl PassContentWithCamera for &mut AxisHelper {
   }
 }
 
-struct Arrow {
+pub struct Arrow {
   cylinder: Box<dyn SceneRenderable>,
   tip: Box<dyn SceneRenderable>,
-  root: SceneNode,
+  pub root: SceneNode,
 }
 
-impl PassContentWithCamera for Arrow {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    let dispatcher = &pass.default_dispatcher();
+impl SceneRenderable for Arrow {
+  fn ray_pick_nearest(
+    &self,
+    world_ray: &rendiation_geometry::Ray3,
+    conf: &rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig,
+  ) -> Option<rendiation_geometry::Nearest<rendiation_renderable_mesh::mesh::MeshBufferHitPoint>>
+  {
+    // let result =  Nearest::none();
+    // self.cylinder.ray_pick_nearest(world_ray, conf)
+    None
+  }
+
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
     self.cylinder.render(pass, dispatcher, camera);
     self.tip.render(pass, dispatcher, camera);
   }
 }
 
+impl PassContentWithCamera for Arrow {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    let dispatcher = &pass.default_dispatcher();
+    SceneRenderable::render(self, pass, dispatcher, camera);
+  }
+}
+
 impl Arrow {
-  fn new(
+  pub fn new_reused(
     parent: &SceneNode,
     auto_scale: &Rc<RefCell<ViewAutoScalable>>,
-    color: impl Into<Vec3<f32>>,
+    material: &(impl WebGPUMaterial + Clone),
     cylinder_mesh: &(impl WebGPUMesh + Clone),
     tip_mesh: &(impl WebGPUMesh + Clone),
   ) -> Self {
-    fn material(color: Vec3<f32>) -> impl WebGPUMaterial + Clone {
-      let mut material = FlatMaterial {
-        color: Vec4::new(color.x, color.y, color.z, 1.0),
-      }
-      .use_state();
-      material.states.depth_write_enabled = false;
-      material.states.depth_compare = webgpu::CompareFunction::Always;
-      material
-    }
-    let material = material(color.into());
-
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
@@ -83,7 +94,7 @@ impl Arrow {
     let node_tip = root.create_child();
     node_tip.set_local_matrix(Mat4::translate(0., 1., 0.));
     let mut tip = MeshModelImpl::new(
-      material.into_resourced(),
+      material.clone().into_resourced(),
       tip_mesh.clone().into_resourced(),
       node_tip,
     )
@@ -97,12 +108,8 @@ impl Arrow {
       tip: Box::new(tip),
     }
   }
-}
 
-impl AxisHelper {
-  pub fn new(parent: &SceneNode) -> Self {
-    let root = parent.create_child();
-
+  pub fn default_shape() -> ((impl WebGPUMesh + Clone), (impl WebGPUMesh + Clone)) {
     let cylinder = CylinderMeshParameter {
       radius_top: 0.01,
       radius_bottom: 0.01,
@@ -110,7 +117,7 @@ impl AxisHelper {
       ..Default::default()
     }
     .tessellate();
-    let cylinder = &MeshCell::new(MeshSource::new(cylinder));
+    let cylinder = MeshCell::new(MeshSource::new(cylinder));
 
     let tip = CylinderMeshParameter {
       radius_top: 0.0,
@@ -119,21 +126,60 @@ impl AxisHelper {
       ..Default::default()
     }
     .tessellate();
-    let tip = &MeshCell::new(MeshSource::new(tip));
+    let tip = MeshCell::new(MeshSource::new(tip));
+    (cylinder, tip)
+  }
+}
+
+pub fn solid_material(color: impl Into<Vec3<f32>>) -> impl WebGPUMaterial + Clone {
+  let color = color.into();
+  let mut material = FlatMaterial {
+    color: Vec4::new(color.x, color.y, color.z, 1.0),
+  }
+  .use_state();
+  material.states.depth_write_enabled = false;
+  material.states.depth_compare = webgpu::CompareFunction::Always;
+  material
+}
+
+impl AxisHelper {
+  pub fn new(parent: &SceneNode) -> Self {
+    let root = parent.create_child();
+
+    let (cylinder, tip) = Arrow::default_shape();
+    let (cylinder, tip) = (&cylinder, &tip);
 
     let auto_scale = &Rc::new(RefCell::new(ViewAutoScalable {
       override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
       independent_scale_factor: 100.,
     }));
 
-    let x = Arrow::new(&root, auto_scale, (0.8, 0.1, 0.1), cylinder, tip);
+    let x = Arrow::new_reused(
+      &root,
+      auto_scale,
+      &solid_material((0.8, 0.1, 0.1)),
+      cylinder,
+      tip,
+    );
     x.root.set_local_matrix(Mat4::rotate_z(-f32::PI() / 2.));
 
-    let y = Arrow::new(&root, auto_scale, (0.1, 0.8, 0.1), cylinder, tip);
+    let y = Arrow::new_reused(
+      &root,
+      auto_scale,
+      &solid_material((0.1, 0.8, 0.1)),
+      cylinder,
+      tip,
+    );
     y.root.set_local_matrix(Mat4::identity());
     // the cylinder is y up, so do nothing
 
-    let z = Arrow::new(&root, auto_scale, (0.1, 0.1, 0.8), cylinder, tip);
+    let z = Arrow::new_reused(
+      &root,
+      auto_scale,
+      &solid_material((0.1, 0.1, 0.8)),
+      cylinder,
+      tip,
+    );
     z.root.set_local_matrix(Mat4::rotate_x(f32::PI() / 2.));
 
     Self {

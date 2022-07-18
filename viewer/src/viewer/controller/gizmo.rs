@@ -10,7 +10,10 @@ use rendiation_renderable_mesh::{
   tessellation::{CubeMeshParameter, IndexedMeshTessellator},
 };
 
-use crate::*;
+use crate::{
+  helpers::axis::{solid_material, Arrow},
+  *,
+};
 
 pub struct Gizmo {
   // scale: AxisScaleGizmo,
@@ -81,17 +84,19 @@ impl Gizmo {
 
 pub struct TranslateGizmo {
   pub enabled: bool,
-  states: MovingGizmoState,
+  states: TranslateGizmoState,
   pub root: SceneNode,
   auto_scale: Rc<RefCell<ViewAutoScalable>>,
-  view: Vec<Box<dyn Component3D<MovingGizmoState>>>,
+  view: Vec<Box<dyn Component3D<TranslateGizmoState>>>,
 }
 
-fn build_axis_arrow(
-  root: &SceneNode,
-  auto_scale: &Rc<RefCell<ViewAutoScalable>>,
-) -> Box<dyn SceneRenderableShareable> {
-  todo!();
+fn build_axis_arrow(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>) -> Arrow {
+  let (cylinder, tip) = Arrow::default_shape();
+  let (cylinder, tip) = (&cylinder, &tip);
+  let material = &solid_material((0.8, 0.1, 0.1));
+
+  // Arrow::new_reused(root, auto_scale, material, cylinder,tip)
+  todo!()
 }
 
 #[derive(Copy, Clone, Default)]
@@ -121,7 +126,7 @@ impl AxisActiveState {
 }
 
 #[derive(Default)]
-struct MovingGizmoState {
+struct TranslateGizmoState {
   active: AxisActiveState,
   last_active_world_position: Vec3<f32>,
 }
@@ -130,7 +135,7 @@ impl TranslateGizmo {
   pub fn new(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>) -> Self {
     let x = build_axis_arrow(root, auto_scale)
       .eventable()
-      .update(|s, node| {})
+      .update(|s: &TranslateGizmoState, arrow| arrow.root.set_visible(s.active.x))
       .on(active(|a| a.x = true));
 
     let y = build_axis_arrow(root, auto_scale)
@@ -141,14 +146,18 @@ impl TranslateGizmo {
       .eventable()
       .on(active(|a| a.z = true));
 
-    let views = vec![x, y, z];
+    let view = vec![
+      Box::new(x) as Box<dyn Component3D<TranslateGizmoState>>,
+      Box::new(y),
+      Box::new(z),
+    ];
 
     Self {
       enabled: false,
       states: Default::default(),
       root: root.clone(),
       auto_scale: auto_scale.clone(),
-      view: todo!(),
+      view,
     }
   }
 
@@ -183,7 +192,7 @@ impl TranslateGizmo {
 
 fn active(
   active: impl Fn(&mut AxisActiveState),
-) -> impl Fn(&mut MovingGizmoState, &MouseDown3DEvent) {
+) -> impl Fn(&mut TranslateGizmoState, &MouseDown3DEvent) {
   move |state, event| {
     active(&mut state.active);
     state.last_active_world_position = event.world_position;
@@ -275,3 +284,9 @@ impl<T> SceneRenderable for &dyn Component3D<T> {
     todo!()
   }
 }
+
+// pub struct Component3DCollection<T> {
+//   collect: Vec<Box<dyn Component3D<T>>>,
+// }
+
+// fn collection3d<T>() -> Component3DCollection<T> {}

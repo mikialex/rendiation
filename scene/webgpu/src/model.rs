@@ -109,6 +109,11 @@ where
     world_ray: &Ray3,
     conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
+    let net_visible = self.node.visit(|n| n.net_visible);
+    if !net_visible {
+      return None;
+    }
+
     let world_inv = self.node.visit(|n| n.world_matrix).inverse_or_identity();
 
     let local_ray = world_ray.clone().apply_matrix_into(world_inv);
