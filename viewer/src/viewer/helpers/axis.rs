@@ -20,8 +20,8 @@ impl PassContentWithCamera for &mut AxisHelper {
     }
 
     // sort by the camera
-    let center = self.root.visit(|n| n.world_matrix.position());
-    let camera_position = camera.node.visit(|n| n.world_matrix.position());
+    let center = self.root.get_world_matrix().position();
+    let camera_position = camera.node.get_world_matrix().position();
     let center_to_eye_dir = camera_position - center;
     let center_to_eye_dir = center_to_eye_dir.normalize();
     let x = Vec3::new(1., 0., 0.).dot(center_to_eye_dir);

@@ -65,7 +65,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
       buffer_size: pass.size(),
     };
 
-    let mut world_matrix = self.inner.node.visit(|n| n.world_matrix);
+    let mut world_matrix = self.inner.node.get_world_matrix();
     self
       .overrides
       .iter()

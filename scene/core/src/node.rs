@@ -177,4 +177,8 @@ impl SceneNode {
   pub fn set_visible(&self, visible: bool) {
     self.mutate(|node| node.visible = visible);
   }
+
+  pub fn get_world_matrix(&self) -> Mat4<f32> {
+    self.visit(|n| n.world_matrix)
+  }
 }

@@ -1,22 +1,19 @@
 use std::any::Any;
 
+use interphaser::Component;
 use rendiation_algebra::*;
 use rendiation_geometry::{Box3, Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
 
 use crate::*;
 
-pub struct MouseDown3DEvent {
-  pub world_position: Vec3<f32>,
-}
-pub struct MouseMove3DEvent {
-  pub world_position: Vec3<f32>,
-}
-pub struct MouseUp3DEvent {
-  pub world_position: Vec3<f32>,
+pub enum Event3D {
+  MouseDown { world_position: Vec3<f32> },
+  MouseMove { world_position: Vec3<f32> },
+  MouseUp { world_position: Vec3<f32> },
 }
 
-type Listener<S> = Box<dyn Fn(&mut S, &dyn Any)>;
+type Listener<S> = Box<dyn Fn(&mut S, &Event3D)>;
 
 pub struct InteractiveWatchable<T, S> {
   inner: T,
@@ -25,12 +22,10 @@ pub struct InteractiveWatchable<T, S> {
 }
 
 impl<T, S> InteractiveWatchable<T, S> {
-  pub fn on<E: 'static>(mut self, cb: impl Fn(&mut S, &E) + 'static) -> Self {
-    self.callbacks.push(Box::new(move |state, event| {
-      if let Some(event) = event.downcast_ref::<E>() {
-        cb(state, event)
-      }
-    }));
+  pub fn on(mut self, cb: impl Fn(&mut S, &Event3D) + 'static) -> Self {
+    self
+      .callbacks
+      .push(Box::new(move |state, event| cb(state, event)));
     self
   }
   pub fn update(mut self, updater: impl Fn(&S, &mut T) + 'static) -> Self {
@@ -53,8 +48,8 @@ impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
   }
 }
 
-impl<T: SceneRenderable, S> Component3D<S> for InteractiveWatchable<T, S> {
-  fn event(&self, event: &dyn Any, states: &mut S) {
+impl<T: SceneRenderable, S> Component<S, System3D> for InteractiveWatchable<T, S> {
+  fn event(&mut self, states: &mut S, event: &mut EventCtx3D) {
     for cb in &self.callbacks {
       cb(states, event)
     }
