@@ -264,33 +264,34 @@ where
             world_position: details.hit.position,
           }
           .into();
-          Some(target)
-        } else {
-          None
+          return Some(target);
         }
       }
       WindowEvent::MouseInput { state, button, .. } => {
         if let Some((target, details)) = interact(view, event_ctx) {
-          event_ctx.event_3d = Event3D::MouseDown {
-            world_position: details.hit.position,
+          if *button == MouseButton::Left {
+            match state {
+              ElementState::Pressed => {
+                event_ctx.event_3d = Event3D::MouseDown {
+                  world_position: details.hit.position,
+                }
+                .into();
+              }
+              ElementState::Released => {
+                event_ctx.event_3d = Event3D::MouseUp {
+                  world_position: details.hit.position,
+                }
+                .into();
+              }
+            }
           }
-          .into();
-          // if *button == MouseButton::Left {
-          //   match state {
-          //     ElementState::Pressed => target.event(user_state, event_ctx),
-          //     ElementState::Released => todo!(),
-          //   }
-          // }
-          Some(target)
-        } else {
-          None
+          return Some(target);
         }
       }
-      _ => None,
+      _ => {}
     }
-  } else {
-    None
   }
+  None
 }
 
 pub struct Component3DCollection<T> {
