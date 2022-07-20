@@ -232,12 +232,12 @@ impl PassContentWithCamera for &mut TranslateGizmo {
   }
 }
 
-fn interact<'a, S, T>(
+fn interact<'a, T>(
   view: T,
   event: &EventCtx3D,
-) -> Option<(&'a mut dyn Component3D<S>, MeshBufferHitPoint)>
+) -> Option<(&'a mut dyn SceneRayInteractive, MeshBufferHitPoint)>
 where
-  T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
+  T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>,
 {
   let normalized_position = event
     .info
@@ -245,13 +245,15 @@ where
   let ray = event
     .scene
     .build_picking_ray_by_view_camera(normalized_position.into());
-  interaction_picking(view, ray, &Default::default())
+  interaction_picking_mut(view, ray, &Default::default())
 }
 
-pub fn map_3d_events<'a, S, T>(event_ctx: &mut EventCtx3D, view: T, user_state: &mut S)
+pub fn map_3d_events<'a, T>(
+  event_ctx: &mut EventCtx3D,
+  view: T,
+) -> Option<&'a mut dyn SceneRayInteractive>
 where
-  T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
-  S: 'a,
+  T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>,
 {
   let event = event_ctx.raw_event;
   if let Event::WindowEvent { event, .. } = event {
@@ -262,7 +264,9 @@ where
             world_position: details.hit.position,
           }
           .into();
-          target.event(user_state, event_ctx);
+          Some(target)
+        } else {
+          None
         }
       }
       WindowEvent::MouseInput { state, button, .. } => {
@@ -271,18 +275,22 @@ where
             world_position: details.hit.position,
           }
           .into();
-          if *button == MouseButton::Left {
-            match state {
-              ElementState::Pressed => target.event(user_state, event_ctx),
-              ElementState::Released => todo!(),
-            }
-          }
+          // if *button == MouseButton::Left {
+          //   match state {
+          //     ElementState::Pressed => target.event(user_state, event_ctx),
+          //     ElementState::Released => todo!(),
+          //   }
+          // }
+          Some(target)
+        } else {
+          None
         }
       }
-      _ => {}
+      _ => None,
     }
+  } else {
+    None
   }
-  event_ctx.event_3d = None;
 }
 
 pub struct Component3DCollection<T> {
@@ -321,7 +329,14 @@ impl<T> Component<T, System3D> for Component3DCollection<T> {
     for view in &mut self.collection {
       view.event(states, ctx);
     }
-    // map_3d_events(ctx, self.collection.iter_mut().map(|c| c.as_mut()), states)
+    map_3d_events(
+      ctx,
+      self
+        .collection
+        .iter_mut()
+        .map(|c| c.as_mut() as &mut dyn SceneRayInteractive),
+    );
+    ctx.event_3d = None;
   }
 
   fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {
