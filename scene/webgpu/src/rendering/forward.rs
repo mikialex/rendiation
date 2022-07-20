@@ -19,7 +19,7 @@ pub struct ForwardScene;
 impl<S> PassContentWithSceneAndCamera<S> for ForwardScene
 where
   S: SceneContent,
-  S::Model: Deref<Target = dyn SceneRenderableShareable>,
+  S::Model: Deref<Target = dyn SceneModel>,
 {
   fn render(&mut self, pass: &mut SceneRenderPass, scene: &Scene<S>, camera: &SceneCamera) {
     scene

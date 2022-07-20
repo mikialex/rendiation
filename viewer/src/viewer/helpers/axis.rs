@@ -41,7 +41,7 @@ pub struct Arrow {
   pub root: SceneNode,
 }
 
-impl SceneRenderable for Arrow {
+impl SceneRayInteractive for Arrow {
   fn ray_pick_nearest(
     &self,
     world_ray: &rendiation_geometry::Ray3,
@@ -52,7 +52,9 @@ impl SceneRenderable for Arrow {
     // self.cylinder.ray_pick_nearest(world_ray, conf)
     None
   }
+}
 
+impl SceneRenderable for Arrow {
   fn render(
     &self,
     pass: &mut SceneRenderPass,

@@ -18,7 +18,13 @@ where
     let inner = self.inner.read().unwrap();
     inner.render(pass, dispatcher, camera)
   }
+}
 
+impl<Me, Ma> SceneRayInteractive for MeshModel<Me, Ma>
+where
+  Me: WebGPUSceneMesh,
+  Ma: WebGPUSceneMaterial,
+{
   fn ray_pick_nearest(
     &self,
     world_ray: &Ray3,
@@ -103,7 +109,13 @@ where
   ) {
     setup_pass_core(self, pass, camera, None, dispatcher);
   }
+}
 
+impl<Me, Ma> SceneRayInteractive for MeshModelImpl<Me, Ma>
+where
+  Me: WebGPUSceneMesh,
+  Ma: WebGPUSceneMaterial,
+{
   fn ray_pick_nearest(
     &self,
     world_ray: &Ray3,

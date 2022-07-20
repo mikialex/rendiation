@@ -1,12 +1,13 @@
-use std::{any::Any, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use interphaser::{
   winit::event::{ElementState, Event, MouseButton, WindowEvent},
   CanvasWindowPositionInfo, Component, WindowState,
 };
 use rendiation_algebra::Vec3;
+use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::{
-  mesh::MeshBufferHitPoint,
+  mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
   tessellation::{CubeMeshParameter, IndexedMeshTessellator},
 };
 
@@ -85,11 +86,16 @@ impl Gizmo {
 pub struct System3D;
 
 pub struct EventCtx3D<'a> {
-  window_states: &'a WindowState,
+  pub window_states: &'a WindowState,
+  pub raw_event: &'a Event<'a, ()>,
+  pub info: &'a CanvasWindowPositionInfo,
+  pub scene: &'a Scene<WebGPUScene>,
+
+  pub event_3d: Option<Event3D>,
 }
 
 pub struct UpdateCtx3D<'a> {
-  placeholder: &'a (),
+  pub placeholder: &'a (),
 }
 
 impl interphaser::System for System3D {
@@ -109,9 +115,7 @@ fn build_axis_arrow(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>
   let (cylinder, tip) = Arrow::default_shape();
   let (cylinder, tip) = (&cylinder, &tip);
   let material = &solid_material((0.8, 0.1, 0.1));
-
-  // Arrow::new_reused(root, auto_scale, material, cylinder,tip)
-  todo!()
+  Arrow::new_reused(root, auto_scale, material, cylinder, tip)
 }
 
 #[derive(Copy, Clone, Default)]
@@ -176,33 +180,44 @@ impl TranslateGizmo {
     &mut self,
     event: &Event<()>,
     info: &CanvasWindowPositionInfo,
-    window_state: &WindowState,
+    window_states: &WindowState,
     scene: &Scene<WebGPUScene>,
   ) {
     if !self.enabled {
       return;
     }
 
-    // let view = self.view.iter().map(|m| m.as_ref());
-    // map_3d_events(event, view, &mut self.states, info, window_state, scene);
+    let mut ctx = EventCtx3D {
+      window_states,
+      raw_event: event,
+      info,
+      scene,
+      event_3d: None,
+    };
 
-    // if let Event::WindowEvent { event, .. } = event {
-    //   if let WindowEvent::CursorMoved { .. } = event {
-    //     if self.states.active.has_active() {
-    //       //
-    //     }
-    //   }
-    // }
+    self.view.event(&mut self.states, &mut ctx);
+
+    if let Event::WindowEvent { event, .. } = event {
+      if let WindowEvent::CursorMoved { .. } = event {
+        if self.states.active.has_active() {
+          //
+        }
+      }
+    }
   }
   pub fn update(&mut self) {
-    self.view.update(&mut self.states, todo!());
+    let mut ctx = UpdateCtx3D { placeholder: &() };
+
+    self.view.update(&mut self.states, &mut ctx);
   }
 }
 
 fn active(active: impl Fn(&mut AxisActiveState)) -> impl Fn(&mut TranslateGizmoState, &Event3D) {
   move |state, event| {
     active(&mut state.active);
-    // state.last_active_world_position = event.world_position;
+    if let Event3D::MouseDown { world_position } = event {
+      state.last_active_world_position = *world_position;
+    }
   }
 }
 
@@ -213,99 +228,83 @@ impl PassContentWithCamera for &mut TranslateGizmo {
     }
 
     let dispatcher = &pass.default_dispatcher();
-
-    // for c in &self.view {
-    //   c.render(pass, dispatcher, camera)
-    // }
+    self.view.render(pass, dispatcher, camera)
   }
 }
 
-// fn interact<S, I, T>(
-//   view: T,
-//   states: &WindowState,
-//   info: &CanvasWindowPositionInfo,
-//   scene: &Scene<WebGPUScene>,
-// ) -> Option<(I, MeshBufferHitPoint)>
-// where
-//   I: Component3D<S> + Copy + SceneRenderable,
-//   T: IntoIterator<Item = I>,
-// {
-//   let normalized_position = info.compute_normalized_position_in_canvas_coordinate(states);
-//   let ray = scene.build_picking_ray_by_view_camera(normalized_position.into());
-//   interaction_picking(view, ray, &Default::default())
-// }
+fn interact<'a, S, T>(
+  view: T,
+  event: &EventCtx3D,
+) -> Option<(&'a mut dyn Component3D<S>, MeshBufferHitPoint)>
+where
+  T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
+{
+  let normalized_position = event
+    .info
+    .compute_normalized_position_in_canvas_coordinate(event.window_states);
+  let ray = event
+    .scene
+    .build_picking_ray_by_view_camera(normalized_position.into());
+  interaction_picking(view, ray, &Default::default())
+}
 
-// pub fn map_3d_events<S, I, T>(
-//   event: &Event<()>,
-//   view: T,
-//   user_state: &mut S,
-//   info: &CanvasWindowPositionInfo,
-//   window_state: &WindowState,
-//   scene: &Scene<WebGPUScene>,
-// ) where
-//   I: Component3D<S> + Copy + SceneRenderable,
-//   T: IntoIterator<Item = I>,
-// {
-//   if let Event::WindowEvent { event, .. } = event {
-//     match event {
-//       WindowEvent::CursorMoved { .. } => {
-//         if let Some((target, details)) = interact(view, window_state, info, scene) {
-//           target.event(
-//             &MouseMove3DEvent {
-//               world_position: details.hit.position,
-//             },
-//             user_state,
-//           );
-//         }
-//       }
-//       WindowEvent::MouseInput { state, button, .. } => {
-//         if let Some((target, details)) = interact(view, window_state, info, scene) {
-//           if *button == MouseButton::Left {
-//             match state {
-//               ElementState::Pressed => target.event(
-//                 &MouseDown3DEvent {
-//                   world_position: details.hit.position,
-//                 },
-//                 user_state,
-//               ),
-//               ElementState::Released => todo!(),
-//             }
-//           }
-//         }
-//       }
-//       _ => {}
-//     }
-//   }
-// }
-
-// pub trait Component3D<T> {
-//   fn event(&self, event: &dyn Any, states: &mut T) {}
-//   fn update(&mut self, states: &mut T) {}
-// }
-
-// impl<T> Component3D<T> for &dyn Component3D<T> {
-//   fn event(&self, event: &dyn Any, states: &mut T) {}
-
-//   fn update(&mut self, states: &mut T) {}
-// }
-// impl<T> SceneRenderable for &dyn Component3D<T> {
-//   fn render(
-//     &self,
-//     pass: &mut SceneRenderPass,
-//     dispatcher: &dyn RenderComponentAny,
-//     camera: &SceneCamera,
-//   ) {
-//     todo!()
-//   }
-// }
+pub fn map_3d_events<'a, S, T>(event_ctx: &mut EventCtx3D, view: T, user_state: &mut S)
+where
+  T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
+  S: 'a,
+{
+  let event = event_ctx.raw_event;
+  if let Event::WindowEvent { event, .. } = event {
+    match event {
+      WindowEvent::CursorMoved { .. } => {
+        if let Some((target, details)) = interact(view, event_ctx) {
+          event_ctx.event_3d = Event3D::MouseMove {
+            world_position: details.hit.position,
+          }
+          .into();
+          target.event(user_state, event_ctx);
+        }
+      }
+      WindowEvent::MouseInput { state, button, .. } => {
+        if let Some((target, details)) = interact(view, event_ctx) {
+          event_ctx.event_3d = Event3D::MouseDown {
+            world_position: details.hit.position,
+          }
+          .into();
+          if *button == MouseButton::Left {
+            match state {
+              ElementState::Pressed => target.event(user_state, event_ctx),
+              ElementState::Released => todo!(),
+            }
+          }
+        }
+      }
+      _ => {}
+    }
+  }
+  event_ctx.event_3d = None;
+}
 
 pub struct Component3DCollection<T> {
-  collection: Vec<Box<dyn Component<T, System3D>>>,
+  collection: Vec<Box<dyn Component3D<T>>>,
+}
+
+pub trait Component3D<T>: Component<T, System3D> + SceneRayInteractive + SceneRenderable {}
+impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Component3D<T> for X {}
+
+impl<'a, T> SceneRayInteractive for &'a mut dyn Component3D<T> {
+  fn ray_pick_nearest(
+    &self,
+    _world_ray: &Ray3,
+    _conf: &MeshBufferIntersectConfig,
+  ) -> Option<Nearest<MeshBufferHitPoint>> {
+    todo!()
+  }
 }
 
 impl<T> Component3DCollection<T> {
   #[must_use]
-  pub fn with(mut self, item: impl Component<T, System3D> + 'static) -> Self {
+  pub fn with(mut self, item: impl Component3D<T> + 'static) -> Self {
     self.collection.push(Box::new(item));
     self
   }
@@ -318,16 +317,29 @@ fn collection3d<T>() -> Component3DCollection<T> {
 }
 
 impl<T> Component<T, System3D> for Component3DCollection<T> {
-  fn event(
-    &mut self,
-    _model: &mut T,
-    _event: &mut <System3D as interphaser::System>::EventCtx<'_>,
-  ) {
+  fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
+    for view in &mut self.collection {
+      view.event(states, ctx);
+    }
+    // map_3d_events(ctx, self.collection.iter_mut().map(|c| c.as_mut()), states)
   }
 
   fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {
     for view in &mut self.collection {
       view.update(states, ctx);
+    }
+  }
+}
+
+impl<T> SceneRenderable for Component3DCollection<T> {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    for c in &self.collection {
+      c.render(pass, dispatcher, camera)
     }
   }
 }

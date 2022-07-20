@@ -56,7 +56,7 @@ use std::{
 pub struct WebGPUScene;
 impl SceneContent for WebGPUScene {
   type BackGround = Box<dyn WebGPUBackground>;
-  type Model = Box<dyn SceneRenderableShareable>;
+  type Model = Box<dyn SceneModel>;
   type Light = Box<dyn SceneRenderableShareable>;
   type Texture2D = Box<dyn WebGPUTexture2dSource>;
   type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
@@ -70,19 +70,26 @@ pub trait SceneRenderable {
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   );
+}
 
-  /// default return None for ray un-pickable
+pub trait SceneRayInteractive {
+  fn ray_pick_nearest(
+    &self,
+    _world_ray: &Ray3,
+    _conf: &MeshBufferIntersectConfig,
+  ) -> Option<Nearest<MeshBufferHitPoint>>;
+}
+
+pub trait SceneModel: SceneRayInteractive + SceneRenderableShareable {}
+impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModel for T {}
+
+impl SceneRayInteractive for &mut dyn SceneModel {
   fn ray_pick_nearest(
     &self,
     _world_ray: &Ray3,
     _conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
-    None
-  }
-
-  /// default return None for unbound or not applicable
-  fn get_bounding_info(&self) -> Option<Box3> {
-    None
+    todo!()
   }
 }
 
@@ -155,19 +162,19 @@ pub struct GPUResourceSubCache {
 }
 
 pub trait WebGPUSceneExtension {
-  fn add_model(&mut self, model: impl SceneRenderableShareable + 'static);
+  fn add_model(&mut self, model: impl SceneModel + 'static);
   fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3;
   fn interaction_picking(
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<(&dyn SceneRenderableShareable, MeshBufferHitPoint)>;
+  ) -> Option<(&dyn SceneModel, MeshBufferHitPoint)>;
 }
 
 use std::cmp::Ordering;
 
 impl WebGPUSceneExtension for Scene<WebGPUScene> {
-  fn add_model(&mut self, model: impl SceneRenderableShareable + 'static) {
+  fn add_model(&mut self, model: impl SceneModel + 'static) {
     self.models.push(Box::new(model));
   }
   fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3 {
@@ -179,36 +186,23 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<(&dyn SceneRenderableShareable, MeshBufferHitPoint)> {
+  ) -> Option<(&dyn SceneModel, MeshBufferHitPoint)> {
     let world_ray = self.build_picking_ray_by_view_camera(normalized_position);
     interaction_picking(self.models.iter().map(|m| m.as_ref()), world_ray, conf)
   }
 }
 
-impl<'a> SceneRenderable for &'a dyn SceneRenderableShareable {
+impl<'a> SceneRayInteractive for &'a dyn SceneModel {
   fn ray_pick_nearest(
     &self,
-    _world_ray: &Ray3,
-    _conf: &MeshBufferIntersectConfig,
+    world_ray: &Ray3,
+    conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
-    None
-  }
-
-  fn get_bounding_info(&self) -> Option<Box3> {
-    None
-  }
-
-  fn render(
-    &self,
-    pass: &mut SceneRenderPass,
-    dispatcher: &dyn RenderComponentAny,
-    camera: &SceneCamera,
-  ) {
-    todo!()
+    (self as &dyn SceneRayInteractive).ray_pick_nearest(world_ray, conf)
   }
 }
 
-pub fn interaction_picking<I: SceneRenderable + Copy, T: IntoIterator<Item = I>>(
+pub fn interaction_picking<I: SceneRayInteractive, T: IntoIterator<Item = I>>(
   content: T,
   world_ray: Ray3,
   conf: &MeshBufferIntersectConfig,
@@ -228,14 +222,14 @@ pub fn interaction_picking<I: SceneRenderable + Copy, T: IntoIterator<Item = I>>
       .unwrap_or(Ordering::Less)
   });
 
-  result.first().copied()
+  result.into_iter().next()
 }
 
-pub fn interaction_picking_mut<'a, T: IntoIterator<Item = &'a mut dyn SceneRenderableShareable>>(
+pub fn interaction_picking_mut<'a, T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>>(
   content: T,
   world_ray: Ray3,
   conf: &MeshBufferIntersectConfig,
-) -> Option<(&'a mut dyn SceneRenderableShareable, MeshBufferHitPoint)> {
+) -> Option<(&'a mut dyn SceneRayInteractive, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {

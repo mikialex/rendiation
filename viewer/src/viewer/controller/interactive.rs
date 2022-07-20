@@ -1,8 +1,6 @@
-use std::any::Any;
-
 use interphaser::Component;
 use rendiation_algebra::*;
-use rendiation_geometry::{Box3, Nearest, Ray3};
+use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
 
 use crate::*;
@@ -51,7 +49,9 @@ impl<T: SceneRenderable> InteractiveWatchableInit<T> for T {
 impl<T: SceneRenderable, S> Component<S, System3D> for InteractiveWatchable<T, S> {
   fn event(&mut self, states: &mut S, event: &mut EventCtx3D) {
     for cb in &self.callbacks {
-      cb(states, event)
+      if let Some(event_3d) = &event.event_3d {
+        cb(states, event_3d)
+      }
     }
   }
 }
@@ -65,16 +65,14 @@ impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
   ) {
     self.inner.render(pass, dispatcher, camera)
   }
+}
 
+impl<T: SceneRayInteractive, S> SceneRayInteractive for InteractiveWatchable<T, S> {
   fn ray_pick_nearest(
     &self,
     _world_ray: &Ray3,
     _conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
     None
-  }
-
-  fn get_bounding_info(&self) -> Option<Box3> {
-    self.inner.get_bounding_info()
   }
 }
