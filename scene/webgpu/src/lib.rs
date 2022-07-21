@@ -56,7 +56,7 @@ use std::{
 pub struct WebGPUScene;
 impl SceneContent for WebGPUScene {
   type BackGround = Box<dyn WebGPUBackground>;
-  type Model = Box<dyn SceneModel>;
+  type Model = Box<dyn SceneModelShareable>;
   type Light = Box<dyn SceneRenderableShareable>;
   type Texture2D = Box<dyn WebGPUTexture2dSource>;
   type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
@@ -80,11 +80,11 @@ pub trait SceneRayInteractive {
   ) -> Option<Nearest<MeshBufferHitPoint>>;
 }
 
-pub trait SceneModel: SceneRayInteractive + SceneRenderableShareable {
+pub trait SceneModelShareable: SceneRayInteractive + SceneRenderableShareable {
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
   fn as_renderable(&self) -> &dyn SceneRenderableShareable;
 }
-impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModel for T {
+impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModelShareable for T {
   fn as_interactive(&self) -> &dyn SceneRayInteractive {
     self
   }
@@ -92,8 +92,20 @@ impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModel for T {
     self
   }
 }
+pub trait SceneModel: SceneRayInteractive + SceneRenderable {
+  fn as_interactive(&self) -> &dyn SceneRayInteractive;
+  fn as_renderable(&self) -> &dyn SceneRenderable;
+}
+impl<T: SceneRayInteractive + SceneRenderable> SceneModel for T {
+  fn as_interactive(&self) -> &dyn SceneRayInteractive {
+    self
+  }
+  fn as_renderable(&self) -> &dyn SceneRenderable {
+    self
+  }
+}
 
-impl SceneRayInteractive for &mut dyn SceneModel {
+impl SceneRayInteractive for &mut dyn SceneModelShareable {
   fn ray_pick_nearest(
     &self,
     _world_ray: &Ray3,
@@ -172,19 +184,19 @@ pub struct GPUResourceSubCache {
 }
 
 pub trait WebGPUSceneExtension {
-  fn add_model(&mut self, model: impl SceneModel + 'static);
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static);
   fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3;
   fn interaction_picking(
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<(&dyn SceneModel, MeshBufferHitPoint)>;
+  ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)>;
 }
 
 use std::cmp::Ordering;
 
 impl WebGPUSceneExtension for Scene<WebGPUScene> {
-  fn add_model(&mut self, model: impl SceneModel + 'static) {
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static) {
     self.models.push(Box::new(model));
   }
   fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3 {
@@ -196,13 +208,13 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
     &self,
     normalized_position: Vec2<f32>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<(&dyn SceneModel, MeshBufferHitPoint)> {
+  ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)> {
     let world_ray = self.build_picking_ray_by_view_camera(normalized_position);
     interaction_picking(self.models.iter().map(|m| m.as_ref()), world_ray, conf)
   }
 }
 
-impl<'a> SceneRayInteractive for &'a dyn SceneModel {
+impl<'a> SceneRayInteractive for &'a dyn SceneModelShareable {
   fn ray_pick_nearest(
     &self,
     world_ray: &Ray3,

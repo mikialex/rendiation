@@ -4,7 +4,7 @@ use interphaser::{
   winit::event::{ElementState, Event, MouseButton, WindowEvent},
   CanvasWindowPositionInfo, Component, WindowState,
 };
-use rendiation_algebra::Vec3;
+use rendiation_algebra::{Mat4, Vec3};
 use rendiation_geometry::{Nearest, Ray3};
 use rendiation_renderable_mesh::{
   mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
@@ -23,14 +23,15 @@ pub struct Gizmo {
 }
 
 impl Gizmo {
-  pub fn new(root: &SceneNode) -> Self {
+  pub fn new(parent: &SceneNode) -> Self {
+    let root = parent.create_child();
     let auto_scale = ViewAutoScalable {
       override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
       independent_scale_factor: 100.,
     };
     let auto_scale = Rc::new(RefCell::new(auto_scale));
     Self {
-      translate: TranslateGizmo::new(root, &auto_scale),
+      translate: TranslateGizmo::new(&root, &auto_scale),
     }
   }
 
@@ -46,6 +47,13 @@ impl Gizmo {
 
   pub fn update(&mut self) {
     self.translate.update()
+  }
+}
+
+impl PassContentWithCamera for &mut Gizmo {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    let dispatcher = &pass.default_dispatcher();
+    self.translate.render(pass, dispatcher, camera)
   }
 }
 
@@ -199,7 +207,7 @@ impl TranslateGizmo {
 
     if let Event::WindowEvent { event, .. } = event {
       if let WindowEvent::CursorMoved { .. } = event {
-        if self.states.active.has_active() {
+        if self.states.active.only_y() {
           //
         }
       }
@@ -209,6 +217,8 @@ impl TranslateGizmo {
     let mut ctx = UpdateCtx3D { placeholder: &() };
 
     self.view.update(&mut self.states, &mut ctx);
+
+    self.root.set_local_matrix(Mat4::translate(1., 0., 1.));
   }
 }
 
@@ -216,18 +226,19 @@ fn active(active: impl Fn(&mut AxisActiveState)) -> impl Fn(&mut TranslateGizmoS
   move |state, event| {
     active(&mut state.active);
     if let Event3D::MouseDown { world_position } = event {
+      println!("{}", world_position);
       state.last_active_world_position = *world_position;
     }
   }
 }
 
-impl PassContentWithCamera for &mut TranslateGizmo {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    if !self.enabled {
-      return;
-    }
-
-    let dispatcher = &pass.default_dispatcher();
+impl SceneRenderable for TranslateGizmo {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
     self.view.render(pass, dispatcher, camera)
   }
 }

@@ -80,6 +80,18 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   }
 }
 
+impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRayInteractive
+  for OverridableMeshModelImpl<Me, Ma>
+{
+  fn ray_pick_nearest(
+    &self,
+    _world_ray: &Ray3,
+    _conf: &MeshBufferIntersectConfig,
+  ) -> Option<Nearest<MeshBufferHitPoint>> {
+    todo!()
+  }
+}
+
 pub struct InverseWorld;
 
 impl WorldMatrixOverride for InverseWorld {

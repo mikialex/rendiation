@@ -36,8 +36,8 @@ impl PassContentWithCamera for &mut AxisHelper {
 }
 
 pub struct Arrow {
-  cylinder: Box<dyn SceneRenderable>,
-  tip: Box<dyn SceneRenderable>,
+  cylinder: Box<dyn SceneModel>,
+  tip: Box<dyn SceneModel>,
   pub root: SceneNode,
 }
 
@@ -49,7 +49,8 @@ impl SceneRayInteractive for Arrow {
   ) -> Option<rendiation_geometry::Nearest<rendiation_renderable_mesh::mesh::MeshBufferHitPoint>>
   {
     // let result =  Nearest::none();
-    // self.cylinder.ray_pick_nearest(world_ray, conf)
+    self.cylinder.ray_pick_nearest(world_ray, conf);
+    self.tip.ray_pick_nearest(world_ray, conf);
     None
   }
 }

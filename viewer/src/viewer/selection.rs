@@ -19,7 +19,7 @@ impl Picker {
   ) {
     selections.clear();
     if let Some((nearest, _)) = scene.interaction_picking(normalized_position, &self.config) {
-      selections.select(SceneModel::as_renderable(nearest));
+      selections.select(SceneModelShareable::as_renderable(nearest));
     }
   }
 }
