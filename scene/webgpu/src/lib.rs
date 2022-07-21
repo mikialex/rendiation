@@ -80,8 +80,14 @@ pub trait SceneRayInteractive {
   ) -> Option<Nearest<MeshBufferHitPoint>>;
 }
 
-pub trait SceneModel: SceneRayInteractive + SceneRenderableShareable {}
-impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModel for T {}
+pub trait SceneModel: SceneRayInteractive + SceneRenderableShareable {
+  fn as_interactive(&self) -> &dyn SceneRayInteractive;
+}
+impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModel for T {
+  fn as_interactive(&self) -> &dyn SceneRayInteractive {
+    self
+  }
+}
 
 impl SceneRayInteractive for &mut dyn SceneModel {
   fn ray_pick_nearest(
@@ -198,7 +204,7 @@ impl<'a> SceneRayInteractive for &'a dyn SceneModel {
     world_ray: &Ray3,
     conf: &MeshBufferIntersectConfig,
   ) -> Option<Nearest<MeshBufferHitPoint>> {
-    (self as &dyn SceneRayInteractive).ray_pick_nearest(world_ray, conf)
+    self.as_interactive().ray_pick_nearest(world_ray, conf)
   }
 }
 

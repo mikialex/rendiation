@@ -330,13 +330,13 @@ impl<T> Component<T, System3D> for Component3DCollection<T> {
     for view in &mut self.collection {
       view.event(states, ctx);
     }
-    map_3d_events(
-      ctx,
-      self
-        .collection
-        .iter_mut()
-        .map(|c| c.as_mut() as &mut dyn SceneRayInteractive),
-    );
+    // map_3d_events(
+    //   ctx,
+    //   self
+    //     .collection
+    //     .iter_mut()
+    //     .map(|c| c.as_mut() as &mut dyn SceneRayInteractive),
+    // );
     ctx.event_3d = None;
   }
 
