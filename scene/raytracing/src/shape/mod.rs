@@ -104,7 +104,7 @@ impl Shape for Sphere {
   }
 
   fn intersect(&self, ray: Ray3) -> PossibleIntersection {
-    let result: Nearest<HitPoint3D> = ray.intersect(self, &());
+    let result: OptionalNearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| {
       let normal = (near.position - self.center).into_normalized();
       Intersection {
@@ -127,7 +127,7 @@ impl Shape for Plane {
   }
 
   fn intersect(&self, ray: Ray3) -> PossibleIntersection {
-    let result: Nearest<HitPoint3D> = ray.intersect(self, &());
+    let result: OptionalNearest<HitPoint3D> = ray.intersect(self, &());
     PossibleIntersection(result.0.map(|near| Intersection {
       position: near.position,
       geometric_normal: self.normal,

@@ -5,7 +5,7 @@ use interphaser::{
   CanvasWindowPositionInfo, Component, WindowState,
 };
 use rendiation_algebra::{Mat4, Vec3};
-use rendiation_geometry::{Nearest, Ray3};
+use rendiation_geometry::{OptionalNearest, Ray3};
 use rendiation_renderable_mesh::{
   mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
   tessellation::{CubeMeshParameter, IndexedMeshTessellator},
@@ -323,7 +323,7 @@ impl<'a, T> SceneRayInteractive for &'a mut dyn Component3D<T> {
     &self,
     _world_ray: &Ray3,
     _conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
+  ) -> OptionalNearest<MeshBufferHitPoint> {
     todo!()
   }
 }

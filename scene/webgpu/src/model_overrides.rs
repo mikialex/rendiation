@@ -87,7 +87,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRayInteractive
     &self,
     _world_ray: &Ray3,
     _conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
+  ) -> OptionalNearest<MeshBufferHitPoint> {
     todo!()
   }
 }

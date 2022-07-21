@@ -1,6 +1,6 @@
 use interphaser::Component;
 use rendiation_algebra::*;
-use rendiation_geometry::{Nearest, Ray3};
+use rendiation_geometry::{OptionalNearest, Ray3};
 use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
 
 use crate::*;
@@ -70,9 +70,9 @@ impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
 impl<T: SceneRayInteractive, S> SceneRayInteractive for InteractiveWatchable<T, S> {
   fn ray_pick_nearest(
     &self,
-    _world_ray: &Ray3,
-    _conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
-    None
+    world_ray: &Ray3,
+    conf: &MeshBufferIntersectConfig,
+  ) -> OptionalNearest<MeshBufferHitPoint> {
+    self.inner.ray_pick_nearest(world_ray, conf)
   }
 }

@@ -47,7 +47,7 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Nearest<MeshBufferHitPoint>;
+  ) -> OptionalNearest<MeshBufferHitPoint>;
 
   fn intersect_nearest_bvh_statistic(
     &self,
@@ -61,7 +61,7 @@ where
   B: BVHBounding + IntersectAble<Ray3, bool, ()>,
   G: AbstractMesh,
   G::Primitive: SpaceBounding<f32, B, 3>,
-  G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, MeshBufferIntersectConfig>,
+  G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, MeshBufferIntersectConfig>,
 {
   fn intersect_list_bvh(
     &self,
@@ -96,8 +96,8 @@ where
     ray: Ray3,
     bvh: &FlattenBVH<B>,
     conf: &MeshBufferIntersectConfig,
-  ) -> Nearest<MeshBufferHitPoint> {
-    let mut nearest = Nearest::none();
+  ) -> OptionalNearest<MeshBufferHitPoint> {
+    let mut nearest = OptionalNearest::none();
     bvh.traverse(
       |branch| branch.bounding.intersect(&ray, &()),
       |leaf| {

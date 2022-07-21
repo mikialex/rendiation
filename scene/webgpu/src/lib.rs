@@ -77,7 +77,7 @@ pub trait SceneRayInteractive {
     &self,
     _world_ray: &Ray3,
     _conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>>;
+  ) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
 pub trait SceneModelShareable: SceneRayInteractive + SceneRenderableShareable {
@@ -110,7 +110,7 @@ impl SceneRayInteractive for &mut dyn SceneModelShareable {
     &self,
     _world_ray: &Ray3,
     _conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
+  ) -> OptionalNearest<MeshBufferHitPoint> {
     todo!()
   }
 }
@@ -219,7 +219,7 @@ impl<'a> SceneRayInteractive for &'a dyn SceneModelShareable {
     &self,
     world_ray: &Ray3,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
+  ) -> OptionalNearest<MeshBufferHitPoint> {
     self.as_interactive().ray_pick_nearest(world_ray, conf)
   }
 }
@@ -232,7 +232,7 @@ pub fn interaction_picking<I: SceneRayInteractive, T: IntoIterator<Item = I>>(
   let mut result = Vec::new();
 
   for m in content {
-    if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
+    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(&world_ray, conf) {
       result.push((m, r));
     }
   }
@@ -255,7 +255,7 @@ pub fn interaction_picking_mut<'a, T: IntoIterator<Item = &'a mut dyn SceneRayIn
   let mut result = Vec::new();
 
   for m in content {
-    if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
+    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(&world_ray, conf) {
       result.push((m, r));
     }
   }

@@ -29,7 +29,7 @@ where
     &self,
     world_ray: &Ray3,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
+  ) -> OptionalNearest<MeshBufferHitPoint> {
     self.inner.read().unwrap().ray_pick_nearest(world_ray, conf)
   }
 }
@@ -120,10 +120,10 @@ where
     &self,
     world_ray: &Ray3,
     conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
+  ) -> OptionalNearest<MeshBufferHitPoint> {
     let net_visible = self.node.visit(|n| n.net_visible);
     if !net_visible {
-      return None;
+      return OptionalNearest::none();
     }
 
     let world_inv = self.node.visit(|n| n.world_matrix).inverse_or_identity();
@@ -131,11 +131,11 @@ where
     let local_ray = world_ray.clone().apply_matrix_into(world_inv);
 
     if !self.material.is_keep_mesh_shape() {
-      return None;
+      return OptionalNearest::none();
     }
 
     let mesh = &self.mesh;
-    let mut picked = None;
+    let mut picked = OptionalNearest::none();
     mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
       picked = mesh.intersect_nearest(local_ray, conf, self.group).into();
     });
