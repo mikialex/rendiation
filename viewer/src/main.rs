@@ -5,7 +5,6 @@
 #![feature(type_alias_impl_trait)]
 #![feature(generic_associated_types)]
 #![feature(hash_raw_entry)]
-#![feature(trait_upcasting)]
 #![allow(incomplete_features)]
 #![allow(clippy::collapsible_match)]
 #![allow(clippy::field_reassign_with_default)]

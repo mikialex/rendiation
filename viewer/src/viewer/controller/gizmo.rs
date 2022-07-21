@@ -298,8 +298,14 @@ pub struct Component3DCollection<T> {
   collection: Vec<Box<dyn Component3D<T>>>,
 }
 
-pub trait Component3D<T>: Component<T, System3D> + SceneRayInteractive + SceneRenderable {}
-impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Component3D<T> for X {}
+pub trait Component3D<T>: Component<T, System3D> + SceneRayInteractive + SceneRenderable {
+  fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
+}
+impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Component3D<T> for X {
+  fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
+    self
+  }
+}
 
 impl<'a, T> SceneRayInteractive for &'a mut dyn Component3D<T> {
   fn ray_pick_nearest(
@@ -330,13 +336,10 @@ impl<T> Component<T, System3D> for Component3DCollection<T> {
     for view in &mut self.collection {
       view.event(states, ctx);
     }
-    // map_3d_events(
-    //   ctx,
-    //   self
-    //     .collection
-    //     .iter_mut()
-    //     .map(|c| c.as_mut() as &mut dyn SceneRayInteractive),
-    // );
+    map_3d_events(
+      ctx,
+      self.collection.iter_mut().map(|c| c.as_mut_interactive()),
+    );
     ctx.event_3d = None;
   }
 

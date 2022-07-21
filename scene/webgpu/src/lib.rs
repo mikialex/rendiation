@@ -82,9 +82,13 @@ pub trait SceneRayInteractive {
 
 pub trait SceneModel: SceneRayInteractive + SceneRenderableShareable {
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
+  fn as_renderable(&self) -> &dyn SceneRenderableShareable;
 }
 impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModel for T {
   fn as_interactive(&self) -> &dyn SceneRayInteractive {
+    self
+  }
+  fn as_renderable(&self) -> &dyn SceneRenderableShareable {
     self
   }
 }
