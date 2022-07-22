@@ -77,17 +77,22 @@ impl PassContentWithCamera for Arrow {
   }
 }
 
+type ArrowMaterial = impl WebGPUMaterial + Clone;
+type ArrowTipMesh = impl WebGPUMesh + Clone;
+type ArrowBodyMesh = impl WebGPUMesh + Clone;
+
 impl Arrow {
   pub fn new_reused(
     parent: &SceneNode,
     auto_scale: &Rc<RefCell<ViewAutoScalable>>,
-    material: &(impl WebGPUMaterial + Clone),
-    cylinder_mesh: &(impl WebGPUMesh + Clone),
-    tip_mesh: &(impl WebGPUMesh + Clone),
+    material: &ArrowMaterial,
+    cylinder_mesh: &ArrowBodyMesh,
+    tip_mesh: &ArrowTipMesh,
   ) -> Self {
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
+    node_cylinder.set_local_matrix(Mat4::translate(0., 1., 0.));
     let mut cylinder = MeshModelImpl::new(
       material.clone().into_resourced(),
       cylinder_mesh.clone().into_resourced(),
@@ -98,7 +103,7 @@ impl Arrow {
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
-    node_tip.set_local_matrix(Mat4::translate(0., 1., 0.));
+    node_tip.set_local_matrix(Mat4::translate(0., 2., 0.));
     let mut tip = MeshModelImpl::new(
       material.clone().into_resourced(),
       tip_mesh.clone().into_resourced(),
@@ -115,7 +120,7 @@ impl Arrow {
     }
   }
 
-  pub fn default_shape() -> ((impl WebGPUMesh + Clone), (impl WebGPUMesh + Clone)) {
+  pub fn default_shape() -> (ArrowBodyMesh, ArrowTipMesh) {
     let cylinder = CylinderMeshParameter {
       radius_top: 0.01,
       radius_bottom: 0.01,
@@ -135,9 +140,24 @@ impl Arrow {
     let tip = MeshCell::new(MeshSource::new(tip));
     (cylinder, tip)
   }
+
+  pub fn with_transform(self, m: Mat4<f32>) -> Self {
+    self.root.set_local_matrix(m);
+    self
+  }
+  pub fn toward_x(self) -> Self {
+    self.with_transform(Mat4::rotate_z(-f32::PI() / 2.))
+  }
+  pub fn toward_y(self) -> Self {
+    // the cylinder is y up by default, so do nothing
+    self
+  }
+  pub fn toward_z(self) -> Self {
+    self.with_transform(Mat4::rotate_x(f32::PI() / 2.))
+  }
 }
 
-pub fn solid_material(color: impl Into<Vec3<f32>>) -> impl WebGPUMaterial + Clone {
+pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
   let color = color.into();
   let mut material = FlatMaterial {
     color: Vec4::new(color.x, color.y, color.z, 1.0),
@@ -166,8 +186,8 @@ impl AxisHelper {
       &solid_material((0.8, 0.1, 0.1)),
       cylinder,
       tip,
-    );
-    x.root.set_local_matrix(Mat4::rotate_z(-f32::PI() / 2.));
+    )
+    .toward_x();
 
     let y = Arrow::new_reused(
       &root,
@@ -175,9 +195,8 @@ impl AxisHelper {
       &solid_material((0.1, 0.8, 0.1)),
       cylinder,
       tip,
-    );
-    y.root.set_local_matrix(Mat4::identity());
-    // the cylinder is y up, so do nothing
+    )
+    .toward_y();
 
     let z = Arrow::new_reused(
       &root,
@@ -185,8 +204,8 @@ impl AxisHelper {
       &solid_material((0.1, 0.1, 0.8)),
       cylinder,
       tip,
-    );
-    z.root.set_local_matrix(Mat4::rotate_x(f32::PI() / 2.));
+    )
+    .toward_z();
 
     Self {
       root,

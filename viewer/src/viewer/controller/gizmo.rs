@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use interphaser::{
   lens, mouse, mouse_move,
-  winit::event::{ElementState, Event, MouseButton, WindowEvent},
-  CanvasWindowPositionInfo, Component, Lens, WindowState,
+  winit::event::{ElementState, MouseButton},
+  Component, Lens,
 };
 use rendiation_algebra::{Mat4, Vec3};
 use rendiation_geometry::{OptionalNearest, Ray3};
@@ -17,6 +17,9 @@ use crate::{
   *,
 };
 
+/// Gizmo is a useful widget in 3d design/editor software.
+/// User could use this to modify the scene node's transformation.
+///
 pub struct Gizmo {
   // scale: AxisScaleGizmo,
   // rotation: RotationGizmo,
@@ -133,19 +136,36 @@ struct TranslateGizmoState {
   last_active_world_position: Vec3<f32>,
 }
 
+impl TranslateGizmoState {
+  fn show_x(&self) -> bool {
+    !self.active.has_active() || self.active.x
+  }
+  fn show_y(&self) -> bool {
+    !self.active.has_active() || self.active.y
+  }
+  fn show_z(&self) -> bool {
+    !self.active.has_active() || self.active.z
+  }
+}
+
 impl TranslateGizmo {
   pub fn new(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>) -> Self {
     let x = build_axis_arrow(root, auto_scale)
+      .toward_x()
       .eventable::<TranslateGizmoState>()
-      .update(|s, arrow| arrow.root.set_visible(s.active.x))
+      .update(|s, arrow| arrow.root.set_visible(s.show_x()))
       .on(active(lens!(TranslateGizmoState, active.x)));
 
     let y = build_axis_arrow(root, auto_scale)
+      .toward_y()
       .eventable::<TranslateGizmoState>()
+      .update(|s, arrow| arrow.root.set_visible(s.show_y()))
       .on(active(lens!(TranslateGizmoState, active.y)));
 
     let z = build_axis_arrow(root, auto_scale)
+      .toward_z()
       .eventable::<TranslateGizmoState>()
+      .update(|s, arrow| arrow.root.set_visible(s.show_z()))
       .on(active(lens!(TranslateGizmoState, active.z)));
 
     let view = collection3d().with(x).with(y).with(z);
@@ -167,11 +187,12 @@ impl TranslateGizmo {
     // dispatch 3d events into 3d components, handling state active
     self.view.event(&mut self.states, event);
 
-    // handling moving and update in gizmo level
-    if let Some(cursor_position) = mouse_move(event.raw_event) {
+    // after active states get updated, we handling mouse moving in gizmo level
+    if mouse_move(event.raw_event).is_some() {
       if !self.states.active.has_active() {
         return;
       }
+      // let target_world = self.root.get_world_matrix();
 
       if self.states.active.only_x() {
         //
