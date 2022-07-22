@@ -164,7 +164,8 @@ impl Viewer3dContent {
       size: (position_info.size.width, position_info.size.height).into(),
     };
 
-    self.gizmo.event(event, &position_info, states, &self.scene);
+    let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene);
+    self.gizmo.event(&mut ctx);
     self.controller.event(event, bound);
 
     #[allow(clippy::single_match)]

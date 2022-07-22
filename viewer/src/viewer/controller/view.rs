@@ -16,6 +16,28 @@ pub struct EventCtx3D<'a> {
   pub scene: &'a Scene<WebGPUScene>,
 
   pub event_3d: Option<Event3D>,
+  pub ray: Ray3,
+}
+
+impl<'a> EventCtx3D<'a> {
+  pub fn new(
+    window_states: &'a WindowState,
+    raw_event: &'a Event<'a, ()>,
+    info: &'a CanvasWindowPositionInfo,
+    scene: &'a Scene<WebGPUScene>,
+  ) -> Self {
+    let normalized_position = info.compute_normalized_position_in_canvas_coordinate(window_states);
+    let ray = scene.build_picking_ray_by_view_camera(normalized_position.into());
+
+    Self {
+      window_states,
+      raw_event,
+      info,
+      scene,
+      event_3d: None,
+      ray,
+    }
+  }
 }
 
 pub struct UpdateCtx3D<'a> {

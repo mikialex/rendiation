@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use interphaser::{
-  lens, mouse,
+  lens, mouse, mouse_move,
   winit::event::{ElementState, Event, MouseButton, WindowEvent},
   CanvasWindowPositionInfo, Component, Lens, WindowState,
 };
@@ -36,14 +36,8 @@ impl Gizmo {
     }
   }
 
-  pub fn event(
-    &mut self,
-    event: &Event<()>,
-    info: &CanvasWindowPositionInfo,
-    states: &WindowState,
-    scene: &Scene<WebGPUScene>,
-  ) {
-    self.translate.event(event, info, states, scene)
+  pub fn event(&mut self, event: &mut EventCtx3D) {
+    self.translate.event(event)
   }
 
   pub fn update(&mut self) {
@@ -165,32 +159,28 @@ impl TranslateGizmo {
     }
   }
 
-  pub fn event(
-    &mut self,
-    event: &Event<()>,
-    info: &CanvasWindowPositionInfo,
-    window_states: &WindowState,
-    scene: &Scene<WebGPUScene>,
-  ) {
+  pub fn event(&mut self, event: &mut EventCtx3D) {
     if !self.enabled {
       return;
     }
 
-    let mut ctx = EventCtx3D {
-      window_states,
-      raw_event: event,
-      info,
-      scene,
-      event_3d: None,
-    };
+    // dispatch 3d events into 3d components, handling state active
+    self.view.event(&mut self.states, event);
 
-    self.view.event(&mut self.states, &mut ctx);
+    // handling moving and update in gizmo level
+    if let Some(cursor_position) = mouse_move(event.raw_event) {
+      if !self.states.active.has_active() {
+        return;
+      }
 
-    if let Event::WindowEvent { event, .. } = event {
-      if let WindowEvent::CursorMoved { .. } = event {
-        if self.states.active.only_y() {
-          //
-        }
+      if self.states.active.only_x() {
+        //
+      }
+      if self.states.active.only_y() {
+        //
+      }
+      if self.states.active.only_z() {
+        //
       }
     }
   }
