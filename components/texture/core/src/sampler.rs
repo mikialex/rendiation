@@ -31,7 +31,6 @@ impl<'a> From<TextureSampler> for rendiation_webgpu::SamplerDescriptor<'a> {
         AddressMode::ClampToEdge => rendiation_webgpu::AddressMode::ClampToEdge,
         AddressMode::Repeat => rendiation_webgpu::AddressMode::Repeat,
         AddressMode::MirrorRepeat => rendiation_webgpu::AddressMode::MirrorRepeat,
-        AddressMode::ClampToBorder => rendiation_webgpu::AddressMode::ClampToBorder,
       }
     }
     fn convert_filter(mode: FilterMode) -> rendiation_webgpu::FilterMode {
