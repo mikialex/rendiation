@@ -311,21 +311,21 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseOut {
   }
 }
 
-fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
+pub fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
   match event {
     Event::WindowEvent { event, .. } => Some(event),
     _ => None,
   }
 }
 
-fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
+pub fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
   window_event(event).and_then(|e| match e {
     WindowEvent::MouseInput { state, button, .. } => Some((*button, *state)),
     _ => None,
   })
 }
 
-fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>> {
+pub fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>> {
   window_event(event).and_then(|e| match e {
     WindowEvent::CursorMoved { position, .. } => Some(*position),
     _ => None,

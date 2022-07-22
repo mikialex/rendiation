@@ -81,7 +81,7 @@ pub trait ScalarConstEval: Sized {
 
 impl<T: From<f32>> ScalarConstEval for T {
   fn eval<const N: u32>() -> Self {
-    let float: f32 = unsafe { std::mem::transmute(N) };
+    let float: f32 = f32::from_bits(N);
     float.into()
   }
   fn by_usize_div(a: usize, b: usize) -> Self {

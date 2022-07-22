@@ -137,7 +137,7 @@ where
     let mesh = &self.mesh;
     let mut picked = OptionalNearest::none();
     mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-      picked = mesh.intersect_nearest(local_ray, conf, self.group).into();
+      picked = mesh.intersect_nearest(local_ray, conf, self.group);
     });
     picked
   }

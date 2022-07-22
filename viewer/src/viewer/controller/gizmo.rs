@@ -1,8 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use interphaser::{
+  lens, mouse,
   winit::event::{ElementState, Event, MouseButton, WindowEvent},
-  CanvasWindowPositionInfo, Component, WindowState,
+  CanvasWindowPositionInfo, Component, Lens, WindowState,
 };
 use rendiation_algebra::{Mat4, Vec3};
 use rendiation_geometry::{OptionalNearest, Ray3};
@@ -143,15 +144,15 @@ impl TranslateGizmo {
     let x = build_axis_arrow(root, auto_scale)
       .eventable::<TranslateGizmoState>()
       .update(|s, arrow| arrow.root.set_visible(s.active.x))
-      .on(active(|a| a.x = true));
+      .on(active(lens!(TranslateGizmoState, active.x)));
 
     let y = build_axis_arrow(root, auto_scale)
       .eventable::<TranslateGizmoState>()
-      .on(active(|a| a.y = true));
+      .on(active(lens!(TranslateGizmoState, active.y)));
 
     let z = build_axis_arrow(root, auto_scale)
       .eventable::<TranslateGizmoState>()
-      .on(active(|a| a.z = true));
+      .on(active(lens!(TranslateGizmoState, active.z)));
 
     let view = collection3d().with(x).with(y).with(z);
 
@@ -196,18 +197,39 @@ impl TranslateGizmo {
   pub fn update(&mut self) {
     let mut ctx = UpdateCtx3D { placeholder: &() };
 
-    self.view.update(&mut self.states, &mut ctx);
+    self.view.update(&self.states, &mut ctx);
 
     self.root.set_local_matrix(Mat4::translate(1., 0., 1.));
   }
 }
 
-fn active(active: impl Fn(&mut AxisActiveState)) -> impl Fn(&mut TranslateGizmoState, &Event3D) {
+// this logic mixed with click state handling, try separate it
+fn active(
+  active: impl Lens<TranslateGizmoState, bool>,
+) -> impl FnMut(&mut TranslateGizmoState, &EventCtx3D) {
+  let mut is_mouse_down = false;
   move |state, event| {
-    active(&mut state.active);
-    if let Event3D::MouseDown { world_position } = event {
-      println!("{}", world_position);
-      state.last_active_world_position = *world_position;
+    if let Some(event3d) = &event.event_3d {
+      match event3d {
+        Event3D::MouseDown { world_position } => {
+          is_mouse_down = true;
+          if active.with(state, |active| *active) {
+            state.last_active_world_position = *world_position;
+          }
+        }
+        Event3D::MouseUp { .. } => {
+          if is_mouse_down {
+            active.with_mut(state, |active| {
+              *active = true;
+            });
+          }
+        }
+        _ => {}
+      }
+    }
+
+    if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
+      is_mouse_down = false;
     }
   }
 }
