@@ -165,26 +165,19 @@ impl Viewer3dContent {
     };
 
     let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene);
+
     self.gizmo.event(&mut ctx);
     self.controller.event(event, bound);
 
-    #[allow(clippy::single_match)]
-    match event {
-      Event::WindowEvent { event, .. } => match event {
-        winit::event::WindowEvent::MouseInput { state, button, .. } => {
-          if *button == MouseButton::Left && *state == ElementState::Pressed {
-            self.picker.pick_new(
-              &self.scene,
-              &mut self.selections,
-              position_info
-                .compute_normalized_position_in_canvas_coordinate(states)
-                .into(),
-            );
-          }
-        }
-        _ => {}
-      },
-      _ => {}
+    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
+      self.picker.pick_new(
+        &self.scene,
+        &mut self.selections,
+        &mut self.gizmo,
+        position_info
+          .compute_normalized_position_in_canvas_coordinate(states)
+          .into(),
+      );
     }
   }
 

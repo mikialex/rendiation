@@ -15,11 +15,14 @@ impl Picker {
     &self,
     scene: &Scene<WebGPUScene>,
     selections: &mut SelectionSet,
+    gizmo: &mut Gizmo,
     normalized_position: Vec2<f32>,
   ) {
     selections.clear();
+    gizmo.set_target(None);
     if let Some((nearest, _)) = scene.interaction_picking(normalized_position, &self.config) {
       selections.select(SceneModelShareable::as_renderable(nearest));
+      // gizmo.set_target(nearest.get_node());
     }
   }
 }
