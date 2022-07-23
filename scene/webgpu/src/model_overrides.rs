@@ -119,7 +119,7 @@ impl ViewAutoScalablePositionOverride {
     match self {
       ViewAutoScalablePositionOverride::None => None,
       ViewAutoScalablePositionOverride::Fixed(f) => Some(*f),
-      ViewAutoScalablePositionOverride::SyncNode(n) => Some(n.visit(|n| n.world_matrix.position())),
+      ViewAutoScalablePositionOverride::SyncNode(n) => Some(n.get_world_matrix().position()),
     }
   }
 }
@@ -141,12 +141,14 @@ impl WorldMatrixOverride for ViewAutoScalable {
   fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
     let camera = &ctx.camera;
 
-    let center = self
+    let world_position = self
       .override_position
       .get_optional_position()
       .unwrap_or_else(|| world_matrix.position());
-    let camera_position = camera.node.visit(|n| n.world_matrix.position());
-    let distance = (camera_position - center).length();
+    let world_translation = Mat4::translate(world_position.x, world_position.y, world_position.z);
+
+    let camera_position = camera.node.get_world_matrix().position();
+    let distance = (camera_position - world_position).length();
 
     let camera_view_height = camera.view_size_in_pixel(ctx.buffer_size).y;
 
@@ -158,7 +160,10 @@ impl WorldMatrixOverride for ViewAutoScalable {
     let raw_scale = world_matrix.extract_scale();
     let new_scale = Vec3::splat(scale) / raw_scale;
 
-    Mat4::scale(new_scale.x, new_scale.y, new_scale.z) * world_matrix
+    world_translation // move back to position
+      * Mat4::scale(new_scale.x, new_scale.y, new_scale.z) // apply new scale
+      * world_translation.inverse_or_identity() // move back to zero
+      * world_matrix // original
   }
 }
 

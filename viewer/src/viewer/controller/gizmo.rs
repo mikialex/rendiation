@@ -96,15 +96,14 @@ impl Gizmo {
     }
   }
   pub fn update(&mut self) {
-    if self.target.is_none() {
-      return;
+    if let Some(target) = &self.target {
+      let mut ctx = UpdateCtx3D { placeholder: &() };
+
+      self.view.update(&self.states, &mut ctx);
+
+      target.set_local_matrix(Mat4::translate(5., 0., 1.));
+      self.root.set_local_matrix(Mat4::translate(5., 0., 1.));
     }
-
-    let mut ctx = UpdateCtx3D { placeholder: &() };
-
-    self.view.update(&self.states, &mut ctx);
-
-    self.root.set_local_matrix(Mat4::translate(1., 0., 1.));
   }
 }
 
