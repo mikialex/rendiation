@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
 use rendiation_renderable_mesh::{
-  mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
+  mesh::MeshBufferHitPoint,
   tessellation::{CylinderMeshParameter, IndexedMeshTessellator},
 };
 
@@ -46,15 +46,11 @@ pub struct Arrow {
 }
 
 impl SceneRayInteractive for Arrow {
-  fn ray_pick_nearest(
-    &self,
-    world_ray: &rendiation_geometry::Ray3,
-    conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     self
       .cylinder
-      .ray_pick_nearest(world_ray, conf)
-      .or(self.tip.ray_pick_nearest(world_ray, conf))
+      .ray_pick_nearest(ctx)
+      .or(self.tip.ray_pick_nearest(ctx))
   }
 }
 

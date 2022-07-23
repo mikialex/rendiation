@@ -1,32 +1,6 @@
 use std::collections::HashMap;
 
-use rendiation_algebra::Vec2;
-use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
-
 use crate::*;
-
-#[derive(Default)]
-pub struct Picker {
-  pub config: MeshBufferIntersectConfig,
-}
-
-impl Picker {
-  pub fn pick_new(
-    &self,
-    scene: &Scene<WebGPUScene>,
-    selections: &mut SelectionSet,
-    gizmo: &mut Gizmo,
-    normalized_position: Vec2<f32>,
-  ) {
-    selections.clear();
-    gizmo.set_target(None);
-    if let Some((nearest, _)) = scene.interaction_picking(normalized_position, &self.config) {
-      selections.select(SceneModelShareable::as_renderable(nearest));
-
-      gizmo.set_target(nearest.get_node().into());
-    }
-  }
-}
 
 type Selected = Box<dyn SceneRenderableShareable>;
 

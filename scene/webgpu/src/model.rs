@@ -25,12 +25,8 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn ray_pick_nearest(
-    &self,
-    world_ray: &Ray3,
-    conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    self.inner.read().unwrap().ray_pick_nearest(world_ray, conf)
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    self.inner.read().unwrap().ray_pick_nearest(ctx)
   }
 }
 
@@ -123,11 +119,7 @@ where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
-  fn ray_pick_nearest(
-    &self,
-    world_ray: &Ray3,
-    conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     let net_visible = self.node.visit(|n| n.net_visible);
     if !net_visible {
       return OptionalNearest::none();
@@ -135,7 +127,7 @@ where
 
     let world_inv = self.node.visit(|n| n.world_matrix).inverse_or_identity();
 
-    let local_ray = world_ray.clone().apply_matrix_into(world_inv);
+    let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
 
     if !self.material.is_keep_mesh_shape() {
       return OptionalNearest::none();
@@ -144,7 +136,7 @@ where
     let mesh = &self.mesh;
     let mut picked = OptionalNearest::none();
     mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-      picked = mesh.intersect_nearest(local_ray, conf, self.group);
+      picked = mesh.intersect_nearest(local_ray, ctx.conf, self.group);
     });
     picked
   }

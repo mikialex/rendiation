@@ -72,12 +72,14 @@ pub trait SceneRenderable {
   );
 }
 
+pub struct SceneRayInteractiveCtx<'a> {
+  pub world_ray: Ray3,
+  pub conf: &'a MeshBufferIntersectConfig,
+  pub camera: &'a SceneCamera,
+}
+
 pub trait SceneRayInteractive {
-  fn ray_pick_nearest(
-    &self,
-    _world_ray: &Ray3,
-    _conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint>;
+  fn ray_pick_nearest(&self, _ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
 pub trait SceneNodeControlled {
@@ -121,16 +123,6 @@ where
   }
   fn as_renderable(&self) -> &dyn SceneRenderable {
     self
-  }
-}
-
-impl SceneRayInteractive for &mut dyn SceneModelShareable {
-  fn ray_pick_nearest(
-    &self,
-    _world_ray: &Ray3,
-    _conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    todo!()
   }
 }
 
@@ -204,11 +196,16 @@ pub struct GPUResourceSubCache {
 
 pub trait WebGPUSceneExtension {
   fn add_model(&mut self, model: impl SceneModelShareable + 'static);
-  fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3;
+
+  fn build_interactive_ctx<'a>(
+    &'a self,
+    normalized_position: Vec2<f32>,
+    conf: &'a MeshBufferIntersectConfig,
+  ) -> SceneRayInteractiveCtx<'a>;
+
   fn interaction_picking(
     &self,
-    normalized_position: Vec2<f32>,
-    conf: &MeshBufferIntersectConfig,
+    ctx: &SceneRayInteractiveCtx,
   ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)>;
 }
 
@@ -218,40 +215,42 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
   fn add_model(&mut self, model: impl SceneModelShareable + 'static) {
     self.models.push(Box::new(model));
   }
-  fn build_picking_ray_by_view_camera(&self, normalized_position: Vec2<f32>) -> Ray3 {
+  fn build_interactive_ctx<'a>(
+    &'a self,
+    normalized_position: Vec2<f32>,
+    conf: &'a MeshBufferIntersectConfig,
+  ) -> SceneRayInteractiveCtx<'a> {
     let camera = self.active_camera.as_ref().unwrap();
-    camera.cast_world_ray(normalized_position)
+    let world_ray = camera.cast_world_ray(normalized_position);
+    SceneRayInteractiveCtx {
+      world_ray,
+      conf,
+      camera,
+    }
   }
 
   fn interaction_picking(
     &self,
-    normalized_position: Vec2<f32>,
-    conf: &MeshBufferIntersectConfig,
+    ctx: &SceneRayInteractiveCtx,
   ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)> {
-    let world_ray = self.build_picking_ray_by_view_camera(normalized_position);
-    interaction_picking(self.models.iter().map(|m| m.as_ref()), world_ray, conf)
+    interaction_picking(self.models.iter().map(|m| m.as_ref()), ctx)
   }
 }
 
 impl<'a> SceneRayInteractive for &'a dyn SceneModelShareable {
-  fn ray_pick_nearest(
-    &self,
-    world_ray: &Ray3,
-    conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    self.as_interactive().ray_pick_nearest(world_ray, conf)
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    self.as_interactive().ray_pick_nearest(ctx)
   }
 }
 
 pub fn interaction_picking<I: SceneRayInteractive, T: IntoIterator<Item = I>>(
   content: T,
-  world_ray: Ray3,
-  conf: &MeshBufferIntersectConfig,
+  ctx: &SceneRayInteractiveCtx,
 ) -> Option<(I, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {
-    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(&world_ray, conf) {
+    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(ctx) {
       result.push((m, r));
     }
   }
@@ -268,13 +267,12 @@ pub fn interaction_picking<I: SceneRayInteractive, T: IntoIterator<Item = I>>(
 
 pub fn interaction_picking_mut<'a, T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>>(
   content: T,
-  world_ray: Ray3,
-  conf: &MeshBufferIntersectConfig,
+  ctx: &SceneRayInteractiveCtx,
 ) -> Option<(&'a mut dyn SceneRayInteractive, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {
-    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(&world_ray, conf) {
+    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(ctx) {
       result.push((m, r));
     }
   }

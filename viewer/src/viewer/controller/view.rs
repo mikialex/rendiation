@@ -1,9 +1,8 @@
 use interphaser::{
-  winit::event::{ElementState, Event, MouseButton, WindowEvent},
+  mouse, mouse_move,
+  winit::event::{ElementState, Event, MouseButton},
   CanvasWindowPositionInfo, Component, WindowState,
 };
-use rendiation_geometry::{OptionalNearest, Ray3};
-use rendiation_renderable_mesh::mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig};
 
 use crate::*;
 
@@ -16,7 +15,7 @@ pub struct EventCtx3D<'a> {
   pub scene: &'a Scene<WebGPUScene>,
 
   pub event_3d: Option<Event3D>,
-  pub ray: Ray3,
+  pub interactive_ctx: &'a SceneRayInteractiveCtx<'a>,
 }
 
 impl<'a> EventCtx3D<'a> {
@@ -25,17 +24,15 @@ impl<'a> EventCtx3D<'a> {
     raw_event: &'a Event<'a, ()>,
     info: &'a CanvasWindowPositionInfo,
     scene: &'a Scene<WebGPUScene>,
+    interactive_ctx: &'a SceneRayInteractiveCtx<'a>,
   ) -> Self {
-    let normalized_position = info.compute_normalized_position_in_canvas_coordinate(window_states);
-    let ray = scene.build_picking_ray_by_view_camera(normalized_position.into());
-
     Self {
       window_states,
       raw_event,
       info,
       scene,
       event_3d: None,
-      ray,
+      interactive_ctx,
     }
   }
 }
@@ -49,22 +46,6 @@ impl interphaser::System for System3D {
   type UpdateCtx<'a> = UpdateCtx3D<'a>;
 }
 
-fn interact<'a, T>(
-  view: T,
-  event: &EventCtx3D,
-) -> Option<(&'a mut dyn SceneRayInteractive, MeshBufferHitPoint)>
-where
-  T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>,
-{
-  let normalized_position = event
-    .info
-    .compute_normalized_position_in_canvas_coordinate(event.window_states);
-  let ray = event
-    .scene
-    .build_picking_ray_by_view_camera(normalized_position.into());
-  interaction_picking_mut(view, ray, &Default::default())
-}
-
 pub fn map_3d_events<'a, T>(
   event_ctx: &mut EventCtx3D,
   view: T,
@@ -73,41 +54,37 @@ where
   T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>,
 {
   let event = event_ctx.raw_event;
-  if let Event::WindowEvent { event, .. } = event {
-    match event {
-      WindowEvent::CursorMoved { .. } => {
-        if let Some((target, details)) = interact(view, event_ctx) {
-          event_ctx.event_3d = Event3D::MouseMove {
-            world_position: details.hit.position,
-          }
-          .into();
-          return Some(target);
-        }
+
+  if mouse_move(event).is_some() {
+    if let Some((target, details)) = interaction_picking_mut(view, event_ctx.interactive_ctx) {
+      event_ctx.event_3d = Event3D::MouseMove {
+        world_position: details.hit.position,
       }
-      WindowEvent::MouseInput { state, button, .. } => {
-        if let Some((target, details)) = interact(view, event_ctx) {
-          if *button == MouseButton::Left {
-            match state {
-              ElementState::Pressed => {
-                event_ctx.event_3d = Event3D::MouseDown {
-                  world_position: details.hit.position,
-                }
-                .into();
-              }
-              ElementState::Released => {
-                event_ctx.event_3d = Event3D::MouseUp {
-                  world_position: details.hit.position,
-                }
-                .into();
-              }
+      .into();
+      return Some(target);
+    }
+  } else if let Some((button, state)) = mouse(event) {
+    if let Some((target, details)) = interaction_picking_mut(view, event_ctx.interactive_ctx) {
+      if button == MouseButton::Left {
+        match state {
+          ElementState::Pressed => {
+            event_ctx.event_3d = Event3D::MouseDown {
+              world_position: details.hit.position,
             }
+            .into();
           }
-          return Some(target);
+          ElementState::Released => {
+            event_ctx.event_3d = Event3D::MouseUp {
+              world_position: details.hit.position,
+            }
+            .into();
+          }
         }
       }
-      _ => {}
+      return Some(target);
     }
   }
+
   None
 }
 
@@ -121,16 +98,6 @@ pub trait Component3D<T>: Component<T, System3D> + SceneRayInteractive + SceneRe
 impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Component3D<T> for X {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
     self
-  }
-}
-
-impl<'a, T> SceneRayInteractive for &'a mut dyn Component3D<T> {
-  fn ray_pick_nearest(
-    &self,
-    _world_ray: &Ray3,
-    _conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    todo!()
   }
 }
 

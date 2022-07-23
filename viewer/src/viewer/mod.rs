@@ -7,12 +7,13 @@ pub use pipeline::*;
 
 pub mod controller;
 pub use controller::*;
+use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 pub mod selection;
 
 pub mod helpers;
 use self::{
   helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper},
-  selection::{Picker, SelectionSet},
+  selection::SelectionSet,
 };
 
 use interphaser::winit::event::{ElementState, Event, MouseButton};
@@ -76,7 +77,7 @@ impl Default for ViewerImpl {
 
 pub struct Viewer3dContent {
   pub scene: Scene<WebGPUScene>,
-  pub picker: Picker,
+  pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
   pub axis_helper: AxisHelper,
@@ -134,7 +135,7 @@ impl Viewer3dContent {
     Self {
       scene,
       controller,
-      picker: Default::default(),
+      pick_config: Default::default(),
       selections: Default::default(),
       axis_helper,
       grid_helper,
@@ -164,20 +165,29 @@ impl Viewer3dContent {
       size: (position_info.size.width, position_info.size.height).into(),
     };
 
-    let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene);
+    let normalized_screen_position = position_info
+      .compute_normalized_position_in_canvas_coordinate(states)
+      .into();
+    let interactive_ctx = self
+      .scene
+      .build_interactive_ctx(normalized_screen_position, &self.pick_config);
+
+    let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene, &interactive_ctx);
 
     self.gizmo.event(&mut ctx);
     self.controller.event(event, bound);
 
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-      self.picker.pick_new(
-        &self.scene,
-        &mut self.selections,
-        &mut self.gizmo,
-        position_info
-          .compute_normalized_position_in_canvas_coordinate(states)
-          .into(),
-      );
+      self.selections.clear();
+      self.gizmo.set_target(None);
+
+      if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {
+        self
+          .selections
+          .select(SceneModelShareable::as_renderable(nearest));
+
+        self.gizmo.set_target(nearest.get_node().into());
+      }
     }
   }
 

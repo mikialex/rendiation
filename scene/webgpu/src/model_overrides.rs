@@ -89,12 +89,9 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
 impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRayInteractive
   for OverridableMeshModelImpl<Me, Ma>
 {
-  fn ray_pick_nearest(
-    &self,
-    _world_ray: &Ray3,
-    _conf: &MeshBufferIntersectConfig,
-  ) -> OptionalNearest<MeshBufferHitPoint> {
-    todo!()
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    OptionalNearest::none()
+    // todo!()
   }
 }
 
