@@ -5,12 +5,15 @@ pub use default_scene::*;
 pub mod pipeline;
 pub use pipeline::*;
 
+pub mod controller;
+pub use controller::*;
+use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 pub mod selection;
 
 pub mod helpers;
 use self::{
   helpers::{axis::AxisHelper, camera::CameraHelpers, grid::GridHelper},
-  selection::{Picker, SelectionSet},
+  selection::SelectionSet,
 };
 
 use interphaser::winit::event::{ElementState, Event, MouseButton};
@@ -26,6 +29,7 @@ use crate::*;
 impl CanvasPrinter for ViewerImpl {
   fn draw_canvas(&mut self, gpu: &Rc<GPU>, canvas: GPUTexture2dView) {
     self.content.update_state();
+    self.content.gizmo.update();
     self
       .ctx
       .get_or_insert_with(|| Viewer3dRenderingCtx::new(gpu.clone()))
@@ -57,8 +61,8 @@ impl CanvasPrinter for ViewerImpl {
 
 pub struct ViewerImpl {
   content: Viewer3dContent,
-  size: Size,
   ctx: Option<Viewer3dRenderingCtx>,
+  size: Size,
 }
 
 impl Default for ViewerImpl {
@@ -73,12 +77,13 @@ impl Default for ViewerImpl {
 
 pub struct Viewer3dContent {
   pub scene: Scene<WebGPUScene>,
-  pub picker: Picker,
+  pub pick_config: MeshBufferIntersectConfig,
   pub selections: SelectionSet,
   pub controller: ControllerWinitAdapter<OrbitController>,
   pub axis_helper: AxisHelper,
   pub grid_helper: GridHelper,
   pub camera_helpers: CameraHelpers,
+  pub gizmo: Gizmo,
 }
 
 pub struct Viewer3dRenderingCtx {
@@ -125,14 +130,17 @@ impl Viewer3dContent {
     let axis_helper = AxisHelper::new(scene.root());
     let grid_helper = GridHelper::new(scene.root(), Default::default());
 
+    let gizmo = Gizmo::new(scene.root());
+
     Self {
       scene,
       controller,
-      picker: Default::default(),
+      pick_config: Default::default(),
       selections: Default::default(),
       axis_helper,
       grid_helper,
       camera_helpers: Default::default(),
+      gizmo,
     }
   }
 
@@ -157,31 +165,29 @@ impl Viewer3dContent {
       size: (position_info.size.width, position_info.size.height).into(),
     };
 
+    let normalized_screen_position = position_info
+      .compute_normalized_position_in_canvas_coordinate(states)
+      .into();
+    let interactive_ctx = self
+      .scene
+      .build_interactive_ctx(normalized_screen_position, &self.pick_config);
+
+    let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene, &interactive_ctx);
+
+    self.gizmo.event(&mut ctx);
     self.controller.event(event, bound);
 
-    #[allow(clippy::single_match)]
-    match event {
-      Event::WindowEvent { event, .. } => match event {
-        winit::event::WindowEvent::MouseInput { state, button, .. } => {
-          let canvas_x = states.mouse_position.x - position_info.absolute_position.x;
-          let canvas_y = states.mouse_position.y - position_info.absolute_position.y;
+    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
+      self.selections.clear();
+      self.gizmo.set_target(None);
 
-          if *button == MouseButton::Left && *state == ElementState::Pressed {
-            let normalized_position = (
-              canvas_x / position_info.size.width * 2. - 1.,
-              -(canvas_y / position_info.size.height * 2. - 1.),
-            );
+      if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {
+        self
+          .selections
+          .select(SceneModelShareable::as_renderable(nearest));
 
-            self.picker.pick_new(
-              &self.scene,
-              &mut self.selections,
-              normalized_position.into(),
-            );
-          }
-        }
-        _ => {}
-      },
-      _ => {}
+        self.gizmo.set_target(nearest.get_node().into());
+      }
     }
   }
 

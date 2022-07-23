@@ -8,6 +8,7 @@ pub mod lights;
 pub mod materials;
 pub mod mesh;
 pub mod model;
+pub mod model_overrides;
 pub mod node;
 pub mod rendering;
 pub mod shading;
@@ -20,6 +21,7 @@ pub use lights::*;
 pub use materials::*;
 pub use mesh::*;
 pub use model::*;
+pub use model_overrides::*;
 pub use node::*;
 pub use rendering::*;
 pub use shading::*;
@@ -54,33 +56,73 @@ use std::{
 pub struct WebGPUScene;
 impl SceneContent for WebGPUScene {
   type BackGround = Box<dyn WebGPUBackground>;
-  type Model = Box<dyn SceneRenderableShareable>;
+  type Model = Box<dyn SceneModelShareable>;
   type Light = Box<dyn SceneRenderableShareable>;
   type Texture2D = Box<dyn WebGPUTexture2dSource>;
   type TextureCube = [Box<dyn WebGPUTexture2dSource>; 6];
   type SceneExt = ();
 }
 
-pub trait SceneRenderable: 'static {
+pub trait SceneRenderable {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   );
+}
 
-  /// default return None for ray un-pickable
-  fn ray_pick_nearest(
-    &self,
-    _world_ray: &Ray3,
-    _conf: &MeshBufferIntersectConfig,
-  ) -> Option<Nearest<MeshBufferHitPoint>> {
-    None
+pub struct SceneRayInteractiveCtx<'a> {
+  pub world_ray: Ray3,
+  pub conf: &'a MeshBufferIntersectConfig,
+  pub camera: &'a SceneCamera,
+}
+
+pub trait SceneRayInteractive {
+  fn ray_pick_nearest(&self, _ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint>;
+}
+
+pub trait SceneNodeControlled {
+  fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode));
+  fn get_node(&self) -> SceneNode {
+    let mut result = None;
+    self.visit_node(&mut |node| {
+      result = node.clone().into();
+    });
+    result.unwrap()
   }
+}
 
-  /// default return None for unbound or not applicable
-  fn get_bounding_info(&self) -> Option<Box3> {
-    None
+pub trait SceneModelShareable:
+  SceneRayInteractive + SceneRenderableShareable + SceneNodeControlled
+{
+  fn as_interactive(&self) -> &dyn SceneRayInteractive;
+  fn as_renderable(&self) -> &dyn SceneRenderableShareable;
+}
+impl<T> SceneModelShareable for T
+where
+  T: SceneRayInteractive + SceneRenderableShareable + SceneNodeControlled,
+{
+  fn as_interactive(&self) -> &dyn SceneRayInteractive {
+    self
+  }
+  fn as_renderable(&self) -> &dyn SceneRenderableShareable {
+    self
+  }
+}
+pub trait SceneModel: SceneRayInteractive + SceneRenderable + SceneNodeControlled {
+  fn as_interactive(&self) -> &dyn SceneRayInteractive;
+  fn as_renderable(&self) -> &dyn SceneRenderable;
+}
+impl<T> SceneModel for T
+where
+  T: SceneRayInteractive + SceneRenderable + SceneNodeControlled,
+{
+  fn as_interactive(&self) -> &dyn SceneRayInteractive {
+    self
+  }
+  fn as_renderable(&self) -> &dyn SceneRenderable {
+    self
   }
 }
 
@@ -90,6 +132,17 @@ pub trait SceneRenderableShareable: SceneRenderable {
   fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable>;
   fn as_renderable(&self) -> &dyn SceneRenderable;
   fn as_renderable_mut(&mut self) -> &mut dyn SceneRenderable;
+}
+
+impl SceneRenderable for Box<dyn SceneRenderableShareable> {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
+    self.as_ref().render(pass, dispatcher, camera)
+  }
 }
 
 pub struct GPUResourceCache {
@@ -142,45 +195,94 @@ pub struct GPUResourceSubCache {
 }
 
 pub trait WebGPUSceneExtension {
-  fn add_model(&mut self, model: impl SceneRenderableShareable);
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static);
+
+  fn build_interactive_ctx<'a>(
+    &'a self,
+    normalized_position: Vec2<f32>,
+    conf: &'a MeshBufferIntersectConfig,
+  ) -> SceneRayInteractiveCtx<'a>;
+
   fn interaction_picking(
     &self,
-    normalized_position: Vec2<f32>,
-    conf: &MeshBufferIntersectConfig,
-  ) -> Option<&dyn SceneRenderableShareable>;
+    ctx: &SceneRayInteractiveCtx,
+  ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)>;
 }
 
 use std::cmp::Ordering;
 
 impl WebGPUSceneExtension for Scene<WebGPUScene> {
-  fn add_model(&mut self, model: impl SceneRenderableShareable) {
+  fn add_model(&mut self, model: impl SceneModelShareable + 'static) {
     self.models.push(Box::new(model));
+  }
+  fn build_interactive_ctx<'a>(
+    &'a self,
+    normalized_position: Vec2<f32>,
+    conf: &'a MeshBufferIntersectConfig,
+  ) -> SceneRayInteractiveCtx<'a> {
+    let camera = self.active_camera.as_ref().unwrap();
+    let world_ray = camera.cast_world_ray(normalized_position);
+    SceneRayInteractiveCtx {
+      world_ray,
+      conf,
+      camera,
+    }
   }
 
   fn interaction_picking(
     &self,
-    normalized_position: Vec2<f32>,
-    conf: &MeshBufferIntersectConfig,
-  ) -> Option<&dyn SceneRenderableShareable> {
-    let mut result = Vec::new();
-
-    let camera = self.active_camera.as_ref().unwrap();
-    let world_ray = camera.cast_world_ray(normalized_position);
-
-    for m in self.models.iter() {
-      if let Some(Nearest(Some(r))) = m.ray_pick_nearest(&world_ray, conf) {
-        println!("pick");
-        result.push((m, r));
-      }
-    }
-
-    result.sort_by(|(_, a), (_, b)| {
-      a.hit
-        .distance
-        .partial_cmp(&b.hit.distance)
-        .unwrap_or(Ordering::Less)
-    });
-
-    result.first().map(|r| r.0.as_ref())
+    ctx: &SceneRayInteractiveCtx,
+  ) -> Option<(&dyn SceneModelShareable, MeshBufferHitPoint)> {
+    interaction_picking(self.models.iter().map(|m| m.as_ref()), ctx)
   }
+}
+
+impl<'a> SceneRayInteractive for &'a dyn SceneModelShareable {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    self.as_interactive().ray_pick_nearest(ctx)
+  }
+}
+
+pub fn interaction_picking<I: SceneRayInteractive, T: IntoIterator<Item = I>>(
+  content: T,
+  ctx: &SceneRayInteractiveCtx,
+) -> Option<(I, MeshBufferHitPoint)> {
+  let mut result = Vec::new();
+
+  for m in content {
+    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(ctx) {
+      result.push((m, r));
+    }
+  }
+
+  result.sort_by(|(_, a), (_, b)| {
+    a.hit
+      .distance
+      .partial_cmp(&b.hit.distance)
+      .unwrap_or(Ordering::Less)
+  });
+
+  result.into_iter().next()
+}
+
+pub fn interaction_picking_mut<'a, T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>>(
+  content: T,
+  ctx: &SceneRayInteractiveCtx,
+) -> Option<(&'a mut dyn SceneRayInteractive, MeshBufferHitPoint)> {
+  let mut result = Vec::new();
+
+  for m in content {
+    if let OptionalNearest(Some(r)) = m.ray_pick_nearest(ctx) {
+      result.push((m, r));
+    }
+  }
+
+  result.sort_by(|(_, a), (_, b)| {
+    a.hit
+      .distance
+      .partial_cmp(&b.hit.distance)
+      .unwrap_or(Ordering::Less)
+  });
+
+  result.into_iter().next()
 }

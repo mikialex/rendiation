@@ -324,9 +324,11 @@ impl SyntaxElement for Statement {
         }
         Kw::For => {
           let _ = lexer.next();
+          lexer.expect(Token::Paren('('))?;
           let init = parse_expression_like_statement(lexer)?;
           let test = parse_expression_like_statement(lexer)?;
           let update = Expression::parse(lexer)?;
+          lexer.expect(Token::Paren(')'))?;
           let body = Block::parse(lexer)?;
           Statement::For(crate::ast::For {
             init: Box::new(init),

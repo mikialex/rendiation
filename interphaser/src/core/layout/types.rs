@@ -130,7 +130,7 @@ impl From<f32> for UILength {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct UISize<T = f32> {
   pub width: T,
   pub height: T,

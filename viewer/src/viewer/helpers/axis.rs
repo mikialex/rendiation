@@ -1,14 +1,17 @@
 use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::tessellation::{CylinderMeshParameter, IndexedMeshTessellator};
+use rendiation_geometry::OptionalNearest;
+use rendiation_renderable_mesh::{
+  mesh::MeshBufferHitPoint,
+  tessellation::{CylinderMeshParameter, IndexedMeshTessellator},
+};
 
 use crate::*;
 
 pub struct AxisHelper {
   pub enabled: bool,
   pub root: SceneNode,
-  auto_scale: Rc<RefCell<ViewAutoScalable>>,
   x: Arrow,
   y: Arrow,
   z: Arrow,
@@ -20,13 +23,9 @@ impl PassContentWithCamera for &mut AxisHelper {
       return;
     }
 
-    // update the auto scale
-    let root_position = self.root.visit(|n| n.world_matrix.position());
-    self.auto_scale.borrow_mut().override_position = root_position.into();
-
     // sort by the camera
-    let center = self.root.visit(|n| n.world_matrix.position());
-    let camera_position = camera.node.visit(|n| n.world_matrix.position());
+    let center = self.root.get_world_matrix().position();
+    let camera_position = camera.node.get_world_matrix().position();
     let center_to_eye_dir = camera_position - center;
     let center_to_eye_dir = center_to_eye_dir.normalize();
     let x = Vec3::new(1., 0., 0.).dot(center_to_eye_dir);
@@ -40,45 +39,59 @@ impl PassContentWithCamera for &mut AxisHelper {
   }
 }
 
-struct Arrow {
-  cylinder: Box<dyn SceneRenderable>,
-  tip: Box<dyn SceneRenderable>,
-  root: SceneNode,
+pub struct Arrow {
+  cylinder: Box<dyn SceneModel>,
+  tip: Box<dyn SceneModel>,
+  pub root: SceneNode,
 }
 
-impl PassContentWithCamera for Arrow {
-  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    let dispatcher = &pass.default_dispatcher();
+impl SceneRayInteractive for Arrow {
+  fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    self
+      .cylinder
+      .ray_pick_nearest(ctx)
+      .or(self.tip.ray_pick_nearest(ctx))
+  }
+}
+
+impl SceneRenderable for Arrow {
+  fn render(
+    &self,
+    pass: &mut SceneRenderPass,
+    dispatcher: &dyn RenderComponentAny,
+    camera: &SceneCamera,
+  ) {
     self.cylinder.render(pass, dispatcher, camera);
     self.tip.render(pass, dispatcher, camera);
   }
 }
 
-impl Arrow {
-  fn new(
-    parent: &SceneNode,
-    auto_scale: Rc<RefCell<ViewAutoScalable>>,
-    color: impl Into<Vec3<f32>>,
-    cylinder_mesh: impl WebGPUMesh,
-    tip_mesh: impl WebGPUMesh,
-  ) -> Self {
-    fn material(color: Vec3<f32>) -> impl WebGPUMaterial + Clone {
-      let mut material = FlatMaterial {
-        color: Vec4::new(color.x, color.y, color.z, 1.0),
-      }
-      .use_state();
-      material.states.depth_write_enabled = false;
-      material.states.depth_compare = webgpu::CompareFunction::Always;
-      material
-    }
-    let material = material(color.into());
+impl PassContentWithCamera for Arrow {
+  fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
+    let dispatcher = &pass.default_dispatcher();
+    SceneRenderable::render(self, pass, dispatcher, camera);
+  }
+}
 
+type ArrowMaterial = impl WebGPUMaterial + Clone;
+type ArrowTipMesh = impl WebGPUMesh + Clone;
+type ArrowBodyMesh = impl WebGPUMesh + Clone;
+
+impl Arrow {
+  pub fn new_reused(
+    parent: &SceneNode,
+    auto_scale: &Rc<RefCell<ViewAutoScalable>>,
+    material: &ArrowMaterial,
+    cylinder_mesh: &ArrowBodyMesh,
+    tip_mesh: &ArrowTipMesh,
+  ) -> Self {
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
+    node_cylinder.set_local_matrix(Mat4::translate(0., 1., 0.));
     let mut cylinder = MeshModelImpl::new(
       material.clone().into_resourced(),
-      cylinder_mesh.into_resourced(),
+      cylinder_mesh.clone().into_resourced(),
       node_cylinder,
     )
     .into_matrix_overridable();
@@ -86,15 +99,15 @@ impl Arrow {
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
-    node_tip.mutate(|node| node.local_matrix = Mat4::translate(0., 1., 0.));
+    node_tip.set_local_matrix(Mat4::translate(0., 2., 0.));
     let mut tip = MeshModelImpl::new(
-      material.into_resourced(),
-      tip_mesh.into_resourced(),
+      material.clone().into_resourced(),
+      tip_mesh.clone().into_resourced(),
       node_tip,
     )
     .into_matrix_overridable();
 
-    tip.push_override(auto_scale);
+    tip.push_override(auto_scale.clone());
 
     Self {
       root,
@@ -102,12 +115,8 @@ impl Arrow {
       tip: Box::new(tip),
     }
   }
-}
 
-impl AxisHelper {
-  pub fn new(parent: &SceneNode) -> Self {
-    let root = parent.create_child();
-
+  pub fn default_shape() -> (ArrowBodyMesh, ArrowTipMesh) {
     let cylinder = CylinderMeshParameter {
       radius_top: 0.01,
       radius_bottom: 0.01,
@@ -125,43 +134,78 @@ impl AxisHelper {
     }
     .tessellate();
     let tip = MeshCell::new(MeshSource::new(tip));
+    (cylinder, tip)
+  }
 
-    let auto_scale = Rc::new(RefCell::new(ViewAutoScalable {
-      override_position: None,
+  pub fn with_transform(self, m: Mat4<f32>) -> Self {
+    self.root.set_local_matrix(m);
+    self
+  }
+  pub fn toward_x(self) -> Self {
+    self.with_transform(Mat4::rotate_z(-f32::PI() / 2.))
+  }
+  pub fn toward_y(self) -> Self {
+    // the cylinder is y up by default, so do nothing
+    self
+  }
+  pub fn toward_z(self) -> Self {
+    self.with_transform(Mat4::rotate_x(f32::PI() / 2.))
+  }
+}
+
+pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
+  let color = color.into();
+  let mut material = FlatMaterial {
+    color: Vec4::new(color.x, color.y, color.z, 1.0),
+  }
+  .use_state();
+  material.states.depth_write_enabled = false;
+  material.states.depth_compare = webgpu::CompareFunction::Always;
+  material
+}
+
+impl AxisHelper {
+  pub fn new(parent: &SceneNode) -> Self {
+    let root = parent.create_child();
+
+    let (cylinder, tip) = Arrow::default_shape();
+    let (cylinder, tip) = (&cylinder, &tip);
+
+    let auto_scale = &Rc::new(RefCell::new(ViewAutoScalable {
+      override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
       independent_scale_factor: 100.,
     }));
 
-    let x = Arrow::new(
+    let x = Arrow::new_reused(
       &root,
-      auto_scale.clone(),
-      (0.8, 0.1, 0.1),
-      cylinder.clone(),
-      tip.clone(),
-    );
-    x.root.mutate(|node| {
-      node.local_matrix = Mat4::rotate_z(-f32::PI() / 2.);
-    });
+      auto_scale,
+      &solid_material((0.8, 0.1, 0.1)),
+      cylinder,
+      tip,
+    )
+    .toward_x();
 
-    let y = Arrow::new(
+    let y = Arrow::new_reused(
       &root,
-      auto_scale.clone(),
-      (0.1, 0.8, 0.1),
-      cylinder.clone(),
-      tip.clone(),
-    );
-    y.root.mutate(|_| {
-      // the cylinder is y up, so do nothing
-    });
+      auto_scale,
+      &solid_material((0.1, 0.8, 0.1)),
+      cylinder,
+      tip,
+    )
+    .toward_y();
 
-    let z = Arrow::new(&root, auto_scale.clone(), (0.1, 0.1, 0.8), cylinder, tip);
-    z.root.mutate(|node| {
-      node.local_matrix = Mat4::rotate_x(f32::PI() / 2.);
-    });
+    let z = Arrow::new_reused(
+      &root,
+      auto_scale,
+      &solid_material((0.1, 0.1, 0.8)),
+      cylinder,
+      tip,
+    )
+    .toward_z();
 
     Self {
       root,
       enabled: true,
-      auto_scale,
       x,
       y,
       z,

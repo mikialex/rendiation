@@ -7,12 +7,15 @@ pub struct LinearBlurConfig {
   pub direction: Vec2<f32>,
 }
 
+#[repr(C)]
+// #[std140_layout]
+// #[derive(Clone, Copy, ShaderStruct)]
 pub struct ShaderSamplingWeights {
   /// we max support 32 weight, but maybe not used them all.
   /// this array is just used as a fixed size container.
-  weights: [f32; 32],
+  pub weights: [f32; 32],
   /// the actually sample count we used.
-  weight_count: u32,
+  pub weight_count: u32,
 }
 
 pub struct LinearBlurTask<'a, T> {

@@ -100,6 +100,12 @@ impl ShaderFieldTypeMapper for Shader140Mat3 {
   type ShaderType = Mat3<f32>;
 }
 
+impl<T: ShaderStructMemberValueNodeType, const U: usize> ShaderFieldTypeMapper
+  for Shader140Array<T, U>
+{
+  type ShaderType = [T; U];
+}
+
 unsafe impl Std140 for Mat4<f32> {
   const ALIGNMENT: usize = 16;
   const PAD_AT_END: bool = true;
@@ -142,7 +148,7 @@ pub const fn max_arr<const N: usize>(input: [usize; N]) -> usize {
 }
 
 #[repr(C, align(16))]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Shader140ArrayWrapper<T> {
   pub inner: T,
 }
@@ -154,6 +160,16 @@ unsafe impl<T: Pod> Pod for Shader140ArrayWrapper<T> {}
 #[derive(Clone, Copy)]
 pub struct Shader140Array<T, const U: usize> {
   pub inner: [Shader140ArrayWrapper<T>; U],
+}
+
+/// note: rust std does't impl Default
+/// https://rust-lang.github.io/project-const-generics/vision/status_quo/array_default.html
+impl<T: Default + Copy, const U: usize> Default for Shader140Array<T, U> {
+  fn default() -> Self {
+    Self {
+      inner: [Default::default(); U],
+    }
+  }
 }
 
 unsafe impl<T: Zeroable, const U: usize> Zeroable for Shader140Array<T, U> {}

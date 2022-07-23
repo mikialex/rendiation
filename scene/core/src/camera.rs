@@ -24,7 +24,7 @@ impl std::ops::DerefMut for SceneCamera {
 
 impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    let camera_world_mat = self.node.visit(|n| n.world_matrix);
+    let camera_world_mat = self.node.get_world_matrix();
     self
       .projection
       .cast_ray(normalized_position)

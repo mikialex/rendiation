@@ -19,9 +19,10 @@ pub trait IntersectAbleAbstractMesh {
     ray: Ray3,
     conf: &Config,
     group: MeshGroup,
-  ) -> Nearest<MeshBufferHitPoint>;
+  ) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
+#[derive(Copy, Clone)]
 pub struct MeshBufferHitPoint {
   pub hit: HitPoint3D,
   pub primitive_index: usize,
@@ -48,7 +49,7 @@ impl Default for MeshBufferHitList {
 impl<G> IntersectAbleAbstractMesh for G
 where
   G: AbstractMesh,
-  G::Primitive: IntersectAble<Ray3, Nearest<HitPoint3D>, Config>,
+  G::Primitive: IntersectAble<Ray3, OptionalNearest<HitPoint3D>, Config>,
 {
   fn intersect_list(
     &self,
@@ -75,8 +76,8 @@ where
     ray: Ray3,
     conf: &Config,
     group: MeshGroup,
-  ) -> Nearest<MeshBufferHitPoint> {
-    let mut nearest = Nearest::none();
+  ) -> OptionalNearest<MeshBufferHitPoint> {
+    let mut nearest = OptionalNearest::none();
     self
       .primitive_iter_group(group)
       .enumerate()
@@ -103,7 +104,7 @@ pub trait IntersectAbleGroupedMesh {
     ray: Ray3,
     conf: &Config,
     group: MeshDrawGroup,
-  ) -> Nearest<MeshBufferHitPoint>;
+  ) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
 impl<T: IntersectAbleAbstractMesh + AbstractMesh> IntersectAbleGroupedMesh for GroupedMesh<T> {
@@ -123,7 +124,7 @@ impl<T: IntersectAbleAbstractMesh + AbstractMesh> IntersectAbleGroupedMesh for G
     ray: Ray3,
     conf: &Config,
     group: MeshDrawGroup,
-  ) -> Nearest<MeshBufferHitPoint> {
+  ) -> OptionalNearest<MeshBufferHitPoint> {
     let group = self.get_group(group);
     self.mesh.intersect_nearest(ray, conf, group)
   }
@@ -163,34 +164,34 @@ impl Default for MeshBufferIntersectConfig {
 
 type Config = MeshBufferIntersectConfig;
 
-impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Triangle<T>
+impl<T> IntersectAble<Ray3, OptionalNearest<HitPoint3D>, Config> for Triangle<T>
 where
   T: Positioned<Position = Vec3<f32>> + Copy,
 {
   #[inline]
-  fn intersect(&self, ray: &Ray3, _: &Config) -> Nearest<HitPoint3D> {
+  fn intersect(&self, ray: &Ray3, _: &Config) -> OptionalNearest<HitPoint3D> {
     ray.intersect(self, &FaceSide::Double)
   }
 }
 
-impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for LineSegment<T>
+impl<T> IntersectAble<Ray3, OptionalNearest<HitPoint3D>, Config> for LineSegment<T>
 where
   T: Positioned<Position = Vec3<f32>> + Copy,
 {
   #[inline]
-  fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
+  fn intersect(&self, ray: &Ray3, conf: &Config) -> OptionalNearest<HitPoint3D> {
     let local_tolerance_adjusted =
       conf.line_tolerance.value / conf.current_item_scale_estimate.get();
     ray.intersect(self, &local_tolerance_adjusted)
   }
 }
 
-impl<T> IntersectAble<Ray3, Nearest<HitPoint3D>, Config> for Point<T>
+impl<T> IntersectAble<Ray3, OptionalNearest<HitPoint3D>, Config> for Point<T>
 where
   T: Positioned<Position = Vec3<f32>> + Copy,
 {
   #[inline]
-  fn intersect(&self, ray: &Ray3, conf: &Config) -> Nearest<HitPoint3D> {
+  fn intersect(&self, ray: &Ray3, conf: &Config) -> OptionalNearest<HitPoint3D> {
     ray.intersect(self, &conf.point_tolerance.value)
   }
 }

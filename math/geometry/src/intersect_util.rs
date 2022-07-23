@@ -33,8 +33,8 @@ pub type HitPoint3D<T = f32> = HitPoint<T, Vec3<T>>;
 
 #[repr(transparent)]
 #[derive(Default, Copy, Clone, Debug)]
-pub struct Nearest<T>(pub Option<T>);
-impl<T> Nearest<T>
+pub struct OptionalNearest<T>(pub Option<T>);
+impl<T> OptionalNearest<T>
 where
   T: HitDistanceCompareAble,
 {
@@ -69,25 +69,30 @@ where
   }
 
   #[inline(always)]
-  pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Nearest<U> {
-    Nearest(self.0.map(f))
+  pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> OptionalNearest<U> {
+    OptionalNearest(self.0.map(f))
+  }
+
+  #[inline(always)]
+  pub fn or(self, other: Self) -> Self {
+    Self(self.0.or(other.0))
   }
 }
 
-impl<T> Deref for Nearest<T> {
+impl<T> Deref for OptionalNearest<T> {
   type Target = Option<T>;
   fn deref(&self) -> &Self::Target {
     &self.0
   }
 }
 
-impl<T> DerefMut for Nearest<T> {
+impl<T> DerefMut for OptionalNearest<T> {
   fn deref_mut(&mut self) -> &mut Self::Target {
     &mut self.0
   }
 }
 
-impl<T> From<Option<T>> for Nearest<T> {
+impl<T> From<Option<T>> for OptionalNearest<T> {
   fn from(v: Option<T>) -> Self {
     Self(v)
   }
@@ -105,8 +110,8 @@ impl<T: Scalar, V> HitList<T, V> {
   pub fn new_with_capacity(size: usize) -> Self {
     Self(Vec::with_capacity(size))
   }
-  pub fn push_nearest(&mut self, hit: Nearest<HitPoint<T, V>>) {
-    if let Nearest(Some(hit)) = hit {
+  pub fn push_nearest(&mut self, hit: OptionalNearest<HitPoint<T, V>>) {
+    if let OptionalNearest(Some(hit)) = hit {
       self.0.push(hit);
     }
   }

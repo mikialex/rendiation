@@ -1,0 +1,3 @@
+
+# surpress the clippy warnings
+type-complexity-threshold = 500

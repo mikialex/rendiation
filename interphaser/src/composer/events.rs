@@ -311,21 +311,25 @@ impl<C: HotAreaProvider> EventHandlerImpl<C> for MouseOut {
   }
 }
 
-fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
+// these downcast utils below is useful for downstream crates because they shouldn't care about impl details
+// so they are public and export, we should consider warp them in a namespace in the future to prevent potential
+// name collisions
+
+pub fn window_event<'a>(event: &'a Event<()>) -> Option<&'a WindowEvent<'a>> {
   match event {
     Event::WindowEvent { event, .. } => Some(event),
     _ => None,
   }
 }
 
-fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
+pub fn mouse(event: &Event<()>) -> Option<(MouseButton, ElementState)> {
   window_event(event).and_then(|e| match e {
     WindowEvent::MouseInput { state, button, .. } => Some((*button, *state)),
     _ => None,
   })
 }
 
-fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>> {
+pub fn mouse_move(event: &Event<()>) -> Option<winit::dpi::PhysicalPosition<f64>> {
   window_event(event).and_then(|e| match e {
     WindowEvent::CursorMoved { position, .. } => Some(*position),
     _ => None,

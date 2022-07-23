@@ -136,7 +136,8 @@ impl<T: IntersectAbleGroupedMesh> IntersectAbleGroupedMesh for MeshSource<T> {
     ray: rendiation_geometry::Ray3,
     conf: &rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig,
     group: MeshDrawGroup,
-  ) -> rendiation_geometry::Nearest<rendiation_renderable_mesh::mesh::MeshBufferHitPoint> {
+  ) -> rendiation_geometry::OptionalNearest<rendiation_renderable_mesh::mesh::MeshBufferHitPoint>
+  {
     self.deref().intersect_nearest(ray, conf, group)
   }
 }

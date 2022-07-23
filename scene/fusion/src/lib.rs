@@ -16,7 +16,7 @@ impl SceneContent for FusionScene {
 
 pub trait FusionBackground: RayTracingBackground + WebGPUBackground {}
 
-pub trait FusionModel: RayTracingModel + SceneRenderableShareable {}
+pub trait FusionModel: RayTracingModel + SceneRenderableShareable + 'static {}
 
 pub trait FusionSceneExtension {
   fn add_model(&mut self, model: impl FusionModel);

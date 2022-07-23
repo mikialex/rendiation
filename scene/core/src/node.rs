@@ -169,4 +169,16 @@ impl SceneNode {
     let node = nodes.get_node(inner.inner.handle).data();
     f(node)
   }
+
+  pub fn set_local_matrix(&self, mat: Mat4<f32>) {
+    self.mutate(|node| node.local_matrix = mat);
+  }
+
+  pub fn set_visible(&self, visible: bool) {
+    self.mutate(|node| node.visible = visible);
+  }
+
+  pub fn get_world_matrix(&self) -> Mat4<f32> {
+    self.visit(|n| n.world_matrix)
+  }
 }
