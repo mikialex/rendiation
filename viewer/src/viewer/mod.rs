@@ -183,19 +183,20 @@ impl Viewer3dContent {
 
     let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene, &interactive_ctx);
 
-    self.gizmo.event(&mut ctx);
+    let keep_target_for_gizmo = self.gizmo.event(&mut ctx);
     self.controller.event(event, bound);
 
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-      self.selections.clear();
-      self.gizmo.set_target(None);
-
       if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {
+        self.selections.clear();
+
         self
           .selections
           .select(SceneModelShareable::as_renderable(nearest));
 
         self.gizmo.set_target(nearest.get_node().into());
+      } else if !keep_target_for_gizmo {
+        self.gizmo.set_target(None);
       }
     }
   }

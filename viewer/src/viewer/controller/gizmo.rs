@@ -69,19 +69,33 @@ impl Gizmo {
     self.target = target;
   }
 
-  pub fn event(&mut self, event: &mut EventCtx3D) {
+  // return if should keep target.
+  pub fn event(&mut self, event: &mut EventCtx3D) -> bool {
     if self.target.is_none() {
-      return;
+      return false;
     }
 
+    let mut keep_target = true;
+
     // dispatch 3d events into 3d components, handling state active
+    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
+      self.states.test_has_any_widget_mouse_down = false;
+    }
+
     self.view.event(&mut self.states, event);
+
+    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
+      if !self.states.test_has_any_widget_mouse_down {
+        keep_target = false;
+      }
+    }
+
+    if !self.states.active.has_active() {
+      return keep_target;
+    }
 
     // after active states get updated, we handling mouse moving in gizmo level
     if mouse_move(event.raw_event).is_some() {
-      if !self.states.active.has_active() {
-        return;
-      }
       // let target_world = self.root.get_world_matrix();
 
       if self.states.active.only_x() {
@@ -94,6 +108,8 @@ impl Gizmo {
         //
       }
     }
+
+    keep_target
   }
   pub fn update(&mut self) {
     if let Some(target) = &self.target {
@@ -115,6 +131,7 @@ fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &E
       match event3d {
         Event3D::MouseDown { world_position } => {
           is_mouse_down = true;
+          state.test_has_any_widget_mouse_down = true;
           if active.with(state, |active| *active) {
             state.last_active_world_position = *world_position;
           }
@@ -174,6 +191,7 @@ fn build_axis_arrow(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>
 struct GizmoState {
   active: AxisActiveState,
   last_active_world_position: Vec3<f32>,
+  test_has_any_widget_mouse_down: bool,
 }
 
 impl GizmoState {
