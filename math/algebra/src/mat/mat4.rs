@@ -493,6 +493,24 @@ impl<T: Scalar> From<Quat<T>> for Mat4<T> {
   }
 }
 
+impl<T: Scalar> Mat4<T> {
+  /// Mat should be TRS composed, return (translate, quaternion, scale)
+  pub fn decompose(&self) -> (Vec3<T>, Quat<T>, Vec3<T>) {
+    let mut scale = self.get_scale();
+
+		// if determine is negative, we need to invert one scale
+		if self.det() < T::zero() {
+      scale.x *= -T::one()
+    }
+
+    let position = self.position();
+
+    let quaternion = self.extract_rotation_mat().to_mat3().into();
+
+    (position, quaternion, scale)
+  }
+}
+
 impl<T> AsRef<Mat4<T>> for Mat4<T> {
   fn as_ref(&self) -> &Mat4<T> {
     self

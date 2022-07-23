@@ -5,7 +5,8 @@ use interphaser::{
   winit::event::{ElementState, MouseButton},
   Component, Lens,
 };
-use rendiation_algebra::{Mat4, Vec3};
+use rendiation_algebra::*;
+use rendiation_geometry::{IntersectAble, Plane};
 // use rendiation_geometry::{OptionalNearest, Ray3};
 // use rendiation_renderable_mesh::{
 //   mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
@@ -69,6 +70,13 @@ impl Gizmo {
     self.target = target;
   }
 
+  pub fn has_target(&self) -> bool {
+    self.target.is_some()
+  }
+  pub fn has_active(&self) -> bool {
+    self.states.active.has_active()
+  }
+
   // return if should keep target.
   pub fn event(&mut self, event: &mut EventCtx3D) -> bool {
     if self.target.is_none() {
@@ -78,6 +86,7 @@ impl Gizmo {
     let mut keep_target = true;
 
     // dispatch 3d events into 3d components, handling state active
+    self.states.target_world = self.root.get_world_matrix();
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
       self.states.test_has_any_widget_mouse_down = false;
     }
@@ -96,15 +105,43 @@ impl Gizmo {
 
     // after active states get updated, we handling mouse moving in gizmo level
     if mouse_move(event.raw_event).is_some() {
-      // let target_world = self.root.get_world_matrix();
+      let target_world = self.root.get_world_matrix();
+      let target_local = self.root.get_local_matrix();
+
+      let camera_world_position = event
+        .interactive_ctx
+        .camera
+        .node
+        .get_world_matrix()
+        .position();
+
+      let view = camera_world_position - target_world.position();
 
       if self.states.active.only_x() {
-        //
+        let x = Vec3::new(1., 0., 0.);
+        let helper_dir = x.cross(view);
+        let normal = helper_dir.cross(x);
+        let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
+        let new_hit = event
+          .interactive_ctx
+          .world_ray
+          .intersect(&plane, &())
+          .unwrap()
+          .position;
+        let new_hit = Vec3::new(new_hit.x, 0., 0.);
       }
       if self.states.active.only_y() {
+        let y = Vec3::new(0., 1., 0.);
+        let helper_dir = y.cross(view);
+        let normal = helper_dir.cross(y);
+        let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
         //
       }
       if self.states.active.only_z() {
+        let z = Vec3::new(0., 0., 1.);
+        let helper_dir = z.cross(view);
+        let normal = helper_dir.cross(z);
+        let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
         //
       }
     }
@@ -133,7 +170,8 @@ fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &E
           is_mouse_down = true;
           state.test_has_any_widget_mouse_down = true;
           if active.with(state, |active| *active) {
-            state.last_active_world_position = *world_position;
+            // let back_to_local = state.target_world.inverse_or_identity();
+            // state.active_local_position = back_to_local * *world_position;
           }
         }
         Event3D::MouseUp { .. } => {
@@ -190,7 +228,8 @@ fn build_axis_arrow(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>
 #[derive(Default)]
 struct GizmoState {
   active: AxisActiveState,
-  last_active_world_position: Vec3<f32>,
+  active_local_position: Vec3<f32>,
+  target_world: Mat4<f32>,
   test_has_any_widget_mouse_down: bool,
 }
 

@@ -27,8 +27,6 @@ impl<T: Scalar> From<Triangle<Vec3<T>>> for Plane<T> {
   fn from(face: Triangle<Vec3<T>>) -> Plane<T> {
     let v1 = face.b - face.a;
     let v2 = face.c - face.a;
-    let normal = v1.cross(v2).into_normalized();
-    let constant = normal.dot(face.a);
-    Plane::new(normal, constant)
+    Self::from_normal_and_plane_point(v1.cross(v2), face.a)
   }
 }

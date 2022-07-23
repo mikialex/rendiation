@@ -184,7 +184,10 @@ impl Viewer3dContent {
     let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene, &interactive_ctx);
 
     let keep_target_for_gizmo = self.gizmo.event(&mut ctx);
-    self.controller.event(event, bound);
+
+    if !self.gizmo.has_active() {
+      self.controller.event(event, bound);
+    }
 
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
       if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {

@@ -117,13 +117,13 @@ pub fn collection3d<T>() -> Component3DCollection<T> {
 
 impl<T> Component<T, System3D> for Component3DCollection<T> {
   fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
-    for view in &mut self.collection {
-      view.event(states, ctx);
-    }
     map_3d_events(
       ctx,
       self.collection.iter_mut().map(|c| c.as_mut_interactive()),
     );
+    for view in &mut self.collection {
+      view.event(states, ctx);
+    }
     ctx.event_3d = None;
   }
 
