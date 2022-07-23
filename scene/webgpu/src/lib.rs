@@ -76,6 +76,7 @@ pub struct SceneRayInteractiveCtx<'a> {
   pub world_ray: Ray3,
   pub conf: &'a MeshBufferIntersectConfig,
   pub camera: &'a SceneCamera,
+  pub camera_view_size: Size,
 }
 
 pub trait SceneRayInteractive {
@@ -200,6 +201,7 @@ pub trait WebGPUSceneExtension {
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
+    camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
   ) -> SceneRayInteractiveCtx<'a>;
 
@@ -218,6 +220,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
+    camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
   ) -> SceneRayInteractiveCtx<'a> {
     let camera = self.active_camera.as_ref().unwrap();
@@ -226,6 +229,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
       world_ray,
       conf,
       camera,
+      camera_view_size,
     }
   }
 

@@ -24,6 +24,15 @@ impl<Me, Ma> OverridableMeshModelImpl<Me, Ma> {
   pub fn push_override(&mut self, o: impl WorldMatrixOverride + 'static) {
     self.overrides.push(Box::new(o));
   }
+
+  pub fn compute_override_world_mat(&self, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
+    let mut world_matrix = self.inner.node.get_world_matrix();
+    self
+      .overrides
+      .iter()
+      .for_each(|o| world_matrix = o.override_mat(world_matrix, &ctx));
+    world_matrix
+  }
 }
 
 pub trait WorldMatrixOverride {
@@ -71,11 +80,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
       buffer_size: pass.size(),
     };
 
-    let mut world_matrix = self.inner.node.get_world_matrix();
-    self
-      .overrides
-      .iter()
-      .for_each(|o| world_matrix = o.override_mat(world_matrix, &ctx));
+    let world_matrix = self.compute_override_world_mat(&ctx);
 
     let mut override_gpu = self.override_gpu.borrow_mut();
     let node_gpu = override_gpu
@@ -90,8 +95,13 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRayInteractive
   for OverridableMeshModelImpl<Me, Ma>
 {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    OptionalNearest::none()
-    // todo!()
+    let o_ctx = WorldMatrixOverrideCtx {
+      camera: ctx.camera,
+      buffer_size: ctx.camera_view_size,
+    };
+
+    let world_matrix = self.compute_override_world_mat(&o_ctx);
+    ray_pick_nearest_core(self, ctx, world_matrix)
   }
 }
 

@@ -114,30 +114,42 @@ where
   }
 }
 
+pub fn ray_pick_nearest_core<Me, Ma>(
+  model: &MeshModelImpl<Me, Ma>,
+  ctx: &SceneRayInteractiveCtx,
+  world_mat: Mat4<f32>,
+) -> OptionalNearest<MeshBufferHitPoint>
+where
+  Me: WebGPUSceneMesh,
+  Ma: WebGPUSceneMaterial,
+{
+  let net_visible = model.node.visit(|n| n.net_visible);
+  if !net_visible {
+    return OptionalNearest::none();
+  }
+
+  let world_inv = world_mat.inverse_or_identity();
+
+  let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
+
+  if !model.material.is_keep_mesh_shape() {
+    return OptionalNearest::none();
+  }
+
+  let mesh = &model.mesh;
+  let mut picked = OptionalNearest::none();
+  mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
+    picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
+  });
+  picked
+}
+
 impl<Me, Ma> SceneRayInteractive for MeshModelImpl<Me, Ma>
 where
   Me: WebGPUSceneMesh,
   Ma: WebGPUSceneMaterial,
 {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    let net_visible = self.node.visit(|n| n.net_visible);
-    if !net_visible {
-      return OptionalNearest::none();
-    }
-
-    let world_inv = self.node.visit(|n| n.world_matrix).inverse_or_identity();
-
-    let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
-
-    if !self.material.is_keep_mesh_shape() {
-      return OptionalNearest::none();
-    }
-
-    let mesh = &self.mesh;
-    let mut picked = OptionalNearest::none();
-    mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
-      picked = mesh.intersect_nearest(local_ray, ctx.conf, self.group);
-    });
-    picked
+    ray_pick_nearest_core(self, ctx, self.node.get_world_matrix())
   }
 }

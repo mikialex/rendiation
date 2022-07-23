@@ -168,9 +168,18 @@ impl Viewer3dContent {
     let normalized_screen_position = position_info
       .compute_normalized_position_in_canvas_coordinate(states)
       .into();
-    let interactive_ctx = self
-      .scene
-      .build_interactive_ctx(normalized_screen_position, &self.pick_config);
+
+    // todo, get correct size from render ctx side
+    let camera_view_size = Size::from_usize_pair_min_one((
+      position_info.size.width as usize,
+      position_info.size.height as usize,
+    ));
+
+    let interactive_ctx = self.scene.build_interactive_ctx(
+      normalized_screen_position,
+      camera_view_size,
+      &self.pick_config,
+    );
 
     let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene, &interactive_ctx);
 
