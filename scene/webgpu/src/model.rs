@@ -34,6 +34,13 @@ where
   }
 }
 
+impl<Me, Ma> SceneNodeControlled for MeshModel<Me, Ma> {
+  fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
+    let inner = self.inner.read().unwrap();
+    visitor(&inner.node)
+  }
+}
+
 impl<Me, Ma> SceneRenderableShareable for MeshModel<Me, Ma>
 where
   Self: SceneRenderable + Clone + 'static,

@@ -22,7 +22,8 @@ impl Picker {
     gizmo.set_target(None);
     if let Some((nearest, _)) = scene.interaction_picking(normalized_position, &self.config) {
       selections.select(SceneModelShareable::as_renderable(nearest));
-      // gizmo.set_target(nearest.get_node());
+
+      gizmo.set_target(nearest.get_node().into());
     }
   }
 }

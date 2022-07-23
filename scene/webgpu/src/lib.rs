@@ -80,11 +80,27 @@ pub trait SceneRayInteractive {
   ) -> OptionalNearest<MeshBufferHitPoint>;
 }
 
-pub trait SceneModelShareable: SceneRayInteractive + SceneRenderableShareable {
+pub trait SceneNodeControlled {
+  fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode));
+  fn get_node(&self) -> SceneNode {
+    let mut result = None;
+    self.visit_node(&mut |node| {
+      result = node.clone().into();
+    });
+    result.unwrap()
+  }
+}
+
+pub trait SceneModelShareable:
+  SceneRayInteractive + SceneRenderableShareable + SceneNodeControlled
+{
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
   fn as_renderable(&self) -> &dyn SceneRenderableShareable;
 }
-impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModelShareable for T {
+impl<T> SceneModelShareable for T
+where
+  T: SceneRayInteractive + SceneRenderableShareable + SceneNodeControlled,
+{
   fn as_interactive(&self) -> &dyn SceneRayInteractive {
     self
   }
@@ -92,11 +108,14 @@ impl<T: SceneRayInteractive + SceneRenderableShareable> SceneModelShareable for 
     self
   }
 }
-pub trait SceneModel: SceneRayInteractive + SceneRenderable {
+pub trait SceneModel: SceneRayInteractive + SceneRenderable + SceneNodeControlled {
   fn as_interactive(&self) -> &dyn SceneRayInteractive;
   fn as_renderable(&self) -> &dyn SceneRenderable;
 }
-impl<T: SceneRayInteractive + SceneRenderable> SceneModel for T {
+impl<T> SceneModel for T
+where
+  T: SceneRayInteractive + SceneRenderable + SceneNodeControlled,
+{
   fn as_interactive(&self) -> &dyn SceneRayInteractive {
     self
   }

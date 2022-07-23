@@ -49,6 +49,12 @@ impl<Me, Ma> std::ops::DerefMut for OverridableMeshModelImpl<Me, Ma> {
   }
 }
 
+impl<Me, Ma> SceneNodeControlled for OverridableMeshModelImpl<Me, Ma> {
+  fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
+    visitor(&self.inner.node)
+  }
+}
+
 impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   for OverridableMeshModelImpl<Me, Ma>
 {
