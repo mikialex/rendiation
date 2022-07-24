@@ -122,8 +122,8 @@ impl Gizmo {
         .position();
 
       let view = camera_world_position - self.states.target_world_mat.position();
-      println!("view {}", view);
-      println!("state {:?}", self.states.active);
+      // println!("view {}", view);
+      // println!("state {:?}", self.states.active);
 
       if self.states.active.only_x() {
         let x = Vec3::new(1., 0., 0.);
@@ -138,32 +138,39 @@ impl Gizmo {
           .position;
         let new_hit = Vec3::new(new_hit.x, 0., 0.);
 
-        // // (self.states.start_hit_local_position + self.states.start_local_position)
-        // let new_local_translate = Mat4::from(self.states.start_local_quaternion)
-        //   .inverse()
-        //   .unwrap()
-        //   * Mat4::scale(
-        //     self.states.start_local_scale.x,
-        //     self.states.start_local_scale.y,
-        //     self.states.start_local_scale.z,
-        //   )
-        //   .inverse()
-        //   .unwrap()
-        //   * self.states.start_parent_world_mat.inverse().unwrap()
-        //   * new_hit
-        //   - self.states.start_hit_local_position
-        //   - self.states.start_local_position;
+        // (self.states.start_hit_local_position + self.states.start_local_position)
+        let new_local_translate = Mat4::from(self.states.start_local_quaternion)
+          .inverse()
+          .unwrap()
+          * Mat4::scale(
+            self.states.start_local_scale.x,
+            self.states.start_local_scale.y,
+            self.states.start_local_scale.z,
+          )
+          .inverse()
+          .unwrap()
+          * self.states.start_parent_world_mat.inverse().unwrap()
+          * new_hit
+          - self.states.start_hit_local_position
+          - self.states.start_local_position;
 
-        println!("new_hit {}", new_hit);
-        // self
-        //   .target
-        //   .as_ref()
-        //   .unwrap()
-        //   .set_local_matrix(Mat4::translate(
-        //     new_local_translate.x,
-        //     new_local_translate.y,
-        //     new_local_translate.z,
-        //   ));
+        // println!("new_local_translate {}", new_local_translate);
+        // dbg!(new_local_translate);
+        self
+          .target
+          .as_ref()
+          .unwrap()
+          .set_local_matrix(Mat4::translate(
+            new_local_translate.x,
+            new_local_translate.y,
+            new_local_translate.z,
+          ));
+
+        self.root.set_local_matrix(Mat4::translate(
+          new_local_translate.x,
+          new_local_translate.y,
+          new_local_translate.z,
+        ));
         // let world_translate = new_hit - self.states.start_hit_world_position;
       }
       if self.states.active.only_y() {
@@ -189,13 +196,10 @@ impl Gizmo {
     keep_target
   }
   pub fn update(&mut self) {
-    if let Some(target) = &self.target {
+    if let Some(_) = &self.target {
       let mut ctx = UpdateCtx3D { placeholder: &() };
 
       self.view.update(&self.states, &mut ctx);
-
-      target.set_local_matrix(Mat4::translate(5., 0., 1.));
-      self.root.set_local_matrix(Mat4::translate(5., 0., 1.));
     }
   }
 }
@@ -304,7 +308,7 @@ impl AxisActiveState {
   }
 
   pub fn has_active(&self) -> bool {
-    self.x && self.y && self.z
+    self.x || self.y || self.z
   }
   pub fn only_x(&self) -> bool {
     self.x && !self.y && !self.z
