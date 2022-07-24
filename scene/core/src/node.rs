@@ -170,6 +170,17 @@ impl SceneNode {
     f(node)
   }
 
+  pub fn visit_parent<F: FnMut(&SceneNodeData) -> T, T>(&self, mut f: F) -> Option<T> {
+    let inner = self.inner.read().unwrap();
+    let nodes = inner.nodes.read().unwrap();
+    if let Some(parent) = &inner.parent {
+      let node = nodes.get_node(parent.handle).data();
+      f(node).into()
+    } else {
+      None
+    }
+  }
+
   pub fn set_local_matrix(&self, mat: Mat4<f32>) {
     self.mutate(|node| node.local_matrix = mat);
   }

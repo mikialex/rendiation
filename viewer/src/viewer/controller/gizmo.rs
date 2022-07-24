@@ -86,7 +86,15 @@ impl Gizmo {
     let mut keep_target = true;
 
     // dispatch 3d events into 3d components, handling state active
-    self.states.target_world = self.root.get_world_matrix();
+    self.states.target_world_mat = self.root.get_world_matrix();
+    self.states.target_local_mat = self.target.as_ref().unwrap().get_local_matrix();
+    self.states.target_parent_world_mat = self
+      .target
+      .as_ref()
+      .unwrap()
+      .visit_parent(|p| p.world_matrix)
+      .unwrap_or_else(Mat4::identity);
+
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
       self.states.test_has_any_widget_mouse_down = false;
     }
@@ -96,6 +104,7 @@ impl Gizmo {
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
       if !self.states.test_has_any_widget_mouse_down {
         keep_target = false;
+        self.states.active.reset();
       }
     }
 
@@ -105,9 +114,6 @@ impl Gizmo {
 
     // after active states get updated, we handling mouse moving in gizmo level
     if mouse_move(event.raw_event).is_some() {
-      let target_world = self.root.get_world_matrix();
-      let target_local = self.root.get_local_matrix();
-
       let camera_world_position = event
         .interactive_ctx
         .camera
@@ -115,7 +121,9 @@ impl Gizmo {
         .get_world_matrix()
         .position();
 
-      let view = camera_world_position - target_world.position();
+      let view = camera_world_position - self.states.target_world_mat.position();
+      println!("view {}", view);
+      println!("state {:?}", self.states.active);
 
       if self.states.active.only_x() {
         let x = Vec3::new(1., 0., 0.);
@@ -129,6 +137,34 @@ impl Gizmo {
           .unwrap()
           .position;
         let new_hit = Vec3::new(new_hit.x, 0., 0.);
+
+        // // (self.states.start_hit_local_position + self.states.start_local_position)
+        // let new_local_translate = Mat4::from(self.states.start_local_quaternion)
+        //   .inverse()
+        //   .unwrap()
+        //   * Mat4::scale(
+        //     self.states.start_local_scale.x,
+        //     self.states.start_local_scale.y,
+        //     self.states.start_local_scale.z,
+        //   )
+        //   .inverse()
+        //   .unwrap()
+        //   * self.states.start_parent_world_mat.inverse().unwrap()
+        //   * new_hit
+        //   - self.states.start_hit_local_position
+        //   - self.states.start_local_position;
+
+        println!("new_hit {}", new_hit);
+        // self
+        //   .target
+        //   .as_ref()
+        //   .unwrap()
+        //   .set_local_matrix(Mat4::translate(
+        //     new_local_translate.x,
+        //     new_local_translate.y,
+        //     new_local_translate.z,
+        //   ));
+        // let world_translate = new_hit - self.states.start_hit_world_position;
       }
       if self.states.active.only_y() {
         let y = Vec3::new(0., 1., 0.);
@@ -146,6 +182,10 @@ impl Gizmo {
       }
     }
 
+    if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
+      self.states.active.reset();
+    }
+
     keep_target
   }
   pub fn update(&mut self) {
@@ -160,33 +200,14 @@ impl Gizmo {
   }
 }
 
-// this logic mixed with click state handling, try separate it
 fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &EventCtx3D) {
-  let mut is_mouse_down = false;
   move |state, event| {
     if let Some(event3d) = &event.event_3d {
-      match event3d {
-        Event3D::MouseDown { world_position } => {
-          is_mouse_down = true;
-          state.test_has_any_widget_mouse_down = true;
-          if active.with(state, |active| *active) {
-            // let back_to_local = state.target_world.inverse_or_identity();
-            // state.active_local_position = back_to_local * *world_position;
-          }
-        }
-        Event3D::MouseUp { .. } => {
-          if is_mouse_down {
-            active.with_mut(state, |active| {
-              *active = true;
-            });
-          }
-        }
-        _ => {}
+      if let Event3D::MouseDown { world_position } = event3d {
+        active.with_mut(state, |active| *active = true);
+        state.test_has_any_widget_mouse_down = true;
+        state.record_start(*world_position)
       }
-    }
-
-    if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
-      is_mouse_down = false;
     }
   }
 }
@@ -228,12 +249,36 @@ fn build_axis_arrow(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>
 #[derive(Default)]
 struct GizmoState {
   active: AxisActiveState,
-  active_local_position: Vec3<f32>,
-  target_world: Mat4<f32>,
+
+  start_parent_world_mat: Mat4<f32>,
+  start_local_position: Vec3<f32>,
+  start_local_quaternion: Quat<f32>,
+  start_local_scale: Vec3<f32>,
+  start_local_mat: Mat4<f32>,
+  start_hit_local_position: Vec3<f32>,
+  start_hit_world_position: Vec3<f32>,
+
+  target_local_mat: Mat4<f32>,
+  target_parent_world_mat: Mat4<f32>,
+  target_world_mat: Mat4<f32>,
   test_has_any_widget_mouse_down: bool,
 }
 
 impl GizmoState {
+  fn record_start(&mut self, start_hit_world_position: Vec3<f32>) {
+    self.start_local_mat = self.target_local_mat;
+    self.start_parent_world_mat = self.target_parent_world_mat;
+
+    let (t, r, s) = self.start_local_mat.decompose();
+    self.start_local_position = t;
+    self.start_local_quaternion = r;
+    self.start_local_scale = s;
+
+    self.start_hit_world_position = start_hit_world_position;
+    self.start_hit_local_position =
+      self.start_local_mat.inverse_or_identity() * self.start_hit_world_position;
+  }
+
   fn show_x(&self) -> bool {
     !self.active.has_active() || self.active.x
   }
@@ -245,7 +290,7 @@ impl GizmoState {
   }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct AxisActiveState {
   x: bool,
   y: bool,

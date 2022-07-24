@@ -5,6 +5,7 @@ use rendiation_renderable_mesh::mesh::MeshBufferHitPoint;
 
 use crate::*;
 
+#[derive(Clone, Copy)]
 pub enum Event3D {
   MouseDown { world_position: Vec3<f32> },
   MouseMove { world_position: Vec3<f32> },

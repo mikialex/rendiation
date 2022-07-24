@@ -94,9 +94,13 @@ pub struct Component3DCollection<T> {
 
 pub trait Component3D<T>: Component<T, System3D> + SceneRayInteractive + SceneRenderable {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
+  fn as_interactive(&self) -> &dyn SceneRayInteractive;
 }
 impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Component3D<T> for X {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
+    self
+  }
+  fn as_interactive(&self) -> &dyn SceneRayInteractive {
     self
   }
 }
@@ -117,14 +121,13 @@ pub fn collection3d<T>() -> Component3DCollection<T> {
 
 impl<T> Component<T, System3D> for Component3DCollection<T> {
   fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
-    map_3d_events(
+    let target = map_3d_events(
       ctx,
       self.collection.iter_mut().map(|c| c.as_mut_interactive()),
     );
     for view in &mut self.collection {
       view.event(states, ctx);
     }
-    ctx.event_3d = None;
   }
 
   fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {

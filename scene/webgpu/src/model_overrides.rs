@@ -30,7 +30,7 @@ impl<Me, Ma> OverridableMeshModelImpl<Me, Ma> {
     self
       .overrides
       .iter()
-      .for_each(|o| world_matrix = o.override_mat(world_matrix, &ctx));
+      .for_each(|o| world_matrix = o.override_mat(world_matrix, ctx));
     world_matrix
   }
 }
