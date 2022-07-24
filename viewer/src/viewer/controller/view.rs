@@ -46,12 +46,22 @@ impl interphaser::System for System3D {
   type UpdateCtx<'a> = UpdateCtx3D<'a>;
 }
 
-pub fn map_3d_events<'a, T>(
+// impl<S> SceneRayInteractive for dyn Component3D<S> {
+//   fn ray_pick_nearest(
+//     &self,
+//     _ctx: &SceneRayInteractiveCtx,
+//   ) -> rendiation_geometry::OptionalNearest<rendiation_renderable_mesh::mesh::MeshBufferHitPoint>
+//   {
+//     todo!()
+//   }
+// }
+
+pub fn map_3d_events<'a, T, S>(
   event_ctx: &mut EventCtx3D,
   view: T,
-) -> Option<&'a mut dyn SceneRayInteractive>
+) -> Option<&'a mut dyn Component3D<S>>
 where
-  T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>,
+  T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
 {
   let event = event_ctx.raw_event;
 
@@ -121,13 +131,16 @@ pub fn collection3d<T>() -> Component3DCollection<T> {
 
 impl<T> Component<T, System3D> for Component3DCollection<T> {
   fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
-    let target = map_3d_events(
+    if let Some(target) = map_3d_events(
       ctx,
-      self.collection.iter_mut().map(|c| c.as_mut_interactive()),
-    );
-    for view in &mut self.collection {
-      view.event(states, ctx);
+      self
+        .collection
+        .iter_mut() // fixme, how can i pass the compiler here ???!
+        .map(|c| unsafe { std::mem::transmute::<_, &mut dyn Component3D<T>>(c.as_mut()) }),
+    ) {
+      target.event(states, ctx);
     }
+    ctx.event_3d = None;
   }
 
   fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {

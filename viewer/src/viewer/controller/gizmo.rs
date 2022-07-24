@@ -204,6 +204,7 @@ fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &E
   move |state, event| {
     if let Some(event3d) = &event.event_3d {
       if let Event3D::MouseDown { world_position } = event3d {
+        println!("active");
         active.with_mut(state, |active| *active = true);
         state.test_has_any_widget_mouse_down = true;
         state.record_start(*world_position)
