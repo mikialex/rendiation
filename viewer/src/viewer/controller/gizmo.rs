@@ -65,6 +65,9 @@ impl Gizmo {
   }
 
   pub fn set_target(&mut self, target: Option<SceneNode>) {
+    if let Some(target) = &target {
+      self.root.set_local_matrix(target.get_world_matrix())
+    }
     self.target = target;
   }
 
@@ -121,29 +124,30 @@ impl Gizmo {
           .get_world_matrix()
           .position();
 
-        let view = camera_world_position - self.states.target_world_mat.position();
+        let target_world_position = self.states.target_world_mat.position();
+        let view = camera_world_position - target_world_position;
 
         let (plane, constraint) = if self.states.active.only_x() {
           let x = Vec3::new(1., 0., 0.);
           let helper_dir = x.cross(view);
           let normal = helper_dir.cross(x);
-          let plane = Plane::from_normal_and_origin_point(normal);
+          let plane = Plane::from_normal_and_plane_point(normal, target_world_position);
           (plane, x)
         } else if self.states.active.only_y() {
           let y = Vec3::new(0., 1., 0.);
           let helper_dir = y.cross(view);
           let normal = helper_dir.cross(y);
-          let plane = Plane::from_normal_and_origin_point(normal);
+          let plane = Plane::from_normal_and_plane_point(normal, target_world_position);
           (plane, y)
         } else if self.states.active.only_z() {
           let z = Vec3::new(0., 0., 1.);
           let helper_dir = z.cross(view);
           let normal = helper_dir.cross(z);
-          let plane = Plane::from_normal_and_origin_point(normal);
+          let plane = Plane::from_normal_and_plane_point(normal, target_world_position);
           (plane, z)
         } else {
           let y = Vec3::new(0., 1., 0.);
-          let plane = Plane::from_normal_and_origin_point(y);
+          let plane = Plane::from_normal_and_plane_point(y, target_world_position);
           (plane, y)
         };
 
@@ -151,14 +155,16 @@ impl Gizmo {
         if let OptionalNearest(Some(new_hit)) =
           event.interactive_ctx.world_ray.intersect(&plane, &())
         {
-          let new_hit = new_hit.position * constraint;
+          let new_hit = (new_hit.position - self.states.start_hit_world_position) * constraint
+            + self.states.start_hit_world_position;
 
-          let new_local_translate = Mat4::from(self.states.start_local_quaternion).inverse()?
-            * Mat4::scale(self.states.start_local_scale).inverse()?
-            * self.states.start_parent_world_mat.inverse()?
-            * new_hit
-            - self.states.start_hit_local_position
-            - self.states.start_local_position;
+          // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
+          // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
+          // new_local_translate = M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
+          let new_local_translate = self.states.start_parent_world_mat.inverse()? * new_hit
+            - Mat4::from(self.states.start_local_quaternion)
+              * Mat4::scale(self.states.start_local_scale)
+              * self.states.start_hit_local_position;
 
           target.set_local_matrix(Mat4::translate(new_local_translate));
 
@@ -264,7 +270,10 @@ impl GizmoState {
 
     self.start_hit_world_position = start_hit_world_position;
     self.start_hit_local_position =
-      self.start_local_mat.inverse_or_identity() * self.start_hit_world_position;
+      self.target_world_mat.inverse_or_identity() * self.start_hit_world_position;
+
+    dbg!(start_hit_world_position);
+    dbg!(self.start_hit_local_position);
   }
 
   fn show_x(&self) -> bool {

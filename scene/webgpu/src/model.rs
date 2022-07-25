@@ -140,6 +140,13 @@ where
   let mut picked = OptionalNearest::none();
   mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
     picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);
+
+    // transform back to world space
+    if let Some(result) = &mut picked.0 {
+      let hit = &mut result.hit;
+      hit.position = world_mat * hit.position;
+      hit.distance = (hit.position - ctx.world_ray.origin).length()
+    }
   });
   picked
 }

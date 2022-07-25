@@ -46,16 +46,6 @@ impl interphaser::System for System3D {
   type UpdateCtx<'a> = UpdateCtx3D<'a>;
 }
 
-// impl<S> SceneRayInteractive for dyn Component3D<S> {
-//   fn ray_pick_nearest(
-//     &self,
-//     _ctx: &SceneRayInteractiveCtx,
-//   ) -> rendiation_geometry::OptionalNearest<rendiation_renderable_mesh::mesh::MeshBufferHitPoint>
-//   {
-//     todo!()
-//   }
-// }
-
 pub fn map_3d_events<'a, T, S>(
   event_ctx: &mut EventCtx3D,
   view: T,
