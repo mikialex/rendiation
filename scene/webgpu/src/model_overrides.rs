@@ -158,14 +158,18 @@ impl WorldMatrixOverride for ViewAutoScalable {
     let world_translation = Mat4::translate(world_position);
 
     let camera_position = camera.node.get_world_matrix().position();
-    let distance = (camera_position - world_position).length();
+    let camera_forward = camera.node.get_world_matrix().forward().normalize();
+    let camera_forward = camera_forward * -1.; // because right hand coordinate
+    let camera_to_target = world_position - camera_position;
+
+    let projected_distance = camera_to_target.dot(camera_forward);
 
     let camera_view_height = camera.view_size_in_pixel(ctx.buffer_size).y;
 
     let scale = self.independent_scale_factor
       / camera
         .projection
-        .pixels_per_unit(distance, camera_view_height);
+        .pixels_per_unit(projected_distance, camera_view_height);
 
     let raw_scale = world_matrix.extract_scale();
     let new_scale = Vec3::splat(scale) / raw_scale;

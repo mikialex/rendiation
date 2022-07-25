@@ -25,7 +25,6 @@ pub struct Gizmo {
   states: GizmoState,
   root: SceneNode,
   target: Option<SceneNode>,
-  auto_scale: Rc<RefCell<ViewAutoScalable>>,
   view: Component3DCollection<GizmoState>,
 }
 
@@ -60,7 +59,6 @@ impl Gizmo {
     Self {
       states: Default::default(),
       root: root.clone(),
-      auto_scale: auto_scale.clone(),
       view,
       target: None,
     }
@@ -79,6 +77,7 @@ impl Gizmo {
 
   // return if should keep target.
   pub fn event(&mut self, event: &mut EventCtx3D) -> bool {
+    // we don't want handle degenerate case by just using identity fallback but do early return
     self.event_impl(event).unwrap_or_else(|| {
       log::error!("failed to apply gizmo control maybe because of degenerate transform");
       false
@@ -148,6 +147,7 @@ impl Gizmo {
           (plane, y)
         };
 
+        // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
         if let OptionalNearest(Some(new_hit)) =
           event.interactive_ctx.world_ray.intersect(&plane, &())
         {
@@ -180,7 +180,7 @@ impl Gizmo {
   }
 
   pub fn update(&mut self) {
-    if let Some(_) = &self.target {
+    if self.target.is_some() {
       let mut ctx = UpdateCtx3D { placeholder: &() };
 
       self.view.update(&self.states, &mut ctx);
