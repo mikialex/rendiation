@@ -53,11 +53,6 @@ impl SceneNodeDataImpl {
       self.net_visible = self.visible
     }
   }
-
-  pub fn set_position(&mut self, position: (f32, f32, f32)) -> &mut Self {
-    self.local_matrix = Mat4::translate(position.0, position.1, position.2); // todo
-    self
-  }
 }
 
 #[derive(Clone)]

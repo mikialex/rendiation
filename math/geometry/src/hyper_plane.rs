@@ -23,6 +23,14 @@ impl<T: Scalar, V> HyperPlane<T, V> {
     Self::new(normal, constant)
   }
 
+  pub fn from_normal_and_origin_point(normal: V) -> Self
+  where
+    V: IntoNormalizedVector<T, V>,
+  {
+    let normal = normal.into_normalized();
+    Self::new(normal, T::zero())
+  }
+
   pub fn flip(&mut self)
   where
     V: InnerProductSpace<T>,

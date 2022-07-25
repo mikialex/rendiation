@@ -77,7 +77,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     .into_resourced();
 
     let child = scene.root().create_child();
-    child.set_local_matrix(Mat4::translate(2., 0., 3.));
+    child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
     let model = MeshModel::new(material, mesh, child);
     scene.add_model(model)

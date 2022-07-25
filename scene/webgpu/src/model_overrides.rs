@@ -155,7 +155,7 @@ impl WorldMatrixOverride for ViewAutoScalable {
       .override_position
       .get_optional_position()
       .unwrap_or_else(|| world_matrix.position());
-    let world_translation = Mat4::translate(world_position.x, world_position.y, world_position.z);
+    let world_translation = Mat4::translate(world_position);
 
     let camera_position = camera.node.get_world_matrix().position();
     let distance = (camera_position - world_position).length();
@@ -171,7 +171,7 @@ impl WorldMatrixOverride for ViewAutoScalable {
     let new_scale = Vec3::splat(scale) / raw_scale;
 
     world_translation // move back to position
-      * Mat4::scale(new_scale.x, new_scale.y, new_scale.z) // apply new scale
+      * Mat4::scale(new_scale) // apply new scale
       * world_translation.inverse_or_identity() // move back to zero
       * world_matrix // original
   }
@@ -198,9 +198,9 @@ impl WorldMatrixOverride for BillBoard {
     let camera_position = camera.node.visit(|n| n.world_matrix.position());
 
     let scale = world_matrix.extract_scale();
-    let scale = Mat4::scale(scale.x, scale.y, scale.z);
+    let scale = Mat4::scale(scale);
     let position = world_matrix.position();
-    let position_m = Mat4::translate(position.x, position.y, position.z);
+    let position_m = Mat4::translate(position);
 
     let correction = Mat4::lookat(
       Vec3::new(0., 0., 0.),

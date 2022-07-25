@@ -6,7 +6,7 @@ use interphaser::{
   Component, Lens,
 };
 use rendiation_algebra::*;
-use rendiation_geometry::{IntersectAble, Plane};
+use rendiation_geometry::{IntersectAble, OptionalNearest, Plane};
 // use rendiation_geometry::{OptionalNearest, Ray3};
 // use rendiation_renderable_mesh::{
 //   mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
@@ -79,16 +79,20 @@ impl Gizmo {
 
   // return if should keep target.
   pub fn event(&mut self, event: &mut EventCtx3D) -> bool {
+    self.event_impl(event).unwrap_or_else(|| {
+      log::error!("failed to apply gizmo control maybe because of degenerate transform");
+      false
+    })
+  }
+  // return if should keep target.
+  pub fn event_impl(&mut self, event: &mut EventCtx3D) -> Option<bool> {
     if let Some(target) = &self.target {
       let mut keep_target = true;
 
       // dispatch 3d events into 3d components, handling state active
       self.states.target_world_mat = self.root.get_world_matrix();
       self.states.target_local_mat = target.get_local_matrix();
-      self.states.target_parent_world_mat = self
-        .target
-        .as_ref()
-        .unwrap()
+      self.states.target_parent_world_mat = target
         .visit_parent(|p| p.world_matrix)
         .unwrap_or_else(Mat4::identity);
 
@@ -106,7 +110,7 @@ impl Gizmo {
       }
 
       if !self.states.active.has_active() {
-        return keep_target;
+        return keep_target.into();
       }
 
       // after active states get updated, we handling mouse moving in gizmo level
@@ -126,58 +130,43 @@ impl Gizmo {
           let x = Vec3::new(1., 0., 0.);
           let helper_dir = x.cross(view);
           let normal = helper_dir.cross(x);
-          let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
-          let new_hit = event
-            .interactive_ctx
-            .world_ray
-            .intersect(&plane, &())
-            .unwrap()
-            .position;
-          let new_hit = Vec3::new(new_hit.x, 0., 0.);
+          let plane = Plane::from_normal_and_origin_point(normal);
+          if let OptionalNearest(Some(new_hit)) =
+            event.interactive_ctx.world_ray.intersect(&plane, &())
+          {
+            let new_hit = new_hit.position;
+            let new_hit = Vec3::new(new_hit.x, 0., 0.);
 
-          // (self.states.start_hit_local_position + self.states.start_local_position)
-          let new_local_translate = Mat4::from(self.states.start_local_quaternion)
-            .inverse()
-            .unwrap()
-            * Mat4::scale(
-              self.states.start_local_scale.x,
-              self.states.start_local_scale.y,
-              self.states.start_local_scale.z,
-            )
-            .inverse()
-            .unwrap()
-            * self.states.start_parent_world_mat.inverse().unwrap()
-            * new_hit
-            - self.states.start_hit_local_position
-            - self.states.start_local_position;
+            // (self.states.start_hit_local_position + self.states.start_local_position)
+            let new_local_translate = Mat4::from(self.states.start_local_quaternion).inverse()?
+              * Mat4::scale(self.states.start_local_scale).inverse()?
+              * self.states.start_parent_world_mat.inverse()?
+              * new_hit
+              - self.states.start_hit_local_position
+              - self.states.start_local_position;
 
-          // println!("new_local_translate {}", new_local_translate);
-          // dbg!(new_local_translate);
-          target.set_local_matrix(Mat4::translate(
-            new_local_translate.x,
-            new_local_translate.y,
-            new_local_translate.z,
-          ));
+            // println!("new_local_translate {}", new_local_translate);
+            // dbg!(new_local_translate);
+            target.set_local_matrix(Mat4::translate(new_local_translate));
 
-          self.root.set_local_matrix(Mat4::translate(
-            new_local_translate.x,
-            new_local_translate.y,
-            new_local_translate.z,
-          ));
-          // let world_translate = new_hit - self.states.start_hit_world_position;
+            self
+              .root
+              .set_local_matrix(Mat4::translate(new_local_translate));
+            // let world_translate = new_hit - self.states.start_hit_world_position;
+          }
         }
         if self.states.active.only_y() {
           let y = Vec3::new(0., 1., 0.);
           let helper_dir = y.cross(view);
           let normal = helper_dir.cross(y);
-          let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
+          let plane = Plane::from_normal_and_origin_point(normal);
           //
         }
         if self.states.active.only_z() {
           let z = Vec3::new(0., 0., 1.);
           let helper_dir = z.cross(view);
           let normal = helper_dir.cross(z);
-          let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
+          let plane = Plane::from_normal_and_origin_point(normal);
           //
         }
       }
@@ -190,7 +179,9 @@ impl Gizmo {
     } else {
       false
     }
+    .into()
   }
+
   pub fn update(&mut self) {
     if let Some(_) = &self.target {
       let mut ctx = UpdateCtx3D { placeholder: &() };

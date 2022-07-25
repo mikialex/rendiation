@@ -199,8 +199,8 @@ fn mul() {
   let cgmath_r = cgmath_mat1 * cgmath_mat2 * cgmath_point;
   let cgmath_r: [f32; 4] = *cgmath_r.as_ref();
 
-  let math_mat1 = Mat4::<f32>::translate(1., 2., 3.);
-  let math_mat2 = Mat4::<f32>::scale(3., -2., 3.);
+  let math_mat1 = Mat4::<f32>::translate((1., 2., 3.));
+  let math_mat2 = Mat4::<f32>::scale((3., -2., 3.));
   let math_point = Vec4::new(1., 2., 3., 1.);
   let math_r = math_mat1 * math_mat2 * math_point;
   let math_r: [f32; 4] = math_r.into();
@@ -314,7 +314,8 @@ where
     )
   }
 
-  pub fn scale(x: T, y: T, z: T) -> Self {
+  pub fn scale(s: impl Into<Vec3<T>>) -> Self {
+    let Vec3 { x, y, z } = s.into();
     let zero = T::zero();
     let one = T::one();
 
@@ -327,7 +328,8 @@ where
     )
   }
 
-  pub fn translate(x: T, y: T, z: T) -> Self {
+  pub fn translate(s: impl Into<Vec3<T>>) -> Self {
+    let Vec3 { x, y, z } = s.into();
     let zero = T::zero();
     let one = T::one();
 
