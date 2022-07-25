@@ -123,51 +123,48 @@ impl Gizmo {
           .position();
 
         let view = camera_world_position - self.states.target_world_mat.position();
-        // println!("view {}", view);
-        // println!("state {:?}", self.states.active);
 
-        if self.states.active.only_x() {
+        let (plane, constraint) = if self.states.active.only_x() {
           let x = Vec3::new(1., 0., 0.);
           let helper_dir = x.cross(view);
           let normal = helper_dir.cross(x);
           let plane = Plane::from_normal_and_origin_point(normal);
-          if let OptionalNearest(Some(new_hit)) =
-            event.interactive_ctx.world_ray.intersect(&plane, &())
-          {
-            let new_hit = new_hit.position;
-            let new_hit = Vec3::new(new_hit.x, 0., 0.);
-
-            // (self.states.start_hit_local_position + self.states.start_local_position)
-            let new_local_translate = Mat4::from(self.states.start_local_quaternion).inverse()?
-              * Mat4::scale(self.states.start_local_scale).inverse()?
-              * self.states.start_parent_world_mat.inverse()?
-              * new_hit
-              - self.states.start_hit_local_position
-              - self.states.start_local_position;
-
-            // println!("new_local_translate {}", new_local_translate);
-            // dbg!(new_local_translate);
-            target.set_local_matrix(Mat4::translate(new_local_translate));
-
-            self
-              .root
-              .set_local_matrix(Mat4::translate(new_local_translate));
-            // let world_translate = new_hit - self.states.start_hit_world_position;
-          }
-        }
-        if self.states.active.only_y() {
+          (plane, x)
+        } else if self.states.active.only_y() {
           let y = Vec3::new(0., 1., 0.);
           let helper_dir = y.cross(view);
           let normal = helper_dir.cross(y);
           let plane = Plane::from_normal_and_origin_point(normal);
-          //
-        }
-        if self.states.active.only_z() {
+          (plane, y)
+        } else if self.states.active.only_z() {
           let z = Vec3::new(0., 0., 1.);
           let helper_dir = z.cross(view);
           let normal = helper_dir.cross(z);
           let plane = Plane::from_normal_and_origin_point(normal);
-          //
+          (plane, z)
+        } else {
+          let y = Vec3::new(0., 1., 0.);
+          let plane = Plane::from_normal_and_origin_point(y);
+          (plane, y)
+        };
+
+        if let OptionalNearest(Some(new_hit)) =
+          event.interactive_ctx.world_ray.intersect(&plane, &())
+        {
+          let new_hit = new_hit.position * constraint;
+
+          let new_local_translate = Mat4::from(self.states.start_local_quaternion).inverse()?
+            * Mat4::scale(self.states.start_local_scale).inverse()?
+            * self.states.start_parent_world_mat.inverse()?
+            * new_hit
+            - self.states.start_hit_local_position
+            - self.states.start_local_position;
+
+          target.set_local_matrix(Mat4::translate(new_local_translate));
+
+          self
+            .root
+            .set_local_matrix(Mat4::translate(new_local_translate));
         }
       }
 
@@ -195,7 +192,6 @@ fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &E
   move |state, event| {
     if let Some(event3d) = &event.event_3d {
       if let Event3D::MouseDown { world_position } = event3d {
-        println!("active");
         active.with_mut(state, |active| *active = true);
         state.test_has_any_widget_mouse_down = true;
         state.record_start(*world_position)
