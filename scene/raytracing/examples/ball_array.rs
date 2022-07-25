@@ -1,13 +1,16 @@
 use rendiation_algebra::*;
 use rendiation_scene_raytracing::*;
 
+mod utils;
+use utils::*;
+
 fn main() {
   let mut renderer = PathTraceIntegrator::default();
 
   let mut frame = Frame::new(1000, 1000);
   let mut scene = Scene::new();
 
-  let perspective = PerspectiveProjection::default();
+  let perspective = make_perspective();
   let camera = SceneCamera::new(perspective, scene.root().create_child());
 
   scene

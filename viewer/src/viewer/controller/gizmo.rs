@@ -79,121 +79,117 @@ impl Gizmo {
 
   // return if should keep target.
   pub fn event(&mut self, event: &mut EventCtx3D) -> bool {
-    if self.target.is_none() {
-      return false;
-    }
+    if let Some(target) = &self.target {
+      let mut keep_target = true;
 
-    let mut keep_target = true;
+      // dispatch 3d events into 3d components, handling state active
+      self.states.target_world_mat = self.root.get_world_matrix();
+      self.states.target_local_mat = target.get_local_matrix();
+      self.states.target_parent_world_mat = self
+        .target
+        .as_ref()
+        .unwrap()
+        .visit_parent(|p| p.world_matrix)
+        .unwrap_or_else(Mat4::identity);
 
-    // dispatch 3d events into 3d components, handling state active
-    self.states.target_world_mat = self.root.get_world_matrix();
-    self.states.target_local_mat = self.target.as_ref().unwrap().get_local_matrix();
-    self.states.target_parent_world_mat = self
-      .target
-      .as_ref()
-      .unwrap()
-      .visit_parent(|p| p.world_matrix)
-      .unwrap_or_else(Mat4::identity);
-
-    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
-      self.states.test_has_any_widget_mouse_down = false;
-    }
-
-    self.view.event(&mut self.states, event);
-
-    if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
-      if !self.states.test_has_any_widget_mouse_down {
-        keep_target = false;
-        self.states.active.reset();
+      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
+        self.states.test_has_any_widget_mouse_down = false;
       }
-    }
 
-    if !self.states.active.has_active() {
-      return keep_target;
-    }
+      self.view.event(&mut self.states, event);
 
-    // after active states get updated, we handling mouse moving in gizmo level
-    if mouse_move(event.raw_event).is_some() {
-      let camera_world_position = event
-        .interactive_ctx
-        .camera
-        .node
-        .get_world_matrix()
-        .position();
+      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
+        if !self.states.test_has_any_widget_mouse_down {
+          keep_target = false;
+          self.states.active.reset();
+        }
+      }
 
-      let view = camera_world_position - self.states.target_world_mat.position();
-      // println!("view {}", view);
-      // println!("state {:?}", self.states.active);
+      if !self.states.active.has_active() {
+        return keep_target;
+      }
 
-      if self.states.active.only_x() {
-        let x = Vec3::new(1., 0., 0.);
-        let helper_dir = x.cross(view);
-        let normal = helper_dir.cross(x);
-        let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
-        let new_hit = event
+      // after active states get updated, we handling mouse moving in gizmo level
+      if mouse_move(event.raw_event).is_some() {
+        let camera_world_position = event
           .interactive_ctx
-          .world_ray
-          .intersect(&plane, &())
-          .unwrap()
-          .position;
-        let new_hit = Vec3::new(new_hit.x, 0., 0.);
+          .camera
+          .node
+          .get_world_matrix()
+          .position();
 
-        // (self.states.start_hit_local_position + self.states.start_local_position)
-        let new_local_translate = Mat4::from(self.states.start_local_quaternion)
-          .inverse()
-          .unwrap()
-          * Mat4::scale(
-            self.states.start_local_scale.x,
-            self.states.start_local_scale.y,
-            self.states.start_local_scale.z,
-          )
-          .inverse()
-          .unwrap()
-          * self.states.start_parent_world_mat.inverse().unwrap()
-          * new_hit
-          - self.states.start_hit_local_position
-          - self.states.start_local_position;
+        let view = camera_world_position - self.states.target_world_mat.position();
+        // println!("view {}", view);
+        // println!("state {:?}", self.states.active);
 
-        // println!("new_local_translate {}", new_local_translate);
-        // dbg!(new_local_translate);
-        self
-          .target
-          .as_ref()
-          .unwrap()
-          .set_local_matrix(Mat4::translate(
+        if self.states.active.only_x() {
+          let x = Vec3::new(1., 0., 0.);
+          let helper_dir = x.cross(view);
+          let normal = helper_dir.cross(x);
+          let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
+          let new_hit = event
+            .interactive_ctx
+            .world_ray
+            .intersect(&plane, &())
+            .unwrap()
+            .position;
+          let new_hit = Vec3::new(new_hit.x, 0., 0.);
+
+          // (self.states.start_hit_local_position + self.states.start_local_position)
+          let new_local_translate = Mat4::from(self.states.start_local_quaternion)
+            .inverse()
+            .unwrap()
+            * Mat4::scale(
+              self.states.start_local_scale.x,
+              self.states.start_local_scale.y,
+              self.states.start_local_scale.z,
+            )
+            .inverse()
+            .unwrap()
+            * self.states.start_parent_world_mat.inverse().unwrap()
+            * new_hit
+            - self.states.start_hit_local_position
+            - self.states.start_local_position;
+
+          // println!("new_local_translate {}", new_local_translate);
+          // dbg!(new_local_translate);
+          target.set_local_matrix(Mat4::translate(
             new_local_translate.x,
             new_local_translate.y,
             new_local_translate.z,
           ));
 
-        self.root.set_local_matrix(Mat4::translate(
-          new_local_translate.x,
-          new_local_translate.y,
-          new_local_translate.z,
-        ));
-        // let world_translate = new_hit - self.states.start_hit_world_position;
+          self.root.set_local_matrix(Mat4::translate(
+            new_local_translate.x,
+            new_local_translate.y,
+            new_local_translate.z,
+          ));
+          // let world_translate = new_hit - self.states.start_hit_world_position;
+        }
+        if self.states.active.only_y() {
+          let y = Vec3::new(0., 1., 0.);
+          let helper_dir = y.cross(view);
+          let normal = helper_dir.cross(y);
+          let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
+          //
+        }
+        if self.states.active.only_z() {
+          let z = Vec3::new(0., 0., 1.);
+          let helper_dir = z.cross(view);
+          let normal = helper_dir.cross(z);
+          let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
+          //
+        }
       }
-      if self.states.active.only_y() {
-        let y = Vec3::new(0., 1., 0.);
-        let helper_dir = y.cross(view);
-        let normal = helper_dir.cross(y);
-        let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
-        //
-      }
-      if self.states.active.only_z() {
-        let z = Vec3::new(0., 0., 1.);
-        let helper_dir = z.cross(view);
-        let normal = helper_dir.cross(z);
-        let plane = Plane::from_normal_and_plane_point(normal, Vec3::zero());
-        //
-      }
-    }
 
-    if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
-      self.states.active.reset();
-    }
+      if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
+        self.states.active.reset();
+      }
 
-    keep_target
+      keep_target
+    } else {
+      false
+    }
   }
   pub fn update(&mut self) {
     if let Some(_) = &self.target {

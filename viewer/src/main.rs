@@ -18,9 +18,15 @@ pub use viewer::*;
 pub mod app;
 pub use app::*;
 
-use interphaser::Application;
+use interphaser::{Application, WindowConfig};
 
 fn main() {
+  let window_init_config = WindowConfig {
+    size: (600., 400.).into(),
+    title: "viewer".to_owned(),
+    position: (500., 500.).into(),
+  };
+
   #[cfg(target_arch = "wasm32")]
   {
     console_error_panic_hook::set_once();
@@ -30,7 +36,7 @@ fn main() {
     let ui = create_app();
 
     wasm_bindgen_futures::spawn_local(async move {
-      let viewer = Application::new(viewer, ui).await;
+      let viewer = Application::new(viewer, ui, window_init_config).await;
       viewer.run();
     });
   }
@@ -42,7 +48,7 @@ fn main() {
     let viewer = ViewerApplication::default();
     let ui = create_app();
 
-    let viewer = futures::executor::block_on(Application::new(viewer, ui));
+    let viewer = futures::executor::block_on(Application::new(viewer, ui, window_init_config));
     viewer.run();
   }
 }
