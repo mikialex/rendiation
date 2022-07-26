@@ -21,12 +21,12 @@ pub fn load_img(path: &str) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
 
 pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
   let path = [
-    "C:/Users/mk/Desktop/rrf-resource/Park2/posx.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/negx.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/posy.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/negy.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/posz.jpg",
-    "C:/Users/mk/Desktop/rrf-resource/Park2/negz.jpg",
+    "D:/Resource/cube/ds3/px.jpg",
+    "D:/Resource/cube/ds3/nx.jpg",
+    "D:/Resource/cube/ds3/py.jpg",
+    "D:/Resource/cube/ds3/ny.jpg",
+    "D:/Resource/cube/ds3/pz.jpg",
+    "D:/Resource/cube/ds3/nz.jpg",
   ];
 
   fn load(path: &&str) -> Box<dyn WebGPUTexture2dSource> {
@@ -48,7 +48,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   }));
 
   let path = if cfg!(windows) {
-    "C:/Users/mk/Desktop/rrf-resource/planets/earth_atmos_2048.jpg"
+    "D:/Resource/EarthView.jpg"
   } else {
     "/Users/mikialex/Desktop/test.png"
   };

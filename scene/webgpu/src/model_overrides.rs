@@ -196,7 +196,7 @@ impl WorldMatrixOverride for BillBoard {
     let camera = &ctx.camera;
     let camera_position = camera.node.visit(|n| n.world_matrix.position());
 
-    let scale = world_matrix.extract_scale();
+    let scale = world_matrix.get_scale();
     let scale = Mat4::scale(scale);
     let position = world_matrix.position();
     let position_m = Mat4::translate(position);

@@ -90,21 +90,21 @@ pub trait VolumeMeasurable<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurable<T,
 }
 impl<T: Scalar, X> VolumeMeasurable<T> for X where X: SpaceEntity<T, 3> + LebesgueMeasurable<T, 3> {}
 
-pub trait SurfaceAreaMeasure<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {
+pub trait SurfaceAreaMeasurable<T: Scalar>: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {
   #[inline(always)]
   fn surface_area(&self) -> T {
     self.measure()
   }
 }
-impl<T: Scalar, X> SurfaceAreaMeasure<T> for X where X: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {}
+impl<T: Scalar, X> SurfaceAreaMeasurable<T> for X where X: SpaceEntity<T, 3> + LebesgueMeasurable<T, 2> {}
 
-pub trait PerimeterMeasure<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {
+pub trait PerimeterMeasurable<T: Scalar>: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {
   #[inline(always)]
   fn perimeter(&self) -> T {
     self.measure()
   }
 }
-impl<T: Scalar, X> PerimeterMeasure<T> for X where X: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {}
+impl<T: Scalar, X> PerimeterMeasurable<T> for X where X: SpaceEntity<T, 2> + LebesgueMeasurable<T, 1> {}
 
 pub trait SolidEntity<T: Scalar, const D: usize>:
   SpaceEntity<T, D> + LebesgueMeasurable<T, D>

@@ -11,15 +11,10 @@ pub struct Vec4<T> {
   pub w: T,
 }
 
-pub fn vec4<T>(x: T, y: T, z: T, w: T) -> Vec4<T> {
-  Vec4::new(x, y, z, w)
-}
-
 unsafe impl<T: bytemuck::Zeroable> bytemuck::Zeroable for Vec4<T> {}
 unsafe impl<T: bytemuck::Pod> bytemuck::Pod for Vec4<T> {}
 
 impl<T: Scalar> VectorDimension<4> for Vec4<T> {}
-impl<T: Scalar> VectorSelfCrateImpl for Vec4<T> {}
 impl<T: Scalar> RealVector<T> for Vec4<T> {}
 impl<T> VectorSpace<T> for Vec4<T> where
   T: Add<T, Output = T> + Sub<T, Output = T> + Mul<T, Output = T> + Div<T, Output = T> + Copy
@@ -31,7 +26,7 @@ impl<T: Scalar> InnerProductSpace<T> for Vec4<T> {
     self.x * b.x + self.y * b.y + self.z * b.z + self.w * b.w
   }
 }
-impl<T: One + Zero + Copy + Sub<T, Output = T>> Vector<T> for Vec4<T> {
+impl<T: One + Zero + Copy> Vector<T> for Vec4<T> {
   #[inline]
   fn create<F>(f: F) -> Self
   where

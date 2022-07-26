@@ -63,7 +63,7 @@ impl From<Shader140Mat3> for Mat3<f32> {
 #[repr(C)]
 #[rustfmt::skip]
 #[derive(Clone, Copy, Zeroable, Pod, PartialEq, Default)]
-pub struct Shader140Mat2{
+pub struct Shader140Mat2 {
 	pub a1:f32, pub a2:f32, _pad1: [f32; 2],
 	pub b1:f32, pub b2:f32, _pad2: [f32; 2],
 }
@@ -72,8 +72,8 @@ impl From<Mat2<f32>> for Shader140Mat2 {
   #[rustfmt::skip]
   fn from(v: Mat2<f32>) -> Self {
     Self {
-      a1: v.a1, a2: v.a2, 
-      b1: v.b1, b2: v.b2, 
+      a1: v.a1, a2: v.a2,
+      b1: v.b1, b2: v.b2,
       ..Default::default()
     }
   }

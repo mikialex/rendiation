@@ -4,23 +4,6 @@ pub trait ShaderPassBuilder {
   fn setup_pass(&self, _ctx: &mut GPURenderPassCtx) {}
 }
 
-#[derive(Clone, Hash)]
-pub struct PassTargetFormatInfo {
-  pub depth_stencil_format: Option<gpu::TextureFormat>,
-  pub color_formats: Vec<gpu::TextureFormat>,
-  pub sample_count: u32,
-}
-
-impl Default for PassTargetFormatInfo {
-  fn default() -> Self {
-    Self {
-      depth_stencil_format: Default::default(),
-      color_formats: Default::default(),
-      sample_count: 1,
-    }
-  }
-}
-
 #[derive(Clone)]
 pub enum RenderTargetView {
   Texture(GPUTexture2dView),
