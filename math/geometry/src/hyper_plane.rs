@@ -4,7 +4,7 @@ use crate::*;
 pub struct HyperPlane<T: Scalar, V> {
   /// face normal
   pub normal: NormalizedVector<T, V>,
-  /// plane to the origin distance
+  /// plane to the origin signed distance
   pub constant: T,
 }
 
@@ -19,7 +19,7 @@ impl<T: Scalar, V> HyperPlane<T, V> {
     V: InnerProductSpace<T>,
   {
     let normal = normal.into_normalized();
-    let constant = normal.dot(point);
+    let constant = -normal.dot(point);
     Self::new(normal, constant)
   }
 

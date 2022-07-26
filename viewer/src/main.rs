@@ -22,7 +22,7 @@ use interphaser::{Application, WindowConfig};
 
 fn main() {
   let window_init_config = WindowConfig {
-    size: (600., 400.).into(),
+    size: (1200., 800.).into(),
     title: "viewer".to_owned(),
     position: (500., 500.).into(),
   };

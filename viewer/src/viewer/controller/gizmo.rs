@@ -127,36 +127,35 @@ impl Gizmo {
         let target_world_position = self.states.target_world_mat.position();
         let view = camera_world_position - target_world_position;
 
-        let (plane, constraint) = if self.states.active.only_x() {
+        let plane_point = self.states.start_hit_world_position;
+
+        // build world space constraint abstract interactive plane
+        let (normal, constraint) = if self.states.active.only_x() {
           let x = Vec3::new(1., 0., 0.);
           let helper_dir = x.cross(view);
           let normal = helper_dir.cross(x);
-          let plane = Plane::from_normal_and_plane_point(normal, target_world_position);
-          (plane, x)
+          (normal, x)
         } else if self.states.active.only_y() {
           let y = Vec3::new(0., 1., 0.);
           let helper_dir = y.cross(view);
           let normal = helper_dir.cross(y);
-          let plane = Plane::from_normal_and_plane_point(normal, target_world_position);
-          (plane, y)
+          (normal, y)
         } else if self.states.active.only_z() {
           let z = Vec3::new(0., 0., 1.);
           let helper_dir = z.cross(view);
           let normal = helper_dir.cross(z);
-          let plane = Plane::from_normal_and_plane_point(normal, target_world_position);
-          (plane, z)
+          (normal, z)
         } else {
           let y = Vec3::new(0., 1., 0.);
-          let plane = Plane::from_normal_and_plane_point(y, target_world_position);
-          (plane, y)
+          (y, y)
         };
+        let plane = Plane::from_normal_and_plane_point(normal, plane_point);
 
         // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
         if let OptionalNearest(Some(new_hit)) =
           event.interactive_ctx.world_ray.intersect(&plane, &())
         {
-          let new_hit = (new_hit.position - self.states.start_hit_world_position) * constraint
-            + self.states.start_hit_world_position;
+          let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
 
           // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
           // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
