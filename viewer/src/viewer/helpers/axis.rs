@@ -88,7 +88,7 @@ impl Arrow {
     let root = parent.create_child();
 
     let node_cylinder = root.create_child();
-    node_cylinder.set_local_matrix(Mat4::translate(0., 1., 0.));
+    node_cylinder.set_local_matrix(Mat4::translate((0., 1., 0.)));
     let mut cylinder = MeshModelImpl::new(
       material.clone().into_resourced(),
       cylinder_mesh.clone().into_resourced(),
@@ -99,7 +99,7 @@ impl Arrow {
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
-    node_tip.set_local_matrix(Mat4::translate(0., 2., 0.));
+    node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
     let mut tip = MeshModelImpl::new(
       material.clone().into_resourced(),
       tip_mesh.clone().into_resourced(),

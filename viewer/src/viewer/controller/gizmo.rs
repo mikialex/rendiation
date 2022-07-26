@@ -5,7 +5,8 @@ use interphaser::{
   winit::event::{ElementState, MouseButton},
   Component, Lens,
 };
-use rendiation_algebra::{Mat4, Vec3};
+use rendiation_algebra::*;
+use rendiation_geometry::{IntersectAble, OptionalNearest, Plane};
 // use rendiation_geometry::{OptionalNearest, Ray3};
 // use rendiation_renderable_mesh::{
 //   mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
@@ -24,7 +25,6 @@ pub struct Gizmo {
   states: GizmoState,
   root: SceneNode,
   target: Option<SceneNode>,
-  auto_scale: Rc<RefCell<ViewAutoScalable>>,
   view: Component3DCollection<GizmoState>,
 }
 
@@ -59,80 +59,148 @@ impl Gizmo {
     Self {
       states: Default::default(),
       root: root.clone(),
-      auto_scale: auto_scale.clone(),
       view,
       target: None,
     }
   }
 
   pub fn set_target(&mut self, target: Option<SceneNode>) {
+    if let Some(target) = &target {
+      self.root.set_local_matrix(target.get_world_matrix())
+    }
     self.target = target;
   }
 
-  pub fn event(&mut self, event: &mut EventCtx3D) {
-    if self.target.is_none() {
-      return;
-    }
-
-    // dispatch 3d events into 3d components, handling state active
-    self.view.event(&mut self.states, event);
-
-    // after active states get updated, we handling mouse moving in gizmo level
-    if mouse_move(event.raw_event).is_some() {
-      if !self.states.active.has_active() {
-        return;
-      }
-      // let target_world = self.root.get_world_matrix();
-
-      if self.states.active.only_x() {
-        //
-      }
-      if self.states.active.only_y() {
-        //
-      }
-      if self.states.active.only_z() {
-        //
-      }
-    }
+  pub fn has_target(&self) -> bool {
+    self.target.is_some()
   }
-  pub fn update(&mut self) {
-    if self.target.is_none() {
-      return;
+  pub fn has_active(&self) -> bool {
+    self.states.active.has_active()
+  }
+
+  // return if should keep target.
+  pub fn event(&mut self, event: &mut EventCtx3D) -> bool {
+    // we don't want handle degenerate case by just using identity fallback but do early return
+    self.event_impl(event).unwrap_or_else(|| {
+      log::error!("failed to apply gizmo control maybe because of degenerate transform");
+      false
+    })
+  }
+  // return if should keep target.
+  pub fn event_impl(&mut self, event: &mut EventCtx3D) -> Option<bool> {
+    if let Some(target) = &self.target {
+      let mut keep_target = true;
+
+      // dispatch 3d events into 3d components, handling state active
+      self.states.target_world_mat = self.root.get_world_matrix();
+      self.states.target_local_mat = target.get_local_matrix();
+      self.states.target_parent_world_mat = target
+        .visit_parent(|p| p.world_matrix)
+        .unwrap_or_else(Mat4::identity);
+
+      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
+        self.states.test_has_any_widget_mouse_down = false;
+      }
+
+      self.view.event(&mut self.states, event);
+
+      if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event.raw_event) {
+        if !self.states.test_has_any_widget_mouse_down {
+          keep_target = false;
+          self.states.active.reset();
+        }
+      }
+
+      if !self.states.active.has_active() {
+        return keep_target.into();
+      }
+
+      // after active states get updated, we handling mouse moving in gizmo level
+      if mouse_move(event.raw_event).is_some() {
+        let camera_world_position = event
+          .interactive_ctx
+          .camera
+          .node
+          .get_world_matrix()
+          .position();
+
+        let target_world_position = self.states.target_world_mat.position();
+        let view = camera_world_position - target_world_position;
+
+        let plane_point = self.states.start_hit_world_position;
+
+        // build world space constraint abstract interactive plane
+        let (normal, constraint) = if self.states.active.only_x() {
+          let x = Vec3::new(1., 0., 0.);
+          let helper_dir = x.cross(view);
+          let normal = helper_dir.cross(x);
+          (normal, x)
+        } else if self.states.active.only_y() {
+          let y = Vec3::new(0., 1., 0.);
+          let helper_dir = y.cross(view);
+          let normal = helper_dir.cross(y);
+          (normal, y)
+        } else if self.states.active.only_z() {
+          let z = Vec3::new(0., 0., 1.);
+          let helper_dir = z.cross(view);
+          let normal = helper_dir.cross(z);
+          (normal, z)
+        } else {
+          let y = Vec3::new(0., 1., 0.);
+          (y, y)
+        };
+        let plane = Plane::from_normal_and_plane_point(normal, plane_point);
+
+        // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
+        if let OptionalNearest(Some(new_hit)) =
+          event.interactive_ctx.world_ray.intersect(&plane, &())
+        {
+          let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
+
+          // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
+          // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
+          // new_local_translate = M-1(parent) * new_hit_world - M(local_rotate) * M(local_scale) * start_hit_local_position
+          let new_local_translate = self.states.start_parent_world_mat.inverse()? * new_hit
+            - Mat4::from(self.states.start_local_quaternion)
+              * Mat4::scale(self.states.start_local_scale)
+              * self.states.start_hit_local_position;
+
+          target.set_local_matrix(Mat4::translate(new_local_translate));
+
+          self
+            .root
+            .set_local_matrix(Mat4::translate(new_local_translate));
+        }
+      }
+
+      if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
+        self.states.active.reset();
+      }
+
+      keep_target
+    } else {
+      false
     }
+    .into()
+  }
 
-    let mut ctx = UpdateCtx3D { placeholder: &() };
+  pub fn update(&mut self) {
+    if self.target.is_some() {
+      let mut ctx = UpdateCtx3D { placeholder: &() };
 
-    self.view.update(&self.states, &mut ctx);
-
-    self.root.set_local_matrix(Mat4::translate(1., 0., 1.));
+      self.view.update(&self.states, &mut ctx);
+    }
   }
 }
 
-// this logic mixed with click state handling, try separate it
 fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &EventCtx3D) {
-  let mut is_mouse_down = false;
   move |state, event| {
     if let Some(event3d) = &event.event_3d {
-      match event3d {
-        Event3D::MouseDown { world_position } => {
-          is_mouse_down = true;
-          if active.with(state, |active| *active) {
-            state.last_active_world_position = *world_position;
-          }
-        }
-        Event3D::MouseUp { .. } => {
-          if is_mouse_down {
-            active.with_mut(state, |active| {
-              *active = true;
-            });
-          }
-        }
-        _ => {}
+      if let Event3D::MouseDown { world_position } = event3d {
+        active.with_mut(state, |active| *active = true);
+        state.test_has_any_widget_mouse_down = true;
+        state.record_start(*world_position)
       }
-    }
-
-    if let Some((MouseButton::Left, ElementState::Released)) = mouse(event.raw_event) {
-      is_mouse_down = false;
     }
   }
 }
@@ -174,10 +242,39 @@ fn build_axis_arrow(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>
 #[derive(Default)]
 struct GizmoState {
   active: AxisActiveState,
-  last_active_world_position: Vec3<f32>,
+
+  start_parent_world_mat: Mat4<f32>,
+  start_local_position: Vec3<f32>,
+  start_local_quaternion: Quat<f32>,
+  start_local_scale: Vec3<f32>,
+  start_local_mat: Mat4<f32>,
+  start_hit_local_position: Vec3<f32>,
+  start_hit_world_position: Vec3<f32>,
+
+  target_local_mat: Mat4<f32>,
+  target_parent_world_mat: Mat4<f32>,
+  target_world_mat: Mat4<f32>,
+  test_has_any_widget_mouse_down: bool,
 }
 
 impl GizmoState {
+  fn record_start(&mut self, start_hit_world_position: Vec3<f32>) {
+    self.start_local_mat = self.target_local_mat;
+    self.start_parent_world_mat = self.target_parent_world_mat;
+
+    let (t, r, s) = self.start_local_mat.decompose();
+    self.start_local_position = t;
+    self.start_local_quaternion = r;
+    self.start_local_scale = s;
+
+    self.start_hit_world_position = start_hit_world_position;
+    self.start_hit_local_position =
+      self.target_world_mat.inverse_or_identity() * self.start_hit_world_position;
+
+    dbg!(start_hit_world_position);
+    dbg!(self.start_hit_local_position);
+  }
+
   fn show_x(&self) -> bool {
     !self.active.has_active() || self.active.x
   }
@@ -189,7 +286,7 @@ impl GizmoState {
   }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct AxisActiveState {
   x: bool,
   y: bool,
@@ -202,7 +299,7 @@ impl AxisActiveState {
   }
 
   pub fn has_active(&self) -> bool {
-    self.x && self.y && self.z
+    self.x || self.y || self.z
   }
   pub fn only_x(&self) -> bool {
     self.x && !self.y && !self.z

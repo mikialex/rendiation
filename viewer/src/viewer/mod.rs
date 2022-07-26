@@ -168,25 +168,38 @@ impl Viewer3dContent {
     let normalized_screen_position = position_info
       .compute_normalized_position_in_canvas_coordinate(states)
       .into();
-    let interactive_ctx = self
-      .scene
-      .build_interactive_ctx(normalized_screen_position, &self.pick_config);
+
+    // todo, get correct size from render ctx side
+    let camera_view_size = Size::from_usize_pair_min_one((
+      position_info.size.width as usize,
+      position_info.size.height as usize,
+    ));
+
+    let interactive_ctx = self.scene.build_interactive_ctx(
+      normalized_screen_position,
+      camera_view_size,
+      &self.pick_config,
+    );
 
     let mut ctx = EventCtx3D::new(states, event, &position_info, &self.scene, &interactive_ctx);
 
-    self.gizmo.event(&mut ctx);
-    self.controller.event(event, bound);
+    let keep_target_for_gizmo = self.gizmo.event(&mut ctx);
+
+    if !self.gizmo.has_active() {
+      self.controller.event(event, bound);
+    }
 
     if let Some((MouseButton::Left, ElementState::Pressed)) = mouse(event) {
-      self.selections.clear();
-      self.gizmo.set_target(None);
-
       if let Some((nearest, _)) = self.scene.interaction_picking(&interactive_ctx) {
+        self.selections.clear();
+
         self
           .selections
           .select(SceneModelShareable::as_renderable(nearest));
 
         self.gizmo.set_target(nearest.get_node().into());
+      } else if !keep_target_for_gizmo {
+        self.gizmo.set_target(None);
       }
     }
   }

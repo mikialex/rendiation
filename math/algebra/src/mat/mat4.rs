@@ -199,8 +199,8 @@ fn mul() {
   let cgmath_r = cgmath_mat1 * cgmath_mat2 * cgmath_point;
   let cgmath_r: [f32; 4] = *cgmath_r.as_ref();
 
-  let math_mat1 = Mat4::<f32>::translate(1., 2., 3.);
-  let math_mat2 = Mat4::<f32>::scale(3., -2., 3.);
+  let math_mat1 = Mat4::<f32>::translate((1., 2., 3.));
+  let math_mat2 = Mat4::<f32>::scale((3., -2., 3.));
   let math_point = Vec4::new(1., 2., 3., 1.);
   let math_r = math_mat1 * math_mat2 * math_point;
   let math_r: [f32; 4] = math_r.into();
@@ -314,7 +314,8 @@ where
     )
   }
 
-  pub fn scale(x: T, y: T, z: T) -> Self {
+  pub fn scale(s: impl Into<Vec3<T>>) -> Self {
+    let Vec3 { x, y, z } = s.into();
     let zero = T::zero();
     let one = T::one();
 
@@ -327,7 +328,8 @@ where
     )
   }
 
-  pub fn translate(x: T, y: T, z: T) -> Self {
+  pub fn translate(s: impl Into<Vec3<T>>) -> Self {
+    let Vec3 { x, y, z } = s.into();
     let zero = T::zero();
     let one = T::one();
 
@@ -490,6 +492,24 @@ impl<T: Scalar> From<Quat<T>> for Mat4<T> {
       c1: xz + wy,              c2: yz - wx,              c3: T::one() - (xx + yy), c4: T::zero(),
       d1: T::zero(),            d2: T::zero(),            d3: T::zero(),            d4: T::one(),
     }
+  }
+}
+
+impl<T: Scalar> Mat4<T> {
+  /// Mat should be TRS composed, return (translate, quaternion, scale)
+  pub fn decompose(&self) -> (Vec3<T>, Quat<T>, Vec3<T>) {
+    let mut scale = self.get_scale();
+
+		// if determine is negative, we need to invert one scale
+		if self.det() < T::zero() {
+      scale.x *= -T::one()
+    }
+
+    let position = self.position();
+
+    let quaternion = self.extract_rotation_mat().to_mat3().into();
+
+    (position, quaternion, scale)
   }
 }
 

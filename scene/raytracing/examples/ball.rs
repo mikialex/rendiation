@@ -1,5 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_scene_raytracing::*;
+mod utils;
+use utils::*;
 
 fn main() {
   let mut renderer = PathTraceIntegrator::default();
@@ -8,7 +10,7 @@ fn main() {
 
   let mut scene = Scene::new();
 
-  let perspective = PerspectiveProjection::default();
+  let perspective = make_perspective();
   let camera = SceneCamera::new(perspective, scene.root().create_child());
   camera.node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),

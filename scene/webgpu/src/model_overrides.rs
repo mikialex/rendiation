@@ -24,6 +24,15 @@ impl<Me, Ma> OverridableMeshModelImpl<Me, Ma> {
   pub fn push_override(&mut self, o: impl WorldMatrixOverride + 'static) {
     self.overrides.push(Box::new(o));
   }
+
+  pub fn compute_override_world_mat(&self, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
+    let mut world_matrix = self.inner.node.get_world_matrix();
+    self
+      .overrides
+      .iter()
+      .for_each(|o| world_matrix = o.override_mat(world_matrix, ctx));
+    world_matrix
+  }
 }
 
 pub trait WorldMatrixOverride {
@@ -71,11 +80,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
       buffer_size: pass.size(),
     };
 
-    let mut world_matrix = self.inner.node.get_world_matrix();
-    self
-      .overrides
-      .iter()
-      .for_each(|o| world_matrix = o.override_mat(world_matrix, &ctx));
+    let world_matrix = self.compute_override_world_mat(&ctx);
 
     let mut override_gpu = self.override_gpu.borrow_mut();
     let node_gpu = override_gpu
@@ -90,8 +95,13 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRayInteractive
   for OverridableMeshModelImpl<Me, Ma>
 {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    OptionalNearest::none()
-    // todo!()
+    let o_ctx = WorldMatrixOverrideCtx {
+      camera: ctx.camera,
+      buffer_size: ctx.camera_view_size,
+    };
+
+    let world_matrix = self.compute_override_world_mat(&o_ctx);
+    ray_pick_nearest_core(self, ctx, world_matrix)
   }
 }
 
@@ -119,7 +129,7 @@ impl ViewAutoScalablePositionOverride {
     match self {
       ViewAutoScalablePositionOverride::None => None,
       ViewAutoScalablePositionOverride::Fixed(f) => Some(*f),
-      ViewAutoScalablePositionOverride::SyncNode(n) => Some(n.visit(|n| n.world_matrix.position())),
+      ViewAutoScalablePositionOverride::SyncNode(n) => Some(n.get_world_matrix().position()),
     }
   }
 }
@@ -141,24 +151,33 @@ impl WorldMatrixOverride for ViewAutoScalable {
   fn override_mat(&self, world_matrix: Mat4<f32>, ctx: &WorldMatrixOverrideCtx) -> Mat4<f32> {
     let camera = &ctx.camera;
 
-    let center = self
+    let world_position = self
       .override_position
       .get_optional_position()
       .unwrap_or_else(|| world_matrix.position());
-    let camera_position = camera.node.visit(|n| n.world_matrix.position());
-    let distance = (camera_position - center).length();
+    let world_translation = Mat4::translate(world_position);
+
+    let camera_position = camera.node.get_world_matrix().position();
+    let camera_forward = camera.node.get_world_matrix().forward().normalize();
+    let camera_forward = camera_forward * -1.; // because right hand coordinate
+    let camera_to_target = world_position - camera_position;
+
+    let projected_distance = camera_to_target.dot(camera_forward);
 
     let camera_view_height = camera.view_size_in_pixel(ctx.buffer_size).y;
 
     let scale = self.independent_scale_factor
       / camera
         .projection
-        .pixels_per_unit(distance, camera_view_height);
+        .pixels_per_unit(projected_distance, camera_view_height);
 
     let raw_scale = world_matrix.extract_scale();
     let new_scale = Vec3::splat(scale) / raw_scale;
 
-    Mat4::scale(new_scale.x, new_scale.y, new_scale.z) * world_matrix
+    world_translation // move back to position
+      * Mat4::scale(new_scale) // apply new scale
+      * world_translation.inverse_or_identity() // move back to zero
+      * world_matrix // original
   }
 }
 
@@ -183,9 +202,9 @@ impl WorldMatrixOverride for BillBoard {
     let camera_position = camera.node.visit(|n| n.world_matrix.position());
 
     let scale = world_matrix.extract_scale();
-    let scale = Mat4::scale(scale.x, scale.y, scale.z);
+    let scale = Mat4::scale(scale);
     let position = world_matrix.position();
-    let position_m = Mat4::translate(position.x, position.y, position.z);
+    let position_m = Mat4::translate(position);
 
     let correction = Mat4::lookat(
       Vec3::new(0., 0., 0.),

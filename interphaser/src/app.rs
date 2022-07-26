@@ -36,12 +36,30 @@ pub struct ApplicationInner<T> {
   gpu: Rc<GPU>,
 }
 
+#[derive(Clone, PartialEq)]
+pub struct WindowConfig {
+  pub size: UISize,
+  pub title: String,
+  pub position: UIPosition,
+}
+
 impl<T: 'static> Application<T> {
-  pub async fn new(state: T, ui: impl UIComponent<T>) -> Self {
+  pub async fn new(state: T, ui: impl UIComponent<T>, config: WindowConfig) -> Self {
     let event_loop = EventLoop::new();
-    let mut builder = winit::window::WindowBuilder::new();
-    builder = builder.with_title("viewer");
+    let builder = winit::window::WindowBuilder::new();
     let window = builder.build(&event_loop).unwrap();
+
+    window.set_title(&config.title);
+    let size = winit::dpi::LogicalSize {
+      width: config.size.width as f64,
+      height: config.size.height as f64,
+    };
+    window.set_inner_size(size);
+    let position = winit::dpi::LogicalPosition {
+      x: config.position.x as f64,
+      y: config.position.y as f64,
+    };
+    window.set_outer_position(position);
 
     #[cfg(target_arch = "wasm32")]
     {

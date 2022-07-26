@@ -76,6 +76,7 @@ pub struct SceneRayInteractiveCtx<'a> {
   pub world_ray: Ray3,
   pub conf: &'a MeshBufferIntersectConfig,
   pub camera: &'a SceneCamera,
+  pub camera_view_size: Size,
 }
 
 pub trait SceneRayInteractive {
@@ -200,6 +201,7 @@ pub trait WebGPUSceneExtension {
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
+    camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
   ) -> SceneRayInteractiveCtx<'a>;
 
@@ -218,6 +220,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
   fn build_interactive_ctx<'a>(
     &'a self,
     normalized_position: Vec2<f32>,
+    camera_view_size: Size,
     conf: &'a MeshBufferIntersectConfig,
   ) -> SceneRayInteractiveCtx<'a> {
     let camera = self.active_camera.as_ref().unwrap();
@@ -226,6 +229,7 @@ impl WebGPUSceneExtension for Scene<WebGPUScene> {
       world_ray,
       conf,
       camera,
+      camera_view_size,
     }
   }
 
@@ -265,10 +269,14 @@ pub fn interaction_picking<I: SceneRayInteractive, T: IntoIterator<Item = I>>(
   result.into_iter().next()
 }
 
-pub fn interaction_picking_mut<'a, T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>>(
+pub fn interaction_picking_mut<
+  'a,
+  X: SceneRayInteractive + ?Sized,
+  T: IntoIterator<Item = &'a mut X>,
+>(
   content: T,
   ctx: &SceneRayInteractiveCtx,
-) -> Option<(&'a mut dyn SceneRayInteractive, MeshBufferHitPoint)> {
+) -> Option<(&'a mut X, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {

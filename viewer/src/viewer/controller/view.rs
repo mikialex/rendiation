@@ -46,12 +46,12 @@ impl interphaser::System for System3D {
   type UpdateCtx<'a> = UpdateCtx3D<'a>;
 }
 
-pub fn map_3d_events<'a, T>(
+pub fn map_3d_events<'a, T, S>(
   event_ctx: &mut EventCtx3D,
   view: T,
-) -> Option<&'a mut dyn SceneRayInteractive>
+) -> Option<&'a mut dyn Component3D<S>>
 where
-  T: IntoIterator<Item = &'a mut dyn SceneRayInteractive>,
+  T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
 {
   let event = event_ctx.raw_event;
 
@@ -94,9 +94,13 @@ pub struct Component3DCollection<T> {
 
 pub trait Component3D<T>: Component<T, System3D> + SceneRayInteractive + SceneRenderable {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive;
+  fn as_interactive(&self) -> &dyn SceneRayInteractive;
 }
 impl<T, X: Component<T, System3D> + SceneRayInteractive + SceneRenderable> Component3D<T> for X {
   fn as_mut_interactive(&mut self) -> &mut dyn SceneRayInteractive {
+    self
+  }
+  fn as_interactive(&self) -> &dyn SceneRayInteractive {
     self
   }
 }
@@ -117,13 +121,15 @@ pub fn collection3d<T>() -> Component3DCollection<T> {
 
 impl<T> Component<T, System3D> for Component3DCollection<T> {
   fn event(&mut self, states: &mut T, ctx: &mut EventCtx3D) {
-    for view in &mut self.collection {
-      view.event(states, ctx);
-    }
-    map_3d_events(
+    if let Some(target) = map_3d_events(
       ctx,
-      self.collection.iter_mut().map(|c| c.as_mut_interactive()),
-    );
+      self
+        .collection
+        .iter_mut() // fixme, how can i pass the compiler here ???!
+        .map(|c| unsafe { std::mem::transmute::<_, &mut dyn Component3D<T>>(c.as_mut()) }),
+    ) {
+      target.event(states, ctx);
+    }
     ctx.event_3d = None;
   }
 

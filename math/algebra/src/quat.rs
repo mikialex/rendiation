@@ -252,6 +252,51 @@ where
   }
 }
 
+impl<T: Scalar> From<Mat3<T>> for Quat<T> {
+  /// assume mat3 is unscaled pure rotation
+  fn from(mat: Mat3<T>) -> Self {
+    #[rustfmt::skip]
+    let Mat3 { a1, a2, a3, b1, b2, b3, c1, c2, c3 } = mat;
+
+    let trace = a1 + b2 + c3;
+
+    if trace > T::zero() {
+      let s = T::half() / (trace + T::one()).sqrt();
+
+      let w = T::half() * T::half() / s;
+      let x = (b3 - c2) * s;
+      let y = (c1 - a3) * s;
+      let z = (a2 - b1) * s;
+      (x, y, z, w)
+    } else if a1 > b2 && a1 > c3 {
+      let s = T::two() * (T::one() + a1 - b2 - c3).sqrt();
+
+      let w = (b3 - c2) / s;
+      let x = T::half() * T::half() * s;
+      let y = (b1 + a2) / s;
+      let z = (c1 + a3) / s;
+      (x, y, z, w)
+    } else if b2 > c3 {
+      let s = T::two() * (T::one() + b2 - a1 - c3).sqrt();
+
+      let w = (c1 - a3) / s;
+      let x = (b1 + a2) / s;
+      let y = T::half() * T::half() * s;
+      let z = (c2 + b3) / s;
+      (x, y, z, w)
+    } else {
+      let s = T::two() * (T::one() + c3 - a1 - b2).sqrt();
+
+      let w = (a2 - b1) / s;
+      let x = (c1 + a3) / s;
+      let y = (c2 + b3) / s;
+      let z = T::half() * T::half() * s;
+      (x, y, z, w)
+    }
+    .into()
+  }
+}
+
 impl<T> Slerp<T> for Quat<T>
 where
   T: Scalar,
