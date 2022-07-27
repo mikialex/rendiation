@@ -73,9 +73,9 @@ impl PassContentWithCamera for Arrow {
   }
 }
 
-type ArrowMaterial = impl WebGPUSceneMaterial + Clone;
-type ArrowTipMesh = impl WebGPUSceneMesh + Clone;
-type ArrowBodyMesh = impl WebGPUSceneMesh + Clone;
+type ArrowMaterial = impl WebGPUMaterial + Clone;
+type ArrowTipMesh = impl WebGPUMesh + Clone;
+type ArrowBodyMesh = impl WebGPUMesh + Clone;
 
 impl Arrow {
   pub fn new_reused(
@@ -153,7 +153,7 @@ pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
   .use_state();
   material.states.depth_write_enabled = false;
   material.states.depth_compare = webgpu::CompareFunction::Always;
-  material.into_ref()
+  material
 }
 
 impl AxisHelper {

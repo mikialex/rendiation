@@ -118,7 +118,7 @@ impl PassContentWithSceneAndCamera<WebGPUScene> for &mut CameraHelpers {
 
     for (_, draw_camera) in &scene.cameras {
       let helper = self.helpers.get_update_or_insert_with(
-        draw_camera,
+        &draw_camera.read().unwrap(),
         |draw_camera| {
           CameraHelper::from_node_and_project_matrix(
             draw_camera.node.clone(),

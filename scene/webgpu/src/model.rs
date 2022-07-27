@@ -6,8 +6,8 @@ pub type FatlineImpl = MeshModelImpl<FatlineMesh, SceneFatlineMaterial>;
 
 impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
 where
-  Me: WebGPUSceneMesh,
-  Ma: WebGPUSceneMaterial,
+  Me: WebGPUMesh,
+  Ma: WebGPUMaterial,
 {
   fn render(
     &self,
@@ -21,8 +21,8 @@ where
 
 impl<Me, Ma> SceneRayInteractive for MeshModel<Me, Ma>
 where
-  Me: WebGPUSceneMesh,
-  Ma: WebGPUSceneMaterial,
+  Me: WebGPUMesh,
+  Ma: WebGPUMaterial,
 {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     self.visit(|model| model.ray_pick_nearest(ctx))
@@ -60,8 +60,8 @@ pub fn setup_pass_core<Me, Ma>(
   override_node: Option<&TransformGPU>,
   dispatcher: &dyn RenderComponentAny,
 ) where
-  Me: WebGPUSceneMesh,
-  Ma: WebGPUSceneMaterial,
+  Me: WebGPUMesh,
+  Ma: WebGPUMaterial,
 {
   let gpu = pass.ctx.gpu;
   let resources = &mut pass.resources;
@@ -89,7 +89,7 @@ pub fn setup_pass_core<Me, Ma>(
 
   let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
-  let mesh: &dyn MeshDrawcallEmitter = mesh.deref().deref();
+  let mesh: &dyn MeshDrawcallEmitter = mesh.deref();
   let emitter = MeshDrawcallEmitterWrap {
     group: model.group,
     mesh,
@@ -100,8 +100,8 @@ pub fn setup_pass_core<Me, Ma>(
 
 impl<Me, Ma> SceneRenderable for MeshModelImpl<Me, Ma>
 where
-  Me: WebGPUSceneMesh,
-  Ma: WebGPUSceneMaterial,
+  Me: WebGPUMesh,
+  Ma: WebGPUMaterial,
 {
   fn render(
     &self,
@@ -119,8 +119,8 @@ pub fn ray_pick_nearest_core<Me, Ma>(
   world_mat: Mat4<f32>,
 ) -> OptionalNearest<MeshBufferHitPoint>
 where
-  Me: WebGPUSceneMesh,
-  Ma: WebGPUSceneMaterial,
+  Me: WebGPUMesh,
+  Ma: WebGPUMaterial,
 {
   let net_visible = model.node.visit(|n| n.net_visible);
   if !net_visible {
@@ -152,8 +152,8 @@ where
 
 impl<Me, Ma> SceneRayInteractive for MeshModelImpl<Me, Ma>
 where
-  Me: WebGPUSceneMesh,
-  Ma: WebGPUSceneMaterial,
+  Me: WebGPUMesh,
+  Ma: WebGPUMaterial,
 {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     ray_pick_nearest_core(self, ctx, self.node.get_world_matrix())

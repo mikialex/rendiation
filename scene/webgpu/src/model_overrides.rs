@@ -64,9 +64,7 @@ impl<Me, Ma> SceneNodeControlled for OverridableMeshModelImpl<Me, Ma> {
   }
 }
 
-impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
-  for OverridableMeshModelImpl<Me, Ma>
-{
+impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRenderable for OverridableMeshModelImpl<Me, Ma> {
   fn render(
     &self,
     pass: &mut SceneRenderPass,
@@ -92,9 +90,7 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   }
 }
 
-impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRayInteractive
-  for OverridableMeshModelImpl<Me, Ma>
-{
+impl<Me: WebGPUMesh, Ma: WebGPUMaterial> SceneRayInteractive for OverridableMeshModelImpl<Me, Ma> {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
     let camera_ref = ctx.camera.read().unwrap();
     let o_ctx = WorldMatrixOverrideCtx {
