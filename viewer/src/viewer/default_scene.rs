@@ -67,35 +67,34 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
 
   {
     let mesh = SphereMeshParameter::default().tessellate();
-    let mesh = MeshCell::new(MeshSource::new(mesh));
+    let mesh = MeshSource::new(mesh);
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture: texture.clone(),
     }
-    .use_state()
-    .into_resourced();
+    .use_state();
 
     let child = scene.root().create_child();
     child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
-    let model = MeshModel::new(material, mesh, child);
+    let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
     scene.add_model(model)
   }
 
   {
     let mesh = CubeMeshParameter::default().tessellate();
-    let mesh = MeshCell::new(MeshSource::new(mesh));
+    let mesh = MeshSource::new(mesh);
     let mut material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
       sampler: TextureSampler::default(),
       texture,
     }
-    .use_state()
-    .into_resourced();
+    .use_state();
     material.states.depth_compare = webgpu::CompareFunction::Always;
+    let child = scene.root().create_child();
 
-    let model = MeshModel::new(material, mesh, scene.root().create_child());
+    let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
     scene.add_model(model)
   }
 
@@ -123,7 +122,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let camera = PerspectiveProjection::default();
     let camera_node = scene.root().create_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::new(camera, camera_node);
+    let camera = SceneCamera::create_camera(camera, camera_node);
     scene.active_camera = camera.into();
   }
 
@@ -131,7 +130,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
     let camera = PerspectiveProjection::default();
     let camera_node = scene.root().create_child();
     camera_node.set_local_matrix(Mat4::lookat(Vec3::splat(3.), Vec3::splat(0.), up));
-    let camera = SceneCamera::new(camera, camera_node);
+    let camera = SceneCamera::create_camera(camera, camera_node);
     scene.cameras.insert(camera);
   }
 }

@@ -206,12 +206,13 @@ impl Viewer3dContent {
 
   pub fn update_state(&mut self) {
     if let Some(camera) = &mut self.scene.active_camera {
-      camera.node.mutate(|node| {
-        self
-          .controller
-          .update(node.deref_mut() as &mut dyn Transformed3DControllee);
-      });
-      camera.trigger_change()
+      camera.mutate(|camera| {
+        camera.node.mutate(|node| {
+          self
+            .controller
+            .update(node.deref_mut() as &mut dyn Transformed3DControllee);
+        });
+      })
     }
   }
 }

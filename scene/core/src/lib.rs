@@ -7,12 +7,6 @@ pub use node::*;
 pub mod material;
 pub use material::*;
 
-pub mod mesh;
-pub use mesh::*;
-
-pub mod texture;
-pub use texture::*;
-
 pub mod background;
 pub use background::*;
 

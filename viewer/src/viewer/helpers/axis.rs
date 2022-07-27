@@ -25,7 +25,7 @@ impl PassContentWithCamera for &mut AxisHelper {
 
     // sort by the camera
     let center = self.root.get_world_matrix().position();
-    let camera_position = camera.node.get_world_matrix().position();
+    let camera_position = camera.read().unwrap().node.get_world_matrix().position();
     let center_to_eye_dir = camera_position - center;
     let center_to_eye_dir = center_to_eye_dir.normalize();
     let x = Vec3::new(1., 0., 0.).dot(center_to_eye_dir);
@@ -73,9 +73,9 @@ impl PassContentWithCamera for Arrow {
   }
 }
 
-type ArrowMaterial = impl WebGPUMaterial + Clone;
-type ArrowTipMesh = impl WebGPUMesh + Clone;
-type ArrowBodyMesh = impl WebGPUMesh + Clone;
+type ArrowMaterial = impl WebGPUSceneMaterial + Clone;
+type ArrowTipMesh = impl WebGPUSceneMesh + Clone;
+type ArrowBodyMesh = impl WebGPUSceneMesh + Clone;
 
 impl Arrow {
   pub fn new_reused(
@@ -89,23 +89,15 @@ impl Arrow {
 
     let node_cylinder = root.create_child();
     node_cylinder.set_local_matrix(Mat4::translate((0., 1., 0.)));
-    let mut cylinder = MeshModelImpl::new(
-      material.clone().into_resourced(),
-      cylinder_mesh.clone().into_resourced(),
-      node_cylinder,
-    )
-    .into_matrix_overridable();
+    let mut cylinder = MeshModelImpl::new(material.clone(), cylinder_mesh.clone(), node_cylinder)
+      .into_matrix_overridable();
 
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
-    let mut tip = MeshModelImpl::new(
-      material.clone().into_resourced(),
-      tip_mesh.clone().into_resourced(),
-      node_tip,
-    )
-    .into_matrix_overridable();
+    let mut tip =
+      MeshModelImpl::new(material.clone(), tip_mesh.clone(), node_tip).into_matrix_overridable();
 
     tip.push_override(auto_scale.clone());
 
@@ -124,7 +116,7 @@ impl Arrow {
       ..Default::default()
     }
     .tessellate();
-    let cylinder = MeshCell::new(MeshSource::new(cylinder));
+    let cylinder = MeshSource::new(cylinder);
 
     let tip = CylinderMeshParameter {
       radius_top: 0.0,
@@ -133,8 +125,8 @@ impl Arrow {
       ..Default::default()
     }
     .tessellate();
-    let tip = MeshCell::new(MeshSource::new(tip));
-    (cylinder, tip)
+    let tip = MeshSource::new(tip);
+    (cylinder.into_ref(), tip.into_ref())
   }
 
   pub fn with_transform(self, m: Mat4<f32>) -> Self {
@@ -161,7 +153,7 @@ pub fn solid_material(color: impl Into<Vec3<f32>>) -> ArrowMaterial {
   .use_state();
   material.states.depth_write_enabled = false;
   material.states.depth_compare = webgpu::CompareFunction::Always;
-  material
+  material.into_ref()
 }
 
 impl AxisHelper {

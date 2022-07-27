@@ -11,8 +11,8 @@ fn main() {
   let mut scene = Scene::new();
 
   let perspective = make_perspective();
-  let camera = SceneCamera::new(perspective, scene.root().create_child());
-  camera.node.set_local_matrix(Mat4::lookat(
+  let camera = SceneCamera::create_camera(perspective, scene.root().create_child());
+  camera.read().unwrap().node.set_local_matrix(Mat4::lookat(
     Vec3::new(0., 8., 10.),
     Vec3::new(0., 5., 0.),
     Vec3::new(0., 1., 0.),

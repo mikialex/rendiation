@@ -120,6 +120,8 @@ impl Gizmo {
         let camera_world_position = event
           .interactive_ctx
           .camera
+          .read()
+          .unwrap()
           .node
           .get_world_matrix()
           .position();

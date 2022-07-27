@@ -1,6 +1,94 @@
+use std::{
+  ops::DerefMut,
+  sync::{RwLockReadGuard, RwLockWriteGuard},
+};
+
 use crate::*;
 
 use arena::Arena;
+
+pub type SceneTexture2D<S> = SceneItemRef<<S as SceneContent>::Texture2D>;
+pub type SceneTextureCube<S> = SceneItemRef<<S as SceneContent>::TextureCube>;
+
+pub struct SceneItemRef<T> {
+  inner: Arc<RwLock<Identity<T>>>,
+}
+
+impl<T> Clone for SceneItemRef<T> {
+  fn clone(&self) -> Self {
+    Self {
+      inner: self.inner.clone(),
+    }
+  }
+}
+impl<T> From<T> for SceneItemRef<T> {
+  fn from(inner: T) -> Self {
+    Self::new(inner)
+  }
+}
+
+impl<T> SceneItemRef<T> {
+  pub fn new(source: T) -> Self {
+    let inner = Arc::new(RwLock::new(Identity::new(source)));
+    Self { inner }
+  }
+
+  pub fn mutate<R>(&self, mut mutator: impl FnMut(&mut T) -> R) -> R {
+    let mut inner = self.inner.write().unwrap();
+    let r = mutator(&mut inner);
+    inner.trigger_change();
+    r
+  }
+  pub fn visit<R>(&self, mut visitor: impl FnMut(&T) -> R) -> R {
+    let inner = self.inner.read().unwrap();
+    visitor(&inner)
+  }
+
+  pub fn read(&self) -> Option<SceneItemRefGuard<T>> {
+    self
+      .inner
+      .read()
+      .ok()
+      .map(|inner| SceneItemRefGuard { inner })
+  }
+  pub fn write(&self) -> Option<SceneItemRefMutGuard<T>> {
+    self
+      .inner
+      .write()
+      .ok()
+      .map(|inner| SceneItemRefMutGuard { inner })
+  }
+}
+
+pub struct SceneItemRefGuard<'a, T> {
+  inner: RwLockReadGuard<'a, Identity<T>>,
+}
+
+impl<'a, T> Deref for SceneItemRefGuard<'a, T> {
+  type Target = Identity<T>;
+
+  fn deref(&self) -> &Self::Target {
+    self.inner.deref()
+  }
+}
+
+pub struct SceneItemRefMutGuard<'a, T> {
+  inner: RwLockWriteGuard<'a, Identity<T>>,
+}
+
+impl<'a, T> Deref for SceneItemRefMutGuard<'a, T> {
+  type Target = Identity<T>;
+
+  fn deref(&self) -> &Self::Target {
+    self.inner.deref()
+  }
+}
+
+impl<'a, T> DerefMut for SceneItemRefMutGuard<'a, T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    self.inner.deref_mut()
+  }
+}
 
 static GLOBAL_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -16,13 +104,13 @@ impl<T> AsRef<T> for Identity<T> {
   }
 }
 
-pub trait IntoResourced: Sized {
-  fn into_resourced(self) -> Identity<Self> {
+pub trait IntoSceneItemRef: Sized {
+  fn into_ref(self) -> SceneItemRef<Self> {
     self.into()
   }
 }
 
-impl<T> IntoResourced for T {}
+impl<T> IntoSceneItemRef for T {}
 
 impl<T> From<T> for Identity<T> {
   fn from(inner: T) -> Self {

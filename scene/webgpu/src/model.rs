@@ -1,8 +1,8 @@
 use crate::*;
 
-pub type SceneFatlineMaterial = MaterialInner<StateControl<FatLineMaterial>>;
+pub type SceneFatlineMaterial = StateControl<FatLineMaterial>;
 
-pub type FatlineImpl = MeshModelImpl<MeshInner<FatlineMesh>, SceneFatlineMaterial>;
+pub type FatlineImpl = MeshModelImpl<FatlineMesh, SceneFatlineMaterial>;
 
 impl<Me, Ma> SceneRenderable for MeshModel<Me, Ma>
 where
@@ -15,8 +15,7 @@ where
     dispatcher: &dyn RenderComponentAny,
     camera: &SceneCamera,
   ) {
-    let inner = self.inner.read().unwrap();
-    inner.render(pass, dispatcher, camera)
+    self.visit(|model| model.render(pass, dispatcher, camera))
   }
 }
 
@@ -26,14 +25,13 @@ where
   Ma: WebGPUSceneMaterial,
 {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
-    self.inner.read().unwrap().ray_pick_nearest(ctx)
+    self.visit(|model| model.ray_pick_nearest(ctx))
   }
 }
 
 impl<Me, Ma> SceneNodeControlled for MeshModel<Me, Ma> {
   fn visit_node(&self, visitor: &mut dyn FnMut(&SceneNode)) {
-    let inner = self.inner.read().unwrap();
-    visitor(&inner.node)
+    self.visit(|model| visitor(&model.node))
   }
 }
 
@@ -42,7 +40,7 @@ where
   Self: SceneRenderable + Clone + 'static,
 {
   fn id(&self) -> usize {
-    self.inner.read().unwrap().id()
+    self.read().unwrap().id()
   }
   fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable> {
     Box::new(self.clone())
@@ -78,12 +76,12 @@ pub fn setup_pass_core<Me, Ma>(
   let node_gpu =
     override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
 
+  let material = model.material.read().unwrap();
   let material_gpu =
-    model
-      .material
-      .check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
+    material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
 
-  let mesh_gpu = model.mesh.check_update_gpu(
+  let mesh = model.mesh.read().unwrap();
+  let mesh_gpu = mesh.check_update_gpu(
     &mut resources.scene.meshes,
     &mut resources.custom_storage,
     gpu,
@@ -91,9 +89,10 @@ pub fn setup_pass_core<Me, Ma>(
 
   let components = [pass_gpu, mesh_gpu, node_gpu, camera_gpu, material_gpu];
 
+  let mesh: &dyn MeshDrawcallEmitter = mesh.deref().deref();
   let emitter = MeshDrawcallEmitterWrap {
     group: model.group,
-    mesh: &model.mesh,
+    mesh,
   };
 
   RenderEmitter::new(components.as_slice()).render(&mut pass.ctx, &emitter);
@@ -132,11 +131,11 @@ where
 
   let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
 
-  if !model.material.is_keep_mesh_shape() {
+  if !model.material.read().unwrap().is_keep_mesh_shape() {
     return OptionalNearest::none();
   }
 
-  let mesh = &model.mesh;
+  let mesh = &model.mesh.read().unwrap();
   let mut picked = OptionalNearest::none();
   mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
     picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);

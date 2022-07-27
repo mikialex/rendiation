@@ -75,8 +75,9 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRenderable
   ) {
     let gpu = pass.ctx.gpu;
 
+    let camera_ref = camera.read().unwrap();
     let ctx = WorldMatrixOverrideCtx {
-      camera,
+      camera: &camera_ref,
       buffer_size: pass.size(),
     };
 
@@ -95,8 +96,9 @@ impl<Me: WebGPUSceneMesh, Ma: WebGPUSceneMaterial> SceneRayInteractive
   for OverridableMeshModelImpl<Me, Ma>
 {
   fn ray_pick_nearest(&self, ctx: &SceneRayInteractiveCtx) -> OptionalNearest<MeshBufferHitPoint> {
+    let camera_ref = ctx.camera.read().unwrap();
     let o_ctx = WorldMatrixOverrideCtx {
-      camera: ctx.camera,
+      camera: &camera_ref,
       buffer_size: ctx.camera_view_size,
     };
 
