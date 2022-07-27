@@ -31,7 +31,6 @@ pub struct MeshModelImpl<Me, Ma> {
 }
 
 impl<Me, Ma> MeshModelImpl<Me, Ma> {
-  // todo add type constraint
   pub fn new(material: Ma, mesh: Me, node: SceneNode) -> Self {
     Self {
       material,

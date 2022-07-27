@@ -270,9 +270,6 @@ impl GizmoState {
     self.start_hit_world_position = start_hit_world_position;
     self.start_hit_local_position =
       self.target_world_mat.inverse_or_identity() * self.start_hit_world_position;
-
-    dbg!(start_hit_world_position);
-    dbg!(self.start_hit_local_position);
   }
 
   fn show_x(&self) -> bool {

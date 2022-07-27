@@ -16,7 +16,7 @@ pub trait WebGPUMaterial: Clone + Any {
   fn is_transparent(&self) -> bool;
 }
 
-pub trait WebGPUSceneMaterial: 'static {
+pub trait WebGPUSceneMaterial {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,

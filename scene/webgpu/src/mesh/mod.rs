@@ -1,7 +1,5 @@
 use rendiation_renderable_mesh::{mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU};
 
-use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
-
 pub mod fatline;
 pub use fatline::*;
 pub mod transform_instance;
@@ -9,15 +7,7 @@ pub use transform_instance::*;
 
 use crate::*;
 
-pub trait GPUMeshLayoutSupport {
-  type VertexInput;
-}
-
-impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>> {
-  type VertexInput = Vec<V>;
-}
-
-pub trait WebGPUSceneMesh: 'static {
+pub trait WebGPUSceneMesh {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
