@@ -7,16 +7,16 @@ use interphaser::{
 };
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane};
-// use rendiation_geometry::{OptionalNearest, Ray3};
-// use rendiation_renderable_mesh::{
-//   mesh::{MeshBufferHitPoint, MeshBufferIntersectConfig},
-//   tessellation::{CubeMeshParameter, IndexedMeshTessellator},
-// };
+use rendiation_renderable_mesh::tessellation::{IndexedMeshTessellator, PlaneMeshParameter};
 
 use crate::{
   helpers::axis::{solid_material, Arrow},
   *,
 };
+
+const RED: Vec3<f32> = Vec3::new(0.8, 0.1, 0.1);
+const GREEN: Vec3<f32> = Vec3::new(0.1, 0.8, 0.1);
+const BLUE: Vec3<f32> = Vec3::new(0.1, 0.1, 0.8);
 
 /// Gizmo is a useful widget in 3d design/editor software.
 /// User could use this to modify the scene node's transformation.
@@ -36,25 +36,47 @@ impl Gizmo {
       independent_scale_factor: 100.,
     };
     let auto_scale = &Rc::new(RefCell::new(auto_scale));
-    let x = build_axis_arrow(root, auto_scale)
+
+    let x_lens = lens!(GizmoState, active.x);
+    let y_lens = lens!(GizmoState, active.y);
+    let z_lens = lens!(GizmoState, active.z);
+
+    let x = Arrow::new(root, auto_scale)
       .toward_x()
-      .eventable::<GizmoState>()
-      .update(|s, arrow| arrow.root.set_visible(s.show_x()))
-      .on(active(lens!(GizmoState, active.x)));
+      .eventable()
+      .update(update(x_lens, RED))
+      .on(active(x_lens));
 
-    let y = build_axis_arrow(root, auto_scale)
+    let y = Arrow::new(root, auto_scale)
       .toward_y()
-      .eventable::<GizmoState>()
-      .update(|s, arrow| arrow.root.set_visible(s.show_y()))
-      .on(active(lens!(GizmoState, active.y)));
+      .eventable()
+      .update(update(y_lens, BLUE))
+      .on(active(y_lens));
 
-    let z = build_axis_arrow(root, auto_scale)
+    let z = Arrow::new(root, auto_scale)
       .toward_z()
-      .eventable::<GizmoState>()
-      .update(|s, arrow| arrow.root.set_visible(s.show_z()))
-      .on(active(lens!(GizmoState, active.z)));
+      .eventable()
+      .update(update(z_lens, GREEN))
+      .on(active(z_lens));
 
-    let view = collection3d().with(x).with(y).with(z);
+    let xy = build_plane(root, auto_scale, Mat4::translate((1., 1., 0.))).eventable::<GizmoState>();
+    let yz = build_plane(
+      root,
+      auto_scale,
+      Mat4::translate((0., 1., 1.)) * Mat4::rotate_y(f32::PI() / 2.),
+    )
+    .eventable::<GizmoState>();
+    let xz = build_plane(
+      root,
+      auto_scale,
+      Mat4::translate((1., 0., 1.)) * Mat4::rotate_x(f32::PI() / 2.),
+    )
+    .eventable::<GizmoState>();
+
+    #[rustfmt::skip]
+    let view = collection3d()
+      .with(x).with(y).with(z)
+      .with(xy).with(yz).with(xz);
 
     Self {
       states: Default::default(),
@@ -130,33 +152,27 @@ impl Gizmo {
 
         let plane_point = self.states.start_hit_world_position;
 
-        // build world space constraint abstract interactive plane
-        let (normal, constraint) = if self.states.active.only_x() {
-          let x = Vec3::new(1., 0., 0.);
-          let helper_dir = x.cross(view);
-          let normal = helper_dir.cross(x);
-          (normal, x)
+        let axis: Vec3<_> = if self.states.active.only_x() {
+          (1., 0., 0.)
         } else if self.states.active.only_y() {
-          let y = Vec3::new(0., 1., 0.);
-          let helper_dir = y.cross(view);
-          let normal = helper_dir.cross(y);
-          (normal, y)
+          (0., 1., 0.)
         } else if self.states.active.only_z() {
-          let z = Vec3::new(0., 0., 1.);
-          let helper_dir = z.cross(view);
-          let normal = helper_dir.cross(z);
-          (normal, z)
+          (0., 0., 1.)
         } else {
-          let y = Vec3::new(0., 1., 0.);
-          (y, y)
-        };
+          (0., 1., 0.)
+        }
+        .into();
+
+        // build world space constraint abstract interactive plane
+        let helper_dir = axis.cross(view);
+        let normal = helper_dir.cross(axis);
         let plane = Plane::from_normal_and_plane_point(normal, plane_point);
 
         // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
         if let OptionalNearest(Some(new_hit)) =
           event.interactive_ctx.world_ray.intersect(&plane, &())
         {
-          let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
+          let new_hit = (new_hit.position - plane_point) * axis + plane_point;
 
           // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
           // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
@@ -194,7 +210,23 @@ impl Gizmo {
   }
 }
 
+fn is_3d_hovering() -> impl FnMut(&EventCtx3D) -> bool {
+  let mut is_hovering = false;
+  move |event| {
+    if let Some(event3d) = &event.event_3d {
+      if let Event3D::MouseMove { .. } = event3d {
+        is_hovering = true;
+      }
+    } else if mouse_move(event.raw_event).is_some() {
+      is_hovering = false;
+    }
+
+    is_hovering
+  }
+}
+
 fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &EventCtx3D) {
+  let mut is_hovering = is_3d_hovering();
   move |state, event| {
     if let Some(event3d) = &event.event_3d {
       if let Event3D::MouseDown { world_position } = event3d {
@@ -203,6 +235,22 @@ fn active(active: impl Lens<GizmoState, bool>) -> impl FnMut(&mut GizmoState, &E
         state.record_start(*world_position)
       }
     }
+
+    if is_hovering(event) {
+      println!("hovering")
+    }
+  }
+}
+
+fn update(
+  active: impl Lens<GizmoState, bool>,
+  color: Vec3<f32>,
+) -> impl FnMut(&GizmoState, &mut Arrow) {
+  move |state, arrow| {
+    let axis_active = active.with(state, |&s| s);
+    let show = !state.active.has_active() || axis_active;
+    arrow.set_color(color);
+    arrow.root.set_visible(show);
   }
 }
 
@@ -215,6 +263,26 @@ impl PassContentWithCamera for &mut Gizmo {
     let dispatcher = &pass.default_dispatcher();
     self.view.render(pass, dispatcher, camera)
   }
+}
+
+type PlaneMaterial = StateControl<FlatMaterial>;
+type PlaneMesh = impl WebGPUMesh;
+fn build_plane(
+  root: &SceneNode,
+  auto_scale: &Rc<RefCell<ViewAutoScalable>>,
+  mat: Mat4<f32>,
+) -> OverridableMeshModelImpl<PlaneMesh, PlaneMaterial> {
+  let mesh = PlaneMeshParameter::default().tessellate();
+  let mesh = MeshSource::new(mesh);
+
+  let material = solid_material(RED);
+
+  let plane = root.create_child();
+  plane.set_local_matrix(mat);
+  let mut plane = MeshModelImpl::new(material, mesh, plane).into_matrix_overridable();
+
+  plane.push_override(auto_scale.clone());
+  plane
 }
 
 // fn build_box() -> Box<dyn SceneRenderable> {
@@ -232,13 +300,6 @@ impl PassContentWithCamera for &mut Gizmo {
 //   }
 //   todo!();
 // }
-
-fn build_axis_arrow(root: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>) -> Arrow {
-  let (cylinder, tip) = Arrow::default_shape();
-  let (cylinder, tip) = (&cylinder, &tip);
-  let material = &solid_material((0.8, 0.1, 0.1));
-  Arrow::new_reused(root, auto_scale, material, cylinder, tip)
-}
 
 #[derive(Default)]
 struct GizmoState {
@@ -271,16 +332,6 @@ impl GizmoState {
     self.start_hit_world_position = start_hit_world_position;
     self.start_hit_local_position =
       self.target_world_mat.inverse_or_identity() * self.start_hit_world_position;
-  }
-
-  fn show_x(&self) -> bool {
-    !self.active.has_active() || self.active.x
-  }
-  fn show_y(&self) -> bool {
-    !self.active.has_active() || self.active.y
-  }
-  fn show_z(&self) -> bool {
-    !self.active.has_active() || self.active.z
   }
 }
 

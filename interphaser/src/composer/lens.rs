@@ -43,6 +43,7 @@ pub trait Lens<T: ?Sized, U: ?Sized> {
 /// ```
 /// let lens = druid::lens::Field::new(|x: &Vec<u32>| &x[42], |x| &mut x[42]);
 /// ```
+#[derive(Clone, Copy)]
 pub struct Field<Get, GetMut> {
   get: Get,
   get_mut: GetMut,
