@@ -40,7 +40,7 @@ where
   Self: SceneRenderable + Clone + 'static,
 {
   fn id(&self) -> usize {
-    self.read().unwrap().id()
+    self.read().id()
   }
   fn clone_boxed(&self) -> Box<dyn SceneRenderableShareable> {
     Box::new(self.clone())
@@ -76,11 +76,11 @@ pub fn setup_pass_core<Me, Ma>(
   let node_gpu =
     override_node.unwrap_or_else(|| resources.nodes.check_update_gpu(&model.node, gpu));
 
-  let material = model.material.read().unwrap();
+  let material = model.material.read();
   let material_gpu =
     material.check_update_gpu(&mut resources.scene.materials, &mut resources.content, gpu);
 
-  let mesh = model.mesh.read().unwrap();
+  let mesh = model.mesh.read();
   let mesh_gpu = mesh.check_update_gpu(
     &mut resources.scene.meshes,
     &mut resources.custom_storage,
@@ -131,11 +131,11 @@ where
 
   let local_ray = ctx.world_ray.clone().apply_matrix_into(world_inv);
 
-  if !model.material.read().unwrap().is_keep_mesh_shape() {
+  if !model.material.read().is_keep_mesh_shape() {
     return OptionalNearest::none();
   }
 
-  let mesh = &model.mesh.read().unwrap();
+  let mesh = &model.mesh.read();
   let mut picked = OptionalNearest::none();
   mesh.try_pick(&mut |mesh: &dyn IntersectAbleGroupedMesh| {
     picked = mesh.intersect_nearest(local_ray, ctx.conf, model.group);

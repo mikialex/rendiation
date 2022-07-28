@@ -47,10 +47,10 @@ impl<M: WebGPUMaterial> WebGPUSceneMaterial for SceneItemRef<M> {
     sub_res: &mut GPUResourceSubCache,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
-    res.update_material(&self.read().unwrap(), gpu, sub_res)
+    res.update_material(&self.read(), gpu, sub_res)
   }
   fn is_keep_mesh_shape(&self) -> bool {
-    self.read().unwrap().deref().is_keep_mesh_shape()
+    self.read().deref().is_keep_mesh_shape()
   }
 }
 

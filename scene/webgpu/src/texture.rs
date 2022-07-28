@@ -9,7 +9,7 @@ where
   P: SceneContent,
   P::Texture2D: AsRef<dyn WebGPUTexture2dSource>,
 {
-  let texture = source.read().unwrap();
+  let texture = source.read();
   resources.texture_2ds.get_update_or_insert_with(
     &texture,
     |texture| {
@@ -32,7 +32,7 @@ where
   P: SceneContent,
   P::TextureCube: AsRef<[Box<dyn WebGPUTexture2dSource>; 6]>,
 {
-  let texture = source.read().unwrap();
+  let texture = source.read();
 
   resources.texture_cubes.get_update_or_insert_with(
     &texture,

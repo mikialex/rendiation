@@ -44,19 +44,21 @@ impl<T> SceneItemRef<T> {
     visitor(&inner)
   }
 
-  pub fn read(&self) -> Option<SceneItemRefGuard<T>> {
+  pub fn read(&self) -> SceneItemRefGuard<T> {
     self
       .inner
       .read()
       .ok()
       .map(|inner| SceneItemRefGuard { inner })
+      .unwrap()
   }
-  pub fn write(&self) -> Option<SceneItemRefMutGuard<T>> {
+  pub fn write(&self) -> SceneItemRefMutGuard<T> {
     self
       .inner
       .write()
       .ok()
       .map(|inner| SceneItemRefMutGuard { inner })
+      .unwrap()
   }
 }
 

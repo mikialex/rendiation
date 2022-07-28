@@ -161,11 +161,11 @@ where
 
 impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.read().unwrap().topology()
+    self.read().topology()
   }
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    let inner = self.read().unwrap();
+    let inner = self.read();
     inner.try_pick(f);
   }
 
@@ -175,12 +175,12 @@ impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for SceneIt
     sub_res: &mut AnyMap,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
-    let inner = self.read().unwrap();
+    let inner = self.read();
     inner.check_update_gpu(res, sub_res, gpu)
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    self.read().unwrap().draw_impl(group)
+    self.read().draw_impl(group)
   }
 }
 
@@ -191,22 +191,22 @@ where
   type GPU = T::GPU;
 
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, res: &mut AnyMap) {
-    self.read().unwrap().update(gpu_mesh, gpu, res);
+    self.read().update(gpu_mesh, gpu, res);
   }
 
   fn create(&self, gpu: &GPU, res: &mut AnyMap) -> Self::GPU {
-    self.read().unwrap().create(gpu, res)
+    self.read().create(gpu, res)
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    self.read().unwrap().draw_impl(group)
+    self.read().draw_impl(group)
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.read().unwrap().topology()
+    self.read().topology()
   }
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.read().unwrap().try_pick(f)
+    self.read().try_pick(f)
   }
 }

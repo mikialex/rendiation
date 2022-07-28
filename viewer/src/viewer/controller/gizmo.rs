@@ -121,7 +121,6 @@ impl Gizmo {
           .interactive_ctx
           .camera
           .read()
-          .unwrap()
           .node
           .get_world_matrix()
           .position();
