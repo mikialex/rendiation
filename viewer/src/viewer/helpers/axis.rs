@@ -86,15 +86,14 @@ impl Arrow {
 
     let node_cylinder = root.create_child();
     node_cylinder.set_local_matrix(Mat4::translate((0., 1., 0.)));
-    let mut cylinder = MeshModelImpl::new(material.clone(), cylinder_mesh.clone(), node_cylinder)
-      .into_matrix_overridable();
+    let mut cylinder =
+      MeshModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_matrix_overridable();
 
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
-    let mut tip =
-      MeshModelImpl::new(material.clone(), tip_mesh.clone(), node_tip).into_matrix_overridable();
+    let mut tip = MeshModelImpl::new(material, tip_mesh, node_tip).into_matrix_overridable();
 
     tip.push_override(auto_scale.clone());
 
