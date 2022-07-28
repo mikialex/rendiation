@@ -43,7 +43,7 @@ impl<S: SceneContent> Scene<S> {
 
     let default_camera = PerspectiveProjection::default();
     let camera_node = root.create_child();
-    let default_camera = SceneCamera::new(default_camera, camera_node);
+    let default_camera = SceneCamera::create_camera(default_camera, camera_node);
 
     Self {
       nodes,

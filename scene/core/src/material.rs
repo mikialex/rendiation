@@ -1,9 +1,7 @@
 use rendiation_algebra::*;
 use rendiation_texture::TextureSampler;
 
-use crate::{Identity, SceneContent, SceneTexture2D};
-
-pub type MaterialInner<T> = Identity<T>;
+use crate::*;
 
 #[derive(Clone)]
 pub struct PhysicalMaterial<S: SceneContent> {

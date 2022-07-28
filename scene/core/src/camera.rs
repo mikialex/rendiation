@@ -2,38 +2,24 @@ use rendiation_algebra::*;
 use rendiation_geometry::*;
 use rendiation_texture::Size;
 
-use crate::{Identity, SceneNode};
+use crate::*;
 
-pub struct SceneCamera {
-  pub inner: Identity<Camera>,
-}
-
-impl std::ops::Deref for SceneCamera {
-  type Target = Identity<Camera>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.inner
-  }
-}
-
-impl std::ops::DerefMut for SceneCamera {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.inner
-  }
-}
+pub type SceneCamera = SceneItemRef<Camera>;
 
 impl HyperRayCaster<f32, Vec3<f32>, Vec2<f32>> for SceneCamera {
   fn cast_ray(&self, normalized_position: Vec2<f32>) -> HyperRay<f32, Vec3<f32>> {
-    let camera_world_mat = self.node.get_world_matrix();
-    self
-      .projection
-      .cast_ray(normalized_position)
-      .apply_matrix_into(camera_world_mat)
+    self.visit(|camera| {
+      let camera_world_mat = camera.node.get_world_matrix();
+      camera
+        .projection
+        .cast_ray(normalized_position)
+        .apply_matrix_into(camera_world_mat)
+    })
   }
 }
 
 impl SceneCamera {
-  pub fn new(
+  pub fn create_camera(
     p: impl ResizableProjection<f32> + RayCaster3<f32> + 'static,
     node: SceneNode,
   ) -> Self {
@@ -45,15 +31,14 @@ impl SceneCamera {
     };
     inner.projection_changed();
 
-    Self {
-      inner: Identity::new(inner),
-    }
+    inner.into()
   }
 
   pub fn resize(&mut self, size: (f32, f32)) {
-    self.projection.resize(size);
-    self.projection_changed();
-    self.trigger_change();
+    self.mutate(|camera| {
+      camera.projection.resize(size);
+      camera.projection_changed();
+    })
   }
 
   /// normalized_position: -1 to 1

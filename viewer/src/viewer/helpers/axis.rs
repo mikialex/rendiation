@@ -25,7 +25,7 @@ impl PassContentWithCamera for &mut AxisHelper {
 
     // sort by the camera
     let center = self.root.get_world_matrix().position();
-    let camera_position = camera.node.get_world_matrix().position();
+    let camera_position = camera.read().node.get_world_matrix().position();
     let center_to_eye_dir = camera_position - center;
     let center_to_eye_dir = center_to_eye_dir.normalize();
     let x = Vec3::new(1., 0., 0.).dot(center_to_eye_dir);
@@ -39,9 +39,13 @@ impl PassContentWithCamera for &mut AxisHelper {
   }
 }
 
+type ArrowMaterial = StateControl<FlatMaterial>;
+type ArrowTipMesh = impl WebGPUMesh + Clone;
+type ArrowBodyMesh = impl WebGPUMesh + Clone;
+
 pub struct Arrow {
-  cylinder: Box<dyn SceneModel>,
-  tip: Box<dyn SceneModel>,
+  cylinder: OverridableMeshModelImpl<ArrowBodyMesh, ArrowMaterial>,
+  tip: OverridableMeshModelImpl<ArrowTipMesh, ArrowMaterial>,
   pub root: SceneNode,
 }
 
@@ -73,46 +77,31 @@ impl PassContentWithCamera for Arrow {
   }
 }
 
-type ArrowMaterial = impl WebGPUMaterial + Clone;
-type ArrowTipMesh = impl WebGPUMesh + Clone;
-type ArrowBodyMesh = impl WebGPUMesh + Clone;
-
 impl Arrow {
-  pub fn new_reused(
-    parent: &SceneNode,
-    auto_scale: &Rc<RefCell<ViewAutoScalable>>,
-    material: &ArrowMaterial,
-    cylinder_mesh: &ArrowBodyMesh,
-    tip_mesh: &ArrowTipMesh,
-  ) -> Self {
+  pub fn new(parent: &SceneNode, auto_scale: &Rc<RefCell<ViewAutoScalable>>) -> Self {
     let root = parent.create_child();
+
+    let (cylinder_mesh, tip_mesh) = Arrow::default_shape();
+    let material = solid_material((1., 1., 1.));
 
     let node_cylinder = root.create_child();
     node_cylinder.set_local_matrix(Mat4::translate((0., 1., 0.)));
-    let mut cylinder = MeshModelImpl::new(
-      material.clone().into_resourced(),
-      cylinder_mesh.clone().into_resourced(),
-      node_cylinder,
-    )
-    .into_matrix_overridable();
+    let mut cylinder = MeshModelImpl::new(material.clone(), cylinder_mesh.clone(), node_cylinder)
+      .into_matrix_overridable();
 
     cylinder.push_override(auto_scale.clone());
 
     let node_tip = root.create_child();
     node_tip.set_local_matrix(Mat4::translate((0., 2., 0.)));
-    let mut tip = MeshModelImpl::new(
-      material.clone().into_resourced(),
-      tip_mesh.clone().into_resourced(),
-      node_tip,
-    )
-    .into_matrix_overridable();
+    let mut tip =
+      MeshModelImpl::new(material.clone(), tip_mesh.clone(), node_tip).into_matrix_overridable();
 
     tip.push_override(auto_scale.clone());
 
     Self {
       root,
-      cylinder: Box::new(cylinder),
-      tip: Box::new(tip),
+      cylinder,
+      tip,
     }
   }
 
@@ -124,7 +113,7 @@ impl Arrow {
       ..Default::default()
     }
     .tessellate();
-    let cylinder = MeshCell::new(MeshSource::new(cylinder));
+    let cylinder = MeshSource::new(cylinder);
 
     let tip = CylinderMeshParameter {
       radius_top: 0.0,
@@ -133,8 +122,13 @@ impl Arrow {
       ..Default::default()
     }
     .tessellate();
-    let tip = MeshCell::new(MeshSource::new(tip));
-    (cylinder, tip)
+    let tip = MeshSource::new(tip);
+    (cylinder.into_ref(), tip.into_ref())
+  }
+
+  pub fn set_color(&self, color: Vec3<f32>) {
+    self.tip.material.write().material.color = (color.x, color.y, color.z, 1.).into();
+    self.cylinder.material.write().material.color = (color.x, color.y, color.z, 1.).into();
   }
 
   pub fn with_transform(self, m: Mat4<f32>) -> Self {
@@ -168,40 +162,14 @@ impl AxisHelper {
   pub fn new(parent: &SceneNode) -> Self {
     let root = parent.create_child();
 
-    let (cylinder, tip) = Arrow::default_shape();
-    let (cylinder, tip) = (&cylinder, &tip);
-
     let auto_scale = &Rc::new(RefCell::new(ViewAutoScalable {
       override_position: ViewAutoScalablePositionOverride::SyncNode(root.clone()),
       independent_scale_factor: 100.,
     }));
 
-    let x = Arrow::new_reused(
-      &root,
-      auto_scale,
-      &solid_material((0.8, 0.1, 0.1)),
-      cylinder,
-      tip,
-    )
-    .toward_x();
-
-    let y = Arrow::new_reused(
-      &root,
-      auto_scale,
-      &solid_material((0.1, 0.8, 0.1)),
-      cylinder,
-      tip,
-    )
-    .toward_y();
-
-    let z = Arrow::new_reused(
-      &root,
-      auto_scale,
-      &solid_material((0.1, 0.1, 0.8)),
-      cylinder,
-      tip,
-    )
-    .toward_z();
+    let x = Arrow::new(&root, auto_scale).toward_x();
+    let y = Arrow::new(&root, auto_scale).toward_y();
+    let z = Arrow::new(&root, auto_scale).toward_z();
 
     Self {
       root,

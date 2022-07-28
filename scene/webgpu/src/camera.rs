@@ -36,8 +36,9 @@ impl std::ops::DerefMut for CameraGPUStore {
 
 impl CameraGPUStore {
   pub fn check_update_gpu(&mut self, camera: &SceneCamera, gpu: &GPU) -> &CameraGPU {
+    let camera = camera.read();
     self.get_update_or_insert_with(
-      camera,
+      &camera,
       |_| CameraGPU::new(gpu),
       |camera_gpu, camera| {
         camera_gpu.update(gpu, camera);
@@ -46,7 +47,8 @@ impl CameraGPUStore {
   }
 
   pub fn expect_gpu(&self, camera: &SceneCamera) -> &CameraGPU {
-    self.get_unwrap(camera)
+    let camera = camera.read();
+    self.get_unwrap(&camera)
   }
 }
 

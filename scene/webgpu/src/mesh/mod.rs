@@ -1,7 +1,5 @@
 use rendiation_renderable_mesh::{mesh::IntersectAbleGroupedMesh, GPUMeshData, TypedMeshGPU};
 
-use rendiation_renderable_mesh::{group::GroupedMesh, mesh::IndexedMesh};
-
 pub mod fatline;
 pub use fatline::*;
 pub mod transform_instance;
@@ -9,15 +7,7 @@ pub use transform_instance::*;
 
 use crate::*;
 
-pub trait GPUMeshLayoutSupport {
-  type VertexInput;
-}
-
-impl<I, V, T> GPUMeshLayoutSupport for GroupedMesh<IndexedMesh<I, V, T, Vec<V>>> {
-  type VertexInput = Vec<V>;
-}
-
-pub trait WebGPUSceneMesh: 'static {
+pub trait WebGPUSceneMesh {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMeshCache,
@@ -169,13 +159,13 @@ where
   }
 }
 
-impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCell<T> {
+impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for SceneItemRef<T> {
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.inner.read().unwrap().topology()
+    self.read().topology()
   }
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    let inner = self.inner.read().unwrap();
+    let inner = self.read();
     inner.try_pick(f);
   }
 
@@ -185,38 +175,38 @@ impl<T: WebGPUMesh + IntersectAbleGroupedMesh + Any> WebGPUSceneMesh for MeshCel
     sub_res: &mut AnyMap,
     gpu: &GPU,
   ) -> &'a dyn RenderComponentAny {
-    let inner = self.inner.read().unwrap();
+    let inner = self.read();
     inner.check_update_gpu(res, sub_res, gpu)
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    self.inner.read().unwrap().draw_impl(group)
+    self.read().draw_impl(group)
   }
 }
 
-impl<T> WebGPUMesh for MeshCell<T>
+impl<T> WebGPUMesh for SceneItemRef<T>
 where
   T: WebGPUMesh,
 {
   type GPU = T::GPU;
 
   fn update(&self, gpu_mesh: &mut Self::GPU, gpu: &GPU, res: &mut AnyMap) {
-    self.inner.read().unwrap().update(gpu_mesh, gpu, res);
+    self.read().update(gpu_mesh, gpu, res);
   }
 
   fn create(&self, gpu: &GPU, res: &mut AnyMap) -> Self::GPU {
-    self.inner.read().unwrap().create(gpu, res)
+    self.read().create(gpu, res)
   }
 
   fn draw_impl(&self, group: MeshDrawGroup) -> DrawCommand {
-    self.inner.read().unwrap().draw_impl(group)
+    self.read().draw_impl(group)
   }
 
   fn topology(&self) -> webgpu::PrimitiveTopology {
-    self.inner.read().unwrap().topology()
+    self.read().topology()
   }
 
   fn try_pick(&self, f: &mut dyn FnMut(&dyn IntersectAbleGroupedMesh)) {
-    self.inner.read().unwrap().try_pick(f)
+    self.read().try_pick(f)
   }
 }

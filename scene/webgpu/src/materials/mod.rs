@@ -16,7 +16,7 @@ pub trait WebGPUMaterial: Clone + Any {
   fn is_transparent(&self) -> bool;
 }
 
-pub trait WebGPUSceneMaterial: 'static {
+pub trait WebGPUSceneMaterial {
   fn check_update_gpu<'a>(
     &self,
     res: &'a mut GPUMaterialCache,
@@ -37,6 +37,20 @@ impl<M: WebGPUMaterial> WebGPUSceneMaterial for Identity<M> {
   }
   fn is_keep_mesh_shape(&self) -> bool {
     self.deref().is_keep_mesh_shape()
+  }
+}
+
+impl<M: WebGPUMaterial> WebGPUSceneMaterial for SceneItemRef<M> {
+  fn check_update_gpu<'a>(
+    &self,
+    res: &'a mut GPUMaterialCache,
+    sub_res: &mut GPUResourceSubCache,
+    gpu: &GPU,
+  ) -> &'a dyn RenderComponentAny {
+    res.update_material(&self.read(), gpu, sub_res)
+  }
+  fn is_keep_mesh_shape(&self) -> bool {
+    self.read().deref().is_keep_mesh_shape()
   }
 }
 
