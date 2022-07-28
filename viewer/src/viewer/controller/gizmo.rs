@@ -59,19 +59,41 @@ impl Gizmo {
       .update(update(z_lens, GREEN))
       .on(active(z_lens));
 
-    let xy = build_plane(root, auto_scale, Mat4::translate((1., 1., 0.))).eventable::<GizmoState>();
+    macro_rules! duel {
+      ($a:tt, $b:tt) => {
+        interphaser::Map::new(
+          |s: &GizmoState| s.active.$a && s.active.$b,
+          |s, v| {
+            s.active.$a = v;
+            s.active.$b = v;
+          },
+        )
+      };
+    }
+
+    let xy_lens = duel!(x, y);
+    let yz_lens = duel!(y, z);
+    let xz_lens = duel!(x, z);
+
+    let xy = build_plane(root, auto_scale, Mat4::translate((1., 1., 0.)))
+      .eventable::<GizmoState>()
+      .on(active(xy_lens));
+
     let yz = build_plane(
       root,
       auto_scale,
       Mat4::translate((0., 1., 1.)) * Mat4::rotate_y(f32::PI() / 2.),
     )
-    .eventable::<GizmoState>();
+    .eventable::<GizmoState>()
+    .on(active(yz_lens));
+
     let xz = build_plane(
       root,
       auto_scale,
       Mat4::translate((1., 0., 1.)) * Mat4::rotate_x(f32::PI() / 2.),
     )
-    .eventable::<GizmoState>();
+    .eventable::<GizmoState>()
+    .on(active(xz_lens));
 
     #[rustfmt::skip]
     let view = collection3d()
@@ -152,27 +174,52 @@ impl Gizmo {
 
         let plane_point = self.states.start_hit_world_position;
 
-        let axis: Vec3<_> = if self.states.active.only_x() {
-          (1., 0., 0.)
-        } else if self.states.active.only_y() {
-          (0., 1., 0.)
-        } else if self.states.active.only_z() {
-          (0., 0., 1.)
-        } else {
-          (0., 1., 0.)
-        }
-        .into();
-
         // build world space constraint abstract interactive plane
-        let helper_dir = axis.cross(view);
-        let normal = helper_dir.cross(axis);
-        let plane = Plane::from_normal_and_plane_point(normal, plane_point);
+        let (plane, constraint) = if self.states.active.only_x() {
+          Some((1., 0., 0.).into())
+        } else if self.states.active.only_y() {
+          Some((0., 1., 0.).into())
+        } else if self.states.active.only_z() {
+          Some((0., 0., 1.).into())
+        } else {
+          None
+        }
+        .map(|axis: Vec3<f32>| {
+          let helper_dir = axis.cross(view);
+          let normal = helper_dir.cross(axis);
+          (
+            Plane::from_normal_and_plane_point(normal, plane_point),
+            axis,
+          )
+        })
+        .or_else(|| {
+          if self.states.active.only_xy() {
+            Some((0., 0., 1.).into())
+          } else if self.states.active.only_yz() {
+            Some((1., 0., 0.).into())
+          } else if self.states.active.only_xz() {
+            Some((0., 1., 0.).into())
+          } else {
+            None
+          }
+          .map(|normal: Vec3<f32>| {
+            (
+              Plane::from_normal_and_plane_point(normal, plane_point),
+              Vec3::one() - normal,
+            )
+          })
+        })
+        .unwrap_or((
+          // should be unreachable
+          Plane::from_normal_and_origin_point((0., 1., 0.).into()),
+          (0., 1., 0.).into(),
+        ));
 
         // if we don't get any hit, we skip update.  Keeping last updated result is a reasonable behavior.
         if let OptionalNearest(Some(new_hit)) =
           event.interactive_ctx.world_ray.intersect(&plane, &())
         {
-          let new_hit = (new_hit.position - plane_point) * axis + plane_point;
+          let new_hit = (new_hit.position - plane_point) * constraint + plane_point;
 
           // new_hit_world = M(parent) * M(new_local_translate) * M(local_rotate) * M(local_scale) * start_hit_local_position =>
           // M-1(parent) * new_hit_world = new_local_translate + M(local_rotate) * M(local_scale) * start_hit_local_position  =>
@@ -358,5 +405,14 @@ impl AxisActiveState {
   }
   pub fn only_z(&self) -> bool {
     !self.x && !self.y && self.z
+  }
+  pub fn only_xy(&self) -> bool {
+    self.x && self.y && !self.z
+  }
+  pub fn only_yz(&self) -> bool {
+    !self.x && self.y && self.z
+  }
+  pub fn only_xz(&self) -> bool {
+    self.x && !self.y && self.z
   }
 }
