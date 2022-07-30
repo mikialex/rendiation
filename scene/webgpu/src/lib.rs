@@ -276,12 +276,15 @@ pub fn interaction_picking_mut<
 >(
   content: T,
   ctx: &SceneRayInteractiveCtx,
+  mut on_not_hit: impl FnMut(&'a mut X),
 ) -> Option<(&'a mut X, MeshBufferHitPoint)> {
   let mut result = Vec::new();
 
   for m in content {
     if let OptionalNearest(Some(r)) = m.ray_pick_nearest(ctx) {
       result.push((m, r));
+    } else {
+      on_not_hit(m)
     }
   }
 

@@ -281,7 +281,7 @@ fn active(active: impl Lens<GizmoState, ItemState>) -> impl FnMut(&mut GizmoStat
       }
     }
 
-    active.with_mut(state, |s| s.hovering = is_hovering(event));
+    // active.with_mut(state, |s| s.hovering = is_hovering(event));
   }
 }
 

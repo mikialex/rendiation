@@ -49,6 +49,7 @@ impl interphaser::System for System3D {
 pub fn map_3d_events<'a, T, S>(
   event_ctx: &mut EventCtx3D,
   view: T,
+  mut on_event: impl FnMut(&mut EventCtx3D, &'a mut dyn Component3D<S>),
 ) -> Option<&'a mut dyn Component3D<S>>
 where
   T: IntoIterator<Item = &'a mut dyn Component3D<S>>,
@@ -56,7 +57,11 @@ where
   let event = event_ctx.raw_event;
 
   if mouse_move(event).is_some() {
-    if let Some((target, details)) = interaction_picking_mut(view, event_ctx.interactive_ctx) {
+    if let Some((target, details)) =
+      interaction_picking_mut(view, event_ctx.interactive_ctx, |not_hit| {
+        on_event(event_ctx, not_hit)
+      })
+    {
       event_ctx.event_3d = Event3D::MouseMove {
         world_position: details.hit.position,
       }
@@ -64,7 +69,11 @@ where
       return Some(target);
     }
   } else if let Some((button, state)) = mouse(event) {
-    if let Some((target, details)) = interaction_picking_mut(view, event_ctx.interactive_ctx) {
+    if let Some((target, details)) =
+      interaction_picking_mut(view, event_ctx.interactive_ctx, |not_hit| {
+        on_event(event_ctx, not_hit)
+      })
+    {
       if button == MouseButton::Left {
         match state {
           ElementState::Pressed => {
@@ -127,10 +136,13 @@ impl<T> Component<T, System3D> for Component3DCollection<T> {
         .collection
         .iter_mut() // fixme, how can i pass the compiler here ???!
         .map(|c| unsafe { std::mem::transmute::<_, &mut dyn Component3D<T>>(c.as_mut()) }),
+      |ctx, not_hit| {
+        not_hit.event(states, ctx);
+      },
     ) {
       target.event(states, ctx);
+      ctx.event_3d = None;
     }
-    ctx.event_3d = None;
   }
 
   fn update(&mut self, states: &T, ctx: &mut UpdateCtx3D) {
