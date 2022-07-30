@@ -67,8 +67,18 @@ impl Gizmo {
             active: s.translate.$a.active && s.translate.$b.active,
           },
           |s, v| {
-            s.translate.$a = v;
-            s.translate.$b = v;
+            let both = ItemState {
+              hovering: !(s.translate.$a.hovering ^ s.translate.$b.hovering),
+              active: !(s.translate.$a.active ^ s.translate.$b.active),
+            };
+            if both.hovering {
+              s.translate.$a.hovering = v.hovering;
+              s.translate.$b.hovering = v.hovering;
+            }
+            if both.active {
+              s.translate.$a.active = v.active;
+              s.translate.$b.active = v.active;
+            }
           },
         )
       };
@@ -281,7 +291,7 @@ fn active(active: impl Lens<GizmoState, ItemState>) -> impl FnMut(&mut GizmoStat
       }
     }
 
-    // active.with_mut(state, |s| s.hovering = is_hovering(event));
+    active.with_mut(state, |s| s.hovering = is_hovering(event));
   }
 }
 

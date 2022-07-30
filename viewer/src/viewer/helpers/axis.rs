@@ -106,8 +106,8 @@ impl Arrow {
 
   pub fn default_shape() -> (ArrowBodyMesh, ArrowTipMesh) {
     let cylinder = CylinderMeshParameter {
-      radius_top: 0.01,
-      radius_bottom: 0.01,
+      radius_top: 0.02,
+      radius_bottom: 0.02,
       height: 2.,
       ..Default::default()
     }
