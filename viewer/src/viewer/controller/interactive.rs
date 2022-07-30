@@ -51,6 +51,12 @@ impl<T: SceneRenderable, S> Component<S, System3D> for InteractiveWatchable<T, S
       cb(states, event)
     }
   }
+
+  fn update(&mut self, states: &S, _: &mut UpdateCtx3D) {
+    if let Some(update) = &mut self.updates {
+      update(states, &mut self.inner)
+    }
+  }
 }
 
 impl<T: SceneRenderable, S> SceneRenderable for InteractiveWatchable<T, S> {
