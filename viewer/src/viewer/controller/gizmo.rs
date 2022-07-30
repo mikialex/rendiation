@@ -44,19 +44,19 @@ impl Gizmo {
     let x = Arrow::new(root, auto_scale)
       .toward_x()
       .eventable()
-      .update(update(x_lens, RED))
+      .update(update_arrow(x_lens, RED))
       .on(active(x_lens));
 
     let y = Arrow::new(root, auto_scale)
       .toward_y()
       .eventable()
-      .update(update(y_lens, BLUE))
+      .update(update_arrow(y_lens, BLUE))
       .on(active(y_lens));
 
     let z = Arrow::new(root, auto_scale)
       .toward_z()
       .eventable()
-      .update(update(z_lens, GREEN))
+      .update(update_arrow(z_lens, GREEN))
       .on(active(z_lens));
 
     macro_rules! duel {
@@ -88,19 +88,29 @@ impl Gizmo {
     let yz_lens = duel!(y, z);
     let xz_lens = duel!(x, z);
 
-    let xy_t = Mat4::translate((1., 1., 0.));
+    let plane_scale = Mat4::scale(Vec3::splat(0.4));
+    let plane_move = Vec3::splat(1.3);
+    let degree_90 = f32::PI() / 2.;
+
+    let xy_t = Vec3::new(1., 1., 0.);
+    let xy_t = Mat4::translate(xy_t * plane_move) * plane_scale;
     let xy = build_plane(root, auto_scale, xy_t)
       .eventable::<GizmoState>()
+      .update(update_plane(xy_lens, GREEN))
       .on(active(xy_lens));
 
-    let yz_t = Mat4::translate((0., 1., 1.)) * Mat4::rotate_y(f32::PI() / 2.);
+    let yz_t = Vec3::new(0., 1., 1.);
+    let yz_t = Mat4::translate(yz_t * plane_move) * Mat4::rotate_y(degree_90) * plane_scale;
     let yz = build_plane(root, auto_scale, yz_t)
       .eventable::<GizmoState>()
+      .update(update_plane(yz_lens, RED))
       .on(active(yz_lens));
 
-    let xz_t = Mat4::translate((1., 0., 1.)) * Mat4::rotate_x(f32::PI() / 2.);
+    let xz_t = Vec3::new(1., 0., 1.);
+    let xz_t = Mat4::translate(xz_t * plane_move) * Mat4::rotate_x(degree_90) * plane_scale;
     let xz = build_plane(root, auto_scale, xz_t)
       .eventable::<GizmoState>()
+      .update(update_plane(xz_lens, BLUE))
       .on(active(xz_lens));
 
     #[rustfmt::skip]
@@ -295,21 +305,38 @@ fn active(active: impl Lens<GizmoState, ItemState>) -> impl FnMut(&mut GizmoStat
   }
 }
 
-fn update(
+fn map_color(color: Vec3<f32>, state: ItemState) -> Vec3<f32> {
+  if state.hovering && !state.active {
+    color + Vec3::splat(0.1)
+  } else if state.active {
+    color - Vec3::splat(0.1)
+  } else {
+    color
+  }
+}
+
+fn update_arrow(
   active: impl Lens<GizmoState, ItemState>,
   color: Vec3<f32>,
 ) -> impl FnMut(&GizmoState, &mut Arrow) {
   move |state, arrow| {
     let axis_state = active.with(state, |&s| s);
     let show = !state.translate.has_active() || axis_state.active;
-    if axis_state.hovering && !axis_state.active {
-      arrow.set_color(color + Vec3::splat(0.1));
-    } else if axis_state.active {
-      arrow.set_color(color - Vec3::splat(0.1));
-    } else {
-      arrow.set_color(color);
-    }
     arrow.root.set_visible(show);
+    arrow.set_color(map_color(color, axis_state));
+  }
+}
+
+fn update_plane(
+  active: impl Lens<GizmoState, ItemState>,
+  color: Vec3<f32>,
+) -> impl FnMut(&GizmoState, &mut PlaneModel) {
+  move |state, plane| {
+    let axis_state = active.with(state, |&s| s);
+    let color = map_color(color, axis_state);
+    plane.material.write().material.color = Vec4::new(color.x, color.y, color.z, 1.);
+    let show = !state.translate.has_active() || axis_state.active;
+    plane.node.set_visible(show);
   }
 }
 
@@ -326,11 +353,12 @@ impl PassContentWithCamera for &mut Gizmo {
 
 type PlaneMaterial = StateControl<FlatMaterial>;
 type PlaneMesh = impl WebGPUMesh;
+type PlaneModel = OverridableMeshModelImpl<PlaneMesh, PlaneMaterial>;
 fn build_plane(
   root: &SceneNode,
   auto_scale: &Rc<RefCell<ViewAutoScalable>>,
   mat: Mat4<f32>,
-) -> OverridableMeshModelImpl<PlaneMesh, PlaneMaterial> {
+) -> PlaneModel {
   let mesh = PlaneMeshParameter::default().tessellate();
   let mesh = MeshSource::new(mesh);
 
@@ -350,7 +378,9 @@ fn build_plane(
 //   todo!();
 // }
 
-// fn build_rotation_circle() -> Box<dyn SceneRenderable> {
+// type CircleMaterial = StateControl<FlatMaterial>;
+// type CircleMesh = impl WebGPUMesh;
+// fn build_rotation_circle() -> OverridableMeshModelImpl<CircleMesh, CircleMaterial> {
 //   let mut position = Vec::new();
 //   let segments = 50;
 //   for i in 0..segments {
@@ -363,7 +393,8 @@ fn build_plane(
 #[derive(Default)]
 struct GizmoState {
   translate: AxisActiveState,
-
+  // rotation: AxisActiveState,
+  // scale: AxisActiveState,
   start_parent_world_mat: Mat4<f32>,
   start_local_position: Vec3<f32>,
   start_local_quaternion: Quat<f32>,

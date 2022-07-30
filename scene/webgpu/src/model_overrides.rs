@@ -169,11 +169,8 @@ impl WorldMatrixOverride for ViewAutoScalable {
         .projection
         .pixels_per_unit(projected_distance, camera_view_height);
 
-    let raw_scale = world_matrix.extract_scale();
-    let new_scale = Vec3::splat(scale) / raw_scale;
-
     world_translation // move back to position
-      * Mat4::scale(new_scale) // apply new scale
+      * Mat4::scale(Vec3::splat(scale)) // apply new scale
       * world_translation.inverse_or_identity() // move back to zero
       * world_matrix // original
   }
