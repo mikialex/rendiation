@@ -137,19 +137,3 @@ macro_rules! intersect_reverse {
     }
   };
 }
-
-pub struct Transform2DTo3D<S, T> {
-  pub source_space: S,
-  pub target_space: T,
-}
-
-pub trait IntoTransform2DTo3D: Sized {
-  fn transform_to_3d<T>(self, target_space: T) -> Transform2DTo3D<Self, T> {
-    Transform2DTo3D {
-      source_space: self,
-      target_space,
-    }
-  }
-}
-
-impl<S> IntoTransform2DTo3D for S {}
