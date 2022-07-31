@@ -2692,6 +2692,7 @@ dependencies = [
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",
+ "shadergraph",
  "wasm-bindgen-futures",
 ]
 

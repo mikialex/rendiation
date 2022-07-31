@@ -97,10 +97,17 @@ pub struct QuadDraw<T> {
 }
 
 pub trait UseQuadDraw: Sized {
+  /// default use alpha blend
   fn draw_quad(self) -> QuadDraw<Self> {
     QuadDraw {
       content: self,
       quad: Default::default(),
+    }
+  }
+  fn draw_quad_with_blend(self, blend: Option<BlendState>) -> QuadDraw<Self> {
+    QuadDraw {
+      content: self,
+      quad: FullScreenQuad { blend },
     }
   }
 }
