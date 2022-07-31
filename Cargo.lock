@@ -2070,6 +2070,7 @@ version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
+ "rendiation-renderable-mesh",
 ]
 
 [[package]]

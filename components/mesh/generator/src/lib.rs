@@ -1,4 +1,7 @@
+use std::marker::PhantomData;
+
 use rendiation_algebra::*;
+use rendiation_renderable_mesh::mesh::{IndexedMesh, TriangleList};
 
 pub trait ParametricSurface {
   fn sample(&self, position: Vec2<f32>) -> Vec3<f32>;
@@ -21,9 +24,17 @@ pub trait ParametricCurve {
 //   UnitCircle.scale().embed(XYPlane).make_curve_tube(radius).triangulate(tri_config)
 // }
 
-pub struct IndexedMeshBuilder<I, U> {
+pub struct IndexedMeshBuilder<I, U, T, V> {
   index: Vec<I>,
   container: U,
+  phantom1: PhantomData<T>,
+  phantom2: PhantomData<V>,
+}
+
+impl<I, U, T, V> IndexedMeshBuilder<I, U, T, V> {
+  pub fn build_mesh(self) -> IndexedMesh<I, V, T, U> {
+    IndexedMesh::new(self.container, self.index)
+  }
 }
 
 #[derive(Copy, Clone)]
@@ -84,7 +95,7 @@ pub trait VertexBuilding {
 pub fn triangulate_parametric<V, I, U>(
   surface: &impl ParametricSurface,
   config: &TriangulateConfig,
-  builder: &mut IndexedMeshBuilder<I, U>,
+  builder: &mut IndexedMeshBuilder<I, U, TriangleList, V>,
 ) where
   V: VertexBuilding,
   U: VertexContainer<Vertex = V>,
