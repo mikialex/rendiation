@@ -7,8 +7,12 @@ pub trait ParametricSurface {
   fn sample(&self, position: Vec2<f32>) -> Vec3<f32>;
 }
 
-pub trait ParametricCurve {
+pub trait ParametricCurve3D {
   fn sample(&self, position: f32) -> Vec3<f32>;
+}
+
+pub trait ParametricCurve2D {
+  fn sample(&self, position: f32) -> Vec2<f32>;
 }
 
 pub struct ParametricRangeMapping<T> {
@@ -16,7 +20,13 @@ pub struct ParametricRangeMapping<T> {
   pub start: f32,
   pub end: f32,
 }
-pub trait IntoParametricRangeMapping: ParametricCurve + Sized {
+impl<T: ParametricCurve3D> ParametricCurve3D for ParametricRangeMapping<T> {
+  fn sample(&self, position: f32) -> Vec3<f32> {
+    let mapped = self.start.lerp(self.end, position);
+    self.inner.sample(mapped)
+  }
+}
+pub trait IntoParametricRangeMapping: ParametricCurve3D + Sized {
   fn map_range(self, range: Range<f32>) -> ParametricRangeMapping<Self> {
     ParametricRangeMapping {
       inner: self,
@@ -25,13 +35,13 @@ pub trait IntoParametricRangeMapping: ParametricCurve + Sized {
     }
   }
 }
-impl<T: ParametricCurve + Sized> IntoParametricRangeMapping for T {}
+impl<T: ParametricCurve3D + Sized> IntoParametricRangeMapping for T {}
 
 pub struct Embed2DCurveTo3DSurface<S, T> {
   pub curve: S,
   pub surface: T,
 }
-pub trait IntoEmbed2DCurveTo3DSurface: ParametricCurve + Sized {
+pub trait IntoEmbed2DCurveTo3DSurface: ParametricCurve3D + Sized {
   fn embed_to_surface<T>(self, surface: T) -> Embed2DCurveTo3DSurface<Self, T>
   where
     T: ParametricSurface,
@@ -42,7 +52,61 @@ pub trait IntoEmbed2DCurveTo3DSurface: ParametricCurve + Sized {
     }
   }
 }
-impl<S: ParametricCurve + Sized> IntoEmbed2DCurveTo3DSurface for S {}
+impl<S> IntoEmbed2DCurveTo3DSurface for S where S: ParametricCurve3D + Sized {}
+impl<S, T> ParametricCurve3D for Embed2DCurveTo3DSurface<S, T>
+where
+  S: ParametricCurve2D,
+  T: ParametricSurface,
+{
+  fn sample(&self, position: f32) -> Vec3<f32> {
+    let curve_space = self.curve.sample(position);
+    self.surface.sample(curve_space)
+  }
+}
+
+pub struct FixedSweepSurface<T, P> {
+  pub cross_section_outline: T,
+  pub path: P,
+}
+pub trait IntoFixedFixedSweepSurfaceFromPath: ParametricCurve2D + Sized {
+  fn fix_swap_by_path<P>(self, path: P) -> FixedSweepSurface<Self, P>
+  where
+    P: ParametricCurve3D,
+  {
+    FixedSweepSurface {
+      cross_section_outline: self,
+      path,
+    }
+  }
+}
+impl<T> IntoFixedFixedSweepSurfaceFromPath for T where T: ParametricCurve2D + Sized {}
+pub trait IntoFixedFixedSweepSurfaceFromCrossSection: ParametricCurve3D + Sized {
+  fn make_tube_by<T>(self, cross_section_outline: T) -> FixedSweepSurface<T, Self>
+  where
+    T: ParametricCurve2D,
+  {
+    FixedSweepSurface {
+      cross_section_outline,
+      path: self,
+    }
+  }
+}
+impl<T> IntoFixedFixedSweepSurfaceFromCrossSection for T where T: ParametricCurve3D + Sized {}
+impl<T, P> ParametricSurface for FixedSweepSurface<T, P>
+where
+  T: ParametricCurve2D,
+  P: ParametricCurve3D,
+{
+  fn sample(&self, position: Vec2<f32>) -> Vec3<f32> {
+    let path_dimension = position.x;
+    let cross_section_dimension = position.y;
+
+    let cross_section_dimension_origin = self.path.sample(path_dimension);
+
+    let up = Vec2::new(0., 1.);
+    todo!()
+  }
+}
 
 // pub struct UnitCircle;
 
