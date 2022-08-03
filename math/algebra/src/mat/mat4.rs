@@ -229,6 +229,17 @@ impl<T> Mat4<T>
 where
   T: Scalar,
 {
+  pub fn from_orth_basis_and_position(forward: Vec3<T>, up: Vec3<T>, position: Vec3<T>) -> Self {
+    let right = forward.cross(up);
+    #[rustfmt::skip]
+    Mat4::new(
+      right.x,    right.y,    right.z,     T::zero(), 
+      up.x,       up.y,       up.z,        T::zero(), 
+      forward.x,  forward.y,  forward.z,   T::zero(), 
+      position.x, position.y,  position.z, T::one(),
+    )
+  }
+
   pub fn right(&self) -> Vec3<T> {
     Vec3::new(self.a1, self.a2, self.a3)
   }

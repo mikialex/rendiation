@@ -3,16 +3,41 @@ use std::{marker::PhantomData, ops::Range};
 use rendiation_algebra::*;
 use rendiation_renderable_mesh::mesh::{IndexedMesh, LineList, TriangleList};
 
+const EPS: f32 = 0.0001;
+
 pub trait ParametricSurface {
-  fn sample(&self, position: Vec2<f32>) -> Vec3<f32>;
+  fn position(&self, position: Vec2<f32>) -> Vec3<f32>;
+  fn normal(&self, position: Vec2<f32>) -> Vec3<f32> {
+    let p = self.position(position);
+    let u = self.position(position + Vec2::new(EPS, 0.));
+    let v = self.position(position + Vec2::new(0., EPS));
+
+    let u = (u - p).normalize();
+    let v = (v - p).normalize();
+    v.cross(u)
+  }
 }
 
 pub trait ParametricCurve3D {
-  fn sample(&self, position: f32) -> Vec3<f32>;
+  fn position(&self, position: f32) -> Vec3<f32>;
+  fn tangent(&self, position: f32) -> Vec3<f32> {
+    let p1 = self.position(position);
+    let p2 = self.position(position + EPS);
+    (p2 - p1).normalize()
+  }
+  fn normal(&self, position: f32) -> Vec3<f32>;
 }
 
 pub trait ParametricCurve2D {
-  fn sample(&self, position: f32) -> Vec2<f32>;
+  fn position(&self, position: f32) -> Vec2<f32>;
+  fn tangent(&self, position: f32) -> Vec2<f32> {
+    let p1 = self.position(position);
+    let p2 = self.position(position + EPS);
+    (p2 - p1).normalize()
+  }
+  fn normal(&self, position: f32) -> Vec2<f32> {
+    self.tangent(position).perpendicular_cw()
+  }
 }
 
 pub struct ParametricRangeMapping<T> {
@@ -21,9 +46,13 @@ pub struct ParametricRangeMapping<T> {
   pub end: f32,
 }
 impl<T: ParametricCurve3D> ParametricCurve3D for ParametricRangeMapping<T> {
-  fn sample(&self, position: f32) -> Vec3<f32> {
+  fn position(&self, position: f32) -> Vec3<f32> {
     let mapped = self.start.lerp(self.end, position);
-    self.inner.sample(mapped)
+    self.inner.position(mapped)
+  }
+  fn normal(&self, position: f32) -> Vec3<f32> {
+    let mapped = self.start.lerp(self.end, position);
+    self.inner.normal(mapped)
   }
 }
 pub trait IntoParametricRangeMapping: ParametricCurve3D + Sized {
@@ -58,9 +87,14 @@ where
   S: ParametricCurve2D,
   T: ParametricSurface,
 {
-  fn sample(&self, position: f32) -> Vec3<f32> {
-    let curve_space = self.curve.sample(position);
-    self.surface.sample(curve_space)
+  fn position(&self, position: f32) -> Vec3<f32> {
+    let curve_space = self.curve.position(position);
+    self.surface.position(curve_space)
+  }
+
+  fn normal(&self, position: f32) -> Vec3<f32> {
+    let curve_space = self.curve.position(position);
+    self.surface.normal(curve_space)
   }
 }
 
@@ -97,14 +131,22 @@ where
   T: ParametricCurve2D,
   P: ParametricCurve3D,
 {
-  fn sample(&self, position: Vec2<f32>) -> Vec3<f32> {
+  fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
     let path_dimension = position.x;
     let cross_section_dimension = position.y;
+    let cross_section_point = self.cross_section_outline.position(cross_section_dimension);
+    let cross_section_point = Vec3::new(cross_section_point.x, cross_section_point.y, 0.);
 
-    let cross_section_dimension_origin = self.path.sample(path_dimension);
+    let cross_section_origin = self.path.position(path_dimension);
+    let cross_section_normal = self.path.normal(path_dimension);
+    let cross_section_tangent = self.path.tangent(path_dimension);
 
-    let up = Vec2::new(0., 1.);
-    todo!()
+    // should be cheaper?
+    Mat4::from_orth_basis_and_position(
+      cross_section_tangent,
+      cross_section_normal,
+      cross_section_origin,
+    ) * cross_section_point
   }
 }
 

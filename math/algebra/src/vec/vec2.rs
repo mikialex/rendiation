@@ -78,6 +78,24 @@ where
       y: x * s + y * c,
     }
   }
+
+  #[inline]
+  #[must_use]
+  pub fn perpendicular_cw(&self) -> Self {
+    Self {
+      x: self.y,
+      y: -self.x,
+    }
+  }
+
+  #[inline]
+  #[must_use]
+  pub fn perpendicular_ccw(&self) -> Self {
+    Self {
+      x: -self.y,
+      y: self.x,
+    }
+  }
 }
 
 impl<T> fmt::Display for Vec2<T>
