@@ -70,7 +70,7 @@ pub struct Embed2DCurveTo3DSurface<S, T> {
   pub curve: S,
   pub surface: T,
 }
-pub trait IntoEmbed2DCurveTo3DSurface: ParametricCurve3D + Sized {
+pub trait IntoEmbed2DCurveTo3DSurface: ParametricCurve2D + Sized {
   fn embed_to_surface<T>(self, surface: T) -> Embed2DCurveTo3DSurface<Self, T>
   where
     T: ParametricSurface,
@@ -81,7 +81,7 @@ pub trait IntoEmbed2DCurveTo3DSurface: ParametricCurve3D + Sized {
     }
   }
 }
-impl<S> IntoEmbed2DCurveTo3DSurface for S where S: ParametricCurve3D + Sized {}
+impl<S> IntoEmbed2DCurveTo3DSurface for S where S: ParametricCurve2D + Sized {}
 impl<S, T> ParametricCurve3D for Embed2DCurveTo3DSurface<S, T>
 where
   S: ParametricCurve2D,
@@ -150,20 +150,51 @@ where
   }
 }
 
-// pub struct UnitCircle;
+pub struct Transformed2D<T> {
+  curve: T,
+  mat: Mat3<f32>,
+  normal_mat: Mat2<f32>,
+}
+impl<T: ParametricCurve2D> ParametricCurve2D for Transformed2D<T> {
+  fn position(&self, position: f32) -> Vec2<f32> {
+    todo!()
+  }
 
-// pub fn torus() -> {
-//   let radius =1.;
-//   let tri_config = TriangulateConfig {
-//     u_segments: 20,
-//     v_segments: 20,
-//   };
-//   UnitCircle.scale()
-//   .embed(XYPlane)
-//   .map_range_u((0., 1.))
-//   .map_range_v((0., 1.))
-//   .make_curve_tube(radius)
-//   .triangulate(tri_config)
+  fn tangent(&self, position: f32) -> Vec2<f32> {
+    self.normal_mat * self.curve.tangent(position)
+  }
+
+  fn normal(&self, position: f32) -> Vec2<f32> {
+    self.normal_mat * self.curve.normal(position)
+  }
+}
+
+pub trait IntoTransformed2D: ParametricCurve2D + Sized {
+  fn transform_by(self, mat: Mat3<f32>) -> Transformed2D<Self> {
+    Transformed2D {
+      curve: self,
+      mat,
+      normal_mat: mat.to_normal_matrix(),
+    }
+  }
+}
+impl<T> IntoTransformed2D for T where T: ParametricCurve2D + Sized {}
+
+pub struct UnitCircle;
+
+impl ParametricCurve2D for UnitCircle {
+  fn position(&self, position: f32) -> Vec2<f32> {
+    let (s, c) = position.sin_cos();
+    Vec2::new(c, s)
+  }
+}
+
+// pub fn torus() -> impl ParametricSurface {
+//   let radius = 1.;
+//   UnitCircle
+//     .transform_by(Mat3::scale(Vec2::splat(radius)))
+//     .embed_to_surface(XYPlane)
+//     .make_tube_by(UnitCircle)
 // }
 
 pub struct IndexedMeshBuilder<I, U, T, V> {
