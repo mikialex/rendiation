@@ -2,7 +2,6 @@ use crate::*;
 
 use arena_tree::{ArenaTree, ArenaTreeNodeHandle};
 use rendiation_algebra::*;
-use rendiation_controller::Transformed3DControllee;
 
 pub type SceneNodeData = Identity<SceneNodeDataImpl>;
 pub type SceneNodeHandle = ArenaTreeNodeHandle<SceneNodeData>;
@@ -28,16 +27,6 @@ impl Default for SceneNodeDataImpl {
       net_visible: true,
       world_matrix: Mat4::one(),
     }
-  }
-}
-
-impl Transformed3DControllee for SceneNodeDataImpl {
-  fn matrix(&self) -> &Mat4<f32> {
-    &self.local_matrix
-  }
-
-  fn matrix_mut(&mut self) -> &mut Mat4<f32> {
-    &mut self.local_matrix
   }
 }
 

@@ -90,8 +90,8 @@ impl OrbitController {
 
 impl Controller for OrbitController {
   fn sync(&mut self, target: &dyn Transformed3DControllee) {
-    let mat = target.matrix();
-    let position_new = *mat * Vec3::new(0., 0., -1.);
+    let mat = target.get_matrix();
+    let position_new = mat * Vec3::new(0., 0., -1.);
     let origin = mat.position();
     let position_dir = position_new - origin;
     self.spherical = Spherical::from_sphere_point_and_center(position_dir, origin);
@@ -117,9 +117,12 @@ impl Controller for OrbitController {
 
     self.spherical.center += self.pan_offset;
 
-    let matrix = target.matrix_mut();
     let eye = self.spherical.to_sphere_point();
-    *matrix = Mat4::lookat(eye, self.spherical.center, Vec3::new(0.0, 1.0, 0.0));
+    target.set_matrix(Mat4::lookat(
+      eye,
+      self.spherical.center,
+      Vec3::new(0.0, 1.0, 0.0),
+    ));
 
     // update damping effect
     if self.enable_damping {

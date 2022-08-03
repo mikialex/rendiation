@@ -69,7 +69,6 @@ impl Controller for FPSController {
   }
 
   fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
-    let mat = target.matrix_mut();
     let mut move_dir = Vec3::new(0.0, 0.0, 0.0);
 
     if self.forward_active {
@@ -91,23 +90,25 @@ impl Controller for FPSController {
       move_dir.y -= 1.0;
     }
 
+    let mut mat = target.get_matrix();
     if move_dir.length() > 0.01 {
-      let position_new = *mat * move_dir;
+      let position_new = mat * move_dir;
       let position_dir = (position_new - mat.position()).normalize();
       let position_new = mat.position() + position_dir;
 
-      *mat = Mat4::lookat(
+      mat = Mat4::lookat(
         position_new,
         position_new + self.spherical.to_sphere_point(),
         Vec3::new(0.0, 1.0, 0.0),
       );
     } else {
-      *mat = Mat4::lookat(
+      mat = Mat4::lookat(
         mat.position(),
         mat.position() + self.spherical.to_sphere_point(),
         Vec3::new(0.0, 1.0, 0.0),
       );
     }
+    target.set_matrix(mat);
 
     true
   }
