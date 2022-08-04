@@ -56,6 +56,20 @@ where
   }
 }
 
+impl<T> Mul<Vec2<T>> for Mat2<T>
+where
+  T: Copy + Add<Output = T> + Mul<Output = T>,
+{
+  type Output = Vec2<T>;
+
+  fn mul(self, v: Vec2<T>) -> Vec2<T> {
+    Vec2 {
+      x: v.x * self.a1 + v.y * self.b1,
+      y: v.x * self.a2 + v.y * self.b2 
+    }
+  }
+}
+
 impl<T> Mat2<T>
 where
   T: Copy,

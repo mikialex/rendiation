@@ -157,7 +157,7 @@ pub struct Transformed2D<T> {
 }
 impl<T: ParametricCurve2D> ParametricCurve2D for Transformed2D<T> {
   fn position(&self, position: f32) -> Vec2<f32> {
-    todo!()
+    self.mat * self.curve.position(position)
   }
 
   fn tangent(&self, position: f32) -> Vec2<f32> {
