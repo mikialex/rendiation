@@ -19,16 +19,15 @@ use std::{
   cmp::Ordering,
   collections::{HashMap, HashSet},
   iter::FromIterator,
-  ops::Deref,
+  ops::{Deref, Index},
 };
 
 impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
 where
+  Self: AbstractIndexMesh<IndexPrimitive = Triangle<I>>,
   I: IndexType,
-  IU: AsRef<[I]>,
-  U: AsRef<[V]> + FromIterator<V> + Clone,
-  T: PrimitiveTopologyMeta<V, Primitive = Triangle<V>>,
-  V: Deref<Target = Vec3<f32>> + Copy,
+  U: Clone,
+  V: Copy,
 {
   pub fn create_wireframe<RI, RIU>(&self) -> IndexedMesh<RI, V, LineList, U, RIU>
   where
@@ -49,7 +48,15 @@ where
       .collect();
     IndexedMesh::new(self.data.clone(), new_index)
   }
+}
 
+impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
+where
+  Self: AbstractIndexMesh<IndexPrimitive = Triangle<I>, Primitive = Triangle<V>>,
+  U: Index<usize, Output = V> + FromIterator<V>,
+  I: IndexType,
+  V: Copy + Deref<Target = Vec3<f32>>,
+{
   /// maybe you should merge vertex before create edge
   /// non manifold mesh may affect result
   pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedMesh<V, LineList, U> {
@@ -77,7 +84,7 @@ where
       .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
       .map(|(e, _)| e)
       .flat_map(|l| l.iter_point())
-      .map(|i| self.data.as_ref()[i.into_usize()])
+      .map(|i| self.data[i.into_usize()])
       .collect();
     NoneIndexedMesh::new(data)
   }
@@ -135,8 +142,8 @@ impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
 where
   V: Copy,
   I: IndexType,
-  IU: AsRef<[I]>,
-  U: AsRef<[V]> + FromIterator<V>,
+  IU: Index<usize, Output = I>,
+  U: Index<usize, Output = V> + FromIterator<V>,
   T: PrimitiveTopologyMeta<V>,
 {
   pub fn expand_to_none_index_geometry(&self) -> NoneIndexedMesh<V, T, U> {
@@ -145,7 +152,7 @@ where
         .index
         .as_ref()
         .iter()
-        .map(|i| self.data.as_ref()[(*i).into_usize()])
+        .map(|i| self.data[(*i).into_usize()])
         .collect(),
     )
   }
@@ -181,8 +188,8 @@ where
 
 impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
 where
-  U: AsRef<[V]> + Clone,
-  IU: AsRef<[I]>,
+  U: Index<usize, Output = V> + Clone,
+  IU: Index<usize, Output = I>,
   T: PrimitiveTopologyMeta<V>,
 {
   pub fn create_point_cloud(&self) -> NoneIndexedMesh<V, PointList, U> {

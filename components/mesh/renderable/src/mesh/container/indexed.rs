@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{mesh::IndexedPrimitiveData, vertex::Vertex};
 use core::marker::PhantomData;
-use std::hash::Hash;
+use std::{hash::Hash, ops::Index};
 
 /// We don't use TryInto<usize, Error: Debug> to express
 /// the conversion between the usize and self, because we assume the range of IndexType not
@@ -88,7 +88,13 @@ impl DynIndexContainer {
 }
 
 /// A indexed mesh that use vertex as primitive;
-pub struct IndexedMesh<I = u16, V = Vertex, T = TriangleList, U = Vec<V>, IU = Vec<I>> {
+pub struct IndexedMesh<
+  I = DynIndex,
+  V = Vertex,
+  T = TriangleList,
+  U = Vec<V>,
+  IU = DynIndexContainer,
+> {
   pub data: U,
   pub index: IU,
   _i_phantom: PhantomData<I>,
@@ -96,8 +102,8 @@ pub struct IndexedMesh<I = u16, V = Vertex, T = TriangleList, U = Vec<V>, IU = V
   _phantom: PhantomData<T>,
 }
 
-impl<I, V, T, U> From<(U, Vec<I>)> for IndexedMesh<I, V, T, U> {
-  fn from(item: (U, Vec<I>)) -> Self {
+impl<I, V, T, U, IU> From<(U, IU)> for IndexedMesh<I, V, T, U, IU> {
+  fn from(item: (U, IU)) -> Self {
     IndexedMesh::new(item.0, item.1)
   }
 }
@@ -117,8 +123,8 @@ impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU> {
 impl<I, V, T, U, IU> AbstractMesh for IndexedMesh<I, V, T, U, IU>
 where
   V: Copy,
-  U: AsRef<[V]>,
-  IU: AsRef<[I]>,
+  U: Index<usize, Output = V>,
+  IU: Index<usize, Output = I> + ExactSizeIterator,
   T: PrimitiveTopologyMeta<V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, U, IU>,
 {
@@ -126,12 +132,12 @@ where
 
   #[inline(always)]
   fn draw_count(&self) -> usize {
-    self.index.as_ref().len()
+    self.index.len()
   }
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
-    (self.index.as_ref().len() - T::STRIDE) / T::STEP + 1
+    (self.index.len() - T::STRIDE) / T::STEP + 1
   }
 
   #[inline(always)]
@@ -144,8 +150,8 @@ where
 impl<I, V, T, U, IU> AbstractIndexMesh for IndexedMesh<I, V, T, U, IU>
 where
   V: Copy,
-  U: AsRef<[V]>,
-  IU: AsRef<[I]>,
+  U: Index<usize, Output = V>,
+  IU: Index<usize, Output = I> + ExactSizeIterator,
   T: PrimitiveTopologyMeta<V>,
   T::Primitive: IndexedPrimitiveData<I, V, U, IU>,
 {

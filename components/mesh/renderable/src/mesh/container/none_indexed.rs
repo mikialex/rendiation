@@ -1,6 +1,7 @@
 use super::super::*;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
+use std::ops::Index;
 
 pub struct NoneIndexedMesh<V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: U,
@@ -22,19 +23,19 @@ impl<V, T, U> AbstractMesh for NoneIndexedMesh<V, T, U>
 where
   V: Copy,
   T: PrimitiveTopologyMeta<V>,
-  U: AsRef<[V]>,
+  U: Index<usize, Output = V> + ExactSizeIterator,
   T::Primitive: PrimitiveData<V, U>,
 {
   type Primitive = T::Primitive;
 
   #[inline(always)]
   fn draw_count(&self) -> usize {
-    self.data.as_ref().len()
+    self.data.len()
   }
 
   #[inline(always)]
   fn primitive_count(&self) -> usize {
-    (self.data.as_ref().len() - T::STRIDE) / T::STEP + 1
+    (self.data.len() - T::STRIDE) / T::STEP + 1
   }
 
   #[inline(always)]
