@@ -4,18 +4,34 @@ use super::{
 };
 use crate::{mesh::IndexedPrimitiveData, vertex::Vertex};
 use core::marker::PhantomData;
-use std::{
-  convert::{TryFrom, TryInto},
-  fmt::Debug,
-  hash::Hash,
-};
+use std::hash::Hash;
 
-pub trait IndexType:
-  TryFrom<usize, Error: Debug> + TryInto<usize, Error: Debug> + Copy + Eq + Ord + Hash
-{
+/// We don't use TryFrom<usize, Error: Debug> + TryInto<usize, Error: Debug> to express
+/// the conversion between the usize and self, because we assume the range of IndexType not
+/// exceeds usize. So their conversion is infallible. But the std not impl direct From trait
+/// for u32/u16. To keep simplicity, we provide explicit trait function here
+pub trait IndexType: Copy + Eq + Ord + Hash {
+  fn from_usize(i: usize) -> Self;
+  fn into_usize(self) -> usize;
 }
-impl IndexType for u32 {}
-impl IndexType for u16 {}
+impl IndexType for u32 {
+  fn from_usize(i: usize) -> Self {
+    i as u32
+  }
+
+  fn into_usize(self) -> usize {
+    self as usize
+  }
+}
+impl IndexType for u16 {
+  fn from_usize(i: usize) -> Self {
+    i as u16
+  }
+
+  fn into_usize(self) -> usize {
+    self as usize
+  }
+}
 
 /// A indexed mesh that use vertex as primitive;
 pub struct IndexedMesh<I = u16, V = Vertex, T = TriangleList, U = Vec<V>, IU = Vec<I>> {

@@ -54,9 +54,9 @@ where
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     let data = data.as_ref();
     let index = index.as_ref();
-    let a = data[index[offset].try_into().unwrap()];
-    let b = data[index[offset + 1].try_into().unwrap()];
-    let c = data[index[offset + 2].try_into().unwrap()];
+    let a = data[index[offset].into_usize()];
+    let b = data[index[offset + 1].into_usize()];
+    let c = data[index[offset + 2].into_usize()];
     Triangle { a, b, c }
   }
 
@@ -96,8 +96,8 @@ where
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     let index = index.as_ref();
     let data = data.as_ref();
-    let start = data[index[offset].try_into().unwrap()];
-    let end = data[index[offset + 1].try_into().unwrap()];
+    let start = data[index[offset].into_usize()];
+    let end = data[index[offset + 1].into_usize()];
     LineSegment::line_segment(start, end)
   }
   #[inline(always)]
@@ -133,7 +133,7 @@ where
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
     let index = index.as_ref();
     let data = data.as_ref();
-    Point(data[index[offset].try_into().unwrap()])
+    Point(data[index[offset].into_usize()])
   }
 
   #[inline(always)]
