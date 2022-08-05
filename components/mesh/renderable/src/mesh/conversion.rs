@@ -30,7 +30,10 @@ where
   T: PrimitiveTopologyMeta<V, Primitive = Triangle<V>>,
   V: Deref<Target = Vec3<f32>> + Copy,
 {
-  pub fn create_wireframe(&self) -> IndexedMesh<I, V, LineList, U> {
+  pub fn create_wireframe<RI, RIU>(&self) -> IndexedMesh<RI, V, LineList, U, RIU>
+  where
+    RIU: FromIterator<I>,
+  {
     let mut deduplicate_set = HashSet::<LineSegment<I>>::new();
     self
       .primitive_iter()
@@ -44,7 +47,7 @@ where
       .iter()
       .flat_map(|l| l.iter_point())
       .collect();
-    IndexedMesh::<I, V, LineList, U>::new(self.data.clone(), new_index)
+    IndexedMesh::new(self.data.clone(), new_index)
   }
 
   /// maybe you should merge vertex before create edge
@@ -80,11 +83,13 @@ where
   }
 }
 
-impl<I, V, T> IndexedMesh<I, V, T>
+impl<I, V, T, IU> IndexedMesh<I, V, T, Vec<V>, IU>
 where
   I: IndexType,
   T: PrimitiveTopologyMeta<V>,
   V: Copy,
+  IU: FromIterator<usize> + ExactSizeIterator,
+  for<'a> &'a IU: IntoIterator<Item = &'a I>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
 {
   #[must_use]
@@ -92,7 +97,7 @@ where
     &self,
     mut sorter: impl FnMut(&V, &V) -> Ordering,
     mut merger: impl FnMut(&V, &V) -> bool,
-  ) -> IndexedMesh<I, V, T> {
+  ) -> IndexedMesh<I, V, T, Vec<V>, IU> {
     let mut resorted: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
     let mut merge_data = Vec::with_capacity(resorted.len());
     let mut deduplicate_map = Vec::with_capacity(self.index.len());
@@ -116,14 +121,10 @@ where
       });
     }
 
-    let new_index = self
-      .index
-      .iter()
-      .map(|i| {
-        let k = (*i).into_usize();
-        let after_sort = resort_map[k];
-        I::from_usize(deduplicate_map[after_sort])
-      })
+    let index = &self.index;
+    let new_index = index
+      .into_iter()
+      .map(|i| resort_map[i.into_usize()])
       .collect();
 
     IndexedMesh::new(merge_data, new_index)
@@ -156,7 +157,10 @@ where
   T: PrimitiveTopologyMeta<V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
 {
-  pub fn create_index_geometry(&self) -> IndexedMesh<u16, V, T> {
+  pub fn create_index_geometry<I, IU>(&self) -> IndexedMesh<I, V, T, Vec<V>, IU>
+  where
+    IU: FromIterator<usize>,
+  {
     let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
     let index = self
@@ -167,7 +171,7 @@ where
         *deduplicate_map.entry(h).or_insert_with(|| {
           deduplicate_buffer.push(*v);
           deduplicate_buffer.len() - 1
-        }) as u16
+        })
       })
       .collect();
     deduplicate_buffer.shrink_to_fit();
