@@ -2,6 +2,52 @@ use rendiation_renderable_mesh::group::MeshGroupsInfo;
 
 use crate::*;
 
+pub enum DynIndex {
+  Uint16(Vec<u16>),
+  Uint32(Vec<u32>),
+}
+
+/// Mark type that indicates index oversized u32 and cannot used in gpu.
+pub struct IndexOversized;
+
+impl DynIndex {
+  pub fn is_u32_buffer(&self) -> bool {
+    match self {
+      DynIndex::Uint16(_) => false,
+      DynIndex::Uint32(_) => true,
+    }
+  }
+
+  pub fn push_index(&mut self, index: usize) -> Result<(), IndexOversized> {
+    if index > u32::MAX as usize {
+      Err(IndexOversized)
+    } else {
+      match self {
+        DynIndex::Uint16(buffer) => {
+          if index > u16::MAX as usize {
+            let buffer = self.try_upgrade_to_u32();
+            buffer.push(index as u32)
+          } else {
+            buffer.push(index as u16)
+          }
+        }
+        DynIndex::Uint32(buffer) => buffer.push(index as u32),
+      }
+      Ok(())
+    }
+  }
+
+  pub fn try_upgrade_to_u32(&mut self) -> &mut Vec<u32> {
+    match self {
+      DynIndex::Uint16(buffer) => {
+        *self = DynIndex::Uint32(buffer.iter().map(|&i| i as u32).collect());
+        self.try_upgrade_to_u32()
+      }
+      DynIndex::Uint32(buffer) => buffer,
+    }
+  }
+}
+
 pub struct IndexedMeshBuilder<I, U, T, V> {
   index: Vec<I>,
   container: U,

@@ -28,6 +28,18 @@ impl ParametricSurface for UVSphere {
   }
 }
 
+pub struct UintLine3D;
+
+impl ParametricCurve3D for UnitCircle {
+  fn position(&self, position: f32) -> Vec3<f32> {
+    Vec3::new(0., position, 0.)
+  }
+
+  fn normal(&self, _: f32) -> Vec3<f32> {
+    Vec3::new(1., 0., 0.)
+  }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct TorusParameter {
   radius: f32,

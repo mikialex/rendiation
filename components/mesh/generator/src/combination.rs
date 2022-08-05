@@ -58,6 +58,24 @@ where
   }
 }
 
+pub struct ReverseSurfaceNormal<T> {
+  pub surface: T,
+}
+pub trait IntoReverseSurfaceNormal: ParametricSurface + Sized {
+  fn fix_swap_by_path(self) -> ReverseSurfaceNormal<Self> {
+    ReverseSurfaceNormal { surface: self }
+  }
+}
+impl<T> IntoReverseSurfaceNormal for T where T: ParametricSurface + Sized {}
+impl<T: ParametricSurface> ParametricSurface for ReverseSurfaceNormal<T> {
+  fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.surface.position(position)
+  }
+  fn normal(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.surface.normal(position).reverse()
+  }
+}
+
 pub struct FixedSweepSurface<T, P> {
   pub cross_section_outline: T,
   pub path: P,
