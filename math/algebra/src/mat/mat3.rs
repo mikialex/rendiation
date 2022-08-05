@@ -107,8 +107,8 @@ fn mul() {
   let cgmath_r = cgmath_mat1 * cgmath_mat2 * cgmath_point;
   let cgmath_r: [f32; 3] = *cgmath_r.as_ref();
 
-  let math_mat1 = Mat3::<f32>::translate(1., 2.);
-  let math_mat2 = Mat3::<f32>::scale(3., -2.);
+  let math_mat1 = Mat3::<f32>::translate((1., 2.));
+  let math_mat2 = Mat3::<f32>::scale((3., -2.));
   let math_point = Vec3::new(1., 2., 3.);
   let math_r = math_mat1 * math_mat2 * math_point;
   let math_r: [f32; 3] = math_r.into();
@@ -272,7 +272,8 @@ where
     )
   }
 
-  pub fn scale(x: T, y: T) -> Self {
+  pub fn scale(scale: impl Into<Vec2<T>>) -> Self {
+    let Vec2 { x, y } = scale.into();
     let (a1, a2, a3) = (x, T::zero(), T::zero());
     let (b1, b2, b3) = (T::zero(), y, T::zero());
     let (c1, c2, c3) = (T::zero(), T::zero(), T::one());
@@ -285,7 +286,8 @@ where
     )
   }
 
-  pub fn translate(x: T, y: T) -> Self {
+  pub fn translate(translate: impl Into<Vec2<T>>) -> Self {
+    let Vec2 { x, y } = translate.into();
     let (a1, a2, a3) = (T::one(), T::zero(), T::zero());
     let (b1, b2, b3) = (T::zero(), T::one(), T::zero());
     let (c1, c2, c3) = (x, y, T::one());
@@ -347,6 +349,22 @@ impl<T: Scalar> From<Quat<T>> for Mat3<T> {
       b1: xy - wz,              b2: T::one() - (xx + zz), b3: yz + wx,
       c1: xz + wy,              c2: yz - wx,              c3: T::one() - (xx + yy),
     }
+  }
+}
+
+impl<T> Mat3<T> {
+  pub fn to_mat2(self) -> Mat2<T> {
+    #[rustfmt::skip]
+    Mat2 {
+      a1: self.a1, a2: self.a2, 
+      b1: self.b1, b2: self.b2,
+    }
+  }
+}
+
+impl<T: Scalar> Mat3<T> {
+  pub fn to_normal_matrix(self) -> Mat2<T> {
+    self.to_mat2().inverse().unwrap().transpose()
   }
 }
 

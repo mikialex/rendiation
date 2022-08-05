@@ -33,7 +33,20 @@ impl MeshGroupsInfo {
     self.groups.push(MeshGroup { start, count });
   }
 
-  pub fn full<T: AbstractMesh>(mesh: &T) -> Self {
+  pub fn push_consequent(&mut self, count: usize) {
+    let start = self.groups.last().map(|l| l.start + l.count).unwrap_or(0);
+    self.groups.push(MeshGroup { start, count });
+  }
+
+  pub fn extend_last(&mut self, count: usize) {
+    if let Some(last) = &mut self.groups.last_mut() {
+      last.count += count;
+    } else {
+      self.push(0, count);
+    }
+  }
+
+  pub fn full_from_mesh<T: AbstractMesh>(mesh: &T) -> Self {
     let mut ranges = MeshGroupsInfo::new();
     ranges.push(0, mesh.draw_count());
     ranges
@@ -62,7 +75,7 @@ impl<T: AbstractMesh> GroupedMesh<T> {
     Self { mesh, groups }
   }
   pub fn full(mesh: T) -> Self {
-    let groups = MeshGroupsInfo::full(&mesh);
+    let groups = MeshGroupsInfo::full_from_mesh(&mesh);
     Self { mesh, groups }
   }
 

@@ -121,6 +121,13 @@ impl ShaderGraphFragmentBuilder {
     Ok(())
   }
 
+  pub fn get_fragment_out(
+    &mut self,
+    slot: usize,
+  ) -> Result<Node<Vec4<f32>>, ShaderGraphBuildError> {
+    Ok(self.frag_output.get(slot).unwrap().0)
+  }
+
   pub fn set_explicit_depth(&mut self, node: Node<f32>) {
     self.depth_output = node.into()
   }

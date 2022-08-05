@@ -1,4 +1,4 @@
-use std::{ops::DerefMut, rc::Rc};
+use std::rc::Rc;
 
 pub mod default_scene;
 pub use default_scene::*;
@@ -7,6 +7,7 @@ pub use pipeline::*;
 
 pub mod controller;
 pub use controller::*;
+use rendiation_algebra::Mat4;
 use rendiation_renderable_mesh::mesh::MeshBufferIntersectConfig;
 pub mod selection;
 
@@ -207,10 +208,8 @@ impl Viewer3dContent {
   pub fn update_state(&mut self) {
     if let Some(camera) = &mut self.scene.active_camera {
       camera.mutate(|camera| {
-        camera.node.mutate(|node| {
-          self
-            .controller
-            .update(node.deref_mut() as &mut dyn Transformed3DControllee);
+        self.controller.update(&mut ControlleeWrapper {
+          controllee: &camera.node,
         });
       })
     }
@@ -220,5 +219,19 @@ impl Viewer3dContent {
 impl Default for Viewer3dContent {
   fn default() -> Self {
     Self::new()
+  }
+}
+
+struct ControlleeWrapper<'a> {
+  controllee: &'a SceneNode,
+}
+
+impl<'a> Transformed3DControllee for ControlleeWrapper<'a> {
+  fn get_matrix(&self) -> Mat4<f32> {
+    self.controllee.get_local_matrix()
+  }
+
+  fn set_matrix(&mut self, m: Mat4<f32>) {
+    self.controllee.set_local_matrix(m)
   }
 }

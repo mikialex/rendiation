@@ -1,9 +1,14 @@
+use std::marker::PhantomData;
+use std::ops::Range;
+
 use rendiation_algebra::*;
+use rendiation_renderable_mesh::mesh::{IndexedMesh, LineList, TriangleList};
 
-pub trait ParametricSurface {
-  fn sample(&self, position: Vec2<f32>) -> Vec3<f32>;
-}
-
-pub trait ParametricCurve {
-  fn sample(&self, position: f32) -> Vec3<f32>;
-}
+mod builder;
+pub use builder::*;
+mod builtin;
+pub use builtin::*;
+mod parametric;
+pub use parametric::*;
+mod combination;
+pub use combination::*;

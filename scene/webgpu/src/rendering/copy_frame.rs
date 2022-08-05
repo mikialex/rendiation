@@ -15,12 +15,12 @@ impl<T> ShaderHashProviderAny for CopyFrame<T> {
   }
 }
 
-pub fn copy_frame<T>(source: AttachmentReadView<T>) -> impl PassContent {
+pub fn copy_frame<T>(source: AttachmentReadView<T>, blend: Option<BlendState>) -> impl PassContent {
   CopyFrame {
     source,
     sampler: Default::default(),
   }
-  .draw_quad()
+  .draw_quad_with_blend(blend)
 }
 
 #[derive(Default, Clone)]

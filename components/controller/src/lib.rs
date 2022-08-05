@@ -22,8 +22,8 @@ pub trait Controller {
 }
 
 pub trait Transformed3DControllee {
-  fn matrix(&self) -> &Mat4<f32>;
-  fn matrix_mut(&mut self) -> &mut Mat4<f32>;
+  fn get_matrix(&self) -> Mat4<f32>;
+  fn set_matrix(&mut self, m: Mat4<f32>);
 }
 
 pub struct InputBound {
@@ -69,7 +69,7 @@ impl<T: ControllerWinitEventSupport> ControllerWinitAdapter<T> {
   pub fn update(&mut self, target: &mut dyn Transformed3DControllee) -> bool {
     // check if the synced mat is not the last time we modified
     if let Some(last_sync) = self.last_sync {
-      if last_sync != *target.matrix() {
+      if last_sync != target.get_matrix() {
         self.controller.sync(target)
       }
     } else {
@@ -78,7 +78,7 @@ impl<T: ControllerWinitEventSupport> ControllerWinitAdapter<T> {
 
     let changed = self.controller.update(target);
 
-    self.last_sync = (*target.matrix()).into();
+    self.last_sync = (target.get_matrix()).into();
 
     changed
   }

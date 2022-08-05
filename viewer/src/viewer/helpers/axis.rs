@@ -9,6 +9,8 @@ use rendiation_renderable_mesh::{
 
 use crate::*;
 
+use super::WidgetDispatcher;
+
 pub struct AxisHelper {
   pub enabled: bool,
   pub root: SceneNode,
@@ -72,7 +74,7 @@ impl SceneRenderable for Arrow {
 
 impl PassContentWithCamera for Arrow {
   fn render(&mut self, pass: &mut SceneRenderPass, camera: &SceneCamera) {
-    let dispatcher = &pass.default_dispatcher();
+    let dispatcher = &WidgetDispatcher::new(pass.default_dispatcher());
     SceneRenderable::render(self, pass, dispatcher, camera);
   }
 }

@@ -130,9 +130,18 @@ pub trait ShaderGraphProvider {
     Ok(())
   }
 
+  fn post_build(
+    &self,
+    _builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    // default do nothing
+    Ok(())
+  }
+
   fn build_self(&self) -> Result<ShaderGraphRenderPipelineBuilder, ShaderGraphBuildError> {
     let mut builder = Default::default();
     self.build(&mut builder)?;
+    self.post_build(&mut builder)?;
     Ok(builder)
   }
 }

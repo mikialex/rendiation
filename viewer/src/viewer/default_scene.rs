@@ -43,7 +43,7 @@ pub fn load_img_cube() -> <WebGPUScene as SceneContent>::TextureCube {
 
 pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   scene.background = Some(Box::new(SolidBackground {
-    intensity: Vec3::new(0.1, 0.2, 0.3),
+    intensity: Vec3::new(0.1, 0.1, 0.1),
   }));
 
   let path = if cfg!(windows) {

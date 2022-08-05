@@ -61,6 +61,6 @@ impl ViewerPipeline {
       .by(scene.by_main_camera_and_self(BackGroundRendering))
       .by(scene.by_main_camera_and_self(ForwardScene))
       .by(highlight_compose)
-      .by(copy_frame(widgets_result.read_into()));
+      .by(copy_frame(widgets_result.read_into(), BlendState::PREMULTIPLIED_ALPHA_BLENDING.into()));
   }
 }

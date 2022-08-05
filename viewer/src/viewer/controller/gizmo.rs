@@ -10,7 +10,10 @@ use rendiation_geometry::{IntersectAble, OptionalNearest, Plane};
 use rendiation_renderable_mesh::tessellation::{IndexedMeshTessellator, PlaneMeshParameter};
 
 use crate::{
-  helpers::axis::{solid_material, Arrow},
+  helpers::{
+    axis::{solid_material, Arrow},
+    WidgetDispatcher,
+  },
   *,
 };
 
@@ -346,7 +349,7 @@ impl PassContentWithCamera for &mut Gizmo {
       return;
     }
 
-    let dispatcher = &pass.default_dispatcher();
+    let dispatcher = &WidgetDispatcher::new(pass.default_dispatcher());
     self.view.render(pass, dispatcher, camera)
   }
 }

@@ -130,9 +130,11 @@ impl PassContentWithSceneAndCamera<WebGPUScene> for &mut CameraHelpers {
         },
       );
 
-      helper
-        .model
-        .render(pass, &pass.default_dispatcher(), camera)
+      helper.model.render(
+        pass,
+        &WidgetDispatcher::new(pass.default_dispatcher()),
+        camera,
+      )
     }
   }
 }

@@ -105,6 +105,16 @@ impl<'a, 'b> ShaderGraphProvider for RenderEmitter<'a, 'b> {
     }
     Ok(())
   }
+
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    for c in self.contents.iter().rev() {
+      c.post_build(builder)?;
+    }
+    Ok(())
+  }
 }
 
 pub struct SceneRenderPass<'a, 'b, 'c> {

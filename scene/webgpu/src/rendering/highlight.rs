@@ -137,6 +137,13 @@ impl ShaderGraphProvider for HighLightMaskDispatcher {
       Ok(())
     })
   }
+
+  fn post_build(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, _| builder.set_fragment_out(0, consts(Vec4::one())))
+  }
 }
 
 impl<'i, T> PassContentWithCamera for HighLightDrawMaskTask<T>

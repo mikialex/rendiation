@@ -2070,6 +2070,7 @@ version = "0.1.0"
 dependencies = [
  "rendiation-algebra",
  "rendiation-geometry",
+ "rendiation-renderable-mesh",
 ]
 
 [[package]]
@@ -2097,7 +2098,6 @@ dependencies = [
  "log",
  "once_cell",
  "rendiation-algebra",
- "rendiation-controller",
  "rendiation-geometry",
  "rendiation-renderable-mesh",
  "rendiation-texture",
@@ -2692,6 +2692,7 @@ dependencies = [
  "rendiation-scene-webgpu",
  "rendiation-texture",
  "rendiation-webgpu",
+ "shadergraph",
  "wasm-bindgen-futures",
 ]
 
