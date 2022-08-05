@@ -1,3 +1,5 @@
+use rendiation_renderable_mesh::group::MeshGroupsInfo;
+
 use crate::*;
 
 pub struct IndexedMeshBuilder<I, U, T, V> {
@@ -5,7 +7,7 @@ pub struct IndexedMeshBuilder<I, U, T, V> {
   container: U,
   phantom1: PhantomData<T>,
   phantom2: PhantomData<V>,
-  groups: Vec,
+  groups: MeshGroupsInfo,
 }
 
 impl<I, U, T, V> IndexedMeshBuilder<I, U, T, V> {
@@ -72,6 +74,13 @@ impl<I, U, V> IndexedMeshBuilder<I, U, TriangleList, V> {
         self.index.push(d);
       }
     }
+
+    let count = config.u * config.v * 6;
+    if keep_grouping {
+      self.groups.push_consequent(count);
+    } else {
+      self.groups.extend_last(count)
+    }
   }
 }
 
@@ -125,6 +134,12 @@ impl<I, U, V> IndexedMeshBuilder<I, U, LineList, V> {
           self.index.push(d);
         }
       }
+    }
+    let count = config.u * config.v * 4 + config.u * 2 + config.v * 2;
+    if keep_grouping {
+      self.groups.push_consequent(count);
+    } else {
+      self.groups.extend_last(count)
     }
   }
 }
