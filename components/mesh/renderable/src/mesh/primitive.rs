@@ -2,7 +2,6 @@ use rendiation_geometry::LineSegment;
 use rendiation_geometry::Point;
 use rendiation_geometry::Triangle;
 use std::hash::Hash;
-use std::ops::Index;
 
 pub trait HashAbleByConversion {
   type HashAble: Hash + Eq;

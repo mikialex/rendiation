@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{mesh::IndexedPrimitiveData, vertex::Vertex};
 use core::marker::PhantomData;
-use std::{hash::Hash, ops::Index};
+use std::hash::Hash;
 
 /// We don't use TryInto<usize, Error: Debug> to express
 /// the conversion between the usize and self, because we assume the range of IndexType not
@@ -87,7 +87,7 @@ impl<T> IndexGet for Vec<T> {
   type Output = T;
 
   fn get(&self, key: usize) -> Option<Self::Output> {
-    self.get(key)
+    (self as &Self).get(key)
   }
 }
 

@@ -1,7 +1,6 @@
 use super::super::*;
 use crate::vertex::Vertex;
 use core::marker::PhantomData;
-use std::ops::Index;
 
 pub struct NoneIndexedMesh<V = Vertex, T = TriangleList, U = Vec<V>> {
   pub data: U,
