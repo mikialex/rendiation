@@ -23,7 +23,7 @@ impl<V, T, U> AbstractMesh for NoneIndexedMesh<V, T, U>
 where
   V: Copy,
   T: PrimitiveTopologyMeta<V>,
-  U: Index<usize, Output = V> + ExactSizeIterator,
+  U: IndexGet<Output = V> + CollectionSize,
   T::Primitive: PrimitiveData<V, U>,
 {
   type Primitive = T::Primitive;

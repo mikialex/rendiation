@@ -12,7 +12,7 @@ pub trait HashAbleByConversion {
 pub trait PrimitiveData<T, U>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
+  U: IndexGet<Output = T>,
 {
   fn from_data(data: &U, offset: usize) -> Self;
 }
@@ -20,8 +20,8 @@ where
 pub trait IndexedPrimitiveData<I, T, U, IU>: PrimitiveData<T, U>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: IndexGet<Output = T>,
+  IU: IndexGet<Output = I>,
 {
   type IndexIndicator;
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self;
@@ -31,13 +31,13 @@ where
 impl<T, U> PrimitiveData<T, U> for Triangle<T>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
+  U: IndexGet<Output = T>,
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
-    let a = data[offset];
-    let b = data[offset + 1];
-    let c = data[offset + 2];
+    let a = data.get(offset).unwrap();
+    let b = data.get(offset + 1).unwrap();
+    let c = data.get(offset + 2).unwrap();
     Triangle { a, b, c }
   }
 }
@@ -46,23 +46,27 @@ impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Triangle<T>
 where
   I: IndexType,
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: IndexGet<Output = T>,
+  IU: IndexGet<Output = I>,
 {
   type IndexIndicator = Triangle<I>;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let a = data[index[offset].into_usize()];
-    let b = data[index[offset + 1].into_usize()];
-    let c = data[index[offset + 2].into_usize()];
+    let a = data.get(index.get(offset).unwrap().into_usize()).unwrap();
+    let b = data
+      .get(index.get(offset + 1).unwrap().into_usize())
+      .unwrap();
+    let c = data
+      .get(index.get(offset + 2).unwrap().into_usize())
+      .unwrap();
     Triangle { a, b, c }
   }
 
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    let a = index[offset];
-    let b = index[offset + 1];
-    let c = index[offset + 2];
+    let a = index.get(offset).unwrap();
+    let b = index.get(offset + 1).unwrap();
+    let c = index.get(offset + 2).unwrap();
     Triangle { a, b, c }
   }
 }
@@ -70,12 +74,12 @@ where
 impl<T, U> PrimitiveData<T, U> for LineSegment<T>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
+  U: IndexGet<Output = T>,
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
-    let start = data[offset];
-    let end = data[offset + 1];
+    let start = data.get(offset).unwrap();
+    let end = data.get(offset + 1).unwrap();
     LineSegment::line_segment(start, end)
   }
 }
@@ -84,20 +88,22 @@ impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for LineSegment<T>
 where
   I: IndexType,
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: IndexGet<Output = T>,
+  IU: IndexGet<Output = I>,
 {
   type IndexIndicator = LineSegment<I>;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let start = data[index[offset].into_usize()];
-    let end = data[index[offset + 1].into_usize()];
+    let start = data.get(index.get(offset).unwrap().into_usize()).unwrap();
+    let end = data
+      .get(index.get(offset + 1).unwrap().into_usize())
+      .unwrap();
     LineSegment::line_segment(start, end)
   }
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    let start = index[offset];
-    let end = index[offset + 1];
+    let start = index.get(offset).unwrap();
+    let end = index.get(offset + 1).unwrap();
     LineSegment::line_segment(start, end)
   }
 }
@@ -105,11 +111,11 @@ where
 impl<T, U> PrimitiveData<T, U> for Point<T>
 where
   T: Copy,
-  U: Index<usize, Output = T>,
+  U: IndexGet<Output = T>,
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
-    Point(data[offset])
+    Point(data.get(offset).unwrap())
   }
 }
 
@@ -117,18 +123,18 @@ impl<I, T, U, IU> IndexedPrimitiveData<I, T, U, IU> for Point<T>
 where
   I: IndexType,
   T: Copy,
-  U: Index<usize, Output = T>,
-  IU: Index<usize, Output = I>,
+  U: IndexGet<Output = T>,
+  IU: IndexGet<Output = I>,
 {
   type IndexIndicator = I;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    Point(data[index[offset].into_usize()])
+    Point(data.get(index.get(offset).unwrap().into_usize()).unwrap())
   }
 
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    index[offset]
+    index.get(offset).unwrap()
   }
 }
 
@@ -203,4 +209,5 @@ impl<T> PrimitiveTopologyMeta<T> for LineStrip {
   const ENUM: PrimitiveTopology = PrimitiveTopology::LineStrip;
 }
 
+use super::IndexGet;
 use super::IndexType;

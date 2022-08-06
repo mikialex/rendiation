@@ -37,15 +37,6 @@ pub enum DynIndex {
   Uint32(u32),
 }
 
-impl IndexType for DynIndex {
-  fn into_usize(self) -> usize {
-    match self {
-      DynIndex::Uint16(i) => i as usize,
-      DynIndex::Uint32(i) => i as usize,
-    }
-  }
-}
-
 /// Mark type that indicates index oversized u32 and cannot used in gpu.
 pub struct IndexOversized;
 
@@ -87,6 +78,50 @@ impl DynIndexContainer {
   }
 }
 
+pub trait IndexGet {
+  type Output;
+  fn get(&self, key: usize) -> Option<Self::Output>;
+}
+
+impl<T> IndexGet for Vec<T> {
+  type Output = T;
+
+  fn get(&self, key: usize) -> Option<Self::Output> {
+    self.get(key)
+  }
+}
+
+impl IndexGet for DynIndexContainer {
+  type Output = DynIndex;
+
+  fn get(&self, key: usize) -> Option<Self::Output> {
+    match self {
+      DynIndexContainer::Uint16(i) => DynIndex::Uint16(i.get(key).unwrap()),
+      DynIndexContainer::Uint32(i) => DynIndex::Uint32(i.get(key).unwrap()),
+    }
+    .into()
+  }
+}
+
+pub trait CollectionSize {
+  fn len(&self) -> usize;
+}
+
+impl<T> CollectionSize for Vec<T> {
+  fn len(&self) -> usize {
+    self.len()
+  }
+}
+
+impl CollectionSize for DynIndexContainer {
+  fn len(&self) -> usize {
+    match self {
+      DynIndexContainer::Uint16(i) => i.len(),
+      DynIndexContainer::Uint32(i) => i.len(),
+    }
+  }
+}
+
 /// A indexed mesh that use vertex as primitive;
 pub struct IndexedMesh<
   I = DynIndex,
@@ -123,8 +158,8 @@ impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU> {
 impl<I, V, T, U, IU> AbstractMesh for IndexedMesh<I, V, T, U, IU>
 where
   V: Copy,
-  U: Index<usize, Output = V>,
-  IU: Index<usize, Output = I> + ExactSizeIterator,
+  U: IndexGet<Output = V>,
+  IU: IndexGet<Output = I> + CollectionSize,
   T: PrimitiveTopologyMeta<V>,
   <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, U, IU>,
 {
@@ -150,8 +185,8 @@ where
 impl<I, V, T, U, IU> AbstractIndexMesh for IndexedMesh<I, V, T, U, IU>
 where
   V: Copy,
-  U: Index<usize, Output = V>,
-  IU: Index<usize, Output = I> + ExactSizeIterator,
+  U: IndexGet<Output = V>,
+  IU: IndexGet<Output = I> + CollectionSize,
   T: PrimitiveTopologyMeta<V>,
   T::Primitive: IndexedPrimitiveData<I, V, U, IU>,
 {

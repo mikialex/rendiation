@@ -75,7 +75,7 @@ impl<'a, G: AbstractMesh> Iterator for AbstractMeshIter<'a, G> {
   }
 }
 
-impl<'a, G: AbstractMesh> ExactSizeIterator for AbstractMeshIter<'a, G> {
+impl<'a, G: AbstractMesh> CollectionSize for AbstractMeshIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current
@@ -139,7 +139,7 @@ impl<'a, G: AbstractIndexMesh> Iterator for AbstractIndexMeshIter<'a, G> {
   }
 }
 
-impl<'a, G: AbstractIndexMesh> ExactSizeIterator for AbstractIndexMeshIter<'a, G> {
+impl<'a, G: AbstractIndexMesh> CollectionSize for AbstractIndexMeshIter<'a, G> {
   #[inline(always)]
   fn len(&self) -> usize {
     self.mesh.primitive_count() - self.current
