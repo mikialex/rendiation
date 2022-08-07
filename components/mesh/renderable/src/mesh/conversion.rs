@@ -23,18 +23,17 @@ use std::{
   ops::Deref,
 };
 
-impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
+impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  Self: AbstractIndexMesh<IndexPrimitive = Triangle<I>>,
-  I: IndexType,
+  Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>>,
   U: Clone,
-  V: Copy,
+  IU: IndexGet,
 {
-  pub fn create_wireframe<RI, RIU>(&self) -> IndexedMesh<RI, V, LineList, U, RIU>
+  pub fn create_wireframe<RIU>(&self) -> IndexedMesh<LineList, U, RIU>
   where
-    RIU: FromIterator<I>,
+    RIU: FromIterator<IU::Output>,
   {
-    let mut deduplicate_set = HashSet::<LineSegment<I>>::new();
+    let mut deduplicate_set = HashSet::<LineSegment<IU::Output>>::new();
     self
       .primitive_iter()
       .zip(self.index_primitive_iter())
@@ -51,18 +50,19 @@ where
   }
 }
 
-impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
+impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  Self: AbstractIndexMesh<IndexPrimitive = Triangle<I>, Primitive = Triangle<V>>,
-  U: IndexGet<Output = V> + FromIterator<V>,
-  I: IndexType,
-  V: Copy + Deref<Target = Vec3<f32>>,
+  Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>, Primitive = Triangle<U::Output>>,
+  U: IndexGet + FromIterator<U::Output>,
+  IU: IndexGet,
+  // I: IndexType,
+  // V: Copy + Deref<Target = Vec3<f32>>,
 {
   /// maybe you should merge vertex before create edge
   /// non manifold mesh may affect result
-  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedMesh<V, LineList, U> {
+  pub fn create_edge(&self, edge_threshold_angle: f32) -> NoneIndexedMesh<LineList, U> {
     // Map: edge id => (edge face idA, edge face idB(optional));
-    let mut edges = HashMap::<LineSegment<I>, (usize, Option<usize>)>::new();
+    let mut edges = HashMap::<LineSegment<IU::Output>, (usize, Option<usize>)>::new();
     self
       .primitive_iter()
       .zip(self.index_primitive_iter())
@@ -91,20 +91,18 @@ where
   }
 }
 
-impl<I, V, T, IU> IndexedMesh<I, V, T, Vec<V>, IU>
+impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  I: IndexType,
-  T: PrimitiveTopologyMeta<V>,
-  V: Copy,
-  IU: TryFromIterator<usize> + CollectionSize,
-  for<'a> &'a IU: IntoIterator<Item = I>,
-  <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, Vec<V>, Vec<I>>,
+  IU: IndexGet + TryFromIterator<usize> + CollectionSize,
+  for<'a> &'a IU: IntoIterator<Item = IU::Output>,
+  U: IndexGet,
+  Self: AbstractIndexMesh,
 {
   pub fn merge_vertex_by_sorting(
     &self,
-    mut sorter: impl FnMut(&V, &V) -> Ordering,
-    mut merger: impl FnMut(&V, &V) -> bool,
-  ) -> Result<IndexedMesh<I, V, T, Vec<V>, IU>, IU::Error> {
+    mut sorter: impl FnMut(&U::Output, &U::Output) -> Ordering,
+    mut merger: impl FnMut(&U::Output, &U::Output) -> bool,
+  ) -> Result<IndexedMesh<T, Vec<U::Output>, IU>, IU::Error> {
     let mut resorted: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
     let mut merge_data = Vec::with_capacity(resorted.len());
     let mut deduplicate_map = Vec::with_capacity(self.index.len());
@@ -135,14 +133,13 @@ where
   }
 }
 
-impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
+impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  I: IndexType,
-  IU: IndexGet<Output = I>,
-  for<'a> &'a IU: IntoIterator<Item = I>,
-  U: IndexGet<Output = V> + FromIterator<V>,
+  IU: IndexGet,
+  U: IndexGet + FromIterator<U::Output>,
+  for<'a> &'a IU: IntoIterator<Item = IU::Output>,
 {
-  pub fn expand_to_none_index_geometry(&self) -> NoneIndexedMesh<V, T, U> {
+  pub fn expand_to_none_index_geometry(&self) -> NoneIndexedMesh<T, U> {
     let index = &self.index;
     NoneIndexedMesh::new(
       index
@@ -177,13 +174,12 @@ where
   }
 }
 
-impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU>
+impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  U: IndexGet<Output = V> + Clone,
-  IU: IndexGet<Output = I>,
-  T: PrimitiveTopologyMeta<V>,
+  Self: AbstractIndexMesh, // we add this bound for better semantic constraint
+  U: Clone,
 {
-  pub fn create_point_cloud(&self) -> NoneIndexedMesh<V, PointList, U> {
+  pub fn create_point_cloud(&self) -> NoneIndexedMesh<PointList, U> {
     NoneIndexedMesh::new(self.data.clone())
   }
 }

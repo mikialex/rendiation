@@ -1,8 +1,5 @@
-use super::{
-  super::{PrimitiveTopologyMeta, TriangleList},
-  AbstractIndexMesh, AbstractMesh,
-};
-use crate::{mesh::IndexedPrimitiveData, vertex::Vertex, AsGPUBytes};
+use super::{super::PrimitiveTopologyMeta, AbstractIndexMesh, AbstractMesh};
+use crate::{mesh::IndexedPrimitiveData, AsGPUBytes};
 use core::marker::PhantomData;
 use std::hash::Hash;
 
@@ -265,47 +262,40 @@ impl CollectionSize for DynIndexContainer {
 }
 
 /// A indexed mesh that use vertex as primitive;
-pub struct IndexedMesh<
-  I = DynIndex,
-  V = Vertex,
-  T = TriangleList,
-  U = Vec<V>,
-  IU = DynIndexContainer,
-> {
+pub struct IndexedMesh<T, U, IU> {
   pub data: U,
   pub index: IU,
-  _i_phantom: PhantomData<I>,
-  _v_phantom: PhantomData<V>,
   _phantom: PhantomData<T>,
 }
 
-impl<I, V, T, U, IU> From<(U, IU)> for IndexedMesh<I, V, T, U, IU> {
+impl<T, U, IU> From<(U, IU)> for IndexedMesh<T, U, IU> {
   fn from(item: (U, IU)) -> Self {
     IndexedMesh::new(item.0, item.1)
   }
 }
 
-impl<I, V, T, U, IU> IndexedMesh<I, V, T, U, IU> {
+impl<T, U, IU> IndexedMesh<T, U, IU> {
   pub fn new(v: U, index: IU) -> Self {
     Self {
       data: v,
       index,
-      _i_phantom: PhantomData,
-      _v_phantom: PhantomData,
       _phantom: PhantomData,
     }
   }
 }
 
-impl<I, V, T, U, IU> AbstractMesh for IndexedMesh<I, V, T, U, IU>
+pub trait VertexContainer {
+  type Vertex;
+}
+
+impl<T, U, IU> AbstractMesh for IndexedMesh<T, U, IU>
 where
-  V: Copy,
-  U: IndexGet<Output = V>,
-  IU: IndexGet<Output = I> + CollectionSize,
-  T: PrimitiveTopologyMeta<V>,
-  <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<I, V, U, IU>,
+  U: IndexGet,
+  IU: IndexGet + CollectionSize,
+  T: PrimitiveTopologyMeta,
+  T::Primitive<U::Output>: IndexedPrimitiveData<U, IU>,
 {
-  type Primitive = T::Primitive;
+  type Primitive = T::Primitive<U::Output>;
 
   #[inline(always)]
   fn draw_count(&self) -> usize {
@@ -324,15 +314,14 @@ where
   }
 }
 
-impl<I, V, T, U, IU> AbstractIndexMesh for IndexedMesh<I, V, T, U, IU>
+impl<T, U, IU> AbstractIndexMesh for IndexedMesh<T, U, IU>
 where
-  V: Copy,
-  U: IndexGet<Output = V>,
-  IU: IndexGet<Output = I> + CollectionSize,
-  T: PrimitiveTopologyMeta<V>,
-  T::Primitive: IndexedPrimitiveData<I, V, U, IU>,
+  U: IndexGet,
+  IU: IndexGet + CollectionSize,
+  T: PrimitiveTopologyMeta,
+  T::Primitive<U::Output>: IndexedPrimitiveData<U, IU>,
 {
-  type IndexPrimitive = <T::Primitive as IndexedPrimitiveData<I, V, U, IU>>::IndexIndicator;
+  type IndexPrimitive = <T::Primitive<U::Output> as IndexedPrimitiveData<U, IU>>::IndexIndicator;
 
   #[inline(always)]
   fn index_primitive_at(&self, primitive_index: usize) -> Self::IndexPrimitive {

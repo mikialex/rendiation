@@ -77,14 +77,13 @@ pub trait GPUMeshData {
   fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder);
 }
 
-impl<I, V, T, IU> GPUMeshData for GroupedMesh<IndexedMesh<I, V, T, Vec<V>, IU>>
+impl<V, T, IU> GPUMeshData for GroupedMesh<IndexedMesh<T, Vec<V>, IU>>
 where
   V: Pod,
+  IU: IndexGet + AsGPUBytes,
   V: ShaderGraphVertexInProvider,
-  T: PrimitiveTopologyMeta<V>,
-  I: gpu::IndexBufferSourceType,
-  IU: AsGPUBytes,
-  IndexedMesh<I, V, T, Vec<V>, IU>: AbstractMesh,
+  IU::Output: gpu::IndexBufferSourceType,
+  IndexedMesh<T, Vec<V>, IU>: AbstractIndexMesh,
 {
   type GPU = TypedMeshGPU<Self>;
   fn create(&self, device: &gpu::Device) -> Self::GPU {
@@ -140,13 +139,12 @@ impl<T: Pod> AsGPUBytes for Vec<T> {
   }
 }
 
-impl<I, V, T, IU> IndexedMesh<I, V, T, Vec<V>, IU>
+impl<V, T, IU> IndexedMesh<T, Vec<V>, IU>
 where
   V: Pod,
-  T: PrimitiveTopologyMeta<V>,
-  I: gpu::IndexBufferSourceType,
-  IU: AsGPUBytes,
-  Self: AbstractMesh,
+  IU::Output: gpu::IndexBufferSourceType,
+  IU: IndexGet + AsGPUBytes,
+  Self: AbstractIndexMesh,
 {
   pub fn create_gpu(&self, device: &gpu::Device) -> MeshGPU {
     let vertex = bytemuck::cast_slice(self.data.as_slice());
@@ -162,7 +160,7 @@ where
       contents: self.index.as_gpu_bytes(),
       usage: gpu::BufferUsages::INDEX,
     });
-    let index = (Rc::new(index), I::FORMAT).into();
+    let index = (Rc::new(index), IU::Output::FORMAT).into();
 
     let range_full = MeshGroup {
       start: 0,
