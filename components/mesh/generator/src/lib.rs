@@ -12,3 +12,5 @@ mod parametric;
 pub use parametric::*;
 mod combination;
 pub use combination::*;
+mod primitive;
+pub use primitive::*;

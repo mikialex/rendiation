@@ -2,29 +2,61 @@ use crate::*;
 
 pub struct ParametricRangeMapping<T> {
   pub inner: T,
-  pub start: f32,
-  pub end: f32,
+  pub range: Range<f32>,
 }
 impl<T: ParametricCurve3D> ParametricCurve3D for ParametricRangeMapping<T> {
   fn position(&self, position: f32) -> Vec3<f32> {
-    let mapped = self.start.lerp(self.end, position);
+    let mapped = self.range.start.lerp(self.range.end, position);
     self.inner.position(mapped)
   }
   fn normal(&self, position: f32) -> Vec3<f32> {
-    let mapped = self.start.lerp(self.end, position);
+    let mapped = self.range.start.lerp(self.range.end, position);
     self.inner.normal(mapped)
+  }
+
+  fn tangent(&self, position: f32) -> Vec3<f32> {
+    let mapped = self.range.start.lerp(self.range.end, position);
+    self.inner.tangent(mapped)
   }
 }
 pub trait IntoParametricRangeMapping: ParametricCurve3D + Sized {
   fn map_range(self, range: Range<f32>) -> ParametricRangeMapping<Self> {
-    ParametricRangeMapping {
-      inner: self,
-      start: range.start,
-      end: range.end,
-    }
+    ParametricRangeMapping { inner: self, range }
   }
 }
 impl<T: ParametricCurve3D + Sized> IntoParametricRangeMapping for T {}
+
+pub struct ParametricSurfaceRangeMapping<T> {
+  pub inner: T,
+  pub u: Range<f32>,
+  pub v: Range<f32>,
+}
+impl<T: ParametricSurface> ParametricSurface for ParametricSurfaceRangeMapping<T> {
+  fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
+    let mapped_u = self.u.start.lerp(self.u.end, position.x);
+    let mapped_v = self.u.start.lerp(self.u.end, position.y);
+    self.inner.position(Vec2::new(mapped_u, mapped_v))
+  }
+  fn normal(&self, position: Vec2<f32>) -> Vec3<f32> {
+    let mapped_u = self.u.start.lerp(self.u.end, position.x);
+    let mapped_v = self.u.start.lerp(self.u.end, position.y);
+    self.inner.normal(Vec2::new(mapped_u, mapped_v))
+  }
+}
+pub trait IntoParametricSurfaceRangeMapping: ParametricSurface + Sized {
+  fn map_range(
+    self,
+    range_u: Range<f32>,
+    range_v: Range<f32>,
+  ) -> ParametricSurfaceRangeMapping<Self> {
+    ParametricSurfaceRangeMapping {
+      inner: self,
+      u: range_u,
+      v: range_v,
+    }
+  }
+}
+impl<T: ParametricSurface + Sized> IntoParametricSurfaceRangeMapping for T {}
 
 pub struct Embed2DCurveTo3DSurface<S, T> {
   pub curve: S,
@@ -157,3 +189,29 @@ pub trait IntoTransformed2D: ParametricCurve2D + Sized {
   }
 }
 impl<T> IntoTransformed2D for T where T: ParametricCurve2D + Sized {}
+
+pub struct Transformed3D<T> {
+  surface: T,
+  mat: Mat4<f32>,
+  normal_mat: Mat3<f32>,
+}
+impl<T: ParametricSurface> ParametricSurface for Transformed3D<T> {
+  fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.mat * self.surface.position(position)
+  }
+
+  fn normal(&self, position: Vec2<f32>) -> Vec3<f32> {
+    self.normal_mat * self.surface.normal(position)
+  }
+}
+
+pub trait IntoTransformed3D: ParametricSurface + Sized {
+  fn transform_by(self, mat: Mat4<f32>) -> Transformed3D<Self> {
+    Transformed3D {
+      surface: self,
+      mat,
+      normal_mat: mat.to_normal_matrix(),
+    }
+  }
+}
+impl<T> IntoTransformed3D for T where T: ParametricSurface + Sized {}
