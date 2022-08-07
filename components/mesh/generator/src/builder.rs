@@ -1,5 +1,5 @@
 use rendiation_renderable_mesh::{
-  group::MeshGroupsInfo,
+  group::{GroupedMesh, MeshGroupsInfo},
   mesh::{CollectionSize, DynIndex, DynIndexContainer},
 };
 
@@ -14,8 +14,9 @@ pub struct IndexedMeshBuilder<U, T, V> {
 }
 
 impl<U, T, V> IndexedMeshBuilder<U, T, V> {
-  pub fn build_mesh(self) -> IndexedMesh<DynIndex, V, T, U, DynIndexContainer> {
-    IndexedMesh::new(self.container, self.index)
+  pub fn build_mesh(self) -> GroupedMesh<IndexedMesh<DynIndex, V, T, U, DynIndexContainer>> {
+    let mesh = IndexedMesh::new(self.container, self.index);
+    GroupedMesh::new(mesh, self.groups)
   }
 }
 

@@ -70,10 +70,13 @@ impl Default for MeshDrawGroup {
   }
 }
 
-impl<T: AbstractMesh> GroupedMesh<T> {
+impl<T> GroupedMesh<T> {
   pub fn new(mesh: T, groups: MeshGroupsInfo) -> Self {
     Self { mesh, groups }
   }
+}
+
+impl<T: AbstractMesh> GroupedMesh<T> {
   pub fn full(mesh: T) -> Self {
     let groups = MeshGroupsInfo::full_from_mesh(&mesh);
     Self { mesh, groups }
