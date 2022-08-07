@@ -94,7 +94,7 @@ pub struct ReverseSurfaceNormal<T> {
   pub surface: T,
 }
 pub trait IntoReverseSurfaceNormal: ParametricSurface + Sized {
-  fn fix_swap_by_path(self) -> ReverseSurfaceNormal<Self> {
+  fn sweep_by(self) -> ReverseSurfaceNormal<Self> {
     ReverseSurfaceNormal { surface: self }
   }
 }
@@ -108,12 +108,13 @@ impl<T: ParametricSurface> ParametricSurface for ReverseSurfaceNormal<T> {
   }
 }
 
+/// Fixed means the cross_section_outline only support 2d curve
 pub struct FixedSweepSurface<T, P> {
   pub cross_section_outline: T,
   pub path: P,
 }
 pub trait IntoFixedFixedSweepSurfaceFromPath: ParametricCurve2D + Sized {
-  fn fix_swap_by_path<P>(self, path: P) -> FixedSweepSurface<Self, P>
+  fn sweep_by<P>(self, path: P) -> FixedSweepSurface<Self, P>
   where
     P: ParametricCurve3D,
   {
@@ -125,7 +126,7 @@ pub trait IntoFixedFixedSweepSurfaceFromPath: ParametricCurve2D + Sized {
 }
 impl<T> IntoFixedFixedSweepSurfaceFromPath for T where T: ParametricCurve2D + Sized {}
 pub trait IntoFixedFixedSweepSurfaceFromCrossSection: ParametricCurve3D + Sized {
-  fn make_tube_by<T>(self, cross_section_outline: T) -> FixedSweepSurface<T, Self>
+  fn tube_by<T>(self, cross_section_outline: T) -> FixedSweepSurface<T, Self>
   where
     T: ParametricCurve2D,
   {

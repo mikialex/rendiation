@@ -31,6 +31,7 @@ pub trait VertexContainer {
   fn push_vertex(&mut self, v: Self::Vertex);
 }
 
+/// Expressing some type can be constructed from parametric surface
 pub trait VertexBuilding {
   fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self;
 }

@@ -16,7 +16,7 @@ impl TorusMeshParameter {
     UnitCircle
       .transform_by(Mat3::scale(Vec2::splat(radius)))
       .embed_to_surface(ParametricPlane)
-      .make_tube_by(UnitCircle.transform_by(Mat3::scale(Vec2::splat(tube_radius))))
+      .tube_by(UnitCircle.transform_by(Mat3::scale(Vec2::splat(tube_radius))))
   }
 }
 
