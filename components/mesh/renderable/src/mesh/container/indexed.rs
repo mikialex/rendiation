@@ -2,7 +2,7 @@ use super::{
   super::{PrimitiveTopologyMeta, TriangleList},
   AbstractIndexMesh, AbstractMesh,
 };
-use crate::{mesh::IndexedPrimitiveData, vertex::Vertex};
+use crate::{mesh::IndexedPrimitiveData, vertex::Vertex, AsGPUBytes};
 use core::marker::PhantomData;
 use std::hash::Hash;
 
@@ -31,13 +31,29 @@ pub enum DynIndexContainer {
   Uint32(Vec<u32>),
 }
 
+impl Default for DynIndexContainer {
+  fn default() -> Self {
+    Self::Uint16(Default::default())
+  }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DynIndex {
   Uint16(u16),
   Uint32(u32),
 }
 
+impl IndexType for DynIndex {
+  fn into_usize(self) -> usize {
+    match self {
+      DynIndex::Uint16(i) => i as usize,
+      DynIndex::Uint32(i) => i as usize,
+    }
+  }
+}
+
 /// Mark type that indicates index oversized u32 and cannot used in gpu.
+#[derive(Debug)]
 pub struct IndexOversized;
 
 impl DynIndexContainer {
@@ -78,6 +94,45 @@ impl DynIndexContainer {
   }
 }
 
+impl FromIterator<usize> for DynIndexContainer {
+  fn from_iter<T: IntoIterator<Item = usize>>(iter: T) -> Self {
+    let mut c = Self::default();
+    iter.into_iter().for_each(|i| c.push_index(i).unwrap());
+    c
+  }
+}
+
+impl AsGPUBytes for DynIndexContainer {
+  fn as_gpu_bytes(&self) -> &[u8] {
+    match self {
+      DynIndexContainer::Uint16(i) => bytemuck::cast_slice(i.as_slice()),
+      DynIndexContainer::Uint32(i) => bytemuck::cast_slice(i.as_slice()),
+    }
+  }
+}
+
+pub struct DynIndexContainerIter<'a> {
+  container: &'a DynIndexContainer,
+}
+
+impl<'a> Iterator for DynIndexContainerIter<'a> {
+  type Item = &'a DynIndex;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    todo!()
+  }
+}
+
+impl<'a> IntoIterator for &'a DynIndexContainer {
+  type Item = &'a DynIndex;
+
+  type IntoIter = DynIndexContainerIter<'a>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    todo!()
+  }
+}
+
 pub trait IndexGet {
   type Output;
   fn get(&self, key: usize) -> Option<Self::Output>;
@@ -105,6 +160,10 @@ impl IndexGet for DynIndexContainer {
 
 pub trait CollectionSize {
   fn len(&self) -> usize;
+
+  fn is_empty(&self) -> bool {
+    self.len() == 0
+  }
 }
 
 impl<T> CollectionSize for Vec<T> {

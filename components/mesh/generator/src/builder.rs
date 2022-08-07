@@ -1,17 +1,20 @@
-use rendiation_renderable_mesh::group::MeshGroupsInfo;
+use rendiation_renderable_mesh::{
+  group::MeshGroupsInfo,
+  mesh::{CollectionSize, DynIndex, DynIndexContainer},
+};
 
 use crate::*;
 
-pub struct IndexedMeshBuilder<I, U, T, V> {
-  index: Vec<I>,
+pub struct IndexedMeshBuilder<U, T, V> {
+  index: DynIndexContainer,
   container: U,
   phantom1: PhantomData<T>,
   phantom2: PhantomData<V>,
   groups: MeshGroupsInfo,
 }
 
-impl<I, U, T, V> IndexedMeshBuilder<I, U, T, V> {
-  pub fn build_mesh(self) -> IndexedMesh<I, V, T, U> {
+impl<U, T, V> IndexedMeshBuilder<U, T, V> {
+  pub fn build_mesh(self) -> IndexedMesh<DynIndex, V, T, U> {
     IndexedMesh::new(self.container, self.index)
   }
 }
@@ -31,7 +34,7 @@ pub trait VertexBuilding {
   fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self;
 }
 
-impl<I, U, V> IndexedMeshBuilder<I, U, TriangleList, V> {
+impl<U, V> IndexedMeshBuilder<U, TriangleList, V> {
   pub fn triangulate_parametric(
     &mut self,
     surface: &impl ParametricSurface,
@@ -40,7 +43,6 @@ impl<I, U, V> IndexedMeshBuilder<I, U, TriangleList, V> {
   ) where
     V: VertexBuilding,
     U: VertexContainer<Vertex = V>,
-    I: From<usize> + Copy,
   {
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
@@ -54,7 +56,7 @@ impl<I, U, V> IndexedMeshBuilder<I, U, TriangleList, V> {
     }
 
     let index_start = self.index.len();
-    let uv_to_index = |u: usize, v: usize| -> I { (index_start + u + config.u * v).into() };
+    let uv_to_index = |u: usize, v: usize| -> usize { index_start + u + config.u * v };
 
     for u in 0..config.u {
       for v in 0..config.v {
@@ -65,13 +67,13 @@ impl<I, U, V> IndexedMeshBuilder<I, U, TriangleList, V> {
         let c = uv_to_index(u + 1, v);
         let d = uv_to_index(u + 1, v + 1);
 
-        self.index.push(a);
-        self.index.push(c);
-        self.index.push(b);
+        self.index.push_index(a);
+        self.index.push_index(c);
+        self.index.push_index(b);
 
-        self.index.push(b);
-        self.index.push(c);
-        self.index.push(d);
+        self.index.push_index(b);
+        self.index.push_index(c);
+        self.index.push_index(d);
       }
     }
 
@@ -84,7 +86,7 @@ impl<I, U, V> IndexedMeshBuilder<I, U, TriangleList, V> {
   }
 }
 
-impl<I, U, V> IndexedMeshBuilder<I, U, LineList, V> {
+impl<U, V> IndexedMeshBuilder<U, LineList, V> {
   pub fn build_grid_parametric(
     &mut self,
     surface: &impl ParametricSurface,
@@ -93,7 +95,6 @@ impl<I, U, V> IndexedMeshBuilder<I, U, LineList, V> {
   ) where
     V: VertexBuilding,
     U: VertexContainer<Vertex = V>,
-    I: From<usize> + Copy,
   {
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
@@ -107,7 +108,7 @@ impl<I, U, V> IndexedMeshBuilder<I, U, LineList, V> {
     }
 
     let index_start = self.index.len();
-    let uv_to_index = |u: usize, v: usize| -> I { (index_start + u + config.u * v).into() };
+    let uv_to_index = |u: usize, v: usize| -> usize { index_start + u + config.u * v };
 
     for u in 0..config.u {
       for v in 0..config.v {
@@ -118,20 +119,20 @@ impl<I, U, V> IndexedMeshBuilder<I, U, LineList, V> {
         let c = uv_to_index(u + 1, v);
         let d = uv_to_index(u + 1, v + 1);
 
-        self.index.push(a);
-        self.index.push(b);
+        self.index.push_index(a);
+        self.index.push_index(b);
 
-        self.index.push(a);
-        self.index.push(c);
+        self.index.push_index(a);
+        self.index.push_index(c);
 
         if u == config.u {
-          self.index.push(c);
-          self.index.push(d);
+          self.index.push_index(c);
+          self.index.push_index(d);
         }
 
         if v == config.v {
-          self.index.push(b);
-          self.index.push(d);
+          self.index.push_index(b);
+          self.index.push_index(d);
         }
       }
     }

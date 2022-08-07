@@ -83,7 +83,7 @@ where
   V: ShaderGraphVertexInProvider,
   T: PrimitiveTopologyMeta<V>,
   I: gpu::IndexBufferSourceType,
-  IU: AsRef<[u8]>,
+  IU: AsGPUBytes,
   IndexedMesh<I, V, T, Vec<V>, IU>: AbstractMesh,
 {
   type GPU = TypedMeshGPU<Self>;
@@ -130,12 +130,22 @@ where
   }
 }
 
+pub trait AsGPUBytes {
+  fn as_gpu_bytes(&self) -> &[u8];
+}
+
+impl<T: Pod> AsGPUBytes for Vec<T> {
+  fn as_gpu_bytes(&self) -> &[u8] {
+    bytemuck::cast_slice(self.as_slice())
+  }
+}
+
 impl<I, V, T, IU> IndexedMesh<I, V, T, Vec<V>, IU>
 where
   V: Pod,
   T: PrimitiveTopologyMeta<V>,
   I: gpu::IndexBufferSourceType,
-  IU: AsRef<[u8]>,
+  IU: AsGPUBytes,
   Self: AbstractMesh,
 {
   pub fn create_gpu(&self, device: &gpu::Device) -> MeshGPU {
@@ -149,7 +159,7 @@ where
 
     let index = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
       label: None,
-      contents: self.index.as_ref(),
+      contents: self.index.as_gpu_bytes(),
       usage: gpu::BufferUsages::INDEX,
     });
     let index = (Rc::new(index), I::FORMAT).into();

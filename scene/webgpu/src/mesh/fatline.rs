@@ -108,7 +108,7 @@ pub struct FatlineQuadInstance {
   data: Rc<MeshGPU>,
 }
 
-fn create_fatline_quad() -> IndexedMesh<u16, Vertex, TriangleList> {
+fn create_fatline_quad() -> IndexedMesh<u16, Vertex, TriangleList, Vec<Vertex>, Vec<u16>> {
   #[rustfmt::skip]
   let positions: Vec<isize> = vec![- 1, 2, 0, 1, 2, 0, - 1, 1, 0, 1, 1, 0, - 1, 0, 0, 1, 0, 0, - 1, - 1, 0, 1, - 1, 0];
   let positions: &[Vec3<isize>] = bytemuck::cast_slice(positions.as_slice());
@@ -130,7 +130,7 @@ fn create_fatline_quad() -> IndexedMesh<u16, Vertex, TriangleList> {
 }
 
 thread_local! {
-  static FATLINE_INSTANCE: IndexedMesh<u16, Vertex, TriangleList> = create_fatline_quad()
+  static FATLINE_INSTANCE: IndexedMesh<u16, Vertex, TriangleList, Vec<Vertex>, Vec<u16>> = create_fatline_quad()
 }
 
 fn create_fatline_quad_gpu(device: &webgpu::Device) -> FatlineQuadInstance {
