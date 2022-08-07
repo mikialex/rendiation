@@ -14,7 +14,7 @@ pub struct IndexedMeshBuilder<U, T, V> {
 }
 
 impl<U, T, V> IndexedMeshBuilder<U, T, V> {
-  pub fn build_mesh(self) -> IndexedMesh<DynIndex, V, T, U> {
+  pub fn build_mesh(self) -> IndexedMesh<DynIndex, V, T, U, DynIndexContainer> {
     IndexedMesh::new(self.container, self.index)
   }
 }
@@ -67,13 +67,13 @@ impl<U, V> IndexedMeshBuilder<U, TriangleList, V> {
         let c = uv_to_index(u + 1, v);
         let d = uv_to_index(u + 1, v + 1);
 
-        self.index.push_index(a);
-        self.index.push_index(c);
-        self.index.push_index(b);
+        self.index.push_index_clamped_u32(a);
+        self.index.push_index_clamped_u32(c);
+        self.index.push_index_clamped_u32(b);
 
-        self.index.push_index(b);
-        self.index.push_index(c);
-        self.index.push_index(d);
+        self.index.push_index_clamped_u32(b);
+        self.index.push_index_clamped_u32(c);
+        self.index.push_index_clamped_u32(d);
       }
     }
 
@@ -119,20 +119,20 @@ impl<U, V> IndexedMeshBuilder<U, LineList, V> {
         let c = uv_to_index(u + 1, v);
         let d = uv_to_index(u + 1, v + 1);
 
-        self.index.push_index(a);
-        self.index.push_index(b);
+        self.index.push_index_clamped_u32(a);
+        self.index.push_index_clamped_u32(b);
 
-        self.index.push_index(a);
-        self.index.push_index(c);
+        self.index.push_index_clamped_u32(a);
+        self.index.push_index_clamped_u32(c);
 
         if u == config.u {
-          self.index.push_index(c);
-          self.index.push_index(d);
+          self.index.push_index_clamped_u32(c);
+          self.index.push_index_clamped_u32(d);
         }
 
         if v == config.v {
-          self.index.push_index(b);
-          self.index.push_index(d);
+          self.index.push_index_clamped_u32(b);
+          self.index.push_index_clamped_u32(d);
         }
       }
     }

@@ -34,9 +34,9 @@ where
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
-    let a = data.get(offset).unwrap();
-    let b = data.get(offset + 1).unwrap();
-    let c = data.get(offset + 2).unwrap();
+    let a = data.index_get(offset).unwrap();
+    let b = data.index_get(offset + 1).unwrap();
+    let c = data.index_get(offset + 2).unwrap();
     Triangle { a, b, c }
   }
 }
@@ -51,21 +51,23 @@ where
   type IndexIndicator = Triangle<I>;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let a = data.get(index.get(offset).unwrap().into_usize()).unwrap();
+    let a = data
+      .index_get(index.index_get(offset).unwrap().into_usize())
+      .unwrap();
     let b = data
-      .get(index.get(offset + 1).unwrap().into_usize())
+      .index_get(index.index_get(offset + 1).unwrap().into_usize())
       .unwrap();
     let c = data
-      .get(index.get(offset + 2).unwrap().into_usize())
+      .index_get(index.index_get(offset + 2).unwrap().into_usize())
       .unwrap();
     Triangle { a, b, c }
   }
 
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    let a = index.get(offset).unwrap();
-    let b = index.get(offset + 1).unwrap();
-    let c = index.get(offset + 2).unwrap();
+    let a = index.index_get(offset).unwrap();
+    let b = index.index_get(offset + 1).unwrap();
+    let c = index.index_get(offset + 2).unwrap();
     Triangle { a, b, c }
   }
 }
@@ -77,8 +79,8 @@ where
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
-    let start = data.get(offset).unwrap();
-    let end = data.get(offset + 1).unwrap();
+    let start = data.index_get(offset).unwrap();
+    let end = data.index_get(offset + 1).unwrap();
     LineSegment::line_segment(start, end)
   }
 }
@@ -93,16 +95,18 @@ where
   type IndexIndicator = LineSegment<I>;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    let start = data.get(index.get(offset).unwrap().into_usize()).unwrap();
+    let start = data
+      .index_get(index.index_get(offset).unwrap().into_usize())
+      .unwrap();
     let end = data
-      .get(index.get(offset + 1).unwrap().into_usize())
+      .index_get(index.index_get(offset + 1).unwrap().into_usize())
       .unwrap();
     LineSegment::line_segment(start, end)
   }
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    let start = index.get(offset).unwrap();
-    let end = index.get(offset + 1).unwrap();
+    let start = index.index_get(offset).unwrap();
+    let end = index.index_get(offset + 1).unwrap();
     LineSegment::line_segment(start, end)
   }
 }
@@ -114,7 +118,7 @@ where
 {
   #[inline(always)]
   fn from_data(data: &U, offset: usize) -> Self {
-    Point(data.get(offset).unwrap())
+    Point(data.index_get(offset).unwrap())
   }
 }
 
@@ -128,12 +132,16 @@ where
   type IndexIndicator = I;
   #[inline(always)]
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self {
-    Point(data.get(index.get(offset).unwrap().into_usize()).unwrap())
+    Point(
+      data
+        .index_get(index.index_get(offset).unwrap().into_usize())
+        .unwrap(),
+    )
   }
 
   #[inline(always)]
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator {
-    index.get(offset).unwrap()
+    index.index_get(offset).unwrap()
   }
 }
 

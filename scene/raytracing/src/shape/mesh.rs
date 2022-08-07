@@ -185,18 +185,20 @@ impl TriangleMesh<IndexedMesh> {
         .for_each(|v| v.normal = v.normal.normalize());
     }
 
-    let mesh = mesh.create_index_geometry();
+    let mesh = mesh.create_index_geometry().unwrap();
     use std::cmp::Ordering;
     #[allow(clippy::float_cmp)]
-    let mesh = mesh.merge_vertex_by_sorting(
-      |a, b| {
-        a.position
-          .x
-          .partial_cmp(&b.position.x)
-          .unwrap_or(Ordering::Equal)
-      },
-      |a, b| a.position.x == b.position.x,
-    );
+    let mesh = mesh
+      .merge_vertex_by_sorting(
+        |a, b| {
+          a.position
+            .x
+            .partial_cmp(&b.position.x)
+            .unwrap_or(Ordering::Equal)
+        },
+        |a, b| a.position.x == b.position.x,
+      )
+      .unwrap();
 
     TriangleMesh::new(mesh)
   }
