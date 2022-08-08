@@ -1,20 +1,16 @@
-use rendiation_renderable_mesh::{
-  group::{GroupedMesh, MeshGroupsInfo},
-  mesh::{CollectionSize, DynIndex, DynIndexContainer},
-};
+use rendiation_renderable_mesh::*;
 
 use crate::*;
 
-pub struct IndexedMeshBuilder<U, T, V> {
+pub struct IndexedMeshBuilder<T, U> {
   index: DynIndexContainer,
   container: U,
-  phantom1: PhantomData<T>,
-  phantom2: PhantomData<V>,
+  phantom: PhantomData<T>,
   groups: MeshGroupsInfo,
 }
 
-impl<U, T, V> IndexedMeshBuilder<U, T, V> {
-  pub fn build_mesh(self) -> GroupedMesh<IndexedMesh<DynIndex, V, T, U, DynIndexContainer>> {
+impl<T, U> IndexedMeshBuilder<T, U> {
+  pub fn build_mesh(self) -> GroupedMesh<IndexedMesh<T, U, DynIndexContainer>> {
     let mesh = IndexedMesh::new(self.container, self.index);
     GroupedMesh::new(mesh, self.groups)
   }
@@ -26,7 +22,7 @@ pub struct TessellationConfig {
   pub v: usize,
 }
 
-pub trait VertexContainer {
+pub trait VertexBuildingContainer {
   type Vertex;
   fn push_vertex(&mut self, v: Self::Vertex);
 }
@@ -36,15 +32,15 @@ pub trait VertexBuilding {
   fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self;
 }
 
-impl<U, V> IndexedMeshBuilder<U, TriangleList, V> {
+impl<U> IndexedMeshBuilder<TriangleList, U> {
   pub fn triangulate_parametric(
     &mut self,
     surface: &impl ParametricSurface,
     config: TessellationConfig,
     keep_grouping: bool,
   ) where
-    V: VertexBuilding,
-    U: VertexContainer<Vertex = V>,
+    U: VertexBuildingContainer,
+    U::Vertex: VertexBuilding,
   {
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
@@ -52,7 +48,7 @@ impl<U, V> IndexedMeshBuilder<U, TriangleList, V> {
       for v in 0..config.v {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
-        let vertex = V::from_surface(surface, (u, v).into());
+        let vertex = U::Vertex::from_surface(surface, (u, v).into());
         self.container.push_vertex(vertex)
       }
     }
@@ -88,15 +84,15 @@ impl<U, V> IndexedMeshBuilder<U, TriangleList, V> {
   }
 }
 
-impl<U, V> IndexedMeshBuilder<U, LineList, V> {
+impl<U> IndexedMeshBuilder<LineList, U> {
   pub fn build_grid_parametric(
     &mut self,
     surface: &impl ParametricSurface,
     config: TessellationConfig,
     keep_grouping: bool,
   ) where
-    V: VertexBuilding,
-    U: VertexContainer<Vertex = V>,
+    U: VertexBuildingContainer,
+    U::Vertex: VertexBuilding,
   {
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
@@ -104,7 +100,7 @@ impl<U, V> IndexedMeshBuilder<U, LineList, V> {
       for v in 0..config.v {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
-        let vertex = V::from_surface(surface, (u, v).into());
+        let vertex = U::Vertex::from_surface(surface, (u, v).into());
         self.container.push_vertex(vertex)
       }
     }

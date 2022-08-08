@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::mesh::{IndexedMesh, LineList, TriangleList};
 
 mod builder;
 pub use builder::*;

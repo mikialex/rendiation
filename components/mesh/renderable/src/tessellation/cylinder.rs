@@ -231,9 +231,7 @@ impl CylinderMeshBuilder {
 }
 
 impl IndexedMeshTessellator for CylinderMeshParameter {
-  fn tessellate(
-    &self,
-  ) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList, Vec<Vertex>, Vec<u16>>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>>> {
     let mut builder = CylinderMeshBuilder::new(*self);
 
     // generate mesh

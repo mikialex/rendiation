@@ -1,4 +1,4 @@
-use super::super::*;
+use crate::*;
 use core::marker::PhantomData;
 
 pub struct NoneIndexedMesh<T, U> {
@@ -18,7 +18,7 @@ impl<T, U> NoneIndexedMesh<T, U> {
 impl<T, U> AbstractMesh for NoneIndexedMesh<T, U>
 where
   T: PrimitiveTopologyMeta,
-  U: IndexGet + CollectionSize,
+  U: VertexContainer,
   T::Primitive<U::Output>: PrimitiveData<U>,
 {
   type Primitive = T::Primitive<U::Output>;

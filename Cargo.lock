@@ -2687,6 +2687,7 @@ dependencies = [
  "rendiation-controller",
  "rendiation-generative-texture",
  "rendiation-geometry",
+ "rendiation-mesh-generator",
  "rendiation-renderable-mesh",
  "rendiation-scene-core",
  "rendiation-scene-webgpu",

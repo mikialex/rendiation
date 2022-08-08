@@ -8,8 +8,7 @@ use gpu::GPURenderPassCtx;
 use rendiation_webgpu as gpu;
 use shadergraph::*;
 
-use crate::group::*;
-use crate::mesh::*;
+use crate::*;
 
 pub struct MeshGPU {
   range_full: MeshGroup,
@@ -84,6 +83,7 @@ where
   V: ShaderGraphVertexInProvider,
   IU::Output: gpu::IndexBufferSourceType,
   IndexedMesh<T, Vec<V>, IU>: AbstractIndexMesh,
+  T: PrimitiveTopologyMeta,
 {
   type GPU = TypedMeshGPU<Self>;
   fn create(&self, device: &gpu::Device) -> Self::GPU {
@@ -160,7 +160,11 @@ where
       contents: self.index.as_gpu_bytes(),
       usage: gpu::BufferUsages::INDEX,
     });
-    let index = (Rc::new(index), IU::Output::FORMAT).into();
+    let index = (
+      Rc::new(index),
+      <IU::Output as gpu::IndexBufferSourceType>::FORMAT,
+    )
+      .into();
 
     let range_full = MeshGroup {
       start: 0,

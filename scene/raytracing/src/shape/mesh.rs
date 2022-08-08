@@ -8,6 +8,7 @@ use rendiation_renderable_mesh::{
     NoneIndexedMesh, TriangleList,
   },
   vertex::Vertex,
+  IndexBuffer,
 };
 use space_algorithm::{
   bvh::{FlattenBVH, SAH},
@@ -106,7 +107,7 @@ where
   }
 }
 
-impl TriangleMesh<IndexedMesh> {
+impl TriangleMesh<IndexedMesh<TriangleList, Vec<Vertex>, IndexBuffer<u32>>> {
   pub fn from_path_obj(path: &str) -> Self {
     let obj = tobj::load_obj(path, true);
     let (models, _) = obj.unwrap();
@@ -162,7 +163,7 @@ impl TriangleMesh<IndexedMesh> {
       }
     }
 
-    let mut mesh: NoneIndexedMesh<_, TriangleList> = NoneIndexedMesh::new(vertices);
+    let mut mesh: NoneIndexedMesh<TriangleList, Vec<Vertex>> = NoneIndexedMesh::new(vertices);
 
     if need_compute_vertex_normal {
       let face_normals: Vec<NormalizedVec3<f32>> = mesh

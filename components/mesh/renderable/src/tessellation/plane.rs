@@ -8,9 +8,7 @@ use rendiation_algebra::*;
 pub struct Quad;
 
 impl IndexedMeshTessellator for Quad {
-  fn tessellate(
-    &self,
-  ) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList, Vec<Vertex>, Vec<u16>>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>>> {
     PlaneMeshParameter {
       width: 2.,
       height: 2.,
@@ -41,9 +39,7 @@ impl Default for PlaneMeshParameter {
 }
 
 impl IndexedMeshTessellator for PlaneMeshParameter {
-  fn tessellate(
-    &self,
-  ) -> GroupedMesh<IndexedMesh<u16, Vertex, TriangleList, Vec<Vertex>, Vec<u16>>> {
+  fn tessellate(&self) -> GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>>> {
     let Self {
       width,
       height,

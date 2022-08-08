@@ -138,7 +138,7 @@ where
 }
 
 pub trait BVHLineBufferDebugAble {
-  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<Vec3<f32>, LineList>;
+  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<LineList, Vec<Vec3<f32>>>;
 }
 
 pub trait EntityLineDebugAble {
@@ -173,7 +173,7 @@ impl EntityLineDebugAble for Box3 {
 }
 
 impl<B: BVHBounding + EntityLineDebugAble> BVHLineBufferDebugAble for FlattenBVH<B> {
-  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<Vec3<f32>, LineList> {
+  fn generate_debug_line_buffer(&self) -> NoneIndexedMesh<LineList, Vec<Vec3<f32>>> {
     let mut position = Vec::new();
     self.nodes.iter().for_each(|b| {
       b.bounding.for_each_line(&mut |line| {

@@ -33,7 +33,7 @@ impl Default for CubeMeshParameter {
 
 #[rustfmt::skip]
 impl IndexedMeshTessellator for CubeMeshParameter {
-  fn tessellate(&self) ->  GroupedMesh<IndexedMesh<u16, Vertex, TriangleList, Vec<Vertex>, Vec<u16>>> {
+  fn tessellate(&self) ->  GroupedMesh<IndexedMesh<TriangleList, Vec<Vertex>, Vec<u16>>> {
     let Self {
       width,
       height,

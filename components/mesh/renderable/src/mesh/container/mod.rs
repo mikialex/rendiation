@@ -6,7 +6,18 @@ pub mod none_indexed;
 pub use indexed::*;
 pub use none_indexed::*;
 
-use crate::group::MeshGroup;
+use crate::*;
+
+// note1: adding for<'a> &'a IU: IntoIterator<Item = IU::Output> in where clause is not useful
+// because I don't know why such bound should also be bounded explicitly in impls usages
+
+// note2: adding semantic associate type Vertex instead of super trait's Output is not useful
+// because type system don't understand these two types are same. So the impls still requires Output's bounds.
+pub trait VertexContainer: IndexGet<Output: Copy> + CollectionSize {}
+impl<T: IndexGet<Output: Copy> + CollectionSize> VertexContainer for T {}
+
+pub trait IndexContainer: IndexGet<Output: IndexType> + CollectionSize {}
+impl<T: IndexGet<Output: IndexType> + CollectionSize> IndexContainer for T {}
 
 pub trait AbstractMesh {
   type Primitive;
@@ -33,19 +44,20 @@ pub trait AbstractMesh {
     }
   }
 
+  /// if the group outside the bound, will be clamped
   fn primitive_iter_group(&self, group: MeshGroup) -> AbstractMeshIter<'_, Self>
   where
     Self: Sized,
   {
-    assert!(group.start <= self.draw_count());
-    assert!(group.count <= self.draw_count());
+    let draw_count = self.draw_count();
+    let step = draw_count / self.primitive_count();
 
-    let step = self.draw_count() / self.primitive_count();
+    let clamped_start = group.start.min(draw_count);
 
     AbstractMeshIter {
       mesh: self,
-      current: group.start,
-      count: group.count / step,
+      current: clamped_start,
+      count: group.count.min(draw_count - clamped_start) / step,
     }
   }
 }
@@ -97,19 +109,21 @@ pub trait AbstractIndexMesh: AbstractMesh {
       count: self.primitive_count(),
     }
   }
+
+  /// if the group outside the bound, will be clamped
   fn index_primitive_iter_group(&self, group: MeshGroup) -> AbstractIndexMeshIter<'_, Self>
   where
     Self: Sized,
   {
-    assert!(group.start <= self.primitive_count());
-    assert!(group.count <= self.primitive_count());
+    let draw_count = self.draw_count();
+    let step = draw_count / self.primitive_count();
 
-    let step = self.draw_count() / self.primitive_count();
+    let clamped_start = group.start.min(draw_count);
 
     AbstractIndexMeshIter {
       mesh: self,
-      current: group.start,
-      count: group.count / step,
+      current: clamped_start,
+      count: group.count.min(draw_count - clamped_start) / step,
     }
   }
 }

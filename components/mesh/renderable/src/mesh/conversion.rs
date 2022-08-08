@@ -9,11 +9,7 @@
 // indexed -> noneIndexed expand?
 // noneIndexed -> indexed indexed?
 
-use super::{
-  AbstractIndexMesh, AbstractMesh, CollectionSize, HashAbleByConversion, IndexGet, IndexType,
-  IndexedMesh, IndexedPrimitiveData, LineList, NoneIndexedMesh, PointList, PrimitiveTopologyMeta,
-  TryFromIterator,
-};
+use crate::*;
 use rendiation_algebra::{InnerProductSpace, Vec3};
 use rendiation_geometry::{LineSegment, Triangle};
 use std::{
@@ -26,8 +22,8 @@ use std::{
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
   Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>>,
+  IU: IndexContainer,
   U: Clone,
-  IU: IndexGet,
 {
   pub fn create_wireframe<RIU>(&self) -> IndexedMesh<LineList, U, RIU>
   where
@@ -53,10 +49,9 @@ where
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
   Self: AbstractIndexMesh<IndexPrimitive = Triangle<IU::Output>, Primitive = Triangle<U::Output>>,
-  U: IndexGet + FromIterator<U::Output>,
-  IU: IndexGet,
-  // I: IndexType,
-  // V: Copy + Deref<Target = Vec3<f32>>,
+  U: VertexContainer + FromIterator<U::Output>,
+  IU: IndexContainer,
+  U::Output: Deref<Target = Vec3<f32>>,
 {
   /// maybe you should merge vertex before create edge
   /// non manifold mesh may affect result
@@ -93,9 +88,10 @@ where
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  IU: IndexGet + TryFromIterator<usize> + CollectionSize,
+  IU: IndexContainer + TryFromIterator<usize>,
   for<'a> &'a IU: IntoIterator<Item = IU::Output>,
-  U: IndexGet,
+  for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
+  U: VertexContainer,
   Self: AbstractIndexMesh,
 {
   pub fn merge_vertex_by_sorting(
@@ -103,7 +99,8 @@ where
     mut sorter: impl FnMut(&U::Output, &U::Output) -> Ordering,
     mut merger: impl FnMut(&U::Output, &U::Output) -> bool,
   ) -> Result<IndexedMesh<T, Vec<U::Output>, IU>, IU::Error> {
-    let mut resorted: Vec<_> = self.data.iter().enumerate().map(|(i, v)| (i, v)).collect();
+    let data = &self.data;
+    let mut resorted: Vec<_> = data.into_iter().enumerate().map(|(i, v)| (i, v)).collect();
     let mut merge_data = Vec::with_capacity(resorted.len());
     let mut deduplicate_map = Vec::with_capacity(self.index.len());
     resorted.sort_unstable_by(|a, b| sorter(a.1, b.1));
@@ -135,7 +132,7 @@ where
 
 impl<T, U, IU> IndexedMesh<T, U, IU>
 where
-  IU: IndexGet,
+  IU: IndexContainer,
   U: IndexGet + FromIterator<U::Output>,
   for<'a> &'a IU: IntoIterator<Item = IU::Output>,
 {
@@ -150,19 +147,22 @@ where
   }
 }
 
-impl<V, T> NoneIndexedMesh<V, T>
+impl<T, U> NoneIndexedMesh<T, U>
 where
-  V: HashAbleByConversion + Copy,
-  T: PrimitiveTopologyMeta<V>,
-  <T as PrimitiveTopologyMeta<V>>::Primitive: IndexedPrimitiveData<u16, V, Vec<V>, Vec<u16>>,
+  U: VertexContainer,
+  U::Output: HashAbleByConversion,
+  for<'a> &'a U: IntoIterator<Item = &'a U::Output>,
+  Self: AbstractMesh,
 {
-  pub fn create_index_geometry<I, IU>(&self) -> Result<IndexedMesh<I, V, T, Vec<V>, IU>, IU::Error>
+  pub fn create_index_geometry<IU>(&self) -> Result<IndexedMesh<T, Vec<U::Output>, IU>, IU::Error>
   where
     IU: TryFromIterator<usize>,
   {
-    let mut deduplicate_map = HashMap::<V::HashAble, usize>::new();
+    let mut deduplicate_map =
+      HashMap::<<U::Output as HashAbleByConversion>::HashAble, usize>::new();
     let mut deduplicate_buffer = Vec::with_capacity(self.data.len());
-    let index = IU::try_from_iter(self.data.iter().map(|v| {
+    let data = &self.data;
+    let index = IU::try_from_iter(data.into_iter().map(|v| {
       let h = v.to_hashable();
       *deduplicate_map.entry(h).or_insert_with(|| {
         deduplicate_buffer.push(*v);

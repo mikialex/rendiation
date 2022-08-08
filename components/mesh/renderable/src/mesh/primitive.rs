@@ -1,26 +1,14 @@
 use rendiation_geometry::LineSegment;
 use rendiation_geometry::Point;
 use rendiation_geometry::Triangle;
-use std::hash::Hash;
 
-pub trait HashAbleByConversion {
-  type HashAble: Hash + Eq;
-  fn to_hashable(&self) -> Self::HashAble;
-}
+use crate::*;
 
-pub trait PrimitiveData<U> // where
-//   T: Copy,
-//   U: IndexGet<Output = T>,
-{
+pub trait PrimitiveData<U> {
   fn from_data(data: &U, offset: usize) -> Self;
 }
 
-pub trait IndexedPrimitiveData<U, IU>: PrimitiveData<U>
-// where
-//   T: Copy,
-//   U: IndexGet<Output = T>,
-//   IU: IndexGet<Output = I>,
-{
+pub trait IndexedPrimitiveData<U, IU>: PrimitiveData<U> {
   type IndexIndicator;
   fn from_indexed_data(index: &IU, data: &U, offset: usize) -> Self;
   fn create_index_indicator(index: &IU, offset: usize) -> Self::IndexIndicator;
@@ -214,6 +202,3 @@ impl PrimitiveTopologyMeta for LineStrip {
   const STRIDE: usize = 2;
   const ENUM: PrimitiveTopology = PrimitiveTopology::LineStrip;
 }
-
-use super::IndexGet;
-use super::IndexType;
