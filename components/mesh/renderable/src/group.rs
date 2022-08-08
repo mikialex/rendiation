@@ -14,7 +14,7 @@ impl From<MeshGroup> for Range<u32> {
   }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 pub struct MeshGroupsInfo {
   pub groups: Vec<MeshGroup>,
 }

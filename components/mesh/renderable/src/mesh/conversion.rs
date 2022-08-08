@@ -42,7 +42,7 @@ where
       .iter()
       .flat_map(|l| l.iter_point())
       .collect();
-    IndexedMesh::new(self.data.clone(), new_index)
+    IndexedMesh::new(self.vertex.clone(), new_index)
   }
 }
 
@@ -80,7 +80,7 @@ where
       .filter(|(_, f)| f.1.is_none() || normals[f.0].dot(normals[f.1.unwrap()]) <= threshold_dot)
       .map(|(e, _)| e)
       .flat_map(|l| l.iter_point())
-      .map(|i| self.data.index_get(i.into_usize()).unwrap())
+      .map(|i| self.vertex.index_get(i.into_usize()).unwrap())
       .collect();
     NoneIndexedMesh::new(data)
   }
@@ -99,19 +99,19 @@ where
     mut sorter: impl FnMut(&U::Output, &U::Output) -> Ordering,
     mut merger: impl FnMut(&U::Output, &U::Output) -> bool,
   ) -> Result<IndexedMesh<T, Vec<U::Output>, IU>, IU::Error> {
-    let data = &self.data;
+    let data = &self.vertex;
     let mut resorted: Vec<_> = data.into_iter().enumerate().map(|(i, v)| (i, v)).collect();
     let mut merge_data = Vec::with_capacity(resorted.len());
     let mut deduplicate_map = Vec::with_capacity(self.index.len());
     resorted.sort_unstable_by(|a, b| sorter(a.1, b.1));
 
-    let mut resort_map: Vec<_> = (0..self.data.len()).collect();
+    let mut resort_map: Vec<_> = (0..self.vertex.len()).collect();
     resorted
       .iter()
       .enumerate()
       .for_each(|(i, v)| resort_map[v.0] = i);
 
-    if self.data.len() >= 2 {
+    if self.vertex.len() >= 2 {
       merge_data.push(*resorted[0].1);
       deduplicate_map.push(0);
 
@@ -141,7 +141,7 @@ where
     NoneIndexedMesh::new(
       index
         .into_iter()
-        .map(|i| self.data.index_get((i).into_usize()).unwrap())
+        .map(|i| self.vertex.index_get((i).into_usize()).unwrap())
         .collect(),
     )
   }
@@ -180,6 +180,6 @@ where
   U: Clone,
 {
   pub fn create_point_cloud(&self) -> NoneIndexedMesh<PointList, U> {
-    NoneIndexedMesh::new(self.data.clone())
+    NoneIndexedMesh::new(self.vertex.clone())
   }
 }

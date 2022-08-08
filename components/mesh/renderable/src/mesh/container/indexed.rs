@@ -22,6 +22,7 @@ impl IndexType for u16 {
   }
 }
 
+#[derive(Debug, Clone)]
 pub enum DynIndexContainer {
   Uint16(Vec<u16>),
   Uint32(Vec<u32>),
@@ -104,15 +105,6 @@ impl FromIterator<usize> for DynIndexContainer {
     let mut c = Self::default();
     iter.into_iter().for_each(|i| c.try_push_index(i).unwrap());
     c
-  }
-}
-
-impl AsGPUBytes for DynIndexContainer {
-  fn as_gpu_bytes(&self) -> &[u8] {
-    match self {
-      DynIndexContainer::Uint16(i) => bytemuck::cast_slice(i.as_slice()),
-      DynIndexContainer::Uint32(i) => bytemuck::cast_slice(i.as_slice()),
-    }
   }
 }
 
@@ -218,7 +210,7 @@ impl CollectionSize for DynIndexContainer {
 
 /// A indexed mesh that use vertex as primitive;
 pub struct IndexedMesh<T, U, IU> {
-  pub data: U,
+  pub vertex: U,
   pub index: IU,
   _phantom: PhantomData<T>,
 }
@@ -232,7 +224,7 @@ impl<T, U, IU> From<(U, IU)> for IndexedMesh<T, U, IU> {
 impl<T, U, IU> IndexedMesh<T, U, IU> {
   pub fn new(v: U, index: IU) -> Self {
     Self {
-      data: v,
+      vertex: v,
       index,
       _phantom: PhantomData,
     }
@@ -261,7 +253,7 @@ where
   #[inline(always)]
   fn primitive_at(&self, primitive_index: usize) -> Self::Primitive {
     let index = primitive_index * T::STEP;
-    T::Primitive::from_indexed_data(&self.index, &self.data, index)
+    T::Primitive::from_indexed_data(&self.index, &self.vertex, index)
   }
 }
 

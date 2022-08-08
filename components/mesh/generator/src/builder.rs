@@ -1,10 +1,10 @@
-use rendiation_renderable_mesh::{vertex::Vertex, *};
+use rendiation_renderable_mesh::{tessellation::PlaneMeshParameter, vertex::Vertex, *};
 
 use crate::*;
 
 pub struct IndexedMeshBuilder<T, U> {
   index: DynIndexContainer,
-  container: U,
+  vertex: U,
   phantom: PhantomData<T>,
   groups: MeshGroupsInfo,
 }
@@ -13,7 +13,7 @@ impl<T, U: Default> Default for IndexedMeshBuilder<T, U> {
   fn default() -> Self {
     Self {
       index: Default::default(),
-      container: Default::default(),
+      vertex: Default::default(),
       phantom: Default::default(),
       groups: Default::default(),
     }
@@ -21,9 +21,16 @@ impl<T, U: Default> Default for IndexedMeshBuilder<T, U> {
 }
 
 impl<T, U> IndexedMeshBuilder<T, U> {
-  pub fn build_mesh(self) -> GroupedMesh<IndexedMesh<T, U, DynIndexContainer>> {
-    let mesh = IndexedMesh::new(self.container, self.index);
+  pub fn build_mesh_into(self) -> GroupedMesh<IndexedMesh<T, U, DynIndexContainer>> {
+    let mesh = IndexedMesh::new(self.vertex, self.index);
     GroupedMesh::new(mesh, self.groups)
+  }
+  pub fn build_mesh(&self) -> GroupedMesh<IndexedMesh<T, U, DynIndexContainer>>
+  where
+    U: Clone,
+  {
+    let mesh = IndexedMesh::new(self.vertex.clone(), self.index.clone());
+    GroupedMesh::new(mesh, self.groups.clone())
   }
 }
 
@@ -33,7 +40,7 @@ pub struct TessellationConfig {
   pub v: usize,
 }
 
-pub trait VertexBuildingContainer {
+pub trait VertexBuildingContainer: CollectionSize {
   type Vertex;
   fn push_vertex(&mut self, v: Self::Vertex);
 }
@@ -71,26 +78,22 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
-    if config.u <= 1 || config.v <= 1 {
-      return;
-    }
-
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
-    for u in 0..config.u {
-      for v in 0..config.v {
+    for u in 0..=config.u {
+      for v in 0..=config.v {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
         let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.container.push_vertex(vertex)
+        self.vertex.push_vertex(vertex)
       }
     }
 
-    let index_start = self.index.len();
-    let uv_to_index = |u: usize, v: usize| -> usize { index_start + v + config.v * u };
+    let index_start = self.vertex.len();
+    let uv_to_index = |u: usize, v: usize| -> usize { index_start + v + (config.v + 1) * u };
 
-    for u in 0..config.u - 1 {
-      for v in 0..config.v - 1 {
+    for u in 0..config.u {
+      for v in 0..config.v {
         // a  b
         // c  d
         let a = uv_to_index(u, v);
@@ -108,13 +111,30 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
       }
     }
 
-    let count = (config.u - 1) * (config.v - 1) * 6;
+    let count = config.u * config.v * 6;
     if keep_grouping {
       self.groups.push_consequent(count);
     } else {
       self.groups.extend_last(count)
     }
   }
+}
+
+#[test]
+fn triangulate() {
+  let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
+  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
+  let mesh = builder.build_mesh();
+  assert_eq!(mesh.mesh.index.len(), 6);
+  assert_eq!(mesh.mesh.vertex.len(), 4);
+  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
+  let mesh = builder.build_mesh();
+  assert_eq!(mesh.mesh.index.len(), 6 + 6);
+  assert_eq!(mesh.mesh.vertex.len(), 4 + 4);
+  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 2, v: 3 }, true);
+  let mesh = builder.build_mesh();
+  assert_eq!(mesh.mesh.index.len(), 6 + 6 + 36);
+  assert_eq!(mesh.mesh.vertex.len(), 4 + 4 + 12);
 }
 
 impl<U> IndexedMeshBuilder<LineList, U> {
@@ -134,11 +154,11 @@ impl<U> IndexedMeshBuilder<LineList, U> {
         let u = u as f32 * u_step;
         let v = v as f32 * v_step;
         let vertex = U::Vertex::from_surface(surface, (u, v).into());
-        self.container.push_vertex(vertex)
+        self.vertex.push_vertex(vertex)
       }
     }
 
-    let index_start = self.index.len();
+    let index_start = self.vertex.len();
     let uv_to_index = |u: usize, v: usize| -> usize { index_start + u + config.u * v };
 
     for u in 0..config.u {

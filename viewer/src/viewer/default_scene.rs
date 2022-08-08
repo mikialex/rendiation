@@ -69,48 +69,48 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
 
   // scene.background = Box::new(bg);
 
-  {
-    let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
-    builder.triangulate_parametric(
-      &SphereMeshParameter::default().make_surface(),
-      TessellationConfig { u: 16, v: 16 },
-      true,
-    );
-    let mesh = builder.build_mesh();
-    let mesh = MeshSource::new(mesh);
-    let material = PhysicalMaterial::<WebGPUScene> {
-      albedo: Vec3::splat(1.),
-      sampler: TextureSampler::default(),
-      texture: texture.clone(),
-    }
-    .use_state();
-
-    let child = scene.root().create_child();
-    child.set_local_matrix(Mat4::translate((2., 0., 3.)));
-
-    let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
-    scene.add_model(model)
-  }
-
   // {
   //   let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
-  //   for face in CubeMeshParameter::default().make_faces() {
-  //     builder.triangulate_parametric(&face, TessellationConfig { u: 1, v: 1 }, true);
-  //   }
-  //   let mesh = builder.build_mesh();
+  //   builder.triangulate_parametric(
+  //     &SphereMeshParameter::default().make_surface(),
+  //     TessellationConfig { u: 16, v: 16 },
+  //     true,
+  //   );
+  //   let mesh = builder.build_mesh_into();
   //   let mesh = MeshSource::new(mesh);
-  //   let mut material = PhysicalMaterial::<WebGPUScene> {
+  //   let material = PhysicalMaterial::<WebGPUScene> {
   //     albedo: Vec3::splat(1.),
   //     sampler: TextureSampler::default(),
-  //     texture,
+  //     texture: texture.clone(),
   //   }
   //   .use_state();
-  //   material.states.depth_compare = webgpu::CompareFunction::Always;
+
   //   let child = scene.root().create_child();
+  //   child.set_local_matrix(Mat4::translate((2., 0., 3.)));
 
   //   let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
   //   scene.add_model(model)
   // }
+
+  {
+    let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
+    for face in CubeMeshParameter::default().make_faces() {
+      builder.triangulate_parametric(&face, TessellationConfig { u: 1, v: 1 }, true);
+    }
+    let mesh = builder.build_mesh();
+    let mesh = MeshSource::new(mesh);
+    let mut material = PhysicalMaterial::<WebGPUScene> {
+      albedo: Vec3::splat(1.),
+      sampler: TextureSampler::default(),
+      texture,
+    }
+    .use_state();
+    material.states.depth_compare = webgpu::CompareFunction::Always;
+    let child = scene.root().create_child();
+
+    let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();
+    scene.add_model(model)
+  }
 
   // {
   //   let mesh = TransformInstance {

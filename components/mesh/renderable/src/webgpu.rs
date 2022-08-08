@@ -162,6 +162,15 @@ impl<T: Pod> AsGPUBytes for Vec<T> {
   }
 }
 
+impl AsGPUBytes for DynIndexContainer {
+  fn as_gpu_bytes(&self) -> &[u8] {
+    match self {
+      DynIndexContainer::Uint16(i) => bytemuck::cast_slice(i.as_slice()),
+      DynIndexContainer::Uint32(i) => bytemuck::cast_slice(i.as_slice()),
+    }
+  }
+}
+
 impl<V, T, IU> IndexedMesh<T, Vec<V>, IU>
 where
   V: Pod,
@@ -169,7 +178,7 @@ where
   Self: AbstractIndexMesh,
 {
   pub fn create_gpu(&self, device: &gpu::Device) -> MeshGPU {
-    let vertex = bytemuck::cast_slice(self.data.as_slice());
+    let vertex = bytemuck::cast_slice(self.vertex.as_slice());
     let vertex = device.create_buffer_init(&gpu::util::BufferInitDescriptor {
       label: None,
       contents: vertex,
