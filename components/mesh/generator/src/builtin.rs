@@ -87,9 +87,9 @@ impl Default for SphereMeshParameter {
     Self {
       radius: 1.0,
       phi_start: 0.,
-      phi_length: std::f32::consts::PI * 2.,
+      phi_length: f32::PI() * 2.,
       theta_start: 0.,
-      theta_length: std::f32::consts::PI,
+      theta_length: f32::PI(),
     }
   }
 }
@@ -104,9 +104,10 @@ impl SphereMeshParameter {
       theta_length,
     } = self;
 
-    let to_normalized = 1. / (2. * f32::PI());
-    let u_range = phi_start * to_normalized..(phi_start + phi_length) * to_normalized;
-    let v_range = theta_start * to_normalized..(theta_start + theta_length) * to_normalized;
+    let to_normalized_u = 1. / (2. * f32::PI());
+    let to_normalized_v = 1. / f32::PI();
+    let u_range = phi_start * to_normalized_u..(phi_start + phi_length) * to_normalized_u;
+    let v_range = theta_start * to_normalized_v..(theta_start + theta_length) * to_normalized_v;
 
     UVSphere
       .transform_by(Mat4::scale(Vec3::splat(radius)))

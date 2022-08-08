@@ -71,6 +71,10 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
+    if config.u <= 1 || config.v <= 1 {
+      return;
+    }
+
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
     for u in 0..config.u {
@@ -83,10 +87,10 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
     }
 
     let index_start = self.index.len();
-    let uv_to_index = |u: usize, v: usize| -> usize { index_start + u + config.u * v };
+    let uv_to_index = |u: usize, v: usize| -> usize { index_start + v + config.v * u };
 
-    for u in 0..config.u {
-      for v in 0..config.v {
+    for u in 0..config.u - 1 {
+      for v in 0..config.v - 1 {
         // a  b
         // c  d
         let a = uv_to_index(u, v);
@@ -104,7 +108,7 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
       }
     }
 
-    let count = config.u * config.v * 6;
+    let count = (config.u - 1) * (config.v - 1) * 6;
     if keep_grouping {
       self.groups.push_consequent(count);
     } else {
