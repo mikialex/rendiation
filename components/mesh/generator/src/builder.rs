@@ -1,4 +1,4 @@
-use rendiation_renderable_mesh::*;
+use rendiation_renderable_mesh::{vertex::Vertex, *};
 
 use crate::*;
 
@@ -7,6 +7,17 @@ pub struct IndexedMeshBuilder<T, U> {
   container: U,
   phantom: PhantomData<T>,
   groups: MeshGroupsInfo,
+}
+
+impl<T, U: Default> Default for IndexedMeshBuilder<T, U> {
+  fn default() -> Self {
+    Self {
+      index: Default::default(),
+      container: Default::default(),
+      phantom: Default::default(),
+      groups: Default::default(),
+    }
+  }
 }
 
 impl<T, U> IndexedMeshBuilder<T, U> {
@@ -25,6 +36,24 @@ pub struct TessellationConfig {
 pub trait VertexBuildingContainer {
   type Vertex;
   fn push_vertex(&mut self, v: Self::Vertex);
+}
+
+impl<T> VertexBuildingContainer for Vec<T> {
+  type Vertex = T;
+
+  fn push_vertex(&mut self, v: Self::Vertex) {
+    self.push(v)
+  }
+}
+
+impl VertexBuilding for Vertex {
+  fn from_surface(surface: &impl ParametricSurface, uv: Vec2<f32>) -> Self {
+    Self {
+      position: surface.position(uv),
+      normal: surface.normal(uv),
+      uv,
+    }
+  }
 }
 
 /// Expressing some type can be constructed from parametric surface

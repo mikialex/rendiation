@@ -30,6 +30,16 @@ pub struct CubeMeshParameter {
   pub depth: f32,
 }
 
+impl Default for CubeMeshParameter {
+  fn default() -> Self {
+    Self {
+      width: 1.,
+      height: 1.,
+      depth: 1.,
+    }
+  }
+}
+
 impl CubeMeshParameter {
   pub fn make_faces(self) -> [Transformed3D<ParametricPlane>; 6] {
     let Self {
@@ -70,6 +80,18 @@ pub struct SphereMeshParameter {
   pub theta_start: f32,
   /// in radius
   pub theta_length: f32,
+}
+
+impl Default for SphereMeshParameter {
+  fn default() -> Self {
+    Self {
+      radius: 1.0,
+      phi_start: 0.,
+      phi_length: std::f32::consts::PI * 2.,
+      theta_start: 0.,
+      theta_length: std::f32::consts::PI,
+    }
+  }
 }
 
 impl SphereMeshParameter {

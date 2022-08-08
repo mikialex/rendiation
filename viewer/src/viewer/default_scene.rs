@@ -1,8 +1,12 @@
 use image::*;
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::tessellation::{
-  CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
+use rendiation_mesh_generator::{
+  CubeMeshParameter, IndexedMeshBuilder, SphereMeshParameter, TessellationConfig,
 };
+use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
+// use rendiation_renderable_mesh::tessellation::{
+//   CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
+// };
 use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
 use webgpu::WebGPUTexture2dSource;
 
@@ -66,7 +70,13 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   // scene.background = Box::new(bg);
 
   {
-    let mesh = SphereMeshParameter::default().tessellate();
+    let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
+    builder.triangulate_parametric(
+      &SphereMeshParameter::default().make_surface(),
+      TessellationConfig { u: 16, v: 16 },
+      true,
+    );
+    let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
@@ -83,7 +93,11 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   }
 
   {
-    let mesh = CubeMeshParameter::default().tessellate();
+    let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
+    for face in CubeMeshParameter::default().make_faces() {
+      builder.triangulate_parametric(&face, TessellationConfig { u: 1, v: 1 }, true);
+    }
+    let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
     let mut material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),

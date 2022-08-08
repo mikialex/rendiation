@@ -14,19 +14,14 @@ impl From<MeshGroup> for Range<u32> {
   }
 }
 
+#[derive(Default)]
 pub struct MeshGroupsInfo {
   pub groups: Vec<MeshGroup>,
 }
 
-impl Default for MeshGroupsInfo {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
 impl MeshGroupsInfo {
   pub fn new() -> Self {
-    Self { groups: Vec::new() }
+    Self::default()
   }
 
   pub fn push(&mut self, start: usize, count: usize) {

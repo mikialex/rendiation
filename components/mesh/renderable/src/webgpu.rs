@@ -5,6 +5,7 @@ use core::marker::PhantomData;
 use gpu::util::DeviceExt;
 use gpu::DrawCommand;
 use gpu::GPURenderPassCtx;
+use gpu::IndexBufferSourceType;
 use rendiation_webgpu as gpu;
 use shadergraph::*;
 
@@ -76,12 +77,34 @@ pub trait GPUMeshData {
   fn build_shader(builder: &mut ShaderGraphRenderPipelineBuilder);
 }
 
+pub trait IndexBufferSourceTypeProvider {
+  fn format(&self) -> gpu::IndexFormat;
+}
+
+impl<T: IndexBufferSourceType> IndexBufferSourceTypeProvider for Vec<T> {
+  fn format(&self) -> gpu::IndexFormat {
+    T::FORMAT
+  }
+}
+impl<T: IndexBufferSourceType> IndexBufferSourceTypeProvider for IndexBuffer<T> {
+  fn format(&self) -> gpu::IndexFormat {
+    T::FORMAT
+  }
+}
+impl IndexBufferSourceTypeProvider for DynIndexContainer {
+  fn format(&self) -> gpu::IndexFormat {
+    match self {
+      DynIndexContainer::Uint16(_) => u16::FORMAT,
+      DynIndexContainer::Uint32(_) => u32::FORMAT,
+    }
+  }
+}
+
 impl<V, T, IU> GPUMeshData for GroupedMesh<IndexedMesh<T, Vec<V>, IU>>
 where
   V: Pod,
-  IU: IndexGet + AsGPUBytes,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider,
   V: ShaderGraphVertexInProvider,
-  IU::Output: gpu::IndexBufferSourceType,
   IndexedMesh<T, Vec<V>, IU>: AbstractIndexMesh,
   T: PrimitiveTopologyMeta,
 {
@@ -142,8 +165,7 @@ impl<T: Pod> AsGPUBytes for Vec<T> {
 impl<V, T, IU> IndexedMesh<T, Vec<V>, IU>
 where
   V: Pod,
-  IU::Output: gpu::IndexBufferSourceType,
-  IU: IndexGet + AsGPUBytes,
+  IU: IndexGet + AsGPUBytes + IndexBufferSourceTypeProvider,
   Self: AbstractIndexMesh,
 {
   pub fn create_gpu(&self, device: &gpu::Device) -> MeshGPU {
@@ -160,11 +182,7 @@ where
       contents: self.index.as_gpu_bytes(),
       usage: gpu::BufferUsages::INDEX,
     });
-    let index = (
-      Rc::new(index),
-      <IU::Output as gpu::IndexBufferSourceType>::FORMAT,
-    )
-      .into();
+    let index = (Rc::new(index), self.index.format()).into();
 
     let range_full = MeshGroup {
       start: 0,
