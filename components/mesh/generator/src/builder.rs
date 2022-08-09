@@ -78,6 +78,7 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
+    let index_start = self.vertex.len();
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
     for u in 0..=config.u {
@@ -89,7 +90,6 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
       }
     }
 
-    let index_start = self.vertex.len();
     let uv_to_index = |u: usize, v: usize| -> usize { index_start + v + (config.v + 1) * u };
 
     for u in 0..config.u {
@@ -147,6 +147,7 @@ impl<U> IndexedMeshBuilder<LineList, U> {
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
+    let index_start = self.vertex.len();
     let u_step = 1. / config.u as f32;
     let v_step = 1. / config.v as f32;
     for u in 0..config.u {
@@ -158,7 +159,6 @@ impl<U> IndexedMeshBuilder<LineList, U> {
       }
     }
 
-    let index_start = self.vertex.len();
     let uv_to_index = |u: usize, v: usize| -> usize { index_start + u + config.u * v };
 
     for u in 0..config.u {

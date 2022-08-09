@@ -52,7 +52,7 @@ impl CubeMeshParameter {
       let normal_move: Vec3<f32> = normal_move.into();
       let extend: Vec3<f32> = (width, height, depth).into();
 
-      Mat4::translate(extend * normal_move) // push front or back
+      Mat4::translate(extend * normal_move / 2.) // push front or back
     * Mat4::scale(extend) // apply cube parameter by scaling
     * rotate // rotate to correct plane
     * Mat4::translate((-0.5, -0.5, 0.)) // move to center

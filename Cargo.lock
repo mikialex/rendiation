@@ -1398,23 +1398,6 @@ dependencies = [
 
 [[package]]
 name = "naga"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4419062f8aa39fb25938169486341945758679e260ddbc1f94bfd1f33924dc2"
-dependencies = [
- "bit-set",
- "bitflags",
- "codespan-reporting",
- "hexf-parse",
- "indexmap",
- "log",
- "num-traits",
- "rustc-hash",
- "thiserror",
-]
-
-[[package]]
-name = "naga"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f50357e1167a3ab92d6b3c7f4bf5f7fd13fde3f4b28bf0d5ea07b5100fdb6c0"
@@ -2374,7 +2357,7 @@ name = "shadergraph-testing"
 version = "0.1.0"
 dependencies = [
  "glsl-shader-derives",
- "naga 0.8.1",
+ "naga",
  "shadergraph",
  "wgsl-codegen-graph",
 ]
@@ -2877,14 +2860,14 @@ checksum = "4a32b378380f4e9869b22f0b5177c68a5519f03b3454fde0b291455ddbae266c"
 
 [[package]]
 name = "wgpu"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd28e7c69ffd19c02e609322e4170738ac3340e699d8adfa16f5745625e4aa8c"
+checksum = "277e967bf8b7820a76852645a6bce8bbd31c32fda2042e82d8e3ea75fda8892d"
 dependencies = [
  "arrayvec",
  "js-sys",
  "log",
- "naga 0.9.0",
+ "naga",
  "parking_lot",
  "raw-window-handle",
  "smallvec",
@@ -2910,7 +2893,7 @@ dependencies = [
  "copyless",
  "fxhash",
  "log",
- "naga 0.9.0",
+ "naga",
  "parking_lot",
  "profiling",
  "raw-window-handle",
@@ -2946,7 +2929,7 @@ dependencies = [
  "libloading",
  "log",
  "metal",
- "naga 0.9.0",
+ "naga",
  "objc",
  "parking_lot",
  "profiling",
