@@ -1,8 +1,9 @@
 use image::*;
 use rendiation_algebra::*;
-use rendiation_renderable_mesh::tessellation::{
-  CubeMeshParameter, IndexedMeshTessellator, SphereMeshParameter,
+use rendiation_mesh_generator::{
+  CubeMeshParameter, IndexedMeshBuilder, SphereMeshParameter, TessellationConfig,
 };
+use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 use rendiation_texture::{rgb_to_rgba, TextureSampler, WrapAsTexture2DSource};
 use webgpu::WebGPUTexture2dSource;
 
@@ -66,7 +67,13 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   // scene.background = Box::new(bg);
 
   {
-    let mesh = SphereMeshParameter::default().tessellate();
+    let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
+      .triangulate_parametric(
+        &SphereMeshParameter::default().make_surface(),
+        TessellationConfig { u: 16, v: 16 },
+        true,
+      )
+      .build_mesh_into();
     let mesh = MeshSource::new(mesh);
     let material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
@@ -83,7 +90,16 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
   }
 
   {
-    let mesh = CubeMeshParameter::default().tessellate();
+    let cube = CubeMeshParameter {
+      width: 1.,
+      height: 2.,
+      depth: 3.,
+    };
+    let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
+    for face in cube.make_faces() {
+      builder = builder.triangulate_parametric(&face, TessellationConfig { u: 2, v: 3 }, true);
+    }
+    let mesh = builder.build_mesh();
     let mesh = MeshSource::new(mesh);
     let mut material = PhysicalMaterial::<WebGPUScene> {
       albedo: Vec3::splat(1.),
@@ -91,7 +107,7 @@ pub fn load_default_scene(scene: &mut Scene<WebGPUScene>) {
       texture,
     }
     .use_state();
-    material.states.depth_compare = webgpu::CompareFunction::Always;
+    // material.states.depth_compare = webgpu::CompareFunction::Always;
     let child = scene.root().create_child();
 
     let model: MeshModel<_, _> = MeshModelImpl::new(material, mesh, child).into();

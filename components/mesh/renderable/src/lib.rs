@@ -1,9 +1,14 @@
 #![feature(associated_type_bounds)]
 #![feature(type_alias_impl_trait)]
+#![feature(generic_associated_types)]
 
 pub mod group;
+pub use group::*;
 pub mod mesh;
-pub mod tessellation;
+pub use mesh::*;
+pub mod utils;
+pub use utils::*;
+
 pub mod vertex;
 
 #[cfg(feature = "webgpu")]

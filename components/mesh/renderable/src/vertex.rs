@@ -1,4 +1,4 @@
-use crate::mesh::HashAbleByConversion;
+use crate::*;
 use rendiation_algebra::*;
 use rendiation_geometry::Positioned;
 use std::{hash::Hash, mem};

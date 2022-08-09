@@ -1,31 +1,27 @@
-use super::super::*;
-use crate::vertex::Vertex;
+use crate::*;
 use core::marker::PhantomData;
 
-pub struct NoneIndexedMesh<V = Vertex, T = TriangleList, U = Vec<V>> {
+pub struct NoneIndexedMesh<T, U> {
   pub data: U,
-  _v_phantom: PhantomData<V>,
   _phantom: PhantomData<T>,
 }
 
-impl<V, T, U> NoneIndexedMesh<V, T, U> {
+impl<T, U> NoneIndexedMesh<T, U> {
   pub fn new(v: U) -> Self {
     Self {
       data: v,
-      _v_phantom: PhantomData,
       _phantom: PhantomData,
     }
   }
 }
 
-impl<V, T, U> AbstractMesh for NoneIndexedMesh<V, T, U>
+impl<T, U> AbstractMesh for NoneIndexedMesh<T, U>
 where
-  V: Copy,
-  T: PrimitiveTopologyMeta<V>,
-  U: IndexGet<Output = V> + CollectionSize,
-  T::Primitive: PrimitiveData<V, U>,
+  T: PrimitiveTopologyMeta,
+  U: VertexContainer,
+  T::Primitive<U::Output>: PrimitiveData<U>,
 {
-  type Primitive = T::Primitive;
+  type Primitive = T::Primitive<U::Output>;
 
   #[inline(always)]
   fn draw_count(&self) -> usize {

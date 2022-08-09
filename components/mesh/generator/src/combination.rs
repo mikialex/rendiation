@@ -108,6 +108,27 @@ impl<T: ParametricSurface> ParametricSurface for ReverseSurfaceNormal<T> {
   }
 }
 
+// for simplicity, we only impl Y axis rotate now.
+pub struct RotateSweep<T> {
+  pub cross_section_outline: T,
+}
+pub trait IntoRotateSweep: ParametricCurve2D + Sized {
+  fn rotate_sweep(self) -> RotateSweep<Self> {
+    RotateSweep {
+      cross_section_outline: self,
+    }
+  }
+}
+impl<T> IntoRotateSweep for T where T: ParametricCurve2D + Sized {}
+impl<T: ParametricCurve2D> ParametricSurface for RotateSweep<T> {
+  fn position(&self, position: Vec2<f32>) -> Vec3<f32> {
+    let xy = self.cross_section_outline.position(position.x);
+    let radius = xy.x;
+    let (z, x) = (position.y * f32::PI() * 2.).sin_cos();
+    Vec3::new(x * radius, xy.y, z * radius)
+  }
+}
+
 /// Fixed means the cross_section_outline only support 2d curve
 pub struct FixedSweepSurface<T, P> {
   pub cross_section_outline: T,
