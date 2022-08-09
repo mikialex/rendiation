@@ -1,4 +1,4 @@
-use rendiation_renderable_mesh::{tessellation::PlaneMeshParameter, vertex::Vertex, *};
+use rendiation_renderable_mesh::{vertex::Vertex, *};
 
 use crate::*;
 

@@ -28,14 +28,13 @@ impl ParametricSurface for UVSphere {
   }
 }
 
-pub struct UintLine3D;
+pub struct LineSegment2D {
+  pub start: Vec2<f32>,
+  pub end: Vec2<f32>,
+}
 
-impl ParametricCurve3D for UnitCircle {
-  fn position(&self, position: f32) -> Vec3<f32> {
-    Vec3::new(0., position, 0.)
-  }
-
-  fn normal(&self, _: f32) -> Vec3<f32> {
-    Vec3::new(1., 0., 0.)
+impl ParametricCurve2D for LineSegment2D {
+  fn position(&self, position: f32) -> Vec2<f32> {
+    self.start.lerp(self.end, position)
   }
 }
