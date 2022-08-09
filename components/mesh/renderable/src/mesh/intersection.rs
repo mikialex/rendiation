@@ -195,18 +195,3 @@ where
     ray.intersect(self, &conf.point_tolerance.value)
   }
 }
-
-#[test]
-fn test() {
-  use crate::mesh::*;
-  use crate::tessellation::{IndexedMeshTessellator, Quad};
-  use rendiation_algebra::*;
-
-  let config = MeshBufferIntersectConfig::default();
-  let quad = Quad.tessellate();
-  let ray = Ray3::new(Vec3::zero(), Vec3::new(1.0, 0.0, 0.0).into_normalized());
-  let mut result = MeshBufferHitList::new();
-  quad
-    .mesh
-    .intersect_list(ray, &config, quad.mesh.get_full_group(), &mut result);
-}

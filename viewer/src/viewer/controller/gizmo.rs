@@ -7,7 +7,8 @@ use interphaser::{
 };
 use rendiation_algebra::*;
 use rendiation_geometry::{IntersectAble, OptionalNearest, Plane};
-use rendiation_renderable_mesh::tessellation::{IndexedMeshTessellator, PlaneMeshParameter};
+use rendiation_mesh_generator::*;
+use rendiation_renderable_mesh::{vertex::Vertex, TriangleList};
 
 use crate::{
   helpers::{
@@ -362,7 +363,14 @@ fn build_plane(
   auto_scale: &Rc<RefCell<ViewAutoScalable>>,
   mat: Mat4<f32>,
 ) -> PlaneModel {
-  let mesh = PlaneMeshParameter::default().tessellate();
+  let mesh = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
+    .triangulate_parametric(
+      &ParametricPlane.transform_by(Mat4::translate((-0.5, -0.5, 0.))),
+      TessellationConfig { u: 1, v: 1 },
+      true,
+    )
+    .build_mesh_into();
+
   let mesh = MeshSource::new(mesh);
 
   let material = solid_material(RED);

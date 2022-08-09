@@ -70,11 +70,12 @@ pub trait VertexBuilding {
 
 impl<U> IndexedMeshBuilder<TriangleList, U> {
   pub fn triangulate_parametric(
-    &mut self,
+    mut self,
     surface: &impl ParametricSurface,
     config: TessellationConfig,
     keep_grouping: bool,
-  ) where
+  ) -> Self
+  where
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
@@ -117,21 +118,26 @@ impl<U> IndexedMeshBuilder<TriangleList, U> {
     } else {
       self.groups.extend_last(count)
     }
+
+    self
   }
 }
 
 #[test]
 fn triangulate() {
-  let mut builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
-  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
+  let builder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default();
+  let builder =
+    builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
   let mesh = builder.build_mesh();
   assert_eq!(mesh.mesh.index.len(), 6);
   assert_eq!(mesh.mesh.vertex.len(), 4);
-  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
+  let builder =
+    builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 1, v: 1 }, true);
   let mesh = builder.build_mesh();
   assert_eq!(mesh.mesh.index.len(), 6 + 6);
   assert_eq!(mesh.mesh.vertex.len(), 4 + 4);
-  builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 2, v: 3 }, true);
+  let builder =
+    builder.triangulate_parametric(&ParametricPlane, TessellationConfig { u: 2, v: 3 }, true);
   let mesh = builder.build_mesh();
   assert_eq!(mesh.mesh.index.len(), 6 + 6 + 36);
   assert_eq!(mesh.mesh.vertex.len(), 4 + 4 + 12);
@@ -139,11 +145,12 @@ fn triangulate() {
 
 impl<U> IndexedMeshBuilder<LineList, U> {
   pub fn build_grid_parametric(
-    &mut self,
+    mut self,
     surface: &impl ParametricSurface,
     config: TessellationConfig,
     keep_grouping: bool,
-  ) where
+  ) -> Self
+  where
     U: VertexBuildingContainer,
     U::Vertex: VertexBuilding,
   {
@@ -193,5 +200,7 @@ impl<U> IndexedMeshBuilder<LineList, U> {
     } else {
       self.groups.extend_last(count)
     }
+
+    self
   }
 }

@@ -2,10 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use rendiation_algebra::*;
 use rendiation_geometry::OptionalNearest;
-use rendiation_renderable_mesh::{
-  mesh::MeshBufferHitPoint,
-  tessellation::{CylinderMeshParameter, IndexedMeshTessellator},
-};
+use rendiation_mesh_generator::*;
+use rendiation_renderable_mesh::{mesh::MeshBufferHitPoint, vertex::Vertex, TriangleList};
 
 use crate::*;
 
@@ -87,7 +85,6 @@ impl Arrow {
     let material = solid_material((1., 1., 1.));
 
     let node_cylinder = root.create_child();
-    node_cylinder.set_local_matrix(Mat4::translate((0., 1., 0.)));
     let mut cylinder =
       MeshModelImpl::new(material.clone(), cylinder_mesh, node_cylinder).into_matrix_overridable();
 
@@ -107,22 +104,36 @@ impl Arrow {
   }
 
   pub fn default_shape() -> (ArrowBodyMesh, ArrowTipMesh) {
-    let cylinder = CylinderMeshParameter {
-      radius_top: 0.02,
-      radius_bottom: 0.02,
-      height: 2.,
-      ..Default::default()
-    }
-    .tessellate();
+    let config = TessellationConfig { u: 1, v: 10 };
+    let cylinder = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
+      .triangulate_parametric(
+        &CylinderMeshParameter {
+          radius_top: 0.02,
+          radius_bottom: 0.02,
+          height: 2.,
+          ..Default::default()
+        }
+        .body_surface(),
+        config,
+        true,
+      )
+      .build_mesh_into();
+
     let cylinder = MeshSource::new(cylinder);
 
-    let tip = CylinderMeshParameter {
-      radius_top: 0.0,
-      radius_bottom: 0.06,
-      height: 0.2,
-      ..Default::default()
-    }
-    .tessellate();
+    let tip = IndexedMeshBuilder::<TriangleList, Vec<Vertex>>::default()
+      .triangulate_parametric(
+        &CylinderMeshParameter {
+          radius_top: 0.0,
+          radius_bottom: 0.06,
+          height: 0.2,
+          ..Default::default()
+        }
+        .body_surface(),
+        config,
+        true,
+      )
+      .build_mesh_into();
     let tip = MeshSource::new(tip);
     (cylinder.into_ref(), tip.into_ref())
   }

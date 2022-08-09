@@ -9,7 +9,6 @@ pub use mesh::*;
 pub mod utils;
 pub use utils::*;
 
-pub mod tessellation;
 pub mod vertex;
 
 #[cfg(feature = "webgpu")]
