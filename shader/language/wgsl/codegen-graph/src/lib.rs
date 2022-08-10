@@ -396,11 +396,14 @@ fn gen_expr(data: &ShaderGraphNodeExpr, cx: &mut CodeGenCtx) -> String {
       texture,
       sampler,
       position,
+      index,
     } => format!(
-      "textureSample({}, {}, {})",
+      "textureSample({}, {}, {}{}{})",
       cx.get_node_gen_result_var(*texture),
       cx.get_node_gen_result_var(*sampler),
       cx.get_node_gen_result_var(*position),
+      index.map(|_| ", ").unwrap_or(""), // naga's parser is not handling optional ","
+      index.map(|i| cx.get_node_gen_result_var(i)).unwrap_or(""),
     ),
     ShaderGraphNodeExpr::Swizzle { ty, source } => {
       format!("{}.{}", cx.get_node_gen_result_var(*source), ty)
@@ -718,6 +721,7 @@ pub fn gen_primitive_literal(v: PrimitiveShaderValue) -> String {
       float_group(v.as_slice())
     }
     PrimitiveShaderValue::Uint32(v) => format!("{}", v),
+    PrimitiveShaderValue::Int32(v) => format!("{}", v),
   };
   #[allow(clippy::match_like_matches_macro)]
   let require_constructor = match v {

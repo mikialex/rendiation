@@ -196,10 +196,12 @@ impl ShaderGraphNode {
           texture,
           sampler,
           position,
+          index,
         } => {
           visitor(texture);
           visitor(sampler);
           visitor(position);
+          index.as_ref().map(visitor);
         }
         ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
           visitor(texture);
@@ -260,10 +262,12 @@ impl ShaderGraphNode {
           texture,
           sampler,
           position,
+          index,
         } => {
           visitor(texture);
           visitor(sampler);
           visitor(position);
+          index.as_mut().map(visitor);
         }
         ShaderGraphNodeExpr::SamplerCombinedTextureSampling { texture, position } => {
           visitor(texture);

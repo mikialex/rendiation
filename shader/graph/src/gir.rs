@@ -9,6 +9,7 @@ pub enum ShaderGraphNodeExpr {
     texture: ShaderGraphNodeRawHandle,
     sampler: ShaderGraphNodeRawHandle,
     position: ShaderGraphNodeRawHandle,
+    index: Option<ShaderGraphNodeRawHandle>,
   },
   SamplerCombinedTextureSampling {
     texture: ShaderGraphNodeRawHandle,
@@ -164,11 +165,11 @@ pub struct ShaderTextureCubeArray;
 #[derive(Clone, Copy)]
 pub struct ShaderDepthTexture2D;
 #[derive(Clone, Copy)]
+pub struct ShaderDepthTextureCube;
+#[derive(Clone, Copy)]
 pub struct ShaderDepthTexture2DArray;
 #[derive(Clone, Copy)]
 pub struct ShaderDepthTextureCubeArray;
-#[derive(Clone, Copy)]
-pub struct ShaderDepthCube;
 
 #[derive(Clone, Copy)]
 pub struct ShaderSampler;
@@ -201,6 +202,7 @@ pub enum PrimitiveScalarShaderType {
 pub enum PrimitiveShaderValue {
   Bool(bool),
   Uint32(u32),
+  Int32(i32),
   Float32(f32),
   Vec2Float32(Vec2<f32>),
   Vec3Float32(Vec3<f32>),
@@ -213,6 +215,7 @@ pub enum PrimitiveShaderValue {
 impl From<PrimitiveShaderValue> for PrimitiveShaderValueType {
   fn from(v: PrimitiveShaderValue) -> Self {
     match v {
+      PrimitiveShaderValue::Int32(_) => PrimitiveShaderValueType::Int32,
       PrimitiveShaderValue::Uint32(_) => PrimitiveShaderValueType::Uint32,
       PrimitiveShaderValue::Float32(_) => PrimitiveShaderValueType::Float32,
       PrimitiveShaderValue::Vec2Float32(_) => PrimitiveShaderValueType::Vec2Float32,
