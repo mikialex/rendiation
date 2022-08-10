@@ -14,6 +14,10 @@ impl ShaderUniformProvider for GPUTexture2dView {
   type Node = ShaderTexture2D;
 }
 
+impl ShaderUniformProvider for GPUTextureCubeView {
+  type Node = ShaderTextureCube;
+}
+
 impl ShaderUniformProvider for GPUSamplerView {
   type Node = ShaderSampler;
 }

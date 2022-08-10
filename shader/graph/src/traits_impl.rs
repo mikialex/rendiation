@@ -165,6 +165,17 @@ impl Node<ShaderTexture2D> {
   }
 }
 
+impl Node<ShaderTextureCube> {
+  pub fn sample(&self, sampler: Node<ShaderSampler>, position: Node<Vec3<f32>>) -> Node<Vec4<f32>> {
+    ShaderGraphNodeExpr::TextureSampling {
+      texture: self.handle(),
+      sampler: sampler.handle(),
+      position: position.handle(),
+    }
+    .insert_graph()
+  }
+}
+
 impl ShaderGraphNodeType for ShaderSamplerCombinedTexture {
   const TYPE: ShaderValueType = ShaderValueType::Texture {
     dimension: TextureViewDimension::D2,
