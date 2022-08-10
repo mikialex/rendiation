@@ -81,6 +81,7 @@ pub struct While {
   pub body: Block,
 }
 
+/// https://www.w3.org/TR/WGSL/#for-statement
 #[derive(Debug)]
 pub struct For {
   pub init: Box<Statement>,
@@ -88,6 +89,8 @@ pub struct For {
   pub update: Expression,
   pub body: Block,
 }
+
+pub enum ForInit {}
 
 #[derive(Debug)]
 pub enum Statement {
@@ -103,6 +106,8 @@ pub enum Statement {
     lhs: LhsExpression,
     value: Expression,
   },
+  Increment(LhsExpression),
+  Decrement(LhsExpression),
   Expression(Expression),
   Return {
     value: Option<Expression>,
@@ -218,6 +223,21 @@ pub enum Expression {
 //   primary: Box<>,
 
 // }
+
+/// https://www.w3.org/TR/WGSL/#syntax-compound_assignment_operator
+#[derive(Debug)]
+pub enum CompoundAssignMentOperator {
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Mod,
+  And,
+  Or,
+  Xor,
+  ShiftRight,
+  ShiftLeft,
+}
 
 #[derive(Debug)]
 pub struct LhsExpression {

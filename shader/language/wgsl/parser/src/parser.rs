@@ -757,3 +757,9 @@ impl SyntaxElement for Vec<PostFixExpression> {
     Ok(r)
   }
 }
+
+impl SyntaxElement for CompoundAssignMentOperator {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    todo!()
+  }
+}
