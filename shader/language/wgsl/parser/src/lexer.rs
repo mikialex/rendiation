@@ -41,6 +41,11 @@ pub enum Token<'a> {
   LogicalOperation(char),
   ShiftOperation(char),
   Arrow,
+  Increment,
+  Decrement,
+  Assign,
+  Equals,
+  NotEquals,
   Unknown(char),
   UnterminatedString,
   Trivia,
@@ -131,6 +136,11 @@ impl<'a> Lexer<'a> {
         Token::Bool(_) => "boolean",
         Token::End => "",
         Token::BuiltInType(_) => "builtin_type",
+        Token::Increment => "increment",
+        Token::Decrement => "decrement",
+        Token::Assign => "assign",
+        Token::Equals => "equals",
+        Token::NotEquals => "not equals",
       };
       Err(ParseError::Unexpected(next.token, description))
     }
@@ -254,6 +264,7 @@ impl<'a> Lexer<'a> {
       '-' => {
         let og_chars = chars.as_str();
         match chars.next() {
+          Some('-') => (Token::Decrement, chars.as_str()),
           Some('>') => (Token::Arrow, chars.as_str()),
           Some('0'..='9') | Some('.') => self.consume_number(),
           _ => (Token::Operation(cur), og_chars),
@@ -263,12 +274,20 @@ impl<'a> Lexer<'a> {
       '!' => {
         input = chars.as_str();
         if chars.next() == Some('=') {
-          (Token::LogicalOperation(cur), chars.as_str())
+          (Token::NotEquals, chars.as_str())
         } else {
           (Token::Operation(cur), input)
         }
       }
-      '=' | '&' | '|' => {
+      '=' => {
+        input = chars.as_str();
+        if chars.next() == Some('=') {
+          (Token::Equals, chars.as_str())
+        } else {
+          (Token::Assign, input)
+        }
+      }
+      '&' | '|' => {
         input = chars.as_str();
         if chars.next() == Some(cur) {
           (Token::LogicalOperation(cur), chars.as_str())

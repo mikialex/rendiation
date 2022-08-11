@@ -25,7 +25,18 @@ pub trait SyntaxElement: Sized {
   fn parse_input(input: &str) -> Result<Self, ParseError> {
     Self::parse(&mut Lexer::new(input))
   }
+  /// if error occurs, the lexer will not reset
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>>;
+
+  // the lexer will only forwarding when return Ok
+  fn try_parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let mut backup = lexer.clone();
+    let r = Self::parse(&mut backup);
+    if r.is_ok() {
+      *lexer = backup
+    }
+    r
+  }
 }
 
 #[derive(Debug)]
@@ -84,30 +95,56 @@ pub struct While {
 /// https://www.w3.org/TR/WGSL/#for-statement
 #[derive(Debug)]
 pub struct For {
-  pub init: Box<Statement>,
-  pub test: Box<Statement>,
-  pub update: Expression,
+  pub init: Option<ForInit>,
+  pub test: Option<Expression>,
+  pub update: Option<ForUpdate>,
   pub body: Block,
 }
 
-pub enum ForInit {}
+#[derive(Debug)]
+pub enum ForInit {
+  Declare(VariableStatement),
+  Increment(Increment),
+  Decrement(Decrement),
+  Call(FunctionCall),
+  Assignment(Assignment),
+}
+
+#[derive(Debug)]
+pub struct Increment(pub LhsExpression);
+#[derive(Debug)]
+pub struct Decrement(pub LhsExpression);
+
+#[derive(Debug)]
+pub enum ForUpdate {
+  Increment(Increment),
+  Decrement(Decrement),
+  Call(FunctionCall),
+  Assignment(Assignment),
+}
+
+#[derive(Debug)]
+pub struct Assignment {
+  pub lhs: LhsExpression,
+  pub value: Expression,
+}
+
+#[derive(Debug)]
+pub struct VariableStatement {
+  pub declare_ty: DeclarationType,
+  pub ty: Option<TypeExpression>,
+  pub name: Ident,
+  pub init: Option<Expression>,
+}
 
 #[derive(Debug)]
 pub enum Statement {
   Block(Block),
-  Declare {
-    declare_ty: DeclarationType,
-    ty: Option<TypeExpression>,
-    name: Ident,
-    init: Option<Expression>,
-  },
+  Declare(VariableStatement),
   Empty,
-  Assignment {
-    lhs: LhsExpression,
-    value: Expression,
-  },
-  Increment(LhsExpression),
-  Decrement(LhsExpression),
+  Assignment(Assignment),
+  Increment(Increment),
+  Decrement(Decrement),
   Expression(Expression),
   Return {
     value: Option<Expression>,
@@ -226,7 +263,7 @@ pub enum Expression {
 
 /// https://www.w3.org/TR/WGSL/#syntax-compound_assignment_operator
 #[derive(Debug)]
-pub enum CompoundAssignMentOperator {
+pub enum CompoundAssignmentOperator {
   Add,
   Sub,
   Mul,

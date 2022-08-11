@@ -324,15 +324,21 @@ impl SyntaxElement for Statement {
         }
         Kw::For => {
           let _ = lexer.next();
+
           lexer.expect(Token::Paren('('))?;
-          let init = parse_expression_like_statement(lexer)?;
-          let test = parse_expression_like_statement(lexer)?;
-          let update = Expression::parse(lexer)?;
+          let init = Option::<ForInit>::parse(lexer)?;
+          let test = match parse_expression_like_statement(lexer)? {
+            Statement::Expression(e) => Some(e),
+            _ => None,
+          };
+          let update = Option::<ForUpdate>::parse(lexer)?;
           lexer.expect(Token::Paren(')'))?;
+
           let body = Block::parse(lexer)?;
-          Statement::For(crate::ast::For {
-            init: Box::new(init),
-            test: Box::new(test),
+
+          Statement::For(For {
+            init,
+            test,
             update,
             body,
           })
@@ -353,71 +359,143 @@ impl SyntaxElement for Statement {
   }
 }
 
+impl SyntaxElement for Option<ForInit> {
+  #[allow(clippy::collapsible_match)]
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let statement = parse_expression_like_statement(lexer)?;
+    let r = match statement {
+      Statement::Declare(d) => ForInit::Declare(d),
+      Statement::Empty => return Ok(None),
+      Statement::Assignment(a) => ForInit::Assignment(a),
+      Statement::Increment(s) => ForInit::Increment(s),
+      Statement::Decrement(s) => ForInit::Decrement(s),
+      Statement::Expression(exp) => match exp {
+        Expression::FunctionCall(call) => ForInit::Call(call),
+        _ => return Err(ParseError::Any("invalid for init")),
+      },
+      _ => return Err(ParseError::Any("invalid for init")),
+    };
+    Ok(Some(r))
+  }
+}
+
+impl SyntaxElement for Option<ForUpdate> {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    // because the ForUpdate statement not followed by ';', so we can not reuse the statement parser
+    // we simply try every choice here
+    match lexer.peek().token {
+      Token::Paren(')') => Ok(None),
+      _ => {
+        let r = Assignment::try_parse(lexer)
+          .map(ForUpdate::Assignment)
+          .or_else(|_| Increment::try_parse(lexer).map(ForUpdate::Increment))
+          .or_else(|_| Decrement::try_parse(lexer).map(ForUpdate::Decrement))
+          .or_else(|_| FunctionCall::try_parse(lexer).map(ForUpdate::Call))?;
+        Ok(Some(r))
+      }
+    }
+  }
+}
+
+impl SyntaxElement for Increment {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let lhs = LhsExpression::parse(lexer)?;
+    lexer.expect(Token::Increment)?;
+    Ok(Self(lhs))
+  }
+}
+
+impl SyntaxElement for Decrement {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let lhs = LhsExpression::parse(lexer)?;
+    lexer.expect(Token::Decrement)?;
+    Ok(Self(lhs))
+  }
+}
+
+impl SyntaxElement for VariableStatement {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    match lexer.next().token {
+      Token::Keyword(Kw::Declare(declare_ty)) => {
+        let name = parse_ident(lexer)?;
+        let ty = if lexer.skip(Token::Separator(':')) {
+          TypeExpression::parse(lexer)?.into()
+        } else {
+          None
+        };
+
+        let exp = if let Token::Assign = lexer.peek().token {
+          lexer.expect(Token::Assign)?;
+          Expression::parse(lexer)?.into()
+        } else {
+          None
+        };
+        Ok(VariableStatement {
+          declare_ty,
+          ty,
+          name,
+          init: exp,
+        })
+      }
+      _ => Err(ParseError::Any("expect let or var")),
+    }
+  }
+}
+
+impl SyntaxElement for Assignment {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    let lhs = LhsExpression::parse(lexer)?;
+    lexer.expect(Token::Assign)?;
+    let exp = Expression::parse(lexer)?;
+    Ok(Assignment { lhs, value: exp })
+  }
+}
+
 pub fn parse_expression_like_statement<'a>(
   lexer: &mut Lexer<'a>,
 ) -> Result<Statement, ParseError<'a>> {
-  let mut lex = lexer.clone();
-  let mut lex2 = lexer.clone();
+  let mut checker = lexer.clone();
   let mut has_assign = false;
+  let mut is_increment = false;
+  let mut is_decrement = false;
   loop {
-    match lex.next().token {
-      Token::Operation('=') => has_assign = true,
+    match checker.next().token {
+      Token::Assign => has_assign = true,
+      Token::Increment => is_increment = true,
+      Token::Decrement => is_decrement = true,
       Token::Separator(';') => break,
       _ => {}
     }
   }
 
   let r = match lexer.peek().token {
-    Token::Keyword(Kw::Declare(declare_ty)) => {
-      let _ = lexer.next();
-      let name = parse_ident(lexer)?;
-      let ty = if lexer.skip(Token::Separator(':')) {
-        TypeExpression::parse(lexer)?.into()
-      } else {
-        None
-      };
-
-      let exp = if let Token::Operation('=') = lexer.peek().token {
-        lexer.expect(Token::Operation('='))?;
-        Expression::parse(lexer)?.into()
-      } else {
-        None
-      };
-
+    Token::Keyword(Kw::Declare(_)) => {
+      let var = VariableStatement::parse(lexer)?;
       lexer.expect(Token::Separator(';'))?;
-
-      Statement::Declare {
-        declare_ty,
-        ty,
-        name,
-        init: exp,
-      }
-    }
-    Token::Word(_) => {
-      let _ = lexer.next();
-      if has_assign {
-        // todo fix expect world first
-        let lhs = LhsExpression::parse(&mut lex2)?;
-        *lexer = lex2;
-        lexer.expect(Token::Operation('='))?;
-        let exp = Expression::parse(lexer)?;
-        lexer.expect(Token::Separator(';'))?;
-        Statement::Assignment { lhs, value: exp }
-      } else {
-        let exp = Expression::parse(&mut lex2)?;
-        *lexer = lex2;
-        lexer.expect(Token::Separator(';'))?;
-        Statement::Expression(exp)
-      }
+      Statement::Declare(var)
     }
     Token::Separator(';') => {
       let _ = lexer.next();
       Statement::Empty
     }
     _ => {
-      let exp = Expression::parse(lexer)?;
-      lexer.expect(Token::Separator(';'))?;
-      Statement::Expression(exp)
+      if has_assign {
+        let ass = Assignment::parse(lexer)?;
+        lexer.expect(Token::Separator(';'))?;
+        Statement::Assignment(ass)
+      } else if is_increment {
+        let i = Increment::parse(lexer)?;
+        lexer.expect(Token::Separator(';'))?;
+        Statement::Increment(i)
+      } else if is_decrement {
+        let i = Decrement::parse(lexer)?;
+        lexer.expect(Token::Separator(';'))?;
+        Statement::Decrement(i)
+      } else {
+        let exp = Expression::parse(lexer)?;
+        lexer.expect(Token::Separator(';'))?;
+        Statement::Expression(exp)
+      }
     }
   };
 
@@ -492,8 +570,8 @@ pub fn parse_exp_with_binary_operators_no_logic_no_bit<'a>(
   parse_binary_op_left(
     lexer,
     |token| match token {
-      Token::LogicalOperation('=') => Some(BinaryOperator::Equal),
-      Token::LogicalOperation('!') => Some(BinaryOperator::NotEqual),
+      Token::Equals => Some(BinaryOperator::Equal),
+      Token::NotEquals => Some(BinaryOperator::NotEqual),
       _ => None,
     },
     // relational_expression
@@ -526,7 +604,7 @@ pub fn parse_exp_with_binary_operators_no_logic_no_bit<'a>(
                   Token::Operation('%') => Some(BinaryOperator::Mod),
                   _ => None,
                 },
-                parse_exp_with_postfix,
+                parse_singular_expression,
               )
             },
           )
@@ -537,13 +615,13 @@ pub fn parse_exp_with_binary_operators_no_logic_no_bit<'a>(
 }
 
 // EXP_WITH_POSTFIX
-pub fn parse_exp_with_postfix<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
-  let mut result = parse_single_expression(lexer)?;
+pub fn parse_singular_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
+  let mut result = parse_primary_expression(lexer)?;
   loop {
     result = match lexer.peek().token {
       Token::Paren('[') => {
         let _ = lexer.next();
-        let index = parse_single_expression(lexer)?;
+        let index = parse_primary_expression(lexer)?;
         lexer.expect(Token::Paren(']'))?;
         Expression::ArrayAccess {
           array: Box::new(result),
@@ -568,8 +646,7 @@ pub fn parse_exp_with_postfix<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, P
 }
 
 // EXP_SINGLE
-pub fn parse_single_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
-  let mut backup = lexer.clone();
+pub fn parse_primary_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, ParseError<'a>> {
   let r = match lexer.next().token {
     Token::Number { .. } => Expression::PrimitiveConst(PrimitiveConstValue::Numeric(
       NumericTypeConstValue::Float(1.), // todo
@@ -597,8 +674,7 @@ pub fn parse_single_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, 
       inner
     }
     Token::BuiltInType(_) => {
-      let ty = PrimitiveType::parse(&mut backup)?;
-      *lexer = backup;
+      let ty = PrimitiveType::try_parse(lexer)?;
       Expression::PrimitiveConstruct {
         ty,
         arguments: parse_function_parameters(lexer)?,
@@ -606,10 +682,8 @@ pub fn parse_single_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, 
     }
     Token::Word(name) => {
       if let Token::Paren('(') = lexer.peek().token {
-        Expression::FunctionCall(FunctionCall {
-          name: Ident::from(name),
-          arguments: parse_function_parameters(lexer)?,
-        })
+        let call = FunctionCall::try_parse(lexer)?;
+        Expression::FunctionCall(call)
       } else {
         Expression::Ident(Ident {
           name: name.to_owned(),
@@ -619,6 +693,19 @@ pub fn parse_single_expression<'a>(lexer: &mut Lexer<'a>) -> Result<Expression, 
     _ => panic!(), // _ => return Err(ParseError::Any("failed in parse single expression")),
   };
   Ok(r)
+}
+
+impl SyntaxElement for FunctionCall {
+  fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    match lexer.next().token {
+      // todo expect word
+      Token::Word(name) => Ok(FunctionCall {
+        name: Ident::from(name),
+        arguments: parse_function_parameters(lexer)?,
+      }),
+      _ => Err(ParseError::Any("expect function name")),
+    }
+  }
 }
 
 fn parse_binary_op_left<'a>(
@@ -758,8 +845,14 @@ impl SyntaxElement for Vec<PostFixExpression> {
   }
 }
 
-impl SyntaxElement for CompoundAssignMentOperator {
+impl SyntaxElement for CompoundAssignmentOperator {
   fn parse<'a>(lexer: &mut Lexer<'a>) -> Result<Self, ParseError<'a>> {
+    // let first = match lexer.next().token {
+    //   Token::Operation('+') => Some(Self::Add),
+    //   _ => None,
+    // };
+    // lexer.expect(Token::Assign)?;
+    // first.ok_or(err)
     todo!()
   }
 }

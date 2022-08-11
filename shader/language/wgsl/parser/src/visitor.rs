@@ -130,31 +130,50 @@ impl ASTElement for Block {
   }
 }
 
+impl ASTElement for VariableStatement {
+  fn visit_children<T>(&self, visitor: &mut T) {
+    let Self {
+      declare_ty,
+      ty,
+      name,
+      init,
+    } = self;
+    declare_ty.visit_by(visitor);
+    if let Some(ty) = ty {
+      ty.visit_by(visitor);
+    }
+    name.visit_by(visitor);
+
+    if let Some(init) = init {
+      init.visit_by(visitor);
+    }
+  }
+}
+
+impl ASTElement for Assignment {
+  fn visit_children<T>(&self, visitor: &mut T) {
+    let Self { lhs, value } = self;
+    lhs.visit_by(visitor);
+    value.visit_by(visitor);
+  }
+}
+impl ASTElement for Increment {
+  fn visit_children<T>(&self, visitor: &mut T) {
+    self.0.visit_by(visitor);
+  }
+}
+impl ASTElement for Decrement {
+  fn visit_children<T>(&self, visitor: &mut T) {
+    self.0.visit_by(visitor);
+  }
+}
 impl ASTElement for Statement {
   fn visit_children<T>(&self, visitor: &mut T) {
     match self {
       Statement::Block(b) => b.visit_by(visitor),
-      Statement::Declare {
-        declare_ty,
-        ty,
-        name,
-        init,
-      } => {
-        declare_ty.visit_by(visitor);
-        if let Some(ty) = ty {
-          ty.visit_by(visitor);
-        }
-        name.visit_by(visitor);
-
-        if let Some(init) = init {
-          init.visit_by(visitor);
-        }
-      }
+      Statement::Declare(d) => d.visit_by(visitor),
       Statement::Empty => {}
-      Statement::Assignment { lhs, value } => {
-        lhs.visit_by(visitor);
-        value.visit_by(visitor);
-      }
+      Statement::Assignment(a) => a.visit_by(visitor),
       Statement::Expression(e) => e.visit_by(visitor),
       Statement::Return { value } => {
         if let Some(value) = value {
@@ -173,16 +192,41 @@ impl ASTElement for Statement {
       Statement::Continue => {}
       Statement::Discard => {}
       Statement::For(f) => f.visit_by(visitor),
+      Statement::Increment(e) => e.visit_by(visitor),
+      Statement::Decrement(e) => e.visit_by(visitor),
     }
   }
 }
 impl ASTElement for DeclarationType {}
 
+impl ASTElement for ForInit {
+  fn visit_children<T>(&self, visitor: &mut T) {
+    match self {
+      ForInit::Declare(s) => s.visit_by(visitor),
+      ForInit::Increment(s) => s.visit_by(visitor),
+      ForInit::Decrement(s) => s.visit_by(visitor),
+      ForInit::Call(s) => s.visit_by(visitor),
+      ForInit::Assignment(s) => s.visit_by(visitor),
+    }
+  }
+}
+
+impl ASTElement for ForUpdate {
+  fn visit_children<T>(&self, visitor: &mut T) {
+    match self {
+      ForUpdate::Increment(s) => s.visit_by(visitor),
+      ForUpdate::Decrement(s) => s.visit_by(visitor),
+      ForUpdate::Call(s) => s.visit_by(visitor),
+      ForUpdate::Assignment(s) => s.visit_by(visitor),
+    }
+  }
+}
+
 impl ASTElement for For {
   fn visit_children<T>(&self, visitor: &mut T) {
-    self.init.visit_by(visitor);
-    self.test.visit_by(visitor);
-    self.update.visit_by(visitor);
+    self.init.as_ref().map(|i| i.visit_by(visitor));
+    self.test.as_ref().map(|i| i.visit_by(visitor));
+    self.update.as_ref().map(|i| i.visit_by(visitor));
     self.body.visit_by(visitor);
   }
 }
