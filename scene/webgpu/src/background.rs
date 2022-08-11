@@ -39,6 +39,27 @@ impl<P: SceneContent> SceneRenderable for EnvMapBackground<P> {
     _dispatcher: &dyn RenderComponentAny,
     _camera: &SceneCamera,
   ) {
+    todo!()
+  }
+}
+
+struct EnvMapBackgroundGPU {
+  texture: GPUTextureCubeView,
+  sampler: GPUSamplerView,
+}
+
+impl ShadingBackground for EnvMapBackgroundGPU {
+  fn shading(
+    &self,
+    builder: &mut ShaderGraphRenderPipelineBuilder,
+    direction: Node<Vec3<f32>>,
+  ) -> Result<(), ShaderGraphBuildError> {
+    builder.fragment(|builder, binding| {
+      let cube = binding.uniform_by(&self.texture, SB::Material);
+      let sampler = binding.uniform_by(&self.sampler, SB::Material);
+      cube.sample(sampler, direction);
+      builder.set_fragment_out(0, cube.sample(sampler, direction))
+    })
   }
 }
 
@@ -48,6 +69,7 @@ struct ShadingBackgroundTask<T> {
 
 pub trait ShadingBackground {
   fn shading(
+    &self,
     builder: &mut ShaderGraphRenderPipelineBuilder,
     direction: Node<Vec3<f32>>,
   ) -> Result<(), ShaderGraphBuildError>;
@@ -77,7 +99,7 @@ impl<T: ShadingBackground> ShaderGraphProvider for ShadingBackgroundTask<T> {
       Ok(background_direction(builder.vertex_index, view, proj_inv))
     })?;
 
-    T::shading(builder, direction)
+    self.content.shading(builder, direction)
   }
 }
 

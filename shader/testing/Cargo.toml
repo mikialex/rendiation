@@ -5,7 +5,6 @@ name = "shadergraph-testing"
 version = "0.1.0"
 
 [dependencies]
+naga = {version = "*", features = ["wgsl-in"]}
 shadergraph = {path = "../graph"}
 wgsl-codegen-graph = {path = "../language/wgsl/codegen-graph"}
-glsl-shader-derives = {path = "../language/glsl/derive"}
-naga = {version = "*", features = ["wgsl-in"]}
