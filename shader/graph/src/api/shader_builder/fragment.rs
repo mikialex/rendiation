@@ -4,7 +4,7 @@ use crate::*;
 
 pub trait SemanticFragmentShaderValue: Any {
   type ValueType: ShaderGraphNodeType;
-  const NAME: &'static str = core::intrinsics::type_name::<Self>();
+  const NAME: &'static str = std::any::type_name::<Self>();
 }
 
 pub struct ShaderGraphFragmentBuilder {
